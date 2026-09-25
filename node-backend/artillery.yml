@@ -1,0 +1,21 @@
+config:
+  # Apunta al nombre del contenedor y el puerto configurado en docker-compose
+  target: "http://api:3000"
+  phases:
+    - duration: 10
+      arrivalRate: 5
+      name: "Fase de Calentamiento (Warm up)"
+    - duration: 30
+      arrivalRate: 10
+      rampTo: 50
+      name: "Fase de Carga (Ramp up)"
+  plugins:
+    expect: {}
+
+scenarios:
+  - name: "Flujo de Lectura Base (Healthcheck)"
+    flow:
+      - get:
+          url: "/health"
+          expect:
+            - statusCode: 200

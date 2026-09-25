@@ -1,0 +1,39 @@
+# =========================
+# Dependencias Node.js
+# =========================
+node_modules/
+.pnp
+.pnp.js
+
+# =========================
+# Compilación
+# =========================
+dist/
+build/
+
+# =========================
+# Pruebas, Cobertura y QA
+# =========================
+coverage/
+.nyc_output/
+.stryker-tmp/
+reports/
+target/
+test/target/
+*.log
+
+# =========================
+# Entornos
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# Editores y SO
+# =========================
+.vscode/
+.idea/
+.DS_Store
+*.suo
+*.sln

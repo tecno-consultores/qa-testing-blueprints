@@ -1,0 +1,39 @@
+services:
+  # 1. LA APLICACIÓN REAL: Servidor Node en segundo plano para Karate y Artillery
+  api:
+    image: sinfallas/base-node-ionic:latest
+    container_name: node_api
+    hostname: api
+    pull_policy: always
+    environment:
+      TZ: 'America/Caracas'
+      PORT: 3000
+    volumes:
+      - .:/app
+    ports:
+      - "3000:3000"
+    # Utiliza pnpm nativamente respetando la configuración de la imagen base
+    command: bash -c "pnpm install && pnpm run dev"
+
+  # 2. ENTORNO DE PRUEBAS INTERNAS: Para Vitest, Supertest, ESLint y Stryker
+  test:
+    image: sinfallas/base-node-ionic:latest
+    container_name: node_test
+    hostname: test_env
+    pull_policy: always
+    environment:
+      TZ: 'America/Caracas'
+    volumes:
+      - .:/app
+    command: bash -c "echo 'Contenedor Node E2E listo. Usa docker compose run --rm test [comando]'; sleep infinity"
+
+  # 3. ENTORNO BDD: Karate Labs automatizando pruebas de caja negra
+  karatelabs:
+    image: sinfallas/karatelabs:latest
+    container_name: node_karate
+    pull_policy: always
+    depends_on:
+      - api
+    volumes:
+      - ./test:/app/src/test/java/examples/test
+    command: bash -c "echo 'Contenedor Karate listo. Usa docker compose run --rm karatelabs mvn clean test'; sleep infinity"
