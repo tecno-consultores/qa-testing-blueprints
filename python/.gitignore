@@ -1,0 +1,73 @@
+# =========================
+# Secretos y Configuración
+# =========================
+# Ignorar archivos de variables de entorno (CRÍTICO)
+.env
+.env.*
+!.env.example
+
+# =========================
+# Entornos Virtuales
+# =========================
+venv/
+.venv/
+env/
+.env_venv/
+env.bak/
+venv.bak/
+
+# =========================
+# Archivos generados por Python y Empaquetado
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+*.whl
+*.tar.gz
+
+# =========================
+# Pruebas y Cobertura
+# =========================
+.tox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# =========================
+# Caché de herramientas (como uv, pip, pytest, ruff)
+# =========================
+.cache/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.uv/
+
+# =========================
+# Editores de código y SO
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db

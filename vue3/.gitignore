@@ -1,0 +1,45 @@
+# =========================
+# Dependencias
+# =========================
+node_modules/
+.pnp
+.pnp.js
+
+# =========================
+# Archivos de Build
+# =========================
+dist/
+dist-ssr/
+build/
+
+# =========================
+# Pruebas y Reportes (Playwright/Vitest/Karate)
+# =========================
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+coverage/
+target/
+test/target/
+*.log
+
+# =========================
+# Entornos
+# =========================
+.local
+.env
+.env.*
+!.env.example
+
+# =========================
+# Editores y SO
+# =========================
+.vscode/
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

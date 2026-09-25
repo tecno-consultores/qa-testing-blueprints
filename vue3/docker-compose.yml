@@ -1,0 +1,40 @@
+services:
+  # 1. LA APLICACIÓN REAL: Sirve el frontend ya compilado (ej. build de Vite)
+  ui-prod:
+    image: nginx:alpine
+    container_name: vue_ui_prod
+    hostname: ui-prod
+    pull_policy: always
+    environment:
+      TZ: 'America/Caracas'
+    volumes:
+      - ./dist:/usr/share/nginx/html:ro
+    ports:
+      - "8080:80"
+
+  # 2. EL ENTORNO DE PRUEBAS TÉCNICAS: Ejecuta Vitest y Playwright efímeramente
+  ui-e2e:
+    image: mcr.microsoft.com/playwright:v1.43.0-jammy
+    container_name: vue_ui_e2e
+    hostname: e2e_env
+    pull_policy: always
+    environment:
+      TZ: 'America/Caracas'
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: bash -c "echo 'Contenedor E2E listo. Usa docker compose run --rm ui-e2e [comando]'; sleep infinity"
+
+  # 3. EL ENTORNO DE NEGOCIO: Karate Labs automatizando el navegador para BDD
+  karatelabs:
+    image: sinfallas/karatelabs:latest
+    container_name: vue_ui_karate
+    pull_policy: always
+    depends_on:
+      - ui-prod
+    environment:
+      # Karate necesita saber dónde está la UI
+      - UI_BASE_URL=http://ui-prod:80
+    volumes:
+      - ./test:/app/src/test/java/examples/test
+    command: bash -c "echo 'Contenedor Karate listo. Usa docker compose run --rm karatelabs mvn clean test'; sleep infinity"

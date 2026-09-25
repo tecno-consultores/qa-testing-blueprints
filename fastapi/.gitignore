@@ -1,0 +1,38 @@
+# =========================
+# Secretos y Entornos
+# =========================
+.env
+.env.*
+!.env.example
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.Python
+build/
+dist/
+
+# =========================
+# Pruebas, Cobertura y QA
+# =========================
+.tox/
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.uv/
+
+# =========================
+# Karate Labs y Reportes
+# =========================
+target/
+test/target/
+*.log
+
+# =========================
+# Editores y SO
+# =========================
+.vscode/
+.idea/
+.DS_Store

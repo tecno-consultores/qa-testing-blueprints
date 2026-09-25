@@ -1,0 +1,13 @@
+services:
+  test:
+    image: sinfallas/base-python-uv:3.13
+    container_name: python_script_test
+    hostname: test_env
+    pull_policy: always
+    environment:
+      TZ: 'America/Caracas'
+      UV_PYTHON_DOWNLOADS: 'true'
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: bash -c "echo 'Contenedor efímero listo. Utilice docker compose run --rm test [comando]'; sleep infinity"

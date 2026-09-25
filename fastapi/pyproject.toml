@@ -1,0 +1,51 @@
+[project]
+name = "fastapi-qa-blueprint"
+version = "0.1.0"
+description = "Plantilla base para APIs en FastAPI con pruebas exhaustivas"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
+    "python-dotenv>=1.0.0",
+    "httpx>=0.27.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.5",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.3.0",
+    "mypy>=1.9.0",
+    "tox>=4.14.0",
+    "tox-uv>=1.16.0",
+    "bandit>=1.7.8",
+    "mutmut>=2.4.5",
+    "schemathesis>=3.25.0",
+    "locust>=2.24.0"
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "--strict-markers"
+markers = [
+    "integration: Pruebas internas que requieren conexión a internet o bases de datos (deseleccionar con '-m \"not integration\"')",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+
+[tool.mypy]
+strict = true
+
+[tool.mutmut]
+paths_to_mutate = "src/"
+backup = false
+runner = "python -m pytest -x"
+tests_dir = "tests/"
