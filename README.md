@@ -22,7 +22,7 @@ El repositorio está dividido en 4 ecosistemas que cubren la totalidad del desar
 
 ### ⚡ `fastapi/` (APIs Backend)
 * **Objetivo:** Contratos inquebrantables, comportamiento de negocio validado y rendimiento bajo presión.
-* **Stack:** Todo lo de Python, añadiendo ataques de integración (`httpx/TestClient`), validación de contratos (`schemathesis`), BDD de caja negra (`Karate Labs`) y concurrencia (`locust`). La API viva en segundo plano es el objetivo de los test efímeros.
+* **Stack:** Todo lo de Python, añadiendo ataques de integración (`httpx/TestClient`), validación de contratos (`schemathesis`), BDD de caja negra (`Karate Labs`) y concurrencia (`locust`).
 
 ### 🟩 `node-backend/` (APIs y Microservicios Node.js)
 * **Objetivo:** Estandarización asíncrona, seguridad contra inyecciones y validación funcional estricta usando `pnpm`.
@@ -30,11 +30,23 @@ El repositorio está dividido en 4 ecosistemas que cubren la totalidad del desar
 
 ### 🟢 `vue3/` (Frontend UI)
 * **Objetivo:** UI sin regresiones visuales, componentes reactivos, accesibilidad (a11y) y flujos de usuario reales.
-* **Stack:** Servidor Nginx de producción interceptado por pruebas unitarias rápidas con jsdom (`Vitest`), regresión visual del DOM (`Playwright` + `@axe-core`), y aceptación BDD en el navegador (`Karate Labs`).
+* **Stack:** Servidor Nginx de producción interceptado por pruebas unitarias (`Vitest`), regresión visual del DOM (`Playwright` + `@axe-core`), y aceptación BDD en el navegador (`Karate Labs`).
 
 ### 🐧 `bash-scripts/` (DevOps y Automatización)
-* **Objetivo:** Aislamiento absoluto y auditoría POSIX para scripts de infraestructura sin riesgo de destrucción del host.
-* **Stack:** Auditoría estricta (`ShellCheck`), formateo (`shfmt`), motor de pruebas unitarias (`BATS-core`), auditoría de cobertura (`kcov`), e intercepción nativa de binarios de red/hardware usando `bats-mock`. 
+* **Objetivo:** Aislamiento absoluto y auditoría POSIX para scripts de infraestructura.
+* **Stack:** Auditoría estricta (`ShellCheck`), formateo (`shfmt`), motor de pruebas unitarias (`BATS-core`), auditoría de cobertura (`kcov`), e intercepción nativa de comandos destructivos usando `bats-mock`. 
+
+---
+
+## 📚 Base de Conocimiento y Documentación
+
+Para entender los fundamentos de esta arquitectura y cómo automatizarla, consulta nuestros manuales:
+
+* **[`FAQ.md`](./FAQ.md):** Resolución rápida a errores comunes, discos llenos o problemas de cobertura.
+* **[`docs/qa-philosophy.md`](docs/qa-philosophy.md):** El "por qué" detrás de nuestras herramientas y la innegociable regla del 95%.
+* **[`docs/ai-integration.md`](docs/ai-integration.md):** Cómo exponer este repositorio vía MCP para orquestar Agentes de IA autónomos.
+* **[`docs/ci-cd-pipelines.md`](docs/ci-cd-pipelines.md):** Plantillas para integrar estas validaciones efímeras en GitHub Actions o GitLab CI.
+* **[`docs/docker-troubleshooting.md`](docs/docker-troubleshooting.md):** Soluciones avanzadas para conflictos de red y virtualización anidada (LXC).
 
 ---
 
