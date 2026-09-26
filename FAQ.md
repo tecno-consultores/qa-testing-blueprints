@@ -34,3 +34,12 @@ Los gestores como `pnpm` o `uv` y los contenedores de Docker acumulan capas invi
 **Solución:** Cada entorno (`python/`, `fastapi/`, `node-backend/`, `vue3/`, `bash-scripts/`) incluye un script maestro llamado `limpiar.sh`. Ejecútalo como administrador:
 ```bash
 sudo ./limpiar.sh
+```
+Esto purgará profunda y agresivamente dependencias huérfanas (`node_modules`, `dist`, reportes antiguos) y forzará un `docker system prune -af`, dejando tu ecosistema prístino para la siguiente ejecución.
+
+### El contenedor E2E de Vue 3 (Playwright) se queja de un conflicto de red al intentar alcanzar la interfaz.
+Asegúrate de haber levantado primero el servidor mock de producción en segundo plano. Playwright no compila tu aplicación; simplemente navega hacia ella. 
+Debes ejecutar `docker compose up -d ui-prod` para encender Nginx en la red interna de Docker antes de lanzar el comando efímero de Playwright:
+```bash
+docker compose run --rm ui-e2e npx playwright test
+```
