@@ -6,7 +6,10 @@ Este proyecto estandariza la forma en que probamos nuestro software, garantizand
 
 ## 🚀 Filosofía Principal
 
-1. **Cero Compilaciones Locales:** No utilizamos `docker build`. Toda la infraestructura se levanta consumiendo nuestra flota de imágenes oficiales en Docker Hub (`base-python-uv`, `base-node-ionic`, `base-bash-qa`, `karatelabs`).
+1. **Cero Compilaciones Locales:** No utilizamos `docker build`. Toda la infraestructura se levanta consumiendo nuestra flota de imágenes oficiales en Docker Hub. Las imágenes base admiten *tags* específicos para igualar la versión de lenguaje de tu proyecto en producción:
+   * `sinfallas/base-python-uv` (Tags: `3.10`, `3.11`, `3.12`, `3.13`, `3.14`, `latest`).
+   * `sinfallas/base-node-ionic` (Tags: `22`, `23`, `24`, `25`, `latest`).
+   * `sinfallas/base-bash-qa:latest` y `sinfallas/karatelabs:latest`.
 2. **Dependencias al Vuelo:** Los paquetes se resuelven y cachean en tiempo de ejecución (`uv pip install` o `pnpm install`) dentro del contenedor efímero para mantener la paridad absoluta con producción.
 3. **Validación Transversal (Regla del 95%):** No solo probamos si el código funciona. Validamos seguridad (SAST), tipado, mutación de lógica, contratos y rendimiento. Es política corporativa que **ninguna suite pase si la cobertura de código es menor al 95%**.
 
@@ -56,6 +59,7 @@ Si utilizas asistentes como **Hermes Agent**, **Claude Code**, **OpenCode** u ot
 
 1. Clona este repositorio o descarga la carpeta de la tecnología correspondiente a tu proyecto.
 2. Copia los archivos de configuración (`pyproject.toml`, `package.json`, `docker-compose.yml`, scripts `limpiar.sh`) a la raíz de tu propio proyecto.
-3. **Alimenta a la IA con el Prompt:** Abre un chat con tu IA y pégale el contenido completo del archivo `pruebas-[tecnologia].md` (ej. `pruebas-backend-node.md`).
-4. Pídele a la IA: *"Lee estas directrices. A partir de ahora, genera todas las pruebas para mi proyecto siguiendo estrictamente las reglas, comandos y límites de herramientas descritos en este documento"*.
-5. Ejecuta los comandos indicados en el documento para correr tus pruebas.
+3. Asegúrate de ajustar el *tag* de la imagen en tu `docker-compose.yml` para que coincida con la versión de tu proyecto (ej. `base-python-uv:3.12` o `base-node-ionic:22`).
+4. **Alimenta a la IA con el Prompt:** Abre un chat con tu IA y pégale el contenido completo del archivo `pruebas-[tecnologia].md` (ej. `pruebas-backend-node.md`).
+5. Pídele a la IA: *"Lee estas directrices. A partir de ahora, genera todas las pruebas para mi proyecto siguiendo estrictamente las reglas, comandos y límites de herramientas descritos en este documento"*.
+6. Ejecuta los comandos indicados en el documento para correr tus pruebas.
