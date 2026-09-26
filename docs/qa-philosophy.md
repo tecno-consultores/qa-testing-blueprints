@@ -12,7 +12,7 @@ Hemos integrado herramientas como `Stryker` (Node) y `mutmut` (Python) para atac
 
 ## 3. Inmutabilidad y Contaminación de Estado
 El mayor enemigo de la integración continua es el estado persistente. Los entornos locales acumulan variables de caché, versiones globales de lenguajes y paquetes huérfanos que enmascaran dependencias faltantes.
-La decisión de eliminar las instalaciones locales y forzar el uso de `docker compose run --rm` garantiza una inmutabilidad estricta. El contenedor nace sin estado, evalúa el código en un vacío absoluto y se destruye. Si el código pasa en este entorno efímero, está matemáticamente garantizado que pasará en el servidor de producción o en un despliegue dentro de un contenedor LXC.
+La decisión de eliminar las instalaciones locales y forzar el uso de `docker compose -f docker-compose.qa.yml run --rm` garantiza una inmutabilidad estricta. El contenedor nace sin estado, evalúa el código en un vacío absoluto y se destruye. Si el código pasa en este entorno efímero, está matemáticamente garantizado que pasará en el servidor de producción o en un despliegue dentro de un contenedor LXC.
 
 ## 4. Diseño Orientado a Inteligencia Artificial (AI-First)
 Este repositorio no fue diseñado solo para humanos. Los archivos `.md` de cada carpeta actúan como "prompts" de sistema restrictivos.

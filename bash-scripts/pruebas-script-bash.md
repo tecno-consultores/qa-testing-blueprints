@@ -5,6 +5,7 @@
 ## 1. Reglas Estrictas de Ejecución
 **NUNCA** ejecutes pruebas ni scripts destructivos en el host local. Toda validación debe ocurrir de forma efímera en nuestra imagen oficial: `sinfallas/base-bash-qa:latest`.
 *   Esta imagen contiene `bats`, `kcov`, `shellcheck`, `shfmt` y las librerías `bats-mock`/`bats-assert` preinstaladas en `/opt/bats-libs/`.
+*   **Obligatorio:** Todo comando Docker Compose debe incluir la bandera `-f docker-compose.qa.yml` para utilizar la infraestructura de pruebas aislada sin afectar al proyecto anfitrión.
 
 ## 2. Aislamiento y Mocking (Regla de Oro)
 Tienes estrictamente prohibido permitir que las pruebas interactúen con el hardware, la red o el gestor de paquetes reales del contenedor.
@@ -15,20 +16,20 @@ Tienes estrictamente prohibido permitir que las pruebas interactúen con el hard
 
 **Paso 1: Auditar sintaxis y seguridad (ShellCheck)**
 ```bash
-docker compose run --rm qa-bash shellcheck miscript.sh
+docker compose -f docker-compose.qa.yml run --rm qa-bash shellcheck miscript.sh
 ```
 
 **Paso 2: Formateo estricto del código (shfmt)**
 ```bash
-docker compose run --rm qa-bash shfmt -w -i 4 miscript.sh
+docker compose -f docker-compose.qa.yml run --rm qa-bash shfmt -w -i 4 miscript.sh
 ```
 
 **Paso 3: Pruebas unitarias y lógicas (BATS-core)**
 ```bash
-docker compose run --rm qa-bash bats test/
+docker compose -f docker-compose.qa.yml run --rm qa-bash bats test/
 ```
 
 **Paso 4: Auditoría de Cobertura (kcov) - Exigencia del 95%**
 ```bash
-docker compose run --rm qa-bash kcov coverage_report/ bats test/
+docker compose -f docker-compose.qa.yml run --rm qa-bash kcov coverage_report/ bats test/
 ```

@@ -17,7 +17,7 @@ Este proyecto estandariza la forma en que probamos nuestro software, garantizand
 
 ## 📁 Estructura del Repositorio y Casos de Uso
 
-El repositorio está dividido en 4 ecosistemas que cubren la totalidad del desarrollo moderno y bash. Cada carpeta contiene un archivo `.md` (el prompt restrictivo para la IA), un `docker-compose.yml` preconfigurado y los archivos de configuración nativos listos para usarse.
+El repositorio está dividido en 4 ecosistemas que cubren la totalidad del desarrollo moderno y bash. Cada carpeta contiene un archivo `.md` (el prompt restrictivo para la IA), un `docker-compose.qa.yml` preconfigurado y los archivos de configuración nativos `.example` listos para usarse como referencia de fusión.
 
 ### 🐍 `python/` (Scripts Standalone y Librerías)
 * **Objetivo:** Máxima resiliencia estructural e invulnerabilidad lógica.
@@ -58,8 +58,8 @@ Para entender los fundamentos de esta arquitectura y cómo automatizarla, consul
 Si utilizas asistentes como **Hermes Agent**, **Claude Code**, **OpenCode** u otras IAs en tu terminal o editor:
 
 1. Clona este repositorio o descarga la carpeta de la tecnología correspondiente a tu proyecto.
-2. Copia los archivos de configuración (`pyproject.toml`, `package.json`, `docker-compose.yml`, scripts `limpiar.sh`) a la raíz de tu propio proyecto.
-3. Asegúrate de ajustar el *tag* de la imagen en tu `docker-compose.yml` para que coincida con la versión de tu proyecto (ej. `base-python-uv:3.12` o `base-node-ionic:22`).
+2. **Integra sin sobreescribir (Proyectos Existentes):** Renombra el orquestador del blueprint a `docker-compose.qa.yml` y muévelo a la raíz de tu proyecto. Abre los archivos `.example` (como `pyproject.toml.example` o `package.json.example`) y copia ÚNICAMENTE las dependencias de desarrollo y bloques de configuración de QA hacia tus propios archivos preexistentes. Copia el contenido de `gitignore.example` al final de tu `.gitignore` actual y transfiere los scripts auxiliares como `limpieza.sh`.
+3. Asegúrate de ajustar el *tag* de la imagen en tu `docker-compose.qa.yml` para que coincida con la versión de tu proyecto (ej. `base-python-uv:3.12` o `base-node-ionic:22`).
 4. **Alimenta a la IA con el Prompt:** Abre un chat con tu IA y pégale el contenido completo del archivo `pruebas-[tecnologia].md` (ej. `pruebas-backend-node.md`).
 5. Pídele a la IA: *"Lee estas directrices. A partir de ahora, genera todas las pruebas para mi proyecto siguiendo estrictamente las reglas, comandos y límites de herramientas descritos en este documento"*.
-6. Ejecuta los comandos indicados en el documento para correr tus pruebas.
+6. Ejecuta los comandos indicados en el documento para correr tus pruebas, recordando siempre incluir el orquestador de QA (ej. `docker compose -f docker-compose.qa.yml run --rm [servicio]`).

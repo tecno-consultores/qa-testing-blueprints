@@ -10,9 +10,9 @@ Este documento centraliza los fallos más comunes al operar con los *blueprints*
 Al intentar ejecutar una prueba, recibes errores como `no space left on device` o `could not find an available, non-overlapping IPv4 address pool`.
 
 **¿Por qué sucede?**
-Aunque usamos `docker compose run --rm` (que elimina el contenedor al finalizar), Docker sigue almacenando en caché de forma agresiva:
+Aunque usamos `docker compose -f docker-compose.qa.yml run --rm` (que elimina el contenedor al finalizar), Docker sigue almacenando en caché de forma agresiva:
 1.  **Imágenes colgantes (Dangling images):** Versiones previas de `base-python-uv` o `base-bash-qa` que fueron actualizadas pero quedaron huérfanas en tu disco.
-2.  **Redes Bridge:** Cada vez que levantas un entorno con `docker compose up`, se crea una red virtual. Si el proceso se interrumpe abruptamente (ej. un corte eléctrico o un `Ctrl+C` agresivo), la red no se destruye, agotando el pool de direcciones IP (típicamente limitado a 31 redes simultáneas).
+2.  **Redes Bridge:** Cada vez que levantas un entorno con `docker compose -f docker-compose.qa.yml up`, se crea una red virtual. Si el proceso se interrumpe abruptamente (ej. un corte eléctrico o un `Ctrl+C` agresivo), la red no se destruye, agotando el pool de direcciones IP (típicamente limitado a 31 redes simultáneas).
 
 **La Solución:**
 Ejecutar una purga profunda. Todos nuestros ecosistemas incluyen el archivo `limpiar.sh`.
@@ -76,7 +76,7 @@ docker ps | grep 8000
 docker kill fastapi_backend
 
 # 3. Baja toda la red del compose para asegurar un inicio limpio
-docker compose down
+docker compose -f docker-compose.qa.yml down
 ```
 
 ---

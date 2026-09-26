@@ -5,14 +5,14 @@ Este documento resuelve las dudas arquitectónicas y los errores más comunes al
 ## 🏗️ Filosofía y Ejecución
 
 ### ¿Por qué no puedo ejecutar `npm install`, `pip install` o las pruebas directamente en mi máquina local?
-Para garantizar **inmutabilidad y paridad absoluta con producción**. El problema de "en mi máquina sí funciona" suele deberse a versiones globales ocultas de Node, Python o variables de entorno residuales en tu sistema operativo. Al forzar el uso de contenedores efímeros (`docker compose run --rm`), el entorno de pruebas nace completamente virgen, instala dependencias estrictamente definidas, ejecuta la suite y se autodestruye.
+Para garantizar **inmutabilidad y paridad absoluta con producción**. El problema de "en mi máquina sí funciona" suele deberse a versiones globales ocultas de Node, Python o variables de entorno residuales en tu sistema operativo. Al forzar el uso de contenedores efímeros (`docker compose -f docker-compose.qa.yml run --rm`), el entorno de pruebas nace completamente virgen, instala dependencias estrictamente definidas, ejecuta la suite y se autodestruye.
 > 📖 *Lee más en [`docs/qa-philosophy.md`](docs/qa-philosophy.md).*
 
 ### Todo mi código funciona y hace lo que debe, ¿por qué el pipeline arroja un error de fallo?
 Es altamente probable que tu código no haya superado la **regla estricta del 95% de cobertura**. No basta con que el "camino feliz" funcione. Nuestras configuraciones (`pytest-cov` para Python, `Vitest` para Node/Vue3, y `kcov` para Bash) están programadas para fallar el pipeline si dejas bloques `catch`, condiciones `if/else` o funciones auxiliares sin probar. 
 
 ### ¿Qué significa "contenedor efímero" y cómo guardo los reportes si el contenedor se borra?
-Un contenedor efímero se crea dinámicamente con el flag `--rm`. Nace, ejecuta un comando único y muere. Los reportes no se pierden porque el `docker-compose.yml` utiliza **volúmenes bind** (`- .:/app`), lo que significa que el contenedor guarda los resultados directamente en tu disco duro físico antes de destruirse.
+Un contenedor efímero se crea dinámicamente con el flag `--rm` (ej. `docker compose -f docker-compose.qa.yml run --rm test`). Nace, ejecuta un comando único y muere. Los reportes no se pierden porque el `docker-compose.qa.yml` utiliza **volúmenes bind** (`- .:/app`), lo que significa que el contenedor guarda los resultados directamente en tu disco duro físico antes de destruirse.
 
 ## 🛡️ Herramientas y Casos Específicos
 
@@ -36,9 +36,9 @@ sudo ./limpiar.sh
 Esto fuerza un `docker system prune -af` y borra dependencias huérfanas.
 
 ### El contenedor E2E de Vue 3 (Playwright) se queja de un conflicto de red al intentar alcanzar la interfaz.
-Asegúrate de haber levantado primero el servidor mock de producción en segundo plano ejecutando `docker compose up -d ui-prod` antes de lanzar el comando efímero de Playwright:
+Asegúrate de haber levantado primero el servidor mock de producción en segundo plano ejecutando `docker compose -f docker-compose.qa.yml up -d ui-prod` antes de lanzar el comando efímero de Playwright:
 ```bash
-docker compose run --rm ui-e2e npx playwright test
+docker compose -f docker-compose.qa.yml run --rm ui-e2e npx playwright test
 ```
 
 > 🛠️ **¿Tienes errores extraños de red, Exit Code 137, o estás usando Proxmox/LXC?** 

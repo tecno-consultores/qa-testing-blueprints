@@ -3,10 +3,11 @@
 Este documento contiene las instrucciones ("prompt") que debes seguir como asistente de IA o desarrollador para generar, estructurar y ejecutar pruebas automatizadas en APIs construidas con FastAPI.
 
 ## 1. Reglas Estrictas de Ejecución (Docker)
-**NUNCA** debes instruir la construcción de imágenes locales. Todo se ejecuta de forma efímera usando nuestras imágenes oficiales:
-*   Para la API, pruebas lógicas, contratos y estrés: `sinfallas/base-python-uv:3.13`
+**NUNCA** debes instruir la construcción de imágenes locales. Todo se ejecuta de forma efímera usando nuestras imágenes oficiales en el orquestador de QA:
+*   Para la API, pruebas lógicas, contratos y estrés: `sinfallas/base-python-uv:<tag>`
 *   Para pruebas BDD de caja negra: `sinfallas/karatelabs:latest`
 
+**Obligatorio:** Todo comando Docker Compose debe incluir la bandera `-f docker-compose.qa.yml` para aislar la infraestructura de pruebas.
 La instalación de dependencias en Python se hace al vuelo con:
 `uv pip install --system -e '.[dev]'`
 
@@ -39,37 +40,37 @@ Para que las herramientas de caja negra funcionen (Karate, Schemathesis, Locust)
 
 **Paso 1: Levantar la API en segundo plano**
 ```bash
-docker compose up -d api
+docker compose -f docker-compose.qa.yml up -d api
 ```
 
 **Paso 2: Ejecutar las suites de validación**
 
 *   **Auditoría y Pruebas Unitarias Internas (NO requieren la API viva):**
 ```bash
-docker compose run --rm test bash -c "uv pip install --system -e '.[dev]' && uv pip audit && bandit -r src/ && pytest -v"
+docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && uv pip audit && bandit -r src/ && pytest -v"
 ```
 
 *   **Pruebas de Mutación (Evaluar solidez de los tests internos):**
 ```bash
-docker compose run --rm test bash -c "uv pip install --system -e '.[dev]' && mutmut run"
+docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && mutmut run"
 ```
 
 *   **Validación Completa Pre-Commit (Pipeline Tox con Matriz de Python):**
 ```bash
-docker compose run --rm -e UV_PYTHON_DOWNLOADS=true test bash -c "uv pip install --system -e '.[dev]' && tox"
+docker compose -f docker-compose.qa.yml run --rm -e UV_PYTHON_DOWNLOADS=true test bash -c "uv pip install --system -e '.[dev]' && tox"
 ```
 
 *   **Fuzzing y Contratos (Atacando la API viva):**
 ```bash
-docker compose run --rm test bash -c "uv pip install --system -e '.[dev]' && schemathesis run http://api:8000/openapi.json"
+docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && schemathesis run http://api:8000/openapi.json"
 ```
 
 *   **Comportamiento BDD con Karate (Atacando la API viva):**
 ```bash
-docker compose run --rm karatelabs mvn clean test
+docker compose -f docker-compose.qa.yml run --rm karatelabs mvn clean test
 ```
 
 *   **Pruebas de Carga con Locust (Atacando la API viva):**
 ```bash
-docker compose run --rm test bash -c "uv pip install --system -e '.[dev]' && locust -f locustfile.py --headless -u 100 -r 10 -t 1m --host http://api:8000"
+docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && locust -f locustfile.py --headless -u 100 -r 10 -t 1m --host http://api:8000"
 ```

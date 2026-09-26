@@ -8,6 +8,7 @@
 *   Para pruebas BDD de caja negra: `sinfallas/karatelabs:latest`
 
 **Gestor de Paquetes:** Nuestra imagen base reemplaza `npm` por `pnpm`. Todos los comandos de instalación deben usar exclusivamente `pnpm install`.
+**Obligatorio:** Todo comando Docker Compose debe incluir la bandera `-f docker-compose.qa.yml` para utilizar la infraestructura de pruebas aislada sin afectar al proyecto anfitrión.
 
 ## 2. Pila Tecnológica y Separación de Responsabilidades
 
@@ -31,37 +32,37 @@
 **Paso 1: Levantar la API en segundo plano**
 Para que Karate Labs y Artillery funcionen, la API debe estar viva en el puerto 3000 de la red interna de Docker:
 ```bash
-docker compose up -d api
+docker compose -f docker-compose.qa.yml up -d api
 ```
 
 **Paso 2: Ejecutar las suites de validación**
 
 *   **Auditoría de Dependencias (CVEs):**
 ```bash
-docker compose run --rm test bash -c "pnpm install && pnpm run audit:deps"
+docker compose -f docker-compose.qa.yml run --rm test bash -c "pnpm install && pnpm run audit:deps"
 ```
 
 *   **Seguridad Estática (SAST / Linting):**
 ```bash
-docker compose run --rm test bash -c "pnpm install && pnpm run lint"
+docker compose -f docker-compose.qa.yml run --rm test bash -c "pnpm install && pnpm run lint"
 ```
 
 *   **Pruebas Lógicas Internas e Integración (Vitest + Supertest):**
 ```bash
-docker compose run --rm test bash -c "pnpm install && pnpm run test:coverage"
+docker compose -f docker-compose.qa.yml run --rm test bash -c "pnpm install && pnpm run test:coverage"
 ```
 
 *   **Pruebas de Mutación (Evaluar solidez de Vitest):**
 ```bash
-docker compose run --rm test bash -c "pnpm install && pnpm run mutate"
+docker compose -f docker-compose.qa.yml run --rm test bash -c "pnpm install && pnpm run mutate"
 ```
 
 *   **Comportamiento BDD con Karate (Atacando la API viva):**
 ```bash
-docker compose run --rm karatelabs mvn clean test
+docker compose -f docker-compose.qa.yml run --rm karatelabs mvn clean test
 ```
 
 *   **Pruebas de Carga y Estrés (Atacando la API viva):**
 ```bash
-docker compose run --rm test bash -c "pnpm install && pnpm run test:load"
+docker compose -f docker-compose.qa.yml run --rm test bash -c "pnpm install && pnpm run test:load"
 ```

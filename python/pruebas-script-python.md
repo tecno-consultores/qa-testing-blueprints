@@ -5,6 +5,7 @@ Este documento contiene las instrucciones ("prompt") que debes seguir como asist
 ## 1. Reglas Estrictas de Ejecución (Docker)
 **NUNCA** debes instruir la construcción de imágenes locales mediante `docker build` o `build:` en el `docker-compose.yml`. Todo el entorno de pruebas debe ejecutarse de forma efímera utilizando la imagen oficial: `sinfallas/base-python-uv:3.13`.
 
+**Obligatorio:** Todo comando Docker Compose debe incluir la bandera `-f docker-compose.qa.yml` para utilizar la infraestructura de pruebas aislada sin afectar al proyecto anfitrión.
 La instalación de dependencias se realiza exclusivamente en tiempo de ejecución usando el gestor `uv`, a través del siguiente comando:
 `uv pip install --system -e '.[dev]'`
 
@@ -27,34 +28,34 @@ Cuando redactes código de pruebas (`tests/`), debes separarlo estrictamente en 
 
 ### A. Pruebas Unitarias (Mockeadas / Aisladas)
 *   **Propósito:** Validar la lógica pura de la librería sin depender de red o credenciales.
-*   **Regla:** Utiliza `@patch` para interceptar la librería `requests`. Simula respuestas JSON exitosas, así como fallos catastróficos.
+*   **Regla:** Utiliza `@patch` para interceptar la red (ej. `requests`). Simula respuestas JSON exitosas, así como fallos catastróficos.
 *   **Restricción:** Estas pruebas NO deben requerir un archivo `.env` válido ni realizar conexiones reales al exterior.
 
 ### B. Pruebas de Integración (Reales)
-*   **Propósito:** Validar que los contratos y la comunicación con servicios externos sigan funcionando.
+*   **Propósito:** Validar contratos externos y la comunicación con servicios reales.
 *   **Regla:** Usa `python-dotenv` para cargar variables de entorno. Utiliza el decorador `@pytest.mark.integration`.
 *   **Restricción:** Estas pruebas SÍ utilizan la red y requieren credenciales.
 
 ## 4. Comandos de Ejecución Local
 
-Utiliza estos comandos asumiendo que existe el `docker-compose.yml` estándar:
+Utiliza estos comandos asumiendo que existe el orquestador aislado `docker-compose.qa.yml`:
 
 *   **Auditoría Rápida (Seguridad + Pruebas Unitarias sin Red):**
-    ```bash
-    docker compose run --rm test bash -c "uv pip install --system -e '.[dev]' && uv pip audit && bandit -r src/ && pytest -m 'not integration' -v"
-    ```
+```bash
+docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && uv pip audit && bandit -r src/ && pytest -m 'not integration' -v"
+```
 
 *   **Prueba Exclusiva de Integración (Conexión Real):**
-    ```bash
-    docker compose run --rm test bash -c "uv pip install --system -e '.[dev]' && pytest -m integration -v"
-    ```
+```bash
+docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && pytest -m integration -v"
+```
 
 *   **Pruebas de Mutación (Evaluar solidez de los tests):**
-    ```bash
-    docker compose run --rm test bash -c "uv pip install --system -e '.[dev]' && mutmut run"
-    ```
+```bash
+docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && mutmut run"
+```
 
 *   **Validación Completa Pre-Commit (Pipeline Tox con Matriz):**
-    ```bash
-    docker compose run --rm -e UV_PYTHON_DOWNLOADS=true test bash -c "uv pip install --system -e '.[dev]' && tox"
-    ```
+```bash
+docker compose -f docker-compose.qa.yml run --rm -e UV_PYTHON_DOWNLOADS=true test bash -c "uv pip install --system -e '.[dev]' && tox"
+```
