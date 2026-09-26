@@ -14,7 +14,7 @@ Este proyecto estandariza la forma en que probamos nuestro software, garantizand
 
 ## 📁 Estructura del Repositorio y Casos de Uso
 
-El repositorio está dividido en 4 ecosistemas que cubren la totalidad del desarrollo moderno. Cada carpeta contiene un archivo `.md` (el prompt restrictivo para la IA), un `docker-compose.yml` preconfigurado y los archivos de configuración nativos listos para usarse.
+El repositorio está dividido en 4 ecosistemas que cubren la totalidad del desarrollo moderno y bash. Cada carpeta contiene un archivo `.md` (el prompt restrictivo para la IA), un `docker-compose.yml` preconfigurado y los archivos de configuración nativos listos para usarse.
 
 ### 🐍 `python/` (Scripts Standalone y Librerías)
 * **Objetivo:** Máxima resiliencia estructural e invulnerabilidad lógica.
