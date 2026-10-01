@@ -1,5 +1,5 @@
 services:
-  # 1. LA APLICACIÓN REAL: Servidor Node en segundo plano para Karate y Artillery
+  # 1. LA APLICACIÓN REAL: Servidor Node en segundo plano para Karate, Artillery y Clinic
   api:
     image: sinfallas/base-node-ionic:latest
     container_name: node_api
@@ -12,10 +12,14 @@ services:
       - .:/app
     ports:
       - "3000:3000"
-    # Utiliza pnpm nativamente respetando la configuración de la imagen base
+    # Privilegios críticos para que el Kernel permita leer la memoria (Clinic.js / perf)
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
     command: bash -c "pnpm install && pnpm run dev"
 
-  # 2. ENTORNO DE PRUEBAS INTERNAS: Para Vitest, Supertest, ESLint y Stryker
+  # 2. ENTORNO DE PRUEBAS INTERNAS: Para Vitest, Supertest, ESLint, Stryker y Clinic
   test:
     image: sinfallas/base-node-ionic:latest
     container_name: node_test
@@ -25,6 +29,10 @@ services:
       TZ: 'America/Caracas'
     volumes:
       - .:/app
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
     command: bash -c "echo 'Contenedor Node E2E listo. Usa docker compose run --rm test [comando]'; sleep infinity"
 
   # 3. ENTORNO BDD: Karate Labs automatizando pruebas de caja negra
