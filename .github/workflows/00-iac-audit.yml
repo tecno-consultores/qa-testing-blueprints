@@ -1,0 +1,39 @@
+name: "Paso 0: Auditoría de Infraestructura (Trivy IaC)"
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  trivy-iac-scan:
+    name: 🛡️ Escaneo Estático de Contenedores y IaC
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout del código
+        uses: actions/checkout@v4
+
+      - name: 🔍 Escaneo de Misconfiguraciones (Docker Compose / Scripts)
+        uses: aquasecurity/trivy-action@master
+        with:
+          # 'config' le dice a Trivy que no ejecute el código, solo que lea los archivos IaC
+          scan-type: 'config'
+          scan-ref: '.'
+          hide-progress: false
+          format: 'table'
+          # El pipeline fallará (Exit Code 1) solo si detecta vulnerabilidades Altas o Críticas
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+
+      - name: 📦 Escaneo de Vulnerabilidades en Imágenes Base (CVEs)
+        # Escanea los archivos compose para ver si las imágenes base (ej. mcr.microsoft.com/playwright) tienen 0-days
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '1'
+          severity: 'CRITICAL'
