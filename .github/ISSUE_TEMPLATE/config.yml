@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 🛡️ Reportar Vulnerabilidad de Seguridad
+    url: mailto:security@tecno-consultores.com
+    about: Por favor, no abras un issue público. Envía un correo directo a nuestro equipo.
