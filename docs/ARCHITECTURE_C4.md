@@ -15,12 +15,12 @@ graph TD
     Host["🖥️ Máquina Host (Proxmox / LXC / Local)"]
     Reports["📁 Reportes (Coverage, Flamegraphs, HTML)"]
 
-    %% Relaciones
-    Dev -->|1. Lanza comandos efímeros (run --rm)| QA
-    QA -->|2. Usa motor Docker y solicita permisos PTRACE| Host
-    Host -->|3. Monta volúmenes bind (.:/app)| QA
-    QA -->|4. Escribe artefactos al morir| Reports
-    Reports -->|5. Analiza fallos para corregir| Dev
+    %% Relaciones (sintaxis robusta con comillas dobles)
+    Dev -- "1. Lanza comandos efímeros (run --rm)" --> QA
+    QA -- "2. Usa motor Docker y solicita permisos PTRACE" --> Host
+    Host -- "3. Monta volúmenes bind (.:/app)" --> QA
+    QA -- "4. Escribe artefactos al morir" --> Reports
+    Reports -- "5. Analiza fallos para corregir" --> Dev
 
     classDef default fill:#111,stroke:#333,stroke-width:2px,color:#fff;
     classDef highlight fill:#0052cc,stroke:#003d99,stroke-width:2px,color:#fff;
@@ -71,14 +71,14 @@ graph TD
         Performance["6️⃣ Profiling de Rendimiento \n (py-spy / clinic.js / Lighthouse)"]
     end
 
-    %% Enlaces lógicos
-    SAST -->|Pasa| Static
-    Static -->|Código Limpio| Unit
+    %% Enlaces lógicos (sintaxis robusta con comillas dobles)
+    SAST -- "Pasa" --> Static
+    Static -- "Código Limpio" --> Unit
     Unit --> Coverage
-    Coverage -->|Sí| Mutation
-    Coverage -->|No (Exit Code 1)| FallaPipeline(("💥 Falla el PR"))
-    Mutation -->|Mutantes Sobreviven| FallaPipeline
-    Mutation -->|Pruebas Sólidas| Performance
+    Coverage -- "Sí" --> Mutation
+    Coverage -- "No (Exit Code 1)" --> FallaPipeline(("💥 Falla el PR"))
+    Mutation -- "Mutantes Sobreviven" --> FallaPipeline
+    Mutation -- "Pruebas Sólidas" --> Performance
     Performance --> Exito(("✅ Aprobado"))
 
     classDef pass fill:#2e8b57,stroke:#fff,color:#fff;
