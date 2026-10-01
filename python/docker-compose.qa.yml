@@ -10,4 +10,9 @@ services:
     volumes:
       - .:/app
     working_dir: /app
+    # Privilegios críticos para que el Kernel permita leer la memoria (py-spy)
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
     command: bash -c "echo 'Contenedor efímero listo. Utilice docker compose run --rm test [comando]'; sleep infinity"
