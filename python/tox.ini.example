@@ -3,17 +3,24 @@ env_list = py310, py311, py312, py313
 isolated_build = True
 
 [testenv]
-description = Instala dependencias con uv y ejecuta la auditoría estática y pruebas lógicas
+description = Instala dependencias con uv y ejecuta la auditoría estática, complejidad y pruebas lógicas
 deps = 
     .[dev]
 commands =
-    # 1. Calidad de código
+    # 1. Calidad de código y Formateo
     ruff check src/ tests/
     ruff format --check src/ tests/
+    
     # 2. Análisis estricto de tipos
     mypy --strict src/
-    # 3. Auditoría de seguridad de dependencias y código
+    
+    # 3. Análisis de Complejidad Ciclomática y Mantenibilidad (Falla si el código es Espagueti)
+    radon cc --min C src/
+    radon mi --min B src/
+    
+    # 4. Auditoría de seguridad de dependencias y código
     uv pip audit
     bandit -c pyproject.toml -r src/
-    # 4. Suite unitaria e integración (Cobertura 95%)
+    
+    # 5. Suite unitaria, Mocks, BDD y Benchmarking (Cobertura 95%)
     pytest --cov=src/ --cov-fail-under=95 --cov-report=term-missing
