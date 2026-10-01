@@ -37,21 +37,21 @@ El repositorio está dividido en 4 ecosistemas que cubren la totalidad del desar
 
 ### 🐧 `bash-scripts/` (DevOps y Automatización)
 * **Objetivo:** Aislamiento absoluto y auditoría POSIX para scripts de infraestructura.
-* **Stack:** Auditoría estricta (`ShellCheck`), formateo (`shfmt`), motor de pruebas unitarias (`BATS-core`), auditoría de cobertura (`kcov`), e intercepción nativa de comandos destructivos usando `bats-mock`. 
+* **Stack:** Auditoría estricta (`ShellCheck`), formateo (`shfmt`), motor de pruebas unitarias (`BATS-core`), auditoría de cobertura (`kcov`), e intercepción nativa de comandos destructivos usando `bats-mock`.
 
 ---
 
 ## 🛠️ Matriz de Herramientas de Pruebas
 
-A continuación se resume el stack de validación organizado en una matriz. Los espacios en blanco indican qué tipos de pruebas o herramientas aún faltan por definir en ese ecosistema específico.
+A continuación se resume el stack de validación corporativo. Las herramientas marcadas con un asterisco (`*`) son estándares de la industria recomendados para cubrir esa capa de calidad, pero que aún **faltan por implementar** formalmente en la documentación del repositorio. Se indica `N/A` en las pruebas que no aplican por la naturaleza del entorno.
 
-| Entorno | Linting / Formateo | Tipado | Pruebas (Unit. / Integr.) | Cobertura | Seguridad (SAST) | Mutación | Compatibilidad | BDD / Caja Negra | Concurrencia / Estrés | Otros / Específicos |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Python** | `ruff` | `mypy` | `pytest` | `pytest-cov` | `bandit` | `mutmut` | `tox` | | | |
-| **FastAPI** | `ruff` | `mypy` | `pytest` + `httpx/TestClient` | `pytest-cov` | `bandit` | `mutmut` | `tox` | `Karate Labs` | `locust` | Contratos: `schemathesis` |
-| **Node** | `ESLint` + `Prettier` | | `Vitest` + `Supertest` | `Vitest (v8 / istanbul)` | `ESLint Security` + `pnpm audit` | `Stryker` | | `Karate Labs` | `Artillery` | |
-| **Vue3** | `ESLint (Plugin Vue)` + `Prettier` | | `Vitest` | `Vitest (v8 / istanbul)` | | | | `Karate Labs` | | UI/a11y: `Playwright` + `@axe-core` |
-| **Bash** | `ShellCheck` + `shfmt` | | `BATS-core` | `kcov` | | | | | | Mocks: `bats-mock` |
+| Entorno | Linting / Formateo | Tipado | Pruebas Unitarias / Integración | Cobertura | Auditoría de Dependencias (CVEs) | Seguridad (SAST) | Mutación | Compatibilidad | BDD / Caja Negra | Concurrencia / Estrés | Intercepción / Mocking | Regresión Visual | Análisis de Complejidad | Profiling (CPU/RAM) | Otros / Específicos |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Python** | `ruff` | `mypy` | `pytest` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | `tox` | `pytest-bdd`* | `pytest-benchmark`* | `unittest.mock` (`@patch`) | `N/A` | `radon`* | `py-spy`* | Integración HTTP: `requests` + `python-dotenv` |
+| **FastAPI** | `ruff` | `mypy` | `pytest` + `httpx/TestClient` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | `tox` | `Karate Labs` | `locust` | `unittest.mock` / Simulación de DB | `N/A` | `radon`* | `py-spy`* | Contratos: `schemathesis`, Env: `python-dotenv` |
+| **Node** | `ESLint` + `Prettier`* | `TypeScript (tsc)`* | `Vitest` + `Supertest` | `Vitest (v8 / istanbul)`* | `pnpm audit` (via script) | `ESLint Security` | `Stryker` | `Matrix CI`* | `Karate Labs` | `Artillery` | `msw`* / `nock`* | `N/A` | `eslint-plugin-sonarjs`* | `clinic.js`* | |
+| **Vue3** | `ESLint (Plugin Vue)` + `Prettier`* | `npm run type-check` | `Vitest` | `Vitest (v8 / istanbul)`* | `npm audit`* | `ESLint Security`* | `Stryker`* | `Browserslist`* | `Karate Labs` | `Lighthouse CI`* | `Vitest` (Mocks de Red) | `Playwright` + `@axe-core` | `eslint-plugin-sonarjs`* | `Vue DevTools`* | Compilación: `npm run build` |
+| **Bash** | `ShellCheck` + `shfmt` | | `BATS-core` | `kcov` | | | | | | | `bats-mock` / `bats-assert` | | | | Entorno: `/opt/bats-libs/` |
 
 ---
 
