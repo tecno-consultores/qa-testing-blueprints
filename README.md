@@ -4,14 +4,18 @@ Bienvenido a **QA Testing Blueprints**, el repositorio central de estándares, a
 
 Este proyecto estandariza la forma en que probamos nuestro software, garantizando que **toda ejecución ocurra estrictamente dentro de contenedores Docker efímeros**, sin contaminar la máquina local y utilizando un conjunto predefinido de herramientas de alta calidad.
 
-## 🚀 Filosofía Principal
+## 🚀 Filosofía Principal (Estándar 10X)
 
 1. **Cero Compilaciones Locales:** No utilizamos `docker build`. Toda la infraestructura se levanta consumiendo nuestra flota de imágenes oficiales en Docker Hub. Las imágenes base admiten *tags* específicos para igualar la versión de lenguaje de tu proyecto en producción:
    * `sinfallas/base-python-uv` (Tags: `3.10`, `3.11`, `3.12`, `3.13`, `3.14`, `latest`).
    * `sinfallas/base-node-ionic` (Tags: `22`, `23`, `24`, `25`, `latest`).
    * `sinfallas/base-bash-qa:latest` y `sinfallas/karatelabs:latest`.
-2. **Dependencias al Vuelo:** Los paquetes se resuelven y cachean en tiempo de ejecución (`uv pip install` o `pnpm install`) dentro del contenedor efímero para mantener la paridad absoluta con producción.
-3. **Validación Transversal (Regla del 95%):** No solo probamos si el código funciona. Validamos seguridad (SAST), tipado, mutación de lógica, contratos y rendimiento. Es política corporativa que **ninguna suite pase si la cobertura de código es menor al 95%**.
+2. **Dependencias al Vuelo y Aislamiento de Red:** Los paquetes se resuelven y cachean en tiempo de ejecución dentro del contenedor efímero. Las pruebas unitarias tienen estrictamente prohibido usar red real; deben usar librerías de Mocking (`nock`, `pytest-mock`).
+3. **Validación Transversal (Métricas Innegociables):** No solo probamos si el código funciona. Validamos:
+   * **Cobertura:** Ninguna suite pasa con menos del **95%**.
+   * **Deuda Técnica:** El pipeline falla si hay código espagueti (Complejidad Ciclomática alta auditable por SonarJS o Radon).
+   * **Rendimiento:** Exigimos Profiling de Memoria/CPU y un score perfecto en Core Web Vitals (Lighthouse).
+   * **Seguridad y Mutación:** Prevención de inyecciones (SAST) y pruebas anti-falsos-positivos (Stryker/mutmut).
 
 ---
 
@@ -20,20 +24,20 @@ Este proyecto estandariza la forma en que probamos nuestro software, garantizand
 El repositorio está dividido en 4 ecosistemas que cubren la totalidad del desarrollo moderno y bash. Cada carpeta contiene un archivo `.md` (el prompt restrictivo para la IA), un `docker-compose.qa.yml` preconfigurado y los archivos de configuración nativos `.example` listos para usarse como referencia de fusión.
 
 ### 🐍 `python/` (Scripts Standalone y Librerías)
-* **Objetivo:** Máxima resiliencia estructural e invulnerabilidad lógica.
-* **Stack:** Linting estricto (`ruff`), tipado (`mypy`), pruebas (`pytest`), seguridad SAST (`bandit`), pruebas de mutación (`mutmut`) y matriz de compatibilidad (`tox`).
+* **Objetivo:** Máxima resiliencia estructural, invulnerabilidad lógica y rendimiento matemático óptimo.
+* **Stack:** Linting (`ruff`), Tipado (`mypy`), Pruebas (`pytest` + `pytest-mock`), BDD (`pytest-bdd`), Benchmarking (`pytest-benchmark`), Seguridad (`bandit`), Complejidad (`radon`), Profiling (`py-spy`), Mutación (`mutmut`) y Compatibilidad (`tox`).
 
 ### ⚡ `fastapi/` (APIs Backend)
-* **Objetivo:** Contratos inquebrantables, comportamiento de negocio validado y rendimiento bajo presión.
+* **Objetivo:** Contratos inquebrantables, comportamiento de negocio validado y rendimiento bajo extrema presión.
 * **Stack:** Todo lo de Python, añadiendo ataques de integración (`httpx/TestClient`), validación de contratos (`schemathesis`), BDD de caja negra (`Karate Labs`) y concurrencia (`locust`).
 
 ### 🟩 `node-backend/` (APIs y Microservicios Node.js)
-* **Objetivo:** Estandarización asíncrona, seguridad contra inyecciones y validación funcional estricta usando `pnpm`.
-* **Stack:** Pruebas e integración (`Vitest` + `Supertest`), seguridad estática y vulnerabilidades (`ESLint Security` + `pnpm audit`), pruebas de mutación (`Stryker`), estrés/carga (`Artillery`) y caja negra (`Karate Labs`).
+* **Objetivo:** Estandarización asíncrona, seguridad contra inyecciones, código limpio y validación funcional estricta.
+* **Stack:** Pruebas e Intercepción (`Vitest` + `Supertest` + `nock`), Calidad y Complejidad (`ESLint` + `Prettier` + `SonarJS`), Seguridad (`ESLint Security` + `pnpm audit`), Mutación (`Stryker`), Profiling de Event Loop (`clinic.js`), Estrés (`Artillery`) y BDD (`Karate Labs`).
 
 ### 🟢 `vue3/` (Frontend UI)
-* **Objetivo:** UI sin regresiones visuales, componentes reactivos, accesibilidad (a11y) y flujos de usuario reales.
-* **Stack:** Servidor Nginx de producción interceptado por pruebas unitarias (`Vitest`), regresión visual del DOM (`Playwright` + `@axe-core`), y aceptación BDD en el navegador (`Karate Labs`).
+* **Objetivo:** UI sin regresiones visuales, componentes reactivos, accesibilidad (WCAG 2.1) y máximo rendimiento (SEO/PWA).
+* **Stack:** Pruebas Unitarias DOM (`Vitest` + `jsdom`), Calidad y Complejidad (`ESLint` + `Prettier` + `SonarJS`), Rendimiento de Build (`Lighthouse CI`), Regresión Visual y Accesibilidad (`Playwright` + `@axe-core`), Compatibilidad (`Browserslist`), Mutación Frontend (`Stryker`) y Aceptación BDD (`Karate Labs`).
 
 ### 🐧 `bash-scripts/` (DevOps y Automatización)
 * **Objetivo:** Aislamiento absoluto y auditoría POSIX para scripts de infraestructura.
@@ -43,15 +47,15 @@ El repositorio está dividido en 4 ecosistemas que cubren la totalidad del desar
 
 ## 🛠️ Matriz de Herramientas de Pruebas
 
-A continuación se resume el stack de validación corporativo. Las herramientas marcadas con un asterisco (`*`) son estándares de la industria recomendados para cubrir esa capa de calidad, pero que aún **faltan por implementar** formalmente en la documentación del repositorio. Se indica `N/A` en las pruebas que no aplican por la naturaleza del entorno.
+A continuación se resume el stack de validación corporativo. Se han retirado los asteriscos de las herramientas ya implementadas y documentadas en este repositorio. Se indica `N/A` en las pruebas que no aplican por la naturaleza del entorno. *(El asterisco `*` queda reservado únicamente para herramientas futuras aún no documentadas).*
 
-| Entorno | Linting / Formateo | Tipado | Pruebas Unitarias / Integración | Cobertura | Auditoría de Dependencias (CVEs) | Seguridad (SAST) | Mutación | Compatibilidad | BDD / Caja Negra | Concurrencia / Estrés | Intercepción / Mocking | Regresión Visual | Análisis de Complejidad | Profiling (CPU/RAM) | Otros / Específicos |
+| Entorno | Linting / Formateo | Tipado | Pruebas Unitarias / Integración | Cobertura | Auditoría de Dependencias | Seguridad (SAST) | Mutación | Compatibilidad | BDD / Caja Negra | Concurrencia / Estrés | Intercepción / Mocking | Regresión Visual | Análisis de Complejidad | Profiling (CPU/RAM) | Otros / Específicos |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Python** | `ruff` | `mypy` | `pytest` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | `tox` | `pytest-bdd`* | `pytest-benchmark`* | `unittest.mock` (`@patch`) | `N/A` | `radon`* | `py-spy`* | Integración HTTP: `requests` + `python-dotenv` |
-| **FastAPI** | `ruff` | `mypy` | `pytest` + `httpx/TestClient` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | `tox` | `Karate Labs` | `locust` | `unittest.mock` / Simulación de DB | `N/A` | `radon`* | `py-spy`* | Contratos: `schemathesis`, Env: `python-dotenv` |
-| **Node** | `ESLint` + `Prettier`* | `TypeScript (tsc)`* | `Vitest` + `Supertest` | `Vitest (v8 / istanbul)`* | `pnpm audit` (via script) | `ESLint Security` | `Stryker` | `Matrix CI`* | `Karate Labs` | `Artillery` | `msw`* / `nock`* | `N/A` | `eslint-plugin-sonarjs`* | `clinic.js`* | |
-| **Vue3** | `ESLint (Plugin Vue)` + `Prettier`* | `npm run type-check` | `Vitest` | `Vitest (v8 / istanbul)`* | `npm audit`* | `ESLint Security`* | `Stryker`* | `Browserslist`* | `Karate Labs` | `Lighthouse CI`* | `Vitest` (Mocks de Red) | `Playwright` + `@axe-core` | `eslint-plugin-sonarjs`* | `Vue DevTools`* | Compilación: `npm run build` |
-| **Bash** | `ShellCheck` + `shfmt` | | `BATS-core` | `kcov` | | | | | | | `bats-mock` / `bats-assert` | | | | Entorno: `/opt/bats-libs/` |
+| **Python** | `ruff` | `mypy` | `pytest` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | `tox` | `pytest-bdd` | `pytest-benchmark` | `pytest-mock` | `N/A` | `radon` | `py-spy` | Integración: `requests` + `dotenv` |
+| **FastAPI** | `ruff` | `mypy` | `pytest` + `httpx/TestClient` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | `tox` | `Karate Labs` | `locust` | `pytest-mock` / Mock DB | `N/A` | `radon` | `py-spy` | Contratos: `schemathesis` |
+| **Node** | `ESLint` + `Prettier` | `TypeScript (tsc)` | `Vitest` + `Supertest` | `Vitest (v8)` | `pnpm audit` | `ESLint Security` | `Stryker` | `Matrix CI`* | `Karate Labs` | `Artillery` | `nock` | `N/A` | `eslint-plugin-sonarjs` | `clinic.js` | |
+| **Vue3** | `ESLint (Vue)` + `Prettier` | `vue-tsc` | `Vitest` | `Vitest (v8)` | `npm audit` | `ESLint Security` | `Stryker` | `Browserslist` | `Karate Labs` | `Lighthouse CI` | `Vitest` (Mocks de Red) | `Playwright` + `@axe-core` | `eslint-plugin-sonarjs` | `Vue DevTools`* | Compilación: `npm run build` |
+| **Bash** | `ShellCheck` + `shfmt` | `N/A` | `BATS-core` | `kcov` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `bats-mock` / `bats-assert` | `N/A` | `N/A` | `N/A` | Entorno: `/opt/bats-libs/` |
 
 ---
 
