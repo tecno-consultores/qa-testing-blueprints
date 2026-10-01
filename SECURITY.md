@@ -60,7 +60,7 @@ Consideramos como incidentes críticos de seguridad en este repositorio:
 Por favor, **NO** abras un "Issue" público ni un "Pull Request" para reportar una vulnerabilidad de seguridad, ya que esto expone la falla antes de que podamos mitigarla.
 
 Envía un correo electrónico directamente a nuestro equipo de seguridad:
-📧 **security@tecnoconsultores.net**
+📧 **admin@tecnoconsultores.net**
 
 **Formato recomendado para el reporte:**
 *   **Tipo de vulnerabilidad:** (Ej. Evasión de validación SAST, Escalada de privilegios).
