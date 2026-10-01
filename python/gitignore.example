@@ -1,7 +1,6 @@
 # =========================
 # Secretos y Configuración
 # =========================
-# Ignorar archivos de variables de entorno (CRÍTICO)
 .env
 .env.*
 !.env.example
@@ -13,8 +12,6 @@ venv/
 .venv/
 env/
 .env_venv/
-env.bak/
-venv.bak/
 
 # =========================
 # Archivos generados por Python y Empaquetado
@@ -25,33 +22,23 @@ __pycache__/
 *.so
 .Python
 build/
-develop-eggs/
 dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
 *.whl
 *.tar.gz
 
 # =========================
-# Pruebas y Cobertura
+# Pruebas, Cobertura, Profiling y QA
 # =========================
 .tox/
 .coverage
 .coverage.*
 coverage.xml
 htmlcov/
+.benchmarks/
+profile.svg
 
 # =========================
 # Caché de herramientas (como uv, pip, pytest, ruff)
@@ -68,6 +55,4 @@ htmlcov/
 .vscode/
 .idea/
 *.swp
-*.swo
 .DS_Store
-Thumbs.db
