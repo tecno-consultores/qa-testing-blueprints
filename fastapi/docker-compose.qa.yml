@@ -1,5 +1,5 @@
 services:
-  # 1. LA APLICACIÓN REAL (Debe estar corriendo en segundo plano para Karate, Locust y Schemathesis)
+  # 1. LA APLICACIÓN REAL (Debe estar corriendo en segundo plano para Karate, Locust, Schemathesis y py-spy)
   api:
     image: sinfallas/base-python-uv:3.13
     container_name: fastapi_api
@@ -12,9 +12,14 @@ services:
     working_dir: /app
     ports:
       - "8000:8000"
+    # cap_add es crítico para que py-spy pueda leer la memoria del proceso PID 1 dentro del contenedor
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
     command: bash -c "uv pip install --system -e '.[dev]' && uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload"
 
-  # 2. Entorno Python para pytest, tox, schemathesis y locust
+  # 2. Entorno Python para pytest, tox, schemathesis, locust y radon
   test:
     image: sinfallas/base-python-uv:3.13
     container_name: fastapi_test
@@ -26,6 +31,8 @@ services:
     volumes:
       - .:/app
     working_dir: /app
+    cap_add:
+      - SYS_PTRACE
     command: bash -c "echo 'Contenedor Python listo. Usa docker compose run --rm test [comando]'; sleep infinity"
 
   # 3. Entorno BDD (Java/Maven) para pruebas de caja negra
