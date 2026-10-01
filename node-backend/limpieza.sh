@@ -1,29 +1,34 @@
-
 #!/usr/bin/env bash
 # Licencia: MIT
 LC_ALL=C
 
 if [[ "$EUID" != "0" ]]; then
-        echo "ERROR: debe ser root."
+        echo "ERROR: debe ser root. Ejecuta con sudo ./limpieza.sh"
         exit 1
 fi
 
 clear
-# Elimina dependencias y directorios de compilación
-rm -rf node_modules
-rm -rf dist
+echo "Iniciando purga profunda del entorno de QA de Node.js..."
 
-# Elimina reportes y cachés de pruebas
-rm -rf coverage
-rm -rf .stryker-tmp
-rm -rf reports
+# Limpieza de dependencias y código compilado
+rm -rf node_modules/
+rm -rf dist/
+rm -rf .stryker-tmp/
+
+# Limpieza de reportes de cobertura, Karate Labs y Profiling de Clinic.js
+rm -rf coverage/
 rm -rf target/
 rm -rf test/target/
-rm -rf .eslintcache
-rm -rf .vitest/
+rm -rf .clinic/
+rm -f *.html
+rm -f *.clinic-*.html
+rm -f *.log
 
-# Purga profunda de contenedores, redes y volúmenes huérfanos
-docker system prune -af
+# Reclamar permisos de los archivos generados por Docker (evita problemas de propietario 'root')
+chown -R $USER:$USER . 2>/dev/null || true
 
-echo "Limpieza de caché y contenedores de Node finalizada."
+# Limpieza profunda de contenedores efímeros, redes huérfanas y cachés de construcción
+docker system prune -af --volumes
+
+echo "Limpieza de dependencias, reportes, imágenes y contenedores finalizada."
 exit 0
