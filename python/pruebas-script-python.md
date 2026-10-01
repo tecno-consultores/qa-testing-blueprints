@@ -1,11 +1,11 @@
 # Guía de Pruebas y Validación para Scripts Python (Standalone/Librerías)
 
-Este documento contiene las instrucciones ("prompt") que debes seguir como asistente de IA o desarrollador para generar, estructurar y ejecutar pruebas automatizadas para proyectos Python bajo nuestro estándar corporativo.
+Este documento contiene las instrucciones ("prompt") que debes seguir como asistente de IA o desarrollador para generar, estructurar y ejecutar pruebas automatizadas para proyectos Python bajo nuestro estándar corporativo (Nivel 10X).
 
 ## 1. Reglas Estrictas de Ejecución (Docker)
 **NUNCA** debes instruir la construcción de imágenes locales mediante `docker build` o `build:` en el `docker-compose.yml`. Todo el entorno de pruebas debe ejecutarse de forma efímera utilizando la imagen oficial: `sinfallas/base-python-uv:3.13`.
 
-**Obligatorio:** Todo comando Docker Compose debe incluir la bandera `-f docker-compose.qa.yml` para utilizar la infraestructura de pruebas aislada sin afectar al proyecto anfitrión.
+**Obligatorio:** Todo comando Docker Compose debe incluir la bandera `-f docker-compose.qa.yml` para utilizar la infraestructura de pruebas aislada sin afectar al proyecto anfitrión. El contenedor tiene privilegios extendidos (`SYS_PTRACE`) para permitir la intercepción de memoria del *profiler*.
 La instalación de dependencias se realiza exclusivamente en tiempo de ejecución usando el gestor `uv`, a través del siguiente comando:
 `uv pip install --system -e '.[dev]'`
 
@@ -15,34 +15,46 @@ Al generar código, configurar el entorno o plantear soluciones, debes asegurar 
 *   **Linting y Formateo:** `ruff` (validación de calidad de código visual y lógica temprana).
 *   **Tipado Estricto:** `mypy` (prevención de excepciones en tiempo de ejecución).
 *   **Seguridad y Auditoría:** `uv pip audit` (CVEs de dependencias) y `bandit` (vulnerabilidades SAST en el código base).
-*   **Pruebas Lógicas Base:** `pytest` como motor principal.
-*   **Aislamiento y Mocks:** `unittest.mock` (librería estándar).
-*   **Integración HTTP:** `requests` (para peticiones reales) y `python-dotenv` (para inyectar credenciales).
+*   **Análisis de Complejidad (Deuda Técnica):** `radon` (Mantenibilidad y complejidad ciclomática).
+*   **Profiling (Memoria y CPU):** `py-spy` (Detección de cuellos de botella mediante *Flamegraphs*).
+*   **Pruebas Lógicas Base e Intercepción:** `pytest` como motor principal, potenciado obligatoriamente por `pytest-mock` y `unittest.mock` para aislar la red y dependencias externas.
+*   **Comportamiento BDD:** `pytest-bdd` (Para validar flujos de negocio mediante sintaxis Gherkin).
+*   **Rendimiento y Estrés Interno:** `pytest-benchmark` (Para medir regresiones de rendimiento en funciones críticas).
 *   **Cobertura (Coverage):** `pytest-cov` (se exige un mínimo del 95%).
 *   **Pruebas de Mutación:** `mutmut` (para validar si las pruebas fallan cuando el código lógico cambia).
 *   **Matriz de Compatibilidad:** `tox` potenciado por `tox-uv`.
 
 ## 3. Arquitectura de las Pruebas a Generar
 
-Cuando redactes código de pruebas (`tests/`), debes separarlo estrictamente en dos enfoques:
+Cuando redactes código de pruebas (`tests/`), debes separarlo estrictamente en cuatro enfoques:
 
 ### A. Pruebas Unitarias (Mockeadas / Aisladas)
 *   **Propósito:** Validar la lógica pura de la librería sin depender de red o credenciales.
-*   **Regla:** Utiliza `@patch` para interceptar la red (ej. `requests`). Simula respuestas JSON exitosas, así como fallos catastróficos.
-*   **Restricción:** Estas pruebas NO deben requerir un archivo `.env` válido ni realizar conexiones reales al exterior.
+*   **Regla:** Utiliza `pytest-mock` (el fixture `mocker`) o `@patch` para interceptar la red (ej. `requests`). Simula respuestas JSON exitosas y fallos catastróficos. NINGUNA prueba de este tipo puede tener latencia real.
 
 ### B. Pruebas de Integración (Reales)
 *   **Propósito:** Validar contratos externos y la comunicación con servicios reales.
-*   **Regla:** Usa `python-dotenv` para cargar variables de entorno. Utiliza el decorador `@pytest.mark.integration`.
-*   **Restricción:** Estas pruebas SÍ utilizan la red y requieren credenciales.
+*   **Regla:** Usa `python-dotenv` para cargar variables de entorno. Utiliza el decorador `@pytest.mark.integration`. Estas pruebas SÍ requieren credenciales.
+
+### C. Comportamiento y Benchmarking (`pytest-bdd` & `pytest-benchmark`)
+*   **BDD:** Utiliza archivos `.feature` para describir el uso de la librería desde la perspectiva del usuario final y enlázalos usando `pytest-bdd`.
+*   **Benchmarking:** Marca las funciones matemáticas pesadas o de procesamiento de datos con el fixture `benchmark` para asegurar que refactorizaciones futuras no degraden la velocidad.
+
+### D. Complejidad Ciclomática (`radon`)
+*   **Regla:** Ningún método generado puede superar el grado `B` de complejidad ciclomática ni caer del grado `A` en índice de mantenibilidad (MI). Si el código es muy complejo, divídelo.
 
 ## 4. Comandos de Ejecución Local
 
 Utiliza estos comandos asumiendo que existe el orquestador aislado `docker-compose.qa.yml`:
 
-*   **Auditoría Rápida (Seguridad + Pruebas Unitarias sin Red):**
+*   **Auditoría Estática, Complejidad y Seguridad:**
 ```bash
-docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && uv pip audit && bandit -r src/ && pytest -m 'not integration' -v"
+docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && uv pip audit && bandit -r src/ && radon cc --min C src/ && radon mi --min B src/"
+```
+
+*   **Suite Unitaria (Aislada), BDD y Rendimiento (Cobertura > 95%):**
+```bash
+docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && pytest -m 'not integration' --cov=src/ --cov-fail-under=95 -v"
 ```
 
 *   **Prueba Exclusiva de Integración (Conexión Real):**
@@ -53,6 +65,11 @@ docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --
 *   **Pruebas de Mutación (Evaluar solidez de los tests):**
 ```bash
 docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && mutmut run"
+```
+
+*   **Profiling (Generar Flamegraph de CPU para el script):**
+```bash
+docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && py-spy record -o profile.svg -- python src/main.py"
 ```
 
 *   **Validación Completa Pre-Commit (Pipeline Tox con Matriz):**
