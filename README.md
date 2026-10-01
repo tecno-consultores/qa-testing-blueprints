@@ -41,6 +41,20 @@ El repositorio está dividido en 4 ecosistemas que cubren la totalidad del desar
 
 ---
 
+## 🛠️ Matriz de Herramientas de Pruebas
+
+A continuación se resume el stack de validación organizado en una matriz. Los espacios en blanco indican qué tipos de pruebas o herramientas aún faltan por definir en ese ecosistema específico.
+
+| Entorno | Linting / Formateo | Tipado | Pruebas (Unit. / Integr.) | Cobertura | Seguridad (SAST) | Mutación | Compatibilidad | BDD / Caja Negra | Concurrencia / Estrés | Otros / Específicos |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Python** | `ruff` | `mypy` | `pytest` | `pytest-cov` | `bandit` | `mutmut` | `tox` | | | |
+| **FastAPI** | `ruff` | `mypy` | `pytest` + `httpx/TestClient` | `pytest-cov` | `bandit` | `mutmut` | `tox` | `Karate Labs` | `locust` | Contratos: `schemathesis` |
+| **Node** | `ESLint` + `Prettier` | | `Vitest` + `Supertest` | `Vitest (v8 / istanbul)` | `ESLint Security` + `pnpm audit` | `Stryker` | | `Karate Labs` | `Artillery` | |
+| **Vue3** | `ESLint (Plugin Vue)` + `Prettier` | | `Vitest` | `Vitest (v8 / istanbul)` | | | | `Karate Labs` | | UI/a11y: `Playwright` + `@axe-core` |
+| **Bash** | `ShellCheck` + `shfmt` | | `BATS-core` | `kcov` | | | | | | Mocks: `bats-mock` |
+
+---
+
 ## 📚 Base de Conocimiento y Documentación
 
 Para entender los fundamentos de esta arquitectura y cómo automatizarla, consulta nuestros manuales:
