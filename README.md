@@ -47,15 +47,15 @@ El repositorio está dividido en 4 ecosistemas que cubren la totalidad del desar
 
 ## 🛠️ Matriz de Herramientas de Pruebas
 
-A continuación se resume el stack de validación corporativo. Se han retirado los asteriscos de las herramientas ya implementadas y documentadas en este repositorio. Se indica `N/A` en las pruebas que no aplican por la naturaleza del entorno. *(El asterisco `*` queda reservado únicamente para herramientas futuras aún no documentadas).*
+A continuación se resume el stack de validación corporativo. Se han retirado los asteriscos de las herramientas ya implementadas y documentadas en este repositorio. Se indica `N/A` en las pruebas que no aplican por la naturaleza del entorno. *(El asterisco `*` denota tecnologías avanzadas planificadas para el estándar "11X").*
 
-| Entorno | Linting / Formateo | Tipado | Pruebas Unitarias / Integración | Cobertura | Auditoría de Dependencias | Seguridad (SAST) | Mutación | Compatibilidad | BDD / Caja Negra | Concurrencia / Estrés | Intercepción / Mocking | Regresión Visual | Análisis de Complejidad | Profiling (CPU/RAM) | Otros / Específicos |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Python** | `ruff` | `mypy` | `pytest` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | `tox` | `pytest-bdd` | `pytest-benchmark` | `pytest-mock` | `N/A` | `radon` | `py-spy` | Integración: `requests` + `dotenv` |
-| **FastAPI** | `ruff` | `mypy` | `pytest` + `httpx/TestClient` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | `tox` | `Karate Labs` | `locust` | `pytest-mock` / Mock DB | `N/A` | `radon` | `py-spy` | Contratos: `schemathesis` |
-| **Node** | `ESLint` + `Prettier` | `TypeScript (tsc)` | `Vitest` + `Supertest` | `Vitest (v8)` | `pnpm audit` | `ESLint Security` | `Stryker` | `Matrix CI`* | `Karate Labs` | `Artillery` | `nock` | `N/A` | `eslint-plugin-sonarjs` | `clinic.js` | |
-| **Vue3** | `ESLint (Vue)` + `Prettier` | `vue-tsc` | `Vitest` | `Vitest (v8)` | `npm audit` | `ESLint Security` | `Stryker` | `Browserslist` | `Karate Labs` | `Lighthouse CI` | `Vitest` (Mocks de Red) | `Playwright` + `@axe-core` | `eslint-plugin-sonarjs` | `Vue DevTools`* | Compilación: `npm run build` |
-| **Bash** | `ShellCheck` + `shfmt` | `N/A` | `BATS-core` | `kcov` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `bats-mock` / `bats-assert` | `N/A` | `N/A` | `N/A` | Entorno: `/opt/bats-libs/` |
+| Entorno | Linting / Formateo | Pruebas Unitarias / Mocking | Cobertura | Auditoría de Dependencias | Seguridad Estática (SAST) | Mutación | BDD / Caja Negra | Concurrencia / Estrés | Profiling / Complejidad | DAST (Dinámica) | Ingeniería del Caos | Auditoría IaC / Docker | Git Hooks Locales |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Python** | `ruff` + `mypy` | `pytest` + `pytest-mock` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | `pytest-bdd` | `pytest-benchmark` | `py-spy` + `radon` | `N/A` | `N/A` | `Trivy`* | `pre-commit`* |
+| **FastAPI** | `ruff` + `mypy` | `pytest` + `TestClient` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | `Karate Labs` | `locust` | `py-spy` + `radon` | `OWASP ZAP`* | `Pumba`* | `Trivy`* | `pre-commit`* |
+| **Node** | `ESLint` + `Prettier` | `Vitest` + `nock` | `Vitest (v8)` | `pnpm audit` | `ESLint Security` | `Stryker` | `Karate Labs` | `Artillery` | `clinic.js` + `SonarJS` | `OWASP ZAP`* | `Pumba`* | `Trivy`* | `Lefthook`* |
+| **Vue3** | `ESLint` + `Prettier` | `Vitest` + `jsdom` | `Vitest (v8)` | `npm audit` | `ESLint Security` | `Stryker` | `Karate Labs` | `Lighthouse CI` | `DevTools` + `SonarJS` | `N/A` | `N/A` | `Trivy`* | `Lefthook`* |
+| **Bash** | `ShellCheck`+`shfmt`| `BATS-core`+`bats-mock`| `kcov` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `Checkov`* | `Lefthook`* |
 
 ---
 
