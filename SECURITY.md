@@ -42,6 +42,10 @@ Este repositorio está diseñado para orquestar agentes autónomos (Claude Code,
 * **Sandboxing:** La IA nunca debe recibir credenciales de producción. El agente operará exclusivamente dentro de la red interna de contenedores efímeros.
 * **Aislamiento de Red (Mocking):** Para evitar filtraciones de datos o ataques involuntarios de Denegación de Servicio (DoS) orquestados por un agente de IA, las pruebas unitarias y de integración temprana deben utilizar librerías de intercepción (`nock`, `pytest-mock`, `bats-mock`).
 
+### 5. Auditoría de Infraestructura y Prevención de Fugas
+* **Escaneo IaC Obligatorio:** Todo cambio propuesto a los manifiestos de Docker o scripts en bash es auditado estáticamente por **Trivy** para detectar escalamiento de privilegios o contenedores inseguros.
+* **Barrera Pre-Commit (Lefthook):** Tienes estrictamente prohibido saltarte los hooks de Git. El hook de seguridad (`leaks-check`) interceptará de forma local cualquier intento de hacer commit de un archivo que contenga contraseñas en texto plano, tokens o API Keys, bloqueando la operación.
+
 ---
 
 ## 🐛 Alcance de las Vulnerabilidades a Reportar
