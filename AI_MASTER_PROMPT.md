@@ -12,6 +12,7 @@ Independientemente del lenguaje de programación que estés evaluando o escribie
 2. **Filosofía "Fail & Forbid":** Si el código que auditas o generas no alcanza un **95% de cobertura**, tiene complejidad ciclomática grado C (Código Espagueti), o falla validaciones SAST/DAST, DEBES rechazarlo, reportar el fallo al usuario y proponer la refactorización inmediata.
 3. **Aislamiento de Red:** NINGUNA prueba unitaria puede salir a internet o conectarse a una base de datos real. DEBES generar mocks (`nock`, `pytest-mock`, `bats-mock`) obligatoriamente.
 4. **Infraestructura Inmutable:** No modifiques los archivos `docker-compose.qa.yml` a menos que se te solicite explícitamente agregar una nueva herramienta de nivel corporativo. Si lo haces, asume que `Trivy` auditará tu cambio; no montes `/` ni asignes privilegios `root` sin justificación extrema.
+5. **Bitácora de Ejecución (Documentation Trail):** Cada vez que generes, refactorices o configures una suite de pruebas, DEBES crear o actualizar un archivo llamado `TESTING.md` en la raíz del proyecto. En este archivo debes documentar (en español y con bloques de código exactos) los comandos de Docker Compose que el desarrollador humano debe utilizar para ejecutar manualmente las pruebas que acabas de crear. Tu trabajo no termina hasta que el humano sepa cómo correr lo que programaste.
 
 ## 2. Protocolo de Integración Inicial (Fusión de Archivos `.example`)
 
