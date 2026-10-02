@@ -8,6 +8,8 @@ services:
       TZ: 'America/Caracas'
     volumes:
       - ./dist:/usr/share/nginx/html:ro
+      # Montar logs de Nginx para que el exportador pueda leerlos
+      - nginx-logs:/var/log/nginx
     ports:
       - "8080:80"
 
@@ -36,6 +38,41 @@ services:
       - ./test:/app/src/test/java/examples/test
     command: bash -c "echo 'Contenedor Karate listo. Usa docker compose run --rm karatelabs mvn clean test'; sleep infinity"
 
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:latest
+    container_name: vue_nginx_exporter
+    profiles:
+      - observability
+    command:
+      - "-nginx.scrape-uri=http://ui-prod:80/stub_status"
+    ports:
+      - "9113:9113"
+    depends_on:
+      - ui-prod
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: vue_prometheus
+    profiles:
+      - observability
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        echo "
+        global:
+          scrape_interval: 2s
+        scrape_configs:
+          - job_name: 'vue_nginx'
+            static_configs:
+              - targets: ['nginx-exporter:9113']
+        " > /tmp/prometheus.yml
+        /bin/prometheus --config.file=/tmp/prometheus.yml
+    ports:
+      - "9090:9090"
+    depends_on:
+      - nginx-exporter
+
   graphify:
     image: sinfallas/remote-graphify:latest
     container_name: vue_graphify
@@ -51,13 +88,6 @@ services:
     environment:
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
       - GRAPHIFY_OLLAMA_KEEP_ALIVE=10
-      # Modelos Cloud (Descomentar e inyectar vía .env si se requiere)
-      # - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      # - ANTHROPIC_MODEL=claude-3-5-sonnet-latest
-      # - GEMINI_API_KEY=${GEMINI_API_KEY}
-      # - OPENAI_API_KEY=${OPENAI_API_KEY}
-      # - OPENAI_BASE_URL=${OPENAI_BASE_URL}
-      # - OPENAI_MODEL=gpt-4o-mini
     volumes:
       - .:/app
     logging:
@@ -69,3 +99,6 @@ services:
 networks:
   default:
     driver: bridge
+
+volumes:
+  nginx-logs:
