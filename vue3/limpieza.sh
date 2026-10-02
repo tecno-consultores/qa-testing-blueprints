@@ -24,11 +24,14 @@ rm -rf .stryker-tmp/
 rm -rf lhci-reports/
 rm -rf .lhcache/
 rm -rf graphify-out/
+rm -rf prometheus_data/
 rm -f *.html
 rm -f *.log
 
 chown -R $USER:$USER . 2>/dev/null || true
 
+# Apagar infraestructuras de perfiles ocultos antes de purgar
+docker compose -f docker-compose.qa.yml --profile observability down -v 2>/dev/null || true
 docker compose -f docker-compose.qa.yml --profile graphify down -v 2>/dev/null || true
 docker system prune -af --volumes
 
