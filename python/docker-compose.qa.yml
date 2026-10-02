@@ -16,6 +16,29 @@ services:
       - seccomp:unconfined
     command: bash -c "echo 'Contenedor efímero listo. Utilice docker compose run --rm test [comando]'; sleep infinity"
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: python_prometheus
+    profiles:
+      - observability
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        echo "
+        global:
+          scrape_interval: 2s
+        scrape_configs:
+          - job_name: 'python_scripts'
+            static_configs:
+              - targets: ['test_env:8000']
+        " > /tmp/prometheus.yml
+        /bin/prometheus --config.file=/tmp/prometheus.yml
+    ports:
+      - "9090:9090"
+    depends_on:
+      - test
+
   graphify:
     image: sinfallas/remote-graphify:latest
     container_name: python_graphify
@@ -31,13 +54,6 @@ services:
     environment:
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
       - GRAPHIFY_OLLAMA_KEEP_ALIVE=10
-      # Modelos Cloud (Descomentar e inyectar vía .env si se requiere)
-      # - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      # - ANTHROPIC_MODEL=claude-3-5-sonnet-latest
-      # - GEMINI_API_KEY=${GEMINI_API_KEY}
-      # - OPENAI_API_KEY=${OPENAI_API_KEY}
-      # - OPENAI_BASE_URL=${OPENAI_BASE_URL}
-      # - OPENAI_MODEL=gpt-4o-mini
     volumes:
       - .:/app
     logging:
