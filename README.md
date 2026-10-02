@@ -4,7 +4,7 @@ Bienvenido a **QA Testing Blueprints**, el repositorio central de estándares, a
 
 Este proyecto estandariza la forma en que probamos nuestro software, garantizando que **toda ejecución ocurra estrictamente dentro de contenedores Docker efímeros**, sin contaminar la máquina local y utilizando un conjunto predefinido de herramientas de alta calidad.
 
-## 🚀 Filosofía Principal (Estándar 10X)
+## 🚀 Filosofía Principal (Estándar 11X)
 
 1. **Cero Compilaciones Locales:** No utilizamos `docker build`. Toda la infraestructura se levanta consumiendo nuestra flota de imágenes oficiales en Docker Hub. Las imágenes base admiten *tags* específicos para igualar la versión de lenguaje de tu proyecto en producción:
    * `sinfallas/base-python-uv` (Tags: `3.10`, `3.11`, `3.12`, `3.13`, `3.14`, `latest`).
@@ -15,7 +15,7 @@ Este proyecto estandariza la forma en que probamos nuestro software, garantizand
    * **Cobertura:** Ninguna suite pasa con menos del **95%**.
    * **Deuda Técnica:** El pipeline falla si hay código espagueti (Complejidad Ciclomática alta auditable por SonarJS o Radon).
    * **Rendimiento:** Exigimos Profiling de Memoria/CPU y un score perfecto en Core Web Vitals (Lighthouse).
-   * **Seguridad y Mutación:** Prevención de inyecciones (SAST) y pruebas anti-falsos-positivos (Stryker/mutmut).
+   * **Seguridad, Mutación y Resiliencia:** Prevención de inyecciones (SAST), escaneo dinámico (DAST), pruebas anti-falsos-positivos (Stryker/mutmut) e Ingeniería del Caos (Auto-Recovery ante fallos de red).
 
 ---
 
@@ -28,12 +28,12 @@ El repositorio está dividido en 4 ecosistemas que cubren la totalidad del desar
 * **Stack:** Linting (`ruff`), Tipado (`mypy`), Pruebas (`pytest` + `pytest-mock`), BDD (`pytest-bdd`), Benchmarking (`pytest-benchmark`), Seguridad (`bandit`), Complejidad (`radon`), Profiling (`py-spy`), Mutación (`mutmut`) y Compatibilidad (`tox`).
 
 ### ⚡ `fastapi/` (APIs Backend)
-* **Objetivo:** Contratos inquebrantables, comportamiento de negocio validado y rendimiento bajo extrema presión.
-* **Stack:** Todo lo de Python, añadiendo ataques de integración (`httpx/TestClient`), validación de contratos (`schemathesis`), BDD de caja negra (`Karate Labs`) y concurrencia (`locust`).
+* **Objetivo:** Contratos inquebrantables, comportamiento de negocio validado y resiliencia bajo estrés extremo.
+* **Stack:** Todo lo de Python, añadiendo ataques de integración (`httpx/TestClient`), validación de contratos (`schemathesis`), BDD de caja negra (`Karate Labs`), concurrencia (`locust`), Seguridad Dinámica DAST (`OWASP ZAP`) e Ingeniería del Caos (`Pumba`).
 
 ### 🟩 `node-backend/` (APIs y Microservicios Node.js)
 * **Objetivo:** Estandarización asíncrona, seguridad contra inyecciones, código limpio y validación funcional estricta.
-* **Stack:** Pruebas e Intercepción (`Vitest` + `Supertest` + `nock`), Calidad y Complejidad (`ESLint` + `Prettier` + `SonarJS`), Seguridad (`ESLint Security` + `pnpm audit`), Mutación (`Stryker`), Profiling de Event Loop (`clinic.js`), Estrés (`Artillery`) y BDD (`Karate Labs`).
+* **Stack:** Pruebas e Intercepción (`Vitest` + `Supertest` + `nock`), Calidad y Complejidad (`ESLint` + `Prettier` + `SonarJS`), Seguridad (`ESLint Security` + `pnpm audit`), Mutación (`Stryker`), Profiling de Event Loop (`clinic.js`), Estrés (`Artillery`), BDD (`Karate Labs`), Seguridad Dinámica DAST (`OWASP ZAP`) e Ingeniería del Caos (`Pumba`).
 
 ### 🟢 `vue3/` (Frontend UI)
 * **Objetivo:** UI sin regresiones visuales, componentes reactivos, accesibilidad (WCAG 2.1) y máximo rendimiento (SEO/PWA).
@@ -45,15 +45,15 @@ El repositorio está dividido en 4 ecosistemas que cubren la totalidad del desar
 
 ---
 
-## 🛠️ Matriz de Herramientas de Pruebas
+## 🛠️️ Matriz de Herramientas de Pruebas
 
-A continuación se resume el stack de validación corporativo. Se han retirado los asteriscos de las herramientas ya implementadas y documentadas en este repositorio. Se indica `N/A` en las pruebas que no aplican por la naturaleza del entorno. *(El asterisco `*` denota tecnologías avanzadas planificadas para el estándar "11X").*
+A continuación se resume el stack de validación corporativo. Se indica `N/A` en las pruebas que no aplican por la naturaleza intrínseca del entorno (ej. un script *standalone* de Python no levanta servidores HTTP, por ende no se le aplica DAST ni Caos). 
 
 | Entorno | Linting / Formateo | Pruebas Unitarias / Mocking | Cobertura | Auditoría de Dependencias | Seguridad Estática (SAST) | Mutación | BDD / Caja Negra | Concurrencia / Estrés | Profiling / Complejidad | DAST (Dinámica) | Ingeniería del Caos | Auditoría IaC / Docker | Git Hooks Locales |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Python** | `ruff` + `mypy` | `pytest` + `pytest-mock` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | `pytest-bdd` | `pytest-benchmark` | `py-spy` + `radon` | N/A | N/A | `Trivy` | `Lefthook` |
-| **FastAPI** | `ruff` + `mypy` | `pytest` + `TestClient` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | `Karate Labs` | `locust` | `py-spy` + `radon` | `OWASP ZAP` | `Pumba`* | `Trivy` | `Lefthook` |
-| **Node** | `ESLint` + `Prettier` | `Vitest` + `nock` | `Vitest (v8)` | `pnpm audit` | `ESLint Security` | `Stryker` | `Karate Labs` | `Artillery` | `clinic.js` + `SonarJS` | `OWASP ZAP` | `Pumba`* | `Trivy` | `Lefthook` |
+| **FastAPI** | `ruff` + `mypy` | `pytest` + `TestClient` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | `Karate Labs` | `locust` | `py-spy` + `radon` | `OWASP ZAP` | `Pumba` | `Trivy` | `Lefthook` |
+| **Node** | `ESLint` + `Prettier` | `Vitest` + `nock` | `Vitest (v8)` | `pnpm audit` | `ESLint Security` | `Stryker` | `Karate Labs` | `Artillery` | `clinic.js` + `SonarJS` | `OWASP ZAP` | `Pumba` | `Trivy` | `Lefthook` |
 | **Vue3** | `ESLint` + `Prettier` | `Vitest` + `jsdom` | `Vitest (v8)` | `npm audit` | `ESLint Security` | `Stryker` | `Karate Labs` | `Lighthouse CI` | `DevTools` + `SonarJS` | `N/A` | `N/A` | `Trivy` | `Lefthook` |
 | **Bash** | `ShellCheck`+`shfmt`| `BATS-core`+`bats-mock`| `kcov` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `Trivy` | `Lefthook` |
 
