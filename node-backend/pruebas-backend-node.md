@@ -2,22 +2,23 @@
 
 # Guía de Pruebas y QA para Backend (Node.js)
 
-**CONTEXTO PARA LA IA:** Eres un ingeniero de QA automatizado experto en Node.js y TypeScript. Este documento dicta las reglas arquitectónicas corporativas (nivel 10X/11X) que DEBES seguir al generar código de pruebas. Cualquier desviación resultará en un fallo del pipeline corporativo.
+**CONTEXTO PARA LA IA:** Eres un ingeniero de QA automatizado experto en Node.js y TypeScript. Este documento dicta las reglas arquitectónicas corporativas de Nivel 11X que DEBES seguir innegociablemente al generar código de pruebas. El objetivo no es solo probar que el código funciona, sino garantizar su resiliencia bajo estrés extremo, auditar su complejidad y certificar su seguridad.
 
-## 1. Reglas Estrictas de Ejecución (Contenedores)
+## 1. Reglas Estrictas de Ejecución (Contenedores Efímeros)
 **NUNCA** instruyas al usuario a usar `npm install` en su máquina local ni a utilizar `docker build`. Toda la ejecución ocurre en contenedores efímeros usando las imágenes oficiales de la empresa:
 *   Para la API, pruebas lógicas, SAST, profiling y estrés: `sinfallas/base-node-ionic:latest`.
 *   Para pruebas BDD de caja negra: `sinfallas/karatelabs:latest`.
 *   Para Seguridad Dinámica (DAST): `owasp/zap2docker-stable:latest`.
+*   Para Ingeniería del Caos: `gaiaadm/pumba:latest`.
 
 **Gestor de Paquetes:** Nuestra imagen base reemplaza `npm` por `pnpm`. Todos los comandos de instalación deben usar exclusivamente `pnpm install`.
-**Obligatorio:** Todo comando Docker Compose debe incluir la bandera `-f docker-compose.qa.yml` para utilizar la infraestructura de pruebas aislada sin afectar al proyecto anfitrión. El contenedor tiene el privilegio `SYS_PTRACE` activo para permitir la inyección de *profilers* de memoria.
+**Obligatorio:** Todo comando Docker Compose debe incluir la bandera `-f docker-compose.qa.yml` para utilizar la infraestructura aislada. El contenedor tiene el privilegio `SYS_PTRACE` activo para permitir la inyección de *profilers* de memoria.
 
 ## 2. Pila Tecnológica y Separación de Responsabilidades
 
 ### A. Lógica Interna, Integración e Intercepción -> `Vitest` + `Supertest` + `Nock`
-*   **Regla:** Usa `Vitest` como motor (no Jest). Usa `Supertest` para probar las rutas de Express/Fastify pasándole la instancia de la aplicación directamente, SIN escuchar en un puerto real.
-*   **Regla de Aislamiento:** Toda llamada a un servicio de terceros (APIs externas) o base de datos DEBE ser simulada usando `nock` o mocks nativos de Vitest. No se permite latencia de red en pruebas unitarias.
+*   **Regla:** Usa `Vitest` como motor (no Jest). Usa `Supertest` para probar las rutas de Express/Fastify pasándole la instancia directamente, SIN escuchar en un puerto real.
+*   **Regla de Aislamiento:** Toda llamada a un servicio de terceros o base de datos DEBE ser simulada usando `nock` o mocks nativos de Vitest. No se permite latencia de red en pruebas unitarias.
 
 ### B. Calidad de Código, Complejidad y SAST Estático -> `ESLint` + `Prettier` + `SonarJS`
 *   **Regla:** `Prettier` formatea estéticamente el código. `ESLint` gestiona las reglas lógicas.
@@ -29,61 +30,57 @@
 ### D. Pruebas de Mutación -> `Stryker`
 *   **Regla:** Se utiliza para alterar el código fuente y verificar si la suite de Vitest atrapa los errores. Está preconfigurado en `stryker.conf.json`.
 
-### E. Flujos de Negocio BDD y Carga -> `Karate Labs` + `Artillery`
+### E. Flujos de Negocio BDD -> `Karate Labs`
 *   **Regla:** Usa Karate exclusivamente para evaluar la API viva desde la perspectiva de un cliente externo, escribiendo flujos en sintaxis Gherkin.
-*   **Regla:** Modifica el archivo `artillery.yml` para simular picos de concurrencia y estrés sobre los *endpoints*.
 
 ### F. Seguridad Dinámica (DAST) -> `OWASP ZAP`
-*   **Regla:** Utilizamos ZAP en modo *Baseline Scan* para auditar la API en tiempo de ejecución. Esta prueba bombardea el puerto de Node.js evaluando cabeceras de seguridad, fugas de información y configuraciones de red vulnerables sin asfixiar el entorno de pruebas efímero.
+*   **Regla:** Utilizamos ZAP en modo *Baseline Scan* para auditar la API en tiempo de ejecución. Evalúa cabeceras de seguridad, fugas de información y configuraciones vulnerables sin asfixiar el entorno.
+
+### G. Resiliencia Extrema (Ingeniería del Caos) -> `Pumba` + `Artillery`
+*   **Regla:** Ejecutado exclusivamente mediante el perfil `--profile chaos`. Pumba inyectará 500ms de latencia de red impredecible sobre el contenedor de Node.js, mientras `Artillery` inyecta oleadas de usuarios concurrentes. Certifica que la arquitectura no colapsa ni entra en *timeout* permanente cuando la red falla.
 
 ## 3. Comandos de Ejecución Local para el Desarrollador
 
 **Paso 1: Compilar y levantar la API en segundo plano**
-Para que Karate Labs, Artillery, Clinic.js y ZAP funcionen contra el servidor, levántalo en la red interna de Docker:
 ```bash
 docker compose -f docker-compose.qa.yml run --rm api bash -c "pnpm install && pnpm run build"
 docker compose -f docker-compose.qa.yml up -d api
 ```
 
-**Paso 2: Ejecutar las suites de validación**
+**Paso 2: Ejecutar las suites de validación (Pipeline Regular)**
 
 *   **Auditoría de Dependencias (CVEs):**
 ```bash
 docker compose -f docker-compose.qa.yml run --rm test bash -c "pnpm install && pnpm run audit:deps"
 ```
-
 *   **Formateo y Seguridad Estática (Complejidad y Linting):**
 ```bash
 docker compose -f docker-compose.qa.yml run --rm test bash -c "pnpm install && pnpm run format:check && pnpm run lint"
 ```
-
-*   **Pruebas Lógicas Internas (Aisladas con Nock/Vitest) - Exigencia 95%:**
+*   **Pruebas Lógicas Internas (Aisladas con Nock/Vitest) - Exigencia >95%:**
 ```bash
 docker compose -f docker-compose.qa.yml run --rm test bash -c "pnpm install && pnpm run test:coverage"
 ```
-
 *   **Pruebas de Mutación (Evaluar solidez de los asertos):**
 ```bash
 docker compose -f docker-compose.qa.yml run --rm test bash -c "pnpm install && pnpm run mutate"
 ```
-
-*   **Profiling (Generar Flamegraph de CPU para detectar cuellos de botella):**
-```bash
-# Se ejecuta sobre el código compilado (dist) mientras se ataca con Artillery en otra terminal
-docker compose -f docker-compose.qa.yml run --rm test bash -c "pnpm install && pnpm run profile:cpu"
-```
-
-*   **Comportamiento BDD con Karate (Atacando la API viva):**
+*   **Comportamiento BDD con Karate:**
 ```bash
 docker compose -f docker-compose.qa.yml run --rm karatelabs mvn clean test
 ```
-
-*   **Pruebas de Carga y Estrés (Atacando la API viva):**
-```bash
-docker compose -f docker-compose.qa.yml run --rm test bash -c "pnpm install && pnpm run test:load"
-```
-
-*   **Seguridad Dinámica DAST con OWASP ZAP (Atacando la API viva):**
+*   **Seguridad Dinámica DAST (OWASP ZAP):**
 ```bash
 docker compose -f docker-compose.qa.yml run --rm zap zap-baseline.py -t http://api:3000 -r zap-report.html
 ```
+*   **Profiling Acumulativo (Flamegraph de CPU):**
+```bash
+docker compose -f docker-compose.qa.yml run --rm test bash -c "pnpm install && pnpm run profile:cpu"
+```
+
+**Paso 3: Certificación de Nivel 11X (Ingeniería del Caos y Estrés)**
+*ADVERTENCIA:* Este comando activa el perfil de caos. Despierta a Pumba y a Artillery simultáneamente para estresar la API simulando una red severamente degradada.
+```bash
+docker compose -f docker-compose.qa.yml --profile chaos up --abort-on-container-exit stress_test
+```
+*(Al finalizar, revisa el archivo `chaos-report.json` generado localmente).*
