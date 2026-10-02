@@ -45,7 +45,7 @@ El repositorio está dividido en 4 ecosistemas que cubren la totalidad del desar
 
 ---
 
-## 🛠️️ Matriz de Herramientas de Pruebas
+## 🛠 Matriz de Herramientas de Pruebas
 
 A continuación se resume el stack de validación corporativo. Se indica `N/A` en las pruebas que no aplican por la naturaleza intrínseca del entorno (ej. un script *standalone* de Python no levanta servidores HTTP, por ende no se le aplica DAST ni Caos). 
 
@@ -71,13 +71,13 @@ Para entender los fundamentos de esta arquitectura y cómo automatizarla, consul
 
 ---
 
-## 🧠 ¿Cómo utilizar este repositorio con IA?
+## 🧠 ¿Cómo utilizar este repositorio con IA? (Flujo Automatizado)
 
-Si utilizas asistentes como **Hermes Agent**, **Claude Code**, **OpenCode** u otras IAs en tu terminal o editor:
+Si utilizas asistentes como **Hermes Agent**, **Claude Code**, **Cursor** u otras IAs autónomas, el proceso de integración es sumamente sencillo. Deja que la IA haga el trabajo pesado de fusionar las configuraciones.
 
-1. Clona este repositorio o descarga la carpeta de la tecnología correspondiente a tu proyecto.
-2. **Integra sin sobreescribir (Proyectos Existentes):** Renombra el orquestador del blueprint a `docker-compose.qa.yml` y muévelo a la raíz de tu proyecto. Abre los archivos `.example` (como `pyproject.toml.example` o `package.json.example`) y copia ÚNICAMENTE las dependencias de desarrollo y bloques de configuración de QA hacia tus propios archivos preexistentes. Copia el contenido de `gitignore.example` al final de tu `.gitignore` actual y transfiere los scripts auxiliares como `limpieza.sh`.
-3. Asegúrate de ajustar el *tag* de la imagen en tu `docker-compose.qa.yml` para que coincida con la versión de tu proyecto (ej. `base-python-uv:3.12` o `base-node-ionic:22`).
-4. **Alimenta a la IA con el Prompt:** Abre un chat con tu IA y pégale el contenido completo del archivo `pruebas-[tecnologia].md` (ej. `pruebas-backend-node.md`).
-5. Pídele a la IA: *"Lee estas directrices. A partir de ahora, genera todas las pruebas para mi proyecto siguiendo estrictamente las reglas, comandos y límites de herramientas descritos en este documento"*.
-6. Ejecuta los comandos indicados en el documento para correr tus pruebas, recordando siempre incluir el orquestador de QA (ej. `docker compose -f docker-compose.qa.yml run --rm [servicio]`).
+1. **Alojamiento del Blueprint:** Clona este repositorio o descarga la carpeta de la tecnología correspondiente (ej. `node-backend/`) y arrastra todo su contenido directamente a la **raíz de tu proyecto existente**.
+2. **Documentación IA:** Ubica el archivo `AI_MASTER_PROMPT.md` en la raíz (o muévelo a una carpeta de documentación técnica como `docs/qa/`).
+3. **Delega la Fusión a la IA:** Abre tu chat o terminal con el agente y pégale este *prompt* exacto:
+   > *"Lee las directrices operativas en `AI_MASTER_PROMPT.md` (o la ruta donde lo hayas puesto). Necesito integrar el estándar QA 11X en este proyecto. Lee los archivos `.example` que acabo de añadir (como `package.json.example`, `pyproject.toml.example`, `gitignore.example`) y realiza una **fusión no destructiva** con mis archivos de configuración reales. Añade todas las herramientas de QA, dependencias de desarrollo y scripts, pero respeta y mantén intactas las dependencias y configuraciones que mi proyecto ya tenía."*
+4. Asegúrate de ajustar el *tag* de la imagen en tu `docker-compose.qa.yml` fusionado para que coincida con la versión de tu proyecto en producción (ej. `base-python-uv:3.12` o `base-node-ionic:22`).
+5. **Ejecución:** A partir de ahora, ordénale a la IA que cree o ejecute pruebas utilizando exclusivamente los comandos del contenedor efímero descritos en las guías.
