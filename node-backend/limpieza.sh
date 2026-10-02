@@ -18,6 +18,7 @@ rm -rf target/
 rm -rf test/target/
 rm -rf .clinic/
 rm -rf graphify-out/
+rm -rf prometheus_data/
 
 rm -f zap-report.html
 rm -f chaos-report.json
