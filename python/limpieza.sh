@@ -23,10 +23,12 @@ rm -rf src/*/__pycache__
 rm -rf htmlcov/
 rm -rf .benchmarks/
 rm -rf graphify-out/
+rm -rf prometheus_data/
 rm -f profile.svg
 
 chown -R $USER:$USER . 2>/dev/null || true
 
+docker compose -f docker-compose.qa.yml --profile observability down -v 2>/dev/null || true
 docker compose -f docker-compose.qa.yml --profile graphify down -v 2>/dev/null || true
 docker system prune -af --volumes
 
