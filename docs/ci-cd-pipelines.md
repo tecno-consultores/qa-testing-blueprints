@@ -26,10 +26,10 @@ Clonar el código fuente. No necesitamos instalar Python, Node ni dependencias d
 Lanzar la suite utilizando `docker compose -f docker-compose.qa.yml run --rm test`. Si la prueba de cobertura detecta menos del 95%, o si fallan las métricas de complejidad de `eslint-plugin-sonarjs` / `radon`, arrojará un código de salida `1` (Exit Code 1) bloqueando el *merge*.
 ### Paso 3: Seguridad Dinámica (DAST)
 OWASP ZAP levanta un ataque ligero (*Baseline Scan*) sobre el contenedor vivo para auditar vulnerabilidades en la red.
-### Paso 4: Resiliencia y Caos
-Se activa el perfil oculto `--profile chaos` inyectando latencia con Pumba y oleadas de estrés concurrente.
+### Paso 4: Resiliencia, Caos y Observabilidad
+Se activa el perfil oculto `--profile chaos` inyectando latencia con Pumba y oleadas de estrés concurrente, mientras Prometheus recopila métricas.
 ### Paso 5: Extracción de Artefactos (Reportes)
-Como utilizamos volúmenes *bind*, cuando el contenedor efímero muere, deja los reportes HTML físicamente en el disco del *runner*. El pipeline toma esa carpeta y la sube como un "Artifact" para que el equipo pueda descargarlo.
+Como utilizamos volúmenes *bind*, cuando el contenedor efímero muere, deja los reportes HTML y JSON físicamente en el disco del *runner*. El pipeline toma esa carpeta y la sube como un "Artifact" para que el equipo pueda descargarlo.
 ### Paso 6: Limpieza
 Ejecutar `./limpieza.sh` para no saturar el almacenamiento del *runner*.
 
@@ -37,7 +37,7 @@ Ejecutar `./limpieza.sh` para no saturar el almacenamiento del *runner*.
 
 ## 3. Ejemplo Práctico: GitHub Actions
 
-Aquí tienes la plantilla base para `.github/workflows/qa-pipeline.yml`. En este ejemplo, se audita un proyecto integrando las capas de complejidad, linting y la nueva resiliencia 11X.
+Aquí tienes la plantilla base para `.github/workflows/qa-pipeline.yml`. En este ejemplo, se audita un proyecto integrando las capas de complejidad, linting y la resiliencia 11X.
 
 ```yaml
 name: QA Testing Blueprint Pipeline (Nivel 11X)
@@ -65,29 +65,29 @@ jobs:
           docker run --rm -v "${PWD}:/app:ro" -w /app aquasec/trivy:latest config . --severity HIGH,CRITICAL --exit-code 1
 
       - name: 4️⃣ Auditoría de Dependencias (CVEs)
-        # Verificamos vulnerabilidades en paquetes de terceros usando pnpm/npm audit.
+        # Verificamos vulnerabilidades en paquetes de terceros usando pnpm/npm/uv audit.
         run: docker compose -f docker-compose.qa.yml run --rm test npm audit
 
       - name: 5️⃣ Análisis Estático, Complejidad y Formateo
-        # Ejecutamos ESLint, Prettier y SonarJS para asegurar calidad y evitar Code Smells.
+        # Ejecutamos ESLint/Ruff y SonarJS/Radon para asegurar calidad y evitar Code Smells.
         run: docker compose -f docker-compose.qa.yml run --rm test npm run lint
 
-      - name: 6️⃣ Ejecutar Suite Efímera con Intercepción de Red (Vitest + MSW)
+      - name: 6️⃣ Ejecutar Suite Efímera con Intercepción de Red
         # Si la cobertura es menor a 95%, este comando falla y aborta el pipeline.
         run: docker compose -f docker-compose.qa.yml run --rm test npm run test:coverage
 
-      - name: 7️⃣ Pruebas de Mutación (Stryker)
-        # Para evitar que pasen PRs con pruebas "falsas positivas" que no auditan realmente la lógica.
+      - name: 7️⃣ Pruebas de Mutación (Stryker / Mutmut)
+        # Para evitar que pasen PRs con pruebas "falsas positivas".
         run: docker compose -f docker-compose.qa.yml run --rm test npx stryker run
 
       - name: 8️⃣ Seguridad Dinámica DAST (OWASP ZAP)
-        # Levanta la API en segundo plano y lanza un Baseline Scan contra las cabeceras HTTP.
+        # Levanta la API en segundo plano y lanza un Baseline Scan.
         run: |
           docker compose -f docker-compose.qa.yml up -d api
           docker compose -f docker-compose.qa.yml run --rm zap zap-baseline.py -t http://api:3000 -r zap-report.html
 
-      - name: 9️⃣ Ingeniería del Caos y Estrés (Pumba + Artillery/Locust)
-        # Activa el perfil oculto para inyectar latencia de red y disparar oleadas de carga simultáneamente.
+      - name: 9️⃣ Ingeniería del Caos y Observabilidad (Prometheus + Pumba)
+        # Activa el perfil oculto para inyectar latencia y levantar Prometheus automáticamente.
         run: docker compose -f docker-compose.qa.yml --profile chaos up --abort-on-container-exit stress_test
 
       - name: 🔟 Archivar Reportes de Calidad (Artefactos)
