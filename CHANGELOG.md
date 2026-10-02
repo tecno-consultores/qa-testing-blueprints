@@ -4,6 +4,21 @@ Todos los cambios notables de este proyecto se documentarán en este archivo.
 
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/), y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [2.3.0] - 2026-10-02
+
+### 🚀 Añadido (Added)
+* **Observabilidad Universal (Estándar 11X):** Integración completa de Prometheus en todos los ecosistemas para la recolección de métricas RED (Rate, Errors, Duration) en tiempo real, permitiendo evaluar el daño durante las pruebas de Ingeniería del Caos.
+* **Perfil de Observabilidad (`--profile observability`):** Creación de un nuevo perfil aislado en los orquestadores `docker-compose.qa.yml` para desplegar sidecars de telemetría (`prom/prometheus`, `nginx-prometheus-exporter`, `prom/pushgateway`) sin alterar ni sobrecargar el flujo de las pruebas lógicas estándar.
+* **Telemetría para Tareas Efímeras:** Implementación de la arquitectura `Pushgateway` específica para monitorizar métricas y tiempos de ejecución en el ecosistema Bash y scripts *standalone* en Python.
+* **Feature Freeze:** Declaración oficial de congelamiento de nuevas características. Se considera que la arquitectura del Nivel 11X está funcionalmente completa.
+
+### 🔄 Modificado (Changed)
+* **Master Prompt (Regla #6):** Se actualizó el archivo `AI_MASTER_PROMPT.md` imponiendo como mandato innegociable la instrumentación de métricas antes de ejecutar inyecciones de red destructivas.
+* **Documentación Global:** Evolución estructural de los diagramas del Modelo C4 en `ARCHITECTURE_C4.md`, refinamiento de los pasos de GitHub Actions en `ci-cd-pipelines.md`, y adición de aclaratorias técnicas sobre middlewares de Prometheus en el `FAQ.md` y `CONTRIBUTING.md`.
+* **Gestión de Artefactos y Limpieza:** Adaptación masiva de los scripts de purga (`limpieza.sh`) y archivos `.gitignore.example` para destruir proactivamente las redes asociadas a la observabilidad e ignorar las bases de datos temporales `prometheus_data/`.
+
+---
+
 ## [2.2.0] - 2026-10-02
 
 ### 🚀 Añadido (Added)
