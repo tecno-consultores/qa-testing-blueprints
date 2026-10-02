@@ -10,6 +10,7 @@ Este documento contiene las instrucciones corporativas de Nivel 11X que DEBES se
 *   Para pruebas BDD de caja negra: `sinfallas/karatelabs:latest`.
 *   Para Seguridad Dinámica (DAST): `owasp/zap2docker-stable:latest`.
 *   Para Ingeniería del Caos: `gaiaadm/pumba:latest`.
+*   Para Optimización de Contexto IA (MCP): `sinfallas/remote-graphify:latest`.
 
 **Obligatorio:** Todo comando Docker Compose debe incluir la bandera `-f docker-compose.qa.yml` para aislar la infraestructura. El contenedor base cuenta con el privilegio `SYS_PTRACE` habilitado para permitir la intercepción de memoria. 
 La instalación de dependencias en Python se hace al vuelo en memoria con:
@@ -49,9 +50,20 @@ La estrategia de validación de FastAPI abarca 10 capas transversales. Debes con
 ### E. Resiliencia Extrema (Ingeniería del Caos con Pumba)
 *   Las pruebas de estrés tradicionales asumen una red perfecta. Con la configuración de perfil `--profile chaos`, Pumba inyectará latencia aleatoria (Jitter) y cortes temporales a nivel del Kernel de Linux directamente sobre el contenedor de FastAPI, mientras Locust envía oleadas de usuarios concurrentes. El objetivo es certificar que la arquitectura no entra en un interbloqueo (*deadlock*) cuando la infraestructura subyacente falla.
 
-## 4. Comandos de Ejecución Local para Desarrolladores
+### F. Optimización de Contexto IA (MCP) -> `Graphify`
+*   **Regla (Exclusiva para ti, IA):** Antes de ingerir código masivamente, DEBES generar y consultar el grafo semántico del proyecto para ahorrar tokens y evitar alucinaciones.
+
+## 4. Comandos de Ejecución Local para Desarrolladores (y para la IA)
 
 Para que las herramientas dinámicas funcionen, la aplicación debe estar escuchando en la red interna aislada.
+
+**Paso 0: Ingestión de Contexto (Obligatorio para la IA antes de programar)**
+Extrae la topología del código y levanta tu servidor de contexto:
+```bash
+docker compose -f docker-compose.qa.yml --profile graphify run --rm graphify bash -c "uvx graphifyy extract"
+docker compose -f docker-compose.qa.yml --profile graphify up -d graphify
+```
+*Conéctate a `http://localhost:8080/sse` para consultar las relaciones del código de forma eficiente.*
 
 **Paso 1: Levantar la API en segundo plano**
 ```bash
