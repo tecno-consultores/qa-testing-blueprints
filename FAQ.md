@@ -38,6 +38,9 @@ No prueban tu código, **prueban tus pruebas**. Alteran intencionalmente el cód
 ### ¿Para qué utilizar Karate Labs (BDD) si ya tengo Vitest, Pytest o Supertest evaluando el código?
 Porque cumplen propósitos distintos. Vitest/Pytest prueban cajas blancas (conocen el código interno). Karate Labs evalúa cajas negras: ataca el puerto vivo de la aplicación emulando a un usuario real mediante lenguaje natural (Gherkin).
 
+### ¿Por qué me obligan a inyectar un middleware de Prometheus en mi código fuente?
+Porque la Ingeniería del Caos a ciegas no sirve de nada. Si inyectamos latencia o pérdida de paquetes con Pumba, necesitamos ver el impacto real en los tiempos de respuesta (Métricas RED) de forma instantánea. Los middlewares seleccionados (`express-prom-bundle`, `prometheus-fastapi-instrumentator`) son de impacto cero y no alteran tu lógica de negocio.
+
 ### ¿Por qué Pumba (Caos) necesita acceder al socket de Docker (`/var/run/docker.sock`) si nuestra política prohíbe esto?
 Porque la **Ingeniería del Caos** consiste en simular fallos catastróficos a nivel de infraestructura. Pumba necesita comunicarse con el demonio de Docker para interceptar el tráfico de red de otros contenedores o apagarlos abruptamente. Esta es una **excepción de seguridad documentada**, y es por ello que está oculta bajo el flag `--profile chaos` en el orquestador. Jamás se debe activar en un servidor de producción.
 
