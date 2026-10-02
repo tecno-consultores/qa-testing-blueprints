@@ -1,21 +1,10 @@
-# =========================
-# Secretos y Configuración
-# =========================
 .env
 .env.*
 !.env.example
-
-# =========================
-# Entornos Virtuales
-# =========================
 venv/
 .venv/
 env/
 .env_venv/
-
-# =========================
-# Archivos generados por Python y Empaquetado
-# =========================
 __pycache__/
 *.py[cod]
 *$py.class
@@ -28,10 +17,6 @@ dist/
 *.egg
 *.whl
 *.tar.gz
-
-# =========================
-# Pruebas, Cobertura, Profiling y QA
-# =========================
 .tox/
 .coverage
 .coverage.*
@@ -39,19 +24,12 @@ coverage.xml
 htmlcov/
 .benchmarks/
 profile.svg
-
-# =========================
-# Caché de herramientas (como uv, pip, pytest, ruff)
-# =========================
+graphify-out/
 .cache/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 .uv/
-
-# =========================
-# Editores de código y SO
-# =========================
 .vscode/
 .idea/
 *.swp
