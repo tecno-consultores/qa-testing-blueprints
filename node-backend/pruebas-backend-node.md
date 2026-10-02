@@ -9,7 +9,7 @@
 *   Para la API, pruebas lógicas, SAST, profiling y estrés: `sinfallas/base-node-ionic:latest`.
 *   Para pruebas BDD de caja negra: `sinfallas/karatelabs:latest`.
 *   Para Seguridad Dinámica (DAST): `owasp/zap2docker-stable:latest`.
-*   Para Ingeniería del Caos: `gaiaadm/pumba:latest`.
+*   Para Ingeniería del Caos y Observabilidad: `gaiaadm/pumba:latest` y `prom/prometheus:latest`.
 *   Para Optimización de Contexto IA (MCP): `sinfallas/remote-graphify:latest`.
 
 **Gestor de Paquetes:** Nuestra imagen base reemplaza `npm` por `pnpm`. Todos los comandos de instalación deben usar exclusivamente `pnpm install`.
@@ -17,30 +17,38 @@
 
 ## 2. Pila Tecnológica y Separación de Responsabilidades
 
-### A. Lógica Interna, Integración e Intercepción -> `Vitest` + `Supertest` + `Nock`
+### A. Observabilidad en Código (Requisito Previo Innegociable)
+*   Antes de realizar cualquier auditoría, DEBES asegurar que el archivo principal de Express/Fastify (ej. `src/server.ts`) esté instrumentado inyectando este middleware de manera no intrusiva para exponer `/metrics`:
+    ```typescript
+    import promBundle from "express-prom-bundle";
+    // Inyectar antes de declarar tus rutas de negocio:
+    app.use(promBundle({ includeMethod: true, includePath: true }));
+    ```
+
+### B. Lógica Interna, Integración e Intercepción -> `Vitest` + `Supertest` + `Nock`
 *   **Regla:** Usa `Vitest` como motor (no Jest). Usa `Supertest` para probar las rutas de Express/Fastify pasándole la instancia directamente, SIN escuchar en un puerto real.
 *   **Regla de Aislamiento:** Toda llamada a un servicio de terceros o base de datos DEBE ser simulada usando `nock` o mocks nativos de Vitest. No se permite latencia de red en pruebas unitarias.
 
-### B. Calidad de Código, Complejidad y SAST Estático -> `ESLint` + `Prettier` + `SonarJS`
+### C. Calidad de Código, Complejidad y SAST Estático -> `ESLint` + `Prettier` + `SonarJS`
 *   **Regla:** `Prettier` formatea estéticamente el código. `ESLint` gestiona las reglas lógicas.
 *   **Deuda Técnica:** El plugin `eslint-plugin-sonarjs` fallará el pipeline si detecta "Código Espagueti" (Complejidad cognitiva alta) o vulnerabilidades lógicas (`eslint-plugin-security`).
 
-### C. Profiling (CPU/RAM) -> `Clinic.js`
+### D. Profiling (CPU/RAM) -> `Clinic.js`
 *   **Regla:** Antes de salir a producción, se debe generar un *Flamegraph* (`clinic flame`) para detectar si algún endpoint bloquea el *Event Loop* asíncrono de Node.js o causa fugas de memoria (*Memory Leaks*).
 
-### D. Pruebas de Mutación -> `Stryker`
+### E. Pruebas de Mutación -> `Stryker`
 *   **Regla:** Se utiliza para alterar el código fuente y verificar si la suite de Vitest atrapa los errores. Está preconfigurado en `stryker.conf.json`.
 
-### E. Flujos de Negocio BDD -> `Karate Labs`
+### F. Flujos de Negocio BDD -> `Karate Labs`
 *   **Regla:** Usa Karate exclusivamente para evaluar la API viva desde la perspectiva de un cliente externo, escribiendo flujos en sintaxis Gherkin.
 
-### F. Seguridad Dinámica (DAST) -> `OWASP ZAP`
+### G. Seguridad Dinámica (DAST) -> `OWASP ZAP`
 *   **Regla:** Utilizamos ZAP en modo *Baseline Scan* para auditar la API en tiempo de ejecución. Evalúa cabeceras de seguridad, fugas de información y configuraciones vulnerables sin asfixiar el entorno.
 
-### G. Resiliencia Extrema (Ingeniería del Caos) -> `Pumba` + `Artillery`
-*   **Regla:** Ejecutado exclusivamente mediante el perfil `--profile chaos`. Pumba inyectará 500ms de latencia de red impredecible sobre el contenedor de Node.js, mientras `Artillery` inyecta oleadas de usuarios concurrentes. Certifica que la arquitectura no colapsa ni entra en *timeout* permanente cuando la red falla.
+### H. Resiliencia Extrema (Ingeniería del Caos) -> `Pumba` + `Artillery`
+*   **Regla:** Ejecutado exclusivamente mediante el perfil `--profile chaos`. Pumba inyectará 500ms de latencia de red impredecible sobre el contenedor de Node.js, mientras `Artillery` inyecta oleadas de usuarios concurrentes y Prometheus extrae las métricas. Certifica que la arquitectura no colapsa ni entra en *timeout* permanente cuando la red falla.
 
-### H. Optimización de Contexto IA (MCP) -> `Graphify`
+### I. Optimización de Contexto IA (MCP) -> `Graphify`
 *   **Regla (Exclusiva para ti, IA):** Antes de ingerir código masivamente, DEBES generar y consultar el grafo semántico del proyecto para ahorrar tokens y evitar alucinaciones.
 
 ## 3. Comandos de Ejecución Local para el Desarrollador (y para la IA)
@@ -53,7 +61,7 @@ docker compose -f docker-compose.qa.yml --profile graphify up -d graphify
 ```
 *Conéctate a `http://localhost:8080/sse` para consultar las relaciones del código de forma eficiente.*
 
-**Paso 1: Compilar y levantar la API en segundo plano**
+**Paso 1: Compilar, Instrumentar y Levantar la API en segundo plano**
 ```bash
 docker compose -f docker-compose.qa.yml run --rm api bash -c "pnpm install && pnpm run build"
 docker compose -f docker-compose.qa.yml up -d api
@@ -90,9 +98,9 @@ docker compose -f docker-compose.qa.yml run --rm zap zap-baseline.py -t http://a
 docker compose -f docker-compose.qa.yml run --rm test bash -c "pnpm install && pnpm run profile:cpu"
 ```
 
-**Paso 3: Certificación de Nivel 11X (Ingeniería del Caos y Estrés)**
-*ADVERTENCIA:* Este comando activa el perfil de caos. Despierta a Pumba y a Artillery simultáneamente para estresar la API simulando una red severamente degradada.
+**Paso 3: Certificación de Nivel 11X (Ingeniería del Caos y Observabilidad)**
+*ADVERTENCIA:* Este comando activa el perfil de caos. Despierta a Pumba, Artillery y Prometheus simultáneamente para estresar la API simulando una red severamente degradada.
 ```bash
 docker compose -f docker-compose.qa.yml --profile chaos up --abort-on-container-exit stress_test
 ```
-*(Al finalizar, revisa el archivo `chaos-report.json` generado localmente).*
+*(Durante el ataque, puedes visualizar las métricas en vivo en `http://localhost:9090`. Al finalizar, revisa el archivo `chaos-report.json` generado localmente).*
