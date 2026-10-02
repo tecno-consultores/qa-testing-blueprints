@@ -10,10 +10,10 @@ Este documento centraliza los fallos más comunes al operar con los *blueprints*
 Al intentar ejecutar una prueba, recibes errores como `no space left on device` o `could not find an available, non-overlapping IPv4 address pool`.
 
 **¿Por qué sucede?**
-Docker sigue almacenando en caché de forma agresiva: imágenes colgantes (Dangling images) o Redes Bridge no destruidas tras interrupciones abruptas.
+Docker sigue almacenando en caché de forma agresiva: imágenes colgantes (Dangling images), bases de datos temporales de Prometheus o Redes Bridge no destruidas tras interrupciones abruptas.
 
 **La Solución:**
-Ejecutar la purga profunda:
+Ejecutar la purga profunda que apagará todos los perfiles ocultos y limpiará los volúmenes:
 ```bash
 sudo ./limpieza.sh
 ```
@@ -26,7 +26,7 @@ sudo ./limpieza.sh
 Linux te dice: `Permission denied` al intentar manipular reportes generados.
 
 **¿Por qué sucede?**
-Efecto secundario de los volúmenes *bind*. El contenedor efímero se ejecuta con `root` y crea los archivos con ese propietario.
+Efecto secundario de los volúmenes *bind*. El contenedor efímero se ejecuta con `root` y crea los archivos (y carpetas como `prometheus_data/` o `graphify-out/`) con ese propietario.
 
 **La Solución:**
 ```bash
@@ -35,31 +35,34 @@ sudo chown -R $USER:$USER .
 
 ---
 
-## 3. Salida Abrupta: "Exit Code 137" (OOM Killer)
+## 3. Conflicto de Puertos con Prometheus (9090) o Graphify (8080)
+
+**Síntoma:**
+Error `Bind for 0.0.0.0:9090 failed: port is already allocated` al intentar lanzar el perfil de caos u observabilidad.
+
+**¿Por qué sucede?**
+Ya tienes una instancia de Prometheus o un servicio Nginx corriendo en tu máquina *host* o en otro proyecto Docker que olvidaste apagar.
+
+**La Solución:**
+Mata el contenedor secuestrador y baja toda la red del compose.
+```bash
+docker ps | grep 9090
+docker kill <id_del_contenedor_conflictivo>
+docker compose -f docker-compose.qa.yml --profile chaos down
+```
+
+---
+
+## 4. Salida Abrupta: "Exit Code 137" (OOM Killer)
 
 **Síntoma:** 
-El contenedor muere arrojando `Exit Code 137`. Suele ocurrir con Playwright o Karate Labs, y especialmente al inyectar concurrencia con Artillery.
+El contenedor muere arrojando `Exit Code 137`. Suele ocurrir con Playwright o Karate Labs, y especialmente al inyectar concurrencia masiva con Artillery o Locust.
 
 **¿Por qué sucede?**
 El *OOM Killer* de Linux asesinó al proceso por consumir toda la memoria RAM.
 
 **La Solución:**
 Limitar la concurrencia (`--workers=1`) o asignar más RAM al entorno de Docker.
-
----
-
-## 4. Conflictos de Red: Puerto ya Asignado
-
-**Síntoma:**
-Error `Bind for 0.0.0.0:8000 failed: port is already allocated`.
-
-**La Solución:**
-Mata el contenedor secuestrador y baja toda la red del compose.
-```bash
-docker ps | grep 8000
-docker kill fastapi_backend
-docker compose -f docker-compose.qa.yml down
-```
 
 ---
 
@@ -80,20 +83,7 @@ Debes otorgar capacidades extendidas temporalmente al contenedor en tu archivo `
 
 ---
 
-## 6. Lefthook "Command not found: docker compose"
-
-**Síntoma:** 
-Intentas hacer un commit, y Lefthook falla diciendo que Docker no existe, aunque sí lo tienes instalado.
-
-**¿Por qué sucede?**
-Generalmente ocurre si usas clientes de Git con interfaz gráfica (GitKraken, SourceTree, VSCode) que no heredan el `$PATH` global de tu terminal.
-
-**La Solución:**
-Inicia tu IDE o cliente de Git desde la misma terminal donde Docker está configurado, o añade explícitamente la ruta de los binarios de Docker al PATH de tu entorno de escritorio.
-
----
-
-## 7. ZAP (DAST) falla al escribir el reporte HTML
+## 6. ZAP (DAST) falla al escribir el reporte HTML
 
 **Síntoma:** 
 OWASP ZAP termina de auditar la API exitosamente, pero escupe un error de permisos `Permission Denied` al guardar el archivo `zap-report.html`.
@@ -106,7 +96,7 @@ Asegúrate de que la directiva `user: root` esté declarada en el servicio `zap`
 
 ---
 
-## 8. Pumba falla indicando "Cannot connect to the Docker daemon"
+## 7. Pumba falla indicando "Cannot connect to the Docker daemon"
 
 **Síntoma:** 
 Al ejecutar la prueba de resiliencia (`docker compose --profile chaos up`), el contenedor de Pumba muere inmediatamente con un error de conexión al demonio.
