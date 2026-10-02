@@ -10,6 +10,7 @@
 *   Para pruebas BDD de caja negra: `sinfallas/karatelabs:latest`.
 *   Para Seguridad Dinámica (DAST): `owasp/zap2docker-stable:latest`.
 *   Para Ingeniería del Caos: `gaiaadm/pumba:latest`.
+*   Para Optimización de Contexto IA (MCP): `sinfallas/remote-graphify:latest`.
 
 **Gestor de Paquetes:** Nuestra imagen base reemplaza `npm` por `pnpm`. Todos los comandos de instalación deben usar exclusivamente `pnpm install`.
 **Obligatorio:** Todo comando Docker Compose debe incluir la bandera `-f docker-compose.qa.yml` para utilizar la infraestructura aislada. El contenedor tiene el privilegio `SYS_PTRACE` activo para permitir la inyección de *profilers* de memoria.
@@ -39,7 +40,18 @@
 ### G. Resiliencia Extrema (Ingeniería del Caos) -> `Pumba` + `Artillery`
 *   **Regla:** Ejecutado exclusivamente mediante el perfil `--profile chaos`. Pumba inyectará 500ms de latencia de red impredecible sobre el contenedor de Node.js, mientras `Artillery` inyecta oleadas de usuarios concurrentes. Certifica que la arquitectura no colapsa ni entra en *timeout* permanente cuando la red falla.
 
-## 3. Comandos de Ejecución Local para el Desarrollador
+### H. Optimización de Contexto IA (MCP) -> `Graphify`
+*   **Regla (Exclusiva para ti, IA):** Antes de ingerir código masivamente, DEBES generar y consultar el grafo semántico del proyecto para ahorrar tokens y evitar alucinaciones.
+
+## 3. Comandos de Ejecución Local para el Desarrollador (y para la IA)
+
+**Paso 0: Ingestión de Contexto (Obligatorio para la IA antes de programar)**
+Extrae la topología del código y levanta tu servidor de contexto:
+```bash
+docker compose -f docker-compose.qa.yml --profile graphify run --rm graphify bash -c "uvx graphifyy extract"
+docker compose -f docker-compose.qa.yml --profile graphify up -d graphify
+```
+*Conéctate a `http://localhost:8080/sse` para consultar las relaciones del código de forma eficiente.*
 
 **Paso 1: Compilar y levantar la API en segundo plano**
 ```bash
