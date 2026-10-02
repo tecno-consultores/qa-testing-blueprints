@@ -8,19 +8,21 @@ if [[ "$EUID" != "0" ]]; then
 fi
 
 clear
-echo "Iniciando purga profunda del entorno de QA de Node.js..."
+echo "Iniciando purga profunda del entorno de QA de Node.js (Nivel 11X)..."
 
 # Limpieza de dependencias y código compilado
 rm -rf node_modules/
 rm -rf dist/
 rm -rf .stryker-tmp/
 
-# Limpieza de reportes de cobertura, Karate Labs, DAST (ZAP) y Profiling de Clinic.js
+# Limpieza de reportes de cobertura, Karate Labs, DAST (ZAP), Caos y Profiling de Clinic.js
 rm -rf coverage/
 rm -rf target/
 rm -rf test/target/
 rm -rf .clinic/
 rm -f zap-report.html
+rm -f chaos-report.json
+rm -f chaos-report.html
 rm -f *.html
 rm -f *.clinic-*.html
 rm -f *.log
@@ -28,8 +30,9 @@ rm -f *.log
 # Reclamar permisos de los archivos generados por Docker (evita problemas de propietario 'root')
 chown -R $USER:$USER . 2>/dev/null || true
 
-# Limpieza profunda de contenedores efímeros, redes huérfanas y cachés de construcción
+# Limpieza profunda de contenedores efímeros y redes huérfanas (incluyendo perfiles ocultos)
+docker compose -f docker-compose.qa.yml --profile chaos down -v 2>/dev/null || true
 docker system prune -af --volumes
 
-echo "Limpieza de dependencias, reportes, imágenes y contenedores finalizada."
+echo "Limpieza de dependencias, reportes, imágenes y contenedores finalizada exitosamente."
 exit 0
