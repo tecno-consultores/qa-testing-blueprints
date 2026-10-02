@@ -36,7 +36,11 @@ dev = [
     
     # Contracts & Load Testing
     "schemathesis>=3.25.0",
-    "locust>=2.24.0"
+    "locust>=2.24.0",
+    
+    # Observability & Metrics (Nivel 11X)
+    "prometheus-fastapi-instrumentator>=7.0.0",
+    "prometheus-client>=0.20.0"
 ]
 
 [build-system]
