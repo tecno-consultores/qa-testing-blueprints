@@ -1,7 +1,7 @@
 [project]
 name = "python-qa-blueprint"
 version = "0.2.0"
-description = "Plantilla base corporativa (10X) para scripts de Python con pruebas exhaustivas, BDD, y Profiling"
+description = "Plantilla base corporativa (11X) para scripts de Python con pruebas exhaustivas, BDD, y Profiling"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -34,7 +34,10 @@ dev = [
     
     # Complexity & Profiling
     "radon>=6.0.1",
-    "py-spy>=0.3.14"
+    "py-spy>=0.3.14",
+    
+    # Observability & Metrics (Nivel 11X)
+    "prometheus-client>=0.20.0"
 ]
 
 [build-system]
