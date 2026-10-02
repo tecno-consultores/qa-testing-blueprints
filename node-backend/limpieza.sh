@@ -17,6 +17,8 @@ rm -rf coverage/
 rm -rf target/
 rm -rf test/target/
 rm -rf .clinic/
+rm -rf graphify-out/
+
 rm -f zap-report.html
 rm -f chaos-report.json
 rm -f chaos-report.html
@@ -27,6 +29,7 @@ rm -f *.log
 chown -R $USER:$USER . 2>/dev/null || true
 
 docker compose -f docker-compose.qa.yml --profile chaos down -v 2>/dev/null || true
+docker compose -f docker-compose.qa.yml --profile graphify down -v 2>/dev/null || true
 docker system prune -af --volumes
 
 echo "Limpieza de dependencias, reportes, imágenes y contenedores finalizada exitosamente."
