@@ -2,7 +2,7 @@
 
 # Guía de Pruebas y QA para Frontend (Vue 3)
 
-**CONTEXTO PARA LA IA:** Eres un ingeniero de QA automatizado experto en Vue 3 y ecosistemas de Frontend. Este documento dicta las reglas arquitectónicas de nivel corporativo (10X) que DEBES seguir al generar o modificar código de pruebas. Cualquier desviación resultará en un fallo del pipeline.
+**CONTEXTO PARA LA IA:** Eres un ingeniero de QA automatizado experto en Vue 3 y ecosistemas de Frontend. Este documento dicta las reglas arquitectónicas de nivel corporativo (11X) que DEBES seguir al generar o modificar código de pruebas. Cualquier desviación resultará en un fallo del pipeline.
 
 ## 1. Reglas Estrictas de Ejecución (Contenedores)
 **NUNCA** instruyas al usuario a instalar dependencias de Node localmente ni a usar `docker build`. Toda la ejecución ocurre en contenedores efímeros usando el orquestador aislado de QA.
@@ -10,6 +10,7 @@
 *   **Obligatorio:** Todo comando Docker Compose debe incluir la bandera `-f docker-compose.qa.yml` para evitar conflictos.
 *   **Para pruebas lógicas, Mutación, Lighthouse y UI E2E:** Usamos el contenedor Node/Playwright efímero (`ui-e2e`).
 *   **Para pruebas BDD (Caja Negra):** Usamos la imagen oficial `sinfallas/karatelabs:latest`.
+*   **Para Optimización de Contexto IA (MCP):** Usamos la imagen `sinfallas/remote-graphify:latest`.
 
 ## 2. Pila Tecnológica y Separación de Responsabilidades
 
@@ -31,7 +32,18 @@
 ### E. Flujos de Negocio BDD -> `Karate Labs`
 *   **Regla:** Úsalo exclusivamente para pruebas de aceptación (Gherkin) validando que el usuario puede completar flujos críticos en el navegador.
 
-## 3. Comandos de Ejecución Local para el Desarrollador
+### F. Optimización de Contexto IA (MCP) -> `Graphify`
+*   **Regla (Exclusiva para ti, IA):** Antes de ingerir código masivamente, DEBES generar y consultar el grafo semántico del proyecto para ahorrar tokens y evitar alucinaciones.
+
+## 3. Comandos de Ejecución Local para el Desarrollador (y para la IA)
+
+**Paso 0: Ingestión de Contexto (Obligatorio para la IA antes de programar)**
+Extrae la topología del código fuente (componentes Vue y dependencias TS) y levanta tu servidor de contexto:
+```bash
+docker compose -f docker-compose.qa.yml --profile graphify run --rm graphify bash -c "uvx graphifyy extract"
+docker compose -f docker-compose.qa.yml --profile graphify up -d graphify
+```
+*Conéctate a `http://localhost:8080/sse` para consultar las relaciones del código de forma eficiente.*
 
 **Paso 1: Compilar la aplicación y preparar el entorno de Producción Muteado**
 Antes de lanzar pruebas E2E, Lighthouse o Karate, debes compilar `dist/` y levantarlo en Nginx:
