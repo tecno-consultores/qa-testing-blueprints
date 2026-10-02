@@ -26,6 +26,7 @@ rm -f zap-report.html
 rm -f chaos-report.html
 rm -f profile.svg
 rm -f *.log
+rm -rf graphify-out/
 
 chown -R $USER:$USER . 2>/dev/null || true
 
