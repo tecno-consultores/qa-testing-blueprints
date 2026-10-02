@@ -1,6 +1,6 @@
 # Arquitectura del Ecosistema de Pruebas (Modelo C4)
 
-Este documento describe gráficamente cómo interactúan las herramientas, contenedores y redes dentro de **QA Testing Blueprints**. Utilizamos una adaptación del Modelo C4 orientada a infraestructura efímera para ilustrar el aislamiento estricto de nuestras pruebas, incluyendo las nuevas capas de Seguridad Dinámica (DAST) e Ingeniería del Caos (Nivel 11X).
+Este documento describe gráficamente cómo interactúan las herramientas, contenedores y redes dentro de **QA Testing Blueprints**. Utilizamos una adaptación del Modelo C4 orientada a infraestructura efímera para ilustrar el aislamiento estricto de nuestras pruebas, incluyendo las nuevas capas de Seguridad Dinámica (DAST), Ingeniería del Caos y Observabilidad (Nivel 11X).
 
 ---
 
@@ -14,9 +14,9 @@ graph TD
     Hook["🚧 Lefthook (Barrera Pre-Commit)"]
     QA["🛡️ QA Testing Blueprints (Docker Compose)"]
     Host["🖥️ Máquina Host (LXC / Local)"]
-    Reports["📁 Reportes (Coverage, ZAP, Chaos, Flamegraphs)"]
+    Reports["📁 Reportes (Coverage, ZAP, Chaos, Métricas)"]
 
-    %% Relaciones (sintaxis robusta con comillas dobles)
+    %% Relaciones
     Dev -- "1. Intenta hacer commit" --> Hook
     Hook -- "2. Lanza escaneo efímero. Rechaza si falla" --> QA
     Dev -- "3. Ejecuta pruebas completas (run --rm)" --> QA
@@ -35,7 +35,7 @@ graph TD
 ---
 
 ## Nivel 2: Diagrama de Contenedores (Container Diagram)
-Muestra el interior del orquestador `docker-compose.qa.yml`. Destaca cómo separamos las responsabilidades en diferentes contenedores que conviven en una red virtual aislada, incluyendo perfiles ocultos para pruebas destructivas e inteligencia artificial.
+Muestra el interior del orquestador `docker-compose.qa.yml`. Destaca cómo separamos las responsabilidades en diferentes contenedores que conviven en una red virtual aislada, incluyendo perfiles ocultos para inteligencia artificial y pruebas destructivas.
 
 ```mermaid
 graph LR
@@ -43,8 +43,9 @@ graph LR
         API["📦 App Viva \n (Nginx / Uvicorn / Node) \n Puerto Expuesto"]
         Test["🧪 Contenedor QA Efímero \n (Vitest/Pytest, SAST) \n Muere al terminar"]
         Karate["🥋 Contenedor BDD \n (Karate Labs) \n Muere al terminar"]
-        ZAP["🕷️ Contenedor DAST \n (OWASP ZAP) \n Baseline Scan"]
+        ZAP["🕷️️ Contenedor DAST \n (OWASP ZAP) \n Baseline Scan"]
         Pumba["🌪️ Inyector de Caos \n (Pumba) \n Perfil: --profile chaos"]
+        Prometheus["📊 Observabilidad \n (Prometheus) \n Perfil: --profile chaos"]
         Graphify["🧠 Servidor MCP IA \n (Graphify) \n Perfil: --profile graphify"]
     end
 
@@ -54,17 +55,20 @@ graph LR
     Karate -- "Peticiones HTTP Caja Negra" --> API
     ZAP -- "Inyección XSS/SQL y Cabeceras" --> API
     Pumba -- "Inyecta Latencia y Mata Contenedores" --> API
-    Graphify -- "Lee código y expone SSE en puerto 8080" --> API
+    Prometheus -- "Scrapea Métricas (/metrics)" --> API
+    Graphify -- "Lee código y expone SSE" --> API
 
     classDef ephemeral fill:#b33a3a,stroke:#800000,stroke-width:2px,color:#fff,stroke-dasharray: 5 5;
     classDef live fill:#228b22,stroke:#006400,stroke-width:2px,color:#fff;
     classDef chaos fill:#4b0082,stroke:#800080,stroke-width:2px,color:#fff,stroke-dasharray: 5 5;
     classDef ai fill:#d4af37,stroke:#8b6508,stroke-width:2px,color:#000;
+    classDef obs fill:#e6522c,stroke:#8f3018,stroke-width:2px,color:#fff;
     
     class Test,Karate,ZAP ephemeral;
     class Pumba chaos;
     class API live;
     class Graphify ai;
+    class Prometheus obs;
 ```
 
 ---
@@ -78,19 +82,21 @@ graph TD
         direction TB
         
         Graph["0️⃣ Ingestión de Contexto IA \n (Graphify MCP)"]
-        IaC["1️⃣ Auditoría IaC y Secretos \n (Trivy / Lefthook)"]
-        SAST["2️⃣ Auditoría de Seguridad Estática \n (Bandit / ESLint Security)"]
-        Static["3️⃣ Deuda Técnica y Complejidad \n (Radon / SonarJS)"]
-        Unit["4️⃣ Lógica Unitaria y Mocking \n (Pytest / Vitest)"]
-        Coverage{"5️⃣ Cobertura Total \n ¿Es >= 95%?"}
-        Mutation["6️⃣ Pruebas de Mutación \n (Stryker / Mutmut)"]
-        Performance["7️⃣ Profiling de Rendimiento \n (py-spy / clinic.js)"]
-        DAST["8️⃣ Seguridad Dinámica \n (OWASP ZAP Baseline)"]
-        Chaos["9️⃣ Ingeniería del Caos \n (Pumba + Locust/Artillery)"]
+        Obs["1️⃣ Instrumentación RED \n (Middleware Prometheus)"]
+        IaC["2️⃣ Auditoría IaC y Secretos \n (Trivy / Lefthook)"]
+        SAST["3️⃣ Auditoría de Seguridad Estática \n (Bandit / ESLint Security)"]
+        Static["4️⃣ Deuda Técnica y Complejidad \n (Radon / SonarJS)"]
+        Unit["5️⃣ Lógica Unitaria y Mocking \n (Pytest / Vitest)"]
+        Coverage{"6️⃣ Cobertura Total \n ¿Es >= 95%?"}
+        Mutation["7️⃣ Pruebas de Mutación \n (Stryker / Mutmut)"]
+        Performance["8️⃣ Profiling de Rendimiento \n (py-spy / clinic.js)"]
+        DAST["9️⃣ Seguridad Dinámica \n (OWASP ZAP Baseline)"]
+        Chaos["🔟 Ingeniería del Caos \n (Pumba + Locust/Artillery)"]
     end
 
-    %% Enlaces lógicos (sintaxis robusta)
-    Graph -- "Contexto Comprimido" --> IaC
+    %% Enlaces lógicos
+    Graph -- "Contexto Comprimido" --> Obs
+    Obs -- "App Observable" --> IaC
     IaC -- "Infraestructura Segura" --> SAST
     SAST -- "Pasa" --> Static
     Static -- "Código Limpio" --> Unit
@@ -101,7 +107,7 @@ graph TD
     Mutation -- "Pruebas Sólidas" --> Performance
     Performance -- "Sin Cuellos de Botella" --> DAST
     DAST -- "API Segura" --> Chaos
-    Chaos -- "Auto-Recovery Exitoso" --> Exito(("✅ Aprobado"))
+    Chaos -- "Métricas RED Estables" --> Exito(("✅ Aprobado"))
 
     classDef pass fill:#2e8b57,stroke:#fff,color:#fff;
     classDef fail fill:#b22222,stroke:#fff,color:#fff;
@@ -115,5 +121,5 @@ graph TD
 
 1. **Shift-Left Security:** Obligamos a ejecutar validaciones IaC (Trivy) y SAST (Lefthook) localmente antes de gastar poder de cómputo en CI/CD.
 2. **Sidecar / Atacante-Defensor:** Herramientas como ZAP o Locust actúan como atacantes temporales que bombardean a la App Viva. Nunca se instalan dentro de la imagen de producción.
-3. **Resiliencia por Caos (Chaos Engineering):** Probar si la API funciona no es suficiente. Usamos Pumba para degradar intencionalmente la red interna (Jitter, Packet Loss) y certificar que la arquitectura no entra en estado de *deadlock*.
+3. **Resiliencia por Caos (Chaos Engineering):** Probar si la API funciona no es suficiente. Usamos Pumba para degradar intencionalmente la red interna (Jitter, Packet Loss) y Prometheus para certificar que la latencia (P99) no se dispare indefinidamente.
 4. **Blackbox Network Isolation:** El contenedor BDD (Karate) y el DAST (ZAP) no tienen acceso al código fuente. Se comunican por peticiones TCP/IP puras.
