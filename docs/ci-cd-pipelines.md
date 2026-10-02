@@ -23,7 +23,7 @@ Antes de descargar dependencias de lenguaje, escaneamos estáticamente los manif
 ### Paso 1: Checkout y Preparación
 Clonar el código fuente. No necesitamos instalar Python, Node ni dependencias de sistema.
 ### Paso 2: Ejecución Efímera Base (El Núcleo)
-Lanzar la suite utilizando `docker compose -f docker-compose.qa.yml run --rm`. Si la prueba de cobertura detecta menos del 95%, o si fallan las métricas de complejidad de `eslint-plugin-sonarjs` / `radon`, arrojará un código de salida `1` (Exit Code 1) bloqueando el *merge*.
+Lanzar la suite utilizando `docker compose -f docker-compose.qa.yml run --rm test`. Si la prueba de cobertura detecta menos del 95%, o si fallan las métricas de complejidad de `eslint-plugin-sonarjs` / `radon`, arrojará un código de salida `1` (Exit Code 1) bloqueando el *merge*.
 ### Paso 3: Seguridad Dinámica (DAST)
 OWASP ZAP levanta un ataque ligero (*Baseline Scan*) sobre el contenedor vivo para auditar vulnerabilidades en la red.
 ### Paso 4: Resiliencia y Caos
@@ -66,19 +66,19 @@ jobs:
 
       - name: 4️⃣ Auditoría de Dependencias (CVEs)
         # Verificamos vulnerabilidades en paquetes de terceros usando pnpm/npm audit.
-        run: docker compose -f docker-compose.qa.yml run --rm ui-test npm audit
+        run: docker compose -f docker-compose.qa.yml run --rm test npm audit
 
       - name: 5️⃣ Análisis Estático, Complejidad y Formateo
         # Ejecutamos ESLint, Prettier y SonarJS para asegurar calidad y evitar Code Smells.
-        run: docker compose -f docker-compose.qa.yml run --rm ui-test npm run lint
+        run: docker compose -f docker-compose.qa.yml run --rm test npm run lint
 
       - name: 6️⃣ Ejecutar Suite Efímera con Intercepción de Red (Vitest + MSW)
         # Si la cobertura es menor a 95%, este comando falla y aborta el pipeline.
-        run: docker compose -f docker-compose.qa.yml run --rm ui-test npm run test:coverage
+        run: docker compose -f docker-compose.qa.yml run --rm test npm run test:coverage
 
       - name: 7️⃣ Pruebas de Mutación (Stryker)
         # Para evitar que pasen PRs con pruebas "falsas positivas" que no auditan realmente la lógica.
-        run: docker compose -f docker-compose.qa.yml run --rm ui-test npx stryker run
+        run: docker compose -f docker-compose.qa.yml run --rm test npx stryker run
 
       - name: 8️⃣ Seguridad Dinámica DAST (OWASP ZAP)
         # Levanta la API en segundo plano y lanza un Baseline Scan contra las cabeceras HTTP.
