@@ -15,7 +15,7 @@ Docker sigue almacenando en caché de forma agresiva: imágenes colgantes (Dangl
 **La Solución:**
 Ejecutar la purga profunda:
 ```bash
-sudo ./limpiar.sh
+sudo ./limpieza.sh
 ```
 
 ---
@@ -38,7 +38,7 @@ sudo chown -R $USER:$USER .
 ## 3. Salida Abrupta: "Exit Code 137" (OOM Killer)
 
 **Síntoma:** 
-El contenedor muere arrojando `Exit Code 137`. Suele ocurrir con Playwright o Karate Labs.
+El contenedor muere arrojando `Exit Code 137`. Suele ocurrir con Playwright o Karate Labs, y especialmente al inyectar concurrencia con Artillery.
 
 **¿Por qué sucede?**
 El *OOM Killer* de Linux asesinó al proceso por consumir toda la memoria RAM.
@@ -77,3 +77,42 @@ Debes otorgar capacidades extendidas temporalmente al contenedor en tu archivo `
     cap_add:
       - SYS_PTRACE
 ```
+
+---
+
+## 6. Lefthook "Command not found: docker compose"
+
+**Síntoma:** 
+Intentas hacer un commit, y Lefthook falla diciendo que Docker no existe, aunque sí lo tienes instalado.
+
+**¿Por qué sucede?**
+Generalmente ocurre si usas clientes de Git con interfaz gráfica (GitKraken, SourceTree, VSCode) que no heredan el `$PATH` global de tu terminal.
+
+**La Solución:**
+Inicia tu IDE o cliente de Git desde la misma terminal donde Docker está configurado, o añade explícitamente la ruta de los binarios de Docker al PATH de tu entorno de escritorio.
+
+---
+
+## 7. ZAP (DAST) falla al escribir el reporte HTML
+
+**Síntoma:** 
+OWASP ZAP termina de auditar la API exitosamente, pero escupe un error de permisos `Permission Denied` al guardar el archivo `zap-report.html`.
+
+**¿Por qué sucede?**
+El contenedor de ZAP corre por defecto con el usuario no privilegiado `zap` interno, el cual no tiene permisos de escritura en el volumen *bind* mapeado desde tu máquina host.
+
+**La Solución:**
+Asegúrate de que la directiva `user: root` esté declarada en el servicio `zap` dentro de tu `docker-compose.qa.yml`. Luego, ejecuta `sudo ./limpieza.sh` para restaurar los permisos locales.
+
+---
+
+## 8. Pumba falla indicando "Cannot connect to the Docker daemon"
+
+**Síntoma:** 
+Al ejecutar la prueba de resiliencia (`docker compose --profile chaos up`), el contenedor de Pumba muere inmediatamente con un error de conexión al demonio.
+
+**¿Por qué sucede?**
+El demonio de Docker en distribuciones como Ubuntu Snap o Docker Desktop (Windows/Mac) a veces utiliza rutas virtuales distintas al socket estándar `/var/run/docker.sock`.
+
+**La Solución:**
+Asegúrate de que la ruta montada en tu orquestador coincida con tu configuración de host. Si usas WSL2 en Windows, debes activar la integración explícita de recursos y red en los ajustes de Docker Desktop.
