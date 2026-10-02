@@ -8,5 +8,4 @@ services:
       TZ: 'America/Caracas'
     volumes:
       - .:/app
-    # Mantiene el entorno vivo para recibir comandos efímeros
     command: bash -c "echo 'Contenedor QA Bash listo. Usa docker compose run --rm qa-bash [comando]'; sleep infinity"
