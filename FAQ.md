@@ -1,17 +1,20 @@
 # Preguntas Frecuentes (FAQ) - QA Testing Blueprints
 
-Este documento resuelve las dudas arquitectónicas y los errores más comunes al implementar y ejecutar los ecosistemas de prueba estandarizados (10X) en este repositorio.
+Este documento resuelve las dudas arquitectónicas y los errores más comunes al implementar y ejecutar los ecosistemas de prueba estandarizados (Nivel 11X) en este repositorio.
 
 ## 🏗️ Filosofía y Ejecución
 
 ### ¿Por qué no puedo ejecutar `npm install`, `pip install` o las pruebas directamente en mi máquina local?
 Para garantizar **inmutabilidad y paridad absoluta con producción**. El problema de "en mi máquina sí funciona" suele deberse a versiones globales ocultas de Node, Python o variables de entorno residuales. Al forzar el uso de contenedores efímeros (`docker compose -f docker-compose.qa.yml run --rm`), el entorno nace completamente virgen, ejecuta la suite y se autodestruye.
 
+### Lefthook bloqueó mi `git commit`, ¿qué hago?
+Nuestra política es **"Fail & Forbid" (Rechazo Educativo)**. Si Lefthook detectó errores de formato o un secreto *hardcodeado*, abortará tu commit. NO intentes evadirlo con `--no-verify`. Debes ejecutar el comando sugerido en la terminal (ej. `ruff format` o `Prettier`), revisar que el código haya quedado bien, y volver a intentar hacer commit.
+
 ### Todo mi código funciona y mi cobertura está en 100%, ¿por qué el pipeline sigue arrojando fallo?
 Si superaste el 95% de cobertura, el pipeline ahora evalúa la **Deuda Técnica y Seguridad**. Es altamente probable que:
 1. Herramientas como `SonarJS` (Node) o `Radon` (Python) detectaron **Complejidad Ciclomática** alta (Código Espagueti). Tendrás que refactorizar las funciones muy largas.
 2. Fallaste los estándares de calidad de código visual (`Prettier`, `Ruff`).
-3. Introdujiste vulnerabilidades detectadas por `ESLint Security` o `bandit`.
+3. Introdujiste vulnerabilidades detectadas por `ESLint Security` o `bandit` (SAST), o fallaste el escaneo dinámico de `OWASP ZAP` (DAST).
 4. El rendimiento de Lighthouse (Vue3) bajó de 90.
 
 ### ¿Qué significa "contenedor efímero" y cómo guardo los reportes si el contenedor se borra?
@@ -25,11 +28,18 @@ Para garantizar el **determinismo y el aislamiento total**. Si tu prueba depende
 ### Estoy probando un script en Bash que formatea discos o reinicia servicios. ¿No es peligroso?
 Es **extremadamente peligroso y está estrictamente prohibido**. Debes utilizar la técnica de *Mocking*. La imagen `sinfallas/base-bash-qa:latest` trae la librería `bats-mock` para interceptar binarios peligrosos e inyectar respuestas falsas.
 
+### ¿Qué diferencia hay entre SAST (Bandit/ESLint) y DAST (OWASP ZAP)?
+*   **SAST (Estático):** Escanea tu código fuente escrito como si fuera un libro, buscando vulnerabilidades de sintaxis o lógica antes de que el programa corra.
+*   **DAST (Dinámico):** Es un hacker automatizado. Necesita que tu API esté viva y corriendo. ZAP le envía peticiones maliciosas reales (XSS, SQLi) evaluando si el servidor se rompe o expone cabeceras inseguras en las respuestas HTTP.
+
 ### ¿Qué son las Pruebas de Mutación (Stryker / mutmut)?
 No prueban tu código, **prueban tus pruebas**. Alteran intencionalmente el código fuente original (cambian un `>` por `<`, o un `true` por `false`) y corren tu suite de pruebas de nuevo. Si tus pruebas unitarias dicen "Todo pasó" a pesar del daño, significa que tus pruebas tienen falsos positivos (no están auditando nada realmente).
 
 ### ¿Para qué utilizar Karate Labs (BDD) si ya tengo Vitest, Pytest o Supertest evaluando el código?
 Porque cumplen propósitos distintos. Vitest/Pytest prueban cajas blancas (conocen el código interno). Karate Labs evalúa cajas negras: ataca el puerto vivo de la aplicación emulando a un usuario real mediante lenguaje natural (Gherkin).
+
+### ¿Por qué Pumba (Caos) necesita acceder al socket de Docker (`/var/run/docker.sock`) si nuestra política prohíbe esto?
+Porque la **Ingeniería del Caos** consiste en simular fallos catastróficos a nivel de infraestructura. Pumba necesita comunicarse con el demonio de Docker para interceptar el tráfico de red de otros contenedores o apagarlos abruptamente. Esta es una **excepción de seguridad documentada**, y es por ello que está oculta bajo el flag `--profile chaos` en el orquestador. Jamás se debe activar en un servidor de producción.
 
 ## 🚨 Resolución de Problemas (Troubleshooting)
 
@@ -42,6 +52,10 @@ Por seguridad, el demonio de Docker bloquea la inspección de memoria entre proc
     security_opt:
       - seccomp:unconfined
 ```
+
+### ZAP (DAST) falla al escribir el `zap-report.html` (Permission Denied)
+El contenedor de ZAP corre por defecto con un usuario no privilegiado que no tiene permisos de escritura en el volumen *bind* del host.
+**Solución:** Asegúrate de incluir explícitamente la directiva `user: root` en la definición del servicio `zap` en tu `docker-compose.qa.yml`. Luego, ejecuta `sudo ./limpieza.sh` en tu host para restaurar los permisos.
 
 ### Docker se quedó sin espacio, está muy lento o las pruebas fallan porque detectan código viejo.
 Los contenedores y gestores acumulan cachés masivos. 
