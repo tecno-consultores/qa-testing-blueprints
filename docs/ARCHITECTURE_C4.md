@@ -1,11 +1,11 @@
 # Arquitectura del Ecosistema de Pruebas (Modelo C4)
 
-Este documento describe gráficamente cómo interactúan las herramientas, contenedores y redes dentro de **QA Testing Blueprints**[cite: 25]. Utilizamos una adaptación del Modelo C4 orientada a infraestructura efímera para ilustrar el aislamiento estricto de nuestras pruebas, incluyendo las nuevas capas de Seguridad Dinámica (DAST) e Ingeniería del Caos (Nivel 11X)[cite: 25].
+Este documento describe gráficamente cómo interactúan las herramientas, contenedores y redes dentro de **QA Testing Blueprints**. Utilizamos una adaptación del Modelo C4 orientada a infraestructura efímera para ilustrar el aislamiento estricto de nuestras pruebas, incluyendo las nuevas capas de Seguridad Dinámica (DAST) e Ingeniería del Caos (Nivel 11X).
 
 ---
 
 ## Nivel 1: Diagrama de Contexto (System Context)
-Muestra el panorama general: cómo los usuarios (o IAs) interactúan con el sistema de pruebas y cómo este se relaciona con la máquina anfitriona[cite: 25].
+Muestra el panorama general: cómo los usuarios (o IAs) interactúan con el sistema de pruebas y cómo este se relaciona con la máquina anfitriona.
 
 ```mermaid
 graph TD
@@ -70,7 +70,7 @@ graph LR
 ---
 
 ## Nivel 3: Diagrama de Componentes (Component Diagram - Flujo Interno)
-Cadena de ejecución innegociable. Si un eslabón falla, el pipeline se aborta (Principio de Fallo Rápido)[cite: 25].
+Cadena de ejecución innegociable. Si un eslabón falla, el pipeline se aborta (Principio de Fallo Rápido).
 
 ```mermaid
 graph TD
@@ -113,7 +113,7 @@ graph TD
 
 ## Patrones Arquitectónicos Clave
 
-1. **Shift-Left Security:** Obligamos a ejecutar validaciones IaC (Trivy) y SAST (Lefthook) localmente antes de gastar poder de cómputo en CI/CD[cite: 25].
-2. **Sidecar / Atacante-Defensor:** Herramientas como ZAP o Locust actúan como atacantes temporales que bombardean a la App Viva[cite: 25]. Nunca se instalan dentro de la imagen de producción[cite: 25].
-3. **Resiliencia por Caos (Chaos Engineering):** Probar si la API funciona no es suficiente[cite: 25]. Usamos Pumba para degradar intencionalmente la red interna (Jitter, Packet Loss) y certificar que la arquitectura no entra en estado de *deadlock*[cite: 25].
-4. **Blackbox Network Isolation:** El contenedor BDD (Karate) y el DAST (ZAP) no tienen acceso al código fuente[cite: 25]. Se comunican por peticiones TCP/IP puras[cite: 25].
+1. **Shift-Left Security:** Obligamos a ejecutar validaciones IaC (Trivy) y SAST (Lefthook) localmente antes de gastar poder de cómputo en CI/CD.
+2. **Sidecar / Atacante-Defensor:** Herramientas como ZAP o Locust actúan como atacantes temporales que bombardean a la App Viva. Nunca se instalan dentro de la imagen de producción.
+3. **Resiliencia por Caos (Chaos Engineering):** Probar si la API funciona no es suficiente. Usamos Pumba para degradar intencionalmente la red interna (Jitter, Packet Loss) y certificar que la arquitectura no entra en estado de *deadlock*.
+4. **Blackbox Network Isolation:** El contenedor BDD (Karate) y el DAST (ZAP) no tienen acceso al código fuente. Se comunican por peticiones TCP/IP puras.
