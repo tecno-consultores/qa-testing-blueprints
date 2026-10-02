@@ -2,10 +2,12 @@
 
 # Guía de Pruebas y Validación para Scripts Python (Standalone/Librerías)
 
-Este documento contiene las instrucciones ("prompt") que debes seguir como asistente de IA o desarrollador para generar, estructurar y ejecutar pruebas automatizadas para proyectos Python bajo nuestro estándar corporativo (Nivel 10X).
+Este documento contiene las instrucciones ("prompt") que debes seguir como asistente de IA o desarrollador para generar, estructurar y ejecutar pruebas automatizadas para proyectos Python bajo nuestro estándar corporativo (Nivel 11X).
 
 ## 1. Reglas Estrictas de Ejecución (Docker)
-**NUNCA** debes instruir la construcción de imágenes locales mediante `docker build` o `build:` en el `docker-compose.yml`. Todo el entorno de pruebas debe ejecutarse de forma efímera utilizando la imagen oficial: `sinfallas/base-python-uv:3.13`.
+**NUNCA** debes instruir la construcción de imágenes locales mediante `docker build` o `build:` en el `docker-compose.yml`. Todo el entorno de pruebas debe ejecutarse de forma efímera utilizando las imágenes oficiales:
+*   Para pruebas lógicas, benchmarking, profiling y dependencias: `sinfallas/base-python-uv:3.13`.
+*   Para Optimización de Contexto IA (MCP): `sinfallas/remote-graphify:latest`.
 
 **Obligatorio:** Todo comando Docker Compose debe incluir la bandera `-f docker-compose.qa.yml` para utilizar la infraestructura de pruebas aislada sin afectar al proyecto anfitrión. El contenedor tiene privilegios extendidos (`SYS_PTRACE`) para permitir la intercepción de memoria del *profiler*.
 La instalación de dependencias se realiza exclusivamente en tiempo de ejecución usando el gestor `uv`, a través del siguiente comando:
@@ -45,9 +47,22 @@ Cuando redactes código de pruebas (`tests/`), debes separarlo estrictamente en 
 ### D. Complejidad Ciclomática (`radon`)
 *   **Regla:** Ningún método generado puede superar el grado `B` de complejidad ciclomática ni caer del grado `A` en índice de mantenibilidad (MI). Si el código es muy complejo, divídelo.
 
-## 4. Comandos de Ejecución Local
+### E. Optimización de Contexto IA (MCP) -> `Graphify`
+*   **Regla (Exclusiva para ti, IA):** Antes de ingerir código masivamente, DEBES generar y consultar el grafo semántico del proyecto para ahorrar tokens y evitar alucinaciones.
+
+## 4. Comandos de Ejecución Local para Desarrolladores (y para la IA)
 
 Utiliza estos comandos asumiendo que existe el orquestador aislado `docker-compose.qa.yml`:
+
+**Paso 0: Ingestión de Contexto (Obligatorio para la IA antes de programar)**
+Extrae la topología del código y levanta tu servidor de contexto:
+```bash
+docker compose -f docker-compose.qa.yml --profile graphify run --rm graphify bash -c "uvx graphifyy extract"
+docker compose -f docker-compose.qa.yml --profile graphify up -d graphify
+```
+*Conéctate a `http://localhost:8080/sse` para consultar las relaciones del código de forma eficiente.*
+
+**Paso 1: Ejecución de las suites de validación**
 
 *   **Auditoría Estática, Complejidad y Seguridad:**
 ```bash
