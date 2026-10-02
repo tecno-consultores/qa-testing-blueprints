@@ -15,11 +15,12 @@ rm -rf node_modules/
 rm -rf dist/
 rm -rf .stryker-tmp/
 
-# Limpieza de reportes de cobertura, Karate Labs y Profiling de Clinic.js
+# Limpieza de reportes de cobertura, Karate Labs, DAST (ZAP) y Profiling de Clinic.js
 rm -rf coverage/
 rm -rf target/
 rm -rf test/target/
 rm -rf .clinic/
+rm -f zap-report.html
 rm -f *.html
 rm -f *.clinic-*.html
 rm -f *.log
