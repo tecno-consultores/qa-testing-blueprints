@@ -27,10 +27,13 @@ rm -f chaos-report.html
 rm -f profile.svg
 rm -f *.log
 rm -rf graphify-out/
+rm -rf prometheus_data/
 
 chown -R $USER:$USER . 2>/dev/null || true
 
+# Apagar infraestructuras de perfiles ocultos antes de purgar
 docker compose -f docker-compose.qa.yml --profile chaos down -v 2>/dev/null || true
+docker compose -f docker-compose.qa.yml --profile graphify down -v 2>/dev/null || true
 docker system prune -af --volumes
 
 echo "Limpieza de caché, reportes, imágenes y contenedores finalizada exitosamente."
