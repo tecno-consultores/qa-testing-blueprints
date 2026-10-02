@@ -2,7 +2,7 @@
 
 ¡Gracias por tu interés en mejorar **QA Testing Blueprints**! Este repositorio es la fuente de la verdad para la calidad del código de nuestros proyectos. Si deseas proponer nuevas herramientas de prueba, mejorar los prompts de la IA o refinar las arquitecturas de Docker, sigue estas pautas.
 
-## 📜 Reglas de Oro para Contribuir (El Estándar 10X)
+## 📜 Reglas de Oro para Contribuir (El Estándar 11X)
 
 Para mantener la consistencia y la eficacia de estos blueprints, toda contribución debe respetar los siguientes principios:
 
@@ -11,12 +11,14 @@ Para mantener la consistencia y la eficacia de estos blueprints, toda contribuci
    * `sinfallas/base-node-ionic:<tag>` (`22` a `latest`) para Node.js/Vue 3.
    * `sinfallas/base-bash-qa:latest` para Bash/DevOps.
    * `sinfallas/karatelabs:latest` para BDD/Caja Negra.
+   * `sinfallas/remote-graphify:latest` para Optimización de Contexto IA (Servidor MCP).
 2. **Efimeridad y Aislamiento Estricto:** Los contenedores de prueba (excepto los servicios vivos) deben tener un ciclo de vida corto (usando `--rm`). Las pruebas jamás deben salir a Internet a menos que sean explícitamente de integración; el Mocking (`nock`, `pytest-mock`) es obligatorio.
 3. **Prompts Imperativos:** Si modificas los archivos `.md` que consumirá la IA, usa lenguaje directo, autoritario y restrictivo. Las IAs necesitan límites claros (ej. "NUNCA hagas esto", "DEBES usar X para Y").
 4. **Umbral de Calidad y Deuda Técnica:** Toda nueva herramienta o entorno debe configurarse para hacer fallar el pipeline corporativo si no se cumplen estos tres pilares:
    * La cobertura de código baja del **95%**.
    * La complejidad ciclomática del código supera el grado **B** (vía Radon o SonarJS).
    * El rendimiento en frontend (Lighthouse) cae por debajo de **90**.
+5. **IPv4 Estricto:** Toda configuración de red en los `docker-compose.qa.yml` debe utilizar exclusivamente el driver `bridge` estándar en IPv4. Está estrictamente prohibido habilitar `enable_ipv6: true` para evitar conflictos de enrutamiento y NAT en los pipelines de CI/CD.
 
 ## 🛠️ Cómo proponer un cambio
 
