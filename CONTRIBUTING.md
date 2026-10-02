@@ -12,6 +12,7 @@ Para mantener la consistencia y la eficacia de estos blueprints, toda contribuci
    * `sinfallas/base-bash-qa:latest` para Bash/DevOps.
    * `sinfallas/karatelabs:latest` para BDD/Caja Negra.
    * `sinfallas/remote-graphify:latest` para Optimización de Contexto IA (Servidor MCP).
+   * *Nota: Se permite el uso de imágenes oficiales consolidadas exclusivamente para Sidecars periféricos (ej. `prom/prometheus:latest`, `owasp/zap2docker-stable:latest`).*
 2. **Efimeridad y Aislamiento Estricto:** Los contenedores de prueba (excepto los servicios vivos) deben tener un ciclo de vida corto (usando `--rm`). Las pruebas jamás deben salir a Internet a menos que sean explícitamente de integración; el Mocking (`nock`, `pytest-mock`) es obligatorio.
 3. **Prompts Imperativos:** Si modificas los archivos `.md` que consumirá la IA, usa lenguaje directo, autoritario y restrictivo. Las IAs necesitan límites claros (ej. "NUNCA hagas esto", "DEBES usar X para Y").
 4. **Umbral de Calidad y Deuda Técnica:** Toda nueva herramienta o entorno debe configurarse para hacer fallar el pipeline corporativo si no se cumplen estos tres pilares:
