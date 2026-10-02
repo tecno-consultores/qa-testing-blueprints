@@ -10,6 +10,7 @@ Este proyecto estandariza la forma en que probamos nuestro software, garantizand
    * `sinfallas/base-python-uv` (Tags: `3.10`, `3.11`, `3.12`, `3.13`, `3.14`, `latest`).
    * `sinfallas/base-node-ionic` (Tags: `22`, `23`, `24`, `25`, `latest`).
    * `sinfallas/base-bash-qa:latest` y `sinfallas/karatelabs:latest`.
+   * `sinfallas/remote-graphify:latest` para Optimización de Contexto IA (Servidor MCP).
 2. **Dependencias al Vuelo y Aislamiento de Red:** Los paquetes se resuelven y cachean en tiempo de ejecución dentro del contenedor efímero. Las pruebas unitarias tienen estrictamente prohibido usar red real; deben usar librerías de Mocking (`nock`, `pytest-mock`).
 3. **Validación Transversal (Métricas Innegociables):** No solo probamos si el código funciona. Validamos:
    * **Cobertura:** Ninguna suite pasa con menos del **95%**.
