@@ -1,97 +1,146 @@
-> **[SYSTEM DIRECTIVE FOR AI AGENTS]:** Act as a Staff QA Automation Engineer and DevOps Expert. Read, parse, and strictly enforce the following architectural constraints written in Spanish. You must generate code that perfectly aligns with these rules, using exclusively the ephemeral Docker containers, testing frameworks, and strict quality thresholds (e.g., 95% coverage, SAST, Profiling) specified below. Do not suggest local installations. Process the technical logic at your highest reasoning capacity in English, but output your final response, explanations, and code comments in Spanish.
+# ==============================================================================
+# ORQUESTADOR QA TESTING BLUEPRINTS - FASTAPI (NIVEL 11X)
+# ==============================================================================
+services:
+  # 1. LA APLICACIÓN REAL (Debe estar corriendo en segundo plano)
+  api:
+    image: sinfallas/base-python-uv:3.13
+    container_name: fastapi_api
+    hostname: api
+    pull_policy: always
+    environment:
+      TZ: 'America/Caracas'
+    volumes:
+      - .:/app
+    working_dir: /app
+    ports:
+      - "8000:8000"
+    # cap_add es crítico para que py-spy pueda leer la memoria del proceso PID 1
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+    command: bash -c "uv pip install --system -e '.[dev]' && uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload"
 
-# Guía de Pruebas y Validación para API (FastAPI)
+  # 2. ENTORNO INTERNO: Para pytest, tox, schemathesis, locust y radon
+  test:
+    image: sinfallas/base-python-uv:3.13
+    container_name: fastapi_test
+    hostname: test_env
+    pull_policy: always
+    environment:
+      TZ: 'America/Caracas'
+      UV_PYTHON_DOWNLOADS: 'true'
+    volumes:
+      - .:/app
+    working_dir: /app
+    cap_add:
+      - SYS_PTRACE
+    command: bash -c "echo 'Contenedor Python listo. Usa docker compose run --rm test [comando]'; sleep infinity"
 
-Este documento contiene las instrucciones corporativas de Nivel 11X que DEBES seguir innegociablemente para generar, estructurar y ejecutar pruebas automatizadas en APIs construidas con FastAPI. El objetivo no es solo probar que el código funciona, sino garantizar su resiliencia bajo estrés extremo, auditar su complejidad y certificar su seguridad estática y dinámica.
+  # 3. ENTORNO BDD: Karate Labs automatizando pruebas de caja negra
+  karatelabs:
+    image: sinfallas/karatelabs:latest
+    container_name: fastapi_karate
+    pull_policy: always
+    depends_on:
+      - api
+    volumes:
+      - ./test:/app/src/test/java/examples/test
+    command: bash -c "echo 'Contenedor Karate listo. Usa docker compose run --rm karatelabs mvn clean test'; sleep infinity"
 
-## 1. Reglas Estrictas de Ejecución (Docker Efímero)
-**NUNCA** debes instruir la construcción de imágenes locales (`docker build`). Todo se ejecuta de forma efímera usando nuestras imágenes oficiales en el orquestador de QA:
-*   Para la API, pruebas lógicas, contratos, profiling y estrés: `sinfallas/base-python-uv:<tag>`.
-*   Para pruebas BDD de caja negra: `sinfallas/karatelabs:latest`.
-*   Para Seguridad Dinámica (DAST): `owasp/zap2docker-stable:latest`.
-*   Para Ingeniería del Caos: `gaiaadm/pumba:latest`.
+  # 4. ENTORNO DAST: OWASP ZAP para seguridad dinámica
+  zap:
+    image: owasp/zap2docker-stable:latest
+    container_name: fastapi_zap
+    pull_policy: always
+    depends_on:
+      - api
+    # Se utiliza el usuario root temporalmente para evitar problemas de permisos al escribir el reporte HTML en el host
+    user: root 
+    volumes:
+      - .:/zap/wrk/:rw
+    command: bash -c "echo 'Contenedor ZAP listo. Usa docker compose run --rm zap zap-baseline.py -t http://api:8000 -r zap-report.html'; sleep infinity"
 
-**Obligatorio:** Todo comando Docker Compose debe incluir la bandera `-f docker-compose.qa.yml` para aislar la infraestructura. El contenedor base cuenta con el privilegio `SYS_PTRACE` habilitado para permitir la intercepción de memoria. 
-La instalación de dependencias en Python se hace al vuelo en memoria con:
-`uv pip install --system -e '.[dev]'`.
+  # ============================================================================
+  # PERFIL DE CAOS (Solo se activa explícitamente con --profile chaos)
+  # ============================================================================
 
-## 2. Pila Tecnológica Requerida
-La estrategia de validación de FastAPI abarca 10 capas transversales. Debes configurar e integrar:
+  # 5. EL ATACANTE DE INFRAESTRUCTURA: Pumba
+  pumba:
+    image: gaiaadm/pumba:latest
+    container_name: fastapi_pumba
+    profiles:
+      - chaos
+    volumes:
+      # ADVERTENCIA: Montaje del socket de Docker. Exclusivo para Chaos Engineering.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - api
+    # Inyecta 500ms de latencia de red (+- 50ms de jitter aleatorio) al contenedor 'fastapi_api' durante 1 minuto
+    command: netem --tc-image gaiadocker/iproute2 --duration 1m delay --time 500 --jitter 50 re2:^fastapi_api$
 
-1.  **Calidad y Tipado:** `ruff` y `mypy`.
-2.  **Seguridad Estática (SAST):** `uv pip audit` (CVEs) y `bandit`.
-3.  **Seguridad Dinámica (DAST):** `OWASP ZAP` (Escaneo *Baseline* interceptando cabeceras y configuraciones de red).
-4.  **Deuda Técnica:** `radon` (Auditoría de complejidad ciclomática e índice de mantenibilidad).
-5.  **Profiling:** `py-spy` (Análisis de CPU/RAM mediante *Flamegraphs*).
-6.  **Lógica Unitaria e Intercepción:** `pytest`, `pytest-cov` (>95%), y `pytest-mock`.
-7.  **Fuzzing y Contratos:** `schemathesis` (Ataque basado en el estándar OpenAPI).
-8.  **Comportamiento (BDD):** `Karate Labs` (Escenarios funcionales Gherkin).
-9.  **Pruebas de Mutación:** `mutmut` (Inserción de mutantes lógicos para auditar los *asserts*).
-10. **Ingeniería del Caos:** `Pumba` orquestado con `Locust` (Inyección de latencia y evaluación de auto-recovery).
+  # 6. EL INYECTOR DE CARGA: Locust (Estrés Concurrente bajo Caos)
+  stress_test:
+    image: sinfallas/base-python-uv:3.13
+    container_name: fastapi_chaos_locust
+    profiles:
+      - chaos
+    depends_on:
+      - api
+    volumes:
+      - .:/app
+    working_dir: /app
+    # Genera 200 usuarios concurrentes golpeando la API mientras Pumba ralentiza la red
+    command: bash -c "uv pip install --system -e '.[dev]' && echo 'Esperando asimilación del caos...' && sleep 5 && locust -f locustfile.py --headless -u 200 -r 20 -t 1m --host http://api:8000 --html chaos-report.html"
 
-## 3. Arquitectura de las Pruebas a Generar
+# ============================================================================
+  # PERFIL DE CONTEXTO IA (Solo se activa explícitamente con --profile graphify)
+  # ============================================================================
+  graphify:
+    image: sinfallas/remote-graphify:latest
+    # El container_name se ajusta según el ecosistema (ej. node_graphify, fastapi_graphify)
+    container_name: graphify
+    hostname: graphify
+    profiles:
+      - graphify
+    # Mantiene el servidor vivo para que el agente lo consulte múltiples veces
+    restart: always
+    command: uvx --from graphifyy python -m graphify.serve /app/graphify-out/graph.json --transport http --host 0.0.0.0 --port 8080
+    ports:
+      - "8080:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      # Configuración local para OmniRoute o Llama
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - GRAPHIFY_OLLAMA_KEEP_ALIVE=10
+      # Modelos Cloud (Descomentar e inyectar vía .env si se requiere)
+      # - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      # - ANTHROPIC_MODEL=claude-3-5-sonnet-latest
+      # - GEMINI_API_KEY=${GEMINI_API_KEY}
+      # - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # - OPENAI_BASE_URL=${OPENAI_BASE_URL}
+      # - OPENAI_MODEL=gpt-4o-mini
+    volumes:
+      - .:/app
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "1"
+    networks:
+      - graphify_net
 
-### A. Lógica Interna y Mocking (`pytest` + `TestClient` + `pytest-mock`)
-*   Usa `httpx` y el `TestClient` nativo de FastAPI para simular peticiones sin depender de la red.
-*   Es **estrictamente obligatorio** el uso de `pytest-mock` para simular bases de datos, cachés de Redis o servicios de terceros. Ninguna prueba unitaria pasará el CI/CD si tiene latencia de red.
-
-### B. Análisis de Complejidad y Profiling (`radon` + `py-spy`)
-*   **Regla de Complejidad:** Ningún bloque de código generado puede tener una complejidad ciclomática de grado `C` o superior. El índice de mantenibilidad (MI) debe ser `A`.
-*   **Profiling:** Para endpoints pesados, perfilaremos la aplicación bajo carga utilizando `py-spy` para generar un *Flamegraph* visual (`profile.svg`) que evidencie bloqueos en el *Event Loop* asíncrono.
-
-### C. Comportamiento y Caja Negra (`Karate Labs`)
-*   Escribe archivos `.feature` en la carpeta `test/`. La API se considerará una caja negra opaca y será atacada a través de su puerto HTTP expuesto (8000).
-
-### D. Contratos y Seguridad Dinámica (`Schemathesis` + `OWASP ZAP`)
-*   `schemathesis` bombardeará el `openapi.json` con miles de combinaciones malformadas buscando provocar errores HTTP 500 no controlados por Pydantic.
-*   `OWASP ZAP` actuará en modo *Baseline Scan* interceptando cabeceras faltantes (CORS, HSTS, X-Frame-Options) sin asfixiar el pipeline.
-
-### E. Resiliencia Extrema (Ingeniería del Caos con Pumba)
-*   Las pruebas de estrés tradicionales asumen una red perfecta. Con la configuración de perfil `--profile chaos`, Pumba inyectará latencia aleatoria (Jitter) y cortes temporales a nivel del Kernel de Linux directamente sobre el contenedor de FastAPI, mientras Locust envía oleadas de usuarios concurrentes. El objetivo es certificar que la arquitectura no entra en un interbloqueo (*deadlock*) cuando la infraestructura subyacente falla.
-
-## 4. Comandos de Ejecución Local para Desarrolladores
-
-Para que las herramientas dinámicas funcionen, la aplicación debe estar escuchando en la red interna aislada.
-
-**Paso 1: Levantar la API en segundo plano**
-```bash
-docker compose -f docker-compose.qa.yml up -d api
-```
-
-**Paso 2: Ejecutar las suites de validación estándar (Pipeline Regular)**
-
-*   **Auditoría SAST y Complejidad:**
-```bash
-docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && uv pip audit && bandit -r src/ && radon cc --min C src/ && radon mi --min B src/"
-```
-*   **Pruebas Unitarias Aisladas (Cobertura innegociable >95%):**
-```bash
-docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && pytest --cov=src/ --cov-fail-under=95 -v"
-```
-*   **Pruebas de Mutación (Solidez de Assertions):**
-```bash
-docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && mutmut run"
-```
-*   **Fuzzing y Contratos:**
-```bash
-docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && schemathesis run http://api:8000/openapi.json"
-```
-*   **Comportamiento BDD (Karate):**
-```bash
-docker compose -f docker-compose.qa.yml run --rm karatelabs mvn clean test
-```
-*   **Seguridad Dinámica DAST (OWASP ZAP):**
-```bash
-docker compose -f docker-compose.qa.yml run --rm zap zap-baseline.py -t http://api:8000 -r zap-report.html
-```
-*   **Profiling Acumulativo (Flamegraph):**
-```bash
-docker compose -f docker-compose.qa.yml exec -T api bash -c "py-spy record -o /app/profile.svg --pid 1 --duration 30"
-```
-
-**Paso 3: Certificación de Nivel 11X (Ingeniería del Caos)**
-Este comando activa el perfil oculto. Despierta a Pumba y a Locust simultáneamente para estresar la API mientras se simula una degradación severa de la red.
-```bash
-docker compose -f docker-compose.qa.yml --profile chaos up --abort-on-container-exit stress_test
-```
-*(Revisa `chaos-report.html` para validar la tasa de supervivencia de los requests).*
+# ============================================================================
+# REDES AISLADAS
+# ============================================================================
+networks:
+  graphify_net:
+    enable_ipv6: true
+    driver: bridge
+    driver_opts:
+      com.docker.network.enable_ipv6: 1
+    ipam:
+      config:
+        - subnet: fd00:1::/64
