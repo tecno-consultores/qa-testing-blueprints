@@ -13,6 +13,7 @@ test/target/
 zap-report.html
 chaos-report.json
 chaos-report.html
+graphify-out/
 .env
 .env.*
 !.env.example
