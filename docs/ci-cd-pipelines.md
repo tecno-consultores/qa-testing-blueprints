@@ -1,40 +1,36 @@
 # Pipelines de CI/CD (Integración Continua)
 
-Este documento explica cómo trasladar la ejecución de nuestras pruebas locales a entornos automatizados (como GitHub Actions o GitLab CI). El objetivo principal es garantizar que **ningún código llegue a producción si no cumple con la regla estricta del 95% de cobertura y pasa todas las auditorías**.
+Este documento explica cómo trasladar la ejecución de nuestras pruebas locales a entornos automatizados. El objetivo es garantizar que **ningún código llegue a producción si no cumple con la regla estricta del 95% de cobertura y pasa todas las auditorías de Nivel 11X**.
 
 ## 1. El Anti-Patrón vs. La Vía "Blueprints"
 
-**El enfoque tradicional (Anti-Patrón):**
-Normalmente, los pipelines de CI instalan el lenguaje directamente en el *runner* de GitHub/GitLab (ej. usando `actions/setup-node` o `actions/setup-python`), luego ejecutan `npm install` y finalmente corren los tests.
-*   **¿Por qué está mal para nosotros?** Porque rompe el aislamiento. El *runner* de CI podría tener dependencias globales preinstaladas de Ubuntu que enmascaran errores, haciendo que el pipeline pase en GitHub pero falle en tu servidor Proxmox de producción.
-
 **Nuestro enfoque (Blueprints):**
 El *runner* de CI se trata como una máquina "tonta" cuyo único trabajo es tener Docker instalado. **Ejecutamos exactamente los mismos comandos que en local**. 
-*   **¿Por qué es así?** Paridad absoluta. Si `docker compose -f docker-compose.qa.yml run --rm test` pasa en tu laptop, pasará en CI y funcionará en producción. Toda la inteligencia, herramientas (SAST, Mutación, BATS) y dependencias viven dentro de las imágenes `sinfallas/*`.
+Toda la inteligencia y dependencias viven dentro de los contenedores efímeros.
+
+*(Nota: Lefthook no se ejecuta en el CI/CD; su trabajo es interceptar al desarrollador en local antes de que el código suba a GitHub/GitLab).*
 
 ---
 
-## 2. Anatomía de la Ejecución en CI
+## 2. Anatomía de la Ejecución en CI (Nivel 11X)
 
-Para que el pipeline funcione correctamente, debe seguir una estructura estricta de 4 pasos:
-
-### Paso 1: Checkout y Preparación
-Clonar el código fuente. No necesitamos instalar Python, Node ni dependencias de sistema.
-### Paso 2: Ejecución Efímera (El Núcleo)
-Lanzar la suite utilizando `docker compose -f docker-compose.qa.yml run --rm`. Si la prueba de cobertura detecta menos del 95%, o si fallan las métricas de complejidad de `eslint-plugin-sonarjs` / `radon`, arrojará un código de salida `1` (Exit Code 1) bloqueando el *merge*.
-### Paso 3: Extracción de Artefactos (Reportes)
-Como utilizamos volúmenes *bind*, cuando el contenedor efímero muere, deja los reportes HTML físicamente en el disco del *runner*. El paso 3 toma esa carpeta y la sube como un "Artifact" para que el equipo pueda descargarlo.
-### Paso 4: Limpieza
-Ejecutar `./limpiar.sh` para no saturar el almacenamiento del *runner*.
+### Paso 0: Auditoría IaC (Trivy)
+Antes de descargar código de terceros, escaneamos estáticamente los manifiestos de Docker para prevenir inyecciones a la infraestructura.
+### Paso 1: Ejecución Efímera Base
+Análisis estático (SAST), Complejidad, Cobertura (>95%) y Profiling. Si fallan, arrojan Exit Code 1.
+### Paso 2: Seguridad Dinámica (DAST)
+OWASP ZAP levanta un ataque ligero (Baseline) sobre el contenedor vivo.
+### Paso 3: Resiliencia (Caos)
+Se levanta el perfil `--profile chaos` inyectando latencia con Pumba.
 
 ---
 
 ## 3. Ejemplo Práctico: GitHub Actions
 
-Aquí tienes la plantilla base para `.github/workflows/qa-pipeline.yml`. En este ejemplo, se audita un proyecto integrando las nuevas capas de complejidad y *linting*.
+Aquí tienes la plantilla completa para `.github/workflows/qa-pipeline.yml`.
 
 ```yaml
-name: QA Testing Blueprint Pipeline
+name: QA Testing Blueprint Pipeline (11X)
 
 on:
   pull_request:
@@ -42,46 +38,48 @@ on:
 
 jobs:
   auditoria-y-pruebas:
-    name: 🛡️ Auditoría Estricta (95% Coverage)
+    name: 🛡️ Auditoría Estricta y Resiliencia
     runs-on: ubuntu-latest
 
     steps:
-      - name: 1️⃣ Checkout del código
+      - name: 📥 Checkout del código
         uses: actions/checkout@v4
 
-      - name: 2️⃣ Inyectar Secretos de Entorno
+      - name: 0️⃣ Auditoría de Infraestructura y Contenedores (Trivy)
         run: |
-          echo "API_KEY=${{ secrets.PROD_API_KEY }}" >> .env
-          echo "DB_PASS=${{ secrets.DB_PASS }}" >> .env
+          docker run --rm -v "${PWD}:/app:ro" -w /app aquasec/trivy:latest config . --severity HIGH,CRITICAL --exit-code 1
 
-      - name: 3️⃣ Auditoría de Dependencias (CVEs)
-        # Verificamos vulnerabilidades en paquetes de terceros usando pnpm/npm audit.
-        run: docker compose -f docker-compose.qa.yml run --rm ui-test npm audit
+      - name: 1️⃣ Auditoría de Dependencias y SAST
+        run: docker compose -f docker-compose.qa.yml run --rm test bash -c "npm install && npm audit && npm run lint"
 
-      - name: 4️⃣ Análisis Estático, Complejidad y Formateo
-        # Ejecutamos ESLint, Prettier y SonarJS para asegurar calidad y evitar Code Smells.
-        run: docker compose -f docker-compose.qa.yml run --rm ui-test npm run lint
+      - name: 2️⃣ Suite Efímera con Intercepción de Red (Vitest)
+        run: docker compose -f docker-compose.qa.yml run --rm test bash -c "npm install && npm run test:coverage"
 
-      - name: 5️⃣ Ejecutar Suite Efímera con Intercepción de Red (Vitest + MSW)
-        # Si la cobertura es menor a 95%, este comando falla y aborta el pipeline.
-        run: docker compose -f docker-compose.qa.yml run --rm ui-test npm run test:coverage
+      - name: 3️⃣ Pruebas de Mutación (Stryker)
+        run: docker compose -f docker-compose.qa.yml run --rm test bash -c "npm install && npm run mutate"
 
-      - name: 6️⃣ Pruebas de Mutación (Stryker)
-        # Para evitar que pasen PRs con pruebas "falsas positivas" que no auditan realmente la lógica.
-        run: docker compose -f docker-compose.qa.yml run --rm ui-test npx stryker run
+      - name: 4️⃣ Seguridad Dinámica DAST (OWASP ZAP)
+        # Levanta la API en segundo plano y la ataca
+        run: |
+          docker compose -f docker-compose.qa.yml up -d api
+          docker compose -f docker-compose.qa.yml run --rm zap zap-baseline.py -t http://api:3000 -r zap-report.html
 
-      - name: 7️⃣ Archivar Reportes de Calidad (Artefactos)
+      - name: 5️⃣ Ingeniería del Caos y Estrés (Pumba + Artillery)
+        # Inyecta latencia de red y dispara oleadas de carga simultáneamente
+        run: docker compose -f docker-compose.qa.yml --profile chaos up --abort-on-container-exit stress_test
+
+      - name: 6️⃣ Archivar Reportes de Calidad (Artefactos)
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: qa-reports
           path: |
             coverage/
-            reports/
-            stryker.html
+            zap-report.html
+            chaos-report.json
           retention-days: 7
 
-      - name: 8️⃣ Limpieza del Entorno
+      - name: 7️⃣ Limpieza del Entorno
         if: always()
-        run: sudo ./limpiar.sh
+        run: sudo ./limpieza.sh
 ```
