@@ -1,5 +1,5 @@
 services:
-  # 1. LA APLICACIÓN REAL: Servidor Node en segundo plano para Karate, Artillery y Clinic
+  # 1. LA APLICACIÓN REAL: Servidor Node en segundo plano para Karate, Artillery, Clinic y ZAP
   api:
     image: sinfallas/base-node-ionic:latest
     container_name: node_api
@@ -45,3 +45,16 @@ services:
     volumes:
       - ./test:/app/src/test/java/examples/test
     command: bash -c "echo 'Contenedor Karate listo. Usa docker compose run --rm karatelabs mvn clean test'; sleep infinity"
+
+  # 4. ENTORNO DAST: OWASP ZAP para seguridad dinámica
+  zap:
+    image: owasp/zap2docker-stable:latest
+    container_name: node_zap
+    pull_policy: always
+    depends_on:
+      - api
+    # Se utiliza el usuario root temporalmente para evitar problemas de permisos al escribir el reporte HTML en el volumen del host
+    user: root 
+    volumes:
+      - .:/zap/wrk/:rw
+    command: bash -c "echo 'Contenedor ZAP listo. Usa docker compose run --rm zap zap-baseline.py -t http://api:3000 -r zap-report.html'; sleep infinity"
