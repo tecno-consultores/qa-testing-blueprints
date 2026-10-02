@@ -51,9 +51,9 @@ A continuación se resume el stack de validación corporativo. Se han retirado l
 
 | Entorno | Linting / Formateo | Pruebas Unitarias / Mocking | Cobertura | Auditoría de Dependencias | Seguridad Estática (SAST) | Mutación | BDD / Caja Negra | Concurrencia / Estrés | Profiling / Complejidad | DAST (Dinámica) | Ingeniería del Caos | Auditoría IaC / Docker | Git Hooks Locales |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Python** | `ruff` + `mypy` | `pytest` + `pytest-mock` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | `pytest-bdd` | `pytest-benchmark` | `py-spy` + `radon` | `OWASP ZAP`* | `Pumba`* | `Trivy` | `Lefthook` |
-| **FastAPI** | `ruff` + `mypy` | `pytest` + `TestClient` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | `Karate Labs` | `locust` | `py-spy` + `radon` | `OWASP ZAP`* | `Pumba`* | `Trivy` | `Lefthook` |
-| **Node** | `ESLint` + `Prettier` | `Vitest` + `nock` | `Vitest (v8)` | `pnpm audit` | `ESLint Security` | `Stryker` | `Karate Labs` | `Artillery` | `clinic.js` + `SonarJS` | `OWASP ZAP`* | `Pumba`* | `Trivy` | `Lefthook` |
+| **Python** | `ruff` + `mypy` | `pytest` + `pytest-mock` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | `pytest-bdd` | `pytest-benchmark` | `py-spy` + `radon` | | | `Trivy` | `Lefthook` |
+| **FastAPI** | `ruff` + `mypy` | `pytest` + `TestClient` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | `Karate Labs` | `locust` | `py-spy` + `radon` | `OWASP ZAP` | `Pumba`* | `Trivy` | `Lefthook` |
+| **Node** | `ESLint` + `Prettier` | `Vitest` + `nock` | `Vitest (v8)` | `pnpm audit` | `ESLint Security` | `Stryker` | `Karate Labs` | `Artillery` | `clinic.js` + `SonarJS` | `OWASP ZAP` | `Pumba`* | `Trivy` | `Lefthook` |
 | **Vue3** | `ESLint` + `Prettier` | `Vitest` + `jsdom` | `Vitest (v8)` | `npm audit` | `ESLint Security` | `Stryker` | `Karate Labs` | `Lighthouse CI` | `DevTools` + `SonarJS` | `N/A` | `N/A` | `Trivy` | `Lefthook` |
 | **Bash** | `ShellCheck`+`shfmt`| `BATS-core`+`bats-mock`| `kcov` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `Trivy` | `Lefthook` |
 
