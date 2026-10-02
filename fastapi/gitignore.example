@@ -21,6 +21,7 @@ test/target/
 zap-report.html
 chaos-report.html
 profile.svg
+graphify-out/
 .vscode/
 .idea/
 .DS_Store
