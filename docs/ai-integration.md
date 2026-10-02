@@ -43,4 +43,4 @@ El ecosistema de `qa-testing-blueprints` está diseñado intencionalmente para s
       resultado = subprocess.run(comando, shell=True, capture_output=True, text=True)
       return resultado.stdout if resultado.returncode == 0 else resultado.stderr
   ```
-* **El Bucle Autónomo:** El agente ejecuta las pruebas y evalúa el `stderr`. Si `kcov` reporta solo un 85% de cobertura, o si el análisis de `clinic.js` / `py-spy` advierte de un alto consumo de memoria RAM, la IA comprende la falla, reescribe el código en su propio entorno interno y vuelve a invocar la herramienta hasta lograr el estándar.
+* **El Bucle Autónomo de Observabilidad:** El agente ejecuta las pruebas y evalúa el `stderr`. Si `kcov` reporta solo un 85% de cobertura, o si la IA levanta el perfil `--profile chaos` y detecta mediante peticiones al endpoint `http://localhost:9090/api/v1/query` (Prometheus) que la latencia (P99) sobrepasa los umbrales corporativos, la IA comprende la falla, reescribe el código de negocio en su propio entorno interno y vuelve a invocar la herramienta de estrés hasta lograr el estándar.
