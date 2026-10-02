@@ -1,5 +1,8 @@
+# ==============================================================================
+# ORQUESTADOR QA TESTING BLUEPRINTS - FASTAPI (NIVEL 11X)
+# ==============================================================================
 services:
-  # 1. LA APLICACIÓN REAL (Debe estar corriendo en segundo plano para Karate, Locust, Schemathesis y py-spy)
+  # 1. LA APLICACIÓN REAL (Debe estar corriendo en segundo plano)
   api:
     image: sinfallas/base-python-uv:3.13
     container_name: fastapi_api
@@ -12,7 +15,7 @@ services:
     working_dir: /app
     ports:
       - "8000:8000"
-    # cap_add es crítico para que py-spy pueda leer la memoria del proceso PID 1 dentro del contenedor
+    # cap_add es crítico para que py-spy pueda leer la memoria del proceso PID 1
     cap_add:
       - SYS_PTRACE
     security_opt:
@@ -53,54 +56,42 @@ services:
     pull_policy: always
     depends_on:
       - api
-    # Se utiliza el usuario root temporalmente para evitar problemas de permisos al escribir el reporte HTML en el volumen del host
     user: root 
     volumes:
       - .:/zap/wrk/:rw
-    command: bash -c "echo 'Contenedor ZAP listo. Usa docker compose run --rm zap zap-baseline.py -t http://api:8000 -r zap-report.html'; sleep infinity"services:
-  # 1. LA APLICACIÓN REAL (Debe estar corriendo en segundo plano para Karate, Locust, Schemathesis y py-spy)
-  api:
-    image: sinfallas/base-python-uv:3.13
-    container_name: fastapi_api
-    hostname: api
-    pull_policy: always
-    environment:
-      TZ: 'America/Caracas'
-    volumes:
-      - .:/app
-    working_dir: /app
-    ports:
-      - "8000:8000"
-    # cap_add es crítico para que py-spy pueda leer la memoria del proceso PID 1 dentro del contenedor
-    cap_add:
-      - SYS_PTRACE
-    security_opt:
-      - seccomp:unconfined
-    command: bash -c "uv pip install --system -e '.[dev]' && uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload"
+    command: bash -c "echo 'Contenedor ZAP listo. Usa docker compose run --rm zap zap-baseline.py -t http://api:8000 -r zap-report.html'; sleep infinity"
 
-  # 2. Entorno Python para pytest, tox, schemathesis, locust y radon
-  test:
-    image: sinfallas/base-python-uv:3.13
-    container_name: fastapi_test
-    hostname: test_env
-    pull_policy: always
-    environment:
-      TZ: 'America/Caracas'
-      UV_PYTHON_DOWNLOADS: 'true'
-    volumes:
-      - .:/app
-    working_dir: /app
-    cap_add:
-      - SYS_PTRACE
-    command: bash -c "echo 'Contenedor Python listo. Usa docker compose run --rm test [comando]'; sleep infinity"
+  # ============================================================================
+  # PERFIL DE CAOS (Solo se activa con --profile chaos)
+  # ============================================================================
+# ADVERTENCIA DE SEGURIDAD: Este archivo monta el socket de Docker (/var/run/docker.sock).
+# Su uso está estrictamente reservado para pruebas efímeras de resiliencia (Pumba)
+# y jamás debe ser desplegado en entornos de producción o compartido en servidores públicos.
 
-  # 3. Entorno BDD (Java/Maven) para pruebas de caja negra
-  karatelabs:
-    image: sinfallas/karatelabs:latest
-    container_name: fastapi_karate
-    pull_policy: always
+  # 5. EL ATACANTE DE INFRAESTRUCTURA: Pumba
+  pumba:
+    image: gaiaadm/pumba:latest
+    container_name: fastapi_pumba
+    profiles:
+      - chaos
+    volumes:
+      # ADVERTENCIA: Montaje del socket de Docker. Uso exclusivo para pruebas de caos.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - api
+    # Inyecta 500ms de latencia de red (+- 50ms de jitter aleatorio) al contenedor 'fastapi_api' durante 1 minuto
+    command: netem --tc-image gaiadocker/iproute2 --duration 1m delay --time 500 --jitter 50 re2:^fastapi_api$
+
+  # 6. EL INYECTOR DE CARGA: Locust (Estrés Concurrente)
+  stress_test:
+    image: sinfallas/base-python-uv:3.13
+    container_name: fastapi_chaos_locust
+    profiles:
+      - chaos
     depends_on:
       - api
     volumes:
-      - ./test:/app/src/test/java/examples/test
-    command: bash -c "echo 'Contenedor Karate listo. Usa docker compose run --rm karatelabs mvn clean test'; sleep infinity"
+      - .:/app
+    working_dir: /app
+    # Genera 200 usuarios concurrentes golpeando la API mientras Pumba ralentiza la red
+    command: bash -c "uv pip install --system -e '.[dev]' && echo 'Esperando a que la API asimile el caos...' && sleep 5 && locust -f locustfile.py --headless -u 200 -r 20 -t 1m --host http://api:8000 --html chaos-report.html"
