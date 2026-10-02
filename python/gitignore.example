@@ -25,6 +25,7 @@ htmlcov/
 .benchmarks/
 profile.svg
 graphify-out/
+prometheus_data/
 .cache/
 .pytest_cache/
 .mypy_cache/
