@@ -10,9 +10,42 @@ services:
     volumes:
       - .:/app
     working_dir: /app
-    # Privilegios críticos para que el Kernel permita leer la memoria (py-spy)
     cap_add:
       - SYS_PTRACE
     security_opt:
       - seccomp:unconfined
     command: bash -c "echo 'Contenedor efímero listo. Utilice docker compose run --rm test [comando]'; sleep infinity"
+
+  graphify:
+    image: sinfallas/remote-graphify:latest
+    container_name: python_graphify
+    hostname: graphify
+    profiles:
+      - graphify
+    restart: always
+    command: uvx --from graphifyy python -m graphify.serve /app/graphify-out/graph.json --transport http --host 0.0.0.0 --port 8080
+    ports:
+      - "8080:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - GRAPHIFY_OLLAMA_KEEP_ALIVE=10
+      # Modelos Cloud (Descomentar e inyectar vía .env si se requiere)
+      # - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      # - ANTHROPIC_MODEL=claude-3-5-sonnet-latest
+      # - GEMINI_API_KEY=${GEMINI_API_KEY}
+      # - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # - OPENAI_BASE_URL=${OPENAI_BASE_URL}
+      # - OPENAI_MODEL=gpt-4o-mini
+    volumes:
+      - .:/app
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "1"
+
+networks:
+  default:
+    driver: bridge
