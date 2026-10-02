@@ -5,12 +5,14 @@ Este documento detalla cómo evolucionar de una interacción manual a un flujo d
 ## 1. Ingestión de Reglas mediante MCP (Model Context Protocol)
 Para que un agente comprenda las restricciones corporativas en tiempo real, los *blueprints* deben exponerse como recursos dinámicos.
 
-* **El Concepto:** Evita darle a la IA acceso irrestricto de lectura a todo tu disco duro. Usa un servidor MCP para exponer únicamente las reglas que necesita.
-* **Ejemplo Práctico 1 (Servidor Oficial):** Puedes exponer la carpeta de directrices usando el servidor de Node.js oficial dentro de la configuración de tu agente:
+* **El Concepto:** Evita darle a la IA acceso irrestricto de lectura a todo tu disco duro. Usa un servidor MCP para exponer únicamente las reglas y el código que necesita de forma comprimida.
+* **Ejemplo Práctico 1 (Implementación Nivel 11X para Código):** En lugar de dar acceso de lectura a todo el disco, nuestro ecosistema integra el perfil oculto `--profile graphify`. Antes de programar, la IA debe extraer el grafo semántico y levantar el servidor MCP efímero:
   ```bash
-  npx -y @modelcontextprotocol/server-filesystem /ruta/absoluta/a/qa-testing-blueprints
+  docker compose -f docker-compose.qa.yml --profile graphify run --rm graphify bash -c "uvx graphifyy extract"
+  docker compose -f docker-compose.qa.yml --profile graphify up -d graphify
   ```
-* **Ejemplo Práctico 2 (Recursos Custom en Python):** Configura un servidor MCP que exponga los archivos `.md` como *Recursos* estáticos (URIs). Cuando el agente detecta que está en un proyecto Python, consulta `blueprints://python/fastapi`. El servidor lee el archivo local y le devuelve el prompt inyectando la regla inquebrantable del 95% de cobertura.
+  *Luego, el agente se conecta por SSE a `http://localhost:8080/sse` para consultar la topología, ahorrando miles de tokens en OmniRoute.*
+* **Ejemplo Práctico 2 (Recursos Custom para Documentación):** Configura un servidor MCP que exponga los archivos `.md` como *Recursos* estáticos (URIs). Cuando el agente detecta que está en un proyecto Python, consulta `blueprints://python/fastapi`. El servidor lee el archivo local y le devuelve el prompt inyectando la regla inquebrantable del 95% de cobertura.
 
 ## 2. Orquestación Multi-Agente (Arquitecturas tipo Pantheon / Hermes)
 Las pruebas de alta exigencia (mutación, SAST, BDD) abruman el contexto si un solo agente intenta programar la aplicación y auditarla al mismo tiempo. Se debe implementar una separación de roles.
