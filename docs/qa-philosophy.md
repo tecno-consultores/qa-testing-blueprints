@@ -28,3 +28,6 @@ Asumimos que la infraestructura y el código son vulnerables por defecto. Las pr
 
 ## 9. Resiliencia Extrema (Ingeniería del Caos)
 Probar si la API funciona bajo condiciones perfectas de laboratorio ya no es suficiente. El Nivel 11X introduce la Ingeniería del Caos (Pumba). Degradamos intencionalmente la red interna insertando *jitter* y *packet loss* mientras la aplicación sufre picos de estrés. Certificamos que la arquitectura posea mecanismos de Auto-Recovery en lugar de entrar en un estado de *deadlock* permanente.
+
+## 10. Observabilidad Universal (Métricas RED)
+No podemos mejorar lo que no medimos. Forzamos la exposición de métricas (Rate, Errors, Duration) mediante middlewares no intrusivos acoplados a Prometheus. Esto permite a la Inteligencia Artificial y a los desarrolladores evaluar en tiempo real el daño causado por las pruebas destructivas, pasando de simples reportes estáticos a un diagnóstico "en vivo".
