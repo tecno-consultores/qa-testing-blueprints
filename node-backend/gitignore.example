@@ -23,9 +23,11 @@ test/target/
 *.log
 
 # =========================
-# Seguridad Dinámica (DAST)
+# Seguridad Dinámica e Ingeniería del Caos
 # =========================
 zap-report.html
+chaos-report.json
+chaos-report.html
 
 # =========================
 # Entornos
