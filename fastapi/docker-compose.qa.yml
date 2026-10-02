@@ -94,13 +94,13 @@ services:
     # Genera 200 usuarios concurrentes golpeando la API mientras Pumba ralentiza la red
     command: bash -c "uv pip install --system -e '.[dev]' && echo 'Esperando asimilación del caos...' && sleep 5 && locust -f locustfile.py --headless -u 200 -r 20 -t 1m --host http://api:8000 --html chaos-report.html"
 
-# ============================================================================
+  # ============================================================================
   # PERFIL DE CONTEXTO IA (Solo se activa explícitamente con --profile graphify)
   # ============================================================================
   graphify:
     image: sinfallas/remote-graphify:latest
     # El container_name se ajusta según el ecosistema (ej. node_graphify, fastapi_graphify)
-    container_name: graphify
+    container_name: fastapi_graphify
     hostname: graphify
     profiles:
       - graphify
@@ -129,18 +129,10 @@ services:
       options:
         max-size: "1m"
         max-file: "1"
-    networks:
-      - graphify_net
 
 # ============================================================================
-# REDES AISLADAS
+# REDES AISLADAS (Sobrescribe la red por defecto unificando todo el entorno)
 # ============================================================================
 networks:
-  graphify_net:
-    enable_ipv6: true
+  default:
     driver: bridge
-    driver_opts:
-      com.docker.network.enable_ipv6: 1
-    ipam:
-      config:
-        - subnet: fd00:1::/64
