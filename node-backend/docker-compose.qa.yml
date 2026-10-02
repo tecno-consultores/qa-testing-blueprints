@@ -1,3 +1,6 @@
+# ==============================================================================
+# ORQUESTADOR QA TESTING BLUEPRINTS - NODE.JS (NIVEL 11X)
+# ==============================================================================
 services:
   # 1. LA APLICACIÓN REAL: Servidor Node en segundo plano para Karate, Artillery, Clinic y ZAP
   api:
@@ -58,3 +61,34 @@ services:
     volumes:
       - .:/zap/wrk/:rw
     command: bash -c "echo 'Contenedor ZAP listo. Usa docker compose run --rm zap zap-baseline.py -t http://api:3000 -r zap-report.html'; sleep infinity"
+
+  # ============================================================================
+  # PERFIL DE CAOS (Solo se activa explícitamente con --profile chaos)
+  # ============================================================================
+
+  # 5. EL ATACANTE DE INFRAESTRUCTURA: Pumba
+  pumba:
+    image: gaiaadm/pumba:latest
+    container_name: node_pumba
+    profiles:
+      - chaos
+    volumes:
+      # ADVERTENCIA: Montaje del socket de Docker. Exclusivo para Chaos Engineering.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - api
+    # Inyecta 500ms de latencia de red (+- 50ms de jitter aleatorio) al contenedor 'node_api' durante 1 minuto
+    command: netem --tc-image gaiadocker/iproute2 --duration 1m delay --time 500 --jitter 50 re2:^node_api$
+
+  # 6. EL INYECTOR DE CARGA: Artillery (Estrés Concurrente bajo Caos)
+  stress_test:
+    image: sinfallas/base-node-ionic:latest
+    container_name: node_chaos_artillery
+    profiles:
+      - chaos
+    depends_on:
+      - api
+    volumes:
+      - .:/app
+    # Genera oleadas de carga con Artillery mientras Pumba ralentiza la red
+    command: bash -c "pnpm install && echo 'Esperando asimilación del caos...' && sleep 5 && pnpm run test:load -- --output chaos-report.json"
