@@ -22,6 +22,7 @@ zap-report.html
 chaos-report.html
 profile.svg
 graphify-out/
+prometheus_data/
 .vscode/
 .idea/
 .DS_Store
