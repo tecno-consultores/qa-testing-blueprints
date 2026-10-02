@@ -10,6 +10,7 @@
 *   **Obligatorio:** Todo comando Docker Compose debe incluir la bandera `-f docker-compose.qa.yml` para evitar conflictos.
 *   **Para pruebas lógicas, Mutación, Lighthouse y UI E2E:** Usamos el contenedor Node/Playwright efímero (`ui-e2e`).
 *   **Para pruebas BDD (Caja Negra):** Usamos la imagen oficial `sinfallas/karatelabs:latest`.
+*   **Para Observabilidad (Métricas de Servidor):** Usamos los contenedores `nginx/nginx-prometheus-exporter:latest` y `prom/prometheus:latest`.
 *   **Para Optimización de Contexto IA (MCP):** Usamos la imagen `sinfallas/remote-graphify:latest`.
 
 ## 2. Pila Tecnológica y Separación de Responsabilidades
@@ -32,7 +33,10 @@
 ### E. Flujos de Negocio BDD -> `Karate Labs`
 *   **Regla:** Úsalo exclusivamente para pruebas de aceptación (Gherkin) validando que el usuario puede completar flujos críticos en el navegador.
 
-### F. Optimización de Contexto IA (MCP) -> `Graphify`
+### F. Observabilidad -> `Nginx Prometheus Exporter`
+*   **Regla:** El monitoreo del frontend se realiza externamente a través de los logs de acceso de Nginx para no agregar dependencias al código de la aplicación. Esto se ejecuta mediante el perfil `--profile observability`.
+
+### G. Optimización de Contexto IA (MCP) -> `Graphify`
 *   **Regla (Exclusiva para ti, IA):** Antes de ingerir código masivamente, DEBES generar y consultar el grafo semántico del proyecto para ahorrar tokens y evitar alucinaciones.
 
 ## 3. Comandos de Ejecución Local para el Desarrollador (y para la IA)
@@ -88,3 +92,10 @@ docker compose -f docker-compose.qa.yml run --rm ui-e2e npx playwright test
 ```bash
 docker compose -f docker-compose.qa.yml run --rm karatelabs mvn clean test
 ```
+
+**Paso 3: Certificación de Observabilidad en Vivo (Nivel 11X)**
+Levanta Prometheus y el sidecar de Nginx para monitorear las interacciones de los tests E2E y BDD en tiempo real.
+```bash
+docker compose -f docker-compose.qa.yml --profile observability up -d prometheus nginx-exporter
+```
+*(Accede a `http://localhost:9090` durante la ejecución de Playwright o Karate para evaluar las métricas de tráfico y respuesta de Nginx).*
