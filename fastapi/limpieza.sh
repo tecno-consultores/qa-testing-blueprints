@@ -21,10 +21,11 @@ rm -rf dist
 rm -rf tests/__pycache__
 rm -rf src/*/__pycache__
 
-# Limpieza de reportes de cobertura, Karate Labs y Profiling
+# Limpieza de reportes de cobertura, Karate Labs, DAST (ZAP) y Profiling
 rm -rf htmlcov/
 rm -rf target/
 rm -rf test/target/
+rm -f zap-report.html
 rm -f profile.svg
 rm -f *.log
 
