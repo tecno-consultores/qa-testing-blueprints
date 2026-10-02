@@ -73,11 +73,13 @@ Para entender los fundamentos de esta arquitectura y cómo automatizarla, consul
 
 ## 🧠 ¿Cómo utilizar este repositorio con IA? (Flujo Automatizado)
 
-Si utilizas asistentes como **Hermes Agent**, **Claude Code**, **Cursor** u otras IAs autónomas, el proceso de integración es sumamente sencillo. Deja que la IA haga el trabajo pesado de fusionar las configuraciones.
+Si utilizas asistentes como **Hermes Agent**, **Claude Code**, **Cursor** u otras IAs autónomas, debes transferir los archivos de este Blueprint a tu proyecto real **sin sobreescribir la identidad de tu proyecto**. 
 
-1. **Alojamiento del Blueprint:** Clona este repositorio o descarga la carpeta de la tecnología correspondiente (ej. `node-backend/`) y arrastra todo su contenido directamente a la **raíz de tu proyecto existente**.
-2. **Documentación IA:** Ubica el archivo `AI_MASTER_PROMPT.md` en la raíz (o muévelo a una carpeta de documentación técnica como `docs/qa/`).
+Sigue este protocolo para una integración segura:
+
+1. **Archivos a la Raíz:** Descarga la carpeta de la tecnología que necesites (ej. `node-backend/`) y arrastra a la **raíz de tu proyecto** EXCLUSIVAMENTE los archivos operativos: el `docker-compose.qa.yml`, `limpieza.sh`, el orquestador de hooks (`lefthook.yml` y su script) y los archivos `.example`.
+2. **Archivos de Documentación (Cero Colisiones):** En tu proyecto, crea una carpeta dedicada (ej. `docs/qa/`). Coloca allí el `AI_MASTER_PROMPT.md` y la carpeta `docs/` global de este repositorio. **NO copies** nuestro `README.md`, `CONTRIBUTING.md` ni `CHANGELOG.md` a tu proyecto, ya que chocarán con los tuyos.
 3. **Delega la Fusión a la IA:** Abre tu chat o terminal con el agente y pégale este *prompt* exacto:
-   > *"Lee las directrices operativas en `AI_MASTER_PROMPT.md` (o la ruta donde lo hayas puesto). Necesito integrar el estándar QA 11X en este proyecto. Lee los archivos `.example` que acabo de añadir (como `package.json.example`, `pyproject.toml.example`, `gitignore.example`) y realiza una **fusión no destructiva** con mis archivos de configuración reales. Añade todas las herramientas de QA, dependencias de desarrollo y scripts, pero respeta y mantén intactas las dependencias y configuraciones que mi proyecto ya tenía."*
+   > *"Lee las directrices operativas en `docs/qa/AI_MASTER_PROMPT.md` (o la ruta donde lo hayas puesto). Necesito integrar el estándar QA 11X en este proyecto. Lee los archivos `.example` que acabo de añadir (como `package.json.example`, `pyproject.toml.example`, `gitignore.example`) y realiza una **fusión no destructiva** con mis archivos de configuración reales. Añade todas las herramientas de QA, dependencias de desarrollo y scripts, pero respeta y mantén intactas las dependencias y configuraciones que mi proyecto ya tenía."*
 4. Asegúrate de ajustar el *tag* de la imagen en tu `docker-compose.qa.yml` fusionado para que coincida con la versión de tu proyecto en producción (ej. `base-python-uv:3.12` o `base-node-ionic:22`).
 5. **Ejecución:** A partir de ahora, ordénale a la IA que cree o ejecute pruebas utilizando exclusivamente los comandos del contenedor efímero descritos en las guías.
