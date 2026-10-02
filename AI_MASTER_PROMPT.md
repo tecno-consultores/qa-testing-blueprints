@@ -13,6 +13,7 @@ Independientemente del lenguaje de programación que estés evaluando o escribie
 3. **Aislamiento de Red:** NINGUNA prueba unitaria puede salir a internet o conectarse a una base de datos real. DEBES generar mocks (`nock`, `pytest-mock`, `bats-mock`) obligatoriamente.
 4. **Infraestructura Inmutable:** No modifiques los archivos `docker-compose.qa.yml` a menos que se te solicite explícitamente agregar una nueva herramienta de nivel corporativo. Si lo haces, asume que `Trivy` auditará tu cambio; no montes `/` ni asignes privilegios `root` sin justificación extrema.
 5. **Bitácora Viva (TESTING.md):** Cada vez que generes o modifiques una suite de pruebas, DEBES crear o actualizar un archivo `TESTING.md` en la raíz del proyecto. Este archivo debe contener un breve resumen de alto nivel sobre los flujos de negocio que cubre la suite, seguido de los comandos exactos de Docker Compose que el desarrollador humano debe copiar y pegar para ejecutar esas validaciones manualmente. Tu trabajo no termina hasta que la ejecución quede documentada.
+6. **Observabilidad Innegociable:** Ninguna aplicación puede someterse a pruebas de estrés a ciegas. Tienes la obligación de asegurar que el código fuente exponga la ruta `/metrics` utilizando exclusivamente la librería no intrusiva dictada en el documento de la tecnología correspondiente antes de iniciar la Ingeniería del Caos.
 
 ## 2. Protocolo de Integración Inicial (Fusión de Archivos `.example`)
 
@@ -41,13 +42,13 @@ Busca y lee tu guía de reglas específicas aquí:
 * 🐧 **Si el proyecto contiene automatizaciones DevOps o Scripts en Bash:**
   👉 Lee obligatoriamente: `bash-scripts/pruebas-script-bash.md`
 
-## 4. Protocolo de Seguridad (Nivel 11X)
+## 4. Protocolo de Seguridad y Resiliencia (Nivel 11X)
 
 Si el usuario te pide auditar la seguridad o resiliencia de la API, ten en cuenta las capas de ataque disponibles en nuestro orquestador:
 
 *   **SAST:** Busca `bandit` (Python) o `ESLint Security` (Node.js) para auditar vulnerabilidades estáticas.
 *   **DAST (OWASP ZAP):** Recuerda que existe un contenedor `zap` preconfigurado en los ecosistemas backend para bombardear la aplicación viva en busca de cabeceras inseguras y fugas de información HTTP.
-*   **Ingeniería del Caos (Pumba):** Para evaluar si el sistema sobrevive a caídas de red o degradación severa de infraestructura, utiliza el perfil oculto `--profile chaos` que inyecta latencia a nivel de kernel mediante `pumba`. *ADVERTENCIA: Esta es una prueba destructiva, utilízala solo en la red efímera local.*
+*   **Ingeniería del Caos (Pumba) y Observabilidad:** Para evaluar si el sistema sobrevive a caídas de red, utiliza el perfil oculto `--profile chaos` que inyecta latencia mediante `pumba` y levanta `prometheus` simultáneamente para observar la degradación. *ADVERTENCIA: Esta es una prueba destructiva, utilízala solo en la red efímera local.*
 *   **Hooks Locales:** Asume que `Lefthook` está vigilando. Nunca generes código con contraseñas en texto plano, tokens reales o formateo descuidado (ej. saltarse `Prettier` o `ruff`), ya que el commit será rechazado en la máquina del usuario.
 
 ## 5. Instrucción Operativa Final
