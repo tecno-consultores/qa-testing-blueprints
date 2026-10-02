@@ -21,7 +21,7 @@ Para mantener la consistencia y la eficacia de estos blueprints, toda contribuci
 ## 🛠️ Cómo proponer un cambio
 
 ### Si estás agregando una herramienta técnica
-1. Haz un *fork* del repositorio y crea una rama descriptiva (`git checkout -b feature/agregar-k6-stresstest`).
+1. Haz un *fork* del repositorio, crea una rama descriptiva (`git checkout -b feature/agregar-k6-stresstest`) e **instala inmediatamente los hooks de seguridad locales** ejecutando `./instalar-hooks.sh` en tu terminal. Sin este paso, la arquitectura rechazará tus commits.
 2. Modifica el archivo de configuración (`pyproject.toml.example`, `package.json.example`, etc.) y el orquestador `docker-compose.qa.yml` si es estrictamente necesario. *(Nota: Si agregas herramientas de Profiling como `py-spy` o `clinic.js`, recuerda incluir los privilegios `cap_add: - SYS_PTRACE` y `security_opt: - seccomp:unconfined`)*.
 3. Actualiza el archivo `.md` documentando el comando de ejecución exacto para que la IA sepa usarlo.
 4. Antes de hacer el Pull Request, ejecuta el script `./limpieza.sh` y lanza un Smoke Test local comprobando que tu herramienta funciona de manera efímera.
