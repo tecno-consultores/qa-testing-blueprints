@@ -50,13 +50,15 @@ El repositorio está dividido en 4 ecosistemas que cubren la totalidad del desar
 
 A continuación se resume el stack de validación corporativo. Se indica `N/A` en las pruebas que no aplican por la naturaleza intrínseca del entorno (ej. un script *standalone* de Python no levanta servidores HTTP, por ende no se le aplica DAST ni Caos). 
 
-| Entorno | Linting / Formateo | Pruebas Unitarias / Mocking | Cobertura | Auditoría de Dependencias | Seguridad Estática (SAST) | Mutación | BDD / Caja Negra | Concurrencia / Estrés | Profiling / Complejidad | DAST (Dinámica) | Ingeniería del Caos | Auditoría IaC / Docker | Git Hooks Locales |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Python** | `ruff` + `mypy` | `pytest` + `pytest-mock` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | `pytest-bdd` | `pytest-benchmark` | `py-spy` + `radon` | N/A | N/A | `Trivy` | `Lefthook` |
-| **FastAPI** | `ruff` + `mypy` | `pytest` + `TestClient` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | `Karate Labs` | `locust` | `py-spy` + `radon` | `OWASP ZAP` | `Pumba` | `Trivy` | `Lefthook` |
-| **Node** | `ESLint` + `Prettier` | `Vitest` + `nock` | `Vitest (v8)` | `pnpm audit` | `ESLint Security` | `Stryker` | `Karate Labs` | `Artillery` | `clinic.js` + `SonarJS` | `OWASP ZAP` | `Pumba` | `Trivy` | `Lefthook` |
-| **Vue3** | `ESLint` + `Prettier` | `Vitest` + `jsdom` | `Vitest (v8)` | `npm audit` | `ESLint Security` | `Stryker` | `Karate Labs` | `Lighthouse CI` | `DevTools` + `SonarJS` | `N/A` | `N/A` | `Trivy` | `Lefthook` |
-| **Bash** | `ShellCheck`+`shfmt`| `BATS-core`+`bats-mock`| `kcov` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `Trivy` | `Lefthook` |
+| Entorno | Linting / Formateo | Pruebas Unitarias / Mocking | Cobertura | Auditoría de Dependencias | Seguridad Estática (SAST) | Mutación | BDD / Caja Negra | Concurrencia / Estrés | Profiling / Complejidad | DAST (Dinámica) | Ingeniería del Caos | Observabilidad (Métricas)* | Auditoría IaC / Docker | Git Hooks Locales |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Python** | `ruff` + `mypy` | `pytest` + `pytest-mock` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | `pytest-bdd` | `pytest-benchmark` | `py-spy` + `radon` | N/A | N/A | `prometheus_client`* | `Trivy` | `Lefthook` |
+| **FastAPI** | `ruff` + `mypy` | `pytest` + `TestClient` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | `Karate Labs` | `locust` | `py-spy` + `radon` | `OWASP ZAP` | `Pumba` | `prometheus-fastapi-instrumentator`* | `Trivy` | `Lefthook` |
+| **Node** | `ESLint` + `Prettier` | `Vitest` + `nock` | `Vitest (v8)` | `pnpm audit` | `ESLint Security` | `Stryker` | `Karate Labs` | `Artillery` | `clinic.js` + `SonarJS` | `OWASP ZAP` | `Pumba` | `express-prom-bundle`* | `Trivy` | `Lefthook` |
+| **Vue3** | `ESLint` + `Prettier` | `Vitest` + `jsdom` | `Vitest (v8)` | `npm audit` | `ESLint Security` | `Stryker` | `Karate Labs` | `Lighthouse CI` | `DevTools` + `SonarJS` | `N/A` | `N/A` | `nginx-prometheus-exporter`* | `Trivy` | `Lefthook` |
+| **Bash** | `ShellCheck`+`shfmt`| `BATS-core`+`bats-mock`| `kcov` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `Pushgateway (cURL)`* | `Trivy` | `Lefthook` |
+
+*\* Nota: Las herramientas marcadas con asterisco (Observabilidad/Prometheus) se encuentran en fase de definición arquitectónica y aún no están integradas operativamente en los orquestadores actuales.*
 
 ---
 
