@@ -7,11 +7,12 @@ Para que un agente comprenda las restricciones corporativas en tiempo real, los 
 
 * **El Concepto:** Evita darle a la IA acceso irrestricto de lectura a todo tu disco duro. Usa un servidor MCP para exponer únicamente las reglas y el código que necesita de forma comprimida.
 * **Ejemplo Práctico 1 (Implementación Nivel 11X para Código):** En lugar de dar acceso de lectura a todo el disco, nuestro ecosistema integra el perfil oculto `--profile graphify`. Antes de programar, la IA debe extraer el grafo semántico y levantar el servidor MCP efímero:
-  ```bash
+
+```bash
   docker compose -f docker-compose.qa.yml --profile graphify run --rm graphify bash -c "uvx graphifyy extract"
   docker compose -f docker-compose.qa.yml --profile graphify up -d graphify
-  ```
-  *Luego, el agente se conecta por SSE a `http://localhost:8080/sse` para consultar la topología, ahorrando miles de tokens en OmniRoute.*
+```
+* Luego, el agente se conecta por SSE a `http://localhost:8080/sse` para consultar la topología, ahorrando miles de tokens en OmniRoute.
 * **Ejemplo Práctico 2 (Recursos Custom para Documentación):** Configura un servidor MCP que exponga los archivos `.md` como *Recursos* estáticos (URIs). Cuando el agente detecta que está en un proyecto Python, consulta `blueprints://python/fastapi`. El servidor lee el archivo local y le devuelve el prompt inyectando la regla inquebrantable del 95% de cobertura.
 
 ## 2. Orquestación Multi-Agente (Arquitecturas tipo Pantheon / Hermes)
@@ -35,12 +36,14 @@ El ecosistema de `qa-testing-blueprints` está diseñado intencionalmente para s
 
 * **El Concepto:** Proporcionar al agente una herramienta (`tool_call`) para ejecutar comandos en la terminal, pero bloqueando el acceso al host real.
 * **Ejemplo Práctico de Restricción (Python):** En la definición de tu herramienta para la IA, aplica una validación estricta antes de invocar el subproceso:
-  ```python
+
+```python
   def ejecutar_comando_qa(comando: str) -> str:
       if not comando.startswith("docker compose -f docker-compose.qa.yml run --rm"):
           return "ERROR: Operación denegada. Política corporativa: Solo puedes ejecutar pruebas dentro de contenedores efímeros usando 'docker compose -f docker-compose.qa.yml run --rm'."
       
       resultado = subprocess.run(comando, shell=True, capture_output=True, text=True)
       return resultado.stdout if resultado.returncode == 0 else resultado.stderr
-  ```
+```
+
 * **El Bucle Autónomo de Observabilidad:** El agente ejecuta las pruebas y evalúa el `stderr`. Si `kcov` reporta solo un 85% de cobertura, o si la IA levanta el perfil `--profile chaos` y detecta mediante peticiones al endpoint `http://localhost:9090/api/v1/query` (Prometheus) que la latencia (P99) sobrepasa los umbrales corporativos, la IA comprende la falla, reescribe el código de negocio en su propio entorno interno y vuelve a invocar la herramienta de estrés hasta lograr el estándar.

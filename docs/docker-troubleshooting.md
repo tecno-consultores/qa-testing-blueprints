@@ -14,6 +14,7 @@ Docker sigue almacenando en caché de forma agresiva: imágenes colgantes (Dangl
 
 **La Solución:**
 Ejecutar la purga profunda que apagará todos los perfiles ocultos y limpiará los volúmenes:
+
 ```bash
 sudo ./limpieza.sh
 ```
@@ -29,6 +30,7 @@ Linux te dice: `Permission denied` al intentar manipular reportes generados.
 Efecto secundario de los volúmenes *bind*. El contenedor efímero se ejecuta con `root` y crea los archivos (y carpetas como `prometheus_data/` o `graphify-out/`) con ese propietario.
 
 **La Solución:**
+
 ```bash
 sudo chown -R $USER:$USER .
 ```
@@ -45,6 +47,7 @@ Ya tienes una instancia de Prometheus o un servicio Nginx corriendo en tu máqui
 
 **La Solución:**
 Mata el contenedor secuestrador y baja toda la red del compose.
+
 ```bash
 docker ps | grep 9090
 docker kill <id_del_contenedor_conflictivo>
@@ -76,6 +79,7 @@ Por defecto, Docker aplica un perfil estricto de `seccomp` que prohíbe que un p
 
 **La Solución:**
 Debes otorgar capacidades extendidas temporalmente al contenedor en tu archivo `docker-compose.qa.yml`:
+
 ```yaml
     cap_add:
       - SYS_PTRACE
