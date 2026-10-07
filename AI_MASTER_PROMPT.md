@@ -32,15 +32,15 @@ Este repositorio contiene múltiples ecosistemas tecnológicos. **NO ALUCINES CO
 Busca y lee tu guía de reglas específicas aquí:
 
 * 🐍 **Si el proyecto es un Script Standalone en Python:**
-  👉 Lee obligatoriamente: `python/pruebas-script-python.md`
+  👉 Lee obligatoriamente: `python/README.md`
 * ⚡ **Si el proyecto es una API Web en FastAPI (Python):**
-  👉 Lee obligatoriamente: `fastapi/pruebas-api-fastapi.md`
+  👉 Lee obligatoriamente: `fastapi/README.md`
 * 🟩 **Si el proyecto es un Backend o Microservicio en Node.js (Express/Fastify/Ionic):**
-  👉 Lee obligatoriamente: `node-backend/pruebas-backend-node.md`
+  👉 Lee obligatoriamente: `node-backend/README.md`
 * 🟢 **Si el proyecto es un Frontend de Interfaz de Usuario en Vue 3:**
-  👉 Lee obligatoriamente: `vue3/pruebas-front-vue3.md`
+  👉 Lee obligatoriamente: `vue3/README.md`
 * 🐧 **Si el proyecto contiene automatizaciones DevOps o Scripts en Bash:**
-  👉 Lee obligatoriamente: `bash-scripts/pruebas-script-bash.md`
+  👉 Lee obligatoriamente: `bash-scripts/README.md`
 
 ## 4. Protocolo de Seguridad y Resiliencia (Nivel 11X)
 
