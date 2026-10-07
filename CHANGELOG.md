@@ -4,6 +4,25 @@ Todos los cambios notables de este proyecto se documentarán en este archivo.
 
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/), y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [2.3.1] - 2026-10-07
+
+### 🚀 Añadido (Added)
+*   **UX/DX:** Se estandarizó la bibliografía y enlaces externos en archivos centralizados (`RESOURCES.md` / `REFERENCES.md`) para limpiar los prompts operativos.
+
+### 🔄 Modificado (Changed)
+*   **Refactorización de Enrutamiento:** Se renombraron las guías operativas de todos los ecosistemas (ej. `pruebas-backend-node.md`, `pruebas-script-bash.md`) a `README.md`. Esto activa el renderizado automático en GitHub/GitLab y optimiza el punto de entrada para los Agentes de IA.
+*   **AI Master Prompt:** Actualizada la Regla Innegociable #6 y la sección de enrutamiento para diferenciar la observabilidad entre servicios continuos (middleware `/metrics`) y tareas efímeras (*Pushgateway*).
+*   **Documentación de Arquitectura:** Actualizados los diagramas Nivel 2 y Nivel 3 en `ARCHITECTURE_C4.md` para ilustrar gráficamente la recolección asíncrona de métricas vía Pushgateway.
+*   **Filosofía y FAQ:** Se agregaron aclaratorias en `qa-philosophy.md` y `FAQ.md` justificando el uso de inyección de comandos `curl` o `push_to_gateway` en entornos que no levantan servidores HTTP (Bash y scripts Python).
+*   **CI/CD:** Añadida una advertencia en la plantilla de `ci-cd-pipelines.md` para evitar que los proyectos de scripts efímeros intenten invocar el perfil de caos (`--profile chaos`) en lugar del de observabilidad.
+*   **Python Scripts:** Se actualizó el `README.md` del ecosistema Python para instruir a la IA sobre cómo utilizar `CollectorRegistry` y `push_to_gateway` antes de que el contenedor muera.
+
+### 🐛 Corregido (Fixed)
+*   **Bug de Red (Python Scripts):** Corregido un error en el `docker-compose.qa.yml` donde Prometheus intentaba raspar un hostname inexistente (`test_env:8000`). Ahora apunta correctamente a `test:8000`.
+*   **Fugas de Infraestructura (Limpieza):** Se actualizaron los scripts `limpieza.sh` de Bash y Python Scripts para garantizar que el orquestador apague los contenedores del perfil oculto `--profile observability` antes de podar el sistema.
+
+---
+
 ## [2.3.0] - 2026-10-02
 
 ### 🚀 Añadido (Added)
