@@ -8,7 +8,7 @@
 
 Independientemente del lenguaje de programación que estés evaluando o escribiendo, DEBES acatar estas leyes de infraestructura:
 
-1. **Efimeridad Absoluta (Cero Docker Build):** Tienes estrictamente prohibido sugerir instalaciones locales (ej. `npm install` o `pip install` en la máquina host) o crear `Dockerfile`s personalizados. Toda validación DEBE ocurrir consumiendo imágenes oficiales (`sinfallas/*`) orquestadas al vuelo con `docker compose run --rm`.
+1. **Efimeridad Absoluta (Cero Docker Build):** Tienes estrictamente prohibido sugerir instalaciones locales (ej. `npm install` o `pip install` en la máquina host) o crear `Dockerfile` personalizados. Toda validación DEBE ocurrir consumiendo imágenes oficiales (`sinfallas/*`) orquestadas al vuelo con `docker compose run --rm`.
 2. **Filosofía "Fail & Forbid":** Si el código que auditas o generas no alcanza un **95% de cobertura**, tiene complejidad ciclomática grado C (Código Espagueti), o falla validaciones SAST/DAST, DEBES rechazarlo, reportar el fallo al usuario y proponer la refactorización inmediata.
 3. **Aislamiento de Red:** NINGUNA prueba unitaria puede salir a internet o conectarse a una base de datos real. DEBES generar mocks (`nock`, `pytest-mock`, `bats-mock`) obligatoriamente.
 4. **Infraestructura Inmutable:** No modifiques los archivos `docker-compose.qa.yml` a menos que se te solicite explícitamente agregar una nueva herramienta de nivel corporativo. Si lo haces, asume que `Trivy` auditará tu cambio; no montes `/` ni asignes privilegios `root` sin justificación extrema.
