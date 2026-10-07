@@ -30,15 +30,29 @@ services:
         global:
           scrape_interval: 2s
         scrape_configs:
-          - job_name: 'python_scripts'
+          - job_name: 'python_scripts_daemon'
             static_configs:
-              - targets: ['test_env:8000']
+              - targets: ['test:8000']
+          - job_name: 'python_scripts_pushgateway'
+            honor_labels: true
+            static_configs:
+              - targets: ['python_pushgateway:9091']
         " > /tmp/prometheus.yml
         /bin/prometheus --config.file=/tmp/prometheus.yml
     ports:
       - "9090:9090"
     depends_on:
       - test
+      - pushgateway
+
+  pushgateway:
+    image: prom/pushgateway:latest
+    container_name: python_pushgateway
+    hostname: python_pushgateway
+    profiles:
+      - observability
+    ports:
+      - "9091:9091"
 
   graphify:
     image: sinfallas/remote-graphify:latest
