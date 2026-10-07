@@ -35,11 +35,12 @@ La estrategia de validación de FastAPI abarca 11 capas transversales. Debes con
 
 ### A. Observabilidad en Código (Requisito Previo Innegociable)
 *   Antes de realizar cualquier auditoría, DEBES asegurar que el archivo raíz de FastAPI (ej. `src/main.py`) esté instrumentado inyectando estas dos líneas exactas para exponer la ruta `/metrics` de manera no intrusiva:
-    ```python
+
+```python
     from prometheus_fastapi_instrumentator import Instrumentator
     # Inyectar después de definir app = FastAPI():
     Instrumentator().instrument(app).expose(app)
-    ```
+```
 
 ### B. Lógica Interna y Mocking (`pytest` + `TestClient` + `pytest-mock`)
 *   Usa `httpx` y el `TestClient` nativo de FastAPI para simular peticiones sin depender de la red.
@@ -68,13 +69,16 @@ Para que las herramientas dinámicas funcionen, la aplicación debe estar escuch
 
 **Paso 0: Ingestión de Contexto (Obligatorio para la IA antes de programar)**
 Extrae la topología del código y levanta tu servidor de contexto:
+
 ```bash
 docker compose -f docker-compose.qa.yml --profile graphify run --rm graphify bash -c "uvx graphifyy extract"
 docker compose -f docker-compose.qa.yml --profile graphify up -d graphify
 ```
+
 *Conéctate a `http://localhost:8080/sse` para consultar las relaciones del código de forma eficiente.*
 
 **Paso 1: Compilar, Instrumentar y Levantar la API**
+
 ```bash
 docker compose -f docker-compose.qa.yml up -d api
 ```
@@ -82,37 +86,52 @@ docker compose -f docker-compose.qa.yml up -d api
 **Paso 2: Ejecutar las suites de validación estándar (Pipeline Regular)**
 
 *   **Auditoría SAST y Complejidad:**
+
 ```bash
 docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && uv pip audit && bandit -r src/ && radon cc --min C src/ && radon mi --min B src/"
 ```
+
 *   **Pruebas Unitarias Aisladas (Cobertura innegociable >95%):**
+
 ```bash
 docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && pytest --cov=src/ --cov-fail-under=95 -v"
 ```
+
 *   **Pruebas de Mutación (Solidez de Assertions):**
+
 ```bash
 docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && mutmut run"
 ```
+
 *   **Fuzzing y Contratos:**
+
 ```bash
 docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && schemathesis run http://api:8000/openapi.json"
 ```
+
 *   **Comportamiento BDD (Karate):**
+
 ```bash
 docker compose -f docker-compose.qa.yml run --rm karatelabs mvn clean test
 ```
+
 *   **Seguridad Dinámica DAST (OWASP ZAP):**
+
 ```bash
 docker compose -f docker-compose.qa.yml run --rm zap zap-baseline.py -t http://api:8000 -r zap-report.html
 ```
+
 *   **Profiling Acumulativo (Flamegraph):**
+
 ```bash
 docker compose -f docker-compose.qa.yml exec -T api bash -c "py-spy record -o /app/profile.svg --pid 1 --duration 30"
 ```
 
 **Paso 3: Certificación de Nivel 11X (Ingeniería del Caos y Observabilidad)**
 Este comando activa el perfil oculto. Despierta a Pumba, Locust y Prometheus simultáneamente para estresar la API mientras se simula una degradación severa de la red.
+
 ```bash
 docker compose -f docker-compose.qa.yml --profile chaos up --abort-on-container-exit stress_test
 ```
+
 *(Durante el ataque, visualiza las métricas en `http://localhost:9090` o revisa `chaos-report.html` para validar la tasa de supervivencia de los requests).*

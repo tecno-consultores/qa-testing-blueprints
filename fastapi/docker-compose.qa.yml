@@ -2,7 +2,7 @@ services:
   api:
     image: sinfallas/base-python-uv:3.13
     container_name: fastapi_api
-    hostname: api
+    hostname: fastapi_api
     pull_policy: always
     environment:
       TZ: 'America/Caracas'
@@ -20,7 +20,7 @@ services:
   test:
     image: sinfallas/base-python-uv:3.13
     container_name: fastapi_test
-    hostname: test_env
+    hostname: fastapi_tests
     pull_policy: always
     environment:
       TZ: 'America/Caracas'
@@ -35,6 +35,7 @@ services:
   karatelabs:
     image: sinfallas/karatelabs:latest
     container_name: fastapi_karate
+    hostname: fastapi_karate
     pull_policy: always
     depends_on:
       - api
@@ -45,6 +46,7 @@ services:
   zap:
     image: owasp/zap2docker-stable:latest
     container_name: fastapi_zap
+    hostname: fastapi_zap
     pull_policy: always
     depends_on:
       - api
@@ -56,6 +58,7 @@ services:
   pumba:
     image: gaiaadm/pumba:latest
     container_name: fastapi_pumba
+    hostname: fastapi_pumba
     profiles:
       - chaos
     volumes:
@@ -67,6 +70,7 @@ services:
   prometheus:
     image: prom/prometheus:latest
     container_name: fastapi_prometheus
+    hostname: fastapi_prometheus
     profiles:
       - chaos
     # Inyección de configuración inline (raspa la API cada 2s para ver el impacto en vivo de Pumba)
@@ -92,6 +96,7 @@ services:
   stress_test:
     image: sinfallas/base-python-uv:3.13
     container_name: fastapi_chaos_locust
+    hostname: fastapi_chaos_locust
     profiles:
       - chaos
     depends_on:
@@ -104,7 +109,7 @@ services:
   graphify:
     image: sinfallas/remote-graphify:latest
     container_name: fastapi_graphify
-    hostname: graphify
+    hostname: fastapi_graphify
     profiles:
       - graphify
     restart: always
