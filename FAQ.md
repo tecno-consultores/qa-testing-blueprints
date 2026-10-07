@@ -40,6 +40,7 @@ Porque cumplen propósitos distintos. Vitest/Pytest prueban cajas blancas (conoc
 
 ### ¿Por qué me obligan a inyectar un middleware de Prometheus en mi código fuente?
 Porque la Ingeniería del Caos a ciegas no sirve de nada. Si inyectamos latencia o pérdida de paquetes con Pumba, necesitamos ver el impacto real en los tiempos de respuesta (Métricas RED) de forma instantánea. Los middlewares seleccionados (`express-prom-bundle`, `prometheus-fastapi-instrumentator`) son de impacto cero y no alteran tu lógica de negocio.
+*   **Nota para scripts (Bash/Python):** Para tareas efímeras que no levantan un servidor HTTP, no usamos middlewares. En su lugar, utilizamos inyecciones de comandos (ej. `curl`) para empujar las métricas hacia un **Pushgateway**, permitiendo que Prometheus las recolecte después de que el script haya terminado de ejecutarse.
 
 ### ¿Por qué Pumba (Caos) necesita acceder al socket de Docker (`/var/run/docker.sock`) si nuestra política prohíbe esto?
 Porque la **Ingeniería del Caos** consiste en simular fallos catastróficos a nivel de infraestructura. Pumba necesita comunicarse con el demonio de Docker para interceptar el tráfico de red de otros contenedores o apagarlos abruptamente. Esta es una **excepción de seguridad documentada**, y es por ello que está oculta bajo el flag `--profile chaos` en el orquestador. Jamás se debe activar en un servidor de producción.
