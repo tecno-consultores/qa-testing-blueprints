@@ -52,4 +52,4 @@
 
 * [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/)
 * [Semantic Versioning](https://semver.org/lang/es/)
-* [https://www.contributor-covenant.org/es/version/2/1/code_of_conduct.html](https://www.contributor-covenant.org/es/version/2/1/code_of_conduct.html)
+* [Code of conduct](https://www.contributor-covenant.org/es/version/2/1/code_of_conduct.html)
