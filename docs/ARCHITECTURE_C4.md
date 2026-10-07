@@ -43,9 +43,10 @@ graph LR
         API["📦 App Viva \n (Nginx / Uvicorn / Node) \n Puerto Expuesto"]
         Test["🧪 Contenedor QA Efímero \n (Vitest/Pytest, SAST) \n Muere al terminar"]
         Karate["🥋 Contenedor BDD \n (Karate Labs) \n Muere al terminar"]
-        ZAP["🕷️️ Contenedor DAST \n (OWASP ZAP) \n Baseline Scan"]
+        ZAP["🕷 Contenedor DAST \n (OWASP ZAP) \n Baseline Scan"]
         Pumba["🌪️ Inyector de Caos \n (Pumba) \n Perfil: --profile chaos"]
         Prometheus["📊 Observabilidad \n (Prometheus) \n Perfil: --profile chaos"]
+        PushGW["📤 Pushgateway \n (Caché de Métricas) \n Perfil: --profile observability"]
         Graphify["🧠 Servidor MCP IA \n (Graphify) \n Perfil: --profile graphify"]
     end
 
@@ -55,7 +56,9 @@ graph LR
     Karate -- "Peticiones HTTP Caja Negra" --> API
     ZAP -- "Inyección XSS/SQL y Cabeceras" --> API
     Pumba -- "Inyecta Latencia y Mata Contenedores" --> API
+    Test -- "Empuja métricas (cURL)" --> PushGW
     Prometheus -- "Scrapea Métricas (/metrics)" --> API
+    Prometheus -- "Scrapea" --> PushGW
     Graphify -- "Lee código y expone SSE" --> API
 
     classDef ephemeral fill:#b33a3a,stroke:#800000,stroke-width:2px,color:#fff,stroke-dasharray: 5 5;
@@ -68,7 +71,7 @@ graph LR
     class Pumba chaos;
     class API live;
     class Graphify ai;
-    class Prometheus obs;
+    class Prometheus,PushGW obs;
 ```
 
 ---
@@ -82,7 +85,7 @@ graph TD
         direction TB
         
         Graph["0️⃣ Ingestión de Contexto IA \n (Graphify MCP)"]
-        Obs["1️⃣ Instrumentación RED \n (Middleware Prometheus)"]
+        Obs["1️⃣ Instrumentación RED \n (Middleware o Pushgateway)"]
         IaC["2️⃣ Auditoría IaC y Secretos \n (Trivy / Lefthook)"]
         SAST["3️⃣ Auditoría de Seguridad Estática \n (Bandit / ESLint Security)"]
         Static["4️⃣ Deuda Técnica y Complejidad \n (Radon / SonarJS)"]
