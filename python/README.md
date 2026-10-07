@@ -36,12 +36,13 @@ Cuando redactes código de pruebas (`tests/`) o lógica base (`src/`), debes sep
 
 ### A. Observabilidad en Código (Requisito Previo Innegociable)
 *   Si el script está diseñado para ejecutarse prolongadamente (daemons, bots o procesamiento batch), DEBES instrumentar el archivo principal (ej. `src/main.py`) inyectando un mini-servidor asíncrono para exponer métricas en el puerto 8000:
-    ```python
+
+```python
     from prometheus_client import start_http_server
     if __name__ == '__main__':
         start_http_server(8000) # Expone métricas sin bloquear el script
         # ... resto de la lógica ...
-    ```
+```
 
 ### B. Pruebas Unitarias (Mockeadas / Aisladas)
 *   **Propósito:** Validar la lógica pura de la librería sin depender de red o credenciales.
@@ -67,48 +68,58 @@ Utiliza estos comandos asumiendo que existe el orquestador aislado `docker-compo
 
 **Paso 0: Ingestión de Contexto (Obligatorio para la IA antes de programar)**
 Extrae la topología del código y levanta tu servidor de contexto:
+
 ```bash
 docker compose -f docker-compose.qa.yml --profile graphify run --rm graphify bash -c "uvx graphifyy extract"
 docker compose -f docker-compose.qa.yml --profile graphify up -d graphify
 ```
+
 *Conéctate a `http://localhost:8080/sse` para consultar las relaciones del código de forma eficiente.*
 
 **Paso 1: Ejecución de las suites de validación**
 
 *   **Auditoría Estática, Complejidad y Seguridad:**
+
 ```bash
 docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && uv pip audit && bandit -r src/ && radon cc --min C src/ && radon mi --min B src/"
 ```
 
 *   **Suite Unitaria (Aislada), BDD y Rendimiento (Cobertura > 95%):**
+
 ```bash
 docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && pytest -m 'not integration' --cov=src/ --cov-fail-under=95 -v"
 ```
 
 *   **Prueba Exclusiva de Integración (Conexión Real):**
+
 ```bash
 docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && pytest -m integration -v"
 ```
 
 *   **Pruebas de Mutación (Evaluar solidez de los tests):**
+
 ```bash
 docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && mutmut run"
 ```
 
 *   **Profiling (Generar Flamegraph de CPU para el script):**
+
 ```bash
 docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && py-spy record -o profile.svg -- python src/main.py"
 ```
 
 *   **Validación Completa Pre-Commit (Pipeline Tox con Matriz):**
+
 ```bash
 docker compose -f docker-compose.qa.yml run --rm -e UV_PYTHON_DOWNLOADS=true test bash -c "uv pip install --system -e '.[dev]' && tox"
 ```
 
 **Paso 2: Certificación de Observabilidad en Vivo (Nivel 11X)**
 Si el script es persistente (daemon) y fue instrumentado, ejecútalo en conjunto con Prometheus para perfilar sus métricas en vivo.
+
 ```bash
 docker compose -f docker-compose.qa.yml --profile observability up -d prometheus
 docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && python src/main.py"
 ```
+
 *(Accede a `http://localhost:9090` durante la ejecución para evaluar el comportamiento).*
