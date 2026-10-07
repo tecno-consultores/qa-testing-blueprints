@@ -2,7 +2,7 @@ services:
   qa-bash:
     image: sinfallas/base-bash-qa:latest
     container_name: bash_test_env
-    hostname: bash_qa
+    hostname: bash_test_env
     pull_policy: always
     environment:
       TZ: 'America/Caracas'
@@ -13,6 +13,7 @@ services:
   pushgateway:
     image: prom/pushgateway:latest
     container_name: bash_pushgateway
+    hostname: bash_pushgateway
     profiles:
       - observability
     ports:
@@ -21,6 +22,7 @@ services:
   prometheus:
     image: prom/prometheus:latest
     container_name: bash_prometheus
+    hostname: bash_prometheus
     profiles:
       - observability
     entrypoint:
