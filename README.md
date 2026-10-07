@@ -7,7 +7,7 @@ Este proyecto estandariza la forma en que probamos nuestro software, garantizand
 ## 🚀 Filosofía Principal (Estándar 11X)
 
 1. **Cero Compilaciones Locales:** No utilizamos `docker build`. Toda la infraestructura se levanta consumiendo nuestra flota de imágenes oficiales en Docker Hub. Las imágenes base admiten *tags* específicos para igualar la versión de lenguaje de tu proyecto en producción:
-   * `sinfallas/base-python-uv` (Tags: `3.10`, `3.11`, `3.12`, `3.13`, `3.14`, `latest`).
+   * [sinfallas/base-python-uv](https://hub.docker.com/r/sinfallas/base-python-uv) (Tags: `3.10`, `3.11`, `3.12`, `3.13`, `3.14`, `latest`).
    * `sinfallas/base-node-ionic` (Tags: `22`, `23`, `24`, `25`, `26`, `latest`).
    * `sinfallas/base-bash-qa:latest` y `sinfallas/karatelabs:latest`.
    * `sinfallas/remote-graphify:latest` para Optimización de Contexto IA (Servidor MCP).
