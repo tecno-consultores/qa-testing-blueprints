@@ -7,12 +7,13 @@
 Para mantener la consistencia y la eficacia de estos blueprints, toda contribución debe respetar los siguientes principios:
 
 1. **Imágenes Base Inmutables:** Nunca propongas cambios que requieran agregar un `Dockerfile` local o la instrucción `build:` en los orquestadores `docker-compose.qa.yml`. Todo debe funcionar utilizando exclusivamente nuestra flota de imágenes oficiales.
-   * `sinfallas/base-python-uv:<tag>` (`3.10` a `3.14`) para Python/FastAPI.
-   * `sinfallas/base-node-ionic:<tag>` (`22` a `26`) para Node.js/Vue 3.
-   * `sinfallas/base-bash-qa:latest` para Bash/DevOps.
-   * `sinfallas/karatelabs:latest` para BDD/Caja Negra.
-   * `sinfallas/remote-graphify:latest` para Optimización de Contexto IA (Servidor MCP).
+   * [sinfallas/base-python-uv](https://hub.docker.com/r/sinfallas/base-python-uv):<tag> (`3.10` a `3.14`) para Python/FastAPI.
+   * [sinfallas/base-node-ionic](https://hub.docker.com/r/sinfallas/base-node-ionic):<tag> (`22` a `26`) para Node.js/Vue 3.
+   * [sinfallas/base-bash-qa](https://hub.docker.com/r/sinfallas/base-bash-qa):latest para Bash/DevOps.
+   * [sinfallas/karatelabs](https://hub.docker.com/r/sinfallas/karatelabs):latest para BDD/Caja Negra.
+   * [sinfallas/remote-graphify](https://hub.docker.com/r/sinfallas/remote-graphify):latest para Optimización de Contexto IA (Servidor MCP).
    * *Nota: Se permite el uso de imágenes oficiales consolidadas exclusivamente para Sidecars periféricos (ej. `prom/prometheus:latest`, `owasp/zap2docker-stable:latest`).*
+
 2. **Efimeridad y Aislamiento Estricto:** Los contenedores de prueba (excepto los servicios vivos) deben tener un ciclo de vida corto (usando `--rm`). Las pruebas jamás deben salir a Internet a menos que sean explícitamente de integración; el Mocking (`nock`, `pytest-mock`) es obligatorio.
 3. **Prompts Imperativos:** Si modificas los archivos `.md` que consumirá la IA, usa lenguaje directo, autoritario y restrictivo. Las IAs necesitan límites claros (ej. "NUNCA hagas esto", "DEBES usar X para Y").
 4. **Umbral de Calidad y Deuda Técnica:** Toda nueva herramienta o entorno debe configurarse para hacer fallar el pipeline corporativo si no se cumplen estos tres pilares:
