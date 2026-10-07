@@ -43,14 +43,17 @@
 
 **Paso 0: Ingestión de Contexto (Obligatorio para la IA antes de programar)**
 Extrae la topología del código fuente (componentes Vue y dependencias TS) y levanta tu servidor de contexto:
+
 ```bash
 docker compose -f docker-compose.qa.yml --profile graphify run --rm graphify bash -c "uvx graphifyy extract"
 docker compose -f docker-compose.qa.yml --profile graphify up -d graphify
 ```
+
 *Conéctate a `http://localhost:8080/sse` para consultar las relaciones del código de forma eficiente.*
 
 **Paso 1: Compilar la aplicación y preparar el entorno de Producción Muteado**
 Antes de lanzar pruebas E2E, Lighthouse o Karate, debes compilar `dist/` y levantarlo en Nginx:
+
 ```bash
 docker compose -f docker-compose.qa.yml run --rm ui-e2e bash -c "npm install && npm run build"
 docker compose -f docker-compose.qa.yml up -d ui-prod
@@ -59,26 +62,31 @@ docker compose -f docker-compose.qa.yml up -d ui-prod
 **Paso 2: Ejecutar las suites de validación**
 
 *   **Auditoría de Dependencias (CVEs):**
+
 ```bash
 docker compose -f docker-compose.qa.yml run --rm ui-e2e bash -c "npm install && npm run audit:deps"
 ```
 
 *   **Validación Estática (Linting, Complejidad SonarJS, Type-checking y Prettier):**
+
 ```bash
 docker compose -f docker-compose.qa.yml run --rm ui-e2e bash -c "npm run type-check && npm run format:check && npm run lint"
 ```
 
 *   **Pruebas Unitarias Aisladas (Vitest - Exigencia 95%):**
+
 ```bash
 docker compose -f docker-compose.qa.yml run --rm ui-e2e npm run test:coverage
 ```
 
 *   **Pruebas de Mutación Frontend (Stryker):**
+
 ```bash
 docker compose -f docker-compose.qa.yml run --rm ui-e2e npm run mutate
 ```
 
 *   **Rendimiento y Core Web Vitals (Lighthouse CI):**
+
 ```bash
 docker compose -f docker-compose.qa.yml run --rm ui-e2e npm run test:perf
 ```
@@ -89,13 +97,16 @@ docker compose -f docker-compose.qa.yml run --rm ui-e2e npx playwright test
 ```
 
 *   **Pruebas de Aceptación BDD (Karate UI):**
+
 ```bash
 docker compose -f docker-compose.qa.yml run --rm karatelabs mvn clean test
 ```
 
 **Paso 3: Certificación de Observabilidad en Vivo (Nivel 11X)**
 Levanta Prometheus y el sidecar de Nginx para monitorear las interacciones de los tests E2E y BDD en tiempo real.
+
 ```bash
 docker compose -f docker-compose.qa.yml --profile observability up -d prometheus nginx-exporter
 ```
+
 *(Accede a `http://localhost:9090` durante la ejecución de Playwright o Karate para evaluar las métricas de tráfico y respuesta de Nginx).*
