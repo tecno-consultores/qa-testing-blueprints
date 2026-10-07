@@ -1,10 +1,55 @@
+# Recursos
 
+## Documentación de los paquetes utilizados:
 
+* [ruff](https://github.com/astral-sh/ruff)
+* [mypy](https://github.com/python/mypy)
+* [pytest](https://github.com/pytest-dev/pytest)
+* [pytest-mock](https://github.com/pytest-dev/pytest-mock)
+* [pytest-cov](https://github.com/pytest-dev/pytest-cov)
+* [bandit](https://github.com/pycqa/bandit)
+* [mutmut](https://github.com/boxed/mutmut)
+* [pytest-bdd](https://github.com/pytest-dev/pytest-bdd)
+* [pytest-benchmark](https://github.com/ionelmc/pytest-benchmark)
+* [py-spy](https://github.com/benfred/py-spy)
+* [radon](https://github.com/rubik/radon)
+* [trivy](https://github.com/aquasecurity/trivy)
+* [lefthook](https://github.com/evilmartians/lefthook)
+* [karate labs](https://github.com/karatelabs/karate)
+* [locust](https://github.com/locustio/locust)
+* [OWASP ZAP](https://github.com/zaproxy/zap-api-python)
+* [pumba](https://github.com/pjsjongsung/PUMBA)
+* [ESLint](https://github.com/eslint/eslint)
+* [prettier](https://github.com/prettier/prettier)
+* [vitest](https://github.com/vitest-dev/vitest)
+* [nock](https://github.com/nock/nock)
+* [ESLint Security](https://github.com/gkouziik/eslint-plugin-security-node)
+* [stryker](https://github.com/stryker-mutator/stryker-js)
+* [artillery](https://github.com/artilleryio/artillery)
+* [clinic.js](https://github.com/clinicjs/node-clinic)
+* [SonarJS](https://github.com/SonarSource/sonarjs)
+* [express-prom-bundle](https://github.com/jochen-schweizer/express-prom-bundle)
+* [jsdom](https://github.com/jsdom/jsdom)
+* [Lighthouse CI](https://github.com/GoogleChrome/lighthouse-ci/)
+* [DevTools](https://github.com/jdssl/node-devtools)
+* [nginx-prometheus-exporter](https://github.com/nginx/nginx-prometheus-exporter)
+* [shellcheck](https://github.com/koalaman/shellcheck)
+* [shfmt](https://github.com/patrickvane/shfmt)
+* [BATS-core](https://github.com/bats-core/bats-core)
+* [bats-mock](https://github.com/jasonkarns/bats-mock)
+* [kcov](https://github.com/SimonKagstrom/kcov)
+* [Pushgateway](https://github.com/prometheus/pushgateway)
 
-## Imagenes docker:
+## Imágenes docker:
 
 * [sinfallas/base-python-uv](https://hub.docker.com/r/sinfallas/base-python-uv)
 * [sinfallas/base-node-ionic](https://hub.docker.com/r/sinfallas/base-node-ionic)
 * [sinfallas/base-bash-qa](https://hub.docker.com/r/sinfallas/base-bash-qa)
 * [sinfallas/karatelabs](https://hub.docker.com/r/sinfallas/karatelabs)
 * [sinfallas/remote-graphify](https://hub.docker.com/r/sinfallas/remote-graphify)
+
+## Referencias:
+
+* [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/)
+* [Semantic Versioning](https://semver.org/lang/es/)
+* [https://www.contributor-covenant.org/es/version/2/1/code_of_conduct.html](https://www.contributor-covenant.org/es/version/2/1/code_of_conduct.html)
