@@ -19,11 +19,12 @@
 
 ### A. Observabilidad en Código (Requisito Previo Innegociable)
 *   Antes de realizar cualquier auditoría, DEBES asegurar que el archivo principal de Express/Fastify (ej. `src/server.ts`) esté instrumentado inyectando este middleware de manera no intrusiva para exponer `/metrics`:
-    ```typescript
+
+```typescript
     import promBundle from "express-prom-bundle";
     // Inyectar antes de declarar tus rutas de negocio:
     app.use(promBundle({ includeMethod: true, includePath: true }));
-    ```
+```
 
 ### B. Lógica Interna, Integración e Intercepción -> `Vitest` + `Supertest` + `Nock`
 *   **Regla:** Usa `Vitest` como motor (no Jest). Usa `Supertest` para probar las rutas de Express/Fastify pasándole la instancia directamente, SIN escuchar en un puerto real.
@@ -55,13 +56,16 @@
 
 **Paso 0: Ingestión de Contexto (Obligatorio para la IA antes de programar)**
 Extrae la topología del código y levanta tu servidor de contexto:
+
 ```bash
 docker compose -f docker-compose.qa.yml --profile graphify run --rm graphify bash -c "uvx graphifyy extract"
 docker compose -f docker-compose.qa.yml --profile graphify up -d graphify
 ```
+
 *Conéctate a `http://localhost:8080/sse` para consultar las relaciones del código de forma eficiente.*
 
 **Paso 1: Compilar, Instrumentar y Levantar la API en segundo plano**
+
 ```bash
 docker compose -f docker-compose.qa.yml run --rm api bash -c "pnpm install && pnpm run build"
 docker compose -f docker-compose.qa.yml up -d api
@@ -70,37 +74,52 @@ docker compose -f docker-compose.qa.yml up -d api
 **Paso 2: Ejecutar las suites de validación (Pipeline Regular)**
 
 *   **Auditoría de Dependencias (CVEs):**
+
 ```bash
 docker compose -f docker-compose.qa.yml run --rm test bash -c "pnpm install && pnpm run audit:deps"
 ```
+
 *   **Formateo y Seguridad Estática (Complejidad y Linting):**
+
 ```bash
 docker compose -f docker-compose.qa.yml run --rm test bash -c "pnpm install && pnpm run format:check && pnpm run lint"
 ```
+
 *   **Pruebas Lógicas Internas (Aisladas con Nock/Vitest) - Exigencia >95%:**
+
 ```bash
 docker compose -f docker-compose.qa.yml run --rm test bash -c "pnpm install && pnpm run test:coverage"
 ```
+
 *   **Pruebas de Mutación (Evaluar solidez de los asertos):**
+
 ```bash
 docker compose -f docker-compose.qa.yml run --rm test bash -c "pnpm install && pnpm run mutate"
 ```
+
 *   **Comportamiento BDD con Karate:**
+
 ```bash
 docker compose -f docker-compose.qa.yml run --rm karatelabs mvn clean test
 ```
+
 *   **Seguridad Dinámica DAST (OWASP ZAP):**
+
 ```bash
 docker compose -f docker-compose.qa.yml run --rm zap zap-baseline.py -t http://api:3000 -r zap-report.html
 ```
+
 *   **Profiling Acumulativo (Flamegraph de CPU):**
+
 ```bash
 docker compose -f docker-compose.qa.yml run --rm test bash -c "pnpm install && pnpm run profile:cpu"
 ```
 
 **Paso 3: Certificación de Nivel 11X (Ingeniería del Caos y Observabilidad)**
 *ADVERTENCIA:* Este comando activa el perfil de caos. Despierta a Pumba, Artillery y Prometheus simultáneamente para estresar la API simulando una red severamente degradada.
+
 ```bash
 docker compose -f docker-compose.qa.yml --profile chaos up --abort-on-container-exit stress_test
 ```
+
 *(Durante el ataque, puedes visualizar las métricas en vivo en `http://localhost:9090`. Al finalizar, revisa el archivo `chaos-report.json` generado localmente).*

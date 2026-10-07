@@ -2,7 +2,7 @@ services:
   api:
     image: sinfallas/base-node-ionic:latest
     container_name: node_api
-    hostname: api
+    hostname: node_api
     pull_policy: always
     environment:
       TZ: 'America/Caracas'
@@ -20,7 +20,7 @@ services:
   test:
     image: sinfallas/base-node-ionic:latest
     container_name: node_test
-    hostname: test_env
+    hostname: node_test
     pull_policy: always
     environment:
       TZ: 'America/Caracas'
@@ -35,6 +35,7 @@ services:
   karatelabs:
     image: sinfallas/karatelabs:latest
     container_name: node_karate
+    hostname: node_karate
     pull_policy: always
     depends_on:
       - api
@@ -45,6 +46,7 @@ services:
   zap:
     image: owasp/zap2docker-stable:latest
     container_name: node_zap
+    hostname: node_zap
     pull_policy: always
     depends_on:
       - api
@@ -56,6 +58,7 @@ services:
   pumba:
     image: gaiaadm/pumba:latest
     container_name: node_pumba
+    hostname: node_pumba
     profiles:
       - chaos
     volumes:
@@ -67,6 +70,7 @@ services:
   prometheus:
     image: prom/prometheus:latest
     container_name: node_prometheus
+    hostname: node_prometheus
     profiles:
       - chaos
     # Inyección de configuración inline (raspa la API de Node cada 2s para ver el impacto de Pumba)
@@ -92,6 +96,7 @@ services:
   stress_test:
     image: sinfallas/base-node-ionic:latest
     container_name: node_chaos_artillery
+    hostname: node_chaos_artillery
     profiles:
       - chaos
     depends_on:
@@ -103,7 +108,7 @@ services:
   graphify:
     image: sinfallas/remote-graphify:latest
     container_name: node_graphify
-    hostname: graphify
+    hostname: node_graphify
     profiles:
       - graphify
     restart: always
