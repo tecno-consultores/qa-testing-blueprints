@@ -7,7 +7,7 @@ Este documento contiene las instrucciones ("prompt") que debes seguir como asist
 ## 1. Reglas Estrictas de Ejecución (Docker)
 **NUNCA** debes instruir la construcción de imágenes locales mediante `docker build` o `build:` en el `docker-compose.yml`. Todo el entorno de pruebas debe ejecutarse de forma efímera utilizando las imágenes oficiales:
 *   Para pruebas lógicas, benchmarking, profiling y dependencias: `sinfallas/base-python-uv:3.13`.
-*   Para Recolección de Métricas: `prom/prometheus:latest`.
+*   Para Recolección de Métricas: `prom/prometheus:latest` (y Pushgateway si aplica).
 *   Para Optimización de Contexto IA (MCP): `sinfallas/remote-graphify:latest`.
 
 **Obligatorio:** Todo comando Docker Compose debe incluir la bandera `-f docker-compose.qa.yml` para utilizar la infraestructura de pruebas aislada sin afectar al proyecto anfitrión. El contenedor tiene privilegios extendidos (`SYS_PTRACE`) para permitir la intercepción de memoria del *profiler*.
@@ -35,14 +35,28 @@ Al generar código, configurar el entorno o plantear soluciones, debes asegurar 
 Cuando redactes código de pruebas (`tests/`) o lógica base (`src/`), debes separarlo estrictamente en estas áreas:
 
 ### A. Observabilidad en Código (Requisito Previo Innegociable)
-*   Si el script está diseñado para ejecutarse prolongadamente (daemons, bots o procesamiento batch), DEBES instrumentar el archivo principal (ej. `src/main.py`) inyectando un mini-servidor asíncrono para exponer métricas en el puerto 8000:
+Dependiendo de la naturaleza del script, debes instrumentarlo de una de estas dos formas:
 
-```python
+1.  **Si es un Script Continuo (Daemon/Bot):** Inyecta un mini-servidor asíncrono en `src/main.py` para exponer métricas en el puerto 8000.
+    ```python
     from prometheus_client import start_http_server
     if __name__ == '__main__':
         start_http_server(8000) # Expone métricas sin bloquear el script
         # ... resto de la lógica ...
-```
+    ```
+
+2.  **Si es un Script Efímero (Batch Task / Cron):** Prometheus no tendrá tiempo de rasparlo. En su lugar, usa `push_to_gateway` para enviar las métricas recolectadas antes de que el script muera.
+    ```python
+    from prometheus_client import CollectorRegistry, push_to_gateway
+    # ... recolecta tus métricas en el registro ...
+    if __name__ == '__main__':
+        registry = CollectorRegistry()
+        # ... lógica del script ...
+        try:
+            push_to_gateway('python_pushgateway:9091', job='batch_script', registry=registry)
+        except Exception as e:
+            pass # Falla silenciosa si no hay red de QA viva
+    ```
 
 ### B. Pruebas Unitarias (Mockeadas / Aisladas)
 *   **Propósito:** Validar la lógica pura de la librería sin depender de red o credenciales.
@@ -115,10 +129,10 @@ docker compose -f docker-compose.qa.yml run --rm -e UV_PYTHON_DOWNLOADS=true tes
 ```
 
 **Paso 2: Certificación de Observabilidad en Vivo (Nivel 11X)**
-Si el script es persistente (daemon) y fue instrumentado, ejecútalo en conjunto con Prometheus para perfilar sus métricas en vivo.
+Si el script fue instrumentado (sea como daemon o script efímero mediante Pushgateway), ejecútalo encendiendo el perfil de observabilidad.
 
 ```bash
-docker compose -f docker-compose.qa.yml --profile observability up -d prometheus
+docker compose -f docker-compose.qa.yml --profile observability up -d
 docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && python src/main.py"
 ```
 
