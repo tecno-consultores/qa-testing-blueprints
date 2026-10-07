@@ -7,8 +7,8 @@
 Para mantener la consistencia y la eficacia de estos blueprints, toda contribución debe respetar los siguientes principios:
 
 1. **Imágenes Base Inmutables:** Nunca propongas cambios que requieran agregar un `Dockerfile` local o la instrucción `build:` en los orquestadores `docker-compose.qa.yml`. Todo debe funcionar utilizando exclusivamente nuestra flota de imágenes oficiales.
-   * `sinfallas/base-python-uv:<tag>` (`3.10` a `latest`) para Python/FastAPI.
-   * `sinfallas/base-node-ionic:<tag>` (`22` a `latest`) para Node.js/Vue 3.
+   * `sinfallas/base-python-uv:<tag>` (`3.10` a `3.14`) para Python/FastAPI.
+   * `sinfallas/base-node-ionic:<tag>` (`22` a `26`) para Node.js/Vue 3.
    * `sinfallas/base-bash-qa:latest` para Bash/DevOps.
    * `sinfallas/karatelabs:latest` para BDD/Caja Negra.
    * `sinfallas/remote-graphify:latest` para Optimización de Contexto IA (Servidor MCP).

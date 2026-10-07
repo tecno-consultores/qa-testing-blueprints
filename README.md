@@ -8,7 +8,7 @@ Este proyecto estandariza la forma en que probamos nuestro software, garantizand
 
 1. **Cero Compilaciones Locales:** No utilizamos `docker build`. Toda la infraestructura se levanta consumiendo nuestra flota de imágenes oficiales en Docker Hub. Las imágenes base admiten *tags* específicos para igualar la versión de lenguaje de tu proyecto en producción:
    * `sinfallas/base-python-uv` (Tags: `3.10`, `3.11`, `3.12`, `3.13`, `3.14`, `latest`).
-   * `sinfallas/base-node-ionic` (Tags: `22`, `23`, `24`, `25`, `latest`).
+   * `sinfallas/base-node-ionic` (Tags: `22`, `23`, `24`, `25`, `26`, `latest`).
    * `sinfallas/base-bash-qa:latest` y `sinfallas/karatelabs:latest`.
    * `sinfallas/remote-graphify:latest` para Optimización de Contexto IA (Servidor MCP).
 2. **Dependencias al Vuelo y Aislamiento de Red:** Los paquetes se resuelven y cachean en tiempo de ejecución dentro del contenedor efímero. Las pruebas unitarias tienen estrictamente prohibido usar red real; deben usar librerías de Mocking (`nock`, `pytest-mock`).
@@ -52,7 +52,7 @@ A continuación se resume el stack de validación corporativo. Se indica `N/A` e
 
 | Entorno | Linting / Formateo | Pruebas Unitarias / Mocking | Cobertura | Auditoría de Dependencias | Seguridad Estática (SAST) | Mutación | BDD / Caja Negra | Concurrencia / Estrés | Profiling / Complejidad | DAST (Dinámica) | Ingeniería del Caos | Observabilidad (Métricas) | Auditoría IaC / Docker | Git Hooks Locales |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Python** | `ruff` + `mypy` | `pytest` + `pytest-mock` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | `pytest-bdd` | `pytest-benchmark` | `py-spy` + `radon` | N/A | N/A | `prometheus_client` | `Trivy` | `Lefthook` |
+| **Python** | `[ruff](https://github.com/astral-sh/ruff)` + `mypy` | `pytest` + `pytest-mock` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | `pytest-bdd` | `pytest-benchmark` | `py-spy` + `radon` | N/A | N/A | `prometheus_client` | `Trivy` | `Lefthook` |
 | **FastAPI** | `ruff` + `mypy` | `pytest` + `TestClient` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | `Karate Labs` | `locust` | `py-spy` + `radon` | `OWASP ZAP` | `Pumba` | `prometheus-fastapi-instrumentator` | `Trivy` | `Lefthook` |
 | **Node** | `ESLint` + `Prettier` | `Vitest` + `nock` | `Vitest (v8)` | `pnpm audit` | `ESLint Security` | `Stryker` | `Karate Labs` | `Artillery` | `clinic.js` + `SonarJS` | `OWASP ZAP` | `Pumba` | `express-prom-bundle` | `Trivy` | `Lefthook` |
 | **Vue3** | `ESLint` + `Prettier` | `Vitest` + `jsdom` | `Vitest (v8)` | `npm audit` | `ESLint Security` | `Stryker` | `Karate Labs` | `Lighthouse CI` | `DevTools` + `SonarJS` | `N/A` | `N/A` | `nginx-prometheus-exporter` | `Trivy` | `Lefthook` |

@@ -38,7 +38,7 @@ Este Código de Conducta aplica tanto a espacios del proyecto (repositorios, *Pu
 
 Los casos de comportamiento abusivo, acosador o inaceptable de otro modo podrán ser reportados a los líderes de la comunidad responsables de la aplicación contactando a:
 
-📧 **conducta@tecno-consultores.com**
+📧 **conducta@tecnoconsultores.net**
 
 Todas las quejas serán revisadas e investigadas de manera justa, exhaustiva y confidencial. Todas las personas involucradas en la investigación están obligadas a respetar la privacidad y la seguridad de quien reportó el incidente.
 
