@@ -88,6 +88,7 @@ jobs:
 
       - name: 9️⃣ Ingeniería del Caos y Observabilidad (Prometheus + Pumba)
         # Activa el perfil oculto para inyectar latencia y levantar Prometheus automáticamente.
+        # (Nota: Si tu proyecto es un script Bash o Python puro, cambia '--profile chaos' por '--profile observability')
         run: docker compose -f docker-compose.qa.yml --profile chaos up --abort-on-container-exit stress_test
 
       - name: 🔟 Archivar Reportes de Calidad (Artefactos)
