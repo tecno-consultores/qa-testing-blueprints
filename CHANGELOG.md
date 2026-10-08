@@ -4,6 +4,20 @@ Todos los cambios notables de este proyecto se documentarán en este archivo.
 
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/), y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [2.4.0] - 2026-10-08
+
+### 🚀 Añadido (Added)
+*   **Ecosistema React (Nivel 11X):** Integración completa del ecosistema `react-frontend/` al repositorio corporativo.
+*   **Vitest + RTL:** Configuración de pruebas unitarias centradas en el usuario (DOM/ARIA) mediante `@testing-library/react` y `jsdom`, manteniendo la exigencia innegociable de 95% de cobertura.
+*   **Reglas Estrictas de Hooks (ESLint):** Integración de `eslint-plugin-react` y `eslint-plugin-react-hooks` para evitar bucles infinitos en dependencias de `useEffect`.
+*   **Documentación React:** Creación de un `README.md` (Prompt Operativo) específico para instruir a la IA en la correcta validación del estado y ciclo de vida de React bajo contenedores efímeros.
+
+### 🔄 Modificado (Changed)
+*   **Documentación Global:** Actualización del `README.md` maestro (Matriz de Herramientas) y del `AI_MASTER_PROMPT.md` para incluir el enrutamiento de contexto hacia la nueva carpeta de React.
+*   **Desacoplamiento de E2E:** Estandarización de los archivos de regresión visual y pruebas BDD (Playwright, Lighthouse CI y Karate Labs) para que sean completamente agnósticos, sirviendo tanto para los ecosistemas Vue 3 como React.
+
+---
+
 ## [2.3.1] - 2026-10-07
 
 ### 🚀 Añadido (Added)
