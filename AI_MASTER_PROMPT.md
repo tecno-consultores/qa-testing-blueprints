@@ -39,6 +39,8 @@ Busca y lee tu guía de reglas específicas aquí:
   👉 Lee obligatoriamente: `node-backend/README.md`
 * 🟢 **Si el proyecto es un Frontend de Interfaz de Usuario en Vue 3:**
   👉 Lee obligatoriamente: `vue3/README.md`
+* ⚛️ **Si el proyecto es un Frontend de Interfaz de Usuario en React:**
+  👉 Lee obligatoriamente: `react-frontend/README.md`
 * 🐧 **Si el proyecto contiene automatizaciones DevOps o Scripts en Bash:**
   👉 Lee obligatoriamente: `bash-scripts/README.md`
 
