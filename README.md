@@ -23,7 +23,7 @@ Este proyecto estandariza la forma en que probamos nuestro software, garantizand
 
 ## 📁 Estructura del Repositorio y Casos de Uso
 
-El repositorio está dividido en 4 ecosistemas que cubren la totalidad del desarrollo moderno y bash. Cada carpeta contiene un archivo `.md` (el prompt restrictivo para la IA), un `docker-compose.qa.yml` preconfigurado y los archivos de configuración nativos `.example` listos para usarse como referencia de fusión.
+El repositorio está dividido en ecosistemas que cubren la totalidad del desarrollo moderno y bash. Cada carpeta contiene un archivo `.md` (el prompt restrictivo para la IA), un `docker-compose.qa.yml` preconfigurado y los archivos de configuración nativos `.example` listos para usarse como referencia de fusión.
 
 ### 🐍 `python/` (Scripts Standalone y Librerías)
 * **Objetivo:** Máxima resiliencia estructural, invulnerabilidad lógica y rendimiento matemático óptimo.
@@ -41,6 +41,10 @@ El repositorio está dividido en 4 ecosistemas que cubren la totalidad del desar
 * **Objetivo:** UI sin regresiones visuales, componentes reactivos, accesibilidad (WCAG 2.1) y máximo rendimiento (SEO/PWA).
 * **Stack:** Pruebas Unitarias DOM (`Vitest` + `jsdom`), Calidad y Complejidad (`ESLint` + `Prettier` + `SonarJS`), Rendimiento de Build (`Lighthouse CI`), Regresión Visual y Accesibilidad (`Playwright` + `@axe-core`), Compatibilidad (`Browserslist`), Mutación Frontend (`Stryker`) y Aceptación BDD (`Karate Labs`).
 
+### ⚛️ `react-frontend/` (Frontend UI)
+* **Objetivo:** Componentes robustos, gestión de estado determinista, UI sin regresiones visuales y accesibilidad (WCAG 2.1).
+* **Stack:** Pruebas Unitarias DOM (`Vitest` + `jsdom` + `@testing-library/react`), Calidad y Complejidad Hooks (`ESLint` + `Prettier` + `SonarJS`), Rendimiento de Build (`Lighthouse CI`), Regresión Visual y Accesibilidad (`Playwright` + `@axe-core`), Mutación Frontend (`Stryker`) y Aceptación BDD (`Karate Labs`).
+
 ### 🐧 `bash-scripts/` (DevOps y Automatización)
 * **Objetivo:** Aislamiento absoluto y auditoría POSIX para scripts de infraestructura.
 * **Stack:** Auditoría estricta (`ShellCheck`), formateo (`shfmt`), motor de pruebas unitarias (`BATS-core`), auditoría de cobertura (`kcov`), e intercepción nativa de comandos destructivos usando `bats-mock`.
@@ -57,6 +61,7 @@ A continuación se resume el stack de validación corporativo. Se indica `N/A` e
 | **FastAPI** | `ruff` + `mypy` | `pytest` + `TestClient` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | [karate labs](https://github.com/karatelabs/karate) | [locust](https://github.com/locustio/locust) | `py-spy` + `radon` | [OWASP ZAP](https://github.com/zaproxy/zap-api-python) | [pumba](https://github.com/pjsjongsung/PUMBA) | `prometheus-fastapi-instrumentator` | `trivy` | `lefthook` |
 | **Node** | [ESLint](https://github.com/eslint/eslint) + [prettier](https://github.com/prettier/prettier) | [vitest](https://github.com/vitest-dev/vitest) + [nock](https://github.com/nock/nock) | `Vitest (v8)` | `pnpm audit` | [ESLint Security](https://github.com/gkouziik/eslint-plugin-security-node) | [stryker](https://github.com/stryker-mutator/stryker-js) | `Karate Labs` | [artillery](https://github.com/artilleryio/artillery) | [clinic.js](https://github.com/clinicjs/node-clinic) + [SonarJS](https://github.com/SonarSource/sonarjs) | `OWASP ZAP` | `Pumba` | [express-prom-bundle](https://github.com/jochen-schweizer/express-prom-bundle) | `trivy` | `lefthook` |
 | **Vue3** | `ESLint` + `Prettier` | `Vitest` + [jsdom](https://github.com/jsdom/jsdom) | `Vitest (v8)` | `npm audit` | `ESLint Security` | `Stryker` | `Karate Labs` | [Lighthouse CI](https://github.com/GoogleChrome/lighthouse-ci/) | [DevTools](https://github.com/jdssl/node-devtools) + `SonarJS` | `N/A` | `N/A` | [nginx-prometheus-exporter](https://github.com/nginx/nginx-prometheus-exporter) | `trivy` | `lefthook` |
+| **React** | `ESLint` + `Prettier` | `Vitest` + [jsdom](https://github.com/jsdom/jsdom) + `RTL` | `Vitest (v8)` | `npm audit` | `ESLint Security` | `Stryker` | `Karate Labs` | [Lighthouse CI](https://github.com/GoogleChrome/lighthouse-ci/) | [DevTools](https://github.com/jdssl/node-devtools) + `SonarJS` | `N/A` | `N/A` | [nginx-prometheus-exporter](https://github.com/nginx/nginx-prometheus-exporter) | `trivy` | `lefthook` |
 | **Bash** | [shellcheck](https://github.com/koalaman/shellcheck) + [shfmt](https://github.com/patrickvane/shfmt) | [BATS-core](https://github.com/bats-core/bats-core) + [bats-mock](https://github.com/jasonkarns/bats-mock) | [kcov](https://github.com/SimonKagstrom/kcov) | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | [Pushgateway](https://github.com/prometheus/pushgateway) | `trivy` | `lefthook` |
 
 ---
