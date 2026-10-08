@@ -1,4 +1,4 @@
-Feature: Flujo principal de negocio de la interfaz Vue
+Feature: Flujo principal de negocio de la interfaz React
 
   Background:
     # Karate interceptará y levantará Chrome internamente
