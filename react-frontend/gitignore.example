@@ -1,0 +1,46 @@
+# Dependencias de Node
+node_modules/
+.pnp
+.pnp.js
+
+# Salidas de Compilación (Builds)
+dist/
+dist-ssr/
+build/
+
+# Variables de Entorno y Secretos (CRÍTICO)
+.env
+.env.*
+!.env.example
+
+# Artefactos del Estándar QA 11X
+coverage/
+.stryker-tmp/
+test-results/
+playwright-report/
+blob-report/
+lhci-reports/
+.lhcache/
+target/
+test/target/
+graphify-out/
+prometheus_data/
+
+# Logs (Nginx y Node)
+nginx-logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Cachés del Sistema y Editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
