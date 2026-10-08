@@ -23,7 +23,7 @@ test.describe('Auditoría Estricta de Accesibilidad (WCAG) y Regresión Visual d
 
       // 2. Navegación y Estabilización
       await page.goto(route);
-      // Esperamos a que la red esté inactiva para asegurar que Vue renderizó todos los componentes asíncronos
+      // Esperamos a que la red esté inactiva para asegurar que React renderizó todos los componentes asíncronos
       await page.waitForLoadState('networkidle');
       // Forzamos la resolución de fuentes y animaciones iniciales
       await page.evaluate(() => document.fonts.ready);
