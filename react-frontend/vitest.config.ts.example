@@ -1,0 +1,34 @@
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig({
+  plugins: [react()],
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: ['./vitest.setup.ts'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html'],
+      // Exigencia corporativa: Falla el pipeline si no se cumple el 95%
+      thresholds: {
+        lines: 95,
+        functions: 95,
+        branches: 95,
+        statements: 95
+      },
+      exclude: [
+        'coverage/**',
+        'dist/**',
+        'playwright-report/**',
+        'lhci-reports/**',
+        '.stryker-tmp/**',
+        'e2e/**',
+        'test/**',
+        '**/*.d.ts',
+        '*.config.ts',
+        '*.config.js'
+      ]
+    }
+  }
+});
