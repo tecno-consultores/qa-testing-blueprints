@@ -30,7 +30,7 @@ export default defineConfig({
     // Tolerancias corporativas para las pruebas de regresión visual de accessibility.spec.ts
     toHaveScreenshot: {
       maxDiffPixelRatio: 0.01,
-      // CRÍTICO: Congela los <transition> de Vue, GIFs y CSS animations para evitar diferencias por milisegundos
+      // CRÍTICO: Congela los <CSSTransition> de React, GIFs y CSS animations para evitar diferencias por milisegundos
       animations: 'disabled',
       // Umbral estricto de diferencia de color
       threshold: 0.1,
