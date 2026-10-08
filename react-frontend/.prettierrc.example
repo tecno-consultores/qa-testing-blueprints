@@ -5,6 +5,5 @@
   "printWidth": 100,
   "tabWidth": 2,
   "arrowParens": "always",
-  "vueIndentScriptAndStyle": true,
   "endOfLine": "lf"
 }
