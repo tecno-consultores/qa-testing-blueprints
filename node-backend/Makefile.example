@@ -1,0 +1,32 @@
+.PHONY: qa-lint qa-unit qa-e2e qa-mutation qa-stress qa-all clean-cache
+
+# Variables
+COMPOSE_FILE = docker-compose.qa.yml
+SERVICE_NAME = qa-node-backend
+
+qa-lint:
+	@echo "🔍 Ejecutando Linter y Type Checking (Node.js)..."
+	docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "pnpm install && pnpm lint && pnpm type-check"
+
+qa-unit:
+	@echo "🧪 Ejecutando Pruebas Unitarias (Vitest)..."
+	docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "pnpm install && pnpm test:unit"
+
+qa-e2e:
+	@echo "🎭 Ejecutando Pruebas BDD/API..."
+	docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "pnpm install && pnpm test:e2e"
+
+qa-mutation:
+	@echo "👽 Ejecutando Pruebas de Mutación (Stryker)..."
+	docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "pnpm install && pnpm exec stryker run"
+
+qa-stress:
+	@echo "🔥 Ejecutando Pruebas de Carga (Artillery)..."
+	docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "pnpm install && pnpm exec artillery run artillery.yml"
+
+qa-all: qa-lint qa-unit qa-e2e qa-mutation qa-stress
+	@echo "✅ Pipeline QA Node Backend completado."
+
+clean-cache:
+	@echo "🧹 Limpiando volúmenes de caché de pnpm..."
+	docker compose -f $(COMPOSE_FILE) down -v
