@@ -1,8 +1,9 @@
 # ==============================================================================
-# LEFTHOOK - BARRERA DE ENTRADA (Pre-commit & Commit-msg)
+# LEFTHOOK - BARRERA DE ENTRADA (Pre-commit, Commit-msg & Pre-push)
 # ==============================================================================
-# Esta configuración intercepta los commits y obliga a ejecutar validaciones
-# efímeras en Docker ANTES de permitir que el código entre al historial de Git.
+# Esta configuración intercepta los comandos de Git y obliga a ejecutar validaciones
+# efímeras en Docker ANTES de permitir que el código entre al historial de Git
+# o sea enviado al repositorio remoto.
 
 pre-commit:
   parallel: true
@@ -13,16 +14,16 @@ pre-commit:
     python-lint:
       glob: "{python,fastapi}/**/*.py"
       # Usa --check para rechazar el commit si el código no está formateado.
-      # El desarrollador deberá correr `ruff format` manualmente.
-      run: docker compose -f {1}/docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' -q && ruff check {staged_files} && ruff format --check {staged_files}"
+      # El desarrollador deberá correr `make qa-lint` manualmente.
+      run: docker compose -f {1}/docker-compose.qa.yml run --rm qa-backend bash -c "uv sync -q && ruff check {staged_files} && ruff format --check {staged_files}"
 
     # --------------------------------------------------------------------------
-    # ECOSISTEMA JAVASCRIPT (NODE & VUE3)
+    # ECOSISTEMA JAVASCRIPT (NODE, VUE3 & REACT)
     # --------------------------------------------------------------------------
-    node-vue-lint:
-      glob: "{node-backend,vue3}/**/*.{js,ts,vue}"
-      # Levanta el entorno efímero E2E para correr ESLint y Prettier.
-      run: docker compose -f {1}/docker-compose.qa.yml run --rm ui-e2e bash -c "npm install --silent && npx prettier --check {staged_files} && npx eslint {staged_files}"
+    node-vue-react-lint:
+      glob: "{node-backend,vue3,react-frontend}/**/*.{js,ts,vue,tsx}"
+      # Levanta el entorno efímero para correr ESLint y Prettier.
+      run: docker compose -f {1}/docker-compose.qa.yml run --rm {1}-qa-frontend bash -c "pnpm install --silent && npx prettier --check {staged_files} && npx eslint {staged_files}"
 
     # --------------------------------------------------------------------------
     # ECOSISTEMA BASH (DEVOPS)
@@ -49,3 +50,13 @@ commit-msg:
       # Exige que el mensaje de commit respete el commitlint.config.js
       # Se ejecuta usando npx al vuelo para no requerir instalación global
       run: npx --no-install commitlint --edit {1}
+
+pre-push:
+  commands:
+    # --------------------------------------------------------------------------
+    # AUDITORÍA DE INFRAESTRUCTURA (IaC) ANTES DE SUBIR
+    # --------------------------------------------------------------------------
+    trivy-iac-scan:
+      # Bloquea el `git push` si hay puertos expuestos, contenedores en modo root
+      # o vulnerabilidades críticas en dependencias (File System).
+      run: ./auditar-infra.sh

@@ -6,12 +6,12 @@ Este proyecto estandariza la forma en que probamos nuestro software, garantizand
 
 ## 🚀 Filosofía Principal (Estándar 11X)
 
-1. **Cero Compilaciones Locales:** No utilizamos `docker build`. Toda la infraestructura se levanta consumiendo nuestra flota de imágenes oficiales en Docker Hub. Las imágenes base admiten *tags* específicos para igualar la versión de lenguaje de tu proyecto en producción:
-   * `sinfallas/base-python-uv` (Tags: `3.10`, `3.11`, `3.12`, `3.13`, `3.14`, `latest`).
-   * `sinfallas/base-node-ionic` (Tags: `22`, `23`, `24`, `25`, `26`, `latest`).
-   * `sinfallas/base-bash-qa:latest`
-   * `sinfallas/karatelabs:latest`.
-   * `sinfallas/remote-graphify:latest` para Optimización de Contexto IA (Servidor MCP).
+1. **Cero Compilaciones Locales:** No utilizamos `docker build`. Toda la infraestructura se levanta consumiendo nuestra flota de imágenes oficiales en [Docker Hub](https://hub.docker.com/u/sinfallas). Las imágenes base admiten *tags* específicos para igualar la versión de lenguaje de tu proyecto en producción:
+   * [sinfallas/base-python-uv](https://hub.docker.com/r/sinfallas/base-python-uv) (Tags: `3.10`, `3.11`, `3.12`, `3.13`, `3.14`, `latest`).
+   * [sinfallas/base-node-ionic](https://hub.docker.com/r/sinfallas/base-node-ionic) (Tags: `22`, `23`, `24`, `25`, `26`, `latest`).
+   * [sinfallas/base-bash-qa](https://hub.docker.com/r/sinfallas/base-bash-qa):latest
+   * [sinfallas/karatelabs](https://hub.docker.com/r/sinfallas/karatelabs):latest.
+   * [sinfallas/remote-graphify](https://hub.docker.com/r/sinfallas/remote-graphify):latest para Optimización de Contexto IA (Servidor MCP).
 2. **Dependencias al Vuelo y Aislamiento de Red:** Los paquetes se resuelven rápidamente en tiempo de ejecución utilizando volúmenes de caché persistentes (`pnpm-store` o `uv-cache`). Las pruebas unitarias tienen estrictamente prohibido usar red real; deben usar librerías de Mocking.
 3. **Validación Transversal (Métricas Innegociables):** No solo probamos si el código funciona. Validamos:
    * **Cobertura:** Ninguna suite pasa con menos del **95%**.
@@ -57,12 +57,12 @@ A continuación se resume el stack de validación corporativo. Se indica `N/A` e
 
 | Entorno | Linting / Formateo | Pruebas Unitarias / Mocking | Cobertura | Auditoría de Dependencias | Seguridad Estática (SAST) | Mutación | BDD / Caja Negra | Concurrencia / Estrés | Profiling / Complejidad | DAST (Dinámica) | Ingeniería del Caos | Observabilidad (Métricas) | Auditoría IaC / Docker | Git Hooks Locales |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Python** | `ruff` + `mypy` | `pytest` + `pytest-mock` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | `pytest-bdd` | `pytest-benchmark` | `py-spy` + `radon` | N/A | N/A | `prometheus_client` | `trivy` | `lefthook` |
-| **FastAPI** | `ruff` + `mypy` | `pytest` + `TestClient` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | `Karate Labs` | `locust` | `py-spy` + `radon` | `OWASP ZAP` | `Pumba` | `prometheus-fastapi-instrumentator` | `trivy` | `lefthook` |
-| **Node** | `ESLint` + `prettier` | `vitest` + `nock` | `Vitest (v8)` | `pnpm audit` | `ESLint Security` | `Stryker` | `Karate Labs` | `Artillery` | `clinic.js` + `SonarJS` | `OWASP ZAP` | `Pumba` | `express-prom-bundle` | `trivy` | `lefthook` |
-| **Vue3** | `ESLint` + `Prettier` | `Vitest` + `jsdom` | `Vitest (v8)` | `npm audit` | `ESLint Security` | `Stryker` | `Karate Labs` | `Lighthouse CI` | `DevTools` + `SonarJS` | `N/A` | `N/A` | `nginx-prometheus-exporter` | `trivy` | `lefthook` |
+| **Python** | [ruff](https://github.com/astral-sh/ruff) + [mypy](https://github.com/python/mypy) | [pytest](https://github.com/pytest-dev/pytest) + [pytest-mock](https://github.com/pytest-dev/pytest-mock) | [pytest-cov](https://github.com/pytest-dev/pytest-cov) | `uv pip audit` | [bandit](https://github.com/pycqa/bandit) | [mutmut](https://github.com/boxed/mutmut) | [pytest-bdd](https://github.com/pytest-dev/pytest-bdd) | [pytest-benchmark](https://github.com/ionelmc/pytest-benchmark) | [py-spy](https://github.com/benfred/py-spy) + [radon](https://github.com/rubik/radon) | N/A | N/A | `prometheus_client` | [trivy](https://github.com/aquasecurity/trivy) | [lefthook](https://github.com/evilmartians/lefthook) |
+| **FastAPI** | `ruff` + `mypy` | `pytest` + `TestClient` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | [karate labs](https://github.com/karatelabs/karate) | [locust](https://github.com/locustio/locust) | `py-spy` + `radon` | [OWASP ZAP](https://github.com/zaproxy/zap-api-python) | [pumba](https://github.com/pjsjongsung/PUMBA) | `prometheus-fastapi-instrumentator` | `trivy` | `lefthook` |
+| **Node** | [ESLint](https://github.com/eslint/eslint) + [prettier](https://github.com/prettier/prettier) | [vitest](https://github.com/vitest-dev/vitest) + [nock](https://github.com/nock/nock) | `Vitest (v8)` | `pnpm audit` | [ESLint Security](https://github.com/gkouziik/eslint-plugin-security-node) | [stryker](https://github.com/stryker-mutator/stryker-js) | `Karate Labs` | [artillery](https://github.com/artilleryio/artillery) | [clinic.js](https://github.com/clinicjs/node-clinic) + [SonarJS](https://github.com/SonarSource/sonarjs) | `OWASP ZAP` | `Pumba` | [express-prom-bundle](https://github.com/jochen-schweizer/express-prom-bundle) | `trivy` | `lefthook` |
+| **Vue3** | `ESLint` + `Prettier` | `Vitest` + [jsdom](https://github.com/jsdom/jsdom) | `Vitest (v8)` | `npm audit` | `ESLint Security` | `Stryker` | `Karate Labs` | [Lighthouse CI](https://github.com/GoogleChrome/lighthouse-ci/) | [DevTools](https://github.com/jdssl/node-devtools) + `SonarJS` | `N/A` | `N/A` | [nginx-prometheus-exporter](https://github.com/nginx/nginx-prometheus-exporter) | `trivy` | `lefthook` |
 | **React** | `ESLint` + `Prettier` | `Vitest` + `jsdom` + `RTL` | `Vitest (v8)` | `npm audit` | `ESLint Security` | `Stryker` | `Karate Labs` | `Lighthouse CI` | `DevTools` + `SonarJS` | `N/A` | `N/A` | `nginx-prometheus-exporter` | `trivy` | `lefthook` |
-| **Bash** | `shellcheck` + `shfmt` | `BATS-core` + `bats-mock` | `kcov` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `Pushgateway` | `trivy` | `lefthook` |
+| **Bash** | [shellcheck](https://github.com/koalaman/shellcheck) + [shfmt](https://github.com/patrickvane/shfmt) | [BATS-core](https://github.com/bats-core/bats-core) + [bats-mock](https://github.com/jasonkarns/bats-mock) | [kcov](https://github.com/SimonKagstrom/kcov) | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | [Pushgateway](https://github.com/prometheus/pushgateway) | `trivy` | `lefthook` |
 
 ---
 
