@@ -4,6 +4,10 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    
+    // TOOL BOUNDARY ESTRICTO: Vitest solo ejecuta archivos unitarios.
+    include: ['src/**/*.unit.{ts,js}', 'src/**/*.spec.{ts,js}'],
+    
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
@@ -19,6 +23,7 @@ export default defineConfig({
         'dist/**',
         '**/*.d.ts',
         'test/**',
+        'e2e/**',
         'vitest.config.ts',
         'stryker.conf.json'
       ]

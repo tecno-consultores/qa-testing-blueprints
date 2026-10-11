@@ -7,8 +7,10 @@ services:
     environment:
       TZ: 'America/Caracas'
       PORT: 3000
+      PNPM_HOME: /pnpm
     volumes:
       - .:/app
+      - pnpm-store:/pnpm
     ports:
       - "3000:3000"
     cap_add:
@@ -17,20 +19,22 @@ services:
       - seccomp:unconfined
     command: bash -c "pnpm install && pnpm run dev"
 
-  test:
+  qa-node-backend:
     image: sinfallas/base-node-ionic:latest
-    container_name: node_test
-    hostname: node_test
+    container_name: node_qa_backend
+    hostname: node_qa_backend
     pull_policy: always
     environment:
       TZ: 'America/Caracas'
+      PNPM_HOME: /pnpm
     volumes:
       - .:/app
+      - pnpm-store:/pnpm
     cap_add:
       - SYS_PTRACE
     security_opt:
       - seccomp:unconfined
-    command: bash -c "echo 'Contenedor Node E2E listo. Usa docker compose run --rm test [comando]'; sleep infinity"
+    command: bash -c "echo 'Contenedor QA Node listo para Lint, Unit, BDD y Mutación. Usa docker compose run --rm qa-node-backend [comando]'; sleep infinity"
 
   karatelabs:
     image: sinfallas/karatelabs:latest
@@ -101,8 +105,11 @@ services:
       - chaos
     depends_on:
       - api
+    environment:
+      PNPM_HOME: /pnpm
     volumes:
       - .:/app
+      - pnpm-store:/pnpm
     command: bash -c "pnpm install && echo 'Esperando asimilación del caos...' && sleep 5 && pnpm run test:load -- --output chaos-report.json"
 
   graphify:
@@ -132,3 +139,7 @@ services:
 networks:
   default:
     driver: bridge
+
+volumes:
+  pnpm-store:
+    name: node_backend_pnpm_store_cache
