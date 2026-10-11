@@ -2,6 +2,10 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
+  
+  // TOOL BOUNDARY ESTRICTO: Playwright solo ejecuta archivos explícitamente marcados como E2E.
+  testMatch: '**/*.e2e.ts',
+  
   fullyParallel: true,
   // En CI, prohibimos test.only() para evitar que un desarrollador se salte la suite
   forbidOnly: !!process.env.CI,

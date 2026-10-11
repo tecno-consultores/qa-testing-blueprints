@@ -6,8 +6,10 @@ services:
     pull_policy: always
     environment:
       TZ: 'America/Caracas'
+      UV_CACHE_DIR: /root/.cache/uv
     volumes:
       - .:/app
+      - uv-cache:/root/.cache/uv
     working_dir: /app
     ports:
       - "8000:8000"
@@ -17,20 +19,22 @@ services:
       - seccomp:unconfined
     command: bash -c "uv pip install --system -e '.[dev]' && uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload"
 
-  test:
+  qa-backend:
     image: sinfallas/base-python-uv:3.13
-    container_name: fastapi_test
-    hostname: fastapi_tests
+    container_name: fastapi_qa_backend
+    hostname: fastapi_qa_backend
     pull_policy: always
     environment:
       TZ: 'America/Caracas'
       UV_PYTHON_DOWNLOADS: 'true'
+      UV_CACHE_DIR: /root/.cache/uv
     volumes:
       - .:/app
+      - uv-cache:/root/.cache/uv
     working_dir: /app
     cap_add:
       - SYS_PTRACE
-    command: bash -c "echo 'Contenedor Python listo. Usa docker compose run --rm test [comando]'; sleep infinity"
+    command: bash -c "echo 'Contenedor QA Backend (Python) listo para Lint, Pytest y Mutmut'; sleep infinity"
 
   karatelabs:
     image: sinfallas/karatelabs:latest
@@ -101,8 +105,11 @@ services:
       - chaos
     depends_on:
       - api
+    environment:
+      UV_CACHE_DIR: /root/.cache/uv
     volumes:
       - .:/app
+      - uv-cache:/root/.cache/uv
     working_dir: /app
     command: bash -c "uv pip install --system -e '.[dev]' && echo 'Esperando asimilación del caos...' && sleep 5 && locust -f locustfile.py --headless -u 200 -r 20 -t 1m --host http://api:8000 --html chaos-report.html"
 
@@ -133,3 +140,7 @@ services:
 networks:
   default:
     driver: bridge
+
+volumes:
+  uv-cache:
+    name: fastapi_uv_cache

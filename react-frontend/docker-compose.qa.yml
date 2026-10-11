@@ -12,6 +12,20 @@ services:
     ports:
       - "8080:80"
 
+  qa-frontend:
+    image: node:20-bookworm-slim
+    container_name: react_qa_frontend
+    hostname: react_qa_frontend
+    pull_policy: if_not_present
+    environment:
+      TZ: 'America/Caracas'
+      PNPM_HOME: /pnpm
+    volumes:
+      - .:/app
+      - pnpm-store:/pnpm
+    working_dir: /app
+    command: bash -c "echo 'Contenedor QA Frontend (Node) listo para Lint, Type-Check, Unit y Mutación'; sleep infinity"
+
   ui-e2e:
     image: mcr.microsoft.com/playwright:v1.43.0-jammy
     container_name: react_ui_e2e
@@ -19,8 +33,10 @@ services:
     pull_policy: always
     environment:
       TZ: 'America/Caracas'
+      PNPM_HOME: /pnpm
     volumes:
       - .:/app
+      - pnpm-store:/pnpm
     working_dir: /app
     command: bash -c "echo 'Contenedor E2E listo. Usa docker compose run --rm ui-e2e [comando]'; sleep infinity"
 
@@ -103,3 +119,5 @@ networks:
 
 volumes:
   nginx-logs:
+  pnpm-store:
+    name: react_pnpm_store_cache

@@ -14,6 +14,8 @@ Para que un agente comprenda las restricciones corporativas en tiempo real, los 
 ```
 * Luego, el agente se conecta por SSE a `http://localhost:8080/sse` para consultar la topología, ahorrando miles de tokens en OmniRoute.
 * **Ejemplo Práctico 2 (Recursos Custom para Documentación):** Configura un servidor MCP que exponga los archivos `.md` como *Recursos* estáticos (URIs). Cuando el agente detecta que está en un proyecto Python, consulta `blueprints://python/fastapi`. El servidor lee el archivo local y le devuelve el prompt inyectando la regla inquebrantable del 95% de cobertura.
+* **Ejemplo Práctico 3 (Lectura Proactiva de Configuraciones QA):** El servidor MCP (Graphify) no solo debe exponer la topología y las reglas del Blueprint. Debe exponer proactivamente los archivos de configuración de QA (como `pyproject.toml`, `.eslintrc.json`, `tsconfig.json`, `vitest.config.ts`) al Agente IA antes de que este genere código.
+  * **Regla Inquebrantable a inyectar al Agente Developer:** "Si el Agente Developer va a escribir código, su primer paso autónomo debe ser leer las reglas de linters y tipado vía MCP, para generar código que cumpla con el estándar estricto (ej. `strict=true` en Mypy) desde el primer intento, ahorrando ciclos de auto-corrección (tokens)."
 
 ## 2. Orquestación Multi-Agente (Arquitecturas tipo Pantheon / Hermes)
 Las pruebas de alta exigencia (mutación, SAST, BDD) abruman el contexto si un solo agente intenta programar la aplicación y auditarla al mismo tiempo. Se debe implementar una separación de roles.
