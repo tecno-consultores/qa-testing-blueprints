@@ -4,11 +4,13 @@
 
 **CONTEXTO PARA LA IA:** Eres un ingeniero de QA automatizado experto en Vue 3 y ecosistemas de Frontend. Este documento dicta las reglas arquitectónicas de nivel corporativo (11X) que DEBES seguir al generar o modificar código de pruebas. Cualquier desviación resultará en un fallo del pipeline.
 
-## 1. Reglas Estrictas de Ejecución (Contenedores)
-**NUNCA** instruyas al usuario a instalar dependencias de Node localmente ni a usar `docker build`. Toda la ejecución ocurre en contenedores efímeros usando el orquestador aislado de QA.
+## 1. Reglas Estrictas de Ejecución (Contenedores y Caché)
+**NUNCA** instruyas al usuario a instalar dependencias de Node localmente, ni a usar `docker build`, ni a ejecutar comandos manuales largos de `docker compose`. Toda la ejecución ocurre en contenedores efímeros usando el orquestador aislado de QA y aprovechando los volúmenes de caché persistente (`pnpm-store`).
 
-*   **Obligatorio:** Todo comando Docker Compose debe incluir la bandera `-f docker-compose.qa.yml` para evitar conflictos.
-*   **Para pruebas lógicas, Mutación, Lighthouse y UI E2E:** Usamos el contenedor Node/Playwright efímero (`ui-e2e`).
+*   **Gestor de Paquetes y Zero-Trust:** Usamos `pnpm` en lugar de `npm`. La ejecución silenciosa de *scripts* maliciosos durante la instalación está bloqueada por el `.npmrc`. Revisa `package.json` si dependencias como `esbuild` o `playwright` fallan.
+*   **Obligatorio:** Utiliza las metas predefinidas en el `Makefile` (ej. `make qa-unit`) para aislar la infraestructura y re-utilizar la caché de dependencias.
+*   **Para pruebas lógicas (Vitest) y Mutación:** Usamos el contenedor ligero `qa-vue3`.
+*   **Para Lighthouse y UI E2E (Playwright):** Usamos el contenedor pesado `ui-e2e`.
 *   **Para pruebas BDD (Caja Negra):** Usamos la imagen oficial `sinfallas/karatelabs:latest`.
 *   **Para Observabilidad (Métricas de Servidor):** Usamos los contenedores `nginx/nginx-prometheus-exporter:latest` y `prom/prometheus:latest`.
 *   **Para Optimización de Contexto IA (MCP):** Usamos la imagen `sinfallas/remote-graphify:latest`.
@@ -17,6 +19,7 @@
 
 ### A. Lógica y Componentes Aislados -> `Vitest` + `jsdom`
 *   **Cuándo usarlo:** Para probar *composables*, stores de Pinia, y renderizado de componentes Vue aislados.
+*   **Frontera Estricta (Tool Boundary):** Todas estas pruebas unitarias de aislamiento rápido DEBEN nombrarse respetando el patrón `.unit.ts` o `.spec.ts`.
 *   **Regla:** Mockea todas las llamadas a la red. Vitest debe ejecutarse en milisegundos. Cobertura innegociable del 95%.
 
 ### B. Calidad de Código, Complejidad y SAST -> `ESLint` + `Prettier` + `SonarJS`
@@ -27,6 +30,7 @@
 *   **Regla:** Verifica si la suite de Vitest realmente audita el DOM y la lógica alterando los archivos `.vue` y `.ts` con mutantes. Está preconfigurado en `stryker.conf.json`.
 
 ### D. Regresión Visual, Accesibilidad y Rendimiento -> `Playwright` + `@axe-core` + `Lighthouse CI`
+*   **Frontera Estricta (Tool Boundary):** Todas las pruebas que requieran levantar navegadores y atacar la UI en vivo DEBEN nombrarse usando `.e2e.ts`.
 *   **Playwright / Axe:** Navega la aplicación, valida el DOM profundo, accesibilidad y compara capturas de pantalla de la interfaz.
 *   **Lighthouse CI:** Ataca el build de producción para auditar rendimiento estricto (Core Web Vitals), SEO y PWA. Si el *Performance Score* baja de 90, el pipeline falla.
 
@@ -36,77 +40,58 @@
 ### F. Observabilidad -> `Nginx Prometheus Exporter`
 *   **Regla:** El monitoreo del frontend se realiza externamente a través de los logs de acceso de Nginx para no agregar dependencias al código de la aplicación. Esto se ejecuta mediante el perfil `--profile observability`.
 
-### G. Optimización de Contexto IA (MCP) -> `Graphify`
-*   **Regla (Exclusiva para ti, IA):** Antes de ingerir código masivamente, DEBES generar y consultar el grafo semántico del proyecto para ahorrar tokens y evitar alucinaciones.
+### G. Ingestión Inteligente (Paso 0 - MCP)
+*   **Regla (Exclusiva para ti, IA):** Tienes estrictamente prohibido generar código o pruebas a ciegas. Tu primer paso debe ser levantar el servidor `graphify` para ingerir el grafo semántico del proyecto. Además, DEBES leer silenciosamente las configuraciones de linters, dependencias y *scripts* prohibidos en `package.json` y `vite.config.ts` para evitar fallos de pipeline.
 
 ## 3. Comandos de Ejecución Local para el Desarrollador (y para la IA)
 
+En lugar de construir comandos complejos de Docker, **DEBES** instruir al usuario (o ejecutar autónomamente si tienes acceso a terminal) utilizando el `Makefile` estandarizado:
+
 **Paso 0: Ingestión de Contexto (Obligatorio para la IA antes de programar)**
 Extrae la topología del código fuente (componentes Vue y dependencias TS) y levanta tu servidor de contexto:
-
 ```bash
 docker compose -f docker-compose.qa.yml --profile graphify run --rm graphify bash -c "uvx graphifyy extract"
 docker compose -f docker-compose.qa.yml --profile graphify up -d graphify
+# (El Agente IA se conecta a http://localhost:8080/sse)
 ```
 
-*Conéctate a `http://localhost:8080/sse` para consultar las relaciones del código de forma eficiente.*
+**Paso 1: Ejecutar las suites de Validación Lógica (No requieren Build)**
 
-**Paso 1: Compilar la aplicación y preparar el entorno de Producción Muteado**
-Antes de lanzar pruebas E2E, Lighthouse o Karate, debes compilar `dist/` y levantarlo en Nginx:
-
+*   **Validación Estática (CVEs, Linting, Complejidad SonarJS, Type-checking y Prettier):**
 ```bash
-docker compose -f docker-compose.qa.yml run --rm ui-e2e bash -c "npm install && npm run build"
-docker compose -f docker-compose.qa.yml up -d ui-prod
-```
-
-**Paso 2: Ejecutar las suites de validación**
-
-*   **Auditoría de Dependencias (CVEs):**
-
-```bash
-docker compose -f docker-compose.qa.yml run --rm ui-e2e bash -c "npm install && npm run audit:deps"
-```
-
-*   **Validación Estática (Linting, Complejidad SonarJS, Type-checking y Prettier):**
-
-```bash
-docker compose -f docker-compose.qa.yml run --rm ui-e2e bash -c "npm run type-check && npm run format:check && npm run lint"
+make qa-lint
 ```
 
 *   **Pruebas Unitarias Aisladas (Vitest - Exigencia 95%):**
-
 ```bash
-docker compose -f docker-compose.qa.yml run --rm ui-e2e npm run test:coverage
+make qa-unit
 ```
 
 *   **Pruebas de Mutación Frontend (Stryker):**
-
 ```bash
-docker compose -f docker-compose.qa.yml run --rm ui-e2e npm run mutate
+make qa-mutation
 ```
 
-*   **Rendimiento y Core Web Vitals (Lighthouse CI):**
+**Paso 2: Compilar y Ejecutar las suites End-to-End (Atacando Nginx)**
+*(Nota: Las metas `qa-perf`, `qa-e2e` y `qa-bdd` compilan el Frontend de Vue y levantan `ui-prod` automáticamente antes de probar).*
 
+*   **Rendimiento y Core Web Vitals (Lighthouse CI):**
 ```bash
-docker compose -f docker-compose.qa.yml run --rm ui-e2e npm run test:perf
+make qa-perf
 ```
 
 *   **Regresión Visual, E2E y Accesibilidad (Playwright):**
 ```bash
-docker compose -f docker-compose.qa.yml run --rm ui-e2e npx playwright test
+make qa-e2e
 ```
 
 *   **Pruebas de Aceptación BDD (Karate UI):**
-
 ```bash
-docker compose -f docker-compose.qa.yml run --rm karatelabs mvn clean test
+make qa-bdd
 ```
 
 **Paso 3: Certificación de Observabilidad en Vivo (Nivel 11X)**
 Levanta Prometheus y el sidecar de Nginx para monitorear las interacciones de los tests E2E y BDD en tiempo real.
-
 ```bash
-docker compose -f docker-compose.qa.yml --profile observability up -d prometheus nginx-exporter
+make qa-obs
 ```
-
-*(Accede a `http://localhost:9090` durante la ejecución de Playwright o Karate para evaluar las métricas de tráfico y respuesta de Nginx).*

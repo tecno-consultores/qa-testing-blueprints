@@ -5,28 +5,30 @@ COMPOSE_FILE = docker-compose.qa.yml
 SERVICE_NAME = qa-node-backend
 
 qa-lint:
-	@echo "🔍 Ejecutando Linter y Type Checking (Node.js)..."
-	docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "pnpm install && pnpm lint && pnpm type-check"
+	@echo "🔍 Ejecutando Auditoría de CVEs, Linter y Type Checking (Node.js)..."
+	docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "pnpm install && pnpm run audit:deps && pnpm run format:check && pnpm lint && pnpm type-check"
 
 qa-unit:
 	@echo "🧪 Ejecutando Pruebas Unitarias (Vitest)..."
-	docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "pnpm install && pnpm test:unit"
+	docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "pnpm install && pnpm run test:coverage"
 
 qa-e2e:
-	@echo "🎭 Ejecutando Pruebas BDD/API..."
-	docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "pnpm install && pnpm test:e2e"
+	@echo "🎭 Ejecutando Pruebas BDD (Karate Labs)..."
+	docker compose -f $(COMPOSE_FILE) run --rm karatelabs mvn clean test
 
 qa-mutation:
 	@echo "👽 Ejecutando Pruebas de Mutación (Stryker)..."
-	docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "pnpm install && pnpm exec stryker run"
+	docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "pnpm install && pnpm run mutate"
 
 qa-stress:
-	@echo "🔥 Ejecutando Pruebas de Carga (Artillery)..."
-	docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "pnpm install && pnpm exec artillery run artillery.yml"
+	@echo "🔥 Ejecutando Pruebas de Carga y Caos (Artillery + Pumba)..."
+	docker compose -f $(COMPOSE_FILE) --profile chaos up --abort-on-container-exit stress_test
 
-qa-all: qa-lint qa-unit qa-e2e qa-mutation qa-stress
+qa-all: qa-lint qa-unit qa-mutation qa-e2e qa-stress
 	@echo "✅ Pipeline QA Node Backend completado."
 
 clean-cache:
-	@echo "🧹 Limpiando volúmenes de caché de pnpm..."
+	@echo "🧹 Limpiando volúmenes de caché de pnpm y apagando redes..."
 	docker compose -f $(COMPOSE_FILE) down -v
+	docker compose -f $(COMPOSE_FILE) --profile chaos down -v
+	docker compose -f $(COMPOSE_FILE) --profile graphify down -v

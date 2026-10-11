@@ -29,8 +29,11 @@ rm -f *.log
 
 chown -R $USER:$USER . 2>/dev/null || true
 
+# Apagar infraestructuras y perfiles ocultos para liberar redes y forzar purga de volúmenes de caché (pnpm-store)
+docker compose -f docker-compose.qa.yml down -v 2>/dev/null || true
 docker compose -f docker-compose.qa.yml --profile chaos down -v 2>/dev/null || true
 docker compose -f docker-compose.qa.yml --profile graphify down -v 2>/dev/null || true
+
 docker system prune -af --volumes
 
 echo "Limpieza de dependencias, reportes, imágenes y contenedores finalizada exitosamente."

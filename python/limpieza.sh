@@ -28,7 +28,7 @@ rm -f profile.svg
 
 chown -R $USER:$USER . 2>/dev/null || true
 
-# Forzamos el derribo de la infraestructura principal para destruir el volumen de caché persistente (uv-cache)
+# Forzamos el derribo de la infraestructura principal y perfiles ocultos para destruir el volumen de caché persistente (uv-cache)
 docker compose -f docker-compose.qa.yml down -v 2>/dev/null || true
 docker compose -f docker-compose.qa.yml --profile observability down -v 2>/dev/null || true
 docker compose -f docker-compose.qa.yml --profile graphify down -v 2>/dev/null || true

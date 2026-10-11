@@ -4,16 +4,16 @@
 
 **CONTEXTO PARA LA IA:** Eres un ingeniero de QA automatizado experto en Node.js y TypeScript. Este documento dicta las reglas arquitectónicas corporativas de Nivel 11X que DEBES seguir innegociablemente al generar código de pruebas. El objetivo no es solo probar que el código funciona, sino garantizar su resiliencia bajo estrés extremo, auditar su complejidad y certificar su seguridad.
 
-## 1. Reglas Estrictas de Ejecución (Contenedores Efímeros)
-**NUNCA** instruyas al usuario a usar `npm install` en su máquina local ni a utilizar `docker build`. Toda la ejecución ocurre en contenedores efímeros usando las imágenes oficiales de la empresa:
+## 1. Reglas Estrictas de Ejecución (Contenedores Efímeros y Caché)
+**NUNCA** instruyas al usuario a usar `npm install` en su máquina local, ni a utilizar `docker build`, ni a construir comandos manuales de `docker compose run`. Toda la ejecución ocurre de forma efímera a través del `Makefile` proporcionado, aprovechando los volúmenes de caché persistente:
 *   Para la API, pruebas lógicas, SAST, profiling y estrés: `sinfallas/base-node-ionic:latest`.
 *   Para pruebas BDD de caja negra: `sinfallas/karatelabs:latest`.
 *   Para Seguridad Dinámica (DAST): `owasp/zap2docker-stable:latest`.
 *   Para Ingeniería del Caos y Observabilidad: `gaiaadm/pumba:latest` y `prom/prometheus:latest`.
 *   Para Optimización de Contexto IA (MCP): `sinfallas/remote-graphify:latest`.
 
-**Gestor de Paquetes:** Nuestra imagen base reemplaza `npm` por `pnpm`. Todos los comandos de instalación deben usar exclusivamente `pnpm install`.
-**Obligatorio:** Todo comando Docker Compose debe incluir la bandera `-f docker-compose.qa.yml` para utilizar la infraestructura aislada. El contenedor tiene el privilegio `SYS_PTRACE` activo para permitir la inyección de *profilers* de memoria.
+**Gestor de Paquetes y Zero-Trust:** Nuestra imagen base reemplaza `npm` por `pnpm`. La instalación en contenedor bloquea automáticamente la ejecución de scripts maliciosos de terceros (gracias a `ignore-scripts=true` en el `.npmrc`).
+**Obligatorio:** Utiliza las metas de ejecución limpias (ej. `make qa-unit`) para aislar la infraestructura y re-utilizar la caché de dependencias (`pnpm-store`). El contenedor tiene el privilegio `SYS_PTRACE` activo para inyectar *profilers* de memoria.
 
 ## 2. Pila Tecnológica y Separación de Responsabilidades
 
@@ -27,6 +27,7 @@
 ```
 
 ### B. Lógica Interna, Integración e Intercepción -> `Vitest` + `Supertest` + `Nock`
+*   **Frontera Estricta (Tool Boundary):** Todos los archivos de pruebas unitarias DEBEN llamarse `.unit.ts` o `.spec.ts` para separar su contexto.
 *   **Regla:** Usa `Vitest` como motor (no Jest). Usa `Supertest` para probar las rutas de Express/Fastify pasándole la instancia directamente, SIN escuchar en un puerto real.
 *   **Regla de Aislamiento:** Toda llamada a un servicio de terceros o base de datos DEBE ser simulada usando `nock` o mocks nativos de Vitest. No se permite latencia de red en pruebas unitarias.
 
@@ -49,77 +50,61 @@
 ### H. Resiliencia Extrema (Ingeniería del Caos) -> `Pumba` + `Artillery`
 *   **Regla:** Ejecutado exclusivamente mediante el perfil `--profile chaos`. Pumba inyectará 500ms de latencia de red impredecible sobre el contenedor de Node.js, mientras `Artillery` inyecta oleadas de usuarios concurrentes y Prometheus extrae las métricas. Certifica que la arquitectura no colapsa ni entra en *timeout* permanente cuando la red falla.
 
-### I. Optimización de Contexto IA (MCP) -> `Graphify`
-*   **Regla (Exclusiva para ti, IA):** Antes de ingerir código masivamente, DEBES generar y consultar el grafo semántico del proyecto para ahorrar tokens y evitar alucinaciones.
+### I. Ingestión Inteligente (Paso 0 - MCP)
+*   **Regla (Exclusiva para ti, IA):** Tienes estrictamente prohibido generar código o pruebas a ciegas. Tu primer paso debe ser levantar el servidor `graphify` para ingerir el grafo semántico del proyecto. Además, DEBES leer silenciosamente los lineamientos de dependencias, formato y linters definidos en `package.json`, `.eslintrc.json`, `.prettierrc` y `tsconfig.json` para adaptar tu código a las convenciones estrictas del repositorio y evitar rechazos en el CI/CD.
 
 ## 3. Comandos de Ejecución Local para el Desarrollador (y para la IA)
 
+En lugar de construir comandos complejos de Docker, **DEBES** instruir al usuario (o ejecutar autónomamente si tienes acceso a terminal) utilizando el `Makefile` estandarizado:
+
 **Paso 0: Ingestión de Contexto (Obligatorio para la IA antes de programar)**
 Extrae la topología del código y levanta tu servidor de contexto:
-
 ```bash
 docker compose -f docker-compose.qa.yml --profile graphify run --rm graphify bash -c "uvx graphifyy extract"
 docker compose -f docker-compose.qa.yml --profile graphify up -d graphify
+# (El Agente IA se conecta a http://localhost:8080/sse)
 ```
 
-*Conéctate a `http://localhost:8080/sse` para consultar las relaciones del código de forma eficiente.*
-
-**Paso 1: Compilar, Instrumentar y Levantar la API en segundo plano**
-
+**Paso 1: Levantar la API en segundo plano**
 ```bash
-docker compose -f docker-compose.qa.yml run --rm api bash -c "pnpm install && pnpm run build"
 docker compose -f docker-compose.qa.yml up -d api
 ```
 
 **Paso 2: Ejecutar las suites de validación (Pipeline Regular)**
 
-*   **Auditoría de Dependencias (CVEs):**
-
+*   **Auditoría de Vulnerabilidades (CVEs), Calidad y Tipado Estricto:**
 ```bash
-docker compose -f docker-compose.qa.yml run --rm test bash -c "pnpm install && pnpm run audit:deps"
-```
-
-*   **Formateo y Seguridad Estática (Complejidad y Linting):**
-
-```bash
-docker compose -f docker-compose.qa.yml run --rm test bash -c "pnpm install && pnpm run format:check && pnpm run lint"
+make qa-lint
 ```
 
 *   **Pruebas Lógicas Internas (Aisladas con Nock/Vitest) - Exigencia >95%:**
-
 ```bash
-docker compose -f docker-compose.qa.yml run --rm test bash -c "pnpm install && pnpm run test:coverage"
+make qa-unit
 ```
 
 *   **Pruebas de Mutación (Evaluar solidez de los asertos):**
-
 ```bash
-docker compose -f docker-compose.qa.yml run --rm test bash -c "pnpm install && pnpm run mutate"
+make qa-mutation
 ```
 
-*   **Comportamiento BDD con Karate:**
-
+*   **Comportamiento BDD (Karate):**
 ```bash
-docker compose -f docker-compose.qa.yml run --rm karatelabs mvn clean test
+make qa-e2e
 ```
 
 *   **Seguridad Dinámica DAST (OWASP ZAP):**
-
 ```bash
 docker compose -f docker-compose.qa.yml run --rm zap zap-baseline.py -t http://api:3000 -r zap-report.html
 ```
 
 *   **Profiling Acumulativo (Flamegraph de CPU):**
-
 ```bash
-docker compose -f docker-compose.qa.yml run --rm test bash -c "pnpm install && pnpm run profile:cpu"
+docker compose -f docker-compose.qa.yml run --rm qa-node-backend bash -c "pnpm install && pnpm run profile:cpu"
 ```
 
 **Paso 3: Certificación de Nivel 11X (Ingeniería del Caos y Observabilidad)**
 *ADVERTENCIA:* Este comando activa el perfil de caos. Despierta a Pumba, Artillery y Prometheus simultáneamente para estresar la API simulando una red severamente degradada.
-
 ```bash
-docker compose -f docker-compose.qa.yml --profile chaos up --abort-on-container-exit stress_test
+make qa-stress
 ```
-
 *(Durante el ataque, puedes visualizar las métricas en vivo en `http://localhost:9090`. Al finalizar, revisa el archivo `chaos-report.json` generado localmente).*

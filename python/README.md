@@ -2,17 +2,16 @@
 
 # Guía de Pruebas y Validación para Scripts Python (Standalone/Librerías)
 
-Este documento contiene las instrucciones ("prompt") que debes seguir como asistente de IA o desarrollador para generar, estructurar y ejecutar pruebas automatizadas para proyectos Python bajo nuestro estándar corporativo (Nivel 11X).
+Este documento contiene las instrucciones corporativas de Nivel 11X que DEBES seguir innegociablemente al generar código de pruebas para herramientas en Python puro (CLI, scripts automáticos o librerías internas).
 
-## 1. Reglas Estrictas de Ejecución (Docker)
-**NUNCA** debes instruir la construcción de imágenes locales mediante `docker build` o `build:` en el `docker-compose.yml`. Todo el entorno de pruebas debe ejecutarse de forma efímera utilizando las imágenes oficiales:
+## 1. Reglas Estrictas de Ejecución (Contenedores Efímeros y Caché)
+**NUNCA** debes instruir la construcción de imágenes locales (`docker build`) ni la ejecución de comandos manuales complejos de `docker compose run`. Toda la ejecución ocurre de forma efímera a través del `Makefile` proporcionado, utilizando los volúmenes de caché persistente:
 *   Para pruebas lógicas, benchmarking, profiling y dependencias: `sinfallas/base-python-uv:3.13`.
 *   Para Recolección de Métricas: `prom/prometheus:latest` (y Pushgateway si aplica).
 *   Para Optimización de Contexto IA (MCP): `sinfallas/remote-graphify:latest`.
 
-**Obligatorio:** Todo comando Docker Compose debe incluir la bandera `-f docker-compose.qa.yml` para utilizar la infraestructura de pruebas aislada sin afectar al proyecto anfitrión. El contenedor tiene privilegios extendidos (`SYS_PTRACE`) para permitir la intercepción de memoria del *profiler*.
-La instalación de dependencias se realiza exclusivamente en tiempo de ejecución usando el gestor `uv`, a través del siguiente comando:
-`uv pip install --system -e '.[dev]'`
+**Gestor de Paquetes:** La instalación de dependencias se realiza en tiempo de ejecución usando `uv` (`uv pip install --system -e '.[dev]'`), optimizado automáticamente por el volumen `uv-cache`.
+**Obligatorio:** Utiliza las metas de ejecución limpias (ej. `make qa-unit`) para aprovechar la configuración de los volúmenes sin redes huérfanas. El contenedor tiene privilegios extendidos (`SYS_PTRACE`) para inyectar *profilers* de memoria.
 
 ## 2. Pila Tecnológica Requerida
 Al generar código, configurar el entorno o plantear soluciones, debes asegurar la implementación de estas herramientas:
@@ -60,6 +59,7 @@ Dependiendo de la naturaleza del script, debes instrumentarlo de una de estas do
 
 ### B. Pruebas Unitarias (Mockeadas / Aisladas)
 *   **Propósito:** Validar la lógica pura de la librería sin depender de red o credenciales.
+*   **Frontera Estricta (Tool Boundary):** Todos los archivos de pruebas unitarias DEBEN nombrarse respetando el patrón `test_*.py` y no tener decoradores de integración.
 *   **Regla:** Utiliza `pytest-mock` (el fixture `mocker`) o `@patch` para interceptar la red (ej. `requests`). Simula respuestas JSON exitosas y fallos catastróficos. NINGUNA prueba de este tipo puede tener latencia real.
 
 ### C. Pruebas de Integración (Reales)
@@ -73,67 +73,47 @@ Dependiendo de la naturaleza del script, debes instrumentarlo de una de estas do
 ### E. Complejidad Ciclomática (`radon`)
 *   **Regla:** Ningún método generado puede superar el grado `B` de complejidad ciclomática ni caer del grado `A` en índice de mantenibilidad (MI). Si el código es muy complejo, divídelo.
 
-### F. Optimización de Contexto IA (MCP) -> `Graphify`
-*   **Regla (Exclusiva para ti, IA):** Antes de ingerir código masivamente, DEBES generar y consultar el grafo semántico del proyecto para ahorrar tokens y evitar alucinaciones.
+### F. Ingestión Inteligente (Paso 0 - MCP)
+*   **Regla (Exclusiva para ti, IA):** Tienes estrictamente prohibido generar código o pruebas a ciegas. Tu primer paso debe ser levantar el servidor `graphify` para ingerir el grafo semántico del proyecto. Además, DEBES leer silenciosamente las configuraciones de linters y dependencias definidos en `pyproject.toml` para adaptar tu código a las convenciones estrictas del repositorio y evitar rechazos en el CI/CD.
 
 ## 4. Comandos de Ejecución Local para Desarrolladores (y para la IA)
 
-Utiliza estos comandos asumiendo que existe el orquestador aislado `docker-compose.qa.yml`:
+En lugar de construir comandos complejos de Docker, **DEBES** instruir al usuario (o ejecutar autónomamente si tienes acceso a terminal) utilizando el `Makefile` estandarizado:
 
 **Paso 0: Ingestión de Contexto (Obligatorio para la IA antes de programar)**
 Extrae la topología del código y levanta tu servidor de contexto:
-
 ```bash
 docker compose -f docker-compose.qa.yml --profile graphify run --rm graphify bash -c "uvx graphifyy extract"
 docker compose -f docker-compose.qa.yml --profile graphify up -d graphify
+# (El Agente IA se conecta a http://localhost:8080/sse)
 ```
-
-*Conéctate a `http://localhost:8080/sse` para consultar las relaciones del código de forma eficiente.*
 
 **Paso 1: Ejecución de las suites de validación**
 
-*   **Auditoría Estática, Complejidad y Seguridad:**
-
+*   **Auditoría SAST, Calidad, Complejidad y Formateo:**
 ```bash
-docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && uv pip audit && bandit -r src/ && radon cc --min C src/ && radon mi --min B src/"
+make qa-lint
 ```
 
-*   **Suite Unitaria (Aislada), BDD y Rendimiento (Cobertura > 95%):**
-
+*   **Suite Unitaria (Aislada), BDD y Benchmarking (Cobertura innegociable > 95%):**
 ```bash
-docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && pytest -m 'not integration' --cov=src/ --cov-fail-under=95 -v"
+make qa-unit
 ```
 
-*   **Prueba Exclusiva de Integración (Conexión Real):**
-
+*   **Pruebas de Mutación (Solidez de Assertions):**
 ```bash
-docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && pytest -m integration -v"
-```
-
-*   **Pruebas de Mutación (Evaluar solidez de los tests):**
-
-```bash
-docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && mutmut run"
+make qa-mutation
 ```
 
 *   **Profiling (Generar Flamegraph de CPU para el script):**
-
 ```bash
-docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && py-spy record -o profile.svg -- python src/main.py"
-```
-
-*   **Validación Completa Pre-Commit (Pipeline Tox con Matriz):**
-
-```bash
-docker compose -f docker-compose.qa.yml run --rm -e UV_PYTHON_DOWNLOADS=true test bash -c "uv pip install --system -e '.[dev]' && tox"
+docker compose -f docker-compose.qa.yml run --rm qa-backend bash -c "uv sync && py-spy record -o profile.svg -- python src/main.py"
 ```
 
 **Paso 2: Certificación de Observabilidad en Vivo (Nivel 11X)**
 Si el script fue instrumentado (sea como daemon o script efímero mediante Pushgateway), ejecútalo encendiendo el perfil de observabilidad.
-
 ```bash
 docker compose -f docker-compose.qa.yml --profile observability up -d
-docker compose -f docker-compose.qa.yml run --rm test bash -c "uv pip install --system -e '.[dev]' && python src/main.py"
+docker compose -f docker-compose.qa.yml run --rm qa-backend bash -c "uv sync && python src/main.py"
 ```
-
-*(Accede a `http://localhost:9090` durante la ejecución para evaluar el comportamiento).*
+*(Accede a `http://localhost:9090` durante la ejecución para evaluar el comportamiento de raspeo o push de métricas).*
