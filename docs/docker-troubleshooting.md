@@ -10,13 +10,15 @@ Este documento centraliza los fallos más comunes al operar con los *blueprints*
 Al intentar ejecutar una prueba, recibes errores como `no space left on device` o `could not find an available, non-overlapping IPv4 address pool`.
 
 **¿Por qué sucede?**
-Docker sigue almacenando en caché de forma agresiva: imágenes colgantes (Dangling images), bases de datos temporales de Prometheus o Redes Bridge no destruidas tras interrupciones abruptas.
+Docker sigue almacenando en caché de forma agresiva: imágenes colgantes (Dangling images), bases de datos temporales de Prometheus o Redes Bridge no destruidas. Además, los **nuevos volúmenes de caché persistentes** (`pnpm-store` y `uv-cache`) pueden crecer descontroladamente con el tiempo.
 
 **La Solución:**
-Ejecutar la purga profunda que apagará todos los perfiles ocultos y limpiará los volúmenes:
+Ejecutar la purga profunda que apagará todos los perfiles ocultos y destruirá los volúmenes (`down -v`):
 
 ```bash
 sudo ./limpieza.sh
+# O utiliza la meta del Makefile en tu proyecto:
+make clean-cache
 ```
 
 ---
@@ -110,3 +112,16 @@ El demonio de Docker en distribuciones como Ubuntu Snap o Docker Desktop (Window
 
 **La Solución:**
 Asegúrate de que la ruta montada en tu orquestador coincida con tu configuración de host. Si usas WSL2 en Windows, debes activar la integración explícita de recursos y red en los ajustes de Docker Desktop.
+
+---
+
+## 8. Errores de Dependencias o Compilación en Node.js/Vue/React (Zero-Trust)
+
+**Síntoma:**
+Al ejecutar `make qa-unit` o instalar dependencias, paquetes como `esbuild`, `prisma`, `cypress` o `bcrypt` fallan quejándose de que no pudieron ejecutar su script de post-instalación.
+
+**¿Por qué sucede?**
+Como medida de seguridad estricta, inyectamos un archivo `.npmrc` configurado con `ignore-scripts=true`. Esto bloquea los ataques de cadena de suministro, pero también detiene a las librerías legítimas que necesitan compilar binarios locales.
+
+**La Solución:**
+Identifica la librería que falló y permítela explícitamente en el `package.json` utilizando herramientas de lista blanca (como `pnpm` config o `npm rebuild <paquete>`), o reconstruye el paquete específico al vuelo dentro del `Makefile` de tu proyecto, manteniendo el bloqueo global intacto.

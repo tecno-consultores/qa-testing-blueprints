@@ -1,14 +1,14 @@
 services:
   qa-bash:
     image: sinfallas/base-bash-qa:latest
-    container_name: bash_test_env
-    hostname: bash_test_env
+    container_name: bash_qa_env
+    hostname: bash_qa_env
     pull_policy: always
     environment:
       TZ: 'America/Caracas'
     volumes:
       - .:/app
-    command: bash -c "echo 'Contenedor QA Bash listo. Usa docker compose run --rm qa-bash [comando]'; sleep infinity"
+    command: bash -c "echo 'Contenedor QA Bash listo para ShellCheck y BATS. Usa docker compose run --rm qa-bash [comando]'; sleep infinity"
 
   pushgateway:
     image: prom/pushgateway:latest
@@ -42,3 +42,30 @@ services:
       - "9090:9090"
     depends_on:
       - pushgateway
+
+  graphify:
+    image: sinfallas/remote-graphify:latest
+    container_name: bash_graphify
+    hostname: bash_graphify
+    profiles:
+      - graphify
+    restart: always
+    command: uvx --from graphifyy python -m graphify.serve /app/graphify-out/graph.json --transport http --host 0.0.0.0 --port 8080
+    ports:
+      - "8080:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - GRAPHIFY_OLLAMA_KEEP_ALIVE=10
+    volumes:
+      - .:/app
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "1"
+
+networks:
+  default:
+    driver: bridge

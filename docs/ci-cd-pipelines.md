@@ -9,8 +9,8 @@ Normalmente, los pipelines de CI instalan el lenguaje directamente en el *runner
 *   **¿Por qué está mal para nosotros?** Porque rompe el aislamiento. El *runner* de CI podría tener dependencias globales preinstaladas de Ubuntu que enmascaran errores, haciendo que el pipeline pase en GitHub pero falle en tu servidor Proxmox de producción.
 
 **Nuestro enfoque (Blueprints):**
-El *runner* de CI se trata como una máquina "tonta" cuyo único trabajo es tener Docker instalado. **Ejecutamos exactamente los mismos comandos que en local**. 
-*   **¿Por qué es así?** Paridad absoluta. Si `docker compose -f docker-compose.qa.yml run --rm test` pasa en tu laptop, pasará en CI y funcionará en producción. Toda la inteligencia, herramientas (SAST, Mutación, BATS) y dependencias viven dentro de las imágenes `sinfallas/*`.
+El *runner* de CI se trata como una máquina "tonta" cuyo único trabajo es tener Docker instalado. **Ejecutamos exactamente los mismos comandos encapsulados de los Makefiles que usamos en local**. 
+*   **¿Por qué es así?** Paridad absoluta. Si `make qa-unit` pasa en tu laptop, pasará en CI y funcionará en producción. Toda la inteligencia, herramientas (SAST, Mutación, BATS), configuraciones `.npmrc` y dependencias viven dentro de las imágenes `sinfallas/*` y se respaldan en los volúmenes de caché.
 
 ---
 
@@ -23,7 +23,7 @@ Antes de descargar dependencias de lenguaje, escaneamos estáticamente los manif
 ### Paso 1: Checkout y Preparación
 Clonar el código fuente. No necesitamos instalar Python, Node ni dependencias de sistema.
 ### Paso 2: Ejecución Efímera Base (El Núcleo)
-Lanzar la suite utilizando `docker compose -f docker-compose.qa.yml run --rm test`. Si la prueba de cobertura detecta menos del 95%, o si fallan las métricas de complejidad de `eslint-plugin-sonarjs` / `radon`, arrojará un código de salida `1` (Exit Code 1) bloqueando el *merge*.
+Lanzar las suites utilizando los comandos definidos en el `Makefile` (ej. `make qa-lint`, `make qa-unit`). Si la prueba de cobertura detecta menos del 95%, o si fallan las métricas de complejidad, arrojará un código de salida `1` (Exit Code 1) bloqueando el *merge*.
 ### Paso 3: Seguridad Dinámica (DAST)
 OWASP ZAP levanta un ataque ligero (*Baseline Scan*) sobre el contenedor vivo para auditar vulnerabilidades en la red.
 ### Paso 4: Resiliencia, Caos y Observabilidad
@@ -31,13 +31,13 @@ Se activa el perfil oculto `--profile chaos` inyectando latencia con Pumba y ole
 ### Paso 5: Extracción de Artefactos (Reportes)
 Como utilizamos volúmenes *bind*, cuando el contenedor efímero muere, deja los reportes HTML y JSON físicamente en el disco del *runner*. El pipeline toma esa carpeta y la sube como un "Artifact" para que el equipo pueda descargarlo.
 ### Paso 6: Limpieza
-Ejecutar `./limpieza.sh` para no saturar el almacenamiento del *runner*.
+Ejecutar `make clean-cache` o `./limpieza.sh` para destruir las cachés de volumen y no saturar el almacenamiento del *runner*.
 
 ---
 
 ## 3. Ejemplo Práctico: GitHub Actions
 
-Aquí tienes la plantilla base para `.github/workflows/qa-pipeline.yml`. En este ejemplo, se audita un proyecto integrando las capas de complejidad, linting y la resiliencia 11X.
+Aquí tienes la plantilla base para `.github/workflows/qa-pipeline.yml`. Al usar los `Makefiles` corporativos, el pipeline es extremadamente limpio y fácil de leer.
 
 ```yaml
 name: QA Testing Blueprint Pipeline (Nivel 11X)
@@ -62,42 +62,40 @@ jobs:
 
       - name: 3️⃣ Auditoría de Infraestructura y Contenedores (Trivy)
         run: |
-          docker run --rm -v "${PWD}:/app:ro" -w /app aquasec/trivy:latest config . --severity HIGH,CRITICAL --exit-code 1
+          ./auditar-infra.sh
 
-      - name: 4️⃣ Auditoría de Dependencias (CVEs)
-        # Verificamos vulnerabilidades en paquetes de terceros usando pnpm/npm/uv audit.
-        run: docker compose -f docker-compose.qa.yml run --rm test npm audit
+      - name: 4️⃣ Análisis Estático, Complejidad y Formateo
+        # Ejecuta linting, tipeo (Mypy/TS) y reglas de complejidad.
+        run: make qa-lint
 
-      - name: 5️⃣ Análisis Estático, Complejidad y Formateo
-        # Ejecutamos ESLint/Ruff y SonarJS/Radon para asegurar calidad y evitar Code Smells.
-        run: docker compose -f docker-compose.qa.yml run --rm test npm run lint
-
-      - name: 6️⃣ Ejecutar Suite Efímera con Intercepción de Red
+      - name: 5️⃣ Ejecutar Suite Efímera con Intercepción de Red
         # Si la cobertura es menor a 95%, este comando falla y aborta el pipeline.
-        run: docker compose -f docker-compose.qa.yml run --rm test npm run test:coverage
+        run: make qa-unit
 
-      - name: 7️⃣ Pruebas de Mutación (Stryker / Mutmut)
-        # Para evitar que pasen PRs con pruebas "falsas positivas".
-        run: docker compose -f docker-compose.qa.yml run --rm test npx stryker run
+      - name: 6️⃣ Pruebas de Mutación (Anti-Falsos Positivos)
+        # Asegura que las pruebas realmente validen la lógica.
+        run: make qa-mutation
 
-      - name: 8️⃣ Seguridad Dinámica DAST (OWASP ZAP)
+      - name: 7️⃣ Seguridad Dinámica DAST (OWASP ZAP)
         # Levanta la API en segundo plano y lanza un Baseline Scan.
+        # (Nota: Ignorar este paso si es un script Bash o Python Standalone)
         run: |
           docker compose -f docker-compose.qa.yml up -d api
           docker compose -f docker-compose.qa.yml run --rm zap zap-baseline.py -t http://api:3000 -r zap-report.html
 
-      - name: 9️⃣ Ingeniería del Caos y Observabilidad (Prometheus + Pumba)
+      - name: 8️⃣ Ingeniería del Caos y Observabilidad (Prometheus + Pumba)
         # Activa el perfil oculto para inyectar latencia y levantar Prometheus automáticamente.
         # (Nota: Si tu proyecto es un script Bash o Python puro, cambia '--profile chaos' por '--profile observability')
         run: docker compose -f docker-compose.qa.yml --profile chaos up --abort-on-container-exit stress_test
 
-      - name: 🔟 Archivar Reportes de Calidad (Artefactos)
+      - name: 9️⃣ Archivar Reportes de Calidad (Artefactos)
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: qa-reports
           path: |
             coverage/
+            coverage_report/
             reports/
             stryker.html
             zap-report.html
@@ -105,7 +103,7 @@ jobs:
             chaos-report.json
           retention-days: 7
 
-      - name: ⏸️ Limpieza del Entorno
+      - name: 🔟 Limpieza del Entorno
         if: always()
-        run: sudo ./limpieza.sh
+        run: make clean-cache
 ```

@@ -9,7 +9,7 @@ Exigir un 95% de cobertura en `kcov`, `Vitest` o `pytest` no es una métrica de 
 Herramientas como `Stryker` y `mutmut` atacan nuestras propias pruebas alterando la lógica del código fuente. Si un mutante sobrevive, la prueba era un falso positivo.
 
 ## 3. Inmutabilidad y Contaminación de Estado
-El mayor enemigo de la CI es el estado persistente. Ejecutar con `docker compose -f docker-compose.qa.yml run --rm` garantiza que el entorno nazca sin estado, evalúe el código en un vacío absoluto y se destruya.
+El mayor enemigo de la CI es el estado persistente. Ejecutar los comandos encapsulados en los `Makefiles` (ej. `make qa-all`) garantiza que el entorno nazca sin estado, evalúe el código en un vacío absoluto, purgue la memoria y se destruya de forma segura.
 
 ## 4. Diseño Orientado a Inteligencia Artificial (AI-First)
 El lenguaje imperativo de nuestras guías acota el universo de herramientas de la IA a las imágenes `sinfallas/*`, garantizando que el código generado encaje perfectamente sin alucinaciones.
@@ -20,8 +20,8 @@ No basta con que el código funcione, debe ser escalable y eficiente. Se han inc
 ## 6. Aislamiento Estricto de Red (Mocking)
 Para garantizar la naturaleza efímera, las pruebas unitarias y de integración temprana nunca deben comunicarse con el exterior. Exigimos el uso nativo de `unittest.mock` (Python) y utilidades de intercepción como `msw` o `nock` (Node.js) para falsear respuestas de red y simular comportamientos críticos sin latencia ni dependencia de terceros.
 
-## 7. Barrera Pre-Commit (Fail & Forbid)
-El código de baja calidad no debe tener el derecho de existir en el repositorio. Implementamos `Lefthook` como un guardia fronterizo estrictamente local. Si el código carece de formato, rompe convenciones semánticas (`commitlint`) o contiene secretos hardcodeados, el commit es rechazado. Educamos a los desarrolladores o IA a través del fallo inmediato.
+## 7. Barreras Locales (Pre-Commit & Pre-Push)
+El código de baja calidad o inseguro no debe tener el derecho de existir en el repositorio. Implementamos `Lefthook` como un guardia fronterizo. En el `pre-commit` rechazamos código sin formato o con secretos hardcodeados. En el `pre-push` ejecutamos Trivy para bloquear despliegues de IaC vulnerables (ej. puertos expuestos en Docker Compose). Educamos a los desarrolladores o IA a través del fallo inmediato.
 
 ## 8. Seguridad Total (SAST + DAST + IaC)
 Asumimos que la infraestructura y el código son vulnerables por defecto. Las pruebas tradicionales no detectan inyecciones. Auditar estáticamente (Trivy para la infraestructura, Bandit para el código) previene errores tipográficos fatales, mientras que auditar dinámicamente con OWASP ZAP (DAST) ataca la aplicación viva para certificar que el servidor web no expone datos sensibles.
@@ -31,3 +31,6 @@ Probar si la API funciona bajo condiciones perfectas de laboratorio ya no es suf
 
 ## 10. Observabilidad Universal (Métricas RED)
 No podemos mejorar lo que no medimos. Forzamos la exposición de métricas (Rate, Errors, Duration) mediante middlewares no intrusivos acoplados a Prometheus (para servidores) o envíos asíncronos vía Pushgateway (para scripts). Esto permite a la Inteligencia Artificial y a los desarrolladores evaluar en tiempo real el daño causado por las pruebas destructivas, pasando de simples reportes estáticos a un diagnóstico "en vivo".
+
+## 11. Seguridad Zero-Trust en Dependencias
+El ecosistema bloquea proactivamente la ejecución silenciosa de scripts de instalación de terceros (ej. `.npmrc` con `ignore-scripts=true`). Ningún paquete descargado de internet tiene derecho a ejecutar código arbitrario en nuestra infraestructura durante su instalación, mitigando ataques de cadena de suministro (Supply Chain Attacks).

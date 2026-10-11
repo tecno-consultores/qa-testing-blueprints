@@ -7,7 +7,7 @@
 ## 1. Reglas Estrictas de Ejecución
 **NUNCA** ejecutes pruebas ni scripts destructivos en el host local. Toda validación debe ocurrir de forma efímera en nuestra imagen oficial: `sinfallas/base-bash-qa:latest`.
 *   Esta imagen contiene `bats`, `kcov`, `shellcheck`, `shfmt` y las librerías `bats-mock`/`bats-assert` preinstaladas en `/opt/bats-libs/`.
-*   **Obligatorio:** Todo comando Docker Compose debe incluir la bandera `-f docker-compose.qa.yml` para utilizar la infraestructura de pruebas aislada sin afectar al proyecto anfitrión.
+*   **Obligatorio:** Toda ejecución debe invocarse utilizando los comandos del `Makefile` proporcionado (ej. `make qa-unit`, `make qa-lint`) para garantizar la destrucción de la instancia post-validación y mantener el aislamiento.
 
 ## 2. Aislamiento y Mocking (Regla de Oro)
 Tienes estrictamente prohibido permitir que las pruebas interactúen con el hardware, la red o el gestor de paquetes reales del contenedor.
@@ -20,42 +20,38 @@ Tienes estrictamente prohibido permitir que las pruebas interactúen con el hard
 
 ```bash
 # Al finalizar una tarea exitosa dentro del script:
-curl -s -X POST --data-binary @- http://pushgateway:9091/metrics/job/bash_scripts <<EOF
-script_success_total 1
-EOF
+echo "script_success_total 1" | curl -s -X POST --data-binary @- http://pushgateway:9091/metrics/job/bash_scripts
 ```
 
 ## 4. Comandos de Ejecución Local para el Desarrollador (y para la IA)
 
-* Paso 1: Auditar sintaxis y seguridad (ShellCheck)
+En lugar de construir comandos complejos de Docker, **DEBES** instruir al usuario (o ejecutar autónomamente si tienes acceso a terminal) utilizando el `Makefile` estandarizado, el cual agrupa estas validaciones:
 
+* **Paso 0: Ingestión de Contexto (MCP)**
+Levanta el servidor Graphify antes de auditar o refactorizar:
 ```bash
-docker compose -f docker-compose.qa.yml run --rm qa-bash shellcheck miscript.sh
+docker compose -f docker-compose.qa.yml --profile graphify up -d graphify
+# (El Agente IA se conecta a http://localhost:8080/sse)
 ```
 
-* Paso 2: Formateo estricto del código (shfmt)
-
+* **Paso 1: Auditar sintaxis y seguridad (ShellCheck)**
+* **Paso 2: Formateo estricto del código (shfmt)**
+Ejecuta ambas validaciones estáticas con un solo comando:
 ```bash
-docker compose -f docker-compose.qa.yml run --rm qa-bash shfmt -w -i 4 miscript.sh
+make qa-lint
 ```
 
-* Paso 3: Pruebas unitarias y lógicas (BATS-core)
-
+* **Paso 3: Pruebas unitarias y lógicas (BATS-core)**
+* **Paso 4: Auditoría de Cobertura (kcov) - Exigencia del 95%**
+Ejecuta las pruebas y genera el reporte de cobertura unificado con:
 ```bash
-docker compose -f docker-compose.qa.yml run --rm qa-bash bats test/
+make qa-unit
 ```
 
-* Paso 4: Auditoría de Cobertura (kcov) - Exigencia del 95%
-
-```bash
-docker compose -f docker-compose.qa.yml run --rm qa-bash kcov coverage_report/ bats test/
-```
-
-* Paso 5: Certificación de Observabilidad (Nivel 11X)
-
+* **Paso 5: Certificación de Observabilidad (Nivel 11X)**
+Levanta Prometheus y evalúa la emisión de métricas del script efímero:
 ```bash
 docker compose -f docker-compose.qa.yml --profile observability up -d prometheus
 docker compose -f docker-compose.qa.yml run --rm qa-bash bash ./miscript.sh
+# (Puedes verificar la métrica empujada accediendo a http://localhost:9090)
 ```
-
-(Puedes verificar la métrica empujada accediendo a http://localhost:9090)

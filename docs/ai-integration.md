@@ -22,7 +22,7 @@ Las pruebas de alta exigencia (mutación, SAST, BDD) abruman el contexto si un s
 
 * **El Concepto:** Un Agente Developer escribe el código; un Agente Auditor (QA) vigila que se cumplan las reglas del *blueprint*.
 * **Sugerencia de Implementación (System Prompt para el Agente QA):**
-  > *"Eres un auditor de QA implacable. Tu única fuente de la verdad es el archivo de reglas ingerido vía MCP. Si el Agente Developer propone comandos locales como `pip install` o `npm run test`, RECHAZA el código. Exígele estrictamente usar `docker compose -f docker-compose.qa.yml run --rm` y orquestar dependencias al vuelo sin afectar la configuración del proyecto anfitrión."*
+  > *"Eres un auditor de QA implacable. Tu única fuente de la verdad es el archivo de reglas ingerido vía MCP. Si el Agente Developer propone comandos crudos locales como `pip install`, `npm run test` o intenta construir comandos largos de Docker, RECHAZA el código. Exígele estrictamente usar los comandos predefinidos en el `Makefile` (ej. `make qa-unit`, `make qa-all`) para aislar la infraestructura e invocar dependencias en los volúmenes de caché."*
 * **Flujo:** Si el Developer crea un script de Bash destructivo sin usar `bats-mock`, el Agente QA intercepta el paso y obliga a refactorizar la prueba antes de dar el trabajo por terminado.
 
 ## 3. Optimización del Contexto con Proxies de Inferencia (OmniRoute)
@@ -34,15 +34,15 @@ El ciclo de auto-corrección consume masivamente tokens de entrada, especialment
   * **Tareas Lógicas:** Si una prueba de mutación en `Stryker` o `mutmut` falla, o hay un interbloqueo reportado por `Artillery`, enruta ese volcado al modelo de más alto razonamiento (ej. *Hermes 3 70B* o *Claude 3.5 Sonnet*), ya que requiere analizar el flujo de negocio para entender por qué la prueba es defectuosa. De igual manera, los reportes de análisis de deuda técnica y complejidad generados por `radon` o `eslint-plugin-sonarjs` deben ser procesados por los modelos mayores.
 
 ## 4. Sandboxing: Permisos de Ejecución (Tool Calling)
-El ecosistema de `qa-testing-blueprints` está diseñado intencionalmente para ser el entorno de juegos de la IA. Como todas las pruebas ocurren en contenedores que se autodestruyen, es seguro darle a la IA acceso de ejecución.
+El ecosistema de `qa-testing-blueprints` está diseñado intencionalmente para ser el entorno de juegos de la IA. Como todas las pruebas ocurren en contenedores que se autodestruyen y se encapsulan tras comandos `make`, es seguro darle a la IA acceso de ejecución.
 
 * **El Concepto:** Proporcionar al agente una herramienta (`tool_call`) para ejecutar comandos en la terminal, pero bloqueando el acceso al host real.
-* **Ejemplo Práctico de Restricción (Python):** En la definición de tu herramienta para la IA, aplica una validación estricta antes de invocar el subproceso:
+* **Ejemplo Práctico de Restricción (Python):** En la definición de tu herramienta para la IA, aplica una validación estricta antes de invocar el subproceso, forzando el uso exclusivo de los *Makefiles*:
 
 ```python
   def ejecutar_comando_qa(comando: str) -> str:
-      if not comando.startswith("docker compose -f docker-compose.qa.yml run --rm"):
-          return "ERROR: Operación denegada. Política corporativa: Solo puedes ejecutar pruebas dentro de contenedores efímeros usando 'docker compose -f docker-compose.qa.yml run --rm'."
+      if not comando.startswith("make qa-") and comando != "make clean-cache":
+          return "ERROR: Operación denegada. Política corporativa: Solo puedes auditar usando las metas del Makefile estandarizado (ej. 'make qa-lint', 'make qa-unit')."
       
       resultado = subprocess.run(comando, shell=True, capture_output=True, text=True)
       return resultado.stdout if resultado.returncode == 0 else resultado.stderr

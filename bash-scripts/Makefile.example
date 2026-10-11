@@ -1,0 +1,21 @@
+.PHONY: qa-lint qa-unit qa-all clean-cache
+
+# Variables
+COMPOSE_FILE = docker-compose.qa.yml
+SERVICE_NAME = qa-bash
+
+qa-lint:
+	@echo "🔍 Ejecutando Linter y Formateo (ShellCheck + shfmt)..."
+	docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "shellcheck **/*.sh && shfmt -d **/*.sh"
+
+qa-unit:
+	@echo "🧪 Ejecutando Pruebas Unitarias y Cobertura (BATS + kcov)..."
+	docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "kcov coverage_report/ bats test/"
+
+qa-all: qa-lint qa-unit
+	@echo "✅ Pipeline QA Bash completado."
+
+clean-cache:
+	@echo "🧹 Limpiando reportes generados..."
+	docker compose -f $(COMPOSE_FILE) down -v
+	rm -rf coverage_report/

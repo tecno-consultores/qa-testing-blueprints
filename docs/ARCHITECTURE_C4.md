@@ -11,15 +11,15 @@ Muestra el panorama general: cómo los usuarios (o IAs) interactúan con el sist
 graph TD
     %% Entidades
     Dev["👨‍💻 Desarrollador / Agente IA"]
-    Hook["🚧 Lefthook (Barrera Pre-Commit)"]
-    QA["🛡️ QA Testing Blueprints (Docker Compose)"]
+    Hook["🚧 Lefthook (Pre-Commit & Pre-Push)"]
+    QA["🛡️ QA Testing Blueprints (Makefiles / Docker Compose)"]
     Host["🖥️ Máquina Host (LXC / Local)"]
     Reports["📁 Reportes (Coverage, ZAP, Chaos, Métricas)"]
 
     %% Relaciones
-    Dev -- "1. Intenta hacer commit" --> Hook
-    Hook -- "2. Lanza escaneo efímero. Rechaza si falla" --> QA
-    Dev -- "3. Ejecuta pruebas completas (run --rm)" --> QA
+    Dev -- "1. Intenta hacer commit/push" --> Hook
+    Hook -- "2. Lanza escaneo efímero (Trivy/Linters). Rechaza si falla" --> QA
+    Dev -- "3. Ejecuta pruebas completas (make qa-all)" --> QA
     QA -- "4. Usa motor Docker y solicita permisos PTRACE" --> Host
     Host -- "5. Monta volúmenes bind (.:/app)" --> QA
     QA -- "6. Escribe artefactos al morir" --> Reports
@@ -35,22 +35,24 @@ graph TD
 ---
 
 ## Nivel 2: Diagrama de Contenedores (Container Diagram)
-Muestra el interior del orquestador `docker-compose.qa.yml`. Destaca cómo separamos las responsabilidades en diferentes contenedores que conviven en una red virtual aislada, incluyendo perfiles ocultos para inteligencia artificial y pruebas destructivas.
+Muestra el interior del orquestador `docker-compose.qa.yml`. Destaca cómo separamos las responsabilidades en diferentes contenedores que conviven en una red virtual aislada, incluyendo perfiles ocultos para inteligencia artificial, cachés persistentes y pruebas destructivas.
 
 ```mermaid
 graph LR
     subgraph "Red Virtual Aislada IPv4 (QA Bridge)"
         API["📦 App Viva \n (Nginx / Uvicorn / Node) \n Puerto Expuesto"]
-        Test["🧪 Contenedor QA Efímero \n (Vitest/Pytest, SAST) \n Muere al terminar"]
-        Karate["🥋 Contenedor BDD \n (Karate Labs) \n Muere al terminar"]
+        Test["🧪 Contenedor QA Efímero \n (Vitest/Pytest, SAST) \n Frontera: .unit.ts"]
+        Karate["🥋 Contenedor BDD / E2E \n (Karate Labs / Playwright) \n Frontera: .e2e.ts"]
         ZAP["🕷 Contenedor DAST \n (OWASP ZAP) \n Baseline Scan"]
         Pumba["🌪️ Inyector de Caos \n (Pumba) \n Perfil: --profile chaos"]
         Prometheus["📊 Observabilidad \n (Prometheus) \n Perfil: --profile chaos"]
         PushGW["📤 Pushgateway \n (Caché de Métricas) \n Perfil: --profile observability"]
         Graphify["🧠 Servidor MCP IA \n (Graphify) \n Perfil: --profile graphify"]
+        Cache["🗄️ Caché Persistente \n (pnpm-store / uv-cache) \n Volumen Nombrado"]
     end
 
     %% Flujos Internos
+    Test -- "Lee/Escribe Dependencias" --> Cache
     Test -- "Intercepción / Mocking de BD" --> Test
     Test -- "Pruebas de Estrés y CPU Profiling" --> API
     Karate -- "Peticiones HTTP Caja Negra" --> API
@@ -59,19 +61,21 @@ graph LR
     Test -- "Empuja métricas (cURL)" --> PushGW
     Prometheus -- "Scrapea Métricas (/metrics)" --> API
     Prometheus -- "Scrapea" --> PushGW
-    Graphify -- "Lee código y expone SSE" --> API
+    Graphify -- "Lee configuraciones y expone SSE" --> API
 
     classDef ephemeral fill:#b33a3a,stroke:#800000,stroke-width:2px,color:#fff,stroke-dasharray: 5 5;
     classDef live fill:#228b22,stroke:#006400,stroke-width:2px,color:#fff;
     classDef chaos fill:#4b0082,stroke:#800080,stroke-width:2px,color:#fff,stroke-dasharray: 5 5;
     classDef ai fill:#d4af37,stroke:#8b6508,stroke-width:2px,color:#000;
     classDef obs fill:#e6522c,stroke:#8f3018,stroke-width:2px,color:#fff;
+    classDef storage fill:#555,stroke:#999,stroke-width:2px,color:#fff;
     
     class Test,Karate,ZAP ephemeral;
     class Pumba chaos;
     class API live;
     class Graphify ai;
     class Prometheus,PushGW obs;
+    class Cache storage;
 ```
 
 ---
@@ -84,9 +88,9 @@ graph TD
     subgraph "Ejecución del Pipeline (Estándar 11X)"
         direction TB
         
-        Graph["0️⃣ Ingestión de Contexto IA \n (Graphify MCP)"]
+        Graph["0️⃣ Ingestión de Contexto IA \n (Graphify MCP / Leer configs locales)"]
         Obs["1️⃣ Instrumentación RED \n (Middleware o Pushgateway)"]
-        IaC["2️⃣ Auditoría IaC y Secretos \n (Trivy / Lefthook)"]
+        IaC["2️⃣ Auditoría IaC y Secretos \n (Trivy / Lefthook pre-push)"]
         SAST["3️⃣ Auditoría de Seguridad Estática \n (Bandit / ESLint Security)"]
         Static["4️⃣ Deuda Técnica y Complejidad \n (Radon / SonarJS)"]
         Unit["5️⃣ Lógica Unitaria y Mocking \n (Pytest / Vitest)"]
@@ -125,4 +129,4 @@ graph TD
 1. **Shift-Left Security:** Obligamos a ejecutar validaciones IaC (Trivy) y SAST (Lefthook) localmente antes de gastar poder de cómputo en CI/CD.
 2. **Sidecar / Atacante-Defensor:** Herramientas como ZAP o Locust actúan como atacantes temporales que bombardean a la App Viva. Nunca se instalan dentro de la imagen de producción.
 3. **Resiliencia por Caos (Chaos Engineering):** Probar si la API funciona no es suficiente. Usamos Pumba para degradar intencionalmente la red interna (Jitter, Packet Loss) y Prometheus para certificar que la latencia (P99) no se dispare indefinidamente.
-4. **Blackbox Network Isolation:** El contenedor BDD (Karate) y el DAST (ZAP) no tienen acceso al código fuente. Se comunican por peticiones TCP/IP puras.
+4. **Blackbox Network Isolation (Fronteras):** Los contenedores BDD (Karate) o E2E (Playwright) están estrictamente separados de las pruebas unitarias mediante convenciones de archivo (`.e2e.ts` vs `.unit.ts`). No tienen acceso al código fuente; se comunican por peticiones HTTP puras simulando a un usuario real.
