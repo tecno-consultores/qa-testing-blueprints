@@ -5,7 +5,7 @@ Este documento resuelve las dudas arquitectónicas y los errores más comunes al
 ## 🏗️ Filosofía y Ejecución
 
 ### ¿Por qué no puedo ejecutar `npm install`, `pip install` o las pruebas directamente en mi máquina local?
-Para garantizar **inmutabilidad y paridad absoluta con producción**. El problema de "en mi máquina sí funciona" suele deberse a versiones globales ocultas de Node, Python o variables de entorno residuales. Al forzar el uso de contenedores efímeros (`docker compose -f docker-compose.qa.yml run --rm`), el entorno nace completamente virgen, ejecuta la suite y se autodestruye.
+Para garantizar **inmutabilidad y paridad absoluta con producción**. El problema de "en mi máquina sí funciona" suele deberse a versiones globales ocultas de Node, Python o variables de entorno residuales. Al forzar el uso de contenedores efímeros (a través de los comandos simplificados como `make qa-unit`), el entorno nace completamente virgen, utilizando cachés aislados, ejecuta la suite y se autodestruye.
 
 ### Lefthook bloqueó mi `git commit`, ¿qué hago?
 Nuestra política es **"Fail & Forbid" (Rechazo Educativo)**. Si Lefthook detectó errores de formato o un secreto *hardcodeado*, abortará tu commit. NO intentes evadirlo con `--no-verify`. Debes ejecutar el comando sugerido en la terminal (ej. `ruff format` o `Prettier`), revisar que el código haya quedado bien, y volver a intentar hacer commit.
@@ -67,10 +67,10 @@ Los contenedores y gestores acumulan cachés masivos.
 ```bash
 sudo ./limpieza.sh
 ```
-Esto fuerza un `docker system prune -af` y borra reportes y dependencias huérfanas.
+Esto fuerza un `docker system prune -af` y borra reportes y dependencias huérfanas, limpiando también los volúmenes nombrados de caché (`pnpm-store` o `uv-cache`).
 
 ### El contenedor E2E de Vue 3 (Playwright / Lighthouse) se queja de un conflicto de red al intentar alcanzar la interfaz.
-Asegúrate de haber levantado primero el servidor mock de producción en segundo plano ejecutando `docker compose -f docker-compose.qa.yml up -d ui-prod` antes de lanzar el comando efímero:
+Asegúrate de haber levantado primero el servidor mock de producción en segundo plano ejecutando `docker compose -f docker-compose.qa.yml up -d ui-prod` antes de lanzar el comando efímero a través del Makefile:
 ```bash
-docker compose -f docker-compose.qa.yml run --rm ui-e2e npx playwright test
+make qa-e2e
 ```

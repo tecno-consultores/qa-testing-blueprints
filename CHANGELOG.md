@@ -4,6 +4,23 @@ Todos los cambios notables de este proyecto se documentarán en este archivo.
 
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/), y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [2.5.0] - 2026-10-10
+
+### 🚀 Añadido (Added)
+*   **Optimizaciones de Caché Persistente:** Implementación global de volúmenes de caché compartidos (`pnpm-store` para Node/Vue/React y `uv-cache` para Python/FastAPI) en los orquestadores `docker-compose.qa.yml`. Esto elimina la reinstalación de paquetes en cada validación efímera y acelera masivamente los pipelines destructivos (BDD, mutación, carga).
+*   **Fronteras de Ejecución (Tool Boundaries):** Blindaje de *runners* configurando `testMatch`/`include` en `vitest.config.ts` y `playwright.config.ts`. Se estableció una convención corporativa inquebrantable: `.unit.ts` o `.spec.ts` para Vitest/Pytest, y `.e2e.ts` exclusivo para Playwright/Karate Labs.
+*   **Makefiles (Task Runners):** Creación de archivos `Makefile.example` en cada framework para envolver la verbosidad destructiva de Docker Compose (ej. `make qa-unit`, `make qa-all`). Oculta la complejidad y previene errores tipográficos de agentes y humanos.
+*   **Seguridad Zero-Trust en NPM:** Inyección de `.npmrc.example` en todos los ecosistemas JavaScript bloqueando la ejecución silenciosa de scripts post-instalación de terceros (`ignore-scripts=true`).
+*   **Directiva Zero-Shot (MCP):** Actualización del cerebro del agente (`AI_MASTER_PROMPT.md`) con la "Regla #7". La IA está obligada a leer proactivamente (vía `graphify`) las configuraciones locales de QA (ej. `.eslintrc.json`, `tsconfig.json`, `pyproject.toml`) *antes* de escribir la primera línea de código, garantizando precisión en el primer intento y ahorrando consumo de tokens en ciclos de autocorrección.
+
+### 🔄 Modificado (Changed)
+*   **Orquestadores de Pruebas:** Los archivos `docker-compose.qa.yml` de Node, Vue 3, React y FastAPI pasaron por una refactorización masiva para soportar el aislamiento total de la caché de volumen.
+*   **Sandboxing de Mutación:** Configuración de volúmenes base que impiden que herramientas agresivas (como Stryker o Mutmut) escaneen historiales `.git` o se atasquen en bucles infinitos por enlaces simbólicos (`symlinks`) expuestos del sistema anfitrión.
+*   **Documentación de Integración (IA):** Actualización extensa de `docs/ai-integration.md` incluyendo el flujo de *Tool Calling* seguro y orquestación multi-agente (Developer vs Auditor QA) basado en los nuevos *Makefiles*.
+*   **Guías de Contribución y FAQs:** Se actualizó la matriz corporativa en `CONTRIBUTING.md`, `README.md` y las resoluciones de errores en `FAQ.md` para exigir y documentar el uso de los `Makefiles` como puerta de entrada a la ejecución efímera.
+
+---
+
 ## [2.4.0] - 2026-10-08
 
 ### 🚀 Añadido (Added)

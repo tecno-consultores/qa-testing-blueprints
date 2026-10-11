@@ -2,17 +2,17 @@
 
 Bienvenido a **QA Testing Blueprints**, el repositorio central de estándares, arquitecturas de prueba y "prompts" (instrucciones) diseñados para instruir a agentes de Inteligencia Artificial (como Hermes, Claude Code o ChatGPT) y desarrolladores en la creación de suites de validación de nivel corporativo.
 
-Este proyecto estandariza la forma en que probamos nuestro software, garantizando que **toda ejecución ocurra estrictamente dentro de contenedores Docker efímeros**, sin contaminar la máquina local y utilizando un conjunto predefinido de herramientas de alta calidad.
+Este proyecto estandariza la forma en que probamos nuestro software, garantizando que **toda ejecución ocurra estrictamente dentro de contenedores Docker efímeros**, sin contaminar la máquina local y utilizando un conjunto predefinido de herramientas de alta calidad integradas con perfiles Zero-Trust y cachés persistentes.
 
 ## 🚀 Filosofía Principal (Estándar 11X)
 
-1. **Cero Compilaciones Locales:** No utilizamos `docker build`. Toda la infraestructura se levanta consumiendo nuestra flota de imágenes oficiales en [Docker Hub](https://hub.docker.com/u/sinfallas). Las imágenes base admiten *tags* específicos para igualar la versión de lenguaje de tu proyecto en producción:
-   * [sinfallas/base-python-uv](https://hub.docker.com/r/sinfallas/base-python-uv) (Tags: `3.10`, `3.11`, `3.12`, `3.13`, `3.14`, `latest`).
-   * [sinfallas/base-node-ionic](https://hub.docker.com/r/sinfallas/base-node-ionic) (Tags: `22`, `23`, `24`, `25`, `26`, `latest`).
-   * [sinfallas/base-bash-qa](https://hub.docker.com/r/sinfallas/base-bash-qa):latest
-   * [sinfallas/karatelabs](https://hub.docker.com/r/sinfallas/karatelabs):latest.
-   * [sinfallas/remote-graphify](https://hub.docker.com/r/sinfallas/remote-graphify):latest para Optimización de Contexto IA (Servidor MCP).
-2. **Dependencias al Vuelo y Aislamiento de Red:** Los paquetes se resuelven y cachean en tiempo de ejecución dentro del contenedor efímero. Las pruebas unitarias tienen estrictamente prohibido usar red real; deben usar librerías de Mocking (`nock`, `pytest-mock`).
+1. **Cero Compilaciones Locales:** No utilizamos `docker build`. Toda la infraestructura se levanta consumiendo nuestra flota de imágenes oficiales en Docker Hub. Las imágenes base admiten *tags* específicos para igualar la versión de lenguaje de tu proyecto en producción:
+   * `sinfallas/base-python-uv` (Tags: `3.10`, `3.11`, `3.12`, `3.13`, `3.14`, `latest`).
+   * `sinfallas/base-node-ionic` (Tags: `22`, `23`, `24`, `25`, `26`, `latest`).
+   * `sinfallas/base-bash-qa:latest`
+   * `sinfallas/karatelabs:latest`.
+   * `sinfallas/remote-graphify:latest` para Optimización de Contexto IA (Servidor MCP).
+2. **Dependencias al Vuelo y Aislamiento de Red:** Los paquetes se resuelven rápidamente en tiempo de ejecución utilizando volúmenes de caché persistentes (`pnpm-store` o `uv-cache`). Las pruebas unitarias tienen estrictamente prohibido usar red real; deben usar librerías de Mocking.
 3. **Validación Transversal (Métricas Innegociables):** No solo probamos si el código funciona. Validamos:
    * **Cobertura:** Ninguna suite pasa con menos del **95%**.
    * **Deuda Técnica:** El pipeline falla si hay código espagueti (Complejidad Ciclomática alta auditable por SonarJS o Radon).
@@ -23,7 +23,7 @@ Este proyecto estandariza la forma en que probamos nuestro software, garantizand
 
 ## 📁 Estructura del Repositorio y Casos de Uso
 
-El repositorio está dividido en ecosistemas que cubren la totalidad del desarrollo moderno y bash. Cada carpeta contiene un archivo `.md` (el prompt restrictivo para la IA), un `docker-compose.qa.yml` preconfigurado y los archivos de configuración nativos `.example` listos para usarse como referencia de fusión.
+El repositorio está dividido en ecosistemas que cubren la totalidad del desarrollo moderno y bash. Cada carpeta contiene un archivo `.md` (el prompt restrictivo para la IA), un `docker-compose.qa.yml` preconfigurado, un `Makefile.example` para simplificar ejecuciones y los archivos de configuración nativos `.example` listos para usarse como referencia de fusión.
 
 ### 🐍 `python/` (Scripts Standalone y Librerías)
 * **Objetivo:** Máxima resiliencia estructural, invulnerabilidad lógica y rendimiento matemático óptimo.
@@ -34,7 +34,7 @@ El repositorio está dividido en ecosistemas que cubren la totalidad del desarro
 * **Stack:** Todo lo de Python, añadiendo ataques de integración (`httpx/TestClient`), validación de contratos (`schemathesis`), BDD de caja negra (`Karate Labs`), concurrencia (`locust`), Seguridad Dinámica DAST (`OWASP ZAP`) e Ingeniería del Caos (`Pumba`).
 
 ### 🟩 `node-backend/` (APIs y Microservicios Node.js)
-* **Objetivo:** Estandarización asíncrona, seguridad contra inyecciones, código limpio y validación funcional estricta.
+* **Objetivo:** Estandarización asíncrona, seguridad contra inyecciones, código limpio y validación funcional estricta (Zero-Trust con `.npmrc`).
 * **Stack:** Pruebas e Intercepción (`Vitest` + `Supertest` + `nock`), Calidad y Complejidad (`ESLint` + `Prettier` + `SonarJS`), Seguridad (`ESLint Security` + `pnpm audit`), Mutación (`Stryker`), Profiling de Event Loop (`clinic.js`), Estrés (`Artillery`), BDD (`Karate Labs`), Seguridad Dinámica DAST (`OWASP ZAP`) e Ingeniería del Caos (`Pumba`).
 
 ### 🟢 `vue3/` (Frontend UI)
@@ -57,12 +57,12 @@ A continuación se resume el stack de validación corporativo. Se indica `N/A` e
 
 | Entorno | Linting / Formateo | Pruebas Unitarias / Mocking | Cobertura | Auditoría de Dependencias | Seguridad Estática (SAST) | Mutación | BDD / Caja Negra | Concurrencia / Estrés | Profiling / Complejidad | DAST (Dinámica) | Ingeniería del Caos | Observabilidad (Métricas) | Auditoría IaC / Docker | Git Hooks Locales |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Python** | [ruff](https://github.com/astral-sh/ruff) + [mypy](https://github.com/python/mypy) | [pytest](https://github.com/pytest-dev/pytest) + [pytest-mock](https://github.com/pytest-dev/pytest-mock) | [pytest-cov](https://github.com/pytest-dev/pytest-cov) | `uv pip audit` | [bandit](https://github.com/pycqa/bandit) | [mutmut](https://github.com/boxed/mutmut) | [pytest-bdd](https://github.com/pytest-dev/pytest-bdd) | [pytest-benchmark](https://github.com/ionelmc/pytest-benchmark) | [py-spy](https://github.com/benfred/py-spy) + [radon](https://github.com/rubik/radon) | N/A | N/A | `prometheus_client` | [trivy](https://github.com/aquasecurity/trivy) | [lefthook](https://github.com/evilmartians/lefthook) |
-| **FastAPI** | `ruff` + `mypy` | `pytest` + `TestClient` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | [karate labs](https://github.com/karatelabs/karate) | [locust](https://github.com/locustio/locust) | `py-spy` + `radon` | [OWASP ZAP](https://github.com/zaproxy/zap-api-python) | [pumba](https://github.com/pjsjongsung/PUMBA) | `prometheus-fastapi-instrumentator` | `trivy` | `lefthook` |
-| **Node** | [ESLint](https://github.com/eslint/eslint) + [prettier](https://github.com/prettier/prettier) | [vitest](https://github.com/vitest-dev/vitest) + [nock](https://github.com/nock/nock) | `Vitest (v8)` | `pnpm audit` | [ESLint Security](https://github.com/gkouziik/eslint-plugin-security-node) | [stryker](https://github.com/stryker-mutator/stryker-js) | `Karate Labs` | [artillery](https://github.com/artilleryio/artillery) | [clinic.js](https://github.com/clinicjs/node-clinic) + [SonarJS](https://github.com/SonarSource/sonarjs) | `OWASP ZAP` | `Pumba` | [express-prom-bundle](https://github.com/jochen-schweizer/express-prom-bundle) | `trivy` | `lefthook` |
-| **Vue3** | `ESLint` + `Prettier` | `Vitest` + [jsdom](https://github.com/jsdom/jsdom) | `Vitest (v8)` | `npm audit` | `ESLint Security` | `Stryker` | `Karate Labs` | [Lighthouse CI](https://github.com/GoogleChrome/lighthouse-ci/) | [DevTools](https://github.com/jdssl/node-devtools) + `SonarJS` | `N/A` | `N/A` | [nginx-prometheus-exporter](https://github.com/nginx/nginx-prometheus-exporter) | `trivy` | `lefthook` |
+| **Python** | `ruff` + `mypy` | `pytest` + `pytest-mock` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | `pytest-bdd` | `pytest-benchmark` | `py-spy` + `radon` | N/A | N/A | `prometheus_client` | `trivy` | `lefthook` |
+| **FastAPI** | `ruff` + `mypy` | `pytest` + `TestClient` | `pytest-cov` | `uv pip audit` | `bandit` | `mutmut` | `Karate Labs` | `locust` | `py-spy` + `radon` | `OWASP ZAP` | `Pumba` | `prometheus-fastapi-instrumentator` | `trivy` | `lefthook` |
+| **Node** | `ESLint` + `prettier` | `vitest` + `nock` | `Vitest (v8)` | `pnpm audit` | `ESLint Security` | `Stryker` | `Karate Labs` | `Artillery` | `clinic.js` + `SonarJS` | `OWASP ZAP` | `Pumba` | `express-prom-bundle` | `trivy` | `lefthook` |
+| **Vue3** | `ESLint` + `Prettier` | `Vitest` + `jsdom` | `Vitest (v8)` | `npm audit` | `ESLint Security` | `Stryker` | `Karate Labs` | `Lighthouse CI` | `DevTools` + `SonarJS` | `N/A` | `N/A` | `nginx-prometheus-exporter` | `trivy` | `lefthook` |
 | **React** | `ESLint` + `Prettier` | `Vitest` + `jsdom` + `RTL` | `Vitest (v8)` | `npm audit` | `ESLint Security` | `Stryker` | `Karate Labs` | `Lighthouse CI` | `DevTools` + `SonarJS` | `N/A` | `N/A` | `nginx-prometheus-exporter` | `trivy` | `lefthook` |
-| **Bash** | [shellcheck](https://github.com/koalaman/shellcheck) + [shfmt](https://github.com/patrickvane/shfmt) | [BATS-core](https://github.com/bats-core/bats-core) + [bats-mock](https://github.com/jasonkarns/bats-mock) | [kcov](https://github.com/SimonKagstrom/kcov) | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | [Pushgateway](https://github.com/prometheus/pushgateway) | `trivy` | `lefthook` |
+| **Bash** | `shellcheck` + `shfmt` | `BATS-core` + `bats-mock` | `kcov` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `N/A` | `Pushgateway` | `trivy` | `lefthook` |
 
 ---
 
@@ -84,9 +84,9 @@ Si utilizas asistentes como **Hermes Agent**, **Claude Code**, **Cursor** u otra
 
 Sigue este protocolo para una integración segura:
 
-1. **Archivos a la Raíz:** Descarga la carpeta de la tecnología que necesites (ej. `node-backend/`) y arrastra a la **raíz de tu proyecto** EXCLUSIVAMENTE los archivos operativos: el `docker-compose.qa.yml`, `limpieza.sh`, el orquestador de hooks (`lefthook.yml` y su script) y los archivos `.example`.
+1. **Archivos a la Raíz:** Descarga la carpeta de la tecnología que necesites (ej. `node-backend/`) y arrastra a la **raíz de tu proyecto** EXCLUSIVAMENTE los archivos operativos: el `docker-compose.qa.yml`, el `Makefile.example` (renómbralo a `Makefile`), `limpieza.sh`, el orquestador de hooks (`lefthook.yml` y su script) y los archivos `.example`.
 2. **Archivos de Documentación (Cero Colisiones):** En tu proyecto, crea una carpeta dedicada (ej. `docs/qa/`). Coloca allí el `AI_MASTER_PROMPT.md` y la carpeta `docs/` global de este repositorio. **NO copies** nuestro `README.md`, `CONTRIBUTING.md` ni `CHANGELOG.md` a tu proyecto, ya que chocarán con los tuyos.
 3. **Delega la Fusión a la IA:** Abre tu chat o terminal con el agente y pégale este *prompt* exacto:
    > *"Lee las directrices operativas en `docs/AI_MASTER_PROMPT.md` (o la ruta donde lo hayas puesto). Necesito integrar el estándar QA 11X en este proyecto. Lee los archivos `.example` que acabo de añadir (como `package.json.example`, `pyproject.toml.example`, `gitignore.example`) y realiza una **fusión no destructiva** con mis archivos de configuración reales. Añade todas las herramientas de QA, dependencias de desarrollo y scripts, pero respeta y mantén intactas las dependencias y configuraciones que mi proyecto ya tenía."*
 4. Asegúrate de ajustar el *tag* de la imagen en tu `docker-compose.qa.yml` fusionado para que coincida con la versión de tu proyecto en producción (ej. `base-python-uv:3.14` o `base-node-ionic:26`).
-5. **Ejecución:** A partir de ahora, ordénale a la IA que cree o ejecute pruebas utilizando exclusivamente los comandos del contenedor efímero descritos en las guías.
+5. **Ejecución:** A partir de ahora, ordénale a la IA que cree o ejecute pruebas utilizando exclusivamente los comandos del `Makefile` descritos en las guías (ej. `make qa-all`).

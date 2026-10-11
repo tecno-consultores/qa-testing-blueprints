@@ -7,12 +7,13 @@
 Para mantener la consistencia y la eficacia de estos blueprints, toda contribución debe respetar los siguientes principios:
 
 1. **Imágenes Base Inmutables:** Nunca propongas cambios que requieran agregar un `Dockerfile` local o la instrucción `build:` en los orquestadores `docker-compose.qa.yml`. Todo debe funcionar utilizando exclusivamente nuestra flota de imágenes oficiales.
-   * [sinfallas/base-python-uv](https://hub.docker.com/r/sinfallas/base-python-uv):<tag> (`3.10` a `3.14`) para Python/FastAPI.
-   * [sinfallas/base-node-ionic](https://hub.docker.com/r/sinfallas/base-node-ionic):<tag> (`22` a `26`) para Node.js/Vue 3.
-   * [sinfallas/base-bash-qa](https://hub.docker.com/r/sinfallas/base-bash-qa):latest para Bash/DevOps.
-   * [sinfallas/karatelabs](https://hub.docker.com/r/sinfallas/karatelabs):latest para BDD/Caja Negra.
-   * [sinfallas/remote-graphify](https://hub.docker.com/r/sinfallas/remote-graphify):latest para Optimización de Contexto IA (Servidor MCP).
+   * `sinfallas/base-python-uv` (`3.10` a `3.14`) para Python/FastAPI.
+   * `sinfallas/base-node-ionic` (`22` a `26`) para Node.js/Vue 3.
+   * `sinfallas/base-bash-qa:latest` para Bash/DevOps.
+   * `sinfallas/karatelabs:latest` para BDD/Caja Negra.
+   * `sinfallas/remote-graphify:latest` para Optimización de Contexto IA (Servidor MCP).
    * *Nota: Se permite el uso de imágenes oficiales consolidadas exclusivamente para Sidecars periféricos (ej. `prom/prometheus:latest`, `owasp/zap2docker-stable:latest`).*
+   * **REGLA DE CACHÉ:** Si agregas una imagen que dependa de un gestor de paquetes (`uv`, `pnpm`), DEBES declarar obligatoriamente volúmenes nombrados para sus cachés (ej. `/root/.cache/uv` o `/pnpm`) en el orquestador.
 
 2. **Efimeridad y Aislamiento Estricto:** Los contenedores de prueba (excepto los servicios vivos) deben tener un ciclo de vida corto (usando `--rm`). Las pruebas jamás deben salir a Internet a menos que sean explícitamente de integración; el Mocking (`nock`, `pytest-mock`) es obligatorio.
 3. **Prompts Imperativos:** Si modificas los archivos `.md` que consumirá la IA, usa lenguaje directo, autoritario y restrictivo. Las IAs necesitan límites claros (ej. "NUNCA hagas esto", "DEBES usar X para Y").
@@ -27,7 +28,7 @@ Para mantener la consistencia y la eficacia de estos blueprints, toda contribuci
 ### Si estás agregando una herramienta técnica
 1. Haz un *fork* del repositorio, crea una rama descriptiva (`git checkout -b feature/agregar-k6-stresstest`) e **instala inmediatamente los hooks de seguridad locales** ejecutando `./instalar-hooks.sh` en tu terminal. Sin este paso, la arquitectura rechazará tus commits.
 2. Modifica el archivo de configuración (`pyproject.toml.example`, `package.json.example`, etc.) y el orquestador `docker-compose.qa.yml` si es estrictamente necesario. *(Nota: Si agregas herramientas de Profiling como `py-spy` o `clinic.js`, recuerda incluir los privilegios `cap_add: - SYS_PTRACE` y `security_opt: - seccomp:unconfined`)*.
-3. Actualiza el archivo `.md` documentando el comando de ejecución exacto para que la IA sepa usarlo.
+3. Actualiza el archivo `.md` y los `Makefiles` documentando el comando de ejecución exacto para que la IA sepa usarlo.
 4. Antes de hacer el Pull Request, ejecuta el script `./limpieza.sh` y lanza un Smoke Test local comprobando que tu herramienta funciona de manera efímera.
 
 ### Si estás mejorando la Documentación (`docs/` o `FAQ.md`)
