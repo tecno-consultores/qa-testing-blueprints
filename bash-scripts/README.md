@@ -27,12 +27,14 @@ echo "script_success_total 1" | curl -s -X POST --data-binary @- http://pushgate
 
 En lugar de construir comandos complejos de Docker, **DEBES** instruir al usuario (o ejecutar autónomamente si tienes acceso a terminal) utilizando el `Makefile` estandarizado, el cual agrupa estas validaciones:
 
-* **Paso 0: Ingestión de Contexto (MCP)**
-Levanta el servidor Graphify antes de auditar o refactorizar:
+* **Paso 0: Ingestión de Contexto (Opcional para Agentes MCP)**
+Si eres un agente externo (Hermes, Claude), levanta el servidor Graphify antes de auditar o refactorizar:
 ```bash
+docker compose -f docker-compose.qa.yml --profile graphify run --rm graphify bash -c "graphify extract --code-only"
 docker compose -f docker-compose.qa.yml --profile graphify up -d graphify
-# (El Agente IA se conecta a http://localhost:8080/sse)
+# (El Agente IA externo se conecta a http://localhost:8080/sse)
 ```
+*(Para agentes con capacidades de terminal como Antigravity, inspecciona directamente los scripts sin levantar servicios en segundo plano).*
 
 * **Paso 1: Auditar sintaxis y seguridad (ShellCheck)**
 * **Paso 2: Formateo estricto del código (shfmt)**

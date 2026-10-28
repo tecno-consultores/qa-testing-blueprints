@@ -80,10 +80,10 @@ Dependiendo de la naturaleza del script, debes instrumentarlo de una de estas do
 
 En lugar de construir comandos complejos de Docker, **DEBES** instruir al usuario (o ejecutar autónomamente si tienes acceso a terminal) utilizando el `Makefile` estandarizado:
 
-**Paso 0: Ingestión de Contexto (Obligatorio para la IA antes de programar)**
-Extrae la topología del código y levanta tu servidor de contexto:
+**Paso 0: Ingestión de Contexto (Opcional para Agentes MCP)**
+Extrae la topología del código y levanta tu servidor de contexto si requieres MCP externo:
 ```bash
-docker compose -f docker-compose.qa.yml --profile graphify run --rm graphify bash -c "uvx graphifyy extract"
+docker compose -f docker-compose.qa.yml --profile graphify run --rm graphify bash -c "graphify extract --code-only"
 docker compose -f docker-compose.qa.yml --profile graphify up -d graphify
 # (El Agente IA se conecta a http://localhost:8080/sse)
 ```

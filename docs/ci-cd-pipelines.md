@@ -55,35 +55,43 @@ jobs:
       - name: 1️⃣ Checkout del código
         uses: actions/checkout@v4
 
-      - name: 2️⃣ Inyectar Secretos de Entorno
+      - name: 2️⃣ Verificación de Secretos y Configuración Efímera Segura
         run: |
-          echo "API_KEY=${{ secrets.PROD_API_KEY }}" >> .env
-          echo "DB_PASS=${{ secrets.DB_PASS }}" >> .env
+          ./scripts/verificar-secretos.sh
+          # Inyectar variables de entorno de prueba (NUNCA credenciales reales de producción en runners)
+          echo "ENVIRONMENT=test" >> .env.test
+          echo "DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/test_db" >> .env.test
 
       - name: 3️⃣ Auditoría de Infraestructura y Contenedores (Trivy)
         run: |
-          ./auditar-infra.sh
+          ./scripts/auditar-infra.sh
 
       - name: 4️⃣ Análisis Estático, Complejidad y Formateo
-        # Ejecuta linting, tipeo (Mypy/TS) y reglas de complejidad.
+        # Ejecuta linting, tipeo estricto (Mypy/TS) y reglas de complejidad ciclomática.
         run: make qa-lint
 
-      - name: 5️⃣ Ejecutar Suite Efímera con Intercepción de Red
+      - name: 5️⃣ Ejecutar Suite Efímera con Intercepción de Red (>= 95% Cobertura)
         # Si la cobertura es menor a 95%, este comando falla y aborta el pipeline.
         run: make qa-unit
 
       - name: 6️⃣ Pruebas de Mutación (Anti-Falsos Positivos)
-        # Asegura que las pruebas realmente validen la lógica.
+        # Asegura que las pruebas realmente validen la lógica alterando el AST.
         run: make qa-mutation
 
-      - name: 7️⃣ Seguridad Dinámica DAST (OWASP ZAP)
-        # Levanta la API en segundo plano y lanza un Baseline Scan.
+      - name: 7️⃣ Compuerta de Certificación 11X (ORM Parity, Orphans y Topología)
+        run: |
+          chmod +x .agents/scripts/*.sh .agents/scripts/*.py
+          ./.agents/scripts/certify_task_completion.sh
+
+      - name: 8️⃣ Seguridad Dinámica DAST (OWASP ZAP Baseline)
+        # Levanta los servicios de persistencia y la API, luego ejecuta ZAP.
         # (Nota: Ignorar este paso si es un script Bash o Python Standalone)
         run: |
-          docker compose -f docker-compose.qa.yml up -d api
+          docker compose -f docker-compose.qa.yml up -d postgres keydb api || docker compose -f docker-compose.qa.yml up -d api
+          docker compose -f docker-compose.qa.yml run --rm zap zap-baseline.py -t http://api:8000 -r zap-report.html || \
           docker compose -f docker-compose.qa.yml run --rm zap zap-baseline.py -t http://api:3000 -r zap-report.html
 
-      - name: 8️⃣ Ingeniería del Caos y Observabilidad (Prometheus + Pumba)
+      - name: 9️⃣ Ingeniería del Caos y Observabilidad (Prometheus + Pumba)
         # Activa el perfil oculto para inyectar latencia y levantar Prometheus automáticamente.
         # (Nota: Si tu proyecto es un script Bash o Python puro, cambia '--profile chaos' por '--profile observability')
         run: docker compose -f docker-compose.qa.yml --profile chaos up --abort-on-container-exit stress_test

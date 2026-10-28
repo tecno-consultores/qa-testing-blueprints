@@ -48,7 +48,7 @@ services:
     command: bash -c "echo 'Contenedor Karate listo. Usa docker compose run --rm karatelabs mvn clean test'; sleep infinity"
 
   zap:
-    image: owasp/zap2docker-stable:latest
+    image: zaproxy/zap-stable:latest
     container_name: node_zap
     hostname: node_zap
     pull_policy: always
@@ -119,7 +119,7 @@ services:
     profiles:
       - graphify
     restart: always
-    command: uvx --from graphifyy python -m graphify.serve /app/graphify-out/graph.json --transport http --host 0.0.0.0 --port 8080
+    command: graphify-mcp /app/graphify-out/graph.json --transport http --host 0.0.0.0 --port 8080
     ports:
       - "8080:8080"
     extra_hosts:

@@ -17,10 +17,11 @@
 
 ## 2. Pila Tecnológica y Separación de Responsabilidades
 
-### A. Lógica y Componentes Aislados -> `Vitest` + `jsdom`
+### A. Lógica y Componentes Aislados -> `Vitest` + `jsdom` (Advertencia Anti-JSDOM)
 *   **Cuándo usarlo:** Para probar *composables*, stores de Pinia, y renderizado de componentes Vue aislados.
 *   **Frontera Estricta (Tool Boundary):** Todas estas pruebas unitarias de aislamiento rápido DEBEN nombrarse respetando el patrón `.unit.ts` o `.spec.ts`.
 *   **Regla:** Mockea todas las llamadas a la red. Vitest debe ejecutarse en milisegundos. Cobertura innegociable del 95%.
+*   **Advertencia Anti-JSDOM (Geometría Visual):** `jsdom` NO calcula modelos de caja ni colisiones visuales (`0x0` bounding box). Tienes estrictamente prohibido usar elementos `position: fixed` flotantes para pies de página que tapen botones de acción o tablas. Todo footer debe ser in-flow (`margin-top: auto`) dentro de `<main>`. Valida siempre el comportamiento visual en navegador real mediante Playwright o Karate Labs.
 
 ### B. Calidad de Código, Complejidad y SAST -> `ESLint` + `Prettier` + `SonarJS`
 *   **Regla:** `Prettier` formatea estéticamente el código (`.vue`, `.ts`).
@@ -31,26 +32,26 @@
 
 ### D. Regresión Visual, Accesibilidad y Rendimiento -> `Playwright` + `@axe-core` + `Lighthouse CI`
 *   **Frontera Estricta (Tool Boundary):** Todas las pruebas que requieran levantar navegadores y atacar la UI en vivo DEBEN nombrarse usando `.e2e.ts`.
-*   **Playwright / Axe:** Navega la aplicación, valida el DOM profundo, accesibilidad y compara capturas de pantalla de la interfaz.
+*   **Playwright / Axe:** Navega la aplicación, valida el DOM profundo, accesibilidad WCAG 2.1 AA (0 violaciones) y compara capturas de pantalla de la interfaz.
 *   **Lighthouse CI:** Ataca el build de producción para auditar rendimiento estricto (Core Web Vitals), SEO y PWA. Si el *Performance Score* baja de 90, el pipeline falla.
 
 ### E. Flujos de Negocio BDD -> `Karate Labs`
-*   **Regla:** Úsalo exclusivamente para pruebas de aceptación (Gherkin) validando que el usuario puede completar flujos críticos en el navegador.
+*   **Regla:** Úsalo exclusivamente para pruebas de aceptación (Gherkin en `test/ui_business_flow.feature`) validando que el usuario puede completar flujos críticos en el navegador.
 
 ### F. Observabilidad -> `Nginx Prometheus Exporter`
 *   **Regla:** El monitoreo del frontend se realiza externamente a través de los logs de acceso de Nginx para no agregar dependencias al código de la aplicación. Esto se ejecuta mediante el perfil `--profile observability`.
 
-### G. Ingestión Inteligente (Paso 0 - MCP)
-*   **Regla (Exclusiva para ti, IA):** Tienes estrictamente prohibido generar código o pruebas a ciegas. Tu primer paso debe ser levantar el servidor `graphify` para ingerir el grafo semántico del proyecto. Además, DEBES leer silenciosamente las configuraciones de linters, dependencias y *scripts* prohibidos en `package.json` y `vite.config.ts` para evitar fallos de pipeline.
+### G. Ingestión Inteligente (Paso 0 - MCP / AST CLI-First)
+*   **Regla (Exclusiva para ti, IA):** Tienes estrictamente prohibido generar código o pruebas a ciegas. Si tienes acceso a shell (Antigravity), audita componentes y dependencias vía scripts directos sin ocupar el puerto 8080. Si eres un agente externo (Hermes, Claude), conéctate al servidor MCP `sinfallas/remote-graphify:latest`. Además, DEBES leer silenciosamente las configuraciones de linters, dependencias y *scripts* prohibidos en `package.json` y `vite.config.ts` para evitar fallos de pipeline.
 
 ## 3. Comandos de Ejecución Local para el Desarrollador (y para la IA)
 
 En lugar de construir comandos complejos de Docker, **DEBES** instruir al usuario (o ejecutar autónomamente si tienes acceso a terminal) utilizando el `Makefile` estandarizado:
 
-**Paso 0: Ingestión de Contexto (Obligatorio para la IA antes de programar)**
-Extrae la topología del código fuente (componentes Vue y dependencias TS) y levanta tu servidor de contexto:
+**Paso 0: Ingestión de Contexto (Opcional para Agentes MCP)**
+Extrae la topología del código fuente (componentes Vue y dependencias TS) y levanta tu servidor de contexto si requieres MCP externo:
 ```bash
-docker compose -f docker-compose.qa.yml --profile graphify run --rm graphify bash -c "uvx graphifyy extract"
+docker compose -f docker-compose.qa.yml --profile graphify run --rm graphify bash -c "graphify extract --code-only"
 docker compose -f docker-compose.qa.yml --profile graphify up -d graphify
 # (El Agente IA se conecta a http://localhost:8080/sse)
 ```
@@ -67,7 +68,15 @@ make qa-lint
 make qa-unit
 ```
 
+*   **Auditoría de Componentes Huérfanos (Cero componentes .vue sin test unitario):**
+```bash
+make qa-orphans
+```
+
 *   **Pruebas de Mutación Frontend (Stryker):**
+```bash
+make qa-mutation
+```
 ```bash
 make qa-mutation
 ```

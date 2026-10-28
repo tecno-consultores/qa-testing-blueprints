@@ -74,3 +74,16 @@ Asegúrate de haber levantado primero el servidor mock de producción en segundo
 ```bash
 make qa-e2e
 ```
+
+### ¿Qué es la "Anti-Mock Blindness" (Ceguera de Mocks) y por qué se exige verificar contra PostgreSQL real y migraciones Alembic?
+En pruebas unitarias, mockear llamadas a base de datos crea una falsa sensación de seguridad. Un modelo ORM puede tener tipos de datos incompatibles o columnas inexistentes que pasan los mocks con 100% de cobertura pero rompen la base de datos en producción. En el estándar 11X, todo cambio de modelo exige migración versionada y validación con `verify_alembic_orm_parity.py` ejecutándose contra una instancia real de PostgreSQL en Docker efímero.
+
+### ¿Por qué JSDOM no detecta colisiones de diseño visual (Anti-JSDOM) y cómo se previene?
+JSDOM es un simulador de nodos DOM en Node.js que no calcula renderizado CSS, cajas Flexbox/Grid ni coordenadas (`getBoundingClientRect()` devuelve `0x0`). Un pie de página fijo (`position: fixed`) puede superponerse a un formulario o tabla y JSDOM afirmará que los botones existen y son interactivos. La solución 11X prohíbe footers fijos, exige layouts in-flow (`margin-top: auto` en `<main>`) y valida la geometría real con Karate Labs UI o Playwright en Chromium.
+
+### ¿Por qué las directivas internas de IA en `.agents/` están en inglés técnico si el proyecto documenta en español?
+Por **economía de tokens y precisión lógica**. Los tokenizadores BPE fragmentan el español en ~35% más tokens que el inglés técnico de alta densidad. Redactar las reglas internas en inglés ahorra espacio de contexto para código y esquemas. Sin embargo, todas las directivas imponen la cláusula `OUTPUT LANGUAGE CONSTRAINT` para que las explicaciones al usuario y los manuales en `docs/` se mantengan 100% en español.
+
+### ¿Por qué se utiliza KeyDB en lugar de Redis estándar?
+KeyDB es un motor en memoria multi-hilo 100% compatible con Redis. Permite utilizar múltiples núcleos de CPU simultáneamente (`--server-threads 2`), multiplicando el rendimiento por 3x a 5x en operaciones de caché, rate limiting, pub/sub y bloqueos de idempotencia sin requerir ningún cambio en las librerías cliente.
+

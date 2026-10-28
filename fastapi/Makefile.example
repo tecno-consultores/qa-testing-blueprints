@@ -1,24 +1,60 @@
-.PHONY: qa-lint qa-unit qa-mutation qa-all clean-cache
+.PHONY: qa-lint qa-unit qa-migration qa-mutation qa-bdd qa-dast qa-chaos qa-all clean-cache
 
-# Variables
+# ==============================================================================
+# MAKEFILE QA FASTAPI (ESTÁNDAR CORPORATIVO 11X)
+# ==============================================================================
+
 COMPOSE_FILE = docker-compose.qa.yml
 SERVICE_NAME = qa-backend
 
 qa-lint:
-	@echo "🔍 Ejecutando Mypy y Ruff..."
-	docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "uv sync && uv run ruff check . && uv run mypy ."
+	@echo "🔍 [11X] Ejecutando Ruff, Mypy Strict, Radon (Complejidad), Bandit SAST y Auditoría de CVEs..."
+	docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "\
+		uv sync --all-extras && \
+		uv run ruff check src/ tests/ && \
+		uv run ruff format --check src/ tests/ && \
+		uv run mypy --strict src/ && \
+		test -z \"\$$(uv run radon cc --min C src/)\" && \
+		test -z \"\$$(uv run radon mi --min B src/)\" && \
+		uv run bandit -c pyproject.toml -r src/ && \
+		uv run pip-audit"
 
 qa-unit:
-	@echo "🧪 Ejecutando Pruebas Unitarias y Cobertura (Pytest)..."
-	docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "uv sync && uv run pytest --cov=src --cov-fail-under=95"
+	@echo "🧪 [11X] Ejecutando Pruebas Unitarias Aisladas y Cobertura Innegociable >= 95% (Pytest)..."
+	docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "\
+		uv sync --all-extras && \
+		uv run pytest -m 'not integration' --cov=src --cov-fail-under=95 --cov-report=term-missing --cov-report=html"
+
+qa-migration:
+	@echo "🗄️ [11X] Verificando paridad entre modelos ORM y migraciones de base de datos..."
+	python3 .agents/scripts/verify_alembic_orm_parity.py
 
 qa-mutation:
-	@echo "👽 Ejecutando Pruebas de Mutación (Mutmut)..."
-	docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "uv sync && uv run mutmut run"
+	@echo "👽 [11X] Ejecutando Pruebas de Mutación (Mutmut)..."
+	docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "\
+		uv sync --all-extras && \
+		uv run mutmut run && \
+		uv run mutmut results"
 
-qa-all: qa-lint qa-unit qa-mutation
-	@echo "✅ Pipeline QA Backend completado."
+qa-bdd:
+	@echo "📚 [11X] Ejecutando Pruebas BDD de Caja Negra (Karate Labs API)..."
+	docker compose -f $(COMPOSE_FILE) up -d api postgres keydb
+	docker compose -f $(COMPOSE_FILE) run --rm karatelabs mvn clean test
+
+qa-dast:
+	@echo "🛡️ [11X] Ejecutando Auditoría Dinámica DAST (OWASP ZAP)..."
+	docker compose -f $(COMPOSE_FILE) up -d api postgres keydb
+	docker compose -f $(COMPOSE_FILE) run --rm zap zap-baseline.py -t http://api:8000 -r zap-report.html || true
+
+qa-chaos:
+	@echo "💥 [11X] Ejecutando Ingeniería del Caos (Pumba + Prometheus + Locust)..."
+	docker compose -f $(COMPOSE_FILE) --profile chaos up --abort-on-container-exit
+
+qa-all: qa-lint qa-unit qa-migration qa-mutation qa-bdd
+	@echo "✅ Pipeline QA Backend (FastAPI 11X) completado exitosamente."
 
 clean-cache:
-	@echo "🧹 Limpiando volúmenes de caché de uv..."
+	@echo "🧹 Limpiando volúmenes de caché de uv, contenedores efímeros y redes..."
 	docker compose -f $(COMPOSE_FILE) down -v
+	docker compose -f $(COMPOSE_FILE) --profile chaos down -v
+	docker compose -f $(COMPOSE_FILE) --profile graphify down -v

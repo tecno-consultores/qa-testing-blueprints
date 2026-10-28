@@ -47,6 +47,9 @@
 * [sinfallas/base-bash-qa](https://hub.docker.com/r/sinfallas/base-bash-qa)
 * [sinfallas/karatelabs](https://hub.docker.com/r/sinfallas/karatelabs)
 * [sinfallas/remote-graphify](https://hub.docker.com/r/sinfallas/remote-graphify)
+* [eqalpha/keydb](https://docs.keydb.dev/) (Multi-Threaded In-Memory Engine)
+* [Playwright](https://playwright.dev/) + [@axe-core/playwright](https://github.com/dequelabs/axe-core-npm/tree/develop/packages/playwright) (WCAG 2.1 AA)
+* [Alembic](https://alembic.sqlalchemy.org/) (Database Migrations)
 
 ## Referencias:
 

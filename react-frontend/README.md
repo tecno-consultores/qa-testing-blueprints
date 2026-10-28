@@ -17,11 +17,12 @@
 
 ## 2. Pila Tecnológica y Separación de Responsabilidades
 
-### A. Lógica y Componentes Aislados -> `Vitest` + `jsdom` + `@testing-library/react`
+### A. Lógica y Componentes Aislados -> `Vitest` + `jsdom` + `@testing-library/react` (Advertencia Anti-JSDOM)
 *   **Cuándo usarlo:** Para probar *Hooks* personalizados, manejadores de estado (Zustand/Redux), y renderizado de componentes aislados.
 *   **Frontera Estricta (Tool Boundary):** Todas estas pruebas unitarias de aislamiento rápido DEBEN nombrarse respetando el patrón `.unit.tsx` o `.spec.ts`.
 *   **Regla de React Testing Library (RTL):** Interactúa con los componentes como lo haría un usuario (por su rol ARIA, texto o label), NUNCA por detalles de implementación interna ni selectores CSS rebuscados.
 *   **Regla de Red:** Mockea todas las llamadas a la API (usando `msw` o el *mock* nativo de Vitest). Vitest debe ejecutarse en milisegundos. Cobertura innegociable del 95%.
+*   **Advertencia Anti-JSDOM (Geometría Visual):** `jsdom` no calcula cajas reales ni colisiones de capas. Evita elementos flotantes fijos (`position: fixed`) que tapen tablas o formularios. Los footers deben ubicarse in-flow (`margin-top: auto`). Valida la geometría visual con Playwright en navegador real.
 
 ### B. Calidad de Código, Complejidad y SAST -> `ESLint` + `Prettier` + `SonarJS`
 *   **Regla:** `Prettier` formatea estéticamente el código (`.tsx`, `.ts`).
@@ -41,17 +42,17 @@
 ### F. Observabilidad -> `Nginx Prometheus Exporter`
 *   **Regla:** El monitoreo del frontend se realiza externamente a través de los logs de acceso de Nginx. Esto se ejecuta mediante el perfil `--profile observability`.
 
-### G. Ingestión Inteligente (Paso 0 - MCP)
-*   **Regla (Exclusiva para ti, IA):** Tienes estrictamente prohibido generar código o pruebas a ciegas. Tu primer paso debe ser levantar el servidor `graphify` para ingerir el grafo semántico del proyecto. Además, DEBES leer silenciosamente las configuraciones de linters, dependencias y *scripts* prohibidos en `package.json`, `.eslintrc.json` y `vite.config.ts` para evitar fallos de pipeline.
+### G. Ingestión Inteligente (Paso 0 - MCP / AST CLI-First)
+*   **Regla (Exclusiva para ti, IA):** Tienes estrictamente prohibido generar código o pruebas a ciegas. Si tienes acceso a shell (Antigravity), realiza inspecciones estáticas vía CLI sin ocupar puertos. Si eres un agente externo (Hermes, Claude), conéctate al servidor MCP `sinfallas/remote-graphify:latest`. Además, DEBES leer silenciosamente las configuraciones de linters, dependencias y *scripts* prohibidos en `package.json`, `.eslintrc.json` y `vite.config.ts` para evitar fallos de pipeline.
 
 ## 3. Comandos de Ejecución Local para el Desarrollador (y para la IA)
 
 En lugar de construir comandos complejos de Docker, **DEBES** instruir al usuario (o ejecutar autónomamente si tienes acceso a terminal) utilizando el `Makefile` estandarizado:
 
-**Paso 0: Ingestión de Contexto (Obligatorio para la IA antes de programar)**
-Extrae la topología del código fuente y levanta tu servidor de contexto:
+**Paso 0: Ingestión de Contexto (Opcional para Agentes MCP)**
+Extrae la topología del código fuente y levanta tu servidor de contexto si requieres MCP externo:
 ```bash
-docker compose -f docker-compose.qa.yml --profile graphify run --rm graphify bash -c "uvx graphifyy extract"
+docker compose -f docker-compose.qa.yml --profile graphify run --rm graphify bash -c "graphify extract --code-only"
 docker compose -f docker-compose.qa.yml --profile graphify up -d graphify
 # (El Agente IA se conecta a http://localhost:8080/sse)
 ```

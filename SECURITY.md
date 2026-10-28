@@ -1,79 +1,167 @@
-# Política de Seguridad (Security Policy)
+# 🛡️ Política de Seguridad y Arquitectura de Defensa (QA Testing Blueprints)
 
-En **Tecno Consultores**, la seguridad de nuestra infraestructura y del código que producimos es nuestra máxima prioridad. Este repositorio, **QA Testing Blueprints**, define la barrera arquitectónica que evita que código vulnerable llegue a nuestros entornos de producción.
+**Proyecto:** QA Testing Blueprints — Estándar Corporativo Nivel 11X  
+**Licencia:** MIT  
+**Estándar de Certificación:** QA 11X DevSecOps
 
-Si descubres una vulnerabilidad en nuestras imágenes base, en los scripts de limpieza o en la configuración de los orquestadores efímeros, te pedimos que nos lo notifiques de inmediato siguiendo el proceso de divulgación responsable.
-
----
-
-## 🛡️ Versiones Soportadas
-
-Dado que este repositorio actúa como una plantilla arquitectónica y una base de conocimientos ("blueprints"), las actualizaciones de seguridad se aplican exclusivamente a la rama principal (`main`).
-
-| Versión | Soportada |
-| ------- | ------------------ |
-| `main`  | ✅ Sí              |
-| `< 1.0` | ❌ No              |
-
-*Nota: Te recomendamos mantener siempre sincronizados los archivos de tu proyecto con el último commit de la rama `main` de este repositorio para heredar las reglas de SAST y dependencias más actualizadas.*
+En **Tecno Consultores**, la seguridad de nuestra infraestructura y del software que producimos es la máxima prioridad. Este documento establece los estándares de **Seguridad por Diseño (Security-by-Design)**, la mitigación de vectores de ataque en arquitecturas híbridas (SPA + API Asíncrona) y la política de auditoría preventiva **Shift-Left**.
 
 ---
 
-## 🔒 Mejores Prácticas y Hardening (Obligatorio)
+## 1. Versiones Soportadas
 
-Todo proyecto que implemente estos *blueprints* debe acatar las siguientes normativas de seguridad:
+Dado que este repositorio actúa como la plantilla arquitectónica y base de conocimientos corporativa, las actualizaciones de seguridad se aplican continuamente a la rama principal (`main`):
 
-### 1. Manejo Estricto de Secretos (`.env`)
-* **Prohibición de Commits:** Jamás se debe hacer commit de un archivo `.env` o `.env.*` (ej. `.env.test`, `.env.local`). Los archivos `.gitignore` incluidos en este repositorio están preconfigurados para bloquearlos.
-* **Plantillas Seguras:** Utiliza siempre archivos `.env.example` que contengan únicamente la estructura de las variables con valores ficticios (ej. `API_KEY=tu_api_key_aqui`).
-* **Inyección en CI/CD:** En entornos automatizados (GitHub Actions, GitLab CI), los secretos jamás deben escribirse en disco. Deben inyectarse en tiempo de ejecución utilizando el gestor de secretos de la plataforma (ej. `${{ secrets.PROD_API_KEY }}`).
-
-### 2. Aislamiento de Volúmenes de Docker (Bind Mounts)
-Nuestros orquestadores `docker-compose.qa.yml` utilizan volúmenes enlazados (`- .:/app`) para que la IA y el código interactúen rápidamente. 
-* **Peligro de Propietario (Root):** Si un contenedor crea un archivo, por defecto pertenecerá a `root`. Nunca ejecutes scripts de terceros no confiables, ya que podrían sobrescribir archivos críticos del sistema anfitrión.
-* **Restricción de Montaje:** Tienes prohibido montar directorios sensibles del host dentro del contenedor efímero. Nunca montes `/var/run/docker.sock`, `/etc`, o el directorio `/` de la máquina host en el entorno de QA.
-
-### 3. Permisos Extendidos del Kernel (Capabilities)
-Para ejecutar pruebas avanzadas de *Profiling* (como `py-spy` o `clinic.js`), algunos de nuestros blueprints requieren elevar privilegios con `cap_add: - SYS_PTRACE` y `security_opt: - seccomp:unconfined`.
-* **Regla de Entorno:** Estos privilegios **SOLO** están permitidos en el archivo `docker-compose.qa.yml`. Queda estrictamente prohibido utilizar estos flags en los contenedores o manifiestos de producción, ya que permitirían a un atacante inspeccionar la memoria de otros procesos.
-
-### 4. Contención de Agentes de IA
-Este repositorio está diseñado para orquestar agentes autónomos (Claude Code, Hermes).
-* **Sandboxing:** La IA nunca debe recibir credenciales de producción. El agente operará exclusivamente dentro de la red interna de contenedores efímeros.
-* **Aislamiento de Red (Mocking):** Para evitar filtraciones de datos o ataques involuntarios de Denegación de Servicio (DoS) orquestados por un agente de IA, las pruebas unitarias y de integración temprana deben utilizar librerías de intercepción (`nock`, `pytest-mock`, `bats-mock`).
-
-### 5. Auditoría de Infraestructura y Prevención de Fugas
-* **Escaneo IaC Obligatorio:** Todo cambio propuesto a los manifiestos de Docker o scripts en bash es auditado estáticamente por **Trivy** para detectar escalamiento de privilegios o contenedores inseguros.
-* **Barrera Pre-Commit (Lefthook):** Tienes estrictamente prohibido saltarte los hooks de Git. El hook de seguridad (`leaks-check`) interceptará de forma local cualquier intento de hacer commit de un archivo que contenga contraseñas en texto plano, tokens o API Keys, bloqueando la operación.
+| Versión | Estado de Soporte | Requisitos de Infraestructura |
+| :--- | :--- | :--- |
+| **`main` (`latest`)** | ✅ Soporte Activo | Docker 26+, PostgreSQL 17, KeyDB Multi-Hilo |
+| **`< 2.0`** | ❌ No Soportado | Versiones descontinuadas |
 
 ---
 
-## 🐛 Alcance de las Vulnerabilidades a Reportar
+## 2. Reporte Responsable de Vulnerabilidades
 
-Consideramos como incidentes críticos de seguridad en este repositorio:
+Si descubres una vulnerabilidad en nuestras imágenes base, en los scripts de limpieza o en la configuración de los orquestadores efímeros:
 
-1. **Fugas de Aislamiento (Container Escapes):** Cualquier falla en los `docker-compose.qa.yml` que permita a un script escapar del contenedor y alcanzar el host.
-2. **Evasión de Políticas (Bypasses):** Métodos que permitan engañar a nuestros pipelines para aprobar Pull Requests con menos del 95% de cobertura real o ignorando alertas de SAST (Bandit, ESLint Security).
-3. **Imágenes Base Comprometidas (Supply Chain):** Identificación de malware inyectado en la cadena de suministro de nuestra flota de imágenes (`sinfallas/*`).
-4. **Ejecución de Comandos (RCE):** Fallos en los scripts auxiliares (`limpieza.sh`) que permitan inyección de comandos.
+1. **NO abras un Issue ni Pull Request público en GitHub/GitLab** con el exploit o vector de ataque.
+2. Envía un reporte detallado por correo a: **`soporte@tecnoconsultores.net`** con el asunto `[SECURITY-BLUEPRINT] Descripción breve del hallazgo`.
+3. Incluye los pasos de reproducción, componentes afectados y el impacto potencial.
+4. Recibirás acuse de recibo en un máximo de **48 horas laborables** y coordinaremos la mitigación antes de la divulgación pública.
 
 ---
 
-## 📩 Cómo reportar una vulnerabilidad
+## 3. Pilares de Seguridad por Diseño y Mitigación de Vulnerabilidades
 
-Por favor, **NO** abras un "Issue" público ni un "Pull Request" para reportar una vulnerabilidad de seguridad, ya que esto expone la falla antes de que podamos mitigarla.
+Cualquier proyecto corporativo que implemente el estándar 11X debe aplicar las siguientes **capas de defensa en profundidad**:
 
-Envía un correo electrónico directamente a nuestro equipo de seguridad:
-📧 **soporte@tecnoconsultores.net**
+```mermaid
+flowchart TD
+    subgraph "Capa 1: Perímetro y Proxy"
+        L1["Nginx Non-Root<br>Preservación X-Forwarded-* | CSP Estricta | Límite Upload 2MB"]
+    end
 
-**Formato recomendado para el reporte:**
-*   **Tipo de vulnerabilidad:** (Ej. Evasión de validación SAST, Escalada de privilegios).
-*   **Paso a paso para reproducirla:** Incluye comandos, los archivos afectados y un script de prueba de concepto (PoC).
-*   **Impacto potencial:** Qué podría lograr un atacante interno o una IA mal configurada explotando este fallo.
+    subgraph "Capa 2: Identidad y Sesión"
+        L2["Argon2id + 2FA TOTP<br>Cookies __Host- HttpOnly + CSRF HMAC-SHA256"]
+    end
 
-## ⏱️ Nuestro Compromiso (SLA)
+    subgraph "Capa 3: Control de Acceso y Persistencia"
+        L3["FORCE ROW LEVEL SECURITY (RLS) en PostgreSQL 17<br>Consultas Parametrizadas Seguras bindparam"]
+    end
 
-1. **Recepción:** Acusaremos recibo en un plazo máximo de 48 horas laborables.
-2. **Evaluación:** Nuestro equipo evaluará la vulnerabilidad y confirmará su validez.
-3. **Resolución:** Trabajaremos en un parche y emitiremos las instrucciones de mitigación para todos los proyectos internos que dependan de estos *blueprints*.
-4. **Reconocimiento:** Una vez mitigado el problema, si lo deseas, te daremos crédito en nuestro archivo `CHANGELOG.md`.
+    subgraph "Capa 4: Bóveda Criptográfica y Cache"
+        L4["Bóveda AES-256-GCM con AAD<br>KeyDB Multi-Hilo con Idempotency-Key"]
+    end
+
+    subgraph "Capa 5: Resiliencia de Transporte"
+        L5["Validación Anti-CSWSH en WebSockets<br>Defensa Anti-SSRF en Llamadas Salientes"]
+    end
+
+    L1 --> L2 --> L3 --> L4 --> L5
+```
+
+---
+
+## 4. Mitigación Integral de Vectores de Ataque en Plataforma Híbrida (SPA + API)
+
+La integración entre aplicaciones SPA (Vue 3, React) y APIs REST/WebSockets (FastAPI, Node.js) introduce una superficie de ataque específica que debe neutralizarse mediante código defensivo obligatorio:
+
+### 4.1. Prevención de Asignación Masiva (*Mass Assignment / Over-posting*)
+- **Riesgo:** Un atacante inyecta campos no autorizados en el payload JSON (ej. `role: "admin"`, `is_superuser: true`).
+- **Mitigación:** 
+  - Configurar en todos los esquemas Pydantic v2: `model_config = ConfigDict(extra="forbid")`.
+  - Desacoplar estrictamente los DTOs de entrada (`UserCreate`) de los modelos ORM de base de datos (`UserInDB`) y de los esquemas de respuesta pública (`UserPublic`).
+
+### 4.2. Protección Anti-CSWSH (*Cross-Site WebSocket Hijacking*)
+- **Riesgo:** Los WebSockets no aplican la política SOP (Same-Origin Policy) del navegador. Si un usuario tiene una cookie de sesión activa, un sitio malicioso puede abrir un canal WebSocket no autorizado.
+- **Mitigación:** 
+  - Inspeccionar la cabecera `Origin` **antes** de invocar `await ws.accept()`.
+  - Si el origen no coincide con la lista blanca (`ALLOWED_ORIGINS`), abortar inmediatamente con código de cierre de aplicación `4403` ("Forbidden Origin").
+
+### 4.3. Sanitización de Errores de Validación 422 (`RequestValidationError`)
+- **Riesgo:** En desarrollo, los frameworks exponen nombres internos de campos, regex y rutas de código en respuestas 422, facilitando el reconocimiento y fingerprinting del backend.
+- **Mitigación:** 
+  - En producción (`APP_ENV=production`), capturar globalmente `RequestValidationError`, registrar el traceback detallado en `stdout` del contenedor y devolver al cliente un mensaje genérico: `{"detail": "Los datos proporcionados no cumplen con los requisitos de validación."}`.
+
+### 4.4. Defensa Anti-SSRF en Webhooks, Clientes HTTP y Workers Salientes
+- **Riesgo:** La aplicación es forzada a consultar direcciones internas para escanear la red privada o extraer metadatos de proveedores cloud (`169.254.169.254`).
+- **Mitigación:** 
+  - Resolver el hostname vía DNS **antes** de enviar la petición.
+  - Bloquear incondicionalmente: rangos privados RFC 1918 (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), loopback (`127.0.0.0/8`, `::1`), link-local (`169.254.0.0/16`), multicast y nombres de contenedores Docker internos (`localhost`, `*-db`, `*-redis`, `*-api`, `*-worker`).
+
+### 4.5. Sentencias Parametrizadas Seguras en Contextos Dinámicos
+- **Riesgo:** Inyección SQL al interpolar cadenas (`f-strings`) para configurar variables de sesión o tenant (`SET LOCAL app.current_tenant_id = f'{tenant_id}'`).
+- **Mitigación:** 
+  - Utilizar siempre sentencias parametrizadas seguras mediante `bindparam` de SQLAlchemy o consultas preparadas.
+
+### 4.6. Límites Estrictos de Carga de Archivos (Anti-DoS / OOM)
+- **Riesgo:** Agotamiento de memoria RAM en el backend mediante subida de archivos gigantescos no autenticados o payloads masivos.
+- **Mitigación:** 
+  - Imponer un límite estricto de cuota (ej. 2 MB o 5 MB) en streaming, rechazando solicitudes que excedan el umbral con HTTP `413 Payload Too Large`.
+
+### 4.7. Preservación de Cabeceras de Proxy Inverso en Nginx
+- **Riesgo:** Pérdida de la IP real del cliente ante proxies reversos, impidiendo auditorías forenses, rate limiting y detección de ataques de fuerza bruta.
+- **Mitigación:** 
+  - Configurar explícitamente en Nginx para `/api/` y `/ws/`:
+    ```nginx
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    ```
+
+### 4.8. Desacoplamiento de Middleware Anti-CSRF y Protección Escopada
+- **Riesgo:** Ataques CSRF en peticiones disparadas desde navegadores con cookies activas, o bloqueo indebido a llamadas automatizadas de agentes de IA.
+- **Mitigación:** 
+  - El middleware CSRF extrae el JWT directamente de cookies seguras `__Host-` y exige `X-CSRF-Token` (HMAC-SHA256).
+  - Alinear con OWASP CSRF Prevention eximiendo de validación CSRF a las peticiones basadas en cabecera `Authorization: Bearer` (usadas por agentes de IA, automatizaciones y servidores MCP).
+
+### 4.9. Sanitización Estricta Anti-XSS y Anti-Prototype Pollution en Frontend
+- **Riesgo:** Inyección de scripts maliciosos en `innerHTML` (ej. popups de mapas cartográficos, tooltips dinámicos) y contaminación de prototipos en JavaScript.
+- **Mitigación:** 
+  - Usar siempre una función de escape HTML (`escapeHtml`) antes de inyectar contenido dinámico en el DOM.
+  - Sanitizar objetos recursivamente eliminando claves peligrosas (`__proto__`, `constructor`, `prototype`) y crear diccionarios puros con `Object.create(null)`.
+
+### 4.10. Tolerancia a Carreras Concurrentes (*Grace Period Leeway* de 5s) en Refresh Tokens
+- **Riesgo:** Cuando un usuario abre múltiples pestañas en el navegador, todas intentan refrescar el JWT casi simultáneamente. Un sistema estricto de rotación detecta la segunda petición como "reúso malicioso" y cierra la sesión de forma abrupta.
+- **Mitigación:** 
+  - Implementar un margen de cortesía (*grace period*) de 5 segundos en la rotación de Refresh Tokens en KeyDB/Redis, permitiendo que las pestañas paralelas reciban el nuevo par de tokens sin provocar falsos positivos de `REUSE_DETECTED`.
+
+### 4.11. Aislamiento Multi-Tenant y por Operador en Llaves de Idempotencia
+- **Riesgo:** Colisión cruzada de claves de idempotencia UUID si dos operadores o inquilinos distintos envían el mismo identificador.
+- **Mitigación:** 
+  - Estructurar las llaves en KeyDB bajo espacios de nombres compuestos: `idemp:{tenant_id}:{user_id}:{idempotency_key}`.
+
+### 4.12. Desactivación de Swagger / ReDoc / OpenAPI en Producción
+- **Riesgo:** Exposición pública del mapa completo de endpoints, esquemas de entrada y rutas administrativas, facilitando ataques dirigidos.
+- **Mitigación:** 
+  - En entorno de producción (`APP_ENV=production`), configurar FastAPI con `docs_url=None`, `redoc_url=None` y `openapi_url=None`.
+
+---
+
+## 5. Auditoría Preventiva de Vulnerabilidades y Seguridad Shift-Left
+
+En los proyectos regidos por el estándar 11X, toda vulnerabilidad debe ser detectada y corregida en la estación local antes de hacer commit o push:
+
+```mermaid
+flowchart LR
+    DEV[Código / Dependencias] --> LINT[Linters & SAST]
+    LINT --> TEST[Pruebas Unitarias 11X]
+    TEST --> AUDIT["auditar-infra.sh (Trivy IaC + FS)"]
+    AUDIT --> GATE[certify_task_completion.sh]
+    GATE -->|Pasa al 100%| GIT[Git Commit & Push]
+```
+
+### 5.1. Gobernanza de Archivos de Bloqueo (`uv.lock` y `pnpm-lock.yaml`)
+- **Compilaciones Herméticas y Reproducibles:** Las versiones de dependencias directas y transitivas deben estar estrictamente congeladas con sus hashes SHA-256 en los archivos de bloqueo para neutralizar ataques a la cadena de suministro (*Supply Chain Attacks*).
+- **Protocolo de Parcheo Selectivo:**
+  - Para Python: ejecutar en Docker `uv lock --upgrade-package <paquete>`.
+  - Para Frontend: ejecutar en Docker `pnpm update <paquete>`.
+  - Re-ejecutar suites unitarias y escaneo con `./auditar-infra.sh` certificando `0` vulnerabilidades CRITICAL y HIGH.
+
+---
+
+## 6. Barreras Automatizadas DevSecOps
+
+Antes de cada commit, el código supera de forma automatizada:
+1. **Detección de Secretos:** `./scripts/verificar-secretos.sh` (0 credenciales hardcodeadas).
+2. **SAST Estático:** `Bandit` (Python) y `eslint-plugin-security` (Node/Vue/React), con `.npmrc` configurado con `ignore-scripts=true`.
+3. **Auditoría IaC y Contenedores:** `Trivy` (`./auditar-infra.sh`) exigiendo `0` vulnerabilidades `HIGH` o `CRITICAL` y ejecución no-root.
+4. **Compuerta de Certificación:** `./.agents/scripts/certify_task_completion.sh` con salida en exit code 0.

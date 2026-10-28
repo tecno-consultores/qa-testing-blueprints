@@ -4,6 +4,40 @@ Todos los cambios notables de este proyecto se documentarán en este archivo.
 
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/), y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [Unreleased]
+
+### 🚀 Añadido (Added)
+* **Gobernanza de Agentes de IA (`.agents/`):** Estructura completa de gobernanza multi-agente (`rules/`, `skills/`, `scripts/`) compatible con Google Antigravity, Claude Code / Desktop, Hermes Agent, Cursor y Windsurf.
+* **Optimización Bimodal de Tokens:** Directivas internas de IA en inglés técnico de alta densidad para reducir el consumo de tokens BPE en un ~35%, manteniendo la interacción y documentación estrictamente en español (`OUTPUT LANGUAGE CONSTRAINT`).
+* **Manuales Técnicos Corporativos:**
+  * `docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`: Gobernanza de agentes, enrutamiento semántico y ciclo de evolución continua.
+  * `docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md`: Anti-Mock Blindness, Geometría Visual Anti-JSDOM, Seguridad por Diseño (RLS, SSRF, AES-256-GCM Vault, Idempotency-Key) y Motor KeyDB Multi-Hilo.
+  * `docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md`: Desglose detallado de los 13 niveles de la pirámide de calidad 11X.
+  * `docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`: Catálogo y recetario técnico de mitigación de 13 vectores de ataque en plataformas híbridas (Mass Assignment, CSWSH, SSRF, Information Disclosure 422, XSS/Prototype Pollution, SQL injection en contextos dinámicos, race conditions en refresh tokens y shift-left lockfiles).
+* **Política de Seguridad DevSecOps (`SECURITY.md`):** Actualización completa con 8 capas de defensa en profundidad, mitigación de vulnerabilidades híbridas y gobernanza de lockfiles herméticos (`uv.lock` y `pnpm-lock.yaml`).
+* **Anti-Mock Blindness y Paridad de Base de Datos:** Integración del validador `.agents/scripts/verify_alembic_orm_parity.py` y contenedor real `postgres:17-alpine` en `fastapi/docker-compose.qa.yml`.
+* **Motor en Memoria KeyDB:** Incorporación de `eqalpha/keydb:alpine` con multi-threading (`--server-threads 2`) como reemplazo de alto rendimiento para Redis.
+* **Invariante Karate Labs BDD Universal:** Enriquecimiento de pruebas BDD de caja negra para API (`fastapi/test/api_test.feature`) y UI en Chrome Headless (`vue3/test/ui_business_flow.feature`).
+* **Invariante de Cero Componentes UI Huérfanos:** Script determinista `.agents/scripts/verify_zero_orphan_vue_components.py` que exige pruebas unitarias para cada archivo `.vue` o `.tsx`.
+* **Auditoría Anti-Colisión JSON:** Script `.agents/scripts/verify_json_no_duplicate_keys.py` para prevenir sobreescritura silenciosa de claves en diccionarios de traducción y configuración.
+* **Radio de Impacto AST (Blast Radius):** Script `.agents/scripts/inspect_blast_radius.py` y auditor topológico `.agents/scripts/verify_topological_health.py` basados en grafos AST de Graphify.
+* **Escaneo Preventivo de Secretos:** Script `scripts/verificar-secretos.sh` integrado para detectar credenciales y tokens hardcodeados en commits.
+* **Compuerta de Certificación Pre-Commit:** Script automatizado `.agents/scripts/certify_task_completion.sh` que evalúa 7 etapas de control de calidad antes de cerrar tareas.
+* **Resolución de Problemas Avanzada (`docs/docker-troubleshooting.md`):** Nuevas secciones operativas para sincronización activa con `pg_isready` en PostgreSQL, límites de memoria y evicción en KeyDB, permisos de caché local en Trivy y prevención de defectos de geometría visual Anti-JSDOM.
+
+### 🔄 Modificado (Changed)
+* **`AI_MASTER_PROMPT.md`:** Actualizado con los mandatos aprendidos en campo: Anti-Mock Blindness, Anti-JSDOM, Invariante Karate Labs BDD, Paridad Terminal ↔ Frontend y compuerta de certificación.
+* **Modernización Canónica de Seguridad Dinámica (DAST):** Reemplazo global de la imagen deprecada `owasp/zap2docker-stable:latest` por `zaproxy/zap-stable:latest` en todos los orquestadores Docker Compose, guías de ecosistemas y `CONTRIBUTING.md`.
+* **Estandarización de Comandos Graphify:** Corrección del error tipográfico `graphifyy` y alineación con los binarios canónicos `graphify-mcp` y `graphify extract --code-only` en todos los orquestadores y READMEs de ecosistemas (`fastapi`, `node-backend`, `python`, `bash-scripts`, `vue3`, `react-frontend`).
+* **Armonización de la Pirámide de Calidad a 13 Capas:** Sincronización integral de `docs/qa-philosophy.md`, `docs/ARCHITECTURE_C4.md` y `fastapi/README.md` delimitando con precisión el aislamiento unitario frente a la verificación real de persistencia (Anti-Mock Blindness).
+* **Pipelines de CI/CD Seguros (`docs/ci-cd-pipelines.md`):** Eliminación del anti-patrón de inyección de credenciales en disco, incorporación del script de escaneo de secretos y acoplamiento de la compuerta de certificación de 7 pasos.
+* **`fastapi/docker-compose.qa.yml`:** Añadidos servicios nativos de `postgres` y `keydb` con healthchecks, y optimizado `pull_policy: if_not_present`.
+* **`fastapi/Makefile.example`:** Ampliado con metas `qa-contracts`, `qa-bdd`, `qa-dast`, `qa-chaos` y validaciones estrictas de `radon`, `bandit` y `pip-audit`.
+* **`vue3/docker-compose.qa.yml` & `vue3/Makefile.example`:** Actualizado a `sinfallas/base-node-ionic:26`, meta `qa-orphans` y optimizaciones de pull policy.
+* **`README.md`:** Reescrito con la nueva gobernanza, filosofía 11X multi-capa y enlaces a los nuevos manuales técnicos.
+
+---
+
 ## [2.5.0] - 2026-10-10
 
 ### 🚀 Añadido (Added)

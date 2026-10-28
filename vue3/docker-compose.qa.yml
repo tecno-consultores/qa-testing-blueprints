@@ -3,7 +3,7 @@ services:
     image: nginx:alpine
     container_name: vue_ui_prod
     hostname: vue_ui_prod
-    pull_policy: always
+    pull_policy: if_not_present
     environment:
       TZ: 'America/Caracas'
     volumes:
@@ -13,7 +13,7 @@ services:
       - "8080:80"
 
   qa-vue3:
-    image: node:20-bookworm-slim
+    image: sinfallas/base-node-ionic:26
     container_name: vue_qa_frontend
     hostname: vue_qa_frontend
     pull_policy: if_not_present
@@ -30,7 +30,7 @@ services:
     image: mcr.microsoft.com/playwright:v1.43.0-jammy
     container_name: vue_ui_e2e
     hostname: vue_ui_e2e
-    pull_policy: always
+    pull_policy: if_not_present
     environment:
       TZ: 'America/Caracas'
       PNPM_HOME: /pnpm
@@ -44,7 +44,7 @@ services:
     image: sinfallas/karatelabs:latest
     container_name: vue_ui_karate
     hostname: vue_ui_karate
-    pull_policy: always
+    pull_policy: if_not_present
     depends_on:
       - ui-prod
     environment:
@@ -97,7 +97,7 @@ services:
     profiles:
       - graphify
     restart: always
-    command: uvx --from graphifyy python -m graphify.serve /app/graphify-out/graph.json --transport http --host 0.0.0.0 --port 8080
+    command: graphify-mcp /app/graphify-out/graph.json --transport http --host 0.0.0.0 --port 8080
     ports:
       - "8080:8080"
     extra_hosts:
@@ -118,6 +118,7 @@ networks:
     driver: bridge
 
 volumes:
-  nginx-logs:
   pnpm-store:
-    name: vue3_pnpm_store_cache
+    name: vue_pnpm_store
+  nginx-logs:
+    name: vue_nginx_logs

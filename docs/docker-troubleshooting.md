@@ -125,3 +125,77 @@ Como medida de seguridad estricta, inyectamos un archivo `.npmrc` configurado co
 
 **La Solución:**
 Identifica la librería que falló y permítela explícitamente en el `package.json` utilizando herramientas de lista blanca (como `pnpm` config o `npm rebuild <paquete>`), o reconstruye el paquete específico al vuelo dentro del `Makefile` de tu proyecto, manteniendo el bloqueo global intacto.
+
+---
+
+## 9. Fallo en Pruebas de Integración por Base de Datos no Lista (PostgreSQL)
+
+**Síntoma:**
+Al ejecutar pruebas de integración o migraciones de Alembic, la consola arroja `psycopg2.OperationalError: could not connect to server: Connection refused` o `asyncpg.exceptions.CannotConnectNowError`.
+
+**¿Por qué sucede?**
+El contenedor `postgres` se levanta en segundo plano (`up -d`), pero el motor PostgreSQL tarda entre 1 y 3 segundos en inicializar el clúster y aceptar conexiones TCP en el puerto 5432.
+
+**La Solución:**
+Asegura que tu script o comando espere la disponibilidad activa usando `pg_isready` antes de correr migraciones o suites:
+```bash
+docker compose -f docker-compose.qa.yml exec -T postgres sh -c "until pg_isready -U postgres; do sleep 0.5; done"
+```
+
+---
+
+## 10. Advertencias de Rendimiento o Memoria en KeyDB Multi-Hilo
+
+**Síntoma:**
+KeyDB emite advertencias como `WARNING: Memory fragmentation ratio is high` o fallos por memoria agotada (`OOM command not allowed`).
+
+**¿Por qué sucede?**
+KeyDB utiliza por defecto un modelo multi-hilo (`server-threads 4`). Si se ejecutan suites de estrés extremas con Locust/Artillery sin configurar una política de evicción (`maxmemory-policy`), la memoria temporal de sesiones puede saturar el contenedor efímero.
+
+**La Solución:**
+Verifica que el servicio `keydb` en `docker-compose.qa.yml` declare límites de memoria seguros:
+```yaml
+    command: keydb-server --server-threads 4 --maxmemory 256mb --maxmemory-policy allkeys-lru --protected-mode no
+```
+
+---
+
+## 11. Bloqueo de Trivy por Permisos en el Volumen de Caché
+
+**Síntoma:**
+Al ejecutar `./scripts/auditar-infra.sh` o `make audit`, Trivy arroja: `permission denied on /root/.cache/trivy/db`.
+
+**¿Por qué sucede?**
+El contenedor efímero de Trivy corre como root y crea la base de datos de vulnerabilidades con permisos exclusivos del usuario `0`. Si ejecutas una auditoría posterior con un usuario no privilegiado, la lectura se bloquea.
+
+**La Solución:**
+Ejecuta la purga controlada de caché o reasigna permisos:
+```bash
+sudo rm -rf .trivy-cache/
+# O restaura permisos:
+sudo chown -R $USER:$USER .
+```
+
+---
+
+## 12. Fallos Silenciosos de Geometría Visual en JSDOM vs. Playwright
+
+**Síntoma:**
+Las pruebas unitarias de Vitest con `jsdom` pasan al 100%, pero en el navegador real de Playwright o Karate UI, los botones de acción no pueden ser clickeados (`element is intercepted by other element`).
+
+**¿Por qué sucede?**
+JSDOM es un simulador lógico del árbol DOM, pero **NO computa CSS Layout, coordenadas ni z-index**. Elementos flotantes fijos (`position: fixed`) o footers desalineados cubren los botones en navegadores reales sin que JSDOM lo advierta.
+
+**La Solución:**
+1. Diseña todos los pies de página como elementos in-flow dentro de `<main>` usando flexbox:
+```css
+main {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+footer {
+  margin-top: auto;
+}
+```
+2. Valida siempre la geometría visual y la interactividad profunda en navegadores reales mediante `make qa-e2e` o `Karate Labs UI`.

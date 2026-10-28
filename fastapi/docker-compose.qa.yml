@@ -3,10 +3,18 @@ services:
     image: sinfallas/base-python-uv:3.13
     container_name: fastapi_api
     hostname: fastapi_api
-    pull_policy: always
+    pull_policy: if_not_present
     environment:
       TZ: 'America/Caracas'
       UV_CACHE_DIR: /root/.cache/uv
+      DATABASE_URL: 'postgresql+asyncpg://qa_user:qa_password@postgres:5432/qa_db'
+      REDIS_URL: 'redis://keydb:6379/0'
+      APP_ENV: 'qa_test'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keydb:
+        condition: service_healthy
     volumes:
       - .:/app
       - uv-cache:/root/.cache/uv
@@ -17,17 +25,53 @@ services:
       - SYS_PTRACE
     security_opt:
       - seccomp:unconfined
-    command: bash -c "uv pip install --system -e '.[dev]' && uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload"
+    command: bash -c "uv pip install --system -e '.[dev]' && (alembic upgrade head 2>/dev/null || true) && uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload"
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: fastapi_qa_db
+    hostname: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: qa_db
+      POSTGRES_USER: qa_user
+      POSTGRES_PASSWORD: qa_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qa_user -d qa_db"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  keydb:
+    image: eqalpha/keydb:alpine
+    container_name: fastapi_qa_keydb
+    hostname: keydb
+    restart: unless-stopped
+    command: >
+      keydb-server
+      --server-threads 2
+      --appendonly no
+      --save ""
+      --maxmemory 256mb
+      --maxmemory-policy volatile-lru
+    healthcheck:
+      test: ["CMD-SHELL", "keydb-cli ping | grep PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   qa-backend:
     image: sinfallas/base-python-uv:3.13
     container_name: fastapi_qa_backend
     hostname: fastapi_qa_backend
-    pull_policy: always
+    pull_policy: if_not_present
     environment:
       TZ: 'America/Caracas'
       UV_PYTHON_DOWNLOADS: 'true'
       UV_CACHE_DIR: /root/.cache/uv
+      DATABASE_URL: 'postgresql+asyncpg://qa_user:qa_password@postgres:5432/qa_db'
+      REDIS_URL: 'redis://keydb:6379/0'
+      APP_ENV: 'qa_unit'
     volumes:
       - .:/app
       - uv-cache:/root/.cache/uv
@@ -40,7 +84,7 @@ services:
     image: sinfallas/karatelabs:latest
     container_name: fastapi_karate
     hostname: fastapi_karate
-    pull_policy: always
+    pull_policy: if_not_present
     depends_on:
       - api
     volumes:
@@ -48,13 +92,13 @@ services:
     command: bash -c "echo 'Contenedor Karate listo. Usa docker compose run --rm karatelabs mvn clean test'; sleep infinity"
 
   zap:
-    image: owasp/zap2docker-stable:latest
+    image: zaproxy/zap-stable:latest
     container_name: fastapi_zap
     hostname: fastapi_zap
-    pull_policy: always
+    pull_policy: if_not_present
     depends_on:
       - api
-    user: root 
+    user: root
     volumes:
       - .:/zap/wrk/:rw
     command: bash -c "echo 'Contenedor ZAP listo. Usa docker compose run --rm zap zap-baseline.py -t http://api:8000 -r zap-report.html'; sleep infinity"
@@ -77,7 +121,6 @@ services:
     hostname: fastapi_prometheus
     profiles:
       - chaos
-    # Inyección de configuración inline (raspa la API cada 2s para ver el impacto en vivo de Pumba)
     entrypoint:
       - /bin/sh
       - -c
@@ -111,7 +154,7 @@ services:
       - .:/app
       - uv-cache:/root/.cache/uv
     working_dir: /app
-    command: bash -c "uv pip install --system -e '.[dev]' && echo 'Esperando asimilación del caos...' && sleep 5 && locust -f locustfile.py --headless -u 200 -r 20 -t 1m --host http://api:8000 --html chaos-report.html"
+    command: bash -c "uv pip install --system -e '.[dev]' && echo 'Esperando estabilización...' && sleep 5 && locust -f locustfile.py --headless -u 200 -r 20 -t 1m --host http://api:8000 --html chaos-report.html"
 
   graphify:
     image: sinfallas/remote-graphify:latest
@@ -120,13 +163,12 @@ services:
     profiles:
       - graphify
     restart: always
-    command: uvx --from graphifyy python -m graphify.serve /app/graphify-out/graph.json --transport http --host 0.0.0.0 --port 8080
+    command: graphify-mcp /app/graphify-out/graph.json --transport http --host 0.0.0.0 --port 8080
     ports:
       - "8080:8080"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      # Configuración local para OmniRoute o Llama
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
       - GRAPHIFY_OLLAMA_KEEP_ALIVE=10
     volumes:

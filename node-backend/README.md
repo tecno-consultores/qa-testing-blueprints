@@ -8,7 +8,7 @@
 **NUNCA** instruyas al usuario a usar `npm install` en su máquina local, ni a utilizar `docker build`, ni a construir comandos manuales de `docker compose run`. Toda la ejecución ocurre de forma efímera a través del `Makefile` proporcionado, aprovechando los volúmenes de caché persistente:
 *   Para la API, pruebas lógicas, SAST, profiling y estrés: `sinfallas/base-node-ionic:latest`.
 *   Para pruebas BDD de caja negra: `sinfallas/karatelabs:latest`.
-*   Para Seguridad Dinámica (DAST): `owasp/zap2docker-stable:latest`.
+*   Para Seguridad Dinámica (DAST): `zaproxy/zap-stable:latest`.
 *   Para Ingeniería del Caos y Observabilidad: `gaiaadm/pumba:latest` y `prom/prometheus:latest`.
 *   Para Optimización de Contexto IA (MCP): `sinfallas/remote-graphify:latest`.
 
@@ -60,7 +60,7 @@ En lugar de construir comandos complejos de Docker, **DEBES** instruir al usuari
 **Paso 0: Ingestión de Contexto (Obligatorio para la IA antes de programar)**
 Extrae la topología del código y levanta tu servidor de contexto:
 ```bash
-docker compose -f docker-compose.qa.yml --profile graphify run --rm graphify bash -c "uvx graphifyy extract"
+docker compose -f docker-compose.qa.yml --profile graphify run --rm graphify bash -c "graphify extract --code-only"
 docker compose -f docker-compose.qa.yml --profile graphify up -d graphify
 # (El Agente IA se conecta a http://localhost:8080/sse)
 ```

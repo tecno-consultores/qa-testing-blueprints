@@ -6,23 +6,24 @@ Este documento detalla cómo evolucionar de una interacción manual a un flujo d
 Para que un agente comprenda las restricciones corporativas en tiempo real, los *blueprints* deben exponerse como recursos dinámicos.
 
 * **El Concepto:** Evita darle a la IA acceso irrestricto de lectura a todo tu disco duro. Usa un servidor MCP para exponer únicamente las reglas y el código que necesita de forma comprimida.
-* **Ejemplo Práctico 1 (Implementación Nivel 11X para Código):** En lugar de dar acceso de lectura a todo el disco, nuestro ecosistema integra el perfil oculto `--profile graphify`. Antes de programar, la IA debe extraer el grafo semántico y levantar el servidor MCP efímero:
+* **Ejemplo Práctico 1 (Implementación Nivel 11X para Código):** En lugar de dar acceso de lectura a todo el disco, nuestro ecosistema integra el perfil oculto `--profile graphify` con el motor `sinfallas/remote-graphify:latest`. Antes de programar, la IA puede extraer el grafo semántico y levantar el servidor MCP efímero si es un agente externo (Hermes, Claude):
 
 ```bash
-  docker compose -f docker-compose.qa.yml --profile graphify run --rm graphify bash -c "uvx graphifyy extract"
+  docker compose -f docker-compose.qa.yml --profile graphify run --rm graphify bash -c "graphify extract --code-only"
   docker compose -f docker-compose.qa.yml --profile graphify up -d graphify
 ```
-* Luego, el agente se conecta por SSE a `http://localhost:8080/sse` para consultar la topología, ahorrando miles de tokens en OmniRoute.
+* Luego, el agente externo se conecta por SSE a `http://localhost:8080/sse` para consultar la topología, ahorrando miles de tokens en OmniRoute.
+* **Invariante CLI-First para Agentes con Shell (Antigravity):** Si el agente posee capacidades nativas de ejecución en consola, DEBE ejecutar las inspecciones de topología y radio de impacto directamente mediante scripts locales (`python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"` o `.agents/scripts/verify_topological_health.py`), evitando explícitamente ocupar el puerto 8080 o dejar procesos en segundo plano.
 * **Ejemplo Práctico 2 (Recursos Custom para Documentación):** Configura un servidor MCP que exponga los archivos `.md` como *Recursos* estáticos (URIs). Cuando el agente detecta que está en un proyecto Python, consulta `blueprints://python/fastapi`. El servidor lee el archivo local y le devuelve el prompt inyectando la regla inquebrantable del 95% de cobertura.
-* **Ejemplo Práctico 3 (Lectura Proactiva de Configuraciones QA):** El servidor MCP (Graphify) no solo debe exponer la topología y las reglas del Blueprint. Debe exponer proactivamente los archivos de configuración de QA (como `pyproject.toml`, `.eslintrc.json`, `tsconfig.json`, `vitest.config.ts`) al Agente IA antes de que este genere código.
-  * **Regla Inquebrantable a inyectar al Agente Developer:** "Si el Agente Developer va a escribir código, su primer paso autónomo debe ser leer las reglas de linters y tipado vía MCP, para generar código que cumpla con el estándar estricto (ej. `strict=true` en Mypy) desde el primer intento, ahorrando ciclos de auto-corrección (tokens)."
+* **Ejemplo Práctico 3 (Lectura Proactiva de Configuraciones QA):** El servidor MCP o la inspección estática no solo debe evaluar la topología. Debe auditar proactivamente los archivos de configuración de QA (como `pyproject.toml`, `.eslintrc.json`, `tsconfig.json`, `vitest.config.ts`) antes de escribir código.
+  * **Regla Inquebrantable a inyectar al Agente Developer:** "Si el Agente Developer va a escribir código, su primer paso autónomo debe ser leer las reglas de linters y tipado, para generar código que cumpla con el estándar estricto (ej. `strict=true` en Mypy) desde el primer intento, ahorrando ciclos de auto-corrección (tokens)."
 
 ## 2. Orquestación Multi-Agente (Arquitecturas tipo Pantheon / Hermes)
 Las pruebas de alta exigencia (mutación, SAST, BDD) abruman el contexto si un solo agente intenta programar la aplicación y auditarla al mismo tiempo. Se debe implementar una separación de roles.
 
 * **El Concepto:** Un Agente Developer escribe el código; un Agente Auditor (QA) vigila que se cumplan las reglas del *blueprint*.
 * **Sugerencia de Implementación (System Prompt para el Agente QA):**
-  > *"Eres un auditor de QA implacable. Tu única fuente de la verdad es el archivo de reglas ingerido vía MCP. Si el Agente Developer propone comandos crudos locales como `pip install`, `npm run test` o intenta construir comandos largos de Docker, RECHAZA el código. Exígele estrictamente usar los comandos predefinidos en el `Makefile` (ej. `make qa-unit`, `make qa-all`) para aislar la infraestructura e invocar dependencias en los volúmenes de caché."*
+  > *"Eres un auditor de QA implacable. Tu única fuente de la verdad es el archivo de reglas ingerido vía MCP o `.agents/rules/`. Si el Agente Developer propone comandos crudos locales como `pip install`, `npm run test` o intenta construir comandos largos de Docker, RECHAZA el código. Exígele estrictamente usar los comandos predefinidos en el `Makefile` (ej. `make qa-unit`, `make qa-all`) para aislar la infraestructura e invocar dependencias en los volúmenes de caché."*
 * **Flujo:** Si el Developer crea un script de Bash destructivo sin usar `bats-mock`, el Agente QA intercepta el paso y obliga a refactorizar la prueba antes de dar el trabajo por terminado.
 
 ## 3. Optimización del Contexto con Proxies de Inferencia (OmniRoute)
@@ -41,11 +42,24 @@ El ecosistema de `qa-testing-blueprints` está diseñado intencionalmente para s
 
 ```python
   def ejecutar_comando_qa(comando: str) -> str:
-      if not comando.startswith("make qa-") and comando != "make clean-cache":
-          return "ERROR: Operación denegada. Política corporativa: Solo puedes auditar usando las metas del Makefile estandarizado (ej. 'make qa-lint', 'make qa-unit')."
+      if not comando.startswith("make qa-") and comando != "make clean-cache" and not comando.startswith("./.agents/scripts/"):
+          return "ERROR: Operación denegada. Política corporativa: Solo puedes auditar usando las metas del Makefile estandarizado (ej. 'make qa-lint', 'make qa-unit') o compuertas de .agents/scripts/."
       
       resultado = subprocess.run(comando, shell=True, capture_output=True, text=True)
       return resultado.stdout if resultado.returncode == 0 else resultado.stderr
 ```
 
 * **El Bucle Autónomo de Observabilidad:** El agente ejecuta las pruebas y evalúa el `stderr`. Si `kcov` reporta solo un 85% de cobertura, o si la IA levanta el perfil `--profile chaos` y detecta mediante peticiones al endpoint `http://localhost:9090/api/v1/query` (Prometheus) que la latencia (P99) sobrepasa los umbrales corporativos, la IA comprende la falla, reescribe el código de negocio en su propio entorno interno y vuelve a invocar la herramienta de estrés hasta lograr el estándar.
+
+## 5. Gobernanza Bimodal `.agents/` y Compuerta de 7 Pasos
+En proyectos de grado corporativo, la IA debe seguir una directriz bimodal estricta:
+1. **Reglas en Inglés Técnico de Alta Densidad:** Las instrucciones en `.agents/rules/` y habilidades en `.agents/skills/` están optimizadas para reducir el consumo de tokens BPE (~35%) y maximizar la precisión lógica de los modelos LLM.
+2. **Documentación Humana en Español:** Todo informe, documentación en `docs/`, `CHANGELOG.md`, `ROADMAP.md` y mensajes para el usuario se redactan en español pulcro.
+3. **Compuerta de Certificación Obligatoria (`certify_task_completion.sh`):** Antes de concluir cualquier tarea que modifique código o arquitectura, la IA debe ejecutar los 7 pasos de certificación:
+   - Secret Scanning (`scripts/verificar-secretos.sh`).
+   - Auditoría de Infraestructura y Contenedores (`scripts/auditar-infra.sh` / Trivy).
+   - Paridad ORM y Esquemas Relacionales (`verify_alembic_orm_parity.py`).
+   - Cero Componentes UI Huérfanos (`verify_zero_orphan_vue_components.py`).
+   - Claves JSON duplicadas (`verify_json_no_duplicate_keys.py`).
+   - Salud Topológica y Aislamiento de Capas (`verify_topological_health.py`).
+   - Sincronización incondicional de documentación (`CHANGELOG.md`, `TESTING.md`, `README.md`).
