@@ -4,6 +4,19 @@ Todos los cambios notables de este proyecto se documentarán en este archivo.
 
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/), y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [Unreleased]
+
+### 🚀 Añadido (Added)
+* **Especificaciones de Arquitectura Zero-Clone (`docs/specs/`) y Planificación Maestra (`ROADMAP.md`):**
+  * `docs/specs/01_SPEC_ARQUITECTURA_ZERO_CLONE_Y_MANIFIESTO_REMOTO.md`: Diseño de hidratación bajo demanda desde GitHub sin clonar el repositorio y esquema del manifiesto criptográfico `manifest.json` (SHA-256).
+  * `docs/specs/02_SPEC_SKILL_QA_11X_ARCHITECT_E_INSTALADOR.md`: Especificación de la Skill maestra `qa-11x-architect` con carga progresiva (`references/`) e instalador universal de 1 comando (`npx` y `curl | sh`).
+  * `docs/specs/03_SPEC_MCP_SERVER_NODE_TS_CORE_Y_TOOLS.md`: Especificación del servidor MCP en Node.js/TypeScript (`@sinfallas/mcp-qa-11x`), sus 4 Resources y las Tools 1 a 4.
+  * `docs/specs/04_SPEC_MCP_PARSERS_AUDITOR_STIG_OWASP_Y_GATE.md`: Especificación de los parsers ahorradores de tokens, el auditor estático de los 22 patrones DISA ASD STIG V6R5 + OWASP v4.2 y las Tools 5 a 7.
+  * `docs/specs/05_SPEC_PUBLICACION_NPM_Y_AUTOMATIZACION_CI.md`: Manual paso a paso para publicar paquetes en npm (Node.js) con 2FA, Granular Access Tokens y GitHub Actions con SLSA Provenance (`--provenance`).
+  * `ROADMAP.md`: Planificación detallada en 6 Hitos ejecutable por Gemini 3.8 Flash High.
+
+---
+
 ## [2.7.0] - 2026-11-02
 
 ### 🚀 Añadido (Added)
