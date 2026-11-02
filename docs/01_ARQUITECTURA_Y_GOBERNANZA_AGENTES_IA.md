@@ -54,7 +54,7 @@ Un dilema común al gobernar agentes de IA es el idioma. En este ecosistema impl
 2. **Menor Latencia y Mayor Velocidad:**
    - Menos tokens de entrada equivalen a menor costo computacional y menor tiempo de respuesta por turno.
 3. **Mayor Adherencia Lógica e Instruccional:**
-   - Los modelos de frontera exhiben una adherencia más rigurosa a las directivas de seguridad y lógica cuando las restricciones están expresadas en la terminología canónica de la ingeniería de software (RFCs, OWASP, ISO).
+   - Los modelos de frontera exhiben una adherencia más rigurosa a las directivas de seguridad y lógica cuando las restricciones están expresadas en la terminología canónica de la ingeniería de software (RFCs, **DISA ASD STIG V6R5**, **OWASP Developer Guide v4.2 / ASVS / WSTG / API Top 10 / OSHP / CycloneDX SBOM**, FIPS 140-3, ISO).
 
 ### Garantía de Salida en Español para Humanos (`OUTPUT LANGUAGE CONSTRAINT`)
 

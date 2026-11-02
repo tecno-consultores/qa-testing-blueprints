@@ -13,7 +13,7 @@ Este directorio implementa el estándar abierto y emergente de la industria para
 ├── README.md                                         # Este documento explicativo
 ├── rules/                                            # Reglas y directivas de comportamiento forzadas
 │   ├── mandatory_qa_pyramid_and_doc_sync.md          # Pirámide de pruebas multi-capa y sync documental
-│   ├── secure_development_and_testing_guidelines.md  # Anti-Mocks ciegos, RLS forzado, SSRF, bóveda y geometría visual
+│   ├── secure_development_and_testing_guidelines.md  # DISA ASD STIG V6R5 + OWASP v4.2: Anti-Mocks, RLS, sesiones, NFKC, XXE, HMAC logs, SBOM y geometría visual
 │   ├── frontend_parity_and_closure.md                # Paridad terminal-UI, tablas mutables y protocolo de cierre
 │   ├── continuous_agent_evolution.md                 # Evolución y actualización autónoma y continua de .agents/
 │   ├── anti_regression_and_side_effects_guardrail.md # Blindaje contra regresiones y control de radio de impacto
@@ -48,7 +48,7 @@ Este directorio implementa el estándar abierto y emergente de la industria para
    - Menos tokens de entrada se traducen directamente en menor tiempo de procesamiento (*Time-To-First-Token* y tiempo de procesamiento por turno) en herramientas de IA autónomas.
 
 3. **Adherencia Semántica y Rigor Lógico Superior:**
-   - La literatura técnica de software y estándares de seguridad (RFCs, OWASP, CIS Benchmark, RLS, AES-256-GCM, WCAG 2.1 AA) tienen su máxima densidad conceptual y precisión de alineación en inglés. Los modelos exhiben un cumplimiento de instrucciones (*instruction following*) más estricto y predecible al procesar directivas en este idioma.
+   - La literatura técnica de software y estándares de seguridad (RFCs, DISA ASD STIG V6R5, OWASP Developer Guide / ASVS / WSTG / API Top 10 / OSHP / CycloneDX, CIS Benchmark, RLS, FIPS 140-3 AES-256-GCM, WCAG 2.1 AA) tienen su máxima densidad conceptual y precisión de alineación en inglés. Los modelos exhiben un cumplimiento de instrucciones (*instruction following*) más estricto y predecible al procesar directivas en este idioma.
 
 4. **Garantía Inviolable de Salida en Español (`OUTPUT LANGUAGE CONSTRAINT`):**
    - Para garantizar que el desarrollador reciba siempre explicaciones claras y fluidas en su lengua materna, cada archivo en `.agents/rules/` y `.agents/skills/` incluye la directiva forzada:

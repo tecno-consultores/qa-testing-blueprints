@@ -14,8 +14,12 @@ Tienes estrictamente prohibido permitir que las pruebas interactúen con el hard
 *   **Comandos destructivos:** Si el script usa `rm`, `apt`, `systemctl`, `docker` o manipula interfaces de red, **DEBES** crear funciones de intercepción o utilizar `bats-mock` para falsear el éxito/fracaso de dichos comandos.
 *   **Sistema de archivos:** Las manipulaciones de archivos deben hacerse en `$BATS_TEST_TMPDIR`.
 
-## 3. Observabilidad mediante Pushgateway (Nivel 11X)
-*   **Regla:** Los scripts de Bash son procesos efímeros (tareas *batch*). Para monitorear su estado, éxito o tiempos de ejecución, **DEBES** inyectar comandos `curl` no bloqueantes que envíen métricas al servicio `pushgateway` habilitado en la red efímera.
+## 3. Observabilidad mediante Pushgateway y Seguridad DevSecOps (DISA STIG & OWASP)
+*   **Regla de Observabilidad:** Los scripts de Bash son procesos efímeros (tareas *batch*). Para monitorear su estado, éxito o tiempos de ejecución, **DEBES** inyectar comandos `curl` no bloqueantes que envíen métricas al servicio `pushgateway` habilitado en la red efímera.
+*   **Seguridad por Diseño en Shell (`DISA V-222483, V-222513, V-222604, V-222645, V-222666` & `OWASP 4.3.3, 4.3.10`):**
+    *   Usar modo estricto (`set -euo pipefail` o equivalente POSIX seguro), entrecomillar todas las expansiones de variables para impedir *Command Injection* y prohibir `eval`.
+    *   Nunca escribir secretos, contraseñas ni tokens en logs o en la línea de comandos visible en `ps` (`V-222444`).
+    *   Verificar hashes criptográficos SHA-256 / firmas antes de instalar o desplegar artefactos (`V-222513, V-222645`), alertar si la partición de auditoría supera el **75% de uso** (`V-222483`) y purgar credenciales/PII en scripts de respaldo o exportación de bases de datos (`V-222666`).
 *   **Ejemplo de Inyección:**
 
 ```bash

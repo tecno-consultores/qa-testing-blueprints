@@ -26,14 +26,16 @@ This skill guides the implementation of production-grade Docker containers and u
 3. **Security Profiles & Capabilities:**
    - Drop unnecessary Linux capabilities (`cap_drop: [ALL]`, keep only required capabilities).
    - Add `no-new-privileges: true` to prevent privilege escalation.
-4. **Vulnerability Scans:**
+4. **Vulnerability Scans, CycloneDX SBOM & Artifact Integrity (DISA STIG & OWASP):**
    - Execute `./auditar-infra.sh` or `trivy fs --severity HIGH,CRITICAL .` ensuring 0 unresolved vulnerabilities.
+   - Generate **OWASP CycloneDX SBOM/CBOM (ECMA-424)** (`cyclonedx-py` / `@cyclonedx/cyclonedx-npm`) and verify SHA-256 cryptographic hashes/signatures of release deliverables (`APSC-DV-001430`, `APSC-DV-003140`).
+   - Remove deprecated or superseded software components upon upgrade (`APSC-DV-002600`) and monitor audit log storage to alert at **75% capacity** (`APSC-DV-001090`).
 
 ---
 
 ## 2. In-Memory Engine: KeyDB Multi-Threaded
 
-When deploying cache, rate-limiting, idempotency locks, or WebSocket pub/sub:
+When deploying cache, rate-limiting, idempotency locks, session concurrency limits (`APSC-DV-000010`), role-based idle timeouts (`10m` admin / `15m` standard, `APSC-DV-000070/000080`), 3-attempt/15m account lockouts (`APSC-DV-000530`), anti-data-mining rate quotas (`APSC-DV-000450`), or WebSocket pub/sub:
 - **Default Choice:** `eqalpha/keydb:alpine`
 - **Rationale:** KeyDB is a drop-in multi-threaded Redis alternative that can yield 3x to 5x higher throughput on multi-core servers.
 - **Recommended Configuration:**

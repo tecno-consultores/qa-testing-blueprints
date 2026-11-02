@@ -53,6 +53,12 @@
 ### I. Ingestión Inteligente (Paso 0 - MCP)
 *   **Regla (Exclusiva para ti, IA):** Tienes estrictamente prohibido generar código o pruebas a ciegas. Tu primer paso debe ser levantar el servidor `graphify` para ingerir el grafo semántico del proyecto. Además, DEBES leer silenciosamente los lineamientos de dependencias, formato y linters definidos en `package.json`, `.eslintrc.json`, `.prettierrc` y `tsconfig.json` para adaptar tu código a las convenciones estrictas del repositorio y evitar rechazos en el CI/CD.
 
+### J. Seguridad por Diseño Obligatoria (DISA ASD STIG V6R5 & OWASP Developer Guide v4.2)
+*   Al programar o auditar microservicios en Node.js/TypeScript, DEBES aplicar y probar los controles de **[`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`](../docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md)**:
+    *   **Sesiones e Identidad (`APSC-DV-000010, 000070, 000080, 000530` & `OWASP 4.3.7`):** Límites de sesiones concurrentes, *idle timeouts* por rol (**10 min** admin / **15 min** estándar), rotación de ID de sesión tras login/elevación de privilegios, y bloqueo tras **3 intentos fallidos en 15 min** con verificación en tiempo constante.
+    *   **Validación, Canonicalización y Anti-Prototype Pollution (`APSC-DV-002390, 002485, 002510, 002520` & `OWASP 4.3.5, 4.3.6`):** Normalización `.normalize('NFKC')` antes de validar, sanitización recursiva contra `__proto__`/`constructor`/`prototype` (`Object.create(null)`), prohibición de `child_process.exec` con shell, desactivación de entidades externas XML y validación de archivos por *Magic Bytes* e índices en lista blanca.
+    *   **Auditoría Inmutable, Cabeceras OSHP, Fail-Secure y SBOM (`APSC-DV-000650, 001090, 001350, 002310` & `OWASP 4.3.10, 5.3.4, 5.4.4, 7.8`):** Logs UTC encadenados con HMAC-SHA256 sanitizados contra inyección CR/LF y sin secretos, alerta al **75% de almacenamiento de logs**, cabeceras **OWASP OSHP** (HSTS, CSP, `X-Content-Type-Options: nosniff`, `Cache-Control: no-store`, supresión de `X-Powered-By`), arranque *Fail-Secure*, mitigación de OWASP API Top 10 (2023) y generación de **CycloneDX SBOM** (`@cyclonedx/cyclonedx-npm`).
+
 ## 3. Comandos de Ejecución Local para el Desarrollador (y para la IA)
 
 En lugar de construir comandos complejos de Docker, **DEBES** instruir al usuario (o ejecutar autónomamente si tienes acceso a terminal) utilizando el `Makefile` estandarizado:

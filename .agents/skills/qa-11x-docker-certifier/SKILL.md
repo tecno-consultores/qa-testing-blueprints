@@ -28,7 +28,8 @@ This skill governs all tests, linters, audits, and cleanups in projects implemen
 | **Backend (Python/FastAPI)** | `Ruff` + `Mypy --strict` + `Bandit` | **0 errors / 0 vulnerabilities** | `make qa-lint` |
 | **Backend (Python/FastAPI)** | `Radon` (Cyclomatic Complexity) | **Grade A (`CC <= 5`, `MI >= B`)** | `make qa-lint` |
 | **Backend (Python/FastAPI)** | `Pytest` (Unit Coverage) | **`>= 95.0%` real coverage on `src/`** | `make qa-unit` |
-| **Backend (Python/FastAPI)** | `Mutmut` / `Karate Labs` / `ZAP` | Zero contract failures or surviving critical mutants | `make qa-mutation` / `make qa-bdd` |
+| **Backend (Python/FastAPI)** | `Mutmut` / `Karate Labs` / `ZAP` | Zero contract failures, 0 surviving critical mutants, OWASP OSHP headers & ASVS/WSTG verified | `make qa-mutation` / `make qa-bdd` |
+| **Security & STIG (All)** | `DISA ASD STIG V6R5` + `OWASP v4.2` | Verify session timeouts (10m/15m), 3-attempt lockout, `NFKC` input, anti-XXE, HMAC logs, Fail-Secure & CycloneDX SBOM | `make qa-unit` / `make qa-dast` |
 | **Frontend (Vue/React)** | `tsc/vue-tsc --noEmit` + `ESLint` + `SonarJS` | **0 type errors / Low cognitive complexity** | `make qa-lint` |
 | **Frontend (Vue/React)** | `Vitest` (`@vitest/coverage-v8`) | **`>= 95.0%` lines, functions, branches, statements** | `make qa-unit` |
 | **Frontend (Vue/React)** | `Stryker Mutator` | Clean execution across critical business logic | `make qa-mutation` |

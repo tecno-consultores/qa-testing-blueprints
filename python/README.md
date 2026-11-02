@@ -76,6 +76,12 @@ Dependiendo de la naturaleza del script, debes instrumentarlo de una de estas do
 ### F. Ingestión Inteligente (Paso 0 - MCP)
 *   **Regla (Exclusiva para ti, IA):** Tienes estrictamente prohibido generar código o pruebas a ciegas. Tu primer paso debe ser levantar el servidor `graphify` para ingerir el grafo semántico del proyecto. Además, DEBES leer silenciosamente las configuraciones de linters y dependencias definidos en `pyproject.toml` para adaptar tu código a las convenciones estrictas del repositorio y evitar rechazos en el CI/CD.
 
+### G. Seguridad por Diseño Obligatoria (DISA ASD STIG V6R5 & OWASP Developer Guide v4.2)
+*   Todo script o librería en Python DEBE cumplir y probar los controles aplicables de **[`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`](../docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md)**:
+    *   **Canonicalización y Ejecución Segura (`APSC-DV-002510, 002520`):** Normalizar entradas de texto con `unicodedata.normalize("NFKC", ...)` antes de validar y usar `subprocess.run([...], shell=False)` con rutas absolutas y listas blancas (prohibido `shell=True`, `os.system`, `eval`, `pickle.loads`, `yaml.load`).
+    *   **XML/XXE y Archivos (`APSC-DV-002390, 002485, 002550`):** Deshabilitar DTDs y entidades externas en analizadores XML (`resolve_entities=False`, `no_network=True`), validar archivos por *Magic Bytes* y mapear rutas mediante índices en lista blanca.
+    *   **Criptografía FIPS 140-3, Zeroización de Memoria, Logs y SBOM (`APSC-DV-000650, 001090, 001350, 002310, 002590, 003310` & `OWASP 4.3.9, 4.3.10, 5.3.4`):** Sobrescribir con ceros (`zeroize`) los búferes de memoria (`bytearray`) con secretos al salir de cada función, sanitizar CR/LF en logs con 0 credenciales registradas, fallar en estado seguro (*Fail-Closed*) y generar **CycloneDX SBOM** (`cyclonedx-py`).
+
 ## 4. Comandos de Ejecución Local para Desarrolladores (y para la IA)
 
 En lugar de construir comandos complejos de Docker, **DEBES** instruir al usuario (o ejecutar autónomamente si tienes acceso a terminal) utilizando el `Makefile` estandarizado:

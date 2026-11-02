@@ -45,6 +45,12 @@
 ### G. Ingestión Inteligente (Paso 0 - MCP / AST CLI-First)
 *   **Regla (Exclusiva para ti, IA):** Tienes estrictamente prohibido generar código o pruebas a ciegas. Si tienes acceso a shell (Antigravity), realiza inspecciones estáticas vía CLI sin ocupar puertos. Si eres un agente externo (Hermes, Claude), conéctate al servidor MCP `sinfallas/remote-graphify:latest`. Además, DEBES leer silenciosamente las configuraciones de linters, dependencias y *scripts* prohibidos en `package.json`, `.eslintrc.json` y `vite.config.ts` para evitar fallos de pipeline.
 
+### H. Seguridad Frontend Obligatoria (DISA ASD STIG V6R5 & OWASP Developer Guide v4.2)
+*   Al construir o probar componentes en React (`.tsx`) y stores (Zustand/Redux), DEBES aplicar y verificar con pruebas unitarias/BDD los controles de **[`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`](../docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md)**:
+    *   **Purga Total en Logout y Confirmación Explícita (`DISA V-222388, V-222392, V-222578` & `OWASP 4.3.7`):** Al cerrar sesión o alcanzar el *idle timeout* (**10 min** rol privilegiado / **15 min** rol estándar, `V-222389/000080`), limpiar `sessionStorage.clear()`, `localStorage.clear()`, `CacheStorage` y el estado en memoria, mostrando un mensaje explícito de cierre de sesión.
+    *   **Notificación de Último Acceso y Cero Secretos en Campos Ocultos (`DISA V-222437, V-222601` & `OWASP 4.3.6 FV-2`):** Mostrar al usuario la fecha/hora de su último inicio de sesión tras el login y prohibir el uso de `<input type="hidden">` o `localStorage` para datos sensibles o tokens de sesión.
+    *   **Defensa Anti-XSS, Anti-Prototype Pollution y Cabeceras OSHP (`DISA V-222602, V-222609` & `OWASP 4.3.5, 5.4.4`):** Prohibir `dangerouslySetInnerHTML` sin sanitización estricta (`escapeHtml`), filtrar `__proto__`/`constructor`/`prototype` (`Object.create(null)`), adjuntar `X-CSRF-Token` e `Idempotency-Key` en peticiones mutantes y preservar el estado válido conocido ante errores transitorios de red.
+
 ## 3. Comandos de Ejecución Local para el Desarrollador (y para la IA)
 
 En lugar de construir comandos complejos de Docker, **DEBES** instruir al usuario (o ejecutar autónomamente si tienes acceso a terminal) utilizando el `Makefile` estandarizado:
