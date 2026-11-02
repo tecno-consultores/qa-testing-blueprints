@@ -59,8 +59,32 @@ Apply these non-negotiable security directives before writing any code:
    - Sanitize objects against `__proto__`, `constructor`, `prototype`, and instantiate safe records via `Object.create(null)`.
 10. **Concurrency Grace Period in Refresh Tokens:**
     - Provide 5s leeway on token family rotations to prevent accidental session revocation across multi-tab requests.
-11. **Shift-Left Lockfile Governance:**
+11. **Shift-Left Lockfile & CycloneDX SBOM Governance:**
     - Manage dependencies with strict lockfiles (`uv.lock`, `pnpm-lock.yaml`). Upgrade transitive CVEs via selective package commands (`uv lock --upgrade-package`, `pnpm update`).
+    - Generate CycloneDX Software & Cryptography Bills of Materials (SBOM/CBOM, ECMA-424) and cryptographically verify/sign artifacts before release (`APSC-DV-001430`, `APSC-DV-003140`, `OWASP 4.3.3 SFL`).
+12. **Session Concurrency, Role-Tiered Timeouts & Logoff Purge (DISA STIG & OWASP 4.3.7):**
+    - Enforce maximum concurrent session limits per user (`APSC-DV-000010`) and alert on concurrent logons from distinct workstations/IPs (`APSC-DV-003360`).
+    - Terminate idle sessions after **15 minutes** for standard users (`APSC-DV-000070`) and **10 minutes** for privileged/admin users (`APSC-DV-000080`), plus absolute session lifetime limits (`OWASP SM-8, SM-21`).
+    - Regenerate session IDs via FIPS 140-3 CSPRNG upon authentication, privilege elevation, or TLS transition (`APSC-DV-002250..002290`). Never recycle session IDs.
+    - Purge all client storage (`localStorage`, `sessionStorage`, IndexedDB, in-memory state) and cookies on logoff (`APSC-DV-000060`, `APSC-DV-002240`), display explicit logoff confirmation (`APSC-DV-000100`), and revoke all active sessions immediately when an account is disabled, deleted, or changes credentials (`APSC-DV-001800`).
+13. **Account Lockout, Constant-Time Auth & Account Lifecycle (DISA STIG & OWASP 4.3.7):**
+    - Lock accounts after **3 consecutive invalid logon attempts within 15 minutes** (`APSC-DV-000530`) and enforce constant-time credential verification (dummy Argon2id hash verify on unknown users) to prevent user enumeration (`OWASP A-19, A-20`).
+    - When local passwords are used: require >= 15 chars (`APSC-DV-001680`), multi-class complexity, 8-char diff on change (`APSC-DV-001730`), 5-generation history (`APSC-DV-001780`), and zero security questions (`OWASP P-6`).
+    - Auto-disable temporary accounts after **72 hours** (`APSC-DV-000300`) and inactive accounts after **35 days** (`APSC-DV-000320`). Display last successful/failed logon timestamp upon login (`APSC-DV-000580`). Require Step-Up re-authentication before sensitive operations (`APSC-DV-001470`) and mTLS/PKI path validation (`CRL`/`OCSP` cache) for service-to-service calls (`APSC-DV-001640`, `APSC-DV-001850`).
+14. **Input Canonicalization, XML/XXE, Safe Deserialization & File Magic-Bytes (DISA STIG & OWASP 4.3.5, 4.3.6):**
+    - Normalize UTF-8 inputs (`NFKC`) before validation (`APSC-DV-002520`, `OWASP CEC-5`) and strip/reject ASCII control characters in headers.
+    - Disable XML DTDs and external entities (`resolve_entities=False`, `no_network=True`, `defusedxml`) (`APSC-DV-002390`, `APSC-DV-002550`). Enforce signature, timestamp, and `OneTimeUse` validation on SAML/WS-Security assertions (`APSC-DV-000160..000270`).
+    - Prohibit unsafe deserializers (`pickle`, `yaml.load`, `eval`) and direct OS shell execution (`shell=True`, `os.system`) (`APSC-DV-002510`, `OWASP VSD 1-6`).
+    - Validate uploaded files via magic-byte signatures, store outside web root with `noexec`, and reference files via allowlisted index maps rather than raw paths (`APSC-DV-002485`, `APSC-DV-002960`, `OWASP FV 1-9`).
+15. **Tamper-Proof Security Logging, Log Injection Defense & 75% Storage Alert (DISA STIG & OWASP 4.3.10):**
+    - Log auth, account lifecycle (`APSC-DV-000330..000430`), session lifecycle (`APSC-DV-000620..000660`), privilege changes/commands (`APSC-DV-000730..000900`), and startup/shutdown (`APSC-DV-000950`) with UTC timestamps (1s/ms granularity), source/dest IPs, user/process ID, outcome, and `trace_id`.
+    - Sanitize CR/LF (`\r`, `\n`) and HTML control chars to prevent Log Injection (`OWASP SL-4, SLD-2`), and never log plaintext passwords, tokens, session IDs, or PII (`APSC-DV-000650`).
+    - Protect audit logs with HMAC chains (`APSC-DV-001350`), centralize log off-loading (`APSC-DV-001070`), and alert administrators when audit storage reaches **75% capacity** (`APSC-DV-001090`) or on audit failure (`APSC-DV-001100`).
+16. **FIPS 140-3 Crypto Agility, Memory Zeroization & DB Export Scrubbing (DISA STIG & OWASP 4.3.4, 4.3.9):**
+    - Use FIPS 140-2/140-3 validated modules with crypto-agile interfaces (`APSC-DV-002010..002040`, `OWASP CP-5`), disable TLS/HTTP compression (anti-CRIME/BREACH), zeroize secrets in memory at function exit (`APSC-DV-002590`, `OWASP MM 1-9`), and scrub credentials/PII from database exports (`APSC-DV-003310`).
+17. **HTTP Security Headers (OSHP), Fail-Secure State & Threat Modeling as Code (DISA STIG & OWASP 4.2, 5.4.4, 7.8):**
+    - Enforce `Strict-Transport-Security`, `Content-Security-Policy`, `Referrer-Policy`, `Cache-Control: no-store` on sensitive endpoints, and suppress server/framework version banners (`OWASP SC 8-11`, `OSHP`).
+    - Fail to a secure state (deny by default) on startup/abort/config failure (`APSC-DV-002310`, `OWASP AC-10`), verify security function integrity on startup/every 30 days (`APSC-DV-002770`), mitigate OWASP API Security Top 10 (2023) (`BOLA`, `BOPLA`, `BFLA`, anti-data-mining `APSC-DV-000450`), and maintain programmatic Threat Models (`pytm` / `Threat Dragon`, `APSC-DV-003230`).
 
 ---
 
@@ -69,7 +93,9 @@ Apply these non-negotiable security directives before writing any code:
 Before committing code:
 - [ ] New/modified ORM models have matching migration scripts verified in real DB?
 - [ ] Inbound network handlers tolerate proxy NAT and validate against SSRF?
-- [ ] Mass assignment blocked with `extra="forbid"`?
+- [ ] Mass assignment blocked with `extra="forbid"` and BOLA/BOPLA/BFLA checks enforced?
+- [ ] Inputs canonicalized (`NFKC`), XML external entities disabled, and logs sanitized against CR/LF injection & secret leaks?
+- [ ] Session idle/absolute timeouts, concurrency limits, and full storage purge on logoff verified?
 - [ ] Zero missing imports verified via static analysis (`ruff check`, `vue-tsc --noEmit`)?
 - [ ] Added Karate Labs API and/or UI BDD scenarios?
 - [ ] Executed secret scanning (`verificar-secretos.sh`) with 0 leaks detected?

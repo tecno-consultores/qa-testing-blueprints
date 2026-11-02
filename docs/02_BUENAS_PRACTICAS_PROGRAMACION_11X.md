@@ -70,8 +70,21 @@ Cualquier sistema moderno debe incorporar estas directivas como invariantes de a
 ### 3.5. Gobernanza Maker-Checker (Regla de Dos Personas)
 - Para operaciones altamente destructivas (formateo de almacenamiento, borrado masivo de clientes, actualización de firmware), la API debe responder con `HTTP 202 Accepted` y encolar la solicitud en una bandeja de aprobaciones. La operación no se ejecuta hasta que un segundo operador autorizado apruebe el cambio.
 
-### 3.6. Catálogo de Mitigación de 13 Vectores de Ataque en Plataforma Híbrida
-Para profundizar en las implementaciones de código (prevención de Asignación Masiva con `extra="forbid"`, protección anti-CSWSH en WebSockets, sanitización de respuestas 422 en producción, evasión de XSS y Prototype Pollution en el frontend, y márgenes de gracia en rotación de tokens), consulta la guía técnica especializada:
+### 3.6. Cumplimiento DISA ASD STIG V6R5 y OWASP Developer Guide (Sesiones, Auditoría, Fail-Secure y SBOM)
+- **Gobernanza de Sesiones y Cuentas (`DISA APSC-DV-000010, 000070, 000080, 000300, 000320, 000530` & `OWASP 4.3.7`):**
+  - Limitar el número de sesiones simultáneas por operador y aplicar *idle timeouts* diferenciados por rol (**10 minutos** para cuentas privilegiadas y **15 minutos** para cuentas estándar).
+  - Bloquear cuentas tras **3 intentos fallidos consecutivos en 15 minutos**, aplicando verificación en tiempo constante (*Dummy Argon2id Hash*) para evitar la enumeración de usuarios.
+  - Expirar cuentas temporales automáticamente a las **72 horas** y deshabilitar cuentas inactivas a los **35 días**.
+  - Purgar `sessionStorage`, `localStorage` y cachés del navegador al cerrar sesión, e invalidar inmediatamente todas las sesiones activas en servidor cuando se revoca una cuenta o cambia su contraseña.
+- **Canonicalización, Deserialización Segura y Validación por Magic Bytes (`DISA APSC-DV-002390, 002485, 002520` & `OWASP 4.3.5, 4.3.6`):**
+  - Normalizar toda entrada de texto a **Unicode `NFKC`** antes de ejecutar validaciones, deshabilitar entidades externas XML (`resolve_entities=False`, `no_network=True`), prohibir `pickle`/`yaml.load`/`shell=True` y validar cargas de archivos por *Magic Bytes* de cabecera y mapas de índices en lista blanca.
+- **Auditoría Forense Inmutable y Prevención de Log Injection (`DISA APSC-DV-000650, 001090, 001350` & `OWASP 4.3.10`):**
+  - Registrar eventos de seguridad en UTC con granularidad de milisegundos, sanitizando saltos de línea (`\r`, `\n`) para impedir *Log Injection*, encadenando registros con **HMAC-SHA256**, prohibiendo secretos/tokens en logs y emitiendo alerta operativa cuando el almacenamiento de auditoría supere el **75% de capacidad**.
+- **Estado Fail-Secure, Zeroización de Memoria y Cadena de Suministro (`DISA APSC-DV-002310, 002590, 002770, 003230, 003310` & `OWASP 4.2, 4.3.9, 5.3.4`):**
+  - Iniciar y fallar siempre en estado seguro (*Fail-Closed / Deny-by-Default*), ejecutar auto-verificación de funciones criptográficas al arranque, sobrescribir búferes de secretos en memoria al salir de cada función, purgar credenciales de exportaciones de base de datos, modelar amenazas como código (`OWASP pytm` / `Threat Dragon`) y generar **CycloneDX SBOM/CBOM (ECMA-424)** firmados criptográficamente.
+
+### 3.7. Catálogo de Mitigación de 22 Vectores de Ataque en Plataforma Híbrida (DISA STIG V6R5 + OWASP)
+Para profundizar en las implementaciones de código (prevención de Asignación Masiva con `extra="forbid"`, protección anti-CSWSH en WebSockets, sanitización de respuestas 422 en producción, evasión de XSS y Prototype Pollution en el frontend, timeouts y concurrencia de sesión, bloqueo de cuentas en tiempo constante, anti-XXE, auditoría inmutable con HMAC, cabeceras OWASP OSHP, mitigación de OWASP API Security Top 10 2023 y Threat Modeling con `pytm`), consulta la guía técnica especializada:
 👉 **[`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`](04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md)**
 
 ---

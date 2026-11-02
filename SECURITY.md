@@ -134,6 +134,45 @@ La integración entre aplicaciones SPA (Vue 3, React) y APIs REST/WebSockets (Fa
 - **Mitigación:** 
   - En entorno de producción (`APP_ENV=production`), configurar FastAPI con `docs_url=None`, `redoc_url=None` y `openapi_url=None`.
 
+### 4.13. Gobernanza de Sesiones, Timeouts por Rol y Purga en Logout (`DISA STIG V-222387..V-222392, V-222578..V-222583` & `OWASP 4.3.7`)
+- **Riesgo:** Secuestro o fijación de sesiones (*Session Fixation*), sesiones huérfanas indefinidas y persistencia de datos sensibles en el almacenamiento del navegador tras cerrar sesión.
+- **Mitigación:**
+  - Limitar el número de sesiones simultáneas por usuario (`APSC-DV-000010`) y auditar inicios de sesión concurrentes desde distintas estaciones/IPs (`APSC-DV-003360`).
+  - Aplicar *idle timeouts* diferenciados por rol: **10 minutos** para sesiones administrativas/privilegiadas (`APSC-DV-000080`) y **15 minutos** para sesiones operativas estándar (`APSC-DV-000070`), además de expiración absoluta (`OWASP SM-8`).
+  - Rotar el ID de sesión con un CSPRNG validado (FIPS 140-3) al autenticar o cambiar nivel de privilegio (`APSC-DV-002250..002290`), revocar todas las sesiones activas al deshabilitar cuentas o rotar credenciales (`APSC-DV-001800`) y purgar `localStorage`, `sessionStorage` y `CacheStorage` al cerrar sesión mostrando confirmación explícita (`APSC-DV-000060, 000100, 002240`).
+
+### 4.14. Bloqueo de Cuentas, Anti-Enumeración en Tiempo Constante y Ciclo de Vida (`DISA STIG V-222409..V-222411, V-222432, V-222536..V-222547` & `OWASP 4.3.7`)
+- **Riesgo:** Enumeración de cuentas válidas por diferencias de tiempo de respuesta (*Timing Side-Channel*), ataques de fuerza bruta y abuso de cuentas temporales o inactivas no revocadas.
+- **Mitigación:**
+  - Bloquear la cuenta tras **3 intentos fallidos consecutivos en 15 minutos** (`APSC-DV-000530`) y verificar siempre contra un hash señuelo precalculado (`DUMMY_ARGON2_HASH`) cuando el usuario no exista (`OWASP A-19, A-20`).
+  - Exigir contraseñas locales de al menos **15 caracteres** (`APSC-DV-001680`), complejidad multi-clase, cambio mínimo de 8 caracteres (`APSC-DV-001730`), historial de **5 generaciones** (`APSC-DV-001780`) y prohibir preguntas de seguridad (`OWASP P-6`).
+  - Deshabilitar automáticamente cuentas temporales a las **72 horas** (`APSC-DV-000300`) y cuentas inactivas a los **35 días** (`APSC-DV-000320`), notificando al usuario la fecha/hora de su último inicio de sesión (`APSC-DV-000580`). Exigir *Step-Up Re-Authentication* para acciones críticas (`APSC-DV-001470`) y validación mTLS/PKI con caché local CRL/OCSP para integraciones máquina a máquina (`APSC-DV-001640, 001850`).
+
+### 4.15. Canonicalización Unicode (`NFKC`), Anti-XXE, Deserialización Segura y Magic Bytes (`DISA STIG V-222593, V-222601..V-222608, V-222626` & `OWASP 4.3.5, 4.3.6`)
+- **Riesgo:** Evasión de filtros mediante caracteres homógrafos Unicode, lectura de archivos locales por entidades externas XML (XXE), ejecución remota de código por deserialización insegura (`pickle`/`yaml.load`) o `shell=True`, y carga de binarios maliciosos con extensión falsificada.
+- **Mitigación:**
+  - Normalizar toda entrada de texto a **Unicode `NFKC`** antes de validar (`APSC-DV-002520`) y rechazar caracteres de control ASCII.
+  - Deshabilitar DTDs y entidades externas en analizadores XML (`resolve_entities=False`, `no_network=True`) (`APSC-DV-002390, 002550`) y validar firmas/timestamps/`OneTimeUse` en aserciones SAML (`APSC-DV-000160..000270`).
+  - Prohibir `shell=True` (`APSC-DV-002510`) y deserializadores inseguros (`OWASP VSD 1-6`), validar archivos subidos mediante firmas binarias (*Magic Bytes*), almacenarlos fuera del web root con permisos `noexec` y referenciarlos mediante mapas de índices en lista blanca (`APSC-DV-002485, 002960`).
+
+### 4.16. Auditoría Forense Inmutable, Anti-Log Injection y Alerta al 75% de Capacidad (`DISA STIG V-222444, V-222446..V-222509` & `OWASP 4.3.10`)
+- **Riesgo:** Falsificación de registros de auditoría mediante inyección CR/LF (`\r\n`), exposición de credenciales/tokens en logs, manipulación de trazas forenses o pérdida de auditoría por disco lleno.
+- **Mitigación:**
+  - Sanitizar caracteres CR/LF y etiquetas HTML en todos los campos registrables (`OWASP SL-4, SLD-2`) y prohibir terminantemente el registro de contraseñas, tokens o IDs de sesión en logs (`APSC-DV-000650`).
+  - Estructurar cada evento con marca de tiempo UTC (granularidad de milisegundos, `APSC-DV-001250`), IPs de origen y destino, identidad de usuario/proceso, resultado y `trace_id`, protegiendo la integridad mediante cadenas **HMAC-SHA256** (`APSC-DV-001350`) y alertando cuando el almacenamiento de auditoría alcance el **75% de capacidad** (`APSC-DV-001090`).
+
+### 4.17. Criptografía FIPS 140-3, Zeroización de Memoria y Sanitización de Exportaciones (`DISA STIG V-222393..V-222395, V-222570..V-222577, V-222612, V-222666` & `OWASP 4.3.9`)
+- **Riesgo:** Exposición de llaves criptográficas en volcados de memoria RAM o filtración de hashes/credenciales administrativas en volcados de base de datos exportados.
+- **Mitigación:**
+  - Utilizar módulos criptográficos validados bajo **FIPS 140-2 / 140-3** con diseño de agilidad criptográfica (`APSC-DV-002010..002040`, `OWASP CP-5`), deshabilitar compresión TLS/HTTP (anti-CRIME/BREACH), sobrescribir con ceros (`zeroize`) los búferes de memoria que contengan secretos al salir de cada función (`APSC-DV-002590`, `OWASP MM 1-9`) y purgar credenciales/PII de cualquier exportación de base de datos adjuntando etiquetas de clasificación de seguridad (`APSC-DV-000110, 003120, 003310`).
+
+### 4.18. Cabeceras OSHP, Estado Fail-Secure, API Top 10 (2023), CycloneDX SBOM y Threat Modeling (`DISA STIG V-222424, V-222513, V-222585, V-222616, V-222655` & `OWASP 4.2, 5.3.4, 5.4.4, 7.8`)
+- **Riesgo:** Fallos en modo abierto (*Fail-Open*) durante el arranque o caídas de configuración, extracción masiva de datos (*Data Mining*), vulnerabilidades BOLA/BOPLA/BFLA en APIs y compromisos en la cadena de suministro de software.
+- **Mitigación:**
+  - Aplicar cabeceras del **OWASP Secure Headers Project (OSHP)** (`Strict-Transport-Security`, `Content-Security-Policy`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Cache-Control: no-store`, `X-Robots-Tag: noindex`) y suprimir cabeceras `Server` / `X-Powered-By`.
+  - Garantizar transición a **estado seguro (Fail-Closed)** ante fallos de inicialización o aborto (`APSC-DV-002310`) y ejecutar auto-verificación de funciones de seguridad al arranque (`APSC-DV-002770`).
+  - Imponer cuotas anti-data-mining en consultas paginadas (`APSC-DV-000450`), validar respuestas de APIs externas con esquemas estrictos y timeouts (`OWASP API10:2023`), mantener modelos de amenazas como código (`OWASP pytm` / `Threat Dragon`, `APSC-DV-003230`) y generar inventarios **CycloneDX SBOM/CBOM (ECMA-424)** verificados criptográficamente (`APSC-DV-001430, 003140`).
+
 ---
 
 ## 5. Auditoría Preventiva de Vulnerabilidades y Seguridad Shift-Left

@@ -12,8 +12,8 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
 | **Complejidad Ciclomática** | `radon` (Python), `eslint-plugin-sonarjs` | Grado **A** o **B** (Cognitiva $\le 15$) | Rechazo por deuda técnica |
 | **Mantenibilidad** | `radon mi` | Grado **A** ($> 20$) | Refactorización obligatoria |
 | **Seguridad Estática (SAST)** | `bandit`, `eslint-plugin-security`, `ShellCheck` | **0 hallazgos HIGH / MEDIUM** | Bloqueo por vulnerabilidad |
-| **CVEs en Dependencias** | `uv pip audit`, `pnpm audit`, `trivy` | **0 vulnerabilidades CRITICAL / HIGH** | Bloqueo de suministro de software |
-| **Seguridad Dinámica (DAST)**| `zaproxy/zap-stable` (OWASP ZAP) | **0 alertas HIGH**, cabeceras auditadas | Bloqueo dinámico en CI/CD |
+| **CVEs en Dependencias & SBOM** | `uv pip audit`, `pnpm audit`, `trivy`, `cyclonedx-py` | **0 vulnerabilidades CRITICAL / HIGH** + SBOM CycloneDX | Bloqueo de suministro de software |
+| **Seguridad Dinámica (DAST & OSHP)**| `zaproxy/zap-stable` (OWASP ZAP + WSTG/ASVS/OSHP) | **0 alertas HIGH**, cabeceras OSHP y estado Fail-Secure | Bloqueo dinámico en CI/CD |
 | **Pruebas de Mutación** | `mutmut`, `stryker` | Puntuación de mutación $> 80\%$ | Rechazo por asertos débiles |
 | **Comportamiento BDD** | `sinfallas/karatelabs:latest` (Gherkin) | **100% de escenarios PASSED** | Bloqueo de flujo funcional |
 | **Paridad de Esquema DB** | `.agents/scripts/verify_alembic_orm_parity.py` | **0 tablas huérfanas / drift = 0** | Rechazo por Anti-Mock Blindness |

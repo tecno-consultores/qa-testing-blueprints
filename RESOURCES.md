@@ -53,6 +53,16 @@
 
 ## Referencias:
 
+* [OWASP Developer Guide v4.2](https://devguide.owasp.org/)
+* [OWASP Application Security Verification Standard (ASVS)](https://owasp.org/www-project-application-security-verification-standard/)
+* [OWASP Web Security Testing Guide (WSTG)](https://owasp.org/www-project-web-security-testing-guide/)
+* [OWASP API Security Top 10 (2023)](https://owasp.org/API-Security/)
+* [OWASP Secure Headers Project (OSHP)](https://owasp.org/www-project-secure-headers/)
+* [OWASP CycloneDX SBOM / CBOM Standard (ECMA-424)](https://cyclonedx.org/)
+* [OWASP pytm (Pythonic Threat Modeling)](https://github.com/izar/pytm)
+* [OWASP Threat Dragon](https://owasp.org/www-project-threat-dragon/)
+* [OWASP Coraza WAF](https://coraza.io/) + [OWASP Core Rule Set (CRS)](https://coreruleset.org/)
+* [DISA Application Security and Development (ASD) STIG V6R5](https://public.cyber.mil/stigs/)
 * [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/)
 * [Semantic Versioning](https://semver.org/lang/es/)
 * [Code of conduct](https://www.contributor-covenant.org/es/version/2/1/code_of_conduct.html)
