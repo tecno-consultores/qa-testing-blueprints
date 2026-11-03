@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/qa-logo.jpeg" alt="QA Testing Blueprints Logo" width="320" style="max-width: 100%; height: auto; border-radius: 8px;" />
+</p>
+
 # QA Testing Blueprints (Estándar Corporativo Nivel 11X)
 
 Bienvenido a **QA Testing Blueprints**, el repositorio central de estándares, arquitecturas de prueba, buenas prácticas de ingeniería y gobernanza para **Agentes de Inteligencia Artificial** (Google Antigravity, Claude Code / Claude Desktop, Hermes Agent de Nous Research, Cursor, Windsurf) y desarrolladores humanos en la creación de software de nivel corporativo.
@@ -50,7 +54,7 @@ El repositorio está dividido en ecosistemas tecnológicos listos para ser adopt
 | **`vue3/`** | Frontend Web (Vue 3 / Vite) | `ESLint` + `vue-tsc` + `Vitest (95%)` + `Stryker` + `Playwright` + `@axe-core` + `Lighthouse CI` + `Karate UI` |
 | **`react-frontend/`**| Frontend Web (React / Vite) | `ESLint` + `tsc` + `Vitest (95%)` + `RTL` + `Stryker` + `Playwright` + `@axe-core` + `Lighthouse CI` + `Karate UI` |
 | **`bash-scripts/`** | Automatización DevOps | `ShellCheck` + `shfmt` + `BATS-core` + `bats-mock` + `kcov` |
-| **`mcp-server/`** | Servidor MCP Node.js/TS | Paquete `@sinfallas/mcp-qa-11x`: Servidor MCP (stdio), 5 recursos `blueprint://*`, 4 tools y CLI `install-skill` |
+| **`mcp-server/`** | Servidor MCP Node.js/TS | Paquete `@sinfallas/mcp-qa-11x`: Servidor MCP (stdio), 8 recursos `blueprint://*`, 8 tools y CLI `install-skill` |
 | **`.agents/`** | Gobernanza de Agentes IA | Reglas (`rules/`), Habilidades (`skills/`) y Scripts de certificación (`scripts/`) |
 | **`manifest.json`** | Manifiesto Criptográfico Zero-Clone | Índice criptográfico SHA-256 de verificación remota bajo demanda (DISA STIG `V-222513` / `APSC-DV-001430`) |
 

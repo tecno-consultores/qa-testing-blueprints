@@ -7,6 +7,9 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 ## [Unreleased]
 
 ### 🚀 Añadido (Added)
+* **Identidad Visual y Cabecera de Documentación (`README.md`):**
+  * **Integración del Logotipo Oficial (`assets/qa-logo.jpeg`):** Incorporación del logo oficial de QA Testing Blueprints en la cabecera principal de `README.md`, centrado con diseño responsive y bordes suavizados.
+  * **Actualización de Capacidades MCP:** Sincronización de la tabla de ecosistemas en `README.md` reflejando las 8 herramientas y 8 recursos del servidor `@sinfallas/mcp-qa-11x`.
 * **Hito 5 — Parsers Ahorradores de Tokens, Auditor DISA STIG / OWASP y Compuerta 11X (Tools 5–7 en `@sinfallas/mcp-qa-11x`):**
   * **Parsers Ahorradores de Tokens (`mcp-server/src/parsers/output-parsers.ts`):** Módulo optimizador de ventana de contexto que procesa salidas masivas de consola (stdout y stderr) de Docker y herramientas de QA, transformándolas en un JSON estructurado de menos de 40 líneas. Incorpora parsers de cobertura deterministas (`pytest-cov`, `vitest v8`, `kcov`) con cálculo automático del umbral ($\ge 95.0\%$) y detalle de líneas faltantes por archivo; parser de pruebas fallidas para Pytest, Vitest y BATS-core; parser de complejidad y linters para Radon (grados C a F), Mypy, Ruff, ESLint y ShellCheck (bloques multi-línea y formato GCC); parser de alertas de seguridad para Trivy y Bandit; parser de mutación para Mutmut y Stryker; y extractor `tail_log` de las últimas 15 líneas limpias sin secuencias de escape ANSI (`stripAnsi`).
   * **Tool 5: `audit_security_stig_owasp` (`mcp-server/src/tools/security-auditor.ts`):** Auditoría estática integral de seguridad que evalúa el código fuente del proyecto destino frente a los 22 patrones DISA ASD STIG V6R5 y OWASP Developer Guide v4.2 mediante 10 reglas deterministas (`SEC-01` a `SEC-10`) y la regla visual `UI-11X-01`:
