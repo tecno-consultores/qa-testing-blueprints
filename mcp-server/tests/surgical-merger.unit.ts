@@ -83,6 +83,43 @@ describe('SurgicalMerger Service (Non-destructive AST/Configuration Merging)', (
       expect(parsed.devDependencies.vitest).toBe('^2.0.0');
       expect(changes).toHaveLength(2);
     });
+
+    it('injects --max-warnings 0 into lint script when using eslint if missing', () => {
+      const target = JSON.stringify({
+        name: 'legacy-app',
+        scripts: {
+          lint: 'eslint src --ext .ts',
+        },
+      });
+      const example = JSON.stringify({
+        scripts: {
+          test: 'vitest run',
+        },
+      });
+      const { merged, changes } = merger.mergePackageJson(target, example);
+      const parsed = JSON.parse(merged);
+
+      expect(parsed.scripts.lint).toBe('eslint src --ext .ts --max-warnings 0');
+      expect(changes).toContain('Inyectado flag estricto "--max-warnings 0" en script "lint"');
+    });
+
+    it('does not duplicate --max-warnings 0 if already present in lint script', () => {
+      const target = JSON.stringify({
+        name: 'modern-app',
+        scripts: {
+          lint: 'eslint src --max-warnings 0',
+        },
+      });
+      const example = JSON.stringify({
+        scripts: {
+          test: 'vitest run',
+        },
+      });
+      const { merged } = merger.mergePackageJson(target, example);
+      const parsed = JSON.parse(merged);
+
+      expect(parsed.scripts.lint).toBe('eslint src --max-warnings 0');
+    });
   });
 
   describe('mergePyprojectToml', () => {

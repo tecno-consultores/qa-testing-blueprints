@@ -43,6 +43,10 @@ This reference provides technical rules, testing conventions, and ephemeral Dock
 - **E2E / A11y Tests:** `e2e/**/*.e2e.ts`. Executed with Playwright and `@axe-core/playwright`.
 - **UI BDD Scenarios:** `test/ui_business_flow.feature`. Executed with `sinfallas/karatelabs:latest` driving real Chrome Headless.
 
+### Inflexible Linter Standard & Hermetic Test Isolation
+1. **Zero-Warning Tolerance (`--max-warnings 0`):** The `"lint"` script in `package.json` MUST enforce `--max-warnings 0`. Any ESLint, SonarJS, or TypeScript warning MUST fail the process immediately (`Exit Code 1`), preventing silent accumulation of technical debt.
+2. **Hermetic Unit Test Isolation (Zero Network Leaks):** Unit tests (`.unit.ts`) MUST NEVER perform live network requests. When testing fallbacks, offline modes, or error handling, intercept or mock `globalThis.fetch` or HTTP clients deterministically to ensure tests pass without depending on external connectivity.
+
 ### Zero-Orphan Invariants
 1. **Zero Orphan UI Components:** Every single `.vue` or `.tsx` component MUST have an active `.unit.ts` file asserting its rendering and behavior. Verified via `.agents/scripts/verify_zero_orphan_vue_components.py`.
 2. **Zero Orphan API Routes:** All frontend API client calls (`api.get('/endpoint')`) must correspond to a registered backend route, preventing 404/405 errors. Verified via `.agents/scripts/verify_no_orphan_api_endpoints.py`.

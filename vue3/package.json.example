@@ -13,7 +13,7 @@
     "type-check": "vue-tsc --noEmit",
     "format": "prettier --write \"src/**/*.{js,ts,vue}\" \"e2e/**/*.{js,ts}\"",
     "format:check": "prettier --check \"src/**/*.{js,ts,vue}\" \"e2e/**/*.{js,ts}\"",
-    "lint": "eslint . --ext .vue,.js,.ts",
+    "lint": "eslint . --ext .vue,.js,.ts --max-warnings 0",
     "test:unit": "vitest run",
     "test:coverage": "vitest run --coverage",
     "mutate": "stryker run",

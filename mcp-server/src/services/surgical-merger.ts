@@ -37,6 +37,17 @@ export class SurgicalMerger {
         changes.push(`Añadido script: "${scriptName}": "${scriptCmd}"`);
       }
     }
+
+    // Blindaje 11X: Asegurar que el script "lint" que usa eslint aplique --max-warnings 0
+    if (
+      typeof mergedScripts.lint === 'string' &&
+      mergedScripts.lint.includes('eslint') &&
+      !mergedScripts.lint.includes('--max-warnings')
+    ) {
+      mergedScripts.lint = `${mergedScripts.lint} --max-warnings 0`;
+      changes.push('Inyectado flag estricto "--max-warnings 0" en script "lint"');
+    }
+
     targetObj.scripts = mergedScripts;
 
     // 2. Inyectar devDependencies faltantes

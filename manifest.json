@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.8.1",
-  "generated_at_utc": "2026-11-03T03:31:18Z",
+  "generated_at_utc": "2026-11-03T03:35:13Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -180,8 +180,8 @@
           "path": "node-backend/package.json.example",
           "target_name": "package.json",
           "merge_strategy": "surgical_merge",
-          "sha256": "eb866e82c42626ab8767b323db59fbe863301f2d01cc0e075b9784cf9830d7d9",
-          "size_bytes": 1731
+          "sha256": "cb54b8dc005913714c8f88348c13645d3ba4a2f8ed548e941d4f00f0c6553f35",
+          "size_bytes": 1748
         },
         {
           "path": "node-backend/stryker.conf.json.example",
@@ -471,8 +471,8 @@
           "path": "vue3/package.json.example",
           "target_name": "package.json",
           "merge_strategy": "surgical_merge",
-          "sha256": "1e3a8d1d968f1fc4f894ed29ae8ebee9fadd2ad1f8419af7ef0cdb628e9a1fab",
-          "size_bytes": 1887
+          "sha256": "2a64b530db4815fc717de7579b71a9b0ce236e8da17f2c7e0306b384dd9394ea",
+          "size_bytes": 1904
         },
         {
           "path": "vue3/playwright.config.ts.example",
@@ -610,8 +610,8 @@
       "path": ".agents/rules/mandatory_qa_pyramid_and_doc_sync.md",
       "target_name": ".agents/rules/mandatory_qa_pyramid_and_doc_sync.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "ea9b014162467f1d82c772926a30448204a31223710f264eea757ad8cd1dcecf",
-      "size_bytes": 4363
+      "sha256": "97691c912b27df38a82b97271b4a8789c6cf89f4941fe3bc673206b327159c5a",
+      "size_bytes": 5001
     },
     {
       "path": ".agents/rules/secure_development_and_testing_guidelines.md",
@@ -694,15 +694,15 @@
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "b6c808aaee7a80e66a77edeed40bf920b209b6bc8ed3a969443df8b527799f87",
-      "size_bytes": 14041
+      "sha256": "2c5acc55d2fc5cd2392addd5f327d1cf3bcecad482396d4726ba096e4864ce41",
+      "size_bytes": 14398
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
       "target_name": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "a3a4a3f9190ec2826a86e117f60186b41353b0c47aba3f603308eef9a389d80e",
-      "size_bytes": 11517
+      "sha256": "fb29a5ed2ded513e2e52bb57649a332f60fd59d9635249df72f528fb34d05ade",
+      "size_bytes": 11617
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.md",
@@ -722,8 +722,8 @@
       "path": ".agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md",
       "target_name": ".agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "3dd072dc5fa7d0c764304c0c0d17e1c4cead92f12dcc2d306de0ee88bbec5fce",
-      "size_bytes": 6622
+      "sha256": "0daf11d2ecd4229b1754a224ab0c8530de1d8a05c8b9a76e622a6e689a8b63cc",
+      "size_bytes": 7265
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/05-stack-bash-devops.md",

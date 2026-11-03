@@ -28,6 +28,10 @@ Any addition, modification, or bug fix in application source code (`fastapi/`, `
    - Every single UI component or view (`.vue`, `.tsx`, `.jsx`) must have a dedicated `.unit.ts` or `.unit.tsx` test suite. Zero orphan components allowed (`.agents/scripts/verify_zero_orphan_vue_components.py`).
 6. **Mutation Testing Resilience (Mutmut / Stryker):**
    - Tests must kill artificial logical mutations to prove test assertion rigor and eliminate false confidence.
+7. **Linter Inflexibility & Zero-Warning Invariant:**
+   - Static analysis scripts (`lint`) MUST enforce `--max-warnings 0` (for ESLint) or equivalent strict modes (Ruff, Mypy, ShellCheck). Any warning MUST fail the process immediately (`Exit Code 1`), eliminating unnoticed technical debt or cosmetic degradation.
+8. **Hermetic Test Isolation (Zero Network Leaks):**
+   - Unit tests (`.unit.py`, `.unit.ts`, `.unit.tsx`) MUST strictly isolate network boundaries. Outbound calls to external APIs or GitHub Raw during unit testing are strictly prohibited; developers and agents must mock or intercept network interfaces deterministically.
 
 ---
 

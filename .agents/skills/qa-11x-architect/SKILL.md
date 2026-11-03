@@ -66,17 +66,17 @@ When operating in pure CLI, Cloud, or desktop assistants without MCP tools:
 1. **Law 1: Rule Zero — Ephemeral Docker Isolation**  
    NEVER run `pip`, `uv`, `pytest`, `npm`, `pnpm`, `vitest`, `playwright`, `shellcheck`, or linters directly on the host OS. All commands MUST execute inside ephemeral containers using `sinfallas/*` base images with named cache volumes (`uv-cache`, `pnpm-store`).
 
-2. **Law 2: Strict Coverage & Complexity Thresholds**  
-   Unit test coverage MUST achieve $\ge 95.0\%$ across lines, branches, and statements (including `catch`/`except` recovery paths). Cyclomatic Complexity must remain Grade A (`CC <= 5` via Radon / SonarJS). 0 SAST/DAST High/Critical vulnerabilities. 0 surviving critical mutants.
+2. **Law 2: Strict Coverage, Complexity Thresholds & Zero Warnings**  
+   Unit test coverage MUST achieve $\ge 95.0\%$ across lines, branches, and statements (including `catch`/`except` recovery paths). Cyclomatic Complexity must remain Grade A (`CC <= 5` via Radon / SonarJS). 0 SAST/DAST High/Critical vulnerabilities. 0 surviving critical mutants. Static analysis and linters (ESLint, SonarJS, Ruff, ShellCheck) MUST enforce zero warnings (`--max-warnings 0` on ESLint); any warning is treated as a fatal build-breaking error.
 
 3. **Law 3: Network Isolation vs. Anti-Mock Blindness**  
-   Unit tests MUST block all external network access (`pytest-mock`, `nock`, `msw`, `bats-mock`). Conversely, database persistence, ORM schema synchronization, and migrations MUST NEVER be mocked: test against real ephemeral `postgres:17-alpine` and verify schema parity via `verify_alembic_orm_parity.py`.
+   Unit tests MUST block all external network access (`pytest-mock`, `nock`, `msw`, `bats-mock`, `globalThis.fetch` interception) to guarantee 100% offline determinism and prevent test flakiness. Conversely, database persistence, ORM schema synchronization, and migrations MUST NEVER be mocked: test against real ephemeral `postgres:17-alpine` and verify schema parity via `verify_alembic_orm_parity.py`.
 
 4. **Law 4: Visual Geometry & Anti-JSDOM Layout**  
    JSDOM returns `0x0` for all bounding boxes and cannot detect overlaps. Fixed floating footers (`position: fixed`) that steal viewport space or obstruct interactive elements are strictly prohibited. Footers must be in-flow (`margin-top: auto` inside `<main>`). Layouts must be verified in real headless Chromium with Karate UI / Playwright + `@axe-core` (0 WCAG 2.1 AA violations).
 
-5. **Law 5: Non-Destructive Surgical Merging**  
-   When importing `.example` configuration files (`pyproject.toml.example`, `package.json.example`, `Makefile.example`), surgically merge test frameworks, linters, and QA targets. NEVER delete pre-existing production dependencies, custom scripts, or business configuration.
+5. **Law 5: Non-Destructive Surgical Merging & Linter Hardening**  
+   When importing `.example` configuration files (`pyproject.toml.example`, `package.json.example`, `Makefile.example`), surgically merge test frameworks, linters, and QA targets, enforcing `--max-warnings 0` on lint scripts. NEVER delete pre-existing production dependencies, custom scripts, or business configuration.
 
 6. **Law 6: Mandatory Karate Labs BDD, Zero Orphan UI Components & Zero Orphan API Endpoints**  
    Every API endpoint requires Karate Labs HTTP BDD scenarios (`api_test.feature`). Every UI workflow requires Karate Labs UI scenarios (`ui_business_flow.feature`). Every `.vue` or `.tsx` component must possess an active unit test (`verify_zero_orphan_vue_components.py`). Every frontend HTTP request must correspond to an active backend route (`verify_no_orphan_api_endpoints.py`).

@@ -11,9 +11,9 @@ This reference provides the foundational execution matrix for the 13 layers of t
 
 | Layer | Domain / Objective | Canonical Tools | Mandatory Gate / Threshold | Docker Command |
 | :---: | :--- | :--- | :--- | :--- |
-| **01** | **Static Analysis, Formatting & SAST** | `ruff`, `bandit`, `eslint`, `eslint-plugin-security`, `shellcheck`, `shfmt` | **0 errors, 0 warnings, 0 HIGH/MEDIUM vulnerabilities** | `make qa-lint` |
+| **01** | **Static Analysis, Formatting & SAST** | `ruff`, `bandit`, `eslint` (`--max-warnings 0`), `eslint-plugin-security`, `shellcheck`, `shfmt` | **0 errors, 0 warnings (enforced via `--max-warnings 0`), 0 HIGH/MEDIUM vulnerabilities** | `make qa-lint` |
 | **02** | **Strict Typing & Complexity** | `mypy --strict`, `vue-tsc --noEmit`, `radon cc`, `sonarjs` | **0 type errors, Grade A (`CC <= 5`), Cognitive Complexity $\le 15$** | `make qa-lint` |
-| **03** | **Isolated Unit Tests with Network Mocks** | `pytest-cov`, `vitest` (`@vitest/coverage-v8`), `kcov` (BATS) | **$\ge 95.0\%$ coverage (lines, branches, statements)** | `make qa-unit` |
+| **03** | **Isolated Unit Tests with Network Mocks** | `pytest-cov`, `vitest` (`@vitest/coverage-v8`), `kcov` (BATS) | **$\ge 95.0\%$ coverage (lines, branches, statements), 100% offline isolation (zero network leaks)** | `make qa-unit` |
 | **04** | **Database Schema Parity & Migrations** | `alembic`, `verify_alembic_orm_parity.py`, ephemeral PostgreSQL 17 | **0 schema drifts, Alembic revision ID $\le 32$ chars** | `make qa-parity` |
 | **05** | **Front-Back Integration Contracts** | Real ephemeral API + KeyDB + PostgreSQL, Schemathesis | **0 payload/schema mismatches, full HTTP response compliance** | `make qa-contracts` |
 | **06** | **Black-Box REST API BDD** | `sinfallas/karatelabs:latest` (Gherkin HTTP) | **100% scenarios PASSED** in `api_test.feature` | `make qa-bdd` |
