@@ -100,7 +100,7 @@ export class GitHubFetcher {
 
     const manifestUrl = `${this.rawBaseUrl}/manifest.json`;
     const headers: Record<string, string> = {
-      'User-Agent': 'mcp-qa-11x/2.7.0',
+      'User-Agent': 'mcp-qa-11x/2.8.0',
     };
     if (etag && !forceRefresh) {
       headers['If-None-Match'] = etag;
@@ -165,7 +165,7 @@ export class GitHubFetcher {
     const fileUrl = `${this.rawBaseUrl}/${relPath}`;
     try {
       const response = await fetch(fileUrl, {
-        headers: { 'User-Agent': 'mcp-qa-11x/2.7.0' },
+        headers: { 'User-Agent': 'mcp-qa-11x/2.8.0' },
       });
       if (!response.ok) {
         throw new Error(`HTTP ${response.status} al descargar ${relPath}: ${response.statusText}`);

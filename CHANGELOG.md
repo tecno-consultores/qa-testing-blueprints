@@ -6,6 +6,10 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+---
+
+## [2.8.0] - 2026-11-02
+
 ### 🚀 Añadido (Added)
 * **Armonización Documental Integral Híbrida (Humanos + Agentes IA + MCP + Skills):**
   * **Ecosistema Dual-Consumer en `README.md`:** Reestructuración de la sección de adopción en 3 modos claros y complementarios: Modo 1 (Agentes de IA autónomos vía `@sinfallas/mcp-qa-11x` con 8 tools y 8 resources stdio), Modo 2 (Inyección de Skills Zero-Clone en 1 segundo con `qa-11x-architect` y `refactoring-ui`), y Modo 3 (Adopción en repositorio para desarrolladores humanos e ingenieros DevOps con Makefiles y Docker efímero). Incorporación de diagrama Mermaid ilustrando los flujos bidireccionales.
