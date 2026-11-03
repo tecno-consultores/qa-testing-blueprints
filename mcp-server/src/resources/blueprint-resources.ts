@@ -3,6 +3,8 @@
 
 import { GitHubFetcher } from '../services/github-fetcher.js';
 
+const MIME_MARKDOWN = 'text/markdown';
+
 export interface ResourceResponse {
   uri: string;
   mimeType: string;
@@ -36,7 +38,7 @@ export class BlueprintResources {
     }
     return {
       uri: 'blueprint://core/philosophy',
-      mimeType: 'text/markdown',
+      mimeType: MIME_MARKDOWN,
       text: content,
     };
   }
@@ -54,7 +56,7 @@ export class BlueprintResources {
     }
     return {
       uri: 'blueprint://security/disa-owasp-22',
-      mimeType: 'text/markdown',
+      mimeType: MIME_MARKDOWN,
       text: content,
     };
   }
@@ -79,7 +81,7 @@ export class BlueprintResources {
 
     return {
       uri: `blueprint://${stack}/readme`,
-      mimeType: 'text/markdown',
+      mimeType: MIME_MARKDOWN,
       text: content,
     };
   }
@@ -102,7 +104,7 @@ export class BlueprintResources {
     const content = await this.fetcher.fetchFileContent(fileEntry.path, fileEntry.sha256);
     return {
       uri: `blueprint://ui/refactoring-ui/${cleanTopic}`,
-      mimeType: 'text/markdown',
+      mimeType: MIME_MARKDOWN,
       text: content,
     };
   }
@@ -120,7 +122,7 @@ export class BlueprintResources {
     }
     return {
       uri: 'blueprint://core/active-task-template',
-      mimeType: 'text/markdown',
+      mimeType: MIME_MARKDOWN,
       text: content,
     };
   }

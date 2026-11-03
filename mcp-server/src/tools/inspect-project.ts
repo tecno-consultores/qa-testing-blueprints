@@ -86,22 +86,19 @@ function inspectBashStack(resolvedPath: string, detectedStacks: string[]): void 
 }
 
 function collectMissing11xFiles(resolvedPath: string): string[] {
-  const checkList: Array<{ relPath: string; identifier: string }> = [
-    { relPath: 'docker-compose.qa.yml', identifier: 'docker-compose.qa.yml' },
-    { relPath: 'Makefile', identifier: 'Makefile' },
-    { relPath: 'lefthook.yml', identifier: 'lefthook.yml' },
-    {
-      relPath: path.join('.agents', 'scripts', 'certify_task_completion.sh'),
-      identifier: '.agents/scripts/certify_task_completion.sh',
-    },
-    { relPath: 'TESTING.md', identifier: 'TESTING.md' },
-    { relPath: 'CHANGELOG.md', identifier: 'CHANGELOG.md' },
+  const checkList: string[] = [
+    'docker-compose.qa.yml',
+    'Makefile',
+    'lefthook.yml',
+    path.join('.agents', 'scripts', 'certify_task_completion.sh'),
+    'TESTING.md',
+    'CHANGELOG.md',
   ];
 
   const missing: string[] = [];
   for (const item of checkList) {
-    if (!fs.existsSync(path.join(resolvedPath, item.relPath))) {
-      missing.push(item.identifier);
+    if (!fs.existsSync(path.join(resolvedPath, item))) {
+      missing.push(item);
     }
   }
   return missing;

@@ -431,13 +431,21 @@ strict = true
         localOverridePath: emptyLocalDir, // local existe pero no contiene los archivos
       });
 
-      // readLocalManifest no encuentra manifest.json y cae al cache (línea 49 cubierta)
-      const manifest = await fetcher.fetchManifest();
-      expect(manifest.blueprint_version).toBe('2.7.0');
+      const origFetch = globalThis.fetch;
+      globalThis.fetch = async () => {
+        throw new Error('Simulated network offline');
+      };
+      try {
+        // readLocalManifest no encuentra manifest.json y cae al cache (línea 49 cubierta)
+        const manifest = await fetcher.fetchManifest();
+        expect(manifest.blueprint_version).toBe('2.7.0');
 
-      // readLocalFile no encuentra subdir/test.txt y cae al cache (línea 143 cubierta)
-      const content = await fetcher.fetchFileContent('subdir/test.txt', fileHash);
-      expect(content).toBe(fileContent);
+        // readLocalFile no encuentra subdir/test.txt y cae al cache (línea 143 cubierta)
+        const content = await fetcher.fetchFileContent('subdir/test.txt', fileHash);
+        expect(content).toBe(fileContent);
+      } finally {
+        globalThis.fetch = origFetch;
+      }
     });
 
     it('retorna manifest en caché cuando fetch de red arroja error en fetchManifest', async () => {
