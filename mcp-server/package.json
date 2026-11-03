@@ -14,7 +14,7 @@
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "pnpm run build",
-    "lint": "eslint src/**/*.ts tests/**/*.ts",
+    "lint": "eslint src/**/*.ts tests/**/*.ts --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run --coverage",
     "test": "vitest run"
