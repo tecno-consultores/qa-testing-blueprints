@@ -44,6 +44,9 @@ Welcome to the **QA Testing Blueprints** repository. All AI coding assistants (G
 6. [ground_truth_fixtures_and_negative_invariants.md](file:///.agents/rules/ground_truth_fixtures_and_negative_invariants.md):
    - **Universal Trimodal Fixtures & Negative Invariants:** Eradicate mock blindness by testing integrations against three raw fixtures: Factory Default / Virgin (asserting negative invariants), Nominal Configured (asserting active/healthy), and Degraded/Unsupported (asserting graceful degradation without 500 errors).
 
+7. [active_task_and_planning_resilience.md](file:///.agents/rules/active_task_and_planning_resilience.md):
+   - **Active Task Invariant & Planning Tool Resilience:** Prior to modifying code on non-trivial tasks, AI assistants MUST invoke planning tools (`/plan` or interactive plan artifacts) and persist phase checklists in `.agents/ACTIVE_TASK.md` (bootstrapped from `.agents/ACTIVE_TASK.md.example`). Live real-time updates (`- [ ]` → `- [x]`) guarantee zero context loss across IDE crashes, session restarts, or context compaction. Mark as `COMPLETED (100%)` upon closure.
+
 ---
 
 ## 2. Rule Zero: Ephemeral Docker Execution
@@ -77,7 +80,8 @@ Welcome to the **QA Testing Blueprints** repository. All AI coding assistants (G
 
 > **NON-NEGOTIABLE:** Following **EACH** task or user request modifying, adding, or fixing source code, the AI agent **MUST** autonomously execute the following protocol before concluding:
 >
+> 0. **Active Task Initiation:** Formulate a structured plan (via `/plan` or plan artifact) and initialize/update `.agents/ACTIVE_TASK.md` tracking progress in real-time.
 > 1. **Mandatory 11X Test Creation (ALWAYS Including Karate Labs):** Create or extend unit and integration tests, and **ALWAYS incorporate Karate Labs BDD scenarios** for API and UI.
 > 2. **Mandatory Test Execution & Anti-Regression Verification:** Execute the complete test suite in ephemeral Docker containers (`Rule Zero`), certifying `>= 95%` coverage, 100% passed assertions, Karate Labs BDD validation, and 0 typing/linting errors.
-> 3. **Mandatory Documentation Synchronization:** Unconditionally update all affected files across `docs/`, `CHANGELOG.md` (section `## [Unreleased]`), `TESTING.md`, and `README.md`.
+> 3. **Mandatory Documentation Synchronization & Active Task Closure:** Unconditionally update all affected files across `docs/`, `CHANGELOG.md` (section `## [Unreleased]`), `TESTING.md`, and `README.md`, and mark `.agents/ACTIVE_TASK.md` as `COMPLETED (100%)`.
 > 4. **Secret Scanning, Local Dependency Audit & ORM Parity:** Run `./scripts/verificar-secretos.sh`, execute `./auditar-infra.sh`, and run `.agents/scripts/certify_task_completion.sh`.

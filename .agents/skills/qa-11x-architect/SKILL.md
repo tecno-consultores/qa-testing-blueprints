@@ -89,8 +89,8 @@ When operating in pure CLI, Cloud, or desktop assistants without MCP tools:
 9. **Law 9: Trimodal Ground-Truth Fixtures & Anti-Regression**  
    Validate external integrations and state stores against three raw fixtures: (1) Virgin / Factory Default (assert negative invariants), (2) Nominal Configured (assert active healthy state), and (3) Degraded / Unsupported (assert graceful fallback without HTTP 500). Inspect AST blast radius with `inspect_blast_radius.py` before modifying shared files.
 
-10. **Law 10: Living Logbook & Closure Certification Gate**  
-    Every modification to code or architecture requires updating `TESTING.md` (metrics and test tallies), `CHANGELOG.md` (`## [Unreleased]`), `ROADMAP.md`, and relevant `docs/`. Execute `./.agents/scripts/certify_task_completion.sh` before finishing.
+10. **Law 10: Active Task Invariant (`.agents/ACTIVE_TASK.md`), Planning Tool & Closure Gate**  
+    Prior to code mutation on non-trivial tasks, AI agents MUST invoke the native planning tool/workflow (e.g. `/plan` slash command or interactive plan artifacts with `RequestFeedback: true`) and immediately persist the agreed phase breakdown in `.agents/ACTIVE_TASK.md` (bootstrapped from `.agents/ACTIVE_TASK.md.example`). As work proceeds, the agent MUST update `.agents/ACTIVE_TASK.md` in real-time (`- [ ]` → `- [x]`) to guarantee zero context loss across IDE crashes, session restarts, or context compaction. Every modification requires updating `TESTING.md` (metrics and test tallies), `CHANGELOG.md` (`## [Unreleased]`), `ROADMAP.md`, and relevant `docs/`. Mark `.agents/ACTIVE_TASK.md` as `COMPLETED (100%)` and execute `./.agents/scripts/certify_task_completion.sh` before finishing.
 
 ---
 
@@ -98,6 +98,7 @@ When operating in pure CLI, Cloud, or desktop assistants without MCP tools:
 
 ### Playbook 1: Project Bootstrap & Surgical Merge
 ```text
+Step 0: Plan & Active Task ──> Formulate execution plan via /plan; bootstrap .agents/ACTIVE_TASK.md.
 Step 1: Inspect Project ──────> Identify language, framework, package manager.
 Step 2: Hydrate Blueprint ────> Download stack bundle + common_files via manifest.json.
 Step 3: Surgical Merge ───────> Merge Makefile, pyproject.toml / package.json, .gitignore.
@@ -108,6 +109,7 @@ Step 6: First Run ────────────> Execute `make qa-lint` a
 
 ### Playbook 2: Test Creation & Coverage Rescue (`< 95%`)
 ```text
+Step 0: Update Active Task ──> Register failing lines and target test suites in .agents/ACTIVE_TASK.md.
 Step 1: Identify Gaps ────────> Run `make qa-unit` to obtain missing line/branch report.
 Step 2: Unit Testing ─────────> Author isolated `.unit.py` / `.unit.ts` tests covering edge branches and errors.
 Step 3: Database Parity ──────> Ensure ORM models match migrations; run `verify_alembic_orm_parity.py`.
@@ -117,6 +119,7 @@ Step 5: Verify Threshold ─────> Confirm coverage >= 95.0% and 100% ass
 
 ### Playbook 3: DISA STIG V6R5 & OWASP v4.2 Hardening
 ```text
+Step 0: Plan Hardening ───────> Map missing patterns in .agents/ACTIVE_TASK.md.
 Step 1: Scan Posture ─────────> Cross-reference against references/02-security-disa-owasp-22.md.
 Step 2: Inject Controls ──────> Add NFKC normalizers, OWASPSecureHeadersMiddleware, Argon2id dummy hash, etc.
 Step 3: Negative Assertions ──> Write unit/BDD tests specifically verifying rejection of malicious payloads.
@@ -129,7 +132,8 @@ Step 1: Execute Full QA ──────> Run `make qa-all` inside Docker cont
 Step 2: Audit Integrity ──────> Run `python3 scripts/generar-manifiesto.py --check`.
 Step 3: Run Certifier ────────> Run `./.agents/scripts/certify_task_completion.sh`.
 Step 4: Update Documentation ─> Synchronize TESTING.md, CHANGELOG.md, ROADMAP.md, and docs/.
-Step 5: Commit & Publish ─────> Conventional commit in Spanish and push.
+Step 5: Mark Active Task ─────> Mark .agents/ACTIVE_TASK.md as COMPLETED (100%).
+Step 6: Commit & Publish ─────> Conventional commit in Spanish and push.
 ```
 
 ---

@@ -149,6 +149,8 @@ def classify_common_file(rel_path: str) -> Tuple[str, str]:
 def classify_governance_file(rel_path: str) -> Tuple[str, str]:
     """Clasifica un archivo de gobernanza de agentes."""
     path_obj = Path(rel_path)
+    if path_obj.name == "ACTIVE_TASK.md.example":
+        return ".agents/ACTIVE_TASK.md", "copy_if_missing"
     if path_obj.suffix in (".sh", ".py"):
         return rel_path, "overwrite_executable"
     if path_obj.name == "AGENTS.md":
@@ -227,6 +229,10 @@ def scan_agent_governance_files(repo_root: Path) -> List[Dict[str, Any]]:
     agents_md = repo_root / "AGENTS.md"
     if agents_md.is_file():
         candidates.append(agents_md)
+
+    active_task_example = repo_root / ".agents" / "ACTIVE_TASK.md.example"
+    if active_task_example.is_file():
+        candidates.append(active_task_example)
 
     rules_dir = repo_root / ".agents" / "rules"
     if rules_dir.is_dir():

@@ -145,6 +145,28 @@ export function createMcpServer(options?: {
     }
   );
 
+  // 6. Plantilla canónica de bitácora en caliente (.agents/ACTIVE_TASK.md.example)
+  server.resource(
+    'blueprint-active-task-template',
+    'blueprint://core/active-task-template',
+    {
+      description: 'Plantilla canónica de bitácora en caliente (.agents/ACTIVE_TASK.md.example) para resiliencia ante caídas de sesión o IDE.',
+      mimeType: 'text/markdown',
+    },
+    async (uri) => {
+      const res = await resources.getActiveTaskTemplateResource();
+      return {
+        contents: [
+          {
+            uri: uri.href,
+            mimeType: res.mimeType,
+            text: res.text,
+          },
+        ],
+      };
+    }
+  );
+
   // ============================================================================
   // 🛠️ Registro de Herramientas MCP (Tools 1 a 4)
   // ============================================================================

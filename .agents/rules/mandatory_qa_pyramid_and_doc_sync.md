@@ -35,7 +35,7 @@ Any addition, modification, or bug fix in application source code (`fastapi/`, `
 
 - **NEVER** execute tests, migrations, linters, or operational scripts directly on the host machine (`Ubuntu`, `macOS`, or `Windows`). All executions must occur inside the project's ephemeral Docker containers (`docker-compose.qa.yml` and `Makefile`).
 - **Critical Execution Gate:** Never declare a task complete based on static code reading alone; execute the test suite inside ephemeral Docker and verify exit code `0`.
-- **Canonical Context-Compaction Scratchpad (`.agents/ACTIVE_TASK.md`):** Maintain `.agents/ACTIVE_TASK.md` (git-ignored) during multi-step tasks to persist progress across LLM context compactions. Never create `ACTIVE_TASK.md` in the repository root.
+- **Canonical Context-Compaction Scratchpad & Planning Tool (`.agents/ACTIVE_TASK.md`):** Prior to modifying code, formulate a phased plan (via `/plan` command or interactive plan artifact) and bootstrap `.agents/ACTIVE_TASK.md` from `.agents/ACTIVE_TASK.md.example` (git-ignored). Update checklist items in real-time (`- [ ]` → `- [x]`) to persist progress across IDE crashes, session restarts, or LLM context compactions. Never create `ACTIVE_TASK.md` in the repository root. Mark as `COMPLETED (100%)` upon closure.
 - **Production `--no-dev` Cleanliness:** Ensure `src/` never imports packages from `[project.optional-dependencies].dev` (e.g. `pytest`, `radon`, `mutmut`), preventing `ModuleNotFoundError` when building production images with `uv sync --frozen --no-dev`.
 
 ---

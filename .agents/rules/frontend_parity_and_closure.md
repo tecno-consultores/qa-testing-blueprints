@@ -41,17 +41,19 @@ Before exposing new endpoints or frontend views:
 
 After **EVERY** task or turn that adds, edits, or removes code or configuration files, the AI agent **MUST** autonomously execute this protocol before concluding:
 
+0. **Active Task Initiation:** Formulate a phased plan (via `/plan` or interactive plan artifact) and initialize/update `.agents/ACTIVE_TASK.md` (from `.agents/ACTIVE_TASK.md.example`), updating sub-steps in real-time.
 1. **Mandatory 11X Test Creation (Including Karate Labs for API & UI):**
    - Backend mutations: add/update unit tests (`tests/**/*.unit.py`) AND mandatory BDD scenarios in Karate API (`fastapi/test/api_test.feature`).
    - Frontend mutations: add/update unit tests (`src/**/*.unit.ts`) AND mandatory BDD scenarios in Karate UI (`vue3/test/ui_business_flow.feature`).
 2. **Full Ephemeral Docker Test Execution (`Rule Zero`):**
    - Backend: Run unit tests with `>= 95%` coverage and linting (`ruff`, `mypy --strict`).
    - Frontend: Run unit tests (100% pass) and type checks (`vue-tsc --noEmit`).
-3. **Autonomous & Mandatory Multi-Layer Documentation Sync:**
+3. **Autonomous & Mandatory Multi-Layer Documentation Sync & Active Task Completion:**
    - Update affected operational manuals in `docs/`.
    - Update `CHANGELOG.md` under `## [Unreleased]`.
    - Update `TESTING.md` metrics and counts.
    - Update `README.md` when user-facing interfaces or architectures change.
+   - Mark `.agents/ACTIVE_TASK.md` as `COMPLETED (100%)`.
 4. **Secret, Dependency Vulnerability, i18n & Parity Certification:**
    - Run `./scripts/verificar-secretos.sh` (0 secret leaks).
    - Run `./auditar-infra.sh` (0 High/Critical findings).

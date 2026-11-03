@@ -56,6 +56,10 @@ describe('Tools and Resources Integration Suite', () => {
     const secContent = '# 22 Security Patterns';
     const secHash = crypto.createHash('sha256').update(secContent).digest('hex');
 
+    const activeTaskFile = '.agents/ACTIVE_TASK.md.example';
+    const activeTaskContent = '# Active Task Template Example';
+    const activeTaskHash = crypto.createHash('sha256').update(activeTaskContent).digest('hex');
+
     mockManifest = {
       schema_version: '1.0.0',
       blueprint_version: '2.7.0',
@@ -115,6 +119,13 @@ describe('Tools and Resources Integration Suite', () => {
           sha256: secHash,
           size_bytes: secContent.length,
         },
+        {
+          path: activeTaskFile,
+          target_name: '.agents/ACTIVE_TASK.md',
+          merge_strategy: 'copy_if_missing',
+          sha256: activeTaskHash,
+          size_bytes: activeTaskContent.length,
+        },
       ],
     };
 
@@ -133,6 +144,7 @@ describe('Tools and Resources Integration Suite', () => {
     writeRepoFile(refactFile, refactContent);
     writeRepoFile(promptFile, promptContent);
     writeRepoFile(secFile, secContent);
+    writeRepoFile(activeTaskFile, activeTaskContent);
 
     fetcher = new GitHubFetcher({
       cacheDir: path.join(tmpDir, 'cache'),
@@ -286,6 +298,14 @@ describe('Tools and Resources Integration Suite', () => {
       expect(res.text).toBe('# Refactoring UI');
     });
 
+    it('returns active task template resource', async () => {
+      const resources = new BlueprintResources(fetcher);
+      const res = await resources.getActiveTaskTemplateResource();
+      expect(res.uri).toBe('blueprint://core/active-task-template');
+      expect(res.mimeType).toBe('text/markdown');
+      expect(res.text).toBe('# Active Task Template Example');
+    });
+
     it('throws error when requesting unknown refactoring-ui topic', async () => {
       const resources = new BlueprintResources(fetcher);
       await expect(resources.getRefactoringUiResource('unknown-topic')).rejects.toThrow(
@@ -315,6 +335,9 @@ describe('Tools and Resources Integration Suite', () => {
 
       const sec = await resources.getSecurityResource();
       expect(sec.text).toContain('22 Patrones de Seguridad');
+
+      const task = await resources.getActiveTaskTemplateResource();
+      expect(task.text).toContain('ACTIVE_TASK.md.example');
     });
   });
 
@@ -523,7 +546,13 @@ describe('Tools and Resources Integration Suite', () => {
       const uiRes = await uiTemplate.readCallback(new URL('blueprint://ui/refactoring-ui/skill'), { topic: 'skill' });
       expect(uiRes.contents[0].text).toBe('# Refactoring UI');
 
-      // 6. Ejecutar tool: inspect_project_config
+      // 6. Ejecutar resource: active-task-template
+      const taskRes = await serverAny._registeredResources['blueprint://core/active-task-template'].readCallback(
+        new URL('blueprint://core/active-task-template')
+      );
+      expect(taskRes.contents[0].text).toBe('# Active Task Template Example');
+
+      // 7. Ejecutar tool: inspect_project_config
       const toolInspect = serverAny._registeredTools['inspect_project_config'];
       expect(toolInspect).toBeDefined();
       const inspectRes = await toolInspect.handler({ project_path: targetProjectDir });

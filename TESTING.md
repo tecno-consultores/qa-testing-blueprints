@@ -163,15 +163,15 @@ El script evalúa de forma secuencial e implacable 9 compuertas obligatorias:
     * `tests/github-fetcher.unit.ts` (18 pruebas): Hidratación remota, validación condicional `ETag` (304), verificación SHA-256 (`DISA STIG V-222513`), detección de tampering, fallback offline y local path override.
     * `tests/surgical-merger.unit.ts` (13 pruebas): Fusión quirúrgica no destructiva de `package.json`, `pyproject.toml`, `Makefile`, `.gitignore` y `.npmrc`, asignación de permisos `0o755` a scripts y modo `dryRun`.
     * `tests/inspect-project.unit.ts` (7 pruebas): Detección automática de stacks (`python`, `fastapi`, `vue3`, `react-frontend`, `node-backend`, `bash-scripts`), banderas estrictas (`mypy`, `tsconfig`, `npmrc`) y archivos 11X ausentes.
-    * `tests/tools-and-resources.unit.ts` (24 pruebas): Recursos `blueprint://*`, herramientas 1 a 4 (`inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`), CLI `install-skill` multi-entorno y servidor `McpServer`.
+    * `tests/tools-and-resources.unit.ts` (25 pruebas): Recursos `blueprint://*` (incluyendo `blueprint://core/active-task-template`), herramientas 1 a 4 (`inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`), CLI `install-skill` multi-entorno y servidor `McpServer`.
   * **Ejecución Efímera:**
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run lint`
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run typecheck`
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run test:unit`
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run build`
   * **Cobertura y Métricas Alcanzadas:**
-    * **100% de aserciones aprobadas** (62/62 pruebas pasando).
-    * **98.64% de cobertura de líneas y sentencias** (superando el umbral de $\ge 95\%$).
-    * **93.66% de cobertura de ramas** (superando el umbral de $\ge 90\%$).
+    * **100% de aserciones aprobadas** (63/63 pruebas pasando).
+    * **98.69% de cobertura de líneas y sentencias** (superando el umbral de $\ge 95\%$).
+    * **93.77% de cobertura de ramas** (superando el umbral de $\ge 90\%$).
     * **100% de cobertura de funciones**.
     * **0 errores de ESLint, SonarJS (Cognitiva $\le 15$) y TypeScript (`strict: true`)**.

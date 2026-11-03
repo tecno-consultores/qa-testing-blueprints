@@ -106,4 +106,22 @@ export class BlueprintResources {
       text: content,
     };
   }
+
+  public async getActiveTaskTemplateResource(): Promise<ResourceResponse> {
+    const manifest = await this.fetcher.fetchManifest();
+    const taskEntry = manifest.agent_governance_files.find(
+      (f) => f.path === '.agents/ACTIVE_TASK.md.example'
+    );
+    let content = '';
+    if (taskEntry) {
+      content = await this.fetcher.fetchFileContent(taskEntry.path, taskEntry.sha256);
+    } else {
+      content = '# ACTIVE_TASK.md.example\n\nConsulte la plantilla en .agents/ACTIVE_TASK.md.example';
+    }
+    return {
+      uri: 'blueprint://core/active-task-template',
+      mimeType: 'text/markdown',
+      text: content,
+    };
+  }
 }

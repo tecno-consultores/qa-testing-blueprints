@@ -130,3 +130,38 @@ def test_degraded_device_graceful_fallback():
     assert state.status == "DEGRADED"
     assert state.error_code == "FIRMWARE_UNSUPPORTED"
 ```
+
+---
+
+## 4. Active Task Logbook & Planning Tool Protocol (`.agents/ACTIVE_TASK.md`)
+
+### The Resilience Rationale
+In long-running autonomous workflows across complex codebases, AI assistants and IDEs face three critical failure modes:
+1. **IDE / Process Crashes:** Unscheduled termination of terminal or agent session.
+2. **Context Compaction:** Rolling LLM context windows truncate earlier instructions, rationale, and completed sub-step evidence.
+3. **Session Interruption:** Network dropouts or host reboots.
+
+### The Canonical Workflow
+```text
+┌────────────────────────────────────────────────────────────────────────┐
+│              PLANNING TOOL & ACTIVE_TASK DUAL PROTOCOL                 │
+├────────────────────────────────────────────────────────────────────────┤
+│ 1. INITIATION: User issues non-trivial task or Roadmap milestone       │
+│    └── Agent triggers planning tool (/plan or interactive artifact).   │
+│                                                                        │
+│ 2. PERSISTENCE: Blueprint .agents/ACTIVE_TASK.md from template.        │
+│    └── Populate Metadata, Goal, Specification, and Phase Checklists.   │
+│                                                                        │
+│ 3. LIVE EXECUTION: Real-time update in filesystem.                     │
+│    └── Complete atomic subtask ──> Mark "- [ ]" to "- [x]" IMMEDIATELY.│
+│    └── If crash occurs ──────────> Re-read .agents/ACTIVE_TASK.md.     │
+│                                                                        │
+│ 4. CLOSURE GATE: Mandatory verification before git push.               │
+│    └── Run ./.agents/scripts/certify_task_completion.sh                │
+│    └── Mark status: "COMPLETED (100%)"                                 │
+│    └── Sync CHANGELOG.md, ROADMAP.md, TESTING.md                       │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+### Template Blueprint
+Always initialize from `.agents/ACTIVE_TASK.md.example`. Ensure `.agents/ACTIVE_TASK.md` remains in `.gitignore` to avoid staging local volatile work-in-progress state into source control.
