@@ -49,16 +49,16 @@ def audit_layers(graph: dict[str, Any], graph_path: Path) -> tuple[list[str], di
         tgt_file = tgt_node.get("source_file", "")
 
         for prefix in forbidden_prefixes:
-            if src_file.startswith(prefix) and (tgt_file.startswith("src/api/") or tgt_file.startswith("src/controllers/")):
-                violations.append(
-                    f"Acoplamiento inverso: '{src_file}' ({link.get('context', 'call')}) -> '{tgt_file}'"
-                )
+            if src_file.startswith(prefix) and (
+                tgt_file.startswith("src/api/") or tgt_file.startswith("src/controllers/")
+            ):
+                violations.append(f"Acoplamiento inverso: '{src_file}' ({link.get('context', 'call')}) -> '{tgt_file}'")
 
         # Reglas en Frontend: componentes comunes no deben importar vistas
-        if src_file.startswith("src/components/common/") and (tgt_file.startswith("src/views/") or tgt_file.startswith("src/pages/")):
-            violations.append(
-                f"Acoplamiento invertido UI: Componente común '{src_file}' depende de vista '{tgt_file}'"
-            )
+        if src_file.startswith("src/components/common/") and (
+            tgt_file.startswith("src/views/") or tgt_file.startswith("src/pages/")
+        ):
+            violations.append(f"Acoplamiento invertido UI: Componente común '{src_file}' depende de vista '{tgt_file}'")
 
     stats = {
         "nodes": len(nodes),
@@ -81,7 +81,9 @@ def main() -> int:
         try:
             graph = load_graph(g_path)
             violations, stats = audit_layers(graph, g_path)
-            print(f"📊 Grafo {g_path.relative_to(REPO_ROOT)}: {stats['nodes']} nodos, {stats['links']} relaciones, {stats['communities']} comunidades.")
+            print(
+                f"📊 Grafo {g_path.relative_to(REPO_ROOT)}: {stats['nodes']} nodos, {stats['links']} relaciones, {stats['communities']} comunidades."
+            )
             if violations:
                 all_violations.extend([f"[{g_path.name}] {v}" for v in violations])
         except Exception as e:

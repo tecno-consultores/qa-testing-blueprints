@@ -1,23 +1,33 @@
 {
   "name": "react-qa-blueprint",
-  "version": "2.0.0",
+  "version": "2.8.0",
   "description": "Plantilla base corporativa (Nivel 11X) para Frontend React (Vite, RTL, Playwright, Lighthouse, Stryker)",
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=22.0.0 || >=26.0.0",
+    "pnpm": ">=9.0.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "type-check": "tsc --noEmit",
-    "format": "prettier --write \"src/**/*.{js,ts,jsx,tsx}\" \"tests/**/*.{js,ts,tsx}\"",
-    "format:check": "prettier --check \"src/**/*.{js,ts,jsx,tsx}\" \"tests/**/*.{js,ts,tsx}\"",
+    "format": "prettier --write \"src/**/*.{js,ts,jsx,tsx}\" \"e2e/**/*.{js,ts,tsx}\"",
+    "format:check": "prettier --check \"src/**/*.{js,ts,jsx,tsx}\" \"e2e/**/*.{js,ts,tsx}\"",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "test:unit": "vitest run",
     "test:coverage": "vitest run --coverage",
     "mutate": "stryker run",
-    "audit:deps": "npm audit",
+    "audit:deps": "pnpm audit --prod",
     "test:e2e": "playwright test",
     "test:perf": "lhci autorun"
   },
+  "dependencies": {
+    "dompurify": "^3.1.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
   "devDependencies": {
-    "@axe-core/playwright": "^1.2.3",
+    "@axe-core/playwright": "^4.9.1",
     "@lhci/cli": "^0.13.0",
     "@playwright/test": "^1.43.0",
     "@stryker-mutator/core": "^8.2.6",
@@ -25,6 +35,7 @@
     "@testing-library/jest-dom": "^6.4.2",
     "@testing-library/react": "^14.2.1",
     "@testing-library/user-event": "^14.5.2",
+    "@types/dompurify": "^3.0.5",
     "@types/react": "^18.2.55",
     "@types/react-dom": "^18.2.19",
     "@typescript-eslint/eslint-plugin": "^7.1.1",
@@ -40,8 +51,15 @@
     "eslint-plugin-sonarjs": "^0.24.0",
     "jsdom": "^24.0.0",
     "prettier": "^3.2.5",
-    "typescript": "^5.2.2",
+    "typescript": "^5.4.5",
     "vite": "^5.1.0",
     "vitest": "^1.3.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "playwright",
+      "@playwright/test"
+    ]
   }
 }

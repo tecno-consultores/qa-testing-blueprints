@@ -62,9 +62,10 @@ Welcome to the **QA Testing Blueprints** repository. All AI coding assistants (G
 
 ## 4. Automation Scripts in `.agents/scripts/`
 
-- `certify_task_completion.sh`: End-to-end certification gate enforcing secret scanning, IaC auditing, i18n integrity, zero orphan UI components, topological health, ORM parity, and documentation sync.
-- `verify_alembic_orm_parity.py`: Automated parity validator between ORM models and database migrations (detects schema drift).
+- `certify_task_completion.sh`: End-to-end certification gate enforcing secret scanning, IaC auditing, i18n integrity, zero orphan UI components, zero orphan API endpoints, topological health, ORM parity, and documentation sync.
+- `verify_alembic_orm_parity.py`: Automated parity validator between ORM models and database migrations (detects schema drift and `revision > 32` chars).
 - `verify_zero_orphan_vue_components.py`: Automated parity validator ensuring 100% of UI components and views have active unit test suites.
+- `verify_no_orphan_api_endpoints.py`: Automated bidirectional parity validator ensuring 0 frontend calls to non-existent backend routes (404/405) and 0 unreferenced backend routes.
 - `verify_json_no_duplicate_keys.py`: Automated integrity validator detecting duplicate keys in i18n JSON locale files.
 - `inspect_blast_radius.py`: Automated pre-refactoring blast radius inspector calculating incoming dependency edges across the codebase.
 - `verify_topological_health.py`: Automated AST architectural validator detecting forbidden cross-layer coupling and layer boundary violations.

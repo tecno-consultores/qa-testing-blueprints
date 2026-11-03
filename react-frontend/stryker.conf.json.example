@@ -1,6 +1,9 @@
 {
   "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
-  "packageManager": "npm",
+  "packageManager": "pnpm",
+  "plugins": [
+    "@stryker-mutator/vitest-runner"
+  ],
   "reporters": [
     "html",
     "clear-text",
@@ -8,10 +11,13 @@
   ],
   "testRunner": "vitest",
   "coverageAnalysis": "perTest",
+  "concurrency": 4,
   "mutate": [
     "src/**/*.ts",
     "src/**/*.tsx",
     "!src/main.tsx",
+    "!src/**/*.unit.ts",
+    "!src/**/*.unit.tsx",
     "!src/**/*.spec.tsx",
     "!src/**/*.test.tsx",
     "!src/**/*.test.ts"

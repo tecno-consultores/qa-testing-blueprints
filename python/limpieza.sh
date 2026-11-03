@@ -3,30 +3,20 @@
 LC_ALL=C
 
 if [[ "$EUID" != "0" ]]; then
-        echo "ERROR: debe ser root. Ejecute con sudo ./limpieza.sh"
-        exit 1
+        echo "AVISO: Ejecutando sin root; se usará contenedor efímero Alpine para limpiar cachés de Docker."
 fi
 
-clear
 echo "Iniciando purga profunda del entorno de QA de Python (Nivel 11X)..."
 
-rm -f .coverage
-rm -rf .mypy_cache
-rm -rf .pytest_cache
-rm -rf .ruff_cache
-rm -rf .tox
-rm -rf .uv/
-rm -rf dist
-rm -rf tests/__pycache__
-rm -rf src/*/__pycache__
+docker run --rm -v "$(pwd):/work" alpine sh -c "rm -rf /work/.coverage /work/.mypy_cache /work/.pytest_cache /work/.ruff_cache /work/.tox /work/.uv /work/dist /work/tests/__pycache__ /work/src/*/__pycache__ /work/htmlcov /work/mutants /work/.benchmarks /work/prometheus_data /work/profile.svg && chown -R $(id -u):$(id -g) /work" 2>/dev/null || true
 
-rm -rf htmlcov/
-rm -rf .benchmarks/
-rm -rf graphify-out/
-rm -rf prometheus_data/
+rm -f .coverage
+rm -rf .mypy_cache .pytest_cache .ruff_cache .tox .uv/ dist tests/__pycache__ src/*/__pycache__
+rm -rf htmlcov/ mutants/ .benchmarks/ prometheus_data/
+find graphify-out/ -mindepth 1 ! -name 'GRAPH_REPORT.md' ! -name 'graph.html' ! -name 'graph.json' -delete 2>/dev/null || true
 rm -f profile.svg
 
-chown -R $USER:$USER . 2>/dev/null || true
+chown -R "${SUDO_USER:-$USER}:${SUDO_USER:-$USER}" . 2>/dev/null || true
 
 # Forzamos el derribo de la infraestructura principal y perfiles ocultos para destruir el volumen de caché persistente (uv-cache)
 docker compose -f docker-compose.qa.yml down -v 2>/dev/null || true

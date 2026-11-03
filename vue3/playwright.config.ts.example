@@ -31,7 +31,7 @@ export default defineConfig({
     }
   ],
   expect: {
-    // Tolerancias corporativas para las pruebas de regresión visual de accessibility.spec.ts
+    // Tolerancias corporativas para las pruebas de regresión visual de accessibility.e2e.ts
     toHaveScreenshot: {
       maxDiffPixelRatio: 0.01,
       // CRÍTICO: Congela los <transition> de Vue, GIFs y CSS animations para evitar diferencias por milisegundos

@@ -3,23 +3,25 @@ services:
     image: nginx:alpine
     container_name: react_ui_prod
     hostname: react_ui_prod
-    pull_policy: always
+    pull_policy: if_not_present
     environment:
       TZ: 'America/Caracas'
     volumes:
       - ./dist:/usr/share/nginx/html:ro
+      - ./nginx/default.conf.example:/etc/nginx/conf.d/default.conf:ro
       - nginx-logs:/var/log/nginx
     ports:
       - "8080:80"
 
   qa-frontend:
-    image: node:20-bookworm-slim
+    image: sinfallas/base-node-ionic:26
     container_name: react_qa_frontend
     hostname: react_qa_frontend
     pull_policy: if_not_present
     environment:
       TZ: 'America/Caracas'
       PNPM_HOME: /pnpm
+      PATH: /pnpm:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     volumes:
       - .:/app
       - pnpm-store:/pnpm
@@ -30,21 +32,25 @@ services:
     image: mcr.microsoft.com/playwright:v1.43.0-jammy
     container_name: react_ui_e2e
     hostname: react_ui_e2e
-    pull_policy: always
+    pull_policy: if_not_present
     environment:
       TZ: 'America/Caracas'
       PNPM_HOME: /pnpm
+      PATH: /pnpm:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+      CHROME_PATH: /ms-playwright/chromium-1112/chrome-linux/chrome
     volumes:
       - .:/app
       - pnpm-store:/pnpm
     working_dir: /app
+    entrypoint: ["bash", "-c", "corepack enable >/dev/null 2>&1 && exec \"$@\"", "--"]
     command: bash -c "echo 'Contenedor E2E listo. Usa docker compose run --rm ui-e2e [comando]'; sleep infinity"
 
   karatelabs:
     image: sinfallas/karatelabs:latest
     container_name: react_ui_karate
     hostname: react_ui_karate
-    pull_policy: always
+    pull_policy: if_not_present
     depends_on:
       - ui-prod
     environment:

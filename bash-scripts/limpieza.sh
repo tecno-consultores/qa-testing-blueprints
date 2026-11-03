@@ -3,21 +3,17 @@
 LC_ALL=C
 
 if [[ "$EUID" != "0" ]]; then
-        echo "ERROR: debe ser root. Ejecute con sudo ./limpieza.sh"
-        exit 1
+        echo "AVISO: Ejecutando sin root; se usará contenedor efímero Alpine para limpiar artefactos de Docker."
 fi
 
-clear
 echo "Iniciando purga profunda del entorno de QA de Bash (Nivel 11X)..."
 
-rm -rf coverage_report/
-rm -rf .bats-battery/
-rm -rf target/
-rm -rf *.log
-rm -rf graphify-out/
-rm -rf prometheus_data/
+docker run --rm -v "$(pwd):/work" alpine sh -c "rm -rf /work/coverage_report /work/.bats-battery /work/target /work/*.log /work/prometheus_data && chown -R $(id -u):$(id -g) /work" 2>/dev/null || true
 
-chown -R $USER:$USER . 2>/dev/null || true
+rm -rf coverage_report/ .bats-battery/ target/ ./*.log prometheus_data/
+find graphify-out/ -mindepth 1 ! -name 'GRAPH_REPORT.md' ! -name 'graph.html' ! -name 'graph.json' -delete 2>/dev/null || true
+
+chown -R "${SUDO_USER:-$USER}:${SUDO_USER:-$USER}" . 2>/dev/null || true
 
 # Forzamos el derribo de la infraestructura principal y perfiles secundarios
 docker compose -f docker-compose.qa.yml down -v 2>/dev/null || true

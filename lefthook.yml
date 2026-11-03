@@ -11,35 +11,50 @@ pre-commit:
     # --------------------------------------------------------------------------
     # ECOSISTEMA PYTHON & FASTAPI
     # --------------------------------------------------------------------------
+    fastapi-lint:
+      root: "fastapi/"
+      glob: "*.py"
+      run: docker compose -f docker-compose.qa.yml run --rm qa-backend bash -c "uv pip install --system -e '.[dev]' -q && ruff check {staged_files} && ruff format --check {staged_files}"
+
     python-lint:
-      glob: "{python,fastapi}/**/*.py"
-      # Usa --check para rechazar el commit si el código no está formateado.
-      # El desarrollador deberá correr `make qa-lint` manualmente.
-      run: docker compose -f {1}/docker-compose.qa.yml run --rm qa-backend bash -c "uv sync -q && ruff check {staged_files} && ruff format --check {staged_files}"
+      root: "python/"
+      glob: "*.py"
+      run: docker compose -f docker-compose.qa.yml run --rm qa-backend bash -c "uv pip install --system -e '.[dev]' -q && ruff check {staged_files} && ruff format --check {staged_files}"
 
     # --------------------------------------------------------------------------
     # ECOSISTEMA JAVASCRIPT (NODE, VUE3 & REACT)
     # --------------------------------------------------------------------------
-    node-vue-react-lint:
-      glob: "{node-backend,vue3,react-frontend}/**/*.{js,ts,vue,tsx}"
-      # Levanta el entorno efímero para correr ESLint y Prettier.
-      run: docker compose -f {1}/docker-compose.qa.yml run --rm {1}-qa-frontend bash -c "pnpm install --silent && npx prettier --check {staged_files} && npx eslint {staged_files}"
+    vue3-lint:
+      root: "vue3/"
+      glob: "*.{js,ts,vue}"
+      run: docker compose -f docker-compose.qa.yml run --rm qa-vue3 bash -c "pnpm install --silent && npx prettier --check {staged_files} && npx eslint {staged_files}"
+
+    react-lint:
+      root: "react-frontend/"
+      glob: "*.{js,ts,tsx}"
+      run: docker compose -f docker-compose.qa.yml run --rm qa-frontend bash -c "pnpm install --silent && npx prettier --check {staged_files} && npx eslint {staged_files}"
+
+    node-backend-lint:
+      root: "node-backend/"
+      glob: "*.{js,ts}"
+      run: docker compose -f docker-compose.qa.yml run --rm qa-node-backend bash -c "pnpm install --silent && npx prettier --check {staged_files} && npx eslint {staged_files}"
 
     # --------------------------------------------------------------------------
     # ECOSISTEMA BASH (DEVOPS)
     # --------------------------------------------------------------------------
     bash-lint:
-      glob: "bash-scripts/**/*.sh"
+      root: "bash-scripts/"
+      glob: "*.sh"
       # shellCheck evalúa vulnerabilidades POSIX, shfmt verifica la estética (-d es modo dry-run/check)
-      run: docker compose -f bash-scripts/docker-compose.qa.yml run --rm test bash -c "shellcheck {staged_files} && shfmt -d {staged_files}"
+      run: docker compose -f docker-compose.qa.yml run --rm qa-bash bash -c "shellcheck {staged_files} && shfmt -d {staged_files}"
 
     # --------------------------------------------------------------------------
     # PROTECCIÓN DE SECRETOS (Global)
     # --------------------------------------------------------------------------
     leaks-check:
       glob: "**/*"
-      # Busca patrones comunes de contraseñas y tokens en archivos antes del commit
-      run: if grep -qiE "(password|secret|api_key|token)[=:] *[\"'][a-zA-Z0-9]{8,}[\"']" {staged_files}; then echo "🚨 ERROR: Posible secreto hardcodeado detectado."; exit 1; fi
+      # Ejecuta el escáner corporativo unificado (entropía, llaves privadas, tokens y .env)
+      run: ./scripts/verificar-secretos.sh {staged_files}
 
 commit-msg:
   commands:

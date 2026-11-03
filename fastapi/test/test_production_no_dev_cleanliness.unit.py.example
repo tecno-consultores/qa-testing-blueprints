@@ -1,0 +1,105 @@
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 QA Testing Blueprints Contributors
+
+"""Plantilla de prueba unitaria AST para blindar despliegues productivos (--no-dev).
+
+Previene caídas de arranque en producción causadas por:
+1. Importación accidental de paquetes de `[project.optional-dependencies].dev` en `src/`.
+2. Exposición accidental de `/docs`, `/redoc` u `/openapi.json` cuando `APP_ENV=production`.
+3. Fuga de detalles internos de esquemas en errores `422 Unprocessable Entity` en producción.
+"""
+
+import ast
+import json
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+# Lista de paquetes y módulos reservados estrictamente para desarrollo y pruebas
+FORBIDDEN_DEV_MODULES = {
+    "pytest",
+    "pytest_asyncio",
+    "pytest_cov",
+    "pytest_mock",
+    "hypothesis",
+    "freezegun",
+    "radon",
+    "mutmut",
+    "schemathesis",
+    "locust",
+    "bandit",
+    "pip_audit",
+    "unittest.mock",
+}
+
+
+def test_no_dev_dependencies_imported_in_production_source() -> None:
+    """Verifica vía AST que ningún archivo en src/ importe dependencias exclusivas de dev.
+
+    Garantiza que la compilación con 'uv sync --frozen --no-dev' no sufra de
+    ModuleNotFoundError durante el arranque del contenedor de producción.
+    """
+    src_dir = Path(__file__).resolve().parent.parent / "src"
+    if not src_dir.is_dir():
+        src_dir = Path(__file__).resolve().parent.parent.parent / "src"
+    assert src_dir.is_dir(), f"Directorio src no encontrado en {src_dir}"
+
+    python_files = list(src_dir.rglob("*.py"))
+    assert len(python_files) > 0, "No se encontraron archivos Python en src/"
+
+    violations: list[str] = []
+
+    for file_path in python_files:
+        content = file_path.read_text(encoding="utf-8")
+        tree = ast.parse(content, filename=str(file_path))
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    root_name = alias.name.split(".")[0]
+                    full_name = alias.name
+                    if root_name in FORBIDDEN_DEV_MODULES or full_name in FORBIDDEN_DEV_MODULES:
+                        violations.append(f"{file_path.name}:{node.lineno} importa módulo de desarrollo '{alias.name}'")
+            elif isinstance(node, ast.ImportFrom):
+                if node.module:
+                    root_name = node.module.split(".")[0]
+                    full_name = node.module
+                    if root_name in FORBIDDEN_DEV_MODULES or full_name in FORBIDDEN_DEV_MODULES:
+                        violations.append(
+                            f"{file_path.name}:{node.lineno} importa desde módulo de desarrollo '{node.module}'"
+                        )
+
+    assert not violations, "Se detectaron importaciones de desarrollo en src/:\n" + "\n".join(violations)
+
+
+def test_production_app_instantiation_without_docs_and_swagger() -> None:
+    """Valida que create_app en modo producción desactive Swagger, Redoc y OpenAPI (STIG / OWASP)."""
+    from src.main import create_app
+
+    with patch("src.main.settings.APP_ENV", "production"):
+        app = create_app()
+        assert app.docs_url is None, "docs_url debe ser None en producción"
+        assert app.redoc_url is None, "redoc_url debe ser None en producción"
+        assert app.openapi_url is None, "openapi_url debe ser None en producción"
+
+
+@pytest.mark.asyncio
+async def test_validation_exception_handler_sanitization() -> None:
+    """Valida que los errores 422 de Pydantic se saniticen en producción contra enumeración de esquemas."""
+    from fastapi.exceptions import RequestValidationError
+    from src.main import create_app
+    from starlette.requests import Request
+
+    fake_request = Request({"type": "http", "method": "POST", "path": "/api/v1/test", "headers": []})
+    mock_exc = MagicMock(spec=RequestValidationError)
+    mock_exc.errors.return_value = [{"loc": ["body", "password"], "msg": "field required", "type": "missing"}]
+
+    with patch("src.main.settings.APP_ENV", "production"):
+        app_prod = create_app()
+        handler = app_prod.exception_handlers[RequestValidationError]
+        resp_prod = await handler(fake_request, mock_exc)
+        assert resp_prod.status_code == 422
+        assert json.loads(resp_prod.body) == {
+            "detail": "Los datos proporcionados no cumplen con los requisitos de validación."
+        }

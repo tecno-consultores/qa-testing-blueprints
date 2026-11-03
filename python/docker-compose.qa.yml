@@ -1,6 +1,6 @@
 services:
   qa-backend:
-    image: sinfallas/base-python-uv:3.13
+    image: sinfallas/base-python-uv:3.15
     container_name: python_qa_backend
     hostname: python_qa_backend
     pull_policy: always

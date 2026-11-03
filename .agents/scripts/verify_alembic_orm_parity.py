@@ -8,7 +8,6 @@ Inspecciona modelos en src/models/ y valida que todas las tablas existan
 en los archivos de migración (ej. Alembic en migrations/versions/).
 """
 
-import os
 import re
 import sys
 from pathlib import Path
@@ -61,9 +60,33 @@ def get_migrated_tables() -> set[str]:
     return migrated
 
 
+def verify_revision_id_lengths() -> list[tuple[str, str, int]]:
+    """Valida que ningún revision ID supere los 32 caracteres de alembic_version.version_num."""
+    if not MIGRATIONS_DIR.exists():
+        return []
+    rev_pattern = re.compile(r'^\s*revision(?:\s*:\s*str)?\s*=\s*["\']([^"\']+)["\']', re.MULTILINE)
+    violations: list[tuple[str, str, int]] = []
+    for mig_file in sorted(MIGRATIONS_DIR.glob("*.py")):
+        content = mig_file.read_text(encoding="utf-8")
+        match = rev_pattern.search(content)
+        if match:
+            rev_id = match.group(1)
+            if len(rev_id) > 32:
+                violations.append((mig_file.name, rev_id, len(rev_id)))
+    return violations
+
+
 def main() -> int:
     print("🔍 [QA 11X] Verificando paridad entre modelos SQLAlchemy ORM y migraciones Alembic...")
-    
+
+    rev_violations = verify_revision_id_lengths()
+    if rev_violations:
+        print("\n❌ ERROR: Se detectaron identificadores 'revision' en Alembic que exceden VARCHAR(32) en PostgreSQL:")
+        for fname, rev_id, length in rev_violations:
+            print(f"   - Archivo: {fname} -> revision='{rev_id}' ({length} caracteres > máximo 32)")
+        print("\n💡 Solución: Acorta el identificador 'revision' a <= 32 caracteres.")
+        return 1
+
     if not MODELS_DIR.exists():
         print(f"ℹ️ Directorio de modelos no encontrado ({MODELS_DIR}); omitiendo verificación de paridad ORM.")
         return 0
@@ -83,7 +106,9 @@ def main() -> int:
         print("\n💡 Solución: Genera la migración (ej. alembic revision -m 'add_<tabla>')")
         return 1
 
-    print(f"✅ ÉXITO: Las {len(orm_tables)} tablas ORM cuentan con su correspondiente migración.")
+    print(
+        f"✅ ÉXITO: Las {len(orm_tables)} tablas ORM cuentan con su correspondiente migración y revision IDs <= 32 chars."
+    )
     return 0
 
 

@@ -3,31 +3,18 @@
 LC_ALL=C
 
 if [[ "$EUID" != "0" ]]; then
-        echo "ERROR: debe ser root. Ejecuta con sudo ./limpieza.sh"
-        exit 1
+        echo "AVISO: Ejecutando sin root; se usará contenedor efímero Alpine para limpiar artefactos de Docker."
 fi
 
-clear
 echo "Iniciando purga profunda del entorno de QA de Node.js (Nivel 11X)..."
 
-rm -rf node_modules/
-rm -rf dist/
-rm -rf .stryker-tmp/
-rm -rf coverage/
-rm -rf target/
-rm -rf test/target/
-rm -rf .clinic/
-rm -rf graphify-out/
-rm -rf prometheus_data/
+docker run --rm -v "$(pwd):/work" alpine sh -c "rm -rf /work/node_modules /work/dist /work/.stryker-tmp /work/coverage /work/target /work/test/target /work/.clinic /work/prometheus_data /work/zap-report.html /work/chaos-report.json /work/chaos-report.html /work/*.clinic-*.html /work/*.log && chown -R $(id -u):$(id -g) /work" 2>/dev/null || true
 
-rm -f zap-report.html
-rm -f chaos-report.json
-rm -f chaos-report.html
-rm -f *.html
-rm -f *.clinic-*.html
-rm -f *.log
+rm -rf node_modules/ dist/ .stryker-tmp/ coverage/ target/ test/target/ .clinic/ prometheus_data/
+find graphify-out/ -mindepth 1 ! -name 'GRAPH_REPORT.md' ! -name 'graph.html' ! -name 'graph.json' -delete 2>/dev/null || true
+rm -f zap-report.html chaos-report.json chaos-report.html ./*.clinic-*.html ./*.log
 
-chown -R $USER:$USER . 2>/dev/null || true
+chown -R "${SUDO_USER:-$USER}:${SUDO_USER:-$USER}" . 2>/dev/null || true
 
 # Apagar infraestructuras y perfiles ocultos para liberar redes y forzar purga de volúmenes de caché (pnpm-store)
 docker compose -f docker-compose.qa.yml down -v 2>/dev/null || true

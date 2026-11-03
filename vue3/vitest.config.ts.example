@@ -1,15 +1,21 @@
+import { fileURLToPath, URL } from 'node:url';
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 
 export default defineConfig({
   plugins: [vue()],
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+    },
+  },
   test: {
     globals: true,
     environment: 'jsdom',
-    
-    // TOOL BOUNDARY ESTRICTO: Vitest solo ejecuta archivos unitarios.
+
+    // TOOL BOUNDARY ESTRICTO: Vitest solo ejecuta archivos unitarios rápidos.
     include: ['src/**/*.unit.{ts,tsx}', 'src/**/*.spec.{ts,tsx}'],
-    
+
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
@@ -18,7 +24,7 @@ export default defineConfig({
         lines: 95,
         functions: 95,
         branches: 95,
-        statements: 95
+        statements: 95,
       },
       exclude: [
         'coverage/**',
@@ -30,8 +36,10 @@ export default defineConfig({
         'test/**',
         '**/*.d.ts',
         '*.config.ts',
-        '*.config.js'
-      ]
-    }
-  }
+        '*.config.js',
+        'lighthouserc.js',
+        'src/main.ts',
+      ],
+    },
+  },
 });

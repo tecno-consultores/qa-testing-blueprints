@@ -14,11 +14,17 @@
 1. **Zero Console-Exclusive Actions:**
    - Any administrative, operational, or diagnostics action executable from the CLI/terminal MUST have an equivalent graphical interface in the frontend.
 2. **Zero Orphan API Endpoints:**
-   - Every route defined in the backend API MUST be paired with a frontend interface or view enabling inspection, parameter configuration, and interactive execution.
+   - Every route defined in the backend API MUST be paired with a frontend interface or view enabling inspection, parameter configuration, and interactive execution (`.agents/scripts/verify_no_orphan_api_endpoints.py`).
 3. **Zero Read-Only Operational Consoles:**
    - Operational management tables must offer tactical mutation actions (create, edit, toggle enable/disable, delete with confirmation and setup wizards) whenever the backend API supports mutations. No screen may be left in a passive read-only state without operational justification.
-4. **Non-Destructive UI Error Handling:**
+4. **Non-Destructive UI Error Handling & Null-Safe Async Collections:**
    - Pinia / Redux stores must never reset populated arrays or objects to empty primitives (e.g. `setItems([])`) inside generic `catch` blocks if valid data already exists in memory. Maintain the last known valid state and set an explicit error or stale flag.
+   - Always guard asynchronous array/collection access in templates and computed properties (`(items ?? []).length`, `item?.subitems?.length`) to prevent `TypeError` crashes during partial renders.
+5. **Proactive RBAC UI Visibility (Zero 403 Dead-Ends):**
+   - Never expose navigation links, tabs, or mutation buttons to roles that will receive `HTTP 403 Forbidden` from the backend. Filter routes and actions proactively by user role (`v-if` / role guards) in addition to backend RBAC enforcement.
+6. **Multi-Viewport Ergonomics, Theme Parity & Colorblind Accessibility:**
+   - Certify zero horizontal overflow (`scrollWidth <= innerWidth`) across Mobile (`375x667`), Tablet (`768x1024`), and Desktop (`1440x900`).
+   - Enforce a single primary solid CTA button per container/modal, define all CSS custom properties (`--var`) across every theme (dark, light, high-contrast) with zero orphan tokens, and pair status colors with geometric/text indicators (`▲`/`●`/`■`/`✕`) for colorblind accessibility (WCAG 1.4.1).
 
 ---
 

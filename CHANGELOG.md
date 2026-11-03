@@ -7,6 +7,12 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 ## [Unreleased]
 
 ### 🚀 Añadido (Added)
+* **Retroalimentación de Producción desde Caso de Estudio Real (`RoSGrid` v1.0.0 — 14 Hitos):**
+  * **Validador Bidireccional de Endpoints API (`.agents/scripts/verify_no_orphan_api_endpoints.py`):** Audita estáticamente en `< 2s` que el 100% de las llamadas HTTP del frontend coincidan con rutas registradas en el backend (cero errores 404/405 silenciosos) y detecta endpoints de backend huérfanos.
+  * **Plantilla de Blindaje Productivo `--no-dev` (`fastapi/test/test_production_no_dev_cleanliness.unit.py.example`):** Prueba unitaria basada en AST que garantiza que ningún módulo en `src/` importe paquetes exclusivos de `[project.optional-dependencies].dev`, certifica la desactivación de `/docs`, `/redoc` y `/openapi.json` en `APP_ENV=production` y verifica la sanitización de errores `422`.
+  * **Plantillas Nginx para SPA, Observabilidad y Seguridad OSHP (`vue3/nginx/default.conf.example` y `react-frontend/nginx/default.conf.example`):** Configuración lista para producción y QA con `try_files $uri $uri/ /index.html`, endpoint `/stub_status` restringido a subredes internas para `nginx-prometheus-exporter`, DNS dinámico (`127.0.0.11`), proxy `/api/` y `/ws/`, y cabeceras OWASP OSHP.
+  * **Política Trivy de Exclusión de Contenedores Efímeros de QA (`.trivy.yaml`) y `.gitignore` Raíz:** Evita falsos positivos de Trivy IaC sobre privilegios diagnósticos intencionales en `*/docker-compose.qa.yml` (`SYS_PTRACE` para `py-spy`/`clinic.js`, `user: root` en OWASP ZAP y `docker.sock:ro` en Pumba), manteniendo auditoría estricta sobre manifiestos de producción.
+  * **Scripts Operativos de Gobernanza (`scripts/actualizar-grafos-graphify.sh` y `scripts/generar-sbom-cyclonedx.sh`):** Automatización en contenedores efímeros para extracción/agrupación de grafos AST Graphify y generación de inventarios CycloneDX SBOM (ECMA-424 / STIG V6R5).
 * **Especificaciones de Arquitectura Zero-Clone (`docs/specs/`) y Planificación Maestra (`ROADMAP.md`):**
   * `docs/specs/01_SPEC_ARQUITECTURA_ZERO_CLONE_Y_MANIFIESTO_REMOTO.md`: Diseño de hidratación bajo demanda desde GitHub sin clonar el repositorio y esquema del manifiesto criptográfico `manifest.json` (SHA-256).
   * `docs/specs/02_SPEC_SKILL_QA_11X_ARCHITECT_E_INSTALADOR.md`: Especificación de la Skill maestra `qa-11x-architect` con carga progresiva (`references/`) e instalador universal de 1 comando (`npx` y `curl | sh`).
@@ -14,6 +20,16 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
   * `docs/specs/04_SPEC_MCP_PARSERS_AUDITOR_STIG_OWASP_Y_GATE.md`: Especificación de los parsers ahorradores de tokens, el auditor estático de los 22 patrones DISA ASD STIG V6R5 + OWASP v4.2 y las Tools 5 a 7.
   * `docs/specs/05_SPEC_PUBLICACION_NPM_Y_AUTOMATIZACION_CI.md`: Manual paso a paso para publicar paquetes en npm (Node.js) con 2FA, Granular Access Tokens y GitHub Actions con SLSA Provenance (`--provenance`).
   * `ROADMAP.md`: Planificación detallada en 6 Hitos ejecutable por Gemini 3.8 Flash High.
+
+### 🐛 Corregido y Mejorado (Fixed & Changed)
+* **Alineación de Tool Boundary en Playwright (`accessibility.e2e.ts`):** Renombrados `vue3/e2e/accessibility.spec.ts` y `react-frontend/e2e/accessibility.spec.ts` a `accessibility.e2e.ts` para coincidir con `testMatch: '**/*.e2e.ts'` en `playwright.config.ts.example`, añadiendo intercepción determinista de tiles de mapas con PNG 1x1 en base64.
+* **Soporte Corepack y Chromium Headless en Contenedor `ui-e2e` y Lighthouse CI:** Añadidos `entrypoint` con `corepack enable`, `CHROME_PATH` apuntando al binario Chromium de Playwright, `chromeFlags: '--no-sandbox --headless --disable-gpu --disable-dev-shm-usage'` y `skipAudits: ['is-on-https']` en `lighthouserc.js.example`.
+* **Blindaje de `pyproject.toml.example` (`fastapi/` y `python/`):** Añadido `[tool.hatch.build.targets.wheel] packages = ["src"]`, movidos `prometheus-fastapi-instrumentator` y `prometheus-client` a dependencias de producción, incorporado `pip-audit>=2.7.3`, configurado `python_files = ["*.unit.py", "*.spec.py", "test_*.py"]` + `--import-mode=importlib` y añadida sección `[tool.pyrefly]` para IDEs sin `.venv` local.
+* **Configuración de Vitest, Stryker y `package.json.example` (`vue3/`, `react-frontend/`, `node-backend/`):** Añadido alias `@`, exclusión de `src/main.ts` en cobertura, `@vitejs/plugin-vue`, `@axe-core/playwright`, `pnpm audit --prod`, `pnpm.onlyBuiltDependencies` y plugins de `@stryker-mutator/vitest-runner`.
+* **Validación de Longitud de Revision IDs en Alembic (`verify_alembic_orm_parity.py`):** Añadida función `verify_revision_id_lengths()` que bloquea identificadores `revision` mayores a 32 caracteres (`VARCHAR(32)` en PostgreSQL `alembic_version`).
+* **Detección `lowerCamelCase` y Multi-Frontend en `verify_zero_orphan_vue_components.py`:** Soporte para suites unitarias nombradas en `lowerCamelCase` o `PascalCase` y escaneo simultáneo de todos los directorios frontend presentes.
+* **Limpieza Resiliente sin Root (`limpieza.sh`):** Fallback automático con contenedor `alpine` para eliminar cachés generadas por root en Docker y preservación de `GRAPH_REPORT.md`, `graph.html` y `graph.json`.
+* **Directivas `.agents/rules/`:** Incorporadas las 6 reglas empíricas de producción (`AsyncSession MissingGreenlet`, `Idempotency-Key` único por mutación en tests, visibilidad RBAC proactiva `Zero 403 Dead-Ends`, ergonomía multi-viewport `375/768/1440` + daltonismo geométrico, ubicación canónica de `.agents/ACTIVE_TASK.md` y `Critical Execution Gate`).
 
 ---
 

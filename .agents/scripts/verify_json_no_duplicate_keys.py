@@ -46,13 +46,10 @@ def audit_json_file(file_path: Path) -> list[str]:
 def main() -> int:
     repo_root = Path(__file__).resolve().parent.parent.parent
     json_files = list(repo_root.glob("**/*.json"))
-    
+
     # Excluye directorios no rastreados o de dependencias
     ignored_patterns = ["node_modules", ".stryker-tmp", "coverage", ".venv", "dist", "build"]
-    filtered_files = [
-        f for f in json_files
-        if not any(pattern in str(f) for pattern in ignored_patterns)
-    ]
+    filtered_files = [f for f in json_files if not any(pattern in str(f) for pattern in ignored_patterns)]
 
     if not filtered_files:
         print("ℹ️ No se detectaron archivos JSON relevantes para auditar.")

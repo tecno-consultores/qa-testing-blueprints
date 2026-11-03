@@ -3,32 +3,19 @@
 LC_ALL=C
 
 if [[ "$EUID" != "0" ]]; then
-        echo "ERROR: debe ser root. Ejecuta con sudo ./limpieza.sh"
-        exit 1
+        echo "AVISO: Ejecutando sin root; se usará contenedor efímero Alpine para limpiar artefactos de Docker."
 fi
 
-clear
 echo "Iniciando purga profunda del entorno de QA de Vue 3 (Nivel 11X)..."
 
-rm -rf node_modules
-rm -rf dist
-rm -rf .nuxt
+docker run --rm -v "$(pwd):/work" alpine sh -c "rm -rf /work/node_modules /work/dist /work/.nuxt /work/test-results /work/playwright-report /work/blob-report /work/target /work/test/target /work/coverage /work/.stryker-tmp /work/lhci-reports /work/.lhcache /work/.lighthouseci /work/prometheus_data /work/*.log && chown -R $(id -u):$(id -g) /work" 2>/dev/null || true
 
-rm -rf test-results/
-rm -rf playwright-report/
-rm -rf blob-report/
-rm -rf target/
-rm -rf test/target/
-rm -rf coverage/
-rm -rf .stryker-tmp/
-rm -rf lhci-reports/
-rm -rf .lhcache/
-rm -rf graphify-out/
-rm -rf prometheus_data/
-rm -f *.html
-rm -f *.log
+rm -rf node_modules dist .nuxt
+rm -rf test-results/ playwright-report/ blob-report/ target/ test/target/ coverage/ .stryker-tmp/ lhci-reports/ .lhcache/ .lighthouseci/ prometheus_data/
+find graphify-out/ -mindepth 1 ! -name 'GRAPH_REPORT.md' ! -name 'graph.html' ! -name 'graph.json' -delete 2>/dev/null || true
+rm -f ./*.log
 
-chown -R $USER:$USER . 2>/dev/null || true
+chown -R "${SUDO_USER:-$USER}:${SUDO_USER:-$USER}" . 2>/dev/null || true
 
 # Apagar infraestructuras de perfiles ocultos para forzar purga de la caché de pnpm (pnpm-store)
 docker compose -f docker-compose.qa.yml down -v 2>/dev/null || true

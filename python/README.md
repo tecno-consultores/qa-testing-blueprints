@@ -6,7 +6,7 @@ Este documento contiene las instrucciones corporativas de Nivel 11X que DEBES se
 
 ## 1. Reglas Estrictas de Ejecución (Contenedores Efímeros y Caché)
 **NUNCA** debes instruir la construcción de imágenes locales (`docker build`) ni la ejecución de comandos manuales complejos de `docker compose run`. Toda la ejecución ocurre de forma efímera a través del `Makefile` proporcionado, utilizando los volúmenes de caché persistente:
-*   Para pruebas lógicas, benchmarking, profiling y dependencias: `sinfallas/base-python-uv:3.13`.
+*   Para pruebas lógicas, benchmarking, profiling y dependencias: `sinfallas/base-python-uv:3.15`.
 *   Para Recolección de Métricas: `prom/prometheus:latest` (y Pushgateway si aplica).
 *   Para Optimización de Contexto IA (MCP): `sinfallas/remote-graphify:latest`.
 

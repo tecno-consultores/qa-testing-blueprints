@@ -29,7 +29,7 @@ Cuando el usuario coloque los archivos de este Blueprint en su proyecto y te pid
 *   Analiza los archivos `.example` (ej. `package.json.example`, `pyproject.toml.example`, `Makefile.example`, `docker-compose.qa.yml`).
 *   **Fusión Quirúrgica No Destructiva:** Extrae linters, configuraciones estrictas, scripts y dependencias de testing de los archivos `.example` e incorpóralos al archivo real del usuario.
 *   **NUNCA** elimines dependencias de producción preexistentes ni configuraciones de negocio del usuario.
-*   Ajusta los tags de imágenes en `docker-compose.qa.yml` para coincidir con la versión de producción del proyecto (ej. `base-python-uv:3.13`, `base-node-ionic:26`).
+*   Ajusta los tags de imágenes en `docker-compose.qa.yml` para coincidir con la versión de producción del proyecto (ej. `base-python-uv:3.15`, `base-node-ionic:26`).
 
 ---
 

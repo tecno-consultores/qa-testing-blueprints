@@ -145,7 +145,8 @@ El módulo `output-parsers.ts` recibirá el `stdout` y `stderr` crudos de `make 
   2. **Secret Scanning (`verificar-secretos.sh`):** Ejecuta el escáner de secretos y certifica `0` fugas.
   3. **Integridad JSON (`verify_json_no_duplicate_keys.py`):** Certifica `0` claves duplicadas en archivos `.json`.
   4. **Cero Componentes UI Huérfanos (`verify_zero_orphan_vue_components.py`):** Si existe `src/components` o `vue3/src`, certifica que cada componente tenga su `.unit.ts`.
-  5. **Paridad ORM vs Migraciones (`verify_alembic_orm_parity.py`):** Si existen modelos SQLAlchemy, certifica `0` tablas sin migración Alembic.
+  4b. **Cero Endpoints API Huérfanos (`verify_no_orphan_api_endpoints.py`):** Certifica paridad bidireccional Front-Back (0 llamadas 404/405).
+  5. **Paridad ORM vs Migraciones (`verify_alembic_orm_parity.py`):** Si existen modelos SQLAlchemy, certifica `0` tablas sin migración Alembic y `revision <= 32` chars.
   6. **Auditoría DISA STIG / OWASP (`audit_security_stig_owasp`):** Certifica `0` hallazgos `CRITICAL` o `HIGH`.
   7. **Sincronización Documental:** Verifica que `TESTING.md` y `CHANGELOG.md` existan y estén actualizados.
 

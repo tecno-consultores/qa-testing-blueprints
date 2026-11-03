@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -98,7 +97,9 @@ def inspect_symbol(query: str) -> None:
     graph_files = find_graph_files()
     if not graph_files:
         print("ℹ️ No se encontraron grafos Graphify (graph.json). Para generarlos:")
-        print("   docker compose -f <ecosistema>/docker-compose.qa.yml --profile graphify run --rm graphify bash -c 'uvx graphifyy extract'")
+        print(
+            "   docker compose -f <ecosistema>/docker-compose.qa.yml --profile graphify run --rm graphify bash -c 'uvx graphifyy extract'"
+        )
         return
 
     total_callers = 0

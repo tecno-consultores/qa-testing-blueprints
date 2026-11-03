@@ -1,0 +1,88 @@
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 QA Testing Blueprints Contributors
+# Configuración canónica Nginx para SPA (Vue 3 / React) — Estándar QA 11X
+
+server {
+    listen 8080;
+    listen 80;
+    server_name _;
+    server_tokens off;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Cabeceras de Seguridad Obligatorias (DISA ASD STIG V6R5 + OWASP OSHP + Certificación DAST ZAP)
+    add_header X-Robots-Tag "noindex, nofollow, noarchive, nosnippet" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Permitted-Cross-Domain-Policies "none" always;
+    add_header Cross-Origin-Opener-Policy "same-origin" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://tile.openstreetmap.org; connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self';" always;
+
+    # Endpoint interno para nginx-prometheus-exporter (Perfil observability 11X)
+    location = /stub_status {
+        stub_status;
+        allow 127.0.0.1;
+        allow 172.16.0.0/12;
+        allow 192.168.0.0/16;
+        allow 10.0.0.0/8;
+        deny all;
+    }
+
+    # Resolver Docker DNS para resolución dinámica sin fallo al arrancar en pruebas E2E aisladas
+    resolver 127.0.0.11 valid=30s ipv6=off;
+
+    # Proxy inverso hacia la API Backend
+    location /api/ {
+        set $backend_api "http://api:8000";
+        proxy_pass $backend_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Proxy inverso para WebSockets
+    location /ws/ {
+        set $backend_ws "http://api:8000";
+        proxy_pass $backend_ws;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 3600s;
+    }
+
+    # Activos estáticos inmutables
+    location ~* \.(?:ico|svg|png|webmanifest)$ {
+        expires 7d;
+        add_header Cache-Control "public, max-age=604800, immutable";
+        add_header X-Content-Type-Options "nosniff" always;
+        access_log off;
+        try_files $uri =404;
+    }
+
+    # Evitar caché obsoleto en el documento raíz HTML5 de la SPA
+    location = /index.html {
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        add_header X-Robots-Tag "noindex, nofollow, noarchive, nosnippet" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Permitted-Cross-Domain-Policies "none" always;
+        add_header Cross-Origin-Opener-Policy "same-origin" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://tile.openstreetmap.org; connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self';" always;
+    }
+
+    # Soporte de enrutamiento HTML5 History Mode (Vue Router / React Router)
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

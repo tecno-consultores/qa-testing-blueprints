@@ -13,18 +13,20 @@
 
 Unit test isolation using mocks measures quick code execution paths, but introduces severe blind spots if disconnected from reality:
 
-1. **ORM vs Database Schema Invariant:**
+1. **ORM vs Database Schema Invariant & AsyncSession Safety:**
    - **Zero Schema Drift:** Modifying ORM models never alters the database automatically.
-   - **Mandatory Migrations:** Any new model, table, constraint, or column type change requires an immediate versioned migration script.
+   - **Mandatory Migrations:** Any new model, table, constraint, or column type change requires an immediate versioned migration script with `revision` ID `<= 32` characters (`VARCHAR(32)` limit in `alembic_version`).
    - **Real Database Engine Verification:** Always verify tables, column types, and indices in a real database container (e.g. PostgreSQL). Never assume passing mocks guarantee SQL syntax execution.
-2. **Visual Geometry & Anti-JSDOM Testing:**
+   - **SQLAlchemy 2.0 `AsyncSession` `MissingGreenlet` Prevention:** After `await db.commit()` or `await db.rollback()`, ORM attributes expire by default. Never access ORM model attributes (`model.id`, `model.email`) after commit/rollback without `await db.refresh(model)` or capturing primitive variables beforehand.
+2. **Visual Geometry, Multi-Viewport Ergonomics & Anti-JSDOM Testing:**
    - JSDOM does NOT calculate CSS Flexbox/Grid layouts, element coordinates, or viewport bounding boxes (always returns `0x0`).
-   - Prevent overlapping elements (e.g. fixed footers collapsing over forms, modals hidden behind navbars) by enforcing in-flow layouts (`margin-top: auto` inside `<main>`), validating DOM hierarchy, and inspecting real browser viewports in Karate UI or Playwright.
-3. **Trimodal Ground-Truth Fixtures:**
+   - Prevent overlapping elements (e.g. fixed footers collapsing over forms, modals hidden behind navbars) by enforcing in-flow layouts (`margin-top: auto` inside `<main>`), validating DOM hierarchy, and inspecting real browser viewports (`375x667` mobile, `768x1024` tablet, `1440x900` desktop) with zero horizontal scroll (`scrollWidth <= innerWidth`) in Karate UI or Playwright.
+3. **Trimodal Ground-Truth Fixtures & Sequential Idempotency:**
    - When integrating external APIs or hardware, test against 3 raw fixtures:
      - **Fixture A (Virgin / Unconfigured):** Must assert negative invariant (`active=False`, `status="NOT_CONFIGURED"`).
      - **Fixture B (Nominal Configured):** Must assert positive invariant (`active=True`, nominal telemetry).
      - **Fixture C (Degraded / Unsupported):** Must assert graceful degradation without unhandled 500 errors.
+   - **Fresh `Idempotency-Key` per Mutation in Tests:** Never reuse a static `Idempotency-Key` UUID across distinct sequential `POST`/`PUT`/`PATCH`/`DELETE` test steps against real KeyDB/Redis, as the idempotency cache will replay the first response and mask subsequent assertions.
 
 ---
 

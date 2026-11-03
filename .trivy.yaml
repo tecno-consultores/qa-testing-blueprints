@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 QA Testing Blueprints Contributors
+# Configuración oficial de Trivy para QA Testing Blueprints (Estándar QA 11X)
+# Excluye orquestadores exclusivos de QA efímero (que requieren SYS_PTRACE para py-spy,
+# user: root para OWASP ZAP y docker.sock:ro para Pumba Chaos) del escaneo IaC de producción.
+scan:
+  skip-dirs:
+    - mutants
+    - fastapi/mutants
+    - python/mutants
+    - node_modules
+    - vue3/node_modules
+    - react-frontend/node_modules
+    - node-backend/node_modules
+    - dist
+    - vue3/dist
+    - react-frontend/dist
+  skip-files:
+    - python/docker-compose.qa.yml
+    - fastapi/docker-compose.qa.yml
+    - node-backend/docker-compose.qa.yml
+    - vue3/docker-compose.qa.yml
+    - react-frontend/docker-compose.qa.yml
+    - bash-scripts/docker-compose.qa.yml

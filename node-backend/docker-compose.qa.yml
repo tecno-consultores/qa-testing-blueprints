@@ -1,6 +1,6 @@
 services:
   api:
-    image: sinfallas/base-node-ionic:latest
+    image: sinfallas/base-node-ionic:26
     container_name: node_api
     hostname: node_api
     pull_policy: always
@@ -20,7 +20,7 @@ services:
     command: bash -c "pnpm install && pnpm run dev"
 
   qa-node-backend:
-    image: sinfallas/base-node-ionic:latest
+    image: sinfallas/base-node-ionic:26
     container_name: node_qa_backend
     hostname: node_qa_backend
     pull_policy: always
@@ -98,7 +98,7 @@ services:
       - api
 
   stress_test:
-    image: sinfallas/base-node-ionic:latest
+    image: sinfallas/base-node-ionic:26
     container_name: node_chaos_artillery
     hostname: node_chaos_artillery
     profiles:

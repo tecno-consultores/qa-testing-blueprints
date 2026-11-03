@@ -23,11 +23,12 @@ Este directorio implementa el estándar abierto y emergente de la industria para
 │   ├── docker-trivy-keydb-hardening/                 # Endurecimiento Docker, Trivy = 0 y KeyDB multi-hilo
 │   └── graphify-ast-navigator/                       # Navegación AST, radio de impacto (Blast Radius) y servidor MCP
 └── scripts/                                          # Scripts de automatización y compuertas de calidad
-    ├── verify_alembic_orm_parity.py                  # Auditoría estricta: modelos ORM vs migraciones de BD
+    ├── verify_alembic_orm_parity.py                  # Auditoría estricta: modelos ORM vs migraciones de BD (y revision <= 32 chars)
     ├── verify_json_no_duplicate_keys.py              # Auditoría estricta anti-colisión de claves duplicadas en JSON i18n
     ├── verify_topological_health.py                  # Auditoría estricta de salud topológica y límites de capas AST
     ├── inspect_blast_radius.py                       # Análisis de radio de impacto pre-refactorización (aristas entrantes)
     ├── verify_zero_orphan_vue_components.py          # Auditoría estricta: paridad y cobertura de componentes UI (0 huérfanos)
+    ├── verify_no_orphan_api_endpoints.py             # Auditoría bidireccional: paridad de endpoints API Front-Back (0 huérfanos 404/405)
     └── certify_task_completion.sh                    # Compuerta de certificación pre-commit automatizada (8 etapas)
 ```
 
