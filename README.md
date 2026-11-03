@@ -74,7 +74,7 @@ El repositorio está dividido en ecosistemas tecnológicos listos para ser adopt
 * **[`FAQ.md`](./FAQ.md):** Resolución rápida a dudas frecuentes, discos llenos o fallos de cobertura.
 * **[`docs/qa-philosophy.md`](docs/qa-philosophy.md):** La filosofía de calidad y la innegociable regla del 95%.
 * **[`docs/ai-integration.md`](docs/ai-integration.md):** Integración autónoma vía Model Context Protocol (MCP).
-* **[`docs/ci-cd-pipelines.md`](docs/ci-cd-pipelines.md):** Plantillas de integración continua para GitHub Actions y GitLab CI.
+* **[`docs/ci-cd-pipelines.md`](docs/ci-cd-pipelines.md):** Arquitectura de ejecución y principios de integración continua bajo la Regla Cero.
 * **[`docs/docker-troubleshooting.md`](docs/docker-troubleshooting.md):** Diagnóstico de conflictos de red y entornos anidados.
 
 ---

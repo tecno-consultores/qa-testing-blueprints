@@ -1,8 +1,8 @@
-# 📦 Especificación 05: Guía Paso a Paso de Publicación en npm (Node.js) y Automatización CI/CD
+# 📦 Especificación 05: Guía Paso a Paso de Publicación en npm (Node.js) y Arquitectura Soberana sin CI/CD Externo
 
 **Proyecto:** QA Testing Blueprints (Estándar Corporativo Nivel 11X)  
 **Paquete Objetivo:** `@sinfallas/mcp-qa-11x` (con alcance de usuario/organización) o `mcp-qa-11x` (nombre directo)  
-**Audiencia:** Guía paso a paso desde cero para el Autor del Proyecto y automatización en GitHub Actions  
+**Audiencia:** Guía paso a paso desde cero para el Autor del Proyecto y publicación soberana en Docker efímero  
 **Estado:** APROBADO PARA IMPLEMENTACIÓN
 
 ---
@@ -45,7 +45,7 @@ Para no meter tu usuario y contraseña en la terminal y cumplir con la regla de 
    - **Token name:** `qa-testing-blueprints-publish`
    - **Expiration:** `90 days` (o `365 days`).
    - **Packages and scopes — Permissions:** Selecciona **Read and write** (*All packages*).
-   - *(Opcional pero recomendado para GitHub Actions)* Marca la casilla **Bypass two-factor authentication (2FA)** si vas a automatizar la publicación desde GitHub Actions.
+   - Marca la casilla **Bypass two-factor authentication (2FA)** para automatizar la publicación autónoma sin interrupción interactiva.
 4. Copia el token generado (empieza por `npm_...`). Guárdalo en un lugar seguro; solo se muestra una vez.
 
 ---
@@ -85,7 +85,7 @@ docker compose -f docker-compose.qa.yml run --rm \
 
 ## 3. Publicación Autónoma sin Runners Externos (`scripts/publicar-mcp.sh` — Modelo RoSGrid)
 
-Siguiendo el estándar de arquitectura de **RoSGrid**, la publicación no depende obligatoriamente de runners remotos de CI/CD (GitHub Actions), eliminando el riesgo de fuga de credenciales o fallos de red en plataformas externas.
+Siguiendo el estándar de arquitectura de **RoSGrid**, la publicación no depende obligatoriamente de runners remotos de CI/CD (GitHub Actions o GitLab CI), eliminando el riesgo de fuga de credenciales o fallos de red en plataformas externas.
 
 El flujo autónomo central se orquesta mediante el script [`scripts/publicar-mcp.sh`](../../scripts/publicar-mcp.sh):
 
@@ -122,14 +122,11 @@ make publish-mcp
 
 ---
 
-## 4. Automatización Opcional con GitHub Actions + SLSA Provenance (DISA STIG `V-222513`)
+## 4. Filosofía Soberana: Eliminación de CI/CD Externo y Cero Dependencia de Runners Remotos
 
-Para que después de la primera configuración **nunca más tengas que publicar a mano**, se incluirá el workflow `.github/workflows/publish-mcp-npm.yml`:
+En conformidad con las directivas corporativas y el modelo de gobernanza Level-11X de RoSGrid:
 
-1. En tu repositorio de GitHub (`tecno-consultores/qa-testing-blueprints`), ve a **Settings** $\rightarrow$ **Secrets and variables** $\rightarrow$ **Actions** $\rightarrow$ **New repository secret**.
-2. Crea un secreto llamado **`NPM_TOKEN`** y pega tu token `npm_...`.
-3. Cada vez que hagas un `git tag 2.8.0 && git push origin 2.8.0`, GitHub Actions:
-   - Ejecutará todas las pruebas unitarias de `mcp-server/` verificando `>= 95%` de cobertura.
-   - Compilará el paquete TypeScript.
-   - Ejecutará `npm publish --provenance --access public`.
-   - El flag `--provenance` firma criptográficamente el paquete en npm con un certificado oficial de GitHub (SLSA Build Level 2, cumpliendo **DISA ASD STIG V6R5 `V-222513` / `V-222645`** y **OWASP CycloneDX**), mostrando un escudo verde de verificación criptográfica en la página de npmjs.com.
+1. **Cero Dependencia de CI/CD Externo:** Se prescinde intencionalmente de GitHub Actions, GitLab CI y cualquier otro runner alojado en nubes externas para tareas de empaquetado y publicación.
+2. **Eliminación del Directorio `.github`:** Toda la automatización de calidad, linters, pruebas unitarias ($\ge 95\%$), validación de esquemas y publicación vive de forma autónoma en el repositorio (`Makefile`, `docker-compose.qa.yml`, `scripts/`).
+3. **Mitigación de Fuga de Credenciales (Supply Chain & Secret Protection):** Los tokens con privilegios de escritura en npmjs (`NPM_TOKEN`) nunca se depositan en secretos de plataformas de terceros ni se transmiten por la red hacia runners efímeros remotos. Se inyectan exclusivamente en contenedores locales que se destruyen inmediatamente tras la publicación.
+4. **Reproducibilidad Idéntica (Regla Cero):** Al ejecutar el pipeline mediante `scripts/publicar-mcp.sh` sobre `sinfallas/base-node-ionic:26`, el resultado de la publicación es 100% idéntico y determinista sin importar la máquina del desarrollador.
