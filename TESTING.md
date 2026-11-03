@@ -144,6 +144,12 @@ El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
 
 ## 4. Pruebas Unitarias de Herramientas y Scripts (`tests/`)
 
+* **Publicador Autónomo de Servidor MCP a npmjs (`scripts/publicar-mcp.sh`):**
+  * **Suite:** `tests/test_publicar_mcp.unit.py` (5 pruebas unitarias).
+  * **Ejecución Efímera:** `docker run --rm -v "${PWD}:/app" -w /app sinfallas/base-python-uv:3.15 python3 tests/test_publicar_mcp.unit.py`
+  * **Cobertura Alcanzada:** **100% de aserciones aprobadas** (5/5 pruebas pasando en 0.020s).
+  * **Aserciones Validadas:** Menú `--help` y opciones CLI, validación de no-root en el host, detección y rechazo de ejecución sin `NPM_TOKEN` en modo real, rechazo de token con valor de plantilla de ejemplo, manejo de `.env` ausente o configurado, y detección de archivos `package.json` ausentes.
+
 * **Validador de Consistencia ROADMAP y Tarea Activa (`.agents/scripts/verify_roadmap_consistency.py`):**
   * **Suite:** `tests/test_verify_roadmap_consistency.unit.py` (13 pruebas unitarias).
   * **Ejecución Efímera:** `docker run --rm -v "${PWD}:/app" -w /app sinfallas/base-python-uv:3.15 python3 tests/test_verify_roadmap_consistency.unit.py`

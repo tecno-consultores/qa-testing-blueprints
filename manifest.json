@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.7.0",
-  "generated_at_utc": "2026-11-03T02:28:34Z",
+  "generated_at_utc": "2026-11-03T02:34:04Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -507,6 +507,13 @@
   },
   "common_files": [
     {
+      "path": ".env.example",
+      "target_name": ".env.example",
+      "merge_strategy": "copy_if_missing",
+      "sha256": "94cf0999119874fcdd4acd7e549d7526ba172fbc35cf92d3f14832117400dca1",
+      "size_bytes": 1062
+    },
+    {
       "path": ".trivy.yaml",
       "target_name": ".trivy.yaml",
       "merge_strategy": "copy_if_missing",
@@ -540,6 +547,13 @@
       "merge_strategy": "overwrite_executable",
       "sha256": "2581d05435d11cc4315227ce34c19816a13e69f9f31d9a5dc55ac5eee6b54024",
       "size_bytes": 6333
+    },
+    {
+      "path": "scripts/publicar-mcp.sh",
+      "target_name": "scripts/publicar-mcp.sh",
+      "merge_strategy": "overwrite_executable",
+      "sha256": "ab203fe3db4b52ebcf29ba08ec439027e4a41765bf3c7682b1ec9868efd251c0",
+      "size_bytes": 9162
     },
     {
       "path": "scripts/verificar-secretos.sh",

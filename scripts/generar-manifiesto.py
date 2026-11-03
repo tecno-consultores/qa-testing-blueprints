@@ -59,6 +59,8 @@ COMMON_FILE_PATHS: List[str] = [
     "scripts/verificar-secretos.sh",
     ".trivy.yaml",
     "scripts/limpieza.sh",
+    "scripts/publicar-mcp.sh",
+    ".env.example",
 ]
 
 
@@ -142,7 +144,7 @@ def classify_common_file(rel_path: str) -> Tuple[str, str]:
     filename = Path(rel_path).name
     if filename.endswith(".sh"):
         return rel_path, "overwrite_executable"
-    if filename in ("commitlint.config.js", ".trivy.yaml"):
+    if filename in ("commitlint.config.js", ".trivy.yaml", ".env.example"):
         return rel_path, "copy_if_missing"
     return rel_path, "surgical_merge"
 

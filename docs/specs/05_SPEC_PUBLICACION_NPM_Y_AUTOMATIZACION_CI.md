@@ -83,24 +83,46 @@ docker compose -f docker-compose.qa.yml run --rm \
 
 ---
 
-### Paso 5: Verificar que ya está público en Internet
-Cinco segundos después de ejecutar el comando anterior:
-1. Abre en tu navegador: `https://www.npmjs.com/package/@sinfallas/mcp-qa-11x`
-2. Prueba en cualquier carpeta instalar la skill o levantar el MCP con:
+## 3. Publicación Autónoma sin Runners Externos (`scripts/publicar-mcp.sh` — Modelo RoSGrid)
+
+Siguiendo el estándar de arquitectura de **RoSGrid**, la publicación no depende obligatoriamente de runners remotos de CI/CD (GitHub Actions), eliminando el riesgo de fuga de credenciales o fallos de red en plataformas externas.
+
+El flujo autónomo central se orquesta mediante el script [`scripts/publicar-mcp.sh`](../../scripts/publicar-mcp.sh):
+
+```text
+.env en la raíz (NPM_TOKEN) ──> scripts/publicar-mcp.sh ──> Docker Efímero (sinfallas/base-node-ionic:26)
+                                                                 │
+                                ┌────────────────────────────────┴────────────────────────────────┐
+                                ▼                                                                 ▼
+                    Pipeline de Validación 11X                                     Publicación en Memoria
+             (lint + typecheck + tests >= 95% + build)                      (npm config set token && npm publish)
+```
+
+### Configuración de Credenciales:
+1. Copie la plantilla `.env.example` en la raíz del repositorio:
    ```bash
-   npx -y @sinfallas/mcp-qa-11x install-skill
+   cp .env.example .env
    ```
+2. Configure su token de npmjs con permisos de publicación:
+   ```bash
+   NPM_TOKEN=npm_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   ```
+3. El archivo `.env` está estrictamente blindado en `.gitignore` y auditado por `scripts/verificar-secretos.sh`.
+
+### Modos de Ejecución Canónicos:
+```bash
+# 1. Simulación completa (Dry-Run): valida lint, tests, build y simula npm pack sin publicar
+make publish-mcp-dry
+# o directamente: ./scripts/publicar-mcp.sh --dry-run
+
+# 2. Publicación en vivo: ejecuta todo el pipeline y publica a npmjs.org
+make publish-mcp
+# o directamente: ./scripts/publicar-mcp.sh
+```
 
 ---
 
-### Paso 6: ¿Cómo publicar actualizaciones futuras?
-Cada vez que hagamos una mejora en `mcp-server/`:
-1. Subimos el número de `"version"` en `mcp-server/package.json` (por ejemplo de `"2.7.0"` a `"2.8.0"`).
-2. Volvemos a ejecutar el comando del Paso 4 (o dejamos que **GitHub Actions** lo publique solo al crear un tag, como se detalla en la sección siguiente).
-
----
-
-## 3. Automatización Total con GitHub Actions + SLSA Provenance (DISA STIG `V-222513`)
+## 4. Automatización Opcional con GitHub Actions + SLSA Provenance (DISA STIG `V-222513`)
 
 Para que después de la primera configuración **nunca más tengas que publicar a mano**, se incluirá el workflow `.github/workflows/publish-mcp-npm.yml`:
 

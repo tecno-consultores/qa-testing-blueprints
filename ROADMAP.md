@@ -100,5 +100,5 @@
 - [ ] **6.1.** Crear la suite completa de pruebas unitarias en `mcp-server/tests/*.unit.ts` alcanzando **$\ge 95.0\%$ de cobertura** en líneas, ramas, funciones y sentencias dentro del contenedor efímero `sinfallas/base-node-ionic:26`.
 - [ ] **6.2.** Crear los escenarios BDD en Karate Labs (`mcp-server/test/mcp_cli_test.feature`) validando el CLI y los contratos JSON.
 - [ ] **6.3.** Ejecutar en contenedor efímero `make qa-all` y `npm pack --dry-run` dentro de `mcp-server/`, certificando `0` errores de tipado (`tsc --noEmit`), `0` errores de ESLint/SonarJS y paquete limpio.
-- [ ] **6.4.** Crear el workflow `.github/workflows/publish-mcp-npm.yml` para publicación automatizada en npm con `--provenance --access public`.
+- [ ] **6.4.** Implementar el script autónomo de publicación a npmjs sin runners externos (`scripts/publicar-mcp.sh`, credenciales desde `.env` en la raíz al estilo RoSGrid, validación efímera y `make publish-mcp`) y workflow opcional `.github/workflows/publish-mcp-npm.yml`.
 - [ ] **6.5.** Actualizar `README.md`, `TESTING.md`, `docs/ai-integration.md` y `CHANGELOG.md` con las instrucciones de uso de 1 comando (`npx -y @sinfallas/mcp-qa-11x` y `npx -y @sinfallas/mcp-qa-11x install-skill`).
