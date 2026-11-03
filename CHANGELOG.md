@@ -8,19 +8,25 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ---
 
+## [2.8.2] - 2026-11-02
+
+### 🚀 Añadido y Mejorado (Added & Changed)
+* **Propagación del Blindaje Inflexible al Ecosistema de Stacks (`--max-warnings 0`):**
+  * Estandarización obligatoria del flag `--max-warnings 0` en las plantillas oficiales de stacks `vue3/package.json.example` y `node-backend/package.json.example`, alineándolas con `react-frontend` y `mcp-server`.
+* **Inyección Inteligente en Servidor MCP (`bootstrap_or_merge_11x`):**
+  * Actualizado el fusionador quirúrgico `mcp-server/src/services/surgical-merger.ts` para detectar automáticamente scripts de `"lint"` con `eslint` en proyectos existentes e inyectar de manera proactiva `--max-warnings 0`.
+  * Incorporada suite de pruebas unitarias en `mcp-server/tests/surgical-merger.unit.ts` certificando la inyección no destructiva de `--max-warnings 0` (161 pruebas unitarias aprobadas al 100% con 99.2% de cobertura).
+* **Gobernanza de Agentes y Skill Maestra (`qa-11x-architect`):**
+  * Actualización de la Ley 2 (Invariante de Cero Warnings con `--max-warnings 0`) y Ley 3 (Aislamiento Hermético de Red) en `.agents/skills/qa-11x-architect/SKILL.md`.
+  * Actualización de las referencias operativas `references/01-core-13-layers.md` y `references/04-stack-node-vue-react.md` con las directivas técnicas de intercepción de red y linters inflexibles.
+  * Formalización de los principios 7 (Linter Inflexibility) y 8 (Hermetic Test Isolation) en la directiva suprema `.agents/rules/mandatory_qa_pyramid_and_doc_sync.md`.
+
+---
+
 ## [2.8.1] - 2026-11-02
 
-### 🐛 Corregido y Mejorado (Fixed & Changed)
-* **Blindaje Inflexible del Linter (`--max-warnings 0` en `mcp-server/` y Stacks):**
-  * Incorporación del flag estricto `--max-warnings 0` en el script `"lint"` de `mcp-server/package.json` para forzar fallo inmediato ante cualquier advertencia futura de ESLint o SonarJS, impidiendo la acumulación inadvertida de deuda técnica o warnings en pipelines locales y publicaciones a npmjs.
-  * Estandarización universal de `--max-warnings 0` en las plantillas oficiales de stacks `vue3/package.json.example`, `node-backend/package.json.example` y `react-frontend/package.json.example`.
-* **Inyección Inteligente en Servidor MCP (`bootstrap_or_merge_11x`):**
-  * Actualizado el fusionador quirúrgico `mcp-server/src/services/surgical-merger.ts` para que detecte automáticamente scripts de `"lint"` que invoquen `eslint` en proyectos existentes e inyecte de manera proactiva `--max-warnings 0`, garantizando que cualquier usuario externo que adopte el blueprint se beneficie del blindaje en su propio repositorio.
-  * Incorporada suite de pruebas unitarias en `mcp-server/tests/surgical-merger.unit.ts` certificando la inyección no destructiva de `--max-warnings 0`.
-* **Gobernanza de Agentes y Skill Maestra (`qa-11x-architect`):**
-  * Actualización de la Ley 2 y Ley 3 en `.agents/skills/qa-11x-architect/SKILL.md`, formalizando el Invariante de Cero Warnings (`--max-warnings 0`) y el Aislamiento Hermético de Red para pruebas unitarias.
-  * Actualización de las referencias operativas `references/01-core-13-layers.md` y `references/04-stack-node-vue-react.md` con las directivas técnicas de intercepción de red y linters inflexibles.
-  * Actualización de la regla corporativa `.agents/rules/mandatory_qa_pyramid_and_doc_sync.md` integrando los principios 7 (Linter Inflexibility) y 8 (Hermetic Test Isolation).
+### 🐛 Corregido (Fixed)
+* **Blindaje Inflexible del Linter en Servidor MCP:** Incorporación del flag estricto `--max-warnings 0` en el script `"lint"` de `mcp-server/package.json` para forzar fallo inmediato ante cualquier advertencia de ESLint o SonarJS.
 * **Erradicación Total de Advertencias en Servidor MCP:** Deduplicación de constantes literales en `mcp-server/src/resources/blueprint-resources.ts` (`MIME_MARKDOWN`) y simplificación de la recolección de archivos en `mcp-server/src/tools/inspect-project.ts`, alcanzando **0 errores y 0 warnings** en el análisis estático.
 * **Aislamiento Hermético de Pruebas Unitarias contra Fugas de Red:** Corrección de la prueba de fallback en `mcp-server/tests/edge-cases.unit.ts`, interceptando `globalThis.fetch` para simular condiciones offline de forma determinista y neutralizar dependencias externas en tiempo de ejecución de pruebas unitarias.
 * **Alineación de Reglas ESLint para Pruebas:** Configuración de `overrides` en `mcp-server/.eslintrc.json` para permitir la repetición de cadenas en asertos y esquemas de prueba sin comprometer la rigurosidad máxima en el código productivo (`src/`).

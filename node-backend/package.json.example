@@ -1,6 +1,6 @@
 {
   "name": "node-qa-blueprint",
-  "version": "2.8.1",
+  "version": "2.8.2",
   "description": "Plantilla base para APIs Node.js corporativas (Linting estricto, Mocking, Profiling, BDD y Mutación)",
   "packageManager": "pnpm@9.15.4",
   "engines": {

@@ -1,6 +1,6 @@
 {
   "name": "react-qa-blueprint",
-  "version": "2.8.1",
+  "version": "2.8.2",
   "description": "Plantilla base corporativa (Nivel 11X) para Frontend React (Vite, RTL, Playwright, Lighthouse, Stryker)",
   "packageManager": "pnpm@9.15.4",
   "engines": {
