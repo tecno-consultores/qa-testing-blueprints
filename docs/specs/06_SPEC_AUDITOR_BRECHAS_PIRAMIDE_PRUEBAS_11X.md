@@ -285,7 +285,77 @@ En el Hito 7 se actualizará `.agents/skills/qa-11x-architect/SKILL.md` (y su re
 
 ---
 
-## 7. Requisitos de Pruebas 11X para el Hito 7 (`mcp-server/tests/`)
+## 7. Directivas de Arquitectura Modular para Gemini 3.8 Flash High (Cumplimiento `--max-warnings 0`)
+
+Dado que `mcp-server/package.json` ejecuta `eslint src/**/*.ts tests/**/*.ts --max-warnings 0` con `eslint-plugin-sonarjs` y `eslint-plugin-security`, **Gemini 3.8 Flash High** DEBE estructurar `mcp-server/src/tools/test-pyramid-auditor.ts` siguiendo estas reglas estrictas:
+
+### 7.1. Prevención de `sonarjs/no-duplicate-string` (Umbral 3 en `src/`)
+Definir todas las cadenas repetidas como constantes en la cabecera de `mcp-server/src/tools/test-pyramid-auditor.ts`:
+```typescript
+const MAKE_QA_UNIT = 'make qa-unit';
+const MAKE_QA_LINT = 'make qa-lint';
+const MAKE_QA_BDD = 'make qa-bdd';
+const MAKE_QA_E2E = 'make qa-e2e';
+const MAKE_QA_MUTATION = 'make qa-mutation';
+const MAKE_QA_PERF = 'make qa-perf';
+const MAKE_QA_DAST = 'make qa-dast';
+const MAKE_QA_CHAOS = 'make qa-chaos';
+const DOCKER_COMPOSE_QA = 'docker-compose.qa.yml';
+const PYPROJECT_TOML = 'pyproject.toml';
+const PACKAGE_JSON = 'package.json';
+const MAKEFILE_NAME = 'Makefile';
+```
+
+### 7.2. Prevención de `sonarjs/cognitive-complexity` ($\le 15$ por función)
+**PROHIBIDO** evaluar las 13 capas dentro de una sola función monolítica con `if/else` anidados. Se DEBE descomponer en funciones evaluadoras independientes (una por capa o grupo cohesivo), donde cada función tenga una complejidad cognitiva $\le 8$:
+- `collectProjectFiles(projectPath: string): string[]`
+- `findOrphanSourceFiles(projectPath: string, files: string[], stacks: StackName[]): OrphanSourceFile[]`
+- `findUntestedApiEndpoints(projectPath: string, files: string[]): UntestedApiEndpoint[]`
+- `findUntestedUiViews(projectPath: string, files: string[]): UntestedUiView[]`
+- `evaluateLayer01StaticSast(projectPath: string, files: string[], stacks: StackName[]): PyramidLayerAudit`
+- `evaluateLayer02StrictTyping(projectPath: string, files: string[], stacks: StackName[]): PyramidLayerAudit`
+- `evaluateLayer03UnitIsolated(projectPath: string, files: string[], stacks: StackName[], orphans: OrphanSourceFile[]): PyramidLayerAudit`
+- `evaluateLayer04OrmParity(projectPath: string, files: string[], stacks: StackName[]): PyramidLayerAudit`
+- `evaluateLayer05ContractFuzzing(projectPath: string, files: string[], stacks: StackName[]): PyramidLayerAudit`
+- `evaluateLayer06BddApiKarate(projectPath: string, files: string[], stacks: StackName[], untestedApis: UntestedApiEndpoint[]): PyramidLayerAudit`
+- `evaluateLayer07BddUiKarate(projectPath: string, files: string[], stacks: StackName[], untestedViews: UntestedUiView[]): PyramidLayerAudit`
+- `evaluateLayer08Mutation(projectPath: string, files: string[], stacks: StackName[]): PyramidLayerAudit`
+- `evaluateLayer09A11yLighthouse(projectPath: string, files: string[], stacks: StackName[]): PyramidLayerAudit`
+- `evaluateLayer10PerfLoad(projectPath: string, files: string[], stacks: StackName[]): PyramidLayerAudit`
+- `evaluateLayer11DastZap(projectPath: string, files: string[], stacks: StackName[]): PyramidLayerAudit`
+- `evaluateLayer12ChaosRed(projectPath: string, files: string[], stacks: StackName[]): PyramidLayerAudit`
+- `evaluateLayer13TrimodalFixtures(projectPath: string, files: string[], stacks: StackName[]): PyramidLayerAudit`
+- `buildPrioritizedActionPlan(layers: PyramidLayerAudit[], inventory: MissingTestInventory): PrioritizedTestAction[]`
+
+### 7.3. Registro Exacto en `mcp-server/src/server.ts`
+1. Añadir `audit_test_pyramid_gaps` al listado de `ListToolsRequestSchema`:
+   ```typescript
+   {
+     name: 'audit_test_pyramid_gaps',
+     description:
+       'Audits an existing project against the 13 layers of the 11X testing pyramid, identifying missing test layers, orphan source files without unit tests, API endpoints without Karate BDD scenarios, UI views without BDD/E2E coverage, and a prioritized rescue plan.',
+     inputSchema: {
+       type: 'object',
+       properties: {
+         project_path: {
+           type: 'string',
+           description: 'Absolute path to the target project root directory.',
+         },
+         stack: {
+           type: 'string',
+           enum: ['python', 'fastapi', 'node-backend', 'vue3', 'react-frontend', 'bash-scripts'],
+           description: 'Optional stack filter. Auto-detects all stacks if omitted.',
+         },
+       },
+       required: ['project_path'],
+     },
+   }
+   ```
+2. En el `switch (name)` de `CallToolRequestSchema`, añadir el caso `'audit_test_pyramid_gaps'` invocando `auditTestPyramidGaps(parsed.project_path, parsed.stack)`.
+
+---
+
+## 8. Requisitos de Pruebas 11X para el Hito 7 (`mcp-server/tests/`)
 
 La implementación de `audit_test_pyramid_gaps` en el Hito 7 deberá cumplir estrictamente con:
 1. **Suite Unitaria Dedicada (`mcp-server/tests/test-pyramid-auditor.unit.ts`):**
@@ -296,5 +366,9 @@ La implementación de `audit_test_pyramid_gaps` en el Hito 7 deberá cumplir est
      - **Proyecto 11X Completo (100%):** Certifica `pyramid_score_pct === 100`, `0` archivos huérfanos y `0` endpoints sin escenario BDD.
 2. **Escenario BDD en Karate Labs (`mcp-server/test/mcp_cli_test.feature`):**
    - Actualización del contrato BDD verificando la exposición de las **9 herramientas MCP** (incluyendo `audit_test_pyramid_gaps` y su esquema de entrada).
-3. **Cero Errores y Cero Warnings:**
-   - `pnpm run lint` (`eslint --max-warnings 0`) y `pnpm run typecheck` (`tsc --noEmit`) con `0` errores y `0` advertencias.
+3. **Comandos de Certificación en Contenedor Efímero (Regla Cero):**
+   ```bash
+   docker compose -f mcp-server/docker-compose.qa.yml run --rm qa-mcp sh -c "pnpm run lint && pnpm run typecheck && pnpm run test:unit && pnpm run build"
+   python3 scripts/generar-manifiesto.py
+   bash .agents/scripts/certify_task_completion.sh
+   ```

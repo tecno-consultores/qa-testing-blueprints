@@ -22,6 +22,7 @@
 | **Hito 5** | Parsers Ahorradores de Tokens, Auditor DISA STIG / OWASP y Tools 5–7 | [`04_SPEC_MCP_PARSERS_AUDITOR_STIG_OWASP_Y_GATE.md`](docs/specs/04_SPEC_MCP_PARSERS_AUDITOR_STIG_OWASP_Y_GATE.md) | ✅ Completado | `100%` |
 | **Hito 6** | Pruebas 11X (`>= 95%`), Empaquetado npm (`npx`) y Publicación Autónoma Soberana | [`05_SPEC_PUBLICACION_NPM_Y_AUTOMATIZACION_CI.md`](docs/specs/05_SPEC_PUBLICACION_NPM_Y_AUTOMATIZACION_CI.md) | ✅ Completado | `100%` |
 | **Hito 7** | Auditor de Brechas de la Pirámide de Pruebas 11X (`audit_test_pyramid_gaps`) y Playbook de Rescate | [`06_SPEC_AUDITOR_BRECHAS_PIRAMIDE_PRUEBAS_11X.md`](docs/specs/06_SPEC_AUDITOR_BRECHAS_PIRAMIDE_PRUEBAS_11X.md) | ⏳ Pendiente | `0%` |
+| **Hito 8** | Autodetección Inteligente de Agentes en `install-skill` (`npx` / `curl`) y Resiliencia CDN en `publicar-mcp.sh` | [`07_SPEC_AUTODETECCION_AGENTES_CLI_Y_RESILIENCIA_CDN_NPM.md`](docs/specs/07_SPEC_AUTODETECCION_AGENTES_CLI_Y_RESILIENCIA_CDN_NPM.md) | ⏳ Pendiente | `0%` |
 
 ---
 
@@ -116,4 +117,18 @@
 - [ ] **7.4.** Incorporar el **Playbook 6 (Existing Project Test Gap Audit & 13-Layer Rescue)** en `.agents/skills/qa-11x-architect/SKILL.md` y sincronizar `manifest.json` con `python3 scripts/generar-manifiesto.py`.
 - [ ] **7.5.** Crear la suite de pruebas unitarias `mcp-server/tests/test-pyramid-auditor.unit.ts` (cubriendo los escenarios trimodales: proyecto virgen 0%, proyecto brownfield parcial y proyecto 11X al 100%, manteniendo cobertura global $\ge 95.0\%$) y actualizar `mcp-server/test/mcp_cli_test.feature`.
 - [ ] **7.6.** Actualizar `README.md`, `TESTING.md`, `docs/ai-integration.md` y `CHANGELOG.md` documentando la 9.ª herramienta del servidor MCP (`audit_test_pyramid_gaps`) y certificar con `./.agents/scripts/certify_task_completion.sh`.
+
+---
+
+## ⏳ Hito 8: Autodetección Inteligente de Agentes en `install-skill` (`npx` / `curl`) y Resiliencia CDN en `publicar-mcp.sh`
+**Referencia Obligatoria:** [`docs/specs/07_SPEC_AUTODETECCION_AGENTES_CLI_Y_RESILIENCIA_CDN_NPM.md`](docs/specs/07_SPEC_AUTODETECCION_AGENTES_CLI_Y_RESILIENCIA_CDN_NPM.md)
+
+### Tareas de Implementación:
+- [ ] **8.1.** Actualizar `mcp-server/src/cli/install-skill.ts` cambiando el modo por defecto de `parseTargetArg` a `'auto'`, implementando `detectInstalledGlobalAgentDirs(homeDir)` (`~/.gemini/config/skills`, `~/.claude/skills`, `~/.hermes/skills`, `~/.cursor/skills`) e `isProjectWorkspaceDir(homeDir, cwd)` para evitar crear `$HOME/.agents/skills` cuando se ejecuta desde `$HOME`, cumpliendo estrictamente `sonarjs/no-duplicate-string` y `sonarjs/cognitive-complexity <= 15`.
+- [ ] **8.2.** Sincronizar la función `resolve_destination_dirs()` en `scripts/install-skill.sh` con la misma lógica de autodetección multi-agente sin contaminar `$HOME/.agents/skills`, validando con `ShellCheck` (`0` warnings) y regenerando `manifest.json` (`python3 scripts/generar-manifiesto.py`).
+- [ ] **8.3.** Reemplazar la verificación inmediata `npm view` en `scripts/publicar-mcp.sh` por el bucle resiliente de consistencia eventual de CDN (`VERIFY_ATTEMPTS=6`, `VERIFY_DELAY=5`) para evitar caídas por `E404` tras publicar paquetes nuevos o nuevas versiones en `registry.npmjs.org`.
+- [ ] **8.4.** Actualizar y ampliar las pruebas unitarias en `mcp-server/tests/tools-and-resources.unit.ts` (certificando cobertura $\ge 95.0\%$ en contenedor efímero `sinfallas/base-node-ionic:26`), `tests/test_install_skill.unit.py` y `tests/test_publicar_mcp.unit.py`.
+- [ ] **8.5.** Actualizar el contrato BDD en `mcp-server/test/mcp_cli_test.feature` reflejando el comportamiento `auto` por defecto de `install-skill`.
+- [ ] **8.6.** Actualizar `CHANGELOG.md`, `README.md` y `docs/ai-integration.md`, y ejecutar la compuerta de cierre `./.agents/scripts/certify_task_completion.sh`.
+
 
