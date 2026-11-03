@@ -7,6 +7,9 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 ## [Unreleased]
 
 ### 📐 Planificado (Planned)
+* **Especificación 08 y Planificación del Hito 9 — Inyector Aditivo No Destructivo del Conector `AGENTS.md` (`init-agents` / `init_or_append_agents_md`):**
+  * Creación de `docs/specs/08_SPEC_CONECTOR_AGENTS_MD_THIN_REPO_Y_MIGRACION.md` definiendo la rutina (`init-agents` por CLI, `--init-agents` en `install-skill`, Tool 10 `init_or_append_agents_md` en el servidor MCP y `SurgicalMerger.mergeAgentsMd`) que crea `AGENTS.md` en la raíz del proyecto si no existe, o **agrega de forma aditiva y no destructiva** el bloque conector (`<!-- QA_11X_MCP_CONNECTOR_START --> ... <!-- QA_11X_MCP_CONNECTOR_END -->`) al archivo `AGENTS.md` existente sin reemplazar ni eliminar ninguna línea previa.
+  * Actualización de `ROADMAP.md` incorporando el **Hito 9** (`⏳ Pendiente | 0%`) con las tareas `9.1` a `9.6`.
 * **Especificación 07 y Planificación del Hito 8 — Autodetección Inteligente de Agentes en `install-skill` y Resiliencia CDN en `publicar-mcp.sh`:**
   * Creación de `docs/specs/07_SPEC_AUTODETECCION_AGENTES_CLI_Y_RESILIENCIA_CDN_NPM.md` con diseño paso a paso e implementaciones de referencia para **Gemini 3.8 Flash High**, definiendo la autodetección multi-agente por defecto (`auto`) en `mcp-server/src/cli/install-skill.ts` y `scripts/install-skill.sh` (`~/.gemini/config/skills`, `~/.claude/skills`, `~/.hermes/skills`, `~/.cursor/skills`) sin contaminar `$HOME/.agents/skills`, junto con el bucle de verificación con reintento ante propagación asíncrona de CDN (`E404`) en `scripts/publicar-mcp.sh`.
   * Actualización de `ROADMAP.md` incorporando el **Hito 8** (`⏳ Pendiente | 0%`) con las tareas `8.1` a `8.6`.
