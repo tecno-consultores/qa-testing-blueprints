@@ -8,10 +8,19 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ---
 
+## [2.8.1] - 2026-11-02
+
+### 🐛 Corregido y Mejorado (Fixed & Changed)
+* **Blindaje Inflexible del Linter (`--max-warnings 0` en `mcp-server/`):** Incorporación del flag estricto `--max-warnings 0` en el script `"lint"` de `mcp-server/package.json` para forzar fallo inmediato ante cualquier advertencia futura de ESLint o SonarJS, impidiendo la acumulación inadvertida de deuda técnica o warnings en pipelines locales y publicaciones a npmjs.
+* **Erradicación Total de Advertencias en Servidor MCP:** Deduplicación de constantes literales en `mcp-server/src/resources/blueprint-resources.ts` (`MIME_MARKDOWN`) y simplificación de la recolección de archivos en `mcp-server/src/tools/inspect-project.ts`, alcanzando **0 errores y 0 warnings** en el análisis estático.
+* **Aislamiento Hermético de Pruebas Unitarias contra Fugas de Red:** Corrección de la prueba de fallback en `mcp-server/tests/edge-cases.unit.ts`, interceptando `globalThis.fetch` para simular condiciones offline de forma determinista y neutralizar dependencias externas en tiempo de ejecución de pruebas unitarias.
+* **Alineación de Reglas ESLint para Pruebas:** Configuración de `overrides` en `mcp-server/.eslintrc.json` para permitir la repetición de cadenas en asertos y esquemas de prueba sin comprometer la rigurosidad máxima en el código productivo (`src/`).
+
+---
+
 ## [2.8.0] - 2026-11-02
 
 ### 🚀 Añadido (Added)
-* **Erradicación Total de Warnings y Blindaje Inflexible en ESLint y SonarJS (`mcp-server/`):** Incorporación del flag estricto `--max-warnings 0` en el script `"lint"` de `mcp-server/package.json` para forzar fallo inmediato ante cualquier advertencia futura; deduplicación de constantes literales en `src/resources/blueprint-resources.ts` (`MIME_MARKDOWN`) y simplificación de `src/tools/inspect-project.ts`, aislamiento estricto de red con fallback mockeado en `tests/edge-cases.unit.ts` y configuración de `overrides` en `.eslintrc.json`, logrando **0 errores y 0 warnings** en el análisis estático.
 * **Armonización Documental Integral Híbrida (Humanos + Agentes IA + MCP + Skills):**
   * **Ecosistema Dual-Consumer en `README.md`:** Reestructuración de la sección de adopción en 3 modos claros y complementarios: Modo 1 (Agentes de IA autónomos vía `@sinfallas/mcp-qa-11x` con 8 tools y 8 resources stdio), Modo 2 (Inyección de Skills Zero-Clone en 1 segundo con `qa-11x-architect` y `refactoring-ui`), y Modo 3 (Adopción en repositorio para desarrolladores humanos e ingenieros DevOps con Makefiles y Docker efímero). Incorporación de diagrama Mermaid ilustrando los flujos bidireccionales.
   * **Preguntas Frecuentes Híbridas en `FAQ.md`:** Nueva sección sobre Agentes de IA, protocolo MCP y Skills Zero-Clone, detallando el modelo de Pair Programming Híbrido, la soberanía de tokens sin runners externos y la erradicación del uso de `sudo` en saneamiento mediante el contenedor efímero Alpine.
@@ -31,6 +40,8 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ### 🗑️ Eliminado (Removed)
 * **Directorio `.github/` y Dependencias de CI/CD Externo:** Eliminación completa del directorio `.github/` y de cualquier workflow remoto de CI/CD (GitHub Actions) en favor de la arquitectura de publicación autónoma y soberana en Docker efímero (`scripts/publicar-mcp.sh` y `Makefile`), mitigando la exposición de credenciales (`NPM_TOKEN`) en plataformas de terceros y garantizando reproducibilidad determinista local.
+
+### 🚀 Añadido (Added)
 * **Identidad Visual y Cabecera de Documentación (`README.md`):**
   * **Integración del Logotipo Oficial (`assets/qa-logo.jpeg`):** Incorporación del logo oficial de QA Testing Blueprints en la cabecera principal de `README.md`, centrado con diseño responsive y bordes suavizados.
   * **Actualización de Capacidades MCP:** Sincronización de la tabla de ecosistemas en `README.md` reflejando las 8 herramientas y 8 recursos del servidor `@sinfallas/mcp-qa-11x`.

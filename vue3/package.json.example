@@ -1,6 +1,6 @@
 {
   "name": "vue3-qa-blueprint",
-  "version": "2.8.0",
+  "version": "2.8.1",
   "description": "Plantilla base para Frontend Vue 3 corporativo (Linting, Stryker, Lighthouse, Playwright y Vitest)",
   "packageManager": "pnpm@9.15.4",
   "engines": {

@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
-  "blueprint_version": "2.8.0",
-  "generated_at_utc": "2026-11-03T03:17:50Z",
+  "blueprint_version": "2.8.1",
+  "generated_at_utc": "2026-11-03T03:31:18Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -180,7 +180,7 @@
           "path": "node-backend/package.json.example",
           "target_name": "package.json",
           "merge_strategy": "surgical_merge",
-          "sha256": "096d65dea219fe8e080bd78caf133a85b7a6db641b3349b77f4e8af475beef37",
+          "sha256": "eb866e82c42626ab8767b323db59fbe863301f2d01cc0e075b9784cf9830d7d9",
           "size_bytes": 1731
         },
         {
@@ -346,7 +346,7 @@
           "path": "react-frontend/package.json.example",
           "target_name": "package.json",
           "merge_strategy": "surgical_merge",
-          "sha256": "2f9a92bb3ed4eaeae5e916146c1416ab1f5f270cbfdd7ace663948a43f2090df",
+          "sha256": "4344330a5f265a8faa116964539809354cf0114d67c3cb8ac8475c8ac736a14b",
           "size_bytes": 2110
         },
         {
@@ -471,7 +471,7 @@
           "path": "vue3/package.json.example",
           "target_name": "package.json",
           "merge_strategy": "surgical_merge",
-          "sha256": "e0e3f45db72105fa125ca04d77a1104a67818d34d20fc84ea4abefb0f69f893c",
+          "sha256": "1e3a8d1d968f1fc4f894ed29ae8ebee9fadd2ad1f8419af7ef0cdb628e9a1fab",
           "size_bytes": 1887
         },
         {
