@@ -23,7 +23,7 @@
 | **Hito 6** | Pruebas 11X (`>= 95%`), Empaquetado npm (`npx`) y Publicación Autónoma Soberana | [`05_SPEC_PUBLICACION_NPM_Y_AUTOMATIZACION_CI.md`](docs/specs/05_SPEC_PUBLICACION_NPM_Y_AUTOMATIZACION_CI.md) | ✅ Completado | `100%` |
 | **Hito 7** | Auditor de Brechas de la Pirámide de Pruebas 11X (`audit_test_pyramid_gaps`) y Playbook de Rescate | [`06_SPEC_AUDITOR_BRECHAS_PIRAMIDE_PRUEBAS_11X.md`](docs/specs/06_SPEC_AUDITOR_BRECHAS_PIRAMIDE_PRUEBAS_11X.md) | ✅ Completado | `100%` |
 | **Hito 8** | Autodetección de Agentes en `install-skill`, Instalación de las 5 Skills + Scripts y Resiliencia CDN | [`07_SPEC_AUTODETECCION_AGENTES_CLI_Y_RESILIENCIA_CDN_NPM.md`](docs/specs/07_SPEC_AUTODETECCION_AGENTES_CLI_Y_RESILIENCIA_CDN_NPM.md) | ✅ Completado | `100%` |
-| **Hito 9** | Inyector Aditivo No Destructivo del Conector `AGENTS.md` (`init-agents` / `init_or_append_agents_md`) | [`08_SPEC_CONECTOR_AGENTS_MD_THIN_REPO_Y_MIGRACION.md`](docs/specs/08_SPEC_CONECTOR_AGENTS_MD_THIN_REPO_Y_MIGRACION.md) | ⏳ Pendiente | `0%` |
+| **Hito 9** | Inyector Aditivo No Destructivo del Conector `AGENTS.md` (`init-agents` / `init_or_append_agents_md`) | [`08_SPEC_CONECTOR_AGENTS_MD_THIN_REPO_Y_MIGRACION.md`](docs/specs/08_SPEC_CONECTOR_AGENTS_MD_THIN_REPO_Y_MIGRACION.md) | ✅ Completado | `100%` |
 | **Hito 10** | Diagnóstico Asistido de Navegador (Playwright / Browser MCP) y PRs de Evolución Continua Zero-Trust (`propose_skill_evolution_pr`) | [`09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md`](docs/specs/09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md) | ⏳ Pendiente | `0%` |
 
 ---
@@ -135,16 +135,16 @@
 
 ---
 
-## ⏳ Hito 9: Inyector Aditivo No Destructivo del Conector `AGENTS.md` (`init-agents` / `init_or_append_agents_md`)
+## ✅ Hito 9: Inyector Aditivo No Destructivo del Conector `AGENTS.md` (`init-agents` / `init_or_append_agents_md`)
 **Referencia Obligatoria:** [`docs/specs/08_SPEC_CONECTOR_AGENTS_MD_THIN_REPO_Y_MIGRACION.md`](docs/specs/08_SPEC_CONECTOR_AGENTS_MD_THIN_REPO_Y_MIGRACION.md)
 
 ### Tareas de Implementación:
-- [ ] **9.1.** Implementar `mcp-server/src/cli/init-agents-md.ts` (`buildConnectorBlock`, `mergeOrAppendAgentsMdContent`, `initOrAppendAgentsMd`, `runInitAgentsCli`) que cree `AGENTS.md` si no existe, o **agregue de forma aditiva y no destructiva** el bloque conector (`<!-- QA_11X_MCP_CONNECTOR_START -->` ... `<!-- QA_11X_MCP_CONNECTOR_END -->`) al final del `AGENTS.md` existente sin reemplazar ni borrar ninguna línea previa.
-- [ ] **9.2.** Integrar `mergeAgentsMd()` dentro de `SurgicalMerger.resolveSurgicalMerge` (`mcp-server/src/services/surgical-merger.ts`) cuando `base === 'AGENTS.md'`.
-- [ ] **9.3.** Exponer el subcomando CLI `npx -y @sinfallas/mcp-qa-11x init-agents [--project-path <ruta>] [--dry-run]` en `mcp-server/src/index.ts` y el flag `--init-agents` en `mcp-server/src/cli/install-skill.ts`.
-- [ ] **9.4.** Registrar la Tool 10 (`init_or_append_agents_md`) en `mcp-server/src/server.ts` y documentar su uso en `.agents/skills/qa-11x-architect/SKILL.md`.
-- [ ] **9.5.** Crear la suite de pruebas unitarias `mcp-server/tests/init-agents-md.unit.ts` (validando creación desde cero, adición al final de un `AGENTS.md` existente conservando el 100% de su contenido previo, actualización idempotente sin duplicar el bloque y modo `dry_run`, manteniendo cobertura global $\ge 95.0\%$) y actualizar `mcp-server/test/mcp_cli_test.feature`.
-- [ ] **9.6.** Actualizar `README.md`, `TESTING.md`, `docs/ai-integration.md` y `CHANGELOG.md`, regenerar `manifest.json` y certificar con `./.agents/scripts/certify_task_completion.sh`.
+- [x] **9.1.** Implementar `mcp-server/src/cli/init-agents-md.ts` (`buildConnectorBlock`, `mergeOrAppendAgentsMdContent`, `initOrAppendAgentsMd`, `runInitAgentsCli`) que cree `AGENTS.md` si no existe, o **agregue de forma aditiva y no destructiva** el bloque conector (`<!-- QA_11X_MCP_CONNECTOR_START -->` ... `<!-- QA_11X_MCP_CONNECTOR_END -->`) al final del `AGENTS.md` existente sin reemplazar ni borrar ninguna línea previa.
+- [x] **9.2.** Integrar `mergeAgentsMd()` dentro de `SurgicalMerger.resolveSurgicalMerge` (`mcp-server/src/services/surgical-merger.ts`) cuando `base === 'AGENTS.md'`.
+- [x] **9.3.** Exponer el subcomando CLI `npx -y @sinfallas/mcp-qa-11x init-agents [--project-path <ruta>] [--dry-run]` en `mcp-server/src/index.ts` y el flag `--init-agents` en `mcp-server/src/cli/install-skill.ts`.
+- [x] **9.4.** Registrar la Tool 10 (`init_or_append_agents_md`) en `mcp-server/src/server.ts` y documentar su uso en `.agents/skills/qa-11x-architect/SKILL.md`.
+- [x] **9.5.** Crear la suite de pruebas unitarias `mcp-server/tests/init-agents-md.unit.ts` (validando creación desde cero, adición al final de un `AGENTS.md` existente conservando el 100% de su contenido previo, actualización idempotente sin duplicar el bloque y modo `dry_run`, manteniendo cobertura global $\ge 95.0\%$) y actualizar `mcp-server/test/mcp_cli_test.feature`.
+- [x] **9.6.** Actualizar `README.md`, `TESTING.md`, `docs/ai-integration.md` y `CHANGELOG.md`, regenerar `manifest.json` y certificar con `./.agents/scripts/certify_task_completion.sh`.
 
 ---
 

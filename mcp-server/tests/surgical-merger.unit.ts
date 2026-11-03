@@ -378,5 +378,46 @@ test:
       expect(res.summary.skipped).toBe(1);
       expect(res.applied_changes[0].status).toBe('skipped');
     });
+
+    it('surgically merges AGENTS.md preserving existing content and adding connector block', async () => {
+      const agentsPath = path.join(tmpDir, 'AGENTS.md');
+      const initial = '# Custom Directives\nStrictly confidential.\n';
+      fs.writeFileSync(agentsPath, initial, 'utf-8');
+
+      const bundle: FetchedFileItem[] = [
+        {
+          path: '.agents/AGENTS.md',
+          target_name: 'AGENTS.md',
+          merge_strategy: 'surgical_merge',
+          content: '',
+          sha256_verified: true,
+        },
+      ];
+
+      const res = await merger.mergeFiles(tmpDir, bundle, { dryRun: false });
+      expect(res.summary.merged).toBe(1);
+
+      const saved = fs.readFileSync(agentsPath, 'utf-8');
+      expect(saved).toContain('# Custom Directives');
+      expect(saved).toContain('Strictly confidential.');
+      expect(saved).toContain('<!-- QA_11X_MCP_CONNECTOR_START -->');
+    });
+  });
+
+  describe('mergeAgentsMd', () => {
+    it('creates connector when target content is empty', () => {
+      const res = merger.mergeAgentsMd('', 'test-project', ['python']);
+      expect(res.merged).toContain('test-project');
+      expect(res.merged).toContain('<!-- QA_11X_MCP_CONNECTOR_START -->');
+      expect(res.changes.length).toBeGreaterThan(0);
+    });
+
+    it('appends connector non-destructively when target content exists', () => {
+      const existing = '# Prior Instructions\nKeep rule 1.';
+      const res = merger.mergeAgentsMd(existing, 'test-project', ['fastapi']);
+      expect(res.merged.startsWith(existing)).toBe(true);
+      expect(res.merged).toContain('<!-- QA_11X_MCP_CONNECTOR_START -->');
+      expect(res.changes[0]).toContain('Agregado bloque conector QA 11X');
+    });
   });
 });

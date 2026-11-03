@@ -54,7 +54,7 @@ El repositorio está dividido en ecosistemas tecnológicos listos para ser adopt
 | **`vue3/`** | Frontend Web (Vue 3 / Vite) | `ESLint` + `vue-tsc` + `Vitest (95%)` + `Stryker` + `Playwright` + `@axe-core` + `Lighthouse CI` + `Karate UI` |
 | **`react-frontend/`**| Frontend Web (React / Vite) | `ESLint` + `tsc` + `Vitest (95%)` + `RTL` + `Stryker` + `Playwright` + `@axe-core` + `Lighthouse CI` + `Karate UI` |
 | **`bash-scripts/`** | Automatización DevOps | `ShellCheck` + `shfmt` + `BATS-core` + `bats-mock` + `kcov` |
-| **`mcp-server/`** | Servidor MCP Node.js/TS | Paquete `@sinfallas/mcp-qa-11x`: Servidor MCP (stdio), 8 recursos `blueprint://*`, 9 tools y CLI `install-skill` |
+| **`mcp-server/`** | Servidor MCP Node.js/TS | Paquete `@sinfallas/mcp-qa-11x`: Servidor MCP (stdio), 8 recursos `blueprint://*`, 10 tools y CLI `install-skill` / `init-agents` |
 | **`.agents/`** | Gobernanza de Agentes IA | Reglas (`rules/`), Habilidades (`skills/`) y Scripts de certificación (`scripts/`) |
 | **`manifest.json`** | Manifiesto Criptográfico Zero-Clone | Índice criptográfico SHA-256 de verificación remota bajo demanda (DISA STIG `V-222513` / `APSC-DV-001430`) |
 
@@ -103,7 +103,7 @@ flowchart TD
         QAEng["Ingeniero de QA / Staff"]
     end
 
-    MCP -- "9 Tools + 8 Resources stdio" --> ConsumidoresIA
+    MCP -- "10 Tools + 8 Resources stdio" --> ConsumidoresIA
     Skills -- "Inyección de Cerebro 11X" --> ConsumidoresIA
     Skills -- "Instalación en workspace o IDE" --> ConsumidoresHumanos
     Blueprints -- "Makefile + Docker efímero" --> ConsumidoresHumanos
@@ -117,7 +117,7 @@ flowchart TD
 El servidor canónico MCP en Node.js/TypeScript está publicado en npmjs bajo **`@sinfallas/mcp-qa-11x`** (Node.js 20+). Permite a cualquier agente de IA o IDE conectarse en tiempo real sin clonar el repositorio, accediendo a:
 
 * **8 Recursos Dinámicos (`blueprint://*`):** Manifiesto criptográfico (`blueprint://manifest`), filosofía y prompts (`blueprint://core/philosophy`), síntesis DISA/OWASP (`blueprint://security/disa-owasp-22`), templates por stack (`blueprint://{stack}/readme`), reglas tácticas UI (`blueprint://ui/refactoring-ui/{topic}`) y utilitarios (`blueprint://core/*`).
-* **9 Herramientas Autónomas (`Tools`):**
+* **10 Herramientas Autónomas (`Tools`):**
   * `inspect_project_config`: Audita stacks presentes y configuraciones de linters/tipado.
   * `fetch_blueprint_bundle`: Descarga quirúrgica de plantillas bajo demanda con validación SHA-256.
   * `bootstrap_or_merge_11x`: Aplica fusión no destructiva integrando QA 11X en proyectos vivos.
@@ -127,11 +127,15 @@ El servidor canónico MCP en Node.js/TypeScript está publicado en npmjs bajo **
   * `run_ephemeral_qa`: Ejecución de pruebas en Docker efímero bajo la Regla Cero con salida JSON.
   * `certify_11x_gate`: Validación de la compuerta universal de certificación de 10 etapas.
   * `audit_test_pyramid_gaps`: Auditoría exhaustiva de las 13 capas de la pirámide 11X, detección de archivos huérfanos, endpoints sin BDD, vistas sin E2E y plan de acción priorizado.
+  * `init_or_append_agents_md`: Crea `AGENTS.md` o inyecta de forma aditiva y no destructiva el bloque conector de QA 11X al final de un `AGENTS.md` existente sin modificar reglas previas.
 
 #### Ejecución Directa en 1 Comando:
 ```bash
 # Levantar el servidor MCP canónico (comunicación stdio para Antigravity, Claude, Cursor, Hermes):
 npx -y @sinfallas/mcp-qa-11x
+
+# Inyectar o actualizar el conector QA 11X en AGENTS.md de forma aditiva y no destructiva:
+npx -y @sinfallas/mcp-qa-11x init-agents [--project-path <ruta>] [--dry-run]
 ```
 
 #### Configuración en Clientes MCP (Antigravity, Claude Desktop / Code, Cursor, Hermes):
@@ -176,6 +180,9 @@ npx -y @sinfallas/mcp-qa-11x install-skill --target [auto|workspace|antigravity|
 
 # Descargar también scripts operativos (scripts/*, .agents/scripts/*) y archivos comunes:
 npx -y @sinfallas/mcp-qa-11x install-skill --include-scripts
+
+# Instalar skills e inyectar el conector AGENTS.md en el proyecto actual simultáneamente:
+npx -y @sinfallas/mcp-qa-11x install-skill --init-agents
 ```
 
 ---

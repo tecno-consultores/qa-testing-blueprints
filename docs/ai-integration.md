@@ -84,6 +84,12 @@ npx -y @sinfallas/mcp-qa-11x install-skill
 
 # O instalar también scripts operativos y archivos comunes en el proyecto actual:
 npx -y @sinfallas/mcp-qa-11x install-skill --include-scripts
+
+# O inyectar de forma aditiva y no destructiva el conector QA 11X en AGENTS.md:
+npx -y @sinfallas/mcp-qa-11x init-agents [--project-path <ruta>] [--dry-run]
+
+# O instalar skills e inyectar el conector AGENTS.md en una sola operación:
+npx -y @sinfallas/mcp-qa-11x install-skill --init-agents
 ```
 
 ### 6.2. Configuración en Clientes de IA
@@ -158,4 +164,5 @@ mcp_servers:
 | **`run_ephemeral_qa`** | `project_path`, `stage`, `timeout_seconds` | Ejecuta targets del `Makefile` en Docker efímero bajo la Regla Cero y condensa la salida a JSON. |
 | **`certify_11x_gate`** | `project_path` | Ejecuta la compuerta de certificación de cierre (secretos, JSON, componentes UI, ORM, STIG, docs). |
 | **`audit_test_pyramid_gaps`** | `project_path`, `stack` | Audita estáticamente las 13 capas de la pirámide 11X (`L01` a `L13`), detecta archivos huérfanos, endpoints sin BDD, vistas sin E2E y genera un plan de rescate priorizado. |
+| **`init_or_append_agents_md`** | `project_path`, `dry_run` | Crea `AGENTS.md` si no existe, o añade de forma aditiva y no destructiva el bloque conector de QA 11X al final de un `AGENTS.md` existente sin modificar reglas previas. |
 

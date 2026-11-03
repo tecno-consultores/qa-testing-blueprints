@@ -652,6 +652,23 @@ describe('Tools and Resources Integration Suite', () => {
       }
     });
 
+    it('initializes or updates AGENTS.md when --init-agents flag is provided', async () => {
+      const cwd = process.cwd();
+      const testDir = path.join(tmpDir, 'init-agents-cli-test');
+      fs.mkdirSync(testDir, { recursive: true });
+      vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      try {
+        process.chdir(testDir);
+        await runInstallSkillCli(['--target', 'workspace', '--init-agents'], fetcher);
+        expect(fs.existsSync(path.join(testDir, 'AGENTS.md'))).toBe(true);
+        const content = fs.readFileSync(path.join(testDir, 'AGENTS.md'), 'utf-8');
+        expect(content).toContain('<!-- QA_11X_MCP_CONNECTOR_START -->');
+      } finally {
+        process.chdir(cwd);
+      }
+    });
+
     it('initializes default GitHubFetcher in runInstallSkillCli when omitted', async () => {
       const cwd = process.cwd();
       const testDir = path.join(tmpDir, 'default-fetcher-test');
@@ -945,6 +962,16 @@ describe('Tools and Resources Integration Suite', () => {
       expect(toolPyramid).toBeDefined();
       const pyramidToolRes = await toolPyramid.handler({ project_path: targetProjectDir });
       expect(pyramidToolRes.content[0].text).toContain('"pyramid_score_pct"');
+
+      // 17. Ejecutar tool: init_or_append_agents_md
+      const toolInitAgents = serverAny._registeredTools['init_or_append_agents_md'];
+      expect(toolInitAgents).toBeDefined();
+      const initAgentsRes = await toolInitAgents.handler({
+        project_path: targetProjectDir,
+        dry_run: true,
+      });
+      expect(initAgentsRes.content[0].text).toContain('"action": "dry_run"');
+      expect(initAgentsRes.content[0].text).toContain('<!-- QA_11X_MCP_CONNECTOR_START -->');
     });
   });
 });

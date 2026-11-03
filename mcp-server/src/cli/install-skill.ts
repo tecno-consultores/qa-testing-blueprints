@@ -5,6 +5,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { GitHubFetcher } from '../services/github-fetcher.js';
+import { initOrAppendAgentsMd } from './init-agents-md.js';
 import type { Manifest, ManifestFileEntry } from '../types.js';
 
 const DIVIDER = '\n══════════════════════════════════════════════════════════════════════';
@@ -150,6 +151,7 @@ export async function runInstallSkillCli(args: string[], fetcher?: GitHubFetcher
   const resolvedFetcher = fetcher || new GitHubFetcher();
   const targetArg = parseTargetArg(args);
   const includeScripts = args.includes('--include-scripts');
+  const initAgents = args.includes('--init-agents');
 
   console.log(DIVIDER);
   console.log('   🧠 Instalador de Skills QA 11X (Node.js / MCP CLI)                 ');
@@ -192,6 +194,12 @@ export async function runInstallSkillCli(args: string[], fetcher?: GitHubFetcher
 
   if (includeScripts) {
     await installIncludedScripts(cwd, manifest, resolvedFetcher);
+  }
+
+  if (initAgents) {
+    console.log('\n🔗 Inyectando o actualizando conector AGENTS.md (--init-agents)...');
+    const initResult = await initOrAppendAgentsMd({ projectPath: cwd });
+    console.log(`  ✔ AGENTS.md procesado (${initResult.action}) en ${initResult.agents_md_path}`);
   }
 
   console.log(DIVIDER);

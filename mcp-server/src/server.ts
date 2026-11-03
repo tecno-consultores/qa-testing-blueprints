@@ -14,6 +14,7 @@ import { auditSecurityStigOwasp } from './tools/security-auditor.js';
 import { runEphemeralQa } from './tools/ephemeral-runner.js';
 import { certify11xGate } from './tools/certify-gate.js';
 import { auditTestPyramidGaps } from './tools/test-pyramid-auditor.js';
+import { initOrAppendAgentsMd } from './cli/init-agents-md.js';
 import {
   InspectProjectInputSchema,
   FetchBundleInputSchema,
@@ -24,6 +25,7 @@ import {
   RunEphemeralQaInputSchema,
   CertifyGateInputSchema,
   AuditTestPyramidInputSchema,
+  InitAgentsMdInputSchema,
 } from './types.js';
 
 export function createMcpServer(options?: {
@@ -390,6 +392,27 @@ export function createMcpServer(options?: {
     AuditTestPyramidInputSchema.shape,
     async (args) => {
       const result = await auditTestPyramidGaps(args.project_path, args.stack);
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  // Tool 10: init_or_append_agents_md
+  server.tool(
+    'init_or_append_agents_md',
+    'Crea el archivo AGENTS.md si no existe, o añade de forma aditiva y no destructiva el bloque conector de QA 11X (MCP y Skill) al final de un AGENTS.md existente sin borrar contenido previo.',
+    InitAgentsMdInputSchema.shape,
+    async (args) => {
+      const result = await initOrAppendAgentsMd({
+        projectPath: args.project_path,
+        dryRun: Boolean(args.dry_run),
+      });
       return {
         content: [
           {

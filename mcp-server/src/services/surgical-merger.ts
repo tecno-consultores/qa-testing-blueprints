@@ -4,6 +4,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { FetchedFileItem, MergeFilesOptions, MergeResultItem } from '../types.js';
+import { mergeOrAppendAgentsMdContent } from '../cli/init-agents-md.js';
 
 export class SurgicalMerger {
   /**
@@ -221,6 +222,23 @@ export class SurgicalMerger {
     };
   }
 
+  /**
+   * Fusión quirúrgica y aditiva de AGENTS.md:
+   * Conserva el 100% de las instrucciones existentes del usuario y solo añade o actualiza
+   * el bloque conector canónico de QA 11X (MCP + Skill).
+   */
+  public mergeAgentsMd(
+    targetContent: string,
+    projectName = 'Project',
+    stacks: string[] = []
+  ): { merged: string; changes: string[] } {
+    const res = mergeOrAppendAgentsMdContent(targetContent, projectName, stacks);
+    return {
+      merged: res.finalContent,
+      changes: res.changes,
+    };
+  }
+
   private resolveSurgicalMerge(
     targetName: string,
     existingContent: string,
@@ -237,6 +255,10 @@ export class SurgicalMerger {
     }
     if (base === 'Makefile') {
       const res = this.mergeMakefile(existingContent, exampleContent);
+      return { finalContent: res.merged, changes: res.changes };
+    }
+    if (base === 'AGENTS.md') {
+      const res = this.mergeAgentsMd(existingContent);
       return { finalContent: res.merged, changes: res.changes };
     }
     const res = this.mergeGitignoreOrNpmrc(existingContent, exampleContent);

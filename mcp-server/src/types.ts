@@ -349,4 +349,36 @@ export const AuditTestPyramidInputSchema = z.object({
 });
 export type AuditTestPyramidInput = z.infer<typeof AuditTestPyramidInputSchema>;
 
+// ============================================================================
+// 🔗 Contratos de Conector AGENTS.md (Hito 9)
+// ============================================================================
+
+export interface InitAgentsMdOptions {
+  projectPath: string;
+  dryRun?: boolean;
+}
+
+export type InitAgentsAction = 'created' | 'appended' | 'updated_block' | 'dry_run';
+
+export interface InitAgentsMdResult {
+  project_path: string;
+  agents_md_path: string;
+  action: InitAgentsAction;
+  detected_stacks: string[];
+  content: string;
+}
+
+export const InitAgentsMdInputSchema = z.object({
+  project_path: z
+    .string()
+    .min(1)
+    .describe('Ruta absoluta o relativa al directorio del proyecto destino.'),
+  dry_run: z
+    .boolean()
+    .default(false)
+    .describe('Si es true, no escribe en disco y solo devuelve el contenido resultante.'),
+});
+export type InitAgentsMdInput = z.infer<typeof InitAgentsMdInputSchema>;
+
+
 

@@ -44,6 +44,7 @@ Execute with zero hallucination and maximum token economy:
 5. **Execute Tests in Docker:** Call `run_ephemeral_qa(project_path, stage)` to trigger test targets (`lint`, `unit`, `parity`, `bdd`, `mutation`, `all`) inside isolated `sinfallas/*` containers and receive token-efficient JSON summaries.
 6. **Sanitize Workspace:** Call `clean_workspace_11x(project_path, dry_run, deep_prune)` or read `blueprint://core/cleanup-script` to eradicate test artifacts, coverage caches, and Docker-generated root-owned files without requiring `sudo`.
 7. **Certify Quality Gate:** Call `certify_11x_gate(project_path)` to evaluate the 9 closure gates before concluding any task.
+8. **Inject or Append AGENTS.md Connector:** Call `init_or_append_agents_md(project_path, dry_run)` or execute `npx -y @sinfallas/mcp-qa-11x init-agents` (or `install-skill --init-agents`) to create or non-destructively append the canonical QA 11X MCP & Skill connector block to `AGENTS.md` preserving 100% of existing user instructions.
 
 ### Case B: Standalone Skill / Fallback Mode (No MCP Server)
 When operating in pure CLI, Cloud, or desktop assistants without MCP tools:
@@ -105,7 +106,7 @@ Step 1: Inspect Project ──────> Identify language, framework, packag
 Step 2: Hydrate Blueprint ────> Download stack bundle + common_files via manifest.json.
 Step 3: Surgical Merge ───────> Merge Makefile, pyproject.toml / package.json, .gitignore.
 Step 4: Copy QA Assets ───────> docker-compose.qa.yml, .trivy.yaml, commitlint.config.js, lefthook.yml.
-Step 5: Install Governance ───> .agents/rules/, .agents/scripts/, scripts/verificar-secretos.sh.
+Step 5: Install Governance ───> .agents/rules/, .agents/scripts/, scripts/verificar-secretos.sh, and AGENTS.md connector (init_or_append_agents_md / init-agents).
 Step 6: First Run ────────────> Execute `make qa-lint` and `make qa-unit` in Docker.
 ```
 

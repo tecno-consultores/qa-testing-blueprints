@@ -110,14 +110,14 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
 ### 🧠 MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x`)
 * **Imagen Base:** `sinfallas/base-node-ionic:26`
 * **Métricas 11X Certificadas:**
-  * **Sentencias (Statements):** `99.20%` ($\ge 95.0\%$)
-  * **Ramas (Branches):** `95.19%` ($\ge 95.0\%$)
+  * **Sentencias (Statements):** `99.23%` ($\ge 95.0\%$)
+  * **Ramas (Branches):** `95.26%` ($\ge 95.0\%$)
   * **Funciones (Functions):** `100.00%` ($\ge 95.0\%$)
-  * **Líneas (Lines):** `99.20%` ($\ge 95.0\%$)
-  * **Pruebas Unitarias:** 192 pruebas pasando al 100% (10 suites en `tests/*.unit.ts`)
-  * **Herramientas MCP:** 9 herramientas canónicas (`inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`, `clean_workspace_11x`, `audit_security_stig_owasp`, `run_ephemeral_qa`, `certify_11x_gate`, `audit_test_pyramid_gaps`)
-  * **Escenarios BDD Karate Labs:** `mcp-server/test/mcp_cli_test.feature` (6 escenarios)
-  * **Empaquetado npm:** 48.9 kB comprimido / 233.1 kB desempaquetado (0 fugas de código fuente)
+  * **Líneas (Lines):** `99.23%` ($\ge 95.0\%$)
+  * **Pruebas Unitarias:** 211 pruebas pasando al 100% (11 suites en `tests/*.unit.ts`)
+  * **Herramientas MCP:** 10 herramientas canónicas (`inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`, `clean_workspace_11x`, `audit_security_stig_owasp`, `run_ephemeral_qa`, `certify_11x_gate`, `audit_test_pyramid_gaps`, `init_or_append_agents_md`)
+  * **Escenarios BDD Karate Labs:** `mcp-server/test/mcp_cli_test.feature` (7 escenarios)
+  * **Empaquetado npm:** 49.3 kB comprimido / 235.8 kB desempaquetado (0 fugas de código fuente)
 * **Comandos de Validación:**
   ```bash
   cd mcp-server
@@ -198,6 +198,7 @@ El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
     * `tests/ephemeral-runner.unit.ts` (5 pruebas): Ejecución de targets `qa-${stage}` en Docker efímero bajo Rule Zero con `execFile` seguro (`shell: false`), control de timeouts (código 124) y gestión de Makefile ausente.
     * `tests/certify-gate.unit.ts` (10 pruebas): Compuerta unificada de certificación 11X verificando archivos `.example`, secret scanning, colisiones JSON, componentes huérfanos UI, paridad ORM vs Alembic, auditoría DISA/OWASP y sincronización documental (`TESTING.md` y `CHANGELOG.md`).
     * `tests/test-pyramid-auditor.unit.ts` (29 pruebas): Auditoría estática de las 13 capas de la pirámide 11X (`L01` a `L13`), evaluación trimodal (virgen 0%, brownfield parcial, nominal 100%), inventario de brechas (`orphan_source_files`, `untested_api_endpoints`, `untested_ui_views`) y generación de planes de acción priorizados con targets `make qa-*` y blueprints recomendados.
+    * `tests/init-agents-md.unit.ts` (15 pruebas): Inyector y actualizador aditivo no destructivo de `AGENTS.md`, validando creación desde cero con cabecera MIT, adición al final de directivas existentes sin alterar líneas previas, actualización idempotente del bloque conector (`<!-- QA_11X_MCP_CONNECTOR_START -->` ... `<!-- QA_11X_MCP_CONNECTOR_END -->`), simulación `dryRun`, robustez de banderas CLI (`--project-path`, `-p`, `--dry-run`) y ejecución CLI `runInitAgentsCli`.
     * `tests/edge-cases.unit.ts` (33 pruebas): Cobertura profunda de casos de borde y ramas extremas en servicios y herramientas.
   * **Ejecución Efímera:**
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run lint`
@@ -205,9 +206,9 @@ El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run test:unit`
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run build`
   * **Cobertura y Métricas Alcanzadas:**
-    * **100% de aserciones aprobadas** (192/192 pruebas pasando en 10 suites).
-    * **99.20% de cobertura de líneas y sentencias** (superando el umbral de $\ge 95\%$).
-    * **95.19% de cobertura de ramas** (superando el umbral de $\ge 95\%$).
+    * **100% de aserciones aprobadas** (211/211 pruebas pasando en 11 suites).
+    * **99.23% de cobertura de líneas y sentencias** (superando el umbral de $\ge 95\%$).
+    * **95.26% de cobertura de ramas** (superando el umbral de $\ge 95\%$).
     * **100.00% de cobertura de funciones**.
     * **0 errores de ESLint (`--max-warnings 0`), SonarJS (Cognitiva $\le 15$) y TypeScript (`strict: true`)**.
 
