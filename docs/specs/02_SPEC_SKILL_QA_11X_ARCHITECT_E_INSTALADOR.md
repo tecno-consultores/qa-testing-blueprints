@@ -94,7 +94,7 @@ description: >-
 3. **`references/03-stack-python-fastapi.md`:**
    - Reglas condensadas de `python/README.md` y `fastapi/README.md`, estructura de `pyproject.toml.example`, `Makefile.example`, `docker-compose.qa.yml` (con `postgres:17-alpine` y `eqalpha/keydb:alpine`), e instrumentación Prometheus / Pushgateway.
 4. **`references/04-stack-node-vue-react.md`:**
-   - Reglas condensadas de `node-backend/README.md`, `vue3/README.md` y `react-frontend/README.md`, `.npmrc` (`ignore-scripts=true`), fronteras `.unit.ts` vs `.e2e.ts`, Playwright + `@axe-core`, Lighthouse CI y Karate UI.
+   - Reglas condensadas de `node-backend/README.md`, `vue3/README.md` y `react-frontend/README.md`, `.npmrc` (`ignore-scripts=true`), fronteras `.unit.ts` vs `.e2e.ts`, Playwright + `@axe-core`, Lighthouse CI, Karate UI y **sinergia obligatoria con `.agents/skills/refactoring-ui/`** (jerarquía Primario/Secundario/Terciario con 1 solo botón primario, color perceptual OKLCH sin texto translúcido, `tabular-nums` para `CLS = 0`, `outline-hidden` y cero scroll horizontal en `375px`/`768px`/`1440px`).
 5. **`references/05-stack-bash-devops.md`:**
    - Reglas condensadas de `bash-scripts/README.md`, `ShellCheck`, `shfmt`, `BATS-core`, `bats-mock`, `kcov` (`>= 95%`) y métricas `Pushgateway`.
 
@@ -115,9 +115,9 @@ curl -fsSL https://raw.githubusercontent.com/tecno-consultores/qa-testing-bluepr
 ```
 
 ### 5.3. Rutas de Destino Soportadas por el Instalador
-El instalador detectará o permitirá elegir dónde colocar `qa-11x-architect/`:
-1. **Proyecto Actual (`workspace`, por defecto si existe `.git`):** `./.agents/skills/qa-11x-architect/`
-2. **Google Antigravity (Global Usuario):** `~/.gemini/config/skills/qa-11x-architect/`
-3. **Claude Code / Desktop (Global Usuario):** `~/.claude/skills/qa-11x-architect/`
-4. **Cursor / Windsurf (Proyecto):** `./.agents/skills/qa-11x-architect/` + enlace en `.cursor/rules/` si aplica.
-5. **Verificación de Integridad:** El instalador descargará `manifest.json`, verificará el hash SHA-256 de cada archivo de `qa-11x-architect/` antes de escribirlo en disco y mostrará un resumen en español de los archivos instalados.
+El instalador detectará o permitirá elegir dónde colocar **`qa-11x-architect/`** y **`refactoring-ui/`** (con su `SKILL.md` y sus 9 archivos `references/*.md`):
+1. **Proyecto Actual (`workspace`, por defecto si existe `.git`):** `./.agents/skills/qa-11x-architect/` y `./.agents/skills/refactoring-ui/`
+2. **Google Antigravity (Global Usuario):** `~/.gemini/config/skills/qa-11x-architect/` y `~/.gemini/config/skills/refactoring-ui/`
+3. **Claude Code / Desktop (Global Usuario):** `~/.claude/skills/qa-11x-architect/` y `~/.claude/skills/refactoring-ui/`
+4. **Cursor / Windsurf (Proyecto):** `./.agents/skills/qa-11x-architect/` y `./.agents/skills/refactoring-ui/` + enlace en `.cursor/rules/` si aplica.
+5. **Verificación de Integridad:** El instalador descargará `manifest.json`, verificará el hash SHA-256 de cada archivo de `qa-11x-architect/` y `refactoring-ui/` antes de escribirlo en disco y mostrará un resumen en español de los archivos instalados.

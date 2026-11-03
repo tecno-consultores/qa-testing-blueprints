@@ -57,6 +57,7 @@ Welcome to the **QA Testing Blueprints** repository. All AI coding assistants (G
 1. `qa-11x-docker-certifier`: QA 11X Corporate Standard certifier in ephemeral Docker (coverage `>= 95%`, SonarJS, Karate Labs, mutation testing, zero host contamination).
 2. `docker-trivy-keydb-hardening`: Container hardening (Trivy HIGH/CRITICAL = 0), multi-threaded KeyDB in-memory caching engine, non-root users, and performance optimization.
 3. `graphify-ast-navigator`: AST Knowledge Graph navigation, blast-radius pre-audit, layer boundary compliance, and CLI-first query protocol.
+4. `refactoring-ui`: Visual hierarchy, spacing, typography (`tabular-nums`), OKLCH color contrast (WCAG 2.1 AA), depth, dark mode, and Anti-JSDOM geometry rules from *Refactoring UI* (Wathan & Schoger) with 9 modular `references/*.md` files.
 
 ---
 

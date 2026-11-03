@@ -57,8 +57,8 @@
 - [ ] **3.4.** Crear `.agents/skills/qa-11x-architect/references/03-stack-python-fastapi.md` con las reglas y comandos exactos de Python standalone y FastAPI (PostgreSQL 17 + KeyDB + Alembic + Karate API).
 - [ ] **3.5.** Crear `.agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md` con las reglas y comandos de Node.js, Vue 3 y React (`.npmrc` Zero-Trust, Vitest, Playwright + Axe WCAG 2.1 AA, Lighthouse CI, Karate UI).
 - [ ] **3.6.** Crear `.agents/skills/qa-11x-architect/references/05-stack-bash-devops.md` con las reglas de Bash/Shell (`ShellCheck`, `shfmt`, `BATS-core`, `bats-mock`, `kcov >= 95%`, `Pushgateway`).
-- [ ] **3.7.** Crear el instalador universal `scripts/install-skill.sh` (compatible con POSIX `sh` y auditado con `ShellCheck` 0 errores) que descargue `qa-11x-architect` desde GitHub verificando los hashes SHA-256 contra `manifest.json` e instale la skill en Antigravity, Claude, Cursor o el proyecto actual.
-- [ ] **3.8.** Actualizar `/manifest.json` con `python3 scripts/generar-manifiesto.py` para incluir los archivos de `qa-11x-architect` y `scripts/install-skill.sh`.
+- [ ] **3.7.** Crear el instalador universal `scripts/install-skill.sh` (compatible con POSIX `sh` y auditado con `ShellCheck` 0 errores) que descargue `qa-11x-architect` y `refactoring-ui` desde GitHub verificando los hashes SHA-256 contra `manifest.json` e instale ambas skills en Antigravity, Claude, Cursor o el proyecto actual.
+- [ ] **3.8.** Actualizar `/manifest.json` con `python3 scripts/generar-manifiesto.py` para incluir los archivos de `qa-11x-architect`, `refactoring-ui` y `scripts/install-skill.sh`.
 
 ---
 
@@ -69,7 +69,7 @@
 - [ ] **4.1.** Inicializar la estructura de `mcp-server/`: `package.json`, `tsconfig.json`, `vitest.config.ts`, `.eslintrc.json`, `.npmrc` (`ignore-scripts=true`), `docker-compose.qa.yml` (usando `sinfallas/base-node-ionic:26`) y `Makefile`.
 - [ ] **4.2.** Implementar `mcp-server/src/services/github-fetcher.ts`: descarga bajo demanda desde GitHub Raw (`manifest.json` y archivos por stack), caché en `~/.cache/qa-11x-blueprints/`, soporte `ETag` (`If-None-Match`), validación criptográfica SHA-256 (`DISA V-222513`), fallback offline y soporte `QA_BLUEPRINTS_LOCAL_PATH`.
 - [ ] **4.3.** Implementar `mcp-server/src/services/surgical-merger.ts`: algoritmo determinista de fusión quirúrgica no destructiva para `package.json`, `pyproject.toml`, `Makefile`, `.gitignore` y `.npmrc`.
-- [ ] **4.4.** Implementar `mcp-server/src/resources/blueprint-resources.ts` exponiendo `blueprint://manifest`, `blueprint://core/philosophy`, `blueprint://security/disa-owasp-22` y `blueprint://{stack}/readme`.
+- [ ] **4.4.** Implementar `mcp-server/src/resources/blueprint-resources.ts` exponiendo `blueprint://manifest`, `blueprint://core/philosophy`, `blueprint://security/disa-owasp-22`, `blueprint://{stack}/readme` y `blueprint://ui/refactoring-ui/{topic}`.
 - [ ] **4.5.** Implementar las Tools 1 a 4 en `mcp-server/src/tools/`:
   - `inspect-project.ts` (`inspect_project_config`)
   - `fetch-bundle.ts` (`fetch_blueprint_bundle`)

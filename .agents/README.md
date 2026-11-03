@@ -21,7 +21,8 @@ Este directorio implementa el estándar abierto y emergente de la industria para
 ├── skills/                                           # Habilidades y Playbooks de dominio
 │   ├── qa-11x-docker-certifier/                      # Certificación 11X en Docker efímero (95% cobertura)
 │   ├── docker-trivy-keydb-hardening/                 # Endurecimiento Docker, Trivy = 0 y KeyDB multi-hilo
-│   └── graphify-ast-navigator/                       # Navegación AST, radio de impacto (Blast Radius) y servidor MCP
+│   ├── graphify-ast-navigator/                       # Navegación AST, radio de impacto (Blast Radius) y servidor MCP
+│   └── refactoring-ui/                               # Jerarquía visual, escalas discretas, color OKLCH, tabular-nums y WCAG 2.1 AA (SKILL.md + 9 references/)
 └── scripts/                                          # Scripts de automatización y compuertas de calidad
     ├── verify_alembic_orm_parity.py                  # Auditoría estricta: modelos ORM vs migraciones de BD (y revision <= 32 chars)
     ├── verify_json_no_duplicate_keys.py              # Auditoría estricta anti-colisión de claves duplicadas en JSON i18n

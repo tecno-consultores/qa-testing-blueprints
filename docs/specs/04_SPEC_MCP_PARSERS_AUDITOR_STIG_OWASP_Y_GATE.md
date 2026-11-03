@@ -36,6 +36,7 @@ Esta especificación define las tres herramientas de validación y ejecución de
 | **`SEC-08`** | Cabeceras OWASP OSHP (`OWASP 5.4.4`) | Ausencia de cabeceras `Strict-Transport-Security`, `Content-Security-Policy`, `X-Content-Type-Options` y `Cache-Control: no-store`. | `MEDIUM` |
 | **`SEC-09`** | Zero-Trust NPM Scripts (`OWASP SFL`) | Proyecto con `package.json` que carece de `.npmrc` con `ignore-scripts=true`. | `HIGH` |
 | **`SEC-10`** | Secretos en Código (`APSC-DV-000650 / V-222444`) | Ejecución interna de patrones de `scripts/verificar-secretos.sh` detectando claves privadas o tokens hardcodeados. | `CRITICAL` |
+| **`UI-11X-01`** | Anti-JSDOM & Refactoring UI WCAG (`WCAG 2.1 AA / Spec 70`) | Uso de `position: fixed` en `<footer>`, uso de `outline-none` sin reemplazo `focus-visible:` / `outline-hidden`, o texto blanco translúcido (`text-white/50`, `text-white/70`) que degrade el contraste 4.5:1. | `MEDIUM` |
 
 - **Salida JSON Estructurada:**
   ```json

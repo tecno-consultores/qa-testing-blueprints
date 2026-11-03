@@ -116,14 +116,15 @@ El archivo `src/index.ts` DEBE incluir el *shebang* `#!/usr/bin/env node` en la 
 
 ---
 
-## 4. Especificación de los 4 Recursos MCP (`src/resources/blueprint-resources.ts`)
+## 4. Especificación de los 5 Recursos MCP (`src/resources/blueprint-resources.ts`)
 
 | URI del Recurso | MIME Type | Descripción y Origen de Datos |
 | :--- | :--- | :--- |
-| **`blueprint://manifest`** | `application/json` | Devuelve el `manifest.json` actualizado desde GitHub (o caché local verificada) con todos los stacks, archivos `.example` y hashes SHA-256. |
+| **`blueprint://manifest`** | `application/json` | Devuelve el `manifest.json` actualizado desde GitHub (o caché local verificada) con todos los stacks, skills, archivos `.example` y hashes SHA-256. |
 | **`blueprint://core/philosophy`** | `text/markdown` | Devuelve las reglas globales condensadas (`AI_MASTER_PROMPT.md` + las 13 capas de `docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md`). |
 | **`blueprint://security/disa-owasp-22`** | `text/markdown` | Devuelve el catálogo de los 22 patrones de seguridad por diseño (`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`). |
 | **`blueprint://{stack}/readme`** | `text/markdown` | Devuelve el prompt operativo del ecosistema solicitado (`python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`). |
+| **`blueprint://ui/refactoring-ui/{topic}`** | `text/markdown` | Devuelve las reglas de diseño visual y accesibilidad de `.agents/skills/refactoring-ui/` (`topic`: `skill`, `hierarchy`, `layout`, `type`, `color`, `depth`, `images`, `polish`, `dark-mode`, `tailwind`). |
 
 ---
 
@@ -209,8 +210,8 @@ El archivo `src/index.ts` DEBE incluir el *shebang* `#!/usr/bin/env node` en la 
      - Si ya existe, añade al final únicamente los targets `qa-*` (`qa-lint`, `qa-unit`, `qa-mutation`, `qa-bdd`, `qa-all`, etc.) que aún no estén declarados.
   4. **`.gitignore` y `.npmrc`:**
      - Añade únicamente las líneas de `gitignore.example` y `npmrc.example` (`ignore-scripts=true`) que no existan ya en el archivo destino.
-  5. **Scripts `.agents/scripts/*.py|*.sh`, `auditar-infra.sh` y `scripts/verificar-secretos.sh`:**
-     - Los escribe respetando permisos de ejecución (`chmod 0o755`).
+  5. **Scripts `.agents/scripts/*.py|*.sh`, `auditar-infra.sh`, `scripts/verificar-secretos.sh` y Skill `refactoring-ui`:**
+     - Los escribe respetando permisos de ejecución (`chmod 0o755`), e incluye automáticamente `.agents/skills/refactoring-ui/` cuando el stack es `vue3` o `react-frontend`.
 
 ---
 

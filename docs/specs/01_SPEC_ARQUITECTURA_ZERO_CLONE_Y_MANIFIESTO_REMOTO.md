@@ -237,6 +237,12 @@ El archivo `manifest.json` DEBE respetar estrictamente la siguiente estructura:
       "target_name": ".agents/scripts/verify_topological_health.py",
       "sha256": "<hash_sha256_64_hex>",
       "size_bytes": 3800
+    },
+    {
+      "path": ".agents/skills/refactoring-ui/SKILL.md",
+      "target_name": ".agents/skills/refactoring-ui/SKILL.md",
+      "sha256": "<hash_sha256_64_hex>",
+      "size_bytes": 6800
     }
   ]
 }

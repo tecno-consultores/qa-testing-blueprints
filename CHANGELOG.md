@@ -7,6 +7,9 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 ## [Unreleased]
 
 ### 🚀 Añadido (Added)
+* **Skill de Diseño Visual y Accesibilidad Frontend (`.agents/skills/refactoring-ui/`):**
+  * Incorporación de la skill `refactoring-ui` (`SKILL.md` + 9 módulos en `references/`: `hierarchy.md`, `layout.md`, `type.md`, `color.md`, `depth.md`, `images.md`, `polish.md`, `dark-mode.md`, `tailwind.md`) adaptada al estándar 11X con `OUTPUT LANGUAGE CONSTRAINT: Spanish` y puente directo con Anti-JSDOM, `@axe-core/playwright` (WCAG 2.1 AA) y Lighthouse CI (`CLS = 0` con `tabular-nums`).
+  * Integrada en las especificaciones `01_SPEC` a `04_SPEC` y `ROADMAP.md` para su distribución *Zero-Clone* tanto vía el instalador universal (`install-skill`) como vía el recurso MCP `blueprint://ui/refactoring-ui/{topic}` y la regla de auditoría estática `UI-11X-01`.
 * **Retroalimentación de Producción desde Caso de Estudio Real (`RoSGrid` v1.0.0 — 14 Hitos):**
   * **Validador Bidireccional de Endpoints API (`.agents/scripts/verify_no_orphan_api_endpoints.py`):** Audita estáticamente en `< 2s` que el 100% de las llamadas HTTP del frontend coincidan con rutas registradas en el backend (cero errores 404/405 silenciosos) y detecta endpoints de backend huérfanos.
   * **Plantilla de Blindaje Productivo `--no-dev` (`fastapi/test/test_production_no_dev_cleanliness.unit.py.example`):** Prueba unitaria basada en AST que garantiza que ningún módulo en `src/` importe paquetes exclusivos de `[project.optional-dependencies].dev`, certifica la desactivación de `/docs`, `/redoc` y `/openapi.json` en `APP_ENV=production` y verifica la sanitización de errores `422`.

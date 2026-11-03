@@ -30,8 +30,9 @@
 ### C. Pruebas de Mutación Frontend -> `Stryker`
 *   **Regla:** Verifica si la suite de Vitest realmente audita el DOM y la lógica alterando los archivos `.vue` y `.ts` con mutantes. Está preconfigurado en `stryker.conf.json`.
 
-### D. Regresión Visual, Accesibilidad y Rendimiento -> `Playwright` + `@axe-core` + `Lighthouse CI`
+### D. Regresión Visual, Accesibilidad, Diseño (`refactoring-ui`) y Rendimiento -> `Playwright` + `@axe-core` + `Lighthouse CI`
 *   **Frontera Estricta (Tool Boundary):** Todas las pruebas que requieran levantar navegadores y atacar la UI en vivo DEBEN nombrarse usando `.e2e.ts`.
+*   **Sistema de Diseño Determinista (`.agents/skills/refactoring-ui/`):** Al diseñar o estilizar componentes `.vue`, aplica las reglas de `.agents/skills/refactoring-ui/SKILL.md` y sus 9 referencias (`hierarchy.md`, `layout.md`, `type.md`, `color.md`, `depth.md`, `dark-mode.md`, etc.): 1 solo botón primario sólido por vista, tonos OKLCH sin texto translúcido (`text-white/70` prohibido), `tabular-nums` en columnas numéricas para evitar *Cumulative Layout Shift* (`CLS = 0`), `outline-hidden` en vez de `outline-none`, y cero scroll horizontal en `375x667`, `768x1024` y `1440x900`.
 *   **Playwright / Axe:** Navega la aplicación, valida el DOM profundo, accesibilidad WCAG 2.1 AA (0 violaciones) y compara capturas de pantalla de la interfaz.
 *   **Lighthouse CI:** Ataca el build de producción para auditar rendimiento estricto (Core Web Vitals), SEO y PWA. Si el *Performance Score* baja de 90, el pipeline falla.
 
