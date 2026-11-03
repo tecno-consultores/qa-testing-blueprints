@@ -823,7 +823,7 @@ describe('Tools and Resources Integration Suite', () => {
   });
 
   describe('createMcpServer and Handlers Execution', () => {
-    it('creates server with default options when omitted and matches 2.8.3 versioning', () => {
+    it('creates server with default options when omitted and matches 2.9.0 versioning', () => {
       const server = createMcpServer();
       expect(server).toBeDefined();
     });

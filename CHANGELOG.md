@@ -6,6 +6,8 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+## [2.9.0] - 2026-11-03
+
 ### 🚀 Añadido (Added)
 * **Ecosistema Canónico PHP 8.1–8.5 (`sinfallas/basephpcomposer`) e Integración en Servidor MCP (Hito 11):**
   * **Blueprint Canónico `php/` (10 Plantillas Nivel 11X):** Creado el stack canónico para PHP 8.1–8.5 con `php/README.md` (manual operativo en español), `php/docker-compose.qa.yml` (`sinfallas/basephpcomposer:8.5`, `postgres:17-alpine`, `eqalpha/keydb:alpine`, `sinfallas/karatelabs:latest`), `php/Makefile.example` (11 targets: `qa-lint`, `qa-unit`, `qa-parity`, `qa-contracts`, `qa-bdd`, `qa-mutation`, `qa-dast`, `qa-chaos`, `qa-sbom`, `qa-all`, `clean`), `php/composer.json.example` (Pest, PHPStan, Psalm, Infection, CycloneDX), `php/phpstan.neon.example` (level: max, cognitive_complexity: 9), `php/phpunit.xml.example` (driver PCOV, umbral 95.0%), `php/infection.json5.example` (minMsi: 80, minCoveredMsi: 80), `php/php.ini.example` (endurecimiento PHP 8, `expose_php=Off`, flags de sesión, OPcache con `save_comments=1`, PCOV), `php/limpieza.sh` (permisos 0755 y fallback Alpine) y `php/test/api_test.feature` (escenarios BDD en Karate Labs).
@@ -45,14 +47,6 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
   * Creada la suite de pruebas unitarias `mcp-server/tests/test-pyramid-auditor.unit.ts` cubriendo los escenarios trimodales (virgen 0%, brownfield parcial y nominal 100%), alcanzando 190 pruebas unitarias con $\ge 95.18\%$ de cobertura de ramas y 99.18% de líneas en contenedor efímero `sinfallas/base-node-ionic:26`.
   * Actualizado el contrato BDD de Karate Labs en `mcp-server/test/mcp_cli_test.feature` validando las 9 herramientas MCP.
   * Regenerado el manifiesto criptográfico SHA-256 (`manifest.json`) con 111 archivos indexados.
-
-### 📐 Planificado (Planned)
-* **Especificación 07 y Planificación del Hito 8 — Autodetección Inteligente de Agentes en `install-skill` y Resiliencia CDN en `publicar-mcp.sh`:**
-  * Creación de `docs/specs/07_SPEC_AUTODETECCION_AGENTES_CLI_Y_RESILIENCIA_CDN_NPM.md` con diseño paso a paso e implementaciones de referencia para **Gemini 3.8 Flash High**, definiendo la autodetección multi-agente por defecto (`auto`) en `mcp-server/src/cli/install-skill.ts` y `scripts/install-skill.sh` (`~/.gemini/config/skills`, `~/.claude/skills`, `~/.hermes/skills`, `~/.cursor/skills`) sin contaminar `$HOME/.agents/skills`, junto con el bucle de verificación con reintento ante propagación asíncrona de CDN (`E404`) en `scripts/publicar-mcp.sh`.
-  * Actualización de `ROADMAP.md` incorporando el **Hito 8** (`⏳ Pendiente | 0%`) con las tareas `8.1` a `8.6`.
-* **Especificación 06 y Planificación del Hito 7 — Auditor de Brechas de la Pirámide de Pruebas 11X (`audit_test_pyramid_gaps`):**
-  * Creación y enriquecimiento de `docs/specs/06_SPEC_AUDITOR_BRECHAS_PIRAMIDE_PRUEBAS_11X.md` definiendo la **Tool 9 del Servidor MCP (`audit_test_pyramid_gaps`)**, su descomposición modular para cumplir `sonarjs/cognitive-complexity <= 15` y `sonarjs/no-duplicate-string` (`--max-warnings 0`), y el **Playbook 6 de la Skill `qa-11x-architect`** para auditar proyectos existentes (*Brownfield*) frente a las 13 capas de la pirámide de pruebas 11X (`COVERED`, `PARTIAL`, `MISSING`, `NOT_APPLICABLE`), descubriendo automáticamente archivos fuente sin prueba unitaria (`orphan_source_files`), endpoints de API sin escenario BDD en Karate Labs (`untested_api_endpoints`), vistas UI sin escenario BDD/E2E (`untested_ui_views`) y generando un plan de acción priorizado (`prioritized_action_plan`).
-  * Actualización de `ROADMAP.md` incorporando el **Hito 7** (`⏳ Pendiente | 0%`) con las tareas `7.1` a `7.6`.
 
 ---
 
