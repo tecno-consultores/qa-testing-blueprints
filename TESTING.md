@@ -163,15 +163,24 @@ El script evalúa de forma secuencial e implacable 9 compuertas obligatorias:
     * `tests/github-fetcher.unit.ts` (18 pruebas): Hidratación remota, validación condicional `ETag` (304), verificación SHA-256 (`DISA STIG V-222513`), detección de tampering, fallback offline y local path override.
     * `tests/surgical-merger.unit.ts` (13 pruebas): Fusión quirúrgica no destructiva de `package.json`, `pyproject.toml`, `Makefile`, `.gitignore` y `.npmrc`, asignación de permisos `0o755` a scripts y modo `dryRun`.
     * `tests/inspect-project.unit.ts` (7 pruebas): Detección automática de stacks (`python`, `fastapi`, `vue3`, `react-frontend`, `node-backend`, `bash-scripts`), banderas estrictas (`mypy`, `tsconfig`, `npmrc`) y archivos 11X ausentes.
-    * `tests/tools-and-resources.unit.ts` (25 pruebas): Recursos `blueprint://*` (incluyendo `blueprint://core/active-task-template`), herramientas 1 a 4 (`inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`), CLI `install-skill` multi-entorno y servidor `McpServer`.
+    * `tests/tools-and-resources.unit.ts` (32 pruebas): Recursos `blueprint://*` (incluyendo `blueprint://core/active-task-template` y `blueprint://core/cleanup-script`), herramientas 1 a 5 (`inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`, `clean_workspace_11x`), CLI `install-skill` multi-entorno y servidor `McpServer`.
   * **Ejecución Efímera:**
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run lint`
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run typecheck`
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run test:unit`
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run build`
   * **Cobertura y Métricas Alcanzadas:**
-    * **100% de aserciones aprobadas** (63/63 pruebas pasando).
-    * **98.69% de cobertura de líneas y sentencias** (superando el umbral de $\ge 95\%$).
-    * **93.77% de cobertura de ramas** (superando el umbral de $\ge 90\%$).
-    * **100% de cobertura de funciones**.
+    * **100% de aserciones aprobadas** (70/70 pruebas pasando).
+    * **97.69% de cobertura de líneas y sentencias** (superando el umbral de $\ge 95\%$).
+    * **93.25% de cobertura de ramas** (superando el umbral de $\ge 90\%$).
+    * **98.36% de cobertura de funciones**.
     * **0 errores de ESLint, SonarJS (Cognitiva $\le 15$) y TypeScript (`strict: true`)**.
+
+* **Script Universal de Limpieza y Saneamiento (`limpieza.sh` y `scripts/limpieza.sh`):**
+  * **Validación de Calidad de Scripts:** ShellCheck en contenedor efímero `koalaman/shellcheck:stable` certificando **0 errores y 0 advertencias** (código de salida 0) en `limpieza.sh`, `scripts/limpieza.sh` y en los 6 scripts por stack (`fastapi/`, `vue3/`, `react-frontend/`, `node-backend/`, `python/`, `bash-scripts/`).
+  * **Aserciones Validadas en Docker Efímero:**
+    * Detención ordenada de contenedores efímeros y redes huérfanas (`docker compose down -v --remove-orphans`).
+    * Erradicación de archivos bloqueados generados por Docker con privilegios `root` (UID 0: `.coverage`, `.pnpm-store`, `.pytest_cache`, `.mypy_cache`, etc.) sin requerir `sudo` mediante fallback Alpine.
+    * Normalización determinista de permisos a `$(id -u):$(id -g)`, garantizando cero candados en el explorador gráfico (Nautilus).
+    * Preservación del grafo semántico AST de Graphify (`GRAPH_REPORT.md`, `graph.html`, `graph.json`).
+    * Soporte opcional de poda profunda con bandera `--deep` o `--docker-prune`.

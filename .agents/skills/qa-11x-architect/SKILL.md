@@ -41,7 +41,8 @@ Execute with zero hallucination and maximum token economy:
 2. **Retrieve Fresh Blueprints:** Call `fetch_blueprint_bundle(stack, project_path)` to pull pristine `.example` templates and governance scripts verified cryptographically via SHA-256 from GitHub.
 3. **Audit Security Posture:** Call `audit_security_stig_owasp(project_path)` to perform static checks for the 22 DISA STIG V6R5 and OWASP v4.2 security controls.
 4. **Execute Tests in Docker:** Call `run_ephemeral_qa(project_path, stage)` to trigger test targets (`lint`, `unit`, `parity`, `bdd`, `mutation`, `all`) inside isolated `sinfallas/*` containers and receive token-efficient JSON summaries.
-5. **Certify Quality Gate:** Call `certify_11x_gate(project_path)` to evaluate the 9 closure gates before concluding any task.
+5. **Sanitize Workspace:** Call `clean_workspace_11x(project_path, dry_run, deep_prune)` or read `blueprint://core/cleanup-script` to eradicate test artifacts, coverage caches, and Docker-generated root-owned files without requiring `sudo`.
+6. **Certify Quality Gate:** Call `certify_11x_gate(project_path)` to evaluate the 9 closure gates before concluding any task.
 
 ### Case B: Standalone Skill / Fallback Mode (No MCP Server)
 When operating in pure CLI, Cloud, or desktop assistants without MCP tools:
@@ -134,6 +135,16 @@ Step 3: Run Certifier ────────> Run `./.agents/scripts/certify_t
 Step 4: Update Documentation ─> Synchronize TESTING.md, CHANGELOG.md, ROADMAP.md, and docs/.
 Step 5: Mark Active Task ─────> Mark .agents/ACTIVE_TASK.md as COMPLETED (100%).
 Step 6: Commit & Publish ─────> Conventional commit in Spanish and push.
+```
+
+### Playbook 5: Workspace Sanitization & Docker Root File Eviction (`make clean` / `limpieza.sh`)
+```text
+Step 1: Container Teardown ───> Stop testing containers and networks (docker compose down -v --remove-orphans).
+Step 2: Local Artifact Purge ─> Remove standard test caches, reports, coverage, logs, and mutmut files.
+Step 3: Graphify AST Preserve ─> Purge graphify-out/cache while preserving GRAPH_REPORT.md, graph.html, graph.json.
+Step 4: Alpine Root Eviction ─> If UID 0 (root) files exist from Docker, invoke ephemeral Alpine container to rm -rf without sudo.
+Step 5: Permission Re-owning ─> Alpine container chown -R $(id -u):$(id -g) to eliminate padlocks in desktop GUI.
+Step 6: Optional Docker Prune ─> Execute docker system prune -af --volumes only when --deep or --docker-prune is requested.
 ```
 
 ---

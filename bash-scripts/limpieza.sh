@@ -1,26 +1,56 @@
 #!/usr/bin/env bash
-# Licencia: MIT
-LC_ALL=C
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 QA Testing Blueprints Contributors
+# Propósito: Script de limpieza y purga profunda para el entorno QA Bash (Estándar 11X)
+# Erradica bloqueos de permisos generados por Docker (UID 0 / root) sin requerir sudo mediante Alpine efímero.
 
-if [[ "$EUID" != "0" ]]; then
-        echo "AVISO: Ejecutando sin root; se usará contenedor efímero Alpine para limpiar artefactos de Docker."
+LC_ALL=C
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "${SCRIPT_DIR}"
+
+echo "=============================================================================="
+echo "      🧹 Limpieza y Saneamiento QA Bash (Estándar Corporativo 11X)            "
+echo "=============================================================================="
+
+echo "[1/4] Deteniendo contenedores efímeros y redes de prueba..."
+docker compose -f docker-compose.qa.yml down --remove-orphans -v 2>/dev/null || true
+docker compose -f docker-compose.qa.yml --profile observability down --remove-orphans -v 2>/dev/null || true
+docker compose -f docker-compose.qa.yml --profile graphify down --remove-orphans -v 2>/dev/null || true
+
+echo "[2/4] Eliminando artefactos temporales de pruebas, cobertura y linters..."
+rm -f ./*.log trivy-results* 2>/dev/null || true
+rm -rf coverage_report/ .bats-battery/ target/ test/target/ prometheus_data/ .trivycache karate.jar 2>/dev/null || true
+
+# Purgar caché de Graphify preservando el reporte semántico del grafo AST
+if [ -d "graphify-out" ]; then
+  find graphify-out/ -mindepth 1 ! -name 'GRAPH_REPORT.md' ! -name 'graph.html' ! -name 'graph.json' -delete 2>/dev/null || true
 fi
 
-echo "Iniciando purga profunda del entorno de QA de Bash (Nivel 11X)..."
+echo "[3/4] Saneando residuos generados con privilegios root por Docker (Fallback Alpine)..."
+if command -v docker >/dev/null 2>&1; then
+  docker run --rm -v "${SCRIPT_DIR}:/work" alpine sh -c "\
+    rm -rf /work/coverage_report /work/.bats-battery /work/target /work/test/target \
+           /work/prometheus_data /work/.trivycache /work/karate.jar 2>/dev/null || true" 2>/dev/null || true
+fi
 
-docker run --rm -v "$(pwd):/work" alpine sh -c "rm -rf /work/coverage_report /work/.bats-battery /work/target /work/*.log /work/prometheus_data && chown -R $(id -u):$(id -g) /work" 2>/dev/null || true
+echo "[4/4] Normalizando titularidad de archivos para el usuario del host (UID $(id -u):$(id -g))..."
+if command -v docker >/dev/null 2>&1; then
+  CURRENT_UID="$(id -u)"
+  CURRENT_GID="$(id -g)"
+  docker run --rm -v "${SCRIPT_DIR}:/work" alpine sh -c "\
+    chown -R ${CURRENT_UID}:${CURRENT_GID} /work/scripts /work/test /work/docs 2>/dev/null || true; \
+    find /work -maxdepth 1 -user 0 -exec chown ${CURRENT_UID}:${CURRENT_GID} {} + 2>/dev/null || true" 2>/dev/null || true
+fi
 
-rm -rf coverage_report/ .bats-battery/ target/ ./*.log prometheus_data/
-find graphify-out/ -mindepth 1 ! -name 'GRAPH_REPORT.md' ! -name 'graph.html' ! -name 'graph.json' -delete 2>/dev/null || true
+# Poda profunda de Docker solo si se solicita explícitamente
+if [ "${1:-}" = "--deep" ] || [ "${1:-}" = "--docker-prune" ]; then
+  echo "🧹 Ejecutando poda profunda de recursos huérfanos de Docker..."
+  docker system prune -af --volumes 2>/dev/null || true
+fi
 
-chown -R "${SUDO_USER:-$USER}:${SUDO_USER:-$USER}" . 2>/dev/null || true
-
-# Forzamos el derribo de la infraestructura principal y perfiles secundarios
-docker compose -f docker-compose.qa.yml down -v 2>/dev/null || true
-docker compose -f docker-compose.qa.yml --profile observability down -v 2>/dev/null || true
-docker compose -f docker-compose.qa.yml --profile graphify down -v 2>/dev/null || true
-
-docker system prune -af
-
-echo "Limpieza de artefactos de Bash QA finalizada exitosamente."
+echo "=============================================================================="
+echo "✔ Limpieza de Bash QA finalizada exitosamente."
+echo "=============================================================================="
 exit 0

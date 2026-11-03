@@ -69,13 +69,15 @@
 - [x] **4.1.** Inicializar la estructura de `mcp-server/`: `package.json`, `tsconfig.json`, `vitest.config.ts`, `.eslintrc.json`, `.npmrc` (`ignore-scripts=true`), `docker-compose.qa.yml` (usando `sinfallas/base-node-ionic:26`) y `Makefile`.
 - [x] **4.2.** Implementar `mcp-server/src/services/github-fetcher.ts`: descarga bajo demanda desde GitHub Raw (`manifest.json` y archivos por stack), caché en `~/.cache/qa-11x-blueprints/`, soporte `ETag` (`If-None-Match`), validación criptográfica SHA-256 (`DISA V-222513`), fallback offline y soporte `QA_BLUEPRINTS_LOCAL_PATH`.
 - [x] **4.3.** Implementar `mcp-server/src/services/surgical-merger.ts`: algoritmo determinista de fusión quirúrgica no destructiva para `package.json`, `pyproject.toml`, `Makefile`, `.gitignore` y `.npmrc`.
-- [x] **4.4.** Implementar `mcp-server/src/resources/blueprint-resources.ts` exponiendo `blueprint://manifest`, `blueprint://core/philosophy`, `blueprint://security/disa-owasp-22`, `blueprint://{stack}/readme` y `blueprint://ui/refactoring-ui/{topic}`.
-- [x] **4.5.** Implementar las Tools 1 a 4 en `mcp-server/src/tools/`:
+- [x] **4.4.** Implementar `mcp-server/src/resources/blueprint-resources.ts` exponiendo `blueprint://manifest`, `blueprint://core/philosophy`, `blueprint://security/disa-owasp-22`, `blueprint://{stack}/readme`, `blueprint://ui/refactoring-ui/{topic}`, `blueprint://core/active-task-template` y `blueprint://core/cleanup-script`.
+- [x] **4.5.** Implementar las Tools en `mcp-server/src/tools/`:
   - `inspect-project.ts` (`inspect_project_config`)
   - `fetch-bundle.ts` (`fetch_blueprint_bundle`)
   - `bootstrap-merge.ts` (`bootstrap_or_merge_11x`)
   - `blast-radius.ts` (`inspect_ast_blast_radius`)
+  - `clean-workspace.ts` (`clean_workspace_11x`) con saneamiento seguro y fallback efímero Alpine.
 - [x] **4.6.** Implementar el subcomando CLI `mcp-server/src/cli/install-skill.ts` y el punto de entrada dual `mcp-server/src/index.ts` (`#!/usr/bin/env node`).
+- [x] **4.7.** Estandarizar el script universal de saneamiento `limpieza.sh` en la raíz, en todos los stacks y en `Makefile` (Playbook 5 en `qa-11x-architect`).
 
 ---
 

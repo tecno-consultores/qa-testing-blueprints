@@ -1,4 +1,4 @@
-.PHONY: qa-lint qa-unit qa-orphans qa-mutation qa-perf qa-e2e qa-bdd qa-obs qa-all build-ui clean-cache
+.PHONY: qa-lint qa-unit qa-orphans qa-mutation qa-perf qa-e2e qa-bdd qa-obs qa-all build-ui clean-cache clean qa-clean
 
 # ==============================================================================
 # MAKEFILE QA VUE 3 (ESTÁNDAR CORPORATIVO 11X)
@@ -53,3 +53,8 @@ clean-cache:
 	docker compose -f $(COMPOSE_FILE) down -v
 	docker compose -f $(COMPOSE_FILE) --profile observability down -v
 	docker compose -f $(COMPOSE_FILE) --profile graphify down -v
+
+clean:
+	@./limpieza.sh
+
+qa-clean: clean

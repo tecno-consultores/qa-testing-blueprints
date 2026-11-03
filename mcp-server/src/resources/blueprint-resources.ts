@@ -124,4 +124,20 @@ export class BlueprintResources {
       text: content,
     };
   }
+
+  public async getCleanupScriptResource(): Promise<ResourceResponse> {
+    const manifest = await this.fetcher.fetchManifest();
+    const cleanEntry = manifest.common_files.find((f) => f.path === 'limpieza.sh');
+    let content = '';
+    if (cleanEntry) {
+      content = await this.fetcher.fetchFileContent(cleanEntry.path, cleanEntry.sha256);
+    } else {
+      content = '#!/usr/bin/env bash\n# Script universal de limpieza QA 11X\n';
+    }
+    return {
+      uri: 'blueprint://core/cleanup-script',
+      mimeType: 'text/x-shellscript',
+      text: content,
+    };
+  }
 }

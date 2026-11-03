@@ -1,4 +1,4 @@
-.PHONY: qa-lint qa-unit qa-migration qa-mutation qa-bdd qa-dast qa-chaos qa-all clean-cache
+.PHONY: qa-lint qa-unit qa-migration qa-mutation qa-bdd qa-dast qa-chaos qa-all clean-cache clean qa-clean
 
 # ==============================================================================
 # MAKEFILE QA FASTAPI (ESTÁNDAR CORPORATIVO 11X)
@@ -58,3 +58,8 @@ clean-cache:
 	docker compose -f $(COMPOSE_FILE) down -v
 	docker compose -f $(COMPOSE_FILE) --profile chaos down -v
 	docker compose -f $(COMPOSE_FILE) --profile graphify down -v
+
+clean:
+	@./limpieza.sh
+
+qa-clean: clean

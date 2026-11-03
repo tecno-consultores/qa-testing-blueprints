@@ -1,4 +1,4 @@
-.PHONY: qa-lint qa-unit qa-mutation qa-all clean-cache
+.PHONY: qa-lint qa-unit qa-mutation qa-all clean-cache clean qa-clean
 
 # Variables
 COMPOSE_FILE = docker-compose.qa.yml
@@ -22,3 +22,8 @@ qa-all: qa-lint qa-unit qa-mutation
 clean-cache:
 	@echo "🧹 Limpiando volúmenes de caché de uv..."
 	docker compose -f $(COMPOSE_FILE) down -v
+
+clean: clean-cache
+	@./limpieza.sh
+
+qa-clean: clean

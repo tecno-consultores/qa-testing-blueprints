@@ -9,11 +9,13 @@ import { inspectProjectConfig } from './tools/inspect-project.js';
 import { fetchBlueprintBundle } from './tools/fetch-bundle.js';
 import { bootstrapOrMerge11x } from './tools/bootstrap-merge.js';
 import { inspectAstBlastRadius } from './tools/blast-radius.js';
+import { cleanWorkspace11x } from './tools/clean-workspace.js';
 import {
   InspectProjectInputSchema,
   FetchBundleInputSchema,
   BootstrapMergeInputSchema,
   BlastRadiusInputSchema,
+  CleanWorkspaceInputSchema,
 } from './types.js';
 
 export function createMcpServer(options?: {
@@ -167,6 +169,28 @@ export function createMcpServer(options?: {
     }
   );
 
+  // 7. Script canónico de limpieza y saneamiento (blueprint://core/cleanup-script)
+  server.resource(
+    'blueprint-cleanup-script',
+    'blueprint://core/cleanup-script',
+    {
+      description: 'Script canónico de limpieza y saneamiento (limpieza.sh) con fallback Alpine para eliminar residuos de Docker (UID 0 / root) sin requerir sudo.',
+      mimeType: 'text/x-shellscript',
+    },
+    async (uri) => {
+      const res = await resources.getCleanupScriptResource();
+      return {
+        contents: [
+          {
+            uri: uri.href,
+            mimeType: res.mimeType,
+            text: res.text,
+          },
+        ],
+      };
+    }
+  );
+
   // ============================================================================
   // 🛠️ Registro de Herramientas MCP (Tools 1 a 4)
   // ============================================================================
@@ -238,6 +262,28 @@ export function createMcpServer(options?: {
     BlastRadiusInputSchema.shape,
     async (args) => {
       const result = await inspectAstBlastRadius(args.project_path, args.target_symbol);
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  // Tool 5: clean_workspace_11x
+  server.tool(
+    'clean_workspace_11x',
+    'Audita o ejecuta la limpieza y saneamiento del espacio de trabajo eliminando artefactos temporales de pruebas y cachés de Docker (modo dry_run por defecto).',
+    CleanWorkspaceInputSchema.shape,
+    async (args) => {
+      const result = await cleanWorkspace11x(
+        args.project_path,
+        args.dry_run ?? true,
+        args.deep_prune ?? false
+      );
       return {
         content: [
           {

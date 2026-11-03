@@ -53,6 +53,23 @@ export const BlastRadiusInputSchema = z.object({
 });
 export type BlastRadiusInput = z.infer<typeof BlastRadiusInputSchema>;
 
+export const CleanWorkspaceInputSchema = z.object({
+  project_path: z.string().min(1).describe("Ruta absoluta o relativa al directorio del proyecto a limpiar"),
+  dry_run: z.boolean().default(true).describe("Si es true (por defecto), solo audita e informa qué artefactos serían eliminados"),
+  deep_prune: z.boolean().default(false).describe("Si es true, incluye poda profunda de contenedores y volúmenes Docker huérfanos"),
+});
+export type CleanWorkspaceInput = z.infer<typeof CleanWorkspaceInputSchema>;
+
+export interface CleanWorkspaceResult {
+  project_path: string;
+  dry_run: boolean;
+  deep_prune: boolean;
+  found_targets: string[];
+  removed_targets: string[];
+  docker_fallback_used: boolean;
+  recommended_command: string;
+}
+
 export interface FetchedFileItem {
   path: string;
   target_name: string;

@@ -18,4 +18,4 @@ build:
 qa-all: qa-lint qa-typecheck qa-unit build
 
 clean:
-	rm -rf dist node_modules coverage
+	rm -rf dist coverage .turbo test-results .eslintcache 2>/dev/null || docker run --rm -v "$$(pwd):/app" alpine rm -rf /app/dist /app/coverage /app/.turbo /app/test-results /app/.eslintcache 2>/dev/null || true

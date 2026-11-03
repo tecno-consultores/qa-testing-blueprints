@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.7.0",
-  "generated_at_utc": "2026-11-03T02:01:32Z",
+  "generated_at_utc": "2026-11-03T02:16:00Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -14,8 +14,8 @@
           "path": "bash-scripts/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "682c867f850b5713bb7839ec5e35b2f7d32e47d4874a53446f92942df790d99d",
-          "size_bytes": 682
+          "sha256": "568f3358774d1510a96bbfda523bcc30d994b10cb3a87969af3118390aede21d",
+          "size_bytes": 750
         },
         {
           "path": "bash-scripts/docker-compose.qa.yml",
@@ -28,8 +28,8 @@
           "path": "bash-scripts/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "be646a17585a1260462020db7db403deb4e9972a37508f4d719f8476314f10f6",
-          "size_bytes": 1168
+          "sha256": "fd93f2af53f92288159e9b61c5a008aa2362b513761e45d387b6ffa4965f33e4",
+          "size_bytes": 2915
         },
         {
           "path": "bash-scripts/test/ejemplo_mock.bats",
@@ -55,8 +55,8 @@
           "path": "fastapi/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "dd4159e96c40e990512a0039abfeb9928f9703983339fb6af462876a6bd70a38",
-          "size_bytes": 2629
+          "sha256": "cf449a87f048726f391685c2a9a00f7b8963c626bdf8953ec3d5073376ad5fe3",
+          "size_bytes": 2685
         },
         {
           "path": "fastapi/docker-compose.qa.yml",
@@ -76,8 +76,8 @@
           "path": "fastapi/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "070f8a5dbae8334d045cfe43307961a0fcb24e977031231cb30982e33622d1a3",
-          "size_bytes": 1611
+          "sha256": "273ce60596cce8fae42c1e7b39948c85c8cbaee3d9600b3e11fa65469bcf17af",
+          "size_bytes": 3802
         },
         {
           "path": "fastapi/locustfile.py.example",
@@ -138,8 +138,8 @@
           "path": "node-backend/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "12eae889d7ef52a96233bfee8d22db471d2c0cf5b265e3c1d9ec655ee6b78e0d",
-          "size_bytes": 1420
+          "sha256": "6af831762cd7ac27e526691f241329d1875f4e3ab7b18fabef53485378aae3a7",
+          "size_bytes": 1476
         },
         {
           "path": "node-backend/artillery.yml.example",
@@ -166,8 +166,8 @@
           "path": "node-backend/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "075f176b269094adf1440f9088cf294160d6f75e9a8dd9ceb65be47cc9d95594",
-          "size_bytes": 1495
+          "sha256": "e17f3aa5d263f8fd0401f36af4e9a2458a8b60dfb4a450076f302bdb21de4dd6",
+          "size_bytes": 3120
         },
         {
           "path": "node-backend/npmrc.example",
@@ -221,8 +221,8 @@
           "path": "python/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "a2097e85d34124d7e039431db3fec18fc24bac8a625f4c4bda77d590007b9f55",
-          "size_bytes": 900
+          "sha256": "39affdb29c3592df8bc8998884ec7860d012cc39929b9bfdfe0f543fb5f1b8d8",
+          "size_bytes": 968
         },
         {
           "path": "python/docker-compose.qa.yml",
@@ -242,8 +242,8 @@
           "path": "python/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "34189df26c3bc44f149c55507efc574d062ea5c68d49bb9c5cdceb5696f50c9a",
-          "size_bytes": 1468
+          "sha256": "109efc779c0937d5687f5d9bb8a0fb7ab04bb2f75f8ba0f9e2c88b7ed5485984",
+          "size_bytes": 3601
         },
         {
           "path": "python/pyproject.toml.example",
@@ -290,8 +290,8 @@
           "path": "react-frontend/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "c1b9fe38d61ba83acdde853e0d75600cb68aa07110925fbbe95e85c45405884b",
-          "size_bytes": 2151
+          "sha256": "b47ce0285f1cfb8918dd3957a27ffae15fb417e1e8965380c098907b39e029d0",
+          "size_bytes": 2207
         },
         {
           "path": "react-frontend/docker-compose.qa.yml",
@@ -325,8 +325,8 @@
           "path": "react-frontend/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "9dc2857f1e64d8d54ca1cadac6a4bdbee44718a92839b7ed8048f5ecd34cf28a",
-          "size_bytes": 1480
+          "sha256": "cc488e0529dc7ff4d714c95def623f4136c454575ef9a2f29ba32bd9e56a6210",
+          "size_bytes": 3337
         },
         {
           "path": "react-frontend/nginx/default.conf.example",
@@ -415,8 +415,8 @@
           "path": "vue3/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "5198b579667cfe574a3f3074760e7503a6429a7e6169c66c3685eb49e8f52259",
-          "size_bytes": 2705
+          "sha256": "e9bbf118dfbfbec37e22f04aa004649b67e75a2ee36bcde6aeb7dbaf86a911cf",
+          "size_bytes": 2761
         },
         {
           "path": "vue3/docker-compose.qa.yml",
@@ -450,8 +450,8 @@
           "path": "vue3/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "b57de60da0e0f4374316b8a61bb783d3708b57bc11414597d643d6a9dfa64316",
-          "size_bytes": 1498
+          "sha256": "4e9f1558c3598cb4c1eee8e9a156217b7a10cf98816883536c768ed2768823f7",
+          "size_bytes": 3432
         },
         {
           "path": "vue3/nginx/default.conf.example",
@@ -533,6 +533,13 @@
       "merge_strategy": "surgical_merge",
       "sha256": "ccfd186e7701c0750adfd2261f7a10054078d8b2ed0b2216dd664a71bcb8c652",
       "size_bytes": 3897
+    },
+    {
+      "path": "limpieza.sh",
+      "target_name": "limpieza.sh",
+      "merge_strategy": "overwrite_executable",
+      "sha256": "8f8a0a8e3808190bc24a65dac2d17c72efb714fbd527c7273703c1cc3e7adc03",
+      "size_bytes": 6260
     },
     {
       "path": "scripts/verificar-secretos.sh",
@@ -666,8 +673,8 @@
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "0fa0b14eb958706db05906d3712b2f59f05c78d79eb6ab8c97244c93d02402d4",
-      "size_bytes": 12762
+      "sha256": "db47f47ccb3590940a70f75bfbc094a1de5b5b8785f8108f6707b9e591aa670f",
+      "size_bytes": 13831
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",

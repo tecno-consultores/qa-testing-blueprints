@@ -1,4 +1,4 @@
-.PHONY: qa-lint qa-unit qa-e2e qa-mutation qa-stress qa-all clean-cache
+.PHONY: qa-lint qa-unit qa-e2e qa-mutation qa-stress qa-all clean-cache clean qa-clean
 
 # Variables
 COMPOSE_FILE = docker-compose.qa.yml
@@ -32,3 +32,8 @@ clean-cache:
 	docker compose -f $(COMPOSE_FILE) down -v
 	docker compose -f $(COMPOSE_FILE) --profile chaos down -v
 	docker compose -f $(COMPOSE_FILE) --profile graphify down -v
+
+clean:
+	@./limpieza.sh
+
+qa-clean: clean

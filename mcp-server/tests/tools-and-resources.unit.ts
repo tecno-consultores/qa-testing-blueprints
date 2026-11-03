@@ -2,6 +2,7 @@
 // Copyright (C) 2026 QA Testing Blueprints Contributors
 
 import * as crypto from 'node:crypto';
+import * as childProcess from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -9,6 +10,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { fetchBlueprintBundle } from '../src/tools/fetch-bundle.js';
 import { bootstrapOrMerge11x } from '../src/tools/bootstrap-merge.js';
 import { inspectAstBlastRadius } from '../src/tools/blast-radius.js';
+import { cleanWorkspace11x } from '../src/tools/clean-workspace.js';
 import { BlueprintResources } from '../src/resources/blueprint-resources.js';
 import { GitHubFetcher } from '../src/services/github-fetcher.js';
 import { SurgicalMerger } from '../src/services/surgical-merger.js';
@@ -60,6 +62,10 @@ describe('Tools and Resources Integration Suite', () => {
     const activeTaskContent = '# Active Task Template Example';
     const activeTaskHash = crypto.createHash('sha256').update(activeTaskContent).digest('hex');
 
+    const cleanFile = 'limpieza.sh';
+    const cleanContent = '#!/usr/bin/env bash\necho "cleaning"';
+    const cleanHash = crypto.createHash('sha256').update(cleanContent).digest('hex');
+
     mockManifest = {
       schema_version: '1.0.0',
       blueprint_version: '2.7.0',
@@ -89,7 +95,15 @@ describe('Tools and Resources Integration Suite', () => {
           ],
         },
       },
-      common_files: [],
+      common_files: [
+        {
+          path: cleanFile,
+          target_name: cleanFile,
+          merge_strategy: 'overwrite_executable',
+          sha256: cleanHash,
+          size_bytes: cleanContent.length,
+        },
+      ],
       agent_governance_files: [
         {
           path: skillFile,
@@ -145,6 +159,7 @@ describe('Tools and Resources Integration Suite', () => {
     writeRepoFile(promptFile, promptContent);
     writeRepoFile(secFile, secContent);
     writeRepoFile(activeTaskFile, activeTaskContent);
+    writeRepoFile(cleanFile, cleanContent);
 
     fetcher = new GitHubFetcher({
       cacheDir: path.join(tmpDir, 'cache'),
@@ -491,6 +506,123 @@ describe('Tools and Resources Integration Suite', () => {
     });
   });
 
+  describe('cleanWorkspace11x and Cleanup Resource Suite', () => {
+    it('audits workspace artifacts in dry_run mode without deleting', async () => {
+      const dummyCoverage = path.join(targetProjectDir, '.coverage');
+      const dummyPytest = path.join(targetProjectDir, '.pytest_cache');
+      const dummyDist = path.join(targetProjectDir, 'dist');
+      fs.writeFileSync(dummyCoverage, 'cov');
+      fs.mkdirSync(dummyPytest, { recursive: true });
+      fs.mkdirSync(dummyDist, { recursive: true });
+
+      const res = await cleanWorkspace11x(targetProjectDir, true, false);
+      expect(res.dry_run).toBe(true);
+      expect(res.deep_prune).toBe(false);
+      expect(res.found_targets).toContain('.coverage');
+      expect(res.found_targets).toContain('.pytest_cache');
+      expect(res.found_targets).toContain('dist');
+      expect(res.removed_targets).toHaveLength(0);
+      expect(res.recommended_command).toBe('./limpieza.sh');
+
+      expect(fs.existsSync(dummyCoverage)).toBe(true);
+      expect(fs.existsSync(dummyPytest)).toBe(true);
+    });
+
+    it('removes workspace artifacts when dry_run is false', async () => {
+      const dummyCoverage = path.join(targetProjectDir, '.coverage');
+      const dummySubdir = path.join(targetProjectDir, 'backend', '.pytest_cache');
+      fs.writeFileSync(dummyCoverage, 'cov');
+      fs.mkdirSync(dummySubdir, { recursive: true });
+
+      const res = await cleanWorkspace11x(targetProjectDir, false, true);
+      expect(res.dry_run).toBe(false);
+      expect(res.deep_prune).toBe(true);
+      expect(res.removed_targets).toContain('.coverage');
+      expect(res.removed_targets).toContain('backend/.pytest_cache');
+      expect(res.recommended_command).toBe('./limpieza.sh --deep');
+
+      expect(fs.existsSync(dummyCoverage)).toBe(false);
+      expect(fs.existsSync(dummySubdir)).toBe(false);
+    });
+
+    it('uses alpine docker fallback when local removal encounters permission errors', async () => {
+      const lockedDir = path.join(targetProjectDir, 'backend');
+      fs.mkdirSync(lockedDir, { recursive: true });
+      const dummyCoverage = path.join(lockedDir, '.coverage');
+      fs.writeFileSync(dummyCoverage, 'root-owned');
+
+      const fakeFallback = vi.fn().mockImplementation((_dir: string, targets: string[]) => {
+        for (const t of targets) {
+          const p = path.join(targetProjectDir, t);
+          if (fs.existsSync(p)) fs.unlinkSync(p);
+        }
+        return true;
+      });
+
+      try {
+        const res = await cleanWorkspace11x(
+          targetProjectDir,
+          false,
+          false,
+          fakeFallback,
+          () => ({ removed: false })
+        );
+        expect(res.docker_fallback_used).toBe(true);
+        expect(fakeFallback).toHaveBeenCalled();
+        expect(res.removed_targets).toContain('backend/.coverage');
+      } finally {
+        if (fs.existsSync(dummyCoverage)) fs.unlinkSync(dummyCoverage);
+      }
+    });
+
+    it('handles alpine fallback failure gracefully when docker is unavailable', async () => {
+      const lockedDir = path.join(targetProjectDir, 'backend');
+      fs.mkdirSync(lockedDir, { recursive: true });
+      const dummyCoverage = path.join(lockedDir, '.coverage');
+      fs.writeFileSync(dummyCoverage, 'root-owned');
+
+      const fakeFallback = vi.fn().mockReturnValue(false);
+
+      try {
+        const res = await cleanWorkspace11x(
+          targetProjectDir,
+          false,
+          false,
+          fakeFallback,
+          () => ({ removed: false })
+        );
+        expect(res.docker_fallback_used).toBe(false);
+        expect(fakeFallback).toHaveBeenCalled();
+      } finally {
+        if (fs.existsSync(dummyCoverage)) fs.unlinkSync(dummyCoverage);
+      }
+    });
+
+    it('throws error when project directory does not exist', async () => {
+      await expect(cleanWorkspace11x(path.join(tmpDir, 'non-existent'))).rejects.toThrow(
+        'no existe'
+      );
+    });
+
+    it('retrieves cleanup script resource from BlueprintResources', async () => {
+      const resources = new BlueprintResources(fetcher);
+      const res = await resources.getCleanupScriptResource();
+      expect(res.uri).toBe('blueprint://core/cleanup-script');
+      expect(res.mimeType).toBe('text/x-shellscript');
+      expect(res.text).toBe('#!/usr/bin/env bash\necho "cleaning"');
+    });
+
+    it('falls back to default script when cleanup script is not in manifest', async () => {
+      const emptyManifest = { ...mockManifest, common_files: [] };
+      const emptyFetcher = new GitHubFetcher();
+      vi.spyOn(emptyFetcher, 'fetchManifest').mockResolvedValue(emptyManifest);
+
+      const resources = new BlueprintResources(emptyFetcher);
+      const res = await resources.getCleanupScriptResource();
+      expect(res.text).toContain('#!/usr/bin/env bash');
+    });
+  });
+
   describe('createMcpServer and Handlers Execution', () => {
     it('creates server with default options when omitted', () => {
       const server = createMcpServer();
@@ -552,19 +684,25 @@ describe('Tools and Resources Integration Suite', () => {
       );
       expect(taskRes.contents[0].text).toBe('# Active Task Template Example');
 
-      // 7. Ejecutar tool: inspect_project_config
+      // 7. Ejecutar resource: cleanup-script
+      const cleanRes = await serverAny._registeredResources['blueprint://core/cleanup-script'].readCallback(
+        new URL('blueprint://core/cleanup-script')
+      );
+      expect(cleanRes.contents[0].text).toBe('#!/usr/bin/env bash\necho "cleaning"');
+
+      // 8. Ejecutar tool: inspect_project_config
       const toolInspect = serverAny._registeredTools['inspect_project_config'];
       expect(toolInspect).toBeDefined();
       const inspectRes = await toolInspect.handler({ project_path: targetProjectDir });
       expect(inspectRes.content[0].text).toContain(targetProjectDir);
 
-      // 7. Ejecutar tool: fetch_blueprint_bundle
+      // 9. Ejecutar tool: fetch_blueprint_bundle
       const toolFetch = serverAny._registeredTools['fetch_blueprint_bundle'];
       expect(toolFetch).toBeDefined();
       const fetchRes = await toolFetch.handler({ stack: 'python', include_common_and_agents: true });
       expect(fetchRes.content[0].text).toContain('python');
 
-      // 8. Ejecutar tool: bootstrap_or_merge_11x
+      // 10. Ejecutar tool: bootstrap_or_merge_11x
       const toolMerge = serverAny._registeredTools['bootstrap_or_merge_11x'];
       expect(toolMerge).toBeDefined();
       const mergeRes = await toolMerge.handler({
@@ -574,7 +712,7 @@ describe('Tools and Resources Integration Suite', () => {
       });
       expect(mergeRes.content[0].text).toContain('"dry_run": true');
 
-      // 9. Ejecutar tool: inspect_ast_blast_radius
+      // 11. Ejecutar tool: inspect_ast_blast_radius
       const toolBlast = serverAny._registeredTools['inspect_ast_blast_radius'];
       expect(toolBlast).toBeDefined();
       const blastRes = await toolBlast.handler({
@@ -582,6 +720,15 @@ describe('Tools and Resources Integration Suite', () => {
         target_symbol: 'test',
       });
       expect(blastRes.content[0].text).toContain('"risk_level"');
+
+      // 12. Ejecutar tool: clean_workspace_11x
+      const toolClean = serverAny._registeredTools['clean_workspace_11x'];
+      expect(toolClean).toBeDefined();
+      const cleanToolRes = await toolClean.handler({
+        project_path: targetProjectDir,
+        dry_run: true,
+      });
+      expect(cleanToolRes.content[0].text).toContain('"recommended_command"');
     });
   });
 });

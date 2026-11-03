@@ -1,4 +1,4 @@
-.PHONY: qa-lint qa-unit qa-all clean-cache
+.PHONY: qa-lint qa-unit qa-all clean-cache clean qa-clean
 
 # Variables
 COMPOSE_FILE = docker-compose.qa.yml
@@ -19,3 +19,8 @@ clean-cache:
 	@echo "🧹 Limpiando reportes generados..."
 	docker compose -f $(COMPOSE_FILE) down -v
 	rm -rf coverage_report/
+
+clean: clean-cache
+	@./limpieza.sh
+
+qa-clean: clean
