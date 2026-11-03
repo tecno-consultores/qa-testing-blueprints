@@ -135,3 +135,14 @@ El script evalúa de forma secuencial e implacable 9 compuertas obligatorias:
   * **Ejecución Efímera:** `docker run --rm -v "${PWD}:/app" -w /app sinfallas/base-python-uv:3.15 bash -c "uvx coverage run tests/test_generar_manifiesto.unit.py && uvx coverage report -m --include='scripts/generar-manifiesto.py'"`
   * **Cobertura Alcanzada:** **98%** (superando el umbral innegociable del $\ge 95\%$).
   * **Aserciones Validadas:** Algoritmo de hashing SHA-256, categorización de `target_name` y `merge_strategy` para los 6 stacks, detección estricta de derivas con `--check` y robustez de entrada CLI.
+
+* **Instalador Universal de Skills QA 11X (`scripts/install-skill.sh`):**
+  * **Suites de Pruebas:**
+    * **Python Unit:** `tests/test_install_skill.unit.py` (5 pruebas unitarias).
+    * **BATS-core:** `bash-scripts/test/test_install_skill.bats` (3 aserciones funcionales en BATS).
+  * **Ejecución Efímera:**
+    * `docker run --rm -v "${PWD}:/app" -w /app sinfallas/base-python-uv:3.15 bash -c "python3 tests/test_install_skill.unit.py"`
+    * `docker run --rm -v "${PWD}:/app" -w /app sinfallas/base-bash-qa:latest bats bash-scripts/test/`
+    * `docker run --rm -v "${PWD}:/app" -w /app sinfallas/base-bash-qa:latest bash -c "shellcheck -s sh scripts/install-skill.sh && shfmt -d -i 2 -ci scripts/install-skill.sh"`
+  * **Cobertura y Métricas:** **100% de aserciones aprobadas** (8/8 pruebas combinadas) y **0 errores / 0 advertencias** en ShellCheck y shfmt.
+  * **Aserciones Validadas:** Auto-detección y resolución de destinos (`workspace`, `antigravity`, `claude`, `cursor`, `hermes`, `all`), verificación criptográfica SHA-256 de los 16 archivos de skills contra `manifest.json`, detección estricta de manipulaciones/tampering (abortando con código de salida 1 bajo DISA STIG `V-222513`), y verificación de flag `--help`.

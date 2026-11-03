@@ -7,6 +7,17 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 ## [Unreleased]
 
 ### 🚀 Añadido (Added)
+* **Hito 3 — Skill Maestra (`qa-11x-architect`), Carga Progresiva (`references/`) e Instalador Universal (`scripts/install-skill.sh`):**
+  * **Skill Maestra Cognitiva (`.agents/skills/qa-11x-architect/SKILL.md`):** Arquitectura unificada en inglés técnico compacto con `OUTPUT LANGUAGE CONSTRAINT: Spanish`, detección automática de entorno (MCP-First vs. Fallback de hidratación directa desde GitHub Raw vía `manifest.json`), las 10 Leyes Innegociables de Calidad 11X y 4 Playbooks Operativos (Bootstrap, Cobertura, Hardening DISA/OWASP y Certificación de Cierre).
+  * **Carga Progresiva (*Progressive Disclosure*) en 5 Referencias Especializadas:**
+    * `01-core-13-layers.md`: Matriz de ejecución de las 13 capas de calidad, directivas Anti-Mock Blindness (PostgreSQL 17 real), Anti-JSDOM (geometría en flujo) y Fixtures Trimodales (Virgin, Nominal, Degraded).
+    * `02-security-disa-owasp-22.md`: Matriz y snippets de los 22 patrones canónicos de seguridad por diseño bajo DISA ASD STIG V6R5 y OWASP Developer Guide v4.2.
+    * `03-stack-python-fastapi.md`: Directivas para Python standalone y FastAPI (PostgreSQL 17, KeyDB, Alembic, Karate API, Schemathesis, Mutmut).
+    * `04-stack-node-vue-react.md`: Directivas para Node.js, Vue 3 y React (.npmrc Zero-Trust, Vitest >= 95%, Playwright + Axe WCAG 2.1 AA, Lighthouse CI, Karate UI y sinergia obligatoria con `refactoring-ui`).
+    * `05-stack-bash-devops.md`: Directivas para Bash/Shell (ShellCheck 0 advertencias, shfmt, BATS-core, bats-mock, kcov >= 95% y Pushgateway).
+  * **Instalador Universal de 1 Comando (`scripts/install-skill.sh`):** Script universal compatible con POSIX `sh` (100% verificado con ShellCheck y shfmt) que instala `qa-11x-architect` y `refactoring-ui` en `workspace`, `antigravity`, `claude`, `cursor`, `hermes` o `all`, validando criptográficamente cada archivo contra `manifest.json` mediante SHA-256 (DISA STIG V-222513).
+  * **Suites de Pruebas Unitarias y BATS (`tests/test_install_skill.unit.py` y `bash-scripts/test/test_install_skill.bats`):** Cobertura unitaria en Python con 5 casos de prueba y suite BATS en Docker con 4 aserciones pasando al 100%.
+  * **Sincronización de Manifiesto Criptográfico (`manifest.json`):** Manifiesto actualizado a 105 archivos indexados con verificación SHA-256 aprobada al 100%.
 * **Hito 2 — Manifiesto Criptográfico (`manifest.json`) y Generador Automático SHA-256 (DISA STIG `V-222513` / `APSC-DV-001430`):**
   * **Generador y Validador Criptográfico (`scripts/generar-manifiesto.py`):** Script CLI en Python 3.12+ (solo librería estándar) con algoritmo determinista de indexación para los 6 stacks (`python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`), `common_files` y `agent_governance_files`, calculando de forma determinista el tamaño en bytes, `target_name`, `merge_strategy` (`append_missing_lines`, `surgical_merge`, `copy_if_missing`, `overwrite_executable`, `copy_or_overwrite`, `copy_if_missing_or_update_qa`) y hash criptográfico SHA-256 de 64 caracteres.
   * **Bandera de Verificación Pre-Commit y CI (`--check`):** Compara en memoria el manifiesto contra el estado físico del repositorio emitiendo exit code `0` si existe sincronización total o exit code `1` con desglose detallado de derivas y discrepancias.

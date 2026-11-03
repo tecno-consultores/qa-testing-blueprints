@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.7.0",
-  "generated_at_utc": "2026-11-03T01:13:33Z",
+  "generated_at_utc": "2026-11-03T01:24:00Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -35,8 +35,15 @@
           "path": "bash-scripts/test/ejemplo_mock.bats",
           "target_name": "test/ejemplo_mock.bats",
           "merge_strategy": "copy_if_missing",
-          "sha256": "e3c7247df89e8903f382a16f49ec92dd081f15967b31ae13e81b1eac8889b858",
-          "size_bytes": 1065
+          "sha256": "50a4f308b4eb7564bc49214e11e2073db6b22f8d2108ca812fd369ebc121223a",
+          "size_bytes": 1021
+        },
+        {
+          "path": "bash-scripts/test/test_install_skill.bats",
+          "target_name": "test/test_install_skill.bats",
+          "merge_strategy": "copy_if_missing",
+          "sha256": "4e50de98041a6a9feb97b962941643cad0fed93fa540ab0807c01e4a6f2d31e7",
+          "size_bytes": 1360
         }
       ]
     },
@@ -642,6 +649,48 @@
       "size_bytes": 1569
     },
     {
+      "path": ".agents/skills/qa-11x-architect/SKILL.md",
+      "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
+      "merge_strategy": "copy_or_overwrite",
+      "sha256": "1aec8fd62262d64585d86b80fe97053486ebce194d9c10c543932609685351f8",
+      "size_bytes": 11783
+    },
+    {
+      "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
+      "target_name": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
+      "merge_strategy": "copy_or_overwrite",
+      "sha256": "564c9317345623a5af065c66f00ee7112f8c1eb94f6b19f73b986d175c3e8fdc",
+      "size_bytes": 8832
+    },
+    {
+      "path": ".agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.md",
+      "target_name": ".agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.md",
+      "merge_strategy": "copy_or_overwrite",
+      "sha256": "182e6bc33918d2c5d092e823812a52aa3f3821ad517c219862bccb5fc9411c65",
+      "size_bytes": 9131
+    },
+    {
+      "path": ".agents/skills/qa-11x-architect/references/03-stack-python-fastapi.md",
+      "target_name": ".agents/skills/qa-11x-architect/references/03-stack-python-fastapi.md",
+      "merge_strategy": "copy_or_overwrite",
+      "sha256": "30ec090088149214516d6cf82d3fcaa5e134b32f62325c501eeac317b536cfef",
+      "size_bytes": 5188
+    },
+    {
+      "path": ".agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md",
+      "target_name": ".agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md",
+      "merge_strategy": "copy_or_overwrite",
+      "sha256": "3dd072dc5fa7d0c764304c0c0d17e1c4cead92f12dcc2d306de0ee88bbec5fce",
+      "size_bytes": 6622
+    },
+    {
+      "path": ".agents/skills/qa-11x-architect/references/05-stack-bash-devops.md",
+      "target_name": ".agents/skills/qa-11x-architect/references/05-stack-bash-devops.md",
+      "merge_strategy": "copy_or_overwrite",
+      "sha256": "2c302408128ca9ab9c5be932769e59c2a68e1c6ce2ad1fa432b34c6c4eeb0767",
+      "size_bytes": 3355
+    },
+    {
       "path": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "target_name": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
@@ -724,6 +773,13 @@
       "merge_strategy": "surgical_merge",
       "sha256": "69c061d2f4738684ebbe9551afd61ae4beb649a1cfd4e23f8490cfb303d6d1ba",
       "size_bytes": 10141
+    },
+    {
+      "path": "scripts/install-skill.sh",
+      "target_name": "scripts/install-skill.sh",
+      "merge_strategy": "overwrite_executable",
+      "sha256": "4baa850e6c5e1e1b05031decec5df7cefc2b961d843df364e77a1c8daf4cda7a",
+      "size_bytes": 11530
     }
   ]
 }

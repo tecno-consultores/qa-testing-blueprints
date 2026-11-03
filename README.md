@@ -74,6 +74,25 @@ El repositorio está dividido en ecosistemas tecnológicos listos para ser adopt
 
 ---
 
+## ⚡ Instalación Rápida Zero-Clone en 1 Segundo (Skills QA 11X)
+
+Para dotar a cualquier asistente o proyecto de los conocimientos y reglas 11X sin clonar el repositorio completo, ejecuta el instalador universal verificado con SHA-256:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/scripts/install-skill.sh | sh
+```
+
+El instalador descarga y valida criptográficamente mediante SHA-256 (DISA ASD STIG V6R5 `V-222513` / `APSC-DV-001430`) las skills maestras:
+* **`qa-11x-architect`:** Cerebro metodológico 11X, las 13 capas de calidad, los 22 patrones DISA ASD STIG V6R5 / OWASP v4.2 y directivas especializadas para Python, FastAPI, Node.js, Vue 3, React y Bash.
+* **`refactoring-ui`:** Reglas tácticas de jerarquía visual, WCAG 2.1 AA, contraste OKLCH y `tabular-nums` para `CLS = 0`.
+
+Opciones avanzadas por entorno objetivo:
+```bash
+./scripts/install-skill.sh --target [workspace|antigravity|claude|cursor|hermes|all]
+```
+
+---
+
 ## 🧠 ¿Cómo utilizar este Blueprint en un Proyecto Nuevo? (Flujo Automatizado)
 
 1. **Copiar Archivos Operativos:** Arrastra a la raíz de tu proyecto el `docker-compose.qa.yml`, el `Makefile.example` (renómbralo a `Makefile`), los archivos `.example` del ecosistema elegido y la carpeta `.agents/`.
