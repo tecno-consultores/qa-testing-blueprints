@@ -16,7 +16,7 @@
 | Hito | Nombre del Hito | Especificación Asociada | Estado | Progreso |
 | :--- | :--- | :--- | :---: | :---: |
 | **Hito 1** | Especificaciones de Diseño (`docs/specs/`) y Planificación (`ROADMAP.md`) | `01_SPEC` a `05_SPEC` | ✅ Completado | `100%` |
-| **Hito 2** | Manifiesto Criptográfico (`manifest.json`) y Generador Automático SHA-256 | [`01_SPEC_ARQUITECTURA_ZERO_CLONE_Y_MANIFIESTO_REMOTO.md`](docs/specs/01_SPEC_ARQUITECTURA_ZERO_CLONE_Y_MANIFIESTO_REMOTO.md) | ⏳ Pendiente | `0%` |
+| **Hito 2** | Manifiesto Criptográfico (`manifest.json`) y Generador Automático SHA-256 | [`01_SPEC_ARQUITECTURA_ZERO_CLONE_Y_MANIFIESTO_REMOTO.md`](docs/specs/01_SPEC_ARQUITECTURA_ZERO_CLONE_Y_MANIFIESTO_REMOTO.md) | ✅ Completado | `100%` |
 | **Hito 3** | Skill Maestra (`qa-11x-architect`), Carga Progresiva (`references/`) e Instalador `curl` | [`02_SPEC_SKILL_QA_11X_ARCHITECT_E_INSTALADOR.md`](docs/specs/02_SPEC_SKILL_QA_11X_ARCHITECT_E_INSTALADOR.md) | ⏳ Pendiente | `0%` |
 | **Hito 4** | Servidor MCP en Node.js / TS (`mcp-server/`) — Núcleo, Recursos y Tools 1–4 | [`03_SPEC_MCP_SERVER_NODE_TS_CORE_Y_TOOLS.md`](docs/specs/03_SPEC_MCP_SERVER_NODE_TS_CORE_Y_TOOLS.md) | ⏳ Pendiente | `0%` |
 | **Hito 5** | Parsers Ahorradores de Tokens, Auditor DISA STIG / OWASP y Tools 5–7 | [`04_SPEC_MCP_PARSERS_AUDITOR_STIG_OWASP_Y_GATE.md`](docs/specs/04_SPEC_MCP_PARSERS_AUDITOR_STIG_OWASP_Y_GATE.md) | ⏳ Pendiente | `0%` |
@@ -35,15 +35,15 @@
 
 ---
 
-## ⏳ Hito 2: Manifiesto Criptográfico (`manifest.json`) y Generador Automático SHA-256
+## ✅ Hito 2: Manifiesto Criptográfico (`manifest.json`) y Generador Automático SHA-256
 **Referencia Obligatoria:** [`docs/specs/01_SPEC_ARQUITECTURA_ZERO_CLONE_Y_MANIFIESTO_REMOTO.md`](docs/specs/01_SPEC_ARQUITECTURA_ZERO_CLONE_Y_MANIFIESTO_REMOTO.md)
 
 ### Tareas de Implementación:
-- [ ] **2.1.** Crear el script `scripts/generar-manifiesto.py` (en Python 3.12+ usando solo librería estándar: `hashlib`, `json`, `pathlib`, `datetime`, `argparse`) que escanee los 6 stacks (`python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`), `common_files` y `agent_governance_files`, calculando su tamaño en bytes, estrategia de fusión (`merge_strategy`), `target_name` y hash `sha256`.
-- [ ] **2.2.** Soportar en `scripts/generar-manifiesto.py` el flag `--check` que verifique si `/manifest.json` coincide exactamente con los hashes actuales del repositorio (devolviendo exit code `0` si está sincronizado o `1` si hay deriva).
-- [ ] **2.3.** Generar el archivo `/manifest.json` en la raíz del repositorio ejecutando `scripts/generar-manifiesto.py`.
-- [ ] **2.4.** Integrar la verificación `python3 scripts/generar-manifiesto.py --check` como etapa dentro de `.agents/scripts/certify_task_completion.sh`.
-- [ ] **2.5.** Crear pruebas unitarias para el generador de manifiesto y certificar con `./.agents/scripts/certify_task_completion.sh`.
+- [x] **2.1.** Crear el script `scripts/generar-manifiesto.py` (en Python 3.12+ usando solo librería estándar: `hashlib`, `json`, `pathlib`, `datetime`, `argparse`) que escanee los 6 stacks (`python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`), `common_files` y `agent_governance_files`, calculando su tamaño en bytes, estrategia de fusión (`merge_strategy`), `target_name` y hash `sha256`.
+- [x] **2.2.** Soportar en `scripts/generar-manifiesto.py` el flag `--check` que verifique si `/manifest.json` coincide exactamente con los hashes actuales del repositorio (devolviendo exit code `0` si está sincronizado o `1` si hay deriva).
+- [x] **2.3.** Generar el archivo `/manifest.json` en la raíz del repositorio ejecutando `scripts/generar-manifiesto.py`.
+- [x] **2.4.** Integrar la verificación `python3 scripts/generar-manifiesto.py --check` como etapa dentro de `.agents/scripts/certify_task_completion.sh`.
+- [x] **2.5.** Crear pruebas unitarias para el generador de manifiesto y certificar con `./.agents/scripts/certify_task_completion.sh`.
 
 ---
 

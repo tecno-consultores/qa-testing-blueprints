@@ -22,6 +22,7 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
 | **Accesibilidad Web** | `@axe-core/playwright` | **0 violaciones WCAG 2.1 AA** | Rechazo de interfaz táctica |
 | **Rendimiento Frontend** | `Lighthouse CI` | **Puntuación $\ge 90$** (Core Web Vitals) | Bloqueo de compilación estática |
 | **Secret Scanning** | `./scripts/verificar-secretos.sh` | **0 secretos / API keys en código** | Rechazo en pre-commit |
+| **Integridad de Manifiesto** | `scripts/generar-manifiesto.py --check` | **100% hashes SHA-256 sincronizados** | Bloqueo de deriva Zero-Clone |
 
 ---
 
@@ -114,12 +115,23 @@ Antes de autorizar cualquier integración de código o cerrar una tarea técnica
 ./.agents/scripts/certify_task_completion.sh
 ```
 
-El script evalúa de forma secuencial e implacable 8 compuertas obligatorias:
-1. **[1/8] Secret Scanning:** Detección de claves privadas, tokens y credenciales vía `scripts/verificar-secretos.sh`.
-2. **[2/8] Local Dependency & IaC Security Audit:** Escaneo estático de vulnerabilidades y manifiestos Docker Compose con Trivy (`auditar-infra.sh` + `.trivy.yaml`).
-3. **[3/8] No Duplicate JSON Keys:** Prevención de colisiones y sobreescrituras en diccionarios (`verify_json_no_duplicate_keys.py`).
-4. **[4/8] Zero Orphan Components:** Verificación determinista de cobertura unitaria para el 100% de componentes UI (`verify_zero_orphan_vue_components.py`).
-5. **[5/8] Zero Orphan API Endpoints:** Verificación bidireccional de paridad de rutas entre Frontend y Backend (`verify_no_orphan_api_endpoints.py`).
-6. **[6/8] Topological Health & AST Layer Boundaries:** Validación de acoplamiento y límites de capas arquitectónicas (`verify_topological_health.py`).
-7. **[7/8] Database Schema & Migration Parity:** Inspección de modelos SQLAlchemy frente a migraciones Alembic y longitud de `revision <= 32` chars (`verify_alembic_orm_parity.py`).
-8. **[8/8] Documentation & Mandatory Tests Synchronization:** Verificación incondicional de consistencia en `CHANGELOG.md`, `TESTING.md`, `README.md` y pruebas 11X.
+El script evalúa de forma secuencial e implacable 9 compuertas obligatorias:
+1. **[1/9] Secret Scanning:** Detección de claves privadas, tokens y credenciales vía `scripts/verificar-secretos.sh`.
+2. **[2/9] Local Dependency & IaC Security Audit:** Escaneo estático de vulnerabilidades y manifiestos Docker Compose con Trivy (`auditar-infra.sh` + `.trivy.yaml`).
+3. **[3/9] No Duplicate JSON Keys:** Prevención de colisiones y sobreescrituras en diccionarios (`verify_json_no_duplicate_keys.py`).
+4. **[4/9] Zero Orphan Components:** Verificación determinista de cobertura unitaria para el 100% de componentes UI (`verify_zero_orphan_vue_components.py`).
+5. **[5/9] Zero Orphan API Endpoints:** Verificación bidireccional de paridad de rutas entre Frontend y Backend (`verify_no_orphan_api_endpoints.py`).
+6. **[6/9] Topological Health & AST Layer Boundaries:** Validación de acoplamiento y límites de capas arquitectónicas (`verify_topological_health.py`).
+7. **[7/9] Database Schema & Migration Parity:** Inspección de modelos SQLAlchemy frente a migraciones Alembic y longitud de `revision <= 32` chars (`verify_alembic_orm_parity.py`).
+8. **[8/9] Cryptographic Manifest Synchronization:** Verificación estricta de coherencia y hashes SHA-256 en `manifest.json` (`scripts/generar-manifiesto.py --check`) asegurando integridad Zero-Clone (DISA STIG `V-222513`).
+9. **[9/9] Documentation & Mandatory Tests Synchronization:** Verificación incondicional de consistencia en `CHANGELOG.md`, `ROADMAP.md`, `TESTING.md`, `README.md` y suites de pruebas 11X.
+
+---
+
+## 4. Pruebas Unitarias de Herramientas y Scripts (`tests/`)
+
+* **Generador y Validador de Manifiesto Criptográfico (`scripts/generar-manifiesto.py`):**
+  * **Suite:** `tests/test_generar_manifiesto.unit.py` (12 pruebas unitarias).
+  * **Ejecución Efímera:** `docker run --rm -v "${PWD}:/app" -w /app sinfallas/base-python-uv:3.15 bash -c "uvx coverage run tests/test_generar_manifiesto.unit.py && uvx coverage report -m --include='scripts/generar-manifiesto.py'"`
+  * **Cobertura Alcanzada:** **98%** (superando el umbral innegociable del $\ge 95\%$).
+  * **Aserciones Validadas:** Algoritmo de hashing SHA-256, categorización de `target_name` y `merge_strategy` para los 6 stacks, detección estricta de derivas con `--check` y robustez de entrada CLI.

@@ -7,6 +7,12 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 ## [Unreleased]
 
 ### 🚀 Añadido (Added)
+* **Hito 2 — Manifiesto Criptográfico (`manifest.json`) y Generador Automático SHA-256 (DISA STIG `V-222513` / `APSC-DV-001430`):**
+  * **Generador y Validador Criptográfico (`scripts/generar-manifiesto.py`):** Script CLI en Python 3.12+ (solo librería estándar) con algoritmo determinista de indexación para los 6 stacks (`python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`), `common_files` y `agent_governance_files`, calculando de forma determinista el tamaño en bytes, `target_name`, `merge_strategy` (`append_missing_lines`, `surgical_merge`, `copy_if_missing`, `overwrite_executable`, `copy_or_overwrite`, `copy_if_missing_or_update_qa`) y hash criptográfico SHA-256 de 64 caracteres.
+  * **Bandera de Verificación Pre-Commit y CI (`--check`):** Compara en memoria el manifiesto contra el estado físico del repositorio emitiendo exit code `0` si existe sincronización total o exit code `1` con desglose detallado de derivas y discrepancias.
+  * **Manifiesto Remoto Raíz (`/manifest.json`):** Generado e indexado en la raíz con 97 descriptores de archivo para hidratación bajo demanda *Zero-Clone*.
+  * **Compuerta de Certificación 11X (`.agents/scripts/certify_task_completion.sh`):** Integrado el paso `[8/9]` de verificación estricta de `manifest.json --check` impidiendo commits con deriva criptográfica.
+  * **Suite de Pruebas Unitarias (`tests/test_generar_manifiesto.unit.py`):** 12 casos de prueba unitaria ejecutados en contenedor efímero `sinfallas/base-python-uv:3.15` con **98% de cobertura** certificada.
 * **Skill de Diseño Visual y Accesibilidad Frontend (`.agents/skills/refactoring-ui/`):**
   * Incorporación de la skill `refactoring-ui` (`SKILL.md` + 9 módulos en `references/`: `hierarchy.md`, `layout.md`, `type.md`, `color.md`, `depth.md`, `images.md`, `polish.md`, `dark-mode.md`, `tailwind.md`) adaptada al estándar 11X con `OUTPUT LANGUAGE CONSTRAINT: Spanish` y puente directo con Anti-JSDOM, `@axe-core/playwright` (WCAG 2.1 AA) y Lighthouse CI (`CLS = 0` con `tabular-nums`).
   * Integrada en las especificaciones `01_SPEC` a `04_SPEC` y `ROADMAP.md` para su distribución *Zero-Clone* tanto vía el instalador universal (`install-skill`) como vía el recurso MCP `blueprint://ui/refactoring-ui/{topic}` y la regla de auditoría estática `UI-11X-01`.
