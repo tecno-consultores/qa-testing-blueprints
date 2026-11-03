@@ -9,12 +9,15 @@
 
 ## 1. Propósito y Contexto Empírico (*Dogfooding*)
 
-Durante las pruebas reales de publicación y consumo (*Dogfooding*) de `@sinfallas/mcp-qa-11x@2.8.3` se identificaron dos fricciones operativas que deben erradicarse por diseño:
+Durante las pruebas reales de publicación y consumo (*Dogfooding*) de `@sinfallas/mcp-qa-11x@2.8.3` se identificaron tres fricciones operativas que deben erradicarse por diseño:
 
 1. **Problema 1 — Falta de Autodetección por Defecto al ejecutar `npx -y @sinfallas/mcp-qa-11x install-skill`:**
    - En `mcp-server/src/cli/install-skill.ts`, la función `parseTargetArg(args)` inicializaba `let targetArg = 'workspace'` en lugar de `'auto'`.
    - Cuando un usuario ejecutaba `npx -y @sinfallas/mcp-qa-11x install-skill` desde su directorio `$HOME` (`/home/usuario`) sin pasar `--target`, el CLI creaba `/home/usuario/.agents/skills` (que Google Antigravity ignora cuando se abre un repositorio con `.git` propio) en lugar de detectar automáticamente que el usuario tiene instalado Google Antigravity (`~/.gemini`), Claude (`~/.claude`), Hermes (`~/.hermes`) o Cursor (`~/.cursor`) e instalar las skills en sus directorios globales oficiales (`~/.gemini/config/skills`, etc.).
-2. **Problema 2 — Falso Error `E404` tras `npm publish` en `scripts/publicar-mcp.sh`:**
+2. **Problema 2 — Filtro Restrictivo que Solo Instalaba 2 de las 5 Skills y Ausencia de Flag `--include-scripts`:**
+   - Tanto `mcp-server/src/cli/install-skill.ts` (líneas 96–100) como `scripts/install-skill.sh` (líneas 157 y 165) filtraban únicamente `.agents/skills/qa-11x-architect/` y `.agents/skills/refactoring-ui/`, dejando fuera las otras 3 skills indexadas en `manifest.json` (`docker-trivy-keydb-hardening`, `graphify-ast-navigator` y `qa-11x-docker-certifier`).
+   - Se debe **eliminar ese filtro restrictivo** usando `f.path.startsWith('.agents/skills/')` para instalar **todas las skills del catálogo**, y añadir el flag `--include-scripts` para descargar e instalar también en el proyecto actual todos los scripts operativos (`scripts/*`, `.agents/scripts/*`) y archivos comunes (`common_files`) verificados con SHA-256.
+3. **Problema 3 — Falso Error `E404` tras `npm publish` en `scripts/publicar-mcp.sh`:**
    - Cuando se publica un paquete nuevo o una nueva versión en `registry.npmjs.org`, el registro responde `+ @sinfallas/mcp-qa-11x@X.Y.Z` junto con el aviso `npm notice Your package is being processed and may take a few minutes to become available`.
    - La línea 235 de `scripts/publicar-mcp.sh` ejecutaba inmediatamente `npm view "${PKG_NAME}" version` sin bucle de reintento (*retry/backoff*), provocando que `set -e` abortara el script con `npm error code E404` antes de que la CDN global de npmjs terminara de propagar los metadatos y antes de ejecutar `scripts/limpieza.sh`.
 
@@ -146,11 +149,51 @@ function resolveDestinationDirs(targetArg: string, homeDir: string, cwd: string)
 }
 ```
 
+### 3.3. Eliminación del Filtro de Skills y Soporte `--include-scripts` en `mcp-server/src/cli/install-skill.ts`
+
+1. **Eliminar el filtro restrictivo de 2 skills (líneas 96–100 de `install-skill.ts`):**
+   Reemplazar:
+   ```typescript
+   const skillEntries = manifest.agent_governance_files.filter(
+     (f) =>
+       f.path.startsWith('.agents/skills/qa-11x-architect/') ||
+       f.path.startsWith('.agents/skills/refactoring-ui/')
+   );
+   ```
+   por:
+   ```typescript
+   const SKILLS_PREFIX = '.agents/skills/';
+   const skillEntries = manifest.agent_governance_files.filter((f) =>
+     f.path.startsWith(SKILLS_PREFIX)
+   );
+   ```
+   Esto garantiza que se descarguen e instalen **todas las 5 skills del catálogo** (`qa-11x-architect`, `refactoring-ui`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `qa-11x-docker-certifier`) y cualquier skill futura añadida a `.agents/skills/`.
+
+2. **Soporte para `--include-scripts` en `install-skill.ts`:**
+   Si `args.includes('--include-scripts')`, descargar y escribir también en `cwd` todos los descriptores de `manifest.common_files` (`scripts/limpieza.sh`, `scripts/auditar-infra.sh`, `scripts/verificar-secretos.sh`, `lefthook.yml`, `.trivy.yaml`, `commitlint.config.js`) y todos los archivos de `manifest.agent_governance_files` que comiencen con `.agents/scripts/` (`certify_task_completion.sh`, `verify_alembic_orm_parity.py`, `verify_zero_orphan_vue_components.py`, `verify_no_orphan_api_endpoints.py`, `inspect_blast_radius.py`, `verify_topological_health.py`, `verify_roadmap_consistency.py`), aplicando permisos `0o755` a `.sh` y `.py`.
+
 ---
 
 ## 4. Especificación Exacta de Cambios en `scripts/install-skill.sh`
 
-Sincronizar la función `resolve_destination_dirs()` en `scripts/install-skill.sh` (líneas 185–227) para que el instalador POSIX `sh` tenga exactamente el mismo comportamiento que el CLI de Node.js:
+1. **Eliminar el filtro restrictivo de skills en `scripts/install-skill.sh` (líneas 156–169 y 275–288):**
+   - En la extracción con `jq` (línea 157):
+     ```sh
+     jq -r '.agent_governance_files[] | select(.path | startswith(".agents/skills/")) | "\(.path) \(.sha256) \(.size_bytes)"' "${MANIFEST_FILE}" >"${SKILL_INDEX}"
+     ```
+   - En el bloque `python3` (línea 165):
+     ```python
+     if p.startswith(".agents/skills/"):
+     ```
+   - En el bucle de copia final (líneas 275–288), copiar todos los subdirectorios de `${VERIFIED_STAGING}` en lugar de solo `qa-11x-architect` y `refactoring-ui`:
+     ```sh
+     for dest in ${DEST_DIRS}; do
+       mkdir -p "${dest}"
+       cp -R "${VERIFIED_STAGING}/"* "${dest}/"
+       log_ok "Skills instaladas con éxito en: ${dest}"
+     done
+     ```
+2. **Sincronizar la función `resolve_destination_dirs()` en `scripts/install-skill.sh` (líneas 185–227):**
 
 ```sh
 resolve_destination_dirs() {

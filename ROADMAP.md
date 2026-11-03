@@ -22,8 +22,9 @@
 | **Hito 5** | Parsers Ahorradores de Tokens, Auditor DISA STIG / OWASP y Tools 5–7 | [`04_SPEC_MCP_PARSERS_AUDITOR_STIG_OWASP_Y_GATE.md`](docs/specs/04_SPEC_MCP_PARSERS_AUDITOR_STIG_OWASP_Y_GATE.md) | ✅ Completado | `100%` |
 | **Hito 6** | Pruebas 11X (`>= 95%`), Empaquetado npm (`npx`) y Publicación Autónoma Soberana | [`05_SPEC_PUBLICACION_NPM_Y_AUTOMATIZACION_CI.md`](docs/specs/05_SPEC_PUBLICACION_NPM_Y_AUTOMATIZACION_CI.md) | ✅ Completado | `100%` |
 | **Hito 7** | Auditor de Brechas de la Pirámide de Pruebas 11X (`audit_test_pyramid_gaps`) y Playbook de Rescate | [`06_SPEC_AUDITOR_BRECHAS_PIRAMIDE_PRUEBAS_11X.md`](docs/specs/06_SPEC_AUDITOR_BRECHAS_PIRAMIDE_PRUEBAS_11X.md) | ⏳ Pendiente | `0%` |
-| **Hito 8** | Autodetección Inteligente de Agentes en `install-skill` (`npx` / `curl`) y Resiliencia CDN en `publicar-mcp.sh` | [`07_SPEC_AUTODETECCION_AGENTES_CLI_Y_RESILIENCIA_CDN_NPM.md`](docs/specs/07_SPEC_AUTODETECCION_AGENTES_CLI_Y_RESILIENCIA_CDN_NPM.md) | ⏳ Pendiente | `0%` |
+| **Hito 8** | Autodetección de Agentes en `install-skill`, Instalación de las 5 Skills + Scripts y Resiliencia CDN | [`07_SPEC_AUTODETECCION_AGENTES_CLI_Y_RESILIENCIA_CDN_NPM.md`](docs/specs/07_SPEC_AUTODETECCION_AGENTES_CLI_Y_RESILIENCIA_CDN_NPM.md) | ⏳ Pendiente | `0%` |
 | **Hito 9** | Inyector Aditivo No Destructivo del Conector `AGENTS.md` (`init-agents` / `init_or_append_agents_md`) | [`08_SPEC_CONECTOR_AGENTS_MD_THIN_REPO_Y_MIGRACION.md`](docs/specs/08_SPEC_CONECTOR_AGENTS_MD_THIN_REPO_Y_MIGRACION.md) | ⏳ Pendiente | `0%` |
+| **Hito 10** | Diagnóstico Asistido de Navegador (Playwright / Browser MCP) y PRs de Evolución Continua Zero-Trust (`propose_skill_evolution_pr`) | [`09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md`](docs/specs/09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md) | ⏳ Pendiente | `0%` |
 
 ---
 
@@ -121,12 +122,12 @@
 
 ---
 
-## ⏳ Hito 8: Autodetección Inteligente de Agentes en `install-skill` (`npx` / `curl`) y Resiliencia CDN en `publicar-mcp.sh`
+## ⏳ Hito 8: Autodetección de Agentes en `install-skill`, Instalación de las 5 Skills + Scripts y Resiliencia CDN
 **Referencia Obligatoria:** [`docs/specs/07_SPEC_AUTODETECCION_AGENTES_CLI_Y_RESILIENCIA_CDN_NPM.md`](docs/specs/07_SPEC_AUTODETECCION_AGENTES_CLI_Y_RESILIENCIA_CDN_NPM.md)
 
 ### Tareas de Implementación:
-- [ ] **8.1.** Actualizar `mcp-server/src/cli/install-skill.ts` cambiando el modo por defecto de `parseTargetArg` a `'auto'`, implementando `detectInstalledGlobalAgentDirs(homeDir)` (`~/.gemini/config/skills`, `~/.claude/skills`, `~/.hermes/skills`, `~/.cursor/skills`) e `isProjectWorkspaceDir(homeDir, cwd)` para evitar crear `$HOME/.agents/skills` cuando se ejecuta desde `$HOME`, cumpliendo estrictamente `sonarjs/no-duplicate-string` y `sonarjs/cognitive-complexity <= 15`.
-- [ ] **8.2.** Sincronizar la función `resolve_destination_dirs()` en `scripts/install-skill.sh` con la misma lógica de autodetección multi-agente sin contaminar `$HOME/.agents/skills`, validando con `ShellCheck` (`0` warnings) y regenerando `manifest.json` (`python3 scripts/generar-manifiesto.py`).
+- [ ] **8.1.** Actualizar `mcp-server/src/cli/install-skill.ts`: (a) cambiar el modo por defecto de `parseTargetArg` a `'auto'` con `detectInstalledGlobalAgentDirs(homeDir)` e `isProjectWorkspaceDir(homeDir, cwd)` (sin contaminar `$HOME/.agents/skills`), (b) **eliminar el filtro restrictivo de 2 skills** usando `f.path.startsWith('.agents/skills/')` para instalar las **5 skills del catálogo**, y (c) añadir soporte para `--include-scripts` que descargue también `common_files` y `.agents/scripts/*`.
+- [ ] **8.2.** Sincronizar `scripts/install-skill.sh` eliminando el filtro de 2 skills (copiando todas las carpetas de `.agents/skills/*`), aplicando la misma autodetección multi-agente en `resolve_destination_dirs()`, validando con `ShellCheck` (`0` warnings) y regenerando `manifest.json` (`python3 scripts/generar-manifiesto.py`).
 - [ ] **8.3.** Reemplazar la verificación inmediata `npm view` en `scripts/publicar-mcp.sh` por el bucle resiliente de consistencia eventual de CDN (`VERIFY_ATTEMPTS=6`, `VERIFY_DELAY=5`) para evitar caídas por `E404` tras publicar paquetes nuevos o nuevas versiones en `registry.npmjs.org`.
 - [ ] **8.4.** Actualizar y ampliar las pruebas unitarias en `mcp-server/tests/tools-and-resources.unit.ts` (certificando cobertura $\ge 95.0\%$ en contenedor efímero `sinfallas/base-node-ionic:26`), `tests/test_install_skill.unit.py` y `tests/test_publicar_mcp.unit.py`.
 - [ ] **8.5.** Actualizar el contrato BDD en `mcp-server/test/mcp_cli_test.feature` reflejando el comportamiento `auto` por defecto de `install-skill`.
@@ -144,6 +145,20 @@
 - [ ] **9.4.** Registrar la Tool 10 (`init_or_append_agents_md`) en `mcp-server/src/server.ts` y documentar su uso en `.agents/skills/qa-11x-architect/SKILL.md`.
 - [ ] **9.5.** Crear la suite de pruebas unitarias `mcp-server/tests/init-agents-md.unit.ts` (validando creación desde cero, adición al final de un `AGENTS.md` existente conservando el 100% de su contenido previo, actualización idempotente sin duplicar el bloque y modo `dry_run`, manteniendo cobertura global $\ge 95.0\%$) y actualizar `mcp-server/test/mcp_cli_test.feature`.
 - [ ] **9.6.** Actualizar `README.md`, `TESTING.md`, `docs/ai-integration.md` y `CHANGELOG.md`, regenerar `manifest.json` y certificar con `./.agents/scripts/certify_task_completion.sh`.
+
+---
+
+## ⏳ Hito 10: Diagnóstico Asistido de Navegador (Playwright / Browser MCP) y PRs de Evolución Continua Zero-Trust (`propose_skill_evolution_pr`)
+**Referencia Obligatoria:** [`docs/specs/09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md`](docs/specs/09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md)
+
+### Tareas de Implementación:
+- [ ] **10.1.** Añadir la interfaz `BrowserTestingReadiness` en `mcp-server/src/types.ts` e implementar `evaluateBrowserTestingReadiness()` en `mcp-server/src/tools/inspect-project.ts` para detectar en proyectos frontend (`vue3`, `react-frontend`) si están instalados `@playwright/test`, `@axe-core/playwright`, `@lhci/cli`, `e2e/*.e2e.ts` y si el IDE del usuario tiene configurado el servidor MCP de navegador (`@playwright/mcp` / `chrome-devtools`), entregando instrucciones de instalación o inyección vía `bootstrap_or_merge_11x`.
+- [ ] **10.2.** Implementar `mcp-server/src/tools/propose-evolution-pr.ts` (`proposeSkillEvolutionPr`) combinando la **Opción 1 (`gh` CLI local autenticado vía `execFile` con `shell: false`)** y la **Opción 2 (Fallback Cero-Credenciales generando archivo `.agents/proposals/<slug>.md` + URL pre-llenada de GitHub)** sin empaquetar jamás ningún token.
+- [ ] **10.3.** Registrar la Tool 11 (`propose_skill_evolution_pr`) con su esquema Zod (`ProposeEvolutionPrInputSchema`) en `mcp-server/src/server.ts`.
+- [ ] **10.4.** Incorporar el **Playbook 7 (Continuous Skill Evolution & Upstream PR Proposal)** y las reglas de verificación de `browser_testing_readiness` en `.agents/skills/qa-11x-architect/SKILL.md` y regenerar `manifest.json` con `python3 scripts/generar-manifiesto.py`.
+- [ ] **10.5.** Crear la suite de pruebas unitarias `mcp-server/tests/propose-evolution-pr.unit.ts` y ampliar `mcp-server/tests/tools-and-resources.unit.ts` para `browser_testing_readiness` (manteniendo cobertura global $\ge 95.0\%$ y `0` warnings en ESLint/SonarJS), actualizando `mcp-server/test/mcp_cli_test.feature`.
+- [ ] **10.6.** Actualizar `README.md`, `TESTING.md`, `docs/ai-integration.md` y `CHANGELOG.md`, y ejecutar la compuerta de cierre `./.agents/scripts/certify_task_completion.sh`.
+
 
 
 
