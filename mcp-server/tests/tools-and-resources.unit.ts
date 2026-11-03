@@ -764,6 +764,28 @@ describe('Tools and Resources Integration Suite', () => {
         dry_run: true,
       });
       expect(cleanToolRes.content[0].text).toContain('"recommended_command"');
+
+      // 13. Ejecutar tool: audit_security_stig_owasp
+      const toolSec = serverAny._registeredTools['audit_security_stig_owasp'];
+      expect(toolSec).toBeDefined();
+      const secToolRes = await toolSec.handler({ project_path: targetProjectDir });
+      expect(secToolRes.content[0].text).toContain('"findings_count"');
+
+      // 14. Ejecutar tool: run_ephemeral_qa
+      const toolQa = serverAny._registeredTools['run_ephemeral_qa'];
+      expect(toolQa).toBeDefined();
+      const qaToolRes = await toolQa.handler({
+        project_path: targetProjectDir,
+        stage: 'unit',
+        timeout_seconds: 30,
+      });
+      expect(qaToolRes.content[0].text).toContain('"status"');
+
+      // 15. Ejecutar tool: certify_11x_gate
+      const toolCert = serverAny._registeredTools['certify_11x_gate'];
+      expect(toolCert).toBeDefined();
+      const certToolRes = await toolCert.handler({ project_path: targetProjectDir });
+      expect(certToolRes.content[0].text).toContain('"gate_passed"');
     });
   });
 });

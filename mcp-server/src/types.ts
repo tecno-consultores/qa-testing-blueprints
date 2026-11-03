@@ -60,6 +60,36 @@ export const CleanWorkspaceInputSchema = z.object({
 });
 export type CleanWorkspaceInput = z.infer<typeof CleanWorkspaceInputSchema>;
 
+export const AuditSecurityInputSchema = z.object({
+  project_path: z.string().min(1).describe("Ruta absoluta o relativa al directorio del proyecto a auditar"),
+});
+export type AuditSecurityInput = z.infer<typeof AuditSecurityInputSchema>;
+
+export const RunEphemeralQaInputSchema = z.object({
+  project_path: z.string().min(1).describe("Ruta al proyecto que contiene el Makefile"),
+  stage: z.enum([
+    "lint",
+    "unit",
+    "parity",
+    "orphans",
+    "contracts",
+    "bdd",
+    "mutation",
+    "dast",
+    "e2e",
+    "perf",
+    "chaos",
+    "all",
+  ]).describe("Fase o target de QA a ejecutar (ej. unit, lint, bdd)"),
+  timeout_seconds: z.number().int().min(10).max(900).default(300).describe("Tiempo máximo de espera en segundos"),
+});
+export type RunEphemeralQaInput = z.infer<typeof RunEphemeralQaInputSchema>;
+
+export const CertifyGateInputSchema = z.object({
+  project_path: z.string().min(1).describe("Ruta al proyecto a certificar frente al estándar 11X"),
+});
+export type CertifyGateInput = z.infer<typeof CertifyGateInputSchema>;
+
 export interface CleanWorkspaceResult {
   project_path: string;
   dry_run: boolean;
@@ -123,6 +153,94 @@ export interface BlastRadiusResult {
   dependent_files_count: number;
   dependent_files: string[];
   suggested_tests_to_run: string[];
+}
+
+export interface SecurityFinding {
+  rule_id: string;
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  stig_owasp_ref: string;
+  file: string;
+  line: number;
+  message: string;
+  remediation: string;
+}
+
+export interface SecurityAuditResult {
+  project_path: string;
+  passed: boolean;
+  total_files_scanned: number;
+  findings_count: {
+    CRITICAL: number;
+    HIGH: number;
+    MEDIUM: number;
+    LOW?: number;
+  };
+  findings: SecurityFinding[];
+}
+
+export interface QaCoverageFile {
+  file: string;
+  coverage_percent: number;
+  missing_lines: string;
+}
+
+export interface QaCoverageSummary {
+  detected: boolean;
+  percent: number;
+  threshold: number;
+  passed: boolean;
+  uncovered_files: QaCoverageFile[];
+}
+
+export interface QaFailedTest {
+  test_name: string;
+  error_summary: string;
+}
+
+export interface QaLinterIssue {
+  file?: string;
+  line?: number;
+  rule?: string;
+  message: string;
+}
+
+export interface QaSecurityAlerts {
+  critical: number;
+  high: number;
+}
+
+export interface QaMutationSummary {
+  mutants_survived: number;
+  mutation_score: number;
+}
+
+export interface QaExecutionResult {
+  status: 'PASSED' | 'FAILED';
+  stage: string;
+  exit_code: number;
+  duration_ms: number;
+  coverage: QaCoverageSummary;
+  failed_tests: QaFailedTest[];
+  linter_and_complexity_issues: QaLinterIssue[];
+  security_alerts: QaSecurityAlerts;
+  mutation_summary: QaMutationSummary | null;
+  tail_log: string;
+}
+
+export interface CertifyGateResult {
+  gate_passed: boolean;
+  project_path: string;
+  checks: {
+    zero_unmerged_examples: boolean;
+    zero_secrets_exposed: boolean;
+    json_integrity: boolean;
+    zero_orphan_ui_components: boolean;
+    zero_orphan_api_endpoints: boolean;
+    orm_alembic_parity: boolean;
+    security_stig_owasp_clean: boolean;
+    documentation_synced: boolean;
+  };
+  blockers: string[];
 }
 
 export interface GitHubFetcherOptions {

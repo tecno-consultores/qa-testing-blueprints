@@ -178,17 +178,21 @@ El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
     * `tests/github-fetcher.unit.ts` (18 pruebas): Hidratación remota, validación condicional `ETag` (304), verificación SHA-256 (`DISA STIG V-222513`), detección de tampering, fallback offline y local path override.
     * `tests/surgical-merger.unit.ts` (13 pruebas): Fusión quirúrgica no destructiva de `package.json`, `pyproject.toml`, `Makefile`, `.gitignore` y `.npmrc`, asignación de permisos `0o755` a scripts y modo `dryRun`.
     * `tests/inspect-project.unit.ts` (7 pruebas): Detección automática de stacks (`python`, `fastapi`, `vue3`, `react-frontend`, `node-backend`, `bash-scripts`), banderas estrictas (`mypy`, `tsconfig`, `npmrc`) y archivos 11X ausentes.
-    * `tests/tools-and-resources.unit.ts` (34 pruebas): Recursos `blueprint://*` (incluyendo `blueprint://core/active-task-template`, `blueprint://core/cleanup-script` y `blueprint://core/roadmap-validator`), herramientas 1 a 5 (`inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`, `clean_workspace_11x`), CLI `install-skill` multi-entorno y servidor `McpServer`.
+    * `tests/tools-and-resources.unit.ts` (34 pruebas): Recursos `blueprint://*` (incluyendo `blueprint://core/active-task-template`, `blueprint://core/cleanup-script` y `blueprint://core/roadmap-validator`), herramientas 1 a 8 (`inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`, `clean_workspace_11x`, `audit_security_stig_owasp`, `run_ephemeral_qa`, `certify_11x_gate`), CLI `install-skill` multi-entorno y servidor `McpServer`.
+    * `tests/output-parsers.unit.ts` (26 pruebas): Parsers ahorradores de tokens para cobertura (Pytest, Vitest v8, Kcov), pruebas fallidas (Pytest, Vitest, BATS), linters y complejidad (Radon, Mypy, Ruff, ESLint, ShellCheck multi-línea/GCC), alertas de seguridad (Trivy, Bandit), mutación (Mutmut, Stryker), `tail_log` y condensación `parseQaOutput`.
+    * `tests/security-auditor.unit.ts` (13 pruebas): Auditoría estática de seguridad DISA ASD STIG V6R5 + OWASP v4.2 con reglas `SEC-01` a `SEC-10` y `UI-11X-01` (Mass Assignment, Anti-CSWSH, Command Injection, XXE, Unicode NFKC, XSS/v-html, Swagger en prod, Cabeceras OSHP, Zero-Trust NPM, Detección de Secretos y Geometría Visual Anti-JSDOM).
+    * `tests/ephemeral-runner.unit.ts` (5 pruebas): Ejecución de targets `qa-${stage}` en Docker efímero bajo Rule Zero con `execFile` seguro (`shell: false`), control de timeouts (código 124) y gestión de Makefile ausente.
+    * `tests/certify-gate.unit.ts` (10 pruebas): Compuerta unificada de certificación 11X verificando archivos `.example`, secret scanning, colisiones JSON, componentes huérfanos UI, paridad ORM vs Alembic, auditoría DISA/OWASP y sincronización documental (`TESTING.md` y `CHANGELOG.md`).
   * **Ejecución Efímera:**
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run lint`
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run typecheck`
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run test:unit`
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run build`
   * **Cobertura y Métricas Alcanzadas:**
-    * **100% de aserciones aprobadas** (72/72 pruebas pasando).
-    * **97.76% de cobertura de líneas y sentencias** (superando el umbral de $\ge 95\%$).
-    * **93.08% de cobertura de ramas** (superando el umbral de $\ge 90\%$).
-    * **98.38% de cobertura de funciones**.
+    * **100% de aserciones aprobadas** (126/126 pruebas pasando en 8 suites).
+    * **97.79% de cobertura de líneas y sentencias** (superando el umbral de $\ge 95\%$).
+    * **91.23% de cobertura de ramas** (superando el umbral de $\ge 90\%$).
+    * **99.10% de cobertura de funciones**.
     * **0 errores de ESLint, SonarJS (Cognitiva $\le 15$) y TypeScript (`strict: true`)**.
 
 * **Script Universal de Limpieza y Saneamiento (`scripts/limpieza.sh`):**

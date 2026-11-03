@@ -10,12 +10,18 @@ import { fetchBlueprintBundle } from './tools/fetch-bundle.js';
 import { bootstrapOrMerge11x } from './tools/bootstrap-merge.js';
 import { inspectAstBlastRadius } from './tools/blast-radius.js';
 import { cleanWorkspace11x } from './tools/clean-workspace.js';
+import { auditSecurityStigOwasp } from './tools/security-auditor.js';
+import { runEphemeralQa } from './tools/ephemeral-runner.js';
+import { certify11xGate } from './tools/certify-gate.js';
 import {
   InspectProjectInputSchema,
   FetchBundleInputSchema,
   BootstrapMergeInputSchema,
   BlastRadiusInputSchema,
   CleanWorkspaceInputSchema,
+  AuditSecurityInputSchema,
+  RunEphemeralQaInputSchema,
+  CertifyGateInputSchema,
 } from './types.js';
 
 export function createMcpServer(options?: {
@@ -306,6 +312,64 @@ export function createMcpServer(options?: {
         args.dry_run ?? true,
         args.deep_prune ?? false
       );
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  // Tool 6: audit_security_stig_owasp
+  server.tool(
+    'audit_security_stig_owasp',
+    'Audita estáticamente el código fuente del proyecto destino frente a los 22 patrones DISA ASD STIG V6R5 y OWASP v4.2.',
+    AuditSecurityInputSchema.shape,
+    async (args) => {
+      const result = await auditSecurityStigOwasp(args.project_path);
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  // Tool 7: run_ephemeral_qa
+  server.tool(
+    'run_ephemeral_qa',
+    'Ejecuta de forma segura e inyectable un target de pruebas del Makefile dentro de contenedores Docker efímeros (Rule Zero) y resume la salida con parsers ahorradores de tokens.',
+    RunEphemeralQaInputSchema.shape,
+    async (args) => {
+      const result = await runEphemeralQa(
+        args.project_path,
+        args.stage,
+        args.timeout_seconds
+      );
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  // Tool 8: certify_11x_gate
+  server.tool(
+    'certify_11x_gate',
+    'Ejecuta las validaciones de cierre del estándar 11X (ejemplos, secretos, JSON, huérfanos UI/API, ORM, auditoría STIG y documentación) y verifica si está listo para commit.',
+    CertifyGateInputSchema.shape,
+    async (args) => {
+      const result = await certify11xGate(args.project_path);
       return {
         content: [
           {
