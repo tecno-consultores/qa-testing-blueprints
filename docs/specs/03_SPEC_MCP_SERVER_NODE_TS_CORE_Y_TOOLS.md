@@ -66,7 +66,7 @@ mcp-server/
   "license": "MIT",
   "type": "module",
   "bin": {
-    "mcp-qa-11x": "./dist/index.js"
+    "mcp-qa-11x": "dist/index.js"
   },
   "files": [
     "dist/**/*",
@@ -75,7 +75,7 @@ mcp-server/
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "pnpm run build",
-    "lint": "eslint 'src/**/*.ts' 'tests/**/*.ts'",
+    "lint": "eslint src/**/*.ts tests/**/*.ts --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run --coverage",
     "test:mutation": "stryker run"

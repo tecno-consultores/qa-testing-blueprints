@@ -38,7 +38,18 @@ class TestPublicarMcp(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertIn("Publicador Autónomo de Servidor MCP", result.stdout)
         self.assertIn("--dry-run", result.stdout)
+        self.assertIn("--otp", result.stdout)
         self.assertIn("NPM_TOKEN", result.stdout)
+
+    def test_empty_otp_flag_fails(self):
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--otp"],
+            capture_output=True,
+            text=True,
+            cwd=str(REPO_ROOT),
+        )
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("requiere un código de 6 dígitos", result.stderr)
 
     def test_invalid_argument_fails(self):
         result = subprocess.run(

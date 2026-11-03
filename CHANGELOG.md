@@ -8,6 +8,18 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ---
 
+## [2.8.3] - 2026-11-02
+
+### 🐛 Corregido y Mejorado (Fixed & Changed)
+* **Soporte Interactivo 2FA / WebAuthn y `--otp` en Publicación a npmjs (`scripts/publicar-mcp.sh`):**
+  * Incorporada detección automática de TTY interactivo (`-it`) junto con `--no-browser` al invocar `npm publish` dentro del contenedor efímero, permitiendo que el módulo `otplease` / `webAuthOpener` de npm espere en vivo mientras el usuario autoriza la publicación en su navegador (`https://www.npmjs.com/auth/cli/...`) sin abortar prematuramente con `npm error code EOTP`.
+  * Añadido soporte para el flag `--otp <código>` (`--otp=123456`) y la variable `NPM_OTP` en `.env`, además de documentar en `.env.example` y `docs/specs/05_SPEC_PUBLICACION_NPM_Y_AUTOMATIZACION_CI.md` la activación de `[x] Bypass two-factor authentication (2FA)` en Granular Access Tokens para publicaciones 100% desatendidas.
+  * Ampliada la suite de pruebas unitarias `tests/test_publicar_mcp.unit.py` validando la opción `--otp`.
+* **Normalización Canónica de `bin` en `mcp-server/package.json`:**
+  * Normalizada la ruta del binario `bin["mcp-qa-11x"]` de `"./dist/index.js"` a `"dist/index.js"`, eliminando la advertencia de normalización de `@npmcli/package-json` (`npm warn publish "bin[mcp-qa-11x]" script name dist/index.js was invalid and removed`) durante `npm publish`, y sincronizando el contrato BDD en `mcp-server/test/mcp_cli_test.feature`.
+
+---
+
 ## [2.8.2] - 2026-11-02
 
 ### 🚀 Añadido y Mejorado (Added & Changed)

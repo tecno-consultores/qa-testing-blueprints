@@ -118,7 +118,12 @@ make publish-mcp-dry
 # 2. Publicación en vivo: ejecuta todo el pipeline y publica a npmjs.org
 make publish-mcp
 # o directamente: ./scripts/publicar-mcp.sh
+
+# 3. Publicación pasando código 2FA/OTP de 6 dígitos (si el token no tiene 'Bypass 2FA'):
+./scripts/publicar-mcp.sh --otp 123456
 ```
+
+> **Nota sobre 2FA / `EOTP`:** Si el token creado en npmjs.com no tiene marcada la opción **Bypass two-factor authentication (2FA)**, `scripts/publicar-mcp.sh` adjunta automáticamente una terminal interactiva (`-it` + `--no-browser`) al contenedor efímero. De este modo, `npm` imprimirá en consola una URL de autorización (`https://www.npmjs.com/auth/cli/...`) y **esperará en vivo** hasta que usted abra ese enlace en su navegador y autorice la publicación (o bien puede pasar `--otp <código>` directamente).
 
 ---
 

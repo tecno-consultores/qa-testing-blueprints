@@ -15,17 +15,36 @@ fi
 
 DRY_RUN=false
 SKIP_TESTS=false
+CLI_OTP=""
 IMAGE_NAME="sinfallas/base-node-ionic:26"
 NPM_REGISTRY="https://registry.npmjs.org/"
 
 # Procesar argumentos CLI
-for arg in "$@"; do
-  case "$arg" in
+while [[ $# -gt 0 ]]; do
+  case "$1" in
     --dry-run)
       DRY_RUN=true
+      shift
       ;;
     --skip-tests)
       SKIP_TESTS=true
+      shift
+      ;;
+    --otp)
+      if [[ -z "${2:-}" ]] || [[ "${2:-}" == -* ]]; then
+        echo "ERROR: La opción --otp requiere un código de 6 dígitos (ej. --otp 123456)." >&2
+        exit 1
+      fi
+      CLI_OTP="$2"
+      shift 2
+      ;;
+    --otp=*)
+      CLI_OTP="${1#*=}"
+      if [[ -z "${CLI_OTP}" ]]; then
+        echo "ERROR: La opción --otp requiere un código de 6 dígitos (ej. --otp=123456)." >&2
+        exit 1
+      fi
+      shift
       ;;
     -h|--help)
       echo "══════════════════════════════════════════════════════════════════════"
@@ -36,16 +55,18 @@ for arg in "$@"; do
       echo "Opciones:"
       echo "  --dry-run       Ejecuta linters, tests y empaquetado sin publicar a npmjs"
       echo "  --skip-tests    Omite la ejecución de pruebas unitarias si ya fueron validadas"
+      echo "  --otp <código>  Código 2FA/OTP de 6 dígitos (si el token no tiene Bypass 2FA)"
       echo "  -h, --help      Muestra esta ayuda"
       echo ""
       echo "Autenticación:"
       echo "  Crea un archivo '.env' en la raíz con: NPM_TOKEN=npm_tu_token_aqui"
       echo "  o expórtalo en tu sesión: export NPM_TOKEN=npm_..."
+      echo "  (Para publicar sin que pida 2FA/OTP, marca 'Bypass 2FA' al crear el token en npmjs.com)"
       echo "══════════════════════════════════════════════════════════════════════"
       exit 0
       ;;
     *)
-      echo "Opción no reconocida: $arg" >&2
+      echo "Opción no reconocida: $1" >&2
       echo "Use --help para ver las opciones disponibles." >&2
       exit 1
       ;;
@@ -85,6 +106,14 @@ if [ -f "${ENV_FILE}" ]; then
   if [ -n "${REG_VAL}" ]; then
     NPM_REGISTRY="${REG_VAL}"
   fi
+  OTP_VAL=$(grep -E '^\s*NPM_OTP=' "${ENV_FILE}" | head -n 1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" | tr -d ' ' || true)
+  if [ -n "${OTP_VAL}" ]; then
+    NPM_OTP="${OTP_VAL}"
+  fi
+fi
+
+if [ -n "${CLI_OTP}" ]; then
+  NPM_OTP="${CLI_OTP}"
 fi
 
 # Validar presencia del token si no estamos en dry-run
@@ -177,14 +206,30 @@ if [ "$DRY_RUN" = true ]; then
   exit 0
 fi
 
-# Publicación real con inyección de token efímero en memoria
+# Publicación real con inyección de token efímero en memoria y soporte interactivo 2FA/OTP
 echo -e "\n🚀 Publicando ${PKG_NAME}@${PKG_VERSION} en npmjs.org..."
-docker run --rm \
+echo "💡 Nota: Si su cuenta de npmjs requiere confirmación 2FA y el token no tiene 'Bypass 2FA',"
+echo "   abra la URL https://www.npmjs.com/auth/cli/... que aparecerá abajo en su navegador para autorizar."
+
+DOCKER_TTY_ARGS=()
+if [ -t 0 ] && [ -t 1 ]; then
+  DOCKER_TTY_ARGS=(-it)
+fi
+
+if ! docker run --rm "${DOCKER_TTY_ARGS[@]}" \
   -v "${MCP_DIR}:/app" \
   -w /app \
   -e NPM_TOKEN="${NPM_TOKEN}" \
+  -e NPM_OTP="${NPM_OTP:-}" \
   "${IMAGE_NAME}" \
-  sh -c 'npm config set //registry.npmjs.org/:_authToken "${NPM_TOKEN}" && npm publish --access public'
+  sh -c 'npm config set //registry.npmjs.org/:_authToken "${NPM_TOKEN}" && if [ -n "${NPM_OTP:-}" ]; then npm publish --access public --no-browser --otp="${NPM_OTP}"; else npm publish --access public --no-browser; fi'; then
+  echo -e "\n\e[31m❌ ERROR: No se completó la publicación en npmjs.org (posible requerimiento 2FA / EOTP).\e[0m" >&2
+  echo "💡 Soluciones:" >&2
+  echo "   1. Ejecute desde su terminal interactiva y abra en el navegador el enlace https://www.npmjs.com/auth/cli/... cuando aparezca." >&2
+  echo "   2. Pase su código 2FA de 6 dígitos directamente: ./scripts/publicar-mcp.sh --skip-tests --otp 123456" >&2
+  echo "   3. O regenere su Granular Access Token en npmjs.com marcando la casilla '[x] Bypass two-factor authentication (2FA)'." >&2
+  exit 1
+fi
 
 echo -e "\n🔍 Verificando publicación remota..."
 docker run --rm "${IMAGE_NAME}" npm view "${PKG_NAME}" version
