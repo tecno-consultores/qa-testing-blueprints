@@ -25,10 +25,10 @@ async function main(): Promise<void> {
 @sinfallas/mcp-qa-11x — Servidor MCP e Instalador de Skills QA 11X
 
 Uso:
-  npx -y @sinfallas/mcp-qa-11x@latest                   Inicia el servidor MCP sobre stdio
-  npx -y @sinfallas/mcp-qa-11x@latest install-skill     Instala las skills en el entorno deseado
-  npx -y @sinfallas/mcp-qa-11x@latest init-agents       Inyecta o actualiza el conector QA 11X en AGENTS.md
-  npx -y @sinfallas/mcp-qa-11x@latest --help            Muestra esta ayuda
+  npx -y @sinfallas/mcp-qa-11x@latest                                             Inicia el servidor MCP sobre stdio
+  npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts Instala las 5 skills, scripts y conector AGENTS.md
+  npx -y @sinfallas/mcp-qa-11x@latest init-agents                                 Inyecta o actualiza el conector QA 11X en AGENTS.md
+  npx -y @sinfallas/mcp-qa-11x@latest --help                                      Muestra esta ayuda
 
 Opciones para install-skill:
   --target, -t <entorno>   auto (defecto) | workspace | antigravity | claude | cursor | hermes | all

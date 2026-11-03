@@ -157,35 +157,35 @@ Consulte la [Guía de Integración con Agentes de IA](docs/ai-integration.md) pa
 
 ---
 
-### ⚡ Modo 2: Inyección de Skills Zero-Clone en 1 Segundo (Catálogo Completo de 5 Skills)
+### ⚡ Modo 2: Inyección de Skills, Scripts y `AGENTS.md` Zero-Clone en 1 Segundo
 
-Para dotar a cualquier agente o desarrollador de los conocimientos y reglas 11X sin clonar el repositorio completo, ejecuta el instalador oficial verificado con SHA-256 (DISA ASD STIG V6R5 `V-222513` / `APSC-DV-001430`):
+Para dotar a cualquier proyecto, agente o desarrollador del catálogo completo de **5 Skills**, los scripts de gobernanza (`.agents/scripts/*`, `scripts/*`) y el conector no destructivo en **`AGENTS.md`** sin clonar el repositorio completo, ejecuta el instalador oficial verificado con SHA-256 (DISA ASD STIG V6R5 `V-222513` / `APSC-DV-001430`):
 
 ```bash
-# Opción A (vía npx con el paquete oficial — autodetección multi-agente por defecto):
-npx -y @sinfallas/mcp-qa-11x@latest install-skill
+# Opción A (Recomendada — instala las 5 skills, descarga los scripts operativos e inicializa/actualiza AGENTS.md):
+npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts
 
 # Opción B (vía script universal curl con verificación criptográfica SHA-256):
 curl -fsSL https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/scripts/install-skill.sh | sh
 ```
 
-El instalador detecta automáticamente el entorno del agente (`auto`: Google Antigravity, Claude, Cursor, Hermes o Workspace) e hidrata de forma segura las 5 skills del catálogo:
-* **`qa-11x-architect`:** Cerebro metodológico 11X, las 13 capas de la pirámide de calidad, los 22 patrones DISA ASD STIG V6R5 / OWASP v4.2 y directivas especializadas para Python, FastAPI, Node.js, Vue 3, React y Bash.
+El instalador detecta automáticamente el entorno del agente (`auto`: Google Antigravity, Claude, Cursor, Hermes y/o Workspace) e hidrata de forma segura las 5 skills del catálogo:
+* **`qa-11x-architect`:** Cerebro metodológico 11X, las 13 capas de la pirámide de calidad, los 22 patrones DISA ASD STIG V6R5 / OWASP v4.2 y directivas especializadas para Python, FastAPI, Node.js, Vue 3, React, PHP 8.1–8.5 y Bash.
 * **`refactoring-ui`:** Reglas tácticas de jerarquía visual, WCAG 2.1 AA, contraste OKLCH y `tabular-nums` para `CLS = 0`.
 * **`docker-trivy-keydb-hardening`:** Hardening de contenedores Docker (Trivy=0) y motor en memoria KeyDB multi-hilo.
 * **`graphify-ast-navigator`:** Navegación del grafo semántico AST, cálculo preventivo de blast radius y cumplimiento de límites de capas.
 * **`qa-11x-docker-certifier`:** Certificador corporativo en contenedores Docker efímeros bajo la Regla Cero.
 
-Opciones avanzadas por entorno de destino y descarga de scripts:
+#### Opciones del comando `install-skill`:
+| Opción / Flag | Descripción Operativa |
+| :--- | :--- |
+| `--target, -t <entorno>` | Define el destino de las skills: `auto` (por defecto: autodetecta agentes globales y workspace), `workspace`, `antigravity`, `claude`, `cursor`, `hermes` o `all`. |
+| `--init-agents` | Crea `AGENTS.md` en la raíz del proyecto o inyecta de forma aditiva y 100% no destructiva el bloque conector de QA 11X al final de un `AGENTS.md` existente. |
+| `--include-scripts` | Descarga e instala en el proyecto actual todos los scripts de certificación y auditoría (`.agents/scripts/*` y `scripts/*`) con permisos de ejecución `0o755`. |
+
 ```bash
-# Destino específico:
-npx -y @sinfallas/mcp-qa-11x@latest install-skill --target [auto|workspace|antigravity|claude|cursor|hermes|all]
-
-# Descargar también scripts operativos (scripts/*, .agents/scripts/*) y archivos comunes:
-npx -y @sinfallas/mcp-qa-11x@latest install-skill --include-scripts
-
-# Instalar skills e inyectar el conector AGENTS.md en el proyecto actual simultáneamente:
-npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents
+# Comando completo con todas las opciones explícitas:
+npx -y @sinfallas/mcp-qa-11x@latest install-skill --target [auto|workspace|antigravity|claude|cursor|hermes|all] --init-agents --include-scripts
 ```
 
 ---

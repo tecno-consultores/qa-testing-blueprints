@@ -7,8 +7,9 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 ## [Unreleased]
 
 ### 🔄 Modificado y Mejorado (Changed & Fixed)
-* **Estandarización de `@latest` en Invocaciones `npx` del Servidor MCP (`@sinfallas/mcp-qa-11x@latest`):**
-  * Actualizados todos los comandos `npx` y bloques de configuración MCP (`args: ["-y", "@sinfallas/mcp-qa-11x@latest"]`) en `README.md`, `FAQ.md`, `ROADMAP.md`, `docs/ai-integration.md`, `docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`, `docs/specs/*`, `.agents/skills/qa-11x-architect/SKILL.md`, `mcp-server/README.md` y la salida `--help` de `mcp-server/src/index.ts`, previniendo que `npx` reutilice versiones antiguas almacenadas en `~/.npm/_npx/`.
+* **Estandarización de `@latest`, `--init-agents` e `--include-scripts` en toda la Documentación de Instalación MCP:**
+  * Actualizados todos los comandos de instalación `install-skill` en `README.md`, `FAQ.md`, `docs/ai-integration.md`, `docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`, `docs/specs/*`, `.agents/skills/qa-11x-architect/SKILL.md`, `mcp-server/README.md` y la salida `--help` de `mcp-server/src/index.ts` para incluir las opciones completas (`npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts` y `--target`), documentando detalladamente el propósito de cada flag.
+  * Actualizados todos los comandos `npx` y bloques de configuración MCP (`args: ["-y", "@sinfallas/mcp-qa-11x@latest"]`) previniendo que `npx` reutilice versiones antiguas almacenadas en `~/.npm/_npx/`.
   * Añadida la ruta `~/.gemini/config/mcp_config.json` en `checkBrowserMcpInIde` (`mcp-server/src/tools/inspect-project.ts`) para detectar configuraciones MCP en Google Antigravity 2.0.
 
 ## [2.9.0] - 2026-11-03

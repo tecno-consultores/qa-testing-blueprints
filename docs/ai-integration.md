@@ -79,18 +79,20 @@ El paquete oficial de Node.js **`@sinfallas/mcp-qa-11x`** permite a cualquier Ag
 # Levantar el servidor MCP directamente (comunicación stdio):
 npx -y @sinfallas/mcp-qa-11x@latest
 
-# O instalar el catálogo completo de 5 Skills (con autodetección de agente por defecto):
-npx -y @sinfallas/mcp-qa-11x@latest install-skill
+# Instalación completa recomendada en un repositorio (instala las 5 Skills, scripts .agents/scripts/* e inyecta el conector en AGENTS.md):
+npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts
 
-# O instalar también scripts operativos y archivos comunes en el proyecto actual:
-npx -y @sinfallas/mcp-qa-11x@latest install-skill --include-scripts
+# Instalación con todas las opciones explícitas (especificando entorno de destino):
+npx -y @sinfallas/mcp-qa-11x@latest install-skill --target [auto|workspace|antigravity|claude|cursor|hermes|all] --init-agents --include-scripts
 
-# O inyectar de forma aditiva y no destructiva el conector QA 11X en AGENTS.md:
+# O inyectar/actualizar únicamente el conector QA 11X en AGENTS.md de forma aditiva y no destructiva:
 npx -y @sinfallas/mcp-qa-11x@latest init-agents [--project-path <ruta>] [--dry-run]
-
-# O instalar skills e inyectar el conector AGENTS.md en una sola operación:
-npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents
 ```
+
+#### Parámetros del instalador `install-skill`:
+* **`--target, -t <entorno>`:** Destino de instalación de las 5 skills (`auto` por defecto, `workspace`, `antigravity`, `claude`, `cursor`, `hermes` o `all`).
+* **`--init-agents`:** Crea `AGENTS.md` o agrega al final del existente el bloque conector canónico de QA 11X sin sobrescribir reglas previas.
+* **`--include-scripts`:** Descarga en el directorio actual todos los scripts de certificación (`.agents/scripts/*` y `scripts/*`) con permisos `0o755`.
 
 ### 6.2. Configuración en Clientes de IA
 

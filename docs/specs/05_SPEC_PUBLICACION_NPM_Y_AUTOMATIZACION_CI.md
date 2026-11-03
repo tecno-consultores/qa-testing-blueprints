@@ -14,8 +14,8 @@ Publicar en **npm** (`https://www.npmjs.com`) es gratuito para paquetes público
 # Levantar el servidor MCP automáticamente:
 npx -y @sinfallas/mcp-qa-11x@latest
 
-# O instalar la Skill qa-11x-architect en 1 segundo:
-npx -y @sinfallas/mcp-qa-11x@latest install-skill
+# O instalar el catálogo de 5 Skills, scripts y conector AGENTS.md en 1 segundo:
+npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts
 ```
 
 ---

@@ -59,9 +59,9 @@ This project (`<PROJECT_NAME>`) enforces the **Level-11X Quality & DevSecOps Sta
    npx -y @sinfallas/mcp-qa-11x@latest init-agents [--project-path <ruta>] [--dry-run]
    ```
    Detecta el proyecto y sus stacks, y crea `AGENTS.md` (si no existe) o agrega el bloque conector al `AGENTS.md` existente (si ya existe).
-2. **Vía 2 — Flag Integrado en `install-skill` (`--init-agents`):**
+2. **Vía 2 — Flag Integrado en `install-skill` (`--init-agents --include-scripts`):**
    ```bash
-   npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents
+   npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts
    ```
    Instala las skills en los agentes detectados (`~/.gemini/config/skills`, etc.) y ejecuta `initOrAppendAgentsMd` sobre el directorio del proyecto actual (`cwd`).
 3. **Vía 3 — Servidor MCP (`init_or_append_agents_md` y `SurgicalMerger.mergeAgentsMd`):**

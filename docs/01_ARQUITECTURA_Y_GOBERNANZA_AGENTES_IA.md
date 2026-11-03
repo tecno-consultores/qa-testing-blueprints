@@ -72,12 +72,12 @@ Toda la documentación (`docs/`, `CHANGELOG.md`, `README.md`, `TESTING.md`) y la
 
 Esta arquitectura funciona de forma nativa e idéntica en las principales herramientas de desarrollo asistido y agentes autónomos:
 
-| Herramienta / Agente | Mecanismo de Ingestión MCP | Integración de Skills | Archivo de Entrada / Configuración |
+| Herramienta / Agente | Mecanismo de Ingestión MCP | Integración de Skills, Scripts y Conector | Archivo de Entrada / Configuración |
 | :--- | :--- | :--- | :--- |
-| **Google Antigravity** | `mcp_config.json` (`npx -y @sinfallas/mcp-qa-11x@latest`) | Carga nativa en `.agents/skills/` | `.agents/` + `AGENTS.md` |
-| **Anthropic Claude Code / Desktop** | `claude_desktop_config.json` (`stdio`) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target claude` | `AGENTS.md` + `.agents/skills/` |
-| **Hermes Agent (Nous Research)** | `config.yaml` (`mcp_servers`) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target hermes` | `AI_MASTER_PROMPT.md` + `Makefile` |
-| **Cursor / Windsurf** | `.cursor/mcp.json` (`mcpServers`) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target cursor` | `AGENTS.md` y `.agents/rules/` |
+| **Google Antigravity** | `mcp_config.json` (`npx -y @sinfallas/mcp-qa-11x@latest`) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target antigravity --init-agents --include-scripts` | `.agents/` + `AGENTS.md` |
+| **Anthropic Claude Code / Desktop** | `claude_desktop_config.json` (`stdio`) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target claude --init-agents --include-scripts` | `AGENTS.md` + `.agents/skills/` |
+| **Hermes Agent (Nous Research)** | `config.yaml` (`mcp_servers`) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target hermes --init-agents --include-scripts` | `AI_MASTER_PROMPT.md` + `Makefile` |
+| **Cursor / Windsurf** | `.cursor/mcp.json` (`mcpServers`) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target cursor --init-agents --include-scripts` | `AGENTS.md` y `.agents/rules/` |
 
 ---
 
@@ -107,8 +107,8 @@ Para evitar que los agentes deban clonar gigabytes de repositorios o saturar su 
    - `audit_test_pyramid_gaps`: Auditoría de las 13 capas de la pirámide 11X, archivos huérfanos y plan de rescate priorizado.
    - `init_or_append_agents_md`: Inyector aditivo no destructivo del bloque conector QA 11X en `AGENTS.md`.
 
-3. **Inyección de Skills en 1 Segundo (`install-skill`):**
-   Cualquier agente puede autoinstalar las skills maestras (`qa-11x-architect` y `refactoring-ui`) ejecutando `npx -y @sinfallas/mcp-qa-11x@latest install-skill`, adquiriendo de inmediato todo el conocimiento corporativo 11X sin clonar el repositorio.
+3. **Inyección de Skills, Scripts y `AGENTS.md` en 1 Segundo (`install-skill`):**
+   Cualquier agente o desarrollador puede autoinstalar el catálogo completo de 5 skills (`qa-11x-architect`, `refactoring-ui`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `qa-11x-docker-certifier`), los scripts operativos (`.agents/scripts/*`, `scripts/*`) y el conector en `AGENTS.md` ejecutando `npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts`, adquiriendo de inmediato todo el conocimiento corporativo 11X sin clonar el repositorio.
 
 ---
 
