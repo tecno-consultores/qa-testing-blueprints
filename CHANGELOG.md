@@ -6,6 +6,11 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### 📐 Planificado (Planned)
+* **Especificación 06 y Planificación del Hito 7 — Auditor de Brechas de la Pirámide de Pruebas 11X (`audit_test_pyramid_gaps`):**
+  * Creación de `docs/specs/06_SPEC_AUDITOR_BRECHAS_PIRAMIDE_PRUEBAS_11X.md` definiendo la **Tool 9 del Servidor MCP (`audit_test_pyramid_gaps`)** y el **Playbook 6 de la Skill `qa-11x-architect`** para auditar proyectos existentes (*Brownfield*) frente a las 13 capas de la pirámide de pruebas 11X (`COVERED`, `PARTIAL`, `MISSING`, `NOT_APPLICABLE`), descubriendo automáticamente archivos fuente sin prueba unitaria (`orphan_source_files`), endpoints de API sin escenario BDD en Karate Labs (`untested_api_endpoints`), vistas UI sin escenario BDD/E2E (`untested_ui_views`) y generando un plan de acción priorizado (`prioritized_action_plan`).
+  * Actualización de `ROADMAP.md` incorporando el **Hito 7** (`⏳ Pendiente | 0%`) con las tareas `7.1` a `7.6`.
+
 ---
 
 ## [2.8.3] - 2026-11-02
