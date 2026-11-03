@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.7.0",
-  "generated_at_utc": "2026-11-03T01:24:00Z",
+  "generated_at_utc": "2026-11-03T01:46:14Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -589,8 +589,8 @@
       "path": ".agents/scripts/certify_task_completion.sh",
       "target_name": ".agents/scripts/certify_task_completion.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "357dec37f45d587280fbe66be8fbdf3f2723232aa62462ccfc86eebe78c45125",
-      "size_bytes": 5381
+      "sha256": "4907ddb3fe2c0e963807ec79652a67f8213b21969b564acdc3936f01002029a2",
+      "size_bytes": 5392
     },
     {
       "path": ".agents/scripts/inspect_blast_radius.py",

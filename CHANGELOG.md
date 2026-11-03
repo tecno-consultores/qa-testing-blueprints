@@ -7,6 +7,23 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 ## [Unreleased]
 
 ### 🚀 Añadido (Added)
+* **Hito 4 — Servidor MCP en Node.js / TypeScript (`mcp-server/`), Recursos `blueprint://*` y Tools 1–4:**
+  * **Paquete `@sinfallas/mcp-qa-11x` (`mcp-server/`):** Infraestructura completa en Node.js 22+ y TypeScript 5.7+ (`ES2022`, `NodeNext`) bajo `@modelcontextprotocol/sdk` (`^1.0.4`), Zod (`^3.24.1`), Vitest v8, ESLint 8.57 con plugins `security` y `sonarjs`, `.npmrc` con `ignore-scripts=true` y `pnpm-workspace.yaml` con `allowBuilds: { esbuild: true }`.
+  * **Servicio de Hidratación Remota (`mcp-server/src/services/github-fetcher.ts`):** Descarga bajo demanda *Zero-Clone* desde GitHub Raw con soporte de validación condicional `ETag` (`If-None-Match` / `304 Not Modified`), verificación criptográfica estricta SHA-256 (`DISA ASD STIG V6R5 V-222513`), caché local en `~/.cache/qa-11x-blueprints/`, fallback offline ante indisponibilidad de red y soporte de sobreescritura local mediante `QA_BLUEPRINTS_LOCAL_PATH`.
+  * **Fusionador Quirúrgico No Destructivo (`mcp-server/src/services/surgical-merger.ts`):** Algoritmo determinista de integración selectiva para `package.json` (preserva scripts y dependencias existentes inyectando solo faltantes), `pyproject.toml` (preserva `[project]` e inyecta herramientas `[tool.*]`), `Makefile` (añade exclusivamente targets `qa-*`), `.gitignore` y `.npmrc` (fusión aditiva idempotente), con soporte de permisos de ejecución `0o755` y modo de simulación `dryRun`.
+  * **Recursos MCP Canónicos (`blueprint://*` en `mcp-server/src/resources/blueprint-resources.ts`):**
+    * `blueprint://manifest`: Manifiesto criptográfico remoto/local completo en JSON.
+    * `blueprint://core/philosophy`: Filosofía de calidad 11X (`AI_MASTER_PROMPT.md`).
+    * `blueprint://security/disa-owasp-22`: Matriz canónica de los 22 patrones DISA ASD STIG V6R5 y OWASP v4.2.
+    * `blueprint://{stack}/readme`: Plantilla dinámica del manual operativo para el stack solicitado.
+    * `blueprint://ui/refactoring-ui/{topic}`: Módulos de diseño visual y accesibilidad de `refactoring-ui`.
+  * **Herramientas MCP 1 a 4 (`mcp-server/src/tools/`):**
+    * `inspect_project_config` (`inspect-project.ts`): Auditoría *zero-shot* del proyecto identificando stacks activos (`fastapi`, `python`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`), banderas estrictas (`mypy`, `tsconfig`, `npmrc`) y archivos 11X ausentes con recomendación guiada del siguiente paso.
+    * `fetch_blueprint_bundle` (`fetch-bundle.ts`): Descarga y validación en memoria del bundle de plantillas y gobernanza de agentes con verificación SHA-256 garantizada.
+    * `bootstrap_or_merge_11x` (`bootstrap-merge.ts`): Fusión quirúrgica aplicada al proyecto destino con reporte de cambios aplicados y soporte de previsualización `dry_run`.
+    * `inspect_ast_blast_radius` (`blast-radius.ts`): Cálculo estático del radio de impacto de símbolos, asignando nivel de riesgo (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`), listado de archivos dependientes y sugerencia de pruebas unitarias/BDD a ejecutar.
+  * **CLI Multi-Entorno y Punto de Entrada Dual (`mcp-server/src/cli/install-skill.ts` y `src/index.ts`):** Binario `mcp-qa-11x` con shebang `#!/usr/bin/env node` que opera como servidor MCP stdio por defecto o como instalador CLI mediante `install-skill` con detección automática de entorno (`workspace`, `antigravity`, `claude`, `cursor`, `hermes` o `all`).
+  * **Certificación de Pruebas Unitarias al 100% (`mcp-server/tests/*.unit.ts`):** 62 pruebas unitarias pasando al 100% dentro del contenedor efímero `sinfallas/base-node-ionic:26`, con **98.64% de cobertura de líneas y sentencias, 93.66% en ramas y 100% en funciones**, con 0 errores de ESLint, SonarJS (Complejidad Cognitiva Grado A $\le 15$) y TypeScript (`tsc --noEmit`).
 * **Hito 3 — Skill Maestra (`qa-11x-architect`), Carga Progresiva (`references/`) e Instalador Universal (`scripts/install-skill.sh`):**
   * **Skill Maestra Cognitiva (`.agents/skills/qa-11x-architect/SKILL.md`):** Arquitectura unificada en inglés técnico compacto con `OUTPUT LANGUAGE CONSTRAINT: Spanish`, detección automática de entorno (MCP-First vs. Fallback de hidratación directa desde GitHub Raw vía `manifest.json`), las 10 Leyes Innegociables de Calidad 11X y 4 Playbooks Operativos (Bootstrap, Cobertura, Hardening DISA/OWASP y Certificación de Cierre).
   * **Carga Progresiva (*Progressive Disclosure*) en 5 Referencias Especializadas:**

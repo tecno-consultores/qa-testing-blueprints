@@ -105,6 +105,17 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
   make qa-unit       # BATS-core + bats-mock + kcov (>= 95%)
   ```
 
+### 🧠 MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x`)
+* **Imagen Base:** `sinfallas/base-node-ionic:26`
+* **Comandos de Validación:**
+  ```bash
+  cd mcp-server
+  pnpm run lint      # ESLint 8.57 + eslint-plugin-security + SonarJS (Cognitiva <= 15)
+  pnpm run typecheck # tsc --noEmit (0 errores de tipado)
+  pnpm run test:unit # Vitest v8 con reporte de cobertura (>= 95%)
+  pnpm run build     # tsc -> emite dist/ con binario ejecutable index.js
+  ```
+
 ---
 
 ## 3. Compuerta de Certificación Pre-Commit (`certify_task_completion.sh`)
@@ -146,3 +157,21 @@ El script evalúa de forma secuencial e implacable 9 compuertas obligatorias:
     * `docker run --rm -v "${PWD}:/app" -w /app sinfallas/base-bash-qa:latest bash -c "shellcheck -s sh scripts/install-skill.sh && shfmt -d -i 2 -ci scripts/install-skill.sh"`
   * **Cobertura y Métricas:** **100% de aserciones aprobadas** (8/8 pruebas combinadas) y **0 errores / 0 advertencias** en ShellCheck y shfmt.
   * **Aserciones Validadas:** Auto-detección y resolución de destinos (`workspace`, `antigravity`, `claude`, `cursor`, `hermes`, `all`), verificación criptográfica SHA-256 de los 16 archivos de skills contra `manifest.json`, detección estricta de manipulaciones/tampering (abortando con código de salida 1 bajo DISA STIG `V-222513`), y verificación de flag `--help`.
+
+* **Servidor MCP e Instalador de Skills Node.js / TypeScript (`mcp-server/`):**
+  * **Suites de Pruebas Unitarias:**
+    * `tests/github-fetcher.unit.ts` (18 pruebas): Hidratación remota, validación condicional `ETag` (304), verificación SHA-256 (`DISA STIG V-222513`), detección de tampering, fallback offline y local path override.
+    * `tests/surgical-merger.unit.ts` (13 pruebas): Fusión quirúrgica no destructiva de `package.json`, `pyproject.toml`, `Makefile`, `.gitignore` y `.npmrc`, asignación de permisos `0o755` a scripts y modo `dryRun`.
+    * `tests/inspect-project.unit.ts` (7 pruebas): Detección automática de stacks (`python`, `fastapi`, `vue3`, `react-frontend`, `node-backend`, `bash-scripts`), banderas estrictas (`mypy`, `tsconfig`, `npmrc`) y archivos 11X ausentes.
+    * `tests/tools-and-resources.unit.ts` (24 pruebas): Recursos `blueprint://*`, herramientas 1 a 4 (`inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`), CLI `install-skill` multi-entorno y servidor `McpServer`.
+  * **Ejecución Efímera:**
+    * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run lint`
+    * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run typecheck`
+    * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run test:unit`
+    * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run build`
+  * **Cobertura y Métricas Alcanzadas:**
+    * **100% de aserciones aprobadas** (62/62 pruebas pasando).
+    * **98.64% de cobertura de líneas y sentencias** (superando el umbral de $\ge 95\%$).
+    * **93.66% de cobertura de ramas** (superando el umbral de $\ge 90\%$).
+    * **100% de cobertura de funciones**.
+    * **0 errores de ESLint, SonarJS (Cognitiva $\le 15$) y TypeScript (`strict: true`)**.

@@ -1,0 +1,18 @@
+services:
+  mcp-server:
+    image: sinfallas/base-node-ionic:26
+    container_name: mcp_qa_server
+    hostname: mcp_qa_server
+    pull_policy: if_not_present
+    environment:
+      TZ: 'America/Caracas'
+      PNPM_HOME: /pnpm
+    volumes:
+      - ..:/app
+      - pnpm-store:/pnpm
+    working_dir: /app/mcp-server
+    command: bash -c "echo 'Contenedor QA MCP Server listo'; sleep infinity"
+
+volumes:
+  pnpm-store:
+    name: mcp_qa_pnpm_store

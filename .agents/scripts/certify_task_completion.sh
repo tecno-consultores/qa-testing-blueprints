@@ -61,7 +61,7 @@ fi
 # 9. Sincronización Documental y Pruebas Obligatorias (incluyendo archivos untracked)
 echo -e "\n📚 [9/9] Verificando sincronización de documentación y pruebas obligatorias..."
 ALL_CHANGED=$( { git diff --name-only HEAD 2>/dev/null || true; git ls-files --others --exclude-standard 2>/dev/null || true; } | sort -u )
-CODE_CHANGES=$(echo "${ALL_CHANGED}" | grep -E '^(fastapi|vue3|node-backend|python|react-frontend|bash-scripts)/' || true)
+CODE_CHANGES=$(echo "${ALL_CHANGED}" | grep -E '^(fastapi|vue3|node-backend|python|react-frontend|bash-scripts|mcp-server)/' || true)
 
 if [ -n "${CODE_CHANGES}" ]; then
   echo "Se detectaron cambios en directorios de stacks:"

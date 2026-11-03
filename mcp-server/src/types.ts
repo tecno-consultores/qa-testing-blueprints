@@ -1,0 +1,120 @@
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2026 QA Testing Blueprints Contributors
+
+import { z } from 'zod';
+
+export interface ManifestFileEntry {
+  path: string;
+  target_name: string;
+  merge_strategy: string;
+  sha256: string;
+  size_bytes: number;
+}
+
+export interface StackDefinition {
+  description: string;
+  readme: string;
+  files: ManifestFileEntry[];
+}
+
+export interface Manifest {
+  schema_version: string;
+  blueprint_version: string;
+  generated_at_utc: string;
+  repository: string;
+  default_branch: string;
+  raw_base_url: string;
+  stacks: Record<string, StackDefinition>;
+  common_files: ManifestFileEntry[];
+  agent_governance_files: ManifestFileEntry[];
+}
+
+export const InspectProjectInputSchema = z.object({
+  project_path: z.string().min(1).describe("Ruta absoluta o relativa al directorio del proyecto a auditar"),
+});
+export type InspectProjectInput = z.infer<typeof InspectProjectInputSchema>;
+
+export const FetchBundleInputSchema = z.object({
+  stack: z.enum(["python", "fastapi", "node-backend", "vue3", "react-frontend", "bash-scripts"]),
+  include_common_and_agents: z.boolean().default(true).describe("Incluir archivos comunes y scripts de gobernanza .agents/"),
+});
+export type FetchBundleInput = z.infer<typeof FetchBundleInputSchema>;
+
+export const BootstrapMergeInputSchema = z.object({
+  project_path: z.string().min(1).describe("Ruta al proyecto destino"),
+  stack: z.enum(["python", "fastapi", "node-backend", "vue3", "react-frontend", "bash-scripts"]),
+  dry_run: z.boolean().default(false).describe("Si es true, no escribe en disco y solo devuelve el plan de cambios"),
+});
+export type BootstrapMergeInput = z.infer<typeof BootstrapMergeInputSchema>;
+
+export const BlastRadiusInputSchema = z.object({
+  project_path: z.string().min(1).describe("Ruta al proyecto"),
+  target_symbol: z.string().min(1).describe("Nombre del símbolo, archivo o módulo a analizar"),
+});
+export type BlastRadiusInput = z.infer<typeof BlastRadiusInputSchema>;
+
+export interface FetchedFileItem {
+  path: string;
+  target_name: string;
+  merge_strategy: string;
+  content: string;
+  sha256_verified: boolean;
+}
+
+export interface ProjectAuditResult {
+  project_path: string;
+  detected_stacks: string[];
+  has_docker_compose_qa: boolean;
+  has_makefile: boolean;
+  has_lefthook: boolean;
+  has_agents_dir: boolean;
+  has_testing_md: boolean;
+  has_changelog_md: boolean;
+  strict_flags: {
+    mypy_strict: boolean;
+    tsconfig_strict: boolean;
+    npmrc_ignore_scripts: boolean;
+  };
+  missing_11x_files: string[];
+  recommended_next_tool: string;
+}
+
+export interface MergeResultItem {
+  file: string;
+  strategy: string;
+  status: 'created' | 'merged' | 'skipped' | 'dry_run';
+  changes: string[];
+}
+
+export interface BootstrapMergeResult {
+  project_path: string;
+  stack: string;
+  dry_run: boolean;
+  summary: {
+    total_files: number;
+    created: number;
+    merged: number;
+    skipped: number;
+  };
+  applied_changes: MergeResultItem[];
+}
+
+export interface BlastRadiusResult {
+  project_path: string;
+  target_symbol: string;
+  risk_level: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  dependent_files_count: number;
+  dependent_files: string[];
+  suggested_tests_to_run: string[];
+}
+
+export interface GitHubFetcherOptions {
+  rawBaseUrl?: string;
+  cacheDir?: string;
+  localOverridePath?: string;
+}
+
+export interface MergeFilesOptions {
+  dryRun?: boolean;
+}
+
