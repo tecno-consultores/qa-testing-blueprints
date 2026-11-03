@@ -51,15 +51,107 @@ El ecosistema de `qa-testing-blueprints` está diseñado intencionalmente para s
 
 * **El Bucle Autónomo de Observabilidad:** El agente ejecuta las pruebas y evalúa el `stderr`. Si `kcov` reporta solo un 85% de cobertura, o si la IA levanta el perfil `--profile chaos` y detecta mediante peticiones al endpoint `http://localhost:9090/api/v1/query` (Prometheus) que la latencia (P99) sobrepasa los umbrales corporativos, la IA comprende la falla, reescribe el código de negocio en su propio entorno interno y vuelve a invocar la herramienta de estrés hasta lograr el estándar.
 
-## 5. Gobernanza Bimodal `.agents/` y Compuerta de 7 Pasos
+## 5. Gobernanza Bimodal `.agents/` y Compuerta de 10 Pasos
 En proyectos de grado corporativo, la IA debe seguir una directriz bimodal estricta:
 1. **Reglas en Inglés Técnico de Alta Densidad:** Las instrucciones en `.agents/rules/` y habilidades en `.agents/skills/` están optimizadas para reducir el consumo de tokens BPE (~35%) y maximizar la precisión lógica de los modelos LLM.
 2. **Documentación Humana en Español:** Todo informe, documentación en `docs/`, `CHANGELOG.md`, `ROADMAP.md` y mensajes para el usuario se redactan en español pulcro.
-3. **Compuerta de Certificación Obligatoria (`certify_task_completion.sh`):** Antes de concluir cualquier tarea que modifique código o arquitectura, la IA debe ejecutar los 7 pasos de certificación:
+3. **Compuerta de Certificación Obligatoria (`certify_task_completion.sh`):** Antes de concluir cualquier tarea que modifique código o arquitectura, la IA debe ejecutar los 10 pasos de certificación:
    - Secret Scanning (`scripts/verificar-secretos.sh`).
    - Auditoría de Infraestructura y Contenedores (`scripts/auditar-infra.sh` / Trivy).
-   - Paridad ORM y Esquemas Relacionales (`verify_alembic_orm_parity.py`).
+   - Integridad de Archivos JSON sin claves duplicadas (`verify_json_no_duplicate_keys.py`).
    - Cero Componentes UI Huérfanos (`verify_zero_orphan_vue_components.py`).
-   - Claves JSON duplicadas (`verify_json_no_duplicate_keys.py`).
+   - Cero Endpoints de API Huérfanos (`verify_no_orphan_api_endpoints.py`).
    - Salud Topológica y Aislamiento de Capas (`verify_topological_health.py`).
-   - Sincronización incondicional de documentación (`CHANGELOG.md`, `TESTING.md`, `README.md`).
+   - Paridad ORM y Esquemas Relacionales (`verify_alembic_orm_parity.py`).
+   - Sincronización Criptográfica del Manifiesto Remoto (`manifest.json`).
+   - Consistencia Interna de ROADMAP.md y ACTIVE_TASK.md (`verify_roadmap_consistency.py`).
+   - Sincronización incondicional de documentación y pruebas obligatorias (`CHANGELOG.md`, `TESTING.md`, `README.md`).
+
+---
+
+## 6. Servidor MCP Zero-Clone (`@sinfallas/mcp-qa-11x`) — 1 Comando vía `npx`
+
+El paquete oficial de Node.js **`@sinfallas/mcp-qa-11x`** permite a cualquier Agente de IA o desarrollador utilizar todo el arsenal metodológico y de validación 11X sin clonar el repositorio completo, resolviendo dependencias bajo demanda con verificación criptográfica SHA-256 (`DISA STIG V-222513`).
+
+### 6.1. Ejecución Directa en 1 Comando
+
+```bash
+# Levantar el servidor MCP directamente (comunicación stdio):
+npx -y @sinfallas/mcp-qa-11x
+
+# O instalar las Skills maestras qa-11x-architect y refactoring-ui:
+npx -y @sinfallas/mcp-qa-11x install-skill
+```
+
+### 6.2. Configuración en Clientes de IA
+
+#### A. Claude Desktop / Claude Code (`claude_desktop_config.json`)
+```json
+{
+  "mcpServers": {
+    "qa-11x": {
+      "command": "npx",
+      "args": ["-y", "@sinfallas/mcp-qa-11x"]
+    }
+  }
+}
+```
+
+#### B. Cursor IDE (`.cursor/mcp.json`)
+```json
+{
+  "mcpServers": {
+    "qa-11x": {
+      "command": "npx",
+      "args": ["-y", "@sinfallas/mcp-qa-11x"]
+    }
+  }
+}
+```
+
+#### C. Google Antigravity / Gemini CLI (`mcp_config.json`)
+```json
+{
+  "servers": {
+    "qa-11x": {
+      "command": "npx",
+      "args": ["-y", "@sinfallas/mcp-qa-11x"]
+    }
+  }
+}
+```
+
+#### D. Hermes Agent (`config.yaml`)
+```yaml
+mcp_servers:
+  qa_11x:
+    command: "npx"
+    args: ["-y", "@sinfallas/mcp-qa-11x"]
+```
+
+### 6.3. Catálogo de Recursos MCP Expuestos (`blueprint://*`)
+
+| URI del Recurso | Tipo MIME | Descripción Operativa |
+| :--- | :--- | :--- |
+| `blueprint://manifest` | `application/json` | Manifiesto criptográfico completo con hashes SHA-256 de todos los stacks y archivos. |
+| `blueprint://core/philosophy` | `text/markdown` | Prompt maestro y filosofía Level-11X (`AI_MASTER_PROMPT.md`). |
+| `blueprint://security/disa-owasp-22` | `text/markdown` | Síntesis técnica de los 22 patrones DISA ASD STIG V6R5 y OWASP Developer Guide v4.2. |
+| `blueprint://{stack}/readme` | `text/markdown` | Guía operativa y lista de archivos canónicos del stack solicitado (`fastapi`, `vue3`, etc.). |
+| `blueprint://ui/refactoring-ui/{topic}` | `text/markdown` | Pautas de diseño táctico, jerarquía visual, espaciado y contraste WCAG 2.1 AA. |
+| `blueprint://core/active-task-template`| `text/markdown` | Plantilla canónica de bitácora resiliente para agentes de IA (`ACTIVE_TASK.md.example`). |
+| `blueprint://core/cleanup-script` | `text/x-shellscript` | Script universal de saneamiento y purga segura sin sudo (`scripts/limpieza.sh`). |
+| `blueprint://core/roadmap-validator` | `text/x-python` | Script de validación de consistencia de hoja de ruta (`verify_roadmap_consistency.py`). |
+
+### 6.4. Catálogo de Herramientas MCP (`Tools`)
+
+| Herramienta | Argumentos Principales | Propósito Operativo |
+| :--- | :--- | :--- |
+| **`inspect_project_config`** | `project_path` | Audita stacks presentes (`python`, `fastapi`, `node`, `vue3`, `react`, `bash`) y configuraciones de linters/tipado. |
+| **`fetch_blueprint_bundle`** | `stack`, `include_common_and_agents` | Descarga bajo demanda todos los archivos del stack con verificación criptográfica SHA-256. |
+| **`bootstrap_or_merge_11x`** | `project_path`, `stack`, `dry_run` | Aplica una fusión quirúrgica no destructiva inyectando configuraciones QA sin alterar dependencias. |
+| **`inspect_ast_blast_radius`** | `project_path`, `target_symbol` | Analiza el radio de impacto de un símbolo en el código antes de refactorizar y sugiere pruebas. |
+| **`clean_workspace_11x`** | `project_path`, `dry_run`, `deep_prune` | Sanea artefactos temporales de pruebas y cachés de Docker (soporta modo simulación y fallback Alpine). |
+| **`audit_security_stig_owasp`**| `project_path` | Audita estáticamente 10 reglas DISA/OWASP (`SEC-01` a `SEC-10`) y ergonomía visual `UI-11X-01`. |
+| **`run_ephemeral_qa`** | `project_path`, `stage`, `timeout_seconds` | Ejecuta targets del `Makefile` en Docker efímero bajo la Regla Cero y condensa la salida a JSON. |
+| **`certify_11x_gate`** | `project_path` | Ejecuta la compuerta de certificación de cierre (secretos, JSON, componentes UI, ORM, STIG, docs). |
+

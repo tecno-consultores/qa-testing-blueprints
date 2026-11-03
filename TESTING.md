@@ -109,13 +109,26 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
 
 ### 🧠 MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x`)
 * **Imagen Base:** `sinfallas/base-node-ionic:26`
+* **Métricas 11X Certificadas:**
+  * **Sentencias (Statements):** `99.20%` ($\ge 95.0\%$)
+  * **Ramas (Branches):** `95.19%` ($\ge 95.0\%$)
+  * **Funciones (Functions):** `100.00%` ($\ge 95.0\%$)
+  * **Líneas (Lines):** `99.20%` ($\ge 95.0\%$)
+  * **Pruebas Unitarias:** 159 pruebas pasando al 100% (9 suites en `tests/*.unit.ts`)
+  * **Escenarios BDD Karate Labs:** `mcp-server/test/mcp_cli_test.feature` (5 escenarios)
+  * **Empaquetado npm:** 48.9 kB comprimido / 233.1 kB desempaquetado (0 fugas de código fuente)
 * **Comandos de Validación:**
   ```bash
   cd mcp-server
   pnpm run lint      # ESLint 8.57 + eslint-plugin-security + SonarJS (Cognitiva <= 15)
   pnpm run typecheck # tsc --noEmit (0 errores de tipado)
-  pnpm run test:unit # Vitest v8 con reporte de cobertura (>= 95%)
+  pnpm run test:unit # Vitest v8 con reporte de cobertura (>= 95% en todas las métricas)
   pnpm run build     # tsc -> emite dist/ con binario ejecutable index.js
+  make qa-all        # Pipeline completo: lint + typecheck + unit + build
+
+  # Publicación autónoma a npmjs.org (Modelo RoSGrid con credenciales en .env):
+  make publish-mcp-dry # Simulación de validación y empaquetado (--dry-run)
+  make publish-mcp     # Publicación oficial en vivo a npmjs
   ```
 
 ---

@@ -79,6 +79,37 @@ El repositorio está dividido en ecosistemas tecnológicos listos para ser adopt
 
 ---
 
+## 📦 Servidor MCP e Instalación en 1 Comando vía npm (`npx`)
+
+El ecosistema de gobernanza, herramientas y recursos 11X está empaquetado y distribuido oficialmente en npmjs bajo el paquete público **`@sinfallas/mcp-qa-11x`** (Node.js 20+), permitiendo a cualquier desarrollador o Agente de IA integrarlo al instante sin necesidad de clonar el repositorio:
+
+```bash
+# 1. Levantar el servidor MCP canónico (comunicación stdio para Antigravity, Claude, Cursor, Hermes):
+npx -y @sinfallas/mcp-qa-11x
+
+# 2. Instalar las skills maestras (qa-11x-architect y refactoring-ui) en el espacio de trabajo:
+npx -y @sinfallas/mcp-qa-11x install-skill
+
+# O instalar directamente en un cliente de IA específico:
+npx -y @sinfallas/mcp-qa-11x install-skill --target [workspace|antigravity|claude|cursor|hermes|all]
+```
+
+### Configuración en Clientes MCP (Antigravity, Claude, Cursor, Hermes):
+```json
+{
+  "mcpServers": {
+    "qa-11x": {
+      "command": "npx",
+      "args": ["-y", "@sinfallas/mcp-qa-11x"]
+    }
+  }
+}
+```
+
+Consulte la [Guía de Integración con Agentes de IA](docs/ai-integration.md) para el catálogo completo de los 8 Recursos (`blueprint://*`) y las 8 Herramientas MCP.
+
+---
+
 ## ⚡ Instalación Rápida Zero-Clone en 1 Segundo (Skills QA 11X)
 
 Para dotar a cualquier asistente o proyecto de los conocimientos y reglas 11X sin clonar el repositorio completo, ejecuta el instalador universal verificado con SHA-256:
