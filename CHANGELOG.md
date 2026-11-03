@@ -6,6 +6,16 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### 🚀 Añadido (Added)
+* **Auditor de Brechas de la Pirámide de Pruebas 11X (`audit_test_pyramid_gaps`) y Playbook de Rescate (Hito 7):**
+  * Implementada la Tool 9 en `mcp-server/src/tools/test-pyramid-auditor.ts` y registrada con su esquema Zod `AuditTestPyramidInputSchema` en `mcp-server/src/server.ts`, permitiendo a agentes de IA y desarrolladores auditar proyectos existentes (*Brownfield*) frente a las 13 capas de la pirámide de calidad 11X (`L01` a `L13`) con estados `COVERED`, `PARTIAL`, `MISSING` y `NOT_APPLICABLE`.
+  * Incorporado el inventario exhaustivo de brechas: detector de archivos fuente huérfanos sin pruebas unitarias (`orphan_source_files`), detector de endpoints API sin contrato BDD Karate Labs (`untested_api_endpoints`), y detector de vistas/páginas UI sin escenario BDD ni prueba E2E (`untested_ui_views`).
+  * Implementado el generador de plan de rescate priorizado (`prioritized_action_plan`) con acciones categorizadas en `CRITICAL`, `HIGH` y `MEDIUM`, incluyendo targets de ejecución `make qa-*` y rutas de plantillas recomendadas (`recommended_blueprint_files`).
+  * Incorporado el **Playbook 6 (Existing Project Test Gap Audit & 13-Layer Rescue)** en `.agents/skills/qa-11x-architect/SKILL.md` con flujo paso a paso de diagnóstico, estabilización y certificación progresiva.
+  * Creada la suite de pruebas unitarias `mcp-server/tests/test-pyramid-auditor.unit.ts` cubriendo los escenarios trimodales (virgen 0%, brownfield parcial y nominal 100%), alcanzando 190 pruebas unitarias con $\ge 95.18\%$ de cobertura de ramas y 99.18% de líneas en contenedor efímero `sinfallas/base-node-ionic:26`.
+  * Actualizado el contrato BDD de Karate Labs en `mcp-server/test/mcp_cli_test.feature` validando las 9 herramientas MCP.
+  * Regenerado el manifiesto criptográfico SHA-256 (`manifest.json`) con 111 archivos indexados.
+
 ### 📐 Planificado (Planned)
 * **Especificación 09 y Planificación del Hito 10 — Diagnóstico Asistido de Navegador (Playwright / Browser MCP) y PRs de Evolución Continua Zero-Trust (`propose_skill_evolution_pr`):**
   * Creación de `docs/specs/09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md` definiendo: (a) `evaluateBrowserTestingReadiness()` en `inspect_project_config` para verificar si un proyecto frontend cuenta con `@playwright/test`, `@axe-core/playwright`, `@lhci/cli`, `e2e/*.e2e.ts` y el servidor MCP de navegador (`@playwright/mcp` / `chrome-devtools`), entregando instrucciones de instalación o ofreciendo inyectarlos vía `bootstrap_or_merge_11x`; y (b) la **Tool 11 (`propose_skill_evolution_pr`)** que combina la **Opción 1 (`gh` CLI local autenticado vía `execFile`)** con la **Opción 2 (Fallback Cero-Credenciales generando archivo `.agents/proposals/<slug>.md` + URL pre-llenada de GitHub)** sin empaquetar jamás ningún token.

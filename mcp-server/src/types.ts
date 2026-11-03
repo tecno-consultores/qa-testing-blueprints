@@ -29,20 +29,30 @@ export interface Manifest {
   agent_governance_files: ManifestFileEntry[];
 }
 
+export const StackNameSchema = z.enum([
+  'python',
+  'fastapi',
+  'node-backend',
+  'vue3',
+  'react-frontend',
+  'bash-scripts',
+]);
+export type StackName = z.infer<typeof StackNameSchema>;
+
 export const InspectProjectInputSchema = z.object({
   project_path: z.string().min(1).describe("Ruta absoluta o relativa al directorio del proyecto a auditar"),
 });
 export type InspectProjectInput = z.infer<typeof InspectProjectInputSchema>;
 
 export const FetchBundleInputSchema = z.object({
-  stack: z.enum(["python", "fastapi", "node-backend", "vue3", "react-frontend", "bash-scripts"]),
+  stack: StackNameSchema,
   include_common_and_agents: z.boolean().default(true).describe("Incluir archivos comunes y scripts de gobernanza .agents/"),
 });
 export type FetchBundleInput = z.infer<typeof FetchBundleInputSchema>;
 
 export const BootstrapMergeInputSchema = z.object({
   project_path: z.string().min(1).describe("Ruta al proyecto destino"),
-  stack: z.enum(["python", "fastapi", "node-backend", "vue3", "react-frontend", "bash-scripts"]),
+  stack: StackNameSchema,
   dry_run: z.boolean().default(false).describe("Si es true, no escribe en disco y solo devuelve el plan de cambios"),
 });
 export type BootstrapMergeInput = z.infer<typeof BootstrapMergeInputSchema>;
@@ -252,4 +262,91 @@ export interface GitHubFetcherOptions {
 export interface MergeFilesOptions {
   dryRun?: boolean;
 }
+
+// ============================================================================
+// 📐 Contratos de Auditoría de Brechas de la Pirámide 11X (Hito 7)
+// ============================================================================
+
+export type PyramidLayerStatus =
+  | 'COVERED'
+  | 'PARTIAL'
+  | 'MISSING'
+  | 'NOT_APPLICABLE';
+
+export type GapPriority = 'CRITICAL' | 'HIGH' | 'MEDIUM';
+
+export interface PyramidLayerAudit {
+  layer_number: number; // 1 a 13
+  layer_id: string; // ej. "L03_UNIT_ISOLATED"
+  layer_name: string; // Nombre en español de la capa 11X
+  status: PyramidLayerStatus;
+  applicable_stacks: StackName[];
+  detected_evidence: string[]; // Archivos o scripts detectados (ej. ["tests/auth.unit.py", "Makefile:qa-unit"])
+  missing_requirements: string[]; // Qué falta para llegar a COVERED
+  recommended_blueprint_files: string[]; // Plantillas .example recomendadas del manifiesto
+  make_target: string; // ej. "make qa-unit"
+}
+
+export interface UntestedApiEndpoint {
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  path: string;
+  source_file: string;
+  line: number;
+}
+
+export interface PrioritizedTestAction {
+  step: number;
+  priority: GapPriority;
+  layer_number: number;
+  title: string;
+  action: string;
+  target_files_to_create: string[];
+  verification_command: string;
+}
+
+export interface OrphanSourceFile {
+  source_file: string;
+  expected_unit_test: string;
+  stack: StackName;
+}
+
+export interface UntestedUiView {
+  view_file: string;
+  expected_unit_test: string;
+  present_in_bdd_feature: boolean;
+  present_in_e2e_spec: boolean;
+}
+
+export interface MissingTestInventory {
+  orphan_source_files: OrphanSourceFile[];
+  untested_api_endpoints: UntestedApiEndpoint[];
+  untested_ui_views: UntestedUiView[];
+}
+
+export interface TestPyramidGapResult {
+  project_path: string;
+  detected_stacks: StackName[];
+  pyramid_score_pct: number; // Porcentaje ponderado (0 a 100%) sobre las capas aplicables
+  summary_counts: {
+    covered: number;
+    partial: number;
+    missing: number;
+    not_applicable: number;
+  };
+  layers_audit: PyramidLayerAudit[]; // Las 13 capas evaluadas
+  missing_test_inventory: MissingTestInventory;
+  prioritized_action_plan: PrioritizedTestAction[];
+}
+
+export const AuditTestPyramidInputSchema = z.object({
+  project_path: z
+    .string()
+    .min(1)
+    .describe('Ruta absoluta o relativa del proyecto existente a auditar.'),
+  stack: StackNameSchema.optional().describe(
+    'Stack específico a evaluar. Si se omite, autodetecta todos los stacks presentes en el proyecto.'
+  ),
+});
+export type AuditTestPyramidInput = z.infer<typeof AuditTestPyramidInputSchema>;
+
 

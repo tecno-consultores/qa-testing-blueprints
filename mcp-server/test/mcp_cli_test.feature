@@ -43,10 +43,10 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * match commonValid == '#[manifest.common_files.length]'
 
   # ==============================================================================
-  # Grupo 3: Contratos de Esquema de Herramientas MCP (Tools 1 a 8)
+  # Grupo 3: Contratos de Esquema de Herramientas MCP (Tools 1 a 9)
   # ==============================================================================
 
-  Scenario: 3. Definición de contratos y esquemas JSON para las 8 Herramientas MCP
+  Scenario: 3. Definición de contratos y esquemas JSON para las 9 Herramientas MCP
     * def expectedTools =
       """
       [
@@ -57,10 +57,11 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
         { name: 'clean_workspace_11x', required: ['project_path'] },
         { name: 'audit_security_stig_owasp', required: ['project_path'] },
         { name: 'run_ephemeral_qa', required: ['project_path', 'stage'] },
-        { name: 'certify_11x_gate', required: ['project_path'] }
+        { name: 'certify_11x_gate', required: ['project_path'] },
+        { name: 'audit_test_pyramid_gaps', required: ['project_path'] }
       ]
       """
-    * match expectedTools == '#[8]'
+    * match expectedTools == '#[9]'
 
   # ==============================================================================
   # Grupo 4: Contratos de Esquema de Recursos MCP (Resources 1 a 8)

@@ -38,11 +38,12 @@ The agent MUST adapt its execution strategy depending on whether the Model Conte
 ### Case A: MCP Server `qa-11x` (`@sinfallas/mcp-qa-11x`) is Available
 Execute with zero hallucination and maximum token economy:
 1. **Detect Project Stack:** Call `inspect_project_config(project_path)` to discover active frameworks, lockfiles, existing test suites, and compliance gaps.
-2. **Retrieve Fresh Blueprints:** Call `fetch_blueprint_bundle(stack, project_path)` to pull pristine `.example` templates and governance scripts verified cryptographically via SHA-256 from GitHub.
-3. **Audit Security Posture:** Call `audit_security_stig_owasp(project_path)` to perform static checks for the 22 DISA STIG V6R5 and OWASP v4.2 security controls.
-4. **Execute Tests in Docker:** Call `run_ephemeral_qa(project_path, stage)` to trigger test targets (`lint`, `unit`, `parity`, `bdd`, `mutation`, `all`) inside isolated `sinfallas/*` containers and receive token-efficient JSON summaries.
-5. **Sanitize Workspace:** Call `clean_workspace_11x(project_path, dry_run, deep_prune)` or read `blueprint://core/cleanup-script` to eradicate test artifacts, coverage caches, and Docker-generated root-owned files without requiring `sudo`.
-6. **Certify Quality Gate:** Call `certify_11x_gate(project_path)` to evaluate the 9 closure gates before concluding any task.
+2. **Audit 13-Layer Test Pyramid Gaps:** Call `audit_test_pyramid_gaps(project_path, stack)` to obtain the 11X pyramid score, orphan source files without unit tests, untested APIs/views, and a prioritized rescue plan.
+3. **Retrieve Fresh Blueprints:** Call `fetch_blueprint_bundle(stack, project_path)` to pull pristine `.example` templates and governance scripts verified cryptographically via SHA-256 from GitHub.
+4. **Audit Security Posture:** Call `audit_security_stig_owasp(project_path)` to perform static checks for the 22 DISA STIG V6R5 and OWASP v4.2 security controls.
+5. **Execute Tests in Docker:** Call `run_ephemeral_qa(project_path, stage)` to trigger test targets (`lint`, `unit`, `parity`, `bdd`, `mutation`, `all`) inside isolated `sinfallas/*` containers and receive token-efficient JSON summaries.
+6. **Sanitize Workspace:** Call `clean_workspace_11x(project_path, dry_run, deep_prune)` or read `blueprint://core/cleanup-script` to eradicate test artifacts, coverage caches, and Docker-generated root-owned files without requiring `sudo`.
+7. **Certify Quality Gate:** Call `certify_11x_gate(project_path)` to evaluate the 9 closure gates before concluding any task.
 
 ### Case B: Standalone Skill / Fallback Mode (No MCP Server)
 When operating in pure CLI, Cloud, or desktop assistants without MCP tools:
@@ -146,6 +147,17 @@ Step 3: Graphify AST Preserve ─> Purge graphify-out/cache while preserving GRA
 Step 4: Alpine Root Eviction ─> If UID 0 (root) files exist from Docker, invoke ephemeral Alpine container to rm -rf without sudo.
 Step 5: Permission Re-owning ─> Alpine container chown -R $(id -u):$(id -g) to eliminate padlocks in desktop GUI.
 Step 6: Optional Docker Prune ─> Execute docker system prune -af --volumes only when --deep or --docker-prune is requested.
+```
+
+### Playbook 6: Existing Project Test Gap Audit & 13-Layer Rescue
+```text
+Step 0: Plan Rescue ──────────> Register gap audit objectives in .agents/ACTIVE_TASK.md.
+Step 1: Inspect Config ───────> Run inspect_project_config(project_path) to verify Docker and Makefile baseline.
+Step 2: Audit 13 Layers ──────> Run audit_test_pyramid_gaps(project_path) to detect missing layers, orphan source files, untested APIs, and untested UI views.
+Step 3: User Diagnosis ───────> Present 11X pyramid score (XX%) and detailed layer matrix in Spanish.
+Step 4: Hydrate Blueprints ───> Use fetch_blueprint_bundle and bootstrap_or_merge_11x to inject missing .example templates non-destructively.
+Step 5: Prioritized Creation ─> Generate tests following prioritized_action_plan (CRITICAL -> HIGH -> MEDIUM), executing make targets in Docker (Rule Zero).
+Step 6: Gate & Closure ───────> Run certify_11x_gate, sync docs, mark ACTIVE_TASK.md COMPLETED (100%), and commit.
 ```
 
 ---

@@ -103,7 +103,7 @@ flowchart TD
         QAEng["Ingeniero de QA / Staff"]
     end
 
-    MCP -- "8 Tools + 8 Resources stdio" --> ConsumidoresIA
+    MCP -- "9 Tools + 8 Resources stdio" --> ConsumidoresIA
     Skills -- "Inyección de Cerebro 11X" --> ConsumidoresIA
     Skills -- "Instalación en workspace o IDE" --> ConsumidoresHumanos
     Blueprints -- "Makefile + Docker efímero" --> ConsumidoresHumanos
@@ -117,7 +117,7 @@ flowchart TD
 El servidor canónico MCP en Node.js/TypeScript está publicado en npmjs bajo **`@sinfallas/mcp-qa-11x`** (Node.js 20+). Permite a cualquier agente de IA o IDE conectarse en tiempo real sin clonar el repositorio, accediendo a:
 
 * **8 Recursos Dinámicos (`blueprint://*`):** Manifiesto criptográfico (`blueprint://manifest`), filosofía y prompts (`blueprint://core/philosophy`), síntesis DISA/OWASP (`blueprint://security/disa-owasp-22`), templates por stack (`blueprint://{stack}/readme`), reglas tácticas UI (`blueprint://ui/refactoring-ui/{topic}`) y utilitarios (`blueprint://core/*`).
-* **8 Herramientas Autónomas (`Tools`):**
+* **9 Herramientas Autónomas (`Tools`):**
   * `inspect_project_config`: Audita stacks presentes y configuraciones de linters/tipado.
   * `fetch_blueprint_bundle`: Descarga quirúrgica de plantillas bajo demanda con validación SHA-256.
   * `bootstrap_or_merge_11x`: Aplica fusión no destructiva integrando QA 11X en proyectos vivos.
@@ -126,6 +126,7 @@ El servidor canónico MCP en Node.js/TypeScript está publicado en npmjs bajo **
   * `audit_security_stig_owasp`: Auditoría estática de 10 reglas DISA/OWASP y ergonomía visual Anti-JSDOM.
   * `run_ephemeral_qa`: Ejecución de pruebas en Docker efímero bajo la Regla Cero con salida JSON.
   * `certify_11x_gate`: Validación de la compuerta universal de certificación de 10 etapas.
+  * `audit_test_pyramid_gaps`: Auditoría exhaustiva de las 13 capas de la pirámide 11X, detección de archivos huérfanos, endpoints sin BDD, vistas sin E2E y plan de acción priorizado.
 
 #### Ejecución Directa en 1 Comando:
 ```bash

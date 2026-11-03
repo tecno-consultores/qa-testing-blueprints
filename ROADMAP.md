@@ -21,7 +21,7 @@
 | **Hito 4** | Servidor MCP en Node.js / TS (`mcp-server/`) — Núcleo, Recursos y Tools 1–4 | [`03_SPEC_MCP_SERVER_NODE_TS_CORE_Y_TOOLS.md`](docs/specs/03_SPEC_MCP_SERVER_NODE_TS_CORE_Y_TOOLS.md) | ✅ Completado | `100%` |
 | **Hito 5** | Parsers Ahorradores de Tokens, Auditor DISA STIG / OWASP y Tools 5–7 | [`04_SPEC_MCP_PARSERS_AUDITOR_STIG_OWASP_Y_GATE.md`](docs/specs/04_SPEC_MCP_PARSERS_AUDITOR_STIG_OWASP_Y_GATE.md) | ✅ Completado | `100%` |
 | **Hito 6** | Pruebas 11X (`>= 95%`), Empaquetado npm (`npx`) y Publicación Autónoma Soberana | [`05_SPEC_PUBLICACION_NPM_Y_AUTOMATIZACION_CI.md`](docs/specs/05_SPEC_PUBLICACION_NPM_Y_AUTOMATIZACION_CI.md) | ✅ Completado | `100%` |
-| **Hito 7** | Auditor de Brechas de la Pirámide de Pruebas 11X (`audit_test_pyramid_gaps`) y Playbook de Rescate | [`06_SPEC_AUDITOR_BRECHAS_PIRAMIDE_PRUEBAS_11X.md`](docs/specs/06_SPEC_AUDITOR_BRECHAS_PIRAMIDE_PRUEBAS_11X.md) | ⏳ Pendiente | `0%` |
+| **Hito 7** | Auditor de Brechas de la Pirámide de Pruebas 11X (`audit_test_pyramid_gaps`) y Playbook de Rescate | [`06_SPEC_AUDITOR_BRECHAS_PIRAMIDE_PRUEBAS_11X.md`](docs/specs/06_SPEC_AUDITOR_BRECHAS_PIRAMIDE_PRUEBAS_11X.md) | ✅ Completado | `100%` |
 | **Hito 8** | Autodetección de Agentes en `install-skill`, Instalación de las 5 Skills + Scripts y Resiliencia CDN | [`07_SPEC_AUTODETECCION_AGENTES_CLI_Y_RESILIENCIA_CDN_NPM.md`](docs/specs/07_SPEC_AUTODETECCION_AGENTES_CLI_Y_RESILIENCIA_CDN_NPM.md) | ⏳ Pendiente | `0%` |
 | **Hito 9** | Inyector Aditivo No Destructivo del Conector `AGENTS.md` (`init-agents` / `init_or_append_agents_md`) | [`08_SPEC_CONECTOR_AGENTS_MD_THIN_REPO_Y_MIGRACION.md`](docs/specs/08_SPEC_CONECTOR_AGENTS_MD_THIN_REPO_Y_MIGRACION.md) | ⏳ Pendiente | `0%` |
 | **Hito 10** | Diagnóstico Asistido de Navegador (Playwright / Browser MCP) y PRs de Evolución Continua Zero-Trust (`propose_skill_evolution_pr`) | [`09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md`](docs/specs/09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md) | ⏳ Pendiente | `0%` |
@@ -109,16 +109,16 @@
 
 ---
 
-## ⏳ Hito 7: Auditor de Brechas de la Pirámide de Pruebas 11X (`audit_test_pyramid_gaps`) y Playbook de Rescate
+## ✅ Hito 7: Auditor de Brechas de la Pirámide de Pruebas 11X (`audit_test_pyramid_gaps`) y Playbook de Rescate
 **Referencia Obligatoria:** [`docs/specs/06_SPEC_AUDITOR_BRECHAS_PIRAMIDE_PRUEBAS_11X.md`](docs/specs/06_SPEC_AUDITOR_BRECHAS_PIRAMIDE_PRUEBAS_11X.md)
 
 ### Tareas de Implementación:
-- [ ] **7.1.** Definir en `mcp-server/src/types.ts` los contratos `PyramidLayerStatus`, `PyramidLayerAudit`, `UntestedApiEndpoint`, `PrioritizedTestAction` y `TestPyramidGapResult`.
-- [ ] **7.2.** Implementar `mcp-server/src/tools/test-pyramid-auditor.ts` (`auditTestPyramidGaps`) con la matriz de evaluación de las 13 capas de la pirámide 11X (`L01` a `L13`), el detector de archivos fuente sin prueba unitaria (`orphan_source_files`), el detector de endpoints API sin escenario BDD en Karate Labs (`untested_api_endpoints`), el detector de vistas UI sin escenario BDD/E2E (`untested_ui_views`) y el generador de `prioritized_action_plan`.
-- [ ] **7.3.** Registrar la Tool 9 (`audit_test_pyramid_gaps`) con su esquema Zod (`AuditTestPyramidInputSchema`) en `mcp-server/src/server.ts`.
-- [ ] **7.4.** Incorporar el **Playbook 6 (Existing Project Test Gap Audit & 13-Layer Rescue)** en `.agents/skills/qa-11x-architect/SKILL.md` y sincronizar `manifest.json` con `python3 scripts/generar-manifiesto.py`.
-- [ ] **7.5.** Crear la suite de pruebas unitarias `mcp-server/tests/test-pyramid-auditor.unit.ts` (cubriendo los escenarios trimodales: proyecto virgen 0%, proyecto brownfield parcial y proyecto 11X al 100%, manteniendo cobertura global $\ge 95.0\%$) y actualizar `mcp-server/test/mcp_cli_test.feature`.
-- [ ] **7.6.** Actualizar `README.md`, `TESTING.md`, `docs/ai-integration.md` y `CHANGELOG.md` documentando la 9.ª herramienta del servidor MCP (`audit_test_pyramid_gaps`) y certificar con `./.agents/scripts/certify_task_completion.sh`.
+- [x] **7.1.** Definir en `mcp-server/src/types.ts` los contratos `PyramidLayerStatus`, `PyramidLayerAudit`, `UntestedApiEndpoint`, `PrioritizedTestAction` y `TestPyramidGapResult`.
+- [x] **7.2.** Implementar `mcp-server/src/tools/test-pyramid-auditor.ts` (`auditTestPyramidGaps`) con la matriz de evaluación de las 13 capas de la pirámide 11X (`L01` a `L13`), el detector de archivos fuente sin prueba unitaria (`orphan_source_files`), el detector de endpoints API sin escenario BDD en Karate Labs (`untested_api_endpoints`), el detector de vistas UI sin escenario BDD/E2E (`untested_ui_views`) y el generador de `prioritized_action_plan`.
+- [x] **7.3.** Registrar la Tool 9 (`audit_test_pyramid_gaps`) con su esquema Zod (`AuditTestPyramidInputSchema`) en `mcp-server/src/server.ts`.
+- [x] **7.4.** Incorporar el **Playbook 6 (Existing Project Test Gap Audit & 13-Layer Rescue)** en `.agents/skills/qa-11x-architect/SKILL.md` y sincronizar `manifest.json` con `python3 scripts/generar-manifiesto.py`.
+- [x] **7.5.** Crear la suite de pruebas unitarias `mcp-server/tests/test-pyramid-auditor.unit.ts` (cubriendo los escenarios trimodales: proyecto virgen 0%, proyecto brownfield parcial y proyecto 11X al 100%, manteniendo cobertura global $\ge 95.0\%$) y actualizar `mcp-server/test/mcp_cli_test.feature`.
+- [x] **7.6.** Actualizar `README.md`, `TESTING.md`, `docs/ai-integration.md` y `CHANGELOG.md` documentando la 9.ª herramienta del servidor MCP (`audit_test_pyramid_gaps`) y certificar con `./.agents/scripts/certify_task_completion.sh`.
 
 ---
 

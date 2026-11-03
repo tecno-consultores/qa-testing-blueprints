@@ -786,6 +786,12 @@ describe('Tools and Resources Integration Suite', () => {
       expect(toolCert).toBeDefined();
       const certToolRes = await toolCert.handler({ project_path: targetProjectDir });
       expect(certToolRes.content[0].text).toContain('"gate_passed"');
+
+      // 16. Ejecutar tool: audit_test_pyramid_gaps
+      const toolPyramid = serverAny._registeredTools['audit_test_pyramid_gaps'];
+      expect(toolPyramid).toBeDefined();
+      const pyramidToolRes = await toolPyramid.handler({ project_path: targetProjectDir });
+      expect(pyramidToolRes.content[0].text).toContain('"pyramid_score_pct"');
     });
   });
 });

@@ -110,11 +110,12 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
 ### 🧠 MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x`)
 * **Imagen Base:** `sinfallas/base-node-ionic:26`
 * **Métricas 11X Certificadas:**
-  * **Sentencias (Statements):** `99.20%` ($\ge 95.0\%$)
-  * **Ramas (Branches):** `95.19%` ($\ge 95.0\%$)
+  * **Sentencias (Statements):** `99.18%` ($\ge 95.0\%$)
+  * **Ramas (Branches):** `95.18%` ($\ge 95.0\%$)
   * **Funciones (Functions):** `100.00%` ($\ge 95.0\%$)
-  * **Líneas (Lines):** `99.20%` ($\ge 95.0\%$)
-  * **Pruebas Unitarias:** 159 pruebas pasando al 100% (9 suites en `tests/*.unit.ts`)
+  * **Líneas (Lines):** `99.18%` ($\ge 95.0\%$)
+  * **Pruebas Unitarias:** 190 pruebas pasando al 100% (10 suites en `tests/*.unit.ts`)
+  * **Herramientas MCP:** 9 herramientas canónicas (`inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`, `clean_workspace_11x`, `audit_security_stig_owasp`, `run_ephemeral_qa`, `certify_11x_gate`, `audit_test_pyramid_gaps`)
   * **Escenarios BDD Karate Labs:** `mcp-server/test/mcp_cli_test.feature` (5 escenarios)
   * **Empaquetado npm:** 48.9 kB comprimido / 233.1 kB desempaquetado (0 fugas de código fuente)
 * **Comandos de Validación:**
@@ -189,24 +190,26 @@ El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
 * **Servidor MCP e Instalador de Skills Node.js / TypeScript (`mcp-server/`):**
   * **Suites de Pruebas Unitarias:**
     * `tests/github-fetcher.unit.ts` (18 pruebas): Hidratación remota, validación condicional `ETag` (304), verificación SHA-256 (`DISA STIG V-222513`), detección de tampering, fallback offline y local path override.
-    * `tests/surgical-merger.unit.ts` (13 pruebas): Fusión quirúrgica no destructiva de `package.json`, `pyproject.toml`, `Makefile`, `.gitignore` y `.npmrc`, asignación de permisos `0o755` a scripts y modo `dryRun`.
+    * `tests/surgical-merger.unit.ts` (15 pruebas): Fusión quirúrgica no destructiva de `package.json`, `pyproject.toml`, `Makefile`, `.gitignore` y `.npmrc`, inyección de `--max-warnings 0`, asignación de permisos `0o755` a scripts y modo `dryRun`.
     * `tests/inspect-project.unit.ts` (7 pruebas): Detección automática de stacks (`python`, `fastapi`, `vue3`, `react-frontend`, `node-backend`, `bash-scripts`), banderas estrictas (`mypy`, `tsconfig`, `npmrc`) y archivos 11X ausentes.
-    * `tests/tools-and-resources.unit.ts` (34 pruebas): Recursos `blueprint://*` (incluyendo `blueprint://core/active-task-template`, `blueprint://core/cleanup-script` y `blueprint://core/roadmap-validator`), herramientas 1 a 8 (`inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`, `clean_workspace_11x`, `audit_security_stig_owasp`, `run_ephemeral_qa`, `certify_11x_gate`), CLI `install-skill` multi-entorno y servidor `McpServer`.
+    * `tests/tools-and-resources.unit.ts` (34 pruebas): Recursos `blueprint://*` (incluyendo `blueprint://core/active-task-template`, `blueprint://core/cleanup-script` y `blueprint://core/roadmap-validator`), herramientas 1 a 9 (`inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`, `clean_workspace_11x`, `audit_security_stig_owasp`, `run_ephemeral_qa`, `certify_11x_gate`, `audit_test_pyramid_gaps`), CLI `install-skill` multi-entorno y servidor `McpServer`.
     * `tests/output-parsers.unit.ts` (26 pruebas): Parsers ahorradores de tokens para cobertura (Pytest, Vitest v8, Kcov), pruebas fallidas (Pytest, Vitest, BATS), linters y complejidad (Radon, Mypy, Ruff, ESLint, ShellCheck multi-línea/GCC), alertas de seguridad (Trivy, Bandit), mutación (Mutmut, Stryker), `tail_log` y condensación `parseQaOutput`.
     * `tests/security-auditor.unit.ts` (13 pruebas): Auditoría estática de seguridad DISA ASD STIG V6R5 + OWASP v4.2 con reglas `SEC-01` a `SEC-10` y `UI-11X-01` (Mass Assignment, Anti-CSWSH, Command Injection, XXE, Unicode NFKC, XSS/v-html, Swagger en prod, Cabeceras OSHP, Zero-Trust NPM, Detección de Secretos y Geometría Visual Anti-JSDOM).
     * `tests/ephemeral-runner.unit.ts` (5 pruebas): Ejecución de targets `qa-${stage}` en Docker efímero bajo Rule Zero con `execFile` seguro (`shell: false`), control de timeouts (código 124) y gestión de Makefile ausente.
     * `tests/certify-gate.unit.ts` (10 pruebas): Compuerta unificada de certificación 11X verificando archivos `.example`, secret scanning, colisiones JSON, componentes huérfanos UI, paridad ORM vs Alembic, auditoría DISA/OWASP y sincronización documental (`TESTING.md` y `CHANGELOG.md`).
+    * `tests/test-pyramid-auditor.unit.ts` (29 pruebas): Auditoría estática de las 13 capas de la pirámide 11X (`L01` a `L13`), evaluación trimodal (virgen 0%, brownfield parcial, nominal 100%), inventario de brechas (`orphan_source_files`, `untested_api_endpoints`, `untested_ui_views`) y generación de planes de acción priorizados con targets `make qa-*` y blueprints recomendados.
+    * `tests/edge-cases.unit.ts` (33 pruebas): Cobertura profunda de casos de borde y ramas extremas en servicios y herramientas.
   * **Ejecución Efímera:**
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run lint`
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run typecheck`
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run test:unit`
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run build`
   * **Cobertura y Métricas Alcanzadas:**
-    * **100% de aserciones aprobadas** (126/126 pruebas pasando en 8 suites).
-    * **97.79% de cobertura de líneas y sentencias** (superando el umbral de $\ge 95\%$).
-    * **91.23% de cobertura de ramas** (superando el umbral de $\ge 90\%$).
-    * **99.10% de cobertura de funciones**.
-    * **0 errores de ESLint, SonarJS (Cognitiva $\le 15$) y TypeScript (`strict: true`)**.
+    * **100% de aserciones aprobadas** (190/190 pruebas pasando en 10 suites).
+    * **99.18% de cobertura de líneas y sentencias** (superando el umbral de $\ge 95\%$).
+    * **95.18% de cobertura de ramas** (superando el umbral de $\ge 95\%$).
+    * **100.00% de cobertura de funciones**.
+    * **0 errores de ESLint (`--max-warnings 0`), SonarJS (Cognitiva $\le 15$) y TypeScript (`strict: true`)**.
 
 * **Script Universal de Limpieza y Saneamiento (`scripts/limpieza.sh`):**
   * **Validación de Calidad de Scripts:** ShellCheck en contenedor efímero `koalaman/shellcheck:stable` certificando **0 errores y 0 advertencias** (código de salida 0) en `scripts/limpieza.sh` y en los 6 scripts por stack (`fastapi/`, `vue3/`, `react-frontend/`, `node-backend/`, `python/`, `bash-scripts/`).

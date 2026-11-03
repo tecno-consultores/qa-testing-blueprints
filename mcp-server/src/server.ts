@@ -13,6 +13,7 @@ import { cleanWorkspace11x } from './tools/clean-workspace.js';
 import { auditSecurityStigOwasp } from './tools/security-auditor.js';
 import { runEphemeralQa } from './tools/ephemeral-runner.js';
 import { certify11xGate } from './tools/certify-gate.js';
+import { auditTestPyramidGaps } from './tools/test-pyramid-auditor.js';
 import {
   InspectProjectInputSchema,
   FetchBundleInputSchema,
@@ -22,6 +23,7 @@ import {
   AuditSecurityInputSchema,
   RunEphemeralQaInputSchema,
   CertifyGateInputSchema,
+  AuditTestPyramidInputSchema,
 } from './types.js';
 
 export function createMcpServer(options?: {
@@ -370,6 +372,24 @@ export function createMcpServer(options?: {
     CertifyGateInputSchema.shape,
     async (args) => {
       const result = await certify11xGate(args.project_path);
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  // Tool 9: audit_test_pyramid_gaps
+  server.tool(
+    'audit_test_pyramid_gaps',
+    'Audita un proyecto existente frente a las 13 capas de la pirámide 11X, identificando capas faltantes, archivos sin tests unitarios, endpoints sin escenarios Karate API, vistas sin BDD/E2E y un plan de rescate priorizado.',
+    AuditTestPyramidInputSchema.shape,
+    async (args) => {
+      const result = await auditTestPyramidGaps(args.project_path, args.stack);
       return {
         content: [
           {
