@@ -972,6 +972,19 @@ describe('Tools and Resources Integration Suite', () => {
       });
       expect(initAgentsRes.content[0].text).toContain('"action": "dry_run"');
       expect(initAgentsRes.content[0].text).toContain('<!-- QA_11X_MCP_CONNECTOR_START -->');
+
+      // 18. Ejecutar tool: propose_skill_evolution_pr
+      const toolPropose = serverAny._registeredTools['propose_skill_evolution_pr'];
+      expect(toolPropose).toBeDefined();
+      const proposeRes = await toolPropose.handler({
+        project_path: targetProjectDir,
+        target_blueprint_file: '.agents/skills/qa-11x-architect/SKILL.md',
+        improvement_title: 'Prueba de Integracion en Server',
+        empirical_rationale: 'Prueba de ejecucion desde handler registrado en server',
+        proposed_content_or_snippet: '### Snippet Test',
+        prefer_offline_fallback: true,
+      });
+      expect(proposeRes.content[0].text).toContain('"status": "PROPOSAL_FILE_AND_URL_GENERATED"');
     });
   });
 });

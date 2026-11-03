@@ -118,6 +118,16 @@ export interface FetchedFileItem {
   sha256_verified: boolean;
 }
 
+export interface BrowserTestingReadiness {
+  applicable: boolean; // true si detected_stacks incluye 'vue3' o 'react-frontend'
+  playwright_test_installed: boolean; // '@playwright/test' en package.json
+  axe_core_playwright_installed: boolean; // '@axe-core/playwright' en package.json
+  lhci_cli_installed: boolean; // '@lhci/cli' en package.json
+  e2e_spec_present: boolean; // existe e2e/accessibility.e2e.ts o e2e/*.e2e.ts
+  browser_mcp_configured_in_ide: boolean; // detectado @playwright/mcp o chrome-devtools en config del IDE
+  install_instructions: string[]; // Comandos claros o invocación de bootstrap_or_merge_11x
+}
+
 export interface ProjectAuditResult {
   project_path: string;
   detected_stacks: string[];
@@ -134,6 +144,7 @@ export interface ProjectAuditResult {
   };
   missing_11x_files: string[];
   recommended_next_tool: string;
+  browser_testing_readiness?: BrowserTestingReadiness;
 }
 
 export interface MergeResultItem {
@@ -379,6 +390,53 @@ export const InitAgentsMdInputSchema = z.object({
     .describe('Si es true, no escribe en disco y solo devuelve el contenido resultante.'),
 });
 export type InitAgentsMdInput = z.infer<typeof InitAgentsMdInputSchema>;
+
+// ============================================================================
+// 🚀 Contratos de Evolución Continua y Pull Requests Zero-Trust (Hito 10)
+// ============================================================================
+
+export const ProposeEvolutionPrInputSchema = z.object({
+  project_path: z
+    .string()
+    .min(1)
+    .describe('Ruta absoluta del proyecto donde se descubrió la mejora.'),
+  target_blueprint_file: z
+    .string()
+    .min(1)
+    .describe(
+      'Ruta relativa en qa-testing-blueprints a mejorar (ej. ".agents/skills/qa-11x-architect/SKILL.md").'
+    ),
+  improvement_title: z
+    .string()
+    .min(5)
+    .describe('Título conciso en español de la mejora propuesta para el PR.'),
+  empirical_rationale: z
+    .string()
+    .min(10)
+    .describe('Explicación técnica en español del caso borde o mejora descubierta en producción.'),
+  proposed_content_or_snippet: z
+    .string()
+    .min(10)
+    .describe('Contenido o bloque Markdown/código propuesto para incorporar en la skill o plantilla.'),
+  prefer_offline_fallback: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe('Si es true, omite gh CLI y genera directamente el archivo de propuesta + URL pre-llenada.'),
+});
+export type ProposeEvolutionPrInput = z.infer<typeof ProposeEvolutionPrInputSchema>;
+
+export interface ProposeEvolutionPrResult {
+  status: 'PR_CREATED_VIA_GH' | 'PROPOSAL_FILE_AND_URL_GENERATED';
+  target_repo: string;
+  target_blueprint_file: string;
+  branch_name: string;
+  gh_cli_authenticated: boolean;
+  pull_request_url: string | null;
+  prefilled_github_url: string;
+  local_proposal_file: string;
+  message: string;
+}
 
 
 

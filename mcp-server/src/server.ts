@@ -15,6 +15,7 @@ import { runEphemeralQa } from './tools/ephemeral-runner.js';
 import { certify11xGate } from './tools/certify-gate.js';
 import { auditTestPyramidGaps } from './tools/test-pyramid-auditor.js';
 import { initOrAppendAgentsMd } from './cli/init-agents-md.js';
+import { proposeSkillEvolutionPr } from './tools/propose-evolution-pr.js';
 import {
   InspectProjectInputSchema,
   FetchBundleInputSchema,
@@ -26,6 +27,7 @@ import {
   CertifyGateInputSchema,
   AuditTestPyramidInputSchema,
   InitAgentsMdInputSchema,
+  ProposeEvolutionPrInputSchema,
 } from './types.js';
 
 export function createMcpServer(options?: {
@@ -413,6 +415,24 @@ export function createMcpServer(options?: {
         projectPath: args.project_path,
         dryRun: Boolean(args.dry_run),
       });
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  // Tool 11: propose_skill_evolution_pr
+  server.tool(
+    'propose_skill_evolution_pr',
+    'Propone una mejora o caso borde a qa-testing-blueprints creando un PR vía gh CLI local autenticado o generando un archivo de propuesta local y URL prellenada de GitHub (Zero-Trust, 0 tokens empaquetados).',
+    ProposeEvolutionPrInputSchema.shape,
+    async (args) => {
+      const result = await proposeSkillEvolutionPr(args);
       return {
         content: [
           {

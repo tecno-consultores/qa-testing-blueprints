@@ -24,7 +24,7 @@
 | **Hito 7** | Auditor de Brechas de la Pirámide de Pruebas 11X (`audit_test_pyramid_gaps`) y Playbook de Rescate | [`06_SPEC_AUDITOR_BRECHAS_PIRAMIDE_PRUEBAS_11X.md`](docs/specs/06_SPEC_AUDITOR_BRECHAS_PIRAMIDE_PRUEBAS_11X.md) | ✅ Completado | `100%` |
 | **Hito 8** | Autodetección de Agentes en `install-skill`, Instalación de las 5 Skills + Scripts y Resiliencia CDN | [`07_SPEC_AUTODETECCION_AGENTES_CLI_Y_RESILIENCIA_CDN_NPM.md`](docs/specs/07_SPEC_AUTODETECCION_AGENTES_CLI_Y_RESILIENCIA_CDN_NPM.md) | ✅ Completado | `100%` |
 | **Hito 9** | Inyector Aditivo No Destructivo del Conector `AGENTS.md` (`init-agents` / `init_or_append_agents_md`) | [`08_SPEC_CONECTOR_AGENTS_MD_THIN_REPO_Y_MIGRACION.md`](docs/specs/08_SPEC_CONECTOR_AGENTS_MD_THIN_REPO_Y_MIGRACION.md) | ✅ Completado | `100%` |
-| **Hito 10** | Diagnóstico Asistido de Navegador (Playwright / Browser MCP) y PRs de Evolución Continua Zero-Trust (`propose_skill_evolution_pr`) | [`09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md`](docs/specs/09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md) | ⏳ Pendiente | `0%` |
+| **Hito 10** | Diagnóstico Asistido de Navegador (Playwright / Browser MCP) y PRs de Evolución Continua Zero-Trust (`propose_skill_evolution_pr`) | [`09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md`](docs/specs/09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md) | ✅ Completado | `100%` |
 | **Hito 11** | Blueprint Oficial PHP 8.1–8.5 (`sinfallas/basephpcomposer`) e Integración en Servidor MCP | [`10_SPEC_ECOSISTEMA_PHP_8_Y_HERRAMIENTAS_MCP.md`](docs/specs/10_SPEC_ECOSISTEMA_PHP_8_Y_HERRAMIENTAS_MCP.md) | ⏳ Pendiente | `0%` |
 
 ---
@@ -149,16 +149,16 @@
 
 ---
 
-## ⏳ Hito 10: Diagnóstico Asistido de Navegador (Playwright / Browser MCP) y PRs de Evolución Continua Zero-Trust (`propose_skill_evolution_pr`)
+## ✅ Hito 10: Diagnóstico Asistido de Navegador (Playwright / Browser MCP) y PRs de Evolución Continua Zero-Trust (`propose_skill_evolution_pr`)
 **Referencia Obligatoria:** [`docs/specs/09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md`](docs/specs/09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md)
 
 ### Tareas de Implementación:
-- [ ] **10.1.** Añadir la interfaz `BrowserTestingReadiness` en `mcp-server/src/types.ts` e implementar `evaluateBrowserTestingReadiness()` en `mcp-server/src/tools/inspect-project.ts` para detectar en proyectos frontend (`vue3`, `react-frontend`) si están instalados `@playwright/test`, `@axe-core/playwright`, `@lhci/cli`, `e2e/*.e2e.ts` y si el IDE del usuario tiene configurado el servidor MCP de navegador (`@playwright/mcp` / `chrome-devtools`), entregando instrucciones de instalación o inyección vía `bootstrap_or_merge_11x`.
-- [ ] **10.2.** Implementar `mcp-server/src/tools/propose-evolution-pr.ts` (`proposeSkillEvolutionPr`) combinando la **Opción 1 (`gh` CLI local autenticado vía `execFile` con `shell: false`)** y la **Opción 2 (Fallback Cero-Credenciales generando archivo `.agents/proposals/<slug>.md` + URL pre-llenada de GitHub)** sin empaquetar jamás ningún token.
-- [ ] **10.3.** Registrar la Tool 11 (`propose_skill_evolution_pr`) con su esquema Zod (`ProposeEvolutionPrInputSchema`) en `mcp-server/src/server.ts`.
-- [ ] **10.4.** Incorporar el **Playbook 7 (Continuous Skill Evolution & Upstream PR Proposal)** y las reglas de verificación de `browser_testing_readiness` en `.agents/skills/qa-11x-architect/SKILL.md` y regenerar `manifest.json` con `python3 scripts/generar-manifiesto.py`.
-- [ ] **10.5.** Crear la suite de pruebas unitarias `mcp-server/tests/propose-evolution-pr.unit.ts` y ampliar `mcp-server/tests/tools-and-resources.unit.ts` para `browser_testing_readiness` (manteniendo cobertura global $\ge 95.0\%$ y `0` warnings en ESLint/SonarJS), actualizando `mcp-server/test/mcp_cli_test.feature`.
-- [ ] **10.6.** Actualizar `README.md`, `TESTING.md`, `docs/ai-integration.md` y `CHANGELOG.md`, y ejecutar la compuerta de cierre `./.agents/scripts/certify_task_completion.sh`.
+- [x] **10.1.** Añadir la interfaz `BrowserTestingReadiness` en `mcp-server/src/types.ts` e implementar `evaluateBrowserTestingReadiness()` en `mcp-server/src/tools/inspect-project.ts` para detectar en proyectos frontend (`vue3`, `react-frontend`) si están instalados `@playwright/test`, `@axe-core/playwright`, `@lhci/cli`, `e2e/*.e2e.ts` y si el IDE del usuario tiene configurado el servidor MCP de navegador (`@playwright/mcp` / `chrome-devtools`), entregando instrucciones de instalación o inyección vía `bootstrap_or_merge_11x`.
+- [x] **10.2.** Implementar `mcp-server/src/tools/propose-evolution-pr.ts` (`proposeSkillEvolutionPr`) combinando la **Opción 1 (`gh` CLI local autenticado vía `execFile` con `shell: false`)** y la **Opción 2 (Fallback Cero-Credenciales generando archivo `.agents/proposals/<slug>.md` + URL pre-llenada de GitHub)** sin empaquetar jamás ningún token.
+- [x] **10.3.** Registrar la Tool 11 (`propose_skill_evolution_pr`) con su esquema Zod (`ProposeEvolutionPrInputSchema`) en `mcp-server/src/server.ts`.
+- [x] **10.4.** Incorporar el **Playbook 7 (Continuous Skill Evolution & Upstream PR Proposal)** y las reglas de verificación de `browser_testing_readiness` en `.agents/skills/qa-11x-architect/SKILL.md` y regenerar `manifest.json` con `python3 scripts/generar-manifiesto.py`.
+- [x] **10.5.** Crear la suite de pruebas unitarias `mcp-server/tests/propose-evolution-pr.unit.ts` y ampliar `mcp-server/tests/tools-and-resources.unit.ts` para `browser_testing_readiness` (manteniendo cobertura global $\ge 95.0\%$ y `0` warnings en ESLint/SonarJS), actualizando `mcp-server/test/mcp_cli_test.feature`.
+- [x] **10.6.** Actualizar `README.md`, `TESTING.md`, `docs/ai-integration.md` y `CHANGELOG.md`, y ejecutar la compuerta de cierre `./.agents/scripts/certify_task_completion.sh`.
 
 ---
 

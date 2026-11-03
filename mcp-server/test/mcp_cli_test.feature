@@ -43,10 +43,10 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * match commonValid == '#[manifest.common_files.length]'
 
   # ==============================================================================
-  # Grupo 3: Contratos de Esquema de Herramientas MCP (Tools 1 a 10)
+  # Grupo 3: Contratos de Esquema de Herramientas MCP (Tools 1 a 11)
   # ==============================================================================
 
-  Scenario: 3. Definición de contratos y esquemas JSON para las 10 Herramientas MCP
+  Scenario: 3. Definición de contratos y esquemas JSON para las 11 Herramientas MCP
     * def expectedTools =
       """
       [
@@ -59,10 +59,11 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
         { name: 'run_ephemeral_qa', required: ['project_path', 'stage'] },
         { name: 'certify_11x_gate', required: ['project_path'] },
         { name: 'audit_test_pyramid_gaps', required: ['project_path'] },
-        { name: 'init_or_append_agents_md', required: ['project_path'] }
+        { name: 'init_or_append_agents_md', required: ['project_path'] },
+        { name: 'propose_skill_evolution_pr', required: ['project_path', 'target_blueprint_file', 'improvement_title', 'empirical_rationale', 'proposed_content_or_snippet'] }
       ]
       """
-    * match expectedTools == '#[10]'
+    * match expectedTools == '#[11]'
 
   # ==============================================================================
   # Grupo 4: Contratos de Esquema de Recursos MCP (Resources 1 a 8)
@@ -142,4 +143,29 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def initAgentsCliFlags = ['--project-path', '-p', '--dry-run']
     * match initAgentsCliFlags contains '--dry-run'
     * match initAgentsCliFlags contains '--project-path'
+
+  # ==============================================================================
+  # Grupo 8: Contrato MCP para propose_skill_evolution_pr (Evolución Continua Zero-Trust)
+  # ==============================================================================
+
+  Scenario: 8. La herramienta propose_skill_evolution_pr garantiza Zero-Trust y soporte dual gh CLI / Fallback URL
+    * def evolutionStatuses = ['PR_CREATED_VIA_GH', 'PROPOSAL_FILE_AND_URL_GENERATED']
+    * match evolutionStatuses contains 'PR_CREATED_VIA_GH'
+    * match evolutionStatuses contains 'PROPOSAL_FILE_AND_URL_GENERATED'
+    * def proposalTemplate =
+      """
+      {
+        status: 'PROPOSAL_FILE_AND_URL_GENERATED',
+        target_repo: 'tecno-consultores/qa-testing-blueprints',
+        target_blueprint_file: '.agents/skills/qa-11x-architect/SKILL.md',
+        branch_name: 'evolution/skill-improvement',
+        gh_cli_authenticated: false,
+        pull_request_url: null,
+        prefilled_github_url: 'https://github.com/tecno-consultores/qa-testing-blueprints/issues/new?title=test',
+        local_proposal_file: '.agents/proposals/skill-improvement.md',
+        message: 'ok'
+      }
+      """
+    * match proposalTemplate.target_repo == 'tecno-consultores/qa-testing-blueprints'
+
 

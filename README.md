@@ -119,8 +119,8 @@ flowchart TD
 El servidor canónico MCP en Node.js/TypeScript está publicado en npmjs bajo **`@sinfallas/mcp-qa-11x`** (Node.js 20+). Permite a cualquier agente de IA o IDE conectarse en tiempo real sin clonar el repositorio, accediendo a:
 
 * **8 Recursos Dinámicos (`blueprint://*`):** Manifiesto criptográfico (`blueprint://manifest`), filosofía y prompts (`blueprint://core/philosophy`), síntesis DISA/OWASP (`blueprint://security/disa-owasp-22`), templates por stack (`blueprint://{stack}/readme`), reglas tácticas UI (`blueprint://ui/refactoring-ui/{topic}`) y utilitarios (`blueprint://core/*`).
-* **10 Herramientas Autónomas (`Tools`):**
-  * `inspect_project_config`: Audita stacks presentes y configuraciones de linters/tipado.
+* **11 Herramientas Autónomas (`Tools`):**
+  * `inspect_project_config`: Audita stacks presentes, configuraciones de linters/tipado y disponibilidad de pruebas en navegador real (`BrowserTestingReadiness`).
   * `fetch_blueprint_bundle`: Descarga quirúrgica de plantillas bajo demanda con validación SHA-256.
   * `bootstrap_or_merge_11x`: Aplica fusión no destructiva integrando QA 11X en proyectos vivos.
   * `inspect_ast_blast_radius`: Análisis AST de radio de impacto previo a refactorizaciones.
@@ -130,6 +130,7 @@ El servidor canónico MCP en Node.js/TypeScript está publicado en npmjs bajo **
   * `certify_11x_gate`: Validación de la compuerta universal de certificación de 10 etapas.
   * `audit_test_pyramid_gaps`: Auditoría exhaustiva de las 13 capas de la pirámide 11X, detección de archivos huérfanos, endpoints sin BDD, vistas sin E2E y plan de acción priorizado.
   * `init_or_append_agents_md`: Crea `AGENTS.md` o inyecta de forma aditiva y no destructiva el bloque conector de QA 11X al final de un `AGENTS.md` existente sin modificar reglas previas.
+  * `propose_skill_evolution_pr`: Propone mejoras federadas a `qa-testing-blueprints` mediante `gh` CLI local autenticado o generando un archivo de propuesta local y URL prellenada de GitHub (Zero-Trust, 0 tokens empaquetados).
 
 #### Ejecución Directa en 1 Comando:
 ```bash

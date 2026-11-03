@@ -45,6 +45,7 @@ Execute with zero hallucination and maximum token economy:
 6. **Sanitize Workspace:** Call `clean_workspace_11x(project_path, dry_run, deep_prune)` or read `blueprint://core/cleanup-script` to eradicate test artifacts, coverage caches, and Docker-generated root-owned files without requiring `sudo`.
 7. **Certify Quality Gate:** Call `certify_11x_gate(project_path)` to evaluate the 9 closure gates before concluding any task.
 8. **Inject or Append AGENTS.md Connector:** Call `init_or_append_agents_md(project_path, dry_run)` or execute `npx -y @sinfallas/mcp-qa-11x init-agents` (or `install-skill --init-agents`) to create or non-destructively append the canonical QA 11X MCP & Skill connector block to `AGENTS.md` preserving 100% of existing user instructions.
+9. **Propose Continuous Skill Evolution:** Call `propose_skill_evolution_pr(project_path, target_blueprint_file, improvement_title, empirical_rationale, proposed_content_or_snippet, prefer_offline_fallback)` to contribute real-world improvements, edge-case fixes, and template optimizations back to `tecno-consultores/qa-testing-blueprints` via local `gh` CLI or zero-credential proposal file + prefilled GitHub URL.
 
 ### Case B: Standalone Skill / Fallback Mode (No MCP Server)
 When operating in pure CLI, Cloud, or desktop assistants without MCP tools:
@@ -103,7 +104,7 @@ When operating in pure CLI, Cloud, or desktop assistants without MCP tools:
 ### Playbook 1: Project Bootstrap & Surgical Merge
 ```text
 Step 0: Plan & Active Task ──> Formulate execution plan via /plan; bootstrap .agents/ACTIVE_TASK.md.
-Step 1: Inspect Project ──────> Identify language, framework, package manager.
+Step 1: Inspect Project ──────> Identify language, framework, package manager, and browser_testing_readiness in frontend stacks (vue3/react-frontend).
 Step 2: Hydrate Blueprint ────> Download stack bundle + common_files via manifest.json.
 Step 3: Surgical Merge ───────> Merge Makefile, pyproject.toml / package.json, .gitignore.
 Step 4: Copy QA Assets ───────> docker-compose.qa.yml, .trivy.yaml, commitlint.config.js, lefthook.yml.
@@ -117,7 +118,7 @@ Step 0: Update Active Task ──> Register failing lines and target test suites
 Step 1: Identify Gaps ────────> Run `make qa-unit` to obtain missing line/branch report.
 Step 2: Unit Testing ─────────> Author isolated `.unit.py` / `.unit.ts` tests covering edge branches and errors.
 Step 3: Database Parity ──────> Ensure ORM models match migrations; run `verify_alembic_orm_parity.py`.
-Step 4: BDD Scenarios ────────> Write declarative Gherkin in `api_test.feature` or `ui_business_flow.feature`.
+Step 4: BDD & E2E Scenarios ──> Write declarative Gherkin in api_test.feature or ui_business_flow.feature, verify browser_testing_readiness, and run e2e/accessibility.e2e.ts with Playwright + @axe-core.
 Step 5: Verify Threshold ─────> Confirm coverage >= 95.0% and 100% assertions pass.
 ```
 
@@ -160,6 +161,15 @@ Step 3: User Diagnosis ───────> Present 11X pyramid score (XX%) an
 Step 4: Hydrate Blueprints ───> Use fetch_blueprint_bundle and bootstrap_or_merge_11x to inject missing .example templates non-destructively.
 Step 5: Prioritized Creation ─> Generate tests following prioritized_action_plan (CRITICAL -> HIGH -> MEDIUM), executing make targets in Docker (Rule Zero).
 Step 6: Gate & Closure ───────> Run certify_11x_gate, sync docs, mark ACTIVE_TASK.md COMPLETED (100%), and commit.
+```
+
+### Playbook 7: Continuous Skill Evolution & Upstream PR Proposal (`propose_skill_evolution_pr`)
+```text
+Step 0: Discover Edge Case ───> Identify improvement, unhandled edge-case, or new rule during project dogfooding.
+Step 1: Draft Proposal Block ─> Prepare empirical rationale, target file in qa-testing-blueprints, and markdown snippet.
+Step 2: Propose Evolution ────> Call propose_skill_evolution_pr (or pass prefer_offline_fallback: true if offline).
+Step 3: Branch & Review ──────> Inspect .agents/proposals/<slug>.md and created PR (or click prefilled_github_url).
+Step 4: Transparent Audit ────> Zero secrets or hardcoded tokens transmitted; user reviews and merges upstream.
 ```
 
 ---

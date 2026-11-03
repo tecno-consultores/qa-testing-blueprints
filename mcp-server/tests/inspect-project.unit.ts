@@ -5,7 +5,10 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { inspectProjectConfig } from '../src/tools/inspect-project.js';
+import {
+  inspectProjectConfig,
+  evaluateBrowserTestingReadiness,
+} from '../src/tools/inspect-project.js';
 
 describe('inspectProjectConfig Tool (Zero-Shot Project Assessment)', () => {
   let tmpDir: string;
@@ -144,5 +147,130 @@ strict=true
     expect(result.detected_stacks).toContain('node-backend');
     expect(result.detected_stacks).toContain('python');
     expect(result.strict_flags.mypy_strict).toBe(true);
+  });
+
+  describe('evaluateBrowserTestingReadiness and inspectProjectConfig integration', () => {
+    it('returns not applicable when stacks do not include vue3 or react-frontend', () => {
+      const readiness = evaluateBrowserTestingReadiness(tmpDir, [], ['python', 'bash-scripts']);
+      expect(readiness.applicable).toBe(false);
+      expect(readiness.playwright_test_installed).toBe(false);
+      expect(readiness.axe_core_playwright_installed).toBe(false);
+      expect(readiness.lhci_cli_installed).toBe(false);
+      expect(readiness.e2e_spec_present).toBe(false);
+      expect(readiness.browser_mcp_configured_in_ide).toBe(false);
+      expect(readiness.install_instructions).toEqual([]);
+    });
+
+    it('detects missing dependencies, missing e2e and missing ide mcp in vue3 project', async () => {
+      fs.writeFileSync(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({
+          name: 'vue-app',
+          dependencies: { vue: '^3.5.0' },
+        }),
+        'utf-8'
+      );
+
+      const fakeHome = path.join(tmpDir, 'fake-home');
+      fs.mkdirSync(fakeHome, { recursive: true });
+
+      const result = await inspectProjectConfig(tmpDir, fakeHome);
+      expect(result.browser_testing_readiness).toBeDefined();
+      const btr = result.browser_testing_readiness!;
+      expect(btr.applicable).toBe(true);
+      expect(btr.playwright_test_installed).toBe(false);
+      expect(btr.axe_core_playwright_installed).toBe(false);
+      expect(btr.lhci_cli_installed).toBe(false);
+      expect(btr.e2e_spec_present).toBe(false);
+      expect(btr.browser_mcp_configured_in_ide).toBe(false);
+      expect(btr.install_instructions).toHaveLength(2);
+      expect(btr.install_instructions[0]).toContain("bootstrap_or_merge_11x");
+      expect(btr.install_instructions[1]).toContain("playwright");
+    });
+
+    it('detects fully configured browser testing environment with playwright and axe-core in react project', async () => {
+      fs.writeFileSync(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({
+          name: 'react-app',
+          dependencies: { react: '^18.0.0' },
+          devDependencies: {
+            '@playwright/test': '^1.40.0',
+            '@axe-core/playwright': '^4.8.0',
+            '@lhci/cli': '^0.13.0',
+          },
+        }),
+        'utf-8'
+      );
+
+      const e2eDir = path.join(tmpDir, 'e2e');
+      fs.mkdirSync(e2eDir, { recursive: true });
+      fs.writeFileSync(path.join(e2eDir, 'accessibility.e2e.ts'), '// e2e test', 'utf-8');
+
+      const fakeHome = path.join(tmpDir, 'fake-home-ide');
+      const geminiDir = path.join(fakeHome, '.gemini', 'antigravity');
+      fs.mkdirSync(geminiDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(geminiDir, 'mcp_config.json'),
+        JSON.stringify({ mcpServers: { playwright: { command: 'npx' } } }),
+        'utf-8'
+      );
+
+      const result = await inspectProjectConfig(tmpDir, fakeHome);
+      const btr = result.browser_testing_readiness!;
+      expect(btr.applicable).toBe(true);
+      expect(btr.playwright_test_installed).toBe(true);
+      expect(btr.axe_core_playwright_installed).toBe(true);
+      expect(btr.lhci_cli_installed).toBe(true);
+      expect(btr.e2e_spec_present).toBe(true);
+      expect(btr.browser_mcp_configured_in_ide).toBe(true);
+      expect(btr.install_instructions).toEqual([]);
+    });
+
+    it('detects packages in subdirectories and handles malformed package.json and IDE configs', () => {
+      const reactSubdir = path.join(tmpDir, 'react-frontend');
+      fs.mkdirSync(reactSubdir, { recursive: true });
+      // Malformed JSON that contains strings
+      fs.writeFileSync(
+        path.join(reactSubdir, 'package.json'),
+        '{"name": "sub", dependencies: {"@playwright/test": "1.0", "@axe-core/playwright": "1.0", "@lhci/cli": "1.0"}}',
+        'utf-8'
+      );
+
+      const fakeHome = path.join(tmpDir, 'fake-home-claude');
+      fs.mkdirSync(fakeHome, { recursive: true });
+      fs.writeFileSync(path.join(fakeHome, '.claude.json'), '{"mcp": "chrome-devtools"}', 'utf-8');
+
+      const files = ['src/App.tsx', 'e2e/flow.e2e.ts'];
+      const readiness = evaluateBrowserTestingReadiness(
+        tmpDir,
+        files,
+        ['react-frontend'],
+        fakeHome
+      );
+
+      expect(readiness.applicable).toBe(true);
+      expect(readiness.playwright_test_installed).toBe(true);
+      expect(readiness.axe_core_playwright_installed).toBe(true);
+      expect(readiness.lhci_cli_installed).toBe(true);
+      expect(readiness.e2e_spec_present).toBe(true);
+      expect(readiness.browser_mcp_configured_in_ide).toBe(true);
+      expect(readiness.install_instructions).toEqual([]);
+    });
+
+    it('detects IDE config in .cursor/mcp.json and handles read error gracefully', () => {
+      const fakeHome = path.join(tmpDir, 'fake-home-cursor');
+      const cursorDir = path.join(fakeHome, '.cursor');
+      fs.mkdirSync(cursorDir, { recursive: true });
+      fs.writeFileSync(path.join(cursorDir, 'mcp.json'), '{"playwright": true}', 'utf-8');
+
+      const readiness = evaluateBrowserTestingReadiness(
+        tmpDir,
+        [],
+        ['vue3'],
+        fakeHome
+      );
+      expect(readiness.browser_mcp_configured_in_ide).toBe(true);
+    });
   });
 });

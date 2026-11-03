@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.8.3",
-  "generated_at_utc": "2026-11-03T15:15:22Z",
+  "generated_at_utc": "2026-11-03T15:25:49Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -694,8 +694,8 @@
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "9699c3072ac1ce62200665fe178f86f5ed78cee7206f55283e006d00c12c8da4",
-      "size_bytes": 16419
+      "sha256": "9bccb8d6d560c3caa1037d494d81092068222236ad5d50936e33c0b460d8b0d7",
+      "size_bytes": 17713
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",

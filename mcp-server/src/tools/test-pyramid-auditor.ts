@@ -15,7 +15,9 @@ import {
   PyramidLayerStatus,
   GapPriority,
 } from '../types.js';
-import { inspectProjectConfig } from './inspect-project.js';
+import { inspectProjectConfig, collectProjectFiles } from './inspect-project.js';
+
+export { collectProjectFiles };
 
 // ============================================================================
 // 🔒 Constantes para Prevención de sonarjs/no-duplicate-string
@@ -88,52 +90,6 @@ const CODE_STACKS: StackName[] = [
 
 const BACKEND_STACKS: StackName[] = [STACK_FASTAPI, STACK_NODE_BACKEND];
 const FRONTEND_STACKS: StackName[] = [STACK_VUE3, STACK_REACT_FRONTEND];
-
-const EXCLUDED_DIRS = new Set([
-  'node_modules',
-  '.git',
-  'dist',
-  '.venv',
-  'venv',
-  'coverage',
-  '.turbo',
-  'test-results',
-  '.mypy_cache',
-  '.pytest_cache',
-  '.pnpm-store',
-  '.cache',
-  'build',
-  '__pycache__',
-]);
-
-// ============================================================================
-// 🗂️ Recolección de Archivos del Proyecto
-// ============================================================================
-
-export function collectProjectFiles(projectPath: string): string[] {
-  const result: string[] = [];
-  function scan(currentDir: string): void {
-    try {
-      const entries = fs.readdirSync(currentDir, { withFileTypes: true });
-      for (const entry of entries) {
-        if (entry.isDirectory()) {
-          if (!EXCLUDED_DIRS.has(entry.name)) {
-            scan(path.join(currentDir, entry.name));
-          }
-        } else if (entry.isFile()) {
-          const rel = path
-            .relative(projectPath, path.join(currentDir, entry.name))
-            .replace(/\\/g, '/');
-          result.push(rel);
-        }
-      }
-    } catch {
-      // Ignorar directorios inaccesibles
-    }
-  }
-  scan(projectPath);
-  return result;
-}
 
 function readFileContentSafe(projectPath: string, relativePath: string): string {
   try {
