@@ -77,19 +77,19 @@ El paquete oficial de Node.js **`@sinfallas/mcp-qa-11x`** permite a cualquier Ag
 
 ```bash
 # Levantar el servidor MCP directamente (comunicación stdio):
-npx -y @sinfallas/mcp-qa-11x
+npx -y @sinfallas/mcp-qa-11x@latest
 
 # O instalar el catálogo completo de 5 Skills (con autodetección de agente por defecto):
-npx -y @sinfallas/mcp-qa-11x install-skill
+npx -y @sinfallas/mcp-qa-11x@latest install-skill
 
 # O instalar también scripts operativos y archivos comunes en el proyecto actual:
-npx -y @sinfallas/mcp-qa-11x install-skill --include-scripts
+npx -y @sinfallas/mcp-qa-11x@latest install-skill --include-scripts
 
 # O inyectar de forma aditiva y no destructiva el conector QA 11X en AGENTS.md:
-npx -y @sinfallas/mcp-qa-11x init-agents [--project-path <ruta>] [--dry-run]
+npx -y @sinfallas/mcp-qa-11x@latest init-agents [--project-path <ruta>] [--dry-run]
 
 # O instalar skills e inyectar el conector AGENTS.md en una sola operación:
-npx -y @sinfallas/mcp-qa-11x install-skill --init-agents
+npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents
 ```
 
 ### 6.2. Configuración en Clientes de IA
@@ -100,7 +100,7 @@ npx -y @sinfallas/mcp-qa-11x install-skill --init-agents
   "mcpServers": {
     "qa-11x": {
       "command": "npx",
-      "args": ["-y", "@sinfallas/mcp-qa-11x"]
+      "args": ["-y", "@sinfallas/mcp-qa-11x@latest"]
     }
   }
 }
@@ -112,7 +112,7 @@ npx -y @sinfallas/mcp-qa-11x install-skill --init-agents
   "mcpServers": {
     "qa-11x": {
       "command": "npx",
-      "args": ["-y", "@sinfallas/mcp-qa-11x"]
+      "args": ["-y", "@sinfallas/mcp-qa-11x@latest"]
     }
   }
 }
@@ -124,7 +124,7 @@ npx -y @sinfallas/mcp-qa-11x install-skill --init-agents
   "servers": {
     "qa-11x": {
       "command": "npx",
-      "args": ["-y", "@sinfallas/mcp-qa-11x"]
+      "args": ["-y", "@sinfallas/mcp-qa-11x@latest"]
     }
   }
 }
@@ -135,7 +135,7 @@ npx -y @sinfallas/mcp-qa-11x install-skill --init-agents
 mcp_servers:
   qa_11x:
     command: "npx"
-    args: ["-y", "@sinfallas/mcp-qa-11x"]
+    args: ["-y", "@sinfallas/mcp-qa-11x@latest"]
 ```
 
 ### 6.3. Catálogo de Recursos MCP Expuestos (`blueprint://*`)

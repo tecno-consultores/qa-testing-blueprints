@@ -74,10 +74,10 @@ Esta arquitectura funciona de forma nativa e idéntica en las principales herram
 
 | Herramienta / Agente | Mecanismo de Ingestión MCP | Integración de Skills | Archivo de Entrada / Configuración |
 | :--- | :--- | :--- | :--- |
-| **Google Antigravity** | `mcp_config.json` (`npx -y @sinfallas/mcp-qa-11x`) | Carga nativa en `.agents/skills/` | `.agents/` + `AGENTS.md` |
-| **Anthropic Claude Code / Desktop** | `claude_desktop_config.json` (`stdio`) | `npx -y @sinfallas/mcp-qa-11x install-skill --target claude` | `AGENTS.md` + `.agents/skills/` |
-| **Hermes Agent (Nous Research)** | `config.yaml` (`mcp_servers`) | `npx -y @sinfallas/mcp-qa-11x install-skill --target hermes` | `AI_MASTER_PROMPT.md` + `Makefile` |
-| **Cursor / Windsurf** | `.cursor/mcp.json` (`mcpServers`) | `npx -y @sinfallas/mcp-qa-11x install-skill --target cursor` | `AGENTS.md` y `.agents/rules/` |
+| **Google Antigravity** | `mcp_config.json` (`npx -y @sinfallas/mcp-qa-11x@latest`) | Carga nativa en `.agents/skills/` | `.agents/` + `AGENTS.md` |
+| **Anthropic Claude Code / Desktop** | `claude_desktop_config.json` (`stdio`) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target claude` | `AGENTS.md` + `.agents/skills/` |
+| **Hermes Agent (Nous Research)** | `config.yaml` (`mcp_servers`) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target hermes` | `AI_MASTER_PROMPT.md` + `Makefile` |
+| **Cursor / Windsurf** | `.cursor/mcp.json` (`mcpServers`) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target cursor` | `AGENTS.md` y `.agents/rules/` |
 
 ---
 
@@ -108,7 +108,7 @@ Para evitar que los agentes deban clonar gigabytes de repositorios o saturar su 
    - `init_or_append_agents_md`: Inyector aditivo no destructivo del bloque conector QA 11X en `AGENTS.md`.
 
 3. **Inyección de Skills en 1 Segundo (`install-skill`):**
-   Cualquier agente puede autoinstalar las skills maestras (`qa-11x-architect` y `refactoring-ui`) ejecutando `npx -y @sinfallas/mcp-qa-11x install-skill`, adquiriendo de inmediato todo el conocimiento corporativo 11X sin clonar el repositorio.
+   Cualquier agente puede autoinstalar las skills maestras (`qa-11x-architect` y `refactoring-ui`) ejecutando `npx -y @sinfallas/mcp-qa-11x@latest install-skill`, adquiriendo de inmediato todo el conocimiento corporativo 11X sin clonar el repositorio.
 
 ---
 

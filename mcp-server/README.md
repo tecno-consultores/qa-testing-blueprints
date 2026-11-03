@@ -8,7 +8,7 @@ Servidor oficial de **Model Context Protocol (MCP)** e Instalador Universal para
 Compatible con Antigravity, Claude Desktop, Cursor, Hermes Agent y VS Code:
 
 ```bash
-npx -y @sinfallas/mcp-qa-11x
+npx -y @sinfallas/mcp-qa-11x@latest
 ```
 
 #### Configuración en Claude Desktop / Antigravity (`mcp_config.json`):
@@ -17,17 +17,20 @@ npx -y @sinfallas/mcp-qa-11x
   "mcpServers": {
     "qa-11x": {
       "command": "npx",
-      "args": ["-y", "@sinfallas/mcp-qa-11x"]
+      "args": ["-y", "@sinfallas/mcp-qa-11x@latest"]
     }
   }
 }
 ```
 
-### 2. Instalar Skills Directamente vía CLI
-Instala las skills `qa-11x-architect` y `refactoring-ui` con verificación criptográfica SHA-256:
+### 2. Instalar Skills y Conector AGENTS.md Directamente vía CLI
+Instala el catálogo completo de 5 skills (`qa-11x-architect`, `refactoring-ui`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `qa-11x-docker-certifier`) con verificación criptográfica SHA-256:
 
 ```bash
-npx -y @sinfallas/mcp-qa-11x install-skill [--target antigravity|claude|cursor|hermes|workspace|all]
+npx -y @sinfallas/mcp-qa-11x@latest install-skill [--target auto|antigravity|claude|cursor|hermes|workspace|all] [--include-scripts] [--init-agents]
+
+# O inyectar de forma aditiva y no destructiva el conector QA 11X en AGENTS.md:
+npx -y @sinfallas/mcp-qa-11x@latest init-agents [--project-path <ruta>] [--dry-run]
 ```
 
 ---

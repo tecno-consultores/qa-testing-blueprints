@@ -209,6 +209,7 @@ function checkBrowserMcpInIde(homeDir?: string): boolean {
   const baseHome = homeDir || os.homedir();
   const configFiles = [
     path.join(baseHome, '.gemini', 'antigravity', 'mcp_config.json'),
+    path.join(baseHome, '.gemini', 'config', 'mcp_config.json'),
     path.join(baseHome, '.claude.json'),
     path.join(baseHome, '.cursor', 'mcp.json'),
   ];

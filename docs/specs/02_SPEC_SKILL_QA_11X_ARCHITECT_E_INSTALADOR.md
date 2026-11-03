@@ -106,7 +106,7 @@ Para que cualquier persona pueda instalar la Skill en **1 segundo** sin clonar e
 
 ### 5.1. Vía `npx` (Integrado en el paquete npm del MCP)
 ```bash
-npx -y @sinfallas/mcp-qa-11x install-skill [--target antigravity|claude|cursor|hermes|workspace|all]
+npx -y @sinfallas/mcp-qa-11x@latest install-skill [--target antigravity|claude|cursor|hermes|workspace|all]
 ```
 
 ### 5.2. Vía Script Independiente (`scripts/install-skill.sh`)

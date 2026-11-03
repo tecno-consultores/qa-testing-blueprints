@@ -13,7 +13,7 @@ Esta especificación define la arquitectura **Zero-Clone** del ecosistema **QA T
 
 La arquitectura se compone de tres pilares acoplados:
 1. **Manifiesto Remoto Firmado (`manifest.json`):** Índice JSON en la raíz del repositorio en GitHub que lista todos los archivos `.example`, orquestadores `docker-compose.qa.yml`, `Makefile.example`, reglas `.agents/rules/`, scripts `.agents/scripts/` y referencias de seguridad con su ruta relativa, ecosistema y hash criptográfico **SHA-256** (cumpliendo **DISA ASD STIG V6R5 `V-222513` / `APSC-DV-001430`**).
-2. **Servidor MCP y CLI en Node.js (`@sinfallas/mcp-qa-11x` o `mcp-qa-11x`):** Paquete distribuido en el registro oficial de **npm**, ejecutable al vuelo mediante `npx -y @sinfallas/mcp-qa-11x`, que expone tanto las herramientas MCP (Resources + Tools) como el subcomando CLI `install-skill`.
+2. **Servidor MCP y CLI en Node.js (`@sinfallas/mcp-qa-11x` o `mcp-qa-11x`):** Paquete distribuido en el registro oficial de **npm**, ejecutable al vuelo mediante `npx -y @sinfallas/mcp-qa-11x@latest`, que expone tanto las herramientas MCP (Resources + Tools) como el subcomando CLI `install-skill`.
 3. **Skill Cognitiva (`qa-11x-architect`):** Habilidad multi-agente con carga progresiva (*Progressive Disclosure*) que guía el razonamiento del agente y descarga bajo demanda desde GitHub únicamente los archivos `.example` del stack detectado.
 
 ---
@@ -25,7 +25,7 @@ flowchart TD
     subgraph "Máquina del Usuario / Entorno del Agente (Sin clonar repo)"
         USER["Desarrollador / Agente IA<br>(Antigravity, Claude, Cursor, Gemini)"]
         SKILL["Skill: qa-11x-architect<br>(SKILL.md + references/)"]
-        MCP["Servidor MCP Node.js<br>(npx -y @sinfallas/mcp-qa-11x)"]
+        MCP["Servidor MCP Node.js<br>(npx -y @sinfallas/mcp-qa-11x@latest)"]
         CACHE["Caché Local Verificada<br>(~/.cache/qa-11x-blueprints/)"]
         DOCKER["Contenedores Efímeros Rule Zero<br>(sinfallas/*, postgres:17, keydb)"]
     end

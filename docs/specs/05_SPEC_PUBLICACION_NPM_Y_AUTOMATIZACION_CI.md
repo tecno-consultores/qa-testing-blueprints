@@ -12,10 +12,10 @@
 Publicar en **npm** (`https://www.npmjs.com`) es gratuito para paquetes públicos. Una vez publicado, cualquier persona o Agente de IA en cualquier parte del mundo podrá ejecutar tu servidor MCP o instalar tu Skill con un solo comando sin clonar el repositorio:
 ```bash
 # Levantar el servidor MCP automáticamente:
-npx -y @sinfallas/mcp-qa-11x
+npx -y @sinfallas/mcp-qa-11x@latest
 
 # O instalar la Skill qa-11x-architect en 1 segundo:
-npx -y @sinfallas/mcp-qa-11x install-skill
+npx -y @sinfallas/mcp-qa-11x@latest install-skill
 ```
 
 ---

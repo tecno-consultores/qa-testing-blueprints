@@ -1,7 +1,7 @@
 # 🗺️ Hoja de Ruta Maestra (ROADMAP.md) — Ecosistema Zero-Clone: Skill + Servidor MCP (Estándar 11X)
 
 **Proyecto:** QA Testing Blueprints (`tecno-consultores/qa-testing-blueprints`)  
-**Arquitectura Objetivo:** Distribución Zero-Clone en Node.js (`npx -y @sinfallas/mcp-qa-11x`) + Skill Cognitiva (`qa-11x-architect`) + Hidratación Bajo Demanda desde GitHub con Verificación SHA-256 (`manifest.json`)  
+**Arquitectura Objetivo:** Distribución Zero-Clone en Node.js (`npx -y @sinfallas/mcp-qa-11x@latest`) + Skill Cognitiva (`qa-11x-architect`) + Hidratación Bajo Demanda desde GitHub con Verificación SHA-256 (`manifest.json`)  
 **Modelo Ejecutor Objetivo:** Gemini 3.8 Flash High / Claude / Antigravity  
 
 > **DIRECTIVA DE EJECUCIÓN PARA EL AGENTE DE IA (GEMINI 3.8 FLASH HIGH):**

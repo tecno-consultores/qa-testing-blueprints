@@ -111,7 +111,7 @@ mcp-server/
 El archivo `src/index.ts` DEBE incluir el *shebang* `#!/usr/bin/env node` en la primera línea y actuar como enrutador dual:
 1. Si `process.argv[2] === "install-skill"`:
    - Ejecuta `runInstallSkillCli(process.argv.slice(3))` para descargar e instalar la Skill `qa-11x-architect` desde GitHub en el directorio de skills del agente o del proyecto actual y termina con `process.exit(0)`.
-2. Si se invoca sin argumentos o con `--stdio` (modo por defecto cuando lo llaman Claude Desktop, Antigravity, Cursor o Hermes Agent vía `npx -y @sinfallas/mcp-qa-11x`):
+2. Si se invoca sin argumentos o con `--stdio` (modo por defecto cuando lo llaman Claude Desktop, Antigravity, Cursor o Hermes Agent vía `npx -y @sinfallas/mcp-qa-11x@latest`):
    - Inicia el servidor MCP sobre `StdioServerTransport`.
 
 ---

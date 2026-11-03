@@ -258,7 +258,7 @@ strict=true
       expect(readiness.install_instructions).toEqual([]);
     });
 
-    it('detects IDE config in .cursor/mcp.json and handles read error gracefully', () => {
+    it('detects IDE config in .cursor/mcp.json and .gemini/config/mcp_config.json and handles read error gracefully', () => {
       const fakeHome = path.join(tmpDir, 'fake-home-cursor');
       const cursorDir = path.join(fakeHome, '.cursor');
       fs.mkdirSync(cursorDir, { recursive: true });
@@ -271,6 +271,22 @@ strict=true
         fakeHome
       );
       expect(readiness.browser_mcp_configured_in_ide).toBe(true);
+
+      const fakeHomeGeminiCfg = path.join(tmpDir, 'fake-home-gemini-cfg');
+      const geminiCfgDir = path.join(fakeHomeGeminiCfg, '.gemini', 'config');
+      fs.mkdirSync(geminiCfgDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(geminiCfgDir, 'mcp_config.json'),
+        '{"chrome-devtools": true}',
+        'utf-8'
+      );
+      const readinessGemini = evaluateBrowserTestingReadiness(
+        tmpDir,
+        [],
+        ['vue3'],
+        fakeHomeGeminiCfg
+      );
+      expect(readinessGemini.browser_mcp_configured_in_ide).toBe(true);
     });
 
     it('detects PHP stack with composer.json, php files, and strict flags', async () => {

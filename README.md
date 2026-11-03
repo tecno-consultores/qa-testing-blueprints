@@ -135,10 +135,10 @@ El servidor canónico MCP en Node.js/TypeScript está publicado en npmjs bajo **
 #### Ejecución Directa en 1 Comando:
 ```bash
 # Levantar el servidor MCP canónico (comunicación stdio para Antigravity, Claude, Cursor, Hermes):
-npx -y @sinfallas/mcp-qa-11x
+npx -y @sinfallas/mcp-qa-11x@latest
 
 # Inyectar o actualizar el conector QA 11X en AGENTS.md de forma aditiva y no destructiva:
-npx -y @sinfallas/mcp-qa-11x init-agents [--project-path <ruta>] [--dry-run]
+npx -y @sinfallas/mcp-qa-11x@latest init-agents [--project-path <ruta>] [--dry-run]
 ```
 
 #### Configuración en Clientes MCP (Antigravity, Claude Desktop / Code, Cursor, Hermes):
@@ -147,7 +147,7 @@ npx -y @sinfallas/mcp-qa-11x init-agents [--project-path <ruta>] [--dry-run]
   "mcpServers": {
     "qa-11x": {
       "command": "npx",
-      "args": ["-y", "@sinfallas/mcp-qa-11x"]
+      "args": ["-y", "@sinfallas/mcp-qa-11x@latest"]
     }
   }
 }
@@ -163,7 +163,7 @@ Para dotar a cualquier agente o desarrollador de los conocimientos y reglas 11X 
 
 ```bash
 # Opción A (vía npx con el paquete oficial — autodetección multi-agente por defecto):
-npx -y @sinfallas/mcp-qa-11x install-skill
+npx -y @sinfallas/mcp-qa-11x@latest install-skill
 
 # Opción B (vía script universal curl con verificación criptográfica SHA-256):
 curl -fsSL https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/scripts/install-skill.sh | sh
@@ -179,13 +179,13 @@ El instalador detecta automáticamente el entorno del agente (`auto`: Google Ant
 Opciones avanzadas por entorno de destino y descarga de scripts:
 ```bash
 # Destino específico:
-npx -y @sinfallas/mcp-qa-11x install-skill --target [auto|workspace|antigravity|claude|cursor|hermes|all]
+npx -y @sinfallas/mcp-qa-11x@latest install-skill --target [auto|workspace|antigravity|claude|cursor|hermes|all]
 
 # Descargar también scripts operativos (scripts/*, .agents/scripts/*) y archivos comunes:
-npx -y @sinfallas/mcp-qa-11x install-skill --include-scripts
+npx -y @sinfallas/mcp-qa-11x@latest install-skill --include-scripts
 
 # Instalar skills e inyectar el conector AGENTS.md en el proyecto actual simultáneamente:
-npx -y @sinfallas/mcp-qa-11x install-skill --init-agents
+npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents
 ```
 
 ---
