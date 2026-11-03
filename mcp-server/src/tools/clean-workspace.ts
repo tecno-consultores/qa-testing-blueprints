@@ -205,7 +205,7 @@ export async function cleanWorkspace11x(
     dockerFallbackUsed = outcome.dockerFallbackUsed;
   }
 
-  const recommendedCommand = deepPrune ? './limpieza.sh --deep' : './limpieza.sh';
+  const recommendedCommand = deepPrune ? './scripts/limpieza.sh --deep' : './scripts/limpieza.sh';
 
   return {
     project_path: resolvedPath,

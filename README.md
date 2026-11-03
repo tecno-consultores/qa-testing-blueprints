@@ -101,4 +101,4 @@ Opciones avanzadas por entorno objetivo:
 3. **Delega la Fusión a la IA:**
    > *"Lee las directrices en `AI_MASTER_PROMPT.md` y `.agents/README.md`. Necesito integrar el estándar QA 11X en este proyecto. Lee los archivos `.example` y realiza una **fusión quirúrgica no destructiva** con mis archivos de configuración reales. Conserva intactas mis dependencias de negocio y añade todo el stack de linters, tipado estricto y pruebas."*
 4. **Verificación:** Ejecuta `make qa-all` y `./.agents/scripts/certify_task_completion.sh` para certificar el pase de calidad corporativo.
-5. **Saneamiento y Limpieza:** Ejecuta `make clean` o `./limpieza.sh` para purgar artefactos temporales de pruebas, compilaciones y cachés de Docker (con fallback efímero Alpine que elimina archivos `root` sin requerir `sudo` ni dejar bloqueos de permisos en el entorno de desarrollo).
+5. **Saneamiento y Limpieza:** Ejecuta `make clean` o `./scripts/limpieza.sh` para purgar artefactos temporales de pruebas, compilaciones y cachés de Docker (con fallback efímero Alpine que elimina archivos `root` sin requerir `sudo` ni dejar bloqueos de permisos en el entorno de desarrollo).

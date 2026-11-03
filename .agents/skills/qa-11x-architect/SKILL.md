@@ -137,7 +137,7 @@ Step 5: Mark Active Task ─────> Mark .agents/ACTIVE_TASK.md as COMPLET
 Step 6: Commit & Publish ─────> Conventional commit in Spanish and push.
 ```
 
-### Playbook 5: Workspace Sanitization & Docker Root File Eviction (`make clean` / `limpieza.sh`)
+### Playbook 5: Workspace Sanitization & Docker Root File Eviction (`make clean` / `scripts/limpieza.sh`)
 ```text
 Step 1: Container Teardown ───> Stop testing containers and networks (docker compose down -v --remove-orphans).
 Step 2: Local Artifact Purge ─> Remove standard test caches, reports, coverage, logs, and mutmut files.

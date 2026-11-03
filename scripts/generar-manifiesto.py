@@ -58,7 +58,7 @@ COMMON_FILE_PATHS: List[str] = [
     "auditar-infra.sh",
     "scripts/verificar-secretos.sh",
     ".trivy.yaml",
-    "limpieza.sh",
+    "scripts/limpieza.sh",
 ]
 
 

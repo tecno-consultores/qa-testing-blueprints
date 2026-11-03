@@ -6,7 +6,7 @@
 
 help:
 	@echo "Comandos canónicos de desarrollo y gobernanza para QA Testing Blueprints:"
-	@echo "  make clean      - Limpia artefactos temporales, cachés de Docker y residuos root (./limpieza.sh)"
+	@echo "  make clean      - Limpia artefactos temporales, cachés de Docker y residuos root (./scripts/limpieza.sh)"
 	@echo "  make qa-clean   - Alias canónico de make clean"
 	@echo "  make audit      - Ejecuta escaneo preventivo de seguridad IaC y dependencias (Trivy en Docker)"
 	@echo "  make test       - Ejecuta pruebas unitarias del Servidor MCP en contenedor efímero Docker"
@@ -15,7 +15,7 @@ help:
 	@echo "  make certify    - Ejecuta el gate de certificación 11X (.agents/scripts/certify_task_completion.sh)"
 
 clean:
-	@./limpieza.sh
+	@./scripts/limpieza.sh
 
 qa-clean: clean
 

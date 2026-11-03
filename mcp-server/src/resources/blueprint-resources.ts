@@ -127,7 +127,9 @@ export class BlueprintResources {
 
   public async getCleanupScriptResource(): Promise<ResourceResponse> {
     const manifest = await this.fetcher.fetchManifest();
-    const cleanEntry = manifest.common_files.find((f) => f.path === 'limpieza.sh');
+    const cleanEntry = manifest.common_files.find(
+      (f) => f.path === 'scripts/limpieza.sh' || f.path === 'limpieza.sh'
+    );
     let content = '';
     if (cleanEntry) {
       content = await this.fetcher.fetchFileContent(cleanEntry.path, cleanEntry.sha256);

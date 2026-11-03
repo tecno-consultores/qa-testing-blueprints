@@ -2,7 +2,6 @@
 // Copyright (C) 2026 QA Testing Blueprints Contributors
 
 import * as crypto from 'node:crypto';
-import * as childProcess from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -62,7 +61,7 @@ describe('Tools and Resources Integration Suite', () => {
     const activeTaskContent = '# Active Task Template Example';
     const activeTaskHash = crypto.createHash('sha256').update(activeTaskContent).digest('hex');
 
-    const cleanFile = 'limpieza.sh';
+    const cleanFile = 'scripts/limpieza.sh';
     const cleanContent = '#!/usr/bin/env bash\necho "cleaning"';
     const cleanHash = crypto.createHash('sha256').update(cleanContent).digest('hex');
 
@@ -522,7 +521,7 @@ describe('Tools and Resources Integration Suite', () => {
       expect(res.found_targets).toContain('.pytest_cache');
       expect(res.found_targets).toContain('dist');
       expect(res.removed_targets).toHaveLength(0);
-      expect(res.recommended_command).toBe('./limpieza.sh');
+      expect(res.recommended_command).toBe('./scripts/limpieza.sh');
 
       expect(fs.existsSync(dummyCoverage)).toBe(true);
       expect(fs.existsSync(dummyPytest)).toBe(true);
@@ -539,7 +538,7 @@ describe('Tools and Resources Integration Suite', () => {
       expect(res.deep_prune).toBe(true);
       expect(res.removed_targets).toContain('.coverage');
       expect(res.removed_targets).toContain('backend/.pytest_cache');
-      expect(res.recommended_command).toBe('./limpieza.sh --deep');
+      expect(res.recommended_command).toBe('./scripts/limpieza.sh --deep');
 
       expect(fs.existsSync(dummyCoverage)).toBe(false);
       expect(fs.existsSync(dummySubdir)).toBe(false);

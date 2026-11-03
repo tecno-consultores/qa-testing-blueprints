@@ -176,8 +176,8 @@ El script evalúa de forma secuencial e implacable 9 compuertas obligatorias:
     * **98.36% de cobertura de funciones**.
     * **0 errores de ESLint, SonarJS (Cognitiva $\le 15$) y TypeScript (`strict: true`)**.
 
-* **Script Universal de Limpieza y Saneamiento (`limpieza.sh` y `scripts/limpieza.sh`):**
-  * **Validación de Calidad de Scripts:** ShellCheck en contenedor efímero `koalaman/shellcheck:stable` certificando **0 errores y 0 advertencias** (código de salida 0) en `limpieza.sh`, `scripts/limpieza.sh` y en los 6 scripts por stack (`fastapi/`, `vue3/`, `react-frontend/`, `node-backend/`, `python/`, `bash-scripts/`).
+* **Script Universal de Limpieza y Saneamiento (`scripts/limpieza.sh`):**
+  * **Validación de Calidad de Scripts:** ShellCheck en contenedor efímero `koalaman/shellcheck:stable` certificando **0 errores y 0 advertencias** (código de salida 0) en `scripts/limpieza.sh` y en los 6 scripts por stack (`fastapi/`, `vue3/`, `react-frontend/`, `node-backend/`, `python/`, `bash-scripts/`).
   * **Aserciones Validadas en Docker Efímero:**
     * Detención ordenada de contenedores efímeros y redes huérfanas (`docker compose down -v --remove-orphans`).
     * Erradicación de archivos bloqueados generados por Docker con privilegios `root` (UID 0: `.coverage`, `.pnpm-store`, `.pytest_cache`, `.mypy_cache`, etc.) sin requerir `sudo` mediante fallback Alpine.
