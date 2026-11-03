@@ -107,6 +107,21 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
   make qa-unit       # BATS-core + bats-mock + kcov (>= 95%)
   ```
 
+### 🐘 PHP 8.1–8.5 (`sinfallas/basephpcomposer` — Especificado para Hito 11)
+* **Imagen Base:** `sinfallas/basephpcomposer:8.5` (Tags `8.1` a `8.5`, `latest` — Multi-Arch `amd64`/`arm64`)
+* **Persistencia:** `postgres:17-alpine` + `eqalpha/keydb:alpine` (vía `ext-redis` y `ext-pdo_pgsql`)
+* **Comandos de Validación:**
+  ```bash
+  cd php
+  make qa-lint       # PHP-CS-Fixer (@PER-CS2.0), PHPStan (level: max + cognitive-complexity <= 9), Psalm (--taint-analysis), composer audit
+  make qa-unit       # Pest / PHPUnit con driver C PCOV (Cobertura >= 95.0%)
+  make qa-parity     # Validación de esquema real PostgreSQL 17 y migraciones Doctrine / Laravel
+  make qa-bdd        # Karate Labs BDD (test/api_test.feature)
+  make qa-mutation   # Infection PHP (MSI >= 80%, Covered MSI >= 80%)
+  make qa-sbom       # CycloneDX SBOM v1.6 (cyclonedx/cyclonedx-php-composer)
+  make qa-all        # Suite completa 11X
+  ```
+
 ### 🧠 MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x`)
 * **Imagen Base:** `sinfallas/base-node-ionic:26`
 * **Métricas 11X Certificadas:**

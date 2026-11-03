@@ -89,13 +89,13 @@ Para evitar que los agentes deban clonar gigabytes de repositorios o saturar su 
    - `blueprint://manifest`: Índice criptográfico con hashes SHA-256 de todos los stacks y archivos comunes.
    - `blueprint://core/philosophy`: Filosofía 11X y prompt maestro (`AI_MASTER_PROMPT.md`).
    - `blueprint://security/disa-owasp-22`: Síntesis técnica de los 22 patrones DISA ASD STIG V6R5 y OWASP v4.2.
-   - `blueprint://{stack}/readme`: Especificación del stack solicitado (`fastapi`, `vue3`, `node`, `python`, etc.).
+   - `blueprint://{stack}/readme`: Especificación del stack solicitado (`fastapi`, `vue3`, `node-backend`, `python`, `react-frontend`, `bash-scripts`, `php`).
    - `blueprint://ui/refactoring-ui/{topic}`: Directivas tácticas visuales y WCAG 2.1 AA.
    - `blueprint://core/active-task-template`: Plantilla de seguimiento resiliente para agentes.
    - `blueprint://core/cleanup-script`: Script de saneamiento universal sin `sudo`.
    - `blueprint://core/roadmap-validator`: Validador de consistencia de hoja de ruta.
 
-2. **8 Herramientas de Ejecución (`Tools`):**
+2. **10 Herramientas de Ejecución (`Tools`):**
    - `inspect_project_config`: Detección automática del stack y linters del proyecto usuario.
    - `fetch_blueprint_bundle`: Descarga quirúrgica de plantillas con validación de hashes SHA-256.
    - `bootstrap_or_merge_11x`: Fusión no destructiva inyectando configuraciones QA en proyectos existentes.
@@ -104,6 +104,8 @@ Para evitar que los agentes deban clonar gigabytes de repositorios o saturar su 
    - `audit_security_stig_owasp`: Auditoría estática de reglas DISA/OWASP (`SEC-01` a `SEC-10`) y Anti-JSDOM (`UI-11X-01`).
    - `run_ephemeral_qa`: Lanzamiento de pruebas en Docker efímero bajo la Regla Cero con retorno estructurado en JSON.
    - `certify_11x_gate`: Ejecución de la compuerta universal de certificación previa a la entrega de la tarea.
+   - `audit_test_pyramid_gaps`: Auditoría de las 13 capas de la pirámide 11X, archivos huérfanos y plan de rescate priorizado.
+   - `init_or_append_agents_md`: Inyector aditivo no destructivo del bloque conector QA 11X en `AGENTS.md`.
 
 3. **Inyección de Skills en 1 Segundo (`install-skill`):**
    Cualquier agente puede autoinstalar las skills maestras (`qa-11x-architect` y `refactoring-ui`) ejecutando `npx -y @sinfallas/mcp-qa-11x install-skill`, adquiriendo de inmediato todo el conocimiento corporativo 11X sin clonar el repositorio.

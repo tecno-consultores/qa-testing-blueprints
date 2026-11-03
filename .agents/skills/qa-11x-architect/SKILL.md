@@ -54,6 +54,7 @@ When operating in pure CLI, Cloud, or desktop assistants without MCP tools:
    - Python / FastAPI: [`references/03-stack-python-fastapi.md`](references/03-stack-python-fastapi.md)
    - Node / Vue / React: [`references/04-stack-node-vue-react.md`](references/04-stack-node-vue-react.md)
    - Bash / DevOps: [`references/05-stack-bash-devops.md`](references/05-stack-bash-devops.md)
+   - PHP 8.1–8.5 (`sinfallas/basephpcomposer`): [`references/06-stack-php.md`](references/06-stack-php.md)
 2. **Hydrate On-Demand from GitHub Raw (Zero-Clone):** When templates or scripts are required and the repository is not cloned locally, fetch them directly without cloning:
    ```bash
    RAW_BASE="https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main"
@@ -171,3 +172,4 @@ Load additional modules only as needed:
 * [`references/03-stack-python-fastapi.md`](references/03-stack-python-fastapi.md): Python Standalone and FastAPI (PostgreSQL 17, KeyDB, Alembic, Karate API).
 * [`references/04-stack-node-vue-react.md`](references/04-stack-node-vue-react.md): Node.js, Vue 3, React, Refactoring UI, Vitest, Playwright, and Karate UI.
 * [`references/05-stack-bash-devops.md`](references/05-stack-bash-devops.md): Bash, POSIX Shell, ShellCheck, shfmt, BATS-core, bats-mock, and kcov.
+* [`references/06-stack-php.md`](references/06-stack-php.md): PHP 8.1–8.5 (`sinfallas/basephpcomposer`), Pest/PHPUnit + PCOV (`>= 95%`), PHPStan Level Max, Psalm Taint, Infection (`MSI >= 80%`), Doctrine/Laravel migrations, and DISA/OWASP hardening.

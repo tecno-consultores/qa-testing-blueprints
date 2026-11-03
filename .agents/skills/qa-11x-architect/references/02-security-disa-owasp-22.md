@@ -177,3 +177,40 @@ class OWASPSecureHeadersMiddleware(BaseHTTPMiddleware):
                 del response.headers[header]
         return response
 ```
+
+### PHP 8.1–8.5 Reference Snippets (NFKC, AES-256-GCM + `sodium_memzero`, Constant-Time Argon2id)
+```php
+<?php
+
+declare(strict_types=1);
+
+// Pattern 16: Unicode NFKC Canonicalization (ext-intl)
+function canonicalizeNfkcText(string $rawValue, int $maxLength = 256): string
+{
+    $normalized = \Normalizer::normalize($rawValue, \Normalizer::FORM_KC);
+    if ($normalized === false) {
+        throw new \InvalidArgumentException('Invalid UTF-8 sequence');
+    }
+    $trimmed = trim($normalized);
+    if (mb_strlen($trimmed, 'UTF-8') > $maxLength || preg_match('/[\x00-\x1F\x7F]/u', $trimmed) === 1) {
+        throw new \InvalidArgumentException('Input fails length or ASCII control character guard');
+    }
+    return $trimmed;
+}
+
+// Pattern 19: AES-256-GCM + Memory Secret Zeroization (ext-openssl + ext-sodium)
+function encryptVaultSecret(string $plaintext, string &$rawKey32Bytes, string $aad): string
+{
+    try {
+        $iv = random_bytes(12);
+        $tag = '';
+        $ciphertext = openssl_encrypt($plaintext, 'aes-256-gcm', $rawKey32Bytes, OPENSSL_RAW_DATA, $iv, $tag, $aad, 16);
+        if ($ciphertext === false) {
+            throw new \RuntimeException('AES-256-GCM encryption failed');
+        }
+        return base64_encode($iv . $tag . $ciphertext);
+    } finally {
+        sodium_memzero($rawKey32Bytes);
+    }
+}
+```

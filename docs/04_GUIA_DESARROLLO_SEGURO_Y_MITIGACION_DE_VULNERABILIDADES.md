@@ -1001,3 +1001,99 @@ docker compose -f fastapi/docker-compose.qa.yml run --rm qa-backend \
 sha256sum sbom-backend.cdx.json > sbom-backend.cdx.json.sha256
 sha256sum --check sbom-backend.cdx.json.sha256
 ```
+
+---
+
+## Anexo PHP 8.1–8.5 (`sinfallas/basephpcomposer`): Recetario de Seguridad DISA ASD STIG V6R5 + OWASP v4.2
+
+En aplicaciones y APIs construidas sobre **PHP 8.1 a 8.5** utilizando la imagen base oficial multi-arquitectura (`amd64`/`arm64`) `sinfallas/basephpcomposer`, se deben aplicar de forma innegociable los siguientes controles nativos:
+
+1. **Directivas de Endurecimiento en `php.ini` (`DISA APSC-DV-002430` & `OWASP OSHP`):**
+   - `expose_php = Off` (suprime el banner `X-Powered-By: PHP/8.x` en todas las respuestas HTTP).
+   - `zend.exception_ignore_args = On` y `display_errors = Off` (evita fugas de contraseñas o tokens en stack traces).
+   - `session.use_strict_mode = 1`, `session.cookie_httponly = 1`, `session.cookie_secure = 1`, `session.cookie_samesite = "Strict"` y `session.sid_length = 48`.
+   - `opcache.save_comments = 1` (indispensable para no romper atributos PHP 8 `#[...]` ni anotaciones de validación/rutas en Doctrine, Symfony, Laravel y Swagger-PHP).
+
+2. **Canonicalización Unicode NFKC, Bóveda AES-256-GCM con `sodium_memzero` y Argon2id en Tiempo Constante:**
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Security;
+
+final class DisaStigSecurityGuard
+{
+    private const DUMMY_ARGON2ID_HASH = '$argon2id$v=19$m=65536,t=4,p=1$c2luZmFsbGFzMTF4$7W5rT3x9mK2pL8vN1qR4sT6uV8wX0yZ2aB4cD6eF8gH';
+
+    /**
+     * Patrón 16 (APSC-DV-002520): Canonicalización Unicode NFKC previa a cualquier validación.
+     */
+    public static function canonicalizeNfkc(string $rawInput, int $maxLength = 256): string
+    {
+        $normalized = \Normalizer::normalize($rawInput, \Normalizer::FORM_KC);
+        if ($normalized === false) {
+            throw new \InvalidArgumentException('Secuencia UTF-8 inválida.');
+        }
+        $trimmed = trim($normalized);
+        if (mb_strlen($trimmed, 'UTF-8') > $maxLength || preg_match('/[\x00-\x1F\x7F]/u', $trimmed) === 1) {
+            throw new \InvalidArgumentException('Entrada rechazada por longitud o caracteres de control ASCII.');
+        }
+        return $trimmed;
+    }
+
+    /**
+     * Patrón 19 (APSC-DV-002010 / APSC-DV-002590): Cifrado AES-256-GCM con AAD y zeroización de clave en RAM.
+     */
+    public static function encryptSecretWithZeroization(string $plaintext, string &$rawKey32Bytes, string $tenantId): string
+    {
+        try {
+            $iv = random_bytes(12);
+            $tag = '';
+            $ciphertext = openssl_encrypt(
+                $plaintext,
+                'aes-256-gcm',
+                $rawKey32Bytes,
+                OPENSSL_RAW_DATA,
+                $iv,
+                $tag,
+                "tenant:{$tenantId}",
+                16
+            );
+            if ($ciphertext === false) {
+                throw new \RuntimeException('Fallo en cifrado autenticado AES-256-GCM.');
+            }
+            return base64_encode($iv . $tag . $ciphertext);
+        } finally {
+            // 🔒 Zeroización nativa en C del buffer de memoria (ext-sodium)
+            sodium_memzero($rawKey32Bytes);
+        }
+    }
+
+    /**
+     * Patrón 15 (APSC-DV-000530): Verificación Argon2id en tiempo constante con bloqueo a 3 intentos / 15m en KeyDB.
+     */
+    public static function verifyCredentialsConstantTime(\Redis $keydb, ?array $userRecord, string $password, string $username): bool
+    {
+        $failKey = "auth_fail:{$username}";
+        if ((int) ($keydb->get($failKey) ?: 0) >= 3) {
+            throw new \RuntimeException('Cuenta bloqueada temporalmente por 15 minutos (APSC-DV-000530).');
+        }
+        $targetHash = is_array($userRecord) && isset($userRecord['password_hash'])
+            ? (string) $userRecord['password_hash']
+            : self::DUMMY_ARGON2ID_HASH;
+
+        $isValid = password_verify($password, $targetHash) && $userRecord !== null;
+        if (!$isValid) {
+            $attempts = $keydb->incr($failKey);
+            if ($attempts === 1) {
+                $keydb->expire($failKey, 900);
+            }
+            throw new \RuntimeException('Credenciales inválidas o cuenta bloqueada.');
+        }
+        $keydb->del($failKey);
+        return true;
+    }
+}
+```
+

@@ -11,14 +11,14 @@ This reference provides the foundational execution matrix for the 13 layers of t
 
 | Layer | Domain / Objective | Canonical Tools | Mandatory Gate / Threshold | Docker Command |
 | :---: | :--- | :--- | :--- | :--- |
-| **01** | **Static Analysis, Formatting & SAST** | `ruff`, `bandit`, `eslint` (`--max-warnings 0`), `eslint-plugin-security`, `shellcheck`, `shfmt` | **0 errors, 0 warnings (enforced via `--max-warnings 0`), 0 HIGH/MEDIUM vulnerabilities** | `make qa-lint` |
-| **02** | **Strict Typing & Complexity** | `mypy --strict`, `vue-tsc --noEmit`, `radon cc`, `sonarjs` | **0 type errors, Grade A (`CC <= 5`), Cognitive Complexity $\le 15$** | `make qa-lint` |
-| **03** | **Isolated Unit Tests with Network Mocks** | `pytest-cov`, `vitest` (`@vitest/coverage-v8`), `kcov` (BATS) | **$\ge 95.0\%$ coverage (lines, branches, statements), 100% offline isolation (zero network leaks)** | `make qa-unit` |
-| **04** | **Database Schema Parity & Migrations** | `alembic`, `verify_alembic_orm_parity.py`, ephemeral PostgreSQL 17 | **0 schema drifts, Alembic revision ID $\le 32$ chars** | `make qa-parity` |
+| **01** | **Static Analysis, Formatting & SAST** | `ruff`, `bandit`, `eslint` (`--max-warnings 0`), `eslint-plugin-security`, `shellcheck`, `shfmt`, `php-cs-fixer`, `psalm --taint-analysis` | **0 errors, 0 warnings (enforced via `--max-warnings 0`), 0 HIGH/MEDIUM vulnerabilities** | `make qa-lint` |
+| **02** | **Strict Typing & Complexity** | `mypy --strict`, `vue-tsc --noEmit`, `radon cc`, `sonarjs`, `phpstan` (`level: max` + `cognitive-complexity`) | **0 type errors, Grade A (`CC <= 5`), Cognitive Complexity $\le 15$ (PHP $\le 9$)** | `make qa-lint` |
+| **03** | **Isolated Unit Tests with Network Mocks** | `pytest-cov`, `vitest` (`@vitest/coverage-v8`), `kcov` (BATS), `pest` / `phpunit` (`pcov`) | **$\ge 95.0\%$ coverage (lines, branches, statements), 100% offline isolation (zero network leaks)** | `make qa-unit` |
+| **04** | **Database Schema Parity & Migrations** | `alembic`, `verify_alembic_orm_parity.py`, `doctrine:schema:validate`, ephemeral PostgreSQL 17 | **0 schema drifts, Alembic revision ID $\le 32$ chars** | `make qa-parity` |
 | **05** | **Front-Back Integration Contracts** | Real ephemeral API + KeyDB + PostgreSQL, Schemathesis | **0 payload/schema mismatches, full HTTP response compliance** | `make qa-contracts` |
 | **06** | **Black-Box REST API BDD** | `sinfallas/karatelabs:latest` (Gherkin HTTP) | **100% scenarios PASSED** in `api_test.feature` | `make qa-bdd` |
 | **07** | **UI Acceptance BDD** | `sinfallas/karatelabs:latest` (Chrome Headless) | **100% scenarios PASSED** in `ui_business_flow.feature` | `make qa-bdd` |
-| **08** | **Mutation Testing (Test of Tests)** | `mutmut` (Python), `stryker` (JS/TS) | **Mutation score $> 80\%$, 0 surviving critical mutants** | `make qa-mutation` |
+| **08** | **Mutation Testing (Test of Tests)** | `mutmut` (Python), `stryker` (JS/TS), `infection` (PHP) | **Mutation score $> 80\%$, 0 surviving critical mutants** | `make qa-mutation` |
 | **09** | **Web Accessibility & Visual Geometry** | `@axe-core/playwright`, `lhci autorun`, Anti-JSDOM checks | **0 WCAG 2.1 AA violations, Lighthouse A11y $\ge 0.95$** | `make qa-e2e` / `make qa-perf` |
 | **10** | **Concurrency & Stress / Load** | `locust` (headless), `artillery` | **0% error rate, P95 latency $< 200\text{ ms}$ under target load** | `make qa-chaos` / `make qa-stress` |
 | **11** | **Dynamic Security DAST & OSHP Headers** | `zaproxy/zap-stable` (OWASP ZAP Baseline), OSHP validator | **0 HIGH alerts, OWASP OSHP headers enforced, Fail-Secure verified** | `make qa-dast` |
