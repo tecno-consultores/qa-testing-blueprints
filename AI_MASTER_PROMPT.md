@@ -25,11 +25,21 @@ Independientemente del lenguaje de programación o ecosistema tecnológico que e
 
 ## 2. Protocolo de Integración Inicial (Fusión No Destructiva)
 
+Tienes dos modalidades para integrar el estándar 11X en un proyecto:
+
+### A. Vía Servidor MCP (`@sinfallas/mcp-qa-11x`) — Flujo Autónomo Zero-Clone
+* Si estás conectado como servidor MCP, utiliza tus herramientas nativas:
+  1. `inspect_project_config` para auditar el stack tecnológico existente y configuraciones previas.
+  2. `bootstrap_or_merge_11x` para aplicar la fusión quirúrgica no destructiva inyectando configuraciones QA sin alterar dependencias de negocio.
+  3. `fetch_blueprint_bundle` para recuperar quirúrgicamente plantillas adicionales con verificación SHA-256 (`DISA STIG V-222513`).
+  4. `certify_11x_gate` o `run_ephemeral_qa` para validar las suites en Docker efímero.
+
+### B. Vía Archivos Locales / Blueprint Manual
 Cuando el usuario coloque los archivos de este Blueprint en su proyecto y te pida integrarlos:
-*   Analiza los archivos `.example` (ej. `package.json.example`, `pyproject.toml.example`, `Makefile.example`, `docker-compose.qa.yml`).
-*   **Fusión Quirúrgica No Destructiva:** Extrae linters, configuraciones estrictas, scripts y dependencias de testing de los archivos `.example` e incorpóralos al archivo real del usuario.
-*   **NUNCA** elimines dependencias de producción preexistentes ni configuraciones de negocio del usuario.
-*   Ajusta los tags de imágenes en `docker-compose.qa.yml` para coincidir con la versión de producción del proyecto (ej. `base-python-uv:3.15`, `base-node-ionic:26`).
+* Analiza los archivos `.example` (ej. `package.json.example`, `pyproject.toml.example`, `Makefile.example`, `docker-compose.qa.yml`).
+* **Fusión Quirúrgica No Destructiva:** Extrae linters, configuraciones estrictas, scripts y dependencias de testing de los archivos `.example` e incorpóralos al archivo real del usuario.
+* **NUNCA** elimines dependencias de producción preexistentes ni configuraciones de negocio del usuario.
+* Ajusta los tags de imágenes en `docker-compose.qa.yml` para coincidir con la versión de producción del proyecto (ej. `base-python-uv:3.15`, `base-node-ionic:26`).
 
 ---
 
@@ -43,31 +53,36 @@ Antes de escribir código o sugerir comandos, consulta la guía especializada de
 * 🟢 **Vue 3 UI (TypeScript):** `vue3/README.md` + `docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md`
 * ⚛️ **React UI (TypeScript):** `react-frontend/README.md`
 * 🐧 **DevOps & Bash Scripts:** `bash-scripts/README.md`
+* 🧠 **Servidor MCP y Skills:** `docs/specs/03_SPEC_MCP_SERVER_NODE_TS_CORE_Y_TOOLS.md` + `docs/ai-integration.md`
 
 ---
 
 ## 4. Gobernanza `.agents/` y Optimización de Tokens ($\approx 35\%$ de Ahorro)
 
 Para optimizar la ventana de contexto y asegurar un razonamiento matemático superior:
-*   Todas las directivas en `.agents/rules/` y `.agents/skills/` se redactan en **inglés técnico de alta densidad**, lo cual reduce el consumo de tokens BPE en ~35% frente al español.
-*   Toda la interacción con el usuario y la documentación final se genera obligatoriamente en **español** (`OUTPUT LANGUAGE CONSTRAINT`).
-*   Si detectas fricciones recurrentes o patrones no cubiertos, actualiza de forma autónoma las reglas en `.agents/` aplicando la directiva `continuous_agent_evolution.md`.
+* Todas las directivas en `.agents/rules/` y `.agents/skills/` se redactan en **inglés técnico de alta densidad**, lo cual reduce el consumo de tokens BPE en ~35% frente al español.
+* Toda la interacción con el usuario y la documentación final se genera obligatoriamente en **español** (`OUTPUT LANGUAGE CONSTRAINT`).
+* Mantén al día la bitácora activa en `.agents/ACTIVE_TASK.md`, desglosando subtareas con casillas `- [ ]` que actualizas a `- [x]` en tiempo real.
+* Si detectas fricciones recurrentes o patrones no cubiertos, actualiza de forma autónoma las reglas en `.agents/` aplicando la directiva `continuous_agent_evolution.md`.
 
 ---
 
-## 5. Compuerta de Cierre de Tarea (Task Closure Gate)
+## 5. Compuerta de Cierre de Tarea (Task Closure Gate — 10 Etapas)
 
 Antes de dar cualquier tarea por concluida, ejecuta de forma autónoma:
 ```bash
 ./.agents/scripts/certify_task_completion.sh
 ```
-El script certifica:
-1. Cero secretos expuestos (`verificar-secretos.sh`).
-2. Cero vulnerabilidades críticas de infraestructura (`auditar-infra.sh`).
-3. Cero claves duplicadas en diccionarios JSON (`verify_json_no_duplicate_keys.py`).
-4. Cero componentes UI huérfanos sin pruebas (`verify_zero_orphan_vue_components.py`).
-5. Salud topológica y límites de capas arquitectónicas (`verify_topological_health.py`).
-6. Cero modelos ORM huérfanos sin migración (`verify_alembic_orm_parity.py`).
-7. Sincronización estricta entre código modificado, pruebas 11X y documentación.
+El script certifica implacablemente las 10 etapas de calidad corporativa:
+1. **[1/10] Secret Scanning:** Cero secretos, tokens ni contraseñas expuestos (`verificar-secretos.sh`).
+2. **[2/10] IaC & Local Dependencies Audit:** Cero vulnerabilidades CRITICAL/HIGH en Docker Compose y dependencias (Trivy, `auditar-infra.sh`).
+3. **[3/10] JSON Integrity:** Cero claves duplicadas en diccionarios JSON (`verify_json_no_duplicate_keys.py`).
+4. **[4/10] Zero Orphan Components:** 100% de componentes UI con pruebas unitarias dedicadas (`verify_zero_orphan_vue_components.py`).
+5. **[5/10] Zero Orphan API Endpoints:** Paridad bidireccional absoluta entre rutas Frontend y Backend (`verify_no_orphan_api_endpoints.py`).
+6. **[6/10] Topological Health & AST Boundaries:** Salud topológica y límites arquitectónicos entre capas (`verify_topological_health.py`).
+7. **[7/10] ORM & Database Migration Parity:** Cero modelos SQLAlchemy desincronizados y revisiones Alembic $\le 32$ chars (`verify_alembic_orm_parity.py`).
+8. **[8/10] Cryptographic Manifest Sync:** Integridad SHA-256 de todas las plantillas y archivos rastreados en `manifest.json`.
+9. **[9/10] Roadmap & Active Task Consistency:** Coherencia estricta entre la tabla de `ROADMAP.md` y tareas `- [x]`, y cero tareas pendientes en `.agents/ACTIVE_TASK.md` ante estados `COMPLETED` (`verify_roadmap_consistency.py`).
+10. **[10/10] Documentation & Mandatory Tests Sync:** Sincronización incondicional de documentación (`CHANGELOG.md`, `TESTING.md`, `README.md`) y cobertura unitaria ($\ge 95\%$) con escenarios BDD de Karate Labs en API y UI.
 
 **Bajo ninguna circunstancia concluyas tu turno con pruebas fallidas o documentación desfasada.**

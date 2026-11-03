@@ -51,6 +51,15 @@
 * [Playwright](https://playwright.dev/) + [@axe-core/playwright](https://github.com/dequelabs/axe-core-npm/tree/develop/packages/playwright) (WCAG 2.1 AA)
 * [Alembic](https://alembic.sqlalchemy.org/) (Database Migrations)
 
+## Ecosistema de Agentes de IA y Protocolo MCP:
+
+* [@sinfallas/mcp-qa-11x en npmjs.org](https://www.npmjs.com/package/@sinfallas/mcp-qa-11x) (Servidor canónico MCP Node.js/TypeScript)
+* [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) (Especificación abierta de Anthropic / Linux Foundation)
+* [Anthropic Claude Code & Claude Desktop](https://claude.ai/) (Soporte nativo de clientes MCP)
+* [Google Antigravity SDK](https://deepmind.google/technologies/) (Gobernanza y subagentes autónomos)
+* [Nous Research Hermes Agent](https://nousresearch.com/) (Agentes autónomos de código abierto)
+* [Cursor IDE](https://www.cursor.com/) & [Windsurf](https://codeium.com/windsurf) (Desarrollo asistido y soporte MCP)
+
 ## Referencias:
 
 * [OWASP Developer Guide v4.2](https://devguide.owasp.org/)

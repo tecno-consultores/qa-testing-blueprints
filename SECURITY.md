@@ -119,6 +119,11 @@ La integración entre aplicaciones SPA (Vue 3, React) y APIs REST/WebSockets (Fa
   - Usar siempre una función de escape HTML (`escapeHtml`) antes de inyectar contenido dinámico en el DOM.
   - Sanitizar objetos recursivamente eliminando claves peligrosas (`__proto__`, `constructor`, `prototype`) y crear diccionarios puros con `Object.create(null)`.
 
+### 4.10. Seguridad en el Ecosistema MCP y Agentes de IA Autónomos
+- **Aislamiento de Ejecución y Regla Cero (`Rule Zero`):** Las herramientas MCP ejecutadas por agentes de IA (`run_ephemeral_qa`, `certify_11x_gate`) operan estrictamente dentro de contenedores efímeros aislados (`sinfallas/*`), impidiendo el escape al sistema anfitrión.
+- **Validación Criptográfica de Descargas Zero-Clone (DISA ASD STIG V6R5 `V-222513` / `APSC-DV-001430`):** Toda plantilla o skill descargada dinámicamente por la herramienta `fetch_blueprint_bundle` o el instalador `install-skill` es contrastada contra su hash SHA-256 precalculado en `manifest.json`, bloqueando cualquier manipulación o envenenamiento en tránsito.
+- **Publicación Soberana de Artefactos (Modelo RoSGrid):** Se prohíbe alojar secretos de publicación de paquetes (`NPM_TOKEN`) en corredores de CI/CD de terceros. Toda publicación se realiza desde entornos controlados en memoria volátil mediante `scripts/publicar-mcp.sh` con autodestrucción del token tras la ejecución.
+
 ### 4.10. Tolerancia a Carreras Concurrentes (*Grace Period Leeway* de 5s) en Refresh Tokens
 - **Riesgo:** Cuando un usuario abre múltiples pestañas en el navegador, todas intentan refrescar el JWT casi simultáneamente. Un sistema estricto de rotación detecta la segunda petición como "reúso malicioso" y cierra la sesión de forma abrupta.
 - **Mitigación:** 

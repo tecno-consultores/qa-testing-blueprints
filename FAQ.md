@@ -59,21 +59,46 @@ Por seguridad, el demonio de Docker bloquea la inspección de memoria entre proc
 
 ### ZAP (DAST) falla al escribir el `zap-report.html` (Permission Denied)
 El contenedor de ZAP corre por defecto con un usuario no privilegiado que no tiene permisos de escritura en el volumen *bind* del host.
-**Solución:** Asegúrate de incluir explícitamente la directiva `user: root` en la definición del servicio `zap` en tu `docker-compose.qa.yml`. Luego, ejecuta `sudo ./limpieza.sh` en tu host para restaurar los permisos.
+**Solución:** Asegúrate de incluir explícitamente la directiva `user: root` en la definición del servicio `zap` en tu `docker-compose.qa.yml`. Luego, ejecuta `./scripts/limpieza.sh` o `make clean` (el cual utiliza un fallback efímero en Docker Alpine para restaurar o purgar permisos automáticamente sin requerir `sudo`).
 
 ### Docker se quedó sin espacio, está muy lento o las pruebas fallan porque detectan código viejo.
 Los contenedores y gestores acumulan cachés masivos. 
-**Solución:** Ejecuta el script maestro de purga como administrador:
+**Solución:** Ejecuta el script maestro de saneamiento sin necesidad de `sudo`:
 ```bash
-sudo ./limpieza.sh
+./scripts/limpieza.sh
+# O utiliza la meta del Makefile en tu proyecto:
+make clean-cache
 ```
-Esto fuerza un `docker system prune -af` y borra reportes y dependencias huérfanas, limpiando también los volúmenes nombrados de caché (`pnpm-store` o `uv-cache`).
+Esto purga reportes temporales, artefactos de prueba y cachés huérfanas mediante una estrategia híbrida (eliminación local y fallback en Docker efímero con permisos internos de contenedor), limpiando también los volúmenes nombrados de caché (`pnpm-store` o `uv-cache`).
+
+### ¿Por qué `scripts/limpieza.sh` y la herramienta MCP `clean_workspace_11x` ya no requieren `sudo`?
+Los contenedores efímeros bajo la Regla Cero suelen crear archivos propiedad de `root` en los volúmenes montados. En lugar de forzar al usuario o al agente a ejecutar comandos de superusuario destructivos en la máquina anfitriona, el saneamiento ejecuta un contenedor efímero ultraligero de Alpine Linux (`sinfallas/base-node-ionic` o `alpine:latest`) montando el directorio con `uid 0` interno para purgar los artefactos de forma 100% segura y devolver el control limpio al usuario no privilegiado del host.
 
 ### El contenedor E2E de Vue 3 (Playwright / Lighthouse) se queja de un conflicto de red al intentar alcanzar la interfaz.
 Asegúrate de haber levantado primero el servidor mock de producción en segundo plano ejecutando `docker compose -f docker-compose.qa.yml up -d ui-prod` antes de lanzar el comando efímero a través del Makefile:
 ```bash
 make qa-e2e
 ```
+
+## 🤖 Agentes de IA, Protocolo MCP y Skills Zero-Clone
+
+### ¿Cómo interactúa un Agente de Inteligencia Artificial con este repositorio?
+Un agente de IA (como Google Antigravity, Anthropic Claude Code / Claude Desktop, Hermes Agent de Nous Research, Cursor o Windsurf) puede interactuar de tres formas:
+1. **Vía Servidor MCP (`@sinfallas/mcp-qa-11x`):** Se conecta por `stdio` mediante `npx -y @sinfallas/mcp-qa-11x`. El servidor expone 8 herramientas operativas (como `inspect_project_config`, `bootstrap_or_merge_11x`, `fetch_blueprint_bundle`, `run_ephemeral_qa` y `certify_11x_gate`) y 8 recursos dinámicos (`blueprint://*`), permitiendo al agente auditar y fusionar código sin clonar el repositorio completo.
+2. **Vía Skills Zero-Clone (`qa-11x-architect` y `refactoring-ui`):** Se inyectan en su entorno con `npx -y @sinfallas/mcp-qa-11x install-skill` o mediante el instalador universal `curl ... | sh`. El agente adquiere de inmediato el conocimiento de las 13 capas de calidad, los 22 patrones DISA/OWASP y la prevención Anti-JSDOM.
+3. **Vía Reglas Locales (`.agents/` y `AGENTS.md`):** Si el agente opera dentro del repositorio clonado, lee automáticamente las directivas en `.agents/rules/` y mantiene la bitácora activa en `.agents/ACTIVE_TASK.md`, ejecutando la compuerta universal `./.agents/scripts/certify_task_completion.sh` antes de cerrar sus turnos.
+
+### ¿Qué es el Servidor MCP `@sinfallas/mcp-qa-11x` y por qué es superior a clonar todo el repositorio?
+El servidor MCP implementa la especificación abierta de Anthropic / Linux Foundation para exponer herramientas y recursos a modelos LLM. Permite una adopción **Zero-Clone**: en lugar de transferir cientos de archivos y megabytes al disco o saturar la ventana de contexto del agente, el agente consulta puntualmente la plantilla de su stack con verificación criptográfica SHA-256 (`DISA STIG V-222513`), ejecuta pruebas en Docker efímero y certifica la calidad mediante llamadas RPC limpias.
+
+### ¿Cómo colaboran un desarrollador humano y un agente de IA en este estándar híbrido?
+El estándar 11X define un modelo de trabajo en parejas (*Pair Programming Híbrido*):
+- El **desarrollador humano** define los requisitos de negocio, aprueba cambios arquitectónicos y formula los prompts de alto nivel.
+- El **agente de IA** actúa como un ingeniero Staff de QA y DevOps: analiza el radio de impacto AST (`inspect_blast_radius.py`), escribe el código de negocio, genera obligatoriamente las pruebas unitarias y de integración, crea los escenarios BDD en Karate Labs, ejecuta las pruebas en Docker efímero (`Rule Zero`) y mantiene sincronizada la documentación técnica (`docs/`, `CHANGELOG.md`, `ROADMAP.md`, `TESTING.md`).
+- La **compuerta universal de certificación** (`certify_task_completion.sh`) actúa como el árbitro matemático objetivo que ninguno de los dos puede evadir antes del commit.
+
+### ¿Por qué se eliminó la dependencia de GitHub Actions para publicar el servidor MCP a npm?
+Siguiendo la filosofía de soberanía y aislamiento corporativo del estándar RoSGrid, delegar la publicación de paquetes con credenciales de npm (`NPM_TOKEN`) a *runners* remotos de CI/CD introduce riesgos de fuga de secretos y fallos de red externos fuera de nuestro control. El proceso de publicación se consolidó en el script soberano `scripts/publicar-mcp.sh`, el cual valida la compuerta 11X completa en Docker efímero local y maneja el token de npm de forma volátil en memoria con autodestrucción inmediata.
 
 ### ¿Qué es la "Anti-Mock Blindness" (Ceguera de Mocks) y por qué se exige verificar contra PostgreSQL real y migraciones Alembic?
 En pruebas unitarias, mockear llamadas a base de datos crea una falsa sensación de seguridad. Un modelo ORM puede tener tipos de datos incompatibles o columnas inexistentes que pasan los mocks con 100% de cobertura pero rompen la base de datos en producción. En el estándar 11X, todo cambio de modelo exige migración versionada y validación con `verify_alembic_orm_parity.py` ejecutándose contra una instancia real de PostgreSQL en Docker efímero.

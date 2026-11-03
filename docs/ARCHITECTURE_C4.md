@@ -4,41 +4,58 @@ Este documento describe gráficamente cómo interactúan las herramientas, conte
 
 ---
 
-## Nivel 1: Diagrama de Contexto (System Context)
-Muestra el panorama general: cómo los usuarios (o IAs) interactúan con el sistema de pruebas y cómo este se relaciona con la máquina anfitriona.
+## Nivel 1: Diagrama de Contexto (System Context — Ecosistema Híbrido Humano + IA)
+Muestra el panorama general: cómo los desarrolladores humanos y los agentes de IA interactúan con el sistema mediante el servidor MCP, las skills y la ejecución efímera.
 
 ```mermaid
 graph TD
     %% Entidades
-    Dev["👨‍💻 Desarrollador / Agente IA"]
-    Hook["🚧 Lefthook (Pre-Commit & Pre-Push)"]
-    QA["🛡️ QA Testing Blueprints (Makefiles / Docker Compose)"]
-    Host["🖥️ Máquina Host (LXC / Local)"]
-    Reports["📁 Reportes (Coverage, ZAP, Chaos, Métricas)"]
+    Human["👨‍💻 Desarrollador / QA Staff"]
+    Agent["🤖 Agente de IA<br>(Antigravity, Claude, Cursor, Hermes)"]
+    MCP["🧠 Servidor MCP Node.js/TS<br>(@sinfallas/mcp-qa-11x)"]
+    Skill["⚡ Skills Zero-Clone<br>(qa-11x-architect / refactoring-ui)"]
+    Gate["🚧 Compuerta de Certificación 11X<br>(certify_task_completion.sh - 10 Etapas)"]
+    QA["🛡️ QA Testing Blueprints<br>(Makefiles / Docker Compose Efímero)"]
+    Host["🖥️ Máquina Host (Docker Engine)"]
+    Reports["📁 Reportes & Artefactos<br>(Coverage, ZAP, Chaos, Métricas RED)"]
 
     %% Relaciones
-    Dev -- "1. Intenta hacer commit/push" --> Hook
-    Hook -- "2. Lanza escaneo efímero (Trivy/Linters). Rechaza si falla" --> QA
-    Dev -- "3. Ejecuta pruebas completas (make qa-all)" --> QA
-    QA -- "4. Usa motor Docker y solicita permisos PTRACE" --> Host
-    Host -- "5. Monta volúmenes bind (.:/app)" --> QA
-    QA -- "6. Escribe artefactos al morir" --> Reports
-    Reports -- "7. Analiza fallos para corregir" --> Dev
+    Agent -- "1. Consulta 8 Resources & ejecuta 8 Tools (stdio)" --> MCP
+    Agent -- "2. Ingiere directivas y reglas" --> Skill
+    Human -- "3. Instala skills (npx install-skill) o clona repo" --> Skill
+    Human -- "4. Delega tareas / Pair Programming" --> Agent
+    MCP -- "5. Orquesta validaciones efímeras (Rule Zero)" --> QA
+    Agent -- "6. Ejecuta compuerta universal antes de commit" --> Gate
+    Human -- "7. Lanza comandos (make qa-all)" --> QA
+    Gate -- "8. Valida 10 etapas (secretos, Trivy, ORM, etc.)" --> QA
+    QA -- "9. Ejecuta en imágenes sinfallas/* aisladas" --> Host
+    Host -- "10. Monta volúmenes bind (.:/app)" --> QA
+    QA -- "11. Emite reportes al morir el contenedor" --> Reports
+    Reports -- "12. Ingeridos para auto-corrección" --> Agent
+    Reports -- "13. Inspeccionados para auditoría" --> Human
 
     classDef default fill:#111,stroke:#333,stroke-width:2px,color:#fff;
     classDef highlight fill:#0052cc,stroke:#003d99,stroke-width:2px,color:#fff;
     classDef barrier fill:#ff8c00,stroke:#b8860b,stroke-width:2px,color:#fff;
-    class QA highlight;
-    class Hook barrier;
+    classDef ai fill:#6b21a8,stroke:#9333ea,stroke-width:2px,color:#fff;
+    class QA,Host highlight;
+    class Gate,Hook barrier;
+    class Agent,MCP,Skill ai;
 ```
 
 ---
 
-## Nivel 2: Diagrama de Contenedores (Container Diagram)
-Muestra el interior del orquestador `docker-compose.qa.yml`. Destaca cómo separamos las responsabilidades en diferentes contenedores que conviven en una red virtual aislada, incluyendo perfiles ocultos para inteligencia artificial, cachés persistentes y pruebas destructivas.
+## Nivel 2: Diagrama de Contenedores y Ecosistema MCP (Container Diagram)
+Muestra la interacción entre los clientes de IA, el servidor MCP en Node.js/TypeScript y el orquestador `docker-compose.qa.yml` con su red virtual aislada y perfiles de ejecución.
 
 ```mermaid
 graph LR
+    subgraph "Entorno del Cliente / IDE"
+        Client["🤖 Cliente IA / IDE<br>(Antigravity / Claude / Cursor)"]
+        MCPServer["🧠 @sinfallas/mcp-qa-11x<br>(stdio / Node 20+)"]
+        Client <-->|"JSON-RPC (stdio)"| MCPServer
+    end
+
     subgraph "Red Virtual Aislada IPv4 (QA Bridge)"
         API["📦 App Viva \n (Nginx / Uvicorn / Node) \n Puerto Expuesto"]
         Test["🧪 Contenedor QA Efímero \n (Vitest/Pytest, SAST) \n Frontera: .unit.ts/.unit.py"]
@@ -49,9 +66,14 @@ graph LR
         Pumba["🌪️ Inyector de Caos \n (Pumba) \n Perfil: --profile chaos"]
         Prometheus["📊 Observabilidad \n (Prometheus) \n Perfil: --profile chaos"]
         PushGW["📤 Pushgateway \n (Caché de Métricas) \n Perfil: --profile observability"]
-        Graphify["🧠 Servidor MCP IA \n (Graphify) \n Perfil: --profile graphify"]
+        Graphify["🧠 AST & Blast Radius \n (sinfallas/remote-graphify) \n Perfil: --profile graphify"]
         Cache["🗄️ Caché Persistente \n (pnpm-store / uv-cache) \n Volumen Nombrado"]
     end
+
+    %% Conexión MCP con Entorno Efímero
+    MCPServer -- "run_ephemeral_qa / certify_11x_gate" --> Test
+    MCPServer -- "inspect_ast_blast_radius" --> Graphify
+    MCPServer -- "clean_workspace_11x (Alpine efímero)" --> Cache
 
     %% Flujos Internos
     Test -- "Lee/Escribe Dependencias" --> Cache

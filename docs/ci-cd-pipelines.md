@@ -1,6 +1,19 @@
-# Pipelines de CI/CD (Integración Continua)
+# Pipelines de CI/CD (Integración Continua y Ejecución Soberana)
 
-Este documento explica cómo trasladar la ejecución de nuestras pruebas locales a entornos automatizados (como GitHub Actions o GitLab CI). El objetivo principal es garantizar que **ningún código llegue a producción si no cumple con la regla estricta del 95% de cobertura y pasa todas las auditorías**.
+Este documento explica los principios de integración continua bajo el estándar 11X, abordando tanto la ejecución soberana local operada por **Agentes de Inteligencia Artificial** como el traslado opcional de las pruebas a entornos automatizados remotos (como GitHub Actions o GitLab CI) en proyectos que adopten este blueprint.
+
+---
+
+## 0. Shift-Left Extremo: Gobernanza por Agentes de IA vs. CI/CD Tradicional
+
+En los flujos tradicionales de desarrollo, el pipeline de CI/CD remoto es el primer lugar donde se descubren fallos de linting, cobertura insuficiente o vulnerabilidades de seguridad. Esto introduce ciclos lentos de retroalimentación (10 a 20 minutos por iteración).
+
+En el Estándar 11X aplicamos un **Shift-Left Extremo operado por Agentes de IA**:
+* **Ejecución Local Autónoma:** Antes de que un commit sea generado, el agente de IA (Google Antigravity, Claude Code, Cursor, Hermes) ejecuta localmente la suite en Docker efímero (`Rule Zero`) y la compuerta universal de certificación (`./.agents/scripts/certify_task_completion.sh`).
+* **Calidad Garantizada Pre-Push:** Cuando el código se envía a Git, ya ha sido validado matemáticamente contra la regla del 95% de cobertura, 0 secretos, paridad ORM con PostgreSQL real y escenarios BDD de Karate Labs. El CI remoto deja de ser un filtro de descubrimiento para convertirse en una simple salvaguarda redundante.
+* **Filosofía Soberana (Modelo RoSGrid):** Para tareas de alta criticidad como la publicación de paquetes (ej. el servidor MCP `@sinfallas/mcp-qa-11x` en npm), el estándar rechaza delegar credenciales maestras (`NPM_TOKEN`) a *runners* externos compartidos. El ciclo de publicación se ejecuta de manera soberana y local mediante scripts efímeros auditados (`scripts/publicar-mcp.sh`).
+
+---
 
 ## 1. El Anti-Patrón vs. La Vía "Blueprints"
 
@@ -35,9 +48,9 @@ Ejecutar `make clean-cache` o `./limpieza.sh` para destruir las cachés de volum
 
 ---
 
-## 3. Ejemplo Práctico: GitHub Actions
+## 3. Ejemplo Práctico de Referencia: GitHub Actions (Para Proyectos Adoptantes)
 
-Aquí tienes la plantilla base para `.github/workflows/qa-pipeline.yml`. Al usar los `Makefiles` corporativos, el pipeline es extremadamente limpio y fácil de leer.
+A continuación se presenta una plantilla ilustrativa de referencia para proyectos externos que adopten este blueprint y requieran configurar un flujo de verificación en GitHub Actions (ej. en `.github/workflows/qa-pipeline.yml`). Al utilizar los `Makefiles` corporativos bajo la Regla Cero, el pipeline es extremadamente limpio, no instala lenguajes en el runner y delega toda la inteligencia a las imágenes oficiales efímeras:
 
 ```yaml
 name: QA Testing Blueprint Pipeline (Nivel 11X)

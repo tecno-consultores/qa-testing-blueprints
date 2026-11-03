@@ -79,22 +79,61 @@ El repositorio está dividido en ecosistemas tecnológicos listos para ser adopt
 
 ---
 
-## 📦 Servidor MCP e Instalación en 1 Comando vía npm (`npx`)
+## 🔄 Modos de Adopción e Integración (Ecosistema Híbrido Humano + IA)
 
-El ecosistema de gobernanza, herramientas y recursos 11X está empaquetado y distribuido oficialmente en npmjs bajo el paquete público **`@sinfallas/mcp-qa-11x`** (Node.js 20+), permitiendo a cualquier desarrollador o Agente de IA integrarlo al instante sin necesidad de clonar el repositorio:
+Este ecosistema está concebido con una arquitectura **Dual-Consumer**: puede ser consumido directamente por **Agentes de Inteligencia Artificial autónomos** mediante el protocolo MCP y Skills Zero-Clone, o adoptado por **desarrolladores humanos e ingenieros de DevOps** de manera tradicional o asistida en cualquier fase del ciclo de vida del software.
 
-```bash
-# 1. Levantar el servidor MCP canónico (comunicación stdio para Antigravity, Claude, Cursor, Hermes):
-npx -y @sinfallas/mcp-qa-11x
+```mermaid
+flowchart TD
+    subgraph Ecosistema["🏛️ QA Testing Blueprints (Nivel 11X)"]
+        MCP["🧠 Servidor MCP Node.js/TS<br><code>@sinfallas/mcp-qa-11x</code>"]
+        Skills["⚡ Skills Maestras Zero-Clone<br><code>qa-11x-architect</code> + <code>refactoring-ui</code>"]
+        Blueprints["📁 Blueprints & Templates<br>FastAPI, Vue3, React, Node, Python, Bash"]
+    end
 
-# 2. Instalar las skills maestras (qa-11x-architect y refactoring-ui) en el espacio de trabajo:
-npx -y @sinfallas/mcp-qa-11x install-skill
+    subgraph ConsumidoresIA["🤖 Agentes de IA Autónomos"]
+        AGY["Google Antigravity"]
+        Claude["Claude Code / Desktop"]
+        Cursor["Cursor / Windsurf"]
+        Hermes["Hermes Agent (Nous)"]
+    end
 
-# O instalar directamente en un cliente de IA específico:
-npx -y @sinfallas/mcp-qa-11x install-skill --target [workspace|antigravity|claude|cursor|hermes|all]
+    subgraph ConsumidoresHumanos["👨‍💻 Desarrolladores & DevOps"]
+        Dev["Ingeniero de Software"]
+        QAEng["Ingeniero de QA / Staff"]
+    end
+
+    MCP -- "8 Tools + 8 Resources stdio" --> ConsumidoresIA
+    Skills -- "Inyección de Cerebro 11X" --> ConsumidoresIA
+    Skills -- "Instalación en workspace o IDE" --> ConsumidoresHumanos
+    Blueprints -- "Makefile + Docker efímero" --> ConsumidoresHumanos
+    ConsumidoresIA <--> ConsumidoresHumanos
 ```
 
-### Configuración en Clientes MCP (Antigravity, Claude, Cursor, Hermes):
+---
+
+### 🤖 Modo 1: Agentes de IA vía Servidor MCP (`@sinfallas/mcp-qa-11x`) — Cero Clonación
+
+El servidor canónico MCP en Node.js/TypeScript está publicado en npmjs bajo **`@sinfallas/mcp-qa-11x`** (Node.js 20+). Permite a cualquier agente de IA o IDE conectarse en tiempo real sin clonar el repositorio, accediendo a:
+
+* **8 Recursos Dinámicos (`blueprint://*`):** Manifiesto criptográfico (`blueprint://manifest`), filosofía y prompts (`blueprint://core/philosophy`), síntesis DISA/OWASP (`blueprint://security/disa-owasp-22`), templates por stack (`blueprint://{stack}/readme`), reglas tácticas UI (`blueprint://ui/refactoring-ui/{topic}`) y utilitarios (`blueprint://core/*`).
+* **8 Herramientas Autónomas (`Tools`):**
+  * `inspect_project_config`: Audita stacks presentes y configuraciones de linters/tipado.
+  * `fetch_blueprint_bundle`: Descarga quirúrgica de plantillas bajo demanda con validación SHA-256.
+  * `bootstrap_or_merge_11x`: Aplica fusión no destructiva integrando QA 11X en proyectos vivos.
+  * `inspect_ast_blast_radius`: Análisis AST de radio de impacto previo a refactorizaciones.
+  * `clean_workspace_11x`: Purga profunda de cachés y artefactos sin requerir `sudo`.
+  * `audit_security_stig_owasp`: Auditoría estática de 10 reglas DISA/OWASP y ergonomía visual Anti-JSDOM.
+  * `run_ephemeral_qa`: Ejecución de pruebas en Docker efímero bajo la Regla Cero con salida JSON.
+  * `certify_11x_gate`: Validación de la compuerta universal de certificación de 10 etapas.
+
+#### Ejecución Directa en 1 Comando:
+```bash
+# Levantar el servidor MCP canónico (comunicación stdio para Antigravity, Claude, Cursor, Hermes):
+npx -y @sinfallas/mcp-qa-11x
+```
+
+#### Configuración en Clientes MCP (Antigravity, Claude Desktop / Code, Cursor, Hermes):
 ```json
 {
   "mcpServers": {
@@ -106,34 +145,40 @@ npx -y @sinfallas/mcp-qa-11x install-skill --target [workspace|antigravity|claud
 }
 ```
 
-Consulte la [Guía de Integración con Agentes de IA](docs/ai-integration.md) para el catálogo completo de los 8 Recursos (`blueprint://*`) y las 8 Herramientas MCP.
+Consulte la [Guía de Integración con Agentes de IA](docs/ai-integration.md) para detalles completos de configuración y parámetros.
 
 ---
 
-## ⚡ Instalación Rápida Zero-Clone en 1 Segundo (Skills QA 11X)
+### ⚡ Modo 2: Inyección de Skills Zero-Clone en 1 Segundo (`qa-11x-architect` y `refactoring-ui`)
 
-Para dotar a cualquier asistente o proyecto de los conocimientos y reglas 11X sin clonar el repositorio completo, ejecuta el instalador universal verificado con SHA-256:
+Para dotar a cualquier agente o desarrollador de los conocimientos y reglas 11X sin clonar el repositorio completo, ejecuta el instalador oficial verificado con SHA-256 (DISA ASD STIG V6R5 `V-222513` / `APSC-DV-001430`):
 
 ```bash
+# Opción A (vía npx con el paquete oficial):
+npx -y @sinfallas/mcp-qa-11x install-skill
+
+# Opción B (vía script universal curl con verificación criptográfica SHA-256):
 curl -fsSL https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/scripts/install-skill.sh | sh
 ```
 
-El instalador descarga y valida criptográficamente mediante SHA-256 (DISA ASD STIG V6R5 `V-222513` / `APSC-DV-001430`) las skills maestras:
-* **`qa-11x-architect`:** Cerebro metodológico 11X, las 13 capas de calidad, los 22 patrones DISA ASD STIG V6R5 / OWASP v4.2 y directivas especializadas para Python, FastAPI, Node.js, Vue 3, React y Bash.
+El instalador hidrata de forma segura las dos skills maestras:
+* **`qa-11x-architect`:** Cerebro metodológico 11X, las 13 capas de la pirámide de calidad, los 22 patrones DISA ASD STIG V6R5 / OWASP v4.2 y directivas especializadas para Python, FastAPI, Node.js, Vue 3, React y Bash.
 * **`refactoring-ui`:** Reglas tácticas de jerarquía visual, WCAG 2.1 AA, contraste OKLCH y `tabular-nums` para `CLS = 0`.
 
-Opciones avanzadas por entorno objetivo:
+Opciones avanzadas por entorno de destino:
 ```bash
-./scripts/install-skill.sh --target [workspace|antigravity|claude|cursor|hermes|all]
+npx -y @sinfallas/mcp-qa-11x install-skill --target [workspace|antigravity|claude|cursor|hermes|all]
 ```
 
 ---
 
-## 🧠 ¿Cómo utilizar este Blueprint en un Proyecto Nuevo? (Flujo Automatizado)
+### 👨‍💻 Modo 3: Adopción Directa en Proyectos (Desarrollador Humano / Uso Asistido)
 
-1. **Copiar Archivos Operativos:** Arrastra a la raíz de tu proyecto el `docker-compose.qa.yml`, el `Makefile.example` (renómbralo a `Makefile`), los archivos `.example` del ecosistema elegido y la carpeta `.agents/`.
-2. **Documentación:** Copia la carpeta `docs/` y el archivo `AI_MASTER_PROMPT.md` a tu proyecto (ej. en `docs/qa/` o en la raíz).
-3. **Delega la Fusión a la IA:**
+Si prefieres adoptar o inspeccionar los blueprints directamente en tu propio repositorio:
+
+1. **Copiar Archivos Operativos:** Arrastra a la raíz de tu proyecto el orquestador `docker-compose.qa.yml`, el `Makefile.example` (renómbralo a `Makefile`), los archivos `.example` del ecosistema elegido y la carpeta `.agents/`.
+2. **Documentación de Soporte:** Copia la carpeta `docs/` y el archivo `AI_MASTER_PROMPT.md` a tu proyecto (ej. en `docs/qa/` o en la raíz).
+3. **Delega la Fusión a tu Agente de IA o Aplícala Manualmente:**
    > *"Lee las directrices en `AI_MASTER_PROMPT.md` y `.agents/README.md`. Necesito integrar el estándar QA 11X en este proyecto. Lee los archivos `.example` y realiza una **fusión quirúrgica no destructiva** con mis archivos de configuración reales. Conserva intactas mis dependencias de negocio y añade todo el stack de linters, tipado estricto y pruebas."*
-4. **Verificación:** Ejecuta `make qa-all` y `./.agents/scripts/certify_task_completion.sh` para certificar el pase de calidad corporativo.
-5. **Saneamiento y Limpieza:** Ejecuta `make clean` o `./scripts/limpieza.sh` para purgar artefactos temporales de pruebas, compilaciones y cachés de Docker (con fallback efímero Alpine que elimina archivos `root` sin requerir `sudo` ni dejar bloqueos de permisos en el entorno de desarrollo).
+4. **Verificación Efímera:** Ejecuta `make qa-all` y `./.agents/scripts/certify_task_completion.sh` para certificar el cumplimiento de las 10 compuertas corporativas.
+5. **Saneamiento Automático:** Ejecuta `make clean` o `./scripts/limpieza.sh` para purgar artefactos temporales de pruebas y cachés de Docker (con fallback efímero Alpine que elimina archivos `root` sin requerir `sudo` ni dejar bloqueos de permisos).

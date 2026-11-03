@@ -13,10 +13,10 @@ Al intentar ejecutar una prueba, recibes errores como `no space left on device` 
 Docker sigue almacenando en caché de forma agresiva: imágenes colgantes (Dangling images), bases de datos temporales de Prometheus o Redes Bridge no destruidas. Además, los **nuevos volúmenes de caché persistentes** (`pnpm-store` y `uv-cache`) pueden crecer descontroladamente con el tiempo.
 
 **La Solución:**
-Ejecutar la purga profunda que apagará todos los perfiles ocultos y destruirá los volúmenes (`down -v`):
+Ejecutar la purga profunda que apagará todos los perfiles ocultos y destruirá los volúmenes (`down -v`) sin requerir privilegios `sudo` en el host:
 
 ```bash
-sudo ./limpieza.sh
+./scripts/limpieza.sh
 # O utiliza la meta del Makefile en tu proyecto:
 make clean-cache
 ```
@@ -29,11 +29,14 @@ make clean-cache
 Linux te dice: `Permission denied` al intentar manipular reportes generados.
 
 **¿Por qué sucede?**
-Efecto secundario de los volúmenes *bind*. El contenedor efímero se ejecuta con `root` y crea los archivos (y carpetas como `prometheus_data/` o `graphify-out/`) con ese propietario.
+Efecto secundario de los volúmenes *bind*. El contenedor efímero se ejecuta con `root` interno y crea los archivos (y carpetas como `prometheus_data/` o `reports/`) con ese propietario.
 
 **La Solución:**
+Puedes utilizar el script maestro de saneamiento `./scripts/limpieza.sh` (o la herramienta MCP `clean_workspace_11x`), el cual levanta un contenedor efímero Alpine con permisos de superusuario interno para limpiar y reajustar los archivos automáticamente sin necesidad de `sudo` en el host:
 
 ```bash
+./scripts/limpieza.sh
+# O si deseas simplemente reasignar el propietario a tu usuario:
 sudo chown -R $USER:$USER .
 ```
 
@@ -98,7 +101,7 @@ OWASP ZAP termina de auditar la API exitosamente, pero escupe un error de permis
 El contenedor de ZAP corre por defecto con el usuario no privilegiado `zap` interno, el cual no tiene permisos de escritura en el volumen *bind* mapeado desde tu máquina host.
 
 **La Solución:**
-Asegúrate de que la directiva `user: root` esté declarada en el servicio `zap` dentro de tu `docker-compose.qa.yml`. Luego, ejecuta `sudo ./limpieza.sh` para restaurar los permisos locales.
+Asegúrate de que la directiva `user: root` esté declarada en el servicio `zap` dentro de tu `docker-compose.qa.yml`. Luego, ejecuta `./scripts/limpieza.sh` o `make clean` para purgar o restaurar los permisos locales (mediante el fallback en Docker efímero Alpine que no requiere `sudo`).
 
 ---
 

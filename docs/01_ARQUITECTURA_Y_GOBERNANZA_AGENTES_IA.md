@@ -68,35 +68,86 @@ Toda la documentación (`docs/`, `CHANGELOG.md`, `README.md`, `TESTING.md`) y la
 
 ---
 
-## 4. Compatibilidad Multi-Agente
+## 4. Compatibilidad Multi-Agente y Ecosistema MCP
 
-Esta arquitectura funciona de forma nativa e idéntica en las principales herramientas de desarrollo asistido:
+Esta arquitectura funciona de forma nativa e idéntica en las principales herramientas de desarrollo asistido y agentes autónomos:
 
-| Herramienta | Mecanismo de Ingestión | Archivo de Entrada Principal |
-| :--- | :--- | :--- |
-| **Google Antigravity** | Carga automática de `.agents/rules/` y `.agents/skills/` | `.agents/` + `AGENTS.md` |
-| **Anthropic Claude Code / Desktop** | Lectura contextual de directivas y configuración MCP | `AGENTS.md` + `.agents/skills/` |
-| **Hermes Agent (Nous Research)** | Conexión vía MCP (`/sse` o `/mcp`) y CLI de terminal | `AI_MASTER_PROMPT.md` + `Makefile` |
-| **Cursor / Windsurf** | Reglas de contexto de espacio de trabajo | `AGENTS.md` y `.agents/rules/` |
+| Herramienta / Agente | Mecanismo de Ingestión MCP | Integración de Skills | Archivo de Entrada / Configuración |
+| :--- | :--- | :--- | :--- |
+| **Google Antigravity** | `mcp_config.json` (`npx -y @sinfallas/mcp-qa-11x`) | Carga nativa en `.agents/skills/` | `.agents/` + `AGENTS.md` |
+| **Anthropic Claude Code / Desktop** | `claude_desktop_config.json` (`stdio`) | `npx -y @sinfallas/mcp-qa-11x install-skill --target claude` | `AGENTS.md` + `.agents/skills/` |
+| **Hermes Agent (Nous Research)** | `config.yaml` (`mcp_servers`) | `npx -y @sinfallas/mcp-qa-11x install-skill --target hermes` | `AI_MASTER_PROMPT.md` + `Makefile` |
+| **Cursor / Windsurf** | `.cursor/mcp.json` (`mcpServers`) | `npx -y @sinfallas/mcp-qa-11x install-skill --target cursor` | `AGENTS.md` y `.agents/rules/` |
 
 ---
 
-## 5. El Protocolo de Cierre Obligatorio (Closure Gate)
+## 5. El Servidor MCP Canónico (`@sinfallas/mcp-qa-11x`) y la Adopción Zero-Clone
 
-Para erradicar el hábito de los agentes de dar tareas por terminadas con pruebas a medias o documentación desfasada, el agente debe ejecutar el protocolo de cierre en 4 pasos:
+Para evitar que los agentes deban clonar gigabytes de repositorios o saturar su ventana de contexto con cientos de archivos, el ecosistema se distribuye como servidor MCP oficial bajo el estándar de Anthropic / Linux Foundation:
+
+1. **8 Recursos Dinámicos (`blueprint://*`):**
+   - `blueprint://manifest`: Índice criptográfico con hashes SHA-256 de todos los stacks y archivos comunes.
+   - `blueprint://core/philosophy`: Filosofía 11X y prompt maestro (`AI_MASTER_PROMPT.md`).
+   - `blueprint://security/disa-owasp-22`: Síntesis técnica de los 22 patrones DISA ASD STIG V6R5 y OWASP v4.2.
+   - `blueprint://{stack}/readme`: Especificación del stack solicitado (`fastapi`, `vue3`, `node`, `python`, etc.).
+   - `blueprint://ui/refactoring-ui/{topic}`: Directivas tácticas visuales y WCAG 2.1 AA.
+   - `blueprint://core/active-task-template`: Plantilla de seguimiento resiliente para agentes.
+   - `blueprint://core/cleanup-script`: Script de saneamiento universal sin `sudo`.
+   - `blueprint://core/roadmap-validator`: Validador de consistencia de hoja de ruta.
+
+2. **8 Herramientas de Ejecución (`Tools`):**
+   - `inspect_project_config`: Detección automática del stack y linters del proyecto usuario.
+   - `fetch_blueprint_bundle`: Descarga quirúrgica de plantillas con validación de hashes SHA-256.
+   - `bootstrap_or_merge_11x`: Fusión no destructiva inyectando configuraciones QA en proyectos existentes.
+   - `inspect_ast_blast_radius`: Auditoría AST previa de radio de impacto para cambios en funciones o símbolos.
+   - `clean_workspace_11x`: Purga segura de cachés y artefactos sin necesidad de privilegios `sudo`.
+   - `audit_security_stig_owasp`: Auditoría estática de reglas DISA/OWASP (`SEC-01` a `SEC-10`) y Anti-JSDOM (`UI-11X-01`).
+   - `run_ephemeral_qa`: Lanzamiento de pruebas en Docker efímero bajo la Regla Cero con retorno estructurado en JSON.
+   - `certify_11x_gate`: Ejecución de la compuerta universal de certificación previa a la entrega de la tarea.
+
+3. **Inyección de Skills en 1 Segundo (`install-skill`):**
+   Cualquier agente puede autoinstalar las skills maestras (`qa-11x-architect` y `refactoring-ui`) ejecutando `npx -y @sinfallas/mcp-qa-11x install-skill`, adquiriendo de inmediato todo el conocimiento corporativo 11X sin clonar el repositorio.
+
+---
+
+## 6. Colaboración Híbrida Humano + Agentes de IA
+
+El estándar 11X no reemplaza al desarrollador humano ni lo relega a tareas secundarias; establece una simbiosis técnica estructurada:
+
+* **El Rol del Humano:** Define requerimientos funcionales, valida la experiencia de usuario y aprueba decisiones arquitectónicas estratégicas.
+* **El Rol del Agente de IA:** Asume el rol de Staff QA & DevOps Automation Engineer. Audita el radio de impacto AST, implementa código siguiendo tipado estricto, genera obligatoriamente pruebas unitarias y de integración ($\ge 95\%$), diseña escenarios BDD en Karate Labs, ejecuta la suite en Docker efímero (`Rule Zero`) y mantiene sincronizada la documentación técnica.
+* **La Compuerta Objetiva:** Ni el humano ni el agente pueden eludir la compuerta universal de certificación. El pase de calidad se determina por asertos verificados, no por opiniones o complacencia.
+
+---
+
+## 7. El Protocolo de Cierre Obligatorio (Task Closure Gate — 10 Etapas)
+
+Para erradicar el hábito de los agentes de dar tareas por terminadas con pruebas a medias o documentación desfasada, el agente debe ejecutar de forma implacable el protocolo de cierre:
 
 1. **Creación Obligatoria de Pruebas 11X:** Ningún código nuevo puede carecer de pruebas unitarias (`>= 95%`) ni de escenarios BDD en Karate Labs para API y UI.
-2. **Ejecución en Docker Efímero (`Rule Zero`):** Toda la suite debe ejecutarse y pasar al 100% dentro de contenedores (`make qa-all`).
-3. **Sincronización Documental Continua:** Actualizar `docs/`, `CHANGELOG.md` (bajo `## [Unreleased]`), `TESTING.md` y `README.md`.
-4. **Compuerta de Certificación:** Ejecutar `./.agents/scripts/certify_task_completion.sh`. Si algún paso falla, el agente tiene prohibido cerrar el turno.
+2. **Ejecución en Docker Efímero (`Rule Zero`):** Toda la suite debe ejecutarse y pasar al 100% dentro de contenedores efímeros (`make qa-all`).
+3. **Sincronización Documental Continua:** Actualizar `docs/`, `CHANGELOG.md` (bajo `## [Unreleased]`), `ROADMAP.md`, `TESTING.md`, `README.md` y marcar `.agents/ACTIVE_TASK.md` como `COMPLETED (100%)`.
+4. **Compuerta Universal de Certificación (10/10):** Ejecutar `./.agents/scripts/certify_task_completion.sh` verificando:
+   - Secret Scanning (`verificar-secretos.sh`).
+   - Auditoría de infraestructura y CVEs (Trivy, `auditar-infra.sh`).
+   - Anti-colisión en claves de diccionarios JSON.
+   - Cero componentes UI huérfanos sin pruebas unitarias.
+   - Cero endpoints de API huérfanos entre frontend y backend.
+   - Salud topológica y límites arquitectónicos AST.
+   - Paridad ORM entre modelos SQLAlchemy y migraciones Alembic.
+   - Sincronización criptográfica del manifiesto SHA-256 (`manifest.json`).
+   - Consistencia estricta de `ROADMAP.md` y `ACTIVE_TASK.md`.
+   - Sincronización incondicional de documentación y pruebas obligatorias.
+
+Si cualquiera de los pasos falla, el agente tiene prohibido cerrar el turno.
 
 ---
 
-## 6. Evolución Continua del Agente (`continuous_agent_evolution.md`)
+## 8. Evolución Continua del Agente (`continuous_agent_evolution.md`)
 
 Los agentes no deben ser estáticos. Si durante el desarrollo descubren:
 - Una trampa recurrente (ej. un linter que falla por una regla de comillas),
 - Una biblioteca que requiere un mock especial,
-- Una oportunidad de optimizar el consumo de tokens,
+- Una oportunidad de optimizar el consumo de tokens o simplificar un procedimiento,
 
 el agente tiene la directiva explícita de **actualizar de forma autónoma las reglas y skills** en `.agents/`, documentando el cambio en el `CHANGELOG.md`. De esta forma, el sistema "aprende" y transfiere el conocimiento a sesiones futuras.
