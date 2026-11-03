@@ -91,7 +91,7 @@ When operating in pure CLI, Cloud, or desktop assistants without MCP tools:
    Validate external integrations and state stores against three raw fixtures: (1) Virgin / Factory Default (assert negative invariants), (2) Nominal Configured (assert active healthy state), and (3) Degraded / Unsupported (assert graceful fallback without HTTP 500). Inspect AST blast radius with `inspect_blast_radius.py` before modifying shared files.
 
 10. **Law 10: Active Task Invariant (`.agents/ACTIVE_TASK.md`), Planning Tool & Closure Gate**  
-    Prior to code mutation on non-trivial tasks, AI agents MUST invoke the native planning tool/workflow (e.g. `/plan` slash command or interactive plan artifacts with `RequestFeedback: true`) and immediately persist the agreed phase breakdown in `.agents/ACTIVE_TASK.md` (bootstrapped from `.agents/ACTIVE_TASK.md.example`). As work proceeds, the agent MUST update `.agents/ACTIVE_TASK.md` in real-time (`- [ ]` → `- [x]`) to guarantee zero context loss across IDE crashes, session restarts, or context compaction. Every modification requires updating `TESTING.md` (metrics and test tallies), `CHANGELOG.md` (`## [Unreleased]`), `ROADMAP.md`, and relevant `docs/`. Mark `.agents/ACTIVE_TASK.md` as `COMPLETED (100%)` and execute `./.agents/scripts/certify_task_completion.sh` before finishing.
+    Prior to code mutation on non-trivial tasks, AI agents MUST invoke the native planning tool/workflow (e.g. `/plan` slash command or interactive plan artifacts with `RequestFeedback: true`) and immediately persist the agreed phase breakdown in `.agents/ACTIVE_TASK.md` (bootstrapped from `.agents/ACTIVE_TASK.md.example`). As work proceeds, the agent MUST update `.agents/ACTIVE_TASK.md` in real-time (`- [ ]` → `- [x]`) to guarantee zero context loss across IDE crashes, session restarts, or context compaction. Every modification requires updating `TESTING.md` (metrics and test tallies), `CHANGELOG.md` (`## [Unreleased]`), `ROADMAP.md` (verifying summary table and section parity via `verify_roadmap_consistency.py`), and relevant `docs/`. Mark `.agents/ACTIVE_TASK.md` as `COMPLETED (100%)` and execute `./.agents/scripts/certify_task_completion.sh` before finishing.
 
 ---
 
@@ -124,17 +124,18 @@ Step 0: Plan Hardening ───────> Map missing patterns in .agents/AC
 Step 1: Scan Posture ─────────> Cross-reference against references/02-security-disa-owasp-22.md.
 Step 2: Inject Controls ──────> Add NFKC normalizers, OWASPSecureHeadersMiddleware, Argon2id dummy hash, etc.
 Step 3: Negative Assertions ──> Write unit/BDD tests specifically verifying rejection of malicious payloads.
-Step 4: Audit Verification ───> Run `./scripts/verificar-secretos.sh` and `./auditar-infra.sh`.
+Step 4: Audit Verification ───> Run `./scripts/verificar-secretos.sh` and `./scripts/auditar-infra.sh`.
 ```
 
 ### Playbook 4: 11X Certification & Task Closure Gate
 ```text
 Step 1: Execute Full QA ──────> Run `make qa-all` inside Docker containers.
 Step 2: Audit Integrity ──────> Run `python3 scripts/generar-manifiesto.py --check`.
-Step 3: Run Certifier ────────> Run `./.agents/scripts/certify_task_completion.sh`.
-Step 4: Update Documentation ─> Synchronize TESTING.md, CHANGELOG.md, ROADMAP.md, and docs/.
-Step 5: Mark Active Task ─────> Mark .agents/ACTIVE_TASK.md as COMPLETED (100%).
-Step 6: Commit & Publish ─────> Conventional commit in Spanish and push.
+Step 3: Audit Roadmap Sync ───> Run `python3 .agents/scripts/verify_roadmap_consistency.py`.
+Step 4: Run Certifier ────────> Run `./.agents/scripts/certify_task_completion.sh` (10/10 gates).
+Step 5: Update Documentation ─> Synchronize TESTING.md, CHANGELOG.md, ROADMAP.md, and docs/.
+Step 6: Mark Active Task ─────> Mark .agents/ACTIVE_TASK.md as COMPLETED (100%).
+Step 7: Commit & Publish ─────> Conventional commit in Spanish and push.
 ```
 
 ### Playbook 5: Workspace Sanitization & Docker Root File Eviction (`make clean` / `scripts/limpieza.sh`)

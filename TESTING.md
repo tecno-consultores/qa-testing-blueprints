@@ -23,6 +23,8 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
 | **Rendimiento Frontend** | `Lighthouse CI` | **Puntuación $\ge 90$** (Core Web Vitals) | Bloqueo de compilación estática |
 | **Secret Scanning** | `./scripts/verificar-secretos.sh` | **0 secretos / API keys en código** | Rechazo en pre-commit |
 | **Integridad de Manifiesto** | `scripts/generar-manifiesto.py --check` | **100% hashes SHA-256 sincronizados** | Bloqueo de deriva Zero-Clone |
+| **Consistencia ROADMAP & Tarea Activa** | `.agents/scripts/verify_roadmap_consistency.py` | **100% coherencia tabla vs tareas [x] / cero pendientes en COMPLETED** | Rechazo de cierre por asimetría |
+
 
 ---
 
@@ -126,20 +128,27 @@ Antes de autorizar cualquier integración de código o cerrar una tarea técnica
 ./.agents/scripts/certify_task_completion.sh
 ```
 
-El script evalúa de forma secuencial e implacable 9 compuertas obligatorias:
-1. **[1/9] Secret Scanning:** Detección de claves privadas, tokens y credenciales vía `scripts/verificar-secretos.sh`.
-2. **[2/9] Local Dependency & IaC Security Audit:** Escaneo estático de vulnerabilidades y manifiestos Docker Compose con Trivy (`auditar-infra.sh` + `.trivy.yaml`).
-3. **[3/9] No Duplicate JSON Keys:** Prevención de colisiones y sobreescrituras en diccionarios (`verify_json_no_duplicate_keys.py`).
-4. **[4/9] Zero Orphan Components:** Verificación determinista de cobertura unitaria para el 100% de componentes UI (`verify_zero_orphan_vue_components.py`).
-5. **[5/9] Zero Orphan API Endpoints:** Verificación bidireccional de paridad de rutas entre Frontend y Backend (`verify_no_orphan_api_endpoints.py`).
-6. **[6/9] Topological Health & AST Layer Boundaries:** Validación de acoplamiento y límites de capas arquitectónicas (`verify_topological_health.py`).
-7. **[7/9] Database Schema & Migration Parity:** Inspección de modelos SQLAlchemy frente a migraciones Alembic y longitud de `revision <= 32` chars (`verify_alembic_orm_parity.py`).
-8. **[8/9] Cryptographic Manifest Synchronization:** Verificación estricta de coherencia y hashes SHA-256 en `manifest.json` (`scripts/generar-manifiesto.py --check`) asegurando integridad Zero-Clone (DISA STIG `V-222513`).
-9. **[9/9] Documentation & Mandatory Tests Synchronization:** Verificación incondicional de consistencia en `CHANGELOG.md`, `ROADMAP.md`, `TESTING.md`, `README.md` y suites de pruebas 11X.
+El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
+1. **[1/10] Secret Scanning:** Detección de claves privadas, tokens y credenciales vía `scripts/verificar-secretos.sh`.
+2. **[2/10] Local Dependency & IaC Security Audit:** Escaneo estático de vulnerabilidades y manifiestos Docker Compose con Trivy (`scripts/auditar-infra.sh` + `.trivy.yaml`).
+3. **[3/10] No Duplicate JSON Keys:** Prevención de colisiones y sobreescrituras en diccionarios (`verify_json_no_duplicate_keys.py`).
+4. **[4/10] Zero Orphan Components:** Verificación determinista de cobertura unitaria para el 100% de componentes UI (`verify_zero_orphan_vue_components.py`).
+5. **[5/10] Zero Orphan API Endpoints:** Verificación bidireccional de paridad de rutas entre Frontend y Backend (`verify_no_orphan_api_endpoints.py`).
+6. **[6/10] Topological Health & AST Layer Boundaries:** Validación de acoplamiento y límites de capas arquitectónicas (`verify_topological_health.py`).
+7. **[7/10] Database Schema & Migration Parity:** Inspección de modelos SQLAlchemy frente a migraciones Alembic y longitud de `revision <= 32` chars (`verify_alembic_orm_parity.py`).
+8. **[8/10] Cryptographic Manifest Synchronization:** Verificación estricta de coherencia y hashes SHA-256 en `manifest.json` (`scripts/generar-manifiesto.py --check`) asegurando integridad Zero-Clone (DISA STIG `V-222513`).
+9. **[9/10] Roadmap & Active Task Consistency:** Verificación de consistencia bidireccional estricta entre la tabla resumen de `ROADMAP.md` y sus tareas granulares (`- [x]` / `- [ ]`), y validación de ausencia de casillas pendientes en `.agents/ACTIVE_TASK.md` ante estados `COMPLETED` (`verify_roadmap_consistency.py`).
+10. **[10/10] Documentation & Mandatory Tests Synchronization:** Verificación incondicional de consistencia en `CHANGELOG.md`, `ROADMAP.md`, `TESTING.md`, `README.md` y suites de pruebas 11X.
 
 ---
 
 ## 4. Pruebas Unitarias de Herramientas y Scripts (`tests/`)
+
+* **Validador de Consistencia ROADMAP y Tarea Activa (`.agents/scripts/verify_roadmap_consistency.py`):**
+  * **Suite:** `tests/test_verify_roadmap_consistency.unit.py` (13 pruebas unitarias).
+  * **Ejecución Efímera:** `docker run --rm -v "${PWD}:/app" -w /app sinfallas/base-python-uv:3.15 python3 tests/test_verify_roadmap_consistency.unit.py`
+  * **Cobertura Alcanzada:** **100% de aserciones aprobadas** (13/13 pruebas pasando en 0.005s).
+  * **Aserciones Validadas:** Parseo de tablas de resumen de hitos enteros y decimales, conteo de tareas en secciones, detección de hitos 100% completados marcados como Pendientes (caso Hito 4), detección de hitos sin tareas marcados como Completados, asimetría de iconos en encabezados (`## ✅` vs `## ⏳`), validación de `ACTIVE_TASK.md` con tareas pendientes en `COMPLETED (100%)` y ejecución determinista CLI.
 
 * **Generador y Validador de Manifiesto Criptográfico (`scripts/generar-manifiesto.py`):**
   * **Suite:** `tests/test_generar_manifiesto.unit.py` (12 pruebas unitarias).
@@ -163,17 +172,17 @@ El script evalúa de forma secuencial e implacable 9 compuertas obligatorias:
     * `tests/github-fetcher.unit.ts` (18 pruebas): Hidratación remota, validación condicional `ETag` (304), verificación SHA-256 (`DISA STIG V-222513`), detección de tampering, fallback offline y local path override.
     * `tests/surgical-merger.unit.ts` (13 pruebas): Fusión quirúrgica no destructiva de `package.json`, `pyproject.toml`, `Makefile`, `.gitignore` y `.npmrc`, asignación de permisos `0o755` a scripts y modo `dryRun`.
     * `tests/inspect-project.unit.ts` (7 pruebas): Detección automática de stacks (`python`, `fastapi`, `vue3`, `react-frontend`, `node-backend`, `bash-scripts`), banderas estrictas (`mypy`, `tsconfig`, `npmrc`) y archivos 11X ausentes.
-    * `tests/tools-and-resources.unit.ts` (32 pruebas): Recursos `blueprint://*` (incluyendo `blueprint://core/active-task-template` y `blueprint://core/cleanup-script`), herramientas 1 a 5 (`inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`, `clean_workspace_11x`), CLI `install-skill` multi-entorno y servidor `McpServer`.
+    * `tests/tools-and-resources.unit.ts` (34 pruebas): Recursos `blueprint://*` (incluyendo `blueprint://core/active-task-template`, `blueprint://core/cleanup-script` y `blueprint://core/roadmap-validator`), herramientas 1 a 5 (`inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`, `clean_workspace_11x`), CLI `install-skill` multi-entorno y servidor `McpServer`.
   * **Ejecución Efímera:**
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run lint`
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run typecheck`
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run test:unit`
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run build`
   * **Cobertura y Métricas Alcanzadas:**
-    * **100% de aserciones aprobadas** (70/70 pruebas pasando).
-    * **97.69% de cobertura de líneas y sentencias** (superando el umbral de $\ge 95\%$).
-    * **93.25% de cobertura de ramas** (superando el umbral de $\ge 90\%$).
-    * **98.36% de cobertura de funciones**.
+    * **100% de aserciones aprobadas** (72/72 pruebas pasando).
+    * **97.76% de cobertura de líneas y sentencias** (superando el umbral de $\ge 95\%$).
+    * **93.08% de cobertura de ramas** (superando el umbral de $\ge 90\%$).
+    * **98.38% de cobertura de funciones**.
     * **0 errores de ESLint, SonarJS (Cognitiva $\le 15$) y TypeScript (`strict: true`)**.
 
 * **Script Universal de Limpieza y Saneamiento (`scripts/limpieza.sh`):**

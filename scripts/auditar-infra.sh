@@ -1,27 +1,30 @@
 #!/usr/bin/env bash
-# Licencia: MIT
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 QA Testing Blueprints Contributors
 # Propósito: Auditoría efímera de Infraestructura como Código (IaC) usando Trivy.
+# Cumple estrictamente con la Regla Cero (ejecución en contenedor Docker efímero con montaje :ro).
 
 LC_ALL=C
-set -e
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 echo "🛡️ Iniciando Auditoría de Seguridad de Infraestructura (Trivy IaC)..."
 
-# Ejecuta el escáner de misconfiguraciones mapeando la carpeta actual al contenedor.
-# Usamos ":ro" (Read-Only) para garantizar que Trivy no pueda alterar el código fuente.
+# 1. Escaneo de misconfiguraciones IaC mapeando en modo solo lectura (:ro)
 docker run --rm \
-  -v "${PWD}:/app:ro" \
+  -v "${REPO_ROOT}:/app:ro" \
   -w /app \
   aquasec/trivy:latest config . \
   --severity HIGH,CRITICAL \
   --exit-code 1
 
-# Si el comando anterior no arroja Exit Code 1, pasamos a escanear vulnerabilidades (CVEs)
-# en los manifiestos de dependencias expuestos en el file system.
+# 2. Escaneo de vulnerabilidades críticas (CVEs) en dependencias locales
 echo "✅ IaC validado. Escaneando vulnerabilidades (CVEs) en el File System..."
 
 docker run --rm \
-  -v "${PWD}:/app:ro" \
+  -v "${REPO_ROOT}:/app:ro" \
   -w /app \
   aquasec/trivy:latest fs . \
   --severity CRITICAL \

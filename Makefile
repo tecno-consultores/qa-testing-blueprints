@@ -21,7 +21,7 @@ qa-clean: clean
 
 audit:
 	@echo "🔒 [Audit] Iniciando escaneo preventivo de vulnerabilidades y seguridad..."
-	@./auditar-infra.sh
+	@./scripts/auditar-infra.sh
 
 lint:
 	@echo "🔍 [Lint] Ejecutando linter y chequeo de tipos en Docker efímero..."

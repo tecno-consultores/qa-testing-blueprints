@@ -142,4 +142,22 @@ export class BlueprintResources {
       text: content,
     };
   }
+
+  public async getRoadmapValidatorResource(): Promise<ResourceResponse> {
+    const manifest = await this.fetcher.fetchManifest();
+    const validatorEntry = manifest.agent_governance_files.find(
+      (f) => f.path === '.agents/scripts/verify_roadmap_consistency.py'
+    );
+    let content = '';
+    if (validatorEntry) {
+      content = await this.fetcher.fetchFileContent(validatorEntry.path, validatorEntry.sha256);
+    } else {
+      content = '#!/usr/bin/env python3\n# Validador de consistencia ROADMAP y ACTIVE_TASK\n';
+    }
+    return {
+      uri: 'blueprint://core/roadmap-validator',
+      mimeType: 'text/x-python',
+      text: content,
+    };
+  }
 }

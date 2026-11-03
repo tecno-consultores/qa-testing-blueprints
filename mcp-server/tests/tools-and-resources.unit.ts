@@ -61,6 +61,10 @@ describe('Tools and Resources Integration Suite', () => {
     const activeTaskContent = '# Active Task Template Example';
     const activeTaskHash = crypto.createHash('sha256').update(activeTaskContent).digest('hex');
 
+    const validatorFile = '.agents/scripts/verify_roadmap_consistency.py';
+    const validatorContent = '#!/usr/bin/env python3\n# Roadmap and Active Task Validator';
+    const validatorHash = crypto.createHash('sha256').update(validatorContent).digest('hex');
+
     const cleanFile = 'scripts/limpieza.sh';
     const cleanContent = '#!/usr/bin/env bash\necho "cleaning"';
     const cleanHash = crypto.createHash('sha256').update(cleanContent).digest('hex');
@@ -139,6 +143,13 @@ describe('Tools and Resources Integration Suite', () => {
           sha256: activeTaskHash,
           size_bytes: activeTaskContent.length,
         },
+        {
+          path: validatorFile,
+          target_name: validatorFile,
+          merge_strategy: 'overwrite_executable',
+          sha256: validatorHash,
+          size_bytes: validatorContent.length,
+        },
       ],
     };
 
@@ -158,6 +169,7 @@ describe('Tools and Resources Integration Suite', () => {
     writeRepoFile(promptFile, promptContent);
     writeRepoFile(secFile, secContent);
     writeRepoFile(activeTaskFile, activeTaskContent);
+    writeRepoFile(validatorFile, validatorContent);
     writeRepoFile(cleanFile, cleanContent);
 
     fetcher = new GitHubFetcher({
@@ -611,6 +623,24 @@ describe('Tools and Resources Integration Suite', () => {
       expect(res.text).toBe('#!/usr/bin/env bash\necho "cleaning"');
     });
 
+    it('retrieves roadmap validator resource from BlueprintResources', async () => {
+      const resources = new BlueprintResources(fetcher);
+      const res = await resources.getRoadmapValidatorResource();
+      expect(res.uri).toBe('blueprint://core/roadmap-validator');
+      expect(res.mimeType).toBe('text/x-python');
+      expect(res.text).toBe('#!/usr/bin/env python3\n# Roadmap and Active Task Validator');
+    });
+
+    it('falls back to default script when roadmap validator is not in manifest', async () => {
+      const emptyManifest = { ...mockManifest, agent_governance_files: [] };
+      const emptyFetcher = new GitHubFetcher();
+      vi.spyOn(emptyFetcher, 'fetchManifest').mockResolvedValue(emptyManifest);
+
+      const resources = new BlueprintResources(emptyFetcher);
+      const res = await resources.getRoadmapValidatorResource();
+      expect(res.text).toContain('#!/usr/bin/env python3');
+    });
+
     it('falls back to default script when cleanup script is not in manifest', async () => {
       const emptyManifest = { ...mockManifest, common_files: [] };
       const emptyFetcher = new GitHubFetcher();
@@ -689,7 +719,13 @@ describe('Tools and Resources Integration Suite', () => {
       );
       expect(cleanRes.contents[0].text).toBe('#!/usr/bin/env bash\necho "cleaning"');
 
-      // 8. Ejecutar tool: inspect_project_config
+      // 8. Ejecutar resource: roadmap-validator
+      const roadRes = await serverAny._registeredResources['blueprint://core/roadmap-validator'].readCallback(
+        new URL('blueprint://core/roadmap-validator')
+      );
+      expect(roadRes.contents[0].text).toBe('#!/usr/bin/env python3\n# Roadmap and Active Task Validator');
+
+      // 9. Ejecutar tool: inspect_project_config
       const toolInspect = serverAny._registeredTools['inspect_project_config'];
       expect(toolInspect).toBeDefined();
       const inspectRes = await toolInspect.handler({ project_path: targetProjectDir });

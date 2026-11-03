@@ -66,7 +66,8 @@ Welcome to the **QA Testing Blueprints** repository. All AI coding assistants (G
 
 ## 4. Automation Scripts in `.agents/scripts/`
 
-- `certify_task_completion.sh`: End-to-end certification gate enforcing secret scanning, IaC auditing, i18n integrity, zero orphan UI components, zero orphan API endpoints, topological health, ORM parity, and documentation sync.
+- `certify_task_completion.sh`: End-to-end 10-stage certification gate enforcing secret scanning, IaC auditing, i18n integrity, zero orphan UI components, zero orphan API endpoints, topological health, ORM parity, cryptographic manifest integrity, roadmap & active task consistency, and documentation/test sync.
+- `verify_roadmap_consistency.py`: Automated bidirectional consistency validator enforcing strict parity between `ROADMAP.md` summary table and granular section tasks (`- [x]` / `- [ ]`), plus zero-pending tasks invariant in `ACTIVE_TASK.md` when marked completed.
 - `verify_alembic_orm_parity.py`: Automated parity validator between ORM models and database migrations (detects schema drift and `revision > 32` chars).
 - `verify_zero_orphan_vue_components.py`: Automated parity validator ensuring 100% of UI components and views have active unit test suites.
 - `verify_no_orphan_api_endpoints.py`: Automated bidirectional parity validator ensuring 0 frontend calls to non-existent backend routes (404/405) and 0 unreferenced backend routes.
@@ -84,4 +85,4 @@ Welcome to the **QA Testing Blueprints** repository. All AI coding assistants (G
 > 1. **Mandatory 11X Test Creation (ALWAYS Including Karate Labs):** Create or extend unit and integration tests, and **ALWAYS incorporate Karate Labs BDD scenarios** for API and UI.
 > 2. **Mandatory Test Execution & Anti-Regression Verification:** Execute the complete test suite in ephemeral Docker containers (`Rule Zero`), certifying `>= 95%` coverage, 100% passed assertions, Karate Labs BDD validation, and 0 typing/linting errors.
 > 3. **Mandatory Documentation Synchronization & Active Task Closure:** Unconditionally update all affected files across `docs/`, `CHANGELOG.md` (section `## [Unreleased]`), `TESTING.md`, and `README.md`, and mark `.agents/ACTIVE_TASK.md` as `COMPLETED (100%)`.
-> 4. **Secret Scanning, Local Dependency Audit & ORM Parity:** Run `./scripts/verificar-secretos.sh`, execute `./auditar-infra.sh`, and run `.agents/scripts/certify_task_completion.sh`.
+> 4. **Secret Scanning, Local Dependency Audit & ORM Parity:** Run `./scripts/verificar-secretos.sh`, execute `./scripts/auditar-infra.sh`, and run `.agents/scripts/certify_task_completion.sh`.

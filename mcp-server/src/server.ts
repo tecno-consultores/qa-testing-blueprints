@@ -191,6 +191,28 @@ export function createMcpServer(options?: {
     }
   );
 
+  // 8. Validador canónico de consistencia de ROADMAP y ACTIVE_TASK (blueprint://core/roadmap-validator)
+  server.resource(
+    'blueprint-roadmap-validator',
+    'blueprint://core/roadmap-validator',
+    {
+      description: 'Validador canónico de consistencia (.agents/scripts/verify_roadmap_consistency.py) para auditar la coherencia bidireccional entre ROADMAP.md y ACTIVE_TASK.md.',
+      mimeType: 'text/x-python',
+    },
+    async (uri) => {
+      const res = await resources.getRoadmapValidatorResource();
+      return {
+        contents: [
+          {
+            uri: uri.href,
+            mimeType: res.mimeType,
+            text: res.text,
+          },
+        ],
+      };
+    }
+  );
+
   // ============================================================================
   // 🛠️ Registro de Herramientas MCP (Tools 1 a 4)
   // ============================================================================

@@ -55,7 +55,7 @@ STACK_METADATA: Dict[str, Dict[str, str]] = {
 COMMON_FILE_PATHS: List[str] = [
     "lefthook.yml",
     "commitlint.config.js",
-    "auditar-infra.sh",
+    "scripts/auditar-infra.sh",
     "scripts/verificar-secretos.sh",
     ".trivy.yaml",
     "scripts/limpieza.sh",
