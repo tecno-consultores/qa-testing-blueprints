@@ -231,8 +231,30 @@ if ! docker run --rm "${DOCKER_TTY_ARGS[@]}" \
   exit 1
 fi
 
-echo -e "\n🔍 Verificando publicación remota..."
-docker run --rm "${IMAGE_NAME}" npm view "${PKG_NAME}" version
+echo -e "\n🔍 Verificando propagación en el CDN de ${NPM_REGISTRY}..."
+VERIFY_ATTEMPTS=6
+VERIFY_DELAY=5
+VERIFIED_REMOTE_VERSION=""
+
+for attempt in $(seq 1 "${VERIFY_ATTEMPTS}"); do
+  VERIFIED_REMOTE_VERSION="$(
+    docker run --rm "${IMAGE_NAME}" \
+      npm view "${PKG_NAME}@${PKG_VERSION}" version --registry "${NPM_REGISTRY}" 2>/dev/null || true
+  )"
+  if [ "${VERIFIED_REMOTE_VERSION}" = "${PKG_VERSION}" ]; then
+    echo -e "\e[32m✔ Versión ${PKG_VERSION} verificada y disponible en el CDN de npmjs (intento ${attempt}/${VERIFY_ATTEMPTS}).\e[0m"
+    break
+  fi
+  if [ "${attempt}" -lt "${VERIFY_ATTEMPTS}" ]; then
+    echo "⏳ Esperando propagación asíncrona del CDN de npmjs (intento ${attempt}/${VERIFY_ATTEMPTS}, reintentando en ${VERIFY_DELAY}s)..."
+    sleep "${VERIFY_DELAY}"
+  fi
+done
+
+if [ "${VERIFIED_REMOTE_VERSION}" != "${PKG_VERSION}" ]; then
+  echo -e "\e[33m⚠️ Aviso: npm publish concluyó con éxito (+ ${PKG_NAME}@${PKG_VERSION}), pero el CDN de npmjs aún está procesando la propagación inicial.\e[0m"
+  echo "   Estará visible en unos instantes ejecutando: npm view ${PKG_NAME} version"
+fi
 
 # Saneamiento final
 "${REPO_ROOT}/scripts/limpieza.sh"

@@ -45,6 +45,18 @@ describe('Tools and Resources Integration Suite', () => {
     const refactContent = '# Refactoring UI';
     const refactHash = crypto.createHash('sha256').update(refactContent).digest('hex');
 
+    const dockerTrivySkill = '.agents/skills/docker-trivy-keydb-hardening/SKILL.md';
+    const dockerTrivyContent = '# Docker Trivy KeyDB Hardening';
+    const dockerTrivyHash = crypto.createHash('sha256').update(dockerTrivyContent).digest('hex');
+
+    const graphifySkill = '.agents/skills/graphify-ast-navigator/SKILL.md';
+    const graphifyContent = '# Graphify AST Navigator';
+    const graphifyHash = crypto.createHash('sha256').update(graphifyContent).digest('hex');
+
+    const qaDockerSkill = '.agents/skills/qa-11x-docker-certifier/SKILL.md';
+    const qaDockerContent = '# QA 11X Docker Certifier';
+    const qaDockerHash = crypto.createHash('sha256').update(qaDockerContent).digest('hex');
+
     const promptFile = 'AI_MASTER_PROMPT.md';
     const promptContent = '# Master Prompt';
     const promptHash = crypto.createHash('sha256').update(promptContent).digest('hex');
@@ -123,6 +135,27 @@ describe('Tools and Resources Integration Suite', () => {
           size_bytes: refactContent.length,
         },
         {
+          path: dockerTrivySkill,
+          target_name: dockerTrivySkill,
+          merge_strategy: 'copy_or_overwrite',
+          sha256: dockerTrivyHash,
+          size_bytes: dockerTrivyContent.length,
+        },
+        {
+          path: graphifySkill,
+          target_name: graphifySkill,
+          merge_strategy: 'copy_or_overwrite',
+          sha256: graphifyHash,
+          size_bytes: graphifyContent.length,
+        },
+        {
+          path: qaDockerSkill,
+          target_name: qaDockerSkill,
+          merge_strategy: 'copy_or_overwrite',
+          sha256: qaDockerHash,
+          size_bytes: qaDockerContent.length,
+        },
+        {
           path: promptFile,
           target_name: promptFile,
           merge_strategy: 'surgical_merge',
@@ -166,6 +199,9 @@ describe('Tools and Resources Integration Suite', () => {
     writeRepoFile(readmeFile, readmeContent);
     writeRepoFile(skillFile, skillContent);
     writeRepoFile(refactFile, refactContent);
+    writeRepoFile(dockerTrivySkill, dockerTrivyContent);
+    writeRepoFile(graphifySkill, graphifyContent);
+    writeRepoFile(qaDockerSkill, qaDockerContent);
     writeRepoFile(promptFile, promptContent);
     writeRepoFile(secFile, secContent);
     writeRepoFile(activeTaskFile, activeTaskContent);
@@ -381,6 +417,9 @@ describe('Tools and Resources Integration Suite', () => {
 
         expect(fs.existsSync(path.join(dest, '.agents/skills/qa-11x-architect/SKILL.md'))).toBe(true);
         expect(fs.existsSync(path.join(dest, '.agents/skills/refactoring-ui/SKILL.md'))).toBe(true);
+        expect(fs.existsSync(path.join(dest, '.agents/skills/docker-trivy-keydb-hardening/SKILL.md'))).toBe(true);
+        expect(fs.existsSync(path.join(dest, '.agents/skills/graphify-ast-navigator/SKILL.md'))).toBe(true);
+        expect(fs.existsSync(path.join(dest, '.agents/skills/qa-11x-docker-certifier/SKILL.md'))).toBe(true);
       } finally {
         process.chdir(cwd);
         consoleLogSpy.mockRestore();
@@ -460,42 +499,156 @@ describe('Tools and Resources Integration Suite', () => {
 
       const fakeHome = path.join(tmpDir, 'auto-home');
       fs.mkdirSync(path.join(fakeHome, '.gemini'), { recursive: true });
+      fs.mkdirSync(path.join(fakeHome, '.claude'), { recursive: true });
+      fs.mkdirSync(path.join(fakeHome, '.cursor'), { recursive: true });
 
       const origHome = process.env.HOME;
       process.env.HOME = fakeHome;
       vi.spyOn(console, 'log').mockImplementation(() => {});
 
       try {
-        // 1. En git workspace -> instala en workspace/.agents/skills
+        // 1. Invocación desde fakeHome sin argumentos: detecta .gemini y .claude y NO crea fakeHome/.agents
+        process.chdir(fakeHome);
+        await runInstallSkillCli([], fetcher);
+        expect(
+          fs.existsSync(path.join(fakeHome, '.gemini/config/skills/qa-11x-architect/SKILL.md'))
+        ).toBe(true);
+        expect(
+          fs.existsSync(path.join(fakeHome, '.claude/skills/qa-11x-architect/SKILL.md'))
+        ).toBe(true);
+        expect(fs.existsSync(path.join(fakeHome, '.agents'))).toBe(false);
+
+        // 2. Invocación desde proyecto git workspace: instala en workspace/.agents/skills
         process.chdir(fakeWorkspace);
-        await runInstallSkillCli(['--target', 'auto'], fetcher);
+        await runInstallSkillCli([], fetcher);
         expect(
           fs.existsSync(path.join(fakeWorkspace, '.agents/skills/qa-11x-architect/SKILL.md'))
         ).toBe(true);
 
-        // 2. Fuera de git workspace pero con .gemini en home -> instala en ~/.gemini/config/skills
-        const nonGitDir = path.join(tmpDir, 'non-git-dir');
-        fs.mkdirSync(nonGitDir, { recursive: true });
-        process.chdir(nonGitDir);
-        await runInstallSkillCli(['--target=other' as any], fetcher);
+        // 3. Invocación con --target cursor: instala en workspace y en fakeHome/.cursor/skills
+        await runInstallSkillCli(['--target', 'cursor'], fetcher);
         expect(
-          fs.existsSync(path.join(fakeHome, '.gemini/config/skills/qa-11x-architect/SKILL.md'))
+          fs.existsSync(path.join(fakeHome, '.cursor/skills/qa-11x-architect/SKILL.md'))
+        ).toBe(true);
+        expect(
+          fs.existsSync(path.join(fakeWorkspace, '.agents/skills/qa-11x-architect/SKILL.md'))
         ).toBe(true);
 
-        // 3. Sin .gemini en home y sin git -> fallback a cwd/.agents/skills
+        // 4. Invocación en directorio aislado sin .git y con home aislado: fallback a isolatedCwd/.agents/skills
         const isolatedHome = path.join(tmpDir, 'isolated-home');
         fs.mkdirSync(isolatedHome, { recursive: true });
         process.env.HOME = isolatedHome;
         const isolatedCwd = path.join(tmpDir, 'isolated-cwd');
         fs.mkdirSync(isolatedCwd, { recursive: true });
         process.chdir(isolatedCwd);
-        await runInstallSkillCli(['--target=unknown' as any], fetcher);
+        await runInstallSkillCli([], fetcher);
         expect(
           fs.existsSync(path.join(isolatedCwd, '.agents/skills/qa-11x-architect/SKILL.md'))
+        ).toBe(true);
+
+        // 5. Invocación con --target cursor cuando .cursor NO existe en homeDir
+        await runInstallSkillCli(['--target', 'cursor'], fetcher);
+        expect(
+          fs.existsSync(path.join(isolatedCwd, '.agents/skills/qa-11x-architect/SKILL.md'))
+        ).toBe(true);
+        expect(fs.existsSync(path.join(isolatedHome, '.cursor'))).toBe(false);
+      } finally {
+        process.chdir(cwd);
+        process.env.HOME = origHome;
+      }
+    });
+
+    it('installs operational scripts and common files when --include-scripts is provided', async () => {
+      const cwd = process.cwd();
+      const testDir = path.join(targetProjectDir, 'include-scripts-test');
+      fs.mkdirSync(testDir, { recursive: true });
+      vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      try {
+        process.chdir(testDir);
+        await runInstallSkillCli(['--target', 'workspace', '--include-scripts'], fetcher);
+
+        expect(fs.existsSync(path.join(testDir, 'scripts/limpieza.sh'))).toBe(true);
+        expect(
+          fs.existsSync(path.join(testDir, '.agents/scripts/verify_roadmap_consistency.py'))
+        ).toBe(true);
+
+        // Probar rama cuando no hay scripts comunes ni de agentes
+        const emptyScriptsFetcher = new GitHubFetcher();
+        vi.spyOn(emptyScriptsFetcher, 'fetchManifest').mockResolvedValue({
+          ...mockManifest,
+          common_files: undefined as any,
+          agent_governance_files: [
+            {
+              path: '.agents/skills/qa-11x-architect/SKILL.md',
+              target_name: 'SKILL.md',
+              merge_strategy: 'copy_or_overwrite',
+              sha256: crypto.createHash('sha256').update('# Architect Skill').digest('hex'),
+              size_bytes: 17,
+            },
+          ],
+        });
+        vi.spyOn(emptyScriptsFetcher, 'fetchFileContent').mockResolvedValue('# Architect Skill');
+        await runInstallSkillCli(['--target', 'workspace', '--include-scripts'], emptyScriptsFetcher);
+
+        // Probar rama cuando entry.target_name es vacío y agent_governance_files es undefined
+        const noTargetNameFetcher = new GitHubFetcher();
+        vi.spyOn(noTargetNameFetcher, 'fetchManifest').mockResolvedValue({
+          ...mockManifest,
+          common_files: [
+            {
+              path: 'scripts/direct-path.sh',
+              target_name: '',
+              merge_strategy: 'overwrite_executable',
+              sha256: crypto.createHash('sha256').update('echo direct').digest('hex'),
+              size_bytes: 11,
+            },
+          ],
+          agent_governance_files: [
+            {
+              path: '.agents/skills/qa-11x-architect/SKILL.md',
+              target_name: 'SKILL.md',
+              merge_strategy: 'copy_or_overwrite',
+              sha256: crypto.createHash('sha256').update('# Architect Skill').digest('hex'),
+              size_bytes: 17,
+            },
+          ],
+        });
+        vi.spyOn(noTargetNameFetcher, 'fetchFileContent').mockResolvedValue('echo direct');
+        await runInstallSkillCli(['--target', 'workspace', '--include-scripts'], noTargetNameFetcher);
+        expect(fs.existsSync(path.join(testDir, 'scripts/direct-path.sh'))).toBe(true);
+      } finally {
+        process.chdir(cwd);
+      }
+    });
+
+    it('respects QA_SKILL_TARGET environment variable when target argument is omitted', async () => {
+      const cwd = process.cwd();
+      const testDir = path.join(tmpDir, 'env-target-test');
+      fs.mkdirSync(testDir, { recursive: true });
+      const fakeHome = path.join(tmpDir, 'fake-env-home');
+      fs.mkdirSync(fakeHome, { recursive: true });
+
+      const origHome = process.env.HOME;
+      const origEnvTarget = process.env.QA_SKILL_TARGET;
+      process.env.HOME = fakeHome;
+      process.env.QA_SKILL_TARGET = 'hermes';
+      vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      try {
+        process.chdir(testDir);
+        await runInstallSkillCli([], fetcher);
+        expect(
+          fs.existsSync(path.join(fakeHome, '.hermes/skills/qa-11x-architect/SKILL.md'))
         ).toBe(true);
       } finally {
         process.chdir(cwd);
         process.env.HOME = origHome;
+        if (origEnvTarget !== undefined) {
+          process.env.QA_SKILL_TARGET = origEnvTarget;
+        } else {
+          delete process.env.QA_SKILL_TARGET;
+        }
       }
     });
 

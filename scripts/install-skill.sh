@@ -116,7 +116,7 @@ while [ $# -gt 0 ]; do
       printf "%bInstalador Universal de Skills QA 11X%b\n" "${C_BOLD}" "${C_RESET}"
       printf "Uso: install-skill.sh [opciones]\n\n"
       printf "Opciones:\n"
-      printf "  --target, -t <entorno>   Destino: workspace | antigravity | claude | cursor | hermes | all\n"
+      printf "  --target, -t <entorno>   Destino: auto (defecto) | workspace | antigravity | claude | cursor | hermes | all\n"
       printf "  --help, -h               Muestra esta ayuda\n"
       exit 0
       ;;
@@ -150,11 +150,11 @@ else
   fetch_file "${RAW_BASE_URL}/manifest.json" "${MANIFEST_FILE}"
 fi
 
-# Extraer lista de archivos para qa-11x-architect y refactoring-ui
+# Extraer lista de archivos de todas las skills indexadas en .agents/skills/
 # Formato de salida: <path> <sha256> <size>
 SKILL_INDEX="${TMP_DIR}/skill_files.txt"
 if command -v jq >/dev/null 2>&1; then
-  jq -r '.agent_governance_files[] | select(.path | startswith(".agents/skills/qa-11x-architect/") or startswith(".agents/skills/refactoring-ui/")) | "\(.path) \(.sha256) \(.size_bytes)"' "${MANIFEST_FILE}" >"${SKILL_INDEX}"
+  jq -r '.agent_governance_files[] | select(.path | startswith(".agents/skills/")) | "\(.path) \(.sha256) \(.size_bytes)"' "${MANIFEST_FILE}" >"${SKILL_INDEX}"
 elif command -v python3 >/dev/null 2>&1; then
   python3 -c '
 import json, sys
@@ -162,7 +162,7 @@ data = json.load(open(sys.argv[1], encoding="utf-8"))
 gov = data.get("agent_governance_files", [])
 for item in gov:
     p = item.get("path", "")
-    if p.startswith(".agents/skills/qa-11x-architect/") or p.startswith(".agents/skills/refactoring-ui/"):
+    if p.startswith(".agents/skills/"):
         sha = item.get("sha256", "")
         size = item.get("size_bytes", 0)
         print(f"{p} {sha} {size}")
@@ -184,9 +184,10 @@ HOME_DIR="${HOME:-$(eval echo "~")}"
 
 resolve_destination_dirs() {
   _target="$1"
+  _pwd="$(pwd)"
   case "${_target}" in
     workspace | local)
-      printf "%s/.agents/skills\n" "$(pwd)"
+      printf "%s/.agents/skills\n" "${_pwd}"
       ;;
     antigravity)
       printf "%s/.gemini/config/skills\n" "${HOME_DIR}"
@@ -195,14 +196,16 @@ resolve_destination_dirs() {
       printf "%s/.claude/skills\n" "${HOME_DIR}"
       ;;
     cursor)
-      printf "%s/.agents/skills\n" "$(pwd)"
+      printf "%s/.agents/skills\n" "${_pwd}"
+      if [ -d "${HOME_DIR}/.cursor" ]; then
+        printf "%s/.cursor/skills\n" "${HOME_DIR}"
+      fi
       ;;
     hermes)
       printf "%s/.hermes/skills\n" "${HOME_DIR}"
       ;;
     all)
-      # Retorna todos los destinos pertinentes
-      printf "%s/.agents/skills\n" "$(pwd)"
+      printf "%s/.agents/skills\n" "${_pwd}"
       if [ -d "${HOME_DIR}/.gemini" ] || [ -d "${HOME_DIR}/.gemini/antigravity" ]; then
         printf "%s/.gemini/config/skills\n" "${HOME_DIR}"
       fi
@@ -212,15 +215,35 @@ resolve_destination_dirs() {
       if [ -d "${HOME_DIR}/.hermes" ]; then
         printf "%s/.hermes/skills\n" "${HOME_DIR}"
       fi
+      if [ -d "${HOME_DIR}/.cursor" ]; then
+        printf "%s/.cursor/skills\n" "${HOME_DIR}"
+      fi
       ;;
     *)
-      # Detección automática por defecto
-      if [ -d "./.git" ] || [ -f "./ROADMAP.md" ] || [ -f "./AGENTS.md" ]; then
-        printf "%s/.agents/skills\n" "$(pwd)"
-      elif [ -d "${HOME_DIR}/.gemini" ]; then
+      # Autodetección inteligente por defecto (auto)
+      _found_any=0
+      if [ "${_pwd}" != "${HOME_DIR}" ] && { [ -d "./.git" ] || [ -f "./ROADMAP.md" ] || [ -f "./AGENTS.md" ] || [ -f "./package.json" ] || [ -f "./pyproject.toml" ]; }; then
+        printf "%s/.agents/skills\n" "${_pwd}"
+        _found_any=1
+      fi
+      if [ -d "${HOME_DIR}/.gemini" ] || [ -d "${HOME_DIR}/.gemini/antigravity" ]; then
         printf "%s/.gemini/config/skills\n" "${HOME_DIR}"
-      else
-        printf "%s/.agents/skills\n" "$(pwd)"
+        _found_any=1
+      fi
+      if [ -d "${HOME_DIR}/.claude" ]; then
+        printf "%s/.claude/skills\n" "${HOME_DIR}"
+        _found_any=1
+      fi
+      if [ -d "${HOME_DIR}/.hermes" ]; then
+        printf "%s/.hermes/skills\n" "${HOME_DIR}"
+        _found_any=1
+      fi
+      if [ -d "${HOME_DIR}/.cursor" ]; then
+        printf "%s/.cursor/skills\n" "${HOME_DIR}"
+        _found_any=1
+      fi
+      if [ "${_found_any}" -eq 0 ]; then
+        printf "%s/.agents/skills\n" "${_pwd}"
       fi
       ;;
   esac
@@ -274,16 +297,7 @@ done <"${SKILL_INDEX}"
 log_info "Instalando skills validadas en directorios destino..."
 for dest in ${DEST_DIRS}; do
   mkdir -p "${dest}"
-  # Copiar qa-11x-architect
-  if [ -d "${VERIFIED_STAGING}/qa-11x-architect" ]; then
-    mkdir -p "${dest}/qa-11x-architect"
-    cp -R "${VERIFIED_STAGING}/qa-11x-architect/"* "${dest}/qa-11x-architect/"
-  fi
-  # Copiar refactoring-ui
-  if [ -d "${VERIFIED_STAGING}/refactoring-ui" ]; then
-    mkdir -p "${dest}/refactoring-ui"
-    cp -R "${VERIFIED_STAGING}/refactoring-ui/"* "${dest}/refactoring-ui/"
-  fi
+  cp -R "${VERIFIED_STAGING}/"* "${dest}/"
   log_ok "Skills instaladas con éxito en: ${dest}"
 done
 
@@ -291,8 +305,12 @@ done
 printf "\n%b══════════════════════════════════════════════════════════════════════%b\n" "${C_GREEN}" "${C_RESET}"
 printf "%b   ✅ Instalación de Skills QA 11X Completada con Éxito               %b\n" "${C_BOLD}" "${C_RESET}"
 printf "%b══════════════════════════════════════════════════════════════════════%b\n" "${C_GREEN}" "${C_RESET}"
-printf "Skills disponibles:\n"
-printf "  1. %bqa-11x-architect%b  (Cerebro metodológico 11X, 13 capas, 22 patrones DISA/OWASP)\n" "${C_BOLD}" "${C_RESET}"
+printf "Skills disponibles en el catálogo:\n"
+printf "  1. %bqa-11x-architect%b             (Cerebro metodológico 11X, 13 capas, 22 patrones DISA/OWASP)\n" "${C_BOLD}" "${C_RESET}"
+printf "  2. %brefactoring-ui%b               (Diseño táctico, WCAG 2.1 AA, OKLCH, tabular-nums, CLS=0)\n" "${C_BOLD}" "${C_RESET}"
+printf "  3. %bdocker-trivy-keydb-hardening%b    (Hardening de contenedores, Trivy=0, KeyDB multihilo)\n" "${C_BOLD}" "${C_RESET}"
+printf "  4. %bgraphify-ast-navigator%b        (Navegación AST, blast radius pre-refactor, límites de capas)\n" "${C_BOLD}" "${C_RESET}"
+printf "  5. %bqa-11x-docker-certifier%b       (Certificador 11X en Docker efímero, Rule Zero, mutmut)\n\n" "${C_BOLD}" "${C_RESET}"
 printf "  2. %brefactoring-ui%b    (Diseño táctico, WCAG 2.1 AA, OKLCH, tabular-nums, CLS=0)\n\n" "${C_BOLD}" "${C_RESET}"
 printf "Archivos instalados por skill:\n"
 printf "  - qa-11x-architect: SKILL.md + 5 referencias especializadas en references/\n"

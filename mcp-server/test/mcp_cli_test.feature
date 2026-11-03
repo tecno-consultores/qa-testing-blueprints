@@ -105,3 +105,24 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def parsedJson = karate.fromString(mockToolResponse.content[0].text)
     * match parsedJson.status == 'PASSED'
     * match parsedJson.gate_passed == true
+
+  # ==============================================================================
+  # Grupo 6: Contrato CLI para install-skill (Autodetección y 5 Skills)
+  # ==============================================================================
+
+  Scenario: 6. El catálogo de gobernanza indexa las 5 skills corporativas y soporta autodetección
+    * def isSkill = function(item) { return item.path.startsWith('.agents/skills/') && item.path.endsWith('/SKILL.md') }
+    * def skillFiles = karate.filter(manifest.agent_governance_files, isSkill)
+    * match skillFiles == '#[5]'
+
+    # Verificar que las 5 skills requeridas estén presentes
+    * def skillPaths = karate.map(skillFiles, function(x) { return x.path })
+    * match skillPaths contains '.agents/skills/qa-11x-architect/SKILL.md'
+    * match skillPaths contains '.agents/skills/refactoring-ui/SKILL.md'
+    * match skillPaths contains '.agents/skills/docker-trivy-keydb-hardening/SKILL.md'
+    * match skillPaths contains '.agents/skills/graphify-ast-navigator/SKILL.md'
+    * match skillPaths contains '.agents/skills/qa-11x-docker-certifier/SKILL.md'
+
+    # Contrato de opciones CLI de install-skill
+    * def installSkillTargets = ['auto', 'workspace', 'antigravity', 'claude', 'cursor', 'hermes', 'all']
+    * match installSkillTargets contains 'auto'

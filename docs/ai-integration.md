@@ -79,8 +79,11 @@ El paquete oficial de Node.js **`@sinfallas/mcp-qa-11x`** permite a cualquier Ag
 # Levantar el servidor MCP directamente (comunicación stdio):
 npx -y @sinfallas/mcp-qa-11x
 
-# O instalar las Skills maestras qa-11x-architect y refactoring-ui:
+# O instalar el catálogo completo de 5 Skills (con autodetección de agente por defecto):
 npx -y @sinfallas/mcp-qa-11x install-skill
+
+# O instalar también scripts operativos y archivos comunes en el proyecto actual:
+npx -y @sinfallas/mcp-qa-11x install-skill --include-scripts
 ```
 
 ### 6.2. Configuración en Clientes de IA

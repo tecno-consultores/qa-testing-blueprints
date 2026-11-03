@@ -110,13 +110,13 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
 ### 🧠 MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x`)
 * **Imagen Base:** `sinfallas/base-node-ionic:26`
 * **Métricas 11X Certificadas:**
-  * **Sentencias (Statements):** `99.18%` ($\ge 95.0\%$)
-  * **Ramas (Branches):** `95.18%` ($\ge 95.0\%$)
+  * **Sentencias (Statements):** `99.20%` ($\ge 95.0\%$)
+  * **Ramas (Branches):** `95.19%` ($\ge 95.0\%$)
   * **Funciones (Functions):** `100.00%` ($\ge 95.0\%$)
-  * **Líneas (Lines):** `99.18%` ($\ge 95.0\%$)
-  * **Pruebas Unitarias:** 190 pruebas pasando al 100% (10 suites en `tests/*.unit.ts`)
+  * **Líneas (Lines):** `99.20%` ($\ge 95.0\%$)
+  * **Pruebas Unitarias:** 192 pruebas pasando al 100% (10 suites en `tests/*.unit.ts`)
   * **Herramientas MCP:** 9 herramientas canónicas (`inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`, `clean_workspace_11x`, `audit_security_stig_owasp`, `run_ephemeral_qa`, `certify_11x_gate`, `audit_test_pyramid_gaps`)
-  * **Escenarios BDD Karate Labs:** `mcp-server/test/mcp_cli_test.feature` (5 escenarios)
+  * **Escenarios BDD Karate Labs:** `mcp-server/test/mcp_cli_test.feature` (6 escenarios)
   * **Empaquetado npm:** 48.9 kB comprimido / 233.1 kB desempaquetado (0 fugas de código fuente)
 * **Comandos de Validación:**
   ```bash
@@ -159,10 +159,10 @@ El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
 ## 4. Pruebas Unitarias de Herramientas y Scripts (`tests/`)
 
 * **Publicador Autónomo de Servidor MCP a npmjs (`scripts/publicar-mcp.sh`):**
-  * **Suite:** `tests/test_publicar_mcp.unit.py` (5 pruebas unitarias).
+  * **Suite:** `tests/test_publicar_mcp.unit.py` (7 pruebas unitarias).
   * **Ejecución Efímera:** `docker run --rm -v "${PWD}:/app" -w /app sinfallas/base-python-uv:3.15 python3 tests/test_publicar_mcp.unit.py`
-  * **Cobertura Alcanzada:** **100% de aserciones aprobadas** (5/5 pruebas pasando en 0.020s).
-  * **Aserciones Validadas:** Menú `--help` y opciones CLI, validación de no-root en el host, detección y rechazo de ejecución sin `NPM_TOKEN` en modo real, rechazo de token con valor de plantilla de ejemplo, manejo de `.env` ausente o configurado, y detección de archivos `package.json` ausentes.
+  * **Cobertura Alcanzada:** **100% de aserciones aprobadas** (7/7 pruebas pasando en 0.020s).
+  * **Aserciones Validadas:** Menú `--help` y opciones CLI, validación de no-root en el host, detección y rechazo de ejecución sin `NPM_TOKEN` en modo real, rechazo de token con valor de plantilla de ejemplo, manejo de `.env` ausente o configurado, detección de archivos `package.json` ausentes y bucle de reintento con tolerancia a consistencia eventual de CDN de npmjs (Hito 8).
 
 * **Validador de Consistencia ROADMAP y Tarea Activa (`.agents/scripts/verify_roadmap_consistency.py`):**
   * **Suite:** `tests/test_verify_roadmap_consistency.unit.py` (13 pruebas unitarias).
@@ -178,21 +178,21 @@ El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
 
 * **Instalador Universal de Skills QA 11X (`scripts/install-skill.sh`):**
   * **Suites de Pruebas:**
-    * **Python Unit:** `tests/test_install_skill.unit.py` (5 pruebas unitarias).
+    * **Python Unit:** `tests/test_install_skill.unit.py` (6 pruebas unitarias).
     * **BATS-core:** `bash-scripts/test/test_install_skill.bats` (3 aserciones funcionales en BATS).
   * **Ejecución Efímera:**
     * `docker run --rm -v "${PWD}:/app" -w /app sinfallas/base-python-uv:3.15 bash -c "python3 tests/test_install_skill.unit.py"`
     * `docker run --rm -v "${PWD}:/app" -w /app sinfallas/base-bash-qa:latest bats bash-scripts/test/`
     * `docker run --rm -v "${PWD}:/app" -w /app sinfallas/base-bash-qa:latest bash -c "shellcheck -s sh scripts/install-skill.sh && shfmt -d -i 2 -ci scripts/install-skill.sh"`
-  * **Cobertura y Métricas:** **100% de aserciones aprobadas** (8/8 pruebas combinadas) y **0 errores / 0 advertencias** en ShellCheck y shfmt.
-  * **Aserciones Validadas:** Auto-detección y resolución de destinos (`workspace`, `antigravity`, `claude`, `cursor`, `hermes`, `all`), verificación criptográfica SHA-256 de los 16 archivos de skills contra `manifest.json`, detección estricta de manipulaciones/tampering (abortando con código de salida 1 bajo DISA STIG `V-222513`), y verificación de flag `--help`.
+  * **Cobertura y Métricas:** **100% de aserciones aprobadas** (9/9 pruebas combinadas) y **0 errores / 0 advertencias** en ShellCheck y shfmt.
+  * **Aserciones Validadas:** Auto-detección inteligente sin contaminar `$HOME/.agents`, resolución de destinos (`workspace`, `antigravity`, `claude`, `cursor`, `hermes`, `all`), instalación del catálogo completo de las 5 skills (`qa-11x-architect`, `refactoring-ui`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `qa-11x-docker-certifier`), verificación criptográfica SHA-256 contra `manifest.json`, detección estricta de manipulaciones/tampering (abortando con código de salida 1 bajo DISA STIG `V-222513`), y verificación de flag `--help`.
 
 * **Servidor MCP e Instalador de Skills Node.js / TypeScript (`mcp-server/`):**
   * **Suites de Pruebas Unitarias:**
     * `tests/github-fetcher.unit.ts` (18 pruebas): Hidratación remota, validación condicional `ETag` (304), verificación SHA-256 (`DISA STIG V-222513`), detección de tampering, fallback offline y local path override.
     * `tests/surgical-merger.unit.ts` (15 pruebas): Fusión quirúrgica no destructiva de `package.json`, `pyproject.toml`, `Makefile`, `.gitignore` y `.npmrc`, inyección de `--max-warnings 0`, asignación de permisos `0o755` a scripts y modo `dryRun`.
     * `tests/inspect-project.unit.ts` (7 pruebas): Detección automática de stacks (`python`, `fastapi`, `vue3`, `react-frontend`, `node-backend`, `bash-scripts`), banderas estrictas (`mypy`, `tsconfig`, `npmrc`) y archivos 11X ausentes.
-    * `tests/tools-and-resources.unit.ts` (34 pruebas): Recursos `blueprint://*` (incluyendo `blueprint://core/active-task-template`, `blueprint://core/cleanup-script` y `blueprint://core/roadmap-validator`), herramientas 1 a 9 (`inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`, `clean_workspace_11x`, `audit_security_stig_owasp`, `run_ephemeral_qa`, `certify_11x_gate`, `audit_test_pyramid_gaps`), CLI `install-skill` multi-entorno y servidor `McpServer`.
+    * `tests/tools-and-resources.unit.ts` (36 pruebas): Recursos `blueprint://*` (incluyendo `blueprint://core/active-task-template`, `blueprint://core/cleanup-script` y `blueprint://core/roadmap-validator`), herramientas 1 a 9 (`inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`, `clean_workspace_11x`, `audit_security_stig_owasp`, `run_ephemeral_qa`, `certify_11x_gate`, `audit_test_pyramid_gaps`), CLI `install-skill` con autodetección multi-entorno (`auto`), catálogo de 5 skills, `--include-scripts` y servidor `McpServer`.
     * `tests/output-parsers.unit.ts` (26 pruebas): Parsers ahorradores de tokens para cobertura (Pytest, Vitest v8, Kcov), pruebas fallidas (Pytest, Vitest, BATS), linters y complejidad (Radon, Mypy, Ruff, ESLint, ShellCheck multi-línea/GCC), alertas de seguridad (Trivy, Bandit), mutación (Mutmut, Stryker), `tail_log` y condensación `parseQaOutput`.
     * `tests/security-auditor.unit.ts` (13 pruebas): Auditoría estática de seguridad DISA ASD STIG V6R5 + OWASP v4.2 con reglas `SEC-01` a `SEC-10` y `UI-11X-01` (Mass Assignment, Anti-CSWSH, Command Injection, XXE, Unicode NFKC, XSS/v-html, Swagger en prod, Cabeceras OSHP, Zero-Trust NPM, Detección de Secretos y Geometría Visual Anti-JSDOM).
     * `tests/ephemeral-runner.unit.ts` (5 pruebas): Ejecución de targets `qa-${stage}` en Docker efímero bajo Rule Zero con `execFile` seguro (`shell: false`), control de timeouts (código 124) y gestión de Makefile ausente.
@@ -205,9 +205,9 @@ El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run test:unit`
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run build`
   * **Cobertura y Métricas Alcanzadas:**
-    * **100% de aserciones aprobadas** (190/190 pruebas pasando en 10 suites).
-    * **99.18% de cobertura de líneas y sentencias** (superando el umbral de $\ge 95\%$).
-    * **95.18% de cobertura de ramas** (superando el umbral de $\ge 95\%$).
+    * **100% de aserciones aprobadas** (192/192 pruebas pasando en 10 suites).
+    * **99.20% de cobertura de líneas y sentencias** (superando el umbral de $\ge 95\%$).
+    * **95.19% de cobertura de ramas** (superando el umbral de $\ge 95\%$).
     * **100.00% de cobertura de funciones**.
     * **0 errores de ESLint (`--max-warnings 0`), SonarJS (Cognitiva $\le 15$) y TypeScript (`strict: true`)**.
 

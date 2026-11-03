@@ -144,6 +144,15 @@ class TestPublicarMcp(unittest.TestCase):
             self.assertEqual(result.returncode, 1)
             self.assertIn("No se encontró mcp-server/package.json", result.stderr)
 
+    def test_cdn_retry_loop_present_in_publish_script(self):
+        """Verifica que scripts/publicar-mcp.sh implemente el bucle resiliente de verificación CDN (Hito 8)."""
+        content = SCRIPT_PATH.read_text(encoding="utf-8")
+        self.assertIn("VERIFY_ATTEMPTS=6", content)
+        self.assertIn("VERIFY_DELAY=5", content)
+        self.assertIn("Verificando propagación en el CDN", content)
+        self.assertIn("Esperando propagación asíncrona del CDN", content)
+        self.assertIn("npm publish concluyó con éxito", content)
+
 
 if __name__ == "__main__":
     unittest.main()

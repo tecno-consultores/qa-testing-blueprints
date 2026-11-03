@@ -24,7 +24,8 @@ Uso:
   npx -y @sinfallas/mcp-qa-11x --help            Muestra esta ayuda
 
 Opciones para install-skill:
-  --target, -t <entorno>   workspace | antigravity | claude | cursor | hermes | all
+  --target, -t <entorno>   auto (defecto) | workspace | antigravity | claude | cursor | hermes | all
+  --include-scripts        Instala también scripts operativos y archivos comunes en el proyecto
 `);
     process.exit(0);
   }

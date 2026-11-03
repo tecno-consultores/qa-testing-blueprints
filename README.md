@@ -54,7 +54,7 @@ El repositorio está dividido en ecosistemas tecnológicos listos para ser adopt
 | **`vue3/`** | Frontend Web (Vue 3 / Vite) | `ESLint` + `vue-tsc` + `Vitest (95%)` + `Stryker` + `Playwright` + `@axe-core` + `Lighthouse CI` + `Karate UI` |
 | **`react-frontend/`**| Frontend Web (React / Vite) | `ESLint` + `tsc` + `Vitest (95%)` + `RTL` + `Stryker` + `Playwright` + `@axe-core` + `Lighthouse CI` + `Karate UI` |
 | **`bash-scripts/`** | Automatización DevOps | `ShellCheck` + `shfmt` + `BATS-core` + `bats-mock` + `kcov` |
-| **`mcp-server/`** | Servidor MCP Node.js/TS | Paquete `@sinfallas/mcp-qa-11x`: Servidor MCP (stdio), 8 recursos `blueprint://*`, 8 tools y CLI `install-skill` |
+| **`mcp-server/`** | Servidor MCP Node.js/TS | Paquete `@sinfallas/mcp-qa-11x`: Servidor MCP (stdio), 8 recursos `blueprint://*`, 9 tools y CLI `install-skill` |
 | **`.agents/`** | Gobernanza de Agentes IA | Reglas (`rules/`), Habilidades (`skills/`) y Scripts de certificación (`scripts/`) |
 | **`manifest.json`** | Manifiesto Criptográfico Zero-Clone | Índice criptográfico SHA-256 de verificación remota bajo demanda (DISA STIG `V-222513` / `APSC-DV-001430`) |
 
@@ -150,25 +150,32 @@ Consulte la [Guía de Integración con Agentes de IA](docs/ai-integration.md) pa
 
 ---
 
-### ⚡ Modo 2: Inyección de Skills Zero-Clone en 1 Segundo (`qa-11x-architect` y `refactoring-ui`)
+### ⚡ Modo 2: Inyección de Skills Zero-Clone en 1 Segundo (Catálogo Completo de 5 Skills)
 
 Para dotar a cualquier agente o desarrollador de los conocimientos y reglas 11X sin clonar el repositorio completo, ejecuta el instalador oficial verificado con SHA-256 (DISA ASD STIG V6R5 `V-222513` / `APSC-DV-001430`):
 
 ```bash
-# Opción A (vía npx con el paquete oficial):
+# Opción A (vía npx con el paquete oficial — autodetección multi-agente por defecto):
 npx -y @sinfallas/mcp-qa-11x install-skill
 
 # Opción B (vía script universal curl con verificación criptográfica SHA-256):
 curl -fsSL https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/scripts/install-skill.sh | sh
 ```
 
-El instalador hidrata de forma segura las dos skills maestras:
+El instalador detecta automáticamente el entorno del agente (`auto`: Google Antigravity, Claude, Cursor, Hermes o Workspace) e hidrata de forma segura las 5 skills del catálogo:
 * **`qa-11x-architect`:** Cerebro metodológico 11X, las 13 capas de la pirámide de calidad, los 22 patrones DISA ASD STIG V6R5 / OWASP v4.2 y directivas especializadas para Python, FastAPI, Node.js, Vue 3, React y Bash.
 * **`refactoring-ui`:** Reglas tácticas de jerarquía visual, WCAG 2.1 AA, contraste OKLCH y `tabular-nums` para `CLS = 0`.
+* **`docker-trivy-keydb-hardening`:** Hardening de contenedores Docker (Trivy=0) y motor en memoria KeyDB multi-hilo.
+* **`graphify-ast-navigator`:** Navegación del grafo semántico AST, cálculo preventivo de blast radius y cumplimiento de límites de capas.
+* **`qa-11x-docker-certifier`:** Certificador corporativo en contenedores Docker efímeros bajo la Regla Cero.
 
-Opciones avanzadas por entorno de destino:
+Opciones avanzadas por entorno de destino y descarga de scripts:
 ```bash
-npx -y @sinfallas/mcp-qa-11x install-skill --target [workspace|antigravity|claude|cursor|hermes|all]
+# Destino específico:
+npx -y @sinfallas/mcp-qa-11x install-skill --target [auto|workspace|antigravity|claude|cursor|hermes|all]
+
+# Descargar también scripts operativos (scripts/*, .agents/scripts/*) y archivos comunes:
+npx -y @sinfallas/mcp-qa-11x install-skill --include-scripts
 ```
 
 ---

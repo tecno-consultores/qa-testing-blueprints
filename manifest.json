@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.8.3",
-  "generated_at_utc": "2026-11-03T14:15:12Z",
+  "generated_at_utc": "2026-11-03T14:30:33Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -552,8 +552,8 @@
       "path": "scripts/publicar-mcp.sh",
       "target_name": "scripts/publicar-mcp.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "835b1f6fa9df27683cf5a93ba7fe82008c10826b0ff27fd5a42d275108a963c2",
-      "size_bytes": 11141
+      "sha256": "204e3b39f0b00e42e2773d3b8b9955fb77f294c3db738662c2f85ed890bf00a3",
+      "size_bytes": 12156
     },
     {
       "path": "scripts/verificar-secretos.sh",
@@ -820,8 +820,8 @@
       "path": "scripts/install-skill.sh",
       "target_name": "scripts/install-skill.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "4baa850e6c5e1e1b05031decec5df7cefc2b961d843df364e77a1c8daf4cda7a",
-      "size_bytes": 11530
+      "sha256": "68a5ed9765e7a7a88feec79b25342569ee1f4e616d6786b691c7e4322ba442f0",
+      "size_bytes": 12439
     }
   ]
 }

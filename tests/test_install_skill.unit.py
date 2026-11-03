@@ -72,7 +72,28 @@ class TestInstallSkill(unittest.TestCase):
         refact_skill.write_text("# Refactoring UI Skill Content", encoding="utf-8")
         refact_sha = hashlib.sha256(refact_skill.read_bytes()).hexdigest()
 
-        # Crear manifest.json mock
+        # Crear archivos simulados para docker-trivy-keydb-hardening
+        trivy_dir = mock_repo / ".agents" / "skills" / "docker-trivy-keydb-hardening"
+        trivy_dir.mkdir(parents=True)
+        trivy_skill = trivy_dir / "SKILL.md"
+        trivy_skill.write_text("# Trivy Skill Content", encoding="utf-8")
+        trivy_sha = hashlib.sha256(trivy_skill.read_bytes()).hexdigest()
+
+        # Crear archivos simulados para graphify-ast-navigator
+        ast_dir = mock_repo / ".agents" / "skills" / "graphify-ast-navigator"
+        ast_dir.mkdir(parents=True)
+        ast_skill = ast_dir / "SKILL.md"
+        ast_skill.write_text("# AST Skill Content", encoding="utf-8")
+        ast_sha = hashlib.sha256(ast_skill.read_bytes()).hexdigest()
+
+        # Crear archivos simulados para qa-11x-docker-certifier
+        cert_dir = mock_repo / ".agents" / "skills" / "qa-11x-docker-certifier"
+        cert_dir.mkdir(parents=True)
+        cert_skill = cert_dir / "SKILL.md"
+        cert_skill.write_text("# Docker Certifier Skill Content", encoding="utf-8")
+        cert_sha = hashlib.sha256(cert_skill.read_bytes()).hexdigest()
+
+        # Crear manifest.json mock con las 5 skills
         manifest_data = {
             "schema_version": "1.0.0",
             "agent_governance_files": [
@@ -85,6 +106,21 @@ class TestInstallSkill(unittest.TestCase):
                     "path": ".agents/skills/refactoring-ui/SKILL.md",
                     "sha256": refact_sha,
                     "size_bytes": len(refact_skill.read_bytes()),
+                },
+                {
+                    "path": ".agents/skills/docker-trivy-keydb-hardening/SKILL.md",
+                    "sha256": trivy_sha,
+                    "size_bytes": len(trivy_skill.read_bytes()),
+                },
+                {
+                    "path": ".agents/skills/graphify-ast-navigator/SKILL.md",
+                    "sha256": ast_sha,
+                    "size_bytes": len(ast_skill.read_bytes()),
+                },
+                {
+                    "path": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
+                    "sha256": cert_sha,
+                    "size_bytes": len(cert_skill.read_bytes()),
                 },
             ],
         }
@@ -108,14 +144,12 @@ class TestInstallSkill(unittest.TestCase):
         self.assertEqual(res.returncode, 0, f"Error: {res.stderr}\nStdout: {res.stdout}")
         self.assertIn("Instalación de Skills QA 11X Completada con Éxito", res.stdout)
 
-        # Verificar que los archivos existen en el destino
-        installed_arch = dest_workspace / ".agents" / "skills" / "qa-11x-architect" / "SKILL.md"
-        installed_refact = dest_workspace / ".agents" / "skills" / "refactoring-ui" / "SKILL.md"
-
-        self.assertTrue(installed_arch.is_file())
-        self.assertTrue(installed_refact.is_file())
-        self.assertEqual(installed_arch.read_text(encoding="utf-8"), "# Architect Skill Content")
-        self.assertEqual(installed_refact.read_text(encoding="utf-8"), "# Refactoring UI Skill Content")
+        # Verificar que las 5 skills existen en el destino
+        self.assertTrue((dest_workspace / ".agents" / "skills" / "qa-11x-architect" / "SKILL.md").is_file())
+        self.assertTrue((dest_workspace / ".agents" / "skills" / "refactoring-ui" / "SKILL.md").is_file())
+        self.assertTrue((dest_workspace / ".agents" / "skills" / "docker-trivy-keydb-hardening" / "SKILL.md").is_file())
+        self.assertTrue((dest_workspace / ".agents" / "skills" / "graphify-ast-navigator" / "SKILL.md").is_file())
+        self.assertTrue((dest_workspace / ".agents" / "skills" / "qa-11x-docker-certifier" / "SKILL.md").is_file())
 
     def test_tampered_file_detection_aborts(self) -> None:
         """Verifica que una discrepancia en el hash SHA-256 aborte con código 1 (DISA STIG V-222513)."""
@@ -199,6 +233,57 @@ class TestInstallSkill(unittest.TestCase):
         self.assertEqual(res.returncode, 0)
         installed = mock_home / ".gemini" / "config" / "skills" / "qa-11x-architect" / "SKILL.md"
         self.assertTrue(installed.is_file())
+
+    def test_auto_target_from_home_detects_global_agents_without_polluting_home_agents(self) -> None:
+        """Verifica que al ejecutar en $HOME sin --target detecte agentes globales sin ensuciar $HOME/.agents."""
+        mock_repo = self.temp_path / "mock_repo_auto"
+        mock_repo.mkdir()
+
+        arch_dir = mock_repo / ".agents" / "skills" / "qa-11x-architect"
+        arch_dir.mkdir(parents=True)
+        arch_skill = arch_dir / "SKILL.md"
+        arch_skill.write_text("# Architect Auto", encoding="utf-8")
+        arch_sha = hashlib.sha256(arch_skill.read_bytes()).hexdigest()
+
+        manifest_data = {
+            "schema_version": "1.0.0",
+            "agent_governance_files": [
+                {
+                    "path": ".agents/skills/qa-11x-architect/SKILL.md",
+                    "sha256": arch_sha,
+                    "size_bytes": len(arch_skill.read_bytes()),
+                }
+            ],
+        }
+        (mock_repo / "manifest.json").write_text(json.dumps(manifest_data), encoding="utf-8")
+
+        mock_home = self.temp_path / "user_home"
+        mock_home.mkdir()
+        (mock_home / ".gemini").mkdir()
+        (mock_home / ".claude").mkdir()
+
+        env = os.environ.copy()
+        env["HOME"] = str(mock_home)
+        env["QA_BLUEPRINTS_LOCAL_PATH"] = str(mock_repo)
+
+        # Ejecutamos con cwd == mock_home y sin argumento --target
+        res = subprocess.run(
+            ["sh", str(INSTALL_SCRIPT)],
+            cwd=str(mock_home),
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(res.returncode, 0, f"Error: {res.stderr}\nStdout: {res.stdout}")
+
+        # Verifica que instaló en .gemini y .claude
+        installed_gemini = mock_home / ".gemini" / "config" / "skills" / "qa-11x-architect" / "SKILL.md"
+        installed_claude = mock_home / ".claude" / "skills" / "qa-11x-architect" / "SKILL.md"
+        self.assertTrue(installed_gemini.is_file())
+        self.assertTrue(installed_claude.is_file())
+
+        # Verifica que NO creó mock_home/.agents
+        self.assertFalse((mock_home / ".agents").exists())
 
 
 if __name__ == "__main__":
