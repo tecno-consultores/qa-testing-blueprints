@@ -25,7 +25,7 @@
 | **Hito 8** | Autodetección de Agentes en `install-skill`, Instalación de las 5 Skills + Scripts y Resiliencia CDN | [`07_SPEC_AUTODETECCION_AGENTES_CLI_Y_RESILIENCIA_CDN_NPM.md`](docs/specs/07_SPEC_AUTODETECCION_AGENTES_CLI_Y_RESILIENCIA_CDN_NPM.md) | ✅ Completado | `100%` |
 | **Hito 9** | Inyector Aditivo No Destructivo del Conector `AGENTS.md` (`init-agents` / `init_or_append_agents_md`) | [`08_SPEC_CONECTOR_AGENTS_MD_THIN_REPO_Y_MIGRACION.md`](docs/specs/08_SPEC_CONECTOR_AGENTS_MD_THIN_REPO_Y_MIGRACION.md) | ✅ Completado | `100%` |
 | **Hito 10** | Diagnóstico Asistido de Navegador (Playwright / Browser MCP) y PRs de Evolución Continua Zero-Trust (`propose_skill_evolution_pr`) | [`09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md`](docs/specs/09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md) | ✅ Completado | `100%` |
-| **Hito 11** | Blueprint Oficial PHP 8.1–8.5 (`sinfallas/basephpcomposer`) e Integración en Servidor MCP | [`10_SPEC_ECOSISTEMA_PHP_8_Y_HERRAMIENTAS_MCP.md`](docs/specs/10_SPEC_ECOSISTEMA_PHP_8_Y_HERRAMIENTAS_MCP.md) | ⏳ Pendiente | `0%` |
+| **Hito 11** | Blueprint Oficial PHP 8.1–8.5 (`sinfallas/basephpcomposer`) e Integración en Servidor MCP | [`10_SPEC_ECOSISTEMA_PHP_8_Y_HERRAMIENTAS_MCP.md`](docs/specs/10_SPEC_ECOSISTEMA_PHP_8_Y_HERRAMIENTAS_MCP.md) | ✅ Completado | `100%` |
 
 ---
 
@@ -162,17 +162,17 @@
 
 ---
 
-## ⏳ Hito 11: Blueprint Oficial PHP 8.1–8.5 (`sinfallas/basephpcomposer`) e Integración en Servidor MCP
+## ✅ Hito 11: Blueprint Oficial PHP 8.1–8.5 (`sinfallas/basephpcomposer`) e Integración en Servidor MCP
 **Referencia Obligatoria:** [`docs/specs/10_SPEC_ECOSISTEMA_PHP_8_Y_HERRAMIENTAS_MCP.md`](docs/specs/10_SPEC_ECOSISTEMA_PHP_8_Y_HERRAMIENTAS_MCP.md)
 
 ### Tareas de Implementación:
-- [ ] **11.1.** Crear el directorio del stack `php/` con las plantillas canónicas 11X (`php/README.md`, `php/docker-compose.qa.yml` usando `sinfallas/basephpcomposer:8.5` + `postgres:17-alpine` + `eqalpha/keydb:alpine`, `php/Makefile.example`, `php/composer.json.example`, `php/phpstan.neon.example`, `php/phpunit.xml.example`, `php/infection.json5.example`, `php/php.ini.example`, `php/limpieza.sh` y `php/test/api_test.feature`).
-- [ ] **11.2.** Actualizar `scripts/generar-manifiesto.py` para indexar el stack `"php"` en `STACK_METADATA` y clasificar `"composer.json.example"` con `merge_strategy: "surgical_merge"`, regenerando `manifest.json` y ampliando `tests/test_generar_manifiesto.unit.py`.
-- [ ] **11.3.** Ampliar `mcp-server/src/types.ts` (añadiendo `'php'` a `StackNameSchema`) y `mcp-server/src/tools/inspect-project.ts` (`inspectPhpStack` detectando `composer.json`, `phpstan.neon`, `infection.json5` y archivos `.php`).
-- [ ] **11.4.** Implementar `mergeComposerJson()` en `mcp-server/src/services/surgical-merger.ts` (fusión quirúrgica no destructiva de `require-dev`, `scripts` y `config.allow-plugins`) y conectarlo en `resolveSurgicalMerge` cuando `base === 'composer.json'`.
-- [ ] **11.5.** Ampliar `mcp-server/src/parsers/output-parsers.ts` (soportando salidas de cobertura de `Pest`/`PHPUnit` con `PCOV`, análisis estático de `PHPStan`/`Psalm` y mutación de `Infection`), `mcp-server/src/tools/security-auditor.ts` (reglas `SEC-03`, `SEC-04` y `SEC-05` para `.php`) y `mcp-server/src/tools/test-pyramid-auditor.ts` (matriz de 13 capas y detección de huérfanos para `'php'`).
-- [ ] **11.6.** Ampliar las suites de pruebas unitarias en `mcp-server/tests/*.unit.ts` (manteniendo cobertura global $\ge 95.0\%$ en contenedor efímero `sinfallas/base-node-ionic:26` y `0` warnings en ESLint/SonarJS) y actualizar `mcp-server/test/mcp_cli_test.feature`.
-- [ ] **11.7.** Sincronizar `README.md`, `TESTING.md`, `docs/ai-integration.md` y `CHANGELOG.md`, y ejecutar la compuerta de cierre `./.agents/scripts/certify_task_completion.sh`.
+- [x] **11.1.** Crear el directorio del stack `php/` con las plantillas canónicas 11X (`php/README.md`, `php/docker-compose.qa.yml` usando `sinfallas/basephpcomposer:8.5` + `postgres:17-alpine` + `eqalpha/keydb:alpine`, `php/Makefile.example`, `php/composer.json.example`, `php/phpstan.neon.example`, `php/phpunit.xml.example`, `php/infection.json5.example`, `php/php.ini.example`, `php/limpieza.sh` y `php/test/api_test.feature`).
+- [x] **11.2.** Actualizar `scripts/generar-manifiesto.py` para indexar el stack `"php"` en `STACK_METADATA` y clasificar `"composer.json.example"` con `merge_strategy: "surgical_merge"`, regenerando `manifest.json` y ampliando `tests/test_generar_manifiesto.unit.py`.
+- [x] **11.3.** Ampliar `mcp-server/src/types.ts` (añadiendo `'php'` a `StackNameSchema`) y `mcp-server/src/tools/inspect-project.ts` (`inspectPhpStack` detectando `composer.json`, `phpstan.neon`, `infection.json5` y archivos `.php`).
+- [x] **11.4.** Implementar `mergeComposerJson()` en `mcp-server/src/services/surgical-merger.ts` (fusión quirúrgica no destructiva de `require-dev`, `scripts` y `config.allow-plugins`) y conectarlo en `resolveSurgicalMerge` cuando `base === 'composer.json'`.
+- [x] **11.5.** Ampliar `mcp-server/src/parsers/output-parsers.ts` (soportando salidas de cobertura de `Pest`/`PHPUnit` con `PCOV`, análisis estático de `PHPStan`/`Psalm` y mutación de `Infection`), `mcp-server/src/tools/security-auditor.ts` (reglas `SEC-03`, `SEC-04` y `SEC-05` para `.php`) y `mcp-server/src/tools/test-pyramid-auditor.ts` (matriz de 13 capas y detección de huérfanos para `'php'`).
+- [x] **11.6.** Ampliar las suites de pruebas unitarias en `mcp-server/tests/*.unit.ts` (manteniendo cobertura global $\ge 95.0\%$ en contenedor efímero `sinfallas/base-node-ionic:26` y `0` warnings en ESLint/SonarJS) y actualizar `mcp-server/test/mcp_cli_test.feature`.
+- [x] **11.7.** Sincronizar `README.md`, `TESTING.md`, `docs/ai-integration.md` y `CHANGELOG.md`, y ejecutar la compuerta de cierre `./.agents/scripts/certify_task_completion.sh`.
 
 
 

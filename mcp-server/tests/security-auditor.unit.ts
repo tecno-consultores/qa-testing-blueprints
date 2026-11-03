@@ -236,4 +236,105 @@ password = "SuperSecretPassword123!"
     expect(uiIssues.length).toBe(3);
     expect(uiIssues[0].severity).toBe('MEDIUM');
   });
+
+  it('detecta violaciones de PHP: SEC-03 (unserialize inseguro, shell_exec, system, passthru)', async () => {
+    fs.writeFileSync(
+      path.join(tempDir, 'unsafe.php'),
+      `<?php
+$data = unserialize($_POST['payload']);
+shell_exec("ls -la " . $_GET['dir']);
+system("cat /etc/passwd");
+passthru("whoami");
+`
+    );
+
+    const result = await auditSecurityStigOwasp(tempDir);
+    const sec03s = result.findings.filter((f) => f.rule_id === 'SEC-03');
+    expect(sec03s.length).toBe(4);
+    expect(sec03s.every((f) => f.severity === 'CRITICAL')).toBe(true);
+  });
+
+  it('no reporta SEC-03 si unserialize incluye allowed_classes', async () => {
+    fs.writeFileSync(
+      path.join(tempDir, 'safe.php'),
+      `<?php
+$data = unserialize($payload, ["allowed_classes" => false]);
+`
+    );
+
+    const result = await auditSecurityStigOwasp(tempDir);
+    const sec03s = result.findings.filter((f) => f.rule_id === 'SEC-03');
+    expect(sec03s.length).toBe(0);
+  });
+
+  it('detecta violación SEC-04 en PHP (XML sin LIBXML_NONET)', async () => {
+    fs.writeFileSync(
+      path.join(tempDir, 'xml.php'),
+      `<?php
+$doc = new DOMDocument();
+$doc->loadXML($userInput);
+$xml = simplexml_load_string($rawXml);
+`
+    );
+
+    const result = await auditSecurityStigOwasp(tempDir);
+    const sec04 = result.findings.find((f) => f.rule_id === 'SEC-04');
+    expect(sec04).toBeDefined();
+    expect(sec04?.severity).toBe('HIGH');
+  });
+
+  it('no reporta SEC-04 en PHP si se especifica LIBXML_NONET', async () => {
+    fs.writeFileSync(
+      path.join(tempDir, 'safe_xml.php'),
+      `<?php
+$xml = simplexml_load_string($rawXml, 'SimpleXMLElement', LIBXML_NONET);
+`
+    );
+
+    const result = await auditSecurityStigOwasp(tempDir);
+    const sec04 = result.findings.find((f) => f.rule_id === 'SEC-04');
+    expect(sec04).toBeUndefined();
+  });
+
+  it('detecta violación SEC-05 en PHP en controllers sin normalización NFKC', async () => {
+    const controllersDir = path.join(tempDir, 'src', 'controllers');
+    fs.mkdirSync(controllersDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(controllersDir, 'UserController.php'),
+      `<?php
+namespace App\\Controllers;
+class UserController {
+    public function validate(string $input) {
+        $validator = Validation::createValidator();
+    }
+}
+`
+    );
+
+    const result = await auditSecurityStigOwasp(tempDir);
+    const sec05 = result.findings.find((f) => f.rule_id === 'SEC-05');
+    expect(sec05).toBeDefined();
+    expect(sec05?.severity).toBe('MEDIUM');
+  });
+
+  it('no reporta SEC-05 en PHP si contiene FORM_KC o normalize', async () => {
+    const controllersDir = path.join(tempDir, 'src', 'controllers');
+    fs.mkdirSync(controllersDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(controllersDir, 'SafeController.php'),
+      `<?php
+namespace App\\Controllers;
+class SafeController {
+    public function validate(string $input) {
+        $clean = \\Normalizer::normalize($input, \\Normalizer::FORM_KC);
+        $validator = Validation::createValidator();
+    }
+}
+`
+    );
+
+    const result = await auditSecurityStigOwasp(tempDir);
+    const sec05 = result.findings.find((f) => f.rule_id === 'SEC-05');
+    expect(sec05).toBeUndefined();
+  });
 });

@@ -420,4 +420,102 @@ test:
       expect(res.changes[0]).toContain('Agregado bloque conector QA 11X');
     });
   });
+
+  describe('mergeComposerJson', () => {
+    it('handles empty or invalid JSON gracefully', () => {
+      const tpl = JSON.stringify({
+        'require-dev': { 'pestphp/pest': '^3.7' },
+        scripts: { 'qa:lint': 'phpstan' },
+      });
+      const res = merger.mergeComposerJson('', tpl);
+      expect(res.merged).toContain('pestphp/pest');
+      expect(res.merged).toContain('qa:lint');
+      expect(res.changes.length).toBeGreaterThan(0);
+
+      const resBad = merger.mergeComposerJson('{ invalid json', tpl);
+      expect(resBad.merged).toContain('pestphp/pest');
+
+      const resBadTpl = merger.mergeComposerJson('{}', '{ invalid tpl json');
+      expect(JSON.parse(resBadTpl.merged)).toHaveProperty('require-dev');
+      expect(resBadTpl.changes).toEqual([]);
+    });
+
+    it('injects missing require-dev, scripts, and allow-plugins without overwriting existing', () => {
+      const existing = JSON.stringify({
+        name: 'my/app',
+        require: { php: '^8.2' },
+        'require-dev': { 'phpunit/phpunit': '^11.0' },
+        scripts: { test: 'phpunit' },
+        config: { 'allow-plugins': { 'existing/plugin': true } },
+      });
+      const template = JSON.stringify({
+        'require-dev': {
+          'phpunit/phpunit': '^11.5',
+          'pestphp/pest': '^3.7',
+          'phpstan/phpstan': '^2.1',
+        },
+        scripts: {
+          test: 'vendor/bin/pest',
+          'qa:unit': 'pest --coverage',
+        },
+        config: {
+          'allow-plugins': {
+            'existing/plugin': false,
+            'pestphp/pest-plugin': true,
+          },
+        },
+      });
+
+      const { merged, changes } = merger.mergeComposerJson(existing, template);
+      const parsed = JSON.parse(merged);
+
+      expect(parsed.name).toBe('my/app');
+      expect(parsed.require.php).toBe('^8.2');
+      // Preserves existing version
+      expect(parsed['require-dev']['phpunit/phpunit']).toBe('^11.0');
+      // Injects new dev deps
+      expect(parsed['require-dev']['pestphp/pest']).toBe('^3.7');
+      expect(parsed['require-dev']['phpstan/phpstan']).toBe('^2.1');
+      // Preserves existing script
+      expect(parsed.scripts.test).toBe('phpunit');
+      // Injects new script
+      expect(parsed.scripts['qa:unit']).toBe('pest --coverage');
+      // Preserves existing plugin setting
+      expect(parsed.config['allow-plugins']['existing/plugin']).toBe(true);
+      // Injects new plugin setting
+      expect(parsed.config['allow-plugins']['pestphp/pest-plugin']).toBe(true);
+      expect(changes.length).toBeGreaterThan(0);
+    });
+
+    it('merges composer.json inside mergeFiles', async () => {
+      const composerPath = path.join(tmpDir, 'composer.json');
+      fs.writeFileSync(
+        composerPath,
+        JSON.stringify({ name: 'org/custom', scripts: { start: 'php -S 0.0.0.0:8000' } }),
+        'utf-8'
+      );
+
+      const bundle: FetchedFileItem[] = [
+        {
+          path: 'php/composer.json.example',
+          target_name: 'composer.json',
+          merge_strategy: 'surgical_merge',
+          content: JSON.stringify({
+            'require-dev': { 'pestphp/pest': '^3.7' },
+            scripts: { 'qa:lint': 'phpstan' },
+          }),
+          sha256_verified: true,
+        },
+      ];
+
+      const res = await merger.mergeFiles(tmpDir, bundle, { dryRun: false });
+      expect(res.summary.merged).toBe(1);
+
+      const updated = JSON.parse(fs.readFileSync(composerPath, 'utf-8'));
+      expect(updated.name).toBe('org/custom');
+      expect(updated.scripts.start).toBe('php -S 0.0.0.0:8000');
+      expect(updated.scripts['qa:lint']).toBe('phpstan');
+      expect(updated['require-dev']['pestphp/pest']).toBe('^3.7');
+    });
+  });
 });

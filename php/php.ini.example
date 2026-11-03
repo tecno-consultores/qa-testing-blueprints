@@ -1,0 +1,44 @@
+; SPDX-License-Identifier: MIT
+; Copyright (C) 2026 QA Testing Blueprints Contributors
+; Configuración endurecida PHP 8.1-8.5 bajo Estándar QA 11X (DISA ASD STIG V6R5 & OWASP)
+
+[PHP]
+expose_php = Off
+display_errors = Off
+display_startup_errors = Off
+log_errors = On
+error_reporting = E_ALL
+memory_limit = 2048M
+max_execution_time = 30
+max_input_time = 30
+post_max_size = 16M
+upload_max_filesize = 10M
+allow_url_fopen = Off
+allow_url_include = Off
+disable_functions = exec,passthru,shell_exec,system,proc_open,popen,curl_exec,curl_multi_exec,parse_ini_file,show_source
+
+[Session]
+session.use_strict_mode = 1
+session.cookie_httponly = 1
+session.cookie_samesite = Strict
+session.cookie_secure = 1
+session.sid_length = 48
+session.sid_bits_per_character = 6
+session.cache_expire = 15
+session.use_only_cookies = 1
+
+[opcache]
+opcache.enable = 1
+opcache.enable_cli = 1
+opcache.memory_consumption = 256
+opcache.interned_strings_buffer = 16
+opcache.max_accelerated_files = 20000
+opcache.validate_timestamps = 0
+opcache.save_comments = 1
+opcache.jit = tracing
+opcache.jit_buffer_size = 128M
+
+[pcov]
+pcov.enabled = 1
+pcov.directory = src
+pcov.exclude = ~vendor~

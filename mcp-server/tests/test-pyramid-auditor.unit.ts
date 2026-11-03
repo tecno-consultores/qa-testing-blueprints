@@ -951,4 +951,98 @@ def create_item(): pass
     const l13MissingTriad = evaluateLayer13TrimodalFixtures(tmpDir, ['test_no_dev.py'], ['fastapi']);
     expect(l13MissingTriad.missing_requirements).toContain('Faltan fixtures trimodales completos (virgen, nominal, degradado).');
   });
+
+  it('evaluates PHP stack across 13 quality layers and detects PHP orphan source files', async () => {
+    // 1. PHP Orphan detection
+    const srcDir = path.join(tmpDir, 'src', 'Services');
+    fs.mkdirSync(srcDir, { recursive: true });
+    const phpFile = path.join(srcDir, 'BillingService.php');
+    fs.writeFileSync(phpFile, '<?php namespace App\\Services; class BillingService {}', 'utf-8');
+
+    const filesWithOrphan = ['src/Services/BillingService.php'];
+    const orphans = findOrphanSourceFiles(tmpDir, filesWithOrphan, ['php']);
+    expect(orphans.length).toBe(1);
+    expect(orphans[0].source_file).toBe('src/Services/BillingService.php');
+    expect(orphans[0].expected_unit_test).toBe('tests/BillingServiceTest.php');
+    expect(orphans[0].stack).toBe('php');
+
+    // With test present, no orphan
+    const filesWithTest = [
+      'src/Services/BillingService.php',
+      'tests/BillingServiceTest.php',
+    ];
+    const noOrphans = findOrphanSourceFiles(tmpDir, filesWithTest, ['php']);
+    expect(noOrphans.length).toBe(0);
+
+    // 2. PHP L01, L02, L03, L08 evaluation
+    fs.writeFileSync(
+      path.join(tmpDir, 'composer.json'),
+      JSON.stringify({
+        require: { php: '^8.5' },
+        'require-dev': {
+          'phpstan/phpstan': '^2.1',
+          'tomasvotruba/cognitive-complexity': '^1.0',
+          'pestphp/pest': '^3.7',
+          'infection/infection': '^0.29',
+        },
+        scripts: {
+          'qa:unit': 'pest --coverage --min=95',
+        },
+      }),
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(tmpDir, 'phpstan.neon'),
+      'parameters:\n  level: max\n  cognitive_complexity:\n    function: 9\n',
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(tmpDir, 'infection.json5'),
+      '{\n  minMsi: 80\n}',
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(tmpDir, 'Makefile'),
+      'qa-lint:\n\tcomposer qa:lint\nqa-unit:\n\tcomposer qa:unit\nqa-mutation:\n\tinfection\n',
+      'utf-8'
+    );
+
+    const l1 = evaluateLayer01StaticSast(tmpDir, ['scripts/auditar-infra.sh', 'scripts/verificar-secretos.sh'], ['php']);
+    expect(l1.status).toBe('COVERED');
+
+    const l2 = evaluateLayer02StrictTyping(tmpDir, ['phpstan.neon'], ['php']);
+    expect(l2.status).toBe('COVERED');
+
+    const l3 = evaluateLayer03UnitIsolated(tmpDir, ['tests/BillingServiceTest.php'], ['php'], []);
+    expect(l3.status).toBe('COVERED');
+
+    const l8 = evaluateLayer08Mutation(tmpDir, ['infection.json5'], ['php']);
+    expect(l8.status).toBe('COVERED');
+
+    // 3. PHP L02 partial failure variation (missing cognitive-complexity and non-strict level)
+    fs.writeFileSync(
+      path.join(tmpDir, 'composer.json'),
+      JSON.stringify({ require: { php: '^8.5' } }),
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(tmpDir, 'phpstan.neon'),
+      'parameters:\n  level: 4\n',
+      'utf-8'
+    );
+    const l2Partial = evaluateLayer02StrictTyping(tmpDir, ['phpstan.neon'], ['php']);
+    expect(l2Partial.status).toBe('PARTIAL');
+    expect(l2Partial.missing_requirements).toContain(
+      'Configurar phpstan.neon con level: max y tomasvotruba/cognitive-complexity.'
+    );
+
+    // Test with level 9
+    fs.writeFileSync(
+      path.join(tmpDir, 'phpstan.neon'),
+      'parameters:\n  level: 9\n  cognitive_complexity:\n    function: 9\n',
+      'utf-8'
+    );
+    const l2Level9 = evaluateLayer02StrictTyping(tmpDir, ['phpstan.neon'], ['php']);
+    expect(l2Level9.status).toBe('COVERED');
+  });
 });

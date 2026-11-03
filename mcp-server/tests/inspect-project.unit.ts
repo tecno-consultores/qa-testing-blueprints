@@ -272,5 +272,52 @@ strict=true
       );
       expect(readiness.browser_mcp_configured_in_ide).toBe(true);
     });
+
+    it('detects PHP stack with composer.json, php files, and strict flags', async () => {
+      fs.writeFileSync(
+        path.join(tmpDir, 'composer.json'),
+        JSON.stringify({ name: 'test/php-app', require: { php: '^8.2' } }),
+        'utf-8'
+      );
+      const srcDir = path.join(tmpDir, 'src');
+      fs.mkdirSync(srcDir, { recursive: true });
+      fs.writeFileSync(path.join(srcDir, 'App.php'), '<?php echo "hello";', 'utf-8');
+      fs.writeFileSync(path.join(tmpDir, 'phpstan.neon'), 'parameters:\n  level: max\n', 'utf-8');
+      fs.writeFileSync(path.join(tmpDir, 'infection.json5'), '{\n  minMsi: 80\n}', 'utf-8');
+
+      const result = await inspectProjectConfig(tmpDir);
+
+      expect(result.detected_stacks).toContain('php');
+      expect(result.strict_flags.phpstan_strict).toBe(true);
+      expect(result.strict_flags.infection_mutation).toBe(true);
+      expect(result.missing_11x_files).not.toContain('phpstan.neon');
+    });
+
+    it('detects PHP stack with .dist config files and reports missing phpstan when absent', async () => {
+      fs.writeFileSync(
+        path.join(tmpDir, 'composer.json'),
+        JSON.stringify({ name: 'test/php-dist' }),
+        'utf-8'
+      );
+      fs.writeFileSync(path.join(tmpDir, 'infection.json.dist'), '{}', 'utf-8');
+
+      const result = await inspectProjectConfig(tmpDir);
+
+      expect(result.detected_stacks).toContain('php');
+      expect(result.strict_flags.phpstan_strict).toBe(false);
+      expect(result.strict_flags.infection_mutation).toBe(true);
+      expect(result.missing_11x_files).toContain('phpstan.neon');
+    });
+
+    it('detects PHP stack when phpstan.neon.dist is present', async () => {
+      fs.writeFileSync(path.join(tmpDir, 'composer.json'), '{}', 'utf-8');
+      fs.writeFileSync(path.join(tmpDir, 'phpstan.neon.dist'), 'parameters:', 'utf-8');
+
+      const result = await inspectProjectConfig(tmpDir);
+
+      expect(result.detected_stacks).toContain('php');
+      expect(result.strict_flags.phpstan_strict).toBe(true);
+      expect(result.missing_11x_files).not.toContain('phpstan.neon');
+    });
   });
 });

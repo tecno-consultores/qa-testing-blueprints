@@ -1,0 +1,57 @@
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 QA Testing Blueprints Contributors
+# Orquestador efímero QA 11X para PHP 8.1-8.5 (sinfallas/basephpcomposer)
+
+services:
+  postgres-qa:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: qa_user
+      POSTGRES_PASSWORD: qa_password_ephemeral
+      POSTGRES_DB: qa_db
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qa_user -d qa_db"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  keydb-qa:
+    image: eqalpha/keydb:alpine
+    command: keydb-server --server-threads 2 --appendonly no --save ""
+    healthcheck:
+      test: ["CMD", "keydb-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  qa-php:
+    image: sinfallas/basephpcomposer:${PHP_VERSION:-8.5}
+    working_dir: /var/www
+    user: "1000:1000"
+    volumes:
+      - .:/var/www
+      - composer-cache:/tmp/composer-cache
+    environment:
+      APP_ENV: testing
+      COMPOSER_CACHE_DIR: /tmp/composer-cache
+      DATABASE_URL: postgresql://qa_user:qa_password_ephemeral@postgres-qa:5432/qa_db?serverVersion=17&charset=utf8
+      REDIS_URL: redis://keydb-qa:6379/0
+      PCOV_ENABLED: "1"
+    depends_on:
+      postgres-qa:
+        condition: service_healthy
+      keydb-qa:
+        condition: service_healthy
+
+  karatelabs:
+    image: sinfallas/karatelabs:latest
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+    environment:
+      API_BASE_URL: http://qa-php:8000
+
+volumes:
+  composer-cache:

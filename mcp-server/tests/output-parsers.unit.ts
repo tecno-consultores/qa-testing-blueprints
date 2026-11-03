@@ -96,6 +96,20 @@ TOTAL                        70      3    95.7%
       expect(result.passed).toBe(true);
     });
 
+    it('parsea cobertura de Pest / PHPUnit con PCOV (Lines: X%)', () => {
+      const phpOutput = 'Code Coverage Report:\n  Lines: 97.20% (140/144)\n  Classes: 100.00%';
+      const result = parseCoverage(phpOutput);
+      expect(result.detected).toBe(true);
+      expect(result.percent).toBe(97.2);
+      expect(result.passed).toBe(true);
+
+      const phpLow = 'Lines: 91.50%';
+      const resultLow = parseCoverage(phpLow);
+      expect(resultLow.detected).toBe(true);
+      expect(resultLow.percent).toBe(91.5);
+      expect(resultLow.passed).toBe(false);
+    });
+
     it('retorna detected=false si no hay datos de cobertura', () => {
       const result = parseCoverage('Salida cualquiera sin tablas');
       expect(result.detected).toBe(false);
@@ -177,6 +191,23 @@ In scripts/deploy.sh line 14:
       expect(issues[4].rule).toBe('shellcheck-SC2086');
       expect(issues[4].file).toBe('scripts/deploy.sh');
     });
+
+    it('parsea violaciones de Psalm y PHPStan para proyectos PHP', () => {
+      const log = `
+ERROR: MissingReturnType - src/Models/User.php:28:12 - Method User::getName does not have a return type
+src/Services/PaymentService.php:54:Call to an undefined method PaymentService::process()
+      `;
+      const issues = parseLinterAndComplexity(log);
+      expect(issues.length).toBe(2);
+
+      expect(issues[0].rule).toBe('psalm-MissingReturnType');
+      expect(issues[0].file).toBe('src/Models/User.php');
+      expect(issues[0].line).toBe(28);
+
+      expect(issues[1].rule).toBe('phpstan-error');
+      expect(issues[1].file).toBe('src/Services/PaymentService.php');
+      expect(issues[1].line).toBe(54);
+    });
   });
 
   describe('parseSecurityAlerts', () => {
@@ -228,6 +259,14 @@ In scripts/deploy.sh line 14:
       const mut2 = parseMutation(logSurv);
       expect(mut2?.mutation_score).toBe(0);
       expect(mut2?.mutants_survived).toBe(4);
+    });
+
+    it('parsea reporte de mutación de Infection para PHP', () => {
+      const logInfection = 'Mutation Score Indicator (MSI): 86.4%\n5 escaped\n2 mutants were not covered';
+      const mut = parseMutation(logInfection);
+      expect(mut).not.toBeNull();
+      expect(mut?.mutation_score).toBe(86.4);
+      expect(mut?.mutants_survived).toBe(5);
     });
 
     it('devuelve null si no hay datos de mutación', () => {

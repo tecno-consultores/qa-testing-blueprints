@@ -168,4 +168,33 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
       """
     * match proposalTemplate.target_repo == 'tecno-consultores/qa-testing-blueprints'
 
+  # ==============================================================================
+  # Grupo 9: Contrato del Ecosistema PHP 8.1-8.5 en Manifiesto y Servidor MCP
+  # ==============================================================================
+
+  Scenario: 9. El manifiesto indexa oficialmente el stack PHP con sus 9 plantillas y fusión quirúrgica
+    * match manifest.stacks.php == '#object'
+    * match manifest.stacks.php.description contains 'PHP 8.1-8.5'
+    * match manifest.stacks.php.readme == 'php/README.md'
+    * match manifest.stacks.php.files == '#[9]'
+
+    # Verificar que composer.json.example aplique estrategia surgical_merge
+    * def findComposer = function(f) { return f.target_name == 'composer.json' }
+    * def composerEntry = karate.filter(manifest.stacks.php.files, findComposer)[0]
+    * match composerEntry.merge_strategy == 'surgical_merge'
+    * match composerEntry.sha256 == '#regex ^[0-9a-f]{64}$'
+
+    # Verificar presencia de las plantillas canónicas 11X de PHP
+    * def filePaths = karate.map(manifest.stacks.php.files, function(x) { return x.path })
+    * match filePaths contains 'php/composer.json.example'
+    * match filePaths contains 'php/docker-compose.qa.yml'
+    * match filePaths contains 'php/phpstan.neon.example'
+    * match filePaths contains 'php/phpunit.xml.example'
+    * match filePaths contains 'php/infection.json5.example'
+    * match filePaths contains 'php/php.ini.example'
+    * match filePaths contains 'php/limpieza.sh'
+    * match filePaths contains 'php/Makefile.example'
+    * match filePaths contains 'php/test/api_test.feature'
+
+
 

@@ -50,6 +50,10 @@ STACK_METADATA: Dict[str, Dict[str, str]] = {
         "description": "Scripts DevOps y Automatización en Bash / POSIX Shell",
         "readme": "bash-scripts/README.md",
     },
+    "php": {
+        "description": "APIs, Microservicios y Aplicaciones Backend en PHP 8.1-8.5 con PCOV, PHPStan, Psalm, Pest/PHPUnit, Infection y Karate BDD",
+        "readme": "php/README.md",
+    },
 }
 
 COMMON_FILE_PATHS: List[str] = [

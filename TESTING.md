@@ -107,7 +107,7 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
   make qa-unit       # BATS-core + bats-mock + kcov (>= 95%)
   ```
 
-### 🐘 PHP 8.1–8.5 (`sinfallas/basephpcomposer` — Especificado para Hito 11)
+### 🐘 PHP 8.1–8.5 (`sinfallas/basephpcomposer`) — 13 Capas
 * **Imagen Base:** `sinfallas/basephpcomposer:8.5` (Tags `8.1` a `8.5`, `latest` — Multi-Arch `amd64`/`arm64`)
 * **Persistencia:** `postgres:17-alpine` + `eqalpha/keydb:alpine` (vía `ext-redis` y `ext-pdo_pgsql`)
 * **Comandos de Validación:**
@@ -125,13 +125,13 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
 ### 🧠 MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x`)
 * **Imagen Base:** `sinfallas/base-node-ionic:26`
 * **Métricas 11X Certificadas:**
-  * **Sentencias (Statements):** `99.28%` ($\ge 95.0\%$)
-  * **Ramas (Branches):** `95.39%` ($\ge 95.0\%$)
+  * **Sentencias (Statements):** `99.22%` ($\ge 95.0\%$)
+  * **Ramas (Branches):** `95.38%` ($\ge 95.0\%$)
   * **Funciones (Functions):** `100.00%` ($\ge 95.0\%$)
-  * **Líneas (Lines):** `99.28%` ($\ge 95.0\%$)
-  * **Pruebas Unitarias:** 228 pruebas pasando al 100% (12 suites en `tests/*.unit.ts`)
+  * **Líneas (Lines):** `99.22%` ($\ge 95.0\%$)
+  * **Pruebas Unitarias:** 244 pruebas pasando al 100% (12 suites en `tests/*.unit.ts`)
   * **Herramientas MCP:** 11 herramientas canónicas (`inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`, `clean_workspace_11x`, `audit_security_stig_owasp`, `run_ephemeral_qa`, `certify_11x_gate`, `audit_test_pyramid_gaps`, `init_or_append_agents_md`, `propose_skill_evolution_pr`)
-  * **Escenarios BDD Karate Labs:** `mcp-server/test/mcp_cli_test.feature` (8 escenarios)
+  * **Escenarios BDD Karate Labs:** `mcp-server/test/mcp_cli_test.feature` (9 escenarios)
   * **Empaquetado npm:** 53.1 kB comprimido / 252.4 kB desempaquetado (0 fugas de código fuente)
 * **Comandos de Validación:**
   ```bash

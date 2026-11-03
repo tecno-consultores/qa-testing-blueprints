@@ -70,6 +70,10 @@ const STACK_NODE_BACKEND: StackName = 'node-backend';
 const STACK_VUE3: StackName = 'vue3';
 const STACK_REACT_FRONTEND: StackName = 'react-frontend';
 const STACK_BASH_SCRIPTS: StackName = 'bash-scripts';
+const STACK_PHP: StackName = 'php';
+
+const COMPOSER_JSON = 'composer.json';
+const PHPSTAN_NEON = 'phpstan.neon';
 
 const ALL_STACKS: StackName[] = [
   STACK_PYTHON,
@@ -78,6 +82,7 @@ const ALL_STACKS: StackName[] = [
   STACK_VUE3,
   STACK_REACT_FRONTEND,
   STACK_BASH_SCRIPTS,
+  STACK_PHP,
 ];
 
 const CODE_STACKS: StackName[] = [
@@ -86,9 +91,10 @@ const CODE_STACKS: StackName[] = [
   STACK_NODE_BACKEND,
   STACK_VUE3,
   STACK_REACT_FRONTEND,
+  STACK_PHP,
 ];
 
-const BACKEND_STACKS: StackName[] = [STACK_FASTAPI, STACK_NODE_BACKEND];
+const BACKEND_STACKS: StackName[] = [STACK_FASTAPI, STACK_NODE_BACKEND, STACK_PHP];
 const FRONTEND_STACKS: StackName[] = [STACK_VUE3, STACK_REACT_FRONTEND];
 
 function readFileContentSafe(projectPath: string, relativePath: string): string {
@@ -228,6 +234,30 @@ function checkBashOrphan(
   };
 }
 
+function hasPhpUnitTest(files: string[], baseName: string): boolean {
+  const lower = baseName.toLowerCase();
+  return files.some((f) => {
+    const fl = f.toLowerCase();
+    return (
+      fl.endsWith('.php') &&
+      (fl.includes(`${lower}test.php`) || fl.includes(`test_${lower}.php`) || fl.includes(`${lower}.unit.php`))
+    );
+  });
+}
+
+function checkPhpOrphan(
+  file: string,
+  baseName: string,
+  files: string[]
+): OrphanSourceFile | null {
+  if (hasPhpUnitTest(files, baseName)) return null;
+  return {
+    source_file: file,
+    expected_unit_test: `tests/${baseName}Test.php`,
+    stack: STACK_PHP,
+  };
+}
+
 function resolveCandidateOrphan(
   file: string,
   files: string[],
@@ -242,6 +272,9 @@ function resolveCandidateOrphan(
   }
   if (file.endsWith('.sh')) {
     return checkBashOrphan(file, baseName, files);
+  }
+  if (file.endsWith('.php')) {
+    return checkPhpOrphan(file, baseName, files);
   }
   return null;
 }
@@ -452,13 +485,19 @@ function detectLinterCapabilities(
     (files.some((f) => f.includes('shellcheck')) ||
       pyproject.includes('shellcheck') ||
       pkgJson.includes('shellcheck'));
+  const composer = readFileContentSafe(projectPath, COMPOSER_JSON);
+  const hasPhpLinter =
+    files.some((f) => f.includes('phpstan') || f.includes('psalm')) ||
+    composer.includes('phpstan') ||
+    composer.includes('psalm');
 
   const detected: string[] = [];
   if (hasPythonLinter) detected.push('ruff+bandit en pyproject.toml');
   if (hasNodeLinter) detected.push('eslint --max-warnings 0 en package.json');
   if (hasBashLinter) detected.push('shellcheck configurado');
+  if (hasPhpLinter) detected.push('phpstan/psalm configurado');
 
-  return { hasLinter: hasPythonLinter || hasNodeLinter || hasBashLinter, detected };
+  return { hasLinter: hasPythonLinter || hasNodeLinter || hasBashLinter || hasPhpLinter, detected };
 }
 
 function detectScriptsCapabilities(files: string[]): {
@@ -563,28 +602,71 @@ function checkNodeTyping(
   return { passed: tsStrict && tsTypecheck, partial: tsStrict || tsTypecheck, evidence };
 }
 
+function checkPhpTyping(
+  projectPath: string,
+  files: string[]
+): { passed: boolean; partial: boolean; evidence: string[] } {
+  const composer = readFileContentSafe(projectPath, COMPOSER_JSON);
+  const phpstanContent = readFileContentSafe(projectPath, PHPSTAN_NEON);
+  const hasPhpstan =
+    files.some((f) => f.includes(PHPSTAN_NEON)) ||
+    fs.existsSync(path.join(projectPath, PHPSTAN_NEON));
+  const hasStrictOrMax =
+    hasPhpstan &&
+    (phpstanContent.includes('level: max') ||
+      phpstanContent.includes('level: 9') ||
+      phpstanContent.includes('level: 8'));
+  const hasComplexity =
+    composer.includes('cognitive-complexity') ||
+    phpstanContent.includes('cognitive_complexity');
+  const evidence: string[] = [];
+  if (hasPhpstan) evidence.push(PHPSTAN_NEON);
+  if (hasStrictOrMax) evidence.push('phpstan level max/strict');
+  if (hasComplexity) evidence.push('cognitive-complexity <= 9');
+  return { passed: hasStrictOrMax && hasComplexity, partial: hasPhpstan || hasStrictOrMax, evidence };
+}
+
+function collectStrictTypingMissingReqs(
+  py: { passed: boolean },
+  node: { passed: boolean },
+  php: { passed: boolean },
+  hasPython: boolean,
+  hasNode: boolean,
+  hasPhp: boolean
+): string[] {
+  const missingReqs: string[] = [];
+  if (hasPython && !py.passed) missingReqs.push('Configurar mypy con strict = true y radon.');
+  if (hasNode && !node.passed) missingReqs.push('Configurar tsconfig "strict": true y script typecheck.');
+  if (hasPhp && !php.passed) missingReqs.push('Configurar phpstan.neon con level: max y tomasvotruba/cognitive-complexity.');
+  return missingReqs;
+}
+
 function determineStrictTypingStatus(
   py: { passed: boolean; partial: boolean },
   node: { passed: boolean; partial: boolean },
+  php: { passed: boolean; partial: boolean },
   hasPython: boolean,
-  hasNode: boolean
+  hasNode: boolean,
+  hasPhp: boolean
 ): { status: PyramidLayerStatus; missingReqs: string[] } {
   const pyPassed = !hasPython || py.passed;
   const nodePassed = !hasNode || node.passed;
-  const isCovered = pyPassed && nodePassed && (py.partial || node.partial);
-  const isPartial = py.partial || node.partial;
+  const phpPassed = !hasPhp || php.passed;
+  const anyPartial = py.partial || node.partial || php.partial;
 
-  const missingReqs: string[] = [];
-  if (isCovered) {
-    return { status: STATUS_COVERED, missingReqs };
+  if (pyPassed && nodePassed && phpPassed && anyPartial) {
+    return { status: STATUS_COVERED, missingReqs: [] };
   }
-  if (isPartial) {
-    if (hasPython && !py.passed) missingReqs.push('Configurar mypy con strict = true y radon.');
-    if (hasNode && !node.passed) missingReqs.push('Configurar tsconfig "strict": true y script typecheck.');
-    return { status: STATUS_PARTIAL, missingReqs };
+  if (anyPartial) {
+    return {
+      status: STATUS_PARTIAL,
+      missingReqs: collectStrictTypingMissingReqs(py, node, php, hasPython, hasNode, hasPhp),
+    };
   }
-  missingReqs.push('Sin tipado estricto ni control de complejidad configurado.');
-  return { status: STATUS_MISSING, missingReqs };
+  return {
+    status: STATUS_MISSING,
+    missingReqs: ['Sin tipado estricto ni control de complejidad configurado.'],
+  };
 }
 
 export function evaluateLayer02StrictTyping(
@@ -609,11 +691,13 @@ export function evaluateLayer02StrictTyping(
 
   const hasPython = stacks.includes(STACK_PYTHON) || stacks.includes(STACK_FASTAPI);
   const hasNode = stacks.includes(STACK_NODE_BACKEND) || stacks.includes(STACK_VUE3) || stacks.includes(STACK_REACT_FRONTEND);
+  const hasPhp = stacks.includes(STACK_PHP);
 
   const py = checkPythonTyping(projectPath, files);
   const node = checkNodeTyping(projectPath);
+  const php = checkPhpTyping(projectPath, files);
 
-  const { status, missingReqs } = determineStrictTypingStatus(py, node, hasPython, hasNode);
+  const { status, missingReqs } = determineStrictTypingStatus(py, node, php, hasPython, hasNode, hasPhp);
 
   return {
     layer_number: 2,
@@ -621,7 +705,7 @@ export function evaluateLayer02StrictTyping(
     layer_name: 'Tipado Estricto y Complejidad Ciclomática/Cognitiva',
     status,
     applicable_stacks: applicable,
-    detected_evidence: [...py.evidence, ...node.evidence],
+    detected_evidence: [...py.evidence, ...node.evidence, ...php.evidence],
     missing_requirements: missingReqs,
     recommended_blueprint_files: [BP_FASTAPI_PYPROJECT, BP_VUE3_TSCONFIG],
     make_target: MAKE_QA_LINT,
@@ -674,19 +758,24 @@ export function evaluateLayer03UnitIsolated(
   const pyproject = readFileContentSafe(projectPath, PYPROJECT_TOML);
   const vitestConfig = readFileContentSafe(projectPath, 'vitest.config.ts');
   const pkgJson = readFileContentSafe(projectPath, PACKAGE_JSON);
+  const composer = readFileContentSafe(projectPath, COMPOSER_JSON);
+  const phpunitXml = readFileContentSafe(projectPath, 'phpunit.xml');
 
   const unitFiles = files.filter(
     (f) =>
       f.includes('.unit.') ||
       f.endsWith('.bats') ||
-      (f.includes('tests/') && f.endsWith('.py'))
+      (f.includes('tests/') && f.endsWith('.py')) ||
+      (f.includes('tests/') && (f.endsWith('Test.php') || f.endsWith('.unit.php')))
   );
 
   const threshold95 =
     pyproject.includes('fail_under = 95') ||
     pyproject.includes('fail-under = 95') ||
     vitestConfig.includes('95') ||
-    pkgJson.includes('thresholds: 95');
+    pkgJson.includes('thresholds: 95') ||
+    composer.includes('--min=95') ||
+    phpunitXml.includes('highLowerBound="95"');
 
   const detected: string[] = [];
   if (unitFiles.length > 0) detected.push(`${unitFiles.length} archivos de pruebas unitarias`);
@@ -972,6 +1061,51 @@ export function evaluateLayer07BddUiKarate(
   };
 }
 
+function detectMutationCapabilities(
+  projectPath: string,
+  files: string[]
+): { hasTool: boolean; hasTarget: boolean; detected: string[] } {
+  const pyproject = readFileContentSafe(projectPath, PYPROJECT_TOML);
+  const pkgJson = readFileContentSafe(projectPath, PACKAGE_JSON);
+  const makefile = readFileContentSafe(projectPath, MAKEFILE_NAME);
+  const composer = readFileContentSafe(projectPath, COMPOSER_JSON);
+
+  const hasMutmut = pyproject.includes('mutmut');
+  const hasStryker = pkgJson.includes('stryker') || files.some((f) => f.includes('stryker.conf.json'));
+  const hasInfection =
+    composer.includes('infection') ||
+    files.some((f) => f.includes('infection.json5') || f.includes('infection.json'));
+  const hasTarget = makefile.includes('qa-mutation');
+  const hasTool = hasMutmut || hasStryker || hasInfection;
+
+  const detected: string[] = [];
+  if (hasMutmut) detected.push('Mutmut configurado en pyproject.toml');
+  if (hasStryker) detected.push('Stryker configurado en package.json');
+  if (hasInfection) detected.push('Infection configurado en composer.json/infection.json5');
+  if (hasTarget) detected.push('Target qa-mutation en Makefile');
+
+  return { hasTool, hasTarget, detected };
+}
+
+function determineMutationStatus(
+  hasTool: boolean,
+  hasTarget: boolean
+): { status: PyramidLayerStatus; missingReqs: string[] } {
+  if (hasTool && hasTarget) {
+    return { status: STATUS_COVERED, missingReqs: [] };
+  }
+  if (hasTool || hasTarget) {
+    const missingReqs: string[] = [];
+    if (!hasTarget) missingReqs.push('Falta target qa-mutation en Makefile.');
+    if (!hasTool) missingReqs.push('Falta configuración de mutmut o stryker.');
+    return { status: STATUS_PARTIAL, missingReqs };
+  }
+  return {
+    status: STATUS_MISSING,
+    missingReqs: ['Sin configuración ni herramienta de pruebas de mutación.'],
+  };
+}
+
 export function evaluateLayer08Mutation(
   projectPath: string,
   files: string[],
@@ -992,32 +1126,8 @@ export function evaluateLayer08Mutation(
     };
   }
 
-  const pyproject = readFileContentSafe(projectPath, PYPROJECT_TOML);
-  const pkgJson = readFileContentSafe(projectPath, PACKAGE_JSON);
-  const makefile = readFileContentSafe(projectPath, MAKEFILE_NAME);
-
-  const hasMutmut = pyproject.includes('mutmut');
-  const hasStryker = pkgJson.includes('stryker') || files.some((f) => f.includes('stryker.conf.json'));
-  const hasTarget = makefile.includes('qa-mutation');
-  const hasTool = hasMutmut || hasStryker;
-
-  const detected: string[] = [];
-  if (hasMutmut) detected.push('Mutmut configurado en pyproject.toml');
-  if (hasStryker) detected.push('Stryker configurado en package.json');
-  if (hasTarget) detected.push('Target qa-mutation en Makefile');
-
-  let status: PyramidLayerStatus = STATUS_MISSING;
-  const missingReqs: string[] = [];
-
-  if (hasTool && hasTarget) {
-    status = STATUS_COVERED;
-  } else if (hasTool || hasTarget) {
-    status = STATUS_PARTIAL;
-    if (!hasTarget) missingReqs.push('Falta target qa-mutation en Makefile.');
-    if (!hasTool) missingReqs.push('Falta configuración de mutmut o stryker.');
-  } else {
-    missingReqs.push('Sin configuración ni herramienta de pruebas de mutación.');
-  }
+  const { hasTool, hasTarget, detected } = detectMutationCapabilities(projectPath, files);
+  const { status, missingReqs } = determineMutationStatus(hasTool, hasTarget);
 
   return {
     layer_number: 8,

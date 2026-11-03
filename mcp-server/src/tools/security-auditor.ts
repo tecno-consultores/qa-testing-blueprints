@@ -30,6 +30,7 @@ const SCANNABLE_EXTS = new Set([
   '.sh',
   '.bash',
   '.json',
+  '.php',
 ]);
 
 const APSC_DV_002510_REF = 'APSC-DV-002510 / Patrón 3';
@@ -139,91 +140,163 @@ function checkSec02AntiCswsh(relPath: string, lines: string[]): SecurityFinding[
   return findings;
 }
 
+function checkPhpCommandAndDeserialization(line: string, relPath: string, lineNum: number): SecurityFinding | null {
+  if (line.includes('unserialize(') && !line.includes('allowed_classes')) {
+    return {
+      rule_id: 'SEC-03',
+      severity: 'CRITICAL',
+      stig_owasp_ref: APSC_DV_002510_REF,
+      file: relPath,
+      line: lineNum,
+      message: 'Deserialización insegura mediante unserialize() sin allowed_classes detectada.',
+      remediation: 'Pasar ["allowed_classes" => false] o limitar a clases seguras en unserialize().',
+    };
+  }
+  if (/(?:shell_exec|passthru|system)\s*\(/.test(line)) {
+    return {
+      rule_id: 'SEC-03',
+      severity: 'CRITICAL',
+      stig_owasp_ref: APSC_DV_002510_REF,
+      file: relPath,
+      line: lineNum,
+      message: 'Ejecución insegura de comandos del sistema detectada en PHP.',
+      remediation: 'Evitar invocar el shell del sistema o utilizar Symfony Process con argumentos sanitizados.',
+    };
+  }
+  return null;
+}
+
+function checkGenericCommandAndDeserialization(line: string, relPath: string, lineNum: number): SecurityFinding | null {
+  if (line.includes('shell=True')) {
+    return {
+      rule_id: 'SEC-03',
+      severity: 'CRITICAL',
+      stig_owasp_ref: APSC_DV_002510_REF,
+      file: relPath,
+      line: lineNum,
+      message: 'Uso inseguro de shell=True detectado (riesgo crítico de inyección de comandos).',
+      remediation: 'Utilizar shell=False y pasar los argumentos como una lista desinfectada.',
+    };
+  }
+  if (line.includes('os.system(')) {
+    return {
+      rule_id: 'SEC-03',
+      severity: 'CRITICAL',
+      stig_owasp_ref: APSC_DV_002510_REF,
+      file: relPath,
+      line: lineNum,
+      message: 'Uso de os.system() detectado.',
+      remediation: 'Reemplazar con subprocess.run([cmd, ...], shell=False, check=True).',
+    };
+  }
+  if (line.includes('pickle.loads(') || line.includes('pickle.load(')) {
+    return {
+      rule_id: 'SEC-03',
+      severity: 'CRITICAL',
+      stig_owasp_ref: APSC_DV_002510_REF,
+      file: relPath,
+      line: lineNum,
+      message: 'Deserialización insegura mediante pickle detectada.',
+      remediation: 'Utilizar formatos seguros como JSON o msgpack con validación Pydantic/Zod.',
+    };
+  }
+  if (line.includes('yaml.load(') && !line.includes('SafeLoader') && !line.includes('safe_load')) {
+    return {
+      rule_id: 'SEC-03',
+      severity: 'CRITICAL',
+      stig_owasp_ref: APSC_DV_002510_REF,
+      file: relPath,
+      line: lineNum,
+      message: 'Uso inseguro de yaml.load() sin SafeLoader.',
+      remediation: 'Reemplazar por yaml.safe_load(content) o especificar Loader=yaml.SafeLoader.',
+    };
+  }
+  if (/\beval\s*\(/.test(line)) {
+    return {
+      rule_id: 'SEC-03',
+      severity: 'CRITICAL',
+      stig_owasp_ref: APSC_DV_002510_REF,
+      file: relPath,
+      line: lineNum,
+      message: 'Uso de eval() detectado.',
+      remediation: 'Eliminar el uso de eval() en favor de análisis o mapeo de diccionarios deterministas.',
+    };
+  }
+  return null;
+}
+
 function checkSec03CommandAndDeserialization(relPath: string, lines: string[]): SecurityFinding[] {
-  if (!relPath.endsWith('.py') && !relPath.endsWith('.ts') && !relPath.endsWith('.js')) return [];
+  if (!relPath.endsWith('.py') && !relPath.endsWith('.ts') && !relPath.endsWith('.js') && !relPath.endsWith('.php')) return [];
+  const isPhp = relPath.endsWith('.php');
   const findings: SecurityFinding[] = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (line.trim().startsWith('#') || line.trim().startsWith('//')) continue;
 
-    if (line.includes('shell=True')) {
-      findings.push({
-        rule_id: 'SEC-03',
-        severity: 'CRITICAL',
-        stig_owasp_ref: APSC_DV_002510_REF,
-        file: relPath,
-        line: i + 1,
-        message: 'Uso inseguro de shell=True detectado (riesgo crítico de inyección de comandos).',
-        remediation: 'Utilizar shell=False y pasar los argumentos como una lista desinfectada.',
-      });
-    } else if (line.includes('os.system(')) {
-      findings.push({
-        rule_id: 'SEC-03',
-        severity: 'CRITICAL',
-        stig_owasp_ref: APSC_DV_002510_REF,
-        file: relPath,
-        line: i + 1,
-        message: 'Uso de os.system() detectado.',
-        remediation: 'Reemplazar con subprocess.run([cmd, ...], shell=False, check=True).',
-      });
-    } else if (line.includes('pickle.loads(') || line.includes('pickle.load(')) {
-      findings.push({
-        rule_id: 'SEC-03',
-        severity: 'CRITICAL',
-        stig_owasp_ref: APSC_DV_002510_REF,
-        file: relPath,
-        line: i + 1,
-        message: 'Deserialización insegura mediante pickle detectada.',
-        remediation: 'Utilizar formatos seguros como JSON o msgpack con validación Pydantic/Zod.',
-      });
-    } else if (line.includes('yaml.load(') && !line.includes('SafeLoader') && !line.includes('safe_load')) {
-      findings.push({
-        rule_id: 'SEC-03',
-        severity: 'CRITICAL',
-        stig_owasp_ref: APSC_DV_002510_REF,
-        file: relPath,
-        line: i + 1,
-        message: 'Uso inseguro de yaml.load() sin SafeLoader.',
-        remediation: 'Reemplazar por yaml.safe_load(content) o especificar Loader=yaml.SafeLoader.',
-      });
-    } else if (/\beval\s*\(/.test(line)) {
-      findings.push({
-        rule_id: 'SEC-03',
-        severity: 'CRITICAL',
-        stig_owasp_ref: APSC_DV_002510_REF,
-        file: relPath,
-        line: i + 1,
-        message: 'Uso de eval() detectado.',
-        remediation: 'Eliminar el uso de eval() en favor de análisis o mapeo de diccionarios deterministas.',
-      });
+    const finding = isPhp
+      ? checkPhpCommandAndDeserialization(line, relPath, i + 1)
+      : checkGenericCommandAndDeserialization(line, relPath, i + 1);
+
+    if (finding) {
+      findings.push(finding);
     }
   }
 
   return findings;
 }
 
+function checkPhpXxe(line: string, relPath: string, lineNum: number): SecurityFinding | null {
+  if ((line.includes('loadXML(') || line.includes('simplexml_load_string(')) && !line.includes('LIBXML_NONET')) {
+    return {
+      rule_id: 'SEC-04',
+      severity: 'HIGH',
+      stig_owasp_ref: 'APSC-DV-002390 / 002550 / Patrón 4',
+      file: relPath,
+      line: lineNum,
+      message: 'Parser XML en PHP detectado sin bandera LIBXML_NONET (vulnerabilidad XXE).',
+      remediation: 'Especificar LIBXML_NONET | LIBXML_NOENT en la llamada a loadXML o simplexml_load_string.',
+    };
+  }
+  return null;
+}
+
+function checkPyXxe(fileContent: string, relPath: string, lineNum: number): SecurityFinding | null {
+  const hasDefused = fileContent.includes('defusedxml');
+  const hasResolveEntitiesFalse = fileContent.includes('resolve_entities=False');
+
+  if (!hasDefused && !hasResolveEntitiesFalse) {
+    return {
+      rule_id: 'SEC-04',
+      severity: 'HIGH',
+      stig_owasp_ref: 'APSC-DV-002390 / 002550 / Patrón 4',
+      file: relPath,
+      line: lineNum,
+      message: 'Parser XML estándar detectado sin protección contra XXE (resolve_entities=False o defusedxml).',
+      remediation: 'Utilizar defusedxml.ElementTree o configurar parser con resolve_entities=False.',
+    };
+  }
+  return null;
+}
+
 function checkSec04Xxe(relPath: string, lines: string[]): SecurityFinding[] {
-  if (!relPath.endsWith('.py')) return [];
+  const isPy = relPath.endsWith('.py');
+  const isPhp = relPath.endsWith('.php');
+  if (!isPy && !isPhp) return [];
   const findings: SecurityFinding[] = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (line.includes('from xml.etree') || line.includes('import xml.etree') || line.includes('etree.fromstring')) {
-      const fileContent = lines.join('\n');
-      const hasDefused = fileContent.includes('defusedxml');
-      const hasResolveEntitiesFalse = fileContent.includes('resolve_entities=False');
-
-      if (!hasDefused && !hasResolveEntitiesFalse) {
-        findings.push({
-          rule_id: 'SEC-04',
-          severity: 'HIGH',
-          stig_owasp_ref: 'APSC-DV-002390 / 002550 / Patrón 4',
-          file: relPath,
-          line: i + 1,
-          message: 'Parser XML estándar detectado sin protección contra XXE (resolve_entities=False o defusedxml).',
-          remediation: 'Utilizar defusedxml.ElementTree o configurar parser con resolve_entities=False.',
-        });
+    if (isPhp) {
+      const phpXxe = checkPhpXxe(line, relPath, i + 1);
+      if (phpXxe) {
+        findings.push(phpXxe);
+        break;
+      }
+    } else if (line.includes('from xml.etree') || line.includes('import xml.etree') || line.includes('etree.fromstring')) {
+      const pyFinding = checkPyXxe(lines.join('\n'), relPath, i + 1);
+      if (pyFinding) {
+        findings.push(pyFinding);
         break;
       }
     }
@@ -233,15 +306,24 @@ function checkSec04Xxe(relPath: string, lines: string[]): SecurityFinding[] {
 }
 
 function checkSec05UnicodeNfkc(relPath: string, lines: string[]): SecurityFinding[] {
-  if (!relPath.endsWith('.py') && !relPath.endsWith('.ts')) return [];
+  if (!relPath.endsWith('.py') && !relPath.endsWith('.ts') && !relPath.endsWith('.php')) return [];
   const isInputFile = /(?:routes|endpoints|api|schemas|controllers)[/\\]/i.test(relPath);
   if (!isInputFile) return [];
 
   const content = lines.join('\n');
-  const hasStringValidation = content.includes('str') && (content.includes('validator') || content.includes('field_validator') || content.includes('z.string()'));
+  const hasStringValidation =
+    (content.includes('str') || content.includes('string')) &&
+    (content.includes('validator') ||
+      content.includes('field_validator') ||
+      content.includes('z.string()') ||
+      content.includes('Assert\\') ||
+      content.includes('Validation'));
   if (!hasStringValidation) return [];
 
-  const hasNfkc = content.includes('NFKC') || content.includes('normalize');
+  const hasNfkc =
+    content.includes('NFKC') ||
+    content.includes('FORM_KC') ||
+    content.includes('normalize');
   if (!hasNfkc) {
     return [
       {
@@ -251,7 +333,7 @@ function checkSec05UnicodeNfkc(relPath: string, lines: string[]): SecurityFindin
         file: relPath,
         line: 1,
         message: 'Validadores de entrada de texto sin normalización canónica Unicode NFKC.',
-        remediation: 'Aplicar unicodedata.normalize("NFKC", valor) en validadores para mitigar homoglyph bypass.',
+        remediation: 'Aplicar unicodedata.normalize("NFKC", valor) o Normalizer::normalize($str, Normalizer::FORM_KC) en validadores para mitigar homoglyph bypass.',
       },
     ];
   }

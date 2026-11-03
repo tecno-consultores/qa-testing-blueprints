@@ -81,6 +81,11 @@ class TestGenerarManifiesto(unittest.TestCase):
             ("sub/docker-compose.qa.yml", "sub/docker-compose.qa.yml", "copy_if_missing_or_update_qa"),
             ("Makefile.example", "Makefile", "surgical_merge"),
             ("pyproject.toml.example", "pyproject.toml", "surgical_merge"),
+            ("composer.json.example", "composer.json", "surgical_merge"),
+            ("phpstan.neon.example", "phpstan.neon", "surgical_merge"),
+            ("infection.json5.example", "infection.json5", "surgical_merge"),
+            ("phpunit.xml.example", "phpunit.xml", "surgical_merge"),
+            ("php.ini.example", "php.ini", "surgical_merge"),
             ("nginx/default.conf.example", "nginx/default.conf", "copy_if_missing"),
             ("test/example.unit.py.example", "test/example.unit.py", "copy_if_missing"),
             ("test/api.feature", "test/api.feature", "copy_if_missing"),
@@ -285,6 +290,22 @@ class TestGenerarManifiesto(unittest.TestCase):
 
         exit_code_fail = gm.main(["--repo-root", str(REPO_ROOT), "--output", str(output_manifest), "--check"])
         self.assertEqual(exit_code_fail, 1)
+
+    def test_stack_metadata_includes_php_and_seven_stacks(self) -> None:
+        """Verifica que STACK_METADATA declare exactamente los 7 stacks oficiales, incluyendo php."""
+        expected_stacks = {
+            "python",
+            "fastapi",
+            "node-backend",
+            "vue3",
+            "react-frontend",
+            "bash-scripts",
+            "php",
+        }
+        self.assertEqual(set(gm.STACK_METADATA.keys()), expected_stacks)
+        php_meta = gm.STACK_METADATA["php"]
+        self.assertIn("PHP 8.1-8.5", php_meta["description"])
+        self.assertEqual(php_meta["readme"], "php/README.md")
 
 
 if __name__ == "__main__":

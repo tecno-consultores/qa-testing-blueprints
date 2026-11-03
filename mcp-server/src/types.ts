@@ -36,6 +36,7 @@ export const StackNameSchema = z.enum([
   'vue3',
   'react-frontend',
   'bash-scripts',
+  'php',
 ]);
 export type StackName = z.infer<typeof StackNameSchema>;
 
@@ -141,6 +142,8 @@ export interface ProjectAuditResult {
     mypy_strict: boolean;
     tsconfig_strict: boolean;
     npmrc_ignore_scripts: boolean;
+    phpstan_strict?: boolean;
+    infection_mutation?: boolean;
   };
   missing_11x_files: string[];
   recommended_next_tool: string;

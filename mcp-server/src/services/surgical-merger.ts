@@ -6,6 +6,10 @@ import * as path from 'node:path';
 import { FetchedFileItem, MergeFilesOptions, MergeResultItem } from '../types.js';
 import { mergeOrAppendAgentsMdContent } from '../cli/init-agents-md.js';
 
+const ALLOW_PLUGINS_KEY = 'allow-plugins';
+const REQUIRE_DEV_KEY = 'require-dev';
+const SCRIPTS_KEY = 'scripts';
+
 export class SurgicalMerger {
   /**
    * Fusión quirúrgica de package.json:
@@ -72,6 +76,67 @@ export class SurgicalMerger {
 
     return {
       merged: JSON.stringify(targetObj, null, 2) + '\n',
+      changes,
+    };
+  }
+
+  private mergeJsonDictionarySection(
+    targetObj: Record<string, unknown>,
+    sourceObj: Record<string, unknown>,
+    sectionKey: string,
+    changes: string[]
+  ): void {
+    const targetSection = (targetObj[sectionKey] as Record<string, unknown>) || {};
+    const sourceSection = (sourceObj[sectionKey] as Record<string, unknown>) || {};
+    const mergedSection = { ...targetSection };
+
+    for (const [key, value] of Object.entries(sourceSection)) {
+      if (mergedSection[key] === undefined) {
+        mergedSection[key] = value;
+        changes.push(`Añadido ${sectionKey}["${key}"]: ${JSON.stringify(value)}`);
+      }
+    }
+    targetObj[sectionKey] = mergedSection;
+  }
+
+  /**
+   * Fusión quirúrgica de composer.json:
+   * Conserva name, license, require, e inyecta require-dev, scripts y config.allow-plugins faltantes.
+   */
+  public mergeComposerJson(
+    targetContent: string,
+    exampleContent: string
+  ): { merged: string; content: string; changes: string[] } {
+    let targetObj: Record<string, unknown> = {};
+    if (targetContent.trim()) {
+      try {
+        targetObj = JSON.parse(targetContent) as Record<string, unknown>;
+      } catch {
+        targetObj = {};
+      }
+    }
+    let exampleObj: Record<string, unknown> = {};
+    try {
+      exampleObj = JSON.parse(exampleContent) as Record<string, unknown>;
+    } catch {
+      exampleObj = {};
+    }
+    const changes: string[] = [];
+
+    this.mergeJsonDictionarySection(targetObj, exampleObj, REQUIRE_DEV_KEY, changes);
+    this.mergeJsonDictionarySection(targetObj, exampleObj, SCRIPTS_KEY, changes);
+
+    const tplConfig = (exampleObj.config ?? {}) as Record<string, unknown>;
+    if (Object.keys(tplConfig).length > 0) {
+      const curConfig = (targetObj.config ?? {}) as Record<string, unknown>;
+      targetObj.config = curConfig;
+      this.mergeJsonDictionarySection(curConfig, tplConfig, ALLOW_PLUGINS_KEY, changes);
+    }
+
+    const mergedStr = `${JSON.stringify(targetObj, null, 2)}\n`;
+    return {
+      merged: mergedStr,
+      content: mergedStr,
       changes,
     };
   }
@@ -247,6 +312,10 @@ export class SurgicalMerger {
     const base = path.basename(targetName);
     if (base === 'package.json') {
       const res = this.mergePackageJson(existingContent, exampleContent);
+      return { finalContent: res.merged, changes: res.changes };
+    }
+    if (base === 'composer.json') {
+      const res = this.mergeComposerJson(existingContent, exampleContent);
       return { finalContent: res.merged, changes: res.changes };
     }
     if (base === 'pyproject.toml') {

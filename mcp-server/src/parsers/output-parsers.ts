@@ -88,6 +88,15 @@ function parsePytestCoverage(clean: string): { detected: boolean; percent: numbe
   return { detected: true, percent, uncovered };
 }
 
+function parsePhpCoverage(clean: string): { detected: boolean; percent: number; uncovered: QaCoverageFile[] } {
+  const match = clean.match(/(?:Lines|Total):\s+([0-9.]+)%/i);
+  if (!match) {
+    return { detected: false, percent: 0, uncovered: [] };
+  }
+  const percent = parseFloat(match[1]);
+  return { detected: true, percent, uncovered: [] };
+}
+
 /**
  * Parsea métricas de cobertura de código (pytest-cov, vitest/v8, kcov).
  */
@@ -114,6 +123,17 @@ export function parseCoverage(rawLog: string): QaCoverageSummary {
       threshold,
       passed: pytest.percent >= threshold,
       uncovered_files: pytest.uncovered.slice(0, 20),
+    };
+  }
+
+  const php = parsePhpCoverage(clean);
+  if (php.detected) {
+    return {
+      detected: true,
+      percent: Math.round(php.percent * 100) / 100,
+      threshold,
+      passed: php.percent >= threshold,
+      uncovered_files: php.uncovered.slice(0, 20),
     };
   }
 
@@ -215,12 +235,13 @@ function parseRadonIssue(line: string): QaLinterIssue | null {
   const parts = line.split(':');
   if (parts.length < 3) return null;
   const file = parts[0].trim();
+  if (!file.endsWith('.py')) return null;
   const lineNum = parseInt(parts[1].trim(), 10);
   const rest = parts.slice(2).join(':').trim();
   const firstSpace = rest.indexOf(' ');
   if (firstSpace === -1) return null;
   const grade = rest.substring(0, firstSpace).trim();
-  if (!['C', 'D', 'E', 'F'].includes(grade[0])) return null;
+  if (grade.length !== 1 || !['C', 'D', 'E', 'F'].includes(grade)) return null;
   const message = rest.substring(firstSpace + 1).trim();
 
   return {
@@ -332,13 +353,39 @@ function parseShellcheckBlocks(lines: string[]): QaLinterIssue[] {
   return issues;
 }
 
+function parsePsalmIssue(line: string): QaLinterIssue | null {
+  const match = line.match(/^ERROR:\s*([a-zA-Z0-9_-]+)\s*-\s*([^:]+):(\d+):(?:\d+)\s*-\s*(.+)$/);
+  if (!match) return null;
+  return {
+    file: match[2].trim(),
+    line: parseInt(match[3], 10),
+    rule: `psalm-${match[1]}`,
+    message: match[4].trim(),
+  };
+}
+
+function parsePhpstanIssue(line: string): QaLinterIssue | null {
+  const match = line.match(/^([^:]+\.php):(\d+):(.+)$/);
+  if (match) {
+    return {
+      file: match[1].trim(),
+      line: parseInt(match[2], 10),
+      rule: 'phpstan-error',
+      message: match[3].trim(),
+    };
+  }
+  return null;
+}
+
 function parseSingleLineIssue(line: string): QaLinterIssue | null {
   return (
     parseRadonIssue(line) ||
     parseMypyIssue(line) ||
     parseRuffIssue(line) ||
     parseEslintIssue(line) ||
-    parseShellcheckGccIssue(line)
+    parseShellcheckGccIssue(line) ||
+    parsePsalmIssue(line) ||
+    parsePhpstanIssue(line)
   );
 }
 
@@ -404,8 +451,16 @@ export function parseSecurityAlerts(rawLog: string): QaSecurityAlerts {
 export function parseMutation(rawLog: string): QaMutationSummary | null {
   const clean = stripAnsi(rawLog);
 
-  const scoreMatch = clean.match(/Mutation score:\s*([0-9.]+)%/i) || clean.match(/Mutation Score:\s*([0-9.]+)%/i);
-  const survivedMatch = clean.match(/(?:Survived|survived):\s*(\d+)/i) || clean.match(/Mutants survived:\s*(\d+)/i);
+  const scoreMatch =
+    clean.match(/Mutation Score Indicator \(MSI\):\s*([0-9.]+)%/i) ||
+    clean.match(/Mutation score:\s*([0-9.]+)%/i) ||
+    clean.match(/Mutation Score:\s*([0-9.]+)%/i);
+
+  const survivedMatch =
+    clean.match(/(?:Survived|survived):\s*(\d+)/i) ||
+    clean.match(/Mutants survived:\s*(\d+)/i) ||
+    clean.match(/(\d+)\s+escaped/i) ||
+    clean.match(/(\d+)\s+mutants were not covered/i);
 
   if (!scoreMatch && !survivedMatch) {
     return null;

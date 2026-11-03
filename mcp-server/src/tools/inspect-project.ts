@@ -7,6 +7,9 @@ import * as path from 'node:path';
 import { ProjectAuditResult, BrowserTestingReadiness, StackName } from '../types.js';
 
 const BASH_STACK_NAME = 'bash-scripts';
+const PHP_STACK_NAME = 'php';
+const COMPOSER_JSON_FILE = 'composer.json';
+const PHPSTAN_NEON_FILE = 'phpstan.neon';
 const UTF8_ENCODING = 'utf-8';
 const PACKAGE_JSON = 'package.json';
 const REACT_FRONTEND_STACK = 'react-frontend';
@@ -132,6 +135,33 @@ function inspectBashStack(resolvedPath: string, detectedStacks: string[]): void 
     }
   } catch {
     // Ignorar errores de lectura
+  }
+}
+
+function inspectPhpStack(
+  projectPath: string,
+  files: string[],
+  detectedStacks: string[],
+  strictFlags: ProjectAuditResult['strict_flags'],
+  missing11xFiles: string[]
+): void {
+  const composerPath = path.join(projectPath, COMPOSER_JSON_FILE);
+  const hasComposer = fs.existsSync(composerPath);
+  const hasPhpFiles = files.some((f) => f.endsWith('.php'));
+  if (!hasComposer && !hasPhpFiles) {
+    return;
+  }
+  detectedStacks.push(PHP_STACK_NAME);
+  const hasPhpstan =
+    fs.existsSync(path.join(projectPath, PHPSTAN_NEON_FILE)) ||
+    fs.existsSync(path.join(projectPath, 'phpstan.neon.dist'));
+  const hasInfection =
+    fs.existsSync(path.join(projectPath, 'infection.json5')) ||
+    fs.existsSync(path.join(projectPath, 'infection.json.dist'));
+  strictFlags.phpstan_strict = hasPhpstan;
+  strictFlags.infection_mutation = hasInfection;
+  if (!hasPhpstan) {
+    missing11xFiles.push(PHPSTAN_NEON_FILE);
   }
 }
 
@@ -266,6 +296,14 @@ export async function inspectProjectConfig(
 
   const missing11xFiles = collectMissing11xFiles(resolvedPath);
   const files = collectProjectFiles(resolvedPath);
+
+  const strictFlags: ProjectAuditResult['strict_flags'] = {
+    mypy_strict: mypyStrict,
+    tsconfig_strict: tsconfigStrict,
+    npmrc_ignore_scripts: npmrcIgnoreScripts,
+  };
+  inspectPhpStack(resolvedPath, files, detectedStacks, strictFlags, missing11xFiles);
+
   const browserReadiness = evaluateBrowserTestingReadiness(
     resolvedPath,
     files,
@@ -282,11 +320,7 @@ export async function inspectProjectConfig(
     has_agents_dir: fs.existsSync(path.join(resolvedPath, '.agents')),
     has_testing_md: fs.existsSync(path.join(resolvedPath, 'TESTING.md')),
     has_changelog_md: fs.existsSync(path.join(resolvedPath, 'CHANGELOG.md')),
-    strict_flags: {
-      mypy_strict: mypyStrict,
-      tsconfig_strict: tsconfigStrict,
-      npmrc_ignore_scripts: npmrcIgnoreScripts,
-    },
+    strict_flags: strictFlags,
     missing_11x_files: missing11xFiles,
     recommended_next_tool: 'fetch_blueprint_bundle',
     browser_testing_readiness: browserReadiness,

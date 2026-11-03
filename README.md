@@ -54,9 +54,9 @@ El repositorio está dividido en ecosistemas tecnológicos listos para ser adopt
 | **`node-backend/`** | Microservicios Node.js | `ESLint` + `Prettier` + `Vitest` + `Stryker` + `SonarJS` + `Karate Labs` + `Artillery` + `ZAP` |
 | **`vue3/`** | Frontend Web (Vue 3 / Vite) | `ESLint` + `vue-tsc` + `Vitest (95%)` + `Stryker` + `Playwright` + `@axe-core` + `Lighthouse CI` + `Karate UI` |
 | **`react-frontend/`**| Frontend Web (React / Vite) | `ESLint` + `tsc` + `Vitest (95%)` + `RTL` + `Stryker` + `Playwright` + `@axe-core` + `Lighthouse CI` + `Karate UI` |
-| **`php/`** *(Hito 11)* | APIs y Backend PHP 8.1–8.5 | `PHP-CS-Fixer` + `PHPStan (Max)` + `Psalm (Taint)` + `Pest/PHPUnit + PCOV (95%)` + `Infection (MSI >= 80%)` + `Karate BDD` |
+| **`php/`** | APIs y Backend PHP 8.1–8.5 | `PHP-CS-Fixer` + `PHPStan (Max)` + `Psalm (Taint)` + `Pest/PHPUnit + PCOV (95%)` + `Infection (MSI >= 80%)` + `Karate BDD` |
 | **`bash-scripts/`** | Automatización DevOps | `ShellCheck` + `shfmt` + `BATS-core` + `bats-mock` + `kcov` |
-| **`mcp-server/`** | Servidor MCP Node.js/TS | Paquete `@sinfallas/mcp-qa-11x`: Servidor MCP (stdio), 8 recursos `blueprint://*`, 10 tools y CLI `install-skill` / `init-agents` |
+| **`mcp-server/`** | Servidor MCP Node.js/TS | Paquete `@sinfallas/mcp-qa-11x`: Servidor MCP (stdio), 8 recursos `blueprint://*`, 11 tools y CLI `install-skill` / `init-agents` |
 | **`.agents/`** | Gobernanza de Agentes IA | Reglas (`rules/`), Habilidades (`skills/`) y Scripts de certificación (`scripts/`) |
 | **`manifest.json`** | Manifiesto Criptográfico Zero-Clone | Índice criptográfico SHA-256 de verificación remota bajo demanda (DISA STIG `V-222513` / `APSC-DV-001430`) |
 
@@ -90,7 +90,7 @@ flowchart TD
     subgraph Ecosistema["🏛️ QA Testing Blueprints (Nivel 11X)"]
         MCP["🧠 Servidor MCP Node.js/TS<br><code>@sinfallas/mcp-qa-11x</code>"]
         Skills["⚡ Skills Maestras Zero-Clone<br><code>qa-11x-architect</code> + <code>refactoring-ui</code>"]
-        Blueprints["📁 Blueprints & Templates<br>FastAPI, Vue3, React, Node, Python, Bash"]
+        Blueprints["📁 Blueprints & Templates<br>FastAPI, Vue3, React, Node, Python, Bash, PHP"]
     end
 
     subgraph ConsumidoresIA["🤖 Agentes de IA Autónomos"]
@@ -105,7 +105,7 @@ flowchart TD
         QAEng["Ingeniero de QA / Staff"]
     end
 
-    MCP -- "10 Tools + 8 Resources stdio" --> ConsumidoresIA
+    MCP -- "11 Tools + 8 Resources stdio" --> ConsumidoresIA
     Skills -- "Inyección de Cerebro 11X" --> ConsumidoresIA
     Skills -- "Instalación en workspace o IDE" --> ConsumidoresHumanos
     Blueprints -- "Makefile + Docker efímero" --> ConsumidoresHumanos

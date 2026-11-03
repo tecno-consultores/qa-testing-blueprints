@@ -155,7 +155,7 @@ mcp_servers:
 
 | Herramienta | Argumentos Principales | Propósito Operativo |
 | :--- | :--- | :--- |
-| **`inspect_project_config`** | `project_path` | Audita stacks presentes (`python`, `fastapi`, `node`, `vue3`, `react`, `bash`), configuraciones de linters/tipado y disponibilidad de pruebas en navegador real (`BrowserTestingReadiness`). |
+| **`inspect_project_config`** | `project_path` | Audita stacks presentes (`python`, `fastapi`, `node`, `vue3`, `react`, `bash`, `php`), configuraciones de linters/tipado y disponibilidad de pruebas en navegador real (`BrowserTestingReadiness`). |
 | **`fetch_blueprint_bundle`** | `stack`, `include_common_and_agents` | Descarga bajo demanda todos los archivos del stack con verificación criptográfica SHA-256. |
 | **`bootstrap_or_merge_11x`** | `project_path`, `stack`, `dry_run` | Aplica una fusión quirúrgica no destructiva inyectando configuraciones QA sin alterar dependencias. |
 | **`inspect_ast_blast_radius`** | `project_path`, `target_symbol` | Analiza el radio de impacto de un símbolo en el código antes de refactorizar y sugiere pruebas. |

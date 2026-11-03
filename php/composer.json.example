@@ -1,0 +1,57 @@
+{
+  "name": "organizacion/proyecto-php-11x",
+  "description": "Plantilla Corporativa PHP 8.1-8.5 bajo Estandar QA 11X",
+  "type": "project",
+  "license": "MIT",
+  "require": {
+    "php": ">=8.1",
+    "ext-ctype": "*",
+    "ext-iconv": "*",
+    "ext-intl": "*",
+    "ext-json": "*",
+    "ext-mbstring": "*",
+    "ext-openssl": "*",
+    "ext-pdo": "*",
+    "ext-pdo_pgsql": "*",
+    "ext-redis": "*",
+    "ext-sodium": "*",
+    "promphp/prometheus_client_php": "^2.14"
+  },
+  "require-dev": {
+    "cyclonedx/cyclonedx-php-composer": "^5.1",
+    "friendsofphp/php-cs-fixer": "^3.68",
+    "infection/infection": "^0.29",
+    "pestphp/pest": "^3.7",
+    "phpstan/phpstan": "^2.1",
+    "phpstan/phpstan-strict-rules": "^2.0",
+    "phpunit/phpunit": "^11.5",
+    "roave/security-advisories": "dev-latest",
+    "tomasvotruba/cognitive-complexity": "^1.0",
+    "vimeo/psalm": "^6.0"
+  },
+  "config": {
+    "optimize-autoloader": true,
+    "preferred-install": "dist",
+    "sort-packages": true,
+    "allow-plugins": {
+      "cyclonedx/cyclonedx-php-composer": true,
+      "infection/extension-installer": true,
+      "pestphp/pest-plugin": true
+    }
+  },
+  "scripts": {
+    "qa:cs": "php-cs-fixer fix --dry-run --diff --using-cache=no",
+    "qa:phpstan": "phpstan analyse --memory-limit=1G --no-progress",
+    "qa:psalm": "psalm --no-progress --taint-analysis",
+    "qa:audit": "composer audit --format=json",
+    "qa:lint": [
+      "@qa:cs",
+      "@qa:phpstan",
+      "@qa:psalm",
+      "@qa:audit"
+    ],
+    "qa:unit": "php -d pcov.enabled=1 ./vendor/bin/pest --coverage --min=95",
+    "qa:mutation": "php -d pcov.enabled=1 ./vendor/bin/infection --min-msi=80 --min-covered-msi=80 --threads=4 --no-progress",
+    "qa:sbom": "@composer CycloneDX:make-sbom --spec-version=1.6 --output-format=JSON --output-file=sbom-php.cdx.json"
+  }
+}
