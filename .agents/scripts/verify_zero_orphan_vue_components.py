@@ -21,9 +21,7 @@ def main() -> int:
     frontend_dirs = [c for c in candidates if c.exists()]
 
     if not frontend_dirs:
-        print(
-            "ℹ️ No se detectó directorio de frontend (vue3/src, react-frontend/src o src/); omitiendo verificación de huérfanos."
-        )
+        print("✔ [UI Orphans] Sin directorio frontend activo (omitido).")
         return 0
 
     ui_files = []
@@ -39,7 +37,7 @@ def main() -> int:
                     unit_files.append(os.path.join(root, f))
 
     if not ui_files:
-        print("ℹ️ No se encontraron componentes UI (.vue / .tsx); verificación aprobada.")
+        print("✔ [UI Orphans] 0 componentes UI (.vue / .tsx) detectados.")
         return 0
 
     unit_basenames = {os.path.basename(u) for u in unit_files}
@@ -81,19 +79,16 @@ def main() -> int:
         if not found:
             orphans.append(rel_path)
 
-    print(f"📊 Componentes UI auditados: {len(ui_files)}")
-    print(f"📊 Suites de pruebas unitarias: {len(unit_files)}")
-
     if orphans:
-        print(f"\n❌ Se detectaron {len(orphans)} componente(s) UI huérfano(s) sin pruebas unitarias:")
+        print(f"❌ Se detectaron {len(orphans)} componente(s) UI huérfano(s) sin pruebas unitarias ({len(ui_files)} componentes / {len(unit_files)} suites):")
         for o in orphans:
             print(f"   - {o}")
         print(
-            "\nDirectiva Incumplida: Invariante de Cero Componentes UI Huérfanos (.agents/rules/mandatory_qa_pyramid_and_doc_sync.md)"
+            "Directiva Incumplida: Invariante de Cero Componentes UI Huérfanos (.agents/rules/mandatory_qa_pyramid_and_doc_sync.md)"
         )
         return 1
 
-    print("✔ Cero componentes UI huérfanos. 100% de componentes y vistas cuentan con pruebas unitarias.")
+    print(f"✔ [UI Orphans] {len(ui_files)} componentes / {len(unit_files)} suites unitarias (0 huérfanos).")
     return 0
 
 

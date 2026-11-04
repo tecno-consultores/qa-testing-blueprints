@@ -40,7 +40,7 @@ export function createMcpServer(options?: {
 
   const server = new McpServer({
     name: '@sinfallas/mcp-qa-11x',
-    version: '2.9.0',
+    version: '2.9.1',
   });
 
   // ============================================================================
@@ -240,7 +240,7 @@ export function createMcpServer(options?: {
         content: [
           {
             type: 'text',
-            text: JSON.stringify(result, null, 2),
+            text: JSON.stringify(result),
           },
         ],
       };
@@ -258,7 +258,7 @@ export function createMcpServer(options?: {
         content: [
           {
             type: 'text',
-            text: JSON.stringify(result, null, 2),
+            text: JSON.stringify(result),
           },
         ],
       };
@@ -282,7 +282,7 @@ export function createMcpServer(options?: {
         content: [
           {
             type: 'text',
-            text: JSON.stringify(result, null, 2),
+            text: JSON.stringify(result),
           },
         ],
       };
@@ -300,7 +300,7 @@ export function createMcpServer(options?: {
         content: [
           {
             type: 'text',
-            text: JSON.stringify(result, null, 2),
+            text: JSON.stringify(result),
           },
         ],
       };
@@ -322,7 +322,7 @@ export function createMcpServer(options?: {
         content: [
           {
             type: 'text',
-            text: JSON.stringify(result, null, 2),
+            text: JSON.stringify(result),
           },
         ],
       };
@@ -340,7 +340,7 @@ export function createMcpServer(options?: {
         content: [
           {
             type: 'text',
-            text: JSON.stringify(result, null, 2),
+            text: JSON.stringify(result),
           },
         ],
       };
@@ -362,7 +362,7 @@ export function createMcpServer(options?: {
         content: [
           {
             type: 'text',
-            text: JSON.stringify(result, null, 2),
+            text: JSON.stringify(result),
           },
         ],
       };
@@ -380,7 +380,7 @@ export function createMcpServer(options?: {
         content: [
           {
             type: 'text',
-            text: JSON.stringify(result, null, 2),
+            text: JSON.stringify(result),
           },
         ],
       };
@@ -398,7 +398,7 @@ export function createMcpServer(options?: {
         content: [
           {
             type: 'text',
-            text: JSON.stringify(result, null, 2),
+            text: JSON.stringify(result),
           },
         ],
       };
@@ -419,7 +419,7 @@ export function createMcpServer(options?: {
         content: [
           {
             type: 'text',
-            text: JSON.stringify(result, null, 2),
+            text: JSON.stringify(result),
           },
         ],
       };
@@ -437,7 +437,7 @@ export function createMcpServer(options?: {
         content: [
           {
             type: 'text',
-            text: JSON.stringify(result, null, 2),
+            text: JSON.stringify(result),
           },
         ],
       };

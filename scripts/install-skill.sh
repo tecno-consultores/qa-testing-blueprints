@@ -257,20 +257,18 @@ for d in ${DEST_DIRS}; do
 done
 
 # Descargar y validar criptográficamente cada archivo en TMP_DIR
-log_info "Descargando y certificando archivos con validación criptográfica SHA-256..."
 VERIFIED_STAGING="${TMP_DIR}/staging"
 mkdir -p "${VERIFIED_STAGING}"
+VERIFIED_COUNT=0
 
 while read -r rel_path expected_sha size_bytes; do
   [ -z "${rel_path}" ] && continue
 
-  # Quitar el prefijo '.agents/skills/' para obtener la ruta relativa de la skill
   skill_rel_path="${rel_path#.agents/skills/}"
   staging_dest="${VERIFIED_STAGING}/${skill_rel_path}"
   staging_dir="$(dirname "${staging_dest}")"
   mkdir -p "${staging_dir}"
 
-  # Si existe el archivo en la ruta local del blueprint, copiar; si no, descargar de GitHub
   if [ -n "${QA_BLUEPRINTS_LOCAL_PATH:-}" ] && [ -f "${QA_BLUEPRINTS_LOCAL_PATH}/${rel_path}" ]; then
     cp "${QA_BLUEPRINTS_LOCAL_PATH}/${rel_path}" "${staging_dest}"
   elif [ -f "./${rel_path}" ]; then
@@ -284,37 +282,20 @@ while read -r rel_path expected_sha size_bytes; do
   actual_sha="$(compute_sha256 "${staging_dest}")"
   if [ "${actual_sha}" != "${expected_sha}" ]; then
     log_error "🚨 VIOLACIÓN DE INTEGRIDAD CRIPTOGRÁFICA (DISA ASD STIG V6R5 V-222513)"
-    log_error "Archivo: ${rel_path}"
-    log_error "Hash esperado: ${expected_sha}"
-    log_error "Hash actual:   ${actual_sha}"
+    log_error "Archivo: ${rel_path} | Esperado: ${expected_sha} | Actual: ${actual_sha}"
     log_error "La instalación ha sido abortada por seguridad."
     exit 1
   fi
-  printf "  ✔ %s (%s bytes) [SHA-256 verificado]\n" "${skill_rel_path}" "${size_bytes}"
+  VERIFIED_COUNT=$((VERIFIED_COUNT + 1))
 done <"${SKILL_INDEX}"
 
+log_ok "Integridad SHA-256 certificada (${VERIFIED_COUNT}/${TOTAL_FILES} archivos verificados)."
+
 # Instalar archivos validados en cada destino
-log_info "Instalando skills validadas en directorios destino..."
 for dest in ${DEST_DIRS}; do
   mkdir -p "${dest}"
   cp -R "${VERIFIED_STAGING}/"* "${dest}/"
-  log_ok "Skills instaladas con éxito en: ${dest}"
+  log_ok "Skills instaladas en: ${dest}"
 done
 
-# Resumen de instalación
-printf "\n%b══════════════════════════════════════════════════════════════════════%b\n" "${C_GREEN}" "${C_RESET}"
-printf "%b   ✅ Instalación de Skills QA 11X Completada con Éxito               %b\n" "${C_BOLD}" "${C_RESET}"
-printf "%b══════════════════════════════════════════════════════════════════════%b\n" "${C_GREEN}" "${C_RESET}"
-printf "Skills disponibles en el catálogo:\n"
-printf "  1. %bqa-11x-architect%b             (Cerebro metodológico 11X, 13 capas, 22 patrones DISA/OWASP)\n" "${C_BOLD}" "${C_RESET}"
-printf "  2. %brefactoring-ui%b               (Diseño táctico, WCAG 2.1 AA, OKLCH, tabular-nums, CLS=0)\n" "${C_BOLD}" "${C_RESET}"
-printf "  3. %bdocker-trivy-keydb-hardening%b    (Hardening de contenedores, Trivy=0, KeyDB multihilo)\n" "${C_BOLD}" "${C_RESET}"
-printf "  4. %bgraphify-ast-navigator%b        (Navegación AST, blast radius pre-refactor, límites de capas)\n" "${C_BOLD}" "${C_RESET}"
-printf "  5. %bqa-11x-docker-certifier%b       (Certificador 11X en Docker efímero, Rule Zero, mutmut)\n\n" "${C_BOLD}" "${C_RESET}"
-printf "  2. %brefactoring-ui%b    (Diseño táctico, WCAG 2.1 AA, OKLCH, tabular-nums, CLS=0)\n\n" "${C_BOLD}" "${C_RESET}"
-printf "Archivos instalados por skill:\n"
-printf "  - qa-11x-architect: SKILL.md + 5 referencias especializadas en references/\n"
-printf "  - refactoring-ui:   SKILL.md + 9 referencias modulares en references/\n\n"
-printf "Para usar en su asistente IA o agente, invocar:\n"
-printf "  - /skill qa-11x-architect\n"
-printf "  - o permitir la activación contextual al ejecutar tareas de QA, Docker o pruebas.\n\n"
+printf "✅ Instalación de Skills QA 11X Completada con Éxito (5 skills: qa-11x-architect, refactoring-ui, docker-trivy-keydb-hardening, graphify-ast-navigator, qa-11x-docker-certifier).\n"

@@ -160,14 +160,11 @@ def main() -> int:
     frontend_calls = extract_frontend_calls(repo_root)
 
     if not backend_routes and not frontend_calls:
-        print("ℹ️ No se detectaron rutas de API ni llamadas HTTP activas (modo plantilla base); paridad aprobada.")
+        print("✔ [API Parity] Modo plantilla base (0 rutas/llamadas activas).")
         return 0
 
-    print(f"📊 Rutas de Backend registradas: {len(backend_routes)}")
-    print(f"📊 Llamadas HTTP de Frontend auditadas: {len(frontend_calls)}")
-
     if not backend_routes or not frontend_calls:
-        print("ℹ️ Proyecto mono-capa o sin llamadas cruzadas activas; omitiendo validación cruzada.")
+        print(f"✔ [API Parity] Proyecto mono-capa ({len(backend_routes)} rutas backend, {len(frontend_calls)} llamadas frontend).")
         return 0
 
     unmatched_frontend = []
@@ -206,14 +203,14 @@ def main() -> int:
 
     if unmatched_frontend:
         print(
-            f"\n❌ Se detectaron {len(unmatched_frontend)} llamada(s) en frontend hacia endpoints inexistentes (404/405):"
+            f"❌ Se detectaron {len(unmatched_frontend)} llamada(s) en frontend hacia endpoints inexistentes (404/405):"
         )
         for verb, url, rel_file, line_no in unmatched_frontend:
             print(f"   - [{verb}] {url} en {rel_file}:{line_no}")
-        print("\nDirectiva Incumplida: Terminal ↔ Frontend Parity (.agents/rules/frontend_parity_and_closure.md)")
+        print("Directiva Incumplida: Terminal ↔ Frontend Parity (.agents/rules/frontend_parity_and_closure.md)")
         return 1
 
-    print("✔ Paridad Frontend ↔ Backend verificada: Cero llamadas 404/405 detectadas.")
+    print(f"✔ [API Parity] {len(backend_routes)} rutas backend ↔ {len(frontend_calls)} llamadas frontend (0 errores 404/405).")
     return 0
 
 

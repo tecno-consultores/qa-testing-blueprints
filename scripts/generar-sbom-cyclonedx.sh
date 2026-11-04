@@ -10,18 +10,14 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUTPUT_FILE="${1:-sbom.cyclonedx.json}"
 
-echo "══════════════════════════════════════════════════════════════════════"
-echo "   📦 Generador de SBOM CycloneDX (ECMA-424 / STIG V6R5)              "
-echo "══════════════════════════════════════════════════════════════════════"
-
 docker run --rm \
   -v "${REPO_ROOT}:/workspace" \
   aquasec/trivy:latest fs \
+  --quiet \
   --format cyclonedx \
   --output "/workspace/${OUTPUT_FILE}" \
   /workspace
 
 docker run --rm -v "${REPO_ROOT}:/workspace" alpine chown "$(id -u):$(id -g)" "/workspace/${OUTPUT_FILE}" 2>/dev/null || true
 
-echo "✔ SBOM CycloneDX generado exitosamente en: ${OUTPUT_FILE}"
-echo "══════════════════════════════════════════════════════════════════════"
+echo "✔ [SBOM CycloneDX] Generado exitosamente en: ${OUTPUT_FILE}"

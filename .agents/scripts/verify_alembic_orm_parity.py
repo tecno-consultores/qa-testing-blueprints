@@ -120,43 +120,39 @@ def verify_revision_id_lengths(migrations_dir: Optional[Path]) -> List[Tuple[str
 
 
 def main() -> int:
-    print("🔍 [QA 11X] Verificando paridad entre modelos SQLAlchemy ORM y migraciones Alembic...")
-
     backend_dir = _resolve_backend_dir()
     migrations_dir = _resolve_migrations_dir(backend_dir)
     model_files = _resolve_model_files(backend_dir)
 
     rev_violations = verify_revision_id_lengths(migrations_dir)
     if rev_violations:
-        print("\n❌ ERROR: Se detectaron identificadores 'revision' en Alembic que exceden VARCHAR(32) en PostgreSQL:")
+        print("❌ ERROR: Se detectaron identificadores 'revision' en Alembic que exceden VARCHAR(32) en PostgreSQL:")
         for fname, rev_id, length in rev_violations:
             print(f"   - Archivo: {fname} -> revision='{rev_id}' ({length} caracteres > máximo 32)")
-        print("\n💡 Solución: Acorta el identificador 'revision' a <= 32 caracteres.")
+        print("💡 Solución: Acorta el identificador 'revision' a <= 32 caracteres.")
         return 1
 
     if not model_files:
-        print(f"ℹ️ Archivos de modelos no encontrados en {backend_dir}; omitiendo verificación de paridad ORM.")
+        print("✔ [ORM Parity] 0 archivos de modelos detectados (omitido).")
         return 0
 
     orm_tables = get_orm_tables(model_files)
     if not orm_tables:
-        print("ℹ️ No se detectaron modelos con __tablename__; omitiendo verificación.")
+        print("✔ [ORM Parity] 0 modelos con __tablename__ detectados (omitido).")
         return 0
 
     migrated_tables = get_migrated_tables(migrations_dir)
     missing = orm_tables - migrated_tables
 
     if missing:
-        print("\n❌ ERROR: Se detectaron modelos ORM huérfanos sin migración de Alembic:")
+        print("❌ ERROR: Se detectaron modelos ORM huérfanos sin migración de Alembic:")
         for t in sorted(missing):
             print(f"   - Tabla: '{t}' definida en ORM pero NO creada en migraciones.")
-        print("\n💡 Solución: Genera la migración (ej. alembic revision -m 'add_<tabla>')")
+        print("💡 Solución: Genera la migración (ej. alembic revision -m 'add_<tabla>')")
         return 1
 
     tables_str = ", ".join(sorted(orm_tables))
-    print(
-        f"✅ ÉXITO: Las {len(orm_tables)} tablas ORM ({tables_str}) cuentan con su correspondiente migración y revision IDs <= 32 chars."
-    )
+    print(f"✔ [ORM Parity] {len(orm_tables)} tablas ORM ({tables_str}) sincronizadas (revisions <= 32 chars).")
     return 0
 
 

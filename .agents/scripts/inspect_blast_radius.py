@@ -92,14 +92,9 @@ def assess_risk_level(query: str, callers_count: int, files_count: int) -> str:
 
 
 def inspect_symbol(query: str) -> None:
-    print(f"🎯 [Graphify Blast Radius] Analizando radio de impacto para: '{query}'\n")
-
     graph_files = find_graph_files()
     if not graph_files:
-        print("ℹ️ No se encontraron grafos Graphify (graph.json). Para generarlos:")
-        print(
-            "   docker compose -f <ecosistema>/docker-compose.qa.yml --profile graphify run --rm graphify bash -c 'uvx graphifyy extract'"
-        )
+        print(f"ℹ️ [Blast Radius: '{query}'] Sin grafos Graphify (graph.json) activos.")
         return
 
     total_callers = 0
@@ -112,7 +107,6 @@ def inspect_symbol(query: str) -> None:
             if not matches:
                 continue
 
-            print(f"📂 Grafo: {g_path.relative_to(REPO_ROOT)} ({len(matches)} coincidencias)")
             for node in matches:
                 node_id = node.get("id", "")
                 radius = compute_blast_radius(graph, node_id)
@@ -124,22 +118,19 @@ def inspect_symbol(query: str) -> None:
                     total_files.add(c["file"])
 
                 risk = assess_risk_level(node_id, callers_count, files_count)
-                print(f"   🔹 Nodo: '{node.get('label')}' (ID: {node_id})")
-                print(f"      - Dependientes directos: {callers_count} en {files_count} archivos")
-                print(f"      - Nivel de Riesgo: {risk}")
+                print(
+                    f"🔹 [{g_path.relative_to(REPO_ROOT)}] '{node.get('label')}' ({node_id}) -> {callers_count} llamadores en {files_count} archivos | {risk}"
+                )
                 if radius["direct_callers"]:
                     for c in radius["direct_callers"][:5]:
-                        print(f"        -> {c['file']}: {c['label']} ({c['relation']})")
+                        print(f"   -> {c['file']}: {c['label']} ({c['relation']})")
                     if callers_count > 5:
-                        print(f"        ... y {callers_count - 5} más.")
+                        print(f"   ... (+{callers_count - 5} más)")
         except Exception as e:
             print(f"⚠️ Error procesando grafo {g_path}: {e}")
 
     final_risk = assess_risk_level(query, total_callers, len(total_files))
-    print(f"\n📊 RESUMEN GLOBAL PARA '{query}':")
-    print(f"   - Total llamadores: {total_callers}")
-    print(f"   - Total archivos afectados: {len(total_files)}")
-    print(f"   - Diagnóstico: {final_risk}")
+    print(f"📊 [Blast Radius '{query}'] Llamadores: {total_callers} | Archivos afectados: {len(total_files)} | {final_risk}")
 
 
 def main() -> None:

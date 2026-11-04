@@ -130,50 +130,30 @@ if [ "$DRY_RUN" = false ]; then
 fi
 
 # 3. Paso 0: Saneamiento previo del espacio de trabajo
-echo -e "\n🧹 [Paso 0/5] Saneando espacio de trabajo antes de compilar..."
-"${REPO_ROOT}/scripts/limpieza.sh"
+echo "🧹 [0/5] Saneando espacio de trabajo..."
+"${REPO_ROOT}/scripts/limpieza.sh" --quiet
 
 # 4. Paso 1: Verificación de Calidad y Linting (Rule Zero)
-echo -e "\n🔍 [Paso 1/5] Ejecutando análisis estático (Lint & Typecheck)..."
-docker run --rm \
-  -v "${MCP_DIR}:/app" \
-  -w /app \
-  "${IMAGE_NAME}" \
-  pnpm run lint
-
-docker run --rm \
-  -v "${MCP_DIR}:/app" \
-  -w /app \
-  "${IMAGE_NAME}" \
-  pnpm run typecheck
+echo "🔍 [1/5] Ejecutando Lint & Typecheck en Docker efímero..."
+docker run --rm -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run lint
+docker run --rm -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run typecheck
 
 # 5. Paso 2: Pruebas Unitarias con Cobertura >= 95%
 if [ "$SKIP_TESTS" = false ]; then
-  echo -e "\n🧪 [Paso 2/5] Ejecutando pruebas unitarias con cobertura en Docker efímero..."
-  docker run --rm \
-    -v "${MCP_DIR}:/app" \
-    -w /app \
-    "${IMAGE_NAME}" \
-    pnpm run test:unit
+  echo "🧪 [2/5] Ejecutando pruebas unitarias con cobertura en Docker efímero..."
+  docker run --rm -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run test:unit
 else
-  echo -e "\n🧪 [Paso 2/5] Omitiendo pruebas unitarias (--skip-tests activado)..."
+  echo "🧪 [2/5] Omitiendo pruebas unitarias (--skip-tests activado)."
 fi
 
 # 6. Paso 3: Compilación TypeScript a dist/
-echo -e "\n⚙️ [Paso 3/5] Compilando TypeScript a JavaScript en dist/..."
-docker run --rm \
-  -v "${MCP_DIR}:/app" \
-  -w /app \
-  "${IMAGE_NAME}" \
-  pnpm run build
+echo "⚙️ [3/5] Compilando TypeScript a dist/..."
+docker run --rm -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run build
 
 # 7. Paso 4: Auditoría de empaquetado (Dry-Run de npm pack)
-echo -e "\n📦 [Paso 4/5] Simulando empaquetado (npm pack --dry-run)..."
-docker run --rm \
-  -v "${MCP_DIR}:/app" \
-  -w /app \
-  "${IMAGE_NAME}" \
-  npm pack --dry-run
+echo "📦 [4/5] Validando empaquetado (npm pack --dry-run)..."
+PACK_SUMMARY=$(docker run --rm -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" npm pack --dry-run 2>&1 | grep -E "package size:|unpacked size:|total files:|\.tgz" || true)
+echo "${PACK_SUMMARY}" | sed 's/^/  /'
 
 # 8. Paso 5: Verificación de versión y publicación
 echo -e "\n🌐 [Paso 5/5] Verificando estado del paquete en ${NPM_REGISTRY}..."
@@ -257,10 +237,7 @@ if [ "${VERIFIED_REMOTE_VERSION}" != "${PKG_VERSION}" ]; then
 fi
 
 # Saneamiento final
-"${REPO_ROOT}/scripts/limpieza.sh"
+"${REPO_ROOT}/scripts/limpieza.sh" --quiet
 
-echo "══════════════════════════════════════════════════════════════════════"
-echo -e "\e[32m  🎉 PUBLICACIÓN EXITOSA: ${PKG_NAME}@${PKG_VERSION} ya está disponible en npmjs.org \e[0m"
-echo "  Disponible vía: npx -y ${PKG_NAME}"
-echo "══════════════════════════════════════════════════════════════════════"
+echo "🎉 PUBLICACIÓN EXITOSA: ${PKG_NAME}@${PKG_VERSION} disponible vía: npx -y ${PKG_NAME}"
 exit 0

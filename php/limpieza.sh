@@ -10,39 +10,37 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${SCRIPT_DIR}"
 
-echo "=============================================================================="
-echo "        🧹 Limpieza y Saneamiento QA PHP (Estándar Corporativo 11X)           "
-echo "=============================================================================="
+QUIET=false
+DEEP_PRUNE=false
+for arg in "$@"; do
+  case "${arg}" in
+    -q|--quiet) QUIET=true ;;
+    --deep|--docker-prune) DEEP_PRUNE=true ;;
+  esac
+done
 
-echo "[1/4] Deteniendo contenedores efímeros y redes de prueba..."
-docker compose -f docker-compose.qa.yml down --remove-orphans -v 2>/dev/null || true
-docker compose -f docker-compose.qa.yml --profile chaos down --remove-orphans -v 2>/dev/null || true
+docker compose -f docker-compose.qa.yml down --remove-orphans -v >/dev/null 2>&1 || true
+docker compose -f docker-compose.qa.yml --profile chaos down --remove-orphans -v >/dev/null 2>&1 || true
 
-echo "[2/4] Eliminando artefactos temporales de pruebas, cobertura y linters..."
 rm -f .phpunit.result.cache infection.log infection-summary.log sbom-php.cdx.json zap-report.html ./*.log 2>/dev/null || true
 rm -rf .phpunit.cache htmlcov/ target/ test/target/ karate.jar .trivycache 2>/dev/null || true
 
-echo "[3/4] Saneando residuos generados con privilegios root por Docker (Fallback Alpine)..."
+CURRENT_UID="$(id -u)"
+CURRENT_GID="$(id -g)"
 if command -v docker >/dev/null 2>&1; then
   docker run --rm -v "${SCRIPT_DIR}:/work" alpine sh -c "\
     rm -rf /work/.phpunit.cache /work/.phpunit.result.cache /work/htmlcov \
            /work/infection.log /work/infection-summary.log /work/sbom-php.cdx.json \
-           /work/target /work/test/target /work/karate.jar /work/.trivycache 2>/dev/null || true" 2>/dev/null || true
-fi
-
-echo "[4/4] Normalizando titularidad de archivos para el usuario del host (UID $(id -u):$(id -g))..."
-if command -v docker >/dev/null 2>&1; then
-  CURRENT_UID="$(id -u)"
-  CURRENT_GID="$(id -g)"
-  docker run --rm -v "${SCRIPT_DIR}:/work" alpine sh -c "\
+           /work/target /work/test/target /work/karate.jar /work/.trivycache 2>/dev/null || true; \
     chown -R ${CURRENT_UID}:${CURRENT_GID} /work/src /work/tests /work/test /work/config 2>/dev/null || true; \
-    find /work -maxdepth 1 -user 0 -exec chown ${CURRENT_UID}:${CURRENT_GID} {} + 2>/dev/null || true" 2>/dev/null || true
+    find /work -maxdepth 1 -user 0 -exec chown ${CURRENT_UID}:${CURRENT_GID} {} + 2>/dev/null || true" >/dev/null 2>&1 || true
 fi
 
-# Poda profunda de Docker solo si se solicita explícitamente
-if [ "${1:-}" = "--deep" ] || [ "${1:-}" = "--docker-prune" ]; then
-  echo "🧹 Ejecutando poda profunda de recursos huérfanos de Docker..."
-  docker system prune -af --volumes 2>/dev/null || true
+if [ "${DEEP_PRUNE}" = true ]; then
+  docker system prune -af --volumes >/dev/null 2>&1 || true
 fi
 
-echo "✔ Entorno QA PHP saneado exitosamente."
+if [ "${QUIET}" = false ]; then
+  echo "✔ [Clean PHP 11X] Contenedores, cachés y permisos saneados (UID ${CURRENT_UID}:${CURRENT_GID})."
+fi
+exit 0

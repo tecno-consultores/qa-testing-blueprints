@@ -22,30 +22,28 @@ clean:
 qa-clean: clean
 
 audit:
-	@echo "🔒 [Audit] Iniciando escaneo preventivo de vulnerabilidades y seguridad..."
 	@./scripts/auditar-infra.sh
 
 lint:
 	@echo "🔍 [Lint] Ejecutando linter y chequeo de tipos en Docker efímero..."
-	@docker run --rm -v $$(pwd)/mcp-server:/app -w /app sinfallas/base-node-ionic:26 pnpm run lint
-	@docker run --rm -v $$(pwd)/mcp-server:/app -w /app sinfallas/base-node-ionic:26 pnpm run typecheck
+	@docker run --rm -v $$(pwd)/mcp-server:/app -w /app sinfallas/base-node-ionic:26 pnpm --silent run lint
+	@docker run --rm -v $$(pwd)/mcp-server:/app -w /app sinfallas/base-node-ionic:26 pnpm --silent run typecheck
+	@echo "✔ [Lint & Typecheck] 0 errores ni advertencias."
 
 test:
 	@echo "🧪 [Test] Ejecutando pruebas unitarias en Docker efímero..."
-	@docker run --rm -v $$(pwd)/mcp-server:/app -w /app sinfallas/base-node-ionic:26 pnpm run test:unit
+	@docker run --rm -v $$(pwd)/mcp-server:/app -w /app sinfallas/base-node-ionic:26 pnpm --silent run test:unit
 
 build:
 	@echo "📦 [Build] Compilando Servidor MCP en Docker efímero..."
-	@docker run --rm -v $$(pwd)/mcp-server:/app -w /app sinfallas/base-node-ionic:26 pnpm run build
+	@docker run --rm -v $$(pwd)/mcp-server:/app -w /app sinfallas/base-node-ionic:26 pnpm --silent run build
+	@echo "✔ [Build] Servidor MCP compilado en mcp-server/dist/."
 
 publish-mcp:
-	@echo "🚀 [Publish] Iniciando publicación autónoma de Servidor MCP a npmjs..."
 	@./scripts/publicar-mcp.sh
 
 publish-mcp-dry:
-	@echo "🔍 [Publish Dry-Run] Simulando validación y empaquetado para npmjs..."
 	@./scripts/publicar-mcp.sh --dry-run
 
 certify:
-	@echo "🛡️ [Certify] Ejecutando compuerta universal de certificación 11X..."
 	@./.agents/scripts/certify_task_completion.sh

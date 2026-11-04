@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
-  "blueprint_version": "2.9.0",
-  "generated_at_utc": "2026-11-03T17:07:44Z",
+  "blueprint_version": "2.9.1",
+  "generated_at_utc": "2026-11-04T00:35:17Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -14,8 +14,8 @@
           "path": "bash-scripts/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "568f3358774d1510a96bbfda523bcc30d994b10cb3a87969af3118390aede21d",
-          "size_bytes": 750
+          "sha256": "008b9e12e16fa931769052456a6d36b8d2ec0b41eb735d6e02d4587fd17fe220",
+          "size_bytes": 732
         },
         {
           "path": "bash-scripts/docker-compose.qa.yml",
@@ -28,8 +28,8 @@
           "path": "bash-scripts/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "fd93f2af53f92288159e9b61c5a008aa2362b513761e45d387b6ffa4965f33e4",
-          "size_bytes": 2915
+          "sha256": "d3e84bc7d0bf9fd8fd79943cf90f8518838a767cea0442d509cf886039f8f3ba",
+          "size_bytes": 2028
         },
         {
           "path": "bash-scripts/test/ejemplo_mock.bats",
@@ -55,8 +55,8 @@
           "path": "fastapi/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "cf449a87f048726f391685c2a9a00f7b8963c626bdf8953ec3d5073376ad5fe3",
-          "size_bytes": 2685
+          "sha256": "4ce1caa281b97cc27a3d7439dd6f8059ee67d6506e0fd4e34abe91b05744ec3e",
+          "size_bytes": 2630
         },
         {
           "path": "fastapi/docker-compose.qa.yml",
@@ -76,8 +76,8 @@
           "path": "fastapi/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "273ce60596cce8fae42c1e7b39948c85c8cbaee3d9600b3e11fa65469bcf17af",
-          "size_bytes": 3802
+          "sha256": "0837e730f603ae9c672a0d8c7c6da4e61d9c40c0092c80e90a87b2437df19874",
+          "size_bytes": 2878
         },
         {
           "path": "fastapi/locustfile.py.example",
@@ -138,8 +138,8 @@
           "path": "node-backend/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "6af831762cd7ac27e526691f241329d1875f4e3ab7b18fabef53485378aae3a7",
-          "size_bytes": 1476
+          "sha256": "37ffdadb1636dbdfd6c6ee45c207fadb845df9aea2da514b0816fca1ca7a75c6",
+          "size_bytes": 1513
         },
         {
           "path": "node-backend/artillery.yml.example",
@@ -166,8 +166,8 @@
           "path": "node-backend/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "e17f3aa5d263f8fd0401f36af4e9a2458a8b60dfb4a450076f302bdb21de4dd6",
-          "size_bytes": 3120
+          "sha256": "163b8aa406085fe0053dcfa411731e2e94c299854b277d0bb4678a7c6641904c",
+          "size_bytes": 2228
         },
         {
           "path": "node-backend/npmrc.example",
@@ -221,8 +221,8 @@
           "path": "php/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "72efb056070bc8c2b979b290a252a8d79111e8e0558b769a23e5212ee50a0f7b",
-          "size_bytes": 2802
+          "sha256": "0334cb7b9725de45d815997637fb0145b4f195d31a3ba1f91acc83f6abf34b88",
+          "size_bytes": 2576
         },
         {
           "path": "php/composer.json.example",
@@ -249,8 +249,8 @@
           "path": "php/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "7f1464c962e4b0661f2eb8f5a89ac8dae217798185af9fb70cb8559eaa6cb75a",
-          "size_bytes": 2529
+          "sha256": "3c2a41aaa4506d2549d618fa7a8019204d584a00cb5813f426801540baa67dda",
+          "size_bytes": 1900
         },
         {
           "path": "php/php.ini.example",
@@ -290,8 +290,8 @@
           "path": "python/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "39affdb29c3592df8bc8998884ec7860d012cc39929b9bfdfe0f543fb5f1b8d8",
-          "size_bytes": 968
+          "sha256": "99d50bdf2a60578e39bf75670725c7e61157d2afafaa789fa8f4b111874041d9",
+          "size_bytes": 1004
         },
         {
           "path": "python/docker-compose.qa.yml",
@@ -311,8 +311,8 @@
           "path": "python/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "109efc779c0937d5687f5d9bb8a0fb7ab04bb2f75f8ba0f9e2c88b7ed5485984",
-          "size_bytes": 3601
+          "sha256": "443ca161415ef6c55bd5d093207b9df17d83f3371407c1fd9b80205e0b773a78",
+          "size_bytes": 2677
         },
         {
           "path": "python/pyproject.toml.example",
@@ -359,8 +359,8 @@
           "path": "react-frontend/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "b47ce0285f1cfb8918dd3957a27ffae15fb417e1e8965380c098907b39e029d0",
-          "size_bytes": 2207
+          "sha256": "83174adcfedcf03a21d95152a8aaf6dd1a94a778b35e9dc206f1fa9e3ba92be3",
+          "size_bytes": 2284
         },
         {
           "path": "react-frontend/docker-compose.qa.yml",
@@ -394,8 +394,8 @@
           "path": "react-frontend/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "cc488e0529dc7ff4d714c95def623f4136c454575ef9a2f29ba32bd9e56a6210",
-          "size_bytes": 3337
+          "sha256": "277b0898fc73039549b79faf1d22ed44bc0be2a3e0fd396acacdf6723050ca5e",
+          "size_bytes": 2445
         },
         {
           "path": "react-frontend/nginx/default.conf.example",
@@ -484,8 +484,8 @@
           "path": "vue3/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "e9bbf118dfbfbec37e22f04aa004649b67e75a2ee36bcde6aeb7dbaf86a911cf",
-          "size_bytes": 2761
+          "sha256": "65c75849e75de758c1648e7a2dce124b5720a7fcb00541eb596df9d330df77e1",
+          "size_bytes": 2759
         },
         {
           "path": "vue3/docker-compose.qa.yml",
@@ -519,8 +519,8 @@
           "path": "vue3/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "4e9f1558c3598cb4c1eee8e9a156217b7a10cf98816883536c768ed2768823f7",
-          "size_bytes": 3432
+          "sha256": "9955b62ade950523925b7d56520cc51859c306ec81e1909ab6d910cbc47776b7",
+          "size_bytes": 2539
         },
         {
           "path": "vue3/nginx/default.conf.example",
@@ -607,29 +607,29 @@
       "path": "scripts/auditar-infra.sh",
       "target_name": "scripts/auditar-infra.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "2e970414ecc9c5e1f7640ed74ec40f9017f54eaa058a04e9417f0c829e6360e6",
-      "size_bytes": 1087
+      "sha256": "248ca9e85ff99a44772df6e3493b119b3ceae57bd20dfb0d56c43bb72d5455d1",
+      "size_bytes": 1221
     },
     {
       "path": "scripts/limpieza.sh",
       "target_name": "scripts/limpieza.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "2581d05435d11cc4315227ce34c19816a13e69f9f31d9a5dc55ac5eee6b54024",
-      "size_bytes": 6333
+      "sha256": "a6b844ded0513a2d22312cccb54af6b22dd5e49e6113edee0495a106ec287c8e",
+      "size_bytes": 4958
     },
     {
       "path": "scripts/publicar-mcp.sh",
       "target_name": "scripts/publicar-mcp.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "204e3b39f0b00e42e2773d3b8b9955fb77f294c3db738662c2f85ed890bf00a3",
-      "size_bytes": 12156
+      "sha256": "5f18e13e6648ffedb1269312fb631a54fe5ec2c1efc2fdc9ee1c8c0d664ac388",
+      "size_bytes": 11655
     },
     {
       "path": "scripts/verificar-secretos.sh",
       "target_name": "scripts/verificar-secretos.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "666bc692d50eb2f1a48ed0086a1c66f8787f6d098981085b4c0d1e78876f9f33",
-      "size_bytes": 1207
+      "sha256": "bbefaad9e7fe32597679183d466aff263776abd50441af7ebe6b0088bcb97f4e",
+      "size_bytes": 1331
     }
   ],
   "agent_governance_files": [
@@ -693,57 +693,57 @@
       "path": ".agents/scripts/certify_task_completion.sh",
       "target_name": ".agents/scripts/certify_task_completion.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "4ed8e92c25e616df8df056ae18e7a4abf09d533127cfb44de9ad422cfa0a5d8c",
-      "size_bytes": 5742
+      "sha256": "d987847065ec568a3adfa990b406a018bf323fc349241d4a283aed4d2de36bb2",
+      "size_bytes": 4181
     },
     {
       "path": ".agents/scripts/inspect_blast_radius.py",
       "target_name": ".agents/scripts/inspect_blast_radius.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "5e6b4f433df65d7f664cb926c281e5412debddd06efa58f6252202b1b09c2e09",
-      "size_bytes": 5966
+      "sha256": "b70c6738f1c1f8dea7f286a45c8d6f154cc43e85693d5cbc0825bd6d061d9f0b",
+      "size_bytes": 5489
     },
     {
       "path": ".agents/scripts/verify_alembic_orm_parity.py",
       "target_name": ".agents/scripts/verify_alembic_orm_parity.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "c8ed4478f2c6902eb28f6cced4e388df7ef2d6cf42bc38e9ac03ae4aa66048c6",
-      "size_bytes": 6041
+      "sha256": "7641495818d71ca7ea89122ad151dde0aff2fe0d34e6838cea82e9dde9356c81",
+      "size_bytes": 5838
     },
     {
       "path": ".agents/scripts/verify_json_no_duplicate_keys.py",
       "target_name": ".agents/scripts/verify_json_no_duplicate_keys.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "c5a8092351ff13b95e7bdc22c376fcb3cdadeb42f02baf32412be84d2247a20f",
-      "size_bytes": 2364
+      "sha256": "f1520464e0fb24feb49d442b17b559dafddeed42d6b574dd18f8b6f9fe550b02",
+      "size_bytes": 2345
     },
     {
       "path": ".agents/scripts/verify_no_orphan_api_endpoints.py",
       "target_name": ".agents/scripts/verify_no_orphan_api_endpoints.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "0a8ce596ffda80e8d5b0b5dd28d0f4694ae0dda04032d8f9a17c1a8d3c71b70d",
-      "size_bytes": 9984
+      "sha256": "840ffc06369e882a4496880db19593310e7baabf55e21d5514d3cb109971fb72",
+      "size_bytes": 9859
     },
     {
       "path": ".agents/scripts/verify_roadmap_consistency.py",
       "target_name": ".agents/scripts/verify_roadmap_consistency.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "fbab877cef7b336a3f3ce3a7c7e67dde68b9911a4a4a24b2e96061a0c5e620e1",
-      "size_bytes": 12594
+      "sha256": "cde0fbbf132664598f763f0e0c8a1e71f93f186d47c0a4896ec4917018e57025",
+      "size_bytes": 11692
     },
     {
       "path": ".agents/scripts/verify_topological_health.py",
       "target_name": ".agents/scripts/verify_topological_health.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "01cbc10c4ec06c47820a7545e1577c24e54f8a54544331115d82f996191791b5",
-      "size_bytes": 3686
+      "sha256": "e9e04c967db108d2eb6365a1cc44fc4641b3af348c58409f7c69e741cb185f03",
+      "size_bytes": 3558
     },
     {
       "path": ".agents/scripts/verify_zero_orphan_vue_components.py",
       "target_name": ".agents/scripts/verify_zero_orphan_vue_components.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "7ff1a21a2a661a789fc9dd5a67c4bef1dfb9f1d5611b2675ed6c1b86c661cfb9",
-      "size_bytes": 3702
+      "sha256": "137163dca3dde6ce5820c52e4ae4c54d365335a981f5e7153318945689fc0b5c",
+      "size_bytes": 3525
     },
     {
       "path": ".agents/skills/docker-trivy-keydb-hardening/SKILL.md",
@@ -896,8 +896,8 @@
       "path": "scripts/install-skill.sh",
       "target_name": "scripts/install-skill.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "68a5ed9765e7a7a88feec79b25342569ee1f4e616d6786b691c7e4322ba442f0",
-      "size_bytes": 12439
+      "sha256": "8f9ddd104eaa5f4e3cd5fb2d21bd30a27c37859310a812824d2d80dac03798d1",
+      "size_bytes": 10415
     }
   ]
 }

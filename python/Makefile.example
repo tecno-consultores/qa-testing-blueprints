@@ -6,22 +6,21 @@ SERVICE_NAME = qa-backend
 
 qa-lint:
 	@echo "🔍 Ejecutando Linter y Type Checking (Ruff + Mypy)..."
-	docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "uv sync && uv run ruff check . && uv run mypy ."
+	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "uv sync -q && uv run ruff check . && uv run mypy ."
 
 qa-unit:
 	@echo "🧪 Ejecutando Pruebas Unitarias y Cobertura (Pytest)..."
-	docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "uv sync && uv run pytest --cov=src --cov-fail-under=95"
+	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "uv sync -q && uv run pytest -q --tb=short --cov=src --cov-fail-under=95 --cov-report=term-missing:skip-covered"
 
 qa-mutation:
 	@echo "👽 Ejecutando Pruebas de Mutación (Mutmut)..."
-	docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "uv sync && uv run mutmut run"
+	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "uv sync -q && uv run mutmut run"
 
 qa-all: qa-lint qa-unit qa-mutation
 	@echo "✅ Pipeline QA Python Standalone completado."
 
 clean-cache:
-	@echo "🧹 Limpiando volúmenes de caché de uv..."
-	docker compose -f $(COMPOSE_FILE) down -v
+	@docker compose -f $(COMPOSE_FILE) down -v >/dev/null 2>&1 || true
 
 clean: clean-cache
 	@./limpieza.sh

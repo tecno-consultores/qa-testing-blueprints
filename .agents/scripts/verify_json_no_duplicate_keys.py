@@ -52,7 +52,7 @@ def main() -> int:
     filtered_files = [f for f in json_files if not any(pattern in str(f) for pattern in ignored_patterns)]
 
     if not filtered_files:
-        print("ℹ️ No se detectaron archivos JSON relevantes para auditar.")
+        print("✔ [JSON Integrity] 0 archivos JSON relevantes.")
         return 0
 
     all_errors = []
@@ -62,12 +62,12 @@ def main() -> int:
             all_errors.extend(errors)
 
     if all_errors:
-        print("\n❌ ERROR: Se detectaron colisiones de claves duplicadas en archivos JSON:")
+        print("❌ ERROR: Se detectaron colisiones de claves duplicadas en archivos JSON:")
         for err in all_errors:
             print(f"   - {err}")
         return 1
 
-    print(f"✔ Auditoría exitosa: {len(filtered_files)} archivos JSON validados sin claves duplicadas.")
+    print(f"✔ [JSON Integrity] {len(filtered_files)} archivos JSON validados (0 claves duplicadas).")
     return 0
 
 

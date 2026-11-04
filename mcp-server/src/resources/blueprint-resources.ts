@@ -23,7 +23,7 @@ export class BlueprintResources {
     return {
       uri: 'blueprint://manifest',
       mimeType: 'application/json',
-      text: JSON.stringify(manifest, null, 2),
+      text: JSON.stringify(manifest),
     };
   }
 

@@ -566,8 +566,8 @@ strict = true
 
       // clean_workspace_11x con dry_run y deep_prune omitidos (por defecto true y false)
       const resCleanDefault = await toolClean.handler({ project_path: tempDir });
-      expect(resCleanDefault.content[0].text).toContain('"dry_run": true');
-      expect(resCleanDefault.content[0].text).toContain('"deep_prune": false');
+      expect(resCleanDefault.content[0].text).toContain('"dry_run":true');
+      expect(resCleanDefault.content[0].text).toContain('"deep_prune":false');
 
       // clean_workspace_11x con valores explícitos
       const resCleanExplicit = await toolClean.handler({
@@ -575,8 +575,8 @@ strict = true
         dry_run: false,
         deep_prune: true,
       });
-      expect(resCleanExplicit.content[0].text).toContain('"dry_run": false');
-      expect(resCleanExplicit.content[0].text).toContain('"deep_prune": true');
+      expect(resCleanExplicit.content[0].text).toContain('"dry_run":false');
+      expect(resCleanExplicit.content[0].text).toContain('"deep_prune":true');
 
       // inspect_ast_blast_radius con exclude_dirs explícito
       const toolBlast = serverAny._registeredTools['inspect_ast_blast_radius'];
@@ -585,7 +585,7 @@ strict = true
         target_symbol: 'DummySymbol',
         exclude_dirs: ['node_modules', 'dist'],
       });
-      expect(resBlast.content[0].text).toContain('"target_symbol": "DummySymbol"');
+      expect(resBlast.content[0].text).toContain('"target_symbol":"DummySymbol"');
 
       // run_ephemeral_qa con timeout_seconds omitido (por defecto 120)
       const toolQa = serverAny._registeredTools['run_ephemeral_qa'];

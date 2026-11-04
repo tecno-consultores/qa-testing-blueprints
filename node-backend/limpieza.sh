@@ -10,48 +10,42 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${SCRIPT_DIR}"
 
-echo "=============================================================================="
-echo "      🧹 Limpieza y Saneamiento QA Node.js (Estándar Corporativo 11X)         "
-echo "=============================================================================="
+QUIET=false
+DEEP_PRUNE=false
+for arg in "$@"; do
+  case "${arg}" in
+    -q|--quiet) QUIET=true ;;
+    --deep|--docker-prune) DEEP_PRUNE=true ;;
+  esac
+done
 
-echo "[1/4] Deteniendo contenedores efímeros y redes de prueba..."
-docker compose -f docker-compose.qa.yml down --remove-orphans -v 2>/dev/null || true
-docker compose -f docker-compose.qa.yml --profile chaos down --remove-orphans -v 2>/dev/null || true
-docker compose -f docker-compose.qa.yml --profile graphify down --remove-orphans -v 2>/dev/null || true
+docker compose -f docker-compose.qa.yml down --remove-orphans -v >/dev/null 2>&1 || true
+docker compose -f docker-compose.qa.yml --profile chaos down --remove-orphans -v >/dev/null 2>&1 || true
+docker compose -f docker-compose.qa.yml --profile graphify down --remove-orphans -v >/dev/null 2>&1 || true
 
-echo "[2/4] Eliminando artefactos temporales de pruebas, cobertura y compilación..."
 rm -f zap-report.html chaos-report.json chaos-report.html trivy-results* ./*.clinic-*.html ./*.log ./*.tsbuildinfo 2>/dev/null || true
 rm -rf node_modules dist .stryker-tmp coverage target test/target .clinic prometheus_data .eslintcache .trivycache karate.jar 2>/dev/null || true
 
-# Purgar caché de Graphify preservando el reporte semántico del grafo AST
 if [ -d "graphify-out" ]; then
   find graphify-out/ -mindepth 1 ! -name 'GRAPH_REPORT.md' ! -name 'graph.html' ! -name 'graph.json' -delete 2>/dev/null || true
 fi
 
-echo "[3/4] Saneando residuos generados con privilegios root por Docker (Fallback Alpine)..."
+CURRENT_UID="$(id -u)"
+CURRENT_GID="$(id -g)"
 if command -v docker >/dev/null 2>&1; then
   docker run --rm -v "${SCRIPT_DIR}:/work" alpine sh -c "\
     rm -rf /work/node_modules /work/dist /work/.stryker-tmp /work/coverage \
            /work/target /work/test/target /work/.clinic /work/prometheus_data \
-           /work/.eslintcache /work/.trivycache /work/karate.jar 2>/dev/null || true" 2>/dev/null || true
-fi
-
-echo "[4/4] Normalizando titularidad de archivos para el usuario del host (UID $(id -u):$(id -g))..."
-if command -v docker >/dev/null 2>&1; then
-  CURRENT_UID="$(id -u)"
-  CURRENT_GID="$(id -g)"
-  docker run --rm -v "${SCRIPT_DIR}:/work" alpine sh -c "\
+           /work/.eslintcache /work/.trivycache /work/karate.jar 2>/dev/null || true; \
     chown -R ${CURRENT_UID}:${CURRENT_GID} /work/src /work/tests /work/test /work/scripts /work/docs 2>/dev/null || true; \
-    find /work -maxdepth 1 -user 0 -exec chown ${CURRENT_UID}:${CURRENT_GID} {} + 2>/dev/null || true" 2>/dev/null || true
+    find /work -maxdepth 1 -user 0 -exec chown ${CURRENT_UID}:${CURRENT_GID} {} + 2>/dev/null || true" >/dev/null 2>&1 || true
 fi
 
-# Poda profunda de Docker solo si se solicita explícitamente
-if [ "${1:-}" = "--deep" ] || [ "${1:-}" = "--docker-prune" ]; then
-  echo "🧹 Ejecutando poda profunda de recursos huérfanos de Docker..."
-  docker system prune -af --volumes 2>/dev/null || true
+if [ "${DEEP_PRUNE}" = true ]; then
+  docker system prune -af --volumes >/dev/null 2>&1 || true
 fi
 
-echo "=============================================================================="
-echo "✔ Limpieza de Node.js QA finalizada exitosamente."
-echo "=============================================================================="
+if [ "${QUIET}" = false ]; then
+  echo "✔ [Clean Node.js 11X] Contenedores, cachés y permisos saneados (UID ${CURRENT_UID}:${CURRENT_GID})."
+fi
 exit 0

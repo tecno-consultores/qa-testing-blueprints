@@ -463,19 +463,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     manifest_path = Path(args.output).resolve() if args.output else repo_root / "manifest.json"
 
     if args.check:
-        print(f"🔍 [manifest.json] Verificando sincronización criptográfica contra: {manifest_path} ...")
         is_synced, diffs = verify_manifest(repo_root, manifest_path)
         if is_synced:
-            print("✔ manifest.json verificado con éxito: todos los hashes SHA-256 y metadatos están 100% sincronizados.")
+            print("✔ [Manifest SHA-256] manifest.json 100% sincronizado.")
             return 0
         else:
             print("🚨 ERROR: manifest.json no está sincronizado con el repositorio actual:")
             for d in diffs:
                 print(f"  - {d}")
-            print("\n💡 Solución: ejecute 'python3 scripts/generar-manifiesto.py' para sincronizar el manifiesto.")
+            print("💡 Solución: ejecute 'python3 scripts/generar-manifiesto.py' para sincronizar el manifiesto.")
             return 1
     else:
-        print(f"⚙️ [manifest.json] Generando manifiesto criptográfico en: {manifest_path} ...")
         manifest_data = build_manifest(repo_root)
         manifest_json_str = json.dumps(manifest_data, indent=2, ensure_ascii=False) + "\n"
         manifest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -486,7 +484,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             + len(manifest_data["common_files"])
             + len(manifest_data["agent_governance_files"])
         )
-        print(f"✅ Manifiesto generado exitosamente. Total de archivos indexados: {total_files}")
+        print(f"✔ [Manifest SHA-256] Generado en {manifest_path.name} ({total_files} archivos indexados).")
         return 0
 
 

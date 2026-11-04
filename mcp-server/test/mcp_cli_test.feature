@@ -89,7 +89,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
   # Grupo 5: Contrato de Salida de Herramientas MCP
   # ==============================================================================
 
-  Scenario: 5. Estructura canónica de respuesta de ejecución de herramientas MCP
+  Scenario: 5. Estructura canónica de respuesta de ejecución de herramientas MCP (JSON compacto ahorrador de tokens)
     * def mockToolResponse =
       """
       {
@@ -104,6 +104,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * match mockToolResponse.content == '#[1]'
     * match mockToolResponse.content[0].type == 'text'
     * match mockToolResponse.content[0].text == '#string'
+    * assert !mockToolResponse.content[0].text.contains('\n  ')
     * def parsedJson = karate.fromString(mockToolResponse.content[0].text)
     * match parsedJson.status == 'PASSED'
     * match parsedJson.gate_passed == true

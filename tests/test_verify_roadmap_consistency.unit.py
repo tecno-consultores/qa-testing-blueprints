@@ -226,8 +226,17 @@ class TestVerifyRoadmapConsistency(unittest.TestCase):
 
     def test_main_cli_execution_success(self):
         # Ejecuta main sobre el repositorio real actual (que está sincronizado)
-        exit_code = vrc.main()
+        # Nota: durante la ejecución de una tarea activa puede estar IN_PROGRESS, que también retorna 0
+        import io
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            exit_code = vrc.main()
         self.assertEqual(exit_code, 0)
+        output = buf.getvalue().strip()
+        self.assertIn("[Governance Sync]", output)
+        self.assertEqual(len(output.splitlines()), 1)
 
 
 if __name__ == "__main__":

@@ -265,37 +265,27 @@ def validate_active_task(active_task_path: Path) -> List[str]:
 def main() -> int:
     repo_root = Path(__file__).resolve().parent.parent.parent
 
-    print("══════════════════════════════════════════════════════════════════════")
-    print("   📋 [QA 11X] Auditoría de Consistencia de ROADMAP y ACTIVE_TASK     ")
-    print("══════════════════════════════════════════════════════════════════════")
-
     roadmap_path = repo_root / "ROADMAP.md"
     active_task_path = repo_root / ".agents" / "ACTIVE_TASK.md"
 
     roadmap_errors: List[str] = []
     if roadmap_path.is_file():
-        print(f"\n🔍 Auditando consistencia en {roadmap_path.relative_to(repo_root)}...")
         roadmap_errors = validate_roadmap_consistency(roadmap_path)
-    else:
-        print("\nℹ️ No se detectó ROADMAP.md; omitiendo comprobación de hoja de ruta.")
 
     active_task_errors: List[str] = []
     if active_task_path.is_file():
-        print(f"🔍 Auditando estado y casillas en {active_task_path.relative_to(repo_root)}...")
         active_task_errors = validate_active_task(active_task_path)
-    else:
-        print("ℹ️ No se detectó .agents/ACTIVE_TASK.md; omitiendo comprobación de tarea activa.")
 
     all_errors = roadmap_errors + active_task_errors
 
     if all_errors:
-        print("\n❌ Se detectaron discrepancias de consistencia operativa:")
+        print("❌ Se detectaron discrepancias de consistencia operativa en ROADMAP.md / ACTIVE_TASK.md:")
         for err in all_errors:
             print(f"   - {err}")
-        print("\n💡 Directiva: Mantén sincronizadas las tablas de resumen con el desglose granular.")
+        print("💡 Directiva: Mantén sincronizadas las tablas de resumen con el desglose granular.")
         return 1
 
-    print("\n✔ ROADMAP.md y ACTIVE_TASK.md verificados en perfecta coherencia y sincronía.")
+    print("✔ [Governance Sync] ROADMAP.md y ACTIVE_TASK.md verificados en perfecta coherencia y sincronía.")
     return 0
 
 

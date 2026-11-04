@@ -69,33 +69,34 @@ def audit_layers(graph: dict[str, Any], graph_path: Path) -> tuple[list[str], di
 
 
 def main() -> int:
-    print("🔍 [Graphify AST] Auditando salud topológica y límites de capas arquitectónicas...")
-
     graph_files = find_graph_files()
     if not graph_files:
-        print("ℹ️ No se detectaron grafos AST (graph.json). Ejecución aprobada.")
+        print("✔ [AST Topology] 0 grafos AST (graph.json) detectados.")
         return 0
 
     all_violations: list[str] = []
+    total_nodes = 0
+    total_links = 0
     for g_path in graph_files:
         try:
             graph = load_graph(g_path)
             violations, stats = audit_layers(graph, g_path)
-            print(
-                f"📊 Grafo {g_path.relative_to(REPO_ROOT)}: {stats['nodes']} nodos, {stats['links']} relaciones, {stats['communities']} comunidades."
-            )
+            total_nodes += stats["nodes"]
+            total_links += stats["links"]
             if violations:
                 all_violations.extend([f"[{g_path.name}] {v}" for v in violations])
         except Exception as e:
             print(f"⚠️ Error procesando grafo {g_path}: {e}")
 
     if all_violations:
-        print("\n❌ Se detectaron violaciones de límites de capas:")
+        print("❌ Se detectaron violaciones de límites de capas:")
         for v in all_violations:
             print(f"   - {v}")
         return 1
 
-    print("✔ Salud topológica y límites de capas certificados (0 acoplamientos indebidos).")
+    print(
+        f"✔ [AST Topology] {len(graph_files)} grafo(s), {total_nodes} nodos, {total_links} relaciones (0 violaciones de capa)."
+    )
     return 0
 
 

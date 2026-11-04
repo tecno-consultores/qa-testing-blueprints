@@ -823,7 +823,7 @@ describe('Tools and Resources Integration Suite', () => {
   });
 
   describe('createMcpServer and Handlers Execution', () => {
-    it('creates server with default options when omitted and matches 2.9.0 versioning', () => {
+    it('creates server with default options when omitted and matches 2.9.1 versioning', () => {
       const server = createMcpServer();
       expect(server).toBeDefined();
     });
@@ -851,7 +851,8 @@ describe('Tools and Resources Integration Suite', () => {
       const manifestRes = await serverAny._registeredResources['blueprint://manifest'].readCallback(
         new URL('blueprint://manifest')
       );
-      expect(manifestRes.contents[0].text).toContain('"blueprint_version": "2.7.0"');
+      expect(manifestRes.contents[0].text).toContain('"blueprint_version":"2.7.0"');
+      expect(manifestRes.contents[0].text).not.toContain('\n  ');
 
       // 2. Ejecutar resource: philosophy
       const philRes = await serverAny._registeredResources['blueprint://core/philosophy'].readCallback(
@@ -915,7 +916,8 @@ describe('Tools and Resources Integration Suite', () => {
         stack: 'python',
         dry_run: true,
       });
-      expect(mergeRes.content[0].text).toContain('"dry_run": true');
+      expect(mergeRes.content[0].text).toContain('"dry_run":true');
+      expect(mergeRes.content[0].text).not.toContain('\n  ');
 
       // 11. Ejecutar tool: inspect_ast_blast_radius
       const toolBlast = serverAny._registeredTools['inspect_ast_blast_radius'];
@@ -970,7 +972,7 @@ describe('Tools and Resources Integration Suite', () => {
         project_path: targetProjectDir,
         dry_run: true,
       });
-      expect(initAgentsRes.content[0].text).toContain('"action": "dry_run"');
+      expect(initAgentsRes.content[0].text).toContain('"action":"dry_run"');
       expect(initAgentsRes.content[0].text).toContain('<!-- QA_11X_MCP_CONNECTOR_START -->');
 
       // 18. Ejecutar tool: propose_skill_evolution_pr
@@ -984,7 +986,7 @@ describe('Tools and Resources Integration Suite', () => {
         proposed_content_or_snippet: '### Snippet Test',
         prefer_offline_fallback: true,
       });
-      expect(proposeRes.content[0].text).toContain('"status": "PROPOSAL_FILE_AND_URL_GENERATED"');
+      expect(proposeRes.content[0].text).toContain('"status":"PROPOSAL_FILE_AND_URL_GENERATED"');
     });
   });
 });

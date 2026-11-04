@@ -8,7 +8,6 @@ import { GitHubFetcher } from '../services/github-fetcher.js';
 import { initOrAppendAgentsMd } from './init-agents-md.js';
 import type { Manifest, ManifestFileEntry } from '../types.js';
 
-const DIVIDER = '\n══════════════════════════════════════════════════════════════════════';
 const AGENTS_DIR_NAME = '.agents';
 const SKILLS_DIR_NAME = 'skills';
 const SKILLS_PREFIX = '.agents/skills/';
@@ -130,7 +129,6 @@ async function installIncludedScripts(
     return;
   }
 
-  console.log('\n🛠️ Instalando scripts y archivos comunes (--include-scripts)...');
   for (const entry of scriptEntries) {
     const content = await fetcher.fetchFileContent(entry.path, entry.sha256);
     const targetRel = entry.target_name || entry.path;
@@ -143,8 +141,8 @@ async function installIncludedScripts(
     if (fullPath.endsWith('.sh') || fullPath.endsWith('.py')) {
       fs.chmodSync(fullPath, 0o755);
     }
-    console.log(`  ✔ ${targetRel} (${entry.size_bytes} bytes) [0o755]`);
   }
+  console.log(`✔ [Scripts 11X] ${scriptEntries.length} scripts y archivos comunes instalados [0o755].`);
 }
 
 export async function runInstallSkillCli(args: string[], fetcher?: GitHubFetcher): Promise<void> {
@@ -153,11 +151,6 @@ export async function runInstallSkillCli(args: string[], fetcher?: GitHubFetcher
   const includeScripts = args.includes('--include-scripts');
   const initAgents = args.includes('--init-agents');
 
-  console.log(DIVIDER);
-  console.log('   🧠 Instalador de Skills QA 11X (Node.js / MCP CLI)                 ');
-  console.log(`${DIVIDER}\n`);
-
-  console.log('📥 Obteniendo manifiesto criptográfico de QA Testing Blueprints...');
   const manifest = await resolvedFetcher.fetchManifest();
 
   // Filtrar todos los archivos dentro de .agents/skills/ (catálogo completo de skills)
@@ -169,27 +162,19 @@ export async function runInstallSkillCli(args: string[], fetcher?: GitHubFetcher
     throw new Error('No se encontraron archivos de skills en manifest.json.');
   }
 
-  console.log(`✔ Manifiesto verificado. Archivos de skills indexados: ${skillEntries.length}`);
-
   const homeDir = process.env.HOME || os.homedir();
   const cwd = process.cwd();
   const destDirs = resolveDestinationDirs(targetArg, homeDir, cwd);
 
-  console.log('📍 Destinos de instalación:');
-  for (const d of destDirs) {
-    console.log(`  - ${d}`);
-  }
-
-  console.log('\n🔒 Descargando y validando integridad SHA-256 (DISA STIG V-222513)...');
   const downloadedFiles: Array<{ relSkillPath: string; content: string }> = [];
 
   for (const entry of skillEntries) {
     const content = await resolvedFetcher.fetchFileContent(entry.path, entry.sha256);
     const relSkillPath = entry.path.replace(/^\.agents\/skills\//, '');
     downloadedFiles.push({ relSkillPath, content });
-    console.log(`  ✔ ${relSkillPath} (${entry.size_bytes} bytes) [SHA-256 verificado]`);
   }
 
+  console.log(`✔ [Skills 11X] ${downloadedFiles.length} archivos verificados con SHA-256 (DISA STIG V-222513).`);
   writeDownloadedSkills(destDirs, downloadedFiles);
 
   if (includeScripts) {
@@ -197,12 +182,7 @@ export async function runInstallSkillCli(args: string[], fetcher?: GitHubFetcher
   }
 
   if (initAgents) {
-    console.log('\n🔗 Inyectando o actualizando conector AGENTS.md (--init-agents)...');
     const initResult = await initOrAppendAgentsMd({ projectPath: cwd });
-    console.log(`  ✔ AGENTS.md procesado (${initResult.action}) en ${initResult.agents_md_path}`);
+    console.log(`✔ [AGENTS.md] Conector procesado (${initResult.action}) en ${initResult.agents_md_path}`);
   }
-
-  console.log(DIVIDER);
-  console.log('   ✅ Instalación Completada Exitosamente                             ');
-  console.log(`${DIVIDER}\n`);
 }

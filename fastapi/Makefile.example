@@ -9,55 +9,53 @@ SERVICE_NAME = qa-backend
 
 qa-lint:
 	@echo "🔍 [11X] Ejecutando Ruff, Mypy Strict, Radon (Complejidad), Bandit SAST y Auditoría de CVEs..."
-	docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "\
-		uv sync --all-extras && \
+	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "\
+		uv sync --all-extras -q && \
 		uv run ruff check src/ tests/ && \
 		uv run ruff format --check src/ tests/ && \
 		uv run mypy --strict src/ && \
 		test -z \"\$$(uv run radon cc --min C src/)\" && \
 		test -z \"\$$(uv run radon mi --min B src/)\" && \
-		uv run bandit -c pyproject.toml -r src/ && \
+		uv run bandit -c pyproject.toml -q -r src/ && \
 		uv run pip-audit"
 
 qa-unit:
 	@echo "🧪 [11X] Ejecutando Pruebas Unitarias Aisladas y Cobertura Innegociable >= 95% (Pytest)..."
-	docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "\
-		uv sync --all-extras && \
-		uv run pytest -m 'not integration' --cov=src --cov-fail-under=95 --cov-report=term-missing --cov-report=html"
+	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "\
+		uv sync --all-extras -q && \
+		uv run pytest -q --tb=short -m 'not integration' --cov=src --cov-fail-under=95 --cov-report=term-missing:skip-covered --cov-report=html"
 
 qa-migration:
-	@echo "🗄️ [11X] Verificando paridad entre modelos ORM y migraciones de base de datos..."
-	python3 .agents/scripts/verify_alembic_orm_parity.py
+	@python3 .agents/scripts/verify_alembic_orm_parity.py
 
 qa-mutation:
 	@echo "👽 [11X] Ejecutando Pruebas de Mutación (Mutmut)..."
-	docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "\
-		uv sync --all-extras && \
+	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "\
+		uv sync --all-extras -q && \
 		uv run mutmut run && \
 		uv run mutmut results"
 
 qa-bdd:
 	@echo "📚 [11X] Ejecutando Pruebas BDD de Caja Negra (Karate Labs API)..."
-	docker compose -f $(COMPOSE_FILE) up -d api postgres keydb
-	docker compose -f $(COMPOSE_FILE) run --rm karatelabs mvn clean test
+	@docker compose -f $(COMPOSE_FILE) up -d api postgres keydb
+	@docker compose -f $(COMPOSE_FILE) run --rm karatelabs mvn -B clean test
 
 qa-dast:
 	@echo "🛡️ [11X] Ejecutando Auditoría Dinámica DAST (OWASP ZAP)..."
-	docker compose -f $(COMPOSE_FILE) up -d api postgres keydb
-	docker compose -f $(COMPOSE_FILE) run --rm zap zap-baseline.py -t http://api:8000 -r zap-report.html || true
+	@docker compose -f $(COMPOSE_FILE) up -d api postgres keydb
+	@docker compose -f $(COMPOSE_FILE) run --rm zap zap-baseline.py -t http://api:8000 -r zap-report.html || true
 
 qa-chaos:
 	@echo "💥 [11X] Ejecutando Ingeniería del Caos (Pumba + Prometheus + Locust)..."
-	docker compose -f $(COMPOSE_FILE) --profile chaos up --abort-on-container-exit
+	@docker compose -f $(COMPOSE_FILE) --profile chaos up --abort-on-container-exit
 
 qa-all: qa-lint qa-unit qa-migration qa-mutation qa-bdd
 	@echo "✅ Pipeline QA Backend (FastAPI 11X) completado exitosamente."
 
 clean-cache:
-	@echo "🧹 Limpiando volúmenes de caché de uv, contenedores efímeros y redes..."
-	docker compose -f $(COMPOSE_FILE) down -v
-	docker compose -f $(COMPOSE_FILE) --profile chaos down -v
-	docker compose -f $(COMPOSE_FILE) --profile graphify down -v
+	@docker compose -f $(COMPOSE_FILE) down -v >/dev/null 2>&1 || true
+	@docker compose -f $(COMPOSE_FILE) --profile chaos down -v >/dev/null 2>&1 || true
+	@docker compose -f $(COMPOSE_FILE) --profile graphify down -v >/dev/null 2>&1 || true
 
 clean:
 	@./limpieza.sh
