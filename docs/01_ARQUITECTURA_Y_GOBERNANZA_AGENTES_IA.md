@@ -95,17 +95,18 @@ Para evitar que los agentes deban clonar gigabytes de repositorios o saturar su 
    - `blueprint://core/cleanup-script`: Script de saneamiento universal sin `sudo`.
    - `blueprint://core/roadmap-validator`: Validador de consistencia de hoja de ruta.
 
-2. **10 Herramientas de Ejecución (`Tools`):**
-   - `inspect_project_config`: Detección automática del stack y linters del proyecto usuario.
+2. **11 Herramientas de Ejecución (`Tools`):**
+   - `inspect_project_config`: Detección automática del stack, linters y disponibilidad de pruebas en navegador real (`BrowserTestingReadiness`).
    - `fetch_blueprint_bundle`: Descarga quirúrgica de plantillas con validación de hashes SHA-256.
    - `bootstrap_or_merge_11x`: Fusión no destructiva inyectando configuraciones QA en proyectos existentes.
    - `inspect_ast_blast_radius`: Auditoría AST previa de radio de impacto para cambios en funciones o símbolos.
    - `clean_workspace_11x`: Purga segura de cachés y artefactos sin necesidad de privilegios `sudo`.
-   - `audit_security_stig_owasp`: Auditoría estática de reglas DISA/OWASP (`SEC-01` a `SEC-10`) y Anti-JSDOM (`UI-11X-01`).
+   - `audit_security_stig_owasp`: Auditoría estática de reglas DISA/OWASP (`SEC-01` a `SEC-11`) y ergonomía visual Anti-JSDOM (`UI-11X-01`, `UI-11X-02`).
    - `run_ephemeral_qa`: Lanzamiento de pruebas en Docker efímero bajo la Regla Cero con retorno estructurado en JSON.
    - `certify_11x_gate`: Ejecución de la compuerta universal de certificación previa a la entrega de la tarea.
    - `audit_test_pyramid_gaps`: Auditoría de las 13 capas de la pirámide 11X, archivos huérfanos y plan de rescate priorizado.
    - `init_or_append_agents_md`: Inyector aditivo no destructivo del bloque conector QA 11X en `AGENTS.md`.
+   - `propose_skill_evolution_pr`: Propuesta de evolución continua Zero-Trust hacia `qa-testing-blueprints`.
 
 3. **Inyección de Skills, Scripts y `AGENTS.md` en 1 Segundo (`install-skill`):**
    Cualquier agente o desarrollador puede autoinstalar el catálogo completo de 5 skills (`qa-11x-architect`, `refactoring-ui`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `qa-11x-docker-certifier`), los scripts operativos (`.agents/scripts/*`, `scripts/*`) y el conector en `AGENTS.md` ejecutando `npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts`, adquiriendo de inmediato todo el conocimiento corporativo 11X sin clonar el repositorio.
@@ -145,11 +146,17 @@ Si cualquiera de los pasos falla, el agente tiene prohibido cerrar el turno.
 
 ---
 
-## 8. Evolución Continua del Agente (`continuous_agent_evolution.md`)
+## 8. Evolución Continua del Agente y Prevención de Colisiones en Proyectos Consumidores (`continuous_agent_evolution.md`)
 
 Los agentes no deben ser estáticos. Si durante el desarrollo descubren:
 - Una trampa recurrente (ej. un linter que falla por una regla de comillas),
-- Una biblioteca que requiere un mock especial,
+- Un antipatrón funcional en UAT (como *Silo Mock Blindness*, omisión del ciclo temporal de 3 fases o mocks ciegos en `write_audit_log`),
 - Una oportunidad de optimizar el consumo de tokens o simplificar un procedimiento,
 
-el agente tiene la directiva explícita de **actualizar de forma autónoma las reglas y skills** en `.agents/`, documentando el cambio en el `CHANGELOG.md`. De esta forma, el sistema "aprende" y transfiere el conocimiento a sesiones futuras.
+el agente tiene la directiva explícita de **actualizar de forma autónoma las reglas y skills** en `.agents/`, documentando el cambio en el `CHANGELOG.md`.
+
+### 🛡️ Separación entre Reglas Globales Canónicas y Reglas de Dominio Local (Caso `rosgrid`)
+Para evitar que las directivas creadas por un agente en un proyecto consumidor (ej. `rosgrid`) choquen o se dupliquen con las reglas globales de `qa-testing-blueprints`:
+1. **Los 7 archivos canónicos en `.agents/rules/`** (`mandatory_qa_pyramid_and_doc_sync.md`, `secure_development_and_testing_guidelines.md`, `frontend_parity_and_closure.md`, `continuous_agent_evolution.md`, `anti_regression_and_side_effects_guardrail.md`, `ground_truth_fixtures_and_negative_invariants.md`, `active_task_and_planning_resilience.md`) pertenecen exclusivamente al estándar global `qa-testing-blueprints`.
+2. **Aislamiento de Reglas de Negocio (`domain_<proyecto>_*.md`):** Toda regla específica del dominio del proyecto consumidor (ej. comandos MikroTik RouterOS v7, reglas de WinBox o tablas exclusivas de `rosgrid`) debe residir en `.agents/rules/domain_<proyecto>_*.md` o en `AGENTS.md` fuera del bloque conector `<!-- QA_11X_MCP_CONNECTOR_START --> ... <!-- QA_11X_MCP_CONNECTOR_END -->`.
+3. **Promoción y Limpieza de Duplicados:** Cuando un hallazgo universal descubierto en un proyecto consumidor se promueve a `qa-testing-blueprints` (vía `propose_skill_evolution_pr`), se elimina la copia ad-hoc local en el proyecto consumidor (manualmente o mediante `reconcile-agents`, ver [`docs/specs/12_SPEC_RECONCILIACION_Y_DEDUPLICACION_GOBERNANZA_AGENTS_PROYECTOS.md`](specs/12_SPEC_RECONCILIACION_Y_DEDUPLICACION_GOBERNANZA_AGENTS_PROYECTOS.md)) para evitar duplicación de tokens y contradicciones entre prompts.

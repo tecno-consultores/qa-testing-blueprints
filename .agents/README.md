@@ -11,14 +11,16 @@ Este directorio implementa el estándar abierto y emergente de la industria para
 ```text
 .agents/
 ├── README.md                                         # Este documento explicativo
-├── rules/                                            # Reglas y directivas de comportamiento forzadas
-│   ├── mandatory_qa_pyramid_and_doc_sync.md          # Pirámide de pruebas multi-capa y sync documental
-│   ├── secure_development_and_testing_guidelines.md  # DISA ASD STIG V6R5 + OWASP v4.2: Anti-Mocks, RLS, sesiones, NFKC, XXE, HMAC logs, SBOM y geometría visual
-│   ├── frontend_parity_and_closure.md                # Paridad terminal-UI, tablas mutables y protocolo de cierre
-│   ├── continuous_agent_evolution.md                 # Evolución y actualización autónoma y continua de .agents/
+├── rules/                                            # Reglas y directivas de comportamiento forzadas (7 archivos canónicos globales)
+│   ├── mandatory_qa_pyramid_and_doc_sync.md          # Pirámide de pruebas multi-capa, propagación transversal Anti-Silo y sync documental
+│   ├── secure_development_and_testing_guidelines.md  # DISA ASD STIG V6R5 + OWASP v4.2: Anti-Mocks, RLS, sesiones, NFKC, XXE, auditoría semántica anti-UUID, SBOM y geometría visual
+│   ├── frontend_parity_and_closure.md                # Paridad terminal-UI, tablas mutables, Refresco Dual ([ 🔄 Refrescar ]) y protocolo de cierre
+│   ├── continuous_agent_evolution.md                 # Evolución autónoma de .agents/ y aislamiento de reglas de dominio (domain_*.md)
 │   ├── anti_regression_and_side_effects_guardrail.md # Blindaje contra regresiones y control de radio de impacto
-│   └── ground_truth_fixtures_and_negative_invariants.md # Fixtures trimodales e invariantes negativos
-├── skills/                                           # Habilidades y Playbooks de dominio
+│   ├── ground_truth_fixtures_and_negative_invariants.md # Fixtures trimodales, Ciclo Temporal de 3 Fases e invariantes negativos
+│   └── active_task_and_planning_resilience.md        # Bitácora en caliente (.agents/ACTIVE_TASK.md) y resiliencia ante caídas de sesión
+├── skills/                                           # Habilidades y Playbooks de dominio (5 skills del catálogo)
+│   ├── qa-11x-architect/                             # Skill Maestra: 13 capas, 10 leyes 11X, Invariante Anti-Silo (4 reglas UAT) y 7 playbooks
 │   ├── qa-11x-docker-certifier/                      # Certificación 11X en Docker efímero (95% cobertura)
 │   ├── docker-trivy-keydb-hardening/                 # Endurecimiento Docker, Trivy = 0 y KeyDB multi-hilo
 │   ├── graphify-ast-navigator/                       # Navegación AST, radio de impacto (Blast Radius) y servidor MCP
@@ -30,7 +32,8 @@ Este directorio implementa el estándar abierto y emergente de la industria para
     ├── inspect_blast_radius.py                       # Análisis de radio de impacto pre-refactorización (aristas entrantes)
     ├── verify_zero_orphan_vue_components.py          # Auditoría estricta: paridad y cobertura de componentes UI (0 huérfanos)
     ├── verify_no_orphan_api_endpoints.py             # Auditoría bidireccional: paridad de endpoints API Front-Back (0 huérfanos 404/405)
-    └── certify_task_completion.sh                    # Compuerta de certificación pre-commit automatizada (8 etapas)
+    ├── verify_roadmap_consistency.py                 # Auditoría bidireccional: coherencia de ROADMAP.md y ACTIVE_TASK.md
+    └── certify_task_completion.sh                    # Compuerta de certificación pre-commit automatizada (10 etapas)
 ```
 
 ---

@@ -73,29 +73,56 @@ When operating in pure CLI, Cloud, or desktop assistants without MCP tools:
 2. **Law 2: Strict Coverage, Complexity Thresholds & Zero Warnings**  
    Unit test coverage MUST achieve $\ge 95.0\%$ across lines, branches, and statements (including `catch`/`except` recovery paths). Cyclomatic Complexity must remain Grade A (`CC <= 5` via Radon / SonarJS). 0 SAST/DAST High/Critical vulnerabilities. 0 surviving critical mutants. Static analysis and linters (ESLint, SonarJS, Ruff, ShellCheck) MUST enforce zero warnings (`--max-warnings 0` on ESLint); any warning is treated as a fatal build-breaking error.
 
-3. **Law 3: Network Isolation vs. Anti-Mock Blindness**  
-   Unit tests MUST block all external network access (`pytest-mock`, `nock`, `msw`, `bats-mock`, `globalThis.fetch` interception) to guarantee 100% offline determinism and prevent test flakiness. Conversely, database persistence, ORM schema synchronization, and migrations MUST NEVER be mocked: test against real ephemeral `postgres:17-alpine` and verify schema parity via `verify_alembic_orm_parity.py`.
+3. **Law 3: Network Isolation vs. Anti-Mock & Anti-Silo Blindness**  
+   Unit tests MUST block all external network access (`pytest-mock`, `nock`, `msw`, `bats-mock`, `globalThis.fetch` interception) to guarantee 100% offline determinism and prevent test flakiness. Conversely, database persistence, ORM schema synchronization, migrations, and **cross-module state propagation** MUST NEVER be mocked: test against real ephemeral `postgres:17-alpine`, verify schema parity via `verify_alembic_orm_parity.py`, and assert that mutations in Producer Module A immediately reflect in Consumer Module B `GET` queries without intermediate mocks.
 
-4. **Law 4: Visual Geometry & Anti-JSDOM Layout**  
-   JSDOM returns `0x0` for all bounding boxes and cannot detect overlaps. Fixed floating footers (`position: fixed`) that steal viewport space or obstruct interactive elements are strictly prohibited. Footers must be in-flow (`margin-top: auto` inside `<main>`). Layouts must be verified in real headless Chromium with Karate UI / Playwright + `@axe-core` (0 WCAG 2.1 AA violations).
+4. **Law 4: Visual Geometry, Anti-JSDOM Layout & Dual Refresh Ergonomics**  
+   JSDOM returns `0x0` for all bounding boxes and cannot detect overlaps. Fixed floating footers (`position: fixed`) that steal viewport space or obstruct interactive elements are strictly prohibited. Footers must be in-flow (`margin-top: auto` inside `<main>`). Layouts must be verified in real headless Chromium with Karate UI / Playwright + `@axe-core` (0 WCAG 2.1 AA violations). Real-time dashboards, NOC wallboards, and live maps MUST enforce the **Dual Auto + Manual Refresh Invariant** (`setInterval` with `onUnmounted` cleanup + WebSocket listener + explicit **`[ 🔄 Refrescar ]`** button passing `?refresh=true`).
 
-5. **Law 5: Non-Destructive Surgical Merging & Linter Hardening**  
-   When importing `.example` configuration files (`pyproject.toml.example`, `package.json.example`, `Makefile.example`), surgically merge test frameworks, linters, and QA targets, enforcing `--max-warnings 0` on lint scripts. NEVER delete pre-existing production dependencies, custom scripts, or business configuration.
+5. **Law 5: Non-Destructive Surgical Merging, Linter Hardening & `.agents/` Governance Isolation**  
+   When importing `.example` configuration files (`pyproject.toml.example`, `package.json.example`, `Makefile.example`), surgically merge test frameworks, linters, and QA targets, enforcing `--max-warnings 0` on lint scripts. NEVER delete pre-existing production dependencies, custom scripts, or business configuration. In consumer projects (e.g. `rosgrid`), keep the 7 canonical `.agents/rules/*.md` files strictly synchronized with upstream `qa-testing-blueprints` and isolate project-specific domain directives in `.agents/rules/domain_<project>_*.md` or outside the `AGENTS.md` connector block to prevent rule collisions and prompt bloat.
 
 6. **Law 6: Mandatory Karate Labs BDD, Zero Orphan UI Components & Zero Orphan API Endpoints**  
    Every API endpoint requires Karate Labs HTTP BDD scenarios (`api_test.feature`). Every UI workflow requires Karate Labs UI scenarios (`ui_business_flow.feature`). Every `.vue` or `.tsx` component must possess an active unit test (`verify_zero_orphan_vue_components.py`). Every frontend HTTP request must correspond to an active backend route (`verify_no_orphan_api_endpoints.py`).
 
-7. **Law 7: DISA ASD STIG V6R5 & OWASP v4.2 Security-by-Design**  
-   Implement the 22 canonical controls: PostgreSQL `FORCE ROW LEVEL SECURITY`, SSRF validation with pre-DNS check, FIPS 140-3 AES-256-GCM + memory zeroization, `Idempotency-Key` tracking, `extra="forbid"`, CSWSH origin check `4403`, role timeouts (10m/15m), 3-attempt/15m account lockout with constant-time Argon2id dummy hash, Unicode `NFKC` normalization, anti-XXE, magic-byte file validation, tamper-evident HMAC logs with 75% capacity alerts, OWASP OSHP headers, Fail-Secure startup, and CycloneDX SBOM.
+7. **Law 7: DISA ASD STIG V6R5, OWASP v4.2 Security-by-Design & Semantic Audit Integrity**  
+   Implement the 22 canonical controls: PostgreSQL `FORCE ROW LEVEL SECURITY`, SSRF validation with pre-DNS check, FIPS 140-3 AES-256-GCM + memory zeroization, `Idempotency-Key` tracking, `extra="forbid"`, CSWSH origin check `4403`, role timeouts (10m/15m), 3-attempt/15m account lockout with constant-time Argon2id dummy hash, Unicode `NFKC` normalization, anti-XXE, magic-byte file validation, tamper-evident HMAC logs with 75% capacity alerts, OWASP OSHP headers, Fail-Secure startup, and CycloneDX SBOM. Audit functions (`write_audit_log`) MUST NEVER be replaced by blind `AsyncMock` instances without payload assertions, and visible identity fields (`actor_username`, `resource_display_name`) MUST resolve to human-readable strings—never raw UUID v4 values (`claims.get("sub")`).
 
 8. **Law 8: Universal RED Observability Pre-Chaos**  
    Application microservices must expose Prometheus metrics (`/metrics`) or send to `Pushgateway` (Rate, Errors, Duration) before running Pumba chaos profiles (network delay, jitter, packet loss) combined with Locust or Artillery load generation.
 
-9. **Law 9: Trimodal Ground-Truth Fixtures & Anti-Regression**  
-   Validate external integrations and state stores against three raw fixtures: (1) Virgin / Factory Default (assert negative invariants), (2) Nominal Configured (assert active healthy state), and (3) Degraded / Unsupported (assert graceful fallback without HTTP 500). Inspect AST blast radius with `inspect_blast_radius.py` before modifying shared files.
+9. **Law 9: Trimodal Ground-Truth Fixtures, 3-Phase Temporal Lifecycle & Anti-Regression**  
+   Validate external integrations and state stores against three raw fixtures: (1) Virgin / Factory Default (assert negative invariants), (2) Nominal Configured (assert active healthy state), and (3) Degraded / Unsupported (assert graceful fallback without HTTP 500). Furthermore, any entity governed by time windows, countdowns, or TTL (`starts_at` / `ends_at`, 60s Safe Mode rollback, 30s Step-Up tokens, leases) MUST be tested across all **3 Temporal Lifecycle Phases**: Phase 1 Pending (`t < starts_at`, `Programada`), Phase 2 Active/In-Progress (`starts_at <= t <= ends_at`, `En Curso` / `Activa`), and Phase 3 Expired/Reverted (`t > ends_at` or Cancelled). Inspect AST blast radius with `inspect_blast_radius.py` before modifying shared files.
 
-10. **Law 10: Active Task Invariant (`.agents/ACTIVE_TASK.md`), Planning Tool & Closure Gate**  
-    Prior to code mutation on non-trivial tasks, AI agents MUST invoke the native planning tool/workflow (e.g. `/plan` slash command or interactive plan artifacts with `RequestFeedback: true`) and immediately persist the agreed phase breakdown in `.agents/ACTIVE_TASK.md` (bootstrapped from `.agents/ACTIVE_TASK.md.example`). As work proceeds, the agent MUST update `.agents/ACTIVE_TASK.md` in real-time (`- [ ]` → `- [x]`) to guarantee zero context loss across IDE crashes, session restarts, or context compaction. Every modification requires updating `TESTING.md` (metrics and test tallies), `CHANGELOG.md` (`## [Unreleased]`), `ROADMAP.md` (verifying summary table and section parity via `verify_roadmap_consistency.py`), and relevant `docs/`. Mark `.agents/ACTIVE_TASK.md` as `COMPLETED (100%)` and execute `./.agents/scripts/certify_task_completion.sh` before finishing.
+10. **Law 10: Active Task Invariant (`.agents/ACTIVE_TASK.md`), Planning Tool, Closure Gate & Proactive Upstream Evolution**  
+    Prior to code mutation on non-trivial tasks, AI agents MUST invoke the native planning tool/workflow (e.g. `/plan` slash command or interactive plan artifacts with `RequestFeedback: true`) and immediately persist the agreed phase breakdown in `.agents/ACTIVE_TASK.md` (bootstrapped from `.agents/ACTIVE_TASK.md.example`). As work proceeds, the agent MUST update `.agents/ACTIVE_TASK.md` in real-time (`- [ ]` → `- [x]`) to guarantee zero context loss across IDE crashes, session restarts, or context compaction. Every modification requires updating `TESTING.md` (metrics and test tallies), `CHANGELOG.md` (`## [Unreleased]`), `ROADMAP.md` (verifying summary table and section parity via `verify_roadmap_consistency.py`), and relevant `docs/`. Mark `.agents/ACTIVE_TASK.md` as `COMPLETED (100%)` and execute `./.agents/scripts/certify_task_completion.sh` before finishing. Whenever a task fixes a UAT/production bug that bypassed existing tests, the agent MUST proactively recommend evolving `qa-testing-blueprints` in its final response (`💡 Oportunidad de Mejora Detectada para el Estándar QA 11X`) and execute `propose_skill_evolution_pr` WITHOUT waiting for user prompting.
+
+---
+
+### 2.1. 🛡️ Mandatory Anti-Silo & Cross-Module State Propagation Invariant (4 UAT Anti-Blindness Rules)
+
+Code coverage ($\ge 95\%$) measures executed lines of existing code, but is blind to cross-module disconnections when tests abuse boundary mocks (*Silo Mock Blindness*) or rely on tautological 2-state assertions. Every test suite under Standard 11X MUST strictly enforce these 4 design rules:
+
+1. **Cross-Module State Propagation Without Intermediate Mocks (*Propagación Transversal de Estado sin Mocks Intermedios*):**
+   - It is strictly prohibited to consider a mutation test valid by asserting only `HTTP 200/201` on the mutating endpoint while testing consumer modules with disconnected static JSON fixtures.
+   - Whenever an operation in **Module A** alters the operational state of an entity (e.g. scheduling/cancelling maintenance windows via `POST /api/v1/maintenance/windows`, triggering a 60s Safe Mode confirmation window, pairing resources, or mutating administrative states/identities), the test suite MUST immediately invoke the query endpoints (`GET`, e.g. `GET /api/v1/inventory/routers`) and stores of **Consumer Modules B** **without intermediate mocks**, certifying that effective states, KPI counters, status badges, and live maps reflect the mutation end-to-end.
+
+2. **Mandatory 3-Phase Temporal Lifecycle Assertion (*Aserción Obligatoria de las 3 Fases Temporales — Anti 2-State Static Blindness*):**
+   - Every entity or workflow governed by time windows, timers, or TTLs (`starts_at` / `ends_at`, 60s Safe Mode confirmation/rollback windows, 30s Step-Up token expiration, temporary leases) MUST be tested across all **3 phases of the clock** (prohibiting binary ternaries like `is_cancelled ? 'Cancelada' : 'Programada'` that omit the active state):
+     - **Phase 1 (`t < starts_at`):** Scheduled / Pending state (`Programada`).
+     - **Phase 2 (`starts_at <= t <= ends_at`):** Active / In-Progress state (`En Curso` / `Activa`, verifying that the scheduled resource or background scheduler stays alive beyond the HTTP request cycle instead of being prematurely cleared at 50ms, and projects the active state to all consumer modules).
+     - **Phase 3 (`t > ends_at` or Cancelled):** Expired / Purged / Reverted state (verifying automatic restoration to the original nominal state and audit trail recording).
+
+3. **Prohibition of Blind Audit Mocks & Anti-Raw UUID Semantic Assertion (*Prohibición de Mocks Ciegos en Auditoría y Aserción Semántica Anti-UUID Crudo*):**
+   - Replacing audit functions (`write_audit_log` or equivalents) with an empty `AsyncMock` without asserting the received arguments (`assert_called_once` / `call_args`) is strictly prohibited.
+   - Every backend audit test and UI event feed/ribbon test MUST explicitly certify:
+     - That human-visible identity fields (`actor_username`, `resource_display_name`, `router_display_name`) resolve to human-readable names and **NEVER** match the pattern of a raw UUID v4 (`/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i`, preventing bugs where `actor_username=claims.get("sub")` leaks raw JWT subject UUIDs to the UI).
+     - That UI event classifiers map each category to its true semantic badge (`CAÍDA`, `MANTENIMIENTO`, `RESPALDO`, `SEGURIDAD`, `OPERACIÓN`), strictly prohibiting generic catch-all `else` clauses that assign a domain-specific label (such as `else return 'MAINTENANCE'` / `'MANTENIMIENTO'`) to unrelated events like configuration backups or session renewals.
+
+4. **Dual Auto + Manual Refresh Invariant in Operational Views & Live Maps (*Invariante de Refresco Dual en Vistas Operativas y Mapas en Vivo*):**
+   - Every monitoring view, operational dashboard, NOC wallboard, or real-time cartographic map MUST simultaneously provide:
+     - A reactive/periodic update mechanism (`setInterval` with guaranteed `clearInterval` cleanup inside `onUnmounted` / `useEffect` + WebSocket listener), AND
+     - An explicit **`[ 🔄 Refrescar ]`** button accessible to the operator that forces an immediate live reload (`?refresh=true`) without requiring a full browser reload (`F5`).
 
 ---
 
@@ -139,7 +166,8 @@ Step 3: Audit Roadmap Sync ───> Run `python3 .agents/scripts/verify_roadma
 Step 4: Run Certifier ────────> Run `./.agents/scripts/certify_task_completion.sh` (10/10 gates).
 Step 5: Update Documentation ─> Synchronize TESTING.md, CHANGELOG.md, ROADMAP.md, and docs/.
 Step 6: Mark Active Task ─────> Mark .agents/ACTIVE_TASK.md as COMPLETED (100%).
-Step 7: Commit & Publish ─────> Conventional commit in Spanish and push.
+Step 7: QA-Escape Post-Mortem ─> If the task fixed a UAT/prod bug that bypassed existing >=95% tests, PROACTIVELY notify the user ("💡 Oportunidad de Mejora Detectada para el Estándar QA 11X") and invoke `propose_skill_evolution_pr` without waiting to be asked.
+Step 8: Commit & Publish ─────> Conventional commit in Spanish and push.
 ```
 
 ### Playbook 5: Workspace Sanitization & Docker Root File Eviction (`make clean` / `scripts/limpieza.sh`)

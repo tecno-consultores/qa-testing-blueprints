@@ -21,6 +21,23 @@ El aislamiento mediante mocks (`pytest-mock`, `unittest.mock`, `nock`) permite o
 2. **Verificación en Motores Reales de Base de Datos:**
    - La suite de integración y los contratos deben ejecutarse contra un contenedor real de PostgreSQL levantado en `docker-compose.qa.yml`. Nunca des por válida una consulta SQL hasta que PostgreSQL la haya ejecutado sin mocks.
 
+### 1.1. Invariante Anti-Silo de Propagación Transversal de Estado, Ciclo Temporal de 3 Fases y Auditoría Semántica
+La cobertura unitaria ($\ge 95\%$) mide el porcentaje de líneas ejecutadas, pero es ciega ante desconexiones entre módulos cuando las pruebas abusan de mocks en las fronteras (*Silo Mock Blindness*) o utilizan aserciones tautológicas. Toda suite bajo el Estándar QA 11X debe cumplir estas **4 reglas obligatorias de diseño de pruebas**:
+
+1. **Propagación Transversal de Estado sin Mocks Intermedios (*Cross-Module State Propagation*):**
+   - Está estrictamente prohibido dar por válido un test de mutación verificando únicamente el `HTTP 200/201` del endpoint mutador (ej. `POST /api/v1/maintenance/windows` o cambio de estado administrativo) mientras los módulos consumidores (ej. Wallboard NOC o Inventario) se prueban con fixtures estáticos escritos a mano.
+   - Cuando una operación en el Módulo A modifica el estado operativo de una entidad, la suite de pruebas DEBE invocar inmediatamente los endpoints de consulta (`GET`, ej. `GET /api/v1/inventory/routers`) y stores de los Módulos B consumidores **sin mocks intermedios**, certificando que el estado efectivo, contadores KPI, insignias y mapas reflejan la mutación de extremo a extremo.
+2. **Aserción Obligatoria de las 3 Fases Temporales (*3-Phase Temporal Lifecycle Assertion*):**
+   - Toda entidad o flujo gobernado por ventanas de tiempo, cronómetros o TTL (`starts_at` / `ends_at`, ventanas de confirmación/rollback Safe Mode de 60s, expiración de tokens Step-Up de 30s, leases temporales) DEBE probarse obligatoriamente en sus **3 fases del reloj** (prohibiendo ternarios binarios de 2 estados como `is_cancelled ? 'Cancelada' : 'Programada'`):
+     - **Fase 1 ($t < \text{starts\_at}$):** Estado Programado / Pendiente (`Programada`).
+     - **Fase 2 ($\text{starts\_at} \le t \le \text{ends\_at}$):** Estado Activo / En Curso (`En Curso` / `Activa`, verificando que el recurso programado o scheduler permanezca vivo más allá de los 50ms de la petición HTTP y proyecte el estado activo a todos los módulos consumidores).
+     - **Fase 3 ($t > \text{ends\_at}$ o Cancelado):** Estado Expirado / Purgado / Revertido (verificando que se restaure automáticamente el estado nominal original y se registre la traza de auditoría).
+3. **Prohibición de Mocks Ciegos en Auditoría y Aserción Semántica Anti-UUID Crudo (*Audit Payload & Semantic Badge Integrity*):**
+   - Queda prohibido reemplazar funciones de auditoría (`write_audit_log` o equivalentes) con un `AsyncMock` vacío sin aserciones sobre los argumentos recibidos (`assert_called_once` / `call_args`).
+   - Toda prueba de auditoría y de cintas de eventos en UI DEBE certificar explícitamente que los campos de identidad visibles (`actor_username`, `resource_display_name`, `router_display_name`) resuelvan a nombres humanos legibles y **nunca** coincidan con el patrón de un UUID v4 crudo (`/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i`, evitando pasar `claims.get("sub")` directamente como `actor_username`), y que los clasificadores de eventos en UI mapeen cada categoría a su insignia semántica real (`CAÍDA`, `MANTENIMIENTO`, `RESPALDO`, `SEGURIDAD`, `OPERACIÓN`), prohibiendo cláusulas `else` genéricas que asignen `MANTENIMIENTO` a eventos no relacionados.
+4. **Invariante de Refresco Dual en Vistas Operativas y Mapas en Vivo (*Dual Auto + Manual Refresh Invariant*):**
+   - Toda vista de monitoreo, dashboard operativo, consola o mapa cartográfico en tiempo real DEBE contar simultáneamente con un mecanismo de actualización reactiva/periódica (`setInterval` con limpieza garantizada `clearInterval` en `onUnmounted` + escucha WebSocket) y un botón explícito **`[ 🔄 Refrescar ]`** accesible para el operador que fuerce la recarga inmediata en vivo (`?refresh=true`) sin depender de recargar el navegador (`F5`).
+
 ---
 
 ## 2. Geometría Visual y Anti-JSDOM (Ceguera de Layout)

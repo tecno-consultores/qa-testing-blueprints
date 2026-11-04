@@ -15,31 +15,33 @@ This reference provides the foundational execution matrix for the 13 layers of t
 | **02** | **Strict Typing & Complexity** | `mypy --strict`, `vue-tsc --noEmit`, `radon cc`, `sonarjs`, `phpstan` (`level: max` + `cognitive-complexity`) | **0 type errors, Grade A (`CC <= 5`), Cognitive Complexity $\le 15$ (PHP $\le 9$)** | `make qa-lint` |
 | **03** | **Isolated Unit Tests with Network Mocks** | `pytest-cov`, `vitest` (`@vitest/coverage-v8`), `kcov` (BATS), `pest` / `phpunit` (`pcov`) | **$\ge 95.0\%$ coverage (lines, branches, statements), 100% offline isolation (zero network leaks)** | `make qa-unit` |
 | **04** | **Database Schema Parity & Migrations** | `alembic`, `verify_alembic_orm_parity.py`, `doctrine:schema:validate`, ephemeral PostgreSQL 17 | **0 schema drifts, Alembic revision ID $\le 32$ chars** | `make qa-parity` |
-| **05** | **Front-Back Integration Contracts** | Real ephemeral API + KeyDB + PostgreSQL, Schemathesis | **0 payload/schema mismatches, full HTTP response compliance** | `make qa-contracts` |
-| **06** | **Black-Box REST API BDD** | `sinfallas/karatelabs:latest` (Gherkin HTTP) | **100% scenarios PASSED** in `api_test.feature` | `make qa-bdd` |
-| **07** | **UI Acceptance BDD** | `sinfallas/karatelabs:latest` (Chrome Headless) | **100% scenarios PASSED** in `ui_business_flow.feature` | `make qa-bdd` |
+| **05** | **Front-Back Integration Contracts & Cross-Module State Propagation** | Real ephemeral API + KeyDB + PostgreSQL, Schemathesis, Read-After-Write E2E | **0 payload/schema mismatches, Read-After-Write propagation from Module A (`POST/PUT/PATCH`) to Consumer Module B (`GET`) with 0 intermediate mocks** | `make qa-contracts` |
+| **06** | **Black-Box REST API BDD** | `sinfallas/karatelabs:latest` (Gherkin HTTP) | **100% scenarios PASSED** in `api_test.feature` (incl. cross-module & audit payload checks) | `make qa-bdd` |
+| **07** | **UI Acceptance BDD & Dual Refresh** | `sinfallas/karatelabs:latest` (Chrome Headless) | **100% scenarios PASSED** in `ui_business_flow.feature` + Dual Auto/Manual Refresh (`[ 🔄 Refrescar ]`) | `make qa-bdd` |
 | **08** | **Mutation Testing (Test of Tests)** | `mutmut` (Python), `stryker` (JS/TS), `infection` (PHP) | **Mutation score $> 80\%$, 0 surviving critical mutants** | `make qa-mutation` |
 | **09** | **Web Accessibility & Visual Geometry** | `@axe-core/playwright`, `lhci autorun`, Anti-JSDOM checks | **0 WCAG 2.1 AA violations, Lighthouse A11y $\ge 0.95$** | `make qa-e2e` / `make qa-perf` |
 | **10** | **Concurrency & Stress / Load** | `locust` (headless), `artillery` | **0% error rate, P95 latency $< 200\text{ ms}$ under target load** | `make qa-chaos` / `make qa-stress` |
 | **11** | **Dynamic Security DAST & OSHP Headers** | `zaproxy/zap-stable` (OWASP ZAP Baseline), OSHP validator | **0 HIGH alerts, OWASP OSHP headers enforced, Fail-Secure verified** | `make qa-dast` |
 | **12** | **Chaos Engineering & Resilience** | `gaiaadm/pumba:latest` (`netem` jitter/delay/loss) + Prometheus | **Zero unhandled panics, graceful retry, RED metrics active** | `make qa-chaos` |
-| **13** | **Trimodal Fixtures & Negative Invariants**| Ground-truth raw payloads (Virgin, Nominal, Degraded) | **Zero mock blindness, 100% negative invariants assert true** | `make qa-unit` / `make qa-bdd` |
+| **13** | **Trimodal Fixtures, 3-Phase Temporal Lifecycle & Negative Invariants**| Ground-truth payloads (Virgin, Nominal, Degraded) + 3-Phase Clock (`t < starts_at`, `starts_at <= t <= ends_at`, `t > ends_at`) | **Zero mock blindness, 100% negative invariants & all 3 temporal lifecycle states verified** | `make qa-unit` / `make qa-bdd` |
 
 ---
 
-## 2. Anti-Mock Blindness Invariant
+## 2. Anti-Mock Blindness & Anti-Silo Cross-Module Propagation Invariant
 
-### The Vulnerability of Pure Mocking
-Unit tests with 100% mock databases frequently pass in CI while production deployments catastrophically fail due to:
-- Column type mismatches (e.g. UUID vs. string representations).
-- Forgotten foreign key constraints or nullability violations.
-- Alembic migrations missing `op.create_table` or having syntax errors in Postgres.
-- Revision IDs exceeding the Alembic database field limit (32 characters).
+### The Vulnerability of Pure Mocking & Silo Mock Blindness
+Unit tests with 100% mock databases or isolated module boundary mocks frequently pass in CI while production deployments catastrophically fail due to:
+- Column type mismatches (e.g. UUID vs. string representations) or forgotten foreign key constraints.
+- Alembic migrations missing `op.create_table` or having Revision IDs exceeding the 32-character limit.
+- **Silo Mock Blindness:** Module A tests assert `HTTP 200/201` on a mutating endpoint (`POST /api/v1/maintenance/windows`), while Consumer Module B tests (e.g. NOC Wallboard / Inventory) inject a hand-crafted mock JSON with `admin_state: "MAINTENANCE"`. In production, `GET /api/v1/inventory/routers` never joins `maintenance_windows`, so devices never reflect maintenance state despite 100% passing unit tests.
+- **Blind Audit Mocks:** Replacing `write_audit_log` with an uninspected `AsyncMock()` hides bugs where `actor_username=claims.get("sub")` passes raw user UUIDs (`5046a660-b1ba-423d-bf0b-a6f0fd80c40b`) instead of human-readable usernames, or omits `resource_display_name`.
 
 ### Operational Directives
 1. **Never mock database queries for schema and persistence tests:** Test against an ephemeral container of the exact production engine (`postgres:17-alpine`).
 2. **Mandatory Alembic Model Parity Check:** Run `.agents/scripts/verify_alembic_orm_parity.py` on every task modifying `src/models/` or migrations.
 3. **Strict 32-Character Alembic Revision ID:** Ensure Alembic revision slugs do not exceed 32 characters to prevent silent truncation in `alembic_version`.
+4. **Cross-Module Read-After-Write Propagation (Zero Intermediate Mocks):** Whenever a test mutates operational state in Module A, it MUST immediately query the `GET` endpoints and stores of Consumer Modules B against the live test database without intermediate mocks, asserting that KPI counters, badges, and effective states update end-to-end.
+5. **Audit Payload & Anti-Raw UUID Assertion:** Never use a blind `AsyncMock` on `write_audit_log` without asserting its arguments (`assert_called_once`). Assert that `actor_username` and `resource_display_name` resolve to readable strings and never match `/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i`.
 
 ```python
 # fastapi/tests/core/test_db_parity.unit.py
@@ -59,7 +61,7 @@ async def test_all_models_have_tables_in_real_postgres(db_session):
 
 ---
 
-## 3. Anti-JSDOM Visual Geometry & In-Flow Ergonomics
+## 3. Anti-JSDOM Visual Geometry, In-Flow Ergonomics & Dual Refresh
 
 ### The JSDOM Blind Spot
 JSDOM does not calculate CSS layouts, viewports, or bounding boxes. Every element's `getBoundingClientRect()` returns `0, 0, 0, 0`. Consequently, JSDOM tests cannot detect:
@@ -67,9 +69,9 @@ JSDOM does not calculate CSS layouts, viewports, or bounding boxes. Every elemen
 - Modals covered by floating z-index elements.
 - Horizontal overflow causing viewport breaking on mobile screens (`375px`).
 
-### In-Flow Ergonomics Rule
+### In-Flow Ergonomics & Dual Auto + Manual Refresh Rules
 - **Prohibited:** `position: fixed; bottom: 0; left: 0; width: 100%;` floating footers that stay permanently over application content.
-- **Mandatory:** In-flow footer placed as the last child of a flex column layout:
+- **Mandatory In-Flow Footer:** Place as the last child of a flex column layout:
   ```html
   <div class="flex flex-col min-h-screen bg-slate-900 text-slate-100">
     <header class="h-14 border-b border-slate-800 ...">Header</header>
@@ -79,17 +81,19 @@ JSDOM does not calculate CSS layouts, viewports, or bounding boxes. Every elemen
     </footer>
   </div>
   ```
+- **Mandatory Dual Refresh in Operational Views & Live Maps:** Every monitoring console, NOC dashboard, or real-time map MUST combine reactive auto-refresh (`setInterval` cleaned up in `onUnmounted` + WebSocket events) with an explicit **`[ 🔄 Refrescar ]`** button triggering immediate live reload (`?refresh=true`) without requiring `F5`.
+- **Prohibition of Catch-All Domain `else` Badges:** UI event mappers MUST explicitly classify each category (`CAÍDA`, `MANTENIMIENTO`, `RESPALDO`, `SEGURIDAD`, `OPERACIÓN`) and never use a generic `else return 'MAINTENANCE'` that mislabels backups or session renewals.
 - **Real Browser Verification:** Run Karate Labs UI or Playwright in real headless Chromium to assert bounding box coordinates and verify that no element obscures interactive components.
 
 ---
 
-## 4. Universal Trimodal Fixtures & Negative Invariants
+## 4. Universal Trimodal Fixtures, 3-Phase Temporal Lifecycle & Negative Invariants
 
-Integrations with third-party APIs, hardware controllers, or microservices MUST be validated against three distinct fixtures:
+Integrations with third-party APIs, hardware controllers, or microservices MUST be validated against three distinct spatial/health fixtures AND, when time windows or TTLs exist, across all **3 phases of the clock**:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                      TRIMODAL FIXTURE TAXONOMY                         │
+│              TRIMODAL & 3-PHASE TEMPORAL TAXONOMY                      │
 ├─────────────────────────┬─────────────────────────┬────────────────────┤
 │ 1. Virgin / Default     │ 2. Nominal Configured   │ 3. Degraded / Fail │
 │ ─────────────────────── │ ─────────────────────── │ ────────────────── │
@@ -98,6 +102,12 @@ Integrations with third-party APIs, hardware controllers, or microservices MUST 
 │ Assert: NEGATIVE        │ Assert: ACTIVE          │ Assert: GRACEFUL   │
 │ INVARIANTS (No false    │ FUNCTIONALITY           │ FALLBACK (No 500)  │
 │ positive active alarms) │ (200 OK, full telemetry)│ Circuit breaker ON │
+├─────────────────────────┼─────────────────────────┼────────────────────┤
+│ Temporal Phase 1        │ Temporal Phase 2        │ Temporal Phase 3   │
+│ t < starts_at           │ starts_at <= t <= ends  │ t > ends_at / Canc │
+│ Assert: SCHEDULED       │ Assert: IN_PROGRESS     │ Assert: EXPIRED /  │
+│ ('Programada' /         │ ('En Curso' / 'Activa', │ REVERTED (Nominal  │
+│  Pending state)         │  scheduler stays alive) │  state restored)   │
 └─────────────────────────┴─────────────────────────┴────────────────────┘
 ```
 

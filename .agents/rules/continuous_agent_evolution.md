@@ -9,22 +9,31 @@
 
 ---
 
-## 1. The Autonomous Evolution Mandate
+## 1. The Autonomous Evolution Mandate & Mandatory QA-Escape Post-Mortem Trigger
 
-Whenever an AI agent detects:
-1. A recurring pattern or repetitive operational friction,
-2. An edge case or bug not covered by current `.agents/rules/` or skills,
-3. An opportunity to optimize context token consumption (~35% reduction in rules and prompts),
-4. A missing automation script or verification gate in `.agents/scripts/`,
+Whenever an AI agent detects or resolves:
+1. **A UAT, integration, or production bug that escaped existing automated tests** (even when unit coverage was `>= 95%`, e.g., mock blindness, siloed endpoints, missing temporal phases, or UI state desync),
+2. A recurring pattern or repetitive operational friction,
+3. An edge case or security/architectural gap not covered by current `.agents/rules/` or skills,
+4. An opportunity to optimize context token consumption (~35% reduction in rules and prompts),
+5. A missing automation script or verification gate in `.agents/scripts/`,
 
-the AI agent is **strictly authorized and mandated** to proactively update or extend the files in `.agents/` (`rules/`, `skills/`, `scripts/`) without waiting for explicit user prompting.
+the AI agent is **strictly authorized and mandated** to act **PROACTIVELY without waiting for the user to ask or suggest it**:
+- **Mandatory Proactive User Notification & Upstream Proposal (Consumer Projects):** Before closing the task, the agent MUST explicitly include a section in its Spanish response titled **`💡 Oportunidad de Mejora Detectada para el Estándar QA 11X (qa-testing-blueprints)`**, explaining why the previous test suite missed the bug, formulating the generalized domain-agnostic rule, and invoking (or offering to invoke) the MCP tool **`propose_skill_evolution_pr`** to upstream the improvement to `tecno-consultores/qa-testing-blueprints`.
+- **Direct Update (Inside `qa-testing-blueprints`):** When working directly inside the `qa-testing-blueprints` repository, proactively update or extend `.agents/` (`rules/`, `skills/`, `scripts/`) and `manifest.json`.
 
 ---
 
-## 2. Guardrails for Agent Modifications
+## 2. Guardrails for Agent Modifications & Consumer Project Anti-Collision Protocol
 
 When updating `.agents/`:
 1. **Never relax quality thresholds:** Coverage must stay `>= 95%`, zero secrets, zero schema drift.
 2. **Preserve Linguistic Architecture:** Agent directives in `rules/` and `skills/` must remain in high-density technical English. User interaction and documentation must remain strictly in Spanish.
 3. **Validate Automation Scripts:** Any new Python or Bash script in `.agents/scripts/` must be executable (`chmod +x`), pass `ruff` / `ShellCheck`, and be referenced in `certify_task_completion.sh` if it acts as a gate.
 4. **Log the Evolution:** Document changes made to `.agents/` in `CHANGELOG.md` under `## [Unreleased]`.
+5. **Thin-Repo Governance & Anti-Collision Rule for Consumer Projects (e.g. `rosgrid`):**
+   - The 7 canonical files in `.agents/rules/` (`mandatory_qa_pyramid_and_doc_sync.md`, `secure_development_and_testing_guidelines.md`, `frontend_parity_and_closure.md`, `continuous_agent_evolution.md`, `anti_regression_and_side_effects_guardrail.md`, `ground_truth_fixtures_and_negative_invariants.md`, `active_task_and_planning_resilience.md`) are **Global Canonical Rules** owned by `qa-testing-blueprints`.
+   - When working inside a downstream consumer project (such as `rosgrid`), AI agents MUST NOT inject project-specific domain rules inside the 7 canonical `.agents/rules/*.md` files or create duplicate generic rule files that clash with upstream `qa-11x-architect`.
+   - Instead:
+     - **Universal QA/Security discoveries** must be generalized and proposed upstream via `propose_skill_evolution_pr` (and removed from local duplicates once promoted to `qa-testing-blueprints`).
+     - **Project-specific domain rules** (e.g. MikroTik RouterOS v7 commands, specific business tables, or domain workflows) MUST be placed exclusively in `AGENTS.md` (outside the `<!-- QA_11X_MCP_CONNECTOR_START --> ... <!-- QA_11X_MCP_CONNECTOR_END -->` block) or in dedicated domain-prefixed files `.agents/rules/domain_<project>_*.md`.

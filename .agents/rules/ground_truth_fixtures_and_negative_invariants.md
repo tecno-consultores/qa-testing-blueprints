@@ -9,24 +9,28 @@
 
 ---
 
-## 1. The Mock Blindness Anti-Pattern
+## 1. The Mock Blindness & Silo Temporal Blindness Anti-Patterns
 
-Synthetic unit test mocks created ad-hoc invariably introduce **Mock Blindness**:
+Synthetic unit test mocks created ad-hoc invariably introduce **Mock Blindness**, **Silo Mock Blindness**, and **2-State Static Blindness**:
 - The test writer models only the happy path based on idealized assumptions.
 - Factory-default states, inert configurations, missing optional fields, or third-party downstream errors return unexpected payloads in real life (e.g. `remote="0.0.0.0"`, empty lists `[]`, or HTTP 404/400).
-- Synthetically passing tests give false confidence while the real frontend or client reports false positives or crashes in production.
+- **Silo Mock Blindness:** Module A tests assert `HTTP 200/201` on a mutation (`POST /api/v1/maintenance/windows`), while Consumer Module B tests inject a manual mock with `admin_state: "MAINTENANCE"`. In production, `GET /api/v1/inventory/routers` never joins `maintenance_windows`, so devices never appear in maintenance despite 100% green unit tests.
+- **2-State Static Blindness:** A scheduled window view coded as `{{ w.is_cancelled ? 'Cancelada' : 'Programada' }}` achieves 100% branch coverage with 2 unit tests (`is_cancelled: true` and `false`), completely omitting the active intermediate state **`En Curso`** when `starts_at <= now <= ends_at`, or failing to detect a 60s Safe Mode scheduler prematurely cleared at 50ms within the same HTTP request.
 
 ---
 
-## 2. Universal Trimodal Ground-Truth Fixture Matrix
+## 2. Universal Trimodal Ground-Truth Fixture Matrix & 3-Phase Temporal Lifecycle
 
-For **EVERY** component, service, or integration interacting with external systems or APIs, the test suite MUST include and validate against the following three raw JSON fixtures:
+For **EVERY** component, service, or integration interacting with external systems or APIs, the test suite MUST include and validate against the three raw JSON spatial/health fixtures, AND for any time-bounded entity (`starts_at`/`ends_at`, countdowns, TTLs, leases), across all **3 Temporal Lifecycle Phases**:
 
-| Fixture Type | Description | Mandatory Assertion (Negative Invariant) |
+| Fixture / Phase Type | Description | Mandatory Assertion (Negative & Temporal Invariants) |
 | :--- | :--- | :--- |
 | **Fixture A: Virgin / Factory Default** | Raw payload from unconfigured out-of-the-box state. | **MUST assert negative:** `active=False`, `status="NOT_CONFIGURED"`, `items=[]`. Any positive detection is a critical test failure. |
 | **Fixture B: Nominal Configured** | Raw payload from correctly provisioned service. | **MUST assert positive:** `active=True`, `status="ONLINE"`, expected operational telemetry. |
 | **Fixture C: Degraded / Unsupported** | Raw payload with disabled services or unsupported features. | **MUST assert graceful handling:** No unhandled exceptions (`500`), explicit state `UNSUPPORTED` or `DISABLED`, zero memory leaks. |
+| **Temporal Phase 1 (`t < starts_at`)** | Window or timer scheduled in the future. | **MUST assert Scheduled / Pending (`Programada`):** Consumer modules still report nominal state until `starts_at`. |
+| **Temporal Phase 2 (`starts_at <= t <= ends_at`)** | Active window or countdown in progress. | **MUST assert Active / In-Progress (`En Curso` / `Activa`):** Background scheduler stays alive beyond the HTTP request and Consumer Modules B reflect the active state without intermediate mocks. |
+| **Temporal Phase 3 (`t > ends_at` or Cancelled)** | Window expired, purged, or cancelled. | **MUST assert Expired / Reverted (`Cancelada` / `Expirada`):** Automatic restoration to original nominal state and audit log recorded. |
 
 ---
 

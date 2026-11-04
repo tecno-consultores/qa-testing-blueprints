@@ -25,6 +25,11 @@
 6. **Multi-Viewport Ergonomics, Theme Parity & Colorblind Accessibility:**
    - Certify zero horizontal overflow (`scrollWidth <= innerWidth`) across Mobile (`375x667`), Tablet (`768x1024`), and Desktop (`1440x900`).
    - Enforce a single primary solid CTA button per container/modal, define all CSS custom properties (`--var`) across every theme (dark, light, high-contrast) with zero orphan tokens, and pair status colors with geometric/text indicators (`▲`/`●`/`■`/`✕`) for colorblind accessibility (WCAG 1.4.1).
+7. **Dual Auto + Manual Refresh Invariant & Semantic Event Badge Integrity:**
+   - Every monitoring view, operational dashboard, NOC wallboard, or real-time cartographic map MUST simultaneously provide:
+     - A reactive/periodic update mechanism (`setInterval` with guaranteed `clearInterval` cleanup in `onUnmounted` / `useEffect` + WebSocket listener), AND
+     - An explicit **`[ 🔄 Refrescar ]`** button accessible to the operator that forces an immediate live reload (`?refresh=true`) without depending on a full browser reload (`F5`).
+   - Event feed/ribbon classifiers in UI MUST map each event category to its exact semantic badge (`CAÍDA`, `MANTENIMIENTO`, `RESPALDO`, `SEGURIDAD`, `OPERACIÓN`), strictly prohibiting generic catch-all `else` clauses (such as `else return 'MAINTENANCE'`) that mislabel backups or session renewals, and asserting that `actor_username` and `resource_display_name` never render raw UUID v4 strings.
 
 ---
 

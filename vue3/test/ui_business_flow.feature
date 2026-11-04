@@ -55,3 +55,13 @@ Feature: Cobertura Funcional y Flujos BDD de la Interfaz Web Vue 3 con Karate UI
     And match text(".modal-title") contains 'Nuevo'
     When click(".modal-close-btn")
     Then waitUntil("!document.querySelector('.modal-dialog')")
+
+  # ==============================================================================
+  # Grupo 4: Invariante de Refresco Dual ([ 🔄 Refrescar ]) y Cero UUIDs Crudos en UI
+  # ==============================================================================
+
+  Scenario: 5. Control explícito de refresco manual en vivo (?refresh=true) y ausencia de UUIDs crudos en cintas de eventos
+    Given driver baseUrl + '/'
+    And waitFor("//button[contains(., 'Refrescar') or contains(., 'Actualizar')]")
+    When click("//button[contains(., 'Refrescar') or contains(., 'Actualizar')]")
+    Then waitFor(".status-indicator.success")

@@ -21,11 +21,13 @@ Unit test isolation using mocks measures quick code execution paths, but introdu
 2. **Visual Geometry, Multi-Viewport Ergonomics & Anti-JSDOM Testing:**
    - JSDOM does NOT calculate CSS Flexbox/Grid layouts, element coordinates, or viewport bounding boxes (always returns `0x0`).
    - Prevent overlapping elements (e.g. fixed footers collapsing over forms, modals hidden behind navbars) by enforcing in-flow layouts (`margin-top: auto` inside `<main>`), validating DOM hierarchy, and inspecting real browser viewports (`375x667` mobile, `768x1024` tablet, `1440x900` desktop) with zero horizontal scroll (`scrollWidth <= innerWidth`) in Karate UI or Playwright.
-3. **Trimodal Ground-Truth Fixtures & Sequential Idempotency:**
+3. **Trimodal Ground-Truth Fixtures, 3-Phase Temporal Lifecycle, Cross-Module Propagation & Sequential Idempotency:**
    - When integrating external APIs or hardware, test against 3 raw fixtures:
      - **Fixture A (Virgin / Unconfigured):** Must assert negative invariant (`active=False`, `status="NOT_CONFIGURED"`).
      - **Fixture B (Nominal Configured):** Must assert positive invariant (`active=True`, nominal telemetry).
      - **Fixture C (Degraded / Unsupported):** Must assert graceful degradation without unhandled 500 errors.
+   - **Cross-Module State Propagation (Zero Intermediate Silo Mocks):** Mutations in Module A (`POST`/`PUT`/`PATCH`/`DELETE`) must be verified by querying Consumer Module B `GET` endpoints and stores against the real test database without intermediate mocks.
+   - **3-Phase Temporal Lifecycle Assertion:** Time-bounded entities (`starts_at`/`ends_at`, 60s Safe Mode rollback, 30s Step-Up tokens, leases) must be tested across Phase 1 (`t < starts_at`, `Programada`), Phase 2 (`starts_at <= t <= ends_at`, `En Curso` / `Activa` with live scheduler), and Phase 3 (`t > ends_at` or Cancelled, nominal state restored).
    - **Fresh `Idempotency-Key` per Mutation in Tests:** Never reuse a static `Idempotency-Key` UUID across distinct sequential `POST`/`PUT`/`PATCH`/`DELETE` test steps against real KeyDB/Redis, as the idempotency cache will replay the first response and mask subsequent assertions.
 
 ---
@@ -78,10 +80,11 @@ Apply these non-negotiable security directives before writing any code:
     - Disable XML DTDs and external entities (`resolve_entities=False`, `no_network=True`, `defusedxml`, or PHP `LIBXML_NONET`) (`APSC-DV-002390`, `APSC-DV-002550`). Enforce signature, timestamp, and `OneTimeUse` validation on SAML/WS-Security assertions (`APSC-DV-000160..000270`).
     - Prohibit unsafe deserializers (`pickle`, `yaml.load`, PHP `unserialize` without `['allowed_classes' => false]`, `eval`) and direct OS shell execution (`shell=True`, `os.system`, PHP `shell_exec`/`exec`/`passthru`/`system`) (`APSC-DV-002510`, `OWASP VSD 1-6`).
     - Validate uploaded files via magic-byte signatures (`finfo_file` / `FILEINFO_MIME_TYPE` in PHP), store outside web root with `noexec`, and reference files via allowlisted index maps rather than raw paths (`APSC-DV-002485`, `APSC-DV-002960`, `OWASP FV 1-9`).
-15. **Tamper-Proof Security Logging, Log Injection Defense & 75% Storage Alert (DISA STIG & OWASP 4.3.10):**
+15. **Tamper-Proof Security Logging, Log Injection Defense, 75% Storage Alert & Semantic Audit Integrity (DISA STIG & OWASP 4.3.10):**
     - Log auth, account lifecycle (`APSC-DV-000330..000430`), session lifecycle (`APSC-DV-000620..000660`), privilege changes/commands (`APSC-DV-000730..000900`), and startup/shutdown (`APSC-DV-000950`) with UTC timestamps (1s/ms granularity), source/dest IPs, user/process ID, outcome, and `trace_id`.
     - Sanitize CR/LF (`\r`, `\n`) and HTML control chars to prevent Log Injection (`OWASP SL-4, SLD-2`), and never log plaintext passwords, tokens, session IDs, or PII (`APSC-DV-000650`).
     - Protect audit logs with HMAC chains (`APSC-DV-001350`), centralize log off-loading (`APSC-DV-001070`), and alert administrators when audit storage reaches **75% capacity** (`APSC-DV-001090`) or on audit failure (`APSC-DV-001100`).
+    - **Prohibition of Blind Audit Mocks & Anti-Raw UUID Invariant:** Never replace `write_audit_log` (or equivalent audit functions) with an empty `AsyncMock` without asserting its received arguments (`assert_called_once` / `call_args`). Audit and UI event feed tests MUST explicitly verify that human-visible identity fields (`actor_username`, `resource_display_name`, `router_display_name`) resolve to human-readable names and **NEVER** match a raw UUID v4 (`/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i`, e.g. never pass `actor_username=claims.get("sub")` when `sub` is a UUID). UI event classifiers MUST map each category to its true semantic badge (`CAÍDA`, `MANTENIMIENTO`, `RESPALDO`, `SEGURIDAD`, `OPERACIÓN`) without generic `else` clauses assigning domain-specific badges to unrelated events.
 16. **FIPS 140-3 Crypto Agility, Memory Zeroization & DB Export Scrubbing (DISA STIG & OWASP 4.3.4, 4.3.9):**
     - Use FIPS 140-2/140-3 validated modules with crypto-agile interfaces (`APSC-DV-002010..002040`, `OWASP CP-5`), disable TLS/HTTP compression (anti-CRIME/BREACH), zeroize secrets in memory at function exit (`APSC-DV-002590`, `OWASP MM 1-9`), and scrub credentials/PII from database exports (`APSC-DV-003310`).
 17. **HTTP Security Headers (OSHP), Fail-Secure State & Threat Modeling as Code (DISA STIG & OWASP 4.2, 5.4.4, 7.8):**

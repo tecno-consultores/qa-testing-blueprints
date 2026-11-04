@@ -114,11 +114,14 @@
 
 ---
 
-## 5. Contratos de Integración Front-Back
+## 5. Contratos de Integración Front-Back y Propagación Transversal Anti-Silo
 
-* **Propósito:** Certificar que el formato de petición enviado por la interfaz (JSON, Multipart FormData) coincide exactamente con lo que el backend espera y persiste en la base de datos viva.
-* **Herramientas:** Scripts de prueba ejecutados dentro del contenedor API levantado con PostgreSQL y KeyDB reales.
-* **Flujo:** Realiza peticiones HTTP reales a la API efímera, consulta la base de datos real con `SELECT` para verificar persistencia, y valida cabeceras de respuesta (`X-Content-Type-Options`, `Content-Security-Policy`).
+* **Propósito:** Certificar que el formato de petición enviado por la interfaz (JSON, Multipart FormData) coincide exactamente con lo que el backend espera y persiste en la base de datos viva, y erradicar la **ceguera de mocks por silos (*Silo Mock Blindness*)**.
+* **Herramientas:** Scripts de prueba ejecutados dentro del contenedor API levantado con PostgreSQL y KeyDB reales, más `Schemathesis`.
+* **Flujo Read-After-Write Transversal (Sin Mocks Intermedios):**
+  1. Realiza una petición HTTP mutadora real en el **Módulo A** (`POST`/`PUT`/`PATCH`/`DELETE`, ej. programar una ventana de mantenimiento o cambiar el estado administrativo de un equipo).
+  2. Invoca inmediatamente los endpoints de consulta (`GET`) de los **Módulos B consumidores** (ej. Inventario, Wallboard NOC, KPIs del Centro de Mando) sobre la misma base de datos real **sin mocks intermedios**, certificando que los contadores, insignias y estados efectivos reflejan la mutación de extremo a extremo.
+  3. Verifica que la bitácora de auditoría (`write_audit_log`) registre `actor_username` y `resource_display_name` con nombres humanos legibles y nunca con un UUID v4 crudo (`claims.get("sub")`).
 
 ---
 
@@ -254,13 +257,18 @@
 
 ---
 
-## 13. Fixtures Trimodales e Invariantes Negativos
+## 13. Fixtures Trimodales, Ciclo Temporal de 3 Fases e Invariantes Negativos
 
-* **Propósito:** Erradicar la ceguera de mocks al integrar con APIs externas o hardware.
-* **Estructura de 3 Fixtures:**
+* **Propósito:** Erradicar la ceguera de mocks al integrar con APIs externas o hardware, así como la **ceguera estática de 2 estados (*2-State Static Blindness*)** en flujos gobernados por ventanas de tiempo.
+* **Estructura de 3 Fixtures Espaciales/Salud:**
   1. **Virgin / Factory Default:** Asegura que sistemas no configurados no generen falsos positivos en el dashboard.
   2. **Nominal Configured:** Valida el funcionamiento en condiciones normales de producción.
   3. **Degraded / Unsupported:** Valida que sistemas con errores o funciones no soportadas degraden elegantemente sin arrojar HTTP 500.
+* **Estructura Obligatoria de las 3 Fases Temporales (Reloj de 3 Estados):**
+  Toda entidad con ventanas de tiempo, cronómetros o TTL (`starts_at` / `ends_at`, Safe Mode de 60s, tokens Step-Up de 30s, leases) DEBE probarse en sus **3 fases del reloj**:
+  1. **Fase 1 ($t < \text{starts\_at}$):** Estado Programado / Pendiente (`Programada`).
+  2. **Fase 2 ($\text{starts\_at} \le t \le \text{ends\_at}$):** Estado Activo / En Curso (`En Curso` / `Activa`, verificando que el scheduler permanezca vivo y proyecte el estado activo a todos los módulos consumidores).
+  3. **Fase 3 ($t > \text{ends\_at}$ o Cancelado):** Estado Expirado / Purgado / Revertido (verificando la restauración automática al estado nominal original y su registro en auditoría).
 
 ---
 

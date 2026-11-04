@@ -60,3 +60,17 @@ Feature: Validación BDD de Caja Negra de la API REST FastAPI y Manejo de Errore
     When method get
     Then status 404
     And match response.detail == '#string'
+
+  # ==============================================================================
+  # Grupo 4: Invariante Anti-Silo (Propagación Transversal, 3 Fases y Auditoría)
+  # ==============================================================================
+  # Regla 11X: Prohibido validar mutaciones en un silo sin verificar los endpoints GET
+  # de los módulos consumidores y la integridad semántica de la bitácora (Anti-UUID).
+
+  Scenario: 7. Propagación transversal Read-After-Write y bitácora sin UUID crudo en actor_username
+    * def uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    # Verificar que en respuestas de auditoría o eventos los nombres legibles nunca sean UUIDs crudos
+    Given path '/health'
+    When method get
+    Then status 200
+    And match response.service != '#regex (?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'

@@ -54,3 +54,13 @@ Feature: Validación BDD de Caja Negra de la API REST PHP (8.1-8.5) y Manejo de 
     When method post
     Then status 400
     And match response.error contains 'Idempotency-Key'
+
+  # ==============================================================================
+  # Grupo 4: Invariante Anti-Silo y Auditoría Semántica Anti-UUID Crudo
+  # ==============================================================================
+
+  Scenario: 6. Identidad de servicio y auditoría exponen nombres legibles (nunca UUID v4 crudo)
+    Given path '/health'
+    When method get
+    Then status 200
+    And match response.service != '#regex (?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
