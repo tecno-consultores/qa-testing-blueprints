@@ -162,10 +162,10 @@ mcp_servers:
 | **`bootstrap_or_merge_11x`** | `project_path`, `stack`, `dry_run` | Aplica una fusión quirúrgica no destructiva inyectando configuraciones QA sin alterar dependencias. |
 | **`inspect_ast_blast_radius`** | `project_path`, `target_symbol` | Analiza el radio de impacto de un símbolo en el código antes de refactorizar y sugiere pruebas. |
 | **`clean_workspace_11x`** | `project_path`, `dry_run`, `deep_prune` | Sanea artefactos temporales de pruebas y cachés de Docker (soporta modo simulación y fallback Alpine). |
-| **`audit_security_stig_owasp`**| `project_path` | Audita estáticamente 10 reglas DISA/OWASP (`SEC-01` a `SEC-10`) y ergonomía visual `UI-11X-01`. |
+| **`audit_security_stig_owasp`**| `project_path` | Audita estáticamente 11 reglas DISA/OWASP (`SEC-01` a `SEC-11`, incluyendo anti-UUID en `actor_username` y prohibición de mocks ciegos en `write_audit_log`) y ergonomía visual/operativa (`UI-11X-01` y `UI-11X-02`). |
 | **`run_ephemeral_qa`** | `project_path`, `stage`, `timeout_seconds` | Ejecuta targets del `Makefile` en Docker efímero bajo la Regla Cero y condensa la salida a JSON. |
 | **`certify_11x_gate`** | `project_path` | Ejecuta la compuerta de certificación de cierre (secretos, JSON, componentes UI, ORM, STIG, docs). |
-| **`audit_test_pyramid_gaps`** | `project_path`, `stack` | Audita estáticamente las 13 capas de la pirámide 11X (`L01` a `L13`), detecta archivos huérfanos, endpoints sin BDD, vistas sin E2E y genera un plan de rescate priorizado. |
+| **`audit_test_pyramid_gaps`** | `project_path`, `stack` | Audita estáticamente las 13 capas de la pirámide 11X (`L01` a `L13`, incluyendo Ciclo Temporal de 3 Fases en `L13` y Refresco Dual en `L07`), detecta archivos huérfanos, endpoints sin BDD, vistas sin E2E y genera un plan de rescate priorizado. |
 | **`init_or_append_agents_md`** | `project_path`, `dry_run` | Crea `AGENTS.md` si no existe, o añade de forma aditiva y no destructiva el bloque conector de QA 11X al final de un `AGENTS.md` existente sin modificar reglas previas. |
 | **`propose_skill_evolution_pr`** | `project_path`, `target_blueprint_file`, `improvement_title`, `empirical_rationale`, `proposed_content_or_snippet`, `prefer_offline_fallback` | Propone mejoras federadas a `qa-testing-blueprints` mediante `gh` CLI local autenticado o generando un archivo de propuesta local y URL prellenada de GitHub (Zero-Trust, 0 tokens empaquetados). |
 

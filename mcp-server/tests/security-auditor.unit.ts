@@ -337,4 +337,131 @@ class SafeController {
     const sec05 = result.findings.find((f) => f.rule_id === 'SEC-05');
     expect(sec05).toBeUndefined();
   });
+
+  it('detecta violación SEC-11 cuando se asigna directamente claims.get("sub") o payload.sub a actor_username', async () => {
+    const srcDir = path.join(tempDir, 'src');
+    fs.mkdirSync(srcDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(srcDir, 'audit_endpoint.py'),
+      `# actor_username = claims.get("sub")
+def record_action(claims):
+    actor_username = claims.get("sub")
+    return actor_username
+`
+    );
+    fs.writeFileSync(
+      path.join(srcDir, 'audit_service.ts'),
+      `// actor_username: payload.sub
+export function buildAudit(payload: { sub: string }) {
+  return { actor_username: payload.sub };
+}
+`
+    );
+
+    const result = await auditSecurityStigOwasp(tempDir);
+    const sec11s = result.findings.filter((f) => f.rule_id === 'SEC-11');
+    expect(sec11s.length).toBe(2);
+    expect(sec11s.every((f) => f.severity === 'HIGH')).toBe(true);
+    expect(result.passed).toBe(false);
+  });
+
+  it('detecta violación SEC-11 cuando un test reemplaza write_audit_log con AsyncMock sin aserciones sobre call_args', async () => {
+    const testsDir = path.join(tempDir, 'tests');
+    fs.mkdirSync(testsDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(testsDir, 'test_audit_blind.unit.py'),
+      `from unittest.mock import AsyncMock, patch
+
+async def test_create_router():
+    with patch("app.routers.write_audit_log", new_callable=AsyncMock):
+        assert True
+`
+    );
+
+    const result = await auditSecurityStigOwasp(tempDir);
+    const sec11 = result.findings.find((f) => f.rule_id === 'SEC-11');
+    expect(sec11).toBeDefined();
+    expect(sec11?.severity).toBe('HIGH');
+    expect(sec11?.message).toContain('Mock ciego sobre write_audit_log');
+  });
+
+  it('aprueba SEC-11 (0 hallazgos) cuando el test de auditoría verifica assert_awaited_once o call_args', async () => {
+    const testsDir = path.join(tempDir, 'tests');
+    fs.mkdirSync(testsDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(testsDir, 'test_audit_verified.unit.py'),
+      `from unittest.mock import AsyncMock, patch
+
+async def test_create_router():
+    with patch("app.routers.write_audit_log", new_callable=AsyncMock) as mock_audit:
+        mock_audit.assert_awaited_once()
+        assert mock_audit.call_args.kwargs["actor_username"] == "admin_noc"
+`
+    );
+    fs.writeFileSync(
+      path.join(testsDir, 'test_other.unit.py'),
+      `def test_unrelated():
+    write_audit_log_name = "write_audit_log"
+    assert write_audit_log_name == "write_audit_log"
+`
+    );
+
+    const result = await auditSecurityStigOwasp(tempDir);
+    const sec11s = result.findings.filter((f) => f.rule_id === 'SEC-11');
+    expect(sec11s.length).toBe(0);
+  });
+
+  it('detecta violaciones UI-11X-02 (else return MAINTENANCE y setInterval sin clearInterval)', async () => {
+    const viewsDir = path.join(tempDir, 'src', 'views');
+    fs.mkdirSync(viewsDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(viewsDir, 'NocMonitor.vue'),
+      `<script setup lang="ts">
+import { onMounted } from 'vue';
+function getEventBadge(type: string) {
+  if (type === 'DOWN') return 'CAÍDA';
+  else return 'MAINTENANCE';
+}
+onMounted(() => {
+  setInterval(() => {}, 5000);
+});
+</script>
+`
+    );
+
+    const result = await auditSecurityStigOwasp(tempDir);
+    const ui02s = result.findings.filter((f) => f.rule_id === 'UI-11X-02');
+    expect(ui02s.length).toBe(2);
+    expect(ui02s.some((f) => f.severity === 'MEDIUM')).toBe(true);
+    expect(ui02s.some((f) => f.severity === 'HIGH')).toBe(true);
+  });
+
+  it('aprueba UI-11X-02 cuando setInterval se limpia con clearInterval y los tests se ignoran', async () => {
+    const viewsDir = path.join(tempDir, 'src', 'views');
+    fs.mkdirSync(viewsDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(viewsDir, 'CleanDashboard.vue'),
+      `<script setup lang="ts">
+import { onMounted, onUnmounted } from 'vue';
+let timer: ReturnType<typeof setInterval>;
+onMounted(() => {
+  timer = setInterval(() => {}, 5000);
+});
+onUnmounted(() => {
+  clearInterval(timer);
+});
+</script>
+`
+    );
+    fs.writeFileSync(
+      path.join(viewsDir, 'CleanDashboard.unit.ts'),
+      `// En tests no debe disparar UI-11X-02
+setInterval(() => {}, 1000);
+`
+    );
+
+    const result = await auditSecurityStigOwasp(tempDir);
+    const ui02s = result.findings.filter((f) => f.rule_id === 'UI-11X-02');
+    expect(ui02s.length).toBe(0);
+  });
 });

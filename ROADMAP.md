@@ -26,7 +26,7 @@
 | **Hito 9** | Inyector Aditivo No Destructivo del Conector `AGENTS.md` (`init-agents` / `init_or_append_agents_md`) | [`08_SPEC_CONECTOR_AGENTS_MD_THIN_REPO_Y_MIGRACION.md`](docs/specs/08_SPEC_CONECTOR_AGENTS_MD_THIN_REPO_Y_MIGRACION.md) | ✅ Completado | `100%` |
 | **Hito 10** | Diagnóstico Asistido de Navegador (Playwright / Browser MCP) y PRs de Evolución Continua Zero-Trust (`propose_skill_evolution_pr`) | [`09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md`](docs/specs/09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md) | ✅ Completado | `100%` |
 | **Hito 11** | Blueprint Oficial PHP 8.1–8.5 (`sinfallas/basephpcomposer`) e Integración en Servidor MCP | [`10_SPEC_ECOSISTEMA_PHP_8_Y_HERRAMIENTAS_MCP.md`](docs/specs/10_SPEC_ECOSISTEMA_PHP_8_Y_HERRAMIENTAS_MCP.md) | ✅ Completado | `100%` |
-| **Hito 12** | Auditores Automáticos para el Invariante Anti-Silo, Ciclo Temporal de 3 Fases, Auditoría Semántica Anti-UUID y Refresco Dual | [`11_SPEC_INVARIANTE_ANTI_SILO_CICLO_TEMPORAL_AUDITORIA_Y_REFRESCO_DUAL.md`](docs/specs/11_SPEC_INVARIANTE_ANTI_SILO_CICLO_TEMPORAL_AUDITORIA_Y_REFRESCO_DUAL.md) | ⏳ Pendiente | `0%` |
+| **Hito 12** | Auditores Automáticos para el Invariante Anti-Silo, Ciclo Temporal de 3 Fases, Auditoría Semántica Anti-UUID y Refresco Dual | [`11_SPEC_INVARIANTE_ANTI_SILO_CICLO_TEMPORAL_AUDITORIA_Y_REFRESCO_DUAL.md`](docs/specs/11_SPEC_INVARIANTE_ANTI_SILO_CICLO_TEMPORAL_AUDITORIA_Y_REFRESCO_DUAL.md) | ✅ Completado | `100%` |
 | **Hito 13** | Reconciliación Automática, Deduplicación y Aislamiento de Reglas de Dominio en `.agents/` (`reconcile-agents` / `reconcile_agents_governance`) | [`12_SPEC_RECONCILIACION_Y_DEDUPLICACION_GOBERNANZA_AGENTS_PROYECTOS.md`](docs/specs/12_SPEC_RECONCILIACION_Y_DEDUPLICACION_GOBERNANZA_AGENTS_PROYECTOS.md) | ⏳ Pendiente | `0%` |
 
 ---
@@ -178,14 +178,14 @@
 
 ---
 
-## ⏳ Hito 12: Auditores Automáticos para el Invariante Anti-Silo, Ciclo Temporal de 3 Fases, Auditoría Semántica Anti-UUID y Refresco Dual
+## ✅ Hito 12: Auditores Automáticos para el Invariante Anti-Silo, Ciclo Temporal de 3 Fases, Auditoría Semántica Anti-UUID y Refresco Dual
 **Referencia Obligatoria:** [`docs/specs/11_SPEC_INVARIANTE_ANTI_SILO_CICLO_TEMPORAL_AUDITORIA_Y_REFRESCO_DUAL.md`](docs/specs/11_SPEC_INVARIANTE_ANTI_SILO_CICLO_TEMPORAL_AUDITORIA_Y_REFRESCO_DUAL.md)
 
 ### Tareas de Implementación:
-- [ ] **12.1.** Ampliar `mcp-server/src/tools/security-auditor.ts` incorporando las reglas `SEC-11` (`checkSec11AuditSemanticIntegrity`: detección de asignación directa `actor_username = claims.get("sub")` y detección de mocks ciegos `AsyncMock`/`MagicMock`/`vi.fn()` sobre `write_audit_log` sin aserciones `assert_called` / `call_args`) y `UI-11X-02` (`checkUi11x02DualRefreshAndSemanticElse`: detección de cláusulas `else return 'MAINTENANCE'` y fugas de `setInterval` sin `clearInterval`), manteniendo complejidad cognitiva $\le 15$ y `0` warnings de `sonarjs/no-duplicate-string`.
-- [ ] **12.2.** Ampliar `mcp-server/src/tools/test-pyramid-auditor.ts` incorporando `projectHasTemporalEntities` y `detectThreePhaseTemporalTests` en `evaluateLayer13TrimodalFixtures` (verificando las 3 fases del reloj: `Programada`, `En Curso` y `Cancelada`/`Expirada` cuando existen campos `starts_at`/`ends_at` o `safe_mode`) y `checkOperationalViewsDualRefresh` en `evaluateLayer07BddUiKarate` (verificando auto-refresco + botón manual `[ 🔄 Refrescar ]` en vistas operativas).
-- [ ] **12.3.** Ampliar las suites unitarias `mcp-server/tests/security-auditor.unit.ts` y `mcp-server/tests/test-pyramid-auditor.unit.ts` cubriendo todas las ramas nuevas (manteniendo cobertura global $\ge 95.0\%$ en contenedor efímero `sinfallas/base-node-ionic:26` y `--max-warnings 0`) y actualizar `mcp-server/test/mcp_cli_test.feature`.
-- [ ] **12.4.** Sincronizar `README.md`, `TESTING.md`, `docs/ai-integration.md` y `CHANGELOG.md`, regenerar `manifest.json` y certificar con `./.agents/scripts/certify_task_completion.sh`.
+- [x] **12.1.** Ampliar `mcp-server/src/tools/security-auditor.ts` incorporando las reglas `SEC-11` (`checkSec11AuditSemanticIntegrity`: detección de asignación directa `actor_username = claims.get("sub")` y detección de mocks ciegos `AsyncMock`/`MagicMock`/`vi.fn()` sobre `write_audit_log` sin aserciones `assert_called` / `call_args`) y `UI-11X-02` (`checkUi11x02DualRefreshAndSemanticElse`: detección de cláusulas `else return 'MAINTENANCE'` y fugas de `setInterval` sin `clearInterval`), manteniendo complejidad cognitiva $\le 15$ y `0` warnings de `sonarjs/no-duplicate-string`.
+- [x] **12.2.** Ampliar `mcp-server/src/tools/test-pyramid-auditor.ts` incorporando `projectHasTemporalEntities` y `detectThreePhaseTemporalTests` en `evaluateLayer13TrimodalFixtures` (verificando las 3 fases del reloj: `Programada`, `En Curso` y `Cancelada`/`Expirada` cuando existen campos `starts_at`/`ends_at` o `safe_mode`) y `checkOperationalViewsDualRefresh` en `evaluateLayer07BddUiKarate` (verificando auto-refresco + botón manual `[ 🔄 Refrescar ]` en vistas operativas).
+- [x] **12.3.** Ampliar las suites unitarias `mcp-server/tests/security-auditor.unit.ts` y `mcp-server/tests/test-pyramid-auditor.unit.ts` cubriendo todas las ramas nuevas (manteniendo cobertura global $\ge 95.0\%$ en contenedor efímero `sinfallas/base-node-ionic:26` y `--max-warnings 0`) y actualizar `mcp-server/test/mcp_cli_test.feature`.
+- [x] **12.4.** Sincronizar `README.md`, `TESTING.md`, `docs/ai-integration.md` y `CHANGELOG.md`, regenerar `manifest.json` y certificar con `./.agents/scripts/certify_task_completion.sh`.
 
 ---
 

@@ -2,8 +2,8 @@
 
 **Proyecto:** QA Testing Blueprints (`tecno-consultores/qa-testing-blueprints`)  
 **Componentes Objetivo (Hito 12):** `mcp-server/src/tools/security-auditor.ts`, `mcp-server/src/tools/test-pyramid-auditor.ts`, `mcp-server/tests/security-auditor.unit.ts`, `mcp-server/tests/test-pyramid-auditor.unit.ts`, `mcp-server/test/mcp_cli_test.feature`  
-**Modelo Ejecutor Objetivo:** Gemini 3.8 Flash High  
-**Estado:** PLANIFICADO (ESPECIFICACIÓN APROBADA PARA IMPLEMENTACIÓN EN HITO 12)
+**Modelo Ejecutor Objetivo:** Gemini 3.8 Flash High / Antigravity  
+**Estado:** IMPLEMENTADO Y CERTIFICADO (HITO 12 COMPLETADO AL 100%)
 
 ---
 
@@ -67,7 +67,7 @@ function checkRawSubInActorUsername(
 ): SecurityFinding[] {
   const findings: SecurityFinding[] = [];
   const rawSubPattern =
-    /actor_username\s*[:=]\s*(?:claims\.get\(\s*["']sub["']\s*\)|claims\[\s*["']sub["']\s*\]|(?:token|payload|jwt_payload)\.sub)\b/;
+    /actor_username\s*[:=]\s*(?:claims\.get\(\s*["']sub["']\s*\)|claims\[\s*["']sub["']\s*\]|(?:token|payload|jwt_payload)\.sub\b)/;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];

@@ -1045,4 +1045,89 @@ def create_item(): pass
     const l2Level9 = evaluateLayer02StrictTyping(tmpDir, ['phpstan.neon'], ['php']);
     expect(l2Level9.status).toBe('COVERED');
   });
+
+  it('evaluates 3-phase temporal lifecycle in Layer 13 when project has starts_at/ends_at entities', () => {
+    const srcModels = path.join(tmpDir, 'src', 'models');
+    const testsDir = path.join(tmpDir, 'tests', 'fixtures');
+    fs.mkdirSync(srcModels, { recursive: true });
+    fs.mkdirSync(testsDir, { recursive: true });
+
+    // Entidad con starts_at y ends_at + fixtures trimodales base
+    fs.writeFileSync(
+      path.join(srcModels, 'maintenance.py'),
+      'class MaintenanceWindow:\n    starts_at: str\n    ends_at: str\n',
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(testsDir, 'trimodal.py'),
+      'virgin = {}\nnominal = {"active": True}\ndegraded = {"error": "timeout"}\n',
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(tmpDir, 'tests', 'test_production_no_dev_cleanliness.unit.py'),
+      'def test_production_no_dev_cleanliness(): pass\n',
+      'utf-8'
+    );
+
+    // 1. Test con solo 2 estados (Programada y Cancelada, falta En Curso) -> degrada a PARTIAL
+    fs.writeFileSync(
+      path.join(tmpDir, 'tests', 'test_maintenance.unit.py'),
+      'def test_window():\n    assert status in ["Programada", "Cancelada"]\n',
+      'utf-8'
+    );
+    const filesList = [
+      'src/models/maintenance.py',
+      'tests/fixtures/trimodal.py',
+      'tests/test_production_no_dev_cleanliness.unit.py',
+      'tests/test_maintenance.unit.py',
+    ];
+
+    const l13TwoStates = evaluateLayer13TrimodalFixtures(tmpDir, filesList, ['fastapi']);
+    expect(l13TwoStates.status).toBe('PARTIAL');
+    expect(l13TwoStates.missing_requirements).toContain(
+      'Entidades con ventana temporal (starts_at/ends_at) detectadas sin pruebas de las 3 fases del reloj (Programada, En Curso, Expirada/Cancelada).'
+    );
+
+    // 2. Test con las 3 fases temporales (Programada, En Curso, Cancelada) -> COVERED
+    fs.writeFileSync(
+      path.join(tmpDir, 'tests', 'test_maintenance.unit.py'),
+      'def test_window_three_phases():\n    phases = ["Programada", "En Curso", "Cancelada"]\n    assert len(phases) == 3\n',
+      'utf-8'
+    );
+    const l13ThreeStates = evaluateLayer13TrimodalFixtures(tmpDir, filesList, ['fastapi']);
+    expect(l13ThreeStates.status).toBe('COVERED');
+    expect(l13ThreeStates.detected_evidence).toContain(
+      'Ciclo temporal de 3 fases verificado (Programada, En Curso, Expirada/Cancelada)'
+    );
+  });
+
+  it('evaluates Dual Auto + Manual Refresh invariant in Layer 07 for operational views', () => {
+    const viewsDir = path.join(tmpDir, 'src', 'views');
+    fs.mkdirSync(viewsDir, { recursive: true });
+
+    // 1. Vista NocDashboard.vue con setInterval pero SIN botón manual Refrescar -> degrada a PARTIAL
+    fs.writeFileSync(
+      path.join(viewsDir, 'NocDashboard.vue'),
+      '<script setup>\nsetInterval(() => {}, 5000);\n</script>\n<template><div>NOC</div></template>\n',
+      'utf-8'
+    );
+    const filesList = ['test/ui_business_flow.feature', 'src/views/NocDashboard.vue'];
+    const l07MissingManual = evaluateLayer07BddUiKarate(tmpDir, filesList, ['vue3'], []);
+    expect(l07MissingManual.status).toBe('PARTIAL');
+    expect(l07MissingManual.missing_requirements).toContain(
+      'Vistas de monitoreo/dashboard detectadas sin Invariante de Refresco Dual (setInterval/WebSocket + botón manual [ 🔄 Refrescar ]).'
+    );
+
+    // 2. Vista NocDashboard.vue con setInterval Y botón manual [ 🔄 Refrescar ] -> COVERED
+    fs.writeFileSync(
+      path.join(viewsDir, 'NocDashboard.vue'),
+      '<script setup>\nsetInterval(() => {}, 5000);\nfunction handleRefresh() {}\n</script>\n<template><button @click="handleRefresh">🔄 Refrescar</button></template>\n',
+      'utf-8'
+    );
+    const l07DualCovered = evaluateLayer07BddUiKarate(tmpDir, filesList, ['vue3'], []);
+    expect(l07DualCovered.status).toBe('COVERED');
+    expect(l07DualCovered.detected_evidence).toContain(
+      'Invariante de Refresco Dual (Auto + Manual [ 🔄 Refrescar ]) en vistas operativas'
+    );
+  });
 });

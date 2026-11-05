@@ -35,6 +35,8 @@ const SCANNABLE_EXTS = new Set([
 
 const APSC_DV_002510_REF = 'APSC-DV-002510 / Patrón 3';
 const SEC_10_REF = 'APSC-DV-000650 / V-222444 / Patrón 10';
+const SEC_11_REF = 'APSC-DV-001350 / Anti-Silo Audit Rule 3';
+const UI_11X_02_REF = 'Standard 11X / Anti-Silo UI Rule 3 & 4';
 
 function isScannableFile(entry: fs.Dirent): boolean {
   if (!entry.isFile()) return false;
@@ -492,6 +494,162 @@ function checkUi11x01VisualGeometry(relPath: string, lines: string[]): SecurityF
   return findings;
 }
 
+function isTestFilePath(relPath: string): boolean {
+  return (
+    relPath.includes('.unit.') ||
+    relPath.includes('.spec.') ||
+    relPath.includes('.test.') ||
+    relPath.includes('test_') ||
+    relPath.endsWith('Test.php')
+  );
+}
+
+function checkRawSubInActorUsername(relPath: string, lines: string[]): SecurityFinding[] {
+  const findings: SecurityFinding[] = [];
+  const rawSubPattern =
+    /actor_username\s*[:=]\s*(?:claims\.get\(\s*["']sub["']\s*\)|claims\[\s*["']sub["']\s*\]|(?:token|payload|jwt_payload)\.sub\b)/;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.trim().startsWith('#') || line.trim().startsWith('//')) continue;
+    if (rawSubPattern.test(line)) {
+      findings.push({
+        rule_id: 'SEC-11',
+        severity: 'HIGH',
+        stig_owasp_ref: SEC_11_REF,
+        file: relPath,
+        line: i + 1,
+        message:
+          'Asignación directa de JWT "sub" (UUID crudo) a actor_username detectada en bitácora de auditoría.',
+        remediation:
+          'Resolver actor_username a un nombre humano legible (ej. user.username o claims.get("username")) y nunca almacenar un UUID v4 crudo como nombre visible.',
+      });
+    }
+  }
+  return findings;
+}
+
+function checkBlindAuditMockInTests(relPath: string, lines: string[]): SecurityFinding[] {
+  const fullContent = lines.join('\n');
+  const mocksAudit =
+    fullContent.includes('write_audit_log') || fullContent.includes('writeAuditLog');
+  if (!mocksAudit) return [];
+
+  const hasMockReplacement =
+    fullContent.includes('AsyncMock') ||
+    fullContent.includes('MagicMock') ||
+    fullContent.includes('vi.fn()');
+  if (!hasMockReplacement) return [];
+
+  const hasPayloadAssertion =
+    fullContent.includes('assert_called') ||
+    fullContent.includes('assert_awaited') ||
+    fullContent.includes('call_args') ||
+    fullContent.includes('toHaveBeenCalledWith');
+
+  if (hasPayloadAssertion) return [];
+
+  const lineIdx = lines.findIndex(
+    (l) => l.includes('write_audit_log') || l.includes('writeAuditLog')
+  );
+
+  return [
+    {
+      rule_id: 'SEC-11',
+      severity: 'HIGH',
+      stig_owasp_ref: SEC_11_REF,
+      file: relPath,
+      line: lineIdx + 1,
+      message:
+        'Mock ciego sobre write_audit_log detectado sin aserciones sobre los argumentos recibidos (assert_called_once / call_args).',
+      remediation:
+        'Inspeccionar explícitamente los argumentos pasados a write_audit_log verificando que actor_username y resource_display_name sean legibles y no UUIDs crudos.',
+    },
+  ];
+}
+
+function checkSec11AuditSemanticIntegrity(relPath: string, lines: string[]): SecurityFinding[] {
+  if (
+    !relPath.endsWith('.py') &&
+    !relPath.endsWith('.ts') &&
+    !relPath.endsWith('.js') &&
+    !relPath.endsWith('.php')
+  ) {
+    return [];
+  }
+  if (isTestFilePath(relPath)) {
+    return checkBlindAuditMockInTests(relPath, lines);
+  }
+  return checkRawSubInActorUsername(relPath, lines);
+}
+
+function checkCatchAllDomainElse(relPath: string, lines: string[]): SecurityFinding[] {
+  const findings: SecurityFinding[] = [];
+  const catchAllPattern =
+    /\belse\s*\{?\s*return\s+["'](?:MAINTENANCE|MANTENIMIENTO|CAÍDA|CAIDA|CRITICAL|SECURITY|SEGURIDAD)["']/i;
+
+  for (let i = 0; i < lines.length; i++) {
+    if (catchAllPattern.test(lines[i])) {
+      findings.push({
+        rule_id: 'UI-11X-02',
+        severity: 'MEDIUM',
+        stig_owasp_ref: UI_11X_02_REF,
+        file: relPath,
+        line: i + 1,
+        message:
+          'Cláusula else genérica detectada devolviendo una insignia de dominio específica (ej. MAINTENANCE / MANTENIMIENTO).',
+        remediation:
+          'Mapear explícitamente cada categoría de evento (CAÍDA, MANTENIMIENTO, RESPALDO, SEGURIDAD, OPERACIÓN) y usar una etiqueta neutral (OPERACIÓN / INFO) en el caso por defecto.',
+      });
+    }
+  }
+  return findings;
+}
+
+function checkUncleanedSetInterval(relPath: string, lines: string[]): SecurityFinding[] {
+  if (!relPath.endsWith('.vue') && !relPath.endsWith('.tsx') && !relPath.endsWith('.jsx')) {
+    return [];
+  }
+  const fullContent = lines.join('\n');
+  if (!fullContent.includes('setInterval(')) return [];
+  if (fullContent.includes('clearInterval(')) return [];
+
+  const lineIdx = lines.findIndex((l) => l.includes('setInterval('));
+  return [
+    {
+      rule_id: 'UI-11X-02',
+      severity: 'HIGH',
+      stig_owasp_ref: UI_11X_02_REF,
+      file: relPath,
+      line: lineIdx + 1,
+      message:
+        'Uso de setInterval() en componente UI sin limpieza correspondiente con clearInterval() en onUnmounted / useEffect.',
+      remediation:
+        'Almacenar el identificador del intervalo y limpiarlo con clearInterval() dentro de onUnmounted (Vue 3) o en el retorno de useEffect (React).',
+    },
+  ];
+}
+
+function checkUi11x02DualRefreshAndSemanticElse(
+  relPath: string,
+  lines: string[]
+): SecurityFinding[] {
+  if (
+    !relPath.endsWith('.vue') &&
+    !relPath.endsWith('.tsx') &&
+    !relPath.endsWith('.jsx') &&
+    !relPath.endsWith('.ts')
+  ) {
+    return [];
+  }
+  if (isTestFilePath(relPath)) return [];
+
+  return [
+    ...checkCatchAllDomainElse(relPath, lines),
+    ...checkUncleanedSetInterval(relPath, lines),
+  ];
+}
+
 function checkSec09Npmrc(projectPath: string): SecurityFinding[] {
   const hasPackageJson = fs.existsSync(path.join(projectPath, 'package.json'));
   if (!hasPackageJson) return [];
@@ -577,7 +735,9 @@ function scanSingleFile(absPath: string, relPath: string): SecurityFinding[] {
     ...checkSec06XssPrototypePollution(relPath, lines),
     ...checkSec07SwaggerInProd(relPath, lines),
     ...checkSec10Secrets(relPath, lines),
+    ...checkSec11AuditSemanticIntegrity(relPath, lines),
     ...checkUi11x01VisualGeometry(relPath, lines),
+    ...checkUi11x02DualRefreshAndSemanticElse(relPath, lines),
   ];
 }
 

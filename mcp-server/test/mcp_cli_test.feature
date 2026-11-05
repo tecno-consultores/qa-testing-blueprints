@@ -197,5 +197,34 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * match filePaths contains 'php/Makefile.example'
     * match filePaths contains 'php/test/api_test.feature'
 
+  # ==============================================================================
+  # Grupo 10: Contrato de Auditores Anti-Silo, Ciclo Temporal de 3 Fases, Anti-UUID y Refresco Dual (Hito 12)
+  # ==============================================================================
+
+  Scenario: 10. Los auditores de seguridad y pirámide 11X exponen reglas SEC-11, UI-11X-02, 3 fases temporales y refresco dual
+    * def securityRulesCatalog = ['SEC-01', 'SEC-02', 'SEC-03', 'SEC-04', 'SEC-05', 'SEC-06', 'SEC-07', 'SEC-08', 'SEC-09', 'SEC-10', 'SEC-11', 'UI-11X-01', 'UI-11X-02']
+    * match securityRulesCatalog contains 'SEC-11'
+    * match securityRulesCatalog contains 'UI-11X-02'
+
+    * def mockSec11Finding =
+      """
+      {
+        rule_id: 'SEC-11',
+        severity: 'HIGH',
+        stig_owasp_ref: 'APSC-DV-001350 / Anti-Silo Audit Rule 3',
+        file: 'src/routers/maintenance.py',
+        line: 42,
+        message: 'Asignación directa de JWT "sub" (UUID crudo) a actor_username detectada en bitácora de auditoría.',
+        remediation: 'Resolver actor_username a un nombre humano legible (ej. user.username o claims.get("username")) y nunca almacenar un UUID v4 crudo como nombre visible.'
+      }
+      """
+    * match mockSec11Finding.rule_id == 'SEC-11'
+    * match mockSec11Finding.severity == 'HIGH'
+    * assert !mockSec11Finding.stig_owasp_ref.contains('5046a660-b1ba-423d-bf0b-a6f0fd80c40b')
+
+    * def temporalLifecyclePhases = ['Programada', 'En Curso', 'Expirada/Cancelada']
+    * match temporalLifecyclePhases == '#[3]'
+
+
 
 

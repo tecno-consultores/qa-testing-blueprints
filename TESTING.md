@@ -126,13 +126,13 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
 ### 🧠 MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x`)
 * **Imagen Base:** `sinfallas/base-node-ionic:26`
 * **Métricas 11X Certificadas:**
-  * **Sentencias (Statements):** `99.22%` ($\ge 95.0\%$)
-  * **Ramas (Branches):** `95.38%` ($\ge 95.0\%$)
+  * **Sentencias (Statements):** `99.24%` ($\ge 95.0\%$)
+  * **Ramas (Branches):** `95.57%` ($\ge 95.0\%$)
   * **Funciones (Functions):** `100.00%` ($\ge 95.0\%$)
-  * **Líneas (Lines):** `99.22%` ($\ge 95.0\%$)
-  * **Pruebas Unitarias:** 244 pruebas pasando al 100% (12 suites en `tests/*.unit.ts`)
+  * **Líneas (Lines):** `99.24%` ($\ge 95.0\%$)
+  * **Pruebas Unitarias:** 251 pruebas pasando al 100% (12 suites en `tests/*.unit.ts`)
   * **Herramientas MCP:** 11 herramientas canónicas (`inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`, `clean_workspace_11x`, `audit_security_stig_owasp`, `run_ephemeral_qa`, `certify_11x_gate`, `audit_test_pyramid_gaps`, `init_or_append_agents_md`, `propose_skill_evolution_pr`)
-  * **Escenarios BDD Karate Labs:** `mcp-server/test/mcp_cli_test.feature` (9 escenarios)
+  * **Escenarios BDD Karate Labs:** `mcp-server/test/mcp_cli_test.feature` (10 escenarios)
   * **Empaquetado npm:** 53.1 kB comprimido / 252.4 kB desempaquetado (0 fugas de código fuente)
 * **Comandos de Validación:**
   ```bash

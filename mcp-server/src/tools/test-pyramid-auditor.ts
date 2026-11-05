@@ -1008,6 +1008,65 @@ export function evaluateLayer06BddApiKarate(
   };
 }
 
+function isOperationalMonitorView(file: string): boolean {
+  if (!/(?:views|pages)\//i.test(file) || !/\.(?:vue|tsx|jsx)$/i.test(file)) {
+    return false;
+  }
+  const baseName = path.basename(file);
+  return /(?:Dashboard|Noc|Wallboard|Monitor|Map|Console)/i.test(baseName);
+}
+
+export function checkOperationalViewsDualRefresh(
+  projectPath: string,
+  files: string[]
+): { applicable: boolean; passed: boolean } {
+  const operationalViews = files.filter((f) => isOperationalMonitorView(f));
+  if (operationalViews.length === 0) {
+    return { applicable: false, passed: true };
+  }
+
+  for (const view of operationalViews) {
+    const content = readFileContentSafe(projectPath, view);
+    const hasAutoRefresh =
+      content.includes('setInterval') ||
+      content.includes('WebSocket') ||
+      content.includes('useWebSocket');
+    const hasManualRefresh =
+      content.includes('Refrescar') ||
+      content.includes('refresh=true') ||
+      content.includes('handleRefresh') ||
+      content.includes('onRefresh');
+    if (!hasAutoRefresh || !hasManualRefresh) {
+      return { applicable: true, passed: false };
+    }
+  }
+
+  return { applicable: true, passed: true };
+}
+
+function applyDualRefreshToLayer07(
+  projectPath: string,
+  files: string[],
+  currentStatus: PyramidLayerStatus,
+  detected: string[],
+  missingReqs: string[]
+): PyramidLayerStatus {
+  const dualRefresh = checkOperationalViewsDualRefresh(projectPath, files);
+  if (!dualRefresh.applicable) {
+    return currentStatus;
+  }
+  if (dualRefresh.passed) {
+    detected.push(
+      'Invariante de Refresco Dual (Auto + Manual [ 🔄 Refrescar ]) en vistas operativas'
+    );
+    return currentStatus;
+  }
+  missingReqs.push(
+    'Vistas de monitoreo/dashboard detectadas sin Invariante de Refresco Dual (setInterval/WebSocket + botón manual [ 🔄 Refrescar ]).'
+  );
+  return currentStatus === STATUS_COVERED ? STATUS_PARTIAL : currentStatus;
+}
+
 export function evaluateLayer07BddUiKarate(
   projectPath: string,
   files: string[],
@@ -1047,6 +1106,8 @@ export function evaluateLayer07BddUiKarate(
   } else {
     missingReqs.push(`No existe ${UI_BUSINESS_FLOW_FEATURE} para validar flujos de usuario.`);
   }
+
+  status = applyDualRefreshToLayer07(projectPath, files, status, detected, missingReqs);
 
   return {
     layer_number: 7,
@@ -1457,6 +1518,95 @@ function determineTrimodalStatus(
   return { status: STATUS_MISSING, missingReqs };
 }
 
+function isTemporalCandidateSourceFile(file: string): boolean {
+  const inSourceDir = file.includes('src/') || file.includes('app/');
+  const isSourceExt =
+    file.endsWith('.py') || file.endsWith('.ts') || file.endsWith('.vue') || file.endsWith('.php');
+  return inSourceDir && isSourceExt;
+}
+
+export function projectHasTemporalEntities(
+  projectPath: string,
+  files: string[]
+): boolean {
+  for (const f of files) {
+    if (!isTemporalCandidateSourceFile(f)) continue;
+    const content = readFileContentSafe(projectPath, f);
+    if (
+      (content.includes('starts_at') && content.includes('ends_at')) ||
+      content.includes('safe_mode') ||
+      content.includes('maintenance_window')
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function isTemporalCandidateTestFile(file: string): boolean {
+  return (
+    file.includes('.unit.') ||
+    file.includes('.spec.') ||
+    file.includes('test_') ||
+    file.endsWith('Test.php')
+  );
+}
+
+function hasThreeTemporalPhaseAssertions(lowerContent: string): boolean {
+  const hasScheduled =
+    lowerContent.includes('programada') ||
+    lowerContent.includes('scheduled') ||
+    lowerContent.includes('pending');
+  const hasActive =
+    lowerContent.includes('en curso') ||
+    lowerContent.includes('in_progress') ||
+    lowerContent.includes('activa') ||
+    lowerContent.includes('active');
+  const hasExpiredOrCancelled =
+    lowerContent.includes('cancelada') ||
+    lowerContent.includes('cancelled') ||
+    lowerContent.includes('expired') ||
+    lowerContent.includes('expirada') ||
+    lowerContent.includes('reverted');
+  return hasScheduled && hasActive && hasExpiredOrCancelled;
+}
+
+export function detectThreePhaseTemporalTests(
+  projectPath: string,
+  files: string[]
+): boolean {
+  for (const f of files) {
+    if (!isTemporalCandidateTestFile(f)) continue;
+    const content = readFileContentSafe(projectPath, f).toLowerCase();
+    if (hasThreeTemporalPhaseAssertions(content)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function applyTemporalLifecycleToLayer13(
+  projectPath: string,
+  files: string[],
+  currentStatus: PyramidLayerStatus,
+  detected: string[],
+  missingReqs: string[]
+): PyramidLayerStatus {
+  if (!projectHasTemporalEntities(projectPath, files)) {
+    return currentStatus;
+  }
+  if (detectThreePhaseTemporalTests(projectPath, files)) {
+    detected.push(
+      'Ciclo temporal de 3 fases verificado (Programada, En Curso, Expirada/Cancelada)'
+    );
+    return currentStatus;
+  }
+  missingReqs.push(
+    'Entidades con ventana temporal (starts_at/ends_at) detectadas sin pruebas de las 3 fases del reloj (Programada, En Curso, Expirada/Cancelada).'
+  );
+  return currentStatus === STATUS_COVERED ? STATUS_PARTIAL : currentStatus;
+}
+
 export function evaluateLayer13TrimodalFixtures(
   projectPath: string,
   files: string[],
@@ -1492,10 +1642,17 @@ export function evaluateLayer13TrimodalFixtures(
   if (hasTrimodalTriad) detected.push('Tríada trimodal (virgen, nominal, degradado)');
   if (hasNoDevTest) detected.push('Prueba de blindaje productivo --no-dev');
 
-  const { status, missingReqs } = determineTrimodalStatus(
+  const { status: baseStatus, missingReqs } = determineTrimodalStatus(
     hasTrimodalTriad,
     hasNoDevTest,
     hasFixtures
+  );
+  const status = applyTemporalLifecycleToLayer13(
+    projectPath,
+    files,
+    baseStatus,
+    detected,
+    missingReqs
   );
 
   return {

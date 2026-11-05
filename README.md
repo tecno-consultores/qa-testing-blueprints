@@ -125,10 +125,10 @@ El servidor canónico MCP en Node.js/TypeScript está publicado en npmjs bajo **
   * `bootstrap_or_merge_11x`: Aplica fusión no destructiva integrando QA 11X en proyectos vivos.
   * `inspect_ast_blast_radius`: Análisis AST de radio de impacto previo a refactorizaciones.
   * `clean_workspace_11x`: Purga profunda de cachés y artefactos sin requerir `sudo`.
-  * `audit_security_stig_owasp`: Auditoría estática de 10 reglas DISA/OWASP y ergonomía visual Anti-JSDOM.
+  * `audit_security_stig_owasp`: Auditoría estática de 11 reglas DISA/OWASP (`SEC-01` a `SEC-11`, incluyendo integridad semántica de auditoría anti-UUID y prohibición de mocks ciegos en `write_audit_log`) y ergonomía visual/operativa (`UI-11X-01` y `UI-11X-02`).
   * `run_ephemeral_qa`: Ejecución de pruebas en Docker efímero bajo la Regla Cero con salida JSON.
   * `certify_11x_gate`: Validación de la compuerta universal de certificación de 10 etapas.
-  * `audit_test_pyramid_gaps`: Auditoría exhaustiva de las 13 capas de la pirámide 11X, detección de archivos huérfanos, endpoints sin BDD, vistas sin E2E y plan de acción priorizado.
+  * `audit_test_pyramid_gaps`: Auditoría exhaustiva de las 13 capas de la pirámide 11X (incluyendo Ciclo Temporal de 3 Fases en Capa 13 e Invariante de Refresco Dual en Capa 07), detección de archivos huérfanos, endpoints sin BDD, vistas sin E2E y plan de acción priorizado.
   * `init_or_append_agents_md`: Crea `AGENTS.md` o inyecta de forma aditiva y no destructiva el bloque conector de QA 11X al final de un `AGENTS.md` existente sin modificar reglas previas.
   * `propose_skill_evolution_pr`: Propone mejoras federadas a `qa-testing-blueprints` mediante `gh` CLI local autenticado o generando un archivo de propuesta local y URL prellenada de GitHub (Zero-Trust, 0 tokens empaquetados).
 
