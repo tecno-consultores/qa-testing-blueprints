@@ -5,6 +5,8 @@
 Script de Inspección Rápida de Radio de Impacto (Blast Radius) mediante Graphify AST.
 Permite evaluar matemáticamente antes de refactorizar cuántos y cuáles archivos
 o funciones dependen directa o indirectamente de un símbolo o archivo.
+Si el grafo AST (graphify-out/graph.json) no existe, instruye su creación inmediata
+y ejecuta un escaneo estático de respaldo para garantizar visibilidad cero-ciega.
 """
 
 from __future__ import annotations
@@ -12,17 +14,23 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import re
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+IGNORED_DIRS = {".git", "node_modules", ".venv", "venv", "__pycache__", "dist", "coverage", "target", "graphify-out"}
+SOURCE_EXTENSIONS = {".py", ".ts", ".js", ".vue", ".tsx", ".jsx", ".php", ".sh", ".bats"}
 
 
 def find_graph_files() -> list[Path]:
     """Busca archivos graph.json generados por Graphify."""
-    graphs = []
+    graphs: list[Path] = []
+    seen: set[Path] = set()
     for pattern in ["**/graphify-out/graph.json", "**/graph.json"]:
         for p in REPO_ROOT.glob(pattern):
-            if "node_modules" not in str(p) and ".venv" not in str(p):
+            resolved = p.resolve()
+            if resolved not in seen and "node_modules" not in str(p) and ".venv" not in str(p):
+                seen.add(resolved)
                 graphs.append(p)
     return graphs
 
@@ -79,6 +87,24 @@ def compute_blast_radius(graph: dict[str, Any], target_node_id: str) -> dict[str
     }
 
 
+def scan_fallback_references(query: str) -> list[str]:
+    """Escanea archivos fuente por referencias directas cuando el grafo no cubre el símbolo."""
+    pattern = re.compile(rf"\b{re.escape(query)}\b")
+    matched_files: list[str] = []
+    for path in REPO_ROOT.rglob("*"):
+        if not path.is_file() or path.suffix not in SOURCE_EXTENSIONS:
+            continue
+        if any(part in IGNORED_DIRS for part in path.parts):
+            continue
+        try:
+            content = path.read_text(encoding="utf-8", errors="ignore")
+            if pattern.search(content):
+                matched_files.append(str(path.relative_to(REPO_ROOT)))
+        except OSError:
+            continue
+    return sorted(matched_files)
+
+
 def assess_risk_level(query: str, callers_count: int, files_count: int) -> str:
     critical_keywords = ["vault", "auth", "token", "rls", "security", "csrf", "secret", "session"]
     is_security_critical = any(kw in query.lower() for kw in critical_keywords)
@@ -94,8 +120,11 @@ def assess_risk_level(query: str, callers_count: int, files_count: int) -> str:
 def inspect_symbol(query: str) -> None:
     graph_files = find_graph_files()
     if not graph_files:
-        print(f"ℹ️ [Blast Radius: '{query}'] Sin grafos Graphify (graph.json) activos.")
-        return
+        print(
+            f"⚠️ [Blast Radius: '{query}'] No se detectó ningún grafo Graphify (graphify-out/graph.json). "
+            "DIRECTRIZ OBLIGATORIA: Si el grafo no existe, DEBES crearlo ejecutando './scripts/actualizar-grafos-graphify.sh' "
+            "(más información en qa-testing-blueprints)."
+        )
 
     total_callers = 0
     total_files: set[str] = set()
@@ -129,8 +158,19 @@ def inspect_symbol(query: str) -> None:
         except Exception as e:
             print(f"⚠️ Error procesando grafo {g_path}: {e}")
 
+    if total_callers == 0:
+        fallback_files = scan_fallback_references(query)
+        if fallback_files:
+            total_callers = len(fallback_files)
+            total_files.update(fallback_files)
+            for rel_file in fallback_files[:5]:
+                print(f"   -> [AST/Source Scan] {rel_file}")
+            if len(fallback_files) > 5:
+                print(f"   ... (+{len(fallback_files) - 5} archivos más)")
+
     final_risk = assess_risk_level(query, total_callers, len(total_files))
     print(f"📊 [Blast Radius '{query}'] Llamadores: {total_callers} | Archivos afectados: {len(total_files)} | {final_risk}")
+    print("🔄 [Recordatorio 11X] Al terminar los cambios y pruebas, SIEMPRE debes actualizar el grafo con './scripts/actualizar-grafos-graphify.sh'.")
 
 
 def main() -> None:

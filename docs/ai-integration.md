@@ -160,7 +160,7 @@ mcp_servers:
 | **`inspect_project_config`** | `project_path` | Audita stacks presentes (`python`, `fastapi`, `node`, `vue3`, `react`, `bash`, `php`), configuraciones de linters/tipado y disponibilidad de pruebas en navegador real (`BrowserTestingReadiness`). |
 | **`fetch_blueprint_bundle`** | `stack`, `include_common_and_agents` | Descarga bajo demanda todos los archivos del stack con verificación criptográfica SHA-256. |
 | **`bootstrap_or_merge_11x`** | `project_path`, `stack`, `dry_run` | Aplica una fusión quirúrgica no destructiva inyectando configuraciones QA sin alterar dependencias. |
-| **`inspect_ast_blast_radius`** | `project_path`, `target_symbol` | Analiza el radio de impacto de un símbolo en el código antes de refactorizar y sugiere pruebas. |
+| **`inspect_ast_blast_radius`** | `project_path`, `target_symbol` | Analiza el radio de impacto de un símbolo combinando `graphify-out/graph.json` y escaneo estático, informa si existe el grafo AST (`ast_graph_detected`), ordena crearlo con `./scripts/actualizar-grafos-graphify.sh` si falta y recuerda actualizarlo al terminar. |
 | **`clean_workspace_11x`** | `project_path`, `dry_run`, `deep_prune` | Sanea artefactos temporales de pruebas y cachés de Docker (soporta modo simulación y fallback Alpine). |
 | **`audit_security_stig_owasp`**| `project_path` | Audita estáticamente 11 reglas DISA/OWASP (`SEC-01` a `SEC-11`, incluyendo anti-UUID en `actor_username` y prohibición de mocks ciegos en `write_audit_log`) y ergonomía visual/operativa (`UI-11X-01` y `UI-11X-02`). |
 | **`run_ephemeral_qa`** | `project_path`, `stage`, `timeout_seconds` | Ejecuta targets del `Makefile` en Docker efímero bajo la Regla Cero y condensa la salida a JSON. |

@@ -14,6 +14,7 @@ const SKILLS_DIR_NAME = 'skills';
 const SKILLS_PREFIX = '.agents/skills/';
 const AGENT_SCRIPTS_PREFIX = '.agents/scripts/';
 const AGENT_RULES_PREFIX = '.agents/rules/';
+const ACTIVE_TASK_EXAMPLE_PATH = '.agents/ACTIVE_TASK.md.example';
 const GEMINI_DIR_NAME = '.gemini';
 const CLAUDE_DIR_NAME = '.claude';
 const HERMES_DIR_NAME = '.hermes';
@@ -115,6 +116,27 @@ function writeDownloadedSkills(
   }
 }
 
+function writeScriptEntry(cwd: string, entry: ManifestFileEntry, content: string): void {
+  const targetRel = entry.target_name || entry.path;
+  const fullPath = path.join(cwd, targetRel);
+  const parentDir = path.dirname(fullPath);
+  if (!fs.existsSync(parentDir)) {
+    fs.mkdirSync(parentDir, { recursive: true });
+  }
+  if (entry.path === ACTIVE_TASK_EXAMPLE_PATH) {
+    const exampleFullPath = path.join(cwd, entry.path);
+    fs.writeFileSync(exampleFullPath, content, UTF8);
+    if (!fs.existsSync(fullPath)) {
+      fs.writeFileSync(fullPath, content, UTF8);
+    }
+    return;
+  }
+  fs.writeFileSync(fullPath, content, UTF8);
+  if (fullPath.endsWith('.sh') || fullPath.endsWith('.py')) {
+    fs.chmodSync(fullPath, 0o755);
+  }
+}
+
 async function installIncludedScripts(
   cwd: string,
   manifest: Manifest,
@@ -123,7 +145,10 @@ async function installIncludedScripts(
   const scriptEntries: ManifestFileEntry[] = [
     ...(manifest.common_files || []),
     ...(manifest.agent_governance_files || []).filter(
-      (f) => f.path.startsWith(AGENT_SCRIPTS_PREFIX) || f.path.startsWith(AGENT_RULES_PREFIX)
+      (f) =>
+        f.path.startsWith(AGENT_SCRIPTS_PREFIX) ||
+        f.path.startsWith(AGENT_RULES_PREFIX) ||
+        f.path === ACTIVE_TASK_EXAMPLE_PATH
     ),
   ];
 
@@ -133,16 +158,7 @@ async function installIncludedScripts(
 
   for (const entry of scriptEntries) {
     const content = await fetcher.fetchFileContent(entry.path, entry.sha256);
-    const targetRel = entry.target_name || entry.path;
-    const fullPath = path.join(cwd, targetRel);
-    const parentDir = path.dirname(fullPath);
-    if (!fs.existsSync(parentDir)) {
-      fs.mkdirSync(parentDir, { recursive: true });
-    }
-    fs.writeFileSync(fullPath, content, UTF8);
-    if (fullPath.endsWith('.sh') || fullPath.endsWith('.py')) {
-      fs.chmodSync(fullPath, 0o755);
-    }
+    writeScriptEntry(cwd, entry, content);
   }
   console.log(`✔ [Scripts 11X] ${scriptEntries.length} scripts y archivos comunes instalados [0o755].`);
 }

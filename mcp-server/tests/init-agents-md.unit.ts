@@ -35,6 +35,15 @@ describe('init-agents-md (Non-destructive AGENTS.md connector injection)', () =>
       expect(block).toContain('fastapi, bash-scripts');
       expect(block).toContain('@sinfallas/mcp-qa-11x');
       expect(block).toContain('Rule Zero');
+      expect(block).toContain('Mandatory 11-Step Execution & Closure Workflow');
+      expect(block).toContain('/plan');
+      expect(block).toContain('.agents/ACTIVE_TASK.md');
+      expect(block).toContain('./scripts/actualizar-grafos-graphify.sh');
+      expect(block).toContain('docs/specs/');
+      expect(block).toContain('CHANGELOG.md');
+      expect(block).toContain('ROADMAP.md');
+      expect(block).toContain('Karate Labs BDD');
+      expect(block).toContain('git push');
     });
 
     it('falls back to "general" when stacks list is empty', () => {

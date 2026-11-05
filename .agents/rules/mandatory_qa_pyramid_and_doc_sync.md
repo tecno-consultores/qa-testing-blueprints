@@ -47,18 +47,22 @@ Any addition, modification, or bug fix in application source code (`fastapi/`, `
 
 ---
 
-## 3. Continuous Mandatory Documentation Sync
+## 3. Continuous Mandatory Documentation, Governance & AST Graph Sync
 
 Following any code modification, the AI agent **MUST autonomously and continuously synchronize**:
 
-1. **Affected Guides & Manuals in `docs/`:**
-   - Update operational manuals, configuration guides, and API contract references.
+1. **Affected Guides, Manuals & Technical Specifications (`docs/` & `docs/specs/`):**
+   - ALWAYS update operational manuals, architecture guides, technical specifications (`docs/specs/*.md`), and API contract references.
 2. **Change History in `CHANGELOG.md`:**
-   - Record additions, modifications, and fixes under `## [Unreleased]`.
-3. **Assurance Metrics in `TESTING.md`:**
-   - Record updated test counts, pass rates, and coverage percentages.
-4. **Project Root (`README.md`, `FAQ.md`, `RESOURCES.md`):**
-   - Update whenever architectural blueprints, tools, or dependencies evolve.
+   - ALWAYS record additions, modifications, fixes, and security hardening under `## [Unreleased]`.
+3. **Assurance Metrics in `TESTING.md` & Milestones in `ROADMAP.md`:**
+   - ALWAYS record updated test counts, pass rates, and coverage percentages in `TESTING.md`.
+   - Update `ROADMAP.md` whenever applicable, verifying bidirectional parity via `python3 .agents/scripts/verify_roadmap_consistency.py`.
+4. **Project Root & Governance (`README.md`, `AGENTS.md`, `.agents/`, `scripts/limpieza.sh`, `.gitignore`):**
+   - ALWAYS update `README.md`, repository governance files (`AGENTS.md`, `.agents/rules/`, `.agents/skills/`), workspace cleanup scripts (`scripts/limpieza.sh`), and `.gitignore` whenever architectural blueprints, tools, or artifacts evolve.
+5. **Post-Modification AST Graph Refresh & Git Push:**
+   - ALWAYS update the AST knowledge graph at the end of changes via `./scripts/actualizar-grafos-graphify.sh`.
+   - ALWAYS commit and push verified changes to `git` (`git add`, `git commit`, `git push`) after passing the 11X certification gate.
 
 ---
 

@@ -177,6 +177,9 @@ export interface BlastRadiusResult {
   dependent_files_count: number;
   dependent_files: string[];
   suggested_tests_to_run: string[];
+  ast_graph_detected?: boolean;
+  ast_graph_files?: string[];
+  ast_graph_action_required?: string;
 }
 
 export interface SecurityFinding {

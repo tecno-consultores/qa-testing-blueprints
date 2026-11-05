@@ -306,6 +306,7 @@ class TestGenerarManifiesto(unittest.TestCase):
         php_meta = gm.STACK_METADATA["php"]
         self.assertIn("PHP 8.1-8.5", php_meta["description"])
         self.assertEqual(php_meta["readme"], "php/README.md")
+        self.assertIn("scripts/actualizar-grafos-graphify.sh", gm.COMMON_FILE_PATHS)
 
 
 if __name__ == "__main__":

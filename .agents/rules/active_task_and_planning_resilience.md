@@ -32,9 +32,11 @@ To guarantee zero context loss and immediate session recovery, all AI agents (Go
 │    └── On crash or context loss ─> Read .agents/ACTIVE_TASK.md first.  │
 │                                                                        │
 │ 4. CLOSURE GATE: Mandatory verification before git push                │
-│    └── Run ./.agents/scripts/certify_task_completion.sh (9/9 gates).   │
+│    └── Update AST graph via ./scripts/actualizar-grafos-graphify.sh.   │
+│    └── Run ./.agents/scripts/certify_task_completion.sh (10/10 gates).  │
 │    └── Mark status: "COMPLETED (100%)".                                │
-│    └── Sync CHANGELOG.md, ROADMAP.md, TESTING.md, README.md.           │
+│    └── Sync docs/, docs/specs/, CHANGELOG.md, ROADMAP.md, TESTING.md.  │
+│    └── Commit & push to git (git add, git commit, git push).           │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 

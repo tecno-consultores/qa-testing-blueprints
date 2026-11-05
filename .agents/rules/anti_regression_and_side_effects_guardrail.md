@@ -14,11 +14,16 @@ Before altering any shared code, service definition, or configuration:
 1. **Shared Configuration & Port Invariants (`docker-compose*.yml`):**
    - **Never delete or overwrite canonical protocol ports** when adding or exposing alternative ports.
    - Verify that base HTTP/HTTPS/WSS and database bindings remain reachable.
-2. **Graphify AST Blast-Radius Pre-Audit (CLI-First Invariant):**
-   - Prior to modifying or refactoring any shared function, model, utility, or state store, run the canonical blast radius inspector directly via CLI:
+2. **Graphify AST Blast-Radius Pre-Audit, Auto-Creation & Post-Change Update (CLI-First Invariant):**
+   - Prior to modifying or refactoring any shared function, model, utility, or state store, run the canonical blast radius inspector directly via CLI (or `inspect_ast_blast_radius` via MCP):
      ```bash
      python3 .agents/scripts/inspect_blast_radius.py "<symbol_name>"
      ```
+   - **Mandatory AST Graph Creation If Missing:** If `graphify-out/graph.json` does not exist in the repository or target stack, you **MUST create it first** before modifying code by running:
+     ```bash
+     ./scripts/actualizar-grafos-graphify.sh
+     ```
+   - **Mandatory Post-Change AST Graph Update:** Upon completing all code and test modifications, you **MUST ALWAYS update the AST graph** by running `./scripts/actualizar-grafos-graphify.sh` before closing the task.
    - **CLI-First Execution Rule:** Shell-capable agents (Google Antigravity, local terminal agents) MUST execute the inspector and query tools directly via CLI. They MUST NOT spawn background Docker MCP containers or occupy port 8080, which are reserved exclusively for external non-shell clients (Claude Desktop, Hermes Agent).
    - For any symbol assessed as `MODERATE` or `HIGH/CRITICAL` risk, the agent's implementation plan must explicitly list all affected caller files and guarantee that their contracts and parameters remain intact.
 

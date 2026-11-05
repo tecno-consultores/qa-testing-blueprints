@@ -32,3 +32,19 @@ When modifying a symbol or file:
 1. **Low Risk:** `< 5` direct callers across `< 3` files. Proceed with local unit tests.
 2. **Moderate Risk:** `5-14` callers across `3-7` files. Verify callers' contracts and re-run all caller unit tests.
 3. **High / Critical Risk:** `>= 15` callers, `>= 8` files, or security-sensitive keywords (`vault`, `auth`, `token`, `rls`, `csrf`, `session`). Requires full regression test suite execution across the entire pyramid before merging.
+
+---
+
+## 3. Mandatory AST Graph Lifecycle (Create If Missing & Update on Completion)
+
+1. **Pre-Modification Creation Invariant:**
+   - Before modifying code, check whether `graphify-out/graph.json` exists in the repository or target stack.
+   - **If the graph does not exist, you MUST create it first** using the canonical ephemeral Docker script (`sinfallas/remote-graphify:latest`):
+     ```bash
+     ./scripts/actualizar-grafos-graphify.sh
+     ```
+2. **Post-Modification Update Invariant:**
+   - **ALWAYS** update the AST knowledge graph after finishing code and test modifications (before `git commit` and `git push`):
+     ```bash
+     ./scripts/actualizar-grafos-graphify.sh
+     ```

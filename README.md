@@ -105,7 +105,7 @@ flowchart TD
         QAEng["Ingeniero de QA / Staff"]
     end
 
-    MCP -- "11 Tools + 8 Resources stdio" --> ConsumidoresIA
+    MCP -- "12 Tools + 8 Resources stdio" --> ConsumidoresIA
     Skills -- "Inyección de Cerebro 11X" --> ConsumidoresIA
     Skills -- "Instalación en workspace o IDE" --> ConsumidoresHumanos
     Blueprints -- "Makefile + Docker efímero" --> ConsumidoresHumanos
@@ -119,11 +119,11 @@ flowchart TD
 El servidor canónico MCP en Node.js/TypeScript está publicado en npmjs bajo **`@sinfallas/mcp-qa-11x`** (Node.js 20+). Permite a cualquier agente de IA o IDE conectarse en tiempo real sin clonar el repositorio, accediendo a:
 
 * **8 Recursos Dinámicos (`blueprint://*`):** Manifiesto criptográfico (`blueprint://manifest`), filosofía y prompts (`blueprint://core/philosophy`), síntesis DISA/OWASP (`blueprint://security/disa-owasp-22`), templates por stack (`blueprint://{stack}/readme`), reglas tácticas UI (`blueprint://ui/refactoring-ui/{topic}`) y utilitarios (`blueprint://core/*`).
-* **11 Herramientas Autónomas (`Tools`):**
+* **12 Herramientas Autónomas (`Tools`):**
   * `inspect_project_config`: Audita stacks presentes, configuraciones de linters/tipado y disponibilidad de pruebas en navegador real (`BrowserTestingReadiness`).
   * `fetch_blueprint_bundle`: Descarga quirúrgica de plantillas bajo demanda con validación SHA-256.
   * `bootstrap_or_merge_11x`: Aplica fusión no destructiva integrando QA 11X en proyectos vivos.
-  * `inspect_ast_blast_radius`: Análisis AST de radio de impacto previo a refactorizaciones.
+  * `inspect_ast_blast_radius`: Análisis AST de radio de impacto previo a refactorizaciones; verifica la existencia de `graphify-out/graph.json`, instruye su creación mediante `./scripts/actualizar-grafos-graphify.sh` si no existe y exige su actualización al finalizar los cambios.
   * `clean_workspace_11x`: Purga profunda de cachés y artefactos sin requerir `sudo`.
   * `audit_security_stig_owasp`: Auditoría estática de 11 reglas DISA/OWASP (`SEC-01` a `SEC-11`, incluyendo integridad semántica de auditoría anti-UUID y prohibición de mocks ciegos en `write_audit_log`) y ergonomía visual/operativa (`UI-11X-01` y `UI-11X-02`).
   * `run_ephemeral_qa`: Ejecución de pruebas en Docker efímero bajo la Regla Cero con salida JSON.

@@ -39,6 +39,18 @@ export function buildConnectorBlock(projectName: string, stacks: string[]): stri
     '   - `run_ephemeral_qa`: Run linters (`--max-warnings 0`), unit tests (`>= 95%` coverage), and Karate Labs BDD scenarios in ephemeral Docker.',
     '   - `certify_11x_gate` & `clean_workspace_11x`: Certify all closure checks and sanitize root-owned container files before `git commit` and `git push`.',
     '   - `propose_skill_evolution_pr` & `reconcile_agents_governance`: MANDATORY QA-ESCAPE POST-MORTEM — Whenever you fix a UAT, integration, or production bug that escaped existing automated tests (even with `>= 95%` coverage), you MUST PROACTIVELY include a section titled `💡 Oportunidad de Mejora Detectada para el Estándar QA 11X` in your Spanish response and invoke `propose_skill_evolution_pr` WITHOUT waiting for the user to ask. Isolate project-specific domain rules in `.agents/rules/domain_<project>_rules.md`.',
+    '4. **Mandatory 11-Step Execution & Closure Workflow (Non-Negotiable):**',
+    '   - **Step 1 (Planning Tool):** ALWAYS use your planning tool (`/plan` or interactive plan artifact) before modifying code.',
+    '   - **Step 2 (Active Task Diary):** ALWAYS use `.agents/ACTIVE_TASK.md` to maintain a real-time progress diary (`- [ ]` -> `- [x]`) so work can resume seamlessly after any crash or context reset.',
+    '   - **Step 3 (Pre-Change AST Graph Audit & Creation):** ALWAYS inspect the AST knowledge graph (`inspect_ast_blast_radius` / `.agents/scripts/inspect_blast_radius.py`) before modifying code to verify changes do not negatively impact other systems. **If `graphify-out/graph.json` does not exist, you MUST create it first** via `./scripts/actualizar-grafos-graphify.sh` (see `qa-testing-blueprints`).',
+    '   - **Step 4 (Governance, Cleanup & Gitignore Sync):** ALWAYS update repository governance files (`AGENTS.md`, `.agents/rules/`, `.agents/skills/`), cleanup scripts (`scripts/limpieza.sh`), and `.gitignore` when introducing new artifacts or rules.',
+    '   - **Step 5 (Complete 11X Test Creation + Karate Labs):** ALWAYS create all required tests across the 11X pyramid (`>= 95%` unit coverage, integration, E2E) **ALWAYS including Karate Labs BDD (`.feature`)**.',
+    '   - **Step 6 (Full Test Suite Execution):** ALWAYS execute the entire test suite inside ephemeral Docker containers (`Rule Zero` / `run_ephemeral_qa`) with 0 warnings/errors.',
+    '   - **Step 7 (Documentation & Specs Sync):** ALWAYS update project documentation and technical specifications (`docs/`, `docs/specs/`, `README.md`, `TESTING.md`).',
+    '   - **Step 8 (Changelog Update):** ALWAYS update `CHANGELOG.md` (under `## [Unreleased]`) recording added, changed, fixed, or security items.',
+    '   - **Step 9 (Roadmap Sync):** Update `ROADMAP.md` whenever applicable, keeping summary tables and granular task checkboxes (`- [x]`) synchronized.',
+    '   - **Step 10 (Post-Change AST Graph Update):** ALWAYS update the AST knowledge graph (`./scripts/actualizar-grafos-graphify.sh`) upon finishing code and test changes.',
+    '   - **Step 11 (Certification Gate & Git Push):** ALWAYS run `certify_11x_gate` (`./.agents/scripts/certify_task_completion.sh`) and `clean_workspace_11x` (`./scripts/limpieza.sh`), mark `.agents/ACTIVE_TASK.md` as `COMPLETED (100%)`, and **push all changes to git (`git add`, `git commit`, `git push`)**.',
     CONNECTOR_END_MARKER,
   ].join('\n');
 }

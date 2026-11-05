@@ -315,6 +315,43 @@ describe('Tools and Resources Integration Suite', () => {
         'El directorio no existe'
       );
     });
+
+    it('detects missing AST graph and parses graphify-out/graph.json callers when present', async () => {
+      fs.writeFileSync(path.join(targetProjectDir, 'Service.php'), '<?php class GraphTarget {}', 'utf-8');
+      const noGraphRes = await inspectAstBlastRadius(targetProjectDir, 'GraphTarget');
+      expect(noGraphRes.ast_graph_detected).toBe(false);
+      expect(noGraphRes.ast_graph_files).toEqual([]);
+      expect(noGraphRes.ast_graph_action_required).toContain('actualizar-grafos-graphify.sh');
+      expect(noGraphRes.dependent_files).toContain('Service.php');
+
+      const graphDir = path.join(targetProjectDir, 'graphify-out');
+      fs.mkdirSync(graphDir, { recursive: true });
+      const graphPayload = {
+        nodes: [
+          { id: 'node_target', label: 'GraphTarget', source_file: 'Service.php' },
+          { id: 'node_caller', label: 'CallerController', source_file: 'src/CallerController.php' },
+          { id: 'node_spec_caller', label: 'CallerSpec', source_file: 'tests/Caller.spec.ts' },
+        ],
+        links: [
+          { source: 'node_caller', target: 'node_target', relation: 'calls' },
+          { source: 'node_spec_caller', target: 'node_target', source_file: 'tests/Caller.spec.ts' },
+          { source: 'unknown_node', target: 'other_target' },
+        ],
+      };
+      fs.writeFileSync(path.join(graphDir, 'graph.json'), JSON.stringify(graphPayload), 'utf-8');
+
+      // También probar grafo corrupto en subdirectorio para cubrir catch
+      const badGraphDir = path.join(targetProjectDir, 'sub', 'graphify-out');
+      fs.mkdirSync(badGraphDir, { recursive: true });
+      fs.writeFileSync(path.join(badGraphDir, 'graph.json'), '{ invalid json', 'utf-8');
+
+      const withGraphRes = await inspectAstBlastRadius(targetProjectDir, 'GraphTarget');
+      expect(withGraphRes.ast_graph_detected).toBe(true);
+      expect(withGraphRes.ast_graph_files).toContain(path.join('graphify-out', 'graph.json'));
+      expect(withGraphRes.dependent_files).toContain('src/CallerController.php');
+      expect(withGraphRes.dependent_files).toContain('tests/Caller.spec.ts');
+      expect(withGraphRes.ast_graph_action_required).toContain('Grafo AST detectado');
+    });
   });
 
   describe('BlueprintResources', () => {
@@ -572,6 +609,15 @@ describe('Tools and Resources Integration Suite', () => {
         expect(
           fs.existsSync(path.join(testDir, '.agents/scripts/verify_roadmap_consistency.py'))
         ).toBe(true);
+        expect(fs.existsSync(path.join(testDir, '.agents/ACTIVE_TASK.md.example'))).toBe(true);
+        expect(fs.existsSync(path.join(testDir, '.agents/ACTIVE_TASK.md'))).toBe(true);
+
+        // Segunda ejecución con ACTIVE_TASK.md ya existente: no sobrescribe el diario en curso
+        fs.writeFileSync(path.join(testDir, '.agents/ACTIVE_TASK.md'), '# Diario En Progreso', 'utf-8');
+        await runInstallSkillCli(['--target', 'workspace', '--include-scripts'], fetcher);
+        expect(fs.readFileSync(path.join(testDir, '.agents/ACTIVE_TASK.md'), 'utf-8')).toBe(
+          '# Diario En Progreso'
+        );
 
         // Probar rama cuando no hay scripts comunes ni de agentes
         const emptyScriptsFetcher = new GitHubFetcher();

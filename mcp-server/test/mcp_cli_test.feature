@@ -302,6 +302,41 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * match mockGateResultWithEvolutionReminder.upstream_evolution_reminder contains 'propose_skill_evolution_pr'
     * match mockGateResultWithEvolutionReminder.upstream_evolution_reminder contains 'Oportunidad de Mejora Detectada para el Estándar QA 11X'
 
+  # ==============================================================================
+  # Grupo 12: Contrato del Flujo de 11 Directrices Operativas y Ciclo de Vida del Grafo AST (Local + MCP)
+  # ==============================================================================
+
+  Scenario: 12. El manifiesto y herramientas MCP garantizan las 11 directrices operativas y el ciclo del grafo AST
+    # 1. Verificar que scripts/actualizar-grafos-graphify.sh se distribuya en common_files para usuarios del MCP
+    * def commonPaths = karate.map(manifest.common_files, function(x) { return x.path })
+    * match commonPaths contains 'scripts/actualizar-grafos-graphify.sh'
+    * match commonPaths contains 'scripts/limpieza.sh'
+
+    # 2. Verificar que .agents/ACTIVE_TASK.md.example esté indexado en agent_governance_files
+    * def govPaths = karate.map(manifest.agent_governance_files, function(x) { return x.path })
+    * match govPaths contains '.agents/ACTIVE_TASK.md.example'
+    * match govPaths contains '.agents/scripts/inspect_blast_radius.py'
+
+    # 3. Contrato enriquecido de inspect_ast_blast_radius con detección de grafo AST y orden de creación/actualización
+    * def mockBlastRadiusMissingGraph =
+      """
+      {
+        project_path: '/workspace/consumer-app',
+        target_symbol: 'UserService',
+        risk_level: 'LOW',
+        dependent_files_count: 1,
+        dependent_files: ['src/UserController.ts'],
+        suggested_tests_to_run: ['tests/**/UserController.unit.*'],
+        ast_graph_detected: false,
+        ast_graph_files: [],
+        ast_graph_action_required: "⚠️ No se detectó grafo AST (graphify-out/graph.json). DIRECTRIZ OBLIGATORIA: Si el grafo no existe debes crearlo ejecutando './scripts/actualizar-grafos-graphify.sh' (más información en qa-testing-blueprints) y SIEMPRE debes actualizar el grafo al terminar los cambios."
+      }
+      """
+    * match mockBlastRadiusMissingGraph.ast_graph_detected == false
+    * match mockBlastRadiusMissingGraph.ast_graph_action_required contains './scripts/actualizar-grafos-graphify.sh'
+    * match mockBlastRadiusMissingGraph.ast_graph_action_required contains 'qa-testing-blueprints'
+
+
 
 
 

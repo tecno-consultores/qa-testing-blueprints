@@ -464,6 +464,27 @@ En `mcp-server/src/cli/install-skill.ts`:
 1. En `mcp-server/src/server.ts`, registrar la **Tool 12 (`reconcile_agents_governance`)** con `ReconcileAgentsInputSchema.shape` llamando a `reconcileAgentsGovernance({ projectPath: args.project_path, dryRun: args.dry_run })`.
 2. En `mcp-server/src/cli/reconcile-agents.ts`, exportar `runReconcileAgentsCli(args: string[]): Promise<void>` (usando `parseInitAgentsArgs(args)` de `init-agents-md.ts`) y conectarlo en `mcp-server/src/index.ts` cuando `arg1 === 'reconcile-agents'`.
 
+### 5.5. Protocolo Operativo de 11 Directrices y Ciclo Completo del Grafo AST (Uso Local + Descarga MCP)
+
+Para garantizar que tanto en el repositorio local como en cualquier proyecto externo que descargue `@sinfallas/mcp-qa-11x` se cumplan sin excepción las **11 directrices operativas**, se incorporan los siguientes blindajes:
+1. **Conector `buildConnectorBlock()` con Flujo Obligatorio de 11 Pasos (`mcp-server/src/cli/init-agents-md.ts`):**
+   - **Paso 1:** Usar siempre la herramienta de planificación (`/plan` o artefacto de plan).
+   - **Paso 2:** Usar siempre `.agents/ACTIVE_TASK.md` como diario de progreso en tiempo real (`- [ ]` → `- [x]`).
+   - **Paso 3:** Revisar siempre el grafo AST antes de modificar código (`inspect_ast_blast_radius` / `.agents/scripts/inspect_blast_radius.py`), y **si el grafo (`graphify-out/graph.json`) no existe, crearlo primero** ejecutando `./scripts/actualizar-grafos-graphify.sh`.
+   - **Paso 4:** Actualizar siempre los archivos de gobernanza del repositorio (`AGENTS.md`, `.agents/rules/`, `.agents/skills/`), el script de limpieza (`scripts/limpieza.sh`) y `.gitignore`.
+   - **Paso 5:** Crear siempre todas las pruebas necesarias en la pirámide 11X ($\ge 95\%$ cobertura), **incluido siempre Karate Labs BDD (`.feature`)**.
+   - **Paso 6:** Ejecutar siempre todo el set de pruebas en contenedores Docker efímeros (`Rule Zero`).
+   - **Paso 7:** Actualizar siempre la documentación y las especificaciones técnicas (`docs/`, `docs/specs/`, `README.md`, `TESTING.md`).
+   - **Paso 8:** Actualizar siempre `CHANGELOG.md` (bajo `## [Unreleased]`).
+   - **Paso 9:** Actualizar `ROADMAP.md` cuando sea necesario.
+   - **Paso 10:** Actualizar siempre el grafo AST al terminar los cambios (`./scripts/actualizar-grafos-graphify.sh`).
+   - **Paso 11:** Ejecutar la compuerta de certificación (`certify_11x_gate`), marcar `.agents/ACTIVE_TASK.md` como `COMPLETED (100%)` y **subir siempre a `git` (`git commit` y `git push`)**.
+2. **Distribución de `scripts/actualizar-grafos-graphify.sh` y `.agents/ACTIVE_TASK.md.example` a Usuarios del MCP:**
+   - `scripts/generar-manifiesto.py` incluye `"scripts/actualizar-grafos-graphify.sh"` dentro de `COMMON_FILE_PATHS` para que `install-skill --include-scripts` y `bootstrap_or_merge_11x` lo entreguen automáticamente con permisos de ejecución `0o755`.
+   - `mcp-server/src/cli/install-skill.ts` (`installIncludedScripts`) instala `.agents/ACTIVE_TASK.md.example` e inicializa `.agents/ACTIVE_TASK.md` (sin sobrescribir un diario existente en curso).
+3. **Detección del Grafo AST y Orden de Creación/Actualización en `inspect_ast_blast_radius` (`mcp-server/src/tools/blast-radius.ts`):**
+   - `BlastRadiusResult` retorna `ast_graph_detected: boolean`, `ast_graph_files: string[]` y `ast_graph_action_required: string`, combinando los llamadores de `graphify-out/graph.json` con el escaneo estático de fuentes (incluyendo `.php`) e instruyendo al agente a crear el grafo si no existe y a actualizarlo al terminar los cambios.
+
 ---
 
 ## 6. Requisitos de Pruebas 11X para el Hito 13 (`mcp-server/tests/reconcile-agents.unit.ts`) (Tarea 13.4)

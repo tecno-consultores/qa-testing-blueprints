@@ -92,11 +92,11 @@ When operating in pure CLI, Cloud, or desktop assistants without MCP tools:
 8. **Law 8: Universal RED Observability Pre-Chaos**  
    Application microservices must expose Prometheus metrics (`/metrics`) or send to `Pushgateway` (Rate, Errors, Duration) before running Pumba chaos profiles (network delay, jitter, packet loss) combined with Locust or Artillery load generation.
 
-9. **Law 9: Trimodal Ground-Truth Fixtures, 3-Phase Temporal Lifecycle & Anti-Regression**  
-   Validate external integrations and state stores against three raw fixtures: (1) Virgin / Factory Default (assert negative invariants), (2) Nominal Configured (assert active healthy state), and (3) Degraded / Unsupported (assert graceful fallback without HTTP 500). Furthermore, any entity governed by time windows, countdowns, or TTL (`starts_at` / `ends_at`, 60s Safe Mode rollback, 30s Step-Up tokens, leases) MUST be tested across all **3 Temporal Lifecycle Phases**: Phase 1 Pending (`t < starts_at`, `Programada`), Phase 2 Active/In-Progress (`starts_at <= t <= ends_at`, `En Curso` / `Activa`), and Phase 3 Expired/Reverted (`t > ends_at` or Cancelled). Inspect AST blast radius with `inspect_blast_radius.py` before modifying shared files.
+9. **Law 9: Trimodal Ground-Truth Fixtures, 3-Phase Temporal Lifecycle, AST Graph Lifecycle & Anti-Regression**  
+   Validate external integrations and state stores against three raw fixtures: (1) Virgin / Factory Default (assert negative invariants), (2) Nominal Configured (assert active healthy state), and (3) Degraded / Unsupported (assert graceful fallback without HTTP 500). Furthermore, any entity governed by time windows, countdowns, or TTL (`starts_at` / `ends_at`, 60s Safe Mode rollback, 30s Step-Up tokens, leases) MUST be tested across all **3 Temporal Lifecycle Phases**: Phase 1 Pending (`t < starts_at`, `Programada`), Phase 2 Active/In-Progress (`starts_at <= t <= ends_at`, `En Curso` / `Activa`), and Phase 3 Expired/Reverted (`t > ends_at` or Cancelled). **ALWAYS** inspect the AST blast radius (`inspect_blast_radius.py` / `inspect_ast_blast_radius`) before modifying shared files; **if `graphify-out/graph.json` does not exist, create it first via `./scripts/actualizar-grafos-graphify.sh`, and ALWAYS update the AST graph upon completing changes**.
 
-10. **Law 10: Active Task Invariant (`.agents/ACTIVE_TASK.md`), Planning Tool, Closure Gate & Proactive Upstream Evolution**  
-    Prior to code mutation on non-trivial tasks, AI agents MUST invoke the native planning tool/workflow (e.g. `/plan` slash command or interactive plan artifacts with `RequestFeedback: true`) and immediately persist the agreed phase breakdown in `.agents/ACTIVE_TASK.md` (bootstrapped from `.agents/ACTIVE_TASK.md.example`). As work proceeds, the agent MUST update `.agents/ACTIVE_TASK.md` in real-time (`- [ ]` → `- [x]`) to guarantee zero context loss across IDE crashes, session restarts, or context compaction. Every modification requires updating `TESTING.md` (metrics and test tallies), `CHANGELOG.md` (`## [Unreleased]`), `ROADMAP.md` (verifying summary table and section parity via `verify_roadmap_consistency.py`), and relevant `docs/`. Mark `.agents/ACTIVE_TASK.md` as `COMPLETED (100%)` and execute `./.agents/scripts/certify_task_completion.sh` before finishing. Whenever a task fixes a UAT/production bug that bypassed existing tests, the agent MUST proactively recommend evolving `qa-testing-blueprints` in its final response (`💡 Oportunidad de Mejora Detectada para el Estándar QA 11X`) and execute `propose_skill_evolution_pr` WITHOUT waiting for user prompting.
+10. **Law 10: Active Task Invariant (`.agents/ACTIVE_TASK.md`), Planning Tool, Docs/Specs Sync, Closure Gate & Git Push**  
+    Prior to code mutation on non-trivial tasks, AI agents MUST invoke the native planning tool/workflow (e.g. `/plan` slash command or interactive plan artifacts with `RequestFeedback: true`) and immediately persist the agreed phase breakdown in `.agents/ACTIVE_TASK.md` (bootstrapped from `.agents/ACTIVE_TASK.md.example`). As work proceeds, the agent MUST update `.agents/ACTIVE_TASK.md` in real-time (`- [ ]` → `- [x]`) to guarantee zero context loss across IDE crashes, session restarts, or context compaction. Every modification requires ALWAYS updating `docs/` and technical specifications (`docs/specs/`), `TESTING.md` (metrics and test tallies), `CHANGELOG.md` (`## [Unreleased]`), `ROADMAP.md` (when applicable, verifying summary table and section parity via `verify_roadmap_consistency.py`), repository governance files (`.agents/`, `AGENTS.md`, `scripts/limpieza.sh`, `.gitignore`), and refreshing the AST graph (`./scripts/actualizar-grafos-graphify.sh`). Mark `.agents/ACTIVE_TASK.md` as `COMPLETED (100%)`, execute `./.agents/scripts/certify_task_completion.sh`, and **ALWAYS commit and push to git (`git commit` & `git push`)**. Whenever a task fixes a UAT/production bug that bypassed existing tests, the agent MUST proactively recommend evolving `qa-testing-blueprints` in its final response (`💡 Oportunidad de Mejora Detectada para el Estándar QA 11X`) and execute `propose_skill_evolution_pr` WITHOUT waiting for user prompting.
 
 ---
 
@@ -162,13 +162,14 @@ Step 4: Audit Verification ───> Run `./scripts/verificar-secretos.sh` and 
 ### Playbook 4: 11X Certification & Task Closure Gate
 ```text
 Step 1: Execute Full QA ──────> Run `make qa-all` inside Docker containers.
-Step 2: Audit Integrity ──────> Run `python3 scripts/generar-manifiesto.py --check`.
-Step 3: Audit Roadmap Sync ───> Run `python3 .agents/scripts/verify_roadmap_consistency.py`.
-Step 4: Run Certifier ────────> Run `./.agents/scripts/certify_task_completion.sh` (10/10 gates).
-Step 5: Update Documentation ─> Synchronize TESTING.md, CHANGELOG.md, ROADMAP.md, and docs/.
-Step 6: Mark Active Task ─────> Mark .agents/ACTIVE_TASK.md as COMPLETED (100%).
-Step 7: QA-Escape Post-Mortem ─> If the task fixed a UAT/prod bug that bypassed existing >=95% tests, PROACTIVELY notify the user ("💡 Oportunidad de Mejora Detectada para el Estándar QA 11X") and invoke `propose_skill_evolution_pr` without waiting to be asked.
-Step 8: Commit & Publish ─────> Conventional commit in Spanish and push.
+Step 2: Update AST Graph ─────> Run `./scripts/actualizar-grafos-graphify.sh` to refresh `graphify-out/graph.json`.
+Step 3: Audit Integrity ──────> Run `python3 scripts/generar-manifiesto.py --check`.
+Step 4: Audit Roadmap Sync ───> Run `python3 .agents/scripts/verify_roadmap_consistency.py`.
+Step 5: Run Certifier ────────> Run `./.agents/scripts/certify_task_completion.sh` (10/10 gates).
+Step 6: Update Documentation ─> Synchronize docs/, docs/specs/, TESTING.md, CHANGELOG.md, ROADMAP.md, and governance files.
+Step 7: Mark Active Task ─────> Mark .agents/ACTIVE_TASK.md as COMPLETED (100%).
+Step 8: QA-Escape Post-Mortem ─> If the task fixed a UAT/prod bug that bypassed existing >=95% tests, PROACTIVELY notify the user ("💡 Oportunidad de Mejora Detectada para el Estándar QA 11X") and invoke `propose_skill_evolution_pr` without waiting to be asked.
+Step 9: Commit & Push to Git ─> Conventional commit in Spanish (`git commit`) and push (`git push`).
 ```
 
 ### Playbook 5: Workspace Sanitization & Docker Root File Eviction (`make clean` / `scripts/limpieza.sh`)

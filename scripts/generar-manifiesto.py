@@ -61,6 +61,7 @@ COMMON_FILE_PATHS: List[str] = [
     "commitlint.config.js",
     "scripts/auditar-infra.sh",
     "scripts/verificar-secretos.sh",
+    "scripts/actualizar-grafos-graphify.sh",
     ".trivy.yaml",
     "scripts/limpieza.sh",
     "scripts/publicar-mcp.sh",
