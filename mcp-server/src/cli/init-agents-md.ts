@@ -38,6 +38,7 @@ export function buildConnectorBlock(projectName: string, stacks: string[]): stri
     '   - `audit_security_stig_owasp`: Certify 0 `CRITICAL`/`HIGH` findings against the 22 DISA ASD STIG V6R5 & OWASP v4.2 patterns.',
     '   - `run_ephemeral_qa`: Run linters (`--max-warnings 0`), unit tests (`>= 95%` coverage), and Karate Labs BDD scenarios in ephemeral Docker.',
     '   - `certify_11x_gate` & `clean_workspace_11x`: Certify all closure checks and sanitize root-owned container files before `git commit` and `git push`.',
+    '   - `propose_skill_evolution_pr` & `reconcile_agents_governance`: MANDATORY QA-ESCAPE POST-MORTEM — Whenever you fix a UAT, integration, or production bug that escaped existing automated tests (even with `>= 95%` coverage), you MUST PROACTIVELY include a section titled `💡 Oportunidad de Mejora Detectada para el Estándar QA 11X` in your Spanish response and invoke `propose_skill_evolution_pr` WITHOUT waiting for the user to ask. Isolate project-specific domain rules in `.agents/rules/domain_<project>_rules.md`.',
     CONNECTOR_END_MARKER,
   ].join('\n');
 }
@@ -165,3 +166,22 @@ export async function runInitAgentsCli(args: string[]): Promise<void> {
   console.log('   ✅ Proceso de Conexión Finalizado Exitosamente                     ');
   console.log(`${DIVIDER}\n`);
 }
+
+export function syncGlobalGeminiMd(
+  homeDir: string,
+  dryRun = false
+): { updated: boolean; geminiMdPath: string } {
+  const geminiDir = path.join(homeDir, '.gemini');
+  const geminiMdPath = path.join(geminiDir, 'GEMINI.md');
+  if (!fs.existsSync(geminiDir)) {
+    return { updated: false, geminiMdPath };
+  }
+
+  const existing = fs.existsSync(geminiMdPath) ? fs.readFileSync(geminiMdPath, UTF8) : '';
+  const mergeRes = mergeOrAppendAgentsMdContent(existing, 'Global User Workspace', ['all']);
+  if (!dryRun) {
+    fs.writeFileSync(geminiMdPath, mergeRes.finalContent, UTF8);
+  }
+  return { updated: true, geminiMdPath };
+}
+

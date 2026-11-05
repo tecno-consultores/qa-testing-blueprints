@@ -116,6 +116,8 @@ sbom-*.cdx.json
 /ACTIVE_TASK.md
 ACTIVE_TASK.md
 .agents/ACTIVE_TASK.md
+.agents/backups/
+**/.agents/backups/
 .agents/*.scratchpad.md
 .task_scratchpad.md
 *.swp

@@ -172,7 +172,7 @@ def scan_stack(repo_root: Path, stack_name: str, stack_dir: Path) -> List[Dict[s
         return files
 
     ignored_names = {"README.md", "changelog", ".DS_Store"}
-    ignored_dirs = {".git", ".pytest_cache", "__pycache__", ".venv", "node_modules", "dist"}
+    ignored_dirs = {".git", ".pytest_cache", "__pycache__", ".venv", "node_modules", "dist", "graphify-out"}
 
     for item in sorted(stack_dir.rglob("*")):
         if not item.is_file():

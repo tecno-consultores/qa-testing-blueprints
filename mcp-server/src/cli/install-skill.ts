@@ -5,13 +5,15 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { GitHubFetcher } from '../services/github-fetcher.js';
-import { initOrAppendAgentsMd } from './init-agents-md.js';
+import { initOrAppendAgentsMd, syncGlobalGeminiMd } from './init-agents-md.js';
+import { reconcileAgentsGovernance } from './reconcile-agents.js';
 import type { Manifest, ManifestFileEntry } from '../types.js';
 
 const AGENTS_DIR_NAME = '.agents';
 const SKILLS_DIR_NAME = 'skills';
 const SKILLS_PREFIX = '.agents/skills/';
 const AGENT_SCRIPTS_PREFIX = '.agents/scripts/';
+const AGENT_RULES_PREFIX = '.agents/rules/';
 const GEMINI_DIR_NAME = '.gemini';
 const CLAUDE_DIR_NAME = '.claude';
 const HERMES_DIR_NAME = '.hermes';
@@ -120,8 +122,8 @@ async function installIncludedScripts(
 ): Promise<void> {
   const scriptEntries: ManifestFileEntry[] = [
     ...(manifest.common_files || []),
-    ...(manifest.agent_governance_files || []).filter((f) =>
-      f.path.startsWith(AGENT_SCRIPTS_PREFIX)
+    ...(manifest.agent_governance_files || []).filter(
+      (f) => f.path.startsWith(AGENT_SCRIPTS_PREFIX) || f.path.startsWith(AGENT_RULES_PREFIX)
     ),
   ];
 
@@ -150,6 +152,15 @@ export async function runInstallSkillCli(args: string[], fetcher?: GitHubFetcher
   const targetArg = parseTargetArg(args);
   const includeScripts = args.includes('--include-scripts');
   const initAgents = args.includes('--init-agents');
+  const reconcile = args.includes('--reconcile');
+  const cwd = process.cwd();
+
+  if (reconcile) {
+    const recRes = await reconcileAgentsGovernance({ projectPath: cwd, dryRun: false });
+    console.log(
+      `✔ [Reconcile 11X] ${recRes.removed_duplicate_sections_count} sección(es) duplicada(s) podada(s), ${recRes.preserved_domain_sections_count} sección(es) de dominio preservada(s).`
+    );
+  }
 
   const manifest = await resolvedFetcher.fetchManifest();
 
@@ -163,7 +174,6 @@ export async function runInstallSkillCli(args: string[], fetcher?: GitHubFetcher
   }
 
   const homeDir = process.env.HOME || os.homedir();
-  const cwd = process.cwd();
   const destDirs = resolveDestinationDirs(targetArg, homeDir, cwd);
 
   const downloadedFiles: Array<{ relSkillPath: string; content: string }> = [];
@@ -176,6 +186,10 @@ export async function runInstallSkillCli(args: string[], fetcher?: GitHubFetcher
 
   console.log(`✔ [Skills 11X] ${downloadedFiles.length} archivos verificados con SHA-256 (DISA STIG V-222513).`);
   writeDownloadedSkills(destDirs, downloadedFiles);
+
+  if (fs.existsSync(path.join(homeDir, GEMINI_DIR_NAME))) {
+    syncGlobalGeminiMd(homeDir);
+  }
 
   if (includeScripts) {
     await installIncludedScripts(cwd, manifest, resolvedFetcher);

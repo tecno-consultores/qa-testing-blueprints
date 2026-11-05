@@ -27,7 +27,7 @@
 | **Hito 10** | Diagnóstico Asistido de Navegador (Playwright / Browser MCP) y PRs de Evolución Continua Zero-Trust (`propose_skill_evolution_pr`) | [`09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md`](docs/specs/09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md) | ✅ Completado | `100%` |
 | **Hito 11** | Blueprint Oficial PHP 8.1–8.5 (`sinfallas/basephpcomposer`) e Integración en Servidor MCP | [`10_SPEC_ECOSISTEMA_PHP_8_Y_HERRAMIENTAS_MCP.md`](docs/specs/10_SPEC_ECOSISTEMA_PHP_8_Y_HERRAMIENTAS_MCP.md) | ✅ Completado | `100%` |
 | **Hito 12** | Auditores Automáticos para el Invariante Anti-Silo, Ciclo Temporal de 3 Fases, Auditoría Semántica Anti-UUID y Refresco Dual | [`11_SPEC_INVARIANTE_ANTI_SILO_CICLO_TEMPORAL_AUDITORIA_Y_REFRESCO_DUAL.md`](docs/specs/11_SPEC_INVARIANTE_ANTI_SILO_CICLO_TEMPORAL_AUDITORIA_Y_REFRESCO_DUAL.md) | ✅ Completado | `100%` |
-| **Hito 13** | Reconciliación Automática, Deduplicación y Aislamiento de Reglas de Dominio en `.agents/` (`reconcile-agents` / `reconcile_agents_governance`) | [`12_SPEC_RECONCILIACION_Y_DEDUPLICACION_GOBERNANZA_AGENTS_PROYECTOS.md`](docs/specs/12_SPEC_RECONCILIACION_Y_DEDUPLICACION_GOBERNANZA_AGENTS_PROYECTOS.md) | ⏳ Pendiente | `0%` |
+| **Hito 13** | Reconciliación Automática, Deduplicación y Aislamiento de Reglas de Dominio en `.agents/` (`reconcile-agents` / `reconcile_agents_governance`) | [`12_SPEC_RECONCILIACION_Y_DEDUPLICACION_GOBERNANZA_AGENTS_PROYECTOS.md`](docs/specs/12_SPEC_RECONCILIACION_Y_DEDUPLICACION_GOBERNANZA_AGENTS_PROYECTOS.md) | ✅ Completado | `100%` |
 
 ---
 
@@ -189,15 +189,15 @@
 
 ---
 
-## ⏳ Hito 13: Reconciliación Automática, Deduplicación y Aislamiento de Reglas de Dominio en `.agents/` (`reconcile-agents` / `reconcile_agents_governance`)
+## ✅ Hito 13: Reconciliación Automática, Deduplicación y Aislamiento de Reglas de Dominio en `.agents/` (`reconcile-agents` / `reconcile_agents_governance`)
 **Referencia Obligatoria:** [`docs/specs/12_SPEC_RECONCILIACION_Y_DEDUPLICACION_GOBERNANZA_AGENTS_PROYECTOS.md`](docs/specs/12_SPEC_RECONCILIACION_Y_DEDUPLICACION_GOBERNANZA_AGENTS_PROYECTOS.md)
 
 ### Tareas de Implementación:
-- [ ] **13.1.** Añadir en `mcp-server/src/types.ts` los contratos `ReconcileAgentsInputSchema`, `ReconciledRuleItem` y `ReconcileAgentsResult`.
-- [ ] **13.2.** Implementar `mcp-server/src/cli/reconcile-agents.ts` (`reconcileAgentsGovernance`, `isPromotedSection`, `splitMarkdownSections`, respaldo automático en `.agents/backups/<timestamp>/`, poda de directivas ya promovidas al estándar global y extracción segura de reglas específicas del proyecto hacia `.agents/rules/domain_<project>_rules.md`).
-- [ ] **13.3.** Registrar la Tool 12 (`reconcile_agents_governance`) en `mcp-server/src/server.ts`, exponer el subcomando CLI `reconcile-agents` en `mcp-server/src/index.ts`, actualizar `mcp-server/src/cli/install-skill.ts` para instalar también los 7 archivos canónicos `.agents/rules/*.md` con `--include-scripts` y ejecutar reconciliación previa con `--reconcile`, actualizar `buildConnectorBlock()` y añadir `syncGlobalGeminiMd()` en `mcp-server/src/cli/init-agents-md.ts` (sincronizando no destructivamente `~/.gemini/GEMINI.md` e incluyendo la directiva obligatoria de Post-Mortem de Escapes QA con `propose_skill_evolution_pr`), e inyectar `upstream_evolution_reminder` en la salida de `certify_11x_gate` (`mcp-server/src/tools/certify-gate.ts`).
-- [ ] **13.4.** Crear la suite unitaria `mcp-server/tests/reconcile-agents.unit.ts` (validando deduplicación en proyectos tipo `rosgrid`, preservación de archivos `domain_*.md`, respaldos en `.agents/backups/`, modo `dry_run`, `syncGlobalGeminiMd` y `upstream_evolution_reminder`, manteniendo cobertura global $\ge 95.0\%$ en contenedor efímero `sinfallas/base-node-ionic:26`) y actualizar `mcp-server/test/mcp_cli_test.feature`.
-- [ ] **13.5.** Sincronizar `README.md`, `TESTING.md`, `docs/ai-integration.md`, `.agents/skills/qa-11x-architect/SKILL.md` y `CHANGELOG.md`, regenerar `manifest.json` y certificar con `./.agents/scripts/certify_task_completion.sh`.
+- [x] **13.1.** Añadir en `mcp-server/src/types.ts` los contratos `ReconcileAgentsInputSchema`, `ReconciledRuleItem` y `ReconcileAgentsResult`.
+- [x] **13.2.** Implementar `mcp-server/src/cli/reconcile-agents.ts` (`reconcileAgentsGovernance`, `isPromotedSection`, `splitMarkdownSections`, respaldo automático en `.agents/backups/<timestamp>/`, poda de directivas ya promovidas al estándar global y extracción segura de reglas específicas del proyecto hacia `.agents/rules/domain_<project>_rules.md`).
+- [x] **13.3.** Registrar la Tool 12 (`reconcile_agents_governance`) en `mcp-server/src/server.ts`, exponer el subcomando CLI `reconcile-agents` en `mcp-server/src/index.ts`, actualizar `mcp-server/src/cli/install-skill.ts` para instalar también los 7 archivos canónicos `.agents/rules/*.md` con `--include-scripts` y ejecutar reconciliación previa con `--reconcile`, actualizar `buildConnectorBlock()` y añadir `syncGlobalGeminiMd()` en `mcp-server/src/cli/init-agents-md.ts` (sincronizando no destructivamente `~/.gemini/GEMINI.md` e incluyendo la directiva obligatoria de Post-Mortem de Escapes QA con `propose_skill_evolution_pr`), e inyectar `upstream_evolution_reminder` en la salida de `certify_11x_gate` (`mcp-server/src/tools/certify-gate.ts`).
+- [x] **13.4.** Crear la suite unitaria `mcp-server/tests/reconcile-agents.unit.ts` (validando deduplicación en proyectos tipo `rosgrid`, preservación de archivos `domain_*.md`, respaldos en `.agents/backups/`, modo `dry_run`, `syncGlobalGeminiMd` y `upstream_evolution_reminder`, manteniendo cobertura global $\ge 95.0\%$ en contenedor efímero `sinfallas/base-node-ionic:26`) y actualizar `mcp-server/test/mcp_cli_test.feature`.
+- [x] **13.5.** Sincronizar `README.md`, `TESTING.md`, `docs/ai-integration.md`, `.agents/skills/qa-11x-architect/SKILL.md` y `CHANGELOG.md`, regenerar `manifest.json` y certificar con `./.agents/scripts/certify_task_completion.sh`.
 
 
 

@@ -7,6 +7,29 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 ## [Unreleased]
 
 ### 🚀 Añadido y Mejorado (Added & Changed)
+* **Reconciliación Automática, Deduplicación y Aislamiento de Reglas de Dominio en `.agents/` (`reconcile-agents` / `reconcile_agents_governance`) (Hito 13):**
+  * **Tool 12 en Servidor MCP y Subcomando CLI (`reconcile_agents_governance` / `reconcile-agents`):**
+    * Creado el módulo `mcp-server/src/cli/reconcile-agents.ts` con funciones modulares (`reconcileAgentsGovernance`, `runReconcileAgentsCli`, `isPromotedSection`, `splitMarkdownSections`, `ensureBackupFile`, `processNonCanonicalRuleFile`, `cleanPromotedDuplicatesInAgentsMd`, `reconcileRulesDir`, `persistExtractedDomainRules`).
+    * Detección y filtrado determinista de huellas semánticas (`PROMOTED_INVARIANT_FINGERPRINTS`: anti-silo, ciclo temporal de 3 fases, auditoría semántica anti-UUID, refresco dual, etc.) para podar de forma segura directivas duplicadas que ya residen en la skill global `qa-11x-architect` y en las 7 reglas canónicas de `.agents/rules/`.
+    * Extracción automática y no destructiva de reglas específicas de negocio (ej. MikroTik RouterOS v7, WinBox) hacia `.agents/rules/domain_<project>_rules.md`.
+    * Preservación intacta de archivos de dominio con prefijo `domain_*.md` (`DOMAIN_PRESERVED`).
+    * Respaldo preventivo atómico en `.agents/backups/<timestamp>/` previo a cualquier mutación en disco cuando `dry_run` es `false`.
+    * Soporte de modo simulación `dry_run: true` (`--dry-run`) reportando diagnósticos sin tocar el sistema de archivos.
+    * Registrada la Tool 12 (`reconcile_agents_governance`) en `mcp-server/src/server.ts` con su contrato Zod `ReconcileAgentsInputSchema`.
+    * Expuesto el subcomando `reconcile-agents` en `mcp-server/src/index.ts` y documentado en la ayuda `--help`.
+  * **Sincronización Ecosistémica y Post-Mortem Obligatorio de Escapes QA (`init-agents-md.ts`, `install-skill.ts`, `certify-gate.ts`):**
+    * Implementada y exportada la función `syncGlobalGeminiMd(homeDir, dryRun)` en `mcp-server/src/cli/init-agents-md.ts`, permitiendo sincronizar quirúrgica y no destructivamente `~/.gemini/GEMINI.md` mediante el bloque conector `<!-- QA_11X_MCP_CONNECTOR_START -->`.
+    * Actualizado `buildConnectorBlock` para incorporar la directiva obligatoria de Post-Mortem de Escapes QA (`MANDATORY QA-ESCAPE POST-MORTEM — Whenever you fix a UAT, integration, or production bug that escaped existing automated tests... you MUST PROACTIVELY include a section titled "💡 Oportunidad de Mejora Detectada para el Estándar QA 11X" and invoke propose_skill_evolution_pr`).
+    * Actualizado `mcp-server/src/cli/install-skill.ts`: incorpora la constante `AGENT_RULES_PREFIX`, descarga e instala los 7 archivos canónicos `.agents/rules/*.md` cuando se usa `--include-scripts`, sincroniza automáticamente `~/.gemini/GEMINI.md` y soporta el flag `--reconcile` para depurar el espacio `.agents/` antes de escribir las reglas canónicas.
+    * Inyectada la propiedad `upstream_evolution_reminder` en `CertifyGateResult` y en la salida de `certify11xGate` (`mcp-server/src/tools/certify-gate.ts`), recordando al agente de IA la directiva innegociable de post-mortem.
+  * **Saneamiento y Gobernanza del Repositorio (`scripts/limpieza.sh`, `.gitignore`):**
+    * Actualizado `.gitignore` ignorando de forma global `.agents/backups/` y `**/.agents/backups/`.
+    * Actualizado `scripts/limpieza.sh` para purgar respaldos temporales `.agents/backups/` durante `--deep` / `--docker-prune`.
+  * **Pruebas 11X Unitarias y BDD Karate Labs (`mcp-server/tests/` y `mcp-server/test/mcp_cli_test.feature`):**
+    * Creada la suite `mcp-server/tests/reconcile-agents.unit.ts` (18 pruebas) cubriendo escenarios completos tipo `rosgrid`, extracción a archivos `domain_*.md`, preservación de archivos de dominio existentes, modo `dry_run`, `syncGlobalGeminiMd`, invocación CLI y reminder de compuerta.
+    * Ampliada `mcp-server/tests/tools-and-resources.unit.ts` para verificar la ejecución de la Tool 12 desde el servidor MCP.
+    * Alcanzadas **269 pruebas unitarias pasando al 100%** con `99.26%` de cobertura de líneas y sentencias, `95.58%` de ramas y `100.00%` de funciones en contenedor efímero `sinfallas/base-node-ionic:26` con `0` advertencias de ESLint/SonarJS (`--max-warnings 0`).
+    * Actualizado `mcp-server/test/mcp_cli_test.feature`: añadido el Escenario 11 para la herramienta `reconcile_agents_governance`, ampliado el catálogo a 12 herramientas en Escenario 3 y añadido el flag `--reconcile` en Escenario 6.
 * **Implementación de Auditores Automáticos para el Invariante Anti-Silo, Ciclo Temporal de 3 Fases, Auditoría Semántica Anti-UUID y Refresco Dual (Hito 12):**
   * **Auditoría Estática `SEC-11` y `UI-11X-02` (`mcp-server/src/tools/security-auditor.ts`):**
     * Incorporada la regla `SEC-11` (`checkSec11AuditSemanticIntegrity`, `APSC-DV-001350 / Anti-Silo Audit Rule 3`) que detecta asignaciones directas del claim `sub` de JWT (`claims.get("sub")`, `claims["sub"]`, `token.sub`, `payload.sub`) a `actor_username` en archivos de código (`.py`, `.ts`, `.js`, `.php`) y bloquea el uso de mocks ciegos (`AsyncMock`, `MagicMock`, `vi.fn()`) sobre `write_audit_log` / `writeAuditLog` en archivos de prueba sin aserciones sobre `call_args` / `assert_called` / `assert_awaited` / `toHaveBeenCalledWith`.

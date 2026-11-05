@@ -16,6 +16,7 @@ import { certify11xGate } from './tools/certify-gate.js';
 import { auditTestPyramidGaps } from './tools/test-pyramid-auditor.js';
 import { initOrAppendAgentsMd } from './cli/init-agents-md.js';
 import { proposeSkillEvolutionPr } from './tools/propose-evolution-pr.js';
+import { reconcileAgentsGovernance } from './cli/reconcile-agents.js';
 import {
   InspectProjectInputSchema,
   FetchBundleInputSchema,
@@ -28,6 +29,7 @@ import {
   AuditTestPyramidInputSchema,
   InitAgentsMdInputSchema,
   ProposeEvolutionPrInputSchema,
+  ReconcileAgentsInputSchema,
 } from './types.js';
 
 export function createMcpServer(options?: {
@@ -433,6 +435,27 @@ export function createMcpServer(options?: {
     ProposeEvolutionPrInputSchema.shape,
     async (args) => {
       const result = await proposeSkillEvolutionPr(args);
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(result),
+          },
+        ],
+      };
+    }
+  );
+
+  // Tool 12: reconcile_agents_governance
+  server.tool(
+    'reconcile_agents_governance',
+    'Reconcilia la gobernanza en .agents/ para proyectos consumidores: respalda en .agents/backups/, poda directivas duplicadas ya promovidas a qa-testing-blueprints y extrae limpiamente reglas de negocio hacia domain_<project>_rules.md.',
+    ReconcileAgentsInputSchema.shape,
+    async (args) => {
+      const result = await reconcileAgentsGovernance({
+        projectPath: args.project_path,
+        dryRun: args.dry_run,
+      });
       return {
         content: [
           {

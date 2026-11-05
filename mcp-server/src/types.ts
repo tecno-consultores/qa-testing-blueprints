@@ -265,6 +265,7 @@ export interface CertifyGateResult {
     documentation_synced: boolean;
   };
   blockers: string[];
+  upstream_evolution_reminder?: string;
 }
 
 export interface GitHubFetcherOptions {
@@ -440,6 +441,43 @@ export interface ProposeEvolutionPrResult {
   local_proposal_file: string;
   message: string;
 }
+
+// ============================================================================
+// 🧹 Contratos de Reconciliación y Deduplicación de .agents/ (Hito 13)
+// ============================================================================
+
+export const ReconcileAgentsInputSchema = z.object({
+  project_path: z
+    .string()
+    .min(1)
+    .describe('Ruta absoluta o relativa al proyecto consumidor (ej. rosgrid) a reconciliar.'),
+  dry_run: z
+    .boolean()
+    .default(false)
+    .describe('Si es true, simula la reconciliación informando duplicados y extracciones de dominio sin modificar el disco.'),
+});
+export type ReconcileAgentsInput = z.infer<typeof ReconcileAgentsInputSchema>;
+
+export interface ReconciledRuleItem {
+  file: string;
+  classification:
+    | 'CANONICAL_CLEAN'
+    | 'REDUNDANT_PROMOTED_REMOVED'
+    | 'DOMAIN_EXTRACTED_TO_DOMAIN_FILE'
+    | 'DOMAIN_PRESERVED';
+  details: string;
+}
+
+export interface ReconcileAgentsResult {
+  project_path: string;
+  dry_run: boolean;
+  backup_dir: string | null;
+  domain_rules_file: string | null;
+  removed_duplicate_sections_count: number;
+  preserved_domain_sections_count: number;
+  reconciled_items: ReconciledRuleItem[];
+}
+
 
 
 

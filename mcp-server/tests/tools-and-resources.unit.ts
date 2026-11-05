@@ -987,6 +987,16 @@ describe('Tools and Resources Integration Suite', () => {
         prefer_offline_fallback: true,
       });
       expect(proposeRes.content[0].text).toContain('"status":"PROPOSAL_FILE_AND_URL_GENERATED"');
+
+      // 19. Ejecutar tool: reconcile_agents_governance
+      const toolReconcile = serverAny._registeredTools['reconcile_agents_governance'];
+      expect(toolReconcile).toBeDefined();
+      const reconcileRes = await toolReconcile.handler({
+        project_path: targetProjectDir,
+        dry_run: true,
+      });
+      expect(reconcileRes.content[0].text).toContain('"dry_run":true');
+      expect(reconcileRes.content[0].text).toContain('"removed_duplicate_sections_count":0');
     });
   });
 });

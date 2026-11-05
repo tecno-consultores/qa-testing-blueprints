@@ -43,10 +43,10 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * match commonValid == '#[manifest.common_files.length]'
 
   # ==============================================================================
-  # Grupo 3: Contratos de Esquema de Herramientas MCP (Tools 1 a 11)
+  # Grupo 3: Contratos de Esquema de Herramientas MCP (Tools 1 a 12)
   # ==============================================================================
 
-  Scenario: 3. Definición de contratos y esquemas JSON para las 11 Herramientas MCP
+  Scenario: 3. Definición de contratos y esquemas JSON para las 12 Herramientas MCP
     * def expectedTools =
       """
       [
@@ -60,10 +60,11 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
         { name: 'certify_11x_gate', required: ['project_path'] },
         { name: 'audit_test_pyramid_gaps', required: ['project_path'] },
         { name: 'init_or_append_agents_md', required: ['project_path'] },
-        { name: 'propose_skill_evolution_pr', required: ['project_path', 'target_blueprint_file', 'improvement_title', 'empirical_rationale', 'proposed_content_or_snippet'] }
+        { name: 'propose_skill_evolution_pr', required: ['project_path', 'target_blueprint_file', 'improvement_title', 'empirical_rationale', 'proposed_content_or_snippet'] },
+        { name: 'reconcile_agents_governance', required: ['project_path'] }
       ]
       """
-    * match expectedTools == '#[11]'
+    * match expectedTools == '#[12]'
 
   # ==============================================================================
   # Grupo 4: Contratos de Esquema de Recursos MCP (Resources 1 a 8)
@@ -129,6 +130,8 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     # Contrato de opciones CLI de install-skill
     * def installSkillTargets = ['auto', 'workspace', 'antigravity', 'claude', 'cursor', 'hermes', 'all']
     * match installSkillTargets contains 'auto'
+    * def installSkillFlags = ['--include-scripts', '--init-agents', '--reconcile']
+    * match installSkillFlags contains '--reconcile'
 
   # ==============================================================================
   # Grupo 7: Contrato CLI y MCP para init-agents (Conector AGENTS.md)
@@ -224,6 +227,81 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
 
     * def temporalLifecyclePhases = ['Programada', 'En Curso', 'Expirada/Cancelada']
     * match temporalLifecyclePhases == '#[3]'
+
+  # ==============================================================================
+  # Grupo 11: Contrato de Reconciliación Automática, Deduplicación y Aislamiento de Dominio en .agents/ (Hito 13)
+  # ==============================================================================
+
+  Scenario: 11. La herramienta reconcile_agents_governance y CLI reconcile-agents aíslan dominio y garantizan respaldos
+    * def reconcileClassifications = ['CANONICAL_CLEAN', 'REDUNDANT_PROMOTED_REMOVED', 'DOMAIN_EXTRACTED_TO_DOMAIN_FILE', 'DOMAIN_PRESERVED']
+    * match reconcileClassifications contains 'CANONICAL_CLEAN'
+    * match reconcileClassifications contains 'DOMAIN_EXTRACTED_TO_DOMAIN_FILE'
+    * match reconcileClassifications contains 'DOMAIN_PRESERVED'
+    * match reconcileClassifications contains 'REDUNDANT_PROMOTED_REMOVED'
+
+    * def mockReconcileResult =
+      """
+      {
+        project_path: '/workspace/rosgrid',
+        dry_run: false,
+        backup_dir: '/workspace/rosgrid/.agents/backups/2026-11-05T00-00-00-000Z',
+        domain_rules_file: '.agents/rules/domain_rosgrid_rules.md',
+        removed_duplicate_sections_count: 3,
+        preserved_domain_sections_count: 2,
+        reconciled_items: [
+          {
+            file: '.agents/rules/mandatory_qa_pyramid_and_doc_sync.md',
+            classification: 'CANONICAL_CLEAN',
+            details: 'Archivo canónico global respaldado en .agents/backups/ y listo para sincronización.'
+          },
+          {
+            file: '.agents/rules/custom_uat.md',
+            classification: 'DOMAIN_EXTRACTED_TO_DOMAIN_FILE',
+            details: 'Eliminadas 2 sección(es) ya promovidas al estándar global y extraídas 2 sección(es) de dominio.'
+          },
+          {
+            file: '.agents/rules/domain_rosgrid_noc.md',
+            classification: 'DOMAIN_PRESERVED',
+            details: 'Archivo de dominio con prefijo domain_* preservado intacto.'
+          },
+          {
+            file: 'AGENTS.md',
+            classification: 'REDUNDANT_PROMOTED_REMOVED',
+            details: 'Podadas 1 sección(es) duplicadas en AGENTS.md que ya residen en la skill global qa-11x-architect.'
+          }
+        ]
+      }
+      """
+    * match mockReconcileResult.project_path == '/workspace/rosgrid'
+    * match mockReconcileResult.removed_duplicate_sections_count == 3
+    * match mockReconcileResult.preserved_domain_sections_count == 2
+    * match mockReconcileResult.reconciled_items == '#[4]'
+    * match mockReconcileResult.backup_dir contains '.agents/backups'
+    * match mockReconcileResult.domain_rules_file == '.agents/rules/domain_rosgrid_rules.md'
+
+    # Contrato del reminder de evolución obligatoria en certify11xGate
+    * def mockGateResultWithEvolutionReminder =
+      """
+      {
+        gate_passed: true,
+        project_path: '/workspace/rosgrid',
+        checks: {
+          zero_unmerged_examples: true,
+          zero_secrets_exposed: true,
+          json_integrity: true,
+          zero_orphan_ui_components: true,
+          zero_orphan_api_endpoints: true,
+          orm_alembic_parity: true,
+          security_stig_owasp_clean: true,
+          documentation_synced: true
+        },
+        blockers: [],
+        upstream_evolution_reminder: 'MANDATORY POST-MORTEM CHECK: Did this task resolve a UAT/integration/production bug that bypassed previous automated tests? If YES, you MUST proactively present "💡 Oportunidad de Mejora Detectada para el Estándar QA 11X" to the user in Spanish and invoke propose_skill_evolution_pr without waiting to be asked.'
+      }
+      """
+    * match mockGateResultWithEvolutionReminder.upstream_evolution_reminder contains 'propose_skill_evolution_pr'
+    * match mockGateResultWithEvolutionReminder.upstream_evolution_reminder contains 'Oportunidad de Mejora Detectada para el Estándar QA 11X'
+
 
 
 

@@ -131,6 +131,7 @@ El servidor canónico MCP en Node.js/TypeScript está publicado en npmjs bajo **
   * `audit_test_pyramid_gaps`: Auditoría exhaustiva de las 13 capas de la pirámide 11X (incluyendo Ciclo Temporal de 3 Fases en Capa 13 e Invariante de Refresco Dual en Capa 07), detección de archivos huérfanos, endpoints sin BDD, vistas sin E2E y plan de acción priorizado.
   * `init_or_append_agents_md`: Crea `AGENTS.md` o inyecta de forma aditiva y no destructiva el bloque conector de QA 11X al final de un `AGENTS.md` existente sin modificar reglas previas.
   * `propose_skill_evolution_pr`: Propone mejoras federadas a `qa-testing-blueprints` mediante `gh` CLI local autenticado o generando un archivo de propuesta local y URL prellenada de GitHub (Zero-Trust, 0 tokens empaquetados).
+  * `reconcile_agents_governance`: Reconcilia y deduplica reglas en `.agents/` para proyectos adoptantes, podando directivas ya promovidas a `qa-testing-blueprints`, aislando reglas de negocio en `domain_<project>_rules.md` y respaldando en `.agents/backups/<timestamp>/`.
 
 #### Ejecución Directa en 1 Comando:
 ```bash
@@ -139,6 +140,9 @@ npx -y @sinfallas/mcp-qa-11x@latest
 
 # Inyectar o actualizar el conector QA 11X en AGENTS.md de forma aditiva y no destructiva:
 npx -y @sinfallas/mcp-qa-11x@latest init-agents [--project-path <ruta>] [--dry-run]
+
+# Reconciliar gobernanza y aislar reglas de dominio de un proyecto consumidor (ej. rosgrid):
+npx -y @sinfallas/mcp-qa-11x@latest reconcile-agents [--project-path <ruta>] [--dry-run]
 ```
 
 #### Configuración en Clientes MCP (Antigravity, Claude Desktop / Code, Cursor, Hermes):

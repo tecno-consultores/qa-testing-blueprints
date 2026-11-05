@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.9.1",
-  "generated_at_utc": "2026-11-05T13:26:47Z",
+  "generated_at_utc": "2026-11-05T23:31:21Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -614,8 +614,8 @@
       "path": "scripts/limpieza.sh",
       "target_name": "scripts/limpieza.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "a6b844ded0513a2d22312cccb54af6b22dd5e49e6113edee0495a106ec287c8e",
-      "size_bytes": 4958
+      "sha256": "d47273bfb277335427009c95a244c1864e973fdbad3d1ca0e5d21508d72e7c81",
+      "size_bytes": 5003
     },
     {
       "path": "scripts/publicar-mcp.sh",
@@ -763,8 +763,8 @@
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "43bb8cea53d5c3d41d5fb6149f4c7a54489bb3d12e941a07aa96e1c96c9b824b",
-      "size_bytes": 24116
+      "sha256": "e1bae409cfe7d3b473a8f1809f9deb4bd44877e4248f67dceb84bbe66ab3c219",
+      "size_bytes": 24518
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
