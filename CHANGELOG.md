@@ -6,6 +6,10 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### 📚 Documentación (Documentation)
+* **Guía de Actualización del Servidor MCP en el IDE y Validación Criptográfica de Skills y Documentación (`README.md`, `docs/ai-integration.md`, `FAQ.md`):**
+  * Añadida la subsección `Cómo Actualizar el Servidor MCP, las Skills y la Documentación en el IDE y cómo Validarlo` en `README.md`, la sección `6.5` en `docs/ai-integration.md` y la entrada correspondiente en `FAQ.md`, documentando el protocolo de 3 pasos para purgar las cachés locales (`~/.npm/_npx` y `~/.cache/qa-11x-blueprints`), reiniciar el proceso MCP `stdio` en el IDE (`Additional Options > MCP Servers` / `Developer: Reload Window`) y auditar mediante SHA-256 (`DISA STIG V-222513`) que tanto el paquete `@sinfallas/mcp-qa-11x` como los 20 archivos de las 5 Skills instaladas en `~/.gemini/config/skills` coincidan bit a bit con `manifest.json`.
+
 ## [2.10.0] - 2026-11-05
 
 ### 🚀 Añadido y Mejorado (Added & Changed)

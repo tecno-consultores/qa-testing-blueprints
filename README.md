@@ -212,6 +212,37 @@ El instalador detecta automáticamente el entorno del agente (`auto`: Google Ant
 npx -y @sinfallas/mcp-qa-11x@latest install-skill --target [auto|workspace|antigravity|claude|cursor|hermes|all] --init-agents --include-scripts
 ```
 
+#### 🔄 Cómo Actualizar el Servidor MCP, las Skills y la Documentación en el IDE y cómo Validarlo
+
+Cuando se publica una nueva versión de `@sinfallas/mcp-qa-11x` en `npmjs.com` o se actualiza el manifiesto criptográfico en GitHub, el proceso MCP activo en tu IDE (comunicación `stdio`) y las cachés locales (`~/.npm/_npx` y `~/.cache/qa-11x-blueprints`) pueden retener la versión previa en memoria. Sigue estos **3 pasos** para actualizar y auditar la descarga:
+
+1. **Purgar cachés locales y actualizar las 5 Skills, Reglas y Scripts:**
+   ```bash
+   # Purga la caché de npx y de blueprints, fuerza la descarga de @latest y actualiza todos los entornos:
+   rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@latest install-skill --target all --init-agents --include-scripts
+   ```
+2. **Reiniciar el servidor MCP en el IDE:**
+   * **Google Antigravity:** Menú del panel del agente **`...` (Additional Options) > MCP Servers > `qa-11x` > Restart / Refresh** (o desde la paleta de comandos `Ctrl+Shift+P` -> **`Developer: Reload Window`**).
+   * **Cursor / Claude Desktop / VS Code:** Recarga la ventana (`Developer: Reload Window`) o reinicia el conector MCP desde los ajustes.
+3. **Validar que se descargaron las nuevas versiones del MCP, Skills y Documentación (Verificación SHA-256):**
+   ```bash
+   # A. Comprobar que la versión en caché local de npx coincide con la última publicada en npmjs:
+   npm view @sinfallas/mcp-qa-11x version && grep -rn '"version"' ~/.npm/_npx/*/node_modules/@sinfallas/mcp-qa-11x/package.json
+
+   # B. Comprobar la versión y fecha UTC del manifiesto y documentación en caché (~/.cache/qa-11x-blueprints/manifest.json):
+   grep -E '"blueprint_version"|"generated_at_utc"' ~/.cache/qa-11x-blueprints/manifest.json
+
+   # C. Verificar criptográficamente (SHA-256 DISA STIG V-222513) los 20 archivos de las 5 Skills en el IDE contra el manifiesto:
+   python3 -c '
+   import hashlib, json, pathlib
+   m = json.load(open(pathlib.Path.home() / ".cache/qa-11x-blueprints/manifest.json"))
+   skills = [f for f in m["agent_governance_files"] if f["path"].startswith(".agents/skills/")]
+   dest = pathlib.Path.home() / ".gemini/config/skills"
+   ok = sum(1 for s in skills if (p := dest / s["path"].replace(".agents/skills/", "", 1)).exists() and hashlib.sha256(p.read_bytes()).hexdigest() == s["sha256"])
+   print(f"✔ Verificación SHA-256 en {dest}: {ok}/{len(skills)} archivos coinciden con manifest.json (v{m[\"blueprint_version\"]})")
+   '
+   ```
+
 ---
 
 ### 👨‍💻 Modo 3: Adopción Directa en Proyectos (Desarrollador Humano / Uso Asistido)

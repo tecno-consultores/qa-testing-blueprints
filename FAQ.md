@@ -100,6 +100,18 @@ El estándar 11X define un modelo de trabajo en parejas (*Pair Programming Híbr
 ### ¿Por qué se eliminó la dependencia de GitHub Actions para publicar el servidor MCP a npm?
 Siguiendo la filosofía de soberanía y aislamiento corporativo del estándar RoSGrid, delegar la publicación de paquetes con credenciales de npm (`NPM_TOKEN`) a *runners* remotos de CI/CD introduce riesgos de fuga de secretos y fallos de red externos fuera de nuestro control. El proceso de publicación se consolidó en el script soberano `scripts/publicar-mcp.sh`, el cual valida la compuerta 11X completa en Docker efímero local y maneja el token de npm de forma volátil en memoria con autodestrucción inmediata.
 
+### ¿Cómo actualizo el Servidor MCP y las Skills en mi IDE después de publicar una nueva versión en npmjs y cómo valido que se descargaron los cambios?
+Aunque en `mcp_config.json` tengas configurado `"@sinfallas/mcp-qa-11x@latest"`, el IDE mantiene en memoria el proceso `stdio` iniciado al arrancar y `npx` guarda copias en `~/.npm/_npx` (además de la caché de manifiestos en `~/.cache/qa-11x-blueprints`). Para forzar la actualización y validar la integridad criptográfica:
+1. **Purga las cachés y reinstala las 5 Skills, Reglas y Scripts:**
+   ```bash
+   rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@latest install-skill --target all --init-agents --include-scripts
+   ```
+2. **Reinicia el servidor MCP en tu IDE:** En Google Antigravity ve a **`...` (Additional Options) > MCP Servers > `qa-11x` > Restart** o ejecuta `Ctrl+Shift+P` -> **`Developer: Reload Window`**.
+3. **Valida la versión y los hashes SHA-256 (`DISA STIG V-222513`):**
+   * Verifica la versión en `npx`: `grep -rn '"version"' ~/.npm/_npx/*/node_modules/@sinfallas/mcp-qa-11x/package.json`
+   * Verifica el manifiesto y documentación en caché: `grep -E '"blueprint_version"|"generated_at_utc"' ~/.cache/qa-11x-blueprints/manifest.json`
+   * Durante la ejecución de `install-skill`, confirma que aparezca en consola `✔ [Skills 11X] 20 archivos verificados con SHA-256 (DISA STIG V-222513)`. Si algún archivo descargado no coincidiera exactamente con el hash SHA-256 del manifiesto oficial, el instalador abortará automáticamente por violación de integridad criptográfica.
+
 ### ¿Qué es la "Anti-Mock Blindness" (Ceguera de Mocks) y por qué se exige verificar contra PostgreSQL real y migraciones Alembic?
 En pruebas unitarias, mockear llamadas a base de datos crea una falsa sensación de seguridad. Un modelo ORM puede tener tipos de datos incompatibles o columnas inexistentes que pasan los mocks con 100% de cobertura pero rompen la base de datos en producción. En el estándar 11X, todo cambio de modelo exige migración versionada y validación con `verify_alembic_orm_parity.py` ejecutándose contra una instancia real de PostgreSQL en Docker efímero.
 

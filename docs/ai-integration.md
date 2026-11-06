@@ -170,3 +170,39 @@ mcp_servers:
 | **`propose_skill_evolution_pr`** | `project_path`, `target_blueprint_file`, `improvement_title`, `empirical_rationale`, `proposed_content_or_snippet`, `prefer_offline_fallback` | Propone mejoras federadas a `qa-testing-blueprints` mediante `gh` CLI local autenticado o generando un archivo de propuesta local y URL prellenada de GitHub (Zero-Trust, 0 tokens empaquetados). |
 | **`reconcile_agents_governance`** | `project_path`, `dry_run` | Reconcilia y deduplica reglas en `.agents/` para proyectos adoptantes, podando directivas ya promovidas a `qa-testing-blueprints`, aislando reglas de dominio en `domain_<project>_rules.md` y respaldando en `.agents/backups/<timestamp>/`. |
 
+### 6.5. Actualización del Servidor MCP, Skills y Documentación en el IDE y Validación Criptográfica
+
+Dado que el transporte `stdio` mantiene vivo el subproceso de Node.js mientras el IDE está abierto y tanto `npx` (`~/.npm/_npx`) como el cliente de recursos (`~/.cache/qa-11x-blueprints`) almacenan cachés en disco, tras publicar una nueva versión en `npmjs.com` o actualizar el repositorio debes ejecutar el siguiente protocolo de actualización y verificación:
+
+#### 1. Purga de Cachés y Rehidratación Completa
+```bash
+# Elimina las cachés de npx y de blueprints y descarga la última versión verificada con SHA-256:
+rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@latest install-skill --target all --init-agents --include-scripts
+```
+
+#### 2. Reinicio del Servidor MCP en el IDE
+* **Google Antigravity:** Abre **`...` (Additional Options) > MCP Servers**, selecciona **`qa-11x`** y pulsa **Restart / Refresh** (o ejecuta `Ctrl+Shift+P` -> **`Developer: Reload Window`**).
+* **Cursor / Claude Desktop:** Ejecuta `Developer: Reload Window` o reinicia la aplicación para levantar el nuevo proceso `npx`.
+
+#### 3. Comandos de Validación de Versión e Integridad SHA-256 (`DISA STIG V-222513`)
+Para auditar que tanto el binario del servidor MCP como los 20 archivos de las 5 Skills y la documentación en caché corresponden a la última versión publicada:
+
+```bash
+# 1. Comparar versión publicada en npmjs contra la instalada en la caché de npx:
+npm view @sinfallas/mcp-qa-11x version
+grep -rn '"version"' ~/.npm/_npx/*/node_modules/@sinfallas/mcp-qa-11x/package.json
+
+# 2. Verificar la versión del manifiesto y su marca de tiempo UTC en la caché local:
+grep -E '"blueprint_version"|"generated_at_utc"' ~/.cache/qa-11x-blueprints/manifest.json
+
+# 3. Validar que el hash SHA-256 de cada archivo de Skill instalado en el IDE coincide con manifest.json:
+python3 -c '
+import hashlib, json, pathlib
+m = json.load(open(pathlib.Path.home() / ".cache/qa-11x-blueprints/manifest.json"))
+skills = [f for f in m["agent_governance_files"] if f["path"].startswith(".agents/skills/")]
+dest = pathlib.Path.home() / ".gemini/config/skills"
+ok = sum(1 for s in skills if (p := dest / s["path"].replace(".agents/skills/", "", 1)).exists() and hashlib.sha256(p.read_bytes()).hexdigest() == s["sha256"])
+print(f"✔ Skills en {dest}: {ok}/{len(skills)} archivos coinciden bit a bit con manifest.json (v{m[\"blueprint_version\"]})")
+'
+```
+
