@@ -1,7 +1,7 @@
 .PHONY: qa-lint qa-unit qa-parity qa-contracts qa-bdd qa-mutation qa-dast qa-chaos qa-sbom qa-all clean-cache clean qa-clean
 
 # ==============================================================================
-# MAKEFILE QA PHP 8.1-8.5 (ESTÁNDAR CORPORATIVO 11X)
+# MAKEFILE QA PHP 8.2-8.5 (ESTÁNDAR CORPORATIVO 11X)
 # ==============================================================================
 
 COMPOSE_FILE = docker-compose.qa.yml
@@ -55,7 +55,7 @@ qa-sbom:
 	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) composer run-script qa:sbom
 
 qa-all: qa-lint qa-unit qa-parity qa-bdd qa-mutation qa-sbom
-	@echo "✅ Pipeline QA PHP 8.1-8.5 (Estándar 11X) completado exitosamente."
+	@echo "✅ Pipeline QA PHP 8.2-8.5 (Estándar 11X) completado exitosamente."
 
 clean-cache:
 	@docker compose -f $(COMPOSE_FILE) down -v >/dev/null 2>&1 || true

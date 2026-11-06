@@ -173,12 +173,12 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * match proposalTemplate.target_repo == 'tecno-consultores/qa-testing-blueprints'
 
   # ==============================================================================
-  # Grupo 9: Contrato del Ecosistema PHP 8.1-8.5 en Manifiesto y Servidor MCP
+  # Grupo 9: Contrato del Ecosistema PHP 8.2-8.5 en Manifiesto y Servidor MCP
   # ==============================================================================
 
   Scenario: 9. El manifiesto indexa oficialmente el stack PHP con sus 9 plantillas y fusión quirúrgica
     * match manifest.stacks.php == '#object'
-    * match manifest.stacks.php.description contains 'PHP 8.1-8.5'
+    * match manifest.stacks.php.description contains 'PHP 8.2-8.5'
     * match manifest.stacks.php.readme == 'php/README.md'
     * match manifest.stacks.php.files == '#[9]'
 
@@ -335,6 +335,19 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * match mockBlastRadiusMissingGraph.ast_graph_detected == false
     * match mockBlastRadiusMissingGraph.ast_graph_action_required contains './scripts/actualizar-grafos-graphify.sh'
     * match mockBlastRadiusMissingGraph.ast_graph_action_required contains 'qa-testing-blueprints'
+
+  # ==============================================================================
+  # Grupo 13: Contrato de Matriz de Herramientas, Tags Oficiales Docker y Diagramas Mermaid
+  # ==============================================================================
+
+  Scenario: 13. El README restaura la Matriz de Herramientas de Pruebas y actualiza tags oficiales de Docker Hub
+    * def readmeContent = karate.readAsString('classpath:../README.md')
+    * match readmeContent contains '## 🛠 Matriz de Herramientas de Pruebas'
+    * match readmeContent contains '| Entorno | Linting / Formateo | Pruebas Unitarias / Mocking |'
+    * match readmeContent contains '`8.2`, `8.3`, `8.4`, `8.5` y `latest`'
+    * match readmeContent contains '`22`, `24`, `26` y `latest`'
+    * match readmeContent !contains '<code>@sinfallas/mcp-qa-11x</code>'
+
 
 
 

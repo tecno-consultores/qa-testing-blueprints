@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 QA Testing Blueprints Contributors
-# Orquestador efímero QA 11X para PHP 8.1-8.5 (sinfallas/basephpcomposer)
+# Orquestador efímero QA 11X para PHP 8.2-8.5 (sinfallas/basephpcomposer)
 
 services:
   postgres-qa:

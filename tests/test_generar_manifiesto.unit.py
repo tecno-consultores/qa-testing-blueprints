@@ -304,9 +304,34 @@ class TestGenerarManifiesto(unittest.TestCase):
         }
         self.assertEqual(set(gm.STACK_METADATA.keys()), expected_stacks)
         php_meta = gm.STACK_METADATA["php"]
-        self.assertIn("PHP 8.1-8.5", php_meta["description"])
+        self.assertIn("PHP 8.2-8.5", php_meta["description"])
+        self.assertNotIn("8.1", php_meta["description"])
         self.assertEqual(php_meta["readme"], "php/README.md")
         self.assertIn("scripts/actualizar-grafos-graphify.sh", gm.COMMON_FILE_PATHS)
+
+    def test_readme_matrix_tags_and_mermaid_integrity(self) -> None:
+        """Verifica matriz de herramientas, tags de Docker Hub y bloques Mermaid sin HTML roto."""
+        readme_text = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("## 🛠 Matriz de Herramientas de Pruebas", readme_text)
+        self.assertIn("| Entorno | Linting / Formateo | Pruebas Unitarias / Mocking |", readme_text)
+        self.assertIn("`8.2`, `8.3`, `8.4`, `8.5` y `latest`", readme_text)
+        self.assertIn("`22`, `24`, `26` y `latest`", readme_text)
+
+        mermaid_files = [
+            "README.md",
+            "SECURITY.md",
+            "docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md",
+            "docs/ARCHITECTURE_C4.md",
+            "docs/specs/01_SPEC_ARQUITECTURA_ZERO_CLONE_Y_MANIFIESTO_REMOTO.md",
+        ]
+        for rel_path in mermaid_files:
+            content = (REPO_ROOT / rel_path).read_text(encoding="utf-8")
+            self.assertIn("```mermaid", content, f"Falta bloque mermaid en {rel_path}")
+            for block in content.split("```mermaid")[1:]:
+                mermaid_code = block.split("```")[0]
+                self.assertNotIn("<br>", mermaid_code, f"Tag <br> inválido en Mermaid de {rel_path}")
+                self.assertNotIn("<code>", mermaid_code, f"Tag <code> inválido en Mermaid de {rel_path}")
+                self.assertNotIn(r"\n", mermaid_code, f"Secuencia \\n inválida en Mermaid de {rel_path}")
 
 
 if __name__ == "__main__":

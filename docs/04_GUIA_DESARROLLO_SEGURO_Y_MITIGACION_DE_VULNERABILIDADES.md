@@ -1004,9 +1004,9 @@ sha256sum --check sbom-backend.cdx.json.sha256
 
 ---
 
-## Anexo PHP 8.1–8.5 (`sinfallas/basephpcomposer`): Recetario de Seguridad DISA ASD STIG V6R5 + OWASP v4.2
+## Anexo PHP 8.2–8.5 (`sinfallas/basephpcomposer`): Recetario de Seguridad DISA ASD STIG V6R5 + OWASP v4.2
 
-En aplicaciones y APIs construidas sobre **PHP 8.1 a 8.5** utilizando la imagen base oficial multi-arquitectura (`amd64`/`arm64`) `sinfallas/basephpcomposer`, se deben aplicar de forma innegociable los siguientes controles nativos:
+En aplicaciones y APIs construidas sobre **PHP 8.2 a 8.5** utilizando la imagen base oficial multi-arquitectura (`amd64`/`arm64`) `sinfallas/basephpcomposer` (tags `8.2`, `8.3`, `8.4`, `8.5` y `latest`), se deben aplicar de forma innegociable los siguientes controles nativos:
 
 1. **Directivas de Endurecimiento en `php.ini` (`DISA APSC-DV-002430` & `OWASP OSHP`):**
    - `expose_php = Off` (suprime el banner `X-Powered-By: PHP/8.x` en todas las respuestas HTTP).

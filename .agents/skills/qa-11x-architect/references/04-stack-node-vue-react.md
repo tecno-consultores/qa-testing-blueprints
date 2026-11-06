@@ -18,7 +18,7 @@ This reference provides technical rules, testing conventions, and ephemeral Dock
    audit=false
    ```
 2. **Ephemeral Docker Execution:**  
-   All builds, typechecks, linters, and unit/BDD tests execute inside `sinfallas/base-node-ionic:26` with a persistent `pnpm-store` named volume (`Rule Zero`).
+   All builds, typechecks, linters, and unit/BDD tests execute inside `sinfallas/base-node-ionic:26` (available tags: `22`, `24`, `26`, and `latest`) with a persistent `pnpm-store` named volume (`Rule Zero`).
 
 ---
 

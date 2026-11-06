@@ -206,7 +206,7 @@
 * **Herramientas:**
   - Python: `mutmut` (`mutmut run && mutmut results`).
   - JavaScript / TypeScript: `Stryker Mutator` (`stryker run`).
-  - PHP (8.1–8.5): `Infection PHP` (`php -d pcov.enabled=1 ./vendor/bin/infection --min-msi=80 --min-covered-msi=80 --threads=4`).
+  - PHP (8.2–8.5): `Infection PHP` (`php -d pcov.enabled=1 ./vendor/bin/infection --min-msi=80 --min-covered-msi=80 --threads=4`).
 * **Ejecución:**
   ```bash
   make qa-mutation

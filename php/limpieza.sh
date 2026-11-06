@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 QA Testing Blueprints Contributors
-# Propósito: Script de limpieza y purga profunda para el entorno QA PHP 8.1-8.5 (Estándar 11X)
+# Propósito: Script de limpieza y purga profunda para el entorno QA PHP 8.2-8.5 (Estándar 11X)
 # Erradica bloqueos de permisos generados por Docker (UID 0 / root) sin requerir sudo mediante Alpine efímero.
 
 LC_ALL=C

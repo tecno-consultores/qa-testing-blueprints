@@ -36,24 +36,24 @@ Cualquier proyecto corporativo que implemente el estándar 11X debe aplicar las 
 
 ```mermaid
 flowchart TD
-    subgraph "Capa 1: Perímetro y Proxy"
-        L1["Nginx Non-Root<br>Preservación X-Forwarded-* | CSP Estricta | Límite Upload 2MB"]
+    subgraph Capa1["Capa 1: Perimetro y Proxy"]
+        L1["Nginx Non-Root - Preservacion X-Forwarded-*, CSP Estricta, Limite Upload 2MB"]
     end
 
-    subgraph "Capa 2: Identidad y Sesión"
-        L2["Argon2id + 2FA TOTP<br>Cookies __Host- HttpOnly + CSRF HMAC-SHA256"]
+    subgraph Capa2["Capa 2: Identidad y Sesion"]
+        L2["Argon2id + 2FA TOTP - Cookies __Host- HttpOnly + CSRF HMAC-SHA256"]
     end
 
-    subgraph "Capa 3: Control de Acceso y Persistencia"
-        L3["FORCE ROW LEVEL SECURITY (RLS) en PostgreSQL 17<br>Consultas Parametrizadas Seguras bindparam"]
+    subgraph Capa3["Capa 3: Control de Acceso y Persistencia"]
+        L3["FORCE ROW LEVEL SECURITY (RLS) en PostgreSQL 17 + Consultas Parametrizadas"]
     end
 
-    subgraph "Capa 4: Bóveda Criptográfica y Cache"
-        L4["Bóveda AES-256-GCM con AAD<br>KeyDB Multi-Hilo con Idempotency-Key"]
+    subgraph Capa4["Capa 4: Boveda Criptografica y Cache"]
+        L4["Boveda AES-256-GCM con AAD + KeyDB Multi-Hilo con Idempotency-Key"]
     end
 
-    subgraph "Capa 5: Resiliencia de Transporte"
-        L5["Validación Anti-CSWSH en WebSockets<br>Defensa Anti-SSRF en Llamadas Salientes"]
+    subgraph Capa5["Capa 5: Resiliencia de Transporte"]
+        L5["Validacion Anti-CSWSH en WebSockets + Defensa Anti-SSRF Saliente"]
     end
 
     L1 --> L2 --> L3 --> L4 --> L5
@@ -186,11 +186,11 @@ En los proyectos regidos por el estándar 11X, toda vulnerabilidad debe ser dete
 
 ```mermaid
 flowchart LR
-    DEV[Código / Dependencias] --> LINT[Linters & SAST]
-    LINT --> TEST[Pruebas Unitarias 11X]
+    DEV["Codigo / Dependencias"] --> LINT["Linters y SAST"]
+    LINT --> TEST["Pruebas Unitarias 11X"]
     TEST --> AUDIT["auditar-infra.sh (Trivy IaC + FS)"]
-    AUDIT --> GATE[certify_task_completion.sh]
-    GATE -->|Pasa al 100%| GIT[Git Commit & Push]
+    AUDIT --> GATE["certify_task_completion.sh"]
+    GATE -->|"Pasa al 100%"| GIT["Git Commit y Push"]
 ```
 
 ### 5.1. Gobernanza de Archivos de Bloqueo (`uv.lock` y `pnpm-lock.yaml`)

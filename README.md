@@ -14,8 +14,8 @@ Este proyecto estandariza la forma en que construimos y validamos software, gara
 
 1. **Efimeridad Absoluta (Cero Docker Build en Pruebas):** Toda la infraestructura de validación se levanta al vuelo consumiendo nuestra flota de imágenes oficiales en [Docker Hub](https://hub.docker.com/u/sinfallas), junto a motores certificados de base de datos y memoria:
    * [sinfallas/base-python-uv](https://hub.docker.com/r/sinfallas/base-python-uv) (Tags: `3.10` a `3.15`, `latest`).
-   * [sinfallas/base-node-ionic](https://hub.docker.com/r/sinfallas/base-node-ionic) (Tags: `22` a `26`, `latest`).
-   * [sinfallas/basephpcomposer](https://hub.docker.com/r/sinfallas/basephpcomposer) (Tags: `8.1` a `8.5`, `latest` — Multi-Arch `amd64`/`arm64` con `pcov`, `redis`, `pdo_pgsql`, `intl`, `sodium`).
+   * [sinfallas/base-node-ionic](https://hub.docker.com/r/sinfallas/base-node-ionic) (Tags: `22`, `24`, `26` y `latest`).
+   * [sinfallas/basephpcomposer](https://hub.docker.com/r/sinfallas/basephpcomposer) (Tags: `8.2`, `8.3`, `8.4`, `8.5` y `latest` — Multi-Arch `amd64`/`arm64` con `pcov`, `redis`, `pdo_pgsql`, `intl`, `sodium`).
    * [sinfallas/base-bash-qa](https://hub.docker.com/r/sinfallas/base-bash-qa):latest.
    * [sinfallas/karatelabs](https://hub.docker.com/r/sinfallas/karatelabs):latest para BDD de API y UI en Chrome Headless.
    * [sinfallas/remote-graphify](https://hub.docker.com/r/sinfallas/remote-graphify):latest para Optimización de Contexto IA y Radio de Impacto (Blast Radius).
@@ -54,11 +54,28 @@ El repositorio está dividido en ecosistemas tecnológicos listos para ser adopt
 | **`node-backend/`** | Microservicios Node.js | `ESLint` + `Prettier` + `Vitest` + `Stryker` + `SonarJS` + `Karate Labs` + `Artillery` + `ZAP` |
 | **`vue3/`** | Frontend Web (Vue 3 / Vite) | `ESLint` + `vue-tsc` + `Vitest (95%)` + `Stryker` + `Playwright` + `@axe-core` + `Lighthouse CI` + `Karate UI` |
 | **`react-frontend/`**| Frontend Web (React / Vite) | `ESLint` + `tsc` + `Vitest (95%)` + `RTL` + `Stryker` + `Playwright` + `@axe-core` + `Lighthouse CI` + `Karate UI` |
-| **`php/`** | APIs y Backend PHP 8.1–8.5 | `PHP-CS-Fixer` + `PHPStan (Max)` + `Psalm (Taint)` + `Pest/PHPUnit + PCOV (95%)` + `Infection (MSI >= 80%)` + `Karate BDD` |
+| **`php/`** | APIs y Backend PHP 8.2–8.5 | `PHP-CS-Fixer` + `PHPStan (Max)` + `Psalm (Taint)` + `Pest/PHPUnit + PCOV (95%)` + `Infection (MSI >= 80%)` + `Karate BDD` |
 | **`bash-scripts/`** | Automatización DevOps | `ShellCheck` + `shfmt` + `BATS-core` + `bats-mock` + `kcov` |
-| **`mcp-server/`** | Servidor MCP Node.js/TS | Paquete `@sinfallas/mcp-qa-11x`: Servidor MCP (stdio), 8 recursos `blueprint://*`, 11 tools y CLI `install-skill` / `init-agents` |
+| **`mcp-server/`** | Servidor MCP Node.js/TS | Paquete `@sinfallas/mcp-qa-11x`: Servidor MCP (stdio), 8 recursos `blueprint://*`, 12 tools y CLI `install-skill` / `init-agents` / `reconcile-agents` |
 | **`.agents/`** | Gobernanza de Agentes IA | Reglas (`rules/`), Habilidades (`skills/`) y Scripts de certificación (`scripts/`) |
 | **`manifest.json`** | Manifiesto Criptográfico Zero-Clone | Índice criptográfico SHA-256 de verificación remota bajo demanda (DISA STIG `V-222513` / `APSC-DV-001430`) |
+
+---
+
+## 🛠 Matriz de Herramientas de Pruebas
+
+A continuación se resume el stack de validación corporativo por entorno y tipo de prueba. Se indica `N/A` en las pruebas que no aplican por la naturaleza intrínseca del entorno (ej. un script *standalone* de Python o Bash no levanta servidores HTTP, por ende no se le aplica DAST ni Ingeniería del Caos).
+
+| Entorno | Linting / Formateo | Pruebas Unitarias / Mocking | Cobertura | Auditoría de Dependencias | Seguridad Estática (SAST) | Mutación | BDD / Caja Negra | Concurrencia / Estrés | Profiling / Complejidad | DAST (Dinámica) | Ingeniería del Caos | Observabilidad (Métricas) | Auditoría IaC / Docker | Git Hooks Locales |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Python** (`python/`) | `Ruff` + `Mypy (Strict)` | `Pytest` + `Hypothesis` + `pytest-mock` / `respx` | `Pytest-Cov (>= 95%)` | `pip-audit` + `CycloneDX SBOM` | `Bandit` | `Mutmut` | `N/A` | `N/A` | `py-spy` / `memray` + `Radon (CC <= B)` | `N/A` | `N/A` | `Pushgateway` + `Prometheus` | `Trivy` + `Hadolint` + `Gitleaks` | `Lefthook` |
+| **FastAPI** (`fastapi/`) | `Ruff` + `Mypy (Strict)` | `Pytest` + `pytest-asyncio` + `respx` + `PostgreSQL 17` + `KeyDB` + `Alembic` | `Pytest-Cov (>= 95%)` | `pip-audit` + `CycloneDX SBOM` | `Bandit` | `Mutmut` | `Karate Labs` + `Schemathesis` | `Locust (Headless)` | `py-spy` / `memray` + `Radon (CC <= B)` | `OWASP ZAP Baseline` | `Pumba` | `prometheus-fastapi-instrumentator` + `Prometheus` | `Trivy` + `Hadolint` + `Gitleaks` | `Lefthook` |
+| **Node** (`node-backend/`) | `ESLint (--max-warnings 0)` + `Prettier` + `tsc` | `Vitest` + `Supertest` + `Nock` | `@vitest/coverage-v8 (>= 95%)` | `pnpm audit` + `.npmrc (ignore-scripts=true)` | `eslint-plugin-security` | `Stryker` | `Karate Labs` | `Artillery` | `0x` + `Clinic.js` + `SonarJS (<= 15)` | `OWASP ZAP Baseline` | `Pumba` | `express-prom-bundle` + `Prometheus` | `Trivy` + `Hadolint` + `Gitleaks` | `Lefthook` |
+| **Vue3** (`vue3/`) | `ESLint (--max-warnings 0)` + `Prettier` + `vue-tsc` | `Vitest` + `Vue Test Utils` + `Playwright` + `@axe-core` | `@vitest/coverage-v8 (>= 95%)` | `pnpm audit` + `.npmrc (ignore-scripts=true)` | `eslint-plugin-security` | `Stryker` | `Karate Labs (Chrome Headless)` | `N/A` | `Lighthouse CI` + `SonarJS (<= 15)` | `OWASP ZAP Baseline` | `N/A` | `nginx-prometheus-exporter` + `Prometheus` | `Trivy` + `Hadolint` + `Gitleaks` | `Lefthook` |
+| **React** (`react-frontend/`) | `ESLint (--max-warnings 0)` + `Prettier` + `tsc` | `Vitest` + `React Testing Library` + `Playwright` + `@axe-core` | `@vitest/coverage-v8 (>= 95%)` | `pnpm audit` + `.npmrc (ignore-scripts=true)` | `eslint-plugin-security` + `react-hooks` | `Stryker` | `Karate Labs (Chrome Headless)` | `N/A` | `Lighthouse CI` + `SonarJS (<= 15)` | `OWASP ZAP Baseline` | `N/A` | `nginx-prometheus-exporter` + `Prometheus` | `Trivy` + `Hadolint` + `Gitleaks` | `Lefthook` |
+| **PHP 8.2–8.5** (`php/`) | `PHP-CS-Fixer (@PER-CS2.0)` + `PHPStan (Level Max)` | `Pest` / `PHPUnit 11.5+` + `MockHandler` + `PostgreSQL 17` + `KeyDB` | `PCOV (>= 95%)` | `composer audit` + `roave/security-advisories` + `CycloneDX SBOM` | `Psalm (--taint-analysis)` | `Infection (MSI >= 80%)` | `Karate Labs` + `Swagger-PHP` / `Schemathesis` | `Locust` / `Artillery` | `tomasvotruba/cognitive-complexity (<= 9)` | `OWASP ZAP Baseline` | `Pumba` | `promphp/prometheus_client_php` + `Prometheus` | `Trivy` + `Hadolint` + `Gitleaks` | `Lefthook` |
+| **Bash** (`bash-scripts/`) | `ShellCheck` + `shfmt` | `BATS-core` + `bats-support` + `bats-assert` + `bats-file` + `bats-mock` | `kcov (>= 95%)` | `N/A` | `ShellCheck` | `N/A` | `N/A` | `N/A` | `hyperfine` + `time -v` | `N/A` | `N/A` | `Pushgateway` + `Prometheus` | `Trivy` + `Hadolint` + `Gitleaks` | `Lefthook` |
+| **MCP Server** (`mcp-server/`) | `ESLint (--max-warnings 0)` + `Prettier` + `tsc` | `Vitest` (`270+ tests`) | `@vitest/coverage-v8 (>= 95%)` | `pnpm audit` + `.npmrc (ignore-scripts=true)` | `eslint-plugin-security` + `audit_security_stig_owasp` | `Stryker` | `Karate Labs (mcp_cli_test.feature)` | `N/A` | `SonarJS (<= 15)` | `N/A` | `N/A` | `Telemetría JSON Pass-Quiet` | `Trivy` + `Gitleaks` | `Lefthook` |
 
 ---
 
@@ -87,29 +104,32 @@ Este ecosistema está concebido con una arquitectura **Dual-Consumer**: puede se
 
 ```mermaid
 flowchart TD
-    subgraph Ecosistema["🏛️ QA Testing Blueprints (Nivel 11X)"]
-        MCP["🧠 Servidor MCP Node.js/TS<br><code>@sinfallas/mcp-qa-11x</code>"]
-        Skills["⚡ Skills Maestras Zero-Clone<br><code>qa-11x-architect</code> + <code>refactoring-ui</code>"]
-        Blueprints["📁 Blueprints & Templates<br>FastAPI, Vue3, React, Node, Python, Bash, PHP"]
+    subgraph Ecosistema["QA Testing Blueprints (Nivel 11X)"]
+        MCP["Servidor MCP Node.js/TS (@sinfallas/mcp-qa-11x)"]
+        Skills["Skills Maestras Zero-Clone (qa-11x-architect + refactoring-ui)"]
+        Blueprints["Blueprints y Templates (FastAPI, Vue3, React, Node, Python, Bash, PHP 8.2-8.5)"]
     end
 
-    subgraph ConsumidoresIA["🤖 Agentes de IA Autónomos"]
+    subgraph ConsumidoresIA["Agentes de IA Autonomos"]
         AGY["Google Antigravity"]
         Claude["Claude Code / Desktop"]
         Cursor["Cursor / Windsurf"]
         Hermes["Hermes Agent (Nous)"]
     end
 
-    subgraph ConsumidoresHumanos["👨‍💻 Desarrolladores & DevOps"]
+    subgraph ConsumidoresHumanos["Desarrolladores y DevOps"]
         Dev["Ingeniero de Software"]
         QAEng["Ingeniero de QA / Staff"]
     end
 
-    MCP -- "12 Tools + 8 Resources stdio" --> ConsumidoresIA
-    Skills -- "Inyección de Cerebro 11X" --> ConsumidoresIA
-    Skills -- "Instalación en workspace o IDE" --> ConsumidoresHumanos
-    Blueprints -- "Makefile + Docker efímero" --> ConsumidoresHumanos
-    ConsumidoresIA <--> ConsumidoresHumanos
+    MCP -->|"12 Tools + 8 Resources stdio"| AGY
+    MCP -->|"12 Tools + 8 Resources stdio"| Claude
+    MCP -->|"12 Tools + 8 Resources stdio"| Cursor
+    MCP -->|"12 Tools + 8 Resources stdio"| Hermes
+    Skills -->|"Inyeccion de Cerebro 11X"| AGY
+    Skills -->|"Instalacion en workspace o IDE"| Dev
+    Blueprints -->|"Makefile + Docker efimero"| QAEng
+    AGY <-->|"Pair Programming 11X"| Dev
 ```
 
 ---
@@ -174,7 +194,7 @@ curl -fsSL https://raw.githubusercontent.com/tecno-consultores/qa-testing-bluepr
 ```
 
 El instalador detecta automáticamente el entorno del agente (`auto`: Google Antigravity, Claude, Cursor, Hermes y/o Workspace) e hidrata de forma segura las 5 skills del catálogo:
-* **`qa-11x-architect`:** Cerebro metodológico 11X, las 13 capas de la pirámide de calidad, los 22 patrones DISA ASD STIG V6R5 / OWASP v4.2 y directivas especializadas para Python, FastAPI, Node.js, Vue 3, React, PHP 8.1–8.5 y Bash.
+* **`qa-11x-architect`:** Cerebro metodológico 11X, las 13 capas de la pirámide de calidad, los 22 patrones DISA ASD STIG V6R5 / OWASP v4.2 y directivas especializadas para Python, FastAPI, Node.js, Vue 3, React, PHP 8.2–8.5 y Bash.
 * **`refactoring-ui`:** Reglas tácticas de jerarquía visual, WCAG 2.1 AA, contraste OKLCH y `tabular-nums` para `CLS = 0`.
 * **`docker-trivy-keydb-hardening`:** Hardening de contenedores Docker (Trivy=0) y motor en memoria KeyDB multi-hilo.
 * **`graphify-ast-navigator`:** Navegación del grafo semántico AST, cálculo preventivo de blast radius y cumplimiento de límites de capas.

@@ -1,15 +1,15 @@
-# 🐘 PHP 8.1–8.5 Stack Reference (`sinfallas/basephpcomposer` — Standard 11X)
+# 🐘 PHP 8.2–8.5 Stack Reference (`sinfallas/basephpcomposer` — Standard 11X)
 
 > **OUTPUT LANGUAGE CONSTRAINT:**
 > Always communicate with the user, provide status updates, explain reasoning, and write commit messages / user-facing documentation strictly in Spanish.
 
-This reference provides the technical directives, hardened container/INI blueprints, and ephemeral Docker commands for PHP 8.1–8.5 APIs, microservices, and enterprise applications (Symfony, Laravel, Slim, or standalone PHP).
+This reference provides the technical directives, hardened container/INI blueprints, and ephemeral Docker commands for PHP 8.2–8.5 APIs, microservices, and enterprise applications (Symfony, Laravel, Slim, or standalone PHP).
 
 ---
 
 ## 1. Core Architecture & Ephemeral Container Topology
 
-All execution MUST occur inside ephemeral Docker containers (`Rule Zero`) using the official multi-arch (`linux/amd64`, `linux/arm64`) image fleet `sinfallas/basephpcomposer` (`8.1`, `8.2`, `8.3`, `8.4`, `8.5`, `latest`):
+All execution MUST occur inside ephemeral Docker containers (`Rule Zero`) using the official multi-arch (`linux/amd64`, `linux/arm64`) image fleet `sinfallas/basephpcomposer` (`8.2`, `8.3`, `8.4`, `8.5`, `latest`):
 
 | Service / Container Role | Docker Image | Port / Socket | Purpose |
 | :--- | :--- | :--- | :--- |
@@ -22,7 +22,7 @@ All execution MUST occur inside ephemeral Docker containers (`Rule Zero`) using 
 
 ---
 
-## 2. Innegotiable PHP 8.1–8.5 Directives
+## 2. Innegotiable PHP 8.2–8.5 Directives
 
 ### A. Strict Types, PHPStan Level Max & Cognitive Complexity
 1. Every `.php` source and test file MUST start with `<?php declare(strict_types=1);`.
@@ -52,7 +52,7 @@ All execution MUST occur inside ephemeral Docker containers (`Rule Zero`) using 
 
 ## 3. Hardened `php.ini` & `phpstan.neon` Blueprints
 
-### `php.ini` (Compatible Across PHP 8.1 to 8.5)
+### `php.ini` (Compatible Across PHP 8.2 to 8.5)
 ```ini
 [PHP]
 expose_php = Off

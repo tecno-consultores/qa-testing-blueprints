@@ -51,7 +51,7 @@ STACK_METADATA: Dict[str, Dict[str, str]] = {
         "readme": "bash-scripts/README.md",
     },
     "php": {
-        "description": "APIs, Microservicios y Aplicaciones Backend en PHP 8.1-8.5 con PCOV, PHPStan, Psalm, Pest/PHPUnit, Infection y Karate BDD",
+        "description": "APIs, Microservicios y Aplicaciones Backend en PHP 8.2-8.5 con PCOV, PHPStan, Psalm, Pest/PHPUnit, Infection y Karate BDD",
         "readme": "php/README.md",
     },
 }

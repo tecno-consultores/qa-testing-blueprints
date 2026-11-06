@@ -1,10 +1,10 @@
 {
   "name": "organizacion/proyecto-php-11x",
-  "description": "Plantilla Corporativa PHP 8.1-8.5 bajo Estandar QA 11X",
+  "description": "Plantilla Corporativa PHP 8.2-8.5 bajo Estandar QA 11X",
   "type": "project",
   "license": "MIT",
   "require": {
-    "php": ">=8.1",
+    "php": ">=8.2",
     "ext-ctype": "*",
     "ext-iconv": "*",
     "ext-intl": "*",

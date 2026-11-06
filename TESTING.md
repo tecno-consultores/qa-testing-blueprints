@@ -49,7 +49,7 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
   ```
 
 ### 🟢 Vue 3 (Frontend TypeScript) — Alta Densidad Táctica
-* **Imagen Base:** `sinfallas/base-node-ionic:26`
+* **Imagen Base:** `sinfallas/base-node-ionic:26` (Tags disponibles: `22`, `24`, `26` y `latest`)
 * **Servidor Web:** `nginx:alpine` + `nginx-prometheus-exporter`
 * **Comandos de Validación:**
   ```bash
@@ -65,7 +65,7 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
   ```
 
 ### 🟩 Node.js (Microservicios Express/Fastify)
-* **Imagen Base:** `sinfallas/base-node-ionic:26`
+* **Imagen Base:** `sinfallas/base-node-ionic:26` (Tags disponibles: `22`, `24`, `26` y `latest`)
 * **Comandos de Validación:**
   ```bash
   cd node-backend
@@ -89,7 +89,7 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
   ```
 
 ### ⚛️ React (Frontend Vite / TypeScript)
-* **Imagen Base:** `sinfallas/base-node-ionic:26`
+* **Imagen Base:** `sinfallas/base-node-ionic:26` (Tags disponibles: `22`, `24`, `26` y `latest`)
 * **Comandos de Validación:**
   ```bash
   cd react-frontend
@@ -108,8 +108,8 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
   make qa-unit       # BATS-core + bats-mock + kcov (>= 95%)
   ```
 
-### 🐘 PHP 8.1–8.5 (`sinfallas/basephpcomposer`) — 13 Capas
-* **Imagen Base:** `sinfallas/basephpcomposer:8.5` (Tags `8.1` a `8.5`, `latest` — Multi-Arch `amd64`/`arm64`)
+### 🐘 PHP 8.2–8.5 (`sinfallas/basephpcomposer`) — 13 Capas
+* **Imagen Base:** `sinfallas/basephpcomposer:8.5` (Tags disponibles: `8.2`, `8.3`, `8.4`, `8.5` y `latest` — Multi-Arch `amd64`/`arm64`)
 * **Persistencia:** `postgres:17-alpine` + `eqalpha/keydb:alpine` (vía `ext-redis` y `ext-pdo_pgsql`)
 * **Comandos de Validación:**
   ```bash
@@ -124,7 +124,7 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
   ```
 
 ### 🧠 MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x`)
-* **Imagen Base:** `sinfallas/base-node-ionic:26`
+* **Imagen Base:** `sinfallas/base-node-ionic:26` (Tags disponibles: `22`, `24`, `26` y `latest`)
 * **Métricas 11X Certificadas:**
   * **Sentencias (Statements):** `99.27%` ($\ge 95.0\%$)
   * **Ramas (Branches):** `95.28%` ($\ge 95.0\%$)

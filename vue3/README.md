@@ -9,7 +9,7 @@
 
 *   **Gestor de Paquetes y Zero-Trust:** Usamos `pnpm` en lugar de `npm`. La ejecución silenciosa de *scripts* maliciosos durante la instalación está bloqueada por el `.npmrc`. Revisa `package.json` si dependencias como `esbuild` o `playwright` fallan.
 *   **Obligatorio:** Utiliza las metas predefinidas en el `Makefile` (ej. `make qa-unit`) para aislar la infraestructura y re-utilizar la caché de dependencias.
-*   **Para pruebas lógicas (Vitest) y Mutación:** Usamos el contenedor ligero `qa-vue3`.
+*   **Para pruebas lógicas (Vitest) y Mutación:** Usamos el contenedor ligero `qa-vue3` (`sinfallas/base-node-ionic:26`; tags disponibles: `22`, `24`, `26` y `latest`).
 *   **Para Lighthouse y UI E2E (Playwright):** Usamos el contenedor pesado `ui-e2e`.
 *   **Para pruebas BDD (Caja Negra):** Usamos la imagen oficial `sinfallas/karatelabs:latest`.
 *   **Para Observabilidad (Métricas de Servidor):** Usamos los contenedores `nginx/nginx-prometheus-exporter:latest` y `prom/prometheus:latest`.

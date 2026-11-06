@@ -10,20 +10,20 @@
 Tratar a los modelos de lenguaje (LLMs) como simples autocompletadores de código genera código espagueti, mocks desconectados de la base de datos y regresiones silenciosas. En el estándar **11X**, el agente de IA es un operador autónomo sujeto a compuertas mecánicas estrictas:
 
 ```mermaid
-graph TD
-    A[Solicitud del Usuario] --> B[Agente de IA]
-    B --> C{Lectura de Reglas .agents/rules/}
-    C --> D[Diseño y Análisis de Radio de Impacto]
-    D --> E[Implementación de Código]
-    E --> F[Creación Obligatoria de Pruebas Multi-Capa]
-    F --> G[Ejecución en Docker Efímero: Rule Zero]
-    G --> H{¿Pasan Pruebas al 100% y Cobertura >= 95%?}
-    H -- No --> E
-    H -- Sí --> I[Compuerta certify_task_completion.sh]
-    I --> J{¿Secretos = 0, Paridad ORM, Docs sincronizados?}
-    J -- No --> K[Corrección Inmediata]
+flowchart TD
+    A["Solicitud del Usuario"] --> B["Agente de IA"]
+    B --> C{"Lectura de Reglas .agents/rules/"}
+    C --> D["Diseno y Analisis de Radio de Impacto (AST)"]
+    D --> E["Implementacion de Codigo"]
+    E --> F["Creacion Obligatoria de Pruebas Multi-Capa + Karate BDD"]
+    F --> G["Ejecucion en Docker Efimero (Rule Zero)"]
+    G --> H{"Pasan Pruebas al 100% y Cobertura >= 95%?"}
+    H -->|"No"| E
+    H -->|"Si"| I["Compuerta certify_task_completion.sh (10 Etapas)"]
+    I --> J{"Secretos = 0, Paridad ORM, Docs y Grafo sincronizados?"}
+    J -->|"No"| K["Correccion Inmediata"]
     K --> I
-    J -- Sí --> L[Cierre Exitoso de Tarea]
+    J -->|"Si"| L["Cierre Exitoso y Git Push"]
 ```
 
 ---

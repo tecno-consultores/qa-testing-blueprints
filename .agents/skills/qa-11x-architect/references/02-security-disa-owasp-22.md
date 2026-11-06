@@ -178,7 +178,7 @@ class OWASPSecureHeadersMiddleware(BaseHTTPMiddleware):
         return response
 ```
 
-### PHP 8.1–8.5 Reference Snippets (NFKC, AES-256-GCM + `sodium_memzero`, Constant-Time Argon2id)
+### PHP 8.2–8.5 Reference Snippets (NFKC, AES-256-GCM + `sodium_memzero`, Constant-Time Argon2id)
 ```php
 <?php
 

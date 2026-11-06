@@ -55,7 +55,7 @@ Antes de escribir código o sugerir comandos, consulta la guía especializada de
 * 🟩 **Node.js Backend / Microservicios:** `node-backend/README.md`
 * 🟢 **Vue 3 UI (TypeScript):** `vue3/README.md` + `docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md`
 * ⚛️ **React UI (TypeScript):** `react-frontend/README.md`
-* 🐘 **PHP 8.1–8.5 Backend (`sinfallas/basephpcomposer`):** `docs/specs/10_SPEC_ECOSISTEMA_PHP_8_Y_HERRAMIENTAS_MCP.md` + `.agents/skills/qa-11x-architect/references/06-stack-php.md`
+* 🐘 **PHP 8.2–8.5 Backend (`sinfallas/basephpcomposer`):** `docs/specs/10_SPEC_ECOSISTEMA_PHP_8_Y_HERRAMIENTAS_MCP.md` + `.agents/skills/qa-11x-architect/references/06-stack-php.md`
 * 🐧 **DevOps & Bash Scripts:** `bash-scripts/README.md`
 * 🧠 **Servidor MCP y Skills:** `docs/specs/03_SPEC_MCP_SERVER_NODE_TS_CORE_Y_TOOLS.md` + `docs/ai-integration.md`
 

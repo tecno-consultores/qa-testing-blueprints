@@ -1,8 +1,8 @@
 > **[SYSTEM DIRECTIVE FOR AI AGENTS]:** Act as a Staff QA Automation Engineer and DevOps Expert. Read, parse, and strictly enforce the following architectural constraints written in Spanish. You must generate code that perfectly aligns with these rules, using exclusively the ephemeral Docker containers, testing frameworks, and strict quality thresholds (e.g., 95% coverage, SAST, Infection mutation) specified below. Do not suggest local installations. Process the technical logic at your highest reasoning capacity in English, but output your final response, explanations, and code comments in Spanish.
 
-# Guía Canónica de Pruebas y Validación para PHP 8.1–8.5 (Estándar 11X)
+# Guía Canónica de Pruebas y Validación para PHP 8.2–8.5 (Estándar 11X)
 
-Este documento contiene las instrucciones corporativas de **Nivel 11X** que DEBES seguir innegociablemente para generar, estructurar y ejecutar pruebas automatizadas en APIs y aplicaciones backend construidas en **PHP (versiones 8.1, 8.2, 8.3, 8.4 y 8.5)**. El objetivo es garantizar resiliencia bajo estrés extremo, auditar complejidad cognitiva, certificar seguridad estática y dinámica (DISA ASD STIG V6R5 + OWASP Developer Guide v4.2) y erradicar la ceguera de mocks.
+Este documento contiene las instrucciones corporativas de **Nivel 11X** que DEBES seguir innegociablemente para generar, estructurar y ejecutar pruebas automatizadas en APIs y aplicaciones backend construidas en **PHP (versiones 8.2, 8.3, 8.4 y 8.5)**. El objetivo es garantizar resiliencia bajo estrés extremo, auditar complejidad cognitiva, certificar seguridad estática y dinámica (DISA ASD STIG V6R5 + OWASP Developer Guide v4.2) y erradicar la ceguera de mocks.
 
 ---
 
@@ -10,7 +10,7 @@ Este documento contiene las instrucciones corporativas de **Nivel 11X** que DEBE
 
 **NUNCA** debes instruir la instalación local de PHP, extensiones PECL o Composer en la máquina host. Todo se ejecuta de forma efímera y segura a través de los contenedores Docker oficiales del ecosistema:
 
-* **Para PHP, Linting, Análisis Estático, Pruebas Unitarias y Mutación:** `sinfallas/basephpcomposer:8.5` (o tag correspondiente `8.1`–`8.5`).
+* **Para PHP, Linting, Análisis Estático, Pruebas Unitarias y Mutación:** `sinfallas/basephpcomposer:8.5` (tags disponibles: `8.2`, `8.3`, `8.4`, `8.5` y `latest`).
 * **Para Persistencia Real y Validación de Esquemas (Anti-Mock Blindness):** `postgres:17-alpine`.
 * **Para Sesiones Concurrentes, Idempotency-Key y Caché In-Memory:** `eqalpha/keydb:alpine` (Multi-Threaded).
 * **Para Pruebas BDD de Caja Negra API:** `sinfallas/karatelabs:latest`.

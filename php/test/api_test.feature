@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 QA Testing Blueprints Contributors
 
-Feature: Validación BDD de Caja Negra de la API REST PHP (8.1-8.5) y Manejo de Errores
+Feature: Validación BDD de Caja Negra de la API REST PHP (8.2-8.5) y Manejo de Errores
 
   Background:
     # URL apuntando al servicio PHP dentro de la red interna de Docker

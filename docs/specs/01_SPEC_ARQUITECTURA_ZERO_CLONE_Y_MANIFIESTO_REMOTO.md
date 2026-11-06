@@ -22,27 +22,27 @@ La arquitectura se compone de tres pilares acoplados:
 
 ```mermaid
 flowchart TD
-    subgraph "Máquina del Usuario / Entorno del Agente (Sin clonar repo)"
-        USER["Desarrollador / Agente IA<br>(Antigravity, Claude, Cursor, Gemini)"]
-        SKILL["Skill: qa-11x-architect<br>(SKILL.md + references/)"]
-        MCP["Servidor MCP Node.js<br>(npx -y @sinfallas/mcp-qa-11x@latest)"]
-        CACHE["Caché Local Verificada<br>(~/.cache/qa-11x-blueprints/)"]
-        DOCKER["Contenedores Efímeros Rule Zero<br>(sinfallas/*, postgres:17, keydb)"]
+    subgraph EntornoUsuario["Maquina del Usuario / Entorno del Agente (Sin clonar repo)"]
+        USER["Desarrollador / Agente IA (Antigravity, Claude, Cursor, Gemini)"]
+        SKILL["Skill: qa-11x-architect (SKILL.md + references/)"]
+        MCP["Servidor MCP Node.js (npx -y @sinfallas/mcp-qa-11x@latest)"]
+        CACHE["Cache Local Verificada (~/.cache/qa-11x-blueprints/)"]
+        DOCKER["Contenedores Efimeros Rule Zero (sinfallas/*, postgres:17, keydb)"]
     end
 
-    subgraph "Fuente Única de Verdad (GitHub)"
-        GH_MANIFEST["raw.githubusercontent.com/.../manifest.json<br>(Rutas + Hashes SHA-256)"]
-        GH_FILES["Archivos .example, Makefiles,<br>docker-compose.qa.yml, .agents/scripts/"]
+    subgraph FuenteGitHub["Fuente Unica de Verdad (GitHub)"]
+        GH_MANIFEST["raw.githubusercontent.com/.../manifest.json (Rutas + Hashes SHA-256)"]
+        GH_FILES["Archivos .example, Makefiles, docker-compose.qa.yml, .agents/scripts/"]
     end
 
-    USER -->|1. Solicita inicializar o auditar QA 11X| SKILL
-    SKILL -->|2a. Entorno con MCP| MCP
-    SKILL -->|2b. Entorno sin MCP (Fallback curl)| GH_MANIFEST
-    MCP -->|3. Consulta ETag / Descarga selectiva| GH_MANIFEST
+    USER -->|"1. Solicita inicializar o auditar QA 11X"| SKILL
+    SKILL -->|"2a. Entorno con MCP"| MCP
+    SKILL -->|"2b. Entorno sin MCP (Fallback curl)"| GH_MANIFEST
+    MCP -->|"3. Consulta ETag / Descarga selectiva"| GH_MANIFEST
     GH_MANIFEST --> GH_FILES
-    GH_FILES -->|4. Verifica SHA-256 y almacena| CACHE
-    CACHE -->|5. Fusión Quirúrgica No Destructiva| USER
-    MCP -->|6. Ejecuta make qa-* y resume logs a JSON| DOCKER
+    GH_FILES -->|"4. Verifica SHA-256 y almacena"| CACHE
+    CACHE -->|"5. Fusion Quirurgica No Destructiva"| USER
+    MCP -->|"6. Ejecuta make qa-* y resume logs a JSON"| DOCKER
 ```
 
 ---

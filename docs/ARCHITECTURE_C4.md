@@ -8,38 +8,36 @@ Este documento describe gráficamente cómo interactúan las herramientas, conte
 Muestra el panorama general: cómo los desarrolladores humanos y los agentes de IA interactúan con el sistema mediante el servidor MCP, las skills y la ejecución efímera.
 
 ```mermaid
-graph TD
-    %% Entidades
-    Human["👨‍💻 Desarrollador / QA Staff"]
-    Agent["🤖 Agente de IA<br>(Antigravity, Claude, Cursor, Hermes)"]
-    MCP["🧠 Servidor MCP Node.js/TS<br>(@sinfallas/mcp-qa-11x)"]
-    Skill["⚡ Skills Zero-Clone<br>(qa-11x-architect / refactoring-ui)"]
-    Gate["🚧 Compuerta de Certificación 11X<br>(certify_task_completion.sh - 10 Etapas)"]
-    QA["🛡️ QA Testing Blueprints<br>(Makefiles / Docker Compose Efímero)"]
-    Host["🖥️ Máquina Host (Docker Engine)"]
-    Reports["📁 Reportes & Artefactos<br>(Coverage, ZAP, Chaos, Métricas RED)"]
+flowchart TD
+    Human["Desarrollador / QA Staff"]
+    Agent["Agente de IA (Antigravity, Claude, Cursor, Hermes)"]
+    MCP["Servidor MCP Node.js/TS (@sinfallas/mcp-qa-11x)"]
+    Skill["Skills Zero-Clone (qa-11x-architect / refactoring-ui)"]
+    Gate["Compuerta de Certificacion 11X (certify_task_completion.sh - 10 Etapas)"]
+    QA["QA Testing Blueprints (Makefiles / Docker Compose Efimero)"]
+    Host["Maquina Host (Docker Engine)"]
+    Reports["Reportes y Artefactos (Coverage, ZAP, Chaos, Metricas RED)"]
 
-    %% Relaciones
-    Agent -- "1. Consulta 8 Resources & ejecuta 8 Tools (stdio)" --> MCP
-    Agent -- "2. Ingiere directivas y reglas" --> Skill
-    Human -- "3. Instala skills (npx install-skill) o clona repo" --> Skill
-    Human -- "4. Delega tareas / Pair Programming" --> Agent
-    MCP -- "5. Orquesta validaciones efímeras (Rule Zero)" --> QA
-    Agent -- "6. Ejecuta compuerta universal antes de commit" --> Gate
-    Human -- "7. Lanza comandos (make qa-all)" --> QA
-    Gate -- "8. Valida 10 etapas (secretos, Trivy, ORM, etc.)" --> QA
-    QA -- "9. Ejecuta en imágenes sinfallas/* aisladas" --> Host
-    Host -- "10. Monta volúmenes bind (.:/app)" --> QA
-    QA -- "11. Emite reportes al morir el contenedor" --> Reports
-    Reports -- "12. Ingeridos para auto-corrección" --> Agent
-    Reports -- "13. Inspeccionados para auditoría" --> Human
+    Agent -->|"1. Consulta 8 Resources y ejecuta 12 Tools (stdio)"| MCP
+    Agent -->|"2. Ingiere directivas y reglas"| Skill
+    Human -->|"3. Instala skills (npx install-skill) o clona repo"| Skill
+    Human -->|"4. Delega tareas / Pair Programming"| Agent
+    MCP -->|"5. Orquesta validaciones efimeras (Rule Zero)"| QA
+    Agent -->|"6. Ejecuta compuerta universal antes de commit"| Gate
+    Human -->|"7. Lanza comandos (make qa-all)"| QA
+    Gate -->|"8. Valida 10 etapas (secretos, Trivy, ORM, etc.)"| QA
+    QA -->|"9. Ejecuta en imagenes sinfallas/* aisladas"| Host
+    Host -->|"10. Monta volumenes bind (.:/app)"| QA
+    QA -->|"11. Emite reportes al morir el contenedor"| Reports
+    Reports -->|"12. Ingeridos para auto-correccion"| Agent
+    Reports -->|"13. Inspeccionados para auditoria"| Human
 
     classDef default fill:#111,stroke:#333,stroke-width:2px,color:#fff;
     classDef highlight fill:#0052cc,stroke:#003d99,stroke-width:2px,color:#fff;
     classDef barrier fill:#ff8c00,stroke:#b8860b,stroke-width:2px,color:#fff;
     classDef ai fill:#6b21a8,stroke:#9333ea,stroke-width:2px,color:#fff;
     class QA,Host highlight;
-    class Gate,Hook barrier;
+    class Gate barrier;
     class Agent,MCP,Skill ai;
 ```
 
@@ -49,47 +47,45 @@ graph TD
 Muestra la interacción entre los clientes de IA, el servidor MCP en Node.js/TypeScript y el orquestador `docker-compose.qa.yml` con su red virtual aislada y perfiles de ejecución.
 
 ```mermaid
-graph LR
-    subgraph "Entorno del Cliente / IDE"
-        Client["🤖 Cliente IA / IDE<br>(Antigravity / Claude / Cursor)"]
-        MCPServer["🧠 @sinfallas/mcp-qa-11x<br>(stdio / Node 20+)"]
+flowchart LR
+    subgraph ClienteIDE["Entorno del Cliente / IDE"]
+        Client["Cliente IA / IDE (Antigravity / Claude / Cursor)"]
+        MCPServer["@sinfallas/mcp-qa-11x (stdio / Node 20+)"]
         Client <-->|"JSON-RPC (stdio)"| MCPServer
     end
 
-    subgraph "Red Virtual Aislada IPv4 (QA Bridge)"
-        API["📦 App Viva \n (Nginx / Uvicorn / Node) \n Puerto Expuesto"]
-        Test["🧪 Contenedor QA Efímero \n (Vitest/Pytest, SAST) \n Frontera: .unit.ts/.unit.py"]
-        DB["🐘 PostgreSQL 17 \n (Persistencia Real, Alembic, RLS) \n Anti-Mock Blindness"]
-        KeyDB["⚡ KeyDB Multi-Hilo \n (Caché en Memoria, Rate Limit) \n server-threads: 4"]
-        Karate["🥋 Contenedor BDD / E2E \n (Karate Labs / Playwright) \n Frontera: .e2e.ts / .feature"]
-        ZAP["🕷 Contenedor DAST \n (OWASP ZAP / zap-stable) \n Baseline Scan"]
-        Pumba["🌪️ Inyector de Caos \n (Pumba) \n Perfil: --profile chaos"]
-        Prometheus["📊 Observabilidad \n (Prometheus) \n Perfil: --profile chaos"]
-        PushGW["📤 Pushgateway \n (Caché de Métricas) \n Perfil: --profile observability"]
-        Graphify["🧠 AST & Blast Radius \n (sinfallas/remote-graphify) \n Perfil: --profile graphify"]
-        Cache["🗄️ Caché Persistente \n (pnpm-store / uv-cache) \n Volumen Nombrado"]
+    subgraph RedQABridge["Red Virtual Aislada IPv4 (QA Bridge)"]
+        API["App Viva (Nginx / Uvicorn / Node / PHP-FPM)"]
+        Test["Contenedor QA Efimero (Vitest / Pytest / Pest, SAST)"]
+        DB["PostgreSQL 17 (Persistencia Real, Alembic, RLS)"]
+        KeyDB["KeyDB Multi-Hilo (Cache en Memoria, Rate Limit)"]
+        Karate["Contenedor BDD / E2E (Karate Labs / Playwright)"]
+        ZAP["Contenedor DAST (OWASP ZAP Baseline)"]
+        Pumba["Inyector de Caos (Pumba --profile chaos)"]
+        Prometheus["Observabilidad (Prometheus --profile chaos)"]
+        PushGW["Pushgateway (Cache de Metricas)"]
+        Graphify["AST y Blast Radius (sinfallas/remote-graphify)"]
+        Cache["Cache Persistente (pnpm-store / uv-cache / composer-cache)"]
     end
 
-    %% Conexión MCP con Entorno Efímero
-    MCPServer -- "run_ephemeral_qa / certify_11x_gate" --> Test
-    MCPServer -- "inspect_ast_blast_radius" --> Graphify
-    MCPServer -- "clean_workspace_11x (Alpine efímero)" --> Cache
+    MCPServer -->|"run_ephemeral_qa / certify_11x_gate"| Test
+    MCPServer -->|"inspect_ast_blast_radius"| Graphify
+    MCPServer -->|"clean_workspace_11x (Alpine efimero)"| Cache
 
-    %% Flujos Internos
-    Test -- "Lee/Escribe Dependencias" --> Cache
-    Test -- "Aislamiento Unitario (Mocks de Red)" --> Test
-    Test -- "Valida Esquemas y Migraciones Reales" --> DB
-    Test -- "Operaciones Atómicas / Rate Limiting" --> KeyDB
-    API -- "Persiste Datos con RLS" --> DB
-    API -- "Consulta Caché de Sesiones" --> KeyDB
-    Test -- "Pruebas de Estrés y CPU Profiling" --> API
-    Karate -- "Peticiones HTTP Caja Negra (BDD)" --> API
-    ZAP -- "Inyección XSS/SQL y Cabeceras" --> API
-    Pumba -- "Inyecta Latencia y Mata Contenedores" --> API
-    Test -- "Empuja métricas (cURL)" --> PushGW
-    Prometheus -- "Scrapea Métricas (/metrics)" --> API
-    Prometheus -- "Scrapea" --> PushGW
-    Graphify -- "Expone topología semántica AST" --> API
+    Test -->|"Lee/Escribe Dependencias"| Cache
+    Test -->|"Aislamiento Unitario (Mocks de Red)"| Test
+    Test -->|"Valida Esquemas y Migraciones Reales"| DB
+    Test -->|"Operaciones Atomicas / Rate Limiting"| KeyDB
+    API -->|"Persiste Datos con RLS"| DB
+    API -->|"Consulta Cache de Sesiones"| KeyDB
+    Test -->|"Pruebas de Estres y CPU Profiling"| API
+    Karate -->|"Peticiones HTTP Caja Negra (BDD)"| API
+    ZAP -->|"Inyeccion XSS/SQL y Cabeceras"| API
+    Pumba -->|"Inyecta Latencia y Mata Contenedores"| API
+    Test -->|"Empuja metricas (cURL)"| PushGW
+    Prometheus -->|"Scrapea Metricas (/metrics)"| API
+    Prometheus -->|"Scrapea"| PushGW
+    Graphify -->|"Expone topologia semantica AST"| API
 
     classDef ephemeral fill:#b33a3a,stroke:#800000,stroke-width:2px,color:#fff,stroke-dasharray: 5 5;
     classDef live fill:#228b22,stroke:#006400,stroke-width:2px,color:#fff;
@@ -98,7 +94,7 @@ graph LR
     classDef obs fill:#e6522c,stroke:#8f3018,stroke-width:2px,color:#fff;
     classDef storage fill:#555,stroke:#999,stroke-width:2px,color:#fff;
     classDef datastore fill:#0052cc,stroke:#003366,stroke-width:2px,color:#fff;
-    
+
     class Test,Karate,ZAP ephemeral;
     class Pumba chaos;
     class API live;
@@ -114,41 +110,40 @@ graph LR
 Cadena de ejecución innegociable de 13 capas. Si un eslabón falla, el pipeline se aborta (Principio de Fallo Rápido).
 
 ```mermaid
-graph TD
-    subgraph "Ejecución del Pipeline (Estándar 11X - 13 Capas)"
+flowchart TD
+    subgraph Pipeline11X["Ejecucion del Pipeline (Estandar 11X - 13 Capas)"]
         direction TB
-        
-        Blast["0️⃣ Radio de Impacto y AST \n (inspect_blast_radius.py / verify_topological_health)"]
-        Obs["1️⃣ Instrumentación RED \n (Middleware o Pushgateway)"]
-        IaC["2️⃣ Auditoría IaC y Secretos \n (Trivy / verificar-secretos.sh)"]
-        SAST["3️⃣ Seguridad Estática \n (Bandit / ESLint Security)"]
-        Static["4️⃣ Calidad y Complejidad \n (Radon <= B / SonarJS)"]
-        Unit["5️⃣ Lógica Unitaria Aislada \n (Pytest / Vitest)"]
-        Coverage{"6️⃣ Cobertura Total \n ¿Es >= 95%?"}
-        Mutation["7️⃣ Pruebas de Mutación \n (Stryker / Mutmut)"]
-        Parity["8️⃣ Paridad de Esquema Real \n (Alembic / PostgreSQL - verify_alembic_orm_parity)"]
-        BDD["9️⃣ Comportamiento y Caja Negra \n (Karate Labs API & UI)"]
-        Performance["🔟 Profiling de Rendimiento \n (py-spy / clinic.js)"]
-        DAST["1️⃣1️⃣ Seguridad Dinámica \n (OWASP ZAP Baseline)"]
-        Chaos["1️⃣2️⃣ Ingeniería del Caos \n (Pumba + Locust/Artillery)"]
+
+        Blast["0. Radio de Impacto y AST (inspect_blast_radius.py)"]
+        Obs["1. Instrumentacion RED (Middleware o Pushgateway)"]
+        IaC["2. Auditoria IaC y Secretos (Trivy / verificar-secretos.sh)"]
+        SAST["3. Seguridad Estatica (Bandit / ESLint Security / Psalm)"]
+        Static["4. Calidad y Complejidad (Radon <= B / SonarJS / PHPStan)"]
+        Unit["5. Logica Unitaria Aislada (Pytest / Vitest / Pest)"]
+        Coverage{"6. Cobertura Total >= 95%?"}
+        Mutation["7. Pruebas de Mutacion (Stryker / Mutmut / Infection)"]
+        Parity["8. Paridad de Esquema Real (Alembic / PostgreSQL 17)"]
+        BDD["9. Comportamiento y Caja Negra (Karate Labs API y UI)"]
+        Performance["10. Profiling de Rendimiento (py-spy / clinic.js)"]
+        DAST["11. Seguridad Dinamica (OWASP ZAP Baseline)"]
+        Chaos["12. Ingenieria del Caos (Pumba + Locust / Artillery)"]
     end
 
-    %% Enlaces lógicos
-    Blast -- "Impacto Acotado" --> Obs
-    Obs -- "App Observable" --> IaC
-    IaC -- "Infraestructura Segura" --> SAST
-    SAST -- "Pasa" --> Static
-    Static -- "Código Limpio" --> Unit
+    Blast -->|"Impacto Acotado"| Obs
+    Obs -->|"App Observable"| IaC
+    IaC -->|"Infraestructura Segura"| SAST
+    SAST -->|"Pasa"| Static
+    Static -->|"Codigo Limpio"| Unit
     Unit --> Coverage
-    Coverage -- "Sí" --> Mutation
-    Coverage -- "No (Exit Code 1)" --> FallaPipeline(("💥 Falla el Pipeline"))
-    Mutation -- "Mutantes Sobreviven" --> FallaPipeline
-    Mutation -- "Asertos Sólidos" --> Parity
-    Parity -- "0 Esquemas Huérfanos" --> BDD
-    BDD -- "Contratos Validados" --> Performance
-    Performance -- "Sin Cuellos de Botella" --> DAST
-    DAST -- "Cabeceras Seguras" --> Chaos
-    Chaos -- "Métricas RED Estables" --> Exito(("✅ Certificado 11X"))
+    Coverage -->|"Si"| Mutation
+    Coverage -->|"No (Exit Code 1)"| FallaPipeline(("Falla el Pipeline"))
+    Mutation -->|"Mutantes Sobreviven"| FallaPipeline
+    Mutation -->|"Asertos Solidos"| Parity
+    Parity -->|"0 Esquemas Huerfanos"| BDD
+    BDD -->|"Contratos Validados"| Performance
+    Performance -->|"Sin Cuellos de Botella"| DAST
+    DAST -->|"Cabeceras Seguras"| Chaos
+    Chaos -->|"Metricas RED Estables"| Exito(("Certificado 11X"))
 
     classDef pass fill:#2e8b57,stroke:#fff,color:#fff;
     classDef fail fill:#b22222,stroke:#fff,color:#fff;

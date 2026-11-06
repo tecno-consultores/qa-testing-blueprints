@@ -1,4 +1,4 @@
-# Especificación Técnica 10: Ecosistema PHP 8.1–8.5 (`sinfallas/basephpcomposer`), Blueprints 11X e Integración en Servidor MCP
+# Especificación Técnica 10: Ecosistema PHP 8.2–8.5 (`sinfallas/basephpcomposer`), Blueprints 11X e Integración en Servidor MCP
 
 **Estado:** Aprobado para Implementación (Hito 11)  
 **Versión:** 1.0.0  
@@ -9,9 +9,9 @@
 
 ## 1. Propósito y Alcance
 
-Esta especificación define la arquitectura técnica, las plantillas canónicas del directorio `php/` y las extensiones del servidor MCP (`@sinfallas/mcp-qa-11x`) para incorporar a **PHP (versiones 8.1, 8.2, 8.3, 8.4 y 8.5)** como ciudadano de primera clase dentro del estándar corporativo **QA Testing Blueprints (Nivel 11X)**.
+Esta especificación define la arquitectura técnica, las plantillas canónicas del directorio `php/` y las extensiones del servidor MCP (`@sinfallas/mcp-qa-11x`) para incorporar a **PHP (versiones 8.2, 8.3, 8.4 y 8.5)** como ciudadano de primera clase dentro del estándar corporativo **QA Testing Blueprints (Nivel 11X)**.
 
-El diseño aprovecha la flota de imágenes Docker multi-arquitectura (`linux/amd64` y `linux/arm64`) **[`sinfallas/basephpcomposer`](https://hub.docker.com/r/sinfallas/basephpcomposer)** (tags `8.1`, `8.2`, `8.3`, `8.4`, `8.5` y `latest`), garantizando el cumplimiento absoluto de la **Regla Cero (`Rule Zero`)**, las **13 capas de la pirámide de calidad 11X** y los **22 controles normativos DISA ASD STIG V6R5 + OWASP Developer Guide v4.2**.
+El diseño aprovecha la flota de imágenes Docker multi-arquitectura (`linux/amd64` y `linux/arm64`) **[`sinfallas/basephpcomposer`](https://hub.docker.com/r/sinfallas/basephpcomposer)** (tags `8.2`, `8.3`, `8.4`, `8.5` y `latest`), garantizando el cumplimiento absoluto de la **Regla Cero (`Rule Zero`)**, las **13 capas de la pirámide de calidad 11X** y los **22 controles normativos DISA ASD STIG V6R5 + OWASP Developer Guide v4.2**.
 
 > **DIRECTIVAS CRÍTICAS DE IMPLEMENTACIÓN PARA GEMINI 3.8 FLASH HIGH (HITO 11):**
 > 1. **Cero Advertencias de Linter (`--max-warnings 0`):** En `mcp-server/`, ESLint ejecuta `eslint-plugin-sonarjs` y `eslint-plugin-security`. Cualquier warning rompe el build.
@@ -22,7 +22,7 @@ El diseño aprovecha la flota de imágenes Docker multi-arquitectura (`linux/amd
 
 ---
 
-## 2. Arquitectura de la Imagen Base Oficial (`sinfallas/basephpcomposer:8.1-8.5`)
+## 2. Arquitectura de la Imagen Base Oficial (`sinfallas/basephpcomposer:8.2-8.5`)
 
 La imagen base oficial [`sinfallas/basephpcomposer`](https://hub.docker.com/r/sinfallas/basephpcomposer) está construida sobre `php:8.x-fpm-alpine` para arquitecturas `amd64` y `arm64`, e incluye pre-compiladas las extensiones nativas necesarias para que los contenedores efímeros de QA arranquen en $< 1\text{ s}$ sin compilar paquetes C en tiempo de prueba:
 
@@ -41,7 +41,7 @@ La imagen base oficial [`sinfallas/basephpcomposer`](https://hub.docker.com/r/si
 
 ---
 
-## 3. Matriz de las 13 Capas de Calidad 11X para PHP (8.1–8.5)
+## 3. Matriz de las 13 Capas de Calidad 11X para PHP (8.2–8.5)
 
 | Capa | Dominio / Objetivo | Herramientas Canónicas PHP | Umbral / Invariante 11X | Meta `Makefile` |
 | :---: | :--- | :--- | :--- | :--- |
@@ -67,14 +67,14 @@ Durante la ejecución del **Hito 11**, Gemini 3.8 Flash High debe crear el direc
 
 ```text
 php/
-├── README.md                      # Manual operativo en español del stack PHP 8.1-8.5
+├── README.md                      # Manual operativo en español del stack PHP 8.2-8.5
 ├── docker-compose.qa.yml          # Orquestador efímero con sinfallas/basephpcomposer:8.5, postgres:17-alpine, keydb, karatelabs, zap, pumba
 ├── Makefile.example               # Metas qa-lint, qa-unit, qa-parity, qa-contracts, qa-bdd, qa-mutation, qa-dast, qa-chaos, qa-sbom, qa-all, clean
 ├── composer.json.example          # Dependencias y scripts 11X (pest, phpstan, psalm, php-cs-fixer, infection, cyclonedx-php-composer)
 ├── phpstan.neon.example           # Configuración nivel max (9) + strict-rules + cognitive-complexity <= 9
 ├── phpunit.xml.example            # Configuración estricta con PCOV y cobertura >= 95%
 ├── infection.json5.example        # Configuración de mutación con minMsi: 80 y minCoveredMsi: 80
-├── php.ini.example                # Configuración endurecida PHP 8.1-8.5 (DISA STIG / OWASP)
+├── php.ini.example                # Configuración endurecida PHP 8.2-8.5 (DISA STIG / OWASP)
 ├── limpieza.sh                    # Script universal de saneamiento con fallback efímero Alpine sin sudo
 └── test/
     └── api_test.feature           # Escenarios BDD en Karate Labs para endpoints PHP
@@ -141,11 +141,11 @@ volumes:
 ```json
 {
   "name": "organizacion/proyecto-php-11x",
-  "description": "Plantilla Corporativa PHP 8.1-8.5 bajo Estandar QA 11X",
+  "description": "Plantilla Corporativa PHP 8.2-8.5 bajo Estandar QA 11X",
   "type": "project",
   "license": "MIT",
   "require": {
-    "php": ">=8.1",
+    "php": ">=8.2",
     "ext-ctype": "*",
     "ext-iconv": "*",
     "ext-intl": "*",
@@ -246,7 +246,7 @@ En `scripts/generar-manifiesto.py`:
 1. Añadir `"php"` al diccionario `STACK_METADATA`:
    ```python
    "php": {
-       "description": "APIs, Microservicios y Aplicaciones Backend en PHP 8.1-8.5 con PCOV, PHPStan, Psalm, Pest/PHPUnit, Infection y Karate BDD",
+       "description": "APIs, Microservicios y Aplicaciones Backend en PHP 8.2-8.5 con PCOV, PHPStan, Psalm, Pest/PHPUnit, Infection y Karate BDD",
        "base_images": [
            "sinfallas/basephpcomposer:8.5",
            "postgres:17-alpine",
