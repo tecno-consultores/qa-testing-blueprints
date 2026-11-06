@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.9.1",
-  "generated_at_utc": "2026-11-06T00:05:11Z",
+  "generated_at_utc": "2026-11-06T00:08:49Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -90,7 +90,7 @@
           "path": "fastapi/pyproject.toml.example",
           "target_name": "pyproject.toml",
           "merge_strategy": "surgical_merge",
-          "sha256": "5ce48f1d5bf370a148f918df14b2d267f4efde411739a18df0fd2c726983408d",
+          "sha256": "71ba18fc37dfa49db491575d02ada395908446fe561560aed010a9f6da263998",
           "size_bytes": 2250
         },
         {
@@ -111,8 +111,8 @@
           "path": "fastapi/tox.ini.example",
           "target_name": "tox.ini",
           "merge_strategy": "surgical_merge",
-          "sha256": "aa0b757b7554cc9a4944e072e4c0d85cec3317592757ffa42442b6b89473d68a",
-          "size_bytes": 480
+          "sha256": "f9b8da24df6ccf131d21c49754eaea902054038d2e687de0aca77dd8427a5de5",
+          "size_bytes": 487
         }
       ]
     },
@@ -318,15 +318,15 @@
           "path": "python/pyproject.toml.example",
           "target_name": "pyproject.toml",
           "merge_strategy": "surgical_merge",
-          "sha256": "6a5cb23140aade4f0bda428fe4ad811076879cc961854d989f738c299ae1390a",
+          "sha256": "adeda1634b649f32371125793b4f43aaffff326b81bf464c9875a88fe08000fa",
           "size_bytes": 1878
         },
         {
           "path": "python/tox.ini.example",
           "target_name": "tox.ini",
           "merge_strategy": "surgical_merge",
-          "sha256": "438e2f9706674ff51e138014e121c127ebbbf78d578e26e7d02a195c8fb4fd06",
-          "size_bytes": 796
+          "sha256": "658c76475026969ded95d21f2840838f0038ed86ee06e98b2f0bdfc8fa207723",
+          "size_bytes": 803
         }
       ]
     },
@@ -791,8 +791,8 @@
       "path": ".agents/skills/qa-11x-architect/references/03-stack-python-fastapi.md",
       "target_name": ".agents/skills/qa-11x-architect/references/03-stack-python-fastapi.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "0180e1e98fb7d58cb0627ecbb6bf0f287ee5dd857a9d688f4d1a2928608486b4",
-      "size_bytes": 6119
+      "sha256": "d9a0f41f8e6070b66f2f84a23733f7d2477e933bdcb35c17c75b249984a25b46",
+      "size_bytes": 6223
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md",

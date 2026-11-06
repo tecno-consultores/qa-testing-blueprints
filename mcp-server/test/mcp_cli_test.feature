@@ -344,6 +344,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def readmeContent = karate.readAsString('classpath:../README.md')
     * match readmeContent contains '## 🛠 Matriz de Herramientas de Pruebas'
     * match readmeContent contains '| Entorno | Linting / Formateo | Pruebas Unitarias / Mocking |'
+    * match readmeContent contains '`3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest`'
     * match readmeContent contains '`8.2`, `8.3`, `8.4`, `8.5` y `latest`'
     * match readmeContent contains '`22`, `24`, `26` y `latest`'
     * match readmeContent !contains '<code>@sinfallas/mcp-qa-11x</code>'

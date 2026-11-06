@@ -314,6 +314,7 @@ class TestGenerarManifiesto(unittest.TestCase):
         readme_text = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
         self.assertIn("## 🛠 Matriz de Herramientas de Pruebas", readme_text)
         self.assertIn("| Entorno | Linting / Formateo | Pruebas Unitarias / Mocking |", readme_text)
+        self.assertIn("`3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest`", readme_text)
         self.assertIn("`8.2`, `8.3`, `8.4`, `8.5` y `latest`", readme_text)
         self.assertIn("`22`, `24`, `26` y `latest`", readme_text)
 

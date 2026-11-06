@@ -11,7 +11,7 @@ Este ecosistema está diseñado para ser desarrollado, mantenido y extendido tan
 Para mantener la consistencia y la eficacia de estos blueprints, toda contribución (humana o automatizada) debe respetar los siguientes principios:
 
 1. **Imágenes Base Inmutables:** Nunca propongas cambios que requieran agregar un `Dockerfile` local o la instrucción `build:` en los orquestadores `docker-compose.qa.yml`. Todo debe funcionar utilizando exclusivamente nuestra flota de imágenes oficiales:
-   * `sinfallas/base-python-uv` (`3.10` a `3.15` y `latest`) para Python/FastAPI.
+   * `sinfallas/base-python-uv` (`3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest`) para Python/FastAPI.
    * `sinfallas/base-node-ionic` (`22`, `24`, `26` y `latest`) para Node.js/Vue 3/React y el Servidor MCP.
    * `sinfallas/basephpcomposer` (`8.2`, `8.3`, `8.4`, `8.5` y `latest`) para PHP.
    * `sinfallas/base-bash-qa:latest` para Bash/DevOps.

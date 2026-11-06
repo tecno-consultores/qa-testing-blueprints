@@ -42,9 +42,10 @@
 
 ## Imágenes docker:
 
-* [sinfallas/base-python-uv](https://hub.docker.com/r/sinfallas/base-python-uv)
-* [sinfallas/base-node-ionic](https://hub.docker.com/r/sinfallas/base-node-ionic)
-* [sinfallas/base-bash-qa](https://hub.docker.com/r/sinfallas/base-bash-qa)
+* [sinfallas/base-python-uv](https://hub.docker.com/r/sinfallas/base-python-uv) (Tags: `3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest`)
+* [sinfallas/base-node-ionic](https://hub.docker.com/r/sinfallas/base-node-ionic) (Tags: `22`, `24`, `26` y `latest`)
+* [sinfallas/basephpcomposer](https://hub.docker.com/r/sinfallas/basephpcomposer) (Tags: `8.2`, `8.3`, `8.4`, `8.5` y `latest`)
+* [sinfallas/base-bash-qa](https://hub.docker.com/r/sinfallas/base-bash-qa) (`latest`)
 * [sinfallas/karatelabs](https://hub.docker.com/r/sinfallas/karatelabs)
 * [sinfallas/remote-graphify](https://hub.docker.com/r/sinfallas/remote-graphify)
 * [eqalpha/keydb](https://docs.keydb.dev/) (Multi-Threaded In-Memory Engine)

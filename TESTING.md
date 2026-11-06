@@ -32,7 +32,7 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
 ## 2. Matriz de Ecosistemas Tecnológicos y Comandos Efímeros
 
 ### ⚡ FastAPI (Backend Python) — 13 Capas
-* **Imagen Base:** `sinfallas/base-python-uv:3.15`
+* **Imagen Base:** `sinfallas/base-python-uv:3.15` (Tags disponibles: `3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest`)
 * **Persistencia:** `postgres:17-alpine` + `eqalpha/keydb:alpine`
 * **Comandos de Validación:**
   ```bash
@@ -78,7 +78,7 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
   ```
 
 ### 🐍 Python Standalone (Librerías y CLI)
-* **Imagen Base:** `sinfallas/base-python-uv:3.15`
+* **Imagen Base:** `sinfallas/base-python-uv:3.15` (Tags disponibles: `3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest`)
 * **Comandos de Validación:**
   ```bash
   cd python

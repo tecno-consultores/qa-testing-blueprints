@@ -6,7 +6,7 @@ Este documento contiene las instrucciones corporativas de Nivel 11X que DEBES se
 
 ## 1. Reglas Estrictas de Ejecución (Docker Efímero y Caché)
 **NUNCA** debes instruir la construcción de imágenes locales (`docker build`) ni construir comandos manuales de `docker compose run`. Todo se ejecuta de forma efímera y segura a través del `Makefile` proporcionado, utilizando los cachés de volumen persistentes:
-*   Para la API, pruebas lógicas, contratos, profiling y estrés: `sinfallas/base-python-uv:<tag>`.
+*   Para la API, pruebas lógicas, contratos, profiling y estrés: `sinfallas/base-python-uv:3.15` (tags disponibles: `3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest`).
 *   Para pruebas BDD de caja negra: `sinfallas/karatelabs:latest`.
 *   Para Seguridad Dinámica (DAST): `zaproxy/zap-stable:latest`.
 *   Para Persistencia Real y Validación de Esquemas (Anti-Mock Blindness): `postgres:17-alpine`.

@@ -9,7 +9,7 @@ This reference provides the technical directives, configuration blueprints, and 
 
 ## 1. Core Architecture & Ephemeral Container Topology
 
-Validation and execution MUST occur inside ephemeral Docker containers without local host pollution (`Rule Zero`):
+Validation and execution MUST occur inside ephemeral Docker containers without local host pollution (`Rule Zero`) using `sinfallas/base-python-uv` (available tags: `3.11`, `3.12`, `3.13`, `3.14`, `3.15`, and `latest`):
 
 | Service / Container Role | Docker Image | Port / Socket | Purpose |
 | :--- | :--- | :--- | :--- |
