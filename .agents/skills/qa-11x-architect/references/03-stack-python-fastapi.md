@@ -38,7 +38,7 @@ Instrumentator().instrument(app).expose(app)
 ### B. Unit Test File Naming & Isolation
 - All unit test files MUST match `tests/**/*.unit.py` or `tests/**/*.spec.py`.
 - External network requests MUST be mocked with `pytest-mock` or `respx`.
-- Minimum coverage threshold: **$\ge 95.0\%$** for lines and branches:
+- Minimum coverage threshold: **`>= 95.0%`** for lines and branches:
   ```ini
   [tool.coverage.report]
   fail_under = 95
@@ -54,7 +54,7 @@ Instrumentator().instrument(app).expose(app)
 - NEVER mock SQLAlchemy sessions or Alembic migrations when testing persistence layers.
 - Run migrations against real PostgreSQL 17 in `docker-compose.qa.yml`.
 - Verify ORM parity using `.agents/scripts/verify_alembic_orm_parity.py`.
-- Alembic revision IDs must be $\le 32$ characters to avoid DB column truncation.
+- Alembic revision IDs must be `<= 32` characters to avoid DB column truncation.
 - **Anti-Silo Read-After-Write Propagation:** Never test a state-mutating endpoint (`POST /api/v1/maintenance/windows`, device state change, Safe Mode activation) in isolation while mocking the consumer endpoint. Immediately query the consumer `GET` endpoints (`GET /api/v1/inventory/routers`, dashboard KPIs) against the live database without intermediate mocks to verify end-to-end state propagation.
 - **3-Phase Temporal Lifecycle & Audit Payload Assertions:**
   - Entities with `starts_at`/`ends_at` or TTLs must be tested across all 3 clock phases (`t < starts_at` Scheduled, `starts_at <= t <= ends_at` Active/In-Progress, and `t > ends_at` Expired/Reverted).

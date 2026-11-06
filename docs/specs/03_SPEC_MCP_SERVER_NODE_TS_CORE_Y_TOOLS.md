@@ -142,9 +142,9 @@ El archivo `src/index.ts` DEBE incluir el *shebang* `#!/usr/bin/env node` en la 
   1. Verifica que `project_path` exista y sea un directorio (canonicalizando la ruta con `path.resolve` y normalización `NFKC`).
   2. Inspecciona la presencia de `pyproject.toml`, `package.json`, `tsconfig.json`, `Makefile`, `docker-compose.qa.yml`, `lefthook.yml`, `TESTING.md`, `CHANGELOG.md`, `.agents/scripts/certify_task_completion.sh`.
   3. Determina automáticamente el `detected_stacks: string[]`:
-     - Si `pyproject.toml` contiene `fastapi` $\rightarrow$ `"fastapi"`, si no $\rightarrow$ `"python"`.
-     - Si `package.json` contiene `"vue"` $\rightarrow$ `"vue3"`; si contiene `"react"` $\rightarrow$ `"react-frontend"`; si contiene `"express"` o `"fastify"` o `"@nestjs/core"` $\rightarrow$ `"node-backend"`.
-     - Si existen archivos `.sh` o `.bats` $\rightarrow$ `"bash-scripts"`.
+     - Si `pyproject.toml` contiene `fastapi` → `"fastapi"`, si no → `"python"`.
+     - Si `package.json` contiene `"vue"` → `"vue3"`; si contiene `"react"` → `"react-frontend"`; si contiene `"express"` o `"fastify"` o `"@nestjs/core"` → `"node-backend"`.
+     - Si existen archivos `.sh` o `.bats` → `"bash-scripts"`.
 - **Salida JSON Estructurada:**
   ```json
   {

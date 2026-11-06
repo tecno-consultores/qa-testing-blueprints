@@ -41,7 +41,7 @@ export interface BrowserTestingReadiness {
 
 ### 2.2. Lógica de Detección en `mcp-server/src/tools/inspect-project.ts`
 
-Crear la función modular `evaluateBrowserTestingReadiness(projectPath: string, files: string[], stacks: StackName[], homeDir?: string): BrowserTestingReadiness` (con complejidad cognitiva $\le 10$):
+Crear la función modular `evaluateBrowserTestingReadiness(projectPath: string, files: string[], stacks: StackName[], homeDir?: string): BrowserTestingReadiness` (con complejidad cognitiva <= 10):
 
 1. Si `stacks` no incluye `'vue3'` ni `'react-frontend'`, devuelve:
    ```typescript

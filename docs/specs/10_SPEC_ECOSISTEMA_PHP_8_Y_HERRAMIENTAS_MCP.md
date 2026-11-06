@@ -16,18 +16,18 @@ El diseño aprovecha la flota de imágenes Docker multi-arquitectura (`linux/amd
 > **DIRECTIVAS CRÍTICAS DE IMPLEMENTACIÓN PARA GEMINI 3.8 FLASH HIGH (HITO 11):**
 > 1. **Cero Advertencias de Linter (`--max-warnings 0`):** En `mcp-server/`, ESLint ejecuta `eslint-plugin-sonarjs` y `eslint-plugin-security`. Cualquier warning rompe el build.
 > 2. **Complejidad Cognitiva (`sonarjs/cognitive-complexity <= 15`):** Nunca anides múltiples `if/else` o bucles dentro de una sola función. Extrae funciones auxiliares pequeñas (`inspectPhpStack`, `mergeComposerJson`, `parseInfectionSummary`, etc.) tal como se entregan en esta especificación.
-> 3. **Cero Cadenas Duplicadas (`sonarjs/no-duplicate-string`):** Define constantes en la cabecera del módulo (`const COMPOSER_JSON = 'composer.json';`, `const PHP_EXT = '.php';`) cuando un literal de cadena de $\ge 10$ caracteres o con separadores se utilice 3 o más veces.
+> 3. **Cero Cadenas Duplicadas (`sonarjs/no-duplicate-string`):** Define constantes en la cabecera del módulo (`const COMPOSER_JSON = 'composer.json';`, `const PHP_EXT = '.php';`) cuando un literal de cadena de >= 10 caracteres o con separadores se utilice 3 o más veces.
 > 4. **Seguridad de Ejecución (`DISA APSC-DV-002510`):** Prohibido usar `exec` o `shell: true` en TypeScript; usa exclusivamente `execFile(..., { shell: false })`.
-> 5. **Cobertura Innegociable ($\ge 95.0\%$):** Todas las métricas de Vitest (`lines`, `branches`, `functions`, `statements`) en `mcp-server/` y de `tests/test_generar_manifiesto.unit.py` deben mantenerse $\ge 95.0\%$ ejecutadas dentro de contenedores efímeros `sinfallas/*`.
+> 5. **Cobertura Innegociable (>= 95.0%):** Todas las métricas de Vitest (`lines`, `branches`, `functions`, `statements`) en `mcp-server/` y de `tests/test_generar_manifiesto.unit.py` deben mantenerse >= 95.0% ejecutadas dentro de contenedores efímeros `sinfallas/*`.
 
 ---
 
 ## 2. Arquitectura de la Imagen Base Oficial (`sinfallas/basephpcomposer:8.2-8.5`)
 
-La imagen base oficial [`sinfallas/basephpcomposer`](https://hub.docker.com/r/sinfallas/basephpcomposer) está construida sobre `php:8.x-fpm-alpine` para arquitecturas `amd64` y `arm64`, e incluye pre-compiladas las extensiones nativas necesarias para que los contenedores efímeros de QA arranquen en $< 1\text{ s}$ sin compilar paquetes C en tiempo de prueba:
+La imagen base oficial [`sinfallas/basephpcomposer`](https://hub.docker.com/r/sinfallas/basephpcomposer) está construida sobre `php:8.x-fpm-alpine` para arquitecturas `amd64` y `arm64`, e incluye pre-compiladas las extensiones nativas necesarias para que los contenedores efímeros de QA arranquen en < 1 s sin compilar paquetes C en tiempo de prueba:
 
 * **Extensiones C/PECL Preinstaladas:**
-  * `pcov`: Motor ligero de cobertura de código en C (10x a 30x más rápido que Xdebug para alcanzar $\ge 95\%$ de cobertura en Pest / PHPUnit).
+  * `pcov`: Motor ligero de cobertura de código en C (10x a 30x más rápido que Xdebug para alcanzar >= 95% de cobertura en Pest / PHPUnit).
   * `redis`: Cliente nativo en C para conectar a alta velocidad con **KeyDB Multi-Threaded** (`eqalpha/keydb:alpine`) en gestión de sesiones concurrentes, bloqueo de cuentas e `Idempotency-Key`.
   * `pdo_pgsql` y `pgsql`: Drivers nativos para verificación real contra `postgres:17-alpine` y políticas **Row-Level Security (`FORCE RLS`)**.
   * `intl`: Extensión ICU indispensable para canonicalización Unicode **`\Normalizer::FORM_KC`** (`DISA APSC-DV-002520`).
@@ -46,15 +46,15 @@ La imagen base oficial [`sinfallas/basephpcomposer`](https://hub.docker.com/r/si
 | Capa | Dominio / Objetivo | Herramientas Canónicas PHP | Umbral / Invariante 11X | Meta `Makefile` |
 | :---: | :--- | :--- | :--- | :--- |
 | **01** | **Análisis Estático, Formato y SAST** | `friendsofphp/php-cs-fixer` (`@PER-CS2.0`), `vimeo/psalm` (`--taint-analysis`), `composer audit` | **0 errores de estilo, 0 alertas SAST Taint, 0 CVEs High/Critical** | `make qa-lint` |
-| **02** | **Tipado Estricto y Complejidad** | `declare(strict_types=1);` + `phpstan/phpstan` (`level: max` + `phpstan-strict-rules`) + `tomasvotruba/cognitive-complexity` | **0 errores de tipos, Complejidad Cognitiva por método $\le 9$ (Grado A)** | `make qa-lint` |
-| **03** | **Pruebas Unitarias Aisladas** | `pestphp/pest` (o `phpunit/phpunit` 11/12) + `pcov` (`pcov.enabled=1`) + `MockHandler` / `vfsStream` | **Cobertura $\ge 95.0\%$ (líneas y ramas), 100% aislamiento offline** | `make qa-unit` |
+| **02** | **Tipado Estricto y Complejidad** | `declare(strict_types=1);` + `phpstan/phpstan` (`level: max` + `phpstan-strict-rules`) + `tomasvotruba/cognitive-complexity` | **0 errores de tipos, Complejidad Cognitiva por método <= 9 (Grado A)** | `make qa-lint` |
+| **03** | **Pruebas Unitarias Aisladas** | `pestphp/pest` (o `phpunit/phpunit` 11/12) + `pcov` (`pcov.enabled=1`) + `MockHandler` / `vfsStream` | **Cobertura >= 95.0% (líneas y ramas), 100% aislamiento offline** | `make qa-unit` |
 | **04** | **Paridad de Esquema BD y Migraciones**| `doctrine/migrations` (`doctrine:schema:validate` / `migrations:diff`) o Laravel Migrations vs `postgres:17-alpine` | **0 deriva de esquema (Schema Drift), políticas `FORCE RLS` activas** | `make qa-parity` |
 | **05** | **Contratos Front-Back / OpenAPI** | `zircote/swagger-php` + `schemathesis` contra contenedor PHP + PostgreSQL + KeyDB | **0 discrepancias de esquema OpenAPI 3.1 y códigos HTTP** | `make qa-contracts` |
 | **06** | **BDD Caja Negra API REST** | `sinfallas/karatelabs:latest` ejecutando `test/api_test.feature` | **100% escenarios Gherkin PASSED** | `make qa-bdd` |
 | **07** | **BDD Aceptación UI (Headless)** | `sinfallas/karatelabs:latest` ejecutando `test/ui_business_flow.feature` | **100% escenarios UI PASSED en Chromium real** | `make qa-bdd` |
-| **08** | **Pruebas de Mutación** | `infection/infection` (`vendor/bin/infection --min-msi=80 --min-covered-msi=80 --threads=4`) | **MSI $\ge 80\%$, Covered MSI $\ge 80\%$, 0 mutantes críticos vivos** | `make qa-mutation` |
-| **09** | **Accesibilidad y Geometría Visual** | `@axe-core/playwright` + `Lighthouse CI` + ergonomía In-Flow Anti-JSDOM | **0 violaciones WCAG 2.1 AA, Lighthouse A11y $\ge 0.95$** | `make qa-e2e` |
-| **10** | **Concurrencia y Estrés / Carga** | `locust` (headless) o `artillery` contra Nginx + PHP-FPM / Octane | **0% tasa de error, latencia P95 $< 200\text{ ms}$** | `make qa-stress` |
+| **08** | **Pruebas de Mutación** | `infection/infection` (`vendor/bin/infection --min-msi=80 --min-covered-msi=80 --threads=4`) | **MSI >= 80%, Covered MSI >= 80%, 0 mutantes críticos vivos** | `make qa-mutation` |
+| **09** | **Accesibilidad y Geometría Visual** | `@axe-core/playwright` + `Lighthouse CI` + ergonomía In-Flow Anti-JSDOM | **0 violaciones WCAG 2.1 AA, Lighthouse A11y >= 0.95** | `make qa-e2e` |
+| **10** | **Concurrencia y Estrés / Carga** | `locust` (headless) o `artillery` contra Nginx + PHP-FPM / Octane | **0% tasa de error, latencia P95 < 200 ms** | `make qa-stress` |
 | **11** | **Seguridad Dinámica DAST & OSHP** | `zaproxy/zap-stable` + PSR-15 `OWASPSecureHeadersMiddleware` (`expose_php=Off`) | **0 alertas HIGH, cabeceras OSHP presentes, estado Fail-Secure** | `make qa-dast` |
 | **12** | **Ingeniería del Caos y Resiliencia** | `gaiaadm/pumba:latest` (`netem` delay/loss) + `promphp/prometheus_client_php` (`/metrics`) | **0 excepciones fatales 500, métricas RED operativas** | `make qa-chaos` |
 | **13** | **Fixtures Trimodales e Invariantes**| Payloads crudos (1: Virgen/Default, 2: Nominal, 3: Degradado) | **0 ceguera de mocks, 100% invariantes negativos verificados** | `make qa-unit` |
@@ -286,7 +286,7 @@ export const StackNameSchema = z.enum([
 ```
 
 ### 6.2. `mcp-server/src/tools/inspect-project.ts`
-Añadir detección del stack `php` manteniendo la complejidad cognitiva $\le 15$:
+Añadir detección del stack `php` manteniendo la complejidad cognitiva <= 15:
 ```typescript
 const COMPOSER_JSON_FILE = 'composer.json';
 const PHPSTAN_NEON_FILE = 'phpstan.neon';
@@ -370,6 +370,6 @@ Ampliar los parsers ahorradores de tokens para soportar salidas de herramientas 
 
 1. El directorio `php/` existe con todas sus plantillas `.example`, `docker-compose.qa.yml`, `README.md`, `limpieza.sh` (`0755`) y `test/api_test.feature`.
 2. `python3 scripts/generar-manifiesto.py --check` pasa con código de salida `0` e indexa los 7 stacks (`python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`).
-3. En contenedor efímero `sinfallas/base-node-ionic:26`, `pnpm run lint` (`--max-warnings 0`), `pnpm run typecheck`, `pnpm run test:unit` (cobertura $\ge 95.0\%$ en líneas, ramas, funciones y sentencias) y `pnpm run build` aprueban sin errores.
+3. En contenedor efímero `sinfallas/base-node-ionic:26`, `pnpm run lint` (`--max-warnings 0`), `pnpm run typecheck`, `pnpm run test:unit` (cobertura >= 95.0% en líneas, ramas, funciones y sentencias) y `pnpm run build` aprueban sin errores.
 4. `mcp-server/test/mcp_cli_test.feature` valida que `manifest.json` contiene el stack `php`.
 5. `./.agents/scripts/certify_task_completion.sh` aprueba las **10/10 etapas**.

@@ -121,7 +121,7 @@ El motor `auditTestPyramidGaps()` evaluará de forma determinista (en `< 2 segun
 | :---: | :--- | :--- | :--- | :--- | :--- | :--- |
 | **01** | `L01_STATIC_SAST_IAC` | **Análisis Estático, Linters Inflexibles y SAST/IaC** | Todos | Configuración de linter estricto (`ruff`+`bandit` en Python, `eslint --max-warnings 0` con `security`+`sonarjs` en JS/TS, `shellcheck`+`shfmt` en Bash) **Y** presencia de `scripts/auditar-infra.sh` + `scripts/verificar-secretos.sh`. | Existe linter básico pero falta `--max-warnings 0`, falta plugin `security`/`sonarjs`/`bandit`, o faltan los scripts de auditoría IaC/secretos. | Sin configuración de linter ni scripts SAST/IaC. |
 | **02** | `L02_STRICT_TYPING_COMPLEXITY` | **Tipado Estricto y Complejidad Ciclomática/Cognitiva** | `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend` | `mypy` con `strict = true` + `radon` en Python; o `tsconfig.json` con `"strict": true` + script `typecheck` (`tsc --noEmit` / `vue-tsc --noEmit`) + `sonarjs/cognitive-complexity` en TS. | Existe `tsconfig.json` o `mypy` sin `"strict": true` o sin validador de complejidad (`radon` / `sonarjs`). | Sin verificación de tipos ni control de complejidad. |
-| **03** | `L03_UNIT_ISOLATED` | **Pruebas Unitarias Aisladas ($\ge 95\%$ Cobertura)** | Todos | Existen archivos `.unit.py`, `.unit.ts`, `.unit.tsx` o `.bats`, umbral `>= 95` configurado (`fail_under = 95` / `thresholds: 95` / `kcov`), **y `0` archivos de código fuente huérfanos** en `orphan_source_files`. | Existen pruebas unitarias pero hay archivos fuente en `src/` o `scripts/` sin su par `.unit.*`/`.bats` o el umbral de cobertura es `< 95%`. | `0` archivos de pruebas unitarias detectados. |
+| **03** | `L03_UNIT_ISOLATED` | **Pruebas Unitarias Aisladas (>= 95% Cobertura)** | Todos | Existen archivos `.unit.py`, `.unit.ts`, `.unit.tsx` o `.bats`, umbral `>= 95` configurado (`fail_under = 95` / `thresholds: 95` / `kcov`), **y `0` archivos de código fuente huérfanos** en `orphan_source_files`. | Existen pruebas unitarias pero hay archivos fuente en `src/` o `scripts/` sin su par `.unit.*`/`.bats` o el umbral de cobertura es `< 95%`. | `0` archivos de pruebas unitarias detectados. |
 | **04** | `L04_ORM_MIGRATION_PARITY` | **Paridad Real de Esquemas ORM y Migraciones (Anti-Mock Blindness)** | `fastapi`, `python`, `node-backend` *(si usan BD/ORM)* | Directorio de migraciones (`alembic/versions/` o `migrations/versions/`), script `.agents/scripts/verify_alembic_orm_parity.py` y servicio `postgres:17-alpine` en `docker-compose.qa.yml`. *(Si no hay modelos ORM, marca `NOT_APPLICABLE`)*. | Existen modelos ORM y migraciones, pero falta `verify_alembic_orm_parity.py` o falta PostgreSQL real en `docker-compose.qa.yml`. | Existen modelos ORM en `src/models` pero no existen migraciones ni pruebas contra motor real. |
 | **05** | `L05_CONTRACT_FUZZING_OPENAPI` | **Contratos de Integración y Fuzzing OpenAPI (Schemathesis)** | `fastapi`, `node-backend`, `vue3`, `react-frontend` | Suite de contratos (`*.spec.py` / Schemathesis en backend) y validador `.agents/scripts/verify_no_orphan_api_endpoints.py` para paridad bidireccional Front-Back. | Existe validación parcial de rutas pero sin suite de contrato `*.spec.*` o sin Schemathesis en `docker-compose.qa.yml`. | Sin pruebas de contrato ni validador de paridad de endpoints. |
 | **06** | `L06_BDD_API_KARATE` | **Pruebas BDD de Caja Negra de API (Karate Labs API)** | `fastapi`, `node-backend` | Existe `test/api_test.feature` (con escenarios `Scenario:`), servicio `karate` en `docker-compose.qa.yml` y **`0` endpoints huérfanos en `untested_api_endpoints`**. | Existe `api_test.feature`, pero aún hay endpoints declarados en el backend sin cobertura en escenarios BDD (`untested_api_endpoints.length > 0`). | No existe archivo `api_test.feature` ni configuración de Karate Labs API. |
@@ -281,7 +281,7 @@ En el Hito 7 se actualizará `.agents/skills/qa-11x-architect/SKILL.md` (y su re
    - **Paso 2:** Invocar `audit_test_pyramid_gaps(project_path)` para obtener el `pyramid_score_pct`, el estado de las 13 capas y el `missing_test_inventory` (`orphan_source_files`, `untested_api_endpoints`, `untested_ui_views`).
    - **Paso 3:** Presentar al usuario en español una tabla diagnóstica clara con la puntuación actual de su pirámide (`XX%`), las capas faltantes y el inventario exacto de pruebas por crear.
    - **Paso 4:** Si faltan archivos base de configuración de pruebas (`api_test.feature`, `accessibility.e2e.ts`, `lighthouserc.js`, `locustfile.py`), invocar `fetch_blueprint_bundle` y `bootstrap_or_merge_11x` para inyectar las plantillas `.example` sin destruir código existente.
-   - **Paso 5:** Generar iterativamente las pruebas faltantes siguiendo el orden de `prioritized_action_plan` (`CRITICAL` $\rightarrow$ `HIGH` $\rightarrow$ `MEDIUM`), validando cada lote con `run_ephemeral_qa` en contenedores Docker efímeros (`Rule Zero`).
+   - **Paso 5:** Generar iterativamente las pruebas faltantes siguiendo el orden de `prioritized_action_plan` (`CRITICAL` → `HIGH` → `MEDIUM`), validando cada lote con `run_ephemeral_qa` en contenedores Docker efímeros (`Rule Zero`).
 
 ---
 
@@ -306,8 +306,8 @@ const PACKAGE_JSON = 'package.json';
 const MAKEFILE_NAME = 'Makefile';
 ```
 
-### 7.2. Prevención de `sonarjs/cognitive-complexity` ($\le 15$ por función)
-**PROHIBIDO** evaluar las 13 capas dentro de una sola función monolítica con `if/else` anidados. Se DEBE descomponer en funciones evaluadoras independientes (una por capa o grupo cohesivo), donde cada función tenga una complejidad cognitiva $\le 8$:
+### 7.2. Prevención de `sonarjs/cognitive-complexity` (<= 15 por función)
+**PROHIBIDO** evaluar las 13 capas dentro de una sola función monolítica con `if/else` anidados. Se DEBE descomponer en funciones evaluadoras independientes (una por capa o grupo cohesivo), donde cada función tenga una complejidad cognitiva <= 8:
 - `collectProjectFiles(projectPath: string): string[]`
 - `findOrphanSourceFiles(projectPath: string, files: string[], stacks: StackName[]): OrphanSourceFile[]`
 - `findUntestedApiEndpoints(projectPath: string, files: string[]): UntestedApiEndpoint[]`
@@ -359,7 +359,7 @@ const MAKEFILE_NAME = 'Makefile';
 
 La implementación de `audit_test_pyramid_gaps` en el Hito 7 deberá cumplir estrictamente con:
 1. **Suite Unitaria Dedicada (`mcp-server/tests/test-pyramid-auditor.unit.ts`):**
-   - Cobertura $\ge 95.0\%$ en líneas, ramas, funciones y sentencias ejecutada dentro del contenedor efímero `sinfallas/base-node-ionic:26`.
+   - Cobertura >= 95.0% en líneas, ramas, funciones y sentencias ejecutada dentro del contenedor efímero `sinfallas/base-node-ionic:26`.
    - Casos de prueba con proyectos sintéticos en directorios temporales cubriendo los 3 estados trimodales:
      - **Proyecto Virgen (0% pruebas):** Detecta todas las capas aplicables como `MISSING`, enumera el 100% de los archivos fuente en `orphan_source_files` y todos los endpoints en `untested_api_endpoints`.
      - **Proyecto Parcialmente Probado (Brownfield):** Detecta capas en estado `PARTIAL`, identifica únicamente los archivos fuente y endpoints que carecen de prueba y calcula el `prioritized_action_plan`.

@@ -317,6 +317,8 @@ class TestGenerarManifiesto(unittest.TestCase):
         self.assertIn("`3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest`", readme_text)
         self.assertIn("`8.2`, `8.3`, `8.4`, `8.5` y `latest`", readme_text)
         self.assertIn("`22`, `24`, `26` y `latest`", readme_text)
+        self.assertNotIn(r"\text{", readme_text)
+        self.assertIn("`t < starts_at`, `starts_at <= t <= ends_at`, `t > ends_at`", readme_text)
 
         mermaid_files = [
             "README.md",

@@ -29,7 +29,7 @@ Al implementar este Hito, **Gemini 3.8 Flash High** DEBE respetar las siguientes
 
 1. **`sonarjs/no-duplicate-string` (Umbral 3 en `src/**/*.ts`):**
    - Cualquier literal de cadena que se repita 3 o más veces en `mcp-server/src/cli/install-skill.ts` (por ejemplo, `'.agents'`, `'skills'`) DEBE extraerse como constante a nivel de módulo (`const SKILLS_DIR_NAME = 'skills';`, `const AGENTS_DIR_NAME = '.agents';`).
-2. **`sonarjs/cognitive-complexity` ($\le 15$ por función):**
+2. **`sonarjs/cognitive-complexity` (<= 15 por función):**
    - Dividir la lógica de resolución de destinos en funciones pequeñas y puras (`detectInstalledGlobalAgentDirs`, `isProjectWorkspaceDir`, `resolveAutoTargets`, `resolveDestinationDirs`).
 3. **Regla Cero (`Rule Zero`):**
    - Ejecutar todas las pruebas (`vitest`, `eslint`, `tsc`, `pytest`, `shellcheck`) exclusivamente dentro de los contenedores Docker efímeros (`sinfallas/base-node-ionic:26`, `sinfallas/base-python-uv:3.15`).
@@ -44,10 +44,10 @@ Al implementar este Hito, **Gemini 3.8 Flash High** DEBE respetar las siguientes
    - Cambiar el valor por defecto de `'workspace'` a `'auto'` (o tomar `process.env.QA_SKILL_TARGET || 'auto'`).
 2. **`detectInstalledGlobalAgentDirs(homeDir: string): string[]`:**
    - Comprueba la existencia en `homeDir` de los directorios de agentes de IA soportados y devuelve sus rutas globales de skills:
-     - Si existe `path.join(homeDir, '.gemini')` $\rightarrow$ añade `path.join(homeDir, '.gemini', 'config', SKILLS_DIR_NAME)` *(Google Antigravity)*.
-     - Si existe `path.join(homeDir, '.claude')` $\rightarrow$ añade `path.join(homeDir, '.claude', SKILLS_DIR_NAME)` *(Claude Code / Desktop)*.
-     - Si existe `path.join(homeDir, '.hermes')` $\rightarrow$ añade `path.join(homeDir, '.hermes', SKILLS_DIR_NAME)` *(Hermes Agent)*.
-     - Si existe `path.join(homeDir, '.cursor')` $\rightarrow$ añade `path.join(homeDir, '.cursor', SKILLS_DIR_NAME)` *(Cursor Global)*.
+     - Si existe `path.join(homeDir, '.gemini')` → añade `path.join(homeDir, '.gemini', 'config', SKILLS_DIR_NAME)` *(Google Antigravity)*.
+     - Si existe `path.join(homeDir, '.claude')` → añade `path.join(homeDir, '.claude', SKILLS_DIR_NAME)` *(Claude Code / Desktop)*.
+     - Si existe `path.join(homeDir, '.hermes')` → añade `path.join(homeDir, '.hermes', SKILLS_DIR_NAME)` *(Hermes Agent)*.
+     - Si existe `path.join(homeDir, '.cursor')` → añade `path.join(homeDir, '.cursor', SKILLS_DIR_NAME)` *(Cursor Global)*.
 3. **`isProjectWorkspaceDir(homeDir: string, cwd: string): boolean`:**
    - Si `path.resolve(cwd) === path.resolve(homeDir)`, devuelve **`false`** (evita ensuciar `$HOME/.agents/skills` cuando el usuario ejecuta el comando parado en su carpeta personal).
    - Devuelve **`true`** si en `cwd` existe cualquiera de los marcadores de proyecto: `.git`, `AGENTS.md`, `ROADMAP.md`, `package.json` o `pyproject.toml`.

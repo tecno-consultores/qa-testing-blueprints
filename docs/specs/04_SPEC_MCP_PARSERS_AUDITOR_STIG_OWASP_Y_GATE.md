@@ -87,7 +87,7 @@ Esta especificación define las tres herramientas de validación y ejecución de
   ```
 - **Guardrail de Seguridad (Prevención Absoluta de Command Injection — `DISA APSC-DV-002510`):**
   - **PROHIBIDO** usar `exec` con cadena interpolada o `shell: true`.
-  - Se DEBE usar exclusivamente `execFile("make", [`qa-${stage}`], { cwd: resolvedProjectPath, timeout: timeout_seconds * 1000, shell: false })`.
+  - Se DEBE usar exclusivamente ``execFile("make", [`qa-${stage}`], { cwd: resolvedProjectPath, timeout: timeout_seconds * 1000, shell: false })``.
   - El argumento `stage` está estrictamente validado contra el `z.enum(...)` en lista blanca.
 
 ### 3.1. Especificación de los Parsers Ahorradores de Tokens (`src/parsers/output-parsers.ts`)
@@ -173,7 +173,7 @@ El módulo `output-parsers.ts` recibirá el `stdout` y `stderr` crudos de `make 
 ## 5. Requisitos de Pruebas 11X para el Propio Servidor MCP (`mcp-server/tests/`)
 
 El directorio `mcp-server/` DEBE predicarse con el ejemplo y aprobar la pirámide 11X en contenedor efímero (`sinfallas/base-node-ionic:26`):
-1. **Cobertura Unitaria $\ge 95.0\%$ en Vitest:**
+1. **Cobertura Unitaria >= 95.0% en Vitest:**
    - Todos los servicios (`github-fetcher.ts`, `surgical-merger.ts`), parsers (`output-parsers.ts`) y herramientas (`inspect-project.ts`, `security-auditor.ts`, `ephemeral-runner.ts`, `certify-gate.ts`) deben probarse aislando llamadas de red y de subprocesos con `vi.spyOn` / `vi.mock`.
 2. **Escenarios BDD en Karate Labs (`mcp-server/test/mcp_cli_test.feature`):**
    - Validar la invocación del CLI `install-skill --help` y la validación del manifiesto.

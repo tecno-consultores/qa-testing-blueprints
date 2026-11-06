@@ -8,20 +8,20 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
 
 | Dimensión de Calidad | Herramienta Canónica | Umbral Mínimo Requerido | Acción ante Incumplimiento |
 | :--- | :--- | :--- | :--- |
-| **Cobertura Unitaria** | `pytest-cov`, `vitest`, `kcov` | **$\ge 95.0\%$** de líneas y ramas | Bloqueo inmediato de Merge / Exit Code 1 |
-| **Complejidad Ciclomática** | `radon` (Python), `eslint-plugin-sonarjs` | Grado **A** o **B** (Cognitiva $\le 15$) | Rechazo por deuda técnica |
-| **Mantenibilidad** | `radon mi` | Grado **A** ($> 20$) | Refactorización obligatoria |
+| **Cobertura Unitaria** | `pytest-cov`, `vitest`, `kcov` | **>= 95.0%** de líneas y ramas | Bloqueo inmediato de Merge / Exit Code 1 |
+| **Complejidad Ciclomática** | `radon` (Python), `eslint-plugin-sonarjs` | Grado **A** o **B** (Cognitiva `<= 15`) | Rechazo por deuda técnica |
+| **Mantenibilidad** | `radon mi` | Grado **A** (`> 20`) | Refactorización obligatoria |
 | **Seguridad Estática (SAST)** | `bandit`, `eslint-plugin-security`, `ShellCheck` | **0 hallazgos HIGH / MEDIUM** | Bloqueo por vulnerabilidad |
 | **CVEs en Dependencias & SBOM** | `uv pip audit`, `pnpm audit`, `trivy`, `cyclonedx-py` | **0 vulnerabilidades CRITICAL / HIGH** + SBOM CycloneDX | Bloqueo de suministro de software |
 | **Seguridad Dinámica (DAST & OSHP)**| `zaproxy/zap-stable` (OWASP ZAP + WSTG/ASVS/OSHP) | **0 alertas HIGH**, cabeceras OSHP y estado Fail-Secure | Bloqueo dinámico en CI/CD |
-| **Pruebas de Mutación** | `mutmut`, `stryker` | Puntuación de mutación $> 80\%$ | Rechazo por asertos débiles |
+| **Pruebas de Mutación** | `mutmut`, `stryker` | Puntuación de mutación `> 80%` | Rechazo por asertos débiles |
 | **Comportamiento BDD** | `sinfallas/karatelabs:latest` (Gherkin) | **100% de escenarios PASSED** | Bloqueo de flujo funcional |
-| **Paridad de Esquema DB** | `.agents/scripts/verify_alembic_orm_parity.py` | **0 tablas huérfanas / revision $\le 32$ chars** | Rechazo por Anti-Mock Blindness |
+| **Paridad de Esquema DB** | `.agents/scripts/verify_alembic_orm_parity.py` | **0 tablas huérfanas / revision `<= 32` chars** | Rechazo por Anti-Mock Blindness |
 | **Propagación Anti-Silo, 3 Fases Temporales y Auditoría Semántica** | Contratos Read-After-Write, Pytest/Vitest, Karate BDD (`api_test.feature` / `ui_business_flow.feature`) | **0 mocks intermedios entre módulos, 3 fases del reloj (`Programada`, `En Curso`, `Cancelada/Expirada`), 0 UUIDs crudos en `actor_username` y Refresco Dual (`[ 🔄 Refrescar ]`)** | Rechazo por Silo Mock Blindness / 2-State Blindness |
 | **Componentes Huérfanos** | `.agents/scripts/verify_zero_orphan_vue_components.py` | **0 componentes sin test unitario** | Bloqueo en pre-commit |
 | **Paridad Endpoints API** | `.agents/scripts/verify_no_orphan_api_endpoints.py` | **0 llamadas 404/405 Front-Back** | Bloqueo por desalineación de contratos |
 | **Accesibilidad Web** | `@axe-core/playwright` | **0 violaciones WCAG 2.1 AA** | Rechazo de interfaz táctica |
-| **Rendimiento Frontend** | `Lighthouse CI` | **Puntuación $\ge 90$** (Core Web Vitals) | Bloqueo de compilación estática |
+| **Rendimiento Frontend** | `Lighthouse CI` | **Puntuación `>= 90`** (Core Web Vitals) | Bloqueo de compilación estática |
 | **Secret Scanning** | `./scripts/verificar-secretos.sh` | **0 secretos / API keys en código** | Rechazo en pre-commit |
 | **Integridad de Manifiesto** | `scripts/generar-manifiesto.py --check` | **100% hashes SHA-256 sincronizados** | Bloqueo de deriva Zero-Clone |
 | **Consistencia ROADMAP & Tarea Activa** | `.agents/scripts/verify_roadmap_consistency.py` | **100% coherencia tabla vs tareas [x] / cero pendientes en COMPLETED** | Rechazo de cierre por asimetría |
@@ -126,10 +126,10 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
 ### 🧠 MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x`)
 * **Imagen Base:** `sinfallas/base-node-ionic:26` (Tags disponibles: `22`, `24`, `26` y `latest`)
 * **Métricas 11X Certificadas:**
-  * **Sentencias (Statements):** `99.27%` ($\ge 95.0\%$)
-  * **Ramas (Branches):** `95.28%` ($\ge 95.0\%$)
-  * **Funciones (Functions):** `100.00%` ($\ge 95.0\%$)
-  * **Líneas (Lines):** `99.27%` ($\ge 95.0\%$)
+  * **Sentencias (Statements):** `99.27%` (`>= 95.0%`)
+  * **Ramas (Branches):** `95.28%` (`>= 95.0%`)
+  * **Funciones (Functions):** `100.00%` (`>= 95.0%`)
+  * **Líneas (Lines):** `99.27%` (`>= 95.0%`)
   * **Pruebas Unitarias:** 270 pruebas pasando al 100% (13 suites en `tests/*.unit.ts`)
   * **Herramientas MCP:** 12 herramientas canónicas (`inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`, `clean_workspace_11x`, `audit_security_stig_owasp`, `run_ephemeral_qa`, `certify_11x_gate`, `audit_test_pyramid_gaps`, `init_or_append_agents_md`, `propose_skill_evolution_pr`, `reconcile_agents_governance`)
   * **Escenarios BDD Karate Labs:** `mcp-server/test/mcp_cli_test.feature` (12 escenarios)
@@ -189,7 +189,7 @@ El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
 * **Generador y Validador de Manifiesto Criptográfico (`scripts/generar-manifiesto.py`):**
   * **Suite:** `tests/test_generar_manifiesto.unit.py` (12 pruebas unitarias).
   * **Ejecución Efímera:** `docker run --rm -v "${PWD}:/app" -w /app sinfallas/base-python-uv:3.15 bash -c "uvx coverage run tests/test_generar_manifiesto.unit.py && uvx coverage report -m --include='scripts/generar-manifiesto.py'"`
-  * **Cobertura Alcanzada:** **98%** (superando el umbral innegociable del $\ge 95\%$).
+  * **Cobertura Alcanzada:** **98%** (superando el umbral innegociable del `>= 95%`).
   * **Aserciones Validadas:** Algoritmo de hashing SHA-256, categorización de `target_name` y `merge_strategy` para los 6 stacks, detección estricta de derivas con `--check` y robustez de entrada CLI.
 
 * **Instalador Universal de Skills QA 11X (`scripts/install-skill.sh`):**
@@ -222,11 +222,11 @@ El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run test:unit`
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run build`
   * **Cobertura y Métricas Alcanzadas:**
-    * **100% de aserciones aprobadas** (211/211 pruebas pasando en 11 suites).
-    * **99.23% de cobertura de líneas y sentencias** (superando el umbral de $\ge 95\%$).
-    * **95.26% de cobertura de ramas** (superando el umbral de $\ge 95\%$).
+    * **100% de aserciones aprobadas** (270/270 pruebas pasando en 13 suites).
+    * **99.27% de cobertura de líneas y sentencias** (superando el umbral de `>= 95%`).
+    * **95.28% de cobertura de ramas** (superando el umbral de `>= 95%`).
     * **100.00% de cobertura de funciones**.
-    * **0 errores de ESLint (`--max-warnings 0`), SonarJS (Cognitiva $\le 15$) y TypeScript (`strict: true`)**.
+    * **0 errores de ESLint (`--max-warnings 0`), SonarJS (Cognitiva `<= 15`) y TypeScript (`strict: true`)**.
 
 * **Script Universal de Limpieza y Saneamiento (`scripts/limpieza.sh`):**
   * **Validación de Calidad de Scripts:** ShellCheck en contenedor efímero `koalaman/shellcheck:stable` certificando **0 errores y 0 advertencias** (código de salida 0) en `scripts/limpieza.sh` y en los 6 scripts por stack (`fastapi/`, `vue3/`, `react-frontend/`, `node-backend/`, `python/`, `bash-scripts/`).

@@ -78,10 +78,10 @@ description: >-
    - **Law 10 (Living Logbook & Closure Gate):** Continuously update `TESTING.md`, `CHANGELOG.md`, and `README.md`, and run `certify_task_completion.sh` before finishing.
 
 3. **4 Operational Playbooks (Decision Tree):**
-   - **Playbook 1 — Project Bootstrap & Surgical Merge:** Detect stack $\rightarrow$ Fetch stack `.example` bundle $\rightarrow$ Surgically merge config files $\rightarrow$ Install `lefthook.yml`, `auditar-infra.sh`, `scripts/verificar-secretos.sh`, and `.agents/scripts/`.
-   - **Playbook 2 — Test Creation & Coverage Rescue (`< 95%`):** Inspect uncovered lines $\rightarrow$ Write isolated `.unit.py`/`.unit.ts` tests + DB parity tests + Karate `.feature` scenarios $\rightarrow$ Run `make qa-unit` and `make qa-bdd`.
-   - **Playbook 3 — DISA STIG V6R5 & OWASP v4.2 Hardening:** Audit against `references/02-security-disa-owasp-22.md` $\rightarrow$ Inject missing middlewares/validators $\rightarrow$ Add negative security unit & BDD assertions.
-   - **Playbook 4 — 11X Certification & Closure:** Run `make qa-all` $\rightarrow$ Run `certify_task_completion.sh` $\rightarrow$ Update `TESTING.md` & `CHANGELOG.md`.
+   - **Playbook 1 — Project Bootstrap & Surgical Merge:** Detect stack → Fetch stack `.example` bundle → Surgically merge config files → Install `lefthook.yml`, `auditar-infra.sh`, `scripts/verificar-secretos.sh`, and `.agents/scripts/`.
+   - **Playbook 2 — Test Creation & Coverage Rescue (`< 95%`):** Inspect uncovered lines → Write isolated `.unit.py`/`.unit.ts` tests + DB parity tests + Karate `.feature` scenarios → Run `make qa-unit` and `make qa-bdd`.
+   - **Playbook 3 — DISA STIG V6R5 & OWASP v4.2 Hardening:** Audit against `references/02-security-disa-owasp-22.md` → Inject missing middlewares/validators → Add negative security unit & BDD assertions.
+   - **Playbook 4 — 11X Certification & Closure:** Run `make qa-all` → Run `certify_task_completion.sh` → Update `TESTING.md` & `CHANGELOG.md`.
 
 ---
 

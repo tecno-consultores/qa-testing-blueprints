@@ -256,12 +256,12 @@ Para evitar mantener los hashes SHA-256 a mano cada vez que se modifique un arch
 
 ### 4.1. Reglas de Transformación de `target_name` y `merge_strategy`
 1. Si el nombre del archivo termina en `.example`:
-   - `gitignore.example` $\rightarrow$ `target_name = ".gitignore"`, `merge_strategy = "append_missing_lines"`.
-   - `npmrc.example` $\rightarrow$ `target_name = ".npmrc"`, `merge_strategy = "append_missing_lines"`.
-   - Cualquier otro `<nombre>.<ext>.example` (ej. `pyproject.toml.example`, `package.json.example`, `Makefile.example`, `vitest.config.ts.example`) $\rightarrow$ `target_name = "<nombre>.<ext>"`, `merge_strategy = "surgical_merge"`.
-2. Si el archivo es `docker-compose.qa.yml` $\rightarrow$ `target_name = "docker-compose.qa.yml"`, `merge_strategy = "copy_if_missing_or_update_qa"`.
-3. Si el archivo termina en `.sh` o `.py` dentro de `.agents/scripts/` o `scripts/` $\rightarrow$ `merge_strategy = "overwrite_executable"`.
-4. Si el archivo es `.feature`, `.bats`, `.e2e.ts` o `.spec.ts` dentro de `test/` o `e2e/` $\rightarrow$ `merge_strategy = "copy_if_missing"`.
+   - `gitignore.example` → `target_name = ".gitignore"`, `merge_strategy = "append_missing_lines"`.
+   - `npmrc.example` → `target_name = ".npmrc"`, `merge_strategy = "append_missing_lines"`.
+   - Cualquier otro `<nombre>.<ext>.example` (ej. `pyproject.toml.example`, `package.json.example`, `Makefile.example`, `vitest.config.ts.example`) → `target_name = "<nombre>.<ext>"`, `merge_strategy = "surgical_merge"`.
+2. Si el archivo es `docker-compose.qa.yml` → `target_name = "docker-compose.qa.yml"`, `merge_strategy = "copy_if_missing_or_update_qa"`.
+3. Si el archivo termina en `.sh` o `.py` dentro de `.agents/scripts/` o `scripts/` → `merge_strategy = "overwrite_executable"`.
+4. Si el archivo es `.feature`, `.bats`, `.e2e.ts` o `.spec.ts` dentro de `test/` o `e2e/` → `merge_strategy = "copy_if_missing"`.
 
 ### 4.2. Verificación en Compuerta Pre-Commit (`certify_task_completion.sh`)
 - `scripts/generar-manifiesto.py --check` verificará que `manifest.json` esté 100% sincronizado con los hashes SHA-256 reales del árbol de trabajo. Si difiere, regenerará `manifest.json` o fallará con código de salida `1` indicando que se debe ejecutar `python3 scripts/generar-manifiesto.py`.

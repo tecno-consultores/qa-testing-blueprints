@@ -45,7 +45,7 @@ Este directorio implementa el estándar abierto y emergente de la industria para
 
 ### ¿Por qué las directivas de IA están en inglés?
 
-1. **Economía de Tokens en la Ventana de Contexto ($\approx 35\%$ de Ahorro):**
+1. **Economía de Tokens en la Ventana de Contexto (~35% de Ahorro):**
    - Los tokenizadores de frontera basados en BPE (*Byte-Pair Encoding*, ej. Tiktoken, Gemini Tokenizer, Claude Tokenizer) dividen las palabras en español en una mayor cantidad de fragmentos o subtokens debido a sufijos, conjugaciones y menor frecuencia estadística en los corpus de entrenamiento masivo.
    - Redactar las reglas y habilidades en inglés técnico de alta densidad reduce drásticamente el consumo de tokens en el prompt de sistema en cada interacción, dejando mayor espacio disponible en el contexto para el código fuente del proyecto, esquemas de bases de datos y trazas de depuración.
 

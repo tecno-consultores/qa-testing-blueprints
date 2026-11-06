@@ -42,7 +42,7 @@ El directorio `.agents/` en la raíz de los proyectos representa el estándar mo
 
 ---
 
-## 3. Estrategia Lingüística y Optimización de Tokens ($\approx 35\%$ de Ahorro)
+## 3. Estrategia Lingüística y Optimización de Tokens (~35% de Ahorro)
 
 Un dilema común al gobernar agentes de IA es el idioma. En este ecosistema implementamos una **estrategia bimodal deliberada**:
 
@@ -118,7 +118,7 @@ Para evitar que los agentes deban clonar gigabytes de repositorios o saturar su 
 El estándar 11X no reemplaza al desarrollador humano ni lo relega a tareas secundarias; establece una simbiosis técnica estructurada:
 
 * **El Rol del Humano:** Define requerimientos funcionales, valida la experiencia de usuario y aprueba decisiones arquitectónicas estratégicas.
-* **El Rol del Agente de IA:** Asume el rol de Staff QA & DevOps Automation Engineer. Audita el radio de impacto AST, implementa código siguiendo tipado estricto, genera obligatoriamente pruebas unitarias y de integración ($\ge 95\%$), diseña escenarios BDD en Karate Labs, ejecuta la suite en Docker efímero (`Rule Zero`) y mantiene sincronizada la documentación técnica.
+* **El Rol del Agente de IA:** Asume el rol de Staff QA & DevOps Automation Engineer. Audita el radio de impacto AST, implementa código siguiendo tipado estricto, genera obligatoriamente pruebas unitarias y de integración (`>= 95%`), diseña escenarios BDD en Karate Labs, ejecuta la suite en Docker efímero (`Rule Zero`) y mantiene sincronizada la documentación técnica.
 * **La Compuerta Objetiva:** Ni el humano ni el agente pueden eludir la compuerta universal de certificación. El pase de calidad se determina por asertos verificados, no por opiniones o complacencia.
 
 ---

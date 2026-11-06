@@ -44,7 +44,7 @@ All shell testing and linting MUST execute strictly inside `sinfallas/base-bash-
 ### Test Isolation Principles
 - Manipulate files only within `$BATS_TEST_TMPDIR`.
 - Intercept destructive commands (`rm`, `apt`, `systemctl`, `docker`, `curl`) using `bats-mock` or mock wrapper functions.
-- Enforce **$\ge 95.0\%$ line coverage** via `kcov`.
+- Enforce **`>= 95.0%` line coverage** via `kcov`.
 
 ### Example BATS Unit Test (`test/ejemplo_mock.bats`)
 ```bash

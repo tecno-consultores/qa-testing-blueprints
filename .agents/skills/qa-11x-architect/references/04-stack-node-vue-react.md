@@ -60,7 +60,7 @@ This reference provides technical rules, testing conventions, and ephemeral Dock
 
 Every frontend component must adhere to the design rules in `.agents/skills/refactoring-ui/`:
 1. **Button Hierarchy:** Exactly ONE Primary button per viewport/panel (`bg-indigo-600 text-white font-medium`). Secondary and tertiary actions must use muted or ghost treatments (`border border-slate-700` or `text-slate-400 hover:text-white`).
-2. **Perceptual Contrast (Anti-Translucency Trap):** Never use `text-white/40` or low-opacity white text on colored backgrounds; calculate explicit OKLCH / hex colors to ensure $\ge 4.5:1$ contrast ratio for normal text and $\ge 3.0:1$ for large text.
+2. **Perceptual Contrast (Anti-Translucency Trap):** Never use `text-white/40` or low-opacity white text on colored backgrounds; calculate explicit OKLCH / hex colors to ensure `>= 4.5:1` contrast ratio for normal text and `>= 3.0:1` for large text.
 3. **Tabular Numerics for CLS = 0:** Apply `font-feature-settings: "tnum"` / Tailwind `tabular-nums` on all metrics, counters, timestamps, currency values, and table numbers to prevent Cumulative Layout Shifts.
 4. **Responsive Integrity:** Zero horizontal scrollbars (`overflow-x: hidden`) across mobile (`375px`), tablet (`768px`), and desktop (`1440px`).
 5. **Focus Indicators:** Never use `outline: none` without providing an explicit replacement focus indicator (`focus-visible:ring-2 focus-visible:ring-indigo-500`).

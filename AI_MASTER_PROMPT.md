@@ -61,13 +61,13 @@ Antes de escribir código o sugerir comandos, consulta la guía especializada de
 
 ---
 
-## 4. Gobernanza `.agents/` y Optimización de Tokens ($\approx 35\%$ de Ahorro)
+## 4. Gobernanza `.agents/` y Optimización de Tokens (~35% de Ahorro)
 
 Para optimizar la ventana de contexto y asegurar un razonamiento matemático superior:
 * Todas las directivas en `.agents/rules/` y `.agents/skills/` se redactan en **inglés técnico de alta densidad**, lo cual reduce el consumo de tokens BPE en ~35% frente al español.
 * Toda la interacción con el usuario y la documentación final se genera obligatoriamente en **español** (`OUTPUT LANGUAGE CONSTRAINT`).
 * Mantén al día la bitácora activa en `.agents/ACTIVE_TASK.md`, desglosando subtareas con casillas `- [ ]` que actualizas a `- [x]` en tiempo real.
-* Si detectas fricciones recurrentes o si corriges un bug en UAT/producción que evadió la suite de pruebas previa (incluso con $\ge 95\%$ de cobertura), aplica obligatoriamente la directiva `continuous_agent_evolution.md`: **sin esperar a que el usuario te lo pida**, incluye en tu respuesta la sección **`💡 Oportunidad de Mejora Detectada para el Estándar QA 11X`** e invoca `propose_skill_evolution_pr` para promover el invariante generalizado a `qa-testing-blueprints`.
+* Si detectas fricciones recurrentes o si corriges un bug en UAT/producción que evadió la suite de pruebas previa (incluso con `>= 95%` de cobertura), aplica obligatoriamente la directiva `continuous_agent_evolution.md`: **sin esperar a que el usuario te lo pida**, incluye en tu respuesta la sección **`💡 Oportunidad de Mejora Detectada para el Estándar QA 11X`** e invoca `propose_skill_evolution_pr` para promover el invariante generalizado a `qa-testing-blueprints`.
 
 ---
 
@@ -84,9 +84,9 @@ El script certifica implacablemente las 10 etapas de calidad corporativa:
 4. **[4/10] Zero Orphan Components:** 100% de componentes UI con pruebas unitarias dedicadas (`verify_zero_orphan_vue_components.py`).
 5. **[5/10] Zero Orphan API Endpoints:** Paridad bidireccional absoluta entre rutas Frontend y Backend (`verify_no_orphan_api_endpoints.py`).
 6. **[6/10] Topological Health & AST Boundaries:** Salud topológica y límites arquitectónicos entre capas (`verify_topological_health.py`).
-7. **[7/10] ORM & Database Migration Parity:** Cero modelos SQLAlchemy desincronizados y revisiones Alembic $\le 32$ chars (`verify_alembic_orm_parity.py`).
+7. **[7/10] ORM & Database Migration Parity:** Cero modelos SQLAlchemy desincronizados y revisiones Alembic `<= 32` chars (`verify_alembic_orm_parity.py`).
 8. **[8/10] Cryptographic Manifest Sync:** Integridad SHA-256 de todas las plantillas y archivos rastreados en `manifest.json`.
 9. **[9/10] Roadmap & Active Task Consistency:** Coherencia estricta entre la tabla de `ROADMAP.md` y tareas `- [x]`, y cero tareas pendientes en `.agents/ACTIVE_TASK.md` ante estados `COMPLETED` (`verify_roadmap_consistency.py`).
-10. **[10/10] Documentation & Mandatory Tests Sync:** Sincronización incondicional de documentación (`CHANGELOG.md`, `TESTING.md`, `README.md`) y cobertura unitaria ($\ge 95\%$) con escenarios BDD de Karate Labs en API y UI.
+10. **[10/10] Documentation & Mandatory Tests Sync:** Sincronización incondicional de documentación (`CHANGELOG.md`, `TESTING.md`, `README.md`) y cobertura unitaria (`>= 95%`) con escenarios BDD de Karate Labs en API y UI.
 
 **Bajo ninguna circunstancia concluyas tu turno con pruebas fallidas o documentación desfasada.**

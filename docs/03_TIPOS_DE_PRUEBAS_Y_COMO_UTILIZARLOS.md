@@ -56,7 +56,7 @@
 
 ---
 
-## 3. Pruebas Unitarias Aisladas con Mocks (Cobertura Innegociable $\ge 95\%$)
+## 3. Pruebas Unitarias Aisladas con Mocks (Cobertura Innegociable >= 95%)
 
 * **Propósito:** Validar la lógica algorítmica de funciones puras, composables, helpers y casos de uso de negocio en microsegundos, aislando dependencias de red o disco.
 * **Herramientas:**
@@ -266,9 +266,9 @@
   3. **Degraded / Unsupported:** Valida que sistemas con errores o funciones no soportadas degraden elegantemente sin arrojar HTTP 500.
 * **Estructura Obligatoria de las 3 Fases Temporales (Reloj de 3 Estados):**
   Toda entidad con ventanas de tiempo, cronómetros o TTL (`starts_at` / `ends_at`, Safe Mode de 60s, tokens Step-Up de 30s, leases) DEBE probarse en sus **3 fases del reloj**:
-  1. **Fase 1 ($t < \text{starts\_at}$):** Estado Programado / Pendiente (`Programada`).
-  2. **Fase 2 ($\text{starts\_at} \le t \le \text{ends\_at}$):** Estado Activo / En Curso (`En Curso` / `Activa`, verificando que el scheduler permanezca vivo y proyecte el estado activo a todos los módulos consumidores).
-  3. **Fase 3 ($t > \text{ends\_at}$ o Cancelado):** Estado Expirado / Purgado / Revertido (verificando la restauración automática al estado nominal original y su registro en auditoría).
+  1. **Fase 1 (`t < starts_at`):** Estado Programado / Pendiente (`Programada`).
+  2. **Fase 2 (`starts_at <= t <= ends_at`):** Estado Activo / En Curso (`En Curso` / `Activa`, verificando que el scheduler permanezca vivo y proyecte el estado activo a todos los módulos consumidores).
+  3. **Fase 3 (`t > ends_at` o Cancelado):** Estado Expirado / Purgado / Revertido (verificando la restauración automática al estado nominal original y su registro en auditoría).
 
 ---
 

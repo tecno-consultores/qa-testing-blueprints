@@ -9,7 +9,7 @@
 
 ## 1. Propósito y Justificación Empírica (Hallazgos UAT de Producción)
 
-Durante las pruebas de aceptación (UAT) con hardware real en proyectos certificados con $\ge 95\%$ de cobertura unitaria (`pytest-cov` y `Vitest`), se demostró empíricamente que la métrica de cobertura de líneas/ramas por sí sola no detecta desconexiones funcionales entre módulos cuando existen 4 antipatrones:
+Durante las pruebas de aceptación (UAT) con hardware real en proyectos certificados con >= 95% de cobertura unitaria (`pytest-cov` y `Vitest`), se demostró empíricamente que la métrica de cobertura de líneas/ramas por sí sola no detecta desconexiones funcionales entre módulos cuando existen 4 antipatrones:
 
 1. **Pruebas por Silos con Mocks en la Frontera (*Silo Mock Blindness*):**
    - El test del Módulo A (`POST /api/v1/maintenance/windows` o mutación de identidad/estado) solo verifica que el endpoint devuelva `HTTP 200/201` e inserte en su tabla.
@@ -29,7 +29,7 @@ Durante las pruebas de aceptación (UAT) con hardware real en proyectos certific
 > 1. **Cero Advertencias de Linter (`--max-warnings 0`):** En `mcp-server/`, ESLint ejecuta `eslint-plugin-sonarjs` y `eslint-plugin-security`. Cualquier warning rompe el build.
 > 2. **Complejidad Cognitiva (`sonarjs/cognitive-complexity <= 15`):** Ninguna función puede superar complejidad cognitiva 15. Divide cada regla nueva en funciones auxiliares pequeñas (`checkSec11AuditAntiUuidAndBlindMocks`, `checkUi11x02DualRefreshAndSemanticElse`, `detectThreePhaseTemporalTests`, etc.) tal como se especifica abajo.
 > 3. **Cero Cadenas Duplicadas (`sonarjs/no-duplicate-string`):** Declara constantes en la parte superior del archivo para referencias repetidas (`SEC_11_REF`, `UI_11X_02_REF`, etc.).
-> 4. **Cobertura Innegociable ($\ge 95.0\%$):** Todas las métricas de Vitest (`lines`, `branches`, `functions`, `statements`) deben mantenerse $\ge 95.0\%$ ejecutadas dentro del contenedor efímero `sinfallas/base-node-ionic:26` (`Rule Zero`).
+> 4. **Cobertura Innegociable (>= 95.0%):** Todas las métricas de Vitest (`lines`, `branches`, `functions`, `statements`) deben mantenerse >= 95.0% ejecutadas dentro del contenedor efímero `sinfallas/base-node-ionic:26` (`Rule Zero`).
 
 ---
 

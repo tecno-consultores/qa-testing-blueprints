@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.9.1",
-  "generated_at_utc": "2026-11-06T00:08:49Z",
+  "generated_at_utc": "2026-11-06T00:16:20Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -770,15 +770,15 @@
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "765f6908c1173e6f922f8b2155552401ac4edc657a17f9383655155cd4e2a0df",
-      "size_bytes": 25192
+      "sha256": "701465441bedd042140317b967d06b1338f87f9d4c216a05784bc41c79e64329",
+      "size_bytes": 25188
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
       "target_name": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "98e56cd0638e19f3e811f8f3311171f6088f5ce6d6391320ce8d7e548fe2de1f",
-      "size_bytes": 14967
+      "sha256": "d93b7e69d359e37c0baedc3ae213d9e07bec919d9322c8f9655788e2103beeb0",
+      "size_bytes": 14953
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.md",
@@ -791,22 +791,22 @@
       "path": ".agents/skills/qa-11x-architect/references/03-stack-python-fastapi.md",
       "target_name": ".agents/skills/qa-11x-architect/references/03-stack-python-fastapi.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "d9a0f41f8e6070b66f2f84a23733f7d2477e933bdcb35c17c75b249984a25b46",
-      "size_bytes": 6223
+      "sha256": "daef4e294f83ac3e818066867ff10f24a57a16d25e176796e06f3a7a1e5d48eb",
+      "size_bytes": 6220
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md",
       "target_name": ".agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "9f6ba94c06b2b79b1f0bed7ce54d15a5efc44ef739ca692e721d8b9709061119",
-      "size_bytes": 8522
+      "sha256": "ab4d68054d33c9bca893886f75f567c10a937100fe3f3f476415cd84fd44d8ca",
+      "size_bytes": 8520
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/05-stack-bash-devops.md",
       "target_name": ".agents/skills/qa-11x-architect/references/05-stack-bash-devops.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "2c302408128ca9ab9c5be932769e59c2a68e1c6ce2ad1fa432b34c6c4eeb0767",
-      "size_bytes": 3355
+      "sha256": "da76edea69d141c51fdc21d6163ed317d2f8d61dc6a09418da3a16a6814572d1",
+      "size_bytes": 3353
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/06-stack-php.md",

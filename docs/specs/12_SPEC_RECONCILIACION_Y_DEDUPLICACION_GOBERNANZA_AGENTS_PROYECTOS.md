@@ -472,7 +472,7 @@ Para garantizar que tanto en el repositorio local como en cualquier proyecto ext
    - **Paso 2:** Usar siempre `.agents/ACTIVE_TASK.md` como diario de progreso en tiempo real (`- [ ]` → `- [x]`).
    - **Paso 3:** Revisar siempre el grafo AST antes de modificar código (`inspect_ast_blast_radius` / `.agents/scripts/inspect_blast_radius.py`), y **si el grafo (`graphify-out/graph.json`) no existe, crearlo primero** ejecutando `./scripts/actualizar-grafos-graphify.sh`.
    - **Paso 4:** Actualizar siempre los archivos de gobernanza del repositorio (`AGENTS.md`, `.agents/rules/`, `.agents/skills/`), el script de limpieza (`scripts/limpieza.sh`) y `.gitignore`.
-   - **Paso 5:** Crear siempre todas las pruebas necesarias en la pirámide 11X ($\ge 95\%$ cobertura), **incluido siempre Karate Labs BDD (`.feature`)**.
+   - **Paso 5:** Crear siempre todas las pruebas necesarias en la pirámide 11X (>= 95% cobertura), **incluido siempre Karate Labs BDD (`.feature`)**.
    - **Paso 6:** Ejecutar siempre todo el set de pruebas en contenedores Docker efímeros (`Rule Zero`).
    - **Paso 7:** Actualizar siempre la documentación y las especificaciones técnicas (`docs/`, `docs/specs/`, `README.md`, `TESTING.md`).
    - **Paso 8:** Actualizar siempre `CHANGELOG.md` (bajo `## [Unreleased]`).

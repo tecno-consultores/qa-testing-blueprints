@@ -25,9 +25,9 @@ Para mantener la consistencia y la eficacia de estos blueprints, toda contribuci
    * Las directivas internas para consumo de LLMs en `.agents/rules/` y `.agents/skills/` se redactan en **inglés técnico conciso de alta densidad** para ahorrar un 35% de tokens BPE.
    * Toda la documentación para humanos (`docs/`, `CHANGELOG.md`, `README.md`, `TESTING.md`) y respuestas de cara al usuario se redactan estrictamente en **español** (`OUTPUT LANGUAGE CONSTRAINT`).
 4. **Umbral de Calidad y Deuda Técnica Innegociables:**
-   * Cobertura de código unitario $\ge \mathbf{95\%}$ de líneas y ramas.
+   * Cobertura de código unitario **>= 95%** de líneas y ramas.
    * Complejidad ciclomática Grado **A** o **B** (`CC <= 5`, `MI >= B`).
-   * Accesibilidad web WCAG 2.1 AA (0 violaciones en `@axe-core`) y rendimiento en Lighthouse $\ge \mathbf{90}$.
+   * Accesibilidad web WCAG 2.1 AA (0 violaciones en `@axe-core`) y rendimiento en Lighthouse **>= 90**.
    * Cumplimiento estricto de **DISA ASD STIG V6R5** y **OWASP Developer Guide v4.2** documentadas en [`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`](docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md).
 5. **IPv4 Estricto:** Toda configuración de red en los `docker-compose.qa.yml` debe utilizar exclusivamente el driver `bridge` estándar en IPv4. Prohibido habilitar `enable_ipv6: true` para evitar conflictos de enrutamiento y NAT.
 
@@ -40,7 +40,7 @@ Si eres un **Agente de IA** (o un desarrollador operando en conjunto con uno) co
 1. **Lectura de Directivas:** Lee `.agents/rules/` y `AGENTS.md` antes de generar cualquier propuesta.
 2. **Bitácora Activa:** Inicia o actualiza el archivo `.agents/ACTIVE_TASK.md` desglosando las fases de la tarea con casillas `- [ ]` en tiempo real.
 3. **Inspección AST Preventiva:** Audita el radio de impacto de símbolos compartidos con `python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"` antes de modificar código.
-4. **Pirámide de Pruebas Obligatoria:** Todo código nuevo o modificado debe incorporar sus correspondientes pruebas unitarias ($\ge 95\%$) y escenarios BDD en Karate Labs (`api_test.feature` y `ui_business_flow.feature`).
+4. **Pirámide de Pruebas Obligatoria:** Todo código nuevo o modificado debe incorporar sus correspondientes pruebas unitarias (`>= 95%`) y escenarios BDD en Karate Labs (`api_test.feature` y `ui_business_flow.feature`).
 5. **Compuerta Universal de Certificación (10/10):** Ejecuta `./.agents/scripts/certify_task_completion.sh` y asegura que las **10 etapas** pasen limpiamente antes de dar la tarea por concluida.
 6. **Sincronización Criptográfica del Manifiesto:** Si agregas o modificas plantillas o archivos comunes, regenera `manifest.json` ejecutando `python3 scripts/generar-manifiesto.py` y verifica con `--check`.
 
@@ -55,7 +55,7 @@ Si eres un **Agente de IA** (o un desarrollador operando en conjunto con uno) co
 4. Antes de hacer el commit o Pull Request, ejecuta el saneamiento `./scripts/limpieza.sh` y certifica la suite completa ejecutando `./.agents/scripts/certify_task_completion.sh` en local (**10 compuertas en verde**).
 
 ### Si estás mejorando la Documentación, MCP o Skills
-1. Si mejoras el servidor MCP (`mcp-server/`), asegúrate de que pase `pnpm run lint`, `pnpm run typecheck` y que la cobertura de pruebas unitarias se mantenga en $\ge 95\%$.
+1. Si mejoras el servidor MCP (`mcp-server/`), asegúrate de que pase `pnpm run lint`, `pnpm run typecheck` y que la cobertura de pruebas unitarias se mantenga en `>= 95%`.
 2. Si actualizas skills en `.agents/skills/` (`qa-11x-architect`, `refactoring-ui`), mantén el formato estándar de `SKILL.md` y actualiza las referencias en `docs/specs/`.
 3. Mantén la filosofía de "cero complacencia": la documentación es concisa, restrictiva y orientada a la erradicación de errores.
 

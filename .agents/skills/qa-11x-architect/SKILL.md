@@ -72,7 +72,7 @@ When operating in pure CLI, Cloud, or desktop assistants without MCP tools:
    NEVER run `pip`, `uv`, `pytest`, `npm`, `pnpm`, `vitest`, `playwright`, `shellcheck`, or linters directly on the host OS. All commands MUST execute inside ephemeral containers using `sinfallas/*` base images with named cache volumes (`uv-cache`, `pnpm-store`).
 
 2. **Law 2: Strict Coverage, Complexity Thresholds & Zero Warnings**  
-   Unit test coverage MUST achieve $\ge 95.0\%$ across lines, branches, and statements (including `catch`/`except` recovery paths). Cyclomatic Complexity must remain Grade A (`CC <= 5` via Radon / SonarJS). 0 SAST/DAST High/Critical vulnerabilities. 0 surviving critical mutants. Static analysis and linters (ESLint, SonarJS, Ruff, ShellCheck) MUST enforce zero warnings (`--max-warnings 0` on ESLint); any warning is treated as a fatal build-breaking error.
+   Unit test coverage MUST achieve `>= 95.0%` across lines, branches, and statements (including `catch`/`except` recovery paths). Cyclomatic Complexity must remain Grade A (`CC <= 5` via Radon / SonarJS). 0 SAST/DAST High/Critical vulnerabilities. 0 surviving critical mutants. Static analysis and linters (ESLint, SonarJS, Ruff, ShellCheck) MUST enforce zero warnings (`--max-warnings 0` on ESLint); any warning is treated as a fatal build-breaking error.
 
 3. **Law 3: Network Isolation vs. Anti-Mock & Anti-Silo Blindness**  
    Unit tests MUST block all external network access (`pytest-mock`, `nock`, `msw`, `bats-mock`, `globalThis.fetch` interception) to guarantee 100% offline determinism and prevent test flakiness. Conversely, database persistence, ORM schema synchronization, migrations, and **cross-module state propagation** MUST NEVER be mocked: test against real ephemeral `postgres:17-alpine`, verify schema parity via `verify_alembic_orm_parity.py`, and assert that mutations in Producer Module A immediately reflect in Consumer Module B `GET` queries without intermediate mocks.
@@ -102,7 +102,7 @@ When operating in pure CLI, Cloud, or desktop assistants without MCP tools:
 
 ### 2.1. 🛡️ Mandatory Anti-Silo & Cross-Module State Propagation Invariant (4 UAT Anti-Blindness Rules)
 
-Code coverage ($\ge 95\%$) measures executed lines of existing code, but is blind to cross-module disconnections when tests abuse boundary mocks (*Silo Mock Blindness*) or rely on tautological 2-state assertions. Every test suite under Standard 11X MUST strictly enforce these 4 design rules:
+Code coverage (`>= 95%`) measures executed lines of existing code, but is blind to cross-module disconnections when tests abuse boundary mocks (*Silo Mock Blindness*) or rely on tautological 2-state assertions. Every test suite under Standard 11X MUST strictly enforce these 4 design rules:
 
 1. **Cross-Module State Propagation Without Intermediate Mocks (*Propagación Transversal de Estado sin Mocks Intermedios*):**
    - It is strictly prohibited to consider a mutation test valid by asserting only `HTTP 200/201` on the mutating endpoint while testing consumer modules with disconnected static JSON fixtures.

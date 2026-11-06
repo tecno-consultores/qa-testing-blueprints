@@ -22,9 +22,9 @@ Este documento contiene las instrucciones corporativas de **Nivel 11X** que DEBE
 ## 2. Matriz Tecnológica de las 13 Capas 11X para PHP
 
 1. **Tipado Estricto y Formato:** `declare(strict_types=1);` obligatorio en todo archivo PHP + `friendsofphp/php-cs-fixer` (`@PER-CS2.0`).
-2. **Análisis Estático y Complejidad Cognitiva:** `phpstan/phpstan` (nivel `max` / 9 + `phpstan-strict-rules`) y `tomasvotruba/cognitive-complexity` (límite por función/método $\le 9$).
+2. **Análisis Estático y Complejidad Cognitiva:** `phpstan/phpstan` (nivel `max` / 9 + `phpstan-strict-rules`) y `tomasvotruba/cognitive-complexity` (límite por función/método `<= 9`).
 3. **Seguridad Estática (SAST) y Vulnerabilidades:** `vimeo/psalm` (`--taint-analysis`) y `composer audit` (0 CVEs High/Critical).
-4. **Pruebas Unitarias Aisladas:** `pestphp/pest` o `phpunit/phpunit` 11.5+ con motor ligero `pcov` (cobertura innegociable $\ge 95.0\%$ en líneas y ramas).
+4. **Pruebas Unitarias Aisladas:** `pestphp/pest` o `phpunit/phpunit` 11.5+ con motor ligero `pcov` (cobertura innegociable `>= 95.0%` en líneas y ramas).
 5. **Pruebas de Mutación:** `infection/infection` (`minMsi: 80`, `minCoveredMsi: 80`, 0 mutantes vivos críticos).
 6. **Paridad de Base de Datos (Anti-Mock Blindness):** Verificación de migraciones Doctrine / Laravel contra `postgres:17-alpine` real con políticas `FORCE RLS`.
 7. **Contratos Front-Back y OpenAPI:** Validación de esquemas OpenAPI 3.1 con Swagger-PHP / Schemathesis.
