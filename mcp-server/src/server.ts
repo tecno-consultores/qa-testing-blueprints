@@ -42,7 +42,7 @@ export function createMcpServer(options?: {
 
   const server = new McpServer({
     name: '@sinfallas/mcp-qa-11x',
-    version: '2.9.1',
+    version: '2.10.0',
   });
 
   // ============================================================================
@@ -358,7 +358,8 @@ export function createMcpServer(options?: {
       const result = await runEphemeralQa(
         args.project_path,
         args.stage,
-        args.timeout_seconds
+        args.timeout_seconds,
+        { skipIfDocsOnly: args.skip_if_docs_only }
       );
       return {
         content: [

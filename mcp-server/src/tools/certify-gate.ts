@@ -253,6 +253,6 @@ export async function certify11xGate(projectPath: string): Promise<CertifyGateRe
     checks,
     blockers: allBlockers,
     upstream_evolution_reminder:
-      'MANDATORY POST-MORTEM CHECK: Did this task resolve a UAT/integration/production bug that bypassed previous automated tests? If YES, you MUST proactively present "💡 Oportunidad de Mejora Detectada para el Estándar QA 11X" to the user in Spanish and invoke propose_skill_evolution_pr without waiting to be asked.',
+      'MANDATORY POST-MORTEM CHECK: If this fixed a UAT/prod bug that bypassed tests, present "💡 Oportunidad de Mejora Detectada para el Estándar QA 11X" in Spanish and invoke propose_skill_evolution_pr.',
   };
 }

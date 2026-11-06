@@ -211,10 +211,11 @@ El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
     * `tests/tools-and-resources.unit.ts` (36 pruebas): Recursos `blueprint://*` (incluyendo `blueprint://core/active-task-template`, `blueprint://core/cleanup-script` y `blueprint://core/roadmap-validator`), herramientas 1 a 9 (`inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`, `clean_workspace_11x`, `audit_security_stig_owasp`, `run_ephemeral_qa`, `certify_11x_gate`, `audit_test_pyramid_gaps`), CLI `install-skill` con autodetección multi-entorno (`auto`), catálogo de 5 skills, `--include-scripts` y servidor `McpServer`.
     * `tests/output-parsers.unit.ts` (26 pruebas): Parsers ahorradores de tokens para cobertura (Pytest, Vitest v8, Kcov), pruebas fallidas (Pytest, Vitest, BATS), linters y complejidad (Radon, Mypy, Ruff, ESLint, ShellCheck multi-línea/GCC), alertas de seguridad (Trivy, Bandit), mutación (Mutmut, Stryker), `tail_log` y condensación `parseQaOutput`.
     * `tests/security-auditor.unit.ts` (13 pruebas): Auditoría estática de seguridad DISA ASD STIG V6R5 + OWASP v4.2 con reglas `SEC-01` a `SEC-10` y `UI-11X-01` (Mass Assignment, Anti-CSWSH, Command Injection, XXE, Unicode NFKC, XSS/v-html, Swagger en prod, Cabeceras OSHP, Zero-Trust NPM, Detección de Secretos y Geometría Visual Anti-JSDOM).
-    * `tests/ephemeral-runner.unit.ts` (5 pruebas): Ejecución de targets `qa-${stage}` en Docker efímero bajo Rule Zero con `execFile` seguro (`shell: false`), control de timeouts (código 124) y gestión de Makefile ausente.
+    * `tests/ephemeral-runner.unit.ts` (7 pruebas): Ejecución de targets `qa-${stage}` en Docker efímero bajo Rule Zero con `execFile` seguro (`shell: false`), control de timeouts (código 124), gestión de Makefile ausente y Fast-Path Documental (`isDocsOnlyWorkspaceChange` / `skipIfDocsOnly`).
     * `tests/certify-gate.unit.ts` (10 pruebas): Compuerta unificada de certificación 11X verificando archivos `.example`, secret scanning, colisiones JSON, componentes huérfanos UI, paridad ORM vs Alembic, auditoría DISA/OWASP y sincronización documental (`TESTING.md` y `CHANGELOG.md`).
-    * `tests/test-pyramid-auditor.unit.ts` (29 pruebas): Auditoría estática de las 13 capas de la pirámide 11X (`L01` a `L13`), evaluación trimodal (virgen 0%, brownfield parcial, nominal 100%), inventario de brechas (`orphan_source_files`, `untested_api_endpoints`, `untested_ui_views`) y generación de planes de acción priorizados con targets `make qa-*` y blueprints recomendados.
+    * `tests/test-pyramid-auditor.unit.ts` (32 pruebas): Auditoría estática de las 13 capas de la pirámide 11X (`L01` a `L13`), evaluación trimodal (virgen 0%, brownfield parcial, nominal 100%), inventario de brechas (`orphan_source_files`, `untested_api_endpoints`, `untested_ui_views`), detectores de 3 fases temporales y refresco dual, y generación de planes de acción priorizados con targets `make qa-*` y blueprints recomendados.
     * `tests/init-agents-md.unit.ts` (15 pruebas): Inyector y actualizador aditivo no destructivo de `AGENTS.md`, validando creación desde cero con cabecera MIT, adición al final de directivas existentes sin alterar líneas previas, actualización idempotente del bloque conector (`<!-- QA_11X_MCP_CONNECTOR_START -->` ... `<!-- QA_11X_MCP_CONNECTOR_END -->`), simulación `dryRun`, robustez de banderas CLI (`--project-path`, `-p`, `--dry-run`) y ejecución CLI `runInitAgentsCli`.
+    * `tests/reconcile-agents.unit.ts` (18 pruebas): Reconciliación automática y deduplicación de `.agents/`, extracción de reglas de negocio a `domain_<project>_rules.md`, respaldos en `.agents/backups/` y sincronización de `~/.gemini/GEMINI.md`.
     * `tests/edge-cases.unit.ts` (33 pruebas): Cobertura profunda de casos de borde y ramas extremas en servicios y herramientas.
   * **Ejecución Efímera:**
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run lint`
@@ -222,9 +223,9 @@ El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run test:unit`
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run build`
   * **Cobertura y Métricas Alcanzadas:**
-    * **100% de aserciones aprobadas** (270/270 pruebas pasando en 13 suites).
-    * **99.27% de cobertura de líneas y sentencias** (superando el umbral de `>= 95%`).
-    * **95.28% de cobertura de ramas** (superando el umbral de `>= 95%`).
+    * **100% de aserciones aprobadas** (272/272 pruebas pasando en 13 suites).
+    * **99.28% de cobertura de líneas y sentencias** (superando el umbral de `>= 95%`).
+    * **95.32% de cobertura de ramas** (superando el umbral de `>= 95%`).
     * **100.00% de cobertura de funciones**.
     * **0 errores de ESLint (`--max-warnings 0`), SonarJS (Cognitiva `<= 15`) y TypeScript (`strict: true`)**.
 

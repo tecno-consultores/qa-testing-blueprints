@@ -5,8 +5,8 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { execFile } from 'child_process';
-import { runEphemeralQa } from '../src/tools/ephemeral-runner.js';
+import { execFile, execFileSync } from 'child_process';
+import { runEphemeralQa, isDocsOnlyWorkspaceChange } from '../src/tools/ephemeral-runner.js';
 
 describe('ephemeral-runner', () => {
   let tempDir: string;
@@ -99,5 +99,34 @@ describe('ephemeral-runner', () => {
 
     expect(result.status).toBe('FAILED');
     expect(result.exit_code).toBe(1);
+  });
+
+  it('isDocsOnlyWorkspaceChange detecta cuando git status contiene solo cambios en *.md o docs/', () => {
+    const mockGitDocsOnly = (() => ' M README.md\n?? docs/specs/12_reconcile.md\nR  OLD.md -> CHANGELOG.md\n') as unknown as typeof execFileSync;
+    expect(isDocsOnlyWorkspaceChange(tempDir, mockGitDocsOnly)).toBe(true);
+
+    const mockGitMixed = (() => ' M README.md\n M src/server.ts\n') as unknown as typeof execFileSync;
+    expect(isDocsOnlyWorkspaceChange(tempDir, mockGitMixed)).toBe(false);
+
+    const mockGitEmpty = (() => '\n') as unknown as typeof execFileSync;
+    expect(isDocsOnlyWorkspaceChange(tempDir, mockGitEmpty)).toBe(false);
+
+    const mockGitError = (() => {
+      throw new Error('git not initialized');
+    }) as unknown as typeof execFileSync;
+    expect(isDocsOnlyWorkspaceChange(tempDir, mockGitError)).toBe(false);
+  });
+
+  it('aplica Fast-Path Docs-Only cuando skipIfDocsOnly=true y solo cambiaron archivos Markdown', async () => {
+    const mockGitDocsOnly = (() => ' M README.md\n M CHANGELOG.md\n') as unknown as typeof execFileSync;
+    const result = await runEphemeralQa(tempDir, 'unit', 60, {
+      skipIfDocsOnly: true,
+      execFileSyncFn: mockGitDocsOnly,
+    });
+
+    expect(result.status).toBe('PASSED');
+    expect(result.exit_code).toBe(0);
+    expect(result.coverage.passed).toBe(true);
+    expect(result.tail_log).toContain('[Fast-Path Docs-Only]');
   });
 });

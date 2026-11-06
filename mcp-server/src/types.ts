@@ -93,6 +93,13 @@ export const RunEphemeralQaInputSchema = z.object({
     "all",
   ]).describe("Fase o target de QA a ejecutar (ej. unit, lint, bdd)"),
   timeout_seconds: z.number().int().min(10).max(900).default(300).describe("Tiempo máximo de espera en segundos"),
+  skip_if_docs_only: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe(
+      "Si es true y git detecta únicamente cambios en documentación (*.md / docs/), omite levantar contenedores Docker y retorna PASSED por Fast-Path."
+    ),
 });
 export type RunEphemeralQaInput = z.infer<typeof RunEphemeralQaInputSchema>;
 

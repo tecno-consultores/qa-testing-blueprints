@@ -79,18 +79,20 @@ Welcome to the **QA Testing Blueprints** repository. All AI coding assistants (G
 
 ---
 
-## 5. Mandatory 11-Step Execution & Task Closure Protocol
+## 5. Dual Execution Path & Mandatory 11-Step Closure Protocol
 
-> **NON-NEGOTIABLE:** On **EVERY** task or user request modifying, adding, or fixing source code, the AI agent **MUST** autonomously execute the following 11-step protocol from start to finish:
+> **TOKEN & COMPUTE ECONOMY (`DOCS_ONLY` vs. `CODE_CHANGE`):**
+> - **Fast-Path Documental (`DOCS_ONLY` — when ONLY `*.md` / `docs/` files are modified):** DO NOT trigger test suite execution (`run_ephemeral_qa` / Docker QA runs) and DO NOT rebuild AST graphs (`./scripts/actualizar-grafos-graphify.sh`). Only synchronize affected documentation/`CHANGELOG.md`, run `./.agents/scripts/certify_task_completion.sh`, and push to `git`.
+> - **Full-Path de Código (`CODE_CHANGE` — when source code, templates, scripts, or configs are modified):** Execute the 11-step protocol below from start to finish:
 >
-> 1. **Planning Tool (`/plan`):** ALWAYS invoke the planning tool (`/plan` or interactive plan artifact) before modifying code.
-> 2. **Active Task Progress Diary (`.agents/ACTIVE_TASK.md`):** ALWAYS initialize and update `.agents/ACTIVE_TASK.md` in real time (`- [ ]` → `- [x]`) so work can resume seamlessly from the exact point of failure after any IDE crash or context reset.
-> 3. **Pre-Modification AST Graph Audit (Create If Missing):** ALWAYS check the AST knowledge graph (`python3 .agents/scripts/inspect_blast_radius.py "<symbol>"` / `inspect_ast_blast_radius`) to verify changes do not negatively affect other systems. **If the AST graph (`graphify-out/graph.json`) does not exist, create it first via `./scripts/actualizar-grafos-graphify.sh`.**
-> 4. **Repository Governance, Cleanup & Gitignore Sync:** ALWAYS update repository governance files (`AGENTS.md`, `.agents/rules/`, `.agents/skills/`), cleanup scripts (`scripts/limpieza.sh`), and `.gitignore` when introducing new rules, tools, or temporary artifacts.
-> 5. **Mandatory 11X Test Creation (ALWAYS Including Karate Labs):** ALWAYS create or extend unit (`>= 95%` coverage) and integration tests, and **ALWAYS include Karate Labs BDD scenarios** (`.feature`) for API and UI.
-> 6. **Full Test Suite Execution (`Rule Zero`):** ALWAYS execute the entire test suite inside ephemeral Docker containers (`Rule Zero` / `run_ephemeral_qa`), certifying `>= 95%` coverage, 100% passed assertions, Karate Labs BDD validation, and 0 typing/linting warnings.
-> 7. **Documentation & Technical Specs Sync:** ALWAYS update project documentation and technical specifications (`docs/`, `docs/specs/`, `README.md`, `TESTING.md`).
+> 1. **Planning Tool (`/plan`):** ALWAYS invoke `/plan` or an interactive plan artifact before modifying code.
+> 2. **Active Task Diary (`.agents/ACTIVE_TASK.md`):** ALWAYS initialize and update `.agents/ACTIVE_TASK.md` in real time (`- [ ]` → `- [x]`).
+> 3. **Pre-Modification AST Graph Audit (Create If Missing):** ALWAYS check `python3 .agents/scripts/inspect_blast_radius.py "<symbol>"` (`inspect_ast_blast_radius`); **if `graphify-out/graph.json` does not exist, create it first via `./scripts/actualizar-grafos-graphify.sh`**.
+> 4. **Repository Governance, Cleanup & Gitignore Sync:** ALWAYS update `AGENTS.md`, `.agents/rules/`, `.agents/skills/`, `scripts/limpieza.sh`, and `.gitignore` when introducing new rules, tools, or temporary artifacts.
+> 5. **Mandatory 11X Test Creation (ALWAYS Including Karate Labs):** ALWAYS create or extend unit (`>= 95%` coverage) and integration tests, **ALWAYS including Karate Labs BDD scenarios** (`.feature`).
+> 6. **Full Test Suite Execution (`Rule Zero`):** ALWAYS execute the test suite inside ephemeral Docker containers (`Rule Zero` / `run_ephemeral_qa`), certifying `>= 95%` coverage, 100% passed assertions, Karate Labs BDD validation, and 0 warnings.
+> 7. **Documentation & Technical Specs Sync:** ALWAYS update `docs/`, `docs/specs/`, `README.md`, and `TESTING.md`.
 > 8. **Changelog Update:** ALWAYS update `CHANGELOG.md` (under `## [Unreleased]`).
-> 9. **Roadmap Synchronization:** Update `ROADMAP.md` whenever applicable, verifying consistency with `python3 .agents/scripts/verify_roadmap_consistency.py`.
-> 10. **Post-Modification AST Graph Update:** ALWAYS update the AST knowledge graph upon finishing code and test changes by running `./scripts/actualizar-grafos-graphify.sh`.
-> 11. **11X Certification Gate, QA-Escape Post-Mortem & Git Push:** Run `./scripts/verificar-secretos.sh`, `./scripts/auditar-infra.sh`, and `./.agents/scripts/certify_task_completion.sh` (10/10 gates), mark `.agents/ACTIVE_TASK.md` as `COMPLETED (100%)`, and **ALWAYS commit and push to git (`git add`, `git commit`, `git push`)**. Whenever a task resolves a UAT, integration, or production bug that escaped existing automated tests (even with `>= 95%` coverage), proactively notify the user in Spanish (`💡 Oportunidad de Mejora Detectada para el Estándar QA 11X`) and invoke `propose_skill_evolution_pr` WITHOUT waiting for the user to suggest it.
+> 9. **Roadmap Synchronization:** Update `ROADMAP.md` whenever applicable (`python3 .agents/scripts/verify_roadmap_consistency.py`).
+> 10. **Post-Modification AST Graph Update:** ALWAYS update the AST knowledge graph upon finishing code and test changes via `./scripts/actualizar-grafos-graphify.sh` (incremental per modified stack).
+> 11. **11X Certification Gate, QA-Escape Post-Mortem & Git Push:** Run `./scripts/verificar-secretos.sh`, `./scripts/auditar-infra.sh`, and `./.agents/scripts/certify_task_completion.sh` (10/10 gates), mark `.agents/ACTIVE_TASK.md` as `COMPLETED (100%)`, and **ALWAYS commit and push to git (`git add`, `git commit`, `git push`)**. On QA-escape bug fixes, proactively include `💡 Oportunidad de Mejora Detectada para el Estándar QA 11X` and invoke `propose_skill_evolution_pr`.

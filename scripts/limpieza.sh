@@ -27,7 +27,7 @@ find . -maxdepth 3 -name "docker-compose*.yml" -not -path "*/.git/*" | while rea
 done
 
 # 2. Eliminación de artefactos locales estándar
-rm -f .coverage .coverage.* trivy-results* mutmut-*.json ./*.log ./*.tsbuildinfo 2>/dev/null || true
+rm -f .coverage .coverage.* trivy-results* mutmut-*.json ./*.log ./*.tsbuildinfo /tmp/graphify_ast_*.log 2>/dev/null || true
 rm -rf .pytest_cache .mypy_cache .ruff_cache .tox .uv/ htmlcov/ mutants/ .mutmut-cache/ target/ test/target/ karate.jar .trivycache 2>/dev/null || true
 rm -rf dist dist-ssr .vite .vite-ssg-temp coverage .stryker-tmp test-results playwright-report blob-report reports .lighthouseci lhci-reports .lhcache .eslintcache .stylelintcache 2>/dev/null || true
 
@@ -74,7 +74,7 @@ if command -v docker >/dev/null 2>&1; then
 fi
 
 if [ "${DEEP_PRUNE}" = true ]; then
-  rm -rf .agents/backups 2>/dev/null || true
+  rm -rf .agents/backups /tmp/.qa11x_trivy_cache_* 2>/dev/null || true
   docker system prune -af --volumes >/dev/null 2>&1 || true
 fi
 

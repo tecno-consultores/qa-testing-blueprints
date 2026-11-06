@@ -351,6 +351,41 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * match readmeContent !contains '\\text{'
     * match readmeContent !contains '<code>@sinfallas/mcp-qa-11x</code>'
 
+  # ==============================================================================
+  # Grupo 14: Contrato de Fast-Path Documental (DOCS_ONLY) y Economía de Tokens v2.10.0
+  # ==============================================================================
+
+  Scenario: 14. El servidor MCP y las directrices soportan Fast-Path Documental (DOCS_ONLY) y Lazy Rule Loading
+    * def agentsContent = karate.readAsString('classpath:../AGENTS.md')
+    * match agentsContent contains 'Fast-Path Documental (`DOCS_ONLY`'
+    * match agentsContent contains 'Full-Path de Código (`CODE_CHANGE`'
+
+    * def mockDocsFastPathQaResult =
+      """
+      {
+        status: 'PASSED',
+        stage: 'unit',
+        exit_code: 0,
+        duration_ms: 0,
+        coverage: {
+          detected: true,
+          percent: 100,
+          threshold: 95.0,
+          passed: true,
+          uncovered_files: []
+        },
+        failed_tests: [],
+        linter_and_complexity_issues: [],
+        security_alerts: { critical: 0, high: 0 },
+        mutation_summary: null,
+        tail_log: "✔ [Fast-Path Docs-Only] Solo se detectaron cambios en documentación (*.md / docs/); se omite 'make qa-unit' en Docker."
+      }
+      """
+    * match mockDocsFastPathQaResult.status == 'PASSED'
+    * match mockDocsFastPathQaResult.exit_code == 0
+    * match mockDocsFastPathQaResult.tail_log contains '[Fast-Path Docs-Only]'
+
+
 
 
 

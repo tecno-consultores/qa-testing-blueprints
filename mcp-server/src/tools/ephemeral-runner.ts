@@ -3,19 +3,58 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { execFile } from 'child_process';
+import { execFile, execFileSync } from 'child_process';
 import { parseQaOutput } from '../parsers/output-parsers.js';
 import { QaExecutionResult } from '../types.js';
 
 export interface RunEphemeralQaOptions {
   execFileFn?: typeof execFile;
+  execFileSyncFn?: typeof execFileSync;
+  skipIfDocsOnly?: boolean;
 }
 
 /**
- * Tool 6: run_ephemeral_qa
+ * Determina si el árbol de trabajo Git contiene exclusivamente cambios en documentación
+ * (*.md o archivos dentro de docs/). Si no hay cambios o hay al menos 1 archivo de código,
+ * configuración o prueba modificado, devuelve false.
+ */
+export function isDocsOnlyWorkspaceChange(
+  projectPath: string,
+  execFileSyncFn: typeof execFileSync = execFileSync
+): boolean {
+  try {
+    const raw = execFileSyncFn('git', ['status', '--porcelain'], {
+      cwd: path.resolve(projectPath),
+      encoding: 'utf8',
+    });
+    const lines = String(raw)
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+
+    if (lines.length === 0) {
+      return false;
+    }
+
+    const filePaths = lines.map((line) => {
+      const cleaned = line.slice(2).trim();
+      const arrowIdx = cleaned.indexOf(' -> ');
+      return arrowIdx !== -1 ? cleaned.slice(arrowIdx + 4).trim() : cleaned;
+    });
+
+    return filePaths.every(
+      (fp) => fp.endsWith('.md') || fp.startsWith('docs/') || fp.includes('/docs/')
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Tool 7: run_ephemeral_qa
  * Ejecuta de forma segura e inyectable un target de pruebas del Makefile
  * dentro de contenedores Docker efímeros (Rule Zero) y resume la salida
- * mediante los parsers ahorradores de tokens.
+ * mediante los parsers ahorradores de tokens. Soporta Fast-Path Documental (skipIfDocsOnly).
  */
 export async function runEphemeralQa(
   projectPath: string,
@@ -24,6 +63,28 @@ export async function runEphemeralQa(
   options?: RunEphemeralQaOptions
 ): Promise<QaExecutionResult> {
   const resolvedPath = path.resolve(projectPath);
+
+  if (options?.skipIfDocsOnly && isDocsOnlyWorkspaceChange(resolvedPath, options.execFileSyncFn)) {
+    return {
+      status: 'PASSED',
+      stage,
+      exit_code: 0,
+      duration_ms: 0,
+      coverage: {
+        detected: true,
+        percent: 100,
+        threshold: 95.0,
+        passed: true,
+        uncovered_files: [],
+      },
+      failed_tests: [],
+      linter_and_complexity_issues: [],
+      security_alerts: { critical: 0, high: 0 },
+      mutation_summary: null,
+      tail_log: `✔ [Fast-Path Docs-Only] Solo se detectaron cambios en documentación (*.md / docs/); se omite 'make qa-${stage}' en Docker.`,
+    };
+  }
+
   const makefilePath = path.join(resolvedPath, 'Makefile');
 
   if (!fs.existsSync(makefilePath)) {

@@ -61,10 +61,11 @@ fi
 printf "[9/10] "
 python3 "${SCRIPT_DIR}/verify_roadmap_consistency.py"
 
-# 10. Sincronización Documental y Pruebas Obligatorias (incluyendo archivos untracked)
+# 10. Sincronización Documental y Pruebas Obligatorias (con soporte Fast-Path Documental DOCS_ONLY)
 printf "[10/10] "
 ALL_CHANGED=$( { git diff --name-only HEAD 2>/dev/null || true; git ls-files --others --exclude-standard 2>/dev/null || true; } | sort -u )
-CODE_CHANGES=$(echo "${ALL_CHANGED}" | grep -E '^(fastapi|vue3|node-backend|python|react-frontend|bash-scripts|php|mcp-server)/' || true)
+CODE_CHANGES=$(echo "${ALL_CHANGED}" | grep -E '^(fastapi|vue3|node-backend|python|react-frontend|bash-scripts|php|mcp-server)/' | grep -vE '\.md$' || true)
+DOC_CHANGES=$(echo "${ALL_CHANGED}" | grep -E '(\.md$|^docs/)' || true)
 
 if [ -n "${CODE_CHANGES}" ]; then
   CODE_COUNT=$(echo "${CODE_CHANGES}" | grep -c . || true)
@@ -72,7 +73,6 @@ if [ -n "${CODE_CHANGES}" ]; then
   TEST_COUNT=$( [ -n "${TEST_CHANGES}" ] && echo "${TEST_CHANGES}" | grep -c . || echo 0 )
   KARATE_CHANGES=$(echo "${ALL_CHANGED}" | grep -E '\.feature(\.example)?$' || true)
   KARATE_STATUS=$( [ -n "${KARATE_CHANGES}" ] && echo "Karate BDD actualizado" || echo "sin cambios .feature" )
-  DOC_CHANGES=$(echo "${ALL_CHANGED}" | grep -E '^(docs/|CHANGELOG\.md|README\.md|TESTING\.md|ROADMAP\.md)' || true)
   DOC_COUNT=$( [ -n "${DOC_CHANGES}" ] && echo "${DOC_CHANGES}" | grep -c . || echo 0 )
 
   if [ "${TEST_COUNT}" -gt 0 ] && [ "${DOC_COUNT}" -gt 0 ]; then
@@ -89,6 +89,9 @@ if [ -n "${CODE_CHANGES}" ]; then
       echo "  ⚠️ ADVERTENCIA: Se modificó código pero NO se han actualizado docs/, CHANGELOG.md, TESTING.md o README.md."
     fi
   fi
+elif [ -n "${DOC_CHANGES}" ]; then
+  DOC_COUNT=$(echo "${DOC_CHANGES}" | grep -c . || true)
+  echo "✔ [Doc Fast-Path] Solo cambios de documentación (${DOC_COUNT} archivo(s) .md); 0 cambios de código (se omite re-ejecución de suites y grafo AST)."
 else
   echo "✔ [Doc & Test Sync] Árbol de código limpio (0 cambios pendientes en stacks)."
 fi

@@ -23,7 +23,7 @@ Before altering any shared code, service definition, or configuration:
      ```bash
      ./scripts/actualizar-grafos-graphify.sh
      ```
-   - **Mandatory Post-Change AST Graph Update:** Upon completing all code and test modifications, you **MUST ALWAYS update the AST graph** by running `./scripts/actualizar-grafos-graphify.sh` before closing the task.
+   - **Mandatory Post-Change AST Graph Update (Code Changes Only):** Upon completing code, test, or script modifications, you **MUST ALWAYS update the AST graph** by running `./scripts/actualizar-grafos-graphify.sh` (which incrementally updates only modified stacks in 1 Pass-Quiet line). **Skip AST graph regeneration on `DOCS_ONLY` tasks** (where only `*.md` / `docs/**` changed).
    - **CLI-First Execution Rule:** Shell-capable agents (Google Antigravity, local terminal agents) MUST execute the inspector and query tools directly via CLI. They MUST NOT spawn background Docker MCP containers or occupy port 8080, which are reserved exclusively for external non-shell clients (Claude Desktop, Hermes Agent).
    - For any symbol assessed as `MODERATE` or `HIGH/CRITICAL` risk, the agent's implementation plan must explicitly list all affected caller files and guarantee that their contracts and parameters remain intact.
 

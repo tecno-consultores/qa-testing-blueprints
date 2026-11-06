@@ -38,10 +38,12 @@ Any addition, modification, or bug fix in application source code (`fastapi/`, `
 
 ---
 
-## 2. Rule Zero: Ephemeral Docker Execution & Execution Gates
+## 2. Rule Zero, Dual Execution Path (`DOCS_ONLY` vs. `CODE_CHANGE`) & Execution Gates
 
 - **NEVER** execute tests, migrations, linters, or operational scripts directly on the host machine (`Ubuntu`, `macOS`, or `Windows`). All executions must occur inside the project's ephemeral Docker containers (`docker-compose.qa.yml` and `Makefile`).
-- **Critical Execution Gate:** Never declare a task complete based on static code reading alone; execute the test suite inside ephemeral Docker and verify exit code `0`.
+- **Dual Execution Path (Token & Compute Economy):**
+  - **`DOCS_ONLY` Fast-Path:** When a task modifies **only documentation** (`*.md`, `docs/**`, `CHANGELOG.md`, `README.md`, `ROADMAP.md`) and zero executable code, templates, scripts, or configurations, **DO NOT trigger test suite execution** (`run_ephemeral_qa` / `make qa-*`) and **DO NOT rebuild the AST knowledge graph** (`./scripts/actualizar-grafos-graphify.sh`). Only run `./.agents/scripts/certify_task_completion.sh` (`certify_11x_gate`) and push to `git`.
+  - **`CODE_CHANGE` Full-Path:** Whenever source code, templates, scripts, or configurations are modified, never declare the task complete based on static reading alone; execute the full test suite inside ephemeral Docker (`Rule Zero`) and verify exit code `0`.
 - **Canonical Context-Compaction Scratchpad & Planning Tool (`.agents/ACTIVE_TASK.md`):** Prior to modifying code, formulate a phased plan (via `/plan` command or interactive plan artifact) and bootstrap `.agents/ACTIVE_TASK.md` from `.agents/ACTIVE_TASK.md.example` (git-ignored). Update checklist items in real-time (`- [ ]` → `- [x]`) to persist progress across IDE crashes, session restarts, or LLM context compactions. Never create `ACTIVE_TASK.md` in the repository root. Mark as `COMPLETED (100%)` upon closure.
 - **Production `--no-dev` Cleanliness:** Ensure `src/` never imports packages from `[project.optional-dependencies].dev` (e.g. `pytest`, `radon`, `mutmut`), preventing `ModuleNotFoundError` when building production images with `uv sync --frozen --no-dev`.
 

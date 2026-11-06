@@ -484,6 +484,8 @@ Para garantizar que tanto en el repositorio local como en cualquier proyecto ext
    - `mcp-server/src/cli/install-skill.ts` (`installIncludedScripts`) instala `.agents/ACTIVE_TASK.md.example` e inicializa `.agents/ACTIVE_TASK.md` (sin sobrescribir un diario existente en curso).
 3. **Detección del Grafo AST y Orden de Creación/Actualización en `inspect_ast_blast_radius` (`mcp-server/src/tools/blast-radius.ts`):**
    - `BlastRadiusResult` retorna `ast_graph_detected: boolean`, `ast_graph_files: string[]` y `ast_graph_action_required: string`, combinando los llamadores de `graphify-out/graph.json` con el escaneo estático de fuentes (incluyendo `.php`) e instruyendo al agente a crear el grafo si no existe y a actualizarlo al terminar los cambios.
+4. **Fast-Path Documental (`DOCS_ONLY`) vs. Full-Path de Código (`CODE_CHANGE`) y Extracción Incremental (`v2.10.0`):**
+   - Tanto en `buildConnectorBlock()` como en `run_ephemeral_qa` (`skip_if_docs_only: true` / `isDocsOnlyWorkspaceChange`), cuando solo se modifican archivos de documentación (`*.md` / `docs/**`), se omite el arranque de contenedores de pruebas y la regeneración del grafo AST (`scripts/actualizar-grafos-graphify.sh` opera además de forma incremental por stack en 1 línea *Pass-Quiet*).
 
 ---
 
