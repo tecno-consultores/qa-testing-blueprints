@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
-  "blueprint_version": "2.10.0",
-  "generated_at_utc": "2026-11-06T00:32:22Z",
+  "blueprint_version": "2.10.1",
+  "generated_at_utc": "2026-11-06T02:21:57Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -672,22 +672,22 @@
       "path": ".agents/rules/frontend_parity_and_closure.md",
       "target_name": ".agents/rules/frontend_parity_and_closure.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "1c27c49145604a5ee6ac74ce727b61419d662c75278c907b5e248c4644430f1e",
-      "size_bytes": 5639
+      "sha256": "6bf119adfadb0075040b87c39780f3f5a78fd19b080d77d317c580fc7b7e7128",
+      "size_bytes": 6121
     },
     {
       "path": ".agents/rules/ground_truth_fixtures_and_negative_invariants.md",
       "target_name": ".agents/rules/ground_truth_fixtures_and_negative_invariants.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "c487ca0a0e1c94b294aeea4923288f98b31c6abf43368fdb4385cb68943cd3fa",
-      "size_bytes": 3974
+      "sha256": "c8f418c653ca636d7aea46ab36586fcdf4c9d3618f67f8f60e6122292ef314cd",
+      "size_bytes": 4761
     },
     {
       "path": ".agents/rules/mandatory_qa_pyramid_and_doc_sync.md",
       "target_name": ".agents/rules/mandatory_qa_pyramid_and_doc_sync.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "3b7c394c7c3d6143445e6c9ee547a8e70773e58d66f473c9b3e1e85582c90b93",
-      "size_bytes": 8509
+      "sha256": "3d7254531e13de7ce345f3bff6bf679b36e8853934c982418454c295aa58a887",
+      "size_bytes": 9324
     },
     {
       "path": ".agents/rules/secure_development_and_testing_guidelines.md",
@@ -770,15 +770,15 @@
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "e81b96d722b009aab3d103dbaded34e6a133d50e7dba5c4c30723a4ae6217d35",
-      "size_bytes": 25392
+      "sha256": "b7ad29874a8834abf61c8194aa2fc5468f06391dfcad34f7864d09e05185e019",
+      "size_bytes": 27260
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
       "target_name": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "d93b7e69d359e37c0baedc3ae213d9e07bec919d9322c8f9655788e2103beeb0",
-      "size_bytes": 14953
+      "sha256": "dcd59a87f1b2c676fed810aab655e72147af3462c5ac6e549d35d195870ba7c9",
+      "size_bytes": 15662
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.md",
@@ -791,15 +791,15 @@
       "path": ".agents/skills/qa-11x-architect/references/03-stack-python-fastapi.md",
       "target_name": ".agents/skills/qa-11x-architect/references/03-stack-python-fastapi.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "daef4e294f83ac3e818066867ff10f24a57a16d25e176796e06f3a7a1e5d48eb",
-      "size_bytes": 6220
+      "sha256": "60b5d2dede5a2a984ceca6e0e1622ddfa0ae3b6a9390daa747cbc8f449cda0d2",
+      "size_bytes": 6842
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md",
       "target_name": ".agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "ab4d68054d33c9bca893886f75f567c10a937100fe3f3f476415cd84fd44d8ca",
-      "size_bytes": 8520
+      "sha256": "f397e5182932a52d60008256c3217f338b63b2592e68b1cedbbcaa011d519765",
+      "size_bytes": 8946
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/05-stack-bash-devops.md",
@@ -896,8 +896,8 @@
       "path": "AGENTS.md",
       "target_name": "AGENTS.md",
       "merge_strategy": "surgical_merge",
-      "sha256": "545e2b4f1f50ab60567e363e9f3670dcfc3c874e1f75cbdaa2578de2f5153a23",
-      "size_bytes": 14890
+      "sha256": "a4b70d09275e45840ecb3bf2d7c766c9f223ed0c81bf5e71acf3d0f76ab9351d",
+      "size_bytes": 15329
     },
     {
       "path": "scripts/install-skill.sh",

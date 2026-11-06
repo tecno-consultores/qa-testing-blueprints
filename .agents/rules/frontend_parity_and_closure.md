@@ -30,6 +30,8 @@
      - A reactive/periodic update mechanism (`setInterval` with guaranteed `clearInterval` cleanup in `onUnmounted` / `useEffect` + WebSocket listener), AND
      - An explicit **`[ 🔄 Refrescar ]`** button accessible to the operator that forces an immediate live reload (`?refresh=true`) without depending on a full browser reload (`F5`).
    - Event feed/ribbon classifiers in UI MUST map each event category to its exact semantic badge (`CAÍDA`, `MANTENIMIENTO`, `RESPALDO`, `SEGURIDAD`, `OPERACIÓN`), strictly prohibiting generic catch-all `else` clauses (such as `else return 'MAINTENANCE'`) that mislabel backups or session renewals, and asserting that `actor_username` and `resource_display_name` never render raw UUID v4 strings.
+8. **Prohibition of Blind `HTTP 200 OK` Success in Batch Endpoints:**
+   - In UI views and stores consuming bulk/batch execution endpoints (`POST .../execute`, `POST .../batch`), it is strictly prohibited to assume global success from `HTTP 200 OK` alone; the client MUST inspect `res.data.results[].status` (or `items[].status`) per target resource and surface individual/partial failures (`FAILED`, `ERROR: ...`) instead of rendering a false-positive global success notification.
 
 ---
 

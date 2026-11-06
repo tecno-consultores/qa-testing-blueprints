@@ -6,6 +6,15 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+## [2.10.1] - 2026-11-05
+
+### 🚀 Añadido y Mejorado (Added & Changed)
+* **Invariante Anti-Mock de Timeouts de Transferencia Pesada (`>= 180s` + Purga de `0 bytes`) y Validación por Ítem en Respuestas Batch `HTTP 200 OK` (Regla #5 UAT Anti-Blindness):**
+  * **Skill Maestra (`.agents/skills/qa-11x-architect/SKILL.md` y `references/01-core-13-layers.md`, `03-stack-python-fastapi.md`, `04-stack-node-vue-react.md`):** Incorporada la quinta invariante de diseño UAT Anti-Blindness en la sección **2.1** y en la **Ley 9**:
+    1. *Separación de Timeouts de Telemetría vs. Transferencia Síncrona de Imagen/Firmware (`>= 180s` + Purga de Artefactos Truncados de `0 bytes`):* Erradica la ceguera provocada por `AsyncMock` (que resuelve en `0 ms` y oculta que timeouts cortos de `10s` abortan descargas reales de paquetes/firmware como `.npk` de ~21 MB dejando archivos corruptos de `0 bytes`), exigiendo override explícito de timeout por petición (`timeout >= 180s`), purga preventiva/reactiva de archivos de `0 bytes` y aserción explícita sobre `call_args` en las pruebas unitarias.
+    2. *Prohibición de Éxito Ciego por `HTTP 200 OK` en Endpoints Batch (`POST .../execute`, `POST .../batch`):* Prohibido asumir éxito global por recibir un código envolvente `HTTP 200 OK`; los servicios, vistas UI y suites de pruebas deben inspeccionar el estado individual de cada recurso en `res.data.results[].status` (o `items[].status`) cubriendo éxito total, fallo parcial degradado y fallo total por ítem (`results[].status == 'FAILED'` o `'ERROR: bad HTTP response'`).
+  * **Reglas Globales y Documentación (`.agents/rules/mandatory_qa_pyramid_and_doc_sync.md`, `ground_truth_fixtures_and_negative_invariants.md`, `frontend_parity_and_closure.md`, `AGENTS.md`, `docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md`, `docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md`, `README.md`, `TESTING.md` y `manifest.json`):** Sincronizada la quinta invariante y el caso `Fixture C (Degraded / Partial Batch Failure & Truncated Transfer)` en todas las capas de gobernanza y regenerado el manifiesto criptográfico SHA-256 (`blueprint_version: 2.10.1`).
+
 ### 📚 Documentación (Documentation)
 * **Guía de Actualización del Servidor MCP en el IDE y Validación Criptográfica de Skills y Documentación (`README.md`, `docs/ai-integration.md`, `FAQ.md`):**
   * Añadida la subsección `Cómo Actualizar el Servidor MCP, las Skills y la Documentación en el IDE y cómo Validarlo` en `README.md`, la sección `6.5` en `docs/ai-integration.md` y la entrada correspondiente en `FAQ.md`, documentando el protocolo de 3 pasos para purgar las cachés locales (`~/.npm/_npx` y `~/.cache/qa-11x-blueprints`), reiniciar el proceso MCP `stdio` en el IDE (`Additional Options > MCP Servers` / `Developer: Reload Window`) y auditar mediante SHA-256 (`DISA STIG V-222513`) que tanto el paquete `@sinfallas/mcp-qa-11x` como los 20 archivos de las 5 Skills instaladas en `~/.gemini/config/skills` coincidan bit a bit con `manifest.json`.

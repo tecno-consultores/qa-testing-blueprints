@@ -56,9 +56,11 @@ Instrumentator().instrument(app).expose(app)
 - Verify ORM parity using `.agents/scripts/verify_alembic_orm_parity.py`.
 - Alembic revision IDs must be `<= 32` characters to avoid DB column truncation.
 - **Anti-Silo Read-After-Write Propagation:** Never test a state-mutating endpoint (`POST /api/v1/maintenance/windows`, device state change, Safe Mode activation) in isolation while mocking the consumer endpoint. Immediately query the consumer `GET` endpoints (`GET /api/v1/inventory/routers`, dashboard KPIs) against the live database without intermediate mocks to verify end-to-end state propagation.
-- **3-Phase Temporal Lifecycle & Audit Payload Assertions:**
+- **3-Phase Temporal Lifecycle, Heavy-Transfer Timeouts & Audit Payload Assertions:**
   - Entities with `starts_at`/`ends_at` or TTLs must be tested across all 3 clock phases (`t < starts_at` Scheduled, `starts_at <= t <= ends_at` Active/In-Progress, and `t > ends_at` Expired/Reverted).
   - Never replace `write_audit_log` with an uninspected `AsyncMock()`. Assert the passed arguments and verify that `actor_username` and `resource_display_name` resolve to human-readable strings (never raw JWT `sub` UUID v4 strings).
+  - **Telemetry vs. Heavy-Transfer Timeout Override (`>= 180s`):** HTTP clients performing synchronous binary/firmware/backup downloads (e.g. `.npk` images) MUST allow and pass a per-request timeout override (`timeout >= 180s`), purge truncated `0-byte` files before/after failed transfers, and assert `call_args` in unit tests so `AsyncMock` does not hide `10s` timeout truncations.
+  - **Batch `HTTP 200 OK` Per-Item Inspection:** Batch execution endpoints (`POST .../execute`) and their tests MUST evaluate `results[].status` per resource rather than treating `HTTP 200 OK` as blanket success.
 
 ---
 

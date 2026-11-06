@@ -263,7 +263,7 @@
 * **Estructura de 3 Fixtures Espaciales/Salud:**
   1. **Virgin / Factory Default:** Asegura que sistemas no configurados no generen falsos positivos en el dashboard.
   2. **Nominal Configured:** Valida el funcionamiento en condiciones normales de producción.
-  3. **Degraded / Unsupported:** Valida que sistemas con errores o funciones no soportadas degraden elegantemente sin arrojar HTTP 500.
+  3. **Degraded / Unsupported / Fallo Parcial en Lote:** Valida que sistemas con errores, funciones no soportadas, transferencias truncadas de `0 bytes` (exigiendo `timeout >= 180s` en descargas síncronas de firmware/paquetes) o respuestas batch `HTTP 200 OK` con fallos por ítem (`results[].status == 'FAILED'`) degraden elegantemente y expongan el error por recurso sin arrojar HTTP 500 ni falsos positivos de éxito global.
 * **Estructura Obligatoria de las 3 Fases Temporales (Reloj de 3 Estados):**
   Toda entidad con ventanas de tiempo, cronómetros o TTL (`starts_at` / `ends_at`, Safe Mode de 60s, tokens Step-Up de 30s, leases) DEBE probarse en sus **3 fases del reloj**:
   1. **Fase 1 (`t < starts_at`):** Estado Programado / Pendiente (`Programada`).
