@@ -63,6 +63,11 @@ Este directorio implementa el estándar abierto y emergente de la industria para
      > and write commit messages / user-facing documentation in Spanish.
      ```
 
+5. **Revelación Progresiva en 3 Niveles (*3-Tier Progressive Disclosure*) y Economía Cognitiva de Tokens (*High-IQ Token Economy*):**
+   - **Nivel 1 (Conector `AGENTS.md` / `GEMINI.md`):** Índice ligero siempre activo (`< 35 líneas`) que clasifica la tarea en **3 Vías Proporcionales de Ejecución**: `DOCS_ONLY` (Fast-Path documental), `MICRO_CHANGE` (Vía Quirúrgica para `<= 3` archivos y `LOW` Blast Radius) y `FULL_11X` / `CODE_CHANGE` (Flujo completo de 11 pasos para cambios arquitectónicos).
+   - **Nivel 2 (`SKILL.md` Ejecutivo):** Resume las 10 Leyes, las 5 Reglas Anti-Silo, los 7 Playbooks y las **6 Estrategias Cognitivas de Ahorro de Tokens** (`AST/Grep-First & Windowed-Read-Second`, `Zero Redundant Re-Read`, `Parallel Tool Batching`, `Subagent Context Isolation <= 20 líneas`, `Pass-Quiet Terminal Filtering` y `Compact ACTIVE_TASK.md <= 40 líneas`) sin duplicar párrafos completos de `.agents/rules/`.
+   - **Nivel 3 (`references/*.md` y `.agents/rules/*.md`):** Se cargan bajo demanda estricta únicamente cuando la tarea toca ese stack o dominio específico.
+
 ---
 
 ## 🤝 Compatibilidad Multi-Agente

@@ -42,7 +42,8 @@ To guarantee zero context loss and immediate session recovery, all AI agents (Go
 
 ---
 
-## 3. Mandatory Requirements
-1. **Bootstrap Template:** Always use `.agents/ACTIVE_TASK.md.example` as the canonical schema.
-2. **Live Synchronization:** Every completed command, test pass, or file edit that marks the completion of a checklist item MUST immediately update the corresponding line in `.agents/ACTIVE_TASK.md`.
-3. **Clean Version Control:** `.agents/ACTIVE_TASK.md` MUST remain in `.gitignore` to avoid polluting the remote git repository with transient local session states.
+## 3. Mandatory Requirements & Token Budget (`<= 40 Lines`)
+1. **Bootstrap Template & Compact Budget (`<= 40 Lines`):** Always use `.agents/ACTIVE_TASK.md.example` as the canonical schema and keep `.agents/ACTIVE_TASK.md` strictly under **40 lines** (active checklist items only; never accumulate historical narratives that belong in `CHANGELOG.md`).
+2. **Proportional Planning (`MICRO_CHANGE` vs. `FULL_11X`):** Full `/plan` artifacts and multi-phase `ACTIVE_TASK.md` updates are mandatory for `FULL_11X` architectural tasks (`> 3` files, schema/API changes, or `MEDIUM`/`HIGH` blast radius). For `MICRO_CHANGE` tasks (`<= 3` files, `LOW` blast radius), use a concise 3-line inline plan to conserve tokens.
+3. **Live Synchronization:** Every completed phase that marks the completion of a checklist item MUST update the corresponding line in `.agents/ACTIVE_TASK.md`.
+4. **Clean Version Control & Session Compaction (`/compact`):** `.agents/ACTIVE_TASK.md` MUST remain in `.gitignore`. Upon marking a milestone `COMPLETED (100%)`, proactively recommend `/compact` or a clean session reset before starting an unrelated feature.

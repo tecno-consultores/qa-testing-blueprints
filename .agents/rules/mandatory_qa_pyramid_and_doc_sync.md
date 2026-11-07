@@ -39,13 +39,14 @@ Any addition, modification, or bug fix in application source code (`fastapi/`, `
 
 ---
 
-## 2. Rule Zero, Dual Execution Path (`DOCS_ONLY` vs. `CODE_CHANGE`) & Execution Gates
+## 2. Rule Zero, 3-Path Proportional Execution (`DOCS_ONLY` / `MICRO_CHANGE` / `FULL_11X`) & Execution Gates
 
 - **NEVER** execute tests, migrations, linters, or operational scripts directly on the host machine (`Ubuntu`, `macOS`, or `Windows`). All executions must occur inside the project's ephemeral Docker containers (`docker-compose.qa.yml` and `Makefile`).
-- **Dual Execution Path (Token & Compute Economy):**
+- **3-Path Proportional Execution Protocol (Token & Compute Economy):**
   - **`DOCS_ONLY` Fast-Path:** When a task modifies **only documentation** (`*.md`, `docs/**`, `CHANGELOG.md`, `README.md`, `ROADMAP.md`) and zero executable code, templates, scripts, or configurations, **DO NOT trigger test suite execution** (`run_ephemeral_qa` / `make qa-*`) and **DO NOT rebuild the AST knowledge graph** (`./scripts/actualizar-grafos-graphify.sh`). Only run `./.agents/scripts/certify_task_completion.sh` (`certify_11x_gate`) and push to `git`.
-  - **`CODE_CHANGE` Full-Path:** Whenever source code, templates, scripts, or configurations are modified, never declare the task complete based on static reading alone; execute the full test suite inside ephemeral Docker (`Rule Zero`) and verify exit code `0`.
-- **Canonical Context-Compaction Scratchpad & Planning Tool (`.agents/ACTIVE_TASK.md`):** Prior to modifying code, formulate a phased plan (via `/plan` command or interactive plan artifact) and bootstrap `.agents/ACTIVE_TASK.md` from `.agents/ACTIVE_TASK.md.example` (git-ignored). Update checklist items in real-time (`- [ ]` → `- [x]`) to persist progress across IDE crashes, session restarts, or LLM context compactions. Never create `ACTIVE_TASK.md` in the repository root. Mark as `COMPLETED (100%)` upon closure.
+  - **`MICRO_CHANGE` Surgical-Path (`<= 3` files, `LOW` Blast Radius):** When a change touches `<= 3` files, introduces zero new API routes or database/ORM schema migrations, and has a `LOW` AST Blast Radius (`< 5` callers via `inspect_blast_radius.py`), use an inline 3-line plan instead of a heavy `/plan` artifact, execute the targeted unit test + affected stack suite in Docker (`run_ephemeral_qa`), incrementally update the stack's AST graph, update `CHANGELOG.md`, and run `certify_11x_gate` + `git push`.
+  - **`CODE_CHANGE` (`FULL_11X`) Architectural-Path:** Whenever `> 3` files, new endpoints/views, ORM models/migrations, security controls, or `MEDIUM`/`HIGH`/`CRITICAL` Blast Radius modules are modified, execute the complete 11-step workflow (`/plan`, `.agents/ACTIVE_TASK.md`, full pyramid + Karate Labs BDD in ephemeral Docker, `docs/specs/`, `TESTING.md`, `CHANGELOG.md`, `ROADMAP.md`, AST graph refresh, and `certify_11x_gate`).
+- **Canonical Context-Compaction Scratchpad & Planning Tool (`.agents/ACTIVE_TASK.md`):** Prior to modifying code on `FULL_11X` tasks, formulate a phased plan (via `/plan` command or interactive plan artifact) and bootstrap `.agents/ACTIVE_TASK.md` from `.agents/ACTIVE_TASK.md.example` (git-ignored, kept compact at `<= 40 lines`). Update checklist items in real-time (`- [ ]` → `- [x]`) to persist progress across IDE crashes, session restarts, or LLM context compactions. Never create `ACTIVE_TASK.md` in the repository root. Mark as `COMPLETED (100%)` upon closure.
 - **Production `--no-dev` Cleanliness:** Ensure `src/` never imports packages from `[project.optional-dependencies].dev` (e.g. `pytest`, `radon`, `mutmut`), preventing `ModuleNotFoundError` when building production images with `uv sync --frozen --no-dev`.
 
 ---

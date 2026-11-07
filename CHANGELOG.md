@@ -6,6 +6,25 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### 🚀 Añadido y Mejorado (Added & Changed)
+* **Protocolo de Economía Cognitiva de Tokens (*High-IQ Token Economy* — 6 Estrategias), *3-Tier Progressive Disclosure* y 3 Vías Proporcionales de Ejecución (`DOCS_ONLY`, `MICRO_CHANGE`, `FULL_11X`):**
+  * **Skill Maestra (`.agents/skills/qa-11x-architect/SKILL.md`):**
+    * Compactada y deduplicada mediante **Revelación Progresiva en 3 Niveles (*3-Tier Progressive Disclosure*)**, reduciendo su tamaño en un **~33% adicional** (de `27.2 KB` a `~18.2 KB` / `205` líneas) al reemplazar bloques repetidos por punteros bajo demanda a `.agents/rules/*.md` y `references/*.md`.
+    * Añadida la **Sección 1 (*3-Path Proportional Execution Protocol*)** introduciendo la vía intermedia **`MICRO_CHANGE` (Vía Quirúrgica de Bajo Radio)** para cambios en `<= 3` archivos, sin nuevas rutas API ni migraciones ORM y con radio de impacto AST `LOW` (`< 5` llamadores en `inspect_ast_blast_radius`), permitiendo ejecutar únicamente las pruebas focalizadas del módulo modificado + `certify_task_completion.sh` y ahorrando un **70%–85% de tokens** en parches pequeños sin perder rigor 11X.
+    * Añadida la **Sección 2.2 (*High-IQ Token Economy & Context Engineering Protocol — 6 Agent Strategies*)**, dotando al agente de 6 estrategias cognitivas para reducir drásticamente el consumo de tokens sin degradar su capacidad de razonamiento: (1) *AST/Grep-First, Windowed-Read-Second* (`StartLine`/`EndLine` de 40–80 líneas; prohibido leer archivos completos `> 150` líneas a ciegas), (2) *Zero Redundant Re-Read Invariant*, (3) *Parallel Tool Call Batching*, (4) *Subagent Context Isolation & Model Cascading* (`<= 20` líneas de retorno con punteros `archivo:línea`), (5) *Pass-Quiet & RTK Terminal Output Filtering*, y (6) *Surgical Diff Edits & Compact Scratchpad Budget* (`ACTIVE_TASK.md <= 40` líneas y recomendación de `/compact`).
+  * **Gobernanza Canónica (`AGENTS.md`, `.agents/README.md` y `.agents/rules/*.md`):**
+    * Actualizadas `mandatory_qa_pyramid_and_doc_sync.md` (Sección 2: 3 vías proporcionales), `active_task_and_planning_resilience.md` (Sección 3: presupuesto `<= 40` líneas en `ACTIVE_TASK.md` y plan inline para `MICRO_CHANGE`), `anti_regression_and_side_effects_guardrail.md` (Sección 4: guardrails de lectura acotada y edición quirúrgica) y `continuous_agent_evolution.md` (Sección 2.6: invariante de *3-Tier Progressive Disclosure* y anti-duplicación).
+    * Sincronizados `AGENTS.md` (Sección 5), `.agents/README.md` (Sección 5) y `manifest.json` con hashes SHA-256 actualizados.
+
+### 📐 Especificaciones Técnicas y Hoja de Ruta (Specs & Roadmap)
+* **Especificación Técnica 13 y Hito 14 para Implementación por Gemini 3.8 Flash High (`docs/specs/13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md` y `ROADMAP.md`):**
+  * Creada la especificación ejecutable `13_SPEC` utilizando la telemetría del grafo de conocimiento AST (**Graphify AST** en `mcp-server/graphify-out/GRAPH_REPORT.md` e `inspect_blast_radius.py` sobre `fetchBlueprintBundle`, `auditSecurityStigOwasp`, `auditTestPyramidGaps`, `inspectAstBlastRadius` e `initOrAppendAgentsMd`) para implementar en `@sinfallas/mcp-qa-11x`:
+    1. Modo *Metadata-Only* (`include_content: false`) y filtro quirúrgico `file_filter` en `fetch_blueprint_bundle` (~95% de ahorro de tokens en `ToolResult`).
+    2. Agrupación compacta por regla (`compact_findings: true`, `max_findings_per_rule: 5`) en `audit_security_stig_owasp` (~80% de ahorro en auditorías STIG/OWASP).
+    3. Presupuesto de salida (`max_items: 10`, `max_callers: 10`) y bandera `micro_change_eligible` en `audit_test_pyramid_gaps` e `inspect_ast_blast_radius`.
+    4. Sincronización del bloque conector de 3 vías (`DOCS_ONLY` / `MICRO_CHANGE` / `FULL_11X`) y las 6 estrategias *High-IQ Token Economy* en `mcp-server/src/cli/init-agents-md.ts`.
+  * Añadido el **Hito 14** (`⏳ Pendiente | 0%`) en `ROADMAP.md` listo para su ejecución por **Gemini 3.8 Flash High**.
+
 ## [2.10.1] - 2026-11-05
 
 ### 🚀 Añadido y Mejorado (Added & Changed)

@@ -130,9 +130,9 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
   * **Ramas (Branches):** `95.28%` (`>= 95.0%`)
   * **Funciones (Functions):** `100.00%` (`>= 95.0%`)
   * **Líneas (Lines):** `99.27%` (`>= 95.0%`)
-  * **Pruebas Unitarias:** 270 pruebas pasando al 100% (13 suites en `tests/*.unit.ts`)
+  * **Pruebas Unitarias:** 272 pruebas pasando al 100% (13 suites en `tests/*.unit.ts`)
   * **Herramientas MCP:** 12 herramientas canónicas (`inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`, `clean_workspace_11x`, `audit_security_stig_owasp`, `run_ephemeral_qa`, `certify_11x_gate`, `audit_test_pyramid_gaps`, `init_or_append_agents_md`, `propose_skill_evolution_pr`, `reconcile_agents_governance`)
-  * **Escenarios BDD Karate Labs:** `mcp-server/test/mcp_cli_test.feature` (12 escenarios)
+  * **Escenarios BDD Karate Labs:** `mcp-server/test/mcp_cli_test.feature` (14 escenarios; Hito 14 especificado en `docs/specs/13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md` amplía a 16 escenarios)
   * **Empaquetado npm:** 53.1 kB comprimido / 252.4 kB desempaquetado (0 fugas de código fuente)
 * **Comandos de Validación:**
   ```bash

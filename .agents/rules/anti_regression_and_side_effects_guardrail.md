@@ -50,7 +50,18 @@ Before altering any shared code, service definition, or configuration:
 
 ---
 
-## 4. Cross-Functional Smoke Verification Checklist
+## 4. High-IQ Token Economy & Context Preservation Guardrails
+
+1. **`AST/Grep-First, Windowed-Read-Second` (Zero Blind Full-File Reads):**
+   - Never read files `> 150` lines in full to search for a symbol. First run `inspect_blast_radius.py` or `grep -n`, then call `read_file` with a targeted 40–80 line window (`StartLine` / `EndLine`).
+2. **`Zero Redundant Re-Read Invariant` & `Surgical Diff Edits`:**
+   - Never re-read a file in the same session if it has not been modified externally. Always use surgical `edit_file` blocks instead of rewriting entire files via `write_file`.
+3. **`Parallel Tool Call Batching` & `Subagent Context Isolation`:**
+   - Batch independent file reads and checks into a single parallel tool-call turn to avoid $O(N^2)$ prompt history re-billing. Delegate multi-file (`> 4` files) exploratory research to a read-only subagent instructed to return a `<= 20` line summary with exact `file:line` pointers.
+
+---
+
+## 5. Cross-Functional Smoke Verification Checklist
 
 Prior to submitting any task touching shared domains:
 - [ ] Are all standard ports preserved in Docker configurations?

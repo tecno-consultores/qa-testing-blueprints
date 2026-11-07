@@ -37,3 +37,7 @@ When updating `.agents/`:
    - Instead:
      - **Universal QA/Security discoveries** must be generalized and proposed upstream via `propose_skill_evolution_pr` (and removed from local duplicates once promoted to `qa-testing-blueprints`).
      - **Project-specific domain rules** (e.g. MikroTik RouterOS v7 commands, specific business tables, or domain workflows) MUST be placed exclusively in `AGENTS.md` (outside the `<!-- QA_11X_MCP_CONNECTOR_START --> ... <!-- QA_11X_MCP_CONNECTOR_END -->` block) or in dedicated domain-prefixed files `.agents/rules/domain_<project>_*.md`.
+6. **3-Tier Progressive Disclosure & Anti-Duplication Invariant (`AGENTS.md` ↔ `.agents/rules/` ↔ `SKILL.md`):**
+   - **Tier 1 (`AGENTS.md` / `GEMINI.md` Connector):** Keep the always-on connector block ultra-compact (`< 35 lines`) as a routing index.
+   - **Tier 2 (`SKILL.md`):** Keep `SKILL.md` under `20 KB` by summarizing laws and referencing `.agents/rules/*.md` and `references/*.md` rather than duplicating multi-paragraph explanations verbatim.
+   - **Tier 3 (`references/*.md` & `.agents/rules/*.md`):** Load deep stack references and domain rules strictly on-demand (one at a time, only when modifying that specific stack or domain).

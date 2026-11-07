@@ -1,10 +1,10 @@
 ---
 name: qa-11x-architect
 description: >-
-  Master QA 11X & DevSecOps Architect (qa-testing-blueprints v2.7+). Use whenever the user asks to
+  Master QA 11X & DevSecOps Architect (qa-testing-blueprints v2.10+). Use whenever the user asks to
   initialize or integrate QA in a project, merge .example templates, write or audit unit/BDD/mutation/E2E
   tests, enforce >=95% coverage, apply DISA ASD STIG V6R5 and OWASP v4.2 security controls, run ephemeral
-  Docker QA suites (Rule Zero), or update TESTING.md and CHANGELOG.md.
+  Docker QA suites (Rule Zero), optimize context token consumption, or update TESTING.md and CHANGELOG.md.
 ---
 
 # Master QA 11X & DevSecOps Architect (`qa-11x-architect`)
@@ -12,122 +12,133 @@ description: >-
 > **OUTPUT LANGUAGE CONSTRAINT:**
 > Always communicate with the user, provide status updates, explain reasoning, and write commit messages / user-facing documentation strictly in Spanish.
 
-The **`qa-11x-architect`** skill provides the unified governance, architectural methodology, and tactical playbooks for enterprise-grade software quality. It enforces the 13 layers of the 11X Quality Pyramid, non-destructive surgical merging of configuration templates, Anti-Mock Blindness, Anti-JSDOM visual geometry, and the 22 security-by-design patterns mandated by DISA ASD STIG V6R5 and OWASP Developer Guide v4.2.
+The **`qa-11x-architect`** skill provides unified governance, architectural methodology, High-IQ Token Economy, and tactical playbooks for enterprise-grade software quality. It enforces the 13 layers of the 11X Quality Pyramid, non-destructive surgical merging of configuration templates, Anti-Mock & Anti-Silo Blindness, Anti-JSDOM visual geometry, and the 22 security-by-design patterns mandated by DISA ASD STIG V6R5 and OWASP Developer Guide v4.2.
 
 ---
 
-## 1. Environment Detection & Execution Protocol
+## 1. Environment Detection & 3-Path Proportional Execution Protocol
 
-The agent MUST adapt its execution strategy depending on whether the Model Context Protocol (MCP) server `@sinfallas/mcp-qa-11x` is present in the runtime environment.
+The agent MUST adapt its execution strategy to: (A) whether the MCP server `@sinfallas/mcp-qa-11x` is available, and (B) the **3-Path Proportional Execution Triage** (`DOCS_ONLY`, `MICRO_CHANGE`, or `FULL_11X`).
 
 ```
-                     ┌─────────────────────────────┐
-                     │ MCP Server Available?       │
-                     └──────────────┬──────────────┘
-                                    │
-                  YES ──────────────┴────────────── NO
-                   │                                │
-        [Case A: MCP-First]              [Case B: Standalone Fallback]
-  1. inspect_project_config(...)    1. Read matching stack reference
-  2. fetch_blueprint_bundle(...)    2. Hydrate from GitHub Raw via manifest.json
-  3. audit_security_stig_owasp(...) 3. Verify SHA-256 with sha256sum
-  4. run_ephemeral_qa(...)          4. Execute docker compose run inside containers
-  5. certify_11x_gate(...)          5. Run certify_task_completion.sh
+                      ┌─────────────────────────────────────────┐
+                      │ 1. Classify Change Scope (3-Path Triage)│
+                      └────────────────────┬────────────────────┘
+             ┌─────────────────────────────┼─────────────────────────────┐
+   [Path 1: DOCS_ONLY]           [Path 2: MICRO_CHANGE]        [Path 3: FULL_11X / CODE_CHANGE]
+   Only *.md / docs/**           <= 3 files, LOW blast radius,  > 3 files, new API/UI, ORM/DB,
+   0 Docker QA runs,             0 schema/route changes:        security or MED/HIGH blast radius:
+   0 AST rebuilds;               Inline 3-line plan,            Full 11-step workflow (/plan,
+   certify_11x_gate + push       targeted QA + incremental AST  ACTIVE_TASK.md, full pyramid + BDD)
 ```
 
 ### Case A: MCP Server `qa-11x` (`@sinfallas/mcp-qa-11x`) is Available
 Execute with zero hallucination and maximum token economy:
 1. **Detect Project Stack:** Call `inspect_project_config(project_path)` to discover active frameworks, lockfiles, existing test suites, and compliance gaps.
-2. **Audit 13-Layer Test Pyramid Gaps:** Call `audit_test_pyramid_gaps(project_path, stack)` to obtain the 11X pyramid score, orphan source files without unit tests, untested APIs/views, and a prioritized rescue plan.
-3. **Retrieve Fresh Blueprints:** Call `fetch_blueprint_bundle(stack, project_path)` to pull pristine `.example` templates and governance scripts verified cryptographically via SHA-256 from GitHub.
-4. **Audit Security Posture:** Call `audit_security_stig_owasp(project_path)` to perform static checks for the 22 DISA STIG V6R5 and OWASP v4.2 security controls.
-5. **Execute Tests in Docker (`CODE_CHANGE` Only):** Call `run_ephemeral_qa(project_path, stage, timeout_seconds, skip_if_docs_only: true)` to trigger test targets (`lint`, `unit`, `parity`, `bdd`, `mutation`, `all`) inside isolated `sinfallas/*` containers and receive token-efficient JSON summaries. When only documentation (`*.md` / `docs/`) changed (`DOCS_ONLY` Fast-Path), test execution and AST graph rebuilds are automatically skipped.
-6. **Sanitize Workspace:** Call `clean_workspace_11x(project_path, dry_run, deep_prune)` or read `blueprint://core/cleanup-script` to eradicate test artifacts, coverage caches, and Docker-generated root-owned files without requiring `sudo`.
-7. **Certify Quality Gate:** Call `certify_11x_gate(project_path)` to evaluate the 9 closure gates before concluding any task.
-8. **Inject or Append AGENTS.md Connector & Scripts:** Call `init_or_append_agents_md(project_path, dry_run)` or execute `npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts` (or `npx -y @sinfallas/mcp-qa-11x@latest init-agents`) to install the 5 skills, operational scripts (`.agents/scripts/*`), and create or non-destructively append the canonical QA 11X MCP & Skill connector block to `AGENTS.md` preserving 100% of existing user instructions.
-9. **Propose Continuous Skill Evolution:** Call `propose_skill_evolution_pr(project_path, target_blueprint_file, improvement_title, empirical_rationale, proposed_content_or_snippet, prefer_offline_fallback)` to contribute real-world improvements, edge-case fixes, and template optimizations back to `tecno-consultores/qa-testing-blueprints` via local `gh` CLI or zero-credential proposal file + prefilled GitHub URL.
-10. **Reconcile Governance & Isolate Domain Rules:** Call `reconcile_agents_governance(project_path, dry_run)` or execute `npx -y @sinfallas/mcp-qa-11x@latest reconcile-agents` (or pass `--reconcile` to `install-skill`) to deduplicate promoted directives in `.agents/` and safely extract local business rules to `.agents/rules/domain_<project>_rules.md` with backups in `.agents/backups/<timestamp>/`.
+2. **Audit 13-Layer Test Pyramid Gaps:** Call `audit_test_pyramid_gaps(project_path, stack)` (note: already runs `inspect_project_config` internally—do not call both sequentially) to obtain the 11X pyramid score, top orphan source files, untested APIs/views, and a prioritized rescue plan.
+3. **Retrieve Fresh Blueprints (Metadata-Only Default):** Call `fetch_blueprint_bundle(stack, include_common_and_agents, include_content: false)` or `bootstrap_or_merge_11x(project_path, stack, dry_run)` so templates are verified via SHA-256 in local cache (`~/.cache/qa-11x-blueprints/`) and merged on disk without dumping raw file contents into the LLM context window.
+4. **Audit Security Posture:** Call `audit_security_stig_owasp(project_path)` for static checks of the 22 DISA STIG V6R5 and OWASP v4.2 controls (grouped by `rule_id`).
+5. **Execute Tests in Docker (`MICRO_CHANGE` & `FULL_11X` Only):** Call `run_ephemeral_qa(project_path, stage, timeout_seconds, skip_if_docs_only: true)` inside isolated `sinfallas/*` containers and receive token-efficient JSON summaries. On `DOCS_ONLY` Fast-Path, test execution and AST graph rebuilds are automatically skipped.
+6. **Sanitize Workspace:** Call `clean_workspace_11x(project_path, dry_run, deep_prune)` or read `blueprint://core/cleanup-script` to eradicate test artifacts and root-owned files without `sudo`.
+7. **Certify Quality Gate:** Call `certify_11x_gate(project_path)` (which already includes `audit_security_stig_owasp`—do not duplicate calls) before concluding any task.
+8. **Inject or Append AGENTS.md Connector & Scripts:** Call `init_or_append_agents_md(project_path, dry_run)` or `npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts` to install skills, `.agents/scripts/*`, and non-destructively append the canonical QA 11X connector block to `AGENTS.md`.
+9. **Propose Continuous Skill Evolution:** Call `propose_skill_evolution_pr(...)` to contribute empirical improvements and QA-escape fixes back to `tecno-consultores/qa-testing-blueprints`.
+10. **Reconcile Governance & Isolate Domain Rules:** Call `reconcile_agents_governance(project_path, dry_run)` (`reconcile-agents` / `--reconcile`) to prune duplicate promoted directives in `.agents/` and extract project business rules to `.agents/rules/domain_<project>_rules.md` with backups in `.agents/backups/<timestamp>/`.
 
 ### Case B: Standalone Skill / Fallback Mode (No MCP Server)
-When operating in pure CLI, Cloud, or desktop assistants without MCP tools:
-1. **Load Progressive References:** Read ONLY the specific reference file needed for the task:
-   - Shared Architecture: [`references/01-core-13-layers.md`](references/01-core-13-layers.md)
-   - Security Audit: [`references/02-security-disa-owasp-22.md`](references/02-security-disa-owasp-22.md)
+1. **3-Tier Progressive Reference Loading:** Read ONLY the single reference file matching the active stack and domain (never pre-load all references):
+   - Shared Architecture & 13 Layers: [`references/01-core-13-layers.md`](references/01-core-13-layers.md)
+   - Security Audit (22 Controls): [`references/02-security-disa-owasp-22.md`](references/02-security-disa-owasp-22.md)
    - Python / FastAPI: [`references/03-stack-python-fastapi.md`](references/03-stack-python-fastapi.md)
    - Node / Vue / React: [`references/04-stack-node-vue-react.md`](references/04-stack-node-vue-react.md)
    - Bash / DevOps: [`references/05-stack-bash-devops.md`](references/05-stack-bash-devops.md)
    - PHP 8.2–8.5 (`sinfallas/basephpcomposer`): [`references/06-stack-php.md`](references/06-stack-php.md)
-2. **Hydrate On-Demand from GitHub Raw (Zero-Clone):** When templates or scripts are required and the repository is not cloned locally, fetch them directly without cloning:
+2. **Hydrate On-Demand from GitHub Raw (Zero-Clone):**
    ```bash
    RAW_BASE="https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main"
    curl -fsSL "${RAW_BASE}/manifest.json" -o /tmp/qa11x_manifest.json
    ```
-   Parse `.stacks["<stack>"].files` and `.common_files`, download each item from `${RAW_BASE}/${path}`, and verify each `sha256` hash with `sha256sum -c` before writing to disk.
+   Parse `.stacks["<stack>"].files` and `.common_files`, download needed items from `${RAW_BASE}/${path}`, and verify each `sha256` hash with `sha256sum -c`.
 
 ---
 
 ## 2. The 10 Non-Negotiable Laws of Standard 11X
 
-1. **Law 1: Rule Zero — Ephemeral Docker Isolation**  
-   NEVER run `pip`, `uv`, `pytest`, `npm`, `pnpm`, `vitest`, `playwright`, `shellcheck`, or linters directly on the host OS. All commands MUST execute inside ephemeral containers using `sinfallas/*` base images with named cache volumes (`uv-cache`, `pnpm-store`).
+*(Compact Progressive Disclosure index — detailed rules live in `.agents/rules/*.md` and `references/*.md`):*
 
-2. **Law 2: Strict Coverage, Complexity Thresholds & Zero Warnings**  
-   Unit test coverage MUST achieve `>= 95.0%` across lines, branches, and statements (including `catch`/`except` recovery paths). Cyclomatic Complexity must remain Grade A (`CC <= 5` via Radon / SonarJS). 0 SAST/DAST High/Critical vulnerabilities. 0 surviving critical mutants. Static analysis and linters (ESLint, SonarJS, Ruff, ShellCheck) MUST enforce zero warnings (`--max-warnings 0` on ESLint); any warning is treated as a fatal build-breaking error.
+1. **Law 1: Rule Zero — Ephemeral Docker Isolation**  
+   NEVER run `pip`, `uv`, `pytest`, `npm`, `pnpm`, `vitest`, `playwright`, `shellcheck`, or linters on the host OS. Execute everything inside ephemeral `sinfallas/*` containers with named cache volumes (`uv-cache`, `pnpm-store`).
+
+2. **Law 2: Strict Coverage (`>= 95.0%`), Complexity Grade A & Zero Warnings (`--max-warnings 0`)**  
+   Unit coverage MUST reach `>= 95.0%` across lines, branches, and statements (including `catch`/`except`). Cyclomatic Complexity Grade A (`CC <= 5` via Radon / SonarJS). 0 SAST/DAST High/Critical findings. 0 surviving critical mutants (`MSI >= 80%`). Linters (ESLint, SonarJS, Ruff, PHPStan, ShellCheck) enforce `--max-warnings 0`.
 
 3. **Law 3: Network Isolation vs. Anti-Mock & Anti-Silo Blindness**  
-   Unit tests MUST block all external network access (`pytest-mock`, `nock`, `msw`, `bats-mock`, `globalThis.fetch` interception) to guarantee 100% offline determinism and prevent test flakiness. Conversely, database persistence, ORM schema synchronization, migrations, and **cross-module state propagation** MUST NEVER be mocked: test against real ephemeral `postgres:17-alpine`, verify schema parity via `verify_alembic_orm_parity.py`, and assert that mutations in Producer Module A immediately reflect in Consumer Module B `GET` queries without intermediate mocks.
+   Unit tests MUST block external network calls (`pytest-mock`, `nock`, `msw`, `bats-mock`, `globalThis.fetch`). Conversely, DB persistence, ORM migrations (`verify_alembic_orm_parity.py` against real `postgres:17-alpine`), and **cross-module state propagation** MUST NEVER be mocked: mutations in Producer Module A must immediately reflect in Consumer Module B `GET` queries without intermediate mocks.
 
 4. **Law 4: Visual Geometry, Anti-JSDOM Layout & Dual Refresh Ergonomics**  
-   JSDOM returns `0x0` for all bounding boxes and cannot detect overlaps. Fixed floating footers (`position: fixed`) that steal viewport space or obstruct interactive elements are strictly prohibited. Footers must be in-flow (`margin-top: auto` inside `<main>`). Layouts must be verified in real headless Chromium with Karate UI / Playwright + `@axe-core` (0 WCAG 2.1 AA violations). Real-time dashboards, NOC wallboards, and live maps MUST enforce the **Dual Auto + Manual Refresh Invariant** (`setInterval` with `onUnmounted` cleanup + WebSocket listener + explicit **`[ 🔄 Refrescar ]`** button passing `?refresh=true`).
+   JSDOM returns `0x0` bounding boxes. Prohibit fixed floating footers (`position: fixed`) that obstruct viewports; use in-flow footers (`margin-top: auto` inside `<main>`). Verify in real headless Chromium with Karate UI / Playwright + `@axe-core` (0 WCAG 2.1 AA violations). Operational dashboards, NOC wallboards, and live maps MUST enforce the **Dual Auto + Manual Refresh Invariant** (`setInterval` with `clearInterval` in `onUnmounted` + WebSocket + explicit **`[ 🔄 Refrescar ]`** button with `?refresh=true`).
 
-5. **Law 5: Non-Destructive Surgical Merging, Linter Hardening & `.agents/` Governance Isolation**  
-   When importing `.example` configuration files (`pyproject.toml.example`, `package.json.example`, `Makefile.example`), surgically merge test frameworks, linters, and QA targets, enforcing `--max-warnings 0` on lint scripts. NEVER delete pre-existing production dependencies, custom scripts, or business configuration. In consumer projects (e.g. `rosgrid`), keep the 7 canonical `.agents/rules/*.md` files strictly synchronized with upstream `qa-testing-blueprints` and isolate project-specific domain directives in `.agents/rules/domain_<project>_*.md` or outside the `AGENTS.md` connector block to prevent rule collisions and prompt bloat.
+5. **Law 5: Non-Destructive Surgical Merging & `.agents/` Governance Isolation**  
+   Surgically merge `.example` configs (`pyproject.toml`, `package.json`, `composer.json`, `Makefile`) enforcing `--max-warnings 0` without deleting existing dependencies or scripts. In consumer projects (e.g. `rosgrid`), keep the 7 canonical `.agents/rules/*.md` files synchronized with upstream and isolate local domain rules in `.agents/rules/domain_<project>_*.md` or outside the `AGENTS.md` connector block (`reconcile_agents_governance`).
 
 6. **Law 6: Mandatory Karate Labs BDD, Zero Orphan UI Components & Zero Orphan API Endpoints**  
-   Every API endpoint requires Karate Labs HTTP BDD scenarios (`api_test.feature`). Every UI workflow requires Karate Labs UI scenarios (`ui_business_flow.feature`). Every `.vue` or `.tsx` component must possess an active unit test (`verify_zero_orphan_vue_components.py`). Every frontend HTTP request must correspond to an active backend route (`verify_no_orphan_api_endpoints.py`).
+   Every API endpoint requires Karate Labs HTTP BDD scenarios (`api_test.feature`). Every UI workflow requires Karate Labs UI scenarios (`ui_business_flow.feature`). 100% of `.vue`/`.tsx` components require unit tests (`verify_zero_orphan_vue_components.py`), and 100% of frontend API calls must match backend routes (`verify_no_orphan_api_endpoints.py`).
 
 7. **Law 7: DISA ASD STIG V6R5, OWASP v4.2 Security-by-Design & Semantic Audit Integrity**  
-   Implement the 22 canonical controls: PostgreSQL `FORCE ROW LEVEL SECURITY`, SSRF validation with pre-DNS check, FIPS 140-3 AES-256-GCM + memory zeroization, `Idempotency-Key` tracking, `extra="forbid"`, CSWSH origin check `4403`, role timeouts (10m/15m), 3-attempt/15m account lockout with constant-time Argon2id dummy hash, Unicode `NFKC` normalization, anti-XXE, magic-byte file validation, tamper-evident HMAC logs with 75% capacity alerts, OWASP OSHP headers, Fail-Secure startup, and CycloneDX SBOM. Audit functions (`write_audit_log`) MUST NEVER be replaced by blind `AsyncMock` instances without payload assertions, and visible identity fields (`actor_username`, `resource_display_name`) MUST resolve to human-readable strings—never raw UUID v4 values (`claims.get("sub")`).
+   Enforce the 22 controls in [`references/02-security-disa-owasp-22.md`](references/02-security-disa-owasp-22.md): PostgreSQL `FORCE ROW LEVEL SECURITY`, pre-DNS SSRF check, FIPS 140-3 AES-256-GCM + secret zeroization, `Idempotency-Key`, `extra="forbid"`, CSWSH `4403`, role timeouts (10m/15m), 3-attempt/15m lockout with constant-time Argon2id dummy hash, Unicode `NFKC`, anti-XXE, magic-byte file check, HMAC-SHA256 audit logs with 75% capacity alerts, OSHP headers, Fail-Secure startup, and CycloneDX SBOM. Never mock `write_audit_log` with a blind `AsyncMock` without asserting `call_args`; `actor_username` and `resource_display_name` MUST resolve to human-readable names, never raw UUID v4 (`claims.get("sub")`).
 
 8. **Law 8: Universal RED Observability Pre-Chaos**  
-   Application microservices must expose Prometheus metrics (`/metrics`) or send to `Pushgateway` (Rate, Errors, Duration) before running Pumba chaos profiles (network delay, jitter, packet loss) combined with Locust or Artillery load generation.
+   Expose Prometheus metrics (`/metrics` or `Pushgateway`: Rate, Errors, Duration) before running Pumba chaos profiles with Locust or Artillery load generation.
 
-9. **Law 9: Trimodal Ground-Truth Fixtures, 3-Phase Temporal Lifecycle, Heavy-Transfer/Batch-Item Invariants, AST Graph Lifecycle & Anti-Regression**  
-   Validate external integrations and state stores against three raw fixtures: (1) Virgin / Factory Default (assert negative invariants), (2) Nominal Configured (assert active healthy state), and (3) Degraded / Unsupported (assert graceful fallback without HTTP 500, including `HTTP 200 OK` batch responses with per-item failures `results[].status == "FAILED"` and zero-byte truncated transfer cleanup). Furthermore, any entity governed by time windows, countdowns, or TTL (`starts_at` / `ends_at`, 60s Safe Mode rollback, 30s Step-Up tokens, leases) MUST be tested across all **3 Temporal Lifecycle Phases**: Phase 1 Pending (`t < starts_at`, `Programada`), Phase 2 Active/In-Progress (`starts_at <= t <= ends_at`, `En Curso` / `Activa`), and Phase 3 Expired/Reverted (`t > ends_at` or Cancelled). **ALWAYS** inspect the AST blast radius (`inspect_blast_radius.py` / `inspect_ast_blast_radius`) before modifying shared files; **if `graphify-out/graph.json` does not exist, create it first via `./scripts/actualizar-grafos-graphify.sh`, and ALWAYS update the AST graph upon completing changes**.
+9. **Law 9: Trimodal Ground-Truth Fixtures, 3-Phase Temporal Lifecycle, Heavy-Transfer/Batch-Item Invariants & AST Graph Lifecycle**  
+   Test against three raw fixtures: (1) Virgin / Factory Default (negative invariants), (2) Nominal Configured (active healthy), and (3) Degraded / Unsupported (graceful fallback without HTTP 500, per-item `results[].status` inspection on `HTTP 200 OK` batch responses, and `timeout >= 180s` + `0-byte` truncated file purge on synchronous binary/firmware transfers). Test time-bounded entities (`starts_at`/`ends_at`, 60s Safe Mode, 30s Step-Up tokens, leases) across all **3 Temporal Lifecycle Phases**: Phase 1 Pending (`t < starts_at`, `Programada`), Phase 2 Active (`starts_at <= t <= ends_at`, `En Curso` / `Activa`), and Phase 3 Expired/Reverted (`t > ends_at` or Cancelled). **ALWAYS** inspect AST blast radius (`inspect_blast_radius.py` / `inspect_ast_blast_radius`) before modifying shared files; create `graphify-out/graph.json` first via `./scripts/actualizar-grafos-graphify.sh` if missing, and update it incrementally upon completion.
 
-10. **Law 10: Active Task Invariant (`.agents/ACTIVE_TASK.md`), Planning Tool, Docs/Specs Sync, Closure Gate & Git Push**  
-    Prior to code mutation on non-trivial tasks, AI agents MUST invoke the native planning tool/workflow (e.g. `/plan` slash command or interactive plan artifacts with `RequestFeedback: true`) and immediately persist the agreed phase breakdown in `.agents/ACTIVE_TASK.md` (bootstrapped from `.agents/ACTIVE_TASK.md.example`). As work proceeds, the agent MUST update `.agents/ACTIVE_TASK.md` in real-time (`- [ ]` → `- [x]`) to guarantee zero context loss across IDE crashes, session restarts, or context compaction. Every modification requires ALWAYS updating `docs/` and technical specifications (`docs/specs/`), `TESTING.md` (metrics and test tallies), `CHANGELOG.md` (`## [Unreleased]`), `ROADMAP.md` (when applicable, verifying summary table and section parity via `verify_roadmap_consistency.py`), repository governance files (`.agents/`, `AGENTS.md`, `scripts/limpieza.sh`, `.gitignore`), and refreshing the AST graph (`./scripts/actualizar-grafos-graphify.sh`). Mark `.agents/ACTIVE_TASK.md` as `COMPLETED (100%)`, execute `./.agents/scripts/certify_task_completion.sh`, and **ALWAYS commit and push to git (`git commit` & `git push`)**. Whenever a task fixes a UAT/production bug that bypassed existing tests, the agent MUST proactively recommend evolving `qa-testing-blueprints` in its final response (`💡 Oportunidad de Mejora Detectada para el Estándar QA 11X`) and execute `propose_skill_evolution_pr` WITHOUT waiting for user prompting.
+10. **Law 10: Proportional Planning (`/plan`), Compact Active Task (`<= 40 lines`), Docs Sync, Closure Gate & QA-Escape Evolution**  
+    On `FULL_11X` tasks, invoke `/plan` (or plan artifact) and track live progress (`- [ ]` → `- [x]`) in `.agents/ACTIVE_TASK.md` (kept ultra-compact `<= 40 lines`). On `MICRO_CHANGE` (`<= 3` files, `LOW` blast radius), use a concise 3-line inline plan. Synchronize `docs/specs/`, `TESTING.md`, `CHANGELOG.md`, `ROADMAP.md` (`verify_roadmap_consistency.py`), and AST graphs (`./scripts/actualizar-grafos-graphify.sh`), mark `ACTIVE_TASK.md` `COMPLETED (100%)`, run `./.agents/scripts/certify_task_completion.sh`, and `git commit` + `git push`. On QA-escape bug fixes, proactively include `💡 Oportunidad de Mejora Detectada para el Estándar QA 11X` and invoke `propose_skill_evolution_pr` without waiting to be asked.
 
 ---
 
 ### 2.1. 🛡️ Mandatory Anti-Silo & Cross-Module State Propagation Invariant (5 UAT Anti-Blindness Rules)
 
-Code coverage (`>= 95%`) measures executed lines of existing code, but is blind to cross-module disconnections, instant-mock timeout illusions, or partial batch failures when tests abuse boundary mocks (*Silo Mock Blindness*) or rely on tautological 2-state assertions. Every test suite under Standard 11X MUST strictly enforce these 5 design rules:
+Every test suite under Standard 11X MUST enforce these 5 design rules (full details in [`.agents/rules/mandatory_qa_pyramid_and_doc_sync.md`](../../rules/mandatory_qa_pyramid_and_doc_sync.md)):
 
-1. **Cross-Module State Propagation Without Intermediate Mocks (*Propagación Transversal de Estado sin Mocks Intermedios*):**
-   - It is strictly prohibited to consider a mutation test valid by asserting only `HTTP 200/201` on the mutating endpoint while testing consumer modules with disconnected static JSON fixtures.
-   - Whenever an operation in **Module A** alters the operational state of an entity (e.g. scheduling/cancelling maintenance windows via `POST /api/v1/maintenance/windows`, triggering a 60s Safe Mode confirmation window, pairing resources, or mutating administrative states/identities), the test suite MUST immediately invoke the query endpoints (`GET`, e.g. `GET /api/v1/inventory/routers`) and stores of **Consumer Modules B** **without intermediate mocks**, certifying that effective states, KPI counters, status badges, and live maps reflect the mutation end-to-end.
+1. **Cross-Module State Propagation Without Intermediate Mocks:** Never validate a state mutation in Module A (`POST`/`PUT`/`PATCH`/`DELETE`) by asserting only `HTTP 200/201` while testing Consumer Module B with static mocks. Immediately query Consumer Module B `GET` endpoints and stores against the live database without intermediate mocks to certify end-to-end propagation across KPIs, badges, and maps.
+2. **Mandatory 3-Phase Temporal Lifecycle Assertion (Anti 2-State Static Blindness):** Test every time-window/TTL entity (`starts_at`/`ends_at`, 60s Safe Mode, leases) across all **3 clock phases**: Phase 1 (`t < starts_at`, `Programada`), Phase 2 (`starts_at <= t <= ends_at`, `En Curso` / `Activa` with background scheduler alive beyond 50ms), and Phase 3 (`t > ends_at` or Cancelled, nominal state restored + audit log).
+3. **Prohibition of Blind Audit Mocks & Anti-Raw UUID Semantic Assertion:** Never replace `write_audit_log` with an uninspected `AsyncMock` without asserting `call_args`. Certify that `actor_username`, `resource_display_name`, and `router_display_name` never match a raw UUID v4 (`/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i`, preventing `claims.get("sub")` leaks), and prohibit generic catch-all `else` clauses in UI event badge classifiers (`else return 'MAINTENANCE'`).
+4. **Dual Auto + Manual Refresh Invariant in Operational Views & Live Maps:** Monitoring dashboards, NOC wallboards, and live maps MUST provide both periodic/reactive refresh (`setInterval` with `clearInterval` in `onUnmounted` + WebSocket) AND an explicit **`[ 🔄 Refrescar ]`** button (`?refresh=true`).
+5. **Heavy-Transfer Timeout Separation (`>= 180s` + Zero-Byte Purge) & Batch `HTTP 200 OK` Per-Item Validation:** Pass explicit per-request timeout overrides (`timeout >= 180s`) and purge `0-byte` truncated artifacts on synchronous binary/firmware downloads (asserting `call_args` in unit tests). In bulk/batch endpoints (`POST .../execute`, `POST .../batch`), inspect per-item `res.data.results[].status` across *Full Success*, *Partial Failure*, and *Total Item Failure* instead of assuming global success from `HTTP 200 OK`.
 
-2. **Mandatory 3-Phase Temporal Lifecycle Assertion (*Aserción Obligatoria de las 3 Fases Temporales — Anti 2-State Static Blindness*):**
-   - Every entity or workflow governed by time windows, timers, or TTLs (`starts_at` / `ends_at`, 60s Safe Mode confirmation/rollback windows, 30s Step-Up token expiration, temporary leases) MUST be tested across all **3 phases of the clock** (prohibiting binary ternaries like `is_cancelled ? 'Cancelada' : 'Programada'` that omit the active state):
-     - **Phase 1 (`t < starts_at`):** Scheduled / Pending state (`Programada`).
-     - **Phase 2 (`starts_at <= t <= ends_at`):** Active / In-Progress state (`En Curso` / `Activa`, verifying that the scheduled resource or background scheduler stays alive beyond the HTTP request cycle instead of being prematurely cleared at 50ms, and projects the active state to all consumer modules).
-     - **Phase 3 (`t > ends_at` or Cancelled):** Expired / Purged / Reverted state (verifying automatic restoration to the original nominal state and audit trail recording).
+---
 
-3. **Prohibition of Blind Audit Mocks & Anti-Raw UUID Semantic Assertion (*Prohibición de Mocks Ciegos en Auditoría y Aserción Semántica Anti-UUID Crudo*):**
-   - Replacing audit functions (`write_audit_log` or equivalents) with an empty `AsyncMock` without asserting the received arguments (`assert_called_once` / `call_args`) is strictly prohibited.
-   - Every backend audit test and UI event feed/ribbon test MUST explicitly certify:
-     - That human-visible identity fields (`actor_username`, `resource_display_name`, `router_display_name`) resolve to human-readable names and **NEVER** match the pattern of a raw UUID v4 (`/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i`, preventing bugs where `actor_username=claims.get("sub")` leaks raw JWT subject UUIDs to the UI).
-     - That UI event classifiers map each category to its true semantic badge (`CAÍDA`, `MANTENIMIENTO`, `RESPALDO`, `SEGURIDAD`, `OPERACIÓN`), strictly prohibiting generic catch-all `else` clauses that assign a domain-specific label (such as `else return 'MAINTENANCE'` / `'MANTENIMIENTO'`) to unrelated events like configuration backups or session renewals.
+### 2.2. 🧠 High-IQ Token Economy & Context Engineering Protocol (6 Agent Strategies)
 
-4. **Dual Auto + Manual Refresh Invariant in Operational Views & Live Maps (*Invariante de Refresco Dual en Vistas Operativas y Mapas en Vivo*):**
-   - Every monitoring view, operational dashboard, NOC wallboard, or real-time cartographic map MUST simultaneously provide:
-     - A reactive/periodic update mechanism (`setInterval` with guaranteed `clearInterval` cleanup inside `onUnmounted` / `useEffect` + WebSocket listener), AND
-     - An explicit **`[ 🔄 Refrescar ]`** button accessible to the operator that forces an immediate live reload (`?refresh=true`) without requiring a full browser reload (`F5`).
+Up to 90% of token consumption in agentic coding comes from **re-sent conversation history and bloated tool/file reads** across sequential turns ($O(N^2)$ cumulative read cost) rather than code generation. Keeping the context window lean **increases model intelligence** by preventing attention dilution (*Lost-in-the-Middle*). Every agent MUST apply these 6 strategies:
 
-5. **Heavy-Transfer Timeout Separation (`>= 180s` + Zero-Byte Purge) & Batch `HTTP 200 OK` Per-Item Validation (*Invariante de Timeouts de Transferencia Pesada y Validación por Ítem en Lote*):**
-   - **Telemetry vs. Heavy-Payload Timeout Separation & Truncated Artifact Purge:** Instant unit test mocks (`AsyncMock` / `vi.fn()`) resolve in `0 ms`, masking short default HTTP client timeouts (`5s–10s`) that abort real synchronous binary/firmware/backup downloads (e.g. ~21 MB `.npk` packages or archives) and leave corrupted `0-byte` files on disk/target storage. Every HTTP client executing synchronous heavy transfers MUST support and pass an explicit per-request timeout override (`timeout >= 180s`) AND proactively purge/verify any pre-existing or failed `0-byte` truncated artifacts. Unit tests MUST explicitly assert `call_args` to verify that `timeout >= 180` was passed and that `0-byte` cleanup was invoked on transfer failure.
-   - **Prohibition of Blind `HTTP 200 OK` Success in Batch Endpoints:** In backend services and UI views consuming bulk/batch execution endpoints (`POST .../execute`, `POST .../batch`, multi-node provisioning), it is strictly prohibited to assume global success based solely on `HTTP 200 OK`. Code and tests MUST inspect per-item outcome fields (`res.data.results[].status` or `items[].status`) across all 3 batch outcomes: *Full Success*, *Partial Failure (Degraded)*, and *Total Item Failure* (e.g. `results[].status == "FAILED"` or `"ERROR: bad HTTP response"` inside an `HTTP 200 OK` envelope), ensuring UI views surface per-resource error states instead of false-positive success toasts.
+1. **`AST/Grep-First, Windowed-Read-Second` (No Blind Full-File Reads):**
+   - **NEVER** read an entire file `> 150` lines from start to finish just to locate a function or constant.
+   - First, pinpoint the exact symbol and line numbers using `inspect_blast_radius.py` / `inspect_ast_blast_radius` or `grep -n` / `ripgrep`.
+   - Second, invoke `read_file` with a tight line range (`StartLine` / `EndLine`, 40–80 lines around the target).
+
+2. **`Zero Redundant Re-Read Invariant` (Working Memory Discipline):**
+   - **NEVER** call `read_file` again on a file that was already read or edited in the recent turns of the current session, unless an external script or container modified it on disk.
+
+3. **`Parallel Tool Call Batching` (Turn-Count Minimization):**
+   - Every sequential tool-call turn re-bills the entire accumulated prompt history.
+   - Whenever multiple file reads, searches, or independent checks are needed, **batch them into a single parallel tool-call turn** instead of executing them one by one across 4–6 sequential turns (saving up to 75% of cumulative input tokens).
+
+4. **`Subagent Context Isolation & Model Cascading` (Clean Main Context):**
+   - When a task requires exploring `> 4` files, tracing complex cross-repo call chains, or diagnosing noisy test failures, **do not pollute the main agent's context window**.
+   - Delegate the exploration to a read-only `research` subagent (or `flash` model tier) with explicit instructions to return **ONLY a compact synthesis (`<= 20 lines`) containing exact `file:line` pointers and root-cause findings**. The exploratory noise dies with the subagent while the main agent retains 100% razor-sharp reasoning capacity.
+
+5. **`Pass-Quiet & RTK Terminal Output Filtering` (Zero Raw Log Flooding):**
+   - Never dump unfiltered multi-hundred-line terminal outputs (`git diff`, `git log`, raw test stdout, full JSON manifests) into the context window.
+   - Always use compact flags: `git status -s`, `git diff --stat`, `head -n 30`, `tail -n 20`, `pytest -q --tb=short --no-header`, and rely on the token-saving parsers of `run_ephemeral_qa` and Pass-Quiet 1-line scripts (`./scripts/actualizar-grafos-graphify.sh`).
+   - Do not chain redundant MCP tools: `audit_test_pyramid_gaps` already runs `inspect_project_config` internally, and `certify_11x_gate` already runs `audit_security_stig_owasp`.
+
+6. **`Surgical Diff Edits & Compact Scratchpad Budget` (`ACTIVE_TASK.md <= 40 lines`):**
+   - Always use surgical `edit_file` replacements for existing files; **never** use `write_file` (`Overwrite: true`) to rewrite large existing source files (output tokens cost 3x–5x more and double context bloat).
+   - Keep `.agents/ACTIVE_TASK.md` strictly under **`<= 40 lines`** (only current checklist state, zero historical changelog prose).
+   - Upon marking a milestone `COMPLETED (100%)`, proactively recommend the `/compact` command (or starting a fresh session) to the user before beginning an unrelated milestone.
 
 ---
 
@@ -135,45 +146,42 @@ Code coverage (`>= 95%`) measures executed lines of existing code, but is blind 
 
 ### Playbook 1: Project Bootstrap & Surgical Merge
 ```text
-Step 0: Plan & Active Task ──> Formulate execution plan via /plan; bootstrap .agents/ACTIVE_TASK.md.
-Step 1: Inspect Project ──────> Identify language, framework, package manager, and browser_testing_readiness in frontend stacks (vue3/react-frontend).
-Step 2: Hydrate Blueprint ────> Download stack bundle + common_files via manifest.json.
-Step 3: Surgical Merge ───────> Merge Makefile, pyproject.toml / package.json, .gitignore.
-Step 4: Copy QA Assets ───────> docker-compose.qa.yml, .trivy.yaml, commitlint.config.js, lefthook.yml.
-Step 5: Install Governance ───> .agents/rules/, .agents/scripts/, scripts/verificar-secretos.sh, and AGENTS.md connector (init_or_append_agents_md / init-agents).
-Step 6: First Run ────────────> Execute `make qa-lint` and `make qa-unit` in Docker.
+Step 0: Plan & Active Task ──> Formulate plan via /plan; bootstrap .agents/ACTIVE_TASK.md (<= 40 lines).
+Step 1: Inspect Project ──────> Run inspect_project_config(project_path) (includes browser_testing_readiness).
+Step 2: Hydrate & Merge ──────> Run bootstrap_or_merge_11x(project_path, stack) (uses local SHA-256 cache without dumping file contents into context).
+Step 3: Install Governance ───> Install .agents/rules/, .agents/scripts/, and AGENTS.md connector (init_or_append_agents_md).
+Step 4: First Run ────────────> Execute `make qa-lint` and `make qa-unit` via run_ephemeral_qa in Docker.
 ```
 
 ### Playbook 2: Test Creation & Coverage Rescue (`< 95%`)
 ```text
-Step 0: Update Active Task ──> Register failing lines and target test suites in .agents/ACTIVE_TASK.md.
-Step 1: Identify Gaps ────────> Run `make qa-unit` to obtain missing line/branch report.
-Step 2: Unit Testing ─────────> Author isolated `.unit.py` / `.unit.ts` tests covering edge branches and errors.
+Step 0: Triage Scope ─────────> Select MICRO_CHANGE (<=3 files, LOW blast radius) or FULL_11X (>3 files).
+Step 1: Identify Gaps ────────> Run `make qa-unit` (via run_ephemeral_qa) to obtain uncovered lines report.
+Step 2: Windowed Read & Edit ─> Read target uncovered line ranges (StartLine/EndLine) and author `.unit.*` tests.
 Step 3: Database Parity ──────> Ensure ORM models match migrations; run `verify_alembic_orm_parity.py`.
-Step 4: BDD & E2E Scenarios ──> Write declarative Gherkin in api_test.feature or ui_business_flow.feature, verify browser_testing_readiness, and run e2e/accessibility.e2e.ts with Playwright + @axe-core.
-Step 5: Verify Threshold ─────> Confirm coverage >= 95.0% and 100% assertions pass.
+Step 4: BDD & E2E Scenarios ──> Update api_test.feature or ui_business_flow.feature; run Playwright + @axe-core.
+Step 5: Verify Threshold ─────> Confirm coverage >= 95.0%, 0 warnings, and 100% assertions pass.
 ```
 
 ### Playbook 3: DISA STIG V6R5 & OWASP v4.2 Hardening
 ```text
 Step 0: Plan Hardening ───────> Map missing patterns in .agents/ACTIVE_TASK.md.
-Step 1: Scan Posture ─────────> Cross-reference against references/02-security-disa-owasp-22.md.
+Step 1: Scan Posture ─────────> Run audit_security_stig_owasp(project_path) and consult references/02-security-disa-owasp-22.md.
 Step 2: Inject Controls ──────> Add NFKC normalizers, OWASPSecureHeadersMiddleware, Argon2id dummy hash, etc.
 Step 3: Negative Assertions ──> Write unit/BDD tests specifically verifying rejection of malicious payloads.
 Step 4: Audit Verification ───> Run `./scripts/verificar-secretos.sh` and `./scripts/auditar-infra.sh`.
 ```
 
-### Playbook 4: 11X Certification & Task Closure Gate
+### Playbook 4: 11X Certification & Task Closure Gate (3-Path Aware)
 ```text
-Step 1: Execute Full QA ──────> Run `make qa-all` inside Docker containers.
-Step 2: Update AST Graph ─────> Run `./scripts/actualizar-grafos-graphify.sh` to refresh `graphify-out/graph.json`.
-Step 3: Audit Integrity ──────> Run `python3 scripts/generar-manifiesto.py --check`.
-Step 4: Audit Roadmap Sync ───> Run `python3 .agents/scripts/verify_roadmap_consistency.py`.
-Step 5: Run Certifier ────────> Run `./.agents/scripts/certify_task_completion.sh` (10/10 gates).
-Step 6: Update Documentation ─> Synchronize docs/, docs/specs/, TESTING.md, CHANGELOG.md, ROADMAP.md, and governance files.
-Step 7: Mark Active Task ─────> Mark .agents/ACTIVE_TASK.md as COMPLETED (100%).
-Step 8: QA-Escape Post-Mortem ─> If the task fixed a UAT/prod bug that bypassed existing >=95% tests, PROACTIVELY notify the user ("💡 Oportunidad de Mejora Detectada para el Estándar QA 11X") and invoke `propose_skill_evolution_pr` without waiting to be asked.
-Step 9: Commit & Push to Git ─> Conventional commit in Spanish (`git commit`) and push (`git push`).
+Step 1: Execute QA Suite ─────> Skip on DOCS_ONLY; run affected stack QA on MICRO_CHANGE; run `make qa-all` on FULL_11X.
+Step 2: Update AST Graph ─────> Skip on DOCS_ONLY; run `./scripts/actualizar-grafos-graphify.sh` on code changes.
+Step 3: Audit Integrity ──────> Run `python3 scripts/generar-manifiesto.py --check` and `verify_roadmap_consistency.py`.
+Step 4: Run Certifier ────────> Run `./.agents/scripts/certify_task_completion.sh` / `certify_11x_gate` (10/10 gates).
+Step 5: Update Documentation ─> Sync affected docs/specs/, TESTING.md, CHANGELOG.md, and ROADMAP.md.
+Step 6: Mark Active Task ─────> Mark .agents/ACTIVE_TASK.md as COMPLETED (100%) and suggest `/compact` if context is long.
+Step 7: QA-Escape Post-Mortem ─> If fixing a bug that bypassed tests, present "💡 Oportunidad de Mejora Detectada para el Estándar QA 11X" and invoke `propose_skill_evolution_pr`.
+Step 8: Commit & Push to Git ─> Conventional commit in Spanish (`git commit`) and push (`git push`).
 ```
 
 ### Playbook 5: Workspace Sanitization & Docker Root File Eviction (`make clean` / `scripts/limpieza.sh`)
@@ -189,12 +197,11 @@ Step 6: Optional Docker Prune ─> Execute docker system prune -af --volumes onl
 ### Playbook 6: Existing Project Test Gap Audit & 13-Layer Rescue
 ```text
 Step 0: Plan Rescue ──────────> Register gap audit objectives in .agents/ACTIVE_TASK.md.
-Step 1: Inspect Config ───────> Run inspect_project_config(project_path) to verify Docker and Makefile baseline.
-Step 2: Audit 13 Layers ──────> Run audit_test_pyramid_gaps(project_path) to detect missing layers, orphan source files, untested APIs, and untested UI views.
-Step 3: User Diagnosis ───────> Present 11X pyramid score (XX%) and detailed layer matrix in Spanish.
-Step 4: Hydrate Blueprints ───> Use fetch_blueprint_bundle and bootstrap_or_merge_11x to inject missing .example templates non-destructively.
-Step 5: Prioritized Creation ─> Generate tests following prioritized_action_plan (CRITICAL -> HIGH -> MEDIUM), executing make targets in Docker (Rule Zero).
-Step 6: Gate & Closure ───────> Run certify_11x_gate, sync docs, mark ACTIVE_TASK.md COMPLETED (100%), and commit.
+Step 1: Audit 13 Layers ──────> Run audit_test_pyramid_gaps(project_path) (includes config inspection, missing layers, top orphan files, untested APIs/views).
+Step 2: User Diagnosis ───────> Present 11X pyramid score (XX%) and layer matrix in Spanish.
+Step 3: Hydrate Blueprints ───> Use bootstrap_or_merge_11x to inject missing .example templates non-destructively.
+Step 4: Prioritized Creation ─> Generate tests following prioritized_action_plan (CRITICAL -> HIGH -> MEDIUM) in Docker.
+Step 5: Gate & Closure ───────> Run certify_11x_gate, sync docs, mark ACTIVE_TASK.md COMPLETED (100%), and commit.
 ```
 
 ### Playbook 7: Continuous Skill Evolution & Upstream PR Proposal (`propose_skill_evolution_pr`)
@@ -210,7 +217,7 @@ Step 4: Transparent Audit ────> Zero secrets or hardcoded tokens transmi
 
 ## 4. Progressive Disclosure Reference Index
 
-Load additional modules only as needed:
+Load additional modules **strictly on-demand** (one at a time, only when touching that stack/domain):
 * [`references/01-core-13-layers.md`](references/01-core-13-layers.md): The 13 QA layers, Anti-Mock Blindness, Anti-JSDOM, and Trimodal Fixtures.
 * [`references/02-security-disa-owasp-22.md`](references/02-security-disa-owasp-22.md): The 22 DISA ASD STIG V6R5 + OWASP v4.2 security patterns and reference snippets.
 * [`references/03-stack-python-fastapi.md`](references/03-stack-python-fastapi.md): Python Standalone and FastAPI (PostgreSQL 17, KeyDB, Alembic, Karate API).

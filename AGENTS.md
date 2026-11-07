@@ -79,14 +79,16 @@ Welcome to the **QA Testing Blueprints** repository. All AI coding assistants (G
 
 ---
 
-## 5. Dual Execution Path & Mandatory 11-Step Closure Protocol
+## 5. 3-Path Proportional Execution & Mandatory 11-Step Closure Protocol
 
-> **TOKEN & COMPUTE ECONOMY (`DOCS_ONLY` vs. `CODE_CHANGE`):**
+> **TOKEN & COMPUTE ECONOMY (`DOCS_ONLY` vs. `MICRO_CHANGE` vs. `CODE_CHANGE` / `FULL_11X`):**
 > - **Fast-Path Documental (`DOCS_ONLY` — when ONLY `*.md` / `docs/` files are modified):** DO NOT trigger test suite execution (`run_ephemeral_qa` / Docker QA runs) and DO NOT rebuild AST graphs (`./scripts/actualizar-grafos-graphify.sh`). Only synchronize affected documentation/`CHANGELOG.md`, run `./.agents/scripts/certify_task_completion.sh`, and push to `git`.
-> - **Full-Path de Código (`CODE_CHANGE` — when source code, templates, scripts, or configs are modified):** Execute the 11-step protocol below from start to finish:
+> - **Surgical-Path de Micro-Cambio (`MICRO_CHANGE` — when `<= 3` files change, 0 new API routes/ORM migrations, and AST Blast Radius is `LOW` `< 5` callers):** Formulate a 3-line inline plan (skip heavy `/plan` artifact), run `inspect_blast_radius.py`, execute the targeted unit test + affected stack suite in Docker (`run_ephemeral_qa`), incrementally update the stack's AST graph (`./scripts/actualizar-grafos-graphify.sh`), update `CHANGELOG.md`, and run `./.agents/scripts/certify_task_completion.sh` (`certify_11x_gate`) + `git push`.
+> - **Full-Path de Código (`CODE_CHANGE` / `FULL_11X` — when `> 3` files, new endpoints/views, ORM schemas, security controls, or `MEDIUM`/`HIGH` Blast Radius change):** Execute the 11-step protocol below from start to finish:
+> - **High-IQ Token Economy (6 Cognitive Invariants):** (1) `AST/Grep-First, Windowed-Read-Second` (`StartLine`/`EndLine` 40–80 lines; never read full files `> 150` lines blindly), (2) `Zero Redundant Re-Read`, (3) `Parallel Tool Call Batching` (group independent reads/checks in 1 turn), (4) `Subagent Context Isolation` (delegate `> 4`-file exploration to a subagent returning `<= 20` lines with `file:line` pointers), (5) `Pass-Quiet & RTK Terminal Filtering` (`git status -s`, `git diff --stat`, no duplicate MCP calls), and (6) `Surgical Diff Edits & Compact ACTIVE_TASK.md (<= 40 lines)` + suggest `/compact` on closure.
 >
-> 1. **Planning Tool (`/plan`):** ALWAYS invoke `/plan` or an interactive plan artifact before modifying code.
-> 2. **Active Task Diary (`.agents/ACTIVE_TASK.md`):** ALWAYS initialize and update `.agents/ACTIVE_TASK.md` in real time (`- [ ]` → `- [x]`).
+> 1. **Planning Tool (`/plan`):** ALWAYS invoke `/plan` or an interactive plan artifact before modifying code on `FULL_11X` tasks.
+> 2. **Active Task Diary (`.agents/ACTIVE_TASK.md`):** ALWAYS initialize and update `.agents/ACTIVE_TASK.md` in real time (`- [ ]` → `- [x]`, kept `<= 40 lines`).
 > 3. **Pre-Modification AST Graph Audit (Create If Missing):** ALWAYS check `python3 .agents/scripts/inspect_blast_radius.py "<symbol>"` (`inspect_ast_blast_radius`); **if `graphify-out/graph.json` does not exist, create it first via `./scripts/actualizar-grafos-graphify.sh`**.
 > 4. **Repository Governance, Cleanup & Gitignore Sync:** ALWAYS update `AGENTS.md`, `.agents/rules/`, `.agents/skills/`, `scripts/limpieza.sh`, and `.gitignore` when introducing new rules, tools, or temporary artifacts.
 > 5. **Mandatory 11X Test Creation (ALWAYS Including Karate Labs):** ALWAYS create or extend unit (`>= 95%` coverage) and integration tests, **ALWAYS including Karate Labs BDD scenarios** (`.feature`).

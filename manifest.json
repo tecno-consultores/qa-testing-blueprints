@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.10.1",
-  "generated_at_utc": "2026-11-06T02:21:57Z",
+  "generated_at_utc": "2026-11-07T23:50:12Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -651,22 +651,22 @@
       "path": ".agents/rules/active_task_and_planning_resilience.md",
       "target_name": ".agents/rules/active_task_and_planning_resilience.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "7196899ec12224774a4a8efac34a3740d728cfe5d39d641a76deacbea2adac1e",
-      "size_bytes": 3705
+      "sha256": "f27aae63efb3a3346eaa076651b12c98e44ec636d80510a59b33dfcb8806e89e",
+      "size_bytes": 4343
     },
     {
       "path": ".agents/rules/anti_regression_and_side_effects_guardrail.md",
       "target_name": ".agents/rules/anti_regression_and_side_effects_guardrail.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "8c31ce7e69256aa1a20b337acc3c6aca94612ce35033cadbb1e8a895f57f1b89",
-      "size_bytes": 3891
+      "sha256": "ed9d55c156c4df8c1de83dd74fbda6635ce790d43d80f680222de9f5f0b696f8",
+      "size_bytes": 4836
     },
     {
       "path": ".agents/rules/continuous_agent_evolution.md",
       "target_name": ".agents/rules/continuous_agent_evolution.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "fcc71128e3a461ad36c8309f7c4573a467695cfd14b12d38845e91e1bf0ec39e",
-      "size_bytes": 4009
+      "sha256": "ce71d912ec443a148337c840b6e20c9063aab09ebed0be02e9e67d10209d5c23",
+      "size_bytes": 4658
     },
     {
       "path": ".agents/rules/frontend_parity_and_closure.md",
@@ -686,8 +686,8 @@
       "path": ".agents/rules/mandatory_qa_pyramid_and_doc_sync.md",
       "target_name": ".agents/rules/mandatory_qa_pyramid_and_doc_sync.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "3d7254531e13de7ce345f3bff6bf679b36e8853934c982418454c295aa58a887",
-      "size_bytes": 9324
+      "sha256": "9c825172fa297579d850ca1d5f7baf07c91a46a67e3785b65aa7a081a480d059",
+      "size_bytes": 10100
     },
     {
       "path": ".agents/rules/secure_development_and_testing_guidelines.md",
@@ -770,8 +770,8 @@
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "b7ad29874a8834abf61c8194aa2fc5468f06391dfcad34f7864d09e05185e019",
-      "size_bytes": 27260
+      "sha256": "a246400fcd9393e43ecb1574bb011e33877241e3e247666a5f03ca4ff5261c0a",
+      "size_bytes": 25166
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
@@ -896,8 +896,8 @@
       "path": "AGENTS.md",
       "target_name": "AGENTS.md",
       "merge_strategy": "surgical_merge",
-      "sha256": "a4b70d09275e45840ecb3bf2d7c766c9f223ed0c81bf5e71acf3d0f76ab9351d",
-      "size_bytes": 15329
+      "sha256": "73682c689fcec5aa55728c707dbac7eddee02eb7263b37f337986cb1267e9315",
+      "size_bytes": 16644
     },
     {
       "path": "scripts/install-skill.sh",
