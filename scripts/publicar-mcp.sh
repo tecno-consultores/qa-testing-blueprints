@@ -220,7 +220,10 @@ VERIFIED_REMOTE_VERSION=""
 for attempt in $(seq 1 "${VERIFY_ATTEMPTS}"); do
   VERIFIED_REMOTE_VERSION="$(
     docker run --rm "${IMAGE_NAME}" \
-      npm view "${PKG_NAME}@${PKG_VERSION}" version --registry "${NPM_REGISTRY}" 2>/dev/null || true
+      npm view "${PKG_NAME}@${PKG_VERSION}" version --registry "${NPM_REGISTRY}" --silent 2>/dev/null |
+      grep -E '^[0-9]+\.[0-9]+\.[0-9]+' |
+      head -n 1 |
+      tr -d '[:space:]' || true
   )"
   if [ "${VERIFIED_REMOTE_VERSION}" = "${PKG_VERSION}" ]; then
     echo -e "\e[32m✔ Versión ${PKG_VERSION} verificada y disponible en el CDN de npmjs (intento ${attempt}/${VERIFY_ATTEMPTS}).\e[0m"

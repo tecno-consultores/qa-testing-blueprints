@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.11.0",
-  "generated_at_utc": "2026-11-08T00:13:08Z",
+  "generated_at_utc": "2026-11-08T00:22:17Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -628,8 +628,8 @@
       "path": "scripts/publicar-mcp.sh",
       "target_name": "scripts/publicar-mcp.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "ddafc3412a8ee8a782072c59ec5c9575bcb4dd9a64e9e7edc7d5a7376e1865de",
-      "size_bytes": 11685
+      "sha256": "9601f52c7102ede6fe266d827b13090ce3a7ca6ae87dc6014065c07992abb460",
+      "size_bytes": 11780
     },
     {
       "path": "scripts/verificar-secretos.sh",

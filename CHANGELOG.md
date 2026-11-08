@@ -6,6 +6,11 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### 🐛 Corregido (Fixed)
+* **Resiliencia de Verificación CDN en `scripts/publicar-mcp.sh`:**
+  * Sanitizada la extracción de la versión remota con `--silent`, `grep -E '^[0-9]+\.[0-9]+\.[0-9]+'`, `head -n 1` y `tr -d '[:space:]'` para prevenir que avisos de npm (`npm notice`) o espacios en blanco invaliden la verificación en la CDN de npmjs.
+  * Formateado el bloque de reintento según estándar `shfmt` (-i 2 -ci) y verificado con ShellCheck (0 advertencias).
+
 ## [2.11.0] - 2026-11-07
 
 ### 🚀 Añadido y Mejorado (Added & Changed)
