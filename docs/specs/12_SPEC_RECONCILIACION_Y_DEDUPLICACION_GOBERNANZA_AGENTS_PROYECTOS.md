@@ -420,16 +420,16 @@ Para garantizar que cuando se publica una nueva versión de `@sinfallas/mcp-qa-1
    ```
    *(De este modo, `~/.gemini/GEMINI.md` se actualiza de forma quirúrgica y no destructiva mediante los marcadores `<!-- QA_11X_MCP_CONNECTOR_START --> ... <!-- QA_11X_MCP_CONNECTOR_END -->`, conservando cualquier instrucción personal fuera del bloque).*
 
-### 5.2. Actualizar `mcp-server/src/cli/install-skill.ts` para Sincronizar `.agents/rules/*.md`, `~/.gemini/GEMINI.md` y Soportar `--reconcile`
+### 5.2. Actualizar `mcp-server/src/cli/install-skill.ts` para Arquitectura Thin-Repo Global, Sincronizar `~/.gemini/GEMINI.md` y Soportar `--reconcile`
 
 En `mcp-server/src/cli/install-skill.ts`:
-1. Añadir la constante `const AGENT_RULES_PREFIX = '.agents/rules/';`.
-2. Actualizar `installIncludedScripts` para que, cuando se pase `--include-scripts`, descargue e instale **tanto `.agents/scripts/*` como los 7 archivos canónicos de `.agents/rules/*.md`** (además de `common_files`):
+1. Con `--target auto` y `--target all`, `resolveGlobalOrFallbackTargets()` instala las 5 skills exclusivamente en los directorios globales detectados en `$HOME` (`~/.gemini/config/skills`, `~/.claude/skills`, `~/.cursor/skills`, `~/.hermes/skills`) sin duplicarlas en `<proyecto>/.agents/skills/` (usando `<proyecto>/.agents/skills/` solo con `--target workspace`/`local` o como fallback si no existe ningún agente global).
+2. Actualizar `installIncludedScripts` para que, cuando se pase `--include-scripts`, descargue e instale **únicamente `.agents/scripts/*`, `manifest.common_files` y `.agents/ACTIVE_TASK.md.example`** (sin copiar las 7 reglas canónicas `.agents/rules/*.md` dentro de proyectos consumidores):
    ```typescript
    const scriptEntries: ManifestFileEntry[] = [
      ...(manifest.common_files || []),
      ...(manifest.agent_governance_files || []).filter(
-       (f) => f.path.startsWith(AGENT_SCRIPTS_PREFIX) || f.path.startsWith(AGENT_RULES_PREFIX)
+       (f) => f.path.startsWith(AGENT_SCRIPTS_PREFIX) || f.path === ACTIVE_TASK_EXAMPLE_PATH
      ),
    ];
    ```

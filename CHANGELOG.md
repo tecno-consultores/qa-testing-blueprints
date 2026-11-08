@@ -6,6 +6,8 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+## [2.11.1] - 2026-11-07
+
 ### 🐛 Corregido (Fixed)
 * **Arquitectura Thin-Repo Global en `install-skill.ts`, `scripts/install-skill.sh` y `reconcile-agents.ts`:**
   * **Instalación Global Exclusiva sin Duplicación Local (`install-skill.ts` y `scripts/install-skill.sh`):** Corregidos `resolveGlobalOrFallbackTargets` (`--target auto` y `--target all`) y `--target cursor` para que, cuando existan directorios globales de agentes IA en `$HOME` (`~/.gemini`, `~/.claude`, `~/.cursor`, `~/.hermes`), instalen las 5 skills corporativas **exclusivamente** en la configuración global del usuario sin duplicarlas en `<proyecto>/.agents/skills/`, usando `<proyecto>/.agents/skills/` únicamente con `--target workspace`/`local` explícito o como fallback cuando ningún directorio global exista en `$HOME`.

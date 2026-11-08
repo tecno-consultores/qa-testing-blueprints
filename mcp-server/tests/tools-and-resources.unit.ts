@@ -908,7 +908,7 @@ describe('Tools and Resources Integration Suite', () => {
   });
 
   describe('createMcpServer and Handlers Execution', () => {
-    it('creates server with default options when omitted and matches 2.11.0 versioning', () => {
+    it('creates server with default options when omitted and matches 2.11.1 versioning', () => {
       const server = createMcpServer();
       expect(server).toBeDefined();
     });

@@ -90,9 +90,10 @@ npx -y @sinfallas/mcp-qa-11x@latest init-agents [--project-path <ruta>] [--dry-r
 ```
 
 #### Parámetros del instalador `install-skill`:
-* **`--target, -t <entorno>`:** Destino de instalación de las 5 skills (`auto` por defecto, `workspace`, `antigravity`, `claude`, `cursor`, `hermes` o `all`).
-* **`--init-agents`:** Crea `AGENTS.md` o agrega al final del existente el bloque conector canónico de QA 11X sin sobrescribir reglas previas.
-* **`--include-scripts`:** Descarga en el directorio actual todos los scripts de certificación (`.agents/scripts/*` y `scripts/*`) con permisos `0o755`.
+* **`--target, -t <entorno>`:** Destino de instalación de las 5 skills (`auto` por defecto — instala exclusivamente en los directorios globales de agentes IA detectados en `$HOME`, usando `workspace` solo como fallback cuando no hay agentes globales—, `workspace`, `antigravity`, `claude`, `cursor`, `hermes` o `all`).
+* **`--init-agents`:** Crea `AGENTS.md` o agrega al final del existente el bloque conector canónico de QA 11X sin sobrescribir reglas previas (y sincroniza `~/.gemini/GEMINI.md`).
+* **`--include-scripts`:** Descarga en el directorio actual únicamente los scripts ejecutables de certificación (`.agents/scripts/*` y `scripts/*`), archivos comunes de CI/hooks y `.agents/ACTIVE_TASK.md.example` (`0o755`), sin duplicar `.agents/rules/*.md`.
+* **`--reconcile`:** Reconcilia la gobernanza Thin-Repo del proyecto consumidor, eliminando copias locales de las 7 reglas canónicas y las 5 skills en `<proyecto>/.agents/`, y extrayendo reglas de negocio propias hacia `.agents/rules/domain_<project>_rules.md` con respaldo en `.agents/backups/`.
 
 ### 6.2. Configuración en Clientes de IA
 

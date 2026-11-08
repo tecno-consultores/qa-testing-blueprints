@@ -114,10 +114,11 @@ npx -y @sinfallas/mcp-qa-11x@latest install-skill --target [auto|antigravity|cla
 curl -fsSL https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/scripts/install-skill.sh | sh
 ```
 
-### 5.3. Rutas de Destino Soportadas por el Instalador
-El instalador detectará o permitirá elegir dónde colocar **`qa-11x-architect/`** y **`refactoring-ui/`** (con su `SKILL.md` y sus 9 archivos `references/*.md`):
-1. **Proyecto Actual (`workspace`, por defecto si existe `.git`):** `./.agents/skills/qa-11x-architect/` y `./.agents/skills/refactoring-ui/`
-2. **Google Antigravity (Global Usuario):** `~/.gemini/config/skills/qa-11x-architect/` y `~/.gemini/config/skills/refactoring-ui/`
-3. **Claude Code / Desktop (Global Usuario):** `~/.claude/skills/qa-11x-architect/` y `~/.claude/skills/refactoring-ui/`
-4. **Cursor / Windsurf (Proyecto):** `./.agents/skills/qa-11x-architect/` y `./.agents/skills/refactoring-ui/` + enlace en `.cursor/rules/` si aplica.
-5. **Verificación de Integridad:** El instalador descargará `manifest.json`, verificará el hash SHA-256 de cada archivo de `qa-11x-architect/` y `refactoring-ui/` antes de escribirlo en disco y mostrará un resumen en español de los archivos instalados.
+### 5.3. Rutas de Destino Soportadas por el Instalador (Arquitectura Thin-Repo Global)
+El instalador detectará o permitirá elegir dónde colocar las **5 skills corporativas** (`qa-11x-architect`, `refactoring-ui`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `qa-11x-docker-certifier` junto con sus referencias `references/*.md`):
+1. **Google Antigravity (Global Usuario — Prioritario si existe `~/.gemini`):** `~/.gemini/config/skills/`
+2. **Claude Code / Desktop (Global Usuario — Prioritario si existe `~/.claude`):** `~/.claude/skills/`
+3. **Cursor / Windsurf (Global Usuario — Prioritario si existe `~/.cursor`):** `~/.cursor/skills/`
+4. **Hermes Agent (Global Usuario — Prioritario si existe `~/.hermes`):** `~/.hermes/skills/`
+5. **Proyecto Actual (`--target workspace` explícito o fallback cuando no existe ningún directorio global en `$HOME`):** `./.agents/skills/`
+6. **Verificación de Integridad:** El instalador descargará `manifest.json`, verificará el hash SHA-256 de cada archivo antes de escribirlo en disco y mostrará un resumen en español de los archivos instalados.

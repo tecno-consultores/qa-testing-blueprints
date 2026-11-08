@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
-  "blueprint_version": "2.11.0",
-  "generated_at_utc": "2026-11-08T02:03:20Z",
+  "blueprint_version": "2.11.1",
+  "generated_at_utc": "2026-11-08T02:09:54Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -665,8 +665,8 @@
       "path": ".agents/rules/continuous_agent_evolution.md",
       "target_name": ".agents/rules/continuous_agent_evolution.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "ce71d912ec443a148337c840b6e20c9063aab09ebed0be02e9e67d10209d5c23",
-      "size_bytes": 4658
+      "sha256": "6e88ae5fc166aa0377eedd6b8530885dc471e1f2845693759ef473ffbbbe2a82",
+      "size_bytes": 4927
     },
     {
       "path": ".agents/rules/frontend_parity_and_closure.md",
@@ -896,8 +896,8 @@
       "path": "AGENTS.md",
       "target_name": "AGENTS.md",
       "merge_strategy": "surgical_merge",
-      "sha256": "73682c689fcec5aa55728c707dbac7eddee02eb7263b37f337986cb1267e9315",
-      "size_bytes": 16644
+      "sha256": "5919fd93610064eac4e87bcf595c82f2a021a8bde08d8083283a780c75d20365",
+      "size_bytes": 16763
     },
     {
       "path": "scripts/install-skill.sh",

@@ -197,7 +197,7 @@ npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-script
 curl -fsSL https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/scripts/install-skill.sh | sh
 ```
 
-El instalador detecta automáticamente el entorno del agente (`auto`: Google Antigravity, Claude, Cursor, Hermes y/o Workspace) e hidrata de forma segura las 5 skills del catálogo:
+El instalador detecta automáticamente los directorios globales de los agentes de IA en `$HOME` (`auto`: Google Antigravity `~/.gemini/config/skills`, Claude `~/.claude/skills`, Cursor `~/.cursor/skills`, Hermes `~/.hermes/skills`) e instala las 5 skills **exclusivamente a nivel global** sin duplicarlas en `<proyecto>/.agents/skills/` (usando `<proyecto>/.agents/skills/` solo cuando se indica `--target workspace` o cuando ningún agente global existe en `$HOME`):
 * **`qa-11x-architect`:** Cerebro metodológico 11X, las 13 capas de la pirámide de calidad, los 22 patrones DISA ASD STIG V6R5 / OWASP v4.2 y directivas especializadas para Python, FastAPI, Node.js, Vue 3, React, PHP 8.2–8.5 y Bash.
 * **`refactoring-ui`:** Reglas tácticas de jerarquía visual, WCAG 2.1 AA, contraste OKLCH y `tabular-nums` para `CLS = 0`.
 * **`docker-trivy-keydb-hardening`:** Hardening de contenedores Docker (Trivy=0) y motor en memoria KeyDB multi-hilo.
@@ -207,13 +207,14 @@ El instalador detecta automáticamente el entorno del agente (`auto`: Google Ant
 #### Opciones del comando `install-skill`:
 | Opción / Flag | Descripción Operativa |
 | :--- | :--- |
-| `--target, -t <entorno>` | Define el destino de las skills: `auto` (por defecto: autodetecta agentes globales y workspace), `workspace`, `antigravity`, `claude`, `cursor`, `hermes` o `all`. |
-| `--init-agents` | Crea `AGENTS.md` en la raíz del proyecto o inyecta de forma aditiva y 100% no destructiva el bloque conector de QA 11X al final de un `AGENTS.md` existente. |
-| `--include-scripts` | Descarga e instala en el proyecto actual todos los scripts de certificación y auditoría (`.agents/scripts/*` y `scripts/*`) con permisos de ejecución `0o755`. |
+| `--target, -t <entorno>` | Define el destino de las skills: `auto` (por defecto: instala en todos los agentes globales detectados en `$HOME`; fallback a `workspace` solo si no hay agentes globales), `workspace`, `antigravity`, `claude`, `cursor`, `hermes` o `all`. |
+| `--init-agents` | Crea `AGENTS.md` en la raíz del proyecto o inyecta de forma aditiva y 100% no destructiva el bloque conector de QA 11X al final de un `AGENTS.md` existente (y sincroniza `~/.gemini/GEMINI.md`). |
+| `--include-scripts` | Descarga e instala en el proyecto actual únicamente los scripts ejecutables de certificación y auditoría (`.agents/scripts/*`, `scripts/*`), archivos comunes de CI/hooks y `.agents/ACTIVE_TASK.md.example` (`0o755`), sin duplicar `.agents/rules/*.md`. |
+| `--reconcile` | Ejecuta automáticamente la reconciliación Thin-Repo: elimina copias locales de las 7 reglas canónicas y las 5 skills en `<proyecto>/.agents/`, extrayendo cualquier regla de negocio propia hacia `.agents/rules/domain_<project>_rules.md` con respaldo en `.agents/backups/`. |
 
 ```bash
 # Comando completo con todas las opciones explícitas:
-npx -y @sinfallas/mcp-qa-11x@latest install-skill --target [auto|workspace|antigravity|claude|cursor|hermes|all] --init-agents --include-scripts
+npx -y @sinfallas/mcp-qa-11x@latest install-skill --target [auto|workspace|antigravity|claude|cursor|hermes|all] --init-agents --include-scripts --reconcile
 ```
 
 #### 🔄 Cómo Actualizar el Servidor MCP, las Skills y la Documentación en el IDE y cómo Validarlo
