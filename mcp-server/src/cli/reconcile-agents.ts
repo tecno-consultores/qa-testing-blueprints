@@ -40,6 +40,11 @@ export const PROMOTED_INVARIANT_FINGERPRINTS = [
   'dual auto + manual refresh invariant',
   'invariante de refresco dual',
   'invariante anti-silo',
+  'high-iq token economy',
+  '3-path proportional execution',
+  'ast/grep-first, windowed-read-second',
+  'subagent context isolation',
+  'zero redundant re-read',
 ];
 
 export function isPromotedSection(sectionText: string): boolean {

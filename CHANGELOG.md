@@ -7,6 +7,24 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 ## [Unreleased]
 
 ### 🚀 Añadido y Mejorado (Added & Changed)
+* **Implementación Completa del Hito 14 — Optimización Extrema de Tokens en Servidor MCP, 3 Vías Proporcionales y Progressive Disclosure:**
+  * **Contratos Zod e Interfaces (`mcp-server/src/types.ts`):**
+    * Añadido `include_content` (`default: false`) en `FetchBundleInputSchema` y campos `size_bytes`, `cached_path` en `FetchedFileItem`.
+    * Añadido `max_findings` (`default: 25`) en `AuditSecurityInputSchema`, interfaz `GroupedSecurityFinding` y campos `grouped_findings`, `truncated_findings_count` en `SecurityAuditResult`.
+    * Añadido `max_items` (`default: 20`) en `AuditTestPyramidInputSchema` y `BlastRadiusInputSchema`, y campos de conteos totales `total_orphan_files_count`, `total_untested_apis_count`, `total_untested_views_count` en `MissingTestInventory` y `truncated_dependents_count` en `BlastRadiusResult`.
+  * **Herramientas MCP y Servidor (`mcp-server/src/tools/` y `mcp-server/src/server.ts`):**
+    * `fetchBlueprintBundle`: Omitido el volcado de texto crudo de plantillas y reglas por defecto en llamadas MCP (`include_content: false`, ahorrando ~50,000 tokens por llamada) verificando SHA-256 en caché local y retornando metadatos compactos con `size_bytes` y `cached_path`.
+    * `server.ts`: Propagados los nuevos parámetros de ahorro de tokens en `fetch_blueprint_bundle`, `inspect_ast_blast_radius`, `audit_security_stig_owasp` y `audit_test_pyramid_gaps`.
+    * `security-auditor.ts`: Implementada la función `groupFindingsByRule()` para consolidar hallazgos repetidos por regla y límite `maxFindings` preservando la exactitud de `findings_count` y agregando `grouped_findings`.
+    * `test-pyramid-auditor.ts` y `blast-radius.ts`: Implementado el truncado `maxItems` manteniendo conteos exhaustivos y cálculo intacto de capas y planes de rescate.
+  * **Conector AGENTS.md y Reconciliación (`mcp-server/src/cli/init-agents-md.ts` y `reconcile-agents.ts`):**
+    * `buildConnectorBlock`: Actualizado con las 3 Vías Proporcionales de Ejecución (`DOCS_ONLY`, `MICRO_CHANGE`, `FULL_11X`) y el protocolo *High-IQ Token Economy*.
+    * `reconcile-agents.ts`: Incorporadas 5 nuevas huellas en `PROMOTED_INVARIANT_FINGERPRINTS` (`high-iq token economy`, `3-path proportional execution`, `ast/grep-first, windowed-read-second`, `subagent context isolation`, `zero redundant re-read`).
+  * **Pruebas y Verificación BDD:**
+    * Suites unitarias ampliadas en `mcp-server/tests/` (277 tests en 13 suites, 100% pasando, cobertura global de 99.33% stmts y 95.38% branch en contenedor Docker efímero `sinfallas/base-node-ionic:26`).
+    * Añadido el Escenario 15 en `mcp-server/test/mcp_cli_test.feature` validando el contrato de 3 vías de ejecución, economía de tokens y estructuras compactas.
+    * Hito 14 completado al 100% en `ROADMAP.md` y sincronizado el grafo AST de `mcp-server/`.
+
 * **Protocolo de Economía Cognitiva de Tokens (*High-IQ Token Economy* — 6 Estrategias), *3-Tier Progressive Disclosure* y 3 Vías Proporcionales de Ejecución (`DOCS_ONLY`, `MICRO_CHANGE`, `FULL_11X`):**
   * **Skill Maestra (`.agents/skills/qa-11x-architect/SKILL.md`):**
     * Compactada y deduplicada mediante **Revelación Progresiva en 3 Niveles (*3-Tier Progressive Disclosure*)**, reduciendo su tamaño en un **~33% adicional** (de `27.2 KB` a `~18.2 KB` / `205` líneas) al reemplazar bloques repetidos por punteros bajo demanda a `.agents/rules/*.md` y `references/*.md`.

@@ -126,13 +126,13 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
 ### 🧠 MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x`)
 * **Imagen Base:** `sinfallas/base-node-ionic:26` (Tags disponibles: `22`, `24`, `26` y `latest`)
 * **Métricas 11X Certificadas:**
-  * **Sentencias (Statements):** `99.27%` (`>= 95.0%`)
-  * **Ramas (Branches):** `95.28%` (`>= 95.0%`)
+  * **Sentencias (Statements):** `99.33%` (`>= 95.0%`)
+  * **Ramas (Branches):** `95.38%` (`>= 95.0%`)
   * **Funciones (Functions):** `100.00%` (`>= 95.0%`)
-  * **Líneas (Lines):** `99.27%` (`>= 95.0%`)
-  * **Pruebas Unitarias:** 272 pruebas pasando al 100% (13 suites en `tests/*.unit.ts`)
-  * **Herramientas MCP:** 12 herramientas canónicas (`inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`, `clean_workspace_11x`, `audit_security_stig_owasp`, `run_ephemeral_qa`, `certify_11x_gate`, `audit_test_pyramid_gaps`, `init_or_append_agents_md`, `propose_skill_evolution_pr`, `reconcile_agents_governance`)
-  * **Escenarios BDD Karate Labs:** `mcp-server/test/mcp_cli_test.feature` (14 escenarios; Hito 14 especificado en `docs/specs/13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md` amplía a 16 escenarios)
+  * **Líneas (Lines):** `99.33%` (`>= 95.0%`)
+  * **Pruebas Unitarias:** 277 pruebas pasando al 100% (13 suites en `tests/*.unit.ts`)
+  * **Herramientas MCP:** 12 herramientas canónicas con optimización extrema de tokens, modo *Metadata-Only* (`include_content: false`), agrupador por regla (`groupFindingsByRule`) y límites `max_findings` / `max_items`
+  * **Escenarios BDD Karate Labs:** `mcp-server/test/mcp_cli_test.feature` (15 escenarios; incluyendo contrato de 3 vías de ejecución, economía cognitiva y hallazgos agrupados)
   * **Empaquetado npm:** 53.1 kB comprimido / 252.4 kB desempaquetado (0 fugas de código fuente)
 * **Comandos de Validación:**
   ```bash
@@ -223,9 +223,9 @@ El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run test:unit`
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run build`
   * **Cobertura y Métricas Alcanzadas:**
-    * **100% de aserciones aprobadas** (272/272 pruebas pasando en 13 suites).
-    * **99.28% de cobertura de líneas y sentencias** (superando el umbral de `>= 95%`).
-    * **95.32% de cobertura de ramas** (superando el umbral de `>= 95%`).
+    * **100% de aserciones aprobadas** (277/277 pruebas pasando en 13 suites).
+    * **99.33% de cobertura de líneas y sentencias** (superando el umbral de `>= 95%`).
+    * **95.38% de cobertura de ramas** (superando el umbral de `>= 95%`).
     * **100.00% de cobertura de funciones**.
     * **0 errores de ESLint (`--max-warnings 0`), SonarJS (Cognitiva `<= 15`) y TypeScript (`strict: true`)**.
 

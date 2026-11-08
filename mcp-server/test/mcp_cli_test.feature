@@ -385,6 +385,70 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * match mockDocsFastPathQaResult.exit_code == 0
     * match mockDocsFastPathQaResult.tail_log contains '[Fast-Path Docs-Only]'
 
+  # ==============================================================================
+  # Grupo 15: Optimización Extrema de Tokens, 3 Vías Proporcionales y Progressive Disclosure
+  # ==============================================================================
+
+  Scenario: 15. Contrato de 3 Vías Proporcionales (DOCS_ONLY, MICRO_CHANGE, FULL_11X), Token Economy y Grouped Findings
+    * def agentsContent = karate.readAsString('classpath:../AGENTS.md')
+    * match agentsContent contains '3-Path Proportional Execution'
+    * match agentsContent contains 'DOCS_ONLY'
+    * match agentsContent contains 'MICRO_CHANGE'
+    * match agentsContent contains 'FULL_11X'
+
+    # Validar estructura compacta ahorradora de tokens para fetch_blueprint_bundle
+    * def mockFetchBundleResult =
+      """
+      {
+        stack: 'python',
+        total_files: 10,
+        content_omitted_for_token_economy: true,
+        files: [
+          {
+            path: 'python/Makefile.example',
+            target_name: 'Makefile',
+            merge_strategy: 'template_only',
+            content: '',
+            sha256_verified: true,
+            size_bytes: 1024,
+            cached_path: '/home/user/.cache/qa-11x-blueprints/files/python/Makefile.example'
+          }
+        ]
+      }
+      """
+    * match mockFetchBundleResult.content_omitted_for_token_economy == true
+    * match mockFetchBundleResult.files[0].content == ''
+    * match mockFetchBundleResult.files[0].size_bytes == 1024
+    * match mockFetchBundleResult.files[0].sha256_verified == true
+
+    # Validar estructura de hallazgos agrupados y truncado de seguridad
+    * def mockSecurityResult =
+      """
+      {
+        project_path: '/workspace',
+        passed: true,
+        total_files_scanned: 15,
+        findings_count: { CRITICAL: 0, HIGH: 0, MEDIUM: 1, LOW: 0 },
+        findings: [],
+        truncated_findings_count: 0,
+        grouped_findings: [
+          {
+            rule_id: 'SEC-11-01',
+            severity: 'MEDIUM',
+            stig_owasp_ref: 'APSC-DV-002520 (Unicode Canonicalization)',
+            message: 'Se detectó entrada de usuario sin normalización NFKC',
+            remediation: 'Aplicar unicodedata.normalize("NFKC", value)',
+            occurrences_count: 1,
+            locations: ['src/api.py:42']
+          }
+        ]
+      }
+      """
+    * match mockSecurityResult.passed == true
+    * match mockSecurityResult.grouped_findings[0].occurrences_count == 1
+    * match mockSecurityResult.grouped_findings[0].locations[0] == 'src/api.py:42'
+
+
 
 
 

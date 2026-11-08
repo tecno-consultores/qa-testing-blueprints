@@ -3,7 +3,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { SecurityAuditResult, SecurityFinding } from '../types.js';
+import { GroupedSecurityFinding, SecurityAuditResult, SecurityFinding } from '../types.js';
 
 const IGNORED_DIRS = new Set([
   'node_modules',
@@ -756,11 +756,44 @@ function countSeverities(findings: SecurityFinding[]): {
   return counts;
 }
 
+export function groupFindingsByRule(
+  findings: SecurityFinding[],
+  maxLocationsPerRule = 15
+): GroupedSecurityFinding[] {
+  const groups = new Map<string, GroupedSecurityFinding>();
+
+  for (const f of findings) {
+    const existing = groups.get(f.rule_id);
+    const loc = `${f.file}:${f.line}`;
+    if (!existing) {
+      groups.set(f.rule_id, {
+        rule_id: f.rule_id,
+        severity: f.severity,
+        stig_owasp_ref: f.stig_owasp_ref,
+        message: f.message,
+        remediation: f.remediation,
+        occurrences_count: 1,
+        locations: [loc],
+      });
+    } else {
+      existing.occurrences_count++;
+      if (existing.locations.length < maxLocationsPerRule) {
+        existing.locations.push(loc);
+      }
+    }
+  }
+
+  return Array.from(groups.values());
+}
+
 /**
  * Tool 5: audit_security_stig_owasp
  * Audita estáticamente el código fuente frente a los 22 patrones DISA ASD STIG V6R5 y OWASP v4.2.
  */
-export async function auditSecurityStigOwasp(projectPath: string): Promise<SecurityAuditResult> {
+export async function auditSecurityStigOwasp(
+  projectPath: string,
+  maxFindings?: number
+): Promise<SecurityAuditResult> {
   const resolvedPath = path.resolve(projectPath);
   const allAbsoluteFiles = collectFiles(resolvedPath);
   const allRelFiles = allAbsoluteFiles.map((abs) => path.relative(resolvedPath, abs));
@@ -774,12 +807,23 @@ export async function auditSecurityStigOwasp(projectPath: string): Promise<Secur
 
   const counts = countSeverities(findings);
   const passed = counts.CRITICAL === 0 && counts.HIGH === 0;
+  const groupedFindings = groupFindingsByRule(findings);
+
+  let returnedFindings = findings;
+  let truncatedCount: number | undefined;
+
+  if (typeof maxFindings === 'number' && maxFindings >= 0 && findings.length > maxFindings) {
+    returnedFindings = findings.slice(0, maxFindings);
+    truncatedCount = findings.length - maxFindings;
+  }
 
   return {
     project_path: resolvedPath,
     passed,
     total_files_scanned: allAbsoluteFiles.length,
     findings_count: counts,
-    findings,
+    findings: returnedFindings,
+    grouped_findings: groupedFindings,
+    ...(truncatedCount !== undefined ? { truncated_findings_count: truncatedCount } : {}),
   };
 }

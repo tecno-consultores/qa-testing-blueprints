@@ -1879,7 +1879,8 @@ export function buildPrioritizedActionPlan(
 
 export async function auditTestPyramidGaps(
   projectPathInput: string,
-  stackFilter?: StackName
+  stackFilter?: StackName,
+  maxItems?: number
 ): Promise<TestPyramidGapResult> {
   const resolvedPath = path.resolve(projectPathInput.normalize('NFKC'));
 
@@ -1912,7 +1913,7 @@ export async function auditTestPyramidGaps(
   const untestedApis = findUntestedApiEndpoints(resolvedPath, files);
   const untestedViews = findUntestedUiViews(resolvedPath, files);
 
-  const missingInventory: MissingTestInventory = {
+  const fullMissingInventory: MissingTestInventory = {
     orphan_source_files: orphanSourceFiles,
     untested_api_endpoints: untestedApis,
     untested_ui_views: untestedViews,
@@ -1956,7 +1957,30 @@ export async function auditTestPyramidGaps(
     not_applicable: layersAudit.filter((l) => l.status === STATUS_NOT_APPLICABLE).length,
   };
 
-  const prioritizedPlan = buildPrioritizedActionPlan(layersAudit, missingInventory);
+  const prioritizedPlan = buildPrioritizedActionPlan(layersAudit, fullMissingInventory);
+
+  const totalOrphans = orphanSourceFiles.length;
+  const totalUntestedApis = untestedApis.length;
+  const totalUntestedViews = untestedViews.length;
+
+  let truncatedOrphans = orphanSourceFiles;
+  let truncatedApis = untestedApis;
+  let truncatedViews = untestedViews;
+
+  if (typeof maxItems === 'number' && maxItems > 0) {
+    truncatedOrphans = orphanSourceFiles.slice(0, maxItems);
+    truncatedApis = untestedApis.slice(0, maxItems);
+    truncatedViews = untestedViews.slice(0, maxItems);
+  }
+
+  const missingInventory: MissingTestInventory = {
+    orphan_source_files: truncatedOrphans,
+    untested_api_endpoints: truncatedApis,
+    untested_ui_views: truncatedViews,
+    total_orphan_files_count: totalOrphans,
+    total_untested_apis_count: totalUntestedApis,
+    total_untested_views_count: totalUntestedViews,
+  };
 
   return {
     project_path: resolvedPath,

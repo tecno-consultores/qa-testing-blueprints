@@ -46,8 +46,17 @@ export const InspectProjectInputSchema = z.object({
 export type InspectProjectInput = z.infer<typeof InspectProjectInputSchema>;
 
 export const FetchBundleInputSchema = z.object({
-  stack: StackNameSchema,
-  include_common_and_agents: z.boolean().default(true).describe("Incluir archivos comunes y scripts de gobernanza .agents/"),
+  stack: StackNameSchema.describe('Nombre del stack tecnológico a descargar.'),
+  include_common_and_agents: z
+    .boolean()
+    .default(true)
+    .describe('Incluir archivos comunes (.trivy, lefthook) y reglas .agents/.'),
+  include_content: z
+    .boolean()
+    .default(false)
+    .describe(
+      'Si es false (por defecto para ahorro extremo de tokens), verifica SHA-256 en caché local y devuelve metadatos sin volcar el texto crudo de cada archivo al contexto.'
+    ),
 });
 export type FetchBundleInput = z.infer<typeof FetchBundleInputSchema>;
 
@@ -59,8 +68,18 @@ export const BootstrapMergeInputSchema = z.object({
 export type BootstrapMergeInput = z.infer<typeof BootstrapMergeInputSchema>;
 
 export const BlastRadiusInputSchema = z.object({
-  project_path: z.string().min(1).describe("Ruta al proyecto"),
-  target_symbol: z.string().min(1).describe("Nombre del símbolo, archivo o módulo a analizar"),
+  project_path: z.string().min(1).describe('Ruta al directorio raíz del proyecto.'),
+  target_symbol: z
+    .string()
+    .min(1)
+    .describe('Nombre del archivo, clase o función que se planea modificar.'),
+  max_items: z
+    .number()
+    .int()
+    .min(1)
+    .max(200)
+    .default(20)
+    .describe('Máximo de archivos dependientes a listar en el arreglo (ahorro de tokens).'),
 });
 export type BlastRadiusInput = z.infer<typeof BlastRadiusInputSchema>;
 
@@ -72,7 +91,14 @@ export const CleanWorkspaceInputSchema = z.object({
 export type CleanWorkspaceInput = z.infer<typeof CleanWorkspaceInputSchema>;
 
 export const AuditSecurityInputSchema = z.object({
-  project_path: z.string().min(1).describe("Ruta absoluta o relativa al directorio del proyecto a auditar"),
+  project_path: z.string().min(1).describe('Ruta absoluta o relativa al directorio del proyecto a auditar'),
+  max_findings: z
+    .number()
+    .int()
+    .min(1)
+    .max(500)
+    .default(25)
+    .describe('Límite máximo de hallazgos individuales devueltos en findings (ahorro de tokens).'),
 });
 export type AuditSecurityInput = z.infer<typeof AuditSecurityInputSchema>;
 
@@ -124,6 +150,8 @@ export interface FetchedFileItem {
   merge_strategy: string;
   content: string;
   sha256_verified: boolean;
+  size_bytes?: number;
+  cached_path?: string;
 }
 
 export interface BrowserTestingReadiness {
@@ -183,6 +211,7 @@ export interface BlastRadiusResult {
   risk_level: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   dependent_files_count: number;
   dependent_files: string[];
+  truncated_dependents_count?: number;
   suggested_tests_to_run: string[];
   ast_graph_detected?: boolean;
   ast_graph_files?: string[];
@@ -199,6 +228,16 @@ export interface SecurityFinding {
   remediation: string;
 }
 
+export interface GroupedSecurityFinding {
+  rule_id: string;
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  stig_owasp_ref: string;
+  message: string;
+  remediation: string;
+  occurrences_count: number;
+  locations: string[];
+}
+
 export interface SecurityAuditResult {
   project_path: string;
   passed: boolean;
@@ -210,6 +249,8 @@ export interface SecurityAuditResult {
     LOW?: number;
   };
   findings: SecurityFinding[];
+  grouped_findings?: GroupedSecurityFinding[];
+  truncated_findings_count?: number;
 }
 
 export interface QaCoverageFile {
@@ -346,6 +387,9 @@ export interface MissingTestInventory {
   orphan_source_files: OrphanSourceFile[];
   untested_api_endpoints: UntestedApiEndpoint[];
   untested_ui_views: UntestedUiView[];
+  total_orphan_files_count?: number;
+  total_untested_apis_count?: number;
+  total_untested_views_count?: number;
 }
 
 export interface TestPyramidGapResult {
@@ -371,6 +415,13 @@ export const AuditTestPyramidInputSchema = z.object({
   stack: StackNameSchema.optional().describe(
     'Stack específico a evaluar. Si se omite, autodetecta todos los stacks presentes en el proyecto.'
   ),
+  max_items: z
+    .number()
+    .int()
+    .min(1)
+    .max(200)
+    .default(20)
+    .describe('Máximo de ítems por categoría en missing_test_inventory (ahorro de tokens).'),
 });
 export type AuditTestPyramidInput = z.infer<typeof AuditTestPyramidInputSchema>;
 

@@ -5,7 +5,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { auditSecurityStigOwasp } from '../src/tools/security-auditor.js';
+import { auditSecurityStigOwasp, groupFindingsByRule } from '../src/tools/security-auditor.js';
 
 describe('security-auditor', () => {
   let tempDir: string;
@@ -463,5 +463,71 @@ setInterval(() => {}, 1000);
     const result = await auditSecurityStigOwasp(tempDir);
     const ui02s = result.findings.filter((f) => f.rule_id === 'UI-11X-02');
     expect(ui02s.length).toBe(0);
+  });
+
+  it('agrupa hallazgos correctamente con groupFindingsByRule y respeta límite de ubicaciones', () => {
+    const rawFindings = [
+      {
+        rule_id: 'SEC-11-01',
+        severity: 'MEDIUM' as const,
+        stig_owasp_ref: 'Ref 1',
+        file: 'src/a.ts',
+        line: 10,
+        message: 'Msg 1',
+        remediation: 'Rem 1',
+      },
+      {
+        rule_id: 'SEC-11-01',
+        severity: 'MEDIUM' as const,
+        stig_owasp_ref: 'Ref 1',
+        file: 'src/b.ts',
+        line: 20,
+        message: 'Msg 1',
+        remediation: 'Rem 1',
+      },
+      {
+        rule_id: 'SEC-11-02',
+        severity: 'HIGH' as const,
+        stig_owasp_ref: 'Ref 2',
+        file: 'src/c.ts',
+        line: 30,
+        message: 'Msg 2',
+        remediation: 'Rem 2',
+      },
+    ];
+
+    const grouped = groupFindingsByRule(rawFindings, 1);
+    expect(grouped.length).toBe(2);
+    const sec01 = grouped.find((g) => g.rule_id === 'SEC-11-01');
+    expect(sec01).toBeDefined();
+    expect(sec01?.occurrences_count).toBe(2);
+    expect(sec01?.locations.length).toBe(1);
+    expect(sec01?.locations[0]).toBe('src/a.ts:10');
+
+    const sec02 = grouped.find((g) => g.rule_id === 'SEC-11-02');
+    expect(sec02?.occurrences_count).toBe(1);
+  });
+
+  it('limita los hallazgos individuales cuando se especifica maxFindings manteniendo conteo total y agrupados', async () => {
+    fs.writeFileSync(path.join(tempDir, 'package.json'), JSON.stringify({ name: 'insecure-app' }));
+    const srcDir = path.join(tempDir, 'src');
+    fs.mkdirSync(srcDir, { recursive: true });
+    for (let i = 1; i <= 4; i++) {
+      fs.writeFileSync(
+        path.join(srcDir, `module_${i}.py`),
+        `import pickle\nobj = pickle.loads(b"data${i}")\n`
+      );
+    }
+
+    const fullResult = await auditSecurityStigOwasp(tempDir);
+    expect(fullResult.findings.length).toBeGreaterThanOrEqual(4);
+
+    const limitedResult = await auditSecurityStigOwasp(tempDir, 2);
+    expect(limitedResult.findings.length).toBe(2);
+    expect(limitedResult.findings_count.CRITICAL).toBe(fullResult.findings_count.CRITICAL);
+    expect(limitedResult.truncated_findings_count).toBe(fullResult.findings.length - 2);
+    expect(limitedResult.grouped_findings).toBeDefined();
+    expect(limitedResult.grouped_findings?.length).toBeGreaterThanOrEqual(1);
+    expect(limitedResult.grouped_findings?.[0].occurrences_count).toBeGreaterThanOrEqual(4);
   });
 });

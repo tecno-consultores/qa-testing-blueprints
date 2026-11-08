@@ -255,7 +255,12 @@ export function createMcpServer(options?: {
     'Descarga bajo demanda desde GitHub (con verificación SHA-256) las plantillas .example y scripts del stack solicitado.',
     FetchBundleInputSchema.shape,
     async (args) => {
-      const result = await fetchBlueprintBundle(args.stack, args.include_common_and_agents, fetcher);
+      const result = await fetchBlueprintBundle(
+        args.stack,
+        args.include_common_and_agents,
+        fetcher,
+        args.include_content ?? false
+      );
       return {
         content: [
           {
@@ -297,7 +302,11 @@ export function createMcpServer(options?: {
     'Calcula el radio de impacto y archivos dependientes antes de refactorizar un símbolo, función o módulo.',
     BlastRadiusInputSchema.shape,
     async (args) => {
-      const result = await inspectAstBlastRadius(args.project_path, args.target_symbol);
+      const result = await inspectAstBlastRadius(
+        args.project_path,
+        args.target_symbol,
+        args.max_items
+      );
       return {
         content: [
           {
@@ -337,7 +346,7 @@ export function createMcpServer(options?: {
     'Audita estáticamente el código fuente del proyecto destino frente a los 22 patrones DISA ASD STIG V6R5 y OWASP v4.2.',
     AuditSecurityInputSchema.shape,
     async (args) => {
-      const result = await auditSecurityStigOwasp(args.project_path);
+      const result = await auditSecurityStigOwasp(args.project_path, args.max_findings);
       return {
         content: [
           {
@@ -396,7 +405,11 @@ export function createMcpServer(options?: {
     'Audita un proyecto existente frente a las 13 capas de la pirámide 11X, identificando capas faltantes, archivos sin tests unitarios, endpoints sin escenarios Karate API, vistas sin BDD/E2E y un plan de rescate priorizado.',
     AuditTestPyramidInputSchema.shape,
     async (args) => {
-      const result = await auditTestPyramidGaps(args.project_path, args.stack);
+      const result = await auditTestPyramidGaps(
+        args.project_path,
+        args.stack,
+        args.max_items
+      );
       return {
         content: [
           {

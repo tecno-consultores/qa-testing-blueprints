@@ -1130,4 +1130,19 @@ def create_item(): pass
       'Invariante de Refresco Dual (Auto + Manual [ 🔄 Refrescar ]) en vistas operativas'
     );
   });
+
+  it('truncates missing_test_inventory items when maxItems is specified while keeping total counts', async () => {
+    const srcDir = path.join(tmpDir, 'src');
+    fs.mkdirSync(srcDir, { recursive: true });
+    for (let i = 1; i <= 4; i++) {
+      fs.writeFileSync(path.join(srcDir, `service_${i}.ts`), `export function fn${i}() {}\n`, 'utf-8');
+    }
+    fs.writeFileSync(path.join(tmpDir, 'package.json'), JSON.stringify({ name: 'ts-app' }), 'utf-8');
+
+    const result = await auditTestPyramidGaps(tmpDir, undefined, 2);
+    expect(result.missing_test_inventory.orphan_source_files.length).toBe(2);
+    expect(result.missing_test_inventory.total_orphan_files_count).toBeGreaterThanOrEqual(4);
+    expect(result.missing_test_inventory.total_untested_apis_count).toBeDefined();
+    expect(result.missing_test_inventory.total_untested_views_count).toBeDefined();
+  });
 });

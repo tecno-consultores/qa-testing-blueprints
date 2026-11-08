@@ -180,7 +180,8 @@ function scanDirectory(
 
 export async function inspectAstBlastRadius(
   projectPathInput: string,
-  targetSymbol: string
+  targetSymbol: string,
+  maxItems?: number
 ): Promise<BlastRadiusResult> {
   const resolvedPath = path.resolve(projectPathInput.normalize('NFKC'));
 
@@ -203,13 +204,24 @@ export async function inspectAstBlastRadius(
     ? "✅ Grafo AST detectado. DIRECTRIZ OBLIGATORIA: SIEMPRE debes actualizar el grafo al terminar los cambios ejecutando './scripts/actualizar-grafos-graphify.sh'."
     : "⚠️ No se detectó grafo AST (graphify-out/graph.json). DIRECTRIZ OBLIGATORIA: Si el grafo no existe debes crearlo ejecutando './scripts/actualizar-grafos-graphify.sh' (más información en qa-testing-blueprints) y SIEMPRE debes actualizar el grafo al terminar los cambios.";
 
+  let returnedDependents = sortedDependents;
+  let returnedSuggestedTests = Array.from(suggestedTests).sort();
+  let truncatedDependentsCount: number | undefined;
+
+  if (typeof maxItems === 'number' && maxItems > 0 && count > maxItems) {
+    returnedDependents = sortedDependents.slice(0, maxItems);
+    returnedSuggestedTests = returnedSuggestedTests.slice(0, maxItems);
+    truncatedDependentsCount = count - maxItems;
+  }
+
   return {
     project_path: resolvedPath,
     target_symbol: cleanSymbol,
     risk_level: riskLevel,
     dependent_files_count: count,
-    dependent_files: sortedDependents,
-    suggested_tests_to_run: Array.from(suggestedTests).sort(),
+    dependent_files: returnedDependents,
+    truncated_dependents_count: truncatedDependentsCount,
+    suggested_tests_to_run: returnedSuggestedTests,
     ast_graph_detected: astGraphDetected,
     ast_graph_files: graphFiles.sort(),
     ast_graph_action_required: astGraphActionRequired,

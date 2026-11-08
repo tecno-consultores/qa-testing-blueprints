@@ -227,6 +227,18 @@ describe('Tools and Resources Integration Suite', () => {
       expect(result.total_files).toBeGreaterThan(0);
       expect(result.files[0].sha256_verified).toBe(true);
     });
+
+    it('omits file content and provides token-saving metadata when includeContent is false', async () => {
+      const result = await fetchBlueprintBundle('python', true, fetcher, false);
+      expect(result.stack).toBe('python');
+      expect(result.total_files).toBeGreaterThan(0);
+      expect(result.content_omitted_for_token_economy).toBe(true);
+      expect(result.files[0].content).toBe('');
+      expect(result.files[0].size_bytes).toBeGreaterThan(0);
+      expect(result.files[0].sha256_verified).toBe(true);
+      expect(result.files[0].cached_path).toBeDefined();
+      expect(result.files[0].cached_path).toContain('files');
+    });
   });
 
   describe('bootstrapOrMerge11x Tool', () => {
@@ -289,6 +301,17 @@ describe('Tools and Resources Integration Suite', () => {
       const result = await inspectAstBlastRadius(targetProjectDir, 'CriticalSymbol');
       expect(result.risk_level).toBe('CRITICAL');
       expect(result.dependent_files_count).toBe(12);
+    });
+
+    it('truncates dependent files and suggested tests when maxItems is specified', async () => {
+      for (let i = 1; i <= 8; i++) {
+        fs.writeFileSync(path.join(targetProjectDir, `trunc_${i}.py`), 'from core import TruncSymbol\n', 'utf-8');
+      }
+      const result = await inspectAstBlastRadius(targetProjectDir, 'TruncSymbol', 3);
+      expect(result.dependent_files_count).toBe(8);
+      expect(result.dependent_files.length).toBe(3);
+      expect(result.truncated_dependents_count).toBe(5);
+      expect(result.suggested_tests_to_run.length).toBeLessThanOrEqual(3);
     });
 
     it('recurses into nested directories and ignores ignored directories like node_modules and .cache', async () => {

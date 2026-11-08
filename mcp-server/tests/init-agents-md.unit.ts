@@ -42,6 +42,9 @@ describe('init-agents-md (Non-destructive AGENTS.md connector injection)', () =>
       expect(block).toContain('docs/specs/');
       expect(block).toContain('CHANGELOG.md');
       expect(block).toContain('ROADMAP.md');
+      expect(block).toContain('3-Path Proportional Execution');
+      expect(block).toContain('MICRO_CHANGE');
+      expect(block).toContain('HIGH-IQ TOKEN ECONOMY');
       expect(block).toContain('Karate Labs BDD');
       expect(block).toContain('git push');
     });
