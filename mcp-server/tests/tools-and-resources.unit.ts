@@ -567,16 +567,28 @@ describe('Tools and Resources Integration Suite', () => {
       vi.spyOn(console, 'log').mockImplementation(() => {});
 
       try {
-        // 1. Invocación desde fakeHome sin argumentos: detecta .gemini y .claude y NO crea fakeHome/.agents
+        // 1. Invocación desde fakeHome sin argumentos y con --target all --init-agents --include-scripts --reconcile:
+        // detecta .gemini, .claude y .cursor y NO crea fakeHome/.agents ni archivos de proyecto en $HOME
         process.chdir(fakeHome);
         await runInstallSkillCli([], fetcher);
+        await runInstallSkillCli(
+          ['--target', 'all', '--init-agents', '--include-scripts', '--reconcile'],
+          fetcher
+        );
+        await runInstallSkillCli(['--target', 'cursor'], fetcher);
         expect(
           fs.existsSync(path.join(fakeHome, '.gemini/config/skills/qa-11x-architect/SKILL.md'))
         ).toBe(true);
         expect(
           fs.existsSync(path.join(fakeHome, '.claude/skills/qa-11x-architect/SKILL.md'))
         ).toBe(true);
+        expect(
+          fs.existsSync(path.join(fakeHome, '.cursor/skills/qa-11x-architect/SKILL.md'))
+        ).toBe(true);
         expect(fs.existsSync(path.join(fakeHome, '.agents'))).toBe(false);
+        expect(fs.existsSync(path.join(fakeHome, 'AGENTS.md'))).toBe(false);
+        expect(fs.existsSync(path.join(fakeHome, 'lefthook.yml'))).toBe(false);
+        expect(fs.existsSync(path.join(fakeHome, 'scripts'))).toBe(false);
 
         // 2. Invocación desde proyecto git workspace: instala en workspace/.agents/skills
         process.chdir(fakeWorkspace);

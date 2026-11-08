@@ -448,11 +448,8 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * match mockSecurityResult.grouped_findings[0].occurrences_count == 1
     * match mockSecurityResult.grouped_findings[0].locations[0] == 'src/api.py:42'
 
-
-
-
-
-
-
-
+    # Verificar que install-skill protege el directorio personal $HOME frente a contaminación con archivos de proyecto
+    * def installSkillSource = karate.readAsString('file:src/cli/install-skill.ts')
+    * assert installSkillSource.contains('isHomeDirectory')
+    * assert installSkillSource.contains('[Modo Global $HOME]')
 

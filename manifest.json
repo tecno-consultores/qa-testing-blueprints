@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.11.0",
-  "generated_at_utc": "2026-11-08T00:22:17Z",
+  "generated_at_utc": "2026-11-08T01:44:27Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -903,8 +903,8 @@
       "path": "scripts/install-skill.sh",
       "target_name": "scripts/install-skill.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "b0b08e51a1b0d9c10b60ed3c19f12551b4072319bbaa81619e6b43a67e2eeaee",
-      "size_bytes": 10406
+      "sha256": "4c1479959fd51b57dcc0a4f77a5da876c63f9b349ef8e159685a531731811883",
+      "size_bytes": 10835
     }
   ]
 }

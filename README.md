@@ -222,7 +222,10 @@ Cuando se publica una nueva versión de `@sinfallas/mcp-qa-11x` en `npmjs.com` o
 
 1. **Purgar cachés locales y actualizar las 5 Skills, Reglas y Scripts:**
    ```bash
-   # Purga la caché de npx y de blueprints, fuerza la descarga de @latest y actualiza todos los entornos:
+   # A. Actualización global de IDEs (Antigravity, Claude, Cursor, Hermes) desde cualquier directorio o $HOME:
+   rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@latest install-skill
+
+   # B. Actualización dentro del directorio raíz de un proyecto (IDEs globales + AGENTS.md, .agents/ y scripts/ del proyecto):
    rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@latest install-skill --target all --init-agents --include-scripts
    ```
 2. **Reiniciar el servidor MCP en el IDE:**

@@ -196,27 +196,42 @@ resolve_destination_dirs() {
       printf "%s/.claude/skills\n" "${HOME_DIR}"
       ;;
     cursor)
-      printf "%s/.agents/skills\n" "${_pwd}"
+      if [ "${_pwd}" != "${HOME_DIR}" ]; then
+        printf "%s/.agents/skills\n" "${_pwd}"
+      fi
       if [ -d "${HOME_DIR}/.cursor" ]; then
         printf "%s/.cursor/skills\n" "${HOME_DIR}"
+      elif [ "${_pwd}" = "${HOME_DIR}" ]; then
+        printf "%s/.agents/skills\n" "${_pwd}"
       fi
       ;;
     hermes)
       printf "%s/.hermes/skills\n" "${HOME_DIR}"
       ;;
     all)
-      printf "%s/.agents/skills\n" "${_pwd}"
+      _found_all=0
+      if [ "${_pwd}" != "${HOME_DIR}" ]; then
+        printf "%s/.agents/skills\n" "${_pwd}"
+        _found_all=1
+      fi
       if [ -d "${HOME_DIR}/.gemini" ] || [ -d "${HOME_DIR}/.gemini/antigravity" ]; then
         printf "%s/.gemini/config/skills\n" "${HOME_DIR}"
+        _found_all=1
       fi
       if [ -d "${HOME_DIR}/.claude" ]; then
         printf "%s/.claude/skills\n" "${HOME_DIR}"
+        _found_all=1
       fi
       if [ -d "${HOME_DIR}/.hermes" ]; then
         printf "%s/.hermes/skills\n" "${HOME_DIR}"
+        _found_all=1
       fi
       if [ -d "${HOME_DIR}/.cursor" ]; then
         printf "%s/.cursor/skills\n" "${HOME_DIR}"
+        _found_all=1
+      fi
+      if [ "${_found_all}" -eq 0 ]; then
+        printf "%s/.agents/skills\n" "${_pwd}"
       fi
       ;;
     *)

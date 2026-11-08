@@ -51,8 +51,12 @@ function detectInstalledGlobalAgentDirs(homeDir: string): string[] {
   return dirs;
 }
 
+function isHomeDirectory(homeDir: string, cwd: string): boolean {
+  return path.resolve(cwd) === path.resolve(homeDir);
+}
+
 function isProjectWorkspaceDir(homeDir: string, cwd: string): boolean {
-  if (path.resolve(cwd) === path.resolve(homeDir)) {
+  if (isHomeDirectory(homeDir, cwd)) {
     return false;
   }
   const markers = ['.git', 'AGENTS.md', 'ROADMAP.md', 'package.json', 'pyproject.toml'];
@@ -60,8 +64,14 @@ function isProjectWorkspaceDir(homeDir: string, cwd: string): boolean {
 }
 
 function resolveAllTargets(homeDir: string, cwd: string): string[] {
+  const globalDirs = detectInstalledGlobalAgentDirs(homeDir);
+  if (isHomeDirectory(homeDir, cwd)) {
+    return globalDirs.length > 0
+      ? Array.from(new Set(globalDirs))
+      : [path.join(cwd, AGENTS_DIR_NAME, SKILLS_DIR_NAME)];
+  }
   const workspaceSkills = path.join(cwd, AGENTS_DIR_NAME, SKILLS_DIR_NAME);
-  return Array.from(new Set([workspaceSkills, ...detectInstalledGlobalAgentDirs(homeDir)]));
+  return Array.from(new Set([workspaceSkills, ...globalDirs]));
 }
 
 function resolveAutoTargets(homeDir: string, cwd: string): string[] {
@@ -82,10 +92,15 @@ function resolveDestinationDirs(targetArg: string, homeDir: string, cwd: string)
     case 'workspace':
     case 'local':
       return [workspaceSkills];
-    case 'cursor':
+    case 'cursor': {
+      const cursorGlobal = path.join(homeDir, CURSOR_DIR_NAME, SKILLS_DIR_NAME);
+      if (isHomeDirectory(homeDir, cwd) && fs.existsSync(path.join(homeDir, CURSOR_DIR_NAME))) {
+        return [cursorGlobal];
+      }
       return fs.existsSync(path.join(homeDir, CURSOR_DIR_NAME))
-        ? [workspaceSkills, path.join(homeDir, CURSOR_DIR_NAME, SKILLS_DIR_NAME)]
+        ? [workspaceSkills, cursorGlobal]
         : [workspaceSkills];
+    }
     case 'antigravity':
       return [path.join(homeDir, GEMINI_DIR_NAME, 'config', SKILLS_DIR_NAME)];
     case 'claude':
@@ -170,8 +185,10 @@ export async function runInstallSkillCli(args: string[], fetcher?: GitHubFetcher
   const initAgents = args.includes('--init-agents');
   const reconcile = args.includes('--reconcile');
   const cwd = process.cwd();
+  const homeDir = process.env.HOME || os.homedir();
+  const inHomeDir = isHomeDirectory(homeDir, cwd);
 
-  if (reconcile) {
+  if (reconcile && !inHomeDir) {
     const recRes = await reconcileAgentsGovernance({ projectPath: cwd, dryRun: false });
     console.log(
       `✔ [Reconcile 11X] ${recRes.removed_duplicate_sections_count} sección(es) duplicada(s) podada(s), ${recRes.preserved_domain_sections_count} sección(es) de dominio preservada(s).`
@@ -189,7 +206,6 @@ export async function runInstallSkillCli(args: string[], fetcher?: GitHubFetcher
     throw new Error('No se encontraron archivos de skills en manifest.json.');
   }
 
-  const homeDir = process.env.HOME || os.homedir();
   const destDirs = resolveDestinationDirs(targetArg, homeDir, cwd);
 
   const downloadedFiles: Array<{ relSkillPath: string; content: string }> = [];
@@ -205,6 +221,13 @@ export async function runInstallSkillCli(args: string[], fetcher?: GitHubFetcher
 
   if (fs.existsSync(path.join(homeDir, GEMINI_DIR_NAME))) {
     syncGlobalGeminiMd(homeDir);
+  }
+
+  if (inHomeDir && (includeScripts || initAgents || reconcile)) {
+    console.log(
+      `ℹ️ [Modo Global $HOME] Omitiendo escritura de archivos de proyecto (AGENTS.md, scripts/, .agents/, lefthook.yml) en el directorio personal (${homeDir}).`
+    );
+    return;
   }
 
   if (includeScripts) {

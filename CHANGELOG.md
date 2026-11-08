@@ -7,6 +7,9 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 ## [Unreleased]
 
 ### 🐛 Corregido (Fixed)
+* **Protección Anti-Contaminación de `$HOME` en `install-skill` (`mcp-server/src/cli/install-skill.ts` y `scripts/install-skill.sh`):**
+  * Corregido `resolveAllTargets` (`--target all`) y `resolveDestinationDirs` (`--target cursor`) para que, cuando el comando se ejecuta desde el directorio personal del usuario (`cwd === homeDir`), instale únicamente en los directorios globales de los agentes detectados (`~/.gemini/config/skills`, `~/.claude/skills`, `~/.cursor/skills`, `~/.hermes/skills`) sin crear `~/.agents/skills`.
+  * Añadida guarda explícita `inHomeDir` en `runInstallSkillCli` para omitir la escritura de archivos exclusivos de proyectos (`AGENTS.md`, `lefthook.yml`, `commitlint.config.js`, `.trivy.yaml`, `.env.example`, `scripts/`, `.agents/`) cuando se invoca con `--init-agents`, `--include-scripts` o `--reconcile` desde `$HOME`, preservando la sincronización global de `~/.gemini/GEMINI.md`.
 * **Resiliencia de Verificación CDN en `scripts/publicar-mcp.sh`:**
   * Sanitizada la extracción de la versión remota con `--silent`, `grep -E '^[0-9]+\.[0-9]+\.[0-9]+'`, `head -n 1` y `tr -d '[:space:]'` para prevenir que avisos de npm (`npm notice`) o espacios en blanco invaliden la verificación en la CDN de npmjs.
   * Formateado el bloque de reintento según estándar `shfmt` (-i 2 -ci) y verificado con ShellCheck (0 advertencias).

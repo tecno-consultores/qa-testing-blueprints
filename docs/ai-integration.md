@@ -176,7 +176,10 @@ Dado que el transporte `stdio` mantiene vivo el subproceso de Node.js mientras e
 
 #### 1. Purga de Cachés y Rehidratación Completa
 ```bash
-# Elimina las cachés de npx y de blueprints y descarga la última versión verificada con SHA-256:
+# A. Actualización global de IDEs (Antigravity, Claude, Cursor, Hermes) desde $HOME o cualquier carpeta:
+rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@latest install-skill
+
+# B. Actualización dentro de la carpeta raíz de un proyecto (IDEs globales + AGENTS.md, .agents/ y scripts/ del proyecto):
 rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@latest install-skill --target all --init-agents --include-scripts
 ```
 

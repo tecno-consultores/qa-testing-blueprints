@@ -282,7 +282,18 @@ class TestInstallSkill(unittest.TestCase):
         self.assertTrue(installed_gemini.is_file())
         self.assertTrue(installed_claude.is_file())
 
-        # Verifica que NO creó mock_home/.agents
+        # Verifica que NO creó mock_home/.agents con target por defecto (auto)
+        self.assertFalse((mock_home / ".agents").exists())
+
+        # Y tampoco crea mock_home/.agents cuando se invoca con --target all desde $HOME
+        res_all = subprocess.run(
+            ["sh", str(INSTALL_SCRIPT), "--target", "all"],
+            cwd=str(mock_home),
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(res_all.returncode, 0, f"Error: {res_all.stderr}\nStdout: {res_all.stdout}")
         self.assertFalse((mock_home / ".agents").exists())
 
 
