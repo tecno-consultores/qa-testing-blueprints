@@ -6,6 +6,11 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### 🛡️ Añadido y Mejorado (Added & Changed)
+* **Invariante Anti-Mock Blindness para Serialización `JSONB` (`json.dumps` sin `default=str`) y `Numeric(p, s)` (`decimal.Decimal`) en `MockDbSession` y Fixtures ORM:**
+  * **Reglas Canónicas (`.agents/rules/secure_development_and_testing_guidelines.md`, `.agents/rules/ground_truth_fixtures_and_negative_invariants.md` y `AGENTS.md`):** Incorporada directiva obligatoria que exige validar todas las columnas SQLAlchemy `JSON`/`JSONB` (como `AuditLog.before_state` y `AuditLog.after_state`) pasando por `json.dumps()` **sin `default=str`** en sesiones mock (`MockDbSession`), y poblar los atributos ORM `Numeric(p, s)` en fixtures con instancias `decimal.Decimal` (idéntico a la hidratación del driver `asyncpg` de PostgreSQL) para impedir que errores `TypeError: Object of type Decimal is not JSON serializable` escapen a producción.
+  * **Skill Maestra (`.agents/skills/qa-11x-architect/SKILL.md` y `references/03-stack-python-fastapi.md`):** Sincronizada la Regla 3 de *Mandatory Anti-Silo & Cross-Module State Propagation Invariant* y la referencia de Python/FastAPI con la validación estricta de `JSONB` y `Decimal`.
+
 ## [2.11.1] - 2026-11-07
 
 ### 🐛 Corregido (Fixed)
