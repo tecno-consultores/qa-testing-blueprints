@@ -196,51 +196,19 @@ resolve_destination_dirs() {
       printf "%s/.claude/skills\n" "${HOME_DIR}"
       ;;
     cursor)
-      if [ "${_pwd}" != "${HOME_DIR}" ]; then
-        printf "%s/.agents/skills\n" "${_pwd}"
-      fi
       if [ -d "${HOME_DIR}/.cursor" ]; then
         printf "%s/.cursor/skills\n" "${HOME_DIR}"
-      elif [ "${_pwd}" = "${HOME_DIR}" ]; then
+      else
         printf "%s/.agents/skills\n" "${_pwd}"
       fi
       ;;
     hermes)
       printf "%s/.hermes/skills\n" "${HOME_DIR}"
       ;;
-    all)
-      _found_all=0
-      if [ "${_pwd}" != "${HOME_DIR}" ]; then
-        printf "%s/.agents/skills\n" "${_pwd}"
-        _found_all=1
-      fi
-      if [ -d "${HOME_DIR}/.gemini" ] || [ -d "${HOME_DIR}/.gemini/antigravity" ]; then
-        printf "%s/.gemini/config/skills\n" "${HOME_DIR}"
-        _found_all=1
-      fi
-      if [ -d "${HOME_DIR}/.claude" ]; then
-        printf "%s/.claude/skills\n" "${HOME_DIR}"
-        _found_all=1
-      fi
-      if [ -d "${HOME_DIR}/.hermes" ]; then
-        printf "%s/.hermes/skills\n" "${HOME_DIR}"
-        _found_all=1
-      fi
-      if [ -d "${HOME_DIR}/.cursor" ]; then
-        printf "%s/.cursor/skills\n" "${HOME_DIR}"
-        _found_all=1
-      fi
-      if [ "${_found_all}" -eq 0 ]; then
-        printf "%s/.agents/skills\n" "${_pwd}"
-      fi
-      ;;
-    *)
-      # Autodetección inteligente por defecto (auto)
+    all | *)
+      # Autodetección inteligente global (auto / all): instala exclusivamente en los agentes globales detectados
+      # y solo usa <proyecto>/.agents/skills como fallback si no existe ningún agente global en $HOME
       _found_any=0
-      if [ "${_pwd}" != "${HOME_DIR}" ] && { [ -d "./.git" ] || [ -f "./ROADMAP.md" ] || [ -f "./AGENTS.md" ] || [ -f "./package.json" ] || [ -f "./pyproject.toml" ]; }; then
-        printf "%s/.agents/skills\n" "${_pwd}"
-        _found_any=1
-      fi
       if [ -d "${HOME_DIR}/.gemini" ] || [ -d "${HOME_DIR}/.gemini/antigravity" ]; then
         printf "%s/.gemini/config/skills\n" "${HOME_DIR}"
         _found_any=1

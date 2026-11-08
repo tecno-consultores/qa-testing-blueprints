@@ -521,9 +521,10 @@ describe('Tools and Resources Integration Suite', () => {
         expect(
           fs.existsSync(path.join(fakeHome, '.gemini/config/skills/qa-11x-architect/SKILL.md'))
         ).toBe(true);
+        // Con agentes globales detectados en $HOME, --target all no duplica skills en workspace/.agents/skills
         expect(
           fs.existsSync(path.join(fakeWorkspace, '.agents/skills/qa-11x-architect/SKILL.md'))
-        ).toBe(true);
+        ).toBe(false);
       } finally {
         process.chdir(cwd);
         process.env.HOME = origHome;
@@ -590,21 +591,22 @@ describe('Tools and Resources Integration Suite', () => {
         expect(fs.existsSync(path.join(fakeHome, 'lefthook.yml'))).toBe(false);
         expect(fs.existsSync(path.join(fakeHome, 'scripts'))).toBe(false);
 
-        // 2. Invocación desde proyecto git workspace: instala en workspace/.agents/skills
+        // 2. Invocación desde proyecto git workspace cuando existen agentes globales en $HOME:
+        // instala exclusivamente en los directorios globales sin duplicar en workspace/.agents/skills
         process.chdir(fakeWorkspace);
         await runInstallSkillCli([], fetcher);
         expect(
           fs.existsSync(path.join(fakeWorkspace, '.agents/skills/qa-11x-architect/SKILL.md'))
-        ).toBe(true);
+        ).toBe(false);
 
-        // 3. Invocación con --target cursor: instala en workspace y en fakeHome/.cursor/skills
+        // 3. Invocación con --target cursor: instala exclusivamente en fakeHome/.cursor/skills
         await runInstallSkillCli(['--target', 'cursor'], fetcher);
         expect(
           fs.existsSync(path.join(fakeHome, '.cursor/skills/qa-11x-architect/SKILL.md'))
         ).toBe(true);
         expect(
           fs.existsSync(path.join(fakeWorkspace, '.agents/skills/qa-11x-architect/SKILL.md'))
-        ).toBe(true);
+        ).toBe(false);
 
         // 4. Invocación en directorio aislado sin .git y con home aislado: fallback a isolatedCwd/.agents/skills
         const isolatedHome = path.join(tmpDir, 'isolated-home');
@@ -646,6 +648,8 @@ describe('Tools and Resources Integration Suite', () => {
         ).toBe(true);
         expect(fs.existsSync(path.join(testDir, '.agents/ACTIVE_TASK.md.example'))).toBe(true);
         expect(fs.existsSync(path.join(testDir, '.agents/ACTIVE_TASK.md'))).toBe(true);
+        // --include-scripts no debe copiar las 7 reglas .agents/rules/*.md dentro del proyecto consumidor
+        expect(fs.existsSync(path.join(testDir, '.agents/rules'))).toBe(false);
 
         // Segunda ejecución con ACTIVE_TASK.md ya existente: no sobrescribe el diario en curso
         fs.writeFileSync(path.join(testDir, '.agents/ACTIVE_TASK.md'), '# Diario En Progreso', 'utf-8');

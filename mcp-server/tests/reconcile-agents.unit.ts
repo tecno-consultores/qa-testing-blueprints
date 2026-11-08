@@ -7,10 +7,13 @@ import * as path from 'node:path';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   isPromotedSection,
+  isCanonicalRuleSection,
+  isUpstreamBlueprintsRepo,
   splitMarkdownSections,
   reconcileAgentsGovernance,
   runReconcileAgentsCli,
   CANONICAL_GLOBAL_RULE_FILES,
+  CANONICAL_GLOBAL_SKILL_DIRS,
   PROMOTED_INVARIANT_FINGERPRINTS,
 } from '../src/cli/reconcile-agents.js';
 import { syncGlobalGeminiMd, buildConnectorBlock } from '../src/cli/init-agents-md.js';
@@ -176,11 +179,105 @@ describe('reconcile-agents (Hito 13: Governance Reconciliation & Deduplication)'
         expect(item.classification).toBe('CANONICAL_CLEAN');
       }
 
-      // Los archivos canónicos se respaldan en .agents/backups/
+      // Los archivos canónicos se respaldan en .agents/backups/ y se eliminan de .agents/rules/ del proyecto consumidor
       expect(result.backup_dir).not.toBeNull();
       for (const canonical of CANONICAL_GLOBAL_RULE_FILES) {
         expect(fs.existsSync(path.join(result.backup_dir!, '.agents', 'rules', canonical))).toBe(true);
+        expect(fs.existsSync(path.join(rulesDir, canonical))).toBe(false);
       }
+    });
+
+    it('Case 7: extracts custom domain sections from modified canonical rule file in consumer project and deletes the canonical file', async () => {
+      const projectDir = path.join(tmpDir, 'rosgrid-web');
+      const rulesDir = path.join(projectDir, '.agents', 'rules');
+      fs.mkdirSync(rulesDir, { recursive: true });
+
+      const modifiedCanonicalPath = path.join(rulesDir, 'mandatory_qa_pyramid_and_doc_sync.md');
+      fs.writeFileSync(
+        modifiedCanonicalPath,
+        [
+          '# Mandatory Directive: QA 11X Pyramid & Continuous Documentation Sync',
+          '## 1. Supreme Directive: Mandatory 11X Test Creation',
+          'Regla global ya incluida en la skill global.',
+          '## Topología Cartográfica de Nodos MikroTik',
+          'En el mapa de rosgrid-web, cada router CCR debe mostrar su enlace OSPF activo.',
+        ].join('\n'),
+        'utf-8'
+      );
+
+      expect(isCanonicalRuleSection('## 1. Supreme Directive: Mandatory 11X Test Creation')).toBe(true);
+      expect(isCanonicalRuleSection('## Topología Cartográfica de Nodos MikroTik')).toBe(false);
+
+      const result = await reconcileAgentsGovernance({ projectPath: projectDir, dryRun: false });
+      const item = result.reconciled_items.find((i) =>
+        i.file.endsWith('mandatory_qa_pyramid_and_doc_sync.md')
+      );
+      expect(item?.classification).toBe('DOMAIN_EXTRACTED_TO_DOMAIN_FILE');
+      expect(fs.existsSync(modifiedCanonicalPath)).toBe(false);
+
+      const expectedDomainFile = path.join(rulesDir, 'domain_rosgrid_web_rules.md');
+      expect(fs.existsSync(expectedDomainFile)).toBe(true);
+      const domainText = fs.readFileSync(expectedDomainFile, 'utf-8');
+      expect(domainText).toContain('Topología Cartográfica de Nodos MikroTik');
+      expect(domainText).not.toContain('Supreme Directive: Mandatory 11X Test Creation');
+    });
+
+    it('Case 8: backs up and deletes local copies of the 5 canonical skills in consumer .agents/skills/', async () => {
+      const projectDir = path.join(tmpDir, 'consumer-with-local-skills');
+      const skillsDir = path.join(projectDir, '.agents', 'skills');
+
+      for (const skillName of CANONICAL_GLOBAL_SKILL_DIRS) {
+        const sDir = path.join(skillsDir, skillName);
+        fs.mkdirSync(sDir, { recursive: true });
+        fs.writeFileSync(path.join(sDir, 'SKILL.md'), `# Local copy of ${skillName}`, 'utf-8');
+      }
+
+      const result = await reconcileAgentsGovernance({ projectPath: projectDir, dryRun: false });
+      expect(result.removed_duplicate_sections_count).toBe(CANONICAL_GLOBAL_SKILL_DIRS.size);
+
+      for (const skillName of CANONICAL_GLOBAL_SKILL_DIRS) {
+        expect(
+          fs.existsSync(path.join(result.backup_dir!, '.agents', 'skills', skillName, 'SKILL.md'))
+        ).toBe(true);
+        expect(fs.existsSync(path.join(skillsDir, skillName))).toBe(false);
+      }
+      // Como solo había skills canónicas, el directorio .agents/skills vacío fue eliminado
+      expect(fs.existsSync(skillsDir)).toBe(false);
+    });
+
+    it('Case 9: preserves custom non-canonical skill in consumer project and preserves canonical files in upstream repo', async () => {
+      const consumerDir = path.join(tmpDir, 'consumer-custom-skill');
+      const customSkillDir = path.join(consumerDir, '.agents', 'skills', 'custom-mikrotik-skill');
+      fs.mkdirSync(customSkillDir, { recursive: true });
+      fs.writeFileSync(path.join(customSkillDir, 'SKILL.md'), '# Custom Skill', 'utf-8');
+
+      await reconcileAgentsGovernance({ projectPath: consumerDir, dryRun: false });
+      expect(fs.existsSync(path.join(customSkillDir, 'SKILL.md'))).toBe(true);
+
+      // Simular repositorio fuente qa-testing-blueprints (scripts/generar-manifiesto.py + manifest.json)
+      const upstreamDir = path.join(tmpDir, 'upstream-blueprints');
+      fs.mkdirSync(path.join(upstreamDir, 'scripts'), { recursive: true });
+      fs.writeFileSync(path.join(upstreamDir, 'scripts', 'generar-manifiesto.py'), '# gen', 'utf-8');
+      fs.writeFileSync(path.join(upstreamDir, 'manifest.json'), '{}', 'utf-8');
+      expect(isUpstreamBlueprintsRepo(upstreamDir)).toBe(true);
+
+      const upstreamRulesDir = path.join(upstreamDir, '.agents', 'rules');
+      const upstreamSkillDir = path.join(upstreamDir, '.agents', 'skills', 'qa-11x-architect');
+      fs.mkdirSync(upstreamRulesDir, { recursive: true });
+      fs.mkdirSync(upstreamSkillDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(upstreamRulesDir, 'mandatory_qa_pyramid_and_doc_sync.md'),
+        '# Canonical',
+        'utf-8'
+      );
+      fs.writeFileSync(path.join(upstreamSkillDir, 'SKILL.md'), '# Skill', 'utf-8');
+
+      const upstreamRes = await reconcileAgentsGovernance({ projectPath: upstreamDir, dryRun: false });
+      expect(upstreamRes.removed_duplicate_sections_count).toBe(0);
+      expect(
+        fs.existsSync(path.join(upstreamRulesDir, 'mandatory_qa_pyramid_and_doc_sync.md'))
+      ).toBe(true);
+      expect(fs.existsSync(path.join(upstreamSkillDir, 'SKILL.md'))).toBe(true);
     });
 
     it('Case 4: dry_run mode simulates without altering files or creating backups', async () => {

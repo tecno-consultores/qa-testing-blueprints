@@ -296,6 +296,20 @@ class TestInstallSkill(unittest.TestCase):
         self.assertEqual(res_all.returncode, 0, f"Error: {res_all.stderr}\nStdout: {res_all.stdout}")
         self.assertFalse((mock_home / ".agents").exists())
 
+        # Y si se ejecuta dentro de un proyecto git mientras existen agentes globales en $HOME,
+        # tampoco duplica las skills en <proyecto>/.agents/skills con auto ni con --target all
+        project_dir = self.temp_path / "consumer_project"
+        (project_dir / ".git").mkdir(parents=True)
+        res_proj = subprocess.run(
+            ["sh", str(INSTALL_SCRIPT), "--target", "all"],
+            cwd=str(project_dir),
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(res_proj.returncode, 0, f"Error: {res_proj.stderr}\nStdout: {res_proj.stdout}")
+        self.assertFalse((project_dir / ".agents" / "skills").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

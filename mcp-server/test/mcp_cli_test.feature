@@ -452,4 +452,13 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def installSkillSource = karate.readAsString('file:src/cli/install-skill.ts')
     * assert installSkillSource.contains('isHomeDirectory')
     * assert installSkillSource.contains('[Modo Global $HOME]')
+    * assert installSkillSource.contains('resolveGlobalOrFallbackTargets')
+    * assert !installSkillSource.contains('AGENT_RULES_PREFIX')
+
+    # Verificar que reconcile-agents limpia archivos canónicos y skills duplicadas en proyectos consumidores
+    * def reconcileSource = karate.readAsString('file:src/cli/reconcile-agents.ts')
+    * assert reconcileSource.contains('CANONICAL_GLOBAL_SKILL_DIRS')
+    * assert reconcileSource.contains('isCanonicalRuleSection')
+    * assert reconcileSource.contains('processCanonicalRuleFileInConsumer')
+    * assert reconcileSource.contains('reconcileSkillsDir')
 

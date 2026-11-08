@@ -9,6 +9,7 @@ import type { ReconcileAgentsResult, ReconciledRuleItem } from '../types.js';
 const UTF8 = 'utf-8';
 const AGENTS_DIR = '.agents';
 const RULES_DIR = 'rules';
+const SKILLS_DIR = 'skills';
 const BACKUPS_DIR = 'backups';
 const DOMAIN_PREFIX = 'domain_';
 const AGENTS_MD_FILENAME = 'AGENTS.md';
@@ -22,6 +23,81 @@ export const CANONICAL_GLOBAL_RULE_FILES = new Set([
   'ground_truth_fixtures_and_negative_invariants.md',
   'active_task_and_planning_resilience.md',
 ]);
+
+export const CANONICAL_GLOBAL_SKILL_DIRS = new Set([
+  'qa-11x-architect',
+  'qa-11x-docker-certifier',
+  'docker-trivy-keydb-hardening',
+  'graphify-ast-navigator',
+  'refactoring-ui',
+]);
+
+/**
+ * Huellas semánticas de las secciones canónicas de los 7 archivos .agents/rules/*.md
+ * de qa-testing-blueprints (en inglés y español), utilizadas para podar contenido global
+ * y extraer únicamente secciones de dominio personalizadas si un proyecto consumidor
+ * modificó localmente uno de los 7 archivos canónicos.
+ */
+export const CANONICAL_RULE_SECTION_FINGERPRINTS = [
+  '# canonical rule',
+  'mandatory directive: qa 11x pyramid',
+  'supreme directive: mandatory 11x test creation',
+  'rule zero, 3-path proportional execution',
+  'continuous mandatory documentation, governance & ast graph sync',
+  'pre-conclusion verification gate',
+  'security-by-design & multi-layer testing guidelines',
+  'multi-layer testing & anti-mock blindness',
+  'security-by-design directives',
+  'pre-commit security checklist',
+  'terminal ↔ frontend parity & task closure protocol',
+  'terminal ↔ frontend parity invariants',
+  'proactive vulnerability audit',
+  'mandatory task closure protocol',
+  'continuous agent & system prompt evolution directive',
+  'the autonomous evolution mandate',
+  'guardrails for agent modifications',
+  'anti-regression & side-effects guardrail',
+  'pre-modification impact & blast-radius analysis',
+  'strict pre-build static analysis',
+  'frontend anti-degradation',
+  'high-iq token economy & context preservation guardrails',
+  'cross-functional smoke verification checklist',
+  'ground-truth fixtures & negative invariants governance',
+  'the mock blindness & silo temporal blindness anti-patterns',
+  'universal trimodal ground-truth fixture matrix',
+  'negative invariant enforcement',
+  'active task tracking & planning tool resilience guardrail',
+  'rationale & core invariant',
+  'the dual planning & persistence protocol',
+  'mandatory requirements & token budget',
+  'directiva obligatoria: pirámide qa 11x',
+  'directiva suprema: creación obligatoria de pruebas 11x',
+  'regla cero',
+  'sincronización documental continua',
+  'compuerta de verificación previa a la conclusión',
+  'seguridad por diseño y directrices de pruebas',
+  'pruebas multicapa y prevención de ceguera por mocks',
+  'directrices de seguridad por diseño',
+  'lista de verificación de seguridad pre-commit',
+  'paridad terminal ↔ frontend y protocolo de cierre',
+  'invariantes de paridad terminal ↔ frontend',
+  'auditoría proactiva de vulnerabilidades',
+  'protocolo obligatorio de cierre de tareas',
+  'evolución continua del agente y del system prompt',
+  'mandato de evolución autónoma',
+  'guardarraíles para modificaciones del agente',
+  'guardarraíl anti-regresión y efectos secundarios',
+  'análisis de impacto y radio de explosión',
+  'análisis estático pre-build estricto',
+  'anti-degradación frontend',
+  'verificación de humo multifuncional',
+  'gobernanza de fixtures ground-truth e invariantes negativos',
+  'antipatrón de ceguera por mocks',
+  'matriz trimodal universal de fixtures',
+  'aplicación de invariantes negativos',
+  'seguimiento de tarea activa y resiliencia',
+  'protocolo dual de planificación y persistencia',
+];
 
 /**
  * Huellas semánticas de directivas que nacieron en proyectos consumidores (ej. rosgrid)
@@ -55,6 +131,23 @@ export function isPromotedSection(sectionText: string): boolean {
     }
   }
   return false;
+}
+
+export function isCanonicalRuleSection(sectionText: string): boolean {
+  const lower = sectionText.toLowerCase();
+  for (const fp of CANONICAL_RULE_SECTION_FINGERPRINTS) {
+    if (lower.includes(fp)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function isUpstreamBlueprintsRepo(projectPath: string): boolean {
+  return (
+    fs.existsSync(path.join(projectPath, 'scripts', 'generar-manifiesto.py')) &&
+    fs.existsSync(path.join(projectPath, 'manifest.json'))
+  );
 }
 
 export function splitMarkdownSections(content: string): string[] {
@@ -224,6 +317,61 @@ function cleanPromotedDuplicatesInAgentsMd(
   };
 }
 
+function processCanonicalRuleFileInConsumer(
+  fullPath: string,
+  relPath: string,
+  dryRun: boolean,
+  projectPath: string,
+  backupDir: string,
+  extractedDomainBlocks: string[]
+): {
+  item: ReconciledRuleItem;
+  removedCount: number;
+  preservedCount: number;
+} {
+  const content = fs.readFileSync(fullPath, UTF8);
+  const sections = splitMarkdownSections(content);
+  const domainOnlySections: string[] = [];
+  let removedCount = 0;
+
+  for (const sec of sections) {
+    if (isPromotedSection(sec) || isCanonicalRuleSection(sec)) {
+      removedCount++;
+    } else if (sec.trim().length > 0) {
+      domainOnlySections.push(sec);
+    }
+  }
+
+  if (!dryRun) {
+    ensureBackupFile(projectPath, relPath, backupDir);
+    fs.unlinkSync(fullPath);
+  }
+
+  if (domainOnlySections.length > 0) {
+    extractedDomainBlocks.push(...domainOnlySections);
+    return {
+      item: {
+        file: relPath,
+        classification: 'DOMAIN_EXTRACTED_TO_DOMAIN_FILE',
+        details: `Archivo canónico global eliminado tras extraer ${domainOnlySections.length} sección(es) de dominio personalizada(s) y podar ${removedCount} sección(es) canónicas/promovidas.`,
+      },
+      removedCount: Math.max(1, removedCount),
+      preservedCount: domainOnlySections.length,
+    };
+  }
+
+  return {
+    item: {
+      file: relPath,
+      classification: 'CANONICAL_CLEAN',
+      details:
+        'Archivo canónico global respaldado en .agents/backups/ y eliminado de .agents/rules/ local (consumido desde la skill global).',
+    },
+    removedCount: Math.max(1, removedCount),
+    preservedCount: 0,
+  };
+}
+
 function reconcileRulesDir(
   resolvedPath: string,
   rulesDirPath: string,
@@ -243,20 +391,33 @@ function reconcileRulesDir(
     return { items, removed, preserved };
   }
 
+  const upstreamRepo = isUpstreamBlueprintsRepo(resolvedPath);
   const entries = fs.readdirSync(rulesDirPath).filter((f) => f.endsWith('.md'));
   for (const fileName of entries) {
     const relPath = path.join(AGENTS_DIR, RULES_DIR, fileName);
     const fullPath = path.join(rulesDirPath, fileName);
 
     if (CANONICAL_GLOBAL_RULE_FILES.has(fileName)) {
-      if (!dryRun) {
-        ensureBackupFile(resolvedPath, relPath, backupDir);
+      if (upstreamRepo) {
+        items.push({
+          file: relPath,
+          classification: 'CANONICAL_CLEAN',
+          details: 'Archivo canónico global preservado en el repositorio fuente qa-testing-blueprints.',
+        });
+        continue;
       }
-      items.push({
-        file: relPath,
-        classification: 'CANONICAL_CLEAN',
-        details: 'Archivo canónico global respaldado en .agents/backups/ y listo para sincronización.',
-      });
+
+      const canonicalRes = processCanonicalRuleFileInConsumer(
+        fullPath,
+        relPath,
+        dryRun,
+        resolvedPath,
+        backupDir,
+        extractedDomainBlocks
+      );
+      items.push(canonicalRes.item);
+      removed += canonicalRes.removedCount;
+      preserved += canonicalRes.preservedCount;
       continue;
     }
 
@@ -275,6 +436,58 @@ function reconcileRulesDir(
   }
 
   return { items, removed, preserved };
+}
+
+function reconcileSkillsDir(
+  resolvedPath: string,
+  dryRun: boolean,
+  backupDir: string
+): {
+  items: ReconciledRuleItem[];
+  removed: number;
+} {
+  const items: ReconciledRuleItem[] = [];
+  let removed = 0;
+
+  if (isUpstreamBlueprintsRepo(resolvedPath)) {
+    return { items, removed };
+  }
+
+  const skillsDirPath = path.join(resolvedPath, AGENTS_DIR, SKILLS_DIR);
+  if (!fs.existsSync(skillsDirPath)) {
+    return { items, removed };
+  }
+
+  const entries = fs.readdirSync(skillsDirPath);
+  for (const entry of entries) {
+    if (!CANONICAL_GLOBAL_SKILL_DIRS.has(entry)) {
+      continue;
+    }
+
+    const relSkillPath = path.join(AGENTS_DIR, SKILLS_DIR, entry);
+    const fullSkillPath = path.join(skillsDirPath, entry);
+
+    if (!dryRun) {
+      const destBackup = path.join(backupDir, relSkillPath);
+      fs.mkdirSync(path.dirname(destBackup), { recursive: true });
+      fs.cpSync(fullSkillPath, destBackup, { recursive: true });
+      fs.rmSync(fullSkillPath, { recursive: true, force: true });
+    }
+
+    items.push({
+      file: relSkillPath,
+      classification: 'REDUNDANT_PROMOTED_REMOVED',
+      details:
+        'Copia local de skill canónica respaldada en .agents/backups/ y eliminada de .agents/skills/ (consumida desde directorio global del agente).',
+    });
+    removed++;
+  }
+
+  if (!dryRun && fs.existsSync(skillsDirPath) && fs.readdirSync(skillsDirPath).length === 0) {
+    fs.rmdirSync(skillsDirPath);
+  }
+
+  return { items, removed };
 }
 
 function persistExtractedDomainRules(
@@ -329,6 +542,10 @@ export async function reconcileAgentsGovernance(options: {
   const reconciledItems: ReconciledRuleItem[] = [...rulesSummary.items];
   let totalRemoved = rulesSummary.removed;
   const totalPreserved = rulesSummary.preserved;
+
+  const skillsSummary = reconcileSkillsDir(resolvedPath, dryRun, backupDir);
+  reconciledItems.push(...skillsSummary.items);
+  totalRemoved += skillsSummary.removed;
 
   const agentsRes = cleanPromotedDuplicatesInAgentsMd(resolvedPath, dryRun, backupDir);
   if (agentsRes.item) {

@@ -30,17 +30,13 @@ Para eliminar la necesidad de hacer limpiezas manuales propensas a errores en `r
 
 ---
 
-## 2. Taxonomía de Archivos en `.agents/rules/` (Separación Global vs. Dominio)
+## 2. Taxonomía de Archivos en `.agents/rules/` y `.agents/skills/` (Separación Global vs. Dominio — Thin-Repo)
 
-1. **Los 7 Archivos Canónicos Globales (`CANONICAL_GLOBAL_RULE_FILES`):**
-   Son propiedad exclusiva del estándar global `qa-testing-blueprints` y deben permanecer 100% agnósticos del dominio:
-   - `mandatory_qa_pyramid_and_doc_sync.md`
-   - `secure_development_and_testing_guidelines.md`
-   - `frontend_parity_and_closure.md`
-   - `continuous_agent_evolution.md`
-   - `anti_regression_and_side_effects_guardrail.md`
-   - `ground_truth_fixtures_and_negative_invariants.md`
-   - `active_task_and_planning_resilience.md`
+1. **Los 7 Archivos Canónicos Globales (`CANONICAL_GLOBAL_RULE_FILES`) y las 5 Skills Corporativas (`CANONICAL_GLOBAL_SKILL_DIRS`):**
+   Son propiedad exclusiva del estándar global `qa-testing-blueprints` y se consumen directamente desde la configuración global del usuario (`~/.gemini/config/skills/`, `~/.claude/skills/`, `~/.cursor/skills/`, `~/.hermes/skills/` y `~/.gemini/GEMINI.md`):
+   - Reglas canónicas: `mandatory_qa_pyramid_and_doc_sync.md`, `secure_development_and_testing_guidelines.md`, `frontend_parity_and_closure.md`, `continuous_agent_evolution.md`, `anti_regression_and_side_effects_guardrail.md`, `ground_truth_fixtures_and_negative_invariants.md`, `active_task_and_planning_resilience.md`.
+   - Skills canónicas: `qa-11x-architect`, `qa-11x-docker-certifier`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `refactoring-ui`.
+   - En proyectos consumidores (`!isUpstreamBlueprintsRepo`), `install-skill` (`--target auto` / `--target all` / `--include-scripts`) **no copia** las 5 skills ni las 7 reglas canónicas dentro de `<proyecto>/.agents/`, y `reconcile-agents` respalda en `.agents/backups/<timestamp>/` y elimina cualquier copia local de las 7 reglas canónicas (extrayendo primero secciones de dominio personalizadas hacia `domain_<project>_rules.md`) y de las 5 skills canónicas en `<proyecto>/.agents/skills/`.
 
 2. **Archivos de Dominio Local (`domain_<project>_*.md`):**
    Cualquier regla específica del negocio de un proyecto consumidor (ej. `domain_rosgrid_rules.md`) vive en un archivo con prefijo `domain_` dentro de `.agents/rules/` o fuera del bloque conector `<!-- QA_11X_MCP_CONNECTOR_START --> ... <!-- QA_11X_MCP_CONNECTOR_END -->` en `AGENTS.md`. Los instaladores y actualizadores de `qa-testing-blueprints` **jamás** sobrescriben ni borran archivos `domain_*.md`.

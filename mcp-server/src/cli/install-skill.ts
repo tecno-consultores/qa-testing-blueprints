@@ -13,7 +13,6 @@ const AGENTS_DIR_NAME = '.agents';
 const SKILLS_DIR_NAME = 'skills';
 const SKILLS_PREFIX = '.agents/skills/';
 const AGENT_SCRIPTS_PREFIX = '.agents/scripts/';
-const AGENT_RULES_PREFIX = '.agents/rules/';
 const ACTIVE_TASK_EXAMPLE_PATH = '.agents/ACTIVE_TASK.md.example';
 const GEMINI_DIR_NAME = '.gemini';
 const CLAUDE_DIR_NAME = '.claude';
@@ -55,35 +54,12 @@ function isHomeDirectory(homeDir: string, cwd: string): boolean {
   return path.resolve(cwd) === path.resolve(homeDir);
 }
 
-function isProjectWorkspaceDir(homeDir: string, cwd: string): boolean {
-  if (isHomeDirectory(homeDir, cwd)) {
-    return false;
-  }
-  const markers = ['.git', 'AGENTS.md', 'ROADMAP.md', 'package.json', 'pyproject.toml'];
-  return markers.some((marker) => fs.existsSync(path.join(cwd, marker)));
-}
-
-function resolveAllTargets(homeDir: string, cwd: string): string[] {
+function resolveGlobalOrFallbackTargets(homeDir: string, cwd: string): string[] {
   const globalDirs = detectInstalledGlobalAgentDirs(homeDir);
-  if (isHomeDirectory(homeDir, cwd)) {
-    return globalDirs.length > 0
-      ? Array.from(new Set(globalDirs))
-      : [path.join(cwd, AGENTS_DIR_NAME, SKILLS_DIR_NAME)];
+  if (globalDirs.length > 0) {
+    return Array.from(new Set(globalDirs));
   }
-  const workspaceSkills = path.join(cwd, AGENTS_DIR_NAME, SKILLS_DIR_NAME);
-  return Array.from(new Set([workspaceSkills, ...globalDirs]));
-}
-
-function resolveAutoTargets(homeDir: string, cwd: string): string[] {
-  const targets: string[] = [];
-  if (isProjectWorkspaceDir(homeDir, cwd)) {
-    targets.push(path.join(cwd, AGENTS_DIR_NAME, SKILLS_DIR_NAME));
-  }
-  targets.push(...detectInstalledGlobalAgentDirs(homeDir));
-  if (targets.length === 0) {
-    targets.push(path.join(cwd, AGENTS_DIR_NAME, SKILLS_DIR_NAME));
-  }
-  return Array.from(new Set(targets));
+  return [path.join(cwd, AGENTS_DIR_NAME, SKILLS_DIR_NAME)];
 }
 
 function resolveDestinationDirs(targetArg: string, homeDir: string, cwd: string): string[] {
@@ -94,12 +70,7 @@ function resolveDestinationDirs(targetArg: string, homeDir: string, cwd: string)
       return [workspaceSkills];
     case 'cursor': {
       const cursorGlobal = path.join(homeDir, CURSOR_DIR_NAME, SKILLS_DIR_NAME);
-      if (isHomeDirectory(homeDir, cwd) && fs.existsSync(path.join(homeDir, CURSOR_DIR_NAME))) {
-        return [cursorGlobal];
-      }
-      return fs.existsSync(path.join(homeDir, CURSOR_DIR_NAME))
-        ? [workspaceSkills, cursorGlobal]
-        : [workspaceSkills];
+      return fs.existsSync(path.join(homeDir, CURSOR_DIR_NAME)) ? [cursorGlobal] : [workspaceSkills];
     }
     case 'antigravity':
       return [path.join(homeDir, GEMINI_DIR_NAME, 'config', SKILLS_DIR_NAME)];
@@ -108,9 +79,8 @@ function resolveDestinationDirs(targetArg: string, homeDir: string, cwd: string)
     case 'hermes':
       return [path.join(homeDir, HERMES_DIR_NAME, SKILLS_DIR_NAME)];
     case 'all':
-      return resolveAllTargets(homeDir, cwd);
     default:
-      return resolveAutoTargets(homeDir, cwd);
+      return resolveGlobalOrFallbackTargets(homeDir, cwd);
   }
 }
 
@@ -162,7 +132,6 @@ async function installIncludedScripts(
     ...(manifest.agent_governance_files || []).filter(
       (f) =>
         f.path.startsWith(AGENT_SCRIPTS_PREFIX) ||
-        f.path.startsWith(AGENT_RULES_PREFIX) ||
         f.path === ACTIVE_TASK_EXAMPLE_PATH
     ),
   ];
