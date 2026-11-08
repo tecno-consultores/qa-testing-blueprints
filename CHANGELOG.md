@@ -6,6 +6,8 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+## [2.11.0] - 2026-11-07
+
 ### 🚀 Añadido y Mejorado (Added & Changed)
 * **Implementación Completa del Hito 14 — Optimización Extrema de Tokens en Servidor MCP, 3 Vías Proporcionales y Progressive Disclosure:**
   * **Contratos Zod e Interfaces (`mcp-server/src/types.ts`):**
