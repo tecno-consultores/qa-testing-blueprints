@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.11.0",
-  "generated_at_utc": "2026-11-08T00:06:23Z",
+  "generated_at_utc": "2026-11-08T00:13:08Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -607,8 +607,8 @@
       "path": "scripts/actualizar-grafos-graphify.sh",
       "target_name": "scripts/actualizar-grafos-graphify.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "6afce2d6fc70f4afbd475925b26f59d6dd21ccd7dd80088390ff9071c5a5f720",
-      "size_bytes": 4110
+      "sha256": "5e1e6e5b4fd56aa8e1e56fe9968daf2acb1479f1b606deca1a172531e8444745",
+      "size_bytes": 4106
     },
     {
       "path": "scripts/auditar-infra.sh",
@@ -621,22 +621,22 @@
       "path": "scripts/limpieza.sh",
       "target_name": "scripts/limpieza.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "9771c08d815d5a2f42d74b2d75fe5d4019292cd0dc410c68ae3b24e4f6643eae",
-      "size_bytes": 5103
+      "sha256": "4cf570b81b83f977c9adf4f13786bfef06fd9a470ae678bbb44f4ddb33799fcf",
+      "size_bytes": 5107
     },
     {
       "path": "scripts/publicar-mcp.sh",
       "target_name": "scripts/publicar-mcp.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "5f18e13e6648ffedb1269312fb631a54fe5ec2c1efc2fdc9ee1c8c0d664ac388",
-      "size_bytes": 11655
+      "sha256": "ddafc3412a8ee8a782072c59ec5c9575bcb4dd9a64e9e7edc7d5a7376e1865de",
+      "size_bytes": 11685
     },
     {
       "path": "scripts/verificar-secretos.sh",
       "target_name": "scripts/verificar-secretos.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "bbefaad9e7fe32597679183d466aff263776abd50441af7ebe6b0088bcb97f4e",
-      "size_bytes": 1331
+      "sha256": "b57a2eab832a30111659616da10b82670222f3421bebafb78c7d7b2403e7a697",
+      "size_bytes": 1330
     }
   ],
   "agent_governance_files": [
@@ -700,8 +700,8 @@
       "path": ".agents/scripts/certify_task_completion.sh",
       "target_name": ".agents/scripts/certify_task_completion.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "82d7839b9e8c467e2b01633ec7b035c46249fd9167fce4a052850164bd46ce93",
-      "size_bytes": 4420
+      "sha256": "70e7d677120bf113c26ae47a86def0e82263ba520b2781d8bab30f03af24c126",
+      "size_bytes": 4397
     },
     {
       "path": ".agents/scripts/inspect_blast_radius.py",
@@ -903,8 +903,8 @@
       "path": "scripts/install-skill.sh",
       "target_name": "scripts/install-skill.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "8f9ddd104eaa5f4e3cd5fb2d21bd30a27c37859310a812824d2d80dac03798d1",
-      "size_bytes": 10415
+      "sha256": "b0b08e51a1b0d9c10b60ed3c19f12551b4072319bbaa81619e6b43a67e2eeaee",
+      "size_bytes": 10406
     }
   ]
 }

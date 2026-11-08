@@ -46,7 +46,7 @@ while [[ $# -gt 0 ]]; do
       fi
       shift
       ;;
-    -h|--help)
+    -h | --help)
       echo "══════════════════════════════════════════════════════════════════════"
       echo "  📦 Publicador Autónomo de Servidor MCP (@sinfallas/mcp-qa-11x)     "
       echo "══════════════════════════════════════════════════════════════════════"
@@ -153,6 +153,7 @@ docker run --rm -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run b
 # 7. Paso 4: Auditoría de empaquetado (Dry-Run de npm pack)
 echo "📦 [4/5] Validando empaquetado (npm pack --dry-run)..."
 PACK_SUMMARY=$(docker run --rm -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" npm pack --dry-run 2>&1 | grep -E "package size:|unpacked size:|total files:|\.tgz" || true)
+# shellcheck disable=SC2001
 echo "${PACK_SUMMARY}" | sed 's/^/  /'
 
 # 8. Paso 5: Verificación de versión y publicación

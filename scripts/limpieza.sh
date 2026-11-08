@@ -15,8 +15,8 @@ QUIET=false
 DEEP_PRUNE=false
 for arg in "$@"; do
   case "${arg}" in
-    -q|--quiet) QUIET=true ;;
-    --deep|--docker-prune) DEEP_PRUNE=true ;;
+    -q | --quiet) QUIET=true ;;
+    --deep | --docker-prune) DEEP_PRUNE=true ;;
   esac
 done
 

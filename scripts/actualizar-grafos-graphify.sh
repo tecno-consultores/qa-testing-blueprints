@@ -16,7 +16,7 @@ if [ "${1:-}" = "--all" ] || [ "${1:-}" = "--force" ]; then
   shift
 fi
 
-if ! command -v docker &> /dev/null; then
+if ! command -v docker &>/dev/null; then
   echo "❌ Error: Docker no está instalado o no se encuentra en el PATH." >&2
   exit 1
 fi
@@ -64,10 +64,10 @@ stack_needs_update() {
   fi
 
   # 2. Revisar git status para cambios de código (excluyendo *.md y graphify-out)
-  if command -v git &> /dev/null && [ -d "${REPO_ROOT}/.git" ]; then
+  if command -v git &>/dev/null && [ -d "${REPO_ROOT}/.git" ]; then
     local git_code_changes
-    git_code_changes=$(git -C "${REPO_ROOT}" status --porcelain "${rel_name}" 2>/dev/null \
-      | grep -vE '(\.md$|graphify-out/)' || true)
+    git_code_changes=$(git -C "${REPO_ROOT}" status --porcelain "${rel_name}" 2>/dev/null |
+      grep -vE '(\.md$|graphify-out/)' || true)
     if [ -n "${git_code_changes}" ]; then
       return 0
     fi

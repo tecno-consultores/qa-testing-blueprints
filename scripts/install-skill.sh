@@ -261,7 +261,7 @@ VERIFIED_STAGING="${TMP_DIR}/staging"
 mkdir -p "${VERIFIED_STAGING}"
 VERIFIED_COUNT=0
 
-while read -r rel_path expected_sha size_bytes; do
+while read -r rel_path expected_sha _; do
   [ -z "${rel_path}" ] && continue
 
   skill_rel_path="${rel_path#.agents/skills/}"

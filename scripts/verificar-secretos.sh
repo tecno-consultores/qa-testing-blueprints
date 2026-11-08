@@ -35,7 +35,7 @@ if [ -n "${MATCHED_FILES}" ]; then
   echo "🚨 ERROR: Posible secreto hardcodeado detectado en:" >&2
   while IFS= read -r mfile; do
     [ -n "${mfile}" ] && echo "  - ${mfile}" >&2
-  done <<< "${MATCHED_FILES}"
+  done <<<"${MATCHED_FILES}"
   exit 1
 fi
 
