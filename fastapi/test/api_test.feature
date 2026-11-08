@@ -7,6 +7,8 @@ Feature: Validación BDD de Caja Negra de la API REST FastAPI y Manejo de Errore
     # URL apuntando al servicio FastAPI dentro de la red interna de Docker
     * url 'http://api:8000'
     * configure headers = { 'Content-Type': 'application/json' }
+    # Generador dinámico de Idempotency-Key para prevenir colisiones 409/422 en KeyDB vivo
+    * def newIdempotencyKey = function(){ return java.util.UUID.randomUUID() + '' }
 
   # ==============================================================================
   # Grupo 1: Observabilidad, Salud y Métricas
@@ -46,10 +48,15 @@ Feature: Validación BDD de Caja Negra de la API REST FastAPI y Manejo de Errore
   # ==============================================================================
   # Grupo 3: Idempotencia y Contratos de Creación
   # ==============================================================================
+  # Regla 11X: Toda petición mutable (POST/PUT/PATCH/DELETE) contra endpoints con
+  # IdempotencyMiddleware DEBE inyectar un UUID dinámico por ejecución:
+  #   And header Idempotency-Key = java.util.UUID.randomUUID() + ''
+  # Excepciones únicas: (A) probar rechazo HTTP 400 por falta de header, o (B) guardar
+  # * def idemKey = java.util.UUID.randomUUID() + '' local al Scenario para probar replay/409.
 
   Scenario: 5. Verificación de rechazo de payload malformado con tipos inválidos
     Given path '/api/v1/items'
-    And header Idempotency-Key = '018f4a12-8888-7000-8000-000000000001'
+    And header Idempotency-Key = java.util.UUID.randomUUID() + ''
     And request { title: 12345, quantity: "no_es_numero" }
     When method post
     Then status 422
