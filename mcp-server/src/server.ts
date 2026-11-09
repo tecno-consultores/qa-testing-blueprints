@@ -299,13 +299,17 @@ export function createMcpServer(options?: {
   // Tool 4: inspect_ast_blast_radius
   server.tool(
     'inspect_ast_blast_radius',
-    'Calcula el radio de impacto y archivos dependientes antes de refactorizar un símbolo, función o módulo.',
+    'Calcula el radio de impacto y archivos dependientes antes de refactorizar un símbolo, función o módulo (con soporte opcional para construir o refrescar graph.json).',
     BlastRadiusInputSchema.shape,
     async (args) => {
       const result = await inspectAstBlastRadius(
         args.project_path,
         args.target_symbol,
-        args.max_items
+        args.max_items,
+        {
+          autoBuildIfMissing: args.auto_build_if_missing,
+          refreshGraph: args.refresh_graph,
+        }
       );
       return {
         content: [

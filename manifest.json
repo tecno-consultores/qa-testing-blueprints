@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.11.1",
-  "generated_at_utc": "2026-11-09T03:35:40Z",
+  "generated_at_utc": "2026-11-09T03:51:08Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -770,8 +770,8 @@
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "b151f822afa7a076d7801b6d486fc70eb0bfc5b123ec9d2e2c566daaad16efe4",
-      "size_bytes": 26742
+      "sha256": "5e41d027216a6cde6e3438a275e7569558a4e3475898e0b7ab04d386a744cf09",
+      "size_bytes": 28182
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
@@ -814,6 +814,27 @@
       "merge_strategy": "copy_or_overwrite",
       "sha256": "64f91bbbbe7db14e3040531bc388f0a0fdbb2123a4c616deaee9c09b0949c321",
       "size_bytes": 6112
+    },
+    {
+      "path": ".agents/skills/qa-11x-architect/references/07-mcp-agentic-security-governance.md",
+      "target_name": ".agents/skills/qa-11x-architect/references/07-mcp-agentic-security-governance.md",
+      "merge_strategy": "copy_or_overwrite",
+      "sha256": "49535040091cf0b4f21e41fc35d9d4da4a7ccea5139ab0bb0333922b31548642",
+      "size_bytes": 5694
+    },
+    {
+      "path": ".agents/skills/qa-11x-architect/references/08-postgres-rls-zero-downtime-migrations.md",
+      "target_name": ".agents/skills/qa-11x-architect/references/08-postgres-rls-zero-downtime-migrations.md",
+      "merge_strategy": "copy_or_overwrite",
+      "sha256": "d88128cb15b9d3e50863d6083b848f2f25b14ca3928553183e720452e5912780",
+      "size_bytes": 4815
+    },
+    {
+      "path": ".agents/skills/qa-11x-architect/references/09-sre-observability-chaos-triage.md",
+      "target_name": ".agents/skills/qa-11x-architect/references/09-sre-observability-chaos-triage.md",
+      "merge_strategy": "copy_or_overwrite",
+      "sha256": "2f16dc1c0e30b0e2fe8433a1b0708fe3e57f85c3a28c1b571960066898d69a70",
+      "size_bytes": 4967
     },
     {
       "path": ".agents/skills/qa-11x-docker-certifier/SKILL.md",

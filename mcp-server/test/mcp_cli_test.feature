@@ -462,3 +462,29 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert reconcileSource.contains('processCanonicalRuleFileInConsumer')
     * assert reconcileSource.contains('reconcileSkillsDir')
 
+  # ==============================================================================
+  # Grupo 13: Contrato de Autoconstrucción AST, Topología Gate, Reglas SEC-12/QA-KARATE-IDEMP y Referencias Bajo Demanda
+  # ==============================================================================
+
+  Scenario: 16. Las herramientas MCP soportan auto_build_if_missing, ast_topology_clean, SEC-12, QA-KARATE-IDEMP y referencias 07..09
+    * def blastSource = karate.readAsString('file:src/tools/blast-radius.ts')
+    * assert blastSource.contains('autoBuildIfMissing')
+    * assert blastSource.contains('refreshGraph')
+    * assert blastSource.contains('defaultGraphifyBuilder')
+
+    * def certifySource = karate.readAsString('file:src/tools/certify-gate.ts')
+    * assert certifySource.contains('checkDuplicateVersionHeaders')
+    * assert certifySource.contains('checkActiveTaskGovernance')
+    * assert certifySource.contains('checkAstTopology')
+    * assert certifySource.contains('ast_topology_clean')
+
+    * def secSource = karate.readAsString('file:src/tools/security-auditor.ts')
+    * assert secSource.contains('QA-KARATE-IDEMP')
+    * assert secSource.contains('SEC-12')
+
+    * def skillContent = karate.readAsString('file:../.agents/skills/qa-11x-architect/SKILL.md')
+    * assert skillContent.contains('references/07-mcp-agentic-security-governance.md')
+    * assert skillContent.contains('references/08-postgres-rls-zero-downtime-migrations.md')
+    * assert skillContent.contains('references/09-sre-observability-chaos-triage.md')
+
+

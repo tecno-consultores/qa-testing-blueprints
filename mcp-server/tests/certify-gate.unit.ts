@@ -143,4 +143,65 @@ describe('certify-gate', () => {
     expect(result.checks.zero_secrets_exposed).toBe(false);
     expect(result.blockers.some((b) => b.includes('Secreto detectado'))).toBe(true);
   });
+
+  it('bloquea la certificación si CHANGELOG.md tiene cabeceras de versión duplicadas o ACTIVE_TASK.md incumple reglas', async () => {
+    setupNominalProject(tempDir);
+    fs.writeFileSync(
+      path.join(tempDir, 'CHANGELOG.md'),
+      '# Changelog\n\n## [Unreleased]\n- Cambio 1\n\n## [1.0.0]\n- Inicial\n\n## [1.0.0]\n- Duplicado\n'
+    );
+    const agentsDir = path.join(tempDir, '.agents');
+    fs.mkdirSync(agentsDir, { recursive: true });
+    const bloatedLines = Array.from({ length: 42 }, (_, idx) => `- [ ] Fase ${idx + 1}`).join('\n');
+    fs.writeFileSync(
+      path.join(agentsDir, 'ACTIVE_TASK.md'),
+      `# Active Task\n- **Estado:** COMPLETED (100%)\n${bloatedLines}\n`
+    );
+
+    const result = await certify11xGate(tempDir);
+    expect(result.gate_passed).toBe(false);
+    expect(result.checks.documentation_synced).toBe(false);
+    expect(result.blockers.some((b) => b.includes('Encabezado de versión duplicado en CHANGELOG.md: [1.0.0]'))).toBe(true);
+    expect(result.blockers.some((b) => b.includes('excede el presupuesto compacto de 40 líneas'))).toBe(true);
+    expect(result.blockers.some((b) => b.includes('marcado como COMPLETED pero aún contiene fases pendientes'))).toBe(true);
+  });
+
+  it('bloquea la certificación si graph.json presenta una violación topológica UI -> DB o está corrupto', async () => {
+    setupNominalProject(tempDir);
+    const graphDir = path.join(tempDir, 'graphify-out');
+    fs.mkdirSync(graphDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(graphDir, 'graph.json'),
+      JSON.stringify({
+        links: [{ source: 'src/views/Dashboard.vue', target: 'src/models.py' }],
+      })
+    );
+    const vueGraphDir = path.join(tempDir, 'vue3', 'graphify-out');
+    fs.mkdirSync(vueGraphDir, { recursive: true });
+    fs.writeFileSync(path.join(vueGraphDir, 'graph.json'), '{ invalid json');
+
+    const result = await certify11xGate(tempDir);
+    expect(result.gate_passed).toBe(false);
+    expect(result.checks.ast_topology_clean).toBe(false);
+    expect(result.blockers.some((b) => b.includes('Violación topológica AST'))).toBe(true);
+    expect(result.blockers.some((b) => b.includes('Archivo de grafo AST corrupto'))).toBe(true);
+  });
+
+  it('detecta QA-KARATE-IDEMP en archivos .feature y SEC-12 en despachadores MCP sin validación RBAC', async () => {
+    setupNominalProject(tempDir);
+    fs.writeFileSync(
+      path.join(tempDir, 'api_test.feature'),
+      "Feature: API\nScenario: Test\nAnd header Idempotency-Key = '018f4a12-8888-7000-8000-000000000001'\n"
+    );
+    fs.writeFileSync(
+      path.join(tempDir, 'src', 'mcp_dispatcher.py'),
+      'async def execute_reboot_router(router_id: str):\n    return await service_reboot(router_id)\n'
+    );
+
+    const result = await certify11xGate(tempDir);
+    expect(result.gate_passed).toBe(false);
+    expect(result.checks.security_stig_owasp_clean).toBe(false);
+    expect(result.blockers.some((b) => b.includes('QA-KARATE-IDEMP'))).toBe(true);
+    expect(result.blockers.some((b) => b.includes('SEC-12'))).toBe(true);
+  });
 });

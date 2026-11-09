@@ -173,6 +173,100 @@ function checkOrmParity(projectPath: string): { passed: boolean; blockers: strin
   return { passed: blockers.length === 0, blockers };
 }
 
+function checkDuplicateVersionHeaders(changelogContent: string): string[] {
+  const blockers: string[] = [];
+  const seenVersions = new Set<string>();
+  const lines = changelogContent.split(/\r?\n/);
+
+  for (const line of lines) {
+    const match = line.match(/^##\s+\[([^\]]+)\]/);
+    if (!match) continue;
+    const versionTag = match[1].trim();
+    if (seenVersions.has(versionTag)) {
+      blockers.push(`Encabezado de versión duplicado en CHANGELOG.md: [${versionTag}].`);
+    } else {
+      seenVersions.add(versionTag);
+    }
+  }
+
+  return blockers;
+}
+
+function checkActiveTaskGovernance(projectPath: string): string[] {
+  const blockers: string[] = [];
+  const activeTaskPath = path.join(projectPath, '.agents', 'ACTIVE_TASK.md');
+  if (!fs.existsSync(activeTaskPath)) return blockers;
+
+  try {
+    const content = fs.readFileSync(activeTaskPath, 'utf8');
+    const lines = content.split(/\r?\n/);
+    const nonEmptyCount = lines.filter((l) => l.trim().length > 0).length;
+    if (nonEmptyCount > 40) {
+      blockers.push(
+        `.agents/ACTIVE_TASK.md excede el presupuesto compacto de 40 líneas (${nonEmptyCount} líneas con contenido).`
+      );
+    }
+    const isCompleted = /Estado:\**\s*COMPLETED/i.test(content);
+    const hasPendingCheckboxes = lines.some((l) => /^\s*-\s*\[\s\]/.test(l));
+    if (isCompleted && hasPendingCheckboxes) {
+      blockers.push(
+        '.agents/ACTIVE_TASK.md está marcado como COMPLETED pero aún contiene fases pendientes (- [ ]).'
+      );
+    }
+  } catch {
+    // Ignorar error de lectura
+  }
+
+  return blockers;
+}
+
+const GRAPHIFY_OUT_DIR = 'graphify-out';
+const GRAPH_JSON_FILE = 'graph.json';
+
+function isUiToDbLink(link: { source?: string; target?: string }): boolean {
+  const src = (link.source ?? '').toLowerCase();
+  const tgt = (link.target ?? '').toLowerCase();
+  const isUiSource = src.includes('components/') || src.includes('views/') || src.endsWith('.vue');
+  const isDbTarget = tgt.includes('models.py') || tgt.includes('alembic/');
+  return isUiSource && isDbTarget;
+}
+
+function inspectSingleGraphTopology(projectPath: string, gPath: string): string[] {
+  if (!fs.existsSync(gPath)) return [];
+  const relGraph = path.relative(projectPath, gPath);
+  const blockers: string[] = [];
+
+  try {
+    const parsed = JSON.parse(fs.readFileSync(gPath, 'utf8')) as {
+      links?: Array<{ source?: string; target?: string }>;
+    };
+    for (const link of parsed.links ?? []) {
+      if (isUiToDbLink(link)) {
+        blockers.push(`Violación topológica AST en ${relGraph}: ${link.source} -> ${link.target}`);
+      }
+    }
+  } catch {
+    blockers.push(`Archivo de grafo AST corrupto: ${relGraph}`);
+  }
+
+  return blockers;
+}
+
+function checkAstTopology(projectPath: string): { passed: boolean; blockers: string[] } {
+  const blockers: string[] = [];
+  const graphPaths = [
+    path.join(projectPath, GRAPHIFY_OUT_DIR, GRAPH_JSON_FILE),
+    path.join(projectPath, 'fastapi', GRAPHIFY_OUT_DIR, GRAPH_JSON_FILE),
+    path.join(projectPath, 'vue3', GRAPHIFY_OUT_DIR, GRAPH_JSON_FILE),
+  ];
+
+  for (const gPath of graphPaths) {
+    blockers.push(...inspectSingleGraphTopology(projectPath, gPath));
+  }
+
+  return { passed: blockers.length === 0, blockers };
+}
+
 function checkDocumentationSync(projectPath: string): { passed: boolean; blockers: string[] } {
   const blockers: string[] = [];
   const testingMd = path.join(projectPath, 'TESTING.md');
@@ -190,10 +284,13 @@ function checkDocumentationSync(projectPath: string): { passed: boolean; blocker
       if (!content.includes('## [Unreleased]')) {
         blockers.push('CHANGELOG.md carece de la sección obligatoria ## [Unreleased].');
       }
+      blockers.push(...checkDuplicateVersionHeaders(content));
     } catch {
       blockers.push('No se pudo leer CHANGELOG.md.');
     }
   }
+
+  blockers.push(...checkActiveTaskGovernance(projectPath));
 
   return { passed: blockers.length === 0, blockers };
 }
@@ -210,6 +307,7 @@ export async function certify11xGate(projectPath: string): Promise<CertifyGateRe
   const jsonCheck = checkJsonIntegrity(resolvedPath);
   const orphanUi = checkOrphanUiComponents(resolvedPath);
   const ormCheck = checkOrmParity(resolvedPath);
+  const astTopology = checkAstTopology(resolvedPath);
   const docCheck = checkDocumentationSync(resolvedPath);
 
   const securityAudit = await auditSecurityStigOwasp(resolvedPath);
@@ -230,6 +328,7 @@ export async function certify11xGate(projectPath: string): Promise<CertifyGateRe
     ...jsonCheck.blockers,
     ...orphanUi.blockers,
     ...ormCheck.blockers,
+    ...astTopology.blockers,
     ...securityBlockers,
     ...docCheck.blockers,
   ];
@@ -239,8 +338,9 @@ export async function certify11xGate(projectPath: string): Promise<CertifyGateRe
     zero_secrets_exposed: !secretsExposed,
     json_integrity: jsonCheck.passed,
     zero_orphan_ui_components: orphanUi.passed,
-    zero_orphan_api_endpoints: true, // Modo base paridad API
+    zero_orphan_api_endpoints: true,
     orm_alembic_parity: ormCheck.passed,
+    ast_topology_clean: astTopology.passed,
     security_stig_owasp_clean: securityAudit.passed,
     documentation_synced: docCheck.passed,
   };

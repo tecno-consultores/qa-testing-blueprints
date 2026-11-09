@@ -31,6 +31,7 @@ const SCANNABLE_EXTS = new Set([
   '.bash',
   '.json',
   '.php',
+  '.feature',
 ]);
 
 const APSC_DV_002510_REF = 'APSC-DV-002510 / Patrón 3';
@@ -717,6 +718,75 @@ function checkProjectLevelRules(projectPath: string, allRelFiles: string[]): Sec
   ];
 }
 
+function checkQaKarateStaticIdempotency(relPath: string, lines: string[]): SecurityFinding[] {
+  if (!relPath.endsWith('.feature')) return [];
+  const findings: SecurityFinding[] = [];
+  const staticUuidHeaderRegex =
+    /header\s+Idempotency-Key\s*=\s*['"][0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}['"]/i;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.includes('# static-ok')) continue;
+    if (staticUuidHeaderRegex.test(line)) {
+      findings.push({
+        rule_id: 'QA-KARATE-IDEMP',
+        severity: 'HIGH',
+        stig_owasp_ref: 'Standard 11X Law 6 / Karate BDD Dynamic Idempotency',
+        file: relPath,
+        line: i + 1,
+        message:
+          'Se detectó un UUID literal estático en cabecera Idempotency-Key dentro de Karate Labs BDD (.feature), provocando colisiones 409/422 en re-ejecuciones.',
+        remediation:
+          "Inyectar un UUID dinámico por petición usando: And header Idempotency-Key = java.util.UUID.randomUUID() + ''",
+      });
+    }
+  }
+
+  return findings;
+}
+
+function checkSec12McpServiceRbac(relPath: string, lines: string[]): SecurityFinding[] {
+  if (!relPath.endsWith('.py') || !/(?:mcp|jsonrpc)/i.test(relPath)) return [];
+  if (relPath.includes('test') || relPath.includes('spec')) return [];
+
+  const fullText = lines.join('\n');
+  const hasRbacOrApproval =
+    fullText.includes('claims.get("role")') ||
+    fullText.includes("claims.get('role')") ||
+    fullText.includes('claims.get("rol")') ||
+    fullText.includes("claims.get('rol')") ||
+    fullText.includes('claims["role"]') ||
+    fullText.includes("claims['role']") ||
+    fullText.includes('claims["rol"]') ||
+    fullText.includes("claims['rol']") ||
+    fullText.includes('assert_service_rbac') ||
+    fullText.includes('ApprovalRequest') ||
+    fullText.includes('AWAITING_APPROVAL');
+
+  if (hasRbacOrApproval) return [];
+
+  const findings: SecurityFinding[] = [];
+  const mutatingToolRegex = /^\s*async\s+def\s+(?:dispatch_|handle_|tool_)?(?:create|update|delete|execute|apply|reboot)_[A-Za-z0-9_]+\s*\(/;
+
+  for (let i = 0; i < lines.length; i++) {
+    if (mutatingToolRegex.test(lines[i])) {
+      findings.push({
+        rule_id: 'SEC-12',
+        severity: 'HIGH',
+        stig_owasp_ref: 'OWASP API5:2023 BFLA / APSC-DV-000460 / Anti-Depends Bypass',
+        file: relPath,
+        line: i + 1,
+        message:
+          'Despachador MCP/JSON-RPC define operación de mutación sin validar explícitamente claims["role"]/claims["rol"] ni enrutar por ApprovalRequest (Depends() es omitido fuera del router HTTP).',
+        remediation:
+          'Validar explícitamente claims["role"] / claims["rol"] en la capa de servicio y exigir ApprovalRequest (AWAITING_APPROVAL) en herramientas MCP mutables.',
+      });
+    }
+  }
+
+  return findings;
+}
+
 function scanSingleFile(absPath: string, relPath: string): SecurityFinding[] {
   let content: string;
   try {
@@ -736,6 +806,8 @@ function scanSingleFile(absPath: string, relPath: string): SecurityFinding[] {
     ...checkSec07SwaggerInProd(relPath, lines),
     ...checkSec10Secrets(relPath, lines),
     ...checkSec11AuditSemanticIntegrity(relPath, lines),
+    ...checkSec12McpServiceRbac(relPath, lines),
+    ...checkQaKarateStaticIdempotency(relPath, lines),
     ...checkUi11x01VisualGeometry(relPath, lines),
     ...checkUi11x02DualRefreshAndSemanticElse(relPath, lines),
   ];

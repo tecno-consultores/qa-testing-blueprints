@@ -80,6 +80,20 @@ export const BlastRadiusInputSchema = z.object({
     .max(200)
     .default(20)
     .describe('Máximo de archivos dependientes a listar en el arreglo (ahorro de tokens).'),
+  auto_build_if_missing: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe(
+      'Si es true y no existe graphify-out/graph.json, construye automáticamente el grafo AST en Docker efímero antes de analizar.'
+    ),
+  refresh_graph: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe(
+      'Si es true, actualiza incrementalmente el grafo AST del proyecto antes de calcular el radio de impacto.'
+    ),
 });
 export type BlastRadiusInput = z.infer<typeof BlastRadiusInputSchema>;
 
@@ -214,6 +228,7 @@ export interface BlastRadiusResult {
   truncated_dependents_count?: number;
   suggested_tests_to_run: string[];
   ast_graph_detected?: boolean;
+  ast_graph_rebuilt?: boolean;
   ast_graph_files?: string[];
   ast_graph_action_required?: string;
 }
@@ -312,6 +327,7 @@ export interface CertifyGateResult {
     zero_orphan_ui_components: boolean;
     zero_orphan_api_endpoints: boolean;
     orm_alembic_parity: boolean;
+    ast_topology_clean?: boolean;
     security_stig_owasp_clean: boolean;
     documentation_synced: boolean;
   };

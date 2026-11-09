@@ -374,6 +374,57 @@ describe('Tools and Resources Integration Suite', () => {
       expect(withGraphRes.dependent_files).toContain('src/CallerController.php');
       expect(withGraphRes.dependent_files).toContain('tests/Caller.spec.ts');
       expect(withGraphRes.ast_graph_action_required).toContain('Grafo AST detectado');
+
+      // Probar autoBuildIfMissing y refreshGraph con graphBuilder inyectado
+      const freshDir = path.join(tmpDir, 'fresh_auto_graph');
+      fs.mkdirSync(freshDir, { recursive: true });
+      fs.writeFileSync(path.join(freshDir, 'mod.py'), 'def AutoBuiltSymbol(): pass\n', 'utf-8');
+
+      const autoBuiltRes = await inspectAstBlastRadius(freshDir, 'AutoBuiltSymbol', 20, {
+        autoBuildIfMissing: true,
+        graphBuilder: (projDir: string) => {
+          const outDir = path.join(projDir, 'graphify-out');
+          fs.mkdirSync(outDir, { recursive: true });
+          fs.writeFileSync(
+            path.join(outDir, 'graph.json'),
+            JSON.stringify({
+              nodes: [
+                { id: 'n1', label: 'AutoBuiltSymbol', source_file: 'mod.py' },
+                { id: 'n2', label: 'Consumer', source_file: 'consumer_from_graph.py' },
+              ],
+              links: [{ source: 'n2', target: 'n1' }],
+            }),
+            'utf-8'
+          );
+          return true;
+        },
+      });
+      expect(autoBuiltRes.ast_graph_detected).toBe(true);
+      expect(autoBuiltRes.ast_graph_rebuilt).toBe(true);
+      expect(autoBuiltRes.dependent_files).toContain('consumer_from_graph.py');
+
+      const refreshedRes = await inspectAstBlastRadius(freshDir, 'AutoBuiltSymbol', 20, {
+        refreshGraph: true,
+        graphBuilder: () => true,
+      });
+      expect(refreshedRes.ast_graph_rebuilt).toBe(true);
+
+      // Probar defaultGraphifyBuilder con script local mockeado (exit 0 y exit 1)
+      const scriptDir = path.join(freshDir, 'scripts');
+      fs.mkdirSync(scriptDir, { recursive: true });
+      const localGraphScript = path.join(scriptDir, 'actualizar-grafos-graphify.sh');
+      fs.writeFileSync(localGraphScript, '#!/usr/bin/env bash\nexit 0\n', { mode: 0o755 });
+
+      const defaultBuilderOk = await inspectAstBlastRadius(freshDir, 'AutoBuiltSymbol', 20, {
+        refreshGraph: true,
+      });
+      expect(defaultBuilderOk.ast_graph_rebuilt).toBe(true);
+
+      fs.writeFileSync(localGraphScript, '#!/usr/bin/env bash\nexit 1\n', { mode: 0o755 });
+      const defaultBuilderFail = await inspectAstBlastRadius(freshDir, 'AutoBuiltSymbol', 20, {
+        refreshGraph: true,
+      });
+      expect(defaultBuilderFail.ast_graph_rebuilt).toBeUndefined();
     });
   });
 

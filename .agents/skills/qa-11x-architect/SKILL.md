@@ -53,6 +53,9 @@ Execute with zero hallucination and maximum token economy:
    - Node / Vue / React: [`references/04-stack-node-vue-react.md`](references/04-stack-node-vue-react.md)
    - Bash / DevOps: [`references/05-stack-bash-devops.md`](references/05-stack-bash-devops.md)
    - PHP 8.2–8.5 (`sinfallas/basephpcomposer`): [`references/06-stack-php.md`](references/06-stack-php.md)
+   - MCP Servers, Agentic Tool-Calling & NHI Security: [`references/07-mcp-agentic-security-governance.md`](references/07-mcp-agentic-security-governance.md)
+   - PostgreSQL 17 RLS & Zero-Downtime Migrations: [`references/08-postgres-rls-zero-downtime-migrations.md`](references/08-postgres-rls-zero-downtime-migrations.md)
+   - SRE Observability (RED), Pumba Chaos & Incident RCA: [`references/09-sre-observability-chaos-triage.md`](references/09-sre-observability-chaos-triage.md)
 2. **Hydrate On-Demand from GitHub Raw (Zero-Clone):**
    ```bash
    RAW_BASE="https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main"
@@ -224,3 +227,6 @@ Load additional modules **strictly on-demand** (one at a time, only when touchin
 * [`references/04-stack-node-vue-react.md`](references/04-stack-node-vue-react.md): Node.js, Vue 3, React, Refactoring UI, Vitest, Playwright, and Karate UI.
 * [`references/05-stack-bash-devops.md`](references/05-stack-bash-devops.md): Bash, POSIX Shell, ShellCheck, shfmt, BATS-core, bats-mock, and kcov.
 * [`references/06-stack-php.md`](references/06-stack-php.md): PHP 8.2–8.5 (`sinfallas/basephpcomposer`), Pest/PHPUnit + PCOV (`>= 95%`), PHPStan Level Max, Psalm Taint, Infection (`MSI >= 80%`), Doctrine/Laravel migrations, and DISA/OWASP hardening.
+* [`references/07-mcp-agentic-security-governance.md`](references/07-mcp-agentic-security-governance.md): Service-Layer RBAC (Anti-`Depends()` Bypass), MCP `ApprovalRequest` (`AWAITING_APPROVAL`) gates, Indirect Prompt Injection / Tool Poisoning defense, and Non-Human Identity (NHI) multi-tenant isolation.
+* [`references/08-postgres-rls-zero-downtime-migrations.md`](references/08-postgres-rls-zero-downtime-migrations.md): PostgreSQL 17 `FORCE ROW LEVEL SECURITY`, Expand-Contract zero-downtime migrations (`CONCURRENTLY`, `lock_timeout`, `NOT VALID`), SQLAlchemy 2.0 `MissingGreenlet` prevention, and `MockDbSession` `JSONB`/`Decimal` parity.
+* [`references/09-sre-observability-chaos-triage.md`](references/09-sre-observability-chaos-triage.md): Prometheus/OpenTelemetry RED metrics, `trace_id` audit correlation, Pumba chaos profiles (`netem delay/loss`, `pause`), heavy-transfer (`>= 180s`) & batch per-item validation, and autonomous RCA playbooks.

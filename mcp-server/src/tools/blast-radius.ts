@@ -1,9 +1,55 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 QA Testing Blueprints Contributors
 
+import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { BlastRadiusResult } from '../types.js';
+
+export interface BlastRadiusOptions {
+  autoBuildIfMissing?: boolean;
+  refreshGraph?: boolean;
+  graphBuilder?: (projectPath: string) => boolean;
+}
+
+export function defaultGraphifyBuilder(resolvedPath: string): boolean {
+  const scriptPath = path.join(resolvedPath, 'scripts', 'actualizar-grafos-graphify.sh');
+  try {
+    if (fs.existsSync(scriptPath)) {
+      execFileSync('bash', [scriptPath], {
+        cwd: resolvedPath,
+        stdio: 'pipe',
+        timeout: 120000,
+      });
+      return true;
+    }
+    execFileSync(
+      'docker',
+      [
+        'run',
+        '--rm',
+        '-e',
+        'OLLAMA_BASE_URL=',
+        '-v',
+        `${resolvedPath}:/app`,
+        '-w',
+        '/app',
+        'sinfallas/remote-graphify:latest',
+        'sh',
+        '-c',
+        'graphify extract . --code-only && graphify cluster-only . && rm -rf graphify-out/cache graphify-out/20* graphify-out/.graphify_* graphify-out/.cloud-cta-shown',
+      ],
+      {
+        cwd: resolvedPath,
+        stdio: 'pipe',
+        timeout: 120000,
+      }
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 const IGNORED_DIRS = new Set(['node_modules', '.git', '.venv', '__pycache__', 'dist', '.cache']);
 const VALID_EXTENSIONS = new Set([
@@ -181,12 +227,20 @@ function scanDirectory(
 export async function inspectAstBlastRadius(
   projectPathInput: string,
   targetSymbol: string,
-  maxItems?: number
+  maxItems?: number,
+  options?: BlastRadiusOptions
 ): Promise<BlastRadiusResult> {
   const resolvedPath = path.resolve(projectPathInput.normalize('NFKC'));
 
   if (!fs.existsSync(resolvedPath)) {
     throw new Error(`El directorio no existe: ${resolvedPath}`);
+  }
+
+  const builder = options?.graphBuilder ?? defaultGraphifyBuilder;
+  let astGraphRebuilt = false;
+
+  if (options?.refreshGraph) {
+    astGraphRebuilt = builder(resolvedPath);
   }
 
   const cleanSymbol = targetSymbol.trim();
@@ -195,6 +249,13 @@ export async function inspectAstBlastRadius(
   const graphFiles: string[] = [];
 
   scanDirectory(resolvedPath, resolvedPath, cleanSymbol, dependentFiles, suggestedTests, graphFiles);
+
+  if (graphFiles.length === 0 && options?.autoBuildIfMissing && !astGraphRebuilt) {
+    astGraphRebuilt = builder(resolvedPath);
+    if (astGraphRebuilt) {
+      scanDirectory(resolvedPath, resolvedPath, cleanSymbol, dependentFiles, suggestedTests, graphFiles);
+    }
+  }
 
   const sortedDependents = Array.from(dependentFiles).sort();
   const count = sortedDependents.length;
@@ -223,6 +284,7 @@ export async function inspectAstBlastRadius(
     truncated_dependents_count: truncatedDependentsCount,
     suggested_tests_to_run: returnedSuggestedTests,
     ast_graph_detected: astGraphDetected,
+    ...(astGraphRebuilt ? { ast_graph_rebuilt: true } : {}),
     ast_graph_files: graphFiles.sort(),
     ast_graph_action_required: astGraphActionRequired,
   };
