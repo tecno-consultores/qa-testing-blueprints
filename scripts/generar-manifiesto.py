@@ -62,6 +62,7 @@ COMMON_FILE_PATHS: List[str] = [
     "scripts/auditar-infra.sh",
     "scripts/verificar-secretos.sh",
     "scripts/actualizar-grafos-graphify.sh",
+    "scripts/generar-sbom-cyclonedx.sh",
     ".trivy.yaml",
     "scripts/limpieza.sh",
     "scripts/publicar-mcp.sh",
@@ -237,6 +238,10 @@ def scan_agent_governance_files(repo_root: Path) -> List[Dict[str, Any]]:
     agents_md = repo_root / "AGENTS.md"
     if agents_md.is_file():
         candidates.append(agents_md)
+
+    agents_readme = repo_root / ".agents" / "README.md"
+    if agents_readme.is_file():
+        candidates.append(agents_readme)
 
     active_task_example = repo_root / ".agents" / "ACTIVE_TASK.md.example"
     if active_task_example.is_file():

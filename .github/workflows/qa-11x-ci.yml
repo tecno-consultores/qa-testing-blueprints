@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 QA Testing Blueprints Contributors
+
+name: QA 11X Certification & MCP Server CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  certify-11x-and-mcp-qa:
+    name: Gate 10/10 & Ephemeral Docker QA (Rule Zero)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify Cryptographic Manifest SHA-256 Parity
+        run: python3 scripts/generar-manifiesto.py --check
+
+      - name: Verify Roadmap & Active Task Bidirectional Consistency
+        run: python3 .agents/scripts/verify_roadmap_consistency.py
+
+      - name: Verify Topological AST Health
+        run: python3 .agents/scripts/verify_topological_health.py
+
+      - name: Verify JSON i18n Integrity (Zero Duplicate Keys)
+        run: python3 .agents/scripts/verify_json_no_duplicate_keys.py
+
+      - name: Execute MCP Server QA Suite in Ephemeral Docker (Rule Zero)
+        run: |
+          docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server sh -c \
+            "pnpm run lint && pnpm run typecheck && pnpm run test:unit && pnpm run build && rm -rf dist coverage .eslintcache"
+
+      - name: Run 10-Stage Certification Gate
+        run: bash ./.agents/scripts/certify_task_completion.sh

@@ -101,15 +101,16 @@ Execute with zero hallucination and maximum token economy:
 
 ---
 
-### 2.1. 🛡️ Mandatory Anti-Silo & Cross-Module State Propagation Invariant (5 UAT Anti-Blindness Rules)
+### 2.1. 🛡️ Mandatory Anti-Silo & Cross-Module State Propagation Invariant (6 UAT Anti-Blindness Rules)
 
-Every test suite under Standard 11X MUST enforce these 5 design rules (full details in [`.agents/rules/mandatory_qa_pyramid_and_doc_sync.md`](../../rules/mandatory_qa_pyramid_and_doc_sync.md)):
+Every test suite under Standard 11X MUST enforce these 6 design rules (full details in [`.agents/rules/mandatory_qa_pyramid_and_doc_sync.md`](../../rules/mandatory_qa_pyramid_and_doc_sync.md)):
 
 1. **Cross-Module State Propagation Without Intermediate Mocks:** Never validate a state mutation in Module A (`POST`/`PUT`/`PATCH`/`DELETE`) by asserting only `HTTP 200/201` while testing Consumer Module B with static mocks. Immediately query Consumer Module B `GET` endpoints and stores against the live database without intermediate mocks to certify end-to-end propagation across KPIs, badges, and maps.
 2. **Mandatory 3-Phase Temporal Lifecycle Assertion (Anti 2-State Static Blindness):** Test every time-window/TTL entity (`starts_at`/`ends_at`, 60s Safe Mode, leases) across all **3 clock phases**: Phase 1 (`t < starts_at`, `Programada`), Phase 2 (`starts_at <= t <= ends_at`, `En Curso` / `Activa` with background scheduler alive beyond 50ms), and Phase 3 (`t > ends_at` or Cancelled, nominal state restored + audit log).
 3. **Prohibition of Blind Audit Mocks, `JSONB`/`Decimal` Serialization Parity & Anti-Raw UUID Semantic Assertion:** Never replace `write_audit_log` with an uninspected `AsyncMock` without asserting `call_args`. In unit tests using `MockDbSession`, validate all SQLAlchemy `JSON`/`JSONB` columns (`AuditLog.before_state`, `AuditLog.after_state`) with `json.dumps()` **without `default=str`**, and populate ORM `Numeric(p, s)` fixtures with `decimal.Decimal` instances (matching PostgreSQL `asyncpg`) to prevent `TypeError: Object of type Decimal is not JSON serializable` escapes. Certify that `actor_username`, `resource_display_name`, and `router_display_name` never match a raw UUID v4 (`/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i`, preventing `claims.get("sub")` leaks), and prohibit generic catch-all `else` clauses in UI event badge classifiers (`else return 'MAINTENANCE'`).
 4. **Dual Auto + Manual Refresh Invariant in Operational Views & Live Maps:** Monitoring dashboards, NOC wallboards, and live maps MUST provide both periodic/reactive refresh (`setInterval` with `clearInterval` in `onUnmounted` + WebSocket) AND an explicit **`[ 🔄 Refrescar ]`** button (`?refresh=true`).
 5. **Heavy-Transfer Timeout Separation (`>= 180s` + Zero-Byte Purge) & Batch `HTTP 200 OK` Per-Item Validation:** Pass explicit per-request timeout overrides (`timeout >= 180s`) and purge `0-byte` truncated artifacts on synchronous binary/firmware downloads (asserting `call_args` in unit tests). In bulk/batch endpoints (`POST .../execute`, `POST .../batch`), inspect per-item `res.data.results[].status` across *Full Success*, *Partial Failure*, and *Total Item Failure* instead of assuming global success from `HTTP 200 OK`.
+6. **Zero Hardcoded Pass Invariant (Anti-Fake Gate Guarantee):** Quality gates (`certify_11x_gate`), test runners (`run_ephemeral_qa`), and AST/security auditors MUST never return hardcoded `true`, `'PASSED'`, or `coverage.passed: true` without executing actual verification logic (return `'SKIPPED'` and `detected: false` when bypassed via `skip_if_docs_only`).
 
 ---
 

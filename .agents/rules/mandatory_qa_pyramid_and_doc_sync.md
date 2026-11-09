@@ -36,6 +36,8 @@ Any addition, modification, or bug fix in application source code (`fastapi/`, `
    - Static analysis scripts (`lint`) MUST enforce `--max-warnings 0` (for ESLint) or equivalent strict modes (Ruff, Mypy, PHPStan `level: max`, Psalm `--taint-analysis`, ShellCheck). Any warning MUST fail the process immediately (`Exit Code 1`), eliminating unnoticed technical debt or cosmetic degradation.
 8. **Hermetic Test Isolation (Zero Network Leaks):**
    - Unit tests (`.unit.py`, `.unit.ts`, `.unit.tsx`) MUST strictly isolate network boundaries. Outbound calls to external APIs or GitHub Raw during unit testing are strictly prohibited; developers and agents must mock or intercept network interfaces deterministically.
+9. **Zero Hardcoded Pass Invariant (Anti-Fake Gate Guarantee):**
+   - Quality gates, certification scripts (`certify_11x_gate`, `certify_task_completion.sh`), test runners (`run_ephemeral_qa`), and topological/security auditors MUST NEVER return hardcoded `true`, `'PASSED'`, or `coverage.passed: true` without executing actual verification logic. When a check is bypassed or not applicable (e.g. `skip_if_docs_only: true`), return explicit `'SKIPPED'` status and `detected: false`.
 
 ---
 

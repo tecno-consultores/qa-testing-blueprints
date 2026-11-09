@@ -9,20 +9,20 @@ Welcome to the **QA Testing Blueprints** repository. All AI coding assistants (G
 > Always interact with the user, provide status updates, explain reasoning, and write commit messages / user-facing documentation in Spanish.
 >
 > **TOKEN EFFICIENCY & LANGUAGE DESIGN:**
-> All directives in `.agents/rules/` and skills in `.agents/skills/` are maintained in concise, high-density technical English to optimize token utilization (~35% reduction in context window) and ensure maximum logical adherence across LLMs (Google Antigravity, Claude, Hermes Agent, Cursor). All human-facing documentation (`docs/`, `CHANGELOG.md`, `README.md`, `TESTING.md`) remains strictly in Spanish. See [.agents/README.md](file:///.agents/README.md) for full architectural rationale.
+> All directives in `.agents/rules/` and skills in `.agents/skills/` are maintained in concise, high-density technical English to optimize token utilization (~35% reduction in context window) and ensure maximum logical adherence across LLMs (Google Antigravity, Claude, Hermes Agent, Cursor). All human-facing documentation (`docs/`, `CHANGELOG.md`, `README.md`, `TESTING.md`) remains strictly in Spanish. See [.agents/README.md](.agents/README.md) for full architectural rationale.
 
 ---
 
 ## 1. Active Rules in `.agents/rules/`
 
-1. [mandatory_qa_pyramid_and_doc_sync.md](file:///.agents/rules/mandatory_qa_pyramid_and_doc_sync.md):
-   - **Supreme Directive — Mandatory 11X Test Creation:** Any code addition or modification MUST strictly include corresponding test suites across all applicable layers of the 11X quality pyramid. Includes backend unit tests with `>= 95%` coverage, frontend unit tests (Vitest 100% pass), real database migration verification, front-back integration contracts, and **ALWAYS Karate Labs BDD scenarios** for API (`fastapi/test/api_test.feature`, injecting dynamic `And header Idempotency-Key = java.util.UUID.randomUUID() + ''` on mutable `POST`/`PUT`/`PATCH`/`DELETE` requests) and UI (`vue3/test/ui_business_flow.feature`).
+1. [mandatory_qa_pyramid_and_doc_sync.md](.agents/rules/mandatory_qa_pyramid_and_doc_sync.md):
+   - **Supreme Directive — Mandatory 11X Test Creation & Zero Hardcoded Pass:** Any code addition or modification MUST strictly include corresponding test suites across all applicable layers of the 11X quality pyramid. Includes backend unit tests with `>= 95%` coverage, frontend unit tests (Vitest 100% pass), real database migration verification, front-back integration contracts, and **ALWAYS Karate Labs BDD scenarios** for API (`fastapi/test/api_test.feature`, injecting dynamic `And header Idempotency-Key = java.util.UUID.randomUUID() + ''` on mutable `POST`/`PUT`/`PATCH`/`DELETE` requests) and UI (`vue3/test/ui_business_flow.feature`). Quality gates and test runners MUST never return hardcoded `true` or `'PASSED'` when a check is skipped or unverified (return `'SKIPPED'` or `detected: false`).
    - **Anti-Silo Cross-Module State Propagation:** Never validate a state mutation in Module A (`POST`/`PUT`/`PATCH`/`DELETE`) by checking only its `HTTP 200/201` status while testing Consumer Module B with disconnected mocks. Immediately query Consumer Module B `GET` endpoints and stores against the live database without intermediate mocks to verify end-to-end propagation across KPIs, badges, and maps.
    - **Zero-Orphan UI Component Invariant:** Every UI component or view must have a dedicated or active unit test suite maintaining a 100% pass rate.
    - **Mandatory Test Execution:** The full test suite MUST be executed and passed inside ephemeral Docker containers (`Rule Zero`) after EACH task modifying code before concluding.
    - **Continuous Mandatory Documentation Sync & Concise `CHANGELOG.md` Hygiene:** Autonomously and continuously update affected documentation in `docs/`, `CHANGELOG.md` (under `## [Unreleased]`, maintaining a single header per version with concise 1–2 line executive bullets and prohibiting internal sub-milestone log dumps), `TESTING.md`, and `README.md`.
 
-2. [secure_development_and_testing_guidelines.md](file:///.agents/rules/secure_development_and_testing_guidelines.md):
+2. [secure_development_and_testing_guidelines.md](.agents/rules/secure_development_and_testing_guidelines.md):
    - **Anti-Mock Blindness:** ORM changes require immediate versioned migrations verified against real database engines. Never rely on mocks alone when testing persistence. In unit tests using `MockDbSession`, validate all SQLAlchemy `JSON`/`JSONB` columns (`AuditLog.before_state`, `AuditLog.after_state`) with `json.dumps()` without `default=str`, and populate ORM `Numeric(p, s)` fixtures with `decimal.Decimal` instances (matching PostgreSQL `asyncpg`) to prevent `TypeError: Object of type Decimal is not JSON serializable` escapes.
    - **Security-by-Design (DISA ASD STIG V6R5 & OWASP Developer Guide v4.2):**
      - Forced PostgreSQL Row-Level Security (RLS) per tenant, anti-SSRF URL validation, AES-256-GCM Vault cryptography (FIPS 140-3 validated modules + memory secret zeroization), HMAC-SHA256 CSRF protection, mandatory `Idempotency-Key` headers on state-mutating endpoints, and **Service-Layer RBAC Defense (Anti-`Depends()` Bypass)** (validating `claims["role"]` / `claims["rol"]` inside service functions invoked by internal MCP/JSON-RPC dispatchers and routing mutating MCP tools through `ApprovalRequest` `AWAITING_APPROVAL`).
@@ -31,22 +31,22 @@ Welcome to the **QA Testing Blueprints** repository. All AI coding assistants (G
      - **Tamper-Proof Auditing, Semantic Audit Integrity, Fail-Secure, OSHP & Supply Chain:** UTC ms-granularity audit logs chained with HMAC-SHA256 (`APSC-DV-001350`), CR/LF log injection sanitization, zero secrets/tokens in logs (`APSC-DV-000650`), 75% audit storage capacity alerting (`APSC-DV-001090`), DB export credential scrubbing (`APSC-DV-003310`), OWASP Secure Headers (OSHP), Fail-Secure initialization + startup self-test (`APSC-DV-002310/002770`), OWASP API Security Top 10 (2023) + anti-data-mining quotas (`APSC-DV-000450`), programmatic Threat Modeling (`pytm`, `APSC-DV-003230`), and signed CycloneDX SBOM/CBOM (`ECMA-424`, `APSC-DV-001430/003140`). Never replace `write_audit_log` with a blind `AsyncMock` without asserting arguments; ensure visible identity fields (`actor_username`, `resource_display_name`) resolve to human-readable names and never match raw UUID v4 strings (`claims.get("sub")`).
    - **Visual Geometry & In-Flow Ergonomics (Anti-JSDOM):** JSDOM does not calculate layout or bounding boxes (always returns 0x0). Validate DOM hierarchy and inspect viewports in real browser sessions. Prohibit fixed floating footers that steal vertical space; enforce in-flow footers inside `<main>` with `margin-top: auto`.
 
-3. [frontend_parity_and_closure.md](file:///.agents/rules/frontend_parity_and_closure.md):
+3. [frontend_parity_and_closure.md](.agents/rules/frontend_parity_and_closure.md):
    - **Terminal ↔ Frontend Parity:** Zero console-only actions or orphan API endpoints without a matching web interface.
    - **Zero Read-Only Operational Consoles:** Operational data tables MUST offer tactical mutation actions (create, edit, toggle, delete, wizards) instead of passive read-only views.
    - **Dual Auto + Manual Refresh, Semantic Event Badges & Batch Per-Item Validation:** Monitoring views, NOC wallboards, and live maps MUST combine periodic/reactive updates (`setInterval` with `onUnmounted` cleanup + WebSocket) with an explicit **`[ 🔄 Refrescar ]`** button (`?refresh=true`). Event classifiers MUST map categories to true semantic badges (`CAÍDA`, `MANTENIMIENTO`, `RESPALDO`, `SEGURIDAD`, `OPERACIÓN`) without catch-all `else` domain labels. Views consuming batch execution endpoints (`POST .../execute`) MUST inspect `res.data.results[].status` per resource instead of assuming global success from `HTTP 200 OK`.
    - **Closure Protocol:** Strict execution of tests in ephemeral Docker, secret scanning, dependency audit, and clean git staging.
 
-4. [continuous_agent_evolution.md](file:///.agents/rules/continuous_agent_evolution.md):
+4. [continuous_agent_evolution.md](.agents/rules/continuous_agent_evolution.md):
    - **Autonomous Evolution of `.agents/` & Thin-Repo Consumer Project Anti-Collision:** Proactively update rules, skills, and automation scripts whenever discovering an improvement opportunity, unhandled edge case, procedure automation, or token optimization without waiting for user prompting. In consumer projects (e.g. `rosgrid`), consume the 5 corporate skills and 7 canonical rules from the global user configuration (`~/.gemini/config/skills/`, `~/.gemini/GEMINI.md`, etc.) without duplicating them in `<project>/.agents/`, and isolate domain-specific rules in `.agents/rules/domain_<project>_*.md` or outside the `AGENTS.md` connector block (`reconcile-agents`).
 
-5. [anti_regression_and_side_effects_guardrail.md](file:///.agents/rules/anti_regression_and_side_effects_guardrail.md):
+5. [anti_regression_and_side_effects_guardrail.md](.agents/rules/anti_regression_and_side_effects_guardrail.md):
    - **Anti-Regression & Blast-Radius Governance:** Zero degradation of pre-existing functionality. Mandatory pre-modification impact audit for shared files and AST blast radius (`.agents/scripts/inspect_blast_radius.py` / `inspect_ast_blast_radius`). **If the AST graph (`graphify-out/graph.json`) does not exist, create it first via `./scripts/actualizar-grafos-graphify.sh`, and ALWAYS update the AST graph upon finishing changes.** Shell-capable agents MUST execute AST inspection directly via CLI/scripts. Preserve valid known state in frontend stores on error (anti-destructive catch).
 
-6. [ground_truth_fixtures_and_negative_invariants.md](file:///.agents/rules/ground_truth_fixtures_and_negative_invariants.md):
+6. [ground_truth_fixtures_and_negative_invariants.md](.agents/rules/ground_truth_fixtures_and_negative_invariants.md):
    - **Universal Trimodal Fixtures, 3-Phase Temporal Lifecycle, Heavy-Transfer Timeouts & Negative Invariants:** Eradicate mock blindness by testing integrations against three raw fixtures: Factory Default / Virgin (asserting negative invariants), Nominal Configured (asserting active/healthy), and Degraded/Unsupported/Partial Batch Failure (asserting graceful degradation without 500 errors, per-item `results[].status` inspection on `HTTP 200 OK` batch responses, and per-request timeout overrides `>= 180s` + `0-byte` truncated file cleanup on synchronous binary/firmware transfers). Time-bounded entities (`starts_at`/`ends_at`, 60s Safe Mode, TTLs) MUST be tested across all **3 clock phases**: Phase 1 Pending (`t < starts_at`, `Programada`), Phase 2 Active/In-Progress (`starts_at <= t <= ends_at`, `En Curso` / `Activa`), and Phase 3 Expired/Reverted (`t > ends_at` or Cancelled).
 
-7. [active_task_and_planning_resilience.md](file:///.agents/rules/active_task_and_planning_resilience.md):
+7. [active_task_and_planning_resilience.md](.agents/rules/active_task_and_planning_resilience.md):
    - **Active Task Invariant & Planning Tool Resilience:** Prior to modifying code on non-trivial tasks, AI assistants MUST invoke planning tools (`/plan` or interactive plan artifacts) and persist phase checklists in `.agents/ACTIVE_TASK.md` (bootstrapped from `.agents/ACTIVE_TASK.md.example`). Live real-time updates (`- [ ]` → `- [x]`) guarantee zero context loss across IDE crashes, session restarts, or context compaction. Mark as `COMPLETED (100%)` upon closure.
 
 ---
@@ -59,10 +59,11 @@ Welcome to the **QA Testing Blueprints** repository. All AI coding assistants (G
 
 ## 3. Skills Catalog in `.agents/skills/`
 
-1. `qa-11x-docker-certifier`: QA 11X Corporate Standard certifier in ephemeral Docker (coverage `>= 95%`, SonarJS, Karate Labs, mutation testing, zero host contamination).
-2. `docker-trivy-keydb-hardening`: Container hardening (Trivy HIGH/CRITICAL = 0), multi-threaded KeyDB in-memory caching engine, non-root users, and performance optimization.
-3. `graphify-ast-navigator`: AST Knowledge Graph navigation, blast-radius pre-audit, layer boundary compliance, and CLI-first query protocol.
-4. `refactoring-ui`: Visual hierarchy, spacing, typography (`tabular-nums`), OKLCH color contrast (WCAG 2.1 AA), depth, dark mode, and Anti-JSDOM geometry rules from *Refactoring UI* (Wathan & Schoger) with 9 modular `references/*.md` files.
+1. `qa-11x-architect`: Master QA 11X & DevSecOps Architect enforcing the 13 layers of the 11X Quality Pyramid, 10 Non-Negotiable Laws, 6 UAT Anti-Silo Rules, High-IQ Token Economy, and 22 DISA STIG V6R5 / OWASP v4.2 controls with 9 on-demand `references/*.md` modules.
+2. `qa-11x-docker-certifier`: QA 11X Corporate Standard certifier in ephemeral Docker (coverage `>= 95%`, SonarJS, Karate Labs, mutation testing, zero host contamination).
+3. `docker-trivy-keydb-hardening`: Container hardening (Trivy HIGH/CRITICAL = 0), multi-threaded KeyDB in-memory caching engine, non-root users, and performance optimization.
+4. `graphify-ast-navigator`: AST Knowledge Graph navigation, blast-radius pre-audit, layer boundary compliance, and CLI-first query protocol.
+5. `refactoring-ui`: Visual hierarchy, spacing, typography (`tabular-nums`), OKLCH color contrast (WCAG 2.1 AA), depth, dark mode, and Anti-JSDOM geometry rules from *Refactoring UI* (Wathan & Schoger) with 9 modular `references/*.md` files.
 
 ---
 

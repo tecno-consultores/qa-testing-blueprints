@@ -58,8 +58,8 @@ Por seguridad, el demonio de Docker bloquea la inspección de memoria entre proc
 ```
 
 ### ZAP (DAST) falla al escribir el `zap-report.html` (Permission Denied)
-El contenedor de ZAP corre por defecto con un usuario no privilegiado que no tiene permisos de escritura en el volumen *bind* del host.
-**Solución:** Asegúrate de incluir explícitamente la directiva `user: root` en la definición del servicio `zap` en tu `docker-compose.qa.yml`. Luego, ejecuta `./scripts/limpieza.sh` o `make clean` (el cual utiliza un fallback efímero en Docker Alpine para restaurar o purgar permisos automáticamente sin requerir `sudo`).
+El contenedor de ZAP corre por defecto con el usuario no privilegiado `zap` (`UID 1000`), cumpliendo con las políticas de endurecimiento de contenedores (Trivy `DS002`, cero `user: root`).
+**Solución:** Asegúrate de que el directorio de trabajo montado en `/zap/wrk` pertenezca al usuario `UID 1000` del host o tenga permisos de escritura antes de correr el escaneo. Al finalizar, ejecuta `./scripts/limpieza.sh` o `make clean` (el cual utiliza un fallback efímero en Docker Alpine para sanear artefactos sin requerir `sudo`).
 
 ### Docker se quedó sin espacio, está muy lento o las pruebas fallan porque detectan código viejo.
 Los contenedores y gestores acumulan cachés masivos. 
@@ -84,7 +84,7 @@ make qa-e2e
 
 ### ¿Cómo interactúa un Agente de Inteligencia Artificial con este repositorio?
 Un agente de IA (como Google Antigravity, Anthropic Claude Code / Claude Desktop, Hermes Agent de Nous Research, Cursor o Windsurf) puede interactuar de tres formas:
-1. **Vía Servidor MCP (`@sinfallas/mcp-qa-11x`):** Se conecta por `stdio` mediante `npx -y @sinfallas/mcp-qa-11x@latest`. El servidor expone 8 herramientas operativas (como `inspect_project_config`, `bootstrap_or_merge_11x`, `fetch_blueprint_bundle`, `run_ephemeral_qa` y `certify_11x_gate`) y 8 recursos dinámicos (`blueprint://*`), permitiendo al agente auditar y fusionar código sin clonar el repositorio completo.
+1. **Vía Servidor MCP (`@sinfallas/mcp-qa-11x`):** Se conecta por `stdio` mediante `npx -y @sinfallas/mcp-qa-11x@latest`. El servidor expone 12 herramientas operativas (como `inspect_project_config`, `bootstrap_or_merge_11x`, `fetch_blueprint_bundle`, `run_ephemeral_qa`, `certify_11x_gate`, `propose_skill_evolution_pr` y `reconcile_agents_governance`) y 8 recursos dinámicos (`blueprint://*`), permitiendo al agente auditar y fusionar código sin clonar el repositorio completo.
 2. **Vía Skills Zero-Clone (`qa-11x-architect` y catálogo completo de 5 skills):** Se inyectan en su entorno junto con los scripts operativos y el conector de `AGENTS.md` ejecutando `npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts` o mediante el instalador universal `curl ... | sh`. El agente adquiere de inmediato el conocimiento de las 13 capas de calidad, los 22 patrones DISA/OWASP y la prevención Anti-JSDOM.
 3. **Vía Reglas Locales (`.agents/` y `AGENTS.md`):** Si el agente opera dentro del repositorio clonado, lee automáticamente las directivas en `.agents/rules/` y mantiene la bitácora activa en `.agents/ACTIVE_TASK.md`, ejecutando la compuerta universal `./.agents/scripts/certify_task_completion.sh` antes de cerrar sus turnos.
 

@@ -20,7 +20,7 @@ Este directorio implementa el estándar abierto y emergente de la industria para
 │   ├── ground_truth_fixtures_and_negative_invariants.md # Fixtures trimodales, Ciclo Temporal de 3 Fases e invariantes negativos
 │   └── active_task_and_planning_resilience.md        # Bitácora en caliente (.agents/ACTIVE_TASK.md) y resiliencia ante caídas de sesión
 ├── skills/                                           # Habilidades y Playbooks de dominio (5 skills del catálogo)
-│   ├── qa-11x-architect/                             # Skill Maestra: 13 capas, 10 leyes 11X, Invariante Anti-Silo (4 reglas UAT) y 7 playbooks
+│   ├── qa-11x-architect/                             # Skill Maestra: 13 capas, 10 leyes 11X, Invariante Anti-Silo (6 reglas UAT) y 7 playbooks
 │   ├── qa-11x-docker-certifier/                      # Certificación 11X en Docker efímero (95% cobertura)
 │   ├── docker-trivy-keydb-hardening/                 # Endurecimiento Docker, Trivy = 0 y KeyDB multi-hilo
 │   ├── graphify-ast-navigator/                       # Navegación AST, radio de impacto (Blast Radius) y servidor MCP
@@ -65,7 +65,7 @@ Este directorio implementa el estándar abierto y emergente de la industria para
 
 5. **Revelación Progresiva en 3 Niveles (*3-Tier Progressive Disclosure*) y Economía Cognitiva de Tokens (*High-IQ Token Economy*):**
    - **Nivel 1 (Conector `AGENTS.md` / `GEMINI.md`):** Índice ligero siempre activo (`< 35 líneas`) que clasifica la tarea en **3 Vías Proporcionales de Ejecución**: `DOCS_ONLY` (Fast-Path documental), `MICRO_CHANGE` (Vía Quirúrgica para `<= 3` archivos y `LOW` Blast Radius) y `FULL_11X` / `CODE_CHANGE` (Flujo completo de 11 pasos para cambios arquitectónicos).
-   - **Nivel 2 (`SKILL.md` Ejecutivo):** Resume las 10 Leyes, las 5 Reglas Anti-Silo, los 7 Playbooks y las **6 Estrategias Cognitivas de Ahorro de Tokens** (`AST/Grep-First & Windowed-Read-Second`, `Zero Redundant Re-Read`, `Parallel Tool Batching`, `Subagent Context Isolation <= 20 líneas`, `Pass-Quiet Terminal Filtering` y `Compact ACTIVE_TASK.md <= 40 líneas`) sin duplicar párrafos completos de `.agents/rules/`.
+   - **Nivel 2 (`SKILL.md` Ejecutivo):** Resume las 10 Leyes, las 6 Reglas Anti-Silo (incluyendo *Zero Hardcoded Pass*), los 7 Playbooks y las **6 Estrategias Cognitivas de Ahorro de Tokens** (`AST/Grep-First & Windowed-Read-Second`, `Zero Redundant Re-Read`, `Parallel Tool Batching`, `Subagent Context Isolation <= 20 líneas`, `Pass-Quiet Terminal Filtering` y `Compact ACTIVE_TASK.md <= 40 líneas`) sin duplicar párrafos completos de `.agents/rules/`.
    - **Nivel 3 (`references/*.md` y `.agents/rules/*.md`):** Se cargan bajo demanda estricta únicamente cuando la tarea toca ese stack o dominio específico.
 
 ---

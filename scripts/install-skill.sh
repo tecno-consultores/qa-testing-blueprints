@@ -5,9 +5,11 @@
 # ==============================================================================
 # 🧠 scripts/install-skill.sh — Instalador Universal de Skills QA 11X
 #
-# Descarga e instala 'qa-11x-architect' y 'refactoring-ui' con verificación
-# criptográfica SHA-256 (DISA ASD STIG V6R5 V-222513 / APSC-DV-001430)
-# sin necesidad de clonar el repositorio completo (Arquitectura Zero-Clone).
+# Descarga e instala el catálogo completo de 5 skills ('qa-11x-architect',
+# 'refactoring-ui', 'docker-trivy-keydb-hardening', 'graphify-ast-navigator' y
+# 'qa-11x-docker-certifier') con verificación criptográfica SHA-256
+# (DISA ASD STIG V6R5 V-222513 / APSC-DV-001430) sin necesidad de clonar el
+# repositorio completo (Arquitectura Zero-Clone).
 #
 # Uso:
 #   curl -fsSL https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/scripts/install-skill.sh | sh

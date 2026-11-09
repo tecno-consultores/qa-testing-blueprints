@@ -1,8 +1,14 @@
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 QA Testing Blueprints Contributors
+
 Feature: Validación BDD de la API Node.js
 
   Background:
     # URL apuntando al servicio Node.js en la red interna de Docker
-    * url 'http://api:3000'
+    * def envBaseUrl = java.lang.System.getenv('API_BASE_URL')
+    * def baseUrl = karate.properties['API_BASE_URL'] || envBaseUrl || 'http://api:3000'
+    * url baseUrl
+    * def newIdempotencyKey = function(){ return java.util.UUID.randomUUID() + '' }
 
   Scenario: Verificar que la API responda al healthcheck correctamente
     Given path '/health'
