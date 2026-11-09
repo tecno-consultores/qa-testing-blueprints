@@ -9,7 +9,7 @@ export async function fetchBlueprintBundle(
   stack: string,
   includeCommonAndAgents = true,
   fetcher?: GitHubFetcher,
-  includeContent = true
+  includeContent = false
 ): Promise<{
   stack: string;
   total_files: number;

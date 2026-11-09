@@ -3,7 +3,7 @@
 
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { BlueprintResources } from './resources/blueprint-resources.js';
-import { GitHubFetcher } from './services/github-fetcher.js';
+import { GitHubFetcher, MCP_SERVER_VERSION } from './services/github-fetcher.js';
 import { SurgicalMerger } from './services/surgical-merger.js';
 import { inspectProjectConfig } from './tools/inspect-project.js';
 import { fetchBlueprintBundle } from './tools/fetch-bundle.js';
@@ -42,8 +42,10 @@ export function createMcpServer(options?: {
 
   const server = new McpServer({
     name: '@sinfallas/mcp-qa-11x',
-    version: '2.12.0',
+    version: MCP_SERVER_VERSION,
   });
+
+  const MARKDOWN_MIME_TYPE = 'text/markdown';
 
   // ============================================================================
   // 📚 Registro de Recursos MCP (blueprint://*)
@@ -77,7 +79,7 @@ export function createMcpServer(options?: {
     'blueprint://core/philosophy',
     {
       description: 'Filosofía y reglas de calidad Nivel 11X (13 capas y Rule Zero).',
-      mimeType: 'text/markdown',
+      mimeType: MARKDOWN_MIME_TYPE,
     },
     async (uri) => {
       const res = await resources.getPhilosophyResource();
@@ -99,7 +101,7 @@ export function createMcpServer(options?: {
     'blueprint://security/disa-owasp-22',
     {
       description: 'Catálogo de los 22 patrones canónicos de seguridad por diseño.',
-      mimeType: 'text/markdown',
+      mimeType: MARKDOWN_MIME_TYPE,
     },
     async (uri) => {
       const res = await resources.getSecurityResource();
@@ -121,7 +123,7 @@ export function createMcpServer(options?: {
     new ResourceTemplate('blueprint://{stack}/readme', { list: undefined }),
     {
       description: 'Guía operativa de testing y QA para el stack solicitado.',
-      mimeType: 'text/markdown',
+      mimeType: MARKDOWN_MIME_TYPE,
     },
     async (uri, variables) => {
       const stack = String(variables.stack);
@@ -144,7 +146,7 @@ export function createMcpServer(options?: {
     new ResourceTemplate('blueprint://ui/refactoring-ui/{topic}', { list: undefined }),
     {
       description: 'Reglas de diseño táctico y accesibilidad WCAG 2.1 AA de Refactoring UI.',
-      mimeType: 'text/markdown',
+      mimeType: MARKDOWN_MIME_TYPE,
     },
     async (uri, variables) => {
       const topic = String(variables.topic);
@@ -167,7 +169,7 @@ export function createMcpServer(options?: {
     'blueprint://core/active-task-template',
     {
       description: 'Plantilla canónica de bitácora en caliente (.agents/ACTIVE_TASK.md.example) para resiliencia ante caídas de sesión o IDE.',
-      mimeType: 'text/markdown',
+      mimeType: MARKDOWN_MIME_TYPE,
     },
     async (uri) => {
       const res = await resources.getActiveTaskTemplateResource();
@@ -228,7 +230,7 @@ export function createMcpServer(options?: {
   );
 
   // ============================================================================
-  // 🛠️ Registro de Herramientas MCP (Tools 1 a 4)
+  // 🛠️ Registro de Herramientas MCP (Tools 1 a 12)
   // ============================================================================
 
   // Tool 1: inspect_project_config

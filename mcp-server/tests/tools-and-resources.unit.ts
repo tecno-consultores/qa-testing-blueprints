@@ -221,15 +221,16 @@ describe('Tools and Resources Integration Suite', () => {
   });
 
   describe('fetchBlueprintBundle Tool', () => {
-    it('returns bundled files with verified SHA-256', async () => {
-      const result = await fetchBlueprintBundle('python', true, fetcher);
+    it('returns bundled files with verified SHA-256 when includeContent is true', async () => {
+      const result = await fetchBlueprintBundle('python', true, fetcher, true);
       expect(result.stack).toBe('python');
       expect(result.total_files).toBeGreaterThan(0);
       expect(result.files[0].sha256_verified).toBe(true);
+      expect(result.files[0].content.length).toBeGreaterThan(0);
     });
 
-    it('omits file content and provides token-saving metadata when includeContent is false', async () => {
-      const result = await fetchBlueprintBundle('python', true, fetcher, false);
+    it('omits file content and provides token-saving metadata by default (includeContent = false)', async () => {
+      const result = await fetchBlueprintBundle('python', true, fetcher);
       expect(result.stack).toBe('python');
       expect(result.total_files).toBeGreaterThan(0);
       expect(result.content_omitted_for_token_economy).toBe(true);

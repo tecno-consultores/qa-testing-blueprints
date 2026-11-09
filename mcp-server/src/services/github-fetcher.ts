@@ -9,6 +9,11 @@ import { FetchedFileItem, GitHubFetcherOptions, Manifest } from '../types.js';
 
 const FORBIDDEN_PATH_SEGMENTS = new Set(['..', '__proto__', 'constructor', 'prototype']);
 const DEFAULT_FETCH_TIMEOUT_MS = 15000;
+const PACKAGE_JSON_URL = new URL('../../package.json', import.meta.url);
+
+export const MCP_SERVER_VERSION: string = (
+  JSON.parse(fs.readFileSync(PACKAGE_JSON_URL, 'utf-8')) as { version: string }
+).version;
 
 export function isOwnObjectProperty<T extends object>(obj: T, key: string): boolean {
   if (FORBIDDEN_PATH_SEGMENTS.has(key)) return false;
@@ -145,7 +150,7 @@ export class GitHubFetcher {
 
     const manifestUrl = `${this.rawBaseUrl}/manifest.json`;
     const headers: Record<string, string> = {
-      'User-Agent': 'mcp-qa-11x/2.12.0',
+      'User-Agent': `mcp-qa-11x/${MCP_SERVER_VERSION}`,
     };
     if (etag && !forceRefresh) {
       headers['If-None-Match'] = etag;

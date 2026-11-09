@@ -18,7 +18,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
 
   Scenario: 1. El paquete npm expone nombre, versión y binario ejecutable canónico
     * match pkg.name == '@sinfallas/mcp-qa-11x'
-    * match pkg.version == '2.12.0'
+    * match pkg.version == '#regex ^[0-9]+\\.[0-9]+\\.[0-9]+$'
     * match pkg.bin['mcp-qa-11x'] == 'dist/index.js'
     * match pkg.type == 'module'
     * match pkg.license == 'MIT'
