@@ -32,16 +32,22 @@ This skill governs all tests, linters, audits, and cleanups in projects implemen
 | **Security & STIG (All)** | `DISA ASD STIG V6R5` + `OWASP v4.2` | Verify session timeouts (10m/15m), 3-attempt lockout, `NFKC` input, anti-XXE, HMAC logs, Fail-Secure & CycloneDX SBOM | `make qa-unit` / `make qa-dast` |
 | **Frontend (Vue/React)** | `tsc/vue-tsc --noEmit` + `ESLint` + `SonarJS` | **0 type errors / Low cognitive complexity** | `make qa-lint` |
 | **Frontend (Vue/React)** | `Vitest` (`@vitest/coverage-v8`) | **`>= 95.0%` lines, functions, branches, statements** | `make qa-unit` |
-| **Frontend (Vue/React)** | `Stryker Mutator` | Clean execution across critical business logic | `make qa-mutation` |
-| **Frontend (Vue/React)** | `Playwright` + `@axe-core/playwright` | **0 WCAG 2.1 A/AA violations** | `make qa-e2e` |
-| **Frontend (Vue/React)** | `Lighthouse CI` (`lhci autorun`) | **Perf/SEO/BP `>= 0.90` and Accessibility `>= 0.95`** | `make qa-perf` |
+| **Frontend (Vue/React)** | `Stryker Mutator` (`perTest` + `--incremental`) | **`MSI >= 80%`**, 0 surviving critical mutants | `make qa-mutation` |
+| **Frontend (Vue/React)** | `Playwright` + `@axe-core/playwright` | **0 WCAG 2.1/2.2 A/AA violations** | `make qa-e2e` |
+| **Frontend (Vue/React)** | `Lighthouse CI` (`lhci autorun`) | **Perf/SEO/BP `>= 0.90`, A11y `>= 0.95`, `CLS = 0`, `INP < 200ms`** | `make qa-perf` |
+| **Backend (PHP 8.2–8.5)** | `PHPStan Level Max` + `Psalm --taint-analysis` + `Pest/PCOV` + `Infection` | **0 errors, `>= 95.0%` coverage, `MSI >= 80%`** | `make qa-lint` / `make qa-unit` / `make qa-mutation` |
+| **Bash / DevOps** | `ShellCheck` + `shfmt -i 2 -ci` + `BATS-core` + `kcov` | **0 warnings, `>= 95.0%` coverage** | `make qa-lint` / `make qa-unit` |
 
 ---
 
-## 3. Repository Hygiene & RAM Conservation
+## 3. Incremental Mutation Testing, 3-Path Economy & RAM Conservation
 
-1. **Mandatory Post-QA Cleanup:**
-   - After running coverage or mutation tests, execute `make clean-cache`, purging temporary mutation files, `.coverage`, reports, and test browser artifacts.
-2. **Concise Reporting:**
-   - Do not dump thousands of raw terminal lines in the chat.
-   - Summarize test counts, coverage percentages, and pass/fail status cleanly.
+1. **Fast Incremental & Per-Test Mutation Execution:**
+   - Never run full-suite tests per mutant across untouched files. Configure `coverageAnalysis: "perTest"` and `--incremental` in Stryker (`reports/stryker-incremental.json`), `--only-covered` in Infection, and targeted module paths in `mutmut` inside capped-concurrency ephemeral containers (`--concurrency 4`).
+2. **3-Path Proportional Execution Alignment:**
+   - **Skip Docker QA runs on `DOCS_ONLY` changes** (`skip_if_docs_only: true`).
+   - Run targeted unit + affected stack suites on `MICRO_CHANGE` (`<= 3` files, `LOW` AST blast radius).
+   - Run the complete multi-stage pyramid (`make qa-all`) on `FULL_11X` architectural changes.
+3. **Mandatory Post-QA Cleanup & Pass-Quiet Output:**
+   - After running coverage or mutation tests, execute `make clean` / `./scripts/limpieza.sh` (`clean_workspace_11x`), purging temporary mutation sandboxes, `.coverage`, root-owned Docker artifacts (via ephemeral Alpine `chown`), and browser caches.
+   - Never dump thousands of raw terminal lines into the LLM context; report concise JSON/table metrics.

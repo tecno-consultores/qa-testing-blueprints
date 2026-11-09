@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.11.1",
-  "generated_at_utc": "2026-11-09T03:17:49Z",
+  "generated_at_utc": "2026-11-09T03:35:40Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -756,15 +756,15 @@
       "path": ".agents/skills/docker-trivy-keydb-hardening/SKILL.md",
       "target_name": ".agents/skills/docker-trivy-keydb-hardening/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "38174346e4fb2b05b217f58f766a613fb89d86f4f0136bfc8cff888407cd4e0e",
-      "size_bytes": 2771
+      "sha256": "22892a0c725dc85289b5a011385ce9d0ee516e091ac97abbb98513f7f0ae6b6c",
+      "size_bytes": 3918
     },
     {
       "path": ".agents/skills/graphify-ast-navigator/SKILL.md",
       "target_name": ".agents/skills/graphify-ast-navigator/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "c0a55f6cce19e36d4b43b4b30802a3e5ef9e5a8c9a9542f8cad0e7f9fd5f36de",
-      "size_bytes": 2260
+      "sha256": "ad247e6ac2527af4427376852bea71259239828b89dd597d64bee23bc0cd1ce6",
+      "size_bytes": 6700
     },
     {
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
@@ -819,15 +819,15 @@
       "path": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "target_name": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "2a6c41efb2a5c96b671c6c3970eab464d4a1b12a21dd206265a3523481374152",
-      "size_bytes": 3174
+      "sha256": "50eaf0864f212c22673fe837ec09cbbb46f454f29cac640f6a225fb0d6dddc9c",
+      "size_bytes": 4358
     },
     {
       "path": ".agents/skills/refactoring-ui/SKILL.md",
       "target_name": ".agents/skills/refactoring-ui/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "b308d1a08a403ea0bc0bf2460acc0318697b5022eef84428f2347b87deefc951",
-      "size_bytes": 7991
+      "sha256": "81fff1371d0ce87c45e2a43b19f75080e0826e1a31310639fda82237bca81257",
+      "size_bytes": 8706
     },
     {
       "path": ".agents/skills/refactoring-ui/references/color.md",

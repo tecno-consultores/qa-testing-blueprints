@@ -95,12 +95,14 @@ strictly enforce these 5 test-certified invariants:
    - Never use `position: fixed` floating footers over operational tables or forms. Place footers in-flow (`margin-top: auto` inside `<main>`).
 2. **Multi-Viewport Zero Horizontal Overflow:**
    - Certify `document.documentElement.scrollWidth <= window.innerWidth` across Mobile (`375x667`), Tablet (`768x1024`), and Desktop (`1440x900`). Use `pointer-coarse:p-4` (`min-height: 44px`) on touch targets.
-3. **Zero CLS & Tabular Numbers (`tabular-nums`):**
+3. **Zero CLS, Low INP (`< 200ms`) & Tabular Numbers (`tabular-nums`):**
    - Always apply `tabular-nums` (`font-variant-numeric: tabular-nums`) and right-alignment on numeric table columns, live telemetry counters, and timers so digit changes never trigger horizontal layout shifts (`CLS = 0` in Lighthouse CI).
-4. **WCAG 2.1 AA First-Try Pass (`@axe-core/playwright`):**
+   - Reserve explicit space (`aspect-ratio`, skeleton dimensions, `content-visibility: auto` on long lists) and keep main-thread event handlers lightweight so **Interaction to Next Paint (`INP`) stays `< 200ms`**.
+4. **WCAG 2.1 / 2.2 AA First-Try Pass (`@axe-core/playwright`) & AI-Agent DOM Readiness:**
    - Never use translucent text (`text-white/70` or `opacity: 0.5`) to create hierarchy; pick a solid shade (`OKLCH` / palette step) that clears `4.5:1` (normal text) or `3:1` (large text).
+   - Enforce **WCAG 2.2 SC 2.5.8 Target Size** ($\ge 24\times24\text{px}$ desktop, $\ge 44\times44\text{px}$ touch) and **SC 2.4.11 Focus Not Obscured** (`scroll-padding-top` on scroll containers so sticky headers/toolbars never cover focused inputs).
    - Pair semantic colors with geometric/text indicators (`▲`/`●`/`■`/`✕`) so colorblind and `forced-colors` users never rely on hue alone.
-   - Keep `role="list"` on unbulleted `<ul>` elements, and use `outline-hidden` instead of `outline-none` so keyboard focus rings remain visible in high-contrast modes.
+   - Keep `role="list"` on unbulleted `<ul>` elements, use `outline-hidden` instead of `outline-none` so keyboard focus rings remain visible in high-contrast modes, and maintain clean semantic ARIA landmarks (`<main>`, `<nav>`, `<label for>`, `aria-live="polite"`) so browser automation agents (Playwright, Karate UI) parse the Accessibility Tree deterministically.
 5. **Zero Orphan Theme Tokens:**
    - Define semantic role variables (`:root`, `.dark`, `[data-theme="light"]`, `[data-theme="high-contrast"]`) with 100% parity across all themes; never leave a custom property undefined in any theme.
 
