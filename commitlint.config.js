@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2026 QA Testing Blueprints Contributors
+
 module.exports = {
   // Extiende las reglas estándar de la industria (Conventional Commits)
   extends: ['@commitlint/config-conventional'],
@@ -27,14 +30,21 @@ module.exports = {
       2,
       'always',
       [
-        'python',   // Cambios en la carpeta python/
-        'fastapi',  // Cambios en la carpeta fastapi/
-        'node',     // Cambios en la carpeta node-backend/
-        'vue3',     // Cambios en la carpeta vue3/
-        'bash',     // Cambios en la carpeta bash-scripts/
-        'docs',     // Cambios en la carpeta docs/ o archivos .md globales
-        'ci',       // Cambios en configuración de integración continua
-        'global'    // Cambios que afectan a todo el repositorio
+        'python',     // Cambios en la carpeta python/
+        'fastapi',    // Cambios en la carpeta fastapi/
+        'node',       // Cambios en la carpeta node-backend/
+        'vue3',       // Cambios en la carpeta vue3/
+        'react',      // Cambios en la carpeta react-frontend/
+        'php',        // Cambios en la carpeta php/
+        'bash',       // Cambios en la carpeta bash-scripts/
+        'mcp-server', // Cambios en la carpeta mcp-server/
+        'agents',     // Cambios en .agents/ y gobernanza IA
+        'security',   // Mitigaciones de seguridad transversales
+        'gate',       // Compuertas de certificación 11X
+        'blueprints', // Plantillas multi-stack
+        'docs',       // Cambios en la carpeta docs/ o archivos .md globales
+        'ci',         // Cambios en configuración de integración continua
+        'global'      // Cambios que afectan a todo el repositorio
       ]
     ],
     

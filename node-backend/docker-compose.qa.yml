@@ -1,9 +1,12 @@
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 QA Testing Blueprints Contributors
+
 services:
   api:
     image: sinfallas/base-node-ionic:26
     container_name: node_api
     hostname: node_api
-    pull_policy: always
+    pull_policy: if_not_present
     environment:
       TZ: 'America/Caracas'
       PORT: 3000
@@ -14,17 +17,18 @@ services:
     working_dir: /app
     ports:
       - "3000:3000"
-    cap_add:
-      - SYS_PTRACE
-    security_opt:
-      - seccomp:unconfined
+    healthcheck:
+      test: ["CMD-SHELL", "node -e 'fetch(\"http://127.0.0.1:3000/health\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))'"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     command: bash -c "pnpm install && pnpm run dev"
 
   qa-node-backend:
     image: sinfallas/base-node-ionic:26
     container_name: node_qa_backend
     hostname: node_qa_backend
-    pull_policy: always
+    pull_policy: if_not_present
     environment:
       TZ: 'America/Caracas'
       PNPM_HOME: /pnpm
@@ -39,44 +43,48 @@ services:
     command: bash -c "echo 'Contenedor QA Node listo para Lint, Unit, BDD y Mutación. Usa docker compose run --rm qa-node-backend [comando]'; sleep infinity"
 
   karatelabs:
-    image: sinfallas/karatelabs:latest
+    image: sinfallas/karatelabs:1.5.0
     container_name: node_karate
     hostname: node_karate
-    pull_policy: always
+    pull_policy: if_not_present
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     volumes:
       - ./test:/app/src/test/java/examples/test
     command: bash -c "echo 'Contenedor Karate listo. Usa docker compose run --rm karatelabs mvn clean test'; sleep infinity"
 
   zap:
-    image: zaproxy/zap-stable:latest
+    image: zaproxy/zap-stable:2.15.0
     container_name: node_zap
     hostname: node_zap
-    pull_policy: always
+    pull_policy: if_not_present
     depends_on:
-      - api
-    user: root 
+      api:
+        condition: service_healthy
     volumes:
       - .:/zap/wrk/:rw
     command: bash -c "echo 'Contenedor ZAP listo. Usa docker compose run --rm zap zap-baseline.py -t http://api:3000 -r zap-report.html'; sleep infinity"
 
   pumba:
-    image: gaiaadm/pumba:latest
+    image: gaiaadm/pumba:0.10.1
     container_name: node_pumba
     hostname: node_pumba
+    pull_policy: if_not_present
     profiles:
       - chaos
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     command: netem --tc-image gaiadocker/iproute2 --duration 1m delay --time 500 --jitter 50 re2:^node_api$
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.55.1
     container_name: node_prometheus
     hostname: node_prometheus
+    pull_policy: if_not_present
     profiles:
       - chaos
     # Inyección de configuración inline (raspa la API de Node cada 2s para ver el impacto de Pumba)
@@ -97,27 +105,32 @@ services:
     ports:
       - "9090:9090"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
 
   stress_test:
     image: sinfallas/base-node-ionic:26
     container_name: node_chaos_artillery
     hostname: node_chaos_artillery
+    pull_policy: if_not_present
     profiles:
       - chaos
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     environment:
       PNPM_HOME: /pnpm
     volumes:
       - .:/app
       - pnpm-store:/pnpm
+    working_dir: /app
     command: bash -c "pnpm install && echo 'Esperando asimilación del caos...' && sleep 5 && pnpm run test:load -- --output chaos-report.json"
 
   graphify:
-    image: sinfallas/remote-graphify:latest
+    image: sinfallas/remote-graphify:1.0.0
     container_name: node_graphify
     hostname: node_graphify
+    pull_policy: if_not_present
     profiles:
       - graphify
     restart: always

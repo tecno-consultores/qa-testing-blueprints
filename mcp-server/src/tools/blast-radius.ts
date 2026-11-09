@@ -16,6 +16,10 @@ export function defaultGraphifyBuilder(resolvedPath: string): boolean {
   const scriptPath = path.join(resolvedPath, 'scripts', 'actualizar-grafos-graphify.sh');
   try {
     if (fs.existsSync(scriptPath)) {
+      const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
+      if (!scriptContent.includes('# SPDX-License-Identifier: MIT')) {
+        return false;
+      }
       execFileSync('bash', [scriptPath], {
         cwd: resolvedPath,
         stdio: 'pipe',
@@ -34,7 +38,7 @@ export function defaultGraphifyBuilder(resolvedPath: string): boolean {
         `${resolvedPath}:/app`,
         '-w',
         '/app',
-        'sinfallas/remote-graphify:latest',
+        'sinfallas/remote-graphify:1.0.0',
         'sh',
         '-c',
         'graphify extract . --code-only && graphify cluster-only . && rm -rf graphify-out/cache graphify-out/20* graphify-out/.graphify_* graphify-out/.cloud-cta-shown',
@@ -85,24 +89,29 @@ function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function normalizeRelativePath(rel: string): string {
+  return rel.replace(/\\/g, '/').replace(/^\.\//, '');
+}
+
 function calculateRiskLevel(count: number): 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' {
   if (count > 10) return 'CRITICAL';
-  if (count >= 6) return 'HIGH';
-  if (count >= 3) return 'MEDIUM';
+  if (count >= 7) return 'HIGH';
+  if (count >= 5) return 'MEDIUM';
   return 'LOW';
 }
 
 function registerSuggestedTest(rel: string, ext: string, suggestedTests: Set<string>): void {
+  const norm = normalizeRelativePath(rel);
   if (
-    rel.includes('.unit.') ||
-    rel.includes('.spec.') ||
-    rel.includes('.e2e.') ||
-    rel.endsWith('.feature') ||
-    rel.endsWith('.bats')
+    norm.includes('.unit.') ||
+    norm.includes('.spec.') ||
+    norm.includes('.e2e.') ||
+    norm.endsWith('.feature') ||
+    norm.endsWith('.bats')
   ) {
-    suggestedTests.add(rel);
+    suggestedTests.add(norm);
   } else {
-    const baseName = path.basename(rel, ext);
+    const baseName = path.basename(norm, ext);
     suggestedTests.add(`tests/**/${baseName}.unit.*`);
   }
 }
@@ -121,37 +130,44 @@ function processCandidateFile(
     // eslint-disable-next-line security/detect-non-literal-regexp
     const symbolRegex = new RegExp(`\\b${safePattern}\\b`);
     if (symbolRegex.test(content)) {
-      dependentFiles.add(rel);
-      registerSuggestedTest(rel, ext, suggestedTests);
+      const norm = normalizeRelativePath(rel);
+      dependentFiles.add(norm);
+      registerSuggestedTest(norm, ext, suggestedTests);
     }
   } catch {
     // Ignorar archivos ilegibles
   }
 }
 
-function isMatchingGraphNode(node: GraphNode, queryLower: string): boolean {
+function isMatchingGraphNode(node: GraphNode, queryLower: string, wordRegex: RegExp): boolean {
   const label = (node.label ?? '').toLowerCase();
   const id = (node.id ?? '').toLowerCase();
   const srcFile = (node.source_file ?? '').toLowerCase();
   return (
     label === queryLower ||
     id === queryLower ||
-    label.includes(queryLower) ||
-    srcFile.includes(queryLower)
+    wordRegex.test(label) ||
+    wordRegex.test(srcFile)
   );
 }
 
 function indexGraphNodes(
   nodes: GraphNode[],
-  queryLower: string
+  queryLower: string,
+  declaringFiles: Set<string>
 ): { matchedIds: Set<string>; nodeById: Map<string, GraphNode> } {
   const matchedIds = new Set<string>();
   const nodeById = new Map<string, GraphNode>();
+  // eslint-disable-next-line security/detect-non-literal-regexp
+  const wordRegex = new RegExp(`\\b${escapeRegex(queryLower)}\\b`);
   for (const node of nodes) {
     if (!node.id) continue;
     nodeById.set(node.id, node);
-    if (isMatchingGraphNode(node, queryLower)) {
+    if (isMatchingGraphNode(node, queryLower, wordRegex)) {
       matchedIds.add(node.id);
+      if (node.source_file) {
+        declaringFiles.add(normalizeRelativePath(node.source_file));
+      }
     }
   }
   return { matchedIds, nodeById };
@@ -171,20 +187,23 @@ function collectGraphCallers(
   graphFilePath: string,
   cleanSymbol: string,
   dependentFiles: Set<string>,
-  suggestedTests: Set<string>
+  suggestedTests: Set<string>,
+  declaringFiles: Set<string>
 ): void {
   try {
     const parsed = JSON.parse(fs.readFileSync(graphFilePath, 'utf-8')) as GraphData;
     const { matchedIds, nodeById } = indexGraphNodes(
       parsed.nodes ?? [],
-      cleanSymbol.toLowerCase()
+      cleanSymbol.toLowerCase(),
+      declaringFiles
     );
 
     for (const link of parsed.links ?? []) {
       const callerFile = resolveLinkCallerFile(link, matchedIds, nodeById);
       if (callerFile) {
-        dependentFiles.add(callerFile);
-        registerSuggestedTest(callerFile, path.extname(callerFile), suggestedTests);
+        const norm = normalizeRelativePath(callerFile);
+        dependentFiles.add(norm);
+        registerSuggestedTest(norm, path.extname(norm), suggestedTests);
       }
     }
   } catch {
@@ -198,7 +217,8 @@ function scanDirectory(
   cleanSymbol: string,
   dependentFiles: Set<string>,
   suggestedTests: Set<string>,
-  graphFiles: string[]
+  graphFiles: string[],
+  declaringFiles: Set<string>
 ): void {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
@@ -208,12 +228,12 @@ function scanDirectory(
 
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      scanDirectory(fullPath, rootPath, cleanSymbol, dependentFiles, suggestedTests, graphFiles);
+      scanDirectory(fullPath, rootPath, cleanSymbol, dependentFiles, suggestedTests, graphFiles, declaringFiles);
     } else if (entry.isFile()) {
-      const rel = path.relative(rootPath, fullPath);
+      const rel = normalizeRelativePath(path.relative(rootPath, fullPath));
       if (entry.name === 'graph.json') {
         graphFiles.push(rel);
-        collectGraphCallers(fullPath, cleanSymbol, dependentFiles, suggestedTests);
+        collectGraphCallers(fullPath, cleanSymbol, dependentFiles, suggestedTests, declaringFiles);
         continue;
       }
       const ext = path.extname(entry.name);
@@ -247,13 +267,20 @@ export async function inspectAstBlastRadius(
   const dependentFiles = new Set<string>();
   const suggestedTests = new Set<string>();
   const graphFiles: string[] = [];
+  const declaringFiles = new Set<string>();
 
-  scanDirectory(resolvedPath, resolvedPath, cleanSymbol, dependentFiles, suggestedTests, graphFiles);
+  scanDirectory(resolvedPath, resolvedPath, cleanSymbol, dependentFiles, suggestedTests, graphFiles, declaringFiles);
 
   if (graphFiles.length === 0 && options?.autoBuildIfMissing && !astGraphRebuilt) {
     astGraphRebuilt = builder(resolvedPath);
     if (astGraphRebuilt) {
-      scanDirectory(resolvedPath, resolvedPath, cleanSymbol, dependentFiles, suggestedTests, graphFiles);
+      scanDirectory(resolvedPath, resolvedPath, cleanSymbol, dependentFiles, suggestedTests, graphFiles, declaringFiles);
+    }
+  }
+
+  if (dependentFiles.size > declaringFiles.size) {
+    for (const declFile of declaringFiles) {
+      dependentFiles.delete(declFile);
     }
   }
 

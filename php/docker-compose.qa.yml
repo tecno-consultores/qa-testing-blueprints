@@ -5,6 +5,7 @@
 services:
   postgres-qa:
     image: postgres:17-alpine
+    pull_policy: if_not_present
     environment:
       POSTGRES_USER: qa_user
       POSTGRES_PASSWORD: qa_password_ephemeral
@@ -18,7 +19,8 @@ services:
       retries: 10
 
   keydb-qa:
-    image: eqalpha/keydb:alpine
+    image: eqalpha/keydb:6.3.4
+    pull_policy: if_not_present
     command: keydb-server --server-threads 2 --appendonly no --save ""
     healthcheck:
       test: ["CMD", "keydb-cli", "ping"]
@@ -28,6 +30,7 @@ services:
 
   qa-php:
     image: sinfallas/basephpcomposer:${PHP_VERSION:-8.5}
+    pull_policy: if_not_present
     working_dir: /var/www
     user: "1000:1000"
     volumes:
@@ -44,32 +47,45 @@ services:
         condition: service_healthy
       keydb-qa:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "php -r 'exit(@fsockopen(\"127.0.0.1\", 8000) ? 0 : 1);'"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
     command: sh -c "if [ -d public ]; then php -S 0.0.0.0:8000 -t public; else php -S 0.0.0.0:8000; fi"
 
   karatelabs:
-    image: sinfallas/karatelabs:latest
+    image: sinfallas/karatelabs:1.5.0
+    pull_policy: if_not_present
     working_dir: /workspace
     volumes:
       - .:/workspace
     environment:
       API_BASE_URL: http://qa-php:8000
     depends_on:
-      - qa-php
+      qa-php:
+        condition: service_healthy
 
   zap:
-    image: ghcr.io/zaproxy/zaproxy:stable
+    image: zaproxy/zap-stable:2.15.0
+    pull_policy: if_not_present
     working_dir: /zap/wrk
     volumes:
       - .:/zap/wrk
     depends_on:
-      - qa-php
+      qa-php:
+        condition: service_healthy
 
   pumba:
     image: gaiaadm/pumba:0.10.1
+    pull_policy: if_not_present
     profiles:
       - chaos
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      qa-php:
+        condition: service_healthy
     command: --interval 20s --random netem --duration 5s delay --time 250 re2:.*qa-php.*
 
 volumes:

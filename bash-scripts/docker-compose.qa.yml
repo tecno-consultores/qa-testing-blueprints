@@ -1,9 +1,12 @@
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 QA Testing Blueprints Contributors
+
 services:
   qa-bash:
-    image: sinfallas/base-bash-qa:latest
+    image: sinfallas/base-bash-qa:1.0.0
     container_name: bash_qa_env
     hostname: bash_qa_env
-    pull_policy: always
+    pull_policy: if_not_present
     environment:
       TZ: 'America/Caracas'
     volumes:
@@ -13,18 +16,20 @@ services:
     command: bash -c "echo 'Contenedor QA Bash listo para ShellCheck y BATS. Usa docker compose run --rm qa-bash [comando]'; sleep infinity"
 
   pushgateway:
-    image: prom/pushgateway:latest
+    image: prom/pushgateway:v1.10.0
     container_name: bash_pushgateway
     hostname: bash_pushgateway
+    pull_policy: if_not_present
     profiles:
       - observability
     ports:
       - "9091:9091"
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.55.1
     container_name: bash_prometheus
     hostname: bash_prometheus
+    pull_policy: if_not_present
     profiles:
       - observability
     entrypoint:
@@ -46,9 +51,10 @@ services:
       - pushgateway
 
   graphify:
-    image: sinfallas/remote-graphify:latest
+    image: sinfallas/remote-graphify:1.0.0
     container_name: bash_graphify
     hostname: bash_graphify
+    pull_policy: if_not_present
     profiles:
       - graphify
     restart: always

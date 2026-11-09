@@ -12,6 +12,11 @@
   "testRunner": "vitest",
   "coverageAnalysis": "perTest",
   "concurrency": 4,
+  "thresholds": {
+    "high": 90,
+    "low": 80,
+    "break": 80
+  },
   "mutate": [
     "src/**/*.ts",
     "!src/server.ts",

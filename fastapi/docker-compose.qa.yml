@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 QA Testing Blueprints Contributors
+
 services:
   api:
     image: sinfallas/base-python-uv:3.15
@@ -21,16 +24,18 @@ services:
     working_dir: /app
     ports:
       - "8000:8000"
-    cap_add:
-      - SYS_PTRACE
-    security_opt:
-      - seccomp:unconfined
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://127.0.0.1:8000/health\")' || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     command: bash -c "uv pip install --system -e '.[dev]' && (alembic upgrade head 2>/dev/null || true) && uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload"
 
   postgres:
     image: postgres:17-alpine
     container_name: fastapi_qa_db
     hostname: postgres
+    pull_policy: if_not_present
     restart: unless-stopped
     environment:
       POSTGRES_DB: qa_db
@@ -43,9 +48,10 @@ services:
       retries: 10
 
   keydb:
-    image: eqalpha/keydb:alpine
+    image: eqalpha/keydb:6.3.4
     container_name: fastapi_qa_keydb
     hostname: keydb
+    pull_policy: if_not_present
     restart: unless-stopped
     command: >
       keydb-server
@@ -81,44 +87,48 @@ services:
     command: bash -c "echo 'Contenedor QA Backend (Python) listo para Lint, Pytest y Mutmut'; sleep infinity"
 
   karatelabs:
-    image: sinfallas/karatelabs:latest
+    image: sinfallas/karatelabs:1.5.0
     container_name: fastapi_karate
     hostname: fastapi_karate
     pull_policy: if_not_present
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     volumes:
       - ./test:/app/src/test/java/examples/test
     command: bash -c "echo 'Contenedor Karate listo. Usa docker compose run --rm karatelabs mvn clean test'; sleep infinity"
 
   zap:
-    image: zaproxy/zap-stable:latest
+    image: zaproxy/zap-stable:2.15.0
     container_name: fastapi_zap
     hostname: fastapi_zap
     pull_policy: if_not_present
     depends_on:
-      - api
-    user: root
+      api:
+        condition: service_healthy
     volumes:
       - .:/zap/wrk/:rw
     command: bash -c "echo 'Contenedor ZAP listo. Usa docker compose run --rm zap zap-baseline.py -t http://api:8000 -r zap-report.html'; sleep infinity"
 
   pumba:
-    image: gaiaadm/pumba:latest
+    image: gaiaadm/pumba:0.10.1
     container_name: fastapi_pumba
     hostname: fastapi_pumba
+    pull_policy: if_not_present
     profiles:
       - chaos
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     command: netem --tc-image gaiadocker/iproute2 --duration 1m delay --time 500 --jitter 50 re2:^fastapi_api$
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.55.1
     container_name: fastapi_prometheus
     hostname: fastapi_prometheus
+    pull_policy: if_not_present
     profiles:
       - chaos
     entrypoint:
@@ -138,16 +148,19 @@ services:
     ports:
       - "9090:9090"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
 
   stress_test:
     image: sinfallas/base-python-uv:3.15
     container_name: fastapi_chaos_locust
     hostname: fastapi_chaos_locust
+    pull_policy: if_not_present
     profiles:
       - chaos
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     environment:
       UV_CACHE_DIR: /root/.cache/uv
     volumes:
@@ -157,9 +170,10 @@ services:
     command: bash -c "uv pip install --system -e '.[dev]' && echo 'Esperando estabilización...' && sleep 5 && locust -f locustfile.py --headless -u 200 -r 20 -t 1m --host http://api:8000 --html chaos-report.html"
 
   graphify:
-    image: sinfallas/remote-graphify:latest
+    image: sinfallas/remote-graphify:1.0.0
     container_name: fastapi_graphify
     hostname: fastapi_graphify
+    pull_policy: if_not_present
     profiles:
       - graphify
     restart: always

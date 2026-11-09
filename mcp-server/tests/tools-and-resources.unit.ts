@@ -251,7 +251,7 @@ describe('Tools and Resources Integration Suite', () => {
   });
 
   describe('inspectAstBlastRadius Tool', () => {
-    it('detects dependent files and calculates risk level MEDIUM (3-5)', async () => {
+    it('detects dependent files and calculates risk level MEDIUM (5-6)', async () => {
       fs.writeFileSync(
         path.join(targetProjectDir, 'service.py'),
         'from models import UserModel\n\ndef get_user(): pass\n',
@@ -263,6 +263,16 @@ describe('Tools and Resources Integration Suite', () => {
         'utf-8'
       );
       fs.writeFileSync(
+        path.join(targetProjectDir, 'repository.py'),
+        'from models import UserModel\n',
+        'utf-8'
+      );
+      fs.writeFileSync(
+        path.join(targetProjectDir, 'serializer.py'),
+        'from models import UserModel\n',
+        'utf-8'
+      );
+      fs.writeFileSync(
         path.join(targetProjectDir, 'test_user.unit.py'),
         'from models import UserModel\n',
         'utf-8'
@@ -271,7 +281,7 @@ describe('Tools and Resources Integration Suite', () => {
       const result = await inspectAstBlastRadius(targetProjectDir, 'UserModel');
 
       expect(result.target_symbol).toBe('UserModel');
-      expect(result.dependent_files_count).toBe(3);
+      expect(result.dependent_files_count).toBe(5);
       expect(result.risk_level).toBe('MEDIUM');
       expect(result.dependent_files).toContain('service.py');
       expect(result.dependent_files).toContain('controller.py');
@@ -279,13 +289,13 @@ describe('Tools and Resources Integration Suite', () => {
       expect(result.suggested_tests_to_run).toContain('test_user.unit.py');
     });
 
-    it('assigns LOW risk when dependent count <= 2', async () => {
+    it('assigns LOW risk when dependent count < 5', async () => {
       fs.writeFileSync(path.join(targetProjectDir, 'single.py'), 'def helper(): pass\n', 'utf-8');
       const result = await inspectAstBlastRadius(targetProjectDir, 'helper');
       expect(result.risk_level).toBe('LOW');
     });
 
-    it('assigns HIGH risk when dependent count is 6-10', async () => {
+    it('assigns HIGH risk when dependent count is 7-10', async () => {
       for (let i = 1; i <= 7; i++) {
         fs.writeFileSync(path.join(targetProjectDir, `mod_${i}.py`), 'from core import SharedSymbol\n', 'utf-8');
       }
@@ -409,18 +419,24 @@ describe('Tools and Resources Integration Suite', () => {
       });
       expect(refreshedRes.ast_graph_rebuilt).toBe(true);
 
-      // Probar defaultGraphifyBuilder con script local mockeado (exit 0 y exit 1)
+      // Probar defaultGraphifyBuilder con script local mockeado (exit 0, sin SPDX y exit 1)
       const scriptDir = path.join(freshDir, 'scripts');
       fs.mkdirSync(scriptDir, { recursive: true });
       const localGraphScript = path.join(scriptDir, 'actualizar-grafos-graphify.sh');
-      fs.writeFileSync(localGraphScript, '#!/usr/bin/env bash\nexit 0\n', { mode: 0o755 });
+      fs.writeFileSync(localGraphScript, '#!/usr/bin/env bash\n# SPDX-License-Identifier: MIT\nexit 0\n', { mode: 0o755 });
 
       const defaultBuilderOk = await inspectAstBlastRadius(freshDir, 'AutoBuiltSymbol', 20, {
         refreshGraph: true,
       });
       expect(defaultBuilderOk.ast_graph_rebuilt).toBe(true);
 
-      fs.writeFileSync(localGraphScript, '#!/usr/bin/env bash\nexit 1\n', { mode: 0o755 });
+      fs.writeFileSync(localGraphScript, '#!/usr/bin/env bash\nexit 0\n', { mode: 0o755 });
+      const defaultBuilderNoSpdx = await inspectAstBlastRadius(freshDir, 'AutoBuiltSymbol', 20, {
+        refreshGraph: true,
+      });
+      expect(defaultBuilderNoSpdx.ast_graph_rebuilt).toBeUndefined();
+
+      fs.writeFileSync(localGraphScript, '#!/usr/bin/env bash\n# SPDX-License-Identifier: MIT\nexit 1\n', { mode: 0o755 });
       const defaultBuilderFail = await inspectAstBlastRadius(freshDir, 'AutoBuiltSymbol', 20, {
         refreshGraph: true,
       });

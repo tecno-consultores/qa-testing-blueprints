@@ -22,3 +22,4 @@ scan:
     - vue3/docker-compose.qa.yml
     - react-frontend/docker-compose.qa.yml
     - bash-scripts/docker-compose.qa.yml
+    - php/docker-compose.qa.yml
