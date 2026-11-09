@@ -42,7 +42,7 @@ export function createMcpServer(options?: {
 
   const server = new McpServer({
     name: '@sinfallas/mcp-qa-11x',
-    version: '2.11.1',
+    version: '2.12.0',
   });
 
   // ============================================================================

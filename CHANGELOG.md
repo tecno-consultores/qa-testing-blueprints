@@ -6,6 +6,10 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+---
+
+## [2.12.0] - 2026-11-08
+
 ### 🛡️ Añadido y Mejorado (Added & Changed)
 * **Mejoras en Herramientas MCP (`inspect_ast_blast_radius`, `certify_11x_gate`, `audit_security_stig_owasp`) y Referencias Bajo Demanda (`07..09`):** Añadido soporte `auto_build_if_missing` y `refresh_graph` en `blast-radius.ts`; validación de cabeceras duplicadas en `CHANGELOG.md`, presupuesto `<= 40` líneas en `ACTIVE_TASK.md` y topología AST (`ast_topology_clean`) en `certify-gate.ts`; reglas estáticas `QA-KARATE-IDEMP` y `SEC-12` en `security-auditor.ts`; y módulos bajo demanda `07-mcp-agentic-security-governance.md`, `08-postgres-rls-zero-downtime-migrations.md` y `09-sre-observability-chaos-triage.md` (0 tokens de sobrecarga en prompt inicial).
 * **Evolución del Catálogo de 5 Skills Corporativas (`graphify-ast-navigator`, `docker-trivy-keydb-hardening`, `qa-11x-docker-certifier`, `refactoring-ui`):** Documentados los 4 pilares estratégicos y ciclo de vida completo de creación/consulta de grafos AST; `read_only: true`, guarda OOM (80% RAM) y bloqueo de `FLUSHALL`/`DEBUG` en KeyDB; ejecución incremental `perTest` en Mutation Testing; y criterios WCAG 2.2 AA (`SC 2.5.8`, `SC 2.4.11`), `INP < 200ms` y preparación del Accessibility Tree para agentes IA.
