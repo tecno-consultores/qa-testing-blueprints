@@ -6,6 +6,10 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+---
+
+## [2.14.0] - 2026-11-09
+
 ### 🛡️ Evolución Empírica QA 11X (Added, Changed & Fixed)
 * **Invariante PostgreSQL RLS Multi-Transacción (`after_begin`) y Rol `NOSUPERUSER NOBYPASSRLS` (`SEC-13` y `blueprint://database/postgres-rls-worm`):** Incorporado el recurso MCP `blueprint://database/postgres-rls-worm`, el patrón canónico en `08-postgres-rls-zero-downtime-migrations.md` (con `session.sync_session.info`, `@event.listens_for(AsyncSession.sync_session_class, "after_begin")`, rol `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS` y funciones `SECURITY DEFINER` `SET search_path = public` para login por `slug`/bootstrap) y la regla estática `SEC-13` en `audit_security_stig_owasp`.
 * **Cadena Forense WORM Determinista bajo Concurrencia (`seq_num BIGINT` + `pg_advisory_xact_lock`, `SEC-14`):** Documentada y auditada mediante `SEC-14` la prohibición de ordenar `audit_logs` (`prev_record_hash`) únicamente por `created_at DESC`, exigiendo secuencia monotónica (`seq_num`), bloqueo transaccional `SELECT pg_advisory_xact_lock(hashtext(tenant_key))`, seguimiento en sesión (`_rg_in_tx_audit_hash` / `_in_tx_audit_hash`) y `await session.flush()`.
