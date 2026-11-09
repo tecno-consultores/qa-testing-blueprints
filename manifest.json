@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.12.0",
-  "generated_at_utc": "2026-11-09T15:03:42Z",
+  "generated_at_utc": "2026-11-09T15:06:55Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -14,15 +14,15 @@
           "path": "bash-scripts/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "008b9e12e16fa931769052456a6d36b8d2ec0b41eb735d6e02d4587fd17fe220",
-          "size_bytes": 732
+          "sha256": "59896d7b11f8a9ed2c46573d5c5f7b55b1b41d3ac098bd4e813d1a77a25860b9",
+          "size_bytes": 762
         },
         {
           "path": "bash-scripts/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "9713ebc6e3fa0b2119090756728e38d2b38f634c82dd6a8dff1c37aec71bdd9a",
-          "size_bytes": 1747
+          "sha256": "c8898224125a2aed131f27ede666cbdcfce0c14a3381091af8743647a035ee4c",
+          "size_bytes": 1789
         },
         {
           "path": "bash-scripts/limpieza.sh",
@@ -42,8 +42,8 @@
           "path": "bash-scripts/test/test_install_skill.bats",
           "target_name": "test/test_install_skill.bats",
           "merge_strategy": "copy_if_missing",
-          "sha256": "4e50de98041a6a9feb97b962941643cad0fed93fa540ab0807c01e4a6f2d31e7",
-          "size_bytes": 1360
+          "sha256": "86d2ae5e32f544a0b80b45d69ed7e8cb839d7dbbb01b00b440513684a40cb882",
+          "size_bytes": 1576
         }
       ]
     },
@@ -55,8 +55,8 @@
           "path": "fastapi/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "4ce1caa281b97cc27a3d7439dd6f8059ee67d6506e0fd4e34abe91b05744ec3e",
-          "size_bytes": 2630
+          "sha256": "982c2b5d353656739129af1e367a130cbebf10e5a3a1f898bd59e9cf6511b048",
+          "size_bytes": 2927
         },
         {
           "path": "fastapi/docker-compose.qa.yml",
@@ -90,15 +90,15 @@
           "path": "fastapi/pyproject.toml.example",
           "target_name": "pyproject.toml",
           "merge_strategy": "surgical_merge",
-          "sha256": "71ba18fc37dfa49db491575d02ada395908446fe561560aed010a9f6da263998",
-          "size_bytes": 2250
+          "sha256": "45a64aa8486c005058c5ccf400f7287fdc4a112ccdc0ccfd7e04d9374b58b185",
+          "size_bytes": 2257
         },
         {
           "path": "fastapi/test/api_test.feature",
           "target_name": "test/api_test.feature",
           "merge_strategy": "copy_if_missing",
-          "sha256": "eb06267b54526f95029a116f512cf66f37ddce581372e2d2b93218b7beedf7ac",
-          "size_bytes": 3971
+          "sha256": "8419f3b4a40843e779d3b8b231ba06f6038e952fe46707fd14049aaf612188c3",
+          "size_bytes": 4328
         },
         {
           "path": "fastapi/test/test_production_no_dev_cleanliness.unit.py.example",
@@ -152,8 +152,8 @@
           "path": "node-backend/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "f19a281886f2fea50c87222b68d6feb6aa871147e6fd62a4fd73c0e5c3501400",
-          "size_bytes": 3821
+          "sha256": "4b23923a274c41763bc647a57ccee3eeb5ed853eccefaacca2c39adea0b25254",
+          "size_bytes": 3865
         },
         {
           "path": "node-backend/gitignore.example",
@@ -180,8 +180,8 @@
           "path": "node-backend/package.json.example",
           "target_name": "package.json",
           "merge_strategy": "surgical_merge",
-          "sha256": "0117218f1cd3510a09b5aa1410bfd8e9a0f76f411bf37958892c6ee0310aa298",
-          "size_bytes": 1748
+          "sha256": "a962ed7879233e22359d874bf089fab261ebba1c76f1f39375b8e24e25ee7151",
+          "size_bytes": 1774
         },
         {
           "path": "node-backend/stryker.conf.json.example",
@@ -221,8 +221,8 @@
           "path": "php/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "1545eae57a2b23380a9c3edb803c619fc58f11fc151b89933e2ec5734f8d2869",
-          "size_bytes": 2576
+          "sha256": "d23736adc64dbc884f69b7d43f8ef679f1ac76f9404c885cd14757c30363de10",
+          "size_bytes": 2846
         },
         {
           "path": "php/composer.json.example",
@@ -235,8 +235,8 @@
           "path": "php/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "d0d3c62e1f64b30c6ccad2a30a3ed925003db75e795a05f38dce8dda7c8d0405",
-          "size_bytes": 1520
+          "sha256": "d4909566a37d219c93bb8f07fe51da7e4c4b2abe4df988c1f9d2c60a72f0b802",
+          "size_bytes": 2019
         },
         {
           "path": "php/infection.json5.example",
@@ -277,8 +277,8 @@
           "path": "php/test/api_test.feature",
           "target_name": "test/api_test.feature",
           "merge_strategy": "copy_if_missing",
-          "sha256": "7afa54939f61331bf81dd825614f760cab1a9228e374d33d3a7fdb7572861757",
-          "size_bytes": 2856
+          "sha256": "dd7fc5f39d942d5d0d7d4e904cbf1dea184a1d8c50263cc1d16f93c062f259d2",
+          "size_bytes": 3017
         }
       ]
     },
@@ -290,8 +290,8 @@
           "path": "python/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "99d50bdf2a60578e39bf75670725c7e61157d2afafaa789fa8f4b111874041d9",
-          "size_bytes": 1004
+          "sha256": "053f5f8cd5c1ddf333205f62fe761172b6ee181fb39315cef0340c378155bde8",
+          "size_bytes": 1043
         },
         {
           "path": "python/docker-compose.qa.yml",
@@ -318,8 +318,8 @@
           "path": "python/pyproject.toml.example",
           "target_name": "pyproject.toml",
           "merge_strategy": "surgical_merge",
-          "sha256": "adeda1634b649f32371125793b4f43aaffff326b81bf464c9875a88fe08000fa",
-          "size_bytes": 1878
+          "sha256": "71e3ad00803a16f89228ad0ef50ae1cd4c9075fe6e9ad3a95784f3a00423dec2",
+          "size_bytes": 1885
         },
         {
           "path": "python/tox.ini.example",
@@ -436,8 +436,8 @@
           "path": "react-frontend/test/ui_business_flow.feature",
           "target_name": "test/ui_business_flow.feature",
           "merge_strategy": "copy_if_missing",
-          "sha256": "2cefa3959ef3f9a1763deaccf28d6960ea1f60130e9c8ae190bfb14b31af3786",
-          "size_bytes": 709
+          "sha256": "9560701dbcfa8b10b83c6434a74d60b87b333b33776a2f4a0610e4ec5529aa44",
+          "size_bytes": 930
         },
         {
           "path": "react-frontend/vitest.config.ts.example",
@@ -484,8 +484,8 @@
           "path": "vue3/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "65c75849e75de758c1648e7a2dce124b5720a7fcb00541eb596df9d330df77e1",
-          "size_bytes": 2759
+          "sha256": "fb1a25773756959c1602f5b692f26d4a70245050f74986067126f0b205632054",
+          "size_bytes": 3272
         },
         {
           "path": "vue3/docker-compose.qa.yml",

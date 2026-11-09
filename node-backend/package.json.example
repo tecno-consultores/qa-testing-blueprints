@@ -4,15 +4,16 @@
   "description": "Plantilla base para APIs Node.js corporativas (Linting estricto, Mocking, Profiling, BDD y Mutación)",
   "packageManager": "pnpm@9.15.4",
   "engines": {
-    "node": ">=22.0.0 || >=26.0.0",
+    "node": ">=22.0.0",
     "pnpm": ">=9.0.0"
   },
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
+    "type-check": "tsc --noEmit",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
-    "lint": "eslint src/**/*.ts --max-warnings 0",
+    "lint": "eslint \"src/**/*.ts\" --max-warnings 0",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "mutate": "stryker run",

@@ -37,7 +37,7 @@ qa-contracts:
 
 qa-bdd:
 	@echo "📚 [11X] Ejecutando Pruebas BDD de Caja Negra (Karate Labs API)..."
-	@docker compose -f $(COMPOSE_FILE) up -d postgres-qa keydb-qa
+	@docker compose -f $(COMPOSE_FILE) up -d postgres-qa keydb-qa qa-php
 	@docker compose -f $(COMPOSE_FILE) run --rm karatelabs
 
 qa-mutation:
@@ -46,9 +46,12 @@ qa-mutation:
 
 qa-dast:
 	@echo "🛡️ [11X] Ejecutando Auditoría Dinámica DAST y Verificación OSHP (OWASP ZAP)..."
+	@docker compose -f $(COMPOSE_FILE) up -d postgres-qa keydb-qa qa-php
+	@docker compose -f $(COMPOSE_FILE) run --rm zap zap-baseline.py -t http://qa-php:8000 -r zap-report.html
 
 qa-chaos:
 	@echo "💥 [11X] Ejecutando Ingeniería del Caos (Pumba + Prometheus)..."
+	@docker compose -f $(COMPOSE_FILE) --profile chaos up --abort-on-container-exit pumba
 
 qa-sbom:
 	@echo "📜 [11X] Generando SBOM CycloneDX 1.6 Criptográfico..."

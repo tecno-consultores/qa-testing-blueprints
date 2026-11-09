@@ -22,7 +22,13 @@ qa-unit:
 	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run test:coverage"
 
 qa-orphans:
-	@python3 .agents/scripts/verify_zero_orphan_vue_components.py 2>/dev/null || python3 ../.agents/scripts/verify_zero_orphan_vue_components.py
+	@echo "🧩 [11X] Verificando cero componentes UI huérfanos en Docker (Rule Zero)..."
+	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "\
+		if [ -f .agents/scripts/verify_zero_orphan_vue_components.py ]; then \
+			python3 .agents/scripts/verify_zero_orphan_vue_components.py; \
+		else \
+			node -e \"const fs=require('fs'),p=require('path'),d='src/components';if(fs.existsSync(d)){const m=fs.readdirSync(d).filter(f=>f.endsWith('.vue')&&!fs.existsSync(p.join(d,f.replace('.vue','.unit.ts')))&&!fs.existsSync(p.join(d,f.replace('.vue','.spec.ts'))));if(m.length){console.error('Componentes huerfanos:',m);process.exit(1)}}\"; \
+		fi"
 
 qa-mutation:
 	@echo "👽 [11X] Ejecutando Pruebas de Mutación Frontend (Stryker)..."

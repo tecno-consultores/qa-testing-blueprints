@@ -39,6 +39,7 @@ Feature: Validación BDD de Caja Negra de la API REST FastAPI y Manejo de Errore
 
   Scenario: 4. Envío de credenciales incompletas genera error de validación 422
     Given path '/api/v1/auth/login'
+    And header Idempotency-Key = newIdempotencyKey()
     And request { username: "solouser_sinpassword" }
     When method post
     Then status 422
@@ -56,7 +57,7 @@ Feature: Validación BDD de Caja Negra de la API REST FastAPI y Manejo de Errore
 
   Scenario: 5. Verificación de rechazo de payload malformado con tipos inválidos
     Given path '/api/v1/items'
-    And header Idempotency-Key = java.util.UUID.randomUUID() + ''
+    And header Idempotency-Key = newIdempotencyKey()
     And request { title: 12345, quantity: "no_es_numero" }
     When method post
     Then status 422
@@ -75,9 +76,17 @@ Feature: Validación BDD de Caja Negra de la API REST FastAPI y Manejo de Errore
   # de los módulos consumidores y la integridad semántica de la bitácora (Anti-UUID).
 
   Scenario: 7. Propagación transversal Read-After-Write y bitácora sin UUID crudo en actor_username
-    * def uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-    # Verificar que en respuestas de auditoría o eventos los nombres legibles nunca sean UUIDs crudos
-    Given path '/health'
+    # Paso 1 (Write): Registrar una mutación válida en el módulo origen con llave de idempotencia fresca
+    Given path '/api/v1/items'
+    And header Idempotency-Key = newIdempotencyKey()
+    And request { title: "Router Core 11X", quantity: 1 }
+    When method post
+    Then status 201
+    * def createdItemId = response.id
+
+    # Paso 2 (Read-After-Write): Consultar inmediatamente el módulo consumidor sin mocks intermedios
+    Given path '/api/v1/items', createdItemId
     When method get
     Then status 200
-    And match response.service != '#regex (?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    And match response.title == 'Router Core 11X'
+    And match response.actor_username != '#regex (?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'

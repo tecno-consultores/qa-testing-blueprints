@@ -3,7 +3,7 @@ name = "python-qa-blueprint"
 version = "0.2.0"
 description = "Plantilla base corporativa (11X) para scripts de Python con pruebas exhaustivas, BDD, y Profiling"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 dependencies = [
     "requests>=2.31.0",
     "python-dotenv>=1.0.0",
@@ -31,7 +31,7 @@ dev = [
     # Security & Mutation
     "bandit>=1.7.8",
     "pip-audit>=2.7.3",
-    "mutmut>=2.4.5",
+    "mutmut>=2.4.5,<3.0.0",
     
     # Complexity & Profiling
     "radon>=6.0.1",

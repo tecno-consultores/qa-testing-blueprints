@@ -11,6 +11,7 @@ services:
     volumes:
       - .:/app
       - pnpm-store:/pnpm
+    working_dir: /app
     ports:
       - "3000:3000"
     cap_add:
@@ -30,6 +31,7 @@ services:
     volumes:
       - .:/app
       - pnpm-store:/pnpm
+    working_dir: /app
     cap_add:
       - SYS_PTRACE
     security_opt:

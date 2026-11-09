@@ -5,8 +5,10 @@ Feature: Validación BDD de Caja Negra de la API REST PHP (8.2-8.5) y Manejo de 
 
   Background:
     # URL apuntando al servicio PHP dentro de la red interna de Docker
-    * url karate.properties['API_BASE_URL'] || 'http://qa-php:8000'
+    * def envBaseUrl = java.lang.System.getenv('API_BASE_URL')
+    * url karate.properties['API_BASE_URL'] || envBaseUrl || 'http://qa-php:8000'
     * configure headers = { 'Content-Type': 'application/json' }
+    * def newIdempotencyKey = function(){ return java.util.UUID.randomUUID() + '' }
 
   # ==============================================================================
   # Grupo 1: Observabilidad, Salud y Métricas

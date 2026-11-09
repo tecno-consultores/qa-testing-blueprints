@@ -8,6 +8,8 @@ services:
       TZ: 'America/Caracas'
     volumes:
       - .:/app
+      - ..:/repo:ro
+    working_dir: /app
     command: bash -c "echo 'Contenedor QA Bash listo para ShellCheck y BATS. Usa docker compose run --rm qa-bash [comando]'; sleep infinity"
 
   pushgateway:

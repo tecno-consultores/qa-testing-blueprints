@@ -7,7 +7,13 @@ setup() {
   load '/opt/bats-libs/bats-assert/load.bash'
   load '/opt/bats-libs/bats-mock/load.bash'
 
-  REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd)"
+  if [ -f "${BATS_TEST_DIRNAME}/../../scripts/install-skill.sh" ]; then
+    REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd)"
+  elif [ -f "/repo/scripts/install-skill.sh" ]; then
+    REPO_ROOT="/repo"
+  else
+    REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/.." && pwd)"
+  fi
   INSTALL_SCRIPT="${REPO_ROOT}/scripts/install-skill.sh"
 }
 

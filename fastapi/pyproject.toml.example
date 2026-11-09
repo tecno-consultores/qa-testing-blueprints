@@ -2,7 +2,7 @@
 name = "fastapi-qa-blueprint"
 version = "0.2.0"
 description = "Plantilla base para APIs en FastAPI con auditoría profunda, mocking, profiling y BDD"
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.110.0",
     "uvicorn[standard]>=0.27.0",
@@ -40,7 +40,7 @@ dev = [
     # Security, Vulnerability & Mutation
     "bandit>=1.7.8",
     "pip-audit>=2.7.3",
-    "mutmut>=2.4.5",
+    "mutmut>=2.4.5,<3.0.0",
     
     # Complexity & Profiling (Herramientas 11X)
     "radon>=6.0.1",
