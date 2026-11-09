@@ -493,7 +493,9 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert secSource.contains('isDirectRealAuditFunctionTest')
     * assert secSource.contains('SEC-13')
     * assert secSource.contains('SEC-14')
+    * assert secSource.contains('SEC-15')
     * assert secSource.contains('QA-COV-01')
+    * assert secSource.contains('QA-SMOKE-01')
 
     * def certifySource = karate.readAsString('file:src/tools/certify-gate.ts')
     * assert certifySource.contains(".env.example")

@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.13.0",
-  "generated_at_utc": "2026-11-09T17:27:49Z",
+  "generated_at_utc": "2026-11-09T17:33:24Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -104,8 +104,8 @@
           "path": "fastapi/test/test_production_no_dev_cleanliness.unit.py.example",
           "target_name": "test/test_production_no_dev_cleanliness.unit.py",
           "merge_strategy": "copy_if_missing",
-          "sha256": "465d04c78068d1f4367d4f48b85b76f783d3067ef5b0785a25132f19a16d7f39",
-          "size_bytes": 4404
+          "sha256": "f0d33084c9d934ea03f549fe82fcecf388b1b6be51aa048ab7097464d6c9c6e5",
+          "size_bytes": 5148
         },
         {
           "path": "fastapi/tox.ini.example",
@@ -784,8 +784,8 @@
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "efbf41753292a819ba513bf6f0b54064b29d520228e2b04f11a31e4714ee1d0d",
-      "size_bytes": 30234
+      "sha256": "a9822a3d001fa6e68403735ada9633ce86fa91d4dae2ff78f485c029802ba190",
+      "size_bytes": 31624
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
@@ -805,8 +805,8 @@
       "path": ".agents/skills/qa-11x-architect/references/03-stack-python-fastapi.md",
       "target_name": ".agents/skills/qa-11x-architect/references/03-stack-python-fastapi.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "8b0399384b4e7a43a4c2d8a9d3e04d68c58e54e1df36c0a46d0df37038966a98",
-      "size_bytes": 9940
+      "sha256": "3d08755fe539a1ae606da32483cea028421576ace343dbb531b6acea444af13f",
+      "size_bytes": 11711
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md",

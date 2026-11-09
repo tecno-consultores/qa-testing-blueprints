@@ -74,14 +74,32 @@ def test_no_dev_dependencies_imported_in_production_source() -> None:
 
 
 def test_production_app_instantiation_without_docs_and_swagger() -> None:
-    """Valida que create_app en modo producción desactive Swagger, Redoc y OpenAPI (STIG / OWASP)."""
-    from src.main import create_app
+    """Valida que create_app en modo producción desactive Swagger, Redoc y OpenAPI (STIG / OWASP).
 
-    with patch("src.main.settings.APP_ENV", "production"):
+    Invariante QA-SMOKE-01: Si src/ ya fue importado previamente en el proceso, mutar únicamente
+    os.environ["APP_ENV"] = "production" no actualiza el singleton settings ya instanciado en memoria.
+    Siempre debe sincronizarse tanto os.environ como el atributo en el singleton settings,
+    restaurando ambos en un bloque finally.
+    """
+    import os
+    from src.main import create_app, settings
+
+    prev_env = os.environ.get("APP_ENV")
+    prev_setting = getattr(settings, "APP_ENV", None)
+    try:
+        os.environ["APP_ENV"] = "production"
+        setattr(settings, "APP_ENV", "production")
         app = create_app()
         assert app.docs_url is None, "docs_url debe ser None en producción"
         assert app.redoc_url is None, "redoc_url debe ser None en producción"
         assert app.openapi_url is None, "openapi_url debe ser None en producción"
+    finally:
+        if prev_env is None:
+            os.environ.pop("APP_ENV", None)
+        else:
+            os.environ["APP_ENV"] = prev_env
+        if prev_setting is not None:
+            setattr(settings, "APP_ENV", prev_setting)
 
 
 @pytest.mark.asyncio

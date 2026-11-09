@@ -614,4 +614,68 @@ async def set_tenant(session: AsyncSession, tid: str):
     expect(cleanResult.findings.some((f) => f.rule_id === 'SEC-14')).toBe(false);
     expect(cleanResult.findings.some((f) => f.rule_id === 'QA-COV-01')).toBe(false);
   });
+
+  it('detecta QA-SMOKE-01 (desincronización de singleton settings en smoke test) y SEC-15 (falta de propagación -e LOCAL_ADMIN_PASS en docker exec)', async () => {
+    const testsDir = path.join(tempDir, 'tests');
+    const scriptsDir = path.join(tempDir, 'scripts');
+    fs.mkdirSync(testsDir, { recursive: true });
+    fs.mkdirSync(scriptsDir, { recursive: true });
+
+    fs.writeFileSync(
+      path.join(testsDir, 'test_production_boot_smoke.py'),
+      `import os
+from src.main import create_app
+
+def test_smoke():
+    os.environ["ROSGRID_ENV"] = "production"
+    app = create_app()
+    assert app.docs_url is None
+`
+    );
+
+    fs.writeFileSync(
+      path.join(scriptsDir, 'probar-prod-local.sh'),
+      `#!/usr/bin/env bash
+LOCAL_ADMIN_PASS="$(openssl rand -base64 24)"
+docker compose up -d
+docker exec api pytest tests/contracts/
+`
+    );
+
+    const res = await auditSecurityStigOwasp(tempDir);
+    expect(res.findings.some((f) => f.rule_id === 'QA-SMOKE-01')).toBe(true);
+    expect(res.findings.some((f) => f.rule_id === 'SEC-15')).toBe(true);
+
+    // Corregir ambos archivos sincronizando settings.ROSGRID_ENV y propagando -e ROSGRID_ADMIN_PASSWORD="${LOCAL_ADMIN_PASS}"
+    fs.writeFileSync(
+      path.join(testsDir, 'test_production_boot_smoke.py'),
+      `import os
+from src.main import create_app, settings
+
+def test_smoke():
+    prev = settings.ROSGRID_ENV
+    try:
+        os.environ["ROSGRID_ENV"] = "production"
+        settings.ROSGRID_ENV = "production"
+        app = create_app()
+        assert app.docs_url is None
+    finally:
+        settings.ROSGRID_ENV = prev
+`
+    );
+
+    fs.writeFileSync(
+      path.join(scriptsDir, 'probar-prod-local.sh'),
+      `#!/usr/bin/env bash
+LOCAL_ADMIN_PASS="$(openssl rand -base64 24)"
+export JWT_SECRET_KEY="$(openssl rand -hex 32)"
+docker compose up -d
+docker exec -e ROSGRID_ADMIN_PASSWORD="\${LOCAL_ADMIN_PASS}" api pytest tests/contracts/
+`
+    );
+
+    const cleanRes = await auditSecurityStigOwasp(tempDir);
+    expect(cleanRes.findings.some((f) => f.rule_id === 'QA-SMOKE-01')).toBe(false);
+    expect(cleanRes.findings.some((f) => f.rule_id === 'SEC-15')).toBe(false);
+  });
 });

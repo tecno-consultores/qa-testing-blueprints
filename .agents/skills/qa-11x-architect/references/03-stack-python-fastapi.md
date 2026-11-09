@@ -57,6 +57,26 @@ Instrumentator().instrument(app).expose(app)
   - Connect using a `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS` role; store `(tenant_id, is_superadmin)` in `session.sync_session.info` and register `@event.listens_for(AsyncSession.sync_session_class, "after_begin")` to re-apply `SET LOCAL app.current_tenant_id` across post-commit transactions; use `SECURITY DEFINER` (`SET search_path = public`) SQL functions for pre-auth slug/bootstrap queries.
   - Order hash-chained `audit_logs` by a monotonic `seq_num BIGINT` with `SELECT pg_advisory_xact_lock(hashtext(tenant_key))`, track `_in_tx_audit_hash` / `_rg_in_tx_audit_hash` on the session, and `await session.flush()` after each `write_audit_log()` call.
 
+- **In-Process Smoke Tests & Local Production Pipelines (`build.sh` / `probar-prod-local.sh`):**
+  - **Post-Import `Settings` Singleton Synchronization (`QA-SMOKE-01`):** When a `--no-dev` smoke test (`test_production_boot_smoke.py`) recursively imports all submodules of `src/` before calling `create_app()`, `src.core.config.settings` is already instantiated in memory with the initial environment (`local`/`development`). Mutating `os.environ["APP_ENV"] = "production"` (or `ROSGRID_ENV`) alone will NOT disable `/docs`, `/redoc`, or `/openapi.json`. Always mutate both `os.environ` AND the singleton attribute (`settings.APP_ENV = "production"` / `settings.ROSGRID_ENV = "production"`), restoring the original values in a `finally` block:
+    ```python
+    prev_env = os.environ.get("APP_ENV")
+    prev_attr = getattr(settings, "APP_ENV", None)
+    try:
+        os.environ["APP_ENV"] = "production"
+        settings.APP_ENV = "production"
+        app = create_app()
+        assert app.docs_url is None and app.redoc_url is None and app.openapi_url is None
+    finally:
+        if prev_env is None:
+            os.environ.pop("APP_ENV", None)
+        else:
+            os.environ["APP_ENV"] = prev_env
+        if prev_attr is not None:
+            settings.APP_ENV = prev_attr
+    ```
+  - **Ephemeral Secret Provisioning & `docker exec -e` Password Propagation (`SEC-15`):** When `Settings` enforces fail-fast rejection of default QA secrets in `production`, local production verification scripts (`probar-prod-local.sh`) MUST export ephemeral keys (`openssl rand -base64 32` / `openssl rand -hex 32`) prior to `docker compose up -d` and explicitly pass `-e <PASS_ENV_VAR>="${LOCAL_ADMIN_PASS}"` in the `docker exec` command that runs Front-Back E2E contract checks.
+
 ### C. Database Parity, Anti-Mock Blindness & Cross-Module State Propagation
 - NEVER mock SQLAlchemy sessions or Alembic migrations when testing persistence layers.
 - Run migrations against real PostgreSQL 17 in `docker-compose.qa.yml`.

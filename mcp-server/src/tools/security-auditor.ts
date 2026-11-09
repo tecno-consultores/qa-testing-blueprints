@@ -899,6 +899,75 @@ function checkQaCov01AddoptsBypass(relPath: string, lines: string[]): SecurityFi
   return findings;
 }
 
+function checkQaSmoke01SettingsSingletonSync(relPath: string, lines: string[]): SecurityFinding[] {
+  if (!relPath.endsWith('.py')) return [];
+  const fullText = lines.join('\n');
+  if (!fullText.includes('create_app(')) return [];
+
+  const setsOsEnvironProd =
+    /os\.environ\s*\[\s*["'][A-Z0-9_]*ENV["']\s*\]\s*=\s*["']production["']/.test(fullText);
+  if (!setsOsEnvironProd) return [];
+
+  const syncsSingleton =
+    /\bsettings\.[A-Za-z0-9_]*ENV\s*=\s*["']production["']/.test(fullText) ||
+    /\bsetattr\s*\(\s*settings\b/.test(fullText) ||
+    /\bpatch\s*\([^)]*settings/.test(fullText) ||
+    fullText.includes('cache_clear()');
+
+  if (syncsSingleton) return [];
+
+  const lineIdx = lines.findIndex((l) => l.includes('os.environ') && l.includes('production'));
+  return [
+    {
+      rule_id: 'QA-SMOKE-01',
+      severity: 'HIGH',
+      stig_owasp_ref: 'APSC-DV-002430 / OWASP SC-11 / In-Process Smoke Test Singleton Sync',
+      file: relPath,
+      line: (lineIdx >= 0 ? lineIdx : 0) + 1,
+      message:
+        'Smoke test muta os.environ["..._ENV"] = "production" antes de create_app() sin sincronizar el singleton settings ya instanciado en memoria tras importar src/.',
+      remediation:
+        'Actualizar explícitamente el atributo en el singleton (ej. settings.APP_ENV = "production" o settings.ROSGRID_ENV = "production") además de os.environ, restaurando ambos en un bloque finally.',
+    },
+  ];
+}
+
+function isDockerExecCommand(text: string): boolean {
+  return text.includes('docker exec') || text.includes('docker compose exec');
+}
+
+function checkSec15EphemeralProdPipelineCreds(relPath: string, lines: string[]): SecurityFinding[] {
+  if (!relPath.endsWith('.sh') && !relPath.endsWith('.bash')) return [];
+  const fullText = lines.join('\n');
+  const hasLocalAdminPass =
+    fullText.includes('LOCAL_ADMIN_PASS=') || fullText.includes('EPHEMERAL_ADMIN_PASS=');
+  if (!hasLocalAdminPass || !isDockerExecCommand(fullText)) return [];
+
+  const propagatesAdminPassInExec = lines.some(
+    (l) =>
+      isDockerExecCommand(l) &&
+      l.includes('-e ') &&
+      (l.includes('LOCAL_ADMIN_PASS') || l.includes('EPHEMERAL_ADMIN_PASS'))
+  );
+
+  if (propagatesAdminPassInExec) return [];
+
+  const lineIdx = lines.findIndex((l) => isDockerExecCommand(l));
+  return [
+    {
+      rule_id: 'SEC-15',
+      severity: 'HIGH',
+      stig_owasp_ref: 'APSC-DV-002310 / Fail-Secure Ephemeral Credential Propagation',
+      file: relPath,
+      line: (lineIdx >= 0 ? lineIdx : 0) + 1,
+      message:
+        'Script de validación productiva define LOCAL_ADMIN_PASS / EPHEMERAL_ADMIN_PASS pero ejecuta docker exec sin propagar la contraseña efímera mediante -e <PASS_ENV_VAR>="${LOCAL_ADMIN_PASS}".',
+      remediation:
+        'Exportar llaves efímeras con openssl rand (>= 32 bytes) antes de docker compose up -d y propagar explícitamente docker exec -e <PASS_ENV_VAR>="${LOCAL_ADMIN_PASS}" hacia el validador de contratos.',
+    },
+  ];
+}
+
 function scanSingleFile(absPath: string, relPath: string): SecurityFinding[] {
   let content: string;
   try {
@@ -921,7 +990,9 @@ function scanSingleFile(absPath: string, relPath: string): SecurityFinding[] {
     ...checkSec12McpServiceRbac(relPath, lines),
     ...checkSec13RlsMultiTxPersistence(relPath, lines),
     ...checkSec14WormDeterministicChain(relPath, lines),
+    ...checkSec15EphemeralProdPipelineCreds(relPath, lines),
     ...checkQaCov01AddoptsBypass(relPath, lines),
+    ...checkQaSmoke01SettingsSingletonSync(relPath, lines),
     ...checkQaKarateStaticIdempotency(relPath, lines),
     ...checkUi11x01VisualGeometry(relPath, lines),
     ...checkUi11x02DualRefreshAndSemanticElse(relPath, lines),
