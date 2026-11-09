@@ -18,10 +18,13 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 def find_graph_files() -> list[Path]:
-    graphs = []
+    graphs: list[Path] = []
+    seen: set[Path] = set()
     for pattern in ["**/graphify-out/graph.json", "**/graph.json"]:
-        for p in REPO_ROOT.glob(pattern):
-            if "node_modules" not in str(p) and ".venv" not in str(p):
+        for p in sorted(REPO_ROOT.glob(pattern)):
+            resolved = p.resolve()
+            if resolved not in seen and "node_modules" not in str(p) and ".venv" not in str(p):
+                seen.add(resolved)
                 graphs.append(p)
     return graphs
 
@@ -86,7 +89,8 @@ def main() -> int:
             if violations:
                 all_violations.extend([f"[{g_path.name}] {v}" for v in violations])
         except Exception as e:
-            print(f"⚠️ Error procesando grafo {g_path}: {e}")
+            print(f"❌ Error procesando grafo {g_path}: {e}")
+            all_violations.append(f"[{g_path.name}] Grafo AST corrupto o ilegible (Fail-Secure): {e}")
 
     if all_violations:
         print("❌ Se detectaron violaciones de límites de capas:")

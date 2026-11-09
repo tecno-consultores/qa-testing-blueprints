@@ -310,7 +310,7 @@ export interface QaMutationSummary {
 }
 
 export interface QaExecutionResult {
-  status: 'PASSED' | 'FAILED';
+  status: 'PASSED' | 'FAILED' | 'SKIPPED';
   stage: string;
   exit_code: number;
   duration_ms: number;

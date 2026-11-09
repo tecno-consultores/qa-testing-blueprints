@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.12.0",
-  "generated_at_utc": "2026-11-09T14:55:53Z",
+  "generated_at_utc": "2026-11-09T15:03:42Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -700,15 +700,15 @@
       "path": ".agents/scripts/certify_task_completion.sh",
       "target_name": ".agents/scripts/certify_task_completion.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "70e7d677120bf113c26ae47a86def0e82263ba520b2781d8bab30f03af24c126",
-      "size_bytes": 4397
+      "sha256": "4c2f319651406b3fd05aa8d3001feae259bbc373abdc43f29082382146c692e7",
+      "size_bytes": 4982
     },
     {
       "path": ".agents/scripts/inspect_blast_radius.py",
       "target_name": ".agents/scripts/inspect_blast_radius.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "9bb89a8b5a45d2de93966683e72afcdb6d5d5576c7e448f6e93eb46c6b6700ca",
-      "size_bytes": 7541
+      "sha256": "fec072760b52170948543086cfef3ec032bc4c142737fc685d40175ace52d297",
+      "size_bytes": 7562
     },
     {
       "path": ".agents/scripts/verify_alembic_orm_parity.py",
@@ -742,8 +742,8 @@
       "path": ".agents/scripts/verify_topological_health.py",
       "target_name": ".agents/scripts/verify_topological_health.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "e9e04c967db108d2eb6365a1cc44fc4641b3af348c58409f7c69e741cb185f03",
-      "size_bytes": 3558
+      "sha256": "9315cb1bcc76778210bd66ee082e1339b12675be5428b96741d3c40c45a9c8c3",
+      "size_bytes": 3801
     },
     {
       "path": ".agents/scripts/verify_zero_orphan_vue_components.py",

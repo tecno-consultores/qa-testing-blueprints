@@ -44,9 +44,9 @@ def find_matching_nodes(graph: dict[str, Any], query: str) -> list[dict[str, Any
     query_lower = query.lower()
     matches = []
     for node in graph.get("nodes", []):
-        label = node.get("label", "").lower()
-        node_id = node.get("id", "").lower()
-        source_file = node.get("source_file", "").lower()
+        label = str(node.get("label") or "").lower()
+        node_id = str(node.get("id") or "").lower()
+        source_file = str(node.get("source_file") or "").lower()
         if query_lower == label or query_lower == node_id or query_lower in source_file or query_lower in label:
             matches.append(node)
     return matches

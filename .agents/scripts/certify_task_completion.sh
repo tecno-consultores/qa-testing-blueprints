@@ -12,9 +12,9 @@ echo "🛡️ [QA 11X Gate] Ejecutando 10 validaciones de certificación..."
 # 1. Auditoría de Secretos
 printf "[1/10] "
 if [ -f "${REPO_ROOT}/scripts/verificar-secretos.sh" ]; then
-  "${REPO_ROOT}/scripts/verificar-secretos.sh"
+  bash "${REPO_ROOT}/scripts/verificar-secretos.sh"
 elif [ -f "${REPO_ROOT}/verificar-secretos.sh" ]; then
-  "${REPO_ROOT}/verificar-secretos.sh"
+  bash "${REPO_ROOT}/verificar-secretos.sh"
 else
   echo "ℹ️ Script verificar-secretos.sh no encontrado (omitido)."
 fi
@@ -22,9 +22,9 @@ fi
 # 2. Auditoría Preventiva de Infraestructura (Trivy IaC & FS)
 printf "[2/10] "
 if [ -f "${REPO_ROOT}/scripts/auditar-infra.sh" ]; then
-  "${REPO_ROOT}/scripts/auditar-infra.sh"
+  bash "${REPO_ROOT}/scripts/auditar-infra.sh"
 elif [ -f "${REPO_ROOT}/auditar-infra.sh" ]; then
-  "${REPO_ROOT}/auditar-infra.sh"
+  bash "${REPO_ROOT}/auditar-infra.sh"
 else
   echo "ℹ️ Script auditar-infra.sh no encontrado (omitido)."
 fi
@@ -67,7 +67,8 @@ ALL_CHANGED=$({
   git diff --name-only HEAD 2>/dev/null || true
   git ls-files --others --exclude-standard 2>/dev/null || true
 } | sort -u)
-CODE_CHANGES=$(echo "${ALL_CHANGED}" | grep -E '^(fastapi|vue3|node-backend|python|react-frontend|bash-scripts|php|mcp-server)/' | grep -vE '\.md$' || true)
+CODE_CHANGES=$(echo "${ALL_CHANGED}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|bash-scripts|php|mcp-server|scripts)/|\.agents/scripts/|Makefile$|lefthook\.yml$|commitlint\.config\.js$)' | grep -vE '(\.md$|graphify-out/graph\.json$)' || true)
+EXEC_SRC_CHANGES=$(echo "${CODE_CHANGES}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|php|mcp-server)/src/|src/|bash-scripts/)' | grep -vE '(\.unit\.(py|ts|tsx)|\.e2e\.ts|test_.*\.py|.*\.test\.(ts|js)|\.feature|\.bats)' || true)
 DOC_CHANGES=$(echo "${ALL_CHANGED}" | grep -E '(\.md$|^docs/)' || true)
 
 if [ -n "${CODE_CHANGES}" ]; then
@@ -78,25 +79,34 @@ if [ -n "${CODE_CHANGES}" ]; then
   KARATE_STATUS=$([ -n "${KARATE_CHANGES}" ] && echo "Karate BDD actualizado" || echo "sin cambios .feature")
   DOC_COUNT=$([ -n "${DOC_CHANGES}" ] && echo "${DOC_CHANGES}" | grep -c . || echo 0)
 
-  if [ "${TEST_COUNT}" -gt 0 ] && [ "${DOC_COUNT}" -gt 0 ]; then
-    echo "✔ [Doc & Test Sync] ${CODE_COUNT} archivo(s) de stack | ${TEST_COUNT} prueba(s) (${KARATE_STATUS}) | ${DOC_COUNT} doc(s) sincronizados."
+  GATE10_FAILED=0
+  if [ -n "${EXEC_SRC_CHANGES}" ] && [ "${TEST_COUNT}" -eq 0 ]; then
+    GATE10_FAILED=1
+  fi
+  if [ "${DOC_COUNT}" -eq 0 ]; then
+    GATE10_FAILED=1
+  fi
+
+  if [ "${GATE10_FAILED}" -eq 0 ]; then
+    echo "✔ [Doc & Test Sync] ${CODE_COUNT} archivo(s) de código/config | ${TEST_COUNT} prueba(s) (${KARATE_STATUS}) | ${DOC_COUNT} doc(s) sincronizados."
   else
-    echo "⚠️ [Doc & Test Sync] Cambios detectados en ${CODE_COUNT} archivo(s) de stack:"
+    echo "❌ [Doc & Test Sync] Incumplimiento detectado en ${CODE_COUNT} archivo(s) modificados:"
     while IFS= read -r line; do
       [ -n "${line}" ] && echo "  - ${line}"
     done <<<"${CODE_CHANGES}"
-    if [ "${TEST_COUNT}" -eq 0 ]; then
-      echo "  ⚠️ ADVERTENCIA: Se modificaron stacks pero NO se detectan pruebas unitarias, E2E o BDD nuevas o modificadas."
+    if [ -n "${EXEC_SRC_CHANGES}" ] && [ "${TEST_COUNT}" -eq 0 ]; then
+      echo "  ❌ ERROR: Se modificó código fuente ejecutable pero NO se detectan pruebas unitarias, E2E o BDD nuevas o modificadas."
     fi
     if [ "${DOC_COUNT}" -eq 0 ]; then
-      echo "  ⚠️ ADVERTENCIA: Se modificó código pero NO se han actualizado docs/, CHANGELOG.md, TESTING.md o README.md."
+      echo "  ❌ ERROR: Se modificó código o configuración pero NO se han actualizado docs/, CHANGELOG.md, TESTING.md o README.md."
     fi
+    exit 1
   fi
 elif [ -n "${DOC_CHANGES}" ]; then
   DOC_COUNT=$(echo "${DOC_CHANGES}" | grep -c . || true)
   echo "✔ [Doc Fast-Path] Solo cambios de documentación (${DOC_COUNT} archivo(s) .md); 0 cambios de código (se omite re-ejecución de suites y grafo AST)."
 else
-  echo "✔ [Doc & Test Sync] Árbol de código limpio (0 cambios pendientes en stacks)."
+  echo "✔ [Doc & Test Sync] Árbol de código limpio (0 cambios pendientes)."
 fi
 
 echo "✅ CERTIFICACIÓN EXITOSA: El proyecto cumple con el estándar 11X"

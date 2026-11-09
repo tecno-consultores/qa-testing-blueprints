@@ -101,12 +101,15 @@ describe('ephemeral-runner', () => {
     expect(result.exit_code).toBe(1);
   });
 
-  it('isDocsOnlyWorkspaceChange detecta cuando git status contiene solo cambios en *.md o docs/', () => {
-    const mockGitDocsOnly = (() => ' M README.md\n?? docs/specs/12_reconcile.md\nR  OLD.md -> CHANGELOG.md\n') as unknown as typeof execFileSync;
+  it('isDocsOnlyWorkspaceChange detecta cuando git status contiene solo cambios en *.md o archivos documentales en docs/', () => {
+    const mockGitDocsOnly = (() => ' M README.md\n?? docs/specs/12_reconcile.md\nR  OLD.md -> CHANGELOG.md\n M docs/diagram.svg\n') as unknown as typeof execFileSync;
     expect(isDocsOnlyWorkspaceChange(tempDir, mockGitDocsOnly)).toBe(true);
 
     const mockGitMixed = (() => ' M README.md\n M src/server.ts\n') as unknown as typeof execFileSync;
     expect(isDocsOnlyWorkspaceChange(tempDir, mockGitMixed)).toBe(false);
+
+    const mockGitCodeInDocs = (() => ' M docs/exploit.py\n') as unknown as typeof execFileSync;
+    expect(isDocsOnlyWorkspaceChange(tempDir, mockGitCodeInDocs)).toBe(false);
 
     const mockGitEmpty = (() => '\n') as unknown as typeof execFileSync;
     expect(isDocsOnlyWorkspaceChange(tempDir, mockGitEmpty)).toBe(false);
@@ -117,16 +120,18 @@ describe('ephemeral-runner', () => {
     expect(isDocsOnlyWorkspaceChange(tempDir, mockGitError)).toBe(false);
   });
 
-  it('aplica Fast-Path Docs-Only cuando skipIfDocsOnly=true y solo cambiaron archivos Markdown', async () => {
+  it('aplica Fast-Path Docs-Only devolviendo SKIPPED y detected=false cuando skipIfDocsOnly=true y solo cambiaron archivos Markdown', async () => {
     const mockGitDocsOnly = (() => ' M README.md\n M CHANGELOG.md\n') as unknown as typeof execFileSync;
     const result = await runEphemeralQa(tempDir, 'unit', 60, {
       skipIfDocsOnly: true,
       execFileSyncFn: mockGitDocsOnly,
     });
 
-    expect(result.status).toBe('PASSED');
+    expect(result.status).toBe('SKIPPED');
     expect(result.exit_code).toBe(0);
-    expect(result.coverage.passed).toBe(true);
+    expect(result.coverage.detected).toBe(false);
+    expect(result.coverage.percent).toBe(0);
+    expect(result.coverage.passed).toBe(false);
     expect(result.tail_log).toContain('[Fast-Path Docs-Only]');
   });
 });

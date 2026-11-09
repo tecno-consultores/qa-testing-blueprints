@@ -148,6 +148,147 @@ function checkOrphanUiComponents(projectPath: string): { passed: boolean; blocke
   return { passed: blockers.length === 0, blockers };
 }
 
+const ARCHITECTURAL_API_WHITELIST: Array<{ verb: string; path: string }> = [
+  { verb: 'GET', path: '/health' },
+  { verb: 'GET', path: '/api/v1/health' },
+  { verb: 'GET', path: '/metrics' },
+  { verb: 'GET', path: '/api/v1/metrics/fleet' },
+  { verb: 'POST', path: '/api/v1/mcp' },
+  { verb: 'GET', path: '/users/me' },
+  { verb: 'GET', path: '/api/v1/auth/me' },
+  { verb: 'POST', path: '/api/v1/auth/logout' },
+  { verb: 'GET', path: '/api/v1/auth/bootstrap-status' },
+];
+
+function matchesRouteSegments(routePath: string, testUrl: string): boolean {
+  const routeSegs = routePath.replace(/\/+$/, '').split('/');
+  const urlSegs = testUrl.replace(/\/+$/, '').split('/');
+  if (routeSegs.length !== urlSegs.length) return false;
+  for (let i = 0; i < routeSegs.length; i++) {
+    const rSeg = routeSegs[i];
+    const isParam = rSeg.startsWith('{') || rSeg.startsWith(':');
+    if (!isParam && rSeg !== urlSegs[i]) return false;
+  }
+  return true;
+}
+
+function collectFilesWithExtensions(dir: string, exts: string[]): string[] {
+  const found: string[] = [];
+  if (!fs.existsSync(dir)) return found;
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (entry.name === 'node_modules' || entry.name === 'dist' || entry.name === '.git') continue;
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      found.push(...collectFilesWithExtensions(full, exts));
+    } else if (exts.some((e) => entry.name.endsWith(e))) {
+      found.push(full);
+    }
+  }
+  return found;
+}
+
+function normalizeSubRoute(sub: string): string {
+  if (!sub) return '';
+  return sub.startsWith('/') ? sub : `/${sub}`;
+}
+
+function extractBackendRoutesFromFile(filePath: string): Array<{ verb: string; path: string }> {
+  const routes: Array<{ verb: string; path: string }> = [];
+  const code = fs.readFileSync(filePath, 'utf8');
+  const prefixMatch = code.match(/APIRouter\([^)]*prefix\s*=\s*['"]([^'"]+)['"]/);
+  const routerPrefix = prefixMatch ? prefixMatch[1].replace(/\/+$/, '') : '';
+  const basePrefix = filePath.split(path.sep).includes('v1') ? '/api/v1' : '';
+
+  const decoRegex = /@(?:[a-zA-Z0-9_]+)\.(get|post|put|patch|delete)\(\s*['"]([^'"]*)['"]/gi;
+  let m: RegExpExecArray | null;
+  while ((m = decoRegex.exec(code)) !== null) {
+    const verb = m[1].toUpperCase();
+    const subNorm = normalizeSubRoute(m[2]);
+    routes.push({ verb, path: `${basePrefix}${routerPrefix}${subNorm}` });
+  }
+
+  const expressRegex = /\b(?:router|app)\.(get|post|put|patch|delete)\(\s*['"]([^'"]+)['"]/gi;
+  while ((m = expressRegex.exec(code)) !== null) {
+    routes.push({ verb: m[1].toUpperCase(), path: m[2] });
+  }
+  return routes;
+}
+
+function extractFrontendCallsFromFile(
+  projectPath: string,
+  filePath: string
+): Array<{ verb: string; url: string; relFile: string }> {
+  const calls: Array<{ verb: string; url: string; relFile: string }> = [];
+  if (/\.(unit|spec|test|e2e)\.(ts|tsx|js|jsx)$/.test(filePath)) return calls;
+  const code = fs.readFileSync(filePath, 'utf8');
+  const callRegex = /\b(?:http|api|axios)\.(get|post|put|patch|delete)\b[^(\n]*\(\s*['"`]([^'"`\n]+)['"`]/gi;
+  let m: RegExpExecArray | null;
+  while ((m = callRegex.exec(code)) !== null) {
+    const verb = m[1].toUpperCase();
+    let rawUrl = m[2].replace(/\s+/g, '');
+    if (!rawUrl.startsWith('/api/v1') && !rawUrl.startsWith('api/v1') && !rawUrl.startsWith('/health')) {
+      continue;
+    }
+    if (!rawUrl.startsWith('/')) rawUrl = `/${rawUrl}`;
+    const cleanUrl = rawUrl.split('?')[0];
+    calls.push({ verb, url: cleanUrl, relFile: path.relative(projectPath, filePath) });
+  }
+  return calls;
+}
+
+function matchesAnyRoute(
+  verb: string,
+  url: string,
+  routes: Array<{ verb: string; path: string }>
+): boolean {
+  const testUrl = url.replace(/\$\{[^}]+\}/g, 'test_param');
+  for (const r of routes) {
+    if (r.verb !== verb) continue;
+    if (matchesRouteSegments(r.path, testUrl)) return true;
+  }
+  return false;
+}
+
+function checkZeroOrphanApiEndpoints(projectPath: string): { passed: boolean; blockers: string[] } {
+  const backendDirs = [
+    path.join(projectPath, 'fastapi', 'src'),
+    path.join(projectPath, 'node-backend', 'src'),
+    path.join(projectPath, 'backend', 'src'),
+    path.join(projectPath, 'src', 'api'),
+  ];
+  const frontendDirs = [
+    path.join(projectPath, 'vue3', 'src'),
+    path.join(projectPath, 'react-frontend', 'src'),
+    path.join(projectPath, 'frontend', 'src'),
+  ];
+
+  const backendFiles = backendDirs.flatMap((d) => collectFilesWithExtensions(d, ['.py', '.ts', '.js']));
+  const frontendFiles = frontendDirs.flatMap((d) =>
+    collectFilesWithExtensions(d, ['.ts', '.tsx', '.vue', '.js', '.jsx'])
+  );
+
+  const backendRoutes = backendFiles.flatMap((f) => extractBackendRoutesFromFile(f));
+  const frontendCalls = frontendFiles.flatMap((f) => extractFrontendCallsFromFile(projectPath, f));
+
+  if (backendRoutes.length === 0 || frontendCalls.length === 0) {
+    return { passed: true, blockers: [] };
+  }
+
+  const allAllowedRoutes = [...backendRoutes, ...ARCHITECTURAL_API_WHITELIST];
+  const blockers: string[] = [];
+
+  for (const call of frontendCalls) {
+    if (!matchesAnyRoute(call.verb, call.url, allAllowedRoutes)) {
+      blockers.push(
+        `Llamada HTTP huérfana en frontend hacia endpoint inexistente (404/405): [${call.verb}] ${call.url} en ${call.relFile}`
+      );
+    }
+  }
+
+  return { passed: blockers.length === 0, blockers };
+}
+
 function checkOrmParity(projectPath: string): { passed: boolean; blockers: string[] } {
   const blockers: string[] = [];
   const modelPaths = [
@@ -306,6 +447,7 @@ export async function certify11xGate(projectPath: string): Promise<CertifyGateRe
   const unmerged = checkUnmergedExamples(resolvedPath);
   const jsonCheck = checkJsonIntegrity(resolvedPath);
   const orphanUi = checkOrphanUiComponents(resolvedPath);
+  const orphanApi = checkZeroOrphanApiEndpoints(resolvedPath);
   const ormCheck = checkOrmParity(resolvedPath);
   const astTopology = checkAstTopology(resolvedPath);
   const docCheck = checkDocumentationSync(resolvedPath);
@@ -327,6 +469,7 @@ export async function certify11xGate(projectPath: string): Promise<CertifyGateRe
     ...unmerged.blockers,
     ...jsonCheck.blockers,
     ...orphanUi.blockers,
+    ...orphanApi.blockers,
     ...ormCheck.blockers,
     ...astTopology.blockers,
     ...securityBlockers,
@@ -338,7 +481,7 @@ export async function certify11xGate(projectPath: string): Promise<CertifyGateRe
     zero_secrets_exposed: !secretsExposed,
     json_integrity: jsonCheck.passed,
     zero_orphan_ui_components: orphanUi.passed,
-    zero_orphan_api_endpoints: true,
+    zero_orphan_api_endpoints: orphanApi.passed,
     orm_alembic_parity: ormCheck.passed,
     ast_topology_clean: astTopology.passed,
     security_stig_owasp_clean: securityAudit.passed,

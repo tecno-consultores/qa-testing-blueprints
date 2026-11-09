@@ -204,4 +204,43 @@ describe('certify-gate', () => {
     expect(result.blockers.some((b) => b.includes('QA-KARATE-IDEMP'))).toBe(true);
     expect(result.blockers.some((b) => b.includes('SEC-12'))).toBe(true);
   });
+
+  it('detecta llamadas HTTP huérfanas en frontend hacia endpoints inexistentes (zero_orphan_api_endpoints)', async () => {
+    setupNominalProject(tempDir);
+
+    const apiDir = path.join(tempDir, 'fastapi', 'src', 'api', 'v1');
+    fs.mkdirSync(apiDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(apiDir, 'routers.py'),
+      'router = APIRouter(prefix="/devices")\n@router.get("")\nasync def list_devices():\n    return []\n@router.get("/{device_id}")\nasync def get_device(device_id: str):\n    return {}\n'
+    );
+    fs.writeFileSync(
+      path.join(tempDir, 'fastapi', 'src', 'legacy.py'),
+      '@app.get("status")\nasync def status():\n    return {}\n'
+    );
+
+    const nodeApiDir = path.join(tempDir, 'node-backend', 'src');
+    fs.mkdirSync(path.join(nodeApiDir, 'node_modules'), { recursive: true });
+    fs.writeFileSync(
+      path.join(nodeApiDir, 'routes.ts'),
+      'app.get("/api/v1/nodes/:id", (req, res) => res.json({}));\n'
+    );
+
+    const frontDir = path.join(tempDir, 'vue3', 'src', 'services');
+    fs.mkdirSync(frontDir, { recursive: true });
+    fs.writeFileSync(path.join(frontDir, 'api.unit.ts'), '// ignored test file\n');
+    fs.writeFileSync(
+      path.join(frontDir, 'api.ts'),
+      'export async function fetchAll() {\n  await http.get("/api/v1/devices");\n  await http.get("api/v1/devices/123?refresh=true");\n  await http.get("/api/v1/nodes/abc");\n  await http.get("/health");\n  await http.get("https://external.example.com/status");\n  await http.post("/api/v1/nonexistent-endpoint");\n}\n'
+    );
+
+    const result = await certify11xGate(tempDir);
+    expect(result.gate_passed).toBe(false);
+    expect(result.checks.zero_orphan_api_endpoints).toBe(false);
+    expect(
+      result.blockers.some((b) =>
+        b.includes('Llamada HTTP huérfana en frontend hacia endpoint inexistente (404/405): [POST] /api/v1/nonexistent-endpoint')
+      )
+    ).toBe(true);
+  });
 });

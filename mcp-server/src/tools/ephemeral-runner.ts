@@ -13,9 +13,32 @@ export interface RunEphemeralQaOptions {
   skipIfDocsOnly?: boolean;
 }
 
+const DOC_EXTENSIONS = new Set([
+  '.md',
+  '.txt',
+  '.rst',
+  '.adoc',
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.svg',
+  '.gif',
+  '.webp',
+  '.pdf',
+]);
+
+function isDocFilePath(fp: string): boolean {
+  const normalized = fp.replace(/\\/g, '/').toLowerCase();
+  if (normalized.endsWith('.md')) return true;
+  const inDocsDir = normalized.startsWith('docs/') || normalized.includes('/docs/');
+  if (!inDocsDir) return false;
+  const ext = path.posix.extname(normalized);
+  return DOC_EXTENSIONS.has(ext);
+}
+
 /**
  * Determina si el árbol de trabajo Git contiene exclusivamente cambios en documentación
- * (*.md o archivos dentro de docs/). Si no hay cambios o hay al menos 1 archivo de código,
+ * (*.md o archivos documentales dentro de docs/). Si no hay cambios o hay al menos 1 archivo de código,
  * configuración o prueba modificado, devuelve false.
  */
 export function isDocsOnlyWorkspaceChange(
@@ -42,9 +65,7 @@ export function isDocsOnlyWorkspaceChange(
       return arrowIdx !== -1 ? cleaned.slice(arrowIdx + 4).trim() : cleaned;
     });
 
-    return filePaths.every(
-      (fp) => fp.endsWith('.md') || fp.startsWith('docs/') || fp.includes('/docs/')
-    );
+    return filePaths.every((fp) => isDocFilePath(fp));
   } catch {
     return false;
   }
@@ -66,15 +87,15 @@ export async function runEphemeralQa(
 
   if (options?.skipIfDocsOnly && isDocsOnlyWorkspaceChange(resolvedPath, options.execFileSyncFn)) {
     return {
-      status: 'PASSED',
+      status: 'SKIPPED',
       stage,
       exit_code: 0,
       duration_ms: 0,
       coverage: {
-        detected: true,
-        percent: 100,
+        detected: false,
+        percent: 0,
         threshold: 95.0,
-        passed: true,
+        passed: false,
         uncovered_files: [],
       },
       failed_tests: [],
