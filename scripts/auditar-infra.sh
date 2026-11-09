@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
-# Copyright (C) 2026 QA Testing Blueprints Contributors
+# Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 # Propósito: Auditoría efímera de Infraestructura como Código (IaC) usando Trivy.
 # Cumple estrictamente con la Regla Cero (ejecución en contenedor Docker efímero con montaje :ro)
 # e incluye caché criptográfica SHA-256 para evitar re-escaneos redundantes cuando IaC/lockfiles no cambian.

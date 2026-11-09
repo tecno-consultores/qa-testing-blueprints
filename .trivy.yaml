@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Copyright (C) 2026 QA Testing Blueprints Contributors
+# Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 # Configuración oficial de Trivy para QA Testing Blueprints (Estándar QA 11X)
 # Excluye orquestadores exclusivos de QA efímero (que requieren SYS_PTRACE para py-spy,
 # user: root para OWASP ZAP y docker.sock:ro para Pumba Chaos) del escaneo IaC de producción.

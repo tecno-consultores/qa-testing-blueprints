@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
-# Copyright (C) 2026 QA Testing Blueprints Contributors
+# Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 # Propósito: Extracción y actualización canónica e incremental de grafos semánticos AST (Graphify)
 # para los stacks presentes en el proyecto (FastAPI, Python, Node, Vue 3, React, PHP, MCP, Backend, Frontend o Raíz).
 # Cumple estrictamente con la Regla Cero (ejecución en contenedor Docker efímero) y salida Pass-Quiet (1 línea).

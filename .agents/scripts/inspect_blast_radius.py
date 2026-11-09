@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-# Copyright (C) 2026 QA Testing Blueprints Contributors
+# Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 """
 Script de Inspección Rápida de Radio de Impacto (Blast Radius) mediante Graphify AST.
 Permite evaluar matemáticamente antes de refactorizar cuántos y cuáles archivos

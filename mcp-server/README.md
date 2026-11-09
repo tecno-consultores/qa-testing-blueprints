@@ -72,3 +72,13 @@ npx -y @sinfallas/mcp-qa-11x@latest init-agents [--project-path <ruta>] [--dry-r
 - `blueprint://core/active-task-template`: Plantilla canónica `.agents/ACTIVE_TASK.md.example`.
 - `blueprint://core/cleanup-script`: Script universal `scripts/limpieza.sh`.
 - `blueprint://core/roadmap-validator`: Validador bidireccional `verify_roadmap_consistency.py`.
+- `blueprint://database/postgres-rls-worm`: Implementación canónica de PostgreSQL 17 RLS Multi-Transacción (`after_begin`) y cadena forense WORM determinista (`seq_num` + `pg_advisory_xact_lock`).
+
+---
+
+## 📄 Autoría, Copyright y Licencia
+
+- **Autor:** Jesus Palencia (`<sinfallas@gmail.com>`)
+- **Copyright:** `Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)`
+- **Licencia:** Distribuido bajo la licencia [MIT](../LICENSE).
+

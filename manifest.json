@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.14.0",
-  "generated_at_utc": "2026-11-09T17:36:15Z",
+  "generated_at_utc": "2026-11-09T20:11:47Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -21,15 +21,15 @@
           "path": "bash-scripts/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "1cfc47644a0d2d75e5b7502c02741ec822a0ed22797611fa9a4033baf07ed300",
-          "size_bytes": 1981
+          "sha256": "e1649af585ee42cbe856c6f92eef7de6168a9c0586575d2d73da1a0b1561fdaa",
+          "size_bytes": 2013
         },
         {
           "path": "bash-scripts/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "d3e84bc7d0bf9fd8fd79943cf90f8518838a767cea0442d509cf886039f8f3ba",
-          "size_bytes": 2028
+          "sha256": "db785a8fa119c5356881a9d241edcee8a4f02013206fc6852b264e49c5c2ab09",
+          "size_bytes": 2060
         },
         {
           "path": "bash-scripts/test/ejemplo_mock.bats",
@@ -42,8 +42,8 @@
           "path": "bash-scripts/test/test_install_skill.bats",
           "target_name": "test/test_install_skill.bats",
           "merge_strategy": "copy_if_missing",
-          "sha256": "86d2ae5e32f544a0b80b45d69ed7e8cb839d7dbbb01b00b440513684a40cb882",
-          "size_bytes": 1576
+          "sha256": "dcdf6ca489e1172d598dff47276fc2b5bb0b84f3c3d38ede6e544d87f38d2d78",
+          "size_bytes": 1608
         }
       ]
     },
@@ -62,8 +62,8 @@
           "path": "fastapi/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "b33bd71dfe7cef43adc9652fe0a1ba0f19035ee4b47de154842eef57116204a0",
-          "size_bytes": 5755
+          "sha256": "bc23e55301115fc73921c1f25cc05b8b44c128a76f1c52e7f13559f67f2a9454",
+          "size_bytes": 5787
         },
         {
           "path": "fastapi/gitignore.example",
@@ -76,8 +76,8 @@
           "path": "fastapi/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "0837e730f603ae9c672a0d8c7c6da4e61d9c40c0092c80e90a87b2437df19874",
-          "size_bytes": 2878
+          "sha256": "8ff3088f4b76d00511433015f275f9ab77cbe6ce9f54d01fe787a70860b355cc",
+          "size_bytes": 2910
         },
         {
           "path": "fastapi/locustfile.py.example",
@@ -97,15 +97,15 @@
           "path": "fastapi/test/api_test.feature",
           "target_name": "test/api_test.feature",
           "merge_strategy": "copy_if_missing",
-          "sha256": "8419f3b4a40843e779d3b8b231ba06f6038e952fe46707fd14049aaf612188c3",
-          "size_bytes": 4328
+          "sha256": "fd9a1d9cf02466b126fd42d4e874edd03004b15522bf9695229607531fffe1a3",
+          "size_bytes": 4360
         },
         {
           "path": "fastapi/test/test_production_no_dev_cleanliness.unit.py.example",
           "target_name": "test/test_production_no_dev_cleanliness.unit.py",
           "merge_strategy": "copy_if_missing",
-          "sha256": "f0d33084c9d934ea03f549fe82fcecf388b1b6be51aa048ab7097464d6c9c6e5",
-          "size_bytes": 5148
+          "sha256": "351dc0a3a0219f5574696700cfd28c5fbe82801f549131f5fecc8f6d455d26b4",
+          "size_bytes": 5180
         },
         {
           "path": "fastapi/tox.ini.example",
@@ -152,8 +152,8 @@
           "path": "node-backend/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "11b85e6ec162dbbd3d96740dab2320d30be1df7025f360f86f3e4d82bf276d88",
-          "size_bytes": 4421
+          "sha256": "a6d4184eda30bcb656e4bef037aad009cedba4fc69992259cbe7f5ebbad1a3c1",
+          "size_bytes": 4453
         },
         {
           "path": "node-backend/gitignore.example",
@@ -166,8 +166,8 @@
           "path": "node-backend/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "163b8aa406085fe0053dcfa411731e2e94c299854b277d0bb4678a7c6641904c",
-          "size_bytes": 2228
+          "sha256": "93bd878080be3af55fc4dd768353270dba59f4ca15825df38347a1fcfdf8e4be",
+          "size_bytes": 2260
         },
         {
           "path": "node-backend/npmrc.example",
@@ -194,8 +194,8 @@
           "path": "node-backend/test/node_api.feature",
           "target_name": "test/node_api.feature",
           "merge_strategy": "copy_if_missing",
-          "sha256": "ad109696d60895fe9f835f6c0e163f4bea22b5eaad785f357d8b2f118c8a82dc",
-          "size_bytes": 793
+          "sha256": "551e857ff7efbaccf1848fa9d5155ff3b2aa6eb1056afbb710d3a27a264e6ba9",
+          "size_bytes": 825
         },
         {
           "path": "node-backend/tsconfig.json.example",
@@ -235,8 +235,8 @@
           "path": "php/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "9723dc93ab779b53ee33b4c11609e32491da0c206ed0606a6207354ba31d83dc",
-          "size_bytes": 2494
+          "sha256": "36fa26b5bb1d92f190e7c490828947d4863ea43a4b3821355369c662d20d1df0",
+          "size_bytes": 2526
         },
         {
           "path": "php/infection.json5.example",
@@ -249,15 +249,15 @@
           "path": "php/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "90df3b1f5a5bad479e4f8e581eaaf5271a47c882a8af96c99786e946529299c4",
-          "size_bytes": 1900
+          "sha256": "127143ac4e426b5e63eca4a5e104ef29c13ab9e6108788270ad48b2bd0b75e3f",
+          "size_bytes": 1932
         },
         {
           "path": "php/php.ini.example",
           "target_name": "php.ini",
           "merge_strategy": "surgical_merge",
-          "sha256": "466d77a5b711594a3103a0187bb2d0ae6df9577cc7aa0daa8da9edf995c41a85",
-          "size_bytes": 1152
+          "sha256": "4f0e71a69a8caceb8c6572a67fcaa7f7ddc0ad419ccf8b6bcd048d5c424ed5b8",
+          "size_bytes": 1184
         },
         {
           "path": "php/phpstan.neon.example",
@@ -270,15 +270,15 @@
           "path": "php/phpunit.xml.example",
           "target_name": "phpunit.xml",
           "merge_strategy": "surgical_merge",
-          "sha256": "e077b4ec63f2396d1a2cc8d3ad12d7f76a31fcb160457fcf357951ebb0861d50",
-          "size_bytes": 1750
+          "sha256": "d86185583e5cac7139fe0512f3757345db2aa33d7dd4f21a5783a4debdacb164",
+          "size_bytes": 1782
         },
         {
           "path": "php/test/api_test.feature",
           "target_name": "test/api_test.feature",
           "merge_strategy": "copy_if_missing",
-          "sha256": "dd7fc5f39d942d5d0d7d4e904cbf1dea184a1d8c50263cc1d16f93c062f259d2",
-          "size_bytes": 3017
+          "sha256": "0467b6dcc4a4758891e3df3cd0ee9b70ab6b5ae8c09f5c2c80418691f5fbca73",
+          "size_bytes": 3049
         }
       ]
     },
@@ -297,8 +297,8 @@
           "path": "python/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "36b1d847a7ef3d5d1d9186467ab4028c1fc3830e5c934e1cc385e62286861451",
-          "size_bytes": 2445
+          "sha256": "edebc354d45f44271aa7bad5b11b0dd42eb211eb416cf9497b75ceb08904519d",
+          "size_bytes": 2477
         },
         {
           "path": "python/gitignore.example",
@@ -311,8 +311,8 @@
           "path": "python/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "443ca161415ef6c55bd5d093207b9df17d83f3371407c1fd9b80205e0b773a78",
-          "size_bytes": 2677
+          "sha256": "58b23c66b526bfc7968bd810b285e28a04085f52e49664d89edd2110d54514eb",
+          "size_bytes": 2709
         },
         {
           "path": "python/pyproject.toml.example",
@@ -366,15 +366,15 @@
           "path": "react-frontend/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "8e1e64c6e773a258d086ed7850aea59487ff29fd5f319385bcb94022df619711",
-          "size_bytes": 3990
+          "sha256": "982c8abfe2b900c73e3f5038bb69ebd83b116a81e5601de084f9b40e9e2fea90",
+          "size_bytes": 4022
         },
         {
           "path": "react-frontend/e2e/accessibility.e2e.ts",
           "target_name": "e2e/accessibility.e2e.ts",
           "merge_strategy": "copy_if_missing",
-          "sha256": "2632cc3d9adefe81d7dbcb4158c565106e83481dea9be8c79b0359cf264db3cf",
-          "size_bytes": 2463
+          "sha256": "5ecb63033e982cabf2bec5a369c15cbb852d452623f8fb75d1cda18990fadd92",
+          "size_bytes": 2495
         },
         {
           "path": "react-frontend/gitignore.example",
@@ -387,22 +387,22 @@
           "path": "react-frontend/lighthouserc.js.example",
           "target_name": "lighthouserc.js",
           "merge_strategy": "surgical_merge",
-          "sha256": "06f577c1cc5c9da39b7ae1fa9a57a2c1c77ee61e83242a436b13ce5143515d68",
-          "size_bytes": 912
+          "sha256": "2a155d94aa33dcb52fdd86756d278643eb136aa0601716f062519c24e45de68a",
+          "size_bytes": 944
         },
         {
           "path": "react-frontend/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "277b0898fc73039549b79faf1d22ed44bc0be2a3e0fd396acacdf6723050ca5e",
-          "size_bytes": 2445
+          "sha256": "55209bce53260b7b1b9ba821687dc6625679f3ca24d8abd35da484333dd2dd44",
+          "size_bytes": 2477
         },
         {
           "path": "react-frontend/nginx/default.conf.example",
           "target_name": "nginx/default.conf",
           "merge_strategy": "copy_if_missing",
-          "sha256": "3abe7f82f1232d6bcbca10e20c444525f0825b12ff479ae5ea1de6b6056d05b3",
-          "size_bytes": 3904
+          "sha256": "e06a4bd01e931365d281ef65487125a3a10d17cd9a66a37717fc52ce1e15f193",
+          "size_bytes": 3936
         },
         {
           "path": "react-frontend/npmrc.example",
@@ -436,8 +436,8 @@
           "path": "react-frontend/test/ui_business_flow.feature",
           "target_name": "test/ui_business_flow.feature",
           "merge_strategy": "copy_if_missing",
-          "sha256": "9560701dbcfa8b10b83c6434a74d60b87b333b33776a2f4a0610e4ec5529aa44",
-          "size_bytes": 930
+          "sha256": "5e9f0cc00585ecde3988ebe21eefc99adbed31322efc54da4665d771c92b4536",
+          "size_bytes": 962
         },
         {
           "path": "react-frontend/vitest.config.ts.example",
@@ -491,15 +491,15 @@
           "path": "vue3/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "4a09ecfe4bf4b326a0a6d70c1fa84451dbb25d95223a907dcfa6ced07a643163",
-          "size_bytes": 3963
+          "sha256": "4142f58203b8b54baa402de8bd9eaadf5f0375e7e29b709ca7df011ed1039b1e",
+          "size_bytes": 3995
         },
         {
           "path": "vue3/e2e/accessibility.e2e.ts",
           "target_name": "e2e/accessibility.e2e.ts",
           "merge_strategy": "copy_if_missing",
-          "sha256": "2632cc3d9adefe81d7dbcb4158c565106e83481dea9be8c79b0359cf264db3cf",
-          "size_bytes": 2463
+          "sha256": "5ecb63033e982cabf2bec5a369c15cbb852d452623f8fb75d1cda18990fadd92",
+          "size_bytes": 2495
         },
         {
           "path": "vue3/gitignore.example",
@@ -512,22 +512,22 @@
           "path": "vue3/lighthouserc.js.example",
           "target_name": "lighthouserc.js",
           "merge_strategy": "surgical_merge",
-          "sha256": "06f577c1cc5c9da39b7ae1fa9a57a2c1c77ee61e83242a436b13ce5143515d68",
-          "size_bytes": 912
+          "sha256": "2a155d94aa33dcb52fdd86756d278643eb136aa0601716f062519c24e45de68a",
+          "size_bytes": 944
         },
         {
           "path": "vue3/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "9955b62ade950523925b7d56520cc51859c306ec81e1909ab6d910cbc47776b7",
-          "size_bytes": 2539
+          "sha256": "d026926a6ad99bfb2276b543668bb517c41ac8aa6d6a0cf5b2a1c8bbc2b492c4",
+          "size_bytes": 2571
         },
         {
           "path": "vue3/nginx/default.conf.example",
           "target_name": "nginx/default.conf",
           "merge_strategy": "copy_if_missing",
-          "sha256": "faff839ba6c844d91bde88647f64d26cca85c8979bcc9b883bc0456fe6976f41",
-          "size_bytes": 3904
+          "sha256": "ab91ad76f505c6adb4fb28b5eaac2f7cae74009b27df0963a0b8112fdd50b12b",
+          "size_bytes": 3936
         },
         {
           "path": "vue3/npmrc.example",
@@ -561,8 +561,8 @@
           "path": "vue3/test/ui_business_flow.feature",
           "target_name": "test/ui_business_flow.feature",
           "merge_strategy": "copy_if_missing",
-          "sha256": "03f09f267ca856595691abcd49748d1799634d4ec17ace4e7cc0e7c50a9c69e1",
-          "size_bytes": 3487
+          "sha256": "b8494a22b1a1b395a0b691c811f1af956d697909cebed6c46d013641a7e8e5ce",
+          "size_bytes": 3519
         },
         {
           "path": "vue3/vitest.config.ts.example",
@@ -579,22 +579,22 @@
       "path": ".env.example",
       "target_name": ".env.example",
       "merge_strategy": "copy_if_missing",
-      "sha256": "e7fb02835a6e9c7d2e4dced2ffa796581ed8f7b55745db9c444cd8180b484d99",
-      "size_bytes": 1401
+      "sha256": "27ead7e50a8b92c6c23e7e8aa8948966dc3e248aead5f076e03fe5970a409833",
+      "size_bytes": 1433
     },
     {
       "path": ".trivy.yaml",
       "target_name": ".trivy.yaml",
       "merge_strategy": "copy_if_missing",
-      "sha256": "9368543f5c1ac61f722781b0fe596836fdf4bac9ae570b317f9a76e2d7807875",
-      "size_bytes": 864
+      "sha256": "1dbead8cf29f29ff315c67d082cb8a10973f471a66fb1cdf38321249236fea66",
+      "size_bytes": 896
     },
     {
       "path": "commitlint.config.js",
       "target_name": "commitlint.config.js",
       "merge_strategy": "copy_if_missing",
-      "sha256": "c417b9f4e23ec02651ef18ad20ff1dfda100fe5fc64895992f344182d598a4d7",
-      "size_bytes": 2949
+      "sha256": "0273fc8684dbc5f36444753ccc6b746ec80e4e80c03c8be73a3b7f74b0be4afc",
+      "size_bytes": 2981
     },
     {
       "path": "lefthook.yml",
@@ -607,43 +607,43 @@
       "path": "scripts/actualizar-grafos-graphify.sh",
       "target_name": "scripts/actualizar-grafos-graphify.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "5e1e6e5b4fd56aa8e1e56fe9968daf2acb1479f1b606deca1a172531e8444745",
-      "size_bytes": 4106
+      "sha256": "8ba2c9b5e19f130860b186b95bd265d85c518e6b9d552e5f6ff84e20f20d5c8a",
+      "size_bytes": 4138
     },
     {
       "path": "scripts/auditar-infra.sh",
       "target_name": "scripts/auditar-infra.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "9538dd5cd2dfb25f34d504d790308430ad92f1bf80911a751d8c2100d546cbfe",
-      "size_bytes": 2328
+      "sha256": "51984c63e41dfefa936c83928f1411f6b86a71e4cc37f1afa3c0297c4fae9293",
+      "size_bytes": 2360
     },
     {
       "path": "scripts/generar-sbom-cyclonedx.sh",
       "target_name": "scripts/generar-sbom-cyclonedx.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "4b66824b4ccf59bd0e9491a19933ac7e768be1f829c5aaf3c6b2b1bad08f4030",
-      "size_bytes": 808
+      "sha256": "e894701316190abdbbb692c2dc61bf1598a5d80c04dfb5adef713a7f0ff28500",
+      "size_bytes": 840
     },
     {
       "path": "scripts/limpieza.sh",
       "target_name": "scripts/limpieza.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "4cf570b81b83f977c9adf4f13786bfef06fd9a470ae678bbb44f4ddb33799fcf",
-      "size_bytes": 5107
+      "sha256": "5cf29fbdb8ab901a129637fd6aed8acfeb323a01ea18b79ada67075362c3f3af",
+      "size_bytes": 5139
     },
     {
       "path": "scripts/publicar-mcp.sh",
       "target_name": "scripts/publicar-mcp.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "9601f52c7102ede6fe266d827b13090ce3a7ca6ae87dc6014065c07992abb460",
-      "size_bytes": 11780
+      "sha256": "7e1c371e9ac4760f88946cd61d1ee34220e745a8d2d51fbbce076538f6fb45e3",
+      "size_bytes": 11812
     },
     {
       "path": "scripts/verificar-secretos.sh",
       "target_name": "scripts/verificar-secretos.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "b57a2eab832a30111659616da10b82670222f3421bebafb78c7d7b2403e7a697",
-      "size_bytes": 1330
+      "sha256": "8794fd7f810417063d77279bbeb352a677216608043da42182f84f06bc4d3629",
+      "size_bytes": 1362
     }
   ],
   "agent_governance_files": [
@@ -651,8 +651,8 @@
       "path": ".agents/ACTIVE_TASK.md.example",
       "target_name": ".agents/ACTIVE_TASK.md",
       "merge_strategy": "copy_if_missing",
-      "sha256": "3ef22f1ef3d2e77c0120b6f0cee8cd288a8f7f2ae468be571557abdddf3d60ac",
-      "size_bytes": 3128
+      "sha256": "9f82b1cd02aa3fb8b326cf61814cfe4bc8d8acfda0297e3405d6dcb22e0fd91f",
+      "size_bytes": 3160
     },
     {
       "path": ".agents/README.md",
@@ -665,106 +665,106 @@
       "path": ".agents/rules/active_task_and_planning_resilience.md",
       "target_name": ".agents/rules/active_task_and_planning_resilience.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "f27aae63efb3a3346eaa076651b12c98e44ec636d80510a59b33dfcb8806e89e",
-      "size_bytes": 4343
+      "sha256": "8c8794e1237c319b65d778369960a31e41127a208f96c8665a20490c68e6fa89",
+      "size_bytes": 4375
     },
     {
       "path": ".agents/rules/anti_regression_and_side_effects_guardrail.md",
       "target_name": ".agents/rules/anti_regression_and_side_effects_guardrail.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "ed9d55c156c4df8c1de83dd74fbda6635ce790d43d80f680222de9f5f0b696f8",
-      "size_bytes": 4836
+      "sha256": "c0a9fc33758dab787b7fa43646ce68b8818f99f62446f82caad08aa3bbf3034e",
+      "size_bytes": 4868
     },
     {
       "path": ".agents/rules/continuous_agent_evolution.md",
       "target_name": ".agents/rules/continuous_agent_evolution.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "6e88ae5fc166aa0377eedd6b8530885dc471e1f2845693759ef473ffbbbe2a82",
-      "size_bytes": 4927
+      "sha256": "774d8936ce5dbae15ef95815ffe1c9182789bac3247d6c6a88140855795107ae",
+      "size_bytes": 4959
     },
     {
       "path": ".agents/rules/frontend_parity_and_closure.md",
       "target_name": ".agents/rules/frontend_parity_and_closure.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "6bf119adfadb0075040b87c39780f3f5a78fd19b080d77d317c580fc7b7e7128",
-      "size_bytes": 6121
+      "sha256": "8808e21cd9bb60326fb4146c087c21486f3ae9c2de9a8a7027feda5ea8b3da5c",
+      "size_bytes": 6153
     },
     {
       "path": ".agents/rules/ground_truth_fixtures_and_negative_invariants.md",
       "target_name": ".agents/rules/ground_truth_fixtures_and_negative_invariants.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "8db026525395d8f010ceb99febe9910b250f7a999e7c884666f1679bf14f9c13",
-      "size_bytes": 5340
+      "sha256": "4df740047016e8ab5aecea3607eb0c0029d7e8f79f20561b401711cfb8d66de9",
+      "size_bytes": 5372
     },
     {
       "path": ".agents/rules/mandatory_qa_pyramid_and_doc_sync.md",
       "target_name": ".agents/rules/mandatory_qa_pyramid_and_doc_sync.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "92ce570d3bdf9b28544fe09fd8834c080178a078a40a9a10d3552b5907448bb9",
-      "size_bytes": 11402
+      "sha256": "763a75efca7099730f886055e7fe3c977f633bd413f8d59b953a25b6814caaaf",
+      "size_bytes": 11434
     },
     {
       "path": ".agents/rules/secure_development_and_testing_guidelines.md",
       "target_name": ".agents/rules/secure_development_and_testing_guidelines.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "81e6438bb0262b296cd1d93128d9642670bda7b7f1819680b73b4980c427e84a",
-      "size_bytes": 17099
+      "sha256": "ad87b15097689ac3f79113c85daa5a89bb3fa22b3b0cc1f01cc4734a01fd3bc0",
+      "size_bytes": 17131
     },
     {
       "path": ".agents/scripts/certify_task_completion.sh",
       "target_name": ".agents/scripts/certify_task_completion.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "4c2f319651406b3fd05aa8d3001feae259bbc373abdc43f29082382146c692e7",
-      "size_bytes": 4982
+      "sha256": "2baf6cd0f0a3d0a94844d60b64786e860f07e77a064da8ce83b26791741bc39a",
+      "size_bytes": 5014
     },
     {
       "path": ".agents/scripts/inspect_blast_radius.py",
       "target_name": ".agents/scripts/inspect_blast_radius.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "fec072760b52170948543086cfef3ec032bc4c142737fc685d40175ace52d297",
-      "size_bytes": 7562
+      "sha256": "fca8e9649af2f43e48d74fbb723b80ece2327de98d0cd3bc72f8dd5f01c43b31",
+      "size_bytes": 7594
     },
     {
       "path": ".agents/scripts/verify_alembic_orm_parity.py",
       "target_name": ".agents/scripts/verify_alembic_orm_parity.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "7641495818d71ca7ea89122ad151dde0aff2fe0d34e6838cea82e9dde9356c81",
-      "size_bytes": 5838
+      "sha256": "8324dbb2a173e51db90ee765e0e41e166153b32add201f717813a13e336b8438",
+      "size_bytes": 5870
     },
     {
       "path": ".agents/scripts/verify_json_no_duplicate_keys.py",
       "target_name": ".agents/scripts/verify_json_no_duplicate_keys.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "f1520464e0fb24feb49d442b17b559dafddeed42d6b574dd18f8b6f9fe550b02",
-      "size_bytes": 2345
+      "sha256": "773999d42b609c7e20a198fe414e226d00b1e9309474dffaeb0ca62350c95f42",
+      "size_bytes": 2377
     },
     {
       "path": ".agents/scripts/verify_no_orphan_api_endpoints.py",
       "target_name": ".agents/scripts/verify_no_orphan_api_endpoints.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "840ffc06369e882a4496880db19593310e7baabf55e21d5514d3cb109971fb72",
-      "size_bytes": 9859
+      "sha256": "8961eff26de6927f2d47647e7e49652b38edc306391a168bee71f50bd675355f",
+      "size_bytes": 9891
     },
     {
       "path": ".agents/scripts/verify_roadmap_consistency.py",
       "target_name": ".agents/scripts/verify_roadmap_consistency.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "cde0fbbf132664598f763f0e0c8a1e71f93f186d47c0a4896ec4917018e57025",
-      "size_bytes": 11692
+      "sha256": "ee0df69ceda74af96b9fbac86d0e15b47bc18437b3fd6e6080e8270283157062",
+      "size_bytes": 11724
     },
     {
       "path": ".agents/scripts/verify_topological_health.py",
       "target_name": ".agents/scripts/verify_topological_health.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "9315cb1bcc76778210bd66ee082e1339b12675be5428b96741d3c40c45a9c8c3",
-      "size_bytes": 3801
+      "sha256": "0918b5ce5276daf230e8a6929d68a50558b871a55cc1b67bf0712528373a40c1",
+      "size_bytes": 3833
     },
     {
       "path": ".agents/scripts/verify_zero_orphan_vue_components.py",
       "target_name": ".agents/scripts/verify_zero_orphan_vue_components.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "137163dca3dde6ce5820c52e4ae4c54d365335a981f5e7153318945689fc0b5c",
-      "size_bytes": 3525
+      "sha256": "bf8c157cdd7154e0815993ee7d489b510765c8fbdee9617c1b00a8df114834fd",
+      "size_bytes": 3557
     },
     {
       "path": ".agents/skills/docker-trivy-keydb-hardening/SKILL.md",
@@ -931,15 +931,15 @@
       "path": "AGENTS.md",
       "target_name": "AGENTS.md",
       "merge_strategy": "surgical_merge",
-      "sha256": "a7c14c3aef2e87ace94d8df24703b828daf5f21b76361bc2eec6dc5df827d79d",
-      "size_bytes": 19203
+      "sha256": "7ca8b38dc5b49c09fd0c743bcfe2c790995b455280e9d4b2e8e878c11610e0c5",
+      "size_bytes": 19235
     },
     {
       "path": "scripts/install-skill.sh",
       "target_name": "scripts/install-skill.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "0f7a89aa940acd4b95dca5dddcd49309995ac7b0224fe9a518d8643ed7115963",
-      "size_bytes": 9931
+      "sha256": "275b5f90fa52bd97c7223b4703d9b39e65feef25357fbd9f7a816a759a0582da",
+      "size_bytes": 9963
     }
   ]
 }

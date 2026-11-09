@@ -78,7 +78,7 @@ Para cumplir estrictamente `sonarjs/no-duplicate-string` y `sonarjs/cognitive-co
 
 ```typescript
 // SPDX-License-Identifier: MIT
-// Copyright (C) 2026 QA Testing Blueprints Contributors
+// Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';

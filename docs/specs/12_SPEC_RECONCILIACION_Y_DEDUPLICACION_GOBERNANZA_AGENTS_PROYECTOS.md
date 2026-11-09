@@ -93,7 +93,7 @@ Gemini 3.8 Flash High DEBE crear `mcp-server/src/cli/reconcile-agents.ts` con la
 
 ```typescript
 // SPDX-License-Identifier: MIT
-// Copyright (C) 2026 QA Testing Blueprints Contributors
+// Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';

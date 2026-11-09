@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
-# Copyright (C) 2026 QA Testing Blueprints Contributors
+# Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 # Propósito: Publicación autónoma del Servidor MCP (@sinfallas/mcp-qa-11x) a npmjs.org
 # Cumple estrictamente con la Regla Cero (100% Docker efímero sin runners externos).
 

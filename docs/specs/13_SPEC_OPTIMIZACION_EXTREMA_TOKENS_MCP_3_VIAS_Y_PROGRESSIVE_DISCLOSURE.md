@@ -193,7 +193,7 @@ En `mcp-server/src/tools/fetch-bundle.ts`, añadir el parámetro `includeContent
 
 ```typescript
 // SPDX-License-Identifier: MIT
-// Copyright (C) 2026 QA Testing Blueprints Contributors
+// Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
 import * as path from 'node:path';
 import { GitHubFetcher } from '../services/github-fetcher.js';
