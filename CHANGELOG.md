@@ -6,6 +6,10 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+---
+
+## [2.14.1] - 2026-11-09
+
 ### 📄 Gobernanza y Legal
 * **Atribución Oficial de Autoría y Copyright (`LICENSE`, `package.json`, `README.md` y Cabeceras SPDX):** Estandarizado el aviso legal en todo el repositorio como `Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)`.
 

@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
-  "blueprint_version": "2.14.0",
-  "generated_at_utc": "2026-11-09T20:11:47Z",
+  "blueprint_version": "2.14.1",
+  "generated_at_utc": "2026-11-09T20:15:02Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
