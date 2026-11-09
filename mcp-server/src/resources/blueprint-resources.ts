@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 QA Testing Blueprints Contributors
 
-import { GitHubFetcher } from '../services/github-fetcher.js';
+import {
+  assertSafeRelativePath,
+  GitHubFetcher,
+  isOwnObjectProperty,
+} from '../services/github-fetcher.js';
 
 const MIME_MARKDOWN = 'text/markdown';
 
@@ -63,7 +67,9 @@ export class BlueprintResources {
 
   public async getStackReadmeResource(stack: string): Promise<ResourceResponse> {
     const manifest = await this.fetcher.fetchManifest();
-    const stackDef = manifest.stacks[stack];
+    const stackDef = isOwnObjectProperty(manifest.stacks, stack)
+      ? manifest.stacks[stack]
+      : undefined;
     if (!stackDef) {
       throw new Error(`Stack '${stack}' no reconocido. Opciones válidas: ${Object.keys(manifest.stacks).join(', ')}`);
     }
@@ -88,7 +94,12 @@ export class BlueprintResources {
 
   public async getRefactoringUiResource(topic: string): Promise<ResourceResponse> {
     const manifest = await this.fetcher.fetchManifest();
-    const cleanTopic = topic.replace(/\.md$/, '');
+    const cleanTopic = assertSafeRelativePath(topic.replace(/\.md$/, ''));
+    if (cleanTopic.includes('/') || cleanTopic.includes('\\')) {
+      throw new Error(
+        `Tema de diseño '${topic}' inválido (no se permiten subdirectorios).`
+      );
+    }
     let targetPath = `.agents/skills/refactoring-ui/references/${cleanTopic}.md`;
     if (cleanTopic === 'skill') {
       targetPath = '.agents/skills/refactoring-ui/SKILL.md';

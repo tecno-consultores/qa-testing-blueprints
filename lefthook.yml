@@ -40,6 +40,14 @@ pre-commit:
       run: docker compose -f docker-compose.qa.yml run --rm qa-node-backend bash -c "pnpm install --silent && npx prettier --check {staged_files} && npx eslint {staged_files}"
 
     # --------------------------------------------------------------------------
+    # ECOSISTEMA PHP 8.2-8.5
+    # --------------------------------------------------------------------------
+    php-lint:
+      root: "php/"
+      glob: "*.php"
+      run: docker compose -f docker-compose.qa.yml run --rm qa-php composer --quiet run-script qa:lint
+
+    # --------------------------------------------------------------------------
     # ECOSISTEMA BASH (DEVOPS)
     # --------------------------------------------------------------------------
     bash-lint:
@@ -74,4 +82,4 @@ pre-push:
     trivy-iac-scan:
       # Bloquea el `git push` si hay puertos expuestos, contenedores en modo root
       # o vulnerabilidades críticas en dependencias (File System).
-      run: ./auditar-infra.sh
+      run: ./scripts/auditar-infra.sh

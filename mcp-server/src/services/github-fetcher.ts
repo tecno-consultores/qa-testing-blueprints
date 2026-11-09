@@ -7,6 +7,41 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { FetchedFileItem, GitHubFetcherOptions, Manifest } from '../types.js';
 
+const FORBIDDEN_PATH_SEGMENTS = new Set(['..', '__proto__', 'constructor', 'prototype']);
+const DEFAULT_FETCH_TIMEOUT_MS = 15000;
+
+export function isOwnObjectProperty<T extends object>(obj: T, key: string): boolean {
+  if (FORBIDDEN_PATH_SEGMENTS.has(key)) return false;
+  return Object.prototype.hasOwnProperty.call(obj, key);
+}
+
+export function assertSafeRelativePath(relPath: string): string {
+  const normalizedInput = relPath.normalize('NFKC').trim();
+  if (
+    !normalizedInput ||
+    normalizedInput.includes('\0') ||
+    path.isAbsolute(normalizedInput) ||
+    normalizedInput.startsWith('\\')
+  ) {
+    throw new Error(`Ruta relativa inválida o insegura (CWE-22): '${relPath}'`);
+  }
+  const segments = normalizedInput.split(/[/\\]+/);
+  if (segments.some((seg) => FORBIDDEN_PATH_SEGMENTS.has(seg))) {
+    throw new Error(`Intento de Path Traversal o segmento prohibido detectado (CWE-22): '${relPath}'`);
+  }
+  return normalizedInput;
+}
+
+export function resolveSafeChildPath(baseDir: string, relPath: string): string {
+  const safeRel = assertSafeRelativePath(relPath);
+  const resolvedBase = path.resolve(baseDir);
+  const resolvedTarget = path.resolve(resolvedBase, safeRel);
+  if (resolvedTarget !== resolvedBase && !resolvedTarget.startsWith(resolvedBase + path.sep)) {
+    throw new Error(`Violación de confinamiento de directorio (CWE-22): '${relPath}' escapa de '${baseDir}'`);
+  }
+  return resolvedTarget;
+}
+
 export class GitHubFetcher {
   private readonly rawBaseUrl: string;
   private readonly cacheDir: string;
@@ -63,11 +98,21 @@ export class GitHubFetcher {
     cachedManifestPath: string,
     cachedEtagPath: string
   ): Promise<Manifest> {
-    const response = await fetch(manifestUrl, { headers });
+    let response = await fetch(manifestUrl, {
+      headers,
+      signal: AbortSignal.timeout(DEFAULT_FETCH_TIMEOUT_MS),
+    });
 
     if (response.status === 304) {
       const cached = this.readCachedManifest(cachedManifestPath);
       if (cached) return cached;
+
+      const retryHeaders = { ...headers };
+      delete retryHeaders['If-None-Match'];
+      response = await fetch(manifestUrl, {
+        headers: retryHeaders,
+        signal: AbortSignal.timeout(DEFAULT_FETCH_TIMEOUT_MS),
+      });
     }
 
     if (response.ok) {
@@ -100,7 +145,7 @@ export class GitHubFetcher {
 
     const manifestUrl = `${this.rawBaseUrl}/manifest.json`;
     const headers: Record<string, string> = {
-      'User-Agent': 'mcp-qa-11x/2.9.0',
+      'User-Agent': 'mcp-qa-11x/2.12.0',
     };
     if (etag && !forceRefresh) {
       headers['If-None-Match'] = etag;
@@ -134,7 +179,7 @@ export class GitHubFetcher {
 
   private readLocalFile(relPath: string, expectedSha256: string): string | null {
     if (!this.localOverridePath) return null;
-    const localFilePath = path.join(this.localOverridePath, relPath);
+    const localFilePath = resolveSafeChildPath(this.localOverridePath, relPath);
     if (fs.existsSync(localFilePath)) {
       const content = fs.readFileSync(localFilePath, 'utf-8');
       this.verifySha256(content, expectedSha256, relPath);
@@ -144,7 +189,7 @@ export class GitHubFetcher {
   }
 
   private readCachedFile(relPath: string, expectedSha256: string): string | null {
-    const cachedFilePath = path.join(this.cacheDir, 'files', relPath);
+    const cachedFilePath = resolveSafeChildPath(path.join(this.cacheDir, 'files'), relPath);
     if (fs.existsSync(cachedFilePath)) {
       const cachedContent = fs.readFileSync(cachedFilePath, 'utf-8');
       if (this.computeSha256(cachedContent) === expectedSha256) {
@@ -155,30 +200,32 @@ export class GitHubFetcher {
   }
 
   public async fetchFileContent(relPath: string, expectedSha256: string): Promise<string> {
-    const local = this.readLocalFile(relPath, expectedSha256);
+    const safeRelPath = assertSafeRelativePath(relPath);
+    const local = this.readLocalFile(safeRelPath, expectedSha256);
     if (local !== null) return local;
 
-    const cached = this.readCachedFile(relPath, expectedSha256);
+    const cached = this.readCachedFile(safeRelPath, expectedSha256);
     if (cached !== null) return cached;
 
-    const cachedFilePath = path.join(this.cacheDir, 'files', relPath);
-    const fileUrl = `${this.rawBaseUrl}/${relPath}`;
+    const cachedFilePath = resolveSafeChildPath(path.join(this.cacheDir, 'files'), safeRelPath);
+    const fileUrl = `${this.rawBaseUrl}/${safeRelPath}`;
     try {
       const response = await fetch(fileUrl, {
-        headers: { 'User-Agent': 'mcp-qa-11x/2.9.0' },
+        headers: { 'User-Agent': 'mcp-qa-11x/2.12.0' },
+        signal: AbortSignal.timeout(DEFAULT_FETCH_TIMEOUT_MS),
       });
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status} al descargar ${relPath}: ${response.statusText}`);
+        throw new Error(`HTTP ${response.status} al descargar ${safeRelPath}: ${response.statusText}`);
       }
       const downloadedText = await response.text();
-      this.verifySha256(downloadedText, expectedSha256, relPath);
+      this.verifySha256(downloadedText, expectedSha256, safeRelPath);
 
       this.ensureDir(path.dirname(cachedFilePath));
       fs.writeFileSync(cachedFilePath, downloadedText, 'utf-8');
 
       return downloadedText;
     } catch (err) {
-      const fallback = this.readCachedFile(relPath, expectedSha256);
+      const fallback = this.readCachedFile(safeRelPath, expectedSha256);
       if (fallback !== null) return fallback;
       throw err;
     }
@@ -189,7 +236,9 @@ export class GitHubFetcher {
     includeCommonAndAgents = true
   ): Promise<FetchedFileItem[]> {
     const manifest = await this.fetchManifest();
-    const stackDef = manifest.stacks[stackName];
+    const stackDef = isOwnObjectProperty(manifest.stacks, stackName)
+      ? manifest.stacks[stackName]
+      : undefined;
     if (!stackDef) {
       throw new Error(`El stack solicitado '${stackName}' no existe en manifest.json.`);
     }
@@ -208,6 +257,10 @@ export class GitHubFetcher {
 
     const fetchedFiles: FetchedFileItem[] = [];
     for (const item of itemsToFetch) {
+      assertSafeRelativePath(item.path);
+      if (item.target_name) {
+        assertSafeRelativePath(item.target_name);
+      }
       const content = await this.fetchFileContent(item.path, item.sha256);
       fetchedFiles.push({
         path: item.path,

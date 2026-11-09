@@ -457,10 +457,13 @@ describe('Tools and Resources Integration Suite', () => {
       expect(res.uri).toBe('blueprint://python/readme');
     });
 
-    it('throws error when requesting unknown stack readme', async () => {
+    it('throws error when requesting unknown stack readme or prototype pollution key', async () => {
       const resources = new BlueprintResources(fetcher);
       await expect(resources.getStackReadmeResource('invalid-stack')).rejects.toThrow(
         "Stack 'invalid-stack' no reconocido"
+      );
+      await expect(resources.getStackReadmeResource('__proto__')).rejects.toThrow(
+        "Stack '__proto__' no reconocido"
       );
     });
 
@@ -479,11 +482,15 @@ describe('Tools and Resources Integration Suite', () => {
       expect(res.text).toBe('# Active Task Template Example');
     });
 
-    it('throws error when requesting unknown refactoring-ui topic', async () => {
+    it('throws error when requesting unknown or unsafe refactoring-ui topic', async () => {
       const resources = new BlueprintResources(fetcher);
       await expect(resources.getRefactoringUiResource('unknown-topic')).rejects.toThrow(
         "Tema de diseño 'unknown-topic' no encontrado"
       );
+      await expect(resources.getRefactoringUiResource('sub/topic')).rejects.toThrow(
+        'no se permiten subdirectorios'
+      );
+      await expect(resources.getRefactoringUiResource('../secret')).rejects.toThrow('CWE-22');
     });
 
     it('handles fallback when prompt or security file is absent in manifest', async () => {
@@ -702,12 +709,15 @@ describe('Tools and Resources Integration Suite', () => {
         // --include-scripts no debe copiar las 7 reglas .agents/rules/*.md dentro del proyecto consumidor
         expect(fs.existsSync(path.join(testDir, '.agents/rules'))).toBe(false);
 
-        // Segunda ejecución con ACTIVE_TASK.md ya existente: no sobrescribe el diario en curso
+        // Segunda ejecución con ACTIVE_TASK.md ya existente y script modificado: preserva ACTIVE_TASK.md y crea .bak del script
         fs.writeFileSync(path.join(testDir, '.agents/ACTIVE_TASK.md'), '# Diario En Progreso', 'utf-8');
+        fs.writeFileSync(path.join(testDir, 'scripts/limpieza.sh'), '#!/usr/bin/env bash\necho "custom"\n', 'utf-8');
         await runInstallSkillCli(['--target', 'workspace', '--include-scripts'], fetcher);
         expect(fs.readFileSync(path.join(testDir, '.agents/ACTIVE_TASK.md'), 'utf-8')).toBe(
           '# Diario En Progreso'
         );
+        expect(fs.existsSync(path.join(testDir, 'scripts/limpieza.sh.bak'))).toBe(true);
+        expect(fs.readFileSync(path.join(testDir, 'scripts/limpieza.sh.bak'), 'utf-8')).toContain('custom');
 
         // Probar rama cuando no hay scripts comunes ni de agentes
         const emptyScriptsFetcher = new GitHubFetcher();
@@ -824,13 +834,17 @@ describe('Tools and Resources Integration Suite', () => {
   });
 
   describe('cleanWorkspace11x and Cleanup Resource Suite', () => {
-    it('audits workspace artifacts in dry_run mode without deleting', async () => {
+    it('audits workspace artifacts in dry_run mode without deleting and preserves reports/prometheus_data unless deep_prune is true', async () => {
       const dummyCoverage = path.join(targetProjectDir, '.coverage');
       const dummyPytest = path.join(targetProjectDir, '.pytest_cache');
       const dummyDist = path.join(targetProjectDir, 'dist');
+      const dummyReports = path.join(targetProjectDir, 'reports');
+      const dummyProm = path.join(targetProjectDir, 'prometheus_data');
       fs.writeFileSync(dummyCoverage, 'cov');
       fs.mkdirSync(dummyPytest, { recursive: true });
       fs.mkdirSync(dummyDist, { recursive: true });
+      fs.mkdirSync(dummyReports, { recursive: true });
+      fs.mkdirSync(dummyProm, { recursive: true });
 
       const res = await cleanWorkspace11x(targetProjectDir, true, false);
       expect(res.dry_run).toBe(true);
@@ -838,8 +852,14 @@ describe('Tools and Resources Integration Suite', () => {
       expect(res.found_targets).toContain('.coverage');
       expect(res.found_targets).toContain('.pytest_cache');
       expect(res.found_targets).toContain('dist');
+      expect(res.found_targets).not.toContain('reports');
+      expect(res.found_targets).not.toContain('prometheus_data');
       expect(res.removed_targets).toHaveLength(0);
       expect(res.recommended_command).toBe('./scripts/limpieza.sh');
+
+      const resDeep = await cleanWorkspace11x(targetProjectDir, true, true);
+      expect(resDeep.found_targets).toContain('reports');
+      expect(resDeep.found_targets).toContain('prometheus_data');
 
       expect(fs.existsSync(dummyCoverage)).toBe(true);
       expect(fs.existsSync(dummyPytest)).toBe(true);

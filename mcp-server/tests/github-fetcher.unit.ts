@@ -6,7 +6,12 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { GitHubFetcher } from '../src/services/github-fetcher.js';
+import {
+  assertSafeRelativePath,
+  GitHubFetcher,
+  isOwnObjectProperty,
+  resolveSafeChildPath,
+} from '../src/services/github-fetcher.js';
 import { Manifest } from '../src/types.js';
 
 describe('GitHubFetcher Service (DISA STIG V-222513 & Zero-Clone Hydration)', () => {
@@ -403,5 +408,55 @@ describe('GitHubFetcher Service (DISA STIG V-222513 & Zero-Clone Hydration)', ()
 
     const result = await fetcher.fetchFileContent(relPath, hash);
     expect(result).toBe(content);
+  });
+
+  it('retries without If-None-Match when server returns 304 but cached manifest is missing', async () => {
+    fs.writeFileSync(path.join(cacheDir, 'manifest.etag'), '"etag-orphan"', 'utf-8');
+    const freshManifest: Manifest = {
+      schema_version: '1.0.0',
+      blueprint_version: '2.12.0',
+      generated_at_utc: '2026-11-09T00:00:00Z',
+      repository: 'test/repo',
+      default_branch: 'main',
+      raw_base_url: 'https://raw.test',
+      stacks: {},
+      common_files: [],
+      agent_governance_files: [],
+    };
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 304,
+        statusText: 'Not Modified',
+        headers: new Headers(),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers({ etag: '"etag-fresh"' }),
+        text: async () => JSON.stringify(freshManifest),
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const fetcher = new GitHubFetcher({ cacheDir });
+    const manifest = await fetcher.fetchManifest();
+    expect(manifest.blueprint_version).toBe('2.12.0');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('blocks CWE-22 path traversal and prototype pollution in fetcher helpers', async () => {
+    expect(() => assertSafeRelativePath('../etc/passwd')).toThrow('CWE-22');
+    expect(() => assertSafeRelativePath('/etc/passwd')).toThrow('CWE-22');
+    expect(() => assertSafeRelativePath('__proto__/pollute')).toThrow('CWE-22');
+    expect(() => assertSafeRelativePath('')).toThrow('CWE-22');
+    expect(() => resolveSafeChildPath(tmpDir, '../escape')).toThrow('CWE-22');
+    expect(isOwnObjectProperty({ python: 1 }, '__proto__')).toBe(false);
+    expect(isOwnObjectProperty({ python: 1 }, 'python')).toBe(true);
+
+    const fetcher = new GitHubFetcher({ cacheDir, localOverridePath: localRepoDir });
+    await expect(fetcher.fetchFileContent('../secret.txt', 'hash')).rejects.toThrow('CWE-22');
   });
 });

@@ -517,5 +517,19 @@ test:
       expect(updated.scripts['qa:lint']).toBe('phpstan');
       expect(updated['require-dev']['pestphp/pest']).toBe('^3.7');
     });
+
+    it('rejects bundle files with path traversal in target_name (CWE-22)', async () => {
+      const maliciousBundle: FetchedFileItem[] = [
+        {
+          path: 'python/Makefile.example',
+          target_name: '../../escaped-file.txt',
+          merge_strategy: 'copy_if_missing',
+          content: 'pwned',
+          sha256_verified: true,
+        },
+      ];
+
+      await expect(merger.mergeFiles(tmpDir, maliciousBundle)).rejects.toThrow('CWE-22');
+    });
   });
 });

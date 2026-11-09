@@ -5,6 +5,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { FetchedFileItem, MergeFilesOptions, MergeResultItem } from '../types.js';
 import { mergeOrAppendAgentsMdContent } from '../cli/init-agents-md.js';
+import { resolveSafeChildPath } from './github-fetcher.js';
 
 const ALLOW_PLUGINS_KEY = 'allow-plugins';
 const REQUIRE_DEV_KEY = 'require-dev';
@@ -414,7 +415,7 @@ export class SurgicalMerger {
     let skippedCount = 0;
 
     for (const item of bundleFiles) {
-      const targetFilePath = path.join(targetProjectDir, item.target_name);
+      const targetFilePath = resolveSafeChildPath(targetProjectDir, item.target_name);
       const exists = fs.existsSync(targetFilePath);
 
       let status: 'created' | 'merged' | 'skipped' | 'dry_run' = 'created';

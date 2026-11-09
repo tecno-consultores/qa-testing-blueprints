@@ -6,6 +6,9 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### 🔒 Seguridad y Correcciones (Security & Fixed)
+* **Fase 1 Auditoría v2.12.0 — Mitigación `CWE-78`/`CWE-22`, Resiliencia HTTP y Hooks (`clean-workspace`, `github-fetcher`, `surgical-merger`, `install-skill`, `blueprint-resources`, `lefthook.yml`):** Sustituido `execSync` por `execFileSync` con arreglo de argumentos posicionales y `chown` acotado en `executeAlpineFallback`; aislados `reports/` y `prometheus_data/` bajo `deep_prune: true`; incorporado confinamiento `resolveSafeChildPath`/`assertSafeRelativePath` y anti-*prototype pollution* (`__proto__`), `AbortSignal.timeout(15000)`, reintento automático ante `HTTP 304` sin caché local y respaldo `.bak` de scripts modificados; y corregida la ruta `./scripts/auditar-infra.sh` junto con el hook `php-lint` en `lefthook.yml`.
+
 ---
 
 ## [2.12.0] - 2026-11-08

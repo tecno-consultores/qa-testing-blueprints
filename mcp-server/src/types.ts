@@ -100,7 +100,12 @@ export type BlastRadiusInput = z.infer<typeof BlastRadiusInputSchema>;
 export const CleanWorkspaceInputSchema = z.object({
   project_path: z.string().min(1).describe("Ruta absoluta o relativa al directorio del proyecto a limpiar"),
   dry_run: z.boolean().default(true).describe("Si es true (por defecto), solo audita e informa qué artefactos serían eliminados"),
-  deep_prune: z.boolean().default(false).describe("Si es true, incluye poda profunda de contenedores y volúmenes Docker huérfanos"),
+  deep_prune: z
+    .boolean()
+    .default(false)
+    .describe(
+      'Si es true, incluye la eliminación de directorios persistentes (reports/, prometheus_data/) y recomienda poda profunda de contenedores/volúmenes'
+    ),
 });
 export type CleanWorkspaceInput = z.infer<typeof CleanWorkspaceInputSchema>;
 

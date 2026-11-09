@@ -5,7 +5,11 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { cleanWorkspace11x } from '../src/tools/clean-workspace.js';
+import {
+  cleanWorkspace11x,
+  executeAlpineFallback,
+  removeTarget,
+} from '../src/tools/clean-workspace.js';
 import {
   parseLinterAndComplexity,
   parseCoverage,
@@ -35,46 +39,61 @@ describe('11X Comprehensive Branch and Edge-Case Coverage Suite', () => {
   });
 
   describe('clean-workspace.ts native permission and docker fallback branches', () => {
-    it('captura fallo en removeTarget y ejecuta fallback nativo de Alpine', async () => {
+    it('captura fallo en removeTarget y ejecuta fallback hermético inyectado', async () => {
       const subDir = path.join(tempDir, 'python');
       fs.mkdirSync(subDir, { recursive: true });
       const targetFile = path.join(subDir, 'karate.jar');
       fs.writeFileSync(targetFile, 'dummy-jar-content');
 
-      // Restringir permisos de escritura del directorio contenedor para provocar EACCES al borrar
-      fs.chmodSync(subDir, 0o555);
-
-      try {
-        const result = await cleanWorkspace11x(
-          tempDir,
-          false, // dryRun = false
-          true   // deepPrune = true
-        );
-
-        // removeTarget fallará por permisos y executeAlpineFallback correrá docker efímero
-        expect(result.dry_run).toBe(false);
-        expect(result.deep_prune).toBe(true);
-        expect(result.recommended_command).toBe('./scripts/limpieza.sh --deep');
-      } finally {
-        // Restaurar permisos para permitir la limpieza
-        fs.chmodSync(subDir, 0o755);
-      }
-    });
-
-    it('ejecuta fallback nativo de Alpine cuando targetRemover simula fallo', async () => {
-      const artifactDir = path.join(tempDir, 'coverage');
-      fs.mkdirSync(artifactDir, { recursive: true });
-
       const result = await cleanWorkspace11x(
         tempDir,
-        false,
-        false,
-        undefined, // fallbackExecutor por defecto (executeAlpineFallback)
-        () => ({ removed: false })
+        false, // dryRun = false
+        true,  // deepPrune = true
+        (baseDir, targets) =>
+          executeAlpineFallback(baseDir, targets, (() => {
+            if (fs.existsSync(targetFile)) fs.unlinkSync(targetFile);
+            return Buffer.from('');
+          }) as any),
+        (baseDir) => removeTarget(baseDir, 'non-existent-to-trigger-catch')
       );
 
-      expect(result.docker_fallback_used).toBe(false);
-      expect(result.recommended_command).toBe('./scripts/limpieza.sh');
+      expect(result.dry_run).toBe(false);
+      expect(result.deep_prune).toBe(true);
+      expect(result.docker_fallback_used).toBe(true);
+      expect(result.removed_targets).toContain('python/karate.jar');
+      expect(result.recommended_command).toBe('./scripts/limpieza.sh --deep');
+    });
+
+    it('verifica que executeAlpineFallback use execFileSync con array seguro y rechace .. o metacaracteres', () => {
+      const recordedCalls: Array<{ cmd: string; args: readonly string[] }> = [];
+      const mockExecFile = ((cmd: string, args: readonly string[]) => {
+        recordedCalls.push({ cmd, args });
+        return Buffer.from('');
+      }) as any;
+
+      const maliciousBase = '/tmp/proj"; $(touch /tmp/pwned); #';
+      const ok = executeAlpineFallback(
+        maliciousBase,
+        ['coverage', '../outside', '/etc/passwd', 'bad\0file'],
+        mockExecFile
+      );
+
+      expect(ok).toBe(true);
+      expect(recordedCalls.length).toBe(1);
+      expect(recordedCalls[0].cmd).toBe('docker');
+      expect(recordedCalls[0].args).toContain(`${maliciousBase}:/workspace`);
+      expect(recordedCalls[0].args).toContain('/workspace/coverage');
+      expect(recordedCalls[0].args).not.toContain('/workspace/../outside');
+      expect(recordedCalls[0].args).not.toContain('/workspace//etc/passwd');
+
+      // Retorna false cuando todos los targets son inseguros o vacíos
+      expect(executeAlpineFallback(maliciousBase, ['../escape'], mockExecFile)).toBe(false);
+
+      // Retorna false cuando execFileSync lanza excepción
+      const throwingExec = (() => {
+        throw new Error('docker daemon unavailable');
+      }) as any;
+      expect(executeAlpineFallback(tempDir, ['coverage'], throwingExec)).toBe(false);
     });
   });
 

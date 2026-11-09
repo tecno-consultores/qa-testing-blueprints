@@ -3,7 +3,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { CleanWorkspaceResult } from '../types.js';
 
 const CANDIDATE_DIR_NAMES = [
@@ -27,15 +27,15 @@ const CANDIDATE_DIR_NAMES = [
   'test-results',
   'playwright-report',
   'blob-report',
-  'reports',
   '.lighthouseci',
   'lhci-reports',
   '.lhcache',
   '.eslintcache',
   '.stylelintcache',
   '.pnpm-store',
-  'prometheus_data',
 ];
+
+const DEEP_PRUNE_DIR_NAMES = ['reports', 'prometheus_data'];
 
 const CANDIDATE_FILE_PATTERNS = [
   'karate.jar',
@@ -57,10 +57,13 @@ const SCAN_SUBDIRS = [
   'mcp-server',
 ];
 
-function scanDirectoryForArtifacts(baseDir: string): string[] {
+function scanDirectoryForArtifacts(baseDir: string, deepPrune = false): string[] {
   const found: string[] = [];
+  const candidateDirs = deepPrune
+    ? [...CANDIDATE_DIR_NAMES, ...DEEP_PRUNE_DIR_NAMES]
+    : CANDIDATE_DIR_NAMES;
 
-  for (const name of CANDIDATE_DIR_NAMES) {
+  for (const name of candidateDirs) {
     const fullPath = path.join(baseDir, name);
     if (fs.existsSync(fullPath)) {
       found.push(path.relative(baseDir, fullPath));
@@ -77,13 +80,13 @@ function scanDirectoryForArtifacts(baseDir: string): string[] {
   return found;
 }
 
-function scanSubdirectories(baseDir: string): string[] {
+function scanSubdirectories(baseDir: string, deepPrune = false): string[] {
   const found: string[] = [];
 
   for (const sub of SCAN_SUBDIRS) {
     const subPath = path.join(baseDir, sub);
     if (fs.existsSync(subPath) && fs.statSync(subPath).isDirectory()) {
-      const subFound = scanDirectoryForArtifacts(subPath);
+      const subFound = scanDirectoryForArtifacts(subPath, deepPrune);
       for (const item of subFound) {
         found.push(path.join(sub, item));
       }
@@ -93,7 +96,10 @@ function scanSubdirectories(baseDir: string): string[] {
   return found;
 }
 
-function removeTarget(baseDir: string, relPath: string): { removed: boolean; error?: unknown } {
+export function removeTarget(
+  baseDir: string,
+  relPath: string
+): { removed: boolean; error?: unknown } {
   const fullPath = path.join(baseDir, relPath);
   try {
     const stat = fs.statSync(fullPath);
@@ -108,14 +114,39 @@ function removeTarget(baseDir: string, relPath: string): { removed: boolean; err
   }
 }
 
-function executeAlpineFallback(baseDir: string, targets: string[]): boolean {
-  if (targets.length === 0) return false;
+export function executeAlpineFallback(
+  baseDir: string,
+  targets: string[],
+  execFileFn: typeof execFileSync = execFileSync
+): boolean {
+  const safeTargets = targets.filter(
+    (t) => t.length > 0 && !t.includes('..') && !path.isAbsolute(t) && !t.includes('\0')
+  );
+  if (safeTargets.length === 0) return false;
   try {
-    const pathsArg = targets.map((t) => `/workspace/${t}`).join(' ');
+    const workspaceTargets = safeTargets.map((t) => `/workspace/${t}`);
     const uid = process.getuid ? process.getuid() : 1000;
     const gid = process.getgid ? process.getgid() : 1000;
-    const cmd = `docker run --rm -v "${baseDir}:/workspace" alpine sh -c "rm -rf ${pathsArg} 2>/dev/null || true; chown -R ${uid}:${gid} /workspace 2>/dev/null || true"`;
-    execSync(cmd, { stdio: 'ignore', timeout: 30000 });
+    const script =
+      'for p in "$@"; do rm -rf -- "$p" 2>/dev/null || true; chown "$TARGET_OWNER" "$(dirname "$p")" 2>/dev/null || true; done';
+    execFileFn(
+      'docker',
+      [
+        'run',
+        '--rm',
+        '-e',
+        `TARGET_OWNER=${uid}:${gid}`,
+        '-v',
+        `${baseDir}:/workspace`,
+        'alpine:3.21',
+        'sh',
+        '-c',
+        script,
+        'sh',
+        ...workspaceTargets,
+      ],
+      { stdio: 'ignore', timeout: 30000 }
+    );
     return true;
   } catch {
     return false;
@@ -187,8 +218,8 @@ export async function cleanWorkspace11x(
     throw new Error(`El directorio del proyecto '${projectPathInput}' no existe.`);
   }
 
-  const rootArtifacts = scanDirectoryForArtifacts(resolvedPath);
-  const subArtifacts = scanSubdirectories(resolvedPath);
+  const rootArtifacts = scanDirectoryForArtifacts(resolvedPath, deepPrune);
+  const subArtifacts = scanSubdirectories(resolvedPath, deepPrune);
   const allFoundTargets = Array.from(new Set([...rootArtifacts, ...subArtifacts])).sort();
 
   let removedTargets: string[] = [];

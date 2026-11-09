@@ -4,7 +4,7 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { GitHubFetcher } from '../services/github-fetcher.js';
+import { GitHubFetcher, resolveSafeChildPath } from '../services/github-fetcher.js';
 import { initOrAppendAgentsMd, syncGlobalGeminiMd } from './init-agents-md.js';
 import { reconcileAgentsGovernance } from './reconcile-agents.js';
 import type { Manifest, ManifestFileEntry } from '../types.js';
@@ -90,7 +90,7 @@ function writeDownloadedSkills(
 ): void {
   for (const dest of destDirs) {
     for (const item of files) {
-      const fullPath = path.join(dest, item.relSkillPath);
+      const fullPath = resolveSafeChildPath(dest, item.relSkillPath);
       const parentDir = path.dirname(fullPath);
       if (!fs.existsSync(parentDir)) {
         fs.mkdirSync(parentDir, { recursive: true });
@@ -103,18 +103,24 @@ function writeDownloadedSkills(
 
 function writeScriptEntry(cwd: string, entry: ManifestFileEntry, content: string): void {
   const targetRel = entry.target_name || entry.path;
-  const fullPath = path.join(cwd, targetRel);
+  const fullPath = resolveSafeChildPath(cwd, targetRel);
   const parentDir = path.dirname(fullPath);
   if (!fs.existsSync(parentDir)) {
     fs.mkdirSync(parentDir, { recursive: true });
   }
   if (entry.path === ACTIVE_TASK_EXAMPLE_PATH) {
-    const exampleFullPath = path.join(cwd, entry.path);
+    const exampleFullPath = resolveSafeChildPath(cwd, entry.path);
     fs.writeFileSync(exampleFullPath, content, UTF8);
     if (!fs.existsSync(fullPath)) {
       fs.writeFileSync(fullPath, content, UTF8);
     }
     return;
+  }
+  if (fs.existsSync(fullPath)) {
+    const existingContent = fs.readFileSync(fullPath, UTF8);
+    if (existingContent !== content) {
+      fs.copyFileSync(fullPath, `${fullPath}.bak`);
+    }
   }
   fs.writeFileSync(fullPath, content, UTF8);
   if (fullPath.endsWith('.sh') || fullPath.endsWith('.py')) {
