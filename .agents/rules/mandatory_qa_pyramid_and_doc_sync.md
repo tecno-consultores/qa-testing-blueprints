@@ -57,8 +57,9 @@ Following any code modification, the AI agent **MUST autonomously and continuous
 
 1. **Affected Guides, Manuals & Technical Specifications (`docs/` & `docs/specs/`):**
    - ALWAYS update operational manuals, architecture guides, technical specifications (`docs/specs/*.md`), and API contract references.
-2. **Change History in `CHANGELOG.md`:**
+2. **Change History & Concise Hygiene in `CHANGELOG.md`:**
    - ALWAYS record additions, modifications, fixes, and security hardening under `## [Unreleased]`.
+   - **Concise `CHANGELOG.md` Hygiene:** Maintain a single header per published version (and a single `## [Unreleased]` block) using concise executive bullet points (1–2 lines per change). Strictly prohibit duplicate version headers or dumping verbose internal sub-milestone/sub-task execution logs into `CHANGELOG.md`.
 3. **Assurance Metrics in `TESTING.md` & Milestones in `ROADMAP.md`:**
    - ALWAYS record updated test counts, pass rates, and coverage percentages in `TESTING.md`.
    - Update `ROADMAP.md` whenever applicable, verifying bidirectional parity via `python3 .agents/scripts/verify_roadmap_consistency.py`.
