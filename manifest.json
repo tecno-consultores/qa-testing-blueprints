@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.13.0",
-  "generated_at_utc": "2026-11-09T15:30:04Z",
+  "generated_at_utc": "2026-11-09T17:27:49Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -55,15 +55,15 @@
           "path": "fastapi/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "982c2b5d353656739129af1e367a130cbebf10e5a3a1f898bd59e9cf6511b048",
-          "size_bytes": 2927
+          "sha256": "f331134fda309b66d7baa7fa12461767f1cb5da51c7f3b45bf0da435f42b02ac",
+          "size_bytes": 2959
         },
         {
           "path": "fastapi/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "63d7e010d7a7af63272524ecaca2a071c6ca64c13304c32621a166684ff8724e",
-          "size_bytes": 5717
+          "sha256": "b33bd71dfe7cef43adc9652fe0a1ba0f19035ee4b47de154842eef57116204a0",
+          "size_bytes": 5755
         },
         {
           "path": "fastapi/gitignore.example",
@@ -290,15 +290,15 @@
           "path": "python/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "053f5f8cd5c1ddf333205f62fe761172b6ee181fb39315cef0340c378155bde8",
-          "size_bytes": 1043
+          "sha256": "d7c98aad7a0516a98d04bd1f43bf88170217790b682f4de4b361e6edff382f5b",
+          "size_bytes": 1075
         },
         {
           "path": "python/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "c4ffc5fffef74df13d03c816711955e70b375428467efc3cf897ce864ed8fc03",
-          "size_bytes": 2407
+          "sha256": "36b1d847a7ef3d5d1d9186467ab4028c1fc3830e5c934e1cc385e62286861451",
+          "size_bytes": 2445
         },
         {
           "path": "python/gitignore.example",
@@ -700,15 +700,15 @@
       "path": ".agents/rules/mandatory_qa_pyramid_and_doc_sync.md",
       "target_name": ".agents/rules/mandatory_qa_pyramid_and_doc_sync.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "24fa010fded85d9b0450fa57017f0062e9f8d277a1fa8ac0602e3526ead52d88",
-      "size_bytes": 10923
+      "sha256": "92ce570d3bdf9b28544fe09fd8834c080178a078a40a9a10d3552b5907448bb9",
+      "size_bytes": 11402
     },
     {
       "path": ".agents/rules/secure_development_and_testing_guidelines.md",
       "target_name": ".agents/rules/secure_development_and_testing_guidelines.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "a0603dbd2c5720b3711b0cd7012b5d2bfd99822bbff5c60dca67e68d275148a9",
-      "size_bytes": 15678
+      "sha256": "81e6438bb0262b296cd1d93128d9642670bda7b7f1819680b73b4980c427e84a",
+      "size_bytes": 17099
     },
     {
       "path": ".agents/scripts/certify_task_completion.sh",
@@ -784,8 +784,8 @@
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "dee1d2a014a501e70859494aaaddc19071c02189add49296bc718a63a6ec8636",
-      "size_bytes": 28545
+      "sha256": "efbf41753292a819ba513bf6f0b54064b29d520228e2b04f11a31e4714ee1d0d",
+      "size_bytes": 30234
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
@@ -798,15 +798,15 @@
       "path": ".agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.md",
       "target_name": ".agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "4dfef346875c9e4141a1d70313e2c796aa90b524116d5d2ce3c68437bec2ca7e",
-      "size_bytes": 10465
+      "sha256": "07d25a147cac8219b854f83ba2cf4244e4d48d0f50b2a5cbaa4f318ccd7bbd04",
+      "size_bytes": 11488
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/03-stack-python-fastapi.md",
       "target_name": ".agents/skills/qa-11x-architect/references/03-stack-python-fastapi.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "cbe812f8bad7531a76bdb369a7d64b8108209cbf2e296669160417826f7803b6",
-      "size_bytes": 8556
+      "sha256": "8b0399384b4e7a43a4c2d8a9d3e04d68c58e54e1df36c0a46d0df37038966a98",
+      "size_bytes": 9940
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md",
@@ -840,8 +840,8 @@
       "path": ".agents/skills/qa-11x-architect/references/08-postgres-rls-zero-downtime-migrations.md",
       "target_name": ".agents/skills/qa-11x-architect/references/08-postgres-rls-zero-downtime-migrations.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "d88128cb15b9d3e50863d6083b848f2f25b14ca3928553183e720452e5912780",
-      "size_bytes": 4815
+      "sha256": "f497804d121098f0d735c670b1a8b23ae9a9789b2e42e0fd9d39a4b598cb5032",
+      "size_bytes": 10539
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/09-sre-observability-chaos-triage.md",
@@ -854,8 +854,8 @@
       "path": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "target_name": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "50eaf0864f212c22673fe837ec09cbbb46f454f29cac640f6a225fb0d6dddc9c",
-      "size_bytes": 4358
+      "sha256": "f905c736ebc3e461955bf959bdd0d8eea20ba5d95491a3f0dff901c76cf8c6c0",
+      "size_bytes": 4876
     },
     {
       "path": ".agents/skills/refactoring-ui/SKILL.md",
@@ -931,8 +931,8 @@
       "path": "AGENTS.md",
       "target_name": "AGENTS.md",
       "merge_strategy": "surgical_merge",
-      "sha256": "ee3bff1182ae7d6cb45e0cb2513df0a1a65158f2cb58a25f0592abda53726a16",
-      "size_bytes": 18067
+      "sha256": "a7c14c3aef2e87ace94d8df24703b828daf5f21b76361bc2eec6dc5df827d79d",
+      "size_bytes": 19203
     },
     {
       "path": "scripts/install-skill.sh",

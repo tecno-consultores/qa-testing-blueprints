@@ -8,7 +8,7 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
 
 | Dimensión de Calidad | Herramienta Canónica | Umbral Mínimo Requerido | Acción ante Incumplimiento |
 | :--- | :--- | :--- | :--- |
-| **Cobertura Unitaria** | `pytest-cov`, `vitest`, `kcov` | **>= 95.0%** de líneas y ramas | Bloqueo inmediato de Merge / Exit Code 1 |
+| **Cobertura Unitaria** | `pytest-cov`, `vitest`, `kcov` (`COVERAGE_FILE=/tmp/.coverage` en Docker no-root `UID 1001`, prohibido `-o addopts=""` sin `--cov`) | **>= 95.0%** de líneas y ramas | Bloqueo inmediato de Merge / Exit Code 1 (`QA-COV-01`) |
 | **Complejidad Ciclomática** | `radon` (Python), `eslint-plugin-sonarjs` | Grado **A** o **B** (Cognitiva `<= 15`) | Rechazo por deuda técnica |
 | **Mantenibilidad** | `radon mi` | Grado **A** (`> 20`) | Refactorización obligatoria |
 | **Seguridad Estática (SAST)** | `bandit`, `eslint-plugin-security`, `ShellCheck` | **0 hallazgos HIGH / MEDIUM** | Bloqueo por vulnerabilidad |
@@ -16,7 +16,7 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
 | **Seguridad Dinámica (DAST & OSHP)**| `zaproxy/zap-stable` (OWASP ZAP + WSTG/ASVS/OSHP) | **0 alertas HIGH**, cabeceras OSHP y estado Fail-Secure | Bloqueo dinámico en CI/CD |
 | **Pruebas de Mutación** | `mutmut`, `stryker` | Puntuación de mutación `> 80%` | Rechazo por asertos débiles |
 | **Comportamiento BDD** | `sinfallas/karatelabs:latest` (Gherkin) | **100% de escenarios PASSED** | Bloqueo de flujo funcional |
-| **Paridad de Esquema DB** | `.agents/scripts/verify_alembic_orm_parity.py` | **0 tablas huérfanas / revision `<= 32` chars** | Rechazo por Anti-Mock Blindness |
+| **Paridad de Esquema DB & RLS/WORM** | `.agents/scripts/verify_alembic_orm_parity.py` + `SEC-13` (`after_begin` RLS + `NOBYPASSRLS`) + `SEC-14` (`seq_num` + `pg_advisory_xact_lock` WORM) | **0 tablas huérfanas / revision `<= 32` chars / RLS multi-tx / cadena WORM determinista** | Rechazo por Anti-Mock Blindness / Fuga RLS / Race WORM |
 | **Propagación Anti-Silo, 3 Fases Temporales, Timeouts Pesados, Batch por Ítem y Auditoría Semántica** | Contratos Read-After-Write, Pytest/Vitest, Karate BDD (`api_test.feature` / `ui_business_flow.feature`) | **0 mocks intermedios entre módulos, 3 fases del reloj (`Programada`, `En Curso`, `Cancelada/Expirada`), 0 UUIDs crudos en `actor_username`, Refresco Dual (`[ 🔄 Refrescar ]`), `timeout >= 180s` + purga `0 bytes` en transferencias pesadas y validación `results[].status` en batch `200 OK`** | Rechazo por Silo Mock Blindness / 2-State / Batch 200 Blindness |
 | **Componentes Huérfanos** | `.agents/scripts/verify_zero_orphan_vue_components.py` | **0 componentes sin test unitario** | Bloqueo en pre-commit |
 | **Paridad Endpoints API** | `.agents/scripts/verify_no_orphan_api_endpoints.py` | **0 llamadas 404/405 Front-Back** | Bloqueo por desalineación de contratos |

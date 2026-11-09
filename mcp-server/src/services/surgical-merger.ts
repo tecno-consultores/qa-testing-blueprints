@@ -244,8 +244,37 @@ export class SurgicalMerger {
       }
     }
 
+    let mergedText = targetContent.trimEnd() + (appendedBlocks ? '\n' + appendedBlocks : '\n');
+
+    const hardenedLines = mergedText.split('\n').map((line) => {
+      let updated = line;
+      const hasPytest = /\bpytest\b/.test(updated);
+      const hasBareAddopts =
+        updated.includes('-o addopts=""') || updated.includes("-o addopts=''");
+      if (hasPytest && hasBareAddopts && !updated.includes('--cov')) {
+        updated = updated.replace(
+          /(-o\s+addopts=(?:""|''))/,
+          '$1 --cov=src --cov-fail-under=95'
+        );
+        changes.push('Inyectado "--cov=src --cov-fail-under=95" junto a "-o addopts=\\"\\"" en Makefile');
+      }
+
+      if (
+        hasPytest &&
+        updated.includes('docker') &&
+        updated.includes('run --rm') &&
+        !updated.includes('COVERAGE_FILE')
+      ) {
+        updated = updated.replace('run --rm', 'run --rm -e COVERAGE_FILE=/tmp/.coverage');
+        changes.push('Inyectado "-e COVERAGE_FILE=/tmp/.coverage" para contenedor no-root en Makefile');
+      }
+      return updated;
+    });
+
+    mergedText = hardenedLines.join('\n');
+
     return {
-      merged: targetContent.trimEnd() + (appendedBlocks ? '\n' + appendedBlocks : '\n'),
+      merged: mergedText,
       changes,
     };
   }

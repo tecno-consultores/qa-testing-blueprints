@@ -10,7 +10,7 @@ qa-lint:
 
 qa-unit:
 	@echo "🧪 Ejecutando Pruebas Unitarias y Cobertura (Pytest)..."
-	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "uv sync --all-extras -q && uv run pytest -q --tb=short --cov=src --cov-fail-under=95 --cov-report=term-missing:skip-covered"
+	@docker compose -f $(COMPOSE_FILE) run --rm -e COVERAGE_FILE=/tmp/.coverage $(SERVICE_NAME) bash -c "uv sync --all-extras -q && uv run pytest -q --tb=short --cov=src --cov-fail-under=95 --cov-report=term-missing:skip-covered"
 
 qa-mutation:
 	@echo "👽 Ejecutando Pruebas de Mutación (Mutmut)..."

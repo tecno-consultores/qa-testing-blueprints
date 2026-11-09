@@ -6,6 +6,12 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### 🛡️ Evolución Empírica QA 11X (Added, Changed & Fixed)
+* **Invariante PostgreSQL RLS Multi-Transacción (`after_begin`) y Rol `NOSUPERUSER NOBYPASSRLS` (`SEC-13` y `blueprint://database/postgres-rls-worm`):** Incorporado el recurso MCP `blueprint://database/postgres-rls-worm`, el patrón canónico en `08-postgres-rls-zero-downtime-migrations.md` (con `session.sync_session.info`, `@event.listens_for(AsyncSession.sync_session_class, "after_begin")`, rol `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS` y funciones `SECURITY DEFINER` `SET search_path = public` para login por `slug`/bootstrap) y la regla estática `SEC-13` en `audit_security_stig_owasp`.
+* **Cadena Forense WORM Determinista bajo Concurrencia (`seq_num BIGINT` + `pg_advisory_xact_lock`, `SEC-14`):** Documentada y auditada mediante `SEC-14` la prohibición de ordenar `audit_logs` (`prev_record_hash`) únicamente por `created_at DESC`, exigiendo secuencia monotónica (`seq_num`), bloqueo transaccional `SELECT pg_advisory_xact_lock(hashtext(tenant_key))`, seguimiento en sesión (`_rg_in_tx_audit_hash` / `_in_tx_audit_hash`) y `await session.flush()`.
+* **Cobertura en Contenedores Efímeros No-Root (`COVERAGE_FILE=/tmp/.coverage`, `QA-COV-01` y `SurgicalMerger`):** Añadido `-e COVERAGE_FILE=/tmp/.coverage` en `fastapi/` y `python/`, inyección quirúrgica automática de `-e COVERAGE_FILE=/tmp/.coverage` y `--cov=src --cov-fail-under=95` en `SurgicalMerger.mergeMakefile` (`bootstrap_or_merge_11x`), y regla `QA-COV-01` para bloquear `pytest -o addopts=""` sin `--cov`.
+* **Soporte Nativo de Monorepos (`fastapi/` + `vue3/`), Exclusión de `.env.example` en `certify_11x_gate` y Precisión en `SEC-11`:** Excluido `.env.example` de `zero_unmerged_examples`, añadido soporte de `fastapi/migrations/versions` y `backend/migrations/versions` en `orm_alembic_parity`, resolución de `TESTING.md`/`CHANGELOG.md`/`ACTIVE_TASK.md` en `../` para sub-stacks, y distinción en `SEC-11` entre tests reales de `write_audit_log` (`record_sha256_hash` / `prev_record_hash`) y mocks ciegos.
+
 ---
 
 ## [2.13.0] - 2026-11-09

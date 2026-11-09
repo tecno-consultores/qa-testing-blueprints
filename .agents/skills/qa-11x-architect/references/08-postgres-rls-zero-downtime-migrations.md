@@ -5,25 +5,156 @@
 
 ---
 
-## 1. Mandatory Multi-Tenant Row-Level Security (`FORCE ROW LEVEL SECURITY`)
+## 1. Mandatory Multi-Tenant Row-Level Security (`FORCE ROW LEVEL SECURITY`, `NOBYPASSRLS` & `after_begin`)
 
 Every multi-tenant table in PostgreSQL MUST enforce tenant isolation at the database engine layer so that application-layer query bugs cannot leak cross-tenant data:
 
 ```sql
--- Inside every Alembic / SQL migration creating a tenant-scoped table:
+-- 1. Provision a dedicated non-superuser application role (NEVER connect as superuser / BYPASSRLS):
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_runtime_user') THEN
+        CREATE ROLE app_runtime_user WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS PASSWORD 'replace_in_vault';
+    END IF;
+END
+$$;
+
+-- 2. Inside every Alembic / SQL migration creating a tenant-scoped table:
 ALTER TABLE tenant_resources ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tenant_resources FORCE ROW LEVEL SECURITY;
 
 CREATE POLICY tenant_isolation_policy ON tenant_resources
-    USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)
-    WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
+    USING (
+        NULLIF(current_setting('app.is_superadmin', true), '') = 'true'
+        OR tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
+    )
+    WITH CHECK (
+        NULLIF(current_setting('app.is_superadmin', true), '') = 'true'
+        OR tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
+    );
+
+-- 3. Pre-authentication lookups (e.g. login by tenant slug or bootstrap count):
+-- NEVER weaken the RLS USING clause with "OR current_setting(...) = ''".
+-- Use a tightly scoped SECURITY DEFINER function with explicit search_path:
+CREATE OR REPLACE FUNCTION resolve_tenant_by_slug(p_slug TEXT)
+RETURNS TABLE(id UUID, slug VARCHAR, is_active BOOLEAN)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+    SELECT t.id, t.slug, t.is_active
+    FROM tenants t
+    WHERE t.slug = p_slug
+    LIMIT 1;
+$$;
+REVOKE ALL ON FUNCTION resolve_tenant_by_slug(TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION resolve_tenant_by_slug(TEXT) TO app_runtime_user;
 ```
 
-- **Why `FORCE ROW LEVEL SECURITY` is Non-Negotiable:** Without `FORCE`, the table owner role (commonly the same user used by the app pool in dev/staging) bypasses RLS policies completely.
-- **Session Context Binding:** Before executing queries in a request transaction, execute:
-  ```python
-  await session.execute(text("SELECT set_config('app.current_tenant_id', :tid, true)"), {"tid": str(tenant_id)})
-  ```
+- **Why `NOSUPERUSER NOBYPASSRLS` + `FORCE ROW LEVEL SECURITY` are Non-Negotiable:** PostgreSQL superusers and roles with `BYPASSRLS` silently ignore all RLS policies, and table owners bypass RLS unless `FORCE ROW LEVEL SECURITY` is enabled.
+- **Multi-Transaction RLS Persistence (`after_begin` on `AsyncSession`):** Because `SET LOCAL app.current_tenant_id` expires at the first `await db.commit()`, any endpoint that commits an entity and subsequently opens a second transaction on the same session (e.g., calling `write_audit_log()`) will lose its RLS context unless re-injected. Store `(tenant_id, is_superadmin)` in `session.sync_session.info` and register an `"after_begin"` listener on `AsyncSession.sync_session_class`:
+
+```python
+from sqlalchemy import event, text
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
+
+async def apply_rls_session_settings(session: AsyncSession, tenant_id: str | None, is_superadmin: bool = False) -> None:
+    """Bind tenant context to session.sync_session.info and apply SET LOCAL to the active transaction."""
+    session.sync_session.info["tenant_id"] = str(tenant_id) if tenant_id else ""
+    session.sync_session.info["is_superadmin"] = "true" if is_superadmin else "false"
+    await session.execute(
+        text(
+            "SELECT set_config('app.current_tenant_id', :tid, true), "
+            "set_config('app.is_superadmin', :sa, true)"
+        ),
+        {"tid": session.sync_session.info["tenant_id"], "sa": session.sync_session.info["is_superadmin"]},
+    )
+
+@event.listens_for(AsyncSession.sync_session_class, "after_begin")
+def _reapply_rls_on_after_begin(session: Session, transaction, connection) -> None:
+    """Automatically re-inject SET LOCAL whenever a subsequent transaction starts after await db.commit()."""
+    tid = session.info.get("tenant_id")
+    sa = session.info.get("is_superadmin", "false")
+    if tid is not None:
+        connection.execute(
+            text(
+                "SELECT set_config('app.current_tenant_id', :tid, true), "
+                "set_config('app.is_superadmin', :sa, true)"
+            ),
+            {"tid": str(tid), "sa": str(sa)},
+        )
+```
+
+---
+
+## 1.1. Deterministic WORM Audit Hash-Chain Serialization (`SEQUENCE` + `pg_advisory_xact_lock`)
+
+Never order hash-chained immutable audit logs (`audit_logs`) solely by `created_at DESC`—PostgreSQL `now()` is constant within a transaction and `clock_timestamp()` can tie at microsecond resolution or race across concurrent requests. Always combine:
+1. A monotonic sequence column (`seq_num BIGINT NOT NULL DEFAULT nextval('audit_logs_seq_num_seq')`).
+2. A per-tenant transactional advisory lock (`SELECT pg_advisory_xact_lock(hashtext(:lock_key))`).
+3. In-memory session tracking (`session.sync_session.info["_in_tx_audit_hash"]` / `session.__dict__["_rg_in_tx_audit_hash"]`) + `await session.flush()` after each `write_audit_log()` call:
+
+```python
+import hashlib, json
+from sqlalchemy import select, text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+GENESIS_HASH = "0" * 64
+
+async def write_audit_log(
+    session: AsyncSession,
+    *,
+    tenant_id: str,
+    actor_username: str,
+    action: str,
+    resource_display_name: str,
+    payload: dict,
+) -> AuditLog:
+    # 1. Serialize hash-chain generation per tenant within the active transaction
+    lock_key = f"audit_chain:{tenant_id}"
+    await session.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": lock_key})
+
+    # 2. Resolve previous hash from in-tx session memory first, falling back to monotonic seq_num DESC
+    prev_hash = session.__dict__.get("_rg_in_tx_audit_hash") or session.sync_session.info.get("_in_tx_audit_hash")
+    if not prev_hash:
+        row = await session.execute(
+            select(AuditLog.record_sha256_hash)
+            .where(AuditLog.tenant_id == tenant_id)
+            .order_by(AuditLog.seq_num.desc())
+            .limit(1)
+        )
+        prev_hash = row.scalar_one_or_none() or GENESIS_HASH
+
+    canonical = json.dumps(
+        {
+            "tenant_id": str(tenant_id),
+            "actor_username": actor_username,
+            "action": action,
+            "resource_display_name": resource_display_name,
+            "payload": payload,
+            "prev_record_hash": prev_hash,
+        },
+        sort_keys=True,
+    )
+    record_hash = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+    entry = AuditLog(
+        tenant_id=tenant_id,
+        actor_username=actor_username,
+        action=action,
+        resource_display_name=resource_display_name,
+        before_state=payload.get("before"),
+        after_state=payload.get("after"),
+        prev_record_hash=prev_hash,
+        record_sha256_hash=record_hash,
+    )
+    session.add(entry)
+    session.__dict__["_rg_in_tx_audit_hash"] = record_hash
+    session.sync_session.info["_in_tx_audit_hash"] = record_hash
+    await session.flush()
+    return entry
+```
 
 ---
 

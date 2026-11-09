@@ -993,6 +993,42 @@ describe('Tools and Resources Integration Suite', () => {
       const res = await resources.getCleanupScriptResource();
       expect(res.text).toContain('#!/usr/bin/env bash');
     });
+
+    it('returns postgres-rls-worm resource from manifest or fallback when absent', async () => {
+      const resources = new BlueprintResources(fetcher);
+      const fallbackRes = await resources.getPostgresRlsWormResource();
+      expect(fallbackRes.uri).toBe('blueprint://database/postgres-rls-worm');
+      expect(fallbackRes.text).toContain('PostgreSQL 17 RLS Multi-Transacción');
+
+      const rlsPath = '.agents/skills/qa-11x-architect/references/08-postgres-rls-zero-downtime-migrations.md';
+      const rlsContent = '# Reference 08 RLS after_begin & WORM seq_num';
+      const rlsHash = crypto.createHash('sha256').update(rlsContent).digest('hex');
+      const fullRlsFile = path.join(localRepoDir, rlsPath);
+      fs.mkdirSync(path.dirname(fullRlsFile), { recursive: true });
+      fs.writeFileSync(fullRlsFile, rlsContent, 'utf-8');
+
+      const manifestWithRls = {
+        ...mockManifest,
+        agent_governance_files: [
+          ...mockManifest.agent_governance_files,
+          {
+            path: rlsPath,
+            target_name: rlsPath,
+            merge_strategy: 'copy_or_overwrite' as const,
+            sha256: rlsHash,
+            size_bytes: rlsContent.length,
+          },
+        ],
+      };
+      const customFetcher = new GitHubFetcher({
+        cacheDir: path.join(tmpDir, 'cache-rls'),
+        localOverridePath: localRepoDir,
+      });
+      vi.spyOn(customFetcher, 'fetchManifest').mockResolvedValue(manifestWithRls);
+      const rlsResources = new BlueprintResources(customFetcher);
+      const loadedRes = await rlsResources.getPostgresRlsWormResource();
+      expect(loadedRes.text).toBe(rlsContent);
+    });
   });
 
   describe('createMcpServer and Handlers Execution', () => {
@@ -1038,6 +1074,12 @@ describe('Tools and Resources Integration Suite', () => {
         new URL('blueprint://security/disa-owasp-22')
       );
       expect(secRes.contents[0].text).toBe('# 22 Security Patterns');
+
+      // 3b. Ejecutar resource: postgres-rls-worm
+      const rlsWormRes = await serverAny._registeredResources['blueprint://database/postgres-rls-worm'].readCallback(
+        new URL('blueprint://database/postgres-rls-worm')
+      );
+      expect(rlsWormRes.contents[0].text).toContain('PostgreSQL 17 RLS');
 
       // 4. Ejecutar resource template: stack readme
       const stackTemplate = serverAny._registeredResourceTemplates['blueprint-stack-readme'];

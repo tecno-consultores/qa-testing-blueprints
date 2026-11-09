@@ -530,4 +530,88 @@ setInterval(() => {}, 1000);
     expect(limitedResult.grouped_findings?.length).toBeGreaterThanOrEqual(1);
     expect(limitedResult.grouped_findings?.[0].occurrences_count).toBeGreaterThanOrEqual(4);
   });
+
+  it('no reporta falso positivo SEC-11 en tests unitarios que importan y ejecutan write_audit_log real para verificar record_sha256_hash', async () => {
+    const testsDir = path.join(tempDir, 'tests');
+    fs.mkdirSync(testsDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(testsDir, 'test_audit_worm.unit.py'),
+      `from unittest.mock import AsyncMock, MagicMock
+from src.core.audit import write_audit_log
+
+async def test_write_audit_log_hash_chain():
+    session = MagicMock()
+    session.execute = AsyncMock()
+    session.flush = AsyncMock()
+    entry = await write_audit_log(session, tenant_id="t1", actor_username="admin", action="CREATE")
+    assert len(entry.record_sha256_hash) == 64
+    assert entry.prev_record_hash == "0" * 64
+`
+    );
+
+    const result = await auditSecurityStigOwasp(tempDir);
+    const sec11 = result.findings.filter((f) => f.rule_id === 'SEC-11');
+    expect(sec11.length).toBe(0);
+  });
+
+  it('detecta SEC-13 (RLS sin after_begin), SEC-14 (WORM sin seq_num + pg_advisory_xact_lock) y QA-COV-01 (pytest -o addopts="" sin --cov)', async () => {
+    const srcDir = path.join(tempDir, 'src');
+    fs.mkdirSync(srcDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(srcDir, 'db.py'),
+      `from sqlalchemy.ext.asyncio import AsyncSession
+async def set_tenant(session: AsyncSession, tid: str):
+    await session.execute("SELECT set_config('app.current_tenant_id', :t, true)", {"t": tid})
+`
+    );
+    fs.writeFileSync(
+      path.join(srcDir, 'audit.py'),
+      `async def write_audit_log(session, tenant_id):
+    q = select(AuditLog.record_sha256_hash).order_by(AuditLog.created_at.desc()).limit(1)
+    prev_record_hash = "0" * 64
+    record_sha256_hash = "a" * 64
+`
+    );
+    fs.writeFileSync(
+      path.join(tempDir, 'Makefile'),
+      `qa-unit:\n\tdocker compose run --rm qa-backend pytest -o addopts="" tests/\n`
+    );
+
+    const result = await auditSecurityStigOwasp(tempDir);
+    expect(result.findings.some((f) => f.rule_id === 'SEC-13')).toBe(true);
+    expect(result.findings.some((f) => f.rule_id === 'SEC-14')).toBe(true);
+    expect(result.findings.some((f) => f.rule_id === 'QA-COV-01')).toBe(true);
+
+    // Ahora corregimos los 3 archivos y verificamos que pasen limpiamente
+    fs.writeFileSync(
+      path.join(srcDir, 'db.py'),
+      `from sqlalchemy import event
+from sqlalchemy.ext.asyncio import AsyncSession
+@event.listens_for(AsyncSession.sync_session_class, "after_begin")
+def _reapply(session, tx, conn):
+    pass
+async def set_tenant(session: AsyncSession, tid: str):
+    session.sync_session.info["tenant_id"] = tid
+    await session.execute("SELECT set_config('app.current_tenant_id', :t, true)", {"t": tid})
+`
+    );
+    fs.writeFileSync(
+      path.join(srcDir, 'audit.py'),
+      `async def write_audit_log(session, tenant_id):
+    await session.execute("SELECT pg_advisory_xact_lock(hashtext(:k))")
+    q = select(AuditLog.record_sha256_hash).order_by(AuditLog.seq_num.desc()).limit(1)
+    prev_record_hash = "0" * 64
+    record_sha256_hash = "a" * 64
+`
+    );
+    fs.writeFileSync(
+      path.join(tempDir, 'Makefile'),
+      `qa-unit:\n\tdocker compose run --rm -e COVERAGE_FILE=/tmp/.coverage qa-backend pytest -o addopts="" --cov=src --cov-fail-under=95 tests/\n`
+    );
+
+    const cleanResult = await auditSecurityStigOwasp(tempDir);
+    expect(cleanResult.findings.some((f) => f.rule_id === 'SEC-13')).toBe(false);
+    expect(cleanResult.findings.some((f) => f.rule_id === 'SEC-14')).toBe(false);
+    expect(cleanResult.findings.some((f) => f.rule_id === 'QA-COV-01')).toBe(false);
+  });
 });

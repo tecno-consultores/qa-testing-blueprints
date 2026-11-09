@@ -243,4 +243,23 @@ describe('certify-gate', () => {
       )
     ).toBe(true);
   });
+
+  it('excluye .env.example en zero_unmerged_examples y soporta estructura monorepo (fastapi/migrations/versions y docs en ../)', async () => {
+    setupNominalProject(tempDir);
+    // 1. .env.example en la raíz no debe bloquear zero_unmerged_examples
+    fs.writeFileSync(path.join(tempDir, '.env.example'), 'DATABASE_URL=postgresql://...\n');
+    // 2. Modelos en fastapi/src/models y migraciones en fastapi/migrations/versions
+    fs.mkdirSync(path.join(tempDir, 'fastapi', 'src', 'models'), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, 'fastapi', 'src', 'models', 'user.py'), 'class User: pass\n');
+    fs.mkdirSync(path.join(tempDir, 'fastapi', 'migrations', 'versions'), { recursive: true });
+
+    const rootRes = await certify11xGate(tempDir);
+    expect(rootRes.checks.zero_unmerged_examples).toBe(true);
+    expect(rootRes.checks.orm_alembic_parity).toBe(true);
+    expect(rootRes.gate_passed).toBe(true);
+
+    // 3. Invocar certify11xGate directamente sobre el sub-stack fastapi/ (TESTING.md y CHANGELOG.md están en ../)
+    const subStackRes = await certify11xGate(path.join(tempDir, 'fastapi'));
+    expect(subStackRes.checks.documentation_synced).toBe(true);
+  });
 });

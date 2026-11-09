@@ -48,6 +48,8 @@ This skill governs all tests, linters, audits, and cleanups in projects implemen
    - **Skip Docker QA runs on `DOCS_ONLY` changes** (`skip_if_docs_only: true`).
    - Run targeted unit + affected stack suites on `MICRO_CHANGE` (`<= 3` files, `LOW` AST blast radius).
    - Run the complete multi-stage pyramid (`make qa-all`) on `FULL_11X` architectural changes.
-3. **Mandatory Post-QA Cleanup & Pass-Quiet Output:**
+3. **Mandatory Post-QA Cleanup, Non-Root `COVERAGE_FILE=/tmp/.coverage` & Pass-Quiet Output:**
+   - Never invoke `pytest -o addopts=""` without explicitly appending `--cov=src --cov-fail-under=95` (as `-o addopts=""` silently overrides `pyproject.toml` and disables coverage enforcement).
+   - In hardened non-root containers (`USER 1001`) mounting host volumes (`UID 1000`), always pass `-e COVERAGE_FILE=/tmp/.coverage` so `coverage.py` writes its SQLite database to `/tmp/.coverage` instead of failing with `sqlite3.DataError: Couldn't use data file '/app/.coverage'`.
    - After running coverage or mutation tests, execute `make clean` / `./scripts/limpieza.sh` (`clean_workspace_11x`), purging temporary mutation sandboxes, `.coverage`, root-owned Docker artifacts (via ephemeral Alpine `chown`), and browser caches.
    - Never dump thousands of raw terminal lines into the LLM context; report concise JSON/table metrics.

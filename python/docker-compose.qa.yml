@@ -11,6 +11,7 @@ services:
       TZ: 'America/Caracas'
       UV_PYTHON_DOWNLOADS: 'true'
       UV_CACHE_DIR: /root/.cache/uv
+      COVERAGE_FILE: '/tmp/.coverage'
     volumes:
       - .:/app
       - uv-cache:/root/.cache/uv

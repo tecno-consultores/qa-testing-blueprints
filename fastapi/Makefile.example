@@ -21,7 +21,7 @@ qa-lint:
 
 qa-unit:
 	@echo "🧪 [11X] Ejecutando Pruebas Unitarias Aisladas y Cobertura Innegociable >= 95% (Pytest)..."
-	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "\
+	@docker compose -f $(COMPOSE_FILE) run --rm -e COVERAGE_FILE=/tmp/.coverage $(SERVICE_NAME) bash -c "\
 		uv sync --all-extras -q && \
 		uv run pytest -q --tb=short -m 'not integration' --cov=src --cov-fail-under=95 --cov-report=term-missing:skip-covered --cov-report=html"
 

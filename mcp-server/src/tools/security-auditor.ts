@@ -42,7 +42,13 @@ const UI_11X_02_REF = 'Standard 11X / Anti-Silo UI Rule 3 & 4';
 function isScannableFile(entry: fs.Dirent): boolean {
   if (!entry.isFile()) return false;
   const ext = path.extname(entry.name).toLowerCase();
-  return SCANNABLE_EXTS.has(ext) || entry.name === '.npmrc' || entry.name.startsWith('.env');
+  return (
+    SCANNABLE_EXTS.has(ext) ||
+    entry.name === '.npmrc' ||
+    entry.name.startsWith('.env') ||
+    entry.name === 'Makefile' ||
+    entry.name === 'Makefile.example'
+  );
 }
 
 function shouldSkipDirectory(entry: fs.Dirent): boolean {
@@ -530,11 +536,32 @@ function checkRawSubInActorUsername(relPath: string, lines: string[]): SecurityF
   return findings;
 }
 
+function isDirectRealAuditFunctionTest(fullContent: string): boolean {
+  const importsRealAuditFn =
+    /\bfrom\s+[A-Za-z0-9_.]*audit\s+import\s+[^\n]*\b(?:write_audit_log|writeAuditLog)\b/.test(
+      fullContent
+    );
+  const patchesAuditFn =
+    /(?:patch|setattr)\s*\([^)]*(?:write_audit_log|writeAuditLog)/.test(fullContent) ||
+    /\b(?:write_audit_log|writeAuditLog)\s*=\s*(?:AsyncMock|MagicMock|vi\.fn)/.test(fullContent);
+
+  if (importsRealAuditFn && !patchesAuditFn) {
+    return true;
+  }
+
+  return (
+    (fullContent.includes('record_sha256_hash') || fullContent.includes('prev_record_hash')) &&
+    !patchesAuditFn
+  );
+}
+
 function checkBlindAuditMockInTests(relPath: string, lines: string[]): SecurityFinding[] {
   const fullContent = lines.join('\n');
   const mocksAudit =
     fullContent.includes('write_audit_log') || fullContent.includes('writeAuditLog');
   if (!mocksAudit) return [];
+
+  if (isDirectRealAuditFunctionTest(fullContent)) return [];
 
   const hasMockReplacement =
     fullContent.includes('AsyncMock') ||
@@ -787,6 +814,91 @@ function checkSec12McpServiceRbac(relPath: string, lines: string[]): SecurityFin
   return findings;
 }
 
+function checkSec13RlsMultiTxPersistence(relPath: string, lines: string[]): SecurityFinding[] {
+  if (!relPath.endsWith('.py') || isTestFilePath(relPath)) return [];
+  const fullText = lines.join('\n');
+  const setsLocalTenant =
+    fullText.includes('SET LOCAL app.current_tenant_id') ||
+    (fullText.includes('app.current_tenant_id') && fullText.includes('set_config('));
+  if (!setsLocalTenant) return [];
+  if (!fullText.includes('AsyncSession')) return [];
+  if (fullText.includes('after_begin')) return [];
+
+  const lineIdx = lines.findIndex((l) => l.includes('app.current_tenant_id'));
+  return [
+    {
+      rule_id: 'SEC-13',
+      severity: 'HIGH',
+      stig_owasp_ref: 'Standard 11X Law 7 / PostgreSQL RLS Multi-Transaction Persistence (after_begin)',
+      file: relPath,
+      line: (lineIdx >= 0 ? lineIdx : 0) + 1,
+      message:
+        'Se detectó SET LOCAL / set_config("app.current_tenant_id") en AsyncSession sin listener "after_begin". Tras un await db.commit() intermedio, la segunda transacción perderá el contexto RLS.',
+      remediation:
+        'Almacenar (tenant_id, is_superadmin) en session.sync_session.info y registrar @event.listens_for(AsyncSession.sync_session_class, "after_begin") para re-inyectar SET LOCAL automáticamente (ver recurso MCP blueprint://database/postgres-rls-worm).',
+    },
+  ];
+}
+
+function checkSec14WormDeterministicChain(relPath: string, lines: string[]): SecurityFinding[] {
+  if (!relPath.endsWith('.py') || isTestFilePath(relPath)) return [];
+  const fullText = lines.join('\n');
+  const isWormChainFile =
+    fullText.includes('prev_record_hash') &&
+    (fullText.includes('def write_audit_log') || fullText.includes('record_sha256_hash'));
+  if (!isWormChainFile) return [];
+
+  const ordersByCreatedAt =
+    /order_by\s*\([^)]*created_at/i.test(fullText) || /ORDER\s+BY\s+[^\n]*created_at/i.test(fullText);
+  const hasDeterministicLockAndSeq =
+    fullText.includes('seq_num') && fullText.includes('pg_advisory_xact_lock');
+
+  if (!ordersByCreatedAt || hasDeterministicLockAndSeq) return [];
+
+  const lineIdx = lines.findIndex((l) => l.includes('created_at') || l.includes('prev_record_hash'));
+  return [
+    {
+      rule_id: 'SEC-14',
+      severity: 'HIGH',
+      stig_owasp_ref: 'APSC-DV-001350 / Standard 11X Law 7 / Deterministic WORM Audit Chain',
+      file: relPath,
+      line: (lineIdx >= 0 ? lineIdx : 0) + 1,
+      message:
+        'Cadena forense WORM (prev_record_hash) ordena únicamente por created_at DESC sin secuencia monotónica (seq_num) ni pg_advisory_xact_lock, quedando vulnerable a empates de reloj y condiciones de carrera.',
+      remediation:
+        'Usar seq_num BIGINT DEFAULT nextval(...), SELECT pg_advisory_xact_lock(hashtext(tenant_key)), seguimiento en memoria de sesión (_rg_in_tx_audit_hash / _in_tx_audit_hash) y await session.flush() (ver blueprint://database/postgres-rls-worm).',
+    },
+  ];
+}
+
+function checkQaCov01AddoptsBypass(relPath: string, lines: string[]): SecurityFinding[] {
+  const base = path.basename(relPath);
+  const isMakefileOrShell =
+    base === 'Makefile' || base === 'Makefile.example' || relPath.endsWith('.sh');
+  if (!isMakefileOrShell) return [];
+
+  const findings: SecurityFinding[] = [];
+  const addoptsBypassRegex = /\bpytest\b[^\n]*-o\s+addopts=(?:""|''|\\""|\\'')(?![^\n]*--cov)/;
+
+  for (let i = 0; i < lines.length; i++) {
+    if (addoptsBypassRegex.test(lines[i])) {
+      findings.push({
+        rule_id: 'QA-COV-01',
+        severity: 'HIGH',
+        stig_owasp_ref: 'Standard 11X Law 2 / Non-Root Ephemeral Coverage Enforcement',
+        file: relPath,
+        line: i + 1,
+        message:
+          'Se detectó ejecución de pytest con -o addopts="" sin incluir explícitamente --cov=src --cov-fail-under=95 (lo que desactiva silenciosamente la compuerta de cobertura de pyproject.toml).',
+        remediation:
+          'Añadir explícitamente --cov=src --cov-fail-under=95 junto a -o addopts="" e inyectar -e COVERAGE_FILE=/tmp/.coverage en contenedores Docker no-root (UID 1001).',
+      });
+    }
+  }
+
+  return findings;
+}
+
 function scanSingleFile(absPath: string, relPath: string): SecurityFinding[] {
   let content: string;
   try {
@@ -807,6 +919,9 @@ function scanSingleFile(absPath: string, relPath: string): SecurityFinding[] {
     ...checkSec10Secrets(relPath, lines),
     ...checkSec11AuditSemanticIntegrity(relPath, lines),
     ...checkSec12McpServiceRbac(relPath, lines),
+    ...checkSec13RlsMultiTxPersistence(relPath, lines),
+    ...checkSec14WormDeterministicChain(relPath, lines),
+    ...checkQaCov01AddoptsBypass(relPath, lines),
     ...checkQaKarateStaticIdempotency(relPath, lines),
     ...checkUi11x01VisualGeometry(relPath, lines),
     ...checkUi11x02DualRefreshAndSemanticElse(relPath, lines),

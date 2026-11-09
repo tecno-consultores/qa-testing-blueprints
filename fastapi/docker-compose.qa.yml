@@ -78,6 +78,7 @@ services:
       DATABASE_URL: 'postgresql+asyncpg://qa_user:qa_password@postgres:5432/qa_db'
       REDIS_URL: 'redis://keydb:6379/0'
       APP_ENV: 'qa_unit'
+      COVERAGE_FILE: '/tmp/.coverage'
     volumes:
       - .:/app
       - uv-cache:/root/.cache/uv

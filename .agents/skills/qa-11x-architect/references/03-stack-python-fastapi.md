@@ -50,6 +50,13 @@ Instrumentator().instrument(app).expose(app)
   ]
   ```
 
+- **Non-Root Ephemeral Container Coverage (`COVERAGE_FILE=/tmp/.coverage` & No Bare `-o addopts=""`):**
+  - Never pass `-o addopts=""` to `pytest` in `Makefile` or CI scripts without explicitly appending `--cov=src --cov-fail-under=95` (since `-o addopts=""` silently disables coverage flags configured in `pyproject.toml`).
+  - Always pass `-e COVERAGE_FILE=/tmp/.coverage` in `docker compose run` / `docker run` commands so hardened non-root container users (`UID 1001`) can write SQLite coverage files without host bind-mount permission errors (`sqlite3.DataError: Couldn't use data file '/app/.coverage'`).
+- **PostgreSQL RLS Multi-Transaction Persistence (`after_begin`) & Deterministic WORM Audit (`seq_num`):**
+  - Connect using a `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS` role; store `(tenant_id, is_superadmin)` in `session.sync_session.info` and register `@event.listens_for(AsyncSession.sync_session_class, "after_begin")` to re-apply `SET LOCAL app.current_tenant_id` across post-commit transactions; use `SECURITY DEFINER` (`SET search_path = public`) SQL functions for pre-auth slug/bootstrap queries.
+  - Order hash-chained `audit_logs` by a monotonic `seq_num BIGINT` with `SELECT pg_advisory_xact_lock(hashtext(tenant_key))`, track `_in_tx_audit_hash` / `_rg_in_tx_audit_hash` on the session, and `await session.flush()` after each `write_audit_log()` call.
+
 ### C. Database Parity, Anti-Mock Blindness & Cross-Module State Propagation
 - NEVER mock SQLAlchemy sessions or Alembic migrations when testing persistence layers.
 - Run migrations against real PostgreSQL 17 in `docker-compose.qa.yml`.

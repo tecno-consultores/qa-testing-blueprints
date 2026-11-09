@@ -117,6 +117,29 @@ export function createMcpServer(options?: {
     }
   );
 
+  // 3b. Blueprint táctico PostgreSQL 17 RLS Multi-Transacción (after_begin) y Auditoría WORM Determinista (seq_num + pg_advisory_xact_lock)
+  server.resource(
+    'blueprint-postgres-rls-worm',
+    'blueprint://database/postgres-rls-worm',
+    {
+      description:
+        'Guía e implementación canónica de PostgreSQL 17 RLS Multi-Transacción (after_begin en AsyncSession, rol NOSUPERUSER NOBYPASSRLS, funciones SECURITY DEFINER) y serialización determinista de cadenas forenses WORM (seq_num BIGINT + pg_advisory_xact_lock).',
+      mimeType: MARKDOWN_MIME_TYPE,
+    },
+    async (uri) => {
+      const res = await resources.getPostgresRlsWormResource();
+      return {
+        contents: [
+          {
+            uri: uri.href,
+            mimeType: res.mimeType,
+            text: res.text,
+          },
+        ],
+      };
+    }
+  );
+
   // 4. Guía operativa por stack (blueprint://{stack}/readme)
   server.resource(
     'blueprint-stack-readme',

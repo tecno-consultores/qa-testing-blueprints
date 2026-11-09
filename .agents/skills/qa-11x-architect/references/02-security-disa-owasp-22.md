@@ -28,7 +28,7 @@ This reference provides the comprehensive compliance matrix and tactical impleme
 | **15** | Lockout & Constant-Time Auth | `APSC-DV-000290..580` | OWASP A 1-20 | 3-fail/15m lockout; dummy Argon2id hash; 15-char password; 72h temp account. |
 | **16** | Unicode NFKC & Anti-Command Inj | `APSC-DV-002510..2530` | OWASP CEC/SFL-9 | Normalize to NFKC *before* validation; forbid `shell=True`; use absolute paths. |
 | **17** | Anti-XXE & Magic-Bytes Validation | `APSC-DV-002390/2485` | OWASP VSD/FV | `resolve_entities=False`; JSON+HMAC; verify file magic bytes; indexed paths. |
-| **18** | Immutable Audit & 75% Alert | `APSC-DV-000650..1370` | OWASP SL/SLD | Strip CR/LF; UTC ms HMAC-chained log records; zero tokens; 75% disk alert. |
+| **18** | Immutable Audit & 75% Alert | `APSC-DV-000650..1370` | OWASP SL/SLD | Strip CR/LF; `seq_num BIGINT` + `pg_advisory_xact_lock` WORM hash-chain; 75% disk alert. |
 | **19** | FIPS 140-3 & Secret Zeroization | `APSC-DV-002010..2230` | OWASP MM 1-9 | AES-256-GCM; zero memory buffers (`bytearray`); scrub credentials on export. |
 | **20** | OSHP Headers & Fail-Secure Init | `APSC-DV-002310..2770` | OWASP OSHP/SC | HSTS, CSP, nosniff, DENY; drop Server headers; startup cryptographic self-test. |
 | **21** | OWASP API Top 10 & Anti-Mining | `APSC-DV-000450/460` | OWASP API 2023 | BOLA/BOPLA tenant guards; max 100/page; rate-limit datamining; 5s/64KB 3P API cap. |
@@ -140,6 +140,26 @@ def canonicalize_nfkc_text(raw_value: str, max_length: int = 256) -> str:
     if any(ord(c) < 32 or ord(c) == 127 for c in normalized):
         raise ValueError("Illegal control characters detected")
     return normalized
+```
+
+### Pattern 18: Deterministic WORM Audit Hash-Chain (`seq_num` + `pg_advisory_xact_lock`)
+```python
+# Never order hash-chained audit logs solely by created_at DESC (vulnerable to clock ties & race conditions).
+# Pair a monotonic BIGINT sequence (seq_num) with pg_advisory_xact_lock and in-session hash tracking:
+await session.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": f"audit:{tenant_id}"})
+prev_hash = session.__dict__.get("_rg_in_tx_audit_hash") or session.sync_session.info.get("_in_tx_audit_hash")
+if not prev_hash:
+    res = await session.execute(
+        select(AuditLog.record_sha256_hash)
+        .where(AuditLog.tenant_id == tenant_id)
+        .order_by(AuditLog.seq_num.desc())
+        .limit(1)
+    )
+    prev_hash = res.scalar_one_or_none() or ("0" * 64)
+# After computing record_sha256_hash and session.add(entry):
+session.__dict__["_rg_in_tx_audit_hash"] = record_sha256_hash
+session.sync_session.info["_in_tx_audit_hash"] = record_sha256_hash
+await session.flush()
 ```
 
 ### Pattern 19: Cryptographic Memory Zeroization

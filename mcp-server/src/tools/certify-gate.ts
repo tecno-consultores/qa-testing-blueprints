@@ -33,6 +33,7 @@ function checkUnmergedExamples(projectPath: string): { passed: boolean; blockers
   try {
     const files = fs.readdirSync(projectPath);
     for (const file of files) {
+      if (file === '.env.example') continue;
       if (file.endsWith('.example') && !file.startsWith('.git')) {
         blockers.push(`Archivo .example sin fusionar en la raíz: ${file}`);
       }
@@ -294,16 +295,21 @@ function checkOrmParity(projectPath: string): { passed: boolean; blockers: strin
   const modelPaths = [
     path.join(projectPath, 'src', 'models'),
     path.join(projectPath, 'fastapi', 'src', 'models'),
+    path.join(projectPath, 'backend', 'src', 'models'),
     path.join(projectPath, 'src', 'models.py'),
     path.join(projectPath, 'fastapi', 'src', 'models.py'),
+    path.join(projectPath, 'backend', 'src', 'models.py'),
   ];
 
   const hasModels = modelPaths.some((p) => fs.existsSync(p));
   if (hasModels) {
     const alembicPaths = [
       path.join(projectPath, 'alembic', 'versions'),
-      path.join(projectPath, 'fastapi', 'alembic', 'versions'),
       path.join(projectPath, 'migrations', 'versions'),
+      path.join(projectPath, 'fastapi', 'alembic', 'versions'),
+      path.join(projectPath, 'fastapi', 'migrations', 'versions'),
+      path.join(projectPath, 'backend', 'alembic', 'versions'),
+      path.join(projectPath, 'backend', 'migrations', 'versions'),
     ];
     const hasAlembic = alembicPaths.some((p) => fs.existsSync(p));
     if (!hasAlembic) {
@@ -333,9 +339,21 @@ function checkDuplicateVersionHeaders(changelogContent: string): string[] {
   return blockers;
 }
 
+function resolveWithParentFallback(projectPath: string, ...segments: string[]): string {
+  const directPath = path.join(projectPath, ...segments);
+  if (fs.existsSync(directPath)) {
+    return directPath;
+  }
+  const parentPath = path.resolve(projectPath, '..', ...segments);
+  if (fs.existsSync(parentPath)) {
+    return parentPath;
+  }
+  return directPath;
+}
+
 function checkActiveTaskGovernance(projectPath: string): string[] {
   const blockers: string[] = [];
-  const activeTaskPath = path.join(projectPath, '.agents', 'ACTIVE_TASK.md');
+  const activeTaskPath = resolveWithParentFallback(projectPath, '.agents', 'ACTIVE_TASK.md');
   if (!fs.existsSync(activeTaskPath)) return blockers;
 
   try {
@@ -410,8 +428,8 @@ function checkAstTopology(projectPath: string): { passed: boolean; blockers: str
 
 function checkDocumentationSync(projectPath: string): { passed: boolean; blockers: string[] } {
   const blockers: string[] = [];
-  const testingMd = path.join(projectPath, 'TESTING.md');
-  const changelogMd = path.join(projectPath, 'CHANGELOG.md');
+  const testingMd = resolveWithParentFallback(projectPath, 'TESTING.md');
+  const changelogMd = resolveWithParentFallback(projectPath, 'CHANGELOG.md');
 
   if (!fs.existsSync(testingMd)) {
     blockers.push('Falta archivo de aseguramiento de calidad TESTING.md en la raíz.');

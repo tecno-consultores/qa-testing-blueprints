@@ -65,6 +65,25 @@ export class BlueprintResources {
     };
   }
 
+  public async getPostgresRlsWormResource(): Promise<ResourceResponse> {
+    const manifest = await this.fetcher.fetchManifest();
+    const rlsRef = manifest.agent_governance_files.find((f) =>
+      f.path.endsWith('08-postgres-rls-zero-downtime-migrations.md')
+    );
+    let content = '';
+    if (rlsRef) {
+      content = await this.fetcher.fetchFileContent(rlsRef.path, rlsRef.sha256);
+    } else {
+      content =
+        '# PostgreSQL 17 RLS Multi-Transacción (after_begin) & Cadena WORM Determinista (seq_num + pg_advisory_xact_lock)\n\nConsulte .agents/skills/qa-11x-architect/references/08-postgres-rls-zero-downtime-migrations.md';
+    }
+    return {
+      uri: 'blueprint://database/postgres-rls-worm',
+      mimeType: MIME_MARKDOWN,
+      text: content,
+    };
+  }
+
   public async getStackReadmeResource(stack: string): Promise<ResourceResponse> {
     const manifest = await this.fetcher.fetchManifest();
     const stackDef = isOwnObjectProperty(manifest.stacks, stack)

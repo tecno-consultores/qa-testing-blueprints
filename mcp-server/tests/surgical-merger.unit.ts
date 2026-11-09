@@ -208,6 +208,22 @@ test:
       expect(changes).toContain('Añadido target Makefile: "qa-unit"');
       expect(changes).not.toContain('Añadido target Makefile: "test"'); // ya existía
     });
+
+    it('injects --cov=src --cov-fail-under=95 on bare pytest -o addopts="" and -e COVERAGE_FILE=/tmp/.coverage on docker compose run', () => {
+      const target = `
+qa-unit:
+\tdocker compose -f docker-compose.qa.yml run --rm qa-backend pytest -o addopts="" tests/
+`;
+      const example = `
+qa-unit:
+\tdocker compose -f docker-compose.qa.yml run --rm -e COVERAGE_FILE=/tmp/.coverage qa-backend pytest --cov=src
+`;
+      const { merged, changes } = merger.mergeMakefile(target, example);
+      expect(merged).toContain('-e COVERAGE_FILE=/tmp/.coverage');
+      expect(merged).toContain('-o addopts="" --cov=src --cov-fail-under=95');
+      expect(changes).toContain('Inyectado "--cov=src --cov-fail-under=95" junto a "-o addopts=\\"\\"" en Makefile');
+      expect(changes).toContain('Inyectado "-e COVERAGE_FILE=/tmp/.coverage" para contenedor no-root en Makefile');
+    });
   });
 
   describe('mergeGitignoreOrNpmrc', () => {

@@ -70,13 +70,14 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
   # Grupo 4: Contratos de Esquema de Recursos MCP (Resources 1 a 8)
   # ==============================================================================
 
-  Scenario: 4. Definición de URIs y tipos MIME para los 8 Recursos MCP
+  Scenario: 4. Definición de URIs y tipos MIME para los 9 Recursos MCP
     * def expectedResources =
       """
       [
         { uri: 'blueprint://manifest', mimeType: 'application/json' },
         { uri: 'blueprint://core/philosophy', mimeType: 'text/markdown' },
         { uri: 'blueprint://security/disa-owasp-22', mimeType: 'text/markdown' },
+        { uri: 'blueprint://database/postgres-rls-worm', mimeType: 'text/markdown' },
         { uri: 'blueprint://{stack}/readme', mimeType: 'text/markdown' },
         { uri: 'blueprint://ui/refactoring-ui/{topic}', mimeType: 'text/markdown' },
         { uri: 'blueprint://core/active-task-template', mimeType: 'text/markdown' },
@@ -84,7 +85,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
         { uri: 'blueprint://core/roadmap-validator', mimeType: 'text/x-python' }
       ]
       """
-    * match expectedResources == '#[8]'
+    * match expectedResources == '#[9]'
 
   # ==============================================================================
   # Grupo 5: Contrato de Salida de Herramientas MCP
@@ -486,5 +487,28 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert skillContent.contains('references/07-mcp-agentic-security-governance.md')
     * assert skillContent.contains('references/08-postgres-rls-zero-downtime-migrations.md')
     * assert skillContent.contains('references/09-sre-observability-chaos-triage.md')
+
+  Scenario: 17. Evolución empírica RLS Multi-Tx (after_begin), Cadena WORM (seq_num + pg_advisory_xact_lock), COVERAGE_FILE=/tmp/.coverage, Monorepo certify_11x_gate y SEC-11
+    * def secSource = karate.readAsString('file:src/tools/security-auditor.ts')
+    * assert secSource.contains('isDirectRealAuditFunctionTest')
+    * assert secSource.contains('SEC-13')
+    * assert secSource.contains('SEC-14')
+    * assert secSource.contains('QA-COV-01')
+
+    * def certifySource = karate.readAsString('file:src/tools/certify-gate.ts')
+    * assert certifySource.contains(".env.example")
+    * assert certifySource.contains('resolveWithParentFallback')
+
+    * def mergerSource = karate.readAsString('file:src/services/surgical-merger.ts')
+    * assert mergerSource.contains('COVERAGE_FILE=/tmp/.coverage')
+    * assert mergerSource.contains('--cov=src --cov-fail-under=95')
+
+    * def rlsReference = karate.readAsString('file:../.agents/skills/qa-11x-architect/references/08-postgres-rls-zero-downtime-migrations.md')
+    * assert rlsReference.contains('after_begin')
+    * assert rlsReference.contains('NOBYPASSRLS')
+    * assert rlsReference.contains('SECURITY DEFINER')
+    * assert rlsReference.contains('pg_advisory_xact_lock')
+    * assert rlsReference.contains('seq_num')
+
 
 
