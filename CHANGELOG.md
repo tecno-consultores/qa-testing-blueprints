@@ -6,6 +6,10 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+---
+
+## [2.15.0] - 2026-11-09
+
 ### 🚀 Mejorado (Changed & Added)
 * **Navegación AST Bidireccional (`Graphify AST-First`) en Consultas de Código (`Code Q&A`) y Pre-Cambio (`inspect_blast_radius.py`, `blast-radius.ts` y `graphify-ast-navigator`):** Ampliados `.agents/scripts/inspect_blast_radius.py` y `inspect_ast_blast_radius` (`mcp-server`) para reportar la ubicación declarativa exacta (`file:L<line>`), llamadores entrantes (`⬅️`), dependencias salientes (`➡️ outgoing_dependencies`) y `graph_reports` (`GRAPH_REPORT.md`), haciendo obligatorio consultar primero el grafo de Graphify (y crearlo si no existe) ante cualquier pregunta sobre el código o arquitectura de un proyecto antes de usar `grep` o `read_file`.
 * **Desduplicación Ultra-Compacta de `~/.gemini/GEMINI.md` frente a la Instalación Global del MCP y Skills (`buildGlobalGeminiBlock` en `init-agents-md.ts`):** Sustituido el bloque conector redundante en `syncGlobalGeminiMd()` por un puntero ligero libre de duplicación que delega los 11 pasos y reglas al servidor MCP (`@sinfallas/mcp-qa-11x`) y a las 5 skills instaladas globalmente (`~/.gemini/config/skills/`), ahorrando ~70% de tokens en el prompt global.
