@@ -8,6 +8,13 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ---
 
+## [2.15.1] - 2026-11-09
+
+### 📦 Empaquetado NPM y Documentación (`@sinfallas/mcp-qa-11x`)
+* **Metadatos Completos para `npmjs.com` en `mcp-server/package.json` y Sincronización Integral de `mcp-server/README.md`:** Añadidos `homepage` (`https://github.com/tecno-consultores/qa-testing-blueprints`), `repository` (`git+https://github.com/tecno-consultores/qa-testing-blueprints.git`, `directory: "mcp-server"`), `bugs` y `keywords` en `mcp-server/package.json`; actualizado `mcp-server/README.md` con enlaces absolutos a GitHub (cero enlaces relativos rotos en npmjs), tabla de los 7 stacks soportados, catálogo de las 5 skills corporativas, los 9 recursos `blueprint://*` y las 12 herramientas MCP (incluyendo navegación AST bidireccional en modo `Code Q&A`).
+
+---
+
 ## [2.15.0] - 2026-11-09
 
 ### 🚀 Mejorado (Changed & Added)

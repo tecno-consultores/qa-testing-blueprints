@@ -16,9 +16,15 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
   # Grupo 1: Contrato del Paquete y Metadatos CLI
   # ==============================================================================
 
-  Scenario: 1. El paquete npm expone nombre, versión y binario ejecutable canónico
+  Scenario: 1. El paquete npm expone nombre, versión, metadatos de npmjs y binario ejecutable canónico
     * match pkg.name == '@sinfallas/mcp-qa-11x'
     * match pkg.version == '#regex ^[0-9]+\\.[0-9]+\\.[0-9]+$'
+    * match pkg.homepage == 'https://github.com/tecno-consultores/qa-testing-blueprints'
+    * match pkg.repository.type == 'git'
+    * match pkg.repository.url == 'git+https://github.com/tecno-consultores/qa-testing-blueprints.git'
+    * match pkg.repository.directory == 'mcp-server'
+    * match pkg.bugs.url == 'https://github.com/tecno-consultores/qa-testing-blueprints/issues'
+    * assert pkg.keywords.length >= 10
     * match pkg.bin['mcp-qa-11x'] == 'dist/index.js'
     * match pkg.type == 'module'
     * match pkg.license == 'MIT'

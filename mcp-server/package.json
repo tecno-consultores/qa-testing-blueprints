@@ -1,7 +1,34 @@
 {
   "name": "@sinfallas/mcp-qa-11x",
-  "version": "2.15.0",
+  "version": "2.15.1",
   "description": "Servidor MCP e Instalador de Skill para QA Testing Blueprints (Estándar 11X, DISA ASD STIG V6R5 & OWASP v4.2)",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "qa",
+    "testing",
+    "blueprints",
+    "devsecops",
+    "disa-stig",
+    "owasp",
+    "karate-labs",
+    "graphify",
+    "ast",
+    "docker",
+    "antigravity",
+    "claude",
+    "cursor",
+    "hermes-agent"
+  ],
+  "homepage": "https://github.com/tecno-consultores/qa-testing-blueprints",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tecno-consultores/qa-testing-blueprints.git",
+    "directory": "mcp-server"
+  },
+  "bugs": {
+    "url": "https://github.com/tecno-consultores/qa-testing-blueprints/issues"
+  },
   "author": "Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)",
   "license": "MIT",
   "type": "module",
