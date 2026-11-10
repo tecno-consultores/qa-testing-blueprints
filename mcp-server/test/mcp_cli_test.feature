@@ -34,8 +34,8 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * match manifest.generated_at_utc == '#string'
     * match manifest.repository == 'tecno-consultores/qa-testing-blueprints'
     * match manifest.stacks == '#object'
-    * match manifest.common_files == '#[? _ >= 1]'
-    * match manifest.agent_governance_files == '#[? _ >= 1]'
+    * assert manifest.common_files.length >= 1
+    * assert manifest.agent_governance_files.length >= 1
 
     # Validar que cada archivo contenga hash SHA-256 de 64 caracteres hexadecimales
     * def validateEntry = function(item) { return item.sha256.length == 64 && item.size_bytes >= 0 }
@@ -342,7 +342,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
   # ==============================================================================
 
   Scenario: 13. El README restaura la Matriz de Herramientas de Pruebas y actualiza tags oficiales de Docker Hub
-    * def readmeContent = karate.readAsString('classpath:../README.md')
+    * def readmeContent = karate.readAsString('file:../README.md')
     * match readmeContent contains '## 🛠 Matriz de Herramientas de Pruebas'
     * match readmeContent contains '| Entorno | Linting / Formateo | Pruebas Unitarias / Mocking |'
     * match readmeContent contains '`3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest`'
@@ -357,7 +357,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
   # ==============================================================================
 
   Scenario: 14. El servidor MCP y las directrices soportan Fast-Path Documental (DOCS_ONLY) y Lazy Rule Loading
-    * def agentsContent = karate.readAsString('classpath:../AGENTS.md')
+    * def agentsContent = karate.readAsString('file:../AGENTS.md')
     * match agentsContent contains 'Fast-Path Documental (`DOCS_ONLY`'
     * match agentsContent contains 'Full-Path de Código (`CODE_CHANGE`'
 
@@ -391,7 +391,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
   # ==============================================================================
 
   Scenario: 15. Contrato de 3 Vías Proporcionales (DOCS_ONLY, MICRO_CHANGE, FULL_11X), Token Economy y Grouped Findings
-    * def agentsContent = karate.readAsString('classpath:../AGENTS.md')
+    * def agentsContent = karate.readAsString('file:../AGENTS.md')
     * match agentsContent contains '3-Path Proportional Execution'
     * match agentsContent contains 'DOCS_ONLY'
     * match agentsContent contains 'MICRO_CHANGE'
@@ -511,6 +511,22 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert rlsReference.contains('SECURITY DEFINER')
     * assert rlsReference.contains('pg_advisory_xact_lock')
     * assert rlsReference.contains('seq_num')
+
+  Scenario: 18. Navegación AST Bidireccional (Graphify AST-First en Consultas de Código Q&A) y Conector Global GEMINI.md Sin Duplicación
+    * def blastRadiusSource = karate.readAsString('file:src/tools/blast-radius.ts')
+    * assert blastRadiusSource.contains('outgoing_dependencies')
+    * assert blastRadiusSource.contains('declaring_files')
+    * assert blastRadiusSource.contains('graph_reports')
+
+    * def initAgentsSource = karate.readAsString('file:src/cli/init-agents-md.ts')
+    * assert initAgentsSource.contains('buildGlobalGeminiBlock')
+    * assert initAgentsSource.contains('Conector Global Thin-Client QA 11X')
+    * assert initAgentsSource.contains('Graphify AST-First (Consultas de Código Q&A y Pre-Cambio)')
+
+    * def graphifySkillSource = karate.readAsString('file:../.agents/skills/graphify-ast-navigator/SKILL.md')
+    * assert graphifySkillSource.contains('Code Q&A')
+    * assert graphifySkillSource.contains('Graphify AST-First, Grep-Fallback, Windowed-Read-Second')
+
 
 
 

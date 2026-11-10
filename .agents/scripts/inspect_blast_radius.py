@@ -57,14 +57,18 @@ def compute_blast_radius(graph: dict[str, Any], target_node_id: str) -> dict[str
     links = graph.get("links", [])
 
     direct_callers = []
+    outgoing_callees = []
     direct_caller_files: set[str] = set()
     impacted_communities: set[str] = set()
 
     for link in links:
+        relation = link.get("relation", "calls")
+        loc = link.get("source_location")
         if link.get("target") == target_node_id:
             src_id = link.get("source")
             src_node = nodes_by_id.get(src_id, {})
             src_file = link.get("source_file") or src_node.get("source_file", "unknown")
+            src_loc = loc or src_node.get("source_location", "")
             direct_caller_files.add(src_file)
             comm_name = src_node.get("community_name")
             if comm_name:
@@ -74,8 +78,22 @@ def compute_blast_radius(graph: dict[str, Any], target_node_id: str) -> dict[str
                 {
                     "source_id": src_id,
                     "label": src_node.get("label", src_id),
-                    "file": src_file,
-                    "relation": link.get("relation", "calls"),
+                    "file": f"{src_file}:{src_loc}" if src_loc else src_file,
+                    "raw_file": src_file,
+                    "relation": relation,
+                }
+            )
+        elif link.get("source") == target_node_id and relation != "contains":
+            tgt_id = link.get("target")
+            tgt_node = nodes_by_id.get(tgt_id, {})
+            tgt_file = tgt_node.get("source_file") or link.get("source_file", "unknown")
+            tgt_loc = tgt_node.get("source_location") or loc or ""
+            outgoing_callees.append(
+                {
+                    "target_id": tgt_id,
+                    "label": tgt_node.get("label", tgt_id),
+                    "file": f"{tgt_file}:{tgt_loc}" if tgt_loc else tgt_file,
+                    "relation": relation,
                 }
             )
 
@@ -84,6 +102,7 @@ def compute_blast_radius(graph: dict[str, Any], target_node_id: str) -> dict[str
         "unique_files_count": len(direct_caller_files),
         "impacted_communities": list(impacted_communities),
         "direct_callers": direct_callers,
+        "outgoing_callees": outgoing_callees,
     }
 
 
@@ -144,17 +163,26 @@ def inspect_symbol(query: str) -> None:
 
                 total_callers += callers_count
                 for c in radius["direct_callers"]:
-                    total_files.add(c["file"])
+                    total_files.add(c.get("raw_file", c["file"]))
 
+                node_file = node.get("source_file", "unknown")
+                node_loc = node.get("source_location", "")
+                node_where = f"{node_file}:{node_loc}" if node_loc else node_file
                 risk = assess_risk_level(node_id, callers_count, files_count)
                 print(
-                    f"🔹 [{g_path.relative_to(REPO_ROOT)}] '{node.get('label')}' ({node_id}) -> {callers_count} llamadores en {files_count} archivos | {risk}"
+                    f"🔹 [{g_path.relative_to(REPO_ROOT)}] '{node.get('label')}' ({node_where}) -> {callers_count} llamadores en {files_count} archivos | {risk}"
                 )
                 if radius["direct_callers"]:
                     for c in radius["direct_callers"][:5]:
-                        print(f"   -> {c['file']}: {c['label']} ({c['relation']})")
+                        print(f"   ⬅️ [Llamado por] {c['file']}: {c['label']} ({c['relation']})")
                     if callers_count > 5:
-                        print(f"   ... (+{callers_count - 5} más)")
+                        print(f"   ... (+{callers_count - 5} llamadores más)")
+                outgoing = radius.get("outgoing_callees", [])
+                if outgoing:
+                    for o in outgoing[:5]:
+                        print(f"   ➡️ [Invoca a]    {o['file']}: {o['label']} ({o['relation']})")
+                    if len(outgoing) > 5:
+                        print(f"   ... (+{len(outgoing) - 5} dependencias salientes más)")
         except Exception as e:
             print(f"⚠️ Error procesando grafo {g_path}: {e}")
 

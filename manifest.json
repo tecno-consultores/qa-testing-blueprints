@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.14.1",
-  "generated_at_utc": "2026-11-09T20:15:02Z",
+  "generated_at_utc": "2026-11-10T02:27:59Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -672,8 +672,8 @@
       "path": ".agents/rules/anti_regression_and_side_effects_guardrail.md",
       "target_name": ".agents/rules/anti_regression_and_side_effects_guardrail.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "c0a9fc33758dab787b7fa43646ce68b8818f99f62446f82caad08aa3bbf3034e",
-      "size_bytes": 4868
+      "sha256": "3979a3324f4517d05e6e3125078266818b5f0482ce918d9521b009c9711cf54a",
+      "size_bytes": 5308
     },
     {
       "path": ".agents/rules/continuous_agent_evolution.md",
@@ -721,8 +721,8 @@
       "path": ".agents/scripts/inspect_blast_radius.py",
       "target_name": ".agents/scripts/inspect_blast_radius.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "fca8e9649af2f43e48d74fbb723b80ece2327de98d0cd3bc72f8dd5f01c43b31",
-      "size_bytes": 7594
+      "sha256": "788f95f67fac846b9f4638ad604564fe2340f9d0453623fefd15babf5383f9f6",
+      "size_bytes": 9141
     },
     {
       "path": ".agents/scripts/verify_alembic_orm_parity.py",
@@ -777,8 +777,8 @@
       "path": ".agents/skills/graphify-ast-navigator/SKILL.md",
       "target_name": ".agents/skills/graphify-ast-navigator/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "ad247e6ac2527af4427376852bea71259239828b89dd597d64bee23bc0cd1ce6",
-      "size_bytes": 6700
+      "sha256": "ee26589e7b590f9c38711afe7c8b0286b0082755db94c216a84916326a178202",
+      "size_bytes": 7972
     },
     {
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
@@ -931,8 +931,8 @@
       "path": "AGENTS.md",
       "target_name": "AGENTS.md",
       "merge_strategy": "surgical_merge",
-      "sha256": "7ca8b38dc5b49c09fd0c743bcfe2c790995b455280e9d4b2e8e878c11610e0c5",
-      "size_bytes": 19235
+      "sha256": "f1824931fa60cea9321ce2e1fe1e8ff655338ab8b9bcc875a7e8e4fab3453d17",
+      "size_bytes": 19632
     },
     {
       "path": "scripts/install-skill.sh",

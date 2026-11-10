@@ -362,17 +362,24 @@ describe('Tools and Resources Integration Suite', () => {
       fs.mkdirSync(graphDir, { recursive: true });
       const graphPayload = {
         nodes: [
-          { id: 'node_target', label: 'GraphTarget', source_file: 'Service.php' },
+          { id: 'node_target', label: 'GraphTarget', source_file: 'Service.php', source_location: 'L10' },
           { id: 'node_caller', label: 'CallerController', source_file: 'src/CallerController.php' },
           { id: 'node_spec_caller', label: 'CallerSpec', source_file: 'tests/Caller.spec.ts' },
+          { id: 'node_callee', label: 'AuditHelper', source_file: 'src/AuditHelper.php', source_location: 'L42' },
+          { id: 'node_fileless_callee', label: 'ExternalHelper' },
         ],
         links: [
           { source: 'node_caller', target: 'node_target', relation: 'calls' },
           { source: 'node_spec_caller', target: 'node_target', source_file: 'tests/Caller.spec.ts' },
+          { source: 'node_target', target: 'node_callee', relation: 'calls' },
+          { source: 'node_target', target: 'node_fileless_callee', relation: 'calls' },
+          { source: 'node_target', target: 'node_callee', relation: 'contains' },
+          { source: 'node_target', target: 'nonexistent_target', relation: 'calls' },
           { source: 'unknown_node', target: 'other_target' },
         ],
       };
       fs.writeFileSync(path.join(graphDir, 'graph.json'), JSON.stringify(graphPayload), 'utf-8');
+      fs.writeFileSync(path.join(graphDir, 'GRAPH_REPORT.md'), '# Graph Report\n', 'utf-8');
 
       // También probar grafo corrupto en subdirectorio para cubrir catch
       const badGraphDir = path.join(targetProjectDir, 'sub', 'graphify-out');
@@ -382,6 +389,10 @@ describe('Tools and Resources Integration Suite', () => {
       const withGraphRes = await inspectAstBlastRadius(targetProjectDir, 'GraphTarget');
       expect(withGraphRes.ast_graph_detected).toBe(true);
       expect(withGraphRes.ast_graph_files).toContain(path.join('graphify-out', 'graph.json'));
+      expect(withGraphRes.graph_reports).toContain(path.join('graphify-out', 'GRAPH_REPORT.md'));
+      expect(withGraphRes.declaring_files).toContain('Service.php:L10');
+      expect(withGraphRes.outgoing_dependencies).toContain('src/AuditHelper.php:AuditHelper');
+      expect(withGraphRes.outgoing_dependencies).toContain('ExternalHelper');
       expect(withGraphRes.dependent_files).toContain('src/CallerController.php');
       expect(withGraphRes.dependent_files).toContain('tests/Caller.spec.ts');
       expect(withGraphRes.ast_graph_action_required).toContain('Grafo AST detectado');

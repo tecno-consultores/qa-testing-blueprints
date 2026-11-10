@@ -52,8 +52,8 @@ Before altering any shared code, service definition, or configuration:
 
 ## 4. High-IQ Token Economy & Context Preservation Guardrails
 
-1. **`AST/Grep-First, Windowed-Read-Second` (Zero Blind Full-File Reads):**
-   - Never read files `> 150` lines in full to search for a symbol. First run `inspect_blast_radius.py` or `grep -n`, then call `read_file` with a targeted 40–80 line window (`StartLine` / `EndLine`).
+1. **`Graphify AST-First, Grep-Fallback, Windowed-Read-Second` (Zero Blind Full-File Reads):**
+   - For **any question about project code/architecture (`Code Q&A`)** or before modifying code, ALWAYS query `graphify-out/graph.json` (`python3 .agents/scripts/inspect_blast_radius.py "<symbol>"` or MCP `inspect_ast_blast_radius`) and `graphify-out/GRAPH_REPORT.md` **first** (creating `graphify-out/graph.json` via `./scripts/actualizar-grafos-graphify.sh` if missing). Use `grep -n` **only as a fallback** for unindexed string literals, then call `read_file` with a targeted 40–80 line window (`StartLine` / `EndLine`) around the exact `file:L<line>` returned by the AST graph. Never read files `> 150` lines in full.
 2. **`Zero Redundant Re-Read Invariant` & `Surgical Diff Edits`:**
    - Never re-read a file in the same session if it has not been modified externally. Always use surgical `edit_file` blocks instead of rewriting entire files via `write_file`.
 3. **`Parallel Tool Call Batching` & `Subagent Context Isolation`:**

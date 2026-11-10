@@ -9,6 +9,7 @@ import {
   CONNECTOR_START_MARKER,
   CONNECTOR_END_MARKER,
   buildConnectorBlock,
+  buildGlobalGeminiBlock,
   mergeOrAppendAgentsMdContent,
   initOrAppendAgentsMd,
   parseInitAgentsArgs,
@@ -53,6 +54,16 @@ describe('init-agents-md (Non-destructive AGENTS.md connector injection)', () =>
       const block = buildConnectorBlock('repo-vacio', []);
       expect(block).toContain('repo-vacio');
       expect(block).toContain('general');
+    });
+
+    it('generates ultra-compact zero-duplication global GEMINI.md block with Graphify AST-First Q&A', () => {
+      const globalBlock = buildGlobalGeminiBlock();
+      expect(globalBlock).toContain(CONNECTOR_START_MARKER);
+      expect(globalBlock).toContain(CONNECTOR_END_MARKER);
+      expect(globalBlock).toContain('Conector Global Thin-Client QA 11X');
+      expect(globalBlock).toContain('Graphify AST-First (Consultas de Código Q&A y Pre-Cambio)');
+      expect(globalBlock).toContain('sin duplicar reglas ni skills en los proyectos locales');
+      expect(globalBlock).not.toContain('Step 1 (Plan):');
     });
   });
 

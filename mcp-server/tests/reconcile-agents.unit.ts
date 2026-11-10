@@ -392,8 +392,23 @@ describe('reconcile-agents (Hito 13: Governance Reconciliation & Deduplication)'
       expect(updated).toContain('Personal Global Directives');
       expect(updated).toContain('Custom preference here');
       expect(updated).toContain('QA_11X_MCP_CONNECTOR_START');
+      expect(updated).toContain('Graphify AST-First');
       expect(updated).toContain('propose_skill_evolution_pr');
       expect(updated).toContain('reconcile_agents_governance');
+
+      // Segunda invocación idempotente cuando ya existen los marcadores
+      const resSecond = syncGlobalGeminiMd(fakeHome, false);
+      expect(resSecond.updated).toBe(true);
+      const updatedSecond = fs.readFileSync(resSecond.geminiMdPath, 'utf-8');
+      expect(updatedSecond).toContain('Personal Global Directives');
+      expect(updatedSecond.match(/QA_11X_MCP_CONNECTOR_START/g)?.length).toBe(1);
+
+      // Creación desde cero cuando GEMINI.md no existe aún
+      const freshHome = path.join(tmpDir, 'fresh-home');
+      fs.mkdirSync(path.join(freshHome, '.gemini'), { recursive: true });
+      const resFresh = syncGlobalGeminiMd(freshHome, false);
+      expect(resFresh.updated).toBe(true);
+      expect(fs.readFileSync(resFresh.geminiMdPath, 'utf-8')).toContain('Global AI Agent Directives');
     });
 
     it('respects dryRun in syncGlobalGeminiMd', () => {

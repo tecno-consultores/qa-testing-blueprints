@@ -72,12 +72,26 @@ interface GraphNode {
   id?: string;
   label?: string;
   source_file?: string;
+  source_location?: string;
 }
 
 interface GraphLink {
   source?: string;
   target?: string;
+  relation?: string;
   source_file?: string;
+  source_location?: string;
+}
+
+interface GraphScanContext {
+  cleanSymbol: string;
+  dependentFiles: Set<string>;
+  suggestedTests: Set<string>;
+  graphFiles: string[];
+  graphReports: string[];
+  declaringFiles: Set<string>;
+  declaringLocations: Set<string>;
+  outgoingDependencies: Set<string>;
 }
 
 interface GraphData {
@@ -154,7 +168,8 @@ function isMatchingGraphNode(node: GraphNode, queryLower: string, wordRegex: Reg
 function indexGraphNodes(
   nodes: GraphNode[],
   queryLower: string,
-  declaringFiles: Set<string>
+  declaringFiles: Set<string>,
+  declaringLocations: Set<string>
 ): { matchedIds: Set<string>; nodeById: Map<string, GraphNode> } {
   const matchedIds = new Set<string>();
   const nodeById = new Map<string, GraphNode>();
@@ -166,7 +181,9 @@ function indexGraphNodes(
     if (isMatchingGraphNode(node, queryLower, wordRegex)) {
       matchedIds.add(node.id);
       if (node.source_file) {
-        declaringFiles.add(normalizeRelativePath(node.source_file));
+        const norm = normalizeRelativePath(node.source_file);
+        declaringFiles.add(norm);
+        declaringLocations.add(node.source_location ? `${norm}:${node.source_location}` : norm);
       }
     }
   }
@@ -183,27 +200,41 @@ function resolveLinkCallerFile(
   return link.source_file ?? srcNode?.source_file;
 }
 
-function collectGraphCallers(
-  graphFilePath: string,
-  cleanSymbol: string,
-  dependentFiles: Set<string>,
-  suggestedTests: Set<string>,
-  declaringFiles: Set<string>
-): void {
+function resolveLinkOutgoingTarget(
+  link: GraphLink,
+  matchedIds: Set<string>,
+  nodeById: Map<string, GraphNode>
+): string | undefined {
+  if (!link.source || !matchedIds.has(link.source) || link.relation === 'contains') {
+    return undefined;
+  }
+  const tgtNode = link.target ? nodeById.get(link.target) : undefined;
+  if (!tgtNode) return undefined;
+  const tgtFile = tgtNode.source_file ? normalizeRelativePath(tgtNode.source_file) : undefined;
+  const tgtLabel = tgtNode.label ?? link.target;
+  return tgtFile ? `${tgtFile}:${tgtLabel}` : tgtLabel;
+}
+
+function collectGraphCallers(graphFilePath: string, ctx: GraphScanContext): void {
   try {
     const parsed = JSON.parse(fs.readFileSync(graphFilePath, 'utf-8')) as GraphData;
     const { matchedIds, nodeById } = indexGraphNodes(
       parsed.nodes ?? [],
-      cleanSymbol.toLowerCase(),
-      declaringFiles
+      ctx.cleanSymbol.toLowerCase(),
+      ctx.declaringFiles,
+      ctx.declaringLocations
     );
 
     for (const link of parsed.links ?? []) {
       const callerFile = resolveLinkCallerFile(link, matchedIds, nodeById);
       if (callerFile) {
         const norm = normalizeRelativePath(callerFile);
-        dependentFiles.add(norm);
-        registerSuggestedTest(norm, path.extname(norm), suggestedTests);
+        ctx.dependentFiles.add(norm);
+        registerSuggestedTest(norm, path.extname(norm), ctx.suggestedTests);
+      }
+      const outgoing = resolveLinkOutgoingTarget(link, matchedIds, nodeById);
+      if (outgoing) {
+        ctx.outgoingDependencies.add(outgoing);
       }
     }
   } catch {
@@ -211,15 +242,7 @@ function collectGraphCallers(
   }
 }
 
-function scanDirectory(
-  dir: string,
-  rootPath: string,
-  cleanSymbol: string,
-  dependentFiles: Set<string>,
-  suggestedTests: Set<string>,
-  graphFiles: string[],
-  declaringFiles: Set<string>
-): void {
+function scanDirectory(dir: string, rootPath: string, ctx: GraphScanContext): void {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
     if (IGNORED_DIRS.has(entry.name)) {
@@ -228,17 +251,28 @@ function scanDirectory(
 
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      scanDirectory(fullPath, rootPath, cleanSymbol, dependentFiles, suggestedTests, graphFiles, declaringFiles);
+      scanDirectory(fullPath, rootPath, ctx);
     } else if (entry.isFile()) {
       const rel = normalizeRelativePath(path.relative(rootPath, fullPath));
       if (entry.name === 'graph.json') {
-        graphFiles.push(rel);
-        collectGraphCallers(fullPath, cleanSymbol, dependentFiles, suggestedTests, declaringFiles);
+        ctx.graphFiles.push(rel);
+        collectGraphCallers(fullPath, ctx);
+        continue;
+      }
+      if (entry.name === 'GRAPH_REPORT.md') {
+        ctx.graphReports.push(rel);
         continue;
       }
       const ext = path.extname(entry.name);
       if (VALID_EXTENSIONS.has(ext)) {
-        processCandidateFile(fullPath, rel, ext, cleanSymbol, dependentFiles, suggestedTests);
+        processCandidateFile(
+          fullPath,
+          rel,
+          ext,
+          ctx.cleanSymbol,
+          ctx.dependentFiles,
+          ctx.suggestedTests
+        );
       }
     }
   }
@@ -263,37 +297,42 @@ export async function inspectAstBlastRadius(
     astGraphRebuilt = builder(resolvedPath);
   }
 
-  const cleanSymbol = targetSymbol.trim();
-  const dependentFiles = new Set<string>();
-  const suggestedTests = new Set<string>();
-  const graphFiles: string[] = [];
-  const declaringFiles = new Set<string>();
+  const ctx: GraphScanContext = {
+    cleanSymbol: targetSymbol.trim(),
+    dependentFiles: new Set<string>(),
+    suggestedTests: new Set<string>(),
+    graphFiles: [],
+    graphReports: [],
+    declaringFiles: new Set<string>(),
+    declaringLocations: new Set<string>(),
+    outgoingDependencies: new Set<string>(),
+  };
 
-  scanDirectory(resolvedPath, resolvedPath, cleanSymbol, dependentFiles, suggestedTests, graphFiles, declaringFiles);
+  scanDirectory(resolvedPath, resolvedPath, ctx);
 
-  if (graphFiles.length === 0 && options?.autoBuildIfMissing && !astGraphRebuilt) {
+  if (ctx.graphFiles.length === 0 && options?.autoBuildIfMissing && !astGraphRebuilt) {
     astGraphRebuilt = builder(resolvedPath);
     if (astGraphRebuilt) {
-      scanDirectory(resolvedPath, resolvedPath, cleanSymbol, dependentFiles, suggestedTests, graphFiles, declaringFiles);
+      scanDirectory(resolvedPath, resolvedPath, ctx);
     }
   }
 
-  if (dependentFiles.size > declaringFiles.size) {
-    for (const declFile of declaringFiles) {
-      dependentFiles.delete(declFile);
+  if (ctx.dependentFiles.size > ctx.declaringFiles.size) {
+    for (const declFile of ctx.declaringFiles) {
+      ctx.dependentFiles.delete(declFile);
     }
   }
 
-  const sortedDependents = Array.from(dependentFiles).sort();
+  const sortedDependents = Array.from(ctx.dependentFiles).sort();
   const count = sortedDependents.length;
   const riskLevel = calculateRiskLevel(count);
-  const astGraphDetected = graphFiles.length > 0;
+  const astGraphDetected = ctx.graphFiles.length > 0;
   const astGraphActionRequired = astGraphDetected
     ? "✅ Grafo AST detectado. DIRECTRIZ OBLIGATORIA: SIEMPRE debes actualizar el grafo al terminar los cambios ejecutando './scripts/actualizar-grafos-graphify.sh'."
     : "⚠️ No se detectó grafo AST (graphify-out/graph.json). DIRECTRIZ OBLIGATORIA: Si el grafo no existe debes crearlo ejecutando './scripts/actualizar-grafos-graphify.sh' (más información en qa-testing-blueprints) y SIEMPRE debes actualizar el grafo al terminar los cambios.";
 
   let returnedDependents = sortedDependents;
-  let returnedSuggestedTests = Array.from(suggestedTests).sort();
+  let returnedSuggestedTests = Array.from(ctx.suggestedTests).sort();
   let truncatedDependentsCount: number | undefined;
 
   if (typeof maxItems === 'number' && maxItems > 0 && count > maxItems) {
@@ -304,15 +343,18 @@ export async function inspectAstBlastRadius(
 
   return {
     project_path: resolvedPath,
-    target_symbol: cleanSymbol,
+    target_symbol: ctx.cleanSymbol,
     risk_level: riskLevel,
     dependent_files_count: count,
     dependent_files: returnedDependents,
     truncated_dependents_count: truncatedDependentsCount,
     suggested_tests_to_run: returnedSuggestedTests,
+    declaring_files: Array.from(ctx.declaringLocations).sort(),
+    outgoing_dependencies: Array.from(ctx.outgoingDependencies).sort(),
+    graph_reports: ctx.graphReports.sort(),
     ast_graph_detected: astGraphDetected,
     ...(astGraphRebuilt ? { ast_graph_rebuilt: true } : {}),
-    ast_graph_files: graphFiles.sort(),
+    ast_graph_files: ctx.graphFiles.sort(),
     ast_graph_action_required: astGraphActionRequired,
   };
 }

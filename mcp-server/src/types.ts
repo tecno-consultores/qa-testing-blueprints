@@ -232,6 +232,9 @@ export interface BlastRadiusResult {
   dependent_files: string[];
   truncated_dependents_count?: number;
   suggested_tests_to_run: string[];
+  declaring_files?: string[];
+  outgoing_dependencies?: string[];
+  graph_reports?: string[];
   ast_graph_detected?: boolean;
   ast_graph_rebuilt?: boolean;
   ast_graph_files?: string[];
