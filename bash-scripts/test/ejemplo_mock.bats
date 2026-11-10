@@ -1,4 +1,6 @@
 #!/usr/bin/env bats
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
 setup() {
   # Carga las librerías preinstaladas en la imagen sinfallas/base-bash-qa

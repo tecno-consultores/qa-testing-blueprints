@@ -9,8 +9,8 @@ qa-lint:
 	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "shopt -s globstar nullglob && shellcheck **/*.sh && shfmt -d **/*.sh"
 
 qa-unit:
-	@echo "🧪 Ejecutando Pruebas Unitarias y Cobertura (BATS + kcov)..."
-	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "kcov coverage_report/ bats test/"
+	@echo "🧪 [11X] Ejecutando Pruebas Unitarias y Cobertura >= 95% (BATS + kcov)..."
+	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "kcov --fail-under-percent=95 coverage_report/ bats test/"
 
 qa-all: qa-lint qa-unit
 	@echo "✅ Pipeline QA Bash completado."

@@ -1,0 +1,7 @@
+coverage_report/
+graphify-out/
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store

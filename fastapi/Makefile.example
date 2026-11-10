@@ -14,7 +14,7 @@ qa-lint:
 		uv run ruff check src/ tests/ && \
 		uv run ruff format --check src/ tests/ && \
 		uv run mypy --strict src/ && \
-		test -z \"\$$(uv run radon cc --min C src/)\" && \
+		test -z \"\$$(uv run radon cc --min B src/)\" && \
 		test -z \"\$$(uv run radon mi --min B src/)\" && \
 		uv run bandit -c pyproject.toml -q -r src/ && \
 		uv run pip-audit"
@@ -23,7 +23,7 @@ qa-unit:
 	@echo "🧪 [11X] Ejecutando Pruebas Unitarias Aisladas y Cobertura Innegociable >= 95% (Pytest)..."
 	@docker compose -f $(COMPOSE_FILE) run --rm -e COVERAGE_FILE=/tmp/.coverage $(SERVICE_NAME) bash -c "\
 		uv sync --all-extras -q && \
-		uv run pytest -q --tb=short -m 'not integration' --cov=src --cov-fail-under=95 --cov-report=term-missing:skip-covered --cov-report=html"
+		uv run pytest -q --tb=short --import-mode=importlib -m 'not integration' --cov=src --cov-fail-under=95 --cov-report=term-missing:skip-covered --cov-report=html:/tmp/htmlcov"
 
 qa-migration:
 	@echo "🗄️ [11X] Verificando paridad ORM vs Migraciones Alembic en Docker (Rule Zero)..."
@@ -61,7 +61,6 @@ qa-all: qa-lint qa-unit qa-migration qa-mutation qa-bdd
 clean-cache:
 	@docker compose -f $(COMPOSE_FILE) down -v >/dev/null 2>&1 || true
 	@docker compose -f $(COMPOSE_FILE) --profile chaos down -v >/dev/null 2>&1 || true
-	@docker compose -f $(COMPOSE_FILE) --profile graphify down -v >/dev/null 2>&1 || true
 
 clean:
 	@./limpieza.sh

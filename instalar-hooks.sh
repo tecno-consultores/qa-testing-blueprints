@@ -1,25 +1,60 @@
 #!/usr/bin/env bash
-# Licencia: MIT
-# Propósito: Inicializar la barrera de entrada de QA Testing Blueprints en local.
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
+# Propósito: Inicializar la barrera de entrada Git (Lefthook o hooks POSIX puros) respetando Rule Zero (cero contaminación del host).
 
 LC_ALL=C
-set -e
+set -euo pipefail
 
-echo "🛡️ Configurando Barrera de Entrada Corporativa (Lefthook)..."
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "${SCRIPT_DIR}"
 
-# Verificar si NPM está disponible para instalar Lefthook fácilmente (opción más común)
-if command -v npm &> /dev/null; then
-    echo "Instalando Lefthook vía NPM..."
-    npm install -g @evilmartians/lefthook
-else
-    echo "NPM no encontrado. Descargando el binario de Lefthook..."
-    # Descarga directa del binario para entornos sin Node.js global
-    curl -1sLf 'https://dl.cloudsmith.io/public/evilmartians/lefthook/setup.deb.sh' | sudo -E bash
-    sudo apt install lefthook
+echo "🛡️ Configurando Barrera de Entrada Corporativa (Estándar QA 11X)..."
+
+if [ ! -d ".git" ]; then
+  echo "❌ Error: No se encontró un repositorio Git (.git) en $(pwd)." >&2
+  exit 1
 fi
 
-# Instalar los hooks en el repositorio de Git actual
-lefthook install
+if command -v lefthook >/dev/null 2>&1; then
+  lefthook install
+  echo "✅ ¡Barrera Lefthook activada! Todo 'git commit' y 'git push' ejecutará validaciones efímeras."
+  exit 0
+fi
 
-echo "✅ ¡Barrera activada! A partir de ahora, todo 'git commit' será evaluado efímeramente por Docker."
+mkdir -p .git/hooks
+
+cat > .git/hooks/pre-commit << 'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR)
+if [ -n "${STAGED}" ] && [ -x "./scripts/verificar-secretos.sh" ]; then
+  # shellcheck disable=SC2086
+  ./scripts/verificar-secretos.sh ${STAGED}
+fi
+EOF
+
+cat > .git/hooks/commit-msg << 'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+MSG_FILE="${1:-}"
+if [ -n "${MSG_FILE}" ] && [ -f "${MSG_FILE}" ]; then
+  FIRST_LINE=$(head -n 1 "${MSG_FILE}")
+  if ! printf '%s\n' "${FIRST_LINE}" | grep -Eq '^(Merge |Revert "|(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-zA-Z0-9_.,/-]+\))?!?: .+)'; then
+    echo "❌ [Conventional Commits] El mensaje no cumple el formato '<tipo>(<alcance>): <descripción>'." >&2
+    exit 1
+  fi
+fi
+EOF
+
+cat > .git/hooks/pre-push << 'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if [ -x "./scripts/auditar-infra.sh" ]; then
+  ./scripts/auditar-infra.sh
+fi
+EOF
+
+chmod +x .git/hooks/pre-commit .git/hooks/commit-msg .git/hooks/pre-push
+echo "✅ ¡Barrera Git POSIX activada sin contaminar el host (Rule Zero)!"
 exit 0

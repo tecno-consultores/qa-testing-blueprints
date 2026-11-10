@@ -9,11 +9,11 @@ SERVICE_NAME = qa-php
 
 qa-lint:
 	@echo "🔍 [11X] Ejecutando PHP-CS-Fixer, PHPStan (Max), Psalm Taint y Composer Audit..."
-	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) composer --quiet run-script qa:lint
+	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) sh -c "[ -f vendor/autoload.php ] || composer install --no-interaction --prefer-dist --quiet; composer --quiet run-script qa:lint"
 
 qa-unit:
 	@echo "🧪 [11X] Ejecutando Pruebas Unitarias Aisladas con PCOV y Cobertura >= 95% (Pest/PHPUnit)..."
-	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) composer run-script qa:unit
+	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) sh -c "[ -f vendor/autoload.php ] || composer install --no-interaction --prefer-dist --quiet; composer run-script qa:unit"
 
 qa-parity:
 	@echo "🗄️ [11X] Verificando paridad de esquema y migraciones con PostgreSQL 17..."
@@ -38,11 +38,11 @@ qa-contracts:
 qa-bdd:
 	@echo "📚 [11X] Ejecutando Pruebas BDD de Caja Negra (Karate Labs API)..."
 	@docker compose -f $(COMPOSE_FILE) up -d postgres-qa keydb-qa qa-php
-	@docker compose -f $(COMPOSE_FILE) run --rm karatelabs
+	@docker compose -f $(COMPOSE_FILE) run --rm karatelabs mvn -B clean test
 
 qa-mutation:
 	@echo "👽 [11X] Ejecutando Pruebas de Mutación con Infection (MSI >= 80%)..."
-	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) composer run-script qa:mutation
+	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) sh -c "[ -f vendor/autoload.php ] || composer install --no-interaction --prefer-dist --quiet; composer run-script qa:mutation"
 
 qa-dast:
 	@echo "🛡️ [11X] Ejecutando Auditoría Dinámica DAST y Verificación OSHP (OWASP ZAP)..."
@@ -55,13 +55,14 @@ qa-chaos:
 
 qa-sbom:
 	@echo "📜 [11X] Generando SBOM CycloneDX 1.6 Criptográfico..."
-	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) composer run-script qa:sbom
+	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) sh -c "[ -f vendor/autoload.php ] || composer install --no-interaction --prefer-dist --quiet; composer run-script qa:sbom"
 
 qa-all: qa-lint qa-unit qa-parity qa-bdd qa-mutation qa-sbom
 	@echo "✅ Pipeline QA PHP 8.2-8.5 (Estándar 11X) completado exitosamente."
 
 clean-cache:
 	@docker compose -f $(COMPOSE_FILE) down -v >/dev/null 2>&1 || true
+	@docker compose -f $(COMPOSE_FILE) --profile chaos down -v >/dev/null 2>&1 || true
 
 clean:
 	@./limpieza.sh

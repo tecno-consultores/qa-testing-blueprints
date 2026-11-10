@@ -66,3 +66,17 @@ Feature: Validación BDD de Caja Negra de la API REST PHP (8.2-8.5) y Manejo de 
     When method get
     Then status 200
     And match response.service != '#regex (?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+
+  Scenario: 7. Propagación transversal Read-After-Write con Idempotency-Key dinámica
+    Given path '/api/v1/transfers'
+    And header Idempotency-Key = newIdempotencyKey()
+    And request { amount: 250, currency: "USD", recipient: "USR-11X" }
+    When method post
+    Then status 201
+    * def transferId = response.id
+
+    Given path '/api/v1/transfers', transferId
+    When method get
+    Then status 200
+    And match response.amount == 250
+    And match response.actor_username != '#regex (?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'

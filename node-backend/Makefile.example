@@ -30,7 +30,6 @@ qa-all: qa-lint qa-unit qa-mutation qa-e2e qa-stress
 clean-cache:
 	@docker compose -f $(COMPOSE_FILE) down -v >/dev/null 2>&1 || true
 	@docker compose -f $(COMPOSE_FILE) --profile chaos down -v >/dev/null 2>&1 || true
-	@docker compose -f $(COMPOSE_FILE) --profile graphify down -v >/dev/null 2>&1 || true
 
 clean:
 	@./limpieza.sh

@@ -3,7 +3,7 @@
 
 services:
   qa-bash:
-    image: sinfallas/base-bash-qa:1.0.0
+    image: sinfallas/base-bash-qa:latest
     container_name: bash_qa_env
     hostname: bash_qa_env
     pull_policy: if_not_present
@@ -11,9 +11,13 @@ services:
       TZ: 'America/Caracas'
     volumes:
       - .:/app
-      - ..:/repo:ro
     working_dir: /app
-    command: bash -c "echo 'Contenedor QA Bash listo para ShellCheck y BATS. Usa docker compose run --rm qa-bash [comando]'; sleep infinity"
+    # NOTA 11X: kcov requiere ptrace exclusivamente en el contenedor efímero de cobertura (prohibido en contenedores de producción)
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+    command: bash -c "echo 'Contenedor QA Bash listo para ShellCheck, shfmt, BATS y kcov. Usa docker compose run --rm qa-bash [comando]'; sleep infinity"
 
   pushgateway:
     image: prom/pushgateway:v1.10.0
@@ -49,30 +53,6 @@ services:
       - "9090:9090"
     depends_on:
       - pushgateway
-
-  graphify:
-    image: sinfallas/remote-graphify:1.0.0
-    container_name: bash_graphify
-    hostname: bash_graphify
-    pull_policy: if_not_present
-    profiles:
-      - graphify
-    restart: always
-    command: graphify-mcp /app/graphify-out/graph.json --transport http --host 0.0.0.0 --port 8080
-    ports:
-      - "8080:8080"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    environment:
-      - OLLAMA_BASE_URL=http://host.docker.internal:11434
-      - GRAPHIFY_OLLAMA_KEEP_ALIVE=10
-    volumes:
-      - .:/app
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "1m"
-        max-file: "1"
 
 networks:
   default:

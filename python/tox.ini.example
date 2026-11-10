@@ -1,26 +1,29 @@
 [tox]
-env_list = py311, py312, py313, py314, py315
+env_list = py313
 isolated_build = True
 
 [testenv]
-description = Instala dependencias con uv y ejecuta la auditoría estática, complejidad y pruebas lógicas
-deps = 
+description = Instala dependencias con uv y ejecuta la auditoría estática, complejidad Grado A y pruebas lógicas
+setenv =
+    COVERAGE_FILE = /tmp/.coverage
+    UV_CACHE_DIR = /tmp/uv-cache
+deps =
     .[dev]
 commands =
     # 1. Calidad de código y Formateo
     ruff check src/ tests/
     ruff format --check src/ tests/
-    
+
     # 2. Análisis estricto de tipos
     mypy --strict src/
-    
-    # 3. Análisis de Complejidad Ciclomática y Mantenibilidad (Falla si el código es Espagueti)
-    radon cc --min C src/
-    radon mi --min B src/
-    
+
+    # 3. Complejidad Ciclomática Grado A (CC <= 5; falla si existe cualquier bloque B o peor)
+    python -c "import subprocess, sys; out = subprocess.check_output(['radon', 'cc', '--min', 'B', 'src/'], text=True).strip(); sys.exit('Complejidad > Grado A:\n' + out if out else 0)"
+    python -c "import subprocess, sys; out = subprocess.check_output(['radon', 'mi', '--min', 'B', 'src/'], text=True).strip(); sys.exit('Mantenibilidad < Grado A:\n' + out if out else 0)"
+
     # 4. Auditoría de seguridad de dependencias y código
-    uv pip audit
+    pip-audit
     bandit -c pyproject.toml -r src/
-    
-    # 5. Suite unitaria, Mocks, BDD y Benchmarking (Cobertura 95%)
-    pytest --cov=src/ --cov-fail-under=95 --cov-report=term-missing
+
+    # 5. Suite unitaria, Mocks, BDD y Benchmarking (Cobertura >= 95%)
+    pytest --import-mode=importlib --cov=src/ --cov-fail-under=95 --cov-report=term-missing --cov-report=html:/tmp/htmlcov

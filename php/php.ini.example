@@ -15,15 +15,18 @@ post_max_size = 16M
 upload_max_filesize = 10M
 allow_url_fopen = Off
 allow_url_include = Off
-disable_functions = exec,passthru,shell_exec,system,proc_open,popen,curl_exec,curl_multi_exec,parse_ini_file,show_source
+; NOTA 11X (Separación CLI QA vs Runtime FPM):
+; En CLI de QA, Composer, Pest e Infection requieren proc_open/exec para subprocesos paralelos.
+; En el pool php-fpm de producción (php-fpm.d/zz-security.conf), active estrictamente:
+; php_admin_value[disable_functions] = exec,passthru,shell_exec,system,proc_open,popen,parse_ini_file,show_source
+disable_functions = passthru,system,popen,show_source
 
 [Session]
 session.use_strict_mode = 1
 session.cookie_httponly = 1
 session.cookie_samesite = Strict
 session.cookie_secure = 1
-session.sid_length = 48
-session.sid_bits_per_character = 6
+; PHP 8.4+ deprecó session.sid_length y session.sid_bits_per_character en favor de CSPRNG nativo de 32 bytes
 session.cache_expire = 15
 session.use_only_cookies = 1
 

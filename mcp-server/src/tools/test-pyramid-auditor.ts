@@ -41,7 +41,8 @@ const MAKEFILE_NAME = 'Makefile';
 const API_TEST_FEATURE = 'api_test.feature';
 const UI_BUSINESS_FLOW_FEATURE = 'ui_business_flow.feature';
 const ACCESSIBILITY_E2E = 'accessibility.e2e.ts';
-const LIGHTHOUSERC_JS = 'lighthouserc.js';
+const LIGHTHOUSERC_JS = 'lighthouserc.cjs';
+const LIGHTHOUSERC_LEGACY_JS = 'lighthouserc.js';
 const LOCUSTFILE_PY = 'locustfile.py';
 const AUDITAR_INFRA_SH = 'auditar-infra.sh';
 const VERIFICAR_SECRETOS_SH = 'verificar-secretos.sh';
@@ -1264,7 +1265,9 @@ export function evaluateLayer09A11yLighthouse(
   const hasA11yTest = files.some(
     (f) => f.includes(ACCESSIBILITY_E2E) || (f.includes('e2e/') && f.includes('accessibility'))
   );
-  const hasLighthouserc = files.some((f) => f.includes(LIGHTHOUSERC_JS));
+  const hasLighthouserc = files.some(
+    (f) => f.includes(LIGHTHOUSERC_JS) || f.includes(LIGHTHOUSERC_LEGACY_JS) || f.includes('lighthouserc.json')
+  );
   const pkgJson = readFileContentSafe(projectPath, PACKAGE_JSON);
   const hasAxe = pkgJson.includes('@axe-core/playwright');
 
@@ -1296,7 +1299,7 @@ export function evaluateLayer09A11yLighthouse(
     detected_evidence: detected,
     missing_requirements: missingReqs,
     recommended_blueprint_files: [
-      `vue3/e2e/${ACCESSIBILITY_E2E}.example`,
+      `vue3/e2e/${ACCESSIBILITY_E2E}`,
       `vue3/${LIGHTHOUSERC_JS}.example`,
     ],
     make_target: MAKE_QA_E2E,

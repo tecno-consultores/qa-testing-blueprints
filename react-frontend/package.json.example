@@ -19,7 +19,7 @@
     "mutate": "stryker run",
     "audit:deps": "pnpm audit --prod",
     "test:e2e": "playwright test",
-    "test:perf": "lhci autorun"
+    "test:perf": "lhci autorun --config=lighthouserc.cjs"
   },
   "dependencies": {
     "dompurify": "^3.1.0",
@@ -29,7 +29,7 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.9.1",
     "@lhci/cli": "^0.13.0",
-    "@playwright/test": "1.43.0",
+    "@playwright/test": "1.52.0",
     "@stryker-mutator/core": "^8.2.6",
     "@stryker-mutator/vitest-runner": "^8.2.6",
     "@testing-library/jest-dom": "^6.4.2",

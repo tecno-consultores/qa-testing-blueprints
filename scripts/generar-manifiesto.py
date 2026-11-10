@@ -135,7 +135,8 @@ def classify_stack_file(rel_path_in_stack: Path) -> Tuple[str, str]:
             parent_posix.startswith("test")
             or parent_posix.startswith("e2e")
             or parent_posix.startswith("nginx")
-            or unwrapped.endswith((".unit.py", ".spec.ts", ".e2e.ts", ".conf"))
+            or parent_posix.startswith("initdb")
+            or unwrapped.endswith((".unit.py", ".spec.ts", ".e2e.ts", ".conf", ".sql"))
         ):
             return target_name, "copy_if_missing"
         return target_name, "surgical_merge"

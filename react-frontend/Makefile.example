@@ -1,4 +1,4 @@
-.PHONY: qa-lint qa-unit qa-mutation qa-perf qa-e2e qa-bdd qa-obs qa-all build-ui clean-cache clean qa-clean
+.PHONY: qa-lint qa-unit qa-orphans qa-mutation qa-perf qa-e2e qa-bdd qa-obs qa-all build-ui clean-cache clean qa-clean
 
 # Variables
 COMPOSE_FILE = docker-compose.qa.yml
@@ -15,8 +15,17 @@ qa-lint:
 	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run audit:deps && pnpm run type-check && pnpm run format:check && pnpm lint"
 
 qa-unit:
-	@echo "🧪 Ejecutando Pruebas Unitarias Aisladas (Vitest + RTL)..."
+	@echo "🧪 Ejecutando Pruebas Unitarias Aisladas (Vitest + RTL >= 95%)..."
 	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run test:coverage"
+
+qa-orphans:
+	@echo "🧩 [11X] Verificando cero componentes UI huérfanos en Docker (Rule Zero)..."
+	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "\
+		if [ -f .agents/scripts/verify_zero_orphan_vue_components.py ]; then \
+			python3 .agents/scripts/verify_zero_orphan_vue_components.py; \
+		else \
+			node -e \"const fs=require('fs'),p=require('path');const walk=d=>fs.existsSync(d)?fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(p.join(d,e.name)):[p.join(d,e.name)]):[];const tests=walk('src').concat(walk('tests')).filter(f=>/\.(unit|spec|test)\.(ts|tsx|js|jsx)$$/.test(f));const comps=walk('src/components').concat(walk('src/views')).filter(f=>/\.(tsx|jsx)$$/.test(f)&&!f.includes('.unit.')&&!f.includes('.spec.')&&!f.includes('.test.'));const m=comps.filter(c=>{const b=p.basename(c,p.extname(c));return !tests.some(t=>p.basename(t).startsWith(b+'.'));});if(m.length){console.error('Componentes huerfanos:',m);process.exit(1)}\"; \
+		fi"
 
 qa-mutation:
 	@echo "👽 Ejecutando Pruebas de Mutación Frontend (Stryker)..."
@@ -24,7 +33,7 @@ qa-mutation:
 
 qa-perf: build-ui
 	@echo "⚡ Ejecutando Auditoría de Rendimiento (Lighthouse CI)..."
-	@docker compose -f $(COMPOSE_FILE) run --rm $(E2E_SERVICE) bash -c "pnpm install --silent && pnpm run test:perf"
+	@docker compose -f $(COMPOSE_FILE) run --rm $(E2E_SERVICE) bash -c "export CHROME_PATH=\$$(ls -d /ms-playwright/chromium-*/chrome-linux/chrome 2>/dev/null | head -n 1) && pnpm install --silent && pnpm run test:perf"
 
 qa-e2e: build-ui
 	@echo "🎭 Ejecutando Regresión Visual y E2E (Playwright)..."
@@ -38,13 +47,12 @@ qa-obs: build-ui
 	@echo "📊 Levantando Stack de Observabilidad Frontend..."
 	@docker compose -f $(COMPOSE_FILE) --profile observability up -d prometheus nginx-exporter
 
-qa-all: qa-lint qa-unit qa-mutation qa-perf qa-e2e qa-bdd
-	@echo "✅ Pipeline QA Frontend (React) completado."
+qa-all: qa-lint qa-orphans qa-unit qa-mutation qa-perf qa-e2e qa-bdd
+	@echo "✅ Pipeline QA Frontend (React 11X) completado."
 
 clean-cache:
 	@docker compose -f $(COMPOSE_FILE) down -v >/dev/null 2>&1 || true
 	@docker compose -f $(COMPOSE_FILE) --profile observability down -v >/dev/null 2>&1 || true
-	@docker compose -f $(COMPOSE_FILE) --profile graphify down -v >/dev/null 2>&1 || true
 
 clean:
 	@./limpieza.sh

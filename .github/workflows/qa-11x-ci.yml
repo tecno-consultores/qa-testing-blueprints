@@ -59,7 +59,7 @@ jobs:
             -v "$(pwd):/repo:ro" \
             -w /repo/bash-scripts \
             sinfallas/base-bash-qa:latest \
-            bash -c "shellcheck -x ../scripts/*.sh ../.agents/scripts/*.sh ./*.sh && bats test/*.bats"
+            bash -c "shellcheck -x ../scripts/*.sh ../.agents/scripts/*.sh ../instalar-hooks.sh ./*.sh && bats test/*.bats ../tests/bats/*.bats"
 
       - name: Run 10-Stage Certification Gate
         run: bash ./.agents/scripts/certify_task_completion.sh

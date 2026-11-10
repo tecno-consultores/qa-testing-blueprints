@@ -82,30 +82,45 @@ if [ $# -ge 1 ] && [ -d "${REPO_ROOT}/$1" ]; then
   exit 0
 fi
 
+is_active_code_stack() {
+  local dir="$1"
+  [ -d "${dir}" ] || return 1
+  if [ -f "${dir}/package.json" ] || [ -f "${dir}/pyproject.toml" ] || [ -f "${dir}/composer.json" ]; then
+    return 0
+  fi
+  if [ -d "${dir}/src" ] || [ -d "${dir}/app" ]; then
+    return 0
+  fi
+  return 1
+}
+
 STACKS=()
 for s in fastapi python node-backend vue3 react-frontend php mcp-server backend frontend; do
-  if [ -d "${REPO_ROOT}/${s}" ] && { [ -f "${REPO_ROOT}/${s}/docker-compose.qa.yml" ] || [ -f "${REPO_ROOT}/${s}/package.json" ] || [ -f "${REPO_ROOT}/${s}/pyproject.toml" ] || [ -f "${REPO_ROOT}/${s}/composer.json" ]; }; then
+  if is_active_code_stack "${REPO_ROOT}/${s}"; then
     STACKS+=("${s}")
   fi
 done
 
-if [ ${#STACKS[@]} -eq 0 ]; then
+UPDATED=()
+SKIPPED=()
+
+# Si existen scripts o validadores en la raíz (.agents/scripts o scripts), mantener también el grafo raíz al día
+if [ -d "${REPO_ROOT}/scripts" ] || [ -d "${REPO_ROOT}/.agents/scripts" ] || [ ${#STACKS[@]} -eq 0 ]; then
   if stack_needs_update "${REPO_ROOT}" "."; then
     extract_graph_in_dir "${REPO_ROOT}"
-    echo "✔ [Graphify AST] Grafo semántico actualizado en raíz (graphify-out/graph.json)."
+    UPDATED+=("root")
   else
-    echo "✔ [Graphify AST] Sin cambios de código en raíz (graphify-out/graph.json al día)."
+    SKIPPED+=("root")
   fi
-else
-  UPDATED=()
-  SKIPPED=()
-  for s in "${STACKS[@]}"; do
-    if stack_needs_update "${REPO_ROOT}/${s}" "${s}"; then
-      extract_graph_in_dir "${REPO_ROOT}/${s}"
-      UPDATED+=("${s}")
-    else
-      SKIPPED+=("${s}")
-    fi
-  done
-  echo "✔ [Graphify AST] Actualizados: ${#UPDATED[@]} (${UPDATED[*]:-ninguno}) | Omitidos sin cambios de código: ${#SKIPPED[@]} (${SKIPPED[*]:-ninguno})."
 fi
+
+for s in "${STACKS[@]}"; do
+  if stack_needs_update "${REPO_ROOT}/${s}" "${s}"; then
+    extract_graph_in_dir "${REPO_ROOT}/${s}"
+    UPDATED+=("${s}")
+  else
+    SKIPPED+=("${s}")
+  fi
+done
+
+echo "✔ [Graphify AST] Actualizados: ${#UPDATED[@]} (${UPDATED[*]:-ninguno}) | Omitidos sin cambios de código: ${#SKIPPED[@]} (${SKIPPED[*]:-ninguno})."

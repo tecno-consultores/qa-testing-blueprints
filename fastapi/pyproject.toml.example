@@ -63,7 +63,7 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 python_files = ["*.unit.py", "*.spec.py", "test_*.py"]
 pythonpath = ["."]
-addopts = "--import-mode=importlib --strict-markers --cov=src/ --cov-report=html --cov-report=term-missing"
+addopts = "--import-mode=importlib --strict-markers --cov=src/ --cov-fail-under=95 --cov-report=html:/tmp/htmlcov --cov-report=term-missing"
 markers = [
     "integration: Pruebas internas que requieren conexión a internet o bases de datos (deseleccionar con '-m \"not integration\"')",
 ]

@@ -20,3 +20,23 @@ Feature: Validación BDD de la API Node.js
     Given path '/ruta-inexistente'
     When method get
     Then status 404
+
+  Scenario: Mutación sin cabecera Idempotency-Key es rechazada con 400
+    Given path '/api/v1/items'
+    And request { name: 'Nodo Core 11X', status: 'ACTIVE' }
+    When method post
+    Then status 400
+
+  Scenario: Propagación transversal Read-After-Write con Idempotency-Key dinámica y cero UUID crudo
+    Given path '/api/v1/items'
+    And header Idempotency-Key = newIdempotencyKey()
+    And request { name: 'Nodo Core 11X', status: 'ACTIVE' }
+    When method post
+    Then status 201
+    * def createdId = response.id
+
+    Given path '/api/v1/items', createdId
+    When method get
+    Then status 200
+    And match response.name == 'Nodo Core 11X'
+    And match response.actor_username != '#regex (?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'

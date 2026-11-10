@@ -36,7 +36,10 @@ for sub in backend frontend fastapi vue3 react-frontend node-backend python php 
   if [ -d "${sub}" ]; then
     rm -f "${sub}/.coverage" "${sub}/.coverage.*" "${sub}"/*.log "${sub}"/*.tsbuildinfo "${sub}"/zap-report.html "${sub}"/chaos-report.html "${sub}"/profile.svg 2>/dev/null || true
     rm -rf "${sub}/.pytest_cache" "${sub}/.mypy_cache" "${sub}/.ruff_cache" "${sub}/.tox" "${sub}/.uv" "${sub}/htmlcov" "${sub}/mutants" "${sub}/.mutmut-cache" "${sub}/target" "${sub}/test/target" "${sub}/prometheus_data" 2>/dev/null || true
-    rm -rf "${sub}/dist" "${sub}/dist-ssr" "${sub}/.vite" "${sub}/coverage" "${sub}/.stryker-tmp" "${sub}/test-results" "${sub}/playwright-report" "${sub}/blob-report" "${sub}/reports" "${sub}/.lighthouseci" "${sub}/lhci-reports" "${sub}/.lhcache" "${sub}/.eslintcache" 2>/dev/null || true
+    rm -rf "${sub}/dist-ssr" "${sub}/.vite" "${sub}/coverage" "${sub}/.stryker-tmp" "${sub}/test-results" "${sub}/playwright-report" "${sub}/blob-report" "${sub}/reports" "${sub}/.lighthouseci" "${sub}/lhci-reports" "${sub}/.lhcache" "${sub}/.eslintcache" 2>/dev/null || true
+    if [ "${sub}" != "mcp-server" ]; then
+      rm -rf "${sub}/dist" 2>/dev/null || true
+    fi
     if [ -d "${sub}/graphify-out" ]; then
       rm -rf "${sub}/graphify-out/cache" "${sub}/graphify-out/20"* 2>/dev/null || true
       rm -f "${sub}/graphify-out/.graphify_"* "${sub}/graphify-out/.cloud-cta-shown" 2>/dev/null || true
@@ -62,7 +65,7 @@ if command -v docker >/dev/null 2>&1; then
            /workspace/.tox /workspace/.uv /workspace/htmlcov /workspace/mutants \
            /workspace/.mutmut-cache /workspace/target /workspace/test/target \
            /workspace/karate.jar /workspace/.trivycache \
-           /workspace/mcp-server/dist /workspace/mcp-server/coverage \
+           /workspace/mcp-server/coverage \
            /workspace/backend/.pytest_cache /workspace/backend/.mypy_cache /workspace/backend/.ruff_cache /workspace/backend/htmlcov \
            /workspace/frontend/dist /workspace/frontend/coverage /workspace/frontend/.vite \
            /workspace/fastapi/.pytest_cache /workspace/fastapi/.mypy_cache /workspace/fastapi/.ruff_cache /workspace/fastapi/htmlcov \
@@ -70,7 +73,7 @@ if command -v docker >/dev/null 2>&1; then
     find /workspace -type d -name '__pycache__' -not -path '*/.git/*' -exec rm -rf {} + 2>/dev/null || true; \
     find /workspace -type f -name '*.py[cod]' -not -path '*/.git/*' -delete 2>/dev/null || true; \
     chown -R ${CURRENT_UID}:${CURRENT_GID} /workspace/src /workspace/tests /workspace/test /workspace/scripts /workspace/docs /workspace/mcp-server /workspace/.agents /workspace/graphify-out /workspace/*/graphify-out 2>/dev/null || true; \
-    find /workspace -maxdepth 1 -user 0 -exec chown ${CURRENT_UID}:${CURRENT_GID} {} + 2>/dev/null || true" >/dev/null 2>&1 || true
+    find /workspace -not -path '*/.git/*' -not -path '*/node_modules/*' -user 0 -exec chown ${CURRENT_UID}:${CURRENT_GID} {} + 2>/dev/null || true" >/dev/null 2>&1 || true
 fi
 
 if [ "${DEEP_PRUNE}" = true ]; then

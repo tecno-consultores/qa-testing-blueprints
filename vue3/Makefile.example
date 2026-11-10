@@ -27,7 +27,7 @@ qa-orphans:
 		if [ -f .agents/scripts/verify_zero_orphan_vue_components.py ]; then \
 			python3 .agents/scripts/verify_zero_orphan_vue_components.py; \
 		else \
-			node -e \"const fs=require('fs'),p=require('path'),d='src/components';if(fs.existsSync(d)){const m=fs.readdirSync(d).filter(f=>f.endsWith('.vue')&&!fs.existsSync(p.join(d,f.replace('.vue','.unit.ts')))&&!fs.existsSync(p.join(d,f.replace('.vue','.spec.ts'))));if(m.length){console.error('Componentes huerfanos:',m);process.exit(1)}}\"; \
+			node -e \"const fs=require('fs'),p=require('path');const walk=d=>fs.existsSync(d)?fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(p.join(d,e.name)):[p.join(d,e.name)]):[];const tests=walk('src').concat(walk('tests')).filter(f=>/\.(unit|spec|test)\.(ts|tsx|js|jsx)$$|\.(test)\.vue$$/.test(f));const comps=walk('src/components').concat(walk('src/views')).filter(f=>f.endsWith('.vue'));const m=comps.filter(c=>{const b=p.basename(c,'.vue');return !tests.some(t=>p.basename(t).startsWith(b+'.'));});if(m.length){console.error('Componentes huerfanos:',m);process.exit(1)}\"; \
 		fi"
 
 qa-mutation:
@@ -36,7 +36,7 @@ qa-mutation:
 
 qa-perf: build-ui
 	@echo "⚡ [11X] Ejecutando Auditoría de Rendimiento (Lighthouse CI)..."
-	@docker compose -f $(COMPOSE_FILE) run --rm $(E2E_SERVICE) bash -c "pnpm install --silent && pnpm run test:perf"
+	@docker compose -f $(COMPOSE_FILE) run --rm $(E2E_SERVICE) bash -c "export CHROME_PATH=\$$(ls -d /ms-playwright/chromium-*/chrome-linux/chrome 2>/dev/null | head -n 1) && pnpm install --silent && pnpm run test:perf"
 
 qa-e2e: build-ui
 	@echo "🎭 [11X] Ejecutando Regresión Visual y Accesibilidad WCAG 2.1 AA (Playwright + Axe)..."
@@ -56,7 +56,6 @@ qa-all: qa-lint qa-orphans qa-unit qa-mutation qa-perf qa-e2e qa-bdd
 clean-cache:
 	@docker compose -f $(COMPOSE_FILE) down -v >/dev/null 2>&1 || true
 	@docker compose -f $(COMPOSE_FILE) --profile observability down -v >/dev/null 2>&1 || true
-	@docker compose -f $(COMPOSE_FILE) --profile graphify down -v >/dev/null 2>&1 || true
 
 clean:
 	@./limpieza.sh

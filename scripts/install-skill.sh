@@ -99,6 +99,7 @@ fetch_file() {
 
 # Parsear argumentos de línea de comandos
 TARGET_ARG=""
+INCLUDE_SCRIPTS=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --target | -t)
@@ -114,11 +115,16 @@ while [ $# -gt 0 ]; do
       TARGET_ARG="${1#*=}"
       shift
       ;;
+    --include-scripts)
+      INCLUDE_SCRIPTS=1
+      shift
+      ;;
     --help | -h)
       printf "%bInstalador Universal de Skills QA 11X%b\n" "${C_BOLD}" "${C_RESET}"
       printf "Uso: install-skill.sh [opciones]\n\n"
       printf "Opciones:\n"
       printf "  --target, -t <entorno>   Destino: auto (defecto) | workspace | antigravity | claude | cursor | hermes | all\n"
+      printf "  --include-scripts        Instala también .agents/scripts/* y scripts/* (excluyendo publicar-mcp.sh) en el proyecto actual\n"
       printf "  --help, -h               Muestra esta ayuda\n"
       exit 0
       ;;
@@ -129,7 +135,15 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-TARGET_SELECTION="${TARGET_ARG:-${QA_SKILL_TARGET:-${TARGET:-}}}"
+TARGET_SELECTION="${TARGET_ARG:-${QA_SKILL_TARGET:-${TARGET:-auto}}}"
+
+case "${TARGET_SELECTION}" in
+  "" | auto | all | workspace | local | antigravity | claude | cursor | hermes) ;;
+  *)
+    log_error "Destino --target inválido: '${TARGET_SELECTION}'. Valores permitidos: auto, workspace, antigravity, claude, cursor, hermes, all."
+    exit 1
+    ;;
+esac
 
 # Banner de Inicio
 printf "\n%b══════════════════════════════════════════════════════════════════════%b\n" "${C_CYAN}" "${C_RESET}"
@@ -198,16 +212,12 @@ resolve_destination_dirs() {
       printf "%s/.claude/skills\n" "${HOME_DIR}"
       ;;
     cursor)
-      if [ -d "${HOME_DIR}/.cursor" ]; then
-        printf "%s/.cursor/skills\n" "${HOME_DIR}"
-      else
-        printf "%s/.agents/skills\n" "${_pwd}"
-      fi
+      printf "%s/.cursor/skills\n" "${HOME_DIR}"
       ;;
     hermes)
       printf "%s/.hermes/skills\n" "${HOME_DIR}"
       ;;
-    all | *)
+    all | auto | "")
       # Autodetección inteligente global (auto / all): instala exclusivamente en los agentes globales detectados
       # y solo usa <proyecto>/.agents/skills como fallback si no existe ningún agente global en $HOME
       _found_any=0
@@ -237,7 +247,8 @@ resolve_destination_dirs() {
 DEST_DIRS="$(resolve_destination_dirs "${TARGET_SELECTION}")"
 
 log_info "Destinos de instalación resueltos:"
-for d in ${DEST_DIRS}; do
+printf '%s\n' "${DEST_DIRS}" | while IFS= read -r d; do
+  [ -z "${d}" ] && continue
   printf "  - %b%s%b\n" "${C_BOLD}" "${d}" "${C_RESET}"
 done
 
@@ -277,10 +288,50 @@ done <"${SKILL_INDEX}"
 log_ok "Integridad SHA-256 certificada (${VERIFIED_COUNT}/${TOTAL_FILES} archivos verificados)."
 
 # Instalar archivos validados en cada destino
-for dest in ${DEST_DIRS}; do
+printf '%s\n' "${DEST_DIRS}" | while IFS= read -r dest; do
+  [ -z "${dest}" ] && continue
   mkdir -p "${dest}"
   cp -R "${VERIFIED_STAGING}/"* "${dest}/"
   log_ok "Skills instaladas en: ${dest}"
 done
+
+# Instalación opcional de scripts Thin-Repo (--include-scripts), excluyendo publicar-mcp.sh
+if [ "${INCLUDE_SCRIPTS}" -eq 1 ]; then
+  SCRIPT_INDEX="${TMP_DIR}/script_files.txt"
+  if command -v jq >/dev/null 2>&1; then
+    jq -r '((.agent_governance_files // []) + (.common_files // []))[] | select((.path | startswith(".agents/scripts/") or startswith("scripts/")) and (.path != "scripts/publicar-mcp.sh")) | "\(.path) \(.sha256)"' "${MANIFEST_FILE}" >"${SCRIPT_INDEX}"
+  else
+    python3 -c '
+import json, sys
+data = json.load(open(sys.argv[1], encoding="utf-8"))
+items = data.get("agent_governance_files", []) + data.get("common_files", [])
+for item in items:
+    p = item.get("path", "")
+    if (p.startswith(".agents/scripts/") or p.startswith("scripts/")) and p != "scripts/publicar-mcp.sh":
+        print(f"{p} {item.get(\"sha256\", \"\")}")
+' "${MANIFEST_FILE}" >"${SCRIPT_INDEX}"
+  fi
+
+  while read -r s_path s_sha; do
+    [ -z "${s_path}" ] && continue
+    s_tmp="${TMP_DIR}/script_$(basename "${s_path}")"
+    if [ -n "${QA_BLUEPRINTS_LOCAL_PATH:-}" ] && [ -f "${QA_BLUEPRINTS_LOCAL_PATH}/${s_path}" ]; then
+      cp "${QA_BLUEPRINTS_LOCAL_PATH}/${s_path}" "${s_tmp}"
+    elif [ -f "./${s_path}" ]; then
+      cp "./${s_path}" "${s_tmp}"
+    else
+      fetch_file "${RAW_BASE_URL}/${s_path}" "${s_tmp}"
+    fi
+    actual_s_sha="$(compute_sha256 "${s_tmp}")"
+    if [ "${actual_s_sha}" != "${s_sha}" ]; then
+      log_error "Violación SHA-256 en script: ${s_path}"
+      exit 1
+    fi
+    mkdir -p "$(dirname "./${s_path}")"
+    cp "${s_tmp}" "./${s_path}"
+    chmod +x "./${s_path}"
+  done <"${SCRIPT_INDEX}"
+  log_ok "Scripts de automatización instalados en $(pwd) (excluyendo publicar-mcp.sh)."
+fi
 
 printf "✅ Instalación de Skills QA 11X Completada con Éxito (5 skills: qa-11x-architect, refactoring-ui, docker-trivy-keydb-hardening, graphify-ast-navigator, qa-11x-docker-certifier).\n"

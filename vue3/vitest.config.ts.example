@@ -1,5 +1,5 @@
 import { fileURLToPath, URL } from 'node:url';
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 import vue from '@vitejs/plugin-vue';
 
 export default defineConfig({
@@ -37,6 +37,8 @@ export default defineConfig({
         '**/*.d.ts',
         '*.config.ts',
         '*.config.js',
+        '*.config.cjs',
+        'lighthouserc.cjs',
         'lighthouserc.js',
         'src/main.ts',
       ],

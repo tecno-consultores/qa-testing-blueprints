@@ -55,16 +55,16 @@ services:
     command: sh -c "if [ -d public ]; then php -S 0.0.0.0:8000 -t public; else php -S 0.0.0.0:8000; fi"
 
   karatelabs:
-    image: sinfallas/karatelabs:1.5.0
+    image: sinfallas/karatelabs:1.5.1
     pull_policy: if_not_present
-    working_dir: /workspace
     volumes:
-      - .:/workspace
+      - ./test:/app/src/test/java/examples/test
     environment:
       API_BASE_URL: http://qa-php:8000
     depends_on:
       qa-php:
         condition: service_healthy
+    command: bash -c "echo 'Contenedor Karate listo. Usa docker compose run --rm karatelabs mvn -B clean test'; sleep infinity"
 
   zap:
     image: zaproxy/zap-stable:2.15.0
@@ -72,6 +72,31 @@ services:
     working_dir: /zap/wrk
     volumes:
       - .:/zap/wrk
+    depends_on:
+      qa-php:
+        condition: service_healthy
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    pull_policy: if_not_present
+    profiles:
+      - chaos
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        echo "
+        global:
+          scrape_interval: 2s
+        scrape_configs:
+          - job_name: 'php_qa'
+            metrics_path: '/metrics'
+            static_configs:
+              - targets: ['qa-php:8000']
+        " > /tmp/prometheus.yml
+        /bin/prometheus --config.file=/tmp/prometheus.yml
+    ports:
+      - "9090:9090"
     depends_on:
       qa-php:
         condition: service_healthy
@@ -86,7 +111,7 @@ services:
     depends_on:
       qa-php:
         condition: service_healthy
-    command: --interval 20s --random netem --duration 5s delay --time 250 re2:.*qa-php.*
+    command: netem --tc-image gaiadocker/iproute2 --duration 30s delay --time 250 --jitter 25 re2:.*qa-php.*
 
 volumes:
   composer-cache:
