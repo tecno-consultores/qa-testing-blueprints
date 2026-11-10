@@ -18,6 +18,10 @@ const IGNORED_DIRS = new Set([
   '.pytest_cache',
   '.mypy_cache',
   '.ruff_cache',
+  'target',
+  'graphify-out',
+  '.stryker-tmp',
+  '.trivycache',
 ]);
 
 const SCANNABLE_EXTS = new Set([
@@ -27,6 +31,7 @@ const SCANNABLE_EXTS = new Set([
   '.js',
   '.jsx',
   '.vue',
+  '.html',
   '.sh',
   '.bash',
   '.json',
@@ -37,6 +42,7 @@ const SCANNABLE_EXTS = new Set([
 const APSC_DV_002510_REF = 'APSC-DV-002510 / Patrón 3';
 const SEC_10_REF = 'APSC-DV-000650 / V-222444 / Patrón 10';
 const SEC_11_REF = 'APSC-DV-001350 / Anti-Silo Audit Rule 3';
+const SEC_16_REF = 'CWE-352 / CWE-362 / APSC-DV-000530 / Anti-Silo Rule 8';
 const UI_11X_02_REF = 'Standard 11X / Anti-Silo UI Rule 3 & 4';
 
 function isScannableFile(entry: fs.Dirent): boolean {
@@ -53,7 +59,8 @@ function isScannableFile(entry: fs.Dirent): boolean {
 
 function shouldSkipDirectory(entry: fs.Dirent): boolean {
   if (!entry.isDirectory()) return false;
-  if (IGNORED_DIRS.has(entry.name)) return true;
+  if (IGNORED_DIRS.has(entry.name) || entry.name === 'backups') return true;
+  if (entry.name === '.agents' || entry.name === '.github') return false;
   return entry.name.startsWith('.') && entry.name !== '.npmrc';
 }
 
@@ -235,6 +242,9 @@ function checkGenericCommandAndDeserialization(line: string, relPath: string, li
 }
 
 function checkSec03CommandAndDeserialization(relPath: string, lines: string[]): SecurityFinding[] {
+  if (relPath.endsWith('.example') || isTestFilePath(relPath) || isAuditorSelfDefinition(relPath)) {
+    return [];
+  }
   if (!relPath.endsWith('.py') && !relPath.endsWith('.ts') && !relPath.endsWith('.js') && !relPath.endsWith('.php')) return [];
   const isPhp = relPath.endsWith('.php');
   const findings: SecurityFinding[] = [];
@@ -351,7 +361,17 @@ function checkSec05UnicodeNfkc(relPath: string, lines: string[]): SecurityFindin
 }
 
 function checkSec06XssPrototypePollution(relPath: string, lines: string[]): SecurityFinding[] {
-  if (!relPath.endsWith('.vue') && !relPath.endsWith('.tsx') && !relPath.endsWith('.jsx') && !relPath.endsWith('.ts') && !relPath.endsWith('.js')) {
+  if (relPath.endsWith('.example') || isTestFilePath(relPath) || isAuditorSelfDefinition(relPath)) {
+    return [];
+  }
+  if (
+    !relPath.endsWith('.vue') &&
+    !relPath.endsWith('.tsx') &&
+    !relPath.endsWith('.jsx') &&
+    !relPath.endsWith('.ts') &&
+    !relPath.endsWith('.js') &&
+    !relPath.endsWith('.html')
+  ) {
     return [];
   }
   const findings: SecurityFinding[] = [];
@@ -409,7 +429,14 @@ function checkSec07SwaggerInProd(relPath: string, lines: string[]): SecurityFind
 }
 
 function checkSec10Secrets(relPath: string, lines: string[]): SecurityFinding[] {
-  if (relPath.endsWith('.example') || relPath.includes('test')) return [];
+  if (
+    relPath.endsWith('.example') ||
+    isTestFilePath(relPath) ||
+    isAuditorSelfDefinition(relPath) ||
+    relPath.endsWith('verificar-secretos.sh')
+  ) {
+    return [];
+  }
   const findings: SecurityFinding[] = [];
 
   for (let i = 0; i < lines.length; i++) {
@@ -502,13 +529,19 @@ function checkUi11x01VisualGeometry(relPath: string, lines: string[]): SecurityF
 }
 
 function isTestFilePath(relPath: string): boolean {
+  const norm = relPath.replace(/\\/g, '/');
   return (
-    relPath.includes('.unit.') ||
-    relPath.includes('.spec.') ||
-    relPath.includes('.test.') ||
-    relPath.includes('test_') ||
-    relPath.endsWith('Test.php')
+    /(^|\/)(tests?|__tests__|spec)\//i.test(norm) ||
+    /\.(unit|spec|test|e2e)\.(py|ts|tsx|js|jsx|php)$/i.test(norm) ||
+    /(^|\/)test_[^/]+\.py$/i.test(norm) ||
+    norm.endsWith('Test.php') ||
+    norm.endsWith('.bats')
   );
+}
+
+function isAuditorSelfDefinition(relPath: string): boolean {
+  const norm = relPath.replace(/\\/g, '/');
+  return /(^|\/)src\/tools\/(?:security-auditor|certify-gate|test-pyramid-auditor)\.ts$/.test(norm);
 }
 
 function checkRawSubInActorUsername(relPath: string, lines: string[]): SecurityFinding[] {
@@ -678,30 +711,48 @@ function checkUi11x02DualRefreshAndSemanticElse(
   ];
 }
 
-function checkSec09Npmrc(projectPath: string): SecurityFinding[] {
-  const hasPackageJson = fs.existsSync(path.join(projectPath, 'package.json'));
-  if (!hasPackageJson) return [];
+function checkSingleDirNpmrc(baseDir: string, relPrefix: string): SecurityFinding | null {
+  const pkgPath = path.join(baseDir, 'package.json');
+  if (!fs.existsSync(pkgPath)) return null;
 
-  const npmrcPath = path.join(projectPath, '.npmrc');
-  let hasIgnoreScripts = false;
-  if (fs.existsSync(npmrcPath)) {
-    const content = fs.readFileSync(npmrcPath, 'utf8');
-    hasIgnoreScripts = content.includes('ignore-scripts=true') || content.includes('ignore-scripts = true');
+  const npmrcCandidates = [
+    path.join(baseDir, '.npmrc'),
+    path.join(baseDir, 'npmrc.example'),
+    path.join(baseDir, '.npmrc.example'),
+  ];
+
+  for (const candidate of npmrcCandidates) {
+    if (fs.existsSync(candidate)) {
+      const content = fs.readFileSync(candidate, 'utf8');
+      if (content.includes('ignore-scripts=true') || content.includes('ignore-scripts = true')) {
+        return null;
+      }
+    }
   }
 
-  if (hasIgnoreScripts) return [];
+  return {
+    rule_id: 'SEC-09',
+    severity: 'HIGH',
+    stig_owasp_ref: 'OWASP SFL / Zero-Trust NPM',
+    file: relPrefix ? `${relPrefix}/.npmrc` : '.npmrc',
+    line: 1,
+    message: 'Proyecto Node.js carece de archivo .npmrc con directiva estricta ignore-scripts=true.',
+    remediation:
+      'Crear .npmrc con ignore-scripts=true para prevenir ejecución de scripts maliciosos en instalación.',
+  };
+}
 
-  return [
-    {
-      rule_id: 'SEC-09',
-      severity: 'HIGH',
-      stig_owasp_ref: 'OWASP SFL / Zero-Trust NPM',
-      file: '.npmrc',
-      line: 1,
-      message: 'Proyecto Node.js carece de archivo .npmrc con directiva estricta ignore-scripts=true.',
-      remediation: 'Crear .npmrc en la raíz con ignore-scripts=true para prevenir ejecución de scripts maliciosos en instalación.',
-    },
-  ];
+function checkSec09Npmrc(projectPath: string): SecurityFinding[] {
+  const findings: SecurityFinding[] = [];
+  const rootFinding = checkSingleDirNpmrc(projectPath, '');
+  if (rootFinding) findings.push(rootFinding);
+
+  const subDirs = ['vue3', 'react-frontend', 'node-backend', 'frontend', 'mcp-server'];
+  for (const sub of subDirs) {
+    const subFinding = checkSingleDirNpmrc(path.join(projectPath, sub), sub);
+    if (subFinding) findings.push(subFinding);
+  }
+  return findings;
 }
 
 function checkSec08Oshp(projectPath: string, allRelFiles: string[]): SecurityFinding[] {
@@ -774,7 +825,9 @@ function checkQaKarateStaticIdempotency(relPath: string, lines: string[]): Secur
 
 function checkSec12McpServiceRbac(relPath: string, lines: string[]): SecurityFinding[] {
   if (!relPath.endsWith('.py') || !/(?:mcp|jsonrpc)/i.test(relPath)) return [];
-  if (relPath.includes('test') || relPath.includes('spec')) return [];
+  if (relPath.endsWith('.example') || isTestFilePath(relPath) || isAuditorSelfDefinition(relPath)) {
+    return [];
+  }
 
   const fullText = lines.join('\n');
   const hasRbacOrApproval =
@@ -968,6 +1021,96 @@ function checkSec15EphemeralProdPipelineCreds(relPath: string, lines: string[]):
   ];
 }
 
+function checkPreAuthFrontendInterceptorAsymmetry(
+  relPath: string,
+  lines: string[],
+  fullText: string
+): SecurityFinding | null {
+  if (!relPath.endsWith('.ts') && !relPath.endsWith('.tsx') && !relPath.endsWith('.js') && !relPath.endsWith('.jsx')) {
+    return null;
+  }
+  const has401Interceptor =
+    (fullText.includes('interceptors.response.use') || fullText.includes('onResponseError')) &&
+    fullText.includes('401');
+  const excludesBasicAuth =
+    fullText.includes('/auth/login') && fullText.includes('/auth/refresh');
+  if (!has401Interceptor || !excludesBasicAuth) return null;
+
+  const coversMultiStepPreAuth =
+    fullText.includes('/2fa/') ||
+    fullText.includes('confirm-enrollment') ||
+    fullText.includes('/auth/bootstrap') ||
+    fullText.includes('PREAUTH_PUBLIC_ROUTES');
+  if (coversMultiStepPreAuth) return null;
+
+  const lineIdx = lines.findIndex((l) => l.includes('/auth/login'));
+  return {
+    rule_id: 'SEC-16',
+    severity: 'HIGH',
+    stig_owasp_ref: SEC_16_REF,
+    file: relPath,
+    line: lineIdx >= 0 ? lineIdx + 1 : 1,
+    message:
+      'Interceptor HTTP 401 excluye /auth/login y /auth/refresh pero omite rutas pre-autenticación multi-etapa (/auth/bootstrap, /auth/2fa/*, confirm-enrollment).',
+    remediation:
+      'Sincronizar una lista simétrica PREAUTH_PUBLIC_ROUTES entre backend y el predicado de exclusión 401 del cliente HTTP para evitar rotaciones /auth/refresh sin sesión activa.',
+  };
+}
+
+function checkPreAuthNonAtomicChallengeConsumption(
+  relPath: string,
+  lines: string[],
+  fullText: string
+): SecurityFinding | null {
+  if (!relPath.endsWith('.py') && !relPath.endsWith('.ts') && !relPath.endsWith('.js') && !relPath.endsWith('.php')) {
+    return null;
+  }
+  if (!/(?:auth|2fa|mfa|bootstrap|challenge)/i.test(relPath)) return null;
+
+  const handlesChallenge =
+    fullText.includes('challenge_id') &&
+    (fullText.includes('confirm-enrollment') ||
+      fullText.includes('confirm_enrollment') ||
+      fullText.includes('verify_2fa') ||
+      fullText.includes('2fa/verify') ||
+      fullText.includes('preauth'));
+  if (!handlesChallenge) return null;
+
+  const usesNonAtomicGet = /\b(?:redis|keydb|cache_client|redis_client)\s*\.\s*get\s*\(/.test(fullText);
+  const hasAtomicConsume =
+    /\bgetdel\b/i.test(fullText) ||
+    /\bevalsha?\s*\(/.test(fullText) ||
+    fullText.includes('idemp:preauth:');
+
+  if (!usesNonAtomicGet || hasAtomicConsume) return null;
+
+  const lineIdx = lines.findIndex((l) => /\.get\s*\(/.test(l));
+  return {
+    rule_id: 'SEC-16',
+    severity: 'HIGH',
+    stig_owasp_ref: SEC_16_REF,
+    file: relPath,
+    line: lineIdx >= 0 ? lineIdx + 1 : 1,
+    message:
+      'Consumo no atómico (.get sin GETDEL/Lua ni idemp:preauth) de challenge_id efímero de pre-autenticación en Redis/KeyDB (riesgo TOCTOU CWE-362).',
+    remediation:
+      'Consumir el challenge de un solo uso atómicamente con GETDEL / script Lua, imponer TTL <= 300s + límite de intentos, y validar Origin/Sec-Fetch-Site junto al token CSPRNG en JSON/header.',
+  };
+}
+
+function checkSec16PreAuthMultiStepContinuity(relPath: string, lines: string[]): SecurityFinding[] {
+  if (relPath.endsWith('.example') || isTestFilePath(relPath) || isAuditorSelfDefinition(relPath)) {
+    return [];
+  }
+  const fullText = lines.join('\n');
+  const findings: SecurityFinding[] = [];
+  const f1 = checkPreAuthFrontendInterceptorAsymmetry(relPath, lines, fullText);
+  if (f1) findings.push(f1);
+  const f2 = checkPreAuthNonAtomicChallengeConsumption(relPath, lines, fullText);
+  if (f2) findings.push(f2);
+  return findings;
+}
+
 function scanSingleFile(absPath: string, relPath: string): SecurityFinding[] {
   let content: string;
   try {
@@ -991,6 +1134,7 @@ function scanSingleFile(absPath: string, relPath: string): SecurityFinding[] {
     ...checkSec13RlsMultiTxPersistence(relPath, lines),
     ...checkSec14WormDeterministicChain(relPath, lines),
     ...checkSec15EphemeralProdPipelineCreds(relPath, lines),
+    ...checkSec16PreAuthMultiStepContinuity(relPath, lines),
     ...checkQaCov01AddoptsBypass(relPath, lines),
     ...checkQaSmoke01SettingsSingletonSync(relPath, lines),
     ...checkQaKarateStaticIdempotency(relPath, lines),

@@ -848,12 +848,12 @@ def create_item(): pass
     expect(l13Partial.status).toBe('PARTIAL');
   });
 
-  it('returns 100 score when no layers are applicable', async () => {
+  it('returns 0 score when no layers are applicable (Zero Hardcoded Pass)', async () => {
     const emptyDir = path.join(tmpDir, 'empty-no-stack-dir');
     fs.mkdirSync(emptyDir, { recursive: true });
     fs.writeFileSync(path.join(emptyDir, 'README.md'), '# Empty project\n', 'utf-8');
     const result = await auditTestPyramidGaps(emptyDir);
-    expect(result.pyramid_score_pct).toBe(100);
+    expect(result.pyramid_score_pct).toBe(0);
     expect(result.summary_counts.not_applicable).toBe(13);
 
     const vueDir = path.join(tmpDir, 'vue-only-project');

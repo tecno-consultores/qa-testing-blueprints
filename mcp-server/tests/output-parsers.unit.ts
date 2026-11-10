@@ -110,11 +110,11 @@ TOTAL                        70      3    95.7%
       expect(resultLow.passed).toBe(false);
     });
 
-    it('retorna detected=false si no hay datos de cobertura', () => {
+    it('retorna detected=false y passed=false si no hay datos de cobertura (Zero Hardcoded Pass)', () => {
       const result = parseCoverage('Salida cualquiera sin tablas');
       expect(result.detected).toBe(false);
       expect(result.percent).toBe(0);
-      expect(result.passed).toBe(true);
+      expect(result.passed).toBe(false);
     });
   });
 

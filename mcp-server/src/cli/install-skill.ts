@@ -62,16 +62,27 @@ function resolveGlobalOrFallbackTargets(homeDir: string, cwd: string): string[] 
   return [path.join(cwd, AGENTS_DIR_NAME, SKILLS_DIR_NAME)];
 }
 
+function resolveAllGlobalAgentDirs(homeDir: string): string[] {
+  const detected = detectInstalledGlobalAgentDirs(homeDir);
+  if (detected.length > 0) {
+    return Array.from(new Set(detected));
+  }
+  return [
+    path.join(homeDir, GEMINI_DIR_NAME, 'config', SKILLS_DIR_NAME),
+    path.join(homeDir, CLAUDE_DIR_NAME, SKILLS_DIR_NAME),
+    path.join(homeDir, HERMES_DIR_NAME, SKILLS_DIR_NAME),
+    path.join(homeDir, CURSOR_DIR_NAME, SKILLS_DIR_NAME),
+  ];
+}
+
 function resolveDestinationDirs(targetArg: string, homeDir: string, cwd: string): string[] {
   const workspaceSkills = path.join(cwd, AGENTS_DIR_NAME, SKILLS_DIR_NAME);
   switch (targetArg) {
     case 'workspace':
     case 'local':
       return [workspaceSkills];
-    case 'cursor': {
-      const cursorGlobal = path.join(homeDir, CURSOR_DIR_NAME, SKILLS_DIR_NAME);
-      return fs.existsSync(path.join(homeDir, CURSOR_DIR_NAME)) ? [cursorGlobal] : [workspaceSkills];
-    }
+    case 'cursor':
+      return [path.join(homeDir, CURSOR_DIR_NAME, SKILLS_DIR_NAME)];
     case 'antigravity':
       return [path.join(homeDir, GEMINI_DIR_NAME, 'config', SKILLS_DIR_NAME)];
     case 'claude':
@@ -79,8 +90,13 @@ function resolveDestinationDirs(targetArg: string, homeDir: string, cwd: string)
     case 'hermes':
       return [path.join(homeDir, HERMES_DIR_NAME, SKILLS_DIR_NAME)];
     case 'all':
-    default:
+      return resolveAllGlobalAgentDirs(homeDir);
+    case 'auto':
       return resolveGlobalOrFallbackTargets(homeDir, cwd);
+    default:
+      throw new Error(
+        `Destino --target inválido: '${targetArg}'. Valores permitidos: auto, workspace, antigravity, claude, cursor, hermes, all.`
+      );
   }
 }
 
@@ -134,7 +150,7 @@ async function installIncludedScripts(
   fetcher: GitHubFetcher
 ): Promise<void> {
   const scriptEntries: ManifestFileEntry[] = [
-    ...(manifest.common_files || []),
+    ...(manifest.common_files || []).filter((f) => f.path !== 'scripts/publicar-mcp.sh'),
     ...(manifest.agent_governance_files || []).filter(
       (f) =>
         f.path.startsWith(AGENT_SCRIPTS_PREFIX) ||

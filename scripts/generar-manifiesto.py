@@ -20,7 +20,7 @@ import sys
 from typing import Any, Dict, List, Optional, Tuple
 
 SCHEMA_VERSION = "1.0.0"
-DEFAULT_BLUEPRINT_VERSION = "2.7.0"
+DEFAULT_BLUEPRINT_VERSION = "2.16.0"
 REPOSITORY = "tecno-consultores/qa-testing-blueprints"
 DEFAULT_BRANCH = "main"
 RAW_BASE_URL = f"https://raw.githubusercontent.com/{REPOSITORY}/{DEFAULT_BRANCH}"
@@ -65,7 +65,6 @@ COMMON_FILE_PATHS: List[str] = [
     "scripts/generar-sbom-cyclonedx.sh",
     ".trivy.yaml",
     "scripts/limpieza.sh",
-    "scripts/publicar-mcp.sh",
     ".env.example",
 ]
 
@@ -80,7 +79,16 @@ def compute_sha256(filepath: Path) -> str:
 
 
 def get_blueprint_version(repo_root: Path) -> str:
-    """Extrae la versión semántica del blueprint desde CHANGELOG.md o fallback a 2.7.0."""
+    """Extrae la versión semántica del blueprint desde mcp-server/package.json o CHANGELOG.md."""
+    pkg_path = repo_root / "mcp-server" / "package.json"
+    if pkg_path.is_file():
+        try:
+            pkg_data = json.loads(pkg_path.read_text(encoding="utf-8"))
+            version = str(pkg_data.get("version", "")).strip()
+            if re.match(r"^\d+\.\d+\.\d+$", version):
+                return version
+        except Exception:
+            pass
     changelog_path = repo_root / "CHANGELOG.md"
     if changelog_path.is_file():
         try:

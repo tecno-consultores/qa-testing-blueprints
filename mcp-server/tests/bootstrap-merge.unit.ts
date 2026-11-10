@@ -76,14 +76,22 @@ describe('bootstrapOrMerge11x Dedicated Unit Suite', () => {
     const res = await bootstrapOrMerge11x(projectDir, 'python', true, fetcher, merger);
     expect(res.dry_run).toBe(true);
     expect(res.stack).toBe('python');
-    expect(res.summary.created).toBe(1);
+    expect(res.summary.created).toBe(2);
     expect(fs.existsSync(path.join(projectDir, 'Makefile'))).toBe(false);
+    expect(fs.existsSync(path.join(projectDir, 'AGENTS.md'))).toBe(false);
   });
 
-  it('writes merged files to disk when dryRun is false', async () => {
+  it('writes merged files and Thin-Repo AGENTS.md connector to disk when dryRun is false', async () => {
     const res = await bootstrapOrMerge11x(projectDir, 'python', false, fetcher, merger);
     expect(res.dry_run).toBe(false);
-    expect(res.summary.created).toBe(1);
+    expect(res.summary.created).toBe(2);
     expect(fs.existsSync(path.join(projectDir, 'Makefile'))).toBe(true);
+    const agentsText = fs.readFileSync(path.join(projectDir, 'AGENTS.md'), 'utf-8');
+    expect(agentsText).toContain('QA_11X_MCP_CONNECTOR_START');
+    expect(agentsText).toContain('target-project');
+
+    // Segunda ejecución: AGENTS.md ya idéntico y Makefile existente
+    const secondRes = await bootstrapOrMerge11x(projectDir, 'python', false, fetcher, merger);
+    expect(secondRes.summary.created).toBe(0);
   });
 });

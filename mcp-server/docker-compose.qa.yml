@@ -13,6 +13,16 @@ services:
     working_dir: /app/mcp-server
     command: bash -c "echo 'Contenedor QA MCP Server listo'; sleep infinity"
 
+  karatelabs:
+    image: sinfallas/karatelabs:1.5.1
+    container_name: mcp_karate
+    hostname: mcp_karate
+    pull_policy: if_not_present
+    volumes:
+      - ./test:/app/src/test/java/examples/test:ro
+      - ..:/repo:ro
+    command: bash -c "echo 'Contenedor Karate MCP listo'; sleep infinity"
+
 volumes:
   pnpm-store:
     name: mcp_qa_pnpm_store

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
+import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { auditSecurityStigOwasp } from './security-auditor.js';
@@ -45,29 +46,90 @@ function checkUnmergedExamples(projectPath: string): { passed: boolean; blockers
   return { passed: blockers.length === 0, blockers };
 }
 
+interface JsonStringResult {
+  value: string;
+  endIdx: number;
+}
+
+function readJsonQuotedString(text: string, startQuoteIdx: number): JsonStringResult {
+  let i = startQuoteIdx + 1;
+  let out = '';
+  while (i < text.length) {
+    const ch = text[i];
+    if (ch === '\\') {
+      out += text.slice(i, i + 2);
+      i += 2;
+      continue;
+    }
+    if (ch === '"') {
+      return { value: out, endIdx: i };
+    }
+    out += ch;
+    i++;
+  }
+  return { value: out, endIdx: text.length - 1 };
+}
+
+function skipWhitespace(text: string, idx: number): number {
+  let i = idx;
+  while (i < text.length && /\s/.test(text[i])) {
+    i++;
+  }
+  return i;
+}
+
+const REACT_FRONTEND_DIR = 'react-frontend';
+
+interface JsonScopeFrame {
+  type: 'object' | 'array';
+  keys: Set<string>;
+  expectingKey: boolean;
+}
+
+function handleJsonStringToken(
+  jsonText: string,
+  startIdx: number,
+  top: JsonScopeFrame | undefined,
+  duplicates: string[]
+): number {
+  const parsed = readJsonQuotedString(jsonText, startIdx);
+  const afterQuote = skipWhitespace(jsonText, parsed.endIdx + 1);
+  if (top?.type === 'object' && top.expectingKey && jsonText[afterQuote] === ':') {
+    if (top.keys.has(parsed.value)) {
+      duplicates.push(parsed.value);
+    } else {
+      top.keys.add(parsed.value);
+    }
+    top.expectingKey = false;
+  }
+  return parsed.endIdx + 1;
+}
+
+function updateJsonScopeStack(ch: string, scopeStack: JsonScopeFrame[]): void {
+  const top = scopeStack[scopeStack.length - 1];
+  if (ch === '{') {
+    scopeStack.push({ type: 'object', keys: new Set(), expectingKey: true });
+  } else if (ch === '[') {
+    scopeStack.push({ type: 'array', keys: new Set(), expectingKey: false });
+  } else if ((ch === '}' || ch === ']') && scopeStack.length > 0) {
+    scopeStack.pop();
+  } else if (ch === ',' && top?.type === 'object') {
+    top.expectingKey = true;
+  }
+}
+
 function findDuplicateKeysInText(jsonText: string): string[] {
   const duplicates: string[] = [];
-  const lines = jsonText.split(/\r?\n/);
-  const stack: Set<string>[] = [new Set()];
+  const scopeStack: JsonScopeFrame[] = [];
+  let i = 0;
 
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (trimmed.includes('{')) {
-      stack.push(new Set());
-    }
-    if (trimmed.includes('}') && stack.length > 1) {
-      stack.pop();
-    }
-
-    const keyMatch = trimmed.match(/^"([^"]+)"\s*:/);
-    if (keyMatch) {
-      const key = keyMatch[1];
-      const currentScope = stack[stack.length - 1];
-      if (currentScope.has(key)) {
-        duplicates.push(key);
-      } else {
-        currentScope.add(key);
-      }
+  while (i < jsonText.length) {
+    const ch = jsonText[i];
+    if (ch === '"') {
+      i = handleJsonStringToken(jsonText, i, scopeStack[scopeStack.length - 1], duplicates);
+    } else {
+      updateJsonScopeStack(ch, scopeStack);
+      i++;
     }
   }
 
@@ -77,16 +139,29 @@ function findDuplicateKeysInText(jsonText: string): string[] {
 function checkJsonIntegrity(projectPath: string): { passed: boolean; blockers: string[] } {
   const blockers: string[] = [];
   const jsonFiles: string[] = [];
+  const ignoredJsonDirs = new Set([
+    'node_modules',
+    'dist',
+    '.git',
+    'coverage',
+    '.stryker-tmp',
+    '.venv',
+    'graphify-out',
+    '.trivycache',
+  ]);
 
   function collectJson(dir: string): void {
     try {
       const entries = fs.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
-        if (entry.name === 'node_modules' || entry.name === 'dist' || entry.name === '.git') continue;
+        if (ignoredJsonDirs.has(entry.name)) continue;
         const full = path.join(dir, entry.name);
         if (entry.isDirectory()) {
           collectJson(full);
-        } else if (entry.isFile() && entry.name.endsWith('.json')) {
+        } else if (
+          entry.isFile() &&
+          (entry.name.endsWith('.json') || entry.name.endsWith('.json.example'))
+        ) {
           jsonFiles.push(full);
         }
       }
@@ -113,36 +188,101 @@ function checkJsonIntegrity(projectPath: string): { passed: boolean; blockers: s
   return { passed: blockers.length === 0, blockers };
 }
 
-function hasUnitTestForComponent(compDir: string, file: string): boolean {
+function isUiTestFile(fileName: string): boolean {
+  return /\.(unit|spec|test|e2e)\.(ts|tsx|js|jsx)$/i.test(fileName);
+}
+
+function isUiComponentFile(fileName: string): boolean {
+  if (isUiTestFile(fileName)) return false;
+  return fileName.endsWith('.vue') || fileName.endsWith('.tsx') || fileName.endsWith('.jsx');
+}
+
+function hasUnitTestForComponent(
+  compFilePath: string,
+  allTestFiles: string[],
+  testContentsCache: Map<string, string>
+): boolean {
+  const file = path.basename(compFilePath);
+  const compDir = path.dirname(compFilePath);
   const baseName = file.replace(/\.(vue|tsx|jsx)$/, '');
-  return (
-    fs.existsSync(path.join(compDir, `${baseName}.unit.ts`)) ||
-    fs.existsSync(path.join(compDir, `${baseName}.unit.tsx`)) ||
-    fs.existsSync(path.join(compDir, `${baseName}.spec.ts`)) ||
-    fs.existsSync(path.join(compDir, `${baseName}.test.ts`))
-  );
+  const camelName = baseName ? baseName[0].toLowerCase() + baseName.slice(1) : baseName;
+
+  const directCandidates = [
+    path.join(compDir, `${baseName}.unit.ts`),
+    path.join(compDir, `${baseName}.unit.tsx`),
+    path.join(compDir, `${baseName}.spec.ts`),
+    path.join(compDir, `${baseName}.test.ts`),
+    path.join(compDir, '__tests__', `${baseName}.unit.ts`),
+    path.join(compDir, '__tests__', `${baseName}.unit.tsx`),
+  ];
+  if (directCandidates.some((c) => fs.existsSync(c))) return true;
+
+  const expectedNames = new Set([
+    `${baseName}.unit.ts`,
+    `${baseName}.unit.tsx`,
+    `${camelName}.unit.ts`,
+    `${camelName}.unit.tsx`,
+    `${baseName}.spec.ts`,
+    `${baseName}.spec.tsx`,
+    `${baseName}.test.ts`,
+    `${baseName}.test.tsx`,
+  ]);
+  if (allTestFiles.some((tf) => expectedNames.has(path.basename(tf)))) return true;
+
+  for (const tf of allTestFiles) {
+    let content = testContentsCache.get(tf);
+    if (content === undefined) {
+      try {
+        content = fs.readFileSync(tf, 'utf8');
+      } catch {
+        content = '';
+      }
+      testContentsCache.set(tf, content);
+    }
+    if (content.includes(file) || content.includes(`'${baseName}'`) || content.includes(`"${baseName}"`)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function checkOrphanUiComponents(projectPath: string): { passed: boolean; blockers: string[] } {
   const blockers: string[] = [];
-  const candidateDirs = [
+  const candidateRoots = [
     path.join(projectPath, 'src', 'components'),
-    path.join(projectPath, 'vue3', 'src', 'components'),
-    path.join(projectPath, 'react-frontend', 'src', 'components'),
+    path.join(projectPath, 'src', 'views'),
+    path.join(projectPath, 'frontend', 'src'),
+    path.join(projectPath, 'vue3', 'src'),
+    path.join(projectPath, REACT_FRONTEND_DIR, 'src'),
+  ];
+  const testRoots = [
+    ...candidateRoots,
+    path.join(projectPath, 'tests'),
+    path.join(projectPath, 'frontend', 'tests'),
+    path.join(projectPath, 'vue3', 'tests'),
+    path.join(projectPath, REACT_FRONTEND_DIR, 'tests'),
   ];
 
-  for (const compDir of candidateDirs) {
-    if (!fs.existsSync(compDir)) continue;
-    try {
-      const files = fs.readdirSync(compDir);
-      for (const file of files) {
-        const isComponent = file.endsWith('.vue') || file.endsWith('.tsx') || file.endsWith('.jsx');
-        if (isComponent && !hasUnitTestForComponent(compDir, file)) {
-          blockers.push(`Componente UI huérfano sin prueba unitaria: ${file}`);
-        }
+  const allTestFiles = Array.from(
+    new Set(
+      testRoots
+        .flatMap((r) => collectFilesWithExtensions(r, ['.ts', '.tsx', '.js', '.jsx']))
+        .filter((f) => isUiTestFile(path.basename(f)))
+    )
+  );
+  const testContentsCache = new Map<string, string>();
+  const visitedComponents = new Set<string>();
+
+  for (const rootDir of candidateRoots) {
+    if (!fs.existsSync(rootDir)) continue;
+    const files = collectFilesWithExtensions(rootDir, ['.vue', '.tsx', '.jsx']);
+    for (const fullFile of files) {
+      if (visitedComponents.has(fullFile)) continue;
+      visitedComponents.add(fullFile);
+      const base = path.basename(fullFile);
+      if (isUiComponentFile(base) && !hasUnitTestForComponent(fullFile, allTestFiles, testContentsCache)) {
+        blockers.push(`Componente UI huérfano sin prueba unitaria: ${path.relative(projectPath, fullFile)}`);
       }
-    } catch {
-      // Ignorar errores de lectura
     }
   }
 
@@ -157,8 +297,13 @@ const ARCHITECTURAL_API_WHITELIST: Array<{ verb: string; path: string }> = [
   { verb: 'POST', path: '/api/v1/mcp' },
   { verb: 'GET', path: '/users/me' },
   { verb: 'GET', path: '/api/v1/auth/me' },
+  { verb: 'POST', path: '/api/v1/auth/login' },
+  { verb: 'POST', path: '/api/v1/auth/refresh' },
   { verb: 'POST', path: '/api/v1/auth/logout' },
   { verb: 'GET', path: '/api/v1/auth/bootstrap-status' },
+  { verb: 'POST', path: '/api/v1/auth/bootstrap' },
+  { verb: 'POST', path: '/api/v1/auth/2fa/confirm-enrollment' },
+  { verb: 'POST', path: '/api/v1/auth/2fa/verify' },
 ];
 
 function matchesRouteSegments(routePath: string, testUrl: string): boolean {
@@ -194,24 +339,37 @@ function normalizeSubRoute(sub: string): string {
   return sub.startsWith('/') ? sub : `/${sub}`;
 }
 
-function extractBackendRoutesFromFile(filePath: string): Array<{ verb: string; path: string }> {
-  const routes: Array<{ verb: string; path: string }> = [];
+function extractBackendRoutesFromFile(
+  projectPath: string,
+  filePath: string
+): Array<{ verb: string; path: string; relFile: string; ignoredInParity: boolean }> {
+  const routes: Array<{ verb: string; path: string; relFile: string; ignoredInParity: boolean }> = [];
   const code = fs.readFileSync(filePath, 'utf8');
+  const ignoredInParity = code.includes('api-parity-ignore');
+  const relFile = path.relative(projectPath, filePath);
   const prefixMatch = code.match(/APIRouter\([^)]*prefix\s*=\s*['"]([^'"]+)['"]/);
   const routerPrefix = prefixMatch ? prefixMatch[1].replace(/\/+$/, '') : '';
-  const basePrefix = filePath.split(path.sep).includes('v1') ? '/api/v1' : '';
+  const hasV1Dir = filePath.split(path.sep).includes('v1');
+  const basePrefix = hasV1Dir && !routerPrefix.startsWith('/api/v1') ? '/api/v1' : '';
 
   const decoRegex = /@(?:[a-zA-Z0-9_]+)\.(get|post|put|patch|delete)\(\s*['"]([^'"]*)['"]/gi;
   let m: RegExpExecArray | null;
   while ((m = decoRegex.exec(code)) !== null) {
     const verb = m[1].toUpperCase();
     const subNorm = normalizeSubRoute(m[2]);
-    routes.push({ verb, path: `${basePrefix}${routerPrefix}${subNorm}` });
+    routes.push({
+      verb,
+      path: `${basePrefix}${routerPrefix}${subNorm}` || '/',
+      relFile,
+      ignoredInParity,
+    });
   }
 
-  const expressRegex = /\b(?:router|app)\.(get|post|put|patch|delete)\(\s*['"]([^'"]+)['"]/gi;
-  while ((m = expressRegex.exec(code)) !== null) {
-    routes.push({ verb: m[1].toUpperCase(), path: m[2] });
+  if (!filePath.endsWith('.py')) {
+    const expressRegex = /\b(?:router|app)\.(get|post|put|patch|delete)\(\s*['"]([^'"]+)['"]/gi;
+    while ((m = expressRegex.exec(code)) !== null) {
+      routes.push({ verb: m[1].toUpperCase(), path: m[2], relFile, ignoredInParity });
+    }
   }
   return routes;
 }
@@ -251,16 +409,36 @@ function matchesAnyRoute(
   return false;
 }
 
+function isBackendRouteReferenced(
+  route: { verb: string; path: string; ignoredInParity: boolean },
+  frontendCalls: Array<{ verb: string; url: string }>,
+  whitelist: Array<{ verb: string; path: string }>
+): boolean {
+  if (route.ignoredInParity) return true;
+  const concreteSample = route.path
+    .replace(/\{[^}]+\}/g, 'test_param')
+    .replace(/:[a-zA-Z0-9_]+/g, 'test_param');
+  if (matchesAnyRoute(route.verb, concreteSample, whitelist)) return true;
+
+  for (const call of frontendCalls) {
+    if (call.verb !== route.verb) continue;
+    const testCallUrl = call.url.replace(/\$\{[^}]+\}/g, 'test_param');
+    if (matchesRouteSegments(route.path, testCallUrl)) return true;
+  }
+  return false;
+}
+
 function checkZeroOrphanApiEndpoints(projectPath: string): { passed: boolean; blockers: string[] } {
   const backendDirs = [
     path.join(projectPath, 'fastapi', 'src'),
     path.join(projectPath, 'node-backend', 'src'),
+    path.join(projectPath, 'php', 'src'),
     path.join(projectPath, 'backend', 'src'),
     path.join(projectPath, 'src', 'api'),
   ];
   const frontendDirs = [
     path.join(projectPath, 'vue3', 'src'),
-    path.join(projectPath, 'react-frontend', 'src'),
+    path.join(projectPath, REACT_FRONTEND_DIR, 'src'),
     path.join(projectPath, 'frontend', 'src'),
   ];
 
@@ -269,7 +447,7 @@ function checkZeroOrphanApiEndpoints(projectPath: string): { passed: boolean; bl
     collectFilesWithExtensions(d, ['.ts', '.tsx', '.vue', '.js', '.jsx'])
   );
 
-  const backendRoutes = backendFiles.flatMap((f) => extractBackendRoutesFromFile(f));
+  const backendRoutes = backendFiles.flatMap((f) => extractBackendRoutesFromFile(projectPath, f));
   const frontendCalls = frontendFiles.flatMap((f) => extractFrontendCallsFromFile(projectPath, f));
 
   if (backendRoutes.length === 0 || frontendCalls.length === 0) {
@@ -283,6 +461,14 @@ function checkZeroOrphanApiEndpoints(projectPath: string): { passed: boolean; bl
     if (!matchesAnyRoute(call.verb, call.url, allAllowedRoutes)) {
       blockers.push(
         `Llamada HTTP huérfana en frontend hacia endpoint inexistente (404/405): [${call.verb}] ${call.url} en ${call.relFile}`
+      );
+    }
+  }
+
+  for (const route of backendRoutes) {
+    if (!isBackendRouteReferenced(route, frontendCalls, ARCHITECTURAL_API_WHITELIST)) {
+      blockers.push(
+        `Endpoint backend huérfano sin consumidor en frontend: [${route.verb}] ${route.path} en ${route.relFile}`
       );
     }
   }
@@ -382,12 +568,17 @@ function checkActiveTaskGovernance(projectPath: string): string[] {
 const GRAPHIFY_OUT_DIR = 'graphify-out';
 const GRAPH_JSON_FILE = 'graph.json';
 
-function isUiToDbLink(link: { source?: string; target?: string }): boolean {
-  const src = (link.source ?? '').toLowerCase();
-  const tgt = (link.target ?? '').toLowerCase();
+function isUiToDbLink(srcRef: string, tgtRef: string): boolean {
+  const src = srcRef.replace(/\\/g, '/').toLowerCase();
+  const tgt = tgtRef.replace(/\\/g, '/').toLowerCase();
   const isUiSource = src.includes('components/') || src.includes('views/') || src.endsWith('.vue');
-  const isDbTarget = tgt.includes('models.py') || tgt.includes('alembic/');
-  return isUiSource && isDbTarget;
+  const isDbTarget = tgt.includes('models/') || tgt.includes('models.py') || tgt.includes('alembic/');
+  const isDomainToApi =
+    /(?:^|\/)src\/(?:models|schemas|core|domain)\//.test(src) &&
+    /(?:^|\/)src\/(?:api|controllers)\//.test(tgt);
+  const isCommonUiToView =
+    /(?:^|\/)src\/components\/common\//.test(src) && /(?:^|\/)src\/(?:views|pages)\//.test(tgt);
+  return (isUiSource && isDbTarget) || isDomainToApi || isCommonUiToView;
 }
 
 function inspectSingleGraphTopology(projectPath: string, gPath: string): string[] {
@@ -397,11 +588,20 @@ function inspectSingleGraphTopology(projectPath: string, gPath: string): string[
 
   try {
     const parsed = JSON.parse(fs.readFileSync(gPath, 'utf8')) as {
-      links?: Array<{ source?: string; target?: string }>;
+      nodes?: Array<{ id?: string; source_file?: string; file?: string }>;
+      links?: Array<{ source?: string; target?: string; source_file?: string }>;
     };
+    const nodeFileMap = new Map<string, string>();
+    for (const node of parsed.nodes ?? []) {
+      if (node.id) {
+        nodeFileMap.set(node.id, node.source_file ?? node.file ?? node.id);
+      }
+    }
     for (const link of parsed.links ?? []) {
-      if (isUiToDbLink(link)) {
-        blockers.push(`Violación topológica AST en ${relGraph}: ${link.source} -> ${link.target}`);
+      const srcRef = link.source_file ?? nodeFileMap.get(link.source ?? '') ?? link.source ?? '';
+      const tgtRef = nodeFileMap.get(link.target ?? '') ?? link.target ?? '';
+      if (isUiToDbLink(srcRef, tgtRef)) {
+        blockers.push(`Violación topológica AST en ${relGraph}: ${srcRef} -> ${tgtRef}`);
       }
     }
   } catch {
@@ -417,6 +617,7 @@ function checkAstTopology(projectPath: string): { passed: boolean; blockers: str
     path.join(projectPath, GRAPHIFY_OUT_DIR, GRAPH_JSON_FILE),
     path.join(projectPath, 'fastapi', GRAPHIFY_OUT_DIR, GRAPH_JSON_FILE),
     path.join(projectPath, 'vue3', GRAPHIFY_OUT_DIR, GRAPH_JSON_FILE),
+    path.join(projectPath, 'mcp-server', GRAPHIFY_OUT_DIR, GRAPH_JSON_FILE),
   ];
 
   for (const gPath of graphPaths) {
@@ -424,6 +625,77 @@ function checkAstTopology(projectPath: string): { passed: boolean; blockers: str
   }
 
   return { passed: blockers.length === 0, blockers };
+}
+
+function checkManifestCryptographicParity(projectPath: string): string[] {
+  const manifestPath = path.join(projectPath, 'manifest.json');
+  const genScript = path.join(projectPath, 'scripts', 'generar-manifiesto.py');
+  if (!fs.existsSync(manifestPath) || !fs.existsSync(genScript)) return [];
+
+  const blockers: string[] = [];
+  try {
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as {
+      common_files?: Array<{ path: string; sha256: string }>;
+      agent_governance_files?: Array<{ path: string; sha256: string }>;
+      stacks?: Record<string, { files?: Array<{ path: string; sha256: string }> }>;
+    };
+    const entries = [
+      ...(manifest.common_files ?? []),
+      ...(manifest.agent_governance_files ?? []),
+      ...Object.values(manifest.stacks ?? {}).flatMap((s) => s.files ?? []),
+    ];
+    for (const entry of entries) {
+      const full = path.join(projectPath, entry.path);
+      if (!fs.existsSync(full)) {
+        blockers.push(`Archivo referenciado en manifest.json no existe en disco: ${entry.path}`);
+        continue;
+      }
+      const actualSha = crypto.createHash('sha256').update(fs.readFileSync(full)).digest('hex');
+      if (actualSha !== entry.sha256) {
+        blockers.push(`Desfase SHA-256 en manifest.json para '${entry.path}' (ejecute scripts/generar-manifiesto.py).`);
+      }
+    }
+  } catch {
+    blockers.push('No se pudo validar la integridad criptográfica de manifest.json.');
+  }
+  return blockers;
+}
+
+function collectCompletedHitosFromSummary(lines: string[]): Set<string> {
+  const hitoTokenRe = /\b(hito\s+\d+)\b/i;
+  const summaryComplete = new Set<string>();
+  for (const line of lines) {
+    if (!line.trimStart().startsWith('|') || !line.includes('100%')) continue;
+    const rowMatch = hitoTokenRe.exec(line);
+    if (rowMatch) summaryComplete.add(rowMatch[1].toLowerCase());
+  }
+  return summaryComplete;
+}
+
+function checkRoadmapConsistency(projectPath: string): string[] {
+  const roadmapPath = resolveWithParentFallback(projectPath, 'ROADMAP.md');
+  if (!fs.existsSync(roadmapPath)) return [];
+  const blockers: string[] = [];
+  const hitoTokenRe = /\b(hito\s+\d+)\b/i;
+  try {
+    const lines = fs.readFileSync(roadmapPath, 'utf8').split(/\r?\n/);
+    const summaryComplete = collectCompletedHitosFromSummary(lines);
+    let activeHito: string | null = null;
+    for (const line of lines) {
+      const secMatch = line.startsWith('##') ? hitoTokenRe.exec(line) : null;
+      if (secMatch) {
+        activeHito = secMatch[1].toLowerCase();
+        continue;
+      }
+      if (activeHito && summaryComplete.has(activeHito) && /^\s*-\s*\[\s\]/.test(line)) {
+        blockers.push(`ROADMAP.md declara ${activeHito} al 100% pero contiene tareas pendientes (- [ ]).`);
+        summaryComplete.delete(activeHito);
+      }
+    }
+  } catch {
+    // Ignorar error de lectura
+  }
+  return blockers;
 }
 
 function checkDocumentationSync(projectPath: string): { passed: boolean; blockers: string[] } {
@@ -450,6 +722,8 @@ function checkDocumentationSync(projectPath: string): { passed: boolean; blocker
   }
 
   blockers.push(...checkActiveTaskGovernance(projectPath));
+  blockers.push(...checkManifestCryptographicParity(projectPath));
+  blockers.push(...checkRoadmapConsistency(projectPath));
 
   return { passed: blockers.length === 0, blockers };
 }

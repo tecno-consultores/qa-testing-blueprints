@@ -1,6 +1,6 @@
 {
   "name": "@sinfallas/mcp-qa-11x",
-  "version": "2.15.1",
+  "version": "2.16.0",
   "description": "Servidor MCP e Instalador de Skill para QA Testing Blueprints (Estándar 11X, DISA ASD STIG V6R5 & OWASP v4.2)",
   "keywords": [
     "mcp",

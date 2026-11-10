@@ -40,7 +40,7 @@ const DEEP_PRUNE_DIR_NAMES = ['reports', 'prometheus_data'];
 const CANDIDATE_FILE_PATTERNS = [
   'karate.jar',
   'zap-report.html',
-  'zap.yaml',
+  'zap-report.json',
   'chaos-report.html',
   'chaos-report.json',
   'profile.svg',
@@ -57,13 +57,14 @@ const SCAN_SUBDIRS = [
   'mcp-server',
 ];
 
-function scanDirectoryForArtifacts(baseDir: string, deepPrune = false): string[] {
+function scanDirectoryForArtifacts(baseDir: string, deepPrune = false, preserveDist = false): string[] {
   const found: string[] = [];
   const candidateDirs = deepPrune
     ? [...CANDIDATE_DIR_NAMES, ...DEEP_PRUNE_DIR_NAMES]
     : CANDIDATE_DIR_NAMES;
 
   for (const name of candidateDirs) {
+    if (preserveDist && name === 'dist') continue;
     const fullPath = path.join(baseDir, name);
     if (fs.existsSync(fullPath)) {
       found.push(path.relative(baseDir, fullPath));
@@ -86,7 +87,7 @@ function scanSubdirectories(baseDir: string, deepPrune = false): string[] {
   for (const sub of SCAN_SUBDIRS) {
     const subPath = path.join(baseDir, sub);
     if (fs.existsSync(subPath) && fs.statSync(subPath).isDirectory()) {
-      const subFound = scanDirectoryForArtifacts(subPath, deepPrune);
+      const subFound = scanDirectoryForArtifacts(subPath, deepPrune, sub === 'mcp-server');
       for (const item of subFound) {
         found.push(path.join(sub, item));
       }

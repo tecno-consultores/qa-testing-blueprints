@@ -12,7 +12,9 @@ const COMPOSER_JSON_FILE = 'composer.json';
 const PHPSTAN_NEON_FILE = 'phpstan.neon';
 const UTF8_ENCODING = 'utf-8';
 const PACKAGE_JSON = 'package.json';
+const PYPROJECT_TOML = 'pyproject.toml';
 const REACT_FRONTEND_STACK = 'react-frontend';
+const NODE_BACKEND_STACK = 'node-backend';
 const INSTRUCTION_BOOTSTRAP =
   "Ejecute la tool MCP 'bootstrap_or_merge_11x' para inyectar automáticamente @playwright/test, @axe-core/playwright, @lhci/cli y e2e/accessibility.e2e.ts en el proyecto.";
 const INSTRUCTION_BROWSER_MCP =
@@ -61,15 +63,20 @@ export function collectProjectFiles(projectPath: string): string[] {
 }
 
 function inspectPythonStack(resolvedPath: string, detectedStacks: string[]): boolean {
-  const pyprojectPath = path.join(resolvedPath, 'pyproject.toml');
+  const candidates = [
+    path.join(resolvedPath, PYPROJECT_TOML),
+    path.join(resolvedPath, 'fastapi', PYPROJECT_TOML),
+    path.join(resolvedPath, 'backend', PYPROJECT_TOML),
+    path.join(resolvedPath, 'python', PYPROJECT_TOML),
+  ];
   let mypyStrict = false;
 
-  if (fs.existsSync(pyprojectPath)) {
+  for (const pyprojectPath of candidates) {
+    if (!fs.existsSync(pyprojectPath)) continue;
     const content = fs.readFileSync(pyprojectPath, UTF8_ENCODING);
-    if (content.includes('fastapi')) {
-      detectedStacks.push('fastapi');
-    } else {
-      detectedStacks.push('python');
+    const stackToAdd = content.includes('fastapi') ? 'fastapi' : 'python';
+    if (!detectedStacks.includes(stackToAdd)) {
+      detectedStacks.push(stackToAdd);
     }
     if (content.includes('strict = true') || content.includes('strict=true')) {
       mypyStrict = true;
@@ -82,18 +89,23 @@ function inspectPythonStack(resolvedPath: string, detectedStacks: string[]): boo
 function detectNodeFrameworks(packageJsonPath: string, detectedStacks: string[]): void {
   if (!fs.existsSync(packageJsonPath)) return;
   const content = fs.readFileSync(packageJsonPath, UTF8_ENCODING);
+  let matchedUi = false;
   if (content.includes('"vue"') || content.includes("'vue'")) {
-    detectedStacks.push('vue3');
+    if (!detectedStacks.includes('vue3')) detectedStacks.push('vue3');
+    matchedUi = true;
   }
   if (content.includes('"react"') || content.includes("'react'")) {
-    detectedStacks.push(REACT_FRONTEND_STACK);
+    if (!detectedStacks.includes(REACT_FRONTEND_STACK)) detectedStacks.push(REACT_FRONTEND_STACK);
+    matchedUi = true;
   }
-  if (
+  const isBackendOrCli =
     content.includes('"express"') ||
     content.includes('"fastify"') ||
-    content.includes('"@nestjs/core"')
-  ) {
-    detectedStacks.push('node-backend');
+    content.includes('"@nestjs/core"') ||
+    content.includes('"@modelcontextprotocol/sdk"') ||
+    (!matchedUi && (content.includes('"typescript"') || content.includes('"vitest"')));
+  if (isBackendOrCli && !detectedStacks.includes(NODE_BACKEND_STACK)) {
+    detectedStacks.push(NODE_BACKEND_STACK);
   }
 }
 
@@ -113,13 +125,25 @@ function inspectNodeStack(
   resolvedPath: string,
   detectedStacks: string[]
 ): { tsconfigStrict: boolean; npmrcIgnoreScripts: boolean } {
-  const packageJsonPath = path.join(resolvedPath, PACKAGE_JSON);
-  const tsconfigPath = path.join(resolvedPath, 'tsconfig.json');
-  const npmrcPath = path.join(resolvedPath, '.npmrc');
+  const nodeBases = [
+    resolvedPath,
+    path.join(resolvedPath, 'vue3'),
+    path.join(resolvedPath, REACT_FRONTEND_STACK),
+    path.join(resolvedPath, 'frontend'),
+    path.join(resolvedPath, NODE_BACKEND_STACK),
+    path.join(resolvedPath, 'mcp-server'),
+  ];
 
-  detectNodeFrameworks(packageJsonPath, detectedStacks);
-  const tsconfigStrict = checkTsconfigStrict(tsconfigPath);
-  const npmrcIgnoreScripts = checkNpmrcIgnoreScripts(npmrcPath);
+  let tsconfigStrict = false;
+  let npmrcIgnoreScripts = false;
+
+  for (const base of nodeBases) {
+    const pkgPath = path.join(base, PACKAGE_JSON);
+    if (!fs.existsSync(pkgPath)) continue;
+    detectNodeFrameworks(pkgPath, detectedStacks);
+    if (checkTsconfigStrict(path.join(base, 'tsconfig.json'))) tsconfigStrict = true;
+    if (checkNpmrcIgnoreScripts(path.join(base, '.npmrc'))) npmrcIgnoreScripts = true;
+  }
 
   return { tsconfigStrict, npmrcIgnoreScripts };
 }
@@ -312,9 +336,10 @@ export async function inspectProjectConfig(
     homeDir
   );
 
+  const fallbackStacks = files.some((f) => f.endsWith('.py')) ? ['python'] : [];
   return {
     project_path: resolvedPath,
-    detected_stacks: detectedStacks.length > 0 ? detectedStacks : ['python'],
+    detected_stacks: detectedStacks.length > 0 ? detectedStacks : fallbackStacks,
     has_docker_compose_qa: fs.existsSync(path.join(resolvedPath, 'docker-compose.qa.yml')),
     has_makefile: fs.existsSync(path.join(resolvedPath, 'Makefile')),
     has_lefthook: fs.existsSync(path.join(resolvedPath, 'lefthook.yml')),

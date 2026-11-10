@@ -10,6 +10,7 @@ arquitectónicas y no existan acoplamientos inversos ni dependencias cíclicas p
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -17,13 +18,16 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
-def find_graph_files() -> list[Path]:
+def find_graph_files(target_root: Path | None = None) -> list[Path]:
+    root = target_root or REPO_ROOT
+    ignored = {"node_modules", ".venv", ".trivycache", "dist", "coverage"}
     graphs: list[Path] = []
     seen: set[Path] = set()
     for pattern in ["**/graphify-out/graph.json", "**/graph.json"]:
-        for p in sorted(REPO_ROOT.glob(pattern)):
+        for p in sorted(root.glob(pattern)):
             resolved = p.resolve()
-            if resolved not in seen and "node_modules" not in str(p) and ".venv" not in str(p):
+            rel_parts = p.relative_to(root).parts
+            if resolved not in seen and not any(part in ignored for part in rel_parts):
                 seen.add(resolved)
                 graphs.append(p)
     return graphs
@@ -39,28 +43,28 @@ def audit_layers(graph: dict[str, Any], graph_path: Path) -> tuple[list[str], di
     links = graph.get("links", [])
     violations: list[str] = []
 
-    # Reglas generales de arquitectura limpia:
-    # 1. Capa de dominio/modelos/esquemas no debe depender de controladores/routers API
-    forbidden_prefixes = ["src/models/", "src/schemas/", "src/core/", "src/domain/"]
+    domain_re = re.compile(r"(?:^|/)src/(?:models|schemas|core|domain)/")
+    api_re = re.compile(r"(?:^|/)src/(?:api|controllers)/")
+    ui_common_re = re.compile(r"(?:^|/)src/components/common/")
+    ui_views_re = re.compile(r"(?:^|/)src/(?:views|pages)/")
 
     for link in links:
-        src_file = link.get("source_file", "")
+        src_node = nodes.get(link.get("source", ""))
+        src_file = str(link.get("source_file") or (src_node.get("source_file", "") if src_node else "")).replace(
+            "\\", "/"
+        )
         tgt_id = link.get("target", "")
         tgt_node = nodes.get(tgt_id)
-        if not tgt_node:
+        if not src_file or not tgt_node:
             continue
-        tgt_file = tgt_node.get("source_file", "")
+        tgt_file = str(tgt_node.get("source_file", "")).replace("\\", "/")
+        if not tgt_file:
+            continue
 
-        for prefix in forbidden_prefixes:
-            if src_file.startswith(prefix) and (
-                tgt_file.startswith("src/api/") or tgt_file.startswith("src/controllers/")
-            ):
-                violations.append(f"Acoplamiento inverso: '{src_file}' ({link.get('context', 'call')}) -> '{tgt_file}'")
+        if domain_re.search(src_file) and api_re.search(tgt_file):
+            violations.append(f"Acoplamiento inverso: '{src_file}' ({link.get('context', 'call')}) -> '{tgt_file}'")
 
-        # Reglas en Frontend: componentes comunes no deben importar vistas
-        if src_file.startswith("src/components/common/") and (
-            tgt_file.startswith("src/views/") or tgt_file.startswith("src/pages/")
-        ):
+        if ui_common_re.search(src_file) and ui_views_re.search(tgt_file):
             violations.append(f"Acoplamiento invertido UI: Componente común '{src_file}' depende de vista '{tgt_file}'")
 
     stats = {

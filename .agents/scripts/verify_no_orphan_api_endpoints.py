@@ -20,7 +20,7 @@ import re
 import sys
 from pathlib import Path
 
-# Lista Blanca Arquitectónica (Observabilidad, MCP, Salud y Contratos Externos)
+# Lista Blanca Arquitectónica (Observabilidad, MCP, Salud, Pre-Auth y Contratos Externos)
 ARCHITECTURAL_WHITELIST: set[tuple[str, str]] = {
     ("GET", "/health"),
     ("GET", "/api/v1/health"),
@@ -29,8 +29,13 @@ ARCHITECTURAL_WHITELIST: set[tuple[str, str]] = {
     ("POST", "/api/v1/mcp"),
     ("GET", "/users/me"),
     ("GET", "/api/v1/auth/me"),
+    ("POST", "/api/v1/auth/login"),
+    ("POST", "/api/v1/auth/refresh"),
     ("POST", "/api/v1/auth/logout"),
     ("GET", "/api/v1/auth/bootstrap-status"),
+    ("POST", "/api/v1/auth/bootstrap"),
+    ("POST", "/api/v1/auth/2fa/confirm-enrollment"),
+    ("POST", "/api/v1/auth/2fa/verify"),
 }
 
 
@@ -46,7 +51,7 @@ def normalize_route_pattern(path: str) -> str:
 def extract_fastapi_routes(repo_root: Path) -> list[tuple[str, str, str]]:
     """Extrae las rutas y métodos registrados en FastAPI."""
     routes: list[tuple[str, str, str]] = []
-    candidates = [repo_root / "fastapi" / "src", repo_root / "src"]
+    candidates = [repo_root / "fastapi" / "src", repo_root / "backend" / "src", repo_root / "src"]
     backend_src = next((c for c in candidates if (c / "api").exists() or (c / "main.py").exists()), None)
     if not backend_src:
         return routes
@@ -106,10 +111,15 @@ def extract_fastapi_routes(repo_root: Path) -> list[tuple[str, str, str]]:
                                     sub_path = str(deco.args[0].value)
 
                                 r_prefix = router_var_prefixes.get(r_var, "")
-                                base_prefix = "/api/v1" if "v1" in Path(root).parts else ""
-                                full_path = base_prefix + (
+                                norm_r_prefix = (
                                     r_prefix if r_prefix.startswith("/") else ("/" + r_prefix if r_prefix else "")
                                 )
+                                base_prefix = (
+                                    "/api/v1"
+                                    if ("v1" in Path(root).parts and not norm_r_prefix.startswith("/api/v1"))
+                                    else ""
+                                )
+                                full_path = base_prefix + norm_r_prefix
                                 full_path = full_path.rstrip("/") + (
                                     sub_path if sub_path.startswith("/") else ("/" + sub_path if sub_path else "")
                                 )
@@ -118,10 +128,46 @@ def extract_fastapi_routes(repo_root: Path) -> list[tuple[str, str, str]]:
     return routes
 
 
+def extract_node_routes(repo_root: Path) -> list[tuple[str, str, str]]:
+    """Extrae rutas Express/Fastify registradas en node-backend/src o backend/src."""
+    routes: list[tuple[str, str, str]] = []
+    candidates = [repo_root / "node-backend" / "src", repo_root / "backend" / "src"]
+    route_re = re.compile(r'\b(?:app|router)\.(get|post|put|patch|delete)\s*\(\s*([`\'"])(.*?)\2', re.IGNORECASE)
+    for node_src in candidates:
+        if not node_src.exists():
+            continue
+        for root, _, files in os.walk(node_src):
+            for f in files:
+                if not f.endswith((".ts", ".js")):
+                    continue
+                if f.endswith((".unit.ts", ".spec.ts", ".test.ts")):
+                    continue
+                fpath = Path(root) / f
+                rel_file = str(fpath.relative_to(repo_root))
+                text = fpath.read_text(encoding="utf-8", errors="ignore")
+                for m in route_re.finditer(text):
+                    verb = m.group(1).upper()
+                    raw_path = m.group(3).strip()
+                    if raw_path.startswith("/"):
+                        routes.append((verb, raw_path, rel_file))
+    return routes
+
+
 def extract_frontend_calls(repo_root: Path) -> list[tuple[str, str, str, int]]:
-    """Extrae llamadas HTTP desde vue3/src/ o react-frontend/src/."""
+    """Extrae llamadas HTTP desde vue3/src/, react-frontend/src/, frontend/src/ o src/."""
     calls: list[tuple[str, str, str, int]] = []
-    frontend_dirs = [d for d in (repo_root / "vue3" / "src", repo_root / "react-frontend" / "src") if d.exists()]
+    frontend_dirs = [
+        d
+        for d in (
+            repo_root / "vue3" / "src",
+            repo_root / "react-frontend" / "src",
+            repo_root / "frontend" / "src",
+        )
+        if d.exists()
+    ]
+    root_src = repo_root / "src"
+    if not frontend_dirs and root_src.exists() and ((root_src / "components").exists() or (root_src / "views").exists()):
+        frontend_dirs.append(root_src)
     if not frontend_dirs:
         return calls
 
@@ -154,9 +200,30 @@ def extract_frontend_calls(repo_root: Path) -> list[tuple[str, str, str, int]]:
     return calls
 
 
-def main() -> int:
-    repo_root = Path(__file__).resolve().parent.parent.parent
-    backend_routes = extract_fastapi_routes(repo_root)
+def _route_matches_call(r_verb: str, r_path: str, f_verb: str, f_url: str) -> bool:
+    if r_verb != f_verb and r_verb != "*":
+        return False
+    b_reg = "^" + normalize_route_pattern(r_path) + "$"
+    test_url = re.sub(r"\$\{[^}]+\}", "test_param", f_url)
+    if re.match(b_reg, test_url):
+        return True
+    f_reg_str = "^" + re.sub(r"\$\{[^}]+\}", r"[^/]+", f_url) + "$"
+    norm_b_path = re.sub(r"\{[a-zA-Z0-9_]+:path\}", "path_arg", r_path)
+    norm_b_path = re.sub(r"\{[a-zA-Z0-9_]+\}", "id_arg", norm_b_path)
+    norm_b_path = re.sub(r":[a-zA-Z0-9_]+", "id_arg", norm_b_path)
+    return bool(re.match(f_reg_str, norm_b_path))
+
+
+def _is_whitelisted_route(verb: str, path: str) -> bool:
+    for w_verb, w_path in ARCHITECTURAL_WHITELIST:
+        if _route_matches_call(w_verb, w_path, verb, path):
+            return True
+    return False
+
+
+def main(target_root: Path | None = None) -> int:
+    repo_root = target_root or Path(__file__).resolve().parent.parent.parent
+    backend_routes = extract_fastapi_routes(repo_root) + extract_node_routes(repo_root)
     frontend_calls = extract_frontend_calls(repo_root)
 
     if not backend_routes and not frontend_calls:
@@ -169,48 +236,45 @@ def main() -> int:
 
     unmatched_frontend = []
     for verb, url, rel_file, line_no in frontend_calls:
-        matched = False
-        for r_verb, r_path, _ in backend_routes:
-            if r_verb != verb:
-                continue
-            b_reg = "^" + normalize_route_pattern(r_path) + "$"
-            test_url = re.sub(r"\$\{[^}]+\}", "test_param", url)
-            if re.match(b_reg, test_url):
-                matched = True
-                break
-
+        matched = any(_route_matches_call(r_verb, r_path, verb, url) for r_verb, r_path, _ in backend_routes)
         if not matched:
-            f_reg_str = "^" + re.sub(r"\$\{[^}]+\}", r"[^/]+", url) + "$"
-            for r_verb, r_path, _ in backend_routes:
-                if r_verb != verb:
-                    continue
-                norm_b_path = re.sub(r"\{[a-zA-Z0-9_]+:path\}", "path_arg", r_path)
-                norm_b_path = re.sub(r"\{[a-zA-Z0-9_]+\}", "id_arg", norm_b_path)
-                if re.match(f_reg_str, norm_b_path):
-                    matched = True
-                    break
-
-        if not matched:
-            for w_verb, w_path in ARCHITECTURAL_WHITELIST:
-                w_reg = "^" + normalize_route_pattern(w_path) + "$"
-                test_url = re.sub(r"\$\{[^}]+\}", "test_param", url)
-                if re.match(w_reg, test_url) and (w_verb == verb or w_verb == "*"):
-                    matched = True
-                    break
-
+            matched = _is_whitelisted_route(verb, url)
         if not matched:
             unmatched_frontend.append((verb, url, rel_file, line_no))
 
-    if unmatched_frontend:
-        print(
-            f"❌ Se detectaron {len(unmatched_frontend)} llamada(s) en frontend hacia endpoints inexistentes (404/405):"
-        )
-        for verb, url, rel_file, line_no in unmatched_frontend:
-            print(f"   - [{verb}] {url} en {rel_file}:{line_no}")
+    orphan_backend = []
+    file_cache: dict[str, str] = {}
+    for r_verb, r_path, rel_file in backend_routes:
+        if _is_whitelisted_route(r_verb, r_path):
+            continue
+        if any(_route_matches_call(r_verb, r_path, f_verb, f_url) for f_verb, f_url, _, _ in frontend_calls):
+            continue
+        if rel_file not in file_cache:
+            try:
+                file_cache[rel_file] = (repo_root / rel_file).read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                file_cache[rel_file] = ""
+        if "api-parity-ignore" in file_cache[rel_file]:
+            continue
+        orphan_backend.append((r_verb, r_path, rel_file))
+
+    if unmatched_frontend or orphan_backend:
+        if unmatched_frontend:
+            print(
+                f"❌ Se detectaron {len(unmatched_frontend)} llamada(s) en frontend hacia endpoints inexistentes (404/405):"
+            )
+            for verb, url, rel_file, line_no in unmatched_frontend:
+                print(f"   - [{verb}] {url} en {rel_file}:{line_no}")
+        if orphan_backend:
+            print(
+                f"❌ Se detectaron {len(orphan_backend)} endpoint(s) backend huérfano(s) sin consumo en frontend:"
+            )
+            for r_verb, r_path, rel_file in orphan_backend:
+                print(f"   - [{r_verb}] {r_path} en {rel_file}")
         print("Directiva Incumplida: Terminal ↔ Frontend Parity (.agents/rules/frontend_parity_and_closure.md)")
         return 1
 
-    print(f"✔ [API Parity] {len(backend_routes)} rutas backend ↔ {len(frontend_calls)} llamadas frontend (0 errores 404/405).")
+    print(f"✔ [API Parity] {len(backend_routes)} rutas backend ↔ {len(frontend_calls)} llamadas frontend (0 errores 404/405, 0 huérfanos).")
     return 0
 
 

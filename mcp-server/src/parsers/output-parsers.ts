@@ -153,7 +153,7 @@ export function parseCoverage(rawLog: string): QaCoverageSummary {
     detected: false,
     percent: 0,
     threshold,
-    passed: true,
+    passed: false,
     uncovered_files: [],
   };
 }
@@ -289,18 +289,28 @@ function parseRuffIssue(line: string): QaLinterIssue | null {
   };
 }
 
-function parseEslintIssue(line: string): QaLinterIssue | null {
+function parseEslintIssue(line: string, currentFile = ''): QaLinterIssue | null {
   if (!line.includes('error') && !line.includes('warning')) return null;
+  const stylishMatch = line.match(/^\s*(\d+):(\d+)\s+(error|warning)\s+(.+?)\s{2,}([a-zA-Z0-9_/@-]+)\s*$/);
+  if (stylishMatch) {
+    return {
+      file: currentFile || 'eslint',
+      line: parseInt(stylishMatch[1], 10),
+      rule: `eslint-${stylishMatch[5]}`,
+      message: stylishMatch[4].trim(),
+    };
+  }
   const parts = line.split(':');
   if (parts.length < 4) return null;
   const file = parts[0].trim();
   const lineNum = parseInt(parts[1].trim(), 10);
+  if (isNaN(lineNum)) return null;
   const msgPart = parts.slice(3).join(':').trim();
   const ruleMatch = msgPart.match(/\[([a-zA-Z0-9_/@-]+)\]$/);
 
   return {
     file,
-    line: isNaN(lineNum) ? 1 : lineNum,
+    line: lineNum,
     rule: ruleMatch ? `eslint-${ruleMatch[1]}` : 'eslint-issue',
     message: ruleMatch ? msgPart.replace(/\s*\[[a-zA-Z0-9_/@-]+\]$/, '').trim() : msgPart,
   };
@@ -377,12 +387,12 @@ function parsePhpstanIssue(line: string): QaLinterIssue | null {
   return null;
 }
 
-function parseSingleLineIssue(line: string): QaLinterIssue | null {
+function parseSingleLineIssue(line: string, currentFile = ''): QaLinterIssue | null {
   return (
     parseRadonIssue(line) ||
     parseMypyIssue(line) ||
     parseRuffIssue(line) ||
-    parseEslintIssue(line) ||
+    parseEslintIssue(line, currentFile) ||
     parseShellcheckGccIssue(line) ||
     parsePsalmIssue(line) ||
     parsePhpstanIssue(line)
@@ -396,11 +406,16 @@ export function parseLinterAndComplexity(rawLog: string): QaLinterIssue[] {
   const clean = stripAnsi(rawLog);
   const lines = clean.split(/\r?\n/);
   const issues: QaLinterIssue[] = [];
+  let currentEslintFile = '';
 
   for (const rawLine of lines) {
     const line = rawLine.trim();
     if (!line) continue;
-    const issue = parseSingleLineIssue(line);
+    if (/^(?:\/|[a-zA-Z]:\\|[a-zA-Z0-9_.-]+\/)[^\s:]+\.(?:ts|tsx|js|jsx|mjs|cjs|vue)$/.test(line)) {
+      currentEslintFile = line;
+      continue;
+    }
+    const issue = parseSingleLineIssue(line, currentEslintFile);
     if (issue) issues.push(issue);
   }
 
@@ -431,14 +446,18 @@ export function parseSecurityAlerts(rawLog: string): QaSecurityAlerts {
   if (critCountMatch) {
     critical = parseInt(critCountMatch[1], 10);
   } else if (!clean.includes('no security findings')) {
-    const critMatches = clean.match(/\bCRITICAL\b/gi);
+    const critMatches = clean.match(
+      /(?:Severity:\s*CRITICAL|\bCRITICAL\s+(?:severity|risk|vulnerability|vulnerabilities)\b|\[(CRITICAL)\]|\bCVE-\d{4}-\d+[^\n]*\bCRITICAL\b)/gi
+    );
     critical = critMatches ? Math.min(critMatches.length, 10) : 0;
   }
 
   if (highCountMatch) {
     high = parseInt(highCountMatch[1], 10);
   } else if (!clean.includes('no security findings')) {
-    const highMatches = clean.match(/\bHIGH\b/gi);
+    const highMatches = clean.match(
+      /(?:Severity:\s*HIGH|\bHIGH\s+(?:severity|risk|vulnerability|vulnerabilities)\b|\[(HIGH)\]|\bCVE-\d{4}-\d+[^\n]*\bHIGH\b)/gi
+    );
     high = highMatches ? Math.min(highMatches.length, 10) : 0;
   }
 
@@ -489,8 +508,10 @@ function evaluateQaStatus(
     return 'FAILED';
   }
 
-  const isTestStage = stage === 'unit' || stage === 'all';
-  if (isTestStage && coverage.detected && !coverage.passed) {
+  if (stage === 'unit' && (!coverage.detected || !coverage.passed)) {
+    return 'FAILED';
+  }
+  if (stage === 'all' && coverage.detected && !coverage.passed) {
     return 'FAILED';
   }
 

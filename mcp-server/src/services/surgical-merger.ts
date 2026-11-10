@@ -318,6 +318,50 @@ export class SurgicalMerger {
   }
 
   /**
+   * Fusión quirúrgica e idempotente para lefthook.yml preservando la jerarquía YAML
+   */
+  public mergeLefthookYaml(
+    targetContent: string,
+    exampleContent: string
+  ): { merged: string; changes: string[] } {
+    const changes: string[] = [];
+    const topLevelBlocks: Array<{ header: string; lines: string[] }> = [];
+    let currentHeader: string | null = null;
+    let currentLines: string[] = [];
+
+    for (const line of exampleContent.split(/\r?\n/)) {
+      const topMatch = line.match(/^([a-zA-Z0-9_-]+):\s*$/);
+      if (topMatch) {
+        if (currentHeader) {
+          topLevelBlocks.push({ header: currentHeader, lines: currentLines });
+        }
+        currentHeader = topMatch[1];
+        currentLines = [line];
+      } else if (currentHeader) {
+        currentLines.push(line);
+      }
+    }
+    if (currentHeader) {
+      topLevelBlocks.push({ header: currentHeader, lines: currentLines });
+    }
+
+    let merged = targetContent.trimEnd();
+    for (const block of topLevelBlocks) {
+      const expectedHeader = `${block.header}:`;
+      const alreadyDefined = merged.split(/\r?\n/).some((l) => l.trimEnd() === expectedHeader);
+      if (!alreadyDefined) {
+        merged += '\n\n' + block.lines.join('\n').trimEnd();
+        changes.push(`Añadido bloque de hook YAML: "${block.header}:"`);
+      }
+    }
+
+    return {
+      merged: merged + '\n',
+      changes,
+    };
+  }
+
+  /**
    * Fusión quirúrgica y aditiva de AGENTS.md:
    * Conserva el 100% de las instrucciones existentes del usuario y solo añade o actualiza
    * el bloque conector canónico de QA 11X (MCP + Skill).
@@ -337,7 +381,8 @@ export class SurgicalMerger {
   private resolveSurgicalMerge(
     targetName: string,
     existingContent: string,
-    exampleContent: string
+    exampleContent: string,
+    projectName = 'Project'
   ): { finalContent: string; changes: string[] } {
     const base = path.basename(targetName);
     if (base === 'package.json') {
@@ -357,7 +402,11 @@ export class SurgicalMerger {
       return { finalContent: res.merged, changes: res.changes };
     }
     if (base === 'AGENTS.md') {
-      const res = this.mergeAgentsMd(existingContent);
+      const res = this.mergeAgentsMd(existingContent, projectName);
+      return { finalContent: res.merged, changes: res.changes };
+    }
+    if (base === 'lefthook.yml' || base === 'lefthook.yaml') {
+      const res = this.mergeLefthookYaml(existingContent, exampleContent);
       return { finalContent: res.merged, changes: res.changes };
     }
     const res = this.mergeGitignoreOrNpmrc(existingContent, exampleContent);
@@ -367,7 +416,8 @@ export class SurgicalMerger {
   private processExistingFile(
     item: FetchedFileItem,
     targetFilePath: string,
-    dryRun: boolean
+    dryRun: boolean,
+    projectName = 'Project'
   ): { status: 'merged' | 'skipped' | 'dry_run'; changes: string[]; finalContent: string } {
     if (item.merge_strategy === 'copy_if_missing') {
       return {
@@ -386,7 +436,12 @@ export class SurgicalMerger {
     }
 
     if (item.merge_strategy === 'surgical_merge') {
-      const res = this.resolveSurgicalMerge(item.target_name, existingContent, item.content);
+      const res = this.resolveSurgicalMerge(
+        item.target_name,
+        existingContent,
+        item.content,
+        projectName
+      );
       const status = res.changes.length > 0 ? (dryRun ? 'dry_run' : 'merged') : 'skipped';
       return { status, changes: res.changes, finalContent: res.finalContent };
     }
@@ -424,6 +479,33 @@ export class SurgicalMerger {
     }
   }
 
+  private resolveInitialFileContent(item: FetchedFileItem, projectName: string): string {
+    return path.basename(item.target_name) === 'AGENTS.md'
+      ? this.mergeAgentsMd('', projectName).merged
+      : item.content;
+  }
+
+  private evaluateSingleBundleItem(
+    item: FetchedFileItem,
+    targetFilePath: string,
+    exists: boolean,
+    dryRun: boolean,
+    projectName: string
+  ): {
+    status: 'created' | 'merged' | 'skipped' | 'dry_run';
+    changes: string[];
+    finalContent: string;
+  } {
+    if (!exists) {
+      return {
+        status: dryRun ? 'dry_run' : 'created',
+        changes: [`Creado archivo: ${item.target_name}`],
+        finalContent: this.resolveInitialFileContent(item, projectName),
+      };
+    }
+    return this.processExistingFile(item, targetFilePath, dryRun, projectName);
+  }
+
   /**
    * Ejecuta la fusión completa no destructiva sobre el proyecto destino
    */
@@ -443,40 +525,29 @@ export class SurgicalMerger {
     let mergedCount = 0;
     let skippedCount = 0;
 
+    const projectName = path.basename(path.resolve(targetProjectDir)) || 'Project';
     for (const item of bundleFiles) {
       const targetFilePath = resolveSafeChildPath(targetProjectDir, item.target_name);
       const exists = fs.existsSync(targetFilePath);
-
-      let status: 'created' | 'merged' | 'skipped' | 'dry_run' = 'created';
-      let changes: string[] = [];
-      let finalContent = item.content;
+      const evaluated = this.evaluateSingleBundleItem(item, targetFilePath, exists, dryRun, projectName);
 
       if (!exists) {
-        status = dryRun ? 'dry_run' : 'created';
-        changes.push(`Creado archivo: ${item.target_name}`);
         createdCount++;
+      } else if (evaluated.status === 'merged' || evaluated.status === 'dry_run') {
+        mergedCount++;
       } else {
-        const processed = this.processExistingFile(item, targetFilePath, dryRun);
-        status = processed.status;
-        changes = processed.changes;
-        finalContent = processed.finalContent;
-
-        if (status === 'merged' || status === 'dry_run') {
-          mergedCount++;
-        } else {
-          skippedCount++;
-        }
+        skippedCount++;
       }
 
-      if (!dryRun && status !== 'skipped') {
-        this.writeMergedFile(targetFilePath, finalContent, item.merge_strategy, item.target_name);
+      if (!dryRun && evaluated.status !== 'skipped') {
+        this.writeMergedFile(targetFilePath, evaluated.finalContent, item.merge_strategy, item.target_name);
       }
 
       appliedChanges.push({
         file: item.target_name,
         strategy: item.merge_strategy,
-        status,
-        changes,
+        status: evaluated.status,
+        changes: evaluated.changes,
       });
     }
 

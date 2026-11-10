@@ -6,6 +6,9 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### 🛡️ Evolución QA 11X v2.16.0 (Added, Changed & Fixed)
+* **Núcleo MCP `v2.16.0`, Regla `SEC-16` (Continuidad Pre-Auth Multi-Etapa), Contrato Thin-Repo y Convergencia de Gates 10/10:** Añadida la regla estática `SEC-16` en `security-auditor.ts` (asimetría de interceptores HTTP `401` en `PREAUTH_PUBLIC_ROUTES` y consumo no atómico `.get()` sin `GETDEL`/Lua en challenges efímeros), inmunidad ante auto-escaneo y soporte `.html`; implementado contrato *Thin-Repo* por defecto en `bootstrap_or_merge_11x` y `install-skill --target all`, fusión YAML de `lefthook.yml`, protección de bloques fenced en `reconcile-agents`, CLI `--version`, *Zero Hardcoded Pass* en `parseCoverage`/`audit_test_pyramid_gaps`, paridad 10/10 entre `certify_11x_gate` y `.agents/scripts/certify_task_completion.sh`, endurecimiento de `verificar-secretos.sh`/`.env` (`0600`) y pipeline CI efímero en Docker (307 tests Vitest `>= 95%`, 19 escenarios Karate BDD y 45 tests Pytest).
+
 ---
 
 ## [2.15.1] - 2026-11-09

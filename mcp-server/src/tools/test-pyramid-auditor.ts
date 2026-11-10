@@ -53,7 +53,7 @@ const BP_VUE3_TSCONFIG = 'vue3/tsconfig.json.example';
 const BP_VUE3_VITEST = 'vue3/vitest.config.ts.example';
 const BP_VUE3_STRYKER = 'vue3/stryker.conf.json.example';
 const BP_FASTAPI_DOCKER_COMPOSE = 'fastapi/docker-compose.qa.yml';
-const BP_FASTAPI_TEST_PROD = 'fastapi/tests/test_production_no_dev_cleanliness.unit.py.example';
+const BP_FASTAPI_TEST_PROD = 'fastapi/test/api_test.feature';
 
 const STATUS_COVERED: PyramidLayerStatus = 'COVERED';
 const STATUS_PARTIAL: PyramidLayerStatus = 'PARTIAL';
@@ -167,7 +167,10 @@ function hasNodeUnitTest(files: string[], baseName: string): boolean {
     const fl = f.toLowerCase();
     return (
       (fl.includes('.unit.') || fl.includes('.spec.') || fl.includes('.test.')) &&
-      (fl.includes(`/${lower}.`) || fl.includes(`__tests__/${lower}.`) || fl.includes(`test_${lower}.`))
+      (fl.includes(`/${lower}.`) ||
+        fl.includes(`__tests__/${lower}.`) ||
+        fl.includes(`tests/${lower}.`) ||
+        fl.includes(`test_${lower}.`))
     );
   });
 }
@@ -194,7 +197,7 @@ function checkPythonOrphan(
   return {
     source_file: file,
     expected_unit_test: isFastapi
-      ? `fastapi/tests/test_${baseName}.unit.py`
+      ? `fastapi/test/test_${baseName}.unit.py`
       : `tests/test_${baseName}.unit.py`,
     stack: isFastapi ? STACK_FASTAPI : STACK_PYTHON,
   };
@@ -292,7 +295,6 @@ export function findOrphanSourceFiles(
     const item = resolveCandidateOrphan(file, files, stacks);
     if (item) {
       orphans.push(item);
-      if (orphans.length >= 50) break;
     }
   }
 
@@ -319,6 +321,51 @@ function resolveEndpointPath(rawPath: string, routerPrefix: string): string {
   return `${cleanPrefix}${cleanSub}`;
 }
 
+function hasKarateMethodInFeature(methodStr: string, featureText: string): boolean {
+  const upperMethod = methodStr.toUpperCase();
+  const methodScanner = /\bmethod\s+([a-z]+)/gi;
+  let match = methodScanner.exec(featureText);
+  while (match !== null) {
+    if (match[1].toUpperCase() === upperMethod) {
+      return true;
+    }
+    match = methodScanner.exec(featureText);
+  }
+  return false;
+}
+
+function matchesKaratePathCandidate(fullPath: string, candidateRaw: string): boolean {
+  const cleanCandidate = candidateRaw.split('?')[0].replace(/\/+$/, '');
+  const cleanRoute = fullPath.replace(/\/+$/, '');
+  const routeSegs = cleanRoute.split('/').filter(Boolean);
+  const candSegs = cleanCandidate.split('/').filter(Boolean);
+  if (routeSegs.length === 0) {
+    return candSegs.length === 0 || candidateRaw.trim() === '/';
+  }
+  if (candSegs.length < routeSegs.length) return false;
+  const tailSegs = candSegs.slice(candSegs.length - routeSegs.length);
+  return routeSegs.every((rSeg, idx) => {
+    const isParam = (rSeg.startsWith('{') && rSeg.endsWith('}')) || rSeg.startsWith(':');
+    return isParam ? tailSegs[idx].length > 0 : rSeg === tailSegs[idx];
+  });
+}
+
+function isEndpointCoveredInFeature(methodStr: string, fullPath: string, featureText: string): boolean {
+  if (featureText.length === 0 || !hasKarateMethodInFeature(methodStr, featureText)) {
+    return false;
+  }
+  const pathLiteralScanner = /\b(?:path|url)\s+['"]([^'"\n]+)['"]/gi;
+  let match = pathLiteralScanner.exec(featureText);
+  while (match !== null) {
+    if (matchesKaratePathCandidate(fullPath, match[1])) {
+      return true;
+    }
+    match = pathLiteralScanner.exec(featureText);
+  }
+  const cleanLiteral = fullPath.length > 1 && fullPath.endsWith('/') ? fullPath.slice(0, -1) : fullPath;
+  return cleanLiteral.length > 1 && !cleanLiteral.includes('{') && featureText.includes(cleanLiteral);
+}
+
 function parseEndpointsFromLine(
   lineStr: string,
   routerPrefix: string,
@@ -334,17 +381,8 @@ function parseEndpointsFromLine(
   const methodStr = (match[1] || match[3] || match[5] || 'GET').toUpperCase();
   const rawPath = match[2] || match[4] || match[6] || '/';
   const fullPath = resolveEndpointPath(rawPath, routerPrefix);
-  const normalizedPath = fullPath.replace(/\{[^}]+\}/g, '');
-  const cleanSlash =
-    fullPath.endsWith('/') && fullPath.length > 1 ? fullPath.slice(0, -1) : fullPath;
 
-  const isCovered =
-    featureText.length > 0 &&
-    (featureText.includes(fullPath) ||
-      featureText.includes(normalizedPath) ||
-      featureText.includes(cleanSlash));
-
-  if (isCovered) return null;
+  if (isEndpointCoveredInFeature(methodStr, fullPath, featureText)) return null;
 
   return {
     method: methodStr as 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
@@ -565,8 +603,8 @@ export function evaluateLayer01StaticSast(
     detected_evidence: detected,
     missing_requirements: missingReqs,
     recommended_blueprint_files: [
-      'common_files/scripts/auditar-infra.sh.example',
-      'common_files/scripts/verificar-secretos.sh.example',
+      'scripts/auditar-infra.sh',
+      'scripts/verificar-secretos.sh',
     ],
     make_target: MAKE_QA_LINT,
   };
@@ -772,7 +810,7 @@ export function evaluateLayer03UnitIsolated(
   const threshold95 =
     pyproject.includes('fail_under = 95') ||
     pyproject.includes('fail-under = 95') ||
-    vitestConfig.includes('95') ||
+    /(?:lines|branches|functions|statements)\s*:\s*95\b/.test(vitestConfig) ||
     pkgJson.includes('thresholds: 95') ||
     composer.includes('--min=95') ||
     phpunitXml.includes('highLowerBound="95"');
@@ -1487,11 +1525,18 @@ export function evaluateLayer12ChaosRed(
 
 function detectTrimodalTriad(projectPath: string, files: string[]): boolean {
   for (const f of files) {
-    if (f.endsWith('.py') || f.endsWith('.ts')) {
-      const content = readFileContentSafe(projectPath, f);
-      const hasVirgin = content.includes('virgin') || content.includes('empty') || content.includes('default');
-      const hasNominal = content.includes('nominal') || content.includes('active');
-      const hasDegraded = content.includes('degraded') || content.includes('error') || content.includes('timeout');
+    const isTestOrFixture =
+      f.includes('fixture') ||
+      f.includes('.unit.') ||
+      f.includes('.test.') ||
+      f.includes('.spec.') ||
+      f.includes('tests/') ||
+      f.endsWith('.bats');
+    if (isTestOrFixture && (f.endsWith('.py') || f.endsWith('.ts') || f.endsWith('.json'))) {
+      const content = readFileContentSafe(projectPath, f).toLowerCase();
+      const hasVirgin = content.includes('virgin') || content.includes('factory_default') || content.includes('virgen');
+      const hasNominal = content.includes('nominal');
+      const hasDegraded = content.includes('degraded') || content.includes('degradado');
       if (hasVirgin && hasNominal && hasDegraded) {
         return true;
       }
@@ -1948,7 +1993,7 @@ export async function auditTestPyramidGaps(
   const pyramidScorePct =
     applicableLayers.length > 0
       ? Math.round(totalScore / applicableLayers.length)
-      : 100;
+      : 0;
 
   const summaryCounts = {
     covered: layersAudit.filter((l) => l.status === STATUS_COVERED).length,

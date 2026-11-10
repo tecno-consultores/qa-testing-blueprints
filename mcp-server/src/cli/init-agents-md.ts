@@ -23,7 +23,7 @@ export function buildConnectorBlock(projectName: string, stacks: string[]): stri
     CONNECTOR_START_MARKER,
     '## 🤖 Central QA 11X Skill & MCP Server Connector (`@sinfallas/mcp-qa-11x`)',
     '',
-    '> **OUTPUT LANGUAGE & HIGH-IQ TOKEN ECONOMY:** Interact, explain reasoning, and write commits/docs strictly in **Spanish**. Apply *3-Tier Progressive Disclosure* (read `.agents/rules/*.md` and `references/*.md` on-demand only), *Graphify AST-First & Windowed-Read-Second* (for ANY code/architecture Q&A or pre-change, query `graphify-out/graph.json` & `GRAPH_REPORT.md` via `inspect_ast_blast_radius` / `inspect_blast_radius.py` BEFORE `grep` or `read_file` with `StartLine`/`EndLine` 40–80 lines; never read full files `>150` lines blindly), *Zero Redundant Re-Read*, *Parallel Tool Batching*, and *Subagent Context Isolation* (`<=20` line summary return).',
+    '> **OUTPUT LANGUAGE & HIGH-IQ TOKEN ECONOMY:** Interact, explain reasoning, and write commits/docs strictly in **Spanish**. Apply *3-Tier Progressive Disclosure* (load global skill `references/*.md` and local `.agents/rules/domain_*.md` on-demand only), *Graphify AST-First & Windowed-Read-Second* (for ANY code/architecture Q&A or pre-change, query `graphify-out/graph.json` & `GRAPH_REPORT.md` via `inspect_ast_blast_radius` / `inspect_blast_radius.py` BEFORE `grep` or `read_file` with `StartLine`/`EndLine` 40–80 lines; never read full files `>150` lines blindly), *Zero Redundant Re-Read*, *Parallel Tool Batching*, and *Subagent Context Isolation* (`<=20` line summary return).',
     '',
     `This project (\`${projectName}\`) enforces the **Level-11X Quality & DevSecOps Standard** (stacks: \`${stacksLabel}\`).`,
     '',
@@ -31,7 +31,7 @@ export function buildConnectorBlock(projectName: string, stacks: string[]): stri
     '   - **`DOCS_ONLY` Fast-Path (ONLY `*.md` / `docs/` changed):** DO NOT run test suites (`run_ephemeral_qa`) and DO NOT rebuild AST graphs (`./scripts/actualizar-grafos-graphify.sh`). Only sync docs/`CHANGELOG.md`, run `certify_11x_gate`, and push to `git`.',
     '   - **`MICRO_CHANGE` Surgical-Path (`<= 3` files, 0 new API/ORM changes, `LOW` AST Blast Radius `< 5` callers):** Use an inline 3-line plan, run `inspect_ast_blast_radius`, execute affected stack `run_ephemeral_qa` in Docker (**Rule Zero**), update stack AST graph, sync `CHANGELOG.md`, run `certify_11x_gate`, and `git push`.',
     '   - **`CODE_CHANGE` (`FULL_11X`) Architectural-Path (`> 3` files, new API/UI, ORM migrations, security, or `MED`/`HIGH` Blast Radius):** Execute all 11 steps below inside ephemeral Docker (**Rule Zero** — never run `pytest`, `vitest`, `npm`, `pnpm`, `uv`, or linters on host OS).',
-    '2. **Skills & MCP Tools (`@sinfallas/mcp-qa-11x`):** Load `qa-11x-architect` (backend/QA/DevSecOps), `graphify-ast-navigator` (code Q&A/AST), and `refactoring-ui` (UI/CSS). Use `inspect_project_config`, `audit_test_pyramid_gaps`, `inspect_ast_blast_radius`, `audit_security_stig_owasp`, `run_ephemeral_qa` (`skip_if_docs_only: true` supported), `certify_11x_gate`, `clean_workspace_11x`, `reconcile_agents_governance`, and `propose_skill_evolution_pr` (on QA-escape bug fixes, proactively include `💡 Oportunidad de Mejora Detectada para el Estándar QA 11X` and invoke `propose_skill_evolution_pr`).',
+    '2. **Global Corporate Skills & MCP Tools (`@sinfallas/mcp-qa-11x`):** Consume the 5 global skills (`qa-11x-architect`, `qa-11x-docker-certifier`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `refactoring-ui`) without duplicating them in local `.agents/skills/`. Use `inspect_project_config`, `audit_test_pyramid_gaps`, `inspect_ast_blast_radius`, `audit_security_stig_owasp`, `run_ephemeral_qa` (`skip_if_docs_only: true` supported), `certify_11x_gate`, `clean_workspace_11x`, `reconcile_agents_governance`, and `propose_skill_evolution_pr` (on QA-escape bug fixes, proactively include `💡 Oportunidad de Mejora Detectada para el Estándar QA 11X` and invoke `propose_skill_evolution_pr`).',
     '3. **Mandatory 11-Step Execution & Closure Workflow (Non-Negotiable for Architectural Code Changes):**',
     '   - **Step 1 (Plan):** Invoke `/plan` or plan artifact before modifying code.',
     '   - **Step 2 (Active Task):** Track real-time progress (`- [ ]` -> `- [x]`) in `.agents/ACTIVE_TASK.md` (compact `<= 40 lines`).',
@@ -67,7 +67,7 @@ export function mergeOrAppendAgentsMdContent(
 
   // Caso 1: El archivo no existe o está vacío -> Crear desde cero
   if (!existingContent.trim()) {
-    const header = `# SPDX-License-Identifier: MIT\n# 🤖 AI Agent Directives & Technical Governance — ${projectName}\n\n`;
+    const header = `# SPDX-License-Identifier: MIT\n# Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)\n\n# 🤖 AI Agent Directives & Technical Governance — ${projectName}\n\n`;
     return {
       finalContent: `${header}${block}\n`,
       action: 'created',
@@ -198,7 +198,7 @@ export function syncGlobalGeminiMd(
 
   if (!existing.trim()) {
     const header =
-      '# SPDX-License-Identifier: MIT\n# Copyright (C) 2026 QA Testing Blueprints Contributors\n\n# 🤖 Global AI Agent Directives — QA 11X Standard (`@sinfallas/mcp-qa-11x`)\n\n';
+      '# SPDX-License-Identifier: MIT\n# Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)\n\n# 🤖 Global AI Agent Directives — QA 11X Standard (`@sinfallas/mcp-qa-11x`)\n\n';
     finalContent = `${header}${block}\n`;
   } else {
     const startIdx = existing.indexOf(CONNECTOR_START_MARKER);

@@ -67,8 +67,13 @@ ALL_CHANGED=$({
   git diff --name-only HEAD 2>/dev/null || true
   git ls-files --others --exclude-standard 2>/dev/null || true
 } | sort -u)
-CODE_CHANGES=$(echo "${ALL_CHANGED}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|bash-scripts|php|mcp-server|scripts)/|\.agents/scripts/|Makefile$|lefthook\.yml$|commitlint\.config\.js$)' | grep -vE '(\.md$|graphify-out/graph\.json$)' || true)
-EXEC_SRC_CHANGES=$(echo "${CODE_CHANGES}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|php|mcp-server)/src/|src/|bash-scripts/)' | grep -vE '(\.unit\.(py|ts|tsx)|\.e2e\.ts|test_.*\.py|.*\.test\.(ts|js)|\.feature|\.bats)' || true)
+if [ -z "${ALL_CHANGED}" ] && [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
+  if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+    ALL_CHANGED=$(git diff --name-only HEAD~1..HEAD 2>/dev/null | sort -u || true)
+  fi
+fi
+CODE_CHANGES=$(echo "${ALL_CHANGED}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|bash-scripts|php|mcp-server|backend|frontend|scripts)/|\.agents/scripts/|Makefile$|lefthook\.yml$|commitlint\.config\.js$)' | grep -vE '(\.md$|(^|/)graphify-out/)' || true)
+EXEC_SRC_CHANGES=$(echo "${CODE_CHANGES}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|php|mcp-server|backend|frontend)/src/|src/|bash-scripts/|scripts/|\.agents/scripts/)' | grep -vE '(\.unit\.(py|ts|tsx)|\.e2e\.ts|test_.*\.py|.*\.test\.(ts|js)|\.feature|\.bats)' || true)
 DOC_CHANGES=$(echo "${ALL_CHANGED}" | grep -E '(\.md$|^docs/)' || true)
 
 if [ -n "${CODE_CHANGES}" ]; then

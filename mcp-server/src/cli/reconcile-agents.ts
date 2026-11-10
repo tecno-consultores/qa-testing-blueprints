@@ -119,8 +119,16 @@ export const PROMOTED_INVARIANT_FINGERPRINTS = [
   'high-iq token economy',
   '3-path proportional execution',
   'ast/grep-first, windowed-read-second',
+  'graphify ast-first',
   'subagent context isolation',
   'zero redundant re-read',
+  'after_begin',
+  'nobypassrls',
+  'pg_advisory_xact_lock',
+  'coverage_file=/tmp/.coverage',
+  'service-layer rbac defense',
+  'multi-step pre-auth',
+  'challenge continuity invariant',
 ];
 
 export function isPromotedSection(sectionText: string): boolean {
@@ -150,6 +158,18 @@ export function isUpstreamBlueprintsRepo(projectPath: string): boolean {
   );
 }
 
+function isLicenseCommentLine(line: string): boolean {
+  const trimmed = line.trim().toLowerCase();
+  return (
+    trimmed.startsWith('# spdx-license-identifier:') ||
+    trimmed.startsWith('# copyright (c)')
+  );
+}
+
+function hasRealMarkdownHeading(lines: string[]): boolean {
+  return lines.some((l) => /^#{1,4}\s+/.test(l) && !isLicenseCommentLine(l));
+}
+
 export function splitMarkdownSections(content: string): string[] {
   if (!content.trim()) {
     return [];
@@ -157,9 +177,17 @@ export function splitMarkdownSections(content: string): string[] {
   const lines = content.split(/\r?\n/);
   const sections: string[] = [];
   let current: string[] = [];
+  let inCodeFence = false;
 
   for (const line of lines) {
-    if (/^#{1,4}\s+/.test(line) && current.length > 0) {
+    if (/^\s*(?:```|~~~)/.test(line)) {
+      inCodeFence = !inCodeFence;
+      current.push(line);
+      continue;
+    }
+
+    const isHeading = !inCodeFence && /^#{1,4}\s+/.test(line) && !isLicenseCommentLine(line);
+    if (isHeading && hasRealMarkdownHeading(current)) {
       sections.push(current.join('\n'));
       current = [line];
     } else {

@@ -41,6 +41,26 @@ function isDocFilePath(fp: string): boolean {
  * (*.md o archivos documentales dentro de docs/). Si no hay cambios o hay al menos 1 archivo de código,
  * configuración o prueba modificado, devuelve false.
  */
+function unquoteGitPath(rawPath: string): string {
+  const trimmed = rawPath.trim();
+  if (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length >= 2) {
+    return trimmed.slice(1, -1).replace(/\\"/g, '"');
+  }
+  return trimmed;
+}
+
+function extractPathsFromPorcelainLine(rawLine: string): string[] {
+  const cleaned = rawLine.length > 3 && rawLine[2] === ' ' ? rawLine.slice(3) : rawLine.trim().replace(/^\S+\s+/, '');
+  const arrowIdx = cleaned.indexOf(' -> ');
+  if (arrowIdx !== -1) {
+    return [
+      unquoteGitPath(cleaned.slice(0, arrowIdx)),
+      unquoteGitPath(cleaned.slice(arrowIdx + 4)),
+    ];
+  }
+  return [unquoteGitPath(cleaned)];
+}
+
 export function isDocsOnlyWorkspaceChange(
   projectPath: string,
   execFileSyncFn: typeof execFileSync = execFileSync
@@ -52,20 +72,15 @@ export function isDocsOnlyWorkspaceChange(
     });
     const lines = String(raw)
       .split(/\r?\n/)
-      .map((l) => l.trim())
-      .filter((l) => l.length > 0);
+      .filter((l) => l.trim().length > 0);
 
     if (lines.length === 0) {
       return false;
     }
 
-    const filePaths = lines.map((line) => {
-      const cleaned = line.slice(2).trim();
-      const arrowIdx = cleaned.indexOf(' -> ');
-      return arrowIdx !== -1 ? cleaned.slice(arrowIdx + 4).trim() : cleaned;
-    });
+    const filePaths = lines.flatMap((line) => extractPathsFromPorcelainLine(line));
 
-    return filePaths.every((fp) => isDocFilePath(fp));
+    return filePaths.length > 0 && filePaths.every((fp) => isDocFilePath(fp));
   } catch {
     return false;
   }

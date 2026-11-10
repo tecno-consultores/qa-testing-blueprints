@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
-  "blueprint_version": "2.15.1",
-  "generated_at_utc": "2026-11-10T02:41:32Z",
+  "blueprint_version": "2.16.0",
+  "generated_at_utc": "2026-11-10T23:30:15Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -579,8 +579,8 @@
       "path": ".env.example",
       "target_name": ".env.example",
       "merge_strategy": "copy_if_missing",
-      "sha256": "27ead7e50a8b92c6c23e7e8aa8948966dc3e248aead5f076e03fe5970a409833",
-      "size_bytes": 1433
+      "sha256": "ce2b297eb75bae7a08aa94dcd312fe0709a759eabcb60aa63e0236ef71c56a23",
+      "size_bytes": 1487
     },
     {
       "path": ".trivy.yaml",
@@ -614,8 +614,8 @@
       "path": "scripts/auditar-infra.sh",
       "target_name": "scripts/auditar-infra.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "51984c63e41dfefa936c83928f1411f6b86a71e4cc37f1afa3c0297c4fae9293",
-      "size_bytes": 2360
+      "sha256": "056d94fcc0fef90a3206d18773cabde65d0369e56d6510740401ebacb3dbb974",
+      "size_bytes": 2829
     },
     {
       "path": "scripts/generar-sbom-cyclonedx.sh",
@@ -632,18 +632,11 @@
       "size_bytes": 5139
     },
     {
-      "path": "scripts/publicar-mcp.sh",
-      "target_name": "scripts/publicar-mcp.sh",
-      "merge_strategy": "overwrite_executable",
-      "sha256": "7e1c371e9ac4760f88946cd61d1ee34220e745a8d2d51fbbce076538f6fb45e3",
-      "size_bytes": 11812
-    },
-    {
       "path": "scripts/verificar-secretos.sh",
       "target_name": "scripts/verificar-secretos.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "8794fd7f810417063d77279bbeb352a677216608043da42182f84f06bc4d3629",
-      "size_bytes": 1362
+      "sha256": "b8a561c7f1535d52175d2f9537795573ab01f150637e574c26b51ce4a9662a82",
+      "size_bytes": 2625
     }
   ],
   "agent_governance_files": [
@@ -714,8 +707,8 @@
       "path": ".agents/scripts/certify_task_completion.sh",
       "target_name": ".agents/scripts/certify_task_completion.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "2baf6cd0f0a3d0a94844d60b64786e860f07e77a064da8ce83b26791741bc39a",
-      "size_bytes": 5014
+      "sha256": "c4f2a003e4a2a06414d10687b6bd73b281cdb876f06a5eaecc06f56252bdd0cf",
+      "size_bytes": 5292
     },
     {
       "path": ".agents/scripts/inspect_blast_radius.py",
@@ -735,15 +728,15 @@
       "path": ".agents/scripts/verify_json_no_duplicate_keys.py",
       "target_name": ".agents/scripts/verify_json_no_duplicate_keys.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "773999d42b609c7e20a198fe414e226d00b1e9309474dffaeb0ca62350c95f42",
-      "size_bytes": 2377
+      "sha256": "6dae822b3c0c2723ac53014595a8f5e967369f02bbb2270530d4668eabd1630a",
+      "size_bytes": 2970
     },
     {
       "path": ".agents/scripts/verify_no_orphan_api_endpoints.py",
       "target_name": ".agents/scripts/verify_no_orphan_api_endpoints.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "8961eff26de6927f2d47647e7e49652b38edc306391a168bee71f50bd675355f",
-      "size_bytes": 9891
+      "sha256": "5da010256b7fb0cf474842ce84ac4f6abbefaf22a718d03eb1a68368395371ed",
+      "size_bytes": 12891
     },
     {
       "path": ".agents/scripts/verify_roadmap_consistency.py",
@@ -756,15 +749,15 @@
       "path": ".agents/scripts/verify_topological_health.py",
       "target_name": ".agents/scripts/verify_topological_health.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "0918b5ce5276daf230e8a6929d68a50558b871a55cc1b67bf0712528373a40c1",
-      "size_bytes": 3833
+      "sha256": "0d192ae0d11e807f81b1cfb67f34ea3f0fe018c85955b454a715ca988182c705",
+      "size_bytes": 4008
     },
     {
       "path": ".agents/scripts/verify_zero_orphan_vue_components.py",
       "target_name": ".agents/scripts/verify_zero_orphan_vue_components.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "bf8c157cdd7154e0815993ee7d489b510765c8fbdee9617c1b00a8df114834fd",
-      "size_bytes": 3557
+      "sha256": "ee5702d4782becea431224399e9e2758e656c5a12a312be5aff16f1a51828e58",
+      "size_bytes": 4267
     },
     {
       "path": ".agents/skills/docker-trivy-keydb-hardening/SKILL.md",

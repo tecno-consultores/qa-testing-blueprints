@@ -97,6 +97,11 @@ echo "════════════════════════�
 # 2. Cargar token de autenticación desde .env en la raíz
 ENV_FILE="${REPO_ROOT}/.env"
 if [ -f "${ENV_FILE}" ]; then
+  ENV_PERMS=$(stat -c "%a" "${ENV_FILE}" 2>/dev/null || stat -f "%Lp" "${ENV_FILE}" 2>/dev/null || echo "600")
+  if [ "${ENV_PERMS}" != "600" ]; then
+    echo "🔒 Ajustando permisos de seguridad en .env (${ENV_PERMS} -> 600)..."
+    chmod 600 "${ENV_FILE}"
+  fi
   echo -e "\n📄 Cargando variables de autenticación desde .env..."
   TOKEN_VAL=$(grep -E '^\s*NPM_TOKEN=' "${ENV_FILE}" | head -n 1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" | tr -d ' ' || true)
   if [ -n "${TOKEN_VAL}" ]; then
@@ -133,10 +138,10 @@ fi
 echo "🧹 [0/5] Saneando espacio de trabajo..."
 "${REPO_ROOT}/scripts/limpieza.sh" --quiet
 
-# 4. Paso 1: Verificación de Calidad y Linting (Rule Zero)
-echo "🔍 [1/5] Ejecutando Lint & Typecheck en Docker efímero..."
-docker run --rm -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run lint
-docker run --rm -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run typecheck
+# 4. Paso 1: Hidratación de dependencias y Verificación de Calidad (Rule Zero)
+echo "🔍 [1/5] Verificando dependencias, Lint & Typecheck en Docker efímero..."
+docker run --rm -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" sh -c \
+  "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run lint && pnpm --silent run typecheck"
 
 # 5. Paso 2: Pruebas Unitarias con Cobertura >= 95%
 if [ "$SKIP_TESTS" = false ]; then

@@ -22,24 +22,44 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 2
 
-      - name: Verify Cryptographic Manifest SHA-256 Parity
-        run: python3 scripts/generar-manifiesto.py --check
-
-      - name: Verify Roadmap & Active Task Bidirectional Consistency
-        run: python3 .agents/scripts/verify_roadmap_consistency.py
-
-      - name: Verify Topological AST Health
-        run: python3 .agents/scripts/verify_topological_health.py
-
-      - name: Verify JSON i18n Integrity (Zero Duplicate Keys)
-        run: python3 .agents/scripts/verify_json_no_duplicate_keys.py
+      - name: Execute Python Governance Validators & Unit Suite in Ephemeral Docker (Rule Zero)
+        run: |
+          docker run --rm \
+            -e COVERAGE_FILE=/tmp/.coverage \
+            -e UV_CACHE_DIR=/tmp/uv-cache \
+            -u "$(id -u):$(id -g)" \
+            -v "$(pwd):/app" \
+            -w /app \
+            sinfallas/base-python-uv:3.15 \
+            bash -c "python3 scripts/generar-manifiesto.py --check && \
+              python3 .agents/scripts/verify_roadmap_consistency.py && \
+              python3 .agents/scripts/verify_topological_health.py && \
+              python3 .agents/scripts/verify_json_no_duplicate_keys.py && \
+              uv run --with pytest --with pytest-cov pytest --import-mode=importlib tests/*.unit.py -q"
 
       - name: Execute MCP Server QA Suite in Ephemeral Docker (Rule Zero)
         run: |
-          docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server sh -c \
-            "pnpm run lint && pnpm run typecheck && pnpm run test:unit && pnpm run build && rm -rf dist coverage .eslintcache"
+          docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server bash -c \
+            "pnpm install --frozen-lockfile && pnpm run lint && pnpm run typecheck && pnpm run test:unit && pnpm run build && rm -rf coverage .eslintcache"
+
+      - name: Execute Karate Labs BDD Contract Suite in Ephemeral Docker (Rule Zero)
+        run: |
+          docker run --rm \
+            -v "$(pwd)/mcp-server/test:/app/src/test/java/examples/test:ro" \
+            -v "$(pwd):/repo:ro" \
+            sinfallas/karatelabs:1.5.1 mvn -B clean test
+
+      - name: Execute Bash Scripts BATS & ShellCheck in Ephemeral Docker (Rule Zero)
+        run: |
+          docker run --rm \
+            -v "$(pwd):/repo:ro" \
+            -w /repo/bash-scripts \
+            sinfallas/base-bash-qa:latest \
+            bash -c "shellcheck -x ../scripts/*.sh ../.agents/scripts/*.sh ./*.sh && bats test/*.bats"
 
       - name: Run 10-Stage Certification Gate
         run: bash ./.agents/scripts/certify_task_completion.sh

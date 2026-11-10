@@ -27,6 +27,8 @@ export function defaultGraphifyBuilder(resolvedPath: string): boolean {
       });
       return true;
     }
+    const uid = typeof process.getuid === 'function' ? process.getuid() : 1000;
+    const gid = typeof process.getgid === 'function' ? process.getgid() : 1000;
     execFileSync(
       'docker',
       [
@@ -38,10 +40,10 @@ export function defaultGraphifyBuilder(resolvedPath: string): boolean {
         `${resolvedPath}:/app`,
         '-w',
         '/app',
-        'sinfallas/remote-graphify:1.0.0',
+        'sinfallas/remote-graphify:latest',
         'sh',
         '-c',
-        'graphify extract . --code-only && graphify cluster-only . && rm -rf graphify-out/cache graphify-out/20* graphify-out/.graphify_* graphify-out/.cloud-cta-shown',
+        `graphify extract . --code-only && graphify cluster-only . && rm -rf graphify-out/cache graphify-out/20* graphify-out/.graphify_* graphify-out/.cloud-cta-shown && chown -R ${uid}:${gid} graphify-out`,
       ],
       {
         cwd: resolvedPath,
@@ -317,10 +319,8 @@ export async function inspectAstBlastRadius(
     }
   }
 
-  if (ctx.dependentFiles.size > ctx.declaringFiles.size) {
-    for (const declFile of ctx.declaringFiles) {
-      ctx.dependentFiles.delete(declFile);
-    }
+  for (const declFile of ctx.declaringFiles) {
+    ctx.dependentFiles.delete(declFile);
   }
 
   const sortedDependents = Array.from(ctx.dependentFiles).sort();

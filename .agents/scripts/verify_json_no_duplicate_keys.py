@@ -43,13 +43,37 @@ def audit_json_file(file_path: Path) -> list[str]:
     return errors
 
 
-def main() -> int:
-    repo_root = Path(__file__).resolve().parent.parent.parent
-    json_files = list(repo_root.glob("**/*.json"))
+def collect_json_candidates(repo_root: Path) -> list[Path]:
+    ignored_dirs = {
+        ".git",
+        "node_modules",
+        ".stryker-tmp",
+        "coverage",
+        ".venv",
+        "dist",
+        "build",
+        "graphify-out",
+        ".trivycache",
+        "target",
+    }
+    seen: set[Path] = set()
+    filtered: list[Path] = []
+    for pattern in ("**/*.json", "**/*.json.example"):
+        for candidate in sorted(repo_root.glob(pattern)):
+            resolved = candidate.resolve()
+            if resolved in seen:
+                continue
+            rel_parts = candidate.relative_to(repo_root).parts
+            if any(part in ignored_dirs for part in rel_parts):
+                continue
+            seen.add(resolved)
+            filtered.append(candidate)
+    return filtered
 
-    # Excluye directorios no rastreados o de dependencias
-    ignored_patterns = ["node_modules", ".stryker-tmp", "coverage", ".venv", "dist", "build"]
-    filtered_files = [f for f in json_files if not any(pattern in str(f) for pattern in ignored_patterns)]
+
+def main(target_root: Path | None = None) -> int:
+    repo_root = target_root or Path(__file__).resolve().parent.parent.parent
+    filtered_files = collect_json_candidates(repo_root)
 
     if not filtered_files:
         print("✔ [JSON Integrity] 0 archivos JSON relevantes.")

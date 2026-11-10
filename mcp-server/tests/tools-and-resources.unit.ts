@@ -706,12 +706,15 @@ describe('Tools and Resources Integration Suite', () => {
           fs.existsSync(path.join(isolatedCwd, '.agents/skills/qa-11x-architect/SKILL.md'))
         ).toBe(true);
 
-        // 5. Invocación con --target cursor cuando .cursor NO existe en homeDir
+        // 5. Invocación con --target cursor cuando .cursor NO existe previamente: crea ~/.cursor/skills globalmente sin contaminar cwd
+        const cleanCwdForCursor = path.join(tmpDir, 'clean-cwd-cursor');
+        fs.mkdirSync(cleanCwdForCursor, { recursive: true });
+        process.chdir(cleanCwdForCursor);
         await runInstallSkillCli(['--target', 'cursor'], fetcher);
         expect(
-          fs.existsSync(path.join(isolatedCwd, '.agents/skills/qa-11x-architect/SKILL.md'))
+          fs.existsSync(path.join(isolatedHome, '.cursor/skills/qa-11x-architect/SKILL.md'))
         ).toBe(true);
-        expect(fs.existsSync(path.join(isolatedHome, '.cursor'))).toBe(false);
+        expect(fs.existsSync(path.join(cleanCwdForCursor, '.agents'))).toBe(false);
       } finally {
         process.chdir(cwd);
         process.env.HOME = origHome;

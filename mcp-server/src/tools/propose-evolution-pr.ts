@@ -46,6 +46,12 @@ export function buildEvolutionSlug(title: string): string {
   return truncated.length > 0 ? truncated : 'skill-evolution';
 }
 
+function computeSafeCodeFence(snippet: string): string {
+  const matches = snippet.match(/`{3,}/g);
+  const maxLen = matches ? Math.max(...matches.map((m) => m.length)) : 2;
+  return '`'.repeat(Math.max(3, maxLen + 1));
+}
+
 function writeProposalFile(
   proposalsDir: string,
   slug: string,
@@ -53,6 +59,7 @@ function writeProposalFile(
 ): string {
   fs.mkdirSync(proposalsDir, { recursive: true });
   const filePath = path.join(proposalsDir, `${slug}.md`);
+  const fence = computeSafeCodeFence(input.proposed_content_or_snippet);
 
   const fileContent = [
     `# Propuesta de Evolución Continua: ${input.improvement_title}`,
@@ -66,9 +73,9 @@ function writeProposalFile(
     input.empirical_rationale,
     '',
     '## Bloque / Cambio Propuesto',
-    '```markdown',
+    `${fence}markdown`,
     input.proposed_content_or_snippet,
-    '```',
+    fence,
     '',
   ].join('\n');
 
@@ -81,6 +88,7 @@ export function buildPrefilledIssueUrl(input: ProposeEvolutionPrInput): {
   prefilledUrl: string;
 } {
   const issueTitle = `[Evolution] ${input.improvement_title}`;
+  const fence = computeSafeCodeFence(input.proposed_content_or_snippet);
   const issueBody = [
     `### Archivo Objetivo en \`${UPSTREAM_REPO}\``,
     `\`${input.target_blueprint_file}\``,
@@ -89,12 +97,18 @@ export function buildPrefilledIssueUrl(input: ProposeEvolutionPrInput): {
     input.empirical_rationale,
     '',
     '### Cambio / Bloque Propuesto',
-    '```markdown',
+    `${fence}markdown`,
     input.proposed_content_or_snippet,
-    '```',
+    fence,
   ].join('\n');
 
-  const prefilledUrl = `https://github.com/${UPSTREAM_REPO}/issues/new?title=${encodeURIComponent(issueTitle)}&body=${encodeURIComponent(issueBody)}`;
+  const maxBodyChars = 3500;
+  const urlSafeBody =
+    issueBody.length > maxBodyChars
+      ? `${issueBody.slice(0, maxBodyChars)}\n\n...(Truncado por longitud de URL; adjunte el contenido completo desde .agents/proposals/)`
+      : issueBody;
+
+  const prefilledUrl = `https://github.com/${UPSTREAM_REPO}/issues/new?title=${encodeURIComponent(issueTitle)}&body=${encodeURIComponent(urlSafeBody)}`;
 
   return { issueBody, prefilledUrl };
 }
@@ -109,6 +123,15 @@ async function tryCreatePullRequestViaGh(
     await execRunner('gh', ['auth', 'status'], { cwd, shell: false, timeout: 10000 });
   } catch {
     return { success: false, prUrl: null, ghAuthenticated: false };
+  }
+
+  try {
+    const { stdout: remotes } = await execRunner('git', ['remote', '-v'], { cwd, shell: false, timeout: 5000 });
+    if (remotes.trim().length > 0 && !remotes.includes('qa-testing-blueprints')) {
+      return { success: false, prUrl: null, ghAuthenticated: true };
+    }
+  } catch {
+    return { success: false, prUrl: null, ghAuthenticated: true };
   }
 
   try {

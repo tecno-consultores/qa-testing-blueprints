@@ -13,19 +13,24 @@ import sys
 from pathlib import Path
 
 
-def main() -> int:
-    repo_root = Path(__file__).resolve().parent.parent.parent
+def main(target_root: Path | None = None) -> int:
+    repo_root = target_root or Path(__file__).resolve().parent.parent.parent
 
     # Detecta todos los directorios frontend presentes
-    candidates = [repo_root / "vue3" / "src", repo_root / "react-frontend" / "src", repo_root / "src"]
+    candidates = [
+        repo_root / "vue3" / "src",
+        repo_root / "react-frontend" / "src",
+        repo_root / "frontend" / "src",
+        repo_root / "src",
+    ]
     frontend_dirs = [c for c in candidates if c.exists()]
 
     if not frontend_dirs:
         print("✔ [UI Orphans] Sin directorio frontend activo (omitido).")
         return 0
 
-    ui_files = []
-    unit_files = []
+    ui_files: list[str] = []
+    unit_files_set: set[str] = set()
     for frontend_src in frontend_dirs:
         for root, _, files in os.walk(frontend_src):
             for f in files:
@@ -34,7 +39,23 @@ def main() -> int:
                 ):
                     ui_files.append(os.path.join(root, f))
                 if f.endswith((".unit.ts", ".unit.tsx", ".spec.ts", ".spec.tsx", ".test.ts", ".test.tsx")):
-                    unit_files.append(os.path.join(root, f))
+                    unit_files_set.add(os.path.join(root, f))
+
+    test_dir_candidates = [
+        repo_root / "vue3" / "tests",
+        repo_root / "react-frontend" / "tests",
+        repo_root / "frontend" / "tests",
+        repo_root / "tests",
+    ]
+    for tdir in test_dir_candidates:
+        if not tdir.exists():
+            continue
+        for root, _, files in os.walk(tdir):
+            for f in files:
+                if f.endswith((".unit.ts", ".unit.tsx", ".spec.ts", ".spec.tsx", ".test.ts", ".test.tsx")):
+                    unit_files_set.add(os.path.join(root, f))
+
+    unit_files = sorted(unit_files_set)
 
     if not ui_files:
         print("✔ [UI Orphans] 0 componentes UI (.vue / .tsx) detectados.")

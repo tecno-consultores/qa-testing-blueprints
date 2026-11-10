@@ -216,7 +216,7 @@ export class GitHubFetcher {
     const fileUrl = `${this.rawBaseUrl}/${safeRelPath}`;
     try {
       const response = await fetch(fileUrl, {
-        headers: { 'User-Agent': 'mcp-qa-11x/2.12.0' },
+        headers: { 'User-Agent': `mcp-qa-11x/${MCP_SERVER_VERSION}` },
         signal: AbortSignal.timeout(DEFAULT_FETCH_TIMEOUT_MS),
       });
       if (!response.ok) {
@@ -238,7 +238,8 @@ export class GitHubFetcher {
 
   public async fetchStackBundle(
     stackName: string,
-    includeCommonAndAgents = true
+    includeCommonAndAgents = true,
+    thinRepoOnly = false
   ): Promise<FetchedFileItem[]> {
     const manifest = await this.fetchManifest();
     const stackDef = isOwnObjectProperty(manifest.stacks, stackName)
@@ -256,8 +257,18 @@ export class GitHubFetcher {
     }> = [...stackDef.files];
 
     if (includeCommonAndAgents) {
-      itemsToFetch.push(...manifest.common_files);
-      itemsToFetch.push(...manifest.agent_governance_files);
+      const commonItems = thinRepoOnly
+        ? manifest.common_files.filter((f) => f.path !== 'scripts/publicar-mcp.sh')
+        : manifest.common_files;
+      const agentItems = thinRepoOnly
+        ? manifest.agent_governance_files.filter(
+            (f) =>
+              f.path.startsWith('.agents/scripts/') ||
+              f.path === '.agents/ACTIVE_TASK.md.example'
+          )
+        : manifest.agent_governance_files;
+      itemsToFetch.push(...commonItems);
+      itemsToFetch.push(...agentItems);
     }
 
     const fetchedFiles: FetchedFileItem[] = [];

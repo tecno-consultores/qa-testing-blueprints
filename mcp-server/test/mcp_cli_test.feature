@@ -9,8 +9,12 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
   Para verificar que los contratos JSON-RPC, recursos y herramientas cumplan con el Estándar 11X
 
   Background:
-    * def pkg = read('../package.json')
-    * def manifest = read('../../manifest.json')
+    * def Files = Java.type('java.nio.file.Files')
+    * def Paths = Java.type('java.nio.file.Paths')
+    * def repoRoot = Files.exists(Paths.get('/repo/manifest.json')) ? 'file:/repo' : 'file:..'
+    * def mcpRoot = repoRoot + '/mcp-server'
+    * def pkg = read(mcpRoot + '/package.json')
+    * def manifest = read(repoRoot + '/manifest.json')
 
   # ==============================================================================
   # Grupo 1: Contrato del Paquete y Metadatos CLI
@@ -348,7 +352,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
   # ==============================================================================
 
   Scenario: 13. El README restaura la Matriz de Herramientas de Pruebas y actualiza tags oficiales de Docker Hub
-    * def readmeContent = karate.readAsString('file:../README.md')
+    * def readmeContent = karate.readAsString(repoRoot + '/README.md')
     * match readmeContent contains '## 🛠 Matriz de Herramientas de Pruebas'
     * match readmeContent contains '| Entorno | Linting / Formateo | Pruebas Unitarias / Mocking |'
     * match readmeContent contains '`3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest`'
@@ -362,23 +366,23 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
   # Grupo 14: Contrato de Fast-Path Documental (DOCS_ONLY) y Economía de Tokens v2.10.0
   # ==============================================================================
 
-  Scenario: 14. El servidor MCP y las directrices soportan Fast-Path Documental (DOCS_ONLY) y Lazy Rule Loading
-    * def agentsContent = karate.readAsString('file:../AGENTS.md')
+  Scenario: 14. El servidor MCP y las directrices soportan Fast-Path Documental (DOCS_ONLY) y Zero Hardcoded Pass
+    * def agentsContent = karate.readAsString(repoRoot + '/AGENTS.md')
     * match agentsContent contains 'Fast-Path Documental (`DOCS_ONLY`'
     * match agentsContent contains 'Full-Path de Código (`CODE_CHANGE`'
 
     * def mockDocsFastPathQaResult =
       """
       {
-        status: 'PASSED',
+        status: 'SKIPPED',
         stage: 'unit',
         exit_code: 0,
         duration_ms: 0,
         coverage: {
-          detected: true,
-          percent: 100,
+          detected: false,
+          percent: 0,
           threshold: 95.0,
-          passed: true,
+          passed: false,
           uncovered_files: []
         },
         failed_tests: [],
@@ -388,7 +392,9 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
         tail_log: "✔ [Fast-Path Docs-Only] Solo se detectaron cambios en documentación (*.md / docs/); se omite 'make qa-unit' en Docker."
       }
       """
-    * match mockDocsFastPathQaResult.status == 'PASSED'
+    * match mockDocsFastPathQaResult.status == 'SKIPPED'
+    * match mockDocsFastPathQaResult.coverage.detected == false
+    * match mockDocsFastPathQaResult.coverage.passed == false
     * match mockDocsFastPathQaResult.exit_code == 0
     * match mockDocsFastPathQaResult.tail_log contains '[Fast-Path Docs-Only]'
 
@@ -397,7 +403,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
   # ==============================================================================
 
   Scenario: 15. Contrato de 3 Vías Proporcionales (DOCS_ONLY, MICRO_CHANGE, FULL_11X), Token Economy y Grouped Findings
-    * def agentsContent = karate.readAsString('file:../AGENTS.md')
+    * def agentsContent = karate.readAsString(repoRoot + '/AGENTS.md')
     * match agentsContent contains '3-Path Proportional Execution'
     * match agentsContent contains 'DOCS_ONLY'
     * match agentsContent contains 'MICRO_CHANGE'
@@ -456,46 +462,47 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * match mockSecurityResult.grouped_findings[0].locations[0] == 'src/api.py:42'
 
     # Verificar que install-skill protege el directorio personal $HOME frente a contaminación con archivos de proyecto
-    * def installSkillSource = karate.readAsString('file:src/cli/install-skill.ts')
+    * def installSkillSource = karate.readAsString(mcpRoot + '/src/cli/install-skill.ts')
     * assert installSkillSource.contains('isHomeDirectory')
     * assert installSkillSource.contains('[Modo Global $HOME]')
     * assert installSkillSource.contains('resolveGlobalOrFallbackTargets')
+    * assert installSkillSource.contains('resolveAllGlobalAgentDirs')
     * assert !installSkillSource.contains('AGENT_RULES_PREFIX')
 
     # Verificar que reconcile-agents limpia archivos canónicos y skills duplicadas en proyectos consumidores
-    * def reconcileSource = karate.readAsString('file:src/cli/reconcile-agents.ts')
+    * def reconcileSource = karate.readAsString(mcpRoot + '/src/cli/reconcile-agents.ts')
     * assert reconcileSource.contains('CANONICAL_GLOBAL_SKILL_DIRS')
     * assert reconcileSource.contains('isCanonicalRuleSection')
     * assert reconcileSource.contains('processCanonicalRuleFileInConsumer')
     * assert reconcileSource.contains('reconcileSkillsDir')
 
   # ==============================================================================
-  # Grupo 13: Contrato de Autoconstrucción AST, Topología Gate, Reglas SEC-12/QA-KARATE-IDEMP y Referencias Bajo Demanda
+  # Grupo 16: Contrato de Autoconstrucción AST, Topología Gate, Reglas SEC-12/QA-KARATE-IDEMP y Referencias Bajo Demanda
   # ==============================================================================
 
   Scenario: 16. Las herramientas MCP soportan auto_build_if_missing, ast_topology_clean, SEC-12, QA-KARATE-IDEMP y referencias 07..09
-    * def blastSource = karate.readAsString('file:src/tools/blast-radius.ts')
+    * def blastSource = karate.readAsString(mcpRoot + '/src/tools/blast-radius.ts')
     * assert blastSource.contains('autoBuildIfMissing')
     * assert blastSource.contains('refreshGraph')
     * assert blastSource.contains('defaultGraphifyBuilder')
 
-    * def certifySource = karate.readAsString('file:src/tools/certify-gate.ts')
+    * def certifySource = karate.readAsString(mcpRoot + '/src/tools/certify-gate.ts')
     * assert certifySource.contains('checkDuplicateVersionHeaders')
     * assert certifySource.contains('checkActiveTaskGovernance')
     * assert certifySource.contains('checkAstTopology')
     * assert certifySource.contains('ast_topology_clean')
 
-    * def secSource = karate.readAsString('file:src/tools/security-auditor.ts')
+    * def secSource = karate.readAsString(mcpRoot + '/src/tools/security-auditor.ts')
     * assert secSource.contains('QA-KARATE-IDEMP')
     * assert secSource.contains('SEC-12')
 
-    * def skillContent = karate.readAsString('file:../.agents/skills/qa-11x-architect/SKILL.md')
+    * def skillContent = karate.readAsString(repoRoot + '/.agents/skills/qa-11x-architect/SKILL.md')
     * assert skillContent.contains('references/07-mcp-agentic-security-governance.md')
     * assert skillContent.contains('references/08-postgres-rls-zero-downtime-migrations.md')
     * assert skillContent.contains('references/09-sre-observability-chaos-triage.md')
 
   Scenario: 17. Evolución empírica RLS Multi-Tx (after_begin), Cadena WORM (seq_num + pg_advisory_xact_lock), COVERAGE_FILE=/tmp/.coverage, Monorepo certify_11x_gate y SEC-11
-    * def secSource = karate.readAsString('file:src/tools/security-auditor.ts')
+    * def secSource = karate.readAsString(mcpRoot + '/src/tools/security-auditor.ts')
     * assert secSource.contains('isDirectRealAuditFunctionTest')
     * assert secSource.contains('SEC-13')
     * assert secSource.contains('SEC-14')
@@ -503,15 +510,15 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert secSource.contains('QA-COV-01')
     * assert secSource.contains('QA-SMOKE-01')
 
-    * def certifySource = karate.readAsString('file:src/tools/certify-gate.ts')
+    * def certifySource = karate.readAsString(mcpRoot + '/src/tools/certify-gate.ts')
     * assert certifySource.contains(".env.example")
     * assert certifySource.contains('resolveWithParentFallback')
 
-    * def mergerSource = karate.readAsString('file:src/services/surgical-merger.ts')
+    * def mergerSource = karate.readAsString(mcpRoot + '/src/services/surgical-merger.ts')
     * assert mergerSource.contains('COVERAGE_FILE=/tmp/.coverage')
     * assert mergerSource.contains('--cov=src --cov-fail-under=95')
 
-    * def rlsReference = karate.readAsString('file:../.agents/skills/qa-11x-architect/references/08-postgres-rls-zero-downtime-migrations.md')
+    * def rlsReference = karate.readAsString(repoRoot + '/.agents/skills/qa-11x-architect/references/08-postgres-rls-zero-downtime-migrations.md')
     * assert rlsReference.contains('after_begin')
     * assert rlsReference.contains('NOBYPASSRLS')
     * assert rlsReference.contains('SECURITY DEFINER')
@@ -519,19 +526,43 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert rlsReference.contains('seq_num')
 
   Scenario: 18. Navegación AST Bidireccional (Graphify AST-First en Consultas de Código Q&A) y Conector Global GEMINI.md Sin Duplicación
-    * def blastRadiusSource = karate.readAsString('file:src/tools/blast-radius.ts')
+    * def blastRadiusSource = karate.readAsString(mcpRoot + '/src/tools/blast-radius.ts')
     * assert blastRadiusSource.contains('outgoing_dependencies')
     * assert blastRadiusSource.contains('declaring_files')
     * assert blastRadiusSource.contains('graph_reports')
 
-    * def initAgentsSource = karate.readAsString('file:src/cli/init-agents-md.ts')
+    * def initAgentsSource = karate.readAsString(mcpRoot + '/src/cli/init-agents-md.ts')
     * assert initAgentsSource.contains('buildGlobalGeminiBlock')
     * assert initAgentsSource.contains('Conector Global Thin-Client QA 11X')
     * assert initAgentsSource.contains('Graphify AST-First (Consultas de Código Q&A y Pre-Cambio)')
 
-    * def graphifySkillSource = karate.readAsString('file:../.agents/skills/graphify-ast-navigator/SKILL.md')
+    * def graphifySkillSource = karate.readAsString(repoRoot + '/.agents/skills/graphify-ast-navigator/SKILL.md')
     * assert graphifySkillSource.contains('Code Q&A')
     * assert graphifySkillSource.contains('Graphify AST-First, Grep-Fallback, Windowed-Read-Second')
+
+  Scenario: 19. Contrato v2.16.0 — SEC-16 (Pre-Auth Multi-Step Challenge Continuity), Thin-Repo bootstrap_or_merge_11x, Paridad 10/10 y CLI --version
+    * match pkg.version == '2.16.0'
+    * match manifest.blueprint_version == '2.16.0'
+
+    * def commonPaths = karate.map(manifest.common_files, function(x) { return x.path })
+    * match commonPaths !contains 'scripts/publicar-mcp.sh'
+
+    * def secSource = karate.readAsString(mcpRoot + '/src/tools/security-auditor.ts')
+    * assert secSource.contains('SEC-16')
+    * assert secSource.contains('PREAUTH_PUBLIC_ROUTES')
+    * assert secSource.contains('checkPreAuthNonAtomicChallengeConsumption')
+
+    * def bootstrapSource = karate.readAsString(mcpRoot + '/src/tools/bootstrap-merge.ts')
+    * assert bootstrapSource.contains('fetchStackBundle(stack, true, true)')
+
+    * def certifySource = karate.readAsString(mcpRoot + '/src/tools/certify-gate.ts')
+    * assert certifySource.contains('checkManifestCryptographicParity')
+    * assert certifySource.contains('checkRoadmapConsistency')
+
+    * def cliIndexSource = karate.readAsString(mcpRoot + '/src/index.ts')
+    * assert cliIndexSource.contains("'--version'")
+    * assert cliIndexSource.contains('dispatchCliArgs')
+
 
 
 
