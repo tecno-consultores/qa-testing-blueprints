@@ -93,6 +93,9 @@ Apply these non-negotiable security directives before writing any code:
     - Enforce `Strict-Transport-Security`, `Content-Security-Policy`, `Referrer-Policy`, `Cache-Control: no-store` on sensitive endpoints, and suppress server/framework version banners (`OWASP SC 8-11`, `OSHP`).
     - Fail to a secure state (deny by default) on startup/abort/config failure (`APSC-DV-002310`, `OWASP AC-10`), verify security function integrity on startup/every 30 days (`APSC-DV-002770`), mitigate OWASP API Security Top 10 (2023) (`BOLA`, `BOPLA`, `BFLA`, anti-data-mining `APSC-DV-000450`), and maintain programmatic Threat Models (`pytm` / `Threat Dragon`, `APSC-DV-003230`).
     - **Service-Layer RBAC Defense (Anti-`Depends()` Bypass) & MCP Approval Gate (`OWASP API5:2023 BFLA`, `APSC-DV-000460`):** In FastAPI, `Depends(require_roles(...))` decorators only execute when invoked through the HTTP router. If an internal JSON-RPC/MCP dispatcher, background worker, or WebSocket handler invokes a controller or service function directly in Python, `Depends()` is bypassed. Never rely exclusively on HTTP router `Depends()` for authorization on mutating operations: explicitly validate `claims["role"]` / `claims["rol"]` at the beginning of the service function, route mutating MCP tools through an explicit approval workflow (`ApprovalRequest` with `AWAITING_APPROVAL` status), and test direct service/MCP invocations with unprivileged roles to certify `403` / `PermissionError` rejection.
+18. **Multi-Step Pre-Auth & Ephemeral Challenge Continuity Hardening (`SEC-16`, `APSC-DV-000530`, `APSC-DV-002270`, `OWASP ASVS V2.8`):**
+    - Multi-step unauthenticated challenge ceremonies (`mfa_enrollment_required`, `mfa_challenge`, `password_change_required`, WebAuthn) MUST issue opaque CSPRNG `challenge_id` tokens (`>= 128-bit`, e.g. `secrets.token_urlsafe(32)`) strictly in JSON bodies or custom headers (never URL query strings) and validate `Origin` / `Sec-Fetch-Site` on pre-auth `POST` endpoints.
+    - Enforce atomic single-use consumption in KeyDB/Redis (`GETDEL` or Lua script) or composite `idemp:preauth:{challenge_id}:{key}` scoping, strict `TTL <= 300s` (5m), and immediate challenge purge upon reaching `3–5` invalid verification attempts (`APSC-DV-000530`), sharing an explicit `PREAUTH_PUBLIC_ROUTES` allowlist symmetrically across backend `CSRF`/`Idempotency` middlewares and frontend `401` interceptors.
 
 ---
 
@@ -106,6 +109,6 @@ Before committing code:
 - [ ] Session idle/absolute timeouts, concurrency limits, and full storage purge on logoff verified?
 - [ ] Zero missing imports verified via static analysis (`ruff check`, `vue-tsc --noEmit`)?
 - [ ] Added Karate Labs API and/or UI BDD scenarios?
-- [ ] Executed secret scanning (`verificar-secretos.sh`) with 0 leaks detected?
-- [ ] Executed IaC and dependency scan (`auditar-infra.sh`) with 0 High/Critical findings?
+- [ ] Executed secret scanning (`./scripts/verificar-secretos.sh`) with 0 leaks detected?
+- [ ] Executed IaC and dependency scan (`./scripts/auditar-infra.sh`) with 0 High/Critical findings?
 - [ ] Reviewed security guidelines in `docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`?

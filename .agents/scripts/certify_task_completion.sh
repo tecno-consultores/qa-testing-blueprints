@@ -76,6 +76,14 @@ CODE_CHANGES=$(echo "${ALL_CHANGED}" | grep -E '^((fastapi|vue3|node-backend|pyt
 EXEC_SRC_CHANGES=$(echo "${CODE_CHANGES}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|php|mcp-server|backend|frontend)/src/|src/|bash-scripts/|scripts/|\.agents/scripts/)' | grep -vE '(\.unit\.(py|ts|tsx)|\.e2e\.ts|test_.*\.py|.*\.test\.(ts|js)|\.feature|\.bats)' || true)
 DOC_CHANGES=$(echo "${ALL_CHANGED}" | grep -E '(\.md$|^docs/)' || true)
 
+if [ -f ".agents/scripts/verify_docs_invariants.py" ]; then
+  if command -v python3 >/dev/null 2>&1; then
+    python3 .agents/scripts/verify_docs_invariants.py >/dev/null
+  else
+    docker run --rm -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_docs_invariants.py >/dev/null
+  fi
+fi
+
 if [ -n "${CODE_CHANGES}" ]; then
   CODE_COUNT=$(echo "${CODE_CHANGES}" | grep -c . || true)
   TEST_CHANGES=$(echo "${ALL_CHANGED}" | grep -E '(\.unit\.(py|ts|tsx)|\.e2e\.ts|test_.*\.py|.*\.test\.(ts|js)|\.feature|\.bats)' || true)

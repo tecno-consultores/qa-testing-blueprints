@@ -44,7 +44,7 @@ Se activa el perfil oculto `--profile chaos` inyectando latencia con Pumba y ole
 ### Paso 5: Extracción de Artefactos (Reportes)
 Como utilizamos volúmenes *bind*, cuando el contenedor efímero muere, deja los reportes HTML y JSON físicamente en el disco del *runner*. El pipeline toma esa carpeta y la sube como un "Artifact" para que el equipo pueda descargarlo.
 ### Paso 6: Limpieza
-Ejecutar `make clean-cache` o `./limpieza.sh` para destruir las cachés de volumen y no saturar el almacenamiento del *runner*.
+Ejecutar `./scripts/limpieza.sh` (o `make clean`) para destruir artefactos temporales y contenedores efímeros sin saturar el almacenamiento del *runner*.
 
 ---
 
@@ -65,8 +65,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 1️⃣ Checkout del código
-        uses: actions/checkout@v4
+      - name: 1️⃣ Checkout del código (fijar SHA inmutable en producción)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: 2️⃣ Verificación de Secretos y Configuración Efímera Segura
         run: |
@@ -109,8 +109,8 @@ jobs:
         # (Nota: Si tu proyecto es un script Bash o Python puro, cambia '--profile chaos' por '--profile observability')
         run: docker compose -f docker-compose.qa.yml --profile chaos up --abort-on-container-exit stress_test
 
-      - name: 9️⃣ Archivar Reportes de Calidad (Artefactos)
-        uses: actions/upload-artifact@v4
+      - name: 🔟 Archivar Reportes de Calidad (Artefactos)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: qa-reports
@@ -124,7 +124,7 @@ jobs:
             chaos-report.json
           retention-days: 7
 
-      - name: 🔟 Limpieza del Entorno
+      - name: 1️⃣1️⃣ Limpieza del Entorno
         if: always()
-        run: make clean-cache
+        run: ./scripts/limpieza.sh
 ```

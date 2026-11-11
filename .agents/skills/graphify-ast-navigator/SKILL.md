@@ -56,7 +56,7 @@ docker run --rm -e OLLAMA_BASE_URL="" -v "$(pwd):/app" -w /app sinfallas/remote-
 ```
 
 ### D. Generated Artifacts & Git Hygiene
-- **Versioned / Preserved in `graphify-out/`:**
+- **Preserved locally in `graphify-out/` (git-ignored):**
   - `graph.json`: Machine-queryable AST nodes (`id`, `label`, `type`, `file`, `line`) and directed edges (`source`, `target`, `relation`).
   - `GRAPH_REPORT.md`: Human- and LLM-readable architectural cluster summary and god-node diagnostics.
   - `graph.html`: Interactive visual dependency explorer.

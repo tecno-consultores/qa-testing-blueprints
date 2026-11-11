@@ -9,15 +9,15 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
 | Dimensión de Calidad | Herramienta Canónica | Umbral Mínimo Requerido | Acción ante Incumplimiento |
 | :--- | :--- | :--- | :--- |
 | **Cobertura Unitaria** | `pytest-cov`, `vitest`, `kcov` (`COVERAGE_FILE=/tmp/.coverage` en Docker no-root `UID 1001`, prohibido `-o addopts=""` sin `--cov`) | **>= 95.0%** de líneas y ramas | Bloqueo inmediato de Merge / Exit Code 1 (`QA-COV-01`) |
-| **Complejidad Ciclomática** | `radon` (Python), `eslint-plugin-sonarjs` | Grado **A** o **B** (Cognitiva `<= 15`) | Rechazo por deuda técnica |
+| **Complejidad Ciclomática** | `radon` (Python `--min B`), `eslint-plugin-sonarjs` | Grado **A** (`CC <= 5`, Cognitiva `<= 15`) | Rechazo por deuda técnica |
 | **Mantenibilidad** | `radon mi` | Grado **A** (`> 20`) | Refactorización obligatoria |
 | **Seguridad Estática (SAST)** | `bandit`, `eslint-plugin-security`, `ShellCheck` | **0 hallazgos HIGH / MEDIUM** | Bloqueo por vulnerabilidad |
-| **CVEs en Dependencias & SBOM** | `uv pip audit`, `pnpm audit`, `trivy`, `cyclonedx-py` | **0 vulnerabilidades CRITICAL / HIGH** + SBOM CycloneDX | Bloqueo de suministro de software |
+| **CVEs en Dependencias & SBOM** | `pip-audit`, `pnpm audit`, `trivy`, `cyclonedx-py` | **0 vulnerabilidades CRITICAL / HIGH** + SBOM CycloneDX | Bloqueo de suministro de software |
 | **Seguridad Dinámica (DAST & OSHP)**| `zaproxy/zap-stable` (OWASP ZAP + WSTG/ASVS/OSHP) | **0 alertas HIGH**, cabeceras OSHP y estado Fail-Secure | Bloqueo dinámico en CI/CD |
 | **Pruebas de Mutación** | `mutmut`, `stryker` | Puntuación de mutación `> 80%` | Rechazo por asertos débiles |
-| **Comportamiento BDD** | `sinfallas/karatelabs:latest` (Gherkin) | **100% de escenarios PASSED** | Bloqueo de flujo funcional |
+| **Comportamiento BDD** | `sinfallas/karatelabs:1.5.1` (Gherkin) | **100% de escenarios PASSED** | Bloqueo de flujo funcional |
 | **Paridad de Esquema DB & RLS/WORM** | `.agents/scripts/verify_alembic_orm_parity.py` + `SEC-13` (`after_begin` RLS + `NOBYPASSRLS`) + `SEC-14` (`seq_num` + `pg_advisory_xact_lock` WORM) | **0 tablas huérfanas / revision `<= 32` chars / RLS multi-tx / cadena WORM determinista** | Rechazo por Anti-Mock Blindness / Fuga RLS / Race WORM |
-| **Propagación Anti-Silo, 3 Fases Temporales, Timeouts Pesados, Batch por Ítem y Auditoría Semántica** | Contratos Read-After-Write, Pytest/Vitest, Karate BDD (`api_test.feature` / `ui_business_flow.feature`) | **0 mocks intermedios entre módulos, 3 fases del reloj (`Programada`, `En Curso`, `Cancelada/Expirada`), 0 UUIDs crudos en `actor_username`, Refresco Dual (`[ 🔄 Refrescar ]`), `timeout >= 180s` + purga `0 bytes` en transferencias pesadas y validación `results[].status` en batch `200 OK`** | Rechazo por Silo Mock Blindness / 2-State / Batch 200 Blindness |
+| **Propagación Anti-Silo, Pre-Auth Multi-Etapa (`SEC-16`), 3 Fases Temporales, Timeouts Pesados y Batch por Ítem** | Contratos Read-After-Write, Pytest/Vitest, Karate BDD (`api_test.feature` / `ui_business_flow.feature`) | **0 mocks intermedios entre módulos, continuidad atómica `GETDEL`/Lua + `PREAUTH_PUBLIC_ROUTES` en flujos Pre-Auth, 3 fases del reloj (`Programada`, `En Curso`, `Cancelada/Expirada`), 0 UUIDs crudos en `actor_username`, Refresco Dual (`[ 🔄 Refrescar ]`), `timeout >= 180s` + purga `0 bytes` y validación `results[].status` en batch `200 OK`** | Rechazo por Silo Mock Blindness / Pre-Auth 401/403 Escape / Batch 200 Blindness |
 | **Componentes Huérfanos** | `.agents/scripts/verify_zero_orphan_vue_components.py` | **0 componentes sin test unitario** | Bloqueo en pre-commit |
 | **Paridad Endpoints API** | `.agents/scripts/verify_no_orphan_api_endpoints.py` | **0 llamadas 404/405 Front-Back** | Bloqueo por desalineación de contratos |
 | **Accesibilidad Web** | `@axe-core/playwright` | **0 violaciones WCAG 2.1 AA** | Rechazo de interfaz táctica |
@@ -39,7 +39,7 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
   cd fastapi
   make qa-lint       # Ruff, Mypy strict, Bandit SAST, Radon complejidad
   make qa-unit       # Pytest aislado con mocks de red (Cobertura >= 95%)
-  make qa-parity     # Verificación de esquema real PostgreSQL y migraciones Alembic
+  make qa-migration  # Verificación de esquema real PostgreSQL 17 y migraciones Alembic (upgrade/downgrade/upgrade)
   make qa-contracts  # Schemathesis fuzzing de OpenAPI
   make qa-bdd        # Karate Labs BDD (test/api_test.feature)
   make qa-mutation   # Mutmut auditoría de asertos
@@ -93,10 +93,13 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
 * **Comandos de Validación:**
   ```bash
   cd react-frontend
-  make qa-lint       # ESLint, React Hooks plugin, SonarJS
+  make qa-lint       # ESLint, React Hooks plugin, SonarJS, tsc
   make qa-unit       # Vitest + React Testing Library (>= 95%)
+  make qa-orphans    # Auditoría recursiva de 0 componentes/vistas .tsx/.jsx sin test dedicado
   make qa-mutation   # Stryker
-  make qa-e2e        # Playwright visual regression + Axe
+  make qa-bdd        # Karate Labs UI en Chrome Headless (test/ui_business_flow.feature)
+  make qa-e2e        # Playwright v1.52.0-noble + Axe WCAG 2.1 AA
+  make qa-perf       # Lighthouse CI (lighthouserc.cjs, Core Web Vitals >= 90)
   ```
 
 ### 🐧 Bash / DevOps Scripts
@@ -126,26 +129,25 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
 ### 🧠 MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x`)
 * **Imagen Base:** `sinfallas/base-node-ionic:26` (Tags disponibles: `22`, `24`, `26` y `latest`)
 * **Métricas 11X Certificadas:**
-  * **Sentencias (Statements):** `98.99%` (`>= 95.0%`)
-  * **Ramas (Branches):** `95.23%` (`>= 95.0%`)
+  * **Sentencias (Statements):** `99.11%` (`>= 95.0%`)
+  * **Ramas (Branches):** `95.0%+` global (`src/resources` `100%`, `src/services` `96.74%`, `src/utils` `97.59%`)
   * **Funciones (Functions):** `100.00%` (`>= 95.0%`)
-  * **Líneas (Lines):** `98.99%` (`>= 95.0%`)
-  * **Pruebas Unitarias:** 283 pruebas pasando al 100% (13 suites en `tests/*.unit.ts`)
-  * **Herramientas MCP:** 12 herramientas canónicas con optimización extrema de tokens, autoconstrucción/refresco de grafos AST (`auto_build_if_missing`, `refresh_graph`), modo *Metadata-Only* (`include_content: false`), agrupador por regla (`groupFindingsByRule`) y límites `max_findings` / `max_items`
-  * **Escenarios BDD Karate Labs:** `mcp-server/test/mcp_cli_test.feature` (16 escenarios; incluyendo contrato de 3 vías de ejecución, economía cognitiva, hallazgos agrupados, reglas `SEC-12`/`QA-KARATE-IDEMP` y referencias bajo demanda `07..09`)
-  * **Empaquetado npm:** 53.1 kB comprimido / 252.4 kB desempaquetado (0 fugas de código fuente)
+  * **Líneas (Lines):** `99.11%` (`>= 95.0%`)
+  * **Pruebas Unitarias:** 307 pruebas pasando al 100% (16 suites en `tests/*.unit.ts`, incluyendo `src/index.ts`)
+  * **Herramientas MCP:** 12 herramientas canónicas con contrato Thin-Repo, autoconstrucción/refresco de grafos AST (`auto_build_if_missing`, `refresh_graph`), modo *Metadata-Only* (`include_content: false`), agrupador por regla (`groupFindingsByRule`), reglas `SEC-01`..`SEC-16` y paridad 10/10 en `certify_11x_gate`
+  * **Escenarios BDD Karate Labs:** `mcp-server/test/mcp_cli_test.feature` (20 escenarios en `sinfallas/karatelabs:1.5.1`)
 * **Comandos de Validación:**
   ```bash
   cd mcp-server
-  pnpm run lint      # ESLint 8.57 + eslint-plugin-security + SonarJS (Cognitiva <= 15)
-  pnpm run typecheck # tsc --noEmit (0 errores de tipado)
-  pnpm run test:unit # Vitest v8 con reporte de cobertura (>= 95% en todas las métricas)
-  pnpm run build     # tsc -> emite dist/ con binario ejecutable index.js
-  make qa-all        # Pipeline completo: lint + typecheck + unit + build
+  pnpm run lint            # ESLint + eslint-plugin-security + SonarJS (--max-warnings 0)
+  npx tsc --noEmit         # Verificación estricta TypeScript (0 errores de tipado)
+  pnpm test                # Vitest v8 con reporte de cobertura (>= 95%)
+  pnpm run build           # tsc -> emite dist/ con binario ejecutable index.js
+  make qa-all              # Pipeline completo en Docker efímero: lint + typecheck + unit + build + Karate BDD
 
-  # Publicación autónoma a npmjs.org (Modelo RoSGrid con credenciales en .env):
-  make publish-mcp-dry # Simulación de validación y empaquetado (--dry-run)
-  make publish-mcp     # Publicación oficial en vivo a npmjs
+  # Publicación autónoma a npmjs.org (Modelo RoSGrid con credenciales en .env 0600):
+  make publish-mcp-dry     # Simulación de validación y empaquetado (--dry-run)
+  make publish-mcp         # Publicación oficial en vivo a npmjs
   ```
 
 ---
@@ -194,11 +196,11 @@ El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
 
 * **Instalador Universal de Skills QA 11X (`scripts/install-skill.sh`):**
   * **Suites de Pruebas:**
-    * **Python Unit:** `tests/test_install_skill.unit.py` (6 pruebas unitarias).
-    * **BATS-core:** `bash-scripts/test/test_install_skill.bats` (3 aserciones funcionales en BATS).
+    * **Python Unit:** `tests/test_install_skill.unit.py`, `tests/test_agents_validators.unit.py`, `tests/test_stacks_hydration_smoke.unit.py` y `tests/test_verify_docs_invariants.unit.py`.
+    * **BATS-core:** `tests/bats/test_install_skill.bats` y `bash-scripts/test/ejemplo_mock.bats` (4 aserciones funcionales en BATS).
   * **Ejecución Efímera:**
-    * `docker run --rm -v "${PWD}:/app" -w /app sinfallas/base-python-uv:3.15 bash -c "python3 tests/test_install_skill.unit.py"`
-    * `docker run --rm -v "${PWD}:/app" -w /app sinfallas/base-bash-qa:latest bats bash-scripts/test/`
+    * `docker run --rm -v "${PWD}:/app" -w /app sinfallas/base-python-uv:3.15 bash -c "uv run --with pytest pytest -q --import-mode=importlib tests/*.unit.py"`
+    * `docker run --rm -v "${PWD}:/app" -w /app sinfallas/base-bash-qa:latest bats bash-scripts/test/ tests/bats/`
     * `docker run --rm -v "${PWD}:/app" -w /app sinfallas/base-bash-qa:latest bash -c "shellcheck -s sh scripts/install-skill.sh && shfmt -d -i 2 -ci scripts/install-skill.sh"`
   * **Cobertura y Métricas:** **100% de aserciones aprobadas** (9/9 pruebas combinadas) y **0 errores / 0 advertencias** en ShellCheck y shfmt.
   * **Aserciones Validadas:** Auto-detección inteligente sin contaminar `$HOME/.agents`, resolución de destinos (`workspace`, `antigravity`, `claude`, `cursor`, `hermes`, `all`), instalación del catálogo completo de las 5 skills (`qa-11x-architect`, `refactoring-ui`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `qa-11x-docker-certifier`), verificación criptográfica SHA-256 contra `manifest.json`, detección estricta de manipulaciones/tampering (abortando con código de salida 1 bajo DISA STIG `V-222513`), y verificación de flag `--help`.
@@ -219,13 +221,12 @@ El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
     * `tests/edge-cases.unit.ts` (33 pruebas): Cobertura profunda de casos de borde y ramas extremas en servicios y herramientas.
   * **Ejecución Efímera:**
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run lint`
-    * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run typecheck`
-    * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run test:unit`
+    * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server npx tsc --noEmit`
+    * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm test`
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run build`
   * **Cobertura y Métricas Alcanzadas:**
-    * **100% de aserciones aprobadas** (283/283 pruebas pasando en 13 suites).
-    * **98.99% de cobertura de líneas y sentencias** (superando el umbral de `>= 95%`).
-    * **95.23% de cobertura de ramas** (superando el umbral de `>= 95%`).
+    * **100% de aserciones aprobadas** (307/307 pruebas pasando en 16 suites + 20/20 escenarios Karate BDD).
+    * **99.11% de cobertura de líneas y sentencias** (superando el umbral de `>= 95%`).
     * **100.00% de cobertura de funciones**.
     * **0 errores de ESLint (`--max-warnings 0`), SonarJS (Cognitiva `<= 15`) y TypeScript (`strict: true`)**.
 

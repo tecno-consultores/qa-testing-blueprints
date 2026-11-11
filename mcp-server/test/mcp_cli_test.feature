@@ -187,11 +187,11 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
   # Grupo 9: Contrato del Ecosistema PHP 8.2-8.5 en Manifiesto y Servidor MCP
   # ==============================================================================
 
-  Scenario: 9. El manifiesto indexa oficialmente el stack PHP con sus 9 plantillas y fusión quirúrgica
+  Scenario: 9. El manifiesto indexa oficialmente el stack PHP con sus 10 plantillas y fusión quirúrgica
     * match manifest.stacks.php == '#object'
     * match manifest.stacks.php.description contains 'PHP 8.2-8.5'
     * match manifest.stacks.php.readme == 'php/README.md'
-    * match manifest.stacks.php.files == '#[9]'
+    * match manifest.stacks.php.files == '#[10]'
 
     # Verificar que composer.json.example aplique estrategia surgical_merge
     * def findComposer = function(f) { return f.target_name == 'composer.json' }
@@ -203,6 +203,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def filePaths = karate.map(manifest.stacks.php.files, function(x) { return x.path })
     * match filePaths contains 'php/composer.json.example'
     * match filePaths contains 'php/docker-compose.qa.yml'
+    * match filePaths contains 'php/gitignore.example'
     * match filePaths contains 'php/phpstan.neon.example'
     * match filePaths contains 'php/phpunit.xml.example'
     * match filePaths contains 'php/infection.json5.example'
@@ -562,6 +563,27 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def cliIndexSource = karate.readAsString(mcpRoot + '/src/index.ts')
     * assert cliIndexSource.contains("'--version'")
     * assert cliIndexSource.contains('dispatchCliArgs')
+
+  Scenario: 20. Presupuesto Cognitivo SKILL.md (< 20 KB), Regla #8 Anti-Ceguera UAT (SEC-16) y Paridad de 9 Recursos Documentales
+    * def findSkillMd = function(f) { return f.path == '.agents/skills/qa-11x-architect/SKILL.md' }
+    * def skillMdEntry = karate.filter(manifest.agent_governance_files, findSkillMd)[0]
+    * assert skillMdEntry.size_bytes < 20000
+    * def skillMdBytes = karate.readAsBytes(repoRoot + '/.agents/skills/qa-11x-architect/SKILL.md')
+    * assert skillMdBytes.length < 20000
+
+    * def skillMdContent = karate.readAsString(repoRoot + '/.agents/skills/qa-11x-architect/SKILL.md')
+    * assert skillMdContent.contains('8 UAT Anti-Blindness Rules')
+    * assert skillMdContent.contains('Multi-Step Pre-Auth & Ephemeral Challenge Continuity Invariant')
+    * assert skillMdContent.contains('inspect_ast_blast_radius')
+
+    * def sec22Ref = karate.readAsString(repoRoot + '/.agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.md')
+    * assert sec22Ref.contains('Addendum (`SEC-16` / UAT Rule #8)')
+    * assert sec22Ref.contains('PREAUTH_TTL_SECONDS = 300')
+
+    * def rootReadme = karate.readAsString(repoRoot + '/README.md')
+    * assert rootReadme.contains('9 recursos `blueprint://*`')
+    * assert !rootReadme.contains('8 Resources')
+
 
 
 

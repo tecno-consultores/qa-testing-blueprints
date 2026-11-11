@@ -60,7 +60,7 @@ El repositorio está dividido en ecosistemas tecnológicos listos para ser adopt
 | **`react-frontend/`**| Frontend Web (React / Vite) | `ESLint` + `tsc` + `Vitest (95%)` + `RTL` + `Stryker` + `Playwright` + `@axe-core` + `Lighthouse CI` + `Karate UI` |
 | **`php/`** | APIs y Backend PHP 8.2–8.5 | `PHP-CS-Fixer` + `PHPStan (Max)` + `Psalm (Taint)` + `Pest/PHPUnit + PCOV (95%)` + `Infection (MSI >= 80%)` + `Karate BDD` |
 | **`bash-scripts/`** | Automatización DevOps | `ShellCheck` + `shfmt` + `BATS-core` + `bats-mock` + `kcov` |
-| **`mcp-server/`** | Servidor MCP Node.js/TS | Paquete `@sinfallas/mcp-qa-11x`: Servidor MCP (stdio), 8 recursos `blueprint://*`, 12 tools y CLI `install-skill` / `init-agents` / `reconcile-agents` |
+| **`mcp-server/`** | Servidor MCP Node.js/TS | Paquete `@sinfallas/mcp-qa-11x`: Servidor MCP (stdio), 9 recursos `blueprint://*`, 12 tools y CLI `install-skill` / `init-agents` / `reconcile-agents` |
 | **`.agents/`** | Gobernanza de Agentes IA | Reglas (`rules/`), Habilidades (`skills/`) y Scripts de certificación (`scripts/`) |
 | **`manifest.json`** | Manifiesto Criptográfico Zero-Clone | Índice criptográfico SHA-256 de verificación remota bajo demanda (DISA STIG `V-222513` / `APSC-DV-001430`) |
 
@@ -72,14 +72,14 @@ A continuación se resume el stack de validación corporativo por entorno y tipo
 
 | Entorno | Linting / Formateo | Pruebas Unitarias / Mocking | Cobertura | Auditoría de Dependencias | Seguridad Estática (SAST) | Mutación | BDD / Caja Negra | Concurrencia / Estrés | Profiling / Complejidad | DAST (Dinámica) | Ingeniería del Caos | Observabilidad (Métricas) | Auditoría IaC / Docker | Git Hooks Locales |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Python** (`python/`) | `Ruff` + `Mypy (Strict)` | `Pytest` + `Hypothesis` + `pytest-mock` / `respx` | `Pytest-Cov (>= 95%)` | `pip-audit` + `CycloneDX SBOM` | `Bandit` | `Mutmut` | `N/A` | `N/A` | `py-spy` / `memray` + `Radon (CC <= B)` | `N/A` | `N/A` | `Pushgateway` + `Prometheus` | `Trivy` + `Hadolint` + `Gitleaks` | `Lefthook` |
-| **FastAPI** (`fastapi/`) | `Ruff` + `Mypy (Strict)` | `Pytest` + `pytest-asyncio` + `respx` + `PostgreSQL 17` + `KeyDB` + `Alembic` | `Pytest-Cov (>= 95%)` | `pip-audit` + `CycloneDX SBOM` | `Bandit` | `Mutmut` | `Karate Labs` + `Schemathesis` | `Locust (Headless)` | `py-spy` / `memray` + `Radon (CC <= B)` | `OWASP ZAP Baseline` | `Pumba` | `prometheus-fastapi-instrumentator` + `Prometheus` | `Trivy` + `Hadolint` + `Gitleaks` | `Lefthook` |
+| **Python** (`python/`) | `Ruff` + `Mypy (Strict)` | `Pytest` + `Hypothesis` + `pytest-mock` / `respx` | `Pytest-Cov (>= 95%)` | `pip-audit` + `CycloneDX SBOM` | `Bandit` | `Mutmut` | `N/A` | `N/A` | `py-spy` / `memray` + `Radon (CC <= A)` | `N/A` | `N/A` | `Pushgateway` + `Prometheus` | `Trivy` + `Hadolint` + `Gitleaks` | `Lefthook` |
+| **FastAPI** (`fastapi/`) | `Ruff` + `Mypy (Strict)` | `Pytest` + `pytest-asyncio` + `respx` + `PostgreSQL 17` + `KeyDB` + `Alembic` | `Pytest-Cov (>= 95%)` | `pip-audit` + `CycloneDX SBOM` | `Bandit` | `Mutmut` | `Karate Labs` + `Schemathesis` | `Locust (Headless)` | `py-spy` / `memray` + `Radon (CC <= A)` | `OWASP ZAP Baseline` | `Pumba` | `prometheus-fastapi-instrumentator` + `Prometheus` | `Trivy` + `Hadolint` + `Gitleaks` | `Lefthook` |
 | **Node** (`node-backend/`) | `ESLint (--max-warnings 0)` + `Prettier` + `tsc` | `Vitest` + `Supertest` + `Nock` | `@vitest/coverage-v8 (>= 95%)` | `pnpm audit` + `.npmrc (ignore-scripts=true)` | `eslint-plugin-security` | `Stryker` | `Karate Labs` | `Artillery` | `0x` + `Clinic.js` + `SonarJS (<= 15)` | `OWASP ZAP Baseline` | `Pumba` | `express-prom-bundle` + `Prometheus` | `Trivy` + `Hadolint` + `Gitleaks` | `Lefthook` |
 | **Vue3** (`vue3/`) | `ESLint (--max-warnings 0)` + `Prettier` + `vue-tsc` | `Vitest` + `Vue Test Utils` + `Playwright` + `@axe-core` | `@vitest/coverage-v8 (>= 95%)` | `pnpm audit` + `.npmrc (ignore-scripts=true)` | `eslint-plugin-security` | `Stryker` | `Karate Labs (Chrome Headless)` | `N/A` | `Lighthouse CI` + `SonarJS (<= 15)` | `OWASP ZAP Baseline` | `N/A` | `nginx-prometheus-exporter` + `Prometheus` | `Trivy` + `Hadolint` + `Gitleaks` | `Lefthook` |
 | **React** (`react-frontend/`) | `ESLint (--max-warnings 0)` + `Prettier` + `tsc` | `Vitest` + `React Testing Library` + `Playwright` + `@axe-core` | `@vitest/coverage-v8 (>= 95%)` | `pnpm audit` + `.npmrc (ignore-scripts=true)` | `eslint-plugin-security` + `react-hooks` | `Stryker` | `Karate Labs (Chrome Headless)` | `N/A` | `Lighthouse CI` + `SonarJS (<= 15)` | `OWASP ZAP Baseline` | `N/A` | `nginx-prometheus-exporter` + `Prometheus` | `Trivy` + `Hadolint` + `Gitleaks` | `Lefthook` |
 | **PHP 8.2–8.5** (`php/`) | `PHP-CS-Fixer (@PER-CS2.0)` + `PHPStan (Level Max)` | `Pest` / `PHPUnit 11.5+` + `MockHandler` + `PostgreSQL 17` + `KeyDB` | `PCOV (>= 95%)` | `composer audit` + `roave/security-advisories` + `CycloneDX SBOM` | `Psalm (--taint-analysis)` | `Infection (MSI >= 80%)` | `Karate Labs` + `Swagger-PHP` / `Schemathesis` | `Locust` / `Artillery` | `tomasvotruba/cognitive-complexity (<= 9)` | `OWASP ZAP Baseline` | `Pumba` | `promphp/prometheus_client_php` + `Prometheus` | `Trivy` + `Hadolint` + `Gitleaks` | `Lefthook` |
 | **Bash** (`bash-scripts/`) | `ShellCheck` + `shfmt` | `BATS-core` + `bats-support` + `bats-assert` + `bats-file` + `bats-mock` | `kcov (>= 95%)` | `N/A` | `ShellCheck` | `N/A` | `N/A` | `N/A` | `hyperfine` + `time -v` | `N/A` | `N/A` | `Pushgateway` + `Prometheus` | `Trivy` + `Hadolint` + `Gitleaks` | `Lefthook` |
-| **MCP Server** (`mcp-server/`) | `ESLint (--max-warnings 0)` + `Prettier` + `tsc` | `Vitest` (`270+ tests`) | `@vitest/coverage-v8 (>= 95%)` | `pnpm audit` + `.npmrc (ignore-scripts=true)` | `eslint-plugin-security` + `audit_security_stig_owasp` | `Stryker` | `Karate Labs (mcp_cli_test.feature)` | `N/A` | `SonarJS (<= 15)` | `N/A` | `N/A` | `Telemetría JSON Pass-Quiet` | `Trivy` + `Gitleaks` | `Lefthook` |
+| **MCP Server** (`mcp-server/`) | `ESLint (--max-warnings 0)` + `Prettier` + `tsc` | `Vitest` (`307+ tests`) | `@vitest/coverage-v8 (>= 95%)` | `pnpm audit` + `.npmrc (ignore-scripts=true)` | `eslint-plugin-security` + `audit_security_stig_owasp` | `Stryker` | `Karate Labs (mcp_cli_test.feature, 20 escenarios)` | `N/A` | `SonarJS (<= 15)` | `N/A` | `N/A` | `Telemetría JSON Pass-Quiet` | `Trivy` + `Gitleaks` | `Lefthook` |
 
 ---
 
@@ -126,10 +126,10 @@ flowchart TD
         QAEng["Ingeniero de QA / Staff"]
     end
 
-    MCP -->|"12 Tools + 8 Resources stdio"| AGY
-    MCP -->|"12 Tools + 8 Resources stdio"| Claude
-    MCP -->|"12 Tools + 8 Resources stdio"| Cursor
-    MCP -->|"12 Tools + 8 Resources stdio"| Hermes
+    MCP -->|"12 Tools + 9 Resources stdio"| AGY
+    MCP -->|"12 Tools + 9 Resources stdio"| Claude
+    MCP -->|"12 Tools + 9 Resources stdio"| Cursor
+    MCP -->|"12 Tools + 9 Resources stdio"| Hermes
     Skills -->|"Inyeccion de Cerebro 11X"| AGY
     Skills -->|"Instalacion en workspace o IDE"| Dev
     Blueprints -->|"Makefile + Docker efimero"| QAEng
@@ -142,7 +142,7 @@ flowchart TD
 
 El servidor canónico MCP en Node.js/TypeScript está publicado en npmjs bajo **`@sinfallas/mcp-qa-11x`** (Node.js 20+). Permite a cualquier agente de IA o IDE conectarse en tiempo real sin clonar el repositorio, accediendo a:
 
-* **8 Recursos Dinámicos (`blueprint://*`):** Manifiesto criptográfico (`blueprint://manifest`), filosofía y prompts (`blueprint://core/philosophy`), síntesis DISA/OWASP (`blueprint://security/disa-owasp-22`), templates por stack (`blueprint://{stack}/readme`), reglas tácticas UI (`blueprint://ui/refactoring-ui/{topic}`) y utilitarios (`blueprint://core/*`).
+* **9 Recursos Dinámicos (`blueprint://*`):** Manifiesto criptográfico (`blueprint://manifest`), filosofía y prompts (`blueprint://core/philosophy`), síntesis DISA/OWASP (`blueprint://security/disa-owasp-22`), PostgreSQL 17 RLS multi-transacción + cadena WORM (`blueprint://database/postgres-rls-worm`), templates por stack (`blueprint://{stack}/readme`), reglas tácticas UI (`blueprint://ui/refactoring-ui/{topic}`) y utilitarios (`blueprint://core/*`).
 * **12 Herramientas Autónomas (`Tools`):**
   * `inspect_project_config`: Audita stacks presentes, configuraciones de linters/tipado y disponibilidad de pruebas en navegador real (`BrowserTestingReadiness`).
   * `fetch_blueprint_bundle`: Descarga quirúrgica de plantillas bajo demanda con validación SHA-256 y modo metadata-only ahorrador de tokens (`include_content: false`).
@@ -240,7 +240,7 @@ Cuando se publica una nueva versión de `@sinfallas/mcp-qa-11x` en `npmjs.com` o
    # B. Comprobar la versión y fecha UTC del manifiesto y documentación en caché (~/.cache/qa-11x-blueprints/manifest.json):
    grep -E '"blueprint_version"|"generated_at_utc"' ~/.cache/qa-11x-blueprints/manifest.json
 
-   # C. Verificar criptográficamente (SHA-256 DISA STIG V-222513) los 20 archivos de las 5 Skills en el IDE contra el manifiesto:
+   # C. Verificar criptográficamente (SHA-256 DISA STIG V-222513) los 23 archivos de las 5 Skills en el IDE contra el manifiesto:
    python3 -c '
    import hashlib, json, pathlib
    m = json.load(open(pathlib.Path.home() / ".cache/qa-11x-blueprints/manifest.json"))
@@ -257,7 +257,7 @@ Cuando se publica una nueva versión de `@sinfallas/mcp-qa-11x` en `npmjs.com` o
 
 Si prefieres adoptar o inspeccionar los blueprints directamente en tu propio repositorio:
 
-1. **Copiar Archivos Operativos:** Arrastra a la raíz de tu proyecto el orquestador `docker-compose.qa.yml`, el `Makefile.example` (renómbralo a `Makefile`), los archivos `.example` del ecosistema elegido y la carpeta `.agents/`.
+1. **Copiar Archivos Operativos (Contrato Thin-Repo):** Arrastra a la raíz de tu proyecto el orquestador `docker-compose.qa.yml`, el `Makefile.example` (renómbralo a `Makefile`), los archivos `.example` del ecosistema elegido y únicamente `.agents/scripts/` + `.agents/ACTIVE_TASK.md.example` (manteniendo las 5 skills corporativas instaladas globalmente en tu IDE para cero duplicación de contexto).
 2. **Documentación de Soporte:** Copia la carpeta `docs/` y el archivo `AI_MASTER_PROMPT.md` a tu proyecto (ej. en `docs/qa/` o en la raíz).
 3. **Delega la Fusión a tu Agente de IA o Aplícala Manualmente:**
    > *"Lee las directrices en `AI_MASTER_PROMPT.md` y `.agents/README.md`. Necesito integrar el estándar QA 11X en este proyecto. Lee los archivos `.example` y realiza una **fusión quirúrgica no destructiva** con mis archivos de configuración reales. Conserva intactas mis dependencias de negocio y añade todo el stack de linters, tipado estricto y pruebas."*

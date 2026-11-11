@@ -60,7 +60,7 @@ Welcome to the **QA Testing Blueprints** repository. All AI coding assistants (G
 
 ## 3. Skills Catalog in `.agents/skills/`
 
-1. `qa-11x-architect`: Master QA 11X & DevSecOps Architect enforcing the 13 layers of the 11X Quality Pyramid, 10 Non-Negotiable Laws, 6 UAT Anti-Silo Rules, High-IQ Token Economy, and 22 DISA STIG V6R5 / OWASP v4.2 controls with 9 on-demand `references/*.md` modules.
+1. `qa-11x-architect`: Master QA 11X & DevSecOps Architect enforcing the 13 layers of the 11X Quality Pyramid, 10 Non-Negotiable Laws, 8 UAT Anti-Blindness Rules (including `SEC-16` Multi-Step Pre-Auth Continuity), High-IQ Token Economy, and 22 DISA STIG V6R5 / OWASP v4.2 controls with 9 on-demand `references/*.md` modules (`SKILL.md < 20 KB`).
 2. `qa-11x-docker-certifier`: QA 11X Corporate Standard certifier in ephemeral Docker (coverage `>= 95%`, SonarJS, Karate Labs, mutation testing, zero host contamination).
 3. `docker-trivy-keydb-hardening`: Container hardening (Trivy HIGH/CRITICAL = 0), multi-threaded KeyDB in-memory caching engine, non-root users, and performance optimization.
 4. `graphify-ast-navigator`: Bidirectional AST Knowledge Graph navigation for Code Q&A and refactoring (`declaring_files`, incoming callers, outgoing callees), blast-radius pre-audit, layer boundary compliance, and CLI-first query protocol.
@@ -72,6 +72,7 @@ Welcome to the **QA Testing Blueprints** repository. All AI coding assistants (G
 
 - `certify_task_completion.sh`: End-to-end 10-stage certification gate enforcing secret scanning, IaC auditing, i18n integrity, zero orphan UI components, zero orphan API endpoints, topological health, ORM parity, cryptographic manifest integrity, roadmap & active task consistency, and documentation/test sync.
 - `verify_roadmap_consistency.py`: Automated bidirectional consistency validator enforcing strict parity between `ROADMAP.md` summary table and granular section tasks (`- [x]` / `- [ ]`), plus zero-pending tasks invariant in `ACTIVE_TASK.md` when marked completed.
+- `verify_docs_invariants.py`: Automated documentation & cognitive-budget validator enforcing `SKILL.md < 20 KB`, `ACTIVE_TASK <= 40` lines, valid MCP resource topics, non-duplicate security section headers, and zero stale tool/image/resource counts across docs.
 - `verify_alembic_orm_parity.py`: Automated parity validator between ORM models and database migrations (detects schema drift and `revision > 32` chars).
 - `verify_zero_orphan_vue_components.py`: Automated parity validator ensuring 100% of UI components and views have active unit test suites.
 - `verify_no_orphan_api_endpoints.py`: Automated bidirectional parity validator ensuring 0 frontend calls to non-existent backend routes (404/405) and 0 unreferenced backend routes.

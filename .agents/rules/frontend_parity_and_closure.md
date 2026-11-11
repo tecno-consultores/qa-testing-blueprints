@@ -32,6 +32,8 @@
    - Event feed/ribbon classifiers in UI MUST map each event category to its exact semantic badge (`CAÍDA`, `MANTENIMIENTO`, `RESPALDO`, `SEGURIDAD`, `OPERACIÓN`), strictly prohibiting generic catch-all `else` clauses (such as `else return 'MAINTENANCE'`) that mislabel backups or session renewals, and asserting that `actor_username` and `resource_display_name` never render raw UUID v4 strings.
 8. **Prohibition of Blind `HTTP 200 OK` Success in Batch Endpoints:**
    - In UI views and stores consuming bulk/batch execution endpoints (`POST .../execute`, `POST .../batch`), it is strictly prohibited to assume global success from `HTTP 200 OK` alone; the client MUST inspect `res.data.results[].status` (or `items[].status`) per target resource and surface individual/partial failures (`FAILED`, `ERROR: ...`) instead of rendering a false-positive global success notification.
+9. **Pre-Auth HTTP `401` Interceptor Symmetry (`PREAUTH_PUBLIC_ROUTES`):**
+   - Frontend HTTP interceptors (`axios`/`fetch`) MUST check `PREAUTH_PUBLIC_ROUTES` (`/auth/login`, `/auth/mfa/enroll`, `/auth/mfa/verify`, `/auth/password-change`, WebAuthn ceremonies) before attempting `/auth/refresh` or firing authenticated background polling when no session token exists, surfacing invalid OTP/challenge `401` errors inline within the login/MFA view instead of wiping state via hard redirect.
 
 ---
 
@@ -63,5 +65,5 @@ After **EVERY** task or turn that adds, edits, or removes code or configuration 
    - Mark `.agents/ACTIVE_TASK.md` as `COMPLETED (100%)`.
 4. **Secret, Dependency Vulnerability, i18n & Parity Certification:**
    - Run `./scripts/verificar-secretos.sh` (0 secret leaks).
-   - Run `./auditar-infra.sh` (0 High/Critical findings).
+   - Run `./scripts/auditar-infra.sh` (0 High/Critical findings).
    - Run `./.agents/scripts/certify_task_completion.sh` (all gates passed).

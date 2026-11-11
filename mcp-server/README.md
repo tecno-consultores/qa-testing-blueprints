@@ -59,7 +59,7 @@ rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@la
 
 ## 🧠 Catálogo de 5 Skills Corporativas Incluidas
 
-1. **`qa-11x-architect`:** Arquitecto Maestro QA 11X y DevSecOps (13 capas de la Pirámide 11X, 10 Leyes Innegociables, 6 Reglas Anti-Silo UAT, Economía Cognitiva de Tokens con 3 vías proporcionales `DOCS_ONLY` / `MICRO_CHANGE` / `FULL_11X` y 22 controles DISA STIG V6R5 / OWASP v4.2 con 9 módulos `references/*.md` bajo demanda).
+1. **`qa-11x-architect`:** Arquitecto Maestro QA 11X y DevSecOps (`SKILL.md < 20 KB`: 13 capas de la Pirámide 11X, 10 Leyes Innegociables, 8 Reglas Anti-Ceguera UAT incluyendo continuidad Pre-Auth `SEC-16`, Economía Cognitiva de Tokens con 3 vías proporcionales `DOCS_ONLY` / `MICRO_CHANGE` / `FULL_11X` y 22 controles DISA STIG V6R5 / OWASP v4.2 con 9 módulos `references/*.md` bajo demanda).
 2. **`graphify-ast-navigator`:** Navegación bidireccional del Grafo de Conocimiento AST (`graphify-out/graph.json` y `GRAPH_REPORT.md`) obligatoria tanto para **responder preguntas sobre el código o arquitectura (`Code Q&A`: `Graphify AST-First, Grep-Fallback, Windowed-Read-Second`)** como para auditar el radio de impacto antes de refactorizar y validar fronteras de capas.
 3. **`qa-11x-docker-certifier`:** Certificador de ejecución efímera en Docker (**Regla Cero**: cobertura unitaria `>= 95%` con `COVERAGE_FILE=/tmp/.coverage`, complejidad ciclomática/cognitiva Grado A, Karate Labs BDD, pruebas de mutación y cero contaminación del sistema operativo anfitrión).
 4. **`docker-trivy-keydb-hardening`:** Hardening de contenedores (`Trivy HIGH/CRITICAL = 0`), motor en memoria multihilo KeyDB, usuarios no-root y builds multi-etapa.
@@ -88,7 +88,7 @@ rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@la
 3. **`bootstrap_or_merge_11x`:** Fusión quirúrgica no destructiva de configuraciones (`package.json`, `pyproject.toml`, `Makefile` con `COVERAGE_FILE=/tmp/.coverage`, `.gitignore`, `.npmrc`).
 4. **`inspect_ast_blast_radius`:** Navegación AST bidireccional sobre `graphify-out/graph.json` y `GRAPH_REPORT.md` tanto para responder preguntas sobre código/arquitectura (`declaring_files` con `archivo:L<línea>`, llamadores entrantes, `outgoing_dependencies` y `graph_reports`) como para calcular el radio de impacto antes de refactorizar (`auto_build_if_missing`, `refresh_graph` y elegibilidad `MICRO_CHANGE`).
 5. **`clean_workspace_11x`:** Saneamiento seguro de artefactos temporales de pruebas, cachés de Docker y archivos bloqueados por root.
-6. **`audit_security_stig_owasp`:** Auditoría estática de reglas DISA ASD STIG V6R5 y OWASP v4.2 (`SEC-01` a `SEC-15`, `QA-KARATE-IDEMP`, `QA-COV-01`, `QA-SMOKE-01`, `UI-11X-01`, `UI-11X-02`, incluyendo PostgreSQL RLS multi-transacción `after_begin`, cadena forense WORM `seq_num` + `pg_advisory_xact_lock` y propagación de credenciales efímeras en Docker) con agrupación compacta (`grouped_findings`).
+6. **`audit_security_stig_owasp`:** Auditoría estática de reglas DISA ASD STIG V6R5 y OWASP v4.2 (`SEC-01` a `SEC-16`, `QA-KARATE-IDEMP`, `QA-COV-01`, `QA-SMOKE-01`, `UI-11X-01`, `UI-11X-02`, incluyendo PostgreSQL RLS multi-transacción `after_begin`, cadena forense WORM `seq_num` + `pg_advisory_xact_lock`, propagación de credenciales efímeras en Docker y continuidad atómica Pre-Auth multi-etapa) con agrupación compacta (`grouped_findings`).
 7. **`run_ephemeral_qa`:** Ejecución aislada de targets del `Makefile` en contenedores Docker efímeros (**Regla Cero**) con soporte `skip_if_docs_only` y condensación Pass-Quiet.
 8. **`certify_11x_gate`:** Compuerta unificada de certificación 11X (secretos, JSON, componentes huérfanos UI, endpoints API huérfanos, paridad ORM/Alembic con soporte monorepo, topología AST, seguridad STIG/OWASP y sincronía documental).
 9. **`audit_test_pyramid_gaps`:** Auditoría estática de las 13 capas de la pirámide 11X (`L01` a `L13`), detección de 3 fases temporales, refresco dual y plan de acción priorizado.
@@ -104,7 +104,7 @@ rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@la
 - `blueprint://core/philosophy`: Filosofía y las 13 capas de calidad 11X.
 - `blueprint://security/disa-owasp-22`: Catálogo de los 22 patrones DISA STIG V6R5 y OWASP v4.2.
 - `blueprint://{stack}/readme`: Guía operativa por ecosistema tecnológico (`fastapi`, `python`, `node-backend`, `vue3`, `react-frontend`, `php`, `bash-scripts`).
-- `blueprint://ui/refactoring-ui/{topic}`: Módulos de diseño y accesibilidad WCAG 2.1/2.2 AA (`01` a `09`).
+- `blueprint://ui/refactoring-ui/{topic}`: Módulos de diseño y accesibilidad WCAG 2.1/2.2 AA (`skill`, `hierarchy`, `layout`, `type`, `color`, `depth`, `images`, `polish`, `dark-mode`, `tailwind`).
 - `blueprint://core/active-task-template`: Plantilla canónica `.agents/ACTIVE_TASK.md.example`.
 - `blueprint://core/cleanup-script`: Script universal `scripts/limpieza.sh`.
 - `blueprint://core/roadmap-validator`: Validador bidireccional `verify_roadmap_consistency.py`.

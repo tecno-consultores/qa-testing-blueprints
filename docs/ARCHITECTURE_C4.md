@@ -18,7 +18,7 @@ flowchart TD
     Host["Maquina Host (Docker Engine)"]
     Reports["Reportes y Artefactos (Coverage, ZAP, Chaos, Metricas RED)"]
 
-    Agent -->|"1. Consulta 8 Resources y ejecuta 12 Tools (stdio)"| MCP
+    Agent -->|"1. Consulta 9 Resources y ejecuta 12 Tools (stdio)"| MCP
     Agent -->|"2. Ingiere directivas y reglas"| Skill
     Human -->|"3. Instala skills (npx install-skill) o clona repo"| Skill
     Human -->|"4. Delega tareas / Pair Programming"| Agent

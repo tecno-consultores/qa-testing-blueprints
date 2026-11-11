@@ -42,10 +42,10 @@ sudo chown -R $USER:$USER .
 
 ---
 
-## 3. Conflicto de Puertos con Prometheus (9090) o Graphify (8080)
+## 3. Conflicto de Puertos con Prometheus (9090)
 
 **Síntoma:**
-Error `Bind for 0.0.0.0:9090 failed: port is already allocated` al intentar lanzar el perfil de caos u observabilidad.
+Error `Bind for 0.0.0.0:9090 failed: port is already allocated` al intentar lanzar el perfil de caos u observabilidad. *(Nota: El análisis AST con Graphify opera en modo CLI-first mediante `./scripts/actualizar-grafos-graphify.sh` sin demonios persistentes en el puerto 8080).*
 
 **¿Por qué sucede?**
 Ya tienes una instancia de Prometheus o un servicio Nginx corriendo en tu máquina *host* o en otro proyecto Docker que olvidaste apagar.
@@ -101,7 +101,7 @@ OWASP ZAP termina de auditar la API exitosamente, pero escupe un error de permis
 El contenedor de ZAP corre por defecto con el usuario no privilegiado `zap` interno, el cual no tiene permisos de escritura en el volumen *bind* mapeado desde tu máquina host.
 
 **La Solución:**
-Asegúrate de que la directiva `user: root` esté declarada en el servicio `zap` dentro de tu `docker-compose.qa.yml`. Luego, ejecuta `./scripts/limpieza.sh` o `make clean` para purgar o restaurar los permisos locales (mediante el fallback en Docker efímero Alpine que no requiere `sudo`).
+Mantén el contenedor ejecutándose con su usuario no privilegiado (`UID 1000`, prohibido declarar `user: root` por cumplimiento Trivy `DS002` / DISA STIG) y asegura permisos de escritura previos en la carpeta mapeada o escribe el reporte en `/tmp/zap-report.html` extrayéndolo al cerrar. Al finalizar, ejecuta `./scripts/limpieza.sh` o `make clean` para normalizar permisos sin requerir `sudo`.
 
 ---
 
@@ -158,7 +158,7 @@ KeyDB utiliza por defecto un modelo multi-hilo (`server-threads 4`). Si se ejecu
 **La Solución:**
 Verifica que el servicio `keydb` en `docker-compose.qa.yml` declare límites de memoria seguros:
 ```yaml
-    command: keydb-server --server-threads 4 --maxmemory 256mb --maxmemory-policy allkeys-lru --protected-mode no
+    command: keydb-server --server-threads 2 --maxmemory 256mb --maxmemory-policy allkeys-lru --appendonly no --save ""
 ```
 
 ---
@@ -172,11 +172,10 @@ Al ejecutar `./scripts/auditar-infra.sh` o `make audit`, Trivy arroja: `permissi
 El contenedor efímero de Trivy corre como root y crea la base de datos de vulnerabilidades con permisos exclusivos del usuario `0`. Si ejecutas una auditoría posterior con un usuario no privilegiado, la lectura se bloquea.
 
 **La Solución:**
-Ejecuta la purga controlada de caché o reasigna permisos:
+El script `./scripts/auditar-infra.sh` utiliza el volumen nombrado aislado `qa11x_trivy_cache` para evitar contaminar el árbol de trabajo con archivos `root`. Si la base de datos en caché se corrompe, púrgala limpiamente sin `sudo`:
 ```bash
-sudo rm -rf .trivy-cache/
-# O restaura permisos:
-sudo chown -R $USER:$USER .
+docker volume rm -f qa11x_trivy_cache
+./scripts/limpieza.sh
 ```
 
 ---

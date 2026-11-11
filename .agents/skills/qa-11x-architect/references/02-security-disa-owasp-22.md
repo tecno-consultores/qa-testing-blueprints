@@ -23,7 +23,7 @@ This reference provides the comprehensive compliance matrix and tactical impleme
 | **10** | Refresh Token Concurrency Grace | `APSC-DV-002270` | OWASP SM 1-9 | Allow 5-second grace window for simultaneous in-flight token rotations. |
 | **11** | Tenant-Isolated Idempotency Keys | `APSC-DV-002560` | OWASP API4:2023 | Key schema: `idemp:{tenant_id}:{user_id}:{key}`; return cached response. |
 | **12** | Hide API Docs in Production | `APSC-DV-002430` | OWASP SC-11 | Disable `/docs`, `/redoc`, and `openapi.json` when `APP_ENV=production`. |
-| **13** | Shift-Left Lockfile CVE Audit | `APSC-DV-001430` | OWASP A06:2021 | Audit dependencies (`uv pip audit`, `pnpm audit`); block Critical/High. |
+| **13** | Shift-Left Lockfile CVE Audit | `APSC-DV-001430` | OWASP A06:2021 | Audit dependencies (`pip-audit`, `pnpm audit`); block Critical/High. |
 | **14** | Concurrent Sessions & Full Purge | `APSC-DV-000010/70/80` | OWASP SM 1-19 | Max 2 sessions; 10m/15m idle timeouts; purge local/session/cache on logout. |
 | **15** | Lockout & Constant-Time Auth | `APSC-DV-000290..580` | OWASP A 1-20 | 3-fail/15m lockout; dummy Argon2id hash; 15-char password; 72h temp account. |
 | **16** | Unicode NFKC & Anti-Command Inj | `APSC-DV-002510..2530` | OWASP CEC/SFL-9 | Normalize to NFKC *before* validation; forbid `shell=True`; use absolute paths. |
@@ -233,4 +233,47 @@ function encryptVaultSecret(string $plaintext, string &$rawKey32Bytes, string $a
         sodium_memzero($rawKey32Bytes);
     }
 }
+```
+
+### Addendum (`SEC-16` / UAT Rule #8): Multi-Step Pre-Auth & Ephemeral Challenge Continuity (`APSC-DV-000530`, `APSC-DV-002270`, `APSC-DV-002560`, OWASP ASVS V2.8)
+Multi-step unauthenticated flows (`POST /auth/login` returning `mfa_enrollment_required` / `mfa_challenge` / `password_change_required`, followed by `POST /auth/mfa/enroll`, `POST /auth/mfa/verify`, or WebAuthn ceremonies) MUST satisfy 4 compensatory controls and 1 anti-silo continuity invariant:
+1. **Opaque CSPRNG Challenge (`>= 128-bit`) & Origin Guard:** Generate `challenge_id = secrets.token_urlsafe(32)` (`>= 16` raw bytes) sent only in JSON body or custom header (never URL query strings) and validate `Origin` / `Sec-Fetch-Site` on pre-auth `POST` endpoints.
+2. **Atomic Single-Use Consumption (`GETDEL` / Lua) or Scoped Pre-Auth Idempotency:** Consume challenges atomically (`await redis.getdel(f"preauth:challenge:{challenge_id}")` or Lua compare-and-delete) or scope idempotency keys as `idemp:preauth:{challenge_id}:{key}` to prevent double-enrollment race conditions.
+3. **Strict `TTL <= 300s` & Max-Attempt Purge (`APSC-DV-000530`):** Enforce `ex=300` (5 minutes max) and purge the challenge immediately after `3–5` invalid OTP/assertion attempts.
+4. **Symmetric `PREAUTH_PUBLIC_ROUTES` Allowlist & Unmocked Continuity Test:** Share an explicit `PREAUTH_PUBLIC_ROUTES` constant across backend `CSRF`/`Idempotency` middlewares (when excluded prior to JWT issuance) and the frontend HTTP `401` interceptor (never firing `/auth/refresh` or authenticated telemetry when no session exists). Always verify `POST /auth/login` -> `POST /auth/mfa/*` in a **single continuous test** backed by the same in-memory/live KeyDB/Redis instance without intermediate mocks or manual `redis.set(...)` seeding.
+
+```python
+import secrets
+from fastapi import HTTPException, Request
+
+PREAUTH_TTL_SECONDS = 300
+MAX_PREAUTH_ATTEMPTS = 3
+
+async def issue_preauth_challenge(redis, user_id: str, tenant_id: str, purpose: str) -> str:
+    challenge_id = secrets.token_urlsafe(32)  # 256-bit CSPRNG token
+    await redis.hset(
+        f"preauth:challenge:{challenge_id}",
+        mapping={"user_id": user_id, "tenant_id": tenant_id, "purpose": purpose, "attempts": "0"},
+    )
+    await redis.expire(f"preauth:challenge:{challenge_id}", PREAUTH_TTL_SECONDS)
+    return challenge_id
+
+async def consume_preauth_challenge_atomic(redis, request: Request, challenge_id: str, otp_valid: bool) -> dict[str, str]:
+    origin = request.headers.get("origin")
+    sec_site = request.headers.get("sec-fetch-site", "same-origin")
+    if sec_site not in ("same-origin", "same-site", "none") and not origin:
+        raise HTTPException(status_code=403, detail="Cross-site pre-auth request blocked")
+    key = f"preauth:challenge:{challenge_id}"
+    if not otp_valid:
+        attempts = await redis.hincrby(key, "attempts", 1)
+        if attempts >= MAX_PREAUTH_ATTEMPTS:
+            await redis.delete(key)
+        raise HTTPException(status_code=401, detail="Invalid verification code")
+    # Atomic single-use read + delete via Lua (prevents concurrent replay)
+    lua = "local d = redis.call('HGETALL', KEYS[1]); if #d > 0 then redis.call('DEL', KEYS[1]); end; return d"
+    raw = await redis.eval(lua, 1, key)
+    if not raw:
+        raise HTTPException(status_code=401, detail="Challenge expired or already consumed")
+    it = iter(raw)
+    return {k.decode() if isinstance(k, bytes) else k: v.decode() if isinstance(v, bytes) else v for k, v in zip(it, it)}
 ```

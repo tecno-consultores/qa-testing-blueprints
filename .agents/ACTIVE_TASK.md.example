@@ -3,48 +3,22 @@
 
 # Registro de Tarea Activa: [Nombre del Hito o Tarea Técnica]
 
-**Fecha de Inicio:** AAAA-MM-DD  
-**Fecha de Conclusión:** En progreso | AAAA-MM-DD  
-**Estado:** IN_PROGRESS | COMPLETED (100%)  
-**Especificación Rectora:** `docs/specs/[XX_NOMBRE_ESPECIFICACION.md]` (si aplica)  
-**Objetivo Principal:**
-[Describir en 2-4 líneas el objetivo atómico de la tarea, componentes a modificar y resultado esperado].
+**Fecha de Inicio:** AAAA-MM-DD | **Estado:** IN_PROGRESS | COMPLETED (100%)
+**Vía de Ejecución:** `DOCS_ONLY` | `MICRO_CHANGE` | `CODE_CHANGE` (`FULL_11X`)
+**Objetivo:** [Describir en 1–2 líneas el alcance atómico y componentes afectados].
 
----
-
-## 🛡️ Guía de Resiliencia Operativa para Agentes de IA (Estándar 11X)
-
-> **PROPÓSITO VITAL — RESILIENCIA ANTE CRASHES DE IDE O REINICIOS DE CONTEXTO:**
-> 1. **Planificación Previa:** Todo agente de IA (Google Antigravity, Claude, Hermes, Cursor) DEBE utilizar su herramienta o modo de planificación (comando `/plan` o artefacto interactivo con `RequestFeedback: true`) antes de modificar código en tareas complejas, volcando inmediatamente las fases acordadas en este archivo (`.agents/ACTIVE_TASK.md`).
-> 2. **Actualización en Caliente:** Durante la ejecución, el agente DEBE actualizar este archivo inmediatamente después de completar cada paso atómico cambiando `- [ ]` por `- [x]`. Si el IDE se cuelga, la sesión se reinicia o el contexto se compacta, el agente recupera el hilo leyendo este archivo primero.
-> 3. **Cierre de Tarea:** Al finalizar y certificar todas las compuertas 11X, marcar el estado como `COMPLETED (100%)`.
-> 4. **Git Ignore:** Este archivo activo debe permanecer ignorado en `.gitignore` para no ensuciar el historial de Git con estados de trabajo locales intermedios.
-
----
+> **RESILIENCIA 11X (`<= 40 líneas`, git-ignored):** Formular `/plan` antes de editar código en `FULL_11X`, actualizar cada paso en vivo (`- [ ]` -> `- [x]`) para resistir compactaciones o reinicios, y marcar `COMPLETED (100%)` al superar las 10/10 compuertas.
 
 ## 📋 Diario de Progreso
-
-- [ ] **Fase 0: Auditoría Preventiva e Inspección de Impacto (Blast Radius)**
-  - [ ] 0.1 Inspeccionar archivos compartidos y calcular radio de impacto (`inspect_ast_blast_radius`).
-  - [ ] 0.2 Validar salud topológica y límites de capas arquitectónicas.
-
-- [ ] **Fase 1: Implementación de Código y Lógica de Negocio**
+- [ ] **Fase 0 — Radio de Impacto AST:** Consultar `inspect_ast_blast_radius` y `verify_topological_health.py`.
+- [ ] **Fase 1 — Implementación Quirúrgica:**
   - [ ] 1.1 [Subtarea técnica 1]
   - [ ] 1.2 [Subtarea técnica 2]
-  - [ ] 1.3 [Subtarea técnica 3]
-
-- [ ] **Fase 2: Creación de Suites de Pruebas 11X (Pyramid)**
-  - [ ] 2.1 Pruebas unitarias backend / frontend con cobertura >= 95.0%.
-  - [ ] 2.2 Escenarios BDD Karate Labs (`api_test.feature` y `ui_business_flow.feature`).
-  - [ ] 2.3 Verificación de paridad de base de datos / migraciones.
-
-- [ ] **Fase 3: Validación y Certificación en Docker Efímero (Rule Zero)**
-  - [ ] 3.1 Ejecutar `make qa-lint` y linters (0 errores, SonarJS Complejidad Cognitiva <= 15).
-  - [ ] 3.2 Ejecutar `make qa-unit` certificando umbral >= 95.0%.
-  - [ ] 3.3 Auditoría de seguridad con Trivy IaC (`auditar-infra.sh`) y secret scanning (0 secretos).
-
-- [ ] **Fase 4: Sincronización Documental y Protocolo de Cierre**
-  - [ ] 4.1 Sincronizar `ROADMAP.md`, `CHANGELOG.md` (`## [Unreleased]`), `TESTING.md` y `README.md`.
-  - [ ] 4.2 Ejecutar compuerta universal `./.agents/scripts/certify_task_completion.sh` (9/9 compuertas).
-  - [ ] 4.3 Actualizar este archivo a `COMPLETED (100%)`.
-  - [ ] 4.4 Commit semántico en español y `git push origin <rama>`.
+- [ ] **Fase 2 — Pirámide de Pruebas 11X:**
+  - [ ] 2.1 Unitarias (`>= 95.0%`, `COVERAGE_FILE=/tmp/.coverage`) y paridad ORM/migraciones.
+  - [ ] 2.2 Escenarios BDD Karate Labs (`api_test.feature` con `Idempotency-Key` UUID y `ui_business_flow.feature`).
+- [ ] **Fase 3 — Ejecución Efímera en Docker (`Rule Zero`):**
+  - [ ] 3.1 `make qa-lint` + `make qa-unit` + `./scripts/verificar-secretos.sh` + `./scripts/auditar-infra.sh`.
+- [ ] **Fase 4 — Sincronización Documental y Cierre 10/10:**
+  - [ ] 4.1 Actualizar `docs/`, `TESTING.md`, `CHANGELOG.md` y `ROADMAP.md` + `./scripts/actualizar-grafos-graphify.sh`.
+  - [ ] 4.2 Certificar `./.agents/scripts/certify_task_completion.sh` (10/10 compuertas), marcar `COMPLETED (100%)` y `git push`.

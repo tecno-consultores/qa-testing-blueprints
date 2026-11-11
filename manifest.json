@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.16.0",
-  "generated_at_utc": "2026-11-10T23:45:19Z",
+  "generated_at_utc": "2026-11-11T00:05:03Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -658,8 +658,8 @@
       "path": ".agents/ACTIVE_TASK.md.example",
       "target_name": ".agents/ACTIVE_TASK.md",
       "merge_strategy": "copy_if_missing",
-      "sha256": "9f82b1cd02aa3fb8b326cf61814cfe4bc8d8acfda0297e3405d6dcb22e0fd91f",
-      "size_bytes": 3160
+      "sha256": "c1c0096aa60489c717e1d412e22bfb0b8c1f0525a39c122100d14762879e4039",
+      "size_bytes": 1706
     },
     {
       "path": ".agents/README.md",
@@ -693,8 +693,8 @@
       "path": ".agents/rules/frontend_parity_and_closure.md",
       "target_name": ".agents/rules/frontend_parity_and_closure.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "8808e21cd9bb60326fb4146c087c21486f3ae9c2de9a8a7027feda5ea8b3da5c",
-      "size_bytes": 6153
+      "sha256": "afaeabd204ae2c7c5866d39e7b73b278b245435f94a9dd635f24ffa76a0efae1",
+      "size_bytes": 6651
     },
     {
       "path": ".agents/rules/ground_truth_fixtures_and_negative_invariants.md",
@@ -707,22 +707,22 @@
       "path": ".agents/rules/mandatory_qa_pyramid_and_doc_sync.md",
       "target_name": ".agents/rules/mandatory_qa_pyramid_and_doc_sync.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "763a75efca7099730f886055e7fe3c977f633bd413f8d59b953a25b6814caaaf",
-      "size_bytes": 11434
+      "sha256": "82ab1b7c5455014ed7b3cd8cabc731d4e5858191ec9729d54453ca22b81755a3",
+      "size_bytes": 12087
     },
     {
       "path": ".agents/rules/secure_development_and_testing_guidelines.md",
       "target_name": ".agents/rules/secure_development_and_testing_guidelines.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "ad87b15097689ac3f79113c85daa5a89bb3fa22b3b0cc1f01cc4734a01fd3bc0",
-      "size_bytes": 17131
+      "sha256": "fdf920c52edba6ca8c61abb0b07e243ba71fd459b6ddfa07408cd9e8bde1e614",
+      "size_bytes": 18082
     },
     {
       "path": ".agents/scripts/certify_task_completion.sh",
       "target_name": ".agents/scripts/certify_task_completion.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "c4f2a003e4a2a06414d10687b6bd73b281cdb876f06a5eaecc06f56252bdd0cf",
-      "size_bytes": 5292
+      "sha256": "aed3b198da49bffccc48e18f9d9be9165fa5bb288c19633c5a543e4ba027fdbd",
+      "size_bytes": 5618
     },
     {
       "path": ".agents/scripts/inspect_blast_radius.py",
@@ -737,6 +737,13 @@
       "merge_strategy": "overwrite_executable",
       "sha256": "8324dbb2a173e51db90ee765e0e41e166153b32add201f717813a13e336b8438",
       "size_bytes": 5870
+    },
+    {
+      "path": ".agents/scripts/verify_docs_invariants.py",
+      "target_name": ".agents/scripts/verify_docs_invariants.py",
+      "merge_strategy": "overwrite_executable",
+      "sha256": "e28699fc4920ccae9b8d24708e11bd7f06f9071df8e585788a53cb793dbdf1bf",
+      "size_bytes": 5142
     },
     {
       "path": ".agents/scripts/verify_json_no_duplicate_keys.py",
@@ -784,15 +791,15 @@
       "path": ".agents/skills/graphify-ast-navigator/SKILL.md",
       "target_name": ".agents/skills/graphify-ast-navigator/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "ee26589e7b590f9c38711afe7c8b0286b0082755db94c216a84916326a178202",
-      "size_bytes": 7972
+      "sha256": "adf0319025d781a25d9d71f272453a57dda9d4c6c436fcf111c3138d5a3894a5",
+      "size_bytes": 7982
     },
     {
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "a9822a3d001fa6e68403735ada9633ce86fa91d4dae2ff78f485c029802ba190",
-      "size_bytes": 31624
+      "sha256": "a331ab48ab0295e57933de3b6db1d13149078f1af128138dcbff95a5ab0b3af9",
+      "size_bytes": 17521
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
@@ -805,8 +812,8 @@
       "path": ".agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.md",
       "target_name": ".agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "07d25a147cac8219b854f83ba2cf4244e4d48d0f50b2a5cbaa4f318ccd7bbd04",
-      "size_bytes": 11488
+      "sha256": "dede8bc4fe186ae27a1fb9559b47120fed49a2629b4527dae51439196eb809b2",
+      "size_bytes": 14991
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/03-stack-python-fastapi.md",
@@ -938,8 +945,8 @@
       "path": "AGENTS.md",
       "target_name": "AGENTS.md",
       "merge_strategy": "surgical_merge",
-      "sha256": "f1824931fa60cea9321ce2e1fe1e8ff655338ab8b9bcc875a7e8e4fab3453d17",
-      "size_bytes": 19632
+      "sha256": "156dabef149dce325613ea47cadce9edcef7660e77dc939a01b1017c8603172a",
+      "size_bytes": 19973
     },
     {
       "path": "scripts/install-skill.sh",

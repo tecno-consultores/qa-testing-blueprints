@@ -420,7 +420,7 @@ Descubrir CVEs críticos en dependencias de producción solo cuando el workflow 
 ### Flujo de Mitigación Local
 1. Ejecutar escaneo local:
    ```bash
-   ./auditar-infra.sh
+   ./scripts/auditar-infra.sh
    ```
 2. Si Trivy reporta un CVE en una dependencia transitiva (ej. `certifi` o `tar`):
    - **Para Python:** Actualizar la librería congelada en Docker:
@@ -432,7 +432,7 @@ Descubrir CVEs críticos en dependencias de producción solo cuando el workflow 
      docker compose -f vue3/docker-compose.qa.yml run --rm qa-vue3 pnpm update tar
      ```
 3. Ejecutar las pruebas unitarias (`make qa-unit`) para descartar regresiones.
-4. Re-ejecutar `./auditar-infra.sh` certificando `0` hallazgos.
+4. Re-ejecutar `./scripts/auditar-infra.sh` certificando `0` hallazgos.
 
 ---
 

@@ -29,6 +29,8 @@
 | **Hito 12** | Auditores Automáticos para el Invariante Anti-Silo, Ciclo Temporal de 3 Fases, Auditoría Semántica Anti-UUID y Refresco Dual | [`11_SPEC_INVARIANTE_ANTI_SILO_CICLO_TEMPORAL_AUDITORIA_Y_REFRESCO_DUAL.md`](docs/specs/11_SPEC_INVARIANTE_ANTI_SILO_CICLO_TEMPORAL_AUDITORIA_Y_REFRESCO_DUAL.md) | ✅ Completado | `100%` |
 | **Hito 13** | Reconciliación Automática, Deduplicación y Aislamiento de Reglas de Dominio en `.agents/` (`reconcile-agents` / `reconcile_agents_governance`) | [`12_SPEC_RECONCILIACION_Y_DEDUPLICACION_GOBERNANZA_AGENTS_PROYECTOS.md`](docs/specs/12_SPEC_RECONCILIACION_Y_DEDUPLICACION_GOBERNANZA_AGENTS_PROYECTOS.md) | ✅ Completado | `100%` |
 | **Hito 14** | Optimización Extrema de Tokens en Servidor MCP, Protocolo de 3 Vías Proporcionales (`DOCS_ONLY` / `MICRO_CHANGE` / `FULL_11X`), *Progressive Disclosure* y Economía Cognitiva | [`13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md`](docs/specs/13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md) | ✅ Completado | `100%` |
+| **Hito 15** | Endurecimiento Integral `v2.16.0` de los 7 Stacks Corporativos, Contrato *Thin-Repo*, Hooks POSIX Rule-Zero y Convergencia 10/10 de Compuertas | `SECURITY.md` + `TESTING.md` | ✅ Completado | `100%` |
+| **Hito 16** | Invariante Anti-Silo Pre-Auth Multi-Etapa (`SEC-16`), Presupuesto Cognitivo `SKILL.md < 20 KB` y Verificador Documental Determinista (`verify_docs_invariants.py`) | `SECURITY.md` §4.20 + `02-security-disa-owasp-22.md` | ✅ Completado | `100%` |
 
 ---
 
@@ -211,6 +213,26 @@
 - [x] **14.3.** Implementar `groupFindingsByRule()` y el límite `maxFindings` en `mcp-server/src/tools/security-auditor.ts`, el truncado `maxItems` con conteos totales en `mcp-server/src/tools/test-pyramid-auditor.ts` y `mcp-server/src/tools/blast-radius.ts`, manteniendo complejidad cognitiva `<= 15` y `--max-warnings 0`.
 - [x] **14.4.** Añadir las nuevas huellas semánticas promovidas (`high-iq token economy`, `3-path proportional execution`, `ast/grep-first, windowed-read-second`, `subagent context isolation`, `zero redundant re-read`) en `PROMOTED_INVARIANT_FINGERPRINTS` de `mcp-server/src/cli/reconcile-agents.ts`.
 - [x] **14.5.** Ampliar las suites unitarias en `mcp-server/tests/` (`tools-and-resources.unit.ts`, `security-auditor.unit.ts`, `test-pyramid-auditor.unit.ts`, `init-agents-md.unit.ts`) certificando cobertura global `>= 95.0%` en contenedor efímero `sinfallas/base-node-ionic:26`, añadir el Escenario 15 en `mcp-server/test/mcp_cli_test.feature`, actualizar el grafo AST (`./scripts/actualizar-grafos-graphify.sh mcp-server`), regenerar `manifest.json` y certificar con `./.agents/scripts/certify_task_completion.sh`.
+
+---
+
+## ✅ Hito 15: Endurecimiento Integral `v2.16.0` de los 7 Stacks Corporativos, Contrato *Thin-Repo*, Hooks POSIX Rule-Zero y Convergencia 10/10 de Compuertas
+**Referencia Obligatoria:** [`TESTING.md`](TESTING.md) y [`SECURITY.md`](SECURITY.md)
+
+### Tareas de Implementación:
+- [x] **15.1.** Endurecer `scripts/verificar-secretos.sh`, `scripts/publicar-mcp.sh` (`.env` `0600` y exclusión de `manifest.json`) y `scripts/auditar-infra.sh` (caché persistente `qa11x_trivy_cache` y mirrors de respaldo ECR/GHCR).
+- [x] **15.2.** Converger al 100% las 10 etapas de `certify_11x_gate` (`mcp-server/src/tools/certify-gate.ts`) con `.agents/scripts/certify_task_completion.sh`, aplicando el contrato *Thin-Repo* por defecto en `bootstrap_or_merge_11x` y `install-skill --target all`, fusión segura de `lefthook.yml`, *Zero Hardcoded Pass* en `parseCoverage`/`audit_test_pyramid_gaps`, soporte `--version` y cobertura `>= 95%` incluyendo `src/index.ts`.
+- [x] **15.3.** Reparar las plantillas de los 7 stacks (`vue3`, `react-frontend`, `python`, `fastapi`, `php`, `node-backend`, `bash-scripts`), eliminar daemons `graphify:8080`, reescribir `instalar-hooks.sh` / `lefthook.yml` bajo Regla Cero, preservar `mcp-server/dist` en `scripts/limpieza.sh` y añadir `tests/test_stacks_hydration_smoke.unit.py`.
+
+---
+
+## ✅ Hito 16: Invariante Anti-Silo Pre-Auth Multi-Etapa (`SEC-16`), Presupuesto Cognitivo `SKILL.md < 20 KB` y Verificador Documental Determinista (`verify_docs_invariants.py`)
+**Referencia Obligatoria:** [`SECURITY.md`](SECURITY.md) §4.20 y [`.agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.md`](.agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.md)
+
+### Tareas de Implementación:
+- [x] **16.1.** Incorporar la regla estática `SEC-16` en `mcp-server/src/tools/security-auditor.ts` y la Regla #8 Anti-Ceguera UAT (*Multi-Step Pre-Auth & Ephemeral Challenge Continuity Invariant*) con controles compensatorios STIG/OWASP (`challenge_id >= 128-bit`, `GETDEL`/Lua atómico, `TTL <= 300s`, purga por intentos y `PREAUTH_PUBLIC_ROUTES` simétrico).
+- [x] **16.2.** Compactar `.agents/skills/qa-11x-architect/SKILL.md` por debajo de `< 20 KB` (`17.5 KB`) y `.agents/ACTIVE_TASK.md.example` a `<= 40` líneas (`24` líneas), sincronizando las 12 tools, los 9 recursos y los 23 archivos de skills en toda la documentación (`README.md`, `mcp-server/README.md`, `TESTING.md`, `SECURITY.md`, `FAQ.md`, `CONTRIBUTING.md`, `AI_MASTER_PROMPT.md` y `docs/*.md`).
+- [x] **16.3.** Implementar `.agents/scripts/verify_docs_invariants.py` (+ `tests/test_verify_docs_invariants.unit.py`) e integrarlo en `certify_task_completion.sh` para bloquear regresiones de presupuesto cognitivo o derivas documentales.
 
 
 

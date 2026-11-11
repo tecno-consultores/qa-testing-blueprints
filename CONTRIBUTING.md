@@ -15,10 +15,10 @@ Para mantener la consistencia y la eficacia de estos blueprints, toda contribuci
    * `sinfallas/base-node-ionic` (`22`, `24`, `26` y `latest`) para Node.js/Vue 3/React y el Servidor MCP.
    * `sinfallas/basephpcomposer` (`8.2`, `8.3`, `8.4`, `8.5` y `latest`) para PHP.
    * `sinfallas/base-bash-qa:latest` para Bash/DevOps.
-   * `sinfallas/karatelabs:latest` para BDD/Caja Negra.
-   * `sinfallas/remote-graphify:latest` para Optimización de Contexto IA (análisis AST).
-   * *Nota: Se permite el uso de imágenes oficiales consolidadas exclusivamente para Sidecars periféricos (ej. `prom/prometheus:latest`, `zaproxy/zap-stable:latest`, `postgres:17-alpine`, `eqalpha/keydb:alpine`).*
-   * **REGLA DE CACHÉ:** Si agregas una imagen que dependa de un gestor de paquetes (`uv`, `pnpm`), DEBES declarar obligatoriamente volúmenes nombrados para sus cachés (ej. `/root/.cache/uv` o `/pnpm`) en el orquestador.
+   * `sinfallas/karatelabs:1.5.1` para BDD/Caja Negra.
+   * `sinfallas/remote-graphify:latest` para Optimización de Contexto IA (análisis AST CLI-first).
+   * *Nota: Se permite el uso de imágenes oficiales consolidadas exclusivamente para Sidecars periféricos (ej. `prom/prometheus:latest`, `zaproxy/zap-stable:latest`, `postgres:17-alpine`, `eqalpha/keydb:alpine`, `mcr.microsoft.com/playwright:v1.52.0-noble`).*
+   * **REGLA DE CACHÉ:** Si agregas una imagen que dependa de un gestor de paquetes (`uv`, `pnpm`), DEBES declarar obligatoriamente volúmenes nombrados compatibles con usuarios no-root (ej. `/tmp/uv-cache` con `UV_CACHE_DIR=/tmp/uv-cache` o `/pnpm`) en el orquestador.
 
 2. **Efimeridad Absoluta y Regla Cero (`Rule Zero`):** Toda ejecución de pruebas, linters o scripts debe ocurrir dentro de contenedores efímeros (usando `--rm`). Jamás ejecutes pruebas directamente en el host anfitrión. Las pruebas unitarias jamás deben salir a Internet; el Mocking (`nock`, `pytest-mock`) es obligatorio. Para persistencia y esquemas de base de datos rige la regla **Anti-Mock Blindness** (validación obligatoria contra base de datos real efímera).
 3. **Prompts Imperativos y Optimización Bimodal:**
@@ -26,7 +26,7 @@ Para mantener la consistencia y la eficacia de estos blueprints, toda contribuci
    * Toda la documentación para humanos (`docs/`, `CHANGELOG.md`, `README.md`, `TESTING.md`) y respuestas de cara al usuario se redactan estrictamente en **español** (`OUTPUT LANGUAGE CONSTRAINT`).
 4. **Umbral de Calidad y Deuda Técnica Innegociables:**
    * Cobertura de código unitario **>= 95%** de líneas y ramas.
-   * Complejidad ciclomática Grado **A** o **B** (`CC <= 5`, `MI >= B`).
+   * Complejidad ciclomática Grado **A** (`CC <= 5`, `MI >= A`).
    * Accesibilidad web WCAG 2.1 AA (0 violaciones en `@axe-core`) y rendimiento en Lighthouse **>= 90**.
    * Cumplimiento estricto de **DISA ASD STIG V6R5** y **OWASP Developer Guide v4.2** documentadas en [`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`](docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md).
 5. **IPv4 Estricto:** Toda configuración de red en los `docker-compose.qa.yml` debe utilizar exclusivamente el driver `bridge` estándar en IPv4. Prohibido habilitar `enable_ipv6: true` para evitar conflictos de enrutamiento y NAT.
@@ -55,7 +55,7 @@ Si eres un **Agente de IA** (o un desarrollador operando en conjunto con uno) co
 4. Antes de hacer el commit o Pull Request, ejecuta el saneamiento `./scripts/limpieza.sh` y certifica la suite completa ejecutando `./.agents/scripts/certify_task_completion.sh` en local (**10 compuertas en verde**).
 
 ### Si estás mejorando la Documentación, MCP o Skills
-1. Si mejoras el servidor MCP (`mcp-server/`), asegúrate de que pase `pnpm run lint`, `pnpm run typecheck` y que la cobertura de pruebas unitarias se mantenga en `>= 95%`.
+1. Si mejoras el servidor MCP (`mcp-server/`), asegúrate de que pase `pnpm run lint`, `npx tsc --noEmit` y que la cobertura de pruebas unitarias (`pnpm test`) se mantenga en `>= 95%`.
 2. Si actualizas skills en `.agents/skills/` (`qa-11x-architect`, `refactoring-ui`), mantén el formato estándar de `SKILL.md` y actualiza las referencias en `docs/specs/`.
 3. Mantén la filosofía de "cero complacencia": la documentación es concisa, restrictiva y orientada a la erradicación de errores.
 
