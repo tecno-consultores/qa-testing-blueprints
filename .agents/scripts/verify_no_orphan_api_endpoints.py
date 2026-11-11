@@ -153,6 +153,26 @@ def extract_node_routes(repo_root: Path) -> list[tuple[str, str, str]]:
     return routes
 
 
+def _strip_dynamic_query_suffix(raw_url: str) -> str:
+    """Elimina ternarios con '?' o interpolaciones de query pegadas sin '/' al final de un segmento."""
+    cleaned = re.sub(r"\$\{[^}]*\?[^}]*\}", "", raw_url)
+    cleaned = cleaned.split("?")[0]
+    cleaned = re.sub(r"([a-zA-Z0-9_}\]])\$\{[^}]+\}$", r"\1", cleaned)
+    return cleaned.rstrip("/") if len(cleaned) > 1 else cleaned
+
+
+def _frontend_url_to_regex(f_url: str) -> str:
+    """Convierte una URL de frontend con template strings a expresión regular de matching."""
+    norm_f = f_url.rstrip("/") if len(f_url) > 1 else f_url
+    with_subpath = re.sub(
+        r"/\$\{\s*(?:sub_?path|path|endpoint|route|rest|resource_?path)\b[^}]*\}$",
+        r"/.+",
+        norm_f,
+        flags=re.IGNORECASE,
+    )
+    return "^" + re.sub(r"\$\{[^}]+\}", r"[^/]+", with_subpath) + "$"
+
+
 def extract_frontend_calls(repo_root: Path) -> list[tuple[str, str, str, int]]:
     """Extrae llamadas HTTP desde vue3/src/, react-frontend/src/, frontend/src/ o src/."""
     calls: list[tuple[str, str, str, int]] = []
@@ -193,7 +213,7 @@ def extract_frontend_calls(repo_root: Path) -> list[tuple[str, str, str, int]]:
                         continue
                     if not raw_url.startswith("/"):
                         raw_url = "/" + raw_url
-                    clean_url = raw_url.split("?")[0]
+                    clean_url = _strip_dynamic_query_suffix(raw_url)
                     line_no = full_text[: m.start()].count("\n") + 1
                     calls.append((verb, clean_url, rel_file, line_no))
 
@@ -204,11 +224,12 @@ def _route_matches_call(r_verb: str, r_path: str, f_verb: str, f_url: str) -> bo
     if r_verb != f_verb and r_verb != "*":
         return False
     b_reg = "^" + normalize_route_pattern(r_path) + "$"
-    test_url = re.sub(r"\$\{[^}]+\}", "test_param", f_url)
+    test_url = re.sub(r"\$\{[^}]+\}", "test_param", f_url.rstrip("/") if len(f_url) > 1 else f_url)
     if re.match(b_reg, test_url):
         return True
-    f_reg_str = "^" + re.sub(r"\$\{[^}]+\}", r"[^/]+", f_url) + "$"
-    norm_b_path = re.sub(r"\{[a-zA-Z0-9_]+:path\}", "path_arg", r_path)
+    f_reg_str = _frontend_url_to_regex(f_url)
+    norm_b_path = r_path.rstrip("/") if len(r_path) > 1 else r_path
+    norm_b_path = re.sub(r"\{[a-zA-Z0-9_]+:path\}", "path_arg", norm_b_path)
     norm_b_path = re.sub(r"\{[a-zA-Z0-9_]+\}", "id_arg", norm_b_path)
     norm_b_path = re.sub(r":[a-zA-Z0-9_]+", "id_arg", norm_b_path)
     return bool(re.match(f_reg_str, norm_b_path))

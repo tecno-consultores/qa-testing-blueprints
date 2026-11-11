@@ -1,4 +1,4 @@
-.PHONY: qa-lint qa-unit qa-mutation qa-all clean-cache clean qa-clean
+.PHONY: qa-lint qa-unit qa-ci qa-mutation qa-all clean-cache clean qa-clean
 
 # Variables
 COMPOSE_FILE = docker-compose.qa.yml
@@ -10,7 +10,7 @@ qa-lint:
 		uv sync --all-extras -q && \
 		uv run ruff check src/ tests/ && \
 		uv run ruff format --check src/ tests/ && \
-		uv run mypy --strict src/ && \
+		uv run mypy --strict --cache-dir=/tmp/mypy src/ && \
 		test -z \"\$$(uv run radon cc --min B src/)\" && \
 		test -z \"\$$(uv run radon mi --min B src/)\" && \
 		uv run bandit -c pyproject.toml -q -r src/ && \
@@ -18,7 +18,10 @@ qa-lint:
 
 qa-unit:
 	@echo "🧪 [11X] Ejecutando Pruebas Unitarias y Cobertura >= 95% (Pytest)..."
-	@docker compose -f $(COMPOSE_FILE) run --rm -e COVERAGE_FILE=/tmp/.coverage $(SERVICE_NAME) bash -c "uv sync --all-extras -q && uv run pytest -q --tb=short --import-mode=importlib --cov=src --cov-fail-under=95 --cov-report=term-missing:skip-covered --cov-report=html:/tmp/htmlcov"
+	@docker compose -f $(COMPOSE_FILE) run --rm -e COVERAGE_FILE=/tmp/.coverage -e PYTHONPATH=/app/src $(SERVICE_NAME) bash -c "uv sync --all-extras -q && uv run pytest -q --tb=short --import-mode=importlib --cov=src --cov-fail-under=95 --cov-report=term-missing:skip-covered --cov-report=html:/tmp/htmlcov"
+
+qa-ci: qa-lint qa-unit
+	@echo "✅ [11X] Paridad Pre-Push 1:1 con CI (lint + unit) certificada."
 
 qa-mutation:
 	@echo "👽 Ejecutando Pruebas de Mutación (Mutmut)..."

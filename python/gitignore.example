@@ -25,6 +25,8 @@ htmlcov/
 .benchmarks/
 profile.svg
 graphify-out/
+.agents/ACTIVE_TASK.md
+.agents/.qa-evidence.json
 prometheus_data/
 .cache/
 .pytest_cache/

@@ -4,8 +4,15 @@
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
+import type { execFileSync } from 'child_process';
+import { checkLintEvidenceForDirtyCode } from '../services/qa-evidence.js';
 import { auditSecurityStigOwasp } from './security-auditor.js';
 import { CertifyGateResult } from '../types.js';
+
+export interface CertifyGateOptions {
+  requireLintEvidence?: boolean;
+  execFileSyncFn?: typeof execFileSync;
+}
 
 function isQaTestingBlueprintsRepo(projectPath: string): boolean {
   try {
@@ -306,16 +313,35 @@ const ARCHITECTURAL_API_WHITELIST: Array<{ verb: string; path: string }> = [
   { verb: 'POST', path: '/api/v1/auth/2fa/verify' },
 ];
 
+const SUBPATH_INTERPOLATION_TOKEN = '__SUBPATH_PARAM__';
+
+function isRouteParamSegment(rSeg: string): boolean {
+  return rSeg.startsWith('{') || rSeg.startsWith(':');
+}
+
+function segmentsPrefixMatch(routeSegs: string[], urlSegs: string[], count: number): boolean {
+  for (let i = 0; i < count; i++) {
+    if (!isRouteParamSegment(routeSegs[i]) && routeSegs[i] !== urlSegs[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function matchesRouteSegments(routePath: string, testUrl: string): boolean {
   const routeSegs = routePath.replace(/\/+$/, '').split('/');
   const urlSegs = testUrl.replace(/\/+$/, '').split('/');
-  if (routeSegs.length !== urlSegs.length) return false;
-  for (let i = 0; i < routeSegs.length; i++) {
-    const rSeg = routeSegs[i];
-    const isParam = rSeg.startsWith('{') || rSeg.startsWith(':');
-    if (!isParam && rSeg !== urlSegs[i]) return false;
+  const lastRouteSeg = routeSegs[routeSegs.length - 1];
+  const lastUrlSeg = urlSegs[urlSegs.length - 1];
+
+  if (lastRouteSeg.startsWith('{') && lastRouteSeg.endsWith(':path}')) {
+    return urlSegs.length >= routeSegs.length && segmentsPrefixMatch(routeSegs, urlSegs, routeSegs.length - 1);
   }
-  return true;
+  if (lastUrlSeg === SUBPATH_INTERPOLATION_TOKEN) {
+    return routeSegs.length >= urlSegs.length && segmentsPrefixMatch(routeSegs, urlSegs, urlSegs.length - 1);
+  }
+  if (routeSegs.length !== urlSegs.length) return false;
+  return segmentsPrefixMatch(routeSegs, urlSegs, routeSegs.length);
 }
 
 function collectFilesWithExtensions(dir: string, exts: string[]): string[] {
@@ -374,6 +400,22 @@ function extractBackendRoutesFromFile(
   return routes;
 }
 
+function stripDynamicQuerySuffix(url: string): string {
+  // Elimina ternarios con '?' o interpolaciones de query pegadas al final de un segmento (ej. `/routers${query}`)
+  let cleaned = url.replace(/\$\{[^}]*\?[^}]*\}/g, '');
+  cleaned = cleaned.split('?')[0];
+  cleaned = cleaned.replace(/([a-zA-Z0-9_}\]])\$\{[^}]+\}$/g, '$1');
+  return cleaned.replace(/\/+$/, '');
+}
+
+function replaceFrontendInterpolations(url: string): string {
+  const withSubpath = url.replace(
+    /\/\$\{\s*(?:sub_?path|path|endpoint|route|rest|resource_?path)\b[^}]*\}/gi,
+    `/${SUBPATH_INTERPOLATION_TOKEN}`
+  );
+  return withSubpath.replace(/\$\{[^}]+\}/g, 'test_param');
+}
+
 function extractFrontendCallsFromFile(
   projectPath: string,
   filePath: string
@@ -381,16 +423,16 @@ function extractFrontendCallsFromFile(
   const calls: Array<{ verb: string; url: string; relFile: string }> = [];
   if (/\.(unit|spec|test|e2e)\.(ts|tsx|js|jsx)$/.test(filePath)) return calls;
   const code = fs.readFileSync(filePath, 'utf8');
-  const callRegex = /\b(?:http|api|axios)\.(get|post|put|patch|delete)\b[^(\n]*\(\s*['"`]([^'"`\n]+)['"`]/gi;
+  const callRegex = /\b(?:http|api|axios)\.(get|post|put|patch|delete)\b[^(\n]*\(\s*(['"`])((?:(?!\2)[^\n])+)\2/gi;
   let m: RegExpExecArray | null;
   while ((m = callRegex.exec(code)) !== null) {
     const verb = m[1].toUpperCase();
-    let rawUrl = m[2].replace(/\s+/g, '');
+    let rawUrl = m[3].replace(/\s+/g, '');
     if (!rawUrl.startsWith('/api/v1') && !rawUrl.startsWith('api/v1') && !rawUrl.startsWith('/health')) {
       continue;
     }
     if (!rawUrl.startsWith('/')) rawUrl = `/${rawUrl}`;
-    const cleanUrl = rawUrl.split('?')[0];
+    const cleanUrl = stripDynamicQuerySuffix(rawUrl);
     calls.push({ verb, url: cleanUrl, relFile: path.relative(projectPath, filePath) });
   }
   return calls;
@@ -401,7 +443,7 @@ function matchesAnyRoute(
   url: string,
   routes: Array<{ verb: string; path: string }>
 ): boolean {
-  const testUrl = url.replace(/\$\{[^}]+\}/g, 'test_param');
+  const testUrl = replaceFrontendInterpolations(url);
   for (const r of routes) {
     if (r.verb !== verb) continue;
     if (matchesRouteSegments(r.path, testUrl)) return true;
@@ -422,7 +464,7 @@ function isBackendRouteReferenced(
 
   for (const call of frontendCalls) {
     if (call.verb !== route.verb) continue;
-    const testCallUrl = call.url.replace(/\$\{[^}]+\}/g, 'test_param');
+    const testCallUrl = replaceFrontendInterpolations(call.url);
     if (matchesRouteSegments(route.path, testCallUrl)) return true;
   }
   return false;
@@ -733,8 +775,12 @@ function checkDocumentationSync(projectPath: string): { passed: boolean; blocker
  * Ejecuta todas las validaciones del estándar 11X sobre el proyecto destino
  * para certificar si cumple con la compuerta de cierre.
  */
-export async function certify11xGate(projectPath: string): Promise<CertifyGateResult> {
+export async function certify11xGate(
+  projectPath: string,
+  options?: CertifyGateOptions
+): Promise<CertifyGateResult> {
   const resolvedPath = path.resolve(projectPath);
+  const requireLint = options?.requireLintEvidence ?? true;
 
   const unmerged = checkUnmergedExamples(resolvedPath);
   const jsonCheck = checkJsonIntegrity(resolvedPath);
@@ -742,6 +788,9 @@ export async function certify11xGate(projectPath: string): Promise<CertifyGateRe
   const orphanApi = checkZeroOrphanApiEndpoints(resolvedPath);
   const ormCheck = checkOrmParity(resolvedPath);
   const astTopology = checkAstTopology(resolvedPath);
+  const lintEvidence = requireLint
+    ? checkLintEvidenceForDirtyCode(resolvedPath, options?.execFileSyncFn)
+    : { passed: true, blockers: [] };
   const docCheck = checkDocumentationSync(resolvedPath);
 
   const securityAudit = await auditSecurityStigOwasp(resolvedPath);
@@ -764,6 +813,7 @@ export async function certify11xGate(projectPath: string): Promise<CertifyGateRe
     ...orphanApi.blockers,
     ...ormCheck.blockers,
     ...astTopology.blockers,
+    ...lintEvidence.blockers,
     ...securityBlockers,
     ...docCheck.blockers,
   ];
@@ -776,6 +826,7 @@ export async function certify11xGate(projectPath: string): Promise<CertifyGateRe
     zero_orphan_api_endpoints: orphanApi.passed,
     orm_alembic_parity: ormCheck.passed,
     ast_topology_clean: astTopology.passed,
+    lint_evidence_verified: lintEvidence.passed,
     security_stig_owasp_clean: securityAudit.passed,
     documentation_synced: docCheck.passed,
   };

@@ -5,6 +5,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { execFile, execFileSync } from 'child_process';
 import { parseQaOutput } from '../parsers/output-parsers.js';
+import {
+  extractPathsFromPorcelainLine,
+  isDocFilePath,
+  recordQaStageEvidence,
+} from '../services/qa-evidence.js';
 import { QaExecutionResult } from '../types.js';
 
 export interface RunEphemeralQaOptions {
@@ -13,54 +18,11 @@ export interface RunEphemeralQaOptions {
   skipIfDocsOnly?: boolean;
 }
 
-const DOC_EXTENSIONS = new Set([
-  '.md',
-  '.txt',
-  '.rst',
-  '.adoc',
-  '.png',
-  '.jpg',
-  '.jpeg',
-  '.svg',
-  '.gif',
-  '.webp',
-  '.pdf',
-]);
-
-function isDocFilePath(fp: string): boolean {
-  const normalized = fp.replace(/\\/g, '/').toLowerCase();
-  if (normalized.endsWith('.md')) return true;
-  const inDocsDir = normalized.startsWith('docs/') || normalized.includes('/docs/');
-  if (!inDocsDir) return false;
-  const ext = path.posix.extname(normalized);
-  return DOC_EXTENSIONS.has(ext);
-}
-
 /**
  * Determina si el árbol de trabajo Git contiene exclusivamente cambios en documentación
  * (*.md o archivos documentales dentro de docs/). Si no hay cambios o hay al menos 1 archivo de código,
  * configuración o prueba modificado, devuelve false.
  */
-function unquoteGitPath(rawPath: string): string {
-  const trimmed = rawPath.trim();
-  if (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length >= 2) {
-    return trimmed.slice(1, -1).replace(/\\"/g, '"');
-  }
-  return trimmed;
-}
-
-function extractPathsFromPorcelainLine(rawLine: string): string[] {
-  const cleaned = rawLine.length > 3 && rawLine[2] === ' ' ? rawLine.slice(3) : rawLine.trim().replace(/^\S+\s+/, '');
-  const arrowIdx = cleaned.indexOf(' -> ');
-  if (arrowIdx !== -1) {
-    return [
-      unquoteGitPath(cleaned.slice(0, arrowIdx)),
-      unquoteGitPath(cleaned.slice(arrowIdx + 4)),
-    ];
-  }
-  return [unquoteGitPath(cleaned)];
-}
-
 export function isDocsOnlyWorkspaceChange(
   projectPath: string,
   execFileSyncFn: typeof execFileSync = execFileSync
@@ -187,6 +149,8 @@ export async function runEphemeralQa(
           parsed.status = 'FAILED';
           parsed.tail_log = `[TIMEOUT] La ejecución de 'make ${target}' excedió el límite configurado de ${timeoutSeconds}s.\n${parsed.tail_log}`;
         }
+
+        recordQaStageEvidence(resolvedPath, stage, parsed.status, options?.execFileSyncFn);
 
         resolve(parsed);
       }

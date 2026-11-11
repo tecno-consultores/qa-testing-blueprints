@@ -89,6 +89,39 @@ def test_verify_no_orphan_api_endpoints_bidirectional_and_prefix_dedup(tmp_path:
     assert mod.main(tmp_path) == 0
 
 
+def test_verify_no_orphan_api_endpoints_dynamic_query_and_subpath_templates(tmp_path: Path) -> None:
+    mod = _load_script_module("verify_no_orphan_dynamic", "verify_no_orphan_api_endpoints.py")
+    api_dir = tmp_path / "fastapi" / "src" / "api" / "v1"
+    ui_dir = tmp_path / "vue3" / "src" / "views"
+    api_dir.mkdir(parents=True)
+    ui_dir.mkdir(parents=True)
+
+    (api_dir / "bridge.py").write_text(
+        "from fastapi import APIRouter\n"
+        'router = APIRouter(prefix="/api/v1")\n'
+        '@router.get("/routers")\n'
+        "def list_routers(): pass\n"
+        '@router.get("/bridge/ports")\n'
+        "def list_ports(): pass\n"
+        '@router.post("/bridge/vlans/{vlan_id}")\n'
+        "def save_vlan(vlan_id: str): pass\n"
+        '@router.get("/files/{file_path:path}")\n'
+        "def get_file(file_path: str): pass\n",
+        encoding="utf-8",
+    )
+    (ui_dir / "BridgeView.vue").write_text(
+        "<script setup>\n"
+        "http.get(`/api/v1/routers${query}`);\n"
+        "http.get(`/api/v1/routers${q ? '?active=1' : ''}`);\n"
+        "http.get(`/api/v1/bridge/${subPath}`);\n"
+        "http.post(`/api/v1/bridge/${subPath}`);\n"
+        "http.get(`/api/v1/files/backups/2026/router.rsc`);\n"
+        "</script>\n",
+        encoding="utf-8",
+    )
+    assert mod.main(tmp_path) == 0
+
+
 def test_verify_topological_health_resolves_node_source_file_and_detects_violation(tmp_path: Path) -> None:
     mod = _load_script_module("verify_topology", "verify_topological_health.py")
     gdir = tmp_path / "fastapi" / "graphify-out"

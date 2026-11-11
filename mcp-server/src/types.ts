@@ -126,6 +126,9 @@ export const RunEphemeralQaInputSchema = z.object({
   stage: z.enum([
     "lint",
     "unit",
+    "migration",
+    "integration",
+    "ci",
     "parity",
     "orphans",
     "contracts",
@@ -136,7 +139,7 @@ export const RunEphemeralQaInputSchema = z.object({
     "perf",
     "chaos",
     "all",
-  ]).describe("Fase o target de QA a ejecutar (ej. unit, lint, bdd)"),
+  ]).describe("Fase o target de QA a ejecutar (ej. lint, unit, integration, ci, bdd)"),
   timeout_seconds: z.number().int().min(10).max(900).default(300).describe("Tiempo máximo de espera en segundos"),
   skip_if_docs_only: z
     .boolean()
@@ -150,6 +153,13 @@ export type RunEphemeralQaInput = z.infer<typeof RunEphemeralQaInputSchema>;
 
 export const CertifyGateInputSchema = z.object({
   project_path: z.string().min(1).describe("Ruta al proyecto a certificar frente al estándar 11X"),
+  require_lint_evidence: z
+    .boolean()
+    .optional()
+    .default(true)
+    .describe(
+      "Cuando es true (por defecto), exige evidencia vigente de run_ephemeral_qa(stage='lint') si existen cambios de código modificados en Git."
+    ),
 });
 export type CertifyGateInput = z.infer<typeof CertifyGateInputSchema>;
 
@@ -336,6 +346,7 @@ export interface CertifyGateResult {
     zero_orphan_api_endpoints: boolean;
     orm_alembic_parity: boolean;
     ast_topology_clean?: boolean;
+    lint_evidence_verified?: boolean;
     security_stig_owasp_clean: boolean;
     documentation_synced: boolean;
   };

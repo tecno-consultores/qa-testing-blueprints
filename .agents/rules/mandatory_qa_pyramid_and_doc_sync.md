@@ -15,7 +15,7 @@ Any addition, modification, or bug fix in application source code (`fastapi/`, `
 
 1. **Backend Unit Layer (Pytest / Vitest / Pest / PHPUnit):**
    - Backend suites (`tests/**/*.unit.py`, `test/**/*.unit.ts`, or `tests/**/*Test.php`) with **`>= 95.0%` branch and line coverage** (`pytest-cov`, `vitest v8`, or `pcov`).
-   - **Non-Root Ephemeral Coverage Enforcement (`COVERAGE_FILE=/tmp/.coverage` & No Bare `-o addopts=""`):** Never pass `-o addopts=""` to `pytest` without explicitly appending `--cov=src --cov-fail-under=95` (since `-o addopts=""` silently strips coverage settings from `pyproject.toml`), and always inject `-e COVERAGE_FILE=/tmp/.coverage` in ephemeral Docker containers so non-root users (`UID 1001`) can write SQLite coverage files without host bind-mount permission errors.
+   - **Non-Root Ephemeral Coverage, `importlib` Collection & Strict `Mypy` Enforcement (`QA-COV-01` & `QA-MYPY-01`):** Never pass `-o addopts=""` to `pytest` without explicitly appending `--import-mode=importlib --cov=src --cov-fail-under=95` and `-e COVERAGE_FILE=/tmp/.coverage -e PYTHONPATH=/app/src` (preventing `ModuleNotFoundError` on `*.unit.py`/`*.int.py` and host bind-mount permission errors). Whenever `pyproject.toml` defines `[tool.mypy]`, chain `mypy --strict --cache-dir=/tmp/mypy src/` alongside `ruff check` and `ruff format --check` prior to `pytest` (never replace `make qa-lint` with partial `ruff` commands).
    - Strict isolation: mock external I/O and network boundaries.
 2. **Database & Migration Parity Layer:**
    - When modifying ORM models, immediately generate and verify the database migration against a real ephemeral database engine (e.g. PostgreSQL via Alembic or Doctrine/Laravel migrations).

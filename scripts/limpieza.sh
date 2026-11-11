@@ -77,7 +77,7 @@ if command -v docker >/dev/null 2>&1; then
 fi
 
 if [ "${DEEP_PRUNE}" = true ]; then
-  rm -rf .agents/backups /tmp/.qa11x_trivy_cache_* 2>/dev/null || true
+  rm -rf .agents/backups .agents/.qa-evidence.json /tmp/.qa11x_trivy_cache_* 2>/dev/null || true
   docker system prune -af --volumes >/dev/null 2>&1 || true
 fi
 

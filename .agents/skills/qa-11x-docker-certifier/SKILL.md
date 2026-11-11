@@ -44,12 +44,12 @@ This skill governs all tests, linters, audits, and cleanups in projects implemen
 
 1. **Fast Incremental & Per-Test Mutation Execution:**
    - Never run full-suite tests per mutant across untouched files. Configure `coverageAnalysis: "perTest"` and `--incremental` in Stryker (`reports/stryker-incremental.json`), `--only-covered` in Infection, and targeted module paths in `mutmut` inside capped-concurrency ephemeral containers (`--concurrency 4`).
-2. **3-Path Proportional Execution Alignment:**
+2. **3-Path Proportional Execution & Mandatory Step 6 (Zero Lint Shortcuts):**
    - **Skip Docker QA runs on `DOCS_ONLY` changes** (`skip_if_docs_only: true`).
-   - Run targeted unit + affected stack suites on `MICRO_CHANGE` (`<= 3` files, `LOW` AST blast radius).
+   - On `MICRO_CHANGE` / `FULL_11X`, **ALWAYS** execute `run_ephemeral_qa(stage="lint")` + `run_ephemeral_qa(stage="unit")` (plus `stage="integration"` / `stage="ci"` tearing up/down ephemeral `postgres:17-alpine` when touching `migrations/`, ORM models, SQL, or `.github/workflows/`). NEVER substitute `make qa-lint` (`ruff` + `mypy --strict --cache-dir=/tmp/mypy` + `vue-tsc` + `eslint`) with partial standalone `ruff` commands.
    - Run the complete multi-stage pyramid (`make qa-all`) on `FULL_11X` architectural changes.
-3. **Mandatory Post-QA Cleanup, Non-Root `COVERAGE_FILE=/tmp/.coverage` & Pass-Quiet Output:**
-   - Never invoke `pytest -o addopts=""` without explicitly appending `--cov=src --cov-fail-under=95` (as `-o addopts=""` silently overrides `pyproject.toml` and disables coverage enforcement).
+3. **Mandatory Post-QA Cleanup, Non-Root `COVERAGE_FILE=/tmp/.coverage`, `importlib` & Pass-Quiet Output:**
+   - Never invoke `pytest -o addopts=""` without explicitly appending `--import-mode=importlib --cov=src --cov-fail-under=95` and `-e PYTHONPATH=/app/src` (preventing `ModuleNotFoundError` on `*.unit.py` / `*.int.py` and preserving coverage enforcement).
    - In hardened non-root containers (`USER 1001`) mounting host volumes (`UID 1000`), always pass `-e COVERAGE_FILE=/tmp/.coverage` so `coverage.py` writes its SQLite database to `/tmp/.coverage` instead of failing with `sqlite3.DataError: Couldn't use data file '/app/.coverage'`.
    - After running coverage or mutation tests, execute `make clean` / `./scripts/limpieza.sh` (`clean_workspace_11x`), purging temporary mutation sandboxes, `.coverage`, root-owned Docker artifacts (via ephemeral Alpine `chown`), and browser caches.
    - Never dump thousands of raw terminal lines into the LLM context; report concise JSON/table metrics.

@@ -1,4 +1,4 @@
-.PHONY: qa-lint qa-unit qa-migration qa-mutation qa-bdd qa-dast qa-chaos qa-all clean-cache clean qa-clean
+.PHONY: qa-lint qa-unit qa-migration qa-integration qa-ci qa-mutation qa-bdd qa-dast qa-chaos qa-all clean-cache clean qa-clean
 
 # ==============================================================================
 # MAKEFILE QA FASTAPI (ESTÁNDAR CORPORATIVO 11X)
@@ -13,7 +13,7 @@ qa-lint:
 		uv sync --all-extras -q && \
 		uv run ruff check src/ tests/ && \
 		uv run ruff format --check src/ tests/ && \
-		uv run mypy --strict src/ && \
+		uv run mypy --strict --cache-dir=/tmp/mypy src/ && \
 		test -z \"\$$(uv run radon cc --min B src/)\" && \
 		test -z \"\$$(uv run radon mi --min B src/)\" && \
 		uv run bandit -c pyproject.toml -q -r src/ && \
@@ -21,7 +21,7 @@ qa-lint:
 
 qa-unit:
 	@echo "🧪 [11X] Ejecutando Pruebas Unitarias Aisladas y Cobertura Innegociable >= 95% (Pytest)..."
-	@docker compose -f $(COMPOSE_FILE) run --rm -e COVERAGE_FILE=/tmp/.coverage $(SERVICE_NAME) bash -c "\
+	@docker compose -f $(COMPOSE_FILE) run --rm -e COVERAGE_FILE=/tmp/.coverage -e PYTHONPATH=/app/src $(SERVICE_NAME) bash -c "\
 		uv sync --all-extras -q && \
 		uv run pytest -q --tb=short --import-mode=importlib -m 'not integration' --cov=src --cov-fail-under=95 --cov-report=term-missing:skip-covered --cov-report=html:/tmp/htmlcov"
 
@@ -33,6 +33,18 @@ qa-migration:
 		else \
 			uv sync --all-extras -q && uv run alembic check; \
 		fi"
+
+qa-integration:
+	@echo "🔗 [11X] Ejecutando Suite de Integración Efímera contra PostgreSQL 17 + KeyDB (Rule Zero)..."
+	@bash -c 'trap "docker compose -f $(COMPOSE_FILE) down -v >/dev/null 2>&1 || true" EXIT; \
+		docker compose -f $(COMPOSE_FILE) up -d --wait postgres keydb && \
+		docker compose -f $(COMPOSE_FILE) run --rm -e COVERAGE_FILE=/tmp/.coverage -e PYTHONPATH=/app/src $(SERVICE_NAME) bash -c "\
+			uv sync --all-extras -q && \
+			( [ ! -f alembic.ini ] || uv run alembic upgrade head ) && \
+			( uv run pytest -q --tb=short --import-mode=importlib -m integration || [ \$$? -eq 5 ] )"'
+
+qa-ci: qa-lint qa-unit qa-migration qa-integration
+	@echo "✅ [11X] Paridad Pre-Push 1:1 con CI (lint + unit + migration + integration) certificada."
 
 qa-mutation:
 	@echo "👽 [11X] Ejecutando Pruebas de Mutación (Mutmut)..."

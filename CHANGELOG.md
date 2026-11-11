@@ -6,6 +6,10 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### 🛡️ Paridad Pre-Push 1:1 con CI y Endurecimiento Python / PostgreSQL 17 (Added, Changed & Fixed)
+* **Sello Criptográfico de Evidencia `lint`, Stages `integration`/`migration`/`ci` y Parser de Endpoints Dinámicos en `@sinfallas/mcp-qa-11x`:** Incorporado `qa-evidence.ts` (`.agents/.qa-evidence.json`) exigiendo en `certify_11x_gate` (`lint_evidence_verified`) evidencia vigente de `run_ephemeral_qa(stage="lint")` cuando existen cambios de código en Git sin penalizar el Fast-Path `DOCS_ONLY`; ampliado `run_ephemeral_qa` con los stages `migration`, `integration` y `ci`; y normalizados los sufijos dinámicos de query (`` `/routers${query}` ``) y subrutas interpoladas (`` `/bridge/${subPath}` ``, `{path:path}`) en `certify-gate.ts` y `.agents/scripts/verify_no_orphan_api_endpoints.py`.
+* **Invariantes Python / PostgreSQL 15–17+ (`QA-MYPY-01`, `QA-PG17-RLS` y `QA-COV-01` `importlib`) en Skills, Plantillas y SAST:** Estandarizados `mypy --strict --cache-dir=/tmp/mypy src/`, `--import-mode=importlib` + `PYTHONPATH=/app/src` sobre suites `*.unit.py`/`*.int.py`, los targets efímeros `qa-integration`/`qa-ci` en `fastapi/Makefile.example` y `python/Makefile.example`, y la auditoría de `FORCE ROW LEVEL SECURITY` sobre `pg_catalog.pg_class.relforcerowsecurity` (`JOIN pg_namespace`, bloqueando `pg_tables.forcerowsecurity` en `security-auditor.ts`), certificado con 313 pruebas Vitest (`99.22%` líneas / `95.09%` ramas), 54 pruebas Pytest y 21 escenarios Karate BDD.
+
 ---
 
 ## [2.16.0] - 2026-11-10

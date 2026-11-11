@@ -185,9 +185,22 @@ Never execute destructive or table-locking DDL statements directly on live table
 
 ---
 
-## 4. Pre-Commit Persistence Verification Checklist
+## 4. Pre-Commit Persistence Verification Checklist & PostgreSQL 15–17+ RLS Catalog Audit (`QA-PG17-RLS`)
 
-- [ ] Does every new/modified ORM model have a matching migration verified against a real `postgres:17-alpine` container?
+When verifying `ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL SECURITY` in integration tests against `postgres:17-alpine`, **NEVER** query `pg_tables.forcerowsecurity` (that column does not exist in `pg_catalog.pg_tables` in PostgreSQL 15–17+ and fails with `UndefinedColumnError`). Always query `pg_catalog.pg_class.relforcerowsecurity` joined with `pg_catalog.pg_namespace`:
+
+```sql
+SELECT c.relname AS tablename,
+       c.relrowsecurity AS rls_enabled,
+       c.relforcerowsecurity AS rls_forced
+FROM pg_catalog.pg_class c
+JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public'
+  AND c.relkind = 'r'
+  AND c.relname = ANY(:tenant_tables);
+```
+
+- [ ] Does every new/modified ORM model have a matching migration verified against a real `postgres:17-alpine` container (`run_ephemeral_qa(stage="integration")`)?
 - [ ] Does `python3 .agents/scripts/verify_alembic_orm_parity.py` pass with 0 drift and `revision <= 32` chars?
-- [ ] Do all multi-tenant tables include `ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL SECURITY`?
+- [ ] Do all multi-tenant tables assert `relrowsecurity = true` AND `relforcerowsecurity = true` via `pg_class` + `pg_namespace`?
 - [ ] Do `MockDbSession` unit tests validate `JSONB` columns via `json.dumps()` without `default=str` and use `decimal.Decimal` for `Numeric` fields?

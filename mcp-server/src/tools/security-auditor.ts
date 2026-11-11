@@ -37,6 +37,9 @@ const SCANNABLE_EXTS = new Set([
   '.json',
   '.php',
   '.feature',
+  '.sql',
+  '.yml',
+  '.yaml',
 ]);
 
 const APSC_DV_002510_REF = 'APSC-DV-002510 / Patrón 3';
@@ -793,7 +796,47 @@ function checkProjectLevelRules(projectPath: string, allRelFiles: string[]): Sec
   return [
     ...checkSec09Npmrc(projectPath),
     ...checkSec08Oshp(projectPath, allRelFiles),
+    ...checkQaMypy01StrictChain(projectPath),
   ];
+}
+
+function checkQaMypy01StrictChain(projectPath: string): SecurityFinding[] {
+  const findings: SecurityFinding[] = [];
+  const subDirs = ['', 'fastapi', 'python', 'backend'];
+
+  for (const sub of subDirs) {
+    const dirPath = sub ? path.join(projectPath, sub) : projectPath;
+    const pyprojectPath = path.join(dirPath, 'pyproject.toml');
+    const makefilePath = path.join(dirPath, 'Makefile');
+    if (!fs.existsSync(pyprojectPath) || !fs.existsSync(makefilePath)) continue;
+
+    try {
+      const pyContent = fs.readFileSync(pyprojectPath, 'utf8');
+      if (!pyContent.includes('[tool.mypy]')) continue;
+
+      const makeContent = fs.readFileSync(makefilePath, 'utf8');
+      const hasQaLintWithRuff = /qa-lint:[\s\S]*?\bruff\b/.test(makeContent);
+      const hasMypy = /\bmypy\b/.test(makeContent);
+      if (hasQaLintWithRuff && !hasMypy) {
+        const relMake = path.relative(projectPath, makefilePath);
+        findings.push({
+          rule_id: 'QA-MYPY-01',
+          severity: 'HIGH',
+          stig_owasp_ref: 'Standard 11X Law 2 / Pre-Push Strict Type Parity',
+          file: relMake,
+          line: 1,
+          message:
+            'pyproject.toml define [tool.mypy], pero el Makefile ejecuta ruff en qa-lint sin encadenar mypy.',
+          remediation:
+            'Encadenar obligatoriamente mypy --strict --cache-dir=/tmp/mypy src/ junto a ruff check y ruff format --check antes de pytest.',
+        });
+      }
+    } catch {
+      // Ignorar errores de lectura puntual
+    }
+  }
+
+  return findings;
 }
 
 function checkQaKarateStaticIdempotency(relPath: string, lines: string[]): SecurityFinding[] {
@@ -924,17 +967,28 @@ function checkSec14WormDeterministicChain(relPath: string, lines: string[]): Sec
   ];
 }
 
-function checkQaCov01AddoptsBypass(relPath: string, lines: string[]): SecurityFinding[] {
+function isQaRunnerFile(relPath: string): boolean {
   const base = path.basename(relPath);
-  const isMakefileOrShell =
-    base === 'Makefile' || base === 'Makefile.example' || relPath.endsWith('.sh');
-  if (!isMakefileOrShell) return [];
+  const norm = relPath.replace(/\\/g, '/');
+  return (
+    base === 'Makefile' ||
+    base === 'Makefile.example' ||
+    relPath.endsWith('.sh') ||
+    (norm.includes('.github/workflows/') && (norm.endsWith('.yml') || norm.endsWith('.yaml')))
+  );
+}
+
+function checkQaCov01AddoptsBypass(relPath: string, lines: string[]): SecurityFinding[] {
+  if (!isQaRunnerFile(relPath)) return [];
 
   const findings: SecurityFinding[] = [];
-  const addoptsBypassRegex = /\bpytest\b[^\n]*-o\s+addopts=(?:""|''|\\""|\\'')(?![^\n]*--cov)/;
+  const bareAddoptsRegex = /\bpytest\b[^\n]*-o\s+addopts=(?:""|''|\\""|\\'')/;
 
   for (let i = 0; i < lines.length; i++) {
-    if (addoptsBypassRegex.test(lines[i])) {
+    const line = lines[i];
+    if (!bareAddoptsRegex.test(line)) continue;
+
+    if (!line.includes('--cov')) {
       findings.push({
         rule_id: 'QA-COV-01',
         severity: 'HIGH',
@@ -944,12 +998,49 @@ function checkQaCov01AddoptsBypass(relPath: string, lines: string[]): SecurityFi
         message:
           'Se detectó ejecución de pytest con -o addopts="" sin incluir explícitamente --cov=src --cov-fail-under=95 (lo que desactiva silenciosamente la compuerta de cobertura de pyproject.toml).',
         remediation:
-          'Añadir explícitamente --cov=src --cov-fail-under=95 junto a -o addopts="" e inyectar -e COVERAGE_FILE=/tmp/.coverage en contenedores Docker no-root (UID 1001).',
+          'Añadir explícitamente --import-mode=importlib --cov=src --cov-fail-under=95 junto a -o addopts="" e inyectar -e COVERAGE_FILE=/tmp/.coverage -e PYTHONPATH=/app/src en contenedores Docker no-root.',
+      });
+    } else if (/\.(?:unit|int)\.py\b/.test(line) && !line.includes('--import-mode=importlib')) {
+      findings.push({
+        rule_id: 'QA-COV-01',
+        severity: 'HIGH',
+        stig_owasp_ref: 'Standard 11X Law 2 / Pytest Importlib Mode Parity',
+        file: relPath,
+        line: i + 1,
+        message:
+          'Se detectó ejecución de pytest con -o addopts="" sobre suites de doble extensión (*.unit.py, *.int.py) sin --import-mode=importlib, provocando ModuleNotFoundError / ImportPathMismatchError en colección.',
+        remediation:
+          'Exigir siempre --import-mode=importlib y PYTHONPATH=/app/src cuando se ejecute pytest -o addopts="" sobre archivos *.unit.py / *.int.py.',
       });
     }
   }
 
   return findings;
+}
+
+function checkQaPg17RlsInvalidCatalog(relPath: string, lines: string[]): SecurityFinding[] {
+  if (isAuditorSelfDefinition(relPath) || relPath.endsWith('.md')) return [];
+  if (!/\.(py|sql|sh)$/i.test(relPath)) return [];
+
+  const fullText = lines.join('\n');
+  const invalidCatalogRegex =
+    /\bpg_tables\s*\.\s*forcerowsecurity\b|\bforcerowsecurity\b[\s\S]{0,140}\bFROM\s+(?:pg_catalog\.)?pg_tables\b|\bFROM\s+(?:pg_catalog\.)?pg_tables\b[\s\S]{0,140}\bforcerowsecurity\b/i;
+  if (!invalidCatalogRegex.test(fullText)) return [];
+
+  const lineIdx = lines.findIndex((l) => /forcerowsecurity/i.test(l));
+  return [
+    {
+      rule_id: 'QA-PG17-RLS',
+      severity: 'HIGH',
+      stig_owasp_ref: 'Standard 11X Law 7 / PostgreSQL 15-17+ RLS Catalog Parity',
+      file: relPath,
+      line: lineIdx >= 0 ? lineIdx + 1 : 1,
+      message:
+        'Auditoría RLS consulta la columna inexistente pg_tables.forcerowsecurity (ausente en PostgreSQL 15–17+), causando errores SQL en integración/CI.',
+      remediation:
+        'Verificar FORCE ROW LEVEL SECURITY consultando pg_catalog.pg_class.relforcerowsecurity con JOIN pg_catalog.pg_namespace (relrowsecurity = true AND relforcerowsecurity = true).',
+    },
+  ];
 }
 
 function checkQaSmoke01SettingsSingletonSync(relPath: string, lines: string[]): SecurityFinding[] {
@@ -1136,6 +1227,7 @@ function scanSingleFile(absPath: string, relPath: string): SecurityFinding[] {
     ...checkSec15EphemeralProdPipelineCreds(relPath, lines),
     ...checkSec16PreAuthMultiStepContinuity(relPath, lines),
     ...checkQaCov01AddoptsBypass(relPath, lines),
+    ...checkQaPg17RlsInvalidCatalog(relPath, lines),
     ...checkQaSmoke01SettingsSingletonSync(relPath, lines),
     ...checkQaKarateStaticIdempotency(relPath, lines),
     ...checkUi11x01VisualGeometry(relPath, lines),

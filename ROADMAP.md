@@ -31,6 +31,7 @@
 | **Hito 14** | Optimización Extrema de Tokens en Servidor MCP, Protocolo de 3 Vías Proporcionales (`DOCS_ONLY` / `MICRO_CHANGE` / `FULL_11X`), *Progressive Disclosure* y Economía Cognitiva | [`13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md`](docs/specs/13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md) | ✅ Completado | `100%` |
 | **Hito 15** | Endurecimiento Integral `v2.16.0` de los 7 Stacks Corporativos, Contrato *Thin-Repo*, Hooks POSIX Rule-Zero y Convergencia 10/10 de Compuertas | `SECURITY.md` + `TESTING.md` | ✅ Completado | `100%` |
 | **Hito 16** | Invariante Anti-Silo Pre-Auth Multi-Etapa (`SEC-16`), Presupuesto Cognitivo `SKILL.md < 20 KB` y Verificador Documental Determinista (`verify_docs_invariants.py`) | `SECURITY.md` §4.20 + `02-security-disa-owasp-22.md` | ✅ Completado | `100%` |
+| **Hito 17** | Paridad Pre-Push 1:1 con CI en MCP `qa-11x`: Sello de Evidencia `lint`, Stages `integration`/`ci`, Parser de Endpoints Dinámicos e Invariantes Python/PostgreSQL 17 (`QA-MYPY-01`, `QA-PG17-RLS`, `importlib`) | `03-stack-python-fastapi.md` + `08-postgres-rls-zero-downtime-migrations.md` | ✅ Completado | `100%` |
 
 ---
 
@@ -233,6 +234,17 @@
 - [x] **16.1.** Incorporar la regla estática `SEC-16` en `mcp-server/src/tools/security-auditor.ts` y la Regla #8 Anti-Ceguera UAT (*Multi-Step Pre-Auth & Ephemeral Challenge Continuity Invariant*) con controles compensatorios STIG/OWASP (`challenge_id >= 128-bit`, `GETDEL`/Lua atómico, `TTL <= 300s`, purga por intentos y `PREAUTH_PUBLIC_ROUTES` simétrico).
 - [x] **16.2.** Compactar `.agents/skills/qa-11x-architect/SKILL.md` por debajo de `< 20 KB` (`17.5 KB`) y `.agents/ACTIVE_TASK.md.example` a `<= 40` líneas (`24` líneas), sincronizando las 12 tools, los 9 recursos y los 23 archivos de skills en toda la documentación (`README.md`, `mcp-server/README.md`, `TESTING.md`, `SECURITY.md`, `FAQ.md`, `CONTRIBUTING.md`, `AI_MASTER_PROMPT.md` y `docs/*.md`).
 - [x] **16.3.** Implementar `.agents/scripts/verify_docs_invariants.py` (+ `tests/test_verify_docs_invariants.unit.py`) e integrarlo en `certify_task_completion.sh` para bloquear regresiones de presupuesto cognitivo o derivas documentales.
+
+---
+
+## ✅ Hito 17: Paridad Pre-Push 1:1 con CI en MCP `qa-11x`: Sello de Evidencia `lint`, Stages `integration`/`ci`, Parser de Endpoints Dinámicos e Invariantes Python/PostgreSQL 17
+**Referencia Obligatoria:** [`.agents/skills/qa-11x-architect/references/03-stack-python-fastapi.md`](.agents/skills/qa-11x-architect/references/03-stack-python-fastapi.md) y [`.agents/skills/qa-11x-architect/references/08-postgres-rls-zero-downtime-migrations.md`](.agents/skills/qa-11x-architect/references/08-postgres-rls-zero-downtime-migrations.md)
+
+### Tareas de Implementación:
+- [x] **17.1.** Implementar `mcp-server/src/services/qa-evidence.ts` y ampliar `run_ephemeral_qa` (`migration`, `integration`, `ci`) y `certify_11x_gate` (`lint_evidence_verified` / `require_lint_evidence`) para exigir evidencia vigente de `stage="lint"` ante cambios de código en Git preservando el Fast-Path `DOCS_ONLY`.
+- [x] **17.2.** Normalizar expresiones template string dinámicas (`` `/routers${query}` ``, `` `/bridge/${subPath}` ``, `{path:path}`) simétricamente en `mcp-server/src/tools/certify-gate.ts` y `.agents/scripts/verify_no_orphan_api_endpoints.py`.
+- [x] **17.3.** Incorporar las reglas `QA-MYPY-01`, `QA-PG17-RLS` y la extensión `importlib` de `QA-COV-01` en `security-auditor.ts` + `SurgicalMerger.mergeMakefile`, actualizar `fastapi/Makefile.example`, `python/Makefile.example` y skills (`SKILL.md < 20 KB`), y certificar con `prepush-ci-parity.unit.ts` (313 tests Vitest `>= 95%`), Pytest (54 tests) y Karate BDD (Escenario 21).
+
 
 
 

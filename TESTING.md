@@ -8,7 +8,7 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
 
 | Dimensión de Calidad | Herramienta Canónica | Umbral Mínimo Requerido | Acción ante Incumplimiento |
 | :--- | :--- | :--- | :--- |
-| **Cobertura Unitaria** | `pytest-cov`, `vitest`, `kcov` (`COVERAGE_FILE=/tmp/.coverage` en Docker no-root `UID 1001`, prohibido `-o addopts=""` sin `--cov`) | **>= 95.0%** de líneas y ramas | Bloqueo inmediato de Merge / Exit Code 1 (`QA-COV-01`) |
+| **Cobertura Unitaria & Tipado Pre-Push** | `pytest-cov`, `vitest`, `kcov`, `mypy --strict --cache-dir=/tmp/mypy` (`COVERAGE_FILE=/tmp/.coverage` y `PYTHONPATH=/app/src` en Docker no-root `UID 1001`, prohibido `-o addopts=""` sin `--import-mode=importlib --cov=src`) | **>= 95.0%** de líneas y ramas + **0 errores de tipos** | Bloqueo inmediato de Merge / Exit Code 1 (`QA-COV-01` / `QA-MYPY-01`) |
 | **Complejidad Ciclomática** | `radon` (Python `--min B`), `eslint-plugin-sonarjs` | Grado **A** (`CC <= 5`, Cognitiva `<= 15`) | Rechazo por deuda técnica |
 | **Mantenibilidad** | `radon mi` | Grado **A** (`> 20`) | Refactorización obligatoria |
 | **Seguridad Estática (SAST)** | `bandit`, `eslint-plugin-security`, `ShellCheck` | **0 hallazgos HIGH / MEDIUM** | Bloqueo por vulnerabilidad |
@@ -16,7 +16,7 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
 | **Seguridad Dinámica (DAST & OSHP)**| `zaproxy/zap-stable` (OWASP ZAP + WSTG/ASVS/OSHP) | **0 alertas HIGH**, cabeceras OSHP y estado Fail-Secure | Bloqueo dinámico en CI/CD |
 | **Pruebas de Mutación** | `mutmut`, `stryker` | Puntuación de mutación `> 80%` | Rechazo por asertos débiles |
 | **Comportamiento BDD** | `sinfallas/karatelabs:1.5.1` (Gherkin) | **100% de escenarios PASSED** | Bloqueo de flujo funcional |
-| **Paridad de Esquema DB & RLS/WORM** | `.agents/scripts/verify_alembic_orm_parity.py` + `SEC-13` (`after_begin` RLS + `NOBYPASSRLS`) + `SEC-14` (`seq_num` + `pg_advisory_xact_lock` WORM) | **0 tablas huérfanas / revision `<= 32` chars / RLS multi-tx / cadena WORM determinista** | Rechazo por Anti-Mock Blindness / Fuga RLS / Race WORM |
+| **Paridad de Esquema DB & RLS/WORM** | `.agents/scripts/verify_alembic_orm_parity.py` + `SEC-13` (`after_begin` RLS + `NOBYPASSRLS`) + `QA-PG17-RLS` (`pg_class.relforcerowsecurity` con `JOIN pg_namespace`, nunca `pg_tables.forcerowsecurity`) + `SEC-14` (`seq_num` + `pg_advisory_xact_lock` WORM) | **0 tablas huérfanas / revision `<= 32` chars / RLS multi-tx / catálogo PG 15–17+ / cadena WORM determinista** | Rechazo por Anti-Mock Blindness / Fuga RLS / Race WORM |
 | **Propagación Anti-Silo, Pre-Auth Multi-Etapa (`SEC-16`), 3 Fases Temporales, Timeouts Pesados y Batch por Ítem** | Contratos Read-After-Write, Pytest/Vitest, Karate BDD (`api_test.feature` / `ui_business_flow.feature`) | **0 mocks intermedios entre módulos, continuidad atómica `GETDEL`/Lua + `PREAUTH_PUBLIC_ROUTES` en flujos Pre-Auth, 3 fases del reloj (`Programada`, `En Curso`, `Cancelada/Expirada`), 0 UUIDs crudos en `actor_username`, Refresco Dual (`[ 🔄 Refrescar ]`), `timeout >= 180s` + purga `0 bytes` y validación `results[].status` en batch `200 OK`** | Rechazo por Silo Mock Blindness / Pre-Auth 401/403 Escape / Batch 200 Blindness |
 | **Componentes Huérfanos** | `.agents/scripts/verify_zero_orphan_vue_components.py` | **0 componentes sin test unitario** | Bloqueo en pre-commit |
 | **Paridad Endpoints API** | `.agents/scripts/verify_no_orphan_api_endpoints.py` | **0 llamadas 404/405 Front-Back** | Bloqueo por desalineación de contratos |
@@ -37,9 +37,11 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
 * **Comandos de Validación:**
   ```bash
   cd fastapi
-  make qa-lint       # Ruff, Mypy strict, Bandit SAST, Radon complejidad
-  make qa-unit       # Pytest aislado con mocks de red (Cobertura >= 95%)
-  make qa-migration  # Verificación de esquema real PostgreSQL 17 y migraciones Alembic (upgrade/downgrade/upgrade)
+  make qa-lint        # Ruff, Mypy strict (--cache-dir=/tmp/mypy), Bandit SAST, Radon complejidad
+  make qa-unit        # Pytest aislado con --import-mode=importlib y mocks de red (Cobertura >= 95%)
+  make qa-migration   # Verificación de paridad ORM vs Migraciones Alembic
+  make qa-integration # Suite de integración efímera levantando y destruyendo PostgreSQL 17 + KeyDB
+  make qa-ci          # Paridad pre-push 1:1 con CI (lint + unit + migration + integration)
   make qa-contracts  # Schemathesis fuzzing de OpenAPI
   make qa-bdd        # Karate Labs BDD (test/api_test.feature)
   make qa-mutation   # Mutmut auditoría de asertos
@@ -219,15 +221,16 @@ El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
     * `tests/init-agents-md.unit.ts` (16 pruebas): Inyector y actualizador aditivo no destructivo de `AGENTS.md` y conector global ligero `buildGlobalGeminiBlock` sin duplicación para `~/.gemini/GEMINI.md` (`Graphify AST-First` en Q&A y pre-cambio), validando creación desde cero con cabecera MIT, adición al final de directivas existentes sin alterar líneas previas, actualización idempotente del bloque conector (`<!-- QA_11X_MCP_CONNECTOR_START -->` ... `<!-- QA_11X_MCP_CONNECTOR_END -->`), simulación `dryRun`, robustez de banderas CLI (`--project-path`, `-p`, `--dry-run`) y ejecución CLI `runInitAgentsCli`.
     * `tests/reconcile-agents.unit.ts` (21 pruebas): Reconciliación automática Thin-Repo y deduplicación de `.agents/`, limpieza de archivos canónicos y skills duplicadas en proyectos consumidores, extracción de reglas de negocio a `domain_<project>_rules.md`, respaldos en `.agents/backups/` y sincronización idempotente de `~/.gemini/GEMINI.md`.
     * `tests/edge-cases.unit.ts` (33 pruebas): Cobertura profunda de casos de borde y ramas extremas en servicios y herramientas.
+    * `tests/prepush-ci-parity.unit.ts` (6 pruebas): Sello criptográfico de evidencia `lint` (`.agents/.qa-evidence.json`) en `certify_11x_gate`, stages `migration`/`integration`/`ci`, normalización de template strings dinámicos (`` `/routers${query}` ``, `` `/bridge/${subPath}` ``, `{path:path}`) e invariantes `QA-MYPY-01`, `QA-PG17-RLS` y `QA-COV-01` (`--import-mode=importlib`).
   * **Ejecución Efímera:**
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run lint`
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server npx tsc --noEmit`
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm test`
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run build`
   * **Cobertura y Métricas Alcanzadas:**
-    * **100% de aserciones aprobadas** (307/307 pruebas pasando en 16 suites + 20/20 escenarios Karate BDD).
-    * **99.11% de cobertura de líneas y sentencias** (superando el umbral de `>= 95%`).
-    * **100.00% de cobertura de funciones**.
+    * **100% de aserciones aprobadas** (313/313 pruebas pasando en 17 suites + 21/21 escenarios Karate BDD + 54/54 pruebas Pytest).
+    * **99.22% de cobertura de líneas/sentencias y 95.09% de cobertura de ramas** (superando el umbral de `>= 95%`).
+    * **99.67% de cobertura de funciones**.
     * **0 errores de ESLint (`--max-warnings 0`), SonarJS (Cognitiva `<= 15`) y TypeScript (`strict: true`)**.
 
 * **Script Universal de Limpieza y Saneamiento (`scripts/limpieza.sh`):**

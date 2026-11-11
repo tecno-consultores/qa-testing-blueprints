@@ -120,6 +120,8 @@ sbom.cyclonedx.json
 /ACTIVE_TASK.md
 ACTIVE_TASK.md
 .agents/ACTIVE_TASK.md
+.agents/.qa-evidence.json
+**/.agents/.qa-evidence.json
 .agents/backups/
 **/.agents/backups/
 .agents/*.scratchpad.md

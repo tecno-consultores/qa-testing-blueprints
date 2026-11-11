@@ -50,8 +50,10 @@ Instrumentator().instrument(app).expose(app)
   ]
   ```
 
-- **Non-Root Ephemeral Container Coverage (`COVERAGE_FILE=/tmp/.coverage` & No Bare `-o addopts=""`):**
-  - Never pass `-o addopts=""` to `pytest` in `Makefile` or CI scripts without explicitly appending `--cov=src --cov-fail-under=95` (since `-o addopts=""` silently disables coverage flags configured in `pyproject.toml`).
+- **Strict Pre-Push Type Checking (`mypy --strict --cache-dir=/tmp/mypy`, `QA-MYPY-01`):**
+  - Whenever `pyproject.toml` defines `[tool.mypy]`, `qa-lint` and CI pipelines MUST chain `uv run mypy --strict --cache-dir=/tmp/mypy src/` alongside `ruff check` and `ruff format --check` prior to `pytest` (never substitute `make qa-lint` with standalone `ruff` commands). Passing `--cache-dir=/tmp/mypy` avoids non-root permission errors on host-mounted `/app/.mypy_cache`.
+- **Non-Root Ephemeral Container Coverage, `importlib` Collection & `PYTHONPATH=/app/src` (`QA-COV-01`):**
+  - Never pass `-o addopts=""` to `pytest` in `Makefile` or CI scripts without explicitly appending `--import-mode=importlib --cov=src --cov-fail-under=95` and injecting `-e PYTHONPATH=/app/src` (since `-o addopts=""` wipes `pyproject.toml` flags and triggers `ModuleNotFoundError` / `ImportPathMismatchError` on double-extension `*.unit.py` and `*.int.py` files).
   - Always pass `-e COVERAGE_FILE=/tmp/.coverage` in `docker compose run` / `docker run` commands so hardened non-root container users (`UID 1001`) can write SQLite coverage files without host bind-mount permission errors (`sqlite3.DataError: Couldn't use data file '/app/.coverage'`).
 - **PostgreSQL RLS Multi-Transaction Persistence (`after_begin`) & Deterministic WORM Audit (`seq_num`):**
   - Connect using a `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS` role; store `(tenant_id, is_superadmin)` in `session.sync_session.info` and register `@event.listens_for(AsyncSession.sync_session_class, "after_begin")` to re-apply `SET LOCAL app.current_tenant_id` across post-commit transactions; use `SECURITY DEFINER` (`SET search_path = public`) SQL functions for pre-auth slug/bootstrap queries.

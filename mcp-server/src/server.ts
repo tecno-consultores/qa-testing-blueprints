@@ -413,10 +413,12 @@ export function createMcpServer(options?: {
   // Tool 8: certify_11x_gate
   server.tool(
     'certify_11x_gate',
-    'Ejecuta las validaciones de cierre del estándar 11X (ejemplos, secretos, JSON, huérfanos UI/API, ORM, auditoría STIG y documentación) y verifica si está listo para commit.',
+    'Ejecuta las validaciones de cierre del estándar 11X (ejemplos, secretos, JSON, huérfanos UI/API, ORM, evidencia lint pre-push, auditoría STIG y documentación) y verifica si está listo para commit.',
     CertifyGateInputSchema.shape,
     async (args) => {
-      const result = await certify11xGate(args.project_path);
+      const result = await certify11xGate(args.project_path, {
+        requireLintEvidence: args.require_lint_evidence,
+      });
       return {
         content: [
           {

@@ -584,6 +584,39 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert rootReadme.contains('9 recursos `blueprint://*`')
     * assert !rootReadme.contains('8 Resources')
 
+  Scenario: 21. Paridad Pre-Push 1:1 con CI — Sello de Evidencia Lint, Stages integration/ci, Parser de Endpoints Dinámicos e Invariantes Python/PostgreSQL 17
+    * def typesSource = karate.readAsString(mcpRoot + '/src/types.ts')
+    * assert typesSource.contains('"migration"')
+    * assert typesSource.contains('"integration"')
+    * assert typesSource.contains('"ci"')
+    * assert typesSource.contains('lint_evidence_verified')
+    * assert typesSource.contains('require_lint_evidence')
+
+    * def qaEvidenceSource = karate.readAsString(mcpRoot + '/src/services/qa-evidence.ts')
+    * assert qaEvidenceSource.contains('checkLintEvidenceForDirtyCode')
+    * assert qaEvidenceSource.contains('recordQaStageEvidence')
+    * assert qaEvidenceSource.contains('.agents/.qa-evidence.json')
+
+    * def certifySource = karate.readAsString(mcpRoot + '/src/tools/certify-gate.ts')
+    * assert certifySource.contains('stripDynamicQuerySuffix')
+    * assert certifySource.contains('SUBPATH_INTERPOLATION_TOKEN')
+
+    * def secSource = karate.readAsString(mcpRoot + '/src/tools/security-auditor.ts')
+    * assert secSource.contains('QA-MYPY-01')
+    * assert secSource.contains('QA-PG17-RLS')
+    * assert secSource.contains('--import-mode=importlib')
+
+    * def fastapiMakefile = karate.readAsString(repoRoot + '/fastapi/Makefile.example')
+    * assert fastapiMakefile.contains('--cache-dir=/tmp/mypy')
+    * assert fastapiMakefile.contains('qa-integration:')
+    * assert fastapiMakefile.contains('qa-ci:')
+    * assert fastapiMakefile.contains('PYTHONPATH=/app/src')
+
+    * def rlsRef = karate.readAsString(repoRoot + '/.agents/skills/qa-11x-architect/references/08-postgres-rls-zero-downtime-migrations.md')
+    * assert rlsRef.contains('relforcerowsecurity')
+    * assert rlsRef.contains('pg_namespace')
+
+
 
 
 

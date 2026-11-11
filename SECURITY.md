@@ -185,6 +185,11 @@ La integración entre aplicaciones SPA (Vue 3, React) y APIs REST/WebSockets (Fa
   - Consumir el desafío de forma **atómica y de un solo uso** en KeyDB/Redis (`GETDEL` o script Lua) o bajo espacio de nombres `idemp:preauth:{challenge_id}:{key}`, con `TTL <= 300s` y purga inmediata al superar `3–5` intentos fallidos (`APSC-DV-000530`).
   - Compartir simétricamente la lista blanca explícita `PREAUTH_PUBLIC_ROUTES` entre los middlewares backend y el interceptor HTTP `401` del frontend, validando la cadena completa en un único test continuo sin mocks intermedios.
 
+### 4.21. Integridad de Auditoría de Catálogo RLS en PostgreSQL 15–17+ (`QA-PG17-RLS` — `DISA STIG V-222543` & `Standard 11X Law 7`)
+- **Riesgo:** Consultas de prueba o validación que verifican `FORCE ROW LEVEL SECURITY` leyendo `pg_tables.forcerowsecurity` fallan en motores reales PostgreSQL 15–17+ (donde dicha columna no existe en la vista `pg_tables`), enmascarando errores en entornos con mocks o rompiendo pipelines CI.
+- **Mitigación:**
+  - Auditar siempre el estado de RLS consultando `pg_catalog.pg_class` (`relrowsecurity` y `relforcerowsecurity`) mediante `JOIN pg_catalog.pg_namespace` (`nspname = 'public' AND relkind = 'r'`), bloqueando estáticamente cualquier referencia a `pg_tables.forcerowsecurity` mediante `QA-PG17-RLS`.
+
 ---
 
 ## 5. Auditoría Preventiva de Vulnerabilidades y Seguridad Shift-Left

@@ -39,7 +39,7 @@ Apply these non-negotiable security directives before writing any code:
 
 1. **Multi-Tenant Isolation & Row-Level Security (RLS Multi-Transaction Persistence):**
    - Every multi-tenant table MUST include a tenant foreign key (`tenant_id UUID NOT NULL`).
-   - Database migrations MUST enforce RLS policies: `ENABLE ROW LEVEL SECURITY;` and `FORCE ROW LEVEL SECURITY;`. Never connect the application using a PostgreSQL superuser or a role with `BYPASSRLS`; provision a dedicated role with `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`.
+   - Database migrations MUST enforce RLS policies: `ENABLE ROW LEVEL SECURITY;` and `FORCE ROW LEVEL SECURITY;` (audited in PostgreSQL 15–17+ via `pg_catalog.pg_class.relforcerowsecurity` joined with `pg_catalog.pg_namespace`, NEVER nonexistent `pg_tables.forcerowsecurity`, `QA-PG17-RLS`). Never connect the application using a PostgreSQL superuser or a role with `BYPASSRLS`; provision a dedicated role with `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`.
    - Because `SET LOCAL app.current_tenant_id` expires at the first `await db.commit()`, store `(tenant_id, is_superadmin)` in `session.sync_session.info` and register an `@event.listens_for(AsyncSession.sync_session_class, "after_begin")` listener that automatically re-executes `SET LOCAL` whenever a subsequent transaction begins on the same session (e.g. writing an audit log after committing an entity).
    - Use scoped `SECURITY DEFINER` SQL functions (`SET search_path = public`) for pre-authentication lookups (e.g. tenant `slug` resolution at login or bootstrap status count) instead of weakening RLS `USING` policies.
 2. **Strict SSRF Prevention:**

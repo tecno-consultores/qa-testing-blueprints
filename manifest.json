@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.16.0",
-  "generated_at_utc": "2026-11-11T00:05:03Z",
+  "generated_at_utc": "2026-11-11T14:00:37Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -55,8 +55,8 @@
           "path": "fastapi/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "1f2b75271b116eb58cafa4f77332dc3035be71e5c168d34835bfd5a22de8f2a8",
-          "size_bytes": 2909
+          "sha256": "8725cfa353993edc97c3ea61810f27ad0b8b1a3ee228e4f6cc95810934c7b45e",
+          "size_bytes": 3728
         },
         {
           "path": "fastapi/docker-compose.qa.yml",
@@ -69,8 +69,8 @@
           "path": "fastapi/gitignore.example",
           "target_name": ".gitignore",
           "merge_strategy": "append_missing_lines",
-          "sha256": "744a4833e6f547d461785ca9018dbbcf8dc95322b6cfd6a74ce8aaca165fa1c1",
-          "size_bytes": 284
+          "sha256": "643768b093242d6b681113e85c30cfb3ae8da527cfed96b659fd3edbc042333c",
+          "size_bytes": 333
         },
         {
           "path": "fastapi/initdb/01-init-rls-role.sql.example",
@@ -304,8 +304,8 @@
           "path": "python/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "299169f3baa019303da6fde6775512259c899494c6e890f749f41c175de10a41",
-          "size_bytes": 1427
+          "sha256": "3e1ec56225da937800e42df073b66597b31950b72290a1410c3c7ee5f711b2d0",
+          "size_bytes": 1576
         },
         {
           "path": "python/docker-compose.qa.yml",
@@ -318,8 +318,8 @@
           "path": "python/gitignore.example",
           "target_name": ".gitignore",
           "merge_strategy": "append_missing_lines",
-          "sha256": "a5cdd122fce2a6c5dff5c6eac9994e2822a790ea3ef0bfbf1556aedeab189bf7",
-          "size_bytes": 355
+          "sha256": "b02baf8956ed12151a9047d9ee2fc4761c0f1c65782b1e338eddd9a207ab2c32",
+          "size_bytes": 404
         },
         {
           "path": "python/limpieza.sh",
@@ -642,8 +642,8 @@
       "path": "scripts/limpieza.sh",
       "target_name": "scripts/limpieza.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "7ead3f0491c55308bced2c2bea89b9f1aed5d4eae92a1ffab638cb5a6839a721",
-      "size_bytes": 5234
+      "sha256": "76e3b21eac0b5b3bfb0267ed539040e39d52a5719ac33c510cc93f707d233c3c",
+      "size_bytes": 5260
     },
     {
       "path": "scripts/verificar-secretos.sh",
@@ -707,15 +707,15 @@
       "path": ".agents/rules/mandatory_qa_pyramid_and_doc_sync.md",
       "target_name": ".agents/rules/mandatory_qa_pyramid_and_doc_sync.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "82ab1b7c5455014ed7b3cd8cabc731d4e5858191ec9729d54453ca22b81755a3",
-      "size_bytes": 12087
+      "sha256": "8401b6e3642f71f3a401233ee9dc71303a9c96074ecee1ebf32852ab18b4f66d",
+      "size_bytes": 12238
     },
     {
       "path": ".agents/rules/secure_development_and_testing_guidelines.md",
       "target_name": ".agents/rules/secure_development_and_testing_guidelines.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "fdf920c52edba6ca8c61abb0b07e243ba71fd459b6ddfa07408cd9e8bde1e614",
-      "size_bytes": 18082
+      "sha256": "5295f69ab5c476d6fdfbfa04a705e9dcb0f76599d7691b8a9ea78fd22a0e84f6",
+      "size_bytes": 18262
     },
     {
       "path": ".agents/scripts/certify_task_completion.sh",
@@ -756,8 +756,8 @@
       "path": ".agents/scripts/verify_no_orphan_api_endpoints.py",
       "target_name": ".agents/scripts/verify_no_orphan_api_endpoints.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "5da010256b7fb0cf474842ce84ac4f6abbefaf22a718d03eb1a68368395371ed",
-      "size_bytes": 12891
+      "sha256": "1c6a63511934a10bb2f506a81d8b7e17087fa625deda55099376dfb0e733d40e",
+      "size_bytes": 13838
     },
     {
       "path": ".agents/scripts/verify_roadmap_consistency.py",
@@ -798,8 +798,8 @@
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "a331ab48ab0295e57933de3b6db1d13149078f1af128138dcbff95a5ab0b3af9",
-      "size_bytes": 17521
+      "sha256": "d6716b2e0d042d43b3ddb210ac7dd12b4e6a7d0676a594e41abbe1d9c7ef46fa",
+      "size_bytes": 18355
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
@@ -819,8 +819,8 @@
       "path": ".agents/skills/qa-11x-architect/references/03-stack-python-fastapi.md",
       "target_name": ".agents/skills/qa-11x-architect/references/03-stack-python-fastapi.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "3d08755fe539a1ae606da32483cea028421576ace343dbb531b6acea444af13f",
-      "size_bytes": 11711
+      "sha256": "15a856460a1bd2bc21152823baa73339d01972b8cf7f32a97d5caf3e79665724",
+      "size_bytes": 12326
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md",
@@ -854,8 +854,8 @@
       "path": ".agents/skills/qa-11x-architect/references/08-postgres-rls-zero-downtime-migrations.md",
       "target_name": ".agents/skills/qa-11x-architect/references/08-postgres-rls-zero-downtime-migrations.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "f497804d121098f0d735c670b1a8b23ae9a9789b2e42e0fd9d39a4b598cb5032",
-      "size_bytes": 10539
+      "sha256": "616a0459306859ad3a38fdcbf9b0fd39316f7c6bc272bf26ab6c08313be3fcab",
+      "size_bytes": 11346
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/09-sre-observability-chaos-triage.md",
@@ -868,8 +868,8 @@
       "path": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "target_name": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "f905c736ebc3e461955bf959bdd0d8eea20ba5d95491a3f0dff901c76cf8c6c0",
-      "size_bytes": 4876
+      "sha256": "b487cbf8342cd4279e0733a52410420fa96aa951a01a28288b8e61e4f98849e5",
+      "size_bytes": 5307
     },
     {
       "path": ".agents/skills/refactoring-ui/SKILL.md",
@@ -945,8 +945,8 @@
       "path": "AGENTS.md",
       "target_name": "AGENTS.md",
       "merge_strategy": "surgical_merge",
-      "sha256": "156dabef149dce325613ea47cadce9edcef7660e77dc939a01b1017c8603172a",
-      "size_bytes": 19973
+      "sha256": "283ee40bcf9b1f61a1ff7baaacd6785d2fb2146f643cdbf7556cf83960996207",
+      "size_bytes": 20299
     },
     {
       "path": "scripts/install-skill.sh",
