@@ -21,14 +21,28 @@ services:
       timeout: 3s
       retries: 10
 
+  pnpm-store-init:
+    image: sinfallas/base-node-ionic:26
+    pull_policy: if_not_present
+    user: "0:0"
+    volumes:
+      - pnpm-store:/pnpm
+    command: ["chmod", "-R", "a+rwX", "/pnpm"]
+
   qa-frontend:
     image: sinfallas/base-node-ionic:26
     container_name: react_qa_frontend
     hostname: react_qa_frontend
     pull_policy: if_not_present
+    user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    depends_on:
+      pnpm-store-init:
+        condition: service_completed_successfully
     environment:
       TZ: 'America/Caracas'
+      HOME: /tmp
       PNPM_HOME: /pnpm
+      pnpm_config_store_dir: /pnpm/store
       PATH: /pnpm:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     volumes:
       - .:/app

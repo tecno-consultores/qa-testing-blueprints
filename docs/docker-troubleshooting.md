@@ -201,3 +201,17 @@ footer {
 }
 ```
 2. Valida siempre la geometría visual y la interactividad profunda en navegadores reales mediante `make qa-e2e` o `Karate Labs UI`.
+
+---
+
+## 13. Fallo `ERR_PNPM_PACKAGE_MANAGER_CREATE_SLOT_DIR: Permission denied (os error 13)` en Contenedores Node/Frontend (`UID 10001`)
+
+**Síntoma:**
+En GitHub Actions (`ubuntu-latest`, `uid=1001`) o en estaciones locales (`uid=1000` / `501`) sin `node_modules` previo, `pnpm install` aborta con `ERR_PNPM_PACKAGE_MANAGER_CREATE_SLOT_DIR` (`Failed to create virtual store slot directory at "/app/.../node_modules/.pnpm/...": Permission denied (os error 13)`) o `Failed to write cafs: Failed to create file at "/pnpm/store/v11/files/..."`.
+
+**¿Por qué sucede?**
+La imagen oficial endurecida `sinfallas/base-node-ionic:26` ejecuta por defecto con `uid=10001(appuser)` y trae `/pnpm/store/v11/files/*` pre-poblados con propietario `10001:10001` (`0755`). Si `docker compose run` se invoca sin mapear el `UID:GID` del host, `uid=10001` no puede escribir en el checkout bind-mounted (`0755` del usuario `1001`/`1000`); y si solo se inyecta `-u "$(id -u):$(id -g)"` sin desbloquear `/pnpm`, el usuario `1001`/`1000` no puede escribir en `/pnpm/store/v11` (además, `pnpm` v12+ ignora variables heredadas `npm_config_*` y solo respeta `pnpm_config_store_dir`).
+
+**La Solución:**
+1. Declarar en `docker-compose.qa.yml` el micro-servicio `pnpm-store-init` (`chmod -R a+rwX /pnpm`) con `depends_on: condition: service_completed_successfully`, junto a `HOME: /tmp` y `pnpm_config_store_dir: /pnpm/store`.
+2. Invocar siempre `docker compose run --rm -u "$(id -u):$(id -g)" <servicio> ...` en `Makefile` y pipelines CI.

@@ -43,7 +43,7 @@ jobs:
 
       - name: Execute MCP Server QA Suite in Ephemeral Docker (Rule Zero)
         run: |
-          docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server bash -c \
+          docker compose -f mcp-server/docker-compose.qa.yml run --rm -u "$(id -u):$(id -g)" mcp-server bash -c \
             "pnpm install --frozen-lockfile && pnpm run lint && pnpm run typecheck && pnpm run test:unit && pnpm run build && rm -rf coverage .eslintcache"
 
       - name: Execute Karate Labs BDD Contract Suite in Ephemeral Docker (Rule Zero)

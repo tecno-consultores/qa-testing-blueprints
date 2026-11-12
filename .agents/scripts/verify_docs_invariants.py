@@ -21,6 +21,7 @@ FORBIDDEN_DOC_PATTERNS: tuple[tuple[str, str], ...] = (
 
 DOC_TARGETS: tuple[str, ...] = (
     "README.md",
+    ".agents/README.md",
     "mcp-server/README.md",
     "mcp-server/README.es.md",
     "TESTING.md",
@@ -28,6 +29,7 @@ DOC_TARGETS: tuple[str, ...] = (
     "FAQ.md",
     "CONTRIBUTING.md",
     "AI_MASTER_PROMPT.md",
+    "docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md",
     "docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md",
     "docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md",
     "docs/docker-troubleshooting.md",
@@ -39,7 +41,7 @@ DOC_TARGETS: tuple[str, ...] = (
 )
 
 HUMAN_CORE_MANUALS: tuple[str, ...] = (
-    "docs/01_ARQUITECTURA_Y_DISENO_SISTEMAS.md",
+    "docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md",
     "docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md",
     "docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md",
     "docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md",

@@ -4,23 +4,25 @@
 COMPOSE_FILE = docker-compose.qa.yml
 SERVICE_NAME = qa-frontend
 E2E_SERVICE = ui-e2e
+export QA_UID := $(shell id -u)
+export QA_GID := $(shell id -g)
 
 build-ui:
 	@echo "🏗️ Compilando la aplicación (Vite) para entorno E2E/Producción..."
-	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm --silent run build"
+	@docker compose -f $(COMPOSE_FILE) run --rm -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm --silent run build"
 	@docker compose -f $(COMPOSE_FILE) up -d ui-prod
 
 qa-lint:
 	@echo "🔍 Ejecutando Auditoría de CVEs, Linter, Types y Formateo (React/TS)..."
-	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run audit:deps && pnpm run type-check && pnpm run format:check && pnpm lint"
+	@docker compose -f $(COMPOSE_FILE) run --rm -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run audit:deps && pnpm run type-check && pnpm run format:check && pnpm lint"
 
 qa-unit:
 	@echo "🧪 Ejecutando Pruebas Unitarias Aisladas (Vitest + RTL >= 95%)..."
-	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run test:coverage"
+	@docker compose -f $(COMPOSE_FILE) run --rm -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run test:coverage"
 
 qa-orphans:
 	@echo "🧩 [11X] Verificando cero componentes UI huérfanos en Docker (Rule Zero)..."
-	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "\
+	@docker compose -f $(COMPOSE_FILE) run --rm -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "\
 		if [ -f .agents/scripts/verify_zero_orphan_vue_components.py ]; then \
 			python3 .agents/scripts/verify_zero_orphan_vue_components.py; \
 		else \
@@ -29,7 +31,7 @@ qa-orphans:
 
 qa-mutation:
 	@echo "👽 Ejecutando Pruebas de Mutación Frontend (Stryker)..."
-	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run mutate"
+	@docker compose -f $(COMPOSE_FILE) run --rm -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run mutate"
 
 qa-perf: build-ui
 	@echo "⚡ Ejecutando Auditoría de Rendimiento (Lighthouse CI)..."

@@ -143,20 +143,20 @@ CURRENT_GID="$(id -g)"
 
 # 4. Paso 1: Hidratación de dependencias y Verificación de Calidad (Rule Zero)
 echo "🔍 [1/5] Verificando dependencias, Lint & Typecheck en Docker efímero..."
-docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" sh -c \
+docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" sh -c \
   "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run lint && pnpm --silent run typecheck"
 
 # 5. Paso 2: Pruebas Unitarias con Cobertura >= 95%
 if [ "$SKIP_TESTS" = false ]; then
   echo "🧪 [2/5] Ejecutando pruebas unitarias con cobertura en Docker efímero..."
-  docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run test:unit
+  docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run test:unit
 else
   echo "🧪 [2/5] Omitiendo pruebas unitarias (--skip-tests activado)."
 fi
 
 # 6. Paso 3: Compilación TypeScript a dist/
 echo "⚙️ [3/5] Compilando TypeScript a dist/..."
-docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run build
+docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run build
 
 # 7. Paso 4: Auditoría de empaquetado (Dry-Run de npm pack)
 echo "📦 [4/5] Validando empaquetado (npm pack --dry-run)..."

@@ -725,3 +725,25 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def cliIndexSource = karate.readAsString(mcpRoot + '/src/index.ts')
     * assert cliIndexSource.contains('syncGlobalSkillsInBackground')
 
+  Scenario: 25. Alineación Non-Root UID 10001 en CI / Stacks Node (pnpm-store-init) y Paridad Documental Integral
+    * def ciWorkflow = karate.readAsString(repoRoot + '/.github/workflows/qa-11x-ci.yml')
+    * assert ciWorkflow.contains('run --rm -u "$(id -u):$(id -g)" mcp-server')
+
+    * def mcpCompose = karate.readAsString(mcpRoot + '/docker-compose.qa.yml')
+    * assert mcpCompose.contains('pnpm-store-init:')
+    * assert mcpCompose.contains('["chmod", "-R", "a+rwX", "/pnpm"]')
+    * assert mcpCompose.contains('pnpm_config_store_dir: /pnpm/store')
+    * assert mcpCompose.contains('user: "${QA_UID:-1000}:${QA_GID:-1000}"')
+
+    * def govDoc = karate.readAsString(repoRoot + '/docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md')
+    * assert govDoc.contains('9 Recursos Dinámicos')
+    * assert govDoc.contains('blueprint://core/docs-invariants-validator')
+    * assert govDoc.contains('update_available')
+
+    * def agentsReadme = karate.readAsString(repoRoot + '/.agents/README.md')
+    * assert agentsReadme.contains('9 reglas UAT Anti-Blindness')
+    * assert agentsReadme.contains('verify_docs_invariants.py')
+
+    * def dockerTrouble = karate.readAsString(repoRoot + '/docs/docker-troubleshooting.md')
+    * assert dockerTrouble.contains('ERR_PNPM_PACKAGE_MANAGER_CREATE_SLOT_DIR')
+

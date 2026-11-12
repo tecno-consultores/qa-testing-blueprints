@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
@@ -11,11 +10,11 @@ cumplan todos los contratos estructurales y de seguridad v2.16.0.
 """
 
 import json
-from pathlib import Path
 import shutil
 import tempfile
 import tomllib
 import unittest
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 EXPECTED_STACKS = (
@@ -140,6 +139,32 @@ class TestStacksHydrationSmoke(unittest.TestCase):
 
         limpieza = (REPO_ROOT / "scripts" / "limpieza.sh").read_text(encoding="utf-8")
         self.assertNotIn("/workspace/mcp-server/dist", limpieza)
+
+    def test_node_stacks_and_ci_enforce_non_root_host_uid_and_pnpm_store_init(self) -> None:
+        """Previene regresiones os error 13 (UID 10001 vs bind-mount host/CI) en base-node-ionic:26."""
+        ci_workflow = (REPO_ROOT / ".github" / "workflows" / "qa-11x-ci.yml").read_text(encoding="utf-8")
+        self.assertIn(
+            'docker compose -f mcp-server/docker-compose.qa.yml run --rm -u "$(id -u):$(id -g)" mcp-server',
+            ci_workflow,
+        )
+
+        node_targets = (
+            ("mcp-server", "Makefile"),
+            ("vue3", "Makefile.example"),
+            ("react-frontend", "Makefile.example"),
+            ("node-backend", "Makefile.example"),
+        )
+        for folder, makefile_name in node_targets:
+            compose_text = (REPO_ROOT / folder / "docker-compose.qa.yml").read_text(encoding="utf-8")
+            self.assertIn("pnpm-store-init:", compose_text, f"Falta pnpm-store-init en {folder}")
+            self.assertIn('["chmod", "-R", "a+rwX", "/pnpm"]', compose_text, f"Falta chmod -R a+rwX en {folder}")
+            self.assertIn("pnpm_config_store_dir: /pnpm/store", compose_text, f"Falta pnpm_config_store_dir en {folder}")
+            self.assertNotRegex(compose_text, r"\bnpm_config_store_dir:", f"Variable legacy npm_config_store_dir en {folder}")
+            self.assertIn('user: "${QA_UID:-1000}:${QA_GID:-1000}"', compose_text, f"Falta user QA_UID en {folder}")
+
+            makefile_text = (REPO_ROOT / folder / makefile_name).read_text(encoding="utf-8")
+            self.assertIn("export QA_UID", makefile_text, f"Falta export QA_UID en {folder}/{makefile_name}")
+            self.assertIn('-u "$(QA_UID):$(QA_GID)"', makefile_text, f"Falta flag -u en {folder}/{makefile_name}")
 
 
 if __name__ == "__main__":

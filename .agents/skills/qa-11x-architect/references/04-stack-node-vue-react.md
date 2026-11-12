@@ -17,8 +17,10 @@ This reference provides technical rules, testing conventions, and ephemeral Dock
    fund=false
    audit=false
    ```
-2. **Ephemeral Docker Execution:**  
-   All builds, typechecks, linters, and unit/BDD tests execute inside `sinfallas/base-node-ionic:26` (available tags: `22`, `24`, `26`, and `latest`) with a persistent `pnpm-store` named volume (`Rule Zero`).
+2. **Ephemeral Docker Execution & Non-Root Host UID Alignment (`UID 10001` Guardrail):**  
+   All builds, typechecks, linters, and unit/BDD tests execute inside `sinfallas/base-node-ionic:26` (available tags: `22`, `24`, `26`, and `latest`) with a persistent `pnpm-store` named volume (`Rule Zero`). Because `sinfallas/base-node-ionic:26` runs by default as `uid=10001(appuser)` and pre-populates `/pnpm/store/v11/files/*` as `10001:10001`:
+   - Always pass `-u "$(id -u):$(id -g)"` on `docker compose run --rm` (and set `user: "${QA_UID:-1000}:${QA_GID:-1000}"` in `docker-compose.qa.yml`) so `node_modules/.pnpm` and `dist/` match the host/CI runner UID (`1001` on GitHub Actions, `1000` on Linux, `501` on macOS) without `ERR_PNPM_PACKAGE_MANAGER_CREATE_SLOT_DIR` (`os error 13`).
+   - Declare a one-shot `pnpm-store-init` service (`user: "0:0"`, `command: ["chmod", "-R", "a+rwX", "/pnpm"]`) with `depends_on: { pnpm-store-init: { condition: service_completed_successfully } }`, plus `HOME: /tmp` and `pnpm_config_store_dir: /pnpm/store` (`pnpm` v12+ ignores legacy `npm_config_*`), preventing CAFS permission errors and preventing cross-device fallback creation of `/app/.pnpm-store`.
 
 ---
 

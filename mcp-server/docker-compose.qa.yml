@@ -1,12 +1,26 @@
 services:
+  pnpm-store-init:
+    image: sinfallas/base-node-ionic:26
+    pull_policy: if_not_present
+    user: "0:0"
+    volumes:
+      - pnpm-store:/pnpm
+    command: ["chmod", "-R", "a+rwX", "/pnpm"]
+
   mcp-server:
     image: sinfallas/base-node-ionic:26
     container_name: mcp_qa_server
     hostname: mcp_qa_server
     pull_policy: if_not_present
+    user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    depends_on:
+      pnpm-store-init:
+        condition: service_completed_successfully
     environment:
       TZ: 'America/Caracas'
+      HOME: /tmp
       PNPM_HOME: /pnpm
+      pnpm_config_store_dir: /pnpm/store
     volumes:
       - ..:/app
       - pnpm-store:/pnpm

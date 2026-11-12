@@ -3,14 +3,16 @@
 # Variables
 COMPOSE_FILE = docker-compose.qa.yml
 SERVICE_NAME = qa-node-backend
+export QA_UID := $(shell id -u)
+export QA_GID := $(shell id -g)
 
 qa-lint:
 	@echo "🔍 Ejecutando Auditoría de CVEs, Linter y Type Checking (Node.js)..."
-	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run audit:deps && pnpm run format:check && pnpm lint && pnpm type-check"
+	@docker compose -f $(COMPOSE_FILE) run --rm -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run audit:deps && pnpm run format:check && pnpm lint && pnpm type-check"
 
 qa-unit:
 	@echo "🧪 Ejecutando Pruebas Unitarias (Vitest)..."
-	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run test:coverage"
+	@docker compose -f $(COMPOSE_FILE) run --rm -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run test:coverage"
 
 qa-e2e:
 	@echo "🎭 Ejecutando Pruebas BDD (Karate Labs)..."
@@ -18,7 +20,7 @@ qa-e2e:
 
 qa-mutation:
 	@echo "👽 Ejecutando Pruebas de Mutación (Stryker)..."
-	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run mutate"
+	@docker compose -f $(COMPOSE_FILE) run --rm -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run mutate"
 
 qa-stress:
 	@echo "🔥 Ejecutando Pruebas de Carga y Caos (Artillery + Pumba)..."

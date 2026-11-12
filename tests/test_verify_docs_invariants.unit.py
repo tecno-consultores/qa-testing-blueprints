@@ -23,6 +23,14 @@ class TestVerifyDocsInvariants(unittest.TestCase):
         self.assertEqual(errors, [])
         self.assertEqual(verify_docs.main([str(REPO_ROOT)]), 0)
 
+    def test_all_registered_core_manuals_and_doc_targets_exist_on_disk(self) -> None:
+        self.assertIn("docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md", verify_docs.DOC_TARGETS)
+        self.assertIn(".agents/README.md", verify_docs.DOC_TARGETS)
+        for rel in verify_docs.HUMAN_CORE_MANUALS:
+            self.assertTrue((REPO_ROOT / rel).is_file(), f"Manual inexistente en HUMAN_CORE_MANUALS: {rel}")
+        for rel in verify_docs.DOC_TARGETS:
+            self.assertTrue((REPO_ROOT / rel).is_file(), f"Documento inexistente en DOC_TARGETS: {rel}")
+
     def test_detects_bloated_skill_md_and_active_task(self) -> None:
         import tempfile
 

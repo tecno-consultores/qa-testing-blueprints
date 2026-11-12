@@ -20,19 +20,20 @@ Este directorio implementa el estándar abierto y emergente de la industria para
 │   ├── ground_truth_fixtures_and_negative_invariants.md # Fixtures trimodales, Ciclo Temporal de 3 Fases e invariantes negativos
 │   └── active_task_and_planning_resilience.md        # Bitácora en caliente (.agents/ACTIVE_TASK.md) y resiliencia ante caídas de sesión
 ├── skills/                                           # Habilidades y Playbooks de dominio (5 skills del catálogo)
-│   ├── qa-11x-architect/                             # Skill Maestra: 13 capas, 10 leyes 11X, Invariante Anti-Silo (6 reglas UAT) y 7 playbooks
+│   ├── qa-11x-architect/                             # Skill Maestra: 13 capas, 10 leyes 11X, Invariante Anti-Silo (9 reglas UAT Anti-Blindness) y 7 playbooks
 │   ├── qa-11x-docker-certifier/                      # Certificación 11X en Docker efímero (95% cobertura)
 │   ├── docker-trivy-keydb-hardening/                 # Endurecimiento Docker, Trivy = 0 y KeyDB multi-hilo
 │   ├── graphify-ast-navigator/                       # Navegación AST, radio de impacto (Blast Radius) y servidor MCP
 │   └── refactoring-ui/                               # Jerarquía visual, escalas discretas, color OKLCH, tabular-nums y WCAG 2.1 AA (SKILL.md + 9 references/)
-└── scripts/                                          # Scripts de automatización y compuertas de calidad
+└── scripts/                                          # Scripts de automatización y compuertas de calidad (9 compuertas)
     ├── verify_alembic_orm_parity.py                  # Auditoría estricta: modelos ORM vs migraciones de BD (y revision <= 32 chars)
     ├── verify_json_no_duplicate_keys.py              # Auditoría estricta anti-colisión de claves duplicadas en JSON i18n
     ├── verify_topological_health.py                  # Auditoría estricta de salud topológica y límites de capas AST
-    ├── inspect_blast_radius.py                       # Análisis de radio de impacto pre-refactorización (aristas entrantes)
+    ├── inspect_blast_radius.py                       # Análisis bidireccional AST de radio de impacto y Code Q&A
     ├── verify_zero_orphan_vue_components.py          # Auditoría estricta: paridad y cobertura de componentes UI (0 huérfanos)
     ├── verify_no_orphan_api_endpoints.py             # Auditoría bidireccional: paridad de endpoints API Front-Back (0 huérfanos 404/405)
     ├── verify_roadmap_consistency.py                 # Auditoría bidireccional: coherencia de ROADMAP.md y ACTIVE_TASK.md
+    ├── verify_docs_invariants.py                     # Auditoría de presupuesto cognitivo (<20KB / <=40 líneas) y paridad Dual-Consumer 1:1
     └── certify_task_completion.sh                    # Compuerta de certificación pre-commit automatizada (10 etapas)
 ```
 
@@ -65,7 +66,7 @@ Este directorio implementa el estándar abierto y emergente de la industria para
 
 5. **Revelación Progresiva en 3 Niveles (*3-Tier Progressive Disclosure*) y Economía Cognitiva de Tokens (*High-IQ Token Economy*):**
    - **Nivel 1 (Conector `AGENTS.md` / `GEMINI.md`):** Índice ligero siempre activo (`< 35 líneas`) que clasifica la tarea en **3 Vías Proporcionales de Ejecución**: `DOCS_ONLY` (Fast-Path documental), `MICRO_CHANGE` (Vía Quirúrgica para `<= 3` archivos y `LOW` Blast Radius) y `FULL_11X` / `CODE_CHANGE` (Flujo completo de 11 pasos para cambios arquitectónicos).
-   - **Nivel 2 (`SKILL.md` Ejecutivo):** Resume las 10 Leyes, las 6 Reglas Anti-Silo (incluyendo *Zero Hardcoded Pass*), los 7 Playbooks y las **6 Estrategias Cognitivas de Ahorro de Tokens** (`AST/Grep-First & Windowed-Read-Second`, `Zero Redundant Re-Read`, `Parallel Tool Batching`, `Subagent Context Isolation <= 20 líneas`, `Pass-Quiet Terminal Filtering` y `Compact ACTIVE_TASK.md <= 40 líneas`) sin duplicar párrafos completos de `.agents/rules/`.
+   - **Nivel 2 (`SKILL.md` Ejecutivo):** Resume las 10 Leyes, las 9 Reglas UAT Anti-Blindness (incluyendo *Zero Hardcoded Pass*, `SEC-16` y `QA-HEALTH-01`), los 7 Playbooks y las **6 Estrategias Cognitivas de Ahorro de Tokens** (`Graphify AST-First, Grep-Fallback, Windowed-Read-Second`, `Zero Redundant Re-Read`, `Parallel Tool Batching`, `Subagent Context Isolation <= 20 líneas`, `Pass-Quiet Terminal Filtering` y `Compact ACTIVE_TASK.md <= 40 líneas`) sin duplicar párrafos completos de `.agents/rules/`.
    - **Nivel 3 (`references/*.md` y `.agents/rules/*.md`):** Se cargan bajo demanda estricta únicamente cuando la tarea toca ese stack o dominio específico.
 
 ---

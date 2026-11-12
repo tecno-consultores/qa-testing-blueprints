@@ -6,6 +6,10 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### 🛠️ Gobernanza, Documentación y Compatibilidad Non-Root `UID 10001` en CI / Stacks Node (Fixed & Changed)
+* **Remediación `ERR_PNPM_PACKAGE_MANAGER_CREATE_SLOT_DIR` (`os error 13`) en GitHub Actions y los 4 Ecosistemas Node (`mcp-server`, `vue3`, `react-frontend`, `node-backend`):** Incorporado el servicio `pnpm-store-init` (`chmod -R a+rwX /pnpm`), mapeo de `UID:GID` del host (`-u "$(id -u):$(id -g)"` / `user: "${QA_UID:-1000}:${QA_GID:-1000}"`), `HOME=/tmp` y `pnpm_config_store_dir=/pnpm/store` (`pnpm` v12+) en `.github/workflows/qa-11x-ci.yml`, `docker-compose.qa.yml`, `Makefile*` y `scripts/publicar-mcp.sh`, certificado sobre checkouts limpios sin `node_modules`.
+* **Nivelación Integral de Gobernanza y Documentación (`v2.20.0`) y Corrección en `verify_docs_invariants.py`:** Corregida la ruta objetivo `docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md` (y añadido `.agents/README.md`) en `.agents/scripts/verify_docs_invariants.py`; actualizados conteos y contratos en `docs/01`, `.agents/README.md`, `AGENTS.md`, `README.md`, `CONTRIBUTING.md`, `TESTING.md`, `docs/02`, `docs/docker-troubleshooting.md` y las skills corporativas (`SKILL.md < 20 KB`, `04-stack-node-vue-react.md`, `docker-trivy-keydb-hardening`).
+
 ---
 
 ## [2.20.0] - 2026-11-12

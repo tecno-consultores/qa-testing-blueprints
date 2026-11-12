@@ -2,15 +2,29 @@
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
 services:
+  pnpm-store-init:
+    image: sinfallas/base-node-ionic:26
+    pull_policy: if_not_present
+    user: "0:0"
+    volumes:
+      - pnpm-store:/pnpm
+    command: ["chmod", "-R", "a+rwX", "/pnpm"]
+
   api:
     image: sinfallas/base-node-ionic:26
     container_name: node_api
     hostname: node_api
     pull_policy: if_not_present
+    user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    depends_on:
+      pnpm-store-init:
+        condition: service_completed_successfully
     environment:
       TZ: 'America/Caracas'
       PORT: 3000
+      HOME: /tmp
       PNPM_HOME: /pnpm
+      pnpm_config_store_dir: /pnpm/store
     volumes:
       - .:/app
       - pnpm-store:/pnpm
@@ -29,9 +43,15 @@ services:
     container_name: node_qa_backend
     hostname: node_qa_backend
     pull_policy: if_not_present
+    user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    depends_on:
+      pnpm-store-init:
+        condition: service_completed_successfully
     environment:
       TZ: 'America/Caracas'
+      HOME: /tmp
       PNPM_HOME: /pnpm
+      pnpm_config_store_dir: /pnpm/store
     volumes:
       - .:/app
       - pnpm-store:/pnpm
@@ -113,13 +133,18 @@ services:
     container_name: node_chaos_artillery
     hostname: node_chaos_artillery
     pull_policy: if_not_present
+    user: "${QA_UID:-1000}:${QA_GID:-1000}"
     profiles:
       - chaos
     depends_on:
+      pnpm-store-init:
+        condition: service_completed_successfully
       api:
         condition: service_healthy
     environment:
+      HOME: /tmp
       PNPM_HOME: /pnpm
+      pnpm_config_store_dir: /pnpm/store
     volumes:
       - .:/app
       - pnpm-store:/pnpm

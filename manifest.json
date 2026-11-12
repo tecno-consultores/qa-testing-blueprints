@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.20.0",
-  "generated_at_utc": "2026-11-12T13:41:10Z",
+  "generated_at_utc": "2026-11-12T14:05:33Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -145,8 +145,8 @@
           "path": "node-backend/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "c011a39b2152a36e232aef68006b75f07d3d10e97370bc37d2512efdd3f5f808",
-          "size_bytes": 1426
+          "sha256": "5c6721567aba515aba67ba0ca03a1b28c62243e8d4b95051701c467e84ec2443",
+          "size_bytes": 1565
         },
         {
           "path": "node-backend/artillery.yml.example",
@@ -159,8 +159,8 @@
           "path": "node-backend/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "6ba7b10d0fc00578dd2648e2e9706cdb65dc6e34772e7ad11b3ec172cb93465a",
-          "size_bytes": 3769
+          "sha256": "968d67662dae4ba1f0a44ec403448a2a46e1c3cbc127b031929aca82635dbffb",
+          "size_bytes": 4519
         },
         {
           "path": "node-backend/gitignore.example",
@@ -373,15 +373,15 @@
           "path": "react-frontend/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "0704200adf5a45953a3e5e1324270d002e360bfcd9b96b743e46028155f74b06",
-          "size_bytes": 3323
+          "sha256": "12a56c8bb574f0db85bfc5fab2b6344bb4c1f96eeb6cd9c0fc69ebe6d929cd7b",
+          "size_bytes": 3512
         },
         {
           "path": "react-frontend/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "a006d51af6723f80fa6a5ce30c1cfbdf1cad7f403dfadebddc7656fe01b85093",
-          "size_bytes": 3312
+          "sha256": "44c0139a9b0edf49756c81229adfc39766476a03401cb81a667f2640d07b1cc5",
+          "size_bytes": 3696
         },
         {
           "path": "react-frontend/e2e/accessibility.e2e.ts",
@@ -498,15 +498,15 @@
           "path": "vue3/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "d4d2107e5f86d09857495d529b8a75edf1c38ecd00ed374b22fd7f810a578e30",
-          "size_bytes": 3546
+          "sha256": "21ebbc10f317488813b0b51d8f6809cd92dcded360400ee46d71f83a518bf89f",
+          "size_bytes": 3735
         },
         {
           "path": "vue3/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "f36babfab71c0e039682572249e52a60d8ca1df42a60bf5c2c247d841b1d0e64",
-          "size_bytes": 3289
+          "sha256": "fbec5660c19d5a57a4c8e3a1aa1016e99a628f4b7da7926cc16fc2036749aa8c",
+          "size_bytes": 3673
         },
         {
           "path": "vue3/e2e/accessibility.e2e.ts",
@@ -665,8 +665,8 @@
       "path": ".agents/README.md",
       "target_name": ".agents/README.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "3c78bf8d298ed866daf14eeefec78caaaff68b36028fd88351c71887e0f4aebd",
-      "size_bytes": 9995
+      "sha256": "cb0188bf77d19860d428b37e8d80b45ee3a07138dd9ff1d3744b3b1e7e41f094",
+      "size_bytes": 10216
     },
     {
       "path": ".agents/rules/active_task_and_planning_resilience.md",
@@ -714,8 +714,8 @@
       "path": ".agents/rules/secure_development_and_testing_guidelines.md",
       "target_name": ".agents/rules/secure_development_and_testing_guidelines.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "5295f69ab5c476d6fdfbfa04a705e9dcb0f76599d7691b8a9ea78fd22a0e84f6",
-      "size_bytes": 18262
+      "sha256": "0063f563b65fdf8ed915d638132d3154e5ed91b2cdebdb6ab8903af912f8640a",
+      "size_bytes": 19285
     },
     {
       "path": ".agents/scripts/certify_task_completion.sh",
@@ -742,8 +742,8 @@
       "path": ".agents/scripts/verify_docs_invariants.py",
       "target_name": ".agents/scripts/verify_docs_invariants.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "94e3afa729011f332ed58286c1c1ebd735bdcb7c99da366ae051eb49a6932406",
-      "size_bytes": 8155
+      "sha256": "534ea03c1b75f74c599de310efe78a812045d1a41cdba4370ca76d25875bae7c",
+      "size_bytes": 8241
     },
     {
       "path": ".agents/scripts/verify_json_no_duplicate_keys.py",
@@ -784,8 +784,8 @@
       "path": ".agents/skills/docker-trivy-keydb-hardening/SKILL.md",
       "target_name": ".agents/skills/docker-trivy-keydb-hardening/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "1c012e22108d29469b60db50bebfdfa1c5aaaec8c573c1b32346dd29a151d00a",
-      "size_bytes": 4280
+      "sha256": "d4dedb52015e43d038c501704778a0e6bb5107bead39caa7b6484826594f0436",
+      "size_bytes": 4763
     },
     {
       "path": ".agents/skills/graphify-ast-navigator/SKILL.md",
@@ -798,8 +798,8 @@
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "280fa109497b1986b6d0d64519700a9e617f9b20a09ea5cf2968ee628f47ecaf",
-      "size_bytes": 19757
+      "sha256": "b0d3e13a7438f52cb2771ba37bbd09b7cf0b60204b3a6d4401a804e20b55a911",
+      "size_bytes": 19468
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
@@ -826,8 +826,8 @@
       "path": ".agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md",
       "target_name": ".agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "f397e5182932a52d60008256c3217f338b63b2592e68b1cedbbcaa011d519765",
-      "size_bytes": 8946
+      "sha256": "b5c104230a0844f11d9472d71d80e96b7463a6c85dfa8c04c60bb12b37335c3a",
+      "size_bytes": 9890
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/05-stack-bash-devops.md",
@@ -945,8 +945,8 @@
       "path": "AGENTS.md",
       "target_name": "AGENTS.md",
       "merge_strategy": "surgical_merge",
-      "sha256": "1358d2f43b2e15a9bbea4be06acf932b48ca7679c0a5e22aaf7d2777600d6be1",
-      "size_bytes": 21143
+      "sha256": "0f0582c55a1f927def3360b4b4b4192bba276822489194bbf88845c6dca12374",
+      "size_bytes": 21690
     },
     {
       "path": "scripts/install-skill.sh",

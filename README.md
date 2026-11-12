@@ -28,7 +28,7 @@ Este proyecto estandariza la forma en que construimos y validamos software, gara
    * **Invariante BDD Karate Labs:** Todo endpoint y vista web DEBE contar con escenarios BDD de aceptación (`api_test.feature` y `ui_business_flow.feature`).
    * **Cero Componentes Huérfanos:** 100% de componentes UI cuentan con pruebas unitarias (`verify_zero_orphan_vue_components.py`).
    * **Deuda Técnica y Mutación:** Complejidad Ciclomática Grado A (`CC <= 5`, `MI >= B`) y pruebas de mutación (Stryker / Mutmut) para eliminar falsos positivos.
-   * **Seguridad por Diseño (DISA ASD STIG V6R5 & OWASP):** RLS por tenant en PostgreSQL, anti-SSRF, cifrado AES-256-GCM (FIPS 140-3 + zeroización de memoria), tokens CSRF, cabeceras de idempotencia, gobernanza de sesiones e identidad (timeouts 10m/15m, bloqueo a 3 intentos en tiempo constante, expiración 72h/35d), canonicalización `NFKC`, anti-XXE, validación de archivos por *Magic Bytes*, auditoría forense encadenada con HMAC (alerta al 75% de disco), cabeceras OWASP OSHP, estado *Fail-Secure*, mitigación de OWASP API Security Top 10 (2023), CycloneDX SBOM/CBOM y auditoría preventiva con Trivy.
+   * **Seguridad por Diseño (DISA ASD STIG V6R5 & OWASP):** RLS por tenant en PostgreSQL, anti-SSRF, cifrado AES-256-GCM (FIPS 140-3 + zeroización de memoria), tokens CSRF, cabeceras de idempotencia, continuidad atómica en ceremonias Pre-Auth multi-etapa (`SEC-16`), contrato de `healthcheck` real sin mocks en orquestadores (`QA-HEALTH-01`), gobernanza de sesiones e identidad (timeouts 10m/15m, bloqueo a 3 intentos en tiempo constante, expiración 72h/35d), canonicalización `NFKC`, anti-XXE, validación de archivos por *Magic Bytes*, auditoría forense encadenada con HMAC (alerta al 75% de disco), cabeceras OWASP OSHP, estado *Fail-Secure*, mitigación de OWASP API Security Top 10 (2023), CycloneDX SBOM/CBOM y auditoría preventiva con Trivy.
 
 ---
 
@@ -220,7 +220,9 @@ npx -y @sinfallas/mcp-qa-11x@latest install-skill --target [auto|workspace|antig
 
 #### 🔄 Cómo Actualizar el Servidor MCP, las Skills y la Documentación en el IDE y cómo Validarlo
 
-Cuando se publica una nueva versión de `@sinfallas/mcp-qa-11x` en `npmjs.com` o se actualiza el manifiesto criptográfico en GitHub, el proceso MCP activo en tu IDE (comunicación `stdio`) y las cachés locales (`~/.npm/_npx` y `~/.cache/qa-11x-blueprints`) pueden retener la versión previa en memoria. Sigue estos **3 pasos** para actualizar y auditar la descarga:
+A partir de `v2.20.0`, `@sinfallas/mcp-qa-11x` incorpora **auto-sincronización silenciosa en segundo plano** al iniciar en modo `stdio` (actualizando por `SHA-256` contra `manifest.json` las skills globales ya instaladas en `~/.gemini`, `~/.claude`, `~/.cursor`, `~/.codeium/windsurf`, `~/.codex` y `~/.hermes`), estampa `.qa-11x-version` al ejecutar `install-skill`, y expone el bloque estructurado `update_available` en `inspect_project_config` y `certify_11x_gate` (con caché TTL de 24 h *fail-open* offline) para que tu asistente te avise cuando el binario MCP o los scripts del proyecto necesiten actualizarse.
+
+Si necesitas forzar manualmente una actualización inmediata del binario MCP en caché (`~/.npm/_npx`) y de los scripts del proyecto, sigue estos **3 pasos**:
 
 1. **Purgar cachés locales y actualizar las 5 Skills, Reglas y Scripts:**
    ```bash

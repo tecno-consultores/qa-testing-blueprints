@@ -91,32 +91,33 @@ Esta arquitectura funciona de forma nativa e idéntica en las principales herram
 
 Para evitar que los agentes deban clonar gigabytes de repositorios o saturar su ventana de contexto con cientos de archivos, el ecosistema se distribuye como servidor MCP oficial bajo el estándar de Anthropic / Linux Foundation (ver también [`docs/specs/13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md`](specs/13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md)):
 
-1. **8 Recursos Dinámicos (`blueprint://*`):**
+1. **9 Recursos Dinámicos (`blueprint://*`):**
    - `blueprint://manifest`: Índice criptográfico con hashes SHA-256 de todos los stacks y archivos comunes.
    - `blueprint://core/philosophy`: Filosofía 11X y prompt maestro (`AI_MASTER_PROMPT.md`).
    - `blueprint://security/disa-owasp-22`: Síntesis técnica de los 22 patrones DISA ASD STIG V6R5 y OWASP v4.2.
    - `blueprint://{stack}/readme`: Especificación del stack solicitado (`fastapi`, `vue3`, `node-backend`, `python`, `react-frontend`, `bash-scripts`, `php`).
-   - `blueprint://ui/refactoring-ui/{topic}`: Directivas tácticas visuales y WCAG 2.1 AA.
+   - `blueprint://ui/refactoring-ui/{topic}`: Directivas tácticas visuales y WCAG 2.1 AA (`hierarchy`, `spacing-layout`, `typography`, `color`, `depth-shadows`, `images-icons`, `forms-tables-dashboards`, `dark-mode`, `polish-checklists`).
    - `blueprint://core/active-task-template`: Plantilla de seguimiento resiliente para agentes.
    - `blueprint://core/cleanup-script`: Script de saneamiento universal sin `sudo`.
    - `blueprint://core/roadmap-validator`: Validador de consistencia de hoja de ruta.
+   - `blueprint://core/docs-invariants-validator`: Validador de presupuesto cognitivo (`SKILL.md < 20 KB`, `ACTIVE_TASK <= 40` líneas) y paridad Dual-Consumer (`verify_docs_invariants.py`).
 
 2. **12 Herramientas de Ejecución (`Tools`):**
-   - `inspect_project_config`: Detección automática del stack, linters y disponibilidad de pruebas en navegador real (`BrowserTestingReadiness`).
+   - `inspect_project_config`: Detección automática del stack, linters, disponibilidad de pruebas en navegador real (`BrowserTestingReadiness`) y estado de actualización `update_available` (comparación SemVer con caché TTL 24h *fail-open* contra `.qa-11x-version`).
    - `fetch_blueprint_bundle`: Descarga quirúrgica de plantillas con validación de hashes SHA-256 (soporta modo índice `include_content: false` en Hito 14).
    - `bootstrap_or_merge_11x`: Fusión no destructiva inyectando configuraciones QA en proyectos existentes.
    - `inspect_ast_blast_radius`: Auditoría AST previa de radio de impacto para cambios en funciones o símbolos y elegibilidad para `MICRO_CHANGE`.
    - `clean_workspace_11x`: Purga segura de cachés y artefactos sin necesidad de privilegios `sudo`.
-   - `audit_security_stig_owasp`: Auditoría estática de reglas DISA/OWASP (`SEC-01` a `SEC-11`) y ergonomía visual Anti-JSDOM (`UI-11X-01`, `UI-11X-02`) con agrupación compacta por regla.
+   - `audit_security_stig_owasp`: Auditoría estática de reglas DISA/OWASP (`SEC-01` a `SEC-16`), invariantes de calidad (`QA-KARATE-IDEMP`, `QA-COV-01`, `QA-MYPY-01`, `QA-PG17-RLS`, `QA-SMOKE-01`, `QA-HEALTH-01`) y ergonomía visual Anti-JSDOM (`UI-11X-01`, `UI-11X-02`) con agrupación compacta por regla.
    - `run_ephemeral_qa`: Lanzamiento de pruebas en Docker efímero bajo la Regla Cero con retorno estructurado en JSON y soporte `skip_if_docs_only`.
-   - `certify_11x_gate`: Ejecución de la compuerta universal de certificación previa a la entrega de la tarea.
+   - `certify_11x_gate`: Ejecución de la compuerta universal de certificación previa a la entrega de la tarea (incluyendo verificación de evidencia `lint` fresca y notificación `update_available`).
    - `audit_test_pyramid_gaps`: Auditoría de las 13 capas de la pirámide 11X, archivos huérfanos y plan de rescate priorizado con presupuesto de salida acotado (`max_items`).
    - `init_or_append_agents_md`: Inyector aditivo no destructivo del bloque conector QA 11X en `AGENTS.md`.
-   - `propose_skill_evolution_pr`: Propuesta de evolución continua Zero-Trust hacia `qa-testing-blueprints`.
+   - `propose_skill_evolution_pr`: Propuesta de evolución continua Zero-Trust Dual-Consumer hacia `qa-testing-blueprints`.
    - `reconcile_agents_governance`: Reconciliador y deduplicador automático de reglas en `.agents/` con respaldo en `.agents/backups/`.
 
-3. **Inyección de Skills, Scripts y `AGENTS.md` en 1 Segundo (`install-skill`):**
-   Cualquier agente o desarrollador puede autoinstalar el catálogo completo de 5 skills (`qa-11x-architect`, `refactoring-ui`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `qa-11x-docker-certifier`), los scripts operativos (`.agents/scripts/*`, `scripts/*`) y el conector en `AGENTS.md` ejecutando `npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts`, adquiriendo de inmediato todo el conocimiento corporativo 11X sin clonar el repositorio.
+3. **Inyección de Skills, Scripts, Sello `.qa-11x-version` y Auto-Sync Global en Segundo Plano (`install-skill`):**
+   Cualquier agente o desarrollador puede autoinstalar el catálogo completo de 5 skills (`qa-11x-architect`, `refactoring-ui`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `qa-11x-docker-certifier`), los scripts operativos (`.agents/scripts/*`, `scripts/*`) y el conector en `AGENTS.md` ejecutando `npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts` (estampando `.qa-11x-version`). Además, al arrancar en modo `stdio`, el servidor MCP sincroniza silenciosamente en segundo plano (`SHA-256` contra `manifest.json`) las skills globales ya instaladas.
 
 ---
 

@@ -194,7 +194,7 @@ El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
   * **Suite:** `tests/test_generar_manifiesto.unit.py` (12 pruebas unitarias).
   * **Ejecución Efímera:** `docker run --rm -v "${PWD}:/app" -w /app sinfallas/base-python-uv:3.15 bash -c "uvx coverage run tests/test_generar_manifiesto.unit.py && uvx coverage report -m --include='scripts/generar-manifiesto.py'"`
   * **Cobertura Alcanzada:** **98%** (superando el umbral innegociable del `>= 95%`).
-  * **Aserciones Validadas:** Algoritmo de hashing SHA-256, categorización de `target_name` y `merge_strategy` para los 6 stacks, detección estricta de derivas con `--check` y robustez de entrada CLI.
+  * **Aserciones Validadas:** Algoritmo de hashing SHA-256, categorización de `target_name` y `merge_strategy` para los 7 stacks, detección estricta de derivas con `--check` y robustez de entrada CLI.
 
 * **Instalador Universal de Skills QA 11X (`scripts/install-skill.sh`):**
   * **Suites de Pruebas:**
@@ -211,10 +211,10 @@ El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
   * **Suites de Pruebas Unitarias:**
     * `tests/github-fetcher.unit.ts` (18 pruebas): Hidratación remota, validación condicional `ETag` (304), verificación SHA-256 (`DISA STIG V-222513`), detección de tampering, fallback offline y local path override.
     * `tests/surgical-merger.unit.ts` (15 pruebas): Fusión quirúrgica no destructiva de `package.json`, `pyproject.toml`, `Makefile`, `.gitignore` y `.npmrc`, inyección de `--max-warnings 0`, asignación de permisos `0o755` a scripts y modo `dryRun`.
-    * `tests/inspect-project.unit.ts` (7 pruebas): Detección automática de stacks (`python`, `fastapi`, `vue3`, `react-frontend`, `node-backend`, `bash-scripts`), banderas estrictas (`mypy`, `tsconfig`, `npmrc`) y archivos 11X ausentes.
-    * `tests/tools-and-resources.unit.ts` (40 pruebas): Recursos `blueprint://*` (incluyendo `blueprint://core/active-task-template`, `blueprint://core/cleanup-script` y `blueprint://core/roadmap-validator`), herramientas 1 a 9 (`inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`, `clean_workspace_11x`, `audit_security_stig_owasp`, `run_ephemeral_qa`, `certify_11x_gate`, `audit_test_pyramid_gaps`), CLI `install-skill` con autodetección global Thin-Repo (`auto`), catálogo de 5 skills, `--include-scripts` (sin copiar `.agents/rules/*.md`) y servidor `McpServer`.
+    * `tests/inspect-project.unit.ts` (15 pruebas): Detección automática de los 7 stacks (`python`, `fastapi`, `vue3`, `react-frontend`, `node-backend`, `php`, `bash-scripts`), banderas estrictas (`mypy`, `tsconfig`, `npmrc`), archivos 11X ausentes y `update_available`.
+    * `tests/tools-and-resources.unit.ts` (41 pruebas):Los 9 recursos `blueprint://*` (incluyendo `blueprint://core/active-task-template`, `blueprint://core/cleanup-script`, `blueprint://core/roadmap-validator` y `blueprint://core/docs-invariants-validator`), herramientas 1 a 9 (`inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`, `clean_workspace_11x`, `audit_security_stig_owasp`, `run_ephemeral_qa`, `certify_11x_gate`, `audit_test_pyramid_gaps`), CLI `install-skill` con autodetección global Thin-Repo (`auto`), catálogo de 5 skills, `--include-scripts` (sin copiar `.agents/rules/*.md`) y servidor `McpServer`.
     * `tests/output-parsers.unit.ts` (29 pruebas): Parsers ahorradores de tokens para cobertura (Pytest, Vitest v8, Kcov), pruebas fallidas (Pytest, Vitest, BATS), linters y complejidad (Radon, Mypy, Ruff, ESLint, ShellCheck multi-línea/GCC), alertas de seguridad (Trivy, Bandit), mutación (Mutmut, Stryker), `tail_log` y condensación `parseQaOutput`.
-    * `tests/security-auditor.unit.ts` (26 pruebas): Auditoría estática de seguridad DISA ASD STIG V6R5 + OWASP v4.2 con reglas `SEC-01` a `SEC-11` y `UI-11X-01`/`UI-11X-02` (Mass Assignment, Anti-CSWSH, Command Injection, XXE, Unicode NFKC, XSS/v-html, Swagger en prod, Cabeceras OSHP, Zero-Trust NPM, Detección de Secretos, Auditoría Semántica Anti-UUID y Geometría Visual Anti-JSDOM).
+    * `tests/security-auditor.unit.ts` (29 pruebas): Auditoría estática de seguridad DISA ASD STIG V6R5 + OWASP v4.2 con reglas `SEC-01` a `SEC-16`, `QA-*` y `UI-11X-01`/`UI-11X-02` (Mass Assignment, Anti-CSWSH, Command Injection, XXE, Unicode NFKC, XSS/v-html, Swagger en prod, Cabeceras OSHP, Zero-Trust NPM, Detección de Secretos, Auditoría Semántica Anti-UUID, Continuidad Pre-Auth y Geometría Visual Anti-JSDOM).
     * `tests/ephemeral-runner.unit.ts` (7 pruebas): Ejecución de targets `qa-${stage}` en Docker efímero bajo Rule Zero con `execFile` seguro (`shell: false`), control de timeouts (código 124), gestión de Makefile ausente y Fast-Path Documental (`isDocsOnlyWorkspaceChange` / `skipIfDocsOnly`).
     * `tests/certify-gate.unit.ts` (10 pruebas): Compuerta unificada de certificación 11X verificando archivos `.example`, secret scanning, colisiones JSON, componentes huérfanos UI, paridad ORM vs Alembic, auditoría DISA/OWASP y sincronización documental (`TESTING.md` y `CHANGELOG.md`).
     * `tests/test-pyramid-auditor.unit.ts` (33 pruebas): Auditoría estática de las 13 capas de la pirámide 11X (`L01` a `L13`), evaluación trimodal (virgen 0%, brownfield parcial, nominal 100%), inventario de brechas (`orphan_source_files`, `untested_api_endpoints`, `untested_ui_views`), detectores de 3 fases temporales y refresco dual, y generación de planes de acción priorizados con targets `make qa-*` y blueprints recomendados.
@@ -226,18 +226,18 @@ El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
     * `tests/qa-health-dual-consumer.unit.ts` (7 pruebas): Regla estática `QA-HEALTH-01` (semántica `task.exception()` / `OPTIONAL_WORKERS` en supervisores `asyncio` y contrato de sondas físicas `healthcheck` en `Dockerfile`/`docker-compose*.yml` con exención `# qa-health-ok`) e inferencia + matriz de 3 capas Dual-Consumer en `propose_skill_evolution_pr`.
     * `tests/version-manager.unit.ts` (6 bloques / 40+ aserciones): Comparación SemVer, sellos `.qa-11x-version`, resolución con caché TTL de 24 h (`latest-version-check.json`) y *fail-open* offline, campo `update_available` en `inspect_project_config` y `certify_11x_gate`, y auto-sync silencioso en segundo plano de skills globales por `SHA-256` preservando el idioma de `~/.gemini/GEMINI.md`.
   * **Ejecución Efímera:**
-    * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run lint`
-    * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server npx tsc --noEmit`
-    * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm test`
-    * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run build`
+    * `docker compose -f mcp-server/docker-compose.qa.yml run --rm -u "$(id -u):$(id -g)" mcp-server pnpm run lint`
+    * `docker compose -f mcp-server/docker-compose.qa.yml run --rm -u "$(id -u):$(id -g)" mcp-server npx tsc --noEmit`
+    * `docker compose -f mcp-server/docker-compose.qa.yml run --rm -u "$(id -u):$(id -g)" mcp-server pnpm test`
+    * `docker compose -f mcp-server/docker-compose.qa.yml run --rm -u "$(id -u):$(id -g)" mcp-server pnpm run build`
   * **Cobertura y Métricas Alcanzadas:**
-    * **100% de aserciones aprobadas** (337/337 pruebas pasando en 20 suites + 24/24 escenarios Karate BDD + 57/57 pruebas Pytest).
+    * **100% de aserciones aprobadas** (337/337 pruebas pasando en 20 suites + 25/25 escenarios Karate BDD + 59/59 pruebas Pytest).
     * **99.11% de cobertura de líneas/sentencias y 95.19% de cobertura de ramas** (superando el umbral de `>= 95%`).
     * **99.43% de cobertura de funciones**.
     * **0 errores de ESLint (`--max-warnings 0`), SonarJS (Cognitiva `<= 15`) y TypeScript (`strict: true`)**.
 
 * **Script Universal de Limpieza y Saneamiento (`scripts/limpieza.sh`):**
-  * **Validación de Calidad de Scripts:** ShellCheck en contenedor efímero `koalaman/shellcheck:stable` certificando **0 errores y 0 advertencias** (código de salida 0) en `scripts/limpieza.sh` y en los 6 scripts por stack (`fastapi/`, `vue3/`, `react-frontend/`, `node-backend/`, `python/`, `bash-scripts/`).
+  * **Validación de Calidad de Scripts:** ShellCheck en contenedor efímero `sinfallas/base-bash-qa:latest` certificando **0 errores y 0 advertencias** (código de salida 0) en `scripts/limpieza.sh` y en los 7 scripts por stack (`fastapi/`, `vue3/`, `react-frontend/`, `node-backend/`, `python/`, `php/`, `bash-scripts/`).
   * **Aserciones Validadas en Docker Efímero:**
     * Detención ordenada de contenedores efímeros y redes huérfanas (`docker compose down -v --remove-orphans`).
     * Erradicación de archivos bloqueados generados por Docker con privilegios `root` (UID 0: `.coverage`, `.pnpm-store`, `.pytest_cache`, `.mypy_cache`, etc.) sin requerir `sudo` mediante fallback Alpine.

@@ -26,12 +26,12 @@ audit:
 
 lint:
 	@echo "🔍 [Lint] Ejecutando linter y chequeo de tipos en Docker efímero..."
-	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd)/mcp-server:/app" -w /app sinfallas/base-node-ionic:26 bash -c '[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run lint && pnpm --silent run typecheck'
+	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "$$(pwd)/mcp-server:/app" -w /app sinfallas/base-node-ionic:26 bash -c '[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run lint && pnpm --silent run typecheck'
 	@echo "✔ [Lint & Typecheck] 0 errores ni advertencias."
 
 test-mcp:
 	@echo "🧪 [Test MCP] Ejecutando pruebas unitarias Vitest (>= 95%) en Docker efímero..."
-	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd)/mcp-server:/app" -w /app sinfallas/base-node-ionic:26 bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run test:unit && rm -rf coverage .eslintcache"
+	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "$$(pwd)/mcp-server:/app" -w /app sinfallas/base-node-ionic:26 bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run test:unit && rm -rf coverage .eslintcache"
 
 test-karate:
 	@echo "🎭 [Karate BDD] Ejecutando contratos BDD del MCP Server en Docker efímero..."
@@ -45,7 +45,7 @@ test: test-mcp test-karate test-py
 
 build:
 	@echo "📦 [Build] Compilando Servidor MCP en Docker efímero..."
-	@docker run --rm -v "$$(pwd)/mcp-server:/app" -w /app sinfallas/base-node-ionic:26 bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run build && chown -R $$(id -u):$$(id -g) dist"
+	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "$$(pwd)/mcp-server:/app" -w /app sinfallas/base-node-ionic:26 bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run build"
 	@echo "✔ [Build] Servidor MCP compilado en mcp-server/dist/."
 
 publish-mcp:

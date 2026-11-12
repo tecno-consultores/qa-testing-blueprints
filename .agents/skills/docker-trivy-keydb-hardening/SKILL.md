@@ -14,13 +14,14 @@ This skill guides the implementation of production-grade Docker containers and u
 
 ## 1. Container Hardening Checklist (Trivy Target = 0)
 
-1. **Non-Root Execution:**
-   - Always run applications under unprivileged system users (`appuser` with UID 10001 or `node` with UID 1000).
+1. **Non-Root Execution & QA Bind-Mount UID Alignment:**
+   - Always run production applications under unprivileged system users (`appuser` with UID 10001 or `node` with UID 1000).
    - In Dockerfile:
      ```dockerfile
      RUN groupadd -g 10001 appgroup && useradd -u 10001 -g appgroup -s /sbin/nologin -d /app appuser
      USER appuser
      ```
+   - When reusing a `UID 10001` base image (`sinfallas/base-node-ionic:26`) with host bind mounts (`.:/app`) in ephemeral QA/CI (`docker-compose.qa.yml`), map the caller's UID (`-u "$(id -u):$(id -g)"`), set `HOME=/tmp` + `pnpm_config_store_dir=/pnpm/store`, and unlock pre-seeded named volumes via a one-shot init service (`chmod -R a+rwX /pnpm`) to avoid `os error 13` on GitHub Actions (`UID 1001`) and developer hosts (`UID 1000`/`501`).
 2. **Multi-Stage Builds:**
    - Separate build-time dependencies (compilers, headers, dev dependencies) from the final runtime image to minimize attack surface and image size.
 3. **Security Profiles, Read-Only Root Filesystem & Capabilities:**
