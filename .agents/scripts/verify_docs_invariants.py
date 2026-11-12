@@ -28,12 +28,22 @@ DOC_TARGETS: tuple[str, ...] = (
     "FAQ.md",
     "CONTRIBUTING.md",
     "AI_MASTER_PROMPT.md",
+    "docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md",
+    "docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md",
     "docs/docker-troubleshooting.md",
     "docs/ci-cd-pipelines.md",
     "docs/ai-integration.md",
     "docs/agent-setup.md",
     "docs/agent-setup.en.md",
     "docs/ARCHITECTURE_C4.md",
+)
+
+HUMAN_CORE_MANUALS: tuple[str, ...] = (
+    "docs/01_ARQUITECTURA_Y_DISENO_SISTEMAS.md",
+    "docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md",
+    "docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md",
+    "docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md",
+    "SECURITY.md",
 )
 
 
@@ -127,12 +137,78 @@ def check_active_docs(root: Path) -> list[str]:
     return errors
 
 
+def _extract_section_slice(text: str, marker: str) -> str:
+    idx = text.find(marker)
+    if idx < 0:
+        return ""
+    sub = text[idx:]
+    end_idx = sub.find("\n---")
+    return sub[:end_idx] if end_idx > 0 else sub
+
+
+def _parse_uat_counts(section: str, header_regex: str) -> tuple[int | None, int]:
+    match = re.search(header_regex, section)
+    declared = int(match.group(1)) if match else None
+    numbered = len(re.findall(r"(?m)^\d+\.\s+\*\*", section))
+    return declared, numbered
+
+
+def _check_uat_rules_parity(root: Path) -> list[str]:
+    skill_md = root / ".agents" / "skills" / "qa-11x-architect" / "SKILL.md"
+    human_md = root / "docs" / "02_BUENAS_PRACTICAS_PROGRAMACION_11X.md"
+    if not skill_md.is_file() or not human_md.is_file():
+        return []
+    s_decl, s_num = _parse_uat_counts(
+        _extract_section_slice(skill_md.read_text(encoding="utf-8"), "### 2.1."),
+        r"\((\d+)\s+UAT Anti-Blindness Rules\)",
+    )
+    h_decl, h_num = _parse_uat_counts(
+        _extract_section_slice(human_md.read_text(encoding="utf-8"), "### 1.1."),
+        r"\*\*(\d+)\s+reglas obligatorias de diseño de pruebas\*\*",
+    )
+    if s_decl and s_decl == s_num == h_decl == h_num:
+        return []
+    return [
+        f"Desfase Dual-Consumer en reglas Anti-Silo: SKILL.md §2.1 declara={s_decl}/ítems={s_num} vs docs/02 §1.1 declara={h_decl}/ítems={h_num}."
+    ]
+
+
+def _read_existing_manuals(root: Path) -> str:
+    chunks = [
+        (root / rel).read_text(encoding="utf-8")
+        for rel in HUMAN_CORE_MANUALS
+        if (root / rel).is_file()
+    ]
+    return "\n".join(chunks)
+
+
+def _check_auditor_rules_in_human_docs(root: Path) -> list[str]:
+    auditor_ts = root / "mcp-server" / "src" / "tools" / "security-auditor.ts"
+    if not auditor_ts.is_file():
+        return []
+    manuals_blob = _read_existing_manuals(root)
+    if not manuals_blob:
+        return []
+    rule_ids = sorted(set(re.findall(r"rule_id:\s*['\"]([A-Z0-9-]+)['\"]", auditor_ts.read_text(encoding="utf-8"))))
+    return [
+        f"Regla '{rid}' de security-auditor.ts no está documentada en los manuales humanos (docs/01..04 o SECURITY.md)."
+        for rid in rule_ids
+        if rid not in manuals_blob
+    ]
+
+
+def check_dual_consumer_parity(root: Path) -> list[str]:
+    """Verifica paridad 1:1 entre capa IA (SKILL.md / MCP) y manuales humanos en español."""
+    return [*_check_uat_rules_parity(root), *_check_auditor_rules_in_human_docs(root)]
+
+
 def validate_repository_docs(root: Path) -> list[str]:
     """Ejecuta todas las validaciones documentales sobre el directorio raíz."""
     return [
         *check_cognitive_budgets(root),
         *check_security_section_numbering(root),
         *check_active_docs(root),
+        *check_dual_consumer_parity(root),
     ]
 
 

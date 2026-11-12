@@ -572,8 +572,9 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert skillMdBytes.length < 20000
 
     * def skillMdContent = karate.readAsString(repoRoot + '/.agents/skills/qa-11x-architect/SKILL.md')
-    * assert skillMdContent.contains('8 UAT Anti-Blindness Rules')
+    * assert skillMdContent.contains('9 UAT Anti-Blindness Rules')
     * assert skillMdContent.contains('Multi-Step Pre-Auth & Ephemeral Challenge Continuity Invariant')
+    * assert skillMdContent.contains('Unmocked Orchestrator Boot & Container Healthcheck Contract')
     * assert skillMdContent.contains('inspect_ast_blast_radius')
 
     * def sec22Ref = karate.readAsString(repoRoot + '/.agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.md')
@@ -667,6 +668,37 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert graphSkill.contains('OUTPUT LANGUAGE & DYNAMIC MIRRORING')
     * def refactSkill = karate.readAsString(repoRoot + '/.agents/skills/refactoring-ui/SKILL.md')
     * assert refactSkill.contains('OUTPUT LANGUAGE & DYNAMIC MIRRORING')
+
+  Scenario: 23. Invariante QA-HEALTH-01 (Regla Anti-Silo #9), Paridad Documental Humana 1:1 y Gobernanza Dual-Consumer
+    * def secSource = karate.readAsString(mcpRoot + '/src/tools/security-auditor.ts')
+    * assert secSource.contains('QA-HEALTH-01')
+    * assert secSource.contains('checkQaHealth01SupervisorTaskExit')
+    * assert secSource.contains('checkQaHealth01ContainerHeartbeatContract')
+
+    * def proposeSource = karate.readAsString(mcpRoot + '/src/tools/propose-evolution-pr.ts')
+    * assert proposeSource.contains('inferDualConsumerTargets')
+    * assert proposeSource.contains('Matriz de Impacto Dual-Consumer')
+    * assert proposeSource.contains('docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md')
+    * assert proposeSource.contains('docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md')
+
+    * def docsValidator = karate.readAsString(repoRoot + '/.agents/scripts/verify_docs_invariants.py')
+    * assert docsValidator.contains('check_dual_consumer_parity')
+    * assert docsValidator.contains('_check_uat_rules_parity')
+    * assert docsValidator.contains('_check_auditor_rules_in_human_docs')
+
+    * def humanPractices = karate.readAsString(repoRoot + '/docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md')
+    * assert humanPractices.contains('9 reglas obligatorias de diseño de pruebas')
+    * assert humanPractices.contains('QA-HEALTH-01')
+    * assert humanPractices.contains('OPTIONAL_WORKERS')
+
+    * def humanSecurity = karate.readAsString(repoRoot + '/docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md')
+    * assert humanSecurity.contains('Mapa de Trazabilidad con el Auditor Estático')
+    * assert humanSecurity.contains('SEC-16')
+
+    * def rootSecurity = karate.readAsString(repoRoot + '/SECURITY.md')
+    * assert rootSecurity.contains('### 4.22.')
+    * assert rootSecurity.contains('QA-HEALTH-01')
+
 
 
 

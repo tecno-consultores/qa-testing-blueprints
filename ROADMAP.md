@@ -33,6 +33,7 @@
 | **Hito 16** | Invariante Anti-Silo Pre-Auth Multi-Etapa (`SEC-16`), Presupuesto Cognitivo `SKILL.md < 20 KB` y Verificador Documental Determinista (`verify_docs_invariants.py`) | `SECURITY.md` §4.20 + `02-security-disa-owasp-22.md` | ✅ Completado | `100%` |
 | **Hito 17** | Paridad Pre-Push 1:1 con CI (`v2.17.0`) en MCP `qa-11x`: Sello de Evidencia `lint`, Stages `integration`/`ci`, Parser de Endpoints Dinámicos e Invariantes Python/PostgreSQL 17 (`QA-MYPY-01`, `QA-PG17-RLS`, `importlib`) | `03-stack-python-fastapi.md` + `08-postgres-rls-zero-downtime-migrations.md` | ✅ Completado | `100%` |
 | **Hito 18** | Internacionalización v2.18.0: Idioma Espejo Dinámico, Flag `--lang (auto/es/en)`, Targets `codex`/`windsurf` y Guías Multi-Agente EN/ES | [`docs/agent-setup.md`](docs/agent-setup.md) + [`docs/agent-setup.en.md`](docs/agent-setup.en.md) | ✅ Completado | `100%` |
+| **Hito 19** | Invariante Anti-Silo #9 (`QA-HEALTH-01`), Nivelación Documental Humana 1:1 (`docs/02` y `docs/04`) y Gobernanza Dual-Consumer en `propose_skill_evolution_pr` y `verify_docs_invariants.py` | [`docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md`](docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md) + `SECURITY.md` §4.22 | ✅ Completado | `100%` |
 
 ---
 
@@ -256,6 +257,17 @@
 - [x] **18.2.** Añadir soporte para targets globales `codex` (`~/.codex/skills`) y `windsurf` (`~/.codeium/windsurf/skills`) con autodetección en `install-skill.ts` y `scripts/install-skill.sh`, traduciendo textos de ayuda CLI y descripciones MCP a inglés técnico conciso.
 - [x] **18.3.** Desplegar la directiva `OUTPUT LANGUAGE & DYNAMIC MIRRORING` en las 5 Skills corporativas (`SKILL.md < 20 KB`), redactar `mcp-server/README.md` en inglés para npmjs, preservar `mcp-server/README.es.md` para GitHub y crear las guías bilingües paso a paso para 11 agentes de IA (`docs/agent-setup.md` y `docs/agent-setup.en.md`).
 - [x] **18.4.** Validar con la pirámide completa de pruebas (Vitest `>= 95%`, Pytest unitario y Karate Labs BDD Escenario 22) y certificar las 10 compuertas de calidad.
+
+---
+
+## ✅ Hito 19: Invariante Anti-Silo #9 (`QA-HEALTH-01`), Nivelación Documental Humana 1:1 y Gobernanza Dual-Consumer
+**Referencia Obligatoria:** [`docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md`](docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md), [`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`](docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md) y `SECURITY.md` §4.22
+
+### Tareas de Implementación:
+- [x] **19.1.** Implementar la regla estática `QA-HEALTH-01` en `mcp-server/src/tools/security-auditor.ts` (detección de supervisores `asyncio` sin `task.exception()` y sondas físicas de `healthcheck` en `Dockerfile`/`docker-compose*.yml` sin aserción real en `tests/`) e incorporarla como Regla #9 Anti-Ceguera UAT en `qa-11x-architect` (`SKILL.md < 20 KB`, `03-stack-python-fastapi.md`, `01-core-13-layers.md`).
+- [x] **19.2.** Nivelar 1:1 los manuales en español para lectura humana (`docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md` con las 9 reglas Anti-Silo completas, `docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md` con trazabilidad `SEC-01..16`, `SECURITY.md` §4.22, `README.md`, `docs/ai-integration.md` y `mcp-server/README.{md,es.md}`).
+- [x] **19.3.** Incorporar la matriz **Dual-Consumer** (Skill IA + Auditor MCP + Manual Humano) en `propose_skill_evolution_pr` (`types.ts`, `propose-evolution-pr.ts`, `server.ts`), en `.agents/rules/continuous_agent_evolution.md` y en el validador automático `check_dual_consumer_parity` de `.agents/scripts/verify_docs_invariants.py`.
+- [x] **19.4.** Validar con suites unitarias y BDD en Docker efímero (`qa-health-dual-consumer.unit.ts`, `test_verify_docs_invariants.unit.py` y Karate BDD Escenario 23), regenerar `manifest.json` + grafos AST y superar la compuerta 10/10.
 
 
 

@@ -512,7 +512,21 @@ export const ProposeEvolutionPrInputSchema = z.object({
     .string()
     .min(1)
     .describe(
-      "Relative path in qa-testing-blueprints to improve (e.g. '.agents/skills/qa-11x-architect/SKILL.md')."
+      "Relative AI-layer path in qa-testing-blueprints to improve (e.g. '.agents/skills/qa-11x-architect/SKILL.md')."
+    ),
+  target_human_doc_file: z
+    .string()
+    .min(1)
+    .optional()
+    .describe(
+      "Relative human-facing manual in docs/ or root (e.g. 'docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md' or 'docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md') to preserve Dual-Consumer parity. Auto-inferred when omitted."
+    ),
+  target_mcp_component: z
+    .string()
+    .min(1)
+    .optional()
+    .describe(
+      "Executable MCP tool/auditor/script enforcing the rule (e.g. 'mcp-server/src/tools/security-auditor.ts'). Auto-inferred when omitted."
     ),
   improvement_title: z
     .string()
@@ -525,7 +539,14 @@ export const ProposeEvolutionPrInputSchema = z.object({
   proposed_content_or_snippet: z
     .string()
     .min(10)
-    .describe('Proposed markdown/code snippet to incorporate into the skill or template.'),
+    .describe('Proposed markdown/code snippet to incorporate into the AI skill or template.'),
+  proposed_human_doc_summary: z
+    .string()
+    .min(10)
+    .optional()
+    .describe(
+      'Didactic explanation and code example for human engineers to incorporate into docs/01..04_*.md or SECURITY.md.'
+    ),
   prefer_offline_fallback: z
     .boolean()
     .optional()
@@ -538,6 +559,8 @@ export interface ProposeEvolutionPrResult {
   status: 'PR_CREATED_VIA_GH' | 'PROPOSAL_FILE_AND_URL_GENERATED';
   target_repo: string;
   target_blueprint_file: string;
+  target_human_doc_file: string;
+  target_mcp_component: string;
   branch_name: string;
   gh_cli_authenticated: boolean;
   pull_request_url: string | null;

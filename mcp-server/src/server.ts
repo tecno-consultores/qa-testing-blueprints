@@ -372,7 +372,7 @@ export function createMcpServer(options?: {
   // Tool 6: audit_security_stig_owasp
   server.tool(
     'audit_security_stig_owasp',
-    'Statically audits project source code against the 22 DISA ASD STIG V6R5 and OWASP v4.2 security patterns.',
+    'Statically audits project source code against the 22 DISA ASD STIG V6R5, OWASP v4.2, and Anti-Silo QA/Healthcheck patterns (including QA-HEALTH-01).',
     AuditSecurityInputSchema.shape,
     async (args) => {
       const result = await auditSecurityStigOwasp(args.project_path, args.max_findings);
@@ -477,7 +477,7 @@ export function createMcpServer(options?: {
   // Tool 11: propose_skill_evolution_pr
   server.tool(
     'propose_skill_evolution_pr',
-    'Proposes an improvement or edge-case fix to qa-testing-blueprints via authenticated local gh CLI or pre-filled GitHub URL.',
+    'Proposes a Dual-Consumer improvement (AI skill/rule + MCP executable gate + human manual in docs/) to qa-testing-blueprints via gh CLI or pre-filled GitHub URL.',
     ProposeEvolutionPrInputSchema.shape,
     async (args) => {
       const result = await proposeSkillEvolutionPr(args);

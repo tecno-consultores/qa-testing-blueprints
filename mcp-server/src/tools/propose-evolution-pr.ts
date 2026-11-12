@@ -46,16 +46,63 @@ export function buildEvolutionSlug(title: string): string {
   return truncated.length > 0 ? truncated : 'skill-evolution';
 }
 
+const DEFAULT_HUMAN_PRACTICES_DOC = 'docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md';
+const DEFAULT_HUMAN_SECURITY_DOC = 'docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md';
+const DEFAULT_MCP_AUDITOR_TARGET = 'mcp-server/src/tools/security-auditor.ts';
+const DEFAULT_DOCS_VALIDATOR_TARGET = '.agents/scripts/verify_docs_invariants.py';
+
+export interface DualConsumerTargets {
+  targetHumanDocFile: string;
+  targetMcpComponent: string;
+}
+
+export function inferDualConsumerTargets(input: ProposeEvolutionPrInput): DualConsumerTargets {
+  const combinedHint = `${input.target_blueprint_file} ${input.improvement_title}`;
+  const isSecurityTopic = /(?:02-security|08-postgres|secure_development|\bSEC-\d+)/i.test(combinedHint);
+  const isDocsGovernanceTopic = /(?:verify_docs|active_task|continuous_agent_evolution)/i.test(combinedHint);
+
+  const inferredHumanDoc = isSecurityTopic ? DEFAULT_HUMAN_SECURITY_DOC : DEFAULT_HUMAN_PRACTICES_DOC;
+  const inferredMcpComponent = isDocsGovernanceTopic
+    ? DEFAULT_DOCS_VALIDATOR_TARGET
+    : DEFAULT_MCP_AUDITOR_TARGET;
+
+  return {
+    targetHumanDocFile: input.target_human_doc_file?.trim() || inferredHumanDoc,
+    targetMcpComponent: input.target_mcp_component?.trim() || inferredMcpComponent,
+  };
+}
+
 function computeSafeCodeFence(snippet: string): string {
   const matches = snippet.match(/`{3,}/g);
   const maxLen = matches ? Math.max(...matches.map((m) => m.length)) : 2;
   return '`'.repeat(Math.max(3, maxLen + 1));
 }
 
+function buildDualConsumerSectionLines(
+  input: ProposeEvolutionPrInput,
+  targets: DualConsumerTargets
+): string[] {
+  const humanSummaryLines = input.proposed_human_doc_summary?.trim()
+    ? ['', '### Borrador para Documentación Humana (`docs/`)', input.proposed_human_doc_summary.trim()]
+    : [
+        '',
+        `> **Recordatorio Dual-Consumer Obligatorio:** Al promover esta propuesta se DEBE documentar su explicación y ejemplo para ingenieros humanos en \`${targets.targetHumanDocFile}\` (además de \`SECURITY.md\` / \`CHANGELOG.md\` cuando aplique) para superar \`verify_docs_invariants.py\`.`,
+      ];
+
+  return [
+    '## Matriz de Impacto Dual-Consumer (Agentes IA + MCP + Documentación Humana)',
+    `- [ ] **Capa Agentes IA (Skill / Rule):** \`${input.target_blueprint_file}\``,
+    `- [ ] **Capa Ejecutable (MCP / Auditor Estático):** \`${targets.targetMcpComponent}\``,
+    `- [ ] **Capa Ingeniería Humana (Manual en \`docs/\`):** \`${targets.targetHumanDocFile}\``,
+    ...humanSummaryLines,
+  ];
+}
+
 function writeProposalFile(
   proposalsDir: string,
   slug: string,
-  input: ProposeEvolutionPrInput
+  input: ProposeEvolutionPrInput,
+  targets: DualConsumerTargets
 ): string {
   fs.mkdirSync(proposalsDir, { recursive: true });
   const filePath = path.join(proposalsDir, `${slug}.md`);
@@ -67,12 +114,16 @@ function writeProposalFile(
     `**Fecha de Registro:** ${new Date().toISOString()}`,
     `**Rama Sugerida:** \`evolution/${slug}\``,
     `**Repositorio Destino:** \`${UPSTREAM_REPO}\``,
-    `**Archivo Objetivo:** \`${input.target_blueprint_file}\``,
+    `**Archivo Objetivo (Capa IA):** \`${input.target_blueprint_file}\``,
+    `**Componente Ejecutable (Capa MCP):** \`${targets.targetMcpComponent}\``,
+    `**Manual Humano Objetivo (\`docs/\`):** \`${targets.targetHumanDocFile}\``,
+    '',
+    ...buildDualConsumerSectionLines(input, targets),
     '',
     '## Justificación Empírica (Dogfooding / Producción)',
     input.empirical_rationale,
     '',
-    '## Bloque / Cambio Propuesto',
+    '## Bloque / Cambio Propuesto (Skill / MCP)',
     `${fence}markdown`,
     input.proposed_content_or_snippet,
     fence,
@@ -87,11 +138,17 @@ export function buildPrefilledIssueUrl(input: ProposeEvolutionPrInput): {
   issueBody: string;
   prefilledUrl: string;
 } {
+  const targets = inferDualConsumerTargets(input);
   const issueTitle = `[Evolution] ${input.improvement_title}`;
   const fence = computeSafeCodeFence(input.proposed_content_or_snippet);
   const issueBody = [
-    `### Archivo Objetivo en \`${UPSTREAM_REPO}\``,
-    `\`${input.target_blueprint_file}\``,
+    `### Matriz Dual-Consumer en \`${UPSTREAM_REPO}\``,
+    `- **Capa Agentes IA (Skill / Rule):** \`${input.target_blueprint_file}\``,
+    `- **Capa Ejecutable (MCP / Auditor):** \`${targets.targetMcpComponent}\``,
+    `- **Capa Ingeniería Humana (\`docs/\`):** \`${targets.targetHumanDocFile}\``,
+    ...(input.proposed_human_doc_summary?.trim()
+      ? ['', '### Borrador para Documentación Humana (`docs/`)', input.proposed_human_doc_summary.trim()]
+      : []),
     '',
     '### Justificación Empírica (Dogfooding)',
     input.empirical_rationale,
@@ -162,7 +219,8 @@ export async function proposeSkillEvolutionPr(
   const slug = buildEvolutionSlug(input.improvement_title);
   const branchName = `evolution/${slug}`;
   const proposalsDir = path.join(resolvedPath, '.agents', 'proposals');
-  const proposalFilePath = writeProposalFile(proposalsDir, slug, input);
+  const dualTargets = inferDualConsumerTargets(input);
+  const proposalFilePath = writeProposalFile(proposalsDir, slug, input, dualTargets);
   const { issueBody, prefilledUrl } = buildPrefilledIssueUrl(input);
 
   if (input.prefer_offline_fallback) {
@@ -170,12 +228,14 @@ export async function proposeSkillEvolutionPr(
       status: STATUS_PROPOSAL_GENERATED,
       target_repo: UPSTREAM_REPO,
       target_blueprint_file: input.target_blueprint_file,
+      target_human_doc_file: dualTargets.targetHumanDocFile,
+      target_mcp_component: dualTargets.targetMcpComponent,
       branch_name: branchName,
       gh_cli_authenticated: false,
       pull_request_url: null,
       prefilled_github_url: prefilledUrl,
       local_proposal_file: proposalFilePath,
-      message: 'Propuesta generada localmente y URL prellenada creada (modo offline seleccionado).',
+      message: 'Propuesta Dual-Consumer generada localmente y URL prellenada creada (modo offline seleccionado).',
     };
   }
 
@@ -186,23 +246,27 @@ export async function proposeSkillEvolutionPr(
       status: STATUS_PR_CREATED,
       target_repo: UPSTREAM_REPO,
       target_blueprint_file: input.target_blueprint_file,
+      target_human_doc_file: dualTargets.targetHumanDocFile,
+      target_mcp_component: dualTargets.targetMcpComponent,
       branch_name: branchName,
       gh_cli_authenticated: true,
       pull_request_url: ghResult.prUrl,
       prefilled_github_url: prefilledUrl,
       local_proposal_file: proposalFilePath,
-      message: `Pull Request creado exitosamente en ${ghResult.prUrl}`,
+      message: `Pull Request Dual-Consumer creado exitosamente en ${ghResult.prUrl}`,
     };
   }
 
   const msg = ghResult.ghAuthenticated
-    ? 'gh CLI autenticado pero no se pudo crear el PR directamente; se generó propuesta local y URL prellenada.'
-    : 'gh CLI no disponible o no autenticado; se generó propuesta local y URL prellenada de GitHub.';
+    ? 'gh CLI autenticado pero no se pudo crear el PR directamente; se generó propuesta local Dual-Consumer y URL prellenada.'
+    : 'gh CLI no disponible o no autenticado; se generó propuesta local Dual-Consumer y URL prellenada de GitHub.';
 
   return {
     status: STATUS_PROPOSAL_GENERATED,
     target_repo: UPSTREAM_REPO,
     target_blueprint_file: input.target_blueprint_file,
+    target_human_doc_file: dualTargets.targetHumanDocFile,
+    target_mcp_component: dualTargets.targetMcpComponent,
     branch_name: branchName,
     gh_cli_authenticated: ghResult.ghAuthenticated,
     pull_request_url: null,

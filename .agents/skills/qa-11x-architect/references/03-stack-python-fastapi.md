@@ -94,6 +94,34 @@ Instrumentator().instrument(app).expose(app)
   - **Dynamic `Idempotency-Key` in Karate Labs BDD (`api_test.feature`):** All mutable requests (`POST`, `PUT`, `PATCH`, `DELETE`) in `api_test.feature` against endpoints enforcing `IdempotencyMiddleware` MUST include `And header Idempotency-Key = java.util.UUID.randomUUID() + ''` (unless explicitly testing `400` on missing header or storing `* def idemKey = java.util.UUID.randomUUID() + ''` within a scenario to test replay/`409`), preventing `400 Bad Request` or `409`/`422` collisions across repeated runs against live KeyDB/Redis.
   - **Service-Layer RBAC Defense (Anti-`Depends()` Bypass) & MCP Approval Gate:** In FastAPI, `Depends(require_roles(...))` only runs when invoked through the HTTP router. When service or controller functions can be called directly by internal JSON-RPC/MCP dispatchers, background workers, or WebSocket handlers, `Depends()` is bypassed. Always validate `claims["role"]` / `claims["rol"]` explicitly at the start of the service function, route mutating MCP tools through `ApprovalRequest` (`AWAITING_APPROVAL`), and include unit tests invoking the service/MCP dispatcher directly with an unprivileged role asserting `403` / `PermissionError`.
 
+### D. Unmocked Orchestrator Boot, Supervisor Task-Exit Semantics & Container Healthcheck Contract (`QA-HEALTH-01`)
+- **Root Cause Prevented:** Background worker containers (`python -m src.workers.runner`) pass `>= 95%` siloed unit coverage yet crash into Docker `unhealthy` when: (a) an opt-in feature-flagged worker (`SIEM_EXPORT_ENABLED=false`) cleanly returns `None` (`task.done() == True`, `task.exception() is None`), (b) the supervisor loop treats every `task.done() and not task.cancelled()` as a fatal crash, and (c) the orchestrator unit test mocks all sub-workers (`AsyncMock` + `sleep(0.01)` + `cancel()`) without asserting the physical `HEALTHCHECK` artifact (`/tmp/worker_heartbeat`).
+- **Supervisor Task-Exit Classification:**
+  1. `task.exception() is not None` -> **ALWAYS UNHEALTHY** (unhandled crash).
+  2. Clean exit of a **mandatory** infinite-loop worker -> **ALWAYS UNHEALTHY**.
+  3. Clean `return None` (`task.exception() is None`) of an explicitly declared `OPTIONAL_WORKERS` member disabled via `Settings` -> **HEALTHY**.
+- **Reference Implementation & Contract Test:**
+```python
+from pathlib import Path
+import asyncio
+
+WORKER_HEARTBEAT_PATH = Path("/tmp/worker_heartbeat")
+OPTIONAL_WORKERS: frozenset[str] = frozenset({"siem_exporter", "telemetry_archiver"})
+
+
+def is_supervisor_healthy(tasks: dict[str, asyncio.Task[None]]) -> bool:
+    for name, task in tasks.items():
+        if task.cancelled():
+            return False
+        if task.done():
+            if task.exception() is not None:
+                return False
+            if name not in OPTIONAL_WORKERS:
+                return False
+    return True
+```
+- Every service or runner whose `Dockerfile` / `docker-compose.yml` probes a heartbeat file or readiness endpoint MUST include at least one integration-style unit test booting the real orchestrator under default production `Settings()` **without mocking optional worker loops**, asserting `WORKER_HEARTBEAT_PATH.exists()` after multiple event-loop ticks (`audit_security_stig_owasp` enforces `QA-HEALTH-01`).
+
 ---
 
 ## 3. Configuration Blueprints

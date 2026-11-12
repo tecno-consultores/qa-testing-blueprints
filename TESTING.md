@@ -17,7 +17,7 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
 | **Pruebas de Mutación** | `mutmut`, `stryker` | Puntuación de mutación `> 80%` | Rechazo por asertos débiles |
 | **Comportamiento BDD** | `sinfallas/karatelabs:1.5.1` (Gherkin) | **100% de escenarios PASSED** | Bloqueo de flujo funcional |
 | **Paridad de Esquema DB & RLS/WORM** | `.agents/scripts/verify_alembic_orm_parity.py` + `SEC-13` (`after_begin` RLS + `NOBYPASSRLS`) + `QA-PG17-RLS` (`pg_class.relforcerowsecurity` con `JOIN pg_namespace`, nunca `pg_tables.forcerowsecurity`) + `SEC-14` (`seq_num` + `pg_advisory_xact_lock` WORM) | **0 tablas huérfanas / revision `<= 32` chars / RLS multi-tx / catálogo PG 15–17+ / cadena WORM determinista** | Rechazo por Anti-Mock Blindness / Fuga RLS / Race WORM |
-| **Propagación Anti-Silo, Pre-Auth Multi-Etapa (`SEC-16`), 3 Fases Temporales, Timeouts Pesados y Batch por Ítem** | Contratos Read-After-Write, Pytest/Vitest, Karate BDD (`api_test.feature` / `ui_business_flow.feature`) | **0 mocks intermedios entre módulos, continuidad atómica `GETDEL`/Lua + `PREAUTH_PUBLIC_ROUTES` en flujos Pre-Auth, 3 fases del reloj (`Programada`, `En Curso`, `Cancelada/Expirada`), 0 UUIDs crudos en `actor_username`, Refresco Dual (`[ 🔄 Refrescar ]`), `timeout >= 180s` + purga `0 bytes` y validación `results[].status` en batch `200 OK`** | Rechazo por Silo Mock Blindness / Pre-Auth 401/403 Escape / Batch 200 Blindness |
+| **Propagación Anti-Silo, Pre-Auth Multi-Etapa (`SEC-16`), Salud Real de Orquestadores (`QA-HEALTH-01`), 3 Fases Temporales y Batch por Ítem** | Contratos Read-After-Write, Pytest/Vitest, Karate BDD (`api_test.feature` / `ui_business_flow.feature`) y `audit_security_stig_owasp` | **0 mocks intermedios entre módulos, continuidad atómica `GETDEL`/Lua + `PREAUTH_PUBLIC_ROUTES` en flujos Pre-Auth, contrato sin mocks sobre sondas `healthcheck` (`/tmp/worker_heartbeat`) + `task.exception()` / `OPTIONAL_WORKERS`, 3 fases del reloj, 0 UUIDs crudos en `actor_username`, Refresco Dual (`[ 🔄 Refrescar ]`), `timeout >= 180s` + purga `0 bytes` y validación `results[].status` en batch `200 OK`** | Rechazo por Silo Mock Blindness / Unhealthy Container Escape / Pre-Auth 401 Escape |
 | **Componentes Huérfanos** | `.agents/scripts/verify_zero_orphan_vue_components.py` | **0 componentes sin test unitario** | Bloqueo en pre-commit |
 | **Paridad Endpoints API** | `.agents/scripts/verify_no_orphan_api_endpoints.py` | **0 llamadas 404/405 Front-Back** | Bloqueo por desalineación de contratos |
 | **Accesibilidad Web** | `@axe-core/playwright` | **0 violaciones WCAG 2.1 AA** | Rechazo de interfaz táctica |
@@ -222,15 +222,17 @@ El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
     * `tests/reconcile-agents.unit.ts` (21 pruebas): Reconciliación automática Thin-Repo y deduplicación de `.agents/`, limpieza de archivos canónicos y skills duplicadas en proyectos consumidores, extracción de reglas de negocio a `domain_<project>_rules.md`, respaldos en `.agents/backups/` y sincronización idempotente de `~/.gemini/GEMINI.md`.
     * `tests/edge-cases.unit.ts` (33 pruebas): Cobertura profunda de casos de borde y ramas extremas en servicios y herramientas.
     * `tests/prepush-ci-parity.unit.ts` (6 pruebas): Sello criptográfico de evidencia `lint` (`.agents/.qa-evidence.json`) en `certify_11x_gate`, stages `migration`/`integration`/`ci`, normalización de template strings dinámicos (`` `/routers${query}` ``, `` `/bridge/${subPath}` ``, `{path:path}`) e invariantes `QA-MYPY-01`, `QA-PG17-RLS` y `QA-COV-01` (`--import-mode=importlib`).
+    * `tests/v2-18-i18n-agents.unit.ts` (10 pruebas): Modo de idioma `--lang auto|es|en` (`QA_OUTPUT_LANG`), *Dynamic Language Mirroring*, targets globales `codex` y `windsurf` con autodetección y CLI bilingüe.
+    * `tests/qa-health-dual-consumer.unit.ts` (7 pruebas): Regla estática `QA-HEALTH-01` (semántica `task.exception()` / `OPTIONAL_WORKERS` en supervisores `asyncio` y contrato de sondas físicas `healthcheck` en `Dockerfile`/`docker-compose*.yml` con exención `# qa-health-ok`) e inferencia + matriz de 3 capas Dual-Consumer en `propose_skill_evolution_pr`.
   * **Ejecución Efímera:**
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run lint`
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server npx tsc --noEmit`
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm test`
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run build`
   * **Cobertura y Métricas Alcanzadas:**
-    * **100% de aserciones aprobadas** (313/313 pruebas pasando en 17 suites + 21/21 escenarios Karate BDD + 54/54 pruebas Pytest).
-    * **99.22% de cobertura de líneas/sentencias y 95.09% de cobertura de ramas** (superando el umbral de `>= 95%`).
-    * **99.67% de cobertura de funciones**.
+    * **100% de aserciones aprobadas** (331/331 pruebas pasando en 19 suites + 23/23 escenarios Karate BDD + 57/57 pruebas Pytest).
+    * **99.22% de cobertura de líneas/sentencias y 95.19% de cobertura de ramas** (superando el umbral de `>= 95%`).
+    * **99.69% de cobertura de funciones**.
     * **0 errores de ESLint (`--max-warnings 0`), SonarJS (Cognitiva `<= 15`) y TypeScript (`strict: true`)**.
 
 * **Script Universal de Limpieza y Saneamiento (`scripts/limpieza.sh`):**

@@ -67,6 +67,46 @@ class TestVerifyDocsInvariants(unittest.TestCase):
             errors = verify_docs.validate_repository_docs(root)
             self.assertGreaterEqual(len(errors), 6)
 
+    def test_detects_dual_consumer_uat_count_mismatch(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            skill_file = root / ".agents" / "skills" / "qa-11x-architect" / "SKILL.md"
+            skill_file.parent.mkdir(parents=True, exist_ok=True)
+            skill_file.write_text(
+                "### 2.1. 🛡️ Mandatory Anti-Silo (2 UAT Anti-Blindness Rules)\n\n"
+                "1. **Rule One:** text\n"
+                "2. **Rule Two:** text\n\n---\n",
+                encoding="utf-8",
+            )
+            human_doc = root / "docs" / "02_BUENAS_PRACTICAS_PROGRAMACION_11X.md"
+            human_doc.parent.mkdir(parents=True, exist_ok=True)
+            human_doc.write_text(
+                "### 1.1. Invariante Anti-Silo\n"
+                "Cumplir **1 reglas obligatorias de diseño de pruebas**:\n\n"
+                "1. **Regla Uno:** texto\n\n---\n",
+                encoding="utf-8",
+            )
+
+            errors = verify_docs.validate_repository_docs(root)
+            self.assertTrue(any("Desfase Dual-Consumer" in e for e in errors))
+
+    def test_detects_undocumented_auditor_rule_in_human_manuals(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            auditor = root / "mcp-server" / "src" / "tools" / "security-auditor.ts"
+            auditor.parent.mkdir(parents=True, exist_ok=True)
+            auditor.write_text("const f = { rule_id: 'QA-ORPHAN-99' };\n", encoding="utf-8")
+
+            sec_md = root / "SECURITY.md"
+            sec_md.write_text("### 4.1. Documentado SEC-01\n", encoding="utf-8")
+
+            errors = verify_docs.validate_repository_docs(root)
+            self.assertTrue(any("QA-ORPHAN-99" in e for e in errors))
+
 
 if __name__ == "__main__":
     unittest.main()

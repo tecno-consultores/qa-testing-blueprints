@@ -46,6 +46,8 @@ const APSC_DV_002510_REF = 'APSC-DV-002510 / Patrón 3';
 const SEC_10_REF = 'APSC-DV-000650 / V-222444 / Patrón 10';
 const SEC_11_REF = 'APSC-DV-001350 / Anti-Silo Audit Rule 3';
 const SEC_16_REF = 'CWE-352 / CWE-362 / APSC-DV-000530 / Anti-Silo Rule 8';
+const QA_HEALTH_01_REF = 'APSC-DV-002310 / Standard 11X Anti-Silo Rule 9';
+const QA_HEALTH_OK_PRAGMA = '# qa-health-ok';
 const UI_11X_02_REF = 'Standard 11X / Anti-Silo UI Rule 3 & 4';
 
 function isScannableFile(entry: fs.Dirent): boolean {
@@ -797,7 +799,183 @@ function checkProjectLevelRules(projectPath: string, allRelFiles: string[]): Sec
     ...checkSec09Npmrc(projectPath),
     ...checkSec08Oshp(projectPath, allRelFiles),
     ...checkQaMypy01StrictChain(projectPath),
+    ...checkQaHealth01ContainerHeartbeatContract(projectPath, allRelFiles),
   ];
+}
+
+const SYSTEM_NON_HEARTBEAT_PATHS = new Set([
+  '/var/run/docker.sock',
+  '/var/run/postgresql',
+  '/tmp/.coverage',
+]);
+
+function collectContainerHealthFiles(projectPath: string, allRelFiles: string[]): string[] {
+  const composeFiles = allRelFiles.filter(
+    (rel) => !rel.endsWith('.example') && /(?:^|\/)(?:docker-compose|compose)[^/]*\.ya?ml$/i.test(rel)
+  );
+  const dockerDirs = ['', 'fastapi', 'python', 'backend', 'node-backend'];
+  const dockerVariants = ['Dockerfile', 'Dockerfile.prod', 'Dockerfile.workers'];
+  const extraDockerfiles: string[] = [];
+
+  for (const sub of dockerDirs) {
+    for (const df of dockerVariants) {
+      const rel = sub ? path.join(sub, df) : df;
+      if (fs.existsSync(path.join(projectPath, rel))) {
+        extraDockerfiles.push(rel);
+      }
+    }
+  }
+
+  return Array.from(new Set([...composeFiles, ...extraDockerfiles]));
+}
+
+function extractContainerProbePaths(projectPath: string, allRelFiles: string[]): string[] {
+  const candidates = collectContainerHealthFiles(projectPath, allRelFiles);
+  const probes = new Set<string>();
+  const probeRegex = /\/(?:tmp|var\/run|run)\/[A-Za-z0-9_.-]{3,64}/g;
+
+  for (const rel of candidates) {
+    try {
+      const content = fs.readFileSync(path.join(projectPath, rel), 'utf8');
+      if (!content.includes('healthcheck') && !content.includes('HEALTHCHECK')) continue;
+      const matches = content.match(probeRegex) ?? [];
+      for (const match of matches) {
+        if (!SYSTEM_NON_HEARTBEAT_PATHS.has(match) && !match.endsWith('.sock')) {
+          probes.add(match);
+        }
+      }
+    } catch {
+      // Ignorar errores de lectura puntual
+    }
+  }
+
+  return Array.from(probes);
+}
+
+interface ProbeSourceMatch {
+  relFile: string;
+  line: number;
+  symbolNames: string[];
+}
+
+function isProductionSourceCandidate(rel: string): boolean {
+  if (rel.endsWith('.example') || isTestFilePath(rel) || isAuditorSelfDefinition(rel)) {
+    return false;
+  }
+  return /\.(?:py|ts|js|php|sh)$/.test(rel);
+}
+
+function extractAssignedConstants(lines: string[], targetToken: string): { line: number; symbols: string[] } {
+  const symbols: string[] = [];
+  let firstLine = 1;
+  const constRegex = /^\s*([A-Z][A-Z0-9_]{2,50})\b/;
+
+  for (let i = 0; i < lines.length; i++) {
+    if (!lines[i].includes(targetToken)) continue;
+    if (firstLine === 1) firstLine = i + 1;
+    const match = lines[i].match(constRegex);
+    if (match) symbols.push(match[1]);
+  }
+
+  return { line: firstLine, symbols };
+}
+
+function findSourceOrchestratorForProbe(
+  projectPath: string,
+  allRelFiles: string[],
+  probePath: string
+): ProbeSourceMatch | null {
+  const baseToken = path.basename(probePath);
+  for (const rel of allRelFiles) {
+    if (!isProductionSourceCandidate(rel)) continue;
+    try {
+      const content = fs.readFileSync(path.join(projectPath, rel), 'utf8');
+      if (!content.includes(probePath) && !content.includes(baseToken)) continue;
+      if (content.includes(QA_HEALTH_OK_PRAGMA)) return null;
+      const lines = content.split(/\r?\n/);
+      const matchedToken = content.includes(probePath) ? probePath : baseToken;
+      const { line, symbols } = extractAssignedConstants(lines, matchedToken);
+      return { relFile: rel, line, symbolNames: symbols };
+    } catch {
+      // Ignorar errores de lectura puntual
+    }
+  }
+  return null;
+}
+
+function testFileAssertsProbeUnmocked(
+  content: string,
+  tokens: string[]
+): boolean {
+  const mentionsToken = tokens.some((tok) => content.includes(tok));
+  if (!mentionsToken) return false;
+  if (content.includes(QA_HEALTH_OK_PRAGMA)) return true;
+
+  const mocksHeartbeatWrite =
+    content.includes('write_text') && (content.includes('patch(') || content.includes('monkeypatch'));
+  if (mocksHeartbeatWrite && !content.includes('.exists()')) return false;
+
+  const assertionMarkers = [
+    '.exists()',
+    'os.path.exists',
+    '.is_file()',
+    '.read_text(',
+    'existsSync(',
+    'statSync(',
+  ];
+  return assertionMarkers.some((marker) => content.includes(marker));
+}
+
+function hasUnmockedProbeTestAssertion(
+  projectPath: string,
+  allRelFiles: string[],
+  probePath: string,
+  symbolNames: string[]
+): boolean {
+  const tokens = [probePath, path.basename(probePath), ...symbolNames];
+  for (const rel of allRelFiles) {
+    if (!isTestFilePath(rel) && !rel.endsWith('.feature')) continue;
+    try {
+      const content = fs.readFileSync(path.join(projectPath, rel), 'utf8');
+      if (testFileAssertsProbeUnmocked(content, tokens)) return true;
+    } catch {
+      // Ignorar errores de lectura puntual
+    }
+  }
+  return false;
+}
+
+function checkQaHealth01ContainerHeartbeatContract(
+  projectPath: string,
+  allRelFiles: string[]
+): SecurityFinding[] {
+  const probePaths = extractContainerProbePaths(projectPath, allRelFiles);
+  const findings: SecurityFinding[] = [];
+
+  for (const probePath of probePaths) {
+    const orchestrator = findSourceOrchestratorForProbe(projectPath, allRelFiles, probePath);
+    if (!orchestrator) continue;
+    const verified = hasUnmockedProbeTestAssertion(
+      projectPath,
+      allRelFiles,
+      probePath,
+      orchestrator.symbolNames
+    );
+    if (!verified) {
+      findings.push({
+        rule_id: 'QA-HEALTH-01',
+        severity: 'HIGH',
+        stig_owasp_ref: QA_HEALTH_01_REF,
+        file: orchestrator.relFile,
+        line: orchestrator.line,
+        message: `El contenedor exige la sonda '${probePath}' en healthcheck, pero ningún test afirma su existencia real (.exists()/read_text) sin mockear el orquestador.`,
+        remediation:
+          'Añadir un test de contrato que arranque el orquestador con Settings() de producción por defecto (sin mockear loops opcionales) y haga assert explícito sobre el archivo/señal de healthcheck.',
+      });
+    }
+  }
+
+  return findings;
 }
 
 function checkQaMypy01StrictChain(projectPath: string): SecurityFinding[] {
@@ -1202,6 +1380,45 @@ function checkSec16PreAuthMultiStepContinuity(relPath: string, lines: string[]):
   return findings;
 }
 
+function checkQaHealth01SupervisorTaskExit(relPath: string, lines: string[]): SecurityFinding[] {
+  if (
+    !relPath.endsWith('.py') ||
+    relPath.endsWith('.example') ||
+    isTestFilePath(relPath) ||
+    isAuditorSelfDefinition(relPath)
+  ) {
+    return [];
+  }
+
+  const findings: SecurityFinding[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.includes(QA_HEALTH_OK_PRAGMA)) continue;
+    if (!line.includes('.done()') || !line.includes('.cancelled()')) continue;
+
+    const windowStart = Math.max(0, i - 5);
+    const windowEnd = Math.min(lines.length, i + 12);
+    const windowText = lines.slice(windowStart, windowEnd).join('\n');
+    if (windowText.includes('.exception()') || windowText.includes(QA_HEALTH_OK_PRAGMA)) {
+      continue;
+    }
+
+    findings.push({
+      rule_id: 'QA-HEALTH-01',
+      severity: 'HIGH',
+      stig_owasp_ref: QA_HEALTH_01_REF,
+      file: relPath,
+      line: i + 1,
+      message:
+        'Supervisor asyncio evalúa task.done() y task.cancelled() sin inspeccionar task.exception() ni distinguir retorno limpio opt-in (return None) de fallos fatales.',
+      remediation:
+        'Inspeccionar task.exception() is not None y declarar OPTIONAL_WORKERS para que salidas limpias por feature-flag deshabilitado no degraden el healthcheck del contenedor.',
+    });
+  }
+
+  return findings;
+}
+
 function scanSingleFile(absPath: string, relPath: string): SecurityFinding[] {
   let content: string;
   try {
@@ -1229,6 +1446,7 @@ function scanSingleFile(absPath: string, relPath: string): SecurityFinding[] {
     ...checkQaCov01AddoptsBypass(relPath, lines),
     ...checkQaPg17RlsInvalidCatalog(relPath, lines),
     ...checkQaSmoke01SettingsSingletonSync(relPath, lines),
+    ...checkQaHealth01SupervisorTaskExit(relPath, lines),
     ...checkQaKarateStaticIdempotency(relPath, lines),
     ...checkUi11x01VisualGeometry(relPath, lines),
     ...checkUi11x02DualRefreshAndSemanticElse(relPath, lines),

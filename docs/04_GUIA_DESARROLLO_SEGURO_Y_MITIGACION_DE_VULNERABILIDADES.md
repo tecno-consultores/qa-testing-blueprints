@@ -30,6 +30,27 @@
 21. [Patrón 21: Mitigación de OWASP API Security Top 10 (2023), Anti-Data-Mining y Consumo Seguro de APIs](#patrón-21-mitigación-de-owasp-api-security-top-10-2023-anti-data-mining-y-consumo-seguro-de-apis)
 22. [Patrón 22: Cadena de Suministro (CycloneDX SBOM/CBOM), Firma de Artefactos y Threat Modeling como Código](#patrón-22-cadena-de-suministro-cyclonedx-sbomcbom-firma-de-artefactos-y-threat-modeling-como-código)
 
+### 🧭 Mapa de Trazabilidad con el Auditor Estático (`audit_security_stig_owasp`: `SEC-01`..`SEC-16`)
+
+| Regla MCP | Control / Vector Mitigado | Patrón Humano de Referencia |
+| :--- | :--- | :--- |
+| `SEC-01` | Asignación masiva en esquemas Pydantic (`ConfigDict(extra='forbid')`) | Patrón 1 |
+| `SEC-02` | Cross-Site WebSocket Hijacking (`Origin` allowlist antes de `ws.accept()`) | Patrón 2 |
+| `SEC-03` | Ejecución insegura de comandos (`shell=True`) y deserialización (`pickle`/`yaml.load`) | Patrón 16 y Patrón 17 |
+| `SEC-04` | Entidades externas XML / XXE (`defusedxml` / `resolve_entities=False`) | Patrón 17 |
+| `SEC-05` | Canonicalización Unicode `NFKC` previa a validaciones | Patrón 16 |
+| `SEC-06` | XSS (`v-html` / `dangerouslySetInnerHTML`) y *Prototype Pollution* en frontend | Patrón 9 |
+| `SEC-07` | Exposición de Swagger / ReDoc / OpenAPI en `APP_ENV=production` | Patrón 12 (`QA-SMOKE-01`) |
+| `SEC-08` | Ausencia de cabeceras HTTP de seguridad (OWASP OSHP: HSTS, CSP, `nosniff`) | Patrón 20 |
+| `SEC-09` | Ejecución de scripts arbitrarios post-instalación npm (`.npmrc` `ignore-scripts=true`) | Patrón 13 y Patrón 22 |
+| `SEC-10` | Secretos, llaves privadas o tokens hardcodeados en código o logs | Patrón 18 y Patrón 19 |
+| `SEC-11` | Identidades crudas UUID v4 (`claims["sub"]`) en trazas de auditoría humana | Patrón 18 y `docs/02` §1.1 |
+| `SEC-12` | Bypass de `Depends(require_roles)` en servicios MCP/JSON-RPC sin RBAC explícito ni `ApprovalRequest` | Patrón 21 y `docs/02` §3.5 |
+| `SEC-13` | Pérdida de contexto PostgreSQL RLS tras `commit()` sin listener `after_begin` | Patrón 5 y `docs/02` §3.1 (`QA-PG17-RLS`) |
+| `SEC-14` | Condición de carrera en cadena HMAC WORM ordenando por `created_at` sin `seq_num` + `pg_advisory_xact_lock` | Patrón 18 y `SECURITY.md` |
+| `SEC-15` | Reutilización de credenciales estáticas en smoke productivo sin secretos efímeros ni `docker exec -e` | Patrón 15 y `docs/02` §1.1 |
+| `SEC-16` | Asimetría de interceptores `401` y consumo no atómico de `challenge_id` en flujos Pre-Auth multi-etapa | Patrón 15 y `SECURITY.md` §4.20 |
+
 ---
 
 ## Patrón 1: Prevención de Asignación Masiva (Mass Assignment / Over-posting)

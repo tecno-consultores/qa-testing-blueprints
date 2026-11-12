@@ -28,13 +28,13 @@ Classify every task before acting:
 3. **Audit 13-Layer Pyramid Gaps:** `audit_test_pyramid_gaps(project_path, stack)` — already runs `inspect_project_config` internally (do not call both sequentially).
 4. **Fetch Blueprint Metadata:** `fetch_blueprint_bundle(stack, include_common_and_agents, include_content: false)` — SHA-256 verified metadata from `~/.cache/qa-11x-blueprints/` without context bloat.
 5. **Thin-Repo Surgical Bootstrap/Merge:** `bootstrap_or_merge_11x(project_path, stack, dry_run)` — merges stack templates, `.agents/scripts/*`, and `.agents/ACTIVE_TASK.md.example` without duplicating global skills/rules.
-6. **Audit Security Posture:** `audit_security_stig_owasp(project_path)` — static audit (`SEC-01`..`SEC-16`, `QA-KARATE-IDEMP`, `QA-COV-01`, `QA-SMOKE-01`, `UI-11X-01/02`).
+6. **Audit Security Posture:** `audit_security_stig_owasp(project_path)` — static audit (`SEC-01`..`SEC-16`, `QA-KARATE-IDEMP`, `QA-COV-01`, `QA-MYPY-01`, `QA-PG17-RLS`, `QA-SMOKE-01`, `QA-HEALTH-01`, `UI-11X-01/02`).
 7. **Run Ephemeral Docker QA:** `run_ephemeral_qa(project_path, stage, timeout_seconds, skip_if_docs_only: true)` — executes `lint`, `unit`, `migration`, `integration`, `ci`, `bdd`, `mutation`, `dast`, `e2e`, `perf`, `chaos`, or `all` inside isolated `sinfallas/*` containers (`Rule Zero`) and stamps `.agents/.qa-evidence.json`. Mandatory Step 6 without shortcuts: run `stage="lint"` + `stage="unit"` (plus `stage="integration"` when touching `migrations/`, ORM/SQL, or `.github/workflows/`); NEVER replace `make qa-lint` with partial `ruff` calls.
 8. **Sanitize Workspace:** `clean_workspace_11x(project_path, dry_run, deep_prune)` — purges caches and root-owned Docker artifacts without `sudo` while preserving `mcp-server/dist`, `.agents/.qa-evidence.json` (unless `deep_prune`), and `graphify-out/{graph.json,GRAPH_REPORT.md,graph.html}`.
 9. **Certify 10/10 Quality Gate:** `certify_11x_gate(project_path)` — verifies static 11X invariants, dynamic Vue/TS API route parity (`${query}` / `/${subPath}`), `audit_security_stig_owasp`, and fresh `stage="lint"` evidence on dirty Git code trees before `git commit`/`git push`.
 10. **Inject Thin-Repo AGENTS.md Connector:** `init_or_append_agents_md(project_path, dry_run)` or `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target all --init-agents --include-scripts`.
 11. **Reconcile Governance & Isolate Domain Rules:** `reconcile_agents_governance(project_path, dry_run)` — prunes duplicated global directives in `<project>/.agents/` and isolates domain rules in `.agents/rules/domain_<project>_rules.md`.
-12. **Propose Continuous Skill Evolution:** `propose_skill_evolution_pr(...)` — contributes empirical QA-escape guardrails upstream to `tecno-consultores/qa-testing-blueprints`.
+12. **Propose Continuous Skill Evolution (Dual-Consumer):** `propose_skill_evolution_pr(...)` — contributes empirical QA-escape guardrails upstream covering the 3-layer triplet (AI skill/rule + MCP executable gate + human manual in `docs/01..04_*.md`).
 
 ### Case B: Standalone Skill / Fallback Mode (No MCP Server)
 1. **3-Tier Progressive Reference Loading:** Read **only one** module from `references/01..09.md` matching the active stack/domain (see §4).
@@ -57,7 +57,7 @@ Classify every task before acting:
 
 ---
 
-### 2.1. 🛡️ Mandatory Anti-Silo & Cross-Module State Propagation (8 UAT Anti-Blindness Rules)
+### 2.1. 🛡️ Mandatory Anti-Silo & Cross-Module State Propagation (9 UAT Anti-Blindness Rules)
 
 1. **Unmocked Cross-Module State Propagation:** After mutating Module A (`POST`/`PUT`/`PATCH`/`DELETE`), immediately query Consumer Module B `GET` endpoints/stores against the live DB without intermediate mocks.
 2. **3-Phase Temporal Lifecycle Assertion:** Assert Phase 1 Pending (`t < starts_at`), Phase 2 Active (`starts_at <= t <= ends_at`), and Phase 3 Expired/Reverted (`t > ends_at` + audit record).
@@ -67,6 +67,7 @@ Classify every task before acting:
 6. **Zero Hardcoded Pass Guarantee:** Quality gates and runners MUST return `'SKIPPED'` / `detected: false` when unverified — never hardcoded `true` or `'PASSED'`.
 7. **Post-Import `Settings` Singleton Sync (`QA-SMOKE-01`) & Ephemeral Prod Secrets (`SEC-15`):** In `--no-dev` boot smoke tests, mutate both `os.environ["APP_ENV"] = "production"` and the already-imported `settings.APP_ENV = "production"` singleton (restoring in `finally`). In local prod smoke scripts (`probar-prod-local.sh`), generate ephemeral `openssl rand` secrets (`>= 32` bytes) and pass rotated admin credentials via `docker exec -e`.
 8. **Multi-Step Pre-Auth & Ephemeral Challenge Continuity Invariant (`SEC-16`):** Unauthenticated multi-step challenge flows (`POST /auth/login` returning `mfa_enrollment_required` / `mfa_challenge` / `password_change_required` -> `POST /auth/mfa/enroll` / `verify` / WebAuthn) fail in UAT when tested as isolated mocks while global `CSRF`, `Idempotency-Key`, or frontend `401 -> /auth/refresh` interceptors block step 2. Enforce 4 controls ([`references/02-security-disa-owasp-22.md`](references/02-security-disa-owasp-22.md)): (a) opaque CSPRNG `challenge_id >= 128-bit` (`secrets.token_urlsafe(32)`) in JSON body/header + `Origin`/`Sec-Fetch-Site` check, (b) atomic single-use `GETDEL`/Lua consumption or scoped `idemp:preauth:{challenge_id}:{key}` in KeyDB/Redis, (c) strict `TTL <= 300s` + max-attempt (`3–5`) purge (`APSC-DV-000530`), and (d) symmetric `PREAUTH_PUBLIC_ROUTES` shared across backend `CSRF`/`Idempotency` middlewares and the frontend HTTP `401` interceptor, certified in **one continuous test** over the same in-memory/live KeyDB/Redis instance without intermediate mocks or manual `redis.set(...)` seeding.
+9. **Unmocked Orchestrator Boot & Container Healthcheck Contract (`QA-HEALTH-01`):** Background worker runners, schedulers, or service entrypoints monitored by a `Dockerfile` / `docker-compose*.yml` `healthcheck` MUST include an integration-style unit test booting the real entrypoint under default production `Settings()` (with opt-in workers disabled by default) **without mocking optional worker loops**, explicitly asserting the observable healthcheck artifact (`heartbeat_file.exists()`, readiness key, or `/healthz` `200`) across event-loop ticks (forbidding assertion-free `sleep(0.01)` + `cancel()` smoke calls). Supervisors inspecting `asyncio.Task` MUST check `task.exception() is not None` and distinguish mandatory loops from expected `return None` of `OPTIONAL_WORKERS` ([`references/03-stack-python-fastapi.md`](references/03-stack-python-fastapi.md)).
 
 ---
 

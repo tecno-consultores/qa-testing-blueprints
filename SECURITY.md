@@ -190,6 +190,12 @@ La integración entre aplicaciones SPA (Vue 3, React) y APIs REST/WebSockets (Fa
 - **Mitigación:**
   - Auditar siempre el estado de RLS consultando `pg_catalog.pg_class` (`relrowsecurity` y `relforcerowsecurity`) mediante `JOIN pg_catalog.pg_namespace` (`nspname = 'public' AND relkind = 'r'`), bloqueando estáticamente cualquier referencia a `pg_tables.forcerowsecurity` mediante `QA-PG17-RLS`.
 
+### 4.22. Contrato de Salud Real en Contenedores y Semántica de Salida en Supervisores Asíncronos (`QA-HEALTH-01` — `DISA APSC-DV-002310`, `APSC-DV-002770` & `Standard 11X UAT Rule #9`)
+- **Riesgo:** Orquestadores y runners de workers en segundo plano superan `>= 95%` de cobertura con sub-workers mockeados (`AsyncMock`), pero al desplegarse en contenedores reales caen en bucle `unhealthy` porque los supervisores `asyncio` tratan el retorno limpio (`return None`) de workers opt-in deshabilitados como un fallo fatal (`task.done() and not task.cancelled()`) o jamás verifican la escritura real de la sonda física exigida por `HEALTHCHECK` (`/tmp/worker_heartbeat`).
+- **Mitigación:**
+  - Inspeccionar explícitamente `task.exception() is not None` en bucles supervisores y declarar un conjunto inmutable `OPTIONAL_WORKERS` para distinguir salidas limpias por feature-flag deshabilitado de caídas reales de bucles infinitos obligatorios (`APSC-DV-002310`).
+  - Exigir al menos un test de contrato que arranque el orquestador real bajo `Settings()` de producción por defecto sin mockear los loops opcionales y haga `assert` explícito sobre el artefacto observable de `healthcheck` (`APSC-DV-002770`, auditado estáticamente mediante `QA-HEALTH-01`).
+
 ---
 
 ## 5. Auditoría Preventiva de Vulnerabilidades y Seguridad Shift-Left
