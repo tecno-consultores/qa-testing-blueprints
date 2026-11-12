@@ -6,8 +6,12 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+---
+
+## [2.20.2] - 2026-11-12
+
 ### 🧹 Saneamiento Integral de Artefactos `v2.20.x` y Resiliencia `resolveSafeHomeDir` para `UID` Arbitrarios en CI (Changed & Fixed)
-* **Corrección de `SystemError: uv_os_homedir returned ENOENT` en Contenedores Non-Root (`UID 1001` en GitHub Actions / OpenShift):** Incorporado `resolveSafeHomeDir()` en `github-fetcher.ts` (y aplicado en `install-skill.ts`, `version-manager.ts` e `inspect-project.ts`) con fallback seguro a `os.tmpdir()` cuando `process.env.HOME` está indefinido y el `UID` mapeado con `-u` carece de entrada en `/etc/passwd`.
+* **Corrección de `SystemError: uv_os_homedir returned ENOENT` en Contenedores Non-Root (`UID 1001` en GitHub Actions / OpenShift, `v2.20.2`):** Incorporado `resolveSafeHomeDir()` en `github-fetcher.ts` (y aplicado en `install-skill.ts`, `version-manager.ts` e `inspect-project.ts`) con fallback seguro a `os.tmpdir()` cuando `process.env.HOME` está indefinido y el `UID` mapeado con `-u` carece de entrada en `/etc/passwd`, documentado en `docs/docker-troubleshooting.md` y `04-stack-node-vue-react.md`.
 * **Actualización de `scripts/limpieza.sh`, `<stack>/limpieza.sh`, `.gitignore` y `clean-workspace.ts`:** Incorporada la purga de directorios efímeros huérfanos del arnés E2E y *clean-room* (`qa_mcp_cleanroom_*`, `qa-11x-mcp-example-e2e-*`), cachés `.pnpm-store`/`.turbo`, reportes CycloneDX/XML/JSON (`sbom.cyclonedx.json`, `sbom-*.cdx.json`, `coverage.xml`, `junit.xml`, `mutmut-stats.json`, `zap-report.json`), subcarpetas `bash-scripts` y `mcp-server/example`, normalización Alpine de archivos con `UID 10001` (`sinfallas/base-node-ionic:26`) y purga `--deep` de `.agents/proposals` y `~/.cache/qa-11x-blueprints` (preservando intactos `mcp-server/dist`, `.qa-11x-version`, `zap.yaml` y `graphify-out/graph.json`).
 
 ---

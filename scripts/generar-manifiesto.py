@@ -20,7 +20,7 @@ import sys
 from typing import Any, Dict, List, Optional, Tuple
 
 SCHEMA_VERSION = "1.0.0"
-DEFAULT_BLUEPRINT_VERSION = "2.20.1"
+DEFAULT_BLUEPRINT_VERSION = "2.20.2"
 REPOSITORY = "tecno-consultores/qa-testing-blueprints"
 DEFAULT_BRANCH = "main"
 RAW_BASE_URL = f"https://raw.githubusercontent.com/{REPOSITORY}/{DEFAULT_BRANCH}"
