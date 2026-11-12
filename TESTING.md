@@ -132,11 +132,11 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
 * **Imagen Base:** `sinfallas/base-node-ionic:26` (Tags disponibles: `22`, `24`, `26` y `latest`)
 * **Métricas 11X Certificadas:**
   * **Sentencias (Statements):** `99.12%` (`>= 95.0%`)
-  * **Ramas (Branches):** `95.36%` global (`src/resources` `100%`, `src/cli` `98.53%`)
+  * **Ramas (Branches):** `95.39%` global (`src/resources` `100%`, `src/cli` `98.53%`, `security-auditor.ts` `95.49%`)
   * **Funciones (Functions):** `99.43%` (`>= 95.0%`)
   * **Líneas (Lines):** `99.12%` (`>= 95.0%`)
-  * **Pruebas Unitarias:** 337 pruebas pasando al 100% (20 suites en `tests/*.unit.ts`, incluyendo `src/index.ts` y guardia anti-bloqueo `TTY`)
-  * **Herramientas MCP:** 12 herramientas canónicas con contrato Thin-Repo, autoconstrucción/refresco de grafos AST (`auto_build_if_missing`, `refresh_graph`), modo *Metadata-Only* (`include_content: false`), agrupador por regla (`groupFindingsByRule`), reglas `SEC-01`..`SEC-16` y paridad 10/10 en `certify_11x_gate`
+  * **Pruebas Unitarias:** 338 pruebas pasando al 100% (20 suites en `tests/*.unit.ts`, incluyendo `src/index.ts` y regla estática `QA-CLI-TTY-01`)
+  * **Herramientas MCP:** 12 herramientas canónicas con contrato Thin-Repo, autoconstrucción/refresco de grafos AST (`auto_build_if_missing`, `refresh_graph`), modo *Metadata-Only* (`include_content: false`), agrupador por regla (`groupFindingsByRule`), 25 reglas estáticas (`SEC-01`..`SEC-16`, `QA-*`, `QA-CLI-TTY-01`, `UI-11X-*`) y paridad 10/10 en `certify_11x_gate`
   * **Escenarios BDD Karate Labs:** `mcp-server/test/mcp_cli_test.feature` (28 escenarios en `sinfallas/karatelabs:1.5.1`)
 * **Comandos de Validación:**
   ```bash

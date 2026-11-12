@@ -572,9 +572,10 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert skillMdBytes.length < 20000
 
     * def skillMdContent = karate.readAsString(repoRoot + '/.agents/skills/qa-11x-architect/SKILL.md')
-    * assert skillMdContent.contains('9 UAT Anti-Blindness Rules')
+    * assert skillMdContent.contains('10 UAT Anti-Blindness Rules')
     * assert skillMdContent.contains('Multi-Step Pre-Auth & Ephemeral Challenge Continuity Invariant')
     * assert skillMdContent.contains('Unmocked Orchestrator Boot & Container Healthcheck Contract')
+    * assert skillMdContent.contains('QA-CLI-TTY-01')
     * assert skillMdContent.contains('inspect_ast_blast_radius')
 
     * def sec22Ref = karate.readAsString(repoRoot + '/.agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.md')
@@ -687,7 +688,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert docsValidator.contains('_check_auditor_rules_in_human_docs')
 
     * def humanPractices = karate.readAsString(repoRoot + '/docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md')
-    * assert humanPractices.contains('9 reglas obligatorias de diseño de pruebas')
+    * assert humanPractices.contains('10 reglas obligatorias de diseño de pruebas')
     * assert humanPractices.contains('QA-HEALTH-01')
     * assert humanPractices.contains('OPTIONAL_WORKERS')
 
@@ -742,7 +743,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert govDoc.contains('update_available')
 
     * def agentsReadme = karate.readAsString(repoRoot + '/.agents/README.md')
-    * assert agentsReadme.contains('9 reglas UAT Anti-Blindness')
+    * assert agentsReadme.contains('10 reglas UAT Anti-Blindness')
     * assert agentsReadme.contains('verify_docs_invariants.py')
 
     * def dockerTrouble = karate.readAsString(repoRoot + '/docs/docker-troubleshooting.md')
@@ -803,7 +804,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert cleanToolTs.contains("'bash-scripts'")
     * assert !cleanToolTs.contains("'zap.yaml'")
 
-  Scenario: 28. Guardia Anti-Bloqueo en Terminal Interactiva (TTY), Flag --stdio y Alias install
+  Scenario: 28. Invariante Dual-Consumer QA-CLI-TTY-01 (Regla UAT #10), Guardia Anti-Bloqueo TTY, Flag --stdio y Alias install
     * def cliIndexSource = karate.readAsString(mcpRoot + '/src/index.ts')
     * assert cliIndexSource.contains('shouldExitInteractiveTty')
     * assert cliIndexSource.contains('INTERACTIVE_TTY_NOTICE')
@@ -811,11 +812,26 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert cliIndexSource.contains("arg1 === 'install-skill' || arg1 === 'install'")
     * assert cliIndexSource.contains('process.stdin.isTTY')
 
+    * def secAuditorSource = karate.readAsString(mcpRoot + '/src/tools/security-auditor.ts')
+    * assert secAuditorSource.contains('QA-CLI-TTY-01')
+    * assert secAuditorSource.contains('checkQaCliTty01InteractiveHangGuard')
+
     * def e2eRunner = karate.readAsString(mcpRoot + '/example/run-example-e2e.mjs')
     * assert e2eRunner.contains('Interactive Terminal Detected (TTY)')
 
     * def mcpReadme = karate.readAsString(mcpRoot + '/README.md')
     * assert mcpReadme.contains('install-skill --init-agents --include-scripts --reconcile')
     * assert mcpReadme.contains('--stdio')
+    * assert mcpReadme.contains('QA-CLI-TTY-01')
+
+    * def humanPractices = karate.readAsString(repoRoot + '/docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md')
+    * assert humanPractices.contains('QA-CLI-TTY-01')
+
+    * def humanSecurity = karate.readAsString(repoRoot + '/docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md')
+    * assert humanSecurity.contains('QA-CLI-TTY-01')
+
+    * def rootSecurity = karate.readAsString(repoRoot + '/SECURITY.md')
+    * assert rootSecurity.contains('### 4.23.')
+    * assert rootSecurity.contains('QA-CLI-TTY-01')
 
 

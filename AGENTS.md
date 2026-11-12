@@ -60,7 +60,7 @@ Welcome to the **QA Testing Blueprints** repository. All AI coding assistants (G
 
 ## 3. Skills Catalog in `.agents/skills/`
 
-1. `qa-11x-architect`: Master QA 11X & DevSecOps Architect enforcing the 13 layers of the 11X Quality Pyramid, 10 Non-Negotiable Laws, 9 UAT Anti-Blindness Rules (including `SEC-16` Multi-Step Pre-Auth Continuity and `QA-HEALTH-01` Unmocked Orchestrator Container Healthcheck Contract), High-IQ Token Economy, and 22 DISA STIG V6R5 / OWASP v4.2 controls with 9 on-demand `references/*.md` modules (`SKILL.md < 20 KB`).
+1. `qa-11x-architect`: Master QA 11X & DevSecOps Architect enforcing the 13 layers of the 11X Quality Pyramid, 10 Non-Negotiable Laws, 10 UAT Anti-Blindness Rules (including `SEC-16` Multi-Step Pre-Auth Continuity, `QA-HEALTH-01` Unmocked Orchestrator Container Healthcheck Contract, and `QA-CLI-TTY-01` Dual CLI/MCP Interactive `TTY` Anti-Hang Guard), High-IQ Token Economy, and 22 DISA STIG V6R5 / OWASP v4.2 controls with 9 on-demand `references/*.md` modules (`SKILL.md < 20 KB`).
 2. `qa-11x-docker-certifier`: QA 11X Corporate Standard certifier in ephemeral Docker (coverage `>= 95%`, SonarJS, Karate Labs, mutation testing, zero host contamination).
 3. `docker-trivy-keydb-hardening`: Container hardening (Trivy HIGH/CRITICAL = 0), multi-threaded KeyDB in-memory caching engine, non-root users, and performance optimization.
 4. `graphify-ast-navigator`: Bidirectional AST Knowledge Graph navigation for Code Q&A and refactoring (`declaring_files`, incoming callers, outgoing callees), blast-radius pre-audit, layer boundary compliance, and CLI-first query protocol.

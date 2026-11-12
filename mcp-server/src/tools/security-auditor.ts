@@ -48,6 +48,8 @@ const SEC_11_REF = 'APSC-DV-001350 / Anti-Silo Audit Rule 3';
 const SEC_16_REF = 'CWE-352 / CWE-362 / APSC-DV-000530 / Anti-Silo Rule 8';
 const QA_HEALTH_01_REF = 'APSC-DV-002310 / Standard 11X Anti-Silo Rule 9';
 const QA_HEALTH_OK_PRAGMA = '# qa-health-ok';
+const QA_CLI_TTY_01_REF = 'APSC-DV-002310 / Standard 11X Anti-Silo Rule 10';
+const QA_TTY_OK_PRAGMA = 'qa-tty-ok';
 const UI_11X_02_REF = 'Standard 11X / Anti-Silo UI Rule 3 & 4';
 
 function isScannableFile(entry: fs.Dirent): boolean {
@@ -1419,6 +1421,62 @@ function checkQaHealth01SupervisorTaskExit(relPath: string, lines: string[]): Se
   return findings;
 }
 
+function isDualCliMcpStdioSource(relPath: string, fullText: string): boolean {
+  if (/\.(?:ts|js)$/i.test(relPath)) {
+    const hasStdioTransport = fullText.includes('StdioServerTransport');
+    const hasCliEntrypoint =
+      fullText.includes('process.argv') || fullText.startsWith('#!/usr/bin/env node');
+    return hasStdioTransport && hasCliEntrypoint && !fullText.includes('.isTTY');
+  }
+
+  if (relPath.endsWith('.py')) {
+    const hasStdioServer = fullText.includes('stdio_server(');
+    const hasCliEntrypoint =
+      fullText.includes('sys.argv') ||
+      fullText.includes('argparse.') ||
+      fullText.includes('typer.Typer');
+    return hasStdioServer && hasCliEntrypoint && !fullText.includes('.isatty()');
+  }
+
+  return false;
+}
+
+function checkQaCliTty01InteractiveHangGuard(
+  relPath: string,
+  lines: string[]
+): SecurityFinding[] {
+  if (
+    relPath.endsWith('.example') ||
+    isTestFilePath(relPath) ||
+    isAuditorSelfDefinition(relPath)
+  ) {
+    return [];
+  }
+
+  const fullText = lines.join('\n');
+  if (fullText.includes(QA_TTY_OK_PRAGMA) || !isDualCliMcpStdioSource(relPath, fullText)) {
+    return [];
+  }
+
+  const transportIdx = lines.findIndex(
+    (line) => line.includes('StdioServerTransport') || line.includes('stdio_server(')
+  );
+
+  return [
+    {
+      rule_id: 'QA-CLI-TTY-01',
+      severity: 'HIGH',
+      stig_owasp_ref: QA_CLI_TTY_01_REF,
+      file: relPath,
+      line: Math.max(1, transportIdx + 1),
+      message:
+        'Binario dual CLI + Servidor MCP stdio conecta transporte JSON-RPC sobre stdin sin verificar terminal interactiva (process.stdin.isTTY / sys.stdin.isatty()), provocando bloqueo indefinido al ejecutarse manualmente en consola.',
+      remediation:
+        'Inspeccionar process.stdin.isTTY (Node/TS) o sys.stdin.isatty() (Python) cuando se invoca sin subcomandos para ejecutar auto-sync/mostrar ayuda y salir con código 0 sin colgar la terminal (permitiendo --stdio explícito), certificándolo en E2E con TTY simulado y timeout.',
+    },
+  ];
+}
+
 function scanSingleFile(absPath: string, relPath: string): SecurityFinding[] {
   let content: string;
   try {
@@ -1447,6 +1505,7 @@ function scanSingleFile(absPath: string, relPath: string): SecurityFinding[] {
     ...checkQaPg17RlsInvalidCatalog(relPath, lines),
     ...checkQaSmoke01SettingsSingletonSync(relPath, lines),
     ...checkQaHealth01SupervisorTaskExit(relPath, lines),
+    ...checkQaCliTty01InteractiveHangGuard(relPath, lines),
     ...checkQaKarateStaticIdempotency(relPath, lines),
     ...checkUi11x01VisualGeometry(relPath, lines),
     ...checkUi11x02DualRefreshAndSemanticElse(relPath, lines),

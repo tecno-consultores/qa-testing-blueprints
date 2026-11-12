@@ -8,7 +8,7 @@ Official **Model Context Protocol (MCP)** Server and Universal Thin-Repo Skill I
 - **Step-by-Step AI Agent Setup Guide:** [docs/agent-setup.en.md](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/docs/agent-setup.en.md)
 - **AI Agent Integration Guide:** [docs/ai-integration.md](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/docs/ai-integration.md)
 - **11X QA Dashboard & Metrics:** [TESTING.md](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/TESTING.md)
-
+- **Follow me on my social media**: https://www.tecnoconsultores.net/mis-redes-sociales/
 ---
 
 ## 🚀 Quick Start (`Zero-Clone`)
@@ -67,7 +67,7 @@ Directly compatible with **VS Code (GitHub Copilot)**, **Cursor**, **Claude Code
 
 ## 🧠 Catalog of 5 Corporate Skills
 
-1. **`qa-11x-architect`:** Master QA 11X & DevSecOps Architect (`SKILL.md < 20 KB`: 13 pyramid layers, 10 Non-Negotiable Laws, 9 UAT Anti-Blindness Rules including `SEC-16` Pre-Auth multi-step continuity and `QA-HEALTH-01` unmocked container healthcheck contracts, High-IQ Token Economy with 3-Path proportional execution `DOCS_ONLY` / `MICRO_CHANGE` / `FULL_11X`, and 22 DISA ASD STIG V6R5 / OWASP v4.2 controls with 9 on-demand `references/*.md` modules).
+1. **`qa-11x-architect`:** Master QA 11X & DevSecOps Architect (`SKILL.md < 20 KB`: 13 pyramid layers, 10 Non-Negotiable Laws, 10 UAT Anti-Blindness Rules including `SEC-16` Pre-Auth multi-step continuity, `QA-HEALTH-01` unmocked container healthcheck contracts, and `QA-CLI-TTY-01` dual CLI/MCP interactive `TTY` anti-hang guards, High-IQ Token Economy with 3-Path proportional execution `DOCS_ONLY` / `MICRO_CHANGE` / `FULL_11X`, and 22 DISA ASD STIG V6R5 / OWASP v4.2 controls with 9 on-demand `references/*.md` modules).
 2. **`graphify-ast-navigator`:** Bidirectional AST Knowledge Graph navigation (`graphify-out/graph.json` and `GRAPH_REPORT.md`) mandatory for **Code Q&A (`Graphify AST-First, Grep-Fallback, Windowed-Read-Second`)**, pre-refactoring blast radius audits, and architectural layer boundary enforcement.
 3. **`qa-11x-docker-certifier`:** Corporate Standard certifier in ephemeral Docker containers (**Rule Zero**: unit test coverage `>= 95%` with `COVERAGE_FILE=/tmp/.coverage`, Cyclomatic/Cognitive Complexity Grade A, Karate Labs BDD, mutation testing, and zero host contamination).
 4. **`docker-trivy-keydb-hardening`:** Container hardening (Trivy target HIGH/CRITICAL = 0), KeyDB multi-threaded in-memory caching engine, non-root execution, and multi-stage builds.
@@ -96,7 +96,7 @@ Directly compatible with **VS Code (GitHub Copilot)**, **Cursor**, **Claude Code
 3. **`bootstrap_or_merge_11x`:** Surgically injects or merges 11X quality standard templates without altering existing production dependencies or code.
 4. **`inspect_ast_blast_radius`:** Queries the AST knowledge graph (`graphify-out/graph.json` and `GRAPH_REPORT.md`) for code/architecture Q&A (`declaring_files` with `file:L<line>`, incoming callers, outgoing dependencies) and pre-refactoring blast-radius analysis (`auto_build_if_missing`, `refresh_graph`, and `MICRO_CHANGE` eligibility).
 5. **`clean_workspace_11x`:** Audits or executes workspace sanitation, removing transient test artifacts and Docker root residues (`dry_run` default).
-6. **`audit_security_stig_owasp`:** Statically audits project source code against 24 DISA ASD STIG V6R5, OWASP v4.2, and Anti-Silo QA patterns (`SEC-01` to `SEC-16`, `QA-KARATE-IDEMP`, `QA-COV-01`, `QA-MYPY-01`, `QA-PG17-RLS`, `QA-SMOKE-01`, `QA-HEALTH-01`, `UI-11X-01/02`, including PostgreSQL RLS multi-transaction `after_begin`, WORM forensic chain `seq_num` + `pg_advisory_xact_lock`, Pre-Auth continuity, and unmocked container healthcheck contracts) with compact grouping (`grouped_findings`).
+6. **`audit_security_stig_owasp`:** Statically audits project source code against 25 DISA ASD STIG V6R5, OWASP v4.2, and Anti-Silo QA patterns (`SEC-01` to `SEC-16`, `QA-KARATE-IDEMP`, `QA-COV-01`, `QA-MYPY-01`, `QA-PG17-RLS`, `QA-SMOKE-01`, `QA-HEALTH-01`, `QA-CLI-TTY-01`, `UI-11X-01/02`, including PostgreSQL RLS multi-transaction `after_begin`, WORM forensic chain `seq_num` + `pg_advisory_xact_lock`, Pre-Auth continuity, unmocked container healthcheck contracts, and dual CLI/MCP interactive `TTY` anti-hang guards) with compact grouping (`grouped_findings`).
 7. **`run_ephemeral_qa`:** Safely runs a Makefile QA target (`lint`, `unit`, `migration`, `integration`, `ci`, `bdd`, `mutation`, `dast`, `e2e`, `perf`, `chaos`, `all`) inside ephemeral Docker containers (**Rule Zero**), recording cryptographic evidence with `skip_if_docs_only` support.
 8. **`certify_11x_gate`:** Unified 11X certification gate (secrets, JSON, orphan UI/API, ORM parity, fresh pre-push lint evidence, AST topology, STIG/OWASP security, Dual-Consumer documentation sync, and `update_available` drift notice).
 9. **`audit_test_pyramid_gaps`:** Audits existing project against the 13 layers of the 11X pyramid (`L01` to `L13`), reporting uncovered files/endpoints and a prioritized rescue plan.

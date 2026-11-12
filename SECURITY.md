@@ -196,6 +196,12 @@ La integración entre aplicaciones SPA (Vue 3, React) y APIs REST/WebSockets (Fa
   - Inspeccionar explícitamente `task.exception() is not None` en bucles supervisores y declarar un conjunto inmutable `OPTIONAL_WORKERS` para distinguir salidas limpias por feature-flag deshabilitado de caídas reales de bucles infinitos obligatorios (`APSC-DV-002310`).
   - Exigir al menos un test de contrato que arranque el orquestador real bajo `Settings()` de producción por defecto sin mockear los loops opcionales y haga `assert` explícito sobre el artefacto observable de `healthcheck` (`APSC-DV-002770`, auditado estáticamente mediante `QA-HEALTH-01`).
 
+### 4.23. Guardia Anti-Bloqueo en Terminal Interactiva (`TTY`) para Binarios Duales CLI + Servidor MCP `stdio` (`QA-CLI-TTY-01` — `DISA APSC-DV-002310` & `Standard 11X UAT Rule #10`)
+- **Riesgo:** Los paquetes híbridos que combinan subcomandos CLI (`npx ... install-skill`, `argparse`) con un servidor MCP sobre `stdio` (`StdioServerTransport` / `stdio_server()`) superan al 100% las pruebas unitarias (que inyectan callbacks falsos `startStdio`) y las pruebas E2E en CI (donde `stdin` siempre es un *pipe* con `isTTY === false`), pero al ser ejecutados sin argumentos por un desarrollador humano en una terminal interactiva (`TTY`) bloquean indefinidamente la consola esperando tramas JSON-RPC en `stdin`.
+- **Mitigación:**
+  - Verificar explícitamente `process.stdin.isTTY` (Node/TS) o `sys.stdin.isatty()` (Python) cuando el binario se invoca sin subcomandos: en una sesión `TTY` interactiva (salvo que se fuerce `--stdio` o `QA_FORCE_STDIO=1`), ejecutar cualquier auto-sincronización segura, imprimir la guía de uso rápido y finalizar con código `0` sin abrir el transporte bloqueante (`APSC-DV-002310`, auditado estáticamente mediante `QA-CLI-TTY-01`).
+  - Incluir obligatoriamente en la suite E2E una sonda en subproceso con `TTY` simulado y `timeout <= 5s` que certifique la salida limpia e inmediata.
+
 ---
 
 ## 5. Auditoría Preventiva de Vulnerabilidades y Seguridad Shift-Left

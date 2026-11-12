@@ -254,6 +254,66 @@ describe('QA-HEALTH-01 & Dual-Consumer Evolution Suite', () => {
     });
   });
 
+  describe('QA-CLI-TTY-01: Dual CLI/MCP stdio Interactive TTY Anti-Hang Guard', () => {
+    it('flags Node/TS and Python dual CLI+MCP entrypoints lacking stdin TTY detection and passes guarded ones', async () => {
+      fs.writeFileSync(path.join(tmpDir, '.npmrc'), 'ignore-scripts=true\n', 'utf8');
+      fs.writeFileSync(path.join(tmpDir, 'package.json'), '{"name":"dual-mcp"}', 'utf8');
+      const srcDir = path.join(tmpDir, 'src');
+      fs.mkdirSync(srcDir, { recursive: true });
+
+      const vulnerableTs = [
+        '#!/usr/bin/env node',
+        "import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';",
+        'const args = process.argv.slice(2);',
+        'if (!args[0]) {',
+        '  const transport = new StdioServerTransport();',
+        '  console.error(transport);',
+        '}',
+      ].join('\n');
+      fs.writeFileSync(path.join(srcDir, 'index.ts'), vulnerableTs, 'utf8');
+
+      const vulnerablePy = [
+        'import sys',
+        'from mcp.server.stdio import stdio_server',
+        'async def main() -> None:',
+        '    if len(sys.argv) == 1:',
+        '        async with stdio_server() as streams:',
+        '            print(streams)',
+      ].join('\n');
+      fs.writeFileSync(path.join(srcDir, 'cli_mcp.py'), vulnerablePy, 'utf8');
+
+      // .example and non-dual files must not trigger
+      fs.writeFileSync(path.join(srcDir, 'index.ts.example'), vulnerableTs, 'utf8');
+      fs.writeFileSync(path.join(srcDir, 'helper.txt'), 'StdioServerTransport process.argv', 'utf8');
+
+      const failingRes = await auditSecurityStigOwasp(tmpDir);
+      const ttyFindings = failingRes.findings.filter((f) => f.rule_id === 'QA-CLI-TTY-01');
+      expect(ttyFindings).toHaveLength(2);
+      expect(ttyFindings.map((f) => f.file).sort()).toEqual(['src/cli_mcp.py', 'src/index.ts']);
+
+      // Guarded Node/TS (process.stdin.isTTY) and guarded Python (sys.stdin.isatty()) pass cleanly
+      fs.writeFileSync(
+        path.join(srcDir, 'index.ts'),
+        `${vulnerableTs}\nconst interactive = Boolean(process.stdin.isTTY);\n`,
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(srcDir, 'cli_mcp.py'),
+        `${vulnerablePy}\n    is_tty = sys.stdin.isatty()\n`,
+        'utf8'
+      );
+      // Also verify pragma exemption on another dual file
+      fs.writeFileSync(
+        path.join(srcDir, 'exempt_mcp.js'),
+        `// qa-tty-ok\n${vulnerableTs}\n`,
+        'utf8'
+      );
+
+      const passingRes = await auditSecurityStigOwasp(tmpDir);
+      expect(passingRes.findings.filter((f) => f.rule_id === 'QA-CLI-TTY-01')).toHaveLength(0);
+    });
+  });
+
   describe('Dual-Consumer Proposal Matrix (propose_skill_evolution_pr)', () => {
     it('infers security, governance, and practices Dual-Consumer targets automatically', () => {
       const secTargets = inferDualConsumerTargets({

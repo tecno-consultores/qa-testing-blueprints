@@ -21,8 +21,8 @@ El aislamiento mediante mocks (`pytest-mock`, `unittest.mock`, `nock`) permite o
 2. **Verificación en Motores Reales de Base de Datos:**
    - La suite de integración y los contratos deben ejecutarse contra un contenedor real de PostgreSQL levantado en `docker-compose.qa.yml`. Nunca des por válida una consulta SQL hasta que PostgreSQL la haya ejecutado sin mocks.
 
-### 1.1. Invariante Anti-Silo y Anti-Ceguera UAT (Las 9 Reglas Obligatorias de Diseño de Pruebas)
-La cobertura unitaria (`>= 95%`) mide el porcentaje de líneas ejecutadas, pero es ciega ante desconexiones entre módulos, timeouts cortos enmascarados por mocks instantáneos, asimetrías en flujos pre-autenticación o contenedores que caen en `unhealthy` tras superar suites aisladas (*Silo Mock Blindness*). Toda suite bajo el Estándar QA 11X debe cumplir estas **9 reglas obligatorias de diseño de pruebas** (en paridad 1:1 con `qa-11x-architect` §2.1):
+### 1.1. Invariante Anti-Silo y Anti-Ceguera UAT (Las 10 Reglas Obligatorias de Diseño de Pruebas)
+La cobertura unitaria (`>= 95%`) mide el porcentaje de líneas ejecutadas, pero es ciega ante desconexiones entre módulos, timeouts cortos enmascarados por mocks instantáneos, asimetrías en flujos pre-autenticación, contenedores que caen en `unhealthy` tras superar suites aisladas o binarios duales `CLI + MCP stdio` que bloquean terminales humanas (*Silo & Pipe Mock Blindness*). Toda suite bajo el Estándar QA 11X debe cumplir estas **10 reglas obligatorias de diseño de pruebas** (en paridad 1:1 con `qa-11x-architect` §2.1):
 
 1. **Propagación Transversal de Estado sin Mocks Intermedios (*Cross-Module State Propagation*):**
    - Está estrictamente prohibido dar por válido un test de mutación verificando únicamente el `HTTP 200/201` del endpoint mutador (ej. `POST /api/v1/maintenance/windows` o cambio de estado administrativo) mientras los módulos consumidores (ej. Wallboard NOC o Inventario) se prueban con fixtures estáticos escritos a mano.
@@ -74,6 +74,9 @@ La cobertura unitaria (`>= 95%`) mide el porcentaje de líneas ejecutadas, pero 
                      return False
          return True
      ```
+10. **Guardia Anti-Bloqueo en Terminal Interactiva (`TTY`) para Binarios Duales CLI + Servidor MCP `stdio` (`QA-CLI-TTY-01`):**
+   - **El Escape que Previene (*Pipe & Callback Mock Blindness*):** Un paquete híbrido que combina subcomandos CLI (`install-skill`, `init-agents`) con un servidor MCP sobre `stdio` (`StdioServerTransport` en Node/TS o `stdio_server()` en Python) supera al 100% sus pruebas unitarias (porque inyectan un callback simulado `startStdio`) y sus suites E2E en CI (donde `StdioClientTransport` y `execFileSync` conectan `stdin` mediante *pipes*, dejando `process.stdin.isTTY === undefined`), pero cuando un desarrollador humano ejecuta `npx -y @paquete@latest` sin subcomandos en su consola interactiva (`TTY`), el proceso abre `StdioServerTransport` y congela indefinidamente la terminal esperando tramas JSON-RPC que nunca llegan.
+   - **Contrato Obligatorio:** Todo punto de entrada dual CLI + MCP `stdio` DEBE verificar `process.stdin.isTTY` (Node/TS) o `sys.stdin.isatty()` (Python) cuando se invoca sin subcomandos: si detecta una terminal interactiva `TTY` (salvo que se indique explícitamente `--stdio` o `QA_FORCE_STDIO=1`), debe completar cualquier auto-sincronización segura, imprimir la guía ejecutiva de instalación/registro MCP y terminar inmediatamente con `exit(0)`. Además, la suite E2E DEBE incluir una sonda en subproceso con `TTY` simulado y `timeout <= 5s` que certifique la ausencia de bloqueo (`audit_security_stig_owasp` audita estáticamente esta condición mediante `QA-CLI-TTY-01`).
 
 ---
 
