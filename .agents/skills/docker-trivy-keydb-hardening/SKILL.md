@@ -8,7 +8,7 @@ description: >-
 # Docker Trivy Hardening & KeyDB Performance Skill
 
 This skill guides the implementation of production-grade Docker containers and ultra-fast in-memory caching engines.
-> **OUTPUT LANGUAGE CONSTRAINT:** Always communicate with the user and write final explanations in Spanish.
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Unless the target repository's `AGENTS.md` explicitly mandates a fixed output language, respond and explain reasoning in the **user's prompt language**, and write commit messages / human-facing documentation matching the **existing language of `README.md` and `CHANGELOG.md`** (explicitly ignoring `AGENTS.md` and `.agents/**`, which remain in concise English for token economy; default to the prompt language on empty repos).
 
 ---
 

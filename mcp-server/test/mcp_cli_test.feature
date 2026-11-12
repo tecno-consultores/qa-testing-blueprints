@@ -542,8 +542,8 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert graphifySkillSource.contains('Graphify AST-First, Grep-Fallback, Windowed-Read-Second')
 
   Scenario: 19. Contrato v2.16.0 — SEC-16 (Pre-Auth Multi-Step Challenge Continuity), Thin-Repo bootstrap_or_merge_11x, Paridad 10/10 y CLI --version
-    * match pkg.version == '2.17.0'
-    * match manifest.blueprint_version == '2.17.0'
+    * match pkg.version == '2.18.0'
+    * match manifest.blueprint_version == '2.18.0'
 
     * def commonPaths = karate.map(manifest.common_files, function(x) { return x.path })
     * match commonPaths !contains 'scripts/publicar-mcp.sh'
@@ -615,6 +615,59 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def rlsRef = karate.readAsString(repoRoot + '/.agents/skills/qa-11x-architect/references/08-postgres-rls-zero-downtime-migrations.md')
     * assert rlsRef.contains('relforcerowsecurity')
     * assert rlsRef.contains('pg_namespace')
+
+  Scenario: 22. Internacionalización v2.18.0 — Idioma Espejo Dinámico, Flag --lang (auto|es|en), Targets codex/windsurf y Guías Multi-Agente EN/ES
+    * match pkg.version == '2.18.0'
+    * match pkg.description contains 'Official MCP Server & Thin-Repo Skill Installer for QA Testing Blueprints'
+    * match pkg.keywords contains 'codex'
+    * match pkg.keywords contains 'windsurf'
+    * match pkg.keywords contains 'vscode'
+    * match pkg.keywords contains 'jetbrains'
+
+    * def typesSource = karate.readAsString(mcpRoot + '/src/types.ts')
+    * assert typesSource.contains('OutputLanguageModeSchema')
+    * assert typesSource.contains("z.enum(['auto', 'es', 'en'])")
+
+    * def initAgentsSource = karate.readAsString(mcpRoot + '/src/cli/init-agents-md.ts')
+    * assert initAgentsSource.contains('buildLanguagePolicyLine')
+    * assert initAgentsSource.contains('OutputLanguageMode')
+    * assert initAgentsSource.contains('Conector Global Thin-Client QA 11X')
+
+    * def installSkillSource = karate.readAsString(mcpRoot + '/src/cli/install-skill.ts')
+    * assert installSkillSource.contains('parseLangArg')
+    * assert installSkillSource.contains('CODEX_DIR_NAME')
+    * assert installSkillSource.contains('WINDSURF_REL_DIR')
+    * assert installSkillSource.contains("case 'codex':")
+    * assert installSkillSource.contains("case 'windsurf':")
+
+    * def mcpReadme = karate.readAsString(mcpRoot + '/README.md')
+    * assert mcpReadme.contains('Official MCP Server & Skill Installer for QA Testing Blueprints')
+    * assert mcpReadme.contains('Language / Idioma')
+    * assert mcpReadme.contains('docs/agent-setup.en.md')
+
+    * def mcpReadmeEs = karate.readAsString(mcpRoot + '/README.es.md')
+    * assert mcpReadmeEs.contains('Idioma / Language')
+    * assert mcpReadmeEs.contains('docs/agent-setup.md')
+
+    * def agentSetupEs = karate.readAsString(repoRoot + '/docs/agent-setup.md')
+    * assert agentSetupEs.contains('Guía Maestra de Configuración del Servidor MCP y Skills QA 11X por Agente de IA')
+    * assert agentSetupEs.contains('agent-setup.en.md')
+
+    * def agentSetupEn = karate.readAsString(repoRoot + '/docs/agent-setup.en.md')
+    * assert agentSetupEn.contains('Master Setup Guide for QA 11X MCP Server & Skills across AI Coding Agents')
+    * assert agentSetupEn.contains('agent-setup.md')
+
+    * def archSkill = karate.readAsString(repoRoot + '/.agents/skills/qa-11x-architect/SKILL.md')
+    * assert archSkill.contains('OUTPUT LANGUAGE & DYNAMIC MIRRORING')
+    * def certSkill = karate.readAsString(repoRoot + '/.agents/skills/qa-11x-docker-certifier/SKILL.md')
+    * assert certSkill.contains('OUTPUT LANGUAGE & DYNAMIC MIRRORING')
+    * def trivySkill = karate.readAsString(repoRoot + '/.agents/skills/docker-trivy-keydb-hardening/SKILL.md')
+    * assert trivySkill.contains('OUTPUT LANGUAGE & DYNAMIC MIRRORING')
+    * def graphSkill = karate.readAsString(repoRoot + '/.agents/skills/graphify-ast-navigator/SKILL.md')
+    * assert graphSkill.contains('OUTPUT LANGUAGE & DYNAMIC MIRRORING')
+    * def refactSkill = karate.readAsString(repoRoot + '/.agents/skills/refactoring-ui/SKILL.md')
+    * assert refactSkill.contains('OUTPUT LANGUAGE & DYNAMIC MIRRORING')
+
 
 
 

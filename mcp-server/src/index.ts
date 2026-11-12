@@ -10,25 +10,31 @@ import { runReconcileAgentsCli } from './cli/reconcile-agents.js';
 import { GitHubFetcher, MCP_SERVER_VERSION } from './services/github-fetcher.js';
 
 export const CLI_HELP_TEXT = `
-@sinfallas/mcp-qa-11x v${MCP_SERVER_VERSION} — Servidor MCP e Instalador de Skills QA 11X
+@sinfallas/mcp-qa-11x v${MCP_SERVER_VERSION} — Official MCP Server & Skill Installer for QA Testing Blueprints
 
-Uso:
-  npx -y @sinfallas/mcp-qa-11x@latest                                             Inicia el servidor MCP sobre stdio
-  npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts Instala las 5 skills, scripts y conector AGENTS.md
-  npx -y @sinfallas/mcp-qa-11x@latest init-agents                                 Inyecta o actualiza el conector QA 11X en AGENTS.md
-  npx -y @sinfallas/mcp-qa-11x@latest reconcile-agents                           Reconcilia y deduplica reglas en .agents/ aislando dominio
-  npx -y @sinfallas/mcp-qa-11x@latest --version                                   Muestra la versión activa del paquete
-  npx -y @sinfallas/mcp-qa-11x@latest --help                                      Muestra esta ayuda
+Usage:
+  npx -y @sinfallas/mcp-qa-11x@latest                                               Starts the MCP server over stdio
+  npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts Installs 5 skills, scripts, and AGENTS.md connector
+  npx -y @sinfallas/mcp-qa-11x@latest init-agents                                   Injects or updates QA 11X connector in AGENTS.md
+  npx -y @sinfallas/mcp-qa-11x@latest reconcile-agents                             Reconciles and deduplicates rules in .agents/
+  npx -y @sinfallas/mcp-qa-11x@latest --version                                     Displays the active package version
+  npx -y @sinfallas/mcp-qa-11x@latest --help                                        Displays this help message
 
-Opciones para install-skill:
-  --target, -t <entorno>   auto (defecto) | workspace | antigravity | claude | cursor | hermes | all
-  --include-scripts        Instala también scripts operativos y archivos comunes en el proyecto
-  --init-agents            Inyecta o actualiza además el conector en AGENTS.md
-  --reconcile              Ejecuta reconciliación previa en .agents/ antes de sincronizar reglas
+Options for install-skill:
+  --target, -t <env>       auto (default) | workspace | antigravity | claude | cursor | windsurf | codex | hermes | all
+  --lang, -l <mode>        auto (default) | es | en — output language policy injected into AGENTS.md
+  --include-scripts        Installs operational scripts and common files into the current workspace
+  --init-agents            Injects or updates the QA 11X connector block into AGENTS.md
+  --reconcile              Performs deduplication and domain isolation in .agents/ before sync
 
-Opciones para init-agents y reconcile-agents:
-  --project-path, -p <ruta> Directorio del proyecto destino (defecto: cwd)
-  --dry-run                 Simula la operación sin escribir cambios en disco
+Options for init-agents:
+  --project-path, -p <dir> Target project directory path (default: cwd)
+  --lang, -l <mode>        auto (default) | es | en — output language policy injected into AGENTS.md
+  --dry-run                Simulates operation without writing changes to disk
+
+Options for reconcile-agents:
+  --project-path, -p <dir> Target project directory path (default: cwd)
+  --dry-run                Simulates operation without writing changes to disk
 `;
 
 export async function dispatchCliArgs(args: string[], fetcher?: GitHubFetcher): Promise<number | 'stdio'> {
@@ -62,7 +68,7 @@ export async function dispatchCliArgs(args: string[], fetcher?: GitHubFetcher): 
     return 0;
   }
 
-  console.error(`❌ Subcomando o flag desconocido: '${arg1}'. Use --help para ver las opciones disponibles.`);
+  console.error(`❌ Unknown subcommand or flag: '${arg1}'. Run with --help to view available options.`);
   return 1;
 }
 
@@ -96,7 +102,7 @@ const isDirectExecution =
 
 if (isDirectExecution) {
   main().catch((err) => {
-    console.error('Error fatal en @sinfallas/mcp-qa-11x:', err);
+    console.error('Fatal error in @sinfallas/mcp-qa-11x:', err);
     process.exit(1);
   });
 }

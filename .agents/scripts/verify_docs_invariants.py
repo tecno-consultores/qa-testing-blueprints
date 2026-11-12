@@ -22,6 +22,7 @@ FORBIDDEN_DOC_PATTERNS: tuple[tuple[str, str], ...] = (
 DOC_TARGETS: tuple[str, ...] = (
     "README.md",
     "mcp-server/README.md",
+    "mcp-server/README.es.md",
     "TESTING.md",
     "SECURITY.md",
     "FAQ.md",
@@ -30,6 +31,8 @@ DOC_TARGETS: tuple[str, ...] = (
     "docs/docker-troubleshooting.md",
     "docs/ci-cd-pipelines.md",
     "docs/ai-integration.md",
+    "docs/agent-setup.md",
+    "docs/agent-setup.en.md",
     "docs/ARCHITECTURE_C4.md",
 )
 

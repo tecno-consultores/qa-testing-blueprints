@@ -123,7 +123,7 @@ while [ $# -gt 0 ]; do
       printf "%bInstalador Universal de Skills QA 11X%b\n" "${C_BOLD}" "${C_RESET}"
       printf "Uso: install-skill.sh [opciones]\n\n"
       printf "Opciones:\n"
-      printf "  --target, -t <entorno>   Destino: auto (defecto) | workspace | antigravity | claude | cursor | hermes | all\n"
+      printf "  --target, -t <entorno>   Destino: auto (defecto) | workspace | antigravity | claude | cursor | windsurf | codex | hermes | all\n"
       printf "  --include-scripts        Instala también .agents/scripts/* y scripts/* (excluyendo publicar-mcp.sh) en el proyecto actual\n"
       printf "  --help, -h               Muestra esta ayuda\n"
       exit 0
@@ -138,9 +138,9 @@ done
 TARGET_SELECTION="${TARGET_ARG:-${QA_SKILL_TARGET:-${TARGET:-auto}}}"
 
 case "${TARGET_SELECTION}" in
-  "" | auto | all | workspace | local | antigravity | claude | cursor | hermes) ;;
+  "" | auto | all | workspace | local | antigravity | claude | cursor | windsurf | codex | hermes) ;;
   *)
-    log_error "Destino --target inválido: '${TARGET_SELECTION}'. Valores permitidos: auto, workspace, antigravity, claude, cursor, hermes, all."
+    log_error "Destino --target inválido: '${TARGET_SELECTION}'. Valores permitidos: auto, workspace, antigravity, claude, cursor, windsurf, codex, hermes, all."
     exit 1
     ;;
 esac
@@ -214,6 +214,12 @@ resolve_destination_dirs() {
     cursor)
       printf "%s/.cursor/skills\n" "${HOME_DIR}"
       ;;
+    windsurf)
+      printf "%s/.codeium/windsurf/skills\n" "${HOME_DIR}"
+      ;;
+    codex)
+      printf "%s/.codex/skills\n" "${HOME_DIR}"
+      ;;
     hermes)
       printf "%s/.hermes/skills\n" "${HOME_DIR}"
       ;;
@@ -235,6 +241,14 @@ resolve_destination_dirs() {
       fi
       if [ -d "${HOME_DIR}/.cursor" ]; then
         printf "%s/.cursor/skills\n" "${HOME_DIR}"
+        _found_any=1
+      fi
+      if [ -d "${HOME_DIR}/.codeium/windsurf" ]; then
+        printf "%s/.codeium/windsurf/skills\n" "${HOME_DIR}"
+        _found_any=1
+      fi
+      if [ -d "${HOME_DIR}/.codex" ]; then
+        printf "%s/.codex/skills\n" "${HOME_DIR}"
         _found_any=1
       fi
       if [ "${_found_any}" -eq 0 ]; then

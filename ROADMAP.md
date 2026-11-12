@@ -32,6 +32,7 @@
 | **Hito 15** | Endurecimiento Integral `v2.16.0` de los 7 Stacks Corporativos, Contrato *Thin-Repo*, Hooks POSIX Rule-Zero y Convergencia 10/10 de Compuertas | `SECURITY.md` + `TESTING.md` | ✅ Completado | `100%` |
 | **Hito 16** | Invariante Anti-Silo Pre-Auth Multi-Etapa (`SEC-16`), Presupuesto Cognitivo `SKILL.md < 20 KB` y Verificador Documental Determinista (`verify_docs_invariants.py`) | `SECURITY.md` §4.20 + `02-security-disa-owasp-22.md` | ✅ Completado | `100%` |
 | **Hito 17** | Paridad Pre-Push 1:1 con CI (`v2.17.0`) en MCP `qa-11x`: Sello de Evidencia `lint`, Stages `integration`/`ci`, Parser de Endpoints Dinámicos e Invariantes Python/PostgreSQL 17 (`QA-MYPY-01`, `QA-PG17-RLS`, `importlib`) | `03-stack-python-fastapi.md` + `08-postgres-rls-zero-downtime-migrations.md` | ✅ Completado | `100%` |
+| **Hito 18** | Internacionalización v2.18.0: Idioma Espejo Dinámico, Flag `--lang (auto/es/en)`, Targets `codex`/`windsurf` y Guías Multi-Agente EN/ES | [`docs/agent-setup.md`](docs/agent-setup.md) + [`docs/agent-setup.en.md`](docs/agent-setup.en.md) | ✅ Completado | `100%` |
 
 ---
 
@@ -244,6 +245,17 @@
 - [x] **17.1.** Implementar `mcp-server/src/services/qa-evidence.ts` y ampliar `run_ephemeral_qa` (`migration`, `integration`, `ci`) y `certify_11x_gate` (`lint_evidence_verified` / `require_lint_evidence`) para exigir evidencia vigente de `stage="lint"` ante cambios de código en Git preservando el Fast-Path `DOCS_ONLY`.
 - [x] **17.2.** Normalizar expresiones template string dinámicas (`` `/routers${query}` ``, `` `/bridge/${subPath}` ``, `{path:path}`) simétricamente en `mcp-server/src/tools/certify-gate.ts` y `.agents/scripts/verify_no_orphan_api_endpoints.py`.
 - [x] **17.3.** Incorporar las reglas `QA-MYPY-01`, `QA-PG17-RLS` y la extensión `importlib` de `QA-COV-01` en `security-auditor.ts` + `SurgicalMerger.mergeMakefile`, actualizar `fastapi/Makefile.example`, `python/Makefile.example` y skills (`SKILL.md < 20 KB`), y certificar con `prepush-ci-parity.unit.ts` (313 tests Vitest `>= 95%`), Pytest (54 tests) y Karate BDD (Escenario 21).
+
+---
+
+## ✅ Hito 18: Internacionalización v2.18.0 — Idioma Espejo Dinámico, Flag `--lang (auto|es|en)`, Targets `codex`/`windsurf` y Guías Multi-Agente EN/ES
+**Referencia Obligatoria:** [`docs/agent-setup.md`](docs/agent-setup.md) y [`docs/agent-setup.en.md`](docs/agent-setup.en.md)
+
+### Tareas de Implementación:
+- [x] **18.1.** Incorporar el modo de idioma `OutputLanguageModeSchema` (`auto`, `es`, `en`) en `mcp-server/src/types.ts` e inyectar el protocolo *Dynamic Language Mirroring* en `init-agents-md.ts` (manteniendo retrocompatibilidad exacta en español para el Escenario 18 de Karate), con soporte de flags `--lang` / `-l` y variable de entorno `QA_OUTPUT_LANG`.
+- [x] **18.2.** Añadir soporte para targets globales `codex` (`~/.codex/skills`) y `windsurf` (`~/.codeium/windsurf/skills`) con autodetección en `install-skill.ts` y `scripts/install-skill.sh`, traduciendo textos de ayuda CLI y descripciones MCP a inglés técnico conciso.
+- [x] **18.3.** Desplegar la directiva `OUTPUT LANGUAGE & DYNAMIC MIRRORING` en las 5 Skills corporativas (`SKILL.md < 20 KB`), redactar `mcp-server/README.md` en inglés para npmjs, preservar `mcp-server/README.es.md` para GitHub y crear las guías bilingües paso a paso para 11 agentes de IA (`docs/agent-setup.md` y `docs/agent-setup.en.md`).
+- [x] **18.4.** Validar con la pirámide completa de pruebas (Vitest `>= 95%`, Pytest unitario y Karate Labs BDD Escenario 22) y certificar las 10 compuertas de calidad.
 
 
 

@@ -57,13 +57,35 @@ describe('init-agents-md (Non-destructive AGENTS.md connector injection)', () =>
     });
 
     it('generates ultra-compact zero-duplication global GEMINI.md block with Graphify AST-First Q&A', () => {
-      const globalBlock = buildGlobalGeminiBlock();
-      expect(globalBlock).toContain(CONNECTOR_START_MARKER);
-      expect(globalBlock).toContain(CONNECTOR_END_MARKER);
-      expect(globalBlock).toContain('Conector Global Thin-Client QA 11X');
-      expect(globalBlock).toContain('Graphify AST-First (Consultas de Código Q&A y Pre-Cambio)');
-      expect(globalBlock).toContain('sin duplicar reglas ni skills en los proyectos locales');
-      expect(globalBlock).not.toContain('Step 1 (Plan):');
+      const defaultBlock = buildGlobalGeminiBlock();
+      expect(defaultBlock).toContain(CONNECTOR_START_MARKER);
+      expect(defaultBlock).toContain(CONNECTOR_END_MARKER);
+      expect(defaultBlock).toContain('Global Thin-Client QA 11X Connector');
+      expect(defaultBlock).toContain('Graphify AST-First (Code Q&A & Pre-Change)');
+      expect(defaultBlock).toContain('Zero-Duplication Global Consumption');
+      expect(defaultBlock).toContain("user's prompt language");
+      expect(defaultBlock).not.toContain('Step 1 (Plan):');
+
+      const esBlock = buildGlobalGeminiBlock('es');
+      expect(esBlock).toContain('Conector Global Thin-Client QA 11X');
+      expect(esBlock).toContain('Graphify AST-First (Consultas de Código Q&A y Pre-Cambio)');
+      expect(esBlock).toContain('sin duplicar reglas ni skills en los proyectos locales');
+
+      const enBlock = buildGlobalGeminiBlock('en');
+      expect(enBlock).toContain('Global Thin-Client QA 11X Connector');
+      expect(enBlock).toContain('strictly in **English**');
+    });
+
+    it('injects dynamic mirroring language policy into connector block based on lang param', () => {
+      const autoBlock = buildConnectorBlock('app', ['fastapi'], 'auto');
+      expect(autoBlock).toContain("user's prompt language");
+      expect(autoBlock).toContain('explicitly ignoring `AGENTS.md` and `.agents/**`');
+
+      const esBlock = buildConnectorBlock('app', ['fastapi'], 'es');
+      expect(esBlock).toContain('strictly in **Spanish**');
+
+      const enBlock = buildConnectorBlock('app', ['fastapi'], 'en');
+      expect(enBlock).toContain('strictly in **English**');
     });
   });
 
@@ -202,15 +224,19 @@ Regla Final`;
       const parsed1 = parseInitAgentsArgs(['--dry-run', '--project-path', '/custom/path']);
       expect(parsed1.projectPath).toBe('/custom/path');
       expect(parsed1.dryRun).toBe(true);
+      expect(parsed1.lang).toBe('auto');
 
-      const parsed2 = parseInitAgentsArgs(['-p', '/other/path']);
+      const parsed2 = parseInitAgentsArgs(['-p', '/other/path', '--lang', 'es']);
       expect(parsed2.projectPath).toBe('/other/path');
+      expect(parsed2.lang).toBe('es');
 
-      const parsed3 = parseInitAgentsArgs(['--project-path=/equal/path']);
+      const parsed3 = parseInitAgentsArgs(['--project-path=/equal/path', '--lang=en']);
       expect(parsed3.projectPath).toBe('/equal/path');
+      expect(parsed3.lang).toBe('en');
 
-      const parsed4 = parseInitAgentsArgs(['/positional/path']);
+      const parsed4 = parseInitAgentsArgs(['/positional/path', '-l', 'auto']);
       expect(parsed4.projectPath).toBe('/positional/path');
+      expect(parsed4.lang).toBe('auto');
 
       // Test flags without arguments or unrecognized hyphen flags
       const parsed5 = parseInitAgentsArgs(['--unknown', '--project-path']);
@@ -218,6 +244,9 @@ Regla Final`;
 
       const parsed6 = parseInitAgentsArgs(['-p']);
       expect(parsed6.projectPath).toBe(process.cwd());
+
+      // Rejects invalid lang
+      expect(() => parseInitAgentsArgs(['--lang', 'fr'])).toThrow("Modo de idioma no válido: 'fr'");
     });
 
     it('runs runInitAgentsCli successfully logging information', async () => {

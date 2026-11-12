@@ -8,6 +8,14 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ---
 
+## [2.18.0] - 2026-11-11
+
+### 🌐 Internacionalización, Idioma Espejo Dinámico y Guías Multi-Agente (Added, Changed & Fixed)
+* **Internacionalización y Directiva *Dynamic Language Mirroring* en `@sinfallas/mcp-qa-11x` (`v2.18.0`):** Incorporado el esquema `OutputLanguageModeSchema` (`auto`, `es`, `en`) con soporte de flags `--lang` / `-l` y variable de entorno `QA_OUTPUT_LANG` en CLI (`init-agents`, `install-skill`) y en la tool MCP `init_or_append_agents_md`; la directiva *Dynamic Language Mirroring* instruye al LLM a razonar y responder en el idioma del prompt, redactando commits y documentación respetando el idioma preexistente de `README.md` y `CHANGELOG.md` del repositorio; desplegada la política en las 5 Skills corporativas (`SKILL.md < 20 KB`).
+* **Soporte Oficial para Targets Globales `codex` y `windsurf`, Guías Dedicadas para 11 Agentes y README Bilingüe:** Añadida autodetección y destinos explícitos para OpenAI Codex (`~/.codex/skills`) y Windsurf (`~/.codeium/windsurf/skills`) en `install-skill.ts` y `scripts/install-skill.sh`; traducidos los textos de ayuda CLI y descripciones del servidor MCP a inglés técnico conciso (~35% ahorro de tokens BPE); creado `mcp-server/README.md` en inglés para el escaparate público de npmjs y `mcp-server/README.es.md` en español para GitHub; y redactadas las guías maestras paso a paso `docs/agent-setup.md` (Español) y `docs/agent-setup.en.md` (English) cubriendo los 11 principales asistentes de IA para código.
+
+---
+
 ## [2.17.0] - 2026-11-11
 
 ### 🛡️ Paridad Pre-Push 1:1 con CI y Endurecimiento Python / PostgreSQL 17 (Added, Changed & Fixed)

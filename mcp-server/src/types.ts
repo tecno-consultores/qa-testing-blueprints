@@ -40,89 +40,92 @@ export const StackNameSchema = z.enum([
 ]);
 export type StackName = z.infer<typeof StackNameSchema>;
 
+export const OutputLanguageModeSchema = z.enum(['auto', 'es', 'en']);
+export type OutputLanguageMode = z.infer<typeof OutputLanguageModeSchema>;
+
 export const InspectProjectInputSchema = z.object({
-  project_path: z.string().min(1).describe("Ruta absoluta o relativa al directorio del proyecto a auditar"),
+  project_path: z.string().min(1).describe('Absolute or relative path to the target project directory to audit.'),
 });
 export type InspectProjectInput = z.infer<typeof InspectProjectInputSchema>;
 
 export const FetchBundleInputSchema = z.object({
-  stack: StackNameSchema.describe('Nombre del stack tecnológico a descargar.'),
+  stack: StackNameSchema.describe('Technology stack name to download blueprint templates for.'),
   include_common_and_agents: z
     .boolean()
     .default(true)
-    .describe('Incluir archivos comunes (.trivy, lefthook) y reglas .agents/.'),
+    .describe('Include common files (.trivy, lefthook) and .agents/ governance rules.'),
   include_content: z
     .boolean()
     .default(false)
     .describe(
-      'Si es false (por defecto para ahorro extremo de tokens), verifica SHA-256 en caché local y devuelve metadatos sin volcar el texto crudo de cada archivo al contexto.'
+      'If false (default for extreme token economy), verifies SHA-256 in local cache and returns metadata without dumping raw file content into context.'
     ),
 });
 export type FetchBundleInput = z.infer<typeof FetchBundleInputSchema>;
 
 export const BootstrapMergeInputSchema = z.object({
-  project_path: z.string().min(1).describe("Ruta al proyecto destino"),
+  project_path: z.string().min(1).describe('Absolute or relative path to the target project directory.'),
   stack: StackNameSchema,
-  dry_run: z.boolean().default(false).describe("Si es true, no escribe en disco y solo devuelve el plan de cambios"),
+  dry_run: z.boolean().default(false).describe('If true, simulates file creation and merging without modifying disk.'),
 });
 export type BootstrapMergeInput = z.infer<typeof BootstrapMergeInputSchema>;
 
 export const BlastRadiusInputSchema = z.object({
-  project_path: z.string().min(1).describe('Ruta al directorio raíz del proyecto.'),
+  project_path: z.string().min(1).describe('Path to project root directory.'),
   target_symbol: z
     .string()
     .min(1)
-    .describe('Nombre del archivo, clase o función que se planea modificar.'),
+    .describe('Name of file, class, function, or symbol planned for modification.'),
   max_items: z
     .number()
     .int()
     .min(1)
     .max(200)
     .default(20)
-    .describe('Máximo de archivos dependientes a listar en el arreglo (ahorro de tokens).'),
+    .describe('Maximum number of dependent files to list in results array (token economy).'),
   auto_build_if_missing: z
     .boolean()
     .optional()
     .default(false)
     .describe(
-      'Si es true y no existe graphify-out/graph.json, construye automáticamente el grafo AST en Docker efímero antes de analizar.'
+      'If true and graphify-out/graph.json is missing, builds the AST graph in ephemeral Docker before analysis.'
     ),
   refresh_graph: z
     .boolean()
     .optional()
     .default(false)
     .describe(
-      'Si es true, actualiza incrementalmente el grafo AST del proyecto antes de calcular el radio de impacto.'
+      'If true, incrementally updates project AST graph before computing impact radius.'
     ),
 });
 export type BlastRadiusInput = z.infer<typeof BlastRadiusInputSchema>;
 
 export const CleanWorkspaceInputSchema = z.object({
-  project_path: z.string().min(1).describe("Ruta absoluta o relativa al directorio del proyecto a limpiar"),
-  dry_run: z.boolean().default(true).describe("Si es true (por defecto), solo audita e informa qué artefactos serían eliminados"),
+  project_path: z.string().min(1).describe('Absolute or relative path to the project directory to clean.'),
+  dry_run: z.boolean().default(true).describe('If true (default), audits and reports removable artifacts without deleting.'),
   deep_prune: z
     .boolean()
     .default(false)
     .describe(
-      'Si es true, incluye la eliminación de directorios persistentes (reports/, prometheus_data/) y recomienda poda profunda de contenedores/volúmenes'
+      'If true, includes persistent directories (reports/, prometheus_data/) and recommends deep Docker pruning.'
     ),
 });
 export type CleanWorkspaceInput = z.infer<typeof CleanWorkspaceInputSchema>;
 
 export const AuditSecurityInputSchema = z.object({
-  project_path: z.string().min(1).describe('Ruta absoluta o relativa al directorio del proyecto a auditar'),
+  project_path: z.string().min(1).describe('Absolute or relative path to the project directory to audit.'),
   max_findings: z
     .number()
     .int()
     .min(1)
     .max(500)
     .default(25)
-    .describe('Límite máximo de hallazgos individuales devueltos en findings (ahorro de tokens).'),
+    .describe('Maximum number of individual findings returned in findings (token economy).'),
 });
 export type AuditSecurityInput = z.infer<typeof AuditSecurityInputSchema>;
 
 export const RunEphemeralQaInputSchema = z.object({
-  project_path: z.string().min(1).describe("Ruta al proyecto que contiene el Makefile"),
+  project_path: z.string().min(1).describe('Path to the project directory containing Makefile and docker-compose.qa.yml.'),
   stage: z.enum([
     "lint",
     "unit",
@@ -139,26 +142,26 @@ export const RunEphemeralQaInputSchema = z.object({
     "perf",
     "chaos",
     "all",
-  ]).describe("Fase o target de QA a ejecutar (ej. lint, unit, integration, ci, bdd)"),
-  timeout_seconds: z.number().int().min(10).max(900).default(300).describe("Tiempo máximo de espera en segundos"),
+  ]).describe('QA phase or target to execute (e.g. lint, unit, integration, ci, bdd, all).'),
+  timeout_seconds: z.number().int().min(10).max(900).default(300).describe('Maximum timeout in seconds.'),
   skip_if_docs_only: z
     .boolean()
     .optional()
     .default(false)
     .describe(
-      "Si es true y git detecta únicamente cambios en documentación (*.md / docs/), omite levantar contenedores Docker y retorna PASSED por Fast-Path."
+      'If true and git detects only documentation changes (*.md / docs/), skips starting Docker containers and returns PASSED via Fast-Path.'
     ),
 });
 export type RunEphemeralQaInput = z.infer<typeof RunEphemeralQaInputSchema>;
 
 export const CertifyGateInputSchema = z.object({
-  project_path: z.string().min(1).describe("Ruta al proyecto a certificar frente al estándar 11X"),
+  project_path: z.string().min(1).describe('Path to the project to certify against the 11X quality standard.'),
   require_lint_evidence: z
     .boolean()
     .optional()
     .default(true)
     .describe(
-      "Cuando es true (por defecto), exige evidencia vigente de run_ephemeral_qa(stage='lint') si existen cambios de código modificados en Git."
+      'When true (default), requires recent run_ephemeral_qa(stage=\'lint\') evidence if git working tree contains code modifications.'
     ),
 });
 export type CertifyGateInput = z.infer<typeof CertifyGateInputSchema>;
@@ -446,9 +449,9 @@ export const AuditTestPyramidInputSchema = z.object({
   project_path: z
     .string()
     .min(1)
-    .describe('Ruta absoluta o relativa del proyecto existente a auditar.'),
+    .describe('Absolute or relative path to the existing project to audit.'),
   stack: StackNameSchema.optional().describe(
-    'Stack específico a evaluar. Si se omite, autodetecta todos los stacks presentes en el proyecto.'
+    'Specific technology stack to evaluate. If omitted, auto-detects all present stacks in project.'
   ),
   max_items: z
     .number()
@@ -456,7 +459,7 @@ export const AuditTestPyramidInputSchema = z.object({
     .min(1)
     .max(200)
     .default(20)
-    .describe('Máximo de ítems por categoría en missing_test_inventory (ahorro de tokens).'),
+    .describe('Maximum items per category in missing_test_inventory (token economy).'),
 });
 export type AuditTestPyramidInput = z.infer<typeof AuditTestPyramidInputSchema>;
 
@@ -467,6 +470,7 @@ export type AuditTestPyramidInput = z.infer<typeof AuditTestPyramidInputSchema>;
 export interface InitAgentsMdOptions {
   projectPath: string;
   dryRun?: boolean;
+  lang?: OutputLanguageMode;
 }
 
 export type InitAgentsAction = 'created' | 'appended' | 'updated_block' | 'dry_run';
@@ -483,11 +487,15 @@ export const InitAgentsMdInputSchema = z.object({
   project_path: z
     .string()
     .min(1)
-    .describe('Ruta absoluta o relativa al directorio del proyecto destino.'),
+    .describe('Absolute or relative path to the target project directory.'),
   dry_run: z
     .boolean()
     .default(false)
-    .describe('Si es true, no escribe en disco y solo devuelve el contenido resultante.'),
+    .describe('If true, simulates AGENTS.md injection without writing to disk.'),
+  lang: OutputLanguageModeSchema
+    .optional()
+    .default('auto')
+    .describe('Human output language policy injected into AGENTS.md: auto (mirror prompt & README/CHANGELOG), es (Spanish), or en (English).'),
 });
 export type InitAgentsMdInput = z.infer<typeof InitAgentsMdInputSchema>;
 
@@ -499,30 +507,30 @@ export const ProposeEvolutionPrInputSchema = z.object({
   project_path: z
     .string()
     .min(1)
-    .describe('Ruta absoluta del proyecto donde se descubrió la mejora.'),
+    .describe('Absolute path to the project where the improvement was discovered.'),
   target_blueprint_file: z
     .string()
     .min(1)
     .describe(
-      'Ruta relativa en qa-testing-blueprints a mejorar (ej. ".agents/skills/qa-11x-architect/SKILL.md").'
+      "Relative path in qa-testing-blueprints to improve (e.g. '.agents/skills/qa-11x-architect/SKILL.md')."
     ),
   improvement_title: z
     .string()
     .min(5)
-    .describe('Título conciso en español de la mejora propuesta para el PR.'),
+    .describe('Concise title of the proposed PR improvement.'),
   empirical_rationale: z
     .string()
     .min(10)
-    .describe('Explicación técnica en español del caso borde o mejora descubierta en producción.'),
+    .describe('Technical explanation of the edge case or improvement discovered in production.'),
   proposed_content_or_snippet: z
     .string()
     .min(10)
-    .describe('Contenido o bloque Markdown/código propuesto para incorporar en la skill o plantilla.'),
+    .describe('Proposed markdown/code snippet to incorporate into the skill or template.'),
   prefer_offline_fallback: z
     .boolean()
     .optional()
     .default(false)
-    .describe('Si es true, omite gh CLI y genera directamente el archivo de propuesta + URL pre-llenada.'),
+    .describe('If true, skips gh CLI and directly generates local proposal file and pre-filled URL.'),
 });
 export type ProposeEvolutionPrInput = z.infer<typeof ProposeEvolutionPrInputSchema>;
 
@@ -546,11 +554,11 @@ export const ReconcileAgentsInputSchema = z.object({
   project_path: z
     .string()
     .min(1)
-    .describe('Ruta absoluta o relativa al proyecto consumidor (ej. rosgrid) a reconciliar.'),
+    .describe('Absolute or relative path to consumer project to reconcile (e.g. rosgrid).'),
   dry_run: z
     .boolean()
     .default(false)
-    .describe('Si es true, simula la reconciliación informando duplicados y extracciones de dominio sin modificar el disco.'),
+    .describe('If true, simulates deduplication reporting duplicate and domain sections without touching disk.'),
 });
 export type ReconcileAgentsInput = z.infer<typeof ReconcileAgentsInputSchema>;
 

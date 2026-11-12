@@ -1,23 +1,29 @@
-# ⚙️ @sinfallas/mcp-qa-11x — Servidor MCP e Instalador de Skills QA 11X
+> 🌐 **Language / Idioma:** **English** | [Leer en Español (GitHub)](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/README.es.md)
 
-Servidor oficial de **Model Context Protocol (MCP)** e Instalador Universal Thin-Repo para **[QA Testing Blueprints](https://github.com/tecno-consultores/qa-testing-blueprints)** (Estándar Corporativo Nivel 11X, **DISA ASD STIG V6R5** y **OWASP Developer Guide v4.2**).
+# ⚙️ @sinfallas/mcp-qa-11x — Official MCP Server & Skill Installer for QA Testing Blueprints
 
-- **Repositorio Oficial:** [https://github.com/tecno-consultores/qa-testing-blueprints](https://github.com/tecno-consultores/qa-testing-blueprints)
-- **Guía de Integración con Agentes IA:** [docs/ai-integration.md](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/docs/ai-integration.md)
-- **Cuadro de Mando y Métricas 11X:** [TESTING.md](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/TESTING.md)
+Official **Model Context Protocol (MCP)** Server and Universal Thin-Repo Skill Installer for **[QA Testing Blueprints](https://github.com/tecno-consultores/qa-testing-blueprints)** (Corporate Quality Level 11X, **DISA ASD STIG V6R5**, and **OWASP Developer Guide v4.2**).
+
+- **Official Repository:** [https://github.com/tecno-consultores/qa-testing-blueprints](https://github.com/tecno-consultores/qa-testing-blueprints)
+- **Step-by-Step AI Agent Setup Guide:** [docs/agent-setup.en.md](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/docs/agent-setup.en.md)
+- **AI Agent Integration Guide:** [docs/ai-integration.md](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/docs/ai-integration.md)
+- **11X QA Dashboard & Metrics:** [TESTING.md](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/TESTING.md)
 
 ---
 
-## 🚀 Uso Rápido sin Instalación (`Zero-Clone`)
+## 🚀 Quick Start (`Zero-Clone`)
 
-### 1. Iniciar Servidor MCP (`stdio`)
-Compatible con **Google Antigravity**, **Claude Desktop / Claude Code**, **Cursor**, **Windsurf**, **Hermes Agent** y **VS Code**:
+> [!TIP]
+> For step-by-step instructions, JSON/TOML snippets, and exact configuration paths on macOS, Linux, and Windows across **11 supported AI coding agents** (VS Code / Copilot, Cursor, Claude Code, Google Antigravity, Codex CLI, Windsurf, JetBrains IDEs, Cline, Claude Desktop, Hermes Agent, Zed), see the **[Step-by-Step Setup Guide per AI Agent](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/docs/agent-setup.en.md)**.
+
+### 1. Run MCP Server over `stdio`
+Directly compatible with **VS Code (GitHub Copilot)**, **Cursor**, **Claude Code / Desktop**, **Google Antigravity**, **Codex**, **Windsurf**, and **Hermes Agent**:
 
 ```bash
 npx -y @sinfallas/mcp-qa-11x@latest
 ```
 
-#### Configuración en Antigravity / Claude Desktop / Cursor (`mcp_config.json`):
+#### Basic Configuration in Cursor / Claude Desktop / Antigravity (`mcp_config.json`):
 ```json
 {
   "mcpServers": {
@@ -29,91 +35,95 @@ npx -y @sinfallas/mcp-qa-11x@latest
 }
 ```
 
-### 2. Instalar Skills Globales, Scripts y Conector `AGENTS.md` vía CLI
-Instala el catálogo completo de **5 skills corporativas** en los directorios globales de tus agentes IA, descarga los scripts operativos (`.agents/scripts/*`, `scripts/*`), reconcilia duplicados locales e inyecta el conector en `AGENTS.md` (y el puntero ligero sin duplicación en `~/.gemini/GEMINI.md`) con verificación criptográfica **SHA-256 (`DISA STIG V-222513`)**:
+### 2. Universal Skill & Governance Installer via CLI
+Installs the complete catalog of **5 corporate skills** into your global AI agent directories, downloads operational scripts (`.agents/scripts/*`, `scripts/*`), reconciles local rule duplicates, and injects the connector into `AGENTS.md` (plus the global thin pointer in `~/.gemini/GEMINI.md`) with cryptographic **SHA-256 verification (`DISA STIG V-222513`)**:
 
 ```bash
-# Instalación y reconciliación recomendada en un proyecto:
+# Recommended single-command setup in any project:
 npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts --reconcile
 
-# Con selección explícita de entorno destino:
-npx -y @sinfallas/mcp-qa-11x@latest install-skill --target [auto|antigravity|claude|cursor|hermes|workspace|all] --init-agents --include-scripts --reconcile
+# With explicit human output language policy for AGENTS.md (auto|es|en):
+npx -y @sinfallas/mcp-qa-11x@latest install-skill --lang auto --init-agents --include-scripts --reconcile
 
-# Inyectar de forma aditiva y no destructiva únicamente el conector QA 11X en AGENTS.md:
-npx -y @sinfallas/mcp-qa-11x@latest init-agents [--project-path <ruta>] [--dry-run]
+# With explicit target agent environment:
+npx -y @sinfallas/mcp-qa-11x@latest install-skill --target [auto|workspace|antigravity|claude|cursor|windsurf|codex|hermes|all] --init-agents --include-scripts --reconcile
 
-# Reconciliar y podar reglas/skills duplicadas en un proyecto consumidor:
-npx -y @sinfallas/mcp-qa-11x@latest reconcile-agents [--project-path <ruta>] [--dry-run]
+# Non-destructively inject only the QA 11X connector block into AGENTS.md:
+npx -y @sinfallas/mcp-qa-11x@latest init-agents [--project-path <path>] [--lang auto|es|en] [--dry-run]
 
-# Forzar actualización limpia de caché global a la última versión publicada:
+# Reconcile and deduplicate rules in a downstream consumer project:
+npx -y @sinfallas/mcp-qa-11x@latest reconcile-agents [--project-path <path>] [--dry-run]
+
+# Force clean update of local npx and blueprint caches:
 rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@latest install-skill --target all --init-agents --include-scripts --reconcile
 ```
 
-#### Opciones de `install-skill`:
-* `--target, -t <entorno>`: `auto` (defecto: instala las 5 skills exclusivamente en los directorios globales de agentes IA detectados en `$HOME`; fallback a `workspace` solo si no hay agentes globales) | `workspace` | `antigravity` | `claude` | `cursor` | `hermes` | `all`.
-* `--init-agents`: Crea `AGENTS.md` o inyecta de forma aditiva y no destructiva el bloque conector de QA 11X al final del `AGENTS.md` existente y sincroniza el puntero global ligero en `~/.gemini/GEMINI.md` (cero duplicación con las skills y el servidor MCP).
-* `--include-scripts`: Descarga e instala únicamente los scripts ejecutables de certificación y auditoría (`.agents/scripts/*`, `scripts/*`), archivos comunes de CI/hooks y `.agents/ACTIVE_TASK.md.example` (`0o755`), sin copiar `.agents/rules/*.md`.
-* `--reconcile`: Reconcilia la gobernanza Thin-Repo del proyecto consumidor, eliminando copias locales de las 7 reglas canónicas y las 5 skills en `<proyecto>/.agents/`, y extrayendo reglas de negocio propias hacia `.agents/rules/domain_<project>_rules.md` con respaldo en `.agents/backups/`.
+#### Flags for `install-skill`:
+* `--target, -t <env>`: Target environment. `auto` (default: installs the 5 skills into all detected global agent directories in `$HOME`: Antigravity, Claude, Cursor, Windsurf, Codex, Hermes; falls back to `workspace` only if no global agents exist) | `workspace` | `antigravity` | `claude` | `cursor` | `windsurf` | `codex` | `hermes` | `all`.
+* `--lang, -l <mode>`: Output language policy injected into `AGENTS.md`. `auto` (default: **Dynamic Language Mirroring** — LLM responds and reasons in the prompt language, and writes commit messages and human-facing documentation matching the existing language of repository `README.md` and `CHANGELOG.md`) | `es` (Spanish enforced) | `en` (English enforced).
+* `--init-agents`: Creates `AGENTS.md` or additively injects the QA 11X connector block into existing `AGENTS.md`, and synchronizes the global thin-client pointer in `~/.gemini/GEMINI.md`.
+* `--include-scripts`: Downloads and installs executable certification and audit scripts (`.agents/scripts/*`, `scripts/*`), CI/hooks configurations, and `.agents/ACTIVE_TASK.md.example` (`0o755`), without duplicating `.agents/rules/*.md`.
+* `--reconcile`: Reconciles downstream consumer projects, removing local duplicate copies of the 7 canonical rules and 5 skills from `<project>/.agents/`, and safely extracting custom domain business logic into `.agents/rules/domain_<project>_rules.md` with backups in `.agents/backups/`.
 
 ---
 
-## 🧠 Catálogo de 5 Skills Corporativas Incluidas
+## 🧠 Catalog of 5 Corporate Skills
 
-1. **`qa-11x-architect`:** Arquitecto Maestro QA 11X y DevSecOps (`SKILL.md < 20 KB`: 13 capas de la Pirámide 11X, 10 Leyes Innegociables, 8 Reglas Anti-Ceguera UAT incluyendo continuidad Pre-Auth `SEC-16`, Economía Cognitiva de Tokens con 3 vías proporcionales `DOCS_ONLY` / `MICRO_CHANGE` / `FULL_11X` y 22 controles DISA STIG V6R5 / OWASP v4.2 con 9 módulos `references/*.md` bajo demanda).
-2. **`graphify-ast-navigator`:** Navegación bidireccional del Grafo de Conocimiento AST (`graphify-out/graph.json` y `GRAPH_REPORT.md`) obligatoria tanto para **responder preguntas sobre el código o arquitectura (`Code Q&A`: `Graphify AST-First, Grep-Fallback, Windowed-Read-Second`)** como para auditar el radio de impacto antes de refactorizar y validar fronteras de capas.
-3. **`qa-11x-docker-certifier`:** Certificador de ejecución efímera en Docker (**Regla Cero**: cobertura unitaria `>= 95%` con `COVERAGE_FILE=/tmp/.coverage`, complejidad ciclomática/cognitiva Grado A, Karate Labs BDD, pruebas de mutación y cero contaminación del sistema operativo anfitrión).
-4. **`docker-trivy-keydb-hardening`:** Hardening de contenedores (`Trivy HIGH/CRITICAL = 0`), motor en memoria multihilo KeyDB, usuarios no-root y builds multi-etapa.
-5. **`refactoring-ui`:** Jerarquía visual, espaciado, tipografía (`tabular-nums`), contraste OKLCH (`WCAG 2.2 AA`), modo oscuro y geometría real Anti-JSDOM con 9 módulos `references/*.md`.
+1. **`qa-11x-architect`:** Master QA 11X & DevSecOps Architect (`SKILL.md < 20 KB`: 13 pyramid layers, 10 Non-Negotiable Laws, 8 UAT Anti-Blindness Rules including `SEC-16` Pre-Auth multi-step continuity, High-IQ Token Economy with 3-Path proportional execution `DOCS_ONLY` / `MICRO_CHANGE` / `FULL_11X`, and 22 DISA ASD STIG V6R5 / OWASP v4.2 controls with 9 on-demand `references/*.md` modules).
+2. **`graphify-ast-navigator`:** Bidirectional AST Knowledge Graph navigation (`graphify-out/graph.json` and `GRAPH_REPORT.md`) mandatory for **Code Q&A (`Graphify AST-First, Grep-Fallback, Windowed-Read-Second`)**, pre-refactoring blast radius audits, and architectural layer boundary enforcement.
+3. **`qa-11x-docker-certifier`:** Corporate Standard certifier in ephemeral Docker containers (**Rule Zero**: unit test coverage `>= 95%` with `COVERAGE_FILE=/tmp/.coverage`, Cyclomatic/Cognitive Complexity Grade A, Karate Labs BDD, mutation testing, and zero host contamination).
+4. **`docker-trivy-keydb-hardening`:** Container hardening (Trivy target HIGH/CRITICAL = 0), KeyDB multi-threaded in-memory caching engine, non-root execution, and multi-stage builds.
+5. **`refactoring-ui`:** Visual hierarchy, spacing scales, typography (`tabular-nums`), OKLCH color contrast (WCAG 2.1 AA), dark mode, and Anti-JSDOM real geometry rules with 9 modular `references/*.md` guides.
 
 ---
 
-## 📦 Ecosistemas Tecnológicos Soportados (7 Stacks)
+## 📦 Supported Tech Stacks (7 Stacks)
 
-| Stack | Tecnología Principal | Herramientas de Calidad y Seguridad 11X |
+| Stack | Core Technology | 11X Quality & DevSecOps Tools |
 | :--- | :--- | :--- |
 | **`fastapi`** | Python 3.11–3.15 + FastAPI + PostgreSQL 17 + KeyDB | Ruff, Mypy, Bandit, Radon, Pytest (`>=95%`), Schemathesis, Karate Labs BDD, Mutmut, OWASP ZAP, Locust + Pumba |
-| **`python`** | Python 3.11–3.15 (Librerías y CLI) | Ruff, Mypy, Bandit, Radon, Pytest (`>=95%`), Hypothesis, Mutmut |
+| **`python`** | Python 3.11–3.15 (Libraries & CLI) | Ruff, Mypy, Bandit, Radon, Pytest (`>=95%`), Hypothesis, Mutmut |
 | **`node-backend`** | Node.js 22–26 + TypeScript (Express / Fastify) | ESLint, SonarJS, Vitest (`>=95%`), Supertest, Karate Labs BDD, Stryker, OWASP ZAP |
 | **`vue3`** | Vue 3 + TypeScript + Vite + Pinia | ESLint, SonarJS, `vue-tsc`, Vitest (`>=95%`), Playwright + `@axe-core` (WCAG 2.1 AA), Karate UI, Stryker, Lighthouse CI |
 | **`react-frontend`** | React 19 + TypeScript + Vite | ESLint, SonarJS, `tsc`, Vitest (`>=95%`), Playwright + `@axe-core`, Karate UI, Stryker, Lighthouse CI |
 | **`php`** | PHP 8.2–8.5 (Symfony / Laravel / Slim) | PHP-CS-Fixer, PHPStan (Max), Psalm Taint, Pest/PHPUnit + PCOV (`>=95%`), Karate Labs BDD, Infection MSI, OWASP ZAP |
-| **`bash-scripts`** | Bash / Shell (Automatización y DevSecOps) | ShellCheck, `shfmt`, BATS-core, Kcov (`>=95%`), Trivy |
+| **`bash-scripts`** | Bash / Shell (Automation & DevSecOps) | ShellCheck, `shfmt`, BATS-core, Kcov (`>=95%`), Trivy |
 
 ---
 
-## 🛠️ Herramientas Expuestas en el Servidor MCP (12 Tools)
+## 🛠️ MCP Tools (12 Tools)
 
-1. **`inspect_project_config`:** Audita el directorio del proyecto detectando stacks tecnológicos, banderas de configuración estricta, madurez de navegador/UI y archivos 11X faltantes.
-2. **`fetch_blueprint_bundle`:** Descarga bajo demanda plantillas `.example` y scripts con verificación SHA-256 (modo índice ligero `include_content: false` por defecto para ahorro extremo de tokens).
-3. **`bootstrap_or_merge_11x`:** Fusión quirúrgica no destructiva de configuraciones (`package.json`, `pyproject.toml`, `Makefile` con `COVERAGE_FILE=/tmp/.coverage`, `.gitignore`, `.npmrc`).
-4. **`inspect_ast_blast_radius`:** Navegación AST bidireccional sobre `graphify-out/graph.json` y `GRAPH_REPORT.md` tanto para responder preguntas sobre código/arquitectura (`declaring_files` con `archivo:L<línea>`, llamadores entrantes, `outgoing_dependencies` y `graph_reports`) como para calcular el radio de impacto antes de refactorizar (`auto_build_if_missing`, `refresh_graph` y elegibilidad `MICRO_CHANGE`).
-5. **`clean_workspace_11x`:** Saneamiento seguro de artefactos temporales de pruebas, cachés de Docker y archivos bloqueados por root.
-6. **`audit_security_stig_owasp`:** Auditoría estática de reglas DISA ASD STIG V6R5 y OWASP v4.2 (`SEC-01` a `SEC-16`, `QA-KARATE-IDEMP`, `QA-COV-01`, `QA-MYPY-01`, `QA-PG17-RLS`, `QA-SMOKE-01`, `UI-11X-01`, `UI-11X-02`, incluyendo PostgreSQL RLS multi-transacción `after_begin`, auditoría de catálogo `pg_class.relforcerowsecurity`, cadena forense WORM `seq_num` + `pg_advisory_xact_lock`, propagación de credenciales efímeras en Docker y continuidad atómica Pre-Auth multi-etapa) con agrupación compacta (`grouped_findings`).
-7. **`run_ephemeral_qa`:** Ejecución aislada de targets del `Makefile` (`lint`, `unit`, `migration`, `integration`, `ci`, `bdd`, `mutation`, `dast`, `e2e`, `perf`, `chaos`, `all`) en contenedores Docker efímeros (**Regla Cero**), registro de evidencia criptográfica en `.agents/.qa-evidence.json`, soporte `skip_if_docs_only` y condensación Pass-Quiet.
-8. **`certify_11x_gate`:** Compuerta unificada de certificación 11X (secretos, JSON, componentes huérfanos UI, endpoints API huérfanos con soporte de template strings dinámicos `` `/routers${query}` `` y `` `/bridge/${subPath}` ``, paridad ORM/Alembic, evidencia fresca de `stage="lint"` pre-push, topología AST, seguridad STIG/OWASP y sincronía documental).
-9. **`audit_test_pyramid_gaps`:** Auditoría estática de las 13 capas de la pirámide 11X (`L01` a `L13`), detección de 3 fases temporales, refresco dual y plan de acción priorizado.
-10. **`init_or_append_agents_md`:** Inyección aditiva y no destructiva del bloque conector QA 11X en `AGENTS.md` y sincronización del conector global ligero sin duplicación en `~/.gemini/GEMINI.md`.
-11. **`propose_skill_evolution_pr`:** Propuesta federada Zero-Trust de mejoras empíricas hacia `tecno-consultores/qa-testing-blueprints` (vía `gh` CLI o generación de plantilla + URL pre-llenada).
-12. **`reconcile_agents_governance`:** Reconciliación Thin-Repo de `.agents/`, podado de duplicados de reglas/skills globales y aislamiento de reglas de dominio en `.agents/rules/domain_<project>_rules.md`.
-
----
-
-## 📚 Recursos Expuestos en el Servidor MCP (9 Resources)
-
-- `blueprint://manifest`: Manifiesto criptográfico completo (`manifest.json`).
-- `blueprint://core/philosophy`: Filosofía y las 13 capas de calidad 11X.
-- `blueprint://security/disa-owasp-22`: Catálogo de los 22 patrones DISA STIG V6R5 y OWASP v4.2.
-- `blueprint://{stack}/readme`: Guía operativa por ecosistema tecnológico (`fastapi`, `python`, `node-backend`, `vue3`, `react-frontend`, `php`, `bash-scripts`).
-- `blueprint://ui/refactoring-ui/{topic}`: Módulos de diseño y accesibilidad WCAG 2.1/2.2 AA (`skill`, `hierarchy`, `layout`, `type`, `color`, `depth`, `images`, `polish`, `dark-mode`, `tailwind`).
-- `blueprint://core/active-task-template`: Plantilla canónica `.agents/ACTIVE_TASK.md.example`.
-- `blueprint://core/cleanup-script`: Script universal `scripts/limpieza.sh`.
-- `blueprint://core/roadmap-validator`: Validador bidireccional `verify_roadmap_consistency.py`.
-- `blueprint://database/postgres-rls-worm`: Implementación canónica de PostgreSQL 17 RLS Multi-Transacción (`after_begin`) y cadena forense WORM determinista (`seq_num` + `pg_advisory_xact_lock`).
+1. **`inspect_project_config`:** Audits user project directory, detecting stacks, strict linter flags, browser/UI testing readiness, and missing 11X files.
+2. **`fetch_blueprint_bundle`:** Downloads on-demand blueprint templates and scripts with SHA-256 verification (lightweight index `include_content: false` default for extreme token economy).
+3. **`bootstrap_or_merge_11x`:** Surgically injects or merges 11X quality standard templates without altering existing production dependencies or code.
+4. **`inspect_ast_blast_radius`:** Queries the AST knowledge graph (`graphify-out/graph.json` and `GRAPH_REPORT.md`) for code/architecture Q&A (`declaring_files` with `file:L<line>`, incoming callers, outgoing dependencies) and pre-refactoring blast-radius analysis (`auto_build_if_missing`, `refresh_graph`, and `MICRO_CHANGE` eligibility).
+5. **`clean_workspace_11x`:** Audits or executes workspace sanitation, removing transient test artifacts and Docker root residues (`dry_run` default).
+6. **`audit_security_stig_owasp`:** Statically audits project source code against the 22 DISA ASD STIG V6R5 and OWASP v4.2 security patterns (`SEC-01` to `SEC-16`, `QA-KARATE-IDEMP`, PostgreSQL RLS multi-transaction `after_begin`, WORM forensic chain `seq_num` + `pg_advisory_xact_lock`, Pre-Auth continuity) with compact grouping (`grouped_findings`).
+7. **`run_ephemeral_qa`:** Safely runs a Makefile QA target (`lint`, `unit`, `migration`, `integration`, `ci`, `bdd`, `mutation`, `dast`, `e2e`, `perf`, `chaos`, `all`) inside ephemeral Docker containers (**Rule Zero**), recording cryptographic evidence with `skip_if_docs_only` support.
+8. **`certify_11x_gate`:** Unified 11X certification gate (secrets, JSON, orphan UI/API, ORM parity, fresh pre-push lint evidence, AST topology, STIG/OWASP security, and documentation sync).
+9. **`audit_test_pyramid_gaps`:** Audits existing project against the 13 layers of the 11X pyramid (`L01` to `L13`), reporting uncovered files/endpoints and a prioritized rescue plan.
+10. **`init_or_append_agents_md`:** Injects or updates the QA 11X connector block into `AGENTS.md` (with `--lang auto|es|en` policy) and synchronizes the global thin-client pointer in `~/.gemini/GEMINI.md`.
+11. **`propose_skill_evolution_pr`:** Proposes an improvement or edge-case fix to `tecno-consultores/qa-testing-blueprints` via authenticated local `gh` CLI or pre-filled GitHub URL.
+12. **`reconcile_agents_governance`:** Reconciles `.agents/` governance rules in consumer projects: creates backup, prunes promoted duplicates, and extracts domain rules to `.agents/rules/domain_<project>_rules.md`.
 
 ---
 
-## 📄 Autoría, Copyright y Licencia
+## 📚 MCP Resources (9 Resources)
 
-- **Autor:** Jesus Palencia (`<sinfallas@gmail.com>`)
-- **Copyright:** `Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)`
-- **Licencia:** Distribuido bajo la licencia [MIT](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/LICENSE).
+- `blueprint://manifest`: Complete cryptographic manifest (`manifest.json`).
+- `blueprint://core/philosophy`: Level-11X quality philosophy and the 13 pyramid layers.
+- `blueprint://security/disa-owasp-22`: Catalog of 22 canonical security patterns (DISA ASD STIG V6R5 & OWASP v4.2).
+- `blueprint://{stack}/readme`: Operational testing and QA guide per tech stack (`fastapi`, `python`, `node-backend`, `vue3`, `react-frontend`, `php`, `bash-scripts`).
+- `blueprint://ui/refactoring-ui/{topic}`: Tactical UI design and accessibility modules (`skill`, `hierarchy`, `layout`, `type`, `color`, `depth`, `images`, `polish`, `dark-mode`, `tailwind`).
+- `blueprint://core/active-task-template`: Canonical active task diary template (`.agents/ACTIVE_TASK.md.example`).
+- `blueprint://core/cleanup-script`: Universal cleanup script (`scripts/limpieza.sh`).
+- `blueprint://core/roadmap-validator`: Bidirectional roadmap consistency validator (`verify_roadmap_consistency.py`).
+- `blueprint://database/postgres-rls-worm`: Canonical reference implementation of PostgreSQL 17 Multi-Transaction RLS (`after_begin`) and deterministic WORM audit serialization (`seq_num` + `pg_advisory_xact_lock`).
+
+---
+
+## 📄 Author, Copyright & License
+
+- **Author:** Jesus Palencia (`<sinfallas@gmail.com>`)
+- **Copyright:** `Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Created at Tecno Consultores)`
+- **License:** Distributed under the [MIT License](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/LICENSE).

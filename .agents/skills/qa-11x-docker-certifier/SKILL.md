@@ -9,7 +9,7 @@ description: >-
 # QA 11X Corporate Standard Certifier (Ephemeral Docker Execution)
 
 This skill governs all tests, linters, audits, and cleanups in projects implementing QA 11X.
-> **OUTPUT LANGUAGE CONSTRAINT:** Always communicate with the user and write final explanations in Spanish.
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Unless the target repository's `AGENTS.md` explicitly mandates a fixed output language, respond and explain reasoning in the **user's prompt language**, and write commit messages / human-facing documentation matching the **existing language of `README.md` and `CHANGELOG.md`** (explicitly ignoring `AGENTS.md` and `.agents/**`, which remain in concise English for token economy; default to the prompt language on empty repos).
 
 ---
 

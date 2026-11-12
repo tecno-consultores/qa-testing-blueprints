@@ -104,6 +104,9 @@ npx -y @sinfallas/mcp-qa-11x@latest init-agents [--project-path <ruta>] [--dry-r
 
 ### 6.2. Configuración en Clientes de IA
 
+> [!TIP]
+> Para la guía exhaustiva con instrucciones paso a paso para los **11 agentes de IA compatibles** (incluyendo VS Code Copilot, Codex CLI, Windsurf, JetBrains y Cline con rutas en macOS, Linux y Windows), consulta **[`docs/agent-setup.md`](agent-setup.md)** (Español) o **[`docs/agent-setup.en.md`](agent-setup.en.md)** (English).
+
 #### A. Claude Desktop / Claude Code (`claude_desktop_config.json`)
 ```json
 {

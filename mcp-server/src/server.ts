@@ -56,7 +56,7 @@ export function createMcpServer(options?: {
     'blueprint-manifest',
     'blueprint://manifest',
     {
-      description: 'Manifiesto criptográfico JSON con los hashes SHA-256 de todos los stacks y archivos.',
+      description: 'JSON cryptographic manifest with SHA-256 hashes of all stacks and files.',
       mimeType: 'application/json',
     },
     async (uri) => {
@@ -78,7 +78,7 @@ export function createMcpServer(options?: {
     'blueprint-philosophy',
     'blueprint://core/philosophy',
     {
-      description: 'Filosofía y reglas de calidad Nivel 11X (13 capas y Rule Zero).',
+      description: 'Level-11X quality philosophy, 13 pyramid layers, and Rule Zero.',
       mimeType: MARKDOWN_MIME_TYPE,
     },
     async (uri) => {
@@ -100,7 +100,7 @@ export function createMcpServer(options?: {
     'blueprint-security',
     'blueprint://security/disa-owasp-22',
     {
-      description: 'Catálogo de los 22 patrones canónicos de seguridad por diseño.',
+      description: 'Catalog of 22 canonical security-by-design patterns (DISA ASD STIG V6R5 & OWASP v4.2).',
       mimeType: MARKDOWN_MIME_TYPE,
     },
     async (uri) => {
@@ -123,7 +123,7 @@ export function createMcpServer(options?: {
     'blueprint://database/postgres-rls-worm',
     {
       description:
-        'Guía e implementación canónica de PostgreSQL 17 RLS Multi-Transacción (after_begin en AsyncSession, rol NOSUPERUSER NOBYPASSRLS, funciones SECURITY DEFINER) y serialización determinista de cadenas forenses WORM (seq_num BIGINT + pg_advisory_xact_lock).',
+        'Guide and reference implementation for PostgreSQL 17 Multi-Transaction RLS (after_begin) and deterministic WORM audit serialization (seq_num BIGINT + pg_advisory_xact_lock).',
       mimeType: MARKDOWN_MIME_TYPE,
     },
     async (uri) => {
@@ -145,7 +145,7 @@ export function createMcpServer(options?: {
     'blueprint-stack-readme',
     new ResourceTemplate('blueprint://{stack}/readme', { list: undefined }),
     {
-      description: 'Guía operativa de testing y QA para el stack solicitado.',
+      description: 'Operational testing and QA guide for the requested stack.',
       mimeType: MARKDOWN_MIME_TYPE,
     },
     async (uri, variables) => {
@@ -168,7 +168,7 @@ export function createMcpServer(options?: {
     'blueprint-refactoring-ui',
     new ResourceTemplate('blueprint://ui/refactoring-ui/{topic}', { list: undefined }),
     {
-      description: 'Reglas de diseño táctico y accesibilidad WCAG 2.1 AA de Refactoring UI.',
+      description: 'Tactical UI design and WCAG 2.1 AA accessibility rules from Refactoring UI.',
       mimeType: MARKDOWN_MIME_TYPE,
     },
     async (uri, variables) => {
@@ -191,7 +191,7 @@ export function createMcpServer(options?: {
     'blueprint-active-task-template',
     'blueprint://core/active-task-template',
     {
-      description: 'Plantilla canónica de bitácora en caliente (.agents/ACTIVE_TASK.md.example) para resiliencia ante caídas de sesión o IDE.',
+      description: 'Canonical active task diary template (.agents/ACTIVE_TASK.md.example) for session crash resilience.',
       mimeType: MARKDOWN_MIME_TYPE,
     },
     async (uri) => {
@@ -213,7 +213,7 @@ export function createMcpServer(options?: {
     'blueprint-cleanup-script',
     'blueprint://core/cleanup-script',
     {
-      description: 'Script canónico de limpieza y saneamiento (limpieza.sh) con fallback Alpine para eliminar residuos de Docker (UID 0 / root) sin requerir sudo.',
+      description: 'Canonical cleanup script (limpieza.sh) with Alpine fallback to safely purge Docker root artifacts without sudo.',
       mimeType: 'text/x-shellscript',
     },
     async (uri) => {
@@ -235,7 +235,7 @@ export function createMcpServer(options?: {
     'blueprint-roadmap-validator',
     'blueprint://core/roadmap-validator',
     {
-      description: 'Validador canónico de consistencia (.agents/scripts/verify_roadmap_consistency.py) para auditar la coherencia bidireccional entre ROADMAP.md y ACTIVE_TASK.md.',
+      description: 'Canonical roadmap consistency validator (.agents/scripts/verify_roadmap_consistency.py) auditing ROADMAP.md and ACTIVE_TASK.md.',
       mimeType: 'text/x-python',
     },
     async (uri) => {
@@ -259,7 +259,7 @@ export function createMcpServer(options?: {
   // Tool 1: inspect_project_config
   server.tool(
     'inspect_project_config',
-    'Audita el directorio del proyecto del usuario detectando el stack, configuraciones estrictas y qué archivos del estándar 11X faltan.',
+    'Audits user project directory, detecting stacks, strict linter flags, and missing 11X files.',
     InspectProjectInputSchema.shape,
     async (args) => {
       const result = await inspectProjectConfig(args.project_path);
@@ -277,7 +277,7 @@ export function createMcpServer(options?: {
   // Tool 2: fetch_blueprint_bundle
   server.tool(
     'fetch_blueprint_bundle',
-    'Descarga bajo demanda desde GitHub (con verificación SHA-256) las plantillas .example y scripts del stack solicitado.',
+    'Downloads on-demand blueprint templates and scripts for the requested stack with SHA-256 validation.',
     FetchBundleInputSchema.shape,
     async (args) => {
       const result = await fetchBlueprintBundle(
@@ -300,7 +300,7 @@ export function createMcpServer(options?: {
   // Tool 3: bootstrap_or_merge_11x
   server.tool(
     'bootstrap_or_merge_11x',
-    'Inyecta o fusiona quirúrgicamente las plantillas del estándar 11X sin alterar dependencias de producción ni scripts de negocio preexistentes.',
+    'Surgically injects or merges 11X quality standard templates without altering existing production dependencies or code.',
     BootstrapMergeInputSchema.shape,
     async (args) => {
       const result = await bootstrapOrMerge11x(
@@ -324,7 +324,7 @@ export function createMcpServer(options?: {
   // Tool 4: inspect_ast_blast_radius
   server.tool(
     'inspect_ast_blast_radius',
-    'Consulta el grafo AST (graphify-out/graph.json) tanto para responder preguntas sobre código/arquitectura (ubicación exacta, quién llama al símbolo y a quién invoca) como para calcular el radio de impacto antes de refactorizar.',
+    'Queries the AST knowledge graph (graphify-out/graph.json) for code/architecture Q&A and pre-refactoring blast-radius analysis.',
     BlastRadiusInputSchema.shape,
     async (args) => {
       const result = await inspectAstBlastRadius(
@@ -350,7 +350,7 @@ export function createMcpServer(options?: {
   // Tool 5: clean_workspace_11x
   server.tool(
     'clean_workspace_11x',
-    'Audita o ejecuta la limpieza y saneamiento del espacio de trabajo eliminando artefactos temporales de pruebas y cachés de Docker (modo dry_run por defecto).',
+    'Audits or executes workspace sanitation, removing transient test artifacts and Docker cache residues (dry_run default).',
     CleanWorkspaceInputSchema.shape,
     async (args) => {
       const result = await cleanWorkspace11x(
@@ -372,7 +372,7 @@ export function createMcpServer(options?: {
   // Tool 6: audit_security_stig_owasp
   server.tool(
     'audit_security_stig_owasp',
-    'Audita estáticamente el código fuente del proyecto destino frente a los 22 patrones DISA ASD STIG V6R5 y OWASP v4.2.',
+    'Statically audits project source code against the 22 DISA ASD STIG V6R5 and OWASP v4.2 security patterns.',
     AuditSecurityInputSchema.shape,
     async (args) => {
       const result = await auditSecurityStigOwasp(args.project_path, args.max_findings);
@@ -390,7 +390,7 @@ export function createMcpServer(options?: {
   // Tool 7: run_ephemeral_qa
   server.tool(
     'run_ephemeral_qa',
-    'Ejecuta de forma segura e inyectable un target de pruebas del Makefile dentro de contenedores Docker efímeros (Rule Zero) y resume la salida con parsers ahorradores de tokens.',
+    'Safely runs a Makefile QA target inside ephemeral Docker containers (Rule Zero), parsing logs for extreme token economy.',
     RunEphemeralQaInputSchema.shape,
     async (args) => {
       const result = await runEphemeralQa(
@@ -413,7 +413,7 @@ export function createMcpServer(options?: {
   // Tool 8: certify_11x_gate
   server.tool(
     'certify_11x_gate',
-    'Ejecuta las validaciones de cierre del estándar 11X (ejemplos, secretos, JSON, huérfanos UI/API, ORM, evidencia lint pre-push, auditoría STIG y documentación) y verifica si está listo para commit.',
+    'Executes 11X certification gates (secrets, JSON, orphan UI/API, ORM parity, lint evidence, STIG audit, docs) before git push.',
     CertifyGateInputSchema.shape,
     async (args) => {
       const result = await certify11xGate(args.project_path, {
@@ -433,7 +433,7 @@ export function createMcpServer(options?: {
   // Tool 9: audit_test_pyramid_gaps
   server.tool(
     'audit_test_pyramid_gaps',
-    'Audita un proyecto existente frente a las 13 capas de la pirámide 11X, identificando capas faltantes, archivos sin tests unitarios, endpoints sin escenarios Karate API, vistas sin BDD/E2E y un plan de rescate priorizado.',
+    'Audits existing project against the 13 layers of the 11X pyramid, reporting uncovered files/endpoints and a prioritized rescue plan.',
     AuditTestPyramidInputSchema.shape,
     async (args) => {
       const result = await auditTestPyramidGaps(
@@ -455,12 +455,13 @@ export function createMcpServer(options?: {
   // Tool 10: init_or_append_agents_md
   server.tool(
     'init_or_append_agents_md',
-    'Crea el archivo AGENTS.md si no existe, o añade de forma aditiva y no destructiva el bloque conector de QA 11X (MCP y Skill) al final de un AGENTS.md existente sin borrar contenido previo.',
+    'Creates AGENTS.md or additively injects the QA 11X connector block with dynamic language policy without overwriting existing content.',
     InitAgentsMdInputSchema.shape,
     async (args) => {
       const result = await initOrAppendAgentsMd({
         projectPath: args.project_path,
         dryRun: Boolean(args.dry_run),
+        lang: args.lang,
       });
       return {
         content: [
@@ -476,7 +477,7 @@ export function createMcpServer(options?: {
   // Tool 11: propose_skill_evolution_pr
   server.tool(
     'propose_skill_evolution_pr',
-    'Propone una mejora o caso borde a qa-testing-blueprints creando un PR vía gh CLI local autenticado o generando un archivo de propuesta local y URL prellenada de GitHub (Zero-Trust, 0 tokens empaquetados).',
+    'Proposes an improvement or edge-case fix to qa-testing-blueprints via authenticated local gh CLI or pre-filled GitHub URL.',
     ProposeEvolutionPrInputSchema.shape,
     async (args) => {
       const result = await proposeSkillEvolutionPr(args);
@@ -494,7 +495,7 @@ export function createMcpServer(options?: {
   // Tool 12: reconcile_agents_governance
   server.tool(
     'reconcile_agents_governance',
-    'Reconcilia la gobernanza en .agents/ para proyectos consumidores: respalda en .agents/backups/, poda directivas duplicadas ya promovidas a qa-testing-blueprints y extrae limpiamente reglas de negocio hacia domain_<project>_rules.md.',
+    'Reconciles .agents/ governance rules in consumer projects: creates backup, prunes promoted duplicates, and extracts domain rules.',
     ReconcileAgentsInputSchema.shape,
     async (args) => {
       const result = await reconcileAgentsGovernance({

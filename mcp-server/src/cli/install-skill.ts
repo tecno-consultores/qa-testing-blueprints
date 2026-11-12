@@ -7,7 +7,7 @@ import * as path from 'node:path';
 import { GitHubFetcher, resolveSafeChildPath } from '../services/github-fetcher.js';
 import { initOrAppendAgentsMd, syncGlobalGeminiMd } from './init-agents-md.js';
 import { reconcileAgentsGovernance } from './reconcile-agents.js';
-import type { Manifest, ManifestFileEntry } from '../types.js';
+import type { Manifest, ManifestFileEntry, OutputLanguageMode } from '../types.js';
 
 const AGENTS_DIR_NAME = '.agents';
 const SKILLS_DIR_NAME = 'skills';
@@ -18,6 +18,8 @@ const GEMINI_DIR_NAME = '.gemini';
 const CLAUDE_DIR_NAME = '.claude';
 const HERMES_DIR_NAME = '.hermes';
 const CURSOR_DIR_NAME = '.cursor';
+const CODEX_DIR_NAME = '.codex';
+const WINDSURF_REL_DIR = path.join('.codeium', 'windsurf');
 const UTF8 = 'utf-8';
 
 function parseTargetArg(args: string[]): string {
@@ -33,6 +35,24 @@ function parseTargetArg(args: string[]): string {
   return targetArg;
 }
 
+export function parseLangArg(args: string[]): OutputLanguageMode {
+  let rawLang = process.env.QA_OUTPUT_LANG;
+  for (let i = 0; i < args.length; i++) {
+    if ((args[i] === '--lang' || args[i] === '-l') && args[i + 1]) {
+      rawLang = args[i + 1];
+      i++;
+    } else if (args[i].startsWith('--lang=')) {
+      rawLang = args[i].split('=')[1];
+    }
+  }
+  const normalizedRaw = rawLang && rawLang !== 'undefined' ? rawLang : 'auto';
+  const selectedLang = normalizedRaw.trim().toLowerCase();
+  if (selectedLang !== 'auto' && selectedLang !== 'es' && selectedLang !== 'en') {
+    throw new Error(`Modo de idioma no válido: '${rawLang}'. Valores permitidos: auto, es, en.`);
+  }
+  return selectedLang as OutputLanguageMode;
+}
+
 function detectInstalledGlobalAgentDirs(homeDir: string): string[] {
   const dirs: string[] = [];
   if (fs.existsSync(path.join(homeDir, GEMINI_DIR_NAME))) {
@@ -46,6 +66,12 @@ function detectInstalledGlobalAgentDirs(homeDir: string): string[] {
   }
   if (fs.existsSync(path.join(homeDir, CURSOR_DIR_NAME))) {
     dirs.push(path.join(homeDir, CURSOR_DIR_NAME, SKILLS_DIR_NAME));
+  }
+  if (fs.existsSync(path.join(homeDir, WINDSURF_REL_DIR))) {
+    dirs.push(path.join(homeDir, WINDSURF_REL_DIR, SKILLS_DIR_NAME));
+  }
+  if (fs.existsSync(path.join(homeDir, CODEX_DIR_NAME))) {
+    dirs.push(path.join(homeDir, CODEX_DIR_NAME, SKILLS_DIR_NAME));
   }
   return dirs;
 }
@@ -72,6 +98,8 @@ function resolveAllGlobalAgentDirs(homeDir: string): string[] {
     path.join(homeDir, CLAUDE_DIR_NAME, SKILLS_DIR_NAME),
     path.join(homeDir, HERMES_DIR_NAME, SKILLS_DIR_NAME),
     path.join(homeDir, CURSOR_DIR_NAME, SKILLS_DIR_NAME),
+    path.join(homeDir, WINDSURF_REL_DIR, SKILLS_DIR_NAME),
+    path.join(homeDir, CODEX_DIR_NAME, SKILLS_DIR_NAME),
   ];
 }
 
@@ -89,13 +117,17 @@ function resolveDestinationDirs(targetArg: string, homeDir: string, cwd: string)
       return [path.join(homeDir, CLAUDE_DIR_NAME, SKILLS_DIR_NAME)];
     case 'hermes':
       return [path.join(homeDir, HERMES_DIR_NAME, SKILLS_DIR_NAME)];
+    case 'windsurf':
+      return [path.join(homeDir, WINDSURF_REL_DIR, SKILLS_DIR_NAME)];
+    case 'codex':
+      return [path.join(homeDir, CODEX_DIR_NAME, SKILLS_DIR_NAME)];
     case 'all':
       return resolveAllGlobalAgentDirs(homeDir);
     case 'auto':
       return resolveGlobalOrFallbackTargets(homeDir, cwd);
     default:
       throw new Error(
-        `Destino --target inválido: '${targetArg}'. Valores permitidos: auto, workspace, antigravity, claude, cursor, hermes, all.`
+        `Destino --target inválido: '${targetArg}'. Valores permitidos: auto, workspace, antigravity, claude, cursor, windsurf, codex, hermes, all.`
       );
   }
 }
@@ -172,6 +204,7 @@ async function installIncludedScripts(
 export async function runInstallSkillCli(args: string[], fetcher?: GitHubFetcher): Promise<void> {
   const resolvedFetcher = fetcher || new GitHubFetcher();
   const targetArg = parseTargetArg(args);
+  const lang = parseLangArg(args);
   const includeScripts = args.includes('--include-scripts');
   const initAgents = args.includes('--init-agents');
   const reconcile = args.includes('--reconcile');
@@ -211,7 +244,7 @@ export async function runInstallSkillCli(args: string[], fetcher?: GitHubFetcher
   writeDownloadedSkills(destDirs, downloadedFiles);
 
   if (fs.existsSync(path.join(homeDir, GEMINI_DIR_NAME))) {
-    syncGlobalGeminiMd(homeDir);
+    syncGlobalGeminiMd(homeDir, false, lang);
   }
 
   if (inHomeDir && (includeScripts || initAgents || reconcile)) {
@@ -226,7 +259,7 @@ export async function runInstallSkillCli(args: string[], fetcher?: GitHubFetcher
   }
 
   if (initAgents) {
-    const initResult = await initOrAppendAgentsMd({ projectPath: cwd });
+    const initResult = await initOrAppendAgentsMd({ projectPath: cwd, lang });
     console.log(`✔ [AGENTS.md] Conector procesado (${initResult.action}) en ${initResult.agents_md_path}`);
   }
 }

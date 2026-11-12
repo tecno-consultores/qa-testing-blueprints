@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
-  "blueprint_version": "2.17.0",
-  "generated_at_utc": "2026-11-11T14:11:11Z",
+  "blueprint_version": "2.18.0",
+  "generated_at_utc": "2026-11-12T00:59:15Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -686,8 +686,8 @@
       "path": ".agents/rules/continuous_agent_evolution.md",
       "target_name": ".agents/rules/continuous_agent_evolution.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "774d8936ce5dbae15ef95815ffe1c9182789bac3247d6c6a88140855795107ae",
-      "size_bytes": 4959
+      "sha256": "76e1626b65c554e35cad6852497f974fd0a2d760b8c3fbd23366f344df645d2a",
+      "size_bytes": 5151
     },
     {
       "path": ".agents/rules/frontend_parity_and_closure.md",
@@ -742,8 +742,8 @@
       "path": ".agents/scripts/verify_docs_invariants.py",
       "target_name": ".agents/scripts/verify_docs_invariants.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "e28699fc4920ccae9b8d24708e11bd7f06f9071df8e585788a53cb793dbdf1bf",
-      "size_bytes": 5142
+      "sha256": "386d93b8add486edc1213b4f0c2c9bd923d02814ac998708ac6e89845bed7d97",
+      "size_bytes": 5230
     },
     {
       "path": ".agents/scripts/verify_json_no_duplicate_keys.py",
@@ -784,22 +784,22 @@
       "path": ".agents/skills/docker-trivy-keydb-hardening/SKILL.md",
       "target_name": ".agents/skills/docker-trivy-keydb-hardening/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "22892a0c725dc85289b5a011385ce9d0ee516e091ac97abbb98513f7f0ae6b6c",
-      "size_bytes": 3918
+      "sha256": "1c012e22108d29469b60db50bebfdfa1c5aaaec8c573c1b32346dd29a151d00a",
+      "size_bytes": 4280
     },
     {
       "path": ".agents/skills/graphify-ast-navigator/SKILL.md",
       "target_name": ".agents/skills/graphify-ast-navigator/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "adf0319025d781a25d9d71f272453a57dda9d4c6c436fcf111c3138d5a3894a5",
-      "size_bytes": 7982
+      "sha256": "56098a86daf9e0551a1b6ede02cfbdae98017cac558c23206b59be066f2baaf0",
+      "size_bytes": 8344
     },
     {
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "d6716b2e0d042d43b3ddb210ac7dd12b4e6a7d0676a594e41abbe1d9c7ef46fa",
-      "size_bytes": 18355
+      "sha256": "4733942901f7b535e1f7658c95f8b76687188860b031fd7551a9279f23b1aef4",
+      "size_bytes": 18637
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
@@ -868,15 +868,15 @@
       "path": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "target_name": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "b487cbf8342cd4279e0733a52410420fa96aa951a01a28288b8e61e4f98849e5",
-      "size_bytes": 5307
+      "sha256": "26af055c45d8df5f7787cdf4399c148c7777ae0261b28bd115354340a9a816dc",
+      "size_bytes": 5669
     },
     {
       "path": ".agents/skills/refactoring-ui/SKILL.md",
       "target_name": ".agents/skills/refactoring-ui/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "81fff1371d0ce87c45e2a43b19f75080e0826e1a31310639fda82237bca81257",
-      "size_bytes": 8706
+      "sha256": "74e8d42e5cf806d84aa525974c5474be7add14fb7d01fd1c9186286240eb6c8a",
+      "size_bytes": 8997
     },
     {
       "path": ".agents/skills/refactoring-ui/references/color.md",
@@ -945,15 +945,15 @@
       "path": "AGENTS.md",
       "target_name": "AGENTS.md",
       "merge_strategy": "surgical_merge",
-      "sha256": "283ee40bcf9b1f61a1ff7baaacd6785d2fb2146f643cdbf7556cf83960996207",
-      "size_bytes": 20299
+      "sha256": "7d45a0d23d55078b8481cb53cb65585c8b2831aac4b6e44bd6936b777a6fed1c",
+      "size_bytes": 20593
     },
     {
       "path": "scripts/install-skill.sh",
       "target_name": "scripts/install-skill.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "ef25e2b26d7fccd586d06740260e942ce431918ea47e4cbf7fb29b995de112d8",
-      "size_bytes": 12211
+      "sha256": "498aada7d24b38a4872c35bde3938e8e71268b482fc7cb143bb16c1711bd5e72",
+      "size_bytes": 12684
     }
   ]
 }

@@ -96,6 +96,7 @@ A continuación se resume el stack de validación corporativo por entorno y tipo
 * **[`TESTING.md`](./TESTING.md):** Cuadro de mando de aseguramiento de calidad, métricas 11X y comandos de validación efímera.
 * **[`FAQ.md`](./FAQ.md):** Resolución rápida a dudas frecuentes, discos llenos o fallos de cobertura.
 * **[`docs/qa-philosophy.md`](docs/qa-philosophy.md):** La filosofía de calidad y la innegociable regla del 95%.
+* **[`docs/agent-setup.md`](docs/agent-setup.md) / [`docs/agent-setup.en.md`](docs/agent-setup.en.md):** Guía maestra de configuración paso a paso del Servidor MCP y Skills QA 11X para los 11 principales agentes de IA (VS Code/Copilot, Cursor, Claude Code, Antigravity, Codex, Windsurf, JetBrains, Cline, Claude Desktop, Hermes, Zed).
 * **[`docs/ai-integration.md`](docs/ai-integration.md):** Integración autónoma vía Model Context Protocol (MCP).
 * **[`docs/ci-cd-pipelines.md`](docs/ci-cd-pipelines.md):** Arquitectura de ejecución y principios de integración continua bajo la Regla Cero.
 * **[`docs/docker-troubleshooting.md`](docs/docker-troubleshooting.md):** Diagnóstico de conflictos de red y entornos anidados.

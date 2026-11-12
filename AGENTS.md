@@ -6,10 +6,10 @@
 Welcome to the **QA Testing Blueprints** repository. All AI coding assistants (Google Antigravity, Claude Code / Claude Desktop, Hermes Agent, Cursor, Windsurf, etc.) and human developers must strictly adhere to the Level-11X corporate quality, security, and testing directives defined here and in `.agents/rules/`.
 
 > **OUTPUT LANGUAGE CONSTRAINT:**
-> Always interact with the user, provide status updates, explain reasoning, and write commit messages / user-facing documentation in Spanish.
+> Always interact with the user, provide status updates, explain reasoning, and write commit messages / user-facing documentation in Spanish (with explicit exception for international distribution artifacts: `mcp-server/README.md`, `mcp-server/package.json`, and `docs/agent-setup.en.md`, which remain in English for npmjs and global AI tooling registries).
 >
 > **TOKEN EFFICIENCY & LANGUAGE DESIGN:**
-> All directives in `.agents/rules/` and skills in `.agents/skills/` are maintained in concise, high-density technical English to optimize token utilization (~35% reduction in context window) and ensure maximum logical adherence across LLMs (Google Antigravity, Claude, Hermes Agent, Cursor). All human-facing documentation (`docs/`, `CHANGELOG.md`, `README.md`, `TESTING.md`) remains strictly in Spanish. See [.agents/README.md](.agents/README.md) for full architectural rationale.
+> All directives in `.agents/rules/` and skills in `.agents/skills/` are maintained in concise, high-density technical English to optimize token utilization (~35% reduction in context window) and ensure maximum logical adherence across LLMs (Google Antigravity, Claude, Hermes Agent, Cursor, Windsurf, Codex). All human-facing documentation (`docs/`, `CHANGELOG.md`, `README.md`, `TESTING.md`) remains strictly in Spanish (except `docs/agent-setup.en.md` and `mcp-server/README.md`). See [.agents/README.md](.agents/README.md) for full architectural rationale.
 
 ---
 

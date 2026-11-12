@@ -3,8 +3,7 @@ name: refactoring-ui
 description: Visual hierarchy, spacing, type, color, depth and polish rules from Refactoring UI (Wathan & Schoger), aligned with QA 11X WCAG 2.1 AA, Anti-JSDOM geometry, and Lighthouse CI. Use when building or restyling an interface, when a UI looks unpolished or cluttered and the cause is unclear, or when picking concrete values for a spacing scale, type scale, color palette or shadow set.
 ---
 
-> **OUTPUT LANGUAGE CONSTRAINT:**
-> Always communicate with the user, provide status updates, explain reasoning, and write commit messages / user-facing documentation in Spanish.
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Unless the target repository's `AGENTS.md` explicitly mandates a fixed output language, respond and explain reasoning in the **user's prompt language**, and write commit messages / human-facing documentation matching the **existing language of `README.md` and `CHANGELOG.md`** (explicitly ignoring `AGENTS.md` and `.agents/**`, which remain in concise English for token economy; default to the prompt language on empty repos).
 
 # Refactoring UI (QA 11X Frontend Edition)
 

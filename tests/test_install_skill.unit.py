@@ -310,6 +310,74 @@ class TestInstallSkill(unittest.TestCase):
         self.assertEqual(res_proj.returncode, 0, f"Error: {res_proj.stderr}\nStdout: {res_proj.stdout}")
         self.assertFalse((project_dir / ".agents" / "skills").exists())
 
+    def test_target_codex_and_windsurf(self) -> None:
+        """Verifica la instalación explícita hacia --target codex y --target windsurf."""
+        mock_repo = self.temp_path / "mock_repo_cw"
+        mock_repo.mkdir()
+        arch_dir = mock_repo / ".agents" / "skills" / "qa-11x-architect"
+        arch_dir.mkdir(parents=True)
+        arch_skill = arch_dir / "SKILL.md"
+        arch_skill.write_text("# Architect Skill Content", encoding="utf-8")
+        arch_sha = hashlib.sha256(arch_skill.read_bytes()).hexdigest()
+
+        manifest_data = {
+            "schema_version": "1.0.0",
+            "agent_governance_files": [
+                {
+                    "path": ".agents/skills/qa-11x-architect/SKILL.md",
+                    "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
+                    "merge_strategy": "overwrite",
+                    "sha256": arch_sha,
+                    "size_bytes": len(arch_skill.read_bytes()),
+                }
+            ],
+        }
+        manifest_file = mock_repo / "manifest.json"
+        manifest_file.write_text(json.dumps(manifest_data), encoding="utf-8")
+
+        mock_home = self.temp_path / "user_home_cw"
+        mock_home.mkdir()
+
+        env = os.environ.copy()
+        env["HOME"] = str(mock_home)
+        env["QA_BLUEPRINTS_LOCAL_PATH"] = str(mock_repo)
+
+        # Test --target codex
+        res_codex = subprocess.run(
+            ["sh", str(INSTALL_SCRIPT), "--target", "codex"],
+            cwd=str(mock_home),
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(res_codex.returncode, 0, f"Error: {res_codex.stderr}")
+        installed_codex = mock_home / ".codex" / "skills" / "qa-11x-architect" / "SKILL.md"
+        self.assertTrue(installed_codex.is_file())
+
+        # Test --target windsurf
+        res_windsurf = subprocess.run(
+            ["sh", str(INSTALL_SCRIPT), "--target", "windsurf"],
+            cwd=str(mock_home),
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(res_windsurf.returncode, 0, f"Error: {res_windsurf.stderr}")
+        installed_windsurf = mock_home / ".codeium" / "windsurf" / "skills" / "qa-11x-architect" / "SKILL.md"
+        self.assertTrue(installed_windsurf.is_file())
+
+        # Test invalid target error output mentions codex and windsurf
+        res_inv = subprocess.run(
+            ["sh", str(INSTALL_SCRIPT), "--target", "invalid_target"],
+            cwd=str(mock_home),
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(res_inv.returncode, 1)
+        self.assertIn("windsurf", res_inv.stderr)
+        self.assertIn("codex", res_inv.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

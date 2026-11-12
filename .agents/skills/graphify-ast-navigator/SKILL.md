@@ -9,7 +9,7 @@ description: >-
 # Graphify AST Knowledge Graph & Bidirectional Code Navigator (`graphify-ast-navigator`)
 
 This skill governs the creation, incremental maintenance, and bidirectional querying of deterministic Abstract Syntax Tree (AST) knowledge graphs (`graphify-out/graph.json` and `graphify-out/GRAPH_REPORT.md`) to answer code/architecture questions (`Code Q&A`), eliminate blind file-exploration loops, prevent regressions, and enforce clean architectural layer boundaries.
-> **OUTPUT LANGUAGE CONSTRAINT:** Always communicate with the user and write final explanations in Spanish.
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Unless the target repository's `AGENTS.md` explicitly mandates a fixed output language, respond and explain reasoning in the **user's prompt language**, and write commit messages / human-facing documentation matching the **existing language of `README.md` and `CHANGELOG.md`** (explicitly ignoring `AGENTS.md` and `.agents/**`, which remain in concise English for token economy; default to the prompt language on empty repos).
 
 ---
 

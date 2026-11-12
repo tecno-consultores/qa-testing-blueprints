@@ -9,8 +9,7 @@ description: >-
 
 # Master QA 11X & DevSecOps Architect (`qa-11x-architect`)
 
-> **OUTPUT LANGUAGE CONSTRAINT:**
-> Always communicate with the user, provide status updates, explain reasoning, and write commit messages / user-facing documentation strictly in Spanish.
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Unless the target repository's `AGENTS.md` explicitly mandates a fixed output language, respond and explain reasoning in the **user's prompt language**, and write commit messages / human-facing documentation matching the **existing language of `README.md` and `CHANGELOG.md`** (explicitly ignoring `AGENTS.md` and `.agents/**`, which remain in concise English for token economy; default to the prompt language on empty repos).
 
 Unified governance, High-IQ Token Economy, and tactical playbooks for Level-11X enterprise quality: 13 QA layers, non-destructive surgical template merging, Anti-Mock & Anti-Silo Blindness, Anti-JSDOM geometry, and 22 DISA ASD STIG V6R5 + OWASP v4.2 security controls.
 
