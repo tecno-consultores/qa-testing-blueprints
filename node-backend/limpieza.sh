@@ -23,8 +23,8 @@ docker compose -f docker-compose.qa.yml down --remove-orphans -v >/dev/null 2>&1
 docker compose -f docker-compose.qa.yml --profile chaos down --remove-orphans -v >/dev/null 2>&1 || true
 docker compose -f docker-compose.qa.yml --profile graphify down --remove-orphans -v >/dev/null 2>&1 || true
 
-rm -f zap-report.html chaos-report.json chaos-report.html trivy-results* ./*.clinic-*.html ./*.log ./*.tsbuildinfo 2>/dev/null || true
-rm -rf node_modules dist .stryker-tmp coverage target test/target .clinic prometheus_data .eslintcache .trivycache karate.jar 2>/dev/null || true
+rm -f zap-report.html zap-report.json chaos-report.json chaos-report.html trivy-results* sbom.cyclonedx.json sbom-*.cdx.json .task_scratchpad.md ./*.clinic-*.html ./*.log ./*.tsbuildinfo 2>/dev/null || true
+rm -rf node_modules .pnpm-store .turbo dist .stryker-tmp coverage target test/target .clinic prometheus_data .eslintcache .trivycache karate.jar 2>/dev/null || true
 
 if [ -d "graphify-out" ]; then
   find graphify-out/ -mindepth 1 ! -name 'GRAPH_REPORT.md' ! -name 'graph.html' ! -name 'graph.json' -delete 2>/dev/null || true
@@ -34,14 +34,15 @@ CURRENT_UID="$(id -u)"
 CURRENT_GID="$(id -g)"
 if command -v docker >/dev/null 2>&1; then
   docker run --rm -v "${SCRIPT_DIR}:/work" alpine sh -c "\
-    rm -rf /work/node_modules /work/dist /work/.stryker-tmp /work/coverage \
+    rm -rf /work/node_modules /work/.pnpm-store /work/.turbo /work/dist /work/.stryker-tmp /work/coverage \
            /work/target /work/test/target /work/.clinic /work/prometheus_data \
            /work/.eslintcache /work/.trivycache /work/karate.jar 2>/dev/null || true; \
     chown -R ${CURRENT_UID}:${CURRENT_GID} /work/src /work/tests /work/test /work/scripts /work/docs 2>/dev/null || true; \
-    find /work -maxdepth 1 -user 0 -exec chown ${CURRENT_UID}:${CURRENT_GID} {} + 2>/dev/null || true" >/dev/null 2>&1 || true
+    find /work -maxdepth 1 \( -user 0 -o -user 10001 \) -exec chown ${CURRENT_UID}:${CURRENT_GID} {} + 2>/dev/null || true" >/dev/null 2>&1 || true
 fi
 
 if [ "${DEEP_PRUNE}" = true ]; then
+  rm -rf .agents/backups .agents/proposals .agents/.qa-evidence.json 2>/dev/null || true
   docker system prune -af --volumes >/dev/null 2>&1 || true
 fi
 

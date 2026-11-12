@@ -445,16 +445,34 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
       expect(await dispatchCliArgs(['--help'])).toBe(0);
       expect(await dispatchCliArgs(['init-agents-md', '--project-path', tmpDir, '--dry-run'])).toBe(0);
 
-      // Consumer dist removal vs MCP preservation
+      // Consumer dist removal vs MCP preservation + v2.20.x artifacts (.turbo, sbom, proposals, php/bash-scripts, .qa-11x-version)
       const consumerDir = path.join(tmpDir, 'consumer-dist');
       fs.mkdirSync(path.join(consumerDir, 'dist'), { recursive: true });
+      fs.mkdirSync(path.join(consumerDir, '.turbo'), { recursive: true });
+      fs.mkdirSync(path.join(consumerDir, '.agents', 'proposals'), { recursive: true });
+      fs.mkdirSync(path.join(consumerDir, 'php', '.phpunit.cache'), { recursive: true });
+      fs.mkdirSync(path.join(consumerDir, 'bash-scripts', 'coverage_report'), { recursive: true });
       fs.mkdirSync(path.join(consumerDir, 'reports'), { recursive: true });
       fs.mkdirSync(path.join(consumerDir, 'mcp-server', 'dist'), { recursive: true });
+      fs.writeFileSync(path.join(consumerDir, 'sbom.cyclonedx.json'), '{}', 'utf8');
+      fs.writeFileSync(path.join(consumerDir, '.qa-11x-version'), '{"version":"2.20.1"}', 'utf8');
+      fs.writeFileSync(path.join(consumerDir, 'zap.yaml'), 'env: {}', 'utf8');
       fs.writeFileSync(path.join(consumerDir, 'package.json'), '{"name":"my-webapp"}', 'utf8');
       await cleanWorkspace11x(consumerDir, false, true);
       expect(fs.existsSync(path.join(consumerDir, 'dist'))).toBe(false);
+      expect(fs.existsSync(path.join(consumerDir, '.turbo'))).toBe(false);
+      expect(fs.existsSync(path.join(consumerDir, '.agents', 'proposals'))).toBe(false);
+      expect(fs.existsSync(path.join(consumerDir, 'php', '.phpunit.cache'))).toBe(false);
+      expect(fs.existsSync(path.join(consumerDir, 'bash-scripts', 'coverage_report'))).toBe(false);
+      expect(fs.existsSync(path.join(consumerDir, 'sbom.cyclonedx.json'))).toBe(false);
       expect(fs.existsSync(path.join(consumerDir, 'reports'))).toBe(false);
       expect(fs.existsSync(path.join(consumerDir, 'mcp-server', 'dist'))).toBe(true);
+      expect(fs.existsSync(path.join(consumerDir, '.qa-11x-version'))).toBe(true);
+      expect(fs.existsSync(path.join(consumerDir, 'zap.yaml'))).toBe(true);
+
+      const directMcpRoot = path.join(consumerDir, 'mcp-server');
+      await cleanWorkspace11x(directMcpRoot, false, false);
+      expect(fs.existsSync(path.join(directMcpRoot, 'dist'))).toBe(true);
 
       // SEC-16 variants: onResponseError + /2fa/, evalsha, idemp:preauth, 2fa/verify
       const vDir = path.join(tmpDir, 'sec16-variants');

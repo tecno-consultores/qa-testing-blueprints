@@ -22,7 +22,7 @@ done
 docker compose -f docker-compose.qa.yml down --remove-orphans -v >/dev/null 2>&1 || true
 docker compose -f docker-compose.qa.yml --profile chaos down --remove-orphans -v >/dev/null 2>&1 || true
 
-rm -f .phpunit.result.cache infection.log infection-summary.log sbom-php.cdx.json zap-report.html ./*.log 2>/dev/null || true
+rm -f .phpunit.result.cache infection.log infection-summary.log sbom.cyclonedx.json sbom-*.cdx.json zap-report.html zap-report.json .task_scratchpad.md ./*.log 2>/dev/null || true
 rm -rf .phpunit.cache htmlcov/ target/ test/target/ karate.jar .trivycache 2>/dev/null || true
 
 CURRENT_UID="$(id -u)"
@@ -30,13 +30,14 @@ CURRENT_GID="$(id -g)"
 if command -v docker >/dev/null 2>&1; then
   docker run --rm -v "${SCRIPT_DIR}:/work" alpine sh -c "\
     rm -rf /work/.phpunit.cache /work/.phpunit.result.cache /work/htmlcov \
-           /work/infection.log /work/infection-summary.log /work/sbom-php.cdx.json \
+           /work/infection.log /work/infection-summary.log /work/sbom.cyclonedx.json /work/sbom-*.cdx.json \
            /work/target /work/test/target /work/karate.jar /work/.trivycache 2>/dev/null || true; \
     chown -R ${CURRENT_UID}:${CURRENT_GID} /work/src /work/tests /work/test /work/config 2>/dev/null || true; \
     find /work -maxdepth 1 -user 0 -exec chown ${CURRENT_UID}:${CURRENT_GID} {} + 2>/dev/null || true" >/dev/null 2>&1 || true
 fi
 
 if [ "${DEEP_PRUNE}" = true ]; then
+  rm -rf .agents/backups .agents/proposals .agents/.qa-evidence.json 2>/dev/null || true
   docker system prune -af --volumes >/dev/null 2>&1 || true
 fi
 

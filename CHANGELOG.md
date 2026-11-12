@@ -6,6 +6,9 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### 🧹 Saneamiento Integral de Artefactos `v2.20.x` en `limpieza.sh` y `clean_workspace_11x` (Changed)
+* **Actualización de `scripts/limpieza.sh`, `<stack>/limpieza.sh`, `.gitignore` y `clean-workspace.ts`:** Incorporada la purga de directorios efímeros huérfanos del arnés E2E y *clean-room* (`qa_mcp_cleanroom_*`, `qa-11x-mcp-example-e2e-*`), cachés `.pnpm-store`/`.turbo`, reportes CycloneDX/XML/JSON (`sbom.cyclonedx.json`, `sbom-*.cdx.json`, `coverage.xml`, `junit.xml`, `mutmut-stats.json`, `zap-report.json`), subcarpetas `bash-scripts` y `mcp-server/example`, normalización Alpine de archivos con `UID 10001` (`sinfallas/base-node-ionic:26`) y purga `--deep` de `.agents/proposals` y `~/.cache/qa-11x-blueprints` (preservando intactos `mcp-server/dist`, `.qa-11x-version`, `zap.yaml` y `graphify-out/graph.json`).
+
 ---
 
 ## [2.20.1] - 2026-11-12

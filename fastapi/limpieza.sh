@@ -23,7 +23,7 @@ docker compose -f docker-compose.qa.yml down --remove-orphans -v >/dev/null 2>&1
 docker compose -f docker-compose.qa.yml --profile chaos down --remove-orphans -v >/dev/null 2>&1 || true
 docker compose -f docker-compose.qa.yml --profile graphify down --remove-orphans -v >/dev/null 2>&1 || true
 
-rm -f .coverage .coverage.* zap-report.html zap.yaml chaos-report.html profile.svg mutmut-*.json trivy-results* ./*.log 2>/dev/null || true
+rm -f .coverage .coverage.* coverage.xml junit.xml zap-report.html zap-report.json chaos-report.html chaos-report.json profile.svg mutmut-stats.json mutmut-*.json trivy-results* sbom.cyclonedx.json sbom-*.cdx.json .task_scratchpad.md ./*.log 2>/dev/null || true
 rm -rf .mypy_cache .pytest_cache .ruff_cache .hypothesis .schemathesis .tox .uv/ htmlcov/ mutants/ .mutmut-cache/ target/ test/target/ karate.jar prometheus_data/ .trivycache 2>/dev/null || true
 rm -rf .venv venv dist 2>/dev/null || true
 
@@ -50,6 +50,7 @@ if command -v docker >/dev/null 2>&1; then
 fi
 
 if [ "${DEEP_PRUNE}" = true ]; then
+  rm -rf .agents/backups .agents/proposals .agents/.qa-evidence.json 2>/dev/null || true
   docker system prune -af --volumes >/dev/null 2>&1 || true
 fi
 

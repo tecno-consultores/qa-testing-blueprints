@@ -23,8 +23,8 @@ docker compose -f docker-compose.qa.yml down --remove-orphans -v >/dev/null 2>&1
 docker compose -f docker-compose.qa.yml --profile observability down --remove-orphans -v >/dev/null 2>&1 || true
 docker compose -f docker-compose.qa.yml --profile graphify down --remove-orphans -v >/dev/null 2>&1 || true
 
-rm -f ./*.log ./*.tsbuildinfo trivy-results* 2>/dev/null || true
-rm -rf node_modules dist .vite 2>/dev/null || true
+rm -f ./*.log ./*.tsbuildinfo trivy-results* sbom.cyclonedx.json sbom-*.cdx.json zap-report.html zap-report.json .task_scratchpad.md 2>/dev/null || true
+rm -rf node_modules .pnpm-store .turbo dist .vite 2>/dev/null || true
 rm -rf test-results playwright-report blob-report target test/target coverage .stryker-tmp 2>/dev/null || true
 rm -rf lhci-reports .lhcache .lighthouseci prometheus_data .eslintcache .trivycache karate.jar 2>/dev/null || true
 
@@ -36,17 +36,18 @@ CURRENT_UID="$(id -u)"
 CURRENT_GID="$(id -g)"
 if command -v docker >/dev/null 2>&1; then
   docker run --rm -v "${SCRIPT_DIR}:/work" alpine sh -c "\
-    rm -rf /work/node_modules /work/dist /work/.vite \
+    rm -rf /work/node_modules /work/.pnpm-store /work/.turbo /work/dist /work/.vite \
            /work/test-results /work/playwright-report /work/blob-report \
            /work/target /work/test/target /work/coverage /work/.stryker-tmp \
            /work/lhci-reports /work/.lhcache /work/.lighthouseci \
            /work/prometheus_data /work/.eslintcache /work/.trivycache \
            /work/karate.jar 2>/dev/null || true; \
     chown -R ${CURRENT_UID}:${CURRENT_GID} /work/src /work/tests /work/test /work/scripts /work/docs 2>/dev/null || true; \
-    find /work -maxdepth 1 -user 0 -exec chown ${CURRENT_UID}:${CURRENT_GID} {} + 2>/dev/null || true" >/dev/null 2>&1 || true
+    find /work -maxdepth 1 \( -user 0 -o -user 10001 \) -exec chown ${CURRENT_UID}:${CURRENT_GID} {} + 2>/dev/null || true" >/dev/null 2>&1 || true
 fi
 
 if [ "${DEEP_PRUNE}" = true ]; then
+  rm -rf .agents/backups .agents/proposals .agents/.qa-evidence.json 2>/dev/null || true
   docker system prune -af --volumes >/dev/null 2>&1 || true
 fi
 

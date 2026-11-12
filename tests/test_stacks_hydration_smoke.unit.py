@@ -11,6 +11,7 @@ cumplan todos los contratos estructurales y de seguridad v2.16.0.
 
 import json
 import shutil
+import subprocess
 import tempfile
 import tomllib
 import unittest
@@ -204,6 +205,119 @@ class TestStacksHydrationSmoke(unittest.TestCase):
         root_makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
         self.assertIn("test-example:", root_makefile)
         self.assertIn("./scripts/probar-mcp-example.sh", root_makefile)
+
+    def test_cleanup_scripts_cover_v2_20_artifacts_and_preserve_mcp_invariants(self) -> None:
+        """Verifica que scripts/limpieza.sh purgue los artefactos v2.20.x sin destruir mcp-server/dist, .qa-11x-version ni AST."""
+        root_clean = (REPO_ROOT / "scripts" / "limpieza.sh").read_text(encoding="utf-8")
+        for expected in (
+            "qa_mcp_cleanroom_",
+            "qa-11x-mcp-example-e2e-",
+            ".pnpm-store",
+            ".turbo",
+            "sbom.cyclonedx.json",
+            ".agents/proposals",
+            "qa-11x-blueprints",
+            "-user 10001",
+            '-not -path "./mcp-server/example/*"',
+        ):
+            self.assertIn(expected, root_clean, f"Falta patrón '{expected}' en scripts/limpieza.sh")
+
+        gitignore_text = (REPO_ROOT / ".gitignore").read_text(encoding="utf-8")
+        self.assertIn(".agents/proposals/", gitignore_text)
+        self.assertIn(".turbo/", gitignore_text)
+
+        for node_stack in ("vue3", "react-frontend", "node-backend"):
+            stack_clean = (REPO_ROOT / node_stack / "limpieza.sh").read_text(encoding="utf-8")
+            self.assertIn(".pnpm-store", stack_clean, f"Falta .pnpm-store en {node_stack}/limpieza.sh")
+            self.assertIn("-user 10001", stack_clean, f"Falta -user 10001 en {node_stack}/limpieza.sh")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            fake_repo = tmp_path / "repo"
+            fake_home = tmp_path / "home"
+            fake_tmp = tmp_path / "tmpdir"
+            (fake_repo / "scripts").mkdir(parents=True)
+            shutil.copy2(REPO_ROOT / "scripts" / "limpieza.sh", fake_repo / "scripts" / "limpieza.sh")
+
+            # Crear artefactos efímeros que DEBEN eliminarse en modo normal
+            (fake_home / ".cache" / "qa_mcp_cleanroom_abc123").mkdir(parents=True)
+            (fake_tmp / "qa-11x-mcp-example-e2e-xyz789").mkdir(parents=True)
+            (fake_repo / ".pnpm-store").mkdir()
+            (fake_repo / ".turbo").mkdir()
+            (fake_repo / "sbom.cyclonedx.json").write_text("{}", encoding="utf-8")
+            (fake_repo / "bash-scripts" / "coverage_report").mkdir(parents=True)
+            (fake_repo / "mcp-server" / "example" / "frontend" / "dist").mkdir(parents=True)
+
+            # Crear artefactos protegidos que DEBEN sobrevivir al modo normal
+            (fake_repo / "mcp-server" / "dist").mkdir(parents=True)
+            (fake_repo / "mcp-server" / "dist" / "index.js").write_text("// built", encoding="utf-8")
+            (fake_repo / "mcp-server" / "example" / "fixtures").mkdir(parents=True)
+            (fake_repo / "mcp-server" / "example" / "fixtures" / "ast-graph.seed.json").write_text("{}", encoding="utf-8")
+            (fake_repo / "graphify-out").mkdir()
+            (fake_repo / "graphify-out" / "graph.json").write_text("{}", encoding="utf-8")
+            (fake_repo / "graphify-out" / "cache").mkdir()
+            (fake_repo / ".qa-11x-version").write_text('{"version":"2.20.1"}', encoding="utf-8")
+            (fake_repo / "zap.yaml").write_text("env: {}", encoding="utf-8")
+            (fake_repo / ".agents" / "proposals").mkdir(parents=True)
+            (fake_repo / ".agents" / "proposals" / "draft.md").write_text("# draft", encoding="utf-8")
+            (fake_home / ".cache" / "qa-11x-blueprints").mkdir(parents=True)
+            (fake_home / ".cache" / "qa-11x-blueprints" / "latest-version-check.json").write_text("{}", encoding="utf-8")
+
+            # Aislar PATH sin binario docker para validar el barrido Bash determinista sin tocar el daemon del host
+            bin_dir = tmp_path / "bin"
+            bin_dir.mkdir()
+            for tool_name in ("bash", "dirname", "cd", "pwd", "find", "rm", "id"):
+                resolved = shutil.which(tool_name)
+                if resolved:
+                    (bin_dir / tool_name).symlink_to(resolved)
+
+            env = {
+                "HOME": str(fake_home),
+                "TMPDIR": str(fake_tmp),
+                "PATH": str(bin_dir),
+                "LC_ALL": "C",
+            }
+            proc = subprocess.run(
+                [str(fake_repo / "scripts" / "limpieza.sh"), "--quiet"],
+                cwd=fake_repo,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(proc.returncode, 0, msg=proc.stderr)
+            self.assertFalse((fake_home / ".cache" / "qa_mcp_cleanroom_abc123").exists())
+            self.assertFalse((fake_tmp / "qa-11x-mcp-example-e2e-xyz789").exists())
+            self.assertFalse((fake_repo / ".pnpm-store").exists())
+            self.assertFalse((fake_repo / ".turbo").exists())
+            self.assertFalse((fake_repo / "sbom.cyclonedx.json").exists())
+            self.assertFalse((fake_repo / "bash-scripts" / "coverage_report").exists())
+            self.assertFalse((fake_repo / "mcp-server" / "example" / "frontend" / "dist").exists())
+            self.assertFalse((fake_repo / "graphify-out" / "cache").exists())
+
+            # Invariantes preservados en modo normal
+            self.assertTrue((fake_repo / "mcp-server" / "dist" / "index.js").is_file())
+            self.assertTrue((fake_repo / "mcp-server" / "example" / "fixtures" / "ast-graph.seed.json").is_file())
+            self.assertTrue((fake_repo / "graphify-out" / "graph.json").is_file())
+            self.assertTrue((fake_repo / ".qa-11x-version").is_file())
+            self.assertTrue((fake_repo / "zap.yaml").is_file())
+            self.assertTrue((fake_repo / ".agents" / "proposals" / "draft.md").is_file())
+            self.assertTrue((fake_home / ".cache" / "qa-11x-blueprints" / "latest-version-check.json").is_file())
+
+            # En modo --deep se purgan proposals y la caché TTL 24h qa-11x-blueprints, pero NUNCA mcp-server/dist ni .qa-11x-version
+            proc_deep = subprocess.run(
+                [str(fake_repo / "scripts" / "limpieza.sh"), "--quiet", "--deep"],
+                cwd=fake_repo,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(proc_deep.returncode, 0, msg=proc_deep.stderr)
+            self.assertFalse((fake_repo / ".agents" / "proposals").exists())
+            self.assertFalse((fake_home / ".cache" / "qa-11x-blueprints").exists())
+            self.assertTrue((fake_repo / "mcp-server" / "dist" / "index.js").is_file())
+            self.assertTrue((fake_repo / ".qa-11x-version").is_file())
 
 
 if __name__ == "__main__":

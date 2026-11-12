@@ -11,19 +11,26 @@ const CANDIDATE_DIR_NAMES = [
   '.pytest_cache',
   '.mypy_cache',
   '.ruff_cache',
+  '.hypothesis',
+  '.schemathesis',
   '.tox',
   '.uv',
+  '.phpunit.cache',
   'htmlcov',
+  'coverage_report',
+  '.bats-battery',
   'mutants',
   '.mutmut-cache',
   'target',
   '.trivycache',
   'dist',
   'dist-ssr',
+  '.nuxt',
   '.vite',
   '.vite-ssg-temp',
   'coverage',
   '.stryker-tmp',
+  '.clinic',
   'test-results',
   'playwright-report',
   'blob-report',
@@ -33,9 +40,10 @@ const CANDIDATE_DIR_NAMES = [
   '.eslintcache',
   '.stylelintcache',
   '.pnpm-store',
+  '.turbo',
 ];
 
-const DEEP_PRUNE_DIR_NAMES = ['reports', 'prometheus_data'];
+const DEEP_PRUNE_DIR_NAMES = ['reports', 'prometheus_data', '.agents/backups', '.agents/proposals'];
 
 const CANDIDATE_FILE_PATTERNS = [
   'karate.jar',
@@ -44,7 +52,15 @@ const CANDIDATE_FILE_PATTERNS = [
   'chaos-report.html',
   'chaos-report.json',
   'profile.svg',
+  'sbom.cyclonedx.json',
+  'coverage.xml',
+  'junit.xml',
+  'mutmut-stats.json',
+  '.phpunit.result.cache',
+  '.task_scratchpad.md',
 ];
+
+const MCP_SERVER_DIR_NAME = 'mcp-server';
 
 const SCAN_SUBDIRS = [
   'backend',
@@ -54,7 +70,9 @@ const SCAN_SUBDIRS = [
   'react-frontend',
   'node-backend',
   'python',
-  'mcp-server',
+  'php',
+  'bash-scripts',
+  MCP_SERVER_DIR_NAME,
 ];
 
 function scanDirectoryForArtifacts(baseDir: string, deepPrune = false, preserveDist = false): string[] {
@@ -87,7 +105,7 @@ function scanSubdirectories(baseDir: string, deepPrune = false): string[] {
   for (const sub of SCAN_SUBDIRS) {
     const subPath = path.join(baseDir, sub);
     if (fs.existsSync(subPath) && fs.statSync(subPath).isDirectory()) {
-      const subFound = scanDirectoryForArtifacts(subPath, deepPrune, sub === 'mcp-server');
+      const subFound = scanDirectoryForArtifacts(subPath, deepPrune, sub === MCP_SERVER_DIR_NAME);
       for (const item of subFound) {
         found.push(path.join(sub, item));
       }
@@ -219,7 +237,8 @@ export async function cleanWorkspace11x(
     throw new Error(`El directorio del proyecto '${projectPathInput}' no existe.`);
   }
 
-  const rootArtifacts = scanDirectoryForArtifacts(resolvedPath, deepPrune);
+  const preserveRootDist = path.basename(resolvedPath) === MCP_SERVER_DIR_NAME;
+  const rootArtifacts = scanDirectoryForArtifacts(resolvedPath, deepPrune, preserveRootDist);
   const subArtifacts = scanSubdirectories(resolvedPath, deepPrune);
   const allFoundTargets = Array.from(new Set([...rootArtifacts, ...subArtifacts])).sort();
 

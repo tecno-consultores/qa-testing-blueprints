@@ -23,7 +23,7 @@ docker compose -f docker-compose.qa.yml down --remove-orphans -v >/dev/null 2>&1
 docker compose -f docker-compose.qa.yml --profile observability down --remove-orphans -v >/dev/null 2>&1 || true
 docker compose -f docker-compose.qa.yml --profile graphify down --remove-orphans -v >/dev/null 2>&1 || true
 
-rm -f ./*.log trivy-results* 2>/dev/null || true
+rm -f ./*.log trivy-results* sbom.cyclonedx.json sbom-*.cdx.json .task_scratchpad.md 2>/dev/null || true
 rm -rf coverage_report/ .bats-battery/ target/ test/target/ prometheus_data/ .trivycache karate.jar 2>/dev/null || true
 
 if [ -d "graphify-out" ]; then
@@ -41,6 +41,7 @@ if command -v docker >/dev/null 2>&1; then
 fi
 
 if [ "${DEEP_PRUNE}" = true ]; then
+  rm -rf .agents/backups .agents/proposals .agents/.qa-evidence.json 2>/dev/null || true
   docker system prune -af --volumes >/dev/null 2>&1 || true
 fi
 

@@ -60,6 +60,9 @@ mutmut-*.json
 node_modules/
 **/node_modules/
 .pnpm-store/
+**/.pnpm-store/
+.turbo/
+**/.turbo/
 .pnp
 .pnp.js
 dist-ssr/
@@ -126,6 +129,8 @@ ACTIVE_TASK.md
 **/.qa-11x-version
 .agents/backups/
 **/.agents/backups/
+.agents/proposals/
+**/.agents/proposals/
 .agents/*.scratchpad.md
 .task_scratchpad.md
 *.swp

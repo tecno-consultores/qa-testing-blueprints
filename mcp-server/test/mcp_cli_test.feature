@@ -776,3 +776,23 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def hooksInstaller = karate.readAsString(repoRoot + '/instalar-hooks.sh')
     * assert hooksInstaller.contains('./scripts/probar-mcp-example.sh --in-place')
 
+  Scenario: 27. Saneamiento integral en limpieza.sh y clean_workspace_11x para artefactos v2.20.x preservando invariantes MCP y AST
+    * def rootCleanup = karate.readAsString(repoRoot + '/scripts/limpieza.sh')
+    * assert rootCleanup.contains('qa_mcp_cleanroom_')
+    * assert rootCleanup.contains('qa-11x-mcp-example-e2e-')
+    * assert rootCleanup.contains('.pnpm-store')
+    * assert rootCleanup.contains('.turbo')
+    * assert rootCleanup.contains('sbom.cyclonedx.json')
+    * assert rootCleanup.contains('.agents/proposals')
+    * assert rootCleanup.contains('qa-11x-blueprints')
+    * assert rootCleanup.contains('-user 10001')
+    * def activeCleanupLines = karate.filter(rootCleanup.split('\n'), function(l){ return !l.trim().startsWith('#') }).join('\n')
+    * assert !activeCleanupLines.contains('zap.yaml')
+
+    * def cleanToolTs = karate.readAsString(mcpRoot + '/src/tools/clean-workspace.ts')
+    * assert cleanToolTs.contains("'.turbo'")
+    * assert cleanToolTs.contains("'.agents/proposals'")
+    * assert cleanToolTs.contains("'sbom.cyclonedx.json'")
+    * assert cleanToolTs.contains("'bash-scripts'")
+    * assert !cleanToolTs.contains("'zap.yaml'")
+
