@@ -542,8 +542,8 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert graphifySkillSource.contains('Graphify AST-First, Grep-Fallback, Windowed-Read-Second')
 
   Scenario: 19. Contrato v2.16.0 — SEC-16 (Pre-Auth Multi-Step Challenge Continuity), Thin-Repo bootstrap_or_merge_11x, Paridad 10/10 y CLI --version
-    * match pkg.version == '2.18.0'
-    * match manifest.blueprint_version == '2.18.0'
+    * match pkg.version == '2.19.0'
+    * match manifest.blueprint_version == '2.19.0'
 
     * def commonPaths = karate.map(manifest.common_files, function(x) { return x.path })
     * match commonPaths !contains 'scripts/publicar-mcp.sh'
@@ -618,7 +618,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert rlsRef.contains('pg_namespace')
 
   Scenario: 22. Internacionalización v2.18.0 — Idioma Espejo Dinámico, Flag --lang (auto|es|en), Targets codex/windsurf y Guías Multi-Agente EN/ES
-    * match pkg.version == '2.18.0'
+    * match pkg.version == '2.19.0'
     * match pkg.description contains 'Official MCP Server & Thin-Repo Skill Installer for QA Testing Blueprints'
     * match pkg.keywords contains 'codex'
     * match pkg.keywords contains 'windsurf'

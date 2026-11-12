@@ -6,8 +6,12 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+---
+
+## [2.19.0] - 2026-11-11
+
 ### 🛡️ Invariante `QA-HEALTH-01`, Nivelación Documental Humana 1:1 y Gobernanza Dual-Consumer (Added, Changed & Fixed)
-* **Regla Anti-Silo #9 (`QA-HEALTH-01` — Contrato de `Healthcheck` Real en Contenedores y Semántica de Salida en Supervisores `asyncio`):** Incorporada `QA-HEALTH-01` en `mcp-server/src/tools/security-auditor.ts` (auditando tanto supervisores `asyncio` que evalúan `.done()`/`.cancelled()` sin `task.exception()` como sondas físicas de `healthcheck` en `Dockerfile`/`docker-compose*.yml` sin aserción `.exists()`/`read_text()` en `tests/`), junto con su guía en `qa-11x-architect` (`SKILL.md < 20 KB`, `03-stack-python-fastapi.md`, `01-core-13-layers.md`) y `SECURITY.md` §4.22.
+* **Regla Anti-Silo #9 (`QA-HEALTH-01` — Contrato de `Healthcheck` Real en Contenedores y Semántica de Salida en Supervisores `asyncio`, `v2.19.0`):** Incorporada `QA-HEALTH-01` en `mcp-server/src/tools/security-auditor.ts` (auditando tanto supervisores `asyncio` que evalúan `.done()`/`.cancelled()` sin `task.exception()` como sondas físicas de `healthcheck` en `Dockerfile`/`docker-compose*.yml` sin aserción `.exists()`/`read_text()` en `tests/`), junto con su guía en `qa-11x-architect` (`SKILL.md < 20 KB`, `03-stack-python-fastapi.md`, `01-core-13-layers.md`) y `SECURITY.md` §4.22.
 * **Nivelación Integral 1:1 de Manuales Humanos (`docs/02` y `docs/04`) y Blindaje Dual-Consumer en `propose_skill_evolution_pr` y `verify_docs_invariants.py`:** Sincronizadas las 9 reglas Anti-Silo/Anti-Ceguera UAT y las 24 reglas ejecutables (`SEC-01..16`, `QA-*`, `UI-11X-*`) en español didáctico dentro de `docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md` y `docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`; ampliado `propose_skill_evolution_pr` con inferencia automática y matriz de 3 capas (`Skill IA + Auditor MCP + Manual Humano`); e implementada `check_dual_consumer_parity` en `.agents/scripts/verify_docs_invariants.py` para bloquear commits donde las skills o reglas MCP carezcan de documentación humana.
 
 ---
