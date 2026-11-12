@@ -747,6 +747,11 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
 
     * def dockerTrouble = karate.readAsString(repoRoot + '/docs/docker-troubleshooting.md')
     * assert dockerTrouble.contains('ERR_PNPM_PACKAGE_MANAGER_CREATE_SLOT_DIR')
+    * assert dockerTrouble.contains('uv_os_homedir returned ENOENT')
+
+    * def installSkillSrc = karate.readAsString(mcpRoot + '/src/cli/install-skill.ts')
+    * assert installSkillSrc.contains('resolveSafeHomeDir()')
+    * assert !installSkillSrc.contains('os.homedir()')
 
   Scenario: 26. Contrato v2.20.1 — Arnés E2E Real sobre stdio (mcp-server/example/) y Acoplamiento en las 4 Barreras
     * match pkg.version == '2.20.1'

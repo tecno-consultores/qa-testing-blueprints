@@ -2,12 +2,12 @@
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
 import * as fs from 'node:fs';
-import * as os from 'node:os';
 import * as path from 'node:path';
 import {
   GitHubFetcher,
   MCP_SERVER_VERSION,
   resolveSafeChildPath,
+  resolveSafeHomeDir,
 } from './github-fetcher.js';
 import { syncGlobalGeminiMd } from '../cli/init-agents-md.js';
 import type {
@@ -382,7 +382,7 @@ export async function evaluateUpdateStatus(
   options: EvaluateUpdateOptions
 ): Promise<UpdateAvailabilityInfo> {
   const fetcher = options.fetcher ?? new GitHubFetcher();
-  const homeDir = options.homeDir ?? (process.env.HOME || os.homedir());
+  const homeDir = resolveSafeHomeDir(options.homeDir);
   const runningVer = (options.runningMcpVersion ?? MCP_SERVER_VERSION).trim().replace(/^v/, '');
   const latestVersion = await resolveLatestPublishedVersion({
     fetcher,
@@ -479,7 +479,7 @@ async function syncSkillEntryAcrossDirs(
 export async function syncGlobalSkillsInBackground(
   options: AutoSyncGlobalSkillsOptions = {}
 ): Promise<GlobalSkillAutoSyncResult> {
-  const homeDir = options.homeDir ?? (process.env.HOME || os.homedir());
+  const homeDir = resolveSafeHomeDir(options.homeDir);
   const fetcher = options.fetcher ?? new GitHubFetcher();
   const logFn = options.onLog ?? ((msg: string) => console.error(msg));
   const targetDirs = detectExistingQa11xSkillDirs(homeDir);

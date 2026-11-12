@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.20.1",
-  "generated_at_utc": "2026-11-12T15:09:26Z",
+  "generated_at_utc": "2026-11-12T15:15:17Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -826,8 +826,8 @@
       "path": ".agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md",
       "target_name": ".agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "b5c104230a0844f11d9472d71d80e96b7463a6c85dfa8c04c60bb12b37335c3a",
-      "size_bytes": 9890
+      "sha256": "2d63a3de3107a849c4bf5f2e43de532722da62e891a0f2eb1cf2594874e20f34",
+      "size_bytes": 10287
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/05-stack-bash-devops.md",

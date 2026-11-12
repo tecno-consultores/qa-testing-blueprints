@@ -21,7 +21,7 @@ import { SurgicalMerger } from '../src/services/surgical-merger.js';
 import { certify11xGate } from '../src/tools/certify-gate.js';
 import { auditSecurityStigOwasp } from '../src/tools/security-auditor.js';
 import { BlueprintResources } from '../src/resources/blueprint-resources.js';
-import { GitHubFetcher } from '../src/services/github-fetcher.js';
+import { GitHubFetcher, resolveSafeHomeDir } from '../src/services/github-fetcher.js';
 import { runEphemeralQa } from '../src/tools/ephemeral-runner.js';
 import { createMcpServer } from '../src/server.js';
 import { runInstallSkillCli } from '../src/cli/install-skill.js';
@@ -616,11 +616,20 @@ strict = true
     });
   });
 
-  describe('install-skill.ts fallback a os.homedir() cuando process.env.HOME es undefined', () => {
-    it('ejecuta runInstallSkillCli cuando HOME no está definido', async () => {
+  describe('install-skill.ts y resolveSafeHomeDir fallback cuando process.env.HOME es undefined o UID carece de /etc/passwd', () => {
+    it('ejecuta runInstallSkillCli y resolveSafeHomeDir cuando HOME no está definido incluso bajo uv_os_homedir ENOENT', async () => {
       const origHome = process.env.HOME;
+      const origUserProfile = process.env.USERPROFILE;
       try {
         delete process.env.HOME;
+        delete process.env.USERPROFILE;
+
+        expect(resolveSafeHomeDir('/custom/home')).toBe('/custom/home');
+        expect(
+          resolveSafeHomeDir(undefined, () => {
+            throw new Error('uv_os_homedir returned ENOENT (no such file or directory)');
+          })
+        ).toBe(os.tmpdir());
 
         const fakeManifest: Manifest = {
           schema_version: '1.0.0',
@@ -659,7 +668,16 @@ strict = true
           process.cwd = origCwd;
         }
       } finally {
-        process.env.HOME = origHome;
+        if (origHome === undefined) {
+          delete process.env.HOME;
+        } else {
+          process.env.HOME = origHome;
+        }
+        if (origUserProfile === undefined) {
+          delete process.env.USERPROFILE;
+        } else {
+          process.env.USERPROFILE = origUserProfile;
+        }
       }
     });
   });

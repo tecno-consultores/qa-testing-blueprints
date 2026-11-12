@@ -215,3 +215,4 @@ La imagen oficial endurecida `sinfallas/base-node-ionic:26` ejecuta por defecto 
 **La Solución:**
 1. Declarar en `docker-compose.qa.yml` el micro-servicio `pnpm-store-init` (`chmod -R a+rwX /pnpm`) con `depends_on: condition: service_completed_successfully`, junto a `HOME: /tmp` y `pnpm_config_store_dir: /pnpm/store`.
 2. Invocar siempre `docker compose run --rm -u "$(id -u):$(id -g)" <servicio> ...` en `Makefile` y pipelines CI.
+3. En herramientas CLI/Node.js que resuelvan el directorio de usuario cuando `process.env.HOME` está ausente (p. ej. en pruebas que hacen `delete process.env.HOME` bajo `UID 1001` en GitHub Actions u OpenShift, donde el `UID` no figura en `/etc/passwd` del contenedor), nunca invocar `os.homedir()` sin captura de excepción (`uv_os_homedir returned ENOENT`): envolver siempre `os.homedir()` en `try/catch` con fallback determinista a `os.tmpdir()` (`resolveSafeHomeDir`).

@@ -2,9 +2,9 @@
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
 import * as fs from 'node:fs';
-import * as os from 'node:os';
 import * as path from 'node:path';
 import { ProjectAuditResult, BrowserTestingReadiness, StackName } from '../types.js';
+import { resolveSafeHomeDir } from '../services/github-fetcher.js';
 import {
   evaluateUpdateStatus,
   type EvaluateUpdateOptions,
@@ -234,7 +234,7 @@ function checkPackageInstalled(projectPath: string, packageName: string): boolea
 }
 
 function checkBrowserMcpInIde(homeDir?: string): boolean {
-  const baseHome = homeDir || os.homedir();
+  const baseHome = resolveSafeHomeDir(homeDir);
   const configFiles = [
     path.join(baseHome, '.gemini', 'antigravity', 'mcp_config.json'),
     path.join(baseHome, '.gemini', 'config', 'mcp_config.json'),

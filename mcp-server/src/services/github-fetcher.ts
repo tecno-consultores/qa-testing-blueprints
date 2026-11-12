@@ -47,6 +47,21 @@ export function resolveSafeChildPath(baseDir: string, relPath: string): string {
   return resolvedTarget;
 }
 
+export function resolveSafeHomeDir(
+  explicitHome?: string,
+  homedirFn: () => string = os.homedir
+): string {
+  const candidate = explicitHome || process.env.HOME || process.env.USERPROFILE;
+  if (candidate && candidate.trim().length > 0) {
+    return candidate;
+  }
+  try {
+    return homedirFn();
+  } catch {
+    return os.tmpdir();
+  }
+}
+
 export class GitHubFetcher {
   private readonly rawBaseUrl: string;
   private readonly cacheDir: string;
@@ -60,7 +75,7 @@ export class GitHubFetcher {
     this.cacheDir =
       options?.cacheDir ||
       process.env.QA_BLUEPRINTS_CACHE_DIR ||
-      path.join(os.homedir(), '.cache', 'qa-11x-blueprints');
+      path.join(resolveSafeHomeDir(), '.cache', 'qa-11x-blueprints');
     this.localOverridePath =
       options?.localOverridePath || process.env.QA_BLUEPRINTS_LOCAL_PATH || null;
   }

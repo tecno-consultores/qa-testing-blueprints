@@ -2,9 +2,8 @@
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
 import * as fs from 'node:fs';
-import * as os from 'node:os';
 import * as path from 'node:path';
-import { GitHubFetcher, resolveSafeChildPath } from '../services/github-fetcher.js';
+import { GitHubFetcher, resolveSafeChildPath, resolveSafeHomeDir } from '../services/github-fetcher.js';
 import { writeVersionStamp } from '../services/version-manager.js';
 import { initOrAppendAgentsMd, syncGlobalGeminiMd } from './init-agents-md.js';
 import { reconcileAgentsGovernance } from './reconcile-agents.js';
@@ -213,7 +212,7 @@ export async function runInstallSkillCli(args: string[], fetcher?: GitHubFetcher
   const initAgents = args.includes('--init-agents');
   const reconcile = args.includes('--reconcile');
   const cwd = process.cwd();
-  const homeDir = process.env.HOME || os.homedir();
+  const homeDir = resolveSafeHomeDir();
   const inHomeDir = isHomeDirectory(homeDir, cwd);
 
   if (reconcile && !inHomeDir) {
