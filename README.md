@@ -252,6 +252,9 @@ Si necesitas forzar manualmente una actualización inmediata del binario MCP en 
    ok = sum(1 for s in skills if (p := dest / s["path"].replace(".agents/skills/", "", 1)).exists() and hashlib.sha256(p.read_bytes()).hexdigest() == s["sha256"])
    print(f"✔ Verificación SHA-256 en {dest}: {ok}/{len(skills)} archivos coinciden con manifest.json (v{m[\"blueprint_version\"]})")
    '
+
+   # D. (En este monorepo) Certificar en frío las 12 tools, 9 resources y 3 CLI sobre stdio real contra mcp-server/example/:
+   ./scripts/probar-mcp-example.sh
    ```
 
 ---

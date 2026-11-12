@@ -144,9 +144,10 @@ class TestStacksHydrationSmoke(unittest.TestCase):
         """Previene regresiones os error 13 (UID 10001 vs bind-mount host/CI) en base-node-ionic:26."""
         ci_workflow = (REPO_ROOT / ".github" / "workflows" / "qa-11x-ci.yml").read_text(encoding="utf-8")
         self.assertIn(
-            'docker compose -f mcp-server/docker-compose.qa.yml run --rm -u "$(id -u):$(id -g)" mcp-server',
+            'docker compose -f mcp-server/docker-compose.qa.yml run --rm -u "$(id -u):$(id -g)"',
             ci_workflow,
         )
+        self.assertIn("pnpm run test:example", ci_workflow)
 
         node_targets = (
             ("mcp-server", "Makefile"),
@@ -165,6 +166,44 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             makefile_text = (REPO_ROOT / folder / makefile_name).read_text(encoding="utf-8")
             self.assertIn("export QA_UID", makefile_text, f"Falta export QA_UID en {folder}/{makefile_name}")
             self.assertIn('-u "$(QA_UID):$(QA_GID)"', makefile_text, f"Falta flag -u en {folder}/{makefile_name}")
+
+    def test_mcp_example_e2e_harness_and_four_gates_wired(self) -> None:
+        """Verifica que mcp-server/example/ exista y esté conectado en las 4 barreras (publish, CI, pre-push y Makefile)."""
+        example_dir = REPO_ROOT / "mcp-server" / "example"
+        for rel in (
+            "README.md",
+            "run-example-e2e.mjs",
+            "Makefile",
+            "docker-compose.qa.yml",
+            "backend/pyproject.toml",
+            "backend/src/models/device.py",
+            "backend/src/services/device_service.py",
+            "backend/src/api/devices.py",
+            "backend/migrations/versions/0001_create_telemetry_devices.py",
+            "frontend/package.json",
+            "frontend/src/views/DevicesDashboard.vue",
+            "frontend/src/views/DevicesDashboard.unit.ts",
+            "fixtures/ast-graph.seed.json",
+        ):
+            self.assertTrue((example_dir / rel).is_file(), f"Falta archivo semilla en example/: {rel}")
+
+        probar_script = (REPO_ROOT / "scripts" / "probar-mcp-example.sh").read_text(encoding="utf-8")
+        self.assertIn("--exclude='./mcp-server/node_modules'", probar_script)
+        self.assertIn("pnpm run test:example", probar_script)
+
+        publicar_script = (REPO_ROOT / "scripts" / "publicar-mcp.sh").read_text(encoding="utf-8")
+        self.assertIn("pnpm --silent run test:example", publicar_script)
+
+        lefthook_text = (REPO_ROOT / "lefthook.yml").read_text(encoding="utf-8")
+        self.assertIn("mcp-example-smoke:", lefthook_text)
+        self.assertIn("./scripts/probar-mcp-example.sh --in-place", lefthook_text)
+
+        hooks_sh = (REPO_ROOT / "instalar-hooks.sh").read_text(encoding="utf-8")
+        self.assertIn("./scripts/probar-mcp-example.sh --in-place", hooks_sh)
+
+        root_makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+        self.assertIn("test-example:", root_makefile)
+        self.assertIn("./scripts/probar-mcp-example.sh", root_makefile)
 
 
 if __name__ == "__main__":

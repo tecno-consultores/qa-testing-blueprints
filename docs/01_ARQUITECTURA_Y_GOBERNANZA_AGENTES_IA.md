@@ -96,11 +96,11 @@ Para evitar que los agentes deban clonar gigabytes de repositorios o saturar su 
    - `blueprint://core/philosophy`: Filosofía 11X y prompt maestro (`AI_MASTER_PROMPT.md`).
    - `blueprint://security/disa-owasp-22`: Síntesis técnica de los 22 patrones DISA ASD STIG V6R5 y OWASP v4.2.
    - `blueprint://{stack}/readme`: Especificación del stack solicitado (`fastapi`, `vue3`, `node-backend`, `python`, `react-frontend`, `bash-scripts`, `php`).
-   - `blueprint://ui/refactoring-ui/{topic}`: Directivas tácticas visuales y WCAG 2.1 AA (`hierarchy`, `spacing-layout`, `typography`, `color`, `depth-shadows`, `images-icons`, `forms-tables-dashboards`, `dark-mode`, `polish-checklists`).
+   - `blueprint://ui/refactoring-ui/{topic}`: Directivas tácticas visuales y WCAG 2.1 AA (`skill`, `hierarchy`, `layout`, `type`, `color`, `depth`, `images`, `polish`, `dark-mode`, `tailwind`).
    - `blueprint://core/active-task-template`: Plantilla de seguimiento resiliente para agentes.
    - `blueprint://core/cleanup-script`: Script de saneamiento universal sin `sudo`.
    - `blueprint://core/roadmap-validator`: Validador de consistencia de hoja de ruta.
-   - `blueprint://core/docs-invariants-validator`: Validador de presupuesto cognitivo (`SKILL.md < 20 KB`, `ACTIVE_TASK <= 40` líneas) y paridad Dual-Consumer (`verify_docs_invariants.py`).
+   - `blueprint://database/postgres-rls-worm`: Implementación de referencia de PostgreSQL 17 RLS Multi-Transacción (`after_begin`) y cadena forense WORM determinista (`seq_num` + `pg_advisory_xact_lock`).
 
 2. **12 Herramientas de Ejecución (`Tools`):**
    - `inspect_project_config`: Detección automática del stack, linters, disponibilidad de pruebas en navegador real (`BrowserTestingReadiness`) y estado de actualización `update_available` (comparación SemVer con caché TTL 24h *fail-open* contra `.qa-11x-version`).

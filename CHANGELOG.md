@@ -6,9 +6,14 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
-### 🛠️ Gobernanza, Documentación y Compatibilidad Non-Root `UID 10001` en CI / Stacks Node (Fixed & Changed)
-* **Remediación `ERR_PNPM_PACKAGE_MANAGER_CREATE_SLOT_DIR` (`os error 13`) en GitHub Actions y los 4 Ecosistemas Node (`mcp-server`, `vue3`, `react-frontend`, `node-backend`):** Incorporado el servicio `pnpm-store-init` (`chmod -R a+rwX /pnpm`), mapeo de `UID:GID` del host (`-u "$(id -u):$(id -g)"` / `user: "${QA_UID:-1000}:${QA_GID:-1000}"`), `HOME=/tmp` y `pnpm_config_store_dir=/pnpm/store` (`pnpm` v12+) en `.github/workflows/qa-11x-ci.yml`, `docker-compose.qa.yml`, `Makefile*` y `scripts/publicar-mcp.sh`, certificado sobre checkouts limpios sin `node_modules`.
-* **Nivelación Integral de Gobernanza y Documentación (`v2.20.0`) y Corrección en `verify_docs_invariants.py`:** Corregida la ruta objetivo `docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md` (y añadido `.agents/README.md`) en `.agents/scripts/verify_docs_invariants.py`; actualizados conteos y contratos en `docs/01`, `.agents/README.md`, `AGENTS.md`, `README.md`, `CONTRIBUTING.md`, `TESTING.md`, `docs/02`, `docs/docker-troubleshooting.md` y las skills corporativas (`SKILL.md < 20 KB`, `04-stack-node-vue-react.md`, `docker-trivy-keydb-hardening`).
+---
+
+## [2.20.1] - 2026-11-12
+
+### 🧪 Arnés E2E Real sobre `stdio` (`mcp-server/example/`), Compatibilidad Non-Root `UID 10001` en CI y Nivelación de Gobernanza (Added, Changed & Fixed)
+* **Proyecto Semilla Híbrido (`mcp-server/example/`) y Certificación E2E Real sin Mocks en 4 Barreras (`v2.20.1`):** Incorporado el proyecto Full-Stack de referencia (`FastAPI + Vue 3`) en `mcp-server/example/`, el cliente E2E real sobre `stdio` (`run-example-e2e.mjs` validando los 9 recursos `blueprint://*`, las 12 tools en escenarios negativos/limpios y los 3 subcomandos CLI + auto-sync global) y el orquestador *clean-room* sin `node_modules`/`dist` previos (`scripts/probar-mcp-example.sh`), acoplado automáticamente en `scripts/publicar-mcp.sh`, `.github/workflows/qa-11x-ci.yml`, `pre-push` (`lefthook.yml` e `instalar-hooks.sh`) y `Makefile` (`test-example`).
+* **Remediación `ERR_PNPM_PACKAGE_MANAGER_CREATE_SLOT_DIR` (`os error 13`) en GitHub Actions y los 4 Ecosistemas Node (`mcp-server`, `vue3`, `react-frontend`, `node-backend`):** Incorporado el servicio `pnpm-store-init` (`chmod -R a+rwX /pnpm`), mapeo de `UID:GID` del host (`-u "$(id -u):$(id -g)"` / `user: "${QA_UID:-1000}:${QA_GID:-1000}"`), `HOME=/tmp` y `pnpm_config_store_dir=/pnpm/store` (`pnpm` v12+) en `.github/workflows/qa-11x-ci.yml`, `docker-compose.qa.yml`, `Makefile*` y `scripts/publicar-mcp.sh`.
+* **Nivelación Integral de Gobernanza y Documentación y Corrección en `verify_docs_invariants.py`:** Corregida la ruta objetivo `docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md` (y añadido `.agents/README.md`) en `.agents/scripts/verify_docs_invariants.py`, alineados los URIs exactos de los 9 recursos (`blueprint://database/postgres-rls-worm`) y sincronizados `docs/01`, `docs/02`, `docs/docker-troubleshooting.md`, `.agents/README.md`, `AGENTS.md`, `README.md`, `CONTRIBUTING.md`, `TESTING.md` y skills corporativas (`SKILL.md < 20 KB`).
 
 ---
 

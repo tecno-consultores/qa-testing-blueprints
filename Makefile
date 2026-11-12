@@ -2,14 +2,15 @@
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 # Makefile canónico para desarrollo local, automatización y gobernanza Level-11X
 
-.PHONY: help clean qa-clean audit test test-mcp test-karate test-py lint build certify publish-mcp publish-mcp-dry
+.PHONY: help clean qa-clean audit test test-mcp test-example test-karate test-py lint build certify publish-mcp publish-mcp-dry
 
 help:
 	@echo "Comandos canónicos de desarrollo y gobernanza para QA Testing Blueprints:"
 	@echo "  make clean           - Limpia artefactos temporales, cachés de Docker y residuos root (./scripts/limpieza.sh)"
 	@echo "  make qa-clean        - Alias canónico de make clean"
 	@echo "  make audit           - Ejecuta escaneo preventivo de seguridad IaC y dependencias (Trivy en Docker)"
-	@echo "  make test            - Ejecuta Vitest (>=95%), Karate BDD y Pytest en contenedores efímeros Docker"
+	@echo "  make test            - Ejecuta Vitest (>=95%), E2E example/, Karate BDD y Pytest en contenedores efímeros Docker"
+	@echo "  make test-example    - Certifica las 12 tools, 9 resources y 3 CLI sobre mcp-server/example/ (Clean-Room Docker)"
 	@echo "  make lint            - Ejecuta verificación de tipos y linters (ESLint --max-warnings 0, TypeScript)"
 	@echo "  make build           - Compila la distribución de producción del Servidor MCP"
 	@echo "  make publish-mcp     - Publica de forma autónoma el Servidor MCP en npmjs usando credenciales de .env"
@@ -41,7 +42,10 @@ test-py:
 	@echo "🐍 [Pytest] Ejecutando pruebas unitarias de gobernanza y manifiesto en Docker efímero..."
 	@docker run --rm -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -u "$$(id -u):$$(id -g)" -v "$$(pwd):/app" -w /app sinfallas/base-python-uv:3.15 uv run --with pytest --with pytest-cov pytest --import-mode=importlib tests/*.unit.py -q
 
-test: test-mcp test-karate test-py
+test-example:
+	@./scripts/probar-mcp-example.sh
+
+test: test-mcp test-example test-karate test-py
 
 build:
 	@echo "📦 [Build] Compilando Servidor MCP en Docker efímero..."

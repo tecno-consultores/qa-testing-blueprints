@@ -1,0 +1,54 @@
+# SPDX-License-Identifier: MIT
+services:
+  qa-backend:
+    image: sinfallas/base-python-uv:3.15
+    working_dir: /app/backend
+    user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      COVERAGE_FILE: /tmp/.coverage
+      UV_CACHE_DIR: /tmp/uv-cache
+      PYTHONPATH: /app/backend/src
+    volumes:
+      - .:/app
+
+  pnpm-store-init:
+    image: sinfallas/base-node-ionic:26
+    user: "0:0"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - FOWNER
+    volumes:
+      - example-pnpm-store:/pnpm
+    entrypoint: ["chmod", "-R", "a+rwX", "/pnpm"]
+
+  qa-frontend:
+    image: sinfallas/base-node-ionic:26
+    working_dir: /app/frontend
+    user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    depends_on:
+      pnpm-store-init:
+        condition: service_completed_successfully
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      CI: "true"
+      HOME: /tmp
+      PNPM_HOME: /pnpm
+      pnpm_config_store_dir: /pnpm/store
+    volumes:
+      - .:/app
+      - example-pnpm-store:/pnpm
+
+volumes:
+  example-pnpm-store:
+    name: mcp_example_pnpm_store

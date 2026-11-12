@@ -53,6 +53,15 @@ set -euo pipefail
 if [ -x "./scripts/auditar-infra.sh" ]; then
   ./scripts/auditar-infra.sh
 fi
+if [ -x "./scripts/probar-mcp-example.sh" ] && [ -f "./mcp-server/package.json" ]; then
+  if git rev-parse --verify origin/main >/dev/null 2>&1; then
+    if git diff --name-only origin/main...HEAD | grep -Eq '^(mcp-server/|manifest\.json$)'; then
+      ./scripts/probar-mcp-example.sh --in-place
+    fi
+  else
+    ./scripts/probar-mcp-example.sh --in-place
+  fi
+fi
 EOF
 
 chmod +x .git/hooks/pre-commit .git/hooks/commit-msg .git/hooks/pre-push

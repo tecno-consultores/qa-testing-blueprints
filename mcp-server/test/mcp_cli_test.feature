@@ -542,8 +542,8 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert graphifySkillSource.contains('Graphify AST-First, Grep-Fallback, Windowed-Read-Second')
 
   Scenario: 19. Contrato v2.16.0 — SEC-16 (Pre-Auth Multi-Step Challenge Continuity), Thin-Repo bootstrap_or_merge_11x, Paridad 10/10 y CLI --version
-    * match pkg.version == '2.20.0'
-    * match manifest.blueprint_version == '2.20.0'
+    * match pkg.version == '2.20.1'
+    * match manifest.blueprint_version == '2.20.1'
 
     * def commonPaths = karate.map(manifest.common_files, function(x) { return x.path })
     * match commonPaths !contains 'scripts/publicar-mcp.sh'
@@ -618,7 +618,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert rlsRef.contains('pg_namespace')
 
   Scenario: 22. Internacionalización v2.18.0 — Idioma Espejo Dinámico, Flag --lang (auto|es|en), Targets codex/windsurf y Guías Multi-Agente EN/ES
-    * match pkg.version == '2.20.0'
+    * match pkg.version == '2.20.1'
     * match pkg.description contains 'Official MCP Server & Thin-Repo Skill Installer for QA Testing Blueprints'
     * match pkg.keywords contains 'codex'
     * match pkg.keywords contains 'windsurf'
@@ -700,8 +700,8 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert rootSecurity.contains('QA-HEALTH-01')
 
   Scenario: 24. Contrato v2.20.0 — Sello .qa-11x-version, Caché TTL 24h Fail-Open, Aviso Estructurado update_available y Auto-Sync Global de Skills por SHA-256
-    * match pkg.version == '2.20.0'
-    * match manifest.blueprint_version == '2.20.0'
+    * match pkg.version == '2.20.1'
+    * match manifest.blueprint_version == '2.20.1'
 
     * def versionMgrSource = karate.readAsString(mcpRoot + '/src/services/version-manager.ts')
     * assert versionMgrSource.contains('.qa-11x-version')
@@ -727,7 +727,8 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
 
   Scenario: 25. Alineación Non-Root UID 10001 en CI / Stacks Node (pnpm-store-init) y Paridad Documental Integral
     * def ciWorkflow = karate.readAsString(repoRoot + '/.github/workflows/qa-11x-ci.yml')
-    * assert ciWorkflow.contains('run --rm -u "$(id -u):$(id -g)" mcp-server')
+    * assert ciWorkflow.contains('run --rm -u "$(id -u):$(id -g)"')
+    * assert ciWorkflow.contains('mcp-server bash -c')
 
     * def mcpCompose = karate.readAsString(mcpRoot + '/docker-compose.qa.yml')
     * assert mcpCompose.contains('pnpm-store-init:')
@@ -737,7 +738,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
 
     * def govDoc = karate.readAsString(repoRoot + '/docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md')
     * assert govDoc.contains('9 Recursos Dinámicos')
-    * assert govDoc.contains('blueprint://core/docs-invariants-validator')
+    * assert govDoc.contains('blueprint://database/postgres-rls-worm')
     * assert govDoc.contains('update_available')
 
     * def agentsReadme = karate.readAsString(repoRoot + '/.agents/README.md')
@@ -746,4 +747,32 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
 
     * def dockerTrouble = karate.readAsString(repoRoot + '/docs/docker-troubleshooting.md')
     * assert dockerTrouble.contains('ERR_PNPM_PACKAGE_MANAGER_CREATE_SLOT_DIR')
+
+  Scenario: 26. Contrato v2.20.1 — Arnés E2E Real sobre stdio (mcp-server/example/) y Acoplamiento en las 4 Barreras
+    * match pkg.version == '2.20.1'
+    * match pkg.scripts['test:example'] == 'node example/run-example-e2e.mjs'
+    * match pkg.files == ['dist/**/*', 'README.md']
+
+    * def e2eRunner = karate.readAsString(mcpRoot + '/example/run-example-e2e.mjs')
+    * assert e2eRunner.contains('StdioClientTransport')
+    * assert e2eRunner.contains('verifyAllResources')
+    * assert e2eRunner.contains('verifyAllTwelveTools')
+    * assert e2eRunner.contains('verifyCliAndBackgroundAutoSync')
+
+    * def cleanroomScript = karate.readAsString(repoRoot + '/scripts/probar-mcp-example.sh')
+    * assert cleanroomScript.contains('--exclude=\'./mcp-server/node_modules\'')
+    * assert cleanroomScript.contains('pnpm run test:example')
+
+    * def publisherScript = karate.readAsString(repoRoot + '/scripts/publicar-mcp.sh')
+    * assert publisherScript.contains('pnpm --silent run test:example')
+
+    * def ciWorkflow = karate.readAsString(repoRoot + '/.github/workflows/qa-11x-ci.yml')
+    * assert ciWorkflow.contains('pnpm run test:example')
+
+    * def lefthookCfg = karate.readAsString(repoRoot + '/lefthook.yml')
+    * assert lefthookCfg.contains('mcp-example-smoke:')
+    * assert lefthookCfg.contains('./scripts/probar-mcp-example.sh --in-place')
+
+    * def hooksInstaller = karate.readAsString(repoRoot + '/instalar-hooks.sh')
+    * assert hooksInstaller.contains('./scripts/probar-mcp-example.sh --in-place')
 

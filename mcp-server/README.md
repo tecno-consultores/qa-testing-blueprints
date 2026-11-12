@@ -120,6 +120,8 @@ rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@la
 - `blueprint://core/roadmap-validator`: Bidirectional roadmap consistency validator (`verify_roadmap_consistency.py`).
 - `blueprint://database/postgres-rls-worm`: Canonical reference implementation of PostgreSQL 17 Multi-Transaction RLS (`after_begin`) and deterministic WORM audit serialization (`seq_num` + `pg_advisory_xact_lock`).
 
+> **Real-World E2E Verification (`example/`):** Every release is verified in a clean-room ephemeral Docker container (`./scripts/probar-mcp-example.sh` / `pnpm run test:example`) by spawning the compiled `dist/index.js` binary over real `stdio` (`StdioClientTransport`) against the hybrid `FastAPI + Vue 3` reference project in [`mcp-server/example/`](https://github.com/tecno-consultores/qa-testing-blueprints/tree/main/mcp-server/example), asserting all 9 resources, 12 tools, and 3 CLI subcommands end-to-end before Git push and `npm publish`.
+
 ---
 
 ## 📄 Author, Copyright & License

@@ -1,6 +1,6 @@
 {
   "name": "@sinfallas/mcp-qa-11x",
-  "version": "2.20.0",
+  "version": "2.20.1",
   "description": "Official MCP Server & Thin-Repo Skill Installer for QA Testing Blueprints (11X Corporate Standard, DISA ASD STIG V6R5 & OWASP v4.2)",
   "keywords": [
     "mcp",
@@ -53,6 +53,7 @@
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\" --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run --coverage",
+    "test:example": "node example/run-example-e2e.mjs",
     "test": "vitest run"
   },
   "dependencies": {

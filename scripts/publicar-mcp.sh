@@ -135,37 +135,41 @@ if [ "$DRY_RUN" = false ]; then
 fi
 
 # 3. Paso 0: Saneamiento previo del espacio de trabajo
-echo "🧹 [0/5] Saneando espacio de trabajo..."
+echo "🧹 [0/6] Saneando espacio de trabajo..."
 "${REPO_ROOT}/scripts/limpieza.sh" --quiet
 
 CURRENT_UID="$(id -u)"
 CURRENT_GID="$(id -g)"
 
 # 4. Paso 1: Hidratación de dependencias y Verificación de Calidad (Rule Zero)
-echo "🔍 [1/5] Verificando dependencias, Lint & Typecheck en Docker efímero..."
+echo "🔍 [1/6] Verificando dependencias, Lint & Typecheck en Docker efímero..."
 docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" sh -c \
   "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run lint && pnpm --silent run typecheck"
 
 # 5. Paso 2: Pruebas Unitarias con Cobertura >= 95%
 if [ "$SKIP_TESTS" = false ]; then
-  echo "🧪 [2/5] Ejecutando pruebas unitarias con cobertura en Docker efímero..."
+  echo "🧪 [2/6] Ejecutando pruebas unitarias con cobertura en Docker efímero..."
   docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run test:unit
 else
-  echo "🧪 [2/5] Omitiendo pruebas unitarias (--skip-tests activado)."
+  echo "🧪 [2/6] Omitiendo pruebas unitarias (--skip-tests activado)."
 fi
 
 # 6. Paso 3: Compilación TypeScript a dist/
-echo "⚙️ [3/5] Compilando TypeScript a dist/..."
+echo "⚙️ [3/6] Compilando TypeScript a dist/..."
 docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run build
 
-# 7. Paso 4: Auditoría de empaquetado (Dry-Run de npm pack)
-echo "📦 [4/5] Validando empaquetado (npm pack --dry-run)..."
+# 7. Paso 4: Certificación E2E Real sobre stdio con mcp-server/example/
+echo "🎯 [4/6] Certificando 12 tools + 9 resources + 3 CLI sobre mcp-server/example/..."
+docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e QA_BLUEPRINTS_LOCAL_PATH=/repo -v "${REPO_ROOT}:/repo:ro" -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run test:example
+
+# 8. Paso 5: Auditoría de empaquetado (Dry-Run de npm pack)
+echo "📦 [5/6] Validando empaquetado (npm pack --dry-run)..."
 PACK_SUMMARY=$(docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" npm pack --dry-run 2>&1 | grep -E "package size:|unpacked size:|total files:|\.tgz" || true)
 # shellcheck disable=SC2001
 echo "${PACK_SUMMARY}" | sed 's/^/  /'
 
-# 8. Paso 5: Verificación de versión y publicación
-echo -e "\n🌐 [Paso 5/5] Verificando estado del paquete en ${NPM_REGISTRY}..."
+# 9. Paso 6: Verificación de versión y publicación
+echo -e "\n🌐 [Paso 6/6] Verificando estado del paquete en ${NPM_REGISTRY}..."
 
 REMOTE_EXISTS=false
 if docker run --rm "${IMAGE_NAME}" npm view "${PKG_NAME}@${PKG_VERSION}" version --registry="${NPM_REGISTRY}" 2>/dev/null | grep -q "^${PKG_VERSION}$"; then

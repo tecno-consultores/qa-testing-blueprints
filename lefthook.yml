@@ -78,9 +78,13 @@ commit-msg:
 pre-push:
   commands:
     # --------------------------------------------------------------------------
-    # AUDITORÍA DE INFRAESTRUCTURA (IaC) ANTES DE SUBIR
+    # AUDITORÍA DE INFRAESTRUCTURA (IaC) Y HUMO E2E MCP (example/) ANTES DE SUBIR
     # --------------------------------------------------------------------------
     trivy-iac-scan:
       # Bloquea el `git push` si hay puertos expuestos, contenedores en modo root
       # o vulnerabilidades críticas en dependencias (File System).
       run: ./scripts/auditar-infra.sh
+
+    mcp-example-smoke:
+      glob: "{mcp-server/**,manifest.json}"
+      run: ./scripts/probar-mcp-example.sh --in-place

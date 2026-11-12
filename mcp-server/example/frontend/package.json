@@ -1,0 +1,27 @@
+{
+  "name": "example-telemetry-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "eslint \"src/**/*.{ts,vue}\" --max-warnings 0",
+    "typecheck": "vue-tsc --noEmit",
+    "test:unit": "vitest run --coverage",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "pinia": "^3.0.1",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.1",
+    "@lhci/cli": "^0.14.0",
+    "@playwright/test": "^1.52.0",
+    "@stryker-mutator/core": "^8.7.0",
+    "eslint": "^8.57.0",
+    "eslint-plugin-sonarjs": "^0.24.0",
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.5",
+    "vue-tsc": "^2.2.0"
+  }
+}

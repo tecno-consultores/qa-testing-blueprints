@@ -1,0 +1,94 @@
+{
+  "directed": true,
+  "multigraph": false,
+  "nodes": [
+    {
+      "id": "backend/src/models/device.py::TelemetryDevice",
+      "label": "TelemetryDevice",
+      "type": "class",
+      "source_file": "backend/src/models/device.py",
+      "line": 12,
+      "community": 0
+    },
+    {
+      "id": "backend/src/services/device_service.py::list_tenant_devices",
+      "label": "list_tenant_devices()",
+      "type": "function",
+      "source_file": "backend/src/services/device_service.py",
+      "line": 16,
+      "community": 1
+    },
+    {
+      "id": "backend/src/services/device_service.py::register_tenant_device",
+      "label": "register_tenant_device()",
+      "type": "function",
+      "source_file": "backend/src/services/device_service.py",
+      "line": 28,
+      "community": 1
+    },
+    {
+      "id": "backend/src/api/devices.py::get_devices_endpoint",
+      "label": "get_devices_endpoint()",
+      "type": "function",
+      "source_file": "backend/src/api/devices.py",
+      "line": 18,
+      "community": 2
+    },
+    {
+      "id": "backend/src/api/devices.py::create_device_endpoint",
+      "label": "create_device_endpoint()",
+      "type": "function",
+      "source_file": "backend/src/api/devices.py",
+      "line": 26,
+      "community": 2
+    },
+    {
+      "id": "frontend/src/api/devicesClient.ts::fetchDevices",
+      "label": "fetchDevices()",
+      "type": "function",
+      "source_file": "frontend/src/api/devicesClient.ts",
+      "line": 14,
+      "community": 3
+    },
+    {
+      "id": "frontend/src/views/DevicesDashboard.vue::DevicesDashboard",
+      "label": "DevicesDashboard",
+      "type": "component",
+      "source_file": "frontend/src/views/DevicesDashboard.vue",
+      "line": 1,
+      "community": 3
+    }
+  ],
+  "links": [
+    {
+      "source": "backend/src/services/device_service.py::list_tenant_devices",
+      "target": "backend/src/models/device.py::TelemetryDevice",
+      "relation": "REFERENCES",
+      "source_file": "backend/src/services/device_service.py"
+    },
+    {
+      "source": "backend/src/services/device_service.py::register_tenant_device",
+      "target": "backend/src/models/device.py::TelemetryDevice",
+      "relation": "REFERENCES",
+      "source_file": "backend/src/services/device_service.py"
+    },
+    {
+      "source": "backend/src/api/devices.py::get_devices_endpoint",
+      "target": "backend/src/services/device_service.py::list_tenant_devices",
+      "relation": "CALLS",
+      "source_file": "backend/src/api/devices.py"
+    },
+    {
+      "source": "backend/src/api/devices.py::create_device_endpoint",
+      "target": "backend/src/services/device_service.py::register_tenant_device",
+      "relation": "CALLS",
+      "source_file": "backend/src/api/devices.py"
+    },
+    {
+      "source": "frontend/src/views/DevicesDashboard.vue::DevicesDashboard",
+      "target": "frontend/src/api/devicesClient.ts::fetchDevices",
+      "relation": "CALLS",
+      "source_file": "frontend/src/views/DevicesDashboard.vue"
+    }
+  ]
+}
