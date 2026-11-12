@@ -53,7 +53,7 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
       expect(await dispatchCliArgs(['--version'])).toBe(0);
       expect(await dispatchCliArgs(['-v'])).toBe(0);
       expect(logSpy).toHaveBeenCalledWith(MCP_SERVER_VERSION);
-      expect(MCP_SERVER_VERSION).toBe('2.20.2');
+      expect(MCP_SERVER_VERSION).toBe('2.20.3');
 
       expect(await dispatchCliArgs(['--help'])).toBe(0);
       expect(await dispatchCliArgs(['-h'])).toBe(0);
