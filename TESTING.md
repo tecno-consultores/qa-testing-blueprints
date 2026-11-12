@@ -131,13 +131,13 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
 ### 🧠 MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x`)
 * **Imagen Base:** `sinfallas/base-node-ionic:26` (Tags disponibles: `22`, `24`, `26` y `latest`)
 * **Métricas 11X Certificadas:**
-  * **Sentencias (Statements):** `99.23%` (`>= 95.0%`)
-  * **Ramas (Branches):** `95.16%` global (`src/resources` `100%`, `src/services` `96.72%`)
-  * **Funciones (Functions):** `99.68%` (`>= 95.0%`)
-  * **Líneas (Lines):** `99.23%` (`>= 95.0%`)
-  * **Pruebas Unitarias:** 324 pruebas pasando al 100% (18 suites en `tests/*.unit.ts`, incluyendo `src/index.ts`)
+  * **Sentencias (Statements):** `99.12%` (`>= 95.0%`)
+  * **Ramas (Branches):** `95.36%` global (`src/resources` `100%`, `src/cli` `98.53%`)
+  * **Funciones (Functions):** `99.43%` (`>= 95.0%`)
+  * **Líneas (Lines):** `99.12%` (`>= 95.0%`)
+  * **Pruebas Unitarias:** 337 pruebas pasando al 100% (20 suites en `tests/*.unit.ts`, incluyendo `src/index.ts` y guardia anti-bloqueo `TTY`)
   * **Herramientas MCP:** 12 herramientas canónicas con contrato Thin-Repo, autoconstrucción/refresco de grafos AST (`auto_build_if_missing`, `refresh_graph`), modo *Metadata-Only* (`include_content: false`), agrupador por regla (`groupFindingsByRule`), reglas `SEC-01`..`SEC-16` y paridad 10/10 en `certify_11x_gate`
-  * **Escenarios BDD Karate Labs:** `mcp-server/test/mcp_cli_test.feature` (22 escenarios en `sinfallas/karatelabs:1.5.1`)
+  * **Escenarios BDD Karate Labs:** `mcp-server/test/mcp_cli_test.feature` (28 escenarios en `sinfallas/karatelabs:1.5.1`)
 * **Comandos de Validación:**
   ```bash
   cd mcp-server

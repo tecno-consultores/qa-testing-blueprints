@@ -6,7 +6,13 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CLI_HELP_TEXT, dispatchCliArgs, main } from '../src/index.js';
+import {
+  CLI_HELP_TEXT,
+  INTERACTIVE_TTY_NOTICE,
+  dispatchCliArgs,
+  main,
+  shouldExitInteractiveTty,
+} from '../src/index.js';
 import { MCP_SERVER_VERSION, GitHubFetcher } from '../src/services/github-fetcher.js';
 import { SurgicalMerger } from '../src/services/surgical-merger.js';
 import { runInstallSkillCli } from '../src/cli/install-skill.js';
@@ -38,33 +44,139 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
   });
 
   describe('CLI index.ts (dispatchCliArgs & main)', () => {
-    it('supports --version, --help, subcommands, stdio mode, and rejects unknown flags', async () => {
+    it('supports --version, --help, --stdio, install alias, interactive TTY guard, and rejects unknown flags', async () => {
       const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
       const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       expect(await dispatchCliArgs([])).toBe('stdio');
+      expect(await dispatchCliArgs(['--stdio'])).toBe('stdio-forced');
       expect(await dispatchCliArgs(['--version'])).toBe(0);
+      expect(await dispatchCliArgs(['-v'])).toBe(0);
       expect(logSpy).toHaveBeenCalledWith(MCP_SERVER_VERSION);
       expect(MCP_SERVER_VERSION).toBe('2.20.2');
 
+      expect(await dispatchCliArgs(['--help'])).toBe(0);
       expect(await dispatchCliArgs(['-h'])).toBe(0);
       expect(CLI_HELP_TEXT).toContain('--version');
+      expect(CLI_HELP_TEXT).toContain('--stdio');
+      expect(INTERACTIVE_TTY_NOTICE).toContain('install-skill');
 
       expect(await dispatchCliArgs(['init-agents', '--project-path', tmpDir, '--dry-run'])).toBe(0);
+      expect(await dispatchCliArgs(['init-agents-md', '--project-path', tmpDir, '--dry-run'])).toBe(0);
       expect(await dispatchCliArgs(['reconcile-agents', '--project-path', tmpDir, '--dry-run'])).toBe(0);
+
+      // Verify install-skill and 'install' alias hermetically in tmpDir
+      const skillBody = '# Skill Test\n';
+      const mockManifest: Manifest = {
+        blueprint_version: MCP_SERVER_VERSION,
+        generated_at_utc: '2026-11-12T00:00:00Z',
+        common_files: [],
+        agent_governance_files: [
+          {
+            path: '.agents/skills/qa-11x-architect/SKILL.md',
+            target_name: '.agents/skills/qa-11x-architect/SKILL.md',
+            merge_strategy: 'overwrite',
+            sha256: sha256(skillBody),
+            size_bytes: Buffer.byteLength(skillBody),
+          },
+        ],
+        stacks: {},
+      };
+      const fakeFetcher = {
+        fetchManifest: vi.fn().mockResolvedValue(mockManifest),
+        fetchFileContent: vi.fn().mockResolvedValue(skillBody),
+      } as unknown as GitHubFetcher;
+      const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpDir);
+      expect(await dispatchCliArgs(['install-skill', '--target', 'workspace'], fakeFetcher)).toBe(0);
+      expect(await dispatchCliArgs(['install', '--target', 'workspace'], fakeFetcher)).toBe(0);
+      cwdSpy.mockRestore();
 
       expect(await dispatchCliArgs(['unknown-subcommand'])).toBe(1);
       expect(errSpy).toHaveBeenCalled();
+
+      // shouldExitInteractiveTty matrix
+      const prevForceStdio = process.env.QA_FORCE_STDIO;
+      delete process.env.QA_FORCE_STDIO;
+      expect(shouldExitInteractiveTty('stdio', false, true)).toBe(true);
+      expect(shouldExitInteractiveTty('stdio', false, false)).toBe(false);
+      expect(shouldExitInteractiveTty('stdio-forced', false, true)).toBe(false);
+      expect(shouldExitInteractiveTty('stdio', true, true)).toBe(false);
+      expect(typeof shouldExitInteractiveTty('stdio', false)).toBe('boolean');
+      process.env.QA_FORCE_STDIO = '1';
+      expect(shouldExitInteractiveTty('stdio', false, true)).toBe(false);
+      if (prevForceStdio === undefined) {
+        delete process.env.QA_FORCE_STDIO;
+      } else {
+        process.env.QA_FORCE_STDIO = prevForceStdio;
+      }
 
       const exitCodes: number[] = [];
       await main(['-v'], undefined, (c) => exitCodes.push(c));
       expect(exitCodes).toEqual([0]);
 
+      // Interactive TTY without arguments: runs auto-sync, prints notice, and exits cleanly with 0 (never hangs)
+      const prevDisableSync = process.env.QA_DISABLE_AUTO_SYNC;
+      process.env.QA_DISABLE_AUTO_SYNC = '0';
+      let autoSyncedInTty = 0;
+      const ttyExitCodes: number[] = [];
+      await main(
+        [],
+        undefined,
+        (c) => ttyExitCodes.push(c),
+        async () => {
+          autoSyncedInTty += 1;
+        },
+        true
+      );
+      expect(autoSyncedInTty).toBe(1);
+      expect(ttyExitCodes).toEqual([0]);
+      expect(logSpy).toHaveBeenCalledWith(INTERACTIVE_TTY_NOTICE);
+
+      // Interactive TTY with QA_DISABLE_AUTO_SYNC='1' skips autoSyncFn and exits with 0
+      process.env.QA_DISABLE_AUTO_SYNC = '1';
+      await main(
+        [],
+        undefined,
+        (c) => ttyExitCodes.push(c),
+        async () => {
+          autoSyncedInTty += 1;
+        },
+        true
+      );
+      expect(autoSyncedInTty).toBe(1);
+      expect(ttyExitCodes).toEqual([0, 0]);
+      if (prevDisableSync === undefined) {
+        delete process.env.QA_DISABLE_AUTO_SYNC;
+      } else {
+        process.env.QA_DISABLE_AUTO_SYNC = prevDisableSync;
+      }
+
+      // Non-TTY stdio mode (normal MCP client pipe)
       let stdioStarted = false;
-      await main([], async () => {
-        stdioStarted = true;
-      });
+      await main(
+        [],
+        async () => {
+          stdioStarted = true;
+        },
+        undefined,
+        undefined,
+        false
+      );
       expect(stdioStarted).toBe(true);
+
+      // Forced --stdio in an interactive TTY logs stderr notice and starts stdio
+      let forcedStdioStarted = false;
+      await main(
+        ['--stdio'],
+        async () => {
+          forcedStdioStarted = true;
+        },
+        undefined,
+        undefined,
+        true
+      );
+      expect(forcedStdioStarted).toBe(true);
+      expect(errSpy).toHaveBeenCalledWith(expect.stringContaining('listening for JSON-RPC messages over stdio'));
     });
   });
 

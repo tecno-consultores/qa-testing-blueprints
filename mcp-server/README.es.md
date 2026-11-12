@@ -16,30 +16,11 @@ Servidor oficial de **Model Context Protocol (MCP)** e Instalador Universal Thin
 > [!TIP]
 > Para instrucciones detalladas paso a paso con rutas de configuración en macOS, Linux y Windows para los **11 agentes de IA compatibles** (VS Code / Copilot, Cursor, Claude Code, Antigravity, Codex, Windsurf, JetBrains, Cline, Claude Desktop, Hermes, Zed), consulta la **[Guía de Configuración por Agente IA](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/docs/agent-setup.md)**.
 
-### 1. Iniciar Servidor MCP (`stdio`)
-Compatible con **Google Antigravity**, **Claude Desktop / Claude Code**, **Cursor**, **Windsurf**, **Codex**, **Hermes Agent** y **VS Code**:
-
-```bash
-npx -y @sinfallas/mcp-qa-11x@latest
-```
-
-#### Configuración básica en Cursor / Claude Desktop / Antigravity (`mcp_config.json`):
-```json
-{
-  "mcpServers": {
-    "qa-11x": {
-      "command": "npx",
-      "args": ["-y", "@sinfallas/mcp-qa-11x@latest"]
-    }
-  }
-}
-```
-
-### 2. Instalar Skills Globales, Scripts y Conector `AGENTS.md` vía CLI
+### 1. Instalar Skills Globales, Scripts y Conector `AGENTS.md` vía CLI (Ejecutar en Terminal)
 Instala el catálogo completo de **5 skills corporativas** en los directorios globales de tus agentes IA, descarga los scripts operativos (`.agents/scripts/*`, `scripts/*`), reconcilia duplicados locales e inyecta el conector en `AGENTS.md` (y el puntero ligero sin duplicación en `~/.gemini/GEMINI.md`) con verificación criptográfica **SHA-256 (`DISA STIG V-222513`)**:
 
 ```bash
-# Instalación y reconciliación recomendada en un proyecto:
+# Instalación y reconciliación recomendada en un proyecto (alias: `install`):
 npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts --reconcile
 
 # Con selección explícita de política de idioma para AGENTS.md (auto|es|en):
@@ -57,6 +38,23 @@ npx -y @sinfallas/mcp-qa-11x@latest reconcile-agents [--project-path <ruta>] [--
 # Forzar actualización limpia de caché global a la última versión publicada:
 rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@latest install-skill --target all --init-agents --include-scripts --reconcile
 ```
+
+### 2. Configurar Servidor MCP sobre `stdio` (Invocado por Clientes IA)
+Compatible con **Google Antigravity**, **Claude Desktop / Claude Code**, **Cursor**, **Windsurf**, **Codex**, **Hermes Agent** y **VS Code**. Los clientes de IA levantan `npx -y @sinfallas/mcp-qa-11x@latest` automáticamente mediante pipes `stdio`:
+
+```json
+{
+  "mcpServers": {
+    "qa-11x": {
+      "command": "npx",
+      "args": ["-y", "@sinfallas/mcp-qa-11x@latest"]
+    }
+  }
+}
+```
+
+> [!NOTE]
+> Si ejecutas `npx -y @sinfallas/mcp-qa-11x@latest` sin argumentos directamente en una terminal interactiva (`TTY`), el CLI sincroniza las skills globales instaladas vía SHA-256, muestra la guía rápida de comandos y finaliza limpiamente (`exit 0`) sin dejar la terminal bloqueada. Usa `--stdio` (o `QA_FORCE_STDIO=1`) únicamente si deseas forzar la escucha JSON-RPC manual en una `TTY`.
 
 #### Opciones de `install-skill`:
 * `--target, -t <entorno>`: `auto` (defecto: instala las 5 skills exclusivamente en los directorios globales de agentes IA detectados en `$HOME`: Antigravity, Claude, Cursor, Windsurf, Codex, Hermes; fallback a `workspace` solo si no hay agentes globales) | `workspace` | `antigravity` | `claude` | `cursor` | `windsurf` | `codex` | `hermes` | `all`.

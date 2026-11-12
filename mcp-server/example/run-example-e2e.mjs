@@ -515,6 +515,23 @@ async function verifyCliAndBackgroundAutoSync(ctx) {
     stdio: 'pipe',
   });
 
+  // 3b. Guardia anti-bloqueo en terminal interactiva (TTY): sincroniza skills y termina con código 0 sin colgarse
+  const ttyProbeScript = [
+    "import { pathToFileURL } from 'node:url';",
+    "Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });",
+    'const mod = await import(pathToFileURL(process.argv[1]).href);',
+    'await mod.main([]);',
+  ].join('\n');
+  const ttyOut = execFileSync(
+    process.execPath,
+    ['--input-type=module', '-e', ttyProbeScript, DIST_INDEX_JS],
+    { cwd: cliProjectDir, env: baseEnv, stdio: 'pipe', encoding: 'utf8', timeout: 5000 }
+  );
+  assert.ok(
+    ttyOut.includes('Interactive Terminal Detected (TTY)') && ttyOut.includes('install-skill'),
+    'La ejecución sin argumentos en TTY interactivo no mostró la guía anti-bloqueo ni salió limpiamente'
+  );
+
   // 4. Auto-sync silencioso por SHA-256 al arrancar el servidor MCP en modo stdio
   const targetSkillMd = path.join(globalSkillsDir, 'graphify-ast-navigator', 'SKILL.md');
   const officialSha = crypto.createHash('sha256').update(fs.readFileSync(targetSkillMd)).digest('hex');

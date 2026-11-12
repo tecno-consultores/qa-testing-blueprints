@@ -16,30 +16,11 @@ Official **Model Context Protocol (MCP)** Server and Universal Thin-Repo Skill I
 > [!TIP]
 > For step-by-step instructions, JSON/TOML snippets, and exact configuration paths on macOS, Linux, and Windows across **11 supported AI coding agents** (VS Code / Copilot, Cursor, Claude Code, Google Antigravity, Codex CLI, Windsurf, JetBrains IDEs, Cline, Claude Desktop, Hermes Agent, Zed), see the **[Step-by-Step Setup Guide per AI Agent](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/docs/agent-setup.en.md)**.
 
-### 1. Run MCP Server over `stdio`
-Directly compatible with **VS Code (GitHub Copilot)**, **Cursor**, **Claude Code / Desktop**, **Google Antigravity**, **Codex**, **Windsurf**, and **Hermes Agent**:
-
-```bash
-npx -y @sinfallas/mcp-qa-11x@latest
-```
-
-#### Basic Configuration in Cursor / Claude Desktop / Antigravity (`mcp_config.json`):
-```json
-{
-  "mcpServers": {
-    "qa-11x": {
-      "command": "npx",
-      "args": ["-y", "@sinfallas/mcp-qa-11x@latest"]
-    }
-  }
-}
-```
-
-### 2. Universal Skill & Governance Installer via CLI
+### 1. Universal Skill & Governance Installer via CLI (Run in Terminal)
 Installs the complete catalog of **5 corporate skills** into your global AI agent directories, downloads operational scripts (`.agents/scripts/*`, `scripts/*`), reconciles local rule duplicates, and injects the connector into `AGENTS.md` (plus the global thin pointer in `~/.gemini/GEMINI.md`) with cryptographic **SHA-256 verification (`DISA STIG V-222513`)**:
 
 ```bash
-# Recommended single-command setup in any project:
+# Recommended single-command setup in any project (alias: `install`):
 npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts --reconcile
 
 # With explicit human output language policy for AGENTS.md (auto|es|en):
@@ -57,6 +38,23 @@ npx -y @sinfallas/mcp-qa-11x@latest reconcile-agents [--project-path <path>] [--
 # Force clean update of local npx and blueprint caches:
 rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@latest install-skill --target all --init-agents --include-scripts --reconcile
 ```
+
+### 2. Configure MCP Server over `stdio` (Spawned by AI Clients)
+Directly compatible with **VS Code (GitHub Copilot)**, **Cursor**, **Claude Code / Desktop**, **Google Antigravity**, **Codex**, **Windsurf**, and **Hermes Agent**. AI clients spawn `npx -y @sinfallas/mcp-qa-11x@latest` automatically over `stdio` pipes:
+
+```json
+{
+  "mcpServers": {
+    "qa-11x": {
+      "command": "npx",
+      "args": ["-y", "@sinfallas/mcp-qa-11x@latest"]
+    }
+  }
+}
+```
+
+> [!NOTE]
+> Running `npx -y @sinfallas/mcp-qa-11x@latest` without arguments directly in an interactive terminal (`TTY`) automatically syncs any installed global skills via SHA-256, prints quick-start setup commands, and exits cleanly (`0`) without hanging your shell. Pass `--stdio` (or `QA_FORCE_STDIO=1`) if you intentionally want to attach a raw JSON-RPC listener in a `TTY`.
 
 #### Flags for `install-skill`:
 * `--target, -t <env>`: Target environment. `auto` (default: installs the 5 skills into all detected global agent directories in `$HOME`: Antigravity, Claude, Cursor, Windsurf, Codex, Hermes; falls back to `workspace` only if no global agents exist) | `workspace` | `antigravity` | `claude` | `cursor` | `windsurf` | `codex` | `hermes` | `all`.

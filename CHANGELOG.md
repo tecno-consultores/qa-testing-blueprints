@@ -6,6 +6,9 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### 🛡️ Guardia Anti-Bloqueo en Terminal Interactiva (`TTY`), Flag `--stdio` y Alias `install` en `@sinfallas/mcp-qa-11x` (Fixed & Added)
+* **Salida Limpia en Terminal Interactiva (`process.stdin.isTTY`) y Claridad CLI (`mcp-server/src/index.ts`):** Corregido el bloqueo indefinido al ejecutar `npx -y @sinfallas/mcp-qa-11x@latest` sin subcomandos desde una consola humana (`TTY`): ahora espera la auto-sincronización SHA-256 de skills globales, imprime la guía ejecutiva (`INTERACTIVE_TTY_NOTICE`) y termina con `exit(0)` sin abrir `StdioServerTransport` (preservando intacto el modo `stdio` para clientes MCP vía pipes, añadiendo `--stdio` / `QA_FORCE_STDIO=1` y el alias `install`), reordenando `README*` y `docs/ai-integration.md` y certificándolo en `Vitest`, `run-example-e2e.mjs` y `Karate Labs` (escenario 28).
+
 ---
 
 ## [2.20.2] - 2026-11-12

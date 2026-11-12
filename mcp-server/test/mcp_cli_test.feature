@@ -803,3 +803,19 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert cleanToolTs.contains("'bash-scripts'")
     * assert !cleanToolTs.contains("'zap.yaml'")
 
+  Scenario: 28. Guardia Anti-Bloqueo en Terminal Interactiva (TTY), Flag --stdio y Alias install
+    * def cliIndexSource = karate.readAsString(mcpRoot + '/src/index.ts')
+    * assert cliIndexSource.contains('shouldExitInteractiveTty')
+    * assert cliIndexSource.contains('INTERACTIVE_TTY_NOTICE')
+    * assert cliIndexSource.contains("arg1 === '--stdio'")
+    * assert cliIndexSource.contains("arg1 === 'install-skill' || arg1 === 'install'")
+    * assert cliIndexSource.contains('process.stdin.isTTY')
+
+    * def e2eRunner = karate.readAsString(mcpRoot + '/example/run-example-e2e.mjs')
+    * assert e2eRunner.contains('Interactive Terminal Detected (TTY)')
+
+    * def mcpReadme = karate.readAsString(mcpRoot + '/README.md')
+    * assert mcpReadme.contains('install-skill --init-agents --include-scripts --reconcile')
+    * assert mcpReadme.contains('--stdio')
+
+

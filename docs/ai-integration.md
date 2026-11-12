@@ -83,17 +83,17 @@ El paquete oficial de Node.js **`@sinfallas/mcp-qa-11x`** permite a cualquier Ag
 ### 6.1. Ejecución Directa en 1 Comando
 
 ```bash
-# Levantar el servidor MCP directamente (comunicación stdio):
-npx -y @sinfallas/mcp-qa-11x@latest
-
-# Instalación completa recomendada en un repositorio (instala las 5 Skills, scripts .agents/scripts/* e inyecta el conector en AGENTS.md):
-npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts
+# Instalación completa recomendada en un repositorio (instala las 5 Skills, scripts .agents/scripts/* e inyecta el conector en AGENTS.md; alias: `install`):
+npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts --reconcile
 
 # Instalación con todas las opciones explícitas (especificando entorno de destino):
 npx -y @sinfallas/mcp-qa-11x@latest install-skill --target [auto|workspace|antigravity|claude|cursor|hermes|all] --init-agents --include-scripts
 
 # O inyectar/actualizar únicamente el conector QA 11X en AGENTS.md de forma aditiva y no destructiva:
 npx -y @sinfallas/mcp-qa-11x@latest init-agents [--project-path <ruta>] [--dry-run]
+
+# Levantar el servidor MCP directamente sobre stdio (invocado por clientes IA; en TTY interactiva sincroniza skills y sale con 0, o usa --stdio):
+npx -y @sinfallas/mcp-qa-11x@latest [--stdio]
 ```
 
 #### Parámetros del instalador `install-skill`:

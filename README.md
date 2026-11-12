@@ -79,7 +79,7 @@ A continuación se resume el stack de validación corporativo por entorno y tipo
 | **React** (`react-frontend/`) | `ESLint (--max-warnings 0)` + `Prettier` + `tsc` | `Vitest` + `React Testing Library` + `Playwright` + `@axe-core` | `@vitest/coverage-v8 (>= 95%)` | `pnpm audit` + `.npmrc (ignore-scripts=true)` | `eslint-plugin-security` + `react-hooks` | `Stryker` | `Karate Labs (Chrome Headless)` | `N/A` | `Lighthouse CI` + `SonarJS (<= 15)` | `OWASP ZAP Baseline` | `N/A` | `nginx-prometheus-exporter` + `Prometheus` | `Trivy` + `Hadolint` + `Gitleaks` | `Lefthook` |
 | **PHP 8.2–8.5** (`php/`) | `PHP-CS-Fixer (@PER-CS2.0)` + `PHPStan (Level Max)` | `Pest` / `PHPUnit 11.5+` + `MockHandler` + `PostgreSQL 17` + `KeyDB` | `PCOV (>= 95%)` | `composer audit` + `roave/security-advisories` + `CycloneDX SBOM` | `Psalm (--taint-analysis)` | `Infection (MSI >= 80%)` | `Karate Labs` + `Swagger-PHP` / `Schemathesis` | `Locust` / `Artillery` | `tomasvotruba/cognitive-complexity (<= 9)` | `OWASP ZAP Baseline` | `Pumba` | `promphp/prometheus_client_php` + `Prometheus` | `Trivy` + `Hadolint` + `Gitleaks` | `Lefthook` |
 | **Bash** (`bash-scripts/`) | `ShellCheck` + `shfmt` | `BATS-core` + `bats-support` + `bats-assert` + `bats-file` + `bats-mock` | `kcov (>= 95%)` | `N/A` | `ShellCheck` | `N/A` | `N/A` | `N/A` | `hyperfine` + `time -v` | `N/A` | `N/A` | `Pushgateway` + `Prometheus` | `Trivy` + `Hadolint` + `Gitleaks` | `Lefthook` |
-| **MCP Server** (`mcp-server/`) | `ESLint (--max-warnings 0)` + `Prettier` + `tsc` | `Vitest` (`307+ tests`) | `@vitest/coverage-v8 (>= 95%)` | `pnpm audit` + `.npmrc (ignore-scripts=true)` | `eslint-plugin-security` + `audit_security_stig_owasp` | `Stryker` | `Karate Labs (mcp_cli_test.feature, 20 escenarios)` | `N/A` | `SonarJS (<= 15)` | `N/A` | `N/A` | `Telemetría JSON Pass-Quiet` | `Trivy` + `Gitleaks` | `Lefthook` |
+| **MCP Server** (`mcp-server/`) | `ESLint (--max-warnings 0)` + `Prettier` + `tsc` | `Vitest` (`337+ tests`) | `@vitest/coverage-v8 (>= 95%)` | `pnpm audit` + `.npmrc (ignore-scripts=true)` | `eslint-plugin-security` + `audit_security_stig_owasp` | `Stryker` | `Karate Labs (mcp_cli_test.feature, 28 escenarios)` | `N/A` | `SonarJS (<= 15)` | `N/A` | `N/A` | `Telemetría JSON Pass-Quiet` | `Trivy` + `Gitleaks` | `Lefthook` |
 
 ---
 
@@ -158,16 +158,19 @@ El servidor canónico MCP en Node.js/TypeScript está publicado en npmjs bajo **
   * `propose_skill_evolution_pr`: Propone mejoras federadas **Dual-Consumer** (capa IA en `.agents/skills/`, capa ejecutable en `mcp-server/` y manual humano en `docs/01..04_*.md`) a `qa-testing-blueprints` mediante `gh` CLI local autenticado o generando propuesta local y URL prellenada de GitHub (Zero-Trust, 0 tokens empaquetados).
   * `reconcile_agents_governance`: Reconcilia y deduplica reglas en `.agents/` para proyectos adoptantes, podando directivas ya promovidas a `qa-testing-blueprints`, aislando reglas de negocio en `domain_<project>_rules.md` y respaldando en `.agents/backups/<timestamp>/`.
 
-#### Ejecución Directa en 1 Comando:
+#### Ejecución Directa vía CLI en Terminal:
 ```bash
-# Levantar el servidor MCP canónico (comunicación stdio para Antigravity, Claude, Cursor, Hermes):
-npx -y @sinfallas/mcp-qa-11x@latest
+# Instalar o actualizar las 5 skills globales, scripts operativos y conector AGENTS.md (alias: `install`):
+npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts --reconcile
 
 # Inyectar o actualizar el conector QA 11X en AGENTS.md de forma aditiva y no destructiva:
 npx -y @sinfallas/mcp-qa-11x@latest init-agents [--project-path <ruta>] [--dry-run]
 
 # Reconciliar gobernanza y aislar reglas de dominio de un proyecto consumidor (ej. rosgrid):
 npx -y @sinfallas/mcp-qa-11x@latest reconcile-agents [--project-path <ruta>] [--dry-run]
+
+# Levantar el servidor MCP en modo stdio (invocado por clientes IA; en TTY interactiva sincroniza skills y sale con 0, o usa --stdio):
+npx -y @sinfallas/mcp-qa-11x@latest [--stdio]
 ```
 
 #### Configuración en Clientes MCP (Antigravity, Claude Desktop / Code, Cursor, Hermes):
