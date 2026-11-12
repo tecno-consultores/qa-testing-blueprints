@@ -5,6 +5,10 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { ProjectAuditResult, BrowserTestingReadiness, StackName } from '../types.js';
+import {
+  evaluateUpdateStatus,
+  type EvaluateUpdateOptions,
+} from '../services/version-manager.js';
 
 const BASH_STACK_NAME = 'bash-scripts';
 const PHP_STACK_NAME = 'php';
@@ -298,9 +302,14 @@ export function evaluateBrowserTestingReadiness(
   };
 }
 
+export type InspectProjectUpdateOptions = Partial<
+  Omit<EvaluateUpdateOptions, 'projectPath' | 'homeDir'>
+>;
+
 export async function inspectProjectConfig(
   projectPathInput: string,
-  homeDir?: string
+  homeDir?: string,
+  updateOptions?: InspectProjectUpdateOptions
 ): Promise<ProjectAuditResult> {
   const resolvedPath = path.resolve(projectPathInput.normalize('NFKC'));
 
@@ -335,6 +344,11 @@ export async function inspectProjectConfig(
     detectedStacks,
     homeDir
   );
+  const updateAvailable = await evaluateUpdateStatus({
+    projectPath: resolvedPath,
+    homeDir,
+    ...updateOptions,
+  });
 
   const fallbackStacks = files.some((f) => f.endsWith('.py')) ? ['python'] : [];
   return {
@@ -350,5 +364,6 @@ export async function inspectProjectConfig(
     missing_11x_files: missing11xFiles,
     recommended_next_tool: 'fetch_blueprint_bundle',
     browser_testing_readiness: browserReadiness,
+    update_available: updateAvailable,
   };
 }

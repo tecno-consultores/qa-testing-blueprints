@@ -259,10 +259,10 @@ export function createMcpServer(options?: {
   // Tool 1: inspect_project_config
   server.tool(
     'inspect_project_config',
-    'Audits user project directory, detecting stacks, strict linter flags, and missing 11X files.',
+    'Audits user project directory, detecting stacks, strict linter flags, missing 11X files, and QA 11X version/skill update availability.',
     InspectProjectInputSchema.shape,
     async (args) => {
-      const result = await inspectProjectConfig(args.project_path);
+      const result = await inspectProjectConfig(args.project_path, undefined, { fetcher });
       return {
         content: [
           {
@@ -413,11 +413,12 @@ export function createMcpServer(options?: {
   // Tool 8: certify_11x_gate
   server.tool(
     'certify_11x_gate',
-    'Executes 11X certification gates (secrets, JSON, orphan UI/API, ORM parity, lint evidence, STIG audit, docs) before git push.',
+    'Executes 11X certification gates (secrets, JSON, orphan UI/API, ORM parity, lint evidence, STIG audit, docs) and checks version/skill update status before git push.',
     CertifyGateInputSchema.shape,
     async (args) => {
       const result = await certify11xGate(args.project_path, {
         requireLintEvidence: args.require_lint_evidence,
+        updateOptions: { fetcher },
       });
       return {
         content: [

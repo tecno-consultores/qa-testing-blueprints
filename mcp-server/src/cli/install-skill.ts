@@ -5,6 +5,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { GitHubFetcher, resolveSafeChildPath } from '../services/github-fetcher.js';
+import { writeVersionStamp } from '../services/version-manager.js';
 import { initOrAppendAgentsMd, syncGlobalGeminiMd } from './init-agents-md.js';
 import { reconcileAgentsGovernance } from './reconcile-agents.js';
 import type { Manifest, ManifestFileEntry, OutputLanguageMode } from '../types.js';
@@ -134,7 +135,8 @@ function resolveDestinationDirs(targetArg: string, homeDir: string, cwd: string)
 
 function writeDownloadedSkills(
   destDirs: string[],
-  files: Array<{ relSkillPath: string; content: string }>
+  files: Array<{ relSkillPath: string; content: string }>,
+  blueprintVersion: string
 ): void {
   for (const dest of destDirs) {
     for (const item of files) {
@@ -145,6 +147,7 @@ function writeDownloadedSkills(
       }
       fs.writeFileSync(fullPath, item.content, UTF8);
     }
+    writeVersionStamp(dest, blueprintVersion);
     console.log(`✅ Skills instaladas con éxito en: ${dest}`);
   }
 }
@@ -198,6 +201,7 @@ async function installIncludedScripts(
     const content = await fetcher.fetchFileContent(entry.path, entry.sha256);
     writeScriptEntry(cwd, entry, content);
   }
+  writeVersionStamp(path.join(cwd, AGENTS_DIR_NAME), manifest.blueprint_version);
   console.log(`✔ [Scripts 11X] ${scriptEntries.length} scripts y archivos comunes instalados [0o755].`);
 }
 
@@ -241,7 +245,7 @@ export async function runInstallSkillCli(args: string[], fetcher?: GitHubFetcher
   }
 
   console.log(`✔ [Skills 11X] ${downloadedFiles.length} archivos verificados con SHA-256 (DISA STIG V-222513).`);
-  writeDownloadedSkills(destDirs, downloadedFiles);
+  writeDownloadedSkills(destDirs, downloadedFiles, manifest.blueprint_version);
 
   if (fs.existsSync(path.join(homeDir, GEMINI_DIR_NAME))) {
     syncGlobalGeminiMd(homeDir, false, lang);

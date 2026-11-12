@@ -263,7 +263,10 @@ Hermes Agent utiliza el formato **YAML** para su archivo maestro de configuraci�
 
 ---
 
-## 🔄 Paso 3: Verificación Criptográfica y Actualización Limpia de Cachés
+## 🔄 Paso 3: Auto-Sync, Notificación `update_available` y Actualización Limpia de Cachés
+
+> [!TIP]
+> Desde `v2.20.0`, en cada arranque `stdio` el servidor MCP sincroniza silenciosamente por `SHA-256` las skills globales ya instaladas en segundo plano, y expone el campo `update_available` en `inspect_project_config` y `certify_11x_gate` (leyendo `.qa-11x-version` y caché TTL de 24 h *fail-open*) para avisarte si los scripts locales del proyecto quedaron desfasados.
 
 Para forzar una actualización limpia descartando cachés locales de npm y blueprints antiguos:
 

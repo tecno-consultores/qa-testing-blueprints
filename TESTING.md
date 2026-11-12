@@ -224,15 +224,16 @@ El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
     * `tests/prepush-ci-parity.unit.ts` (6 pruebas): Sello criptográfico de evidencia `lint` (`.agents/.qa-evidence.json`) en `certify_11x_gate`, stages `migration`/`integration`/`ci`, normalización de template strings dinámicos (`` `/routers${query}` ``, `` `/bridge/${subPath}` ``, `{path:path}`) e invariantes `QA-MYPY-01`, `QA-PG17-RLS` y `QA-COV-01` (`--import-mode=importlib`).
     * `tests/v2-18-i18n-agents.unit.ts` (10 pruebas): Modo de idioma `--lang auto|es|en` (`QA_OUTPUT_LANG`), *Dynamic Language Mirroring*, targets globales `codex` y `windsurf` con autodetección y CLI bilingüe.
     * `tests/qa-health-dual-consumer.unit.ts` (7 pruebas): Regla estática `QA-HEALTH-01` (semántica `task.exception()` / `OPTIONAL_WORKERS` en supervisores `asyncio` y contrato de sondas físicas `healthcheck` en `Dockerfile`/`docker-compose*.yml` con exención `# qa-health-ok`) e inferencia + matriz de 3 capas Dual-Consumer en `propose_skill_evolution_pr`.
+    * `tests/version-manager.unit.ts` (6 bloques / 40+ aserciones): Comparación SemVer, sellos `.qa-11x-version`, resolución con caché TTL de 24 h (`latest-version-check.json`) y *fail-open* offline, campo `update_available` en `inspect_project_config` y `certify_11x_gate`, y auto-sync silencioso en segundo plano de skills globales por `SHA-256` preservando el idioma de `~/.gemini/GEMINI.md`.
   * **Ejecución Efímera:**
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run lint`
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server npx tsc --noEmit`
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm test`
     * `docker compose -f mcp-server/docker-compose.qa.yml run --rm mcp-server pnpm run build`
   * **Cobertura y Métricas Alcanzadas:**
-    * **100% de aserciones aprobadas** (331/331 pruebas pasando en 19 suites + 23/23 escenarios Karate BDD + 57/57 pruebas Pytest).
-    * **99.22% de cobertura de líneas/sentencias y 95.19% de cobertura de ramas** (superando el umbral de `>= 95%`).
-    * **99.69% de cobertura de funciones**.
+    * **100% de aserciones aprobadas** (337/337 pruebas pasando en 20 suites + 24/24 escenarios Karate BDD + 57/57 pruebas Pytest).
+    * **99.11% de cobertura de líneas/sentencias y 95.19% de cobertura de ramas** (superando el umbral de `>= 95%`).
+    * **99.43% de cobertura de funciones**.
     * **0 errores de ESLint (`--max-warnings 0`), SonarJS (Cognitiva `<= 15`) y TypeScript (`strict: true`)**.
 
 * **Script Universal de Limpieza y Saneamiento (`scripts/limpieza.sh`):**

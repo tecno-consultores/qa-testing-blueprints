@@ -169,22 +169,27 @@ mcp_servers:
 
 | Herramienta | Argumentos Principales | Propósito Operativo |
 | :--- | :--- | :--- |
-| **`inspect_project_config`** | `project_path` | Audita stacks presentes (`python`, `fastapi`, `node`, `vue3`, `react`, `bash`, `php`), configuraciones de linters/tipado y disponibilidad de pruebas en navegador real (`BrowserTestingReadiness`). |
+| **`inspect_project_config`** | `project_path` | Audita stacks presentes (`python`, `fastapi`, `node`, `vue3`, `react`, `bash`, `php`), configuraciones de linters/tipado, disponibilidad de navegador real (`BrowserTestingReadiness`) y estado estructurado `update_available` de versión/skills (`.qa-11x-version` + caché TTL 24 h *fail-open*). |
 | **`fetch_blueprint_bundle`** | `stack`, `include_common_and_agents`, `include_content` | Descarga bajo demanda los archivos del stack con verificación criptográfica SHA-256 (soporta modo índice ligero `include_content: false` para ahorro de ~50,000 tokens — ver [`13_SPEC`](specs/13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md)). |
 | **`bootstrap_or_merge_11x`** | `project_path`, `stack`, `dry_run` | Aplica una fusión quirúrgica no destructiva inyectando configuraciones QA sin alterar dependencias. |
 | **`inspect_ast_blast_radius`** | `project_path`, `target_symbol`, `max_items`, `auto_build_if_missing`, `refresh_graph` | Consulta el grafo AST (`graphify-out/graph.json` y `GRAPH_REPORT.md`) de forma bidireccional tanto para responder preguntas sobre código/arquitectura (`declaring_files`, llamadores entrantes y `outgoing_dependencies`) como para calcular el radio de impacto antes de refactorizar (`LOW` con `< 5` llamadores para `MICRO_CHANGE`). |
 | **`clean_workspace_11x`** | `project_path`, `dry_run`, `deep_prune` | Sanea artefactos temporales de pruebas y cachés de Docker (soporta modo simulación y fallback Alpine). |
 | **`audit_security_stig_owasp`**| `project_path`, `max_findings` | Audita estáticamente 24 reglas DISA/OWASP y Anti-Silo (`SEC-01` a `SEC-16`, `QA-KARATE-IDEMP`, `QA-COV-01`, `QA-MYPY-01`, `QA-PG17-RLS`, `QA-SMOKE-01`, `QA-HEALTH-01`, `UI-11X-01`, `UI-11X-02`, incluyendo PostgreSQL RLS `after_begin`, cadena WORM `seq_num`, propagación de credenciales efímeras, continuidad Pre-Auth multi-etapa y contrato de `healthcheck` real en orquestadores/workers) con agrupación compacta (`groupFindingsByRule`) y límite `max_findings`. |
 | **`run_ephemeral_qa`** | `project_path`, `stage`, `timeout_seconds`, `skip_if_docs_only` | Ejecuta targets del `Makefile` en Docker efímero bajo la Regla Cero y condensa la salida a JSON (soporta `skip_if_docs_only`). |
-| **`certify_11x_gate`** | `project_path` | Ejecución de la compuerta de certificación de cierre (secretos, JSON, componentes UI, ORM, STIG, paridad Dual-Consumer docs). |
+| **`certify_11x_gate`** | `project_path` | Ejecución de la compuerta de certificación de cierre (secretos, JSON, componentes UI, ORM, STIG, paridad Dual-Consumer docs y aviso `update_available`). |
 | **`audit_test_pyramid_gaps`** | `project_path`, `stack`, `max_items` | Audita estáticamente las 13 capas de la pirámide 11X (`L01` a `L13`, incluyendo Ciclo Temporal de 3 Fases en `L13` y Refresco Dual en `L07`), detecta archivos huérfanos, endpoints sin BDD, vistas sin E2E y genera un plan de rescate priorizado acotado con `max_items`. |
 | **`init_or_append_agents_md`** | `project_path`, `dry_run`, `lang` | Crea `AGENTS.md` si no existe, o añade de forma aditiva y no destructiva el bloque conector de QA 11X (`--lang auto|es|en`) al final de un `AGENTS.md` existente sin modificar reglas previas. |
 | **`propose_skill_evolution_pr`** | `project_path`, `target_blueprint_file`, `target_human_doc_file`, `target_mcp_component`, `improvement_title`, `empirical_rationale`, `proposed_content_or_snippet`, `proposed_human_doc_summary`, `prefer_offline_fallback` | Propone mejoras federadas **Dual-Consumer** (Skill IA + Auditor MCP + Manual Humano en `docs/01..04_*.md`) a `qa-testing-blueprints` mediante `gh` CLI local autenticado o generando propuesta local con matriz de 3 capas y URL prellenada de GitHub. |
 | **`reconcile_agents_governance`** | `project_path`, `dry_run` | Reconcilia y deduplica reglas en `.agents/` para proyectos adoptantes, podando directivas ya promovidas a `qa-testing-blueprints`, aislando reglas de dominio en `domain_<project>_rules.md` y respaldando en `.agents/backups/<timestamp>/`. |
 
-### 6.5. Actualización del Servidor MCP, Skills y Documentación en el IDE y Validación Criptográfica
+### 6.5. Auto-Sincronización Global en Arranque, Detección `update_available` y Validación Criptográfica
 
-Dado que el transporte `stdio` mantiene vivo el subproceso de Node.js mientras el IDE está abierto y tanto `npx` (`~/.npm/_npx`) como el cliente de recursos (`~/.cache/qa-11x-blueprints`) almacenan cachés en disco, tras publicar una nueva versión en `npmjs.com` o actualizar el repositorio debes ejecutar el siguiente protocolo de actualización y verificación:
+A partir de `v2.20.0`, `@sinfallas/mcp-qa-11x` incorpora tres mecanismos automáticos de ciclo de vida:
+1. **Sello `.qa-11x-version`:** `install-skill` (tanto vía CLI como `scripts/install-skill.sh`) estampa `.qa-11x-version` en los directorios de skills y en `<proyecto>/.agents/.qa-11x-version` al instalar `--include-scripts`.
+2. **Auto-Sync Silencioso en Segundo Plano (`stdio`):** En cada arranque del servidor MCP sobre `stdio`, sincroniza de forma no bloqueante (verificando `ETag` + `SHA-256` contra `manifest.json`) las skills globales ya instaladas (`~/.gemini`, `~/.claude`, `~/.cursor`, `~/.codeium/windsurf`, `~/.codex`, `~/.hermes`) preservando el idioma configurado en `~/.gemini/GEMINI.md`.
+3. **Aviso Estructurado `update_available` (TTL 24 h *Fail-Open*):** Las herramientas `inspect_project_config` y `certify_11x_gate` devuelven `update_available` para que el propio asistente notifique en el chat si el servidor MCP, las skills globales o los scripts locales del proyecto requieren actualización.
+
+Si además deseas forzar manualmente la purga de cachés de `npx` (`~/.npm/_npx`) y blueprints (`~/.cache/qa-11x-blueprints`), ejecuta el siguiente protocolo:
 
 #### 1. Purga de Cachés y Rehidratación Completa
 ```bash

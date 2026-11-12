@@ -138,26 +138,29 @@ fi
 echo "🧹 [0/5] Saneando espacio de trabajo..."
 "${REPO_ROOT}/scripts/limpieza.sh" --quiet
 
+CURRENT_UID="$(id -u)"
+CURRENT_GID="$(id -g)"
+
 # 4. Paso 1: Hidratación de dependencias y Verificación de Calidad (Rule Zero)
 echo "🔍 [1/5] Verificando dependencias, Lint & Typecheck en Docker efímero..."
-docker run --rm -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" sh -c \
+docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" sh -c \
   "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run lint && pnpm --silent run typecheck"
 
 # 5. Paso 2: Pruebas Unitarias con Cobertura >= 95%
 if [ "$SKIP_TESTS" = false ]; then
   echo "🧪 [2/5] Ejecutando pruebas unitarias con cobertura en Docker efímero..."
-  docker run --rm -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run test:unit
+  docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run test:unit
 else
   echo "🧪 [2/5] Omitiendo pruebas unitarias (--skip-tests activado)."
 fi
 
 # 6. Paso 3: Compilación TypeScript a dist/
 echo "⚙️ [3/5] Compilando TypeScript a dist/..."
-docker run --rm -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run build
+docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run build
 
 # 7. Paso 4: Auditoría de empaquetado (Dry-Run de npm pack)
 echo "📦 [4/5] Validando empaquetado (npm pack --dry-run)..."
-PACK_SUMMARY=$(docker run --rm -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" npm pack --dry-run 2>&1 | grep -E "package size:|unpacked size:|total files:|\.tgz" || true)
+PACK_SUMMARY=$(docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" npm pack --dry-run 2>&1 | grep -E "package size:|unpacked size:|total files:|\.tgz" || true)
 # shellcheck disable=SC2001
 echo "${PACK_SUMMARY}" | sed 's/^/  /'
 
@@ -203,6 +206,8 @@ if [ -t 0 ] && [ -t 1 ]; then
 fi
 
 if ! docker run --rm "${DOCKER_TTY_ARGS[@]}" \
+  -u "${CURRENT_UID}:${CURRENT_GID}" \
+  -e HOME=/tmp \
   -v "${MCP_DIR}:/app" \
   -w /app \
   -e NPM_TOKEN="${NPM_TOKEN}" \

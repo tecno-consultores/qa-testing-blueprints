@@ -2,7 +2,7 @@
   <img src="assets/qa-logo.jpeg" alt="QA Testing Blueprints Logo" width="320" style="max-width: 100%; height: auto; border-radius: 8px;" />
 </p>
 
-# QA Testing Blueprints (Estándar Corporativo Nivel 11X)
+# QA Testing Blueprints (Estándar Corporativo Nivel 11X) a.k.a. QA 11X
 
 Bienvenido a **QA Testing Blueprints**, el repositorio central de estándares, arquitecturas de prueba, buenas prácticas de ingeniería y gobernanza para **Agentes de Inteligencia Artificial** (Google Antigravity, Claude Code / Claude Desktop, Hermes Agent de Nous Research, Cursor, Windsurf) y desarrolladores humanos en la creación de software de nivel corporativo.
 
@@ -15,10 +15,10 @@ Este proyecto estandariza la forma en que construimos y validamos software, gara
 1. **Efimeridad Absoluta (Cero Docker Build en Pruebas):** Toda la infraestructura de validación se levanta al vuelo consumiendo nuestra flota de imágenes oficiales en [Docker Hub](https://hub.docker.com/u/sinfallas), junto a motores certificados de base de datos y memoria:
    * [sinfallas/base-python-uv](https://hub.docker.com/r/sinfallas/base-python-uv) (Tags: `3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest`).
    * [sinfallas/base-node-ionic](https://hub.docker.com/r/sinfallas/base-node-ionic) (Tags: `22`, `24`, `26` y `latest`).
-   * [sinfallas/basephpcomposer](https://hub.docker.com/r/sinfallas/basephpcomposer) (Tags: `8.2`, `8.3`, `8.4`, `8.5` y `latest` — Multi-Arch `amd64`/`arm64` con `pcov`, `redis`, `pdo_pgsql`, `intl`, `sodium`).
-   * [sinfallas/base-bash-qa](https://hub.docker.com/r/sinfallas/base-bash-qa):latest.
-   * [sinfallas/karatelabs](https://hub.docker.com/r/sinfallas/karatelabs):latest para BDD de API y UI en Chrome Headless.
-   * [sinfallas/remote-graphify](https://hub.docker.com/r/sinfallas/remote-graphify):latest para Optimización de Contexto IA y Radio de Impacto (Blast Radius).
+   * [sinfallas/basephpcomposer](https://hub.docker.com/r/sinfallas/basephpcomposer) (Tags: `8.2`, `8.3`, `8.4`, `8.5` y `latest`).
+   * [sinfallas/base-bash-qa](https://hub.docker.com/r/sinfallas/base-bash-qa).
+   * [sinfallas/karatelabs](https://hub.docker.com/r/sinfallas/karatelabs) para BDD de API y UI en Chrome Headless.
+   * [sinfallas/remote-graphify](https://hub.docker.com/r/sinfallas/remote-graphify) para Optimización de Contexto IA y Radio de Impacto (Blast Radius).
    * `postgres:17-alpine` y `eqalpha/keydb:alpine` (multi-hilo) con healthchecks nativos.
 2. **Dependencias al Vuelo y Aislamiento de Red:** Los paquetes se resuelven en tiempo de ejecución utilizando volúmenes de caché persistentes (`pnpm-store` o `uv-cache`). Las pruebas unitarias tienen prohibido salir a internet; deben aislarse estrictamente.
 3. **Validación Transversal Multi-Capa (Métricas Innegociables):**

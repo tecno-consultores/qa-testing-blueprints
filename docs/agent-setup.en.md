@@ -263,7 +263,10 @@ Hermes Agent uses **YAML** for its primary configuration file.
 
 ---
 
-## 🔄 Step 3: Clean Cache Refresh & Verification
+## 🔄 Step 3: Auto-Sync, `update_available` Notice & Clean Cache Refresh
+
+> [!TIP]
+> Starting in `v2.20.0`, on every `stdio` startup the MCP server silently auto-syncs pre-installed global skills via `SHA-256` verification in the background, and exposes structured `update_available` metadata in `inspect_project_config` and `certify_11x_gate` (backed by `.qa-11x-version` stamps and a 24h fail-open TTL cache) so your AI assistant notifies you whenever local project scripts drift behind the latest release.
 
 To force a clean update clearing cached npm binaries and stale blueprint templates:
 

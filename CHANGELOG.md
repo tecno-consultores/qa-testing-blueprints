@@ -8,6 +8,14 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ---
 
+## [2.20.0] - 2026-11-12
+
+### 🔄 Detección de Actualizaciones sin Red Redundante, Aviso `update_available` y Auto-Sync Global de Skills (Added & Changed)
+* **Sello `.qa-11x-version`, Caché TTL 24h *Fail-Open* y Aviso Estructurado `update_available` (`v2.20.0`):** Incorporado `mcp-server/src/services/version-manager.ts` estampando `.qa-11x-version` en `install-skill` (`install-skill.ts` e `install-skill.sh`) y exponiendo `update_available` (`agent_notice` + `recommended_command`) en `inspect_project_config` y `certify_11x_gate`, reutilizando `manifest.json` (`ETag`) y caché de 24 h (`latest-version-check.json`) con *fail-open* offline.
+* **Auto-Sincronización Silenciosa de Skills Globales al Arranque del MCP (`stdio`):** Al iniciar en modo `stdio`, `@sinfallas/mcp-qa-11x` sincroniza en segundo plano no bloqueante (`syncGlobalSkillsInBackground`, verificando `SHA-256` contra `manifest.json` y preservando el idioma del conector en `~/.gemini/GEMINI.md`) las skills globales ya instaladas (`~/.gemini`, `~/.claude`, `~/.cursor`, `~/.codeium/windsurf`, `~/.codex`, `~/.hermes`), certificado con 337 tests Vitest (`99.11%` líneas / `95.19%` ramas) y 24 escenarios Karate BDD.
+
+---
+
 ## [2.19.0] - 2026-11-11
 
 ### 🛡️ Invariante `QA-HEALTH-01`, Nivelación Documental Humana 1:1 y Gobernanza Dual-Consumer (Added, Changed & Fixed)

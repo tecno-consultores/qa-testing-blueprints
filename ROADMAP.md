@@ -34,6 +34,7 @@
 | **Hito 17** | Paridad Pre-Push 1:1 con CI (`v2.17.0`) en MCP `qa-11x`: Sello de Evidencia `lint`, Stages `integration`/`ci`, Parser de Endpoints Dinámicos e Invariantes Python/PostgreSQL 17 (`QA-MYPY-01`, `QA-PG17-RLS`, `importlib`) | `03-stack-python-fastapi.md` + `08-postgres-rls-zero-downtime-migrations.md` | ✅ Completado | `100%` |
 | **Hito 18** | Internacionalización v2.18.0: Idioma Espejo Dinámico, Flag `--lang (auto/es/en)`, Targets `codex`/`windsurf` y Guías Multi-Agente EN/ES | [`docs/agent-setup.md`](docs/agent-setup.md) + [`docs/agent-setup.en.md`](docs/agent-setup.en.md) | ✅ Completado | `100%` |
 | **Hito 19** | Invariante Anti-Silo #9 (`QA-HEALTH-01`), Nivelación Documental Humana 1:1 (`docs/02` y `docs/04`) y Gobernanza Dual-Consumer en `propose_skill_evolution_pr` y `verify_docs_invariants.py` | [`docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md`](docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md) + `SECURITY.md` §4.22 | ✅ Completado | `100%` |
+| **Hito 20** | Detección de Versión sin Red Redundante (`.qa-11x-version` + TTL 24h Fail-Open), Aviso `update_available` en Tools y Auto-Sync Global de Skills por SHA-256 (`v2.20.0`) | [`docs/ai-integration.md`](docs/ai-integration.md) + [`docs/agent-setup.md`](docs/agent-setup.md) | ✅ Completado | `100%` |
 
 ---
 
@@ -269,10 +270,14 @@
 - [x] **19.3.** Incorporar la matriz **Dual-Consumer** (Skill IA + Auditor MCP + Manual Humano) en `propose_skill_evolution_pr` (`types.ts`, `propose-evolution-pr.ts`, `server.ts`), en `.agents/rules/continuous_agent_evolution.md` y en el validador automático `check_dual_consumer_parity` de `.agents/scripts/verify_docs_invariants.py`.
 - [x] **19.4.** Validar con suites unitarias y BDD en Docker efímero (`qa-health-dual-consumer.unit.ts`, `test_verify_docs_invariants.unit.py` y Karate BDD Escenario 23), regenerar `manifest.json` + grafos AST y superar la compuerta 10/10.
 
+---
 
+## ✅ Hito 20: Detección de Versión sin Red Redundante (`.qa-11x-version` + TTL 24h Fail-Open), Aviso `update_available` en Tools y Auto-Sync Global de Skills por SHA-256 (`v2.20.0`)
+**Referencia Obligatoria:** [`docs/ai-integration.md`](docs/ai-integration.md) y [`docs/agent-setup.md`](docs/agent-setup.md)
 
-
-
-
-
+### Tareas de Implementación:
+- [x] **20.1.** Implementar `mcp-server/src/services/version-manager.ts` con estampado determinista `.qa-11x-version` en `install-skill.ts` y `scripts/install-skill.sh`, reutilización de `manifest.json` (`ETag`) y caché `latest-version-check.json` (TTL `24 h` con *fail-open* offline).
+- [x] **20.2.** Exponer el campo estructurado `update_available` (`agent_notice` y `recommended_command`) en `inspect_project_config` y `certify_11x_gate` para notificación proactiva a través del agente de IA sin contaminar `stdout` JSON-RPC.
+- [x] **20.3.** Incorporar `syncGlobalSkillsInBackground` en el arranque `stdio` del servidor MCP (`index.ts`) para sincronizar silenciosamente por `SHA-256` las skills globales preinstaladas preservando el idioma del conector en `~/.gemini/GEMINI.md`.
+- [x] **20.4.** Certificar con `tests/version-manager.unit.ts` (`337/337` tests Vitest `>= 95%`), Escenario 24 en `mcp_cli_test.feature`, actualización de `manifest.json` y grafos AST, y publicación `v2.20.0` en `npmjs`.
 

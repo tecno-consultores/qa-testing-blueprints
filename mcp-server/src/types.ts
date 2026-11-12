@@ -196,6 +196,32 @@ export interface BrowserTestingReadiness {
   install_instructions: string[]; // Comandos claros o invocación de bootstrap_or_merge_11x
 }
 
+export interface VersionStampData {
+  blueprint_version: string;
+  mcp_version: string;
+  updated_at_utc: string;
+}
+
+export interface UpdateAvailabilityInfo {
+  update_needed: boolean;
+  latest_version: string;
+  running_mcp_version: string;
+  installed_global_skills_version: string | null;
+  installed_project_scripts_version: string | null;
+  mcp_outdated: boolean;
+  global_skills_outdated: boolean;
+  project_scripts_outdated: boolean;
+  recommended_command: string | null;
+  agent_notice: string | null;
+}
+
+export interface GlobalSkillAutoSyncResult {
+  synced: boolean;
+  manifest_version: string | null;
+  target_dirs: string[];
+  updated_files_count: number;
+}
+
 export interface ProjectAuditResult {
   project_path: string;
   detected_stacks: string[];
@@ -215,6 +241,7 @@ export interface ProjectAuditResult {
   missing_11x_files: string[];
   recommended_next_tool: string;
   browser_testing_readiness?: BrowserTestingReadiness;
+  update_available?: UpdateAvailabilityInfo;
 }
 
 export interface MergeResultItem {
@@ -355,6 +382,7 @@ export interface CertifyGateResult {
   };
   blockers: string[];
   upstream_evolution_reminder?: string;
+  update_available?: UpdateAvailabilityInfo;
 }
 
 export interface GitHubFetcherOptions {

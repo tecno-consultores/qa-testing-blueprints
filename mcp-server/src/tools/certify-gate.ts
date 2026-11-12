@@ -6,12 +6,17 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { execFileSync } from 'child_process';
 import { checkLintEvidenceForDirtyCode } from '../services/qa-evidence.js';
+import {
+  evaluateUpdateStatus,
+  type EvaluateUpdateOptions,
+} from '../services/version-manager.js';
 import { auditSecurityStigOwasp } from './security-auditor.js';
 import { CertifyGateResult } from '../types.js';
 
 export interface CertifyGateOptions {
   requireLintEvidence?: boolean;
   execFileSyncFn?: typeof execFileSync;
+  updateOptions?: Partial<Omit<EvaluateUpdateOptions, 'projectPath'>>;
 }
 
 function isQaTestingBlueprintsRepo(projectPath: string): boolean {
@@ -832,6 +837,10 @@ export async function certify11xGate(
   };
 
   const gatePassed = allBlockers.length === 0;
+  const updateAvailable = await evaluateUpdateStatus({
+    projectPath: resolvedPath,
+    ...options?.updateOptions,
+  });
 
   return {
     gate_passed: gatePassed,
@@ -840,5 +849,6 @@ export async function certify11xGate(
     blockers: allBlockers,
     upstream_evolution_reminder:
       'MANDATORY POST-MORTEM CHECK: If this fixed a UAT/prod bug that bypassed tests, present "💡 Oportunidad de Mejora Detectada para el Estándar QA 11X" in Spanish and invoke propose_skill_evolution_pr.',
+    update_available: updateAvailable,
   };
 }

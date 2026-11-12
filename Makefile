@@ -26,12 +26,12 @@ audit:
 
 lint:
 	@echo "🔍 [Lint] Ejecutando linter y chequeo de tipos en Docker efímero..."
-	@docker run --rm -v "$$(pwd)/mcp-server:/app" -w /app sinfallas/base-node-ionic:26 bash -c '[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run lint && pnpm --silent run typecheck'
+	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd)/mcp-server:/app" -w /app sinfallas/base-node-ionic:26 bash -c '[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run lint && pnpm --silent run typecheck'
 	@echo "✔ [Lint & Typecheck] 0 errores ni advertencias."
 
 test-mcp:
 	@echo "🧪 [Test MCP] Ejecutando pruebas unitarias Vitest (>= 95%) en Docker efímero..."
-	@docker run --rm -v "$$(pwd)/mcp-server:/app" -w /app sinfallas/base-node-ionic:26 bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run test:unit && rm -rf coverage .eslintcache"
+	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd)/mcp-server:/app" -w /app sinfallas/base-node-ionic:26 bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run test:unit && rm -rf coverage .eslintcache"
 
 test-karate:
 	@echo "🎭 [Karate BDD] Ejecutando contratos BDD del MCP Server en Docker efímero..."

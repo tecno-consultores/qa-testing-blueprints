@@ -170,8 +170,10 @@ fi
 # Formato de salida: <path> <sha256> <size>
 SKILL_INDEX="${TMP_DIR}/skill_files.txt"
 if command -v jq >/dev/null 2>&1; then
+  BLUEPRINT_VERSION="$(jq -r '.blueprint_version // "unknown"' "${MANIFEST_FILE}")"
   jq -r '.agent_governance_files[] | select(.path | startswith(".agents/skills/")) | "\(.path) \(.sha256) \(.size_bytes)"' "${MANIFEST_FILE}" >"${SKILL_INDEX}"
 elif command -v python3 >/dev/null 2>&1; then
+  BLUEPRINT_VERSION="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8")).get("blueprint_version", "unknown"))' "${MANIFEST_FILE}")"
   python3 -c '
 import json, sys
 data = json.load(open(sys.argv[1], encoding="utf-8"))
@@ -302,10 +304,12 @@ done <"${SKILL_INDEX}"
 log_ok "Integridad SHA-256 certificada (${VERIFIED_COUNT}/${TOTAL_FILES} archivos verificados)."
 
 # Instalar archivos validados en cada destino
+STAMP_UTC="$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "2026-01-01T00:00:00Z")"
 printf '%s\n' "${DEST_DIRS}" | while IFS= read -r dest; do
   [ -z "${dest}" ] && continue
   mkdir -p "${dest}"
   cp -R "${VERIFIED_STAGING}/"* "${dest}/"
+  printf '{\n  "blueprint_version": "%s",\n  "mcp_version": "%s",\n  "updated_at_utc": "%s"\n}\n' "${BLUEPRINT_VERSION}" "${BLUEPRINT_VERSION}" "${STAMP_UTC}" >"${dest}/.qa-11x-version"
   log_ok "Skills instaladas en: ${dest}"
 done
 
@@ -345,6 +349,8 @@ for item in items:
     cp "${s_tmp}" "./${s_path}"
     chmod +x "./${s_path}"
   done <"${SCRIPT_INDEX}"
+  mkdir -p "./.agents"
+  printf '{\n  "blueprint_version": "%s",\n  "mcp_version": "%s",\n  "updated_at_utc": "%s"\n}\n' "${BLUEPRINT_VERSION}" "${BLUEPRINT_VERSION}" "${STAMP_UTC}" >"./.agents/.qa-11x-version"
   log_ok "Scripts de automatización instalados en $(pwd) (excluyendo publicar-mcp.sh)."
 fi
 

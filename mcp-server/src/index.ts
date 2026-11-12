@@ -8,6 +8,7 @@ import { runInstallSkillCli } from './cli/install-skill.js';
 import { runInitAgentsCli } from './cli/init-agents-md.js';
 import { runReconcileAgentsCli } from './cli/reconcile-agents.js';
 import { GitHubFetcher, MCP_SERVER_VERSION } from './services/github-fetcher.js';
+import { syncGlobalSkillsInBackground } from './services/version-manager.js';
 
 export const CLI_HELP_TEXT = `
 @sinfallas/mcp-qa-11x v${MCP_SERVER_VERSION} — Official MCP Server & Skill Installer for QA Testing Blueprints
@@ -75,7 +76,9 @@ export async function dispatchCliArgs(args: string[], fetcher?: GitHubFetcher): 
 export async function main(
   argv: string[] = process.argv.slice(2),
   startStdio?: () => Promise<void>,
-  exitFn: (code: number) => void = (code) => process.exit(code)
+  exitFn: (code: number) => void = (code) => process.exit(code),
+  autoSyncFn: (fetcher: GitHubFetcher) => Promise<unknown> = (fetcher) =>
+    syncGlobalSkillsInBackground({ fetcher })
 ): Promise<void> {
   const outcome = await dispatchCliArgs(argv);
   if (outcome !== 'stdio') {
@@ -88,10 +91,14 @@ export async function main(
     return;
   }
 
-  // Modo Servidor MCP estándar sobre stdio
-  const server = createMcpServer();
+  // Modo Servidor MCP estándar sobre stdio + Auto-sync no bloqueante de skills globales
+  const fetcher = new GitHubFetcher();
+  const server = createMcpServer({ fetcher });
   const transport = new StdioServerTransport();
   await server.connect(transport);
+  if (process.env.QA_DISABLE_AUTO_SYNC !== '1') {
+    void autoSyncFn(fetcher);
+  }
 }
 
 const isDirectExecution =
