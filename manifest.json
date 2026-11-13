@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.20.3",
-  "generated_at_utc": "2026-11-13T19:11:29Z",
+  "generated_at_utc": "2026-11-13T19:27:54Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -714,8 +714,8 @@
       "path": ".agents/rules/mandatory_qa_pyramid_and_doc_sync.md",
       "target_name": ".agents/rules/mandatory_qa_pyramid_and_doc_sync.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "8401b6e3642f71f3a401233ee9dc71303a9c96074ecee1ebf32852ab18b4f66d",
-      "size_bytes": 12238
+      "sha256": "28ed102accc12a9fdc573bdcbc2b3d84d5351811cf7279265e9937fd7a55b26c",
+      "size_bytes": 13696
     },
     {
       "path": ".agents/rules/secure_development_and_testing_guidelines.md",
@@ -812,8 +812,8 @@
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "488e473af0872613f0d7167187e6a936953d1fc01432b27476d3a593ee5a2113",
-      "size_bytes": 19907
+      "sha256": "6909c9736e029228acf9515b9c854ab48923ca186cc32eccc7455af20fa3276a",
+      "size_bytes": 11531
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
