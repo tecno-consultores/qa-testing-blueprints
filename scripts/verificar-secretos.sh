@@ -48,11 +48,11 @@ if [ "${#TARGET_FILES[@]}" -gt 0 ] && [ "${#FILTERED_FILES[@]}" -eq 0 ]; then
 fi
 
 SECRET_REGEX='-----BEGIN (RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----|((npm|ghp|gho|ghu|ghs)_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|glpat-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16})|(password|passwd|secret|api_key|token)[=:] *["'\'']?[A-Za-z0-9_/-]{16,}["'\'']?'
-PLACEHOLDER_REGEX='(TU_TOKEN|placeholder|example|dummy|test-load-token|mock|fake|changeme|xxxxxx|123456|env\.|process\.env|os\.environ|\$\{)'
+PLACEHOLDER_REGEX='(TU_TOKEN|placeholder|example|dummy|test-load-token|mock|fake|changeme|ephemeral|xxxxxx|123456|env\.|process\.env|os\.environ|\$\{)'
 
 MATCHED_FILES=()
 for f in "${FILTERED_FILES[@]}"; do
-  HITS=$(grep -niE "${SECRET_REGEX}" "$f" 2>/dev/null | grep -viE "${PLACEHOLDER_REGEX}" || true)
+  HITS=$(grep -niE -e "${SECRET_REGEX}" -- "$f" 2>/dev/null | grep -viE -e "${PLACEHOLDER_REGEX}" || true)
   if [ -n "${HITS}" ]; then
     MATCHED_FILES+=("$f")
   fi

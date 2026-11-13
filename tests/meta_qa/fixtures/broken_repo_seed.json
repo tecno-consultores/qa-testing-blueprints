@@ -1,0 +1,210 @@
+{
+  "schema_version": "1.0.0",
+  "description": "Catálogo trimodal Meta-QA (Virgin, Nominal, Broken) para auditar .agents/scripts/ sin falsos positivos ni negativos.",
+  "virgin_minimal": {
+    "files": [
+      {
+        "path": "README.md",
+        "content": "# Minimal Seed Repo\n"
+      }
+    ]
+  },
+  "nominal_valid": {
+    "seal_manifest": true,
+    "files": [
+      {
+        "path": "README.md",
+        "content": "# Nominal Valid Repo\n\nEste repositorio semilla verifica invariantes QA 11X con 9 resources.\n"
+      },
+      {
+        "path": "AGENTS.md",
+        "content": "# Governance Directives\n\nGuardia activa QA-GIT-GATE-01.\n"
+      },
+      {
+        "path": ".agents/rules/git_closure_gate.md",
+        "content": "# Git Closure Gate\n\nRegla QA-GIT-GATE-01.\n"
+      },
+      {
+        "path": ".agents/skills/qa-11x-architect/SKILL.md",
+        "content": "# QA 11X Architect\n\n### 2.1. Reglas (1 UAT Anti-Blindness Rules)\n\n1. **Unmocked Cross-Module State Propagation:** Verificado.\n"
+      },
+      {
+        "path": "docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md",
+        "content": "# Buenas Prácticas 11X\n\n### 1.1. Reglas (**1 reglas obligatorias de diseño de pruebas**)\n\n1. **Propagación entre módulos:** Verificado.\n"
+      },
+      {
+        "path": ".agents/ACTIVE_TASK.md",
+        "content": "# Active Task\n\n- **Tarea:** Seed Nominal\n- **Estado:** `COMPLETED (100%)`\n\n## Checklist\n- [x] Seed validado\n"
+      },
+      {
+        "path": "ROADMAP.md",
+        "content": "# Roadmap\n\n| Hito | Nombre | Spec | Estado | Progreso |\n| --- | --- | --- | --- | --- |\n| **Hito 1** | Base | Spec 01 | ✅ Completado | 100% |\n\n## ✅ Hito 1: Base\n- [x] Inicializar base\n"
+      },
+      {
+        "path": "config/i18n.json",
+        "content": "{\n  \"app\": {\n    \"title\": \"QA Blueprint\",\n    \"save\": \"Guardar\"\n  }\n}\n"
+      },
+      {
+        "path": "vue3/src/components/DeviceCard.vue",
+        "content": "<template><div>Device</div></template>\n<script setup lang=\"ts\">\nhttp.get(\"/api/v1/devices\");\n</script>\n"
+      },
+      {
+        "path": "vue3/tests/DeviceCard.spec.ts",
+        "content": "import DeviceCard from \"../src/components/DeviceCard.vue\";\nexport const mounted = DeviceCard;\n"
+      },
+      {
+        "path": "fastapi/src/api/v1/devices.py",
+        "content": "from fastapi import APIRouter\n\nrouter = APIRouter(prefix=\"/api/v1/devices\")\n\n@router.get(\"/\")\nasync def list_devices() -> list[dict[str, str]]:\n    return []\n"
+      },
+      {
+        "path": "fastapi/src/services/device_service.py",
+        "content": "def fetch_devices() -> list[str]:\n    return []\n"
+      },
+      {
+        "path": "fastapi/src/models/device.py",
+        "content": "class Device:\n    __tablename__ = \"devices\"\n"
+      },
+      {
+        "path": "fastapi/migrations/versions/20261113_01_devices.py",
+        "content": "revision = \"20261113_01_devices\"\ndown_revision = None\n\ndef upgrade() -> None:\n    op.create_table(\"devices\")\n"
+      },
+      {
+        "path": "graphify-out/graph.json",
+        "content": "{\n  \"nodes\": [\n    {\"id\": \"n_api\", \"label\": \"list_devices\", \"source_file\": \"fastapi/src/api/v1/devices.py\", \"source_location\": \"6\"},\n    {\"id\": \"n_svc\", \"label\": \"fetch_devices\", \"source_file\": \"fastapi/src/services/device_service.py\", \"source_location\": \"1\"},\n    {\"id\": \"n_mdl\", \"label\": \"Device\", \"source_file\": \"fastapi/src/models/device.py\", \"source_location\": \"1\"}\n  ],\n  \"links\": [\n    {\"source\": \"n_api\", \"target\": \"n_svc\", \"relation\": \"calls\", \"context\": \"call\"},\n    {\"source\": \"n_svc\", \"target\": \"n_mdl\", \"relation\": \"calls\", \"context\": \"import\"}\n  ]\n}\n"
+      }
+    ]
+  },
+  "seeded_failures": {
+    "duplicate_json_keys": {
+      "validator": "verify_json_no_duplicate_keys.py",
+      "expected_outputs": ["Claves duplicadas detectadas"],
+      "files": [
+        {
+          "path": "config/dup.json",
+          "raw_content": "{\n  \"status\": \"ok\",\n  \"status\": \"error\"\n}\n"
+        }
+      ]
+    },
+    "orphan_vue_component": {
+      "validator": "verify_zero_orphan_vue_components.py",
+      "expected_outputs": ["OrphanPanel.vue", "huérfano"],
+      "files": [
+        {
+          "path": "vue3/src/components/OrphanPanel.vue",
+          "content": "<template><section>Orphan</section></template>\n"
+        }
+      ]
+    },
+    "api_404_and_orphan_route": {
+      "validator": "verify_no_orphan_api_endpoints.py",
+      "expected_outputs": ["endpoints inexistentes", "endpoint(s) backend huérfano(s)"],
+      "files": [
+        {
+          "path": "vue3/src/components/DeviceCard.vue",
+          "content": "<template><div>Device</div></template>\n<script setup lang=\"ts\">\nhttp.get(\"/api/v1/devices\");\nhttp.get(\"/api/v1/missing\");\n</script>\n"
+        },
+        {
+          "path": "fastapi/src/api/v1/devices.py",
+          "content": "from fastapi import APIRouter\n\nrouter = APIRouter(prefix=\"/api/v1/devices\")\n\n@router.get(\"/\")\nasync def list_devices() -> list[dict[str, str]]:\n    return []\n\n@router.delete(\"/orphan\")\nasync def delete_orphan() -> dict[str, bool]:\n    return {\"ok\": True}\n"
+        }
+      ]
+    },
+    "topological_layer_violation": {
+      "validator": "verify_topological_health.py",
+      "expected_outputs": ["Acoplamiento inverso"],
+      "files": [
+        {
+          "path": "graphify-out/graph.json",
+          "content": "{\n  \"nodes\": [\n    {\"id\": \"n_api\", \"label\": \"list_devices\", \"source_file\": \"fastapi/src/api/v1/devices.py\", \"source_location\": \"6\"},\n    {\"id\": \"n_mdl\", \"label\": \"Device\", \"source_file\": \"fastapi/src/models/device.py\", \"source_location\": \"1\"}\n  ],\n  \"links\": [\n    {\"source\": \"n_mdl\", \"target\": \"n_api\", \"relation\": \"calls\", \"context\": \"import\"}\n  ]\n}\n"
+        }
+      ]
+    },
+    "alembic_unmigrated_table": {
+      "validator": "verify_alembic_orm_parity.py",
+      "expected_outputs": ["modelos ORM huérfanos", "audit_logs"],
+      "files": [
+        {
+          "path": "fastapi/src/models/audit.py",
+          "content": "class AuditLog:\n    __tablename__ = \"audit_logs\"\n"
+        }
+      ]
+    },
+    "alembic_revision_too_long": {
+      "validator": "verify_alembic_orm_parity.py",
+      "expected_outputs": ["VARCHAR(32)"],
+      "files": [
+        {
+          "path": "fastapi/migrations/versions/20261113_02_long.py",
+          "content": "revision = \"20261113_revision_identifier_exceeding_32_chars\"\ndown_revision = \"20261113_01_devices\"\n\ndef upgrade() -> None:\n    pass\n"
+        }
+      ]
+    },
+    "roadmap_table_desync": {
+      "validator": "verify_roadmap_consistency.py",
+      "expected_outputs": ["Inconsistencia en Hito 1"],
+      "files": [
+        {
+          "path": "ROADMAP.md",
+          "content": "# Roadmap\n\n| Hito | Nombre | Spec | Estado | Progreso |\n| --- | --- | --- | --- | --- |\n| **Hito 1** | Base | Spec 01 | ✅ Completado | 100% |\n\n## ✅ Hito 1: Base\n- [x] Inicializar base\n- [ ] Pendiente sin actualizar\n"
+        }
+      ]
+    },
+    "active_task_completed_with_pending": {
+      "validator": "verify_roadmap_consistency.py",
+      "expected_outputs": ["casillas pendientes"],
+      "files": [
+        {
+          "path": ".agents/ACTIVE_TASK.md",
+          "content": "# Active Task\n\n- **Estado:** `COMPLETED (100%)`\n\n## Checklist\n- [ ] Tarea pendiente\n"
+        }
+      ]
+    },
+    "sync_gov_skill_over_20kb": {
+      "validator": "sync_governance.py",
+      "expected_outputs": ["presupuesto cognitivo"],
+      "files": [
+        {
+          "path": ".agents/skills/qa-11x-architect/SKILL.md",
+          "repeat_char": {
+            "char": "x",
+            "count": 20480
+          }
+        }
+      ]
+    },
+    "sync_gov_active_task_over_40l": {
+      "validator": "sync_governance.py",
+      "expected_outputs": ["límite compacto"],
+      "files": [
+        {
+          "path": ".agents/ACTIVE_TASK.md",
+          "repeat_lines": {
+            "prefix": "- **Estado:** `COMPLETED (100%)`\n",
+            "line": "- [x] línea compacta",
+            "count": 41
+          }
+        }
+      ]
+    },
+    "sync_gov_tampered_sha256": {
+      "validator": "sync_governance.py",
+      "expected_outputs": ["Hash SHA-256 discrepante"],
+      "files": [
+        {
+          "path": "AGENTS.md",
+          "content": "# Governance Directives\n\nModificado después de sellar manifest.json.\n"
+        }
+      ]
+    },
+    "docs_invariants_stale_pattern": {
+      "validator": "verify_docs_invariants.py",
+      "expected_outputs": ["[Docs Invariants]", "8 recursos"],
+      "files": [
+        {
+          "path": "README.md",
+          "content": "# Proyecto\n\nEste blueprint incluye 8 recursos MCP obsoletos.\n"
+        }
+      ]
+    }
+  }
+}

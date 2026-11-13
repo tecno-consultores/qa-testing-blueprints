@@ -6,6 +6,7 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+* **Suite Meta-QA Trimodal para Validadores de Gobernanza (`T1.3`):** Incorporada la batería parametrizada `tests/meta_qa/test_governance_scripts.py` con catálogo semilla `tests/meta_qa/fixtures/broken_repo_seed.json` (`Virgin`, `Nominal` y 12 mutaciones `Broken`), expuesta vía `make test-meta-qa` en `Makefile` (y acoplada en `make test`), remediando el QA-escape `grep -e` en `scripts/verificar-secretos.sh`.
 * **Sincronizador Programático Zero-LLM de Gobernanza (`T1.2`):** Incorporado `.agents/scripts/sync_governance.py` (`--check`, `--with-ast`, stdlib Python 3 pura con validación SHA-256 de `manifest.json`, cero claves JSON duplicadas, `SKILL.md < 20 KB` y `ACTIVE_TASK.md <= 40` líneas), expuesto vía `make sync-governance` en `Makefile` e integrado en `pre-commit` de `lefthook.yml`.
 
 ---
