@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.20.3",
-  "generated_at_utc": "2026-11-13T22:57:17Z",
+  "generated_at_utc": "2026-11-13T23:10:06Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -737,6 +737,13 @@
       "merge_strategy": "overwrite_executable",
       "sha256": "788f95f67fac846b9f4638ad604564fe2340f9d0453623fefd15babf5383f9f6",
       "size_bytes": 9141
+    },
+    {
+      "path": ".agents/scripts/release_readiness_gate.py",
+      "target_name": ".agents/scripts/release_readiness_gate.py",
+      "merge_strategy": "overwrite_executable",
+      "sha256": "87b7fd41d1fe34ac49d325b6c8a815e6734ff49f64c9859185eb5d6eecb669d7",
+      "size_bytes": 29816
     },
     {
       "path": ".agents/scripts/sync_governance.py",
