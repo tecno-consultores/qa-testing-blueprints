@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
+# Orquestador efímero QA 11X — Perfiles transversales endurecidos (k6 / load)
+
+services:
+  k6:
+    image: grafana/k6:2.4.0@sha256:d41bb79cd8de5a7ad619b53570e3712633e8bff0937010a5c6c57a4747e7a276
+    pull_policy: if_not_present
+    profiles:
+      - k6
+      - load
+    user: "${UID:-1000}:${GID:-1000}"
+    working_dir: /work
+    environment:
+      - HOME=/tmp
+    volumes:
+      - .:/work:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
