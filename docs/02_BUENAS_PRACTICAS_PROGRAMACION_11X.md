@@ -80,6 +80,16 @@ La cobertura unitaria (`>= 95%`) mide el porcentaje de líneas ejecutadas, pero 
 
 ---
 
+### 1.2. Invariante de Co-Evolución y Actualización Obligatoria de Pruebas Preexistentes (`QA-TEST-SYNC-01`)
+
+Modificar una función, ruta, esquema, CLI, skill o catálogo (`manifest.json`) sin actualizar las pruebas que verificaban el contrato previo genera deriva silenciosa y falsos negativos diferidos en CI (por ejemplo, conteos `#[N]` obsoletos en contratos `.feature` de Karate BDD o fixtures desfasados en Meta-QA y suites unitarias). Toda modificación legítima debe aplicar simultáneamente estas tres reglas:
+
+- **Auditoría Previa de Tests Consumidores:** Además del radio de impacto en código de producción (`inspect_blast_radius.py`), rastrear todas las suites consumidoras afectadas en `tests/`, `mcp-server/tests/`, `*.feature` y `*.bats` antes de editar.
+- **Sincronización Quirúrgica sin Debilitamiento de Aserciones:** Actualizar de inmediato conteos, esquemas, fixtures, snapshots y expectativas de contrato en las pruebas preexistentes impactadas; queda estrictamente prohibido eliminar o relajar aserciones válidas de regresión para forzar un estado verde.
+- **Re-ejecución Efímera Completa Pre-Commit:** Validar dentro de contenedores Docker efímeros (`Regla Cero`) todas las suites impactadas —incluyendo `Karate BDD` (`sinfallas/karatelabs`) siempre que cambien `mcp-server/`, `.agents/skills/` o `manifest.json`— antes de sellar el `git commit` local.
+
+---
+
 ## 2. Geometría Visual y Anti-JSDOM (Ceguera de Layout)
 
 ### El Problema

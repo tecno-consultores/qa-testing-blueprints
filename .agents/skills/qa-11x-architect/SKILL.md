@@ -20,8 +20,8 @@ Corporate routing orchestrator for Standard 11X v2.0: 3-path proportional execut
 Classify every task before acting. **NEVER run automatic `git push`** (`QA-GIT-GATE-01` — stop at a certified local `git commit` unless the user explicitly authorizes remote push):
 
 - **`DOCS_ONLY` (`*.md` / `docs/**` only):** `0` Docker QA runs, `0` AST rebuilds -> sync docs/`CHANGELOG.md` -> `make sync-governance` -> `certify_11x_gate` (`make certify`) -> local `git commit`.
-- **`MICRO_CHANGE` (`<= 3` files, `LOW` `< 5` callers, `0` new routes/ORM):** 3-line plan -> `inspect_ast_blast_radius` -> targeted unit + stack QA (`run_ephemeral_qa`) -> AST refresh -> `CHANGELOG.md` -> `certify_11x_gate` -> local `git commit`.
-- **`FULL_11X` (`> 3` files, new API/UI, ORM, security, or `MEDIUM`/`HIGH` blast radius):** Full 11-step workflow (`/plan`, `.agents/ACTIVE_TASK.md <= 40L`, full pyramid + proportional API/BDD, docs/specs, AST refresh, `certify_11x_gate` 10/10, local `git commit`).
+- **`MICRO_CHANGE` (`<= 3` files, `LOW` `< 5` callers, `0` new routes/ORM):** 3-line plan -> `inspect_ast_blast_radius` -> sync affected existing unit/BDD tests (`QA-TEST-SYNC-01`) + stack QA (`run_ephemeral_qa`) -> AST refresh -> `CHANGELOG.md` -> `certify_11x_gate` -> local `git commit`.
+- **`FULL_11X` (`> 3` files, new API/UI, ORM, security, or `MEDIUM`/`HIGH` blast radius):** Full 11-step workflow (`/plan`, `.agents/ACTIVE_TASK.md <= 40L`, full pyramid + sync existing unit/BDD tests (`QA-TEST-SYNC-01`), docs/specs, AST refresh, `certify_11x_gate` 10/10, local `git commit`).
 
 ### 1.1. MCP Server `qa-11x` (`@sinfallas/mcp-qa-11x` — 12 Tools + 9 Resources)
 1. `inspect_ast_blast_radius` — mandatory first step for Code Q&A and pre-change impact.
@@ -50,7 +50,7 @@ Classify every task before acting. **NEVER run automatic `git push`** (`QA-GIT-G
   3. **Hermetic Units vs. Live DB:** Mock external HTTP in `.unit.*`; never mock SQL persistence or cross-module propagation.
   4. **Anti-JSDOM & Dual Refresh:** Forbid `position: fixed` footers (`UI-11X-01`); pair WebSocket/timers (`clearInterval` on unmount) with **`[ 🔄 Refrescar ]`** (`?refresh=true`).
   5. **Surgical Merge & Thin-Repo:** Merge `.example` configs non-destructively; zero local duplication of global skills/rules.
-  6. **Proportional BDD & Zero Orphans:** Dynamic `Idempotency-Key` UUIDs (`QA-KARATE-IDEMP`) on mutable requests; `0` orphan UI components/API endpoints.
+  6. **Proportional BDD, Zero Orphans & Test Co-Evolution (`QA-TEST-SYNC-01`):** Dynamic `Idempotency-Key` UUIDs (`QA-KARATE-IDEMP`) on mutable requests; `0` orphan UI components/API endpoints; ALWAYS update affected pre-existing unit, integration, BATS, and Karate `.feature` tests/counts whenever code, schemas, skills, or `manifest.json` change.
   7. **STIG V6R5 & OWASP v4.2:** Enforce RLS `NOBYPASSRLS` + `after_begin` (`QA-PG17-RLS`), WORM `seq_num` + `pg_advisory_xact_lock`, Service-Layer RBAC + `ApprovalRequest`, Vault AES-256-GCM, anti-SSRF, `NFKC`, anti-XXE, OSHP, Argon2id lockout, CycloneDX SBOM (`qa-11x-devsecops-hardener`).
   8. **RED Pre-Chaos:** Expose `/metrics` (`trace_id`) prior to load/chaos profiles.
   9. **Trimodal & 3-Phase Clock:** Test Virgin/Nominal/Degraded states across all 3 clock phases; run `inspect_ast_blast_radius` pre-edit and refresh AST post-edit.

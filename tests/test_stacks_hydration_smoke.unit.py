@@ -359,6 +359,31 @@ class TestStacksHydrationSmoke(unittest.TestCase):
         for skill_path in skill_paths:
             self.assertIn(skill_path, feature_text, f"Falta '{skill_path}' en mcp_cli_test.feature")
 
+    def test_mandatory_existing_test_sync_directive_across_governance(self) -> None:
+        """Garantiza presencia del invariante QA-TEST-SYNC-01 en ambas capas y SKILL.md < 12KB."""
+        required_docs = (
+            "AGENTS.md",
+            ".agents/rules/mandatory_qa_pyramid_and_doc_sync.md",
+            ".agents/rules/anti_regression_and_side_effects_guardrail.md",
+            ".agents/skills/qa-11x-architect/SKILL.md",
+            "AI_MASTER_PROMPT.md",
+            "docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md",
+        )
+        for rel_path in required_docs:
+            content = (REPO_ROOT / rel_path).read_text(encoding="utf-8")
+            self.assertIn(
+                "QA-TEST-SYNC-01",
+                content,
+                f"Falta directiva obligatoria 'QA-TEST-SYNC-01' en {rel_path}",
+            )
+
+        architect_skill = REPO_ROOT / ".agents" / "skills" / "qa-11x-architect" / "SKILL.md"
+        self.assertLess(
+            architect_skill.stat().st_size,
+            12_000,
+            "qa-11x-architect/SKILL.md supera el límite compacto de 12 KB",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

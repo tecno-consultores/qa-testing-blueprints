@@ -26,6 +26,8 @@ Before altering any shared code, service definition, or configuration:
    - **Mandatory Post-Change AST Graph Update (Code Changes Only):** Upon completing code, test, or script modifications, you **MUST ALWAYS update the AST graph** by running `./scripts/actualizar-grafos-graphify.sh` (which incrementally updates only modified stacks in 1 Pass-Quiet line). **Skip AST graph regeneration on `DOCS_ONLY` tasks** (where only `*.md` / `docs/**` changed).
    - **CLI-First Execution Rule:** Shell-capable agents (Google Antigravity, local terminal agents) MUST execute the inspector and query tools directly via CLI. They MUST NOT spawn background Docker MCP containers or occupy port 8080, which are reserved exclusively for external non-shell clients (Claude Desktop, Hermes Agent).
    - For any symbol assessed as `MODERATE` or `HIGH/CRITICAL` risk, the agent's implementation plan must explicitly list all affected caller files and guarantee that their contracts and parameters remain intact.
+3. **Test Suite & Contract Co-Evolution Audit (`QA-TEST-SYNC-01`):**
+   - Alongside production callers, always inspect consumer test suites (`tests/**`, `mcp-server/tests/**`, `mcp-server/test/*.feature`, `tests/bats/**`) to synchronize counts, schemas, fixtures, and contract assertions impacted by legitimate code or catalog updates without weakening regression invariants.
 
 ---
 
@@ -67,4 +69,4 @@ Prior to submitting any task touching shared domains:
 - [ ] Are all standard ports preserved in Docker configurations?
 - [ ] Does static type checking and linting pass with zero errors?
 - [ ] Did the modification break any adjacent feature in the same view or API group?
-- [ ] Were existing tests re-executed and confirmed passing?
+- [ ] Were all affected existing unit, integration, BATS, and Karate BDD (`.feature`) tests updated (`QA-TEST-SYNC-01`) and confirmed passing in ephemeral Docker?

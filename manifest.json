@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.20.3",
-  "generated_at_utc": "2026-11-13T23:23:48Z",
+  "generated_at_utc": "2026-11-13T23:31:49Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -679,8 +679,8 @@
       "path": ".agents/rules/anti_regression_and_side_effects_guardrail.md",
       "target_name": ".agents/rules/anti_regression_and_side_effects_guardrail.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "3979a3324f4517d05e6e3125078266818b5f0482ce918d9521b009c9711cf54a",
-      "size_bytes": 5308
+      "sha256": "3ba886f149b42586b152c2adc20d4e4a88ca222ea069afac296b3c84f3f1a74a",
+      "size_bytes": 5786
     },
     {
       "path": ".agents/rules/continuous_agent_evolution.md",
@@ -714,8 +714,8 @@
       "path": ".agents/rules/mandatory_qa_pyramid_and_doc_sync.md",
       "target_name": ".agents/rules/mandatory_qa_pyramid_and_doc_sync.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "28ed102accc12a9fdc573bdcbc2b3d84d5351811cf7279265e9937fd7a55b26c",
-      "size_bytes": 13696
+      "sha256": "ca964acc316fe7bad2fdc566cbd8b4700170f899acad5b74f771fcd5f1557517",
+      "size_bytes": 14926
     },
     {
       "path": ".agents/rules/secure_development_and_testing_guidelines.md",
@@ -826,8 +826,8 @@
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "6909c9736e029228acf9515b9c854ab48923ca186cc32eccc7455af20fa3276a",
-      "size_bytes": 11531
+      "sha256": "59951a38ed8507f5c1d0cb6b8a2926164a817875731c56bd2948ef49a945eb10",
+      "size_bytes": 11797
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
@@ -1015,8 +1015,8 @@
       "path": "AGENTS.md",
       "target_name": "AGENTS.md",
       "merge_strategy": "surgical_merge",
-      "sha256": "eab20d89edd17002097872d916e9201f4dab622da1a63c15d1143d8685d6865c",
-      "size_bytes": 22878
+      "sha256": "59d54ca717fd2b9bf5b67cd1bf2d92fd4e3d24a84c2b101639faec58af4b60e9",
+      "size_bytes": 23620
     },
     {
       "path": "scripts/install-skill.sh",

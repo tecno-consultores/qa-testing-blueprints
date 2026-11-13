@@ -9,9 +9,9 @@
 
 ---
 
-## 1. Supreme Directive: Mandatory 11X Test Creation
+## 1. Supreme Directive: Mandatory 11X Test Creation & Existing Test Co-Evolution (QA-TEST-SYNC-01)
 
-Any addition, modification, or bug fix in application source code (`fastapi/`, `vue3/`, `python/`, `node-backend/`, `react-frontend/`, `php/`, or `bash-scripts/`) **MUST strictly include** corresponding test suites across all applicable layers of the 11X quality pyramid:
+Any addition, modification, or bug fix in application source code, MCP tools, governance/automation scripts, or tracked blueprint catalogs (`fastapi/`, `vue3/`, `python/`, `node-backend/`, `react-frontend/`, `php/`, `bash-scripts/`, `mcp-server/`, `scripts/`, `.agents/scripts/`, `.agents/skills/`, `manifest.json`) **MUST strictly create AND synchronize** corresponding test suites across all applicable layers of the 11X quality pyramid:
 
 1. **Backend Unit Layer (Pytest / Vitest / Pest / PHPUnit):**
    - Backend suites (`tests/**/*.unit.py`, `test/**/*.unit.ts`, or `tests/**/*Test.php`) with **`>= 95.0%` branch and line coverage** (`pytest-cov`, `vitest v8`, or `pcov`).
@@ -40,6 +40,11 @@ Any addition, modification, or bug fix in application source code (`fastapi/`, `
    - Unit tests (`.unit.py`, `.unit.ts`, `.unit.tsx`) MUST strictly isolate network boundaries. Outbound calls to external APIs or GitHub Raw during unit testing are strictly prohibited; developers and agents must mock or intercept network interfaces deterministically.
 9. **Zero Hardcoded Pass Invariant (Anti-Fake Gate Guarantee):**
    - Quality gates, certification scripts (`certify_11x_gate`, `certify_task_completion.sh`), test runners (`run_ephemeral_qa`), and topological/security auditors MUST NEVER return hardcoded `true`, `'PASSED'`, or `coverage.passed: true` without executing actual verification logic. When a check is bypassed or not applicable (e.g. `skip_if_docs_only: true`), return explicit `'SKIPPED'` status and `detected: false`.
+10. **Mandatory Existing Test & Contract Co-Evolution Invariant (`QA-TEST-SYNC-01`):**
+    - Modifying code, schemas, CLI flags, skills, rules, or `manifest.json` MUST NOT leave pre-existing unit, integration, Meta-QA, BATS, or Karate BDD (`.feature`) assertions stale.
+    - Before and after every change, trace all affected existing test consumers using `inspect_blast_radius.py` and targeted searches across `tests/`, `test/`, `*.feature`, and `*.bats`.
+    - Synchronize assertions, catalog counts (`#[N]`), fixtures, and contract expectations whenever behavior or inventory legitimately changes (strictly prohibiting deleting or weakening valid regression checks to force a green run).
+    - Re-execute every affected existing test suite inside ephemeral Docker containers — ALWAYS including `test-karate` (`sinfallas/karatelabs`) whenever `mcp-server/`, `.agents/skills/`, or `manifest.json` changes — prior to creating the local `git commit`.
 
 ---
 
@@ -48,7 +53,7 @@ Any addition, modification, or bug fix in application source code (`fastapi/`, `
 - **NEVER** execute tests, migrations, linters, or operational scripts directly on the host machine (`Ubuntu`, `macOS`, or `Windows`). All executions must occur inside the project's ephemeral Docker containers (`docker-compose.qa.yml` and `Makefile`).
 - **3-Path Proportional Execution Protocol (Token & Compute Economy):**
   - **`DOCS_ONLY` Fast-Path:** When a task modifies **only documentation** (`*.md`, `docs/**`, `CHANGELOG.md`, `README.md`, `ROADMAP.md`) and zero executable code, templates, scripts, or configurations, **DO NOT trigger test suite execution** (`run_ephemeral_qa` / `make qa-*`) and **DO NOT rebuild the AST knowledge graph** (`./scripts/actualizar-grafos-graphify.sh`). Run `make sync-governance` (when manifest-tracked files change), `./.agents/scripts/certify_task_completion.sh` (`certify_11x_gate`), and conclude with a certified local `git commit` (`QA-GIT-GATE-01`).
-  - **`MICRO_CHANGE` Surgical-Path (`<= 3` files, `LOW` Blast Radius):** When a change touches `<= 3` files, introduces zero new API routes or database/ORM schema migrations, and has a `LOW` AST Blast Radius (`< 5` callers via `inspect_blast_radius.py`), use an inline 3-line plan instead of a heavy `/plan` artifact, execute the targeted unit test + affected stack suite in Docker (`run_ephemeral_qa`), incrementally update the stack's AST graph, update `CHANGELOG.md`, run `certify_11x_gate`, and conclude with a certified local `git commit` (`QA-GIT-GATE-01`).
+  - **`MICRO_CHANGE` Surgical-Path (`<= 3` files, `LOW` Blast Radius):** When a change touches `<= 3` files, introduces zero new API routes or database/ORM schema migrations, and has a `LOW` AST Blast Radius (`< 5` callers via `inspect_blast_radius.py`), use an inline 3-line plan instead of a heavy `/plan` artifact, create/update affected unit, integration, and BDD contract tests (`QA-TEST-SYNC-01`), run the affected stack suite in Docker (`run_ephemeral_qa`), incrementally update the stack's AST graph, update `CHANGELOG.md`, run `certify_11x_gate`, and conclude with a certified local `git commit` (`QA-GIT-GATE-01`).
   - **`CODE_CHANGE` (`FULL_11X`) Architectural-Path:** Whenever `> 3` files, new endpoints/views, ORM models/migrations, security controls, or `MEDIUM`/`HIGH`/`CRITICAL` Blast Radius modules are modified, execute the complete 11-step workflow (`/plan`, `.agents/ACTIVE_TASK.md`, full pyramid + proportional API/BDD layer in ephemeral Docker, `docs/specs/`, `TESTING.md`, `CHANGELOG.md`, `ROADMAP.md`, AST graph refresh, `certify_11x_gate`, and certified local `git commit` under `QA-GIT-GATE-01`).
 - **Canonical Context-Compaction Scratchpad & Planning Tool (`.agents/ACTIVE_TASK.md`):** Prior to modifying code on `FULL_11X` tasks, formulate a phased plan (via `/plan` command or interactive plan artifact) and bootstrap `.agents/ACTIVE_TASK.md` from `.agents/ACTIVE_TASK.md.example` (git-ignored, kept compact at `<= 40 lines`). Update checklist items in real-time (`- [ ]` → `- [x]`) to persist progress across IDE crashes, session restarts, or LLM context compactions. Never create `ACTIVE_TASK.md` in the repository root. Mark as `COMPLETED (100%)` upon closure.
 - **Production `--no-dev` Cleanliness:** Ensure `src/` never imports packages from `[project.optional-dependencies].dev` (e.g. `pytest`, `radon`, `mutmut`), preventing `ModuleNotFoundError` when building production images with `uv sync --frozen --no-dev`.
