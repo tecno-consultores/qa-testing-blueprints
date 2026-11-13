@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.20.3",
-  "generated_at_utc": "2026-11-13T19:40:45Z",
+  "generated_at_utc": "2026-11-13T22:18:08Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -900,11 +900,32 @@
       "size_bytes": 5669
     },
     {
+      "path": ".agents/skills/qa-11x-llm-evaluator/SKILL.md",
+      "target_name": ".agents/skills/qa-11x-llm-evaluator/SKILL.md",
+      "merge_strategy": "copy_or_overwrite",
+      "sha256": "e58508766f57234d161cf54a4f83ef8f4b8edb7b1f01f4586e1aad198360f9f0",
+      "size_bytes": 9341
+    },
+    {
+      "path": ".agents/skills/qa-11x-screenplay-builder/SKILL.md",
+      "target_name": ".agents/skills/qa-11x-screenplay-builder/SKILL.md",
+      "merge_strategy": "copy_or_overwrite",
+      "sha256": "fe54c9eeb71e0c9a0b3d980843e7fa46a0d948eac24cd213a4bb1027fb32c01e",
+      "size_bytes": 10690
+    },
+    {
       "path": ".agents/skills/qa-11x-systematic-debugging/SKILL.md",
       "target_name": ".agents/skills/qa-11x-systematic-debugging/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
       "sha256": "8a7f3b71c312168f77c009748f93a780520b147d2ee20087e34914920c183337",
       "size_bytes": 10270
+    },
+    {
+      "path": ".agents/skills/qa-11x-vibe-rescue/SKILL.md",
+      "target_name": ".agents/skills/qa-11x-vibe-rescue/SKILL.md",
+      "merge_strategy": "copy_or_overwrite",
+      "sha256": "e6515fa4eac3fe32aa3ee980ec6cbac30a851e0ba8c0c1830cf248ffbd3882fb",
+      "size_bytes": 8749
     },
     {
       "path": ".agents/skills/refactoring-ui/SKILL.md",
