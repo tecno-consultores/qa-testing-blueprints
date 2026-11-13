@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.20.3",
-  "generated_at_utc": "2026-11-13T19:27:54Z",
+  "generated_at_utc": "2026-11-13T19:40:45Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -879,11 +879,32 @@
       "size_bytes": 4967
     },
     {
+      "path": ".agents/skills/qa-11x-devsecops-hardener/SKILL.md",
+      "target_name": ".agents/skills/qa-11x-devsecops-hardener/SKILL.md",
+      "merge_strategy": "copy_or_overwrite",
+      "sha256": "a27a9e563562c0e24ee34190a4ac65f86bfa9c4f6974eda3821c084a5974a049",
+      "size_bytes": 13497
+    },
+    {
+      "path": ".agents/skills/qa-11x-devsecops-hardener/references/stig_rls_vault.md",
+      "target_name": ".agents/skills/qa-11x-devsecops-hardener/references/stig_rls_vault.md",
+      "merge_strategy": "copy_or_overwrite",
+      "sha256": "566755becdf9a43544b1b050e21380fcb1ddeb76e7f9ba898d41668066055e44",
+      "size_bytes": 13578
+    },
+    {
       "path": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "target_name": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
       "sha256": "26af055c45d8df5f7787cdf4399c148c7777ae0261b28bd115354340a9a816dc",
       "size_bytes": 5669
+    },
+    {
+      "path": ".agents/skills/qa-11x-systematic-debugging/SKILL.md",
+      "target_name": ".agents/skills/qa-11x-systematic-debugging/SKILL.md",
+      "merge_strategy": "copy_or_overwrite",
+      "sha256": "8a7f3b71c312168f77c009748f93a780520b147d2ee20087e34914920c183337",
+      "size_bytes": 10270
     },
     {
       "path": ".agents/skills/refactoring-ui/SKILL.md",
