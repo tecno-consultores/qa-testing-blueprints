@@ -158,3 +158,72 @@ def test_inspect_blast_radius_computes_callers_and_callees() -> None:
     res = mod.compute_blast_radius(graph, "b")
     assert len(res["direct_callers"]) == 1
     assert len(res["outgoing_callees"]) == 1
+
+
+def test_sync_governance_syncs_checks_and_enforces_budgets(tmp_path: Path) -> None:
+    mod = _load_script_module("sync_governance", "sync_governance.py")
+    (tmp_path / ".agents" / "rules").mkdir(parents=True)
+    (tmp_path / ".agents" / "scripts").mkdir(parents=True)
+    (tmp_path / ".agents" / "skills" / "demo").mkdir(parents=True)
+    (tmp_path / "scripts").mkdir(parents=True)
+
+    (tmp_path / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
+    (tmp_path / ".agents" / "rules" / "git_closure_gate.md").write_text("# Rule\n", encoding="utf-8")
+    (tmp_path / ".agents" / "scripts" / "sync_governance.py").write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+    (tmp_path / ".agents" / "skills" / "demo" / "SKILL.md").write_text("# Demo Skill\n", encoding="utf-8")
+    (tmp_path / ".agents" / "ACTIVE_TASK.md").write_text("**Estado:** `COMPLETED (100%)`\n", encoding="utf-8")
+    (tmp_path / "lefthook.yml").write_text("pre-commit:\n  parallel: true\n", encoding="utf-8")
+
+    # 1. Inicialización y modo escritura idempotente
+    code, msg = mod.run_sync(tmp_path)
+    assert code == 0
+    assert "manifest.json sincronizado" in msg
+    manifest_first = (tmp_path / "manifest.json").read_text(encoding="utf-8")
+
+    # 2. Segunda corrida idempotente (sin cambios ni reescritura de timestamp)
+    code2, _ = mod.run_sync(tmp_path)
+    assert code2 == 0
+    assert (tmp_path / "manifest.json").read_text(encoding="utf-8") == manifest_first
+
+    # 3. Modo --check pasa cuando está sincronizado y falla ante desfase SHA-256
+    assert mod.run_sync(tmp_path, check_only=True)[0] == 0
+    (tmp_path / "AGENTS.md").write_text("# Agents modified\n", encoding="utf-8")
+    code_bad, err_bad = mod.run_sync(tmp_path, check_only=True)
+    assert code_bad == 1
+    assert "desincronizado" in err_bad
+
+    # Re-sincroniza y verifica rechazo de clave JSON duplicada (en --check y modo escritura)
+    assert mod.run_sync(tmp_path)[0] == 0
+    (tmp_path / "manifest.json").write_text('{"schema_version": "1", "schema_version": "2"}', encoding="utf-8")
+    code_dup, err_dup = mod.run_sync(tmp_path, check_only=True)
+    assert code_dup == 1
+    assert "Clave JSON duplicada" in err_dup
+    assert mod.run_sync(tmp_path)[0] == 1
+
+    # 4. Restaura manifest limpio y verifica límites cognitivos (SKILL.md >= 20480B y ACTIVE_TASK > 40L)
+    (tmp_path / "manifest.json").unlink()
+    assert mod.run_sync(tmp_path)[0] == 0
+    (tmp_path / ".agents" / "skills" / "demo" / "SKILL.md").write_text("x" * 20480, encoding="utf-8")
+    code_skill, err_skill = mod.run_sync(tmp_path, check_only=True)
+    assert code_skill == 1
+    assert "presupuesto cognitivo" in err_skill
+
+    (tmp_path / ".agents" / "skills" / "demo" / "SKILL.md").write_text("# OK\n", encoding="utf-8")
+    (tmp_path / ".agents" / "ACTIVE_TASK.md").write_text("\n".join(["line"] * 41) + "\n", encoding="utf-8")
+    code_task, err_task = mod.run_sync(tmp_path, check_only=True)
+    assert code_task == 1
+    assert "límite compacto" in err_task
+
+
+def test_sync_governance_with_ast_invokes_script_on_changes(tmp_path: Path) -> None:
+    mod = _load_script_module("sync_governance_ast", "sync_governance.py")
+    (tmp_path / ".agents" / "skills" / "demo").mkdir(parents=True)
+    (tmp_path / "scripts").mkdir(parents=True)
+    marker = tmp_path / "ast_ran.flag"
+    ast_script = tmp_path / "scripts" / "actualizar-grafos-graphify.sh"
+    ast_script.write_text(f"#!/usr/bin/env bash\ntouch '{marker}'\n", encoding="utf-8")
+    ast_script.chmod(0o755)
+
+    code, _ = mod.run_sync(tmp_path, with_ast=True)
+    assert code == 0
+    assert marker.is_file()

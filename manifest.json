@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.20.3",
-  "generated_at_utc": "2026-11-13T17:56:49Z",
+  "generated_at_utc": "2026-11-13T18:11:41Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -614,8 +614,8 @@
       "path": "lefthook.yml",
       "target_name": "lefthook.yml",
       "merge_strategy": "surgical_merge",
-      "sha256": "b278fea0ba45933c7780d26960cddc7108549fc67aa4cf62322a7a5979c0426e",
-      "size_bytes": 4749
+      "sha256": "ca51451eb71aa9e1da5b825ac68b8de795d6d3a6e827dae99ebeced778d5c1f1",
+      "size_bytes": 5508
     },
     {
       "path": "scripts/actualizar-grafos-graphify.sh",
@@ -737,6 +737,13 @@
       "merge_strategy": "overwrite_executable",
       "sha256": "788f95f67fac846b9f4638ad604564fe2340f9d0453623fefd15babf5383f9f6",
       "size_bytes": 9141
+    },
+    {
+      "path": ".agents/scripts/sync_governance.py",
+      "target_name": ".agents/scripts/sync_governance.py",
+      "merge_strategy": "overwrite_executable",
+      "sha256": "5dd2e9ff48795cb9af7e00747e67793b9b6c0054d66752b2d17851d64e4066c9",
+      "size_bytes": 27502
     },
     {
       "path": ".agents/scripts/verify_alembic_orm_parity.py",
@@ -952,8 +959,8 @@
       "path": "AGENTS.md",
       "target_name": "AGENTS.md",
       "merge_strategy": "surgical_merge",
-      "sha256": "3468d369405489e627899a476bee98062813482029840de76c74932eb9d61018",
-      "size_bytes": 22674
+      "sha256": "eab20d89edd17002097872d916e9201f4dab622da1a63c15d1143d8685d6865c",
+      "size_bytes": 22878
     },
     {
       "path": "scripts/install-skill.sh",

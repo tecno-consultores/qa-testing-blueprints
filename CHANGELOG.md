@@ -6,6 +6,8 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+* **Sincronizador Programático Zero-LLM de Gobernanza (`T1.2`):** Incorporado `.agents/scripts/sync_governance.py` (`--check`, `--with-ast`, stdlib Python 3 pura con validación SHA-256 de `manifest.json`, cero claves JSON duplicadas, `SKILL.md < 20 KB` y `ACTIVE_TASK.md <= 40` líneas), expuesto vía `make sync-governance` en `Makefile` e integrado en `pre-commit` de `lefthook.yml`.
+
 ---
 
 ## [2.20.3] - 2026-11-12

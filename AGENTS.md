@@ -74,6 +74,7 @@ Welcome to the **QA Testing Blueprints** repository. All AI coding assistants (G
 ## 4. Automation Scripts in `.agents/scripts/`
 
 - `certify_task_completion.sh`: End-to-end 10-stage certification gate enforcing secret scanning, IaC auditing, i18n integrity, zero orphan UI components, zero orphan API endpoints, topological health, ORM parity, cryptographic manifest integrity, roadmap & active task consistency, and documentation/test sync.
+- `sync_governance.py`: Deterministic Zero-LLM SHA-256 manifest synchronizer (`--check`, `--with-ast`) and cognitive-budget validator (`SKILL.md < 20 KB`, `ACTIVE_TASK <= 40` lines, duplicate-free JSON).
 - `verify_roadmap_consistency.py`: Automated bidirectional consistency validator enforcing strict parity between `ROADMAP.md` summary table and granular section tasks (`- [x]` / `- [ ]`), plus zero-pending tasks invariant in `ACTIVE_TASK.md` when marked completed.
 - `verify_docs_invariants.py`: Automated documentation, Dual-Consumer parity & cognitive-budget validator enforcing `SKILL.md < 20 KB`, `ACTIVE_TASK <= 40` lines, 1:1 UAT rule parity (`SKILL.md` §2.1 ↔ `docs/02_*.md` §1.1), 100% `security-auditor.ts` rule-ID coverage in human manuals, valid MCP resource topics, non-duplicate security section headers, and zero stale tool/image/resource counts across docs.
 - `verify_alembic_orm_parity.py`: Automated parity validator between ORM models and database migrations (detects schema drift and `revision > 32` chars).
