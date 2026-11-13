@@ -2,7 +2,7 @@
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 # Makefile canónico para desarrollo local, automatización y gobernanza Level-11X
 
-.PHONY: help clean qa-clean audit lint-workflows test test-mcp test-example test-karate test-py lint build certify publish-mcp publish-mcp-dry
+.PHONY: help clean qa-clean audit lint-workflows lint-docs test test-mcp test-example test-karate test-py lint build certify publish-mcp publish-mcp-dry
 
 help:
 	@echo "Comandos canónicos de desarrollo y gobernanza para QA Testing Blueprints:"
@@ -10,6 +10,7 @@ help:
 	@echo "  make qa-clean        - Alias canónico de make clean"
 	@echo "  make audit           - Ejecuta escaneo preventivo de seguridad IaC y dependencias (Trivy en Docker)"
 	@echo "  make lint-workflows  - Valida sintaxis YAML sin claves duplicadas, permissions, timeouts y secretos en workflows"
+	@echo "  make lint-docs       - Valida invariantes documentales, consistencia de roadmap y guardia QA-GIT-GATE-01"
 	@echo "  make test            - Ejecuta Vitest (>=95%), E2E example/, Karate BDD y Pytest en contenedores efímeros Docker"
 	@echo "  make test-example    - Certifica las 12 tools, 9 resources y 3 CLI sobre mcp-server/example/ (Clean-Room Docker)"
 	@echo "  make lint            - Ejecuta verificación de tipos y linters (ESLint --max-warnings 0, TypeScript)"
@@ -71,6 +72,41 @@ lint-workflows:
 	'    sys.exit(1)' \
 	'print(f"✅ [lint-workflows] {len(files)} workflows validados sin hallazgos")' \
 	)"
+
+lint-docs:
+	@py=$$(printf '%s\n' \
+	'import re, subprocess, sys' \
+	'from pathlib import Path' \
+	'errors = []' \
+	'for script in (".agents/scripts/verify_docs_invariants.py", ".agents/scripts/verify_roadmap_consistency.py"):' \
+	'    res = subprocess.run(["python3", script], capture_output=True, text=True)' \
+	'    if res.returncode != 0:' \
+	'        errors.append((res.stdout + res.stderr).strip() or f"Fallo en {script}")' \
+	'gate_rule = Path(".agents/rules/git_closure_gate.md")' \
+	'if not gate_rule.is_file() or "QA-GIT-GATE-01" not in gate_rule.read_text(encoding="utf-8"):' \
+	'    errors.append(".agents/rules/git_closure_gate.md ausente o sin identificador QA-GIT-GATE-01")' \
+	'forbidden_push = re.compile(r"and push to `?git`?|\+\s*`?git push`?|commit and push to git|git commit`?,\s*`?git push|subir siempre los cambios a git|git commit`?\s+y\s+`?git push", re.I)' \
+	'for doc in ("AGENTS.md", "AI_MASTER_PROMPT.md"):' \
+	'    p = Path(doc)' \
+	'    if not p.is_file():' \
+	'        errors.append(f"Archivo requerido ausente: {doc}")' \
+	'        continue' \
+	'    txt = p.read_text(encoding="utf-8")' \
+	'    if "QA-GIT-GATE-01" not in txt:' \
+	'        errors.append(f"{doc}: falta referencia explícita a QA-GIT-GATE-01")' \
+	'    for ln, line in enumerate(txt.splitlines(), 1):' \
+	'        if forbidden_push.search(line):' \
+	'            errors.append(f"{doc}:{ln}: directiva residual de git push automático obligatorio")' \
+	'if errors:' \
+	'    for err in errors: print(f"❌ [lint-docs] {err}", file=sys.stderr)' \
+	'    sys.exit(1)' \
+	'print("✅ [lint-docs] Invariantes documentales, roadmap y guardia git verificados")' \
+	); \
+	if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
+		python3 -c "$$py"; \
+	else \
+		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app sinfallas/base-python-uv:latest python3 -c "$$py"; \
+	fi
 
 lint:
 	@echo "🔍 [Lint] Ejecutando linter y chequeo de tipos en Docker efímero..."
