@@ -3,7 +3,14 @@
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import {
+  CallToolRequestSchema,
+  type CallToolRequest,
+  type CallToolResult,
+} from '@modelcontextprotocol/sdk/types.js';
 import { createMcpServer } from './server.js';
+import { guardToolCallInput, type PromptGuardOptions } from './security/promptGuard.js';
 import { runInstallSkillCli } from './cli/install-skill.js';
 import { runInitAgentsCli } from './cli/init-agents-md.js';
 import { runReconcileAgentsCli } from './cli/reconcile-agents.js';
@@ -115,6 +122,60 @@ export function shouldExitInteractiveTty(
   return isStdinTty;
 }
 
+type RawToolRequestHandler = (
+  request: CallToolRequest,
+  extra: unknown
+) => Promise<CallToolResult> | CallToolResult;
+
+function getExistingCallToolHandler(mcpServer: McpServer): RawToolRequestHandler {
+  const handlers: unknown = Reflect.get(mcpServer.server, '_requestHandlers');
+  if (!(handlers instanceof Map)) {
+    throw new Error('[QA-PROMPT-GUARD] MCP server request handlers registry is unavailable.');
+  }
+  const methodName = CallToolRequestSchema.shape.method.value;
+  const existing = handlers.get(methodName);
+  if (typeof existing !== 'function') {
+    throw new Error(`[QA-PROMPT-GUARD] Handler for '${methodName}' is not registered.`);
+  }
+  return existing as RawToolRequestHandler;
+}
+
+export function attachPromptGuard(
+  mcpServer: McpServer,
+  options?: PromptGuardOptions
+): McpServer {
+  const existingHandler = getExistingCallToolHandler(mcpServer);
+
+  mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
+    const verdict = guardToolCallInput(request.params.name, request.params.arguments, options);
+    if (verdict.blocked) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text',
+            text: `[QA-PROMPT-GUARD] Blocked potential prompt injection in tool '${request.params.name}' (score=${verdict.score}, matchedRules=${verdict.matchedRules.join(',')}).`,
+          },
+        ],
+      };
+    }
+
+    const nextRequest: CallToolRequest =
+      request.params.arguments === undefined
+        ? request
+        : {
+            ...request,
+            params: {
+              ...request.params,
+              arguments: verdict.sanitizedArgs,
+            },
+          };
+    return await existingHandler(nextRequest, extra);
+  });
+
+  return mcpServer;
+}
+
 export async function main(
   argv: string[] = process.argv.slice(2),
   startStdio?: () => Promise<void>,
@@ -152,7 +213,7 @@ export async function main(
 
   // Modo Servidor MCP estándar sobre stdio + Auto-sync no bloqueante de skills globales
   const fetcher = new GitHubFetcher();
-  const server = createMcpServer({ fetcher });
+  const server = attachPromptGuard(createMcpServer({ fetcher }));
   const transport = new StdioServerTransport();
   await server.connect(transport);
   if (process.env.QA_DISABLE_AUTO_SYNC !== '1') {
