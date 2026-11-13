@@ -32,6 +32,10 @@ if [ -n "${STAGED}" ] && [ -x "./scripts/verificar-secretos.sh" ]; then
   # shellcheck disable=SC2086
   ./scripts/verificar-secretos.sh ${STAGED}
 fi
+if [ -f "./.agents/scripts/sync_governance.py" ] && [ -f "./manifest.json" ]; then
+  docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 \
+    bash -c "python3 .agents/scripts/sync_governance.py --check && python3 .agents/scripts/verify_docs_invariants.py"
+fi
 EOF
 
 cat > .git/hooks/commit-msg << 'EOF'
@@ -53,14 +57,37 @@ set -euo pipefail
 if [ -x "./scripts/auditar-infra.sh" ]; then
   ./scripts/auditar-infra.sh
 fi
-if [ -x "./scripts/probar-mcp-example.sh" ] && [ -f "./mcp-server/package.json" ]; then
-  if git rev-parse --verify origin/main >/dev/null 2>&1; then
-    if git diff --name-only origin/main...HEAD | grep -Eq '^(mcp-server/|manifest\.json$)'; then
-      ./scripts/probar-mcp-example.sh --in-place
-    fi
-  else
+MCP_CHANGED=false
+if ! git rev-parse --verify origin/main >/dev/null 2>&1; then
+  MCP_CHANGED=true
+elif git diff --name-only origin/main...HEAD | grep -Eq '^(mcp-server/|manifest\.json$)'; then
+  MCP_CHANGED=true
+fi
+if [ "${MCP_CHANGED}" = true ] && [ -f "./mcp-server/package.json" ]; then
+  docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store \
+    -v "$(pwd)/mcp-server:/app" -w /app sinfallas/base-node-ionic:26 \
+    bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run lint && pnpm --silent run typecheck && pnpm --silent run test:unit && rm -rf coverage .eslintcache"
+  if [ -x "./scripts/probar-mcp-example.sh" ]; then
     ./scripts/probar-mcp-example.sh --in-place
   fi
+fi
+if [ -f "./scripts/generar-manifiesto.py" ]; then
+  docker run --rm -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache \
+    -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app" -w /app sinfallas/base-python-uv:3.15 \
+    bash -c "python3 scripts/generar-manifiesto.py --check && python3 .agents/scripts/sync_governance.py --check && python3 .agents/scripts/verify_docs_invariants.py && python3 .agents/scripts/verify_roadmap_consistency.py && python3 .agents/scripts/verify_topological_health.py && python3 .agents/scripts/verify_json_no_duplicate_keys.py && ruff check tests/meta_qa .agents/scripts/release_readiness_gate.py && uv run --with pytest --with pytest-cov pytest -o cache_dir=/tmp/pytest-cache --import-mode=importlib tests/*.unit.py tests/meta_qa/test_governance_scripts.py -q"
+fi
+if [ -d "./mcp-server/test" ]; then
+  docker run --rm -v "$(pwd)/mcp-server/test:/app/src/test/java/examples/test:ro" -v "$(pwd):/repo:ro" sinfallas/karatelabs:1.5.1 mvn -B -q clean test
+fi
+if [ -d "./bash-scripts/test" ]; then
+  docker run --rm -v "$(pwd):/repo:ro" -w /repo/bash-scripts sinfallas/base-bash-qa:latest \
+    bash -c "shellcheck -x ../scripts/*.sh ../.agents/scripts/*.sh ../instalar-hooks.sh ./*.sh && bats test/*.bats ../tests/bats/*.bats"
+fi
+if [ -x "./.agents/scripts/validate_calm_architecture.sh" ]; then
+  ./.agents/scripts/validate_calm_architecture.sh
+fi
+if [ -x "./.agents/scripts/certify_task_completion.sh" ]; then
+  ./.agents/scripts/certify_task_completion.sh
 fi
 EOF
 

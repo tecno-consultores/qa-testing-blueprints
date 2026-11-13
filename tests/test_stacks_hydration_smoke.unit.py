@@ -10,6 +10,7 @@ cumplan todos los contratos estructurales y de seguridad v2.16.0.
 """
 
 import json
+import re
 import shutil
 import subprocess
 import tempfile
@@ -318,6 +319,45 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             self.assertFalse((fake_home / ".cache" / "qa-11x-blueprints").exists())
             self.assertTrue((fake_repo / "mcp-server" / "dist" / "index.js").is_file())
             self.assertTrue((fake_repo / ".qa-11x-version").is_file())
+
+    def test_prepush_ci_parity_and_karate_skill_catalog_sync(self) -> None:
+        """Garantiza paridad 1:1 pre-push <-> CI y sincronía del contrato Karate con manifest.json."""
+        lefthook_text = (REPO_ROOT / "lefthook.yml").read_text(encoding="utf-8")
+        hooks_sh = (REPO_ROOT / "instalar-hooks.sh").read_text(encoding="utf-8")
+        required_parity_tokens = (
+            "sinfallas/karatelabs:1.5.1",
+            "sinfallas/base-bash-qa:latest",
+            "tests/*.unit.py",
+            "tests/meta_qa/test_governance_scripts.py",
+            "validate_calm_architecture.sh",
+            "certify_task_completion.sh",
+        )
+        for token in required_parity_tokens:
+            self.assertIn(token, lefthook_text, f"Falta '{token}' en pre-push de lefthook.yml")
+            self.assertIn(token, hooks_sh, f"Falta '{token}' en pre-push de instalar-hooks.sh")
+
+        skill_paths = sorted(
+            entry["path"]
+            for entry in self.manifest.get("agent_governance_files", [])
+            if isinstance(entry, dict)
+            and str(entry.get("path", "")).startswith(".agents/skills/")
+            and str(entry.get("path", "")).endswith("/SKILL.md")
+        )
+        self.assertGreaterEqual(len(skill_paths), 10)
+
+        feature_text = (REPO_ROOT / "mcp-server" / "test" / "mcp_cli_test.feature").read_text(
+            encoding="utf-8"
+        )
+        count_match = re.search(r"match skillFiles == '#\[(\d+)\]'", feature_text)
+        self.assertIsNotNone(count_match, "Falta aserción '#[N]' sobre skillFiles en mcp_cli_test.feature")
+        assert count_match is not None
+        self.assertEqual(
+            int(count_match.group(1)),
+            len(skill_paths),
+            f"Desfase Karate skillFiles ({count_match.group(1)}) vs manifest.json ({len(skill_paths)})",
+        )
+        for skill_path in skill_paths:
+            self.assertIn(skill_path, feature_text, f"Falta '{skill_path}' en mcp_cli_test.feature")
 
 
 if __name__ == "__main__":

@@ -122,21 +122,26 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * match parsedJson.gate_passed == true
 
   # ==============================================================================
-  # Grupo 6: Contrato CLI para install-skill (Autodetección y 5 Skills)
+  # Grupo 6: Contrato CLI para install-skill (Autodetección y 10 Skills v2.0)
   # ==============================================================================
 
-  Scenario: 6. El catálogo de gobernanza indexa las 5 skills corporativas y soporta autodetección
+  Scenario: 6. El catálogo de gobernanza indexa las 10 skills corporativas y soporta autodetección
     * def isSkill = function(item) { return item.path.startsWith('.agents/skills/') && item.path.endsWith('/SKILL.md') }
     * def skillFiles = karate.filter(manifest.agent_governance_files, isSkill)
-    * match skillFiles == '#[5]'
+    * match skillFiles == '#[10]'
 
-    # Verificar que las 5 skills requeridas estén presentes
+    # Verificar que las 10 skills corporativas y sub-skills modulares v2.0 estén presentes
     * def skillPaths = karate.map(skillFiles, function(x) { return x.path })
     * match skillPaths contains '.agents/skills/qa-11x-architect/SKILL.md'
     * match skillPaths contains '.agents/skills/refactoring-ui/SKILL.md'
     * match skillPaths contains '.agents/skills/docker-trivy-keydb-hardening/SKILL.md'
     * match skillPaths contains '.agents/skills/graphify-ast-navigator/SKILL.md'
     * match skillPaths contains '.agents/skills/qa-11x-docker-certifier/SKILL.md'
+    * match skillPaths contains '.agents/skills/qa-11x-devsecops-hardener/SKILL.md'
+    * match skillPaths contains '.agents/skills/qa-11x-systematic-debugging/SKILL.md'
+    * match skillPaths contains '.agents/skills/qa-11x-screenplay-builder/SKILL.md'
+    * match skillPaths contains '.agents/skills/qa-11x-llm-evaluator/SKILL.md'
+    * match skillPaths contains '.agents/skills/qa-11x-vibe-rescue/SKILL.md'
 
     # Contrato de opciones CLI de install-skill
     * def installSkillTargets = ['auto', 'workspace', 'antigravity', 'claude', 'cursor', 'hermes', 'all']

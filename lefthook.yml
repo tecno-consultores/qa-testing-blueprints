@@ -91,7 +91,7 @@ commit-msg:
 pre-push:
   commands:
     # --------------------------------------------------------------------------
-    # AUDITORÍA DE INFRAESTRUCTURA (IaC) Y HUMO E2E MCP (example/) ANTES DE SUBIR
+    # AUDITORÍA DE INFRAESTRUCTURA (IaC), E2E MCP, KARATE BDD, PYTHON Y BASH (1:1 CI)
     # --------------------------------------------------------------------------
     trivy-iac-scan:
       # Bloquea el `git push` si hay puertos expuestos, contenedores en modo root
@@ -101,3 +101,23 @@ pre-push:
     mcp-example-smoke:
       glob: "{mcp-server/**,manifest.json}"
       run: ./scripts/probar-mcp-example.sh --in-place
+
+    mcp-unit-and-lint:
+      glob: "{mcp-server/**,manifest.json}"
+      run: bash -c '[ ! -f mcp-server/package.json ] && exit 0; docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "$(pwd)/mcp-server:/app" -w /app sinfallas/base-node-ionic:26 bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run lint && pnpm --silent run typecheck && pnpm --silent run test:unit && rm -rf coverage .eslintcache"'
+
+    python-governance-and-meta-qa:
+      run: bash -c '[ ! -f scripts/generar-manifiesto.py ] && exit 0; docker run --rm -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app" -w /app sinfallas/base-python-uv:3.15 bash -c "python3 scripts/generar-manifiesto.py --check && python3 .agents/scripts/sync_governance.py --check && python3 .agents/scripts/verify_docs_invariants.py && python3 .agents/scripts/verify_roadmap_consistency.py && python3 .agents/scripts/verify_topological_health.py && python3 .agents/scripts/verify_json_no_duplicate_keys.py && ruff check tests/meta_qa .agents/scripts/release_readiness_gate.py && uv run --with pytest --with pytest-cov pytest -o cache_dir=/tmp/pytest-cache --import-mode=importlib tests/*.unit.py tests/meta_qa/test_governance_scripts.py -q"'
+
+    karate-bdd-contracts:
+      glob: "{mcp-server/**,manifest.json,.agents/skills/**}"
+      run: bash -c '[ ! -d mcp-server/test ] && exit 0; docker run --rm -v "$(pwd)/mcp-server/test:/app/src/test/java/examples/test:ro" -v "$(pwd):/repo:ro" sinfallas/karatelabs:1.5.1 mvn -B -q clean test'
+
+    bash-shellcheck-bats:
+      run: bash -c '[ ! -d bash-scripts/test ] && exit 0; docker run --rm -v "$(pwd):/repo:ro" -w /repo/bash-scripts sinfallas/base-bash-qa:latest bash -c "shellcheck -x ../scripts/*.sh ../.agents/scripts/*.sh ../instalar-hooks.sh ./*.sh && bats test/*.bats ../tests/bats/*.bats"'
+
+    calm-architecture-gate:
+      run: bash -c '[ ! -x .agents/scripts/validate_calm_architecture.sh ] && exit 0; ./.agents/scripts/validate_calm_architecture.sh'
+
+    certify-11x-gate:
+      run: bash -c '[ ! -x .agents/scripts/certify_task_completion.sh ] && exit 0; ./.agents/scripts/certify_task_completion.sh'
