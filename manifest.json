@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.20.3",
-  "generated_at_utc": "2026-11-13T22:18:08Z",
+  "generated_at_utc": "2026-11-13T22:57:17Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -744,6 +744,13 @@
       "merge_strategy": "overwrite_executable",
       "sha256": "5dd2e9ff48795cb9af7e00747e67793b9b6c0054d66752b2d17851d64e4066c9",
       "size_bytes": 27502
+    },
+    {
+      "path": ".agents/scripts/validate_calm_architecture.sh",
+      "target_name": ".agents/scripts/validate_calm_architecture.sh",
+      "merge_strategy": "overwrite_executable",
+      "sha256": "e4e044db220311c9ef92435141abd0854c317b26f0fb2d0844f88dc9eb3724a4",
+      "size_bytes": 10064
     },
     {
       "path": ".agents/scripts/verify_alembic_orm_parity.py",

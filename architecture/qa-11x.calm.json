@@ -1,0 +1,289 @@
+{
+  "$schema": "https://calm.finos.org/release/1.2/meta/calm.json",
+  "metadata": [
+    {
+      "qa-11x": {
+        "standard": "QA-11X v2.0",
+        "topology": "zero-infra",
+        "owner": "Tecno Consultores"
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "unique-id": "qa-11x-ai-ide-host",
+      "node-type": "actor",
+      "name": "QA-11X AI IDE Host",
+      "description": "Agentic IDE client host (Antigravity, Claude Code, Cursor, Windsurf) invoking @sinfallas/mcp-qa-11x.",
+      "interfaces": [
+        {
+          "unique-id": "ide-mcp-stdio-client"
+        }
+      ]
+    },
+    {
+      "unique-id": "mcp-qa-11x-server",
+      "node-type": "service",
+      "name": "MCP QA-11X Server",
+      "description": "@sinfallas/mcp-qa-11x stdio and CLI server hardened with promptGuard and taskStateGuard.",
+      "interfaces": [
+        {
+          "unique-id": "mcp-stdio-jsonrpc"
+        },
+        {
+          "unique-id": "mcp-docker-cli-bridge"
+        },
+        {
+          "unique-id": "mcp-governance-verifier"
+        }
+      ]
+    },
+    {
+      "unique-id": "ephemeral-docker-runners",
+      "node-type": "system",
+      "name": "Ephemeral Docker Runners",
+      "description": "Non-root hardened sinfallas/* ephemeral containers enforcing Rule Zero execution isolation.",
+      "interfaces": [
+        {
+          "unique-id": "docker-engine-cli"
+        },
+        {
+          "unique-id": "runner-db-client"
+        },
+        {
+          "unique-id": "runner-cache-client"
+        }
+      ]
+    },
+    {
+      "unique-id": "postgres17-rls-store",
+      "node-type": "database",
+      "name": "PostgreSQL 17 RLS Store",
+      "description": "Multi-tenant PostgreSQL 17 datastore with forced Row-Level Security and WORM HMAC audit hash-chain.",
+      "interfaces": [
+        {
+          "unique-id": "postgres-tls-5432"
+        }
+      ]
+    },
+    {
+      "unique-id": "keydb-state-cache",
+      "node-type": "database",
+      "name": "KeyDB State Cache",
+      "description": "Hardened multi-threaded KeyDB in-memory engine for ephemeral state, rate limits, and idempotency.",
+      "interfaces": [
+        {
+          "unique-id": "keydb-resp-tls-6379"
+        }
+      ]
+    },
+    {
+      "unique-id": "governance-certification-gate",
+      "node-type": "service",
+      "name": "Governance Certification Gate",
+      "description": "Deterministic 10-gate certification pipeline (certify_task_completion.sh, sync_governance.py, manifest.json).",
+      "interfaces": [
+        {
+          "unique-id": "governance-sha256-gate"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "unique-id": "rel-ide-to-mcp-server",
+      "description": "MCP stdio JSON-RPC 2.0 transport guarded by promptGuard and QA-CLI-TTY-01.",
+      "relationship-type": {
+        "connects": {
+          "source": {
+            "node": "qa-11x-ai-ide-host",
+            "interfaces": [
+              "ide-mcp-stdio-client"
+            ]
+          },
+          "destination": {
+            "node": "mcp-qa-11x-server",
+            "interfaces": [
+              "mcp-stdio-jsonrpc"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "unique-id": "rel-mcp-to-ephemeral-runners",
+      "description": "Docker CLI Rule Zero dispatch (-u uid:gid -e HOME=/tmp) guarded by taskStateGuard.",
+      "relationship-type": {
+        "connects": {
+          "source": {
+            "node": "mcp-qa-11x-server",
+            "interfaces": [
+              "mcp-docker-cli-bridge"
+            ]
+          },
+          "destination": {
+            "node": "ephemeral-docker-runners",
+            "interfaces": [
+              "docker-engine-cli"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "unique-id": "rel-runners-to-postgres17-rls",
+      "description": "PostgreSQL 17 TLS connection enforcing NOBYPASSRLS tenant isolation and WORM audit chain.",
+      "protocol": "TLS",
+      "relationship-type": {
+        "connects": {
+          "source": {
+            "node": "ephemeral-docker-runners",
+            "interfaces": [
+              "runner-db-client"
+            ]
+          },
+          "destination": {
+            "node": "postgres17-rls-store",
+            "interfaces": [
+              "postgres-tls-5432"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "unique-id": "rel-runners-to-keydb-cache",
+      "description": "Hardened KeyDB RESP over TLS link for transient state and idempotency tracking.",
+      "protocol": "TLS",
+      "relationship-type": {
+        "connects": {
+          "source": {
+            "node": "ephemeral-docker-runners",
+            "interfaces": [
+              "runner-cache-client"
+            ]
+          },
+          "destination": {
+            "node": "keydb-state-cache",
+            "interfaces": [
+              "keydb-resp-tls-6379"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "unique-id": "rel-mcp-to-governance-gate",
+      "description": "Deterministic SHA-256 verification against manifest.json and 10-stage 11X certification gate.",
+      "relationship-type": {
+        "connects": {
+          "source": {
+            "node": "mcp-qa-11x-server",
+            "interfaces": [
+              "mcp-governance-verifier"
+            ]
+          },
+          "destination": {
+            "node": "governance-certification-gate",
+            "interfaces": [
+              "governance-sha256-gate"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "controls": {
+    "prompt-injection-guard": {
+      "description": "NFKC Unicode canonicalization, PII/credential redaction, and Fail-Closed blocking via promptGuard.ts.",
+      "requirements": [
+        {
+          "requirement-url": "https://calm.finos.org/release/1.2/meta/control-requirement.json",
+          "config": {
+            "control-id": "QA-PROMPT-GUARD",
+            "name": "Prompt Injection and PII Guard",
+            "description": "Sanitize NFKC inputs, redact PII/credentials, and enforce Fail-Closed interception on CallToolRequestSchema."
+          }
+        }
+      ]
+    },
+    "rule-zero-ephemeral-docker": {
+      "description": "All tests, linters, and audits execute inside non-root ephemeral sinfallas/* Docker containers.",
+      "requirements": [
+        {
+          "requirement-url": "https://calm.finos.org/release/1.2/meta/control-requirement.json",
+          "config": {
+            "control-id": "QA-RULE-ZERO",
+            "name": "Rule Zero Ephemeral Non-Root Execution",
+            "description": "Require non-root UID:GID mapping, HOME=/tmp, and Trivy HIGH=0 CRITICAL=0 hardened containers."
+          }
+        }
+      ]
+    },
+    "postgres-rls-isolation": {
+      "description": "Multi-tenant PostgreSQL 17 isolation with NOSUPERUSER NOBYPASSRLS and FORCE ROW LEVEL SECURITY.",
+      "requirements": [
+        {
+          "requirement-url": "https://calm.finos.org/release/1.2/meta/control-requirement.json",
+          "config": {
+            "control-id": "QA-PG17-RLS",
+            "name": "PostgreSQL 17 Forced RLS Isolation",
+            "description": "Enforce tenant isolation via SET LOCAL app.current_tenant_id, NOBYPASSRLS role, and FORCE ROW LEVEL SECURITY."
+          }
+        }
+      ]
+    },
+    "worm-hmac-audit-chain": {
+      "description": "Tamper-proof WORM audit log chained with HMAC-SHA256, BIGINT seq_num, and pg_advisory_xact_lock.",
+      "requirements": [
+        {
+          "requirement-url": "https://calm.finos.org/release/1.2/meta/control-requirement.json",
+          "config": {
+            "control-id": "SEC-14-APSC-DV-001350",
+            "name": "WORM HMAC-SHA256 Audit Chain",
+            "description": "Serialize append-only audit entries with BIGINT seq_num, pg_advisory_xact_lock, and cryptographic HMAC-SHA256 chaining."
+          }
+        }
+      ]
+    },
+    "vault-aes-256-gcm": {
+      "description": "FIPS 140-3 AES-256-GCM authenticated secret vault encryption with memory zeroization and anti-SSRF guards.",
+      "requirements": [
+        {
+          "requirement-url": "https://calm.finos.org/release/1.2/meta/control-requirement.json",
+          "config": {
+            "control-id": "QA-VAULT-FIPS-SSRF",
+            "name": "AES-256-GCM Vault and Anti-SSRF Control",
+            "description": "Encrypt secrets using FIPS 140-3 AES-256-GCM with buffer zeroization and block private-network SSRF targets."
+          }
+        }
+      ]
+    },
+    "git-closure-human-gate": {
+      "description": "Human-confirmed remote push gate (QA-GIT-GATE-01) forbidding automated git push or npm publish.",
+      "requirements": [
+        {
+          "requirement-url": "https://calm.finos.org/release/1.2/meta/control-requirement.json",
+          "config": {
+            "control-id": "QA-GIT-GATE-01",
+            "name": "Human-Confirmed Remote Push Gate",
+            "description": "Conclude verified tasks at local git commit and require explicit human approval before remote push or registry publish."
+          }
+        }
+      ]
+    },
+    "cli-tty-anti-hang-guard": {
+      "description": "Dual CLI/MCP interactive TTY anti-hang guard (QA-CLI-TTY-01) and unmocked container health contract (QA-HEALTH-01).",
+      "requirements": [
+        {
+          "requirement-url": "https://calm.finos.org/release/1.2/meta/control-requirement.json",
+          "config": {
+            "control-id": "QA-CLI-TTY-01-HEALTH-01",
+            "name": "TTY Anti-Hang and Container Health Contract",
+            "description": "Prevent interactive TTY stdio deadlocks and require unmocked container HEALTHCHECK verification."
+          }
+        }
+      ]
+    }
+  }
+}
