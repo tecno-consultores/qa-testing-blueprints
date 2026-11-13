@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.20.3",
-  "generated_at_utc": "2026-11-13T23:31:49Z",
+  "generated_at_utc": "2026-11-13T23:42:44Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -735,8 +735,8 @@
       "path": ".agents/scripts/inspect_blast_radius.py",
       "target_name": ".agents/scripts/inspect_blast_radius.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "788f95f67fac846b9f4638ad604564fe2340f9d0453623fefd15babf5383f9f6",
-      "size_bytes": 9141
+      "sha256": "b94955035f240e64b316ef86ca56186c6222fbb1644123e47651506ef7ddc50e",
+      "size_bytes": 10347
     },
     {
       "path": ".agents/scripts/release_readiness_gate.py",
@@ -819,8 +819,8 @@
       "path": ".agents/skills/graphify-ast-navigator/SKILL.md",
       "target_name": ".agents/skills/graphify-ast-navigator/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "56098a86daf9e0551a1b6ede02cfbdae98017cac558c23206b59be066f2baaf0",
-      "size_bytes": 8344
+      "sha256": "1e945fca308730848f83c5ffea6c823503767caa72045bc133a0a46c15f35624",
+      "size_bytes": 8574
     },
     {
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
@@ -833,8 +833,8 @@
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
       "target_name": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "17da7af8b9f2afc97fc9b1783ad5dadfb4340c18eaed3818d7401123c0bcf620",
-      "size_bytes": 16976
+      "sha256": "a028f43835cb4ca7dbc5fb5c8ed2dd623ed593904ffb5913d39c7ceba613c8cd",
+      "size_bytes": 17311
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.md",
@@ -910,8 +910,8 @@
       "path": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "target_name": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "26af055c45d8df5f7787cdf4399c148c7777ae0261b28bd115354340a9a816dc",
-      "size_bytes": 5669
+      "sha256": "4f19005fedcef41a013205dcb3745075f3750a0c1ac79ac91d16cd0e6ac1d47a",
+      "size_bytes": 5957
     },
     {
       "path": ".agents/skills/qa-11x-llm-evaluator/SKILL.md",

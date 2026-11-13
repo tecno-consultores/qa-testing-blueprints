@@ -132,6 +132,9 @@ export const PROMOTED_INVARIANT_FINGERPRINTS = [
   'service-layer rbac defense',
   'multi-step pre-auth',
   'challenge continuity invariant',
+  'qa-test-sync-01',
+  'existing test co-evolution',
+  'co-evolución de pruebas preexistentes',
 ];
 
 export function isPromotedSection(sectionText: string): boolean {

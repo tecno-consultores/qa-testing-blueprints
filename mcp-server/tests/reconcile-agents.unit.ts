@@ -63,6 +63,7 @@ describe('reconcile-agents (Hito 13: Governance Reconciliation & Deduplication)'
       expect(isPromotedSection('Directiva de Propagación Transversal de Estado entre módulos')).toBe(true);
       expect(isPromotedSection('Ciclo de 3 Fases Temporales (Pending, Active, Expired)')).toBe(true);
       expect(isPromotedSection('Invariante de Refresco Dual en vistas')).toBe(true);
+      expect(isPromotedSection('### Invariante QA-TEST-SYNC-01')).toBe(true);
       expect(isPromotedSection('Regla exclusiva de MikroTik RouterOS v7')).toBe(false);
       expect(PROMOTED_INVARIANT_FINGERPRINTS.length).toBeGreaterThan(5);
     });

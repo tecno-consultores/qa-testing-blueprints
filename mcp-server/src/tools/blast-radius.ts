@@ -68,7 +68,12 @@ const VALID_EXTENSIONS = new Set([
   '.php',
   '.sh',
   '.bats',
+  '.feature',
 ]);
+
+const EXISTING_TEST_FILE_RE = /(\.(unit|spec|test|e2e)\.|(^|\/)test_[^/]+\.py$|\.(feature|bats)$)/;
+const QA_TEST_SYNC_REMINDER =
+  ' QA-TEST-SYNC-01: audita, actualiza y re-ejecuta todas las pruebas preexistentes afectadas (suggested_tests_to_run / *.feature / *.bats).';
 
 interface GraphNode {
   id?: string;
@@ -118,13 +123,7 @@ function calculateRiskLevel(count: number): 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICA
 
 function registerSuggestedTest(rel: string, ext: string, suggestedTests: Set<string>): void {
   const norm = normalizeRelativePath(rel);
-  if (
-    norm.includes('.unit.') ||
-    norm.includes('.spec.') ||
-    norm.includes('.e2e.') ||
-    norm.endsWith('.feature') ||
-    norm.endsWith('.bats')
-  ) {
+  if (EXISTING_TEST_FILE_RE.test(norm)) {
     suggestedTests.add(norm);
   } else {
     const baseName = path.basename(norm, ext);
@@ -328,8 +327,8 @@ export async function inspectAstBlastRadius(
   const riskLevel = calculateRiskLevel(count);
   const astGraphDetected = ctx.graphFiles.length > 0;
   const astGraphActionRequired = astGraphDetected
-    ? "✅ Grafo AST detectado. DIRECTRIZ OBLIGATORIA: SIEMPRE debes actualizar el grafo al terminar los cambios ejecutando './scripts/actualizar-grafos-graphify.sh'."
-    : "⚠️ No se detectó grafo AST (graphify-out/graph.json). DIRECTRIZ OBLIGATORIA: Si el grafo no existe debes crearlo ejecutando './scripts/actualizar-grafos-graphify.sh' (más información en qa-testing-blueprints) y SIEMPRE debes actualizar el grafo al terminar los cambios.";
+    ? `✅ Grafo AST detectado. DIRECTRIZ OBLIGATORIA: SIEMPRE debes actualizar el grafo al terminar los cambios ejecutando './scripts/actualizar-grafos-graphify.sh'.${QA_TEST_SYNC_REMINDER}`
+    : `⚠️ No se detectó grafo AST (graphify-out/graph.json). DIRECTRIZ OBLIGATORIA: Si el grafo no existe debes crearlo ejecutando './scripts/actualizar-grafos-graphify.sh' (más información en qa-testing-blueprints) y SIEMPRE debes actualizar el grafo al terminar los cambios.${QA_TEST_SYNC_REMINDER}`;
 
   let returnedDependents = sortedDependents;
   let returnedSuggestedTests = Array.from(ctx.suggestedTests).sort();

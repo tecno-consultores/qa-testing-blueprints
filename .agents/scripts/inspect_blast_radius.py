@@ -13,13 +13,13 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import re
+from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 IGNORED_DIRS = {".git", "node_modules", ".venv", "venv", "__pycache__", "dist", "coverage", "target", "graphify-out"}
-SOURCE_EXTENSIONS = {".py", ".ts", ".js", ".vue", ".tsx", ".jsx", ".php", ".sh", ".bats"}
+SOURCE_EXTENSIONS = {".py", ".ts", ".js", ".vue", ".tsx", ".jsx", ".php", ".sh", ".bats", ".feature"}
 
 
 def find_graph_files() -> list[Path]:
@@ -124,6 +124,23 @@ def scan_fallback_references(query: str) -> list[str]:
     return sorted(matched_files)
 
 
+def scan_contract_files(query: str) -> list[str]:
+    """Rastrea contratos BDD (*.feature) y pruebas BATS (*.bats) afectados (QA-TEST-SYNC-01)."""
+    pattern = re.compile(rf"\b{re.escape(query)}\b")
+    contract_files: list[str] = []
+    for path in REPO_ROOT.rglob("*"):
+        if not path.is_file() or path.suffix not in {".feature", ".bats"}:
+            continue
+        if any(part in IGNORED_DIRS for part in path.parts):
+            continue
+        try:
+            if pattern.search(path.read_text(encoding="utf-8", errors="ignore")):
+                contract_files.append(str(path.relative_to(REPO_ROOT)))
+        except OSError:
+            continue
+    return sorted(contract_files)
+
+
 def assess_risk_level(query: str, callers_count: int, files_count: int) -> str:
     critical_keywords = ["vault", "auth", "token", "rls", "security", "csrf", "secret", "session"]
     is_security_critical = any(kw in query.lower() for kw in critical_keywords)
@@ -183,8 +200,16 @@ def inspect_symbol(query: str) -> None:
                         print(f"   ➡️ [Invoca a]    {o['file']}: {o['label']} ({o['relation']})")
                     if len(outgoing) > 5:
                         print(f"   ... (+{len(outgoing) - 5} dependencias salientes más)")
-        except Exception as e:
+        except (OSError, json.JSONDecodeError, KeyError, TypeError) as e:
             print(f"⚠️ Error procesando grafo {g_path}: {e}")
+
+    if graph_files:
+        contract_hits = scan_contract_files(query)
+        if contract_hits:
+            for rel_file in contract_hits[:5]:
+                print(f"   🧪 [Contrato BDD/BATS (QA-TEST-SYNC-01)] {rel_file}")
+            if len(contract_hits) > 5:
+                print(f"   ... (+{len(contract_hits) - 5} contratos más)")
 
     if total_callers == 0:
         fallback_files = scan_fallback_references(query)
@@ -198,7 +223,11 @@ def inspect_symbol(query: str) -> None:
 
     final_risk = assess_risk_level(query, total_callers, len(total_files))
     print(f"📊 [Blast Radius '{query}'] Llamadores: {total_callers} | Archivos afectados: {len(total_files)} | {final_risk}")
-    print("🔄 [Recordatorio 11X] Al terminar los cambios y pruebas, SIEMPRE debes actualizar el grafo con './scripts/actualizar-grafos-graphify.sh'.")
+    print(
+        "🔄 [Recordatorio 11X | QA-TEST-SYNC-01] Audita y actualiza todas las pruebas preexistentes "
+        "afectadas (unitarias, BATS y *.feature) y al terminar actualiza el grafo con "
+        "'./scripts/actualizar-grafos-graphify.sh'."
+    )
 
 
 def main() -> None:

@@ -234,6 +234,10 @@ async function verifyAllTwelveTools(client, ctx) {
     blast.dependent_files.some((f) => f.includes('backend/src/api/devices.py')),
     'No rastreó el llamador entrante desde la capa API'
   );
+  assert.ok(
+    blast.ast_graph_action_required.includes('QA-TEST-SYNC-01'),
+    'inspect_ast_blast_radius no incluyó el recordatorio QA-TEST-SYNC-01'
+  );
   logStep('Tool 4/12 inspect_ast_blast_radius: navegación bidireccional AST (declarante + llamadores entrantes)');
 
   // 5. audit_test_pyramid_gaps (detección de componente huérfano + estado limpio)
@@ -514,6 +518,15 @@ async function verifyCliAndBackgroundAutoSync(ctx) {
     env: baseEnv,
     stdio: 'pipe',
   });
+
+  const installedGeminiMd = fs.readFileSync(path.join(homeDir, '.gemini', 'GEMINI.md'), 'utf8');
+  const generatedAgentsMd = fs.readFileSync(path.join(cliProjectDir, 'AGENTS.md'), 'utf8');
+  assert.ok(installedGeminiMd.includes('QA-TEST-SYNC-01'), 'Falta QA-TEST-SYNC-01 en ~/.gemini/GEMINI.md');
+  assert.ok(generatedAgentsMd.includes('QA-TEST-SYNC-01'), 'Falta QA-TEST-SYNC-01 en AGENTS.md generado');
+  for (const syncSkill of ['qa-11x-architect', 'qa-11x-docker-certifier', 'graphify-ast-navigator']) {
+    const skillText = fs.readFileSync(path.join(globalSkillsDir, syncSkill, 'SKILL.md'), 'utf8');
+    assert.ok(skillText.includes('QA-TEST-SYNC-01'), `Falta QA-TEST-SYNC-01 en skill instalada ${syncSkill}`);
+  }
 
   // 3b. Guardia anti-bloqueo en terminal interactiva (TTY): sincroniza skills y termina con código 0 sin colgarse
   const ttyProbeScript = [

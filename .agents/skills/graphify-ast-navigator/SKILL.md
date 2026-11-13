@@ -76,6 +76,7 @@ docker run --rm -e OLLAMA_BASE_URL="" -v "$(pwd):/app" -w /app sinfallas/remote-
      # 2. Architectural layer boundary & circular dependency audit
      python3 .agents/scripts/verify_topological_health.py
      ```
+     - Under **`QA-TEST-SYNC-01`**, trace and update all impacted consumer test suites (`tests/`, `*.feature`, `*.bats`) surfaced by the blast radius before finalizing changes.
   3. Read only the 40–80 lines around the reported `file:L<line>` (`StartLine`/`EndLine`). Use `grep -n` **only as a fallback** for string literals not indexed as AST nodes.
 - **Zero Background Daemon Rule:** Never spawn persistent background HTTP/MCP graph servers or occupy port `8080` when CLI scripts or stdio MCP tools are available.
 
@@ -85,6 +86,6 @@ docker run --rm -e OLLAMA_BASE_URL="" -v "$(pwd):/app" -w /app sinfallas/remote-
 
 | Risk Level | Graph Threshold | Execution Path & Required Verification |
 | :--- | :--- | :--- |
-| **LOW** | `< 5` callers across `< 3` files (0 schema/route changes) | Eligible for **`MICRO_CHANGE` Surgical-Path**: 3-line inline plan, targeted unit tests + affected stack QA in Docker, incremental AST update. |
-| **MODERATE** | `5–14` callers across `3–7` files | **`FULL_11X` Path**: Verify all caller contracts, run affected integration + BDD scenarios, and re-run all caller unit test suites. |
+| **LOW** | `< 5` callers across `< 3` files (0 schema/route changes) | Eligible for **`MICRO_CHANGE` Surgical-Path**: 3-line inline plan, sync affected existing unit/BDD tests (`QA-TEST-SYNC-01`) + stack QA in Docker, incremental AST update. |
+| **MODERATE** | `5–14` callers across `3–7` files | **`FULL_11X` Path**: Verify all caller contracts, update and re-run all affected unit, integration, BATS, and BDD `.feature` scenarios (`QA-TEST-SYNC-01`). |
 | **HIGH / CRITICAL** | `>= 15` callers, `>= 8` files, or security keywords (`vault`, `auth`, `token`, `rls`, `csrf`, `session`, `rbac`) | **`FULL_11X` Path**: Mandatory `/plan`, `.agents/ACTIVE_TASK.md`, full 13-layer pyramid + Karate Labs BDD + security audit before merging. |

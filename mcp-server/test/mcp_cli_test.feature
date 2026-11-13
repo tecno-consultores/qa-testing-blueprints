@@ -536,15 +536,18 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert blastRadiusSource.contains('outgoing_dependencies')
     * assert blastRadiusSource.contains('declaring_files')
     * assert blastRadiusSource.contains('graph_reports')
+    * assert blastRadiusSource.contains('QA-TEST-SYNC-01')
 
     * def initAgentsSource = karate.readAsString(mcpRoot + '/src/cli/init-agents-md.ts')
     * assert initAgentsSource.contains('buildGlobalGeminiBlock')
     * assert initAgentsSource.contains('Conector Global Thin-Client QA 11X')
     * assert initAgentsSource.contains('Graphify AST-First (Consultas de Código Q&A y Pre-Cambio)')
+    * assert initAgentsSource.contains('QA-TEST-SYNC-01')
 
     * def graphifySkillSource = karate.readAsString(repoRoot + '/.agents/skills/graphify-ast-navigator/SKILL.md')
     * assert graphifySkillSource.contains('Code Q&A')
     * assert graphifySkillSource.contains('Graphify AST-First, Grep-Fallback, Windowed-Read-Second')
+    * assert graphifySkillSource.contains('QA-TEST-SYNC-01')
 
   Scenario: 19. Contrato v2.16.0 — SEC-16 (Pre-Auth Multi-Step Challenge Continuity), Thin-Repo bootstrap_or_merge_11x, Paridad 10/10 y CLI --version
     * match pkg.version == '2.20.3'
@@ -666,8 +669,10 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
 
     * def archSkill = karate.readAsString(repoRoot + '/.agents/skills/qa-11x-architect/SKILL.md')
     * assert archSkill.contains('OUTPUT LANGUAGE & DYNAMIC MIRRORING')
+    * assert archSkill.contains('QA-TEST-SYNC-01')
     * def certSkill = karate.readAsString(repoRoot + '/.agents/skills/qa-11x-docker-certifier/SKILL.md')
     * assert certSkill.contains('OUTPUT LANGUAGE & DYNAMIC MIRRORING')
+    * assert certSkill.contains('QA-TEST-SYNC-01')
     * def trivySkill = karate.readAsString(repoRoot + '/.agents/skills/docker-trivy-keydb-hardening/SKILL.md')
     * assert trivySkill.contains('OUTPUT LANGUAGE & DYNAMIC MIRRORING')
     * def graphSkill = karate.readAsString(repoRoot + '/.agents/skills/graphify-ast-navigator/SKILL.md')

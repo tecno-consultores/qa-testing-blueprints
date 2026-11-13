@@ -47,6 +47,7 @@ describe('init-agents-md (Non-destructive AGENTS.md connector injection)', () =>
       expect(block).toContain('MICRO_CHANGE');
       expect(block).toContain('HIGH-IQ TOKEN ECONOMY');
       expect(block).toContain('Karate Labs BDD');
+      expect(block).toContain('QA-TEST-SYNC-01');
       expect(block).toContain('git push');
     });
 
@@ -63,6 +64,7 @@ describe('init-agents-md (Non-destructive AGENTS.md connector injection)', () =>
       expect(defaultBlock).toContain('Global Thin-Client QA 11X Connector');
       expect(defaultBlock).toContain('Graphify AST-First (Code Q&A & Pre-Change)');
       expect(defaultBlock).toContain('Zero-Duplication Global Consumption');
+      expect(defaultBlock).toContain('QA-TEST-SYNC-01');
       expect(defaultBlock).toContain("user's prompt language");
       expect(defaultBlock).not.toContain('Step 1 (Plan):');
 
@@ -70,10 +72,12 @@ describe('init-agents-md (Non-destructive AGENTS.md connector injection)', () =>
       expect(esBlock).toContain('Conector Global Thin-Client QA 11X');
       expect(esBlock).toContain('Graphify AST-First (Consultas de Código Q&A y Pre-Cambio)');
       expect(esBlock).toContain('sin duplicar reglas ni skills en los proyectos locales');
+      expect(esBlock).toContain('QA-TEST-SYNC-01');
 
       const enBlock = buildGlobalGeminiBlock('en');
       expect(enBlock).toContain('Global Thin-Client QA 11X Connector');
       expect(enBlock).toContain('strictly in **English**');
+      expect(enBlock).toContain('QA-TEST-SYNC-01');
     });
 
     it('injects dynamic mirroring language policy into connector block based on lang param', () => {

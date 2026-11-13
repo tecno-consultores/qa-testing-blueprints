@@ -252,12 +252,20 @@ def test_inspect_blast_radius_bidirectional_and_fallback(
     mod = _load_script("inspect_blast_radius.py", "meta_qa_inspect_blast")
     monkeypatch.setattr(mod, "REPO_ROOT", tmp_path)
 
+    (tmp_path / "tests").mkdir(exist_ok=True)
+    (tmp_path / "tests" / "contract.feature").write_text(
+        "Scenario: fetch_devices contract\n  * print 'ok'\n",
+        encoding="utf-8",
+    )
+
     mod.inspect_symbol("fetch_devices")
     out_graph = capsys.readouterr().out
     assert "⬅️ [Llamado por]" in out_graph
     assert "list_devices" in out_graph
     assert "➡️ [Invoca a]" in out_graph
     assert "Device" in out_graph
+    assert "contract.feature" in out_graph
+    assert "QA-TEST-SYNC-01" in out_graph
     assert "Llamadores: 1" in out_graph
 
     (tmp_path / "graphify-out" / "graph.json").unlink()

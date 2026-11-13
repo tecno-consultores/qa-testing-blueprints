@@ -290,6 +290,20 @@ describe('Tools and Resources Integration Suite', () => {
       expect(result.suggested_tests_to_run).toContain('test_user.unit.py');
     });
 
+    it('includes .feature and *.test.* consumer files and QA-TEST-SYNC-01 action reminder', async () => {
+      fs.writeFileSync(path.join(targetProjectDir, 'api.ts'), 'export function syncOrder() { return true; }\n', 'utf-8');
+      fs.writeFileSync(path.join(targetProjectDir, 'api_contract.feature'), 'Scenario: syncOrder\n  * print "ok"\n', 'utf-8');
+      fs.writeFileSync(path.join(targetProjectDir, 'service.test.ts'), 'expect(syncOrder()).toBe(true);\n', 'utf-8');
+
+      const result = await inspectAstBlastRadius(targetProjectDir, 'syncOrder');
+
+      expect(result.dependent_files).toContain('api_contract.feature');
+      expect(result.dependent_files).toContain('service.test.ts');
+      expect(result.suggested_tests_to_run).toContain('api_contract.feature');
+      expect(result.suggested_tests_to_run).toContain('service.test.ts');
+      expect(result.ast_graph_action_required).toContain('QA-TEST-SYNC-01');
+    });
+
     it('assigns LOW risk when dependent count < 5', async () => {
       fs.writeFileSync(path.join(targetProjectDir, 'single.py'), 'def helper(): pass\n', 'utf-8');
       const result = await inspectAstBlastRadius(targetProjectDir, 'helper');

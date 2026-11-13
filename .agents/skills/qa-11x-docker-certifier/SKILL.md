@@ -47,6 +47,7 @@ This skill governs all tests, linters, audits, and cleanups in projects implemen
 2. **3-Path Proportional Execution & Mandatory Step 6 (Zero Lint Shortcuts):**
    - **Skip Docker QA runs on `DOCS_ONLY` changes** (`skip_if_docs_only: true`).
    - On `MICRO_CHANGE` / `FULL_11X`, **ALWAYS** execute `run_ephemeral_qa(stage="lint")` + `run_ephemeral_qa(stage="unit")` (plus `stage="integration"` / `stage="ci"` tearing up/down ephemeral `postgres:17-alpine` when touching `migrations/`, ORM models, SQL, or `.github/workflows/`). NEVER substitute `make qa-lint` (`ruff` + `mypy --strict --cache-dir=/tmp/mypy` + `vue-tsc` + `eslint`) with partial standalone `ruff` commands.
+   - **Mandatory Test Co-Evolution (`QA-TEST-SYNC-01`):** Whenever modifying code, schemas, CLI flags, skills, or catalogs, synchronize and re-execute ALL impacted pre-existing suites (unit, integration, BATS, and Karate `.feature` contracts) inside ephemeral Docker prior to committing.
    - Run the complete multi-stage pyramid (`make qa-all`) on `FULL_11X` architectural changes.
 3. **Mandatory Post-QA Cleanup, Non-Root `COVERAGE_FILE=/tmp/.coverage`, `importlib` & Pass-Quiet Output:**
    - Never invoke `pytest -o addopts=""` without explicitly appending `--import-mode=importlib --cov=src --cov-fail-under=95` and `-e PYTHONPATH=/app/src` (preventing `ModuleNotFoundError` on `*.unit.py` / `*.int.py` and preserving coverage enforcement).
