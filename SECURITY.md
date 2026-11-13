@@ -224,6 +224,11 @@ flowchart LR
   - Para Frontend: ejecutar en Docker `pnpm update <paquete>`.
   - Re-ejecutar suites unitarias y escaneo con `./scripts/auditar-infra.sh` certificando `0` vulnerabilidades CRITICAL y HIGH.
 
+### 5.2. Auditoría Diaria Automatizada de Imágenes Base (`audit-base-images.yml`)
+- **Cadencia y Alcance:** El workflow [`.github/workflows/audit-base-images.yml`](.github/workflows/audit-base-images.yml) se ejecuta diariamente (`cron: '0 6 * * *'`), bajo demanda (`workflow_dispatch`) y en `pull_request` sobre manifiestos de contenedores/seguridad, aplicando mínimo privilegio (`permissions: contents: read`), `timeout-minutes` explícitos y Actions fijadas por SHA inmutable.
+- **Escaneo de Imágenes Oficiales (`Trivy HIGH/CRITICAL = 0`):** Matriz `fail-fast: false` sobre `sinfallas/base-python-uv:{latest,3.15}`, `sinfallas/base-node-ionic:{latest,26}`, `sinfallas/basephpcomposer:latest`, `sinfallas/karatelabs:latest`, `sinfallas/base-bash-qa:latest` y `sinfallas/remote-graphify:latest` con `--severity HIGH,CRITICAL --ignore-unfixed --exit-code 1`.
+- **Auditoría de Paquetes Python v2 (`pip-audit`) y SAST (`CodeQL`):** Ejecución efímera no-root (`--user 10001:10001 -e HOME=/tmp`) de `pip-audit --strict --desc` sobre `sinfallas/base-python-uv:latest`, análisis `CodeQL` en `javascript-typescript`, `python` y `actions`, y validación determinista local mediante `make lint-workflows`.
+
 ---
 
 ## 6. Barreras Automatizadas DevSecOps
@@ -233,3 +238,4 @@ Antes de cada commit, el código supera de forma automatizada:
 2. **SAST Estático:** `Bandit` (Python) y `eslint-plugin-security` (Node/Vue/React), con `.npmrc` configurado con `ignore-scripts=true`.
 3. **Auditoría IaC y Contenedores:** `Trivy` (`./scripts/auditar-infra.sh`) exigiendo `0` vulnerabilidades `HIGH` o `CRITICAL` y ejecución no-root.
 4. **Compuerta de Certificación:** `./.agents/scripts/certify_task_completion.sh` con salida en exit code 0.
+5. **Validación de Workflows y Auditoría Continua:** `make lint-workflows` en local y `.github/workflows/audit-base-images.yml` (`Trivy`, `pip-audit` y `CodeQL`) en CI.
