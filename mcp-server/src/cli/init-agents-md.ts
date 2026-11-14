@@ -4,7 +4,13 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { inspectProjectConfig } from '../tools/inspect-project.js';
+import {
+  parseAgentsOption,
+  syncAgentBridgeFiles,
+  type SupportedLang,
+} from '../tools/initOrAppendAgentsMd.js';
 import type {
+  AgentsTargetSpec,
   InitAgentsMdOptions,
   InitAgentsMdResult,
   InitAgentsAction,
@@ -21,6 +27,8 @@ const PROJECT_PATH_FLAG = '--project-path';
 const PROJECT_PATH_SHORT_FLAG = '-p';
 const LANG_FLAG = '--lang';
 const LANG_SHORT_FLAG = '-l';
+const AGENTS_FLAG = '--agents';
+const AGENTS_SHORT_FLAG = '-a';
 
 export type { InitAgentsMdOptions, InitAgentsMdResult, InitAgentsAction, OutputLanguageMode };
 
@@ -167,6 +175,11 @@ export async function initOrAppendAgentsMd(
   const lang = options.lang ?? 'auto';
   const mergeRes = mergeOrAppendAgentsMdContent(existingContent, projectName, detectedStacks, lang);
   const isDryRun = Boolean(options.dryRun);
+  const bridgeLang: SupportedLang = lang === 'en' ? 'en' : 'es';
+  const bridgeSync =
+    options.agents !== undefined
+      ? syncAgentBridgeFiles(resolvedPath, options.agents, detectedStacks, bridgeLang, isDryRun)
+      : undefined;
 
   if (!isDryRun) {
     fs.writeFileSync(agentsMdPath, mergeRes.finalContent, UTF8);
@@ -178,6 +191,9 @@ export async function initOrAppendAgentsMd(
     action: isDryRun ? 'dry_run' : mergeRes.action,
     detected_stacks: detectedStacks,
     content: mergeRes.finalContent,
+    ...(bridgeSync
+      ? { bridged_agents: bridgeSync.bridgedAgents, bridge_files: bridgeSync.bridgeFiles }
+      : {}),
   };
 }
 
@@ -206,41 +222,71 @@ function extractOptionValue(
   return null;
 }
 
+interface InitAgentsCliParseState {
+  projectPath: string;
+  dryRun: boolean;
+  rawLang: string | undefined;
+  rawAgents: string | undefined;
+}
+
+function consumeInitAgentsToken(
+  args: string[],
+  index: number,
+  state: InitAgentsCliParseState
+): number {
+  const arg = args[index];
+  if (arg === DRY_RUN_FLAG) {
+    state.dryRun = true;
+    return 0;
+  }
+  const pathOpt = extractOptionValue(args, index, PROJECT_PATH_FLAG, PROJECT_PATH_SHORT_FLAG);
+  if (pathOpt) {
+    state.projectPath = pathOpt.value;
+    return pathOpt.consumed;
+  }
+  const langOpt = extractOptionValue(args, index, LANG_FLAG, LANG_SHORT_FLAG);
+  if (langOpt) {
+    state.rawLang = langOpt.value;
+    return langOpt.consumed;
+  }
+  const agentsOpt = extractOptionValue(args, index, AGENTS_FLAG, AGENTS_SHORT_FLAG);
+  if (agentsOpt) {
+    state.rawAgents = agentsOpt.value;
+    return agentsOpt.consumed;
+  }
+  if (!arg.startsWith('-')) {
+    state.projectPath = arg;
+  }
+  return 0;
+}
+
 export function parseInitAgentsArgs(args: string[]): {
   projectPath: string;
   dryRun: boolean;
   lang: OutputLanguageMode;
+  agents?: AgentsTargetSpec;
 } {
-  let projectPath = process.cwd();
-  let dryRun = false;
-  let rawLang: string | undefined = process.env.QA_OUTPUT_LANG;
+  const state: InitAgentsCliParseState = {
+    projectPath: process.cwd(),
+    dryRun: false,
+    rawLang: process.env.QA_OUTPUT_LANG,
+    rawAgents: undefined,
+  };
 
   for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-    if (arg === DRY_RUN_FLAG) {
-      dryRun = true;
-    } else {
-      const pathOpt = extractOptionValue(args, i, PROJECT_PATH_FLAG, PROJECT_PATH_SHORT_FLAG);
-      if (pathOpt) {
-        projectPath = pathOpt.value;
-        i += pathOpt.consumed;
-      } else {
-        const langOpt = extractOptionValue(args, i, LANG_FLAG, LANG_SHORT_FLAG);
-        if (langOpt) {
-          rawLang = langOpt.value;
-          i += langOpt.consumed;
-        } else if (!arg.startsWith('-')) {
-          projectPath = arg;
-        }
-      }
-    }
+    i += consumeInitAgentsToken(args, i, state);
   }
 
-  return { projectPath, dryRun, lang: resolveLangOption(rawLang) };
+  return {
+    projectPath: state.projectPath,
+    dryRun: state.dryRun,
+    lang: resolveLangOption(state.rawLang),
+    ...(state.rawAgents !== undefined ? { agents: parseAgentsOption(state.rawAgents) } : {}),
+  };
 }
 
 export async function runInitAgentsCli(args: string[]): Promise<void> {
-  const { projectPath, dryRun, lang } = parseInitAgentsArgs(args);
+  const { projectPath, dryRun, lang, agents } = parseInitAgentsArgs(args);
 
   console.log(DIVIDER);
   console.log('   🔗 Conector AGENTS.md QA 11X (Node.js / MCP CLI)                   ');
@@ -252,7 +298,12 @@ export async function runInitAgentsCli(args: string[]): Promise<void> {
     console.log('🔍 Modo Simulación (--dry-run): no se escribirán cambios en disco.\n');
   }
 
-  const result = await initOrAppendAgentsMd({ projectPath, dryRun, lang });
+  const result = await initOrAppendAgentsMd({
+    projectPath,
+    dryRun,
+    lang,
+    ...(agents !== undefined ? { agents } : {}),
+  });
 
   const stacksMsg = result.detected_stacks.join(', ') || 'ninguno';
   console.log(`✔ Stacks detectados: ${stacksMsg}`);

@@ -2,31 +2,65 @@
 
 # 🤖 Master Setup Guide for QA 11X MCP Server & Skills across AI Coding Agents
 
-This guide provides step-by-step instructions to configure **`@sinfallas/mcp-qa-11x`** and the **5 corporate skills** of the Level-11X QA Standard across all 11 major AI coding assistants and IDEs.
+This guide provides step-by-step instructions to configure **`@sinfallas/mcp-qa-11x`**, its **28 declarative AI agent connectors**, and the **corporate QA-11X skills** across IDEs, CLIs, autonomous agents, and vibe-coding environments.
 
 ---
 
-## 📋 Step 1: Universal Installation of Skills, Scripts, and Governance (`AGENTS.md`)
+## 📋 Step 1: Universal Installation of Skills, Connectors (`AGENTS.md`), and Language Policy (`--lang es|en`)
 
-Before registering the MCP server in your AI assistant, execute the universal installer at your project root to download skills verified with **SHA-256 (`DISA STIG V-222513`)**, install operational scripts, and initialize governance:
+Before registering the MCP server in your AI assistant, initialize governance and Thin-Repo bridge files at your project root:
 
 ```bash
-# Recommended (Auto-detects global agents + Dynamic Language Mirroring):
-npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts --reconcile
+# 1. Auto-detect installed project agents and inject English directives:
+npx -y @sinfallas/mcp-qa-11x@latest init-agents --lang en --agents auto
 
-# Forcing a specific language policy in generated AGENTS.md directives:
-# English enforced:
-npx -y @sinfallas/mcp-qa-11x@latest install-skill --lang en --init-agents --include-scripts --reconcile
+# 2. Enforce Spanish human-output policy (default) on AGENTS.md only (100% backward compatible):
+npx -y @sinfallas/mcp-qa-11x@latest init-agents --lang es
 
-# Spanish enforced:
-npx -y @sinfallas/mcp-qa-11x@latest install-skill --lang es --init-agents --include-scripts --reconcile
+# 3. Target explicit agent bridges (e.g. GitHub Copilot, Cursor, Claude Code) in English:
+npx -y @sinfallas/mcp-qa-11x@latest init-agents --lang en --agents copilot,cursor,claude-code
 
-# Explicitly selecting a target agent directory:
-npx -y @sinfallas/mcp-qa-11x@latest install-skill --target [auto|workspace|antigravity|claude|cursor|windsurf|codex|hermes|all] --init-agents --include-scripts --reconcile
+# 4. Install verified SHA-256 skills (DISA STIG V-222513), scripts, and multi-agent connectors together:
+npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --lang en --agents auto --include-scripts --reconcile
 ```
 
 > [!NOTE]
-> The `--lang auto` flag (default) activates **Dynamic Language Mirroring**: the LLM responds and reasons in the prompt language, and writes commit messages and human-facing documentation matching the existing language of repository `README.md` and `CHANGELOG.md`.
+> - **Language Policy (`--lang`):** `init-agents` supports `--lang es` (default, Spanish human responses/commits) and `--lang en` (English human responses/commits), while keeping internal `.agents/` directives in concise technical English. Re-running `init-agents` with a different `--lang` updates only the delimited QA-11X connector block idempotently without altering custom project rules.
+> - **Thin-Repo Bridge Architecture (`--agents <csv|auto|all>`):** Instead of duplicating large rulebooks into every tool folder, each bridge file is kept strictly `<= 15` lines and points directly to `AGENTS.md` (including valid `.mdc` frontmatter for Cursor and non-duplicating `read:` YAML syntax for `.aider.conf.yml`), with path-traversal protection and `--dry-run` simulation support.
+> - **Human-Confirmed Push Guard (`QA-GIT-GATE-01`):** Generated connectors enforce local certified `git commit` closure and prohibit automatic `git push` or `npm publish` without explicit human authorization.
+
+### 🌐 Declarative Matrix of 28 Supported AI Coding Agents (`--agents`)
+
+| Agent ID (`--agents`) | Assistant / Environment | Category | Generated Bridge File | Auto-Detection Markers (`--agents auto`) |
+| :--- | :--- | :--- | :--- | :--- |
+| `antigravity` | Google Antigravity IDE | IDE | `AGENTS.md` | `.gemini`, `.idx` |
+| `claude-code` | Claude Code CLI | CLI | `CLAUDE.md` | `CLAUDE.md`, `.claude` |
+| `claude-desktop` | Claude Desktop | Desktop | `AGENTS.md` | `.mcp.json` |
+| `cursor` | Cursor IDE | IDE | `.cursor/rules/qa-11x.mdc` (`.mdc` frontmatter) | `.cursor`, `.cursorrules` |
+| `windsurf` | Windsurf (Codeium) | IDE | `.windsurfrules` | `.windsurfrules`, `.windsurf`, `.codeium` |
+| `copilot` | GitHub Copilot (VS Code) | IDE | `.github/copilot-instructions.md` | `.github`, `.vscode` |
+| `codex` | OpenAI Codex CLI | CLI | `AGENTS.md` | `.codex` |
+| `gemini-cli` | Google Gemini CLI | CLI | `GEMINI.md` | `GEMINI.md`, `.gemini` |
+| `gemini-code-assist` | Gemini Code Assist | IDE | `.gemini/styleguide.md` | `.gemini` |
+| `cline` | Cline (VS Code) | IDE | `.clinerules` | `.clinerules`, `.cline` |
+| `roo-code` | Roo Code | IDE | `.roo/rules/qa-11x.md` | `.roo`, `.roorules` |
+| `aider` | Aider CLI | CLI | `.aider.conf.yml` (`read: AGENTS.md`) | `.aider.conf.yml`, `.aiderignore` |
+| `continue` | Continue.dev | IDE | `.continue/rules/qa-11x.md` | `.continue`, `.continuerules` |
+| `zed` | Zed Editor AI | IDE | `.rules` | `.zed`, `.rules` |
+| `devin` | Devin Autonomous Agent | Autonomous | `AGENTS.md` | `.devin` |
+| `cody` | Sourcegraph Cody | IDE | `.sourcegraph/qa-11x.rule.md` | `.sourcegraph` |
+| `amazon-q` | Amazon Q Developer | IDE | `.amazonq/rules/qa-11x.md` | `.amazonq` |
+| `jetbrains-ai` | JetBrains AI / Junie | IDE | `.junie/guidelines.md` | `.junie`, `.idea` |
+| `augment` | Augment Code | IDE | `.augment/rules/qa-11x.md` | `.augment` |
+| `trae` | Trae IDE | IDE | `.trae/rules/qa-11x.md` | `.trae` |
+| `hermes` | Hermes Agent | Autonomous | `AGENTS.md` | `.hermes` |
+| `opencode` | OpenCode CLI | CLI | `AGENTS.md` | `opencode.json`, `.opencode` |
+| `goose` | Block Goose | CLI | `.goosehints` | `.goosehints`, `.goose` |
+| `kilo-code` | Kilo Code | IDE | `.kilocode/rules/qa-11x.md` | `.kilocode` |
+| `bolt` | Bolt.new | Vibe-Coding | `.bolt/prompt` | `.bolt` |
+| `lovable` | Lovable.dev | Vibe-Coding | `.lovable/rules.md` | `.lovable` |
+| `v0` | Vercel v0 | Vibe-Coding | `.v0/rules.md` | `.v0` |
+| `replit` | Replit Agent | Vibe-Coding | `replit.md` | `.replit`, `replit.nix`, `replit.md` |
 
 ---
 

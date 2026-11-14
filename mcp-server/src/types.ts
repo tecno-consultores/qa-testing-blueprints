@@ -495,10 +495,22 @@ export type AuditTestPyramidInput = z.infer<typeof AuditTestPyramidInputSchema>;
 // 🔗 Contratos de Conector AGENTS.md (Hito 9)
 // ============================================================================
 
+export type AgentsTargetSpec = readonly string[] | 'auto' | 'all';
+
+export interface BridgeFileSummary {
+  agent_ids: string[];
+  file_path: string;
+  relative_path: string;
+  format: string;
+  action: InitAgentsAction;
+  content: string;
+}
+
 export interface InitAgentsMdOptions {
   projectPath: string;
   dryRun?: boolean;
   lang?: OutputLanguageMode;
+  agents?: AgentsTargetSpec;
 }
 
 export type InitAgentsAction = 'created' | 'appended' | 'updated_block' | 'dry_run';
@@ -509,6 +521,8 @@ export interface InitAgentsMdResult {
   action: InitAgentsAction;
   detected_stacks: string[];
   content: string;
+  bridged_agents?: string[];
+  bridge_files?: BridgeFileSummary[];
 }
 
 export const InitAgentsMdInputSchema = z.object({
@@ -524,6 +538,12 @@ export const InitAgentsMdInputSchema = z.object({
     .optional()
     .default('auto')
     .describe('Human output language policy injected into AGENTS.md: auto (mirror prompt & README/CHANGELOG), es (Spanish), or en (English).'),
+  agents: z
+    .union([z.enum(['auto', 'all']), z.array(z.string().min(1)).min(1)])
+    .optional()
+    .describe(
+      "Optional Thin-Repo bridge targets ('auto', 'all', or explicit agent IDs among 28 supported AI coding agents)."
+    ),
 });
 export type InitAgentsMdInput = z.infer<typeof InitAgentsMdInputSchema>;
 

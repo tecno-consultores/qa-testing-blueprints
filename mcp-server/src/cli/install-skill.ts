@@ -6,8 +6,9 @@ import * as path from 'node:path';
 import { GitHubFetcher, resolveSafeChildPath, resolveSafeHomeDir } from '../services/github-fetcher.js';
 import { writeVersionStamp } from '../services/version-manager.js';
 import { initOrAppendAgentsMd, syncGlobalGeminiMd } from './init-agents-md.js';
+import { parseAgentsOption } from '../tools/initOrAppendAgentsMd.js';
 import { reconcileAgentsGovernance } from './reconcile-agents.js';
-import type { Manifest, ManifestFileEntry, OutputLanguageMode } from '../types.js';
+import type { AgentsTargetSpec, Manifest, ManifestFileEntry, OutputLanguageMode } from '../types.js';
 
 const AGENTS_DIR_NAME = '.agents';
 const SKILLS_DIR_NAME = 'skills';
@@ -33,6 +34,18 @@ function parseTargetArg(args: string[]): string {
     }
   }
   return targetArg;
+}
+
+export function parseAgentsArg(args: string[]): AgentsTargetSpec | undefined {
+  for (let i = 0; i < args.length; i++) {
+    if ((args[i] === '--agents' || args[i] === '-a') && args[i + 1]) {
+      return parseAgentsOption(args[i + 1]);
+    }
+    if (args[i].startsWith('--agents=')) {
+      return parseAgentsOption(args[i].slice('--agents='.length));
+    }
+  }
+  return undefined;
 }
 
 export function parseLangArg(args: string[]): OutputLanguageMode {
@@ -208,6 +221,7 @@ export async function runInstallSkillCli(args: string[], fetcher?: GitHubFetcher
   const resolvedFetcher = fetcher || new GitHubFetcher();
   const targetArg = parseTargetArg(args);
   const lang = parseLangArg(args);
+  const agents = parseAgentsArg(args);
   const includeScripts = args.includes('--include-scripts');
   const initAgents = args.includes('--init-agents');
   const reconcile = args.includes('--reconcile');
@@ -262,7 +276,11 @@ export async function runInstallSkillCli(args: string[], fetcher?: GitHubFetcher
   }
 
   if (initAgents) {
-    const initResult = await initOrAppendAgentsMd({ projectPath: cwd, lang });
+    const initResult = await initOrAppendAgentsMd({
+      projectPath: cwd,
+      lang,
+      ...(agents !== undefined ? { agents } : {}),
+    });
     console.log(`✔ [AGENTS.md] Conector procesado (${initResult.action}) en ${initResult.agents_md_path}`);
   }
 }

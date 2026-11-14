@@ -463,6 +463,7 @@ export function createMcpServer(options?: {
         projectPath: args.project_path,
         dryRun: Boolean(args.dry_run),
         lang: args.lang,
+        agents: args.agents,
       });
       return {
         content: [
