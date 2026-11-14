@@ -146,6 +146,23 @@ class TestStacksHydrationSmoke(unittest.TestCase):
         self.assertNotIn("session.sid_length", php_ini_active)
         self.assertNotIn("session.sid_bits_per_character", php_ini_active)
 
+        for php_doc_rel in (
+            ".agents/skills/qa-11x-architect/references/06-stack-php.md",
+            "docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md",
+            "docs/specs/10_SPEC_ECOSISTEMA_PHP_8_Y_HERRAMIENTAS_MCP.md",
+        ):
+            php_doc = (REPO_ROOT / php_doc_rel).read_text(encoding="utf-8")
+            self.assertNotIn("session.sid_length = 48", php_doc)
+            self.assertNotIn("session.sid_length=48", php_doc)
+            self.assertNotIn("session.sid_bits_per_character = 6", php_doc)
+
+        php_composer = json.loads((REPO_ROOT / "php" / "composer.json.example").read_text(encoding="utf-8"))
+        self.assertIn("-d pcov.directory=src", php_composer["scripts"]["qa:unit"])
+        self.assertIn("-d pcov.directory=src", php_composer["scripts"]["qa:mutation"])
+
+        auditar_infra = (REPO_ROOT / "scripts" / "auditar-infra.sh").read_text(encoding="utf-8")
+        self.assertIn('TRIVY_SKIP_DIRS="node_modules,.git,dist,target,graphify-out,vendor,.venv"', auditar_infra)
+
         php_compose = (REPO_ROOT / "php" / "docker-compose.qa.yml").read_text(encoding="utf-8")
         self.assertNotIn("--interval 20s", php_compose)
         self.assertIn("./test:/app/src/test/java/examples/test", php_compose)

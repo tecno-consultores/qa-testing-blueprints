@@ -127,6 +127,7 @@ fi
 
 TRIVY_CACHE_VOLUME="qa11x_trivy_cache"
 TRIVY_DB_REPOS="public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2,mirror.gcr.io/aquasec/trivy-db:2"
+TRIVY_SKIP_DIRS="node_modules,.git,dist,target,graphify-out,vendor,.venv"
 
 # 1. Escaneo de misconfiguraciones IaC (Pass-Quiet / Fail-Verbose)
 if ! IAC_OUT=$(docker run --rm \
@@ -135,7 +136,7 @@ if ! IAC_OUT=$(docker run --rm \
   -w /app \
   aquasec/trivy:latest config . \
   --quiet \
-  --skip-dirs node_modules,.git,dist,target,graphify-out \
+  --skip-dirs "${TRIVY_SKIP_DIRS}" \
   --severity HIGH,CRITICAL \
   --exit-code 1 2>&1); then
   echo "❌ [Trivy IaC] Misconfiguraciones HIGH/CRITICAL detectadas:" >&2
@@ -151,7 +152,7 @@ if ! FS_OUT=$(docker run --rm \
   aquasec/trivy:latest fs . \
   --quiet \
   --scanners vuln \
-  --skip-dirs node_modules,.git,dist,target,graphify-out \
+  --skip-dirs "${TRIVY_SKIP_DIRS}" \
   --db-repository "${TRIVY_DB_REPOS}" \
   --timeout 10m \
   --severity CRITICAL \

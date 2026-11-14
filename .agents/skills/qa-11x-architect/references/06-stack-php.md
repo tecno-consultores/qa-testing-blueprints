@@ -30,7 +30,7 @@ All execution MUST occur inside ephemeral Docker containers (`Rule Zero`) using 
 3. Run `vimeo/psalm --taint-analysis` to statically detect SQLi, XSS, SSRF, and path traversal sinks.
 
 ### B. Unit Coverage (`>= 95.0%`) via Native C `PCOV` & Offline Isolation
-1. Use `pcov` (`php -d pcov.enabled=1 ./vendor/bin/pest --coverage --min=95` or PHPUnit) for fast C-level branch/line instrumentation.
+1. Use `pcov` (`php -d pcov.enabled=1 -d pcov.directory=src ./vendor/bin/pest --coverage --min=95`, or `-d pcov.directory=app` on Laravel) for fast C-level branch/line instrumentation; mount custom hardened `.ini` files as `/usr/local/etc/php/conf.d/99-qa11x.ini` so they prevail over `conf.d/docker-php-ext-pcov.ini`.
 2. External HTTP calls MUST be intercepted offline (`GuzzleHttp\Handler\MockHandler`, `Symfony\Component\HttpClient\MockHttpClient`, or `php-vcr`).
 3. Filesystem operations in unit tests MUST use `bovigo/vfsstream` or ephemeral `/tmp` directories.
 
@@ -76,8 +76,8 @@ session.cookie_httponly = 1
 session.cookie_secure = 1
 session.cookie_samesite = "Strict"
 session.use_only_cookies = 1
-session.sid_length = 48
-session.sid_bits_per_character = 6
+; PHP 8.4+ deprecated session.sid_length & session.sid_bits_per_character (native 32-byte CSPRNG)
+session.cache_expire = 15
 
 [opcache]
 opcache.enable = 1
@@ -91,7 +91,9 @@ opcache.jit_buffer_size = 128M
 
 [pcov]
 pcov.enabled = 1
-pcov.directory = /var/www/src
+; Use 'app' on Laravel; mount as /usr/local/etc/php/conf.d/99-qa11x.ini or pass -d pcov.directory=... in CLI
+pcov.directory = src
+pcov.exclude = ~vendor~
 ```
 
 ### `phpstan.neon`

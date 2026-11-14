@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.21.0",
-  "generated_at_utc": "2026-11-14T21:31:05Z",
+  "generated_at_utc": "2026-11-14T21:52:18Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -263,15 +263,15 @@
           "path": "php/composer.json.example",
           "target_name": "composer.json",
           "merge_strategy": "surgical_merge",
-          "sha256": "2e26cf08b5f73d5177c152c588adaa0d7fc35b0cbbdbc8e456d54c303ed3e5fe",
-          "size_bytes": 1830
+          "sha256": "7914f0792f9a861f83fd1a0821efb8a78388b88282ec31f2c165625dc6bf1f28",
+          "size_bytes": 1874
         },
         {
           "path": "php/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "bd6d981138f61138cfe1846c5f787b45f9e3b4269dc8498e62ad145fea05fa9e",
-          "size_bytes": 3244
+          "sha256": "74689689d5718c24e8ab8ed11ae60949a1ca096294910dbd6bba88fb6ebd6b3a",
+          "size_bytes": 3382
         },
         {
           "path": "php/gitignore.example",
@@ -705,8 +705,8 @@
       "path": "scripts/auditar-infra.sh",
       "target_name": "scripts/auditar-infra.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "164120dca5b8166440bb4794ec5095dffe392898e49d7004aaa15879075e6c01",
-      "size_bytes": 6125
+      "sha256": "8d4cdd5c7d5f896e1bbfc4e3735a1fc4ff1a7efd35ff33ef4f2243f101ca8ea6",
+      "size_bytes": 6155
     },
     {
       "path": "scripts/generar-sbom-cyclonedx.sh",
@@ -966,8 +966,8 @@
       "path": ".agents/skills/qa-11x-architect/references/06-stack-php.md",
       "target_name": ".agents/skills/qa-11x-architect/references/06-stack-php.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "64f91bbbbe7db14e3040531bc388f0a0fdbb2123a4c616deaee9c09b0949c321",
-      "size_bytes": 6112
+      "sha256": "080f68dddc6e1332634ea208613b5d6fe42d6a80a9565e26787dfdd89a46f40b",
+      "size_bytes": 6485
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/07-mcp-agentic-security-governance.md",

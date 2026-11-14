@@ -33,6 +33,7 @@ services:
     pull_policy: if_not_present
     working_dir: /var/www
     user: "1000:1000"
+    # Si monta php.ini personalizado, móntelo en /usr/local/etc/php/conf.d/99-qa11x.ini:ro para prevalecer sobre docker-php-ext-pcov.ini
     volumes:
       - .:/var/www
       - composer-cache:/tmp/composer-cache

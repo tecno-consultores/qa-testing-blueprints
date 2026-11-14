@@ -37,7 +37,7 @@ La imagen base oficial [`sinfallas/basephpcomposer`](https://hub.docker.com/r/si
 * **Gobernanza No-Root y Composer:**
   * Usuario sin privilegios `www` (`UID 1000`, `GID 1000`), `WORKDIR /var/www`.
   * Binario `/usr/bin/composer` con permisos `0755` y variables `COMPOSER_MEMORY_LIMIT=-1`, `COMPOSER_NO_INTERACTION=1`.
-  * Configuración endurecida en `/usr/local/etc/php/conf.d/custom.ini` (`expose_php=Off`, `memory_limit=2048M`, `session.cookie_httponly=1`, `session.cookie_samesite=Strict`, `session.use_strict_mode=1`, `session.sid_length=48`).
+  * Configuración endurecida en `/usr/local/etc/php/conf.d/99-qa11x.ini` (`expose_php=Off`, `memory_limit=2048M`, `session.cookie_httponly=1`, `session.cookie_samesite=Strict`, `session.use_strict_mode=1`, `session.cache_expire=15` con CSPRNG nativo de PHP 8.4+ sin `session.sid_length` ni `session.sid_bits_per_character`, y `-d pcov.directory=src|app`).
 
 ---
 

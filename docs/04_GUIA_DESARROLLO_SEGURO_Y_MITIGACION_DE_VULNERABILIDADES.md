@@ -1038,10 +1038,10 @@ sha256sum --check sbom-backend.cdx.json.sha256
 
 En aplicaciones y APIs construidas sobre **PHP 8.2 a 8.5** utilizando la imagen base oficial multi-arquitectura (`amd64`/`arm64`) `sinfallas/basephpcomposer` (tags `8.2`, `8.3`, `8.4`, `8.5` y `latest`), se deben aplicar de forma innegociable los siguientes controles nativos:
 
-1. **Directivas de Endurecimiento en `php.ini` (`DISA APSC-DV-002430` & `OWASP OSHP`):**
+1. **Directivas de Endurecimiento en `php.ini` / `conf.d/99-qa11x.ini` (`DISA APSC-DV-002430` & `OWASP OSHP`):**
    - `expose_php = Off` (suprime el banner `X-Powered-By: PHP/8.x` en todas las respuestas HTTP).
    - `zend.exception_ignore_args = On` y `display_errors = Off` (evita fugas de contraseñas o tokens en stack traces).
-   - `session.use_strict_mode = 1`, `session.cookie_httponly = 1`, `session.cookie_secure = 1`, `session.cookie_samesite = "Strict"` y `session.sid_length = 48`.
+   - `session.use_strict_mode = 1`, `session.cookie_httponly = 1`, `session.cookie_secure = 1`, `session.cookie_samesite = "Strict"` y `session.cache_expire = 15` (en PHP 8.4/8.5 se deprecaron `session.sid_length` y `session.sid_bits_per_character` en favor del CSPRNG nativo de 32 bytes; monte configuraciones personalizadas en `/usr/local/etc/php/conf.d/99-qa11x.ini` para prevalecer sobre `conf.d/docker-php-ext-pcov.ini`).
    - `opcache.save_comments = 1` (indispensable para no romper atributos PHP 8 `#[...]` ni anotaciones de validación/rutas en Doctrine, Symfony, Laravel y Swagger-PHP).
 
 2. **Canonicalización Unicode NFKC, Bóveda AES-256-GCM con `sodium_memzero` y Argon2id en Tiempo Constante:**

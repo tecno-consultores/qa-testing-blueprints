@@ -120,10 +120,10 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
   ```bash
   cd php
   make qa-lint       # PHP-CS-Fixer (@PER-CS2.0), PHPStan (level: max + cognitive-complexity <= 9), Psalm (--taint-analysis), composer audit
-  make qa-unit       # Pest / PHPUnit con driver C PCOV (Cobertura >= 95.0%)
+  make qa-unit       # Pest / PHPUnit con driver C PCOV (-d pcov.directory=src, o app en Laravel; Cobertura >= 95.0%)
   make qa-parity     # Validación de esquema real PostgreSQL 17 y migraciones Doctrine / Laravel
   make qa-bdd        # Karate Labs BDD (test/api_test.feature)
-  make qa-mutation   # Infection PHP (MSI >= 80%, Covered MSI >= 80%)
+  make qa-mutation   # Infection PHP (-d pcov.directory=src|app, MSI >= 80%, Covered MSI >= 80%)
   make qa-sbom       # CycloneDX SBOM v1.6 (cyclonedx/cyclonedx-php-composer)
   make qa-all        # Suite completa 11X
   ```

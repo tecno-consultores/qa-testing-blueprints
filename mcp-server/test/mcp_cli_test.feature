@@ -969,5 +969,30 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert vuePkg.pnpm == null
     * match vuePkg.devDependencies['vue-tsc'] == '^2.2.8'
 
+  Scenario: 31. Compatibilidad PHP 8.4/8.5 (sin session.sid_length + pcov.directory), exclusión vendor en Trivy IaC y fallback Docker en ephemeral-runner
+    * def phpRef = karate.readAsString(repoRoot + '/.agents/skills/qa-11x-architect/references/06-stack-php.md')
+    * assert !phpRef.contains('session.sid_length = 48')
+    * assert !phpRef.contains('session.sid_bits_per_character = 6')
+    * assert phpRef.contains('-d pcov.directory=src')
+    * assert phpRef.contains('conf.d/99-qa11x.ini')
+    * string phpComposerRaw = karate.readAsString(repoRoot + '/php/composer.json.example')
+    * json phpComposer = phpComposerRaw
+    * assert phpComposer.scripts['qa:unit'].contains('-d pcov.directory=src')
+    * assert phpComposer.scripts['qa:mutation'].contains('-d pcov.directory=src')
+    * def auditarInfra = karate.readAsString(repoRoot + '/scripts/auditar-infra.sh')
+    * assert auditarInfra.contains('node_modules,.git,dist,target,graphify-out,vendor,.venv')
+    * def docs02 = karate.readAsString(repoRoot + '/docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md')
+    * assert docs02.contains('## 8.')
+    * assert docs02.contains('conf.d/99-qa11x.ini')
+    * def runnerTs = karate.readAsString(repoRoot + '/mcp-server/src/tools/ephemeral-runner.ts')
+    * assert runnerTs.contains('resolveMakefileDockerRecipes')
+    * assert runnerTs.contains('resolveComposeDirectFallback')
+    * def findEntry = function(list, pathStr) { return karate.filter(list, function(x) { return x.path == pathStr })[0] }
+    * def composerManifest = findEntry(manifest.stacks.php.files, 'php/composer.json.example')
+    * match composerManifest.sha256 == '#regex ^[0-9a-f]{64}$'
+    * def auditarManifest = findEntry(manifest.common_files, 'scripts/auditar-infra.sh')
+    * match auditarManifest.sha256 == '#regex ^[0-9a-f]{64}$'
+
+
 
 

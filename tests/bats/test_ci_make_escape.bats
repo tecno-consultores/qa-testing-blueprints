@@ -122,3 +122,29 @@ EOF
   assert_success
   assert_output --partial "sin hallazgos"
 }
+
+@test "auditar-infra.sh --force: pasa vendor y .venv en --skip-dirs de Trivy config y fs (evita falsos positivos en vendor/laravel/sail)" {
+  mkdir -p "${FAKE_ROOT}/vendor/laravel/sail/runtimes/8.5"
+  cat >"${FAKE_ROOT}/vendor/laravel/sail/runtimes/8.5/Dockerfile" <<'EOF'
+FROM ubuntu:latest
+USER root
+EOF
+  printf '{"packages":[]}\n' >"${FAKE_ROOT}/composer.lock"
+
+  DOCKER_LOG="${BATS_TEST_TMPDIR}/docker_calls.log"
+  cat >"${FAKE_BIN}/docker" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >> "${DOCKER_LOG}"
+exit 0
+EOF
+  chmod +x "${FAKE_BIN}/docker"
+
+  run env PATH="${FAKE_BIN}" LC_ALL=C bash "${FAKE_ROOT}/scripts/auditar-infra.sh" --force
+  assert_success
+  assert_output --partial "verificados sin hallazgos"
+
+  run cat "${DOCKER_LOG}"
+  assert_success
+  assert_output --partial "aquasec/trivy:latest config . --quiet --skip-dirs node_modules,.git,dist,target,graphify-out,vendor,.venv"
+  assert_output --partial "aquasec/trivy:latest fs . --quiet --scanners vuln --skip-dirs node_modules,.git,dist,target,graphify-out,vendor,.venv"
+}

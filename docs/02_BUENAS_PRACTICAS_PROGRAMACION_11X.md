@@ -335,3 +335,17 @@ Al certificar proyectos frontend y Node.js dentro de las imágenes oficiales `si
    - Node v26 expone un descriptor experimental `globalThis.localStorage` que sin `--localstorage-file` carece del método `.clear()` en sesiones `jsdom`. Registra un `Storage` en memoria dentro de `vitest.setup.ts` (enlazado mediante `test.setupFiles` en `vitest.config.ts`) cuando `typeof globalThis.localStorage?.clear !== 'function'`.
 5. **Frontera real de `sinfallas/karatelabs:1.5.1` (HTTP/OSHP/SSG/XML) vs Playwright (`ui-e2e`):**
    - Las imágenes `sinfallas/karatelabs:1.5.1` / `:latest` no incluyen binario Chrome/Chromium. Delega toda interacción DOM real, verificación de botones `[ 🔄 Refrescar ]`, geometría Anti-JSDOM y WCAG 2.1 AA a Playwright (`ui-e2e`), y enfoca `test/ui_business_flow.feature` en contratos HTTP sobre `http://ui-prod:80`: códigos `200`, rutas SPA/SSG, cabeceras OWASP OSHP alineadas con `nginx/default.conf` (`Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`) y lectura segura de XML/SEO como cadena (`* string xmlText = response` en `/sitemap.xml` para evitar fallos de parser por namespaces).
+
+---
+
+## 8. Compatibilidad PHP 8.4/8.5 (`PCOV` y `php.ini`), Exclusión `vendor/` en Trivy IaC y Fallback Rule Zero sin `make`
+
+Para evitar fricciones operativas en aplicaciones PHP 8.4/8.5 (Symfony/PSR-4 y Laravel), auditorías de infraestructura tras `composer install` y entornos sin GNU `make`:
+
+1. **Directivas de sesión y precedencia `PCOV` en PHP 8.4/8.5 (`php/php.ini.example`, `php/composer.json.example`):**
+   - **Eliminación de `session.sid_length` y `session.sid_bits_per_character`:** Ambas directivas fueron deprecadas en PHP 8.4/8.5 en favor del CSPRNG nativo de 32 bytes; reemplázalas por `session.cache_expire = 15` junto a `session.use_strict_mode = 1`, `session.cookie_httponly = 1`, `session.cookie_secure = 1` y `session.cookie_samesite = Strict`.
+   - **Parametrización explícita de `pcov.directory` y orden en `conf.d`:** La imagen `sinfallas/basephpcomposer` carga `conf.d/docker-php-ext-pcov.ini` en orden lexicográfico. Pasa explícitamente `-d pcov.enabled=1 -d pcov.directory=src` (`-d pcov.directory=app` en Laravel) dentro de los scripts `qa:unit` / `qa:mutation` de `composer.json` y monta archivos `.ini` personalizados en `/usr/local/etc/php/conf.d/99-qa11x.ini:ro`.
+2. **Exclusión de `vendor` y `.venv` en Trivy IaC/FS (`scripts/auditar-infra.sh`):**
+   - Pasa `--skip-dirs node_modules,.git,dist,target,graphify-out,vendor,.venv` tanto a `trivy config` como a `trivy fs` para evitar falsos positivos sobre `Dockerfile` auxiliares de desarrollo dentro de `vendor/` (ej. `vendor/laravel/sail/...`), manteniendo intacto el escaneo de CVEs sobre `composer.lock` y `uv.lock` en raíz.
+3. **Fallback Rule Zero sin GNU `make` en `run_ephemeral_qa` (`mcp-server/src/tools/ephemeral-runner.ts`):**
+   - Cuando `make` falla con `ENOENT` (o falta `Makefile` pero existe `docker-compose.qa.yml`), el servidor MCP resuelve las recetas del `Makefile` (expandiendo variables y dependencias) o mapea `docker-compose.qa.yml` ejecutando **exclusivamente comandos `docker compose` / `docker run` con `shell: false`**, rechazando en modo *Fail-Closed* cualquier receta que intente ejecutar binarios directamente en el host.
