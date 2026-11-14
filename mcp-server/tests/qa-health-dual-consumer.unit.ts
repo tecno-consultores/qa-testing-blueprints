@@ -252,6 +252,65 @@ describe('QA-HEALTH-01 & Dual-Consumer Evolution Suite', () => {
       const resFail = await auditSecurityStigOwasp(tmpDir);
       expect(resFail.findings.filter((f) => f.rule_id === 'QA-HEALTH-01')).toHaveLength(1);
     });
+
+    it('ignores /tmp/venv outside HEALTHCHECK blocks and catches multiline Dockerfile HEALTHCHECK probes', async () => {
+      const srcDir = path.join(tmpDir, 'src');
+      const scriptsDir = path.join(tmpDir, 'scripts');
+      const testsDir = path.join(tmpDir, 'tests');
+      fs.mkdirSync(srcDir, { recursive: true });
+      fs.mkdirSync(scriptsDir, { recursive: true });
+      fs.mkdirSync(testsDir, { recursive: true });
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'docker-compose.yml'),
+        [
+          'services:',
+          '  api:',
+          '    environment:',
+          '      VIRTUAL_ENV: /tmp/venv',
+          '    healthcheck:',
+          '      test: ["CMD-SHELL", "curl -sf http://localhost:8000/health"]',
+          '  qa:',
+          '    volumes:',
+          '      - /tmp/venv:/tmp/venv',
+        ].join('\n'),
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(scriptsDir, 'qa.sh'),
+        '#!/usr/bin/env bash\nVENV=/tmp/venv\n"$VENV/bin/pytest"\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(srcDir, 'runtime.py'),
+        'DEFAULT_VENV = "/tmp/venv"\n',
+        'utf8'
+      );
+
+      const cleanRes = await auditSecurityStigOwasp(tmpDir);
+      expect(cleanRes.findings.filter((f) => f.rule_id === 'QA-HEALTH-01')).toHaveLength(0);
+
+      // Multiline Dockerfile HEALTHCHECK pointing to /tmp/worker_heartbeat without test assertion must trigger
+      fs.writeFileSync(
+        path.join(tmpDir, 'Dockerfile'),
+        [
+          'FROM python:3.12-slim',
+          'ENV VIRTUAL_ENV=/tmp/venv',
+          'HEALTHCHECK --interval=10s \\',
+          '  CMD test -f /tmp/worker_heartbeat',
+        ].join('\n'),
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(srcDir, 'worker.py'),
+        'HEARTBEAT = "/tmp/worker_heartbeat"\n',
+        'utf8'
+      );
+      const flaggedRes = await auditSecurityStigOwasp(tmpDir);
+      const findings = flaggedRes.findings.filter((f) => f.rule_id === 'QA-HEALTH-01');
+      expect(findings).toHaveLength(1);
+      expect(findings[0].message).toContain('/tmp/worker_heartbeat');
+    });
   });
 
   describe('QA-CLI-TTY-01: Dual CLI/MCP stdio Interactive TTY Anti-Hang Guard', () => {
@@ -773,6 +832,176 @@ describe('QA-HEALTH-01 & Dual-Consumer Evolution Suite', () => {
       expect(
         fs.readFileSync(fallbackRes.local_proposal_file, 'utf8')
       ).toContain('Recordatorio Dual-Consumer Obligatorio');
+    });
+  });
+
+  describe('QA-CONTRACT-SDK-01: Real In-Process SDK Transport Contract', () => {
+    it('flags Python and TS protocol servers tested only with direct handler mocks and passes with real SDK client tests', async () => {
+      const pyRoot = path.join(tmpDir, 'py-mcp');
+      fs.mkdirSync(path.join(pyRoot, 'src'), { recursive: true });
+      fs.mkdirSync(path.join(pyRoot, 'tests'), { recursive: true });
+      fs.writeFileSync(
+        path.join(pyRoot, 'src', 'bridge.py'),
+        [
+          'from mcp.server.fastmcp import FastMCP',
+          'mcp = FastMCP("bridge")',
+          '@mcp.tool()',
+          'async def ping() -> str:',
+          '    return "pong"',
+        ].join('\n'),
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(pyRoot, 'tests', 'test_bridge.unit.py'),
+        [
+          'from unittest.mock import MagicMock',
+          'from src.bridge import ping',
+          'async def test_ping_siloed():',
+          '    req = MagicMock()',
+          '    assert await ping() == "pong"',
+        ].join('\n'),
+        'utf8'
+      );
+
+      const pyFail = await auditSecurityStigOwasp(pyRoot);
+      const pyFindings = pyFail.findings.filter((f) => f.rule_id === 'QA-CONTRACT-SDK-01');
+      expect(pyFindings).toHaveLength(1);
+      expect(pyFindings[0].severity).toBe('HIGH');
+      expect(pyFindings[0].file).toBe(path.join('src', 'bridge.py'));
+
+      // Adding a real in-process SDK client session test clears the finding
+      fs.writeFileSync(
+        path.join(pyRoot, 'tests', 'test_sdk_contract.py'),
+        [
+          'from mcp.shared.memory import create_connected_server_and_client_session',
+          'async def test_real_sdk_session():',
+          '    async with create_connected_server_and_client_session(server) as session:',
+          '        await session.list_tools()',
+        ].join('\n'),
+        'utf8'
+      );
+      const pyPass = await auditSecurityStigOwasp(pyRoot);
+      expect(pyPass.findings.filter((f) => f.rule_id === 'QA-CONTRACT-SDK-01')).toHaveLength(0);
+
+      // TypeScript server without Client + InMemoryTransport fails, then passes with InMemoryTransport or pragma
+      const tsRoot = path.join(tmpDir, 'ts-mcp');
+      fs.mkdirSync(path.join(tsRoot, 'src'), { recursive: true });
+      fs.mkdirSync(path.join(tsRoot, 'tests'), { recursive: true });
+      fs.writeFileSync(
+        path.join(tsRoot, 'src', 'server.ts'),
+        [
+          "import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';",
+          'export function createServer() {',
+          '  const server = new McpServer({ name: "demo", version: "1.0.0" });',
+          '  server.tool("ping", {}, async () => ({ content: [{ type: "text", text: "pong" }] }));',
+          '  return server;',
+          '}',
+        ].join('\n'),
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(tsRoot, 'tests', 'server.unit.ts'),
+        'import { createServer } from "../src/server.js";\nexpect(createServer()).toBeDefined();\n',
+        'utf8'
+      );
+
+      const tsFail = await auditSecurityStigOwasp(tsRoot);
+      expect(tsFail.findings.filter((f) => f.rule_id === 'QA-CONTRACT-SDK-01')).toHaveLength(1);
+
+      fs.writeFileSync(
+        path.join(tsRoot, 'tests', 'sdk.contract.test.ts'),
+        [
+          "import { Client } from '@modelcontextprotocol/sdk/client/index.js';",
+          "import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';",
+          'const [ct, st] = InMemoryTransport.createLinkedPair();',
+          'const client = new Client({ name: "c", version: "1.0.0" });',
+        ].join('\n'),
+        'utf8'
+      );
+      const tsPass = await auditSecurityStigOwasp(tsRoot);
+      expect(tsPass.findings.filter((f) => f.rule_id === 'QA-CONTRACT-SDK-01')).toHaveLength(0);
+    });
+
+    it('honors qa-contract-sdk-ok pragma exemption', async () => {
+      fs.mkdirSync(path.join(tmpDir, 'src'), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, 'src', 'server.py'),
+        '# qa-contract-sdk-ok\nfrom mcp.server.fastmcp import FastMCP\napp = FastMCP("ok")\n',
+        'utf8'
+      );
+      const res = await auditSecurityStigOwasp(tmpDir);
+      expect(res.findings.filter((f) => f.rule_id === 'QA-CONTRACT-SDK-01')).toHaveLength(0);
+    });
+  });
+
+  describe('QA-DOCKER-LOCK-01: Dockerfile Lockfile Parity & Smoke Enforcement', () => {
+    it('flags handwritten pip/uv/npm package lists and unfrozen uv sync in Dockerfiles, while passing lockfile installs', async () => {
+      const badPyDir = path.join(tmpDir, 'bad-py');
+      fs.mkdirSync(badPyDir, { recursive: true });
+      fs.writeFileSync(path.join(badPyDir, 'pyproject.toml'), '[project]\nname="app"\n', 'utf8');
+      fs.writeFileSync(path.join(badPyDir, 'uv.lock'), 'version = 1\n', 'utf8');
+      fs.writeFileSync(
+        path.join(badPyDir, 'Dockerfile'),
+        [
+          'FROM python:3.12-slim',
+          'RUN pip install --no-cache-dir uv',
+          'RUN pip install --no-cache-dir fastapi uvicorn pydantic',
+          'RUN uv sync --no-dev',
+        ].join('\n'),
+        'utf8'
+      );
+
+      const badPyRes = await auditSecurityStigOwasp(badPyDir);
+      const pyLockFindings = badPyRes.findings.filter((f) => f.rule_id === 'QA-DOCKER-LOCK-01');
+      expect(pyLockFindings).toHaveLength(2);
+      expect(pyLockFindings.map((f) => f.line)).toEqual([3, 4]);
+
+      // Good Python Dockerfile: bootstrap uv + uv export --frozen + uv sync --frozen --no-dev
+      const goodPyDir = path.join(tmpDir, 'good-py');
+      fs.mkdirSync(goodPyDir, { recursive: true });
+      fs.writeFileSync(path.join(goodPyDir, 'pyproject.toml'), '[project]\nname="app"\n', 'utf8');
+      fs.writeFileSync(path.join(goodPyDir, 'uv.lock'), 'version = 1\n', 'utf8');
+      fs.writeFileSync(
+        path.join(goodPyDir, 'Dockerfile'),
+        [
+          'FROM python:3.12-slim',
+          'RUN pip install --no-cache-dir uv==0.6.0',
+          'RUN uv export --frozen --no-dev | uv pip install --system -r -',
+          'RUN uv sync --frozen --no-dev',
+        ].join('\n'),
+        'utf8'
+      );
+      const goodPyRes = await auditSecurityStigOwasp(goodPyDir);
+      expect(goodPyRes.findings.filter((f) => f.rule_id === 'QA-DOCKER-LOCK-01')).toHaveLength(0);
+
+      // Node Dockerfile: flags handwritten npm install express, allows npm install -g pnpm && pnpm install --frozen-lockfile
+      const nodeDir = path.join(tmpDir, 'node-app');
+      fs.mkdirSync(nodeDir, { recursive: true });
+      fs.writeFileSync(path.join(nodeDir, '.npmrc'), 'ignore-scripts=true\n', 'utf8');
+      fs.writeFileSync(path.join(nodeDir, 'package.json'), '{"name":"app"}\n', 'utf8');
+      fs.writeFileSync(
+        path.join(nodeDir, 'Dockerfile'),
+        [
+          'FROM node:22-alpine',
+          'RUN npm install -g pnpm',
+          'RUN pnpm install --frozen-lockfile',
+          'RUN npm install express cors',
+        ].join('\n'),
+        'utf8'
+      );
+      const nodeRes = await auditSecurityStigOwasp(nodeDir);
+      const nodeFindings = nodeRes.findings.filter((f) => f.rule_id === 'QA-DOCKER-LOCK-01');
+      expect(nodeFindings).toHaveLength(1);
+      expect(nodeFindings[0].line).toBe(4);
+
+      // Pragma # qa-docker-lock-ok exempts explicit intentional lines
+      fs.writeFileSync(
+        path.join(nodeDir, 'Dockerfile'),
+        'FROM node:22-alpine\n# qa-docker-lock-ok\nRUN npm install express\n',
+        'utf8'
+      );
+      const exemptRes = await auditSecurityStigOwasp(nodeDir);
+      expect(exemptRes.findings.filter((f) => f.rule_id === 'QA-DOCKER-LOCK-01')).toHaveLength(0);
     });
   });
 });

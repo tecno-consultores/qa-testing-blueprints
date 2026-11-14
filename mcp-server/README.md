@@ -86,7 +86,7 @@ Led by `qa-11x-architect` (`< 12 KB`), loading 9 specialized sub-skills on deman
 3. **`bootstrap_or_merge_11x`:** Scaffolds or merges `.example` QA configs, Dockerfiles, Make targets, and workflows safely with `.11x-backup`.
 4. **`inspect_ast_blast_radius`:** Bidirectional AST dependency lookup (`declaring_files`, callers, callees, risk level `LOW`/`MEDIUM`/`HIGH`) with optional Graphify rebuild (`auto_build_if_missing`).
 5. **`clean_workspace_11x`:** Safely purges root-owned Docker/cache/build artifacts using Alpine ephemeral fallback without `sudo`.
-6. **`audit_security_stig_owasp`:** Scans target files across 30 static patterns (`SEC-01..SEC-16`, `SEC-CI-ACTION-REF`, `QA-*`, `UI-11X-01..03`) supporting `metadata-only` mode (`include_content: false`).
+6. **`audit_security_stig_owasp`:** Scans target files across 32 static patterns (`SEC-01..SEC-16`, `SEC-CI-ACTION-REF`, `QA-*`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `UI-11X-01..03`) supporting `metadata-only` mode (`include_content: false`).
 7. **`run_ephemeral_qa`:** Executes `lint`, `unit`, `integration`, `ci`, `audit`, `secrets`, `validate-calm`, or `clean` strictly inside ephemeral Docker containers (`Rule Zero`), honoring `DOCS_ONLY` fast-path.
 8. **`certify_11x_gate`:** Runs the 10-stage QA-11X certification gate with Allure-style `Fail-Verbose` telemetry (`/tmp/qa-11x-last-failure.json`) and lint-evidence verification.
 9. **`audit_test_pyramid_gaps`:** Audits projects against the 13 layers of the 11X pyramid (`L01`–`L13`), detecting 3-phase temporal gaps and dual refresh omissions.
@@ -105,7 +105,7 @@ Led by `qa-11x-architect` (`< 12 KB`), loading 9 specialized sub-skills on deman
 ## 📚 MCP Resources (12 Resources)
 
 1. **`blueprint://manifest`:** Real-time SHA-256 index (`manifest.json`) tracking blueprint artifacts across all supported stacks.
-2. **`blueprint://core/philosophy`:** Level-11X 13-layer pyramid specification, Rule Zero, 10 Laws, and 10 Anti-Blindness UAT Rules.
+2. **`blueprint://core/philosophy`:** Level-11X 13-layer pyramid specification, Rule Zero, 10 Laws, and 11 Anti-Blindness UAT Rules.
 3. **`blueprint://security/disa-owasp-22`:** Catalog of 22 DISA ASD STIG V6R5 and OWASP Developer Guide v4.2 hardening patterns.
 4. **`blueprint://database/postgres-rls-worm`:** PostgreSQL 17 multi-transaction RLS (`after_begin`) + deterministic WORM audit chain (`seq_num` + `pg_advisory_xact_lock`).
 5. **`blueprint://{stack}/readme`:** Operational QA guides for `fastapi`, `python`, `node-backend`, `vue3`, `react-frontend`, `php`, and `bash-scripts`.

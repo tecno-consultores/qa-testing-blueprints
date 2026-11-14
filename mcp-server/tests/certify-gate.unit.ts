@@ -262,4 +262,21 @@ describe('certify-gate', () => {
     const subStackRes = await certify11xGate(path.join(tempDir, 'fastapi'));
     expect(subStackRes.checks.documentation_synced).toBe(true);
   });
+
+  it('exime env.example y variantes .env.*.example en zero_unmerged_examples sin eximir blueprints reales', async () => {
+    setupNominalProject(tempDir);
+    fs.writeFileSync(path.join(tempDir, 'env.example'), 'PORT=8080\n');
+    fs.writeFileSync(path.join(tempDir, '.env.production.example'), 'APP_ENV=production\n');
+    fs.writeFileSync(path.join(tempDir, 'env.staging.example'), 'APP_ENV=staging\n');
+
+    const okRes = await certify11xGate(tempDir);
+    expect(okRes.checks.zero_unmerged_examples).toBe(true);
+    expect(okRes.gate_passed).toBe(true);
+
+    fs.writeFileSync(path.join(tempDir, 'pyproject.toml.example'), '[project]\nname="demo"\n');
+    const failRes = await certify11xGate(tempDir);
+    expect(failRes.checks.zero_unmerged_examples).toBe(false);
+    expect(failRes.gate_passed).toBe(false);
+    expect(failRes.blockers.some((b) => b.includes('pyproject.toml.example'))).toBe(true);
+  });
 });

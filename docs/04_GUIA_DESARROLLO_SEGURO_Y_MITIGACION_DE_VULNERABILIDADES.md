@@ -57,6 +57,8 @@
 | `UI-11X-03` | Uso de `.webp`/`.svg` en `apple-touch-icon`, ausencia de `favicon.ico` (`>=48px`), `"any maskable"` combinado en `.webmanifest`, sobrescritura sin `! Header` en `_headers` o comodines `/*.ico` en `_routes.json` | `docs/02` §5.2 y `SECURITY.md` §4.26 |
 | `QA-CI-ESCAPE-01` | Escapes de doble dólar `$$(...)` / `$${...}` heredados de `Makefile`/`Compose` dentro de `.github/workflows/*.yml` o `.github/actions/*/action.yml` (`bash` expande `$$` al PID y rompe montajes Docker con `exit code 125`) | `docs/02` §5.3 y `SECURITY.md` §4.27 |
 | `QA-MAKE-CURDIR-01` | Uso de `$(PWD)` / `${PWD}` en sub-Makefiles (`*/Makefile`, `*/Makefile.example`) invocados vía `$(MAKE) -C <subdir>` en lugar de `$(CURDIR)`, exponiendo el directorio padre al montaje del contenedor | `docs/02` §5.3 y `SECURITY.md` §4.27 |
+| `QA-CONTRACT-SDK-01` | Servidores MCP/JSON-RPC/ACP probados únicamente invocando handlers con `MagicMock` sin conectar el transporte/cliente real del SDK en proceso (oculta rupturas de firma como `mcp 1.x -> 2.x`) | `docs/02` §1.1 (Regla #11) y `SECURITY.md` §4.28 |
+| `QA-DOCKER-LOCK-01` | `Dockerfile` con lista manual de paquetes (`pip install ...`, `npm install <pkg>`) o `uv sync` sin `--frozen` en lugar de instalar desde el lockfile, más ausencia de smoke test sobre la imagen construida (`import`, `id -u != 0`, `401`) | `docs/02` §1.1 (Regla #11) y `SECURITY.md` §4.28 |
 
 ---
 

@@ -86,7 +86,7 @@ Lideradas por `qa-11x-architect` (`< 12 KB`), cargando 9 sub-skills especializad
 3. **`bootstrap_or_merge_11x`:** Genera o fusiona configuraciones `.example`, Dockerfiles, Makefile y workflows de forma segura respaldando en `.11x-backup`.
 4. **`inspect_ast_blast_radius`:** Inspección bidireccional AST (`declaring_files`, invocadores, callees y nivel de riesgo `LOW`/`MEDIUM`/`HIGH`) con reconstrucción Graphify (`auto_build_if_missing`).
 5. **`clean_workspace_11x`:** Limpia artefactos Docker/caché pertenecientes a `root` mediante contenedor efímero Alpine sin usar `sudo`.
-6. **`audit_security_stig_owasp`:** Analiza archivos sobre 30 reglas estáticas (`SEC-01..SEC-16`, `SEC-CI-ACTION-REF`, `QA-*`, `UI-11X-01..03`) con soporte *Metadata-Only* (`include_content: false`).
+6. **`audit_security_stig_owasp`:** Analiza archivos sobre 32 reglas estáticas (`SEC-01..SEC-16`, `SEC-CI-ACTION-REF`, `QA-*`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `UI-11X-01..03`) con soporte *Metadata-Only* (`include_content: false`).
 7. **`run_ephemeral_qa`:** Ejecuta `lint`, `unit`, `integration`, `ci`, `audit`, `secrets`, `validate-calm` o `clean` dentro de Docker efímero (`Regla Cero`), respetando vía rápida `DOCS_ONLY`.
 8. **`certify_11x_gate`:** Ejecuta la compuerta de 10 etapas QA-11X emitiendo telemetría `Fail-Verbose` (`/tmp/qa-11x-last-failure.json`) y verificación de evidencia lint.
 9. **`audit_test_pyramid_gaps`:** Audita proyectos frente a las 13 capas de la pirámide 11X (`L01`–`L13`), detectando vacíos en las 3 fases temporales y refresco dual.
@@ -105,7 +105,7 @@ Lideradas por `qa-11x-architect` (`< 12 KB`), cargando 9 sub-skills especializad
 ## 📚 Recursos Expuestos en el Servidor MCP (12 Resources)
 
 1. **`blueprint://manifest`:** Índice SHA-256 en tiempo real (`manifest.json`) para todos los stacks soportados.
-2. **`blueprint://core/philosophy`:** Filosofía Nivel-11X de 13 capas, Regla Cero, 10 Leyes y 10 Reglas Anti-Ceguera UAT.
+2. **`blueprint://core/philosophy`:** Filosofía Nivel-11X de 13 capas, Regla Cero, 10 Leyes y 11 Reglas Anti-Ceguera UAT.
 3. **`blueprint://security/disa-owasp-22`:** Catálogo de los 22 patrones de endurecimiento DISA ASD STIG V6R5 y OWASP v4.2.
 4. **`blueprint://database/postgres-rls-worm`:** Referencia PostgreSQL 17 RLS multi-transacción (`after_begin`) + auditoría WORM determinista (`seq_num` + `pg_advisory_xact_lock`).
 5. **`blueprint://{stack}/readme`:** Guías operativas para `fastapi`, `python`, `node-backend`, `vue3`, `react-frontend`, `php` y `bash-scripts`.

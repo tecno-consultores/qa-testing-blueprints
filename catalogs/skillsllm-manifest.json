@@ -116,8 +116,8 @@
       "name": "qa-11x-architect",
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-architect/SKILL.md",
-      "size_bytes": 11904,
-      "sha256": "1d2e4cb2f1fb9f81382a4133d3cb33002b6cc05f64bf076728043eef429b2e2a",
+      "size_bytes": 11879,
+      "sha256": "10b5da94f6f81dfedf910720ca7c948b7d0705c2bf57ba9adce9a75509a26de0",
       "description": "Master QA 11X & DevSecOps Architect (qa-testing-blueprints v2.16+). Use whenever the user asks to initialize or integrate QA in a project, merge .example templates, write or audit unit/BDD/mutation/E2E tests, enforce >=95% coverage, apply DISA ASD STIG V6R5 and OWASP v4.2 security controls, run ephemeral Docker QA suites (Rule Zero), optimize context token consumption, or update TESTING.md and CHANGELOG.md."
     },
     {
@@ -125,8 +125,8 @@
       "name": "qa-11x-devsecops-hardener",
       "path": ".agents/skills/qa-11x-devsecops-hardener/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-devsecops-hardener/SKILL.md",
-      "size_bytes": 14135,
-      "sha256": "0718ef93a8a5effda1467a8738a67b4406db20464aac677cef5c329255a35b3d",
+      "size_bytes": 14178,
+      "sha256": "561a2b453b4111dac584352b9c7e5fbd5265ddf89026459dd73e5022b535917d",
       "description": "DISA ASD STIG V6R5 and OWASP Developer Guide v4.2 hardening sub-skill for Standard 11X. Use whenever designing, auditing, or modifying multi-tenant PostgreSQL 15-17+ RLS schemas, authentication and session flows, cryptographic secret vaults, WORM audit hash-chains, mutating MCP/JSON-RPC tools, or non-root Docker containers."
     },
     {
@@ -170,8 +170,8 @@
       "name": "qa-11x-docker-certifier",
       "path": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-docker-certifier/SKILL.md",
-      "size_bytes": 7141,
-      "sha256": "c36f1834f45671fa9c671c8bc0cc3588818e55aabc1ae6e5b9ec2e7a4d0eaa2f",
+      "size_bytes": 7711,
+      "sha256": "9d137a409ce5c577f73d7940a41cafa41768f4de3b91ce32d96ccd9d572c0831",
       "description": "QA 11X Corporate Standard certifier in ephemeral Docker containers. Enforces Rule Zero (zero host executions on Ubuntu/macOS), Cyclomatic/Cognitive Complexity Grade A, unit test coverage >= 95%, mutation testing, WCAG 2.1 AA accessibility, Lighthouse CI, and silent mode RAM conservation."
     },
     {
@@ -179,8 +179,8 @@
       "name": "docker-trivy-keydb-hardening",
       "path": ".agents/skills/docker-trivy-keydb-hardening/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/docker-trivy-keydb-hardening/SKILL.md",
-      "size_bytes": 5087,
-      "sha256": "f34ad022f0a221a5c4a1853e6ca9dfef51d5852854e10c1638303497e93ffc86",
+      "size_bytes": 5651,
+      "sha256": "9a1dac5dcbd7958a88a724a4c14a9e889c78741f6a8f0d4e19bc899e4b4562fe",
       "description": "Container hardening guidelines (Trivy HIGH/CRITICAL = 0), KeyDB multi-threaded in-memory engine, non-root runtime users, multi-stage Docker builds, and backend performance optimization."
     },
     {

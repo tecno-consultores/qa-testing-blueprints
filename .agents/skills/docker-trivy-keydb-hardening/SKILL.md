@@ -22,8 +22,10 @@ This skill guides the implementation of production-grade Docker containers and u
      USER appuser
      ```
    - When reusing a `UID 10001` base image (`sinfallas/base-node-ionic:26`) with host bind mounts (`.:/app`) in ephemeral QA/CI (`docker-compose.qa.yml`), map the caller's UID (`-u "$(id -u):$(id -g)"`), set `HOME=/tmp` + `pnpm_config_store_dir=/pnpm/store`, and unlock pre-seeded named volumes via a one-shot init service (`chmod -R a+rwX /pnpm`) to avoid `os error 13` on GitHub Actions (`UID 1001`) and developer hosts (`UID 1000`/`501`).
-2. **Multi-Stage Builds:**
+2. **Multi-Stage Builds, Lockfile Determinism & Built-Image Smoke Test (`QA-DOCKER-LOCK-01`):**
    - Separate build-time dependencies (compilers, headers, dev dependencies) from the final runtime image to minimize attack surface and image size.
+   - Install runtime dependencies strictly from the project's lockfile (`uv sync --frozen --no-dev`, `uv export --frozen --no-dev | uv pip install --system -r -`, `pnpm install --frozen-lockfile`, `npm ci`, `composer install --no-dev`), never from duplicated hand-written package lists in `Dockerfile`.
+   - Smoke-test every built image in CI before release (`docker run --rm <img> python -c "import <app>"`, `test "$(id -u)" != "0"`, and an unauthenticated `401` probe on protected endpoints).
 3. **Security Profiles, Read-Only Root Filesystem & Capabilities:**
    - Drop all unnecessary Linux capabilities (`cap_drop: [ALL]`, adding back only strictly required ones).
    - Enforce `security_opt: ["no-new-privileges:true"]`, default `seccomp` profile (`RuntimeDefault`), and `read_only: true` root filesystems (mounting `/tmp` or `/run` as `tmpfs:size=64M,noexec,nosuid,nodev` and restricting writes exclusively to dedicated data volumes).

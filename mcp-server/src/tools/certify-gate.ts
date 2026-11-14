@@ -37,6 +37,13 @@ function isQaTestingBlueprintsRepo(projectPath: string): boolean {
   return false;
 }
 
+const ALLOWED_ENV_EXAMPLES = new Set(['.env.example', 'env.example']);
+const ENV_VARIANT_EXAMPLE_RE = /^\.?env\.[a-z0-9_-]+\.example$/i;
+
+function isDeploymentEnvTemplate(fileName: string): boolean {
+  return ALLOWED_ENV_EXAMPLES.has(fileName) || ENV_VARIANT_EXAMPLE_RE.test(fileName);
+}
+
 function checkUnmergedExamples(projectPath: string): { passed: boolean; blockers: string[] } {
   if (isQaTestingBlueprintsRepo(projectPath)) {
     return { passed: true, blockers: [] };
@@ -46,7 +53,7 @@ function checkUnmergedExamples(projectPath: string): { passed: boolean; blockers
   try {
     const files = fs.readdirSync(projectPath);
     for (const file of files) {
-      if (file === '.env.example') continue;
+      if (isDeploymentEnvTemplate(file)) continue;
       if (file.endsWith('.example') && !file.startsWith('.git')) {
         blockers.push(`Archivo .example sin fusionar en la raíz: ${file}`);
       }

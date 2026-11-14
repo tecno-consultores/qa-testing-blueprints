@@ -590,10 +590,12 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert skillMdBytes.length < 20000
 
     * def skillMdContent = karate.readAsString(repoRoot + '/.agents/skills/qa-11x-architect/SKILL.md')
-    * assert skillMdContent.contains('10 UAT Anti-Blindness Rules')
+    * assert skillMdContent.contains('11 UAT Anti-Blindness Rules')
     * assert skillMdContent.contains('Multi-Step Pre-Auth & Ephemeral Challenge Continuity Invariant')
     * assert skillMdContent.contains('Unmocked Orchestrator Boot & Container Healthcheck Contract')
     * assert skillMdContent.contains('QA-CLI-TTY-01')
+    * assert skillMdContent.contains('QA-CONTRACT-SDK-01')
+    * assert skillMdContent.contains('QA-DOCKER-LOCK-01')
     * assert skillMdContent.contains('inspect_ast_blast_radius')
 
     * def sec22Ref = karate.readAsString(repoRoot + '/.agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.md')
@@ -708,7 +710,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert docsValidator.contains('_check_auditor_rules_in_human_docs')
 
     * def humanPractices = karate.readAsString(repoRoot + '/docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md')
-    * assert humanPractices.contains('10 reglas obligatorias de diseño de pruebas')
+    * assert humanPractices.contains('11 reglas obligatorias de diseño de pruebas')
     * assert humanPractices.contains('QA-HEALTH-01')
     * assert humanPractices.contains('OPTIONAL_WORKERS')
 
@@ -763,7 +765,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert govDoc.contains('update_available')
 
     * def agentsReadme = karate.readAsString(repoRoot + '/.agents/README.md')
-    * assert agentsReadme.contains('10 reglas UAT Anti-Blindness')
+    * assert agentsReadme.contains('11 reglas UAT Anti-Blindness')
     * assert agentsReadme.contains('verify_docs_invariants.py')
 
     * def dockerTrouble = karate.readAsString(repoRoot + '/docs/docker-troubleshooting.md')
@@ -861,6 +863,14 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert secAuditorSource.contains('checkQaCiEscape01WorkflowExpansion')
     * assert secAuditorSource.contains('QA-MAKE-CURDIR-01')
     * assert secAuditorSource.contains('checkQaMakeCurdir01SubMakefile')
+    * assert secAuditorSource.contains('QA-CONTRACT-SDK-01')
+    * assert secAuditorSource.contains('checkQaContractSdk01RealTransport')
+    * assert secAuditorSource.contains('QA-DOCKER-LOCK-01')
+    * assert secAuditorSource.contains('checkQaDockerLock01LockfileAndSmoke')
+    * assert secAuditorSource.contains('extractComposeHealthcheckText')
+
+    * def certifySource = karate.readAsString(mcpRoot + '/src/tools/certify-gate.ts')
+    * assert certifySource.contains('isDeploymentEnvTemplate')
 
     * def e2eRunner = karate.readAsString(mcpRoot + '/example/run-example-e2e.mjs')
     * assert e2eRunner.contains('Interactive Terminal Detected (TTY)')
@@ -876,6 +886,8 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert humanPractices.contains('UI-11X-03')
     * assert humanPractices.contains('QA-CI-ESCAPE-01')
     * assert humanPractices.contains('QA-MAKE-CURDIR-01')
+    * assert humanPractices.contains('QA-CONTRACT-SDK-01')
+    * assert humanPractices.contains('QA-DOCKER-LOCK-01')
 
     * def humanSecurity = karate.readAsString(repoRoot + '/docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md')
     * assert humanSecurity.contains('QA-CLI-TTY-01')
@@ -884,6 +896,8 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert humanSecurity.contains('UI-11X-03')
     * assert humanSecurity.contains('QA-CI-ESCAPE-01')
     * assert humanSecurity.contains('QA-MAKE-CURDIR-01')
+    * assert humanSecurity.contains('QA-CONTRACT-SDK-01')
+    * assert humanSecurity.contains('QA-DOCKER-LOCK-01')
 
     * def rootSecurity = karate.readAsString(repoRoot + '/SECURITY.md')
     * assert rootSecurity.contains('### 4.23.')
@@ -897,6 +911,9 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert rootSecurity.contains('### 4.27.')
     * assert rootSecurity.contains('QA-CI-ESCAPE-01')
     * assert rootSecurity.contains('QA-MAKE-CURDIR-01')
+    * assert rootSecurity.contains('### 4.28.')
+    * assert rootSecurity.contains('QA-CONTRACT-SDK-01')
+    * assert rootSecurity.contains('QA-DOCKER-LOCK-01')
 
   Scenario: 29. Cierre T5.4 — llms.txt (GEO), Catálogos Globales (QASkills, SkillsLLM, AgenticSkills), Paridad 10/18/12 y Versión 2.21.0
     * match pkg.version == '2.21.0'

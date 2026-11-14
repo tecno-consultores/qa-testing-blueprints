@@ -225,6 +225,12 @@ La integración entre aplicaciones SPA (Vue 3, React) y APIs REST/WebSockets (Fa
   - Usar exclusivamente sustitución simple (`$(pwd)`, `$(id -u)`, `${VAR}`) en `.github/workflows/*.{yml,yaml}` y `.github/actions/*/action.{yml,yaml}` (`QA-CI-ESCAPE-01`, eximible solo en generadores literales mediante `# qa-ci-escape-ok`).
   - Usar siempre `$(CURDIR)` (ej. `HOST_PWD ?= $(CURDIR)`) en lugar de `$(PWD)` / `${PWD}` dentro de sub-Makefiles (`QA-MAKE-CURDIR-01`, eximible mediante `# qa-make-curdir-ok`), auditado estáticamente en `audit_security_stig_owasp`, `scripts/auditar-infra.sh` y `make lint-workflows`.
 
+### 4.28. Contrato sobre Transporte Real del SDK (`QA-CONTRACT-SDK-01`) y Paridad de Lockfile + Smoke Test en Imágenes Docker (`QA-DOCKER-LOCK-01` — `DISA APSC-DV-001430` & `APSC-DV-002310`)
+- **Riesgo:** Superar `>= 95%` de cobertura unitaria invocando handlers MCP/JSON-RPC/ACP con `MagicMock` deja pasar cambios incompatibles en la firma del SDK (`mcp 1.x -> 2.x`), provocando errores internos en ejecución real; adicionalmente, mantener listas manuales de dependencias en `Dockerfile` en lugar de instalar desde el lockfile provoca ausencias silenciosas de paquetes (`ModuleNotFoundError`) en la imagen final aunque el entorno de pruebas pase.
+- **Mitigación:**
+  - Incluir al menos una prueba in-process conectada mediante el cliente/transporte real del SDK (`InMemoryTransport` + `Client` en Node/TS o `ClientSession` / `create_connected_server_and_client_session` en Python) ejercitando `list_tools` y `call_tool` (`QA-CONTRACT-SDK-01`, eximible con `# qa-contract-sdk-ok` si se valida mediante arnés externo).
+  - Instalar dependencias en `Dockerfile` estrictamente desde el lockfile (`uv sync --frozen --no-dev`, `uv export --frozen --no-dev | uv pip install --system -r -`, `pnpm install --frozen-lockfile`, `npm ci`) y ejecutar un smoke test sobre la imagen construida (`import <app>`, `id -u != 0` y sonda `401` en rutas protegidas; auditado mediante `QA-DOCKER-LOCK-01` en `audit_security_stig_owasp`, eximible con `# qa-docker-lock-ok`).
+
 ---
 
 ## 5. Auditoría Preventiva de Vulnerabilidades y Seguridad Shift-Left

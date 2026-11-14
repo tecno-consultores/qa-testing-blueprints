@@ -115,6 +115,43 @@ const QA_MAKE_CURDIR_REMEDIATION =
 const DOUBLE_DOLLAR_CI_RE = /\$\$[({][A-Za-z_]/;
 const MAKE_PWD_VAR_RE = /\$\(PWD\)|\$\{PWD\}/g;
 const MAKEFILE_NAMES = new Set(['Makefile', 'Makefile.example']);
+const QA_CONTRACT_SDK_01_RULE = 'QA-CONTRACT-SDK-01';
+const QA_CONTRACT_SDK_01_REF = 'Standard 11X UAT Rule #11 / Real-Runtime Protocol SDK Contract';
+const QA_CONTRACT_SDK_OK_PRAGMA = 'qa-contract-sdk-ok';
+const QA_CONTRACT_SDK_REMEDIATION =
+  'Añadir al menos un test in-process usando el cliente/transporte real del SDK (InMemoryTransport + Client en TS o ClientSession / create_connected_server_and_client_session en Python) ejecutando list_tools y call_tool sin mockear el dispatcher.';
+const QA_DOCKER_LOCK_01_RULE = 'QA-DOCKER-LOCK-01';
+const QA_DOCKER_LOCK_01_REF = 'DISA APSC-DV-001430 / Standard 11X Lockfile & Container Smoke Parity';
+const QA_DOCKER_LOCK_OK_PRAGMA = 'qa-docker-lock-ok';
+const QA_DOCKER_LOCK_REMEDIATION =
+  'Instalar dependencias en Dockerfile exclusivamente desde el lockfile (uv sync --frozen --no-dev, uv export --frozen --no-dev | uv pip install --system -r -, pnpm install --frozen-lockfile o npm ci) y ejecutar smoke test post-build sobre la imagen (import <app>, id -u != 0 y sonda 401 sin token).';
+const BOOTSTRAP_PY_PACKAGES = new Set([
+  'pip',
+  'uv',
+  'setuptools',
+  'wheel',
+  'hatchling',
+  'build',
+  'flit-core',
+  'poetry',
+  'pipx',
+]);
+const PIP_VALUE_FLAGS = new Set([
+  '-r',
+  '--requirement',
+  '-c',
+  '--constraint',
+  '-t',
+  '--target',
+  '--prefix',
+  '-i',
+  '--index-url',
+  '--extra-index-url',
+  '-f',
+  '--find-links',
+  '--python',
+  '--root',
+]);
 
 function isScannableFile(entry: fs.Dirent): boolean {
   if (!entry.isFile()) return false;
@@ -128,6 +165,12 @@ function isScannableFile(entry: fs.Dirent): boolean {
   );
 }
 
+function isDockerfileEntry(entry: fs.Dirent): boolean {
+  if (!entry.isFile()) return false;
+  if (entry.name.endsWith('.example')) return false;
+  return entry.name === 'Dockerfile' || /^Dockerfile\.[A-Za-z0-9_.-]+$/.test(entry.name);
+}
+
 function shouldSkipDirectory(entry: fs.Dirent): boolean {
   if (!entry.isDirectory()) return false;
   if (IGNORED_DIRS.has(entry.name) || entry.name === 'backups') return true;
@@ -135,10 +178,10 @@ function shouldSkipDirectory(entry: fs.Dirent): boolean {
   return entry.name.startsWith('.') && entry.name !== '.npmrc';
 }
 
-/**
- * Recopila recursivamente todos los archivos auditables del proyecto.
- */
-function collectFiles(dirPath: string): string[] {
+function collectMatchingFiles(
+  dirPath: string,
+  predicate: (entry: fs.Dirent) => boolean
+): string[] {
   const results: string[] = [];
 
   try {
@@ -147,8 +190,8 @@ function collectFiles(dirPath: string): string[] {
       if (shouldSkipDirectory(entry)) continue;
       const fullPath = path.join(dirPath, entry.name);
       if (entry.isDirectory()) {
-        results.push(...collectFiles(fullPath));
-      } else if (isScannableFile(entry)) {
+        results.push(...collectMatchingFiles(fullPath, predicate));
+      } else if (predicate(entry)) {
         results.push(fullPath);
       }
     }
@@ -157,6 +200,13 @@ function collectFiles(dirPath: string): string[] {
   }
 
   return results;
+}
+
+/**
+ * Recopila recursivamente todos los archivos auditables del proyecto.
+ */
+function collectFiles(dirPath: string): string[] {
+  return collectMatchingFiles(dirPath, isScannableFile);
 }
 
 function checkSec01MassAssignment(relPath: string, lines: string[]): SecurityFinding[] {
@@ -1476,6 +1526,8 @@ function checkProjectLevelRules(projectPath: string, allRelFiles: string[]): Sec
     ...checkSec08Oshp(projectPath, allRelFiles),
     ...checkQaMypy01StrictChain(projectPath),
     ...checkQaHealth01ContainerHeartbeatContract(projectPath, allRelFiles),
+    ...checkQaContractSdk01RealTransport(projectPath, allRelFiles),
+    ...checkQaDockerLock01LockfileAndSmoke(projectPath),
     ...checkUi11x03FaviconPwaAndEdgeHeaders(projectPath, allRelFiles),
   ];
 }
@@ -1485,6 +1537,88 @@ const SYSTEM_NON_HEARTBEAT_PATHS = new Set([
   '/var/run/postgresql',
   '/tmp/.coverage',
 ]);
+
+const NON_HEARTBEAT_PATH_PREFIXES = [
+  '/tmp/venv',
+  '/tmp/.venv',
+  '/tmp/mypy',
+  '/tmp/uv',
+  '/tmp/pnpm',
+  '/tmp/.pnpm',
+  '/tmp/npm',
+  '/tmp/pytest',
+  '/tmp/ruff',
+  '/tmp/pip',
+  '/tmp/cache',
+];
+
+function isExcludedProbePath(probePath: string): boolean {
+  if (SYSTEM_NON_HEARTBEAT_PATHS.has(probePath) || probePath.endsWith('.sock')) {
+    return true;
+  }
+  return NON_HEARTBEAT_PATH_PREFIXES.some(
+    (prefix) =>
+      probePath === prefix ||
+      probePath.startsWith(`${prefix}/`) ||
+      probePath.startsWith(`${prefix}-`) ||
+      probePath.startsWith(`${prefix}_`)
+  );
+}
+
+function joinContinuedShellLines(rawContent: string): string[] {
+  const rawLines = rawContent.split(/\r?\n/);
+  const merged: string[] = [];
+  let buffer = '';
+  for (const rawLine of rawLines) {
+    const trimmedEnd = rawLine.trimEnd();
+    if (trimmedEnd.endsWith('\\')) {
+      buffer += `${trimmedEnd.slice(0, -1)} `;
+      continue;
+    }
+    merged.push(`${buffer}${rawLine}`);
+    buffer = '';
+  }
+  if (buffer) merged.push(buffer);
+  return merged;
+}
+
+function extractDockerfileHealthcheckText(content: string): string {
+  const healthLines: string[] = [];
+  for (const line of joinContinuedShellLines(content)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    if (/^HEALTHCHECK\b/i.test(trimmed) && !/^HEALTHCHECK\s+NONE\b/i.test(trimmed)) {
+      healthLines.push(trimmed);
+    }
+  }
+  return healthLines.join('\n');
+}
+
+function extractComposeHealthcheckText(content: string): string {
+  const lines = content.split(/\r?\n/);
+  const captured: string[] = [];
+  let inHealthcheck = false;
+  let baseIndent = 0;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const indent = line.length - line.trimStart().length;
+    if (inHealthcheck) {
+      if (indent <= baseIndent) {
+        inHealthcheck = false;
+      } else {
+        captured.push(trimmed);
+        continue;
+      }
+    }
+    if (trimmed.toLowerCase() === 'healthcheck:' || /^healthcheck\s*:\s*#/i.test(trimmed)) {
+      inHealthcheck = true;
+      baseIndent = indent;
+    }
+  }
+  return captured.join('\n');
+}
 
 function collectContainerHealthFiles(projectPath: string, allRelFiles: string[]): string[] {
   const composeFiles = allRelFiles.filter(
@@ -1514,10 +1648,14 @@ function extractContainerProbePaths(projectPath: string, allRelFiles: string[]):
   for (const rel of candidates) {
     try {
       const content = fs.readFileSync(path.join(projectPath, rel), 'utf8');
-      if (!content.includes('healthcheck') && !content.includes('HEALTHCHECK')) continue;
-      const matches = content.match(probeRegex) ?? [];
+      const isYaml = /\.ya?ml$/i.test(rel);
+      const scopedText = isYaml
+        ? extractComposeHealthcheckText(content)
+        : extractDockerfileHealthcheckText(content);
+      if (!scopedText) continue;
+      const matches = scopedText.match(probeRegex) ?? [];
       for (const match of matches) {
-        if (!SYSTEM_NON_HEARTBEAT_PATHS.has(match) && !match.endsWith('.sock')) {
+        if (!isExcludedProbePath(match)) {
           probes.add(match);
         }
       }
@@ -1536,10 +1674,17 @@ interface ProbeSourceMatch {
 }
 
 function isProductionSourceCandidate(rel: string): boolean {
-  if (rel.endsWith('.example') || isTestFilePath(rel) || isAuditorSelfDefinition(rel)) {
+  const norm = rel.replace(/\\/g, '/');
+  if (norm.endsWith('.example') || isTestFilePath(norm) || isAuditorSelfDefinition(norm)) {
     return false;
   }
-  return /\.(?:py|ts|js|php|sh)$/.test(rel);
+  if (/(?:^|\/)(?:scripts\/|qa[-_.]|probar-|auditar-|verificar-|limpieza\.sh|certify_)/.test(norm)) {
+    return false;
+  }
+  if (norm.endsWith('.sh') || norm.endsWith('.bash')) {
+    return /(?:^|\/)(?:entrypoint|docker-entrypoint|start|run-worker|worker)[^/]*\.(?:sh|bash)$/i.test(norm);
+  }
+  return /\.(?:py|ts|js|php)$/.test(norm);
 }
 
 function extractAssignedConstants(lines: string[], targetToken: string): { line: number; symbols: string[] } {
@@ -1649,6 +1794,274 @@ function checkQaHealth01ContainerHeartbeatContract(
         remediation:
           'Añadir un test de contrato que arranque el orquestador con Settings() de producción por defecto (sin mockear loops opcionales) y haga assert explícito sobre el archivo/señal de healthcheck.',
       });
+    }
+  }
+
+  return findings;
+}
+
+const PY_MCP_SDK_IMPORT_RE = /\b(?:from\s+mcp\b|import\s+mcp\b|FastMCP\s*\()/;
+const PY_MCP_HANDLER_RE =
+  /@[A-Za-z0-9_.]+\.(?:list_tools|call_tool|tool|list_resources|read_resource|list_prompts|get_prompt)\b|\bFastMCP\s*\(|\b(?:add_tool|list_tools|call_tool)\s*\(/;
+const TS_MCP_SERVER_RE = /@modelcontextprotocol\/sdk\/server/;
+const TS_MCP_HANDLER_RE =
+  /\.(?:tool|registerTool|resource|registerResource|prompt|registerPrompt|setRequestHandler)\s*\(/;
+const PY_SDK_CLIENT_RE =
+  /\b(?:ClientSession|create_connected_server_and_client_session|stdio_client|sse_client|streamablehttp_client|memory_object_stream)\b/;
+const TS_SDK_CLIENT_RE =
+  /\b(?:InMemoryTransport|StdioClientTransport|StreamableHTTPClientTransport|SSEClientTransport)\b/;
+
+function findMatchingLineNumber(content: string, pattern: RegExp): number {
+  const lines = content.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    if (pattern.test(lines[i])) return i + 1;
+  }
+  return 1;
+}
+
+function matchProtocolServerFile(rel: string, content: string): { relFile: string; line: number } | null {
+  if (content.includes(QA_CONTRACT_SDK_OK_PRAGMA)) return null;
+  if (rel.endsWith('.py') && PY_MCP_SDK_IMPORT_RE.test(content) && PY_MCP_HANDLER_RE.test(content)) {
+    return { relFile: rel, line: findMatchingLineNumber(content, PY_MCP_SDK_IMPORT_RE) };
+  }
+  if (/\.(?:ts|js|mjs)$/.test(rel) && TS_MCP_SERVER_RE.test(content) && TS_MCP_HANDLER_RE.test(content)) {
+    return { relFile: rel, line: findMatchingLineNumber(content, TS_MCP_SERVER_RE) };
+  }
+  return null;
+}
+
+function findProtocolServerDeclaration(
+  projectPath: string,
+  allRelFiles: string[]
+): { relFile: string; line: number } | null {
+  for (const rel of allRelFiles) {
+    const norm = rel.replace(/\\/g, '/');
+    if (norm.endsWith('.example') || isTestFilePath(norm) || isAuditorSelfDefinition(norm)) {
+      continue;
+    }
+    if (!/\.(?:py|ts|js|mjs)$/.test(norm)) continue;
+
+    try {
+      const content = fs.readFileSync(path.join(projectPath, rel), 'utf8');
+      const match = matchProtocolServerFile(rel, content);
+      if (match) return match;
+    } catch {
+      // Ignorar errores de lectura puntual
+    }
+  }
+  return null;
+}
+
+function hasRealSdkTransportMarkers(content: string): boolean {
+  if (content.includes(QA_CONTRACT_SDK_OK_PRAGMA)) return true;
+  if (TS_SDK_CLIENT_RE.test(content) || PY_SDK_CLIENT_RE.test(content)) return true;
+  if (content.includes('@modelcontextprotocol/sdk/client') && content.includes('new Client(')) {
+    return true;
+  }
+  return PY_MCP_SDK_IMPORT_RE.test(content) && /\bClient\s*\(/.test(content);
+}
+
+function hasRealSdkTransportContractTest(projectPath: string, allRelFiles: string[]): boolean {
+  for (const rel of allRelFiles) {
+    const norm = rel.replace(/\\/g, '/');
+    const isExampleHarness = /(?:^|\/)example\/.*\.(?:ts|js|mjs|py)$/.test(norm);
+    if (!isTestFilePath(norm) && !isExampleHarness) continue;
+    try {
+      const content = fs.readFileSync(path.join(projectPath, rel), 'utf8');
+      if (hasRealSdkTransportMarkers(content)) return true;
+    } catch {
+      // Ignorar errores de lectura puntual
+    }
+  }
+  return false;
+}
+
+function checkQaContractSdk01RealTransport(
+  projectPath: string,
+  allRelFiles: string[]
+): SecurityFinding[] {
+  const declaration = findProtocolServerDeclaration(projectPath, allRelFiles);
+  if (!declaration) return [];
+  if (hasRealSdkTransportContractTest(projectPath, allRelFiles)) return [];
+
+  return [
+    {
+      rule_id: QA_CONTRACT_SDK_01_RULE,
+      severity: 'HIGH',
+      stig_owasp_ref: QA_CONTRACT_SDK_01_REF,
+      file: declaration.relFile,
+      line: declaration.line,
+      message:
+        'Servidor de protocolo (MCP/JSON-RPC/ACP) sin prueba de contrato sobre el transporte/cliente real del SDK: invocar handlers con MagicMock oculta cambios de firma entre versiones (ej. mcp 1.x -> 2.x).',
+      remediation: QA_CONTRACT_SDK_REMEDIATION,
+    },
+  ];
+}
+
+interface DockerRunBlock {
+  line: number;
+  command: string;
+}
+
+function consumeRunContinuation(
+  rawLines: string[],
+  startIdx: number,
+  initialCommand: string,
+  initialHasPragma: boolean
+): { nextIndex: number; command: string; hasPragma: boolean } {
+  let idx = startIdx;
+  let combined = initialCommand;
+  let hasPragma = initialHasPragma;
+
+  while (combined.endsWith('\\') && idx + 1 < rawLines.length) {
+    idx++;
+    const nextRaw = rawLines[idx];
+    if (nextRaw.includes(QA_DOCKER_LOCK_OK_PRAGMA)) hasPragma = true;
+    const nextTrimmed = nextRaw.trim();
+    if (!nextTrimmed.startsWith('#')) {
+      combined = `${combined.slice(0, -1).trimEnd()} ${nextTrimmed}`;
+    }
+  }
+
+  return { nextIndex: idx, command: combined, hasPragma };
+}
+
+function extractDockerfileRunBlocks(content: string): DockerRunBlock[] {
+  const rawLines = content.split(/\r?\n/);
+  if (rawLines.slice(0, 5).some((l) => l.includes(QA_DOCKER_LOCK_OK_PRAGMA))) {
+    return [];
+  }
+
+  const blocks: DockerRunBlock[] = [];
+  for (let i = 0; i < rawLines.length; i++) {
+    const trimmed = rawLines[i].trim();
+    if (!/^RUN\b/i.test(trimmed)) continue;
+
+    const prevLine = i > 0 ? rawLines[i - 1] : '';
+    const initialPragma =
+      prevLine.includes(QA_DOCKER_LOCK_OK_PRAGMA) || rawLines[i].includes(QA_DOCKER_LOCK_OK_PRAGMA);
+    const consumed = consumeRunContinuation(rawLines, i, trimmed.slice(3).trim(), initialPragma);
+    if (!consumed.hasPragma) {
+      blocks.push({ line: i + 1, command: consumed.command });
+    }
+    i = consumed.nextIndex;
+  }
+
+  return blocks;
+}
+
+const PIP_INSTALL_CMD_RE = /\bpip3?\s+install\b/i;
+const PIP_LOCKED_OR_EDITABLE_RE =
+  /(?:^|\s)(?:-r|--requirement|-e|--editable)(?:\s|$|=)|\.whl\b|\buv\s+export\b/i;
+const NODE_PKG_INSTALL_RE = /^\s*(?:npm\s+(?:install|i|add)|pnpm\s+add|yarn\s+add)\b/i;
+
+function normalizePipPackageName(rawToken: string): string {
+  const cleaned = rawToken.replace(/^["']|["']$/g, '').trim();
+  const base = cleaned.replace(/\[.*?\]/g, '').split(/[=<>!~@;]/)[0].trim();
+  return base.toLowerCase().replace(/_/g, '-');
+}
+
+function extractPipPositionalPackages(pipSegment: string): string[] {
+  const match = pipSegment.match(PIP_INSTALL_CMD_RE);
+  if (!match || match.index === undefined) return [];
+  const tokens = pipSegment.slice(match.index + match[0].length).trim().split(/\s+/).filter(Boolean);
+  const packages: string[] = [];
+
+  for (let i = 0; i < tokens.length; i++) {
+    const raw = tokens[i].replace(/^["']|["']$/g, '');
+    if (PIP_VALUE_FLAGS.has(raw)) {
+      i++;
+      continue;
+    }
+    if (!raw || raw.startsWith('-') || raw === '.' || raw.startsWith('./') || raw.startsWith('/')) {
+      continue;
+    }
+    const pkg = normalizePipPackageName(raw);
+    if (pkg) packages.push(pkg);
+  }
+
+  return packages;
+}
+
+function hasHandwrittenPythonPipDeps(command: string): boolean {
+  for (const segment of command.split(/\s*(?:&&|\|\||;)\s*/)) {
+    if (!PIP_INSTALL_CMD_RE.test(segment)) continue;
+    if (PIP_LOCKED_OR_EDITABLE_RE.test(segment)) continue;
+    const pkgs = extractPipPositionalPackages(segment);
+    if (pkgs.some((pkg) => !BOOTSTRAP_PY_PACKAGES.has(pkg))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function hasUnfrozenUvSync(command: string, hasUvLock: boolean): boolean {
+  if (!hasUvLock) return false;
+  return /\buv\s+sync\b/i.test(command) && !/(?:\s|^)(?:--frozen|--locked)(?:\s|$)/.test(command);
+}
+
+function hasHandwrittenNodeDeps(command: string): boolean {
+  for (const segment of command.split(/\s*(?:&&|\|\||;)\s*/)) {
+    const trimmed = segment.trim();
+    if (!NODE_PKG_INSTALL_RE.test(trimmed)) continue;
+    if (/(?:\s|^)(?:-g|--global)(?:\s|$)/.test(trimmed)) continue;
+    const tokens = trimmed.split(/\s+/).slice(2);
+    const hasExplicitPkg = tokens.some((tok) => {
+      const clean = tok.replace(/^["']|["']$/g, '');
+      return clean && clean !== '.' && !clean.startsWith('-') && !clean.startsWith('./') && !clean.startsWith('/');
+    });
+    if (hasExplicitPkg) return true;
+  }
+  return false;
+}
+
+function hasAnyManifestInDirs(dirs: string[], fileNames: string[]): boolean {
+  return dirs.some((dir) => fileNames.some((name) => fs.existsSync(path.join(dir, name))));
+}
+
+function evaluateDockerfileLockViolation(
+  command: string,
+  hasPyManifest: boolean,
+  hasUvLock: boolean,
+  hasNodeManifest: boolean
+): boolean {
+  if (hasPyManifest && (hasHandwrittenPythonPipDeps(command) || hasUnfrozenUvSync(command, hasUvLock))) {
+    return true;
+  }
+  return hasNodeManifest && hasHandwrittenNodeDeps(command);
+}
+
+function checkQaDockerLock01LockfileAndSmoke(projectPath: string): SecurityFinding[] {
+  const dockerfiles = collectMatchingFiles(projectPath, isDockerfileEntry)
+    .map((abs) => path.relative(projectPath, abs))
+    .filter((rel) => !isTestFilePath(rel));
+  const findings: SecurityFinding[] = [];
+
+  for (const rel of dockerfiles) {
+    try {
+      const absDocker = path.join(projectPath, rel);
+      const content = fs.readFileSync(absDocker, 'utf8');
+      const searchDirs = Array.from(new Set([path.dirname(absDocker), projectPath]));
+      const hasPyManifest = hasAnyManifestInDirs(searchDirs, ['pyproject.toml', 'uv.lock', 'requirements.lock']);
+      const hasUvLock = hasAnyManifestInDirs(searchDirs, ['uv.lock']);
+      const hasNodeManifest = hasAnyManifestInDirs(searchDirs, ['package.json']);
+
+      for (const block of extractDockerfileRunBlocks(content)) {
+        if (evaluateDockerfileLockViolation(block.command, hasPyManifest, hasUvLock, hasNodeManifest)) {
+          findings.push({
+            rule_id: QA_DOCKER_LOCK_01_RULE,
+            severity: 'HIGH',
+            stig_owasp_ref: QA_DOCKER_LOCK_01_REF,
+            file: rel,
+            line: block.line,
+            message:
+              'Dockerfile instala dependencias desde lista manual o sin bandera --frozen/--frozen-lockfile en lugar de usar el lockfile del proyecto, arriesgando ModuleNotFoundError en runtime.',
+            remediation: QA_DOCKER_LOCK_REMEDIATION,
+          });
+        }
+      }
+    } catch {
+      // Ignorar errores de lectura puntual
     }
   }
 

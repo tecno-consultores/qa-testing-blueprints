@@ -21,7 +21,7 @@ Activate strictly on demand when designing, auditing, or modifying:
 - Auth flows (MFA, WebAuthn, Argon2id, lockout, session rotation/purge, Step-Up re-auth, mTLS/PKI).
 - Secret Vaults (AES-256-GCM, memory zeroization), database export scrubbing, or WORM `audit_logs` (`UI-11X-02`).
 - API boundaries, WebSockets, uploads, XML/deserialization parsers, or mutating MCP/JSON-RPC tools (`ApprovalRequest`).
-- Rootless Docker/CI runtimes (`QA-HEALTH-01`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`, `QA-CI-ESCAPE-01`, `QA-MAKE-CURDIR-01`, `QA-COV-01`, `SEC-CI-ACTION-REF`, `pnpm-store-init`, Trivy `HIGH/CRITICAL = 0` alongside `docker-trivy-keydb-hardening`).
+- Rootless Docker/CI runtimes (`QA-HEALTH-01`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`, `QA-CI-ESCAPE-01`, `QA-MAKE-CURDIR-01`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-COV-01`, `SEC-CI-ACTION-REF`, `pnpm-store-init`, Trivy `HIGH/CRITICAL = 0` alongside `docker-trivy-keydb-hardening`).
 
 > **Hydration:** Load [`references/stig_rls_vault.md`](references/stig_rls_vault.md) on demand for production-ready PG17 RLS DDL, `after_begin` listeners, AES-256-GCM keyring rotation, WORM `seq_num` + `pg_advisory_xact_lock` patterns, and the `APSC-DV-*` mapping table.
 

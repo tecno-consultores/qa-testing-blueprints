@@ -58,6 +58,7 @@ When AI agents ingest untrusted external data (device banners, SNMP sysDescr, lo
 ## 5. Mandatory 11X Test Matrix for MCP & Agentic Dispatchers
 
 Every project exposing MCP tools or internal JSON-RPC dispatchers MUST include unit and BDD tests covering:
+- [ ] **Real In-Process SDK Transport Contract (`QA-CONTRACT-SDK-01`):** Connect a real SDK client transport in memory (`InMemoryTransport` + `Client` in Node/TS; `ClientSession` / `create_connected_server_and_client_session` in Python) and exercise `list_tools` + `call_tool` end-to-end without calling handler functions directly with `MagicMock` alone (catches SDK signature drift such as `mcp 1.x -> 2.x`).
 - [ ] **Direct Unprivileged Service Call (`403` / `PermissionError`):** Invoke the MCP dispatcher and service function directly in Python/TypeScript with `claims={"sub": "...", "role": "VIEWER"}` (bypassing HTTP router) and assert immediate `PermissionError` / `403`.
 - [ ] **Mutating MCP Tool Approval Gate:** Invoke a mutating MCP tool with an authorized role and assert it creates an `ApprovalRequest` in `AWAITING_APPROVAL` state instead of mutating the target resource directly.
 - [ ] **Cross-Tenant Isolation in MCP Tools:** Verify that an MCP tool invoked under `Tenant A` returns `404` / empty results when querying or mutating a resource UUID belonging to `Tenant B`.

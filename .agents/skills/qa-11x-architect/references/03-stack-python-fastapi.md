@@ -78,6 +78,7 @@ Instrumentator().instrument(app).expose(app)
             settings.APP_ENV = prev_attr
     ```
   - **Ephemeral Secret Provisioning & `docker exec -e` Password Propagation (`SEC-15`):** When `Settings` enforces fail-fast rejection of default QA secrets in `production`, local production verification scripts (`probar-prod-local.sh`) MUST export ephemeral keys (`openssl rand -base64 32` / `openssl rand -hex 32`) prior to `docker compose up -d` and explicitly pass `-e <PASS_ENV_VAR>="${LOCAL_ADMIN_PASS}"` in the `docker exec` command that runs Front-Back E2E contract checks.
+  - **Lockfile-Pinned `Dockerfile` Installs & Built-Image Smoke Parity (`QA-DOCKER-LOCK-01`):** NEVER duplicate dependency lists by hand inside `Dockerfile` (`pip install fastapi uvicorn ...`). Install runtime dependencies deterministically from `uv.lock` via `uv sync --frozen --no-dev` or `uv export --frozen --no-dev | uv pip install --system -r -`, and execute post-build smoke tests on the built container image asserting `python -c "import <app_pkg>"`, non-root `test "$(id -u)" != "0"`, and an unauthenticated `401` probe against protected routes.
 
 ### C. Database Parity, Anti-Mock Blindness & Cross-Module State Propagation
 - NEVER mock SQLAlchemy sessions or Alembic migrations when testing persistence layers.
