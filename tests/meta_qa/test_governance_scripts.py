@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
 import shutil
 import subprocess
@@ -617,3 +618,286 @@ def test_release_readiness_gate_inprocess_security_and_parse_edges(
     rc_dir_escape, _ = mod.evaluate_release_gate(workspace_root=tmp_path, scope="invalid")
     assert rc_dir_escape == 1
     capsys.readouterr()
+
+
+def _make_tool_pair(idx: int, payload_chars: int) -> list[dict[str, Any]]:
+    return [
+        {
+            "role": "assistant",
+            "content": f"llamada {idx}",
+            "tool_calls": [
+                {
+                    "id": f"call_{idx}",
+                    "type": "function",
+                    "function": {"name": "inspect_ast", "arguments": f'{{"i":{idx}}}'},
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "tool_call_id": f"call_{idx}",
+            "content": f"out_{idx}_" + ("x" * payload_chars),
+        },
+    ]
+
+
+def test_compact_context_11x_noop_and_tier1_masking() -> None:
+    """Valida no-op bajo 90% y enmascaramiento Tier 1 preservando 6 resultados recientes."""
+    mod = _load_script("compact_context_11x.py", "meta_qa_compact_t1")
+
+    small_msgs = [
+        {"role": "system", "content": "directiva única"},
+        {"role": "user", "content": "tarea corta"},
+    ]
+    noop = mod.compact_context(small_msgs, context_window=1000, threshold_ratio=0.90)
+    assert noop.tier_applied == 0
+    assert noop.masked_tool_results == 0
+    assert noop.dropped_messages == 0
+    assert noop.messages == small_msgs
+
+    msgs: list[dict[str, Any]] = [
+        {"role": "system", "content": "reglas"},
+        {"role": "user", "content": "auditar 10 archivos"},
+    ]
+    for i in range(10):
+        msgs.extend(_make_tool_pair(i, payload_chars=400))
+
+    # 10 pares * ~120 tokens ~= 1200 tokens; con anchor_tokens=700 supera 90% de 2000 (1800)
+    res_t1 = mod.compact_context(
+        msgs,
+        anchor_tokens=700,
+        context_window=2000,
+        threshold_ratio=0.90,
+        keep_recent_tools=6,
+    )
+    assert res_t1.tier_applied == 1
+    assert res_t1.masked_tool_results == 4
+    assert res_t1.dropped_messages == 0
+    assert res_t1.after_tokens <= res_t1.threshold_tokens
+
+    tool_msgs = [m for m in res_t1.messages if m.get("role") == "tool"]
+    assert len(tool_msgs) == 10
+    assert all(m["content"] == "[tool result cleared]" for m in tool_msgs[:4])
+    assert all(m["content"] != "[tool result cleared]" for m in tool_msgs[4:])
+    assistants = [m for m in res_t1.messages if m.get("role") == "assistant"]
+    assert all(len(m.get("tool_calls", [])) == 1 for m in assistants)
+
+
+def test_compact_context_11x_tier2_atomic_prune_and_anthropic_blocks() -> None:
+    """Valida escalado a Tier 2 preservando raíz y pares tool_calls <-> tool sin huérfanos."""
+    mod = _load_script("compact_context_11x.py", "meta_qa_compact_t2")
+
+    msgs: list[dict[str, Any]] = [
+        {"role": "system", "content": "system root"},
+        {"role": "user", "content": "root user task"},
+    ]
+    for i in range(14):
+        msgs.append({"role": "user", "content": f"seguimiento {i} " + ("u" * 320)})
+        msgs.extend(_make_tool_pair(i, payload_chars=240))
+
+    # Además incluimos un bloque tool_use / tool_result al final
+    msgs.append(
+        {
+            "role": "assistant",
+            "content": [{"type": "tool_use", "id": "tu_last", "name": "verify", "input": {}}],
+        }
+    )
+    msgs.append(
+        {
+            "role": "user",
+            "content": [{"type": "tool_result", "tool_use_id": "tu_last", "content": "ok_" + ("z" * 80)}],
+        }
+    )
+
+    res_t2 = mod.compact_context(
+        msgs,
+        context_window=1800,
+        threshold_ratio=0.90,
+        keep_recent_tools=6,
+        keep_last_messages=20,
+    )
+    assert res_t2.tier_applied == 2
+    assert res_t2.dropped_messages > 0
+    assert res_t2.after_tokens <= res_t2.threshold_tokens
+    assert len(res_t2.messages) <= 20
+    assert res_t2.messages[0]["content"] == "system root"
+    assert res_t2.messages[1]["content"] == "root user task"
+
+    # Ningún assistant con tool_calls queda sin su(s) tool result inmediatamente después
+    for idx, msg in enumerate(res_t2.messages):
+        if msg.get("role") == "assistant" and msg.get("tool_calls"):
+            call_ids = {c["id"] for c in msg["tool_calls"]}
+            assert idx + 1 < len(res_t2.messages)
+            nxt = res_t2.messages[idx + 1]
+            assert nxt.get("role") == "tool"
+            assert nxt.get("tool_call_id") in call_ids
+        if msg.get("role") == "tool":
+            assert idx > 0 and res_t2.messages[idx - 1].get("role") == "assistant"
+
+    # Enmascaramiento Tier 1 sobre bloques Anthropic tool_result + casos de estimación
+    anthropic_msgs: list[dict[str, Any]] = [
+        {"role": "system", "content": [{"type": "text", "text": "sys"}]},
+        {"role": "user", "content": ["parte 1", {"type": "image_url", "url": "https://local"}]},
+        {"role": "assistant", "content": None},
+        {"role": "assistant", "content": {"status": "ok"}},
+    ]
+    for i in range(8):
+        anthropic_msgs.append(
+            {
+                "role": "assistant",
+                "content": [{"type": "tool_use", "id": f"tu_{i}", "name": "read", "input": {"i": i}}],
+            }
+        )
+        anthropic_msgs.append(
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": f"tu_{i}",
+                        "content": "[tool result cleared]" if i == 0 else ("r" * 400),
+                    }
+                ],
+            }
+        )
+    res_anth = mod.compact_context(
+        anthropic_msgs,
+        context_window=1050,
+        threshold_ratio=0.90,
+        keep_recent_tools=6,
+    )
+    assert res_anth.tier_applied == 1
+    assert res_anth.masked_tool_results == 1
+    assert res_anth.messages[5]["content"][0]["content"] == "[tool result cleared]"
+    assert res_anth.messages[7]["content"][0]["content"] == "[tool result cleared]"
+    assert res_anth.messages[9]["content"][0]["content"] == "r" * 400
+
+    # Historial sin mensaje user (solo system) en Tier 2
+    sys_only = [{"role": "system", "content": "s" * 400}, {"role": "assistant", "content": "a" * 400}]
+    res_sys_only = mod.compact_context(sys_only, context_window=100, threshold_ratio=0.90)
+    assert res_sys_only.tier_applied == 2
+    assert len(res_sys_only.messages) == 1
+
+
+def test_compact_context_11x_oversized_single_message_and_cli_tty_guard(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Cubre mensaje único gigante, guardia QA-CLI-TTY-01 y ejecución CLI/stdin/output."""
+    mod = _load_script("compact_context_11x.py", "meta_qa_compact_cli")
+    script_path = AGENTS_SCRIPTS_DIR / "compact_context_11x.py"
+
+    giant = [
+        {"role": "system", "content": "sys"},
+        {"role": "user", "content": "x" * 1600},
+    ]
+    res_giant = mod.compact_context(giant, context_window=200, threshold_ratio=0.90)
+    assert res_giant.uncompactable_single_message is True
+    assert len(res_giant.messages) == 2
+
+    # Guardia anti-cuelgue TTY sin --input ni pipe
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
+    assert mod.main([]) == 1
+    captured_tty = capsys.readouterr()
+    assert "QA-CLI-TTY-01" in captured_tty.err
+
+    # Errores de parámetros y payloads inválidos in-process
+    bad_json = tmp_path / "bad.json"
+    bad_json.write_text('{"other": []}', encoding="utf-8")
+    non_dict = tmp_path / "nondict.json"
+    non_dict.write_text('["not-a-dict"]', encoding="utf-8")
+    ok_list = tmp_path / "ok_list.json"
+    ok_list.write_text('[{"role": "user", "content": "hola"}]', encoding="utf-8")
+
+    for bad_argv in (
+        ["--input", str(tmp_path / "missing.json")],
+        ["--input", "a\x00b.json"],
+        ["--input", str(bad_json)],
+        ["--input", str(non_dict)],
+        ["--input", str(ok_list), "--context-window", "0"],
+        ["--input", str(ok_list), "--threshold-ratio", "1.5"],
+        ["--input", str(ok_list), "--keep-recent-tools", "-1"],
+        ["--input", str(ok_list), "--keep-last-messages", "0"],
+        ["--input", str(ok_list), "--anchor-tokens", "-5"],
+        ["--input", str(ok_list), "--output", "bad\x00out.json"],
+    ):
+        assert mod.main(bad_argv) == 1
+    capsys.readouterr()
+
+    # Invocación CLI no interactiva (in-process + subprocess) con salida atómica Tier 1
+    payload_path = tmp_path / "conv.json"
+    out_path = tmp_path / "out" / "compacted.json"
+    inproc_out = tmp_path / "out" / "inproc.json"
+    conv_payload = {
+        "anchor_tokens": 300,
+        "messages": [
+            {"role": "system", "content": "sys"},
+            {"role": "user", "content": "task"},
+            *[msg for idx in range(8) for msg in _make_tool_pair(idx, 400)],
+        ],
+    }
+    payload_path.write_text(json.dumps(conv_payload), encoding="utf-8")
+
+    assert (
+        mod.main(
+            [
+                "--input",
+                str(payload_path),
+                "--output",
+                str(inproc_out),
+                "--context-window",
+                "1400",
+                "--threshold-ratio",
+                "0.90",
+                "--keep-recent-tools",
+                "6",
+            ]
+        )
+        == 0
+    )
+    inproc_stdout = capsys.readouterr().out
+    assert "tier_applied=1" in inproc_stdout
+
+    # Lectura stdin in-process vía StringIO no-TTY
+    fake_stdin = io.StringIO(json.dumps([{"role": "user", "content": "ping"}]))
+    monkeypatch.setattr(sys, "stdin", fake_stdin)
+    assert mod.main(["--context-window", "5000"]) == 0
+    assert "tier_applied=0" in capsys.readouterr().out
+
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(script_path),
+            "--input",
+            str(payload_path),
+            "--output",
+            str(out_path),
+            "--context-window",
+            "1400",
+            "--threshold-ratio",
+            "0.90",
+            "--keep-recent-tools",
+            "6",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 0
+    assert len(proc.stdout.strip().splitlines()) == 1
+    assert "tier_applied=1" in proc.stdout
+    out_data = json.loads(out_path.read_text(encoding="utf-8"))
+    assert out_data["tier_applied"] == 1
+    assert out_data["masked_tool_results"] == 2
+
+    # Invocación por tubería stdin vía subprocess
+    pipe_proc = subprocess.run(
+        [sys.executable, str(script_path), "--context-window", "5000"],
+        input=json.dumps([{"role": "user", "content": "hola"}]),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert pipe_proc.returncode == 0
+    assert "tier_applied=0" in pipe_proc.stdout
