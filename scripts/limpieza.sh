@@ -52,7 +52,7 @@ clean_scope_dir() {
     "${dir}/.phpunit.cache" "${dir}/.psalm" "${dir}/htmlcov" "${dir}/coverage_report" "${dir}/.bats-battery" \
     "${dir}/mutants" "${dir}/.mutmut-cache" "${dir}/target" "${dir}/test/target" "${dir}/.trivycache" \
     "${dir}/allure-results" "${dir}/allure-report" "${dir}/.allure" "${dir}/.deepeval" "${dir}/.promptfoo" \
-    "${dir}/.agents/tmp" "${dir}/dist-ssr" "${dir}/.nuxt" "${dir}/.next" "${dir}/.output" "${dir}/.svelte-kit" \
+    "${dir}/.agents/tmp" "${dir}/.agents/.cache" "${dir}/.agents/artifacts" "${dir}/dist-ssr" "${dir}/.nuxt" "${dir}/.next" "${dir}/.output" "${dir}/.svelte-kit" \
     "${dir}/.vite" "${dir}/.vite-ssg-temp" "${dir}/.parcel-cache" "${dir}/storybook-static" \
     "${dir}/coverage" "${dir}/.nyc_output" "${dir}/.stryker-tmp" "${dir}/.clinic" \
     "${dir}/test-results" "${dir}/playwright-report" "${dir}/blob-report" "${dir}/playwright/.cache" \
@@ -167,7 +167,9 @@ if [ -d "mcp-server/example" ]; then
     mcp-server/example/.qa-11x-version \
     mcp-server/example/.agents/.qa-evidence.json \
     mcp-server/example/.agents/backups \
-    mcp-server/example/.agents/proposals 2>/dev/null || true
+    mcp-server/example/.agents/proposals \
+    mcp-server/example/.agents/.cache \
+    mcp-server/example/.agents/artifacts 2>/dev/null || true
 fi
 
 # 4. Barrido recursivo de cachés Python, basura del SO, editores y conflictos mal ubicados
@@ -201,6 +203,7 @@ if command -v docker >/dev/null 2>&1; then
            /workspace/allure-results /workspace/allure-report /workspace/.allure \
            /workspace/.deepeval /workspace/.promptfoo /workspace/.nyc_output \
            /workspace/mcp-server/coverage /workspace/mcp-server/test/target \
+           /workspace/.agents/.cache /workspace/.agents/artifacts /workspace/*/.agents/.cache /workspace/*/.agents/artifacts \
            /workspace/backend/.pytest_cache /workspace/backend/.mypy_cache /workspace/backend/.ruff_cache /workspace/backend/htmlcov \
            /workspace/frontend/dist /workspace/frontend/coverage /workspace/frontend/.vite \
            /workspace/fastapi/.pytest_cache /workspace/fastapi/.mypy_cache /workspace/fastapi/.ruff_cache /workspace/fastapi/htmlcov \

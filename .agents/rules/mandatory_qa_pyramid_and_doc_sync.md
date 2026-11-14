@@ -45,6 +45,10 @@ Any addition, modification, or bug fix in application source code, MCP tools, go
     - Before and after every change, trace all affected existing test consumers using `inspect_blast_radius.py` and targeted searches across `tests/`, `test/`, `*.feature`, and `*.bats`.
     - Synchronize assertions, catalog counts (`#[N]`), fixtures, and contract expectations whenever behavior or inventory legitimately changes (strictly prohibiting deleting or weakening valid regression checks to force a green run).
     - Re-execute every affected existing test suite inside ephemeral Docker containers — ALWAYS including `test-karate` (`sinfallas/karatelabs`) whenever `mcp-server/`, `.agents/skills/`, or `manifest.json` changes — prior to creating the local `git commit`.
+11. **Multi-Stack Differential Coverage & Anti-Evasion Gate (`verify_diff_coverage.py` / `make diff-cov`):**
+    - Every delta (`git diff --unified=0`) touching productive code MUST achieve `100%` delta line coverage and `>= 90%` delta branch coverage across harvested Cobertura XML (`coverage.xml` / `python.xml`) and LCOV (`lcov.info` / `mcp-server.info`) reports preserved in `.agents/.cache/coverage/` before `--rm` container exit (`DOCS_ONLY` fast-paths skip cleanly with `exit 0`).
+    - Adding unapproved coverage-suppression directives in productive files (`# pragma: no cover`, `// v8 ignore`, `/* c8 ignore */`, `@codeCoverageIgnore`) blocks closure (`exit 11`) unless accompanied by `QA11X-APPROVED-EXCLUSION(<reason>)` on the same or immediately preceding line.
+    - New non-trivial productive files absent from coverage reports, XXE payloads (`<!DOCTYPE`/`<!ENTITY`), or path/ref traversal attempts abort certification immediately (`exit 12`).
 
 ---
 

@@ -91,6 +91,14 @@ Modificar una función, ruta, esquema, CLI, skill o catálogo (`manifest.json`) 
 - **Sincronización Quirúrgica sin Debilitamiento de Aserciones:** Actualizar de inmediato conteos, esquemas, fixtures, snapshots y expectativas de contrato en las pruebas preexistentes impactadas; queda estrictamente prohibido eliminar o relajar aserciones válidas de regresión para forzar un estado verde.
 - **Re-ejecución Efímera Completa Pre-Commit:** Validar dentro de contenedores Docker efímeros (`Regla Cero`) todas las suites impactadas —incluyendo `Karate BDD` (`sinfallas/karatelabs`) siempre que cambien `mcp-server/`, `.agents/skills/` o `manifest.json`— antes de sellar el `git commit` local.
 
+### 1.3. Cobertura Diferencial Multi-Stack y Bloqueo Anti-Evasión (`verify_diff_coverage.py` / `make diff-cov`)
+
+Para impedir la dilución silenciosa de pruebas en repositorios con alta cobertura histórica o regresiones en rutas nuevas, todo incremento de código productivo debe superar la compuerta determinista de **Cobertura Diferencial Multi-Stack**:
+
+- **Persistencia Efímera Segura de Reportes:** Antes de destruir los contenedores `--rm`, `make test-mcp`, `make test-py` y `run_ephemeral_qa` recolectan de forma contenida los reportes XML/LCOV (`python.xml`, `mcp-server.info`) dentro de `.agents/.cache/coverage/` (protegido en `.gitignore` y depurado por `./scripts/limpieza.sh`).
+- **Umbral Delta Estricto y Tolerancia Cero a Evasiones:** `.agents/scripts/verify_diff_coverage.py` (`make diff-cov`) exige `100%` de cobertura sobre líneas productivas nuevas o modificadas y `>= 90%` sobre sus ramas (`BRDA`/`condition-coverage`). Introducir marcadores de evasión (`# pragma: no cover`, `// v8 ignore`, `/* c8 ignore */`, `@codeCoverageIgnore`) sin justificación explícita `QA11X-APPROVED-EXCLUSION(<motivo>)` en la misma línea o la inmediatamente anterior bloquea con código `11`.
+- **Anti-XXE y Archivos Nuevos Sin Reporte:** Cualquier intento de XML externo (`<!DOCTYPE`/`<!ENTITY`), ruta fuera del workspace o archivo productivo nuevo ausente en los reportes emitidos detiene la certificación con código `12` (`Fast-Path DOCS_ONLY` omite con éxito controlado `0`).
+
 ---
 
 ## 2. Geometría Visual y Anti-JSDOM (Ceguera de Layout)

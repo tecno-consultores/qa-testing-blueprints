@@ -35,7 +35,7 @@
 | **Hito 18** | Internacionalización v2.18.0: Idioma Espejo Dinámico, Flag `--lang (auto/es/en)`, Targets `codex`/`windsurf` y Guías Multi-Agente EN/ES | [`docs/agent-setup.md`](docs/agent-setup.md) + [`docs/agent-setup.en.md`](docs/agent-setup.en.md) | ✅ Completado | `100%` |
 | **Hito 19** | Invariante Anti-Silo #9 (`QA-HEALTH-01`), Nivelación Documental Humana 1:1 (`docs/02` y `docs/04`) y Gobernanza Dual-Consumer en `propose_skill_evolution_pr` y `verify_docs_invariants.py` | [`docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md`](docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md) + `SECURITY.md` §4.22 | ✅ Completado | `100%` |
 | **Hito 20** | Detección de Versión sin Red Redundante (`.qa-11x-version` + TTL 24h Fail-Open), Aviso `update_available` en Tools y Auto-Sync Global de Skills por SHA-256 (`v2.20.0`) | [`docs/ai-integration.md`](docs/ai-integration.md) + [`docs/agent-setup.md`](docs/agent-setup.md) | ✅ Completado | `100%` |
-| **Hito 21** | Cobertura Diferencial Multi-Stack (`verify_diff_coverage.py`), Persistencia Efímera de Reportes y Bloqueo Anti-Evasión | [`16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md`](docs/specs/16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md) | ⏳ Pendiente | `0%` |
+| **Hito 21** | Cobertura Diferencial Multi-Stack (`verify_diff_coverage.py`), Persistencia Efímera de Reportes y Bloqueo Anti-Evasión | [`16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md`](docs/specs/16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md) | ✅ Completado | `100%` |
 | **Hito 22** | Memoria Determinista de Hallazgos y Cortacircuitos Anti-Loop (`exit 42`) en `run_ephemeral_qa` y `certify` | [`17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md`](docs/specs/17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md) | ⏳ Pendiente | `0%` |
 | **Hito 23** | Modo Diferencial en `inspect_ast_blast_radius` (Cero Inflación MCP) y Exportador Ejecutivo `PR_VERDICT.md` | [`18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md`](docs/specs/18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md) | ⏳ Pendiente | `0%` |
 
@@ -286,16 +286,16 @@
 
 ---
 
-## ⏳ Hito 21: Cobertura Diferencial Multi-Stack (`verify_diff_coverage.py`), Persistencia Efímera de Reportes y Bloqueo Anti-Evasión
+## ✅ Hito 21: Cobertura Diferencial Multi-Stack (`verify_diff_coverage.py`), Persistencia Efímera de Reportes y Bloqueo Anti-Evasión
 **Referencia Obligatoria:** [`docs/specs/16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md`](docs/specs/16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md)
 
 ### Tareas de Implementación:
-- [ ] **21.1.** Configurar `.gitignore` y `scripts/limpieza.sh` para `.agents/.cache/` y `.agents/artifacts/`, y ajustar `Makefile` / `mcp-server/src/tools/ephemeral-runner.ts` para preservar `coverage.xml` y `lcov.info` en `.agents/.cache/coverage/` antes del cierre de contenedores `--rm`.
-- [ ] **21.2.** Crear `.agents/scripts/verify_diff_coverage.py` (parte 1: guardia Anti-XXE `exit 12`, adaptador Cobertura XML y adaptador LCOV con normalización de rutas `/app` -> workspace y complejidad `CC <= 5`).
-- [ ] **21.3.** Completar `.agents/scripts/verify_diff_coverage.py` (parte 2: cruce `git diff --unified=0` con `shell=False`, fast-path `DOCS_ONLY`, detector anti-evasión `exit 11` sin `QA11X-APPROVED-EXCLUSION` y salida `Pass-Quiet`/`Fail-Verbose`).
-- [ ] **21.4.** Crear `tests/test_verify_diff_coverage.unit.py` (`>= 95%` cobertura en `sinfallas/base-python-uv:3.15` validando XXE, LCOV ramas `>= 90%`, Cobertura XML, evasión `pragma`/`v8 ignore` y `DOCS_ONLY`).
-- [ ] **21.5.** Añadir target `make diff-cov` en `Makefile` e integrar la verificación diferencial condicional en `.agents/scripts/certify_task_completion.sh`.
-- [ ] **21.6.** Sincronizar directiva *Dual-Consumer* en `.agents/rules/mandatory_qa_pyramid_and_doc_sync.md` y `docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md`, actualizar grafo AST, `make sync-governance` y certificar `make certify`.
+- [x] **21.1.** Configurar `.gitignore` y `scripts/limpieza.sh` para `.agents/.cache/` y `.agents/artifacts/`, y ajustar `Makefile` / `mcp-server/src/tools/ephemeral-runner.ts` para preservar `coverage.xml` y `lcov.info` en `.agents/.cache/coverage/` antes del cierre de contenedores `--rm`.
+- [x] **21.2.** Crear `.agents/scripts/verify_diff_coverage.py` (parte 1: guardia Anti-XXE `exit 12`, adaptador Cobertura XML y adaptador LCOV con normalización de rutas `/app` -> workspace y complejidad `CC <= 5`).
+- [x] **21.3.** Completar `.agents/scripts/verify_diff_coverage.py` (parte 2: cruce `git diff --unified=0` con `shell=False`, fast-path `DOCS_ONLY`, detector anti-evasión `exit 11` sin `QA11X-APPROVED-EXCLUSION` y salida `Pass-Quiet`/`Fail-Verbose`).
+- [x] **21.4.** Crear `tests/test_verify_diff_coverage.unit.py` (`>= 95%` cobertura en `sinfallas/base-python-uv:3.15` validando XXE, LCOV ramas `>= 90%`, Cobertura XML, evasión `pragma`/`v8 ignore` y `DOCS_ONLY`).
+- [x] **21.5.** Añadir target `make diff-cov` en `Makefile` e integrar la verificación diferencial condicional en `.agents/scripts/certify_task_completion.sh`.
+- [x] **21.6.** Sincronizar directiva *Dual-Consumer* en `.agents/rules/mandatory_qa_pyramid_and_doc_sync.md` y `docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md`, actualizar grafo AST, `make sync-governance` y certificar `make certify`.
 
 ---
 

@@ -277,6 +277,7 @@ gate_10_doc_and_test_sync() {
   local karate_status
   local doc_count
   local gate10_failed
+  local has_cov_reports
 
   all_changed=$({
     git diff --name-only HEAD 2>/dev/null || true
@@ -325,6 +326,16 @@ gate_10_doc_and_test_sync() {
     fi
 
     if [ "${gate10_failed}" -eq 0 ]; then
+      if [ -n "${exec_src_changes}" ] && [ -f ".agents/scripts/verify_diff_coverage.py" ] && [ -d ".agents/.cache/coverage" ]; then
+        has_cov_reports=$(find ".agents/.cache/coverage" -maxdepth 1 -type f \( -name '*.xml' -o -name '*.info' \) 2>/dev/null | head -n 1 || true)
+        if [ -n "${has_cov_reports}" ]; then
+          if command -v python3 >/dev/null 2>&1; then
+            python3 .agents/scripts/verify_diff_coverage.py --workspace . --reports-dir .agents/.cache/coverage || return $?
+          else
+            docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_diff_coverage.py --workspace /app --reports-dir .agents/.cache/coverage || return $?
+          fi
+        fi
+      fi
       printf '✔ [Doc & Test Sync] %s archivo(s) de código/config | %s prueba(s) (%s) | %s doc(s) sincronizados.\n' \
         "${code_count}" "${test_count}" "${karate_status}" "${doc_count}"
       return 0

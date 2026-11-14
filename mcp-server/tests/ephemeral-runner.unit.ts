@@ -14,6 +14,8 @@ import {
   hasUnquotedShellSyntax,
   resolveMakefileDockerRecipes,
   resolveComposeDirectFallback,
+  ensureCoverageCacheDir,
+  harvestCoverageReports,
 } from '../src/tools/ephemeral-runner.js';
 
 describe('ephemeral-runner', () => {
@@ -447,7 +449,15 @@ describe('ephemeral-runner', () => {
       expect.arrayContaining(['qa-backend', 'sh', '-c', 'ruff check src tests && mypy --strict --cache-dir=/tmp/mypy src'])
     );
     expect(resolveComposeDirectFallback(pyDir, 'unit')?.[0]).toEqual(
-      expect.arrayContaining(['COVERAGE_FILE=/tmp/.coverage', 'qa-backend', 'pytest', '--cov=src', '--cov-fail-under=95'])
+      expect.arrayContaining([
+        'COVERAGE_FILE=/tmp/.coverage',
+        'qa-backend',
+        'pytest',
+        '--cov=src',
+        '--cov-branch',
+        '--cov-fail-under=95',
+        '--cov-report=xml:.agents/.cache/coverage/python.xml',
+      ])
     );
     expect(resolveComposeDirectFallback(pyDir, 'migration')?.[0]).toEqual(
       expect.arrayContaining(['qa-backend', 'alembic', 'upgrade', 'head'])
@@ -578,5 +588,73 @@ describe('ephemeral-runner', () => {
       ['compose', '-f', 'docker-compose.qa.yml', 'up', '-d', 'postgres-qa'],
       ['compose', '-f', 'docker-compose.qa.yml', 'down', '-v', '--remove-orphans'],
     ]);
+  });
+
+  it('ensureCoverageCacheDir y harvestCoverageReports preservan XML/LCOV con permisos 0700/0600 y bloquean symlinks externos', async () => {
+    expect(harvestCoverageReports(path.join(tempDir, 'no-existe'))).toEqual([]);
+
+    const covDir = ensureCoverageCacheDir(tempDir);
+    expect(covDir).toBe(path.join(tempDir, '.agents', '.cache', 'coverage'));
+    expect(fs.statSync(path.join(tempDir, '.agents', '.cache')).mode & 0o777).toBe(0o700);
+    expect(fs.statSync(covDir).mode & 0o777).toBe(0o700);
+
+    // Directorio nombrado como reporte no debe copiarse (!isFile)
+    fs.mkdirSync(path.join(tempDir, 'coverage.xml'), { recursive: true });
+
+    // Symlink apuntando fuera del workspace debe ignorarse
+    const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mcp-cov-outside-'));
+    try {
+      const outsideXml = path.join(outsideDir, 'secret.xml');
+      fs.writeFileSync(outsideXml, '<coverage/>', 'utf8');
+      fs.mkdirSync(path.join(tempDir, 'coverage'), { recursive: true });
+      fs.symlinkSync(outsideXml, path.join(tempDir, 'coverage', 'lcov.info'));
+
+      // Reportes válidos en raíz (PHP prioridad build/logs sobre coverage/clover) y monorepo (vue3 LCOV + fastapi XML)
+      fs.mkdirSync(path.join(tempDir, 'build', 'logs'), { recursive: true });
+      fs.writeFileSync(path.join(tempDir, 'build', 'logs', 'cobertura.xml'), '<coverage id="php-primary"/>', 'utf8');
+      fs.writeFileSync(path.join(tempDir, 'coverage', 'clover.xml'), '<coverage id="php-secondary"/>', 'utf8');
+
+      fs.mkdirSync(path.join(tempDir, 'fastapi'), { recursive: true });
+      fs.writeFileSync(path.join(tempDir, 'fastapi', 'coverage.xml'), '<coverage id="fastapi"/>', 'utf8');
+
+      fs.mkdirSync(path.join(tempDir, 'vue3', 'coverage'), { recursive: true });
+      fs.writeFileSync(
+        path.join(tempDir, 'vue3', 'coverage', 'lcov.info'),
+        'TN:\nSF:/app/src/App.vue\nSF:src/main.ts\nDA:1,1\nend_of_record\n',
+        'utf8'
+      );
+
+      const harvested = harvestCoverageReports(tempDir);
+      expect(harvested).toEqual([
+        path.join(covDir, 'php.xml'),
+        path.join(covDir, 'fastapi.xml'),
+        path.join(covDir, 'vue3.info'),
+      ]);
+      expect(fs.existsSync(path.join(covDir, 'cobertura.xml'))).toBe(false);
+      expect(fs.existsSync(path.join(covDir, 'lcov.info'))).toBe(false);
+      expect(fs.readFileSync(path.join(covDir, 'php.xml'), 'utf8')).toBe('<coverage id="php-primary"/>');
+      expect(fs.statSync(path.join(covDir, 'php.xml')).mode & 0o777).toBe(0o600);
+      expect(fs.readFileSync(path.join(covDir, 'vue3.info'), 'utf8')).toContain('SF:vue3/src/App.vue');
+      expect(fs.readFileSync(path.join(covDir, 'vue3.info'), 'utf8')).toContain('SF:vue3/src/main.ts');
+    } finally {
+      fs.rmSync(outsideDir, { recursive: true, force: true });
+    }
+
+    // También recolecta LCOV raíz vía runEphemeralQa('unit') con Makefile real simulado
+    const rootProject = path.join(tempDir, 'root-node');
+    fs.mkdirSync(path.join(rootProject, 'coverage'), { recursive: true });
+    fs.writeFileSync(path.join(rootProject, 'Makefile'), 'qa-unit:\n\t@echo ok\n', 'utf8');
+    fs.writeFileSync(path.join(rootProject, 'coverage', 'lcov.info'), 'SF:/app/src/index.ts\nDA:1,1\nend_of_record\n', 'utf8');
+    const mockMakeOk = ((
+      _f: string,
+      _a: readonly string[],
+      _o: unknown,
+      cb: (e: Error | null, out: string, err: string) => void
+    ) => cb(null, 'All files | 100 | 100 | 100 | 100 |\n1 passed', '')) as unknown as typeof execFile;
+    const unitRes = await runEphemeralQa(rootProject, 'unit', 30, { execFileFn: mockMakeOk });
+    expect(unitRes.status).toBe('PASSED');
+    expect(fs.readFileSync(path.join(rootProject, '.agents', '.cache', 'coverage', 'lcov.info'), 'utf8')).toBe(
+      'SF:/app/src/index.ts\nDA:1,1\nend_of_record\n'
+    );
   });
 });

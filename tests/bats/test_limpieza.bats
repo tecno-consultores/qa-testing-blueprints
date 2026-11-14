@@ -37,9 +37,11 @@ setup() {
   mkdir -p "${FAKE_ROOT}/allure-results" "${FAKE_ROOT}/.pytest_cache" "${FAKE_ROOT}/.ruff_cache" \
     "${FAKE_ROOT}/.deepeval" "${FAKE_ROOT}/.promptfoo" "${FAKE_ROOT}/src" \
     "${FAKE_ROOT}/mcp-server/dist" "${FAKE_ROOT}/.agents/proposals" "${FAKE_ROOT}/.agents/backups" \
+    "${FAKE_ROOT}/.agents/.cache/coverage" "${FAKE_ROOT}/.agents/artifacts" \
     "${FAKE_ROOT}/graphify-out/cache" "${FAKE_TMP}/qa11x-certify.xyz"
   touch "${FAKE_ROOT}/sbom.cyclonedx.json" "${FAKE_ROOT}/.DS_Store" "${FAKE_ROOT}/src/Thumbs.db" \
     "${FAKE_ROOT}/src/edit.swp" "${FAKE_ROOT}/src/old.bak" "${FAKE_ROOT}/ACTIVE_TASK.md" \
+    "${FAKE_ROOT}/.agents/.cache/coverage/py.xml" "${FAKE_ROOT}/.agents/artifacts/PR_VERDICT.md" \
     "${FAKE_ROOT}/graphify-out/junk.tmp" "${FAKE_TMP}/qa-11x-last-failure.json"
 
   echo "// dist" >"${FAKE_ROOT}/mcp-server/dist/index.js"
@@ -66,6 +68,8 @@ setup() {
   [ ! -f "${FAKE_ROOT}/src/edit.swp" ]
   [ ! -f "${FAKE_ROOT}/src/old.bak" ]
   [ ! -f "${FAKE_ROOT}/ACTIVE_TASK.md" ]
+  [ ! -d "${FAKE_ROOT}/.agents/.cache" ]
+  [ ! -d "${FAKE_ROOT}/.agents/artifacts" ]
   [ ! -f "${FAKE_ROOT}/graphify-out/junk.tmp" ]
   [ ! -d "${FAKE_ROOT}/graphify-out/cache" ]
   [ ! -f "${FAKE_TMP}/qa-11x-last-failure.json" ]

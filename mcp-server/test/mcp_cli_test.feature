@@ -1048,4 +1048,25 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def phpunitManifest = findEntry(manifest.stacks.php.files, 'php/phpunit.xml.example')
     * match phpunitManifest.sha256 == '#regex ^[0-9a-f]{64}$'
 
+  Scenario: 34. Hito 21: Cobertura Diferencial Multi-Stack, persistencia efimera y bloqueo anti-evasion
+    * def findEntry = function(list, pathStr) { return karate.filter(list, function(x) { return x.path == pathStr })[0] }
+    * def diffCovManifest = findEntry(manifest.agent_governance_files, '.agents/scripts/verify_diff_coverage.py')
+    * match diffCovManifest.sha256 == '#regex ^[0-9a-f]{64}$'
+    * def makefileText = karate.readAsString(repoRoot + '/Makefile')
+    * assert makefileText.contains('diff-cov:')
+    * assert makefileText.contains('.agents/.cache/coverage')
+    * def runnerTs = karate.readAsString(repoRoot + '/mcp-server/src/tools/ephemeral-runner.ts')
+    * assert runnerTs.contains('ensureCoverageCacheDir')
+    * assert runnerTs.contains('harvestCoverageReports')
+    * def gitignoreText = karate.readAsString(repoRoot + '/.gitignore')
+    * assert gitignoreText.contains('.agents/.cache/')
+    * def limpiezaSh = karate.readAsString(repoRoot + '/scripts/limpieza.sh')
+    * assert limpiezaSh.contains('.agents/.cache')
+    * def pyramidRule = karate.readAsString(repoRoot + '/.agents/rules/mandatory_qa_pyramid_and_doc_sync.md')
+    * assert pyramidRule.contains('QA11X-APPROVED-EXCLUSION')
+    * def docs02 = karate.readAsString(repoRoot + '/docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md')
+    * assert docs02.contains('QA11X-APPROVED-EXCLUSION')
+    * assert docs02.contains('verify_diff_coverage.py')
+
+
 

@@ -3,7 +3,7 @@
 **Proyecto:** QA Testing Blueprints (`tecno-consultores/qa-testing-blueprints`)  
 **Componentes Objetivo (`Hito 21`):** `.agents/scripts/verify_diff_coverage.py`, `tests/test_verify_diff_coverage.unit.py`, `Makefile`, `.agents/scripts/certify_task_completion.sh`, `mcp-server/src/tools/ephemeral-runner.ts`  
 **Superficie Pública MCP:** Se mantienen intactas las **18 Tools** y **12 Resources** vigentes  
-**Estado:** PLANIFICADO (HITO 21 — ENTREGA 1 DE 3)
+**Estado:** COMPLETADO (HITO 21 — ENTREGA 1 DE 3)
 
 ---
 

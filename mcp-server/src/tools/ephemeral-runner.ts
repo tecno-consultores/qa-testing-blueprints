@@ -29,8 +29,124 @@ const PREFERRED_QA_SERVICES = [
   'qa-bash',
 ];
 const COMPOSER_STAGE_SET = new Set(['lint', 'unit', 'mutation', 'sbom']);
+const COVERAGE_STAGE_SET = new Set(['unit', 'ci', 'all']);
 const MAKE_NOOP_FLAGS = new Set(['-s', '--silent', '--no-print-directory']);
 const SHELL_CHAIN_TOKENS = new Set(['&&', '||', ';', '|']);
+const COBERTURA_XML_NAME = 'coverage.xml';
+const DIRECT_COBERTURA_NAME = 'cobertura.xml';
+const LCOV_INFO_NAME = 'lcov.info';
+const MONOREPO_COVERAGE_SUBDIRS = [
+  'fastapi',
+  'python',
+  'php',
+  'bash-scripts',
+  'backend',
+  'mcp-server',
+  'node-backend',
+  'vue3',
+  'react-frontend',
+  'frontend',
+] as const;
+
+interface CoverageHarvestCandidate {
+  srcRel: string;
+  destName: string;
+  rewriteSubDir?: string;
+}
+
+const ROOT_COVERAGE_CANDIDATES: readonly CoverageHarvestCandidate[] = [
+  { srcRel: COBERTURA_XML_NAME, destName: DIRECT_COBERTURA_NAME },
+  { srcRel: path.join('coverage', 'cobertura-coverage.xml'), destName: 'node-cobertura.xml' },
+  { srcRel: path.join('build', 'logs', DIRECT_COBERTURA_NAME), destName: 'php.xml' },
+  { srcRel: path.join('coverage', 'clover.xml'), destName: 'php.xml' },
+  { srcRel: path.join('coverage_report', 'kcov-merged', DIRECT_COBERTURA_NAME), destName: 'bash.xml' },
+  { srcRel: path.join('coverage_report', DIRECT_COBERTURA_NAME), destName: 'bash.xml' },
+  { srcRel: path.join('coverage', LCOV_INFO_NAME), destName: LCOV_INFO_NAME },
+];
+
+export function ensureCoverageCacheDir(resolvedPath: string): string {
+  const cacheRoot = path.join(resolvedPath, '.agents', '.cache');
+  const coverageDir = path.join(cacheRoot, 'coverage');
+  fs.mkdirSync(coverageDir, { recursive: true, mode: 0o700 });
+  fs.chmodSync(cacheRoot, 0o700);
+  fs.chmodSync(coverageDir, 0o700);
+  return coverageDir;
+}
+
+function prepareCoverageCacheForStage(resolvedPath: string, stage: string): void {
+  if (COVERAGE_STAGE_SET.has(stage)) {
+    ensureCoverageCacheDir(resolvedPath);
+  }
+}
+
+function harvestCoverageForStage(resolvedPath: string, stage: string): void {
+  if (COVERAGE_STAGE_SET.has(stage)) {
+    harvestCoverageReports(resolvedPath);
+  }
+}
+
+function buildCoverageCandidates(): CoverageHarvestCandidate[] {
+  const subdirCandidates = MONOREPO_COVERAGE_SUBDIRS.flatMap((subDir) => [
+    { srcRel: path.join(subDir, COBERTURA_XML_NAME), destName: `${subDir}.xml` },
+    {
+      srcRel: path.join(subDir, 'coverage', LCOV_INFO_NAME),
+      destName: `${subDir}.info`,
+      rewriteSubDir: subDir,
+    },
+  ]);
+  return [...ROOT_COVERAGE_CANDIDATES, ...subdirCandidates];
+}
+
+function readContainedCoverageFile(rootReal: string, candidatePath: string): string | null {
+  if (!fs.existsSync(candidatePath)) {
+    return null;
+  }
+  const realSource = fs.realpathSync(candidatePath);
+  if (!realSource.startsWith(`${rootReal}${path.sep}`)) {
+    return null;
+  }
+  if (!fs.statSync(realSource).isFile()) {
+    return null;
+  }
+  return fs.readFileSync(realSource, 'utf8');
+}
+
+function rewriteLcovSubdirPrefix(content: string, subDir?: string): string {
+  if (!subDir) {
+    return content;
+  }
+  return content
+    .replace(/^SF:\/(?:app|workspace)\//gm, `SF:${subDir}/`)
+    .replace(/^SF:src\//gm, `SF:${subDir}/src/`);
+}
+
+export function harvestCoverageReports(resolvedPath: string): string[] {
+  if (!fs.existsSync(resolvedPath)) {
+    return [];
+  }
+  const coverageDir = ensureCoverageCacheDir(resolvedPath);
+  const rootReal = fs.realpathSync(resolvedPath);
+  const harvested: string[] = [];
+  const seenDest = new Set<string>();
+  for (const item of buildCoverageCandidates()) {
+    if (seenDest.has(item.destName)) {
+      continue;
+    }
+    const raw = readContainedCoverageFile(rootReal, path.join(resolvedPath, item.srcRel));
+    if (raw === null) {
+      continue;
+    }
+    const destPath = path.join(coverageDir, item.destName);
+    fs.writeFileSync(destPath, rewriteLcovSubdirPrefix(raw, item.rewriteSubDir), {
+      encoding: 'utf8',
+      mode: 0o600,
+    });
+    fs.chmodSync(destPath, 0o600);
+    seenDest.add(item.destName);
+    harvested.push(destPath);
+  }
+  return harvested;
+}
 
 export interface RunEphemeralQaOptions {
   execFileFn?: typeof execFile;
@@ -703,7 +819,9 @@ function resolvePythonDirectCommands(
         'cache_dir=/tmp/pytest-cache',
         '--import-mode=importlib',
         '--cov=src',
+        '--cov-branch',
         '--cov-fail-under=95',
+        '--cov-report=xml:.agents/.cache/coverage/python.xml',
       ],
     ];
   }
@@ -869,6 +987,8 @@ async function executeDockerFallbackSequence(
   const composeDownTargets: string[][] = [];
   let lastExitCode = 0;
 
+  prepareCoverageCacheForStage(resolvedPath, stage);
+
   for (const args of commands) {
     const rawRemainingMs = timeoutMs - (Date.now() - startTime);
     if (rawRemainingMs <= 0) {
@@ -891,6 +1011,8 @@ async function executeDockerFallbackSequence(
       break;
     }
   }
+
+  harvestCoverageForStage(resolvedPath, stage);
 
   if (composeDownTargets.length > 0) {
     await teardownComposeServices(executor, composeDownTargets, resolvedPath);
@@ -1077,6 +1199,8 @@ export async function runEphemeralQa(
     );
   }
 
+  prepareCoverageCacheForStage(resolvedPath, stage);
+
   const makeRes = await execCommand(executor, MAKE_BINARY, [target], resolvedPath, timeoutMs);
   if (makeRes.errorCode === 'ENOENT') {
     return runMakeEnoentFallback(
@@ -1089,6 +1213,8 @@ export async function runEphemeralQa(
       options?.execFileSyncFn
     );
   }
+
+  harvestCoverageForStage(resolvedPath, stage);
 
   const durationMs = Date.now() - startTime;
   const parsed = parseQaOutput(makeRes.stdout, makeRes.stderr, stage, durationMs, makeRes.exitCode);

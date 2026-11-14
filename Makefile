@@ -2,7 +2,7 @@
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 # Makefile canónico para desarrollo local, automatización y gobernanza Level-11X
 
-.PHONY: help clean qa-clean audit lint-workflows lint-docs sync-governance validate-calm test test-mcp test-example test-karate test-py test-meta-qa test-ai-offline test-frontend-blueprints test-backend-blueprints audit-llm audit-psi qa-psi lint build certify publish-mcp publish-mcp-dry
+.PHONY: help clean qa-clean audit lint-workflows lint-docs sync-governance validate-calm test test-mcp test-example test-karate test-py diff-cov test-meta-qa test-ai-offline test-frontend-blueprints test-backend-blueprints audit-llm audit-psi qa-psi lint build certify publish-mcp publish-mcp-dry
 
 help:
 	@echo "Comandos canónicos de desarrollo y gobernanza para QA Testing Blueprints:"
@@ -21,6 +21,7 @@ help:
 	@echo "  make audit-psi       - Ejecuta auditoría Google PageSpeed Insights v5 post-deploy (URL=https://... [STRATEGY=both] [MIN_PERF=0.90])"
 	@echo "  make qa-psi          - Alias de make audit-psi (Lab + CrUX sobre dominio HTTPS público)"
 	@echo "  make test-meta-qa    - Audita scripts de .agents/scripts/ contra fixtures trimodales en Docker efímero"
+	@echo "  make diff-cov        - Verifica 100% cobertura delta multi-stack, ramas >=90% y bloqueo anti-evasión"
 	@echo "  make test-example    - Certifica las 18 tools, 12 resources, quickstart y verify-v2.sh Clean-Room Docker"
 	@echo "  make lint            - Ejecuta verificación de tipos y linters (ESLint --max-warnings 0, TypeScript)"
 	@echo "  make build           - Compila la distribución de producción del Servidor MCP"
@@ -198,7 +199,8 @@ lint:
 
 test-mcp:
 	@echo "🧪 [Test MCP] Ejecutando pruebas unitarias Vitest (>= 95%) en Docker efímero..."
-	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "$$(pwd)/mcp-server:/app" -v "$$(pwd)/mobile-appium:/mobile-appium:ro" -v "$$(pwd)/vibe-rescue:/vibe-rescue:ro" -v "$$(pwd)/.github:/.github:ro" -w /app sinfallas/base-node-ionic:26 bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run test:unit && rm -rf coverage .eslintcache"
+	@mkdir -p .agents/.cache/coverage && chmod 0700 .agents/.cache
+	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "$$(pwd)/mcp-server:/app" -v "$$(pwd)/.agents/.cache/coverage:/cov-out" -v "$$(pwd)/mobile-appium:/mobile-appium:ro" -v "$$(pwd)/vibe-rescue:/vibe-rescue:ro" -v "$$(pwd)/.github:/.github:ro" -w /app sinfallas/base-node-ionic:26 bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run test:unit && if [ -f coverage/lcov.info ]; then sed -E 's|^SF:/app/|SF:mcp-server/|; s|^SF:(src/)|SF:mcp-server/\1|' coverage/lcov.info > /cov-out/mcp-server.info; fi && rm -rf coverage .eslintcache"
 
 test-karate:
 	@echo "🎭 [Karate BDD] Ejecutando contratos BDD del MCP Server en Docker efímero..."
@@ -206,7 +208,16 @@ test-karate:
 
 test-py:
 	@echo "🐍 [Pytest] Ejecutando pruebas unitarias de gobernanza y manifiesto en Docker efímero..."
-	@docker run --rm -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -u "$$(id -u):$$(id -g)" -v "$$(pwd):/app" -w /app sinfallas/base-python-uv:3.15 uv run --with pytest --with pytest-cov pytest --import-mode=importlib tests/*.unit.py -q
+	@mkdir -p .agents/.cache/coverage && chmod 0700 .agents/.cache
+	@docker run --rm -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app" -w /app sinfallas/base-python-uv:3.15 uv run --with pytest --with pytest-cov pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function -W "ignore::DeprecationWarning:deepeval.*" -W "ignore::SyntaxWarning:deepeval.*" --import-mode=importlib --cov=.agents/scripts --cov=scripts --cov-branch --cov-report=xml:/app/.agents/.cache/coverage/python.xml tests/*.unit.py -q
+
+diff-cov:
+	@echo "📐 [Diff Coverage] Auditando cobertura diferencial multi-stack y anti-evasión..."
+	@if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
+		python3 .agents/scripts/verify_diff_coverage.py --workspace . --reports-dir .agents/.cache/coverage; \
+	else \
+		docker run --rm --network none -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_diff_coverage.py --workspace /app --reports-dir .agents/.cache/coverage; \
+	fi
 
 test-meta-qa:
 	@cmd='ruff check --select E,F,W,I,UP,B,C901,FLY --config "lint.mccabe.max-complexity=5" .agents/scripts/lint_test_antipatterns.py .agents/scripts/select_tests_by_blast_radius.py .agents/scripts/audit_pagespeed_insights.py vibe-rescue/audit_vibe_prototype.py tests/meta_qa/test_antipattern_linter.py && ruff check tests/meta_qa && MYPYPATH=.agents/scripts mypy --strict --cache-dir=/tmp/mypy .agents/scripts/lint_test_antipatterns.py .agents/scripts/select_tests_by_blast_radius.py .agents/scripts/audit_pagespeed_insights.py vibe-rescue/audit_vibe_prototype.py tests/meta_qa/test_antipattern_linter.py && PYTHONPATH=.agents/scripts pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function -W "ignore::DeprecationWarning:deepeval.*" -W "ignore::SyntaxWarning:deepeval.*" --import-mode=importlib --cov=lint_test_antipatterns --cov-fail-under=95 --cov-report=term-missing tests/meta_qa/test_antipattern_linter.py && PYTHONPATH=.agents/scripts pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function -W "ignore::DeprecationWarning:deepeval.*" -W "ignore::SyntaxWarning:deepeval.*" --import-mode=importlib --cov=select_tests_by_blast_radius --cov-fail-under=95 --cov-report=term-missing tests/meta_qa/test_governance_scripts.py && PYTHONPATH=.agents/scripts pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function -W "ignore::DeprecationWarning:deepeval.*" -W "ignore::SyntaxWarning:deepeval.*" --import-mode=importlib --cov=audit_pagespeed_insights --cov-fail-under=95 --cov-report=term-missing -k pagespeed tests/meta_qa/test_governance_scripts.py && PYTHONPATH=.agents/scripts pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function -W "ignore::DeprecationWarning:deepeval.*" -W "ignore::SyntaxWarning:deepeval.*" --import-mode=importlib --cov=vibe-rescue --cov-fail-under=95 --cov-report=term-missing -k vibe_rescue tests/meta_qa/test_governance_scripts.py && PYTHONPATH=.agents/scripts pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function -W "ignore::DeprecationWarning:deepeval.*" -W "ignore::SyntaxWarning:deepeval.*" --import-mode=importlib --cov=.agents/scripts --cov-report=term-missing tests/meta_qa/test_governance_scripts.py tests/meta_qa/test_antipattern_linter.py -q'; \

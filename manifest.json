@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.21.0",
-  "generated_at_utc": "2026-11-14T23:11:00Z",
+  "generated_at_utc": "2026-11-14T23:36:10Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -726,8 +726,8 @@
       "path": "scripts/limpieza.sh",
       "target_name": "scripts/limpieza.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "a3f3480b9c485ccbc1a1b2748420d549b0bdd5fea0cce0e9d61a9362a710e887",
-      "size_bytes": 13536
+      "sha256": "617db270b33111c86113023b50a86b050deda49846780e173d0c039eee5e9fe7",
+      "size_bytes": 13797
     },
     {
       "path": "scripts/verificar-secretos.sh",
@@ -798,8 +798,8 @@
       "path": ".agents/rules/mandatory_qa_pyramid_and_doc_sync.md",
       "target_name": ".agents/rules/mandatory_qa_pyramid_and_doc_sync.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "ca964acc316fe7bad2fdc566cbd8b4700170f899acad5b74f771fcd5f1557517",
-      "size_bytes": 14926
+      "sha256": "727eeee3663fb68dccb52aea85a39c2ae91483e94ea6f74b3633f237c7b22225",
+      "size_bytes": 15884
     },
     {
       "path": ".agents/rules/secure_development_and_testing_guidelines.md",
@@ -819,8 +819,8 @@
       "path": ".agents/scripts/certify_task_completion.sh",
       "target_name": ".agents/scripts/certify_task_completion.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "9aaa12265c3bf3421856c9c0606a5967b1b3154967ac0212754143715c91ced7",
-      "size_bytes": 15852
+      "sha256": "de4f7d268ae28d822641e1e2af207b372a83cc0564fc1de1c81b44555e3af951",
+      "size_bytes": 16681
     },
     {
       "path": ".agents/scripts/compact_context_11x.py",
@@ -877,6 +877,13 @@
       "merge_strategy": "overwrite_executable",
       "sha256": "8324dbb2a173e51db90ee765e0e41e166153b32add201f717813a13e336b8438",
       "size_bytes": 5870
+    },
+    {
+      "path": ".agents/scripts/verify_diff_coverage.py",
+      "target_name": ".agents/scripts/verify_diff_coverage.py",
+      "merge_strategy": "overwrite_executable",
+      "sha256": "1ab4057ef7a5848a3b0f07010ce3b42ce377d1f788ae28b742cb1aca9794793f",
+      "size_bytes": 28040
     },
     {
       "path": ".agents/scripts/verify_docs_invariants.py",
@@ -1127,8 +1134,8 @@
       "path": "AGENTS.md",
       "target_name": "AGENTS.md",
       "merge_strategy": "surgical_merge",
-      "sha256": "f5d4ebb074dede145cde8a4d3d0c7e1bd669b59863ad03b149e574870d835d7a",
-      "size_bytes": 23704
+      "sha256": "e10cc2df165c46e3841ec9646dbbb7768746dc9cd20d3125714b6613ccf2bfe4",
+      "size_bytes": 23911
     },
     {
       "path": "catalogs/agenticskills-submission.md",

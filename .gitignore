@@ -191,6 +191,10 @@ ACTIVE_TASK.md
 **/.agents/proposals/
 .agents/tmp/
 **/.agents/tmp/
+.agents/.cache/
+**/.agents/.cache/
+.agents/artifacts/
+**/.agents/artifacts/
 .agents/*.scratchpad.md
 .task_scratchpad.md
 *.swp
