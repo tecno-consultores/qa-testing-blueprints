@@ -733,4 +733,193 @@ docker exec -e ROSGRID_ADMIN_PASSWORD="\${LOCAL_ADMIN_PASS}" api pytest tests/co
     expect(cleanRes.findings.some((f) => f.rule_id === 'QA-SMOKE-01')).toBe(false);
     expect(cleanRes.findings.some((f) => f.rule_id === 'SEC-15')).toBe(false);
   });
+
+  describe('UI-11X-03: Multi-Format Favicons, PWA Manifest & Cloudflare Edge Headers', () => {
+    it('aprueba SPA mínima virgen sin enlaces rotos ni suite PWA/favicons', async () => {
+      const pubDir = path.join(tempDir, 'public');
+      fs.mkdirSync(pubDir, { recursive: true });
+      fs.writeFileSync(path.join(pubDir, 'robots.txt'), 'User-agent: *\nDisallow: /api/\n', 'utf8');
+      fs.writeFileSync(
+        path.join(tempDir, 'index.html'),
+        '<!doctype html><html><head><title>App Interna</title></head><body><div id="app"></div></body></html>\n',
+        'utf8'
+      );
+
+      const res = await auditSecurityStigOwasp(tempDir);
+      expect(res.findings.filter((f) => f.rule_id === 'UI-11X-03')).toEqual([]);
+      expect(res.passed).toBe(true);
+    });
+
+    it('aprueba proyecto nominal SSG/PWA con favicon.ico 48x48, apple-touch-icon PNG 180x180, webmanifest separado y _headers/_routes.json limpios', async () => {
+      const pubDir = path.join(tempDir, 'public');
+      const favDir = path.join(pubDir, 'favicons');
+      fs.mkdirSync(favDir, { recursive: true });
+      fs.writeFileSync(path.join(pubDir, 'favicon.ico'), 'ico-bytes', 'utf8');
+      fs.writeFileSync(path.join(favDir, 'apple-touch-icon.png'), 'png-bytes', 'utf8');
+      fs.writeFileSync(
+        path.join(tempDir, 'index.html'),
+        `<!doctype html>
+<html>
+  <head>
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" type="image/svg+xml" href="/favicons/favicon.svg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/favicons/apple-touch-icon.png" />
+  </head>
+</html>
+`,
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(pubDir, 'site.webmanifest'),
+        JSON.stringify({
+          name: 'Portal',
+          icons: [
+            { src: '/favicons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+            { src: '/favicons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          ],
+        }),
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(pubDir, '_headers'),
+        `/*
+  Cache-Control: no-cache
+  X-Robots-Tag: index, follow
+  Cross-Origin-Resource-Policy: same-origin
+
+/favicon.ico
+  ! Cache-Control
+  ! Cross-Origin-Resource-Policy
+  Cache-Control: public, max-age=604800
+  Cross-Origin-Resource-Policy: cross-origin
+
+/favicons/*
+  ! Cache-Control
+  ! Cross-Origin-Resource-Policy
+  Cache-Control: public, max-age=604800
+  Cross-Origin-Resource-Policy: cross-origin
+`,
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(pubDir, '_routes.json'),
+        JSON.stringify({ version: 1, include: ['/*'], exclude: ['/favicon.ico', '/favicons/*'] }),
+        'utf8'
+      );
+
+      const res = await auditSecurityStigOwasp(tempDir);
+      expect(res.findings.filter((f) => f.rule_id === 'UI-11X-03')).toEqual([]);
+      expect(res.passed).toBe(true);
+    });
+
+    it('detecta escapes reales de producción (apple-touch-icon webp, favicon 404, webmanifest combined, _headers sin ! y _routes /*.ico)', async () => {
+      const pubDir = path.join(tempDir, 'public');
+      const favDir = path.join(pubDir, 'favicons');
+      fs.mkdirSync(favDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(tempDir, 'index.html'),
+        `<!doctype html>
+<html>
+  <head>
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href='/favicons/icon.webp?v=1' />
+    <link rel='apple-touch-icon' href="/favicons/alt.png" />
+  </head>
+</html>
+`,
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(pubDir, 'site.webmanifest'),
+        JSON.stringify({
+          icons: [{ src: '/favicons/icon.webp', sizes: '512x512', type: 'image/webp', purpose: 'any maskable' }],
+        }),
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(pubDir, '_headers'),
+        `# Cabeceras Cloudflare Pages
+  orphaned-indented: ignored
+/*
+  X-Robots-Tag: index, follow
+  Cross-Origin-Resource-Policy: same-origin
+
+/favicon.ico
+  X-Robots-Tag: noindex
+  Cross-Origin-Resource-Policy: cross-origin
+
+/brand/*
+  Cache-Control: public, max-age=3600
+`,
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(pubDir, '_routes.json'),
+        JSON.stringify({ version: 1, include: ['/*'], exclude: ['/*.ico'] }),
+        'utf8'
+      );
+
+      const res = await auditSecurityStigOwasp(tempDir);
+      const ui03 = res.findings.filter((f) => f.rule_id === 'UI-11X-03');
+      expect(res.passed).toBe(false);
+      expect(ui03.filter((f) => f.severity === 'HIGH').length).toBeGreaterThanOrEqual(5);
+      expect(ui03.some((f) => f.message.includes('apple-touch-icon') && f.severity === 'HIGH')).toBe(true);
+      expect(ui03.some((f) => f.message.includes('sizes="180x180"') && f.severity === 'MEDIUM')).toBe(true);
+      expect(ui03.some((f) => f.message.includes('HTTP 404') && f.severity === 'HIGH')).toBe(true);
+      expect(ui03.some((f) => f.message.includes('.webp') && f.severity === 'MEDIUM')).toBe(true);
+      expect(ui03.some((f) => f.message.includes('any maskable') && f.severity === 'MEDIUM')).toBe(true);
+      expect(ui03.some((f) => f.message.includes('192x192 y 512x512') && f.severity === 'MEDIUM')).toBe(true);
+      expect(ui03.some((f) => f.message.includes('sin desacoplamiento previo') && f.severity === 'HIGH')).toBe(true);
+      expect(ui03.some((f) => f.message.includes('/brand/*') && f.severity === 'MEDIUM')).toBe(true);
+      expect(ui03.some((f) => f.message.includes('/*.ico') && f.severity === 'HIGH')).toBe(true);
+      expect(ui03.some((f) => f.message.includes('sin excluir explícitamente "/favicon.ico"') && f.severity === 'MEDIUM')).toBe(true);
+    });
+
+    it('detecta favicon.ico existente sin sizes=48x48 y respeta exención explícita ui-11x-03-ok', async () => {
+      const subDir = path.join(tempDir, 'web');
+      const pubDir = path.join(subDir, 'public');
+      fs.mkdirSync(path.join(pubDir, 'favicons'), { recursive: true });
+      fs.writeFileSync(path.join(pubDir, 'favicon.ico'), 'ico', 'utf8');
+      fs.writeFileSync(
+        path.join(subDir, 'index.html'),
+        '<html><head><link rel="icon" href="/favicon.ico" sizes="32x32" /></head></html>',
+        'utf8'
+      );
+      // JSON corrupto no rompe el auditor
+      fs.writeFileSync(path.join(pubDir, 'manifest.json'), '{broken json', 'utf8');
+      fs.writeFileSync(path.join(pubDir, '_routes.json'), '{broken', 'utf8');
+
+      const missing48Res = await auditSecurityStigOwasp(tempDir);
+      expect(
+        missing48Res.findings.some(
+          (f) => f.rule_id === 'UI-11X-03' && f.severity === 'MEDIUM' && f.message.includes('sizes="48x48"')
+        )
+      ).toBe(true);
+
+      // Con pragma ui-11x-03-ok en todos los archivos debe aprobar sin hallazgos
+      fs.writeFileSync(
+        path.join(subDir, 'index.html'),
+        '<!-- ui-11x-03-ok --><html><head><link rel="apple-touch-icon" href="/x.webp" /></head></html>',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(pubDir, 'site.webmanifest'),
+        JSON.stringify({ comment: 'ui-11x-03-ok', icons: [{ src: '/x.webp', purpose: 'any maskable' }] }),
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(pubDir, '_headers'),
+        '# ui-11x-03-ok\n/*\n  X-Robots-Tag: noindex\n/favicon.ico\n  X-Robots-Tag: index\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(pubDir, '_routes.json'),
+        JSON.stringify({ comment: 'ui-11x-03-ok', include: ['/*'], exclude: ['/*.ico'] }),
+        'utf8'
+      );
+
+      const pragmaRes = await auditSecurityStigOwasp(tempDir);
+      expect(pragmaRes.findings.filter((f) => f.rule_id === 'UI-11X-03')).toEqual([]);
+    });
+  });
 });

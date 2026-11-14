@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.21.0",
-  "generated_at_utc": "2026-11-14T20:14:00Z",
+  "generated_at_utc": "2026-11-14T20:47:02Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -443,8 +443,8 @@
           "path": "react-frontend/nginx/default.conf.example",
           "target_name": "nginx/default.conf",
           "merge_strategy": "copy_if_missing",
-          "sha256": "e06a4bd01e931365d281ef65487125a3a10d17cd9a66a37717fc52ce1e15f193",
-          "size_bytes": 3936
+          "sha256": "55ca6fb915c8f75bbd38cb633ee1df938169c5c072f16a5d0ab284c16d3d802d",
+          "size_bytes": 4143
         },
         {
           "path": "react-frontend/npmrc.example",
@@ -485,8 +485,8 @@
           "path": "react-frontend/test/ui_business_flow.feature",
           "target_name": "test/ui_business_flow.feature",
           "merge_strategy": "copy_if_missing",
-          "sha256": "307c59417404a767c0d855cb1f753d549d4f31afaa47b8ace89f5e8d8ef49d66",
-          "size_bytes": 3938
+          "sha256": "d7afdb82875198d3857c9cc568bbb356e417355937e52638423ab47e38f692dc",
+          "size_bytes": 4005
         },
         {
           "path": "react-frontend/tests/screenplay/Actor.ts",
@@ -589,8 +589,8 @@
           "path": "vue3/nginx/default.conf.example",
           "target_name": "nginx/default.conf",
           "merge_strategy": "copy_if_missing",
-          "sha256": "ab91ad76f505c6adb4fb28b5eaac2f7cae74009b27df0963a0b8112fdd50b12b",
-          "size_bytes": 3936
+          "sha256": "beba9a30a3e0821584940e48bd3bce3583fd339f079237da445a8a15ecdffe92",
+          "size_bytes": 4143
         },
         {
           "path": "vue3/npmrc.example",
@@ -631,8 +631,8 @@
           "path": "vue3/test/ui_business_flow.feature",
           "target_name": "test/ui_business_flow.feature",
           "merge_strategy": "copy_if_missing",
-          "sha256": "47f5f3c9806ebe9210c6e1ddb213b0b04b7c8e8044a19568c3c88e5104f7cd5b",
-          "size_bytes": 3939
+          "sha256": "6ef042f23458f016ad416280b473792ea16c0359d970a94f30254a11e1929ba8",
+          "size_bytes": 4006
         },
         {
           "path": "vue3/tests/screenplay/Actor.ts",
@@ -924,8 +924,8 @@
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "54d7bd2db02abaeaf578b79d283d4c2577c14b38a0e8f0f3d1480b78601a37a8",
-      "size_bytes": 11823
+      "sha256": "d0dab88d3aead819c8be1cb34405b056a1e2feb3c8ef2f1b22e1ff17eba70674",
+      "size_bytes": 11824
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
@@ -952,8 +952,8 @@
       "path": ".agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md",
       "target_name": ".agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "55faa3f0ade753c6a8c52773770798a3b3e52028266aa1e4cadf692dabf191e7",
-      "size_bytes": 15989
+      "sha256": "5e211193e73eb71ee3db6604527a75d39abcf8d6e39de4fd36b7ffb3be21fa10",
+      "size_bytes": 18358
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/05-stack-bash-devops.md",
@@ -1134,7 +1134,7 @@
       "path": "catalogs/skillsllm-manifest.json",
       "target_name": "catalogs/skillsllm-manifest.json",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "1ecbdbaace124ce01bdc16f92d3678bd857eb13f43999b68545eba6c65dc7ddf",
+      "sha256": "49e92f630e2650c43080ed6a58350d8db4327c0d3036f143a8708b3cacabfd57",
       "size_bytes": 11078
     },
     {

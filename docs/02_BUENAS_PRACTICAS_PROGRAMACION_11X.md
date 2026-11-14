@@ -239,6 +239,28 @@ docker compose -f docker-compose.deploy.yml run --rm -T --no-deps -u "$(id -u):$
 
 > **Compuerta de Mutación Remota (`QA-GIT-GATE-01`):** Al igual que `git push` o `npm publish`, la ejecución de `deploy.sh` muta infraestructura externa en producción y requiere autorización explícita del operador humano o una compuerta de liberación `GO` (`evaluate_release_gate`).
 
+### 5.2. Empaquetado de Favicons Multi-Formato, Manifiesto PWA y Cabeceras Edge sin Duplicados (`UI-11X-03`)
+
+Todo frontend SPA o sitio público SSG debe evitar atajos `.webp` en iconos de plataforma y desacoplar explícitamente las cabeceras heredadas de `/*` en Cloudflare Pages y Nginx:
+
+1. **HTML (`index.html`) e Iconos Multi-Resolución:** Nunca apuntar `rel="apple-touch-icon"` a `.webp` ni `.svg` (Safari/iOS los ignora silenciosamente); generar desde el SVG maestro bajo **Regla Cero** (`mcr.microsoft.com/playwright` con `deviceScaleFactor: 1`) los PNGs y empaquetar `public/favicon.ico` (`sizes="48x48"` con tramas `16x16`/`32x32`/`48x48` para navegadores clásicos y Google Search `>= 48px`), `favicon.svg`, PNGs RGBA `48x48`/`32x32` y PNG RGB opaco `180x180` (sin canal alfa, zona segura del 80 %) para Apple Touch Icon:
+   ```html
+   <link rel="icon" href="/favicon.ico" sizes="48x48" />
+   <link rel="icon" type="image/svg+xml" href="/favicons/favicon.svg" />
+   <link rel="icon" type="image/png" sizes="48x48" href="/favicons/favicon-48x48.png" />
+   <link rel="icon" type="image/png" sizes="32x32" href="/favicons/favicon-32x32.png" />
+   <link rel="apple-touch-icon" sizes="180x180" href="/favicons/apple-touch-icon.png" />
+   ```
+2. **Manifiesto PWA (`site.webmanifest`):** Declarar `icon-192.png` (`192x192`) e `icon-512.png` (`512x512`) en formato `image/png` opaco (zona segura del 80 %) separando `"purpose": "any"` y `"purpose": "maskable"` en objetos distintos (evitando `"any maskable"` combinado).
+3. **Edge Cloudflare (`public/_headers` y `_routes.json`) y Nginx:** En Cloudflare Pages, toda subruta que sobrescriba una cabecera definida en `/*` (`Cache-Control`, `X-Robots-Tag`, `Cross-Origin-Resource-Policy`, `Content-Security-Policy`, `X-Frame-Options`, `Referrer-Policy`) DEBE desacoplarla primero con `! Nombre-Cabecera` para impedir concatenaciones duplicadas. Habilitar `Cross-Origin-Resource-Policy: cross-origin` en `/favicon.ico`, `/favicons/*`, `/brand/*` y `/og/*` (manteniendo `X-Robots-Tag: noindex, nofollow` en consolas SPA privadas y reservando `index, follow` exclusivamente para sitios públicos SSG). En `nginx/default.conf`, replicar `"same-origin"` en `server`/`/index.html` y `"cross-origin"` en `location ~* \.(?:ico|svg|png|webmanifest)$`. En `_routes.json`, excluir la ruta exacta `"/favicon.ico"` cuando `include` contiene `"/*"` y evitar comodines de sufijo inválidos (`/*.ico`, `/*.png`):
+   ```text
+   /favicon.ico
+     ! Cache-Control
+     ! Cross-Origin-Resource-Policy
+     Cache-Control: public, max-age=604800
+     Cross-Origin-Resource-Policy: cross-origin
+   ```
+
 ---
 
 ## 6. Manejo de Errores No Destructivo en Frontend

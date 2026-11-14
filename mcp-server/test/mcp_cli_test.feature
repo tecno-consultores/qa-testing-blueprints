@@ -230,10 +230,11 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
   # Grupo 10: Contrato de Auditores Anti-Silo, Ciclo Temporal de 3 Fases, Anti-UUID y Refresco Dual (Hito 12)
   # ==============================================================================
 
-  Scenario: 10. Los auditores de seguridad y pirámide 11X exponen reglas SEC-11, UI-11X-02, 3 fases temporales y refresco dual
-    * def securityRulesCatalog = ['SEC-01', 'SEC-02', 'SEC-03', 'SEC-04', 'SEC-05', 'SEC-06', 'SEC-07', 'SEC-08', 'SEC-09', 'SEC-10', 'SEC-11', 'UI-11X-01', 'UI-11X-02']
+  Scenario: 10. Los auditores de seguridad y pirámide 11X exponen reglas SEC-11, UI-11X-02, UI-11X-03, 3 fases temporales y refresco dual
+    * def securityRulesCatalog = ['SEC-01', 'SEC-02', 'SEC-03', 'SEC-04', 'SEC-05', 'SEC-06', 'SEC-07', 'SEC-08', 'SEC-09', 'SEC-10', 'SEC-11', 'UI-11X-01', 'UI-11X-02', 'UI-11X-03']
     * match securityRulesCatalog contains 'SEC-11'
     * match securityRulesCatalog contains 'UI-11X-02'
+    * match securityRulesCatalog contains 'UI-11X-03'
 
     * def mockSec11Finding =
       """
@@ -852,6 +853,8 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert secAuditorSource.contains('checkQaDockerTty01NonInteractiveAndReadOnly')
     * assert secAuditorSource.contains('SEC-CI-ACTION-REF')
     * assert secAuditorSource.contains('checkSecCiActionRef')
+    * assert secAuditorSource.contains('UI-11X-03')
+    * assert secAuditorSource.contains('checkUi11x03FaviconPwaAndEdgeHeaders')
 
     * def e2eRunner = karate.readAsString(mcpRoot + '/example/run-example-e2e.mjs')
     * assert e2eRunner.contains('Interactive Terminal Detected (TTY)')
@@ -864,11 +867,13 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def humanPractices = karate.readAsString(repoRoot + '/docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md')
     * assert humanPractices.contains('QA-CLI-TTY-01')
     * assert humanPractices.contains('QA-DOCKER-TTY-01')
+    * assert humanPractices.contains('UI-11X-03')
 
     * def humanSecurity = karate.readAsString(repoRoot + '/docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md')
     * assert humanSecurity.contains('QA-CLI-TTY-01')
     * assert humanSecurity.contains('QA-DOCKER-TTY-01')
     * assert humanSecurity.contains('SEC-CI-ACTION-REF')
+    * assert humanSecurity.contains('UI-11X-03')
 
     * def rootSecurity = karate.readAsString(repoRoot + '/SECURITY.md')
     * assert rootSecurity.contains('### 4.23.')
@@ -877,6 +882,8 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert rootSecurity.contains('SEC-CI-ACTION-REF')
     * assert rootSecurity.contains('### 4.25.')
     * assert rootSecurity.contains('QA-DOCKER-TTY-01')
+    * assert rootSecurity.contains('### 4.26.')
+    * assert rootSecurity.contains('UI-11X-03')
 
   Scenario: 29. Cierre T5.4 — llms.txt (GEO), Catálogos Globales (QASkills, SkillsLLM, AgenticSkills), Paridad 10/18/12 y Versión 2.21.0
     * match pkg.version == '2.21.0'

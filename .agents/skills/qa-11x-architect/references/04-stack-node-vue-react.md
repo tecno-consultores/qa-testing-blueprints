@@ -253,3 +253,16 @@ Deterministic non-interactive Cloudflare Pages deployments under `read_only: tru
    # Requires explicit human operator confirmation or GO Release Gate (QA-GIT-GATE-01)
    docker compose -f docker-compose.deploy.yml run --rm -T --no-deps -u "$(id -u):$(id -g)" deploy
    ```
+
+### 6.1. Multi-Format Favicon Suite, PWA Manifest & Edge `_headers` Hygiene (`UI-11X-03`)
+Frontend SPAs/SSGs MUST ship cross-browser icon assets and explicitly detach inherited Edge headers instead of relying on `.webp` shortcuts or additive `/*` rules:
+1. **Multi-Resolution Icon Suite (`Rule Zero` Chromium + ICO):**
+   - Generate PNG rasters from brand SVG inside `mcr.microsoft.com/playwright` (`deviceScaleFactor: 1`) and pack `public/favicon.ico` via Python `PIL`/`struct` with `16x16`, `32x32`, and `48x48` PNG-encoded frames (satisfies browsers and Google Search `>= 48px` requirement).
+   - Ship `public/favicons/favicon.svg`, `32x32` and `48x48` RGBA PNGs, and opaque RGB (no alpha transparency, 80% safe-zone centered) `apple-touch-icon.png` (`180x180`), `icon-192.png` (`192x192`), and `icon-512.png` (`512x512`).
+2. **HTML & Web App Manifest Parity (`index.html` & `site.webmanifest`):**
+   - Never point `rel="apple-touch-icon"` to `.webp`/`.svg` (Safari/iOS ignores it). Use `<link rel="icon" href="/favicon.ico" sizes="48x48" />`, `<link rel="icon" type="image/svg+xml" href="/favicons/favicon.svg" />`, `48x48`/`32x32` PNG `<link rel="icon">`, and `<link rel="apple-touch-icon" sizes="180x180" href="/favicons/apple-touch-icon.png" />`.
+   - In `site.webmanifest`, declare `192x192` and `512x512` opaque PNG icons with separate `"purpose": "any"` and `"purpose": "maskable"` entries (never combined `"any maskable"`).
+3. **Cloudflare Pages `_headers`, `_routes.json` & Nginx `CORP` Parity:**
+   - When `/*` defines `Cache-Control`, `X-Robots-Tag`, `Cross-Origin-Resource-Policy`, `Content-Security-Policy`, `X-Frame-Options`, or `Referrer-Policy`, sub-path overrides in `public/_headers` MUST detach them first (`! Cache-Control`, `! X-Robots-Tag`, `! Cross-Origin-Resource-Policy`) before setting new values, and emit `Cross-Origin-Resource-Policy: cross-origin` on `/favicon.ico`, `/favicons/*`, `/brand/*`, and `/og/*` (keeping `X-Robots-Tag: noindex, nofollow` on private backoffice SPAs and `index, follow` only on public SSG sites).
+   - Mirror `Cross-Origin-Resource-Policy "same-origin"` at `server`/`/index.html` and `"cross-origin"` in `location ~* \.(?:ico|svg|png|webmanifest)$` in `nginx/default.conf`.
+   - In `_routes.json`, exclude exact `"/favicon.ico"` when `include` has `"/*"`; never use invalid suffix globs (`/*.ico`, `/*.png`).

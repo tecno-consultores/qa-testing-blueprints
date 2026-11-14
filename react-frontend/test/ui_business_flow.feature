@@ -34,6 +34,7 @@ Feature: Contratos BDD HTTP, Cabeceras OWASP OSHP, Rutas SPA/SSG y SEO para Reac
     Then status 200
     And match header X-Frame-Options == 'DENY'
     And match header X-Content-Type-Options == 'nosniff'
+    And match header Cross-Origin-Resource-Policy == 'same-origin'
     And match header Referrer-Policy == 'strict-origin-when-cross-origin'
     And match header Permissions-Policy contains 'geolocation=()'
     And match header Content-Security-Policy contains "default-src 'self'"

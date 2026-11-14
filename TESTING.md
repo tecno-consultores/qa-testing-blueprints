@@ -136,7 +136,7 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
   * **Funciones (Functions):** `99.55%` (`>= 95.0%`)
   * **Líneas (Lines):** `99.20%` (`>= 95.0%`)
   * **Pruebas Unitarias:** 504 pruebas pasando al 100% (32 suites en `tests/*.unit.ts`, incluyendo `src/index.ts`, higiene Node 26/pnpm 12 en `SEC-09` y regla estática `QA-CLI-TTY-01`)
-  * **Herramientas MCP:** **18 herramientas canónicas** (12 v1 + 6 v2.0 de CALM, Release Gate, trayectoria agéntica, OWASP LLM Red Team, Vibe-Rescue y sincronización TMS) y **12 recursos `blueprint://*`** con contrato Thin-Repo, autoconstrucción/refresco de grafos AST (`auto_build_if_missing`, `refresh_graph`), modo *Metadata-Only* (`include_content: false`), agrupador por regla (`groupFindingsByRule`), 25 reglas estáticas (`SEC-01`..`SEC-16`, `QA-*`, `QA-CLI-TTY-01`, `UI-11X-*`), guardia `TaskStateGuard` + `promptGuard` y paridad 10/10 en `certify_11x_gate`
+  * **Herramientas MCP:** **18 herramientas canónicas** (12 v1 + 6 v2.0 de CALM, Release Gate, trayectoria agéntica, OWASP LLM Red Team, Vibe-Rescue y sincronización TMS) y **12 recursos `blueprint://*`** con contrato Thin-Repo, autoconstrucción/refresco de grafos AST (`auto_build_if_missing`, `refresh_graph`), modo *Metadata-Only* (`include_content: false`), agrupador por regla (`groupFindingsByRule`), 28 reglas estáticas (`SEC-01`..`SEC-16`, `SEC-CI-ACTION-REF`, `QA-*`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`, `UI-11X-01..03`), guardia `TaskStateGuard` + `promptGuard` y paridad 10/10 en `certify_11x_gate`
   * **Escenarios BDD Karate Labs:** `mcp-server/test/mcp_cli_test.feature` (30 escenarios en `sinfallas/karatelabs:1.5.1`)
 * **Comandos de Validación:**
   ```bash
