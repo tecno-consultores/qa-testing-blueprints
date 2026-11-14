@@ -2,7 +2,7 @@
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 # Makefile canónico para desarrollo local, automatización y gobernanza Level-11X
 
-.PHONY: help clean qa-clean audit lint-workflows lint-docs sync-governance validate-calm test test-mcp test-example test-karate test-py test-meta-qa lint build certify publish-mcp publish-mcp-dry
+.PHONY: help clean qa-clean audit lint-workflows lint-docs sync-governance validate-calm test test-mcp test-example test-karate test-py test-meta-qa test-ai-offline audit-llm lint build certify publish-mcp publish-mcp-dry
 
 help:
 	@echo "Comandos canónicos de desarrollo y gobernanza para QA Testing Blueprints:"
@@ -13,7 +13,9 @@ help:
 	@echo "  make lint-docs       - Valida invariantes documentales, consistencia de roadmap y guardia QA-GIT-GATE-01"
 	@echo "  make sync-governance - Sincroniza determinísticamente SHA-256 en manifest.json y valida presupuestos cognitivos"
 	@echo "  make validate-calm   - Valida arquitectura como código FINOS CALM y controles 11X en Docker efímero"
-	@echo "  make test            - Ejecuta Vitest (>=95%), E2E example/, Karate BDD, Pytest y Meta-QA en Docker efímero"
+	@echo "  make test            - Ejecuta Vitest (>=95%), E2E example/, Karate BDD, Pytest, Meta-QA y AI Offline en Docker"
+	@echo "  make test-ai-offline - Ejecuta contratos deterministas RAG/Agentes (>=95% cob., ruff CC<=5, mypy) 100% offline"
+	@echo "  make audit-llm       - Ejecuta auditoría probabilística DeepEval + Promptfoo OWASP (requiere API key o Ollama/vLLM)"
 	@echo "  make test-meta-qa    - Audita scripts de .agents/scripts/ contra fixtures trimodales en Docker efímero"
 	@echo "  make test-example    - Certifica las 12 tools, 9 resources y 3 CLI sobre mcp-server/example/ (Clean-Room Docker)"
 	@echo "  make lint            - Ejecuta verificación de tipos y linters (ESLint --max-warnings 0, TypeScript)"
@@ -155,7 +157,32 @@ test-meta-qa:
 test-example:
 	@./scripts/probar-mcp-example.sh
 
-test: test-mcp test-example test-karate test-py test-meta-qa
+test-ai-offline:
+	@cmd='ruff check --select E,F,W,I,UP,B,C901 --config "lint.mccabe.max-complexity=5" ai-evals && mypy --strict --cache-dir=/tmp/mypy ai-evals/rag/test_rag_faithfulness.py && pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function -W "ignore::DeprecationWarning:deepeval.*" -W "ignore:.*HallucinationMetric.*:DeprecationWarning" -W "ignore::SyntaxWarning:deepeval.*" --import-mode=importlib --cov=ai-evals/rag --cov-fail-under=95 --cov-report=term-missing ai-evals/rag/test_rag_faithfulness.py'; \
+	if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
+		if ! out=$$(PYTHONDONTWRITEBYTECODE=1 RUFF_CACHE_DIR=/tmp/ruff-cache COVERAGE_FILE=/tmp/.coverage UV_CACHE_DIR=/tmp/uv-cache DEEPEVAL_TELEMETRY_OPT_OUT=YES sh -c "$$cmd" 2>&1); then \
+			printf '%s\n' "$$out" >&2; exit 1; \
+		fi; \
+	else \
+		if ! out=$$(docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e DEEPEVAL_TELEMETRY_OPT_OUT=YES -v "$$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 sh -c "$$cmd" 2>&1); then \
+			printf '%s\n' "$$out" >&2; exit 1; \
+		fi; \
+	fi; \
+	cov=$$(printf '%s\n' "$$out" | awk '/^TOTAL /{print $$NF}' | tail -n 1); \
+	summary=$$(printf '%s\n' "$$out" | grep -E '[0-9]+ passed' | tail -n 1 | sed -E 's/^=+ *//; s/ *=+$$//'); \
+	echo "✅ [test-ai-offline] Contratos RAG/Agentes OK ($${summary:-ok}, cobertura=$${cov:-N/A})"
+
+audit-llm:
+	@if [ -z "$${OPENAI_API_KEY:-}$${GEMINI_API_KEY:-}$${ANTHROPIC_API_KEY:-}$${OLLAMA_BASE_URL:-}$${OPENAI_API_BASE:-}" ]; then \
+		echo "⚠️ [SKIPPED/MISSING_LLM_CREDENTIALS] Sin proveedor LLM configurado (exporte OPENAI_API_KEY, GEMINI_API_KEY, ANTHROPIC_API_KEY, OLLAMA_BASE_URL u OPENAI_API_BASE)." >&2; \
+		exit 2; \
+	fi
+	@echo "🤖 [audit-llm] Ejecutando evaluación DeepEval en sinfallas/base-python-uv:3.15..."
+	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e DEEPEVAL_TELEMETRY_OPT_OUT=YES -e QA_LLM_AUDIT_LIVE=1 -e OPENAI_API_KEY -e GEMINI_API_KEY -e ANTHROPIC_API_KEY -e OLLAMA_BASE_URL -e OPENAI_API_BASE -e QA_LLM_MODEL -v "$$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function --import-mode=importlib ai-evals/rag/test_rag_faithfulness.py -k test_live_deepeval_rag_and_trajectory_audit
+	@echo "🛡️ [audit-llm] Ejecutando matriz Promptfoo OWASP LLM Top 10 en sinfallas/base-node-ionic:26..."
+	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PROMPTFOO_DISABLE_TELEMETRY=1 -e PROMPTFOO_CONFIG_DIR=/tmp/.promptfoo -e OPENAI_API_KEY -e GEMINI_API_KEY -e ANTHROPIC_API_KEY -e OLLAMA_BASE_URL -e OPENAI_API_BASE -v "$$(pwd):/app:ro" -w /app sinfallas/base-node-ionic:26 promptfoo eval -c ai-evals/promptfooconfig.yaml --no-cache -o /tmp/promptfoo-results.json
+
+test: test-mcp test-example test-karate test-py test-meta-qa test-ai-offline
 
 build:
 	@echo "📦 [Build] Compilando Servidor MCP en Docker efímero..."
