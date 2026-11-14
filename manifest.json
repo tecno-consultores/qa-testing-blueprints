@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.20.3",
-  "generated_at_utc": "2026-11-14T14:46:48Z",
+  "generated_at_utc": "2026-11-14T14:59:44Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -461,6 +461,13 @@
           "size_bytes": 15383
         },
         {
+          "path": "react-frontend/tests/utils/semanticLocator.ts",
+          "target_name": "tests/utils/semanticLocator.ts",
+          "merge_strategy": "copy_if_missing",
+          "sha256": "2a6154f29d0a0956d99f77b27cbb546eedc340ac65fcbf9822770c22aa76e935",
+          "size_bytes": 12639
+        },
+        {
           "path": "react-frontend/vitest.config.ts.example",
           "target_name": "vitest.config.ts",
           "merge_strategy": "surgical_merge",
@@ -591,6 +598,13 @@
           "merge_strategy": "copy_if_missing",
           "sha256": "ba80cb218941cfdf4bc523538d57185adcfc4b2486f17ac2d87121d03f25fb21",
           "size_bytes": 15628
+        },
+        {
+          "path": "vue3/tests/utils/semanticLocator.ts",
+          "target_name": "tests/utils/semanticLocator.ts",
+          "merge_strategy": "copy_if_missing",
+          "sha256": "ef2dbcd465a386107766873d49294a860746d33b31ad24aec1159fd841f78018",
+          "size_bytes": 12957
         },
         {
           "path": "vue3/vitest.config.ts.example",
@@ -772,6 +786,13 @@
       "merge_strategy": "overwrite_executable",
       "sha256": "87b7fd41d1fe34ac49d325b6c8a815e6734ff49f64c9859185eb5d6eecb669d7",
       "size_bytes": 29816
+    },
+    {
+      "path": ".agents/scripts/select_tests_by_blast_radius.py",
+      "target_name": ".agents/scripts/select_tests_by_blast_radius.py",
+      "merge_strategy": "overwrite_executable",
+      "sha256": "4f42450b4a9bdb16295f6ad895cd9adf570c577ee97856dcf5568246ecc03b36",
+      "size_bytes": 13648
     },
     {
       "path": ".agents/scripts/sync_governance.py",

@@ -901,3 +901,193 @@ def test_compact_context_11x_oversized_single_message_and_cli_tty_guard(
     )
     assert pipe_proc.returncode == 0
     assert "tier_applied=0" in pipe_proc.stdout
+
+
+def test_select_tests_by_blast_radius_all_four_tiers_and_cli(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Cubre docs-only, pr-targeted con propagación AST, full-regression y nightly."""
+    mod = _load_script("select_tests_by_blast_radius.py", "select_tests_by_blast_radius")
+    graph_path = tmp_path / "graph.json"
+    graph_payload = {
+        "nodes": [
+            {"id": "n_actor", "source_file": "vue3/tests/screenplay/Actor.ts"},
+            {"id": "n_rag", "source_file": "ai-evals/rag/test_rag_faithfulness.py"},
+            {"id": "n_mcp", "source_file": "mcp-server/src/tools/x.ts"},
+            {"id": "n_hot", "source_file": "python/src/core.py"},
+            *[
+                {"id": f"c_{i}", "source_file": f"python/tests/test_{i}.py"}
+                for i in range(18)
+            ],
+        ],
+        "links": [
+            {
+                "source": "n_actor",
+                "target": "n_actor",
+                "relation": "contains",
+                "source_file": "vue3/tests/screenplay/Actor.ts",
+            },
+            {
+                "source": "n_rag",
+                "target": "n_actor",
+                "relation": "calls",
+                "source_file": "ai-evals/rag/test_rag_faithfulness.py",
+            },
+            *[
+                {
+                    "source": f"c_{i}",
+                    "target": "n_hot",
+                    "relation": "calls",
+                    "source_file": f"python/tests/test_{i}.py",
+                }
+                for i in range(18)
+            ],
+        ],
+    }
+    graph_path.write_text(json.dumps(graph_payload), encoding="utf-8")
+
+    # 1. docs-only (85% ahorro)
+    docs_plan = mod.select_test_plan(
+        event="pull_request",
+        changed_files=["README.md", "docs/01_ARQUITECTURA.md", "LICENSE"],
+        graph_path=graph_path,
+    )
+    assert docs_plan["tier"] == "docs-only"
+    assert docs_plan["estimated_savings_pct"] == 85
+    assert docs_plan["run_full_regression"] is False
+    assert docs_plan["run_frontend"] is False
+
+    # 2. pr-targeted con propagación AST cruzada vue3 -> ai-evals (40..60% ahorro)
+    pr_plan = mod.select_test_plan(
+        event="pull_request",
+        changed_files=["./vue3/tests/screenplay/Actor.ts"],
+        graph_path=graph_path,
+    )
+    assert pr_plan["tier"] == "pr-targeted"
+    assert pr_plan["run_frontend"] is True
+    assert pr_plan["run_ai_offline"] is True
+    assert pr_plan["run_backend"] is False
+    assert 40 <= pr_plan["estimated_savings_pct"] <= 60
+    assert pr_plan["caller_count"] == 1
+
+    # pr-targeted en mcp-server activa run_mcp y validate_calm + fallback sin grafo
+    mcp_plan = mod.select_test_plan(
+        event="pull_request",
+        changed_files=["mcp-server/src/tools/x.ts"],
+        graph_path=tmp_path / "missing_graph.json",
+    )
+    assert mcp_plan["tier"] == "pr-targeted"
+    assert mcp_plan["run_mcp"] is True
+    assert mcp_plan["validate_calm"] is True
+    assert mcp_plan["graph_loaded"] is False
+
+    # fallback run_meta_qa si se toca archivo neutro fuera de prefijos conocidos
+    neutral_plan = mod.select_test_plan(
+        event="pull_request",
+        changed_files=["assets/logo.svg"],
+        graph_path=graph_path,
+    )
+    assert neutral_plan["tier"] == "pr-targeted"
+    assert neutral_plan["run_meta_qa"] is True
+
+    # 3. full-regression por archivo crítico, lista vacía y alto radio AST
+    crit_plan = mod.select_test_plan(
+        event="pull_request",
+        changed_files=["Makefile"],
+        graph_path=graph_path,
+    )
+    assert crit_plan["tier"] == "full-regression"
+    assert crit_plan["run_full_regression"] is True
+    assert crit_plan["estimated_savings_pct"] == 0
+
+    hot_plan = mod.select_test_plan(
+        event="pull_request",
+        changed_files=["python/src/core.py"],
+        graph_path=graph_path,
+        high_blast_threshold=15,
+    )
+    assert hot_plan["tier"] == "full-regression"
+    assert hot_plan["caller_count"] == 18
+
+    # 4. nightly-full + CLI --changed-files-file + --github-output + --json + TTY stdin
+    nightly_plan = mod.select_test_plan(
+        event="schedule",
+        changed_files=[],
+        graph_path=graph_path,
+    )
+    assert nightly_plan["tier"] == "nightly-full"
+    assert nightly_plan["run_full_regression"] is True
+
+    changed_file = tmp_path / "changed.txt"
+    changed_file.write_text(
+        "./vue3/tests/utils/semanticLocator.ts\n", encoding="utf-8"
+    )
+    gh_out = tmp_path / "out" / "github_output.txt"
+    assert (
+        mod.main(
+            [
+                "--event",
+                "pull_request",
+                "--changed-files-file",
+                str(changed_file),
+                "--graph",
+                str(graph_path),
+                "--github-output",
+                str(gh_out),
+            ]
+        )
+        == 0
+    )
+    assert "[blast-selector] tier=pr-targeted" in capsys.readouterr().out
+    gh_text = gh_out.read_text(encoding="utf-8")
+    assert "tier=pr-targeted" in gh_text
+    assert "run_frontend=true" in gh_text
+
+    monkeypatch.setattr(sys, "stdin", io.StringIO("docs/guia.md\n"))
+    assert (
+        mod.main(
+            [
+                "--changed-files-file",
+                "-",
+                "--graph",
+                str(graph_path),
+                "--json",
+            ]
+        )
+        == 0
+    )
+    json_out = json.loads(capsys.readouterr().out)
+    assert json_out["tier"] == "docs-only"
+
+    # corrupt JSON graph + non-dict links + empty/missing changed files fallback
+    bad_graph = tmp_path / "bad_graph.json"
+    bad_graph.write_text("{corrupt", encoding="utf-8")
+    assert mod.load_ast_graph(bad_graph) is None
+    assert mod.parse_changed_files("a.py", str(tmp_path / "missing.txt")) == ["a.py"]
+
+    lint_plan = mod.select_test_plan(
+        event="pull_request",
+        changed_files=[".agents/scripts/lint_test_antipatterns.py", "fastapi/app.py"],
+        graph_path=graph_path,
+    )
+    assert lint_plan["run_frontend"] is True
+    assert lint_plan["run_backend"] is True
+    assert lint_plan["run_meta_qa"] is True
+
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(AGENTS_SCRIPTS_DIR / "select_tests_by_blast_radius.py"),
+            "--event",
+            "workflow_dispatch",
+            "--graph",
+            str(graph_path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 0
+    assert "tier=nightly-full" in proc.stdout

@@ -34,7 +34,7 @@ audit:
 	@./scripts/auditar-infra.sh
 
 lint-workflows:
-	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app sinfallas/base-python-uv:latest python3 -c "$$(printf '%s\n' \
+	@py=$$(printf '%s\n' \
 	'import re, shutil, subprocess, sys, yaml' \
 	'from pathlib import Path' \
 	'class UniqueKeyLoader(yaml.SafeLoader): pass' \
@@ -77,7 +77,12 @@ lint-workflows:
 	'    for e in errors: print(f"❌ [lint-workflows] {e}", file=sys.stderr)' \
 	'    sys.exit(1)' \
 	'print(f"✅ [lint-workflows] {len(files)} workflows validados sin hallazgos")' \
-	)"
+	); \
+	if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
+		python3 -c "$$py"; \
+	else \
+		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app sinfallas/base-python-uv:latest python3 -c "$$py"; \
+	fi
 
 lint-docs:
 	@py=$$(printf '%s\n' \
@@ -142,7 +147,7 @@ test-py:
 	@docker run --rm -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -u "$$(id -u):$$(id -g)" -v "$$(pwd):/app" -w /app sinfallas/base-python-uv:3.15 uv run --with pytest --with pytest-cov pytest --import-mode=importlib tests/*.unit.py -q
 
 test-meta-qa:
-	@cmd='ruff check --select E,F,W,I,UP,B,C901 --config "lint.mccabe.max-complexity=5" .agents/scripts/lint_test_antipatterns.py tests/meta_qa/test_antipattern_linter.py && ruff check tests/meta_qa && MYPYPATH=.agents/scripts mypy --strict --cache-dir=/tmp/mypy .agents/scripts/lint_test_antipatterns.py tests/meta_qa/test_antipattern_linter.py && PYTHONPATH=.agents/scripts pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function -W "ignore::DeprecationWarning:deepeval.*" -W "ignore::SyntaxWarning:deepeval.*" --import-mode=importlib --cov=lint_test_antipatterns --cov-fail-under=95 --cov-report=term-missing tests/meta_qa/test_antipattern_linter.py && PYTHONPATH=.agents/scripts pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function -W "ignore::DeprecationWarning:deepeval.*" -W "ignore::SyntaxWarning:deepeval.*" --import-mode=importlib --cov=.agents/scripts --cov-report=term-missing tests/meta_qa/test_governance_scripts.py tests/meta_qa/test_antipattern_linter.py -q'; \
+	@cmd='ruff check --select E,F,W,I,UP,B,C901,FLY --config "lint.mccabe.max-complexity=5" .agents/scripts/lint_test_antipatterns.py .agents/scripts/select_tests_by_blast_radius.py tests/meta_qa/test_antipattern_linter.py && ruff check tests/meta_qa && MYPYPATH=.agents/scripts mypy --strict --cache-dir=/tmp/mypy .agents/scripts/lint_test_antipatterns.py .agents/scripts/select_tests_by_blast_radius.py tests/meta_qa/test_antipattern_linter.py && PYTHONPATH=.agents/scripts pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function -W "ignore::DeprecationWarning:deepeval.*" -W "ignore::SyntaxWarning:deepeval.*" --import-mode=importlib --cov=lint_test_antipatterns --cov-fail-under=95 --cov-report=term-missing tests/meta_qa/test_antipattern_linter.py && PYTHONPATH=.agents/scripts pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function -W "ignore::DeprecationWarning:deepeval.*" -W "ignore::SyntaxWarning:deepeval.*" --import-mode=importlib --cov=select_tests_by_blast_radius --cov-fail-under=95 --cov-report=term-missing tests/meta_qa/test_governance_scripts.py && PYTHONPATH=.agents/scripts pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function -W "ignore::DeprecationWarning:deepeval.*" -W "ignore::SyntaxWarning:deepeval.*" --import-mode=importlib --cov=.agents/scripts --cov-report=term-missing tests/meta_qa/test_governance_scripts.py tests/meta_qa/test_antipattern_linter.py -q'; \
 	if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
 		if ! out=$$(PYTHONDONTWRITEBYTECODE=1 RUFF_CACHE_DIR=/tmp/ruff-cache COVERAGE_FILE=/tmp/.coverage UV_CACHE_DIR=/tmp/uv-cache sh -c "$$cmd" 2>&1); then \
 			printf '%s\n' "$$out" >&2; exit 1; \
@@ -153,14 +158,17 @@ test-meta-qa:
 		fi; \
 	fi; \
 	lint_cov=$$(printf '%s\n' "$$out" | awk '/lint_test_antipatterns\.py/{for(i=1;i<=NF;i++) if($$i ~ /%$$/){print $$i; exit}}'); \
+	blast_cov=$$(printf '%s\n' "$$out" | awk '/select_tests_by_blast_radius\.py/{for(i=1;i<=NF;i++) if($$i ~ /%$$/){print $$i; exit}}'); \
 	summary=$$(printf '%s\n' "$$out" | grep -E '[0-9]+ passed' | tail -n 1 | sed -E 's/^=+ *//; s/ *=+$$//'); \
-	echo "✅ [test-meta-qa] Suite Meta-QA + linter antipatrones OK ($${summary:-0 fallos}, cob_linter=$${lint_cov:-N/A})"
+	echo "✅ [test-meta-qa] Meta-QA + linter + blast-selector OK ($${summary:-0 fallos}, cob_linter=$${lint_cov:-N/A}, cob_blast=$${blast_cov:-N/A})"
 
 test-frontend-blueprints:
 	@node_script=$$(printf '%s\n' \
 	'import assert from "node:assert/strict";' \
 	'import * as VueSP from "/app/vue3/tests/screenplay/Actor.ts";' \
 	'import * as ReactSP from "/app/react-frontend/tests/screenplay/Actor.ts";' \
+	'import * as VueLoc from "/app/vue3/tests/utils/semanticLocator.ts";' \
+	'import * as ReactLoc from "/app/react-frontend/tests/utils/semanticLocator.ts";' \
 	'assert.throws(() => VueSP.Actor.named("Bad", { tenantId: "  " }), /tenantId/);' \
 	'assert.throws(() => ReactSP.Actor.named("", { tenantId: "t1" }), /name/);' \
 	'const makeDriver = (initialUrl: string, textMap: Record<string, string>) => {' \
@@ -243,17 +251,43 @@ test-frontend-blueprints:
 	'assert.equal((reactReport.hookSnapshot as { count: number }).count, 3);' \
 	'const crossTenantActor = ReactSP.Actor.named("AdminC", { role: "admin", tenantId: "tenant-gamma" }).whoCan(ReactSP.InspectReactState.using({ isTransitionPending: () => false, async flushTransitions() {}, renderedTenantId: () => "tenant-beta", readHookSnapshot: () => undefined }));' \
 	'assert.equal((await crossTenantActor.asks(ReactSP.VerifyReactTenantIsolation("useAuditTrail"))).tenantIsolated, false);' \
-	'console.log("screenplay-runtime-ok");' \
+	'const vueTel = new VueLoc.HealingTelemetryCollector();' \
+	'const exactVue = VueLoc.resolveSemanticLocator({ intent: "save", role: "button", accessibleName: "Guardar Cambios", landmark: "dialog" }, [{ ref: "btn-0", role: "button", accessibleName: "Guardar Cambios", attributes: { "data-v-a1b2c3": "", "data-teleport": "modal" }, visible: true, bounds: { width: 120, height: 36 } }], { telemetry: vueTel });' \
+	'assert.equal(exactVue.strategy, "exact-aria");' \
+	'assert.equal(exactVue.score, 1);' \
+	'assert.equal(exactVue.healed, false);' \
+	'assert.equal("data-v-a1b2c3" in exactVue.cleanAttributes, false);' \
+	'assert.equal(vueTel.getRecords().length, 0);' \
+	'const tidVue = VueLoc.resolveSemanticLocator({ intent: "publish", role: "button", accessibleName: "Publicar", testId: "pub-btn" }, [{ ref: "zero", role: "button", accessibleName: "Publicar", attributes: {}, visible: true, bounds: { width: 0, height: 20 } }, { ref: "btn-tid", role: "link", accessibleName: "Desplegar ahora", testId: "pub-btn", attributes: {}, visible: true, bounds: { width: 90, height: 32 } }], { telemetry: vueTel });' \
+	'assert.equal(tidVue.ref, "btn-tid");' \
+	'assert.equal(tidVue.strategy, "testid-fallback");' \
+	'assert.equal(tidVue.score, 0.92);' \
+	'assert.equal(tidVue.healed, true);' \
+	'const synVue = await operator.asks(VueLoc.LocateSemanticTargetQuestion({ intent: "confirm", role: "dialog", accessibleName: "Confirmar Ventana", synonyms: ["Aprobar Operacion"], landmark: "dialog" }, () => [{ ref: "dlg", role: "dialog", accessibleName: "Aprobar Operacion", landmark: "overlay", attributes: { "data-v-teleport": "true" }, visible: true }], { telemetry: vueTel }));' \
+	'assert.equal(synVue.strategy, "semantic-synonym");' \
+	'assert.equal(synVue.score, 0.9);' \
+	'assert.equal(vueTel.getRecords().length, 2);' \
+	'const fuzzyReact = ReactLoc.resolveSemanticLocator({ intent: "submit", role: "button", accessibleName: "Guardar Configuracion" }, [{ ref: "busy", role: "button", accessibleName: "Guardar Configuracion", attributes: { "aria-busy": "true" }, visible: true }, { ref: "ready", role: "button", accessibleName: ":r0: Guardar Configuracion", attributes: { id: ":r0:", "aria-labelledby": "«r1a» lbl" }, visible: true, bounds: { width: 100, height: 40 } }]);' \
+	'assert.equal(fuzzyReact.ref, "ready");' \
+	'assert.equal(fuzzyReact.strategy, "exact-aria");' \
+	'assert.equal(fuzzyReact.cleanAttributes["aria-labelledby"], "lbl");' \
+	'const jaccardReact = await reactActor.asks(ReactLoc.LocateSemanticTargetQuestion({ intent: "filter", role: "textbox", accessibleName: "Buscar registros por tenant" }, () => [{ ref: "inp", role: "textbox", accessibleName: "Buscar registros de tenant activos", attributes: {}, visible: true }]));' \
+	'assert.equal(jaccardReact.strategy, "fuzzy-aria");' \
+	'assert.ok(jaccardReact.score >= 0.75 && jaccardReact.score <= 0.9);' \
+	'assert.throws(() => ReactLoc.resolveSemanticLocator({ intent: "missing", role: "button", accessibleName: "Nada" }, [{ ref: "hid", role: "button", accessibleName: "Nada", attributes: {}, visible: false }]), (e: unknown) => e instanceof ReactLoc.SemanticLocatorError && e.reason === "no_candidates");' \
+	'assert.throws(() => VueLoc.resolveSemanticLocator({ intent: "low", role: "button", accessibleName: "Aprobar Despliegue Global" }, [{ ref: "weak", role: "button", accessibleName: "Aprobar Borrador Local Privado Temporal", attributes: {}, visible: true }]), (e: unknown) => e instanceof VueLoc.SemanticLocatorError && e.reason === "below_min_confidence");' \
+	'assert.throws(() => VueLoc.resolveSemanticLocator({ intent: "tie", role: "button", accessibleName: "Exportar Reporte Mensual" }, [{ ref: "c1", role: "button", accessibleName: "Exportar Reporte Anual", attributes: {}, visible: true }, { ref: "c2", role: "button", accessibleName: "Exportar Reporte Diario", attributes: {}, visible: true }]), (e: unknown) => e instanceof VueLoc.SemanticLocatorError && e.reason === "ambiguous_tie");' \
+	'console.log("screenplay-and-self-healing-ok");' \
 	); \
 	if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
-		tsc --strict --noImplicitAny --noUnusedLocals --noUnusedParameters --noImplicitReturns --erasableSyntaxOnly --target ES2023 --module ESNext --moduleResolution Bundler --noEmit vue3/tests/screenplay/Actor.ts react-frontend/tests/screenplay/Actor.ts && \
+		tsc --strict --noImplicitAny --noUnusedLocals --noUnusedParameters --noImplicitReturns --erasableSyntaxOnly --allowImportingTsExtensions --target ES2023 --module ESNext --moduleResolution Bundler --noEmit vue3/tests/screenplay/Actor.ts react-frontend/tests/screenplay/Actor.ts vue3/tests/utils/semanticLocator.ts react-frontend/tests/utils/semanticLocator.ts && \
 		printf '%s\n' "$$node_script" > /tmp/verify_screenplay.mts && \
 		node /tmp/verify_screenplay.mts >/dev/null && \
 		python3 .agents/scripts/lint_test_antipatterns.py vue3 react-frontend; \
 	else \
-		printf '%s\n' "$$node_script" | docker run --rm -i -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app sinfallas/base-node-ionic:26 sh -c 'tsc --strict --noImplicitAny --noUnusedLocals --noUnusedParameters --noImplicitReturns --erasableSyntaxOnly --target ES2023 --module ESNext --moduleResolution Bundler --noEmit vue3/tests/screenplay/Actor.ts react-frontend/tests/screenplay/Actor.ts && cat > /tmp/verify_screenplay.mts && node /tmp/verify_screenplay.mts >/dev/null' && \
+		printf '%s\n' "$$node_script" | docker run --rm -i -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app sinfallas/base-node-ionic:26 sh -c 'tsc --strict --noImplicitAny --noUnusedLocals --noUnusedParameters --noImplicitReturns --erasableSyntaxOnly --allowImportingTsExtensions --target ES2023 --module ESNext --moduleResolution Bundler --noEmit vue3/tests/screenplay/Actor.ts react-frontend/tests/screenplay/Actor.ts vue3/tests/utils/semanticLocator.ts react-frontend/tests/utils/semanticLocator.ts && cat > /tmp/verify_screenplay.mts && node /tmp/verify_screenplay.mts >/dev/null' && \
 		lint_out=$$(docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/lint_test_antipatterns.py vue3 react-frontend); \
-		echo "✅ [test-frontend-blueprints] TS estricto + Screenplay RBAC (vue3/react) OK | $$lint_out"; \
+		echo "✅ [test-frontend-blueprints] TS estricto + Screenplay RBAC + Self-Healing DOM (vue3/react) OK | $$lint_out"; \
 	fi
 
 test-example:
