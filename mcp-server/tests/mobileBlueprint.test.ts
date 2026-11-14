@@ -87,7 +87,10 @@ describe('stackBlueprints MCP resource (T4.4)', () => {
     expect(MOBILE_APPIUM_RESOURCE.uri).toBe(MOBILE_APPIUM_README_URI);
     expect(MOBILE_APPIUM_RESOURCE.mimeType).toBe('text/markdown');
     expect(V2_STACK_BLUEPRINTS['mobile-appium'].readmeRelPath).toBe(MOBILE_APPIUM_README_REL_PATH);
-    expect(listV2StackBlueprintResources()).toHaveLength(1);
+    expect(listV2StackBlueprintResources().map((entry) => entry.uri)).toContain(
+      MOBILE_APPIUM_README_URI,
+    );
+    expect(listV2StackBlueprintResources().length).toBeGreaterThanOrEqual(2);
 
     const byAuto = readMobileAppiumBlueprint(REAL_WORKSPACE_ROOT);
     expect(byAuto.uri).toBe('blueprint://mobile-appium/readme');

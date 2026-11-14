@@ -8,6 +8,9 @@ import type { Resource } from '@modelcontextprotocol/sdk/types.js';
 export const MOBILE_APPIUM_STACK_ID = 'mobile-appium' as const;
 export const MOBILE_APPIUM_README_URI = 'blueprint://mobile-appium/readme' as const;
 export const MOBILE_APPIUM_README_REL_PATH = 'mobile-appium/README.md' as const;
+export const VIBE_RESCUE_STACK_ID = 'vibe-rescue' as const;
+export const VIBE_RESCUE_README_URI = 'blueprint://vibe-rescue/readme' as const;
+export const VIBE_RESCUE_README_REL_PATH = 'vibe-rescue/README.md' as const;
 const MARKDOWN_MIME_TYPE = 'text/markdown' as const;
 const URI_PREFIX = 'blueprint://';
 const URI_SUFFIX = '/readme';
@@ -63,6 +66,25 @@ export const MOBILE_APPIUM_RESOURCE: Resource = {
   mimeType: MARKDOWN_MIME_TYPE,
 };
 
+const EMBEDDED_VIBE_RESCUE_FALLBACK = [
+  '# Blueprint Vibe-to-Enterprise — Rescate y Endurecimiento QA-11X (`vibe-rescue/`)',
+  '',
+  '- **Etapa 1 (`VIBE-SEC-001`):** Cuarentena de secretos cliente (`VITE_*`, `NEXT_PUBLIC_*`, `EXPO_PUBLIC_*`, `REACT_APP_*`) y `.env` sin exclusión en `.gitignore`.',
+  '- **Etapa 2 (`VIBE-RLS-002`):** Plantilla PostgreSQL 15–17+ `vibe-rescue/templates/rls_hardening.sql` (`NOBYPASSRLS`, `FORCE ROW LEVEL SECURITY`, `SECURITY DEFINER`, WORM `seq_num`).',
+  '- **Etapa 3 (`VIBE-TYPE-003` / `VIBE-ARCH-004`):** Cero `any`/`@ts-ignore`, `Idempotency-Key` en mutaciones y modularización `CC <= 5`.',
+  '- **Etapa 4 (`VIBE-QA-005`):** Regla Cero en `sinfallas/base-python-uv:3.15` / `sinfallas/base-node-ionic:26` no-root (`>= 95%` cobertura).',
+  '- **Etapa 5 (`QA-GIT-GATE-01`):** Certificación `10/10` (`make certify`) y commit local sin `git push` automático.',
+  '',
+].join('\n');
+
+export const VIBE_RESCUE_RESOURCE: Resource = {
+  uri: VIBE_RESCUE_README_URI,
+  name: 'QA-11X Vibe-to-Enterprise Rescue Blueprint',
+  description:
+    'Protocolo determinista de 5 etapas (VIBE-SEC-001..VIBE-QA-005) y plantilla RLS PostgreSQL 15-17+ para endurecer prototipos vibe-coded bajo estándar QA-11X.',
+  mimeType: MARKDOWN_MIME_TYPE,
+};
+
 export const V2_STACK_BLUEPRINTS: Readonly<Record<string, V2StackBlueprintDescriptor>> =
   Object.freeze({
     [MOBILE_APPIUM_STACK_ID]: {
@@ -71,6 +93,13 @@ export const V2_STACK_BLUEPRINTS: Readonly<Record<string, V2StackBlueprintDescri
       readmeRelPath: MOBILE_APPIUM_README_REL_PATH,
       resource: MOBILE_APPIUM_RESOURCE,
       fallbackMarkdown: EMBEDDED_MOBILE_APPIUM_FALLBACK,
+    },
+    [VIBE_RESCUE_STACK_ID]: {
+      stack: VIBE_RESCUE_STACK_ID,
+      uri: VIBE_RESCUE_README_URI,
+      readmeRelPath: VIBE_RESCUE_README_REL_PATH,
+      resource: VIBE_RESCUE_RESOURCE,
+      fallbackMarkdown: EMBEDDED_VIBE_RESCUE_FALLBACK,
     },
   });
 
@@ -192,4 +221,8 @@ export function readStackBlueprintResource(
 
 export function readMobileAppiumBlueprint(workspaceRoot?: string): StackBlueprintResolutionResult {
   return readStackBlueprintResource(MOBILE_APPIUM_README_URI, workspaceRoot);
+}
+
+export function readVibeRescueBlueprint(workspaceRoot?: string): StackBlueprintResolutionResult {
+  return readStackBlueprintResource(VIBE_RESCUE_README_URI, workspaceRoot);
 }

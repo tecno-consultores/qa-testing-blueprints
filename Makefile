@@ -132,12 +132,12 @@ validate-calm:
 
 lint:
 	@echo "🔍 [Lint] Ejecutando linter y chequeo de tipos en Docker efímero..."
-	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "$$(pwd)/mcp-server:/app" -v "$$(pwd)/mobile-appium:/mobile-appium:ro" -w /app sinfallas/base-node-ionic:26 bash -c '[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run lint && pnpm --silent run typecheck'
+	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "$$(pwd)/mcp-server:/app" -v "$$(pwd)/mobile-appium:/mobile-appium:ro" -v "$$(pwd)/vibe-rescue:/vibe-rescue:ro" -w /app sinfallas/base-node-ionic:26 bash -c '[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run lint && pnpm --silent run typecheck'
 	@echo "✔ [Lint & Typecheck] 0 errores ni advertencias."
 
 test-mcp:
 	@echo "🧪 [Test MCP] Ejecutando pruebas unitarias Vitest (>= 95%) en Docker efímero..."
-	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "$$(pwd)/mcp-server:/app" -v "$$(pwd)/mobile-appium:/mobile-appium:ro" -w /app sinfallas/base-node-ionic:26 bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run test:unit && rm -rf coverage .eslintcache"
+	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "$$(pwd)/mcp-server:/app" -v "$$(pwd)/mobile-appium:/mobile-appium:ro" -v "$$(pwd)/vibe-rescue:/vibe-rescue:ro" -w /app sinfallas/base-node-ionic:26 bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run test:unit && rm -rf coverage .eslintcache"
 
 test-karate:
 	@echo "🎭 [Karate BDD] Ejecutando contratos BDD del MCP Server en Docker efímero..."
@@ -148,7 +148,7 @@ test-py:
 	@docker run --rm -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -u "$$(id -u):$$(id -g)" -v "$$(pwd):/app" -w /app sinfallas/base-python-uv:3.15 uv run --with pytest --with pytest-cov pytest --import-mode=importlib tests/*.unit.py -q
 
 test-meta-qa:
-	@cmd='ruff check --select E,F,W,I,UP,B,C901,FLY --config "lint.mccabe.max-complexity=5" .agents/scripts/lint_test_antipatterns.py .agents/scripts/select_tests_by_blast_radius.py tests/meta_qa/test_antipattern_linter.py && ruff check tests/meta_qa && MYPYPATH=.agents/scripts mypy --strict --cache-dir=/tmp/mypy .agents/scripts/lint_test_antipatterns.py .agents/scripts/select_tests_by_blast_radius.py tests/meta_qa/test_antipattern_linter.py && PYTHONPATH=.agents/scripts pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function -W "ignore::DeprecationWarning:deepeval.*" -W "ignore::SyntaxWarning:deepeval.*" --import-mode=importlib --cov=lint_test_antipatterns --cov-fail-under=95 --cov-report=term-missing tests/meta_qa/test_antipattern_linter.py && PYTHONPATH=.agents/scripts pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function -W "ignore::DeprecationWarning:deepeval.*" -W "ignore::SyntaxWarning:deepeval.*" --import-mode=importlib --cov=select_tests_by_blast_radius --cov-fail-under=95 --cov-report=term-missing tests/meta_qa/test_governance_scripts.py && PYTHONPATH=.agents/scripts pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function -W "ignore::DeprecationWarning:deepeval.*" -W "ignore::SyntaxWarning:deepeval.*" --import-mode=importlib --cov=.agents/scripts --cov-report=term-missing tests/meta_qa/test_governance_scripts.py tests/meta_qa/test_antipattern_linter.py -q'; \
+	@cmd='ruff check --select E,F,W,I,UP,B,C901,FLY --config "lint.mccabe.max-complexity=5" .agents/scripts/lint_test_antipatterns.py .agents/scripts/select_tests_by_blast_radius.py vibe-rescue/audit_vibe_prototype.py tests/meta_qa/test_antipattern_linter.py && ruff check tests/meta_qa && MYPYPATH=.agents/scripts mypy --strict --cache-dir=/tmp/mypy .agents/scripts/lint_test_antipatterns.py .agents/scripts/select_tests_by_blast_radius.py vibe-rescue/audit_vibe_prototype.py tests/meta_qa/test_antipattern_linter.py && PYTHONPATH=.agents/scripts pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function -W "ignore::DeprecationWarning:deepeval.*" -W "ignore::SyntaxWarning:deepeval.*" --import-mode=importlib --cov=lint_test_antipatterns --cov-fail-under=95 --cov-report=term-missing tests/meta_qa/test_antipattern_linter.py && PYTHONPATH=.agents/scripts pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function -W "ignore::DeprecationWarning:deepeval.*" -W "ignore::SyntaxWarning:deepeval.*" --import-mode=importlib --cov=select_tests_by_blast_radius --cov-fail-under=95 --cov-report=term-missing tests/meta_qa/test_governance_scripts.py && PYTHONPATH=.agents/scripts pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function -W "ignore::DeprecationWarning:deepeval.*" -W "ignore::SyntaxWarning:deepeval.*" --import-mode=importlib --cov=vibe-rescue --cov-fail-under=95 --cov-report=term-missing -k vibe_rescue tests/meta_qa/test_governance_scripts.py && PYTHONPATH=.agents/scripts pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function -W "ignore::DeprecationWarning:deepeval.*" -W "ignore::SyntaxWarning:deepeval.*" --import-mode=importlib --cov=.agents/scripts --cov-report=term-missing tests/meta_qa/test_governance_scripts.py tests/meta_qa/test_antipattern_linter.py -q'; \
 	if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
 		if ! out=$$(PYTHONDONTWRITEBYTECODE=1 RUFF_CACHE_DIR=/tmp/ruff-cache COVERAGE_FILE=/tmp/.coverage UV_CACHE_DIR=/tmp/uv-cache sh -c "$$cmd" 2>&1); then \
 			printf '%s\n' "$$out" >&2; exit 1; \
@@ -160,8 +160,9 @@ test-meta-qa:
 	fi; \
 	lint_cov=$$(printf '%s\n' "$$out" | awk '/lint_test_antipatterns\.py/{for(i=1;i<=NF;i++) if($$i ~ /%$$/){print $$i; exit}}'); \
 	blast_cov=$$(printf '%s\n' "$$out" | awk '/select_tests_by_blast_radius\.py/{for(i=1;i<=NF;i++) if($$i ~ /%$$/){print $$i; exit}}'); \
+	vibe_cov=$$(printf '%s\n' "$$out" | awk '/audit_vibe_prototype\.py/{for(i=1;i<=NF;i++) if($$i ~ /%$$/){print $$i; exit}}'); \
 	summary=$$(printf '%s\n' "$$out" | grep -E '[0-9]+ passed' | tail -n 1 | sed -E 's/^=+ *//; s/ *=+$$//'); \
-	echo "✅ [test-meta-qa] Meta-QA + linter + blast-selector OK ($${summary:-0 fallos}, cob_linter=$${lint_cov:-N/A}, cob_blast=$${blast_cov:-N/A})"
+	echo "✅ [test-meta-qa] Meta-QA + linter + blast-selector + vibe-rescue OK ($${summary:-0 fallos}, cob_linter=$${lint_cov:-N/A}, cob_blast=$${blast_cov:-N/A}, cob_vibe=$${vibe_cov:-N/A})"
 
 test-frontend-blueprints:
 	@node_script=$$(printf '%s\n' \

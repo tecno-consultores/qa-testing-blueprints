@@ -1091,3 +1091,257 @@ def test_select_tests_by_blast_radius_all_four_tiers_and_cli(
     )
     assert proc.returncode == 0
     assert "tier=nightly-full" in proc.stdout
+
+
+def _load_vibe_auditor_module() -> ModuleType:
+    script_path = REPO_ROOT / "vibe-rescue" / "audit_vibe_prototype.py"
+    spec = importlib.util.spec_from_file_location("audit_vibe_prototype", script_path)
+    assert spec is not None and spec.loader is not None
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["audit_vibe_prototype"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_vibe_rescue_auditor_detects_five_rules_redacts_and_emits_bundle(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    mod = _load_vibe_auditor_module()
+    raw_token = "sk-" + "proj-" + ("x" * 24)
+    bearer_tok = "Bearer " + raw_token
+    assert raw_token not in mod.redact_secrets(bearer_tok)
+
+    toxic = tmp_path / "toxic_vibe"
+    (toxic / "src").mkdir(parents=True)
+    (toxic / "sql").mkdir(parents=True)
+    (toxic / ".env").write_text(
+        "\n".join(
+            [
+                "# comment",
+                f"VITE_SUPABASE_SERVICE_ROLE_KEY={raw_token}",
+                f"OPENAI_API_KEY={raw_token}",
+                "SAFE_VAL=placeholder_demo",
+                "INVALID_LINE",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    padding = "\n".join(f"const x{i} = {i};" for i in range(512))
+    (toxic / "src" / "client.tsx").write_text(
+        "\n".join(
+            [
+                "// @ts-ignore",
+                f"const k = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '{raw_token}';",
+                "const c: any = supabaseAdmin;",
+                "await page.waitForTimeout(1000);",
+                padding,
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (toxic / "src" / "api.ts").write_text(
+        "app.post('/items', (req) => req.body);\n",
+        encoding="utf-8",
+    )
+    (toxic / "sql" / "init.sql").write_text(
+        (
+            "-- USING (true) comentario\n"
+            "/* WITH CHECK (true) bloque */\n"
+            "CREATE POLICY p ON items USING (true);\n"
+            "ALTER ROLE bad_role WITH BYPASSRLS;\n"
+            "CREATE TABLE invoices (id UUID PRIMARY KEY);\n"
+        ),
+        encoding="utf-8",
+    )
+    (toxic / "tsconfig.json").write_text(
+        '{"compilerOptions":{"strict":false}}\n',
+        encoding="utf-8",
+    )
+    (toxic / "Dockerfile").write_text(
+        "FROM node:22-alpine:latest\nUSER root\n",
+        encoding="utf-8",
+    )
+    outside = tmp_path / "outside.txt"
+    outside.write_text("external", encoding="utf-8")
+    (toxic / "link.txt").symlink_to(outside)
+
+    # Modo dry-run por defecto: cero archivos escritos y secreto redactado
+    assert (
+        mod.main(
+            [
+                "--target",
+                ".",
+                "--workspace-root",
+                str(toxic),
+                "--emit-remediation",
+                "qa11x-rescue",
+                "--json",
+            ]
+        )
+        == 0
+    )
+    json_report = json.loads(capsys.readouterr().out)
+    assert json_report["verdict"] == "RESCUE_REQUIRED"
+    assert json_report["dry_run"] is True
+    assert json_report["remediation"]["written_files"] == []
+    rules = {item["rule_id"] for item in json_report["findings"]}
+    assert rules == {
+        "VIBE-SEC-001",
+        "VIBE-RLS-002",
+        "VIBE-TYPE-003",
+        "VIBE-ARCH-004",
+        "VIBE-QA-005",
+    }
+    assert raw_token not in json.dumps(json_report)
+
+    # Modo --no-dry-run + --enforce: escribe bundle y retorna 1
+    assert (
+        mod.main(
+            [
+                "--target",
+                str(toxic),
+                "--workspace-root",
+                str(tmp_path),
+                "--no-dry-run",
+                "--emit-remediation",
+                "qa11x-rescue",
+                "--enforce",
+            ]
+        )
+        == 1
+    )
+    fail_out = capsys.readouterr().out
+    assert "RESCUE_REQUIRED" in fail_out
+    assert raw_token not in fail_out
+    rescue_dir = toxic / "qa11x-rescue"
+    assert "FORCE ROW LEVEL SECURITY" in (rescue_dir / "rls_hardening.sql").read_text(
+        encoding="utf-8"
+    )
+    env_ex = (rescue_dir / ".env.example").read_text(encoding="utf-8")
+    assert "VITE_SUPABASE_SERVICE_ROLE_KEY=<CHANGE_ME_IN_VAULT>" in env_ex
+    assert raw_token not in env_ex
+
+    # Segunda ejecucion preserva archivos existentes sin sobrescribir
+    plan_file = rescue_dir / "RESCUE_PLAN.md"
+    plan_file.write_text("KEEP_CUSTOM\n", encoding="utf-8")
+    second = mod.audit_prototype(
+        toxic,
+        dry_run=False,
+        emit_dir=rescue_dir,
+    )
+    assert second["remediation"]["written_files"] == []
+    assert len(second["remediation"]["skipped_existing"]) == 3
+    assert plan_file.read_text(encoding="utf-8") == "KEEP_CUSTOM\n"
+
+
+def test_vibe_rescue_auditor_clean_pass_quiet_and_path_traversal(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mod = _load_vibe_auditor_module()
+    raw_token = "sk-" + "proj-" + ("y" * 24)
+    clean = tmp_path / "clean_app"
+    (clean / "src").mkdir(parents=True)
+    (clean / "sql").mkdir(parents=True)
+    (clean / "tests").mkdir(parents=True)
+
+    (clean / ".gitignore").write_text(".env\n", encoding="utf-8")
+    (clean / ".env").write_text(f"OPENAI_API_KEY={raw_token}\n", encoding="utf-8")
+    (clean / "sql" / "schema.sql").write_text(
+        (
+            "CREATE TABLE items (id UUID PRIMARY KEY, tenant_id UUID NOT NULL);\n"
+            "ALTER TABLE items ENABLE ROW LEVEL SECURITY;\n"
+            "ALTER TABLE items FORCE ROW LEVEL SECURITY;\n"
+        ),
+        encoding="utf-8",
+    )
+    (clean / "tsconfig.json").write_text(
+        '{"compilerOptions":{"strict":true}}\n',
+        encoding="utf-8",
+    )
+    (clean / "src" / "routes.ts").write_text(
+        "app.post('/items', (req) => req.headers['Idempotency-Key']);\n",
+        encoding="utf-8",
+    )
+    (clean / "Dockerfile").write_text(
+        "FROM node:22-alpine@sha256:abcdef012345\nUSER 1001\n",
+        encoding="utf-8",
+    )
+    (clean / "tests" / "app.test.ts").write_text(
+        "export const ok = true;\n",
+        encoding="utf-8",
+    )
+
+    assert mod.main(["--target", str(clean), "--enforce"]) == 0
+    pass_out = capsys.readouterr().out.strip()
+    assert len(pass_out.splitlines()) == 1
+    assert "ENTERPRISE_READY" in pass_out
+
+    # Bundle limpio sin .env ni hallazgos usa DEFAULT_ENV_KEYS
+    minimal = tmp_path / "minimal_app"
+    (minimal / "tests").mkdir(parents=True)
+    (minimal / "tests" / "ok.test.py").write_text("assert True\n", encoding="utf-8")
+    monkeypatch.chdir(minimal)
+    assert (
+        mod.main(
+            [
+                "--target",
+                ".",
+                "--no-dry-run",
+                "--emit-remediation",
+                "out-clean",
+            ]
+        )
+        == 0
+    )
+    _ = capsys.readouterr()
+    assert "AUDIT_HMAC_KEY=<CHANGE_ME_IN_VAULT>" in (
+        minimal / "out-clean" / ".env.example"
+    ).read_text(encoding="utf-8")
+    assert "Sin hallazgos criticos o altos." in (
+        minimal / "out-clean" / "RESCUE_PLAN.md"
+    ).read_text(encoding="utf-8")
+
+    # Rechazo de Path Traversal y entradas invalidas
+    assert mod.main(["--target", "../../etc/passwd", "--workspace-root", str(tmp_path)]) == 2
+    assert (
+        mod.main(
+            [
+                "--target",
+                ".",
+                "--workspace-root",
+                str(clean),
+                "--emit-remediation",
+                "../escape",
+            ]
+        )
+        == 2
+    )
+    assert mod.main(["--target", str(clean), "--max-lines", "0"]) == 2
+    assert mod.main(["--target", str(tmp_path / "missing")]) == 2
+    _ = capsys.readouterr()
+
+    with pytest.raises(ValueError, match="Ruta"):
+        mod.resolve_contained_path("%2e%2e/etc")
+    with pytest.raises(ValueError, match="fuera"):
+        mod.resolve_contained_path("/etc/passwd", allowed_roots=(tmp_path,))
+
+    # Verificacion CLI real por subproceso
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(REPO_ROOT / "vibe-rescue" / "audit_vibe_prototype.py"),
+            "--target",
+            "../../etc/passwd",
+            "--workspace-root",
+            str(tmp_path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 2
+
