@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.21.0",
-  "generated_at_utc": "2026-11-14T21:52:18Z",
+  "generated_at_utc": "2026-11-14T22:26:36Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -401,15 +401,15 @@
           "path": "react-frontend/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "12a56c8bb574f0db85bfc5fab2b6344bb4c1f96eeb6cd9c0fc69ebe6d929cd7b",
-          "size_bytes": 3512
+          "sha256": "59c0aadfe0124eede98985b4dd94152177bbbf7813a5559dbdb48109d0781f2f",
+          "size_bytes": 4362
         },
         {
           "path": "react-frontend/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "44c0139a9b0edf49756c81229adfc39766476a03401cb81a667f2640d07b1cc5",
-          "size_bytes": 3696
+          "sha256": "e3cd0302a668318e0a7499aafea47243bd63d5a18409e369facd12c4d00c803f",
+          "size_bytes": 3888
         },
         {
           "path": "react-frontend/e2e/accessibility.e2e.ts",
@@ -422,8 +422,8 @@
           "path": "react-frontend/gitignore.example",
           "target_name": ".gitignore",
           "merge_strategy": "append_missing_lines",
-          "sha256": "a3ee7ff4feeee45472737c2bf42d752f5ecd363228c2ce010b13f974ab8e15be",
-          "size_bytes": 572
+          "sha256": "1d7ea0fdc16097196edf9f0843203a22be1ccf7b39d45277fa9ca26c9f892bcb",
+          "size_bytes": 601
         },
         {
           "path": "react-frontend/lighthouserc.cjs.example",
@@ -436,8 +436,8 @@
           "path": "react-frontend/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "b6773312d67facfecad6d3fffdd56d7806a3ffc6ec1198ed4b842e369b6a6da0",
-          "size_bytes": 4607
+          "sha256": "426e7e26937f21413b53c2d876cd53aab94357d2db491f2c03b747b14bdcfea1",
+          "size_bytes": 4669
         },
         {
           "path": "react-frontend/nginx/default.conf.example",
@@ -547,15 +547,15 @@
           "path": "vue3/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "21ebbc10f317488813b0b51d8f6809cd92dcded360400ee46d71f83a518bf89f",
-          "size_bytes": 3735
+          "sha256": "ebb79885c9ff52cc0d2c1b4a298006a78b22e1fb77a2b3bdd341f3c3e6b58055",
+          "size_bytes": 4566
         },
         {
           "path": "vue3/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "fbec5660c19d5a57a4c8e3a1aa1016e99a628f4b7da7926cc16fc2036749aa8c",
-          "size_bytes": 3673
+          "sha256": "6379a01221020eebebae5252d4adc806f2c5bb1ea63a8ca57856102ce286a1f8",
+          "size_bytes": 3865
         },
         {
           "path": "vue3/e2e/accessibility.e2e.ts",
@@ -568,8 +568,8 @@
           "path": "vue3/gitignore.example",
           "target_name": ".gitignore",
           "merge_strategy": "append_missing_lines",
-          "sha256": "a91c6c813818c004f008ca8fd7f53d3ba4a5cdfec563563a3403c5cb71a4feb8",
-          "size_bytes": 302
+          "sha256": "d325bd27dff001a0a7465efaa9e9b74c80d4f8c96a57194df31aea30437c7d4e",
+          "size_bytes": 331
         },
         {
           "path": "vue3/lighthouserc.cjs.example",
@@ -582,8 +582,8 @@
           "path": "vue3/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "0301ac4fd856099c67e7de2595056d73740f1cb2d116f3fc6a01c005e6101f7b",
-          "size_bytes": 4639
+          "sha256": "6b96cc01b7dd5b306ff928d22d412630df67208b9e31002250e9bea0ac21c460",
+          "size_bytes": 4701
         },
         {
           "path": "vue3/nginx/default.conf.example",
@@ -709,6 +709,13 @@
       "size_bytes": 6155
     },
     {
+      "path": "scripts/auditar-pagespeed.sh",
+      "target_name": "scripts/auditar-pagespeed.sh",
+      "merge_strategy": "overwrite_executable",
+      "sha256": "0839418d9759ebbf06f408c6a66f041d9aaf94c1f226f811d27ee7e5d98c057b",
+      "size_bytes": 825
+    },
+    {
       "path": "scripts/generar-sbom-cyclonedx.sh",
       "target_name": "scripts/generar-sbom-cyclonedx.sh",
       "merge_strategy": "overwrite_executable",
@@ -719,8 +726,8 @@
       "path": "scripts/limpieza.sh",
       "target_name": "scripts/limpieza.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "c85223fac35415a85ca6b96bc14be8eab752b800b9dd1d8e27347f3853d2f577",
-      "size_bytes": 13490
+      "sha256": "a3f3480b9c485ccbc1a1b2748420d549b0bdd5fea0cce0e9d61a9362a710e887",
+      "size_bytes": 13536
     },
     {
       "path": "scripts/verificar-secretos.sh",
@@ -802,6 +809,13 @@
       "size_bytes": 19285
     },
     {
+      "path": ".agents/scripts/audit_pagespeed_insights.py",
+      "target_name": ".agents/scripts/audit_pagespeed_insights.py",
+      "merge_strategy": "overwrite_executable",
+      "sha256": "a612227367d8a2df1140ddbf488118578c044cb9cb70fd27ad637539d6992f5f",
+      "size_bytes": 18149
+    },
+    {
       "path": ".agents/scripts/certify_task_completion.sh",
       "target_name": ".agents/scripts/certify_task_completion.sh",
       "merge_strategy": "overwrite_executable",
@@ -847,8 +861,8 @@
       "path": ".agents/scripts/sync_governance.py",
       "target_name": ".agents/scripts/sync_governance.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "d21126c63e334d2d492d566265e423293e9016d9199565dfe9f773a091c319ec",
-      "size_bytes": 30091
+      "sha256": "3c3305d0f4c335453f783a8d5559eb221067c5595b0a0c1ba30b88749c9d77ff",
+      "size_bytes": 30127
     },
     {
       "path": ".agents/scripts/validate_calm_architecture.sh",
@@ -924,8 +938,8 @@
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "10b5da94f6f81dfedf910720ca7c948b7d0705c2bf57ba9adce9a75509a26de0",
-      "size_bytes": 11879
+      "sha256": "8616caba00f93d54a127ca684f61c88ff7de9c9a937eeff10a8757d9c59cffb9",
+      "size_bytes": 11927
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
@@ -952,8 +966,8 @@
       "path": ".agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md",
       "target_name": ".agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "5e211193e73eb71ee3db6604527a75d39abcf8d6e39de4fd36b7ffb3be21fa10",
-      "size_bytes": 18358
+      "sha256": "23932baed07a03d534ddc54b340b931fd591fc39c2600235b8a8f30cf3ab0eaa",
+      "size_bytes": 19470
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/05-stack-bash-devops.md",
@@ -994,8 +1008,8 @@
       "path": ".agents/skills/qa-11x-devsecops-hardener/SKILL.md",
       "target_name": ".agents/skills/qa-11x-devsecops-hardener/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "561a2b453b4111dac584352b9c7e5fbd5265ddf89026459dd73e5022b535917d",
-      "size_bytes": 14178
+      "sha256": "1e6f04bdc7d6a7ba72982674195af5fbbdf9ccc61c874a61aee4b548bd1db707",
+      "size_bytes": 14202
     },
     {
       "path": ".agents/skills/qa-11x-devsecops-hardener/references/stig_rls_vault.md",
@@ -1134,7 +1148,7 @@
       "path": "catalogs/skillsllm-manifest.json",
       "target_name": "catalogs/skillsllm-manifest.json",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "816a988cb1b91482d6083c8a8ee862b43ce225f799079a28d7e6a06bf3e0dfca",
+      "sha256": "7673c93e622814b05347a5685811e2bca03cecf66e6b709053fe8d08a503ac11",
       "size_bytes": 11078
     },
     {

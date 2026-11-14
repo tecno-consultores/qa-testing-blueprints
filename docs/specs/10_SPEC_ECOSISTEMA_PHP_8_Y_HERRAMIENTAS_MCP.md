@@ -51,7 +51,7 @@ La imagen base oficial [`sinfallas/basephpcomposer`](https://hub.docker.com/r/si
 | **04** | **Paridad de Esquema BD y Migraciones**| `doctrine/migrations` (`doctrine:schema:validate` / `migrations:diff`) o Laravel Migrations vs `postgres:17-alpine` | **0 deriva de esquema (Schema Drift), políticas `FORCE RLS` activas** | `make qa-parity` |
 | **05** | **Contratos Front-Back / OpenAPI** | `zircote/swagger-php` + `schemathesis` contra contenedor PHP + PostgreSQL + KeyDB | **0 discrepancias de esquema OpenAPI 3.1 y códigos HTTP** | `make qa-contracts` |
 | **06** | **BDD Caja Negra API REST** | `sinfallas/karatelabs:latest` ejecutando `test/api_test.feature` | **100% escenarios Gherkin PASSED** | `make qa-bdd` |
-| **07** | **BDD Aceptación UI (Headless)** | `sinfallas/karatelabs:latest` ejecutando `test/ui_business_flow.feature` | **100% escenarios UI PASSED en Chromium real** | `make qa-bdd` |
+| **07** | **BDD Contratos HTTP/OSHP/SSG UI** | `sinfallas/karatelabs:1.5.1` ejecutando `test/ui_business_flow.feature` | **100% contratos HTTP/Edge/OSHP/XML PASSED (DOM/WCAG en Playwright)** | `make qa-bdd` |
 | **08** | **Pruebas de Mutación** | `infection/infection` (`vendor/bin/infection --min-msi=80 --min-covered-msi=80 --threads=4`) | **MSI >= 80%, Covered MSI >= 80%, 0 mutantes críticos vivos** | `make qa-mutation` |
 | **09** | **Accesibilidad y Geometría Visual** | `@axe-core/playwright` + `Lighthouse CI` + ergonomía In-Flow Anti-JSDOM | **0 violaciones WCAG 2.1 AA, Lighthouse A11y >= 0.95** | `make qa-e2e` |
 | **10** | **Concurrencia y Estrés / Carga** | `locust` (headless) o `artillery` contra Nginx + PHP-FPM / Octane | **0% tasa de error, latencia P95 < 200 ms** | `make qa-stress` |

@@ -125,6 +125,13 @@ const QA_DOCKER_LOCK_01_REF = 'DISA APSC-DV-001430 / Standard 11X Lockfile & Con
 const QA_DOCKER_LOCK_OK_PRAGMA = 'qa-docker-lock-ok';
 const QA_DOCKER_LOCK_REMEDIATION =
   'Instalar dependencias en Dockerfile exclusivamente desde el lockfile (uv sync --frozen --no-dev, uv export --frozen --no-dev | uv pip install --system -r -, pnpm install --frozen-lockfile o npm ci) y ejecutar smoke test post-build sobre la imagen (import <app>, id -u != 0 y sonda 401 sin token).';
+const QA_PLAYWRIGHT_PIN_RULE = 'QA-PLAYWRIGHT-PIN-01';
+const QA_PLAYWRIGHT_PIN_REF = 'DISA STIG APSC-DV-001430 / Standard 11X Playwright Parity';
+const QA_PLAYWRIGHT_PIN_OK_PRAGMA = 'qa-playwright-pin-ok';
+const PLAYWRIGHT_PKGS = ['@playwright/test', 'playwright'] as const;
+const PKG_DEP_SECTIONS = ['dependencies', 'devDependencies'] as const;
+const PLAYWRIGHT_IMAGE_TAG_RE = /mcr\.microsoft\.com\/playwright:v(\d+\.\d+\.\d+)\b/g;
+const EXACT_SEMVER_RE = /^\d+\.\d+\.\d+$/;
 const BOOTSTRAP_PY_PACKAGES = new Set([
   'pip',
   'uv',
@@ -1528,6 +1535,7 @@ function checkProjectLevelRules(projectPath: string, allRelFiles: string[]): Sec
     ...checkQaHealth01ContainerHeartbeatContract(projectPath, allRelFiles),
     ...checkQaContractSdk01RealTransport(projectPath, allRelFiles),
     ...checkQaDockerLock01LockfileAndSmoke(projectPath),
+    ...checkQaPlaywrightPin01VersionParity(projectPath, allRelFiles),
     ...checkUi11x03FaviconPwaAndEdgeHeaders(projectPath, allRelFiles),
   ];
 }
@@ -1550,10 +1558,20 @@ const NON_HEARTBEAT_PATH_PREFIXES = [
   '/tmp/ruff',
   '/tmp/pip',
   '/tmp/cache',
+  '/tmp/chaos',
+  '/tmp/lhci',
+  '/tmp/psi',
+  '/tmp/report',
 ];
 
+const NON_HEARTBEAT_PROBE_EXTS = ['.html', '.htm', '.xml', '.log', '.csv', '.md', '.sarif'];
+
 function isExcludedProbePath(probePath: string): boolean {
-  if (SYSTEM_NON_HEARTBEAT_PATHS.has(probePath) || probePath.endsWith('.sock')) {
+  const lower = probePath.toLowerCase();
+  if (SYSTEM_NON_HEARTBEAT_PATHS.has(probePath) || lower.endsWith('.sock')) {
+    return true;
+  }
+  if (NON_HEARTBEAT_PROBE_EXTS.some((ext) => lower.endsWith(ext))) {
     return true;
   }
   return NON_HEARTBEAT_PATH_PREFIXES.some(
@@ -2063,6 +2081,134 @@ function checkQaDockerLock01LockfileAndSmoke(projectPath: string): SecurityFindi
     } catch {
       // Ignorar errores de lectura puntual
     }
+  }
+
+  return findings;
+}
+
+interface PlaywrightDockerTag {
+  dir: string;
+  version: string;
+}
+
+function collectPlaywrightDockerTags(
+  projectPath: string,
+  allRelFiles: string[]
+): PlaywrightDockerTag[] {
+  const composeRels = allRelFiles.filter(
+    (rel) =>
+      !rel.endsWith('.example') &&
+      !isTestFilePath(rel) &&
+      !isAuditorSelfDefinition(rel) &&
+      /(?:^|\/)(?:docker-compose|compose)[^/]*\.ya?ml$/i.test(rel)
+  );
+  const dockerRels = collectMatchingFiles(projectPath, isDockerfileEntry)
+    .map((abs) => path.relative(projectPath, abs))
+    .filter((rel) => !rel.endsWith('.example') && !isTestFilePath(rel));
+  const tags: PlaywrightDockerTag[] = [];
+
+  for (const rel of new Set([...composeRels, ...dockerRels])) {
+    const content = readTextFileSafe(path.join(projectPath, rel));
+    if (!content || content.includes(QA_PLAYWRIGHT_PIN_OK_PRAGMA)) continue;
+    const normDir = path.posix.dirname(rel.replace(/\\/g, '/'));
+    for (const match of content.matchAll(PLAYWRIGHT_IMAGE_TAG_RE)) {
+      if (match[1]) {
+        tags.push({ dir: normDir, version: match[1] });
+      }
+    }
+  }
+
+  return tags;
+}
+
+function resolveExpectedPlaywrightTag(
+  pkgDir: string,
+  dockerTags: PlaywrightDockerTag[]
+): string | null {
+  const sameDir = dockerTags.find((t) => t.dir === pkgDir);
+  if (sameDir) return sameDir.version;
+
+  const ancestorOrChild = dockerTags.find(
+    (t) =>
+      t.dir === '.' ||
+      pkgDir === '.' ||
+      pkgDir.startsWith(`${t.dir}/`) ||
+      t.dir.startsWith(`${pkgDir}/`)
+  );
+  if (ancestorOrChild) return ancestorOrChild.version;
+
+  const uniqueVersions = new Set(dockerTags.map((t) => t.version));
+  return uniqueVersions.size === 1 ? dockerTags[0].version : null;
+}
+
+function collectDeclaredPlaywrightSpecs(
+  doc: Record<string, unknown>
+): Array<{ pkgName: string; spec: string }> {
+  const specs: Array<{ pkgName: string; spec: string }> = [];
+  for (const section of PKG_DEP_SECTIONS) {
+    const rawBlock = doc[section];
+    if (!rawBlock || typeof rawBlock !== 'object' || Array.isArray(rawBlock)) continue;
+    const block = rawBlock as Record<string, unknown>;
+    for (const pkgName of PLAYWRIGHT_PKGS) {
+      const val = block[pkgName];
+      if (typeof val === 'string') {
+        specs.push({ pkgName, spec: val.trim() });
+      }
+    }
+  }
+  return specs;
+}
+
+function inspectPackageJsonPlaywrightPin(
+  projectPath: string,
+  relPath: string,
+  dockerTags: PlaywrightDockerTag[]
+): SecurityFinding[] {
+  const content = readTextFileSafe(path.join(projectPath, relPath));
+  if (!content || content.includes(QA_PLAYWRIGHT_PIN_OK_PRAGMA)) return [];
+
+  const doc = parseJsonObjectTextSafe(content);
+  if (!doc) return [];
+
+  const specs = collectDeclaredPlaywrightSpecs(doc);
+  if (specs.length === 0) return [];
+
+  const pkgDir = path.posix.dirname(relPath.replace(/\\/g, '/'));
+  const expectedVersion = resolveExpectedPlaywrightTag(pkgDir, dockerTags);
+  if (!expectedVersion) return [];
+
+  const findings: SecurityFinding[] = [];
+  for (const { pkgName, spec } of specs) {
+    if (!EXACT_SEMVER_RE.test(spec) || spec !== expectedVersion) {
+      findings.push({
+        rule_id: QA_PLAYWRIGHT_PIN_RULE,
+        severity: 'HIGH',
+        stig_owasp_ref: QA_PLAYWRIGHT_PIN_REF,
+        file: relPath,
+        line: findLineNumberContaining(content, `"${pkgName}"`),
+        message: `La dependencia "${pkgName}": "${spec}" en ${relPath} no fija la versión exacta de mcr.microsoft.com/playwright:v${expectedVersion} (riesgo de desajuste en binarios Chromium).`,
+        remediation: `Fijar "${pkgName}": "${expectedVersion}" sin prefijos de rango (^, ~) alineado con mcr.microsoft.com/playwright:v${expectedVersion} (o eximir con "${QA_PLAYWRIGHT_PIN_OK_PRAGMA}").`,
+      });
+    }
+  }
+
+  return findings;
+}
+
+function checkQaPlaywrightPin01VersionParity(
+  projectPath: string,
+  allRelFiles: string[]
+): SecurityFinding[] {
+  const dockerTags = collectPlaywrightDockerTags(projectPath, allRelFiles);
+  if (dockerTags.length === 0) return [];
+
+  const findings: SecurityFinding[] = [];
+  for (const relPath of allRelFiles) {
+    const norm = relPath.replace(/\\/g, '/');
+    if (!/(?:^|\/)package\.json$/.test(norm) || isTestFilePath(norm) || isAuditorSelfDefinition(norm)) {
+      continue;
+    }
+    findings.push(...inspectPackageJsonPlaywrightPin(projectPath, relPath, dockerTags));
   }
 
   return findings;

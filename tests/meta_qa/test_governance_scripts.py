@@ -1535,4 +1535,214 @@ def test_verify_docs_invariants_global_catalogs_trimodal(
     )
 
 
+def test_pagespeed_insights_audit_trimodal_and_ssrf(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """Audita audit_pagespeed_insights.py en escenarios Virgen, Anti-SSRF, Nominal, Degradado, 429 y CLI."""
+    import io
+    import socket
+    import urllib.error
+    import urllib.request
+
+    import audit_pagespeed_insights as psi
+
+    # 1. Virgen (sin URL) y --require-url
+    code_skip, rep_skip = psi.run_pagespeed_audit(psi.AuditOptions(url=""))
+    assert code_skip == 0
+    assert rep_skip["status"] == "SKIPPED"
+    assert rep_skip["reason"] == "MISSING_TARGET_URL"
+
+    code_req, _ = psi.run_pagespeed_audit(psi.AuditOptions(url="   ", require_url=True))
+    assert code_req == 2
+
+    # 2. Anti-SSRF SEC-03 (http://, credenciales, localhost, IPs privadas/link-local, suffix .internal, single label, DNS privado)
+    bad_urls = [
+        "http://ejemplo.com",
+        "https://user:pass@ejemplo.com",
+        "https://localhost/app",
+        "https://127.0.0.1/status",
+        "https://169.254.169.254/latest/meta-data",
+        "https://api.internal/health",
+        "https://backend-db/metrics",
+    ]
+    for bad in bad_urls:
+        code_bad, rep_bad = psi.run_pagespeed_audit(psi.AuditOptions(url=bad))
+        assert code_bad == 1, f"Debió bloquear {bad}"
+        assert rep_bad["status"] == "BLOCKED_SSRF"
+
+    code_dns, rep_dns = psi.run_pagespeed_audit(
+        psi.AuditOptions(url="https://public.ejemplo.com"),
+        resolver=lambda _h: ["10.0.0.15"],
+    )
+    assert code_dns == 1
+    assert rep_dns["status"] == "BLOCKED_SSRF"
+
+    # Cobertura del resolver DNS por defecto (hit público y OSError)
+    monkeypatch.setattr(
+        socket,
+        "getaddrinfo",
+        lambda *_args, **_kwargs: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 0))],
+    )
+    assert psi._default_dns_resolver("example.com") == ["93.184.216.34"]
+    monkeypatch.setattr(socket, "getaddrinfo", lambda *_a, **_kw: (_ for _ in ()).throw(OSError("dns down")))
+    assert psi._default_dns_resolver("example.com") == []
+
+    # 3. Nominal: mobile + desktop (Lab + CrUX + Top Opportunities + persistencia segura)
+    good_payload = {
+        "lighthouseResult": {
+            "categories": {
+                "performance": {"score": 0.94},
+                "accessibility": {"score": 0.98},
+                "best-practices": {"score": 0.96},
+                "seo": {"score": 1.0},
+            },
+            "audits": {
+                "render-blocking-resources": {
+                    "title": "Eliminate render-blocking resources",
+                    "score": 0.45,
+                    "details": {
+                        "type": "opportunity",
+                        "overallSavingsMs": 320,
+                        "overallSavingsBytes": 18000,
+                    },
+                },
+                "already-fast": {"score": 0.95, "details": {"type": "opportunity"}},
+                "info-only": {"score": 0.5, "details": {"type": "table"}},
+                "raw-str": "ignore",
+            },
+        },
+        "loadingExperience": {
+            "overall_category": "FAST",
+            "metrics": {
+                "LARGEST_CONTENTFUL_PAINT_MS": {"percentile": 1800, "category": "FAST"},
+                "INTERACTION_TO_NEXT_PAINT": {"percentile": 120, "category": "FAST"},
+            },
+        },
+    }
+    code_ok, rep_ok = psi.run_pagespeed_audit(
+        psi.AuditOptions(
+            url="https://ejemplo-publico.com",
+            strategy="both",
+            output_path="psi-reports/psi-report.json",
+            base_dir=tmp_path,
+        ),
+        fetcher=lambda _u, _t: (200, json.dumps(good_payload)),
+        resolver=lambda _h: ["93.184.216.34"],
+    )
+    assert code_ok == 0
+    assert rep_ok["status"] == "PASSED"
+    assert len(rep_ok["strategies"]) == 2
+    assert rep_ok["strategies"][0]["crux"]["overall_category"] == "FAST"
+    assert rep_ok["strategies"][0]["top_opportunities"][0]["id"] == "render-blocking-resources"
+    assert (tmp_path / "psi-reports" / "psi-report.json").is_file()
+    summary = psi.format_human_summary(rep_ok)
+    assert "PASSED" in summary and "FAST" in summary
+
+    # 4. Degradado: umbrales violados, CrUX no dict/vacío, score None, JSON inválido, no-dict, fallo de red
+    bad_scores_payload = {
+        "lighthouseResult": {
+            "categories": {
+                "performance": {"score": 0.60},
+                "accessibility": {"score": 0.80},
+                "best-practices": {},
+                "seo": {"score": 0.95},
+            }
+        },
+        "loadingExperience": "invalid",
+    }
+    code_fail, rep_fail = psi.run_pagespeed_audit(
+        psi.AuditOptions(
+            url="https://ejemplo-publico.com",
+            strategy="desktop",
+            thresholds=psi.ThresholdConfig(0.90, 0.95, 0.90, 0.90),
+        ),
+        fetcher=lambda _u, _t: (200, json.dumps(bad_scores_payload)),
+        resolver=lambda _h: ["93.184.216.34"],
+    )
+    assert code_fail == 1
+    assert rep_fail["status"] == "FAILED"
+    assert any("performance: 0.60 < 0.90" in b for b in rep_fail["strategies"][0]["breaches"])
+    assert any("sin puntaje reportado" in b for b in rep_fail["strategies"][0]["breaches"])
+
+    _, rep_json_err = psi.run_pagespeed_audit(
+        psi.AuditOptions(url="https://ejemplo-publico.com", strategy="mobile"),
+        fetcher=lambda _u, _t: (200, "{broken-json"),
+        resolver=lambda _h: ["93.184.216.34"],
+    )
+    assert rep_json_err["status"] == "FAILED"
+
+    _, rep_list_err = psi.run_pagespeed_audit(
+        psi.AuditOptions(url="https://ejemplo-publico.com", strategy="mobile"),
+        fetcher=lambda _u, _t: (200, "[]"),
+        resolver=lambda _h: ["93.184.216.34"],
+    )
+    assert rep_list_err["status"] == "FAILED"
+
+    _, rep_net_err = psi.run_pagespeed_audit(
+        psi.AuditOptions(url="https://ejemplo-publico.com", strategy="mobile", api_key="AIzaSuperSecret99"),
+        fetcher=lambda _u, _t: (_ for _ in ()).throw(RuntimeError("GET https://googleapis.com?key=AIzaSuperSecret99 failed")),
+        resolver=lambda _h: ["93.184.216.34"],
+    )
+    assert rep_net_err["status"] == "FAILED"
+    assert "AIzaSuperSecret99" not in json.dumps(rep_net_err)
+    assert "[REDACTED]" in json.dumps(rep_net_err)
+
+    # 5. HTTP 429: SKIPPED sin api_key y FAILED con api_key (redacción de secreto)
+    code_429_skip, rep_429_skip = psi.run_pagespeed_audit(
+        psi.AuditOptions(url="https://ejemplo-publico.com", strategy="mobile", api_key=""),
+        fetcher=lambda _u, _t: (429, '{"error":"quota"}'),
+        resolver=lambda _h: ["93.184.216.34"],
+    )
+    assert code_429_skip == 0
+    assert rep_429_skip["status"] == "SKIPPED"
+
+    code_429_key, rep_429_key = psi.run_pagespeed_audit(
+        psi.AuditOptions(url="https://ejemplo-publico.com", strategy="mobile", api_key="AIzaSecretKey123456"),
+        fetcher=lambda _u, _t: (429, "Quota error for ?key=AIzaSecretKey123456"),
+        resolver=lambda _h: ["93.184.216.34"],
+    )
+    assert code_429_key == 1
+    assert rep_429_key["status"] == "FAILED"
+    assert "AIzaSecretKey123456" not in json.dumps(rep_429_key)
+
+    # Cobertura de _default_http_fetcher (200 y HTTPError)
+    from typing import Self
+
+    class _FakeResp:
+        status = 200
+
+        def __enter__(self) -> Self:
+            return self
+
+        def __exit__(self, *_a: object) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return b'{"ok":true}'
+
+    monkeypatch.setattr(urllib.request, "urlopen", lambda _req, timeout=60: _FakeResp())
+    assert psi._default_http_fetcher("https://www.googleapis.com/x", 10) == (200, '{"ok":true}')
+
+    http_err = urllib.error.HTTPError("https://x", 503, "Unavailable", {}, io.BytesIO(b"busy"))  # type: ignore[arg-type]
+    monkeypatch.setattr(urllib.request, "urlopen", lambda _req, timeout=60: (_ for _ in ()).throw(http_err))
+    assert psi._default_http_fetcher("https://www.googleapis.com/x", 10) == (503, "busy")
+
+    # 6. Contención anti-traversal, ruta absoluta permitida en /tmp, estrategia inválida y CLI main()
+    for bad_out in ("../escape.json", "/etc/escape.json"):
+        try:
+            psi.resolve_safe_output_path(bad_out, tmp_path)
+            raise AssertionError(f"Debió rechazar {bad_out}")
+        except ValueError:
+            pass
+    assert str(psi.resolve_safe_output_path("/tmp/psi-ok.json", tmp_path)).startswith("/tmp")
+
+    try:
+        psi._resolve_strategies("tablet")
+        raise AssertionError("Debió rechazar estrategia inválida")
+    except ValueError:
+        pass
+
+    assert psi.main(["--url", "", "--json"]) == 0
+    assert psi.main(["--url", "http://127.0.0.1"]) == 1
+
+
+
 

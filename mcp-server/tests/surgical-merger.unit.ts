@@ -140,6 +140,29 @@ describe('SurgicalMerger Service (Non-destructive AST/Configuration Merging)', (
 
       expect(parsed.scripts.lint).toBe('eslint src --max-warnings 0');
     });
+
+    it('aligns @playwright/test and playwright semver ranges to exact pinned versions from template', () => {
+      const target = JSON.stringify({
+        name: 'ui-app',
+        devDependencies: {
+          '@playwright/test': '^1.50.0',
+          playwright: '~1.50.0',
+          vitest: '^3.2.4',
+        },
+      });
+      const example = JSON.stringify({
+        devDependencies: {
+          '@playwright/test': '1.52.0',
+          playwright: '1.52.0',
+        },
+      });
+      const { merged } = merger.mergePackageJson(target, example);
+      const parsed = JSON.parse(merged);
+
+      expect(parsed.devDependencies['@playwright/test']).toBe('1.52.0');
+      expect(parsed.devDependencies.playwright).toBe('1.52.0');
+      expect(parsed.devDependencies.vitest).toBe('^3.2.4');
+    });
   });
 
   describe('mergePyprojectToml', () => {

@@ -62,6 +62,7 @@ COMMON_FILE_PATHS: tuple[str, ...] = (
     "lefthook.yml",
     "commitlint.config.js",
     "scripts/auditar-infra.sh",
+    "scripts/auditar-pagespeed.sh",
     "scripts/verificar-secretos.sh",
     "scripts/actualizar-grafos-graphify.sh",
     "scripts/generar-sbom-cyclonedx.sh",

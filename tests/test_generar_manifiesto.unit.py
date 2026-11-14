@@ -315,6 +315,7 @@ class TestGenerarManifiesto(unittest.TestCase):
         self.assertNotIn("8.1", php_meta["description"])
         self.assertEqual(php_meta["readme"], "php/README.md")
         self.assertIn("scripts/actualizar-grafos-graphify.sh", gm.COMMON_FILE_PATHS)
+        self.assertIn("scripts/auditar-pagespeed.sh", gm.COMMON_FILE_PATHS)
 
     def test_readme_matrix_tags_and_mermaid_integrity(self) -> None:
         """Verifica matriz de herramientas, tags de Docker Hub y bloques Mermaid sin HTML roto."""

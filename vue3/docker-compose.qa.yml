@@ -55,16 +55,19 @@ services:
     container_name: vue_ui_e2e
     hostname: vue_ui_e2e
     pull_policy: if_not_present
+    user: "${QA_UID:-1000}:${QA_GID:-1000}"
     environment:
       TZ: 'America/Caracas'
+      HOME: /tmp
+      COREPACK_HOME: /tmp/.corepack
       PNPM_HOME: /pnpm
-      PATH: /pnpm:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      PATH: /tmp/.corepack-bin:/pnpm:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
     volumes:
       - .:/app
       - pnpm-store:/pnpm
     working_dir: /app
-    entrypoint: ["bash", "-c", "corepack enable >/dev/null 2>&1 && exec \"$@\"", "--"]
+    entrypoint: ["bash", "-c", "mkdir -p /tmp/.corepack-bin && corepack enable --install-directory /tmp/.corepack-bin >/dev/null 2>&1 || true; exec \"$@\"", "--"]
     command: bash -c "echo 'Contenedor E2E listo. Usa docker compose run --rm ui-e2e [comando]'; sleep infinity"
 
   karatelabs:

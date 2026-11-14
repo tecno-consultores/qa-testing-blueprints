@@ -231,6 +231,12 @@ La integración entre aplicaciones SPA (Vue 3, React) y APIs REST/WebSockets (Fa
   - Incluir al menos una prueba in-process conectada mediante el cliente/transporte real del SDK (`InMemoryTransport` + `Client` en Node/TS o `ClientSession` / `create_connected_server_and_client_session` en Python) ejercitando `list_tools` y `call_tool` (`QA-CONTRACT-SDK-01`, eximible con `# qa-contract-sdk-ok` si se valida mediante arnés externo).
   - Instalar dependencias en `Dockerfile` estrictamente desde el lockfile (`uv sync --frozen --no-dev`, `uv export --frozen --no-dev | uv pip install --system -r -`, `pnpm install --frozen-lockfile`, `npm ci`) y ejecutar un smoke test sobre la imagen construida (`import <app>`, `id -u != 0` y sonda `401` en rutas protegidas; auditado mediante `QA-DOCKER-LOCK-01` en `audit_security_stig_owasp`, eximible con `# qa-docker-lock-ok`).
 
+### 4.29. Paridad Exacta Playwright NPM ↔ Imagen Docker (`QA-PLAYWRIGHT-PIN-01`) y Protección Anti-SSRF en PageSpeed Insights (`SEC-03` — `DISA APSC-DV-001430` / `APSC-DV-002520`)
+- **Riesgo:** Usar rangos SemVer (`^1.52.0`) o etiquetas flotantes `:latest` entre `@playwright/test`/`playwright` en `package.json` y la imagen `mcr.microsoft.com/playwright:vX.Y.Z-*` en `docker-compose.qa.yml` introduce fallos `Executable doesn't exist` al desalinearse el navegador preinstalado; adicionalmente, pasar URLs no validadas a herramientas automatizadas de auditoría externa (`PageSpeed Insights`) sin resolver DNS previo expone vectores SSRF hacia la intranet y puede filtrar llaves `?key=...` en trazas de error.
+- **Mitigación:**
+  - Fijar versión exacta sin prefijos (`"1.52.0"`) en `@playwright/test` / `playwright` sincronizada 1:1 con el tag `mcr.microsoft.com/playwright:v1.52.0-*` (`QA-PLAYWRIGHT-PIN-01` en `audit_security_stig_owasp`, alineación automática en `SurgicalMerger.mergePackageJson` y ejecución no-root `QA_UID:QA_GID` prioritizando `./node_modules/.bin/{playwright,lhci}`).
+  - Validar todas las URLs objetivo de `.agents/scripts/audit_pagespeed_insights.py` (`make audit-psi` / `make qa-psi`) con esquema `https://` exclusivo, bloqueo pre-DNS contra rangos privados/loopback/link-local/`.internal` (`SEC-03`) y redacción obligatoria de parámetros `key=`/`PAGESPEED_API_KEY` (`SEC-06`).
+
 ---
 
 ## 5. Auditoría Preventiva de Vulnerabilidades y Seguridad Shift-Left

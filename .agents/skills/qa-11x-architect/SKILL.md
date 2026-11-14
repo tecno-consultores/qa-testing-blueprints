@@ -29,7 +29,7 @@ Classify every task before acting. **NEVER run automatic `git push`** (`QA-GIT-G
 3. `audit_test_pyramid_gaps` — 13-layer audit + config.
 4. `fetch_blueprint_bundle` — SHA-256 index (`include_content: false`).
 5. `bootstrap_or_merge_11x` — surgical `.example` merge.
-6. `audit_security_stig_owasp` — static audit (`SEC-01..16`, `SEC-CI-ACTION-REF`, `QA-KARATE-IDEMP`, `QA-COV-01`, `QA-MYPY-01`, `QA-PG17-RLS`, `QA-SMOKE-01`, `QA-HEALTH-01`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`, `QA-CI-ESCAPE-01`, `QA-MAKE-CURDIR-01`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `UI-11X-01..03`).
+6. `audit_security_stig_owasp` — static audit (`SEC-01..16`, `SEC-CI-ACTION-REF`, `QA-KARATE-IDEMP`, `QA-COV-01`, `QA-MYPY-01`, `QA-PG17-RLS`, `QA-SMOKE-01`, `QA-HEALTH-01`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`, `QA-CI-ESCAPE-01`, `QA-MAKE-CURDIR-01`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `UI-11X-01..03`).
 7. `run_ephemeral_qa` — runs `lint|unit|migration|integration|ci|bdd|mutation|dast|e2e|perf|chaos|all` (`sinfallas/*`, `.qa-evidence.json`).
 8. `clean_workspace_11x` — rootless purge (keeps `dist`, `graphify-out/`).
 9. `certify_11x_gate` — 10/10 gate (`/tmp/qa-11x-last-failure.json`, lint).
@@ -87,7 +87,7 @@ Hydrate specialized sub-skills **strictly on demand** by domain (canonical inlin
 
 | Sub-Skill | Trigger & Scope |
 | :--- | :--- |
-| `qa-11x-devsecops-hardener` | STIG V6R5, OWASP v4.2, PG17 RLS (`QA-PG17-RLS`, `NOBYPASSRLS`, `after_begin`), Vault AES-256-GCM, `QA-HEALTH-01`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`, `QA-CI-ESCAPE-01`, `QA-MAKE-CURDIR-01`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`. |
+| `qa-11x-devsecops-hardener` | STIG V6R5, OWASP v4.2, PG17 RLS (`QA-PG17-RLS`, `NOBYPASSRLS`, `after_begin`), Vault AES-256-GCM, `QA-HEALTH-01`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`, `QA-CI-ESCAPE-01`, `QA-MAKE-CURDIR-01`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`. |
 | `qa-11x-systematic-debugging` | Mandatory 4-phase root-cause debugging (Reproduce -> Isolate -> Trace -> Verify) pre-patch. |
 | `qa-11x-screenplay-builder` | Screenplay (Actors/Abilities/Tasks/Questions) for RBAC E2E vs. POM (`<= 10` tests / `<= 3` pages). |
 | `qa-11x-llm-evaluator` | Dual-Mode LLM/RAG evals: deterministic offline contracts + DeepEval/Promptfoo red-team. |

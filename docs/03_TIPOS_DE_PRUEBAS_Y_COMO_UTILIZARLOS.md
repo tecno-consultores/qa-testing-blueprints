@@ -224,8 +224,9 @@
   - `Lighthouse CI`: Métricas de accesibilidad con umbral mínimo de **0.95**.
 * **Ejecución:**
   ```bash
-  make qa-e2e   # Playwright + Axe Core
-  make qa-perf  # Lighthouse CI
+  make qa-e2e   # Playwright + Axe Core (ui-e2e no-root, ./node_modules/.bin/playwright)
+  make qa-perf  # Lighthouse CI pre-merge sobre contenedores locales
+  make qa-psi URL=https://tu-dominio.com  # PageSpeed Insights v5 post-deploy (Lab + CrUX)
   ```
 
 ---

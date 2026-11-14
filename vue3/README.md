@@ -96,6 +96,11 @@ make qa-mutation
 make qa-perf
 ```
 
+*   **Auditoría Post-Deploy Google PageSpeed Insights v5 (Lab + CrUX sobre HTTPS público):**
+```bash
+make qa-psi URL=https://tu-dominio.com
+```
+
 *   **Regresión Visual, E2E y Accesibilidad (Playwright):**
 ```bash
 make qa-e2e

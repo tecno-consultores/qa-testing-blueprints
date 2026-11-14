@@ -122,6 +122,8 @@ nginx-logs/
 **/.lighthouseci/
 lhci-reports/
 **/lhci-reports/
+psi-reports/
+**/psi-reports/
 .lhcache/
 **/.lhcache/
 
@@ -157,6 +159,8 @@ chaos-report.json
 k6-summary.json
 k6-results.json
 locust-report.html
+psi-report.json
+**/psi-report.json
 coverage_report/
 **/coverage_report/
 profile.svg

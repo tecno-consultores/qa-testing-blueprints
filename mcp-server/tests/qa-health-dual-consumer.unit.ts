@@ -1004,4 +1004,61 @@ describe('QA-HEALTH-01 & Dual-Consumer Evolution Suite', () => {
       expect(exemptRes.findings.filter((f) => f.rule_id === 'QA-DOCKER-LOCK-01')).toHaveLength(0);
     });
   });
+
+  describe('QA-HEALTH-01: Probe Exclusions for /tmp/chaos, /tmp/lhci, /tmp/psi & Logs', () => {
+    it('does not treat cleanup or inspection of /tmp report/log probe paths as missing healthcheck targets', async () => {
+      fs.writeFileSync(
+        path.join(tmpDir, 'Makefile'),
+        [
+          'clean-probes:',
+          '\trm -rf /tmp/chaos /tmp/lhci /tmp/psi /tmp/report /tmp/chaos-report.html /tmp/probe.log /tmp/metrics.csv /tmp/summary.md /tmp/out.sarif',
+        ].join('\n'),
+        'utf8'
+      );
+      const res = await auditSecurityStigOwasp(tmpDir);
+      expect(res.findings.filter((f) => f.rule_id === 'QA-HEALTH-01')).toHaveLength(0);
+    });
+  });
+
+  describe('QA-PLAYWRIGHT-PIN-01: Exact Playwright NPM <-> Docker Tag Parity', () => {
+    it('passes when package.json Playwright dependency matches pinned mcr.microsoft.com/playwright tag', async () => {
+      fs.writeFileSync(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'ui', devDependencies: { '@playwright/test': '1.52.0' } }),
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(tmpDir, 'docker-compose.qa.yml'),
+        'services:\n  ui-e2e:\n    image: mcr.microsoft.com/playwright:v1.52.0-noble\n',
+        'utf8'
+      );
+      const res = await auditSecurityStigOwasp(tmpDir);
+      expect(res.findings.filter((f) => f.rule_id === 'QA-PLAYWRIGHT-PIN-01')).toHaveLength(0);
+    });
+
+    it('flags semver range and version mismatch against pinned Playwright Docker tag', async () => {
+      fs.writeFileSync(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({
+          name: 'ui',
+          devDependencies: { '@playwright/test': '^1.52.0', playwright: '1.50.0' },
+        }),
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(tmpDir, 'docker-compose.qa.yml'),
+        [
+          'services:',
+          '  ui-e2e:',
+          '    image: mcr.microsoft.com/playwright:v1.52.0-noble',
+        ].join('\n'),
+        'utf8'
+      );
+      const res = await auditSecurityStigOwasp(tmpDir);
+      const findings = res.findings.filter((f) => f.rule_id === 'QA-PLAYWRIGHT-PIN-01');
+      expect(findings).toHaveLength(2);
+      expect(findings.some((f) => f.message.includes('@playwright/test') && f.message.includes('1.52.0'))).toBe(true);
+      expect(findings.some((f) => f.message.includes('playwright') && f.file === 'package.json')).toBe(true);
+    });
+  });
 });

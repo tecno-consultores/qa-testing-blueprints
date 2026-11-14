@@ -348,4 +348,108 @@ describe('ephemeral-runner', () => {
     expect(rejected.status).toBe('FAILED');
     expect(rejected.failed_tests[0].error_summary).toContain('Regla Cero');
   });
+
+  it('runEphemeralQa resuelve delegación recursiva $(MAKE) -C <subdir> e impide path traversal al fallar make ENOENT', async () => {
+    const frontendDir = path.join(tempDir, 'frontend');
+    fs.mkdirSync(frontendDir, { recursive: true });
+    fs.writeFileSync(path.join(tempDir, 'Makefile'), 'qa-lint:\n\t@$(MAKE) -C frontend qa-lint\n');
+    fs.writeFileSync(
+      path.join(frontendDir, 'Makefile'),
+      'qa-lint:\n\t@docker compose -f docker-compose.qa.yml run --rm -T ui pnpm run lint\n'
+    );
+
+    const capturedArgs: string[][] = [];
+    const mockDockerOk = ((
+      file: string,
+      args: readonly string[],
+      _options: unknown,
+      cb: (error: Error | null, stdout: string, stderr: string) => void
+    ) => {
+      if (file === 'make') {
+        cb(Object.assign(new Error('spawn make ENOENT'), { code: 'ENOENT' }), '', '');
+        return;
+      }
+      expect(file).toBe('docker');
+      capturedArgs.push([...args]);
+      cb(null, 'lint ok', '');
+    }) as unknown as typeof execFile;
+
+    const okRes = await runEphemeralQa(tempDir, 'lint', 60, { execFileFn: mockDockerOk });
+    expect(okRes.status).toBe('PASSED');
+    expect(capturedArgs[0]).toEqual([
+      'compose',
+      '--project-directory',
+      'frontend',
+      '-f',
+      'frontend/docker-compose.qa.yml',
+      'run',
+      '--rm',
+      '-T',
+      'ui',
+      'pnpm',
+      'run',
+      'lint',
+    ]);
+
+    // Intento de escape fuera de la raíz mediante $(MAKE) -C ../escape
+    fs.writeFileSync(path.join(tempDir, 'Makefile'), 'qa-lint:\n\t@$(MAKE) -C ../escape qa-lint\n');
+    const escapedRes = await runEphemeralQa(tempDir, 'lint', 60, { execFileFn: mockDockerOk });
+    expect(escapedRes.status).toBe('FAILED');
+  });
+
+  it('resolveComposeDirectFallback soporta stacks Node/Frontend (incluyendo ui-e2e) y Python cuando falta Makefile', () => {
+    fs.writeFileSync(
+      path.join(tempDir, 'package.json'),
+      JSON.stringify({
+        name: 'ui-app',
+        scripts: { lint: 'eslint .', 'test:coverage': 'vitest run --coverage', mutate: 'stryker run' },
+      })
+    );
+    fs.writeFileSync(
+      path.join(tempDir, 'docker-compose.qa.yml'),
+      [
+        'services:',
+        '  qa-vue3:',
+        '    image: sinfallas/base-node-ionic:26',
+        '  ui-e2e:',
+        '    image: mcr.microsoft.com/playwright:v1.52.0-noble',
+      ].join('\n')
+    );
+
+    const nodeLint = resolveComposeDirectFallback(tempDir, 'lint');
+    expect(nodeLint?.[0]?.slice(-4)).toEqual(['qa-vue3', 'pnpm', 'run', 'lint']);
+
+    const nodeUnit = resolveComposeDirectFallback(tempDir, 'unit');
+    expect(nodeUnit?.[0]?.slice(-4)).toEqual(['qa-vue3', 'pnpm', 'run', 'test:coverage']);
+
+    const nodeMutation = resolveComposeDirectFallback(tempDir, 'mutation');
+    expect(nodeMutation?.[0]?.slice(-4)).toEqual(['qa-vue3', 'pnpm', 'run', 'mutate']);
+
+    const nodeE2e = resolveComposeDirectFallback(tempDir, 'e2e');
+    expect(nodeE2e?.[0]).toEqual(expect.arrayContaining(['compose', '-f', 'docker-compose.qa.yml', 'run', '--rm', '-T', 'ui-e2e', 'bash', '-c']));
+    expect(nodeE2e?.[0]?.[nodeE2e[0].length - 1]).toContain('./node_modules/.bin/playwright');
+
+    const nodePerf = resolveComposeDirectFallback(tempDir, 'perf');
+    expect(nodePerf?.[0]).toEqual(expect.arrayContaining(['compose', '-f', 'docker-compose.qa.yml', 'run', '--rm', '-T', 'ui-e2e', 'bash', '-c']));
+    expect(nodePerf?.[0]?.[nodePerf[0].length - 1]).toContain('./node_modules/.bin/lhci');
+
+    // Python / FastAPI stack
+    const pyDir = path.join(tempDir, 'py-app');
+    fs.mkdirSync(pyDir, { recursive: true });
+    fs.writeFileSync(path.join(pyDir, 'pyproject.toml'), '[project]\nname="api"\n');
+    fs.writeFileSync(path.join(pyDir, 'alembic.ini'), '[alembic]\n');
+    fs.writeFileSync(
+      path.join(pyDir, 'docker-compose.qa.yml'),
+      'services:\n  qa-backend:\n    image: sinfallas/base-python-uv:3.15\n'
+    );
+    expect(resolveComposeDirectFallback(pyDir, 'lint')?.[0]).toEqual(
+      expect.arrayContaining(['qa-backend', 'sh', '-c', 'ruff check src tests && mypy --strict --cache-dir=/tmp/mypy src'])
+    );
+    expect(resolveComposeDirectFallback(pyDir, 'unit')?.[0]).toEqual(
+      expect.arrayContaining(['COVERAGE_FILE=/tmp/.coverage', 'qa-backend', 'pytest', '--cov=src', '--cov-fail-under=95'])
+    );
+    expect(resolveComposeDirectFallback(pyDir, 'migration')?.[0]).toEqual(
+      expect.arrayContaining(['qa-backend', 'alembic', 'upgrade', 'head'])
+    );
+  });
 });

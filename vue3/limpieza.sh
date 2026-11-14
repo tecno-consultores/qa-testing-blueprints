@@ -32,12 +32,12 @@ rm -f ./ACTIVE_TASK.md ./*.log ./*.tsbuildinfo ./*.heapsnapshot ./*.cpuprofile \
   npm-debug.log* yarn-debug.log* yarn-error.log* pnpm-debug.log* \
   .pnp .pnp.js .pnp.cjs .pnp.loader.mjs \
   trivy-results* sbom.cyclonedx.json sbom-*.cdx.json cbom.cyclonedx.json cbom-*.cdx.json \
-  zap-report.html zap-report.json release-readiness.json release-readiness.md \
+  zap-report.html zap-report.json release-readiness.json release-readiness.md psi-report.json \
   promptfoo-output.json promptfoo-output.html deepeval-results.json qa-11x-last-failure.json \
   .task_scratchpad.md .agents/*.scratchpad.md 2>/dev/null || true
 rm -rf node_modules .pnpm-store .turbo dist dist-ssr .nuxt .next .output .svelte-kit .vite .vite-ssg-temp .parcel-cache storybook-static 2>/dev/null || true
 rm -rf test-results playwright-report blob-report playwright/.cache cypress/videos cypress/screenshots nginx-logs reports target test/target coverage .nyc_output .stryker-tmp 2>/dev/null || true
-rm -rf lhci-reports .lhcache .lighthouseci prometheus_data .eslintcache .stylelintcache .trivycache karate.jar karate-*.jar \
+rm -rf lhci-reports psi-reports psi-report.json .lhcache .lighthouseci prometheus_data .eslintcache .stylelintcache .trivycache karate.jar karate-*.jar \
   allure-results/ allure-report/ .allure/ .deepeval/ .promptfoo/ .agents/tmp/ 2>/dev/null || true
 
 if [ -d "graphify-out" ]; then
@@ -54,7 +54,7 @@ if command -v docker >/dev/null 2>&1; then
     rm -rf /work/node_modules /work/.pnpm-store /work/.turbo /work/dist /work/dist-ssr /work/.nuxt /work/.next /work/.output /work/.svelte-kit /work/.vite /work/.parcel-cache /work/storybook-static \
            /work/test-results /work/playwright-report /work/blob-report /work/playwright/.cache /work/cypress/videos /work/cypress/screenshots /work/nginx-logs /work/reports \
            /work/target /work/test/target /work/coverage /work/.nyc_output /work/.stryker-tmp \
-           /work/lhci-reports /work/.lhcache /work/.lighthouseci \
+           /work/lhci-reports /work/psi-reports /work/.lhcache /work/.lighthouseci \
            /work/prometheus_data /work/.eslintcache /work/.stylelintcache \
            /work/.trivycache /work/karate.jar /work/karate-*.jar \
            /work/allure-results /work/allure-report /work/.allure /work/.deepeval /work/.promptfoo 2>/dev/null || true; \

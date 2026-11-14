@@ -67,6 +67,7 @@ export class SurgicalMerger {
         changes.push(`Añadida devDependency: "${pkg}": "${ver}"`);
       }
     }
+    this.alignExactPlaywrightVersion(targetObj, mergedDevDeps, exampleDevDeps, changes);
     targetObj.devDependencies = mergedDevDeps;
 
     // 3. Purgar clave obsoleta pnpm.onlyBuiltDependencies (pnpm 12+ usa pnpm-workspace.yaml#allowBuilds)
@@ -76,6 +77,43 @@ export class SurgicalMerger {
       merged: JSON.stringify(targetObj, null, 2) + '\n',
       changes,
     };
+  }
+
+  private alignExactPlaywrightKey(
+    deps: Record<string, string>,
+    pkgName: string,
+    expected: string,
+    changes: string[],
+    sectionLabel?: string
+  ): void {
+    const current = deps[pkgName];
+    if (typeof current === 'string' && current !== expected) {
+      deps[pkgName] = expected;
+      const where = sectionLabel ? ` en ${sectionLabel}` : '';
+      changes.push(`Alineada versión exacta "${pkgName}"${where}: "${current}" -> "${expected}"`);
+    }
+  }
+
+  private alignExactPlaywrightVersion(
+    targetObj: Record<string, unknown>,
+    mergedDevDeps: Record<string, string>,
+    exampleDevDeps: Record<string, string>,
+    changes: string[]
+  ): void {
+    const rawDeps = targetObj.dependencies;
+    const deps =
+      rawDeps && typeof rawDeps === 'object' && !Array.isArray(rawDeps)
+        ? (rawDeps as Record<string, string>)
+        : null;
+
+    for (const pkgName of ['@playwright/test', 'playwright']) {
+      const expected = exampleDevDeps[pkgName];
+      if (!expected || !/^\d+\.\d+\.\d+$/.test(expected)) continue;
+      this.alignExactPlaywrightKey(mergedDevDeps, pkgName, expected, changes);
+      if (deps) {
+        this.alignExactPlaywrightKey(deps, pkgName, expected, changes, 'dependencies');
+      }
+    }
   }
 
   private stripLegacyPnpmOnlyBuiltDeps(

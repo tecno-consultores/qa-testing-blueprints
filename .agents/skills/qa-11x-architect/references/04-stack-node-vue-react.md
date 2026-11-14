@@ -131,32 +131,36 @@ if (typeof globalThis.localStorage?.clear !== 'function') {
 }
 ```
 
-### `Makefile` Targets (Frontend & Node.js)
+### `Makefile` Targets (Frontend & Node.js — Non-Root `ui-e2e`, `QA-PLAYWRIGHT-PIN-01` & Post-Deploy PSI)
+Pin exact `@playwright/test`/`playwright` versions (`"1.52.0"`, no `^`/`~` ranges) matching `mcr.microsoft.com/playwright:vX.Y.Z-noble` (`QA-PLAYWRIGHT-PIN-01`). Run `ui-e2e` as non-root (`-u "$(QA_UID):$(QA_GID)" -e HOME=/tmp -e COREPACK_HOME=/tmp/.corepack`) with rootless Corepack (`/tmp/.corepack-bin`) and prefer `./node_modules/.bin/{playwright,lhci}` over dynamic downloads:
 ```makefile
-.PHONY: qa-lint qa-unit qa-orphans qa-mutation qa-bdd qa-e2e qa-perf qa-all
+.PHONY: qa-lint qa-unit qa-orphans qa-mutation qa-bdd qa-e2e qa-perf qa-psi qa-all
 
 qa-lint:
-	docker compose -f docker-compose.qa.yml run --rm ui pnpm run lint
-	docker compose -f docker-compose.qa.yml run --rm ui pnpm exec vue-tsc --noEmit
+	docker compose -f docker-compose.qa.yml run --rm -T ui pnpm run lint
+	docker compose -f docker-compose.qa.yml run --rm -T ui pnpm exec vue-tsc --noEmit
 
 qa-unit:
-	docker compose -f docker-compose.qa.yml run --rm ui pnpm exec vitest run --coverage
+	docker compose -f docker-compose.qa.yml run --rm -T ui pnpm exec vitest run --coverage
 
 qa-orphans:
 	python3 .agents/scripts/verify_zero_orphan_vue_components.py
 	python3 .agents/scripts/verify_no_orphan_api_endpoints.py
 
 qa-mutation:
-	docker compose -f docker-compose.qa.yml run --rm ui pnpm exec stryker run
+	docker compose -f docker-compose.qa.yml run --rm -T ui pnpm exec stryker run
 
 qa-bdd:
-	docker compose -f docker-compose.qa.yml run --rm karatelabs mvn test -Dkarate.options="test/ui_business_flow.feature"
+	docker compose -f docker-compose.qa.yml run --rm -T karatelabs mvn -B clean test -Dkarate.options="test/ui_business_flow.feature"
 
 qa-e2e:
-	docker compose -f docker-compose.qa.yml run --rm ui pnpm exec playwright test
+	docker compose -f docker-compose.qa.yml run --rm -T -u "$$(id -u):$$(id -g)" -e HOME=/tmp ui-e2e sh -c 'if [ -x ./node_modules/.bin/playwright ]; then ./node_modules/.bin/playwright test; elif command -v pnpm >/dev/null 2>&1; then pnpm exec playwright test; else corepack pnpm exec playwright test; fi'
 
 qa-perf:
-	docker compose -f docker-compose.qa.yml run --rm ui pnpm exec lhci autorun
+	docker compose -f docker-compose.qa.yml run --rm -T -u "$$(id -u):$$(id -g)" -e HOME=/tmp ui-e2e sh -c 'if [ -x ./node_modules/.bin/lhci ]; then ./node_modules/.bin/lhci autorun; elif command -v pnpm >/dev/null 2>&1; then pnpm exec lhci autorun; else corepack pnpm exec lhci autorun; fi'
+
+qa-psi:
+	@./scripts/auditar-pagespeed.sh $(if $(URL),--url "$(URL)",) --strategy "$(or $(STRATEGY),both)" $(if $(MIN_PERF),--min-performance "$(MIN_PERF)",) --output "psi-reports/psi-report.json"
 
 qa-all: qa-lint qa-unit qa-orphans qa-bdd
 ```

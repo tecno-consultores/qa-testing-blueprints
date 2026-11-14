@@ -17,15 +17,20 @@ const COMPOSE_QA_FILE = 'docker-compose.qa.yml';
 const DOCKER_BINARY = 'docker';
 const MAKE_BINARY = 'make';
 const STATUS_FAILED = 'FAILED' as const;
+const MAX_MAKE_DELEGATION_DEPTH = 3;
 const PREFERRED_QA_SERVICES = [
   'qa-php',
   'qa-backend',
+  'qa-fastapi',
   'qa-node',
+  'qa-vue3',
   'qa-frontend',
   'qa-python',
   'qa-bash',
 ];
 const COMPOSER_STAGE_SET = new Set(['lint', 'unit', 'mutation', 'sbom']);
+const MAKE_NOOP_FLAGS = new Set(['-s', '--silent', '--no-print-directory']);
+const SHELL_CHAIN_TOKENS = new Set(['&&', '||', ';', '|']);
 
 export interface RunEphemeralQaOptions {
   execFileFn?: typeof execFile;
@@ -218,7 +223,10 @@ function parseRuleLine(trimmed: string, parsed: ParsedMakefile): string | null {
 
 function parseMakefile(makefileContent: string, resolvedPath: string): ParsedMakefile {
   const parsed: ParsedMakefile = {
-    vars: new Map<string, string>([['CURDIR', resolvedPath]]),
+    vars: new Map<string, string>([
+      ['CURDIR', resolvedPath],
+      ['MAKE', MAKE_BINARY],
+    ]),
     rules: new Map<string, string[]>(),
     recipes: new Map<string, string[]>(),
   };
@@ -244,6 +252,12 @@ function parseMakefile(makefileContent: string, resolvedPath: string): ParsedMak
   return parsed;
 }
 
+interface MakeResolutionContext {
+  rootDir: string;
+  currentDir: string;
+  depth: number;
+}
+
 function isBannerCommand(expanded: string): boolean {
   return expanded.startsWith('echo ') || expanded === 'echo' || expanded.startsWith('printf ');
 }
@@ -252,9 +266,117 @@ function isAllowedDockerRecipe(expanded: string): boolean {
   return expanded.startsWith('docker compose ') || expanded.startsWith('docker run ');
 }
 
+interface MakeDelegationState {
+  subdir: string | null;
+  targets: string[];
+}
+
+function consumeMakeDelegationToken(
+  tokens: readonly string[],
+  idx: number,
+  state: MakeDelegationState
+): number | null {
+  const tok = tokens[idx];
+  if (SHELL_CHAIN_TOKENS.has(tok)) return null;
+  if (MAKE_NOOP_FLAGS.has(tok)) return idx;
+  if (tok === '-C' || tok === '--directory') {
+    const next = tokens[idx + 1];
+    if (!next) return null;
+    state.subdir = next;
+    return idx + 1;
+  }
+  if (tok.startsWith('--directory=')) {
+    state.subdir = tok.slice('--directory='.length);
+    return idx;
+  }
+  if (tok.startsWith('-') || !/^[A-Za-z0-9_.-]+$/.test(tok)) return null;
+  state.targets.push(tok);
+  return idx;
+}
+
+function parseMakeDelegation(
+  expanded: string
+): { subdir: string; targets: string[] } | null {
+  const tokens = tokenizeCommandArgs(expanded);
+  if (tokens.length < 3 || tokens[0] !== MAKE_BINARY) {
+    return null;
+  }
+  const state: MakeDelegationState = { subdir: null, targets: [] };
+  for (let i = 1; i < tokens.length; i += 1) {
+    const nextIdx = consumeMakeDelegationToken(tokens, i, state);
+    if (nextIdx === null) return null;
+    i = nextIdx;
+  }
+  return state.subdir && state.targets.length > 0
+    ? { subdir: state.subdir, targets: state.targets }
+    : null;
+}
+
+function rewriteDelegatedComposeArgs(args: string[], relSubdirPosix: string): string[] {
+  if (!relSubdirPosix || relSubdirPosix === '.' || args[0] !== 'compose') {
+    return args;
+  }
+  const rewritten = [...args];
+  for (let i = 1; i < rewritten.length - 1; i += 1) {
+    if (rewritten[i] === '-f' || rewritten[i] === '--file') {
+      const val = rewritten[i + 1];
+      if (!path.isAbsolute(val) && !val.startsWith(`${relSubdirPosix}/`)) {
+        rewritten[i + 1] = path.posix.join(relSubdirPosix, val.replace(/\\/g, '/'));
+      }
+      i += 1;
+    }
+  }
+  if (!rewritten.includes('--project-directory')) {
+    rewritten.splice(1, 0, '--project-directory', relSubdirPosix);
+  }
+  return rewritten;
+}
+
+function resolveDelegatedMakeRecipe(
+  delegation: { subdir: string; targets: string[] },
+  ctx: MakeResolutionContext,
+  commands: string[][]
+): string | null {
+  if (ctx.depth >= MAX_MAKE_DELEGATION_DEPTH) {
+    return 'Profundidad máxima de delegación $(MAKE) -C excedida.';
+  }
+  const targetDir = path.resolve(ctx.currentDir, delegation.subdir);
+  const insideRoot =
+    targetDir === ctx.rootDir || targetDir.startsWith(`${ctx.rootDir}${path.sep}`);
+  if (!insideRoot) {
+    return `Delegación $(MAKE) -C fuera del directorio raíz bloqueada por seguridad: ${delegation.subdir}`;
+  }
+  if (targetDir === ctx.currentDir) {
+    return `Delegación circular $(MAKE) -C sobre el mismo directorio: ${delegation.subdir}`;
+  }
+  const subMakefilePath = path.join(targetDir, 'Makefile');
+  if (!fs.existsSync(subMakefilePath)) {
+    return `No existe Makefile en subdirectorio '${delegation.subdir}'.`;
+  }
+  const subContent = fs.readFileSync(subMakefilePath, 'utf8');
+  const relSubdirPosix = path.relative(ctx.rootDir, targetDir).split(path.sep).join('/');
+  for (const subTarget of delegation.targets) {
+    const subRes = resolveMakefileDockerRecipes(
+      subContent,
+      subTarget,
+      targetDir,
+      ctx.rootDir,
+      ctx.depth + 1
+    );
+    if (!subRes.ok) {
+      return subRes.reason;
+    }
+    for (const cmd of subRes.commands) {
+      commands.push(rewriteDelegatedComposeArgs(cmd, relSubdirPosix));
+    }
+  }
+  return null;
+}
+
 function appendTargetRecipeCommands(
   rawLines: readonly string[],
   vars: ReadonlyMap<string, string>,
+  ctx: MakeResolutionContext,
   commands: string[][]
 ): string | null {
   for (const rawLine of rawLines) {
@@ -266,10 +388,17 @@ function appendTargetRecipeCommands(
     if (!expanded || isBannerCommand(expanded)) {
       continue;
     }
-    if (!isAllowedDockerRecipe(expanded)) {
-      return `Receta bloqueada por Regla Cero en fallback sin make (solo se permiten comandos 'docker compose' o 'docker run'): ${expanded}`;
+    if (isAllowedDockerRecipe(expanded)) {
+      commands.push(tokenizeCommandArgs(expanded).slice(1));
+      continue;
     }
-    commands.push(tokenizeCommandArgs(expanded).slice(1));
+    const delegation = parseMakeDelegation(expanded);
+    if (delegation) {
+      const delErr = resolveDelegatedMakeRecipe(delegation, ctx, commands);
+      if (delErr) return delErr;
+      continue;
+    }
+    return `Receta bloqueada por Regla Cero en fallback sin make (solo se permiten comandos 'docker compose', 'docker run' o '$(MAKE) -C'): ${expanded}`;
   }
   return null;
 }
@@ -279,6 +408,7 @@ function collectTargetCommands(
   parsed: ParsedMakefile,
   visited: Set<string>,
   active: Set<string>,
+  ctx: MakeResolutionContext,
   commands: string[][]
 ): string | null {
   if (active.has(targetName)) {
@@ -294,7 +424,7 @@ function collectTargetCommands(
 
   active.add(targetName);
   for (const dep of deps) {
-    const depError = collectTargetCommands(dep, parsed, visited, active, commands);
+    const depError = collectTargetCommands(dep, parsed, visited, active, ctx, commands);
     if (depError) {
       return depError;
     }
@@ -303,6 +433,7 @@ function collectTargetCommands(
   const recipeError = appendTargetRecipeCommands(
     parsed.recipes.get(targetName) ?? [],
     parsed.vars,
+    ctx,
     commands
   );
   if (recipeError) {
@@ -321,11 +452,26 @@ function collectTargetCommands(
 export function resolveMakefileDockerRecipes(
   makefileContent: string,
   target: string,
-  resolvedPath: string
+  resolvedPath: string,
+  rootDir?: string,
+  depth = 0
 ): RecipeResolutionResult {
-  const parsed = parseMakefile(makefileContent, resolvedPath);
+  const currentDir = path.resolve(resolvedPath);
+  const parsed = parseMakefile(makefileContent, currentDir);
   const commands: string[][] = [];
-  const errorReason = collectTargetCommands(target, parsed, new Set(), new Set(), commands);
+  const ctx: MakeResolutionContext = {
+    rootDir: rootDir ? path.resolve(rootDir) : currentDir,
+    currentDir,
+    depth,
+  };
+  const errorReason = collectTargetCommands(
+    target,
+    parsed,
+    new Set(),
+    new Set(),
+    ctx,
+    commands
+  );
   if (errorReason) {
     return { ok: false, reason: errorReason };
   }
@@ -374,6 +520,132 @@ function extractComposeServices(composeContent: string): string[] {
   return services;
 }
 
+function resolveHostUidGid(): string {
+  const uid = typeof process.getuid === 'function' ? process.getuid() : 1000;
+  const gid = typeof process.getgid === 'function' ? process.getgid() : 1000;
+  return `${uid}:${gid}`;
+}
+
+function buildComposeRunPrefix(
+  service: string,
+  uidGid: string,
+  extraEnv: readonly string[] = []
+): string[] {
+  const args = [
+    'compose',
+    '-f',
+    COMPOSE_QA_FILE,
+    'run',
+    '--rm',
+    '-T',
+    '-u',
+    uidGid,
+    '-e',
+    'HOME=/tmp',
+  ];
+  for (const envPair of extraEnv) {
+    args.push('-e', envPair);
+  }
+  args.push(service);
+  return args;
+}
+
+function readPackageScripts(resolvedPath: string): Record<string, string> {
+  try {
+    const raw = fs.readFileSync(path.join(resolvedPath, 'package.json'), 'utf8');
+    const parsed = JSON.parse(raw) as { scripts?: unknown };
+    if (!parsed.scripts || typeof parsed.scripts !== 'object' || Array.isArray(parsed.scripts)) {
+      return {};
+    }
+    return parsed.scripts as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
+function resolveUiE2eDirectCommands(
+  stage: string,
+  services: readonly string[],
+  hasPkgJson: boolean,
+  uidGid: string
+): string[][] | null {
+  if (!hasPkgJson || !services.includes('ui-e2e')) {
+    return null;
+  }
+  if (stage === 'e2e') {
+    const cmd =
+      'if [ -x ./node_modules/.bin/playwright ]; then ./node_modules/.bin/playwright test; ' +
+      'elif command -v pnpm >/dev/null 2>&1; then pnpm exec playwright test; ' +
+      'else corepack pnpm exec playwright test; fi';
+    return [[...buildComposeRunPrefix('ui-e2e', uidGid), 'bash', '-c', cmd]];
+  }
+  if (stage === 'perf') {
+    const cmd =
+      'export CHROME_PATH=$(ls -d /ms-playwright/chromium-*/chrome-linux/chrome 2>/dev/null | head -n 1) && ' +
+      'if [ -x ./node_modules/.bin/lhci ]; then ./node_modules/.bin/lhci autorun --config=lighthouserc.cjs; ' +
+      'elif command -v pnpm >/dev/null 2>&1; then pnpm run test:perf; ' +
+      'else corepack pnpm run test:perf; fi';
+    return [[...buildComposeRunPrefix('ui-e2e', uidGid), 'bash', '-c', cmd]];
+  }
+  return null;
+}
+
+function resolveNodeDirectCommands(
+  resolvedPath: string,
+  primaryService: string,
+  stage: string,
+  uidGid: string
+): string[][] | null {
+  const scripts = readPackageScripts(resolvedPath);
+  if (stage === 'lint') {
+    return [[...buildComposeRunPrefix(primaryService, uidGid), 'pnpm', 'run', 'lint']];
+  }
+  if (stage === 'unit') {
+    const unitScript =
+      ['test:coverage', 'test:unit', 'test'].find((name) => Boolean(scripts[name])) ?? 'test:unit';
+    return [[...buildComposeRunPrefix(primaryService, uidGid), 'pnpm', 'run', unitScript]];
+  }
+  if (stage === 'mutation' && scripts.mutate) {
+    return [[...buildComposeRunPrefix(primaryService, uidGid), 'pnpm', 'run', 'mutate']];
+  }
+  return null;
+}
+
+function resolvePythonDirectCommands(
+  resolvedPath: string,
+  primaryService: string,
+  stage: string,
+  uidGid: string
+): string[][] | null {
+  if (stage === 'lint') {
+    return [
+      [
+        ...buildComposeRunPrefix(primaryService, uidGid, ['RUFF_CACHE_DIR=/tmp/ruff-cache']),
+        'sh',
+        '-c',
+        'ruff check src tests && mypy --strict --cache-dir=/tmp/mypy src',
+      ],
+    ];
+  }
+  if (stage === 'unit') {
+    return [
+      [
+        ...buildComposeRunPrefix(primaryService, uidGid, ['COVERAGE_FILE=/tmp/.coverage']),
+        'pytest',
+        '-o',
+        'cache_dir=/tmp/pytest-cache',
+        '--import-mode=importlib',
+        '--cov=src',
+        '--cov-fail-under=95',
+      ],
+    ];
+  }
+  if (stage === 'migration' && fs.existsSync(path.join(resolvedPath, 'alembic.ini'))) {
+    return [[...buildComposeRunPrefix(primaryService, uidGid), 'alembic', 'upgrade', 'head']];
+  }
+  return null;
+}
+
 /**
  * Fallback directo sobre docker-compose.qa.yml para proyectos sin Makefile o sin el target buscado.
  */
@@ -391,14 +663,25 @@ export function resolveComposeDirectFallback(
       ['compose', '-f', COMPOSE_QA_FILE, 'run', '--rm', '-T', 'karatelabs', 'mvn', '-B', 'clean', 'test'],
     ];
   }
+  const hasComposer = fs.existsSync(path.join(resolvedPath, 'composer.json'));
+  const hasPkgJson = fs.existsSync(path.join(resolvedPath, 'package.json'));
+  const hasPyManifest =
+    fs.existsSync(path.join(resolvedPath, 'pyproject.toml')) ||
+    fs.existsSync(path.join(resolvedPath, 'requirements.txt'));
+  const uidGid = resolveHostUidGid();
+
+  const e2eCmds = resolveUiE2eDirectCommands(stage, services, hasPkgJson, uidGid);
+  if (e2eCmds) {
+    return e2eCmds;
+  }
+
   const primaryService =
     PREFERRED_QA_SERVICES.find((svc) => services.includes(svc)) ??
     services.find((svc) => svc.startsWith('qa-'));
-  if (
-    primaryService &&
-    COMPOSER_STAGE_SET.has(stage) &&
-    fs.existsSync(path.join(resolvedPath, 'composer.json'))
-  ) {
+  if (!primaryService) {
+    return null;
+  }
+  if (COMPOSER_STAGE_SET.has(stage) && hasComposer) {
     return [
       [
         'compose',
@@ -413,6 +696,12 @@ export function resolveComposeDirectFallback(
         `qa:${stage}`,
       ],
     ];
+  }
+  if (hasPkgJson && !hasComposer) {
+    return resolveNodeDirectCommands(resolvedPath, primaryService, stage, uidGid);
+  }
+  if (hasPyManifest) {
+    return resolvePythonDirectCommands(resolvedPath, primaryService, stage, uidGid);
   }
   return null;
 }

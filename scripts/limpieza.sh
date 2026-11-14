@@ -33,7 +33,7 @@ clean_scope_dir() {
     "${dir}/infection.log" "${dir}/infection-summary.log" "${dir}/infection-report.json" \
     "${dir}/zap-report.html" "${dir}/zap-report.json" "${dir}/zap-report.xml" "${dir}/zap-report.md" \
     "${dir}/chaos-report.html" "${dir}/chaos-report.json" \
-    "${dir}/k6-summary.json" "${dir}/k6-results.json" "${dir}/locust-report.html" \
+    "${dir}/k6-summary.json" "${dir}/k6-results.json" "${dir}/locust-report.html" "${dir}/psi-report.json" \
     "${dir}/release-readiness.json" "${dir}/release-readiness.md" \
     "${dir}/promptfoo-output.json" "${dir}/promptfoo-output.html" \
     "${dir}/deepeval-results.json" "${dir}/qa-11x-last-failure.json" \
@@ -57,7 +57,7 @@ clean_scope_dir() {
     "${dir}/coverage" "${dir}/.nyc_output" "${dir}/.stryker-tmp" "${dir}/.clinic" \
     "${dir}/test-results" "${dir}/playwright-report" "${dir}/blob-report" "${dir}/playwright/.cache" \
     "${dir}/cypress/videos" "${dir}/cypress/screenshots" "${dir}/nginx-logs" "${dir}/reports" \
-    "${dir}/.lighthouseci" "${dir}/lhci-reports" "${dir}/.lhcache" "${dir}/.eslintcache" "${dir}/.stylelintcache" \
+    "${dir}/.lighthouseci" "${dir}/lhci-reports" "${dir}/psi-reports" "${dir}/.lhcache" "${dir}/.eslintcache" "${dir}/.stylelintcache" \
     "${dir}/prometheus_data" 2>/dev/null || true
 
   if [ "${preserve_dist}" != "true" ]; then

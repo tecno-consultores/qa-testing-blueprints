@@ -20,6 +20,8 @@ test-results/
 playwright-report/
 blob-report/
 lhci-reports/
+psi-reports/
+psi-report.json
 .lhcache/
 target/
 test/target/

@@ -993,6 +993,27 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def auditarManifest = findEntry(manifest.common_files, 'scripts/auditar-infra.sh')
     * match auditarManifest.sha256 == '#regex ^[0-9a-f]{64}$'
 
-
-
+  Scenario: 32. Verificar paridad Dual-Consumer QA-PLAYWRIGHT-PIN-01, fallbacks ui-e2e/make -C, exclusiones PSI y scripts PageSpeed Insights
+    * def findEntry = function(list, pathStr) { return karate.filter(list, function(x) { return x.path == pathStr })[0] }
+    * def secAuditor = karate.readAsString(repoRoot + '/mcp-server/src/tools/security-auditor.ts')
+    * assert secAuditor.contains('QA-PLAYWRIGHT-PIN-01')
+    * assert secAuditor.contains('/tmp/psi')
+    * def securityDoc = karate.readAsString(repoRoot + '/SECURITY.md')
+    * assert securityDoc.contains('QA-PLAYWRIGHT-PIN-01')
+    * def docs04 = karate.readAsString(repoRoot + '/docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md')
+    * assert docs04.contains('QA-PLAYWRIGHT-PIN-01')
+    * def skillMd = karate.readAsString(repoRoot + '/.agents/skills/qa-11x-architect/SKILL.md')
+    * assert skillMd.contains('QA-PLAYWRIGHT-PIN-01')
+    * def vueMake = karate.readAsString(repoRoot + '/vue3/Makefile.example')
+    * assert vueMake.contains('./node_modules/.bin/playwright')
+    * assert vueMake.contains('./node_modules/.bin/lhci')
+    * assert vueMake.contains('qa-psi:')
+    * def reactMake = karate.readAsString(repoRoot + '/react-frontend/Makefile.example')
+    * assert reactMake.contains('./node_modules/.bin/playwright')
+    * assert reactMake.contains('./node_modules/.bin/lhci')
+    * assert reactMake.contains('qa-psi:')
+    * def psiShManifest = findEntry(manifest.common_files, 'scripts/auditar-pagespeed.sh')
+    * match psiShManifest.sha256 == '#regex ^[0-9a-f]{64}$'
+    * def psiPyManifest = findEntry(manifest.agent_governance_files, '.agents/scripts/audit_pagespeed_insights.py')
+    * match psiPyManifest.sha256 == '#regex ^[0-9a-f]{64}$'
 

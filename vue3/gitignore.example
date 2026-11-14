@@ -12,6 +12,8 @@ coverage/
 target/
 test/target/
 lhci-reports/
+psi-reports/
+psi-report.json
 .lhcache/
 graphify-out/
 prometheus_data/
