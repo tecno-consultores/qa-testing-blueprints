@@ -91,9 +91,9 @@ Esta arquitectura funciona de forma nativa e idéntica en las principales herram
 
 Para evitar que los agentes deban clonar gigabytes de repositorios o saturar su ventana de contexto con cientos de archivos, el ecosistema se distribuye como servidor MCP oficial bajo el estándar de Anthropic / Linux Foundation (ver también [`docs/specs/13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md`](specs/13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md)):
 
-1. **9 Recursos Dinámicos (`blueprint://*`):**
+1. **12 Recursos Dinámicos (`blueprint://*`):**
    - `blueprint://manifest`: Índice criptográfico con hashes SHA-256 de todos los stacks y archivos comunes.
-   - `blueprint://core/philosophy`: Filosofía 11X y prompt maestro (`AI_MASTER_PROMPT.md`).
+   - `blueprint://core/philosophy` (`blueprint://philosophy`): Filosofía 11X y prompt maestro (`AI_MASTER_PROMPT.md`).
    - `blueprint://security/disa-owasp-22`: Síntesis técnica de los 22 patrones DISA ASD STIG V6R5 y OWASP v4.2.
    - `blueprint://{stack}/readme`: Especificación del stack solicitado (`fastapi`, `vue3`, `node-backend`, `python`, `react-frontend`, `bash-scripts`, `php`).
    - `blueprint://ui/refactoring-ui/{topic}`: Directivas tácticas visuales y WCAG 2.1 AA (`skill`, `hierarchy`, `layout`, `type`, `color`, `depth`, `images`, `polish`, `dark-mode`, `tailwind`).
@@ -101,8 +101,11 @@ Para evitar que los agentes deban clonar gigabytes de repositorios o saturar su 
    - `blueprint://core/cleanup-script`: Script de saneamiento universal sin `sudo`.
    - `blueprint://core/roadmap-validator`: Validador de consistencia de hoja de ruta.
    - `blueprint://database/postgres-rls-worm`: Implementación de referencia de PostgreSQL 17 RLS Multi-Transacción (`after_begin`) y cadena forense WORM determinista (`seq_num` + `pg_advisory_xact_lock`).
+   - `blueprint://ai/evals-redteam` *(v2.0)*: Guía de evaluación agéntica dual-mode DeepEval y Red Teaming OWASP LLM Top 10 con Promptfoo.
+   - `blueprint://mobile-appium/readme` *(v2.0)*: Blueprint Screenplay móvil Appium 2 + WebdriverIO (`mobile-appium/`).
+   - `blueprint://vibe-rescue/readme` *(v2.0)*: Protocolo *Vibe-to-Enterprise* en 5 etapas y endurecimiento RLS/WORM (`vibe-rescue/`).
 
-2. **12 Herramientas de Ejecución (`Tools`):**
+2. **18 Herramientas de Ejecución (`Tools`):**
    - `inspect_project_config`: Detección automática del stack, linters, disponibilidad de pruebas en navegador real (`BrowserTestingReadiness`) y estado de actualización `update_available` (comparación SemVer con caché TTL 24h *fail-open* contra `.qa-11x-version`).
    - `fetch_blueprint_bundle`: Descarga quirúrgica de plantillas con validación de hashes SHA-256 (soporta modo índice `include_content: false` en Hito 14).
    - `bootstrap_or_merge_11x`: Fusión no destructiva inyectando configuraciones QA en proyectos existentes.
@@ -115,9 +118,15 @@ Para evitar que los agentes deban clonar gigabytes de repositorios o saturar su 
    - `init_or_append_agents_md`: Inyector aditivo no destructivo del bloque conector QA 11X en `AGENTS.md`.
    - `propose_skill_evolution_pr`: Propuesta de evolución continua Zero-Trust Dual-Consumer hacia `qa-testing-blueprints`.
    - `reconcile_agents_governance`: Reconciliador y deduplicador automático de reglas en `.agents/` con respaldo en `.agents/backups/`.
+   - `validate_calm_architecture` *(v2.0)*: Validador bloqueante de arquitectura como código FINOS CALM (`architecture/qa-11x.calm.json`).
+   - `evaluate_release_gate` *(v2.0)*: Calculador cuantitativo `GO`/`NO_GO` de disponibilidad para liberación (`>= 95%`, Trivy = 0, MSI, CALM).
+   - `evaluate_agent_trajectory` *(v2.0)*: Evaluador offline AST-First y DeepEval para trayectorias multi-paso de agentes de IA.
+   - `run_llm_red_team` *(v2.0)*: Auditor Promptfoo OWASP LLM Top 10 con sondas `promptGuard` y ejecución condicional en Docker.
+   - `audit_vibe_prototype` *(v2.0)*: Detector de riesgos `VIBE-SEC-001..QA-005` en prototipos IA con planes `dryRun` hacia RLS/WORM.
+   - `sync_enterprise_tms` *(v2.0)*: Sincronizador JUnit/Allure/SARIF hacia TestRail y Jira Xray protegido con `TaskStateGuard`.
 
-3. **Inyección de Skills, Scripts, Sello `.qa-11x-version` y Auto-Sync Global en Segundo Plano (`install-skill`):**
-   Cualquier agente o desarrollador puede autoinstalar el catálogo completo de 5 skills (`qa-11x-architect`, `refactoring-ui`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `qa-11x-docker-certifier`), los scripts operativos (`.agents/scripts/*`, `scripts/*`) y el conector en `AGENTS.md` ejecutando `npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts` (estampando `.qa-11x-version`). Además, al arrancar en modo `stdio`, el servidor MCP sincroniza silenciosamente en segundo plano (`SHA-256` contra `manifest.json`) las skills globales ya instaladas.
+3. **Onboarding `quickstart` y Sync Automático de 10 Skills Modulares (`install-skill`):**
+   Cualquier desarrollador o agente puede adoptar la pirámide en 30 segundos con `npx -y @sinfallas/mcp-qa-11x@latest quickstart`, o autoinstalar las skills modulares, scripts operativos (`.agents/scripts/*`, `scripts/*`) y conector `AGENTS.md` mediante `install-skill --init-agents --include-scripts --reconcile` (estampando `.qa-11x-version`). Además, al arrancar en modo `stdio`, el servidor MCP sincroniza en segundo plano (`SHA-256` contra `manifest.json`) las skills globales instaladas.
 
 ---
 

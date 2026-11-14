@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
-  "blueprint_version": "2.20.3",
-  "generated_at_utc": "2026-11-14T17:52:48Z",
+  "blueprint_version": "2.0.0",
+  "generated_at_utc": "2026-11-14T18:36:22Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -777,8 +777,8 @@
       "path": ".agents/scripts/certify_task_completion.sh",
       "target_name": ".agents/scripts/certify_task_completion.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "6a084200466a56247bab47746dd203fdd4e8c52492364761f7cbb457b50e3101",
-      "size_bytes": 13261
+      "sha256": "ae4c665beb03ca951afd52ca97994af3bc013fbe57f53541b69dcb2a2f93edbb",
+      "size_bytes": 13260
     },
     {
       "path": ".agents/scripts/compact_context_11x.py",
@@ -819,8 +819,8 @@
       "path": ".agents/scripts/sync_governance.py",
       "target_name": ".agents/scripts/sync_governance.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "5dd2e9ff48795cb9af7e00747e67793b9b6c0054d66752b2d17851d64e4066c9",
-      "size_bytes": 27502
+      "sha256": "e6967e8ccafa6bcb08d8f1b194491c7707e9754d74e0adc719f380639d3a37a3",
+      "size_bytes": 27501
     },
     {
       "path": ".agents/scripts/validate_calm_architecture.sh",
@@ -840,8 +840,8 @@
       "path": ".agents/scripts/verify_docs_invariants.py",
       "target_name": ".agents/scripts/verify_docs_invariants.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "de7f7721a1f1f94aca31cc9a2fdb20d37f47e8ad6d71924174caf9302bacdc19",
-      "size_bytes": 12199
+      "sha256": "49f48ad1554106f04245dc700de680476ea85680a6684bcbde1d30dc0c837d72",
+      "size_bytes": 13058
     },
     {
       "path": ".agents/scripts/verify_json_no_duplicate_keys.py",
@@ -896,8 +896,8 @@
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "59951a38ed8507f5c1d0cb6b8a2926164a817875731c56bd2948ef49a945eb10",
-      "size_bytes": 11797
+      "sha256": "a6f2192611d53a1bce40d0e9e2e4f0b968807050b287d31d2a7e95e2d16ddf62",
+      "size_bytes": 11699
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",

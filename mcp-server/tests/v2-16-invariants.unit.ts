@@ -53,17 +53,23 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
       expect(await dispatchCliArgs(['--version'])).toBe(0);
       expect(await dispatchCliArgs(['-v'])).toBe(0);
       expect(logSpy).toHaveBeenCalledWith(MCP_SERVER_VERSION);
-      expect(MCP_SERVER_VERSION).toBe('2.20.3');
+      expect(MCP_SERVER_VERSION).toBe('2.0.0');
 
       expect(await dispatchCliArgs(['--help'])).toBe(0);
       expect(await dispatchCliArgs(['-h'])).toBe(0);
       expect(CLI_HELP_TEXT).toContain('--version');
       expect(CLI_HELP_TEXT).toContain('--stdio');
+      expect(CLI_HELP_TEXT).toContain('quickstart');
       expect(INTERACTIVE_TTY_NOTICE).toContain('install-skill');
+      expect(INTERACTIVE_TTY_NOTICE).toContain('quickstart');
 
       expect(await dispatchCliArgs(['init-agents', '--project-path', tmpDir, '--dry-run'])).toBe(0);
       expect(await dispatchCliArgs(['init-agents-md', '--project-path', tmpDir, '--dry-run'])).toBe(0);
       expect(await dispatchCliArgs(['reconcile-agents', '--project-path', tmpDir, '--dry-run'])).toBe(0);
+      expect(
+        await dispatchCliArgs(['quickstart', tmpDir, '--tier', 'starter', '--lang', 'en', '--dry-run', '--json'])
+      ).toBe(0);
+      expect(await dispatchCliArgs(['quickstart', '--tier', 'invalid'])).toBe(1);
 
       // Verify install-skill and 'install' alias hermetically in tmpDir
       const skillBody = '# Skill Test\n';

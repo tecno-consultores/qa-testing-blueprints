@@ -52,7 +52,7 @@ const HEADER_AUTHORIZATION = 'Authorization';
 const HEADER_IDEMPOTENCY_KEY = 'Idempotency-Key';
 const HEADER_USER_AGENT = 'User-Agent';
 const MIME_JSON = 'application/json';
-const USER_AGENT_VALUE = 'qa-11x-tms-sync/2.20.3';
+const USER_AGENT_VALUE = 'qa-11x-tms-sync/2.0.0';
 
 const SCHEMA_STRING = 'string' as const;
 const SCHEMA_BOOLEAN = 'boolean' as const;

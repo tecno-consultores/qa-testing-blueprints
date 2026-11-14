@@ -1404,4 +1404,17 @@ def test_verify_docs_invariants_bilingual_readme_and_internal_links(
     assert any("enlace interno roto" in err for err in broken_errors)
     assert any("fuera del repositorio" in err for err in broken_errors)
 
+    # Caso 4: Conteo MCP v1 obsoleto (12 Tools / 9 Resources) en repos v2.0
+    (tmp_path / "README.md").write_text(
+        "> 🌐 Language: **English** | [Español](README.es.md)\n\n"
+        "Exposes 12 Tools and 9 Resources.\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "README.es.md").write_text(
+        "> 🌐 Idioma: [English](README.md) | **Español**\n",
+        encoding="utf-8",
+    )
+    stale_errors = mod.validate_repository_docs(tmp_path)
+    assert any("conteo MCP v1 obsoleto" in err for err in stale_errors)
+
 

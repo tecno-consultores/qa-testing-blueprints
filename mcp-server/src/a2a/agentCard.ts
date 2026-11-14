@@ -19,7 +19,7 @@ export const SUPPORTED_TASK_CAPACITY_URIS = [
 ] as const;
 
 export const DEFAULT_AGENT_NAME = 'qa-11x-mcp-agent' as const;
-export const DEFAULT_AGENT_VERSION = '2.20.3' as const;
+export const DEFAULT_AGENT_VERSION = '2.0.0' as const;
 export const DEFAULT_STANDARD_VERSION = 'QA-11X v2.0' as const;
 export const DEFAULT_ACTIVE_MODEL = 'local-or-frontier-hybrid' as const;
 export const DEFAULT_AGENT_URL = 'stdio://sinfallas/mcp-qa-11x' as const;

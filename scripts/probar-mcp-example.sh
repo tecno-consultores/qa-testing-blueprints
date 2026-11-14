@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
-# Propósito: Certificar en contenedor Docker efímero (Rule Zero) las 12 tools,
-#            9 resources y 3 subcomandos CLI de @sinfallas/mcp-qa-11x contra el
-#            proyecto semilla real mcp-server/example/ (modo Clean-Room por defecto).
+# Propósito: Certificar en contenedor Docker efímero (Rule Zero) las 18 tools,
+#            12 resources, 4 subcomandos CLI y tarball v2.0.0 de @sinfallas/mcp-qa-11x
+#            contra mcp-server/example/ y verify-v2.sh (Clean-Room por defecto).
 
 LC_ALL=C
 set -euo pipefail
@@ -45,7 +45,7 @@ if [ "${IN_PLACE}" = true ]; then
     docker compose -f "${REPO_ROOT}/mcp-server/docker-compose.qa.yml" run --rm \
     -u "${CURRENT_UID}:${CURRENT_GID}" \
     -e QA_BLUEPRINTS_LOCAL_PATH=/app \
-    mcp-server bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run build && pnpm run test:example" || rc=$?
+    mcp-server bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run build && pnpm run test:example && ./example/verify-v2.sh" || rc=$?
   docker compose -f "${REPO_ROOT}/mcp-server/docker-compose.qa.yml" rm -sf pnpm-store-init >/dev/null 2>&1 || true
   exit "${rc}"
 fi
@@ -79,6 +79,6 @@ QA_UID="${CURRENT_UID}" QA_GID="${CURRENT_GID}" \
   docker compose -p "${CLEANROOM_PROJECT}" -f "${CLEANROOM_DIR}/mcp-server/docker-compose.qa.yml" run --rm \
   -u "${CURRENT_UID}:${CURRENT_GID}" \
   -e QA_BLUEPRINTS_LOCAL_PATH=/app \
-  mcp-server bash -c "pnpm install --frozen-lockfile --silent && pnpm --silent run build && pnpm run test:example"
+  mcp-server bash -c "pnpm install --frozen-lockfile --silent && pnpm --silent run build && pnpm run test:example && ./example/verify-v2.sh"
 
-echo "✅ [Clean-Room E2E] Instalación limpia + compilación + 12 tools / 9 resources / 3 CLI verificadas."
+echo "✅ [Clean-Room E2E] Instalación limpia + compilación + 18 tools / 12 resources / quickstart / verify-v2.sh verificadas."

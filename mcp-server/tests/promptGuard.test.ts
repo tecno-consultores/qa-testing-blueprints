@@ -391,6 +391,152 @@ describe('Zero-Infra PromptGuard & MCP Interceptor (T2.4)', () => {
           name: 'inspect_project_config',
         });
         expect(noArgsRes.isError).toBe(true);
+
+        // 4. Superficie pública consolidada v2.0.0 (18 tools y 12 resources)
+        const toolsList = await client.listTools();
+        const listedToolNames = toolsList.tools.map((t) => t.name);
+        expect(listedToolNames).toHaveLength(18);
+        for (const v2Tool of [
+          'validate_calm_architecture',
+          'evaluate_release_gate',
+          'evaluate_agent_trajectory',
+          'run_llm_red_team',
+          'audit_vibe_prototype',
+          'sync_enterprise_tms',
+        ]) {
+          expect(listedToolNames).toContain(v2Tool);
+        }
+
+        const resourcesList = await client.listResources();
+        const listedUris = resourcesList.resources.map((r) => r.uri);
+        expect(listedUris).toHaveLength(12);
+        for (const v2Uri of [
+          'blueprint://ai/evals-redteam',
+          'blueprint://mobile-appium/readme',
+          'blueprint://vibe-rescue/readme',
+        ]) {
+          expect(listedUris).toContain(v2Uri);
+          const readV2 = await client.readResource({ uri: v2Uri });
+          expect(readV2.contents[0].text.length).toBeGreaterThan(200);
+        }
+        const readV1Manifest = await client.readResource({ uri: 'blueprint://manifest' });
+        expect(readV1Manifest.contents[0].uri).toBe('blueprint://manifest');
+
+        // 5. Ejecución de las 6 tools v2.0 a través de attachPromptGuard (hermético en tmpDir)
+        const requiredControls = [
+          'prompt-injection-guard',
+          'rule-zero-ephemeral-docker',
+          'postgres-rls-isolation',
+          'worm-hmac-audit-chain',
+          'vault-aes-256-gcm',
+          'git-closure-human-gate',
+          'cli-tty-anti-hang-guard',
+        ];
+        const calmModel = {
+          $schema: 'https://calm.finos.org/release/1.2/meta/calm.json',
+          nodes: [
+            { 'unique-id': 'qa-11x-ai-ide-host', 'node-type': 'actor', name: 'Host', description: 'IDE' },
+            { 'unique-id': 'mcp-qa-11x-server', 'node-type': 'service', name: 'MCP', description: 'Server' },
+            { 'unique-id': 'ephemeral-docker-runners', 'node-type': 'system', name: 'Docker', description: 'Runners' },
+            { 'unique-id': 'postgres17-rls-store', 'node-type': 'database', name: 'PG17', description: 'RLS' },
+            { 'unique-id': 'keydb-state-cache', 'node-type': 'database', name: 'KeyDB', description: 'Cache' },
+            { 'unique-id': 'governance-certification-gate', 'node-type': 'service', name: 'Gate', description: '10/10' },
+          ],
+          relationships: [
+            { 'unique-id': 'rel-1', 'relationship-type': { connects: { source: { node: 'qa-11x-ai-ide-host' }, destination: { node: 'mcp-qa-11x-server' } } } },
+            { 'unique-id': 'rel-2', 'relationship-type': { connects: { source: { node: 'mcp-qa-11x-server' }, destination: { node: 'ephemeral-docker-runners' } } } },
+            { 'unique-id': 'rel-3', 'relationship-type': { connects: { source: { node: 'ephemeral-docker-runners' }, destination: { node: 'postgres17-rls-store' } } } },
+            { 'unique-id': 'rel-4', 'relationship-type': { connects: { source: { node: 'ephemeral-docker-runners' }, destination: { node: 'keydb-state-cache' } } } },
+            { 'unique-id': 'rel-5', 'relationship-type': { connects: { source: { node: 'mcp-qa-11x-server' }, destination: { node: 'governance-certification-gate' } } } },
+          ],
+          controls: Object.fromEntries(
+            requiredControls.map((id, idx) => [
+              id,
+              {
+                description: `Control ${id}`,
+                requirements: [
+                  {
+                    'requirement-url': 'https://calm.finos.org/release/1.2/meta/control-requirement.json',
+                    config: { 'control-id': `QA-CTRL-${idx + 1}`, name: id, description: `Req ${id}` },
+                  },
+                ],
+              },
+            ])
+          ),
+        };
+        fs.writeFileSync(path.join(tmpDir, 'arch.calm.json'), JSON.stringify(calmModel), 'utf8');
+        fs.writeFileSync(
+          path.join(tmpDir, 'promptfooconfig.yaml'),
+          [
+            'prompts:',
+            '  - "Audit {{topic}}"',
+            'providers:',
+            '  - id: ollama:chat:llama3.2',
+            'tests:',
+            '  - assert:',
+            '      - type: is-json',
+            'redteam:',
+            '  plugins:',
+            '    - prompt-injection',
+            '    - jailbreak',
+            '    - pii',
+            '    - rbac',
+            '    - excessive-agency',
+            '  strategies:',
+            '    - basic',
+          ].join('\n'),
+          'utf8'
+        );
+
+        const calmOk = await client.callTool({
+          name: 'validate_calm_architecture',
+          arguments: { workspaceRoot: tmpDir, architecturePath: 'arch.calm.json' },
+        });
+        expect(calmOk.isError).not.toBe(true);
+
+        const smokeOk = await client.callTool({
+          name: 'evaluate_release_gate',
+          arguments: { workspaceRoot: tmpDir, scope: 'smoke' },
+        });
+        expect(smokeOk.isError).not.toBe(true);
+
+        const trajOk = await client.callTool({
+          name: 'evaluate_agent_trajectory',
+          arguments: {
+            mode: 'offline',
+            workspaceRoot: tmpDir,
+            steps: [{ tool: 'inspect_ast_blast_radius', status: 'passed', compiled: true }],
+            requiredSequence: ['inspect_ast_blast_radius'],
+          },
+        });
+        expect(trajOk.isError).not.toBe(true);
+
+        const redOk = await client.callTool({
+          name: 'run_llm_red_team',
+          arguments: { mode: 'offline', workspaceRoot: tmpDir, configPath: 'promptfooconfig.yaml' },
+        });
+        expect(redOk.isError).not.toBe(true);
+
+        const vibeOk = await client.callTool({
+          name: 'audit_vibe_prototype',
+          arguments: { workspaceRoot: tmpDir, targetDir: '.', dryRun: true },
+        });
+        expect(vibeOk.isError).not.toBe(true);
+
+        const tmsOk = await client.callTool({
+          name: 'sync_enterprise_tms',
+          arguments: {
+            mode: 'push-results',
+            provider: 'jira',
+            baseUrl: 'https://jira.example.com',
+            projectKey: 'QA',
+            junitXmlContent:
+              '<testsuite name="s" tests="1" failures="0"><testcase name="QA-101 ok"/></testsuite>',
+            dryRun: true,
+            workspaceRoot: tmpDir,
+          },
+        });
+        expect(tmsOk.isError).not.toBe(true);
       } finally {
         await client.close();
         await mcpServer.close();
@@ -400,6 +546,37 @@ describe('Zero-Infra PromptGuard & MCP Interceptor (T2.4)', () => {
           process.env.QA_BLUEPRINTS_LOCAL_PATH = prevLocalPath;
         }
         fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it('protege errores de ejecución y saturación TaskStateGuard formateando reporte Fail-Verbose', async () => {
+      const mcpServer = createMcpServer({ fetcher: new GitHubFetcher() });
+      const rawHandlers = Reflect.get(mcpServer.server, '_requestHandlers') as Map<
+        string,
+        (req: unknown, extra: unknown) => Promise<unknown>
+      >;
+      const slowBlockingError = new Error('Timeout simulado del subproceso');
+      rawHandlers.set('tools/call', async () => {
+        throw slowBlockingError;
+      });
+      attachPromptGuard(mcpServer);
+
+      const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+      const client = new Client({ name: 'task-guard-fail-verbose-test', version: '2.0.0' });
+      try {
+        await mcpServer.connect(serverTransport);
+        await client.connect(clientTransport);
+        const failRes = await client.callTool({
+          name: 'clean_workspace_11x',
+          arguments: { project_path: '/tmp' },
+        });
+        expect(failRes.isError).toBe(true);
+        const failText = (failRes.content as Array<{ type: string; text: string }>)[0].text;
+        expect(failText).toContain('[Fail-Verbose]');
+        expect(failText).toContain('Timeout simulado del subproceso');
+      } finally {
+        await client.close();
+        await mcpServer.close();
       }
     });
   });

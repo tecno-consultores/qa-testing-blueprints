@@ -13,7 +13,7 @@ MAX_SKILL_MD_BYTES = 20_000
 MAX_ACTIVE_TASK_LINES = 40
 
 FORBIDDEN_DOC_PATTERNS: tuple[tuple[str, str], ...] = (
-    (r"\b8 Resources\b|\b8 recursos\b|\b8 Recursos\b", "conteo obsoleto de 8 recursos MCP (debe ser 9)"),
+    (r"\b8 Resources\b|\b8 recursos\b|\b8 Recursos\b", "conteo obsoleto de 8 recursos MCP (debe ser 12)"),
     (r"1\.43\.0-jammy|karatelabs:1\.5\.0", "tag de imagen Docker obsoleto"),
     (r"\buv pip audit\b", "subcomando inexistente 'uv pip audit' (usar 'pip-audit')"),
     (r"refactoring-ui/\{topic\}[^\n]*\(`01` a `09`\)", "ejemplo numérico inválido en refactoring-ui/{topic}"),
@@ -251,6 +251,30 @@ def _check_readme_cross_link(
     ]
 
 
+_STALE_V1_MCP_COUNT_RE = re.compile(
+    r"\b(?:12\s+(?:Tools|tools|herramientas)"
+    r"|9\s+(?:Resources|resources|Recursos|recursos))\b"
+)
+
+
+def check_v2_mcp_surface_counts(root: Path) -> list[str]:
+    """Rechaza conteos MCP v1 obsoletos (12 tools / 9 resources) en repos v2.0."""
+    if not any((root / rel).is_file() for rel in BILINGUAL_TRIGGER_DOCS):
+        return []
+    errors: list[str] = []
+    for rel_path in DOC_TARGETS:
+        doc_path = root / rel_path
+        if not doc_path.is_file():
+            continue
+        content = doc_path.read_text(encoding="utf-8")
+        if _STALE_V1_MCP_COUNT_RE.search(content):
+            errors.append(
+                f"{rel_path}: detectado conteo MCP v1 obsoleto "
+                "(debe ser 18 Tools / 12 Resources)."
+            )
+    return errors
+
+
 def check_bilingual_readme_parity(root: Path) -> list[str]:
     """Valida existencia y enlace cruzado entre README.md y README.es.md."""
     if not any((root / rel).is_file() for rel in BILINGUAL_TRIGGER_DOCS):
@@ -331,6 +355,7 @@ def validate_repository_docs(root: Path) -> list[str]:
         *check_active_docs(root),
         *check_dual_consumer_parity(root),
         *check_bilingual_readme_parity(root),
+        *check_v2_mcp_surface_counts(root),
         *check_internal_markdown_links(root),
     ]
 

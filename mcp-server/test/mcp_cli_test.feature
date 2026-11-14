@@ -53,10 +53,10 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * match commonValid == '#[manifest.common_files.length]'
 
   # ==============================================================================
-  # Grupo 3: Contratos de Esquema de Herramientas MCP (Tools 1 a 12)
+  # Grupo 3: Contratos de Esquema de Herramientas MCP (Tools 1 a 18)
   # ==============================================================================
 
-  Scenario: 3. Definición de contratos y esquemas JSON para las 12 Herramientas MCP
+  Scenario: 3. Definición de contratos y esquemas JSON para las 18 Herramientas MCP
     * def expectedTools =
       """
       [
@@ -71,16 +71,22 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
         { name: 'audit_test_pyramid_gaps', required: ['project_path'] },
         { name: 'init_or_append_agents_md', required: ['project_path'] },
         { name: 'propose_skill_evolution_pr', required: ['project_path', 'target_blueprint_file', 'improvement_title', 'empirical_rationale', 'proposed_content_or_snippet'] },
-        { name: 'reconcile_agents_governance', required: ['project_path'] }
+        { name: 'reconcile_agents_governance', required: ['project_path'] },
+        { name: 'validate_calm_architecture', required: [] },
+        { name: 'evaluate_release_gate', required: [] },
+        { name: 'evaluate_agent_trajectory', required: [] },
+        { name: 'run_llm_red_team', required: [] },
+        { name: 'audit_vibe_prototype', required: [] },
+        { name: 'sync_enterprise_tms', required: ['mode'] }
       ]
       """
-    * match expectedTools == '#[12]'
+    * match expectedTools == '#[18]'
 
   # ==============================================================================
-  # Grupo 4: Contratos de Esquema de Recursos MCP (Resources 1 a 8)
+  # Grupo 4: Contratos de Esquema de Recursos MCP (Resources 1 a 12)
   # ==============================================================================
 
-  Scenario: 4. Definición de URIs y tipos MIME para los 9 Recursos MCP
+  Scenario: 4. Definición de URIs y tipos MIME para los 12 Recursos MCP
     * def expectedResources =
       """
       [
@@ -92,10 +98,13 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
         { uri: 'blueprint://ui/refactoring-ui/{topic}', mimeType: 'text/markdown' },
         { uri: 'blueprint://core/active-task-template', mimeType: 'text/markdown' },
         { uri: 'blueprint://core/cleanup-script', mimeType: 'text/x-shellscript' },
-        { uri: 'blueprint://core/roadmap-validator', mimeType: 'text/x-python' }
+        { uri: 'blueprint://core/roadmap-validator', mimeType: 'text/x-python' },
+        { uri: 'blueprint://ai/evals-redteam', mimeType: 'text/markdown' },
+        { uri: 'blueprint://mobile-appium/readme', mimeType: 'text/markdown' },
+        { uri: 'blueprint://vibe-rescue/readme', mimeType: 'text/markdown' }
       ]
       """
-    * match expectedResources == '#[9]'
+    * match expectedResources == '#[12]'
 
   # ==============================================================================
   # Grupo 5: Contrato de Salida de Herramientas MCP
@@ -549,9 +558,9 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert graphifySkillSource.contains('Graphify AST-First, Grep-Fallback, Windowed-Read-Second')
     * assert graphifySkillSource.contains('QA-TEST-SYNC-01')
 
-  Scenario: 19. Contrato v2.16.0 — SEC-16 (Pre-Auth Multi-Step Challenge Continuity), Thin-Repo bootstrap_or_merge_11x, Paridad 10/10 y CLI --version
-    * match pkg.version == '2.20.3'
-    * match manifest.blueprint_version == '2.20.3'
+  Scenario: 19. Contrato v2.0.0 — SEC-16 (Pre-Auth Multi-Step Challenge Continuity), Thin-Repo bootstrap_or_merge_11x, Paridad 10/10 y CLI --version
+    * match pkg.version == '2.0.0'
+    * match manifest.blueprint_version == '2.0.0'
 
     * def commonPaths = karate.map(manifest.common_files, function(x) { return x.path })
     * match commonPaths !contains 'scripts/publicar-mcp.sh'
@@ -591,7 +600,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert sec22Ref.contains('PREAUTH_TTL_SECONDS = 300')
 
     * def rootReadme = karate.readAsString(repoRoot + '/README.md')
-    * assert rootReadme.contains('9 recursos `blueprint://*`')
+    * assert rootReadme.contains('12 recursos `blueprint://*`')
     * assert !rootReadme.contains('8 Resources')
 
   Scenario: 21. Paridad Pre-Push 1:1 con CI — Sello de Evidencia Lint, Stages integration/ci, Parser de Endpoints Dinámicos e Invariantes Python/PostgreSQL 17
@@ -626,8 +635,8 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert rlsRef.contains('relforcerowsecurity')
     * assert rlsRef.contains('pg_namespace')
 
-  Scenario: 22. Internacionalización v2.18.0 — Idioma Espejo Dinámico, Flag --lang (auto|es|en), Targets codex/windsurf y Guías Multi-Agente EN/ES
-    * match pkg.version == '2.20.3'
+  Scenario: 22. Internacionalización v2.0.0 — Idioma Espejo Dinámico, Flag --lang (auto|es|en), Targets codex/windsurf y Guías Multi-Agente EN/ES
+    * match pkg.version == '2.0.0'
     * match pkg.description contains 'Official MCP Server & Thin-Repo Skill Installer for QA Testing Blueprints'
     * match pkg.keywords contains 'codex'
     * match pkg.keywords contains 'windsurf'
@@ -710,9 +719,9 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert rootSecurity.contains('### 4.22.')
     * assert rootSecurity.contains('QA-HEALTH-01')
 
-  Scenario: 24. Contrato v2.20.0 — Sello .qa-11x-version, Caché TTL 24h Fail-Open, Aviso Estructurado update_available y Auto-Sync Global de Skills por SHA-256
-    * match pkg.version == '2.20.3'
-    * match manifest.blueprint_version == '2.20.3'
+  Scenario: 24. Contrato v2.0.0 — Sello .qa-11x-version, Caché TTL 24h Fail-Open, Aviso Estructurado update_available y Auto-Sync Global de Skills por SHA-256
+    * match pkg.version == '2.0.0'
+    * match manifest.blueprint_version == '2.0.0'
 
     * def versionMgrSource = karate.readAsString(mcpRoot + '/src/services/version-manager.ts')
     * assert versionMgrSource.contains('.qa-11x-version')
@@ -748,7 +757,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert mcpCompose.contains('user: "${QA_UID:-1000}:${QA_GID:-1000}"')
 
     * def govDoc = karate.readAsString(repoRoot + '/docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md')
-    * assert govDoc.contains('9 Recursos Dinámicos')
+    * assert govDoc.contains('12 Recursos Dinámicos')
     * assert govDoc.contains('blueprint://database/postgres-rls-worm')
     * assert govDoc.contains('update_available')
 
@@ -764,16 +773,21 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert installSkillSrc.contains('resolveSafeHomeDir()')
     * assert !installSkillSrc.contains('os.homedir()')
 
-  Scenario: 26. Contrato v2.20.1 — Arnés E2E Real sobre stdio (mcp-server/example/) y Acoplamiento en las 4 Barreras
-    * match pkg.version == '2.20.3'
+  Scenario: 26. Contrato v2.0.0 — Arnés E2E Real sobre stdio (mcp-server/example/) + Clean-Room Tarball verify-v2.sh y 4 Barreras
+    * match pkg.version == '2.0.0'
     * match pkg.scripts['test:example'] == 'node example/run-example-e2e.mjs'
-    * match pkg.files == ['dist/**/*', 'README.md']
+    * match pkg.files == ['dist/**/*', 'README.md', 'CHANGELOG.md']
 
     * def e2eRunner = karate.readAsString(mcpRoot + '/example/run-example-e2e.mjs')
     * assert e2eRunner.contains('StdioClientTransport')
     * assert e2eRunner.contains('verifyAllResources')
-    * assert e2eRunner.contains('verifyAllTwelveTools')
+    * assert e2eRunner.contains('verifyAllEighteenTools')
     * assert e2eRunner.contains('verifyCliAndBackgroundAutoSync')
+
+    * def verifyV2Script = karate.readAsString(mcpRoot + '/example/verify-v2.sh')
+    * assert verifyV2Script.contains('npm pack')
+    * assert verifyV2Script.contains('toolsList.tools.length, 18')
+    * assert verifyV2Script.contains('resourcesList.resources.length, 12')
 
     * def cleanroomScript = karate.readAsString(repoRoot + '/scripts/probar-mcp-example.sh')
     * assert cleanroomScript.contains('--exclude=\'./mcp-server/node_modules\'')
@@ -792,9 +806,9 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def hooksInstaller = karate.readAsString(repoRoot + '/instalar-hooks.sh')
     * assert hooksInstaller.contains('./scripts/probar-mcp-example.sh --in-place')
 
-  Scenario: 27. Contrato v2.20.2 — Saneamiento integral en limpieza.sh, clean_workspace_11x y resolveSafeHomeDir (UID Non-Root)
-    * match pkg.version == '2.20.3'
-    * match manifest.blueprint_version == '2.20.3'
+  Scenario: 27. Contrato v2.0.0 — Saneamiento integral en limpieza.sh, clean_workspace_11x y resolveSafeHomeDir (UID Non-Root)
+    * match pkg.version == '2.0.0'
+    * match manifest.blueprint_version == '2.0.0'
     * def rootCleanup = karate.readAsString(repoRoot + '/scripts/limpieza.sh')
     * assert rootCleanup.contains('qa_mcp_cleanroom_')
     * assert rootCleanup.contains('qa-11x-mcp-example-e2e-')
@@ -822,8 +836,8 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert !cleanToolTs.contains("'zap.yaml'")
 
   Scenario: 28. Invariante Dual-Consumer QA-CLI-TTY-01 (Regla UAT #10), Guardia Anti-Bloqueo TTY, Flag --stdio y Alias install
-    * match pkg.version == '2.20.3'
-    * match manifest.blueprint_version == '2.20.3'
+    * match pkg.version == '2.0.0'
+    * match manifest.blueprint_version == '2.0.0'
     * def cliIndexSource = karate.readAsString(mcpRoot + '/src/index.ts')
     * assert cliIndexSource.contains('shouldExitInteractiveTty')
     * assert cliIndexSource.contains('INTERACTIVE_TTY_NOTICE')

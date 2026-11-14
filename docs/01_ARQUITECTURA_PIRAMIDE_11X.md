@@ -57,7 +57,7 @@ flowchart TD
 
 ## 3. Superficie MCP, Economía de Tokens y Cierre Humano (`QA-GIT-GATE-01`)
 
-* **Servidor MCP `@sinfallas/mcp-qa-11x`:** Expone actualmente **12 Tools** y **9 Resources** (`blueprint://*`) sobre `stdio`, preservando compatibilidad estricta hasta su consolidación en `T5.3` (mientras los nuevos evaluadores v2.0 ya operan internamente en `mcp-server/src/`).
+* **Servidor MCP `@sinfallas/mcp-qa-11x` v2.0.0:** Expone públicamente **18 Tools** (12 núcleo v1 + 6 v2.0: `validate_calm_architecture`, `evaluate_release_gate`, `evaluate_agent_trajectory`, `run_llm_red_team`, `audit_vibe_prototype`, `sync_enterprise_tms`) y **12 Resources** (`blueprint://*`, sumando `blueprint://ai/evals-redteam`, `blueprint://mobile-appium/readme` y `blueprint://vibe-rescue/readme`) protegidos sobre `stdio` con `promptGuard` y `TaskStateGuard`.
 * **Economía de Tokens (`< 20 KB` / `<= 40` líneas):** La skill orquestadora [`.agents/skills/qa-11x-architect/SKILL.md`](../.agents/skills/qa-11x-architect/SKILL.md) (`< 12 KB`) hidrata 9 sub-skills modulares bajo demanda y usa [`.agents/scripts/compact_context_11x.py`](../.agents/scripts/compact_context_11x.py) + formato `Pass-Quiet / Fail-Verbose` (`/tmp/qa-11x-last-failure.json`).
 * **Guardia Humana de Cierre (`QA-GIT-GATE-01`):** Toda tarea concluye superando las 10 etapas de [`.agents/scripts/certify_task_completion.sh`](../.agents/scripts/certify_task_completion.sh) y realizando un `git commit` local. Según [`.agents/rules/git_closure_gate.md`](../.agents/rules/git_closure_gate.md), ningún agente puede ejecutar `git push` o `npm publish` sin autorización humana explícita.
 

@@ -134,7 +134,7 @@ describe('diagnosticFormatter (T1.5 Pass-Quiet & Fail-Verbose + Allure)', () => 
       expect(passedEnv.attachments).toEqual([]);
       expect(passedEnv.labels).toEqual([
         { name: 'agent', value: 'qa-11x-agent' },
-        { name: 'agent_version', value: '2.20.3' },
+        { name: 'agent_version', value: '2.0.0' },
         { name: 'environment', value: 'docker-ephemeral' },
       ]);
 

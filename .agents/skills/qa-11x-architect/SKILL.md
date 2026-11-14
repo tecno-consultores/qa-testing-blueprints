@@ -9,9 +9,9 @@ description: >-
 
 # Master QA-11X v2.0 Routing Orchestrator (`qa-11x-architect`)
 
-> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Unless the target repository's `AGENTS.md` explicitly mandates a fixed output language, respond and explain reasoning in the **user's prompt language**, and write commit messages / human-facing documentation matching the **existing language of `README.md` and `CHANGELOG.md`** (explicitly ignoring `AGENTS.md` and `.agents/**`, which remain in concise English for token economy; default to the prompt language on empty repos).
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Unless target `AGENTS.md` mandates a fixed language, respond in the **user's prompt language**, and write commits/docs matching `README.md` & `CHANGELOG.md` (ignoring concise English `AGENTS.md`/`.agents/**`; default to prompt language on empty repos).
 
-Corporate routing orchestrator for Standard 11X v2.0: 3-path proportional execution, 13-layer QA pyramid, Rule Zero non-root Docker (`sinfallas/*`), High-IQ Token Economy (`AST-First`, `Pass-Quiet / Fail-Verbose`), `QA-GIT-GATE-01` local-commit closure, and progressive hydration of modular sub-skills.
+Corporate orchestrator for Standard 11X v2.0: 3-path routing, 13-layer pyramid, Rule Zero non-root Docker (`sinfallas/*`), High-IQ Token Economy (`AST-First`, `Pass-Quiet / Fail-Verbose`), `QA-GIT-GATE-01`, and lazy sub-skill hydration.
 
 ---
 
@@ -23,21 +23,27 @@ Classify every task before acting. **NEVER run automatic `git push`** (`QA-GIT-G
 - **`MICRO_CHANGE` (`<= 3` files, `LOW` `< 5` callers, `0` new routes/ORM):** 3-line plan -> `inspect_ast_blast_radius` -> sync affected existing unit/BDD tests (`QA-TEST-SYNC-01`) + stack QA (`run_ephemeral_qa`) -> AST refresh -> `CHANGELOG.md` -> `certify_11x_gate` -> local `git commit`.
 - **`FULL_11X` (`> 3` files, new API/UI, ORM, security, or `MEDIUM`/`HIGH` blast radius):** Full 11-step workflow (`/plan`, `.agents/ACTIVE_TASK.md <= 40L`, full pyramid + sync existing unit/BDD tests (`QA-TEST-SYNC-01`), docs/specs, AST refresh, `certify_11x_gate` 10/10, local `git commit`).
 
-### 1.1. MCP Server `qa-11x` (`@sinfallas/mcp-qa-11x` — 12 Tools + 9 Resources)
-1. `inspect_ast_blast_radius` — mandatory first step for Code Q&A and pre-change impact.
-2. `inspect_project_config` — stack detection, drift, and `update_available`.
-3. `audit_test_pyramid_gaps` — 13-layer audit (includes `inspect_project_config`; do not call both).
-4. `fetch_blueprint_bundle` — SHA-256 cached metadata (`include_content: false`).
-5. `bootstrap_or_merge_11x` — surgical `.example` merge (`0` local skill duplication).
+### 1.1. MCP Server `qa-11x` (`@sinfallas/mcp-qa-11x` v2.0.0 — 18 Tools + 12 Resources)
+1. `inspect_ast_blast_radius` — mandatory Code Q&A & pre-edit impact check.
+2. `inspect_project_config` — stack detection, drift, `update_available`.
+3. `audit_test_pyramid_gaps` — 13-layer audit (includes `inspect_project_config`).
+4. `fetch_blueprint_bundle` — SHA-256 metadata (`include_content: false`).
+5. `bootstrap_or_merge_11x` — surgical `.example` merge (`0` skill duplication).
 6. `audit_security_stig_owasp` — static audit (`SEC-01`..`SEC-16`, `QA-KARATE-IDEMP`, `QA-COV-01`, `QA-MYPY-01`, `QA-PG17-RLS`, `QA-SMOKE-01`, `QA-HEALTH-01`, `QA-CLI-TTY-01`, `UI-11X-01/02`).
-7. `run_ephemeral_qa` — runs `lint|unit|migration|integration|ci|bdd|mutation|dast|e2e|perf|chaos|all` in `sinfallas/*` containers (stamps `.agents/.qa-evidence.json`).
-8. `clean_workspace_11x` — rootless cleanup preserving `mcp-server/dist` and `graphify-out/`.
-9. `certify_11x_gate` — 10/10 gate with Allure `Fail-Verbose` (`/tmp/qa-11x-last-failure.json`) and lint evidence check.
-10. `init_or_append_agents_md` — injects Thin-Repo `AGENTS.md` connector.
-11. `reconcile_agents_governance` — prunes duplicate global rules and isolates `domain_<project>_*.md`.
-12. `propose_skill_evolution_pr` — upstream Dual-Consumer QA-escape evolution (AI + MCP + Spanish docs).
+7. `run_ephemeral_qa` — runs `lint|unit|migration|integration|ci|bdd|mutation|dast|e2e|perf|chaos|all` in `sinfallas/*` (stamps `.agents/.qa-evidence.json`).
+8. `clean_workspace_11x` — rootless purge preserving `mcp-server/dist` and `graphify-out/`.
+9. `certify_11x_gate` — 10/10 gate (`Fail-Verbose` `/tmp/qa-11x-last-failure.json`, lint evidence).
+10. `init_or_append_agents_md` — Thin-Repo `AGENTS.md` connector injector.
+11. `reconcile_agents_governance` — prunes duplicate globals; isolates `domain_<project>_*.md`.
+12. `propose_skill_evolution_pr` — upstream Dual-Consumer evolution (AI + MCP + Spanish docs).
+13. `validate_calm_architecture` — FINOS CALM JSON topology & 11X controls.
+14. `evaluate_release_gate` — `GO`/`NO_GO` gate (`>= 95%` cov, Trivy=0, MSI, CALM).
+15. `evaluate_agent_trajectory` — offline deterministic / DeepEval trajectory evals.
+16. `run_llm_red_team` — OWASP LLM Top 10 Promptfoo audit & red-team runner.
+17. `audit_vibe_prototype` — `VIBE-SEC-001..QA-005` audit & RLS rescue plan.
+18. `sync_enterprise_tms` — TestRail / Jira Xray JUnit/Allure/SARIF trace sync.
 
-*Fallback (No MCP):* Load **only one** module from `references/01..09.md` (§4), verify `manifest.json` artifacts via `sha256sum -c`, and use `make sync-governance` for Zero-LLM local manifest sealing.
+*Fallback (No MCP):* Load **one** module in `references/01..09.md` (§4), verify `manifest.json` via `sha256sum -c`, and run `make sync-governance`.
 
 ---
 
@@ -78,13 +84,13 @@ Classify every task before acting. **NEVER run automatic `git push`** (`QA-GIT-G
 
 Hydrate specialized sub-skills **strictly on demand** by domain (canonical inline identifiers; zero eager loading):
 
-| Sub-Skill Identifier | Activation Trigger & Delegated Scope |
+| Sub-Skill | Trigger & Scope |
 | :--- | :--- |
-| `qa-11x-devsecops-hardener` | DISA STIG V6R5 & OWASP v4.2, PostgreSQL 15–17+ RLS (`QA-PG17-RLS`, `NOBYPASSRLS`, `after_begin`), Vault AES-256-GCM, `QA-HEALTH-01`, `QA-CLI-TTY-01`. |
-| `qa-11x-systematic-debugging` | Mandatory 4-phase root-cause debugging (Reproduce -> Isolate -> Trace -> Verify) prior to applying any code patch. |
-| `qa-11x-screenplay-builder` | Screenplay Pattern (Actors/Abilities/Tasks/Questions) for multi-role RBAC E2E flows vs. simple POM in small apps (`<= 10` tests / `<= 3` pages). |
-| `qa-11x-llm-evaluator` | Dual-Mode LLM/RAG evaluation: deterministic offline contracts + on-demand semantic/red-team auditing with `DeepEval` and `Promptfoo`. |
-| `qa-11x-vibe-rescue` | Vibe-to-Enterprise hardening for AI-generated prototypes (`>= 95%` coverage, STIG security, architecture, and non-root Docker). |
+| `qa-11x-devsecops-hardener` | STIG V6R5, OWASP v4.2, PG17 RLS (`QA-PG17-RLS`, `NOBYPASSRLS`, `after_begin`), Vault AES-256-GCM, `QA-HEALTH-01`, `QA-CLI-TTY-01`. |
+| `qa-11x-systematic-debugging` | Mandatory 4-phase root-cause debugging (Reproduce -> Isolate -> Trace -> Verify) pre-patch. |
+| `qa-11x-screenplay-builder` | Screenplay (Actors/Abilities/Tasks/Questions) for RBAC E2E vs. POM (`<= 10` tests / `<= 3` pages). |
+| `qa-11x-llm-evaluator` | Dual-Mode LLM/RAG evals: deterministic offline contracts + DeepEval/Promptfoo red-team. |
+| `qa-11x-vibe-rescue` | Vibe-to-Enterprise hardening (`>= 95%` cov, STIG security, architecture, non-root Docker). |
 
 *(Companion skills: `qa-11x-docker-certifier`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `refactoring-ui`.)*
 

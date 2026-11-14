@@ -1,7 +1,7 @@
 {
   "name": "@sinfallas/mcp-qa-11x",
-  "version": "2.20.3",
-  "description": "Official MCP Server & Thin-Repo Skill Installer for QA Testing Blueprints (11X Corporate Standard, DISA ASD STIG V6R5 & OWASP v4.2)",
+  "version": "2.0.0",
+  "description": "Official MCP Server & Thin-Repo Skill Installer for QA Testing Blueprints (QA-11X v2.0: 18 Tools, 12 Resources, AI Evals, FINOS CALM, Screenplay & DevSecOps)",
   "keywords": [
     "mcp",
     "model-context-protocol",
@@ -9,6 +9,12 @@
     "testing",
     "blueprints",
     "devsecops",
+    "ai-evals",
+    "deepeval",
+    "promptfoo",
+    "finos-calm",
+    "screenplay",
+    "vibe-coding",
     "disa-stig",
     "owasp",
     "karate-labs",
@@ -45,7 +51,8 @@
   },
   "files": [
     "dist/**/*",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsc",
