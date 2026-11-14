@@ -1,0 +1,285 @@
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
+
+name: 'QA-11X PR-Aware Quality Gate'
+description: 'Proportional PR-aware QA-11X adoption gate using ephemeral non-root Docker containers (Rule Zero) and AST blast-radius selection.'
+
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  tier:
+    description: 'starter | standard | enterprise'
+    required: false
+    default: 'starter'
+  lang:
+    description: 'Output language policy for QA-11X reports (en | es)'
+    required: false
+    default: 'en'
+  base-ref:
+    description: 'Base git branch reference used to compute PR changed files'
+    required: false
+    default: 'main'
+  working-directory:
+    description: 'Relative working directory inside the repository'
+    required: false
+    default: '.'
+  python-image:
+    description: 'Ephemeral non-root Python container image for Rule Zero checks'
+    required: false
+    default: 'sinfallas/base-python-uv:latest'
+  node-image:
+    description: 'Ephemeral non-root Node container image for Rule Zero checks'
+    required: false
+    default: 'sinfallas/base-node-ionic:latest'
+
+outputs:
+  tier:
+    description: 'Validated QA-11X adoption tier'
+    value: ${{ steps.compute-pr-diff.outputs.tier }}
+  blast-plan-tier:
+    description: 'Computed blast radius classification (docs-only | pr-targeted | full)'
+    value: ${{ steps.blast-radius-plan.outputs.blast-plan-tier }}
+  estimated-savings-pct:
+    description: 'Estimated CI compute savings percentage'
+    value: ${{ steps.blast-radius-plan.outputs.estimated-savings-pct }}
+  verdict:
+    description: 'Final proportional gate verdict (PASS | FAIL)'
+    value: ${{ steps.run-proportional-gates.outputs.verdict }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Compute PR diff and validate inputs
+      id: compute-pr-diff
+      shell: bash
+      env:
+        INPUT_TIER: ${{ inputs.tier }}
+        INPUT_LANG: ${{ inputs.lang }}
+        INPUT_BASE_REF: ${{ inputs.base-ref }}
+        INPUT_WORKDIR: ${{ inputs.working-directory }}
+        INPUT_PYTHON_IMAGE: ${{ inputs.python-image }}
+        INPUT_NODE_IMAGE: ${{ inputs.node-image }}
+        EVENT_NAME: ${{ github.event_name }}
+        PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      run: |
+        set -euo pipefail
+
+        case "${INPUT_TIER}" in
+          starter|standard|enterprise) ;;
+          *)
+            echo "::error::Unsupported tier '${INPUT_TIER}'. Allowed: starter | standard | enterprise." >&2
+            exit 1
+            ;;
+        esac
+
+        case "${INPUT_LANG}" in
+          en|es) ;;
+          *)
+            echo "::error::Unsupported lang '${INPUT_LANG}'. Allowed: en | es." >&2
+            exit 1
+            ;;
+        esac
+
+        if [[ ! "${INPUT_BASE_REF}" =~ ^[A-Za-z0-9._/-]+$ ]] || [[ "${INPUT_BASE_REF}" == *".."* ]]; then
+          echo "::error::Invalid base-ref '${INPUT_BASE_REF}'." >&2
+          exit 1
+        fi
+
+        if [[ "${INPUT_WORKDIR}" == /* ]] || [[ "${INPUT_WORKDIR}" == *".."* ]] || [ ! -d "${INPUT_WORKDIR}" ]; then
+          echo "::error::Invalid working-directory '${INPUT_WORKDIR}'." >&2
+          exit 1
+        fi
+
+        IMAGE_RE='^[a-z0-9][a-z0-9._/:@-]+$'
+        if [[ ! "${INPUT_PYTHON_IMAGE}" =~ ${IMAGE_RE} ]] || [[ ! "${INPUT_NODE_IMAGE}" =~ ${IMAGE_RE} ]]; then
+          echo "::error::Invalid Docker image specification." >&2
+          exit 1
+        fi
+
+        cd "${INPUT_WORKDIR}"
+        CHANGED_FILE="/tmp/qa11x-pr-changed.txt"
+        : > "${CHANGED_FILE}"
+
+        if [ "${EVENT_NAME:-pull_request}" = "pull_request" ] && [ -n "${PR_BASE_SHA:-}" ] && [ -n "${PR_HEAD_SHA:-}" ]; then
+          git diff --name-only "${PR_BASE_SHA}" "${PR_HEAD_SHA}" > "${CHANGED_FILE}" 2>/dev/null || true
+        elif git rev-parse --verify "origin/${INPUT_BASE_REF}" >/dev/null 2>&1; then
+          git diff --name-only "origin/${INPUT_BASE_REF}...HEAD" > "${CHANGED_FILE}" 2>/dev/null || true
+        elif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+          git diff --name-only HEAD~1..HEAD > "${CHANGED_FILE}" 2>/dev/null || true
+        fi
+
+        if [ -n "${GITHUB_OUTPUT:-}" ]; then
+          printf 'tier=%s\n' "${INPUT_TIER}" >> "${GITHUB_OUTPUT}"
+        fi
+
+    - name: Compute AST blast radius plan (Rule Zero)
+      id: blast-radius-plan
+      shell: bash
+      env:
+        INPUT_WORKDIR: ${{ inputs.working-directory }}
+        INPUT_PYTHON_IMAGE: ${{ inputs.python-image }}
+        EVENT_NAME: ${{ github.event_name }}
+      run: |
+        set -euo pipefail
+        cd "${INPUT_WORKDIR}"
+
+        CHANGED_FILE="/tmp/qa11x-pr-changed.txt"
+        BLAST_TMP="/tmp/qa11x-blast-outputs.txt"
+        : > "${BLAST_TMP}"
+
+        BLAST_TIER="pr-targeted"
+        SAVINGS_PCT="50"
+
+        if [ -f ".agents/scripts/select_tests_by_blast_radius.py" ]; then
+          docker run --rm \
+            -u "$(id -u):$(id -g)" \
+            -e HOME=/tmp \
+            -e PYTHONDONTWRITEBYTECODE=1 \
+            -v "$(pwd):/app:ro" \
+            -v "/tmp:/ci-tmp" \
+            -w /app \
+            "${INPUT_PYTHON_IMAGE}" \
+            python3 .agents/scripts/select_tests_by_blast_radius.py \
+              --event "${EVENT_NAME:-pull_request}" \
+              --changed-files-file /ci-tmp/qa11x-pr-changed.txt \
+              --graph graphify-out/graph.json \
+              --github-output /ci-tmp/qa11x-blast-outputs.txt
+
+          PARSED_TIER="$(grep -E '^tier=' "${BLAST_TMP}" | tail -n 1 | cut -d= -f2 || true)"
+          PARSED_SAVINGS="$(grep -E '^estimated_savings_pct=' "${BLAST_TMP}" | tail -n 1 | cut -d= -f2 || true)"
+          [ -n "${PARSED_TIER}" ] && BLAST_TIER="${PARSED_TIER}"
+          [ -n "${PARSED_SAVINGS}" ] && SAVINGS_PCT="${PARSED_SAVINGS}"
+        elif [ -s "${CHANGED_FILE}" ]; then
+          NON_DOC_COUNT="$(grep -vcE '(\.md$|^docs/)' "${CHANGED_FILE}" || true)"
+          if [ "${NON_DOC_COUNT}" -eq 0 ]; then
+            BLAST_TIER="docs-only"
+            SAVINGS_PCT="85"
+          fi
+        fi
+
+        if [ -n "${GITHUB_OUTPUT:-}" ]; then
+          printf 'blast-plan-tier=%s\n' "${BLAST_TIER}" >> "${GITHUB_OUTPUT}"
+          printf 'estimated-savings-pct=%s\n' "${SAVINGS_PCT}" >> "${GITHUB_OUTPUT}"
+        fi
+
+    - name: Run proportional QA-11X gates (Rule Zero)
+      id: run-proportional-gates
+      shell: bash
+      env:
+        INPUT_TIER: ${{ inputs.tier }}
+        INPUT_LANG: ${{ inputs.lang }}
+        INPUT_WORKDIR: ${{ inputs.working-directory }}
+        INPUT_PYTHON_IMAGE: ${{ inputs.python-image }}
+        INPUT_NODE_IMAGE: ${{ inputs.node-image }}
+        BLAST_PLAN_TIER: ${{ steps.blast-radius-plan.outputs.blast-plan-tier }}
+        SAVINGS_PCT: ${{ steps.blast-radius-plan.outputs.estimated-savings-pct }}
+      run: |
+        set -euo pipefail
+        cd "${INPUT_WORKDIR}"
+
+        if [ ! -f ".qa-11x.json" ] && [ ! -f "AGENTS.md" ]; then
+          echo "::warning::Neither .qa-11x.json nor AGENTS.md was found; run 'npx @sinfallas/mcp-qa-11x quickstart'."
+        fi
+
+        if [ -f ".qa-11x.json" ]; then
+          docker run --rm \
+            -u "$(id -u):$(id -g)" \
+            -e HOME=/tmp \
+            -e PYTHONDONTWRITEBYTECODE=1 \
+            -v "$(pwd):/app:ro" \
+            -w /app \
+            "${INPUT_PYTHON_IMAGE}" \
+            python3 -c 'import json; json.load(open(".qa-11x.json", encoding="utf-8"))'
+        fi
+
+        if [ -x "scripts/verificar-secretos.sh" ]; then
+          ./scripts/verificar-secretos.sh
+        else
+          docker run --rm \
+            -u "$(id -u):$(id -g)" \
+            -e HOME=/tmp \
+            -e PYTHONDONTWRITEBYTECODE=1 \
+            -v "$(pwd):/app:ro" \
+            -w /app \
+            "${INPUT_PYTHON_IMAGE}" \
+            python3 -c '
+        import pathlib, re, sys
+        pat = re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----|(?:ghp|gho|ghu|ghs|npm)_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|sk-(?:proj-)?[A-Za-z0-9_-]{24,}")
+        skip = {".git", "node_modules", "dist", ".venv", "coverage", "graphify-out"}
+        hits = []
+        for p in pathlib.Path(".").rglob("*"):
+            if any(part in skip for part in p.parts) or not p.is_file():
+                continue
+            try:
+                txt = p.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+            for idx, line in enumerate(txt.splitlines(), 1):
+                if pat.search(line) and "example" not in line.lower() and "placeholder" not in line.lower():
+                    hits.append(f"{p}:{idx}")
+        if hits:
+            print("❌ Potential exposed secrets found:", ", ".join(hits[:10]), file=sys.stderr)
+            sys.exit(1)
+        print("✔ [starter] Zero exposed secrets detected.")
+        '
+        fi
+
+        if [ "${INPUT_TIER}" = "standard" ] || [ "${INPUT_TIER}" = "enterprise" ]; then
+          if [ "${BLAST_PLAN_TIER:-pr-targeted}" != "docs-only" ]; then
+            if [ -f ".agents/scripts/lint_test_antipatterns.py" ]; then
+              docker run --rm \
+                -u "$(id -u):$(id -g)" \
+                -e HOME=/tmp \
+                -e PYTHONDONTWRITEBYTECODE=1 \
+                -v "$(pwd):/app:ro" \
+                -w /app \
+                "${INPUT_PYTHON_IMAGE}" \
+                python3 .agents/scripts/lint_test_antipatterns.py
+            fi
+            if [ -f "Makefile" ] && grep -q '^lint:' Makefile; then
+              make lint
+            elif [ -f "package.json" ] && grep -q '"lint"' package.json; then
+              docker run --rm \
+                -u "$(id -u):$(id -g)" \
+                -e HOME=/tmp \
+                -v "$(pwd):/app" \
+                -w /app \
+                "${INPUT_NODE_IMAGE}" \
+                sh -c '[ -d node_modules/.bin ] && npm run lint || echo "ℹ Skipping npm lint without installed node_modules"'
+            fi
+          fi
+        fi
+
+        if [ "${INPUT_TIER}" = "enterprise" ]; then
+          if [ -f "Makefile" ] && grep -q '^validate-calm:' Makefile; then
+            make validate-calm
+          elif [ -x ".agents/scripts/validate_calm_architecture.sh" ]; then
+            ./.agents/scripts/validate_calm_architecture.sh
+          fi
+
+          if [ -f "Makefile" ] && grep -q '^certify:' Makefile; then
+            make certify
+          elif [ -x ".agents/scripts/certify_task_completion.sh" ]; then
+            ./.agents/scripts/certify_task_completion.sh
+          fi
+        fi
+
+        SUMMARY_FILE="${GITHUB_STEP_SUMMARY:-/tmp/qa11x-step-summary.md}"
+        {
+          echo "### QA-11X PR-Aware Check (${INPUT_TIER})"
+          echo ""
+          echo "| Metric | Value |"
+          echo "| :--- | :--- |"
+          echo "| Tier | \`${INPUT_TIER}\` |"
+          echo "| Lang | \`${INPUT_LANG}\` |"
+          echo "| Blast Plan | \`${BLAST_PLAN_TIER:-pr-targeted}\` |"
+          echo "| Est. Savings | \`${SAVINGS_PCT:-50}%\` |"
+          echo "| Verdict | **PASS** |"
+        } >> "${SUMMARY_FILE}"
+
+        if [ -n "${GITHUB_OUTPUT:-}" ]; then
+          printf 'verdict=PASS\n' >> "${GITHUB_OUTPUT}"
+        fi

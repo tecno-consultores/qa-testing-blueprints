@@ -71,13 +71,23 @@ lint-workflows:
 	'            if not isinstance(tm, int) or isinstance(tm, bool) or tm <= 0: errors.append(f"{wf}: job {jn!r} sin timeout-minutes > 0")' \
 	'    for ln, line in enumerate(txt.splitlines(), 1):' \
 	'        if sec_re.search(line) and not ign_re.search(line): errors.append(f"{wf}:{ln}: posible secreto en texto plano")' \
+	'action_files = sorted([*Path(".github/actions").glob("*/action.yml"), *Path(".github/actions").glob("*/action.yaml")])' \
+	'for af in action_files:' \
+	'    txt = af.read_text(encoding="utf-8")' \
+	'    try: doc = yaml.load(txt, Loader=UniqueKeyLoader)' \
+	'    except Exception as exc: errors.append(f"{af}: {exc}"); continue' \
+	'    runs_cfg = doc.get("runs") if isinstance(doc, dict) else None' \
+	'    if not isinstance(runs_cfg, dict) or runs_cfg.get("using") != "composite":' \
+	'        errors.append(f"{af}: falta runs.using == composite")' \
+	'    for ln, line in enumerate(txt.splitlines(), 1):' \
+	'        if sec_re.search(line) and not ign_re.search(line): errors.append(f"{af}:{ln}: posible secreto en texto plano")' \
 	'if shutil.which("actionlint"):' \
 	'    res = subprocess.run(["actionlint", *[str(p) for p in files]], capture_output=True, text=True)' \
 	'    if res.returncode != 0: errors.append((res.stdout + res.stderr).strip())' \
 	'if errors:' \
 	'    for e in errors: print(f"❌ [lint-workflows] {e}", file=sys.stderr)' \
 	'    sys.exit(1)' \
-	'print(f"✅ [lint-workflows] {len(files)} workflows validados sin hallazgos")' \
+	'print(f"✅ [lint-workflows] {len(files)} workflows y {len(action_files)} actions validados sin hallazgos")' \
 	); \
 	if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
 		python3 -c "$$py"; \
@@ -132,12 +142,12 @@ validate-calm:
 
 lint:
 	@echo "🔍 [Lint] Ejecutando linter y chequeo de tipos en Docker efímero..."
-	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "$$(pwd)/mcp-server:/app" -v "$$(pwd)/mobile-appium:/mobile-appium:ro" -v "$$(pwd)/vibe-rescue:/vibe-rescue:ro" -w /app sinfallas/base-node-ionic:26 bash -c '[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run lint && pnpm --silent run typecheck'
+	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "$$(pwd)/mcp-server:/app" -v "$$(pwd)/mobile-appium:/mobile-appium:ro" -v "$$(pwd)/vibe-rescue:/vibe-rescue:ro" -v "$$(pwd)/.github:/.github:ro" -w /app sinfallas/base-node-ionic:26 bash -c '[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run lint && pnpm --silent run typecheck'
 	@echo "✔ [Lint & Typecheck] 0 errores ni advertencias."
 
 test-mcp:
 	@echo "🧪 [Test MCP] Ejecutando pruebas unitarias Vitest (>= 95%) en Docker efímero..."
-	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "$$(pwd)/mcp-server:/app" -v "$$(pwd)/mobile-appium:/mobile-appium:ro" -v "$$(pwd)/vibe-rescue:/vibe-rescue:ro" -w /app sinfallas/base-node-ionic:26 bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run test:unit && rm -rf coverage .eslintcache"
+	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "$$(pwd)/mcp-server:/app" -v "$$(pwd)/mobile-appium:/mobile-appium:ro" -v "$$(pwd)/vibe-rescue:/vibe-rescue:ro" -v "$$(pwd)/.github:/.github:ro" -w /app sinfallas/base-node-ionic:26 bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run test:unit && rm -rf coverage .eslintcache"
 
 test-karate:
 	@echo "🎭 [Karate BDD] Ejecutando contratos BDD del MCP Server en Docker efímero..."

@@ -12,6 +12,15 @@ import {
 } from './tools/initOrAppendAgentsMd.js';
 import { runInstallSkillCli } from './cli/install-skill.js';
 import { runReconcileAgentsCli } from './cli/reconcile-agents.js';
+import {
+  formatQuickstartOutput,
+  runQuickstart,
+  validateQuickstartCi,
+  validateQuickstartTier,
+  type QuickstartCiProvider,
+  type QuickstartResult,
+  type QuickstartTier,
+} from './cli/quickstart.js';
 import { MCP_SERVER_VERSION } from './services/github-fetcher.js';
 
 export { parseAgentsOption };
@@ -28,10 +37,17 @@ const FLAG_DRY_RUN = '--dry-run';
 const FLAG_INIT_AGENTS = '--init-agents';
 const FLAG_INCLUDE_SCRIPTS = '--include-scripts';
 const FLAG_RECONCILE = '--reconcile';
+const FLAG_DIR = '--dir';
+const FLAG_TIER = '--tier';
+const FLAG_CI = '--ci';
+const FLAG_FORCE = '--force';
+const FLAG_FORCE_SHORT = '-f';
+const FLAG_JSON = '--json';
 
 const CMD_INIT_AGENTS = 'init-agents' as const;
 const CMD_INSTALL_SKILL = 'install-skill' as const;
 const CMD_RECONCILE_AGENTS = 'reconcile-agents' as const;
+const CMD_QUICKSTART = 'quickstart' as const;
 const CMD_HELP = 'help' as const;
 const CMD_VERSION = 'version' as const;
 const CMD_STDIO = 'stdio' as const;
@@ -40,6 +56,7 @@ export type CliCommandName =
   | typeof CMD_INIT_AGENTS
   | typeof CMD_INSTALL_SKILL
   | typeof CMD_RECONCILE_AGENTS
+  | typeof CMD_QUICKSTART
   | typeof CMD_HELP
   | typeof CMD_VERSION
   | typeof CMD_STDIO;
@@ -50,11 +67,27 @@ export interface ParsedCliArgs {
   readonly lang: SupportedLang;
   readonly agents?: AgentsTargetSpec;
   readonly target?: string;
+  readonly tier?: QuickstartTier;
+  readonly ci?: QuickstartCiProvider;
   readonly dryRun: boolean;
+  readonly force?: boolean;
+  readonly json?: boolean;
   readonly initAgents: boolean;
   readonly includeScripts: boolean;
   readonly reconcile: boolean;
   readonly rawForwardArgs: readonly string[];
+}
+
+export interface ParsedQuickstartCliArgs {
+  readonly command: typeof CMD_QUICKSTART;
+  readonly projectPath: string;
+  readonly tier?: QuickstartTier;
+  readonly lang?: SupportedLang;
+  readonly agents?: AgentsTargetSpec;
+  readonly ci?: QuickstartCiProvider;
+  readonly dryRun: boolean;
+  readonly force: boolean;
+  readonly json: boolean;
 }
 
 export type InstallSkillRunner = (args: string[]) => Promise<void>;
@@ -62,6 +95,7 @@ export type ReconcileAgentsRunner = (args: string[]) => Promise<void>;
 
 export interface CliDeps {
   readonly cwd?: string;
+  readonly baseBoundaryDir?: string;
   readonly isStdinTty?: boolean;
   readonly log?: (message: string) => void;
   readonly errorLog?: (message: string) => void;
@@ -75,25 +109,32 @@ export interface CliRunResult {
   readonly mode?: 'tty-notice' | 'stdio-ready';
   readonly parsed?: ParsedCliArgs;
   readonly initResult?: InitOrAppendAgentsMdResult;
+  readonly quickstartResult?: QuickstartResult;
+  readonly errorMessage?: string;
 }
 
 export const CLI_USAGE_TEXT = [
   `@sinfallas/mcp-qa-11x v${MCP_SERVER_VERSION} — QA 11X Multi-Agent Connector CLI`,
   '',
   'Commands:',
+  '  quickstart        Zero-config 30s adoption (.qa-11x.json, AGENTS.md, PR check)',
   '  init-agents       Create or update AGENTS.md and optional Thin-Repo agent bridges',
   '  install-skill     Install global 11X skills (pass --init-agents to sync connectors)',
   '  reconcile-agents  Deduplicate canonical rules in .agents/',
   '',
   'Options:',
-  '  --lang, -l <es|en>               Output language policy (default: es)',
+  '  --lang, -l <es|en>               Output language policy (default: es, quickstart: en)',
   `  --agents, -a <csv|auto|all>      Bridge target IDs (${SUPPORTED_AGENT_IDS.length} supported), auto, or all`,
-  '  --project-path, -p <dir>         Target project directory (default: cwd)',
+  '  --dir, --project-path, -p <dir>  Target project directory (default: cwd)',
+  '  --tier <starter|standard|enterprise>  Quickstart gate profile (default: starter)',
+  '  --ci <github|none>               Quickstart CI workflow generator (default: github)',
   '  --target, -t <env>               Global skills target directory',
   '  --init-agents                    Run init-agents after install-skill',
   '  --include-scripts                Install operational 11X scripts',
   '  --reconcile                      Reconcile .agents/ before syncing skills',
   '  --dry-run                        Simulate without writing files to disk',
+  '  --force, -f                      Overwrite customized quickstart CI/task files',
+  '  --json                           Emit machine-readable JSON output (quickstart)',
   '  --version, -v                    Print active package version',
   '  --help, -h                       Print this help message',
 ].join('\n');
@@ -104,6 +145,7 @@ const SUBCOMMAND_MAP: Readonly<Record<string, CliCommandName>> = Object.freeze({
   'install-skill': CMD_INSTALL_SKILL,
   install: CMD_INSTALL_SKILL,
   'reconcile-agents': CMD_RECONCILE_AGENTS,
+  quickstart: CMD_QUICKSTART,
   '--help': CMD_HELP,
   '-h': CMD_HELP,
   help: CMD_HELP,
@@ -143,15 +185,52 @@ const BOOLEAN_FLAG_FIELDS: Readonly<Record<string, BooleanFlagField>> = Object.f
   [FLAG_RECONCILE]: 'reconcile',
 });
 
-function readFlagValue(
+type QuickstartValueFlagField = 'projectPath' | 'rawTier' | 'rawLang' | 'rawAgents' | 'rawCi';
+type QuickstartBooleanFlagField = 'dryRun' | 'force' | 'json';
+
+interface MutableQuickstartParseState {
+  projectPath: string;
+  hasPositionalDir: boolean;
+  rawTier?: string;
+  rawLang?: string;
+  rawAgents?: string;
+  rawCi?: string;
+  dryRun: boolean;
+  force: boolean;
+  json: boolean;
+}
+
+const QUICKSTART_VALUE_FLAG_FIELDS: Readonly<Record<string, QuickstartValueFlagField>> =
+  Object.freeze({
+    [FLAG_DIR]: 'projectPath',
+    [FLAG_PROJECT_PATH]: 'projectPath',
+    [FLAG_PROJECT_PATH_SHORT]: 'projectPath',
+    [FLAG_TIER]: 'rawTier',
+    [FLAG_LANG]: 'rawLang',
+    [FLAG_LANG_SHORT]: 'rawLang',
+    [FLAG_AGENTS]: 'rawAgents',
+    [FLAG_AGENTS_SHORT]: 'rawAgents',
+    [FLAG_CI]: 'rawCi',
+  });
+
+const QUICKSTART_BOOLEAN_FLAG_FIELDS: Readonly<Record<string, QuickstartBooleanFlagField>> =
+  Object.freeze({
+    [FLAG_DRY_RUN]: 'dryRun',
+    [FLAG_FORCE]: 'force',
+    [FLAG_FORCE_SHORT]: 'force',
+    [FLAG_JSON]: 'json',
+  });
+
+function readMappedFlagValue<TField extends string>(
   argv: readonly string[],
   index: number,
-  token: string
-): { field: ValueFlagField; value: string; step: number } | null {
+  token: string,
+  flagMap: Readonly<Record<string, TField>>
+): { field: TField; value: string; step: number } | null {
   const eqIdx = token.indexOf('=');
   if (eqIdx !== -1) {
     const flagName = token.slice(0, eqIdx);
-    const field = VALUE_FLAG_FIELDS[flagName];
+    const field = flagMap[flagName];
     if (!field) {
       return null;
     }
@@ -162,7 +241,7 @@ function readFlagValue(
     return { field, value: inlineValue, step: 0 };
   }
 
-  const field = VALUE_FLAG_FIELDS[token];
+  const field = flagMap[token];
   if (!field) {
     return null;
   }
@@ -185,7 +264,7 @@ function applyCliToken(
     return 0;
   }
 
-  const valueFlag = readFlagValue(argv, index, token);
+  const valueFlag = readMappedFlagValue(argv, index, token, VALUE_FLAG_FIELDS);
   if (valueFlag) {
     state[valueFlag.field] = valueFlag.value;
     return valueFlag.step;
@@ -195,6 +274,85 @@ function applyCliToken(
     state.projectPath = token;
   }
   return 0;
+}
+
+function applyQuickstartToken(
+  argv: readonly string[],
+  index: number,
+  state: MutableQuickstartParseState
+): number {
+  const token = argv[index];
+  const boolField = QUICKSTART_BOOLEAN_FLAG_FIELDS[token];
+  if (boolField) {
+    state[boolField] = true;
+    return 0;
+  }
+
+  const valueFlag = readMappedFlagValue(argv, index, token, QUICKSTART_VALUE_FLAG_FIELDS);
+  if (valueFlag) {
+    state[valueFlag.field] = valueFlag.value;
+    return valueFlag.step;
+  }
+
+  if (token.startsWith('-')) {
+    throw new Error(`Unknown CLI flag '${token}' for 'quickstart'. Run with --help to view usage.`);
+  }
+  if (state.hasPositionalDir) {
+    throw new Error(`Unexpected positional argument '${token}' for 'quickstart'.`);
+  }
+  state.projectPath = token;
+  state.hasPositionalDir = true;
+  return 0;
+}
+
+export function parseQuickstartCliArgs(
+  tail: readonly string[],
+  cwd: string = process.cwd()
+): ParsedQuickstartCliArgs {
+  const state: MutableQuickstartParseState = {
+    projectPath: cwd,
+    hasPositionalDir: false,
+    dryRun: false,
+    force: false,
+    json: false,
+  };
+
+  for (let i = 0; i < tail.length; i++) {
+    i += applyQuickstartToken(tail, i, state);
+  }
+
+  return {
+    command: CMD_QUICKSTART,
+    projectPath: state.projectPath,
+    tier: state.rawTier !== undefined ? validateQuickstartTier(state.rawTier) : undefined,
+    lang: state.rawLang !== undefined ? validateSupportedLang(state.rawLang) : undefined,
+    agents: state.rawAgents !== undefined ? parseAgentsOption(state.rawAgents) : undefined,
+    ci: state.rawCi !== undefined ? validateQuickstartCi(state.rawCi) : undefined,
+    dryRun: state.dryRun,
+    force: state.force,
+    json: state.json,
+  };
+}
+
+function mapQuickstartToParsedCliArgs(
+  qs: ParsedQuickstartCliArgs,
+  tail: readonly string[]
+): ParsedCliArgs {
+  return {
+    command: CMD_QUICKSTART,
+    projectPath: qs.projectPath,
+    lang: qs.lang ?? 'en',
+    agents: qs.agents,
+    tier: qs.tier,
+    ci: qs.ci,
+    dryRun: qs.dryRun,
+    force: qs.force,
+    json: qs.json,
+    initAgents: false,
+    includeScripts: false,
+    reconcile: false,
+    rawForwardArgs: tail,
+  };
 }
 
 export function parseCliArgs(
@@ -229,6 +387,10 @@ export function parseCliArgs(
   }
 
   const tail = argv.slice(1);
+  if (command === CMD_QUICKSTART) {
+    return mapQuickstartToParsedCliArgs(parseQuickstartCliArgs(tail, cwd), tail);
+  }
+
   for (let i = 0; i < tail.length; i++) {
     i += applyCliToken(tail, i, state);
   }
@@ -303,11 +465,42 @@ async function handleInstallSkillCommand(
   return { exitCode: 0, command: CMD_INSTALL_SKILL, parsed, initResult };
 }
 
+async function handleQuickstartCommand(
+  tail: readonly string[],
+  deps: CliDeps,
+  log: (msg: string) => void
+): Promise<CliRunResult> {
+  const errorLog = deps.errorLog ?? console.error;
+  try {
+    const parsed = parseQuickstartCliArgs(tail, deps.cwd ?? process.cwd());
+    const quickstartResult = await runQuickstart({
+      dir: parsed.projectPath,
+      baseBoundaryDir: deps.baseBoundaryDir,
+      tier: parsed.tier,
+      lang: parsed.lang,
+      agents: parsed.agents,
+      ci: parsed.ci,
+      dryRun: parsed.dryRun,
+      force: parsed.force,
+      json: parsed.json,
+    });
+    log(formatQuickstartOutput(quickstartResult, parsed.json));
+    return { exitCode: 0, command: CMD_QUICKSTART, quickstartResult };
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    errorLog(`❌ [quickstart] ${errorMessage}`);
+    return { exitCode: 1, command: CMD_QUICKSTART, errorMessage };
+  }
+}
+
 export async function runCli(
   argv: readonly string[],
   deps: CliDeps = {}
 ): Promise<CliRunResult> {
   const log = deps.log ?? console.log;
+  if (argv[0] === CMD_QUICKSTART) {
+    return await handleQuickstartCommand(argv.slice(1), deps, log);
+  }
   const parsed = parseCliArgs(argv, deps.cwd ?? process.cwd());
 
   if (parsed.command === CMD_HELP) {
