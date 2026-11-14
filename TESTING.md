@@ -60,7 +60,7 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
   make qa-unit       # Vitest en jsdom con aislamiento total (>= 95%)
   make qa-orphans    # Auditoría de 0 componentes .vue sin test dedicado
   make qa-mutation   # Stryker mutantes en templates y lógica
-  make qa-bdd        # Karate Labs UI en Chrome Headless (test/ui_business_flow.feature)
+  make qa-bdd        # Karate Labs HTTP/OSHP/SSG/XML en Nginx (test/ui_business_flow.feature)
   make qa-e2e        # Playwright regresión visual + Axe WCAG 2.1 AA
   make qa-perf       # Lighthouse CI (Core Web Vitals >= 90)
   make qa-all        # Pipeline completo
@@ -99,7 +99,7 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
   make qa-unit       # Vitest + React Testing Library (>= 95%)
   make qa-orphans    # Auditoría recursiva de 0 componentes/vistas .tsx/.jsx sin test dedicado
   make qa-mutation   # Stryker
-  make qa-bdd        # Karate Labs UI en Chrome Headless (test/ui_business_flow.feature)
+  make qa-bdd        # Karate Labs HTTP/OSHP/SSG/XML en Nginx (test/ui_business_flow.feature)
   make qa-e2e        # Playwright v1.52.0-noble + Axe WCAG 2.1 AA
   make qa-perf       # Lighthouse CI (lighthouserc.cjs, Core Web Vitals >= 90)
   ```
@@ -131,13 +131,13 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
 ### 🧠 MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x`)
 * **Imagen Base:** `sinfallas/base-node-ionic:26` (Tags disponibles: `22`, `24`, `26` y `latest`)
 * **Métricas 11X Certificadas:**
-  * **Sentencias (Statements):** `99.12%` (`>= 95.0%`)
-  * **Ramas (Branches):** `95.39%` global (`src/resources` `100%`, `src/cli` `98.53%`, `security-auditor.ts` `95.49%`)
-  * **Funciones (Functions):** `99.43%` (`>= 95.0%`)
-  * **Líneas (Lines):** `99.12%` (`>= 95.0%`)
-  * **Pruebas Unitarias:** 338 pruebas pasando al 100% (20 suites en `tests/*.unit.ts`, incluyendo `src/index.ts` y regla estática `QA-CLI-TTY-01`)
+  * **Sentencias (Statements):** `99.20%` (`>= 95.0%`)
+  * **Ramas (Branches):** `95.92%` global (`src/resources` `100%`, `src/cli` `98.53%`, `surgical-merger.ts` `97.19%`)
+  * **Funciones (Functions):** `99.55%` (`>= 95.0%`)
+  * **Líneas (Lines):** `99.20%` (`>= 95.0%`)
+  * **Pruebas Unitarias:** 504 pruebas pasando al 100% (32 suites en `tests/*.unit.ts`, incluyendo `src/index.ts`, higiene Node 26/pnpm 12 en `SEC-09` y regla estática `QA-CLI-TTY-01`)
   * **Herramientas MCP:** **18 herramientas canónicas** (12 v1 + 6 v2.0 de CALM, Release Gate, trayectoria agéntica, OWASP LLM Red Team, Vibe-Rescue y sincronización TMS) y **12 recursos `blueprint://*`** con contrato Thin-Repo, autoconstrucción/refresco de grafos AST (`auto_build_if_missing`, `refresh_graph`), modo *Metadata-Only* (`include_content: false`), agrupador por regla (`groupFindingsByRule`), 25 reglas estáticas (`SEC-01`..`SEC-16`, `QA-*`, `QA-CLI-TTY-01`, `UI-11X-*`), guardia `TaskStateGuard` + `promptGuard` y paridad 10/10 en `certify_11x_gate`
-  * **Escenarios BDD Karate Labs:** `mcp-server/test/mcp_cli_test.feature` (28 escenarios en `sinfallas/karatelabs:1.5.1`)
+  * **Escenarios BDD Karate Labs:** `mcp-server/test/mcp_cli_test.feature` (30 escenarios en `sinfallas/karatelabs:1.5.1`)
 * **Comandos de Validación:**
   ```bash
   cd mcp-server

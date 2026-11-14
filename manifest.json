@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.21.0",
-  "generated_at_utc": "2026-11-14T19:17:39Z",
+  "generated_at_utc": "2026-11-14T19:38:49Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -145,8 +145,8 @@
           "path": "node-backend/.eslintrc.json.example",
           "target_name": ".eslintrc.json",
           "merge_strategy": "surgical_merge",
-          "sha256": "54df5626dd25f197122d172544b75dcdbf2250db18eb2c98db5aa4d4df2a21f2",
-          "size_bytes": 721
+          "sha256": "fdae0f916f0b56c0176cda2cf8a72e47ecf2886d30a2943bf959549cee108811",
+          "size_bytes": 820
         },
         {
           "path": "node-backend/.prettierrc.example",
@@ -194,15 +194,22 @@
           "path": "node-backend/npmrc.example",
           "target_name": ".npmrc",
           "merge_strategy": "append_missing_lines",
-          "sha256": "9ed8e5492279a97cff71e262b9655b9fb088f86df41ded3829d0e1acd793fdc2",
-          "size_bytes": 553
+          "sha256": "208a11068ca167bed78fc165db1d1f1bfb07759830a90dc302aa7a39bea33b26",
+          "size_bytes": 519
         },
         {
           "path": "node-backend/package.json.example",
           "target_name": "package.json",
           "merge_strategy": "surgical_merge",
-          "sha256": "a962ed7879233e22359d874bf089fab261ebba1c76f1f39375b8e24e25ee7151",
-          "size_bytes": 1774
+          "sha256": "8d49c0bb5d6f3a58db078809b9f4514b08d1bab4addf68f6c9af709422bdb1bb",
+          "size_bytes": 1705
+        },
+        {
+          "path": "node-backend/pnpm-workspace.yaml.example",
+          "target_name": "pnpm-workspace.yaml",
+          "merge_strategy": "surgical_merge",
+          "sha256": "ac02d96368617c760f093cfe61fdec64b6244007ab3553e0d6621f706f54a353",
+          "size_bytes": 29
         },
         {
           "path": "node-backend/stryker.conf.json.example",
@@ -380,8 +387,8 @@
           "path": "react-frontend/.eslintrc.json.example",
           "target_name": ".eslintrc.json",
           "merge_strategy": "surgical_merge",
-          "sha256": "1fe8a77ae3d57f9f40c95d36875b51d6c396c1f57f90b562a7365af7dbb3d721",
-          "size_bytes": 1399
+          "sha256": "1d3fb70e85fb0d12a039f3e681c18d10b563afdcbc9bd502c5aa0927ab78a8f6",
+          "size_bytes": 1555
         },
         {
           "path": "react-frontend/.prettierrc.example",
@@ -443,15 +450,15 @@
           "path": "react-frontend/npmrc.example",
           "target_name": ".npmrc",
           "merge_strategy": "append_missing_lines",
-          "sha256": "9ed8e5492279a97cff71e262b9655b9fb088f86df41ded3829d0e1acd793fdc2",
-          "size_bytes": 553
+          "sha256": "4cc748a056d08556a00600871e647c466643cbd11fab9c7d80745c64c744b16d",
+          "size_bytes": 569
         },
         {
           "path": "react-frontend/package.json.example",
           "target_name": "package.json",
           "merge_strategy": "surgical_merge",
-          "sha256": "de5e14f0fc8c961505d9999ebcb46a0d1dafbcefcd828f70ea42d54d60fc50ba",
-          "size_bytes": 2123
+          "sha256": "5c7748a9f83719e4a0c088a0dd033afb49b7fbb2b16e3628612981716f119f00",
+          "size_bytes": 2008
         },
         {
           "path": "react-frontend/playwright.config.ts.example",
@@ -459,6 +466,13 @@
           "merge_strategy": "surgical_merge",
           "sha256": "179e996b8aaabffe4c505a21bc86f0b30e931a7d9e0dd869192b0a824c15091b",
           "size_bytes": 1544
+        },
+        {
+          "path": "react-frontend/pnpm-workspace.yaml.example",
+          "target_name": "pnpm-workspace.yaml",
+          "merge_strategy": "surgical_merge",
+          "sha256": "03d59743c56886eb18a30e7c44e704c21f63dd1a612bc2fe7c558def1854e4cc",
+          "size_bytes": 75
         },
         {
           "path": "react-frontend/stryker.conf.json.example",
@@ -471,8 +485,8 @@
           "path": "react-frontend/test/ui_business_flow.feature",
           "target_name": "test/ui_business_flow.feature",
           "merge_strategy": "copy_if_missing",
-          "sha256": "42504e3bb75109f46b181391eac28141e80181ddd6eb8ba0e47109f355dfb9f1",
-          "size_bytes": 3636
+          "sha256": "307c59417404a767c0d855cb1f753d549d4f31afaa47b8ace89f5e8d8ef49d66",
+          "size_bytes": 3938
         },
         {
           "path": "react-frontend/tests/screenplay/Actor.ts",
@@ -499,8 +513,8 @@
           "path": "react-frontend/vitest.setup.ts.example",
           "target_name": "vitest.setup.ts",
           "merge_strategy": "surgical_merge",
-          "sha256": "a46d66851af2c056e805fdd574bf5ec3adb1181c43c5e41f0a1c592e338afe64",
-          "size_bytes": 36
+          "sha256": "03a55302a1f1458237dae85bd67ce3c8d7607aada09dbf576b467cce992ee1d0",
+          "size_bytes": 1007
         }
       ]
     },
@@ -519,8 +533,8 @@
           "path": "vue3/.eslintrc.json.example",
           "target_name": ".eslintrc.json",
           "merge_strategy": "surgical_merge",
-          "sha256": "14f15cd67f02d4f22a8417fea6606964dbf4a2e18334930f278bff1fcea71377",
-          "size_bytes": 737
+          "sha256": "e5057258f07e8736f78d2a03f207491fbd03b77831e86505a34506ea839c1878",
+          "size_bytes": 900
         },
         {
           "path": "vue3/.prettierrc.example",
@@ -582,15 +596,15 @@
           "path": "vue3/npmrc.example",
           "target_name": ".npmrc",
           "merge_strategy": "append_missing_lines",
-          "sha256": "9ed8e5492279a97cff71e262b9655b9fb088f86df41ded3829d0e1acd793fdc2",
-          "size_bytes": 553
+          "sha256": "b46353c4f7eb914d5f0888944c0ee63f67d424b2969b40fe7f3d2b45af6180b4",
+          "size_bytes": 589
         },
         {
           "path": "vue3/package.json.example",
           "target_name": "package.json",
           "merge_strategy": "surgical_merge",
-          "sha256": "30bd70228a2537601a9e9a3e8e00c7c9ee2c422537c728bc12602017e0f70a29",
-          "size_bytes": 1917
+          "sha256": "045cebaecf77cabcc74e079096592ec259b05cdc1037a95ca39ad9dfa48c5fb4",
+          "size_bytes": 1801
         },
         {
           "path": "vue3/playwright.config.ts.example",
@@ -598,6 +612,13 @@
           "merge_strategy": "surgical_merge",
           "sha256": "c0fef8e934f1048e5ef894d56c899eb06aa240b6a26bca9a233d8437be3ce89c",
           "size_bytes": 1539
+        },
+        {
+          "path": "vue3/pnpm-workspace.yaml.example",
+          "target_name": "pnpm-workspace.yaml",
+          "merge_strategy": "surgical_merge",
+          "sha256": "931d857364c2a71de7cbe4601ea82ccd08747f85e497aab4bae3918ba9c9c621",
+          "size_bytes": 93
         },
         {
           "path": "vue3/stryker.conf.json.example",
@@ -610,8 +631,8 @@
           "path": "vue3/test/ui_business_flow.feature",
           "target_name": "test/ui_business_flow.feature",
           "merge_strategy": "copy_if_missing",
-          "sha256": "b8494a22b1a1b395a0b691c811f1af956d697909cebed6c46d013641a7e8e5ce",
-          "size_bytes": 3519
+          "sha256": "47f5f3c9806ebe9210c6e1ddb213b0b04b7c8e8044a19568c3c88e5104f7cd5b",
+          "size_bytes": 3939
         },
         {
           "path": "vue3/tests/screenplay/Actor.ts",
@@ -631,8 +652,15 @@
           "path": "vue3/vitest.config.ts.example",
           "target_name": "vitest.config.ts",
           "merge_strategy": "surgical_merge",
-          "sha256": "1acd6c3bffaca8ab47147454e3d07352d9cf47fcf74d48f02d37f573406295ae",
-          "size_bytes": 1123
+          "sha256": "07870f2189ac24f46786c313ef3e98c7651d1414b909913108ea1738f722d5ae",
+          "size_bytes": 1162
+        },
+        {
+          "path": "vue3/vitest.setup.ts.example",
+          "target_name": "vitest.setup.ts",
+          "merge_strategy": "surgical_merge",
+          "sha256": "7f611c4552496a7a78d9530acec292c7b3bdb022d237c9c3429749cbdf9dc8b1",
+          "size_bytes": 970
         }
       ]
     }
@@ -903,8 +931,8 @@
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
       "target_name": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "a028f43835cb4ca7dbc5fb5c8ed2dd623ed593904ffb5913d39c7ceba613c8cd",
-      "size_bytes": 17311
+      "sha256": "b89eb96c7b90460d248cf9ed381e3ca53b600b5e1925895c95ece097c1e15ba8",
+      "size_bytes": 17351
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.md",
@@ -924,8 +952,8 @@
       "path": ".agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md",
       "target_name": ".agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "2d63a3de3107a849c4bf5f2e43de532722da62e891a0f2eb1cf2594874e20f34",
-      "size_bytes": 10287
+      "sha256": "8c90a755aad57a72f226ddd6f888c04705036ff4db1f1690b4abb713006bd0a5",
+      "size_bytes": 12957
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/05-stack-bash-devops.md",

@@ -69,15 +69,209 @@ export class SurgicalMerger {
     }
     targetObj.devDependencies = mergedDevDeps;
 
-    // 3. Inyectar pnpm.onlyBuiltDependencies si aplica
-    if (exampleObj.pnpm && !targetObj.pnpm) {
-      targetObj.pnpm = exampleObj.pnpm;
-      changes.push('Inyectada configuración "pnpm"');
-    }
+    // 3. Purgar clave obsoleta pnpm.onlyBuiltDependencies (pnpm 12+ usa pnpm-workspace.yaml#allowBuilds)
+    this.stripLegacyPnpmOnlyBuiltDeps(targetObj, changes);
 
     return {
       merged: JSON.stringify(targetObj, null, 2) + '\n',
       changes,
+    };
+  }
+
+  private stripLegacyPnpmOnlyBuiltDeps(
+    targetObj: Record<string, unknown>,
+    changes: string[]
+  ): void {
+    const rawPnpm = targetObj.pnpm;
+    if (!rawPnpm || typeof rawPnpm !== 'object' || Array.isArray(rawPnpm)) return;
+    const pnpmCfg = { ...(rawPnpm as Record<string, unknown>) };
+    if (!('onlyBuiltDependencies' in pnpmCfg)) return;
+    delete pnpmCfg.onlyBuiltDependencies;
+    if (Object.keys(pnpmCfg).length === 0) {
+      delete targetObj.pnpm;
+    } else {
+      targetObj.pnpm = pnpmCfg;
+    }
+    changes.push(
+      'Eliminada clave obsoleta "pnpm.onlyBuiltDependencies" (usar pnpm-workspace.yaml#allowBuilds)'
+    );
+  }
+
+  private extractAllowBuildsEntries(yamlContent: string): Array<[string, string]> {
+    const entries: Array<[string, string]> = [];
+    const lines = yamlContent.split(/\r?\n/);
+    let inBlock = false;
+    for (const line of lines) {
+      if (/^allowBuilds:\s*$/.test(line)) {
+        inBlock = true;
+        continue;
+      }
+      if (!inBlock) continue;
+      if (/^[A-Za-z0-9_.-]+:/.test(line)) break;
+      const entryMatch = /^\s+([^\s:#]+|"[^"]+"|'[^']+')\s*:\s*(true|false)\s*$/.exec(line);
+      if (entryMatch) {
+        entries.push([entryMatch[1], entryMatch[2]]);
+      }
+    }
+    return entries;
+  }
+
+  private normalizeYamlPkgKey(rawKey: string): string {
+    return rawKey.replace(/^['"]|['"]$/g, '');
+  }
+
+  /**
+   * Fusión quirúrgica e idempotente para pnpm-workspace.yaml (mapa booleano allowBuilds en pnpm 12+)
+   */
+  public mergePnpmWorkspaceYaml(
+    targetContent: string,
+    exampleContent: string
+  ): { merged: string; changes: string[] } {
+    if (!targetContent.trim()) {
+      return {
+        merged: exampleContent.trimEnd() + '\n',
+        changes: ['Creado pnpm-workspace.yaml con mapa booleano allowBuilds.'],
+      };
+    }
+
+    const exampleEntries = this.extractAllowBuildsEntries(exampleContent);
+    if (exampleEntries.length === 0) {
+      return { merged: targetContent.trimEnd() + '\n', changes: [] };
+    }
+
+    const existingEntries = this.extractAllowBuildsEntries(targetContent);
+    const existingKeys = new Set(existingEntries.map(([k]) => this.normalizeYamlPkgKey(k)));
+    const missingLines: string[] = [];
+    const changes: string[] = [];
+
+    for (const [rawKey, boolVal] of exampleEntries) {
+      const normalized = this.normalizeYamlPkgKey(rawKey);
+      if (!existingKeys.has(normalized)) {
+        missingLines.push(`  ${rawKey}: ${boolVal}`);
+        changes.push(`Añadido allowBuilds["${normalized}"]: ${boolVal}`);
+      }
+    }
+
+    if (missingLines.length === 0) {
+      return { merged: targetContent.trimEnd() + '\n', changes: [] };
+    }
+
+    const targetLines = targetContent.trimEnd().split(/\r?\n/);
+    const headerIdx = targetLines.findIndex((line) => /^allowBuilds:\s*$/.test(line));
+    if (headerIdx === -1) {
+      return {
+        merged: `${targetContent.trimEnd()}\nallowBuilds:\n${missingLines.join('\n')}\n`,
+        changes,
+      };
+    }
+
+    let insertAt = headerIdx + 1;
+    while (insertAt < targetLines.length && !/^[A-Za-z0-9_.-]+:/.test(targetLines[insertAt])) {
+      insertAt++;
+    }
+    targetLines.splice(insertAt, 0, ...missingLines);
+    return { merged: targetLines.join('\n') + '\n', changes };
+  }
+
+  /**
+   * Fusión quirúrgica para .eslintrc.json: migra plugin:security/recommended a recommended-legacy e ignorePatterns
+   */
+  public mergeEslintrcJson(
+    targetContent: string,
+    exampleContent: string
+  ): { merged: string; changes: string[] } {
+    if (!targetContent.trim()) {
+      return {
+        merged: exampleContent.trimEnd() + '\n',
+        changes: ['Creado .eslintrc.json con configuración canónica 11X.'],
+      };
+    }
+
+    let targetObj: Record<string, unknown>;
+    let exampleObj: Record<string, unknown>;
+    try {
+      targetObj = JSON.parse(targetContent) as Record<string, unknown>;
+      exampleObj = JSON.parse(exampleContent) as Record<string, unknown>;
+    } catch {
+      return { merged: targetContent.trimEnd() + '\n', changes: [] };
+    }
+
+    const changes: string[] = [];
+    this.migrateSecurityRecommendedLegacy(targetObj, changes);
+    this.mergeIgnorePatternsArray(targetObj, exampleObj, changes);
+
+    return {
+      merged: JSON.stringify(targetObj, null, 2) + '\n',
+      changes,
+    };
+  }
+
+  private migrateSecurityRecommendedLegacy(
+    targetObj: Record<string, unknown>,
+    changes: string[]
+  ): void {
+    if (!Array.isArray(targetObj.extends)) return;
+    targetObj.extends = targetObj.extends.map((entry) => {
+      if (entry === 'plugin:security/recommended') {
+        changes.push(
+          'Migrado "plugin:security/recommended" a "plugin:security/recommended-legacy" (ESLint 8)'
+        );
+        return 'plugin:security/recommended-legacy';
+      }
+      return entry;
+    });
+  }
+
+  private mergeIgnorePatternsArray(
+    targetObj: Record<string, unknown>,
+    exampleObj: Record<string, unknown>,
+    changes: string[]
+  ): void {
+    const examplePatterns = Array.isArray(exampleObj.ignorePatterns)
+      ? exampleObj.ignorePatterns.filter((p): p is string => typeof p === 'string')
+      : [];
+    if (examplePatterns.length === 0) return;
+
+    const existingPatterns = Array.isArray(targetObj.ignorePatterns)
+      ? targetObj.ignorePatterns.filter((p): p is string => typeof p === 'string')
+      : [];
+    const seen = new Set(existingPatterns);
+    const merged = [...existingPatterns];
+    for (const pat of examplePatterns) {
+      if (!seen.has(pat)) {
+        merged.push(pat);
+        seen.add(pat);
+        changes.push(`Añadido ignorePatterns: "${pat}"`);
+      }
+    }
+    targetObj.ignorePatterns = merged;
+  }
+
+  /**
+   * Fusión quirúrgica e idempotente para vitest.setup.ts preservando polyfill localStorage (Node 26+)
+   */
+  public mergeVitestSetupTs(
+    targetContent: string,
+    exampleContent: string
+  ): { merged: string; changes: string[] } {
+    if (!targetContent.trim()) {
+      return {
+        merged: exampleContent.trimEnd() + '\n',
+        changes: ['Creado vitest.setup.ts con polyfill localStorage para Node 26+.'],
+      };
+    }
+    if (targetContent.includes('localStorage')) {
+      return { merged: targetContent.trimEnd() + '\n', changes: [] };
+    }
+    const polyfillOnly = exampleContent
+      .split(/\r?\n/)
+      .filter((line) => !line.includes("'@testing-library/jest-dom'"))
+      .join('\n')
+      .trim();
+    const merged = `${targetContent.trimEnd()}\n\n${polyfillOnly}\n`;
+    return {
+      merged,
+      changes: ['Inyectado polyfill localStorage en memoria para compatibilidad Vitest + Node 26'],
     };
   }
 
@@ -399,28 +593,28 @@ export class SurgicalMerger {
     projectName = 'Project'
   ): { finalContent: string; changes: string[] } {
     const base = path.basename(targetName);
-    if (base === 'package.json') {
-      const res = this.mergePackageJson(existingContent, exampleContent);
-      return { finalContent: res.merged, changes: res.changes };
-    }
-    if (base === 'composer.json') {
-      const res = this.mergeComposerJson(existingContent, exampleContent);
-      return { finalContent: res.merged, changes: res.changes };
-    }
-    if (base === 'pyproject.toml') {
-      const res = this.mergePyprojectToml(existingContent, exampleContent);
-      return { finalContent: res.merged, changes: res.changes };
-    }
-    if (base === 'Makefile') {
-      const res = this.mergeMakefile(existingContent, exampleContent);
+    const jsonOrTomlHandlers: Record<
+      string,
+      (existing: string, example: string) => { merged: string; changes: string[] }
+    > = {
+      'package.json': (e, x) => this.mergePackageJson(e, x),
+      'composer.json': (e, x) => this.mergeComposerJson(e, x),
+      'pyproject.toml': (e, x) => this.mergePyprojectToml(e, x),
+      Makefile: (e, x) => this.mergeMakefile(e, x),
+      'pnpm-workspace.yaml': (e, x) => this.mergePnpmWorkspaceYaml(e, x),
+      '.eslintrc.json': (e, x) => this.mergeEslintrcJson(e, x),
+      'vitest.setup.ts': (e, x) => this.mergeVitestSetupTs(e, x),
+      'lefthook.yml': (e, x) => this.mergeLefthookYaml(e, x),
+      'lefthook.yaml': (e, x) => this.mergeLefthookYaml(e, x),
+    };
+
+    const handler = jsonOrTomlHandlers[base];
+    if (handler) {
+      const res = handler(existingContent, exampleContent);
       return { finalContent: res.merged, changes: res.changes };
     }
     if (base === 'AGENTS.md') {
       const res = this.mergeAgentsMd(existingContent, projectName);
-      return { finalContent: res.merged, changes: res.changes };
-    }
-    if (base === 'lefthook.yml' || base === 'lefthook.yaml') {
-      const res = this.mergeLefthookYaml(existingContent, exampleContent);
       return { finalContent: res.merged, changes: res.changes };
     }
     const res = this.mergeGitignoreOrNpmrc(existingContent, exampleContent);

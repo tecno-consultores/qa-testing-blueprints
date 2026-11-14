@@ -67,8 +67,28 @@ describe('SurgicalMerger Service (Non-destructive AST/Configuration Merging)', (
       expect(parsed.devDependencies.typescript).toBe('^5.0.0'); // Preservado
       expect(parsed.devDependencies.vitest).toBe('^2.1.8'); // Inyectado
       expect(parsed.devDependencies.eslint).toBe('^8.57.0'); // Inyectado
+      expect(parsed.pnpm).toBeUndefined();
 
       expect(changes.length).toBeGreaterThan(0);
+    });
+
+    it('strips legacy pnpm.onlyBuiltDependencies while preserving other pnpm keys', () => {
+      const onlyLegacyTarget = JSON.stringify({
+        name: 'legacy-pnpm',
+        pnpm: { onlyBuiltDependencies: ['esbuild'] },
+      });
+      const res1 = merger.mergePackageJson(onlyLegacyTarget, JSON.stringify({ scripts: {} }));
+      const parsed1 = JSON.parse(res1.merged);
+      expect(parsed1.pnpm).toBeUndefined();
+      expect(res1.changes.some((c) => c.includes('pnpm.onlyBuiltDependencies'))).toBe(true);
+
+      const mixedTarget = JSON.stringify({
+        name: 'mixed-pnpm',
+        pnpm: { onlyBuiltDependencies: ['esbuild'], overrides: { tar: '^7.5.0' } },
+      });
+      const res2 = merger.mergePackageJson(mixedTarget, JSON.stringify({ scripts: {} }));
+      const parsed2 = JSON.parse(res2.merged);
+      expect(parsed2.pnpm).toEqual({ overrides: { tar: '^7.5.0' } });
     });
 
     it('handles empty or malformed target JSON gracefully', () => {
@@ -546,6 +566,106 @@ qa-unit:
       ];
 
       await expect(merger.mergeFiles(tmpDir, maliciousBundle)).rejects.toThrow('CWE-22');
+    });
+
+    it('merges pnpm-workspace.yaml, .eslintrc.json, and vitest.setup.ts cleanly and idempotently', async () => {
+      const wsEmpty = merger.mergePnpmWorkspaceYaml('', 'allowBuilds:\n  esbuild: true\n');
+      expect(wsEmpty.merged).toContain('esbuild: true');
+
+      const wsNoOpExample = merger.mergePnpmWorkspaceYaml('packages:\n  - apps/*\n', 'packages:\n  - libs/*\n');
+      expect(wsNoOpExample.changes).toHaveLength(0);
+
+      const wsAppendBlock = merger.mergePnpmWorkspaceYaml(
+        'packages:\n  - apps/*\n',
+        'allowBuilds:\n  esbuild: true\n'
+      );
+      expect(wsAppendBlock.merged).toContain('allowBuilds:\n  esbuild: true');
+
+      const wsExistingBlock = merger.mergePnpmWorkspaceYaml(
+        "allowBuilds:\n  esbuild: true\npackages:\n  - 'packages/*'\n",
+        "allowBuilds:\n  esbuild: true\n  '@playwright/test': true\npackages:\n  - 'apps/*'\n"
+      );
+      expect(wsExistingBlock.merged).toContain("  '@playwright/test': true");
+      expect(wsExistingBlock.merged).toContain("packages:\n  - 'packages/*'");
+      expect(
+        merger.mergePnpmWorkspaceYaml(wsExistingBlock.merged, "allowBuilds:\n  esbuild: true\n  '@playwright/test': true\n")
+          .changes
+      ).toHaveLength(0);
+
+      const eslintEmpty = merger.mergeEslintrcJson('', '{"extends":["plugin:security/recommended-legacy"]}\n');
+      expect(eslintEmpty.changes).toHaveLength(1);
+      expect(merger.mergeEslintrcJson('{invalid', '{}').changes).toHaveLength(0);
+
+      const eslintMigrated = merger.mergeEslintrcJson(
+        JSON.stringify({
+          extends: ['eslint:recommended', 'plugin:security/recommended'],
+          ignorePatterns: ['dist/'],
+        }),
+        JSON.stringify({
+          extends: ['plugin:security/recommended-legacy'],
+          ignorePatterns: ['dist/', 'coverage/', 'graphify-out/'],
+        })
+      );
+      const parsedEslint = JSON.parse(eslintMigrated.merged);
+      expect(parsedEslint.extends).toContain('plugin:security/recommended-legacy');
+      expect(parsedEslint.extends).not.toContain('plugin:security/recommended');
+      expect(parsedEslint.ignorePatterns).toEqual(['dist/', 'coverage/', 'graphify-out/']);
+
+      const eslintNoPatterns = merger.mergeEslintrcJson(
+        JSON.stringify({ rules: {} }),
+        JSON.stringify({ extends: [] })
+      );
+      expect(eslintNoPatterns.changes).toHaveLength(0);
+
+      const setupEmpty = merger.mergeVitestSetupTs('', "import '@testing-library/jest-dom';\nconst x = localStorage;\n");
+      expect(setupEmpty.changes).toHaveLength(1);
+      expect(merger.mergeVitestSetupTs('globalThis.localStorage', 'localStorage').changes).toHaveLength(0);
+
+      const setupAppended = merger.mergeVitestSetupTs(
+        "import '@testing-library/jest-dom';\n",
+        "import '@testing-library/jest-dom';\nfunction ensure() { return globalThis.localStorage; }\n"
+      );
+      expect(setupAppended.merged.match(/@testing-library\/jest-dom/g)).toHaveLength(1);
+      expect(setupAppended.merged).toContain('ensure()');
+
+      const wsPath = path.join(tmpDir, 'pnpm-workspace.yaml');
+      const eslintPath = path.join(tmpDir, '.eslintrc.json');
+      const setupPath = path.join(tmpDir, 'vitest.setup.ts');
+      fs.writeFileSync(wsPath, 'allowBuilds:\n  esbuild: true\n', 'utf-8');
+      fs.writeFileSync(eslintPath, JSON.stringify({ extends: ['plugin:security/recommended'] }), 'utf-8');
+      fs.writeFileSync(setupPath, "import '@testing-library/jest-dom';\n", 'utf-8');
+
+      const bundleRes = await merger.mergeFiles(tmpDir, [
+        {
+          path: 'vue3/pnpm-workspace.yaml.example',
+          target_name: 'pnpm-workspace.yaml',
+          merge_strategy: 'surgical_merge',
+          content: 'allowBuilds:\n  esbuild: true\n  vue-demi: false\n',
+          sha256_verified: true,
+        },
+        {
+          path: 'vue3/.eslintrc.json.example',
+          target_name: '.eslintrc.json',
+          merge_strategy: 'surgical_merge',
+          content: JSON.stringify({
+            extends: ['plugin:security/recommended-legacy'],
+            ignorePatterns: ['dist/'],
+          }),
+          sha256_verified: true,
+        },
+        {
+          path: 'react-frontend/vitest.setup.ts.example',
+          target_name: 'vitest.setup.ts',
+          merge_strategy: 'surgical_merge',
+          content: "import '@testing-library/jest-dom';\nconst s = globalThis.localStorage;\n",
+          sha256_verified: true,
+        },
+      ]);
+
+      expect(bundleRes.summary.merged).toBe(3);
+      expect(fs.readFileSync(wsPath, 'utf-8')).toContain('vue-demi: false');
+      expect(fs.readFileSync(eslintPath, 'utf-8')).toContain('plugin:security/recommended-legacy');
+      expect(fs.readFileSync(setupPath, 'utf-8')).toContain('localStorage');
     });
   });
 });

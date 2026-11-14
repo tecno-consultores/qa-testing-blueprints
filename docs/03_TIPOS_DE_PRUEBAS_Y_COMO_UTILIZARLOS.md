@@ -16,7 +16,7 @@
           /         \   [10] Rendimiento & Estrés (Locust / Artillery)
          /           \  [09] Accesibilidad WCAG 2.1 AA & Geometría Visual
         /             \ [08] Mutación: Pruebas de las Pruebas (Mutmut / Stryker)
-       /               \[07] BDD UI Aceptación (Karate Labs UI en Chrome Headless)
+       /               \[07] Contratos HTTP/OSHP/SSG Frontend (Karate Labs HTTP + Playwright DOM)
       /                 \[06] BDD API Caja Negra (Karate Labs HTTP)
      /                   \[05] Contratos de Integración Front-Back
     /                     \[04] Paridad de Esquema DB & Migraciones (Alembic)
@@ -165,33 +165,35 @@
 
 ---
 
-## 7. Pruebas BDD de Aceptación UI con Karate Labs (Chrome Headless)
+## 7. Contratos BDD HTTP/OSHP/SSG Frontend con Karate Labs (sin navegador Headless)
 
-* **Propósito:** Automatizar interacciones reales de usuario en el navegador Chrome sin necesidad de Selenium ni dependencias locales pesadas: login, clics de botones, navegación de pestañas, modales y validación de textos en el DOM.
-* **Estructura:** Ubicado en `vue3/test/ui_business_flow.feature`.
-* **Ejemplo Real de Escenario Karate Labs UI:**
+* **Propósito:** La imagen oficial `sinfallas/karatelabs:1.5.1` (al igual que `:latest`) **no incluye binario Chrome ni Chromium**. Por ello, Karate 1.5.1 certifica en caja negra la entrega HTTP/Nginx sobre `http://ui-prod:80`: códigos `200`, rutas SPA/SSG, cabeceras OWASP OSHP (`Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`) e integridad XML/SEO como cadena (`* string xmlText = response` en `/sitemap.xml`). Toda interacción DOM real, validación del botón `[ 🔄 Refrescar ]`, geometría Anti-JSDOM y accesibilidad WCAG 2.1 AA se delega a Playwright (`ui-e2e`).
+* **Estructura:** Ubicado en `vue3/test/ui_business_flow.feature` y `react-frontend/test/ui_business_flow.feature`.
+* **Ejemplo Real de Escenario Karate Labs HTTP/OSHP/SSG:**
   ```gherkin
-  Feature: Flujo de Aceptación UI en Vue 3
+  Feature: Contratos BDD HTTP, Cabeceras OWASP OSHP, Rutas SPA/SSG y SEO (Karate 1.5.1)
 
     Background:
-      * configure driver = { type: 'chrome', headless: true, addOptions: ['--no-sandbox', '--disable-dev-shm-usage'] }
       * def baseUrl = karate.properties['UI_BASE_URL'] || 'http://ui-prod:80'
+      * url baseUrl
 
-    Scenario: Pantalla de Login y validación de campos obligatorios
-      Given driver baseUrl + '/login'
-      And waitFor("#login-email")
-      And waitFor("#login-password")
-      When input("#login-email", 'operador@demo.net')
-      And input("#login-password", 'PasswordInvalido123!')
-      And click("#btn-login-submit")
-      Then waitFor(".banner--error")
+    Scenario: Entrega HTML y cabeceras OWASP OSHP alineadas con Nginx
+      Given path '/'
+      When method get
+      Then status 200
+      And match header Content-Type contains 'text/html'
+      And match header X-Frame-Options == 'DENY'
+      And match header X-Content-Type-Options == 'nosniff'
+      And match header Referrer-Policy == 'strict-origin-when-cross-origin'
+      And match header Content-Security-Policy contains "default-src 'self'"
 
-    Scenario: Centro de Mando y actualización de datos
-      Given driver baseUrl + '/'
-      And waitFor("//h1[contains(., 'Centro de Mando') or contains(., 'Dashboard')]")
-      When click("//button[contains(@class, 'btn-primary') and contains(., 'Actualizar Datos')]")
-      Then waitFor(".status-indicator.success")
-      And match text(".status-text") == 'Actualizado'
+    Scenario: Inspección segura como string de /sitemap.xml en SSG o fallback SPA
+      Given path '/sitemap.xml'
+      When method get
+      Then status 200
+      * string xmlText = response
+      * def contentType = responseHeaders['Content-Type'] ? responseHeaders['Content-Type'][0] : ''
+      * assert contentType.contains('xml') ? xmlText.contains('<urlset') : xmlText.toLowerCase().contains('<html')
   ```
 * **Ejecución:**
   ```bash

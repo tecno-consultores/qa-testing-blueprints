@@ -11,7 +11,7 @@
 *   **Obligatorio:** Utiliza las metas predefinidas en el `Makefile` (ej. `make qa-unit`) para aislar la infraestructura y re-utilizar la caché de dependencias.
 *   **Para pruebas lógicas (Vitest) y Mutación:** Usamos el contenedor ligero `qa-vue3` (`sinfallas/base-node-ionic:26`; tags disponibles: `22`, `24`, `26` y `latest`).
 *   **Para Lighthouse y UI E2E (Playwright):** Usamos el contenedor pesado `ui-e2e`.
-*   **Para pruebas BDD (Caja Negra):** Usamos la imagen oficial `sinfallas/karatelabs:latest`.
+*   **Para pruebas BDD (Caja Negra HTTP/OSHP):** Usamos la imagen oficial `sinfallas/karatelabs:1.5.1` (`:latest`).
 *   **Para Observabilidad (Métricas de Servidor):** Usamos los contenedores `nginx/nginx-prometheus-exporter:latest` y `prom/prometheus:latest`.
 *   **Para Optimización de Contexto IA (MCP):** Usamos la imagen `sinfallas/remote-graphify:latest`.
 
@@ -21,7 +21,7 @@
 *   **Cuándo usarlo:** Para probar *composables*, stores de Pinia, y renderizado de componentes Vue aislados.
 *   **Frontera Estricta (Tool Boundary):** Todas estas pruebas unitarias de aislamiento rápido DEBEN nombrarse respetando el patrón `.unit.ts` o `.spec.ts`.
 *   **Regla:** Mockea todas las llamadas a la red. Vitest debe ejecutarse en milisegundos. Cobertura innegociable del 95%.
-*   **Advertencia Anti-JSDOM (Geometría Visual):** `jsdom` NO calcula modelos de caja ni colisiones visuales (`0x0` bounding box). Tienes estrictamente prohibido usar elementos `position: fixed` flotantes para pies de página que tapen botones de acción o tablas. Todo footer debe ser in-flow (`margin-top: auto`) dentro de `<main>`. Valida siempre el comportamiento visual en navegador real mediante Playwright o Karate Labs.
+*   **Advertencia Anti-JSDOM (Geometría Visual):** `jsdom` NO calcula modelos de caja ni colisiones visuales (`0x0` bounding box). Tienes estrictamente prohibido usar elementos `position: fixed` flotantes para pies de página que tapen botones de acción o tablas. Todo footer debe ser in-flow (`margin-top: auto`) dentro de `<main>`. Valida siempre el comportamiento visual en navegador real mediante Playwright (`ui-e2e`).
 
 ### B. Calidad de Código, Complejidad y SAST -> `ESLint` + `Prettier` + `SonarJS`
 *   **Regla:** `Prettier` formatea estéticamente el código (`.vue`, `.ts`).
@@ -36,8 +36,8 @@
 *   **Playwright / Axe:** Navega la aplicación, valida el DOM profundo, accesibilidad WCAG 2.1 AA (0 violaciones) y compara capturas de pantalla de la interfaz.
 *   **Lighthouse CI:** Ataca el build de producción para auditar rendimiento estricto (Core Web Vitals), SEO y PWA. Si el *Performance Score* baja de 90, el pipeline falla.
 
-### E. Flujos de Negocio BDD -> `Karate Labs`
-*   **Regla:** Úsalo exclusivamente para pruebas de aceptación (Gherkin en `test/ui_business_flow.feature`) validando que el usuario puede completar flujos críticos en el navegador.
+### E. Flujos de Negocio BDD -> `Karate Labs` + `Playwright`
+*   **Regla:** `sinfallas/karatelabs:1.5.1` (`:latest`) no incluye binario Chrome/Chromium; utiliza `test/ui_business_flow.feature` exclusivamente para contratos HTTP/Nginx/SSG, cabeceras OWASP OSHP y XML/SEO (`* string xmlText = response`), delegando la interacción DOM real, `[ 🔄 Refrescar ]` y WCAG 2.1 AA a Playwright (`ui-e2e`).
 
 ### F. Observabilidad -> `Nginx Prometheus Exporter`
 *   **Regla:** El monitoreo del frontend se realiza externamente a través de los logs de acceso de Nginx para no agregar dependencias al código de la aplicación. Esto se ejecuta mediante el perfil `--profile observability`.

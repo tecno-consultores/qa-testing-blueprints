@@ -11,7 +11,7 @@
 *   **Obligatorio:** Utiliza las metas predefinidas en el `Makefile` (ej. `make qa-unit`) para aislar la infraestructura y re-utilizar la caché de dependencias.
 *   **Para pruebas lógicas (Vitest/RTL) y Mutación:** Usamos el contenedor ligero `qa-frontend` (`sinfallas/base-node-ionic:26`; tags disponibles: `22`, `24`, `26` y `latest`).
 *   **Para Lighthouse y UI E2E (Playwright):** Usamos el contenedor pesado `ui-e2e`.
-*   **Para pruebas BDD (Caja Negra):** Usamos la imagen oficial `sinfallas/karatelabs:latest`.
+*   **Para pruebas BDD (Caja Negra HTTP/OSHP):** Usamos la imagen oficial `sinfallas/karatelabs:1.5.1` (`:latest`).
 *   **Para Observabilidad (Métricas de Servidor):** Usamos los contenedores `nginx/nginx-prometheus-exporter:latest` y `prom/prometheus:latest`.
 *   **Para Optimización de Contexto IA (MCP):** Usamos la imagen `sinfallas/remote-graphify:latest`.
 
@@ -37,8 +37,8 @@
 *   **Playwright / Axe:** Navega la aplicación, valida el DOM profundo, accesibilidad y compara capturas de pantalla de la interfaz congelando animaciones CSS.
 *   **Lighthouse CI:** Ataca el build de producción estático en Nginx para auditar rendimiento estricto (Core Web Vitals). Si el *Performance Score* baja de 90, el pipeline falla.
 
-### E. Flujos de Negocio BDD -> `Karate Labs`
-*   **Regla:** Úsalo exclusivamente para pruebas de aceptación (Gherkin) validando que el usuario puede completar flujos críticos en el navegador *headless*.
+### E. Flujos de Negocio BDD -> `Karate Labs` + `Playwright`
+*   **Regla:** `sinfallas/karatelabs:1.5.1` (`:latest`) no incluye binario Chrome/Chromium; utiliza `test/ui_business_flow.feature` exclusivamente para contratos HTTP/Nginx/SSG, cabeceras OWASP OSHP y XML/SEO (`* string xmlText = response`), delegando la interacción DOM real, `[ 🔄 Refrescar ]` y WCAG 2.1 AA a Playwright (`ui-e2e`).
 
 ### F. Observabilidad -> `Nginx Prometheus Exporter`
 *   **Regla:** El monitoreo del frontend se realiza externamente a través de los logs de acceso de Nginx. Esto se ejecuta mediante el perfil `--profile observability`.

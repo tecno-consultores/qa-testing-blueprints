@@ -241,7 +241,7 @@ flowchart LR
 
 Antes de cada commit, el código supera de forma automatizada:
 1. **Detección de Secretos:** `./scripts/verificar-secretos.sh` (0 credenciales hardcodeadas).
-2. **SAST Estático:** `Bandit` (Python) y `eslint-plugin-security` (Node/Vue/React), con `.npmrc` configurado con `ignore-scripts=true`.
+2. **SAST Estático:** `Bandit` (Python) y `eslint-plugin-security` (`plugin:security/recommended-legacy` en ESLint 8), con `.npmrc` configurado con `ignore-scripts=true` y excepciones nativas declaradas mediante el mapa booleano `allowBuilds` en `pnpm-workspace.yaml` (`SEC-09`).
 3. **Auditoría IaC y Contenedores:** `Trivy` (`./scripts/auditar-infra.sh`) exigiendo `0` vulnerabilidades `HIGH` o `CRITICAL` y ejecución no-root.
 4. **Compuerta de Certificación:** `./.agents/scripts/certify_task_completion.sh` con salida en exit code 0.
 5. **Validación de Workflows y Auditoría Continua:** `make lint-workflows` en local y `.github/workflows/audit-base-images.yml` (`Trivy`, `pip-audit` y `CodeQL`) en CI.

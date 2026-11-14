@@ -907,5 +907,24 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert agenticskills.contains('sync_enterprise_tms')
     * assert agenticskills.contains('blueprint://vibe-rescue/readme')
 
+  Scenario: 30. Alineación Node 26 / pnpm 12 allowBuilds, ESLint recommended-legacy, Vitest localStorage y Karate 1.5.1 HTTP en manifest.json
+    * def findEntry = function(list, pathStr) { return karate.filter(list, function(x) { return x.path == pathStr })[0] }
+    * def vuePnpmWs = findEntry(manifest.stacks.vue3.files, 'vue3/pnpm-workspace.yaml.example')
+    * match vuePnpmWs.merge_strategy == 'surgical_merge'
+    * match vuePnpmWs.sha256 == '#regex ^[0-9a-f]{64}$'
+    * def vueVitestSetup = findEntry(manifest.stacks.vue3.files, 'vue3/vitest.setup.ts.example')
+    * match vueVitestSetup.merge_strategy == 'surgical_merge'
+    * match vueVitestSetup.sha256 == '#regex ^[0-9a-f]{64}$'
+    * def reactPnpmWs = findEntry(manifest.stacks['react-frontend'].files, 'react-frontend/pnpm-workspace.yaml.example')
+    * match reactPnpmWs.merge_strategy == 'surgical_merge'
+    * match reactPnpmWs.sha256 == '#regex ^[0-9a-f]{64}$'
+    * def nodePnpmWs = findEntry(manifest.stacks['node-backend'].files, 'node-backend/pnpm-workspace.yaml.example')
+    * match nodePnpmWs.merge_strategy == 'surgical_merge'
+    * match nodePnpmWs.sha256 == '#regex ^[0-9a-f]{64}$'
+    * string vuePkgRaw = karate.readAsString(repoRoot + '/vue3/package.json.example')
+    * json vuePkg = vuePkgRaw
+    * assert vuePkg.pnpm == null
+    * match vuePkg.devDependencies['vue-tsc'] == '^2.2.8'
+
 
 

@@ -1,0 +1,5 @@
+allowBuilds:
+  esbuild: true
+  playwright: true
+  '@playwright/test': true
+  vue-demi: false

@@ -87,8 +87,27 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             self.assertNotIn("--profile graphify", makefile)
 
             self.assertTrue((REPO_ROOT / fe / "lighthouserc.cjs.example").is_file())
+            self.assertNotIn("pnpm", pkg, f"Clave obsoleta package.json#pnpm residual en {fe}")
+            pnpm_ws = (REPO_ROOT / fe / "pnpm-workspace.yaml.example").read_text(encoding="utf-8")
+            self.assertIn("allowBuilds:", pnpm_ws)
+            self.assertNotIn("\n  - esbuild", pnpm_ws)
+            self.assertIn("esbuild: true", pnpm_ws)
+
+            eslintrc = json.loads((REPO_ROOT / fe / ".eslintrc.json.example").read_text(encoding="utf-8"))
+            self.assertIn("plugin:security/recommended-legacy", eslintrc["extends"])
+            self.assertIn("ignorePatterns", eslintrc)
+
+            vitest_setup = (REPO_ROOT / fe / "vitest.setup.ts.example").read_text(encoding="utf-8")
+            self.assertIn("localStorage", vitest_setup)
+            self.assertIn("setupFiles:", vitest_cfg)
+
             feature = (REPO_ROOT / fe / "test" / "ui_business_flow.feature").read_text(encoding="utf-8")
             self.assertGreaterEqual(feature.count("Scenario:"), 5)
+            self.assertNotIn("type: 'chrome'", feature)
+            self.assertIn("* string xmlText = response", feature)
+
+        vue_pkg = json.loads((REPO_ROOT / "vue3" / "package.json.example").read_text(encoding="utf-8"))
+        self.assertEqual(vue_pkg["devDependencies"]["vue-tsc"], "^2.2.8")
 
     def test_python_and_fastapi_invariants(self) -> None:
         """Verifica TOML válido, UV_CACHE_DIR=/tmp/uv-cache, Radon Grado A, pip-audit y rol app_user RLS."""
@@ -133,6 +152,14 @@ class TestStacksHydrationSmoke(unittest.TestCase):
 
         node_feature = (REPO_ROOT / "node-backend" / "test" / "node_api.feature").read_text(encoding="utf-8")
         self.assertIn("Idempotency-Key", node_feature)
+        node_pkg = json.loads((REPO_ROOT / "node-backend" / "package.json.example").read_text(encoding="utf-8"))
+        self.assertNotIn("pnpm", node_pkg)
+        node_ws = (REPO_ROOT / "node-backend" / "pnpm-workspace.yaml.example").read_text(encoding="utf-8")
+        self.assertIn("allowBuilds:", node_ws)
+        self.assertIn("esbuild: true", node_ws)
+        node_eslint = json.loads((REPO_ROOT / "node-backend" / ".eslintrc.json.example").read_text(encoding="utf-8"))
+        self.assertIn("plugin:security/recommended-legacy", node_eslint["extends"])
+        self.assertIn("ignorePatterns", node_eslint)
 
         bash_compose = (REPO_ROOT / "bash-scripts" / "docker-compose.qa.yml").read_text(encoding="utf-8")
         self.assertIn("SYS_PTRACE", bash_compose)

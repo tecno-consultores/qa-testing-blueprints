@@ -22,6 +22,16 @@ This reference provides technical rules, testing conventions, and ephemeral Dock
    - Always pass `-u "$(id -u):$(id -g)"` on `docker compose run --rm` (and set `user: "${QA_UID:-1000}:${QA_GID:-1000}"` in `docker-compose.qa.yml`) so `node_modules/.pnpm` and `dist/` match the host/CI runner UID (`1001` on GitHub Actions, `1000` on Linux, `501` on macOS) without `ERR_PNPM_PACKAGE_MANAGER_CREATE_SLOT_DIR` (`os error 13`).
    - Declare a one-shot `pnpm-store-init` service (`user: "0:0"`, `command: ["chmod", "-R", "a+rwX", "/pnpm"]`) with `depends_on: { pnpm-store-init: { condition: service_completed_successfully } }`, plus `HOME: /tmp` and `pnpm_config_store_dir: /pnpm/store` (`pnpm` v12+ ignores legacy `npm_config_*`), preventing CAFS permission errors and preventing cross-device fallback creation of `/app/.pnpm-store`.
    - Never invoke bare `os.homedir()` without `try/catch` in Node.js CLIs/tools: under arbitrary non-root UIDs absent from container `/etc/passwd` (e.g. GitHub Actions `UID 1001`, OpenShift random UIDs) when `process.env.HOME` is unset, `uv_os_homedir` throws `SystemError: ENOENT`; always resolve `process.env.HOME || process.env.USERPROFILE` first and fall back to `os.tmpdir()` inside `catch`.
+3. **Node 26 + pnpm 12 Supply-Chain `allowBuilds`, ESLint 8 Legacy & `vue-tsc`:**
+   - Under `sinfallas/base-node-ionic:26` (`Node v26.13+`, `pnpm 12.18+`) with `.npmrc` `ignore-scripts=true` (`SEC-09`), `package.json#pnpm` (`pnpm.onlyBuiltDependencies`) is ignored (`WARN` + `ERR_PNPM_IGNORED_BUILDS`). Omit `"pnpm"` from `package.json` and declare `pnpm-workspace.yaml` using a **boolean map (`Record<string, boolean>`, NEVER a YAML list `- pkg`, which aborts with `ERR_PNPM_INVALID_SETTING`)**:
+     ```yaml
+     allowBuilds:
+       esbuild: true
+       playwright: true
+       '@playwright/test': true
+       vue-demi: false
+     ```
+   - With ESLint `8.57.x` `.eslintrc.json` and `eslint-plugin-security@^3.0.0`, extend `"plugin:security/recommended-legacy"` (the v3 `"recommended"` export is Flat Config) and configure `"ignorePatterns": ["dist/", "dist-ssr/", "coverage/", "playwright-report/", "lhci-reports/", "target/", "graphify-out/"]`. Pin `"vue-tsc": "^2.2.8"` on Vue 3 with TypeScript `5.5+`/Vite `5+`.
 
 ---
 
@@ -29,7 +39,7 @@ This reference provides technical rules, testing conventions, and ephemeral Dock
 
 ```
                       ┌──────────────────────────────────────┐
-                      │ Karate Labs UI BDD (Chrome Headless) │
+                      │ Karate Labs HTTP/Edge/OSHP BDD       │
                       ├──────────────────────────────────────┤
                       │ Playwright E2E + @axe-core (WCAG AA) │
                       ├──────────────────────────────────────┤
@@ -43,8 +53,8 @@ This reference provides technical rules, testing conventions, and ephemeral Dock
 
 ### File Naming Convention & Tool Boundaries
 - **Unit Tests:** `src/**/*.unit.ts` or `src/**/*.unit.tsx`. Executed with Vitest (`@vitest/coverage-v8`). NEVER import Playwright or real network drivers in `.unit.ts`.
-- **E2E / A11y Tests:** `e2e/**/*.e2e.ts`. Executed with Playwright and `@axe-core/playwright`.
-- **UI BDD Scenarios:** `test/ui_business_flow.feature`. Executed with `sinfallas/karatelabs:latest` driving real Chrome Headless.
+- **E2E / A11y Tests:** `e2e/**/*.e2e.ts`. Executed with Playwright (`ui-e2e`, `mcr.microsoft.com/playwright:v1.52.0-noble`) and `@axe-core/playwright` for real DOM interactions, Screenplay/POM flows, Anti-JSDOM geometry, and WCAG 2.1 AA.
+- **UI BDD Scenarios:** `test/ui_business_flow.feature`. Executed with `sinfallas/karatelabs:1.5.1` (`:latest` has no Chrome/Chromium binary installed) to certify HTTP/Nginx delivery on `http://ui-prod:80`, SPA/SSG routes, OWASP OSHP headers, and SEO/XML endpoints (`* string xmlText = response`).
 
 ### Inflexible Linter Standard & Hermetic Test Isolation
 1. **Zero-Warning Tolerance (`--max-warnings 0`):** The `"lint"` script in `package.json` MUST enforce `--max-warnings 0`. Any ESLint, SonarJS, or TypeScript warning MUST fail the process immediately (`Exit Code 1`), preventing silent accumulation of technical debt.
@@ -81,6 +91,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
+    setupFiles: ['./vitest.setup.ts'],
     include: ['src/**/*.unit.ts', 'src/**/*.unit.tsx'],
     coverage: {
       provider: 'v8',
@@ -94,6 +105,30 @@ export default defineConfig({
     },
   },
 });
+```
+
+### `vitest.setup.ts` (Node v26+ `localStorage` Polyfill)
+Node v26 exposes an experimental `globalThis.localStorage` lacking `.clear()` without `--localstorage-file`. Register an in-memory `Storage` fallback when missing:
+```typescript
+function createMemoryStorage(): Storage {
+  const store = new Map<string, string>();
+  return {
+    get length() { return store.size; },
+    clear() { store.clear(); },
+    getItem(k) { return store.get(k) ?? null; },
+    key(i) { return Array.from(store.keys())[i] ?? null; },
+    removeItem(k) { store.delete(k); },
+    setItem(k, v) { store.set(k, String(v)); },
+  };
+}
+
+if (typeof globalThis.localStorage?.clear !== 'function') {
+  Object.defineProperty(globalThis, 'localStorage', {
+    value: createMemoryStorage(),
+    configurable: true,
+    writable: true,
+  });
+}
 ```
 
 ### `Makefile` Targets (Frontend & Node.js)
@@ -130,24 +165,31 @@ qa-all: qa-lint qa-unit qa-orphans qa-bdd
 
 ## 5. UI Acceptance BDD: Karate Labs (`test/ui_business_flow.feature`)
 
+Because `sinfallas/karatelabs:1.5.1` (`:latest`) ships without Chrome/Chromium, Karate focuses on HTTP/Nginx delivery, OWASP OSHP headers, SPA/SSG routes, and XML/SEO safety, while Playwright (`ui-e2e`) certifies DOM/WCAG 2.1 AA:
+
 ```gherkin
-Feature: UI Tactical Flow & DOM Interaction
+Feature: HTTP Edge, OWASP OSHP Headers & SSG/SEO Contract (Karate 1.5.1)
 
   Background:
-    * configure driver = { type: 'chrome', headless: true, addOptions: ['--no-sandbox', '--disable-dev-shm-usage'] }
-    * def baseUrl = karate.properties['UI_BASE_URL'] || 'http://ui-prod:80'
+    * def envBaseUrl = java.lang.System.getenv('UI_BASE_URL')
+    * def baseUrl = karate.properties['UI_BASE_URL'] || envBaseUrl || 'http://ui-prod:80'
+    * url baseUrl
 
-  Scenario: Operational Login and Command Center Access
-    Given driver baseUrl + '/login'
-    And waitFor("#login-email")
-    And input("#login-email", 'operator@11x.corp')
-    And input("#login-password", 'SecretPassword15Chars!')
-    When click("#btn-submit-auth")
-    Then waitFor("#dashboard-root")
-    And match text("#user-role-badge") == 'OPERATOR'
+  Scenario: Root HTML delivery and OWASP OSHP headers on internal Nginx
+    Given path '/'
+    When method get
+    Then status 200
+    And match header Content-Type contains 'text/html'
+    And match header X-Frame-Options == 'DENY'
+    And match header X-Content-Type-Options == 'nosniff'
+    And match header Referrer-Policy == 'strict-origin-when-cross-origin'
+    And match header Content-Security-Policy contains "default-src 'self'"
 
-  Scenario: In-flow Footer does not overlap interactive viewports
-    Given driver baseUrl + '/dashboard'
-    And waitFor("footer.mt-auto")
-    Then match attribute("footer.mt-auto", "class") contains 'mt-auto'
+  Scenario: Safe string assertion for SSG /sitemap.xml without XML namespace failures
+    Given path '/sitemap.xml'
+    When method get
+    Then status 200
+    * string xmlText = response
+    * def ct = responseHeaders['Content-Type'] ? responseHeaders['Content-Type'][0] : ''
+    * assert ct.contains('xml') ? xmlText.contains('<urlset') : xmlText.toLowerCase().contains('<html')
 ```

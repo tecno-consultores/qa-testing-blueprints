@@ -725,8 +725,11 @@ function checkUi11x02DualRefreshAndSemanticElse(
   ];
 }
 
+const PACKAGE_JSON_FILENAME = 'package.json';
+const ESLINTRC_JSON_FILENAME = '.eslintrc.json';
+
 function checkSingleDirNpmrc(baseDir: string, relPrefix: string): SecurityFinding | null {
-  const pkgPath = path.join(baseDir, 'package.json');
+  const pkgPath = path.join(baseDir, PACKAGE_JSON_FILENAME);
   if (!fs.existsSync(pkgPath)) return null;
 
   const npmrcCandidates = [
@@ -756,15 +759,89 @@ function checkSingleDirNpmrc(baseDir: string, relPrefix: string): SecurityFindin
   };
 }
 
+function readJsonObjectSafe(filePath: string): Record<string, unknown> | null {
+  if (!fs.existsSync(filePath)) return null;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8')) as unknown;
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function checkLegacyPnpmField(pkgObj: Record<string, unknown>, relPrefix: string): SecurityFinding | null {
+  const rawPnpm = pkgObj.pnpm;
+  if (!rawPnpm || typeof rawPnpm !== 'object' || Array.isArray(rawPnpm)) return null;
+  if (!('onlyBuiltDependencies' in rawPnpm)) return null;
+  return {
+    rule_id: 'SEC-09',
+    severity: 'MEDIUM',
+    stig_owasp_ref: 'OWASP SFL / pnpm 12 Supply-Chain allowBuilds',
+    file: relPrefix ? `${relPrefix}/${PACKAGE_JSON_FILENAME}` : PACKAGE_JSON_FILENAME,
+    line: 1,
+    message:
+      'package.json declara pnpm.onlyBuiltDependencies (ignorado en pnpm 12+ con ERR_PNPM_IGNORED_BUILDS).',
+    remediation:
+      'Eliminar la clave "pnpm" de package.json y declarar el mapa booleano allowBuilds en pnpm-workspace.yaml.',
+  };
+}
+
+function hasSecurityPluginV3(pkgObj: Record<string, unknown>): boolean {
+  const deps: Record<string, unknown> = {
+    ...((pkgObj.dependencies as Record<string, unknown> | undefined) ?? {}),
+    ...((pkgObj.devDependencies as Record<string, unknown> | undefined) ?? {}),
+  };
+  const ver = deps['eslint-plugin-security'];
+  return typeof ver === 'string' && /^(?:\^|~|>=)?3\./.test(ver.trim());
+}
+
+function checkLegacyEslintSecurityConfig(
+  baseDir: string,
+  pkgObj: Record<string, unknown>,
+  relPrefix: string
+): SecurityFinding | null {
+  if (!hasSecurityPluginV3(pkgObj)) return null;
+  const eslintObj = readJsonObjectSafe(path.join(baseDir, ESLINTRC_JSON_FILENAME));
+  if (!eslintObj || !Array.isArray(eslintObj.extends)) return null;
+  if (!eslintObj.extends.includes('plugin:security/recommended')) return null;
+  return {
+    rule_id: 'SEC-09',
+    severity: 'MEDIUM',
+    stig_owasp_ref: 'OWASP SAST / ESLint 8 + eslint-plugin-security v3',
+    file: relPrefix ? `${relPrefix}/${ESLINTRC_JSON_FILENAME}` : ESLINTRC_JSON_FILENAME,
+    line: 1,
+    message:
+      '.eslintrc.json extiende "plugin:security/recommended" (Flat Config) con eslint-plugin-security v3 en ESLint 8 clásico.',
+    remediation:
+      'Reemplazar "plugin:security/recommended" por "plugin:security/recommended-legacy" en .eslintrc.json.',
+  };
+}
+
+function checkSec09NodeToolchainHygiene(baseDir: string, relPrefix: string): SecurityFinding[] {
+  const pkgObj = readJsonObjectSafe(path.join(baseDir, PACKAGE_JSON_FILENAME));
+  if (!pkgObj) return [];
+  const findings: SecurityFinding[] = [];
+  const legacyPnpm = checkLegacyPnpmField(pkgObj, relPrefix);
+  if (legacyPnpm) findings.push(legacyPnpm);
+  const legacyEslint = checkLegacyEslintSecurityConfig(baseDir, pkgObj, relPrefix);
+  if (legacyEslint) findings.push(legacyEslint);
+  return findings;
+}
+
 function checkSec09Npmrc(projectPath: string): SecurityFinding[] {
   const findings: SecurityFinding[] = [];
   const rootFinding = checkSingleDirNpmrc(projectPath, '');
   if (rootFinding) findings.push(rootFinding);
+  findings.push(...checkSec09NodeToolchainHygiene(projectPath, ''));
 
   const subDirs = ['vue3', 'react-frontend', 'node-backend', 'frontend', 'mcp-server'];
   for (const sub of subDirs) {
-    const subFinding = checkSingleDirNpmrc(path.join(projectPath, sub), sub);
+    const subDir = path.join(projectPath, sub);
+    const subFinding = checkSingleDirNpmrc(subDir, sub);
     if (subFinding) findings.push(subFinding);
+    findings.push(...checkSec09NodeToolchainHygiene(subDir, sub));
   }
   return findings;
 }

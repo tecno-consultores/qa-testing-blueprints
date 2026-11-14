@@ -194,6 +194,61 @@ app = FastAPI(title="Mi API")
     expect(sec09).toBeUndefined();
   });
 
+  it('detecta violación SEC-09 por pnpm.onlyBuiltDependencies obsoleto y plugin:security/recommended sin -legacy en ESLint 8', async () => {
+    fs.writeFileSync(
+      path.join(tempDir, 'package.json'),
+      JSON.stringify({
+        name: 'vue3-app',
+        devDependencies: { 'eslint-plugin-security': '^3.0.1' },
+        pnpm: { onlyBuiltDependencies: ['esbuild'] },
+      })
+    );
+    fs.writeFileSync(path.join(tempDir, '.npmrc'), 'ignore-scripts=true\n');
+    fs.writeFileSync(
+      path.join(tempDir, '.eslintrc.json'),
+      JSON.stringify({ extends: ['eslint:recommended', 'plugin:security/recommended'] })
+    );
+
+    const bad = await auditSecurityStigOwasp(tempDir);
+    const sec09Findings = bad.findings.filter((f) => f.rule_id === 'SEC-09');
+    expect(sec09Findings).toHaveLength(2);
+    expect(sec09Findings.every((f) => f.severity === 'MEDIUM')).toBe(true);
+
+    // Corregir migrando a pnpm-workspace.yaml y plugin:security/recommended-legacy
+    fs.writeFileSync(
+      path.join(tempDir, 'package.json'),
+      JSON.stringify({
+        name: 'vue3-app',
+        devDependencies: { 'eslint-plugin-security': '^3.0.1' },
+      })
+    );
+    fs.writeFileSync(path.join(tempDir, 'pnpm-workspace.yaml'), 'allowBuilds:\n  esbuild: true\n');
+    fs.writeFileSync(
+      path.join(tempDir, '.eslintrc.json'),
+      JSON.stringify({ extends: ['eslint:recommended', 'plugin:security/recommended-legacy'] })
+    );
+
+    const clean = await auditSecurityStigOwasp(tempDir);
+    expect(clean.findings.some((f) => f.rule_id === 'SEC-09')).toBe(false);
+  });
+
+  it('maneja JSON corrupto o configuraciones parciales en higiene SEC-09 sin lanzar excepciones', async () => {
+    const vueSub = path.join(tempDir, 'vue3');
+    fs.mkdirSync(vueSub, { recursive: true });
+    fs.writeFileSync(path.join(vueSub, 'package.json'), '{not-valid-json');
+    fs.writeFileSync(path.join(vueSub, '.npmrc'), 'ignore-scripts=true\n');
+
+    fs.writeFileSync(
+      path.join(tempDir, 'package.json'),
+      JSON.stringify({ name: 'root', pnpm: { overrides: {} }, dependencies: { 'eslint-plugin-security': '^2.0.0' } })
+    );
+    fs.writeFileSync(path.join(tempDir, '.npmrc'), 'ignore-scripts=true\n');
+    fs.writeFileSync(path.join(tempDir, '.eslintrc.json'), JSON.stringify({ rules: {} }));
+
+    const result = await auditSecurityStigOwasp(tempDir);
+    expect(result.findings.some((f) => f.rule_id === 'SEC-09')).toBe(false);
+  });
+
   it('detecta violación SEC-08 (Servidor backend sin cabeceras OSHP)', async () => {
     fs.writeFileSync(path.join(tempDir, 'main.py'), '# server without security headers\nprint("hello")\n');
 

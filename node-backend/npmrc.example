@@ -4,12 +4,11 @@ engine-strict=true
 # Evitar que dependencias arbitrarias ejecuten scripts de post-instalación por defecto (Zero-Trust)
 ignore-scripts=true
 
-# Nota: En pnpm v9+, las excepciones a ignore-scripts (como esbuild o playwright) 
-# se deben declarar en el package.json bajo pnpm.onlyBuiltDependencies.
-# Ejemplo a añadir en tu package.json:
-# "pnpm": {
-#   "onlyBuiltDependencies": ["esbuild", "playwright", "@playwright/test"]
-# }
+# Nota: En pnpm v12+ con ignore-scripts=true, las excepciones para binarios nativos
+# se declaran en pnpm-workspace.yaml bajo el mapa booleano allowBuilds (nunca en package.json#pnpm).
+# Ejemplo en pnpm-workspace.yaml:
+# allowBuilds:
+#   esbuild: true
 
 # Optimización de red y CI
 fetch-retries=3

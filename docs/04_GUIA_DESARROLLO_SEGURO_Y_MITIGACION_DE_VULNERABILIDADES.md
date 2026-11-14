@@ -42,7 +42,7 @@
 | `SEC-06` | XSS (`v-html` / `dangerouslySetInnerHTML`) y *Prototype Pollution* en frontend | Patrón 9 |
 | `SEC-07` | Exposición de Swagger / ReDoc / OpenAPI en `APP_ENV=production` | Patrón 12 (`QA-SMOKE-01`) |
 | `SEC-08` | Ausencia de cabeceras HTTP de seguridad (OWASP OSHP: HSTS, CSP, `nosniff`) | Patrón 20 |
-| `SEC-09` | Ejecución de scripts arbitrarios post-instalación npm (`.npmrc` `ignore-scripts=true`) | Patrón 13 y Patrón 22 |
+| `SEC-09` | Ejecución de scripts arbitrarios post-instalación npm (`.npmrc` `ignore-scripts=true`), uso obsoleto de `pnpm.onlyBuiltDependencies` en `pnpm 12+` o `plugin:security/recommended` sin `-legacy` en ESLint 8 | Patrón 13 y Patrón 22 |
 | `SEC-10` | Secretos, llaves privadas o tokens hardcodeados en código o logs | Patrón 18 y Patrón 19 |
 | `SEC-11` | Identidades crudas UUID v4 (`claims["sub"]`) en trazas de auditoría humana | Patrón 18 y `docs/02` §1.1 |
 | `SEC-12` | Bypass de `Depends(require_roles)` en servicios MCP/JSON-RPC sin RBAC explícito ni `ApprovalRequest` | Patrón 21 y `docs/02` §3.5 |

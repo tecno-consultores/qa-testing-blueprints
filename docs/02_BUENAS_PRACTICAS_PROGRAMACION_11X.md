@@ -205,3 +205,28 @@ try {
 }
 ```
 Preservar el estado previo garantiza continuidad operativa en centros de monitoreo y entornos de alta densidad de datos.
+
+---
+
+## 7. Alineación de Toolchain Node 26, pnpm 12, ESLint 8 y Karate 1.5.1 (Vue 3 / React / SSG)
+
+Al certificar proyectos frontend y Node.js dentro de las imágenes oficiales `sinfallas/base-node-ionic:26` (`Node v26.13+`, `pnpm 12.18+`) y `sinfallas/karatelabs:1.5.1`, deben respetarse cinco contratos de entorno para evitar falsos fallos de pipeline y preservar la seguridad Zero-Trust (`SEC-09`):
+
+1. **`pnpm-workspace.yaml` con mapa booleano `allowBuilds` (`SEC-09`):**
+   - En `pnpm@12+`, la clave heredada `package.json#pnpm.onlyBuiltDependencies` es ignorada con advertencia y los binarios nativos (`esbuild`, `playwright`, `@playwright/test`) abortan con `ERR_PNPM_IGNORED_BUILDS`.
+   - Omite `"pnpm"` en `package.json`, mantén `.npmrc` con `ignore-scripts=true`, y declara las excepciones estrictas en `pnpm-workspace.yaml` usando un **mapa booleano (`Record<string, boolean>`)** (nunca una lista YAML `- pkg`, que provoca `ERR_PNPM_INVALID_SETTING`):
+     ```yaml
+     allowBuilds:
+       esbuild: true
+       playwright: true
+       '@playwright/test': true
+       vue-demi: false
+     ```
+2. **Compatibilidad TypeScript en Vue 3 (`vue-tsc ^2.2.8`):**
+   - Fija `"vue-tsc": "^2.2.8"` junto a `typescript ^5.7.2` en proyectos Vue 3 + Vite para evitar errores de resolución de tipos de versiones `1.x` desfasadas.
+3. **ESLint 8 clásico + `eslint-plugin-security` v3 (`recommended-legacy`):**
+   - En `eslint-plugin-security@^3.0.0`, el preset `recommended` exporta *Flat Config* (ESLint 9) y falla bajo `.eslintrc.json` de ESLint `8.57.x`. Extiende siempre `"plugin:security/recommended-legacy"` y añade `"ignorePatterns": ["dist/", "dist-ssr/", "coverage/", "playwright-report/", "lhci-reports/", "target/", "graphify-out/"]` (auditado por `SEC-09` en `audit_security_stig_owasp`).
+4. **Polyfill en memoria de `localStorage` para Vitest + `jsdom` sobre Node v26:**
+   - Node v26 expone un descriptor experimental `globalThis.localStorage` que sin `--localstorage-file` carece del método `.clear()` en sesiones `jsdom`. Registra un `Storage` en memoria dentro de `vitest.setup.ts` (enlazado mediante `test.setupFiles` en `vitest.config.ts`) cuando `typeof globalThis.localStorage?.clear !== 'function'`.
+5. **Frontera real de `sinfallas/karatelabs:1.5.1` (HTTP/OSHP/SSG/XML) vs Playwright (`ui-e2e`):**
+   - Las imágenes `sinfallas/karatelabs:1.5.1` / `:latest` no incluyen binario Chrome/Chromium. Delega toda interacción DOM real, verificación de botones `[ 🔄 Refrescar ]`, geometría Anti-JSDOM y WCAG 2.1 AA a Playwright (`ui-e2e`), y enfoca `test/ui_business_flow.feature` en contratos HTTP sobre `http://ui-prod:80`: códigos `200`, rutas SPA/SSG, cabeceras OWASP OSHP alineadas con `nginx/default.conf` (`Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`) y lectura segura de XML/SEO como cadena (`* string xmlText = response` en `/sitemap.xml` para evitar fallos de parser por namespaces).

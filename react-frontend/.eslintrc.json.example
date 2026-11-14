@@ -4,6 +4,15 @@
     "es2021": true,
     "node": true
   },
+  "ignorePatterns": [
+    "dist/",
+    "dist-ssr/",
+    "coverage/",
+    "playwright-report/",
+    "lhci-reports/",
+    "target/",
+    "graphify-out/"
+  ],
   "extends": [
     "eslint:recommended",
     "plugin:@typescript-eslint/recommended",

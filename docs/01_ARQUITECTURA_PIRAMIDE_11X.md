@@ -19,7 +19,7 @@ Para evitar sobreingeniería en tareas pequeñas sin relajar los controles en si
 
 ### Regla Proporcional de BDD: Karate Labs vs. Runners Nativos sin JVM
 
-* **Karate Labs obligatorio (`sinfallas/karatelabs`):** Requerido en aplicaciones `FULL_11X` multi-servicio, con persistencia transaccional real, flujos RBAC multi-rol o UI en Chrome Headless (`fastapi/test/`, `vue3/test/`, `mcp-server/test/`).
+* **Karate Labs obligatorio (`sinfallas/karatelabs`):** Requerido en aplicaciones `FULL_11X` multi-servicio, con persistencia transaccional real, flujos RBAC multi-rol o contratos HTTP/Edge/OSHP/SSG sobre Nginx (`fastapi/test/`, `vue3/test/`, `mcp-server/test/`).
 * **Runners nativos sin JVM autorizados:** En microservicios ligeros (`<= 3` endpoints), librerías aisladas o CLIs sin estado complejo, se autorizan contratos **Consumer-Driven Pact** (`pact-python`, `@pact-foundation/pact`), `pytest + httpx` o `vitest` / Playwright API para evitar la sobrecarga de JVM manteniendo idempotencia (`Idempotency-Key`) y fixtures trimodales.
 
 ---
