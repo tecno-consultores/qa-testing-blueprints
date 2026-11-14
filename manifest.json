@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.20.3",
-  "generated_at_utc": "2026-11-14T12:43:50Z",
+  "generated_at_utc": "2026-11-14T14:46:48Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -454,6 +454,13 @@
           "size_bytes": 3636
         },
         {
+          "path": "react-frontend/tests/screenplay/Actor.ts",
+          "target_name": "tests/screenplay/Actor.ts",
+          "merge_strategy": "copy_if_missing",
+          "sha256": "858f83acd9f5230f4889e6497d216984c64c0fd21284097251906620fcdf8d03",
+          "size_bytes": 15383
+        },
+        {
           "path": "react-frontend/vitest.config.ts.example",
           "target_name": "vitest.config.ts",
           "merge_strategy": "surgical_merge",
@@ -577,6 +584,13 @@
           "merge_strategy": "copy_if_missing",
           "sha256": "b8494a22b1a1b395a0b691c811f1af956d697909cebed6c46d013641a7e8e5ce",
           "size_bytes": 3519
+        },
+        {
+          "path": "vue3/tests/screenplay/Actor.ts",
+          "target_name": "tests/screenplay/Actor.ts",
+          "merge_strategy": "copy_if_missing",
+          "sha256": "ba80cb218941cfdf4bc523538d57185adcfc4b2486f17ac2d87121d03f25fb21",
+          "size_bytes": 15628
         },
         {
           "path": "vue3/vitest.config.ts.example",
@@ -744,6 +758,13 @@
       "merge_strategy": "overwrite_executable",
       "sha256": "b94955035f240e64b316ef86ca56186c6222fbb1644123e47651506ef7ddc50e",
       "size_bytes": 10347
+    },
+    {
+      "path": ".agents/scripts/lint_test_antipatterns.py",
+      "target_name": ".agents/scripts/lint_test_antipatterns.py",
+      "merge_strategy": "overwrite_executable",
+      "sha256": "32333905083fc980780cf9fa7b2e35e719c0d695d4cf81ff3f2ca2ef3a9a4fd3",
+      "size_bytes": 17811
     },
     {
       "path": ".agents/scripts/release_readiness_gate.py",

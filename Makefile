@@ -2,7 +2,7 @@
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 # Makefile canónico para desarrollo local, automatización y gobernanza Level-11X
 
-.PHONY: help clean qa-clean audit lint-workflows lint-docs sync-governance validate-calm test test-mcp test-example test-karate test-py test-meta-qa test-ai-offline audit-llm lint build certify publish-mcp publish-mcp-dry
+.PHONY: help clean qa-clean audit lint-workflows lint-docs sync-governance validate-calm test test-mcp test-example test-karate test-py test-meta-qa test-ai-offline test-frontend-blueprints audit-llm lint build certify publish-mcp publish-mcp-dry
 
 help:
 	@echo "Comandos canónicos de desarrollo y gobernanza para QA Testing Blueprints:"
@@ -13,8 +13,9 @@ help:
 	@echo "  make lint-docs       - Valida invariantes documentales, consistencia de roadmap y guardia QA-GIT-GATE-01"
 	@echo "  make sync-governance - Sincroniza determinísticamente SHA-256 en manifest.json y valida presupuestos cognitivos"
 	@echo "  make validate-calm   - Valida arquitectura como código FINOS CALM y controles 11X en Docker efímero"
-	@echo "  make test            - Ejecuta Vitest (>=95%), E2E example/, Karate BDD, Pytest, Meta-QA y AI Offline en Docker"
+	@echo "  make test            - Ejecuta Vitest (>=95%), E2E example/, Karate BDD, Pytest, Meta-QA, AI Offline y Frontend"
 	@echo "  make test-ai-offline - Ejecuta contratos deterministas RAG/Agentes (>=95% cob., ruff CC<=5, mypy) 100% offline"
+	@echo "  make test-frontend-blueprints - Valida Screenplay TS estricto en vue3/react-frontend y linter QA-UI-ANTI-001..005"
 	@echo "  make audit-llm       - Ejecuta auditoría probabilística DeepEval + Promptfoo OWASP (requiere API key o Ollama/vLLM)"
 	@echo "  make test-meta-qa    - Audita scripts de .agents/scripts/ contra fixtures trimodales en Docker efímero"
 	@echo "  make test-example    - Certifica las 12 tools, 9 resources y 3 CLI sobre mcp-server/example/ (Clean-Room Docker)"
@@ -141,18 +142,119 @@ test-py:
 	@docker run --rm -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -u "$$(id -u):$$(id -g)" -v "$$(pwd):/app" -w /app sinfallas/base-python-uv:3.15 uv run --with pytest --with pytest-cov pytest --import-mode=importlib tests/*.unit.py -q
 
 test-meta-qa:
-	@cmd='ruff check tests/meta_qa && pytest -o cache_dir=/tmp/pytest-cache --import-mode=importlib --cov=.agents/scripts --cov-report=term-missing tests/meta_qa/test_governance_scripts.py -q'; \
+	@cmd='ruff check --select E,F,W,I,UP,B,C901 --config "lint.mccabe.max-complexity=5" .agents/scripts/lint_test_antipatterns.py tests/meta_qa/test_antipattern_linter.py && ruff check tests/meta_qa && MYPYPATH=.agents/scripts mypy --strict --cache-dir=/tmp/mypy .agents/scripts/lint_test_antipatterns.py tests/meta_qa/test_antipattern_linter.py && PYTHONPATH=.agents/scripts pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function -W "ignore::DeprecationWarning:deepeval.*" -W "ignore::SyntaxWarning:deepeval.*" --import-mode=importlib --cov=lint_test_antipatterns --cov-fail-under=95 --cov-report=term-missing tests/meta_qa/test_antipattern_linter.py && PYTHONPATH=.agents/scripts pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function -W "ignore::DeprecationWarning:deepeval.*" -W "ignore::SyntaxWarning:deepeval.*" --import-mode=importlib --cov=.agents/scripts --cov-report=term-missing tests/meta_qa/test_governance_scripts.py tests/meta_qa/test_antipattern_linter.py -q'; \
 	if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
-		if ! out=$$(RUFF_CACHE_DIR=/tmp/ruff-cache COVERAGE_FILE=/tmp/.coverage UV_CACHE_DIR=/tmp/uv-cache sh -c "$$cmd" 2>&1); then \
+		if ! out=$$(PYTHONDONTWRITEBYTECODE=1 RUFF_CACHE_DIR=/tmp/ruff-cache COVERAGE_FILE=/tmp/.coverage UV_CACHE_DIR=/tmp/uv-cache sh -c "$$cmd" 2>&1); then \
 			printf '%s\n' "$$out" >&2; exit 1; \
 		fi; \
 	else \
-		if ! out=$$(docker run --rm -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app" -w /app sinfallas/base-python-uv:3.15 sh -c "$$cmd" 2>&1); then \
+		if ! out=$$(docker run --rm -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 sh -c "$$cmd" 2>&1); then \
 			printf '%s\n' "$$out" >&2; exit 1; \
 		fi; \
 	fi; \
-	summary=$$(printf '%s\n' "$$out" | grep -E '[0-9]+ passed' | tail -n 1); \
-	echo "✅ [test-meta-qa] Suite Meta-QA trimodal y cobertura .agents/scripts OK ($${summary:-0 fallos})"
+	lint_cov=$$(printf '%s\n' "$$out" | awk '/lint_test_antipatterns\.py/{for(i=1;i<=NF;i++) if($$i ~ /%$$/){print $$i; exit}}'); \
+	summary=$$(printf '%s\n' "$$out" | grep -E '[0-9]+ passed' | tail -n 1 | sed -E 's/^=+ *//; s/ *=+$$//'); \
+	echo "✅ [test-meta-qa] Suite Meta-QA + linter antipatrones OK ($${summary:-0 fallos}, cob_linter=$${lint_cov:-N/A})"
+
+test-frontend-blueprints:
+	@node_script=$$(printf '%s\n' \
+	'import assert from "node:assert/strict";' \
+	'import * as VueSP from "/app/vue3/tests/screenplay/Actor.ts";' \
+	'import * as ReactSP from "/app/react-frontend/tests/screenplay/Actor.ts";' \
+	'assert.throws(() => VueSP.Actor.named("Bad", { tenantId: "  " }), /tenantId/);' \
+	'assert.throws(() => ReactSP.Actor.named("", { tenantId: "t1" }), /name/);' \
+	'const makeDriver = (initialUrl: string, textMap: Record<string, string>) => {' \
+	'  let url = initialUrl;' \
+	'  return {' \
+	'    async goto(nextUrl: string) { url = nextUrl; },' \
+	'    currentUrl() { return url; },' \
+	'    locate(loc: VueSP.SemanticLocator) {' \
+	'      const key = loc.strategy === "role" ? `role:$${loc.role}:$${String(loc.name ?? "")}` : loc.strategy === "label" ? `label:$${String(loc.label)}` : loc.strategy === "text" ? `text:$${String(loc.text)}` : `testid:$${loc.testId}`;' \
+	'      return {' \
+	'        async click() { textMap[`clicked:$${key}`] = "yes"; },' \
+	'        async fill(v: string) { textMap[key] = v; },' \
+	'        async textContent() { return textMap[key] ?? null; },' \
+	'        async isVisible() { return true; },' \
+	'      };' \
+	'    },' \
+	'  };' \
+	'};' \
+	'const vueDom: Record<string, string> = { "role:status:badge": "OPERACION" };' \
+	'const apiLog: Array<Record<string, unknown>> = [];' \
+	'const apiPort: VueSP.ApiClientPort = {' \
+	'  async send(spec) {' \
+	'    apiLog.push({ method: spec.method, path: spec.path, headers: spec.headers });' \
+	'    return { status: 200, data: { badge: "OPERACION" } } as never;' \
+	'  },' \
+	'};' \
+	'let intervals = 1;' \
+	'const piniaPort: VueSP.PiniaStoreInspectorPort = {' \
+	'  storeId: "nocWallboard",' \
+	'  readState() { return { nodes: ["edge-1"], status: "OPERACION" }; },' \
+	'  activeIntervalCount() { return intervals; },' \
+	'  triggerUnmount() { intervals = 0; },' \
+	'};' \
+	'const operator = VueSP.Actor.named("OpA", { role: "operator", tenantId: "tenant-alpha", permissions: ["noc:mutate"] });' \
+	'assert.throws(() => operator.abilityTo(VueSP.CallAnApi), VueSP.MissingAbilityError);' \
+	'assert.equal(operator.hasPermission("noc:mutate"), true);' \
+	'operator.whoCan(VueSP.BrowseTheWeb.using(makeDriver("/noc", vueDom)), VueSP.CallAnApi.using(apiPort), VueSP.InspectPiniaStore.using(piniaPort));' \
+	'await operator.attemptsTo(' \
+	'  VueSP.FillField(VueSP.ByLabel("Host"), "edge-01"),' \
+	'  VueSP.ClickSemantic(VueSP.ByTestId("save-btn")),' \
+	'  VueSP.defineTask("Publicar cambio", async (a) => {' \
+	'    const res = await a.abilityTo(VueSP.CallAnApi).request(a, { method: "POST", path: "/api/v1/nodes", body: { id: "edge-01" } });' \
+	'    a.remember("lastStatus", res.status);' \
+	'  }),' \
+	'  VueSP.RefreshView({ path: "/noc" }),' \
+	');' \
+	'assert.equal(operator.recall<number>("lastStatus"), 200);' \
+	'assert.equal(vueDom["label:Host"], "edge-01");' \
+	'assert.equal(vueDom["clicked:testid:save-btn"], "yes");' \
+	'assert.equal(vueDom["clicked:role:button:/Refrescar/i"], "yes");' \
+	'const postHeaders = apiLog[0].headers as Record<string, string>;' \
+	'assert.equal(postHeaders["X-Tenant-ID"], "tenant-alpha");' \
+	'assert.equal(postHeaders["X-Actor-Role"], "operator");' \
+	'assert.ok(postHeaders["Idempotency-Key"] && postHeaders["Idempotency-Key"].length > 8);' \
+	'const parity = await operator.asks(VueSP.AntiSiloParityQuestion(VueSP.ByRole("status", "badge"), "/api/v1/status", (d) => String((d as { badge: string }).badge)));' \
+	'assert.equal(parity.inSync, true);' \
+	'assert.equal(parity.tenantId, "tenant-alpha");' \
+	'const dual = await operator.asks(VueSP.VerifyDualRefreshContract({ viewPath: "/wallboard", expectedStateKey: "nodes" }));' \
+	'assert.equal(dual.contractSatisfied, true);' \
+	'assert.equal(dual.activeIntervalsAfterUnmount, 0);' \
+	'assert.equal(await operator.asks(VueSP.TemporalLifecycleQuestion({ startsAtMs: 100, endsAtMs: 200, nowMs: 50 })), "pending");' \
+	'assert.equal(await operator.asks(VueSP.TemporalLifecycleQuestion({ startsAtMs: 100, endsAtMs: 200, nowMs: 150 })), "active");' \
+	'assert.equal(await operator.asks(VueSP.TemporalLifecycleQuestion({ startsAtMs: 100, endsAtMs: 200, nowMs: 250 })), "expired");' \
+	'assert.equal(await operator.asks(VueSP.TemporalLifecycleQuestion({ startsAtMs: 100, endsAtMs: 200, nowMs: 150, cancelled: true })), "expired");' \
+	'const batchPartial = await operator.asks(VueSP.InspectBatchExecutionQuestion({ status: 200, data: { results: [{ id: "a", status: "ok" }, { id: "b", status: "failed" }] } }));' \
+	'assert.equal(batchPartial.allSucceeded, false);' \
+	'assert.deepEqual(batchPartial.failedIds, ["b"]);' \
+	'const batchFull = await operator.asks(VueSP.InspectBatchExecutionQuestion({ status: 200, data: { results: [{ id: "a", status: "success" }] } }));' \
+	'assert.equal(batchFull.allSucceeded, true);' \
+	'assert.equal(Object.isFrozen(operator.getRecordedSteps()), true);' \
+	'assert.ok(operator.getRecordedSteps().length >= 8);' \
+	'let pending = true;' \
+	'const reactActor = ReactSP.Actor.named("AuditorB", { role: "auditor", tenantId: "tenant-beta", permissions: ["audit:read"] });' \
+	'assert.throws(() => reactActor.abilityTo(ReactSP.InspectReactState), ReactSP.MissingAbilityError);' \
+	'reactActor.whoCan(ReactSP.InspectReactState.using({ isTransitionPending: () => pending, async flushTransitions() { pending = false; }, renderedTenantId: () => "tenant-beta", readHookSnapshot: <T,>(k: string) => ({ hook: k, count: 3 }) as T }));' \
+	'await reactActor.attemptsTo(ReactSP.WaitForReactTransition("panel auditoria"));' \
+	'const reactReport = await reactActor.asks(ReactSP.VerifyReactTenantIsolation("useAuditTrail"));' \
+	'assert.equal(reactReport.tenantIsolated, true);' \
+	'assert.equal(reactReport.transitionSettled, true);' \
+	'assert.equal((reactReport.hookSnapshot as { count: number }).count, 3);' \
+	'const crossTenantActor = ReactSP.Actor.named("AdminC", { role: "admin", tenantId: "tenant-gamma" }).whoCan(ReactSP.InspectReactState.using({ isTransitionPending: () => false, async flushTransitions() {}, renderedTenantId: () => "tenant-beta", readHookSnapshot: () => undefined }));' \
+	'assert.equal((await crossTenantActor.asks(ReactSP.VerifyReactTenantIsolation("useAuditTrail"))).tenantIsolated, false);' \
+	'console.log("screenplay-runtime-ok");' \
+	); \
+	if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
+		tsc --strict --noImplicitAny --noUnusedLocals --noUnusedParameters --noImplicitReturns --erasableSyntaxOnly --target ES2023 --module ESNext --moduleResolution Bundler --noEmit vue3/tests/screenplay/Actor.ts react-frontend/tests/screenplay/Actor.ts && \
+		printf '%s\n' "$$node_script" > /tmp/verify_screenplay.mts && \
+		node /tmp/verify_screenplay.mts >/dev/null && \
+		python3 .agents/scripts/lint_test_antipatterns.py vue3 react-frontend; \
+	else \
+		printf '%s\n' "$$node_script" | docker run --rm -i -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app sinfallas/base-node-ionic:26 sh -c 'tsc --strict --noImplicitAny --noUnusedLocals --noUnusedParameters --noImplicitReturns --erasableSyntaxOnly --target ES2023 --module ESNext --moduleResolution Bundler --noEmit vue3/tests/screenplay/Actor.ts react-frontend/tests/screenplay/Actor.ts && cat > /tmp/verify_screenplay.mts && node /tmp/verify_screenplay.mts >/dev/null' && \
+		lint_out=$$(docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/lint_test_antipatterns.py vue3 react-frontend); \
+		echo "✅ [test-frontend-blueprints] TS estricto + Screenplay RBAC (vue3/react) OK | $$lint_out"; \
+	fi
 
 test-example:
 	@./scripts/probar-mcp-example.sh
@@ -182,7 +284,7 @@ audit-llm:
 	@echo "🛡️ [audit-llm] Ejecutando matrices Promptfoo OWASP LLM Top 10 y Skills en sinfallas/base-node-ionic:26..."
 	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PROMPTFOO_DISABLE_TELEMETRY=1 -e PROMPTFOO_CONFIG_DIR=/tmp/.promptfoo -e OPENAI_API_KEY -e GEMINI_API_KEY -e ANTHROPIC_API_KEY -e OLLAMA_BASE_URL -e OPENAI_API_BASE -v "$$(pwd):/app:ro" -w /app sinfallas/base-node-ionic:26 sh -c "promptfoo eval -c ai-evals/promptfooconfig.yaml --no-cache -o /tmp/promptfoo-results.json && promptfoo eval -c tests/evals/promptfoo_skills_matrix.yaml --no-cache -o /tmp/promptfoo-skills-results.json"
 
-test: test-mcp test-example test-karate test-py test-meta-qa test-ai-offline
+test: test-mcp test-example test-karate test-py test-meta-qa test-ai-offline test-frontend-blueprints
 
 build:
 	@echo "📦 [Build] Compilando Servidor MCP en Docker efímero..."
