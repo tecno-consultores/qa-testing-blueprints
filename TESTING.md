@@ -133,13 +133,13 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
 ### 🧠 MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x`)
 * **Imagen Base:** `sinfallas/base-node-ionic:26` (Tags disponibles: `22`, `24`, `26` y `latest`)
 * **Métricas 11X Certificadas:**
-  * **Sentencias (Statements):** `99.20%` (`>= 95.0%`)
-  * **Ramas (Branches):** `95.92%` global (`src/resources` `100%`, `src/cli` `98.53%`, `surgical-merger.ts` `97.19%`)
-  * **Funciones (Functions):** `99.55%` (`>= 95.0%`)
-  * **Líneas (Lines):** `99.20%` (`>= 95.0%`)
-  * **Pruebas Unitarias:** 504 pruebas pasando al 100% (32 suites en `tests/*.unit.ts`, incluyendo `src/index.ts`, higiene Node 26/pnpm 12 en `SEC-09` y regla estática `QA-CLI-TTY-01`)
-  * **Herramientas MCP:** **18 herramientas canónicas** (12 v1 + 6 v2.0 de CALM, Release Gate, trayectoria agéntica, OWASP LLM Red Team, Vibe-Rescue y sincronización TMS) y **12 recursos `blueprint://*`** con contrato Thin-Repo, autoconstrucción/refresco de grafos AST (`auto_build_if_missing`, `refresh_graph`), modo *Metadata-Only* (`include_content: false`), agrupador por regla (`groupFindingsByRule`), 33 reglas estáticas (`SEC-01`..`SEC-16`, `SEC-CI-ACTION-REF`, `QA-*`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`, `QA-CI-ESCAPE-01`, `QA-MAKE-CURDIR-01`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `UI-11X-01..03`), guardia `TaskStateGuard` + `promptGuard` y paridad 10/10 en `certify_11x_gate`
-  * **Escenarios BDD Karate Labs:** `mcp-server/test/mcp_cli_test.feature` (32 escenarios en `sinfallas/karatelabs:1.5.1`)
+  * **Sentencias (Statements):** `98.86%` (`>= 95.0%`)
+  * **Ramas (Branches):** `95.04%` global (`src/resources` `99.54%`, `src/cli` `99.54%`, `surgical-merger.ts` `99.39%`)
+  * **Funciones (Functions):** `99.60%` (`>= 95.0%`)
+  * **Líneas (Lines):** `98.86%` (`>= 95.0%`)
+  * **Pruebas Unitarias:** 535 pruebas pasando al 100% (32 suites en `tests/*.unit.ts`, incluyendo `src/index.ts`, higiene Node 26/pnpm 12 en `SEC-09`, `QA-CLI-TTY-01` y `QA-SSR-HYDRATION-01`)
+  * **Herramientas MCP:** **18 herramientas canónicas** (12 v1 + 6 v2.0 de CALM, Release Gate, trayectoria agéntica, OWASP LLM Red Team, Vibe-Rescue y sincronización TMS) y **12 recursos `blueprint://*`** con contrato Thin-Repo, autoconstrucción/refresco de grafos AST (`auto_build_if_missing`, `refresh_graph`), modo *Metadata-Only* (`include_content: false`), agrupador por regla (`groupFindingsByRule`), 34 reglas estáticas (`SEC-01`..`SEC-16`, `SEC-CI-ACTION-REF`, `QA-*`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`, `QA-CI-ESCAPE-01`, `QA-MAKE-CURDIR-01`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `UI-11X-01..03`), guardia `TaskStateGuard` + `promptGuard` y paridad 10/10 en `certify_11x_gate`
+  * **Escenarios BDD Karate Labs:** `mcp-server/test/mcp_cli_test.feature` (33 escenarios en `sinfallas/karatelabs:1.5.1`)
 * **Comandos de Validación:**
   ```bash
   cd mcp-server

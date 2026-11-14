@@ -191,8 +191,8 @@ volumes:
       "@qa:psalm",
       "@qa:audit"
     ],
-    "qa:unit": "php -d pcov.enabled=1 ./vendor/bin/pest --coverage --min=95",
-    "qa:mutation": "php -d pcov.enabled=1 ./vendor/bin/infection --min-msi=80 --min-covered-msi=80 --threads=4 --no-progress",
+    "qa:unit": "php -d pcov.enabled=1 -d pcov.directory=src ./vendor/bin/pest --coverage --min=95",
+    "qa:mutation": "php -d pcov.enabled=1 -d pcov.directory=src ./vendor/bin/infection --min-msi=80 --min-covered-msi=80 --threads=4 --no-progress",
     "qa:sbom": "@composer CycloneDX:make-sbom --spec-version=1.6 --output-format=JSON --output-file=sbom-php.cdx.json"
   }
 }

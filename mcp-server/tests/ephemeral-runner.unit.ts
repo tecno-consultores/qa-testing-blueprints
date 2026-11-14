@@ -11,6 +11,7 @@ import {
   isDocsOnlyWorkspaceChange,
   tokenizeCommandArgs,
   expandMakefileVariables,
+  hasUnquotedShellSyntax,
   resolveMakefileDockerRecipes,
   resolveComposeDirectFallback,
 } from '../src/tools/ephemeral-runner.js';
@@ -451,5 +452,131 @@ describe('ephemeral-runner', () => {
     expect(resolveComposeDirectFallback(pyDir, 'migration')?.[0]).toEqual(
       expect.arrayContaining(['qa-backend', 'alembic', 'upgrade', 'head'])
     );
+  });
+
+  it('hasUnquotedShellSyntax distingue operadores/subshells no citados frente a comillas simples o escapes \\$', async () => {
+    expect(hasUnquotedShellSyntax('docker compose up -d && docker compose run --rm qa-backend pytest')).toBe(true);
+    expect(hasUnquotedShellSyntax('docker run --rm app sh; id')).toBe(true);
+    expect(hasUnquotedShellSyntax('docker run --rm app cat | grep ok')).toBe(true);
+    expect(hasUnquotedShellSyntax('docker run --rm app echo hi > /tmp/out')).toBe(true);
+    expect(hasUnquotedShellSyntax('docker run --rm -u "$(id -u):$(id -g)" app pytest')).toBe(true);
+    expect(hasUnquotedShellSyntax('docker run --rm app echo `id`')).toBe(true);
+
+    expect(hasUnquotedShellSyntax("docker run --rm app sh -c 'a && b $(id)'")).toBe(false);
+    expect(
+      hasUnquotedShellSyntax(
+        'docker compose -f docker-compose.qa.yml run --rm -T ui-e2e bash -c "export CHROME_PATH=\\$(ls -d /ms-playwright/*) && pnpm test"'
+      )
+    ).toBe(false);
+    expect(
+      hasUnquotedShellSyntax('docker compose -f docker-compose.qa.yml run --rm -T qa-php vendor/bin/phpunit')
+    ).toBe(false);
+
+    // Rejects unescaped $$(id -u) in Makefile recipe under make ENOENT and falls back to Compose direct
+    const hostSubshellMake = 'qa-unit:\n\tdocker run --rm -u "$$(id -u):$$(id -g)" app pytest\n';
+    expect(resolveMakefileDockerRecipes(hostSubshellMake, 'qa-unit', tempDir).ok).toBe(false);
+
+    const chainedMake = 'qa-unit:\n\tdocker compose up -d && docker compose run --rm qa-backend pytest\n';
+    expect(resolveMakefileDockerRecipes(chainedMake, 'qa-unit', tempDir).ok).toBe(false);
+
+    const validEscapedMake =
+      'qa-perf:\n\tdocker compose -f docker-compose.qa.yml run --rm -T ui-e2e bash -c "export CHROME_PATH=\\$$(ls -d /ms-playwright/*) && ./node_modules/.bin/lhci autorun"\n';
+    const validRes = resolveMakefileDockerRecipes(validEscapedMake, 'qa-perf', tempDir);
+    expect(validRes.ok).toBe(true);
+
+    // E2E ENOENT fallback: Makefile with host subshell falls back cleanly to resolveComposeDirectFallback for Python
+    const pyFallbackDir = path.join(tempDir, 'py-enoent-fallback');
+    fs.mkdirSync(pyFallbackDir, { recursive: true });
+    fs.writeFileSync(path.join(pyFallbackDir, 'Makefile'), hostSubshellMake);
+    fs.writeFileSync(path.join(pyFallbackDir, 'pyproject.toml'), '[project]\nname="api"\n');
+    fs.writeFileSync(
+      path.join(pyFallbackDir, 'docker-compose.qa.yml'),
+      'services:\n  qa-backend:\n    image: sinfallas/base-python-uv:3.15\n'
+    );
+    const capturedDocker: string[][] = [];
+    const mockEnoentFallback = ((
+      file: string,
+      args: readonly string[],
+      _options: unknown,
+      cb: (error: Error | null, stdout: string, stderr: string) => void
+    ) => {
+      if (file === 'make') {
+        cb(Object.assign(new Error('spawn make ENOENT'), { code: 'ENOENT' }), '', '');
+        return;
+      }
+      capturedDocker.push([...args]);
+      cb(null, 'All files | 98.00 | 96.00 | 100.0 | 98.00 |\n8 passed', '');
+    }) as unknown as typeof execFile;
+
+    const enoentRes = await runEphemeralQa(pyFallbackDir, 'unit', 60, { execFileFn: mockEnoentFallback });
+    expect(enoentRes.status).toBe('PASSED');
+    expect(capturedDocker[0]).toEqual(
+      expect.arrayContaining(['compose', '-f', 'docker-compose.qa.yml', 'run', '--rm', '-T', 'qa-backend', 'pytest'])
+    );
+  });
+
+  it('executeDockerFallbackSequence descuenta timeout acumulado y ejecuta down -v --remove-orphans tras up -d (incluyendo timeout)', async () => {
+    fs.writeFileSync(
+      path.join(tempDir, 'Makefile'),
+      [
+        'qa-unit:',
+        '\tdocker compose -f docker-compose.qa.yml up -d postgres-qa',
+        '\tdocker compose -f docker-compose.qa.yml run --rm -T qa-php vendor/bin/phpunit',
+      ].join('\n')
+    );
+
+    const invocations: Array<{ args: string[]; timeout?: number }> = [];
+    const mockSequenceOk = ((
+      file: string,
+      args: readonly string[],
+      options: { timeout?: number },
+      cb: (error: Error | null, stdout: string, stderr: string) => void
+    ) => {
+      if (file === 'make') {
+        cb(Object.assign(new Error('spawn make ENOENT'), { code: 'ENOENT' }), '', '');
+        return;
+      }
+      expect(file).toBe('docker');
+      invocations.push({ args: [...args], timeout: options.timeout });
+      cb(null, 'All files | 97.00 | 95.00 | 100.0 | 97.00 |\n10 passed', '');
+    }) as unknown as typeof execFile;
+
+    const okRes = await runEphemeralQa(tempDir, 'unit', 60, { execFileFn: mockSequenceOk });
+    expect(okRes.status).toBe('PASSED');
+    expect(invocations.map((c) => c.args)).toEqual([
+      ['compose', '-f', 'docker-compose.qa.yml', 'up', '-d', 'postgres-qa'],
+      ['compose', '-f', 'docker-compose.qa.yml', 'run', '--rm', '-T', 'qa-php', 'vendor/bin/phpunit'],
+      ['compose', '-f', 'docker-compose.qa.yml', 'down', '-v', '--remove-orphans'],
+    ]);
+    expect(invocations[1].timeout).toBeLessThanOrEqual(60000);
+
+    // Presupuesto agotado tras up -d -> aborta segunda receta con 124 ([TIMEOUT]) pero ejecuta teardown down -v --remove-orphans
+    const timeoutCalls: string[][] = [];
+    const mockBudgetExhausted = ((
+      file: string,
+      args: readonly string[],
+      _options: unknown,
+      cb: (error: Error | null, stdout: string, stderr: string) => void
+    ) => {
+      if (file === 'make') {
+        cb(Object.assign(new Error('spawn make ENOENT'), { code: 'ENOENT' }), '', '');
+        return;
+      }
+      timeoutCalls.push([...args]);
+      if (args.includes('up')) {
+        setTimeout(() => cb(null, '', ''), 40);
+        return;
+      }
+      cb(null, '', '');
+    }) as unknown as typeof execFile;
+
+    const timedOut = await runEphemeralQa(tempDir, 'unit', 0.02, { execFileFn: mockBudgetExhausted });
+    expect(timedOut.status).toBe('FAILED');
+    expect(timedOut.exit_code).toBe(124);
+    expect(timedOut.tail_log).toContain('[TIMEOUT]');
+    expect(timeoutCalls).toEqual([
+      ['compose', '-f', 'docker-compose.qa.yml', 'up', '-d', 'postgres-qa'],
+      ['compose', '-f', 'docker-compose.qa.yml', 'down', '-v', '--remove-orphans'],
+    ]);
   });
 });

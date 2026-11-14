@@ -116,8 +116,8 @@
       "name": "qa-11x-architect",
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-architect/SKILL.md",
-      "size_bytes": 11927,
-      "sha256": "8616caba00f93d54a127ca684f61c88ff7de9c9a937eeff10a8757d9c59cffb9",
+      "size_bytes": 11974,
+      "sha256": "b3357cfa066f000ef2af1f97d168267aee09387c36a93c857d74396245787b2e",
       "description": "Master QA 11X & DevSecOps Architect (qa-testing-blueprints v2.16+). Use whenever the user asks to initialize or integrate QA in a project, merge .example templates, write or audit unit/BDD/mutation/E2E tests, enforce >=95% coverage, apply DISA ASD STIG V6R5 and OWASP v4.2 security controls, run ephemeral Docker QA suites (Rule Zero), optimize context token consumption, or update TESTING.md and CHANGELOG.md."
     },
     {
@@ -143,8 +143,8 @@
       "name": "qa-11x-screenplay-builder",
       "path": ".agents/skills/qa-11x-screenplay-builder/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-screenplay-builder/SKILL.md",
-      "size_bytes": 10690,
-      "sha256": "fe54c9eeb71e0c9a0b3d980843e7fa46a0d948eac24cd213a4bb1027fb32c01e",
+      "size_bytes": 11774,
+      "sha256": "d6699f195ab3c8b410f101b24dde7b832ac5dbab56791f5c491e3e6a78fd237c",
       "description": "Proportional E2E and acceptance architecture sub-skill for Standard 11X. Enforces the Screenplay Pattern (Actors, Abilities, Tasks, Interactions, Questions) on multi-role RBAC, multi-tenant, and hybrid UI+API+Mobile flows, lightweight composed POM on small single-role apps (<= 10 tests, <= 3 pages), semantic self-healing ARIA locators, Anti-JSDOM geometry, Anti-Silo cross-module Questions, and 3-phase temporal assertions."
     },
     {

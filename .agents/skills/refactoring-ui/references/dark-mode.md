@@ -26,6 +26,8 @@ document.documentElement.classList.toggle(
 );
 ```
 
+> **SSR/SSG Hydration Safety (`QA-SSR-HYDRATION-01`):** Because this inline `<head>` script mutates `<html>` before Vue/React hydration runs, NEVER branch initial SSR DOM (`v-if`) on `localStorage.theme` or `dataset.theme`; toggle theme icons/branches via CSS (`hidden dark:block` / `display: none`) or sync post-mount (`onMounted`), and audit both `light` and `dark` `colorScheme` contexts in Playwright.
+
 Add `scheme-light dark:scheme-dark` on `<html>` so native controls, date
 pickers and scrollbars follow the theme. Inside custom CSS, `@variant dark { … }`
 nests the dark value next to the light one.

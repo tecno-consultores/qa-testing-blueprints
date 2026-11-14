@@ -6,6 +6,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { auditSecurityStigOwasp } from '../src/tools/security-auditor.js';
+import { collectProjectFiles } from '../src/tools/inspect-project.js';
 import {
   buildPrefilledIssueUrl,
   inferDualConsumerTargets,
@@ -1059,6 +1060,251 @@ describe('QA-HEALTH-01 & Dual-Consumer Evolution Suite', () => {
       expect(findings).toHaveLength(2);
       expect(findings.some((f) => f.message.includes('@playwright/test') && f.message.includes('1.52.0'))).toBe(true);
       expect(findings.some((f) => f.message.includes('playwright') && f.file === 'package.json')).toBe(true);
+    });
+  });
+
+  describe('QA-SSR-HYDRATION-01: Dual-ColorScheme SSR Hydration Audit', () => {
+    it('omits CSR SPAs without SSR markers and SSR apps without dual-theme markers', async () => {
+      // 1) Pure CSR SPA (vue + vite)
+      const csrDir = path.join(tmpDir, 'csr-spa');
+      fs.mkdirSync(path.join(csrDir, 'src'), { recursive: true });
+      fs.writeFileSync(
+        path.join(csrDir, 'package.json'),
+        JSON.stringify({ dependencies: { vue: '3.5.0' }, devDependencies: { vite: '6.0.0', '@playwright/test': '1.52.0' } }),
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(csrDir, 'src', 'App.vue'),
+        '<template><div v-if="localStorage.theme === \'dark\'">Dark</div></template>\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(csrDir, 'playwright.config.ts'),
+        'export default { use: { colorScheme: "light" } };\n',
+        'utf8'
+      );
+      const csrRes = await auditSecurityStigOwasp(csrDir);
+      expect(csrRes.findings.filter((f) => f.rule_id === 'QA-SSR-HYDRATION-01')).toHaveLength(0);
+
+      // 2) SSR app without dual-theme markers
+      const monoSsrDir = path.join(tmpDir, 'mono-ssr');
+      fs.mkdirSync(path.join(monoSsrDir, 'src'), { recursive: true });
+      fs.writeFileSync(
+        path.join(monoSsrDir, 'package.json'),
+        JSON.stringify({ dependencies: { nuxt: '3.15.0' }, devDependencies: { '@playwright/test': '1.52.0' } }),
+        'utf8'
+      );
+      fs.writeFileSync(path.join(monoSsrDir, 'src', 'App.vue'), '<template><main>Solo claro</main></template>\n', 'utf8');
+      fs.writeFileSync(path.join(monoSsrDir, 'playwright.config.ts'), 'export default { use: { baseURL: "http://localhost:3000" } };\n', 'utf8');
+      const monoRes = await auditSecurityStigOwasp(monoSsrDir);
+      expect(monoRes.findings.filter((f) => f.rule_id === 'QA-SSR-HYDRATION-01')).toHaveLength(0);
+    });
+
+    it('flags pre-hydration v-if and missing dual colorScheme / hydration console listeners on SSR + dual-theme apps', async () => {
+      const ssrDir = path.join(tmpDir, 'nuxt-dual');
+      fs.mkdirSync(path.join(ssrDir, 'src'), { recursive: true });
+      fs.mkdirSync(path.join(ssrDir, 'e2e'), { recursive: true });
+      fs.writeFileSync(
+        path.join(ssrDir, 'package.json'),
+        JSON.stringify({ dependencies: { nuxt: '3.15.0' }, devDependencies: { '@playwright/test': '1.52.0' } }),
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(ssrDir, 'src', 'App.vue'),
+        [
+          '<script setup lang="ts">',
+          'const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;',
+          '</script>',
+          '<template>',
+          '  <span v-if="localStorage.theme === \'dark\'">Moon</span>',
+          '</template>',
+        ].join('\n'),
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(ssrDir, 'playwright.config.ts'),
+        'export default { projects: [{ name: "desktop", use: { colorScheme: "light" } }] };\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(ssrDir, 'e2e', 'home.spec.ts'),
+        'import { test, expect } from "@playwright/test";\ntest("renders", async ({ page }) => { await page.goto("/"); });\n',
+        'utf8'
+      );
+
+      const res = await auditSecurityStigOwasp(ssrDir);
+      const findings = res.findings.filter((f) => f.rule_id === 'QA-SSR-HYDRATION-01');
+      expect(findings).toHaveLength(2);
+      expect(findings.every((f) => f.severity === 'MEDIUM')).toBe(true);
+      expect(findings.some((f) => f.file === 'src/App.vue' && f.line === 5)).toBe(true);
+      expect(findings.some((f) => f.file === 'playwright.config.ts')).toBe(true);
+    });
+
+    it('passes compliant dual-colorScheme + hydration console guard SSR projects and respects qa-ssr-hydration-ok pragma', async () => {
+      const okDir = path.join(tmpDir, 'vite-ssg-ok');
+      fs.mkdirSync(path.join(okDir, 'src'), { recursive: true });
+      fs.mkdirSync(path.join(okDir, 'e2e'), { recursive: true });
+      fs.writeFileSync(
+        path.join(okDir, 'package.json'),
+        JSON.stringify({ dependencies: { 'vite-ssg': '0.24.0', vue: '3.5.0' }, devDependencies: { '@playwright/test': '1.52.0' } }),
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(okDir, 'src', 'main.ts'),
+        'const darkMq = window.matchMedia("(prefers-color-scheme: dark)");\nconsole.log(darkMq.matches);\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(okDir, 'src', 'App.vue'),
+        '<template><span class="dark:hidden">Sun</span><span class="hidden dark:inline">Moon</span></template>\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(okDir, 'playwright.config.ts'),
+        [
+          'export default {',
+          '  projects: [',
+          "    { name: 'light', use: { colorScheme: 'light' } },",
+          "    { name: 'dark', use: { colorScheme: 'dark' } },",
+          '  ],',
+          '};',
+        ].join('\n'),
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(okDir, 'e2e', 'hydration.e2e.ts'),
+        [
+          'import { test, expect } from "@playwright/test";',
+          'test("no hydration warnings", async ({ page }) => {',
+          '  const errors: string[] = [];',
+          '  page.on("console", (msg) => { if (/hydration/i.test(msg.text())) errors.push(msg.text()); });',
+          '  page.on("pageerror", (err) => { if (/hydration/i.test(err.message)) errors.push(err.message); });',
+          '  await page.goto("/");',
+          '  expect(errors).toEqual([]);',
+          '});',
+        ].join('\n'),
+        'utf8'
+      );
+
+      const okRes = await auditSecurityStigOwasp(okDir);
+      expect(okRes.findings.filter((f) => f.rule_id === 'QA-SSR-HYDRATION-01')).toHaveLength(0);
+
+      // Pragma exemptions
+      const exemptDir = path.join(tmpDir, 'ssr-pragma');
+      fs.mkdirSync(path.join(exemptDir, 'src'), { recursive: true });
+      fs.writeFileSync(
+        path.join(exemptDir, 'package.json'),
+        JSON.stringify({ dependencies: { next: '15.1.0' }, devDependencies: { '@playwright/test': '1.52.0' } }),
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(exemptDir, 'src', 'Toggle.tsx'),
+        [
+          'const themeMode = "prefers-color-scheme";',
+          '// qa-ssr-hydration-ok',
+          '<div v-if="localStorage.theme === \'dark\'">{themeMode}</div>',
+        ].join('\n'),
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(exemptDir, 'playwright.config.ts'),
+        '// qa-ssr-hydration-ok\nexport default { use: { colorScheme: "light" } };\n',
+        'utf8'
+      );
+      const exemptRes = await auditSecurityStigOwasp(exemptDir);
+      expect(exemptRes.findings.filter((f) => f.rule_id === 'QA-SSR-HYDRATION-01')).toHaveLength(0);
+    });
+  });
+
+  describe('QA-HEALTH-01 Hardening & vendor Exclusion', () => {
+    it('flags multiline .done() + .cancelled() supervisor loops lacking .exception()', async () => {
+      fs.mkdirSync(path.join(tmpDir, 'src'), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, 'src', 'supervisor.py'),
+        [
+          'def supervise(tasks):',
+          '    for task in tasks:',
+          '        if task.done():',
+          '            if task.cancelled():',
+          '                continue',
+          '            return False',
+          '    return True',
+        ].join('\n'),
+        'utf8'
+      );
+      const res = await auditSecurityStigOwasp(tmpDir);
+      const findings = res.findings.filter((f) => f.rule_id === 'QA-HEALTH-01');
+      expect(findings).toHaveLength(1);
+      expect(findings[0].file).toBe('src/supervisor.py');
+      expect(findings[0].line).toBe(3);
+    });
+
+    it('rejects per-function @patch/AsyncMock probe tests while passing once an unmocked test function verifies the probe', async () => {
+      fs.mkdirSync(path.join(tmpDir, 'src'), { recursive: true });
+      fs.mkdirSync(path.join(tmpDir, 'tests'), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, 'Dockerfile'),
+        'FROM python:3.12-slim\nHEALTHCHECK CMD test -f /tmp/worker.ready\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(tmpDir, 'src', 'runner.py'),
+        [
+          'from pathlib import Path',
+          'WORKER_HEARTBEAT_PATH = Path("/tmp/worker.ready")',
+          'def boot():',
+          '    WORKER_HEARTBEAT_PATH.write_text("ok")',
+        ].join('\n'),
+        'utf8'
+      );
+      const testPath = path.join(tmpDir, 'tests', 'test_runner.unit.py');
+      fs.writeFileSync(
+        testPath,
+        [
+          'from unittest.mock import AsyncMock, patch',
+          'from src.runner import WORKER_HEARTBEAT_PATH',
+          '',
+          '@patch("src.runner.spawn_worker", new_callable=AsyncMock)',
+          'def test_mocked_worker(_mock_spawn):',
+          '    assert WORKER_HEARTBEAT_PATH.exists()',
+        ].join('\n'),
+        'utf8'
+      );
+
+      const mockedOnlyRes = await auditSecurityStigOwasp(tmpDir);
+      expect(mockedOnlyRes.findings.filter((f) => f.rule_id === 'QA-HEALTH-01')).toHaveLength(1);
+
+      fs.appendFileSync(
+        testPath,
+        [
+          '',
+          'def test_real_worker_boot_contract():',
+          '    assert WORKER_HEARTBEAT_PATH.exists()',
+          '',
+        ].join('\n'),
+        'utf8'
+      );
+
+      const withRealRes = await auditSecurityStigOwasp(tmpDir);
+      expect(withRealRes.findings.filter((f) => f.rule_id === 'QA-HEALTH-01')).toHaveLength(0);
+    });
+
+    it('excludes vendor/ from auditSecurityStigOwasp and collectProjectFiles', async () => {
+      fs.mkdirSync(path.join(tmpDir, 'vendor', 'acme', 'legacy'), { recursive: true });
+      fs.mkdirSync(path.join(tmpDir, 'src'), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, 'vendor', 'acme', 'legacy', 'evil.php'),
+        '<?php eval($_GET["cmd"]);\n',
+        'utf8'
+      );
+      fs.writeFileSync(path.join(tmpDir, 'src', 'ok.php'), "<?php echo 'ok';\n", 'utf8');
+
+      const files = collectProjectFiles(tmpDir);
+      expect(files).toContain('src/ok.php');
+      expect(files).not.toContain('vendor/acme/legacy/evil.php');
+
+      const res = await auditSecurityStigOwasp(tmpDir);
+      expect(res.findings.filter((f) => f.file.startsWith('vendor/'))).toHaveLength(0);
     });
   });
 });

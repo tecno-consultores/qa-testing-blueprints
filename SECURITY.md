@@ -237,6 +237,12 @@ La integración entre aplicaciones SPA (Vue 3, React) y APIs REST/WebSockets (Fa
   - Fijar versión exacta sin prefijos (`"1.52.0"`) en `@playwright/test` / `playwright` sincronizada 1:1 con el tag `mcr.microsoft.com/playwright:v1.52.0-*` (`QA-PLAYWRIGHT-PIN-01` en `audit_security_stig_owasp`, alineación automática en `SurgicalMerger.mergePackageJson` y ejecución no-root `QA_UID:QA_GID` prioritizando `./node_modules/.bin/{playwright,lhci}`).
   - Validar todas las URLs objetivo de `.agents/scripts/audit_pagespeed_insights.py` (`make audit-psi` / `make qa-psi`) con esquema `https://` exclusivo, bloqueo pre-DNS contra rangos privados/loopback/link-local/`.internal` (`SEC-03`) y redacción obligatoria de parámetros `key=`/`PAGESPEED_API_KEY` (`SEC-06`).
 
+### 4.30. Paridad de Hidratación SSR/SSG bajo Doble Esquema de Color en Playwright (`QA-SSR-HYDRATION-01` — `Standard 11X Layer 8` & `APSC-DV-002310`)
+- **Riesgo:** En aplicaciones SSR/SSG con selector de tema claro/oscuro, un script inline en `<head>` que muta `dataset.theme` o `.dark` antes de la hidratación provoca divergencias DOM silenciosas (*Hydration completed but contains mismatches*) cuando los componentes usan `v-if` dependiente del cliente o cuando `playwright.config.ts` fija únicamente un `colorScheme` (p. ej. `'dark'`), ocultando degradaciones en producción bajo `prefers-color-scheme: light`.
+- **Mitigación:**
+  - Evitar ramificar la estructura HTML inicial (`v-if`) según `localStorage` o `dataset.theme` antes del montaje; renderizar ambas variantes por CSS (`display: none` / `hidden dark:block`) y sincronizar el estado reactivo en `onMounted`.
+  - En proyectos SSR/SSG con tematización dual, añadir en Playwright cobertura explícita para ambos esquemas (`'light'` y `'dark'` vía `browser.newContext({ colorScheme })` o `page.emulateMedia({ colorScheme })`) junto con listeners `console` y `pageerror` que fallen ante cualquier mensaje `/hydration/i` (auditado por `QA-SSR-HYDRATION-01` en `audit_security_stig_owasp`, eximible con `# qa-ssr-hydration-ok`).
+
 ---
 
 ## 5. Auditoría Preventiva de Vulnerabilidades y Seguridad Shift-Left

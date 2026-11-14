@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.21.0",
-  "generated_at_utc": "2026-11-14T22:26:36Z",
+  "generated_at_utc": "2026-11-14T22:56:46Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -312,8 +312,8 @@
           "path": "php/phpunit.xml.example",
           "target_name": "phpunit.xml",
           "merge_strategy": "surgical_merge",
-          "sha256": "d86185583e5cac7139fe0512f3757345db2aa33d7dd4f21a5783a4debdacb164",
-          "size_bytes": 1782
+          "sha256": "68e782834dab0a6f01d339a884a9dbb2f9a363cebc8832e07b947ca95967fd85",
+          "size_bytes": 1831
         },
         {
           "path": "php/test/api_test.feature",
@@ -677,8 +677,8 @@
       "path": ".trivy.yaml",
       "target_name": ".trivy.yaml",
       "merge_strategy": "copy_if_missing",
-      "sha256": "1dbead8cf29f29ff315c67d082cb8a10973f471a66fb1cdf38321249236fea66",
-      "size_bytes": 896
+      "sha256": "b824602d27833acce3903f339f274cd43a91aea0fd3b5a24a84886388f546cec",
+      "size_bytes": 970
     },
     {
       "path": "commitlint.config.js",
@@ -910,8 +910,8 @@
       "path": ".agents/scripts/verify_topological_health.py",
       "target_name": ".agents/scripts/verify_topological_health.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "0d192ae0d11e807f81b1cfb67f34ea3f0fe018c85955b454a715ca988182c705",
-      "size_bytes": 4008
+      "sha256": "22954be7b44459b5cfec28c695d08196edc4190fadc86c60cb5ee5b6ee883d99",
+      "size_bytes": 4028
     },
     {
       "path": ".agents/scripts/verify_zero_orphan_vue_components.py",
@@ -938,8 +938,8 @@
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "8616caba00f93d54a127ca684f61c88ff7de9c9a937eeff10a8757d9c59cffb9",
-      "size_bytes": 11927
+      "sha256": "b3357cfa066f000ef2af1f97d168267aee09387c36a93c857d74396245787b2e",
+      "size_bytes": 11974
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
@@ -1036,8 +1036,8 @@
       "path": ".agents/skills/qa-11x-screenplay-builder/SKILL.md",
       "target_name": ".agents/skills/qa-11x-screenplay-builder/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "fe54c9eeb71e0c9a0b3d980843e7fa46a0d948eac24cd213a4bb1027fb32c01e",
-      "size_bytes": 10690
+      "sha256": "d6699f195ab3c8b410f101b24dde7b832ac5dbab56791f5c491e3e6a78fd237c",
+      "size_bytes": 11774
     },
     {
       "path": ".agents/skills/qa-11x-systematic-debugging/SKILL.md",
@@ -1071,8 +1071,8 @@
       "path": ".agents/skills/refactoring-ui/references/dark-mode.md",
       "target_name": ".agents/skills/refactoring-ui/references/dark-mode.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "11afc90d20a26e80f647fa040729c0ba53b88274a69fe50fbc810a6243af6240",
-      "size_bytes": 3200
+      "sha256": "e3adf2ced3cd3721cc84901175184dbc19b805a88aed5f2766f0be7e722c5285",
+      "size_bytes": 3607
     },
     {
       "path": ".agents/skills/refactoring-ui/references/depth.md",
@@ -1148,7 +1148,7 @@
       "path": "catalogs/skillsllm-manifest.json",
       "target_name": "catalogs/skillsllm-manifest.json",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "7673c93e622814b05347a5685811e2bca03cecf66e6b709053fe8d08a503ac11",
+      "sha256": "a836a4706f60d722e5a69cbf5d381110e9953aace844d14eca830ddd979786c0",
       "size_bytes": 11078
     },
     {

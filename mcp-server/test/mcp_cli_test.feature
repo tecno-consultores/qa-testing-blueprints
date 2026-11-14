@@ -1017,3 +1017,35 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def psiPyManifest = findEntry(manifest.agent_governance_files, '.agents/scripts/audit_pagespeed_insights.py')
     * match psiPyManifest.sha256 == '#regex ^[0-9a-f]{64}$'
 
+  Scenario: 33. Verificar paridad Dual-Consumer QA-SSR-HYDRATION-01, exclusión vendor en MCP/.trivy.yaml y endurecimiento QA-HEALTH-01 / fallback sin make
+    * def findEntry = function(list, pathStr) { return karate.filter(list, function(x) { return x.path == pathStr })[0] }
+    * def secAuditor = karate.readAsString(repoRoot + '/mcp-server/src/tools/security-auditor.ts')
+    * assert secAuditor.contains('QA-SSR-HYDRATION-01')
+    * assert secAuditor.contains('extractPythonTestBlocks')
+    * assert secAuditor.contains('isUncheckedSupervisorWindow')
+    * def serverTs = karate.readAsString(repoRoot + '/mcp-server/src/server.ts')
+    * assert serverTs.contains('the 34 DISA ASD STIG V6R5')
+    * assert serverTs.contains('QA-SSR-HYDRATION-01')
+    * def screenplaySkill = karate.readAsString(repoRoot + '/.agents/skills/qa-11x-screenplay-builder/SKILL.md')
+    * assert screenplaySkill.contains('QA-SSR-HYDRATION-01')
+    * def architectSkill = karate.readAsString(repoRoot + '/.agents/skills/qa-11x-architect/SKILL.md')
+    * assert architectSkill.contains('QA-SSR-HYDRATION-01')
+    * def docs02 = karate.readAsString(repoRoot + '/docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md')
+    * assert docs02.contains('QA-SSR-HYDRATION-01')
+    * def docs04 = karate.readAsString(repoRoot + '/docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md')
+    * assert docs04.contains('QA-SSR-HYDRATION-01')
+    * def securityDoc = karate.readAsString(repoRoot + '/SECURITY.md')
+    * assert securityDoc.contains('### 4.30.')
+    * assert securityDoc.contains('QA-SSR-HYDRATION-01')
+    * def trivyCfg = karate.readAsString(repoRoot + '/.trivy.yaml')
+    * assert trivyCfg.contains('- vendor')
+    * assert trivyCfg.contains('- php/vendor')
+    * def phpunitXml = karate.readAsString(repoRoot + '/php/phpunit.xml.example')
+    * assert phpunitXml.contains('<ini name="pcov.directory" value="src"/>')
+    * def runnerTs = karate.readAsString(repoRoot + '/mcp-server/src/tools/ephemeral-runner.ts')
+    * assert runnerTs.contains('hasUnquotedShellSyntax')
+    * assert runnerTs.contains('--remove-orphans')
+    * def phpunitManifest = findEntry(manifest.stacks.php.files, 'php/phpunit.xml.example')
+    * match phpunitManifest.sha256 == '#regex ^[0-9a-f]{64}$'
+
+

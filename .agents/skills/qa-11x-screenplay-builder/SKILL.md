@@ -62,6 +62,10 @@ Because JSDOM always reports `0x0` bounding boxes and skips layout engines, vali
 - **In-Flow Footer Invariant (`UI-11X-01`):** Forbid `position: fixed` or `position: sticky` bottom footers covering form inputs/tables; enforce in-flow `<footer>` inside `<main>` with `margin-top: auto`.
 - **Tabular & Contrast Polish:** Enforce `font-variant-numeric: tabular-nums` on telemetry/KPI columns and `0` violations from `@axe-core/playwright` (WCAG 2.1 AA) + Lighthouse CI (`Performance >= 90`, `Accessibility >= 95`).
 
+### 3.3. SSR/SSG Dual-ColorScheme Hydration Parity Gate (`QA-SSR-HYDRATION-01`)
+- **CSS-First Hydration Parity (Zero Pre-Mount Branching):** In SSR/SSG apps (`nuxt`, `vitepress`, `astro`, `next`, `@sveltejs/kit`, `vite-ssg`, `createSSRApp`/`hydrateRoot`) with light/dark theme toggles, NEVER branch initial DOM structure (`v-if` or conditional JSX) on client-only `dataset.theme`, `localStorage`, or `document.documentElement` before hydration completes; render both states via CSS (`display: none` / `hidden dark:block`) and sync reactive UI state inside `onMounted` / post-mount.
+- **Opposite-Scheme Playwright Console Guard:** When Playwright configures a single default `colorScheme` (or leaves it implicit), add an E2E hydration gate opening an isolated opposite-scheme context (`browser.newContext({ colorScheme: 'light' })` or `page.emulateMedia({ colorScheme })`) covering both `'light'` and `'dark'` and failing on any `console` error, `/hydration/i` warning, or `pageerror`, alongside `@axe-core/playwright` WCAG 2.1 AA checks (exemptible only with `qa-ssr-hydration-ok`).
+
 ---
 
 ## 4. Anti-Silo Cross-Module `Questions` & 3-Phase Temporal Lifecycle

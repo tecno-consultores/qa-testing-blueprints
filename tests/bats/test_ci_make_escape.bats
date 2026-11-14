@@ -148,3 +148,15 @@ EOF
   assert_output --partial "aquasec/trivy:latest config . --quiet --skip-dirs node_modules,.git,dist,target,graphify-out,vendor,.venv"
   assert_output --partial "aquasec/trivy:latest fs . --quiet --scanners vuln --skip-dirs node_modules,.git,dist,target,graphify-out,vendor,.venv"
 }
+
+@test ".trivy.yaml (Repo real): excluye vendor, php/vendor y .venv en scan.skip-dirs" {
+  local trivy_cfg="${BATS_TEST_DIRNAME}/../../.trivy.yaml"
+  [ -f "${trivy_cfg}" ]
+
+  run cat "${trivy_cfg}"
+  assert_success
+  assert_output --partial "skip-dirs:"
+  assert_output --partial "- vendor"
+  assert_output --partial "- php/vendor"
+  assert_output --partial "- .venv"
+}

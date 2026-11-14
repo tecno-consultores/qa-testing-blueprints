@@ -372,7 +372,7 @@ export function createMcpServer(options?: {
   // Tool 6: audit_security_stig_owasp
   server.tool(
     'audit_security_stig_owasp',
-    'Statically audits project source code against the 33 DISA ASD STIG V6R5, OWASP v4.2, and Anti-Silo QA/Healthcheck/TTY/CI/Contract/Docker/Playwright/UI patterns (including QA-HEALTH-01, QA-CLI-TTY-01, QA-DOCKER-TTY-01, QA-CI-ESCAPE-01, QA-MAKE-CURDIR-01, QA-CONTRACT-SDK-01, QA-DOCKER-LOCK-01, QA-PLAYWRIGHT-PIN-01, and UI-11X-01..03).',
+    'Statically audits project source code against the 34 DISA ASD STIG V6R5, OWASP v4.2, and Anti-Silo QA/Healthcheck/TTY/CI/Contract/Docker/Playwright/SSR/UI patterns (including QA-HEALTH-01, QA-CLI-TTY-01, QA-DOCKER-TTY-01, QA-CI-ESCAPE-01, QA-MAKE-CURDIR-01, QA-CONTRACT-SDK-01, QA-DOCKER-LOCK-01, QA-PLAYWRIGHT-PIN-01, QA-SSR-HYDRATION-01, and UI-11X-01..03).',
     AuditSecurityInputSchema.shape,
     async (args) => {
       const result = await auditSecurityStigOwasp(args.project_path, args.max_findings);

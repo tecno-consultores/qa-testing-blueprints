@@ -14,6 +14,7 @@ const IGNORED_DIRS = new Set([
   '.cache',
   '.venv',
   'venv',
+  'vendor',
   '__pycache__',
   '.pytest_cache',
   '.mypy_cache',
@@ -132,6 +133,53 @@ const PLAYWRIGHT_PKGS = ['@playwright/test', 'playwright'] as const;
 const PKG_DEP_SECTIONS = ['dependencies', 'devDependencies'] as const;
 const PLAYWRIGHT_IMAGE_TAG_RE = /mcr\.microsoft\.com\/playwright:v(\d+\.\d+\.\d+)\b/g;
 const EXACT_SEMVER_RE = /^\d+\.\d+\.\d+$/;
+const QA_SSR_HYDRATION_RULE = 'QA-SSR-HYDRATION-01';
+const QA_SSR_HYDRATION_REF = 'Standard 11X Layer 8 E2E / SSR Dual-ColorScheme Hydration Parity';
+const QA_SSR_HYDRATION_OK_PRAGMA = 'qa-ssr-hydration-ok';
+const SSR_NPM_DEPS = new Set([
+  'nuxt',
+  'vitepress',
+  'astro',
+  'next',
+  '@sveltejs/kit',
+  'vite-ssg',
+  '@vue/server-renderer',
+  '@analogjs/platform',
+  '@remix-run/node',
+  '@remix-run/react',
+  '@react-router/node',
+  '@solidjs/start',
+]);
+const SSR_CONFIG_NAME_RE =
+  /(?:^|\/)(?:nuxt|astro|next)\.config\.(?:ts|js|mjs|cjs|mts)$|(?:^|\/)\.vitepress\/config\.(?:ts|js|mjs|mts)$/i;
+const SSR_THEME_MARKERS = [
+  'prefers-color-scheme',
+  'dataset.theme',
+  'data-theme',
+  'localStorage.theme',
+  "localStorage.getItem('theme')",
+  'localStorage.getItem("theme")',
+  'useDark(',
+  'useColorMode(',
+  'next-themes',
+  '@custom-variant dark',
+  ".classList.toggle('dark'",
+  '.classList.toggle("dark"',
+];
+const SSR_PREHYDRATE_V_IF_RE =
+  /(?:\bv-(?:else-)?if)\s*=\s*(?:"[^"]*(?:localStorage|dataset\.theme|document\.documentElement)[^"]*"|'[^']*(?:localStorage|dataset\.theme|document\.documentElement)[^']*')/;
+const PLAYWRIGHT_CONFIG_RE = /(?:^|\/)playwright\.config\.(?:ts|js|mjs|mts)$/i;
+const E2E_TEST_FILE_RE = /(?:^|\/)(?:e2e|tests\/e2e)\/|\.(?:e2e|spec)\.(?:ts|tsx|js|jsx|mjs)$/i;
+const HYDRATION_LISTENER_RE = /\bon\(\s*['"](?:console|pageerror)['"]/;
+const PROBE_ASSERTION_MARKERS = [
+  '.exists()',
+  'os.path.exists',
+  '.is_file()',
+  '.read_text(',
+  'existsSync(',
+  'statSync(',
+];
+const PY_MOCK_PATCH_MARKERS = ['patch(', 'patch.object(', 'monkeypatch'];
 const BOOTSTRAP_PY_PACKAGES = new Set([
   'pip',
   'uv',
@@ -1536,6 +1584,7 @@ function checkProjectLevelRules(projectPath: string, allRelFiles: string[]): Sec
     ...checkQaContractSdk01RealTransport(projectPath, allRelFiles),
     ...checkQaDockerLock01LockfileAndSmoke(projectPath),
     ...checkQaPlaywrightPin01VersionParity(projectPath, allRelFiles),
+    ...checkQaSsrHydration01DualScheme(projectPath, allRelFiles),
     ...checkUi11x03FaviconPwaAndEdgeHeaders(projectPath, allRelFiles),
   ];
 }
@@ -1743,6 +1792,49 @@ function findSourceOrchestratorForProbe(
   return null;
 }
 
+const PY_TEST_FUNC_LINE_RE = /^(?:async )?def test_[A-Za-z0-9_]+ ?\(/;
+
+function isPythonTestDefLine(line: string): boolean {
+  const normalized = line.trimStart().replace(/[ \t]+/g, ' ');
+  return PY_TEST_FUNC_LINE_RE.test(normalized);
+}
+
+function extractPythonTestBlocks(content: string): string[] {
+  const blocks: string[] = [];
+  let current: string[] | null = null;
+  let decorators: string[] = [];
+
+  for (const line of content.split(/\r?\n/)) {
+    if (line.trimStart().startsWith('@')) {
+      decorators.push(line);
+      continue;
+    }
+    if (isPythonTestDefLine(line)) {
+      if (current) blocks.push(current.join('\n'));
+      current = [...decorators, line];
+      decorators = [];
+      continue;
+    }
+    if (current && decorators.length > 0) {
+      current.push(...decorators);
+    }
+    decorators = [];
+    if (current) current.push(line);
+  }
+  if (current) blocks.push(current.join('\n'));
+  return blocks;
+}
+
+function isBlockProbeAssertionValid(block: string, tokens: readonly string[]): boolean {
+  if (!tokens.some((tok) => block.includes(tok))) return false;
+  if (block.includes(QA_HEALTH_OK_PRAGMA)) return true;
+  const hasPatchOrMonkey = PY_MOCK_PATCH_MARKERS.some((marker) => block.includes(marker));
+  const mocksWrite = hasPatchOrMonkey && block.includes('write_text');
+  const mocksWorkers = hasPatchOrMonkey && block.includes('AsyncMock');
+  if (mocksWrite || mocksWorkers) return false;
+  return PROBE_ASSERTION_MARKERS.some((marker) => block.includes(marker));
+}
+
 function testFileAssertsProbeUnmocked(
   content: string,
   tokens: string[]
@@ -1751,19 +1843,12 @@ function testFileAssertsProbeUnmocked(
   if (!mentionsToken) return false;
   if (content.includes(QA_HEALTH_OK_PRAGMA)) return true;
 
-  const mocksHeartbeatWrite =
-    content.includes('write_text') && (content.includes('patch(') || content.includes('monkeypatch'));
-  if (mocksHeartbeatWrite && !content.includes('.exists()')) return false;
+  const pyBlocks = extractPythonTestBlocks(content);
+  if (pyBlocks.length > 0) {
+    return pyBlocks.some((block) => isBlockProbeAssertionValid(block, tokens));
+  }
 
-  const assertionMarkers = [
-    '.exists()',
-    'os.path.exists',
-    '.is_file()',
-    '.read_text(',
-    'existsSync(',
-    'statSync(',
-  ];
-  return assertionMarkers.some((marker) => content.includes(marker));
+  return isBlockProbeAssertionValid(content, tokens);
 }
 
 function hasUnmockedProbeTestAssertion(
@@ -2214,6 +2299,284 @@ function checkQaPlaywrightPin01VersionParity(
   return findings;
 }
 
+const VITEPRESS_CONFIG_FILES = ['config.ts', 'config.mts', 'config.js', 'config.mjs'] as const;
+
+function isScopeProductionSource(relPath: string): boolean {
+  const norm = relPath.replace(/\\/g, '/');
+  return !norm.endsWith('.example') && !isTestFilePath(norm) && !isAuditorSelfDefinition(norm);
+}
+
+function isInScopeDir(normRel: string, scopeDir: string): boolean {
+  return scopeDir === '.' || normRel.startsWith(`${scopeDir}/`);
+}
+
+function isSsrExtraEntry(entry: fs.Dirent): boolean {
+  if (!entry.isFile() || entry.name.endsWith('.example')) return false;
+  const lower = entry.name.toLowerCase();
+  return (
+    lower.endsWith('.css') ||
+    lower.endsWith('.mjs') ||
+    lower.endsWith('.mts') ||
+    lower.endsWith('.cjs')
+  );
+}
+
+function hasSsrNpmDependency(pkgContent: string): boolean {
+  const doc = parseJsonObjectTextSafe(pkgContent);
+  if (!doc) return false;
+  for (const section of PKG_DEP_SECTIONS) {
+    const block = doc[section];
+    if (!block || typeof block !== 'object' || Array.isArray(block)) continue;
+    if (Object.keys(block).some((dep) => SSR_NPM_DEPS.has(dep))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function hasSsrEngineInSources(projectPath: string, files: readonly string[]): boolean {
+  for (const rel of files) {
+    if (!isScopeProductionSource(rel) || !/\.(?:ts|tsx|js|jsx|vue)$/i.test(rel)) continue;
+    const text = readTextFileSafe(path.join(projectPath, rel));
+    if (text && (text.includes('createSSRApp(') || text.includes('hydrateRoot('))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function hasSsrEngineForScope(
+  projectPath: string,
+  scopeAbsDir: string,
+  pkgContent: string,
+  scopeFiles: readonly string[],
+  extraFiles: readonly string[]
+): boolean {
+  if (hasSsrNpmDependency(pkgContent)) return true;
+  if (VITEPRESS_CONFIG_FILES.some((f) => fs.existsSync(path.join(scopeAbsDir, '.vitepress', f)))) {
+    return true;
+  }
+  const allScopeCandidates = [...scopeFiles, ...extraFiles];
+  if (
+    allScopeCandidates.some(
+      (rel) => isScopeProductionSource(rel) && SSR_CONFIG_NAME_RE.test(rel.replace(/\\/g, '/'))
+    )
+  ) {
+    return true;
+  }
+  return hasSsrEngineInSources(projectPath, allScopeCandidates);
+}
+
+function hasDualThemeMarkerForScope(
+  projectPath: string,
+  scopeFiles: readonly string[],
+  extraFiles: readonly string[]
+): boolean {
+  for (const rel of [...scopeFiles, ...extraFiles]) {
+    if (!isScopeProductionSource(rel)) continue;
+    if (!/\.(?:ts|tsx|js|jsx|vue|html|css|mjs|mts)$/i.test(rel)) continue;
+    const text = readTextFileSafe(path.join(projectPath, rel));
+    if (text && SSR_THEME_MARKERS.some((marker) => text.includes(marker))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function inspectPrehydrateLinesInFile(relPath: string, content: string): SecurityFinding[] {
+  const findings: SecurityFinding[] = [];
+  const lines = content.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const prev = i > 0 ? lines[i - 1] : '';
+    if (line.includes(QA_SSR_HYDRATION_OK_PRAGMA) || prev.includes(QA_SSR_HYDRATION_OK_PRAGMA)) {
+      continue;
+    }
+    if (SSR_PREHYDRATE_V_IF_RE.test(line)) {
+      findings.push({
+        rule_id: QA_SSR_HYDRATION_RULE,
+        severity: 'MEDIUM',
+        stig_owasp_ref: QA_SSR_HYDRATION_REF,
+        file: relPath,
+        line: i + 1,
+        message:
+          'Componente SSR/SSG ramifica el DOM inicial (v-if) según estado de cliente pre-hidratación (localStorage/dataset.theme), arriesgando Hydration Mismatch.',
+        remediation: `Renderizar ambas ramas con CSS (display: none / hidden dark:block) y sincronizar el estado reactivo en onMounted (o eximir con ${QA_SSR_HYDRATION_OK_PRAGMA}).`,
+      });
+    }
+  }
+  return findings;
+}
+
+function inspectSsrPrehydrateBranching(
+  projectPath: string,
+  scopeFiles: readonly string[],
+  seenFiles: Set<string>
+): SecurityFinding[] {
+  const findings: SecurityFinding[] = [];
+  for (const rel of scopeFiles) {
+    if (seenFiles.has(rel) || !isScopeProductionSource(rel) || !/\.(?:vue|tsx|jsx)$/i.test(rel)) {
+      continue;
+    }
+    seenFiles.add(rel);
+    const content = readTextFileSafe(path.join(projectPath, rel));
+    if (!content || content.includes(QA_SSR_HYDRATION_OK_PRAGMA)) continue;
+    findings.push(...inspectPrehydrateLinesInFile(rel, content));
+  }
+  return findings;
+}
+
+function hasDualColorSchemeCoverage(texts: readonly string[]): boolean {
+  const combined = texts.join('\n');
+  return (
+    combined.includes('colorScheme') &&
+    /['"]light['"]/.test(combined) &&
+    /['"]dark['"]/.test(combined)
+  );
+}
+
+function hasHydrationConsoleGuard(e2eTexts: readonly string[]): boolean {
+  const combined = e2eTexts.join('\n');
+  return HYDRATION_LISTENER_RE.test(combined) && /hydration/i.test(combined);
+}
+
+function findPlaywrightScopeConfigs(
+  scopeDir: string,
+  candidates: readonly string[],
+  rootCandidates: readonly string[]
+): { configs: string[]; usedRootFallback: boolean } {
+  const own = candidates.filter(
+    (rel) => isScopeProductionSource(rel) && PLAYWRIGHT_CONFIG_RE.test(rel.replace(/\\/g, '/'))
+  );
+  if (own.length > 0 || scopeDir === '.') {
+    return { configs: own, usedRootFallback: false };
+  }
+  const rootConfigs = rootCandidates.filter((rel) => {
+    const norm = rel.replace(/\\/g, '/');
+    return !norm.includes('/') && isScopeProductionSource(norm) && PLAYWRIGHT_CONFIG_RE.test(norm);
+  });
+  return { configs: rootConfigs, usedRootFallback: rootConfigs.length > 0 };
+}
+
+function readExistingTexts(projectPath: string, relFiles: readonly string[]): string[] {
+  const texts: string[] = [];
+  for (const rel of relFiles) {
+    const txt = readTextFileSafe(path.join(projectPath, rel));
+    if (txt) texts.push(txt);
+  }
+  return texts;
+}
+
+function buildMissingPlaywrightHydrationMessage(hasDual: boolean, hasGuard: boolean): string {
+  const missing: string[] = [];
+  if (!hasDual) missing.push("cobertura dual de colorScheme ('light' y 'dark')");
+  if (!hasGuard) missing.push('listeners console/pageerror verificando errores /hydration/i');
+  return `Proyecto SSR/SSG con tematización dinámica carece de ${missing.join(' y ')} en la suite Playwright E2E.`;
+}
+
+function inspectPlaywrightHydrationContract(
+  projectPath: string,
+  scopeDir: string,
+  scopeFiles: readonly string[],
+  extraFiles: readonly string[],
+  allRelFiles: readonly string[],
+  seenConfigs: Set<string>
+): SecurityFinding[] {
+  const scoped = [...scopeFiles, ...extraFiles];
+  const { configs, usedRootFallback } = findPlaywrightScopeConfigs(scopeDir, scoped, allRelFiles);
+  if (configs.length === 0 || seenConfigs.has(configs[0])) return [];
+  seenConfigs.add(configs[0]);
+
+  const pwTexts = readExistingTexts(projectPath, configs);
+  if (pwTexts.some((txt) => txt.includes(QA_SSR_HYDRATION_OK_PRAGMA))) return [];
+
+  const e2ePool = usedRootFallback ? [...scoped, ...allRelFiles] : scoped;
+  const e2eFiles = Array.from(
+    new Set(
+      e2ePool.filter((rel) => {
+        const norm = rel.replace(/\\/g, '/');
+        return !norm.endsWith('.example') && !isAuditorSelfDefinition(norm) && E2E_TEST_FILE_RE.test(norm);
+      })
+    )
+  );
+  const e2eTexts = readExistingTexts(projectPath, e2eFiles);
+  if (e2eTexts.some((txt) => txt.includes(QA_SSR_HYDRATION_OK_PRAGMA))) return [];
+
+  const hasDual = hasDualColorSchemeCoverage([...pwTexts, ...e2eTexts]);
+  const hasGuard = hasHydrationConsoleGuard(e2eTexts);
+  if (hasDual && hasGuard) return [];
+
+  return [
+    {
+      rule_id: QA_SSR_HYDRATION_RULE,
+      severity: 'MEDIUM',
+      stig_owasp_ref: QA_SSR_HYDRATION_REF,
+      file: configs[0],
+      line: 1,
+      message: buildMissingPlaywrightHydrationMessage(hasDual, hasGuard),
+      remediation: `Añadir prueba Playwright con browser.newContext({ colorScheme: 'light' }) / emulateMedia cubriendo ambos esquemas y aserción sobre eventos console/pageerror para /hydration/i (o eximir con ${QA_SSR_HYDRATION_OK_PRAGMA}).`,
+    },
+  ];
+}
+
+function inspectScopeSsrHydration(
+  projectPath: string,
+  pkgRel: string,
+  allRelFiles: readonly string[],
+  seenBranchFiles: Set<string>,
+  seenPwConfigs: Set<string>
+): SecurityFinding[] {
+  const pkgContent = readTextFileSafe(path.join(projectPath, pkgRel));
+  if (!pkgContent || pkgContent.includes(QA_SSR_HYDRATION_OK_PRAGMA)) return [];
+
+  const scopeDir = path.posix.dirname(pkgRel.replace(/\\/g, '/'));
+  const scopeAbsDir = scopeDir === '.' ? projectPath : path.join(projectPath, scopeDir);
+  const scopeFiles = allRelFiles.filter((r) => isInScopeDir(r.replace(/\\/g, '/'), scopeDir));
+  const extraFiles = collectMatchingFiles(scopeAbsDir, isSsrExtraEntry).map((abs) =>
+    path.relative(projectPath, abs)
+  );
+
+  if (!hasSsrEngineForScope(projectPath, scopeAbsDir, pkgContent, scopeFiles, extraFiles)) {
+    return [];
+  }
+  if (!hasDualThemeMarkerForScope(projectPath, scopeFiles, extraFiles)) {
+    return [];
+  }
+
+  return [
+    ...inspectSsrPrehydrateBranching(projectPath, scopeFiles, seenBranchFiles),
+    ...inspectPlaywrightHydrationContract(
+      projectPath,
+      scopeDir,
+      scopeFiles,
+      extraFiles,
+      allRelFiles,
+      seenPwConfigs
+    ),
+  ];
+}
+
+function checkQaSsrHydration01DualScheme(
+  projectPath: string,
+  allRelFiles: string[]
+): SecurityFinding[] {
+  const packageRels = allRelFiles.filter((rel) => {
+    const norm = rel.replace(/\\/g, '/');
+    return /(?:^|\/)package\.json$/.test(norm) && isScopeProductionSource(norm);
+  });
+  const seenBranchFiles = new Set<string>();
+  const seenPwConfigs = new Set<string>();
+  const findings: SecurityFinding[] = [];
+
+  for (const pkgRel of packageRels) {
+    findings.push(
+      ...inspectScopeSsrHydration(projectPath, pkgRel, allRelFiles, seenBranchFiles, seenPwConfigs)
+    );
+  }
+
+  return findings;
+}
+
 function checkQaMypy01StrictChain(projectPath: string): SecurityFinding[] {
   const findings: SecurityFinding[] = [];
   const subDirs = ['', 'fastapi', 'python', 'backend'];
@@ -2616,6 +2979,14 @@ function checkSec16PreAuthMultiStepContinuity(relPath: string, lines: string[]):
   return findings;
 }
 
+function isUncheckedSupervisorWindow(lines: readonly string[], idx: number): boolean {
+  const windowStart = Math.max(0, idx - 6);
+  const windowEnd = Math.min(lines.length, idx + 12);
+  const windowText = lines.slice(windowStart, windowEnd).join('\n');
+  if (!windowText.includes('.cancelled()')) return false;
+  return !windowText.includes('.exception()') && !windowText.includes(QA_HEALTH_OK_PRAGMA);
+}
+
 function checkQaHealth01SupervisorTaskExit(relPath: string, lines: string[]): SecurityFinding[] {
   if (
     !relPath.endsWith('.py') ||
@@ -2627,17 +2998,13 @@ function checkQaHealth01SupervisorTaskExit(relPath: string, lines: string[]): Se
   }
 
   const findings: SecurityFinding[] = [];
+  let lastReportedLine = -1;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (line.includes(QA_HEALTH_OK_PRAGMA)) continue;
-    if (!line.includes('.done()') || !line.includes('.cancelled()')) continue;
-
-    const windowStart = Math.max(0, i - 5);
-    const windowEnd = Math.min(lines.length, i + 12);
-    const windowText = lines.slice(windowStart, windowEnd).join('\n');
-    if (windowText.includes('.exception()') || windowText.includes(QA_HEALTH_OK_PRAGMA)) {
+    if (i <= lastReportedLine || line.includes(QA_HEALTH_OK_PRAGMA) || !line.includes('.done()')) {
       continue;
     }
+    if (!isUncheckedSupervisorWindow(lines, i)) continue;
 
     findings.push({
       rule_id: 'QA-HEALTH-01',
@@ -2650,6 +3017,7 @@ function checkQaHealth01SupervisorTaskExit(relPath: string, lines: string[]): Se
       remediation:
         'Inspeccionar task.exception() is not None y declarar OPTIONAL_WORKERS para que salidas limpias por feature-flag deshabilitado no degraden el healthcheck del contenedor.',
     });
+    lastReportedLine = i + 6;
   }
 
   return findings;

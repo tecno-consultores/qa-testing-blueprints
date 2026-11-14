@@ -15,6 +15,11 @@ scan:
     - dist
     - vue3/dist
     - react-frontend/dist
+    - vendor
+    - php/vendor
+    - .venv
+    - target
+    - graphify-out
   skip-files:
     - python/docker-compose.qa.yml
     - fastapi/docker-compose.qa.yml

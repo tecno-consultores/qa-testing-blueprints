@@ -20,7 +20,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 def find_graph_files(target_root: Path | None = None) -> list[Path]:
     root = target_root or REPO_ROOT
-    ignored = {"node_modules", ".venv", ".trivycache", "dist", "coverage"}
+    ignored = {"node_modules", ".venv", ".trivycache", "dist", "coverage", "vendor", "target"}
     graphs: list[Path] = []
     seen: set[Path] = set()
     for pattern in ["**/graphify-out/graph.json", "**/graph.json"]:

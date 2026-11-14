@@ -373,6 +373,90 @@ function resolveDelegatedMakeRecipe(
   return null;
 }
 
+function scanDoubleQuotedForSubshell(
+  src: string,
+  start: number
+): { found: boolean; nextIndex: number } {
+  for (let i = start + 1; i < src.length; i += 1) {
+    const ch = src[i];
+    if (ch === '\\') {
+      i += 1;
+      continue;
+    }
+    if (ch === '"') {
+      return { found: false, nextIndex: i };
+    }
+    if (ch === '`' || (ch === '$' && src[i + 1] === '(')) {
+      return { found: true, nextIndex: i };
+    }
+  }
+  return { found: false, nextIndex: src.length - 1 };
+}
+
+function isUnquotedShellToken(src: string, idx: number): boolean {
+  const ch = src[idx];
+  return (
+    ch === ';' ||
+    ch === '|' ||
+    ch === '>' ||
+    ch === '<' ||
+    ch === '`' ||
+    (ch === '&' && src[idx + 1] === '&') ||
+    (ch === '$' && src[idx + 1] === '(')
+  );
+}
+
+/**
+ * Detecta operadores de encadenamiento/redirección fuera de comillas o subshells no expandidos.
+ */
+export function hasUnquotedShellSyntax(commandLine: string): boolean {
+  for (let i = 0; i < commandLine.length; i += 1) {
+    const ch = commandLine[i];
+    if (ch === "'") {
+      i = readSingleQuotedToken(commandLine, i).nextIndex;
+      continue;
+    }
+    if (ch === '"') {
+      const scan = scanDoubleQuotedForSubshell(commandLine, i);
+      if (scan.found) return true;
+      i = scan.nextIndex;
+      continue;
+    }
+    if (isUnquotedShellToken(commandLine, i)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function appendSingleRecipeLine(
+  rawLine: string,
+  vars: ReadonlyMap<string, string>,
+  ctx: MakeResolutionContext,
+  commands: string[][]
+): string | null {
+  const stripped = rawLine.trim().replace(/^[@+-]+/, '').trim();
+  if (!stripped || stripped.startsWith('#')) {
+    return null;
+  }
+  const expanded = expandMakefileVariables(stripped, vars).trim();
+  if (!expanded || isBannerCommand(expanded)) {
+    return null;
+  }
+  if (isAllowedDockerRecipe(expanded)) {
+    if (hasUnquotedShellSyntax(expanded)) {
+      return `Receta Docker contiene operadores o subshells de shell no ejecutables sin make: ${expanded}`;
+    }
+    commands.push(tokenizeCommandArgs(expanded).slice(1));
+    return null;
+  }
+  const delegation = parseMakeDelegation(expanded);
+  if (delegation) {
+    return resolveDelegatedMakeRecipe(delegation, ctx, commands);
+  }
+  return `Receta bloqueada por Regla Cero en fallback sin make (solo se permiten comandos 'docker compose', 'docker run' o '$(MAKE) -C'): ${expanded}`;
+}
+
 function appendTargetRecipeCommands(
   rawLines: readonly string[],
   vars: ReadonlyMap<string, string>,
@@ -380,25 +464,8 @@ function appendTargetRecipeCommands(
   commands: string[][]
 ): string | null {
   for (const rawLine of rawLines) {
-    const stripped = rawLine.trim().replace(/^[@+-]+/, '').trim();
-    if (!stripped || stripped.startsWith('#')) {
-      continue;
-    }
-    const expanded = expandMakefileVariables(stripped, vars).trim();
-    if (!expanded || isBannerCommand(expanded)) {
-      continue;
-    }
-    if (isAllowedDockerRecipe(expanded)) {
-      commands.push(tokenizeCommandArgs(expanded).slice(1));
-      continue;
-    }
-    const delegation = parseMakeDelegation(expanded);
-    if (delegation) {
-      const delErr = resolveDelegatedMakeRecipe(delegation, ctx, commands);
-      if (delErr) return delErr;
-      continue;
-    }
-    return `Receta bloqueada por Regla Cero en fallback sin make (solo se permiten comandos 'docker compose', 'docker run' o '$(MAKE) -C'): ${expanded}`;
+    const err = appendSingleRecipeLine(rawLine, vars, ctx, commands);
+    if (err) return err;
   }
   return null;
 }
@@ -753,6 +820,39 @@ function execCommand(
   });
 }
 
+function extractComposeDownArgs(args: readonly string[]): string[] | null {
+  if (args[0] !== 'compose') return null;
+  const upIdx = args.indexOf('up');
+  if (upIdx <= 0 || !args.slice(upIdx + 1).includes('-d')) {
+    return null;
+  }
+  return [...args.slice(0, upIdx), 'down', '-v', '--remove-orphans'];
+}
+
+function registerComposeDownTarget(
+  args: readonly string[],
+  seenKeys: Set<string>,
+  targets: string[][]
+): void {
+  const downArgs = extractComposeDownArgs(args);
+  if (!downArgs) return;
+  const key = downArgs.join('\0');
+  if (!seenKeys.has(key)) {
+    seenKeys.add(key);
+    targets.push(downArgs);
+  }
+}
+
+async function teardownComposeServices(
+  executor: typeof execFile,
+  composeDownTargets: readonly string[][],
+  resolvedPath: string
+): Promise<void> {
+  for (const downArgs of composeDownTargets) {
+    await execCommand(executor, DOCKER_BINARY, downArgs, resolvedPath, 30000);
+  }
+}
+
 async function executeDockerFallbackSequence(
   executor: typeof execFile,
   commands: string[][],
@@ -765,21 +865,35 @@ async function executeDockerFallbackSequence(
   const timeoutMs = timeoutSeconds * 1000;
   const stdoutChunks: string[] = [];
   const stderrChunks: string[] = [];
+  const seenDownKeys = new Set<string>();
+  const composeDownTargets: string[][] = [];
   let lastExitCode = 0;
 
   for (const args of commands) {
-    const res = await execCommand(executor, DOCKER_BINARY, args, resolvedPath, timeoutMs);
-    if (res.stdout) {
-      stdoutChunks.push(res.stdout);
+    const rawRemainingMs = timeoutMs - (Date.now() - startTime);
+    if (rawRemainingMs <= 0) {
+      lastExitCode = 124;
+      break;
     }
+    registerComposeDownTarget(args, seenDownKeys, composeDownTargets);
+    const res = await execCommand(
+      executor,
+      DOCKER_BINARY,
+      args,
+      resolvedPath,
+      Math.max(1000, rawRemainingMs)
+    );
+    if (res.stdout) stdoutChunks.push(res.stdout);
     const errChunk = res.stderr || (res.exitCode !== 0 ? res.errorMessage : '');
-    if (errChunk) {
-      stderrChunks.push(errChunk);
-    }
+    if (errChunk) stderrChunks.push(errChunk);
     if (res.exitCode !== 0) {
       lastExitCode = res.exitCode;
       break;
     }
+  }
+
+  if (composeDownTargets.length > 0) {
+    await teardownComposeServices(executor, composeDownTargets, resolvedPath);
   }
 
   const durationMs = Date.now() - startTime;
