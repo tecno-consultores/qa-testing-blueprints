@@ -161,6 +161,13 @@ Para erradicar el hábito de los agentes de dar tareas por terminadas con prueba
 
 Si cualquiera de los pasos falla, el agente tiene prohibido cerrar el turno.
 
+### 📈 Evolución Incremental Planificada (Hitos 21–23)
+
+Con el objetivo de reforzar el estándar sin inflar el catálogo público actual (**18 herramientas** y **12 recursos** MCP ni el conjunto de **7 reglas canónicas** en `.agents/rules/`), las siguientes tres entregas modulares se encuentran especificadas para ejecución por micro-tareas en [`ROADMAP.md`](../ROADMAP.md):
+1. **Cobertura Diferencial (`Hito 21`):** [`16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md`](specs/16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md) (`100%` en líneas delta, `>= 90%` en ramas delta y bloqueo de exclusiones no autorizadas).
+2. **Cortacircuitos Anti-Loop (`Hito 22`):** [`17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md`](specs/17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md) (`BREAKER-42` en `run_ephemeral_qa` y cierre ante rachas `>= 3` u oscilaciones `A -> B -> A`).
+3. **Modo Diff en Blast Radius y Veredicto PR (`Hito 23`):** [`18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md`](specs/18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md) (extensión retrocompatible de `inspect_ast_blast_radius` y exportador `PR_VERDICT.md` sobre `release_readiness_gate.py`).
+
 ---
 
 ## 8. Evolución Continua del Agente y Prevención de Colisiones en Proyectos Consumidores (`continuous_agent_evolution.md`)

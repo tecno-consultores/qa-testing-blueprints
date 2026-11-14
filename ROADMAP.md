@@ -35,6 +35,9 @@
 | **Hito 18** | Internacionalización v2.18.0: Idioma Espejo Dinámico, Flag `--lang (auto/es/en)`, Targets `codex`/`windsurf` y Guías Multi-Agente EN/ES | [`docs/agent-setup.md`](docs/agent-setup.md) + [`docs/agent-setup.en.md`](docs/agent-setup.en.md) | ✅ Completado | `100%` |
 | **Hito 19** | Invariante Anti-Silo #9 (`QA-HEALTH-01`), Nivelación Documental Humana 1:1 (`docs/02` y `docs/04`) y Gobernanza Dual-Consumer en `propose_skill_evolution_pr` y `verify_docs_invariants.py` | [`docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md`](docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md) + `SECURITY.md` §4.22 | ✅ Completado | `100%` |
 | **Hito 20** | Detección de Versión sin Red Redundante (`.qa-11x-version` + TTL 24h Fail-Open), Aviso `update_available` en Tools y Auto-Sync Global de Skills por SHA-256 (`v2.20.0`) | [`docs/ai-integration.md`](docs/ai-integration.md) + [`docs/agent-setup.md`](docs/agent-setup.md) | ✅ Completado | `100%` |
+| **Hito 21** | Cobertura Diferencial Multi-Stack (`verify_diff_coverage.py`), Persistencia Efímera de Reportes y Bloqueo Anti-Evasión | [`16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md`](docs/specs/16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md) | ⏳ Pendiente | `0%` |
+| **Hito 22** | Memoria Determinista de Hallazgos y Cortacircuitos Anti-Loop (`exit 42`) en `run_ephemeral_qa` y `certify` | [`17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md`](docs/specs/17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md) | ⏳ Pendiente | `0%` |
+| **Hito 23** | Modo Diferencial en `inspect_ast_blast_radius` (Cero Inflación MCP) y Exportador Ejecutivo `PR_VERDICT.md` | [`18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md`](docs/specs/18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md) | ⏳ Pendiente | `0%` |
 
 ---
 
@@ -280,4 +283,43 @@
 - [x] **20.2.** Exponer el campo estructurado `update_available` (`agent_notice` y `recommended_command`) en `inspect_project_config` y `certify_11x_gate` para notificación proactiva a través del agente de IA sin contaminar `stdout` JSON-RPC.
 - [x] **20.3.** Incorporar `syncGlobalSkillsInBackground` en el arranque `stdio` del servidor MCP (`index.ts`) para sincronizar silenciosamente por `SHA-256` las skills globales preinstaladas preservando el idioma del conector en `~/.gemini/GEMINI.md`.
 - [x] **20.4.** Certificar con `tests/version-manager.unit.ts` (`337/337` tests Vitest `>= 95%`), Escenario 24 en `mcp_cli_test.feature`, actualización de `manifest.json` y grafos AST, y publicación `v2.20.0` en `npmjs`.
+
+---
+
+## ⏳ Hito 21: Cobertura Diferencial Multi-Stack (`verify_diff_coverage.py`), Persistencia Efímera de Reportes y Bloqueo Anti-Evasión
+**Referencia Obligatoria:** [`docs/specs/16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md`](docs/specs/16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md)
+
+### Tareas de Implementación:
+- [ ] **21.1.** Configurar `.gitignore` y `scripts/limpieza.sh` para `.agents/.cache/` y `.agents/artifacts/`, y ajustar `Makefile` / `mcp-server/src/tools/ephemeral-runner.ts` para preservar `coverage.xml` y `lcov.info` en `.agents/.cache/coverage/` antes del cierre de contenedores `--rm`.
+- [ ] **21.2.** Crear `.agents/scripts/verify_diff_coverage.py` (parte 1: guardia Anti-XXE `exit 12`, adaptador Cobertura XML y adaptador LCOV con normalización de rutas `/app` -> workspace y complejidad `CC <= 5`).
+- [ ] **21.3.** Completar `.agents/scripts/verify_diff_coverage.py` (parte 2: cruce `git diff --unified=0` con `shell=False`, fast-path `DOCS_ONLY`, detector anti-evasión `exit 11` sin `QA11X-APPROVED-EXCLUSION` y salida `Pass-Quiet`/`Fail-Verbose`).
+- [ ] **21.4.** Crear `tests/test_verify_diff_coverage.unit.py` (`>= 95%` cobertura en `sinfallas/base-python-uv:3.15` validando XXE, LCOV ramas `>= 90%`, Cobertura XML, evasión `pragma`/`v8 ignore` y `DOCS_ONLY`).
+- [ ] **21.5.** Añadir target `make diff-cov` en `Makefile` e integrar la verificación diferencial condicional en `.agents/scripts/certify_task_completion.sh`.
+- [ ] **21.6.** Sincronizar directiva *Dual-Consumer* en `.agents/rules/mandatory_qa_pyramid_and_doc_sync.md` y `docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md`, actualizar grafo AST, `make sync-governance` y certificar `make certify`.
+
+---
+
+## ⏳ Hito 22: Memoria Determinista de Hallazgos y Cortacircuitos Anti-Loop (`exit 42`) en `run_ephemeral_qa` y `certify`
+**Referencia Obligatoria:** [`docs/specs/17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md`](docs/specs/17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md)
+
+### Tareas de Implementación:
+- [ ] **22.1.** Crear `.agents/scripts/track_findings_state.py` (parte 1: normalización de hallazgos invariante a números de línea, almacenamiento `0600` en `.agents/.cache/certify_state.json` por `branch:merge_base` y flag `--reset-state`).
+- [ ] **22.2.** Completar `.agents/scripts/track_findings_state.py` (parte 2: máquina de estados `RESOLVED`/`PERSISTENT`/`REGRESSION_OSCILLATION`/`NEW` y disparo `exit 42` con `streak >= 3` u `oscillation >= 1`, `CC <= 5`).
+- [ ] **22.3.** Crear `tests/test_track_findings_state.unit.py` (`>= 95%` cobertura en `sinfallas/base-python-uv:3.15` validando desplazamiento de líneas, cambio de rama, umbral `streak == 3`, oscilación `A -> B -> A` y `--reset-state`).
+- [ ] **22.4.** Integrar seguimiento de rachas y alerta estructurada `BREAKER_42` en `mcp-server/src/services/qa-evidence.ts` y `mcp-server/src/tools/ephemeral-runner.ts` (`run_ephemeral_qa`) conservando intactas las 18 Tools MCP.
+- [ ] **22.5.** Crear pruebas unitarias TypeScript en `mcp-server/tests/` (`>= 95%` cobertura en `sinfallas/base-node-ionic:26`) y acoplar `track_findings_state.py` en `.agents/scripts/certify_task_completion.sh`.
+- [ ] **22.6.** Documentar el protocolo `BREAKER-42` en `.agents/rules/anti_regression_and_side_effects_guardrail.md`, `.agents/skills/qa-11x-systematic-debugging/SKILL.md` (`< 20 KB`) y `docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`, actualizar grafo AST, `make sync-governance` y `make certify`.
+
+---
+
+## ⏳ Hito 23: Modo Diferencial en `inspect_ast_blast_radius` (Cero Inflación MCP) y Exportador Ejecutivo `PR_VERDICT.md`
+**Referencia Obligatoria:** [`docs/specs/18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md`](docs/specs/18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md)
+
+### Tareas de Implementación:
+- [ ] **23.1.** Crear `mcp-server/src/utils/diff-bundle.ts` (`SonarJS <= 15`, `execFile` sin shell) con poda de lockfiles/generados, alerta `MISSING_KARATE_API_FEATURE`, fronteras opcionales en `.agents/ACTIVE_TASK.md` y redacción vía `promptGuard.ts`.
+- [ ] **23.2.** Extender retrocompatiblemente `BlastRadiusInputSchema` (`changed_since_ref`, `max_tokens_budget`) en `mcp-server/src/types.ts` y `mcp-server/src/tools/blast-radius.ts` sin alterar el catálogo de 18 Tools y 12 Resources.
+- [ ] **23.3.** Crear `mcp-server/tests/diff-blast-radius.unit.ts` (`>= 95%` cobertura en `sinfallas/base-node-ionic:26` validando ahorro `>= 60%` de tokens, redacción de secretos y rechazo de `baseRef` inválido) y actualizar `mcp-server/test/mcp_cli_test.feature`.
+- [ ] **23.4.** Crear `.agents/scripts/generate_pr_verdict.py` (`CC <= 5`, stdlib pura) reutilizando `release_readiness_gate.py`, `.agents/.qa-evidence.json` y `verify_diff_coverage.py` para emitir `.agents/artifacts/PR_VERDICT.md` y `pr_verdict_attestation.json` (`SHA-256`).
+- [ ] **23.5.** Crear `tests/test_generate_pr_verdict.unit.py` (`>= 95%` cobertura en `sinfallas/base-python-uv:3.15`) y exponer el target `make pr-verdict` en `Makefile`.
+- [ ] **23.6.** Actualizar `docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`, `docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md`, `TESTING.md` y `CHANGELOG.md`, actualizar grafos AST, `make sync-governance` y `make certify`.
 
