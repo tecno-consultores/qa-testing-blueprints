@@ -27,6 +27,12 @@ dist/
 *.egg-info/
 .tox/
 **/.tox/
+.nox/
+**/.nox/
+.eggs/
+**/.eggs/
+.benchmarks/
+**/.benchmarks/
 .coverage
 .coverage.*
 coverage.xml
@@ -45,6 +51,18 @@ htmlcov/
 **/.schemathesis/
 .uv/
 **/.uv/
+
+# PHP (PHPUnit, Psalm, PHP-CS-Fixer, Infection)
+.phpunit.cache/
+**/.phpunit.cache/
+.phpunit.result.cache
+.php-cs-fixer.cache
+.php-cs-fixer.dist.cache
+.psalm/
+**/.psalm/
+infection.log
+infection-summary.log
+infection-report.json
 
 # Mutación Backend (mutmut)
 mutants/
@@ -65,14 +83,26 @@ node_modules/
 **/.turbo/
 .pnp
 .pnp.js
+.pnp.cjs
+.pnp.loader.mjs
 dist-ssr/
 .vite/
 **/.vite/
+.parcel-cache/
+**/.parcel-cache/
+.next/
+.output/
+.svelte-kit/
+storybook-static/
 *.tsbuildinfo
 .eslintcache
 **/.eslintcache
+.stylelintcache
+**/.stylelintcache
 coverage/
 **/coverage/
+.nyc_output/
+**/.nyc_output/
 .stryker-tmp/
 **/.stryker-tmp/
 reports/
@@ -84,6 +114,10 @@ playwright-report/
 blob-report/
 **/blob-report/
 playwright/.cache/
+cypress/videos/
+cypress/screenshots/
+nginx-logs/
+**/nginx-logs/
 .lighthouseci/
 **/.lighthouseci/
 lhci-reports/
@@ -91,19 +125,38 @@ lhci-reports/
 .lhcache/
 **/.lhcache/
 
-# QA, BDD, Caos, Seguridad, SBOM y Observabilidad
+# QA, BDD, Caos, Seguridad, LLM Evals, SBOM y Observabilidad
 target/
 **/target/
 test/target/
 **/test/target/
 karate.jar
 karate*.jar
+dependency-reduced-pom.xml
+allure-results/
+**/allure-results/
+allure-report/
+**/allure-report/
+.allure/
+.deepeval/
+**/.deepeval/
+.promptfoo/
+**/.promptfoo/
+promptfoo-output.*
+deepeval-results.json
+release-readiness.json
+release-readiness.md
+qa-11x-last-failure.json
 *.log
 **/*.log
 zap-report.html
+zap-report.json
 zap.yaml
 chaos-report.html
 chaos-report.json
+k6-summary.json
+k6-results.json
+locust-report.html
 coverage_report/
 **/coverage_report/
 profile.svg
@@ -115,6 +168,7 @@ prometheus_data/
 trivy-results*
 sbom-*.cdx.json
 sbom.cyclonedx.json
+cbom*.json
 
 # IDEs, Editores y Bitácora de Agentes IA
 .vscode/
@@ -131,12 +185,21 @@ ACTIVE_TASK.md
 **/.agents/backups/
 .agents/proposals/
 **/.agents/proposals/
+.agents/tmp/
+**/.agents/tmp/
 .agents/*.scratchpad.md
 .task_scratchpad.md
 *.swp
 *.swo
+*.swn
 *~
+*.orig
+*.rej
+*.bak
 
 # Sistema Operativo
 .DS_Store
+._*
 Thumbs.db
+ehthumbs.db
+Desktop.ini

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 # Propósito: Script de limpieza y purga profunda para el entorno QA Node.js (Estándar 11X)
-# Erradica bloqueos de permisos generados por Docker (UID 0 / root) sin requerir sudo mediante Alpine efímero.
+# Erradica bloqueos de permisos generados por Docker (UID 0 / UID 10001) sin requerir sudo mediante Alpine efímero.
 
 LC_ALL=C
 set -euo pipefail
@@ -14,36 +14,55 @@ QUIET=false
 DEEP_PRUNE=false
 for arg in "$@"; do
   case "${arg}" in
-    -q|--quiet) QUIET=true ;;
-    --deep|--docker-prune) DEEP_PRUNE=true ;;
+    -q | --quiet) QUIET=true ;;
+    --deep | --docker-prune) DEEP_PRUNE=true ;;
   esac
 done
 
-docker compose -f docker-compose.qa.yml down --remove-orphans -v >/dev/null 2>&1 || true
-docker compose -f docker-compose.qa.yml --profile chaos down --remove-orphans -v >/dev/null 2>&1 || true
-docker compose -f docker-compose.qa.yml --profile graphify down --remove-orphans -v >/dev/null 2>&1 || true
+if command -v docker >/dev/null 2>&1; then
+  docker compose --profile "*" -f docker-compose.qa.yml down --remove-orphans -v >/dev/null 2>&1 ||
+    docker compose -f docker-compose.qa.yml down --remove-orphans -v >/dev/null 2>&1 || true
+fi
 
-rm -f zap-report.html zap-report.json chaos-report.json chaos-report.html trivy-results* sbom.cyclonedx.json sbom-*.cdx.json .task_scratchpad.md ./*.clinic-*.html ./*.log ./*.tsbuildinfo 2>/dev/null || true
-rm -rf node_modules .pnpm-store .turbo dist .stryker-tmp coverage target test/target .clinic prometheus_data .eslintcache .trivycache karate.jar 2>/dev/null || true
+tmp_base="${TMPDIR:-/tmp}"
+rm -rf "${tmp_base}/qa-11x-last-failure.json" /tmp/qa-11x-last-failure.json \
+  "${tmp_base}/qa11x-certify."* /tmp/qa11x-certify.* 2>/dev/null || true
+
+rm -f ./ACTIVE_TASK.md zap-report.html zap-report.json chaos-report.json chaos-report.html \
+  k6-summary.json k6-results.json release-readiness.json release-readiness.md \
+  promptfoo-output.json promptfoo-output.html deepeval-results.json qa-11x-last-failure.json \
+  trivy-results* sbom.cyclonedx.json sbom-*.cdx.json cbom.cyclonedx.json cbom-*.cdx.json \
+  .pnp .pnp.js .pnp.cjs .pnp.loader.mjs npm-debug.log* yarn-debug.log* yarn-error.log* pnpm-debug.log* \
+  .task_scratchpad.md .agents/*.scratchpad.md ./*.clinic-*.html ./*.log ./*.tsbuildinfo ./*.heapsnapshot ./*.cpuprofile 2>/dev/null || true
+rm -rf node_modules .pnpm-store .turbo dist .stryker-tmp coverage .nyc_output target test/target .clinic \
+  reports prometheus_data .eslintcache .trivycache karate.jar karate-*.jar \
+  allure-results/ allure-report/ .allure/ .deepeval/ .promptfoo/ .agents/tmp/ 2>/dev/null || true
 
 if [ -d "graphify-out" ]; then
-  find graphify-out/ -mindepth 1 ! -name 'GRAPH_REPORT.md' ! -name 'graph.html' ! -name 'graph.json' -delete 2>/dev/null || true
+  find graphify-out/ -mindepth 1 -maxdepth 1 ! -name 'GRAPH_REPORT.md' ! -name 'graph.html' ! -name 'graph.json' ! -name 'manifest.json' -exec rm -rf {} + 2>/dev/null || true
 fi
+
+find . \( -name ".git" -o -name "node_modules" -o -name ".venv" -o -name "venv" -o -name "vendor" \) -prune \
+  -o -type f \( -name ".DS_Store" -o -name "._*" -o -name "Thumbs.db" -o -name "ehthumbs.db" -o -name "Desktop.ini" -o -name "*.swp" -o -name "*.swo" -o -name "*.swn" -o -name "*~" -o -name ".#*" -o -name "#*#" -o -name "*.orig" -o -name "*.rej" -o -name "*.bak" \) -exec rm -f {} + 2>/dev/null || true
 
 CURRENT_UID="$(id -u)"
 CURRENT_GID="$(id -g)"
 if command -v docker >/dev/null 2>&1; then
   docker run --rm -v "${SCRIPT_DIR}:/work" alpine sh -c "\
-    rm -rf /work/node_modules /work/.pnpm-store /work/.turbo /work/dist /work/.stryker-tmp /work/coverage \
-           /work/target /work/test/target /work/.clinic /work/prometheus_data \
-           /work/.eslintcache /work/.trivycache /work/karate.jar 2>/dev/null || true; \
+    rm -rf /work/node_modules /work/.pnpm-store /work/.turbo /work/dist /work/.stryker-tmp /work/coverage /work/.nyc_output \
+           /work/target /work/test/target /work/.clinic /work/reports /work/prometheus_data \
+           /work/.eslintcache /work/.trivycache /work/karate.jar /work/karate-*.jar \
+           /work/allure-results /work/allure-report /work/.allure /work/.deepeval /work/.promptfoo 2>/dev/null || true; \
+    find /work \( -name '.git' -o -name 'node_modules' \) -prune -o -type f \( -name '.DS_Store' -o -name 'Thumbs.db' -o -name '*.swp' -o -name '*.swo' -o -name '*~' -o -name '*.orig' -o -name '*.rej' -o -name '*.bak' \) -exec rm -f {} + 2>/dev/null || true; \
     chown -R ${CURRENT_UID}:${CURRENT_GID} /work/src /work/tests /work/test /work/scripts /work/docs 2>/dev/null || true; \
-    find /work -maxdepth 1 \( -user 0 -o -user 10001 \) -exec chown ${CURRENT_UID}:${CURRENT_GID} {} + 2>/dev/null || true" >/dev/null 2>&1 || true
+    find /work -maxdepth 2 \( -user 0 -o -user 10001 \) -exec chown ${CURRENT_UID}:${CURRENT_GID} {} + 2>/dev/null || true" >/dev/null 2>&1 || true
 fi
 
 if [ "${DEEP_PRUNE}" = true ]; then
   rm -rf .agents/backups .agents/proposals .agents/.qa-evidence.json 2>/dev/null || true
-  docker system prune -af --volumes >/dev/null 2>&1 || true
+  if command -v docker >/dev/null 2>&1; then
+    docker system prune -af --volumes >/dev/null 2>&1 || true
+  fi
 fi
 
 if [ "${QUIET}" = false ]; then

@@ -199,7 +199,7 @@ El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
 * **Instalador Universal de Skills QA 11X (`scripts/install-skill.sh`):**
   * **Suites de Pruebas:**
     * **Python Unit:** `tests/test_install_skill.unit.py`, `tests/test_agents_validators.unit.py`, `tests/test_stacks_hydration_smoke.unit.py` y `tests/test_verify_docs_invariants.unit.py`.
-    * **BATS-core:** `tests/bats/test_install_skill.bats` y `bash-scripts/test/ejemplo_mock.bats` (4 aserciones funcionales en BATS).
+    * **BATS-core:** `tests/bats/test_install_skill.bats`, `tests/bats/test_limpieza.bats` y `bash-scripts/test/ejemplo_mock.bats` (6 pruebas funcionales en BATS).
   * **Ejecución Efímera:**
     * `docker run --rm -v "${PWD}:/app" -w /app sinfallas/base-python-uv:3.15 bash -c "uv run --with pytest pytest -q --import-mode=importlib tests/*.unit.py"`
     * `docker run --rm -v "${PWD}:/app" -w /app sinfallas/base-bash-qa:latest bats bash-scripts/test/ tests/bats/`
@@ -239,10 +239,11 @@ El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
     * **0 errores de ESLint (`--max-warnings 0`), SonarJS (Cognitiva `<= 15`) y TypeScript (`strict: true`)**.
 
 * **Script Universal de Limpieza y Saneamiento (`scripts/limpieza.sh`):**
-  * **Validación de Calidad de Scripts:** ShellCheck en contenedor efímero `sinfallas/base-bash-qa:latest` certificando **0 errores y 0 advertencias** (código de salida 0) en `scripts/limpieza.sh` y en los 7 scripts por stack (`fastapi/`, `vue3/`, `react-frontend/`, `node-backend/`, `python/`, `php/`, `bash-scripts/`).
+  * **Suites de Pruebas:** `tests/test_stacks_hydration_smoke.unit.py` (aislado sin `docker`), `tests/bats/test_limpieza.bats`, `mcp-server/tests/tools-and-resources.unit.ts`, `mcp-server/tests/v2-16-invariants.unit.ts` y Escenario 27 de `mcp-server/test/mcp_cli_test.feature`.
+  * **Validación de Calidad de Scripts:** ShellCheck y `shfmt` en contenedor efímero `sinfallas/base-bash-qa:latest` certificando **0 errores y 0 advertencias** (código de salida 0) en `scripts/limpieza.sh`, `scripts/probar-mcp-example.sh` y los 7 scripts por stack (`fastapi/`, `vue3/`, `react-frontend/`, `node-backend/`, `python/`, `php/`, `bash-scripts/`).
   * **Aserciones Validadas en Docker Efímero:**
-    * Detención ordenada de contenedores efímeros y redes huérfanas (`docker compose down -v --remove-orphans`).
-    * Erradicación de archivos bloqueados generados por Docker con privilegios `root` (UID 0: `.coverage`, `.pnpm-store`, `.pytest_cache`, `.mypy_cache`, etc.) sin requerir `sudo` mediante fallback Alpine.
-    * Normalización determinista de permisos a `$(id -u):$(id -g)`, garantizando cero candados en el explorador gráfico (Nautilus).
-    * Preservación del grafo semántico AST de Graphify (`GRAPH_REPORT.md`, `graph.html`, `graph.json`).
-    * Soporte opcional de poda profunda con bandera `--deep` o `--docker-prune`.
+    * Detención ordenada de contenedores efímeros (todos los perfiles Compose), redes y contenedores huérfanos *clean-room* (`docker compose --profile "*" down -v --remove-orphans` + purga selectiva por label `working_dir`).
+    * Erradicación de restos de pruebas recientes (`allure-results/`, `.deepeval/`, `.promptfoo/`, `release-readiness.*`, `cbom*.json`, `/tmp/qa-11x-last-failure.json`, `/tmp/qa11x-certify.*`, `qa_mcp_cleanroom_*`, `qa-11x-mcp-example-e2e-*`) y archivos bloqueados por Docker `UID 0`/`10001` sin requerir `sudo` mediante fallback Alpine.
+    * Barrido recursivo de basura de SO/editores (`.DS_Store`, `Thumbs.db`, `Desktop.ini`, `*.swp`, `*.bak`, `*.orig`, `*.rej`) y `./ACTIVE_TASK.md` mal ubicado en raíz, normalizando permisos a `$(id -u):$(id -g)`.
+    * Preservación estricta de `.agents/ACTIVE_TASK.md`, `mcp-server/dist`, `.qa-11x-version` y `graphify-out/{GRAPH_REPORT.md,graph.html,graph.json,manifest.json}` (purgando residuos internos de `graphify-out/`).
+    * Soporte opcional de poda profunda con bandera `--deep` o `--docker-prune` (incluyendo `.agents/{backups,proposals,.qa-evidence.json}` y caché `~/.cache/qa-11x-blueprints`).

@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.20.3",
-  "generated_at_utc": "2026-11-13T23:42:44Z",
+  "generated_at_utc": "2026-11-14T02:02:27Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -35,8 +35,8 @@
           "path": "bash-scripts/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "7ee760c11a6af3fb5ef30e609c0b0f8e538a93f650e86bab80c42892e92acbe5",
-          "size_bytes": 2205
+          "sha256": "9a432afee16d8c1f031608f1547b4516125f101aea9968ccb1d75998c3022f63",
+          "size_bytes": 3462
         },
         {
           "path": "bash-scripts/test/ejemplo_mock.bats",
@@ -83,8 +83,8 @@
           "path": "fastapi/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "55e679291b82cc03a0c1e2ad7763d91ba90aad0dcc7bcc33b21debe3098dbb31",
-          "size_bytes": 3121
+          "sha256": "d9318744d1330e3c22c507a1cc60528a9d9106bc3d6e980a45a117491c3646cb",
+          "size_bytes": 4722
         },
         {
           "path": "fastapi/locustfile.py.example",
@@ -173,8 +173,8 @@
           "path": "node-backend/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "bb64a36fb74eaba616628c326de44dba6ede7f3352d62623adcf8204f38006d7",
-          "size_bytes": 2492
+          "sha256": "12cf95d348906ed7c7504fbd984c8c9ba6b63e16eeb5349a13a09159d9ad0fbb",
+          "size_bytes": 4056
         },
         {
           "path": "node-backend/npmrc.example",
@@ -263,8 +263,8 @@
           "path": "php/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "c9147cca6a2e896e76ccb01dbdbda41845bdf6f9003fdf8737afadceeeb48b9e",
-          "size_bytes": 2099
+          "sha256": "8748f89e9d7c1ff6fde52e4231bc5bf39db317fec6e61bf2f944a7fd3e5f3437",
+          "size_bytes": 3887
         },
         {
           "path": "php/php.ini.example",
@@ -325,8 +325,8 @@
           "path": "python/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "bd301ac696b23e7231f513c855833ca33c910df6cab37df82a622cd7ef752c96",
-          "size_bytes": 2895
+          "sha256": "86485851aab5b512527113578fa2758c0820d84f36a3dd30add1ace41f1fb873",
+          "size_bytes": 4436
         },
         {
           "path": "python/pyproject.toml.example",
@@ -408,8 +408,8 @@
           "path": "react-frontend/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "19f5b43a0b339f1d4cac5403120d6a68367c347369806c01b562de1a43aafef0",
-          "size_bytes": 2725
+          "sha256": "b6773312d67facfecad6d3fffdd56d7806a3ffc6ec1198ed4b842e369b6a6da0",
+          "size_bytes": 4607
         },
         {
           "path": "react-frontend/nginx/default.conf.example",
@@ -533,8 +533,8 @@
           "path": "vue3/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "49c5e7893fb2122abf293a5eadf0f6791ed6717f7aaff33fce113988cf625b01",
-          "size_bytes": 2819
+          "sha256": "0301ac4fd856099c67e7de2595056d73740f1cb2d116f3fc6a01c005e6101f7b",
+          "size_bytes": 4639
         },
         {
           "path": "vue3/nginx/default.conf.example",
@@ -642,8 +642,8 @@
       "path": "scripts/limpieza.sh",
       "target_name": "scripts/limpieza.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "14cab445d289fd0c8f3528dd350d75238804c0c85207f61aa3394fcde4b0440f",
-      "size_bytes": 8060
+      "sha256": "c85223fac35415a85ca6b96bc14be8eab752b800b9dd1d8e27347f3853d2f577",
+      "size_bytes": 13490
     },
     {
       "path": "scripts/verificar-secretos.sh",

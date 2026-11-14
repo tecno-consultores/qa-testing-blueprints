@@ -40,19 +40,23 @@ CURRENT_GID="$(id -g)"
 
 if [ "${IN_PLACE}" = true ]; then
   echo "🧪 [MCP Example E2E] Ejecutando certificación E2E stdio (modo in-place en Docker efímero)..."
+  rc=0
   QA_UID="${CURRENT_UID}" QA_GID="${CURRENT_GID}" \
     docker compose -f "${REPO_ROOT}/mcp-server/docker-compose.qa.yml" run --rm \
     -u "${CURRENT_UID}:${CURRENT_GID}" \
     -e QA_BLUEPRINTS_LOCAL_PATH=/app \
-    mcp-server bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run build && pnpm run test:example"
-  exit 0
+    mcp-server bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run build && pnpm run test:example" || rc=$?
+  docker compose -f "${REPO_ROOT}/mcp-server/docker-compose.qa.yml" rm -sf pnpm-store-init >/dev/null 2>&1 || true
+  exit "${rc}"
 fi
 
 CACHE_BASE="${HOME}/.cache"
 mkdir -p "${CACHE_BASE}"
 CLEANROOM_DIR="$(mktemp -d "${CACHE_BASE}/qa_mcp_cleanroom_XXXXXX")"
+CLEANROOM_PROJECT="qa_cleanroom_$$"
 
 cleanup() {
+  docker compose -p "${CLEANROOM_PROJECT}" -f "${CLEANROOM_DIR}/mcp-server/docker-compose.qa.yml" down --remove-orphans >/dev/null 2>&1 || true
   rm -rf "${CLEANROOM_DIR}" 2>/dev/null || \
     docker run --rm -v "${CLEANROOM_DIR}:/clean" alpine rm -rf /clean/* /clean/.[!.]* 2>/dev/null || true
   rm -rf "${CLEANROOM_DIR}" 2>/dev/null || true
@@ -72,7 +76,7 @@ tar -C "${REPO_ROOT}" \
 
 echo "🐳 [Clean-Room 2/2] Hidratando desde cero (pnpm install --frozen-lockfile), compilando y probando mcp-server/example/..."
 QA_UID="${CURRENT_UID}" QA_GID="${CURRENT_GID}" \
-  docker compose -f "${CLEANROOM_DIR}/mcp-server/docker-compose.qa.yml" run --rm \
+  docker compose -p "${CLEANROOM_PROJECT}" -f "${CLEANROOM_DIR}/mcp-server/docker-compose.qa.yml" run --rm \
   -u "${CURRENT_UID}:${CURRENT_GID}" \
   -e QA_BLUEPRINTS_LOCAL_PATH=/app \
   mcp-server bash -c "pnpm install --frozen-lockfile --silent && pnpm --silent run build && pnpm run test:example"

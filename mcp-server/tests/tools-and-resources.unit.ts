@@ -913,18 +913,56 @@ describe('Tools and Resources Integration Suite', () => {
     it('removes workspace artifacts when dry_run is false', async () => {
       const dummyCoverage = path.join(targetProjectDir, '.coverage');
       const dummySubdir = path.join(targetProjectDir, 'backend', '.pytest_cache');
+      const dummyAllure = path.join(targetProjectDir, 'allure-results');
+      const dummyDeepeval = path.join(targetProjectDir, '.deepeval');
+      const dummyPromptfoo = path.join(targetProjectDir, '.promptfoo');
+      const dummyRelease = path.join(targetProjectDir, 'release-readiness.json');
+      const dummyDsStore = path.join(targetProjectDir, '.DS_Store');
+      const dummyRootActive = path.join(targetProjectDir, 'ACTIVE_TASK.md');
+      const validAgentsActive = path.join(targetProjectDir, '.agents', 'ACTIVE_TASK.md');
+      const dummyEvidence = path.join(targetProjectDir, '.agents', '.qa-evidence.json');
       fs.writeFileSync(dummyCoverage, 'cov');
       fs.mkdirSync(dummySubdir, { recursive: true });
+      fs.mkdirSync(dummyAllure, { recursive: true });
+      fs.mkdirSync(dummyDeepeval, { recursive: true });
+      fs.mkdirSync(dummyPromptfoo, { recursive: true });
+      fs.mkdirSync(path.join(targetProjectDir, '.agents'), { recursive: true });
+      fs.writeFileSync(dummyRelease, '{}');
+      fs.writeFileSync(dummyDsStore, 'mac');
+      fs.writeFileSync(dummyRootActive, '# misplaced');
+      fs.writeFileSync(validAgentsActive, '# valid');
+      fs.writeFileSync(dummyEvidence, '{}');
+
+      const resNormal = await cleanWorkspace11x(targetProjectDir, false, false);
+      expect(resNormal.dry_run).toBe(false);
+      expect(resNormal.deep_prune).toBe(false);
+      expect(resNormal.removed_targets).toContain('.coverage');
+      expect(resNormal.removed_targets).toContain('backend/.pytest_cache');
+      expect(resNormal.removed_targets).toContain('allure-results');
+      expect(resNormal.removed_targets).toContain('.deepeval');
+      expect(resNormal.removed_targets).toContain('.promptfoo');
+      expect(resNormal.removed_targets).toContain('release-readiness.json');
+      expect(resNormal.removed_targets).toContain('.DS_Store');
+      expect(resNormal.removed_targets).toContain('ACTIVE_TASK.md');
+      expect(fs.existsSync(dummyEvidence)).toBe(true);
+      expect(fs.existsSync(validAgentsActive)).toBe(true);
 
       const res = await cleanWorkspace11x(targetProjectDir, false, true);
       expect(res.dry_run).toBe(false);
       expect(res.deep_prune).toBe(true);
-      expect(res.removed_targets).toContain('.coverage');
-      expect(res.removed_targets).toContain('backend/.pytest_cache');
+      expect(res.removed_targets).toContain('.agents/.qa-evidence.json');
       expect(res.recommended_command).toBe('./scripts/limpieza.sh --deep');
 
       expect(fs.existsSync(dummyCoverage)).toBe(false);
       expect(fs.existsSync(dummySubdir)).toBe(false);
+      expect(fs.existsSync(dummyAllure)).toBe(false);
+      expect(fs.existsSync(dummyDeepeval)).toBe(false);
+      expect(fs.existsSync(dummyPromptfoo)).toBe(false);
+      expect(fs.existsSync(dummyRelease)).toBe(false);
+      expect(fs.existsSync(dummyDsStore)).toBe(false);
+      expect(fs.existsSync(dummyRootActive)).toBe(false);
+      expect(fs.existsSync(dummyEvidence)).toBe(false);
+      expect(fs.existsSync(validAgentsActive)).toBe(true);
     });
 
     it('uses alpine docker fallback when local removal encounters permission errors', async () => {

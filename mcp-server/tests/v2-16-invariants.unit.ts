@@ -565,8 +565,12 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
       fs.mkdirSync(path.join(consumerDir, 'php', '.phpunit.cache'), { recursive: true });
       fs.mkdirSync(path.join(consumerDir, 'bash-scripts', 'coverage_report'), { recursive: true });
       fs.mkdirSync(path.join(consumerDir, 'reports'), { recursive: true });
+      fs.mkdirSync(path.join(consumerDir, 'allure-results'), { recursive: true });
+      fs.mkdirSync(path.join(consumerDir, 'ai-evals', '.deepeval'), { recursive: true });
       fs.mkdirSync(path.join(consumerDir, 'mcp-server', 'dist'), { recursive: true });
       fs.writeFileSync(path.join(consumerDir, 'sbom.cyclonedx.json'), '{}', 'utf8');
+      fs.writeFileSync(path.join(consumerDir, '.DS_Store'), 'mac', 'utf8');
+      fs.writeFileSync(path.join(consumerDir, '.agents', 'ACTIVE_TASK.md'), '# keep', 'utf8');
       fs.writeFileSync(path.join(consumerDir, '.qa-11x-version'), '{"version":"2.20.1"}', 'utf8');
       fs.writeFileSync(path.join(consumerDir, 'zap.yaml'), 'env: {}', 'utf8');
       fs.writeFileSync(path.join(consumerDir, 'package.json'), '{"name":"my-webapp"}', 'utf8');
@@ -578,6 +582,10 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
       expect(fs.existsSync(path.join(consumerDir, 'bash-scripts', 'coverage_report'))).toBe(false);
       expect(fs.existsSync(path.join(consumerDir, 'sbom.cyclonedx.json'))).toBe(false);
       expect(fs.existsSync(path.join(consumerDir, 'reports'))).toBe(false);
+      expect(fs.existsSync(path.join(consumerDir, 'allure-results'))).toBe(false);
+      expect(fs.existsSync(path.join(consumerDir, 'ai-evals', '.deepeval'))).toBe(false);
+      expect(fs.existsSync(path.join(consumerDir, '.DS_Store'))).toBe(false);
+      expect(fs.existsSync(path.join(consumerDir, '.agents', 'ACTIVE_TASK.md'))).toBe(true);
       expect(fs.existsSync(path.join(consumerDir, 'mcp-server', 'dist'))).toBe(true);
       expect(fs.existsSync(path.join(consumerDir, '.qa-11x-version'))).toBe(true);
       expect(fs.existsSync(path.join(consumerDir, 'zap.yaml'))).toBe(true);

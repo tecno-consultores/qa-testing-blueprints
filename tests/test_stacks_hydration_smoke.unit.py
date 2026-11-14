@@ -208,11 +208,18 @@ class TestStacksHydrationSmoke(unittest.TestCase):
         self.assertIn("./scripts/probar-mcp-example.sh", root_makefile)
 
     def test_cleanup_scripts_cover_v2_20_artifacts_and_preserve_mcp_invariants(self) -> None:
-        """Verifica que scripts/limpieza.sh purgue los artefactos v2.20.x sin destruir mcp-server/dist, .qa-11x-version ni AST."""
+        """Verifica que scripts/limpieza.sh purgue los artefactos v2.20.x–v2.22+ sin destruir mcp-server/dist, .qa-11x-version, ACTIVE_TASK ni AST."""
         root_clean = (REPO_ROOT / "scripts" / "limpieza.sh").read_text(encoding="utf-8")
         for expected in (
             "qa_mcp_cleanroom_",
             "qa-11x-mcp-example-e2e-",
+            "qa-11x-last-failure.json",
+            "qa11x-certify.",
+            "allure-results",
+            ".deepeval",
+            ".promptfoo",
+            ".DS_Store",
+            "Thumbs.db",
             ".pnpm-store",
             ".turbo",
             "sbom.cyclonedx.json",
@@ -224,8 +231,8 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             self.assertIn(expected, root_clean, f"Falta patrón '{expected}' en scripts/limpieza.sh")
 
         gitignore_text = (REPO_ROOT / ".gitignore").read_text(encoding="utf-8")
-        self.assertIn(".agents/proposals/", gitignore_text)
-        self.assertIn(".turbo/", gitignore_text)
+        for gi_pattern in (".agents/proposals/", ".turbo/", "allure-results/", ".deepeval/", ".promptfoo/", "qa-11x-last-failure.json"):
+            self.assertIn(gi_pattern, gitignore_text, f"Falta patrón '{gi_pattern}' en .gitignore")
 
         for node_stack in ("vue3", "react-frontend", "node-backend"):
             stack_clean = (REPO_ROOT / node_stack / "limpieza.sh").read_text(encoding="utf-8")
@@ -240,14 +247,27 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             (fake_repo / "scripts").mkdir(parents=True)
             shutil.copy2(REPO_ROOT / "scripts" / "limpieza.sh", fake_repo / "scripts" / "limpieza.sh")
 
-            # Crear artefactos efímeros que DEBEN eliminarse en modo normal
+            # Crear artefactos efímeros y archivos intrusos que DEBEN eliminarse en modo normal
             (fake_home / ".cache" / "qa_mcp_cleanroom_abc123").mkdir(parents=True)
             (fake_tmp / "qa-11x-mcp-example-e2e-xyz789").mkdir(parents=True)
+            (fake_tmp / "qa-11x-last-failure.json").write_text('{"status":"failed"}', encoding="utf-8")
+            (fake_tmp / "qa11x-certify.12345").mkdir(parents=True)
             (fake_repo / ".pnpm-store").mkdir()
             (fake_repo / ".turbo").mkdir()
+            (fake_repo / "allure-results").mkdir()
+            (fake_repo / ".deepeval").mkdir()
+            (fake_repo / ".promptfoo").mkdir()
+            (fake_repo / "release-readiness.json").write_text("{}", encoding="utf-8")
             (fake_repo / "sbom.cyclonedx.json").write_text("{}", encoding="utf-8")
             (fake_repo / "bash-scripts" / "coverage_report").mkdir(parents=True)
             (fake_repo / "mcp-server" / "example" / "frontend" / "dist").mkdir(parents=True)
+            (fake_repo / "mcp-server" / "example" / "frontend" / "node_modules" / "pkg").mkdir(parents=True)
+            (fake_repo / ".DS_Store").write_text("mac", encoding="utf-8")
+            (fake_repo / "src").mkdir()
+            (fake_repo / "src" / "Thumbs.db").write_text("win", encoding="utf-8")
+            (fake_repo / "src" / "orphan.swp").write_text("vim", encoding="utf-8")
+            (fake_repo / "src" / "merge.orig").write_text("orig", encoding="utf-8")
+            (fake_repo / "ACTIVE_TASK.md").write_text("# misplaced root active task", encoding="utf-8")
 
             # Crear artefactos protegidos que DEBEN sobrevivir al modo normal
             (fake_repo / "mcp-server" / "dist").mkdir(parents=True)
@@ -256,11 +276,14 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             (fake_repo / "mcp-server" / "example" / "fixtures" / "ast-graph.seed.json").write_text("{}", encoding="utf-8")
             (fake_repo / "graphify-out").mkdir()
             (fake_repo / "graphify-out" / "graph.json").write_text("{}", encoding="utf-8")
+            (fake_repo / "graphify-out" / "manifest.json").write_text("{}", encoding="utf-8")
+            (fake_repo / "graphify-out" / "stray.tmp").write_text("junk", encoding="utf-8")
             (fake_repo / "graphify-out" / "cache").mkdir()
             (fake_repo / ".qa-11x-version").write_text('{"version":"2.20.1"}', encoding="utf-8")
             (fake_repo / "zap.yaml").write_text("env: {}", encoding="utf-8")
             (fake_repo / ".agents" / "proposals").mkdir(parents=True)
             (fake_repo / ".agents" / "proposals" / "draft.md").write_text("# draft", encoding="utf-8")
+            (fake_repo / ".agents" / "ACTIVE_TASK.md").write_text("# valid active task", encoding="utf-8")
             (fake_home / ".cache" / "qa-11x-blueprints").mkdir(parents=True)
             (fake_home / ".cache" / "qa-11x-blueprints" / "latest-version-check.json").write_text("{}", encoding="utf-8")
 
@@ -289,23 +312,38 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             self.assertEqual(proc.returncode, 0, msg=proc.stderr)
             self.assertFalse((fake_home / ".cache" / "qa_mcp_cleanroom_abc123").exists())
             self.assertFalse((fake_tmp / "qa-11x-mcp-example-e2e-xyz789").exists())
+            self.assertFalse((fake_tmp / "qa-11x-last-failure.json").exists())
+            self.assertFalse((fake_tmp / "qa11x-certify.12345").exists())
             self.assertFalse((fake_repo / ".pnpm-store").exists())
             self.assertFalse((fake_repo / ".turbo").exists())
+            self.assertFalse((fake_repo / "allure-results").exists())
+            self.assertFalse((fake_repo / ".deepeval").exists())
+            self.assertFalse((fake_repo / ".promptfoo").exists())
+            self.assertFalse((fake_repo / "release-readiness.json").exists())
             self.assertFalse((fake_repo / "sbom.cyclonedx.json").exists())
             self.assertFalse((fake_repo / "bash-scripts" / "coverage_report").exists())
             self.assertFalse((fake_repo / "mcp-server" / "example" / "frontend" / "dist").exists())
+            self.assertFalse((fake_repo / "mcp-server" / "example" / "frontend" / "node_modules").exists())
+            self.assertFalse((fake_repo / ".DS_Store").exists())
+            self.assertFalse((fake_repo / "src" / "Thumbs.db").exists())
+            self.assertFalse((fake_repo / "src" / "orphan.swp").exists())
+            self.assertFalse((fake_repo / "src" / "merge.orig").exists())
+            self.assertFalse((fake_repo / "ACTIVE_TASK.md").exists())
             self.assertFalse((fake_repo / "graphify-out" / "cache").exists())
+            self.assertFalse((fake_repo / "graphify-out" / "stray.tmp").exists())
 
             # Invariantes preservados en modo normal
             self.assertTrue((fake_repo / "mcp-server" / "dist" / "index.js").is_file())
             self.assertTrue((fake_repo / "mcp-server" / "example" / "fixtures" / "ast-graph.seed.json").is_file())
             self.assertTrue((fake_repo / "graphify-out" / "graph.json").is_file())
+            self.assertTrue((fake_repo / "graphify-out" / "manifest.json").is_file())
             self.assertTrue((fake_repo / ".qa-11x-version").is_file())
             self.assertTrue((fake_repo / "zap.yaml").is_file())
             self.assertTrue((fake_repo / ".agents" / "proposals" / "draft.md").is_file())
+            self.assertTrue((fake_repo / ".agents" / "ACTIVE_TASK.md").is_file())
             self.assertTrue((fake_home / ".cache" / "qa-11x-blueprints" / "latest-version-check.json").is_file())
 
-            # En modo --deep se purgan proposals y la caché TTL 24h qa-11x-blueprints, pero NUNCA mcp-server/dist ni .qa-11x-version
+            # En modo --deep se purgan proposals y la caché TTL 24h qa-11x-blueprints, pero NUNCA mcp-server/dist, .qa-11x-version ni .agents/ACTIVE_TASK.md
             proc_deep = subprocess.run(
                 [str(fake_repo / "scripts" / "limpieza.sh"), "--quiet", "--deep"],
                 cwd=fake_repo,
@@ -319,6 +357,7 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             self.assertFalse((fake_home / ".cache" / "qa-11x-blueprints").exists())
             self.assertTrue((fake_repo / "mcp-server" / "dist" / "index.js").is_file())
             self.assertTrue((fake_repo / ".qa-11x-version").is_file())
+            self.assertTrue((fake_repo / ".agents" / "ACTIVE_TASK.md").is_file())
 
     def test_prepush_ci_parity_and_karate_skill_catalog_sync(self) -> None:
         """Garantiza paridad 1:1 pre-push <-> CI y sincronía del contrato Karate con manifest.json."""
