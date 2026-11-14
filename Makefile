@@ -158,7 +158,7 @@ test-example:
 	@./scripts/probar-mcp-example.sh
 
 test-ai-offline:
-	@cmd='ruff check --select E,F,W,I,UP,B,C901 --config "lint.mccabe.max-complexity=5" ai-evals && mypy --strict --cache-dir=/tmp/mypy ai-evals/rag/test_rag_faithfulness.py && pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function -W "ignore::DeprecationWarning:deepeval.*" -W "ignore:.*HallucinationMetric.*:DeprecationWarning" -W "ignore::SyntaxWarning:deepeval.*" --import-mode=importlib --cov=ai-evals/rag --cov-fail-under=95 --cov-report=term-missing ai-evals/rag/test_rag_faithfulness.py'; \
+	@cmd='ruff check --select E,F,W,I,UP,B,C901 --config "lint.mccabe.max-complexity=5" ai-evals tests/evals && mypy --strict --cache-dir=/tmp/mypy ai-evals/rag/test_rag_faithfulness.py tests/evals/test_skill_adherence.py && pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function -W "ignore::DeprecationWarning:deepeval.*" -W "ignore:.*HallucinationMetric.*:DeprecationWarning" -W "ignore::SyntaxWarning:deepeval.*" --import-mode=importlib --cov=ai-evals/rag --cov=tests/evals --cov-fail-under=95 --cov-report=term-missing ai-evals/rag/test_rag_faithfulness.py tests/evals/test_skill_adherence.py'; \
 	if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
 		if ! out=$$(PYTHONDONTWRITEBYTECODE=1 RUFF_CACHE_DIR=/tmp/ruff-cache COVERAGE_FILE=/tmp/.coverage UV_CACHE_DIR=/tmp/uv-cache DEEPEVAL_TELEMETRY_OPT_OUT=YES sh -c "$$cmd" 2>&1); then \
 			printf '%s\n' "$$out" >&2; exit 1; \
@@ -170,7 +170,7 @@ test-ai-offline:
 	fi; \
 	cov=$$(printf '%s\n' "$$out" | awk '/^TOTAL /{print $$NF}' | tail -n 1); \
 	summary=$$(printf '%s\n' "$$out" | grep -E '[0-9]+ passed' | tail -n 1 | sed -E 's/^=+ *//; s/ *=+$$//'); \
-	echo "✅ [test-ai-offline] Contratos RAG/Agentes OK ($${summary:-ok}, cobertura=$${cov:-N/A})"
+	echo "✅ [test-ai-offline] Contratos RAG/Skills OK ($${summary:-ok}, cobertura=$${cov:-N/A})"
 
 audit-llm:
 	@if [ -z "$${OPENAI_API_KEY:-}$${GEMINI_API_KEY:-}$${ANTHROPIC_API_KEY:-}$${OLLAMA_BASE_URL:-}$${OPENAI_API_BASE:-}" ]; then \
@@ -178,9 +178,9 @@ audit-llm:
 		exit 2; \
 	fi
 	@echo "🤖 [audit-llm] Ejecutando evaluación DeepEval en sinfallas/base-python-uv:3.15..."
-	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e DEEPEVAL_TELEMETRY_OPT_OUT=YES -e QA_LLM_AUDIT_LIVE=1 -e OPENAI_API_KEY -e GEMINI_API_KEY -e ANTHROPIC_API_KEY -e OLLAMA_BASE_URL -e OPENAI_API_BASE -e QA_LLM_MODEL -v "$$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function --import-mode=importlib ai-evals/rag/test_rag_faithfulness.py -k test_live_deepeval_rag_and_trajectory_audit
-	@echo "🛡️ [audit-llm] Ejecutando matriz Promptfoo OWASP LLM Top 10 en sinfallas/base-node-ionic:26..."
-	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PROMPTFOO_DISABLE_TELEMETRY=1 -e PROMPTFOO_CONFIG_DIR=/tmp/.promptfoo -e OPENAI_API_KEY -e GEMINI_API_KEY -e ANTHROPIC_API_KEY -e OLLAMA_BASE_URL -e OPENAI_API_BASE -v "$$(pwd):/app:ro" -w /app sinfallas/base-node-ionic:26 promptfoo eval -c ai-evals/promptfooconfig.yaml --no-cache -o /tmp/promptfoo-results.json
+	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e DEEPEVAL_TELEMETRY_OPT_OUT=YES -e QA_LLM_AUDIT_LIVE=1 -e OPENAI_API_KEY -e GEMINI_API_KEY -e ANTHROPIC_API_KEY -e OLLAMA_BASE_URL -e OPENAI_API_BASE -e QA_LLM_MODEL -v "$$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function --import-mode=importlib ai-evals/rag/test_rag_faithfulness.py tests/evals/test_skill_adherence.py -k "live"
+	@echo "🛡️ [audit-llm] Ejecutando matrices Promptfoo OWASP LLM Top 10 y Skills en sinfallas/base-node-ionic:26..."
+	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PROMPTFOO_DISABLE_TELEMETRY=1 -e PROMPTFOO_CONFIG_DIR=/tmp/.promptfoo -e OPENAI_API_KEY -e GEMINI_API_KEY -e ANTHROPIC_API_KEY -e OLLAMA_BASE_URL -e OPENAI_API_BASE -v "$$(pwd):/app:ro" -w /app sinfallas/base-node-ionic:26 sh -c "promptfoo eval -c ai-evals/promptfooconfig.yaml --no-cache -o /tmp/promptfoo-results.json && promptfoo eval -c tests/evals/promptfoo_skills_matrix.yaml --no-cache -o /tmp/promptfoo-skills-results.json"
 
 test: test-mcp test-example test-karate test-py test-meta-qa test-ai-offline
 
