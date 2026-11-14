@@ -389,6 +389,10 @@ class TestStacksHydrationSmoke(unittest.TestCase):
     def test_prepush_ci_parity_and_karate_skill_catalog_sync(self) -> None:
         """Garantiza paridad 1:1 pre-push <-> CI y sincronía del contrato Karate con manifest.json."""
         lefthook_text = (REPO_ROOT / "lefthook.yml").read_text(encoding="utf-8")
+        import importlib
+
+        parsed_lefthook = importlib.import_module("yaml").safe_load(lefthook_text)
+        self.assertEqual(set(parsed_lefthook), {"pre-commit", "commit-msg", "pre-push"})
         hooks_sh = (REPO_ROOT / "instalar-hooks.sh").read_text(encoding="utf-8")
         required_parity_tokens = (
             "sinfallas/karatelabs:1.5.1",
@@ -397,6 +401,8 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             "tests/meta_qa/test_governance_scripts.py",
             "validate_calm_architecture.sh",
             "certify_task_completion.sh",
+            "mobile-appium vibe-rescue .github",
+            "MCP_EXTRA_VOLS",
         )
         for token in required_parity_tokens:
             self.assertIn(token, lefthook_text, f"Falta '{token}' en pre-push de lefthook.yml")

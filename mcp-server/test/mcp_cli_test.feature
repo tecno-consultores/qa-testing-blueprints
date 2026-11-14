@@ -803,9 +803,11 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def lefthookCfg = karate.readAsString(repoRoot + '/lefthook.yml')
     * assert lefthookCfg.contains('mcp-example-smoke:')
     * assert lefthookCfg.contains('./scripts/probar-mcp-example.sh --in-place')
+    * assert lefthookCfg.contains('mobile-appium vibe-rescue .github')
 
     * def hooksInstaller = karate.readAsString(repoRoot + '/instalar-hooks.sh')
     * assert hooksInstaller.contains('./scripts/probar-mcp-example.sh --in-place')
+    * assert hooksInstaller.contains('mobile-appium vibe-rescue .github')
 
   Scenario: 27. Contrato v2.21.0 — Saneamiento integral en limpieza.sh, clean_workspace_11x y resolveSafeHomeDir (UID Non-Root)
     * match pkg.version == '2.21.0'
