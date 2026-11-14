@@ -11,7 +11,7 @@ const LABEL_AGENT_VERSION = 'agent_version' as const;
 const LABEL_ENVIRONMENT = 'environment' as const;
 
 const DEFAULT_AGENT_NAME = 'qa-11x-agent';
-const DEFAULT_AGENT_VERSION = '2.0.0';
+const DEFAULT_AGENT_VERSION = '2.21.0';
 const DEFAULT_ENVIRONMENT = 'docker-ephemeral';
 const DEFAULT_BUILD_ID = 'local';
 const DEFAULT_REMEDIATION =

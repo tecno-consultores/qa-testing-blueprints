@@ -20,7 +20,7 @@ import sys
 from typing import Any, Dict, List, Optional, Tuple
 
 SCHEMA_VERSION = "1.0.0"
-DEFAULT_BLUEPRINT_VERSION = "2.0.0"
+DEFAULT_BLUEPRINT_VERSION = "2.21.0"
 REPOSITORY = "tecno-consultores/qa-testing-blueprints"
 DEFAULT_BRANCH = "main"
 RAW_BASE_URL = f"https://raw.githubusercontent.com/{REPOSITORY}/{DEFAULT_BRANCH}"
@@ -277,6 +277,16 @@ def scan_agent_governance_files(repo_root: Path) -> List[Dict[str, Any]]:
     install_script = repo_root / "scripts" / "install-skill.sh"
     if install_script.is_file():
         candidates.append(install_script)
+
+    llms_txt = repo_root / "llms.txt"
+    if llms_txt.is_file():
+        candidates.append(llms_txt)
+
+    catalogs_dir = repo_root / "catalogs"
+    if catalogs_dir.is_dir():
+        for f in sorted(catalogs_dir.glob("*")):
+            if f.is_file() and f.suffix in (".json", ".md"):
+                candidates.append(f)
 
     governance_files: List[Dict[str, Any]] = []
     seen_paths = set()

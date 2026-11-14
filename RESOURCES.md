@@ -9,7 +9,8 @@
 * **[`README.md`](README.md):** Portada principal *English-First* con `quickstart` en 30 segundos, niveles de adopción (`starter` / `standard` / `enterprise`), matriz Docker y escudo AI Evals.
 * **[`README.es.md`](README.es.md):** Espejo íntegro en español corporativo con la matriz completa de herramientas de pruebas.
 * **[`.github/actions/qa-11x-pr-check/action.yml`](.github/actions/qa-11x-pr-check/action.yml):** Composite Action endurecida para Pull Requests con selección por Blast Radius AST y perfiles progresivos.
-* **[`mcp-server/README.md`](mcp-server/README.md) / [`mcp-server/README.es.md`](mcp-server/README.es.md):** Documentación oficial bilingüe del paquete npm `@sinfallas/mcp-qa-11x` v2.0.0 (**18 Tools** y **12 Resources** públicos con `quickstart`, `promptGuard` y `TaskStateGuard`).
+* **[`mcp-server/README.md`](mcp-server/README.md) / [`mcp-server/README.es.md`](mcp-server/README.es.md):** Documentación oficial bilingüe del paquete npm `@sinfallas/mcp-qa-11x` v2.21.0 (**18 Tools** y **12 Resources** públicos con `quickstart`, `promptGuard` y `TaskStateGuard`).
+* **[`llms.txt`](llms.txt) y Catálogos Globales (`catalogs/`):** Índice GEO para LLMs/agentes ([`llms.txt`](llms.txt)) junto a los descriptores canónicos [`catalogs/qaskills-pack.json`](catalogs/qaskills-pack.json) (QASkills.sh), [`catalogs/skillsllm-manifest.json`](catalogs/skillsllm-manifest.json) (SkillsLLM.com) y [`catalogs/agenticskills-submission.md`](catalogs/agenticskills-submission.md) (AgenticSkills.io).
 * **[`docs/agent-setup.md`](docs/agent-setup.md) / [`docs/agent-setup.en.md`](docs/agent-setup.en.md):** Guías paso a paso para configurar 27+ agentes y clientes MCP (`Antigravity`, `Claude Code`, `Cursor`, `Windsurf`, `Codex`, `Copilot`, `Hermes`, `Zed`, `JetBrains`, etc.).
 * **[`AI_MASTER_PROMPT.md`](AI_MASTER_PROMPT.md):** Prompt maestro de adopción integral para agentes autónomos.
 

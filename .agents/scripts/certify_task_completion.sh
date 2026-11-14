@@ -105,7 +105,7 @@ payload = {
     "attachments": [],
     "labels": [
         {"name": "agent", "value": os.environ.get("QA_AGENT_NAME", "qa-11x-certifier")},
-        {"name": "agent_version", "value": os.environ.get("QA_AGENT_VERSION", "2.0.0")},
+        {"name": "agent_version", "value": os.environ.get("QA_AGENT_VERSION", "2.21.0")},
         {"name": "environment", "value": os.environ.get("QA_ENVIRONMENT", "docker-ephemeral")},
     ],
 }

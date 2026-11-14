@@ -504,7 +504,7 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
       const fetcher = new GitHubFetcher();
       vi.spyOn(fetcher, 'fetchManifest').mockResolvedValue({
         schema_version: '1.0.0',
-        blueprint_version: '2.0.0',
+        blueprint_version: '2.21.0',
         generated_at_utc: '2026-11-14T00:00:00Z',
         repository: 'tecno-consultores/qa-testing-blueprints',
         default_branch: 'main',

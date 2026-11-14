@@ -10,7 +10,7 @@ En lugar de evaluar las herramientas MCP únicamente con pruebas unitarias aisla
 
 1. **12 Recursos Dinámicos (`blueprint://*`):**
    - `blueprint://manifest`
-   - `blueprint://philosophy` (`blueprint://core/philosophy`)
+   - `blueprint://core/philosophy`
    - `blueprint://security/disa-owasp-22`
    - `blueprint://database/postgres-rls-worm`
    - `blueprint://{stack}/readme` (`fastapi` y `vue3`)
@@ -25,7 +25,7 @@ En lugar de evaluar las herramientas MCP únicamente con pruebas unitarias aisla
    - **12 núcleo v1:** `inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`, `audit_test_pyramid_gaps`, `audit_security_stig_owasp`, `clean_workspace_11x`, `init_or_append_agents_md`, `reconcile_agents_governance`, `run_ephemeral_qa`, `certify_11x_gate` y `propose_skill_evolution_pr`.
    - **6 herramientas v2.0:** `validate_calm_architecture`, `evaluate_release_gate`, `evaluate_agent_trajectory`, `run_llm_red_team`, `audit_vibe_prototype` y `sync_enterprise_tms` (protegidas con `promptGuard` + `TaskStateGuard`).
 3. **4 Subcomandos CLI + Verificador Tarball Clean-Room (`verify-v2.sh`):**
-   - `quickstart`, `install-skill`, `init-agents`, `reconcile-agents`, `--version` (`2.0.0`), `--help` y sonda no bloqueante TTY `QA-CLI-TTY-01` (`< 5s`).
+   - `quickstart`, `install-skill`, `init-agents`, `reconcile-agents`, `--version` (`2.21.0`), `--help` y sonda no bloqueante TTY `QA-CLI-TTY-01` (`< 5s`).
 
 ---
 

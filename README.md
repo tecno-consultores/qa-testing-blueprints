@@ -130,9 +130,9 @@ All runtime, lint, mutation, contract, and BDD suites execute inside non-root co
 ## 🤖 10 Modular Skills (`< 20 KB`), MCP Server & 27+ AI Agents
 
 * **Progressive Skill Routing (`< 20 KB` budget):** Led by [`.agents/skills/qa-11x-architect/SKILL.md`](.agents/skills/qa-11x-architect/SKILL.md) (`< 12 KB`), loading 9 specialized sub-skills on demand (`qa-11x-devsecops-hardener`, `qa-11x-systematic-debugging`, `qa-11x-screenplay-builder`, `qa-11x-llm-evaluator`, `qa-11x-vibe-rescue`, `qa-11x-docker-certifier`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `refactoring-ui`).
-* **Public MCP Surface (`@sinfallas/mcp-qa-11x` v2.0.0):** Exposes **18 Tools** and **12 Resources** (`blueprint://*`) over `stdio` — combining the 12 core v1 tools + 6 v2.0 evaluators (FINOS CALM, Release Gate, Agent Trajectory Evals, OWASP LLM Red Team, Vibe-Rescue, Enterprise TMS Sync) protected end-to-end by `promptGuard` & `TaskStateGuard`.
+* **Public MCP Surface (`@sinfallas/mcp-qa-11x` v2.21.0):** Exposes **18 Tools** and **12 Resources** (`blueprint://*`) over `stdio` — combining the 12 core v1 tools + 6 v2.0 evaluators (FINOS CALM, Release Gate, Agent Trajectory Evals, OWASP LLM Red Team, Vibe-Rescue, Enterprise TMS Sync) protected end-to-end by `promptGuard` & `TaskStateGuard`.
 * **Human-Confirmed Git Closure (`QA-GIT-GATE-01`):** Enforced by [`.agents/rules/git_closure_gate.md`](.agents/rules/git_closure_gate.md) — agents certify locally via `make certify` and stop at a local `git commit`; automatic `git push` or `npm publish` is strictly forbidden.
-* **Setup & Catalog Guides:** See [`docs/agent-setup.en.md`](docs/agent-setup.en.md) (English), [`docs/agent-setup.md`](docs/agent-setup.md) (Spanish), [`RESOURCES.md`](RESOURCES.md), [`docs/01_ARQUITECTURA_PIRAMIDE_11X.md`](docs/01_ARQUITECTURA_PIRAMIDE_11X.md), [`TESTING.md`](TESTING.md), [`SECURITY.md`](SECURITY.md), and [`ROADMAP.md`](ROADMAP.md).
+* **Setup & Catalog Guides:** See [`docs/agent-setup.en.md`](docs/agent-setup.en.md) (English), [`docs/agent-setup.md`](docs/agent-setup.md) (Spanish), [`RESOURCES.md`](RESOURCES.md), [`llms.txt`](llms.txt) (GEO index), [`catalogs/`](catalogs/agenticskills-submission.md) ([QASkills](catalogs/qaskills-pack.json), [SkillsLLM](catalogs/skillsllm-manifest.json)), [`docs/01_ARQUITECTURA_PIRAMIDE_11X.md`](docs/01_ARQUITECTURA_PIRAMIDE_11X.md), [`TESTING.md`](TESTING.md), [`SECURITY.md`](SECURITY.md), and [`ROADMAP.md`](ROADMAP.md).
 
 ```bash
 # Install global skills, operational scripts, and thin AGENTS.md connector across detected IDEs:
@@ -154,5 +154,5 @@ npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-script
 * `22`, `24`, `26` y `latest`
 * `8.2`, `8.3`, `8.4`, `8.5` y `latest`
 * 12 recursos `blueprint://*`
-* 18 herramientas MCP (`@sinfallas/mcp-qa-11x` v2.0.0)
+* 18 herramientas MCP (`@sinfallas/mcp-qa-11x` v2.21.0)
 -->

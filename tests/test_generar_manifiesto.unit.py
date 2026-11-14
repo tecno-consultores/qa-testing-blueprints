@@ -177,6 +177,11 @@ class TestGenerarManifiesto(unittest.TestCase):
         installer.parent.mkdir(parents=True)
         installer.write_text("#!/bin/sh", encoding="utf-8")
 
+        (self.temp_path / "llms.txt").write_text("# llms.txt", encoding="utf-8")
+        catalogs_dir = self.temp_path / "catalogs"
+        catalogs_dir.mkdir(parents=True)
+        (catalogs_dir / "qaskills-pack.json").write_text("{}", encoding="utf-8")
+
         gov_files = gm.scan_agent_governance_files(self.temp_path)
         paths = [f["path"] for f in gov_files]
 
@@ -187,6 +192,8 @@ class TestGenerarManifiesto(unittest.TestCase):
         self.assertNotIn(".agents/scripts/ignored.txt", paths)
         self.assertIn(".agents/skills/my-skill/SKILL.md", paths)
         self.assertIn("scripts/install-skill.sh", paths)
+        self.assertIn("llms.txt", paths)
+        self.assertIn("catalogs/qaskills-pack.json", paths)
 
     def test_compare_file_lists(self) -> None:
         """Verifica la detección de discrepancias en listas de archivos."""

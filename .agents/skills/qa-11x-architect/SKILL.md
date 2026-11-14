@@ -23,7 +23,7 @@ Classify every task before acting. **NEVER run automatic `git push`** (`QA-GIT-G
 - **`MICRO_CHANGE` (`<= 3` files, `LOW` `< 5` callers, `0` new routes/ORM):** 3-line plan -> `inspect_ast_blast_radius` -> sync affected existing unit/BDD tests (`QA-TEST-SYNC-01`) + stack QA (`run_ephemeral_qa`) -> AST refresh -> `CHANGELOG.md` -> `certify_11x_gate` -> local `git commit`.
 - **`FULL_11X` (`> 3` files, new API/UI, ORM, security, or `MEDIUM`/`HIGH` blast radius):** Full 11-step workflow (`/plan`, `.agents/ACTIVE_TASK.md <= 40L`, full pyramid + sync existing unit/BDD tests (`QA-TEST-SYNC-01`), docs/specs, AST refresh, `certify_11x_gate` 10/10, local `git commit`).
 
-### 1.1. MCP Server `qa-11x` (`@sinfallas/mcp-qa-11x` v2.0.0 — 18 Tools + 12 Resources)
+### 1.1. MCP Server `qa-11x` (`@sinfallas/mcp-qa-11x` v2.21.0 — 18 Tools + 12 Resources)
 1. `inspect_ast_blast_radius` — mandatory Code Q&A & pre-edit impact check.
 2. `inspect_project_config` — stack detection, drift, `update_available`.
 3. `audit_test_pyramid_gaps` — 13-layer audit (includes `inspect_project_config`).

@@ -1418,3 +1418,121 @@ def test_verify_docs_invariants_bilingual_readme_and_internal_links(
     assert any("conteo MCP v1 obsoleto" in err for err in stale_errors)
 
 
+def _seed_nominal_catalog_repo(root: Path) -> tuple[dict[str, Any], dict[str, Any]]:
+    import hashlib
+
+    skills_ids = (
+        "qa-11x-architect",
+        "qa-11x-devsecops-hardener",
+        "qa-11x-systematic-debugging",
+        "qa-11x-screenplay-builder",
+        "qa-11x-llm-evaluator",
+        "qa-11x-vibe-rescue",
+        "qa-11x-docker-certifier",
+        "docker-trivy-keydb-hardening",
+        "graphify-ast-navigator",
+        "refactoring-ui",
+    )
+    tools = [f"tool_{i:02d}" for i in range(18)]
+    resources = [f"blueprint://res/{i:02d}" for i in range(12)]
+    blueprints = [{"id": f"bp_{i}", "path": f"bp_{i}"} for i in range(10)]
+
+    (root / "mcp-server").mkdir(parents=True, exist_ok=True)
+    (root / "mcp-server" / "package.json").write_text(
+        json.dumps({"version": "2.21.0"}), encoding="utf-8"
+    )
+    pack_skills: list[dict[str, Any]] = []
+    llm_skills: list[dict[str, Any]] = []
+    for sid in skills_ids:
+        rel = f".agents/skills/{sid}/SKILL.md"
+        target = root / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        raw = f"---\nname: {sid}\n---\n".encode()
+        target.write_bytes(raw)
+        pack_skills.append({"id": sid, "name": sid, "path": rel})
+        llm_skills.append(
+            {
+                "id": sid,
+                "name": sid,
+                "path": rel,
+                "size_bytes": len(raw),
+                "sha256": hashlib.sha256(raw).hexdigest(),
+            }
+        )
+
+    pack_doc: dict[str, Any] = {
+        "schema_version": "1.0.0",
+        "version": "2.21.0",
+        "license": "MIT",
+        "skills": pack_skills,
+    }
+    skillsllm_doc: dict[str, Any] = {
+        "schema_version": "1.0.0",
+        "version": "2.21.0",
+        "license": "MIT",
+        "mcp_capabilities": {
+            "tools_count": 18,
+            "resources_count": 12,
+            "tools": tools,
+            "resources": resources,
+        },
+        "blueprints": blueprints,
+        "skills": llm_skills,
+    }
+    (root / "catalogs").mkdir(parents=True, exist_ok=True)
+    (root / "catalogs" / "qaskills-pack.json").write_text(
+        json.dumps(pack_doc), encoding="utf-8"
+    )
+    (root / "catalogs" / "skillsllm-manifest.json").write_text(
+        json.dumps(skillsllm_doc), encoding="utf-8"
+    )
+    geo_body = "\n".join([*skills_ids, *tools, *resources]) + "\n"
+    (root / "llms.txt").write_text(geo_body, encoding="utf-8")
+    (root / "catalogs" / "agenticskills-submission.md").write_text(
+        geo_body, encoding="utf-8"
+    )
+    return pack_doc, skillsllm_doc
+
+
+def test_verify_docs_invariants_global_catalogs_trimodal(
+    tmp_path: Path,
+) -> None:
+    """Valida contrato trimodal (Virgin, Nominal, Broken) para llms.txt y catalogs/*."""
+    mod = _load_script("verify_docs_invariants.py", "meta_qa_verify_docs_catalogs")
+
+    # 1. Virgin: sin llms.txt ni catalogs/ no falla en proyectos sin GEO
+    assert mod.check_global_catalogs_and_geo(tmp_path) == []
+
+    # 2. Nominal: 10 skills + 18 tools + 12 resources + SHA-256 consistentes
+    pack_doc, skillsllm_doc = _seed_nominal_catalog_repo(tmp_path)
+    assert mod.check_global_catalogs_and_geo(tmp_path) == []
+
+    # 3. Broken A: clave JSON duplicada + mismatch SHA-256
+    (tmp_path / "catalogs" / "qaskills-pack.json").write_text(
+        '{"license": "MIT", "license": "MIT", "version": "2.21.0", "skills": []}',
+        encoding="utf-8",
+    )
+    skillsllm_doc["skills"][0]["sha256"] = "0" * 64
+    (tmp_path / "catalogs" / "skillsllm-manifest.json").write_text(
+        json.dumps(skillsllm_doc), encoding="utf-8"
+    )
+    broken_errs = mod.check_global_catalogs_and_geo(tmp_path)
+    assert any("JSON inválido" in err for err in broken_errs)
+    assert any("desfase SHA-256/size_bytes" in err for err in broken_errs)
+
+    # 4. Broken B: llms.txt incompleto + artefacto obligatorio faltante
+    (tmp_path / "catalogs" / "qaskills-pack.json").write_text(
+        json.dumps(pack_doc), encoding="utf-8"
+    )
+    (tmp_path / "llms.txt").write_text("# incomplete\n", encoding="utf-8")
+    assert any(
+        "llms.txt" in err for err in mod.check_global_catalogs_and_geo(tmp_path)
+    )
+    (tmp_path / "catalogs" / "agenticskills-submission.md").unlink()
+    assert any(
+        "Falta artefacto GEO/catálogo obligatorio" in err
+        for err in mod.check_global_catalogs_and_geo(tmp_path)
+    )
+
+
+

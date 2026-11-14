@@ -5,9 +5,12 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 import sys
 from pathlib import Path
+from typing import Any
 
 MAX_SKILL_MD_BYTES = 20_000
 MAX_ACTIVE_TASK_LINES = 40
@@ -41,6 +44,7 @@ DOC_TARGETS: tuple[str, ...] = (
     "docs/agent-setup.md",
     "docs/agent-setup.en.md",
     "docs/ARCHITECTURE_C4.md",
+    "catalogs/agenticskills-submission.md",
 )
 
 BILINGUAL_TRIGGER_DOCS: tuple[str, ...] = (
@@ -54,6 +58,8 @@ INTERNAL_LINK_AUDIT_TARGETS: tuple[str, ...] = (
     "README.es.md",
     "RESOURCES.md",
     "docs/01_ARQUITECTURA_PIRAMIDE_11X.md",
+    "llms.txt",
+    "catalogs/agenticskills-submission.md",
 )
 
 EXTERNAL_LINK_PREFIXES: tuple[str, ...] = (
@@ -347,6 +353,168 @@ def check_internal_markdown_links(root: Path) -> list[str]:
     return errors
 
 
+REQUIRED_CATALOG_FILES: tuple[str, ...] = (
+    "llms.txt",
+    "catalogs/qaskills-pack.json",
+    "catalogs/skillsllm-manifest.json",
+    "catalogs/agenticskills-submission.md",
+)
+EXPECTED_SKILLS_COUNT = 10
+EXPECTED_TOOLS_COUNT = 18
+EXPECTED_RESOURCES_COUNT = 12
+EXPECTED_BLUEPRINTS_COUNT = 10
+
+
+def _reject_dup_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    obj: dict[str, Any] = {}
+    for key, val in pairs:
+        if key in obj:
+            raise ValueError(f"clave JSON duplicada {key!r}")
+        obj[key] = val
+    return obj
+
+
+def _load_json_strict(path: Path) -> tuple[dict[str, Any] | None, str | None]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_reject_dup_json_keys)
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        return None, str(exc)
+    if not isinstance(data, dict):
+        return None, "el documento JSON debe tener un objeto en la raíz"
+    return data, None
+
+
+def _expected_pkg_version(root: Path) -> str | None:
+    pkg_path = root / "mcp-server" / "package.json"
+    if not pkg_path.is_file():
+        return None
+    data, _ = _load_json_strict(pkg_path)
+    if isinstance(data, dict) and isinstance(data.get("version"), str):
+        return str(data["version"]).strip()
+    return None
+
+
+def _extract_repo_skill_ids(root: Path) -> list[str]:
+    skills_dir = root / ".agents" / "skills"
+    if not skills_dir.is_dir():
+        return []
+    return sorted(p.parent.name for p in skills_dir.glob("*/SKILL.md") if p.is_file())
+
+
+def _sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _check_skill_entries(
+    root: Path,
+    rel_file: str,
+    skills_raw: Any,
+    repo_skills: list[str],
+    verify_digest: bool,
+) -> list[str]:
+    if not isinstance(skills_raw, list) or len(skills_raw) != EXPECTED_SKILLS_COUNT:
+        count = len(skills_raw) if isinstance(skills_raw, list) else "invalid"
+        return [f"{rel_file}: se esperan {EXPECTED_SKILLS_COUNT} skills reales (encontradas={count})."]
+    errors: list[str] = []
+    seen_ids: list[str] = []
+    for entry in skills_raw:
+        if not isinstance(entry, dict):
+            errors.append(f"{rel_file}: entrada de skill inválida.")
+            continue
+        sid = str(entry.get("id", ""))
+        spath = str(entry.get("path", ""))
+        seen_ids.append(sid)
+        full = root / spath
+        if not spath or not full.is_file():
+            errors.append(f"{rel_file}: ruta SKILL.md inexistente '{spath}'.")
+        elif verify_digest and (
+            entry.get("sha256") != _sha256_file(full)
+            or entry.get("size_bytes") != full.stat().st_size
+        ):
+            errors.append(f"{rel_file}: desfase SHA-256/size_bytes en '{spath}'.")
+    if repo_skills and sorted(seen_ids) != repo_skills:
+        errors.append(f"{rel_file}: desfase entre skills declaradas y .agents/skills/.")
+    return errors
+
+
+def _validate_qaskills_pack(root: Path, expected_ver: str | None, repo_skills: list[str]) -> list[str]:
+    rel = "catalogs/qaskills-pack.json"
+    data, err = _load_json_strict(root / rel)
+    if err or data is None:
+        return [f"{rel}: JSON inválido ({err})."]
+    errors: list[str] = []
+    if data.get("license") != "MIT":
+        errors.append(f"{rel}: licencia esperada 'MIT'.")
+    if expected_ver and data.get("version") != expected_ver:
+        errors.append(f"{rel}: version '{data.get('version')}' != '{expected_ver}'.")
+    errors.extend(_check_skill_entries(root, rel, data.get("skills"), repo_skills, verify_digest=False))
+    return errors
+
+
+def _validate_skillsllm_manifest(
+    root: Path, expected_ver: str | None, repo_skills: list[str]
+) -> tuple[list[str], list[str], list[str]]:
+    rel = "catalogs/skillsllm-manifest.json"
+    data, err = _load_json_strict(root / rel)
+    if err or data is None:
+        return [f"{rel}: JSON inválido ({err})."], [], []
+    errors: list[str] = []
+    if data.get("license") != "MIT":
+        errors.append(f"{rel}: licencia esperada 'MIT'.")
+    if expected_ver and data.get("version") != expected_ver:
+        errors.append(f"{rel}: version '{data.get('version')}' != '{expected_ver}'.")
+    caps = data.get("mcp_capabilities")
+    tools = caps.get("tools") if isinstance(caps, dict) else None
+    resources = caps.get("resources") if isinstance(caps, dict) else None
+    if not isinstance(caps, dict) or caps.get("tools_count") != EXPECTED_TOOLS_COUNT or not isinstance(tools, list) or len(tools) != EXPECTED_TOOLS_COUNT:
+        errors.append(f"{rel}: mcp_capabilities.tools debe listar exactamente {EXPECTED_TOOLS_COUNT} tools.")
+    if not isinstance(caps, dict) or caps.get("resources_count") != EXPECTED_RESOURCES_COUNT or not isinstance(resources, list) or len(resources) != EXPECTED_RESOURCES_COUNT:
+        errors.append(f"{rel}: mcp_capabilities.resources debe listar exactamente {EXPECTED_RESOURCES_COUNT} resources.")
+    bps = data.get("blueprints")
+    if not isinstance(bps, list) or len(bps) != EXPECTED_BLUEPRINTS_COUNT:
+        errors.append(f"{rel}: se esperan {EXPECTED_BLUEPRINTS_COUNT} blueprints raíz.")
+    errors.extend(_check_skill_entries(root, rel, data.get("skills"), repo_skills, verify_digest=True))
+    tool_list = [str(t) for t in tools] if isinstance(tools, list) else []
+    res_list = [str(r) for r in resources] if isinstance(resources, list) else []
+    return errors, tool_list, res_list
+
+
+def _validate_geo_surface(
+    path: Path, label: str, tokens: list[str], kind: str
+) -> list[str]:
+    text = path.read_text(encoding="utf-8")
+    missing = [tok for tok in tokens if tok not in text]
+    if not missing:
+        return []
+    return [f"{label}: faltan {kind} ({', '.join(missing[:3])})."]
+
+
+def check_global_catalogs_and_geo(root: Path) -> list[str]:
+    """Valida llms.txt y catálogos globales (10 skills, 18 tools, 12 resources, SHA-256)."""
+    if not (root / "llms.txt").is_file() and not (root / "catalogs").is_dir():
+        return []
+    missing = [rel for rel in REQUIRED_CATALOG_FILES if not (root / rel).is_file()]
+    if missing:
+        return [f"Falta artefacto GEO/catálogo obligatorio: {rel}." for rel in missing]
+    expected_ver = _expected_pkg_version(root)
+    repo_skills = _extract_repo_skill_ids(root)
+    errors = _validate_qaskills_pack(root, expected_ver, repo_skills)
+    s_errors, tools, resources = _validate_skillsllm_manifest(root, expected_ver, repo_skills)
+    errors.extend(s_errors)
+    skill_tokens = repo_skills or [
+        "qa-11x-architect", "qa-11x-devsecops-hardener", "qa-11x-systematic-debugging",
+        "qa-11x-screenplay-builder", "qa-11x-llm-evaluator", "qa-11x-vibe-rescue",
+        "qa-11x-docker-certifier", "docker-trivy-keydb-hardening",
+        "graphify-ast-navigator", "refactoring-ui",
+    ]
+    for rel in ("llms.txt", "catalogs/agenticskills-submission.md"):
+        doc = root / rel
+        errors.extend(_validate_geo_surface(doc, rel, skill_tokens, "skills"))
+        errors.extend(_validate_geo_surface(doc, rel, tools, "tools MCP"))
+        errors.extend(_validate_geo_surface(doc, rel, resources, "resources MCP"))
+    return errors
+
+
 def validate_repository_docs(root: Path) -> list[str]:
     """Ejecuta todas las validaciones documentales sobre el directorio raíz."""
     return [
@@ -357,6 +525,7 @@ def validate_repository_docs(root: Path) -> list[str]:
         *check_bilingual_readme_parity(root),
         *check_v2_mcp_surface_counts(root),
         *check_internal_markdown_links(root),
+        *check_global_catalogs_and_geo(root),
     ]
 
 

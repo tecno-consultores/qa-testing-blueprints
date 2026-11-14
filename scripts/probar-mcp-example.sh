@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 # Propósito: Certificar en contenedor Docker efímero (Rule Zero) las 18 tools,
-#            12 resources, 4 subcomandos CLI y tarball v2.0.0 de @sinfallas/mcp-qa-11x
+#            12 resources, 4 subcomandos CLI y tarball v2.21.0 de @sinfallas/mcp-qa-11x
 #            contra mcp-server/example/ y verify-v2.sh (Clean-Room por defecto).
 
 LC_ALL=C

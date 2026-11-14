@@ -5,7 +5,7 @@
 
 🌐 **Language / Idioma:** **English** | [Español](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/README.es.md)
 
-Official Model Context Protocol (**MCP**) server and zero-friction CLI installer for [**QA Testing Blueprints (Standard 11X v2.0.0)**](https://github.com/tecno-consultores/qa-testing-blueprints).
+Official Model Context Protocol (**MCP**) server and zero-friction CLI installer for [**QA Testing Blueprints (QA-11X v2.0 — v2.21.0)**](https://github.com/tecno-consultores/qa-testing-blueprints).
 
 Designed for AI coding agents (**Google Antigravity**, **Claude Code / Desktop**, **Cursor**, **Windsurf**, **OpenAI Codex CLI**, **VS Code Copilot**, **Hermes Agent**, and **27+ agents**) to onboard repositories in **< 30 seconds**, audit **18 MCP tools**, query **12 cryptographic `blueprint://*` resources**, and enforce ephemeral **Docker Rule Zero**, **DISA ASD STIG V6R5**, **OWASP v4.2**, **FINOS CALM**, and **Dual-Mode AI Evals** without cloning the full blueprints repository.
 
@@ -64,11 +64,11 @@ See the full 27+ client setup matrix in [`docs/agent-setup.en.md`](https://githu
 
 ---
 
-## 🛡️ Security & Lifecycle Runtime Guards (v2.0.0)
+## 🛡️ Security & Lifecycle Runtime Guards (v2.21.0)
 
 * **Fail-Closed `promptGuard` Interceptor:** Wraps `tools/call` across all 18 tools with Unicode `NFKC` canonicalization, zero-width / Trojan Source stripping, prompt-injection & `QA-GIT-GATE-01` (`git push` / `npm publish`) bypass blocking, and PII / secret redaction before dispatching handlers.
 * **`TaskStateGuard` & `Fail-Verbose` Diagnostics:** Bounds concurrent MCP tool execution capacity, isolates hung/broken tasks with explicit timeouts (`60s` standard / `>= 180s` heavy transfers), purges 0-byte failed transfer artifacts, and formats actionable Allure-ready `Fail-Verbose` reports (`diagnosticFormatter.ts`).
-* **Offline & Local LLM A2A Card:** Supports air-gapped Ollama / vLLM evaluators and publishes a discovery descriptor via [`agentCard.ts`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/src/a2a/agentCard.ts) (`v2.0.0`).
+* **Offline & Local LLM A2A Card:** Supports air-gapped Ollama / vLLM evaluators and publishes a discovery descriptor via [`agentCard.ts`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/src/a2a/agentCard.ts) (`v2.21.0`).
 
 ---
 
@@ -105,7 +105,7 @@ Led by `qa-11x-architect` (`< 12 KB`), loading 9 specialized sub-skills on deman
 ## 📚 MCP Resources (12 Resources)
 
 1. **`blueprint://manifest`:** Real-time SHA-256 index (`manifest.json`) tracking blueprint artifacts across all supported stacks.
-2. **`blueprint://philosophy`:** Level-11X 13-layer pyramid specification, Rule Zero, 10 Laws, and 10 Anti-Blindness UAT Rules.
+2. **`blueprint://core/philosophy`:** Level-11X 13-layer pyramid specification, Rule Zero, 10 Laws, and 10 Anti-Blindness UAT Rules.
 3. **`blueprint://security/disa-owasp-22`:** Catalog of 22 DISA ASD STIG V6R5 and OWASP Developer Guide v4.2 hardening patterns.
 4. **`blueprint://database/postgres-rls-worm`:** PostgreSQL 17 multi-transaction RLS (`after_begin`) + deterministic WORM audit chain (`seq_num` + `pg_advisory_xact_lock`).
 5. **`blueprint://{stack}/readme`:** Operational QA guides for `fastapi`, `python`, `node-backend`, `vue3`, `react-frontend`, `php`, and `bash-scripts`.

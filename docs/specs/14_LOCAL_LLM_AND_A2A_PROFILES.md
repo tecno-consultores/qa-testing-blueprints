@@ -26,7 +26,7 @@ El módulo `mcp-server/src/a2a/agentCard.ts` (100% Node.js nativo, funciones pur
 
 | Campo | Contrato / Valor por Defecto | Invariante de Validación |
 | :--- | :--- | :--- |
-| **`name` / `version` / `url`** | `qa-11x-mcp-agent` / `2.0.0` / `stdio://sinfallas/mcp-qa-11x` | Cadenas no vacías sin bytes nulos (`\0`). |
+| **`name` / `version` / `url`** | `qa-11x-mcp-agent` / `2.21.0` / `stdio://sinfallas/mcp-qa-11x` | Cadenas no vacías sin bytes nulos (`\0`). |
 | **`description`** | Incluye `activeModel`, `standardVersion` (`QA-11X v2.0`) y las `skills` declaradas | Generación determinista si no se provee descripción explícita. |
 | **`protocolVersion`** | `0.2.1` | Identificador explícito del protocolo A2A soportado. |
 | **`capabilities`** | `{ streaming: false, pushNotifications: false, stateTransitionHistory: true }` | Mezcla parcial segura sobre valores deterministas por defecto. |

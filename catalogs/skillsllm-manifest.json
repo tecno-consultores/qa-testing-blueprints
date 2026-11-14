@@ -1,0 +1,205 @@
+{
+  "schema_version": "1.0.0",
+  "name": "QA Testing Blueprints (QA-11X v2.0)",
+  "slug": "qa-testing-blueprints-11x",
+  "version": "2.21.0",
+  "standard_edition": "QA-11X v2.0",
+  "license": "MIT",
+  "author": "Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)",
+  "homepage": "https://github.com/tecno-consultores/qa-testing-blueprints",
+  "llms_txt_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/llms.txt",
+  "mcp_package": "@sinfallas/mcp-qa-11x",
+  "mcp_capabilities": {
+    "tools_count": 18,
+    "resources_count": 12,
+    "tools": [
+      "inspect_project_config",
+      "fetch_blueprint_bundle",
+      "bootstrap_or_merge_11x",
+      "inspect_ast_blast_radius",
+      "clean_workspace_11x",
+      "audit_security_stig_owasp",
+      "run_ephemeral_qa",
+      "certify_11x_gate",
+      "audit_test_pyramid_gaps",
+      "init_or_append_agents_md",
+      "propose_skill_evolution_pr",
+      "reconcile_agents_governance",
+      "validate_calm_architecture",
+      "evaluate_release_gate",
+      "evaluate_agent_trajectory",
+      "run_llm_red_team",
+      "audit_vibe_prototype",
+      "sync_enterprise_tms"
+    ],
+    "resources": [
+      "blueprint://manifest",
+      "blueprint://core/philosophy",
+      "blueprint://security/disa-owasp-22",
+      "blueprint://database/postgres-rls-worm",
+      "blueprint://{stack}/readme",
+      "blueprint://ui/refactoring-ui/{topic}",
+      "blueprint://core/active-task-template",
+      "blueprint://core/cleanup-script",
+      "blueprint://core/roadmap-validator",
+      "blueprint://ai/evals-redteam",
+      "blueprint://mobile-appium/readme",
+      "blueprint://vibe-rescue/readme"
+    ]
+  },
+  "adoption_tiers": {
+    "starter": {
+      "description": "Day-1 adoption in 30s: zero-plain-text secret scanning, Rule Zero hygiene, .qa-11x.json, and AGENTS.md across 27+ AI agents."
+    },
+    "standard": {
+      "description": "Daily PR workflows: starter guarantees + >= 95% coverage, strict typing, AST blast-radius CI partitioning, and UI anti-pattern linting."
+    },
+    "enterprise": {
+      "description": "Regulated production: 13-layer pyramid, blocking FINOS CALM, PostgreSQL 17 RLS + WORM chains, DISA STIG V6R5, Pact V4 + k6, and Release Readiness Gate."
+    }
+  },
+  "blueprints": [
+    {
+      "id": "python",
+      "path": "python",
+      "readme": "python/README.md"
+    },
+    {
+      "id": "fastapi",
+      "path": "fastapi",
+      "readme": "fastapi/README.md"
+    },
+    {
+      "id": "node-backend",
+      "path": "node-backend",
+      "readme": "node-backend/README.md"
+    },
+    {
+      "id": "vue3",
+      "path": "vue3",
+      "readme": "vue3/README.md"
+    },
+    {
+      "id": "react-frontend",
+      "path": "react-frontend",
+      "readme": "react-frontend/README.md"
+    },
+    {
+      "id": "php",
+      "path": "php",
+      "readme": "php/README.md"
+    },
+    {
+      "id": "bash-scripts",
+      "path": "bash-scripts",
+      "readme": "bash-scripts/README.md"
+    },
+    {
+      "id": "ai-evals",
+      "path": "ai-evals",
+      "readme": "ai-evals/README.md"
+    },
+    {
+      "id": "mobile-appium",
+      "path": "mobile-appium",
+      "readme": "mobile-appium/README.md"
+    },
+    {
+      "id": "vibe-rescue",
+      "path": "vibe-rescue",
+      "readme": "vibe-rescue/README.md"
+    }
+  ],
+  "skills": [
+    {
+      "id": "qa-11x-architect",
+      "name": "qa-11x-architect",
+      "path": ".agents/skills/qa-11x-architect/SKILL.md",
+      "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-architect/SKILL.md",
+      "size_bytes": 11700,
+      "sha256": "2475b94fa037a41b5a5f97c85dc8fa66dc8bbde7727b93c275802fe7e4e62526",
+      "description": "Master QA 11X & DevSecOps Architect (qa-testing-blueprints v2.16+). Use whenever the user asks to initialize or integrate QA in a project, merge .example templates, write or audit unit/BDD/mutation/E2E tests, enforce >=95% coverage, apply DISA ASD STIG V6R5 and OWASP v4.2 security controls, run ephemeral Docker QA suites (Rule Zero), optimize context token consumption, or update TESTING.md and CHANGELOG.md."
+    },
+    {
+      "id": "qa-11x-devsecops-hardener",
+      "name": "qa-11x-devsecops-hardener",
+      "path": ".agents/skills/qa-11x-devsecops-hardener/SKILL.md",
+      "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-devsecops-hardener/SKILL.md",
+      "size_bytes": 13497,
+      "sha256": "a27a9e563562c0e24ee34190a4ac65f86bfa9c4f6974eda3821c084a5974a049",
+      "description": "DISA ASD STIG V6R5 and OWASP Developer Guide v4.2 hardening sub-skill for Standard 11X. Use whenever designing, auditing, or modifying multi-tenant PostgreSQL 15-17+ RLS schemas, authentication and session flows, cryptographic secret vaults, WORM audit hash-chains, mutating MCP/JSON-RPC tools, or non-root Docker containers."
+    },
+    {
+      "id": "qa-11x-systematic-debugging",
+      "name": "qa-11x-systematic-debugging",
+      "path": ".agents/skills/qa-11x-systematic-debugging/SKILL.md",
+      "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-systematic-debugging/SKILL.md",
+      "size_bytes": 10270,
+      "sha256": "8a7f3b71c312168f77c009748f93a780520b147d2ee20087e34914920c183337",
+      "description": "Mandatory 4-phase deterministic root-cause debugging sub-skill for Standard 11X. Use before applying any bug fix, test repair, regression patch, or runtime troubleshooting to isolate root causes via Docker Rule Zero reproduction, Graphify AST blast-radius tracing, single-hypothesis testing, and RED-to-GREEN locks."
+    },
+    {
+      "id": "qa-11x-screenplay-builder",
+      "name": "qa-11x-screenplay-builder",
+      "path": ".agents/skills/qa-11x-screenplay-builder/SKILL.md",
+      "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-screenplay-builder/SKILL.md",
+      "size_bytes": 10690,
+      "sha256": "fe54c9eeb71e0c9a0b3d980843e7fa46a0d948eac24cd213a4bb1027fb32c01e",
+      "description": "Proportional E2E and acceptance architecture sub-skill for Standard 11X. Enforces the Screenplay Pattern (Actors, Abilities, Tasks, Interactions, Questions) on multi-role RBAC, multi-tenant, and hybrid UI+API+Mobile flows, lightweight composed POM on small single-role apps (<= 10 tests, <= 3 pages), semantic self-healing ARIA locators, Anti-JSDOM geometry, Anti-Silo cross-module Questions, and 3-phase temporal assertions."
+    },
+    {
+      "id": "qa-11x-llm-evaluator",
+      "name": "qa-11x-llm-evaluator",
+      "path": ".agents/skills/qa-11x-llm-evaluator/SKILL.md",
+      "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-llm-evaluator/SKILL.md",
+      "size_bytes": 9341,
+      "sha256": "e58508766f57234d161cf54a4f83ef8f4b8edb7b1f01f4586e1aad198360f9f0",
+      "description": "Dual-mode LLM, RAG, multimodal, voice, and autonomous agent evaluation sub-skill for Standard 11X. Enforces zero-cost deterministic offline contracts in CI (make test / make certify) and on-demand probabilistic evaluation and OWASP LLM Top 10 red-teaming via DeepEval and Promptfoo in ephemeral Docker."
+    },
+    {
+      "id": "qa-11x-vibe-rescue",
+      "name": "qa-11x-vibe-rescue",
+      "path": ".agents/skills/qa-11x-vibe-rescue/SKILL.md",
+      "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-vibe-rescue/SKILL.md",
+      "size_bytes": 8749,
+      "sha256": "e6515fa4eac3fe32aa3ee980ec6cbac30a851e0ba8c0c1830cf248ffbd3882fb",
+      "description": "5-stage Vibe-to-Enterprise rescue and hardening sub-skill for Standard 11X. Audits and hardens AI-generated prototypes (Bolt.new, Lovable, v0, Replit Agent, rapid vibe-coding scaffolds) without destroying their UX, enforcing secret quarantine, PostgreSQL 17 RLS, strict typing (CC <= 5), non-root Docker Rule Zero (>= 95% coverage), and 10/10 gate closure."
+    },
+    {
+      "id": "qa-11x-docker-certifier",
+      "name": "qa-11x-docker-certifier",
+      "path": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
+      "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-docker-certifier/SKILL.md",
+      "size_bytes": 5957,
+      "sha256": "4f19005fedcef41a013205dcb3745075f3750a0c1ac79ac91d16cd0e6ac1d47a",
+      "description": "QA 11X Corporate Standard certifier in ephemeral Docker containers. Enforces Rule Zero (zero host executions on Ubuntu/macOS), Cyclomatic/Cognitive Complexity Grade A, unit test coverage >= 95%, mutation testing, WCAG 2.1 AA accessibility, Lighthouse CI, and silent mode RAM conservation."
+    },
+    {
+      "id": "docker-trivy-keydb-hardening",
+      "name": "docker-trivy-keydb-hardening",
+      "path": ".agents/skills/docker-trivy-keydb-hardening/SKILL.md",
+      "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/docker-trivy-keydb-hardening/SKILL.md",
+      "size_bytes": 4763,
+      "sha256": "d4dedb52015e43d038c501704778a0e6bb5107bead39caa7b6484826594f0436",
+      "description": "Container hardening guidelines (Trivy HIGH/CRITICAL = 0), KeyDB multi-threaded in-memory engine, non-root runtime users, multi-stage Docker builds, and backend performance optimization."
+    },
+    {
+      "id": "graphify-ast-navigator",
+      "name": "graphify-ast-navigator",
+      "path": ".agents/skills/graphify-ast-navigator/SKILL.md",
+      "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/graphify-ast-navigator/SKILL.md",
+      "size_bytes": 8574,
+      "sha256": "1e945fca308730848f83c5ffea6c823503767caa72045bc133a0a46c15f35624",
+      "description": "AST Knowledge Graph lifecycle and bidirectional code navigation (why and how to create, incrementally refresh, and query graph.json & GRAPH_REPORT.md). MANDATORY FIRST STEP whenever answering questions about project code or architecture (Code Q&A), tracing callers/callees, auditing pre-refactoring blast radius, or checking layer boundaries."
+    },
+    {
+      "id": "refactoring-ui",
+      "name": "refactoring-ui",
+      "path": ".agents/skills/refactoring-ui/SKILL.md",
+      "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/refactoring-ui/SKILL.md",
+      "size_bytes": 8997,
+      "sha256": "74e8d42e5cf806d84aa525974c5474be7add14fb7d01fd1c9186286240eb6c8a",
+      "description": "Visual hierarchy, spacing, type, color, depth and polish rules from Refactoring UI (Wathan & Schoger), aligned with QA 11X WCAG 2.1 AA, Anti-JSDOM geometry, and Lighthouse CI. Use when building or restyling an interface, when a UI looks unpolished or cluttered and the cause is unclear, or when picking concrete values for a spacing scale, type scale, color palette or shadow set."
+    }
+  ]
+}

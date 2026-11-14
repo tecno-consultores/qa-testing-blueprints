@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 SCHEMA_VERSION = "1.0.0"
-DEFAULT_BLUEPRINT_VERSION = "2.0.0"
+DEFAULT_BLUEPRINT_VERSION = "2.21.0"
 REPOSITORY = "tecno-consultores/qa-testing-blueprints"
 DEFAULT_BRANCH = "main"
 RAW_BASE_URL = f"https://raw.githubusercontent.com/{REPOSITORY}/{DEFAULT_BRANCH}"
@@ -264,11 +264,24 @@ def scan_common_files(
     return entries
 
 
+def _discover_catalog_paths(repo_root: Path) -> list[Path]:
+    """Descubre descriptores globales en catalogs/ cuando existen."""
+    catalogs_dir = repo_root / "catalogs"
+    if not catalogs_dir.is_dir():
+        return []
+    return [
+        p
+        for p in sorted(catalogs_dir.glob("*"))
+        if p.is_file() and p.suffix in (".json", ".md")
+    ]
+
+
 def _discover_governance_paths(repo_root: Path) -> list[str]:
     """Descubre archivos canónicos de gobernanza dentro de los directorios gobernados."""
     candidates: list[Path] = []
     for rel in (
         "AGENTS.md",
+        "llms.txt",
         ".agents/README.md",
         ".agents/ACTIVE_TASK.md.example",
         "scripts/install-skill.sh",
@@ -276,6 +289,8 @@ def _discover_governance_paths(repo_root: Path) -> list[str]:
         candidate = repo_root / rel
         if candidate.is_file():
             candidates.append(candidate)
+
+    candidates.extend(_discover_catalog_paths(repo_root))
 
     rules_dir = repo_root / ".agents" / "rules"
     if rules_dir.is_dir():
