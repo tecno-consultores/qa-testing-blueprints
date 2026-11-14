@@ -21,6 +21,8 @@ FORBIDDEN_DOC_PATTERNS: tuple[tuple[str, str], ...] = (
 
 DOC_TARGETS: tuple[str, ...] = (
     "README.md",
+    "README.es.md",
+    "RESOURCES.md",
     ".agents/README.md",
     "mcp-server/README.md",
     "mcp-server/README.es.md",
@@ -29,6 +31,7 @@ DOC_TARGETS: tuple[str, ...] = (
     "FAQ.md",
     "CONTRIBUTING.md",
     "AI_MASTER_PROMPT.md",
+    "docs/01_ARQUITECTURA_PIRAMIDE_11X.md",
     "docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md",
     "docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md",
     "docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md",
@@ -39,6 +42,35 @@ DOC_TARGETS: tuple[str, ...] = (
     "docs/agent-setup.en.md",
     "docs/ARCHITECTURE_C4.md",
 )
+
+BILINGUAL_TRIGGER_DOCS: tuple[str, ...] = (
+    "README.es.md",
+    "RESOURCES.md",
+    "docs/01_ARQUITECTURA_PIRAMIDE_11X.md",
+)
+
+INTERNAL_LINK_AUDIT_TARGETS: tuple[str, ...] = (
+    "README.md",
+    "README.es.md",
+    "RESOURCES.md",
+    "docs/01_ARQUITECTURA_PIRAMIDE_11X.md",
+)
+
+EXTERNAL_LINK_PREFIXES: tuple[str, ...] = (
+    "http://",
+    "https://",
+    "mailto:",
+    "blueprint://",
+    "conversation://",
+    "file://",
+    "data:",
+)
+
+_FENCED_CODE_RE = re.compile(r"```[\s\S]*?```", re.MULTILINE)
+_HTML_COMMENT_RE = re.compile(r"<!--[\s\S]*?-->", re.MULTILINE)
+_INLINE_CODE_RE = re.compile(r"`[^`\n]+`")
+_MD_LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)\n]+)\)")
+_IMG_SRC_RE = re.compile(r'<img\b[^>]*\bsrc=["\']([^"\']+)["\']', re.IGNORECASE)
 
 HUMAN_CORE_MANUALS: tuple[str, ...] = (
     "docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md",
@@ -204,6 +236,93 @@ def check_dual_consumer_parity(root: Path) -> list[str]:
     return [*_check_uat_rules_parity(root), *_check_auditor_rules_in_human_docs(root)]
 
 
+def _check_readme_cross_link(
+    file_path: Path,
+    file_label: str,
+    required_tokens: tuple[str, ...],
+) -> list[str]:
+    if not file_path.is_file():
+        return [f"Modelo bilingüe v2.0 incompleto: falta {file_label}."]
+    content = file_path.read_text(encoding="utf-8")
+    return [
+        f"{file_label} debe incluir selector/enlace cruzado bilingüe '{token}'."
+        for token in required_tokens
+        if token not in content
+    ]
+
+
+def check_bilingual_readme_parity(root: Path) -> list[str]:
+    """Valida existencia y enlace cruzado entre README.md y README.es.md."""
+    if not any((root / rel).is_file() for rel in BILINGUAL_TRIGGER_DOCS):
+        return []
+    return [
+        *_check_readme_cross_link(
+            root / "README.md", "README.md", ("README.es.md", "**English**")
+        ),
+        *_check_readme_cross_link(
+            root / "README.es.md", "README.es.md", ("README.md", "**Español**")
+        ),
+    ]
+
+
+def _strip_code_and_comments(text: str) -> str:
+    cleaned = _FENCED_CODE_RE.sub("", text)
+    cleaned = _HTML_COMMENT_RE.sub("", cleaned)
+    return _INLINE_CODE_RE.sub("", cleaned)
+
+
+def _normalize_link_target(raw_target: str) -> str:
+    target = raw_target.strip()
+    if target.startswith("<") and ">" in target:
+        target = target[1 : target.index(">")].strip()
+    elif " " in target:
+        target = target.split(None, 1)[0].strip()
+    return target.split("#", 1)[0].split("?", 1)[0].strip()
+
+
+def _is_external_or_anchor(target: str) -> bool:
+    if not target or target.startswith("#"):
+        return True
+    lowered = target.lower()
+    return lowered.startswith(EXTERNAL_LINK_PREFIXES)
+
+
+def _extract_internal_targets(content: str) -> list[str]:
+    sanitized = _strip_code_and_comments(content)
+    raw_targets = [*_MD_LINK_RE.findall(sanitized), *_IMG_SRC_RE.findall(sanitized)]
+    targets: list[str] = []
+    for raw in raw_targets:
+        normalized = _normalize_link_target(raw)
+        if not _is_external_or_anchor(normalized):
+            targets.append(normalized)
+    return targets
+
+
+def _validate_doc_links(root: Path, rel_path: str) -> list[str]:
+    doc_path = root / rel_path
+    if not doc_path.is_file():
+        return []
+    root_resolved = root.resolve()
+    errors: list[str] = []
+    for target in _extract_internal_targets(doc_path.read_text(encoding="utf-8")):
+        candidate = (doc_path.parent / target).resolve()
+        if not candidate.is_relative_to(root_resolved):
+            errors.append(
+                f"{rel_path}: enlace interno fuera del repositorio ('{target}')."
+            )
+        elif not candidate.exists():
+            errors.append(f"{rel_path}: enlace interno roto ('{target}').")
+    return errors
+
+
+def check_internal_markdown_links(root: Path) -> list[str]:
+    """Audita enlaces Markdown e imágenes internas en portadas y docs v2.0."""
+    errors: list[str] = []
+    for rel_path in INTERNAL_LINK_AUDIT_TARGETS:
+        errors.extend(_validate_doc_links(root, rel_path))
+    return errors
+
+
 def validate_repository_docs(root: Path) -> list[str]:
     """Ejecuta todas las validaciones documentales sobre el directorio raíz."""
     return [
@@ -211,6 +330,8 @@ def validate_repository_docs(root: Path) -> list[str]:
         *check_security_section_numbering(root),
         *check_active_docs(root),
         *check_dual_consumer_parity(root),
+        *check_bilingual_readme_parity(root),
+        *check_internal_markdown_links(root),
     ]
 
 

@@ -1,0 +1,160 @@
+> 🌐 Idioma: [English](README.md) | **Español**
+
+<p align="center">
+  <img src="assets/qa-logo.jpeg" alt="Logo de QA Testing Blueprints" width="320" />
+</p>
+
+# QA Testing Blueprints (`QA-11X v2.0` — Estándar Corporativo Nivel 11X)
+
+**Blueprint Zero-Infra de QA Agéntico, Evaluaciones de IA y Gobernanza DevSecOps**
+
+[![Licencia: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Regla Cero: Docker Efímero](https://img.shields.io/badge/Rule%20Zero-Non--Root%20Ephemeral%20Docker-0db7ed)](TESTING.md)
+[![Trivy Scan](https://img.shields.io/badge/Trivy-HIGH%2FCRITICAL%20%3D%200-brightgreen)](SECURITY.md)
+[![Skills Modulares IA](https://img.shields.io/badge/AI%20Skills-10%20Modulares%20(%3C20KB)-6f42c1)](.agents/skills/qa-11x-architect/SKILL.md)
+[![Agentes IA](https://img.shields.io/badge/AI%20Agents-27%2B%20Soportados-ff69b4)](docs/agent-setup.md)
+[![FINOS CALM](https://img.shields.io/badge/Architecture-FINOS%20CALM-orange)](architecture/qa-11x.calm.json)
+
+**QA-11X v2.0** transforma tanto a **Agentes de Inteligencia Artificial** (Google Antigravity, Claude Code, Cursor, Windsurf, Codex, Copilot, Hermes Agent y más de 20 clientes adicionales) como a **equipos humanos de ingeniería** en operadores deterministas de QA y DevSecOps nivel Staff. Toda validación corre dentro de **contenedores Docker efímeros y no-root (`Rule Zero`)** sin contaminar el host, imponiendo cobertura `>= 95%`, paridad real con bases de datos/contratos, evaluaciones de IA en modo dual y controles **DISA ASD STIG V6R5 + OWASP v4.2** desde el día uno.
+
+---
+
+## ⚡ Inicio Rápido en 30 Segundos (Fricción Cero)
+
+Inicializa y protege cualquier repositorio en 30 segundos sin clonar este monorepo:
+
+```bash
+# Autodetecta stacks y marcadores vibe-coded; genera .qa-11x.json, AGENTS.md, ACTIVE_TASK.md y workflow PR:
+npx -y @sinfallas/mcp-qa-11x@latest quickstart
+
+# Con perfil progresivo, política de idioma, selección de agentes o vista previa --dry-run:
+npx -y @sinfallas/mcp-qa-11x@latest quickstart --tier standard --lang es --agents auto
+npx -y @sinfallas/mcp-qa-11x@latest quickstart --tier enterprise --lang en --dry-run
+```
+
+### Compuerta Proporcional en Pull Requests (GitHub Actions)
+
+Integra la Composite Action endurecida [`.github/actions/qa-11x-pr-check/action.yml`](.github/actions/qa-11x-pr-check/action.yml) en tus flujos de PR:
+
+```yaml
+name: QA-11X PR Check
+on: [pull_request]
+permissions:
+  contents: read
+jobs:
+  qa-11x:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+      - uses: tecno-consultores/qa-testing-blueprints/.github/actions/qa-11x-pr-check@v2
+        with:
+          tier: standard
+          lang: es
+```
+
+---
+
+## 🧭 Arquitectura Diferencial (`QA-11X v2.0`)
+
+```mermaid
+flowchart TD
+    UserReq["Desarrollador o Pull Request"] --> Quickstart["npx @sinfallas/mcp-qa-11x quickstart"]
+    Quickstart --> Router{"3 Vías y Perfiles Progresivos"}
+    Router -->|"DOCS_ONLY"| FastDocs["make sync-governance + make lint-docs"]
+    Router -->|"MICRO_CHANGE / standard"| BlastAST["Blast Radius AST y CI Escalonado"]
+    Router -->|"FULL_11X / enterprise"| FullPyramid["Piramide 13 Capas + FINOS CALM"]
+    BlastAST --> RuleZero["Regla Cero Docker No-Root sinfallas/*"]
+    FullPyramid --> RuleZero
+    RuleZero --> Shields["AI Evals Modo Dual + DISA/OWASP + Release Gate"]
+    FastDocs --> LocalCommit["Commit Local Certificado QA-GIT-GATE-01"]
+    Shields --> LocalCommit
+```
+
+### Perfiles de Adopción Progresiva (`Progressive Adoption Tiers`)
+
+| Perfil | Caso de Uso | Compuertas y Garantías Incluidas |
+| :--- | :--- | :--- |
+| **`starter`** | Día 1 en 30 segundos | Escaneo de secretos en texto plano, higiene de contenedores `Rule Zero`, `.qa-11x.json`, conector `AGENTS.md` en 27+ agentes IA y vía rápida `DOCS_ONLY` |
+| **`standard`** | Pull Requests diarios | Todo lo de `starter` + cobertura unitaria `>= 95%`, tipado estricto (`mypy --strict`, `tsc`, `PHPStan max`), partición CI por Blast Radius AST (ahorro de `40%–60%`) y linter de antipatrones UI (`QA-UI-ANTI-001..005`) |
+| **`enterprise`** | Producción regulada | Pirámide completa `FULL_11X` de 13 capas, Arquitectura como Código bloqueante FINOS CALM, PostgreSQL 17 RLS + cadenas WORM `seq_num`, DISA STIG V6R5 / OWASP v4.2, aserciones temporales de 3 fases (`t < starts_at`, `starts_at <= t <= ends_at`, `t > ends_at`), contratos Pact + carga k6 y Release Readiness Gate (`GO` / `NO_GO` / `SKIPPED`) |
+
+### Matriz Docker Efímera Zero-Infra (`sinfallas/*`)
+
+Todas las suites de análisis, mutación, contratos y BDD se ejecutan en contenedores no-root (`-u "$(id -u):$(id -g)" -e HOME=/tmp`) con **`Trivy HIGH/CRITICAL = 0`**:
+
+| Imagen Efímera | Rol en QA-11X v2.0 | Tags Certificados y Herramientas Preinstaladas |
+| :--- | :--- | :--- |
+| **[sinfallas/base-python-uv](https://hub.docker.com/r/sinfallas/base-python-uv)** | Python, FastAPI, AI Evals y Vibe-Rescue | `3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest` (`uv`, `ruff`, `mypy`, `pytest`, `bandit`, `radon`, `mutmut`, `deepeval`, `pact-python`, `tesseract-ocr`) |
+| **[sinfallas/base-node-ionic](https://hub.docker.com/r/sinfallas/base-node-ionic)** | MCP Server, Node, Vue 3, React, Móvil y CALM | `22`, `24`, `26` y `latest` (`pnpm`, `promptfoo`, `@finos/calm-cli`, `appium`, `playwright`, `@axe-core/playwright`, `@pact-foundation/pact`) |
+| **[sinfallas/basephpcomposer](https://hub.docker.com/r/sinfallas/basephpcomposer)** | APIs y Servicios PHP 8.2–8.5 | `8.2`, `8.3`, `8.4`, `8.5` y `latest` (`pcov`, `phpstan`, `psalm`, `pest`, `phpunit`, `infection`) |
+| **[sinfallas/karatelabs](https://hub.docker.com/r/sinfallas/karatelabs)** | Contratos BDD API y UI Chrome Headless | `1.5.1` / `11x-v2-local` (Java + Maven + Karate JUnit5; proporcional a flujos `FULL_11X` multi-servicio con estado) |
+| **[sinfallas/base-bash-qa](https://hub.docker.com/r/sinfallas/base-bash-qa)** | DevOps y Automatización POSIX / Bash | `latest` (`ShellCheck`, `shfmt`, `BATS-core`, `bats-mock`, `kcov`) |
+| **[sinfallas/remote-graphify](https://hub.docker.com/r/sinfallas/remote-graphify)** | Optimización de Contexto AST y Blast Radius | `latest` (`graphify` extracción AST Tree-sitter y clustering) |
+| **Motores de Infra y Carga** | BD Real, Caché y Smoke Load | `postgres:17-alpine`, `eqalpha/keydb:alpine`, `grafana/k6:2.4.0` |
+
+---
+
+## 🗂️ Blueprints Full-Stack, Móvil, AI Evals y Vibe-Rescue
+
+| Carpeta | Ecosistema | Capacidades Clave v2.0 |
+| :--- | :--- | :--- |
+| **[`fastapi/`](fastapi/)** | APIs Asíncronas Python | Ruff, Mypy strict, paridad PostgreSQL 17 RLS + Alembic, consumidor Pact V4 ([`test_pact_consumer.py`](fastapi/tests/contracts/test_pact_consumer.py)), carga k6 ([`smoke.k6.js`](fastapi/tests/load/smoke.k6.js)), Karate BDD |
+| **[`python/`](python/)** | Librerías y CLIs Python | UV, Ruff (`CC <= 5`), Mypy strict, Pytest `>= 95%`, Hypothesis, Mutmut (`MSI >= 80%`), Bandit |
+| **[`node-backend/`](node-backend/)** | Microservicios Node.js / TS | ESLint `--max-warnings 0`, Vitest `>= 95%`, verificador proveedor Pact V4 ([`provider.pact.test.ts`](node-backend/tests/contracts/provider.pact.test.ts)), Stryker, ZAP |
+| **[`vue3/`](vue3/)** | Frontends Vue 3 + Vite | Screenplay [`Actor.ts`](vue3/tests/screenplay/Actor.ts), *Self-Healing DOM* [`semanticLocator.ts`](vue3/tests/utils/semanticLocator.ts), Vitest `>= 95%`, `@axe-core`, Lighthouse CI |
+| **[`react-frontend/`](react-frontend/)** | Frontends React + Vite | Screenplay [`Actor.ts`](react-frontend/tests/screenplay/Actor.ts), *Self-Healing DOM* [`semanticLocator.ts`](react-frontend/tests/utils/semanticLocator.ts), RTL, Playwright, `@axe-core` |
+| **[`php/`](php/)** | Servicios PHP 8.2–8.5 | PHP-CS-Fixer, PHPStan Level Max, Psalm Taint Analysis, Pest/PHPUnit + PCOV `>= 95%`, Infection |
+| **[`bash-scripts/`](bash-scripts/)** | Automatización POSIX / Bash | ShellCheck, shfmt, BATS-core, `bats-mock`, `kcov >= 95%` |
+| **[`mobile-appium/`](mobile-appium/)** | Móvil Nativo e Híbrido | Appium 2 + WebdriverIO ([`wdio.conf.ts`](mobile-appium/wdio.conf.ts)), [`MobileActor.ts`](mobile-appium/tests/screenplay/MobileActor.ts) (Android, iOS, Ionic, RN) |
+| **[`ai-evals/`](ai-evals/)** | QA de IA y Multimodal | Fidelidad RAG, Promptfoo OWASP LLM Top 10, latencia voz WebRTC ([`test_voice_websocket_latency.py`](ai-evals/voice-realtime/test_voice_websocket_latency.py)), fidelidad PDF/OCR `Decimal` ([`test_pdf_table_fidelity.py`](ai-evals/multimodal-ocr/test_pdf_table_fidelity.py)), [`golden_from_traces.py`](ai-evals/golden_from_traces.py) |
+| **[`vibe-rescue/`](vibe-rescue/)** | Rescate *Vibe-to-Enterprise* | [`audit_vibe_prototype.py`](vibe-rescue/audit_vibe_prototype.py) (`VIBE-SEC-001..QA-005`), plantilla PostgreSQL 17 RLS/WORM ([`rls_hardening.sql`](vibe-rescue/templates/rls_hardening.sql)) |
+| **[`architecture/`](architecture/qa-11x.calm.json)** | Arquitectura como Código | Topología FINOS CALM bloqueante y 7 controles obligatorios 11X (`make validate-calm`) |
+| **[`mcp-server/`](mcp-server/)** | `@sinfallas/mcp-qa-11x` | Servidor MCP Node.js (`stdio`), `quickstart`, `install-skill`, `init-agents`, `reconcile-agents`, sincronizador TMS y *Agent Card* A2A |
+
+---
+
+## 🛠 Matriz de Herramientas de Pruebas
+
+| Entorno | Linting / Formateo | Pruebas Unitarias / Mocking | Cobertura | Auditoría de Dependencias | Seguridad Estática (SAST) | Mutación | BDD / Contratos | Carga / Resiliencia |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Python / FastAPI** | `Ruff` + `Mypy --strict` | `Pytest` + `Hypothesis` + `respx` + `PostgreSQL 17` | `Pytest-Cov (>= 95%)` | `pip-audit` + `CycloneDX` | `Bandit` | `Mutmut (>= 80%)` | `Karate Labs` / `Pact V4` | `k6` / `Locust` + `Pumba` |
+| **Node / MCP** | `ESLint (--max-warnings 0)` + `tsc` | `Vitest` + `Supertest` + `Nock` | `V8 (>= 95%)` | `pnpm audit` + `.npmrc` | `eslint-plugin-security` | `Stryker (>= 80%)` | `Karate Labs` / `Pact V4` | `k6` / `Artillery` |
+| **Vue 3 / React** | `ESLint` + `vue-tsc` / `tsc` | `Vitest` + `Screenplay` + `Playwright` | `V8 (>= 95%)` | `pnpm audit` + `.npmrc` | `eslint-plugin-security` | `Stryker` | `Karate UI` + `@axe-core` | `Lighthouse CI` |
+| **PHP 8.2–8.5** | `PHP-CS-Fixer` + `PHPStan Max` | `Pest` / `PHPUnit` + `PostgreSQL 17` | `PCOV (>= 95%)` | `composer audit` + `CycloneDX` | `Psalm (--taint-analysis)` | `Infection (>= 80%)` | `Karate Labs` + `Schemathesis` | `k6` / `Locust` |
+| **Bash / Móvil / IA** | `ShellCheck` / `Ruff` / `tsc` | `BATS-core` / `Appium 2` / `Pytest asyncio` | `kcov` / `>= 95%` | `Trivy` + `Gitleaks` | `promptGuard` + `Bandit` | `N/A` | `Promptfoo` + `DeepEval` | `WebRTC TTFB <= 500ms` |
+
+---
+
+## 🛡️ AI Evals en Modo Dual, LLMs Locales y Escudo de Seguridad
+
+1. **Modo 1 — Contratos Deterministas Offline a Costo Cero (`make test-ai-offline`):**
+   - Ejecuta pruebas herméticas de RAG, trayectoria de agentes, voz WebRTC (`TTFB p95 <= 500ms`) y tablas OCR en `Decimal` exacto con jueces simulados (`>= 95%` cobertura, `CC <= 5`, `mypy --strict`) a costo `$0`.
+   - Blinda la ejecución de herramientas MCP en modo *Fail-Closed* mediante [`promptGuard.ts`](mcp-server/src/security/promptGuard.ts) (canonicalización `NFKC`, purga de caracteres zero-width/Trojan Source, bloqueo de inyección de prompts y evasiones de `QA-GIT-GATE-01`, y redacción PII/secretos usando marcadores `<EXAMPLE_REDACTED>`).
+   - Compacta trazas largas determinísticamente con [`.agents/scripts/compact_context_11x.py`](.agents/scripts/compact_context_11x.py) e incluye perfiles aislados **Ollama / vLLM** y descubrimiento **A2A Agent Card** ([`agentCard.ts`](mcp-server/src/a2a/agentCard.ts), [`docs/specs/14_LOCAL_LLM_AND_A2A_PROFILES.md`](docs/specs/14_LOCAL_LLM_AND_A2A_PROFILES.md)).
+2. **Modo 2 — Auditorías Probabilísticas y Red-Teaming Bajo Demanda (`make audit-llm`):**
+   - Ejecuta **DeepEval** (`GEval`, `TaskCompletionMetric`, fidelidad) y **Promptfoo** (OWASP LLM Top 10) contra proveedores configurados o endpoints locales Ollama/vLLM (`SKIPPED_NO_LLM_SECRETS_CONFIGURED` si no hay credenciales en CI).
+
+---
+
+## 🤖 10 Skills Modulares (`< 20 KB`), Servidor MCP y 27+ Agentes de IA
+
+* **Enrutamiento Progresivo de Skills (`< 20 KB`):** Liderado por [`.agents/skills/qa-11x-architect/SKILL.md`](.agents/skills/qa-11x-architect/SKILL.md) (`< 12 KB`), hidratando bajo demanda 9 sub-skills especializadas (`qa-11x-devsecops-hardener`, `qa-11x-systematic-debugging`, `qa-11x-screenplay-builder`, `qa-11x-llm-evaluator`, `qa-11x-vibe-rescue`, `qa-11x-docker-certifier`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `refactoring-ui`).
+* **Superficie Pública MCP (`@sinfallas/mcp-qa-11x`):** Expone hoy **12 herramientas** y **9 recursos `blueprint://*`** sobre `stdio` (los módulos adicionales v2.0 de evaluación IA, CALM, release-gate, vibe-rescue y TMS ya residen en `mcp-server/src/` previos a la consolidación pública en `T5.3`).
+* **Guardia Humana de Cierre Git (`QA-GIT-GATE-01`):** Imposta por [`.agents/rules/git_closure_gate.md`](.agents/rules/git_closure_gate.md) — los agentes certifican localmente vía `make certify` y se detienen en `git commit` local; cualquier `git push` o `npm publish` automático queda estrictamente prohibido.
+* **Guías y Catálogos:** Consulta [`docs/agent-setup.md`](docs/agent-setup.md), [`docs/agent-setup.en.md`](docs/agent-setup.en.md), [`RESOURCES.md`](RESOURCES.md), [`docs/01_ARQUITECTURA_PIRAMIDE_11X.md`](docs/01_ARQUITECTURA_PIRAMIDE_11X.md), [`TESTING.md`](TESTING.md), [`SECURITY.md`](SECURITY.md) y [`ROADMAP.md`](ROADMAP.md).
+
+```bash
+# Instalar skills globales, scripts operativos y conector AGENTS.md en los IDEs detectados:
+npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts --reconcile
+```
+
+---
+
+## 📄 Autoría, Copyright y Licencia
+
+* **Autor:** Jesus Palencia (`<sinfallas@gmail.com>`)
+* **Copyright:** `Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)`
+* **Licencia:** Distribuido bajo la licencia [MIT](LICENSE).

@@ -1345,3 +1345,63 @@ def test_vibe_rescue_auditor_clean_pass_quiet_and_path_traversal(
     )
     assert proc.returncode == 2
 
+
+def test_verify_docs_invariants_bilingual_readme_and_internal_links(
+    tmp_path: Path,
+) -> None:
+    """Valida modelo bilingüe English-First, enlaces internos reales y bloqueo de path traversal."""
+    mod = _load_script("verify_docs_invariants.py", "meta_qa_verify_docs_bilingual")
+    (tmp_path / "docs").mkdir(parents=True)
+    (tmp_path / "assets").mkdir()
+    (tmp_path / "assets" / "qa-logo.jpeg").write_bytes(b"jpeg")
+    (tmp_path / "LICENSE").write_text("MIT\n", encoding="utf-8")
+
+    (tmp_path / "README.md").write_text(
+        "> 🌐 Language: **English** | [Español](README.es.md)\n\n"
+        '<img src="assets/qa-logo.jpeg" alt="Logo" />\n\n'
+        "[Docs](docs/01_ARQUITECTURA_PIRAMIDE_11X.md) · [License](LICENSE) · [Ext](https://example.com)\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "README.es.md").write_text(
+        "> 🌐 Idioma: [English](README.md) | **Español**\n\n"
+        "[Recursos](RESOURCES.md) · [Licencia](LICENSE)\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "RESOURCES.md").write_text(
+        "# Recursos\n\n* [Portada](README.md)\n* [Espejo](README.es.md)\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "docs" / "01_ARQUITECTURA_PIRAMIDE_11X.md").write_text(
+        "# Pirámide 11X\n\n* [English](../README.md)\n",
+        encoding="utf-8",
+    )
+
+    assert mod.validate_repository_docs(tmp_path) == []
+
+    # Caso 1: Falta README.es.md cuando existe RESOURCES.md
+    (tmp_path / "README.es.md").unlink()
+    missing_es = mod.validate_repository_docs(tmp_path)
+    assert any("README.es.md" in err for err in missing_es)
+
+    # Caso 2: Falta README.md cuando existe README.es.md
+    (tmp_path / "README.es.md").write_text(
+        "> 🌐 Idioma: [English](README.md) | **Español**\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "README.md").unlink()
+    missing_en = mod.validate_repository_docs(tmp_path)
+    assert any("falta README.md" in err for err in missing_en)
+
+    # Caso 3: Enlaces cruzados faltantes, enlace roto y path traversal fuera del repo
+    (tmp_path / "README.md").write_text(
+        "# English Only\n\n[Broken](missing/doc.md) · [Escape](../../etc/passwd)\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "README.es.md").write_text("# Solo Español\n", encoding="utf-8")
+    broken_errors = mod.validate_repository_docs(tmp_path)
+    assert any("README.es.md" in err and "selector/enlace" in err for err in broken_errors)
+    assert any("README.md" in err and "selector/enlace" in err for err in broken_errors)
+    assert any("enlace interno roto" in err for err in broken_errors)
+    assert any("fuera del repositorio" in err for err in broken_errors)
+
+
