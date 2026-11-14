@@ -2,7 +2,7 @@
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 # Makefile canónico para desarrollo local, automatización y gobernanza Level-11X
 
-.PHONY: help clean qa-clean audit lint-workflows lint-docs sync-governance validate-calm test test-mcp test-example test-karate test-py test-meta-qa test-ai-offline test-frontend-blueprints audit-llm lint build certify publish-mcp publish-mcp-dry
+.PHONY: help clean qa-clean audit lint-workflows lint-docs sync-governance validate-calm test test-mcp test-example test-karate test-py test-meta-qa test-ai-offline test-frontend-blueprints test-backend-blueprints audit-llm lint build certify publish-mcp publish-mcp-dry
 
 help:
 	@echo "Comandos canónicos de desarrollo y gobernanza para QA Testing Blueprints:"
@@ -16,6 +16,7 @@ help:
 	@echo "  make test            - Ejecuta Vitest (>=95%), E2E example/, Karate BDD, Pytest, Meta-QA, AI Offline y Frontend"
 	@echo "  make test-ai-offline - Ejecuta contratos deterministas RAG/Agentes (>=95% cob., ruff CC<=5, mypy) 100% offline"
 	@echo "  make test-frontend-blueprints - Valida Screenplay TS estricto en vue3/react-frontend y linter QA-UI-ANTI-001..005"
+	@echo "  make test-backend-blueprints  - Valida contratos Pact V4 (FastAPI->Node), k6 smoke y antipatrones"
 	@echo "  make audit-llm       - Ejecuta auditoría probabilística DeepEval + Promptfoo OWASP (requiere API key o Ollama/vLLM)"
 	@echo "  make test-meta-qa    - Audita scripts de .agents/scripts/ contra fixtures trimodales en Docker efímero"
 	@echo "  make test-example    - Certifica las 12 tools, 9 resources y 3 CLI sobre mcp-server/example/ (Clean-Room Docker)"
@@ -290,6 +291,60 @@ test-frontend-blueprints:
 		echo "✅ [test-frontend-blueprints] TS estricto + Screenplay RBAC + Self-Healing DOM (vue3/react) OK | $$lint_out"; \
 	fi
 
+test-backend-blueprints:
+	@pact_dir=$$(mktemp -d /tmp/qa11x-pacts.XXXXXX); \
+	stub_cid=""; \
+	log_file=$$(mktemp /tmp/qa11x-backend-bp.XXXXXX.log); \
+	cleanup() { \
+		if [ -n "$$stub_cid" ]; then docker rm -f "$$stub_cid" >/dev/null 2>&1 || true; fi; \
+		rm -rf "$$pact_dir" "$$log_file" 2>/dev/null || true; \
+	}; \
+	trap cleanup EXIT; \
+	stub_script=$$(printf '%s\n' \
+		'import http.server, json' \
+		'class H(http.server.BaseHTTPRequestHandler):' \
+		'    def _send(self, code, payload, extra=None):' \
+		'        self.send_response(code)' \
+		'        self.send_header("Content-Type", "application/json")' \
+		'        for k, v in (extra or {}).items(): self.send_header(k, v)' \
+		'        self.end_headers()' \
+		'        self.wfile.write(json.dumps(payload).encode())' \
+		'    def do_GET(self):' \
+		'        self._send(200, {"status": "ok"}) if self.path == "/health" else self._send(404, {"status": "not_found"})' \
+		'    def do_POST(self):' \
+		'        _ = self.rfile.read(int(self.headers.get("Content-Length", "0")))' \
+		'        key = self.headers.get("Idempotency-Key", "")' \
+		'        if self.path == "/api/v1/reservations": self._send(201, {"reservationId": "7c9e6679-7425-40de-944b-e07fc1f90ae7", "status": "CONFIRMED", "unitPrice": "149.95"}, {"Idempotency-Key": key})' \
+		'        elif self.path == "/api/v1/reservations/batch": self._send(200, {"results": [{"sku": "ROUTER-CCR2004", "status": "SUCCEEDED"}, {"sku": "SWITCH-CRS326", "status": "SUCCEEDED"}]}, {"Idempotency-Key": key})' \
+		'        else: self._send(404, {"error": "unknown"})' \
+		'    def log_message(self, *a): pass' \
+		'http.server.HTTPServer(("127.0.0.1", 18080), H).serve_forever()' \
+	); \
+	wait_script=$$(printf '%s\n' \
+		'import time, urllib.request' \
+		'for _ in range(40):' \
+		'    try:' \
+		'        with urllib.request.urlopen("http://127.0.0.1:18080/health", timeout=1) as r:' \
+		'            if r.status == 200: raise SystemExit(0)' \
+		'    except Exception:' \
+		'        time.sleep(0.05)' \
+		'raise SystemExit(1)' \
+	); \
+	{ \
+		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 -e PACT_OUTPUT_DIR=/pacts -v "$$(pwd):/app:ro" -v "$$pact_dir:/pacts" -w /app sinfallas/base-python-uv:3.15 sh -c 'ruff check --select E,F,W,I,UP,B,C901,FLY --config "lint.mccabe.max-complexity=5" fastapi/tests/contracts/test_pact_consumer.py && mypy --strict --cache-dir=/tmp/mypy fastapi/tests/contracts/test_pact_consumer.py && pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function -W "ignore::DeprecationWarning:deepeval.*" -W "ignore::SyntaxWarning:deepeval.*" --import-mode=importlib --cov=fastapi/tests/contracts --cov-fail-under=95 --cov-report=term-missing fastapi/tests/contracts/test_pact_consumer.py' && \
+		test -s "$$pact_dir/fastapi-billing-consumer-node-inventory-provider.json" && \
+		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e NODE_PATH=/opt/qa11x/node_modules -e PACT_OUTPUT_DIR=/pacts -v "$$(pwd):/app:ro" -v "$$pact_dir:/pacts:ro" -w /app sinfallas/base-node-ionic:26 sh -c 'tsc --strict --noImplicitAny --noUnusedLocals --noUnusedParameters --noImplicitReturns --erasableSyntaxOnly --allowImportingTsExtensions --target ES2023 --module NodeNext --moduleResolution NodeNext --typeRoots /opt/qa11x/node_modules/@types --types node --noEmit node-backend/tests/contracts/provider.pact.test.ts && node --test node-backend/tests/contracts/provider.pact.test.ts' && \
+		stub_cid=$$(docker run -d --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 sinfallas/base-python-uv:3.15 python3 -c "$$stub_script") && \
+		docker exec "$$stub_cid" python3 -c "$$wait_script" && \
+		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e K6_PROFILE=smoke -e API_BASE_URL=http://127.0.0.1:18080 -e K6_SUMMARY_PATH=/pacts/k6-summary.json --network "container:$$stub_cid" -v "$$(pwd)/fastapi/tests/load:/load:ro" -v "$$pact_dir:/pacts" grafana/k6:2.4.0@sha256:d41bb79cd8de5a7ad619b53570e3712633e8bff0937010a5c6c57a4747e7a276 run -q /load/smoke.k6.js && \
+		test -s "$$pact_dir/k6-summary.json" && \
+		grep -q '"thresholdsPassed": true' "$$pact_dir/k6-summary.json" && \
+		docker rm -f "$$stub_cid" >/dev/null 2>&1 && stub_cid="" && \
+		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/lint_test_antipatterns.py fastapi/tests/contracts node-backend/tests/contracts; \
+	} >"$$log_file" 2>&1 || { cat "$$log_file" >&2; exit 1; }; \
+	cov=$$(awk '/TOTAL /{print $$NF}' "$$log_file" | tail -n 1); \
+	echo "✅ [test-backend-blueprints] Pact V4 (FastAPI->Node) + k6 smoke + antipatrones OK (cobertura_pact=$${cov:-N/A})"
+
 test-example:
 	@./scripts/probar-mcp-example.sh
 
@@ -318,7 +373,7 @@ audit-llm:
 	@echo "🛡️ [audit-llm] Ejecutando matrices Promptfoo OWASP LLM Top 10 y Skills en sinfallas/base-node-ionic:26..."
 	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PROMPTFOO_DISABLE_TELEMETRY=1 -e PROMPTFOO_CONFIG_DIR=/tmp/.promptfoo -e OPENAI_API_KEY -e GEMINI_API_KEY -e ANTHROPIC_API_KEY -e OLLAMA_BASE_URL -e OPENAI_API_BASE -v "$$(pwd):/app:ro" -w /app sinfallas/base-node-ionic:26 sh -c "promptfoo eval -c ai-evals/promptfooconfig.yaml --no-cache -o /tmp/promptfoo-results.json && promptfoo eval -c tests/evals/promptfoo_skills_matrix.yaml --no-cache -o /tmp/promptfoo-skills-results.json"
 
-test: test-mcp test-example test-karate test-py test-meta-qa test-ai-offline test-frontend-blueprints
+test: test-mcp test-example test-karate test-py test-meta-qa test-ai-offline test-frontend-blueprints test-backend-blueprints
 
 build:
 	@echo "📦 [Build] Compilando Servidor MCP en Docker efímero..."

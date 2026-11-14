@@ -133,6 +133,10 @@ jobs:
         if: needs.blast-radius-plan.outputs.run_meta_qa == 'true' || needs.blast-radius-plan.outputs.run_backend == 'true'
         run: make test-meta-qa && make test-py
 
+      - name: Run targeted backend contract and load blueprints (Rule Zero)
+        if: needs.blast-radius-plan.outputs.run_backend == 'true'
+        run: make test-backend-blueprints
+
       - name: Run offline AI evaluation contracts
         if: needs.blast-radius-plan.outputs.run_ai_offline == 'true'
         run: make test-ai-offline
@@ -154,6 +158,7 @@ jobs:
       - name: Run full 11X QA regression and certification
         run: >-
           make test-frontend-blueprints &&
+          make test-backend-blueprints &&
           make test-meta-qa &&
           make test-ai-offline &&
           make test-py &&

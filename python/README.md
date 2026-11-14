@@ -4,29 +4,30 @@
 
 Este documento contiene las instrucciones corporativas de Nivel 11X que DEBES seguir innegociablemente al generar código de pruebas para herramientas en Python puro (CLI, scripts automáticos o librerías internas).
 
-## 1. Reglas Estrictas de Ejecución (Contenedores Efímeros y Caché)
-**NUNCA** debes instruir la construcción de imágenes locales (`docker build`) ni la ejecución de comandos manuales complejos de `docker compose run`. Toda la ejecución ocurre de forma efímera a través del `Makefile` proporcionado, utilizando los volúmenes de caché persistente:
-*   Para pruebas lógicas, benchmarking, profiling y dependencias: `sinfallas/base-python-uv:3.15` (tags disponibles: `3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest`).
+## 1. Reglas Estrictas de Ejecución (Contenedores Efímeros No-Root y Caché)
+**NUNCA** debes instruir la construcción de imágenes locales (`docker build`), instalaciones globales en el host ni ejecuciones como `root`. Toda ejecución corre en contenedores efímeros con UID/GID mapeado (`-u "$(id -u):$(id -g)"`), `HOME=/tmp`, `COVERAGE_FILE=/tmp/.coverage` y `UV_CACHE_DIR=/tmp/uv-cache`:
+*   Para pruebas lógicas, contratos Pact, linting, tipado estricto y profiling: `sinfallas/base-python-uv:3.15` (tags disponibles: `3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest`).
+*   Para pruebas de carga declarativas (`smoke|load|stress`) y SLOs: `grafana/k6:2.4.0`.
 *   Para Recolección de Métricas: `prom/prometheus:latest` (y Pushgateway si aplica).
-*   Para Optimización de Contexto IA (MCP): `sinfallas/remote-graphify:latest`.
+*   Para AST Semántico Graphify: `sinfallas/remote-graphify:latest` (vía `./scripts/actualizar-grafos-graphify.sh`).
 
-**Gestor de Paquetes:** La instalación de dependencias se realiza en tiempo de ejecución usando `uv` (`uv pip install --system -e '.[dev]'`), optimizado automáticamente por el volumen `uv-cache`.
-**Obligatorio:** Utiliza las metas de ejecución limpias (ej. `make qa-unit`) para aprovechar la configuración de los volúmenes sin redes huérfanas. El contenedor tiene privilegios extendidos (`SYS_PTRACE`) para inyectar *profilers* de memoria.
+**Gestor de Paquetes:** La sincronización de dependencias usa `uv` respaldado por `/tmp/uv-cache` y librerías preinstaladas en la imagen v2 (`pact` 4.2.0, `ruff`, `mypy`, `pytest`, `pip-audit`).
+**Obligatorio:** Utiliza las metas limpias del `Makefile` (`make qa-lint`, `make qa-unit`, y desde la raíz del catálogo `make test-backend-blueprints`) para preservar aislamiento total y cero archivos propiedad de `root`.
 
 ## 2. Pila Tecnológica Requerida
 Al generar código, configurar el entorno o plantear soluciones, debes asegurar la implementación de estas herramientas:
 
-*   **Linting y Formateo:** `ruff` (validación de calidad de código visual y lógica temprana).
-*   **Tipado Estricto:** `mypy` (prevención de excepciones en tiempo de ejecución).
-*   **Seguridad y Auditoría:** `uv pip audit` (CVEs de dependencias) y `bandit` (vulnerabilidades SAST en el código base).
-*   **Análisis de Complejidad (Deuda Técnica):** `radon` (Mantenibilidad y complejidad ciclomática).
+*   **Linting y Formateo:** `ruff` (`C901` con complejidad máxima `<= 5` en pruebas críticas y módulos nuevos).
+*   **Tipado Estricto:** `mypy --strict --cache-dir=/tmp/mypy` (prevención de excepciones en tiempo de ejecución).
+*   **Seguridad y Auditoría:** `pip-audit` (CVEs de dependencias) y `bandit` (vulnerabilidades SAST en el código base).
+*   **Análisis de Complejidad (Deuda Técnica):** `radon` (Mantenibilidad Grado A y complejidad ciclomática <= B).
 *   **Profiling (Memoria y CPU):** `py-spy` (Detección de cuellos de botella mediante *Flamegraphs*).
 *   **Pruebas Lógicas Base e Intercepción:** `pytest` como motor principal, potenciado obligatoriamente por `pytest-mock` y `unittest.mock` para aislar la red y dependencias externas.
-*   **Comportamiento BDD:** `pytest-bdd` (Para validar flujos de negocio mediante sintaxis Gherkin).
-*   **Rendimiento y Estrés Interno:** `pytest-benchmark` (Para medir regresiones de rendimiento en funciones críticas).
-*   **Cobertura (Coverage):** `pytest-cov` (se exige un mínimo del 95%).
+*   **Contratos Consumer-Driven Zero-Infra (`Pact` V3/V4):** Paquete `pact` preinstalado exportando artefactos deterministas en `PACT_OUTPUT_DIR` (sin *Pact Broker* externo) sobre *Trimodal Fixtures* (`nominal_configured`, `virgin_empty`, `degraded_conflict`), serialización monetaria exacta con `Decimal` (prohibido `float`), cabecera obligatoria `Idempotency-Key` UUIDv4, errores RFC 7807 (`application/problem+json`) e inspección por ítem de respuestas batch (`results[].status`).
+*   **Comportamiento BDD y Carga SLO (`k6`):** `pytest-bdd` para Gherkin local y `fastapi/tests/load/smoke.k6.js` (`K6_PROFILE=smoke|load|stress`) para validar `p(95) < 250ms`, `p(99) < 500ms` y error `< 1%` sin falsos verdes.
+*   **Cobertura (Coverage):** `pytest-cov` (se exige un mínimo del 95% con `COVERAGE_FILE=/tmp/.coverage`).
 *   **Pruebas de Mutación:** `mutmut` (para validar si las pruebas fallan cuando el código lógico cambia).
-*   **Matriz de Compatibilidad:** `tox` potenciado por `tox-uv`.
+*   **Matriz de Compatibilidad y RLS:** `tox` con `tox-uv` y verificación contra `postgres:17-alpine` (`NOBYPASSRLS`, `FORCE RLS`, `SET LOCAL app.current_tenant_id`).
 *   **Observabilidad:** `prometheus_client`.
 
 ## 3. Arquitectura de las Pruebas a Generar
@@ -73,8 +74,8 @@ Dependiendo de la naturaleza del script, debes instrumentarlo de una de estas do
 ### E. Complejidad Ciclomática (`radon`)
 *   **Regla:** Ningún método generado puede superar el grado `B` de complejidad ciclomática ni caer del grado `A` en índice de mantenibilidad (MI). Si el código es muy complejo, divídelo.
 
-### F. Ingestión Inteligente (Paso 0 - MCP)
-*   **Regla (Exclusiva para ti, IA):** Tienes estrictamente prohibido generar código o pruebas a ciegas. Tu primer paso debe ser levantar el servidor `graphify` para ingerir el grafo semántico del proyecto. Además, DEBES leer silenciosamente las configuraciones de linters y dependencias definidos en `pyproject.toml` para adaptar tu código a las convenciones estrictas del repositorio y evitar rechazos en el CI/CD.
+### F. Ingestión Inteligente (Paso 0 - AST Graphify)
+*   **Regla (Exclusiva para ti, IA):** Tienes estrictamente prohibido generar código o pruebas a ciegas. Antes de modificar código, consulta el grafo AST con `python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"` (o actualiza con `./scripts/actualizar-grafos-graphify.sh`). Además, DEBES leer las configuraciones de linters y dependencias definidos en `pyproject.toml` para adaptar tu código a las convenciones estrictas del repositorio y evitar rechazos en el CI/CD.
 
 ### G. Seguridad por Diseño Obligatoria (DISA ASD STIG V6R5 & OWASP Developer Guide v4.2)
 *   Todo script o librería en Python DEBE cumplir y probar los controles aplicables de **[`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`](../docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md)**:
@@ -86,12 +87,11 @@ Dependiendo de la naturaleza del script, debes instrumentarlo de una de estas do
 
 En lugar de construir comandos complejos de Docker, **DEBES** instruir al usuario (o ejecutar autónomamente si tienes acceso a terminal) utilizando el `Makefile` estandarizado:
 
-**Paso 0: Ingestión de Contexto (Opcional para Agentes MCP)**
-Extrae la topología del código y levanta tu servidor de contexto si requieres MCP externo:
+**Paso 0: Actualización del Grafo AST y Contratos Backend**
 ```bash
-docker compose -f docker-compose.qa.yml --profile graphify run --rm graphify bash -c "graphify extract --code-only"
-docker compose -f docker-compose.qa.yml --profile graphify up -d graphify
-# (El Agente IA se conecta a http://localhost:8080/sse)
+./scripts/actualizar-grafos-graphify.sh
+# Desde la raíz del repositorio para certificar Pact Python->Node + k6 smoke + antipatrones:
+make test-backend-blueprints
 ```
 
 **Paso 1: Ejecución de las suites de validación**
