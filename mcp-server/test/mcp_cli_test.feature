@@ -747,7 +747,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
 
   Scenario: 25. Alineación Non-Root UID 10001 en CI / Stacks Node (pnpm-store-init) y Paridad Documental Integral
     * def ciWorkflow = karate.readAsString(repoRoot + '/.github/workflows/qa-11x-ci.yml')
-    * assert ciWorkflow.contains('run --rm -u "$(id -u):$(id -g)"')
+    * assert ciWorkflow.contains('run --rm -T -u "$(id -u):$(id -g)"')
     * assert ciWorkflow.contains('mcp-server bash -c')
 
     * def mcpCompose = karate.readAsString(mcpRoot + '/docker-compose.qa.yml')
@@ -848,6 +848,8 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def secAuditorSource = karate.readAsString(mcpRoot + '/src/tools/security-auditor.ts')
     * assert secAuditorSource.contains('QA-CLI-TTY-01')
     * assert secAuditorSource.contains('checkQaCliTty01InteractiveHangGuard')
+    * assert secAuditorSource.contains('QA-DOCKER-TTY-01')
+    * assert secAuditorSource.contains('checkQaDockerTty01NonInteractiveAndReadOnly')
     * assert secAuditorSource.contains('SEC-CI-ACTION-REF')
     * assert secAuditorSource.contains('checkSecCiActionRef')
 
@@ -861,9 +863,11 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
 
     * def humanPractices = karate.readAsString(repoRoot + '/docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md')
     * assert humanPractices.contains('QA-CLI-TTY-01')
+    * assert humanPractices.contains('QA-DOCKER-TTY-01')
 
     * def humanSecurity = karate.readAsString(repoRoot + '/docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md')
     * assert humanSecurity.contains('QA-CLI-TTY-01')
+    * assert humanSecurity.contains('QA-DOCKER-TTY-01')
     * assert humanSecurity.contains('SEC-CI-ACTION-REF')
 
     * def rootSecurity = karate.readAsString(repoRoot + '/SECURITY.md')
@@ -871,6 +875,8 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert rootSecurity.contains('QA-CLI-TTY-01')
     * assert rootSecurity.contains('### 4.24.')
     * assert rootSecurity.contains('SEC-CI-ACTION-REF')
+    * assert rootSecurity.contains('### 4.25.')
+    * assert rootSecurity.contains('QA-DOCKER-TTY-01')
 
   Scenario: 29. Cierre T5.4 — llms.txt (GEO), Catálogos Globales (QASkills, SkillsLLM, AgenticSkills), Paridad 10/18/12 y Versión 2.21.0
     * match pkg.version == '2.21.0'

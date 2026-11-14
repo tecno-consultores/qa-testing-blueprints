@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.21.0",
-  "generated_at_utc": "2026-11-14T19:38:49Z",
+  "generated_at_utc": "2026-11-14T20:14:00Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -910,8 +910,8 @@
       "path": ".agents/skills/docker-trivy-keydb-hardening/SKILL.md",
       "target_name": ".agents/skills/docker-trivy-keydb-hardening/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "d4dedb52015e43d038c501704778a0e6bb5107bead39caa7b6484826594f0436",
-      "size_bytes": 4763
+      "sha256": "f34ad022f0a221a5c4a1853e6ca9dfef51d5852854e10c1638303497e93ffc86",
+      "size_bytes": 5087
     },
     {
       "path": ".agents/skills/graphify-ast-navigator/SKILL.md",
@@ -924,8 +924,8 @@
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "4db8a6de7b5b6fed029b29c049375eb891f5ef8bd6939072ceeea80cea93fc66",
-      "size_bytes": 11783
+      "sha256": "54d7bd2db02abaeaf578b79d283d4c2577c14b38a0e8f0f3d1480b78601a37a8",
+      "size_bytes": 11823
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
@@ -952,8 +952,8 @@
       "path": ".agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md",
       "target_name": ".agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "8c90a755aad57a72f226ddd6f888c04705036ff4db1f1690b4abb713006bd0a5",
-      "size_bytes": 12957
+      "sha256": "55faa3f0ade753c6a8c52773770798a3b3e52028266aa1e4cadf692dabf191e7",
+      "size_bytes": 15989
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/05-stack-bash-devops.md",
@@ -994,8 +994,8 @@
       "path": ".agents/skills/qa-11x-devsecops-hardener/SKILL.md",
       "target_name": ".agents/skills/qa-11x-devsecops-hardener/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "f33d92e30439f56adc45acf243ba0e7c6eccbd3be92baee78cebcde143de694a",
-      "size_bytes": 13687
+      "sha256": "e14e2bc6f051a68326847ff3b1efb8e385ea4bc588cb8c23607269511a8e6ad2",
+      "size_bytes": 13897
     },
     {
       "path": ".agents/skills/qa-11x-devsecops-hardener/references/stig_rls_vault.md",
@@ -1008,8 +1008,8 @@
       "path": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "target_name": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "4f19005fedcef41a013205dcb3745075f3750a0c1ac79ac91d16cd0e6ac1d47a",
-      "size_bytes": 5957
+      "sha256": "3b149eca2454a98e3731f9bfce796060acc70057ea801c3c00de93fbe2a6fb59",
+      "size_bytes": 6262
     },
     {
       "path": ".agents/skills/qa-11x-llm-evaluator/SKILL.md",
@@ -1134,7 +1134,7 @@
       "path": "catalogs/skillsllm-manifest.json",
       "target_name": "catalogs/skillsllm-manifest.json",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "ba12467a61bb9d37b83b2945d25f2d70e200e12b4631d011d4ff04bcf8f92f55",
+      "sha256": "1ecbdbaace124ce01bdc16f92d3678bd857eb13f43999b68545eba6c65dc7ddf",
       "size_bytes": 11078
     },
     {

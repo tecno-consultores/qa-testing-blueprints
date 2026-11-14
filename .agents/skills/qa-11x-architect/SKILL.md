@@ -29,7 +29,7 @@ Classify every task before acting. **NEVER run automatic `git push`** (`QA-GIT-G
 3. `audit_test_pyramid_gaps` — 13-layer audit (includes `inspect_project_config`).
 4. `fetch_blueprint_bundle` — SHA-256 metadata (`include_content: false`).
 5. `bootstrap_or_merge_11x` — surgical `.example` merge (`0` skill duplication).
-6. `audit_security_stig_owasp` — static audit (`SEC-01`..`SEC-16`, `SEC-CI-ACTION-REF`, `QA-KARATE-IDEMP`, `QA-COV-01`, `QA-MYPY-01`, `QA-PG17-RLS`, `QA-SMOKE-01`, `QA-HEALTH-01`, `QA-CLI-TTY-01`, `UI-11X-01/02`).
+6. `audit_security_stig_owasp` — static audit (`SEC-01`..`SEC-16`, `SEC-CI-ACTION-REF`, `QA-KARATE-IDEMP`, `QA-COV-01`, `QA-MYPY-01`, `QA-PG17-RLS`, `QA-SMOKE-01`, `QA-HEALTH-01`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`, `UI-11X-01/02`).
 7. `run_ephemeral_qa` — runs `lint|unit|migration|integration|ci|bdd|mutation|dast|e2e|perf|chaos|all` in `sinfallas/*` (stamps `.agents/.qa-evidence.json`).
 8. `clean_workspace_11x` — rootless purge preserving `mcp-server/dist` and `graphify-out/`.
 9. `certify_11x_gate` — 10/10 gate (`Fail-Verbose` `/tmp/qa-11x-last-failure.json`, lint evidence).
@@ -86,7 +86,7 @@ Hydrate specialized sub-skills **strictly on demand** by domain (canonical inlin
 
 | Sub-Skill | Trigger & Scope |
 | :--- | :--- |
-| `qa-11x-devsecops-hardener` | STIG V6R5, OWASP v4.2, PG17 RLS (`QA-PG17-RLS`, `NOBYPASSRLS`, `after_begin`), Vault AES-256-GCM, `QA-HEALTH-01`, `QA-CLI-TTY-01`. |
+| `qa-11x-devsecops-hardener` | STIG V6R5, OWASP v4.2, PG17 RLS (`QA-PG17-RLS`, `NOBYPASSRLS`, `after_begin`), Vault AES-256-GCM, `QA-HEALTH-01`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`. |
 | `qa-11x-systematic-debugging` | Mandatory 4-phase root-cause debugging (Reproduce -> Isolate -> Trace -> Verify) pre-patch. |
 | `qa-11x-screenplay-builder` | Screenplay (Actors/Abilities/Tasks/Questions) for RBAC E2E vs. POM (`<= 10` tests / `<= 3` pages). |
 | `qa-11x-llm-evaluator` | Dual-Mode LLM/RAG evals: deterministic offline contracts + DeepEval/Promptfoo red-team. |

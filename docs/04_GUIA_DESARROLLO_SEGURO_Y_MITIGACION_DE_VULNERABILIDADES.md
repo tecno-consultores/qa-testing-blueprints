@@ -53,6 +53,7 @@
 | `QA-HEALTH-01` | Caída en `unhealthy` de contenedores/workers por supervisores `asyncio` sin `task.exception()` o sondas `HEALTHCHECK` no probadas | `docs/02` §1.1 (Regla #9) y `SECURITY.md` §4.22 |
 | `QA-CLI-TTY-01` | Bloqueo indefinido en consola interactiva (`TTY`) de binarios duales CLI + Servidor MCP `stdio` sin verificar `isTTY` / `isatty()` | `docs/02` §1.1 (Regla #10) y `SECURITY.md` §4.23 |
 | `SEC-CI-ACTION-REF` | Referencias `uses:` en GitHub Actions sin fijación por commit SHA de 40 caracteres (ramas mutables o tags eliminados como `trivy-action@0.28.0`) | Patrón 22 y `SECURITY.md` §4.24 |
+| `QA-DOCKER-TTY-01` | Asignación de pseudo-TTY (`docker compose run` sin `-T`) en pipelines `CI=true` y despliegues Wrangler v4 sobre `read_only: true` sin `tmpfs` `noexec` en `.wrangler` o sin `--force` | `docs/02` §5.1 y `SECURITY.md` §4.25 |
 
 ---
 

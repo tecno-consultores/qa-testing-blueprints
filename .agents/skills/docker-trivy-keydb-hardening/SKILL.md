@@ -27,6 +27,7 @@ This skill guides the implementation of production-grade Docker containers and u
 3. **Security Profiles, Read-Only Root Filesystem & Capabilities:**
    - Drop all unnecessary Linux capabilities (`cap_drop: [ALL]`, adding back only strictly required ones).
    - Enforce `security_opt: ["no-new-privileges:true"]`, default `seccomp` profile (`RuntimeDefault`), and `read_only: true` root filesystems (mounting `/tmp` or `/run` as `tmpfs:size=64M,noexec,nosuid,nodev` and restricting writes exclusively to dedicated data volumes).
+   - When a `read_only: true` container requires writable cache/state dirs outside `/tmp` or `/run` (e.g., `/app/.wrangler` for Wrangler v4 `saveToConfigCache`), pre-create them in the `Dockerfile` (`mkdir -p /app/.wrangler && chown ...`) and mount them as `tmpfs` with `mode=1777,noexec,nosuid,nodev` (`QA-DOCKER-TTY-01`).
 4. **Shift-Left Vulnerability Scans, CycloneDX SBOM & Artifact Integrity (DISA STIG & OWASP):**
    - Execute `./scripts/auditar-infra.sh` (`trivy config` on Dockerfiles/Compose manifests + `trivy fs --exit-code 1 --severity HIGH,CRITICAL .`) ensuring 0 unresolved findings.
    - Generate **OWASP CycloneDX SBOM/CBOM (ECMA-424)** (`cyclonedx-py` / `@cyclonedx/cyclonedx-npm`) and verify SHA-256 cryptographic hashes/signatures of release deliverables (`APSC-DV-001430`, `APSC-DV-003140`).

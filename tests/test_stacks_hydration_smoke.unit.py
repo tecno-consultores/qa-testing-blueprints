@@ -173,7 +173,7 @@ class TestStacksHydrationSmoke(unittest.TestCase):
         """Previene regresiones os error 13 (UID 10001 vs bind-mount host/CI) en base-node-ionic:26."""
         ci_workflow = (REPO_ROOT / ".github" / "workflows" / "qa-11x-ci.yml").read_text(encoding="utf-8")
         self.assertIn(
-            'docker compose -f mcp-server/docker-compose.qa.yml run --rm -u "$(id -u):$(id -g)"',
+            'docker compose -f mcp-server/docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)"',
             ci_workflow,
         )
         self.assertIn("pnpm run test:example", ci_workflow)

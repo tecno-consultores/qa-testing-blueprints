@@ -180,6 +180,65 @@ Para profundizar en las implementaciones de código (prevención de Asignación 
 4. **Auditoría Preventiva con Trivy:**
    - Integrar escaneos automáticos de vulnerabilidades con `aquasec/trivy:latest` sobre el sistema de archivos y manifiestos de infraestructura (`./scripts/auditar-infra.sh`), bloqueando el pase a producción si existen hallazgos de severidad CRITICAL o HIGH.
 
+### 5.1. Despliegues No Interactivos (`docker compose run -T`) y Wrangler v4 (Cloudflare Pages) en Contenedores `read_only: true` (`QA-DOCKER-TTY-01`)
+
+Durante el *dogfooding* productivo bajo **Regla Cero** (`wrangler 4.161.0` dentro de contenedores endurecidos con `read_only: true`, `cap_drop: [ALL]` y `CI: 'true'`), se identificaron tres fallos encadenados al combinar CLI interactivas modernas con rootfs de solo lectura:
+1. **`NoDefaultValueProvided` por pseudo-TTY (`process.stdin.isTTY === true`):** `docker compose run --rm` sin `-T` asigna un pseudo-TTY aunque `CI: 'true'` esté activo. Si el proyecto aún no existe en la cuenta o la CLI usa selectores interactivos, el proceso entra en la rama de prompts y aborta inmediatamente. En pipelines CI/CD, scripts de despliegue (`deploy*.sh`, `ci*.sh`) y flujos de agentes, ejecute siempre `docker compose run --rm -T` (`QA-DOCKER-TTY-01`).
+2. **Fallo `ENOENT` / `EROFS` en `/app/.wrangler/cache` (`saveToConfigCache`):** Con `read_only: true`, Docker exige que el directorio destino de un `tmpfs` fuera de `/tmp` o `/run` exista previamente en la imagen. Todo caché local requerido por la herramienta (ej. `/app/.wrangler`) debe precrearse en el `Dockerfile` (`mkdir -p` + `chown`) y montarse como `tmpfs` con `mode=1777,noexec,nosuid,nodev`.
+3. **Delegación silenciosa Pages-to-Workers (`maybeDelegatePagesToWorkers`) en sesiones de agentes IA:** Wrangler v4 puede intentar redirigir proyectos estáticos nuevos hacia Cloudflare Workers si detecta variables de entorno de agentes de codificación; añada `--force` explícitamente tanto en `wrangler pages project create` (verificando previamente la lista JSON de forma idempotente) como en `wrangler pages deploy`.
+
+```dockerfile
+# Dockerfile.deploy — precrear punto de montaje antes de pasar a usuario no-root
+USER root
+RUN mkdir -p /app/.wrangler \
+    && chown -R appuser:appgroup /app /pnpm
+USER appuser
+```
+
+```yaml
+# docker-compose.deploy.yml — rootfs read_only + tmpfs noexec + Fail-Secure + --force
+services:
+  deploy:
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=64M,mode=1777,noexec,nosuid,nodev
+      - /app/.wrangler:size=32M,mode=1777,noexec,nosuid,nodev
+    environment:
+      HOME: /tmp
+      WRANGLER_SEND_METRICS: 'false'
+      CI: 'true'
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        set -eu
+        : "$${CF_PAGES_PROJECT:?CF_PAGES_PROJECT es obligatorio}"
+        : "$${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN es obligatorio}"
+        PROJECT="$${CF_PAGES_PROJECT}"
+        BRANCH="$${CF_PAGES_PRODUCTION_BRANCH:-main}"
+        PROJECTS_JSON="$$(wrangler pages project list --json)"
+        if ! printf '%s' "$$PROJECTS_JSON" | node -e 'const fs=require("fs"),p=process.argv[1],d=JSON.parse(fs.readFileSync(0,"utf8"));if(!Array.isArray(d))process.exit(2);process.exit(d.some(x=>(x["Project Name"]??x.name)===p)?0:1)' "$$PROJECT"; then
+          status=$$?
+          [ "$$status" -eq 1 ] || exit "$$status"
+          wrangler pages project create "$$PROJECT" --production-branch="$$BRANCH" --force
+        fi
+        wrangler pages deploy /app/dist \
+          --project-name="$$PROJECT" \
+          --branch="$$BRANCH" \
+          --commit-dirty=true \
+          --force
+```
+
+```bash
+# deploy.sh — deshabilitar pseudo-TTY en CI; requiere aprobación humana o compuerta GO (QA-GIT-GATE-01)
+docker compose -f docker-compose.deploy.yml run --rm -T --no-deps -u "$(id -u):$(id -g)" deploy
+```
+
+> **Compuerta de Mutación Remota (`QA-GIT-GATE-01`):** Al igual que `git push` o `npm publish`, la ejecución de `deploy.sh` muta infraestructura externa en producción y requiere autorización explícita del operador humano o una compuerta de liberación `GO` (`evaluate_release_gate`).
+
 ---
 
 ## 6. Manejo de Errores No Destructivo en Frontend

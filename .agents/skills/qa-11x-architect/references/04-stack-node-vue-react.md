@@ -193,3 +193,63 @@ Feature: HTTP Edge, OWASP OSHP Headers & SSG/SEO Contract (Karate 1.5.1)
     * def ct = responseHeaders['Content-Type'] ? responseHeaders['Content-Type'][0] : ''
     * assert ct.contains('xml') ? xmlText.contains('<urlset') : xmlText.toLowerCase().contains('<html')
 ```
+
+---
+
+## 6. Hardened Static/SSG Deployment: Wrangler v4 (Cloudflare Pages) on `read_only: true` (`QA-DOCKER-TTY-01` & `QA-GIT-GATE-01`)
+
+Deterministic non-interactive Cloudflare Pages deployments under `read_only: true`, `cap_drop: [ALL]`, `no-new-privileges:true`, and `CI: 'true'` prevent three chained runtime failures observed with Wrangler v4:
+1. **`NoDefaultValueProvided` (`process.stdin.isTTY === true` + `CI: 'true'`):** `docker compose run --rm` without `-T` allocates a pseudo-TTY that triggers interactive prompts (`select2`) and aborts in CI. Always pass `-T` and create missing Pages projects idempotently before deploying.
+2. **`ENOENT`/`EROFS` on `/app/.wrangler/cache` (`saveToConfigCache`):** Pre-create `/app/.wrangler` in `Dockerfile.deploy` and mount it as `tmpfs` with `noexec,nosuid,nodev`.
+3. **Silent Pages-to-Workers delegation (`maybeDelegatePagesToWorkers`):** When AI coding-agent environment variables are present, pass `--force` on `wrangler pages project create` and `wrangler pages deploy`.
+
+1. **`Dockerfile.deploy` (pre-create `tmpfs` mount point on read-only rootfs):**
+   ```dockerfile
+   USER root
+   RUN mkdir -p /app/.wrangler \
+       && chown -R appuser:appgroup /app /pnpm
+   USER appuser
+   ```
+
+2. **`docker-compose.deploy.yml` (`noexec` `tmpfs`, Fail-Secure env validation, resilient JSON check, `--force`):**
+   ```yaml
+   services:
+     deploy:
+       read_only: true
+       cap_drop:
+         - ALL
+       security_opt:
+         - no-new-privileges:true
+       tmpfs:
+         - /tmp:size=64M,mode=1777,noexec,nosuid,nodev
+         - /app/.wrangler:size=32M,mode=1777,noexec,nosuid,nodev
+       environment:
+         HOME: /tmp
+         WRANGLER_SEND_METRICS: 'false'
+         CI: 'true'
+       entrypoint: ["sh", "-c"]
+       command:
+         - |
+           set -eu
+           : "$${CF_PAGES_PROJECT:?CF_PAGES_PROJECT is required}"
+           : "$${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN is required}"
+           PROJECT="$${CF_PAGES_PROJECT}"
+           BRANCH="$${CF_PAGES_PRODUCTION_BRANCH:-main}"
+           PROJECTS_JSON="$$(wrangler pages project list --json)"
+           if ! printf '%s' "$$PROJECTS_JSON" | node -e 'const fs=require("fs"),p=process.argv[1],d=JSON.parse(fs.readFileSync(0,"utf8"));if(!Array.isArray(d))process.exit(2);process.exit(d.some(x=>(x["Project Name"]??x.name)===p)?0:1)' "$$PROJECT"; then
+             status=$$?
+             [ "$$status" -eq 1 ] || exit "$$status"
+             wrangler pages project create "$$PROJECT" --production-branch="$$BRANCH" --force
+           fi
+           wrangler pages deploy /app/dist \
+             --project-name="$$PROJECT" \
+             --branch="$$BRANCH" \
+             --commit-dirty=true \
+             --force
+   ```
+
+3. **`deploy.sh` (disable pseudo-TTY; `QA-GIT-GATE-01` remote mutation gate):**
+   ```bash
+   # Requires explicit human operator confirmation or GO Release Gate (QA-GIT-GATE-01)
+   docker compose -f docker-compose.deploy.yml run --rm -T --no-deps -u "$(id -u):$(id -g)" deploy
+   ```

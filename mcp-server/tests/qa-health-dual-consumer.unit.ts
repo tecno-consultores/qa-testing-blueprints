@@ -394,6 +394,150 @@ describe('QA-HEALTH-01 & Dual-Consumer Evolution Suite', () => {
     });
   });
 
+  describe('QA-DOCKER-TTY-01: Non-Interactive Compose TTY & Read-Only Wrangler Hardening', () => {
+    it('flags compose run without -T in CI/deploy files and passes -T, --no-TTY, local scripts, and pragmas', async () => {
+      const wfDir = path.join(tmpDir, '.github', 'workflows');
+      fs.mkdirSync(wfDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(wfDir, 'deploy.yml'),
+        [
+          'name: Deploy',
+          'jobs:',
+          '  ship:',
+          '    steps:',
+          '      - run: docker compose -f compose.yml run --rm -u "1000:1000" ui pnpm test',
+          '      - run: docker compose -f compose.yml run --rm -T -u "1000:1000" ui pnpm build',
+          '      - run: docker compose -f compose.yml run --rm --no-TTY ui pnpm lint',
+          '      - run: docker compose -f compose.yml run --rm -dT ui pnpm ping',
+          '      - run: docker compose -f compose.yml up -d',
+        ].join('\n'),
+        'utf8'
+      );
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'deploy.sh'),
+        [
+          '#!/usr/bin/env bash',
+          'docker compose -f docker-compose.deploy.yml run --rm \\',
+          '  -u "$(id -u):$(id -g)" \\',
+          '  --entrypoint "" deploy sh -c "echo ship"',
+          'docker compose run --rm deploy -T',
+          '# qa-docker-tty-ok',
+          'docker compose run --rm deploy echo exempt_line',
+        ].join('\n'),
+        'utf8'
+      );
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'helper.sh'),
+        [
+          '#!/usr/bin/env bash',
+          "CI='true'",
+          "docker-compose -p ci run --rm app 'echo quoted arg'",
+        ].join('\n'),
+        'utf8'
+      );
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'local-dev.sh'),
+        '#!/usr/bin/env bash\ndocker compose run --rm app bash\n',
+        'utf8'
+      );
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'ci-exempt.sh'),
+        '# qa-docker-tty-ok\ndocker compose run --rm app bash\n',
+        'utf8'
+      );
+
+      const res = await auditSecurityStigOwasp(tmpDir);
+      const findings = res.findings.filter((f) => f.rule_id === 'QA-DOCKER-TTY-01');
+      expect(findings).toHaveLength(4);
+      expect(findings.every((f) => f.severity === 'HIGH')).toBe(true);
+      expect(findings.some((f) => f.file === path.join('.github', 'workflows', 'deploy.yml') && f.line === 5)).toBe(true);
+      expect(findings.some((f) => f.file === 'deploy.sh' && f.line === 2)).toBe(true);
+      expect(findings.some((f) => f.file === 'deploy.sh' && f.line === 5)).toBe(true);
+      expect(findings.some((f) => f.file === 'helper.sh' && f.line === 3)).toBe(true);
+    });
+
+    it('flags read_only wrangler compose missing noexec .wrangler tmpfs or --force and passes hardened compose', async () => {
+      fs.writeFileSync(
+        path.join(tmpDir, 'docker-compose.bad-nomount.yml'),
+        [
+          'services:',
+          '  deploy:',
+          '    read_only: true',
+          '    environment:',
+          "      CI: 'true'",
+          '    command:',
+          '      - |',
+          '        wrangler pages project create my-app --production-branch=main',
+          '        wrangler pages deploy /app/dist \\',
+          '          --project-name=my-app',
+        ].join('\n'),
+        'utf8'
+      );
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'docker-compose.bad-exec.yml'),
+        [
+          'services:',
+          '  deploy:',
+          '    read_only: true',
+          '    tmpfs:',
+          '      - /app/.wrangler:size=32M,mode=1777,nosuid,nodev',
+          '    command: wrangler pages deploy /app/dist --project-name=ok --force',
+        ].join('\n'),
+        'utf8'
+      );
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'docker-compose.good.yml'),
+        [
+          'services:',
+          '  deploy:',
+          '    read_only: true',
+          '    tmpfs:',
+          '      - /tmp:size=64M,mode=1777,noexec,nosuid,nodev',
+          '      - /app/.wrangler:size=32M,mode=1777,noexec,nosuid,nodev',
+          '    environment:',
+          "      CI: 'true'",
+          '    command:',
+          '      - |',
+          '        wrangler pages project create my-app --production-branch=main --force',
+          '        wrangler pages deploy /app/dist \\',
+          '          --project-name=my-app \\',
+          '          --force',
+        ].join('\n'),
+        'utf8'
+      );
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'docker-compose.keydb.yml'),
+        'services:\n  redis:\n    image: eqalpha/keydb:alpine\n    read_only: true\n',
+        'utf8'
+      );
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'docker-compose.deploy.yml.example'),
+        'services:\n  deploy:\n    read_only: true\n    command: wrangler pages deploy /app/dist\n',
+        'utf8'
+      );
+
+      const res = await auditSecurityStigOwasp(tmpDir);
+      const findings = res.findings.filter((f) => f.rule_id === 'QA-DOCKER-TTY-01');
+      expect(findings).toHaveLength(4);
+      const badNomount = findings.filter((f) => f.file === 'docker-compose.bad-nomount.yml');
+      expect(badNomount).toHaveLength(3);
+      expect(badNomount.some((f) => f.message.includes('saveToConfigCache'))).toBe(true);
+      expect(badNomount.filter((f) => f.message.includes('maybeDelegatePagesToWorkers'))).toHaveLength(2);
+      const badExec = findings.filter((f) => f.file === 'docker-compose.bad-exec.yml');
+      expect(badExec).toHaveLength(1);
+      expect(badExec[0].message).toContain('noexec');
+      expect(findings.some((f) => f.file === 'docker-compose.good.yml')).toBe(false);
+    });
+  });
+
   describe('Dual-Consumer Proposal Matrix (propose_skill_evolution_pr)', () => {
     it('infers security, governance, and practices Dual-Consumer targets automatically', () => {
       const secTargets = inferDualConsumerTargets({
