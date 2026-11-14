@@ -187,13 +187,73 @@ gate_01_secrets() {
   fi
 }
 
+audit_ci_and_submakefiles_fallback() {
+  local found_err=0
+  local out=""
+  local rel=""
+
+  if [ -d "${REPO_ROOT}/.github" ]; then
+    while IFS= read -r -d '' wf_file; do
+      rel="${wf_file#"${REPO_ROOT}/"}"
+      if ! out="$(awk -v file="${rel}" '
+        { lines[NR] = $0; if (NR <= 5 && index($0, "qa-ci-escape-ok") > 0) skip = 1 }
+        END {
+          if (skip) exit 0
+          bad = 0; prev = ""
+          for (i = 1; i <= NR; i++) {
+            line = lines[i]; tr = line; sub(/^[[:space:]]+/, "", tr)
+            if (tr != "" && substr(tr, 1, 1) != "#" && index(line, "qa-ci-escape-ok") == 0 && index(prev, "qa-ci-escape-ok") == 0 && line ~ /\$\$[({][A-Za-z_]/) {
+              printf "❌ [QA-CI-ESCAPE-01] %s:%d: Escape $$(...) / $${...} en GitHub Actions.\n", file, i
+              bad = 1
+            }
+            prev = line
+          }
+          exit bad
+        }
+      ' "${wf_file}")"; then
+        printf '%s\n' "${out}" >&2
+        found_err=1
+      fi
+    done < <(find "${REPO_ROOT}/.github" -type f \( -path '*/workflows/*.yml' -o -path '*/workflows/*.yaml' -o -path '*/actions/*/action.yml' -o -path '*/actions/*/action.yaml' \) -print0 2>/dev/null)
+  fi
+
+  while IFS= read -r -d '' mk_file; do
+    rel="${mk_file#"${REPO_ROOT}/"}"
+    if ! out="$(awk -v file="${rel}" '
+      { lines[NR] = $0; if (NR <= 5 && index($0, "qa-make-curdir-ok") > 0) skip = 1 }
+      END {
+        if (skip) exit 0
+        bad = 0; prev = ""
+        for (i = 1; i <= NR; i++) {
+          line = lines[i]; tr = line; sub(/^[[:space:]]+/, "", tr)
+          chk = line; gsub(/\$\$/, "__QA_DBL__", chk)
+          if (tr != "" && substr(tr, 1, 1) != "#" && index(line, "qa-make-curdir-ok") == 0 && index(prev, "qa-make-curdir-ok") == 0 && (chk ~ /\$\(PWD\)/ || chk ~ /\$\{PWD\}/)) {
+            printf "❌ [QA-MAKE-CURDIR-01] %s:%d: Sub-Makefile usa $(PWD)/${PWD} en lugar de $(CURDIR).\n", file, i
+            bad = 1
+          }
+          prev = line
+        }
+        exit bad
+      }
+    ' "${mk_file}")"; then
+      printf '%s\n' "${out}" >&2
+      found_err=1
+    fi
+  done < <(find "${REPO_ROOT}" -mindepth 2 -maxdepth 4 \
+    \( -name node_modules -o -name .git -o -name dist -o -name .venv -o -name vendor -o -name target -o -name graphify-out -o -name tests -o -name test -o -name __tests__ \) -prune \
+    -o -type f \( -name 'Makefile' -o -name 'Makefile.example' \) -print0 2>/dev/null)
+
+  return "${found_err}"
+}
+
 gate_02_trivy() {
   if [ -f "${REPO_ROOT}/scripts/auditar-infra.sh" ]; then
     bash "${REPO_ROOT}/scripts/auditar-infra.sh" || return $?
   elif [ -f "${REPO_ROOT}/auditar-infra.sh" ]; then
     bash "${REPO_ROOT}/auditar-infra.sh" || return $?
   else
-    printf 'ℹ️ Script auditar-infra.sh no encontrado (omitido).\n'
+    audit_ci_and_submakefiles_fallback || return $?
+    printf 'ℹ️ Script auditar-infra.sh no encontrado (solo validación estática CI/Makefile ejecutada; Trivy omitido).\n'
   fi
 }
 
@@ -228,7 +288,7 @@ gate_10_doc_and_test_sync() {
     fi
   fi
 
-  code_changes=$(printf '%s\n' "${all_changed}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|bash-scripts|php|mcp-server|backend|frontend|scripts)/|\.agents/scripts/|Makefile$|lefthook\.yml$|commitlint\.config\.js$)' | grep -vE '(\.md$|(^|/)graphify-out/)' || true)
+  code_changes=$(printf '%s\n' "${all_changed}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|bash-scripts|php|mcp-server|backend|frontend|scripts)/|\.agents/scripts/|((.*/)?Makefile(\.example)?)$|\.github/(workflows|actions)/|lefthook\.yml$|commitlint\.config\.js$)' | grep -vE '(\.md$|(^|/)graphify-out/)' || true)
   exec_src_changes=$(printf '%s\n' "${code_changes}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|php|mcp-server|backend|frontend)/src/|src/|bash-scripts/|scripts/|\.agents/scripts/)' | grep -vE '(\.unit\.(py|ts|tsx)|\.e2e\.ts|test_.*\.py|.*\.test\.(ts|js)|\.feature|\.bats)' || true)
   doc_changes=$(printf '%s\n' "${all_changed}" | grep -E '(\.md$|^docs/)' || true)
 

@@ -624,13 +624,72 @@ def refresh_ast_if_needed(repo_root: Path, manifest_changed: bool) -> list[str]:
     return []
 
 
+def _sync_single_skill_entry(
+    repo_root: Path, entry: dict[str, Any], check_only: bool
+) -> tuple[bool, str | None]:
+    rel_skill = entry.get("path")
+    skill_file = (
+        repo_root / rel_skill if isinstance(rel_skill, str) and rel_skill else None
+    )
+    if skill_file is None or not skill_file.is_file():
+        return False, None
+    actual_size = skill_file.stat().st_size
+    actual_sha = compute_sha256(skill_file)
+    if entry.get("size_bytes") == actual_size and entry.get("sha256") == actual_sha:
+        return False, None
+    if check_only:
+        return False, (
+            f"catalogs/skillsllm-manifest.json desincronizado en '{rel_skill}'."
+        )
+    entry["size_bytes"] = actual_size
+    entry["sha256"] = actual_sha
+    return True, None
+
+
+def _collect_skill_catalog_updates(
+    repo_root: Path, skills: list[Any], check_only: bool
+) -> tuple[bool, list[str]]:
+    errors: list[str] = []
+    dirty = False
+    for entry in skills:
+        if isinstance(entry, dict):
+            changed, err = _sync_single_skill_entry(repo_root, entry, check_only)
+            dirty = dirty or changed
+            if err:
+                errors.append(err)
+    return dirty, errors
+
+
+def sync_skillsllm_catalog(repo_root: Path, check_only: bool) -> list[str]:
+    """Sincroniza o verifica size_bytes y sha256 en catalogs/skillsllm-manifest.json."""
+    catalog_path = repo_root / "catalogs" / "skillsllm-manifest.json"
+    if not catalog_path.is_file():
+        return []
+    try:
+        data = load_manifest_strict(catalog_path)
+    except (OSError, json.JSONDecodeError, ValueError, TypeError) as exc:
+        return [f"Error al validar catalogs/skillsllm-manifest.json: {exc}"]
+    raw_skills = data.get("skills")
+    skills = raw_skills if isinstance(raw_skills, list) else []
+    dirty, errors = _collect_skill_catalog_updates(repo_root, skills, check_only)
+    if dirty and not check_only:
+        catalog_path.write_text(
+            json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+    return errors
+
+
 def run_sync(
     repo_root: Path,
     check_only: bool = False,
     with_ast: bool = False,
 ) -> tuple[int, str]:
     """Ejecuta sincronización o verificación determinista y retorna (exit_code, mensaje)."""
-    errors: list[str] = validate_cognitive_budgets(repo_root)
+    errors: list[str] = [
+        *validate_cognitive_budgets(repo_root),
+        *sync_skillsllm_catalog(repo_root, check_only),
+    ]
     manifest_path = repo_root / "manifest.json"
 
     existing_manifest: dict[str, Any] = {}

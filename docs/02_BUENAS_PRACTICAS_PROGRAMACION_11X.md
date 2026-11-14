@@ -261,6 +261,27 @@ Todo frontend SPA o sitio público SSG debe evitar atajos `.webp` en iconos de p
      Cross-Origin-Resource-Policy: cross-origin
    ```
 
+### 5.3. Diferencia de Expansión entre `Makefile`/Compose y GitHub Actions (`QA-CI-ESCAPE-01`) y `$(CURDIR)` en Sub-Makefiles (`QA-MAKE-CURDIR-01`)
+
+Durante auditorías de pipelines reales bajo **Regla Cero**, se identificaron dos fallos frecuentes al trasladar comandos `docker run` entre `Makefile`, `docker-compose.yml` y `.github/workflows/*.yml`:
+
+1. **Prohibido usar `$$(...)` o `$${...}` en bloques `run:` de GitHub Actions (`QA-CI-ESCAPE-01`):** En recetas de GNU Make (o `command:` de `docker-compose.yml`) se escribe `$$(pwd)`, `$$(id -u)` o `$${VAR}` para escapar el signo `$` antes de entregarlo al shell. En cambio, GitHub Actions entrega el bloque `run:` directamente a `bash`: escribir `$$(pwd)` expande `$$` al **PID numérico del proceso** (ej. `2970(pwd)`), rompiendo montajes `-v` de Docker con `exit code 125`. Utilice siempre sustitución simple `$(pwd)` / `$(id -u):$(id -g)` / `${VAR}` en workflows y *composite actions* (use `# qa-ci-escape-ok` solo si el paso genera literalmente un `Makefile` o `docker-compose.yml`).
+   ```yaml
+   # ❌ ANTIPATRÓN (bash expande $$ al PID del proceso -> "create 2970(pwd)" exit code 125)
+   - run: docker run --rm -u "$$(id -u):$$(id -g)" -v "$$(pwd):/workspace:ro" aquasec/trivy:latest config .
+
+   # ✔️ PATRÓN 11X (sustitución simple directa en bash)
+   - run: docker run --rm -u "$(id -u):$(id -g)" -v "$(pwd):/workspace:ro" aquasec/trivy:latest config .
+   ```
+2. **Uso obligatorio de `$(CURDIR)` en sub-Makefiles (`QA-MAKE-CURDIR-01`):** Cuando un `Makefile` raíz delega con `$(MAKE) -C backend <target>`, GNU Make cambia al subdirectorio y actualiza `$(CURDIR)`, pero conserva `$(PWD)` / `${PWD}` apuntando al directorio padre del llamador. En `*/Makefile` y `*/Makefile.example` utilice siempre `$(CURDIR)` (ej. `HOST_PWD ?= $(CURDIR)`, eximible con `# qa-make-curdir-ok`) para preservar la frontera exacta de volumen en contenedores efímeros.
+   ```makefile
+   # ❌ ANTIPATRÓN (hereda el PWD del Makefile raíz y monta el directorio padre)
+   HOST_PWD ?= $(PWD)
+
+   # ✔️ PATRÓN 11X (resuelve el directorio real del sub-Makefile invocado con make -C)
+   HOST_PWD ?= $(CURDIR)
+   ```
+
 ---
 
 ## 6. Manejo de Errores No Destructivo en Frontend

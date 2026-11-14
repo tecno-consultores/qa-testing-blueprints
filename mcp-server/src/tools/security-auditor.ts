@@ -104,6 +104,17 @@ const SEC_CI_ACTION_REMEDIATION =
 const SHA40_RE = /^[0-9a-f]{40}$/;
 const MUTABLE_BRANCH_RE = /^(?:main|master|head|develop|latest)$/i;
 const UNPREFIXED_SEMVER_RE = /^[0-9]+\.[0-9]+/;
+const QA_CI_ESCAPE_01_REF = 'APSC-DV-002510 / Rule Zero GitHub Actions vs Makefile Shell Expansion';
+const QA_CI_ESCAPE_OK_PRAGMA = 'qa-ci-escape-ok';
+const QA_CI_ESCAPE_REMEDIATION =
+  'Reemplazar $$(...) o $${...} por sustitución simple $(...) / ${...} en bloques run: de GitHub Actions (donde bash expande $$ al PID numérico del proceso), o añadir # qa-ci-escape-ok si se genera un Makefile/Compose literal.';
+const QA_MAKE_CURDIR_01_REF = 'APSC-DV-002310 / Rule Zero Sub-Makefile CURDIR Volume Boundary';
+const QA_MAKE_CURDIR_OK_PRAGMA = 'qa-make-curdir-ok';
+const QA_MAKE_CURDIR_REMEDIATION =
+  'Reemplazar $(PWD) / ${PWD} por $(CURDIR) en sub-Makefiles invocables con $(MAKE) -C <subdir> (ej. HOST_PWD ?= $(CURDIR)) para evitar montar el directorio padre.';
+const DOUBLE_DOLLAR_CI_RE = /\$\$[({][A-Za-z_]/;
+const MAKE_PWD_VAR_RE = /\$\(PWD\)|\$\{PWD\}/g;
+const MAKEFILE_NAMES = new Set(['Makefile', 'Makefile.example']);
 
 function isScannableFile(entry: fs.Dirent): boolean {
   if (!entry.isFile()) return false;
@@ -113,8 +124,7 @@ function isScannableFile(entry: fs.Dirent): boolean {
     entry.name === '.npmrc' ||
     entry.name === '_headers' ||
     entry.name.startsWith('.env') ||
-    entry.name === 'Makefile' ||
-    entry.name === 'Makefile.example'
+    MAKEFILE_NAMES.has(entry.name)
   );
 }
 
@@ -2527,6 +2537,94 @@ function checkSecCiActionRef(relPath: string, lines: string[]): SecurityFinding[
   return findings;
 }
 
+function isLineCommentOrPragmaExempt(line: string, prevLine: string, pragma: string): boolean {
+  const trimmed = line.trimStart();
+  if (!trimmed || trimmed.startsWith('#')) return true;
+  return line.includes(pragma) || prevLine.includes(pragma);
+}
+
+function checkQaCiEscape01WorkflowExpansion(
+  relPath: string,
+  lines: string[]
+): SecurityFinding[] {
+  if (!isGithubWorkflowOrActionFile(relPath)) return [];
+  if (lines.slice(0, 5).some((l) => l.includes(QA_CI_ESCAPE_OK_PRAGMA))) return [];
+
+  const findings: SecurityFinding[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const prevLine = i > 0 ? lines[i - 1] : '';
+    if (isLineCommentOrPragmaExempt(line, prevLine, QA_CI_ESCAPE_OK_PRAGMA)) continue;
+    if (!DOUBLE_DOLLAR_CI_RE.test(line)) continue;
+    findings.push({
+      rule_id: 'QA-CI-ESCAPE-01',
+      severity: 'HIGH',
+      stig_owasp_ref: QA_CI_ESCAPE_01_REF,
+      file: relPath,
+      line: i + 1,
+      message:
+        'Escape de doble dólar $$(...) / $${...} estilo Makefile o Compose detectado en workflow/action de GitHub Actions: bash expande $$ al PID del proceso (<PID>(pwd)), rompiendo montajes Docker con exit code 125.',
+      remediation: QA_CI_ESCAPE_REMEDIATION,
+    });
+  }
+  return findings;
+}
+
+function isSubdirectoryMakefile(relPath: string): boolean {
+  const norm = relPath.replace(/\\/g, '/');
+  const clean = norm.startsWith('./') ? norm.slice(2) : norm;
+  if (isTestFilePath(clean) || isAuditorSelfDefinition(clean)) return false;
+  const parts = clean.split('/');
+  if (parts.length < 2) return false;
+  const fileName = parts[parts.length - 1];
+  return MAKEFILE_NAMES.has(fileName);
+}
+
+function countPrecedingDollars(text: string, index: number): number {
+  let count = 0;
+  let cursor = index - 1;
+  while (cursor >= 0 && text[cursor] === '$') {
+    count++;
+    cursor--;
+  }
+  return count;
+}
+
+function hasUnescapedMakePwdVar(line: string): boolean {
+  MAKE_PWD_VAR_RE.lastIndex = 0;
+  for (const match of line.matchAll(MAKE_PWD_VAR_RE)) {
+    const idx = match.index ?? 0;
+    if (countPrecedingDollars(line, idx) % 2 === 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function checkQaMakeCurdir01SubMakefile(relPath: string, lines: string[]): SecurityFinding[] {
+  if (!isSubdirectoryMakefile(relPath)) return [];
+  if (lines.slice(0, 5).some((l) => l.includes(QA_MAKE_CURDIR_OK_PRAGMA))) return [];
+
+  const findings: SecurityFinding[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const prevLine = i > 0 ? lines[i - 1] : '';
+    if (isLineCommentOrPragmaExempt(line, prevLine, QA_MAKE_CURDIR_OK_PRAGMA)) continue;
+    if (!hasUnescapedMakePwdVar(line)) continue;
+    findings.push({
+      rule_id: 'QA-MAKE-CURDIR-01',
+      severity: 'HIGH',
+      stig_owasp_ref: QA_MAKE_CURDIR_01_REF,
+      file: relPath,
+      line: i + 1,
+      message:
+        'Sub-Makefile referencia $(PWD) / ${PWD} en lugar de $(CURDIR): al invocarse con $(MAKE) -C <subdir>, GNU Make conserva el PWD del directorio padre y expone rutas fuera del subproyecto.',
+      remediation: QA_MAKE_CURDIR_REMEDIATION,
+    });
+  }
+  return findings;
+}
+
 function scanSingleFile(absPath: string, relPath: string): SecurityFinding[] {
   let content: string;
   try {
@@ -2552,6 +2650,8 @@ function scanSingleFile(absPath: string, relPath: string): SecurityFinding[] {
     ...checkSec15EphemeralProdPipelineCreds(relPath, lines),
     ...checkSec16PreAuthMultiStepContinuity(relPath, lines),
     ...checkSecCiActionRef(relPath, lines),
+    ...checkQaCiEscape01WorkflowExpansion(relPath, lines),
+    ...checkQaMakeCurdir01SubMakefile(relPath, lines),
     ...checkQaCov01AddoptsBypass(relPath, lines),
     ...checkQaPg17RlsInvalidCatalog(relPath, lines),
     ...checkQaSmoke01SettingsSingletonSync(relPath, lines),

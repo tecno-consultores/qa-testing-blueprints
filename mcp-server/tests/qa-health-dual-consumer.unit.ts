@@ -538,6 +538,162 @@ describe('QA-HEALTH-01 & Dual-Consumer Evolution Suite', () => {
     });
   });
 
+  describe('QA-CI-ESCAPE-01 & QA-MAKE-CURDIR-01: Workflow Double-Dollar Escape & Sub-Makefile CURDIR', () => {
+    it('flags $$(...) and $${...} in GitHub workflows/actions while exempting docker-compose, root Makefile, comments, and pragmas', async () => {
+      fs.mkdirSync(path.join(tmpDir, '.github', 'workflows'), { recursive: true });
+      fs.mkdirSync(path.join(tmpDir, '.github', 'actions', 'qa-check'), { recursive: true });
+
+      fs.writeFileSync(
+        path.join(tmpDir, '.github', 'workflows', '00-iac-audit.yml'),
+        [
+          'name: IaC Audit',
+          'jobs:',
+          '  trivy:',
+          '    runs-on: ubuntu-latest',
+          '    steps:',
+          '      - name: Run Trivy',
+          '        run: |',
+          '          # $$(pwd) en comentario no debe disparar',
+          '          docker run --rm -u "$$(id -u):$$(id -g)" -v "$$(pwd):/workspace:ro" aquasec/trivy:latest config .',
+          '          echo "$${GITHUB_SHA}"',
+          '      - name: Exempt inline',
+          '        run: echo "$$(pwd)" # qa-ci-escape-ok',
+          '      - name: Exempt prev line',
+          '        # qa-ci-escape-ok',
+          '        run: echo "$${MAKE_VAR}"',
+        ].join('\n'),
+        'utf8'
+      );
+
+      fs.writeFileSync(
+        path.join(tmpDir, '.github', 'actions', 'qa-check', 'action.yml'),
+        [
+          'name: QA Check',
+          'runs:',
+          '  using: composite',
+          '  steps:',
+          '    - run: docker run --rm -v "$$(pwd):/app:ro" alpine:3.20 ls',
+          '      shell: bash',
+        ].join('\n'),
+        'utf8'
+      );
+
+      fs.writeFileSync(
+        path.join(tmpDir, '.github', 'workflows', 'good-and-top-exempt.yml'),
+        [
+          '# qa-ci-escape-ok',
+          'jobs:',
+          '  gen:',
+          '    steps:',
+          '      - run: echo "$$(pwd)"',
+        ].join('\n'),
+        'utf8'
+      );
+
+      fs.writeFileSync(
+        path.join(tmpDir, '.github', 'workflows', 'clean.yml'),
+        [
+          'jobs:',
+          '  qa:',
+          '    steps:',
+          '      - run: docker run --rm -u "$(id -u):$(id -g)" -v "$(pwd):/workspace:ro" aquasec/trivy:latest config .',
+          '      - run: echo "${{ github.sha }}"',
+        ].join('\n'),
+        'utf8'
+      );
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'docker-compose.deploy.yml'),
+        [
+          'services:',
+          '  deploy:',
+          '    command:',
+          '      - |',
+          '        : "$${CF_PAGES_PROJECT:?required}"',
+          '        PROJECTS_JSON="$$(wrangler pages project list --json)"',
+        ].join('\n'),
+        'utf8'
+      );
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'Makefile'),
+        'HOST_PWD ?= $(PWD)\nlint:\n\tdocker run --rm -v "$$(pwd):/app:ro" alpine:3.20 ls\n',
+        'utf8'
+      );
+
+      const res = await auditSecurityStigOwasp(tmpDir);
+      const escapeFindings = res.findings.filter((f) => f.rule_id === 'QA-CI-ESCAPE-01');
+      expect(res.passed).toBe(false);
+      expect(escapeFindings).toHaveLength(3);
+      expect(escapeFindings.every((f) => f.severity === 'HIGH')).toBe(true);
+      expect(
+        escapeFindings.map((f) => `${f.file}:${f.line}`).sort()
+      ).toEqual([
+        '.github/actions/qa-check/action.yml:5',
+        '.github/workflows/00-iac-audit.yml:10',
+        '.github/workflows/00-iac-audit.yml:9',
+      ]);
+      expect(escapeFindings[0].message).toContain('exit code 125');
+      expect(res.findings.some((f) => f.rule_id === 'QA-MAKE-CURDIR-01')).toBe(false);
+    });
+
+    it('flags $(PWD) / ${PWD} in subdirectory Makefiles while allowing $(CURDIR), $$(pwd)/$$(PWD), root Makefile, comments, and pragmas', async () => {
+      fs.mkdirSync(path.join(tmpDir, 'backend'), { recursive: true });
+      fs.mkdirSync(path.join(tmpDir, 'frontend'), { recursive: true });
+      fs.mkdirSync(path.join(tmpDir, 'api'), { recursive: true });
+      fs.mkdirSync(path.join(tmpDir, 'exempt-top'), { recursive: true });
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'backend', 'Makefile'),
+        [
+          '# HOST_PWD ?= $(PWD) en comentario ignorado',
+          'HOST_PWD ?= $(PWD)',
+          'GOOD_PWD ?= $(CURDIR)',
+          'qa:',
+          '\tdocker run --rm -v "$$(pwd):/app:ro" -v "$$(PWD):/src:ro" alpine:3.20 ls',
+          '\techo "$(PWD)" # qa-make-curdir-ok',
+          '\t# qa-make-curdir-ok',
+          '\techo "${PWD}"',
+        ].join('\n'),
+        'utf8'
+      );
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'frontend', 'Makefile'),
+        'qa:\n\tdocker run --rm -v "${PWD}:/app:ro" node:22-alpine ls\n',
+        'utf8'
+      );
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'api', 'Makefile.example'),
+        'APP_DIR := $(PWD)\nOK_DIR := $(CURDIR)\n',
+        'utf8'
+      );
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'exempt-top', 'Makefile'),
+        '# qa-make-curdir-ok\nHOST_PWD ?= $(PWD)\n',
+        'utf8'
+      );
+
+      fs.writeFileSync(path.join(tmpDir, 'Makefile'), 'HOST_PWD ?= $(PWD)\n', 'utf8');
+
+      const res = await auditSecurityStigOwasp(tmpDir);
+      const curdirFindings = res.findings.filter((f) => f.rule_id === 'QA-MAKE-CURDIR-01');
+      expect(res.passed).toBe(false);
+      expect(curdirFindings).toHaveLength(3);
+      expect(curdirFindings.every((f) => f.severity === 'HIGH')).toBe(true);
+      expect(
+        curdirFindings.map((f) => `${f.file}:${f.line}`).sort()
+      ).toEqual([
+        'api/Makefile.example:1',
+        'backend/Makefile:2',
+        'frontend/Makefile:2',
+      ]);
+      expect(curdirFindings[0].remediation).toContain('$(CURDIR)');
+    });
+  });
+
   describe('Dual-Consumer Proposal Matrix (propose_skill_evolution_pr)', () => {
     it('infers security, governance, and practices Dual-Consumer targets automatically', () => {
       const secTargets = inferDualConsumerTargets({

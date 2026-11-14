@@ -857,6 +857,10 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert secAuditorSource.contains('checkSecCiActionRef')
     * assert secAuditorSource.contains('UI-11X-03')
     * assert secAuditorSource.contains('checkUi11x03FaviconPwaAndEdgeHeaders')
+    * assert secAuditorSource.contains('QA-CI-ESCAPE-01')
+    * assert secAuditorSource.contains('checkQaCiEscape01WorkflowExpansion')
+    * assert secAuditorSource.contains('QA-MAKE-CURDIR-01')
+    * assert secAuditorSource.contains('checkQaMakeCurdir01SubMakefile')
 
     * def e2eRunner = karate.readAsString(mcpRoot + '/example/run-example-e2e.mjs')
     * assert e2eRunner.contains('Interactive Terminal Detected (TTY)')
@@ -870,12 +874,16 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert humanPractices.contains('QA-CLI-TTY-01')
     * assert humanPractices.contains('QA-DOCKER-TTY-01')
     * assert humanPractices.contains('UI-11X-03')
+    * assert humanPractices.contains('QA-CI-ESCAPE-01')
+    * assert humanPractices.contains('QA-MAKE-CURDIR-01')
 
     * def humanSecurity = karate.readAsString(repoRoot + '/docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md')
     * assert humanSecurity.contains('QA-CLI-TTY-01')
     * assert humanSecurity.contains('QA-DOCKER-TTY-01')
     * assert humanSecurity.contains('SEC-CI-ACTION-REF')
     * assert humanSecurity.contains('UI-11X-03')
+    * assert humanSecurity.contains('QA-CI-ESCAPE-01')
+    * assert humanSecurity.contains('QA-MAKE-CURDIR-01')
 
     * def rootSecurity = karate.readAsString(repoRoot + '/SECURITY.md')
     * assert rootSecurity.contains('### 4.23.')
@@ -886,6 +894,9 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert rootSecurity.contains('QA-DOCKER-TTY-01')
     * assert rootSecurity.contains('### 4.26.')
     * assert rootSecurity.contains('UI-11X-03')
+    * assert rootSecurity.contains('### 4.27.')
+    * assert rootSecurity.contains('QA-CI-ESCAPE-01')
+    * assert rootSecurity.contains('QA-MAKE-CURDIR-01')
 
   Scenario: 29. Cierre T5.4 — llms.txt (GEO), Catálogos Globales (QASkills, SkillsLLM, AgenticSkills), Paridad 10/18/12 y Versión 2.21.0
     * match pkg.version == '2.21.0'

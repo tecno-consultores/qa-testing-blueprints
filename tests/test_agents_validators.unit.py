@@ -227,3 +227,40 @@ def test_sync_governance_with_ast_invokes_script_on_changes(tmp_path: Path) -> N
     code, _ = mod.run_sync(tmp_path, with_ast=True)
     assert code == 0
     assert marker.is_file()
+
+
+def test_sync_governance_syncs_skillsllm_catalog(tmp_path: Path) -> None:
+    import json
+
+    mod = _load_script_module("sync_governance_catalog", "sync_governance.py")
+    skill_path = tmp_path / ".agents" / "skills" / "demo" / "SKILL.md"
+    skill_path.parent.mkdir(parents=True)
+    skill_path.write_text("# Demo Skill v2\n", encoding="utf-8")
+    (tmp_path / "catalogs").mkdir(parents=True)
+    catalog_file = tmp_path / "catalogs" / "skillsllm-manifest.json"
+    catalog_file.write_text(
+        json.dumps(
+            {
+                "skills": [
+                    {
+                        "id": "demo",
+                        "path": ".agents/skills/demo/SKILL.md",
+                        "size_bytes": 1,
+                        "sha256": "0" * 64,
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    code_chk, err_chk = mod.run_sync(tmp_path, check_only=True)
+    assert code_chk == 1
+    assert "skillsllm-manifest.json desincronizado" in err_chk
+
+    code_fix, _ = mod.run_sync(tmp_path)
+    assert code_fix == 0
+    assert mod.run_sync(tmp_path, check_only=True)[0] == 0
+    updated = json.loads(catalog_file.read_text(encoding="utf-8"))
+    assert updated["skills"][0]["size_bytes"] == skill_path.stat().st_size
+    assert updated["skills"][0]["sha256"] == mod.compute_sha256(skill_path)

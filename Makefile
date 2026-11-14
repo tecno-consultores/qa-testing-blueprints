@@ -59,6 +59,8 @@ lint-workflows:
 	'ign_re = re.compile(re.escape(dol + "{{") + r"|" + re.escape(dol + "{") + r"|placeholder|example|dummy|TU_TOKEN|changeme", re.I)' \
 	'uses_re = re.compile(r"^\s*(?:-\s+)?uses\s*:\s*([^\s#]+)")' \
 	'sha40_re = re.compile(r"^[0-9a-f]{40}" + dol)' \
+	'ci_escape_re = re.compile(re.escape(dol + dol) + r"[({][A-Za-z_]")' \
+	'make_pwd_re = re.compile(re.escape(dol) + r"(?:\(PWD\)|\{PWD\})")' \
 	'def _check_uses(src_path, src_txt):' \
 	'    lines = src_txt.splitlines()' \
 	'    if any("sec-ci-action-ref-ok" in l for l in lines[:5]): return' \
@@ -76,6 +78,17 @@ lint-workflows:
 	'                if not sha40_re.match(ref):' \
 	'                    errors.append(f"{src_path}:{ln}: [SEC-CI-ACTION-REF] uses: {tgt!r} debe fijarse con SHA de 40 caracteres")' \
 	'        prev = line' \
+	'def _check_ci_escape(src_path, src_txt):' \
+	'    lines = src_txt.splitlines()' \
+	'    if any("qa-ci-escape-ok" in l for l in lines[:5]): return' \
+	'    prev = ""' \
+	'    for ln, line in enumerate(lines, 1):' \
+	'        st = line.lstrip()' \
+	'        if not st or st.startswith("#"): prev = line; continue' \
+	'        if "qa-ci-escape-ok" in line or "qa-ci-escape-ok" in prev: prev = line; continue' \
+	'        if ci_escape_re.search(line):' \
+	'            errors.append(f"{src_path}:{ln}: [QA-CI-ESCAPE-01] escape Makefile/Compose con doble dolar detectado en GitHub Actions; use {dol}(...) o {dol}{{...}}")' \
+	'        prev = line' \
 	'for wf in files:' \
 	'    txt = wf.read_text(encoding="utf-8")' \
 	'    try: doc = yaml.load(txt, Loader=UniqueKeyLoader)' \
@@ -91,6 +104,7 @@ lint-workflows:
 	'    for ln, line in enumerate(txt.splitlines(), 1):' \
 	'        if sec_re.search(line) and not ign_re.search(line): errors.append(f"{wf}:{ln}: posible secreto en texto plano")' \
 	'    _check_uses(wf, txt)' \
+	'    _check_ci_escape(wf, txt)' \
 	'action_files = sorted([*Path(".github/actions").glob("*/action.yml"), *Path(".github/actions").glob("*/action.yaml")])' \
 	'for af in action_files:' \
 	'    txt = af.read_text(encoding="utf-8")' \
@@ -102,6 +116,20 @@ lint-workflows:
 	'    for ln, line in enumerate(txt.splitlines(), 1):' \
 	'        if sec_re.search(line) and not ign_re.search(line): errors.append(f"{af}:{ln}: posible secreto en texto plano")' \
 	'    _check_uses(af, txt)' \
+	'    _check_ci_escape(af, txt)' \
+	'ignored_dirs = {"node_modules", ".git", "dist", ".venv", "vendor", "target", "graphify-out", "tests", "test", "__tests__"}' \
+	'sub_makefiles = sorted(p for pat in ("Makefile", "Makefile.example") for p in Path(".").rglob(pat) if len(p.parts) >= 2 and not any(d in ignored_dirs for d in p.parts))' \
+	'for mf in sub_makefiles:' \
+	'    lines = mf.read_text(encoding="utf-8").splitlines()' \
+	'    if any("qa-make-curdir-ok" in l for l in lines[:5]): continue' \
+	'    prev = ""' \
+	'    for ln, line in enumerate(lines, 1):' \
+	'        st = line.lstrip()' \
+	'        if not st or st.startswith("#"): prev = line; continue' \
+	'        if "qa-make-curdir-ok" in line or "qa-make-curdir-ok" in prev: prev = line; continue' \
+	'        if make_pwd_re.search(line.replace(dol + dol, "__DBL__")):' \
+	'            errors.append(f"{mf}:{ln}: [QA-MAKE-CURDIR-01] sub-Makefile usa {dol}(PWD)/{dol}{{PWD}}; use {dol}(CURDIR)")' \
+	'        prev = line' \
 	'if shutil.which("actionlint"):' \
 	'    res = subprocess.run(["actionlint", *[str(p) for p in files]], capture_output=True, text=True)' \
 	'    if res.returncode != 0: errors.append((res.stdout + res.stderr).strip())' \

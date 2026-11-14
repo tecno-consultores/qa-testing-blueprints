@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.21.0",
-  "generated_at_utc": "2026-11-14T20:58:11Z",
+  "generated_at_utc": "2026-11-14T21:08:56Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -705,8 +705,8 @@
       "path": "scripts/auditar-infra.sh",
       "target_name": "scripts/auditar-infra.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "056d94fcc0fef90a3206d18773cabde65d0369e56d6510740401ebacb3dbb974",
-      "size_bytes": 2829
+      "sha256": "164120dca5b8166440bb4794ec5095dffe392898e49d7004aaa15879075e6c01",
+      "size_bytes": 6125
     },
     {
       "path": "scripts/generar-sbom-cyclonedx.sh",
@@ -805,8 +805,8 @@
       "path": ".agents/scripts/certify_task_completion.sh",
       "target_name": ".agents/scripts/certify_task_completion.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "439fd475455ef8e5ca5bab5d855891f7c37f9273ad82fcb1fc93188b30fe1da6",
-      "size_bytes": 13261
+      "sha256": "9aaa12265c3bf3421856c9c0606a5967b1b3154967ac0212754143715c91ced7",
+      "size_bytes": 15852
     },
     {
       "path": ".agents/scripts/compact_context_11x.py",
@@ -847,8 +847,8 @@
       "path": ".agents/scripts/sync_governance.py",
       "target_name": ".agents/scripts/sync_governance.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "7fef0012c180b357ddc784ac9eca2e2edc70e6254e34c601fd2f6d19fd7b3782",
-      "size_bytes": 27940
+      "sha256": "d21126c63e334d2d492d566265e423293e9016d9199565dfe9f773a091c319ec",
+      "size_bytes": 30091
     },
     {
       "path": ".agents/scripts/validate_calm_architecture.sh",
@@ -924,8 +924,8 @@
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "d0dab88d3aead819c8be1cb34405b056a1e2feb3c8ef2f1b22e1ff17eba70674",
-      "size_bytes": 11824
+      "sha256": "1d2e4cb2f1fb9f81382a4133d3cb33002b6cc05f64bf076728043eef429b2e2a",
+      "size_bytes": 11904
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
@@ -994,8 +994,8 @@
       "path": ".agents/skills/qa-11x-devsecops-hardener/SKILL.md",
       "target_name": ".agents/skills/qa-11x-devsecops-hardener/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "e14e2bc6f051a68326847ff3b1efb8e385ea4bc588cb8c23607269511a8e6ad2",
-      "size_bytes": 13897
+      "sha256": "0718ef93a8a5effda1467a8738a67b4406db20464aac677cef5c329255a35b3d",
+      "size_bytes": 14135
     },
     {
       "path": ".agents/skills/qa-11x-devsecops-hardener/references/stig_rls_vault.md",
@@ -1008,8 +1008,8 @@
       "path": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "target_name": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "3b149eca2454a98e3731f9bfce796060acc70057ea801c3c00de93fbe2a6fb59",
-      "size_bytes": 6262
+      "sha256": "c36f1834f45671fa9c671c8bc0cc3588818e55aabc1ae6e5b9ec2e7a4d0eaa2f",
+      "size_bytes": 7141
     },
     {
       "path": ".agents/skills/qa-11x-llm-evaluator/SKILL.md",
@@ -1134,7 +1134,7 @@
       "path": "catalogs/skillsllm-manifest.json",
       "target_name": "catalogs/skillsllm-manifest.json",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "49e92f630e2650c43080ed6a58350d8db4327c0d3036f143a8708b3cacabfd57",
+      "sha256": "4442751ffb449af2dd40019621989353a60a59bf690b9d8479370ff8398e93d8",
       "size_bytes": 11078
     },
     {

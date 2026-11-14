@@ -219,6 +219,12 @@ La integración entre aplicaciones SPA (Vue 3, React) y APIs REST/WebSockets (Fa
   - Desacoplar explícitamente con `! <Cabecera>` antes de redefinir `Cache-Control`, `X-Robots-Tag`, `Cross-Origin-Resource-Policy`, `Content-Security-Policy`, `X-Frame-Options` o `Referrer-Policy` en `public/_headers`, habilitando `Cross-Origin-Resource-Policy: cross-origin` sobre `/favicon.ico`, `/favicons/*`, `/brand/*` y `/og/*` (y manteniendo `X-Robots-Tag: noindex, nofollow` en SPAs internas).
   - Replicar `Cross-Origin-Resource-Policy "same-origin"` en `server`/`/index.html` y `"cross-origin"` en `location ~* \.(?:ico|svg|png|webmanifest)$` dentro de `nginx/default.conf`, excluir `"/favicon.ico"` de forma literal en `_routes.json` (sin `/*.ico`), y distribuir `favicon.ico` multi-resolución (`16x16`/`32x32`/`48x48`), `apple-touch-icon.png` opaco `180x180` y `site.webmanifest` con PNGs `192x192` y `512x512` (auditado estáticamente mediante `UI-11X-03` en `audit_security_stig_owasp`).
 
+### 4.27. Expansión de Shell en GitHub Actions vs. `Makefile`/Compose y Frontera de Volumen `$(CURDIR)` en Sub-Makefiles (`QA-CI-ESCAPE-01` & `QA-MAKE-CURDIR-01` — `DISA APSC-DV-002510` / `APSC-DV-002310`)
+- **Riesgo:** Copiar escapes de doble dólar propios de GNU Make o `docker-compose.yml` (`$$(pwd)`, `$$(id -u)`, `$${VAR}`) dentro de bloques `run:` de GitHub Actions hace que `bash` expanda `$$` al PID numérico del proceso (`<PID>(pwd)`), provocando errores fatales de montaje Docker (`exit code 125`) recién en CI; en paralelo, usar `$(PWD)` o `${PWD}` en sub-Makefiles (`*/Makefile`) invocados con `$(MAKE) -C <subdir>` conserva el `PWD` del directorio padre y expone rutas fuera del perímetro del subproyecto.
+- **Mitigación:**
+  - Usar exclusivamente sustitución simple (`$(pwd)`, `$(id -u)`, `${VAR}`) en `.github/workflows/*.{yml,yaml}` y `.github/actions/*/action.{yml,yaml}` (`QA-CI-ESCAPE-01`, eximible solo en generadores literales mediante `# qa-ci-escape-ok`).
+  - Usar siempre `$(CURDIR)` (ej. `HOST_PWD ?= $(CURDIR)`) en lugar de `$(PWD)` / `${PWD}` dentro de sub-Makefiles (`QA-MAKE-CURDIR-01`, eximible mediante `# qa-make-curdir-ok`), auditado estáticamente en `audit_security_stig_owasp`, `scripts/auditar-infra.sh` y `make lint-workflows`.
+
 ---
 
 ## 5. Auditoría Preventiva de Vulnerabilidades y Seguridad Shift-Left
