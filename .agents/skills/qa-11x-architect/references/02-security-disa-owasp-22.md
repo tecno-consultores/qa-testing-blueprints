@@ -32,7 +32,7 @@ This reference provides the comprehensive compliance matrix and tactical impleme
 | **19** | FIPS 140-3 & Secret Zeroization | `APSC-DV-002010..2230` | OWASP MM 1-9 | AES-256-GCM; zero memory buffers (`bytearray`); scrub credentials on export. |
 | **20** | OSHP Headers & Fail-Secure Init | `APSC-DV-002310..2770` | OWASP OSHP/SC | HSTS, CSP, nosniff, DENY; drop Server headers; startup cryptographic self-test. |
 | **21** | OWASP API Top 10 & Anti-Mining | `APSC-DV-000450/460` | OWASP API 2023 | BOLA/BOPLA tenant guards; max 100/page; rate-limit datamining; 5s/64KB 3P API cap. |
-| **22** | CycloneDX SBOM & Code Threat Mod | `APSC-DV-001430/3230` | OWASP SBOM | Generate signed CycloneDX SBOM; maintain programmatic `pytm` threat models. |
+| **22** | CycloneDX SBOM & Code Threat Mod | `APSC-DV-001430/3230` | OWASP SBOM | Generate signed CycloneDX SBOM; maintain `pytm` threat models; pin `.github/workflows/*.yml` actions to 40-char SHA (`SEC-CI-ACTION-REF`). |
 
 ---
 

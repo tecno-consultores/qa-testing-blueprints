@@ -21,7 +21,7 @@ Activate strictly on demand when designing, auditing, or modifying:
 - Auth flows (MFA, WebAuthn, Argon2id, lockout, session rotation/purge, Step-Up re-auth, mTLS/PKI).
 - Secret Vaults (AES-256-GCM, memory zeroization), database export scrubbing, or WORM `audit_logs` (`UI-11X-02`).
 - API boundaries, WebSockets, uploads, XML/deserialization parsers, or mutating MCP/JSON-RPC tools (`ApprovalRequest`).
-- Rootless Docker/CI runtimes (`QA-HEALTH-01`, `QA-CLI-TTY-01`, `QA-COV-01`, `pnpm-store-init`, Trivy `HIGH/CRITICAL = 0` alongside `docker-trivy-keydb-hardening`).
+- Rootless Docker/CI runtimes (`QA-HEALTH-01`, `QA-CLI-TTY-01`, `QA-COV-01`, `SEC-CI-ACTION-REF`, `pnpm-store-init`, Trivy `HIGH/CRITICAL = 0` alongside `docker-trivy-keydb-hardening`).
 
 > **Hydration:** Load [`references/stig_rls_vault.md`](references/stig_rls_vault.md) on demand for production-ready PG17 RLS DDL, `after_begin` listeners, AES-256-GCM keyring rotation, WORM `seq_num` + `pg_advisory_xact_lock` patterns, and the `APSC-DV-*` mapping table.
 
@@ -52,7 +52,7 @@ Activate strictly on demand when designing, auditing, or modifying:
 | **19** | FIPS Vault/Scrub | `APSC-DV-002010..3310` | CP-5/MM | FIPS 140-3 AES-256-GCM, `bytearray`/`sodium_memzero`, no TLS compression, DB scrub. |
 | **20** | OSHP & Fail-Secure | `APSC-DV-002310..2770` | OSHP/SC | HSTS, CSP, `nosniff`, `DENY`, `no-store`; drop `Server`; deny-by-default self-test. |
 | **21** | API Top 10/RBAC | `APSC-DV-000450/460` | API 2023 | BOLA/BOPLA/BFLA service RBAC, MCP `ApprovalRequest`, `<= 100`/page anti-mining. |
-| **22** | SBOM & Threat Mod | `V-222513` / `003230` | SBOM | Signed CycloneDX SBOM/CBOM (`ECMA-424`), SHA-256 manifest, `pytm` models. |
+| **22** | SBOM & Threat Mod | `V-222513` / `003230` | SBOM | Signed CycloneDX SBOM/CBOM (`ECMA-424`), SHA-256 manifest, `pytm` models, `SEC-CI-ACTION-REF` (`uses: owner/repo@<sha40> # vX.Y.Z` in `.github/workflows/*.yml`; block mutable branches & unprefixed tags like `aquasecurity/trivy-action@0.x.y`). |
 
 ---
 

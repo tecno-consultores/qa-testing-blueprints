@@ -51,6 +51,13 @@ const QA_HEALTH_OK_PRAGMA = '# qa-health-ok';
 const QA_CLI_TTY_01_REF = 'APSC-DV-002310 / Standard 11X Anti-Silo Rule 10';
 const QA_TTY_OK_PRAGMA = 'qa-tty-ok';
 const UI_11X_02_REF = 'Standard 11X / Anti-Silo UI Rule 3 & 4';
+const SEC_CI_ACTION_REF_REF = 'DISA STIG V-222513 / APSC-DV-001430 / Supply Chain Pinning';
+const SEC_CI_ACTION_OK_PRAGMA = 'sec-ci-action-ref-ok';
+const SEC_CI_ACTION_REMEDIATION =
+  'Fijar la acción mediante el hash SHA-1 completo de 40 caracteres del commit anotado (uses: owner/repo@<sha40> # vX.Y.Z) y verificar que el tag exista en remoto con git ls-remote --tags.';
+const SHA40_RE = /^[0-9a-f]{40}$/;
+const MUTABLE_BRANCH_RE = /^(?:main|master|head|develop|latest)$/i;
+const UNPREFIXED_SEMVER_RE = /^[0-9]+\.[0-9]+/;
 
 function isScannableFile(entry: fs.Dirent): boolean {
   if (!entry.isFile()) return false;
@@ -1477,6 +1484,105 @@ function checkQaCliTty01InteractiveHangGuard(
   ];
 }
 
+function isGithubWorkflowOrActionFile(relPath: string): boolean {
+  const norm = relPath.replace(/\\/g, '/');
+  if (norm.endsWith('.example') || isTestFilePath(norm) || isAuditorSelfDefinition(norm)) {
+    return false;
+  }
+  const lower = norm.toLowerCase();
+  if (!lower.endsWith('.yml') && !lower.endsWith('.yaml')) return false;
+  const ghIdx = lower.indexOf('.github/');
+  if (ghIdx === -1 || (ghIdx > 0 && lower[ghIdx - 1] !== '/')) return false;
+  const sub = lower.slice(ghIdx + '.github/'.length);
+  const parts = sub.split('/');
+  if (parts.length === 2 && parts[0] === 'workflows' && parts[1].length > 0) {
+    return true;
+  }
+  return (
+    parts.length === 3 &&
+    parts[0] === 'actions' &&
+    parts[1].length > 0 &&
+    (parts[2] === 'action.yml' || parts[2] === 'action.yaml')
+  );
+}
+
+function stripWrappingQuotes(value: string): string {
+  if (
+    value.length >= 2 &&
+    ((value.startsWith("'") && value.endsWith("'")) ||
+      (value.startsWith('"') && value.endsWith('"')))
+  ) {
+    return value.slice(1, -1).trim();
+  }
+  return value;
+}
+
+function extractThirdPartyActionTarget(line: string): string | null {
+  const trimmed = line.trimStart();
+  if (!trimmed || trimmed.startsWith('#')) return null;
+  const isSeqItem = trimmed.startsWith('-') && trimmed.length > 1 && /\s/.test(trimmed[1]);
+  const candidate = isSeqItem ? trimmed.slice(1).trimStart() : trimmed;
+  if (!candidate.startsWith('uses')) return null;
+  const afterUses = candidate.slice(4).trimStart();
+  if (!afterUses.startsWith(':')) return null;
+  const rawRest = afterUses.slice(1).trim();
+  const withoutComment = rawRest.split(/\s+#/, 1)[0].trim();
+  const rawTarget = stripWrappingQuotes(withoutComment);
+  if (
+    !rawTarget ||
+    rawTarget.startsWith('./') ||
+    rawTarget.startsWith('../') ||
+    rawTarget.startsWith('docker://')
+  ) {
+    return null;
+  }
+  return rawTarget;
+}
+
+function describeUnpinnedActionRef(rawTarget: string): string | null {
+  const atIdx = rawTarget.lastIndexOf('@');
+  if (atIdx <= 0) {
+    return `La directiva uses: '${rawTarget}' omite referencia inmutable por commit SHA de 40 caracteres.`;
+  }
+  const ref = rawTarget.slice(atIdx + 1);
+  if (SHA40_RE.test(ref)) return null;
+  if (rawTarget.startsWith('aquasecurity/trivy-action@') && UNPREFIXED_SEMVER_RE.test(ref)) {
+    return `La acción '${rawTarget}' usa una etiqueta sin prefijo 'v' (@${ref}) eliminada aguas arriba en aquasecurity/trivy-action; debe fijarse mediante commit SHA de 40 caracteres (# vX.Y.Z).`;
+  }
+  if (MUTABLE_BRANCH_RE.test(ref)) {
+    return `La acción '${rawTarget}' referencia una rama/etiqueta mutable (@${ref}) en lugar de un commit SHA de 40 caracteres.`;
+  }
+  return `La acción '${rawTarget}' usa una etiqueta semántica mutable (@${ref}) en lugar de un hash SHA de 40 caracteres.`;
+}
+
+function checkSecCiActionRef(relPath: string, lines: string[]): SecurityFinding[] {
+  if (!isGithubWorkflowOrActionFile(relPath)) return [];
+  if (lines.slice(0, 5).some((l) => l.includes(SEC_CI_ACTION_OK_PRAGMA))) return [];
+
+  const findings: SecurityFinding[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const prevLine = i > 0 ? lines[i - 1] : '';
+    if (line.includes(SEC_CI_ACTION_OK_PRAGMA) || prevLine.includes(SEC_CI_ACTION_OK_PRAGMA)) {
+      continue;
+    }
+    const rawTarget = extractThirdPartyActionTarget(line);
+    if (!rawTarget) continue;
+    const message = describeUnpinnedActionRef(rawTarget);
+    if (!message) continue;
+    findings.push({
+      rule_id: 'SEC-CI-ACTION-REF',
+      severity: 'HIGH',
+      stig_owasp_ref: SEC_CI_ACTION_REF_REF,
+      file: relPath,
+      line: i + 1,
+      message,
+      remediation: SEC_CI_ACTION_REMEDIATION,
+    });
+  }
+  return findings;
+}
+
 function scanSingleFile(absPath: string, relPath: string): SecurityFinding[] {
   let content: string;
   try {
@@ -1501,6 +1607,7 @@ function scanSingleFile(absPath: string, relPath: string): SecurityFinding[] {
     ...checkSec14WormDeterministicChain(relPath, lines),
     ...checkSec15EphemeralProdPipelineCreds(relPath, lines),
     ...checkSec16PreAuthMultiStepContinuity(relPath, lines),
+    ...checkSecCiActionRef(relPath, lines),
     ...checkQaCov01AddoptsBypass(relPath, lines),
     ...checkQaPg17RlsInvalidCatalog(relPath, lines),
     ...checkQaSmoke01SettingsSingletonSync(relPath, lines),

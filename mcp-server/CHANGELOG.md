@@ -5,6 +5,11 @@
 
 All notable changes to the `@sinfallas/mcp-qa-11x` npm package and MCP server are documented in this file.
 
+## [Unreleased]
+
+### Added
+- **GitHub Actions SHA-40 Pinning Audit (`SEC-CI-ACTION-REF`):** Added `checkSecCiActionRef` in `audit_security_stig_owasp` (`src/tools/security-auditor.ts`) to flag mutable branches (`@main`, `@master`) and unprefixed legacy tags (`aquasecurity/trivy-action@0.x.y`) in `.github/workflows/*.{yml,yaml}` and `.github/actions/*/action.{yml,yaml}` while exempting local paths, `docker://`, and `# sec-ci-action-ref-ok` (including `quickstart` PR workflow templates).
+
 ## [2.21.0] - 2026-11-14
 
 ### Added

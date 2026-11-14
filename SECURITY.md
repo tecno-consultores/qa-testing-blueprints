@@ -202,6 +202,12 @@ La integración entre aplicaciones SPA (Vue 3, React) y APIs REST/WebSockets (Fa
   - Verificar explícitamente `process.stdin.isTTY` (Node/TS) o `sys.stdin.isatty()` (Python) cuando el binario se invoca sin subcomandos: en una sesión `TTY` interactiva (salvo que se fuerce `--stdio` o `QA_FORCE_STDIO=1`), ejecutar cualquier auto-sincronización segura, imprimir la guía de uso rápido y finalizar con código `0` sin abrir el transporte bloqueante (`APSC-DV-002310`, auditado estáticamente mediante `QA-CLI-TTY-01`).
   - Incluir obligatoriamente en la suite E2E una sonda en subproceso con `TTY` simulado y `timeout <= 5s` que certifique la salida limpia e inmediata.
 
+### 4.24. Fijación Inmutable por Commit SHA-40 en GitHub Actions (`SEC-CI-ACTION-REF` — `DISA STIG V-222513`, `APSC-DV-001430` & `Supply Chain Hardening`)
+- **Riesgo:** Referenciar acciones de terceros mediante ramas mutables (`@main`, `@master`) o etiquetas heredadas sin prefijo `v` (como `aquasecurity/trivy-action@0.28.0`, eliminada aguas arriba provocando el fallo `Unable to resolve action` en GitHub Actions aunque el escaneo local de Trivy pase) expone el pipeline CI/CD a roturas inesperadas y ataques de reescritura de etiquetas en la cadena de suministro.
+- **Mitigación:**
+  - Fijar todas las acciones externas en `.github/workflows/*.yml` y `.github/actions/*/action.yml` mediante el hash SHA-1 completo de 40 caracteres del commit anotado (`uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0`) y validar que las etiquetas semánticas existan en remoto (`git ls-remote --tags`), prohibiendo explícitamente etiquetas legacy sin prefijo `v` en `aquasecurity/trivy-action@0.x.y` y ramas mutables (`SEC-CI-ACTION-REF`, auditado estáticamente mediante `audit_security_stig_owasp` y `make lint-workflows`).
+  - Las acciones locales (`uses: ./...`, `../...`), referencias `docker://` o excepciones documentadas con `# sec-ci-action-ref-ok` quedan exentas de forma explícita.
+
 ---
 
 ## 5. Auditoría Preventiva de Vulnerabilidades y Seguridad Shift-Left
@@ -225,7 +231,7 @@ flowchart LR
   - Re-ejecutar suites unitarias y escaneo con `./scripts/auditar-infra.sh` certificando `0` vulnerabilidades CRITICAL y HIGH.
 
 ### 5.2. Auditoría Diaria Automatizada de Imágenes Base (`audit-base-images.yml`)
-- **Cadencia y Alcance:** El workflow [`.github/workflows/audit-base-images.yml`](.github/workflows/audit-base-images.yml) se ejecuta diariamente (`cron: '0 6 * * *'`), bajo demanda (`workflow_dispatch`) y en `pull_request` sobre manifiestos de contenedores/seguridad, aplicando mínimo privilegio (`permissions: contents: read`), `timeout-minutes` explícitos y Actions fijadas por SHA inmutable.
+- **Cadencia y Alcance:** El workflow [`.github/workflows/audit-base-images.yml`](.github/workflows/audit-base-images.yml) se ejecuta diariamente (`cron: '0 6 * * *'`), bajo demanda (`workflow_dispatch`) y en `pull_request` sobre manifiestos de contenedores/seguridad, aplicando mínimo privilegio (`permissions: contents: read`), `timeout-minutes` explícitos y Actions fijadas por SHA inmutable (`SEC-CI-ACTION-REF`).
 - **Escaneo de Imágenes Oficiales (`Trivy HIGH/CRITICAL = 0`):** Matriz `fail-fast: false` sobre `sinfallas/base-python-uv:{latest,3.15}`, `sinfallas/base-node-ionic:{latest,26}`, `sinfallas/basephpcomposer:latest`, `sinfallas/karatelabs:latest`, `sinfallas/base-bash-qa:latest` y `sinfallas/remote-graphify:latest` con `--severity HIGH,CRITICAL --ignore-unfixed --exit-code 1`.
 - **Auditoría de Paquetes Python v2 (`pip-audit`) y SAST (`CodeQL`):** Ejecución efímera no-root (`--user 10001:10001 -e HOME=/tmp`) de `pip-audit --strict --desc` sobre `sinfallas/base-python-uv:latest`, análisis `CodeQL` en `javascript-typescript`, `python` y `actions`, y validación determinista local mediante `make lint-workflows`.
 

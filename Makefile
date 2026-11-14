@@ -54,9 +54,28 @@ lint-workflows:
 	'    print("❌ [lint-workflows] No se encontraron workflows en .github/workflows/", file=sys.stderr)' \
 	'    sys.exit(1)' \
 	'errors = []' \
-	'dol, sq = chr(36), chr(39)' \
+	'dol, sq, dq = chr(36), chr(39), chr(34)' \
 	'sec_re = re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----|(?:npm|ghp|gho|ghu|ghs)_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|glpat-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|(?:password|passwd|secret|api_key|token)\s*[=:]\s*[" + sq + r"]?[A-Za-z0-9_/-]{16,}[" + sq + r"]?", re.I)' \
 	'ign_re = re.compile(re.escape(dol + "{{") + r"|" + re.escape(dol + "{") + r"|placeholder|example|dummy|TU_TOKEN|changeme", re.I)' \
+	'uses_re = re.compile(r"^\s*(?:-\s+)?uses\s*:\s*([^\s#]+)")' \
+	'sha40_re = re.compile(r"^[0-9a-f]{40}" + dol)' \
+	'def _check_uses(src_path, src_txt):' \
+	'    lines = src_txt.splitlines()' \
+	'    if any("sec-ci-action-ref-ok" in l for l in lines[:5]): return' \
+	'    prev = ""' \
+	'    for ln, line in enumerate(lines, 1):' \
+	'        st = line.lstrip()' \
+	'        if not st or st.startswith("#"): prev = line; continue' \
+	'        if "sec-ci-action-ref-ok" in line or "sec-ci-action-ref-ok" in prev: prev = line; continue' \
+	'        m = uses_re.match(line)' \
+	'        if m:' \
+	'            tgt = m.group(1).strip(dq + sq)' \
+	'            if not (tgt.startswith("./") or tgt.startswith("../") or tgt.startswith("docker://")):' \
+	'                at_i = tgt.rfind("@")' \
+	'                ref = tgt[at_i + 1:] if at_i > 0 else ""' \
+	'                if not sha40_re.match(ref):' \
+	'                    errors.append(f"{src_path}:{ln}: [SEC-CI-ACTION-REF] uses: {tgt!r} debe fijarse con SHA de 40 caracteres")' \
+	'        prev = line' \
 	'for wf in files:' \
 	'    txt = wf.read_text(encoding="utf-8")' \
 	'    try: doc = yaml.load(txt, Loader=UniqueKeyLoader)' \
@@ -71,6 +90,7 @@ lint-workflows:
 	'            if not isinstance(tm, int) or isinstance(tm, bool) or tm <= 0: errors.append(f"{wf}: job {jn!r} sin timeout-minutes > 0")' \
 	'    for ln, line in enumerate(txt.splitlines(), 1):' \
 	'        if sec_re.search(line) and not ign_re.search(line): errors.append(f"{wf}:{ln}: posible secreto en texto plano")' \
+	'    _check_uses(wf, txt)' \
 	'action_files = sorted([*Path(".github/actions").glob("*/action.yml"), *Path(".github/actions").glob("*/action.yaml")])' \
 	'for af in action_files:' \
 	'    txt = af.read_text(encoding="utf-8")' \
@@ -81,6 +101,7 @@ lint-workflows:
 	'        errors.append(f"{af}: falta runs.using == composite")' \
 	'    for ln, line in enumerate(txt.splitlines(), 1):' \
 	'        if sec_re.search(line) and not ign_re.search(line): errors.append(f"{af}:{ln}: posible secreto en texto plano")' \
+	'    _check_uses(af, txt)' \
 	'if shutil.which("actionlint"):' \
 	'    res = subprocess.run(["actionlint", *[str(p) for p in files]], capture_output=True, text=True)' \
 	'    if res.returncode != 0: errors.append((res.stdout + res.stderr).strip())' \

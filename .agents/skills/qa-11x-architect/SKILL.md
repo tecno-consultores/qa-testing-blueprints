@@ -29,7 +29,7 @@ Classify every task before acting. **NEVER run automatic `git push`** (`QA-GIT-G
 3. `audit_test_pyramid_gaps` — 13-layer audit (includes `inspect_project_config`).
 4. `fetch_blueprint_bundle` — SHA-256 metadata (`include_content: false`).
 5. `bootstrap_or_merge_11x` — surgical `.example` merge (`0` skill duplication).
-6. `audit_security_stig_owasp` — static audit (`SEC-01`..`SEC-16`, `QA-KARATE-IDEMP`, `QA-COV-01`, `QA-MYPY-01`, `QA-PG17-RLS`, `QA-SMOKE-01`, `QA-HEALTH-01`, `QA-CLI-TTY-01`, `UI-11X-01/02`).
+6. `audit_security_stig_owasp` — static audit (`SEC-01`..`SEC-16`, `SEC-CI-ACTION-REF`, `QA-KARATE-IDEMP`, `QA-COV-01`, `QA-MYPY-01`, `QA-PG17-RLS`, `QA-SMOKE-01`, `QA-HEALTH-01`, `QA-CLI-TTY-01`, `UI-11X-01/02`).
 7. `run_ephemeral_qa` — runs `lint|unit|migration|integration|ci|bdd|mutation|dast|e2e|perf|chaos|all` in `sinfallas/*` (stamps `.agents/.qa-evidence.json`).
 8. `clean_workspace_11x` — rootless purge preserving `mcp-server/dist` and `graphify-out/`.
 9. `certify_11x_gate` — 10/10 gate (`Fail-Verbose` `/tmp/qa-11x-last-failure.json`, lint evidence).
@@ -57,7 +57,7 @@ Classify every task before acting. **NEVER run automatic `git push`** (`QA-GIT-G
   4. **Anti-JSDOM & Dual Refresh:** Forbid `position: fixed` footers (`UI-11X-01`); pair WebSocket/timers (`clearInterval` on unmount) with **`[ 🔄 Refrescar ]`** (`?refresh=true`).
   5. **Surgical Merge & Thin-Repo:** Merge `.example` configs non-destructively; zero local duplication of global skills/rules.
   6. **Proportional BDD, Zero Orphans & Test Co-Evolution (`QA-TEST-SYNC-01`):** Dynamic `Idempotency-Key` UUIDs (`QA-KARATE-IDEMP`) on mutable requests; `0` orphan UI components/API endpoints; ALWAYS update affected pre-existing unit, integration, BATS, and Karate `.feature` tests/counts whenever code, schemas, skills, or `manifest.json` change.
-  7. **STIG V6R5 & OWASP v4.2:** Enforce RLS `NOBYPASSRLS` + `after_begin` (`QA-PG17-RLS`), WORM `seq_num` + `pg_advisory_xact_lock`, Service-Layer RBAC + `ApprovalRequest`, Vault AES-256-GCM, anti-SSRF, `NFKC`, anti-XXE, OSHP, Argon2id lockout, CycloneDX SBOM (`qa-11x-devsecops-hardener`).
+  7. **STIG V6R5 & OWASP v4.2:** Enforce RLS `NOBYPASSRLS` + `after_begin` (`QA-PG17-RLS`), WORM `seq_num` + `pg_advisory_xact_lock`, Service-Layer RBAC + `ApprovalRequest`, Vault AES-256-GCM, anti-SSRF, `NFKC`, anti-XXE, OSHP, Argon2id lockout, CycloneDX SBOM, and 40-char SHA GitHub Actions pinning (`SEC-CI-ACTION-REF`) (`qa-11x-devsecops-hardener`).
   8. **RED Pre-Chaos:** Expose `/metrics` (`trace_id`) prior to load/chaos profiles.
   9. **Trimodal & 3-Phase Clock:** Test Virgin/Nominal/Degraded states across all 3 clock phases; run `inspect_ast_blast_radius` pre-edit and refresh AST post-edit.
   10. **Closure & `QA-GIT-GATE-01`:** Keep `.agents/ACTIVE_TASK.md <= 40` lines, run `make sync-governance` + `make certify`, commit locally without `git push`, and invoke `propose_skill_evolution_pr` on QA escapes.

@@ -16,6 +16,7 @@ import {
   validateQuickstartTier,
 } from '../src/cli/quickstart.js';
 import { CLI_USAGE_TEXT, parseCliArgs, parseQuickstartCliArgs, runCli } from '../src/cli.js';
+import { auditSecurityStigOwasp } from '../src/tools/security-auditor.js';
 
 const THIS_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(THIS_DIR, '../..');
@@ -199,6 +200,11 @@ describe('T5.1: Quickstart CLI & PR-Aware Composite GitHub Action', () => {
       expect(fs.existsSync(path.join(tmpDir, '.github/copilot-instructions.md'))).toBe(true);
       expect(fs.existsSync(path.join(tmpDir, '.agents/ACTIVE_TASK.md'))).toBe(true);
       expect(fs.existsSync(path.join(tmpDir, '.github/workflows/qa-11x-pr.yml'))).toBe(true);
+
+      const auditAfterQuickstart = await auditSecurityStigOwasp(tmpDir);
+      expect(
+        auditAfterQuickstart.findings.filter((f) => f.rule_id === 'SEC-CI-ACTION-REF')
+      ).toHaveLength(0);
 
       const activeTaskLines = fs
         .readFileSync(path.join(tmpDir, '.agents/ACTIVE_TASK.md'), 'utf8')

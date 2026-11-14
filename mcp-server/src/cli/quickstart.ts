@@ -653,7 +653,7 @@ function buildGithubWorkflowContent(tier: QuickstartTier, lang: SupportedLang): 
     '          fetch-depth: 0',
     '',
     '      - name: Run QA-11X PR-Aware Check',
-    `        uses: ${PR_CHECK_ACTION_REF}`,
+    `        uses: ${PR_CHECK_ACTION_REF} # sec-ci-action-ref-ok`,
     '        with:',
     `          tier: ${tier}`,
     `          lang: ${lang}`,

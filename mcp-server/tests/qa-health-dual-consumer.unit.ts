@@ -314,6 +314,86 @@ describe('QA-HEALTH-01 & Dual-Consumer Evolution Suite', () => {
     });
   });
 
+  describe('SEC-CI-ACTION-REF: Immutable 40-char SHA Pinning in GitHub Actions', () => {
+    it('flags unpinned tags, mutable branches, missing refs, and unprefixed trivy-action tags while passing SHA-40 and exemptions', async () => {
+      const wfDir = path.join(tmpDir, '.github', 'workflows');
+      const actDir = path.join(tmpDir, '.github', 'actions', 'custom');
+      fs.mkdirSync(wfDir, { recursive: true });
+      fs.mkdirSync(actDir, { recursive: true });
+
+      fs.writeFileSync(
+        path.join(wfDir, 'ci.yml'),
+        [
+          'name: CI',
+          'jobs:',
+          '  scan:',
+          '    steps:',
+          '      - uses: aquasecurity/trivy-action@0.28.0',
+          '      - uses: actions/checkout@v4',
+          '      - uses: actions/setup-node@main',
+          '      - uses: actions/cache',
+        ].join('\n'),
+        'utf8'
+      );
+
+      fs.writeFileSync(
+        path.join(actDir, 'action.yml'),
+        [
+          'name: Custom',
+          'runs:',
+          "  using: 'composite'",
+          '  steps:',
+          '    - uses: actions/checkout@v4',
+        ].join('\n'),
+        'utf8'
+      );
+
+      fs.writeFileSync(
+        path.join(wfDir, 'ci-clean.yml'),
+        [
+          'name: Clean CI',
+          'jobs:',
+          '  clean:',
+          '    steps:',
+          '      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0',
+          '      - uses: ./.github/actions/local-check',
+          '      - uses: ../shared/action',
+          '      - uses: docker://alpine:3.20',
+          '      - uses: tecno-consultores/qa-testing-blueprints/.github/actions/qa-11x-pr-check@v2 # sec-ci-action-ref-ok',
+          '      # sec-ci-action-ref-ok',
+          '      - uses: actions/checkout@v4',
+        ].join('\n'),
+        'utf8'
+      );
+
+      fs.writeFileSync(
+        path.join(wfDir, 'exempt.yml'),
+        '# sec-ci-action-ref-ok\njobs:\n  x:\n    steps:\n      - uses: actions/checkout@v4\n',
+        'utf8'
+      );
+
+      fs.writeFileSync(
+        path.join(wfDir, 'template.yml.example'),
+        'steps:\n  - uses: actions/checkout@v4\n',
+        'utf8'
+      );
+
+      const res = await auditSecurityStigOwasp(tmpDir);
+      const ciFindings = res.findings.filter((f) => f.rule_id === 'SEC-CI-ACTION-REF');
+      expect(ciFindings).toHaveLength(5);
+      expect(ciFindings.every((f) => f.severity === 'HIGH')).toBe(true);
+      const wfFindings = ciFindings.filter((f) => f.file === path.join('.github', 'workflows', 'ci.yml'));
+      expect(wfFindings).toHaveLength(4);
+      expect(wfFindings.find((f) => f.line === 5)?.message).toContain("sin prefijo 'v'");
+      expect(wfFindings.find((f) => f.line === 6)?.message).toContain('etiqueta semántica mutable');
+      expect(wfFindings.find((f) => f.line === 7)?.message).toContain('rama/etiqueta mutable');
+      expect(wfFindings.find((f) => f.line === 8)?.message).toContain('omite referencia inmutable');
+      expect(
+        ciFindings.some((f) => f.file === path.join('.github', 'actions', 'custom', 'action.yml'))
+      ).toBe(true);
+    });
+  });
+
   describe('Dual-Consumer Proposal Matrix (propose_skill_evolution_pr)', () => {
     it('infers security, governance, and practices Dual-Consumer targets automatically', () => {
       const secTargets = inferDualConsumerTargets({

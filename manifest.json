@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.21.0",
-  "generated_at_utc": "2026-11-14T18:56:23Z",
+  "generated_at_utc": "2026-11-14T19:17:39Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -896,8 +896,8 @@
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "2475b94fa037a41b5a5f97c85dc8fa66dc8bbde7727b93c275802fe7e4e62526",
-      "size_bytes": 11700
+      "sha256": "4db8a6de7b5b6fed029b29c049375eb891f5ef8bd6939072ceeea80cea93fc66",
+      "size_bytes": 11783
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
@@ -910,8 +910,8 @@
       "path": ".agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.md",
       "target_name": ".agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "dede8bc4fe186ae27a1fb9559b47120fed49a2629b4527dae51439196eb809b2",
-      "size_bytes": 14991
+      "sha256": "cc45d3e6ce9db3951b506fef23830d072f1ff8f9bdf255e3371c45fb6cda9ced",
+      "size_bytes": 15054
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/03-stack-python-fastapi.md",
@@ -966,8 +966,8 @@
       "path": ".agents/skills/qa-11x-devsecops-hardener/SKILL.md",
       "target_name": ".agents/skills/qa-11x-devsecops-hardener/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "a27a9e563562c0e24ee34190a4ac65f86bfa9c4f6974eda3821c084a5974a049",
-      "size_bytes": 13497
+      "sha256": "f33d92e30439f56adc45acf243ba0e7c6eccbd3be92baee78cebcde143de694a",
+      "size_bytes": 13687
     },
     {
       "path": ".agents/skills/qa-11x-devsecops-hardener/references/stig_rls_vault.md",
@@ -1106,7 +1106,7 @@
       "path": "catalogs/skillsllm-manifest.json",
       "target_name": "catalogs/skillsllm-manifest.json",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "cb6f659ba976cba24b3815fae275a44ea4e1e19c3723313ae94b2afcaf58d2d0",
+      "sha256": "ba12467a61bb9d37b83b2945d25f2d70e200e12b4631d011d4ff04bcf8f92f55",
       "size_bytes": 11078
     },
     {
