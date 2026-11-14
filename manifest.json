@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "2.21.0",
-  "generated_at_utc": "2026-11-14T22:56:46Z",
+  "generated_at_utc": "2026-11-14T23:03:56Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -691,8 +691,8 @@
       "path": "lefthook.yml",
       "target_name": "lefthook.yml",
       "merge_strategy": "surgical_merge",
-      "sha256": "728a0bdbec96f9eee70c83b4ff482d537a739f4bbe2b87072ee67ee03027bea9",
-      "size_bytes": 8021
+      "sha256": "3b58336eb998b7aa93e319754f874191e973807114a02a543436a1d217e4ec16",
+      "size_bytes": 8056
     },
     {
       "path": "scripts/actualizar-grafos-graphify.sh",

@@ -1542,7 +1542,7 @@ def test_pagespeed_insights_audit_trimodal_and_ssrf(tmp_path: Path, monkeypatch)
     import urllib.error
     import urllib.request
 
-    import audit_pagespeed_insights as psi
+    psi: Any = _load_script("audit_pagespeed_insights.py", "audit_pagespeed_insights")
 
     # 1. Virgen (sin URL) y --require-url
     code_skip, rep_skip = psi.run_pagespeed_audit(psi.AuditOptions(url=""))
