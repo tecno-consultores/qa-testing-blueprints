@@ -42,17 +42,18 @@ De acuerdo con [`mobile-appium/README.md`](../../mobile-appium/README.md), [`mob
 
 ## 4. Diseño Endurecido de `sinfallas/base-mobile-appium:26` (DISA STIG & Non-Root)
 
-### 4.1. Arquitectura Multi-Etapa y Variables Canónicas
-- **Base OS + Node:** Misma familia base minimalista endurecida de `sinfallas/base-node-ionic:26` (Node.js LTS 22/24, `corepack`/`pnpm`, `bash`, `ca-certificates`, `unzip` solo en etapa `builder`).
-- **Stage 1 (`builder`):**
-  - Instala **OpenJDK 21 Headless JRE/JDK** (verificado por checksum SHA-256).
-  - Descarga **Android `commandlinetools-linux`** fijado por **SHA-256** e instala exclusivamente: `platform-tools` (`adb`), `build-tools;35.0.0` (`aapt2`, `apksigner`) y `platforms;android-35` (excluyendo `system-images`, `emulator` y NDK).
-  - Prehornea en `/opt/qa11x/package.json` (`--frozen-lockfile`, sin scripts post-install tras revisión): `appium@3.x`, `webdriverio@^9`, `@wdio/cli@^9`, `@wdio/mocha-framework@^9`, `@wdio/spec-reporter@^9`, `@wdio/appium-service@^9`, `@wdio/allure-reporter@^9`, `typescript`.
-  - Prehornea drivers en `APPIUM_HOME=/opt/appium-home` durante build:
-    - `appium driver install uiautomator2`
-    - `appium driver install xcuitest` (para envío remoto W3C hacia nodos macOS; requiere validación de arquitectura/dependencias binarias limpias para Trivy).
-- **Stage 2 (`runtime` endurecido):**
+### 4.1. Arquitectura Multi-Etapa y Variables Canónicas (`linux/amd64` + `linux/arm64`)
+- **Base OS + Node:** Misma familia base minimalista endurecida Debian 13 `trixie` (`node:26-slim`), `pnpm`, `bash`, `ca-certificates`, `unzip` solo en etapa `android-sdk-builder`.
+- **Stage 1 (`android-sdk-builder`, `--platform=$BUILDPLATFORM`):**
+  - Instala **OpenJDK 21 Headless JDK** a velocidad nativa del host.
+  - Descarga **Android `commandlinetools-linux-15641748_latest.zip`** (`cmdline-tools;21.0`) fijado por **SHA-256** (`a66d5ef0238fc0162e9c1446602ce0dd41702d4dd7a94d2ce42d12b7f80baf7e`), última revisión **100% Java puro (`SdkManagerCli`)** con `REPO_OS_OVERRIDE=linux`, evitando el wrapper `v22+/v23+` (`16111833`) que delega en el binario ELF `bin/android` exclusivo de `x86_64` (`exit 127` en `linux/arm64`).
+  - Instala exclusivamente `platform-tools` (`adb`), `build-tools;35.0.0` (`aapt2`, `apksigner`, `zipalign`) y `platforms;android-35` (excluyendo `system-images`, `emulator`, NDK y purgando `cmdline-tools` al finalizar).
+- **Stage 2 (`node-builder`, plataforma destino nativa `$TARGETPLATFORM`):**
+  - Prehornea en `/opt/qa11x/` desde lockfile (`npm ci --omit=dev --ignore-scripts`, compilando/resolviendo addons nativos `@img/sharp-linux-*`, `@esbuild/linux-*` y `bare-*` para `$TARGETARCH`): `appium@3.x`, `webdriverio@^9`, `@wdio/cli@^9`, `@wdio/mocha-framework@^9`, `@wdio/spec-reporter@^9`, `@wdio/appium-service@^9`, `@wdio/allure-reporter@^9`, `typescript`, y genera el SBOM CycloneDX (`/opt/qa11x/sbom.cdx.json`).
+  - Prehornea drivers en `APPIUM_HOME=/opt/appium-home` durante build (`appium driver install uiautomator2` y `appium driver install xcuitest`).
+- **Stage 3 (`runtime` endurecido, `ARG TARGETARCH`):**
   - Copia únicamente `JRE 21`, `ANDROID_HOME=/opt/android-sdk`, `APPIUM_HOME=/opt/appium-home` y `/opt/qa11x` con `chmod -R a+rX` (sin escritura en `/opt`).
+  - Mantiene los binarios oficiales de Google en `amd64`; cuando `TARGETARCH=arm64`, instala `adb`, `aapt` (`aapt` + `aapt2`) y `zipalign` nativos `arm64` de Debian 13 (`trixie`), purga los ELF `x86_64` incompatibles y enlaza `/usr/lib/android-sdk/...` dentro de `${ANDROID_HOME}/platform-tools` y `${ANDROID_HOME}/build-tools/35.0.0`, conservando intactos los artefactos Java/DEX multiplataforma (`apksigner`, `d8`, `platforms/android-35`).
   - Usuario no-root por defecto `USER 10001:10001` compatible con sobreescritura `-u "$(id -u):$(id -g)"`.
   - Variables de entorno: `HOME=/tmp`, `JAVA_HOME=/opt/java/openjdk`, `ANDROID_HOME=/opt/android-sdk`, `ANDROID_USER_HOME=/tmp/.android`, `APPIUM_HOME=/opt/appium-home`, `NODE_PATH=/opt/qa11x/node_modules`, `QA_MOBILE_ARTIFACT_DIR=/tmp/qa-11x-mobile-artifacts`.
   - Sin secretos, sin SSH, sin `sudo`, `HEALTHCHECK` invocando `appium --version && adb --version`.
@@ -73,4 +74,4 @@ De acuerdo con [`mobile-appium/README.md`](../../mobile-appium/README.md), [`mob
 ## 6. Matriz de Decisión: ¿Cuándo Usar Cada Imagen?
 
 * **`sinfallas/base-node-ionic:26`**: Proyectos Angular/Ionic web, verificación rápida `tsc` + `lint_test_antipatterns.py`, y proyectos `mobile-appium` que delegan Appium/drivers a una granja externa (BrowserStack / Sauce Labs / runner macOS).
-* **`sinfallas/base-mobile-appium:26` *(Planificada)***: Ejecución autocontenida de `WebdriverIO + Appium 3 + UiAutomator2 + ADB` desde contenedor CI contra dispositivos Android en red o emuladores TCP sin descargas en runtime.
+* **`sinfallas/base-mobile-appium:26` *(Certificada Multi-Arch `linux/amd64` y `linux/arm64`)***: Ejecución autocontenida de `WebdriverIO + Appium 3 + UiAutomator2 + ADB` desde contenedor CI contra dispositivos Android en red o emuladores TCP sin descargas en runtime.

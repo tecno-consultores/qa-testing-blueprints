@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Added & Changed
+* **Multi-Arch (`linux/amd64` + `linux/arm64`) Architecture Update in Spec 20 (`sinfallas/base-mobile-appium:26`):** Updated [`docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md) to document the 3-stage multi-arch build (`android-sdk-builder` on `$BUILDPLATFORM` with pure-Java `cmdline-tools;21.0` `15641748` avoiding the `x86_64`-only `bin/android` wrapper in `v22+/v23+`, native `node-builder`, and `TARGETARCH=arm64` native Debian `trixie` `adb`/`aapt`/`aapt2`/`zipalign` linkage).
 * **15×12 Matrix & Dedicated Mobile Image (`sinfallas/base-mobile-appium:26`):** Integrated non-root Docker base image `sinfallas/base-mobile-appium:26` (`Node.js 26`, `pnpm`, `OpenJDK 21`, `Android SDK/ADB`, `Appium 3`, `uiautomator2`, `xcuitest`, `WebdriverIO v9`), `make test-mobile-blueprints`, `smoke-mobile-appium` CI job, `qa-mobile` in `ephemeral-runner.ts` / `stackBlueprints.ts`, and `15×12` matrix parity across `README.md` / `README.es.md`.
 * **Spec 19 Phase A — Bilingual English Canonical + 1:1 Spanish Mirror Architecture:** Migrated root, security, testing, prompt, roadmap, changelog, `mcp-server/{CHANGELOG,example/README}`, and `docs/agent-setup` documents to `*.md` (EN) + `*.es.md` (ES) pairs with reciprocal banners, enabled `?lang=es|en` negotiation on `blueprint://*` resources, and updated `AGENTS.md` / `.agents/README.md`.
 
