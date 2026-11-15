@@ -11,6 +11,13 @@ import { bootstrapOrMerge11x } from '../src/tools/bootstrap-merge.js';
 import { inspectAstBlastRadius } from '../src/tools/blast-radius.js';
 import { cleanWorkspace11x } from '../src/tools/clean-workspace.js';
 import { BlueprintResources } from '../src/resources/blueprint-resources.js';
+import {
+  parseResourceUriAndLang,
+  runWithResourceLang,
+  getActiveResourceLang,
+} from '../src/resources/resourceLang.js';
+import { readAiEvalsBlueprint } from '../src/resources/aiEvalsBlueprint.js';
+import { readVibeRescueBlueprint } from '../src/resources/stackBlueprints.js';
 import { GitHubFetcher } from '../src/services/github-fetcher.js';
 import { SurgicalMerger } from '../src/services/surgical-merger.js';
 import { runInstallSkillCli } from '../src/cli/install-skill.js';
@@ -553,10 +560,14 @@ describe('Tools and Resources Integration Suite', () => {
 
       const resources = new BlueprintResources(emptyFetcher);
       const phil = await resources.getPhilosophyResource();
-      expect(phil.text).toContain('Filosofía QA 11X');
+      expect(phil.text).toContain('QA 11X Philosophy');
+      const philEs = await resources.getPhilosophyResource('es');
+      expect(philEs.text).toContain('Filosofía QA 11X');
 
       const sec = await resources.getSecurityResource();
-      expect(sec.text).toContain('22 Patrones de Seguridad');
+      expect(sec.text).toContain('22 Security Patterns');
+      const secEs = await resources.getSecurityResource('es');
+      expect(secEs.text).toContain('22 Patrones de Seguridad');
 
       const task = await resources.getActiveTaskTemplateResource();
       expect(task.text).toContain('ACTIVE_TASK.md.example');
@@ -1094,6 +1105,146 @@ describe('Tools and Resources Integration Suite', () => {
       const rlsResources = new BlueprintResources(customFetcher);
       const loadedRes = await rlsResources.getPostgresRlsWormResource();
       expect(loadedRes.text).toBe(rlsContent);
+    });
+
+    it('resuelve parámetro ?lang=es|en, fallback bilingüe y recursos localizados en BlueprintResources/v2', async () => {
+      expect(parseResourceUriAndLang('blueprint://fastapi/readme?lang=es')).toEqual({
+        baseUri: 'blueprint://fastapi/readme',
+        lang: 'es',
+      });
+      expect(parseResourceUriAndLang('blueprint://philosophy?foo=1&lang=EN')).toEqual({
+        baseUri: 'blueprint://philosophy',
+        lang: 'en',
+      });
+      expect(parseResourceUriAndLang('blueprint://security?lang=fr&x=2')).toEqual({
+        baseUri: 'blueprint://security',
+        lang: 'en',
+      });
+      expect(parseResourceUriAndLang('blueprint://ai/evals-redteam')).toEqual({
+        baseUri: 'blueprint://ai/evals-redteam',
+        lang: 'en',
+      });
+      expect(getActiveResourceLang(new URL('blueprint://core/philosophy?lang=es'))).toBe('es');
+      expect(getActiveResourceLang(new URL('blueprint://core/philosophy?lang=en'))).toBe('en');
+      expect(
+        runWithResourceLang('es', () =>
+          getActiveResourceLang(new URL('blueprint://core/philosophy'))
+        )
+      ).toBe('es');
+      expect(getActiveResourceLang(undefined, 'es')).toBe('es');
+      expect(getActiveResourceLang()).toBe('en');
+
+      const resources = new BlueprintResources(fetcher);
+      const philEsFallback = await resources.getPhilosophyResource('es');
+      expect(philEsFallback.text).toBe('# Master Prompt');
+
+      const secEsFallback = await resources.getSecurityResource('es');
+      expect(secEsFallback.text).toBe('# 22 Security Patterns');
+
+      // Fallback EN cuando python/README.es.md no existe aún
+      const pyFallbackEn = await resources.getStackReadmeResource('python', 'es');
+      expect(pyFallbackEn.text).toBe('# Python Blueprint Documentation');
+
+      // Con espejos .es.md presentes en manifest + disco
+      const pyEsContent = '# Documentación Python Blueprint ES';
+      const secEsContent = '# Controles Seguridad ES';
+      const philEsContent = '# Filosofía Central ES\n';
+      fs.writeFileSync(path.join(localRepoDir, 'python', 'README.es.md'), pyEsContent, 'utf-8');
+      fs.writeFileSync(path.join(localRepoDir, 'SECURITY.es.md'), secEsContent, 'utf-8');
+      fs.writeFileSync(path.join(localRepoDir, 'AI_MASTER_PROMPT.es.md'), philEsContent, 'utf-8');
+      const bilingualManifest: Manifest = {
+        ...mockManifest,
+        stacks: {
+          ...mockManifest.stacks,
+          python: {
+            ...mockManifest.stacks.python,
+            readme_es: 'python/README.es.md',
+            readme_sha256: crypto.createHash('sha256').update('# Python Blueprint Documentation').digest('hex'),
+            readme_es_sha256: crypto.createHash('sha256').update(pyEsContent).digest('hex'),
+          },
+        },
+        agent_governance_files: [
+          ...mockManifest.agent_governance_files,
+          {
+            path: 'AI_MASTER_PROMPT.es.md',
+            target_name: 'AI_MASTER_PROMPT.es.md',
+            merge_strategy: 'copy_or_overwrite',
+            sha256: crypto.createHash('sha256').update(philEsContent).digest('hex'),
+            size_bytes: philEsContent.length,
+          },
+          {
+            path: 'SECURITY.es.md',
+            target_name: 'SECURITY.es.md',
+            merge_strategy: 'copy_or_overwrite',
+            sha256: crypto.createHash('sha256').update(secEsContent).digest('hex'),
+            size_bytes: secEsContent.length,
+          },
+        ],
+      };
+      const esFetcher = new GitHubFetcher({
+        cacheDir: path.join(tmpDir, 'cache-es'),
+        localOverridePath: localRepoDir,
+      });
+      vi.spyOn(esFetcher, 'fetchManifest').mockResolvedValue(bilingualManifest);
+      const esResources = new BlueprintResources(esFetcher);
+      expect((await esResources.getPhilosophyResource('en')).text).toBe('# Master Prompt');
+      expect((await esResources.getPhilosophyResource('es')).text).toBe(philEsContent);
+      expect((await esResources.getSecurityResource('es')).text).toBe(secEsContent);
+      expect((await esResources.getStackReadmeResource('python', 'es')).text).toBe(pyEsContent);
+
+      const aiEs = readAiEvalsBlueprint(tmpDir, 'es');
+      expect(aiEs.source).toBe('embedded-fallback');
+      expect(aiEs.text).toContain('Blueprint QA-11X de AI Evals');
+
+      const vibeEsFallback = readVibeRescueBlueprint(tmpDir, 'es');
+      expect(vibeEsFallback.source).toBe('embedded-fallback');
+      expect(vibeEsFallback.text).toContain('Rescate y Endurecimiento QA-11X');
+
+      const vibeWsDir = path.join(localRepoDir, 'vibe-rescue');
+      fs.mkdirSync(vibeWsDir, { recursive: true });
+      fs.writeFileSync(path.join(vibeWsDir, 'README.es.md'), '# Vibe Rescue ES Local\n', 'utf-8');
+      const vibeEsLocal = readVibeRescueBlueprint(localRepoDir, 'es');
+      expect(vibeEsLocal.source).toBe('workspace');
+      expect(vibeEsLocal.text).toContain('Vibe Rescue ES Local');
+
+      // Fallback vía stackDef.readme_sha256 cuando files está vacío y fetch de README.es.md falla
+      const customPrimaryDir = path.join(localRepoDir, 'custom');
+      fs.mkdirSync(customPrimaryDir, { recursive: true });
+      const customPrimaryText = '# Custom Stack Primary EN';
+      fs.writeFileSync(path.join(customPrimaryDir, 'README.md'), customPrimaryText, 'utf-8');
+      const customPrimarySha = crypto.createHash('sha256').update(customPrimaryText).digest('hex');
+      const shaOnlyManifest: Manifest = {
+        ...mockManifest,
+        stacks: {
+          ...mockManifest.stacks,
+          custom: {
+            description: 'Custom Stack',
+            readme: 'custom/README.md',
+            readme_es: 'custom/README.es.md',
+            readme_sha256: customPrimarySha,
+            readme_es_sha256: '0'.repeat(64),
+            files: [],
+          },
+        },
+        agent_governance_files: [],
+      };
+      const shaFetcher = new GitHubFetcher({
+        cacheDir: path.join(tmpDir, 'cache-sha-only'),
+        localOverridePath: localRepoDir,
+      });
+      vi.spyOn(shaFetcher, 'fetchManifest').mockResolvedValue(shaOnlyManifest);
+      const customFallbackRes = await new BlueprintResources(shaFetcher).getStackReadmeResource(
+        'custom',
+        'es'
+      );
+      expect(customFallbackRes.text).toBe(customPrimaryText);
+
+      // Workspace root inexistente retorna embedded-fallback en loadDescriptorMarkdown
+      const missingRootRes = readVibeRescueBlueprint(
+        path.join(tmpDir, 'non-existent-workspace-root'),
+        'en'
+      );
+      expect(missingRootRes.source).toBe('embedded-fallback');
     });
   });
 

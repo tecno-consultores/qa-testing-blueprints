@@ -1,66 +1,69 @@
-# Guía de Contribución (Ecosistema Híbrido Humano + Agentes IA)
+> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (CONTRIBUTING.es.md)](CONTRIBUTING.es.md)
 
-¡Gracias por tu interés en mejorar **QA Testing Blueprints**! Este repositorio es la fuente de la verdad para la calidad del código, la seguridad por diseño y la gobernanza técnica de nuestros proyectos.
+# Contributing Guide (Human + AI Agents Hybrid Ecosystem)
 
-Este ecosistema está diseñado para ser desarrollado, mantenido y extendido tanto por **desarrolladores e ingenieros humanos** como por **Agentes de Inteligencia Artificial autónomos** (Google Antigravity, Anthropic Claude Code / Desktop, Hermes Agent de Nous Research, Cursor, Windsurf). Toda contribución debe respetar las directivas de calidad corporativa Nivel 11X.
+Thank you for your interest in improving **QA Testing Blueprints**! This repository is the single source of truth for code quality, Security-by-Design, and corporate technical governance across our projects.
 
----
-
-## 📜 Reglas de Oro para Contribuir (El Estándar 11X)
-
-Para mantener la consistencia y la eficacia de estos blueprints, toda contribución (humana o automatizada) debe respetar los siguientes principios:
-
-1. **Imágenes Base Inmutables:** En proyectos consumidores y blueprints individuales, nunca propongas cambios que requieran agregar un `Dockerfile` local o la instrucción `build:` en los orquestadores `docker-compose.qa.yml`. Todo debe funcionar utilizando exclusivamente nuestra flota de imágenes oficiales (y para nuevos entornos corporativos como `mobile-appium`, planificar formalmente la imagen dedicada antes de hornearla — ver [`docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md)):
-   * `sinfallas/base-python-uv` (`3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest`) para Python/FastAPI, `ai-evals` y `vibe-rescue`.
-   * `sinfallas/base-node-ionic` (`22`, `24`, `26` y `latest`) para Node.js/Vue 3/React, `mobile-appium` (offline TS/WDIO), Promptfoo, `@finos/calm-cli` y el Servidor MCP.
-   * `sinfallas/basephpcomposer` (`8.2`, `8.3`, `8.4`, `8.5` y `latest`) para PHP.
-   * `sinfallas/base-bash-qa:latest` para Bash/DevOps.
-   * `sinfallas/karatelabs:1.5.1` para BDD/Caja Negra.
-   * `sinfallas/remote-graphify:latest` para Optimización de Contexto IA (análisis AST CLI-first).
-   * *Nota: Se permite el uso de imágenes oficiales consolidadas exclusivamente para Sidecars periféricos (ej. `prom/prometheus:latest`, `zaproxy/zap-stable:latest`, `postgres:17-alpine`, `eqalpha/keydb:alpine`, `mcr.microsoft.com/playwright:v1.52.0-noble`).*
-   * **REGLA DE CACHÉ Y UID NO-ROOT:** Si agregas una imagen que dependa de un gestor de paquetes (`uv`, `pnpm`, `composer`), DEBES declarar obligatoriamente volúmenes nombrados compatibles con cualquier usuario no-root del host/CI (`-u "$(id -u):$(id -g)"`): ej. `/tmp/uv-cache` con `UV_CACHE_DIR=/tmp/uv-cache` y `COVERAGE_FILE=/tmp/.coverage` en Python, o `pnpm-store:/pnpm` inicializado por `pnpm-store-init` (`chmod -R a+rwX /pnpm`) junto a `HOME=/tmp` y `pnpm_config_store_dir=/pnpm/store` en `sinfallas/base-node-ionic:26` (`uid=10001`).
-
-2. **Efimeridad Absoluta y Regla Cero (`Rule Zero`):** Toda ejecución de pruebas, linters o scripts debe ocurrir dentro de contenedores efímeros (usando `--rm`). Jamás ejecutes pruebas directamente en el host anfitrión. Las pruebas unitarias jamás deben salir a Internet; el Mocking (`nock`, `pytest-mock`) es obligatorio. Para persistencia y esquemas de base de datos rige la regla **Anti-Mock Blindness** (validación obligatoria contra base de datos real efímera).
-3. **Prompts Imperativos y Optimización Bimodal:**
-   * Las directivas internas para consumo de LLMs en `.agents/rules/` y `.agents/skills/` se redactan en **inglés técnico conciso de alta densidad** para ahorrar un 35% de tokens BPE.
-   * Los manuales operativos humanos (`docs/`, `CHANGELOG.md`, `TESTING.md`, `README.es.md`) y respuestas de cara al usuario se redactan en **español**, junto con puertas de entrada internacionales en **inglés** (`README.md`, `mcp-server/README.md`, `docs/agent-setup.en.md`, `catalogs/agenticskills-submission.md`; arquitectura bilingüe completa planificada en [`docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md)).
-4. **Umbral de Calidad y Deuda Técnica Innegociables:**
-   * Cobertura de código unitario **>= 95%** de líneas y ramas.
-   * Complejidad ciclomática Grado **A** (`CC <= 5`, `MI >= A`).
-   * Accesibilidad web WCAG 2.1 AA (0 violaciones en `@axe-core`) y rendimiento en Lighthouse **>= 90**.
-   * Cumplimiento estricto de **DISA ASD STIG V6R5** y **OWASP Developer Guide v4.2** documentadas en [`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`](docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md).
-5. **IPv4 Estricto:** Toda configuración de red en los `docker-compose.qa.yml` debe utilizar exclusivamente el driver `bridge` estándar en IPv4. Prohibido habilitar `enable_ipv6: true` para evitar conflictos de enrutamiento y NAT.
+This ecosystem is designed to be developed, maintained, and extended by both **human software engineers** and **autonomous AI Coding Agents** (Google Antigravity, Anthropic Claude Code / Desktop, Nous Research Hermes Agent, Cursor, Windsurf). Every contribution must uphold Level-11X corporate quality directives.
 
 ---
 
-## 🤖 Protocolo Obligatorio para Agentes de Inteligencia Artificial
+## 📜 Golden Rules for Contributing (The 11X Standard)
 
-Si eres un **Agente de IA** (o un desarrollador operando en conjunto con uno) contribuyendo a este repositorio, DEBES acatar incondicionalmente el siguiente ciclo:
+To preserve consistency and effectiveness across these blueprints, every contribution (human or automated) must obey these principles:
 
-1. **Lectura de Directivas:** Lee `.agents/rules/` y `AGENTS.md` antes de generar cualquier propuesta.
-2. **Bitácora Activa:** Inicia o actualiza el archivo `.agents/ACTIVE_TASK.md` desglosando las fases de la tarea con casillas `- [ ]` en tiempo real.
-3. **Inspección AST Preventiva:** Audita el radio de impacto de símbolos compartidos con `python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"` antes de modificar código.
-4. **Pirámide de Pruebas Obligatoria:** Todo código nuevo o modificado debe incorporar sus correspondientes pruebas unitarias (`>= 95%`) y escenarios BDD en Karate Labs (`api_test.feature` y `ui_business_flow.feature`).
-5. **Compuerta Universal de Certificación (10/10):** Ejecuta `./.agents/scripts/certify_task_completion.sh` y asegura que las **10 etapas** pasen limpiamente (incluyendo `bump_version_11x.py --check` y `sync_governance.py --check`) antes de concluir en un `git commit` local certificado (`QA-GIT-GATE-01`).
-6. **Sincronización Criptográfica del Manifiesto:** Si agregas o modificas plantillas o archivos comunes, regenera `manifest.json` ejecutando `make sync-governance` y verifica con `make version-check`.
+1. **Immutable Base Images:** In consumer repositories and individual blueprints, never propose changes requiring a local `Dockerfile` or a `build:` directive inside `docker-compose.qa.yml` orchestrators. Everything must run exclusively using our official container fleet (and for new corporate stacks such as `mobile-appium`, formally plan and certify the dedicated image per [`docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md)):
+   * `sinfallas/base-python-uv` (`3.11`, `3.12`, `3.13`, `3.14`, `3.15`, and `latest`) for Python/FastAPI, `ai-evals`, and `vibe-rescue`.
+   * `sinfallas/base-node-ionic` (`22`, `24`, `26`, and `latest`) for Node.js/Vue 3/React, Promptfoo, `@finos/calm-cli`, and the MCP Server.
+   * `sinfallas/base-mobile-appium` (`26` and `latest`) for Native & Hybrid Mobile W3C Bridge (`mobile-appium/`: Node.js 26, `pnpm`, OpenJDK 21, Android SDK/ADB, Appium 3, `uiautomator2`, `xcuitest`, WebdriverIO v9).
+   * `sinfallas/basephpcomposer` (`8.2`, `8.3`, `8.4`, `8.5`, and `latest`) for PHP.
+   * `sinfallas/base-bash-qa:latest` for Bash/DevOps.
+   * `sinfallas/karatelabs:1.5.1` for BDD/Black-Box contracts.
+   * `sinfallas/remote-graphify:latest` for AI Context Optimization (CLI-first AST analysis).
+   * *Note: Official third-party images are permitted strictly for peripheral sidecars (e.g. `prom/prometheus:latest`, `zaproxy/zap-stable:latest`, `postgres:17-alpine`, `eqalpha/keydb:alpine`, `mcr.microsoft.com/playwright:v1.52.0-noble`).*
+   * **NON-ROOT UID & CACHE RULE:** When adding an image depending on a package manager (`uv`, `pnpm`, `composer`), you MUST declare named volumes compatible with any non-root host/CI UID (`-u "$(id -u):$(id -g)"`): e.g. `/tmp/uv-cache` with `UV_CACHE_DIR=/tmp/uv-cache` and `COVERAGE_FILE=/tmp/.coverage` in Python, or `pnpm-store:/pnpm` initialized by `pnpm-store-init` (`chmod -R a+rwX /pnpm`) alongside `HOME=/tmp` and `pnpm_config_store_dir=/pnpm/store` in `sinfallas/base-node-ionic:26` / `sinfallas/base-mobile-appium:26` (`uid=10001`).
+
+2. **Absolute Ephemerality & `Rule Zero`:** All test suites, linters, and validation scripts must execute inside ephemeral containers (`--rm`). Never execute tests directly on the host machine. Unit tests must never access the internet; mocking (`nock`, `pytest-mock`) is mandatory. For persistence and database schemas, **Anti-Mock Blindness** applies (mandatory verification against a real ephemeral database).
+3. **Imperative Prompts & Bilingual Architecture (`Spec 19`):**
+   * Internal LLM directives in `.agents/rules/` and `.agents/skills/` are written in **concise, high-density technical English** to save ~35% of BPE context tokens.
+   * Root governance, onboarding, and setup documentation (`README.md`, `RESOURCES.md`, `TESTING.md`, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `FAQ.md`, `AI_MASTER_PROMPT.md`, `ROADMAP.md`, `CHANGELOG.md`, `mcp-server/*`, `docs/agent-setup.md`) follow the **English Canonical (`*.md`) + 1:1 Spanish Mirror (`*.es.md`)** convention ([`docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md)), while deep manuals (`docs/01..04*`) and stack READMEs transition across Phases B–C.
+4. **Non-Negotiable Quality & Technical Debt Thresholds:**
+   * Unit code coverage **>= 95%** across lines and branches.
+   * Cyclomatic Complexity Grade **A** (`CC <= 5`, `MI >= A`).
+   * Web accessibility WCAG 2.1 AA (0 `@axe-core` violations) and Lighthouse performance score **>= 90**.
+   * Strict compliance with **DISA ASD STIG V6R5** and **OWASP Developer Guide v4.2** documented in [`SECURITY.md`](SECURITY.md) and [`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`](docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md).
+5. **Strict IPv4:** All network configurations in `docker-compose.qa.yml` must use the standard IPv4 `bridge` driver exclusively. Enabling `enable_ipv6: true` is prohibited to avoid routing and NAT conflicts.
 
 ---
 
-## 🛠️ Cómo proponer un cambio
+## 🤖 Mandatory Protocol for AI Coding Agents
 
-### Si estás agregando una herramienta técnica o modificando un stack
-1. Haz un *fork* del repositorio, crea una rama descriptiva (`git checkout -b feature/agregar-k6-stresstest`) e **instala inmediatamente los hooks de seguridad locales** ejecutando `./instalar-hooks.sh` en tu terminal.
-2. Modifica el archivo de configuración (`pyproject.toml.example`, `package.json.example`, etc.) y el orquestador `docker-compose.qa.yml` si es estrictamente necesario. *(Nota: Si agregas herramientas de Profiling como `py-spy` o `clinic.js`, recuerda incluir los privilegios `cap_add: - SYS_PTRACE` y `security_opt: - seccomp:unconfined`)*.
-3. Actualiza la documentación correspondiente en `docs/` y los `Makefiles` documentando el comando de ejecución exacto.
-4. Antes de hacer el commit o Pull Request, ejecuta el saneamiento `./scripts/limpieza.sh` y certifica la suite completa ejecutando `./.agents/scripts/certify_task_completion.sh` en local (**10 compuertas en verde**).
+If you are an **AI Agent** (or a human engineer collaborating with one) contributing to this repository, you MUST unconditionally follow this lifecycle:
 
-### Si estás mejorando la Documentación, MCP o Skills
-1. Si mejoras el servidor MCP (`mcp-server/`), asegúrate de que pase `pnpm run lint`, `npx tsc --noEmit` y que la cobertura de pruebas unitarias (`pnpm test`) se mantenga en `>= 95%`.
-2. Si actualizas cualquiera de las 10 skills modulares en `.agents/skills/`, mantén el presupuesto cognitivo (`qa-11x-architect/SKILL.md < 12 KB`, resto `< 20 KB`), actualiza `catalogs/skillsllm-manifest.json` y sincroniza `docs/specs/`.
-3. Mantén la filosofía de "cero complacencia": la documentación es concisa, restrictiva y orientada a la erradicación de errores.
+1. **Read Directives:** Read `.agents/rules/` and `AGENTS.md` before proposing any change.
+2. **Active Task Log:** Initialize or update `.agents/ACTIVE_TASK.md` breaking down task phases with real-time `- [ ]` checkboxes (`<= 40` lines).
+3. **Preventive AST Inspection:** Audit the blast radius of shared symbols using `python3 .agents/scripts/inspect_blast_radius.py "<symbol>"` before modifying code.
+4. **Mandatory Test Pyramid:** All new or modified code must include matching unit tests (`>= 95%`) and Karate Labs BDD scenarios (`api_test.feature` and `ui_business_flow.feature`), updating affected pre-existing tests (`QA-TEST-SYNC-01`).
+5. **Universal Certification Gate (10/10):** Run `./.agents/scripts/certify_task_completion.sh` and ensure all **10 stages** pass cleanly (including `bump_version_11x.py --check` and `sync_governance.py --check`) before concluding in a certified local `git commit` (`QA-GIT-GATE-01`).
+6. **Cryptographic Manifest Sync:** Whenever adding or modifying templates or common files, regenerate `manifest.json` with `make sync-governance` and verify via `make version-check`.
+
+---
+
+## 🛠️ How to Propose a Change
+
+### When adding a technical tool or modifying a stack
+1. Fork the repository, create a descriptive branch (`git checkout -b feature/add-k6-stresstest`), and **immediately install local security hooks** by running `./instalar-hooks.sh` in your terminal.
+2. Update the template configuration (`pyproject.toml.example`, `package.json.example`, etc.) and `docker-compose.qa.yml` only if strictly necessary. *(Note: When adding profilers such as `py-spy` or `clinic.js`, include `cap_add: - SYS_PTRACE` and `security_opt: - seccomp:unconfined`)*.
+3. Update the corresponding documentation in `docs/`, `TESTING.md` / `TESTING.es.md`, and `Makefiles` documenting exact execution commands.
+4. Before committing or opening a Pull Request, run `./scripts/limpieza.sh` and certify the complete suite with `./.agents/scripts/certify_task_completion.sh` locally (**10/10 gates green**).
+
+### When improving Documentation, MCP, or Skills
+1. When updating the MCP server (`mcp-server/`), verify `pnpm run lint`, `npx tsc --noEmit`, and unit test coverage (`pnpm test` `>= 95%`).
+2. When updating any of the 10 modular skills in `.agents/skills/`, keep within cognitive budgets (`qa-11x-architect/SKILL.md < 12 KB`, others `< 20 KB`), update `catalogs/skillsllm-manifest.json`, and synchronize `docs/specs/`.
+3. Maintain the "zero complacency" philosophy and keep bilingual pairs (`*.md` + `*.es.md`) in exact 1:1 structural parity.
 
 ### Pull Request (PR)
-Abre un PR detallando:
-* **¿Qué tecnología, documento, herramienta MCP o skill estás modificando?**
-* **¿Qué problema de calidad, seguridad o gobernanza resuelve?**
-* **Evidencia:** Adjunta el log de la terminal demostrando que `./.agents/scripts/certify_task_completion.sh` pasó con éxito (10/10 etapas) y que las pruebas corren en Docker efímero sin requerir privilegios de superusuario en el host.
+Open a PR detailing:
+* **Which technology, document, MCP tool, or skill are you modifying?**
+* **Which quality, security, or governance gap does it resolve?**
+* **Evidence:** Attach terminal output demonstrating that `./.agents/scripts/certify_task_completion.sh` passed cleanly (10/10 stages) and that all tests execute inside ephemeral Docker without root privileges on the host.

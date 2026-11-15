@@ -1,339 +1,351 @@
-# 🗺️ Hoja de Ruta Maestra (ROADMAP.md) — Ecosistema Zero-Clone: Skill + Servidor MCP (Estándar 11X)
+# 🗺️ Master Roadmap (ROADMAP.md) — Zero-Clone Ecosystem: Skill + MCP Server (Standard 11X)
 
-**Proyecto:** QA Testing Blueprints (`tecno-consultores/qa-testing-blueprints`)  
-**Arquitectura Objetivo:** Distribución Zero-Clone en Node.js (`npx -y @sinfallas/mcp-qa-11x@latest`) + Skill Cognitiva (`qa-11x-architect`) + Hidratación Bajo Demanda desde GitHub con Verificación SHA-256 (`manifest.json`)  
-**Modelo Ejecutor Objetivo:** Gemini 3.8 Flash High / Claude / Antigravity  
+> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (ROADMAP.es.md)](ROADMAP.es.md)
 
-> **DIRECTIVA DE EJECUCIÓN PARA EL AGENTE DE IA (GEMINI 3.8 FLASH HIGH):**
-> 1. Lee siempre primero la especificación técnica asociada en `docs/specs/` antes de iniciar cada Hito.
-> 2. Respeta estrictamente la **Regla Cero (`Rule Zero`)**: toda validación de código, linters y pruebas unitarias/BDD DEBE ejecutarse dentro de los contenedores Docker efímeros (`sinfallas/*`).
-> 3. Al completar cada subtarea o Hito, marca su casilla `[x]` en este `ROADMAP.md`, actualiza `CHANGELOG.md` y `TESTING.md`, y ejecuta `./.agents/scripts/certify_task_completion.sh`.
+**Project:** QA Testing Blueprints (`tecno-consultores/qa-testing-blueprints`)  
+**Target Architecture:** Zero-Clone Distribution in Node.js (`npx -y @sinfallas/mcp-qa-11x@latest`) + Cognitive Skill (`qa-11x-architect`) + On-Demand Hydration from GitHub with SHA-256 Verification (`manifest.json`)  
+**Target Executor Model:** Gemini 3.8 Flash High / Claude / Antigravity
+
+> **EXECUTION DIRECTIVE FOR AI AGENTS (GEMINI 3.8 FLASH HIGH):**
+> 1. Always read the associated technical specification in `docs/specs/` before starting each Milestone.
+> 2. Strictly enforce **Rule Zero**: all code checks, linters, and unit/BDD tests MUST run inside ephemeral Docker containers (`sinfallas/*`).
+> 3. Upon completing each subtask or Milestone, check `[x]` in `ROADMAP.md` (and `ROADMAP.es.md`), update `CHANGELOG.{md,es.md}` and `TESTING.{md,es.md}`, and run `./.agents/scripts/certify_task_completion.sh`.
 
 ---
 
-## 📊 Resumen de Estado de Hitos
+## 📊 Milestone Status Summary
 
-| Hito | Nombre del Hito | Especificación Asociada | Estado | Progreso |
+| Milestone | Milestone Name | Associated Specification | Status | Progress |
 | :--- | :--- | :--- | :---: | :---: |
-| **Hito 1** | Especificaciones de Diseño (`docs/specs/`) y Planificación (`ROADMAP.md`) | `01_SPEC` a `05_SPEC` | ✅ Completado | `100%` |
-| **Hito 2** | Manifiesto Criptográfico (`manifest.json`) y Generador Automático SHA-256 | [`01_SPEC_ARQUITECTURA_ZERO_CLONE_Y_MANIFIESTO_REMOTO.md`](docs/specs/01_SPEC_ARQUITECTURA_ZERO_CLONE_Y_MANIFIESTO_REMOTO.md) | ✅ Completado | `100%` |
-| **Hito 3** | Skill Maestra (`qa-11x-architect`), Carga Progresiva (`references/`) e Instalador `curl` | [`02_SPEC_SKILL_QA_11X_ARCHITECT_E_INSTALADOR.md`](docs/specs/02_SPEC_SKILL_QA_11X_ARCHITECT_E_INSTALADOR.md) | ✅ Completado | `100%` |
-| **Hito 4** | Servidor MCP en Node.js / TS (`mcp-server/`) — Núcleo, Recursos y Tools 1–4 | [`03_SPEC_MCP_SERVER_NODE_TS_CORE_Y_TOOLS.md`](docs/specs/03_SPEC_MCP_SERVER_NODE_TS_CORE_Y_TOOLS.md) | ✅ Completado | `100%` |
-| **Hito 5** | Parsers Ahorradores de Tokens, Auditor DISA STIG / OWASP y Tools 5–7 | [`04_SPEC_MCP_PARSERS_AUDITOR_STIG_OWASP_Y_GATE.md`](docs/specs/04_SPEC_MCP_PARSERS_AUDITOR_STIG_OWASP_Y_GATE.md) | ✅ Completado | `100%` |
-| **Hito 6** | Pruebas 11X (`>= 95%`), Empaquetado npm (`npx`) y Publicación Autónoma Soberana | [`05_SPEC_PUBLICACION_NPM_Y_AUTOMATIZACION_CI.md`](docs/specs/05_SPEC_PUBLICACION_NPM_Y_AUTOMATIZACION_CI.md) | ✅ Completado | `100%` |
-| **Hito 7** | Auditor de Brechas de la Pirámide de Pruebas 11X (`audit_test_pyramid_gaps`) y Playbook de Rescate | [`06_SPEC_AUDITOR_BRECHAS_PIRAMIDE_PRUEBAS_11X.md`](docs/specs/06_SPEC_AUDITOR_BRECHAS_PIRAMIDE_PRUEBAS_11X.md) | ✅ Completado | `100%` |
-| **Hito 8** | Autodetección de Agentes en `install-skill`, Instalación de las 5 Skills + Scripts y Resiliencia CDN | [`07_SPEC_AUTODETECCION_AGENTES_CLI_Y_RESILIENCIA_CDN_NPM.md`](docs/specs/07_SPEC_AUTODETECCION_AGENTES_CLI_Y_RESILIENCIA_CDN_NPM.md) | ✅ Completado | `100%` |
-| **Hito 9** | Inyector Aditivo No Destructivo del Conector `AGENTS.md` (`init-agents` / `init_or_append_agents_md`) | [`08_SPEC_CONECTOR_AGENTS_MD_THIN_REPO_Y_MIGRACION.md`](docs/specs/08_SPEC_CONECTOR_AGENTS_MD_THIN_REPO_Y_MIGRACION.md) | ✅ Completado | `100%` |
-| **Hito 10** | Diagnóstico Asistido de Navegador (Playwright / Browser MCP) y PRs de Evolución Continua Zero-Trust (`propose_skill_evolution_pr`) | [`09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md`](docs/specs/09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md) | ✅ Completado | `100%` |
-| **Hito 11** | Blueprint Oficial PHP 8.2–8.5 (`sinfallas/basephpcomposer`) e Integración en Servidor MCP | [`10_SPEC_ECOSISTEMA_PHP_8_Y_HERRAMIENTAS_MCP.md`](docs/specs/10_SPEC_ECOSISTEMA_PHP_8_Y_HERRAMIENTAS_MCP.md) | ✅ Completado | `100%` |
-| **Hito 12** | Auditores Automáticos para el Invariante Anti-Silo, Ciclo Temporal de 3 Fases, Auditoría Semántica Anti-UUID y Refresco Dual | [`11_SPEC_INVARIANTE_ANTI_SILO_CICLO_TEMPORAL_AUDITORIA_Y_REFRESCO_DUAL.md`](docs/specs/11_SPEC_INVARIANTE_ANTI_SILO_CICLO_TEMPORAL_AUDITORIA_Y_REFRESCO_DUAL.md) | ✅ Completado | `100%` |
-| **Hito 13** | Reconciliación Automática, Deduplicación y Aislamiento de Reglas de Dominio en `.agents/` (`reconcile-agents` / `reconcile_agents_governance`) | [`12_SPEC_RECONCILIACION_Y_DEDUPLICACION_GOBERNANZA_AGENTS_PROYECTOS.md`](docs/specs/12_SPEC_RECONCILIACION_Y_DEDUPLICACION_GOBERNANZA_AGENTS_PROYECTOS.md) | ✅ Completado | `100%` |
-| **Hito 14** | Optimización Extrema de Tokens en Servidor MCP, Protocolo de 3 Vías Proporcionales (`DOCS_ONLY` / `MICRO_CHANGE` / `FULL_11X`), *Progressive Disclosure* y Economía Cognitiva | [`13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md`](docs/specs/13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md) | ✅ Completado | `100%` |
-| **Hito 15** | Endurecimiento Integral `v2.16.0` de los 7 Stacks Corporativos, Contrato *Thin-Repo*, Hooks POSIX Rule-Zero y Convergencia 10/10 de Compuertas | `SECURITY.md` + `TESTING.md` | ✅ Completado | `100%` |
-| **Hito 16** | Invariante Anti-Silo Pre-Auth Multi-Etapa (`SEC-16`), Presupuesto Cognitivo `SKILL.md < 20 KB` y Verificador Documental Determinista (`verify_docs_invariants.py`) | `SECURITY.md` §4.20 + `02-security-disa-owasp-22.md` | ✅ Completado | `100%` |
-| **Hito 17** | Paridad Pre-Push 1:1 con CI (`v2.17.0`) en MCP `qa-11x`: Sello de Evidencia `lint`, Stages `integration`/`ci`, Parser de Endpoints Dinámicos e Invariantes Python/PostgreSQL 17 (`QA-MYPY-01`, `QA-PG17-RLS`, `importlib`) | `03-stack-python-fastapi.md` + `08-postgres-rls-zero-downtime-migrations.md` | ✅ Completado | `100%` |
-| **Hito 18** | Internacionalización v2.18.0: Idioma Espejo Dinámico, Flag `--lang (auto/es/en)`, Targets `codex`/`windsurf` y Guías Multi-Agente EN/ES | [`docs/agent-setup.md`](docs/agent-setup.md) + [`docs/agent-setup.en.md`](docs/agent-setup.en.md) | ✅ Completado | `100%` |
-| **Hito 19** | Invariante Anti-Silo #9 (`QA-HEALTH-01`), Nivelación Documental Humana 1:1 (`docs/02` y `docs/04`) y Gobernanza Dual-Consumer en `propose_skill_evolution_pr` y `verify_docs_invariants.py` | [`docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md`](docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md) + `SECURITY.md` §4.22 | ✅ Completado | `100%` |
-| **Hito 20** | Detección de Versión sin Red Redundante (`.qa-11x-version` + TTL 24h Fail-Open), Aviso `update_available` en Tools y Auto-Sync Global de Skills por SHA-256 (`v2.20.0`) | [`docs/ai-integration.md`](docs/ai-integration.md) + [`docs/agent-setup.md`](docs/agent-setup.md) | ✅ Completado | `100%` |
-| **Hito 21** | Cobertura Diferencial Multi-Stack (`verify_diff_coverage.py`), Persistencia Efímera de Reportes y Bloqueo Anti-Evasión | [`16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md`](docs/specs/16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md) | ✅ Completado | `100%` |
-| **Hito 22** | Memoria Determinista de Hallazgos y Cortacircuitos Anti-Loop (`exit 42`) en `run_ephemeral_qa` y `certify` | [`17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md`](docs/specs/17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md) | ✅ Completado | `100%` |
-| **Hito 23** | Modo Diferencial en `inspect_ast_blast_radius` (Cero Inflación MCP) y Exportador Ejecutivo `PR_VERDICT.md` | [`18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md`](docs/specs/18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md) | ✅ Completado | `100%` |
-| **Hito 24** | Auditoría Integral `QA-11X v3.0` (`v3.0.0`), Sincronizador `bump_version_11x.py`, Protocolo MCP en Vivo y Planificación `19_SPEC` / `20_SPEC` | [`19_SPEC`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md) + [`20_SPEC`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md) | ✅ Completado | `100%` |
+| **Milestone 1** | Design Specifications (`docs/specs/`) and Planning (`ROADMAP.md`) | `01_SPEC` to `05_SPEC` | ✅ Completed | `100%` |
+| **Milestone 2** | Cryptographic Manifest (`manifest.json`) and Automatic SHA-256 Generator | [`01_SPEC_ARQUITECTURA_ZERO_CLONE_Y_MANIFIESTO_REMOTO.md`](docs/specs/01_SPEC_ARQUITECTURA_ZERO_CLONE_Y_MANIFIESTO_REMOTO.md) | ✅ Completed | `100%` |
+| **Milestone 3** | Master Skill (`qa-11x-architect`), Progressive Disclosure (`references/`) & `curl` Installer | [`02_SPEC_SKILL_QA_11X_ARCHITECT_E_INSTALADOR.md`](docs/specs/02_SPEC_SKILL_QA_11X_ARCHITECT_E_INSTALADOR.md) | ✅ Completed | `100%` |
+| **Milestone 4** | Node.js / TS MCP Server (`mcp-server/`) — Core, Resources, and Tools 1–4 | [`03_SPEC_MCP_SERVER_NODE_TS_CORE_Y_TOOLS.md`](docs/specs/03_SPEC_MCP_SERVER_NODE_TS_CORE_Y_TOOLS.md) | ✅ Completed | `100%` |
+| **Milestone 5** | Token-Saving Parsers, DISA STIG / OWASP Auditor, and Tools 5–7 | [`04_SPEC_MCP_PARSERS_AUDITOR_STIG_OWASP_Y_GATE.md`](docs/specs/04_SPEC_MCP_PARSERS_AUDITOR_STIG_OWASP_Y_GATE.md) | ✅ Completed | `100%` |
+| **Milestone 6** | 11X Tests (`>= 95%`), npm Packaging (`npx`), and Autonomous Sovereign Publishing | [`05_SPEC_PUBLICACION_NPM_Y_AUTOMATIZACION_CI.md`](docs/specs/05_SPEC_PUBLICACION_NPM_Y_AUTOMATIZACION_CI.md) | ✅ Completed | `100%` |
+| **Milestone 7** | 11X Test Pyramid Gap Auditor (`audit_test_pyramid_gaps`) and Rescue Playbook | [`06_SPEC_AUDITOR_BRECHAS_PIRAMIDE_PRUEBAS_11X.md`](docs/specs/06_SPEC_AUDITOR_BRECHAS_PIRAMIDE_PRUEBAS_11X.md) | ✅ Completed | `100%` |
+| **Milestone 8** | Agent Auto-Detection in `install-skill`, 5 Skills + Scripts Install, and CDN Resilience | [`07_SPEC_AUTODETECCION_AGENTES_CLI_Y_RESILIENCIA_CDN_NPM.md`](docs/specs/07_SPEC_AUTODETECCION_AGENTES_CLI_Y_RESILIENCIA_CDN_NPM.md) | ✅ Completed | `100%` |
+| **Milestone 9** | Non-Destructive Additive `AGENTS.md` Connector Injector (`init-agents` / `init_or_append_agents_md`) | [`08_SPEC_CONECTOR_AGENTS_MD_THIN_REPO_Y_MIGRACION.md`](docs/specs/08_SPEC_CONECTOR_AGENTS_MD_THIN_REPO_Y_MIGRACION.md) | ✅ Completed | `100%` |
+| **Milestone 10** | Assisted Browser Diagnostics (Playwright / Browser MCP) & Zero-Trust Evolution PRs (`propose_skill_evolution_pr`) | [`09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md`](docs/specs/09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md) | ✅ Completed | `100%` |
+| **Milestone 11** | Official PHP 8.2–8.5 Blueprint (`sinfallas/basephpcomposer`) and MCP Server Integration | [`10_SPEC_ECOSISTEMA_PHP_8_Y_HERRAMIENTAS_MCP.md`](docs/specs/10_SPEC_ECOSISTEMA_PHP_8_Y_HERRAMIENTAS_MCP.md) | ✅ Completed | `100%` |
+| **Milestone 12** | Automated Auditors for Anti-Silo Invariant, 3-Phase Clock Cycle, Semantic Anti-UUID Audit & Dual Refresh | [`11_SPEC_INVARIANTE_ANTI_SILO_CICLO_TEMPORAL_AUDITORIA_Y_REFRESCO_DUAL.md`](docs/specs/11_SPEC_INVARIANTE_ANTI_SILO_CICLO_TEMPORAL_AUDITORIA_Y_REFRESCO_DUAL.md) | ✅ Completed | `100%` |
+| **Milestone 13** | Automated Reconciliation, Deduplication, and Domain Rule Isolation in `.agents/` (`reconcile-agents` / `reconcile_agents_governance`) | [`12_SPEC_RECONCILIACION_Y_DEDUPLICACION_GOBERNANZA_AGENTS_PROYECTOS.md`](docs/specs/12_SPEC_RECONCILIACION_Y_DEDUPLICACION_GOBERNANZA_AGENTS_PROYECTOS.md) | ✅ Completed | `100%` |
+| **Milestone 14** | Extreme Token Optimization in MCP Server, 3-Path Proportional Execution (`DOCS_ONLY` / `MICRO_CHANGE` / `FULL_11X`), Progressive Disclosure & Cognitive Economy | [`13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md`](docs/specs/13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md) | ✅ Completed | `100%` |
+| **Milestone 15** | Comprehensive `v2.16.0` Hardening of all 7 Corporate Stacks, Thin-Repo Contract, POSIX Rule-Zero Hooks & 10/10 Gate Convergence | [`TESTING.md`](TESTING.md) + [`SECURITY.md`](SECURITY.md) | ✅ Completed | `100%` |
+| **Milestone 16** | Multi-Stage Pre-Auth Anti-Silo Invariant (`SEC-16`), `SKILL.md < 20 KB` Cognitive Budget & Deterministic Doc Verifier (`verify_docs_invariants.py`) | [`SECURITY.md`](SECURITY.md) §4.20 + `02-security-disa-owasp-22.md` | ✅ Completed | `100%` |
+| **Milestone 17** | 1:1 Pre-Push CI Parity (`v2.17.0`) in `qa-11x` MCP: `lint` Evidence Seal, `integration`/`ci` Stages, Dynamic Endpoint Parser & Python/PG 17 Invariants (`QA-MYPY-01`, `QA-PG17-RLS`, `importlib`) | `03-stack-python-fastapi.md` + `08-postgres-rls-zero-downtime-migrations.md` | ✅ Completed | `100%` |
+| **Milestone 18** | `v2.18.0` Internationalization: Dynamic Language Mirroring, `--lang (auto/es/en)` Flag, `codex`/`windsurf` Targets & Multi-Agent EN/ES Guides | [`docs/agent-setup.md`](docs/agent-setup.md) + [`docs/agent-setup.es.md`](docs/agent-setup.es.md) | ✅ Completed | `100%` |
+| **Milestone 19** | Anti-Silo Invariant #9 (`QA-HEALTH-01`), 1:1 Human Manual Leveling (`docs/02` & `docs/04`) & Dual-Consumer Governance in `propose_skill_evolution_pr` and `verify_docs_invariants.py` | [`docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md`](docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md) + `SECURITY.md` §4.22 | ✅ Completed | `100%` |
+| **Milestone 20** | Redundancy-Free Version Detection (`.qa-11x-version` + 24h Fail-Open TTL), `update_available` Tool Notice & Global SHA-256 Skills Auto-Sync (`v2.20.0`) | [`docs/ai-integration.md`](docs/ai-integration.md) + [`docs/agent-setup.md`](docs/agent-setup.md) | ✅ Completed | `100%` |
+| **Milestone 21** | Multi-Stack Differential Coverage (`verify_diff_coverage.py`), Ephemeral Report Persistence & Anti-Evasion Block | [`16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md`](docs/specs/16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md) | ✅ Completed | `100%` |
+| **Milestone 22** | Deterministic Findings Memory & Anti-Loop Circuit Breaker (`exit 42`) in `run_ephemeral_qa` and `certify` | [`17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md`](docs/specs/17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md) | ✅ Completed | `100%` |
+| **Milestone 23** | Differential Mode in `inspect_ast_blast_radius` (Zero MCP Bloat) & Executive `PR_VERDICT.md` Exporter | [`18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md`](docs/specs/18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md) | ✅ Completed | `100%` |
+| **Milestone 24** | Comprehensive `QA-11X v3.0` Audit (`v3.0.0`), `bump_version_11x.py` Synchronizer, Live MCP Protocol & `19_SPEC` / `20_SPEC` Planning | [`19_SPEC`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md) + [`20_SPEC`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md) | ✅ Completed | `100%` |
+| **Milestone 25** | 15×12 Matrix, `sinfallas/base-mobile-appium:26` & Bilingual Documentation Architecture | [`19_SPEC`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md) + [`20_SPEC`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md) | ✅ Completed | `100%` |
 
 ---
 
-## ✅ Hito 1: Especificaciones de Diseño (`docs/specs/`) y Planificación (`ROADMAP.md`)
-**Referencia:** [`docs/specs/`](docs/specs/)
-- [x] **1.1.** Crear [`docs/specs/01_SPEC_ARQUITECTURA_ZERO_CLONE_Y_MANIFIESTO_REMOTO.md`](docs/specs/01_SPEC_ARQUITECTURA_ZERO_CLONE_Y_MANIFIESTO_REMOTO.md) definiendo el flujo Zero-Clone, el esquema exacto de `manifest.json` y el algoritmo de caché verificada con SHA-256.
-- [x] **1.2.** Crear [`docs/specs/02_SPEC_SKILL_QA_11X_ARCHITECT_E_INSTALADOR.md`](docs/specs/02_SPEC_SKILL_QA_11X_ARCHITECT_E_INSTALADOR.md) definiendo la estructura de `.agents/skills/qa-11x-architect/`, sus 5 archivos `references/` en inglés técnico compacto y el instalador universal.
-- [x] **1.3.** Crear [`docs/specs/03_SPEC_MCP_SERVER_NODE_TS_CORE_Y_TOOLS.md`](docs/specs/03_SPEC_MCP_SERVER_NODE_TS_CORE_Y_TOOLS.md) definiendo la arquitectura Node.js/TypeScript de `mcp-server/`, `package.json`, los 4 Resources y las Tools 1 a 4.
-- [x] **1.4.** Crear [`docs/specs/04_SPEC_MCP_PARSERS_AUDITOR_STIG_OWASP_Y_GATE.md`](docs/specs/04_SPEC_MCP_PARSERS_AUDITOR_STIG_OWASP_Y_GATE.md) definiendo las Tools 5 a 7 (`audit_security_stig_owasp`, `run_ephemeral_qa`, `certify_11x_gate`) y los parsers ahorradores de tokens.
-- [x] **1.5.** Crear [`docs/specs/05_SPEC_PUBLICACION_NPM_Y_AUTOMATIZACION_CI.md`](docs/specs/05_SPEC_PUBLICACION_NPM_Y_AUTOMATIZACION_CI.md) con el manual paso a paso de publicación en npm y automatización con SLSA Provenance.
-- [x] **1.6.** Crear este archivo `ROADMAP.md` y enlazarlo desde `README.md`.
+## ✅ Milestone 1: Design Specifications (`docs/specs/`) and Planning (`ROADMAP.md`)
+**Reference:** [`docs/specs/`](docs/specs/)
+- [x] **1.1.** Create [`docs/specs/01_SPEC_ARQUITECTURA_ZERO_CLONE_Y_MANIFIESTO_REMOTO.md`](docs/specs/01_SPEC_ARQUITECTURA_ZERO_CLONE_Y_MANIFIESTO_REMOTO.md) defining the Zero-Clone flow, exact `manifest.json` schema, and SHA-256 verified cache algorithm.
+- [x] **1.2.** Create [`docs/specs/02_SPEC_SKILL_QA_11X_ARCHITECT_E_INSTALADOR.md`](docs/specs/02_SPEC_SKILL_QA_11X_ARCHITECT_E_INSTALADOR.md) defining `.agents/skills/qa-11x-architect/`, its 5 `references/` files in compact technical English, and the universal installer.
+- [x] **1.3.** Create [`docs/specs/03_SPEC_MCP_SERVER_NODE_TS_CORE_Y_TOOLS.md`](docs/specs/03_SPEC_MCP_SERVER_NODE_TS_CORE_Y_TOOLS.md) defining the Node.js/TypeScript architecture of `mcp-server/`, `package.json`, the 4 core Resources, and Tools 1–4.
+- [x] **1.4.** Create [`docs/specs/04_SPEC_MCP_PARSERS_AUDITOR_STIG_OWASP_Y_GATE.md`](docs/specs/04_SPEC_MCP_PARSERS_AUDITOR_STIG_OWASP_Y_GATE.md) defining Tools 5–7 (`audit_security_stig_owasp`, `run_ephemeral_qa`, `certify_11x_gate`) and token-saving parsers.
+- [x] **1.5.** Create [`docs/specs/05_SPEC_PUBLICACION_NPM_Y_AUTOMATIZACION_CI.md`](docs/specs/05_SPEC_PUBLICACION_NPM_Y_AUTOMATIZACION_CI.md) with step-by-step npm publishing and SLSA Provenance automation guidance.
+- [x] **1.6.** Create this `ROADMAP.md` file and link it from `README.md`.
 
 ---
 
-## ✅ Hito 2: Manifiesto Criptográfico (`manifest.json`) y Generador Automático SHA-256
-**Referencia Obligatoria:** [`docs/specs/01_SPEC_ARQUITECTURA_ZERO_CLONE_Y_MANIFIESTO_REMOTO.md`](docs/specs/01_SPEC_ARQUITECTURA_ZERO_CLONE_Y_MANIFIESTO_REMOTO.md)
+## ✅ Milestone 2: Cryptographic Manifest (`manifest.json`) and Automatic SHA-256 Generator
+**Mandatory Reference:** [`docs/specs/01_SPEC_ARQUITECTURA_ZERO_CLONE_Y_MANIFIESTO_REMOTO.md`](docs/specs/01_SPEC_ARQUITECTURA_ZERO_CLONE_Y_MANIFIESTO_REMOTO.md)
 
-### Tareas de Implementación:
-- [x] **2.1.** Crear el script `scripts/generar-manifiesto.py` (en Python 3.12+ usando solo librería estándar: `hashlib`, `json`, `pathlib`, `datetime`, `argparse`) que escanee los 6 stacks (`python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`), `common_files` y `agent_governance_files`, calculando su tamaño en bytes, estrategia de fusión (`merge_strategy`), `target_name` y hash `sha256`.
-- [x] **2.2.** Soportar en `scripts/generar-manifiesto.py` el flag `--check` que verifique si `/manifest.json` coincide exactamente con los hashes actuales del repositorio (devolviendo exit code `0` si está sincronizado o `1` si hay deriva).
-- [x] **2.3.** Generar el archivo `/manifest.json` en la raíz del repositorio ejecutando `scripts/generar-manifiesto.py`.
-- [x] **2.4.** Integrar la verificación `python3 scripts/generar-manifiesto.py --check` como etapa dentro de `.agents/scripts/certify_task_completion.sh`.
-- [x] **2.5.** Crear pruebas unitarias para el generador de manifiesto y certificar con `./.agents/scripts/certify_task_completion.sh`.
-
----
-
-## ✅ Hito 3: Skill Maestra (`qa-11x-architect`), Carga Progresiva (`references/`) e Instalador `curl`
-**Referencia Obligatoria:** [`docs/specs/02_SPEC_SKILL_QA_11X_ARCHITECT_E_INSTALADOR.md`](docs/specs/02_SPEC_SKILL_QA_11X_ARCHITECT_E_INSTALADOR.md)
-
-### Tareas de Implementación:
-- [x] **3.1.** Crear `.agents/skills/qa-11x-architect/SKILL.md` (en inglés técnico de alta densidad con `OUTPUT LANGUAGE CONSTRAINT: Spanish`) incluyendo la detección de entorno (MCP-First vs. Fallback con hidratación directa desde GitHub Raw), las 10 Leyes Innegociables 11X y los 4 Playbooks Operativos.
-- [x] **3.2.** Crear `.agents/skills/qa-11x-architect/references/01-core-13-layers.md` con la tabla ejecutable de las 13 capas, Anti-Mock Blindness, Anti-JSDOM y Fixtures Trimodales.
-- [x] **3.3.** Crear `.agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.md` condensando los 22 patrones de seguridad DISA ASD STIG V6R5 + OWASP Developer Guide v4.2.
-- [x] **3.4.** Crear `.agents/skills/qa-11x-architect/references/03-stack-python-fastapi.md` con las reglas y comandos exactos de Python standalone y FastAPI (PostgreSQL 17 + KeyDB + Alembic + Karate API).
-- [x] **3.5.** Crear `.agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md` con las reglas y comandos de Node.js, Vue 3 y React (`.npmrc` Zero-Trust, Vitest, Playwright + Axe WCAG 2.1 AA, Lighthouse CI, Karate UI).
-- [x] **3.6.** Crear `.agents/skills/qa-11x-architect/references/05-stack-bash-devops.md` con las reglas de Bash/Shell (`ShellCheck`, `shfmt`, `BATS-core`, `bats-mock`, `kcov >= 95%`, `Pushgateway`).
-- [x] **3.7.** Crear el instalador universal `scripts/install-skill.sh` (compatible con POSIX `sh` y auditado con `ShellCheck` 0 errores) que descargue `qa-11x-architect` y `refactoring-ui` desde GitHub verificando los hashes SHA-256 contra `manifest.json` e instale ambas skills en Antigravity, Claude, Cursor o el proyecto actual.
-- [x] **3.8.** Actualizar `/manifest.json` con `python3 scripts/generar-manifiesto.py` para incluir los archivos de `qa-11x-architect`, `refactoring-ui` y `scripts/install-skill.sh`.
+### Implementation Tasks:
+- [x] **2.1.** Create `scripts/generar-manifiesto.py` (Python 3.12+ using stdlib only: `hashlib`, `json`, `pathlib`, `datetime`, `argparse`) scanning the 6 initial stacks (`python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`), `common_files`, and `agent_governance_files`, calculating byte sizes, `merge_strategy`, `target_name`, and `sha256` hashes.
+- [x] **2.2.** Support `--check` in `scripts/generar-manifiesto.py` to verify whether `/manifest.json` matches current repository hashes (returning exit code `0` when synced or `1` on drift).
+- [x] **2.3.** Generate `/manifest.json` at repository root by running `scripts/generar-manifiesto.py`.
+- [x] **2.4.** Integrate `python3 scripts/generar-manifiesto.py --check` as a gate stage inside `.agents/scripts/certify_task_completion.sh`.
+- [x] **2.5.** Add unit tests for the manifest generator and certify via `./.agents/scripts/certify_task_completion.sh`.
 
 ---
 
-## ✅ Hito 4: Servidor MCP en Node.js / TS (`mcp-server/`) — Núcleo, Recursos y Tools 1–4
-**Referencia Obligatoria:** [`docs/specs/03_SPEC_MCP_SERVER_NODE_TS_CORE_Y_TOOLS.md`](docs/specs/03_SPEC_MCP_SERVER_NODE_TS_CORE_Y_TOOLS.md)
+## ✅ Milestone 3: Master Skill (`qa-11x-architect`), Progressive Disclosure (`references/`) & `curl` Installer
+**Mandatory Reference:** [`docs/specs/02_SPEC_SKILL_QA_11X_ARCHITECT_E_INSTALADOR.md`](docs/specs/02_SPEC_SKILL_QA_11X_ARCHITECT_E_INSTALADOR.md)
 
-### Tareas de Implementación:
-- [x] **4.1.** Inicializar la estructura de `mcp-server/`: `package.json`, `tsconfig.json`, `vitest.config.ts`, `.eslintrc.json`, `.npmrc` (`ignore-scripts=true`), `docker-compose.qa.yml` (usando `sinfallas/base-node-ionic:26`) y `Makefile`.
-- [x] **4.2.** Implementar `mcp-server/src/services/github-fetcher.ts`: descarga bajo demanda desde GitHub Raw (`manifest.json` y archivos por stack), caché en `~/.cache/qa-11x-blueprints/`, soporte `ETag` (`If-None-Match`), validación criptográfica SHA-256 (`DISA V-222513`), fallback offline y soporte `QA_BLUEPRINTS_LOCAL_PATH`.
-- [x] **4.3.** Implementar `mcp-server/src/services/surgical-merger.ts`: algoritmo determinista de fusión quirúrgica no destructiva para `package.json`, `pyproject.toml`, `Makefile`, `.gitignore` y `.npmrc`.
-- [x] **4.4.** Implementar `mcp-server/src/resources/blueprint-resources.ts` exponiendo `blueprint://manifest`, `blueprint://core/philosophy`, `blueprint://security/disa-owasp-22`, `blueprint://{stack}/readme`, `blueprint://ui/refactoring-ui/{topic}`, `blueprint://core/active-task-template` y `blueprint://core/cleanup-script`.
-- [x] **4.5.** Implementar las Tools en `mcp-server/src/tools/`:
+### Implementation Tasks:
+- [x] **3.1.** Create `.agents/skills/qa-11x-architect/SKILL.md` (in high-density technical English with `OUTPUT LANGUAGE CONSTRAINT: Spanish`) covering environment detection (MCP-First vs. GitHub Raw hydration fallback), the 10 Non-Negotiable 11X Laws, and 4 Operational Playbooks.
+- [x] **3.2.** Create `.agents/skills/qa-11x-architect/references/01-core-13-layers.md` with the executable 13-layer matrix, Anti-Mock Blindness, Anti-JSDOM, and Trimodal Fixtures.
+- [x] **3.3.** Create `.agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.md` condensing all 22 DISA ASD STIG V6R5 + OWASP Developer Guide v4.2 security patterns.
+- [x] **3.4.** Create `.agents/skills/qa-11x-architect/references/03-stack-python-fastapi.md` with exact rules and commands for Python standalone and FastAPI (PostgreSQL 17 + KeyDB + Alembic + Karate API).
+- [x] **3.5.** Create `.agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md` with rules and commands for Node.js, Vue 3, and React (Zero-Trust `.npmrc`, Vitest, Playwright + Axe WCAG 2.1 AA, Lighthouse CI, Karate UI).
+- [x] **3.6.** Create `.agents/skills/qa-11x-architect/references/05-stack-bash-devops.md` with Bash/Shell rules (`ShellCheck`, `shfmt`, `BATS-core`, `bats-mock`, `kcov >= 95%`, `Pushgateway`).
+- [x] **3.7.** Create universal installer `scripts/install-skill.sh` (POSIX `sh` compatible, audited with 0 `ShellCheck` errors) downloading `qa-11x-architect` and `refactoring-ui` from GitHub, verifying SHA-256 hashes against `manifest.json`, and installing into Antigravity, Claude, Cursor, or the current project.
+- [x] **3.8.** Update `/manifest.json` via `python3 scripts/generar-manifiesto.py` to index `qa-11x-architect`, `refactoring-ui`, and `scripts/install-skill.sh`.
+
+---
+
+## ✅ Milestone 4: Node.js / TS MCP Server (`mcp-server/`) — Core, Resources, and Tools 1–4
+**Mandatory Reference:** [`docs/specs/03_SPEC_MCP_SERVER_NODE_TS_CORE_Y_TOOLS.md`](docs/specs/03_SPEC_MCP_SERVER_NODE_TS_CORE_Y_TOOLS.md)
+
+### Implementation Tasks:
+- [x] **4.1.** Scaffold `mcp-server/`: `package.json`, `tsconfig.json`, `vitest.config.ts`, `.eslintrc.json`, `.npmrc` (`ignore-scripts=true`), `docker-compose.qa.yml` (using `sinfallas/base-node-ionic:26`), and `Makefile`.
+- [x] **4.2.** Implement `mcp-server/src/services/github-fetcher.ts`: on-demand download from GitHub Raw (`manifest.json` and per-stack files), cache in `~/.cache/qa-11x-blueprints/`, `ETag` (`If-None-Match`) support, SHA-256 verification (`DISA V-222513`), offline fallback, and `QA_BLUEPRINTS_LOCAL_PATH` support.
+- [x] **4.3.** Implement `mcp-server/src/services/surgical-merger.ts`: deterministic non-destructive surgical merge algorithm for `package.json`, `pyproject.toml`, `Makefile`, `.gitignore`, and `.npmrc`.
+- [x] **4.4.** Implement `mcp-server/src/resources/blueprint-resources.ts` exposing `blueprint://manifest`, `blueprint://core/philosophy`, `blueprint://security/disa-owasp-22`, `blueprint://{stack}/readme`, `blueprint://ui/refactoring-ui/{topic}`, `blueprint://core/active-task-template`, and `blueprint://core/cleanup-script`.
+- [x] **4.5.** Implement Tools in `mcp-server/src/tools/`:
   - `inspect-project.ts` (`inspect_project_config`)
   - `fetch-bundle.ts` (`fetch_blueprint_bundle`)
   - `bootstrap-merge.ts` (`bootstrap_or_merge_11x`)
   - `blast-radius.ts` (`inspect_ast_blast_radius`)
-  - `clean-workspace.ts` (`clean_workspace_11x`) con saneamiento seguro y fallback efímero Alpine.
-- [x] **4.6.** Implementar el subcomando CLI `mcp-server/src/cli/install-skill.ts` y el punto de entrada dual `mcp-server/src/index.ts` (`#!/usr/bin/env node`).
-- [x] **4.7.** Estandarizar el script universal de saneamiento `limpieza.sh` en la raíz, en todos los stacks y en `Makefile` (Playbook 5 en `qa-11x-architect`).
+  - `clean-workspace.ts` (`clean_workspace_11x`) with safe cleanup and ephemeral Alpine fallback.
+- [x] **4.6.** Implement CLI subcommand `mcp-server/src/cli/install-skill.ts` and dual entrypoint `mcp-server/src/index.ts` (`#!/usr/bin/env node`).
+- [x] **4.7.** Standardize the universal cleanup script `limpieza.sh` at root, across all stacks, and in `Makefile` (Playbook 5 in `qa-11x-architect`).
 
 ---
 
-## ✅ Hito 5: Parsers Ahorradores de Tokens, Auditor DISA STIG / OWASP y Tools 5–7
-**Referencia Obligatoria:** [`docs/specs/04_SPEC_MCP_PARSERS_AUDITOR_STIG_OWASP_Y_GATE.md`](docs/specs/04_SPEC_MCP_PARSERS_AUDITOR_STIG_OWASP_Y_GATE.md)
+## ✅ Milestone 5: Token-Saving Parsers, DISA STIG / OWASP Auditor, and Tools 5–7
+**Mandatory Reference:** [`docs/specs/04_SPEC_MCP_PARSERS_AUDITOR_STIG_OWASP_Y_GATE.md`](docs/specs/04_SPEC_MCP_PARSERS_AUDITOR_STIG_OWASP_Y_GATE.md)
 
-### Tareas de Implementación:
-- [x] **5.1.** Implementar `mcp-server/src/parsers/output-parsers.ts` para resumir salidas de consola de `pytest-cov`, `vitest --coverage`, `kcov`, `radon`, `mypy`, `ruff`, `eslint`, `trivy`, `bandit`, `mutmut` y `stryker` a JSON compacto.
-- [x] **5.2.** Implementar Tool 5 (`mcp-server/src/tools/security-auditor.ts` — `audit_security_stig_owasp`) con las 10 reglas de detección estática (`SEC-01` a `SEC-10`) alineadas con los 22 patrones DISA ASD STIG V6R5 + OWASP v4.2.
-- [x] **5.3.** Implementar Tool 6 (`mcp-server/src/tools/ephemeral-runner.ts` — `run_ephemeral_qa`) usando exclusivamente `execFile("make", ["qa-" + stage], { shell: false })` y conectándolo con `output-parsers.ts`.
-- [x] **5.4.** Implementar Tool 7 (`mcp-server/src/tools/certify-gate.ts` — `certify_11x_gate`) integrando todas las compuertas de cierre.
-- [x] **5.5.** Registrar todas las herramientas y recursos en `mcp-server/src/server.ts`.
-
----
-
-## ✅ Hito 6: Pruebas 11X (`>= 95%`), Empaquetado npm (`npx`) y Publicación Autónoma Soberana
-**Referencia Obligatoria:** [`docs/specs/05_SPEC_PUBLICACION_NPM_Y_AUTOMATIZACION_CI.md`](docs/specs/05_SPEC_PUBLICACION_NPM_Y_AUTOMATIZACION_CI.md)
-
-### Tareas de Implementación:
-- [x] **6.1.** Crear la suite completa de pruebas unitarias en `mcp-server/tests/*.unit.ts` alcanzando **>= 95.0% de cobertura** en líneas, ramas, funciones y sentencias dentro del contenedor efímero `sinfallas/base-node-ionic:26`.
-- [x] **6.2.** Crear los escenarios BDD en Karate Labs (`mcp-server/test/mcp_cli_test.feature`) validando el CLI y los contratos JSON.
-- [x] **6.3.** Ejecutar en contenedor efímero `make qa-all` y `npm pack --dry-run` dentro de `mcp-server/`, certificando `0` errores de tipado (`tsc --noEmit`), `0` errores de ESLint/SonarJS y paquete limpio.
-- [x] **6.4.** Implementar el script autónomo de publicación a npmjs sin runners externos (`scripts/publicar-mcp.sh`, credenciales desde `.env` en la raíz al estilo RoSGrid, validación efímera y `make publish-mcp`), eliminando cualquier dependencia de GitHub Actions o CI/CD externos.
-- [x] **6.5.** Actualizar `README.md`, `TESTING.md`, `docs/ai-integration.md` y `CHANGELOG.md` con las instrucciones de uso de 1 comando (`npx -y @sinfallas/mcp-qa-11x` y `npx -y @sinfallas/mcp-qa-11x install-skill`).
+### Implementation Tasks:
+- [x] **5.1.** Implement `mcp-server/src/parsers/output-parsers.ts` to condense console output from `pytest-cov`, `vitest --coverage`, `kcov`, `radon`, `mypy`, `ruff`, `eslint`, `trivy`, `bandit`, `mutmut`, and `stryker` into compact JSON.
+- [x] **5.2.** Implement Tool 5 (`mcp-server/src/tools/security-auditor.ts` — `audit_security_stig_owasp`) with the 10 baseline static detection rules (`SEC-01` to `SEC-10`) aligned with the 22 DISA ASD STIG V6R5 + OWASP v4.2 patterns.
+- [x] **5.3.** Implement Tool 6 (`mcp-server/src/tools/ephemeral-runner.ts` — `run_ephemeral_qa`) strictly using `execFile("make", ["qa-" + stage], { shell: false })` wired into `output-parsers.ts`.
+- [x] **5.4.** Implement Tool 7 (`mcp-server/src/tools/certify-gate.ts` — `certify_11x_gate`) integrating all closure gates.
+- [x] **5.5.** Register all tools and resources in `mcp-server/src/server.ts`.
 
 ---
 
-## ✅ Hito 7: Auditor de Brechas de la Pirámide de Pruebas 11X (`audit_test_pyramid_gaps`) y Playbook de Rescate
-**Referencia Obligatoria:** [`docs/specs/06_SPEC_AUDITOR_BRECHAS_PIRAMIDE_PRUEBAS_11X.md`](docs/specs/06_SPEC_AUDITOR_BRECHAS_PIRAMIDE_PRUEBAS_11X.md)
+## ✅ Milestone 6: 11X Tests (`>= 95%`), npm Packaging (`npx`), and Autonomous Sovereign Publishing
+**Mandatory Reference:** [`docs/specs/05_SPEC_PUBLICACION_NPM_Y_AUTOMATIZACION_CI.md`](docs/specs/05_SPEC_PUBLICACION_NPM_Y_AUTOMATIZACION_CI.md)
 
-### Tareas de Implementación:
-- [x] **7.1.** Definir en `mcp-server/src/types.ts` los contratos `PyramidLayerStatus`, `PyramidLayerAudit`, `UntestedApiEndpoint`, `PrioritizedTestAction` y `TestPyramidGapResult`.
-- [x] **7.2.** Implementar `mcp-server/src/tools/test-pyramid-auditor.ts` (`auditTestPyramidGaps`) con la matriz de evaluación de las 13 capas de la pirámide 11X (`L01` a `L13`), el detector de archivos fuente sin prueba unitaria (`orphan_source_files`), el detector de endpoints API sin escenario BDD en Karate Labs (`untested_api_endpoints`), el detector de vistas UI sin escenario BDD/E2E (`untested_ui_views`) y el generador de `prioritized_action_plan`.
-- [x] **7.3.** Registrar la Tool 9 (`audit_test_pyramid_gaps`) con su esquema Zod (`AuditTestPyramidInputSchema`) en `mcp-server/src/server.ts`.
-- [x] **7.4.** Incorporar el **Playbook 6 (Existing Project Test Gap Audit & 13-Layer Rescue)** en `.agents/skills/qa-11x-architect/SKILL.md` y sincronizar `manifest.json` con `python3 scripts/generar-manifiesto.py`.
-- [x] **7.5.** Crear la suite de pruebas unitarias `mcp-server/tests/test-pyramid-auditor.unit.ts` (cubriendo los escenarios trimodales: proyecto virgen 0%, proyecto brownfield parcial y proyecto 11X al 100%, manteniendo cobertura global `>= 95.0%`) y actualizar `mcp-server/test/mcp_cli_test.feature`.
-- [x] **7.6.** Actualizar `README.md`, `TESTING.md`, `docs/ai-integration.md` y `CHANGELOG.md` documentando la 9.ª herramienta del servidor MCP (`audit_test_pyramid_gaps`) y certificar con `./.agents/scripts/certify_task_completion.sh`.
-
----
-
-## ✅ Hito 8: Autodetección de Agentes en `install-skill`, Instalación de las 5 Skills + Scripts y Resiliencia CDN
-**Referencia Obligatoria:** [`docs/specs/07_SPEC_AUTODETECCION_AGENTES_CLI_Y_RESILIENCIA_CDN_NPM.md`](docs/specs/07_SPEC_AUTODETECCION_AGENTES_CLI_Y_RESILIENCIA_CDN_NPM.md)
-
-### Tareas de Implementación:
-- [x] **8.1.** Actualizar `mcp-server/src/cli/install-skill.ts`: (a) cambiar el modo por defecto de `parseTargetArg` a `'auto'` con `detectInstalledGlobalAgentDirs(homeDir)` e `isProjectWorkspaceDir(homeDir, cwd)` (sin contaminar `$HOME/.agents/skills`), (b) **eliminar el filtro restrictivo de 2 skills** usando `f.path.startsWith('.agents/skills/')` para instalar las **5 skills del catálogo**, y (c) añadir soporte para `--include-scripts` que descargue también `common_files` y `.agents/scripts/*`.
-- [x] **8.2.** Sincronizar `scripts/install-skill.sh` eliminando el filtro de 2 skills (copiando todas las carpetas de `.agents/skills/*`), aplicando la misma autodetección multi-agente en `resolve_destination_dirs()`, validando con `ShellCheck` (`0` warnings) y regenerando `manifest.json` (`python3 scripts/generar-manifiesto.py`).
-- [x] **8.3.** Reemplazar la verificación inmediata `npm view` en `scripts/publicar-mcp.sh` por el bucle resiliente de consistencia eventual de CDN (`VERIFY_ATTEMPTS=6`, `VERIFY_DELAY=5`) para evitar caídas por `E404` tras publicar paquetes nuevos o nuevas versiones en `registry.npmjs.org`.
-- [x] **8.4.** Actualizar y ampliar las pruebas unitarias en `mcp-server/tests/tools-and-resources.unit.ts` (certificando cobertura `>= 95.0%` en contenedor efímero `sinfallas/base-node-ionic:26`), `tests/test_install_skill.unit.py` y `tests/test_publicar_mcp.unit.py`.
-- [x] **8.5.** Actualizar el contrato BDD en `mcp-server/test/mcp_cli_test.feature` reflejando el comportamiento `auto` por defecto de `install-skill`.
-- [x] **8.6.** Actualizar `CHANGELOG.md`, `README.md` y `docs/ai-integration.md`, y ejecutar la compuerta de cierre `./.agents/scripts/certify_task_completion.sh`.
+### Implementation Tasks:
+- [x] **6.1.** Create full unit test suite in `mcp-server/tests/*.unit.ts` achieving **>= 95.0% coverage** across lines, branches, functions, and statements inside ephemeral container `sinfallas/base-node-ionic:26`.
+- [x] **6.2.** Create Karate Labs BDD scenarios (`mcp-server/test/mcp_cli_test.feature`) validating CLI behavior and JSON contracts.
+- [x] **6.3.** Run `make qa-all` and `npm pack --dry-run` inside ephemeral Docker for `mcp-server/`, certifying `0` typing errors (`tsc --noEmit`), `0` ESLint/SonarJS warnings, and a clean package tarball.
+- [x] **6.4.** Implement autonomous npmjs publisher without external runners (`scripts/publicar-mcp.sh`, credentials loaded from root `.env`, ephemeral validation, and `make publish-mcp`), removing dependencies on external GitHub Actions CI/CD publishing.
+- [x] **6.5.** Update `README.md`, `TESTING.md`, `docs/ai-integration.md`, and `CHANGELOG.md` with single-command usage (`npx -y @sinfallas/mcp-qa-11x` and `npx -y @sinfallas/mcp-qa-11x install-skill`).
 
 ---
 
-## ✅ Hito 9: Inyector Aditivo No Destructivo del Conector `AGENTS.md` (`init-agents` / `init_or_append_agents_md`)
-**Referencia Obligatoria:** [`docs/specs/08_SPEC_CONECTOR_AGENTS_MD_THIN_REPO_Y_MIGRACION.md`](docs/specs/08_SPEC_CONECTOR_AGENTS_MD_THIN_REPO_Y_MIGRACION.md)
+## ✅ Milestone 7: 11X Test Pyramid Gap Auditor (`audit_test_pyramid_gaps`) and Rescue Playbook
+**Mandatory Reference:** [`docs/specs/06_SPEC_AUDITOR_BRECHAS_PIRAMIDE_PRUEBAS_11X.md`](docs/specs/06_SPEC_AUDITOR_BRECHAS_PIRAMIDE_PRUEBAS_11X.md)
 
-### Tareas de Implementación:
-- [x] **9.1.** Implementar `mcp-server/src/cli/init-agents-md.ts` (`buildConnectorBlock`, `mergeOrAppendAgentsMdContent`, `initOrAppendAgentsMd`, `runInitAgentsCli`) que cree `AGENTS.md` si no existe, o **agregue de forma aditiva y no destructiva** el bloque conector (`<!-- QA_11X_MCP_CONNECTOR_START -->` ... `<!-- QA_11X_MCP_CONNECTOR_END -->`) al final del `AGENTS.md` existente sin reemplazar ni borrar ninguna línea previa.
-- [x] **9.2.** Integrar `mergeAgentsMd()` dentro de `SurgicalMerger.resolveSurgicalMerge` (`mcp-server/src/services/surgical-merger.ts`) cuando `base === 'AGENTS.md'`.
-- [x] **9.3.** Exponer el subcomando CLI `npx -y @sinfallas/mcp-qa-11x init-agents [--project-path <ruta>] [--dry-run]` en `mcp-server/src/index.ts` y el flag `--init-agents` en `mcp-server/src/cli/install-skill.ts`.
-- [x] **9.4.** Registrar la Tool 10 (`init_or_append_agents_md`) en `mcp-server/src/server.ts` y documentar su uso en `.agents/skills/qa-11x-architect/SKILL.md`.
-- [x] **9.5.** Crear la suite de pruebas unitarias `mcp-server/tests/init-agents-md.unit.ts` (validando creación desde cero, adición al final de un `AGENTS.md` existente conservando el 100% de su contenido previo, actualización idempotente sin duplicar el bloque y modo `dry_run`, manteniendo cobertura global `>= 95.0%`) y actualizar `mcp-server/test/mcp_cli_test.feature`.
-- [x] **9.6.** Actualizar `README.md`, `TESTING.md`, `docs/ai-integration.md` y `CHANGELOG.md`, regenerar `manifest.json` y certificar con `./.agents/scripts/certify_task_completion.sh`.
-
----
-
-## ✅ Hito 10: Diagnóstico Asistido de Navegador (Playwright / Browser MCP) y PRs de Evolución Continua Zero-Trust (`propose_skill_evolution_pr`)
-**Referencia Obligatoria:** [`docs/specs/09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md`](docs/specs/09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md)
-
-### Tareas de Implementación:
-- [x] **10.1.** Añadir la interfaz `BrowserTestingReadiness` en `mcp-server/src/types.ts` e implementar `evaluateBrowserTestingReadiness()` en `mcp-server/src/tools/inspect-project.ts` para detectar en proyectos frontend (`vue3`, `react-frontend`) si están instalados `@playwright/test`, `@axe-core/playwright`, `@lhci/cli`, `e2e/*.e2e.ts` y si el IDE del usuario tiene configurado el servidor MCP de navegador (`@playwright/mcp` / `chrome-devtools`), entregando instrucciones de instalación o inyección vía `bootstrap_or_merge_11x`.
-- [x] **10.2.** Implementar `mcp-server/src/tools/propose-evolution-pr.ts` (`proposeSkillEvolutionPr`) combinando la **Opción 1 (`gh` CLI local autenticado vía `execFile` con `shell: false`)** y la **Opción 2 (Fallback Cero-Credenciales generando archivo `.agents/proposals/<slug>.md` + URL pre-llenada de GitHub)** sin empaquetar jamás ningún token.
-- [x] **10.3.** Registrar la Tool 11 (`propose_skill_evolution_pr`) con su esquema Zod (`ProposeEvolutionPrInputSchema`) en `mcp-server/src/server.ts`.
-- [x] **10.4.** Incorporar el **Playbook 7 (Continuous Skill Evolution & Upstream PR Proposal)** y las reglas de verificación de `browser_testing_readiness` en `.agents/skills/qa-11x-architect/SKILL.md` y regenerar `manifest.json` con `python3 scripts/generar-manifiesto.py`.
-- [x] **10.5.** Crear la suite de pruebas unitarias `mcp-server/tests/propose-evolution-pr.unit.ts` y ampliar `mcp-server/tests/tools-and-resources.unit.ts` para `browser_testing_readiness` (manteniendo cobertura global `>= 95.0%` y `0` warnings en ESLint/SonarJS), actualizando `mcp-server/test/mcp_cli_test.feature`.
-- [x] **10.6.** Actualizar `README.md`, `TESTING.md`, `docs/ai-integration.md` y `CHANGELOG.md`, y ejecutar la compuerta de cierre `./.agents/scripts/certify_task_completion.sh`.
+### Implementation Tasks:
+- [x] **7.1.** Define `PyramidLayerStatus`, `PyramidLayerAudit`, `UntestedApiEndpoint`, `PrioritizedTestAction`, and `TestPyramidGapResult` contracts in `mcp-server/src/types.ts`.
+- [x] **7.2.** Implement `mcp-server/src/tools/test-pyramid-auditor.ts` (`auditTestPyramidGaps`) with the 13-layer 11X pyramid matrix (`L01` to `L13`), unit-less source detector (`orphan_source_files`), untested API endpoint detector (`untested_api_endpoints`), untested UI view detector (`untested_ui_views`), and `prioritized_action_plan` generator.
+- [x] **7.3.** Register Tool 9 (`audit_test_pyramid_gaps`) with Zod schema (`AuditTestPyramidInputSchema`) in `mcp-server/src/server.ts`.
+- [x] **7.4.** Add **Playbook 6 (Existing Project Test Gap Audit & 13-Layer Rescue)** to `.agents/skills/qa-11x-architect/SKILL.md` and sync `manifest.json` via `python3 scripts/generar-manifiesto.py`.
+- [x] **7.5.** Create unit suite `mcp-server/tests/test-pyramid-auditor.unit.ts` (covering trimodal scenarios: virgin 0%, partial brownfield, and nominal 100%, keeping overall coverage `>= 95.0%`) and update `mcp-server/test/mcp_cli_test.feature`.
+- [x] **7.6.** Update `README.md`, `TESTING.md`, `docs/ai-integration.md`, and `CHANGELOG.md` documenting `audit_test_pyramid_gaps` and certify with `./.agents/scripts/certify_task_completion.sh`.
 
 ---
 
-## ✅ Hito 11: Blueprint Oficial PHP 8.2–8.5 (`sinfallas/basephpcomposer`) e Integración en Servidor MCP
-**Referencia Obligatoria:** [`docs/specs/10_SPEC_ECOSISTEMA_PHP_8_Y_HERRAMIENTAS_MCP.md`](docs/specs/10_SPEC_ECOSISTEMA_PHP_8_Y_HERRAMIENTAS_MCP.md)
+## ✅ Milestone 8: Agent Auto-Detection in `install-skill`, 5 Skills + Scripts Install, and CDN Resilience
+**Mandatory Reference:** [`docs/specs/07_SPEC_AUTODETECCION_AGENTES_CLI_Y_RESILIENCIA_CDN_NPM.md`](docs/specs/07_SPEC_AUTODETECCION_AGENTES_CLI_Y_RESILIENCIA_CDN_NPM.md)
 
-### Tareas de Implementación:
-- [x] **11.1.** Crear el directorio del stack `php/` con las plantillas canónicas 11X (`php/README.md`, `php/docker-compose.qa.yml` usando `sinfallas/basephpcomposer:8.5` + `postgres:17-alpine` + `eqalpha/keydb:alpine`, `php/Makefile.example`, `php/composer.json.example`, `php/phpstan.neon.example`, `php/phpunit.xml.example`, `php/infection.json5.example`, `php/php.ini.example`, `php/limpieza.sh` y `php/test/api_test.feature`).
-- [x] **11.2.** Actualizar `scripts/generar-manifiesto.py` para indexar el stack `"php"` en `STACK_METADATA` y clasificar `"composer.json.example"` con `merge_strategy: "surgical_merge"`, regenerando `manifest.json` y ampliando `tests/test_generar_manifiesto.unit.py`.
-- [x] **11.3.** Ampliar `mcp-server/src/types.ts` (añadiendo `'php'` a `StackNameSchema`) y `mcp-server/src/tools/inspect-project.ts` (`inspectPhpStack` detectando `composer.json`, `phpstan.neon`, `infection.json5` y archivos `.php`).
-- [x] **11.4.** Implementar `mergeComposerJson()` en `mcp-server/src/services/surgical-merger.ts` (fusión quirúrgica no destructiva de `require-dev`, `scripts` y `config.allow-plugins`) y conectarlo en `resolveSurgicalMerge` cuando `base === 'composer.json'`.
-- [x] **11.5.** Ampliar `mcp-server/src/parsers/output-parsers.ts` (soportando salidas de cobertura de `Pest`/`PHPUnit` con `PCOV`, análisis estático de `PHPStan`/`Psalm` y mutación de `Infection`), `mcp-server/src/tools/security-auditor.ts` (reglas `SEC-03`, `SEC-04` y `SEC-05` para `.php`) y `mcp-server/src/tools/test-pyramid-auditor.ts` (matriz de 13 capas y detección de huérfanos para `'php'`).
-- [x] **11.6.** Ampliar las suites de pruebas unitarias en `mcp-server/tests/*.unit.ts` (manteniendo cobertura global `>= 95.0%` en contenedor efímero `sinfallas/base-node-ionic:26` y `0` warnings en ESLint/SonarJS) y actualizar `mcp-server/test/mcp_cli_test.feature`.
-- [x] **11.7.** Sincronizar `README.md`, `TESTING.md`, `docs/ai-integration.md` y `CHANGELOG.md`, y ejecutar la compuerta de cierre `./.agents/scripts/certify_task_completion.sh`.
-
----
-
-## ✅ Hito 12: Auditores Automáticos para el Invariante Anti-Silo, Ciclo Temporal de 3 Fases, Auditoría Semántica Anti-UUID y Refresco Dual
-**Referencia Obligatoria:** [`docs/specs/11_SPEC_INVARIANTE_ANTI_SILO_CICLO_TEMPORAL_AUDITORIA_Y_REFRESCO_DUAL.md`](docs/specs/11_SPEC_INVARIANTE_ANTI_SILO_CICLO_TEMPORAL_AUDITORIA_Y_REFRESCO_DUAL.md)
-
-### Tareas de Implementación:
-- [x] **12.1.** Ampliar `mcp-server/src/tools/security-auditor.ts` incorporando las reglas `SEC-11` (`checkSec11AuditSemanticIntegrity`: detección de asignación directa `actor_username = claims.get("sub")` y detección de mocks ciegos `AsyncMock`/`MagicMock`/`vi.fn()` sobre `write_audit_log` sin aserciones `assert_called` / `call_args`) y `UI-11X-02` (`checkUi11x02DualRefreshAndSemanticElse`: detección de cláusulas `else return 'MAINTENANCE'` y fugas de `setInterval` sin `clearInterval`), manteniendo complejidad cognitiva `<= 15` y `0` warnings de `sonarjs/no-duplicate-string`.
-- [x] **12.2.** Ampliar `mcp-server/src/tools/test-pyramid-auditor.ts` incorporando `projectHasTemporalEntities` y `detectThreePhaseTemporalTests` en `evaluateLayer13TrimodalFixtures` (verificando las 3 fases del reloj: `Programada`, `En Curso` y `Cancelada`/`Expirada` cuando existen campos `starts_at`/`ends_at` o `safe_mode`) y `checkOperationalViewsDualRefresh` en `evaluateLayer07BddUiKarate` (verificando auto-refresco + botón manual `[ 🔄 Refrescar ]` en vistas operativas).
-- [x] **12.3.** Ampliar las suites unitarias `mcp-server/tests/security-auditor.unit.ts` y `mcp-server/tests/test-pyramid-auditor.unit.ts` cubriendo todas las ramas nuevas (manteniendo cobertura global `>= 95.0%` en contenedor efímero `sinfallas/base-node-ionic:26` y `--max-warnings 0`) y actualizar `mcp-server/test/mcp_cli_test.feature`.
-- [x] **12.4.** Sincronizar `README.md`, `TESTING.md`, `docs/ai-integration.md` y `CHANGELOG.md`, regenerar `manifest.json` y certificar con `./.agents/scripts/certify_task_completion.sh`.
+### Implementation Tasks:
+- [x] **8.1.** Update `mcp-server/src/cli/install-skill.ts`: (a) default `parseTargetArg` to `'auto'` using `detectInstalledGlobalAgentDirs(homeDir)` and `isProjectWorkspaceDir(homeDir, cwd)` (avoiding `$HOME/.agents/skills` pollution), (b) **remove the 2-skill filter** using `f.path.startsWith('.agents/skills/')` to install all **5 catalog skills**, and (c) support `--include-scripts` downloading `common_files` and `.agents/scripts/*`.
+- [x] **8.2.** Sync `scripts/install-skill.sh` by removing the 2-skill filter (copying all `.agents/skills/*` folders), applying multi-agent auto-detection in `resolve_destination_dirs()`, checking `ShellCheck` (`0` warnings), and regenerating `manifest.json` (`python3 scripts/generar-manifiesto.py`).
+- [x] **8.3.** Replace immediate `npm view` checks in `scripts/publicar-mcp.sh` with a resilient CDN eventual-consistency retry loop (`VERIFY_ATTEMPTS=6`, `VERIFY_DELAY=5`) preventing `E404` failures after publishing new packages/versions to `registry.npmjs.org`.
+- [x] **8.4.** Expand unit tests in `mcp-server/tests/tools-and-resources.unit.ts` (certifying `>= 95.0%` coverage in ephemeral container `sinfallas/base-node-ionic:26`), `tests/test_install_skill.unit.py`, and `tests/test_publicar_mcp.unit.py`.
+- [x] **8.5.** Update BDD contract in `mcp-server/test/mcp_cli_test.feature` reflecting default `auto` target behavior in `install-skill`.
+- [x] **8.6.** Update `CHANGELOG.md`, `README.md`, and `docs/ai-integration.md`, and run closure gate `./.agents/scripts/certify_task_completion.sh`.
 
 ---
 
-## ✅ Hito 13: Reconciliación Automática, Deduplicación y Aislamiento de Reglas de Dominio en `.agents/` (`reconcile-agents` / `reconcile_agents_governance`)
-**Referencia Obligatoria:** [`docs/specs/12_SPEC_RECONCILIACION_Y_DEDUPLICACION_GOBERNANZA_AGENTS_PROYECTOS.md`](docs/specs/12_SPEC_RECONCILIACION_Y_DEDUPLICACION_GOBERNANZA_AGENTS_PROYECTOS.md)
+## ✅ Milestone 9: Non-Destructive Additive `AGENTS.md` Connector Injector (`init-agents` / `init_or_append_agents_md`)
+**Mandatory Reference:** [`docs/specs/08_SPEC_CONECTOR_AGENTS_MD_THIN_REPO_Y_MIGRACION.md`](docs/specs/08_SPEC_CONECTOR_AGENTS_MD_THIN_REPO_Y_MIGRACION.md)
 
-### Tareas de Implementación:
-- [x] **13.1.** Añadir en `mcp-server/src/types.ts` los contratos `ReconcileAgentsInputSchema`, `ReconciledRuleItem` y `ReconcileAgentsResult`.
-- [x] **13.2.** Implementar `mcp-server/src/cli/reconcile-agents.ts` (`reconcileAgentsGovernance`, `isPromotedSection`, `splitMarkdownSections`, respaldo automático en `.agents/backups/<timestamp>/`, poda de directivas ya promovidas al estándar global y extracción segura de reglas específicas del proyecto hacia `.agents/rules/domain_<project>_rules.md`).
-- [x] **13.3.** Registrar la Tool 12 (`reconcile_agents_governance`) en `mcp-server/src/server.ts`, exponer el subcomando CLI `reconcile-agents` en `mcp-server/src/index.ts`, actualizar `mcp-server/src/cli/install-skill.ts` para instalar también los 7 archivos canónicos `.agents/rules/*.md` con `--include-scripts` y ejecutar reconciliación previa con `--reconcile`, actualizar `buildConnectorBlock()` y añadir `syncGlobalGeminiMd()` en `mcp-server/src/cli/init-agents-md.ts` (sincronizando no destructivamente `~/.gemini/GEMINI.md` e incluyendo la directiva obligatoria de Post-Mortem de Escapes QA con `propose_skill_evolution_pr`), e inyectar `upstream_evolution_reminder` en la salida de `certify_11x_gate` (`mcp-server/src/tools/certify-gate.ts`).
-- [x] **13.4.** Crear la suite unitaria `mcp-server/tests/reconcile-agents.unit.ts` (validando deduplicación en proyectos tipo `rosgrid`, preservación de archivos `domain_*.md`, respaldos en `.agents/backups/`, modo `dry_run`, `syncGlobalGeminiMd` y `upstream_evolution_reminder`, manteniendo cobertura global `>= 95.0%` en contenedor efímero `sinfallas/base-node-ionic:26`) y actualizar `mcp-server/test/mcp_cli_test.feature`.
-- [x] **13.5.** Sincronizar `README.md`, `TESTING.md`, `docs/ai-integration.md`, `.agents/skills/qa-11x-architect/SKILL.md`, `.agents/skills/graphify-ast-navigator/SKILL.md` y `CHANGELOG.md`, blindar el protocolo obligatorio de 11 directrices operativas y ciclo de vida del grafo AST (`scripts/actualizar-grafos-graphify.sh` e `inspect_ast_blast_radius`) tanto para uso local como para consumidores del MCP, regenerar `manifest.json` y certificar con `./.agents/scripts/certify_task_completion.sh`.
-
----
-
-## ✅ Hito 14: Optimización Extrema de Tokens en Servidor MCP, Protocolo de 3 Vías Proporcionales (`DOCS_ONLY` / `MICRO_CHANGE` / `FULL_11X`), *Progressive Disclosure* y Economía Cognitiva
-**Referencia Obligatoria:** [`docs/specs/13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md`](docs/specs/13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md)
-
-### Tareas de Implementación (Para Gemini 3.8 Flash High):
-- [x] **14.1.** Ampliar los contratos Zod e interfaces en `mcp-server/src/types.ts`: añadir `include_content` (`default: false`) en `FetchBundleInputSchema` (`size_bytes`, `cached_path` en `FetchedFileItem`), `max_findings` (`default: 25`) en `AuditSecurityInputSchema`, `GroupedSecurityFinding` y `grouped_findings` en `SecurityAuditResult`, `max_items` (`default: 20`) en `AuditTestPyramidInputSchema` y `BlastRadiusInputSchema`, y conteos totales en `MissingTestInventory` y `BlastRadiusResult`.
-- [x] **14.2.** Optimizar `mcp-server/src/tools/fetch-bundle.ts` y `mcp-server/src/server.ts` para omitir por defecto el volcado de `content` crudo en llamadas MCP (`include_content: false`, ahorrando ~50,000 tokens por llamada mientras verifica SHA-256 en caché local), y actualizar `buildConnectorBlock()` en `mcp-server/src/cli/init-agents-md.ts` incorporando las **3 Vías Proporcionales de Ejecución (`DOCS_ONLY`, `MICRO_CHANGE`, `FULL_11X`)** y el protocolo *High-IQ Token Economy*.
-- [x] **14.3.** Implementar `groupFindingsByRule()` y el límite `maxFindings` en `mcp-server/src/tools/security-auditor.ts`, el truncado `maxItems` con conteos totales en `mcp-server/src/tools/test-pyramid-auditor.ts` y `mcp-server/src/tools/blast-radius.ts`, manteniendo complejidad cognitiva `<= 15` y `--max-warnings 0`.
-- [x] **14.4.** Añadir las nuevas huellas semánticas promovidas (`high-iq token economy`, `3-path proportional execution`, `ast/grep-first, windowed-read-second`, `subagent context isolation`, `zero redundant re-read`) en `PROMOTED_INVARIANT_FINGERPRINTS` de `mcp-server/src/cli/reconcile-agents.ts`.
-- [x] **14.5.** Ampliar las suites unitarias en `mcp-server/tests/` (`tools-and-resources.unit.ts`, `security-auditor.unit.ts`, `test-pyramid-auditor.unit.ts`, `init-agents-md.unit.ts`) certificando cobertura global `>= 95.0%` en contenedor efímero `sinfallas/base-node-ionic:26`, añadir el Escenario 15 en `mcp-server/test/mcp_cli_test.feature`, actualizar el grafo AST (`./scripts/actualizar-grafos-graphify.sh mcp-server`), regenerar `manifest.json` y certificar con `./.agents/scripts/certify_task_completion.sh`.
+### Implementation Tasks:
+- [x] **9.1.** Implement `mcp-server/src/cli/init-agents-md.ts` (`buildConnectorBlock`, `mergeOrAppendAgentsMdContent`, `initOrAppendAgentsMd`, `runInitAgentsCli`) to create `AGENTS.md` if absent or **append non-destructively** the connector block (`<!-- QA_11X_MCP_CONNECTOR_START -->` ... `<!-- QA_11X_MCP_CONNECTOR_END -->`) to the end of existing `AGENTS.md` without altering prior content.
+- [x] **9.2.** Integrate `mergeAgentsMd()` into `SurgicalMerger.resolveSurgicalMerge` (`mcp-server/src/services/surgical-merger.ts`) when `base === 'AGENTS.md'`.
+- [x] **9.3.** Expose CLI subcommand `npx -y @sinfallas/mcp-qa-11x init-agents [--project-path <path>] [--dry-run]` in `mcp-server/src/index.ts` and flag `--init-agents` in `mcp-server/src/cli/install-skill.ts`.
+- [x] **9.4.** Register Tool 10 (`init_or_append_agents_md`) in `mcp-server/src/server.ts` and document usage in `.agents/skills/qa-11x-architect/SKILL.md`.
+- [x] **9.5.** Create unit test suite `mcp-server/tests/init-agents-md.unit.ts` (verifying fresh creation, appending to existing `AGENTS.md` preserving 100% of prior lines, idempotent updates without duplicate blocks, and `dry_run` mode, keeping coverage `>= 95.0%`) and update `mcp-server/test/mcp_cli_test.feature`.
+- [x] **9.6.** Update `README.md`, `TESTING.md`, `docs/ai-integration.md`, and `CHANGELOG.md`, regenerate `manifest.json`, and certify with `./.agents/scripts/certify_task_completion.sh`.
 
 ---
 
-## ✅ Hito 15: Endurecimiento Integral `v2.16.0` de los 7 Stacks Corporativos, Contrato *Thin-Repo*, Hooks POSIX Rule-Zero y Convergencia 10/10 de Compuertas
-**Referencia Obligatoria:** [`TESTING.md`](TESTING.md) y [`SECURITY.md`](SECURITY.md)
+## ✅ Milestone 10: Assisted Browser Diagnostics (Playwright / Browser MCP) & Zero-Trust Evolution PRs (`propose_skill_evolution_pr`)
+**Mandatory Reference:** [`docs/specs/09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md`](docs/specs/09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md)
 
-### Tareas de Implementación:
-- [x] **15.1.** Endurecer `scripts/verificar-secretos.sh`, `scripts/publicar-mcp.sh` (`.env` `0600` y exclusión de `manifest.json`) y `scripts/auditar-infra.sh` (caché persistente `qa11x_trivy_cache` y mirrors de respaldo ECR/GHCR).
-- [x] **15.2.** Converger al 100% las 10 etapas de `certify_11x_gate` (`mcp-server/src/tools/certify-gate.ts`) con `.agents/scripts/certify_task_completion.sh`, aplicando el contrato *Thin-Repo* por defecto en `bootstrap_or_merge_11x` y `install-skill --target all`, fusión segura de `lefthook.yml`, *Zero Hardcoded Pass* en `parseCoverage`/`audit_test_pyramid_gaps`, soporte `--version` y cobertura `>= 95%` incluyendo `src/index.ts`.
-- [x] **15.3.** Reparar las plantillas de los 7 stacks (`vue3`, `react-frontend`, `python`, `fastapi`, `php`, `node-backend`, `bash-scripts`), eliminar daemons `graphify:8080`, reescribir `instalar-hooks.sh` / `lefthook.yml` bajo Regla Cero, preservar `mcp-server/dist` en `scripts/limpieza.sh` y añadir `tests/test_stacks_hydration_smoke.unit.py`.
-
----
-
-## ✅ Hito 16: Invariante Anti-Silo Pre-Auth Multi-Etapa (`SEC-16`), Presupuesto Cognitivo `SKILL.md < 20 KB` y Verificador Documental Determinista (`verify_docs_invariants.py`)
-**Referencia Obligatoria:** [`SECURITY.md`](SECURITY.md) §4.20 y [`.agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.md`](.agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.md)
-
-### Tareas de Implementación:
-- [x] **16.1.** Incorporar la regla estática `SEC-16` en `mcp-server/src/tools/security-auditor.ts` y la Regla #8 Anti-Ceguera UAT (*Multi-Step Pre-Auth & Ephemeral Challenge Continuity Invariant*) con controles compensatorios STIG/OWASP (`challenge_id >= 128-bit`, `GETDEL`/Lua atómico, `TTL <= 300s`, purga por intentos y `PREAUTH_PUBLIC_ROUTES` simétrico).
-- [x] **16.2.** Compactar `.agents/skills/qa-11x-architect/SKILL.md` por debajo de `< 20 KB` (`17.5 KB`) y `.agents/ACTIVE_TASK.md.example` a `<= 40` líneas (`24` líneas), sincronizando las 12 tools, los 9 recursos y los 23 archivos de skills en toda la documentación (`README.md`, `mcp-server/README.md`, `TESTING.md`, `SECURITY.md`, `FAQ.md`, `CONTRIBUTING.md`, `AI_MASTER_PROMPT.md` y `docs/*.md`).
-- [x] **16.3.** Implementar `.agents/scripts/verify_docs_invariants.py` (+ `tests/test_verify_docs_invariants.unit.py`) e integrarlo en `certify_task_completion.sh` para bloquear regresiones de presupuesto cognitivo o derivas documentales.
+### Implementation Tasks:
+- [x] **10.1.** Add `BrowserTestingReadiness` interface in `mcp-server/src/types.ts` and implement `evaluateBrowserTestingReadiness()` in `mcp-server/src/tools/inspect-project.ts` detecting `@playwright/test`, `@axe-core/playwright`, `@lhci/cli`, `e2e/*.e2e.ts`, and IDE browser MCP configs (`@playwright/mcp` / `chrome-devtools`), providing injection instructions via `bootstrap_or_merge_11x`.
+- [x] **10.2.** Implement `mcp-server/src/tools/propose-evolution-pr.ts` (`proposeSkillEvolutionPr`) combining **Option 1 (authenticated local `gh` CLI via `execFile` with `shell: false`)** and **Option 2 (Zero-Credential Fallback emitting `.agents/proposals/<slug>.md` + prefilled GitHub URL)** without ever bundling tokens.
+- [x] **10.3.** Register Tool 11 (`propose_skill_evolution_pr`) with Zod schema (`ProposeEvolutionPrInputSchema`) in `mcp-server/src/server.ts`.
+- [x] **10.4.** Add **Playbook 7 (Continuous Skill Evolution & Upstream PR Proposal)** and `browser_testing_readiness` checks to `.agents/skills/qa-11x-architect/SKILL.md`, and regenerate `manifest.json` via `python3 scripts/generar-manifiesto.py`.
+- [x] **10.5.** Create unit suite `mcp-server/tests/propose-evolution-pr.unit.ts` and extend `mcp-server/tests/tools-and-resources.unit.ts` for `browser_testing_readiness` (maintaining coverage `>= 95.0%` and `0` ESLint/SonarJS warnings), updating `mcp-server/test/mcp_cli_test.feature`.
+- [x] **10.6.** Update `README.md`, `TESTING.md`, `docs/ai-integration.md`, and `CHANGELOG.md`, and run closure gate `./.agents/scripts/certify_task_completion.sh`.
 
 ---
 
-## ✅ Hito 17: Paridad Pre-Push 1:1 con CI en MCP `qa-11x`: Sello de Evidencia `lint`, Stages `integration`/`ci`, Parser de Endpoints Dinámicos e Invariantes Python/PostgreSQL 17
-**Referencia Obligatoria:** [`.agents/skills/qa-11x-architect/references/03-stack-python-fastapi.md`](.agents/skills/qa-11x-architect/references/03-stack-python-fastapi.md) y [`.agents/skills/qa-11x-architect/references/08-postgres-rls-zero-downtime-migrations.md`](.agents/skills/qa-11x-architect/references/08-postgres-rls-zero-downtime-migrations.md)
+## ✅ Milestone 11: Official PHP 8.2–8.5 Blueprint (`sinfallas/basephpcomposer`) and MCP Server Integration
+**Mandatory Reference:** [`docs/specs/10_SPEC_ECOSISTEMA_PHP_8_Y_HERRAMIENTAS_MCP.md`](docs/specs/10_SPEC_ECOSISTEMA_PHP_8_Y_HERRAMIENTAS_MCP.md)
 
-### Tareas de Implementación:
-- [x] **17.1.** Implementar `mcp-server/src/services/qa-evidence.ts` y ampliar `run_ephemeral_qa` (`migration`, `integration`, `ci`) y `certify_11x_gate` (`lint_evidence_verified` / `require_lint_evidence`) para exigir evidencia vigente de `stage="lint"` ante cambios de código en Git preservando el Fast-Path `DOCS_ONLY`.
-- [x] **17.2.** Normalizar expresiones template string dinámicas (`` `/routers${query}` ``, `` `/bridge/${subPath}` ``, `{path:path}`) simétricamente en `mcp-server/src/tools/certify-gate.ts` y `.agents/scripts/verify_no_orphan_api_endpoints.py`.
-- [x] **17.3.** Incorporar las reglas `QA-MYPY-01`, `QA-PG17-RLS` y la extensión `importlib` de `QA-COV-01` en `security-auditor.ts` + `SurgicalMerger.mergeMakefile`, actualizar `fastapi/Makefile.example`, `python/Makefile.example` y skills (`SKILL.md < 20 KB`), y certificar con `prepush-ci-parity.unit.ts` (313 tests Vitest `>= 95%`), Pytest (54 tests) y Karate BDD (Escenario 21).
-
----
-
-## ✅ Hito 18: Internacionalización v2.18.0 — Idioma Espejo Dinámico, Flag `--lang (auto|es|en)`, Targets `codex`/`windsurf` y Guías Multi-Agente EN/ES
-**Referencia Obligatoria:** [`docs/agent-setup.md`](docs/agent-setup.md) y [`docs/agent-setup.en.md`](docs/agent-setup.en.md)
-
-### Tareas de Implementación:
-- [x] **18.1.** Incorporar el modo de idioma `OutputLanguageModeSchema` (`auto`, `es`, `en`) en `mcp-server/src/types.ts` e inyectar el protocolo *Dynamic Language Mirroring* en `init-agents-md.ts` (manteniendo retrocompatibilidad exacta en español para el Escenario 18 de Karate), con soporte de flags `--lang` / `-l` y variable de entorno `QA_OUTPUT_LANG`.
-- [x] **18.2.** Añadir soporte para targets globales `codex` (`~/.codex/skills`) y `windsurf` (`~/.codeium/windsurf/skills`) con autodetección en `install-skill.ts` y `scripts/install-skill.sh`, traduciendo textos de ayuda CLI y descripciones MCP a inglés técnico conciso.
-- [x] **18.3.** Desplegar la directiva `OUTPUT LANGUAGE & DYNAMIC MIRRORING` en las 5 Skills corporativas (`SKILL.md < 20 KB`), redactar `mcp-server/README.md` en inglés para npmjs, preservar `mcp-server/README.es.md` para GitHub y crear las guías bilingües paso a paso para 11 agentes de IA (`docs/agent-setup.md` y `docs/agent-setup.en.md`).
-- [x] **18.4.** Validar con la pirámide completa de pruebas (Vitest `>= 95%`, Pytest unitario y Karate Labs BDD Escenario 22) y certificar las 10 compuertas de calidad.
+### Implementation Tasks:
+- [x] **11.1.** Create the `php/` stack directory with canonical 11X templates (`php/README.md`, `php/docker-compose.qa.yml` using `sinfallas/basephpcomposer:8.5` + `postgres:17-alpine` + `eqalpha/keydb:alpine`, `php/Makefile.example`, `php/composer.json.example`, `php/phpstan.neon.example`, `php/phpunit.xml.example`, `php/infection.json5.example`, `php/php.ini.example`, `php/limpieza.sh`, and `php/test/api_test.feature`).
+- [x] **11.2.** Update `scripts/generar-manifiesto.py` to index `"php"` in `STACK_METADATA` and classify `"composer.json.example"` with `merge_strategy: "surgical_merge"`, regenerating `manifest.json` and extending `tests/test_generar_manifiesto.unit.py`.
+- [x] **11.3.** Extend `mcp-server/src/types.ts` (adding `'php'` to `StackNameSchema`) and `mcp-server/src/tools/inspect-project.ts` (`inspectPhpStack` detecting `composer.json`, `phpstan.neon`, `infection.json5`, and `.php` files).
+- [x] **11.4.** Implement `mergeComposerJson()` in `mcp-server/src/services/surgical-merger.ts` (non-destructive merge of `require-dev`, `scripts`, and `config.allow-plugins`) and wire it into `resolveSurgicalMerge` when `base === 'composer.json'`.
+- [x] **11.5.** Extend `mcp-server/src/parsers/output-parsers.ts` (`Pest`/`PHPUnit` with `PCOV`, `PHPStan`/`Psalm`, and `Infection` mutation outputs), `mcp-server/src/tools/security-auditor.ts` (`SEC-03`, `SEC-04`, and `SEC-05` rules for `.php`), and `mcp-server/src/tools/test-pyramid-auditor.ts` (13-layer matrix and orphan detection for `'php'`).
+- [x] **11.6.** Extend unit suites in `mcp-server/tests/*.unit.ts` (maintaining global coverage `>= 95.0%` in ephemeral `sinfallas/base-node-ionic:26` and `0` ESLint/SonarJS warnings) and update `mcp-server/test/mcp_cli_test.feature`.
+- [x] **11.7.** Sync `README.md`, `TESTING.md`, `docs/ai-integration.md`, and `CHANGELOG.md`, and run `./.agents/scripts/certify_task_completion.sh`.
 
 ---
 
-## ✅ Hito 19: Invariante Anti-Silo #9 (`QA-HEALTH-01`), Nivelación Documental Humana 1:1 y Gobernanza Dual-Consumer
-**Referencia Obligatoria:** [`docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md`](docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md), [`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`](docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md) y `SECURITY.md` §4.22
+## ✅ Milestone 12: Automated Auditors for Anti-Silo Invariant, 3-Phase Clock Cycle, Semantic Anti-UUID Audit & Dual Refresh
+**Mandatory Reference:** [`docs/specs/11_SPEC_INVARIANTE_ANTI_SILO_CICLO_TEMPORAL_AUDITORIA_Y_REFRESCO_DUAL.md`](docs/specs/11_SPEC_INVARIANTE_ANTI_SILO_CICLO_TEMPORAL_AUDITORIA_Y_REFRESCO_DUAL.md)
 
-### Tareas de Implementación:
-- [x] **19.1.** Implementar la regla estática `QA-HEALTH-01` en `mcp-server/src/tools/security-auditor.ts` (detección de supervisores `asyncio` sin `task.exception()` y sondas físicas de `healthcheck` en `Dockerfile`/`docker-compose*.yml` sin aserción real en `tests/`) e incorporarla como Regla #9 Anti-Ceguera UAT en `qa-11x-architect` (`SKILL.md < 20 KB`, `03-stack-python-fastapi.md`, `01-core-13-layers.md`).
-- [x] **19.2.** Nivelar 1:1 los manuales en español para lectura humana (`docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md` con las 9 reglas Anti-Silo completas, `docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md` con trazabilidad `SEC-01..16`, `SECURITY.md` §4.22, `README.md`, `docs/ai-integration.md` y `mcp-server/README.{md,es.md}`).
-- [x] **19.3.** Incorporar la matriz **Dual-Consumer** (Skill IA + Auditor MCP + Manual Humano) en `propose_skill_evolution_pr` (`types.ts`, `propose-evolution-pr.ts`, `server.ts`), en `.agents/rules/continuous_agent_evolution.md` y en el validador automático `check_dual_consumer_parity` de `.agents/scripts/verify_docs_invariants.py`.
-- [x] **19.4.** Validar con suites unitarias y BDD en Docker efímero (`qa-health-dual-consumer.unit.ts`, `test_verify_docs_invariants.unit.py` y Karate BDD Escenario 23), regenerar `manifest.json` + grafos AST y superar la compuerta 10/10.
-
----
-
-## ✅ Hito 20: Detección de Versión sin Red Redundante (`.qa-11x-version` + TTL 24h Fail-Open), Aviso `update_available` en Tools y Auto-Sync Global de Skills por SHA-256 (`v2.20.0`)
-**Referencia Obligatoria:** [`docs/ai-integration.md`](docs/ai-integration.md) y [`docs/agent-setup.md`](docs/agent-setup.md)
-
-### Tareas de Implementación:
-- [x] **20.1.** Implementar `mcp-server/src/services/version-manager.ts` con estampado determinista `.qa-11x-version` en `install-skill.ts` y `scripts/install-skill.sh`, reutilización de `manifest.json` (`ETag`) y caché `latest-version-check.json` (TTL `24 h` con *fail-open* offline).
-- [x] **20.2.** Exponer el campo estructurado `update_available` (`agent_notice` y `recommended_command`) en `inspect_project_config` y `certify_11x_gate` para notificación proactiva a través del agente de IA sin contaminar `stdout` JSON-RPC.
-- [x] **20.3.** Incorporar `syncGlobalSkillsInBackground` en el arranque `stdio` del servidor MCP (`index.ts`) para sincronizar silenciosamente por `SHA-256` las skills globales preinstaladas preservando el idioma del conector en `~/.gemini/GEMINI.md`.
-- [x] **20.4.** Certificar con `tests/version-manager.unit.ts` (`337/337` tests Vitest `>= 95%`), Escenario 24 en `mcp_cli_test.feature`, actualización de `manifest.json` y grafos AST, y publicación `v2.20.0` en `npmjs`.
+### Implementation Tasks:
+- [x] **12.1.** Extend `mcp-server/src/tools/security-auditor.ts` with `SEC-11` (`checkSec11AuditSemanticIntegrity`: catching direct `actor_username = claims.get("sub")` assignment and blind mocks `AsyncMock`/`MagicMock`/`vi.fn()` on `write_audit_log` without `assert_called`/`call_args`) and `UI-11X-02` (`checkUi11x02DualRefreshAndSemanticElse`: catching `else return 'MAINTENANCE'` fallbacks and leaked `setInterval` without `clearInterval`), keeping cognitive complexity `<= 15` and `0` `sonarjs/no-duplicate-string` warnings.
+- [x] **12.2.** Extend `mcp-server/src/tools/test-pyramid-auditor.ts` adding `projectHasTemporalEntities` and `detectThreePhaseTemporalTests` in `evaluateLayer13TrimodalFixtures` (verifying 3 clock phases: `Programada`, `En Curso`, and `Cancelada`/`Expirada` when `starts_at`/`ends_at` or `safe_mode` exist) and `checkOperationalViewsDualRefresh` in `evaluateLayer07BddUiKarate` (auto-refresh + manual `[ 🔄 Refrescar ]` button).
+- [x] **12.3.** Expand `mcp-server/tests/security-auditor.unit.ts` and `mcp-server/tests/test-pyramid-auditor.unit.ts` covering all new branches (maintaining coverage `>= 95.0%` in ephemeral `sinfallas/base-node-ionic:26` and `--max-warnings 0`) and update `mcp-server/test/mcp_cli_test.feature`.
+- [x] **12.4.** Sync `README.md`, `TESTING.md`, `docs/ai-integration.md`, and `CHANGELOG.md`, regenerate `manifest.json`, and certify with `./.agents/scripts/certify_task_completion.sh`.
 
 ---
 
-## ✅ Hito 21: Cobertura Diferencial Multi-Stack (`verify_diff_coverage.py`), Persistencia Efímera de Reportes y Bloqueo Anti-Evasión
-**Referencia Obligatoria:** [`docs/specs/16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md`](docs/specs/16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md)
+## ✅ Milestone 13: Automated Reconciliation, Deduplication, and Domain Rule Isolation in `.agents/` (`reconcile-agents` / `reconcile_agents_governance`)
+**Mandatory Reference:** [`docs/specs/12_SPEC_RECONCILIACION_Y_DEDUPLICACION_GOBERNANZA_AGENTS_PROYECTOS.md`](docs/specs/12_SPEC_RECONCILIACION_Y_DEDUPLICACION_GOBERNANZA_AGENTS_PROYECTOS.md)
 
-### Tareas de Implementación:
-- [x] **21.1.** Configurar `.gitignore` y `scripts/limpieza.sh` para `.agents/.cache/` y `.agents/artifacts/`, y ajustar `Makefile` / `mcp-server/src/tools/ephemeral-runner.ts` para preservar `coverage.xml` y `lcov.info` en `.agents/.cache/coverage/` antes del cierre de contenedores `--rm`.
-- [x] **21.2.** Crear `.agents/scripts/verify_diff_coverage.py` (parte 1: guardia Anti-XXE `exit 12`, adaptador Cobertura XML y adaptador LCOV con normalización de rutas `/app` -> workspace y complejidad `CC <= 5`).
-- [x] **21.3.** Completar `.agents/scripts/verify_diff_coverage.py` (parte 2: cruce `git diff --unified=0` con `shell=False`, fast-path `DOCS_ONLY`, detector anti-evasión `exit 11` sin `QA11X-APPROVED-EXCLUSION` y salida `Pass-Quiet`/`Fail-Verbose`).
-- [x] **21.4.** Crear `tests/test_verify_diff_coverage.unit.py` (`>= 95%` cobertura en `sinfallas/base-python-uv:3.15` validando XXE, LCOV ramas `>= 90%`, Cobertura XML, evasión `pragma`/`v8 ignore` y `DOCS_ONLY`).
-- [x] **21.5.** Añadir target `make diff-cov` en `Makefile` e integrar la verificación diferencial condicional en `.agents/scripts/certify_task_completion.sh`.
-- [x] **21.6.** Sincronizar directiva *Dual-Consumer* en `.agents/rules/mandatory_qa_pyramid_and_doc_sync.md` y `docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md`, actualizar grafo AST, `make sync-governance` y certificar `make certify`.
-
----
-
-## ✅ Hito 22: Memoria Determinista de Hallazgos y Cortacircuitos Anti-Loop (`exit 42`) en `run_ephemeral_qa` y `certify`
-**Referencia Obligatoria:** [`docs/specs/17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md`](docs/specs/17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md)
-
-### Tareas de Implementación:
-- [x] **22.1.** Crear `.agents/scripts/track_findings_state.py` (parte 1: normalización de hallazgos invariante a números de línea, almacenamiento `0600` en `.agents/.cache/certify_state.json` por `branch:merge_base` y flag `--reset-state`).
-- [x] **22.2.** Completar `.agents/scripts/track_findings_state.py` (parte 2: máquina de estados `RESOLVED`/`PERSISTENT`/`REGRESSION_OSCILLATION`/`NEW` y disparo `exit 42` con `streak >= 3` u `oscillation >= 1`, `CC <= 5`).
-- [x] **22.3.** Crear `tests/test_track_findings_state.unit.py` (`>= 95%` cobertura en `sinfallas/base-python-uv:3.15` validando desplazamiento de líneas, cambio de rama, umbral `streak == 3`, oscilación `A -> B -> A` y `--reset-state`).
-- [x] **22.4.** Integrar seguimiento de rachas y alerta estructurada `BREAKER_42` en `mcp-server/src/services/qa-evidence.ts` y `mcp-server/src/tools/ephemeral-runner.ts` (`run_ephemeral_qa`) conservando intactas las 18 Tools MCP.
-- [x] **22.5.** Crear pruebas unitarias TypeScript en `mcp-server/tests/` (`>= 95%` cobertura en `sinfallas/base-node-ionic:26`) y acoplar `track_findings_state.py` en `.agents/scripts/certify_task_completion.sh`.
-- [x] **22.6.** Documentar el protocolo `BREAKER-42` en `.agents/rules/anti_regression_and_side_effects_guardrail.md`, `.agents/skills/qa-11x-systematic-debugging/SKILL.md` (`< 20 KB`) y `docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`, actualizar grafo AST, `make sync-governance` y `make certify`.
+### Implementation Tasks:
+- [x] **13.1.** Add `ReconcileAgentsInputSchema`, `ReconciledRuleItem`, and `ReconcileAgentsResult` contracts to `mcp-server/src/types.ts`.
+- [x] **13.2.** Implement `mcp-server/src/cli/reconcile-agents.ts` (`reconcileAgentsGovernance`, `isPromotedSection`, `splitMarkdownSections`, automatic backups under `.agents/backups/<timestamp>/`, pruning of promoted directives, and extraction of project-specific rules into `.agents/rules/domain_<project>_rules.md`).
+- [x] **13.3.** Register Tool 12 (`reconcile_agents_governance`) in `mcp-server/src/server.ts`, expose `reconcile-agents` CLI subcommand in `mcp-server/src/index.ts`, update `install-skill.ts` to install canonical `.agents/rules/*.md` files with `--include-scripts` and reconcile via `--reconcile`, extend `buildConnectorBlock()` + add `syncGlobalGeminiMd()` in `init-agents-md.ts` (with QA-escape Post-Mortem directive using `propose_skill_evolution_pr`), and inject `upstream_evolution_reminder` into `certify_11x_gate` (`certify-gate.ts`).
+- [x] **13.4.** Create unit suite `mcp-server/tests/reconcile-agents.unit.ts` (testing deduplication on `rosgrid`-like repos, `domain_*.md` preservation, backups in `.agents/backups/`, `dry_run`, `syncGlobalGeminiMd`, and `upstream_evolution_reminder` at `>= 95.0%` coverage) and update `mcp-server/test/mcp_cli_test.feature`.
+- [x] **13.5.** Sync `README.md`, `TESTING.md`, `docs/ai-integration.md`, `.agents/skills/qa-11x-architect/SKILL.md`, `.agents/skills/graphify-ast-navigator/SKILL.md`, and `CHANGELOG.md`, enforce the 11 operational directives + AST graph lifecycle (`scripts/actualizar-grafos-graphify.sh` & `inspect_ast_blast_radius`) locally and via MCP, regenerate `manifest.json`, and certify with `./.agents/scripts/certify_task_completion.sh`.
 
 ---
 
-## ✅ Hito 23: Modo Diferencial en `inspect_ast_blast_radius` (Cero Inflación MCP) y Exportador Ejecutivo `PR_VERDICT.md`
-**Referencia Obligatoria:** [`docs/specs/18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md`](docs/specs/18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md)
+## ✅ Milestone 14: Extreme Token Optimization in MCP Server, 3-Path Proportional Execution (`DOCS_ONLY` / `MICRO_CHANGE` / `FULL_11X`), Progressive Disclosure & Cognitive Economy
+**Mandatory Reference:** [`docs/specs/13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md`](docs/specs/13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md)
 
-### Tareas de Implementación:
-- [x] **23.1.** Crear `mcp-server/src/utils/diff-bundle.ts` (`SonarJS <= 15`, `execFile` sin shell) con poda de lockfiles/generados, alerta `MISSING_KARATE_API_FEATURE`, fronteras opcionales en `.agents/ACTIVE_TASK.md` y redacción vía `promptGuard.ts`.
-- [x] **23.2.** Extender retrocompatiblemente `BlastRadiusInputSchema` (`changed_since_ref`, `max_tokens_budget`) en `mcp-server/src/types.ts` y `mcp-server/src/tools/blast-radius.ts` sin alterar el catálogo de 18 Tools y 12 Resources.
-- [x] **23.3.** Crear `mcp-server/tests/diff-blast-radius.unit.ts` (`>= 95%` cobertura en `sinfallas/base-node-ionic:26` validando ahorro `>= 60%` de tokens, redacción de secretos y rechazo de `baseRef` inválido) y actualizar `mcp-server/test/mcp_cli_test.feature`.
-- [x] **23.4.** Crear `.agents/scripts/generate_pr_verdict.py` (`CC <= 5`, stdlib pura) reutilizando `release_readiness_gate.py`, `.agents/.qa-evidence.json` y `verify_diff_coverage.py` para emitir `.agents/artifacts/PR_VERDICT.md` y `pr_verdict_attestation.json` (`SHA-256`).
-- [x] **23.5.** Crear `tests/test_generate_pr_verdict.unit.py` (`>= 95%` cobertura en `sinfallas/base-python-uv:3.15`) y exponer el target `make pr-verdict` en `Makefile`.
-- [x] **23.6.** Actualizar `docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`, `docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md`, `TESTING.md` y `CHANGELOG.md`, actualizar grafos AST, `make sync-governance` y `make certify`.
+### Implementation Tasks (Gemini 3.8 Flash High):
+- [x] **14.1.** Extend Zod schemas and interfaces in `mcp-server/src/types.ts`: add `include_content` (`default: false`) to `FetchBundleInputSchema` (`size_bytes`, `cached_path` in `FetchedFileItem`), `max_findings` (`default: 25`) to `AuditSecurityInputSchema`, `GroupedSecurityFinding` and `grouped_findings` to `SecurityAuditResult`, `max_items` (`default: 20`) to `AuditTestPyramidInputSchema` and `BlastRadiusInputSchema`, plus total counts in `MissingTestInventory` and `BlastRadiusResult`.
+- [x] **14.2.** Optimize `mcp-server/src/tools/fetch-bundle.ts` and `mcp-server/src/server.ts` to omit raw `content` dumps by default (`include_content: false`, saving ~50,000 tokens per call while verifying SHA-256 into local cache), and update `buildConnectorBlock()` in `init-agents-md.ts` adding **3 Proportional Execution Paths (`DOCS_ONLY`, `MICRO_CHANGE`, `FULL_11X`)** and *High-IQ Token Economy*.
+- [x] **14.3.** Implement `groupFindingsByRule()` and `maxFindings` cap in `mcp-server/src/tools/security-auditor.ts`, plus `maxItems` truncation with totals in `test-pyramid-auditor.ts` and `blast-radius.ts`, maintaining cognitive complexity `<= 15` and `--max-warnings 0`.
+- [x] **14.4.** Add newly promoted semantic fingerprints (`high-iq token economy`, `3-path proportional execution`, `ast/grep-first, windowed-read-second`, `subagent context isolation`, `zero redundant re-read`) to `PROMOTED_INVARIANT_FINGERPRINTS` in `mcp-server/src/cli/reconcile-agents.ts`.
+- [x] **14.5.** Expand unit suites in `mcp-server/tests/` (`tools-and-resources.unit.ts`, `security-auditor.unit.ts`, `test-pyramid-auditor.unit.ts`, `init-agents-md.unit.ts`) at `>= 95.0%` coverage in ephemeral `sinfallas/base-node-ionic:26`, add Scenario 15 in `mcp-server/test/mcp_cli_test.feature`, refresh AST graph (`./scripts/actualizar-grafos-graphify.sh mcp-server`), regenerate `manifest.json`, and certify via `./.agents/scripts/certify_task_completion.sh`.
 
 ---
 
-## ✅ Hito 24: Auditoría Integral `QA-11X v3.0` (`v3.0.0`), Sincronizador `bump_version_11x.py`, Protocolo MCP en Vivo y Planificación `19_SPEC` / `20_SPEC`
-**Referencia Obligatoria:** [`docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md) + [`docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md)
+## ✅ Milestone 15: Comprehensive `v2.16.0` Hardening of all 7 Corporate Stacks, Thin-Repo Contract, POSIX Rule-Zero Hooks & 10/10 Gate Convergence
+**Mandatory Reference:** [`TESTING.md`](TESTING.md) and [`SECURITY.md`](SECURITY.md)
 
-### Tareas de Implementación:
-- [x] **24.1.** Auditar en paralelo el servidor MCP (`src/`), las 10 skills (`.agents/skills/`), catálogos (`catalogs/*`, `llms.txt`), gobernanza, `.gitignore` y las 10 documentaciones de entorno (incluyendo `ai-evals`, `mobile-appium`, `vibe-rescue` y `architecture`).
-- [x] **24.2.** Corregir paridad CLI (`tms-sync`, `-T`, `help`), versionado dinámico A2A/Allure/TMS (`MCP_SERVER_VERSION`) y reglas `.gitignore` / `<stack>/gitignore.example`.
-- [x] **24.3.** Crear el automatizador determinista `.agents/scripts/bump_version_11x.py` (`CC <= 5`, `mypy --strict`, `100%` cobertura delta en `tests/test_bump_version_11x.unit.py`) e integrarlo en `Makefile` (`make version-check`), `sync_governance.py` y `certify_task_completion.sh`.
-- [x] **24.4.** Crear las especificaciones de planificación exclusiva `v3.x`: `19_SPEC` (arquitectura bilingüe EN-primario + espejo ES sin ejecutar renombre masivo en `3.0.0`) y `20_SPEC` (plan de imagen base `sinfallas/base-mobile-appium:26` sin emulador ni `root`).
-- [x] **24.5.** Crear `mcp-server/tests/live-mcp-protocol.test.ts` (`InMemoryTransport` + `StdioClientTransport` real contra `dist/index.js`), ampliar `tests/bats/` (`test_limpieza.bats`, `test_repo_scripts.bats`), `tests/test_verify_docs_invariants.unit.py` y añadir el Escenario 37 en `mcp-server/test/mcp_cli_test.feature`.
-- [x] **24.6.** Ejecutar elevación coordinada `bump_version_11x.py --set 3.0.0 --edition "QA-11X v3.0"`, recomputar huellas SHA-256 en `manifest.json` y `catalogs/skillsllm-manifest.json`, certificar toda la matriz Docker (`Rule Zero`), actualizar `TESTING.md` / `CHANGELOG.md` y consolidar commit local certificado (sin `push` ni `npm publish`).
+### Implementation Tasks:
+- [x] **15.1.** Harden `scripts/verificar-secretos.sh`, `scripts/publicar-mcp.sh` (`.env` `0600` and `manifest.json` exclusion), and `scripts/auditar-infra.sh` (persistent `qa11x_trivy_cache` and ECR/GHCR backup mirrors).
+- [x] **15.2.** Converge 100% of the 10 `certify_11x_gate` stages (`mcp-server/src/tools/certify-gate.ts`) with `.agents/scripts/certify_task_completion.sh`, enforcing Thin-Repo contract by default in `bootstrap_or_merge_11x` and `install-skill --target all`, safe `lefthook.yml` merging, *Zero Hardcoded Pass* in `parseCoverage`/`audit_test_pyramid_gaps`, `--version` support, and `>= 95%` coverage including `src/index.ts`.
+- [x] **15.3.** Repair templates across all 7 stacks (`vue3`, `react-frontend`, `python`, `fastapi`, `php`, `node-backend`, `bash-scripts`), remove `graphify:8080` daemons, rewrite `instalar-hooks.sh` / `lefthook.yml` under Rule Zero, preserve `mcp-server/dist` in `scripts/limpieza.sh`, and add `tests/test_stacks_hydration_smoke.unit.py`.
 
+---
+
+## ✅ Milestone 16: Multi-Stage Pre-Auth Anti-Silo Invariant (`SEC-16`), `SKILL.md < 20 KB` Cognitive Budget & Deterministic Doc Verifier (`verify_docs_invariants.py`)
+**Mandatory Reference:** [`SECURITY.md`](SECURITY.md) §4.20 and [`.agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.md`](.agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.md)
+
+### Implementation Tasks:
+- [x] **16.1.** Add static rule `SEC-16` in `mcp-server/src/tools/security-auditor.ts` and UAT Anti-Blindness Rule #8 (*Multi-Step Pre-Auth & Ephemeral Challenge Continuity Invariant*) with STIG/OWASP compensating controls (`challenge_id >= 128-bit`, atomic `GETDEL`/Lua, `TTL <= 300s`, attempt purge, and symmetric `PREAUTH_PUBLIC_ROUTES`).
+- [x] **16.2.** Compact `.agents/skills/qa-11x-architect/SKILL.md` under `< 20 KB` (`17.5 KB`) and `.agents/ACTIVE_TASK.md.example` to `<= 40` lines (`24` lines), syncing the 12 core v1 tools, 9 v1 resources, and 23 skill files across documentation (`README.md`, `mcp-server/README.md`, `TESTING.md`, `SECURITY.md`, `FAQ.md`, `CONTRIBUTING.md`, `AI_MASTER_PROMPT.md`, and `docs/*.md`).
+- [x] **16.3.** Implement `.agents/scripts/verify_docs_invariants.py` (+ `tests/test_verify_docs_invariants.unit.py`) and wire it into `certify_task_completion.sh` to block cognitive-budget regressions or documentation drift.
+
+---
+
+## ✅ Milestone 17: 1:1 Pre-Push CI Parity in `qa-11x` MCP: `lint` Evidence Seal, `integration`/`ci` Stages, Dynamic Endpoint Parser & Python/PG 17 Invariants
+**Mandatory Reference:** [`.agents/skills/qa-11x-architect/references/03-stack-python-fastapi.md`](.agents/skills/qa-11x-architect/references/03-stack-python-fastapi.md) and [`.agents/skills/qa-11x-architect/references/08-postgres-rls-zero-downtime-migrations.md`](.agents/skills/qa-11x-architect/references/08-postgres-rls-zero-downtime-migrations.md)
+
+### Implementation Tasks:
+- [x] **17.1.** Implement `mcp-server/src/services/qa-evidence.ts` and extend `run_ephemeral_qa` (`migration`, `integration`, `ci`) and `certify_11x_gate` (`lint_evidence_verified` / `require_lint_evidence`) to require valid `stage="lint"` evidence on Git code changes while preserving the `DOCS_ONLY` Fast-Path.
+- [x] **17.2.** Normalize dynamic template string expressions (`` `/routers${query}` ``, `` `/bridge/${subPath}` ``, `{path:path}`) symmetrically in `mcp-server/src/tools/certify-gate.ts` and `.agents/scripts/verify_no_orphan_api_endpoints.py`.
+- [x] **17.3.** Add rules `QA-MYPY-01`, `QA-PG17-RLS`, and the `importlib` extension of `QA-COV-01` in `security-auditor.ts` + `SurgicalMerger.mergeMakefile`, update `fastapi/Makefile.example`, `python/Makefile.example`, and skills (`SKILL.md < 20 KB`), and certify with `prepush-ci-parity.unit.ts` (313 Vitest tests `>= 95%`), Pytest (54 tests), and Karate BDD (Scenario 21).
+
+---
+
+## ✅ Milestone 18: `v2.18.0` Internationalization — Dynamic Language Mirroring, `--lang (auto|es|en)` Flag, `codex`/`windsurf` Targets & Multi-Agent EN/ES Guides
+**Mandatory Reference:** [`docs/agent-setup.md`](docs/agent-setup.md) and [`docs/agent-setup.es.md`](docs/agent-setup.es.md)
+
+### Implementation Tasks:
+- [x] **18.1.** Add `OutputLanguageModeSchema` (`auto`, `es`, `en`) in `mcp-server/src/types.ts` and inject *Dynamic Language Mirroring* into `init-agents-md.ts` (preserving exact Spanish backwards compatibility for Karate Scenario 18), with `--lang` / `-l` CLI flags and `QA_OUTPUT_LANG` env var.
+- [x] **18.2.** Add support for global targets `codex` (`~/.codex/skills`) and `windsurf` (`~/.codeium/windsurf/skills`) with auto-detection in `install-skill.ts` and `scripts/install-skill.sh`, translating CLI help and MCP descriptions to concise technical English.
+- [x] **18.3.** Deploy `OUTPUT LANGUAGE & DYNAMIC MIRRORING` across the 5 corporate skills (`SKILL.md < 20 KB`), author `mcp-server/README.md` in English for npmjs, keep `mcp-server/README.es.md` for GitHub, and create bilingual step-by-step setup guides for 11 AI agents (`docs/agent-setup.md` and `docs/agent-setup.en.md`).
+- [x] **18.4.** Validate across the full test pyramid (Vitest `>= 95%`, Python unit tests, and Karate Labs BDD Scenario 22) and certify all 10 quality gates.
+
+---
+
+## ✅ Milestone 19: Anti-Silo Invariant #9 (`QA-HEALTH-01`), 1:1 Human Manual Leveling & Dual-Consumer Governance
+**Mandatory Reference:** [`docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md`](docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md), [`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`](docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md), and [`SECURITY.md`](SECURITY.md) §4.22
+
+### Implementation Tasks:
+- [x] **19.1.** Implement static rule `QA-HEALTH-01` in `mcp-server/src/tools/security-auditor.ts` (detecting `asyncio` supervisors missing `task.exception()` and `Dockerfile`/`docker-compose*.yml` `healthcheck` probes lacking real assertions in `tests/`) and add it as UAT Anti-Blindness Rule #9 in `qa-11x-architect` (`SKILL.md < 20 KB`, `03-stack-python-fastapi.md`, `01-core-13-layers.md`).
+- [x] **19.2.** Level human-facing manuals 1:1 (`docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md` with all 9 Anti-Silo rules, `docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md` with `SEC-01..16` traceability, `SECURITY.md` §4.22, `README.md`, `docs/ai-integration.md`, and `mcp-server/README.{md,es.md}`).
+- [x] **19.3.** Add **Dual-Consumer** matrix (AI Skill + MCP Auditor + Human Manual) to `propose_skill_evolution_pr` (`types.ts`, `propose-evolution-pr.ts`, `server.ts`), `.agents/rules/continuous_agent_evolution.md`, and automated validator `check_dual_consumer_parity` in `.agents/scripts/verify_docs_invariants.py`.
+- [x] **19.4.** Validate via unit & BDD suites in ephemeral Docker (`qa-health-dual-consumer.unit.ts`, `test_verify_docs_invariants.unit.py`, and Karate BDD Scenario 23), regenerate `manifest.json` + AST graphs, and pass the 10/10 gate.
+
+---
+
+## ✅ Milestone 20: Redundancy-Free Version Detection (`.qa-11x-version` + 24h Fail-Open TTL), `update_available` Tool Notice & Global SHA-256 Skills Auto-Sync (`v2.20.0`)
+**Mandatory Reference:** [`docs/ai-integration.md`](docs/ai-integration.md) and [`docs/agent-setup.md`](docs/agent-setup.md)
+
+### Implementation Tasks:
+- [x] **20.1.** Implement `mcp-server/src/services/version-manager.ts` with deterministic `.qa-11x-version` stamping in `install-skill.ts` and `scripts/install-skill.sh`, `manifest.json` (`ETag`) reuse, and `latest-version-check.json` cache (24h TTL with offline *fail-open*).
+- [x] **20.2.** Expose structured `update_available` (`agent_notice` and `recommended_command`) in `inspect_project_config` and `certify_11x_gate` for proactive agent notifications without polluting JSON-RPC `stdout`.
+- [x] **20.3.** Add `syncGlobalSkillsInBackground` on MCP server `stdio` startup (`index.ts`) to silently sync preinstalled global skills by `SHA-256` while preserving `~/.gemini/GEMINI.md` connector language.
+- [x] **20.4.** Certify with `tests/version-manager.unit.ts` (`337/337` Vitest tests `>= 95%`), Scenario 24 in `mcp_cli_test.feature`, `manifest.json` and AST graph updates, and `v2.20.0` npmjs publish.
+
+---
+
+## ✅ Milestone 21: Multi-Stack Differential Coverage (`verify_diff_coverage.py`), Ephemeral Report Persistence & Anti-Evasion Block
+**Mandatory Reference:** [`docs/specs/16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md`](docs/specs/16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md)
+
+### Implementation Tasks:
+- [x] **21.1.** Configure `.gitignore` and `scripts/limpieza.sh` for `.agents/.cache/` and `.agents/artifacts/`, and update `Makefile` / `mcp-server/src/tools/ephemeral-runner.ts` to preserve `coverage.xml` and `lcov.info` in `.agents/.cache/coverage/` before `--rm` container exit.
+- [x] **21.2.** Create `.agents/scripts/verify_diff_coverage.py` (part 1: Anti-XXE `exit 12` guard, Cobertura XML parser, and LCOV parser normalizing `/app` -> workspace paths with complexity `CC <= 5`).
+- [x] **21.3.** Complete `.agents/scripts/verify_diff_coverage.py` (part 2: `git diff --unified=0` intersection with `shell=False`, `DOCS_ONLY` fast-path, `exit 11` anti-evasion guard without `QA11X-APPROVED-EXCLUSION`, and `Pass-Quiet`/`Fail-Verbose` output).
+- [x] **21.4.** Create `tests/test_verify_diff_coverage.unit.py` (`>= 95%` coverage in `sinfallas/base-python-uv:3.15` validating XXE, LCOV branches `>= 90%`, Cobertura XML, `pragma`/`v8 ignore` evasion, and `DOCS_ONLY`).
+- [x] **21.5.** Add `make diff-cov` target in `Makefile` and integrate conditional differential coverage verification into `.agents/scripts/certify_task_completion.sh`.
+- [x] **21.6.** Sync *Dual-Consumer* directives in `.agents/rules/mandatory_qa_pyramid_and_doc_sync.md` and `docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md`, refresh AST graph, run `make sync-governance`, and certify `make certify`.
+
+---
+
+## ✅ Milestone 22: Deterministic Findings Memory & Anti-Loop Circuit Breaker (`exit 42`) in `run_ephemeral_qa` and `certify`
+**Mandatory Reference:** [`docs/specs/17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md`](docs/specs/17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md)
+
+### Implementation Tasks:
+- [x] **22.1.** Create `.agents/scripts/track_findings_state.py` (part 1: line-number-invariant finding normalization, `0600` storage in `.agents/.cache/certify_state.json` keyed by `branch:merge_base`, and `--reset-state` flag).
+- [x] **22.2.** Complete `.agents/scripts/track_findings_state.py` (part 2: `RESOLVED`/`PERSISTENT`/`REGRESSION_OSCILLATION`/`NEW` state machine and `exit 42` trigger on `streak >= 3` or `oscillation >= 1`, `CC <= 5`).
+- [x] **22.3.** Create `tests/test_track_findings_state.unit.py` (`>= 95%` coverage in `sinfallas/base-python-uv:3.15` validating line-shift invariance, branch switching, `streak == 3` threshold, `A -> B -> A` oscillation, and `--reset-state`).
+- [x] **22.4.** Integrate streak tracking and structured `BREAKER_42` alert into `mcp-server/src/services/qa-evidence.ts` and `mcp-server/src/tools/ephemeral-runner.ts` (`run_ephemeral_qa`) preserving the 18 MCP tools intact.
+- [x] **22.5.** Add TypeScript unit tests in `mcp-server/tests/` (`>= 95%` coverage in `sinfallas/base-node-ionic:26`) and wire `track_findings_state.py` into `.agents/scripts/certify_task_completion.sh`.
+- [x] **22.6.** Document the `BREAKER-42` protocol in `.agents/rules/anti_regression_and_side_effects_guardrail.md`, `.agents/skills/qa-11x-systematic-debugging/SKILL.md` (`< 20 KB`), and `docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`, refresh AST graph, run `make sync-governance`, and pass `make certify`.
+
+---
+
+## ✅ Milestone 23: Differential Mode in `inspect_ast_blast_radius` (Zero MCP Bloat) & Executive `PR_VERDICT.md` Exporter
+**Mandatory Reference:** [`docs/specs/18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md`](docs/specs/18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md)
+
+### Implementation Tasks:
+- [x] **23.1.** Create `mcp-server/src/utils/diff-bundle.ts` (`SonarJS <= 15`, `execFile` without shell) with lockfile/generated pruning, `MISSING_KARATE_API_FEATURE` alert, optional `.agents/ACTIVE_TASK.md` boundaries, and secret redaction via `promptGuard.ts`.
+- [x] **23.2.** Backwards-compatibly extend `BlastRadiusInputSchema` (`changed_since_ref`, `max_tokens_budget`) in `mcp-server/src/types.ts` and `mcp-server/src/tools/blast-radius.ts` without changing the 18 Tools and 12 Resources catalog.
+- [x] **23.3.** Create `mcp-server/tests/diff-blast-radius.unit.ts` (`>= 95%` coverage in `sinfallas/base-node-ionic:26` verifying `>= 60%` token savings, secret redaction, and invalid `baseRef` rejection) and update `mcp-server/test/mcp_cli_test.feature`.
+- [x] **23.4.** Create `.agents/scripts/generate_pr_verdict.py` (`CC <= 5`, pure stdlib) reusing `release_readiness_gate.py`, `.agents/.qa-evidence.json`, and `verify_diff_coverage.py` to emit `.agents/artifacts/PR_VERDICT.md` and `pr_verdict_attestation.json` (`SHA-256`).
+- [x] **23.5.** Create `tests/test_generate_pr_verdict.unit.py` (`>= 95%` coverage in `sinfallas/base-python-uv:3.15`) and expose `make pr-verdict` target in `Makefile`.
+- [x] **23.6.** Update `docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`, `docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md`, `TESTING.md`, and `CHANGELOG.md`, update AST graphs, run `make sync-governance`, and pass `make certify`.
+
+---
+
+## ✅ Milestone 24: Comprehensive `QA-11X v3.0` Audit (`v3.0.0`), `bump_version_11x.py` Synchronizer, Live MCP Protocol & `19_SPEC` / `20_SPEC` Planning
+**Mandatory Reference:** [`docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md) + [`docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md)
+
+### Implementation Tasks:
+- [x] **24.1.** Audit in parallel the MCP server (`src/`), 10 skills (`.agents/skills/`), catalogs (`catalogs/*`, `llms.txt`), governance, `.gitignore`, and all 10 stack documentations (including `ai-evals`, `mobile-appium`, `vibe-rescue`, and `architecture`).
+- [x] **24.2.** Fix CLI parity (`tms-sync`, `-T`, `help`), dynamic versioning in A2A/Allure/TMS (`MCP_SERVER_VERSION`), and `.gitignore` / `<stack>/gitignore.example` rules.
+- [x] **24.3.** Create deterministic version synchronizer `.agents/scripts/bump_version_11x.py` (`CC <= 5`, `mypy --strict`, `100%` delta coverage in `tests/test_bump_version_11x.unit.py`) and wire it into `Makefile` (`make version-check`), `sync_governance.py`, and `certify_task_completion.sh`.
+- [x] **24.4.** Author `v3.x` planning specifications: `19_SPEC` (EN-primary + ES mirror bilingual architecture deferred past `3.0.0`) and `20_SPEC` (dedicated `sinfallas/base-mobile-appium:26` image plan without emulator or `root`).
+- [x] **24.5.** Create `mcp-server/tests/live-mcp-protocol.test.ts` (`InMemoryTransport` + live `StdioClientTransport` against `dist/index.js`), expand `tests/bats/` (`test_limpieza.bats`, `test_repo_scripts.bats`) and `tests/test_verify_docs_invariants.unit.py`, and add Scenario 37 to `mcp-server/test/mcp_cli_test.feature`.
+- [x] **24.6.** Execute coordinated release bump `bump_version_11x.py --set 3.0.0 --edition "QA-11X v3.0"`, recompute SHA-256 fingerprints in `manifest.json` and `catalogs/skillsllm-manifest.json`, certify full Docker matrix (`Rule Zero`), update `TESTING.md` / `CHANGELOG.md`, and consolidate certified local commit (no `push` or `npm publish`).
+
+---
+
+## ✅ Milestone 25: 15×12 Matrix, `sinfallas/base-mobile-appium:26` & Bilingual Documentation Architecture
+**Mandatory Reference:** [`docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md) + [`docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md)
+
+### Implementation Tasks:
+- [x] **25.1.** Integrate dedicated non-root Docker image **`sinfallas/base-mobile-appium:26`** (`Node.js 26`, `pnpm`, `OpenJDK 21`, `Android SDK/ADB`, `Appium 3`, `uiautomator2`, `xcuitest`, `WebdriverIO v9`), update `mobile-appium/{Makefile.example,docker-compose.qa.yml.example,package.json.example,tests/mobile_screenplay.spec.ts}`, add `make test-mobile-blueprints` in `Makefile`, and wire `smoke-mobile-appium` into `.github/workflows/audit-base-images.yml`.
+- [x] **25.2.** Wire `sinfallas/base-mobile-appium:26` and `qa-mobile` into `mcp-server` (`src/resources/stackBlueprints.ts`, `src/tools/ephemeral-runner.ts`), enable bilingual `blueprint://*` negotiation (`?lang=es|en`), and level the **15×12 Quality Matrix** across [`README.md`](README.md) and [`README.es.md`](README.es.md).
+- [x] **25.3.** Execute **Spec 19 Phase A**: migrate root governance, security, testing, prompt, roadmap, changelog, `mcp-server/{CHANGELOG,example/README}`, and `docs/agent-setup` documents to **English Canonical (`*.md`) + 1:1 Spanish Mirror (`*.es.md`)** pairs with reciprocal language banners and update [`AGENTS.md`](AGENTS.md) and [`.agents/README.md`](.agents/README.md).

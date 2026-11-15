@@ -1,43 +1,43 @@
-> 🌐 **Idioma / Language:** **Español** | [Read in English](agent-setup.en.md)
+> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (agent-setup.es.md)](agent-setup.es.md)
 
-# 🤖 Guía Maestra de Configuración del Servidor MCP y Skills QA 11X por Agente de IA
+# 🤖 Agent Setup & Integration Guide — QA 11X MCP Server & Skills
 
-Esta guía describe el procedimiento paso a paso para configurar **`@sinfallas/mcp-qa-11x`**, sus **28 conectores declarativos de agentes IA** y las **10 skills modulares** del estándar QA 11X en IDEs, CLIs, agentes autónomos y entornos *vibe-coding*.
+This guide provides step-by-step instructions to configure **`@sinfallas/mcp-qa-11x`**, its **28 declarative AI agent connectors**, bilingual MCP resource negotiation (`?lang=es|en`), and the **corporate QA-11X skills** (including mobile E2E testing on `sinfallas/base-mobile-appium:26`) across IDEs, CLIs, autonomous agents, and vibe-coding environments.
 
 ---
 
-## 📋 Paso 1: Instalación Común de Skills, Conectores (`AGENTS.md`) y Política de Idioma (`--lang es|en`)
+## 📋 Step 1: Universal Installation of Skills, Connectors (`AGENTS.md`), and Language Policy (`--lang es|en`)
 
-Antes de registrar el servidor MCP en tu asistente de IA, inicializa la gobernanza, las skills verificadas con **SHA-256 (`DISA STIG V-222513`)** y los puentes declarativos *Thin-Repo* en la raíz del proyecto:
+Before registering the MCP server in your AI assistant, initialize governance and Thin-Repo bridge files at your project root:
 
 ```bash
-# 1. Onboarding rápido integral en < 30s (quickstart soporta --tier / -T, --lang, --agents):
-npx -y @sinfallas/mcp-qa-11x@latest quickstart -T standard --lang es --agents auto
-
-# 2. Detectar agentes globales e instalar las 10 skills + scripts + conectores Thin-Repo:
-npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --lang auto --agents auto --include-scripts --reconcile
-
-# 3. Apuntar explícitamente a conectores específicos (ej. Copilot, Cursor, Claude Code) en español o inglés:
-npx -y @sinfallas/mcp-qa-11x@latest init-agents --lang es --agents copilot,cursor,claude-code
+# 1. Auto-detect installed project agents and inject English directives:
 npx -y @sinfallas/mcp-qa-11x@latest init-agents --lang en --agents auto
 
-# 4. Seleccionar un destino específico para las 10 skills globales:
-npx -y @sinfallas/mcp-qa-11x@latest install-skill --target [auto|workspace|antigravity|claude|cursor|windsurf|codex|hermes|all] --init-agents --include-scripts --reconcile
+# 2. Enforce Spanish human-output policy (default) on AGENTS.md only (100% backward compatible):
+npx -y @sinfallas/mcp-qa-11x@latest init-agents --lang es
+
+# 3. Target explicit agent bridges (e.g. GitHub Copilot, Cursor, Claude Code) in English:
+npx -y @sinfallas/mcp-qa-11x@latest init-agents --lang en --agents copilot,cursor,claude-code
+
+# 4. Install verified SHA-256 skills (DISA STIG V-222513), scripts, and multi-agent connectors together:
+npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --lang en --agents auto --include-scripts --reconcile
 ```
 
 > [!NOTE]
-> - **Política de Idioma (`--lang`):** `--lang auto` (predeterminado en `install-skill`) activa el **Dynamic Language Mirroring**: el modelo responde y razona en el idioma de tu prompt, y redacta commits y documentación humana respetando el idioma preexistente de `README.md` y `CHANGELOG.md` del repositorio. `--lang es` / `--lang en` fuerzan explícitamente el idioma humano de salida mientras mantienen `.agents/` en inglés técnico compacto.
-> - **Arquitectura Puente Thin-Repo (`--agents <csv|auto|all>`):** En lugar de duplicar manuales extensos en cada herramienta, cada conector se mantiene en `<= 15` líneas apuntando a `AGENTS.md` (con *frontmatter* `.mdc` válido en Cursor y `read: AGENTS.md` en `.aider.conf.yml`), con protección anti *path-traversal* y `--dry-run`.
-> - **Guardia Humana de Push (`QA-GIT-GATE-01`):** Todos los conectores exigen cerrar en `git commit` local certificado y prohíben `git push` o `npm publish` automáticos sin autorización humana explícita.
+> - **Language Policy (`--lang`):** `init-agents` supports `--lang es` (default, Spanish human responses/mirrors) and `--lang en` (English human responses/docs), while keeping internal `.agents/` directives in concise technical English. Re-running `init-agents` with a different `--lang` updates only the delimited QA-11X connector block idempotently without altering custom project rules.
+> - **Bilingual MCP Resource Negotiation (`?lang=es|en`):** MCP `blueprint://*` and `qa-11x://docs/*` URIs support `?lang=en` (canonical English, default) and `?lang=es` (1:1 Spanish `.es.md` mirror fallback, e.g., `blueprint://mobile-appium/readme?lang=es` for `sinfallas/base-mobile-appium:26`).
+> - **Thin-Repo Bridge Architecture (`--agents <csv|auto|all>`):** Instead of duplicating large rulebooks into every tool folder, each bridge file is kept strictly `<= 15` lines and points directly to `AGENTS.md` (including valid `.mdc` frontmatter for Cursor and non-duplicating `read:` YAML syntax for `.aider.conf.yml`), with path-traversal protection and `--dry-run` simulation support.
+> - **Human-Confirmed Push Guard (`QA-GIT-GATE-01`):** Generated connectors enforce local certified `git commit` closure and prohibit automatic `git push` or `npm publish` without explicit human authorization.
 
-### 🌐 Matriz Declarativa de 28 Agentes de Programación IA Soportados (`--agents`)
+### 🌐 Declarative Matrix of 28 Supported AI Coding Agents (`--agents`)
 
-| ID (`--agents`) | Asistente / Entorno | Categoría | Archivo Puente Generado | Marcadores (`--agents auto`) |
+| Agent ID (`--agents`) | Assistant / Environment | Category | Generated Bridge File | Auto-Detection Markers (`--agents auto`) |
 | :--- | :--- | :--- | :--- | :--- |
 | `antigravity` | Google Antigravity IDE | IDE | `AGENTS.md` | `.gemini`, `.idx` |
 | `claude-code` | Claude Code CLI | CLI | `CLAUDE.md` | `CLAUDE.md`, `.claude` |
 | `claude-desktop` | Claude Desktop | Desktop | `AGENTS.md` | `.mcp.json` |
-| `cursor` | Cursor IDE | IDE | `.cursor/rules/qa-11x.mdc` | `.cursor`, `.cursorrules` |
+| `cursor` | Cursor IDE | IDE | `.cursor/rules/qa-11x.mdc` (`.mdc` frontmatter) | `.cursor`, `.cursorrules` |
 | `windsurf` | Windsurf (Codeium) | IDE | `.windsurfrules` | `.windsurfrules`, `.windsurf`, `.codeium` |
 | `copilot` | GitHub Copilot (VS Code) | IDE | `.github/copilot-instructions.md` | `.github`, `.vscode` |
 | `codex` | OpenAI Codex CLI | CLI | `AGENTS.md` | `.codex` |
@@ -65,20 +65,20 @@ npx -y @sinfallas/mcp-qa-11x@latest install-skill --target [auto|workspace|antig
 
 ---
 
-## 🛠️ Paso 2: Registro del Servidor MCP por Agente de IA
+## 🛠️ Step 2: Register the MCP Server per AI Coding Agent
 
-Elige tu entorno o asistente de desarrollo a continuación:
+Select your development environment or AI assistant below:
 
-### Grupo A: Asistentes Principales
+### Group A: Major AI Coding Assistants
 
 #### 1. VS Code + GitHub Copilot (Agent Mode)
-VS Code soporta servidores MCP para GitHub Copilot Chat en modo Agente a través del archivo de configuración del espacio de trabajo.
+VS Code supports MCP servers for GitHub Copilot Chat in Agent mode through workspace configuration files.
 
 > [!IMPORTANT]
-> VS Code utiliza la clave raíz **`"servers"`** en lugar de `"mcpServers"`.
+> VS Code requires the root key **`"servers"`** instead of `"mcpServers"`.
 
-- **Archivo de configuración:** `.vscode/mcp.json` en la raíz del proyecto.
-- **Configuración:**
+- **Configuration File:** `.vscode/mcp.json` at project root.
+- **Configuration:**
   ```json
   {
     "servers": {
@@ -89,7 +89,7 @@ VS Code soporta servidores MCP para GitHub Copilot Chat en modo Agente a través
     }
   }
   ```
-- **Registro rápido por CLI (si el binario `code` está disponible):**
+- **CLI One-Liner (if `code` CLI is available):**
   ```bash
   code --add-mcp '{"name":"qa-11x","command":"npx","args":["-y","@sinfallas/mcp-qa-11x@latest"]}'
   ```
@@ -97,11 +97,11 @@ VS Code soporta servidores MCP para GitHub Copilot Chat en modo Agente a través
 ---
 
 #### 2. Cursor IDE
-Cursor soporta MCP a nivel global o por espacio de trabajo.
+Cursor supports MCP both globally and per workspace.
 
-- **Configuración por Proyecto:** `.cursor/mcp.json`
-- **Configuración Global:** `~/.cursor/mcp.json` (o vía interfaz gráfica en *Settings > Features > MCP*).
-- **Contenido:**
+- **Workspace Configuration:** `.cursor/mcp.json`
+- **Global Configuration:** `~/.cursor/mcp.json` (or via GUI in *Settings > Features > MCP*).
+- **Content:**
   ```json
   {
     "mcpServers": {
@@ -115,14 +115,14 @@ Cursor soporta MCP a nivel global o por espacio de trabajo.
 
 ---
 
-#### 3. Claude Code (CLI & Extensión de IDE)
-Claude Code soporta registro de herramientas MCP tanto a nivel de usuario como de proyecto.
+#### 3. Claude Code (CLI & IDE Extension)
+Claude Code supports MCP registration at both user and project levels.
 
-- **Registro rápido por CLI (Nivel Usuario):**
+- **CLI One-Liner (User Level):**
   ```bash
   claude mcp add -s user qa-11x -- npx -y @sinfallas/mcp-qa-11x@latest
   ```
-- **Configuración de Proyecto (`.mcp.json` en raíz):**
+- **Project Configuration (`.mcp.json` at root):**
   ```json
   {
     "mcpServers": {
@@ -133,14 +133,14 @@ Claude Code soporta registro de herramientas MCP tanto a nivel de usuario como d
     }
   }
   ```
-- **Sincronización en `CLAUDE.md`:** Puedes referenciar las directivas añadiendo `@AGENTS.md` al archivo `CLAUDE.md` de tu proyecto.
+- **Rule Reference in `CLAUDE.md`:** You can reference governance directives by adding `@AGENTS.md` to your project's `CLAUDE.md`.
 
 ---
 
 #### 4. Google Antigravity (IDE & CLI) / Gemini CLI
-Google Antigravity y la CLI de Gemini detectan herramientas MCP y sincronizan directivas automáticamente.
+Google Antigravity and Gemini CLI detect MCP tools and sync directives automatically.
 
-- **Archivo de Configuración:** `~/.gemini/antigravity/mcp_config.json`
+- **Configuration File:** `~/.gemini/antigravity/mcp_config.json`
   ```json
   {
     "mcpServers": {
@@ -151,22 +151,22 @@ Google Antigravity y la CLI de Gemini detectan herramientas MCP y sincronizan di
     }
   }
   ```
-- **Registro vía Gemini CLI:**
+- **Registration via Gemini CLI:**
   ```bash
   gemini mcp add qa-11x npx -y @sinfallas/mcp-qa-11x@latest
   ```
-- **Sincronización Global de Directivas:** El comando `install-skill` inyecta automáticamente el conector optimizado en `~/.gemini/GEMINI.md`.
+- **Global Directive Synchronization:** The `install-skill` command automatically synchronizes the thin connector into `~/.gemini/GEMINI.md`.
 
 ---
 
 #### 5. OpenAI Codex CLI (`@openai/codex`)
-OpenAI Codex CLI utiliza el formato **TOML** para la configuración de extensiones MCP.
+OpenAI Codex CLI uses **TOML** for tool and extension configurations.
 
-- **Registro rápido por CLI:**
+- **CLI One-Liner:**
   ```bash
   codex mcp add qa-11x -- npx -y @sinfallas/mcp-qa-11x@latest
   ```
-- **Archivo de Configuración (`~/.codex/config.toml`):**
+- **Configuration File (`~/.codex/config.toml`):**
   ```toml
   [mcp_servers.qa-11x]
   command = "npx"
@@ -176,10 +176,10 @@ OpenAI Codex CLI utiliza el formato **TOML** para la configuración de extension
 ---
 
 #### 6. Windsurf (Codeium)
-Windsurf soporta MCP a nivel global en el directorio `.codeium`.
+Windsurf supports global MCP configurations in the `.codeium` directory.
 
-- **Archivo de Configuración:** `~/.codeium/windsurf/mcp_config.json`
-- **Contenido:**
+- **Configuration File:** `~/.codeium/windsurf/mcp_config.json`
+- **Content:**
   ```json
   {
     "mcpServers": {
@@ -194,10 +194,10 @@ Windsurf soporta MCP a nivel global en el directorio `.codeium`.
 ---
 
 #### 7. JetBrains IDEs (IntelliJ IDEA, PyCharm, WebStorm, PhpStorm)
-Los IDEs de JetBrains con soporte para AI Assistant o Junie permiten registrar servidores MCP desde la interfaz o por archivo de configuración.
+JetBrains IDEs with AI Assistant or Junie allow registering MCP servers via settings or JSON.
 
-- **Ruta en interfaz:** *Settings / Preferences > Tools > AI Assistant > Model Context Protocol (MCP)*.
-- **Configuración JSON:**
+- **GUI Path:** *Settings / Preferences > Tools > AI Assistant > Model Context Protocol (MCP)*.
+- **JSON Configuration:**
   ```json
   {
     "mcpServers": {
@@ -211,14 +211,14 @@ Los IDEs de JetBrains con soporte para AI Assistant o Junie permiten registrar s
 
 ---
 
-### Grupo B: Agentes Especializados y de Código Abierto
+### Group B: Specialized and Open-Source Agents
 
 #### 8. Cline / Roo Code (VS Code Extension)
-- **Archivo de Configuración:**
+- **Configuration File Path:**
   - macOS: `~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json`
   - Linux: `~/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json`
   - Windows: `%APPDATA%\Code\User\globalStorage\saoudrizwan.claude-dev\settings\cline_mcp_settings.json`
-- **Contenido:**
+- **Content:**
   ```json
   {
     "mcpServers": {
@@ -233,11 +233,11 @@ Los IDEs de JetBrains con soporte para AI Assistant o Junie permiten registrar s
 ---
 
 #### 9. Claude Desktop
-- **Rutas de Configuración (`claude_desktop_config.json`):**
+- **Configuration File Paths (`claude_desktop_config.json`):**
   - **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
   - **Linux:** `~/.config/Claude/claude_desktop_config.json`
   - **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
-- **Contenido:**
+- **Content:**
   ```json
   {
     "mcpServers": {
@@ -252,10 +252,10 @@ Los IDEs de JetBrains con soporte para AI Assistant o Junie permiten registrar s
 ---
 
 #### 10. Hermes Agent (Nous Research)
-Hermes Agent utiliza el formato **YAML** para su archivo maestro de configuración.
+Hermes Agent uses **YAML** for its primary configuration file.
 
-- **Archivo de Configuración:** `~/.hermes/config.yaml`
-- **Contenido:**
+- **Configuration File:** `~/.hermes/config.yaml`
+- **Content:**
   ```yaml
   mcp_servers:
     qa_11x:
@@ -298,19 +298,19 @@ Hermes Agent utiliza el formato **YAML** para su archivo maestro de configuraci�
 
 ---
 
-## 🔄 Paso 3: Auto-Sync, Notificación `update_available` y Actualización Limpia de Cachés
+## 🔄 Step 3: Auto-Sync, `update_available` Notice & Clean Cache Refresh
 
 > [!TIP]
-> Desde `v2.20.0`, en cada arranque `stdio` el servidor MCP sincroniza silenciosamente por `SHA-256` las skills globales ya instaladas en segundo plano, y expone el campo `update_available` en `inspect_project_config` y `certify_11x_gate` (leyendo `.qa-11x-version` y caché TTL de 24 h *fail-open*) para avisarte si los scripts locales del proyecto quedaron desfasados.
+> Starting in `v2.20.0`, on every `stdio` startup the MCP server silently auto-syncs pre-installed global skills via `SHA-256` verification in the background, exposes structured `update_available` metadata in `inspect_project_config` and `certify_11x_gate` (backed by `.qa-11x-version` stamps and a 24h fail-open TTL cache), and supports ephemeral mobile execution (`qa-mobile` / `sinfallas/base-mobile-appium:26`) plus bilingual resource delivery (`?lang=es|en`).
 
-Para forzar una actualización limpia descartando cachés locales de npm y blueprints antiguos:
+To force a clean update clearing cached npm binaries and stale blueprint templates:
 
 ```bash
-# Limpiar cachés y actualizar en todos los agentes globales:
+# Clean caches and install to all global agents:
 rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@latest install-skill --target all --init-agents --include-scripts --reconcile
 ```
 
-Para verificar que el servidor MCP responde correctamente en tu terminal:
+To verify that the MCP server responds correctly in your terminal:
 
 ```bash
 npx -y @sinfallas/mcp-qa-11x@latest --version

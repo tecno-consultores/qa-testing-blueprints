@@ -183,7 +183,7 @@ def scan_stack(repo_root: Path, stack_name: str, stack_dir: Path) -> List[Dict[s
     if not stack_dir.is_dir():
         return files
 
-    ignored_names = {"README.md", "changelog", ".DS_Store"}
+    ignored_names = {"README.md", "README.es.md", "changelog", ".DS_Store"}
     ignored_dirs = {".git", ".pytest_cache", "__pycache__", ".venv", "node_modules", "dist", "graphify-out"}
 
     for item in sorted(stack_dir.rglob("*")):
@@ -252,6 +252,14 @@ def scan_agent_governance_files(repo_root: Path) -> List[Dict[str, Any]]:
     ai_master_prompt = repo_root / "AI_MASTER_PROMPT.md"
     if ai_master_prompt.is_file():
         candidates.append(ai_master_prompt)
+
+    ai_master_prompt_es = repo_root / "AI_MASTER_PROMPT.es.md"
+    if ai_master_prompt_es.is_file():
+        candidates.append(ai_master_prompt_es)
+
+    security_es = repo_root / "SECURITY.es.md"
+    if security_es.is_file():
+        candidates.append(security_es)
 
     agents_readme = repo_root / ".agents" / "README.md"
     if agents_readme.is_file():
@@ -328,11 +336,21 @@ def build_manifest(repo_root: Path, generated_at_utc: Optional[str] = None) -> D
     for stack_name, meta in sorted(STACK_METADATA.items()):
         stack_dir = repo_root / stack_name
         files = scan_stack(repo_root, stack_name, stack_dir)
-        stacks_dict[stack_name] = {
+        readme = meta["readme"]
+        stack_entry: Dict[str, Any] = {
             "description": meta["description"],
-            "readme": meta["readme"],
-            "files": files,
+            "readme": readme,
         }
+        readme_path = repo_root / readme
+        if readme_path.is_file():
+            stack_entry["readme_sha256"] = compute_sha256(readme_path)
+        readme_es = f"{readme[:-3]}.es.md" if readme.endswith(".md") else f"{readme}.es.md"
+        readme_es_path = repo_root / readme_es
+        if readme_es_path.is_file():
+            stack_entry["readme_es"] = readme_es
+            stack_entry["readme_es_sha256"] = compute_sha256(readme_es_path)
+        stack_entry["files"] = files
+        stacks_dict[stack_name] = stack_entry
 
     common_files = scan_common_files(repo_root)
     governance_files = scan_agent_governance_files(repo_root)

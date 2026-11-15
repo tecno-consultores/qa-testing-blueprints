@@ -671,13 +671,17 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert mcpReadmeEs.contains('Idioma / Language')
     * assert mcpReadmeEs.contains('docs/agent-setup.md')
 
-    * def agentSetupEs = karate.readAsString(repoRoot + '/docs/agent-setup.md')
-    * assert agentSetupEs.contains('Guía Maestra de Configuración del Servidor MCP y Skills QA 11X por Agente de IA')
-    * assert agentSetupEs.contains('agent-setup.en.md')
+    * def agentSetupEn = karate.readAsString(repoRoot + '/docs/agent-setup.md')
+    * assert agentSetupEn.contains('Agent Setup & Integration Guide — QA 11X MCP Server & Skills')
+    * assert agentSetupEn.contains('agent-setup.es.md')
 
-    * def agentSetupEn = karate.readAsString(repoRoot + '/docs/agent-setup.en.md')
-    * assert agentSetupEn.contains('Master Setup Guide for QA 11X MCP Server & Skills across AI Coding Agents')
-    * assert agentSetupEn.contains('agent-setup.md')
+    * def agentSetupEs = karate.readAsString(repoRoot + '/docs/agent-setup.es.md')
+    * assert agentSetupEs.contains('Guía de Configuración e Integración de Agentes — Servidor MCP y Skills QA 11X')
+    * assert agentSetupEs.contains('agent-setup.md')
+
+    * def agentSetupRedirect = karate.readAsString(repoRoot + '/docs/agent-setup.en.md')
+    * assert agentSetupRedirect.contains('Redirect: Agent Setup & Integration Guide')
+    * assert agentSetupRedirect.contains('agent-setup.md')
 
     * def archSkill = karate.readAsString(repoRoot + '/.agents/skills/qa-11x-architect/SKILL.md')
     * assert archSkill.contains('OUTPUT LANGUAGE & DYNAMIC MIRRORING')
@@ -710,13 +714,17 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert docsValidator.contains('_check_auditor_rules_in_human_docs')
 
     * def humanPractices = karate.readAsString(repoRoot + '/docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md')
-    * assert humanPractices.contains('11 reglas obligatorias de diseño de pruebas')
+    * assert humanPractices.contains('11 mandatory test design rules')
     * assert humanPractices.contains('QA-HEALTH-01')
     * assert humanPractices.contains('OPTIONAL_WORKERS')
+    * def humanPracticesEs = karate.readAsString(repoRoot + '/docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.es.md')
+    * assert humanPracticesEs.contains('11 reglas obligatorias de diseño de pruebas')
 
     * def humanSecurity = karate.readAsString(repoRoot + '/docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md')
-    * assert humanSecurity.contains('Mapa de Trazabilidad con el Auditor Estático')
+    * assert humanSecurity.contains('Traceability Map with the Static Auditor')
     * assert humanSecurity.contains('SEC-16')
+    * def humanSecurityEs = karate.readAsString(repoRoot + '/docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md')
+    * assert humanSecurityEs.contains('Mapa de Trazabilidad con el Auditor Estático')
 
     * def rootSecurity = karate.readAsString(repoRoot + '/SECURITY.md')
     * assert rootSecurity.contains('### 4.22.')
@@ -760,9 +768,11 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert mcpCompose.contains('user: "${QA_UID:-1000}:${QA_GID:-1000}"')
 
     * def govDoc = karate.readAsString(repoRoot + '/docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md')
-    * assert govDoc.contains('12 Recursos Dinámicos')
+    * assert govDoc.contains('12 Dynamic Resources')
     * assert govDoc.contains('blueprint://database/postgres-rls-worm')
     * assert govDoc.contains('update_available')
+    * def govDocEs = karate.readAsString(repoRoot + '/docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md')
+    * assert govDocEs.contains('12 Recursos Dinámicos')
 
     * def agentsReadme = karate.readAsString(repoRoot + '/.agents/README.md')
     * assert agentsReadme.contains('11 reglas UAT Anti-Blindness')
@@ -1137,11 +1147,11 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert rootMakefile37.contains('version-check:')
 
     * def spec19 = karate.readAsString(repoRoot + '/docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md')
-    * assert spec19.contains('NO EJECUTADO')
+    * assert spec19.contains('IMPLEMENTADO Y CERTIFICADO EN QA-11X v3.0')
 
     * def spec20 = karate.readAsString(repoRoot + '/docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md')
     * assert spec20.contains('base-mobile-appium')
-    * assert spec20.contains('NO EJECUTADO')
+    * assert spec20.contains('IMPLEMENTADO Y CERTIFICADO EN QA-11X v3.0')
 
     * def liveTest = karate.readAsString(mcpRoot + '/tests/live-mcp-protocol.test.ts')
     * assert liveTest.contains('StdioClientTransport')
@@ -1151,6 +1161,33 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * string qaskillsRaw37 = karate.readAsString(repoRoot + '/catalogs/qaskills-pack.json')
     * json qaskills37 = qaskillsRaw37
     * match qaskills37.standard_edition == 'QA-11X v3.0'
+
+  Scenario: 38. Hito 25 — Matriz 15x12, base-mobile-appium:26 (Spec 20) y Arquitectura Bilingüe EN+ES con ?lang=es|en (Spec 19)
+    * def rootReadmeEn38 = karate.readAsString(repoRoot + '/README.md')
+    * assert rootReadmeEn38.contains('Testing Tools Matrix')
+    * assert rootReadmeEn38.contains('sinfallas/base-mobile-appium')
+    * def rootReadmeEs38 = karate.readAsString(repoRoot + '/README.es.md')
+    * assert rootReadmeEs38.contains('Matriz de Herramientas de Pruebas')
+    * assert rootReadmeEs38.contains('sinfallas/base-mobile-appium')
+
+    * def mobileCompose38 = karate.readAsString(repoRoot + '/mobile-appium/docker-compose.qa.yml.example')
+    * assert mobileCompose38.contains('sinfallas/base-mobile-appium:26')
+    * def auditBaseWf38 = karate.readAsString(repoRoot + '/.github/workflows/audit-base-images.yml')
+    * assert auditBaseWf38.contains('sinfallas/base-mobile-appium:26')
+
+    * match manifest.stacks.fastapi.readme == 'fastapi/README.md'
+    * match manifest.stacks.fastapi.readme_es == 'fastapi/README.es.md'
+    * match manifest.stacks.fastapi.readme_sha256 == '#regex ^[0-9a-f]{64}$'
+    * match manifest.stacks.fastapi.readme_es_sha256 == '#regex ^[0-9a-f]{64}$'
+    * def govPaths38 = karate.map(manifest.agent_governance_files, function(x){ return x.path })
+    * match govPaths38 contains 'AI_MASTER_PROMPT.es.md'
+    * match govPaths38 contains 'SECURITY.es.md'
+
+    * def resourceLangTs = karate.readAsString(mcpRoot + '/src/resources/resourceLang.ts')
+    * assert resourceLangTs.contains('parseResourceUriAndLang')
+    * assert resourceLangTs.contains('runWithResourceLang')
+    * def indexTs38 = karate.readAsString(mcpRoot + '/src/index.ts')
+    * assert indexTs38.contains('wrapReadResourceHandler')
 
 
 

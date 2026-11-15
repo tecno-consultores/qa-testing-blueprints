@@ -1,11 +1,15 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores) -->
+> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (CHANGELOG.es.md)](CHANGELOG.es.md)
 
 # Changelog — `@sinfallas/mcp-qa-11x`
 
 All notable changes to the `@sinfallas/mcp-qa-11x` npm package and MCP server are documented in this file.
 
 ## [Unreleased]
+
+### Added & Changed
+- **Dedicated Mobile Stack Execution (`qa-mobile` / `sinfallas/base-mobile-appium:26`) & Bilingual Resource Negotiation (`?lang=es|en`):** Added `qa-mobile` / `mobile-appium` container wiring in `src/tools/ephemeral-runner.ts` and `sinfallas/base-mobile-appium:26` blueprint references in `src/resources/stackBlueprints.ts`, plus `?lang=es|en` bilingual routing across `blueprint://*` resources per Spec 19.
 
 ## [3.0.0] - 2026-11-14
 

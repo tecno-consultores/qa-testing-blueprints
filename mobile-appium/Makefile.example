@@ -1,0 +1,44 @@
+.PHONY: qa-lint qa-unit qa-e2e qa-bridge qa-drivers qa-all clean-cache clean qa-clean
+
+# ==============================================================================
+# MAKEFILE QA MOBILE / APPIUM 11X (sinfallas/base-mobile-appium:26)
+# ==============================================================================
+
+COMPOSE_FILE ?= docker-compose.qa.yml
+SERVICE_NAME ?= qa-mobile
+BRIDGE_SERVICE ?= appium-bridge
+PROJECT_DIR ?= $(CURDIR)
+export QA_UID := $(shell id -u)
+export QA_GID := $(shell id -g)
+
+qa-lint:
+	@echo "🔍 [11X] Verificando TypeScript estricto y dependencias Mobile/Appium..."
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "npm_config_yes=true node --version >/dev/null && tsc --strict --noImplicitAny --noUnusedLocals --noUnusedParameters --noImplicitReturns --erasableSyntaxOnly --allowImportingTsExtensions --target ES2023 --module NodeNext --moduleResolution NodeNext --noEmit wdio.conf.ts tests/screenplay/MobileActor.ts tests/mobile_screenplay.spec.ts"
+
+qa-unit:
+	@echo "🧪 [11X] Ejecutando contrato Screenplay Mobile + Stub W3C WebDriver..."
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "node --test tests/mobile_screenplay.spec.ts"
+
+qa-drivers:
+	@echo "📱 [11X] Auditando OpenJDK 21, Android ADB y drivers Appium 3 instalados..."
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "java -version && adb version && appium --version && appium driver list --installed"
+
+qa-bridge:
+	@echo "🔌 [11X] Levantando Appium Driver Bridge W3C en puerto 4723..."
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile appium-live up -d $(BRIDGE_SERVICE)
+
+qa-e2e: qa-bridge
+	@echo "📲 [11X] Ejecutando suite WebdriverIO v9 contra Appium Driver Bridge..."
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" -e APPIUM_HOST=$(BRIDGE_SERVICE) $(SERVICE_NAME) bash -c "wdio run wdio.conf.ts"
+
+qa-all: qa-lint qa-drivers qa-unit
+	@echo "✅ [11X] Pipeline QA Mobile Appium completado en contenedor efímero."
+
+clean-cache:
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" down -v >/dev/null 2>&1 || true
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile appium-live down -v >/dev/null 2>&1 || true
+
+clean:
+	@if [ -x ./limpieza.sh ]; then ./limpieza.sh; else rm -rf /tmp/qa-11x-mobile-artifacts*; fi
+
+qa-clean: clean

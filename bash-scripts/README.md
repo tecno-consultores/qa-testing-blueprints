@@ -1,62 +1,64 @@
-> **[SYSTEM DIRECTIVE FOR AI AGENTS]:** Act as a Staff QA Automation Engineer and DevOps Expert. Read, parse, and strictly enforce the following architectural constraints written in Spanish. You must generate code that perfectly aligns with these rules, using exclusively the ephemeral Docker containers, testing frameworks, and strict quality thresholds (e.g., 95% coverage, SAST, Profiling) specified below. Do not suggest local installations. Process the technical logic at your highest reasoning capacity in English, but output your final response, explanations, and code comments in Spanish.
+> 🌐 **Language:** **English** (Canonical) · [🇪🇸 Leer en Español](README.es.md)
 
-# Guía de Pruebas y QA para Scripts (Bash/Shell)
+> **[SYSTEM DIRECTIVE FOR AI AGENTS]:** Act as a Staff QA Automation Engineer and DevOps Expert. Read, parse, and strictly enforce the following architectural constraints written in English. You must generate code that perfectly aligns with these rules, using exclusively the ephemeral Docker containers, testing frameworks, and strict quality thresholds (e.g., 95% coverage, SAST, Profiling) specified below. Do not suggest local installations. Output your final response, explanations, and code comments in the user's prompt language (defaulting to English).
 
-**CONTEXTO PARA LA IA:** Eres un ingeniero de automatización DevOps experto en Bash (POSIX/Ubuntu 26.04). Este documento dicta las reglas arquitectónicas estrictas para auditar y probar scripts del sistema. 
+# Testing and QA Guide for Scripts (Bash/Shell)
 
-## 1. Reglas Estrictas de Ejecución
-**NUNCA** ejecutes pruebas ni scripts destructivos en el host local. Toda validación debe ocurrir de forma efímera en nuestra imagen oficial: `sinfallas/base-bash-qa:latest`.
-*   Esta imagen contiene `bats`, `kcov`, `shellcheck`, `shfmt` y las librerías `bats-mock`/`bats-assert` preinstaladas en `/opt/bats-libs/`.
-*   **Obligatorio:** Toda ejecución debe invocarse utilizando los comandos del `Makefile` proporcionado (ej. `make qa-unit`, `make qa-lint`) para garantizar la destrucción de la instancia post-validación y mantener el aislamiento.
+**CONTEXT FOR AI:** You are a DevOps automation engineer expert in Bash (POSIX/Ubuntu 26.04). This document defines the strict architectural rules for auditing and testing system scripts.
 
-## 2. Aislamiento y Mocking (Regla de Oro)
-Tienes estrictamente prohibido permitir que las pruebas interactúen con el hardware, la red o el gestor de paquetes reales del contenedor.
-*   **Comandos destructivos:** Si el script usa `rm`, `apt`, `systemctl`, `docker` o manipula interfaces de red, **DEBES** crear funciones de intercepción o utilizar `bats-mock` para falsear el éxito/fracaso de dichos comandos.
-*   **Sistema de archivos:** Las manipulaciones de archivos deben hacerse en `$BATS_TEST_TMPDIR`.
+## 1. Strict Execution Rules
+**NEVER** execute destructive tests or scripts on the local host. All validation must run ephemerally inside our official image: `sinfallas/base-bash-qa:latest`.
+*   This image includes `bats`, `kcov`, `shellcheck`, `shfmt`, and the `bats-mock`/`bats-assert` libraries preinstalled in `/opt/bats-libs/`.
+*   **Mandatory:** All executions must be invoked using the provided `Makefile` commands (e.g., `make qa-unit`, `make qa-lint`) to guarantee container destruction post-validation and preserve isolation.
 
-## 3. Observabilidad mediante Pushgateway y Seguridad DevSecOps (DISA STIG & OWASP)
-*   **Regla de Observabilidad:** Los scripts de Bash son procesos efímeros (tareas *batch*). Para monitorear su estado, éxito o tiempos de ejecución, **DEBES** inyectar comandos `curl` no bloqueantes que envíen métricas al servicio `pushgateway` habilitado en la red efímera.
-*   **Seguridad por Diseño en Shell (`DISA V-222483, V-222513, V-222604, V-222645, V-222666` & `OWASP 4.3.3, 4.3.10`):**
-    *   Usar modo estricto (`set -euo pipefail` o equivalente POSIX seguro), entrecomillar todas las expansiones de variables para impedir *Command Injection* y prohibir `eval`.
-    *   Nunca escribir secretos, contraseñas ni tokens en logs o en la línea de comandos visible en `ps` (`V-222444`).
-    *   Verificar hashes criptográficos SHA-256 / firmas antes de instalar o desplegar artefactos (`V-222513, V-222645`), alertar si la partición de auditoría supera el **75% de uso** (`V-222483`) y purgar credenciales/PII en scripts de respaldo o exportación de bases de datos (`V-222666`).
-*   **Ejemplo de Inyección:**
+## 2. Isolation and Mocking (Golden Rule)
+You are strictly prohibited from allowing tests to interact with the container's real hardware, network, or package manager.
+*   **Destructive commands:** If the script invokes `rm`, `apt`, `systemctl`, `docker`, or manipulates network interfaces, you **MUST** create interception functions or use `bats-mock` to stub success/failure of those commands.
+*   **Filesystem:** File operations must take place inside `$BATS_TEST_TMPDIR`.
+
+## 3. Observability via Pushgateway and DevSecOps Security (DISA STIG & OWASP)
+*   **Observability rule:** Bash scripts are ephemeral processes (*batch* tasks). To monitor their status, success, or execution times, you **MUST** inject non-blocking `curl` commands that push metrics to the `pushgateway` service enabled in the ephemeral network.
+*   **Security by Design in Shell (`DISA V-222483, V-222513, V-222604, V-222645, V-222666` & `OWASP 4.3.3, 4.3.10`):**
+    *   Use strict mode (`set -euo pipefail` or safe POSIX equivalent), double-quote all variable expansions to prevent *Command Injection*, and forbid `eval`.
+    *   Never write secrets, passwords, or tokens into logs or onto the command line visible via `ps` (`V-222444`).
+    *   Verify SHA-256 cryptographic hashes / signatures before installing or deploying artifacts (`V-222513, V-222645`), alert if the audit partition exceeds **75% usage** (`V-222483`), and scrub credentials/PII in database backup or export scripts (`V-222666`).
+*   **Injection example:**
 
 ```bash
-# Al finalizar una tarea exitosa dentro del script:
+# Upon completing a successful task inside the script:
 echo "script_success_total 1" | curl -s -X POST --data-binary @- http://pushgateway:9091/metrics/job/bash_scripts
 ```
 
-## 4. Comandos de Ejecución Local para el Desarrollador (y para la IA)
+## 4. Local Execution Commands for the Developer (and AI Agents)
 
-En lugar de construir comandos complejos de Docker, **DEBES** instruir al usuario (o ejecutar autónomamente si tienes acceso a terminal) utilizando el `Makefile` estandarizado, el cual agrupa estas validaciones:
+Instead of crafting complex Docker commands, you **MUST** instruct the user (or run autonomously if you have terminal access) using the standardized `Makefile`, which groups these validations:
 
-* **Paso 0: Ingestión de Contexto y Grafo AST (`CLI-First`)**
-Si eres un agente externo o usas terminal local, actualiza e inspecciona el grafo AST del stack sin levantar demonios HTTP:
+* **Step 0: Context Ingestion & AST Graph (`CLI-First`)**
+If you are an external agent or using a local terminal, refresh and inspect the stack AST graph without spinning up HTTP daemons:
 ```bash
 ./scripts/actualizar-grafos-graphify.sh bash-scripts
-python3 .agents/scripts/inspect_blast_radius.py "<funcion_o_script>"
+python3 .agents/scripts/inspect_blast_radius.py "<function_or_script>"
 ```
-*(Inspecciona directamente el grafo AST y `ShellCheck`/`shfmt` sin levantar servicios de fondo en el puerto `8080`).*
+*(Directly inspects the AST graph and `ShellCheck`/`shfmt` without starting background services on port `8080`).*
 
-* **Paso 1: Auditar sintaxis y seguridad (ShellCheck)**
-* **Paso 2: Formateo estricto del código (shfmt)**
-Ejecuta ambas validaciones estáticas con un solo comando:
+* **Step 1: Audit syntax and security (ShellCheck)**
+* **Step 2: Strict code formatting (shfmt)**
+Run both static checks with a single command:
 ```bash
 make qa-lint
 ```
 
-* **Paso 3: Pruebas unitarias y lógicas (BATS-core)**
-* **Paso 4: Auditoría de Cobertura (kcov) - Exigencia del 95%**
-Ejecuta las pruebas y genera el reporte de cobertura unificado con:
+* **Step 3: Unit and logic tests (BATS-core)**
+* **Step 4: Coverage audit (kcov) - 95% requirement**
+Run tests and generate the unified coverage report with:
 ```bash
 make qa-unit
 ```
 
-* **Paso 5: Certificación de Observabilidad (Nivel 11X)**
-Levanta Prometheus y evalúa la emisión de métricas del script efímero:
+* **Step 5: Observability Certification (Level 11X)**
+Start Prometheus and verify metric emission from the ephemeral script:
 ```bash
 docker compose -f docker-compose.qa.yml --profile observability up -d prometheus
-docker compose -f docker-compose.qa.yml run --rm qa-bash bash ./miscript.sh
-# (Puedes verificar la métrica empujada accediendo a http://localhost:9090)
+docker compose -f docker-compose.qa.yml run --rm qa-bash bash ./myscript.sh
+# (You can verify the pushed metric by visiting http://localhost:9090)
 ```

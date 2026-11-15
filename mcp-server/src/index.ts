@@ -16,6 +16,8 @@ import {
   type Tool,
 } from '@modelcontextprotocol/sdk/types.js';
 import { createMcpServer } from './server.js';
+import type { ResourceLanguage } from './types.js';
+import { parseResourceUriAndLang, runWithResourceLang } from './resources/resourceLang.js';
 import { guardToolCallInput, type PromptGuardOptions } from './security/promptGuard.js';
 import { runCli } from './cli.js';
 import { runInstallSkillCli } from './cli/install-skill.js';
@@ -290,16 +292,24 @@ const EXTRA_LISTED_RESOURCES: readonly Resource[] = [
   ...V2_RESOURCE_DEFINITIONS,
 ];
 
-function toReadResourceResult(res: ResourceSnapshotResult): ReadResourceResult {
+function toReadResourceResult(
+  res: ResourceSnapshotResult,
+  requestedUri: string
+): ReadResourceResult {
   return {
-    contents: [{ uri: res.uri, mimeType: res.mimeType, text: res.text }],
+    contents: [{ uri: requestedUri, mimeType: res.mimeType, text: res.text }],
   };
 }
 
-const V2_RESOURCE_READERS: Readonly<Record<string, () => ReadResourceResult>> = {
-  [AI_EVALS_REDTEAM_RESOURCE.uri]: () => toReadResourceResult(readAiEvalsBlueprint()),
-  [MOBILE_APPIUM_RESOURCE.uri]: () => toReadResourceResult(readMobileAppiumBlueprint()),
-  [VIBE_RESCUE_RESOURCE.uri]: () => toReadResourceResult(readVibeRescueBlueprint()),
+const V2_RESOURCE_READERS: Readonly<
+  Record<string, (lang: ResourceLanguage, requestedUri: string) => ReadResourceResult>
+> = {
+  [AI_EVALS_REDTEAM_RESOURCE.uri]: (lang, requestedUri) =>
+    toReadResourceResult(readAiEvalsBlueprint(undefined, lang), requestedUri),
+  [MOBILE_APPIUM_RESOURCE.uri]: (lang, requestedUri) =>
+    toReadResourceResult(readMobileAppiumBlueprint(undefined, lang), requestedUri),
+  [VIBE_RESCUE_RESOURCE.uri]: (lang, requestedUri) =>
+    toReadResourceResult(readVibeRescueBlueprint(undefined, lang), requestedUri),
 };
 
 function getRequestHandlersMap(mcpServer: McpServer): Map<string, RawGenericHandler> {
@@ -381,11 +391,25 @@ function wrapReadResourceHandler(
   }
 
   mcpServer.server.setRequestHandler(ReadResourceRequestSchema, async (request, extra) => {
-    const uri = request.params.uri;
-    if (Object.hasOwn(V2_RESOURCE_READERS, uri)) {
-      return V2_RESOURCE_READERS[uri]();
+    const requestedUri = request.params.uri;
+    const { baseUri, lang } = parseResourceUriAndLang(requestedUri);
+    if (Object.hasOwn(V2_RESOURCE_READERS, baseUri)) {
+      return V2_RESOURCE_READERS[baseUri](lang, requestedUri);
     }
-    return (await existing(request, extra)) as ReadResourceResult;
+    const rewrittenRequest =
+      baseUri === requestedUri
+        ? request
+        : { ...request, params: { ...request.params, uri: baseUri } };
+    const result = (await runWithResourceLang(lang, () =>
+      existing(rewrittenRequest, extra)
+    )) as ReadResourceResult;
+    if (baseUri !== requestedUri && Array.isArray(result.contents)) {
+      return {
+        ...result,
+        contents: result.contents.map((item) => ({ ...item, uri: requestedUri })),
+      };
+    }
+    return result;
   });
 }
 

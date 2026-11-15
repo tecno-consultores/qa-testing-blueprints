@@ -1,41 +1,43 @@
-# 🛡️ Blueprint Vibe-to-Enterprise — Rescate y Endurecimiento QA-11X (`vibe-rescue/`)
+> 🌐 **Language:** **English** (Canonical) · [🇪🇸 Leer en Español](README.es.md)
 
-Protocolo determinista de **5 etapas** diseñado para convertir prototipos *vibe-coded* generados con **Bolt.new, Lovable, v0 o Replit Agent** en sistemas corporativos alineados con **QA-11X, DISA ASD STIG V6R5 y OWASP v4.2**, **sin destruir la experiencia visual (UX) validada**.
+# 🛡️ Vibe-to-Enterprise Blueprint — QA-11X Rescue & Hardening (`vibe-rescue/`)
 
----
-
-## 1. Filosofía: *Preserve UX, Eradicate Structural Debt*
-
-Los prototipos generados por IA entregan interfaces funcionales en minutos, pero suelen introducir cinco familias de deuda crítica: secretos de servicio expuestos en el bundle cliente, políticas SQL abiertas (`USING (true)`), escape de tipos (`: any`, `@ts-ignore`), componentes monolíticos (`> 500` líneas) y ausencia total de red de pruebas en contenedores no-root (`Rule Zero`).
+Deterministic **5-stage** protocol designed to transform *vibe-coded* prototypes generated with **Bolt.new, Lovable, v0, or Replit Agent** into corporate systems aligned with **QA-11X, DISA ASD STIG V6R5, and OWASP v4.2**, **without destroying the validated visual UX**.
 
 ---
 
-## 2. Protocolo de 5 Etapas y Matriz de Reglas (`VIBE-SEC-001` .. `VIBE-QA-005`)
+## 1. Philosophy: *Preserve UX, Eradicate Structural Debt*
 
-| Regla | Etapa | Severidad | Vector Detectado en Prototipos Vibe | Remediación Estándar 11X |
+AI-generated prototypes deliver functional interfaces in minutes, yet routinely introduce five families of critical debt: service secrets exposed in the client bundle, open SQL policies (`USING (true)`), type escapes (`: any`, `@ts-ignore`), monolithic components (`> 500` lines), and zero test coverage inside non-root containers (`Rule Zero`).
+
+---
+
+## 2. 5-Stage Protocol & Rule Matrix (`VIBE-SEC-001` .. `VIBE-QA-005`)
+
+| Rule | Stage | Severity | Vector Detected in Vibe Prototypes | Standard 11X Remediation |
 | :--- | :--- | :--- | :--- | :--- |
-| `VIBE-SEC-001` | **Etapa 1: Triaje Forense y Cuarentena de Secretos** | `CRITICAL` | Variables cliente (`VITE_*`, `NEXT_PUBLIC_*`, `EXPO_PUBLIC_*`, `REACT_APP_*`) con `SERVICE_ROLE`, `SECRET`, `PRIVATE`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `DATABASE_URL`; literales de API keys; o `.env` sin exclusión en `.gitignore`. | Mover llaves a BFF/API en servidor con Vault AES-256-GCM, rotar credenciales filtradas (`<EXAMPLE_REDACTED>`) y sanear `.env.example`. |
-| `VIBE-RLS-002` | **Etapa 2: PostgreSQL 15–17+ RLS y RBAC de Servicio** | `CRITICAL` | Políticas SQL `USING (true)` / `WITH CHECK (true)`, tablas `CREATE TABLE` multi-tenant sin `ENABLE` + `FORCE ROW LEVEL SECURITY`, `BYPASSRLS`, o uso de `service_role` / `supabaseAdmin` en cliente. | Aplicar `vibe-rescue/templates/rls_hardening.sql` (rol `NOBYPASSRLS`, `FORCE ROW LEVEL SECURITY`, función `SECURITY DEFINER` y cadena WORM `seq_num`). |
-| `VIBE-TYPE-003` | **Etapa 3: Tipado Estricto y Fronteras Validadas** | `HIGH` | Abuso de `: any` / `as any`, `@ts-ignore`, `@ts-nocheck`, `# type: ignore`, `"strict": false` en `tsconfig.json` o rutas mutadoras (`POST`/`PUT`/`PATCH`/`DELETE`) sin `Idempotency-Key`. | Activar `strict: true`, validar payloads con Zod `.strict()` / Pydantic `extra="forbid"`, normalización `NFKC` e `Idempotency-Key`. |
-| `VIBE-ARCH-004` | **Etapa 3: Descomposición Modular (`CC <= 5`)** | `MEDIUM` | Componentes, páginas o controladores monolíticos que superan el umbral configurable (`> 500` líneas). | Extraer hooks/stores de dominio y widgets presentacionales (`CC <= 5`) conservando layout in-flow y tokens visuales (`refactoring-ui`). |
-| `VIBE-QA-005` | **Etapa 4: Regla Cero y Red de Pruebas (`>= 95%`)** | `HIGH` | Ausencia total de archivos de prueba (`tests/`, `*.test.*`, `*.spec.*`), esperas fijas (`waitForTimeout`, `time.sleep`) o `Dockerfile` con `USER root` / etiqueta `:latest` sin digest. | Encapsular en `sinfallas/base-python-uv:3.15` o `sinfallas/base-node-ionic:26` no-root, eliminar sleeps fijos y exigir cobertura `>= 95%`. |
-| *(Cierre)* | **Etapa 5: Sellado de Gobernanza (`QA-GIT-GATE-01`)** | `INFO` | Repositorio rescatado sin conector *Thin-Repo* ni cierre certificado. | Ejecutar `make sync-governance`, `./.agents/scripts/certify_task_completion.sh` (`10/10`) y commit local (sin `git push` automático). |
+| `VIBE-SEC-001` | **Stage 1: Forensic Triage & Secret Quarantine** | `CRITICAL` | Client variables (`VITE_*`, `NEXT_PUBLIC_*`, `EXPO_PUBLIC_*`, `REACT_APP_*`) containing `SERVICE_ROLE`, `SECRET`, `PRIVATE`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `DATABASE_URL`; literal API keys; or `.env` excluded from `.gitignore`. | Move keys to server-side BFF/API with AES-256-GCM Vault, rotate leaked credentials (`<EXAMPLE_REDACTED>`), and sanitize `.env.example`. |
+| `VIBE-RLS-002` | **Stage 2: PostgreSQL 15–17+ RLS & Service RBAC** | `CRITICAL` | SQL policies with `USING (true)` / `WITH CHECK (true)`, multi-tenant `CREATE TABLE` schemas lacking `ENABLE` + `FORCE ROW LEVEL SECURITY`, `BYPASSRLS`, or client-side `service_role` / `supabaseAdmin` usage. | Apply `vibe-rescue/templates/rls_hardening.sql` (`NOBYPASSRLS` role, `FORCE ROW LEVEL SECURITY`, `SECURITY DEFINER` function, and `seq_num` WORM chain). |
+| `VIBE-TYPE-003` | **Stage 3: Strict Typing & Validated Boundaries** | `HIGH` | Abuse of `: any` / `as any`, `@ts-ignore`, `@ts-nocheck`, `# type: ignore`, `"strict": false` in `tsconfig.json`, or mutating routes (`POST`/`PUT`/`PATCH`/`DELETE`) missing `Idempotency-Key`. | Enable `strict: true`, validate payloads with Zod `.strict()` / Pydantic `extra="forbid"`, `NFKC` normalization, and `Idempotency-Key`. |
+| `VIBE-ARCH-004` | **Stage 3: Modular Decomposition (`CC <= 5`)** | `MEDIUM` | Monolithic components, pages, or controllers exceeding the configurable threshold (`> 500` lines). | Extract domain hooks/stores and presentational widgets (`CC <= 5`) while preserving in-flow layout and visual tokens (`refactoring-ui`). |
+| `VIBE-QA-005` | **Stage 4: Rule Zero & Test Safety Net (`>= 95%`)** | `HIGH` | Complete absence of test files (`tests/`, `*.test.*`, `*.spec.*`), fixed sleeps (`waitForTimeout`, `time.sleep`), or `Dockerfile` with `USER root` / unpinned `:latest` tag. | Containerize under non-root `sinfallas/base-python-uv:3.15` or `sinfallas/base-node-ionic:26`, remove fixed sleeps, and enforce `>= 95%` coverage. |
+| *(Closure)* | **Stage 5: Governance Sealing (`QA-GIT-GATE-01`)** | `INFO` | Rescued repository missing *Thin-Repo* connector or certified closure. | Run `make sync-governance`, `./.agents/scripts/certify_task_completion.sh` (`10/10`), and local commit (no automated `git push`). |
 
 ---
 
-## 3. Ejecución Bajo Regla Cero (`vibe-rescue/audit_vibe_prototype.py`)
+## 3. Execution Under Rule Zero (`vibe-rescue/audit_vibe_prototype.py`)
 
-El auditor CLI está implementado en **Python 3 stdlib puro** (`CC <= 5`, `mypy --strict`, modo `--dry-run` seguro por defecto y redacción automática como `[REDACTED_SECRET]`). Ejecútalo siempre dentro de `sinfallas/base-python-uv:3.15` como usuario no-root:
+The CLI auditor is implemented in **pure Python 3 stdlib** (`CC <= 5`, `mypy --strict`, safe default `--dry-run` mode, and automatic redaction as `[REDACTED_SECRET]`). Always run it inside `sinfallas/base-python-uv:3.15` as a non-root user:
 
 ```bash
-# Auditoría en modo dry-run (Pass-Quiet si está limpio; Fail-Verbose si requiere rescate)
+# Audit in dry-run mode (Pass-Quiet when clean; Fail-Verbose when rescue is required)
 docker run --rm -u "$(id -u):$(id -g)" \
   -e HOME=/tmp -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache \
   -v "$(pwd):/app:ro" -w /app \
   sinfallas/base-python-uv:3.15 \
   python3 vibe-rescue/audit_vibe_prototype.py --target /app --json
 
-# Generar bundle de remediación en un subdirectorio sin sobrescribir código existente
+# Generate remediation bundle in a subdirectory without overwriting existing code
 docker run --rm -u "$(id -u):$(id -g)" \
   -e HOME=/tmp -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache \
   -v "$(pwd):/app" -w /app \
@@ -44,9 +46,9 @@ docker run --rm -u "$(id -u):$(id -g)" \
     --target /app --no-dry-run --emit-remediation qa11x-rescue --enforce
 ```
 
-### Marcadores Seguros de Configuración
+### Safe Configuration Placeholders
 
-Nunca incluyas secretos reales en documentación ni plantillas; utiliza marcadores explícitos:
+Never include real secrets in documentation or templates; use explicit placeholders:
 
 ```env
 OPENAI_API_KEY=<EXAMPLE_REDACTED>
@@ -55,19 +57,19 @@ SUPABASE_SERVICE_ROLE_KEY=<EXAMPLE_REDACTED>
 
 ---
 
-## 4. Plantilla SQL `vibe-rescue/templates/rls_hardening.sql`
+## 4. SQL Template `vibe-rescue/templates/rls_hardening.sql`
 
-`vibe-rescue/templates/rls_hardening.sql` provee DDL idempotente para PostgreSQL 15–17+:
+`vibe-rescue/templates/rls_hardening.sql` provides idempotent DDL for PostgreSQL 15–17+:
 
-1. **Rol `app_runtime_user`** con `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`.
-2. **Revocación de `PUBLIC`/`anon`/`authenticated`** y eliminación (`DROP POLICY IF EXISTS`) de políticas abiertas heredadas de scaffolds Supabase.
-3. **`ENABLE ROW LEVEL SECURITY` + `FORCE ROW LEVEL SECURITY`** y política `tenant_isolation_policy` vinculada a `NULLIF(current_setting('app.current_tenant_id', true), '')::uuid`.
-4. **Función pre-auth `resolve_tenant_by_slug`** (`SECURITY DEFINER`, `SET search_path = public`) y tabla inmutable **`audit_log_worm`** (`seq_num BIGINT` monotónico, trigger anti-`UPDATE`/`DELETE` y serialización por inquilino con `pg_advisory_xact_lock`).
+1. **`app_runtime_user` role** with `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`.
+2. **Revocation of `PUBLIC`/`anon`/`authenticated`** and removal (`DROP POLICY IF EXISTS`) of permissive policies inherited from Supabase scaffolds.
+3. **`ENABLE ROW LEVEL SECURITY` + `FORCE ROW LEVEL SECURITY`** and `tenant_isolation_policy` bound to `NULLIF(current_setting('app.current_tenant_id', true), '')::uuid`.
+4. **Pre-auth function `resolve_tenant_by_slug`** (`SECURITY DEFINER`, `SET search_path = public`) and immutable **`audit_log_worm`** table (monotonic `seq_num BIGINT`, anti-`UPDATE`/`DELETE` trigger, and per-tenant serialization via `pg_advisory_xact_lock`).
 
 ---
 
-## 5. Consumo Programático vía Servidor MCP
+## 5. Programmatic Consumption via MCP Server
 
-- **Tool MCP:** `audit_vibe_prototype` (`mcp-server/src/tools/auditVibePrototype.ts`) — ejecuta la inspección de las 5 reglas desde el agente con contención estricta contra *Path Traversal*, `dryRun: true` por defecto, redacción `[REDACTED_SECRET]`, flag opcional `enforce` y salida `Pass-Quiet` / `Fail-Verbose`.
-- **Recurso MCP:** `blueprint://vibe-rescue/readme` (`mcp-server/src/resources/stackBlueprints.ts`) — expone esta guía operativa directamente al contexto del agente.
-- **Nota Bilingüe:** La arquitectura de espejos EN/ES para entornos está planificada en [`docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md`](../docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md).
+- **MCP Tool:** `audit_vibe_prototype` (`mcp-server/src/tools/auditVibePrototype.ts`) — executes the 5-rule inspection from the agent with strict containment against *Path Traversal*, `dryRun: true` by default, `[REDACTED_SECRET]` redaction, optional `enforce` flag, and `Pass-Quiet` / `Fail-Verbose` output.
+- **MCP Resource:** `blueprint://vibe-rescue/readme` (`mcp-server/src/resources/stackBlueprints.ts`) — exposes this operational guide directly to the agent context.
+- **Bilingual Architecture:** Maintained under the English-Primary + 1:1 Spanish Mirror standard defined in [`docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md`](../docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md).

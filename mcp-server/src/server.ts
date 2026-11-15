@@ -3,6 +3,7 @@
 
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { BlueprintResources } from './resources/blueprint-resources.js';
+import { getActiveResourceLang } from './resources/resourceLang.js';
 import { GitHubFetcher, MCP_SERVER_VERSION } from './services/github-fetcher.js';
 import { SurgicalMerger } from './services/surgical-merger.js';
 import { inspectProjectConfig } from './tools/inspect-project.js';
@@ -82,7 +83,7 @@ export function createMcpServer(options?: {
       mimeType: MARKDOWN_MIME_TYPE,
     },
     async (uri) => {
-      const res = await resources.getPhilosophyResource();
+      const res = await resources.getPhilosophyResource(getActiveResourceLang(uri));
       return {
         contents: [
           {
@@ -104,7 +105,7 @@ export function createMcpServer(options?: {
       mimeType: MARKDOWN_MIME_TYPE,
     },
     async (uri) => {
-      const res = await resources.getSecurityResource();
+      const res = await resources.getSecurityResource(getActiveResourceLang(uri));
       return {
         contents: [
           {
@@ -150,7 +151,7 @@ export function createMcpServer(options?: {
     },
     async (uri, variables) => {
       const stack = String(variables.stack);
-      const res = await resources.getStackReadmeResource(stack);
+      const res = await resources.getStackReadmeResource(stack, getActiveResourceLang(uri));
       return {
         contents: [
           {

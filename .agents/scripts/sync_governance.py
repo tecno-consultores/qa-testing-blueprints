@@ -71,7 +71,7 @@ COMMON_FILE_PATHS: tuple[str, ...] = (
     ".env.example",
 )
 
-IGNORED_STACK_NAMES = frozenset({"README.md", "changelog", ".DS_Store"})
+IGNORED_STACK_NAMES = frozenset({"README.md", "README.es.md", "changelog", ".DS_Store"})
 IGNORED_STACK_DIRS = frozenset(
     {
         ".git",
@@ -283,6 +283,8 @@ def _discover_governance_paths(repo_root: Path) -> list[str]:
     for rel in (
         "AGENTS.md",
         "AI_MASTER_PROMPT.md",
+        "AI_MASTER_PROMPT.es.md",
+        "SECURITY.es.md",
         "llms.txt",
         ".agents/README.md",
         ".agents/ACTIVE_TASK.md.example",
@@ -354,6 +356,7 @@ def _build_stacks_dict(
         meta = STACK_METADATA.get(stack_name) or existing_stacks.get(stack_name, {})
         description = str(meta.get("description", ""))
         readme = str(meta.get("readme", f"{stack_name}/README.md"))
+        readme_es = f"{readme[:-3]}.es.md" if readme.endswith(".md") else f"{readme}.es.md"
         if stack_dir.is_dir():
             files = scan_stack(repo_root, stack_name)
         else:
@@ -374,11 +377,19 @@ def _build_stacks_dict(
                             )
                         )
                 files.sort(key=lambda entry: str(entry["path"]))
-        stacks_dict[stack_name] = {
+        stack_entry: dict[str, Any] = {
             "description": description,
             "readme": readme,
-            "files": files,
         }
+        readme_path = repo_root / readme
+        if readme_path.is_file():
+            stack_entry["readme_sha256"] = compute_sha256(readme_path)
+        readme_es_path = repo_root / readme_es
+        if readme_es_path.is_file():
+            stack_entry["readme_es"] = readme_es
+            stack_entry["readme_es_sha256"] = compute_sha256(readme_es_path)
+        stack_entry["files"] = files
+        stacks_dict[stack_name] = stack_entry
     return stacks_dict
 
 

@@ -1,58 +1,60 @@
-# 🛡️ Buenas Prácticas de Programación y Arquitectura (Nivel 11X)
+> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (02_BUENAS_PRACTICAS_PROGRAMACION_11X.es.md)](02_BUENAS_PRACTICAS_PROGRAMACION_11X.es.md)
 
-> **PROPÓSITO:**  
-> Este manual recopila las lecciones aprendidas en proyectos de misión crítica sobre desarrollo seguro, arquitectura resiliente y diseño de interfaces operativas. Va más allá de las herramientas de prueba, abordando las trampas arquitectónicas que los desarrolladores y agentes de IA deben evitar activamente.
+# 🛡️ Programming and Architecture Best Practices (Level 11X)
+
+> **PURPOSE:**  
+> This manual compiles lessons learned in mission-critical projects on secure development, resilient architecture, and operational interface design. It goes beyond testing tools to address the architectural traps that developers and AI agents must actively avoid.
 
 ---
 
-## 1. Anti-Mock Blindness (Erradicación de la Ceguera de Mocks)
+## 1. Anti-Mock Blindness
 
-### El Problema
-El aislamiento mediante mocks (`pytest-mock`, `unittest.mock`, `nock`) permite obtener un 100% de cobertura en milisegundos, pero crea una ilusión peligrosa:
-- El desarrollador mockea una llamada a base de datos asumiendo que la columna `status` acepta `NULL`.
-- La prueba unitaria pasa con éxito en CI/CD.
-- En producción, la tabla real tiene `NOT NULL` y la aplicación colapsa con un error 500 de integridad SQL.
+### The Problem
+Isolation via mocks (`pytest-mock`, `unittest.mock`, `nock`) delivers 100% coverage in milliseconds, yet creates a dangerous illusion:
+- The developer mocks a database call assuming the `status` column accepts `NULL`.
+- The unit test passes in CI/CD.
+- In production, the actual table enforces `NOT NULL` and the application crashes with a SQL integrity 500 error.
 
-### La Solución 11X
-1. **Cero Deriva de Esquema (Schema Drift):**
-   - Modificar un modelo ORM (SQLAlchemy, Prisma, TypeORM) no altera la base de datos mágicamente.
-   - Todo cambio de modelo, nueva columna o restricción (`UniqueConstraint`) requiere una migración versionada inmediata (ej. Alembic).
-   - Validar automáticamente la paridad entre modelos y migraciones usando `.agents/scripts/verify_alembic_orm_parity.py`.
-2. **Verificación en Motores Reales de Base de Datos:**
-   - La suite de integración y los contratos deben ejecutarse contra un contenedor real de PostgreSQL levantado en `docker-compose.qa.yml`. Nunca des por válida una consulta SQL hasta que PostgreSQL la haya ejecutado sin mocks.
+### The 11X Solution
+1. **Zero Schema Drift:**
+   - Modifying an ORM model (SQLAlchemy, Prisma, TypeORM) does not magically alter the database.
+   - Every model change, new column, or constraint (`UniqueConstraint`) requires an immediate versioned migration (e.g., Alembic).
+   - Automatically validate parity between models and migrations using `.agents/scripts/verify_alembic_orm_parity.py`.
+2. **Verification Against Real Database Engines:**
+   - Integration suites and contracts must execute against a real PostgreSQL container launched in `docker-compose.qa.yml`. Never consider a SQL query validated until PostgreSQL has executed it without mocks.
 
-### 1.1. Invariante Anti-Silo y Anti-Ceguera UAT (Las 11 Reglas Obligatorias de Diseño de Pruebas)
-La cobertura unitaria (`>= 95%`) mide el porcentaje de líneas ejecutadas, pero es ciega ante desconexiones entre módulos, timeouts cortos enmascarados por mocks instantáneos, asimetrías en flujos pre-autenticación, contenedores que caen en `unhealthy` tras superar suites aisladas, binarios duales `CLI + MCP stdio` que bloquean terminales humanas o cambios de firma en SDKs ocultados por mocks (*Silo & Pipe Mock Blindness*). Toda suite bajo el Estándar QA 11X debe cumplir estas **11 reglas obligatorias de diseño de pruebas** (en paridad 1:1 con `qa-11x-architect` §2.1):
+### 1.1. Anti-Silo & UAT Anti-Blindness Invariant (The 11 Mandatory Test Design Rules)
+Unit coverage (`>= 95%`) measures the percentage of executed lines, yet remains blind to cross-module disconnects, short timeouts masked by instant mocks, asymmetries in pre-authentication flows, containers turning `unhealthy` after passing isolated suites, dual `CLI + MCP stdio` binaries hanging human terminals, or SDK signature changes hidden by mocks (*Silo & Pipe Mock Blindness*). Every suite under the QA 11X Standard must enforce these **11 mandatory test design rules** (in 1:1 parity with `qa-11x-architect` §2.1):
 
-1. **Propagación Transversal de Estado sin Mocks Intermedios (*Cross-Module State Propagation*):**
-   - Está estrictamente prohibido dar por válido un test de mutación verificando únicamente el `HTTP 200/201` del endpoint mutador (ej. `POST /api/v1/maintenance/windows` o cambio de estado administrativo) mientras los módulos consumidores (ej. Wallboard NOC o Inventario) se prueban con fixtures estáticos escritos a mano.
-   - Cuando una operación en el Módulo A modifica el estado operativo de una entidad, la suite de pruebas DEBE invocar inmediatamente los endpoints de consulta (`GET`, ej. `GET /api/v1/inventory/routers`) y stores de los Módulos B consumidores **sin mocks intermedios**, certificando que el estado efectivo, contadores KPI, insignias y mapas reflejan la mutación de extremo a extremo.
-2. **Aserción Obligatoria de las 3 Fases Temporales (*3-Phase Temporal Lifecycle Assertion*):**
-   - Toda entidad o flujo gobernado por ventanas de tiempo, cronómetros o TTL (`starts_at` / `ends_at`, ventanas de confirmación/rollback Safe Mode de 60s, expiración de tokens Step-Up de 30s, leases temporales) DEBE probarse obligatoriamente en sus **3 fases del reloj** (prohibiendo ternarios binarios de 2 estados como `is_cancelled ? 'Cancelada' : 'Programada'`):
-     - **Fase 1 (`t < starts_at`):** Estado Programado / Pendiente (`Programada`).
-     - **Fase 2 (`starts_at <= t <= ends_at`):** Estado Activo / En Curso (`En Curso` / `Activa`, verificando que el recurso programado o scheduler permanezca vivo más allá de los 50ms de la petición HTTP y proyecte el estado activo a todos los módulos consumidores).
-     - **Fase 3 (`t > ends_at` o Cancelado):** Estado Expirado / Purgado / Revertido (verificando que se restaure automáticamente el estado nominal original y se registre la traza de auditoría).
-3. **Prohibición de Mocks Ciegos en Auditoría, Paridad `JSONB`/`Decimal` y Aserción Semántica Anti-UUID Crudo (`SEC-11` & `UI-11X-02`):**
-   - Queda prohibido reemplazar funciones de auditoría (`write_audit_log` o equivalentes) con un `AsyncMock` vacío sin aserciones sobre los argumentos recibidos (`assert_called_once` / `call_args`). En pruebas con sesiones simuladas (`MockDbSession`), validar todas las columnas `JSON`/`JSONB` (`AuditLog.before_state`, `AuditLog.after_state`) ejecutando `json.dumps()` **sin `default=str`** y poblando atributos `Numeric(p, s)` con instancias `decimal.Decimal` reales para impedir escapes `TypeError: Object of type Decimal is not JSON serializable`.
-   - Toda prueba de auditoría y de cintas de eventos en UI DEBE certificar explícitamente que los campos de identidad visibles (`actor_username`, `resource_display_name`, `router_display_name`) resuelvan a nombres humanos legibles y **nunca** coincidan con el patrón de un UUID v4 crudo (`/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i`, evitando pasar `claims.get("sub")` directamente como `actor_username`, regla `SEC-11`), y que los clasificadores de eventos en UI mapeen cada categoría a su insignia semántica real (`CAÍDA`, `MANTENIMIENTO`, `RESPALDO`, `SEGURIDAD`, `OPERACIÓN`), prohibiendo cláusulas `else` genéricas (`UI-11X-02`).
-4. **Invariante de Refresco Dual en Vistas Operativas y Mapas en Vivo (`UI-11X-02` — *Dual Auto + Manual Refresh Invariant*):**
-   - Toda vista de monitoreo, dashboard operativo, consola o mapa cartográfico en tiempo real DEBE contar simultáneamente con un mecanismo de actualización reactiva/periódica (`setInterval` con limpieza garantizada `clearInterval` en `onUnmounted` + escucha WebSocket) y un botón explícito **`[ 🔄 Refrescar ]`** accesible para el operador que fuerce la recarga inmediata en vivo (`?refresh=true`) sin depender de recargar el navegador (`F5`).
-5. **Invariante de Separación de Timeouts en Transferencia Pesada (`>= 180s` + Purga de `0 bytes`) y Validación por Ítem en Respuestas Batch `HTTP 200 OK`:**
-   - **Separación de Timeouts de Telemetría vs. Transferencia Síncrona de Imagen/Firmware:** Los mocks instantáneos (`AsyncMock` / `vi.fn()`) resuelven en `0 ms`, ocultando que los timeouts cortos de telemetría HTTP (`5s–10s`) abortan descargas reales de paquetes/firmware/backups síncronos (ej. paquetes `.npk` de ~21 MB) y dejan archivos truncados de `0 bytes` en el almacenamiento destino. Todo cliente HTTP que ejecute transferencias pesadas síncronas DEBE permitir y enviar un override explícito de timeout por petición (`timeout >= 180s`) y purgar artefactos truncados (`0 bytes`) previos o fallidos (verificando ambos comportamientos en `call_args` dentro de las pruebas unitarias).
-   - **Prohibición de Éxito Ciego por `HTTP 200 OK` en Endpoints Batch:** En servicios y vistas UI que consuman endpoints de ejecución masiva (`POST .../execute`, `POST .../batch`), queda estrictamente prohibido asumir éxito global solo por recibir `HTTP 200 OK`; se debe inspeccionar `res.data.results[].status` (o `items[].status`) por cada recurso objetivo y reflejar en la UI y en los tests los estados de fallo parcial o total por ítem (`results[].status == 'FAILED'` o `'ERROR: bad HTTP response'`).
-6. **Garantía *Zero Hardcoded Pass*, Cobertura Real No-Root (`QA-COV-01`) y Tipado Estricto Encadenado (`QA-MYPY-01`):**
-   - Ninguna compuerta de calidad, parser de cobertura o runner de pruebas puede devolver `true` o `'PASSED'` de forma literal cuando una herramienta no se ejecutó o no generó métricas verificables; debe retornar `'SKIPPED'` o `detected: false`.
-   - Está prohibido invocar `pytest -o addopts=""` sin adjuntar explícitamente `--import-mode=importlib --cov=src --cov-fail-under=95` junto con `-e COVERAGE_FILE=/tmp/.coverage -e PYTHONPATH=/app/src` (`QA-COV-01`), evitando silenciamientos accidentales del umbral del `95%` o errores de permisos SQLite en contenedores no-root (`UID 1001`). En ecosistemas Node.js/Frontend (`sinfallas/base-node-ionic:26`, cuyo usuario por defecto es `uid=10001`), se debe mapear siempre el usuario del host/CI (`-u "$(id -u):$(id -g)"`), definir `HOME=/tmp` + `pnpm_config_store_dir=/pnpm/store` e inicializar el volumen `pnpm-store:/pnpm` con `chmod -R a+rwX /pnpm` (`pnpm-store-init`) para impedir fallos `ERR_PNPM_PACKAGE_MANAGER_CREATE_SLOT_DIR` (`os error 13`) en volúmenes bind-mounted. Si `pyproject.toml` declara `[tool.mypy]`, el target `qa-lint` del `Makefile` DEBE encadenar `mypy --strict --cache-dir=/tmp/mypy src/` junto a `ruff` (`QA-MYPY-01`).
-7. **Sincronización Post-Importación del Singleton `Settings` (`QA-SMOKE-01`) y Secretos Efímeros en Smoke Local (`SEC-15`):**
-   - En pruebas de humo que validan el arranque en modo producción (`APP_ENV=production`, ej. verificación de `docs_url=None` o rechazo de secretos por defecto), modificar únicamente `os.environ["APP_ENV"] = "production"` después de haber importado `app` o `settings` es inefectivo porque el singleton Pydantic ya fue instanciado en memoria. El test DEBE mutar tanto `os.environ` como el atributo del singleton ya importado (`settings.APP_ENV = "production"`), restaurando su valor original dentro de un bloque `finally` (`QA-SMOKE-01`).
-   - Los scripts locales de validación productiva (`probar-prod-local.sh`) NUNCA deben reutilizar contraseñas estáticas de QA; deben generar llaves criptográficas efímeras (`openssl rand -base64 32` / `openssl rand -hex 32`) antes de `docker compose up -d` y propagar la credencial administrativa rotada mediante `docker exec -e` (`SEC-15`).
-8. **Continuidad e Inmunidad Atómica en Ceremonias Pre-Auth Multi-Etapa (`SEC-16`):**
-   - Los flujos no autenticados de varios pasos (`POST /auth/login` que retorna `mfa_enrollment_required`, `mfa_challenge` o `password_change_required`, seguido de `POST /auth/mfa/enroll`, `POST /auth/mfa/verify` o WebAuthn) fallan en UAT cuando cada paso se prueba aislado con mocks mientras en la aplicación real los middlewares globales (`CSRF` / `Idempotency-Key`) o el interceptor HTTP `401 -> /auth/refresh` del frontend bloquean el segundo paso.
-   - Se deben cumplir y certificar en **un único test continuo sin mocks intermedios** 4 controles: (a) `challenge_id` opaco CSPRNG `>= 128 bits` (`secrets.token_urlsafe(32)`) en JSON/cabecera validando `Origin`/`Sec-Fetch-Site`, (b) consumo atómico de un solo uso con `GETDEL`/Lua o llave acotada `idemp:preauth:{challenge_id}:{key}` en KeyDB/Redis, (c) `TTL <= 300s` y purga inmediata tras `3–5` intentos fallidos, y (d) lista `PREAUTH_PUBLIC_ROUTES` simétrica entre middlewares backend y el interceptor `401` del frontend.
-9. **Arranque Real sin Mocks en Orquestadores y Contrato de `Healthcheck` en Contenedores (`QA-HEALTH-01`):**
-   - **El Escape que Previene:** Un contenedor de workers en segundo plano (`python -m src.workers.runner`) supera `>= 95%` de cobertura unitaria pero cae en estado `unhealthy` al levantar `docker-compose` real cuando: (1) un sub-worker opcional deshabilitado por configuración (`SIEM_EXPORT_ENABLED=false`) ejecuta `return None` limpio en el primer ciclo (`task.done() == True`, `task.exception() is None`), (2) el bucle supervisor evalúa `if task.done() and not task.cancelled(): healthy = False` confundiendo salida limpia opt-in con caída fatal, y (3) el test del orquestador mockea todos los sub-workers con `AsyncMock` + `asyncio.sleep(0.01)` + `cancel()` sin verificar el archivo o sonda física exigida por `Dockerfile` / `docker-compose.yml` (ej. `/tmp/worker_heartbeat`).
-   - **Contrato Obligatorio:** Todo runner de workers, scheduler o punto de entrada supervisado por un `HEALTHCHECK` de contenedor DEBE contar con al menos un test de integración unitaria que arranque el orquestador real bajo `Settings()` de producción por defecto (con workers opcionales deshabilitados) **sin mockear los bucles opcionales**, haciendo `assert` explícito sobre la emisión y permanencia del artefacto de salud (`WORKER_HEARTBEAT_PATH.exists()` o `/healthz` `200 OK`) tras múltiples ciclos del event-loop.
-   - **Semántica de Salida en Supervisores `asyncio.Task`:**
+1. **Cross-Module State Propagation Without Intermediate Mocks (*Cross-Module State Propagation*):**
+   - It is strictly forbidden to validate a mutation test solely by asserting `HTTP 200/201` on the mutating endpoint (e.g., `POST /api/v1/maintenance/windows` or administrative status changes) while consumer modules (e.g., NOC Wallboard or Inventory) are tested with hand-written static fixtures.
+   - Whenever an operation in Module A modifies an entity's operational state, the test suite MUST immediately query the consumer Module B `GET` endpoints (e.g., `GET /api/v1/inventory/routers`) and stores **without intermediate mocks**, certifying that effective state, KPI counters, badges, and maps reflect the end-to-end mutation.
+2. **Mandatory 3-Phase Temporal Lifecycle Assertion (*3-Phase Temporal Lifecycle Assertion*):**
+   - Any entity or flow governed by time windows, timers, or TTLs (`starts_at` / `ends_at`, 60s Safe Mode confirmation/rollback windows, 30s Step-Up token expiration, temporary leases) MUST be tested across all **3 clock phases** (forbidding 2-state binary ternaries like `is_cancelled ? 'Cancelada' : 'Programada'`):
+     - **Phase 1 (`t < starts_at`):** Scheduled / Pending state (`Programada`).
+     - **Phase 2 (`starts_at <= t <= ends_at`):** Active / In-Progress state (`En Curso` / `Activa`, verifying that the scheduled resource or scheduler remains alive beyond the 50ms HTTP request and projects the active state to all consumer modules).
+     - **Phase 3 (`t > ends_at` or Cancelled):** Expired / Purged / Reverted state (verifying automatic restoration to the original nominal state and audit trail recording).
+3. **Ban on Blind Audit Mocks, `JSONB`/`Decimal` Parity, and Raw-UUID Semantic Assertion (`SEC-11` & `UI-11X-02`):**
+   - Replacing audit functions (`write_audit_log` or equivalents) with an empty `AsyncMock` without asserting received arguments (`assert_called_once` / `call_args`) is forbidden. In tests using simulated sessions (`MockDbSession`), validate all `JSON`/`JSONB` columns (`AuditLog.before_state`, `AuditLog.after_state`) by running `json.dumps()` **without `default=str`** and populating `Numeric(p, s)` attributes with real `decimal.Decimal` instances to prevent `TypeError: Object of type Decimal is not JSON serializable` escapes.
+   - Every audit test and UI event-ticker test MUST explicitly assert that visible identity fields (`actor_username`, `resource_display_name`, `router_display_name`) resolve to human-readable names and **never** match a raw UUID v4 pattern (`/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i`, avoiding passing `claims.get("sub")` directly as `actor_username`, rule `SEC-11`), and that UI event classifiers map every category to its true semantic badge (`CAÍDA`, `MANTENIMIENTO`, `RESPALDO`, `SEGURIDAD`, `OPERACIÓN`), forbidding generic catch-all `else` clauses (`UI-11X-02`).
+4. **Dual Auto + Manual Refresh Invariant in Operational Views and Live Maps (`UI-11X-02` — *Dual Auto + Manual Refresh Invariant*):**
+   - Every monitoring view, operational dashboard, console, or real-time cartographic map MUST simultaneously provide a reactive/periodic update mechanism (`setInterval` with guaranteed `clearInterval` cleanup in `onUnmounted` + WebSocket listener) and an explicit operator-accessible **`[ 🔄 Refrescar ]`** button forcing immediate live reload (`?refresh=true`) without relying on browser reload (`F5`).
+5. **Heavy-Transfer Timeout Separation (`>= 180s` + `0-byte` Purge) and Per-Item Validation on `HTTP 200 OK` Batch Responses:**
+   - **Separating Telemetry Timeouts vs. Synchronous Image/Firmware Transfers:** Instant mocks (`AsyncMock` / `vi.fn()`) resolve in `0 ms`, masking how short HTTP telemetry timeouts (`5s–10s`) abort real synchronous package/firmware/backup downloads (e.g., ~21 MB `.npk` packages) and leave truncated `0-byte` files in target storage. Every HTTP client executing heavy synchronous transfers MUST allow and send an explicit per-request timeout override (`timeout >= 180s`) and purge prior or failed truncated (`0-byte`) artifacts (verifying both behaviors via `call_args` in unit tests).
+   - **Ban on Blind `HTTP 200 OK` Success on Batch Endpoints:** In services and UI views consuming bulk execution endpoints (`POST .../execute`, `POST .../batch`), assuming global success merely from receiving `HTTP 200 OK` is strictly forbidden; inspect `res.data.results[].status` (or `items[].status`) for every target resource and reflect partial or total per-item failure states (`results[].status == 'FAILED'` or `'ERROR: bad HTTP response'`) in both UI and tests.
+6. ***Zero Hardcoded Pass* Guarantee, Non-Root Real Coverage (`QA-COV-01`), and Chained Strict Typing (`QA-MYPY-01`):**
+   - No quality gate, coverage parser, or test runner may return a literal `true` or `'PASSED'` when a tool did not execute or produced no verifiable metrics; it must return `'SKIPPED'` or `detected: false`.
+   - Invoking `pytest -o addopts=""` without explicitly attaching `--import-mode=importlib --cov=src --cov-fail-under=95` along with `-e COVERAGE_FILE=/tmp/.coverage -e PYTHONPATH=/app/src` (`QA-COV-01`) is forbidden, preventing accidental silencing of the `95%` threshold or SQLite permission errors inside non-root containers (`UID 1001`). In Node.js/Frontend ecosystems (`sinfallas/base-node-ionic:26`, whose default user is `uid=10001`), always map the host/CI user (`-u "$(id -u):$(id -g)"`), set `HOME=/tmp` + `pnpm_config_store_dir=/pnpm/store`, and initialize the `pnpm-store:/pnpm` volume with `chmod -R a+rwX /pnpm` (`pnpm-store-init`) to prevent `ERR_PNPM_PACKAGE_MANAGER_CREATE_SLOT_DIR` (`os error 13`) failures on bind-mounted volumes. If `pyproject.toml` declares `[tool.mypy]`, the `Makefile` `qa-lint` target MUST chain `mypy --strict --cache-dir=/tmp/mypy src/` alongside `ruff` (`QA-MYPY-01`).
+7. **Post-Import `Settings` Singleton Synchronization (`QA-SMOKE-01`) and Ephemeral Secrets in Local Smoke (`SEC-15`):**
+   - In smoke tests validating production startup (`APP_ENV=production`, e.g., verifying `docs_url=None` or rejecting default secrets), modifying only `os.environ["APP_ENV"] = "production"` after importing `app` or `settings` is ineffective because the Pydantic singleton was already instantiated in memory. The test MUST mutate both `os.environ` and the imported singleton attribute (`settings.APP_ENV = "production"`), restoring the original value inside a `finally` block (`QA-SMOKE-01`).
+   - Local production validation scripts (`probar-prod-local.sh`) must NEVER reuse static QA passwords; they must generate ephemeral cryptographic keys (`openssl rand -base64 32` / `openssl rand -hex 32`) prior to `docker compose up -d` and propagate the rotated admin credential via `docker exec -e` (`SEC-15`).
+8. **Continuity and Atomic Immunity in Multi-Stage Pre-Auth Ceremonies (`SEC-16`):**
+   - Multi-step unauthenticated flows (`POST /auth/login` returning `mfa_enrollment_required`, `mfa_challenge`, or `password_change_required`, followed by `POST /auth/mfa/enroll`, `POST /auth/mfa/verify`, or WebAuthn) fail in UAT when each step is tested isolated with mocks while in the live app global middlewares (`CSRF` / `Idempotency-Key`) or the frontend's `401 -> /auth/refresh` HTTP interceptor block the second step.
+   - Four controls must be satisfied and certified in **a single continuous test without intermediate mocks**: (a) opaque CSPRNG `challenge_id >= 128 bits` (`secrets.token_urlsafe(32)`) in JSON/header validating `Origin`/`Sec-Fetch-Site`, (b) atomic single-use consumption with `GETDEL`/Lua or scoped key `idemp:preauth:{challenge_id}:{key}` in KeyDB/Redis, (c) `TTL <= 300s` and immediate purge after `3–5` failed attempts, and (d) symmetric `PREAUTH_PUBLIC_ROUTES` list across backend middlewares and the frontend `401` interceptor.
+9. **Unmocked Orchestrator Boot and Container `Healthcheck` Contract (`QA-HEALTH-01`):**
+   - **The Escape It Prevents:** A background worker container (`python -m src.workers.runner`) achieves `>= 95%` unit coverage yet turns `unhealthy` on real `docker-compose` startup when: (1) a config-disabled optional sub-worker (`SIEM_EXPORT_ENABLED=false`) executes a clean `return None` on its first tick (`task.done() == True`, `task.exception() is None`), (2) the supervisor loop checks `if task.done() and not task.cancelled(): healthy = False`, mistaking opt-in clean exit for a fatal crash, and (3) the orchestrator test mocks all sub-workers with `AsyncMock` + `asyncio.sleep(0.01)` + `cancel()` without checking the physical probe/file required by `Dockerfile` / `docker-compose.yml` (e.g., `/tmp/worker_heartbeat`).
+   - **Mandatory Contract:** Every worker runner, scheduler, or entrypoint supervised by a container `HEALTHCHECK` MUST have at least one unit-integration test booting the real orchestrator under default production `Settings()` (with optional workers disabled) **without mocking optional loops**, explicitly asserting emission and persistence of the health artifact (`WORKER_HEARTBEAT_PATH.exists()` or `/healthz` `200 OK`) across multiple event-loop cycles.
+   - **Exit Semantics in `asyncio.Task` Supervisors:**
      ```python
      from pathlib import Path
      import asyncio
@@ -65,141 +67,141 @@ La cobertura unitaria (`>= 95%`) mide el porcentaje de líneas ejecutadas, pero 
              if task.cancelled():
                  return False
              if task.done():
-                 # 1. Excepción no controlada -> SIEMPRE unhealthy
+                 # 1. Unhandled exception -> ALWAYS unhealthy
                  if task.exception() is not None:
                      return False
-                 # 2. Salida inesperada de worker obligatorio -> SIEMPRE unhealthy
-                 # 3. Retorno limpio (None) de worker opcional deshabilitado -> HEALTHY
+                 # 2. Unexpected exit of mandatory worker -> ALWAYS unhealthy
+                 # 3. Clean return (None) of disabled optional worker -> HEALTHY
                  if name not in OPTIONAL_WORKERS:
                      return False
          return True
      ```
-10. **Guardia Anti-Bloqueo en Terminal Interactiva (`TTY`) para Binarios Duales CLI + Servidor MCP `stdio` (`QA-CLI-TTY-01`):**
-   - **El Escape que Previene (*Pipe & Callback Mock Blindness*):** Un paquete híbrido que combina subcomandos CLI (`install-skill`, `init-agents`) con un servidor MCP sobre `stdio` (`StdioServerTransport` en Node/TS o `stdio_server()` en Python) supera al 100% sus pruebas unitarias (porque inyectan un callback simulado `startStdio`) y sus suites E2E en CI (donde `StdioClientTransport` y `execFileSync` conectan `stdin` mediante *pipes*, dejando `process.stdin.isTTY === undefined`), pero cuando un desarrollador humano ejecuta `npx -y @paquete@latest` sin subcomandos en su consola interactiva (`TTY`), el proceso abre `StdioServerTransport` y congela indefinidamente la terminal esperando tramas JSON-RPC que nunca llegan.
-   - **Contrato Obligatorio:** Todo punto de entrada dual CLI + MCP `stdio` DEBE verificar `process.stdin.isTTY` (Node/TS) o `sys.stdin.isatty()` (Python) cuando se invoca sin subcomandos: si detecta una terminal interactiva `TTY` (salvo que se indique explícitamente `--stdio` o `QA_FORCE_STDIO=1`), debe completar cualquier auto-sincronización segura, imprimir la guía ejecutiva de instalación/registro MCP y terminar inmediatamente con `exit(0)`. Además, la suite E2E DEBE incluir una sonda en subproceso con `TTY` simulado y `timeout <= 5s` que certifique la ausencia de bloqueo (`audit_security_stig_owasp` audita estáticamente esta condición mediante `QA-CLI-TTY-01`).
-11. **Contrato sobre Transporte Real del SDK (`QA-CONTRACT-SDK-01`) e Instalación desde Lockfile + Smoke Test de Imagen Construida (`QA-DOCKER-LOCK-01`):**
-   - **El Escape que Previene:** Una cobertura del 95 % no garantiza que el servicio funcione en runtime real: (1) si las pruebas invocan handlers MCP/JSON-RPC/ACP directamente con `MagicMock`, un cambio de firma del SDK (`mcp 1.x -> 2.x`, ej. de `(request)` a `(ctx, params)`) pasa inadvertido y falla con *Internal error* en producción; y (2) si el `Dockerfile` instala una lista manual de paquetes (`pip install fastapi uvicorn`) en vez de leer el lockfile, la imagen omite dependencias reales (`ModuleNotFoundError`) aunque `pytest` pase en el entorno virtual construido desde `pyproject.toml`.
-   - **Contrato Obligatorio:** Todo servidor de protocolo DEBE incluir al menos una prueba in-process conectada a través del cliente/transporte real del SDK (`InMemoryTransport` + `Client` en Node/TS o `ClientSession` / `create_connected_server_and_client_session` en Python) ejecutando `list_tools` y `call_tool` sin mockear el dispatcher (`QA-CONTRACT-SDK-01`). Todo `Dockerfile` DEBE instalar dependencias exclusivamente desde el lockfile del proyecto (`uv sync --frozen --no-dev`, `uv export --frozen --no-dev | uv pip install --system -r -`, `pnpm install --frozen-lockfile` o `npm ci`) y la imagen construida DEBE superar un smoke test post-build en CI (`docker run --rm <img> python -c "import <app>"`, verificación no-root `id -u != 0` y sonda `401` sin credenciales, regla `QA-DOCKER-LOCK-01`). Adicionalmente, `QA-HEALTH-01` restringe la detección de sondas exclusivamente a bloques reales `HEALTHCHECK`/`healthcheck:` (ignorando rutas de toolchain como `/tmp/venv`) y `certify_11x_gate` exime plantillas de entorno como `env.example` y `.env*.example`.
+10. **Interactive Terminal (`TTY`) Anti-Hang Guard for Dual CLI + `stdio` MCP Binaries (`QA-CLI-TTY-01`):**
+   - **The Escape It Prevents (*Pipe & Callback Mock Blindness*):** A hybrid package combining CLI subcommands (`install-skill`, `init-agents`) with an MCP `stdio` server (`StdioServerTransport` in Node/TS or `stdio_server()` in Python) passes 100% of unit tests (which inject a mocked `startStdio` callback) and CI E2E suites (where `StdioClientTransport` and `execFileSync` attach `stdin` via *pipes*, leaving `process.stdin.isTTY === undefined`), yet when a human developer runs `npx -y @package@latest` without subcommands in an interactive console (`TTY`), the process opens `StdioServerTransport` and hangs the terminal indefinitely waiting for JSON-RPC frames that never arrive.
+   - **Mandatory Contract:** Every dual CLI + MCP `stdio` entrypoint MUST check `process.stdin.isTTY` (Node/TS) or `sys.stdin.isatty()` (Python) when invoked without subcommands: if an interactive `TTY` terminal is detected (unless `--stdio` or `QA_FORCE_STDIO=1` is explicitly passed), it must complete any safe auto-sync, print the executive MCP setup/registration guide, and exit immediately with `exit(0)`. Furthermore, the E2E suite MUST include a subprocess probe with simulated `TTY` and `timeout <= 5s` proving no hang occurs (`audit_security_stig_owasp` statically audits this condition via `QA-CLI-TTY-01`).
+11. **Real-Runtime SDK Transport Contract (`QA-CONTRACT-SDK-01`) and Lockfile Image Install + Built-Image Smoke Test (`QA-DOCKER-LOCK-01`):**
+   - **The Escape It Prevents:** 95% coverage does not guarantee the service runs in real runtime: (1) if tests invoke MCP/JSON-RPC/ACP handlers directly with `MagicMock`, an SDK signature change (`mcp 1.x -> 2.x`, e.g., from `(request)` to `(ctx, params)`) goes unnoticed and fails with *Internal error* in production; and (2) if the `Dockerfile` installs a manual package list (`pip install fastapi uvicorn`) instead of reading the lockfile, the image omits real dependencies (`ModuleNotFoundError`) even though `pytest` passes in the venv built from `pyproject.toml`.
+   - **Mandatory Contract:** Every protocol server MUST include at least one in-process test wired through the real SDK client/transport (`InMemoryTransport` + `Client` in Node/TS or `ClientSession` / `create_connected_server_and_client_session` in Python) executing `list_tools` and `call_tool` without mocking the dispatcher (`QA-CONTRACT-SDK-01`). Every `Dockerfile` MUST install dependencies exclusively from the project lockfile (`uv sync --frozen --no-dev`, `uv export --frozen --no-dev | uv pip install --system -r -`, `pnpm install --frozen-lockfile`, or `npm ci`), and the built image MUST pass a post-build CI smoke test (`docker run --rm <img> python -c "import <app>"`, non-root check `id -u != 0`, and unauthenticated `401` probe, rule `QA-DOCKER-LOCK-01`). Additionally, `QA-HEALTH-01` restricts probe detection strictly to real `HEALTHCHECK`/`healthcheck:` blocks (ignoring toolchain paths such as `/tmp/venv`), and `certify_11x_gate` exempts environment templates like `env.example` and `.env*.example`.
 
 ---
 
-### 1.2. Invariante de Co-Evolución y Actualización Obligatoria de Pruebas Preexistentes (`QA-TEST-SYNC-01`)
+### 1.2. Co-Evolution Invariant and Mandatory Update of Pre-Existing Tests (`QA-TEST-SYNC-01`)
 
-Modificar una función, ruta, esquema, CLI, skill o catálogo (`manifest.json`) sin actualizar las pruebas que verificaban el contrato previo genera deriva silenciosa y falsos negativos diferidos en CI (por ejemplo, conteos `#[N]` obsoletos en contratos `.feature` de Karate BDD o fixtures desfasados en Meta-QA y suites unitarias). Toda modificación legítima debe aplicar simultáneamente estas tres reglas:
+Modifying a function, route, schema, CLI, skill, or catalog (`manifest.json`) without updating the tests that verified the prior contract causes silent drift and deferred CI false negatives (e.g., stale `#[N]` counts in Karate BDD `.feature` contracts or outdated fixtures in Meta-QA and unit suites). Every legitimate modification must simultaneously apply these three rules:
 
-- **Auditoría Previa de Tests Consumidores:** Además del radio de impacto en código de producción (`inspect_blast_radius.py`), rastrear todas las suites consumidoras afectadas en `tests/`, `mcp-server/tests/`, `*.feature` y `*.bats` antes de editar.
-- **Sincronización Quirúrgica sin Debilitamiento de Aserciones:** Actualizar de inmediato conteos, esquemas, fixtures, snapshots y expectativas de contrato en las pruebas preexistentes impactadas; queda estrictamente prohibido eliminar o relajar aserciones válidas de regresión para forzar un estado verde.
-- **Re-ejecución Efímera Completa Pre-Commit:** Validar dentro de contenedores Docker efímeros (`Regla Cero`) todas las suites impactadas —incluyendo `Karate BDD` (`sinfallas/karatelabs`) siempre que cambien `mcp-server/`, `.agents/skills/` o `manifest.json`— antes de sellar el `git commit` local.
+- **Pre-Edit Consumer Test Audit:** Beyond production blast radius (`inspect_blast_radius.py`), trace all affected consumer suites in `tests/`, `mcp-server/tests/`, `*.feature`, and `*.bats` before editing.
+- **Surgical Synchronization Without Weakening Assertions:** Immediately update counts, schemas, fixtures, snapshots, and contract expectations across impacted pre-existing tests; deleting or relaxing valid regression assertions to force a green build is strictly forbidden.
+- **Full Pre-Commit Ephemeral Re-Run:** Validate inside ephemeral Docker containers (`Rule Zero`) all impacted suites — including `Karate BDD` (`sinfallas/karatelabs`) whenever `mcp-server/`, `.agents/skills/`, or `manifest.json` changes — prior to sealing the local `git commit`.
 
-### 1.3. Cobertura Diferencial Multi-Stack y Bloqueo Anti-Evasión (`verify_diff_coverage.py` / `make diff-cov`)
+### 1.3. Multi-Stack Differential Coverage and Anti-Evasion Gate (`verify_diff_coverage.py` / `make diff-cov`)
 
-Para impedir la dilución silenciosa de pruebas en repositorios con alta cobertura histórica o regresiones en rutas nuevas, todo incremento de código productivo debe superar la compuerta determinista de **Cobertura Diferencial Multi-Stack**:
+To prevent silent test dilution in repositories with high historical coverage or regressions in new paths, every production code increment must pass the deterministic **Multi-Stack Differential Coverage** gate:
 
-- **Persistencia Efímera Segura de Reportes:** Antes de destruir los contenedores `--rm`, `make test-mcp`, `make test-py` y `run_ephemeral_qa` recolectan de forma contenida los reportes XML/LCOV (`python.xml`, `mcp-server.info`) dentro de `.agents/.cache/coverage/` (protegido en `.gitignore` y depurado por `./scripts/limpieza.sh`).
-- **Umbral Delta Estricto y Tolerancia Cero a Evasiones:** `.agents/scripts/verify_diff_coverage.py` (`make diff-cov`) exige `100%` de cobertura sobre líneas productivas nuevas o modificadas y `>= 90%` sobre sus ramas (`BRDA`/`condition-coverage`). Introducir marcadores de evasión (`# pragma: no cover`, `// v8 ignore`, `/* c8 ignore */`, `@codeCoverageIgnore`) sin justificación explícita `QA11X-APPROVED-EXCLUSION(<motivo>)` en la misma línea o la inmediatamente anterior bloquea con código `11`.
-- **Anti-XXE y Archivos Nuevos Sin Reporte:** Cualquier intento de XML externo (`<!DOCTYPE`/`<!ENTITY`), ruta fuera del workspace o archivo productivo nuevo ausente en los reportes emitidos detiene la certificación con código `12` (`Fast-Path DOCS_ONLY` omite con éxito controlado `0`).
-
----
-
-## 2. Geometría Visual y Anti-JSDOM (Ceguera de Layout)
-
-### El Problema
-Los entornos de prueba basados en DOM virtual como **JSDOM** o **HappyDOM** simulan nodos HTML en Node.js, pero **no calculan renderizado CSS, modelos de caja (Flexbox/Grid), coordenadas (`getBoundingClientRect()`) ni colisiones visuales**:
-- Un pie de página fijo (`position: fixed; bottom: 0`) puede estar tapando por completo el botón de envío de un formulario o el contenido de una tabla.
-- En Vitest o Jest con JSDOM, la prueba dice: `expect(submitButton).toBeInTheDocument()` -> **PASS**.
-- En el navegador real, el usuario humano no puede hacer clic en el botón porque está oculto debajo del pie de página.
-
-### La Solución 11X
-1. **Ergonomía In-Flow (Anti-Sticky Footer — `UI-11X-01`):**
-   - Prohibir pies de página flotantes fijos (`position: fixed`) en interfaces operativas densas (`UI-11X-01`).
-   - El contenedor `<main>` debe tener `display: flex; flex-direction: column; min-height: 100vh;` y el pie de página debe usar `margin-top: auto` dentro del flujo natural del documento, garantizando que nunca se superponga al contenido.
-2. **Validación en Navegador Real:**
-   - Utilizar **Karate UI** o **Playwright** con Chrome headless para verificar la visibilidad interactiva real (`waitFor`, `click`), asegurando que los elementos sean geométricamente clicables en el viewport.
+- **Safe Ephemeral Report Persistence:** Before tearing down `--rm` containers, `make test-mcp`, `make test-py`, and `run_ephemeral_qa` gather XML/LCOV reports (`python.xml`, `mcp-server.info`) in a contained location inside `.agents/.cache/coverage/` (protected by `.gitignore` and purged by `./scripts/limpieza.sh`).
+- **Strict Delta Threshold and Zero Tolerance for Evasions:** `.agents/scripts/verify_diff_coverage.py` (`make diff-cov`) enforces `100%` coverage on new or modified production lines and `>= 90%` on their branches (`BRDA`/`condition-coverage`). Introducing evasion markers (`# pragma: no cover`, `// v8 ignore`, `/* c8 ignore */`, `@codeCoverageIgnore`) without explicit `QA11X-APPROVED-EXCLUSION(<reason>)` justification on the same or immediately preceding line blocks with exit code `11`.
+- **Anti-XXE and Unreported New Files:** Any external XML attempt (`<!DOCTYPE`/`<!ENTITY`), path escaping the workspace, or new production file absent from emitted reports halts certification with exit code `12` (`DOCS_ONLY` Fast-Path skips cleanly with `0`).
 
 ---
 
-## 3. Seguridad por Diseño (Security-by-Design)
+## 2. Visual Geometry and Anti-JSDOM (Layout Blindness)
 
-Cualquier sistema moderno debe incorporar estas directivas como invariantes de arquitectura:
+### The Problem
+Virtual DOM test environments like **JSDOM** or **HappyDOM** simulate HTML nodes in Node.js, yet **do not compute CSS rendering, box models (Flexbox/Grid), coordinates (`getBoundingClientRect()`), or visual collisions**:
+- A fixed footer (`position: fixed; bottom: 0`) may completely cover a form submit button or table content.
+- In Vitest or Jest with JSDOM, the test asserts: `expect(submitButton).toBeInTheDocument()` -> **PASS**.
+- In the real browser, the human user cannot click the button because it is hidden behind the footer.
 
-### 3.1. Aislamiento Multi-Tenant con Row-Level Security (`SEC-13` & `QA-PG17-RLS`)
-- No confíes en que el desarrollador siempre recordará añadir `WHERE tenant_id = ?` en cada consulta SQL.
-- En PostgreSQL, activa políticas forzadas de RLS en todas las tablas con datos de clientes bajo un rol de aplicación `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`:
+### The 11X Solution
+1. **In-Flow Ergonomics (Anti-Sticky Footer — `UI-11X-01`):**
+   - Forbid fixed floating footers (`position: fixed`) in dense operational interfaces (`UI-11X-01`).
+   - The `<main>` container must use `display: flex; flex-direction: column; min-height: 100vh;` and the footer must use `margin-top: auto` in natural document flow, guaranteeing it never overlaps content.
+2. **Real Browser Validation:**
+   - Use **Karate UI** or **Playwright** with headless Chrome to verify real interactive visibility (`waitFor`, `click`), ensuring elements are geometrically clickable in the viewport.
+
+---
+
+## 3. Security-by-Design
+
+Any modern system must embed these directives as architectural invariants:
+
+### 3.1. Multi-Tenant Isolation with Row-Level Security (`SEC-13` & `QA-PG17-RLS`)
+- Do not rely on developers always remembering to add `WHERE tenant_id = ?` to every SQL query.
+- In PostgreSQL, enable forced RLS policies on all customer-data tables under a `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS` application role:
   ```sql
   ALTER TABLE items ENABLE ROW LEVEL SECURITY;
   ALTER TABLE items FORCE ROW LEVEL SECURITY;
   CREATE POLICY tenant_isolation_policy ON items
     USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
   ```
-- **Persistencia Multi-Transacción (`SEC-13`):** Dado que `SET LOCAL` caduca tras cada `session.commit()`, almacenar el `tenant_id` en `session.sync_session.info["tenant_id"]` y registrar `@event.listens_for(AsyncSession.sync_session_class, "after_begin")` para re-ejecutar `SET LOCAL app.current_tenant_id` automáticamente en transacciones subsiguientes.
-- **Auditoría de Catálogo en PostgreSQL 15–17+ (`QA-PG17-RLS`):** Verificar `FORCE ROW LEVEL SECURITY` consultando `pg_catalog.pg_class.relforcerowsecurity` (`JOIN pg_catalog.pg_namespace`), nunca la columna inexistente `pg_tables.forcerowsecurity`.
+- **Multi-Transaction Persistence (`SEC-13`):** Because `SET LOCAL` expires after every `session.commit()`, store `tenant_id` in `session.sync_session.info["tenant_id"]` and register `@event.listens_for(AsyncSession.sync_session_class, "after_begin")` to automatically re-execute `SET LOCAL app.current_tenant_id` in subsequent transactions.
+- **Catalog Audit on PostgreSQL 15–17+ (`QA-PG17-RLS`):** Verify `FORCE ROW LEVEL SECURITY` by querying `pg_catalog.pg_class.relforcerowsecurity` (`JOIN pg_catalog.pg_namespace`), never the nonexistent column `pg_tables.forcerowsecurity`.
 
-### 3.2. Prevención Estricta de SSRF (Server-Side Request Forgery)
-- Cuando una API permite al usuario registrar URLs o webhooks externos, **DEBE** validar la dirección antes de realizar la petición HTTP.
-- Rechazar rangos privados y metadatos de nube: `127.0.0.0/8`, `::1`, `localhost`, `169.254.169.254`, y nombres de contenedores internos (`api`, `postgres`, `redis`).
+### 3.2. Strict SSRF Prevention (Server-Side Request Forgery)
+- Whenever an API allows users to register external URLs or webhooks, it **MUST** validate the address before issuing the HTTP request.
+- Reject private ranges and cloud metadata: `127.0.0.0/8`, `::1`, `localhost`, `169.254.169.254`, and internal container hostnames (`api`, `postgres`, `redis`).
 
-### 3.3. Bóveda Criptográfica (AES-256-GCM)
-- Las credenciales sensibles de integración o contraseñas de equipos remotos nunca deben guardarse en texto plano.
-- Encriptar en reposo usando **AES-256-GCM** vinculando Datos Adicionales Autenticados (AAD, ej. `tenant_id:entity_id`) para evitar ataques de trasplante de datos entre inquilinos.
+### 3.3. Cryptographic Vault (AES-256-GCM)
+- Sensitive integration credentials or remote device passwords must never be stored in plaintext.
+- Encrypt at rest using **AES-256-GCM** binding Additional Authenticated Data (AAD, e.g., `tenant_id:entity_id`) to prevent cross-tenant ciphertext transplant attacks.
 
-### 3.4. Cabeceras de Idempotencia (`Idempotency-Key` & `QA-KARATE-IDEMP`)
-- Todas las peticiones mutantes críticas (`POST`, `PUT`, `PATCH`, `DELETE`) deben aceptar o requerir la cabecera `Idempotency-Key` (UUIDv4/v7).
-- Utilizar KeyDB/Redis para bloquear la clave durante el procesamiento con un TTL definido, evitando cobros dobles, provisionamientos duplicados o colisiones de concurrencia. En escenarios BDD de Karate Labs (`.feature`), generar siempre llaves dinámicas por petición con `And header Idempotency-Key = java.util.UUID.randomUUID() + ''` (`QA-KARATE-IDEMP`), prohibiendo UUIDs literales estáticos.
+### 3.4. Idempotency Headers (`Idempotency-Key` & `QA-KARATE-IDEMP`)
+- All critical mutating requests (`POST`, `PUT`, `PATCH`, `DELETE`) must accept or require the `Idempotency-Key` header (UUIDv4/v7).
+- Use KeyDB/Redis to lock the key during processing with a defined TTL, preventing double charges, duplicate provisioning, or concurrency collisions. In Karate Labs BDD scenarios (`.feature`), always generate dynamic per-request keys with `And header Idempotency-Key = java.util.UUID.randomUUID() + ''` (`QA-KARATE-IDEMP`), forbidding static literal UUIDs.
 
-### 3.5. Gobernanza Maker-Checker y Defensa RBAC en Capa de Servicio (`SEC-12`)
-- Para operaciones altamente destructivas (formateo de almacenamiento, borrado masivo de clientes, actualización de firmware o herramientas MCP mutadoras), la API/dispatcher debe encolar la solicitud en `ApprovalRequest` (`AWAITING_APPROVAL`, `HTTP 202 Accepted`) hasta que un segundo operador autorizado apruebe el cambio.
-- **Defensa Anti-Bypass de `Depends()` (`SEC-12`):** En FastAPI, `Depends(require_roles(...))` solo se evalúa cuando la llamada entra por el router HTTP. Cuando servicios internos son invocados por despachadores JSON-RPC/MCP, WebSockets o workers, se DEBE validar `claims["role"]` / `claims["rol"]` explícitamente al inicio de la función de servicio.
+### 3.5. Maker-Checker Governance and Service-Layer RBAC Defense (`SEC-12`)
+- For highly destructive operations (storage formatting, bulk tenant deletion, firmware upgrades, or mutating MCP tools), the API/dispatcher must enqueue the request in `ApprovalRequest` (`AWAITING_APPROVAL`, `HTTP 202 Accepted`) until a second authorized operator approves the change.
+- **`Depends()` Anti-Bypass Defense (`SEC-12`):** In FastAPI, `Depends(require_roles(...))` only runs when calls enter through the HTTP router. When internal services are invoked by JSON-RPC/MCP dispatchers, WebSockets, or workers, `claims["role"]` / `claims["rol"]` MUST be explicitly validated at the top of the service function.
 
-### 3.6. Cumplimiento DISA ASD STIG V6R5 y OWASP Developer Guide (Sesiones, Cadena WORM `SEC-14`, Fail-Secure y SBOM)
-- **Gobernanza de Sesiones y Cuentas (`DISA APSC-DV-000010, 000070, 000080, 000300, 000320, 000530` & `OWASP 4.3.7`):**
-  - Limitar el número de sesiones simultáneas por operador y aplicar *idle timeouts* diferenciados por rol (**10 minutos** para cuentas privilegiadas y **15 minutos** para cuentas estándar).
-  - Bloquear cuentas tras **3 intentos fallidos consecutivos en 15 minutos**, aplicando verificación en tiempo constante (*Dummy Argon2id Hash*) para evitar la enumeración de usuarios.
-  - Expirar cuentas temporales automáticamente a las **72 horas** y deshabilitar cuentas inactivas a los **35 días**.
-  - Purgar `sessionStorage`, `localStorage` y cachés del navegador al cerrar sesión, e invalidar inmediatamente todas las sesiones activas en servidor cuando se revoca una cuenta o cambia su contraseña.
-- **Canonicalización, Deserialización Segura y Validación por Magic Bytes (`SEC-03`, `SEC-04`, `SEC-05` — `DISA APSC-DV-002390, 002485, 002510, 002520` & `OWASP 4.3.5, 4.3.6`):**
-  - Normalizar toda entrada de texto a **Unicode `NFKC`** antes de ejecutar validaciones (`SEC-05`), deshabilitar entidades externas XML (`resolve_entities=False`, `no_network=True`, `SEC-04`), prohibir `pickle`/`yaml.load`/`shell=True` (`SEC-03`) y validar cargas de archivos por *Magic Bytes* de cabecera y mapas de índices en lista blanca.
-- **Auditoría Forense Inmutable Determinista y Prevención de Log Injection (`SEC-10`, `SEC-14` — `DISA APSC-DV-000650, 001090, 001350` & `OWASP 4.3.10`):**
-  - Registrar eventos de seguridad en UTC con granularidad de milisegundos, sanitizando saltos de línea (`\r`, `\n`) para impedir *Log Injection*, encadenando registros con **HMAC-SHA256** sobre secuencia monotónica `seq_num BIGINT` serializada con `SELECT pg_advisory_xact_lock(hashtext(tenant_key))` + `await session.flush()` (nunca ordenando solo por `created_at DESC`, `SEC-14`), prohibiendo secretos/tokens en código o logs (`SEC-10`) y emitiendo alerta operativa cuando el almacenamiento de auditoría supere el **75% de capacidad**.
-- **Estado Fail-Secure, Cabeceras OSHP, Cadena de Suministro y Salud de Contenedores (`SEC-07`, `SEC-08`, `SEC-09`, `QA-HEALTH-01` — `DISA APSC-DV-002310, 002590, 002770, 003230, 003310`):**
-  - Iniciar y fallar siempre en estado seguro (*Fail-Closed / Deny-by-Default*), ocultar Swagger/OpenAPI en producción (`SEC-07`), inyectar cabeceras OWASP OSHP (`SEC-08`), fijar `ignore-scripts=true` en `.npmrc` (`SEC-09`), sobrescribir búferes de secretos en memoria, purgar credenciales de exportaciones de BD, verificar contratos reales de `healthcheck` en contenedores (`QA-HEALTH-01`), modelar amenazas como código (`OWASP pytm`) y generar **CycloneDX SBOM/CBOM (ECMA-424)** firmados criptográficamente.
+### 3.6. DISA ASD STIG V6R5 and OWASP Developer Guide Compliance (Sessions, WORM Chain `SEC-14`, Fail-Secure & SBOM)
+- **Session and Account Governance (`DISA APSC-DV-000010, 000070, 000080, 000300, 000320, 000530` & `OWASP 4.3.7`):**
+  - Limit concurrent sessions per operator and enforce role-tiered idle timeouts (**10 minutes** for privileged accounts and **15 minutes** for standard accounts).
+  - Lock accounts after **3 consecutive failed attempts within 15 minutes**, applying constant-time verification (*Dummy Argon2id Hash*) to prevent user enumeration.
+  - Automatically expire temporary accounts after **72 hours** and disable inactive accounts after **35 days**.
+  - Purge `sessionStorage`, `localStorage`, and browser caches upon logout, and immediately invalidate all active server sessions when an account is revoked or its password changes.
+- **Canonicalization, Safe Deserialization, and Magic-Byte Validation (`SEC-03`, `SEC-04`, `SEC-05` — `DISA APSC-DV-002390, 002485, 002510, 002520` & `OWASP 4.3.5, 4.3.6`):**
+  - Normalize all text input to **Unicode `NFKC`** prior to validation (`SEC-05`), disable XML external entities (`resolve_entities=False`, `no_network=True`, `SEC-04`), prohibit `pickle`/`yaml.load`/`shell=True` (`SEC-03`), and validate file uploads via header *Magic Bytes* and allowlisted index maps.
+- **Immutable Deterministic Forensic Auditing and Log Injection Prevention (`SEC-10`, `SEC-14` — `DISA APSC-DV-000650, 001090, 001350` & `OWASP 4.3.10`):**
+  - Record security events in UTC with millisecond granularity, sanitizing line breaks (`\r`, `\n`) to prevent *Log Injection*, chaining records with **HMAC-SHA256** over a monotonic `seq_num BIGINT` sequence serialized with `SELECT pg_advisory_xact_lock(hashtext(tenant_key))` + `await session.flush()` (never ordering solely by `created_at DESC`, `SEC-14`), banning secrets/tokens in code or logs (`SEC-10`), and emitting operational alerts when audit storage exceeds **75% capacity**.
+- **Fail-Secure State, OSHP Headers, Supply Chain, and Container Health (`SEC-07`, `SEC-08`, `SEC-09`, `QA-HEALTH-01` — `DISA APSC-DV-002310, 002590, 002770, 003230, 003310`):**
+  - Always initialize and fail in a secure state (*Fail-Closed / Deny-by-Default*), hide Swagger/OpenAPI in production (`SEC-07`), inject OWASP OSHP headers (`SEC-08`), set `ignore-scripts=true` in `.npmrc` (`SEC-09`), zeroize secret buffers in memory, scrub credentials from DB exports, verify real container `healthcheck` contracts (`QA-HEALTH-01`), perform threat modeling as code (`OWASP pytm`), and generate cryptographically signed **CycloneDX SBOM/CBOM (ECMA-424)**.
 
-### 3.7. Catálogo de Mitigación de 22 Vectores de Ataque en Plataforma Híbrida (DISA STIG V6R5 + OWASP)
-Para profundizar en las implementaciones de código (prevención de Asignación Masiva con `extra="forbid"`, protección anti-CSWSH en WebSockets, sanitización de respuestas 422 en producción, evasión de XSS y Prototype Pollution en el frontend, timeouts y concurrencia de sesión, bloqueo de cuentas en tiempo constante, anti-XXE, auditoría inmutable con HMAC, cabeceras OWASP OSHP, mitigación de OWASP API Security Top 10 2023 y Threat Modeling con `pytm`), consulta la guía técnica especializada:
+### 3.7. Mitigation Catalog for 22 Attack Vectors on Hybrid Platforms (DISA STIG V6R5 + OWASP)
+For deep code implementations (Mass Assignment prevention with `extra="forbid"`, WebSocket anti-CSWSH protection, production 422 sanitization, frontend XSS and Prototype Pollution prevention, session timeouts and concurrency, constant-time account lockout, anti-XXE, immutable HMAC auditing, OWASP OSHP headers, OWASP API Security Top 10 2023 mitigation, and Threat Modeling with `pytm`), consult the specialized technical guide:
 👉 **[`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`](04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md)**
 
 ---
 
-## 4. Paridad Terminal ↔ Frontend y Tablas Mutables
+## 4. Terminal ↔ Frontend Parity and Mutable Tables
 
-1. **Cero Acciones Exclusivas de Consola:**
-   - Cualquier acción ejecutable por scripts CLI de administración debe tener su pantalla correspondiente en el frontend para operadores técnicos.
-2. **Cero Endpoints Huérfanos:**
-   - Ningún endpoint en la API debe existir sin una interfaz gráfica que permita inspeccionar, filtrar y accionar sus datos.
-3. **Tablas Operativas con Mutaciones Tácticas:**
-   - Evita crear tablas de datos puramente de solo lectura cuando la API backend admite mutaciones. Las tablas deben ofrecer botones de acción directa: Crear, Editar, Alternar (Toggle Habilitar/Deshabilitar) y Eliminar con confirmación visual.
+1. **Zero Console-Only Actions:**
+   - Any action executable via administrative CLI scripts must have a matching screen in the frontend for technical operators.
+2. **Zero Orphan Endpoints:**
+   - No API endpoint may exist without a graphical interface allowing inspection, filtering, and actioning of its data.
+3. **Operational Tables with Tactical Mutations:**
+   - Avoid building purely read-only data tables when the backend API supports mutations. Tables must offer direct action buttons: Create, Edit, Toggle (Enable/Disable), and Delete with visual confirmation.
 
 ---
 
-## 5. Endurecimiento de Contenedores y Motor en Memoria KeyDB
+## 5. Container Hardening and KeyDB In-Memory Engine
 
-1. **Ejecución No-Root Obligatoria:**
-   - Los contenedores de producción y QA deben ejecutarse bajo usuarios sin privilegios (`appuser` con UID 10001 en Python, `node` con UID 1000 en Node.js, o `www` con UID 1000 en PHP `sinfallas/basephpcomposer`).
-2. **Compilaciones Multi-Etapa (Multi-Stage Builds) e Imágenes Pre-Compiladas:**
-   - Aislar el compilador y los archivos de cabecera en una etapa de construcción (`builder`), copiando solo los artefactos finales compilados a la imagen de ejecución mínima (Alpine o distroless). En PHP (`8.2` a `8.5`), utilizar `sinfallas/basephpcomposer` (tags `8.2`, `8.3`, `8.4`, `8.5` y `latest`) con extensiones nativas C pre-compiladas (`pcov`, `redis`, `pdo_pgsql`, `intl`, `sodium`, `opcache` con `save_comments=1` y JIT) y `expose_php = Off`.
-3. **Motor en Memoria: KeyDB Multi-Threaded:**
-   - Reemplazar Redis tradicional de un solo hilo por **KeyDB** (`eqalpha/keydb:alpine`) con `--server-threads 2`. Permite multiplicar el rendimiento de operaciones de lectura/escritura y pub/sub por 3x sin modificar código cliente, manteniendo 100% de compatibilidad con librerías Redis.
-4. **Auditoría Preventiva con Trivy:**
-   - Integrar escaneos automáticos de vulnerabilidades con `aquasec/trivy:latest` sobre el sistema de archivos y manifiestos de infraestructura (`./scripts/auditar-infra.sh`), bloqueando el pase a producción si existen hallazgos de severidad CRITICAL o HIGH.
+1. **Mandatory Non-Root Execution:**
+   - Production and QA containers must run under unprivileged users (`appuser` UID 10001 in Python, `node` UID 1000 in Node.js, or `www` UID 1000 in PHP `sinfallas/basephpcomposer`).
+2. **Multi-Stage Builds and Pre-Compiled Images:**
+   - Isolate compilers and header files in a build stage (`builder`), copying only compiled final artifacts into the minimal runtime image (Alpine or distroless). In PHP (`8.2` to `8.5`), use `sinfallas/basephpcomposer` (tags `8.2`, `8.3`, `8.4`, `8.5`, and `latest`) with pre-compiled native C extensions (`pcov`, `redis`, `pdo_pgsql`, `intl`, `sodium`, `opcache` with `save_comments=1` and JIT) and `expose_php = Off`.
+3. **In-Memory Engine: Multi-Threaded KeyDB:**
+   - Replace traditional single-threaded Redis with **KeyDB** (`eqalpha/keydb:alpine`) using `--server-threads 2`. This multiplies read/write and pub/sub throughput by 3x without altering client code while retaining 100% compatibility with Redis libraries.
+4. **Preventive Auditing with Trivy:**
+   - Integrate automated vulnerability scans with `aquasec/trivy:latest` across the filesystem and infrastructure manifests (`./scripts/auditar-infra.sh`), blocking production release if any CRITICAL or HIGH findings exist.
 
-### 5.1. Despliegues No Interactivos (`docker compose run -T`) y Wrangler v4 (Cloudflare Pages) en Contenedores `read_only: true` (`QA-DOCKER-TTY-01`)
+### 5.1. Non-Interactive Deployments (`docker compose run -T`) and Wrangler v4 (Cloudflare Pages) in `read_only: true` Containers (`QA-DOCKER-TTY-01`)
 
-Durante el *dogfooding* productivo bajo **Regla Cero** (`wrangler 4.161.0` dentro de contenedores endurecidos con `read_only: true`, `cap_drop: [ALL]` y `CI: 'true'`), se identificaron tres fallos encadenados al combinar CLI interactivas modernas con rootfs de solo lectura:
-1. **`NoDefaultValueProvided` por pseudo-TTY (`process.stdin.isTTY === true`):** `docker compose run --rm` sin `-T` asigna un pseudo-TTY aunque `CI: 'true'` esté activo. Si el proyecto aún no existe en la cuenta o la CLI usa selectores interactivos, el proceso entra en la rama de prompts y aborta inmediatamente. En pipelines CI/CD, scripts de despliegue (`deploy*.sh`, `ci*.sh`) y flujos de agentes, ejecute siempre `docker compose run --rm -T` (`QA-DOCKER-TTY-01`).
-2. **Fallo `ENOENT` / `EROFS` en `/app/.wrangler/cache` (`saveToConfigCache`):** Con `read_only: true`, Docker exige que el directorio destino de un `tmpfs` fuera de `/tmp` o `/run` exista previamente en la imagen. Todo caché local requerido por la herramienta (ej. `/app/.wrangler`) debe precrearse en el `Dockerfile` (`mkdir -p` + `chown`) y montarse como `tmpfs` con `mode=1777,noexec,nosuid,nodev`.
-3. **Delegación silenciosa Pages-to-Workers (`maybeDelegatePagesToWorkers`) en sesiones de agentes IA:** Wrangler v4 puede intentar redirigir proyectos estáticos nuevos hacia Cloudflare Workers si detecta variables de entorno de agentes de codificación; añada `--force` explícitamente tanto en `wrangler pages project create` (verificando previamente la lista JSON de forma idempotente) como en `wrangler pages deploy`.
+During production *dogfooding* under **Rule Zero** (`wrangler 4.161.0` inside hardened containers with `read_only: true`, `cap_drop: [ALL]`, and `CI: 'true'`), three chained failures were uncovered when combining modern interactive CLIs with read-only root filesystems:
+1. **`NoDefaultValueProvided` via pseudo-TTY (`process.stdin.isTTY === true`):** `docker compose run --rm` without `-T` allocates a pseudo-TTY even when `CI: 'true'` is set. If the project does not yet exist on the account or the CLI uses interactive selectors, the process enters the prompt branch and aborts immediately. In CI/CD pipelines, deployment scripts (`deploy*.sh`, `ci*.sh`), and agent workflows, always execute `docker compose run --rm -T` (`QA-DOCKER-TTY-01`).
+2. **`ENOENT` / `EROFS` failure on `/app/.wrangler/cache` (`saveToConfigCache`):** With `read_only: true`, Docker requires any `tmpfs` mount target outside `/tmp` or `/run` to already exist inside the image. Any local cache directory required by the tool (e.g., `/app/.wrangler`) must be pre-created in the `Dockerfile` (`mkdir -p` + `chown`) and mounted as `tmpfs` with `mode=1777,noexec,nosuid,nodev`.
+3. **Silent Pages-to-Workers delegation (`maybeDelegatePagesToWorkers`) in AI agent sessions:** Wrangler v4 may attempt to redirect new static projects toward Cloudflare Workers when it detects coding-agent environment variables; explicitly pass `--force` on both `wrangler pages project create` (after idempotently checking the JSON list) and `wrangler pages deploy`.
 
 ```dockerfile
-# Dockerfile.deploy — precrear punto de montaje antes de pasar a usuario no-root
+# Dockerfile.deploy — pre-create mount point before dropping to non-root user
 USER root
 RUN mkdir -p /app/.wrangler \
     && chown -R appuser:appgroup /app /pnpm
@@ -207,7 +209,7 @@ USER appuser
 ```
 
 ```yaml
-# docker-compose.deploy.yml — rootfs read_only + tmpfs noexec + Fail-Secure + --force
+# docker-compose.deploy.yml — read_only rootfs + noexec tmpfs + Fail-Secure + --force
 services:
   deploy:
     read_only: true
@@ -226,8 +228,8 @@ services:
     command:
       - |
         set -eu
-        : "$${CF_PAGES_PROJECT:?CF_PAGES_PROJECT es obligatorio}"
-        : "$${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN es obligatorio}"
+        : "$${CF_PAGES_PROJECT:?CF_PAGES_PROJECT is required}"
+        : "$${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN is required}"
         PROJECT="$${CF_PAGES_PROJECT}"
         BRANCH="$${CF_PAGES_PRODUCTION_BRANCH:-main}"
         PROJECTS_JSON="$$(wrangler pages project list --json)"
@@ -244,17 +246,17 @@ services:
 ```
 
 ```bash
-# deploy.sh — deshabilitar pseudo-TTY en CI; requiere aprobación humana o compuerta GO (QA-GIT-GATE-01)
+# deploy.sh — disable pseudo-TTY in CI; requires human approval or GO gate (QA-GIT-GATE-01)
 docker compose -f docker-compose.deploy.yml run --rm -T --no-deps -u "$(id -u):$(id -g)" deploy
 ```
 
-> **Compuerta de Mutación Remota (`QA-GIT-GATE-01`):** Al igual que `git push` o `npm publish`, la ejecución de `deploy.sh` muta infraestructura externa en producción y requiere autorización explícita del operador humano o una compuerta de liberación `GO` (`evaluate_release_gate`).
+> **Remote Mutation Gate (`QA-GIT-GATE-01`):** Just like `git push` or `npm publish`, executing `deploy.sh` mutates external production infrastructure and requires explicit human operator authorization or a `GO` release gate (`evaluate_release_gate`).
 
-### 5.2. Empaquetado de Favicons Multi-Formato, Manifiesto PWA y Cabeceras Edge sin Duplicados (`UI-11X-03`)
+### 5.2. Multi-Format Favicon Packaging, PWA Manifest, and Duplicate-Free Edge Headers (`UI-11X-03`)
 
-Todo frontend SPA o sitio público SSG debe evitar atajos `.webp` en iconos de plataforma y desacoplar explícitamente las cabeceras heredadas de `/*` en Cloudflare Pages y Nginx:
+Every SPA frontend or public SSG site must avoid `.webp` shortcuts in platform icons and explicitly detach inherited `/*` headers on Cloudflare Pages and Nginx:
 
-1. **HTML (`index.html`) e Iconos Multi-Resolución:** Nunca apuntar `rel="apple-touch-icon"` a `.webp` ni `.svg` (Safari/iOS los ignora silenciosamente); generar desde el SVG maestro bajo **Regla Cero** (`mcr.microsoft.com/playwright` con `deviceScaleFactor: 1`) los PNGs y empaquetar `public/favicon.ico` (`sizes="48x48"` con tramas `16x16`/`32x32`/`48x48` para navegadores clásicos y Google Search `>= 48px`), `favicon.svg`, PNGs RGBA `48x48`/`32x32` y PNG RGB opaco `180x180` (sin canal alfa, zona segura del 80 %) para Apple Touch Icon:
+1. **HTML (`index.html`) and Multi-Resolution Icons:** Never point `rel="apple-touch-icon"` to `.webp` or `.svg` (Safari/iOS silently ignores them); generate PNGs from the master SVG under **Rule Zero** (`mcr.microsoft.com/playwright` with `deviceScaleFactor: 1`) and package `public/favicon.ico` (`sizes="48x48"` containing `16x16`/`32x32`/`48x48` frames for legacy browsers and Google Search `>= 48px`), `favicon.svg`, RGBA `48x48`/`32x32` PNGs, and opaque RGB `180x180` PNG (no alpha channel, 80% safe zone) for Apple Touch Icon:
    ```html
    <link rel="icon" href="/favicon.ico" sizes="48x48" />
    <link rel="icon" type="image/svg+xml" href="/favicons/favicon.svg" />
@@ -262,8 +264,8 @@ Todo frontend SPA o sitio público SSG debe evitar atajos `.webp` en iconos de p
    <link rel="icon" type="image/png" sizes="32x32" href="/favicons/favicon-32x32.png" />
    <link rel="apple-touch-icon" sizes="180x180" href="/favicons/apple-touch-icon.png" />
    ```
-2. **Manifiesto PWA (`site.webmanifest`):** Declarar `icon-192.png` (`192x192`) e `icon-512.png` (`512x512`) en formato `image/png` opaco (zona segura del 80 %) separando `"purpose": "any"` y `"purpose": "maskable"` en objetos distintos (evitando `"any maskable"` combinado).
-3. **Edge Cloudflare (`public/_headers` y `_routes.json`) y Nginx:** En Cloudflare Pages, toda subruta que sobrescriba una cabecera definida en `/*` (`Cache-Control`, `X-Robots-Tag`, `Cross-Origin-Resource-Policy`, `Content-Security-Policy`, `X-Frame-Options`, `Referrer-Policy`) DEBE desacoplarla primero con `! Nombre-Cabecera` para impedir concatenaciones duplicadas. Habilitar `Cross-Origin-Resource-Policy: cross-origin` en `/favicon.ico`, `/favicons/*`, `/brand/*` y `/og/*` (manteniendo `X-Robots-Tag: noindex, nofollow` en consolas SPA privadas y reservando `index, follow` exclusivamente para sitios públicos SSG). En `nginx/default.conf`, replicar `"same-origin"` en `server`/`/index.html` y `"cross-origin"` en `location ~* \.(?:ico|svg|png|webmanifest)$`. En `_routes.json`, excluir la ruta exacta `"/favicon.ico"` cuando `include` contiene `"/*"` y evitar comodines de sufijo inválidos (`/*.ico`, `/*.png`):
+2. **PWA Manifest (`site.webmanifest`):** Declare `icon-192.png` (`192x192`) and `icon-512.png` (`512x512`) in opaque `image/png` format (80% safe zone), separating `"purpose": "any"` and `"purpose": "maskable"` into distinct objects (avoiding combined `"any maskable"`).
+3. **Cloudflare Edge (`public/_headers` and `_routes.json`) and Nginx:** On Cloudflare Pages, any sub-route overriding a header defined under `/*` (`Cache-Control`, `X-Robots-Tag`, `Cross-Origin-Resource-Policy`, `Content-Security-Policy`, `X-Frame-Options`, `Referrer-Policy`) MUST detach it first with `! Header-Name` to prevent duplicate header concatenation. Enable `Cross-Origin-Resource-Policy: cross-origin` on `/favicon.ico`, `/favicons/*`, `/brand/*`, and `/og/*` (keeping `X-Robots-Tag: noindex, nofollow` on private SPA consoles and reserving `index, follow` strictly for public SSG sites). In `nginx/default.conf`, mirror `"same-origin"` on `server`/`/index.html` and `"cross-origin"` on `location ~* \.(?:ico|svg|png|webmanifest)$`. In `_routes.json`, exclude the exact `"/favicon.ico"` route whenever `include` contains `"/*"` and avoid invalid suffix wildcards (`/*.ico`, `/*.png`):
    ```text
    /favicon.ico
      ! Cache-Control
@@ -272,62 +274,62 @@ Todo frontend SPA o sitio público SSG debe evitar atajos `.webp` en iconos de p
      Cross-Origin-Resource-Policy: cross-origin
    ```
 
-### 5.3. Diferencia de Expansión entre `Makefile`/Compose y GitHub Actions (`QA-CI-ESCAPE-01`) y `$(CURDIR)` en Sub-Makefiles (`QA-MAKE-CURDIR-01`)
+### 5.3. Expansion Differences Between `Makefile`/Compose and GitHub Actions (`QA-CI-ESCAPE-01`) and `$(CURDIR)` in Sub-Makefiles (`QA-MAKE-CURDIR-01`)
 
-Durante auditorías de pipelines reales bajo **Regla Cero**, se identificaron dos fallos frecuentes al trasladar comandos `docker run` entre `Makefile`, `docker-compose.yml` y `.github/workflows/*.yml`:
+During audits of real pipelines under **Rule Zero**, two frequent failures surfaced when porting `docker run` commands between `Makefile`, `docker-compose.yml`, and `.github/workflows/*.yml`:
 
-1. **Prohibido usar `$$(...)` o `$${...}` en bloques `run:` de GitHub Actions (`QA-CI-ESCAPE-01`):** En recetas de GNU Make (o `command:` de `docker-compose.yml`) se escribe `$$(pwd)`, `$$(id -u)` o `$${VAR}` para escapar el signo `$` antes de entregarlo al shell. En cambio, GitHub Actions entrega el bloque `run:` directamente a `bash`: escribir `$$(pwd)` expande `$$` al **PID numérico del proceso** (ej. `2970(pwd)`), rompiendo montajes `-v` de Docker con `exit code 125`. Utilice siempre sustitución simple `$(pwd)` / `$(id -u):$(id -g)` / `${VAR}` en workflows y *composite actions* (use `# qa-ci-escape-ok` solo si el paso genera literalmente un `Makefile` o `docker-compose.yml`).
+1. **Forbidden `$$(...)` or `$${...}` inside GitHub Actions `run:` blocks (`QA-CI-ESCAPE-01`):** Inside GNU Make recipes (or `docker-compose.yml` `command:` fields), `$$(pwd)`, `$$(id -u)`, or `$${VAR}` is written to escape `$` before passing to the shell. By contrast, GitHub Actions hands `run:` blocks directly to `bash`: writing `$$(pwd)` expands `$$` to the **numeric process PID** (e.g., `2970(pwd)`), breaking Docker `-v` mounts with `exit code 125`. Always use single-dollar substitution `$(pwd)` / `$(id -u):$(id -g)` / `${VAR}` in workflows and composite actions (use `# qa-ci-escape-ok` only when the step literally generates a `Makefile` or `docker-compose.yml`).
    ```yaml
-   # ❌ ANTIPATRÓN (bash expande $$ al PID del proceso -> "create 2970(pwd)" exit code 125)
+   # ❌ ANTI-PATTERN (bash expands $$ to the process PID -> "create 2970(pwd)" exit code 125)
    - run: docker run --rm -u "$$(id -u):$$(id -g)" -v "$$(pwd):/workspace:ro" aquasec/trivy:latest config .
 
-   # ✔️ PATRÓN 11X (sustitución simple directa en bash)
+   # ✔️ 11X PATTERN (direct single-dollar bash substitution)
    - run: docker run --rm -u "$(id -u):$(id -g)" -v "$(pwd):/workspace:ro" aquasec/trivy:latest config .
    ```
-2. **Uso obligatorio de `$(CURDIR)` en sub-Makefiles (`QA-MAKE-CURDIR-01`):** Cuando un `Makefile` raíz delega con `$(MAKE) -C backend <target>`, GNU Make cambia al subdirectorio y actualiza `$(CURDIR)`, pero conserva `$(PWD)` / `${PWD}` apuntando al directorio padre del llamador. En `*/Makefile` y `*/Makefile.example` utilice siempre `$(CURDIR)` (ej. `HOST_PWD ?= $(CURDIR)`, eximible con `# qa-make-curdir-ok`) para preservar la frontera exacta de volumen en contenedores efímeros.
+2. **Mandatory use of `$(CURDIR)` in sub-Makefiles (`QA-MAKE-CURDIR-01`):** When a root `Makefile` delegates via `$(MAKE) -C backend <target>`, GNU Make changes into the subdirectory and updates `$(CURDIR)`, but leaves `$(PWD)` / `${PWD}` pointing to the caller's parent directory. In `*/Makefile` and `*/Makefile.example`, always use `$(CURDIR)` (e.g., `HOST_PWD ?= $(CURDIR)`, exemptible via `# qa-make-curdir-ok`) to preserve exact volume boundaries in ephemeral containers.
    ```makefile
-   # ❌ ANTIPATRÓN (hereda el PWD del Makefile raíz y monta el directorio padre)
+   # ❌ ANTI-PATTERN (inherits root Makefile PWD and mounts parent directory)
    HOST_PWD ?= $(PWD)
 
-   # ✔️ PATRÓN 11X (resuelve el directorio real del sub-Makefile invocado con make -C)
+   # ✔️ 11X PATTERN (resolves the actual directory of the sub-Makefile invoked via make -C)
    HOST_PWD ?= $(CURDIR)
    ```
 
 ---
 
-## 6. Manejo de Errores No Destructivo en Frontend
+## 6. Non-Destructive Error Handling in Frontend
 
-Un error clásico en tiendas de estado reactivas (Pinia, Vuex, Redux) es limpiar agresivamente los datos ante un fallo de red temporal:
+A classic mistake in reactive state stores (Pinia, Vuex, Redux) is aggressively wiping valid data upon a transient network blip:
 ```typescript
-// ❌ ANTIPATRÓN: Borra la información válida previa ante un parpadeo de red
+// ❌ ANTI-PATTERN: Wipes previously valid data on a network hiccup
 try {
   const data = await api.getInventory();
   items.value = data;
 } catch (error) {
-  items.value = []; // El usuario ve una pantalla en blanco repentina
+  items.value = []; // The user abruptly sees a blank screen
 }
 
-// ✔️ PATRÓN 11X: Preserva el último estado válido conocido y añade indicador
+// ✔️ 11X PATTERN: Preserves last known valid state and surfaces an indicator
 try {
   const data = await api.getInventory();
   items.value = data;
   isStale.value = false;
 } catch (error) {
   isStale.value = true;
-  lastErrorMessage.value = 'Fallo de conexión. Mostrando datos en caché local.';
+  lastErrorMessage.value = 'Connection failure. Showing locally cached data.';
 }
 ```
-Preservar el estado previo garantiza continuidad operativa en centros de monitoreo y entornos de alta densidad de datos.
+Preserving prior state ensures operational continuity in monitoring centers and high-density data environments.
 
 ---
 
-## 7. Alineación de Toolchain Node 26, pnpm 12, ESLint 8 y Karate 1.5.1 (Vue 3 / React / SSG)
+## 7. Toolchain Alignment: Node 26, pnpm 12, ESLint 8, and Karate 1.5.1 (Vue 3 / React / SSG)
 
-Al certificar proyectos frontend y Node.js dentro de las imágenes oficiales `sinfallas/base-node-ionic:26` (`Node v26.13+`, `pnpm 12.18+`) y `sinfallas/karatelabs:1.5.1`, deben respetarse cinco contratos de entorno para evitar falsos fallos de pipeline y preservar la seguridad Zero-Trust (`SEC-09`):
+When certifying frontend and Node.js projects inside the official `sinfallas/base-node-ionic:26` (`Node v26.13+`, `pnpm 12.18+`) and `sinfallas/karatelabs:1.5.1` images, five environment contracts must be honored to avoid false pipeline failures and maintain Zero-Trust security (`SEC-09`):
 
-1. **`pnpm-workspace.yaml` con mapa booleano `allowBuilds` (`SEC-09`):**
-   - En `pnpm@12+`, la clave heredada `package.json#pnpm.onlyBuiltDependencies` es ignorada con advertencia y los binarios nativos (`esbuild`, `playwright`, `@playwright/test`) abortan con `ERR_PNPM_IGNORED_BUILDS`.
-   - Omite `"pnpm"` en `package.json`, mantén `.npmrc` con `ignore-scripts=true`, y declara las excepciones estrictas en `pnpm-workspace.yaml` usando un **mapa booleano (`Record<string, boolean>`)** (nunca una lista YAML `- pkg`, que provoca `ERR_PNPM_INVALID_SETTING`):
+1. **`pnpm-workspace.yaml` with `allowBuilds` boolean map (`SEC-09`):**
+   - In `pnpm@12+`, the legacy `package.json#pnpm.onlyBuiltDependencies` key is ignored with a warning and native binaries (`esbuild`, `playwright`, `@playwright/test`) abort with `ERR_PNPM_IGNORED_BUILDS`.
+   - Omit `"pnpm"` from `package.json`, keep `.npmrc` with `ignore-scripts=true`, and declare strict exceptions in `pnpm-workspace.yaml` using a **boolean map (`Record<string, boolean>`)** (never a YAML `- pkg` list, which triggers `ERR_PNPM_INVALID_SETTING`):
      ```yaml
      allowBuilds:
        esbuild: true
@@ -335,38 +337,38 @@ Al certificar proyectos frontend y Node.js dentro de las imágenes oficiales `si
        '@playwright/test': true
        vue-demi: false
      ```
-2. **Compatibilidad TypeScript en Vue 3 (`vue-tsc ^2.2.8`):**
-   - Fija `"vue-tsc": "^2.2.8"` junto a `typescript ^5.7.2` en proyectos Vue 3 + Vite para evitar errores de resolución de tipos de versiones `1.x` desfasadas.
-3. **ESLint 8 clásico + `eslint-plugin-security` v3 (`recommended-legacy`):**
-   - En `eslint-plugin-security@^3.0.0`, el preset `recommended` exporta *Flat Config* (ESLint 9) y falla bajo `.eslintrc.json` de ESLint `8.57.x`. Extiende siempre `"plugin:security/recommended-legacy"` y añade `"ignorePatterns": ["dist/", "dist-ssr/", "coverage/", "playwright-report/", "lhci-reports/", "target/", "graphify-out/"]` (auditado por `SEC-09` en `audit_security_stig_owasp`).
-4. **Polyfill en memoria de `localStorage` para Vitest + `jsdom` sobre Node v26:**
-   - Node v26 expone un descriptor experimental `globalThis.localStorage` que sin `--localstorage-file` carece del método `.clear()` en sesiones `jsdom`. Registra un `Storage` en memoria dentro de `vitest.setup.ts` (enlazado mediante `test.setupFiles` en `vitest.config.ts`) cuando `typeof globalThis.localStorage?.clear !== 'function'`.
-5. **Frontera real de `sinfallas/karatelabs:1.5.1` (HTTP/OSHP/SSG/XML) vs Playwright (`ui-e2e`):**
-   - Las imágenes `sinfallas/karatelabs:1.5.1` / `:latest` no incluyen binario Chrome/Chromium. Delega toda interacción DOM real, verificación de botones `[ 🔄 Refrescar ]`, geometría Anti-JSDOM y WCAG 2.1 AA a Playwright (`ui-e2e`), y enfoca `test/ui_business_flow.feature` en contratos HTTP sobre `http://ui-prod:80`: códigos `200`, rutas SPA/SSG, cabeceras OWASP OSHP alineadas con `nginx/default.conf` (`Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`) y lectura segura de XML/SEO como cadena (`* string xmlText = response` en `/sitemap.xml` para evitar fallos de parser por namespaces).
-6. **Endurecimiento no-root de `ui-e2e` y paridad exacta Playwright (`QA-PLAYWRIGHT-PIN-01`):**
-   - Ejecuta el servicio `ui-e2e` (`mcr.microsoft.com/playwright:v1.52.0-noble`) bajo el UID/GID del usuario (`-u "$(QA_UID):$(QA_GID)" -e HOME=/tmp`), habilita Corepack sin privilegios de escritura global en `/tmp/.corepack-bin` (`COREPACK_HOME=/tmp/.corepack`), prioriza los binarios locales `./node_modules/.bin/playwright` y `./node_modules/.bin/lhci` antes de recurrir a `pnpm`/`corepack`, y fija versión exacta (`"1.52.0"`, sin `^` ni `~`) sincronizada entre `package.json` y el tag Docker (`QA-PLAYWRIGHT-PIN-01`).
-7. **Paridad de hidratación SSR/SSG bajo doble esquema de color (`QA-SSR-HYDRATION-01`):**
-   - En aplicaciones SSR/SSG (`nuxt`, `vitepress`, `astro`, `next`, `@sveltejs/kit`, `vite-ssg`, `createSSRApp`/`hydrateRoot`) con selector de tema claro/oscuro, evita ramificar el DOM inicial (`v-if`) según `localStorage.theme` o `dataset.theme` mutados antes de hidratar; renderiza ambas ramas vía CSS (`display: none` / `hidden dark:block`) y sincroniza el estado reactivo en `onMounted`.
-   - Añade en Playwright una prueba aislada para el `colorScheme` opuesto (`'light'` y `'dark'` vía `newContext`/`emulateMedia` o proyectos dedicados) con listeners `console` y `pageerror` que fallen ante cualquier advertencia `/hydration/i` (eximible únicamente mediante `# qa-ssr-hydration-ok`).
+2. **TypeScript Compatibility in Vue 3 (`vue-tsc ^2.2.8`):**
+   - Pin `"vue-tsc": "^2.2.8"` alongside `typescript ^5.7.2` in Vue 3 + Vite projects to avoid type-resolution errors from outdated `1.x` versions.
+3. **Classic ESLint 8 + `eslint-plugin-security` v3 (`recommended-legacy`):**
+   - In `eslint-plugin-security@^3.0.0`, the `recommended` preset exports *Flat Config* (ESLint 9) and crashes under ESLint `8.57.x` `.eslintrc.json`. Always extend `"plugin:security/recommended-legacy"` and set `"ignorePatterns": ["dist/", "dist-ssr/", "coverage/", "playwright-report/", "lhci-reports/", "target/", "graphify-out/"]` (audited by `SEC-09` in `audit_security_stig_owasp`).
+4. **In-Memory `localStorage` Polyfill for Vitest + `jsdom` on Node v26:**
+   - Node v26 exposes an experimental `globalThis.localStorage` descriptor that without `--localstorage-file` lacks the `.clear()` method inside `jsdom` sessions. Register an in-memory `Storage` inside `vitest.setup.ts` (wired via `test.setupFiles` in `vitest.config.ts`) whenever `typeof globalThis.localStorage?.clear !== 'function'`.
+5. **Real Boundary of `sinfallas/karatelabs:1.5.1` (HTTP/OSHP/SSG/XML) vs Playwright (`ui-e2e`):**
+   - The `sinfallas/karatelabs:1.5.1` / `:latest` images do not include Chrome/Chromium binaries. Delegate all real DOM interaction, `[ 🔄 Refrescar ]` button checks, Anti-JSDOM geometry, and WCAG 2.1 AA to Playwright (`ui-e2e`), and focus `test/ui_business_flow.feature` on HTTP contracts against `http://ui-prod:80`: `200` status codes, SPA/SSG routes, OWASP OSHP headers aligned with `nginx/default.conf` (`Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`), and safe string reading of XML/SEO (`* string xmlText = response` on `/sitemap.xml` to avoid namespace parser failures).
+6. **Non-Root `ui-e2e` Hardening and Exact Playwright Parity (`QA-PLAYWRIGHT-PIN-01`):**
+   - Run the `ui-e2e` service (`mcr.microsoft.com/playwright:v1.52.0-noble`) under the user's UID/GID (`-u "$(QA_UID):$(QA_GID)" -e HOME=/tmp`), enable Corepack without global write privileges into `/tmp/.corepack-bin` (`COREPACK_HOME=/tmp/.corepack`), prefer local `./node_modules/.bin/playwright` and `./node_modules/.bin/lhci` binaries before falling back to `pnpm`/`corepack`, and pin an exact version (`"1.52.0"`, no `^` or `~`) synchronized between `package.json` and the Docker tag (`QA-PLAYWRIGHT-PIN-01`).
+7. **SSR/SSG Hydration Parity Under Dual Color Scheme (`QA-SSR-HYDRATION-01`):**
+   - In SSR/SSG apps (`nuxt`, `vitepress`, `astro`, `next`, `@sveltejs/kit`, `vite-ssg`, `createSSRApp`/`hydrateRoot`) with a light/dark theme toggle, avoid branching the initial DOM (`v-if`) on `localStorage.theme` or `dataset.theme` mutated before hydration; render both branches via CSS (`display: none` / `hidden dark:block`) and synchronize reactive state in `onMounted`.
+   - Add an isolated Playwright test for the opposite `colorScheme` (`'light'` and `'dark'` via `newContext`/`emulateMedia` or dedicated projects) with `console` and `pageerror` listeners failing on any `/hydration/i` warning (exemptible strictly via `# qa-ssr-hydration-ok`).
 
 ---
 
-## 8. Compatibilidad PHP 8.4/8.5 (`PCOV` y `php.ini`), Exclusión `vendor/` en Trivy IaC y Fallback Rule Zero sin `make`
+## 8. PHP 8.4/8.5 Compatibility (`PCOV` & `php.ini`), `vendor/` Exclusion in Trivy IaC, and Rule Zero Fallback Without `make`
 
-Para evitar fricciones operativas en aplicaciones PHP 8.4/8.5 (Symfony/PSR-4 y Laravel), auditorías de infraestructura tras `composer install` y entornos sin GNU `make`:
+To eliminate operational friction in PHP 8.4/8.5 applications (Symfony/PSR-4 and Laravel), infrastructure audits after `composer install`, and environments lacking GNU `make`:
 
-1. **Directivas de sesión y precedencia `PCOV` en PHP 8.4/8.5 (`php/php.ini.example`, `php/composer.json.example`):**
-   - **Eliminación de `session.sid_length` y `session.sid_bits_per_character`:** Ambas directivas fueron deprecadas en PHP 8.4/8.5 en favor del CSPRNG nativo de 32 bytes; reemplázalas por `session.cache_expire = 15` junto a `session.use_strict_mode = 1`, `session.cookie_httponly = 1`, `session.cookie_secure = 1` y `session.cookie_samesite = Strict`.
-   - **Parametrización explícita de `pcov.directory` y orden en `conf.d`:** La imagen `sinfallas/basephpcomposer` carga `conf.d/docker-php-ext-pcov.ini` en orden lexicográfico. Pasa explícitamente `-d pcov.enabled=1 -d pcov.directory=src` (`-d pcov.directory=app` en Laravel) dentro de los scripts `qa:unit` / `qa:mutation` de `composer.json` (alineado con `<ini name="pcov.directory" value="src"/>` en `phpunit.xml.example`) y monta archivos `.ini` personalizados en `/usr/local/etc/php/conf.d/99-qa11x.ini:ro`.
-2. **Exclusión uniforme de `vendor` y `.venv` en Trivy IaC/FS, MCP y AST (`scripts/auditar-infra.sh`, `.trivy.yaml`):**
-   - Pasa `--skip-dirs node_modules,.git,dist,target,graphify-out,vendor,.venv` tanto a `trivy config` como a `trivy fs`, replica `vendor`/`.venv`/`target`/`graphify-out` en `scan.skip-dirs` de `.trivy.yaml`, e ignora `vendor` en `security-auditor.ts`, `inspect-project.ts` y `verify_topological_health.py` para evitar falsos positivos sobre dependencias Composer tras `composer install`, manteniendo intacto el escaneo de CVEs sobre `composer.lock` y `uv.lock` en raíz.
-3. **Fallback Rule Zero sin GNU `make` en `run_ephemeral_qa` (`mcp-server/src/tools/ephemeral-runner.ts`):**
-   - Cuando `make` falla con `ENOENT` (o falta `Makefile` pero existe `docker-compose.qa.yml`), el servidor MCP resuelve recursivamente delegaciones `$(MAKE) -C <subdir> <target>` (profundidad `<= 3`, contención estricta dentro del proyecto e inyección `--project-directory`), rechaza recetas con operadores shell fuera de comillas (`&&`, `||`, `;`, `|`, `>`, `<`) o subshells no expandidos (`$(...)` como `$$(id -u)`) para caer limpiamente al mapeo directo sobre `docker-compose.qa.yml`, descuenta el presupuesto restante de `timeoutSeconds` por paso y ejecuta `docker compose down -v --remove-orphans` tras comandos `up -d` usando exclusivamente `shell: false`.
+1. **Session Directives and `PCOV` Precedence in PHP 8.4/8.5 (`php/php.ini.example`, `php/composer.json.example`):**
+   - **Removal of `session.sid_length` and `session.sid_bits_per_character`:** Both directives were deprecated in PHP 8.4/8.5 in favor of the native 32-byte CSPRNG; replace them with `session.cache_expire = 15` alongside `session.use_strict_mode = 1`, `session.cookie_httponly = 1`, `session.cookie_secure = 1`, and `session.cookie_samesite = Strict`.
+   - **Explicit `pcov.directory` Parameterization and `conf.d` Ordering:** The `sinfallas/basephpcomposer` image loads `conf.d/docker-php-ext-pcov.ini` in lexicographical order. Explicitly pass `-d pcov.enabled=1 -d pcov.directory=src` (`-d pcov.directory=app` in Laravel) inside `composer.json` `qa:unit` / `qa:mutation` scripts (aligned with `<ini name="pcov.directory" value="src"/>` in `phpunit.xml.example`) and mount custom `.ini` files at `/usr/local/etc/php/conf.d/99-qa11x.ini:ro`.
+2. **Uniform Exclusion of `vendor` and `.venv` in Trivy IaC/FS, MCP, and AST (`scripts/auditar-infra.sh`, `.trivy.yaml`):**
+   - Pass `--skip-dirs node_modules,.git,dist,target,graphify-out,vendor,.venv` to both `trivy config` and `trivy fs`, mirror `vendor`/`.venv`/`target`/`graphify-out` in `.trivy.yaml` `scan.skip-dirs`, and ignore `vendor` in `security-auditor.ts`, `inspect-project.ts`, and `verify_topological_health.py` to avoid false positives on Composer dependencies after `composer install`, while keeping CVE scanning intact on root `composer.lock` and `uv.lock`.
+3. **Rule Zero Fallback Without GNU `make` in `run_ephemeral_qa` (`mcp-server/src/tools/ephemeral-runner.ts`):**
+   - When `make` fails with `ENOENT` (or `Makefile` is absent while `docker-compose.qa.yml` exists), the MCP server recursively resolves `$(MAKE) -C <subdir> <target>` delegations (depth `<= 3`, strict containment inside the project, and `--project-directory` injection), rejects recipes with unquoted shell operators (`&&`, `||`, `;`, `|`, `>`, `<`) or unexpanded subshells (`$(...)` such as `$$(id -u)`) to fall back cleanly to direct mapping on `docker-compose.qa.yml`, deducts remaining `timeoutSeconds` budget per step, and runs `docker compose down -v --remove-orphans` after `up -d` commands using exclusively `shell: false`.
 
 ---
 
-## 9. Auditoría Post-Deploy Dual (Lab + CrUX) con Google PageSpeed Insights v5 (`make audit-psi` / `make qa-psi`)
+## 9. Dual Post-Deploy Audit (Lab + CrUX) with Google PageSpeed Insights v5 (`make audit-psi` / `make qa-psi`)
 
-Complementa a Lighthouse CI (`@lhci/cli` pre-merge sobre contenedores locales) midiendo rendimiento real (*Core Web Vitals* de campo CrUX + puntuación Lighthouse en la nube) sobre dominios HTTPS públicos tras el despliegue:
-- **Ejecución estándar:** `make audit-psi URL=https://tu-dominio.com [STRATEGY=both|mobile|desktop] [MIN_PERF=0.90]` (alias `make qa-psi` en proyectos `vue3`/`react-frontend`), respaldado por `scripts/auditar-pagespeed.sh` y `.agents/scripts/audit_pagespeed_insights.py` dentro de `sinfallas/base-python-uv:3.15`.
-- **Controles de seguridad y resiliencia:** Bloqueo estricto Anti-SSRF (`SEC-03`: únicamente `https://` público, sin credenciales embebidas y resolución pre-DNS rechazando loopback/RFC1918/link-local/`.internal`), cierre limpio (`exit 0`, `SKIPPED`) ante ausencia opcional de `URL` o límite de cuota HTTP `429` sin `PAGESPEED_API_KEY`, y redacción automática de claves (`[REDACTED]`, `SEC-06`).
+Complements Lighthouse CI (`@lhci/cli` pre-merge against local containers) by measuring real performance (CrUX field *Core Web Vitals* + cloud Lighthouse score) against public HTTPS domains post-deployment:
+- **Standard Execution:** `make audit-psi URL=https://your-domain.com [STRATEGY=both|mobile|desktop] [MIN_PERF=0.90]` (aliased as `make qa-psi` in `vue3`/`react-frontend` projects), backed by `scripts/auditar-pagespeed.sh` and `.agents/scripts/audit_pagespeed_insights.py` inside `sinfallas/base-python-uv:3.15`.
+- **Security and Resilience Controls:** Strict Anti-SSRF blocking (`SEC-03`: public `https://` only, no embedded credentials, pre-DNS resolution rejecting loopback/RFC1918/link-local/`.internal`), clean exit (`exit 0`, `SKIPPED`) when optional `URL` is omitted or on HTTP `429` quota limit without `PAGESPEED_API_KEY`, and automatic key redaction (`[REDACTED]`, `SEC-06`).

@@ -133,6 +133,7 @@ class TestGenerarManifiesto(unittest.TestCase):
         stack_dir.mkdir()
         (stack_dir / "Makefile.example").write_text("all:", encoding="utf-8")
         (stack_dir / "README.md").write_text("# Doc", encoding="utf-8")  # Debe ignorarse
+        (stack_dir / "README.es.md").write_text("# Doc ES", encoding="utf-8")  # Debe ignorarse
         (stack_dir / "changelog").write_text("history", encoding="utf-8")  # Debe ignorarse
         (stack_dir / ".DS_Store").write_bytes(b"dummy")  # Debe ignorarse
 
@@ -343,6 +344,27 @@ class TestGenerarManifiesto(unittest.TestCase):
                 self.assertNotIn("<br>", mermaid_code, f"Tag <br> inválido en Mermaid de {rel_path}")
                 self.assertNotIn("<code>", mermaid_code, f"Tag <code> inválido en Mermaid de {rel_path}")
                 self.assertNotIn(r"\n", mermaid_code, f"Secuencia \\n inválida en Mermaid de {rel_path}")
+
+    def test_bilingual_stack_readme_hashes_and_es_governance_in_manifest(self) -> None:
+        """Verifica readme_sha256, readme_es, readme_es_sha256, exclusión README.es.md y espejos ES en gobernanza."""
+        manifest = gm.build_manifest(REPO_ROOT)
+        for stack_name, stack_entry in manifest["stacks"].items():
+            self.assertRegex(stack_entry["readme_sha256"], r"^[0-9a-f]{64}$")
+            self.assertEqual(stack_entry["readme_es"], f"{stack_name}/README.es.md")
+            self.assertRegex(stack_entry["readme_es_sha256"], r"^[0-9a-f]{64}$")
+            file_paths = {item["path"] for item in stack_entry["files"]}
+            self.assertNotIn(f"{stack_name}/README.md", file_paths)
+            self.assertNotIn(f"{stack_name}/README.es.md", file_paths)
+
+        gov_paths = {item["path"] for item in manifest["agent_governance_files"]}
+        self.assertIn("AI_MASTER_PROMPT.md", gov_paths)
+        self.assertIn("AI_MASTER_PROMPT.es.md", gov_paths)
+        self.assertIn("SECURITY.es.md", gov_paths)
+
+        empty_manifest = gm.build_manifest(self.temp_path)
+        for empty_stack in empty_manifest["stacks"].values():
+            self.assertNotIn("readme_sha256", empty_stack)
+            self.assertNotIn("readme_es", empty_stack)
 
 
 if __name__ == "__main__":

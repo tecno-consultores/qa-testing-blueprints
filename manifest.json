@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "3.0.0",
-  "generated_at_utc": "2026-11-15T01:49:00Z",
+  "generated_at_utc": "2026-11-15T02:40:54Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -9,6 +9,9 @@
     "bash-scripts": {
       "description": "Scripts DevOps y Automatización en Bash / POSIX Shell",
       "readme": "bash-scripts/README.md",
+      "readme_sha256": "fc7bff3e1c99b2960a7d192c034c8403981e855132ef3bfc3aaa07e8a6ce74fa",
+      "readme_es": "bash-scripts/README.es.md",
+      "readme_es_sha256": "0314d1c8c85ef3bcb99e9a0b1630066c66032727f2c978cee3c5ccadeb20244f",
       "files": [
         {
           "path": "bash-scripts/Makefile.example",
@@ -50,6 +53,9 @@
     "fastapi": {
       "description": "APIs Backend Asíncronas en Python (FastAPI + PostgreSQL 17 + KeyDB)",
       "readme": "fastapi/README.md",
+      "readme_sha256": "2ff4cc0ea61f3f59e4bcdc8eef70a559dbb3cf613986071cde01219fd39d2967",
+      "readme_es": "fastapi/README.es.md",
+      "readme_es_sha256": "a67ffbde88c6b9ebd68ee1d2d533cfcb8793ba9e12ce5d3d77c9429cba1e00d3",
       "files": [
         {
           "path": "fastapi/Makefile.example",
@@ -140,6 +146,9 @@
     "node-backend": {
       "description": "Microservicios Backend en Node.js / TypeScript (Express / Fastify)",
       "readme": "node-backend/README.md",
+      "readme_sha256": "2799c1acb07490c2a012d4be20b4b909ada82deec024cca868b81e88342ef65f",
+      "readme_es": "node-backend/README.es.md",
+      "readme_es_sha256": "68a9a26f43e428d0324860f329f9127216d28dcfe9f75ded0874d697d75b6f46",
       "files": [
         {
           "path": "node-backend/.eslintrc.json.example",
@@ -251,6 +260,9 @@
     "php": {
       "description": "APIs, Microservicios y Aplicaciones Backend en PHP 8.2-8.5 con PCOV, PHPStan, Psalm, Pest/PHPUnit, Infection y Karate BDD",
       "readme": "php/README.md",
+      "readme_sha256": "510c45ed3a0120cda38833fb2f9125fa1e34073445d236b19aeaa27be0460225",
+      "readme_es": "php/README.es.md",
+      "readme_es_sha256": "927e3a8f1713a5894ca4729c6073ca5e32e2c3933161b161a52c0b7ab3806e32",
       "files": [
         {
           "path": "php/Makefile.example",
@@ -327,6 +339,9 @@
     "python": {
       "description": "Scripts Standalone y Librerías en Python",
       "readme": "python/README.md",
+      "readme_sha256": "76276c47b17d7a06485b5c3e6dae92d18403bdbe6bb40fd657a5e40dabc4220d",
+      "readme_es": "python/README.es.md",
+      "readme_es_sha256": "919337f8efeb954ea5c3d7794908099f44706090ffed910ccd889a7020421cc0",
       "files": [
         {
           "path": "python/Makefile.example",
@@ -375,6 +390,9 @@
     "react-frontend": {
       "description": "Frontend Web en React + TypeScript + Vite",
       "readme": "react-frontend/README.md",
+      "readme_sha256": "6f2be9d0cacb165a293bfec94cfc75424364971f3ad1a77188cb1d02bc09e064",
+      "readme_es": "react-frontend/README.es.md",
+      "readme_es_sha256": "79e05304c08dd1755bbc975cfa1a4a53b10c749f4376d834357bac899857124b",
       "files": [
         {
           "path": "react-frontend/.browserslistrc.example",
@@ -521,6 +539,9 @@
     "vue3": {
       "description": "Frontend Web en Vue 3 + TypeScript + Vite",
       "readme": "vue3/README.md",
+      "readme_sha256": "0dd11f860f40436b939fd6d0082b94d30c590d19c2a39fca797f9bf9ef444297",
+      "readme_es": "vue3/README.es.md",
+      "readme_es_sha256": "72504146ebbf32c74348497ffbe671b50af16c65239e8338a5c348243ed3eef8",
       "files": [
         {
           "path": "vue3/.browserslistrc.example",
@@ -749,8 +770,8 @@
       "path": ".agents/README.md",
       "target_name": ".agents/README.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "03c44a5c94c158b03bfa5eddb15549e54608d3cdd96bc22e7c7e06b3a26065f2",
-      "size_bytes": 12602
+      "sha256": "9859467ba02a471dc4b18c0d39ae90f1b85e7c7136f0d5aef70fa18ffa7cd82e",
+      "size_bytes": 12627
     },
     {
       "path": ".agents/rules/active_task_and_planning_resilience.md",
@@ -819,8 +840,8 @@
       "path": ".agents/scripts/bump_version_11x.py",
       "target_name": ".agents/scripts/bump_version_11x.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "162727fd094e103ec1a2ab435bf5be897f77dae391f69db747c778b2964cb1cd",
-      "size_bytes": 13199
+      "sha256": "b99133e16987e339734ac267dfd8ffb714a9d0e976962d1117c3d82250043203",
+      "size_bytes": 14411
     },
     {
       "path": ".agents/scripts/certify_task_completion.sh",
@@ -875,8 +896,8 @@
       "path": ".agents/scripts/sync_governance.py",
       "target_name": ".agents/scripts/sync_governance.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "1d2e1d05b97d30fe2fcdb30353d9cc6982268233057686c39e482adeb3312bfd",
-      "size_bytes": 30157
+      "sha256": "146f54a4f47356143f29a1a3daa62d1e8f3b11c126a29222f6087d50b0bfab0c",
+      "size_bytes": 30740
     },
     {
       "path": ".agents/scripts/track_findings_state.py",
@@ -910,8 +931,8 @@
       "path": ".agents/scripts/verify_docs_invariants.py",
       "target_name": ".agents/scripts/verify_docs_invariants.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "ed037c52a204551b770507ad53ac3164a99ea2d2df777cbbc5a383c0b9546c3d",
-      "size_bytes": 22422
+      "sha256": "2a64dcaada9a8603a37510a56cb5530efe461f553acf3b5e8a013e6979a7ec1b",
+      "size_bytes": 33110
     },
     {
       "path": ".agents/scripts/verify_json_no_duplicate_keys.py",
@@ -931,8 +952,8 @@
       "path": ".agents/scripts/verify_roadmap_consistency.py",
       "target_name": ".agents/scripts/verify_roadmap_consistency.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "ee0df69ceda74af96b9fbac86d0e15b47bc18437b3fd6e6080e8270283157062",
-      "size_bytes": 11724
+      "sha256": "7d84a26fe864f16e06ce8d205e84615f10421e6aaf21be7d7f6ba0a3bfcab8a6",
+      "size_bytes": 13711
     },
     {
       "path": ".agents/scripts/verify_topological_health.py",
@@ -1155,15 +1176,29 @@
       "path": "AGENTS.md",
       "target_name": "AGENTS.md",
       "merge_strategy": "surgical_merge",
-      "sha256": "452de0616742631ba7cf7de40e6eb1a944b70214764d81242975793fddfc4e1c",
-      "size_bytes": 26141
+      "sha256": "b74f2a78ba31291ce5710115b7cf80b47581d8802195a86ccef73ca730b38a11",
+      "size_bytes": 26264
+    },
+    {
+      "path": "AI_MASTER_PROMPT.es.md",
+      "target_name": "AI_MASTER_PROMPT.es.md",
+      "merge_strategy": "copy_or_overwrite",
+      "sha256": "19b6ac62405c9a51b3d0b7af2df5c48cd36d41c43f559948569ff362c8d9ea43",
+      "size_bytes": 15100
     },
     {
       "path": "AI_MASTER_PROMPT.md",
       "target_name": "AI_MASTER_PROMPT.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "8ba9bb4e9339f9498698a68002d6babbf2b492ac3a0a3421726a9f3340634a43",
-      "size_bytes": 14765
+      "sha256": "4e68535ade25f054d1cb936890d93e3653009a6baf0662b17cf55adcc6dc3b49",
+      "size_bytes": 14122
+    },
+    {
+      "path": "SECURITY.es.md",
+      "target_name": "SECURITY.es.md",
+      "merge_strategy": "copy_or_overwrite",
+      "sha256": "0c9f7abe231f4d01e72515b4d4c76090ac1196fb6f071fbc807424c5ab8d2a21",
+      "size_bytes": 35135
     },
     {
       "path": "catalogs/agenticskills-submission.md",

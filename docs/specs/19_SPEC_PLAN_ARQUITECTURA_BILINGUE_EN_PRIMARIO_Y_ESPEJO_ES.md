@@ -1,8 +1,8 @@
 # 📐 Especificación 19: Plan de Arquitectura Documental Bilingüe (Inglés Primario `.md` + Espejo Español `.es.md`)
 
 **Proyecto:** QA Testing Blueprints (Estándar Corporativo QA-11X)  
-**Versión Objetivo:** Planificación v3.x (Diseño arquitectónico — **NO ejecutado en v3.0.0**)  
-**Estado:** PLANIFICADO — DISEÑO ARQUITECTÓNICO v3.x (NO EJECUTADO EN v3.0.0)  
+**Versión Objetivo:** QA-11X v3.0 (`v3.0.0` — Implementación ejecutada)  
+**Estado:** IMPLEMENTADO Y CERTIFICADO EN QA-11X v3.0  
 **Audiencia:** Mantenedores del Estándar 11X, Ingenieros Humanos y Agentes de IA
 
 ---
@@ -11,7 +11,7 @@
 
 Esta especificación define la planificación técnica detallada para migrar toda la documentación humana y de gobernanza visible de **`qa-testing-blueprints`** hacia una arquitectura **English-Primary (`*.md`) + 1:1 Spanish Mirror (`*.es.md`)**, preservando compatibilidad hacia atrás con enlaces históricos y optimizando la economía de tokens para Agentes de IA.
 
-> **FRONTERA DE EJECUCIÓN EN v3.0.0:** En cumplimiento estricto de las instrucciones de liberación `v3.0.0`, este documento constituye **únicamente una especificación de planificación**. No renombra, traduce ni elimina los manuales vigentes en español; únicamente sincroniza los puntos de entrada bilingües ya existentes (`README.md`/`README.es.md`, `mcp-server/README.md`/`mcp-server/README.es.md`, `docs/agent-setup.en.md`/`docs/agent-setup.md`).
+> **ESTADO DE EJECUCIÓN EN QA-11X v3.0:** Las **4 fases (A, B, C y D)** de la arquitectura bilingüe **English-Primary (`*.md`) + 1:1 Spanish Mirror (`*.es.md`)** están implementadas: documentación raíz, los 10 stacks (`<stack>/README.{md,es.md}`), `architecture/`, `docs/specs/README.{md,es.md}`, manuales operativos en `docs/`, resolución dinámica MCP `?lang=es|en` (`resourceLang.ts`), campos `readme_es` / `readme_sha256` / `readme_es_sha256` en `manifest.json` y paridad automatizada en `verify_docs_invariants.py`, `verify_roadmap_consistency.py` y `bump_version_11x.py` (manteniendo las Specs históricas `01..20` en español conforme al §3.4).
 
 ---
 

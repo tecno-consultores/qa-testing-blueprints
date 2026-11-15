@@ -1,125 +1,127 @@
-> **[SYSTEM DIRECTIVE FOR AI AGENTS]:** Act as a Staff QA Automation Engineer and DevOps Expert. Read, parse, and strictly enforce the following architectural constraints written in Spanish. You must generate code that perfectly aligns with these rules, using exclusively the ephemeral Docker containers, testing frameworks, and strict quality thresholds (e.g., 95% coverage, SAST, Profiling) specified below. Do not suggest local installations. Process the technical logic at your highest reasoning capacity in English, but output your final response, explanations, and code comments in Spanish.
+> **[SYSTEM DIRECTIVE FOR AI AGENTS]:** Act as a Staff QA Automation Engineer and DevOps Expert. Read, parse, and strictly enforce the following architectural constraints written in English. You must generate code that perfectly aligns with these rules, using exclusively the ephemeral Docker containers, testing frameworks, and strict quality thresholds (e.g., 95% coverage, SAST, Profiling) specified below. Do not suggest local installations. Process the technical logic at your highest reasoning capacity in English, and output your final response, explanations, and code comments in the user's prompt language (defaulting to English).
 
-# Guía de Pruebas y Validación para Scripts Python (Standalone/Librerías)
+> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (README.es.md)](README.es.md)
 
-Este documento contiene las instrucciones corporativas de Nivel 11X que DEBES seguir innegociablemente al generar código de pruebas para herramientas en Python puro (CLI, scripts automáticos o librerías internas).
+# Testing and Validation Guide for Python Scripts (Standalone/Libraries)
 
-## 1. Reglas Estrictas de Ejecución (Contenedores Efímeros No-Root y Caché)
-**NUNCA** debes instruir la construcción de imágenes locales (`docker build`), instalaciones globales en el host ni ejecuciones como `root`. Toda ejecución corre en contenedores efímeros con UID/GID mapeado (`-u "$(id -u):$(id -g)"`), `HOME=/tmp`, `COVERAGE_FILE=/tmp/.coverage` y `UV_CACHE_DIR=/tmp/uv-cache`:
-*   Para pruebas lógicas, contratos Pact, linting, tipado estricto y profiling: `sinfallas/base-python-uv:3.15` (tags disponibles: `3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest`).
-*   Para pruebas de carga declarativas (`smoke|load|stress`) y SLOs: `grafana/k6:2.4.0`.
-*   Para Recolección de Métricas: `prom/prometheus:latest` (y Pushgateway si aplica).
-*   Para AST Semántico Graphify: `sinfallas/remote-graphify:latest` (vía `./scripts/actualizar-grafos-graphify.sh`).
+This document contains the non-negotiable Level-11X corporate instructions you MUST follow when generating test code for pure Python tools (CLIs, automation scripts, or internal libraries).
 
-**Gestor de Paquetes:** La sincronización de dependencias usa `uv` respaldado por `/tmp/uv-cache` y librerías preinstaladas en la imagen v2 (`pact` 4.2.0, `ruff`, `mypy`, `pytest`, `pip-audit`).
-**Obligatorio:** Utiliza las metas limpias del `Makefile` (`make qa-lint`, `make qa-unit`, y desde la raíz del catálogo `make test-backend-blueprints`) para preservar aislamiento total y cero archivos propiedad de `root`.
+## 1. Strict Execution Rules (Non-Root Ephemeral Containers & Cache)
+**NEVER** instruct local image builds (`docker build`), global host installations, or running as `root`. Every execution runs in ephemeral containers with mapped UID/GID (`-u "$(id -u):$(id -g)"`), `HOME=/tmp`, `COVERAGE_FILE=/tmp/.coverage`, and `UV_CACHE_DIR=/tmp/uv-cache`:
+*   For logic tests, Pact contracts, linting, strict typing, and profiling: `sinfallas/base-python-uv:3.15` (available tags: `3.11`, `3.12`, `3.13`, `3.14`, `3.15`, and `latest`).
+*   For declarative load tests (`smoke|load|stress`) and SLOs: `grafana/k6:2.4.0`.
+*   For Metrics Collection: `prom/prometheus:latest` (and Pushgateway if applicable).
+*   For Graphify Semantic AST: `sinfallas/remote-graphify:latest` (via `./scripts/actualizar-grafos-graphify.sh`).
 
-## 2. Pila Tecnológica Requerida
-Al generar código, configurar el entorno o plantear soluciones, debes asegurar la implementación de estas herramientas:
+**Package Manager:** Dependency synchronization uses `uv` backed by `/tmp/uv-cache` and preinstalled libraries in the v2 image (`pact` 4.2.0, `ruff`, `mypy`, `pytest`, `pip-audit`).
+**Mandatory:** Use clean `Makefile` targets (`make qa-lint`, `make qa-unit`, and from the catalog root `make test-backend-blueprints`) to preserve full isolation and zero `root`-owned files.
 
-*   **Linting y Formateo:** `ruff` (`C901` con complejidad máxima `<= 5` en pruebas críticas y módulos nuevos).
-*   **Tipado Estricto:** `mypy --strict --cache-dir=/tmp/mypy` (prevención de excepciones en tiempo de ejecución).
-*   **Seguridad y Auditoría:** `pip-audit` (CVEs de dependencias) y `bandit` (vulnerabilidades SAST en el código base).
-*   **Análisis de Complejidad (Deuda Técnica):** `radon` (Mantenibilidad Grado A y complejidad ciclomática <= B).
-*   **Profiling (Memoria y CPU):** `py-spy` (Detección de cuellos de botella mediante *Flamegraphs*).
-*   **Pruebas Lógicas Base e Intercepción:** `pytest` como motor principal, potenciado obligatoriamente por `pytest-mock` y `unittest.mock` para aislar la red y dependencias externas.
-*   **Contratos Consumer-Driven Zero-Infra (`Pact` V3/V4):** Paquete `pact` preinstalado exportando artefactos deterministas en `PACT_OUTPUT_DIR` (sin *Pact Broker* externo) sobre *Trimodal Fixtures* (`nominal_configured`, `virgin_empty`, `degraded_conflict`), serialización monetaria exacta con `Decimal` (prohibido `float`), cabecera obligatoria `Idempotency-Key` UUIDv4, errores RFC 7807 (`application/problem+json`) e inspección por ítem de respuestas batch (`results[].status`).
-*   **Comportamiento BDD y Carga SLO (`k6`):** `pytest-bdd` para Gherkin local y `fastapi/tests/load/smoke.k6.js` (`K6_PROFILE=smoke|load|stress`) para validar `p(95) < 250ms`, `p(99) < 500ms` y error `< 1%` sin falsos verdes.
-*   **Cobertura (Coverage):** `pytest-cov` (se exige un mínimo del 95% con `COVERAGE_FILE=/tmp/.coverage`).
-*   **Pruebas de Mutación:** `mutmut` (para validar si las pruebas fallan cuando el código lógico cambia).
-*   **Matriz de Compatibilidad y RLS:** `tox` con `tox-uv` y verificación contra `postgres:17-alpine` (`NOBYPASSRLS`, `FORCE RLS`, `SET LOCAL app.current_tenant_id`).
-*   **Observabilidad:** `prometheus_client`.
+## 2. Required Tech Stack
+When generating code, configuring the environment, or proposing solutions, you must ensure the implementation of these tools:
 
-## 3. Arquitectura de las Pruebas a Generar
+*   **Linting and Formatting:** `ruff` (`C901` with max complexity `<= 5` in critical tests and new modules).
+*   **Strict Typing:** `mypy --strict --cache-dir=/tmp/mypy` (prevents runtime exceptions).
+*   **Security and Auditing:** `pip-audit` (dependency CVEs) and `bandit` (SAST vulnerabilities in the codebase).
+*   **Complexity Analysis (Technical Debt):** `radon` (Maintainability Index Grade A and cyclomatic complexity <= B).
+*   **Profiling (Memory and CPU):** `py-spy` (bottleneck detection via *Flamegraphs*).
+*   **Core Logic Tests and Interception:** `pytest` as the primary engine, mandatorily enhanced with `pytest-mock` and `unittest.mock` to isolate networking and external dependencies.
+*   **Zero-Infra Consumer-Driven Contracts (`Pact` V3/V4):** Preinstalled `pact` package exporting deterministic artifacts into `PACT_OUTPUT_DIR` (without an external *Pact Broker*) over *Trimodal Fixtures* (`nominal_configured`, `virgin_empty`, `degraded_conflict`), exact monetary serialization using `Decimal` (`float` prohibited), mandatory UUIDv4 `Idempotency-Key` header, RFC 7807 errors (`application/problem+json`), and per-item inspection of batch responses (`results[].status`).
+*   **BDD Behavior and SLO Load (`k6`):** `pytest-bdd` for local Gherkin and `fastapi/tests/load/smoke.k6.js` (`K6_PROFILE=smoke|load|stress`) to validate `p(95) < 250ms`, `p(99) < 500ms`, and error `< 1%` without false greens.
+*   **Coverage:** `pytest-cov` (minimum 95% required with `COVERAGE_FILE=/tmp/.coverage`).
+*   **Mutation Testing:** `mutmut` (to verify whether tests fail when logic code changes).
+*   **Compatibility Matrix and RLS:** `tox` with `tox-uv` and verification against `postgres:17-alpine` (`NOBYPASSRLS`, `FORCE RLS`, `SET LOCAL app.current_tenant_id`).
+*   **Observability:** `prometheus_client`.
 
-Cuando redactes código de pruebas (`tests/`) o lógica base (`src/`), debes separarlo estrictamente en estas áreas:
+## 3. Architecture of Tests to Generate
 
-### A. Observabilidad en Código (Requisito Previo Innegociable)
-Dependiendo de la naturaleza del script, debes instrumentarlo de una de estas dos formas:
+When writing test code (`tests/`) or base logic (`src/`), you must strictly separate it into these areas:
 
-1.  **Si es un Script Continuo (Daemon/Bot):** Inyecta un mini-servidor asíncrono en `src/main.py` para exponer métricas en el puerto 8000.
+### A. Code Observability (Non-Negotiable Prerequisite)
+Depending on the script's nature, you must instrument it in one of these two ways:
+
+1.  **If it is a Continuous Script (Daemon/Bot):** Inject a lightweight async server in `src/main.py` to expose metrics on port 8000.
     ```python
     from prometheus_client import start_http_server
     if __name__ == '__main__':
-        start_http_server(8000) # Expone métricas sin bloquear el script
-        # ... resto de la lógica ...
+        start_http_server(8000) # Exposes metrics without blocking the script
+        # ... rest of the logic ...
     ```
 
-2.  **Si es un Script Efímero (Batch Task / Cron):** Prometheus no tendrá tiempo de rasparlo. En su lugar, usa `push_to_gateway` para enviar las métricas recolectadas antes de que el script muera.
+2.  **If it is an Ephemeral Script (Batch Task / Cron):** Prometheus will not have time to scrape it. Instead, use `push_to_gateway` to send collected metrics before the script exits.
     ```python
     from prometheus_client import CollectorRegistry, push_to_gateway
-    # ... recolecta tus métricas en el registro ...
+    # ... collect your metrics in the registry ...
     if __name__ == '__main__':
         registry = CollectorRegistry()
-        # ... lógica del script ...
+        # ... script logic ...
         try:
             push_to_gateway('python_pushgateway:9091', job='batch_script', registry=registry)
         except Exception as e:
-            pass # Falla silenciosa si no hay red de QA viva
+            pass # Silent failure if no live QA network is present
     ```
 
-### B. Pruebas Unitarias (Mockeadas / Aisladas)
-*   **Propósito:** Validar la lógica pura de la librería sin depender de red o credenciales.
-*   **Frontera Estricta (Tool Boundary):** Todos los archivos de pruebas unitarias DEBEN nombrarse respetando el patrón `test_*.py` y no tener decoradores de integración.
-*   **Regla:** Utiliza `pytest-mock` (el fixture `mocker`) o `@patch` para interceptar la red (ej. `requests`). Simula respuestas JSON exitosas y fallos catastróficos. NINGUNA prueba de este tipo puede tener latencia real.
+### B. Unit Tests (Mocked / Isolated)
+*   **Purpose:** Validate pure library logic without depending on network or credentials.
+*   **Strict Boundary (Tool Boundary):** All unit test files MUST follow the `test_*.py` naming pattern and must NOT contain integration decorators.
+*   **Rule:** Use `pytest-mock` (the `mocker` fixture) or `@patch` to intercept networking (e.g., `requests`). Simulate successful JSON responses and catastrophic failures. NO test of this kind may introduce real latency.
 
-### C. Pruebas de Integración (Reales)
-*   **Propósito:** Validar contratos externos y la comunicación con servicios reales.
-*   **Regla:** Usa `python-dotenv` para cargar variables de entorno. Utiliza el decorador `@pytest.mark.integration`. Estas pruebas SÍ requieren credenciales.
+### C. Integration Tests (Real)
+*   **Purpose:** Validate external contracts and communication with real services.
+*   **Rule:** Use `python-dotenv` to load environment variables. Use the `@pytest.mark.integration` decorator. These tests DO require credentials.
 
-### D. Comportamiento y Benchmarking (`pytest-bdd` & `pytest-benchmark`)
-*   **BDD:** Utiliza archivos `.feature` para describir el uso de la librería desde la perspectiva del usuario final y enlázalos usando `pytest-bdd`.
-*   **Benchmarking:** Marca las funciones matemáticas pesadas o de procesamiento de datos con el fixture `benchmark` para asegurar que refactorizaciones futuras no degraden la velocidad.
+### D. Behavior & Benchmarking (`pytest-bdd` & `pytest-benchmark`)
+*   **BDD:** Use `.feature` files to describe library usage from the end-user perspective and bind them using `pytest-bdd`.
+*   **Benchmarking:** Mark heavy math or data-processing functions with the `benchmark` fixture to ensure future refactorings do not degrade speed.
 
-### E. Complejidad Ciclomática (`radon`)
-*   **Regla:** Ningún método generado puede superar el grado `B` de complejidad ciclomática ni caer del grado `A` en índice de mantenibilidad (MI). Si el código es muy complejo, divídelo.
+### E. Cyclomatic Complexity (`radon`)
+*   **Rule:** No generated method may exceed cyclomatic complexity grade `B` or drop below grade `A` in Maintainability Index (MI). If code is too complex, split it.
 
-### F. Ingestión Inteligente (Paso 0 - AST Graphify)
-*   **Regla (Exclusiva para ti, IA):** Tienes estrictamente prohibido generar código o pruebas a ciegas. Antes de modificar código, consulta el grafo AST con `python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"` (o actualiza con `./scripts/actualizar-grafos-graphify.sh`). Además, DEBES leer las configuraciones de linters y dependencias definidos en `pyproject.toml` para adaptar tu código a las convenciones estrictas del repositorio y evitar rechazos en el CI/CD.
+### F. Smart Ingestion (Step 0 - AST Graphify)
+*   **Rule (Exclusive to you, AI):** You are strictly forbidden from generating code or tests blindly. Before modifying code, query the AST graph with `python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"` (or update it with `./scripts/actualizar-grafos-graphify.sh`). Additionally, you MUST read linter configurations and dependencies defined in `pyproject.toml` to adapt your code to strict repository conventions and avoid CI/CD rejections.
 
-### G. Seguridad por Diseño Obligatoria (DISA ASD STIG V6R5 & OWASP Developer Guide v4.2)
-*   Todo script o librería en Python DEBE cumplir y probar los controles aplicables de **[`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`](../docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md)**:
-    *   **Canonicalización y Ejecución Segura (`APSC-DV-002510, 002520`):** Normalizar entradas de texto con `unicodedata.normalize("NFKC", ...)` antes de validar y usar `subprocess.run([...], shell=False)` con rutas absolutas y listas blancas (prohibido `shell=True`, `os.system`, `eval`, `pickle.loads`, `yaml.load`).
-    *   **XML/XXE y Archivos (`APSC-DV-002390, 002485, 002550`):** Deshabilitar DTDs y entidades externas en analizadores XML (`resolve_entities=False`, `no_network=True`), validar archivos por *Magic Bytes* y mapear rutas mediante índices en lista blanca.
-    *   **Criptografía FIPS 140-3, Zeroización de Memoria, Logs y SBOM (`APSC-DV-000650, 001090, 001350, 002310, 002590, 003310` & `OWASP 4.3.9, 4.3.10, 5.3.4`):** Sobrescribir con ceros (`zeroize`) los búferes de memoria (`bytearray`) con secretos al salir de cada función, sanitizar CR/LF en logs con 0 credenciales registradas, fallar en estado seguro (*Fail-Closed*) y generar **CycloneDX SBOM** (`cyclonedx-py`).
+### G. Mandatory Security by Design (DISA ASD STIG V6R5 & OWASP Developer Guide v4.2)
+*   Every Python script or library MUST comply with and test the applicable controls from **[`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`](../docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md)**:
+    *   **Canonicalization and Safe Execution (`APSC-DV-002510, 002520`):** Normalize text inputs with `unicodedata.normalize("NFKC", ...)` before validation and use `subprocess.run([...], shell=False)` with absolute paths and allowlists (`shell=True`, `os.system`, `eval`, `pickle.loads`, `yaml.load` prohibited).
+    *   **XML/XXE and Files (`APSC-DV-002390, 002485, 002550`):** Disable DTDs and external entities in XML parsers (`resolve_entities=False`, `no_network=True`), validate files via *Magic Bytes*, and map paths using allowlisted index lookups.
+    *   **FIPS 140-3 Cryptography, Memory Zeroization, Logs & SBOM (`APSC-DV-000650, 001090, 001350, 002310, 002590, 003310` & `OWASP 4.3.9, 4.3.10, 5.3.4`):** Overwrite secret memory buffers (`bytearray`) with zeros (`zeroize`) on function exit, sanitize CR/LF in logs with 0 logged credentials, fail closed (*Fail-Closed*), and generate **CycloneDX SBOM** (`cyclonedx-py`).
 
-## 4. Comandos de Ejecución Local para Desarrolladores (y para la IA)
+## 4. Local Execution Commands for Developers (and AI)
 
-En lugar de construir comandos complejos de Docker, **DEBES** instruir al usuario (o ejecutar autónomamente si tienes acceso a terminal) utilizando el `Makefile` estandarizado:
+Instead of building complex Docker commands, you **MUST** instruct the user (or execute autonomously if you have terminal access) using the standardized `Makefile`:
 
-**Paso 0: Actualización del Grafo AST y Contratos Backend**
+**Step 0: AST Graph Update and Backend Contracts**
 ```bash
 ./scripts/actualizar-grafos-graphify.sh
-# Desde la raíz del repositorio para certificar Pact Python->Node + k6 smoke + antipatrones:
+# From the repository root to certify Pact Python->Node + k6 smoke + anti-patterns:
 make test-backend-blueprints
 ```
 
-**Paso 1: Ejecución de las suites de validación**
+**Step 1: Run validation suites**
 
-*   **Auditoría SAST, Calidad, Complejidad y Formateo:**
+*   **SAST Audit, Quality, Complexity, and Formatting:**
 ```bash
 make qa-lint
 ```
 
-*   **Suite Unitaria (Aislada), BDD y Benchmarking (Cobertura innegociable > 95%):**
+*   **Isolated Unit Suite, BDD, and Benchmarking (Non-negotiable coverage > 95%):**
 ```bash
 make qa-unit
 ```
 
-*   **Pruebas de Mutación (Solidez de Assertions):**
+*   **Mutation Testing (Assertion Strength):**
 ```bash
 make qa-mutation
 ```
 
-*   **Profiling (Generar Flamegraph de CPU para el script):**
+*   **Profiling (Generate CPU Flamegraph for the script):**
 ```bash
 docker compose -f docker-compose.qa.yml run --rm qa-backend bash -c "uv sync && py-spy record -o profile.svg -- python src/main.py"
 ```
 
-**Paso 2: Certificación de Observabilidad en Vivo (Nivel 11X)**
-Si el script fue instrumentado (sea como daemon o script efímero mediante Pushgateway), ejecútalo encendiendo el perfil de observabilidad.
+**Step 2: Live Observability Certification (Level 11X)**
+If the script was instrumented (either as a daemon or an ephemeral script via Pushgateway), run it with the observability profile enabled.
 ```bash
 docker compose -f docker-compose.qa.yml --profile observability up -d
 docker compose -f docker-compose.qa.yml run --rm qa-backend bash -c "uv sync && python src/main.py"
 ```
-*(Accede a `http://localhost:9090` durante la ejecución para evaluar el comportamiento de raspeo o push de métricas).*
+*(Open `http://localhost:9090` during execution to inspect metric scraping or push behavior).*

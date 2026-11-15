@@ -473,6 +473,30 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             "qa-11x-architect/SKILL.md supera el límite compacto de 12 KB",
         )
 
+    def test_mobile_appium_stack_hydrates_cleanly_with_dedicated_image(self) -> None:
+        """Verifica hidratación limpia de mobile-appium/*.example y su imagen dedicada Spec 20."""
+        mobile_dir = REPO_ROOT / "mobile-appium"
+        compose_example = (mobile_dir / "docker-compose.qa.yml.example").read_text(encoding="utf-8")
+        self.assertIn("sinfallas/base-mobile-appium:26", compose_example)
+        self.assertIn("qa-mobile", compose_example)
+
+        makefile_example = (mobile_dir / "Makefile.example").read_text(encoding="utf-8")
+        self.assertIn("sinfallas/base-mobile-appium:26", makefile_example)
+
+        pkg_example = json.loads((mobile_dir / "package.json.example").read_text(encoding="utf-8"))
+        self.assertIn("sinfallas/base-mobile-appium:26", pkg_example.get("description", ""))
+
+        hydration_dir = Path(tempfile.mkdtemp(prefix="smoke_mobile_appium_"))
+        try:
+            for template in ("docker-compose.qa.yml.example", "Makefile.example", "package.json.example", "gitignore.example"):
+                src = mobile_dir / template
+                target_name = ".gitignore" if template == "gitignore.example" else template.removesuffix(".example")
+                dest = hydration_dir / target_name
+                shutil.copy2(src, dest)
+                self.assertTrue(dest.is_file(), f"No hidrató {target_name}")
+        finally:
+            shutil.rmtree(hydration_dir, ignore_errors=True)
+
 
 if __name__ == "__main__":
     unittest.main()

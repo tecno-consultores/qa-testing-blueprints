@@ -63,10 +63,12 @@ function resolveOrSeedBlueprintRepo(baseDir: string): string {
   const repoDir = path.join(baseDir, 'blueprint-repo');
   const fastapiReadme = writeTextFile(repoDir, 'fastapi/README.md', '# FastAPI QA-11X Blueprint\n');
   const cleanScript = writeTextFile(repoDir, 'scripts/limpieza.sh', '#!/usr/bin/env bash\nexit 0\n');
-  const aiMaster = writeTextFile(repoDir, 'AI_MASTER_PROMPT.md', '# Master Prompt\n');
-  const skillMd = writeTextFile(repoDir, '.agents/skills/qa-11x-architect/SKILL.md', '# QA 11X Architect\n');
-  const secRef = writeTextFile(repoDir, '.agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.md', '# DISA STIG & OWASP\n');
-  const taskTpl = writeTextFile(repoDir, '.agents/ACTIVE_TASK.md.example', '# Active Task Example\n');
+  const aiMaster = writeTextFile(repoDir, 'AI_MASTER_PROMPT.md', '# Master Prompt QA-11X Blueprint\n');
+  const aiMasterEs = writeTextFile(repoDir, 'AI_MASTER_PROMPT.es.md', '# Prompt Maestro QA-11X Blueprint\n');
+  const skillMd = writeTextFile(repoDir, '.agents/skills/qa-11x-architect/SKILL.md', '# QA 11X Architect Skill Reference\n');
+  const secRef = writeTextFile(repoDir, '.agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.md', '# DISA STIG & OWASP Security Catalog\n');
+  const secRefEs = writeTextFile(repoDir, '.agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.es.md', '# Catálogo de Seguridad DISA STIG & OWASP\n');
+  const taskTpl = writeTextFile(repoDir, '.agents/ACTIVE_TASK.md.example', '# Active Task Example Template\n');
   const roadVal = writeTextFile(repoDir, '.agents/scripts/verify_roadmap_consistency.py', 'def main(): return 0\n');
 
   writeTextFile(repoDir, 'ai-evals/README.md', '# AI Evals QA-11X Blueprint\nOffline DeepEval & Promptfoo guardrails.\n');
@@ -89,7 +91,7 @@ function resolveOrSeedBlueprintRepo(baseDir: string): string {
       },
     },
     common_files: [{ ...cleanScript, target_name: cleanScript.path, merge_strategy: 'overwrite_executable' }],
-    agent_governance_files: [aiMaster, skillMd, secRef, taskTpl, roadVal, colorRef].map((entry) => ({
+    agent_governance_files: [aiMaster, aiMasterEs, skillMd, secRef, secRefEs, taskTpl, roadVal, colorRef].map((entry) => ({
       ...entry,
       target_name: entry.path,
       merge_strategy: 'copy_or_overwrite',
@@ -242,14 +244,21 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
       for (const uri of [
         'blueprint://manifest',
         'blueprint://ai/evals-redteam',
+        'blueprint://ai/evals-redteam?lang=es',
         'blueprint://mobile-appium/readme',
+        'blueprint://mobile-appium/readme?lang=es',
         'blueprint://vibe-rescue/readme',
+        'blueprint://vibe-rescue/readme?lang=es',
         'blueprint://fastapi/readme',
+        'blueprint://fastapi/readme?lang=es',
+        'blueprint://core/philosophy?lang=es',
+        'blueprint://security/disa-owasp-22?lang=es',
         'blueprint://ui/refactoring-ui/color',
       ]) {
         const res = await client.readResource({ uri });
-        const text = (res.contents[0] as { text?: string }).text ?? '';
-        expect(text.length).toBeGreaterThan(20);
+        const content = res.contents[0] as { uri?: string; text?: string };
+        expect(content.uri).toBe(uri);
+        expect((content.text ?? '').length).toBeGreaterThan(20);
       }
 
       const inspectRes = await client.callTool({

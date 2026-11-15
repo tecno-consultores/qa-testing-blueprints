@@ -32,10 +32,10 @@ def parse_roadmap_table(content: str) -> List[Dict[str, Any]]:
     """Extrae las filas de la tabla de resumen de hitos en ROADMAP.md."""
     hitos: List[Dict[str, Any]] = []
 
-    # Busca la tabla de resumen (ej. | **Hito 1** | ... | Estado | Progreso |)
-    # Patrón flexible que detecta filas de tabla con 'Hito X' o '**Hito X**'
+    # Busca la tabla de resumen (ej. | **Hito 1** / **Milestone 1** | ... | Estado | Progreso |)
+    # Patrón flexible que detecta filas de tabla con 'Hito X' o 'Milestone X'
     row_pattern = re.compile(
-        r"\|\s*\*{0,2}Hito\s+([0-9]+(?:\.[0-9]+)?)\*{0,2}\s*\|([^|]+)\|([^|]+)\|\s*([^|]+)\|\s*([^|]+)\|",
+        r"\|\s*\*{0,2}(?:Hito|Milestone)\s+([0-9]+(?:\.[0-9]+)?)\*{0,2}\s*\|([^|]+)\|([^|]+)\|\s*([^|]+)\|\s*([^|]+)\|",
         re.IGNORECASE,
     )
 
@@ -56,15 +56,16 @@ def parse_roadmap_table(content: str) -> List[Dict[str, Any]]:
             except ValueError:
                 progreso_num = -1
 
+            estado_low = estado.lower()
             hitos.append(
                 {
                     "hito_num": hito_num,
                     "nombre": nombre,
                     "spec": especificacion,
                     "estado_raw": estado,
-                    "is_completed": "completado" in estado.lower() or "✅" in estado,
-                    "is_pending": "pendiente" in estado.lower() or "⏳" in estado,
-                    "is_in_progress": "progreso" in estado.lower() or "curso" in estado.lower() or "🚧" in estado,
+                    "is_completed": "completado" in estado_low or "completed" in estado_low or "✅" in estado,
+                    "is_pending": "pendiente" in estado_low or "pending" in estado_low or "⏳" in estado,
+                    "is_in_progress": "progreso" in estado_low or "progress" in estado_low or "curso" in estado_low or "🚧" in estado,
                     "progreso_pct": progreso_num,
                     "line": line_clean,
                 }
@@ -77,9 +78,9 @@ def parse_roadmap_sections(content: str) -> Dict[str, Dict[str, Any]]:
     """Extrae las secciones de hitos y cuenta sus casillas [x] y [ ]."""
     sections: Dict[str, Dict[str, Any]] = {}
 
-    # Divide por encabezados de segundo nivel: ## [icon] Hito X: ...
+    # Divide por encabezados de segundo nivel: ## [icon] Hito/Milestone X: ...
     section_header_pattern = re.compile(
-        r"^##\s+([✅⏳🚧]?)\s*Hito\s+([0-9]+(?:\.[0-9]+)?)\s*[:—\-]\s*(.*)$",
+        r"^##\s+([✅⏳🚧]?)\s*(?:Hito|Milestone)\s+([0-9]+(?:\.[0-9]+)?)\s*[:—\-]\s*(.*)$",
         re.MULTILINE | re.IGNORECASE,
     )
 
@@ -236,7 +237,7 @@ def validate_active_task(active_task_path: Path) -> List[str]:
 
     state_match = None
     for line in lines:
-        match = re.search(r"\*{0,2}Estado\*{0,2}\s*:\s*(.+)$", line, re.IGNORECASE)
+        match = re.search(r"\*{0,2}(?:Estado|Status)\*{0,2}\s*:\s*(.+)$", line, re.IGNORECASE)
         if match:
             state_match = match.group(1).strip()
             break
@@ -262,15 +263,53 @@ def validate_active_task(active_task_path: Path) -> List[str]:
     return errors
 
 
+def validate_bilingual_roadmap_parity(roadmap_en: Path, roadmap_es: Path) -> List[str]:
+    """Comprueba paridad de hitos y porcentajes entre ROADMAP.md (EN) y ROADMAP.es.md (ES)."""
+    if not roadmap_en.is_file() or not roadmap_es.is_file():
+        return []
+    en_rows = parse_roadmap_table(roadmap_en.read_text(encoding="utf-8"))
+    es_rows = parse_roadmap_table(roadmap_es.read_text(encoding="utf-8"))
+    if not en_rows and not es_rows:
+        return []
+    en_map = {row["hito_num"]: row for row in en_rows}
+    es_map = {row["hito_num"]: row for row in es_rows}
+    errors: List[str] = []
+    if set(en_map.keys()) != set(es_map.keys()):
+        missing_es = sorted(set(en_map.keys()) - set(es_map.keys()))
+        missing_en = sorted(set(es_map.keys()) - set(en_map.keys()))
+        errors.append(
+            f"Desfase bilingüe ROADMAP.md vs ROADMAP.es.md: faltan en ES={missing_es}, faltan en EN={missing_en}."
+        )
+    common = sorted(
+        set(en_map.keys()) & set(es_map.keys()),
+        key=lambda val: tuple(int(part) for part in val.split(".")),
+    )
+    for num in common:
+        en_item = en_map[num]
+        es_item = es_map[num]
+        if (
+            en_item["progreso_pct"] != es_item["progreso_pct"]
+            or en_item["is_completed"] != es_item["is_completed"]
+        ):
+            errors.append(
+                f"Desfase bilingüe en Hito/Milestone {num}: ROADMAP.md ({en_item['progreso_pct']}%) != ROADMAP.es.md ({es_item['progreso_pct']}%)."
+            )
+    return errors
+
+
 def main() -> int:
     repo_root = Path(__file__).resolve().parent.parent.parent
 
     roadmap_path = repo_root / "ROADMAP.md"
+    roadmap_es_path = repo_root / "ROADMAP.es.md"
     active_task_path = repo_root / ".agents" / "ACTIVE_TASK.md"
 
     roadmap_errors: List[str] = []
     if roadmap_path.is_file():
-        roadmap_errors = validate_roadmap_consistency(roadmap_path)
+        roadmap_errors.extend(validate_roadmap_consistency(roadmap_path))
+    if roadmap_es_path.is_file():
+        roadmap_errors.extend(validate_roadmap_consistency(roadmap_es_path))
+    roadmap_errors.extend(validate_bilingual_roadmap_parity(roadmap_path, roadmap_es_path))
 
     active_task_errors: List[str] = []
     if active_task_path.is_file():
@@ -279,13 +318,13 @@ def main() -> int:
     all_errors = roadmap_errors + active_task_errors
 
     if all_errors:
-        print("❌ Se detectaron discrepancias de consistencia operativa en ROADMAP.md / ACTIVE_TASK.md:")
+        print("❌ Se detectaron discrepancias de consistencia operativa en ROADMAP.md / ROADMAP.es.md / ACTIVE_TASK.md:")
         for err in all_errors:
             print(f"   - {err}")
         print("💡 Directiva: Mantén sincronizadas las tablas de resumen con el desglose granular.")
         return 1
 
-    print("✔ [Governance Sync] ROADMAP.md y ACTIVE_TASK.md verificados en perfecta coherencia y sincronía.")
+    print("✔ [Governance Sync] ROADMAP.{md,es.md} y ACTIVE_TASK.md verificados en perfecta coherencia y sincronía.")
     return 0
 
 

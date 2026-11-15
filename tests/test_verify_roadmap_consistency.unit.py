@@ -238,6 +238,77 @@ class TestVerifyRoadmapConsistency(unittest.TestCase):
         self.assertIn("[Governance Sync]", output)
         self.assertEqual(len(output.splitlines()), 1)
 
+    def test_validate_bilingual_en_roadmap_and_parity(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            en_doc = tmp_path / "ROADMAP.md"
+            es_doc = tmp_path / "ROADMAP.es.md"
+
+            en_doc.write_text(
+                "# Roadmap\n\n"
+                "| Milestone | Milestone Name | Associated Specification | Status | Progress |\n"
+                "| :--- | :--- | :--- | :---: | :---: |\n"
+                "| **Milestone 1** | Bilingual EN | `19_SPEC` | ✅ Completed | `100%` |\n"
+                "| **Milestone 2** | Mobile Spec 20 | `20_SPEC` | 🟡 Pending | `0%` |\n\n"
+                "## ✅ Milestone 1: Bilingual EN\n- [x] **T1:** Done.\n\n"
+                "## ⏳ Milestone 2: Mobile Spec 20\n- [ ] **T2:** Todo.\n",
+                encoding="utf-8",
+            )
+            es_doc.write_text(
+                "# Roadmap\n\n"
+                "| Hito | Nombre del Hito | Especificación Asociada | Estado | Progreso |\n"
+                "| :--- | :--- | :--- | :---: | :---: |\n"
+                "| **Hito 1** | Bilingüe EN | `19_SPEC` | ✅ Completado | `100%` |\n"
+                "| **Hito 2** | Spec Móvil 20 | `20_SPEC` | 🟡 Pendiente | `0%` |\n\n"
+                "## ✅ Hito 1: Bilingüe EN\n- [x] **T1:** Listo.\n\n"
+                "## ⏳ Hito 2: Spec Móvil 20\n- [ ] **T2:** Por hacer.\n",
+                encoding="utf-8",
+            )
+
+            self.assertEqual(vrc.validate_roadmap_consistency(en_doc), [])
+            self.assertEqual(vrc.validate_roadmap_consistency(es_doc), [])
+            self.assertEqual(vrc.validate_bilingual_roadmap_parity(en_doc, es_doc), [])
+            # Caso trivial cuando falta uno de los archivos o ambos carecen de tabla
+            self.assertEqual(vrc.validate_bilingual_roadmap_parity(en_doc, tmp_path / "missing.md"), [])
+            empty_en = tmp_path / "EMPTY_EN.md"
+            empty_es = tmp_path / "EMPTY_ES.md"
+            empty_en.write_text("# Empty\n", encoding="utf-8")
+            empty_es.write_text("# Vacío\n", encoding="utf-8")
+            self.assertEqual(vrc.validate_bilingual_roadmap_parity(empty_en, empty_es), [])
+
+            # Divergencia de progreso entre idiomas
+            es_doc.write_text(
+                es_doc.read_text(encoding="utf-8").replace("| 🟡 Pendiente | `0%` |", "| ✅ Completado | `100%` |"),
+                encoding="utf-8",
+            )
+            parity_errors = vrc.validate_bilingual_roadmap_parity(en_doc, es_doc)
+            self.assertTrue(any("Desfase bilingüe en Hito/Milestone 2" in e for e in parity_errors))
+
+            # Divergencia únicamente en estado is_completed manteniendo igual porcentaje
+            es_doc.write_text(
+                "# Roadmap\n\n"
+                "| Hito | Nombre del Hito | Especificación Asociada | Estado | Progreso |\n"
+                "| :--- | :--- | :--- | :---: | :---: |\n"
+                "| **Hito 1** | Bilingüe EN | `19_SPEC` | 🚧 En Progreso | `100%` |\n"
+                "| **Hito 2** | Spec Móvil 20 | `20_SPEC` | 🟡 Pendiente | `0%` |\n",
+                encoding="utf-8",
+            )
+            status_diff = vrc.validate_bilingual_roadmap_parity(en_doc, es_doc)
+            self.assertTrue(any("Desfase bilingüe en Hito/Milestone 1" in e for e in status_diff))
+
+            # Hito presente en EN pero faltante en ES
+            es_doc.write_text(
+                "# Roadmap\n\n"
+                "| Hito | Nombre del Hito | Especificación Asociada | Estado | Progreso |\n"
+                "| :--- | :--- | :--- | :---: | :---: |\n"
+                "| **Hito 1** | Bilingüe EN | `19_SPEC` | ✅ Completado | `100%` |\n",
+                encoding="utf-8",
+            )
+            missing_errors = vrc.validate_bilingual_roadmap_parity(en_doc, es_doc)
+            self.assertTrue(len(missing_errors) >= 1)
+
 
 if __name__ == "__main__":
     unittest.main()

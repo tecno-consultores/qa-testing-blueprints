@@ -1,67 +1,69 @@
-# Código de Conducta de Tecno Consultores
+> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (CODE_OF_CONDUCT.es.md)](CODE_OF_CONDUCT.es.md)
 
-## 🤝 Nuestro Compromiso
+# Tecno Consultores Code of Conduct
 
-Nosotros, como miembros, contribuyentes y líderes, nos comprometemos a hacer de la participación en este proyecto y en nuestra comunidad una experiencia libre de acoso para todos, independientemente de la edad, dimensión corporal, discapacidad visible o invisible, etnia, características sexuales, identidad y expresión de género, nivel de experiencia, educación, nivel socio-económico, nacionalidad, apariencia personal, raza, religión, o identidad u orientación sexual.
+## 🤝 Our Pledge
 
-Nos comprometemos a actuar e interactuar de maneras que contribuyan a una comunidad abierta, acogedora, diversa, inclusiva y sana.
+We as members, contributors, and leaders pledge to make participation in our project and community a harassment-free experience for everyone, regardless of age, body size, visible or invisible disability, ethnicity, sex characteristics, gender identity and expression, level of experience, education, socio-economic status, nationality, personal appearance, race, religion, or sexual identity and orientation.
 
-## 📏 Nuestros Estándares
+We pledge to act and interact in ways that contribute to an open, welcoming, diverse, inclusive, and healthy community.
 
-Ejemplos de comportamiento que contribuyen a crear un ambiente positivo para nuestra comunidad:
+## 📏 Our Standards
 
-* Demostrar empatía y amabilidad ante otras personas.
-* Respetar las diferentes opiniones, puntos de vista y experiencias.
-* Dar y aceptar adecuadamente críticas constructivas (especialmente durante las revisiones de código y validaciones de *QA Testing Blueprints*).
-* Asumir buenas intenciones y aceptar la responsabilidad de nuestras acciones, disculpándonos con quienes se vean afectados por nuestros errores.
-* Centrarse en lo que sea mejor no sólo para nosotros como individuos, sino para la comunidad y la arquitectura del proyecto en general.
+Examples of behavior that contributes to a positive environment for our community include:
 
-Ejemplos de comportamiento inaceptable:
+* Demonstrating empathy and kindness toward other people.
+* Being respectful of differing opinions, viewpoints, and experiences.
+* Giving and gracefully accepting constructive feedback (especially during code reviews and *QA Testing Blueprints* validations).
+* Accepting responsibility and apologizing to those affected by our mistakes, and learning from the experience.
+* Focusing on what is best not just for us as individuals, but for the overall community and project architecture.
 
-* El uso de lenguaje o imágenes sexualizadas, y aproximaciones o atenciones sexuales de cualquier tipo.
-* Comentarios despectivos (*trolling*), insultos o ataques personales y políticos.
-* El acoso en público o en privado.
-* Publicar información privada de otras personas, tales como direcciones físicas o correos electrónicos, sin su permiso explícito (exposición de datos).
-* Otras conductas que puedan ser razonablemente consideradas como inapropiadas en un entorno profesional.
+Examples of unacceptable behavior include:
 
-## 🛡️ Responsabilidades de Aplicación
+* The use of sexualized language or imagery, and sexual attention or advances of any kind.
+* Trolling, insulting or derogatory comments, and personal or political attacks.
+* Public or private harassment.
+* Publishing others' private information, such as a physical or email address, without their explicit permission (data exposure).
+* Other conduct which could reasonably be considered inappropriate in a professional setting.
 
-Los mantenedores del repositorio tienen el derecho y la responsabilidad de eliminar, editar o rechazar comentarios, *commits*, código, ediciones de páginas de wiki, *issues* y otras contribuciones que no estén alineadas con este Código de Conducta.
+## 🛡️ Enforcement Responsibilities
 
-Los mantenedores también tienen el derecho de suspender o expulsar temporal o permanentemente a cualquier contribuyente por comportamientos que consideren inapropiados, amenazantes, ofensivos o perjudiciales.
+Repository maintainers have the right and responsibility to remove, edit, or reject comments, commits, code, wiki edits, issues, and other contributions that are not aligned to this Code of Conduct.
 
-## 🔍 Alcance
+Maintainers also have the right to temporarily or permanently suspend or ban any contributor for behaviors they deem inappropriate, threatening, offensive, or harmful.
 
-Este Código de Conducta aplica tanto a espacios del proyecto (repositorios, *Pull Requests*, hilos de discusión) como a espacios públicos cuando un individuo representa al proyecto o a su comunidad. Los ejemplos de representación de nuestro proyecto incluyen usar una dirección de correo electrónico oficial de Tecno Consultores, publicar a través de cuentas oficiales en redes sociales, o actuar como representante designado en eventos en línea o presenciales.
+## 🔍 Scope
 
-## 📩 Aplicación y Reportes
+This Code of Conduct applies within all project spaces (repositories, Pull Requests, discussion threads), and also applies when an individual is officially representing the project or its community in public spaces. Examples of representing our project include using an official Tecno Consultores email address, posting via an official social media account, or acting as an appointed representative at an online or offline event.
 
-Los casos de comportamiento abusivo, acosador o inaceptable de otro modo podrán ser reportados a los líderes de la comunidad responsables de la aplicación contactando a:
+## 📩 Enforcement & Reporting
+
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the community leaders responsible for enforcement at:
 
 📧 **conducta@tecnoconsultores.net**
 
-Todas las quejas serán revisadas e investigadas de manera justa, exhaustiva y confidencial. Todas las personas involucradas en la investigación están obligadas a respetar la privacidad y la seguridad de quien reportó el incidente.
+All complaints will be reviewed and investigated promptly and fairly. All community leaders are obligated to respect the privacy and security of the reporter of any incident.
 
-## ⚖️ Pautas de Aplicación
+## ⚖️ Enforcement Guidelines
 
-Los líderes de la comunidad seguirán estas pautas de impacto al determinar las consecuencias de cualquier acción que juzguen como una violación a este Código de Conducta:
+Community leaders will follow these Community Impact Guidelines in determining the consequences for any action they deem in violation of this Code of Conduct:
 
-### 1. Corrección
-* **Impacto:** Uso de lenguaje inapropiado u otro comportamiento que se considere no profesional o no acogedor en la comunidad.
-* **Consecuencia:** Un aviso escrito y privado de los líderes de la comunidad, explicando la naturaleza de la violación y solicitando que el comportamiento no se repita.
+### 1. Correction
+* **Community Impact:** Use of inappropriate language or other behavior deemed unprofessional or unwelcome in the community.
+* **Consequence:** A private, written warning from community leaders, providing clarity around the nature of the violation and an explanation of why the behavior was inappropriate.
 
-### 2. Aviso
-* **Impacto:** Una violación de un único incidente o de una serie de acciones.
-* **Consecuencia:** Una advertencia con consecuencias por comportamiento continuo. No interactuar con las personas involucradas (incluyendo interacción no solicitada con quienes imponen el Código de Conducta) por un período específico.
+### 2. Warning
+* **Community Impact:** A violation through a single incident or series of actions.
+* **Consequence:** A warning with consequences for continued behavior. No interaction with the people involved, including unsolicited interaction with those enforcing the Code of Conduct, for a specified period of time.
 
-### 3. Expulsión temporal
-* **Impacto:** Una serie de violaciones, o una única violación grave del Código de Conducta.
-* **Consecuencia:** Suspensión de la participación en el proyecto, o en la comunidad, por un período específico. Ninguna interacción pública o privada con las personas involucradas es permitida durante este período.
+### 3. Temporary Ban
+* **Community Impact:** A serious violation of community standards, including sustained inappropriate behavior.
+* **Consequence:** A temporary ban from any sort of interaction or public communication with the community for a specified period of time. No public or private interaction with the people involved is allowed during this period.
 
-### 4. Expulsión permanente
-* **Impacto:** Demostrar un patrón de violaciones o violaciones sistemáticas (ej: acoso continuo, amenazas, publicar información privada) de las normas comunitarias.
-* **Consecuencia:** Expulsión permanente de cualquier tipo de interacción pública en el proyecto.
+### 4. Permanent Ban
+* **Community Impact:** Demonstrating a pattern of violation of community standards, including sustained inappropriate behavior, harassment of an individual, or aggression toward or disparagement of classes of individuals.
+* **Consequence:** A permanent ban from any sort of public interaction within the project.
 
-## Atribución
+## Attribution
 
-Este Código de Conducta es una adaptación del *Contributor Covenant*, versión 2.1, disponible en [https://www.contributor-covenant.org/es/version/2/1/code_of_conduct.html](https://www.contributor-covenant.org/es/version/2/1/code_of_conduct.html).
+This Code of Conduct is adapted from the *Contributor Covenant*, version 2.1, available at [https://www.contributor-covenant.org/version/2/1/code_of_conduct.html](https://www.contributor-covenant.org/version/2/1/code_of_conduct.html).

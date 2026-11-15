@@ -1,45 +1,47 @@
-# Filosofía de Calidad (QA Philosophy)
+> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (qa-philosophy.es.md)](qa-philosophy.es.md)
 
-Este documento expone los principios de ingeniería y las decisiones estratégicas que fundamentan el ecosistema `qa-testing-blueprints`.
+# Quality Philosophy (QA Philosophy)
 
-## 1. La Cobertura del 95% es un Piso, no una Meta
-Exigir un 95% de cobertura en `kcov`, `Vitest` o `pytest` no es una métrica de vanidad, es una barrera de contención contra regresiones silenciosas. Obligamos a estructurar pruebas para los bloques `catch` y ramas lógicas oscuras.
+This document sets out the engineering principles and strategic decisions that underpin the `qa-testing-blueprints` (`QA-11X v3.0`) ecosystem.
 
-## 2. Paranoia Positiva: Las Pruebas de Mutación
-Herramientas como `Stryker` y `mutmut` atacan nuestras propias pruebas alterando la lógica del código fuente. Si un mutante sobrevive, la prueba era un falso positivo.
+## 1. 95% Coverage Is a Floor, Not a Target
+Requiring 95% coverage in `kcov`, `Vitest`, `PCOV`, or `pytest` is not a vanity metric; it is a containment barrier against silent regressions. We enforce writing tests for `catch` blocks and obscure logic branches.
 
-## 3. Inmutabilidad y Contaminación de Estado
-El mayor enemigo de la CI es el estado persistente. Ejecutar los comandos encapsulados en los `Makefiles` (ej. `make qa-all`) garantiza que el entorno nazca sin estado, evalúe el código en un vacío absoluto, purgue la memoria y se destruya de forma segura.
+## 2. Positive Paranoia: Mutation Testing
+Tools such as `Stryker`, `Infection`, and `mutmut` attack our own tests by mutating source code logic. If a mutant survives, the test was a false positive.
 
-## 4. Diseño Orientado a Inteligencia Artificial (AI-First)
-El lenguaje imperativo de nuestras guías acota el universo de herramientas de la IA a las imágenes `sinfallas/*`, garantizando que el código generado encaje perfectamente sin alucinaciones.
+## 3. Immutability and State Contamination
+The greatest enemy of CI is persistent state. Running commands encapsulated inside `Makefiles` (e.g., `make qa-all`) guarantees that the environment starts stateless, evaluates code in an absolute vacuum, purges memory, and destroys itself safely.
 
-## 5. Prevención de Deuda Técnica (Complejidad y Rendimiento)
-No basta con que el código funcione, debe ser escalable y eficiente. Se han incorporado herramientas como `radon` (Python) y `eslint-plugin-sonarjs` (JS/TS) para analizar estáticamente la complejidad ciclomática. Complementamos esto con `py-spy` y `clinic.js` para auditar perfiles de CPU y memoria desde adentro del contenedor, interceptando cuellos de botella antes de los picos de carga externos.
+## 4. AI-First Design
+The imperative wording of our guides narrows the AI toolset strictly to certified `sinfallas/*` images across **10 stacks / 12 environments** (including `sinfallas/base-mobile-appium:26`) and the **18 MCP tools / 12 resources** exposed by `@sinfallas/mcp-qa-11x` v3.0.0, ensuring generated code fits seamlessly with zero hallucinations.
 
-## 6. Aislamiento Estricto de Red y la Frontera de Mocks
-Para garantizar la naturaleza efímera, las pruebas unitarias puras (`.unit.py`, `.unit.ts`) nunca deben comunicarse con APIs ni redes externas. Exigimos el uso nativo de `unittest.mock` / `pytest-mock` (Python) y utilidades de intercepción como `msw` o `nock` (Node.js) para falsear respuestas HTTP externas sin latencia ni dependencia de terceros. Sin embargo, esta frontera de mocking jamás debe utilizarse ciegamente para suplantar la base de datos o esquemas relacionales (véase el principio 12).
+## 5. Technical Debt Prevention (Complexity and Performance)
+Working code is not enough; it must be scalable and efficient. We incorporate tools such as `radon` (Python) and `eslint-plugin-sonarjs` (JS/TS) to statically analyze cyclomatic and cognitive complexity. We complement this with `py-spy` and `clinic.js` to audit CPU and memory profiles from inside the container, catching bottlenecks prior to external load spikes.
 
-## 7. Barreras Locales (Pre-Commit & Pre-Push)
-El código de baja calidad o inseguro no debe tener el derecho de existir en el repositorio. Implementamos `Lefthook` y la compuerta de certificación `./.agents/scripts/certify_task_completion.sh` como guardias fronterizos. En el `pre-commit` rechazamos código sin formato o con secretos hardcodeados. En el `pre-push` ejecutamos Trivy para bloquear despliegues de IaC vulnerables (ej. puertos expuestos en Docker Compose). Educamos a los desarrolladores o IA a través del fallo inmediato.
+## 6. Strict Network Isolation and the Mocking Boundary
+To guarantee ephemeral isolation, pure unit tests (`.unit.py`, `.unit.ts`) must never talk to external APIs or networks. We require native `unittest.mock` / `pytest-mock` / `respx` (Python) and interception utilities such as `msw` or `nock` (Node.js) to stub external HTTP responses with zero latency or third-party dependency. However, this mocking boundary must never be used blindly to replace real relational databases or schemas (see Principle 12).
 
-## 8. Seguridad Total (SAST + DAST + IaC)
-Asumimos que la infraestructura y el código son vulnerables por defecto. Las pruebas tradicionales no detectan inyecciones. Auditar estáticamente (Trivy para la infraestructura, Bandit para el código) previene errores tipográficos fatales, mientras que auditar dinámicamente con OWASP ZAP (`zaproxy/zap-stable`) ataca la aplicación viva para certificar que el servidor web no expone datos sensibles.
+## 7. Local Gates (Pre-Commit & Pre-Push)
+Low-quality or insecure code has no right to exist in the repository. We implement `Lefthook` and the certification gate `./.agents/scripts/certify_task_completion.sh` as border guards. At `pre-commit`, we reject unformatted code or hardcoded secrets. At `pre-push`, we execute Trivy to block vulnerable IaC deployments (e.g., exposed ports in Docker Compose). We educate developers and AI agents through immediate failure, while enforcing human confirmation (`QA-GIT-GATE-01`) before any remote `git push`.
 
-## 9. Resiliencia Extrema (Ingeniería del Caos)
-Probar si la API funciona bajo condiciones perfectas de laboratorio ya no es suficiente. El Nivel 11X introduce la Ingeniería del Caos (Pumba). Degradamos intencionalmente la red interna insertando *jitter* y *packet loss* mientras la aplicación sufre picos de estrés. Certificamos que la arquitectura posea mecanismos de Auto-Recovery en lugar de entrar en un estado de *deadlock* permanente.
+## 8. Total Security (SAST + DAST + IaC)
+We assume infrastructure and code are vulnerable by default. Traditional tests do not catch injections. Static auditing (Trivy for infrastructure, Bandit / Psalm for code) prevents fatal mistakes, while dynamic auditing with OWASP ZAP (`zaproxy/zap-stable`) attacks the live application to certify the web server exposes no sensitive data.
 
-## 10. Observabilidad Universal (Métricas RED)
-No podemos mejorar lo que no medimos. Forzamos la exposición de métricas (Rate, Errors, Duration) mediante middlewares no intrusivos acoplados a Prometheus (para servidores) o envíos asíncronos vía Pushgateway (para scripts). Esto permite a la Inteligencia Artificial y a los desarrolladores evaluar en tiempo real el daño causado por las pruebas destructivas, pasando de simples reportes estáticos a un diagnóstico "en vivo".
+## 9. Extreme Resilience (Chaos Engineering)
+Testing whether the API works under perfect laboratory conditions is no longer sufficient. Level 11X introduces Chaos Engineering (Pumba). We intentionally degrade the internal network by injecting *jitter* and *packet loss* while the application sustains stress spikes. We certify that the architecture has Auto-Recovery mechanisms rather than entering a permanent *deadlock*.
 
-## 11. Seguridad Zero-Trust en Dependencias
-El ecosistema bloquea proactivamente la ejecución silenciosa de scripts de instalación de terceros (ej. `.npmrc` con `ignore-scripts=true`). Ningún paquete descargado de internet tiene derecho a ejecutar código arbitrario en nuestra infraestructura durante su instalación, mitigando ataques de cadena de suministro (Supply Chain Attacks).
+## 10. Universal Observability (RED Metrics)
+We cannot improve what we do not measure. We enforce exposing RED metrics (Rate, Errors, Duration) through non-intrusive middleware coupled to Prometheus (for servers) or asynchronous pushes via Pushgateway (for scripts). This enables AI agents and developers to assess the damage caused by destructive tests in real time, moving from static reports to live diagnostics.
 
-## 12. Anti-Ceguera de Mocks y Validación de Persistencia Real (Anti-Mock Blindness)
-Uno de los mayores causantes de fallos críticos en producción es el falso sentido de seguridad que brindan los mocks de base de datos ("Mock Blindness"). Un mock siempre responde lo que el programador espera, ocultando desincronizaciones de esquema, violaciones de llaves foráneas, tipos incompatibles o fallos en políticas Row-Level Security (RLS). En Nivel 11X, toda mutación sobre modelos ORM exige una migración versionada (`alembic revision --autogenerate`) y su verificación obligatoria contra una base de datos real efímera (`postgres:17-alpine`) mediante scripts automatizados de paridad (`verify_alembic_orm_parity.py`).
+## 11. Zero-Trust Dependency Security
+The ecosystem proactively blocks silent execution of third-party install scripts (e.g., `.npmrc` with `ignore-scripts=true`). No package downloaded from the internet has the right to execute arbitrary code on our infrastructure during installation, mitigating Supply Chain Attacks.
 
-## 13. Geometría Visual Anti-JSDOM (Renderizado en Navegador Real)
-Entornos emulados como JSDOM o HappyDOM no computan CSS Layout, colisiones de capas, z-index ni dimensiones de bounding box (`0x0`). Probar componentes frontend exclusivamente con JSDOM oculta defectos visuales como pies de página fijos (`position: fixed`) que solapan botones de acción o tablas. En el Estándar 11X, los footers deben residir in-flow dentro de `<main>` (`margin-top: auto`) y la interactividad profunda debe certificarse en navegadores reales sin cabeza (*headless*) mediante **Playwright** y **Karate Labs UI**.
+## 12. Anti-Mock Blindness and Real Persistence Validation
+One of the primary causes of critical production failures is the false sense of security provided by database mocks ("Mock Blindness"). A mock always returns what the programmer expects, hiding schema drift, foreign key violations, incompatible types, or Row-Level Security (RLS) policy failures. At Level 11X, every ORM model mutation requires a versioned migration (`alembic revision --autogenerate`) and mandatory verification against a real ephemeral database (`postgres:17-alpine`) through automated parity scripts (`verify_alembic_orm_parity.py`).
 
-## 14. Gobernanza Bimodal de Agentes IA (Inglés de Alta Densidad / Español Operativo)
-Para eliminar alucinaciones y prevenir el agotamiento de la ventana de contexto de los Modelos de Lenguaje (LLMs), las directivas internas de gobernanza (`.agents/rules/`, `.agents/skills/`) se redactan en inglés técnico de alta densidad, ahorrando aproximadamente un 35% de tokens BPE. Paralelamente, toda la documentación humana, explicaciones y registros operativos permanecen en español estricto, garantizando máxima fidelidad lógica sin sacrificar la soberanía técnica local.
+## 13. Anti-JSDOM Visual Geometry (Real Browser Rendering)
+Emulated environments such as JSDOM or HappyDOM do not compute CSS Layout, layer collisions, z-index, or bounding-box dimensions (`0x0`). Testing frontend components solely with JSDOM hides visual defects like fixed footers (`position: fixed`) overlapping action buttons or tables. Under Standard 11X, footers must reside in-flow inside `<main>` (`margin-top: auto`) and deep interactivity must be certified in real headless browsers via **Playwright** and **Karate Labs UI**.
+
+## 14. Bilingual Agent Governance (High-Density English / 1:1 Dual-Mirror Human Docs)
+To eliminate hallucinations and prevent LLM context-window exhaustion, internal governance directives (`.agents/rules/`, `.agents/skills/`) are authored exclusively in high-density technical English, saving roughly 35% of BPE tokens. In parallel, human documentation follows the canonical English (`*.md`) + 1:1 Spanish mirror (`*.es.md`) architecture, while interactive agent outputs dynamically match the user's prompt language without sacrificing local technical sovereignty.

@@ -6,6 +6,8 @@ import {
   GitHubFetcher,
   isOwnObjectProperty,
 } from '../services/github-fetcher.js';
+import type { Manifest, ManifestFileEntry, ResourceLanguage, StackDefinition } from '../types.js';
+import { getActiveResourceLang } from './resourceLang.js';
 
 const MIME_MARKDOWN = 'text/markdown';
 
@@ -31,14 +33,21 @@ export class BlueprintResources {
     };
   }
 
-  public async getPhilosophyResource(): Promise<ResourceResponse> {
+  public async getPhilosophyResource(lang?: ResourceLanguage): Promise<ResourceResponse> {
+    const resolvedLang = getActiveResourceLang(undefined, lang);
     const manifest = await this.fetcher.fetchManifest();
-    const promptEntry = manifest.agent_governance_files.find((f) => f.path === 'AI_MASTER_PROMPT.md');
+    const preferredPath = resolvedLang === 'es' ? 'AI_MASTER_PROMPT.es.md' : 'AI_MASTER_PROMPT.md';
+    const promptEntry =
+      manifest.agent_governance_files.find((f) => f.path === preferredPath) ??
+      manifest.agent_governance_files.find((f) => f.path === 'AI_MASTER_PROMPT.md');
     let content = '';
     if (promptEntry) {
       content = await this.fetcher.fetchFileContent(promptEntry.path, promptEntry.sha256);
     } else {
-      content = '# Filosofía QA 11X\n\nEstándar corporativo de calidad, 13 capas y Rule Zero.';
+      content =
+        resolvedLang === 'es'
+          ? '# Filosofía QA 11X\n\nEstándar corporativo de calidad, 13 capas y Rule Zero.'
+          : '# QA 11X Philosophy\n\nCorporate quality standard, 13 layers, and Rule Zero.';
     }
     return {
       uri: 'blueprint://core/philosophy',
@@ -47,16 +56,26 @@ export class BlueprintResources {
     };
   }
 
-  public async getSecurityResource(): Promise<ResourceResponse> {
+  public async getSecurityResource(lang?: ResourceLanguage): Promise<ResourceResponse> {
+    const resolvedLang = getActiveResourceLang(undefined, lang);
     const manifest = await this.fetcher.fetchManifest();
-    const secRef = manifest.agent_governance_files.find((f) =>
-      f.path.endsWith('02-security-disa-owasp-22.md')
-    );
+    const secRef =
+      (resolvedLang === 'es'
+        ? manifest.agent_governance_files.find((f) =>
+            f.path.endsWith('02-security-disa-owasp-22.es.md')
+          ) ?? manifest.agent_governance_files.find((f) => f.path === 'SECURITY.es.md')
+        : undefined) ??
+      manifest.agent_governance_files.find((f) =>
+        f.path.endsWith('02-security-disa-owasp-22.md')
+      );
     let content = '';
     if (secRef) {
       content = await this.fetcher.fetchFileContent(secRef.path, secRef.sha256);
     } else {
-      content = '# 22 Patrones de Seguridad DISA ASD STIG V6R5 & OWASP v4.2\n\nConsulte docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md';
+      content =
+        resolvedLang === 'es'
+          ? '# 22 Patrones de Seguridad DISA ASD STIG V6R5 & OWASP v4.2\n\nConsulte docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md'
+          : '# 22 Security Patterns DISA ASD STIG V6R5 & OWASP v4.2\n\nSee docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md';
     }
     return {
       uri: 'blueprint://security/disa-owasp-22',
@@ -84,7 +103,31 @@ export class BlueprintResources {
     };
   }
 
-  public async getStackReadmeResource(stack: string): Promise<ResourceResponse> {
+  private findStackManifestEntry(
+    manifest: Manifest,
+    stackDef: StackDefinition,
+    relPath: string
+  ): ManifestFileEntry | undefined {
+    return (
+      manifest.agent_governance_files.find((f) => f.path === relPath) ||
+      stackDef.files.find((f) => f.path === relPath)
+    );
+  }
+
+  private async fetchPrimaryOrFallbackStackReadme(
+    stackDef: StackDefinition,
+    readmeFile: ManifestFileEntry | undefined
+  ): Promise<string> {
+    if (readmeFile) {
+      return this.fetcher.fetchFileContent(readmeFile.path, readmeFile.sha256);
+    }
+    if (stackDef.readme_sha256) {
+      return this.fetcher.fetchFileContent(stackDef.readme, stackDef.readme_sha256);
+    }
+    return `# ${stackDef.description}\n\nConsulte ${stackDef.readme}`;
+  }
+
+  public async getStackReadmeResource(stack: string, lang?: ResourceLanguage): Promise<ResourceResponse> {
     const manifest = await this.fetcher.fetchManifest();
     const stackDef = isOwnObjectProperty(manifest.stacks, stack)
       ? manifest.stacks[stack]
@@ -93,15 +136,23 @@ export class BlueprintResources {
       throw new Error(`Stack '${stack}' no reconocido. Opciones válidas: ${Object.keys(manifest.stacks).join(', ')}`);
     }
 
-    // El readme suele ser <stack>/README.md
-    const readmeFile = manifest.agent_governance_files.find(f => f.path === stackDef.readme) ||
-      stackDef.files.find(f => f.path === stackDef.readme);
+    const effectiveLang = getActiveResourceLang(undefined, lang);
+    const readmeEsPath = stackDef.readme_es ?? stackDef.readme.replace(/\.md$/, '.es.md');
+    const esFile =
+      effectiveLang === 'es' ? this.findStackManifestEntry(manifest, stackDef, readmeEsPath) : undefined;
+    const readmeFile = this.findStackManifestEntry(manifest, stackDef, stackDef.readme);
 
+    const esTargetPath = esFile?.path ?? stackDef.readme_es;
+    const esTargetSha = esFile?.sha256 ?? stackDef.readme_es_sha256;
     let content = '';
-    if (readmeFile) {
-      content = await this.fetcher.fetchFileContent(readmeFile.path, readmeFile.sha256);
+    if (effectiveLang === 'es' && esTargetPath && esTargetSha) {
+      try {
+        content = await this.fetcher.fetchFileContent(esTargetPath, esTargetSha);
+      } catch {
+        content = await this.fetchPrimaryOrFallbackStackReadme(stackDef, readmeFile);
+      }
     } else {
-      content = `# ${stackDef.description}\n\nConsulte ${stackDef.readme}`;
+      content = await this.fetchPrimaryOrFallbackStackReadme(stackDef, readmeFile);
     }
 
     return {

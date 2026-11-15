@@ -1,42 +1,44 @@
-# 🧪 Tipos de Pruebas en el Estándar QA 11X y Cómo Utilizarlos
+> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.es.md)](03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.es.md)
 
-> **PROPÓSITO:**  
-> Este manual es la guía técnica canónica para desarrolladores e ingenieros de QA. Explica cada uno de los niveles de la pirámide de calidad 11X, detallando su justificación, estructura de archivos, sintaxis de código, comando de ejecución en Docker y umbrales de aprobación innegociables.
+# 🧪 Test Types in the QA 11X Standard and How to Use Them
+
+> **PURPOSE:**  
+> This manual is the canonical technical guide for developers and QA engineers. It explains each level of the 11X quality pyramid, detailing its rationale, file structure, code syntax, Docker execution command, and non-negotiable passing thresholds.
 
 ---
 
-## 🏛️ La Pirámide de Calidad Nivel 11X
+## 🏛️ The Level 11X Quality Pyramid
 
 ```text
                ▲
               / \
-             /   \      [13] Fixtures Trimodales & Invariantes Negativos
-            /     \     [12] Ingeniería del Caos (Pumba) & Resiliencia
-           /       \    [11] Seguridad Dinámica DAST (OWASP ZAP)
-          /         \   [10] Rendimiento & Estrés (Locust / Artillery)
-         /           \  [09] Accesibilidad WCAG 2.1 AA & Geometría Visual
-        /             \ [08] Mutación: Pruebas de las Pruebas (Mutmut / Stryker)
-       /               \[07] Contratos HTTP/OSHP/SSG Frontend (Karate Labs HTTP + Playwright DOM)
-      /                 \[06] BDD API Caja Negra (Karate Labs HTTP)
-     /                   \[05] Contratos de Integración Front-Back
-    /                     \[04] Paridad de Esquema DB & Migraciones (Alembic)
-   /                       \[03] Pruebas Unitarias Aisladas (Pytest / Vitest >= 95%)
-  /                         \[02] Tipado Estricto & Complejidad (Mypy / Radon / SonarJS)
- /                           \[01] Análisis Estático, Formateo & SAST (Ruff / ESLint / Bandit)
+             /   \      [13] Trimodal Fixtures & Negative Invariants
+            /     \     [12] Chaos Engineering (Pumba) & Resilience
+           /       \    [11] Dynamic Security DAST (OWASP ZAP)
+          /         \   [10] Performance & Stress (Locust / Artillery)
+         /           \  [09] WCAG 2.1 AA Accessibility & Visual Geometry
+        /             \ [08] Mutation Testing: Tests of Tests (Mutmut / Stryker)
+       /               \[07] Frontend HTTP/OSHP/SSG Contracts (Karate Labs HTTP + Playwright DOM)
+      /                 \[06] Black-Box API BDD (Karate Labs HTTP)
+     /                   \[05] Front-Back Integration Contracts
+    /                     \[04] DB Schema & Migration Parity (Alembic)
+   /                       \[03] Isolated Unit Tests (Pytest / Vitest >= 95%)
+  /                         \[02] Strict Typing & Complexity (Mypy / Radon / SonarJS)
+ /                           \[01] Static Analysis, Formatting & SAST (Ruff / ESLint / Bandit)
 ─────────────────────────────────────────────────────────────────────────────────────────────
 ```
 
 ---
 
-## 1. Análisis Estático, Linters y SAST (Seguridad Estática)
+## 1. Static Analysis, Linters, and SAST (Static Security)
 
-* **Propósito:** Detectar errores sintácticos, anti-patrones, variables no utilizadas e inyecciones de seguridad antes de compilar o ejecutar el código.
-* **Herramientas:**
-  - Python / FastAPI: `ruff` (linter ultrarrápido y formateador), `bandit` (SAST de seguridad).
-  - Node / Vue / React: `eslint` con plugins de seguridad (`eslint-plugin-security`), `prettier`.
-  - Bash: `shellcheck` (POSIX), `shfmt` (formateo).
-* **Umbral Innegociable:** **0 advertencias, 0 errores, 0 vulnerabilidades**.
-* **Ejecución:**
+* **Purpose:** Detect syntax errors, anti-patterns, unused variables, and security injections before compiling or executing code.
+* **Tools:**
+  - Python / FastAPI: `ruff` (ultra-fast linter and formatter), `bandit` (security SAST).
+  - Node / Vue / React: `eslint` with security plugins (`eslint-plugin-security`), `prettier`.
+  - Bash: `shellcheck` (POSIX), `shfmt` (formatting).
+* **Non-Negotiable Threshold:** **0 warnings, 0 errors, 0 vulnerabilities**.
+* **Execution:**
   ```bash
   # Backend
   make qa-lint
@@ -46,23 +48,23 @@
 
 ---
 
-## 2. Tipado Estricto y Complejidad Cognitiva / Ciclomática
+## 2. Strict Typing and Cognitive / Cyclomatic Complexity
 
-* **Propósito:** Prevenir errores de tipo en tiempo de ejecución (`AttributeError: 'NoneType'`, `TypeError: undefined is not a function`) y forzar la legibilidad eliminando funciones monolíticas.
-* **Herramientas:**
-  - Python: `mypy --strict src/` y `radon cc --min C src/` (Complejidad ciclomática Grado A: `CC <= 5`).
-  - TypeScript / Vue: `vue-tsc --noEmit` y `SonarJS` (Complejidad cognitiva máxima acotada).
-* **Umbral Innegociable:** **0 errores de tipado, ninguna función grado C o inferior**.
+* **Purpose:** Prevent runtime type errors (`AttributeError: 'NoneType'`, `TypeError: undefined is not a function`) and enforce readability by eliminating monolithic functions.
+* **Tools:**
+  - Python: `mypy --strict src/` and `radon cc --min C src/` (Grade A Cyclomatic Complexity: `CC <= 5`).
+  - TypeScript / Vue: `vue-tsc --noEmit` and `SonarJS` (bounded maximum cognitive complexity).
+* **Non-Negotiable Threshold:** **0 typing errors, zero functions at grade C or worse**.
 
 ---
 
-## 3. Pruebas Unitarias Aisladas con Mocks (Cobertura Innegociable >= 95%)
+## 3. Isolated Unit Tests with Mocks (Non-Negotiable Coverage >= 95%)
 
-* **Propósito:** Validar la lógica algorítmica de funciones puras, composables, helpers y casos de uso de negocio en microsegundos, aislando dependencias de red o disco.
-* **Herramientas:**
+* **Purpose:** Validate the algorithmic logic of pure functions, composables, helpers, and business use cases in microseconds while isolating network or disk dependencies.
+* **Tools:**
   - Python: `pytest`, `pytest-mock`, `pytest-cov`.
-  - Frontend: `vitest` con motor `@vitest/coverage-v8`.
-* **Ejemplo (Backend - Python con Pytest):**
+  - Frontend: `vitest` with `@vitest/coverage-v8` engine.
+* **Example (Backend - Python with Pytest):**
   ```python
   # fastapi/tests/core/test_token_manager.unit.py
   import pytest
@@ -75,14 +77,14 @@
       assert decoded["sub"] == "user-123"
       assert decoded["role"] == "OPERATOR"
   ```
-* **Ejemplo (Frontend - Vue 3 con Vitest):**
+* **Example (Frontend - Vue 3 with Vitest):**
   ```typescript
   // vue3/src/composables/useIdempotency.unit.ts
   import { describe, it, expect } from 'vitest';
   import { useIdempotency } from './useIdempotency';
 
   describe('useIdempotency Composable', () => {
-    it('genera claves UUID válidas para cada mutación', () => {
+    it('generates valid UUID keys for each mutation', () => {
       const { generateKey } = useIdempotency();
       const key1 = generateKey();
       const key2 = generateKey();
@@ -91,93 +93,93 @@
     });
   });
   ```
-* **Umbral Innegociable:** **`>= 95.0%` de cobertura de líneas y ramas**. Si baja a 94.9%, el comando falla.
-* **Ejecución:**
+* **Non-Negotiable Threshold:** **`>= 95.0%` line and branch coverage**. If it drops to 94.9%, the command fails.
+* **Execution:**
   ```bash
   make qa-unit
   ```
 
 ---
 
-## 4. Paridad de Esquema DB y Migraciones (Anti-Mock Blindness)
+## 4. DB Schema and Migration Parity (Anti-Mock Blindness)
 
-* **Propósito:** Garantizar que los modelos ORM de la aplicación coincidan exactamente con las tablas, columnas y tipos reales creados en las migraciones de base de datos.
-* **Herramientas:** Script automatizado `.agents/scripts/verify_alembic_orm_parity.py` y ejecución en contenedor PostgreSQL real.
-* **Cómo Funciona:**
-  1. Extrae los nombres de tablas declaradas con `__tablename__` en `src/models/*.py`.
-  2. Inspecciona las llamadas `op.create_table()` en los archivos de migración de Alembic.
-  3. Si existe algún modelo ORM sin migración asociada, aborta la ejecución con código de salida 1.
-* **Ejecución:**
+* **Purpose:** Guarantee that the application's ORM models match the exact tables, columns, and real types created in database migrations.
+* **Tools:** Automated script `.agents/scripts/verify_alembic_orm_parity.py` and execution against a real PostgreSQL container.
+* **How It Works:**
+  1. Extracts table names declared with `__tablename__` in `src/models/*.py`.
+  2. Inspects `op.create_table()` calls inside Alembic migration files.
+  3. If any ORM model lacks an associated migration, aborts execution with exit code 1.
+* **Execution:**
   ```bash
   python3 .agents/scripts/verify_alembic_orm_parity.py
   ```
 
 ---
 
-## 5. Contratos de Integración Front-Back y Propagación Transversal Anti-Silo
+## 5. Front-Back Integration Contracts and Anti-Silo Cross-Module Propagation
 
-* **Propósito:** Certificar que el formato de petición enviado por la interfaz (JSON, Multipart FormData) coincide exactamente con lo que el backend espera y persiste en la base de datos viva, y erradicar la **ceguera de mocks por silos (*Silo Mock Blindness*)**.
-* **Herramientas:** Scripts de prueba ejecutados dentro del contenedor API levantado con PostgreSQL y KeyDB reales, más `Schemathesis`.
-* **Flujo Read-After-Write Transversal (Sin Mocks Intermedios):**
-  1. Realiza una petición HTTP mutadora real en el **Módulo A** (`POST`/`PUT`/`PATCH`/`DELETE`, ej. programar una ventana de mantenimiento o cambiar el estado administrativo de un equipo).
-  2. Invoca inmediatamente los endpoints de consulta (`GET`) de los **Módulos B consumidores** (ej. Inventario, Wallboard NOC, KPIs del Centro de Mando) sobre la misma base de datos real **sin mocks intermedios**, certificando que los contadores, insignias y estados efectivos reflejan la mutación de extremo a extremo.
-  3. Verifica que la bitácora de auditoría (`write_audit_log`) registre `actor_username` y `resource_display_name` con nombres humanos legibles y nunca con un UUID v4 crudo (`claims.get("sub")`).
+* **Purpose:** Certify that the request payload sent by the interface (JSON, Multipart FormData) matches exactly what the backend expects and persists to the live database, and eradicate **Silo Mock Blindness**.
+* **Tools:** Test scripts executed inside the API container booted with real PostgreSQL and KeyDB, plus `Schemathesis`.
+* **Cross-Module Read-After-Write Flow (No Intermediate Mocks):**
+  1. Execute a real mutating HTTP request in **Module A** (`POST`/`PUT`/`PATCH`/`DELETE`, e.g., scheduling a maintenance window or changing a device's administrative state).
+  2. Immediately call the query (`GET`) endpoints of **Consumer Modules B** (e.g., Inventory, NOC Wallboard, Command Center KPIs) against the same live database **with zero intermediate mocks**, certifying that counters, badges, and effective states reflect the end-to-end mutation.
+  3. Verify that the audit log (`write_audit_log`) records `actor_username` and `resource_display_name` with human-readable names and never a raw UUID v4 (`claims.get("sub")`).
 
 ---
 
-## 6. Pruebas BDD de Caja Negra con Karate Labs para API REST
+## 6. Black-Box BDD Tests with Karate Labs for REST APIs
 
-* **Propósito:** Validar el comportamiento de la API REST desde la perspectiva de un cliente externo, sin conocer el código interno. Valida códigos de estado HTTP, cabeceras de seguridad, respuestas JSON y esquemas dinámicos.
-* **Herramientas:** Contenedor oficial `sinfallas/karatelabs:1.5.1` (`:latest`) ejecutando archivos `.feature` de Cucumber/Gherkin.
-* **Estructura:** Ubicado en `fastapi/test/api_test.feature`.
-* **Ejemplo Real de Escenario Karate Labs API:**
+* **Purpose:** Validate REST API behavior from an external client's perspective without knowledge of internal code. Validates HTTP status codes, security headers, JSON responses, and dynamic schemas.
+* **Tools:** Official `sinfallas/karatelabs:1.5.1` (`:latest`) container executing Cucumber/Gherkin `.feature` files.
+* **Structure:** Located at `fastapi/test/api_test.feature`.
+* **Real Karate Labs API Scenario Example:**
   ```gherkin
-  Feature: Validación de API REST y Manejo de Errores
+  Feature: REST API Validation and Error Handling
 
     Background:
       * url 'http://api:8000'
       * configure headers = { 'Content-Type': 'application/json' }
 
-    Scenario: Healthcheck de API con estado de base de datos y redis
+    Scenario: API healthcheck with database and redis status
       Given path '/health'
       When method get
       Then status 200
       And match response.status == 'healthy'
       And match response.database == '#string'
 
-    Scenario: Petición con payload incompleto devuelve HTTP 422
+    Scenario: Request with incomplete payload returns HTTP 422
       Given path '/api/v1/auth/login'
-      And request { username: "operador_sin_password" }
+      And request { username: "operator_without_password" }
       When method post
       Then status 422
       And match response.detail[0].type == '#string'
 
-    Scenario: Consulta a recurso protegido sin autenticación devuelve HTTP 401
+    Scenario: Protected resource query without authentication returns HTTP 401
       Given path '/api/v1/users/me'
       When method get
       Then status 401
       And match response.detail contains 'No autenticado'
   ```
-* **Ejecución:**
+* **Execution:**
   ```bash
-  make qa-bdd   # o docker compose run --rm karatelabs mvn clean test
+  make qa-bdd   # or docker compose run --rm karatelabs mvn clean test
   ```
 
 ---
 
-## 7. Contratos BDD HTTP/OSHP/SSG Frontend con Karate Labs (sin navegador Headless)
+## 7. Frontend HTTP/OSHP/SSG BDD Contracts with Karate Labs (Without Headless Browser)
 
-* **Propósito:** La imagen oficial `sinfallas/karatelabs:1.5.1` (al igual que `:latest`) **no incluye binario Chrome ni Chromium**. Por ello, Karate 1.5.1 certifica en caja negra la entrega HTTP/Nginx sobre `http://ui-prod:80`: códigos `200`, rutas SPA/SSG, cabeceras OWASP OSHP (`Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`) e integridad XML/SEO como cadena (`* string xmlText = response` en `/sitemap.xml`). Toda interacción DOM real, validación del botón `[ 🔄 Refrescar ]`, geometría Anti-JSDOM y accesibilidad WCAG 2.1 AA se delega a Playwright (`ui-e2e`).
-* **Estructura:** Ubicado en `vue3/test/ui_business_flow.feature` y `react-frontend/test/ui_business_flow.feature`.
-* **Ejemplo Real de Escenario Karate Labs HTTP/OSHP/SSG:**
+* **Purpose:** The official `sinfallas/karatelabs:1.5.1` image (like `:latest`) **does not include Chrome or Chromium binaries**. Therefore, Karate 1.5.1 black-box certifies HTTP/Nginx delivery on `http://ui-prod:80`: `200` status codes, SPA/SSG routes, OWASP OSHP headers (`Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`), and XML/SEO integrity as strings (`* string xmlText = response` on `/sitemap.xml`). All real DOM interaction, `[ 🔄 Refrescar ]` button checks, Anti-JSDOM geometry, and WCAG 2.1 AA accessibility are delegated to Playwright (`ui-e2e`).
+* **Structure:** Located at `vue3/test/ui_business_flow.feature` and `react-frontend/test/ui_business_flow.feature`.
+* **Real Karate Labs HTTP/OSHP/SSG Scenario Example:**
   ```gherkin
-  Feature: Contratos BDD HTTP, Cabeceras OWASP OSHP, Rutas SPA/SSG y SEO (Karate 1.5.1)
+  Feature: HTTP BDD Contracts, OWASP OSHP Headers, SPA/SSG Routes & SEO (Karate 1.5.1)
 
     Background:
       * def baseUrl = karate.properties['UI_BASE_URL'] || 'http://ui-prod:80'
       * url baseUrl
 
-    Scenario: Entrega HTML y cabeceras OWASP OSHP alineadas con Nginx
+    Scenario: HTML delivery and OWASP OSHP headers aligned with Nginx
       Given path '/'
       When method get
       Then status 200
@@ -187,7 +189,7 @@
       And match header Referrer-Policy == 'strict-origin-when-cross-origin'
       And match header Content-Security-Policy contains "default-src 'self'"
 
-    Scenario: Inspección segura como string de /sitemap.xml en SSG o fallback SPA
+    Scenario: Safe string inspection of /sitemap.xml in SSG or SPA fallback
       Given path '/sitemap.xml'
       When method get
       Then status 200
@@ -195,92 +197,92 @@
       * def contentType = responseHeaders['Content-Type'] ? responseHeaders['Content-Type'][0] : ''
       * assert contentType.contains('xml') ? xmlText.contains('<urlset') : xmlText.toLowerCase().contains('<html')
   ```
-* **Ejecución:**
+* **Execution:**
   ```bash
   make qa-bdd
   ```
 
 ---
 
-## 8. Pruebas de Mutación (Pruebas de las Pruebas)
+## 8. Mutation Testing (Testing the Tests)
 
-* **Propósito:** Demostrar que las pruebas unitarias no son "de adorno". La herramienta inyecta mutaciones lógicas en el código fuente (ej. cambia `>` por `<=`, `True` por `False`, o elimina una llamada a función) y ejecuta la suite de pruebas. Si las pruebas pasan a pesar del cambio malicioso, el mutante "sobrevive" y se detecta una debilidad en los asserts.
-* **Herramientas:**
+* **Purpose:** Prove that unit tests are not superficial. The tool injects logical mutations into source code (e.g., changing `>` to `<=`, `True` to `False`, or deleting a function call) and re-runs the test suite. If tests still pass despite the malicious change, the mutant "survives" and exposes weak assertions.
+* **Tools:**
   - Python: `mutmut` (`mutmut run && mutmut results`).
   - JavaScript / TypeScript: `Stryker Mutator` (`stryker run`).
   - PHP (8.2–8.5): `Infection PHP` (`php -d pcov.enabled=1 ./vendor/bin/infection --min-msi=80 --min-covered-msi=80 --threads=4`).
-* **Ejecución:**
+* **Execution:**
   ```bash
   make qa-mutation
   ```
 
 ---
 
-## 9. Accesibilidad (WCAG 2.1 AA) y Geometría Visual
+## 9. Accessibility (WCAG 2.1 AA) and Visual Geometry
 
-* **Propósito:** Garantizar que la interfaz sea usable por personas con discapacidad visual o motriz y que cumpla estándares legales de accesibilidad (contraste de color, etiquetas ARIA, navegación por teclado), además de verificar que no existan colisiones de layout (pies de página fijos tapando botones).
-* **Herramientas:**
-  - `@axe-core/playwright`: Escaneo de violaciones WCAG 2.1 AA en Chromium.
-  - `Lighthouse CI`: Métricas de accesibilidad con umbral mínimo de **0.95**.
-* **Ejecución:**
+* **Purpose:** Guarantee that the interface is usable by people with visual or motor impairments, complies with legal accessibility standards (color contrast, ARIA labels, keyboard navigation), and has zero layout collisions (fixed footers covering action buttons).
+* **Tools:**
+  - `@axe-core/playwright`: WCAG 2.1 AA violation scan in Chromium.
+  - `Lighthouse CI`: Accessibility metrics with minimum threshold **0.95**.
+* **Execution:**
   ```bash
-  make qa-e2e   # Playwright + Axe Core (ui-e2e no-root, ./node_modules/.bin/playwright)
-  make qa-perf  # Lighthouse CI pre-merge sobre contenedores locales
-  make qa-psi URL=https://tu-dominio.com  # PageSpeed Insights v5 post-deploy (Lab + CrUX)
+  make qa-e2e   # Playwright + Axe Core (non-root ui-e2e, ./node_modules/.bin/playwright)
+  make qa-perf  # Pre-merge Lighthouse CI against local containers
+  make qa-psi URL=https://your-domain.com  # Post-deploy PageSpeed Insights v5 (Lab + CrUX)
   ```
 
 ---
 
-## 10. Concurrencia y Pruebas de Carga / Estrés
+## 10. Concurrency and Load / Stress Testing
 
-* **Propósito:** Validar el comportamiento de la API y el consumo de recursos de memoria/CPU bajo tráfico masivo concurrente.
-* **Herramientas:**
-  - Python / FastAPI: `locust` en modo headless con escenarios definidos en `locustfile.py`.
-  - Node.js: `artillery` ejecutando escenarios definidos en `artillery.yml`.
-* **Umbral Innegociable:** **0% de peticiones fallidas y latencia P95 inferior a 200 ms**.
-
----
-
-## 11. Seguridad Dinámica DAST (OWASP ZAP), OWASP WSTG / ASVS y Cabeceras OSHP
-
-* **Propósito:** Bombardear la aplicación en ejecución con ataques web activos (inyección SQL, XSS reflejado, cabeceras HTTP inseguras, cookies sin flags de seguridad) y certificar el cumplimiento de los estándares **OWASP Application Security Verification Standard (ASVS Nivel 2/3)**, **OWASP Web Security Testing Guide (WSTG)**, **OWASP API Security Top 10 (2023)** y **DISA ASD STIG V6R5** (`APSC-DV-003160`..`003230`).
-* **Herramientas:**
-  - Contenedor `zaproxy/zap-stable:latest` ejecutando `zap-baseline.py` / `zap-api-scan.py` contra `http://api:8000`.
-  - Validación de cabeceras del **OWASP Secure Headers Project (OSHP)**: `Strict-Transport-Security`, `Content-Security-Policy`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Cache-Control: no-store` y ausencia de banners `Server` / `X-Powered-By`.
-  - Verificación de cadena de suministro con **OWASP CycloneDX SBOM/CBOM** (`cyclonedx-py`, `@cyclonedx/cyclonedx-npm`) y auditoría SCA con `Trivy` / `OWASP Dependency-Check`.
-  - Pruebas de inicialización, apagado y aborto en estado seguro (*Fail-Secure State Testing*, `DISA V-222585` / `V-222647`): certificar que ante fallos de configuración o caída de dependencias críticas, la aplicación deniega el acceso por defecto sin exponer trazas ni permitir bypass de autenticación.
-* **Reporte:** Genera `zap-report.html` y `sbom.cdx.json` para auditoría continua.
+* **Purpose:** Validate API behavior and memory/CPU resource consumption under massive concurrent traffic.
+* **Tools:**
+  - Python / FastAPI: `locust` in headless mode with scenarios defined in `locustfile.py`.
+  - Node.js: `artillery` executing scenarios defined in `artillery.yml`.
+* **Non-Negotiable Threshold:** **0% failed requests and P95 latency under 200 ms**.
 
 ---
 
-## 12. Ingeniería del Caos (Pumba) y Resiliencia
+## 11. Dynamic Security DAST (OWASP ZAP), OWASP WSTG / ASVS, and OSHP Headers
 
-* **Propósito:** Verificar si la aplicación sobrevive y se recupera automáticamente ante fallos reales de infraestructura de red (latencia extrema, paquetes descartados, caídas de microservicios).
-* **Herramientas:** `gaiaadm/pumba:latest` orquestado con Docker socket para inyectar fallos de red tipo `netem` sobre el contenedor de la API, mientras `Prometheus` monitorea la tasa de errores en `/metrics`.
-
----
-
-## 13. Fixtures Trimodales, Ciclo Temporal de 3 Fases e Invariantes Negativos
-
-* **Propósito:** Erradicar la ceguera de mocks al integrar con APIs externas o hardware, así como la **ceguera estática de 2 estados (*2-State Static Blindness*)** en flujos gobernados por ventanas de tiempo.
-* **Estructura de 3 Fixtures Espaciales/Salud:**
-  1. **Virgin / Factory Default:** Asegura que sistemas no configurados no generen falsos positivos en el dashboard.
-  2. **Nominal Configured:** Valida el funcionamiento en condiciones normales de producción.
-  3. **Degraded / Unsupported / Fallo Parcial en Lote:** Valida que sistemas con errores, funciones no soportadas, transferencias truncadas de `0 bytes` (exigiendo `timeout >= 180s` en descargas síncronas de firmware/paquetes) o respuestas batch `HTTP 200 OK` con fallos por ítem (`results[].status == 'FAILED'`) degraden elegantemente y expongan el error por recurso sin arrojar HTTP 500 ni falsos positivos de éxito global.
-* **Estructura Obligatoria de las 3 Fases Temporales (Reloj de 3 Estados):**
-  Toda entidad con ventanas de tiempo, cronómetros o TTL (`starts_at` / `ends_at`, Safe Mode de 60s, tokens Step-Up de 30s, leases) DEBE probarse en sus **3 fases del reloj**:
-  1. **Fase 1 (`t < starts_at`):** Estado Programado / Pendiente (`Programada`).
-  2. **Fase 2 (`starts_at <= t <= ends_at`):** Estado Activo / En Curso (`En Curso` / `Activa`, verificando que el scheduler permanezca vivo y proyecte el estado activo a todos los módulos consumidores).
-  3. **Fase 3 (`t > ends_at` o Cancelado):** Estado Expirado / Purgado / Revertido (verificando la restauración automática al estado nominal original y su registro en auditoría).
+* **Purpose:** Bombard the running application with active web attacks (SQL injection, reflected XSS, insecure HTTP headers, cookies missing security flags) and certify compliance with **OWASP Application Security Verification Standard (ASVS Level 2/3)**, **OWASP Web Security Testing Guide (WSTG)**, **OWASP API Security Top 10 (2023)**, and **DISA ASD STIG V6R5** (`APSC-DV-003160`..`003230`).
+* **Tools:**
+  - Container `zaproxy/zap-stable:latest` running `zap-baseline.py` / `zap-api-scan.py` against `http://api:8000`.
+  - Validation of **OWASP Secure Headers Project (OSHP)** headers: `Strict-Transport-Security`, `Content-Security-Policy`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Cache-Control: no-store`, and absence of `Server` / `X-Powered-By` banners.
+  - Supply chain verification with **OWASP CycloneDX SBOM/CBOM** (`cyclonedx-py`, `@cyclonedx/cyclonedx-npm`) and SCA auditing with `Trivy` / `OWASP Dependency-Check`.
+  - Fail-secure initialization, shutdown, and abort testing (*Fail-Secure State Testing*, `DISA V-222585` / `V-222647`): certify that upon configuration errors or critical dependency outages, the application denies access by default without leaking stack traces or permitting authentication bypass.
+* **Report:** Generates `zap-report.html` and `sbom.cdx.json` for continuous auditing.
 
 ---
 
-## 14. Compuerta de Certificación Global (`certify_task_completion.sh`)
+## 12. Chaos Engineering (Pumba) and Resilience
 
-* **Propósito:** Punto final de control que reúne todas las validaciones antes de permitir el commit.
-* **Ejecución:**
+* **Purpose:** Verify whether the application survives and recovers automatically under real network infrastructure faults (extreme latency, dropped packets, microservice crashes).
+* **Tools:** `gaiaadm/pumba:latest` orchestrated via Docker socket to inject `netem` network faults against the API container while `Prometheus` monitors error rates on `/metrics`.
+
+---
+
+## 13. Trimodal Fixtures, 3-Phase Temporal Lifecycle, and Negative Invariants
+
+* **Purpose:** Eradicate mock blindness when integrating with external APIs or hardware, as well as **2-State Static Blindness** in time-windowed flows.
+* **3 Spatial/Health Fixtures Structure:**
+  1. **Virgin / Factory Default:** Ensures unconfigured systems do not produce false positives on the dashboard.
+  2. **Nominal Configured:** Validates operation under normal production conditions.
+  3. **Degraded / Unsupported / Partial Batch Failure:** Validates that systems experiencing errors, unsupported features, `0-byte` truncated transfers (requiring `timeout >= 180s` on synchronous firmware/package downloads), or `HTTP 200 OK` batch responses with per-item failures (`results[].status == 'FAILED'`) degrade gracefully and surface per-resource errors without throwing HTTP 500 or false global success.
+* **Mandatory 3-Phase Temporal Structure (3-State Clock):**
+  Every entity with time windows, timers, or TTLs (`starts_at` / `ends_at`, 60s Safe Mode, 30s Step-Up tokens, leases) MUST be tested across its **3 clock phases**:
+  1. **Phase 1 (`t < starts_at`):** Scheduled / Pending state (`Programada`).
+  2. **Phase 2 (`starts_at <= t <= ends_at`):** Active / In-Progress state (`En Curso` / `Activa`, verifying the scheduler stays alive and projects active state to all consumer modules).
+  3. **Phase 3 (`t > ends_at` or Cancelled):** Expired / Purged / Reverted state (verifying automatic restoration to the original nominal state and audit logging).
+
+---
+
+## 14. Global Certification Gate (`certify_task_completion.sh`)
+
+* **Purpose:** Final checkpoint aggregating all validations before permitting a commit.
+* **Execution:**
   ```bash
   ./.agents/scripts/certify_task_completion.sh
   ```
-* **Modo Diferencial en Blast Radius y Veredicto Ejecutivo de PR (`Hito 23`):** Antes de emitir cambios o preparar un Pull Request, inspecciona el delta compacto invocando `inspect_ast_blast_radius` con `changed_since_ref` y `max_tokens_budget` (ahorro `>= 60%` de tokens, redacción de secretos y alertas de contratos `.feature`), y genera los artefactos `.agents/artifacts/PR_VERDICT.md` + `pr_verdict_attestation.json` (`0600`) ejecutando `make pr-verdict` en Docker efímero (`exit 0` o `30` ante divergencia/evidencia faltante).
-* Si cualquiera de los pasos falla, el commit debe ser rechazado inmediatamente.
+* **Blast Radius Diff Mode and Executive PR Verdict (`Milestone 23`):** Before emitting changes or opening a Pull Request, inspect the compact delta by calling `inspect_ast_blast_radius` with `changed_since_ref` and `max_tokens_budget` (`>= 60%` token savings, secret redaction, and `.feature` contract alerts), and generate `.agents/artifacts/PR_VERDICT.md` + `pr_verdict_attestation.json` (`0600`) by running `make pr-verdict` inside ephemeral Docker (`exit 0`, or `30` on divergence/missing evidence).
+* If any step fails, the commit must be rejected immediately.

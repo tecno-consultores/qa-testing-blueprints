@@ -103,6 +103,11 @@ VERSION_RULES: tuple[VersionRule, ...] = (
         (re.compile(rf"(`--version`\s*\(`)({_VER_CORE})(`\))"),),
     ),
     VersionRule(
+        "mcp-server/example/README.es.md",
+        (re.compile(rf"(`--version`\s*\(`)({_VER_CORE})(`\))"),),
+        optional=True,
+    ),
+    VersionRule(
         "scripts/probar-mcp-example.sh",
         (re.compile(rf"(tarball v)({_VER_CORE})(\s)"),),
     ),
@@ -142,7 +147,17 @@ VERSION_RULES: tuple[VersionRule, ...] = (
         optional=True,
     ),
     VersionRule(
+        "RESOURCES.es.md",
+        (re.compile(rf"(@sinfallas/mcp-qa-11x`\s*v)({_VER_CORE})(\s)"),),
+        optional=True,
+    ),
+    VersionRule(
         "FAQ.md",
+        (re.compile(rf"(@sinfallas/mcp-qa-11x`?\s*v)({_VER_CORE})([:\)\s])"),),
+        optional=True,
+    ),
+    VersionRule(
+        "FAQ.es.md",
         (re.compile(rf"(@sinfallas/mcp-qa-11x`?\s*v)({_VER_CORE})([:\)\s])"),),
         optional=True,
     ),
@@ -152,8 +167,18 @@ VERSION_RULES: tuple[VersionRule, ...] = (
         optional=True,
     ),
     VersionRule(
+        "docs/ai-integration.es.md",
+        (re.compile(rf"(@sinfallas/mcp-qa-11x`\s*v)({_VER_CORE})(\s)"),),
+        optional=True,
+    ),
+    VersionRule(
         "docs/01_ARQUITECTURA_PIRAMIDE_11X.md",
-        (re.compile(rf"(@sinfallas/mcp-qa-11x`\s*v)({_VER_CORE})([:\s\)])"),),
+        (re.compile(rf"(@sinfallas/mcp-qa-11x`?\s*v)({_VER_CORE})([:\s\)])"),),
+        optional=True,
+    ),
+    VersionRule(
+        "docs/01_ARQUITECTURA_PIRAMIDE_11X.es.md",
+        (re.compile(rf"(@sinfallas/mcp-qa-11x`?\s*v)({_VER_CORE})([:\s\)])"),),
         optional=True,
     ),
 )
@@ -222,12 +247,27 @@ EDITION_RULES: tuple[VersionRule, ...] = (
         optional=True,
     ),
     VersionRule(
+        "RESOURCES.es.md",
+        (re.compile(r"(`)(QA-11X v\d+\.\d+)(`)"),),
+        optional=True,
+    ),
+    VersionRule(
         "docs/01_ARQUITECTURA_PIRAMIDE_11X.md",
         (re.compile(r"(\*\*|[\s\(])(QA-11X v\d+\.\d+)([\*\s\),])"),),
         optional=True,
     ),
     VersionRule(
+        "docs/01_ARQUITECTURA_PIRAMIDE_11X.es.md",
+        (re.compile(r"(\*\*|[\s\(])(QA-11X v\d+\.\d+)([\*\s\),])"),),
+        optional=True,
+    ),
+    VersionRule(
         "php/README.md",
+        (re.compile(r"(\()(QA-11X v\d+\.\d+)(\))"),),
+        optional=True,
+    ),
+    VersionRule(
+        "php/README.es.md",
         (re.compile(r"(\()(QA-11X v\d+\.\d+)(\))"),),
         optional=True,
     ),

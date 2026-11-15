@@ -96,9 +96,17 @@ class TestVerifyDocsInvariants(unittest.TestCase):
                 "1. **Regla Uno:** texto\n\n---\n",
                 encoding="utf-8",
             )
+            human_doc_es = root / "docs" / "02_BUENAS_PRACTICAS_PROGRAMACION_11X.es.md"
+            human_doc_es.write_text(
+                "### 1.1. Invariante Anti-Silo\n"
+                "Cumplir **3 reglas obligatorias de diseño de pruebas**:\n\n"
+                "1. **Regla Uno:** texto\n\n---\n",
+                encoding="utf-8",
+            )
 
             errors = verify_docs.validate_repository_docs(root)
             self.assertTrue(any("Desfase Dual-Consumer" in e for e in errors))
+            self.assertTrue(any("Desfase Dual-Consumer ES" in e for e in errors))
 
     def test_detects_undocumented_auditor_rule_in_human_manuals(self) -> None:
         import tempfile
@@ -161,6 +169,58 @@ class TestVerifyDocsInvariants(unittest.TestCase):
 
             (root / "mcp-server" / "README.es.md").write_text("**Español** -> [README.md](README.md)\n", encoding="utf-8")
             self.assertEqual(verify_docs.check_bilingual_readme_parity(root), [])
+
+    def test_detects_bilingual_agent_setup_and_pair_parity_mismatches(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "docs").mkdir(parents=True, exist_ok=True)
+            (root / "README.md").write_text("**English** -> [README.es.md](README.es.md)\n", encoding="utf-8")
+            (root / "README.es.md").write_text("**Español** -> [README.md](README.md)\n", encoding="utf-8")
+            (root / "docs" / "agent-setup.md").write_text("**English** -> [agent-setup.es.md](agent-setup.es.md)\n", encoding="utf-8")
+            (root / "docs" / "agent-setup.es.md").write_text("Missing link\n", encoding="utf-8")
+
+            readme_errs = verify_docs.check_bilingual_readme_parity(root)
+            self.assertTrue(any("agent-setup.es.md" in e for e in readme_errs))
+
+            (root / "docs" / "agent-setup.es.md").write_text("**Español** -> [agent-setup.md](agent-setup.md)\n", encoding="utf-8")
+            self.assertEqual(verify_docs.check_bilingual_readme_parity(root), [])
+
+            # Par nominal con código cercado y comentario HTML ignorados al contar H2/H3
+            (root / "TESTING.md").write_text(
+                "> 🌐 **English** | [TESTING.es.md](TESTING.es.md)\n\n"
+                "## Section 1\n### Detail A\n\n"
+                "```bash\n## comment inside code\n```\n"
+                "<!-- ## comment inside html -->\n"
+                "Control SEC-01 and blueprint://core/philosophy\n",
+                encoding="utf-8",
+            )
+            (root / "TESTING.es.md").write_text(
+                "> 🌐 **Español** | [TESTING.md](TESTING.md)\n\n"
+                "## Sección 1\n### Detalle A\n\n"
+                "Control SEC-01 y blueprint://core/philosophy\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(verify_docs.check_bilingual_pair_parity(root), [])
+
+            # Divergencias estructural, de IDs normativos y de banner
+            (root / "TESTING.es.md").write_text(
+                "Sin enlace cruzado\n\n## Sección 1\n\nControl SEC-99\n",
+                encoding="utf-8",
+            )
+            pair_errs = verify_docs.check_bilingual_pair_parity(root)
+            self.assertTrue(any("banner recíproco" in e for e in pair_errs))
+            self.assertTrue(any("Desfase estructural" in e for e in pair_errs))
+            self.assertTrue(any("Desfase de IDs normativos" in e for e in pair_errs))
+
+            # Cuando existe RESOURCES.es.md se exige el conjunto completo BILINGUAL_DOC_PAIRS
+            (root / "RESOURCES.es.md").write_text(
+                "> 🌐 **Español** | [RESOURCES.md](RESOURCES.md)\n",
+                encoding="utf-8",
+            )
+            missing_errs = verify_docs.check_bilingual_pair_parity(root)
+            self.assertTrue(any("Par bilingüe incompleto/vacío" in e for e in missing_errs))
 
 
 if __name__ == "__main__":

@@ -1,55 +1,57 @@
-# Preguntas Frecuentes (FAQ) - QA Testing Blueprints
+# Frequently Asked Questions (FAQ) - QA Testing Blueprints
 
-Este documento resuelve las dudas arquitectónicas y los errores más comunes al implementar y ejecutar los ecosistemas de prueba estandarizados (Nivel 11X) en este repositorio.
+> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (FAQ.es.md)](FAQ.es.md)
 
-## 🏗️ Filosofía y Ejecución
+This document addresses architectural questions and the most common issues when implementing and running the standardized testing ecosystems (Level 11X) in this repository.
 
-### ¿Por qué no puedo ejecutar `npm install`, `pip install` o las pruebas directamente en mi máquina local?
-Para garantizar **inmutabilidad y paridad absoluta con producción**. El problema de "en mi máquina sí funciona" suele deberse a versiones globales ocultas de Node, Python o variables de entorno residuales. Al forzar el uso de contenedores efímeros (a través de los comandos simplificados como `make qa-unit`), el entorno nace completamente virgen, utilizando cachés aislados, ejecuta la suite y se autodestruye.
+## 🏗️ Philosophy and Execution
 
-### Lefthook bloqueó mi `git commit`, ¿qué hago?
-Nuestra política es **"Fail & Forbid" (Rechazo Educativo)**. Si Lefthook detectó errores de formato o un secreto *hardcodeado*, abortará tu commit. NO intentes evadirlo con `--no-verify`. Debes ejecutar el comando sugerido en la terminal (ej. `ruff format` o `Prettier`), revisar que el código haya quedado bien, y volver a intentar hacer commit.
+### Why can't I run `npm install`, `pip install`, or tests directly on my local machine?
+To guarantee **immutability and absolute parity with production**. The "works on my machine" problem is usually caused by hidden global Node/Python versions or residual environment variables. By forcing ephemeral containers (through simplified commands such as `make qa-unit`), the environment starts completely clean, uses isolated caches, executes the suite, and destroys itself.
 
-### Todo mi código funciona y mi cobertura está en 100%, ¿por qué el pipeline sigue arrojando fallo?
-Si superaste el 95% de cobertura, el pipeline ahora evalúa la **Deuda Técnica y Seguridad**. Es altamente probable que:
-1. Herramientas como `SonarJS` (Node) o `Radon` (Python) detectaron **Complejidad Ciclomática** alta (Código Espagueti). Tendrás que refactorizar las funciones muy largas.
-2. Fallaste los estándares de calidad de código visual (`Prettier`, `Ruff`).
-3. Introdujiste vulnerabilidades detectadas por `ESLint Security` o `bandit` (SAST), o fallaste el escaneo dinámico de `OWASP ZAP` (DAST).
-4. El rendimiento de Lighthouse (Vue3) bajó de 90.
+### Lefthook blocked my `git commit` — what should I do?
+Our policy is **"Fail & Forbid" (Educational Rejection)**. If Lefthook detected formatting errors or a hardcoded secret, it will abort your commit. Do NOT try to bypass it with `--no-verify`. Run the suggested command in your terminal (e.g., `ruff format` or `Prettier`), verify that the code is clean, and retry the commit.
 
-### ¿Qué significa "contenedor efímero" y cómo guardo los reportes si el contenedor se borra?
-Un contenedor efímero se crea dinámicamente con el flag `--rm`. Nace, ejecuta un comando único y muere. Los reportes (como la cobertura HTML o Flamegraphs de Profiling) no se pierden porque el `docker-compose.qa.yml` utiliza **volúmenes bind** (`- .:/app`), guardando los resultados directamente en tu disco duro físico.
+### All my code works and coverage is 100% — why does the pipeline still fail?
+Once you exceed 95% coverage, the pipeline evaluates **Technical Debt and Security**. Most likely:
+1. Tools such as `SonarJS` (Node) or `Radon` (Python) detected high **Cyclomatic Complexity** (spaghetti code). You will need to refactor long functions.
+2. You failed code formatting standards (`Prettier`, `Ruff`).
+3. You introduced vulnerabilities detected by `ESLint Security` or `bandit` (SAST), or failed the `OWASP ZAP` dynamic scan (DAST).
+4. Lighthouse performance (Vue 3) dropped below 90.
 
-## 🛡️ Herramientas y Casos Específicos
+### What does "ephemeral container" mean, and how do I keep reports if the container is deleted?
+An ephemeral container is created dynamically with the `--rm` flag. It starts, runs a single command, and exits. Reports (such as HTML coverage or profiling Flamegraphs) are not lost because `docker-compose.qa.yml` uses **bind volumes** (`- .:/app`), writing results directly to your host disk.
 
-### ¿Por qué estoy obligado a usar librerías de Mocking (`nock`, `pytest-mock`) si la API a la que llamo es rápida?
-Para garantizar el **determinismo y el aislamiento total**. Si tu prueba depende del internet o de una API de terceros que se cae temporalmente, tu prueba fallará (falso negativo) rompiendo el pipeline de CI/CD. Las pruebas unitarias jamás deben salir del contenedor.
+## 🛡️ Tools and Specific Cases
 
-### Estoy probando un script en Bash que formatea discos o reinicia servicios. ¿No es peligroso?
-Es **extremadamente peligroso y está estrictamente prohibido**. Debes utilizar la técnica de *Mocking*. La imagen `sinfallas/base-bash-qa:latest` trae la librería `bats-mock` para interceptar binarios peligrosos e inyectar respuestas falsas.
+### Why am I required to use Mocking libraries (`nock`, `pytest-mock`) if the API I call is fast?
+To guarantee **determinism and total isolation**. If your test depends on the internet or a third-party API that temporarily goes down, your test will fail (false negative) and break the CI/CD pipeline. Unit tests must never leave the container.
 
-### ¿Qué diferencia hay entre SAST (Bandit/ESLint) y DAST (OWASP ZAP)?
-*   **SAST (Estático):** Escanea tu código fuente escrito como si fuera un libro, buscando vulnerabilidades de sintaxis o lógica antes de que el programa corra.
-*   **DAST (Dinámico):** Es un hacker automatizado. Necesita que tu API esté viva y corriendo. ZAP le envía peticiones maliciosas reales (XSS, SQLi) evaluando si el servidor se rompe o expone cabeceras inseguras en las respuestas HTTP.
+### I am testing a Bash script that formats disks or restarts services. Isn't that dangerous?
+It is **extremely dangerous and strictly forbidden**. You must use *Mocking*. The `sinfallas/base-bash-qa:latest` image includes the `bats-mock` library to intercept dangerous binaries and inject mock responses.
 
-### ¿Qué son las Pruebas de Mutación (Stryker / mutmut)?
-No prueban tu código, **prueban tus pruebas**. Alteran intencionalmente el código fuente original (cambian un `>` por `<`, o un `true` por `false`) y corren tu suite de pruebas de nuevo. Si tus pruebas unitarias dicen "Todo pasó" a pesar del daño, significa que tus pruebas tienen falsos positivos (no están auditando nada realmente).
+### What is the difference between SAST (Bandit/ESLint) and DAST (OWASP ZAP)?
+*   **SAST (Static):** Scans your written source code like a book, searching for syntax or logic vulnerabilities before the program runs.
+*   **DAST (Dynamic):** Acts like an automated attacker. It requires your API to be live and running. ZAP sends real malicious requests (XSS, SQLi), evaluating whether the server breaks or exposes insecure HTTP headers in its responses.
 
-### ¿Para qué utilizar Karate Labs (BDD) si ya tengo Vitest, Pytest o Supertest evaluando el código?
-Porque cumplen propósitos distintos. Vitest/Pytest prueban cajas blancas (conocen el código interno). Karate Labs evalúa cajas negras: ataca el puerto vivo de la aplicación emulando a un usuario real mediante lenguaje natural (Gherkin).
+### What are Mutation Tests (Stryker / mutmut)?
+They do not test your code; they **test your tests**. They intentionally mutate the original source code (flipping `>` to `<`, or `true` to `false`) and re-run your test suite. If your unit tests still report "Everything passed" despite the defect, your tests have false positives (they are not actually auditing anything).
 
-### ¿Por qué me obligan a inyectar un middleware de Prometheus en mi código fuente?
-Porque la Ingeniería del Caos a ciegas no sirve de nada. Si inyectamos latencia o pérdida de paquetes con Pumba, necesitamos ver el impacto real en los tiempos de respuesta (Métricas RED) de forma instantánea. Los middlewares seleccionados (`express-prom-bundle`, `prometheus-fastapi-instrumentator`) son de impacto cero y no alteran tu lógica de negocio.
-*   **Nota para scripts (Bash/Python):** Para tareas efímeras que no levantan un servidor HTTP, no usamos middlewares. En su lugar, utilizamos inyecciones de comandos (ej. `curl`) para empujar las métricas hacia un **Pushgateway**, permitiendo que Prometheus las recolecte después de que el script haya terminado de ejecutarse.
+### Why use Karate Labs (BDD) if I already have Vitest, Pytest, or Supertest evaluating the code?
+Because they serve different purposes. Vitest/Pytest test white-box internals (they know the internal code). Karate Labs evaluates black-box behavior: it hits the live application port, simulating a real user via natural language (Gherkin).
 
-### ¿Por qué Pumba (Caos) necesita acceder al socket de Docker (`/var/run/docker.sock`) si nuestra política prohíbe esto?
-Porque la **Ingeniería del Caos** consiste en simular fallos catastróficos a nivel de infraestructura. Pumba necesita comunicarse con el demonio de Docker para interceptar el tráfico de red de otros contenedores o apagarlos abruptamente. Esta es una **excepción de seguridad documentada**, y es por ello que está oculta bajo el flag `--profile chaos` en el orquestador. Jamás se debe activar en un servidor de producción.
+### Why must I inject Prometheus middleware into my source code?
+Because blind Chaos Engineering is useless. When we inject latency or packet loss with Pumba, we need to observe the real impact on response times (RED metrics) instantaneously. The selected middlewares (`express-prom-bundle`, `prometheus-fastapi-instrumentator`) have near-zero overhead and do not alter business logic.
+*   **Note for scripts (Bash/Python):** For ephemeral tasks that do not start an HTTP server, we do not use middlewares. Instead, we push metrics (e.g., via `curl`) to a **Pushgateway**, allowing Prometheus to scrape them after the script finishes.
 
-## 🚨 Resolución de Problemas (Troubleshooting)
+### Why does Pumba (Chaos) need access to the Docker socket (`/var/run/docker.sock`) if our policy forbids it?
+Because **Chaos Engineering** simulates catastrophic infrastructure failures. Pumba needs to talk to the Docker daemon to intercept network traffic of other containers or terminate them abruptly. This is a **documented security exception**, hidden behind the `--profile chaos` flag in Compose. It must never be enabled on a production server.
 
-### Docker me da "Permission Denied" o "ptrace(PTRACE_ATTACH)" al ejecutar Profilers (`clinic.js` o `py-spy`).
-Por seguridad, el demonio de Docker bloquea la inspección de memoria entre procesos.
-**Solución:** Asegúrate de que el servicio en el `docker-compose.qa.yml` tenga habilitados los privilegios del kernel:
+## 🚨 Troubleshooting
+
+### Docker throws "Permission Denied" or "ptrace(PTRACE_ATTACH)" when running Profilers (`clinic.js` or `py-spy`).
+For security reasons, the Docker daemon blocks cross-process memory inspection.
+**Solution:** Ensure the service in `docker-compose.qa.yml` enables the required kernel privileges:
 ```yaml
     cap_add:
       - SYS_PTRACE
@@ -57,70 +59,69 @@ Por seguridad, el demonio de Docker bloquea la inspección de memoria entre proc
       - seccomp:unconfined
 ```
 
-### ZAP (DAST) falla al escribir el `zap-report.html` (Permission Denied)
-El contenedor de ZAP corre por defecto con el usuario no privilegiado `zap` (`UID 1000`), cumpliendo con las políticas de endurecimiento de contenedores (Trivy `DS002`, cero `user: root`).
-**Solución:** Asegúrate de que el directorio de trabajo montado en `/zap/wrk` pertenezca al usuario `UID 1000` del host o tenga permisos de escritura antes de correr el escaneo. Al finalizar, ejecuta `./scripts/limpieza.sh` o `make clean` (el cual utiliza un fallback efímero en Docker Alpine para sanear artefactos sin requerir `sudo`).
+### ZAP (DAST) fails to write `zap-report.html` (Permission Denied)
+The ZAP container runs by default as non-privileged user `zap` (`UID 1000`), complying with container hardening policies (Trivy `DS002`, zero `user: root`).
+**Solution:** Make sure the working directory mounted at `/zap/wrk` is owned by host `UID 1000` or writable before running the scan. Afterwards, run `./scripts/limpieza.sh` or `make clean` (which uses an ephemeral Alpine Docker fallback to sanitize artifacts without `sudo`).
 
-### Docker se quedó sin espacio, está muy lento o las pruebas fallan porque detectan código viejo.
-Los contenedores y gestores acumulan cachés masivos. 
-**Solución:** Ejecuta el script maestro de saneamiento sin necesidad de `sudo`:
+### Docker ran out of disk space, became slow, or tests fail due to stale code detection.
+Containers and package managers accumulate massive caches.
+**Solution:** Run the master cleanup script without requiring `sudo`:
 ```bash
 ./scripts/limpieza.sh
-# O utiliza la meta del Makefile en tu proyecto:
+# Or use the Makefile target in your project:
 make clean-cache
 ```
-Esto purga reportes temporales, artefactos de prueba y cachés huérfanas mediante una estrategia híbrida (eliminación local y fallback en Docker efímero con permisos internos de contenedor), limpiando también los volúmenes nombrados de caché (`pnpm-store` o `uv-cache`).
+This purges temporary reports, test artifacts, and orphan caches using a hybrid strategy (local removal plus an ephemeral Docker fallback with container permissions), also cleaning named cache volumes (`pnpm-store` or `uv-cache`).
 
-### ¿Por qué `scripts/limpieza.sh` y la herramienta MCP `clean_workspace_11x` ya no requieren `sudo`?
-Los contenedores efímeros bajo la Regla Cero suelen crear archivos propiedad de `root` en los volúmenes montados. En lugar de forzar al usuario o al agente a ejecutar comandos de superusuario destructivos en la máquina anfitriona, el saneamiento ejecuta un contenedor efímero ultraligero de Alpine Linux (`sinfallas/base-node-ionic` o `alpine:latest`) montando el directorio con `uid 0` interno para purgar los artefactos de forma 100% segura y devolver el control limpio al usuario no privilegiado del host.
+### Why do `scripts/limpieza.sh` and the `clean_workspace_11x` MCP tool no longer require `sudo`?
+Ephemeral containers under Rule Zero can create `root`-owned files inside bind-mounted volumes. Instead of forcing the user or agent to run destructive superuser commands on the host machine, cleanup launches an ultra-lightweight ephemeral Alpine Linux container (`sinfallas/base-node-ionic` or `alpine:latest`) mounting the directory with internal `uid 0` to safely purge artifacts and return clean ownership to the unprivileged host user.
 
-### El contenedor E2E de Vue 3 (Playwright / Lighthouse) se queja de un conflicto de red al intentar alcanzar la interfaz.
-Asegúrate de haber levantado primero el servidor mock de producción en segundo plano ejecutando `docker compose -f docker-compose.qa.yml up -d ui-prod` antes de lanzar el comando efímero a través del Makefile:
+### The Vue 3 E2E container (Playwright / Lighthouse) reports a network conflict when trying to reach the UI.
+Make sure you start the production mock server in the background first using `docker compose -f docker-compose.qa.yml up -d ui-prod` before running the ephemeral target via the Makefile:
 ```bash
 make qa-e2e
 ```
 
-## 🤖 Agentes de IA, Protocolo MCP y Skills Zero-Clone
+## 🤖 AI Agents, MCP Protocol, and Zero-Clone Skills
 
-### ¿Cómo interactúa un Agente de Inteligencia Artificial con este repositorio?
-Un agente de IA (como Google Antigravity, Anthropic Claude Code / Claude Desktop, Hermes Agent de Nous Research, Cursor o Windsurf) puede interactuar de tres formas:
-1. **Vía Servidor MCP (`@sinfallas/mcp-qa-11x` v3.0.0):** Se conecta por `stdio` mediante `npx -y @sinfallas/mcp-qa-11x@latest`. El servidor expone **18 herramientas operativas** (las 12 núcleo como `inspect_project_config`, `bootstrap_or_merge_11x`, `run_ephemeral_qa`, `certify_11x_gate`, `propose_skill_evolution_pr` y `reconcile_agents_governance`, más `validate_calm_architecture`, `evaluate_release_gate`, `evaluate_agent_trajectory`, `run_llm_red_team`, `audit_vibe_prototype` y `sync_enterprise_tms`) y **12 recursos dinámicos (`blueprint://*`)**, permitiendo al agente auditar y fusionar código sin clonar el repositorio completo.
-2. **Vía Skills Zero-Clone (`qa-11x-architect` y catálogo completo de 10 skills modulares):** Se inyectan en su entorno junto con los scripts operativos y el conector de `AGENTS.md` ejecutando `npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts --reconcile` o mediante el instalador universal `curl ... | sh`. El agente adquiere de inmediato el conocimiento de las 13 capas de calidad, los 22 patrones base (34 reglas estáticas) DISA/OWASP y la prevención Anti-JSDOM.
-3. **Vía Reglas Locales (`.agents/` y `AGENTS.md`):** Si el agente opera dentro del repositorio clonado, lee automáticamente las directivas en `.agents/rules/` y mantiene la bitácora activa en `.agents/ACTIVE_TASK.md`, ejecutando la compuerta universal `./.agents/scripts/certify_task_completion.sh` antes de cerrar sus turnos.
+### How does an AI Agent interact with this repository?
+An AI agent (such as Google Antigravity, Anthropic Claude Code / Claude Desktop, Nous Research Hermes Agent, Cursor, or Windsurf) can interact in three ways:
+1. **Via MCP Server (`@sinfallas/mcp-qa-11x` v3.0.0):** Connects over `stdio` via `npx -y @sinfallas/mcp-qa-11x@latest`. The server exposes **18 operational tools** (the 12 core v1 tools such as `inspect_project_config`, `bootstrap_or_merge_11x`, `run_ephemeral_qa`, `certify_11x_gate`, `propose_skill_evolution_pr`, and `reconcile_agents_governance`, plus `validate_calm_architecture`, `evaluate_release_gate`, `evaluate_agent_trajectory`, `run_llm_red_team`, `audit_vibe_prototype`, and `sync_enterprise_tms`) and **12 dynamic resources (`blueprint://*`, supporting `?lang=es|en`)**, allowing the agent to audit and merge templates without cloning the entire repository.
+2. **Via Zero-Clone Skills (`qa-11x-architect` and full catalog of 10 modular skills):** Injected into its environment along with operational scripts and the `AGENTS.md` connector by running `npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts --reconcile` or via the universal installer `curl ... | sh`. The agent immediately gains knowledge of the 13 quality layers, 22 baseline patterns (34 static rules) across DISA/OWASP, and Anti-JSDOM prevention.
+3. **Via Local Rules (`.agents/` and `AGENTS.md`):** When operating inside the cloned repository, the agent automatically reads directives in `.agents/rules/` and keeps the active log in `.agents/ACTIVE_TASK.md`, running the universal gate `./.agents/scripts/certify_task_completion.sh` before finishing turns.
 
-### ¿Qué es el Servidor MCP `@sinfallas/mcp-qa-11x` y por qué es superior a clonar todo el repositorio?
-El servidor MCP implementa la especificación abierta de Anthropic / Linux Foundation para exponer herramientas y recursos a modelos LLM. Permite una adopción **Zero-Clone**: en lugar de transferir cientos de archivos y megabytes al disco o saturar la ventana de contexto del agente, el agente consulta puntualmente la plantilla de su stack con verificación criptográfica SHA-256 (`DISA STIG V-222513`), ejecuta pruebas en Docker efímero y certifica la calidad mediante llamadas RPC limpias.
+### What is the `@sinfallas/mcp-qa-11x` MCP Server, and why is it superior to cloning the entire repository?
+The MCP server implements the Anthropic / Linux Foundation open specification to expose tools and resources to LLMs. It enables **Zero-Clone adoption**: instead of transferring hundreds of files and megabytes to disk or saturating the agent's context window, the agent queries only the stack blueprint it needs with SHA-256 cryptographic verification (`DISA STIG V-222513`), runs tests in ephemeral Docker, and certifies quality through clean RPC calls.
 
-### ¿Cómo colaboran un desarrollador humano y un agente de IA en este estándar híbrido?
-El estándar 11X define un modelo de trabajo en parejas (*Pair Programming Híbrido*):
-- El **desarrollador humano** define los requisitos de negocio, aprueba cambios arquitectónicos y formula los prompts de alto nivel.
-- El **agente de IA** actúa como un ingeniero Staff de QA y DevOps: analiza el radio de impacto AST (`inspect_blast_radius.py`), escribe el código de negocio, genera obligatoriamente las pruebas unitarias y de integración, crea los escenarios BDD en Karate Labs, ejecuta las pruebas en Docker efímero (`Rule Zero`) y mantiene sincronizada la documentación técnica (`docs/`, `CHANGELOG.md`, `ROADMAP.md`, `TESTING.md`).
-- La **compuerta universal de certificación** (`certify_task_completion.sh`) actúa como el árbitro matemático objetivo que ninguno de los dos puede evadir antes del commit.
+### How do a human developer and an AI agent collaborate under this hybrid standard?
+The 11X standard defines a **Hybrid Pair Programming** model:
+- The **human developer** defines business requirements, approves architectural changes, and writes high-level prompts.
+- The **AI agent** acts as a Staff QA & DevOps engineer: inspects the AST blast radius (`inspect_blast_radius.py`), writes business code, enforces unit and integration tests, authors Karate Labs BDD scenarios, executes tests in ephemeral Docker (`Rule Zero`), and keeps documentation synchronized (`docs/`, `CHANGELOG.md`, `ROADMAP.md`, `TESTING.md`).
+- The **universal certification gate** (`certify_task_completion.sh`) acts as the objective mathematical arbiter that neither party can bypass prior to committing.
 
-### ¿Por qué se eliminó la dependencia de GitHub Actions para publicar el servidor MCP a npm?
-Siguiendo la filosofía de soberanía y aislamiento corporativo del estándar RoSGrid, delegar la publicación de paquetes con credenciales de npm (`NPM_TOKEN`) a *runners* remotos de CI/CD introduce riesgos de fuga de secretos y fallos de red externos fuera de nuestro control. El proceso de publicación se consolidó en el script soberano `scripts/publicar-mcp.sh`, el cual valida la compuerta 11X completa en Docker efímero local y maneja el token de npm de forma volátil en memoria con autodestrucción inmediata.
+### Why was GitHub Actions publishing for the MCP server removed in favor of npm local publishing?
+Following RoSGrid's corporate sovereignty and isolation philosophy, delegating npm package publishing with `NPM_TOKEN` credentials to remote CI/CD runners introduces secret leakage risks and external network failures outside our control. Publishing is consolidated in the sovereign script `scripts/publicar-mcp.sh`, which runs the full 11X gate in ephemeral local Docker and handles the npm token transiently in memory with immediate cleanup.
 
-### ¿Cómo actualizo el Servidor MCP y las Skills en mi IDE después de publicar una nueva versión en npmjs y cómo valido que se descargaron los cambios?
-Aunque en `mcp_config.json` tengas configurado `"@sinfallas/mcp-qa-11x@latest"`, el IDE mantiene en memoria el proceso `stdio` iniciado al arrancar y `npx` guarda copias en `~/.npm/_npx` (además de la caché de manifiestos en `~/.cache/qa-11x-blueprints`). Para forzar la actualización y validar la integridad criptográfica:
-1. **Purga las cachés y reinstala las 10 Skills modulares, Reglas y Scripts:**
+### How do I update the MCP Server and Skills in my IDE after publishing a new version to npmjs, and how do I verify changes were downloaded?
+Even if `mcp_config.json` specifies `"@sinfallas/mcp-qa-11x@latest"`, the IDE keeps the `stdio` process in memory from startup and `npx` caches copies in `~/.npm/_npx` (plus manifest cache in `~/.cache/qa-11x-blueprints`). To force an update and verify cryptographic integrity:
+1. **Purge caches and reinstall the 10 modular Skills, Rules, and Scripts:**
    ```bash
    rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@latest install-skill --target all --init-agents --include-scripts --reconcile
    ```
-2. **Reinicia el servidor MCP en tu IDE:** En Google Antigravity ve a **`...` (Additional Options) > MCP Servers > `qa-11x` > Restart** o ejecuta `Ctrl+Shift+P` -> **`Developer: Reload Window`**.
-3. **Valida la versión y los hashes SHA-256 (`DISA STIG V-222513`):**
-   * Verifica la versión en `npx`: `grep -rn '"version"' ~/.npm/_npx/*/node_modules/@sinfallas/mcp-qa-11x/package.json`
-   * Verifica el manifiesto y documentación en caché: `grep -E '"blueprint_version"|"generated_at_utc"' ~/.cache/qa-11x-blueprints/manifest.json`
-   * Durante la ejecución de `install-skill`, confirma que aparezca en consola `✔ [Skills 11X] ... archivos verificados con SHA-256 (DISA STIG V-222513)`. Si algún archivo descargado no coincidiera exactamente con el hash SHA-256 del manifiesto oficial, el instalador abortará automáticamente por violación de integridad criptográfica.
+2. **Restart the MCP server in your IDE:** In Google Antigravity go to **`...` (Additional Options) > MCP Servers > `qa-11x` > Restart** or press `Ctrl+Shift+P` -> **`Developer: Reload Window`**.
+3. **Verify version and SHA-256 hashes (`DISA STIG V-222513`):**
+   * Check the `npx` version: `grep -rn '"version"' ~/.npm/_npx/*/node_modules/@sinfallas/mcp-qa-11x/package.json`
+   * Check cached manifest and docs metadata: `grep -E '"blueprint_version"|"generated_at_utc"' ~/.cache/qa-11x-blueprints/manifest.json`
+   * During `install-skill` execution, verify console output displays `✔ [Skills 11X] ... archivos verificados con SHA-256 (DISA STIG V-222513)`. If any downloaded file mismatches the official manifest SHA-256 hash, the installer aborts automatically due to a cryptographic integrity violation.
 
-### ¿Qué es la "Anti-Mock Blindness" (Ceguera de Mocks) y por qué se exige verificar contra PostgreSQL real y migraciones Alembic?
-En pruebas unitarias, mockear llamadas a base de datos crea una falsa sensación de seguridad. Un modelo ORM puede tener tipos de datos incompatibles o columnas inexistentes que pasan los mocks con 100% de cobertura pero rompen la base de datos en producción. En el estándar 11X, todo cambio de modelo exige migración versionada y validación con `verify_alembic_orm_parity.py` ejecutándose contra una instancia real de PostgreSQL en Docker efímero.
+### What is "Anti-Mock Blindness", and why is verification against real PostgreSQL and Alembic migrations mandatory?
+In unit tests, mocking database calls creates a false sense of security. An ORM model can contain incompatible data types or missing columns that pass mocked tests with 100% coverage yet break production databases. Under Standard 11X, every model change requires a versioned migration and verification via `verify_alembic_orm_parity.py` running against a real PostgreSQL instance in ephemeral Docker.
 
-### ¿Por qué JSDOM no detecta colisiones de diseño visual (Anti-JSDOM) y cómo se previene?
-JSDOM es un simulador de nodos DOM en Node.js que no calcula renderizado CSS, cajas Flexbox/Grid ni coordenadas (`getBoundingClientRect()` devuelve `0x0`). Un pie de página fijo (`position: fixed`) puede superponerse a un formulario o tabla y JSDOM afirmará que los botones existen y son interactivos. La solución 11X prohíbe footers fijos, exige layouts in-flow (`margin-top: auto` en `<main>`) y valida la geometría real con Karate Labs UI o Playwright en Chromium.
+### Why doesn't JSDOM detect visual layout collisions (Anti-JSDOM), and how is it prevented?
+JSDOM simulates DOM nodes in Node.js without computing CSS layout, Flexbox/Grid boxes, or bounding coordinates (`getBoundingClientRect()` returns `0x0`). A fixed footer (`position: fixed`) can overlap a form or table while JSDOM claims buttons exist and are clickable. Standard 11X prohibits fixed footers, mandates in-flow layouts (`margin-top: auto` on `<main>`), and validates real browser geometry with Karate Labs UI or Playwright in Chromium.
 
-### ¿Por qué las directivas internas de IA en `.agents/` están en inglés técnico si el proyecto documenta en español?
-Por **economía de tokens y precisión lógica**. Los tokenizadores BPE fragmentan el español en ~35% más tokens que el inglés técnico de alta densidad. Redactar las reglas internas en inglés ahorra espacio de contexto para código y esquemas. Sin embargo, todas las directivas imponen la cláusula `OUTPUT LANGUAGE CONSTRAINT` para que las explicaciones al usuario y los manuales en `docs/` se mantengan 100% en español.
+### Why are internal AI directives in `.agents/` written in technical English when human docs also support Spanish?
+For **token economy and logical precision**. BPE tokenizers split Spanish into ~35% more tokens than high-density technical English, so keeping internal rules and skills in English saves context window space for code and schemas. Meanwhile, top-level and operational documentation adopts the **English Canonical (`*.md`) + 1:1 Spanish Mirror (`*.es.md`)** architecture (Spec 19), while human interaction language obeys `AGENTS.md` and consumer repositories can follow *Dynamic Language Mirroring*.
 
-### ¿Por qué se utiliza KeyDB en lugar de Redis estándar?
-KeyDB es un motor en memoria multi-hilo 100% compatible con Redis. Permite utilizar múltiples núcleos de CPU simultáneamente (`--server-threads 2`), multiplicando el rendimiento por 3x a 5x en operaciones de caché, rate limiting, pub/sub y bloqueos de idempotencia sin requerir ningún cambio en las librerías cliente.
-
+### Why is KeyDB used instead of standard Redis?
+KeyDB is a multithreaded in-memory engine 100% compatible with Redis. It leverages multiple CPU cores simultaneously (`--server-threads 2`), scaling cache, rate-limiting, pub/sub, and idempotency-lock throughput by 3x to 5x without requiring any client library changes.

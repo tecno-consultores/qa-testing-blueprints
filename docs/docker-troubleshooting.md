@@ -1,89 +1,91 @@
-# Solución de Problemas de Docker (Troubleshooting)
+> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (docker-troubleshooting.es.md)](docker-troubleshooting.es.md)
 
-Este documento centraliza los fallos más comunes al operar con los *blueprints* de QA. Dado que nuestra arquitectura se basa en contenedores efímeros y volúmenes *bind*, la mayoría de los errores no provienen del código, sino de la interacción entre el demonio de Docker, la red interna y el sistema operativo anfitrión.
+# Docker Troubleshooting Guide
+
+This document centralizes the most common issues encountered when operating the QA blueprints. Because our architecture relies on ephemeral containers and *bind* volumes, most errors do not originate from application code, but from interactions between the Docker daemon, internal bridge networks, and the host operating system.
 
 ---
 
-## 1. El Síndrome del Disco Lleno y las Redes Agotadas
+## 1. Full Disk Syndrome and Exhausted Networks
 
-**Síntoma:** 
-Al intentar ejecutar una prueba, recibes errores como `no space left on device` o `could not find an available, non-overlapping IPv4 address pool`.
+**Symptom:**
+When attempting to run a test suite, you receive errors such as `no space left on device` or `could not find an available, non-overlapping IPv4 address pool`.
 
-**¿Por qué sucede?**
-Docker sigue almacenando en caché de forma agresiva: imágenes colgantes (Dangling images), bases de datos temporales de Prometheus o Redes Bridge no destruidas. Además, los **nuevos volúmenes de caché persistentes** (`pnpm-store` y `uv-cache`) pueden crecer descontroladamente con el tiempo.
+**Why does this happen?**
+Docker caches aggressively: dangling images, temporary Prometheus databases, or undestroyed bridge networks accumulate over time. In addition, **persistent cache volumes** (`pnpm-store`, `uv-cache`, and `composer-cache`) can grow unchecked over time.
 
-**La Solución:**
-Ejecutar la purga profunda que apagará todos los perfiles ocultos y destruirá los volúmenes (`down -v`) sin requerir privilegios `sudo` en el host:
+**The Solution:**
+Run the deep purge that shuts down all hidden profiles and removes volumes (`down -v`) without requiring `sudo` privileges on the host:
 
 ```bash
 ./scripts/limpieza.sh
-# O utiliza la meta del Makefile en tu proyecto:
+# Or use the Makefile target in your project:
 make clean-cache
 ```
 
 ---
 
-## 2. Permisos Denegados en Archivos Generados
+## 2. Permission Denied on Generated Files
 
-**Síntoma:** 
-Linux te dice: `Permission denied` al intentar manipular reportes generados.
+**Symptom:**
+Linux reports `Permission denied` when you attempt to inspect or clean generated reports.
 
-**¿Por qué sucede?**
-Efecto secundario de los volúmenes *bind*. El contenedor efímero se ejecuta con `root` interno y crea los archivos (y carpetas como `prometheus_data/` o `reports/`) con ese propietario.
+**Why does this happen?**
+A side effect of *bind* volumes. When an ephemeral container runs with an internal `root` UID, it creates files and directories (such as `prometheus_data/` or `reports/`) owned by UID `0`.
 
-**La Solución:**
-Puedes utilizar el script maestro de saneamiento `./scripts/limpieza.sh` (o la herramienta MCP `clean_workspace_11x`), el cual levanta un contenedor efímero Alpine con permisos de superusuario interno para limpiar y reajustar los archivos automáticamente sin necesidad de `sudo` en el host:
+**The Solution:**
+Use the master sanitization script `./scripts/limpieza.sh` (or the `clean_workspace_11x` MCP tool), which spins up an ephemeral Alpine container with internal privileges to clean and normalize permissions automatically without needing `sudo` on the host:
 
 ```bash
 ./scripts/limpieza.sh
-# O si deseas simplemente reasignar el propietario a tu usuario:
+# Or if you simply want to reclaim ownership for your host user:
 sudo chown -R $USER:$USER .
 ```
 
 ---
 
-## 3. Conflicto de Puertos con Prometheus (9090)
+## 3. Port Conflict with Prometheus (9090)
 
-**Síntoma:**
-Error `Bind for 0.0.0.0:9090 failed: port is already allocated` al intentar lanzar el perfil de caos u observabilidad. *(Nota: El análisis AST con Graphify opera en modo CLI-first mediante `./scripts/actualizar-grafos-graphify.sh` sin demonios persistentes en el puerto 8080).*
+**Symptom:**
+Error `Bind for 0.0.0.0:9090 failed: port is already allocated` when launching the chaos or observability profile. *(Note: Graphify AST analysis runs in CLI-first mode via `./scripts/actualizar-grafos-graphify.sh` with no persistent daemons on port 8080.)*
 
-**¿Por qué sucede?**
-Ya tienes una instancia de Prometheus o un servicio Nginx corriendo en tu máquina *host* o en otro proyecto Docker que olvidaste apagar.
+**Why does this happen?**
+You already have a Prometheus instance or an Nginx service running on your *host* machine or inside another Docker project that you forgot to stop.
 
-**La Solución:**
-Mata el contenedor secuestrador y baja toda la red del compose.
+**The Solution:**
+Kill the conflicting container and tear down the entire compose network:
 
 ```bash
 docker ps | grep 9090
-docker kill <id_del_contenedor_conflictivo>
+docker kill <conflicting_container_id>
 docker compose -f docker-compose.qa.yml --profile chaos down
 ```
 
 ---
 
-## 4. Salida Abrupta: "Exit Code 137" (OOM Killer)
+## 4. Abrupt Exit: "Exit Code 137" (OOM Killer)
 
-**Síntoma:** 
-El contenedor muere arrojando `Exit Code 137`. Suele ocurrir con Playwright o Karate Labs, y especialmente al inyectar concurrencia masiva con Artillery o Locust.
+**Symptom:**
+The container terminates with `Exit Code 137`. This commonly occurs with Playwright or Karate Labs (`sinfallas/karatelabs:1.5.1`), and especially when injecting massive concurrency via Artillery, Locust, or k6.
 
-**¿Por qué sucede?**
-El *OOM Killer* de Linux asesinó al proceso por consumir toda la memoria RAM.
+**Why does this happen?**
+The Linux *OOM Killer* terminated the process because it exhausted available RAM.
 
-**La Solución:**
-Limitar la concurrencia (`--workers=1`) o asignar más RAM al entorno de Docker.
+**The Solution:**
+Throttle worker concurrency (`--workers=1`) or allocate more RAM to the Docker engine.
 
 ---
 
-## 5. Errores de Permisos al Ejecutar Profilers (SYS_PTRACE)
+## 5. Permission Errors When Running Profilers (SYS_PTRACE)
 
-**Síntoma:**
-Al utilizar herramientas avanzadas de análisis de recursos y profiling como `py-spy` en Python o `clinic.js` en Node.js, el contenedor falla con mensajes de permisos denegados o errores de `ptrace(PTRACE_ATTACH)`.
+**Symptom:**
+When running advanced resource analysis and profiling tools such as `py-spy` in Python or `clinic.js` in Node.js, the container fails with permission denied messages or `ptrace(PTRACE_ATTACH)` errors.
 
-**¿Por qué sucede?**
-Por defecto, Docker aplica un perfil estricto de `seccomp` que prohíbe que un proceso inspeccione la memoria de otro proceso mediante llamadas al sistema de bajo nivel.
+**Why does this happen?**
+By default, Docker enforces a strict `seccomp` profile that forbids a process from inspecting another process's memory via low-level system calls.
 
-**La Solución:**
-Debes otorgar capacidades extendidas temporalmente al contenedor en tu archivo `docker-compose.qa.yml`:
+**The Solution:**
+Temporarily grant extended capabilities to the container in your `docker-compose.qa.yml` file:
 
 ```yaml
     cap_add:
@@ -92,87 +94,87 @@ Debes otorgar capacidades extendidas temporalmente al contenedor en tu archivo `
 
 ---
 
-## 6. ZAP (DAST) falla al escribir el reporte HTML
+## 6. ZAP (DAST) Fails When Writing the HTML Report
 
-**Síntoma:** 
-OWASP ZAP termina de auditar la API exitosamente, pero escupe un error de permisos `Permission Denied` al guardar el archivo `zap-report.html`.
+**Symptom:**
+OWASP ZAP finishes auditing the API successfully, but throws a `Permission Denied` error when saving `zap-report.html`.
 
-**¿Por qué sucede?**
-El contenedor de ZAP corre por defecto con el usuario no privilegiado `zap` interno, el cual no tiene permisos de escritura en el volumen *bind* mapeado desde tu máquina host.
+**Why does this happen?**
+The ZAP container runs by default as the unprivileged `zap` user, which lacks write permissions on the *bind* volume mapped from your host machine.
 
-**La Solución:**
-Mantén el contenedor ejecutándose con su usuario no privilegiado (`UID 1000`, prohibido declarar `user: root` por cumplimiento Trivy `DS002` / DISA STIG) y asegura permisos de escritura previos en la carpeta mapeada o escribe el reporte en `/tmp/zap-report.html` extrayéndolo al cerrar. Al finalizar, ejecuta `./scripts/limpieza.sh` o `make clean` para normalizar permisos sin requerir `sudo`.
-
----
-
-## 7. Pumba falla indicando "Cannot connect to the Docker daemon"
-
-**Síntoma:** 
-Al ejecutar la prueba de resiliencia (`docker compose --profile chaos up`), el contenedor de Pumba muere inmediatamente con un error de conexión al demonio.
-
-**¿Por qué sucede?**
-El demonio de Docker en distribuciones como Ubuntu Snap o Docker Desktop (Windows/Mac) a veces utiliza rutas virtuales distintas al socket estándar `/var/run/docker.sock`.
-
-**La Solución:**
-Asegúrate de que la ruta montada en tu orquestador coincida con tu configuración de host. Si usas WSL2 en Windows, debes activar la integración explícita de recursos y red en los ajustes de Docker Desktop.
+**The Solution:**
+Keep the container running under its unprivileged user (`UID 1000` — setting `user: root` is forbidden by Trivy `DS002` / DISA STIG compliance) and ensure write permissions on the mapped folder beforehand, or write the report to `/tmp/zap-report.html` and extract it upon exit. Afterward, run `./scripts/limpieza.sh` or `make clean` to normalize permissions without requiring `sudo`.
 
 ---
 
-## 8. Errores de Dependencias o Compilación en Node.js/Vue/React (Zero-Trust)
+## 7. Pumba Fails with "Cannot connect to the Docker daemon"
 
-**Síntoma:**
-Al ejecutar `make qa-unit` o instalar dependencias, paquetes como `esbuild`, `prisma`, `cypress` o `bcrypt` fallan quejándose de que no pudieron ejecutar su script de post-instalación.
+**Symptom:**
+When executing the resilience test (`docker compose --profile chaos up`), the Pumba container exits immediately with a Docker daemon connection error.
 
-**¿Por qué sucede?**
-Como medida de seguridad estricta, inyectamos un archivo `.npmrc` configurado con `ignore-scripts=true`. Esto bloquea los ataques de cadena de suministro, pero también detiene a las librerías legítimas que necesitan compilar binarios locales.
+**Why does this happen?**
+The Docker daemon on distributions such as Ubuntu Snap or Docker Desktop (Windows/macOS) sometimes uses a socket path different from the standard `/var/run/docker.sock`.
 
-**La Solución:**
-Identifica la librería que falló y permítela explícitamente en el `package.json` utilizando herramientas de lista blanca (como `pnpm` config o `npm rebuild <paquete>`), o reconstruye el paquete específico al vuelo dentro del `Makefile` de tu proyecto, manteniendo el bloqueo global intacto.
+**The Solution:**
+Ensure the socket path mounted in your orchestrator matches your host configuration. If you use WSL2 on Windows, enable explicit resource and network integration in Docker Desktop settings.
 
 ---
 
-## 9. Fallo en Pruebas de Integración por Base de Datos no Lista (PostgreSQL)
+## 8. Dependency or Compilation Errors in Node.js/Vue/React (Zero-Trust)
 
-**Síntoma:**
-Al ejecutar pruebas de integración o migraciones de Alembic, la consola arroja `psycopg2.OperationalError: could not connect to server: Connection refused` o `asyncpg.exceptions.CannotConnectNowError`.
+**Symptom:**
+When running `make qa-unit` or installing dependencies, packages such as `esbuild`, `prisma`, `cypress`, or `bcrypt` fail complaining that they could not run their post-install script.
 
-**¿Por qué sucede?**
-El contenedor `postgres` se levanta en segundo plano (`up -d`), pero el motor PostgreSQL tarda entre 1 y 3 segundos en inicializar el clúster y aceptar conexiones TCP en el puerto 5432.
+**Why does this happen?**
+As a strict security measure, we inject an `.npmrc` file configured with `ignore-scripts=true`. This blocks supply-chain attacks, while also stopping legitimate libraries that need to compile native binaries.
 
-**La Solución:**
-Asegura que tu script o comando espere la disponibilidad activa usando `pg_isready` antes de correr migraciones o suites:
+**The Solution:**
+Identify the failing library and explicitly allowlist it in `package.json` using package-manager controls (such as `pnpm` config or `npm rebuild <package>`), or rebuild the specific package on the fly inside your project's `Makefile` while keeping the global block intact.
+
+---
+
+## 9. Integration Test Failures Due to Unready Database (PostgreSQL)
+
+**Symptom:**
+When running integration tests or Alembic migrations, the console outputs `psycopg2.OperationalError: could not connect to server: Connection refused` or `asyncpg.exceptions.CannotConnectNowError`.
+
+**Why does this happen?**
+The `postgres` container (`postgres:17-alpine`) starts in the background (`up -d`), yet the PostgreSQL engine takes 1 to 3 seconds to initialize the cluster and accept TCP connections on port 5432.
+
+**The Solution:**
+Ensure your script or command waits for active readiness using `pg_isready` before running migrations or suites:
 ```bash
 docker compose -f docker-compose.qa.yml exec -T postgres sh -c "until pg_isready -U postgres; do sleep 0.5; done"
 ```
 
 ---
 
-## 10. Advertencias de Rendimiento o Memoria en KeyDB Multi-Hilo
+## 10. Performance or Memory Warnings in Multi-Threaded KeyDB
 
-**Síntoma:**
-KeyDB emite advertencias como `WARNING: Memory fragmentation ratio is high` o fallos por memoria agotada (`OOM command not allowed`).
+**Symptom:**
+KeyDB emits warnings such as `WARNING: Memory fragmentation ratio is high` or out-of-memory errors (`OOM command not allowed`).
 
-**¿Por qué sucede?**
-KeyDB utiliza por defecto un modelo multi-hilo (`server-threads 4`). Si se ejecutan suites de estrés extremas con Locust/Artillery sin configurar una política de evicción (`maxmemory-policy`), la memoria temporal de sesiones puede saturar el contenedor efímero.
+**Why does this happen?**
+KeyDB uses a multi-threaded model (`server-threads 4`) by default. Running extreme stress suites with Locust/Artillery/k6 without setting an eviction policy (`maxmemory-policy`) can let temporary session memory saturate the ephemeral container.
 
-**La Solución:**
-Verifica que el servicio `keydb` en `docker-compose.qa.yml` declare límites de memoria seguros:
+**The Solution:**
+Verify that the `keydb` service in `docker-compose.qa.yml` declares safe memory limits:
 ```yaml
     command: keydb-server --server-threads 2 --maxmemory 256mb --maxmemory-policy allkeys-lru --appendonly no --save ""
 ```
 
 ---
 
-## 11. Bloqueo de Trivy por Permisos en el Volumen de Caché
+## 11. Trivy Blocked by Cache Volume Permissions
 
-**Síntoma:**
-Al ejecutar `./scripts/auditar-infra.sh` o `make audit`, Trivy arroja: `permission denied on /root/.cache/trivy/db`.
+**Symptom:**
+When running `./scripts/auditar-infra.sh` or `make audit`, Trivy throws: `permission denied on /root/.cache/trivy/db`.
 
-**¿Por qué sucede?**
-El contenedor efímero de Trivy corre como root y crea la base de datos de vulnerabilidades con permisos exclusivos del usuario `0`. Si ejecutas una auditoría posterior con un usuario no privilegiado, la lectura se bloquea.
+**Why does this happen?**
+The ephemeral Trivy container creates the vulnerability database with restrictive ownership. If a subsequent audit runs with an unprivileged UID, reading or updating that directory fails.
 
-**La Solución:**
-El script `./scripts/auditar-infra.sh` utiliza el volumen nombrado aislado `qa11x_trivy_cache` para evitar contaminar el árbol de trabajo con archivos `root`. Si la base de datos en caché se corrompe, púrgala limpiamente sin `sudo`:
+**The Solution:**
+`./scripts/auditar-infra.sh` uses the isolated named volume `qa11x_trivy_cache` to avoid polluting the working tree with `root`-owned files. If the cached database becomes corrupted, purge it cleanly without `sudo`:
 ```bash
 docker volume rm -f qa11x_trivy_cache
 ./scripts/limpieza.sh
@@ -180,16 +182,16 @@ docker volume rm -f qa11x_trivy_cache
 
 ---
 
-## 12. Fallos Silenciosos de Geometría Visual en JSDOM vs. Playwright
+## 12. Silent Visual Geometry Failures in JSDOM vs. Playwright
 
-**Síntoma:**
-Las pruebas unitarias de Vitest con `jsdom` pasan al 100%, pero en el navegador real de Playwright o Karate UI, los botones de acción no pueden ser clickeados (`element is intercepted by other element`).
+**Symptom:**
+Vitest unit tests with `jsdom` pass at 100%, yet in a real Playwright or Karate UI browser session, action buttons cannot be clicked (`element is intercepted by other element`).
 
-**¿Por qué sucede?**
-JSDOM es un simulador lógico del árbol DOM, pero **NO computa CSS Layout, coordenadas ni z-index**. Elementos flotantes fijos (`position: fixed`) o footers desalineados cubren los botones en navegadores reales sin que JSDOM lo advierta.
+**Why does this happen?**
+JSDOM is a logical DOM tree simulator, but it **DOES NOT compute CSS Layout, coordinates, or z-index**. Fixed floating elements (`position: fixed`) or misaligned footers cover buttons in real browsers without JSDOM noticing.
 
-**La Solución:**
-1. Diseña todos los pies de página como elementos in-flow dentro de `<main>` usando flexbox:
+**The Solution:**
+1. Design all footers as in-flow elements inside `<main>` using flexbox:
 ```css
 main {
   display: flex;
@@ -200,19 +202,40 @@ footer {
   margin-top: auto;
 }
 ```
-2. Valida siempre la geometría visual y la interactividad profunda en navegadores reales mediante `make qa-e2e` o `Karate Labs UI`.
+2. Always validate visual geometry and deep interactivity in real headless browsers via `make qa-e2e` or `Karate Labs UI`.
 
 ---
 
-## 13. Fallo `ERR_PNPM_PACKAGE_MANAGER_CREATE_SLOT_DIR: Permission denied (os error 13)` en Contenedores Node/Frontend (`UID 10001`)
+## 13. `ERR_PNPM_PACKAGE_MANAGER_CREATE_SLOT_DIR: Permission denied (os error 13)` in Node/Frontend/Mobile Containers (`UID 10001`)
 
-**Síntoma:**
-En GitHub Actions (`ubuntu-latest`, `uid=1001`) o en estaciones locales (`uid=1000` / `501`) sin `node_modules` previo, `pnpm install` aborta con `ERR_PNPM_PACKAGE_MANAGER_CREATE_SLOT_DIR` (`Failed to create virtual store slot directory at "/app/.../node_modules/.pnpm/...": Permission denied (os error 13)`) o `Failed to write cafs: Failed to create file at "/pnpm/store/v11/files/..."`.
+**Symptom:**
+On GitHub Actions (`ubuntu-latest`, `uid=1001`) or local workstations (`uid=1000` / `501`) without an existing `node_modules` folder, `pnpm install` aborts with `ERR_PNPM_PACKAGE_MANAGER_CREATE_SLOT_DIR` (`Failed to create virtual store slot directory at "/app/.../node_modules/.pnpm/...": Permission denied (os error 13)`) or `Failed to write cafs: Failed to create file at "/pnpm/store/v11/files/..."`.
 
-**¿Por qué sucede?**
-La imagen oficial endurecida `sinfallas/base-node-ionic:26` ejecuta por defecto con `uid=10001(appuser)` y trae `/pnpm/store/v11/files/*` pre-poblados con propietario `10001:10001` (`0755`). Si `docker compose run` se invoca sin mapear el `UID:GID` del host, `uid=10001` no puede escribir en el checkout bind-mounted (`0755` del usuario `1001`/`1000`); y si solo se inyecta `-u "$(id -u):$(id -g)"` sin desbloquear `/pnpm`, el usuario `1001`/`1000` no puede escribir en `/pnpm/store/v11` (además, `pnpm` v12+ ignora variables heredadas `npm_config_*` y solo respeta `pnpm_config_store_dir`).
+**Why does this happen?**
+The hardened official images `sinfallas/base-node-ionic:26` and `sinfallas/base-mobile-appium:26` run by default with `uid=10001(appuser)` and include pre-populated `/pnpm/store/v11/files/*` owned by `10001:10001` (`0755`). If `docker compose run` is invoked without mapping the host `UID:GID`, `uid=10001` cannot write to the bind-mounted checkout (`0755` owned by `1001`/`1000`); conversely, if only `-u "$(id -u):$(id -g)"` is passed without unlocking `/pnpm`, user `1001`/`1000` cannot write to `/pnpm/store/v11` (moreover, `pnpm` v12+ ignores legacy `npm_config_*` variables and honors only `pnpm_config_store_dir`).
 
-**La Solución:**
-1. Declarar en `docker-compose.qa.yml` el micro-servicio `pnpm-store-init` (`chmod -R a+rwX /pnpm`) con `depends_on: condition: service_completed_successfully`, junto a `HOME: /tmp` y `pnpm_config_store_dir: /pnpm/store`.
-2. Invocar siempre `docker compose run --rm -u "$(id -u):$(id -g)" <servicio> ...` en `Makefile` y pipelines CI.
-3. En herramientas CLI/Node.js que resuelvan el directorio de usuario cuando `process.env.HOME` está ausente (p. ej. en pruebas que hacen `delete process.env.HOME` bajo `UID 1001` en GitHub Actions u OpenShift, donde el `UID` no figura en `/etc/passwd` del contenedor), nunca invocar `os.homedir()` sin captura de excepción (`uv_os_homedir returned ENOENT`): envolver siempre `os.homedir()` en `try/catch` con fallback determinista a `os.tmpdir()` (`resolveSafeHomeDir`).
+**The Solution:**
+1. Declare the `pnpm-store-init` micro-service (`chmod -R a+rwX /pnpm`) in `docker-compose.qa.yml` with `depends_on: condition: service_completed_successfully`, alongside `HOME: /tmp` and `pnpm_config_store_dir: /pnpm/store`.
+2. Always invoke `docker compose run --rm -u "$(id -u):$(id -g)" <service> ...` in `Makefile` and CI pipelines.
+3. In Node.js/CLI tools that resolve the user home directory when `process.env.HOME` is unset (e.g., tests running `delete process.env.HOME` under `UID 1001` on GitHub Actions or OpenShift, where that `UID` has no `/etc/passwd` entry inside the container), never call `os.homedir()` without catching exceptions (`uv_os_homedir returned ENOENT`): always wrap `os.homedir()` in `try/catch` with a deterministic fallback to `os.tmpdir()` (`resolveSafeHomeDir`).
+
+---
+
+## 14. `APPIUM_HOME`, `ADB_SERVER_SOCKET`, and Non-Root Driver Failures in `sinfallas/base-mobile-appium:26`
+
+**Symptom:**
+When running mobile tests with `sinfallas/base-mobile-appium:26`, Appium reports missing drivers (`No drivers installed`), WebdriverIO fails to locate pre-baked modules (`Cannot find module 'webdriverio'`), or ADB cannot detect the host emulator (`adb devices` returns empty).
+
+**Why does this happen?**
+Under Rule Zero and non-root container hardening (`-u "$(id -u):$(id -g)"` with `HOME=/tmp`), Appium looks for drivers under `$HOME/.appium` instead of the pre-baked `/opt/appium-home` directory unless `APPIUM_HOME` is explicitly preserved, and Node requires `NODE_PATH=/opt/qa11x/node_modules`. Furthermore, `sinfallas/base-mobile-appium:26` operates as a W3C Driver Bridge with no embedded QEMU/KVM emulator (`ANDROID_HOME=/opt/android-sdk`), connecting over TCP to the host ADB server or a remote W3C device farm.
+
+**The Solution:**
+1. Preserve the canonical environment variables in `mobile-appium/docker-compose.qa.yml` (`HOME: /tmp`, `APPIUM_HOME: /opt/appium-home`, `ANDROID_HOME: /opt/android-sdk`, `ANDROID_SDK_ROOT: /opt/android-sdk`, `NODE_PATH: /opt/qa11x/node_modules`, `QA_MOBILE_ARTIFACTS_DIR: /tmp/qa-11x-mobile-artifacts`).
+2. Start the Appium Driver Bridge profile (`--profile appium-live`) and audit installed runtimes/drivers (`uiautomator2`, `xcuitest`) before launching E2E suites:
+```bash
+# Audit OpenJDK 21, Android ADB, Appium 3, and pre-baked drivers under APPIUM_HOME=/opt/appium-home:
+make qa-drivers
+
+# Start the W3C Appium bridge targeting host ADB via ADB_SERVER_SOCKET=tcp:host.docker.internal:5037:
+make qa-bridge
+```

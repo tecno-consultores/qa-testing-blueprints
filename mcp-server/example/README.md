@@ -1,19 +1,21 @@
-# 🧪 Proyecto Semilla Full-Stack para Certificación E2E de `@sinfallas/mcp-qa-11x` (`example/`)
+# 🧪 Full-Stack Seed Project for E2E Certification of `@sinfallas/mcp-qa-11x` (`example/`)
 
-Este directorio implementa el **proyecto de referencia y humo end-to-end (`example/`)** del servidor MCP `@sinfallas/mcp-qa-11x`, análogo a la carpeta `example/` de las imágenes Docker corporativas (`sinfallas/base-node-ionic`).
+> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (README.es.md)](README.es.md)
 
-En lugar de evaluar las herramientas MCP únicamente con pruebas unitarias aisladas, el arnés [`run-example-e2e.mjs`](run-example-e2e.mjs) levanta el binario compilado real `dist/index.js` mediante un cliente MCP real sobre **`stdio` (`Client` + `StdioClientTransport`)** y opera contra una **copia temporal aislada** de este proyecto híbrido (`FastAPI + Vue 3`) sin contaminar el árbol de trabajo ni el directorio `$HOME` del desarrollador.
+This directory implements the **end-to-end reference and smoke project (`example/`)** for the `@sinfallas/mcp-qa-11x` MCP server, analogous to the `example/` folder of corporate Docker images (`sinfallas/base-node-ionic`).
+
+Instead of testing MCP tools solely through isolated unit tests, the [`run-example-e2e.mjs`](run-example-e2e.mjs) harness launches the real compiled `dist/index.js` binary via a live MCP client over **`stdio` (`Client` + `StdioClientTransport`)** and operates against an **isolated temporary copy** of this hybrid project (`FastAPI + Vue 3`) without polluting the working tree or the developer's `$HOME` directory.
 
 ---
 
-## 🛠️ Cobertura Real Certificada en Cada Ejecución
+## 🛠️ Real Coverage Certified on Every Run
 
-1. **12 Recursos Dinámicos (`blueprint://*`):**
+1. **12 Dynamic Resources (`blueprint://*,` supporting `?lang=es|en`):**
    - `blueprint://manifest`
    - `blueprint://core/philosophy`
    - `blueprint://security/disa-owasp-22`
    - `blueprint://database/postgres-rls-worm`
-   - `blueprint://{stack}/readme` (`fastapi` y `vue3`)
+   - `blueprint://{stack}/readme` (`fastapi` and `vue3`)
    - `blueprint://ui/refactoring-ui/{topic}` (`hierarchy`)
    - `blueprint://core/active-task-template`
    - `blueprint://core/cleanup-script`
@@ -21,26 +23,26 @@ En lugar de evaluar las herramientas MCP únicamente con pruebas unitarias aisla
    - `blueprint://ai/evals-redteam` *(v2.0)*
    - `blueprint://mobile-appium/readme` *(v2.0)*
    - `blueprint://vibe-rescue/readme` *(v2.0)*
-2. **18 Herramientas Ejecutables (`callTool` sobre JSON-RPC `stdio`):**
-   - **12 núcleo v1:** `inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`, `audit_test_pyramid_gaps`, `audit_security_stig_owasp`, `clean_workspace_11x`, `init_or_append_agents_md`, `reconcile_agents_governance`, `run_ephemeral_qa`, `certify_11x_gate` y `propose_skill_evolution_pr`.
-   - **6 herramientas v2.0:** `validate_calm_architecture`, `evaluate_release_gate`, `evaluate_agent_trajectory`, `run_llm_red_team`, `audit_vibe_prototype` y `sync_enterprise_tms` (protegidas con `promptGuard` + `TaskStateGuard`).
-3. **5 Subcomandos CLI + Verificador Tarball Clean-Room (`verify-v2.sh`):**
-   - `quickstart` (`--tier`/`-T`), `install-skill` (`install`), `init-agents`, `reconcile-agents`, `tms-sync`, `--version` (`3.0.0`), `--help`/`help` y sonda no bloqueante TTY `QA-CLI-TTY-01` (`< 5s`).
+2. **18 Executable Tools (`callTool` over JSON-RPC `stdio`):**
+   - **12 core v1:** `inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`, `audit_test_pyramid_gaps`, `audit_security_stig_owasp`, `clean_workspace_11x`, `init_or_append_agents_md`, `reconcile_agents_governance`, `run_ephemeral_qa`, `certify_11x_gate`, and `propose_skill_evolution_pr`.
+   - **6 v2.0 tools:** `validate_calm_architecture`, `evaluate_release_gate`, `evaluate_agent_trajectory`, `run_llm_red_team`, `audit_vibe_prototype`, and `sync_enterprise_tms` (protected by `promptGuard` + `TaskStateGuard`).
+3. **5 CLI Subcommands + Clean-Room Tarball Verifier (`verify-v2.sh`):**
+   - `quickstart` (`--tier`/`-T`), `install-skill` (`install`), `init-agents`, `reconcile-agents`, `tms-sync`, `--version` (`3.0.0`), `--help`/`help`, and non-blocking TTY probe `QA-CLI-TTY-01` (`< 5s`).
 
 ---
 
-## 🚀 Ejecución en Contenedor Docker Efímero (Rule Zero)
+## 🚀 Execution in Ephemeral Docker Container (Rule Zero)
 
 ```bash
-# 1. Validación Clean-Room completa (sin node_modules ni dist previos, igual que GitHub Actions)
+# 1. Full Clean-Room validation (no prior node_modules or dist, matching GitHub Actions)
 ./scripts/probar-mcp-example.sh
 
-# 2. Desde la raíz del monorepo vía Makefile
+# 2. From the monorepo root via Makefile
 make test-example
 ```
 
-Esta prueba se ejecuta automáticamente en **4 barreras de seguridad**:
-1. `./scripts/publicar-mcp.sh` (bloquea `npm publish` si falla cualquier tool o recurso).
-2. `.github/workflows/qa-11x-ci.yml` (CI en GitHub Actions).
-3. Hook `pre-push` (`lefthook.yml` e `instalar-hooks.sh`).
-4. Ejecución manual (`./scripts/probar-mcp-example.sh` / `make test-example`).
+This test runs automatically across **4 security barriers**:
+1. `scripts/publicar-mcp.sh` (blocks `npm publish` if any tool or resource fails).
+2. `.github/workflows/qa-11x-ci.yml` (GitHub Actions CI).
+3. `pre-push` hook (`lefthook.yml` and `instalar-hooks.sh`).
+4. Manual execution (`./scripts/probar-mcp-example.sh` / `make test-example`).

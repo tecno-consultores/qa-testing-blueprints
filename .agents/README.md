@@ -59,7 +59,7 @@ Este directorio implementa el estándar abierto y emergente de la industria para
 ## 🌐 Estrategia Lingüística y Optimización de Tokens (Inglés Técnico vs. Español Humano)
 
 > **PREMISA DE DISEÑO ARQUITECTÓNICO:**  
-> Las instrucciones destinadas al consumo interno de los modelos de IA (`rules/` y `skills/`) están redactadas en **inglés técnico compacto de alta densidad**, mientras que la documentación operativa para humanos mantiene el estándar en **español** (`docs/`, `CHANGELOG.md`, `TESTING.md`, `README.es.md`) junto con puertas de entrada bilingües internacionales en **inglés** (`README.md`, `mcp-server/README.md`, `docs/agent-setup.en.md`, `catalogs/agenticskills-submission.md`, con política *Dynamic Mirroring* en repositorios consumidores).
+> Las instrucciones destinadas al consumo interno de los modelos de IA (`rules/` y `skills/`) están redactadas en **inglés técnico compacto de alta densidad**, mientras que la documentación para humanos adopta la arquitectura bilingüe **Inglés Canónico (`*.md`) + Espejo 1:1 en Español (`*.es.md`)** (`README.{md,es.md}`, `TESTING.{md,es.md}`, `CHANGELOG.{md,es.md}`, `SECURITY.{md,es.md}`, `ROADMAP.{md,es.md}`, `docs/agent-setup.{md,es.md}`, `mcp-server/`, con `docs/01..04*.md` y stacks migrando en Fases B–C, más política *Dynamic Mirroring* en consumidores).
 
 ### ¿Por qué las directivas de IA están en inglés?
 

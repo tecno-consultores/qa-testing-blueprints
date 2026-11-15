@@ -1,56 +1,58 @@
-# Pipelines de CI/CD (Integración Continua y Ejecución Soberana)
+> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (ci-cd-pipelines.es.md)](ci-cd-pipelines.es.md)
 
-Este documento explica los principios de integración continua bajo el estándar 11X, abordando tanto la ejecución soberana local operada por **Agentes de Inteligencia Artificial** como el traslado opcional de las pruebas a entornos automatizados remotos (como GitHub Actions o GitLab CI) en proyectos que adopten este blueprint.
+# CI/CD Pipelines (Continuous Integration and Sovereign Execution)
 
----
-
-## 0. Shift-Left Extremo: Gobernanza por Agentes de IA vs. CI/CD Tradicional
-
-En los flujos tradicionales de desarrollo, el pipeline de CI/CD remoto es el primer lugar donde se descubren fallos de linting, cobertura insuficiente o vulnerabilidades de seguridad. Esto introduce ciclos lentos de retroalimentación (10 a 20 minutos por iteración).
-
-En el Estándar 11X aplicamos un **Shift-Left Extremo operado por Agentes de IA**:
-* **Ejecución Local Autónoma:** Antes de que un commit sea generado, el agente de IA (Google Antigravity, Claude Code, Cursor, Hermes) ejecuta localmente la suite en Docker efímero (`Rule Zero`) y la compuerta universal de certificación (`./.agents/scripts/certify_task_completion.sh`).
-* **Calidad Garantizada Pre-Push:** Cuando el código se envía a Git, ya ha sido validado matemáticamente contra la regla del 95% de cobertura, 0 secretos, paridad ORM con PostgreSQL real y escenarios BDD de Karate Labs. El CI remoto deja de ser un filtro de descubrimiento para convertirse en una simple salvaguarda redundante.
-* **Filosofía Soberana (Modelo RoSGrid):** Para tareas de alta criticidad como la publicación de paquetes (ej. el servidor MCP `@sinfallas/mcp-qa-11x` en npm), el estándar rechaza delegar credenciales maestras (`NPM_TOKEN`) a *runners* externos compartidos. El ciclo de publicación se ejecuta de manera soberana y local mediante scripts efímeros auditados (`scripts/publicar-mcp.sh`).
+This document explains the continuous integration principles under Standard 11X, covering both sovereign local execution operated by **AI Agents** and the optional offloading of tests to automated remote environments (such as GitHub Actions or GitLab CI) in projects adopting this blueprint.
 
 ---
 
-## 1. El Anti-Patrón vs. La Vía "Blueprints"
+## 0. Extreme Shift-Left: AI Agent Governance vs. Traditional CI/CD
 
-**El enfoque tradicional (Anti-Patrón):**
-Normalmente, los pipelines de CI instalan el lenguaje directamente en el *runner* de GitHub/GitLab (ej. usando `actions/setup-node` o `actions/setup-python`), luego ejecutan `npm install` y finalmente corren los tests.
-*   **¿Por qué está mal para nosotros?** Porque rompe el aislamiento. El *runner* de CI podría tener dependencias globales preinstaladas de Ubuntu que enmascaran errores, haciendo que el pipeline pase en GitHub pero falle en tu servidor Proxmox de producción.
+In traditional development workflows, the remote CI/CD pipeline is the first place where lint failures, insufficient coverage, or security vulnerabilities are discovered. This introduces slow feedback loops (10 to 20 minutes per iteration).
 
-**Nuestro enfoque (Blueprints):**
-El *runner* de CI se trata como una máquina "tonta" cuyo único trabajo es tener Docker instalado. **Ejecutamos exactamente los mismos comandos encapsulados de los Makefiles que usamos en local**. 
-*   **¿Por qué es así?** Paridad absoluta. Si `make qa-unit` pasa en tu laptop, pasará en CI y funcionará en producción. Toda la inteligencia, herramientas (SAST, Mutación, BATS), configuraciones `.npmrc` y dependencias viven dentro de las imágenes `sinfallas/*` y se respaldan en los volúmenes de caché.
-
----
-
-## 2. Anatomía de la Ejecución en CI (Nivel 11X)
-
-Para que el pipeline funcione correctamente, debe seguir una estructura estricta:
-
-### Paso 0: Auditoría de Infraestructura (Trivy)
-Antes de descargar dependencias de lenguaje, escaneamos estáticamente los manifiestos de Docker para prevenir inyecciones a la infraestructura o escalamiento de privilegios.
-### Paso 1: Checkout y Preparación
-Clonar el código fuente. No necesitamos instalar Python, Node ni dependencias de sistema.
-### Paso 2: Ejecución Efímera Base (El Núcleo)
-Lanzar las suites utilizando los comandos definidos en el `Makefile` (ej. `make qa-lint`, `make qa-unit`). Si la prueba de cobertura detecta menos del 95%, o si fallan las métricas de complejidad, arrojará un código de salida `1` (Exit Code 1) bloqueando el *merge*.
-### Paso 3: Seguridad Dinámica (DAST)
-OWASP ZAP levanta un ataque ligero (*Baseline Scan*) sobre el contenedor vivo para auditar vulnerabilidades en la red.
-### Paso 4: Resiliencia, Caos y Observabilidad
-Se activa el perfil oculto `--profile chaos` inyectando latencia con Pumba y oleadas de estrés concurrente, mientras Prometheus recopila métricas.
-### Paso 5: Extracción de Artefactos (Reportes)
-Como utilizamos volúmenes *bind*, cuando el contenedor efímero muere, deja los reportes HTML y JSON físicamente en el disco del *runner*. El pipeline toma esa carpeta y la sube como un "Artifact" para que el equipo pueda descargarlo.
-### Paso 6: Limpieza
-Ejecutar `./scripts/limpieza.sh` (o `make clean`) para destruir artefactos temporales y contenedores efímeros sin saturar el almacenamiento del *runner*.
+In Standard 11X we apply **Extreme Shift-Left operated by AI Agents**:
+* **Autonomous Local Execution:** Before a commit is created, the AI agent (Google Antigravity, Claude Code, Cursor, Hermes) runs the ephemeral Docker suite (`Rule Zero`) and the universal certification gate (`./.agents/scripts/certify_task_completion.sh`) locally.
+* **Pre-Push Guaranteed Quality:** When code is pushed to Git, it has already been mathematically validated against the 95% coverage rule, 0 secrets, ORM parity against real PostgreSQL, and Karate Labs BDD scenarios. Remote CI stops being a discovery filter and becomes a simple redundant safeguard (paired with `QA-GIT-GATE-01` human confirmation for remote pushes).
+* **Sovereign Philosophy (RoSGrid Model):** For high-criticality tasks such as package publishing (e.g., the `@sinfallas/mcp-qa-11x` MCP server on npm), the standard forbids delegating master credentials (`NPM_TOKEN`) to shared external runners. The publishing cycle executes locally and sovereignly through audited ephemeral scripts (`scripts/publicar-mcp.sh`).
 
 ---
 
-## 3. Ejemplo Práctico de Referencia: GitHub Actions (Para Proyectos Adoptantes)
+## 1. The Anti-Pattern vs. The "Blueprints" Way
 
-A continuación se presenta una plantilla ilustrativa de referencia para proyectos externos que adopten este blueprint y requieran configurar un flujo de verificación en GitHub Actions (ej. en `.github/workflows/qa-pipeline.yml`). Al utilizar los `Makefiles` corporativos bajo la Regla Cero, el pipeline es extremadamente limpio, no instala lenguajes en el runner y delega toda la inteligencia a las imágenes oficiales efímeras:
+**The Traditional Approach (Anti-Pattern):**
+Typically, CI pipelines install the language runtime directly on the GitHub/GitLab runner (e.g., using `actions/setup-node` or `actions/setup-python`), run `npm install`, and finally execute the tests.
+*   **Why is this wrong for us?** Because it breaks isolation. The CI runner could have pre-installed global Ubuntu dependencies that mask errors, causing the pipeline to pass on GitHub while failing on your production Proxmox server.
+
+**Our Approach (Blueprints):**
+The CI runner is treated as a "dumb" machine whose only job is having Docker installed. **We run the exact same Makefile-encapsulated commands we use locally across all 10 stacks / 12 environments**.
+*   **Why is it like this?** Absolute parity. If `make qa-unit` passes on your laptop, it will pass in CI and work in production. All intelligence, tools (SAST, Mutation, BATS, Appium 3), `.npmrc` configs, and dependencies live inside the certified `sinfallas/*` base images (`sinfallas/base-python-uv:3.15`, `sinfallas/base-node-ionic:26`, `sinfallas/base-mobile-appium:26`, `sinfallas/basephpcomposer:8.5`, `sinfallas/karatelabs:1.5.1`, `sinfallas/base-bash-qa:latest`, `sinfallas/remote-graphify:latest`) backed by cache volumes.
+
+---
+
+## 2. Anatomy of CI Execution (Level 11X)
+
+For the pipeline to operate properly, it must follow a strict structure:
+
+### Step 0: Infrastructure Audit (Trivy)
+Before downloading language dependencies, we statically scan Docker manifests to prevent infrastructure injections or privilege escalation.
+### Step 1: Checkout and Preparation
+Clone the source code. We do not need to install Python, Node, or system dependencies on the host runner.
+### Step 2: Base Ephemeral Execution (The Core)
+Launch the suites using the targets defined in `Makefile` (e.g., `make qa-lint`, `make qa-unit`). If the coverage test detects less than 95%, or complexity metrics fail, it returns Exit Code `1`, blocking the merge.
+### Step 3: Dynamic Security (DAST)
+OWASP ZAP launches a lightweight attack (*Baseline Scan*) against the live container to audit network-exposed vulnerabilities.
+### Step 4: Resilience, Chaos, and Observability
+The hidden `--profile chaos` profile is activated, injecting latency with Pumba and concurrent stress waves while Prometheus scrapes metrics.
+### Step 5: Artifact Extraction (Reports)
+Because we use *bind* volumes, when the ephemeral container exits, it leaves HTML and JSON reports physically on the runner's disk. The pipeline collects that folder and uploads it as an "Artifact" for the team to download.
+### Step 6: Cleanup
+Run `./scripts/limpieza.sh` (or `make clean`) to destroy temporary artifacts and ephemeral containers without saturating the runner's storage.
+
+---
+
+## 3. Practical Reference Example: GitHub Actions (For Adopting Projects)
+
+Below is an illustrative reference template for external projects adopting this blueprint that need to configure a verification workflow in GitHub Actions (e.g., in `.github/workflows/qa-pipeline.yml`). Using corporate `Makefiles` under Rule Zero keeps the pipeline clean, installs zero runtimes on the runner, and delegates all intelligence to the official ephemeral images:
 
 ```yaml
 name: QA Testing Blueprint Pipeline (Nivel 11X)
@@ -61,55 +63,55 @@ on:
 
 jobs:
   auditoria-y-pruebas:
-    name: 🛡️ Auditoría Estricta (95% Coverage) y Resiliencia
+    name: 🛡️ Strict Audit (95% Coverage) & Resilience
     runs-on: ubuntu-latest
 
     steps:
-      - name: 1️⃣ Checkout del código (fijar SHA inmutable en producción)
+      - name: 1️⃣ Code checkout (pin immutable SHA in production)
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: 2️⃣ Verificación de Secretos y Configuración Efímera Segura
+      - name: 2️⃣ Secrets Verification & Safe Ephemeral Config
         run: |
           ./scripts/verificar-secretos.sh
-          # Inyectar variables de entorno de prueba (NUNCA credenciales reales de producción en runners)
+          # Inject test env vars (NEVER real production credentials in runners)
           echo "ENVIRONMENT=test" >> .env.test
           echo "DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/test_db" >> .env.test
 
-      - name: 3️⃣ Auditoría de Infraestructura y Contenedores (Trivy)
+      - name: 3️⃣ Infrastructure & Container Audit (Trivy)
         run: |
           ./scripts/auditar-infra.sh
 
-      - name: 4️⃣ Análisis Estático, Complejidad y Formateo
-        # Ejecuta linting, tipeo estricto (Mypy/TS) y reglas de complejidad ciclomática.
+      - name: 4️⃣ Static Analysis, Complexity & Formatting
+        # Runs linting, strict typing (Mypy/TS), and cyclomatic complexity rules.
         run: make qa-lint
 
-      - name: 5️⃣ Ejecutar Suite Efímera con Intercepción de Red (>= 95% Cobertura)
-        # Si la cobertura es menor a 95%, este comando falla y aborta el pipeline.
+      - name: 5️⃣ Run Ephemeral Suite with Network Interception (>= 95% Coverage)
+        # If coverage is below 95%, this command fails and aborts the pipeline.
         run: make qa-unit
 
-      - name: 6️⃣ Pruebas de Mutación (Anti-Falsos Positivos)
-        # Asegura que las pruebas realmente validen la lógica alterando el AST.
+      - name: 6️⃣ Mutation Testing (Anti-False Positives)
+        # Ensures tests truly validate logic by mutating the AST.
         run: make qa-mutation
 
-      - name: 7️⃣ Compuerta de Certificación 11X (ORM Parity, Orphans y Topología)
+      - name: 7️⃣ 11X Certification Gate (ORM Parity, Orphans & Topology)
         run: |
           chmod +x .agents/scripts/*.sh .agents/scripts/*.py
           ./.agents/scripts/certify_task_completion.sh
 
-      - name: 8️⃣ Seguridad Dinámica DAST (OWASP ZAP Baseline)
-        # Levanta los servicios de persistencia y la API, luego ejecuta ZAP.
-        # (Nota: Ignorar este paso si es un script Bash o Python Standalone)
+      - name: 8️⃣ Dynamic Security DAST (OWASP ZAP Baseline)
+        # Starts persistence services and the API, then runs ZAP.
+        # (Note: Skip this step if it is a pure Bash or standalone Python script)
         run: |
           docker compose -f docker-compose.qa.yml up -d postgres keydb api || docker compose -f docker-compose.qa.yml up -d api
           docker compose -f docker-compose.qa.yml run --rm zap zap-baseline.py -t http://api:8000 -r zap-report.html || \
           docker compose -f docker-compose.qa.yml run --rm zap zap-baseline.py -t http://api:3000 -r zap-report.html
 
-      - name: 9️⃣ Ingeniería del Caos y Observabilidad (Prometheus + Pumba)
-        # Activa el perfil oculto para inyectar latencia y levantar Prometheus automáticamente.
-        # (Nota: Si tu proyecto es un script Bash o Python puro, cambia '--profile chaos' por '--profile observability')
+      - name: 9️⃣ Chaos Engineering & Observability (Prometheus + Pumba)
+        # Activates the hidden profile to inject latency and automatically start Prometheus.
+        # (Note: If your project is a Bash or pure Python script, change '--profile chaos' to '--profile observability')
         run: docker compose -f docker-compose.qa.yml --profile chaos up --abort-on-container-exit stress_test
 
-      - name: 🔟 Archivar Reportes de Calidad (Artefactos)
+      - name: 🔟 Archive Quality Reports (Artifacts)
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
@@ -124,7 +126,7 @@ jobs:
             chaos-report.json
           retention-days: 7
 
-      - name: 1️⃣1️⃣ Limpieza del Entorno
+      - name: 1️⃣1️⃣ Environment Cleanup
         if: always()
         run: ./scripts/limpieza.sh
 ```

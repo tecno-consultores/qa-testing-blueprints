@@ -236,6 +236,9 @@ def test_sync_governance_syncs_skillsllm_catalog(tmp_path: Path) -> None:
     skill_path = tmp_path / ".agents" / "skills" / "demo" / "SKILL.md"
     skill_path.parent.mkdir(parents=True)
     skill_path.write_text("# Demo Skill v2\n", encoding="utf-8")
+    (tmp_path / "python").mkdir(parents=True)
+    (tmp_path / "python" / "README.md").write_text("# Python EN\n", encoding="utf-8")
+    (tmp_path / "python" / "README.es.md").write_text("# Python ES\n", encoding="utf-8")
     (tmp_path / "catalogs").mkdir(parents=True)
     catalog_file = tmp_path / "catalogs" / "skillsllm-manifest.json"
     catalog_file.write_text(
@@ -264,3 +267,8 @@ def test_sync_governance_syncs_skillsllm_catalog(tmp_path: Path) -> None:
     updated = json.loads(catalog_file.read_text(encoding="utf-8"))
     assert updated["skills"][0]["size_bytes"] == skill_path.stat().st_size
     assert updated["skills"][0]["sha256"] == mod.compute_sha256(skill_path)
+    generated_manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
+    py_stack = generated_manifest["stacks"]["python"]
+    assert py_stack["readme_es"] == "python/README.es.md"
+    assert len(py_stack["readme_sha256"]) == 64
+    assert len(py_stack["readme_es_sha256"]) == 64

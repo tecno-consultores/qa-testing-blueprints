@@ -1,14 +1,16 @@
-> **[SYSTEM DIRECTIVE FOR AI AGENTS]:** Act as a Staff QA Automation Engineer and DevOps Expert. Read, parse, and strictly enforce the following architectural constraints written in Spanish. You must generate code that perfectly aligns with these rules, using exclusively the ephemeral Docker containers, testing frameworks, and strict quality thresholds (e.g., 95% coverage, SAST, Infection mutation, Pact CDCT Zero-Infra, k6 SLOs) specified below. Do not suggest local installations. Process the technical logic at your highest reasoning capacity in English, but output your final response, explanations, and code comments in Spanish.
+> **[SYSTEM DIRECTIVE FOR AI AGENTS]:** Act as a Staff QA Automation Engineer and DevOps Expert. Read, parse, and strictly enforce the following architectural constraints written in English. You must generate code that perfectly aligns with these rules, using exclusively the ephemeral Docker containers, testing frameworks, and strict quality thresholds (e.g., 95% coverage, SAST, Infection mutation, Pact CDCT Zero-Infra, k6 SLOs) specified below. Do not suggest local installations. Process the technical logic at your highest reasoning capacity in English, and output your final response, explanations, and code comments in the user's prompt language (defaulting to English).
 
-# Guía Canónica de Pruebas y Validación para PHP 8.2–8.5 (QA-11X v3.0)
+> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (README.es.md)](README.es.md)
 
-Este documento contiene las instrucciones corporativas de **Nivel 11X (QA-11X v3.0)** que DEBES seguir innegociablemente para generar, estructurar y ejecutar pruebas automatizadas en APIs y microservicios backend construidos en **PHP (versiones 8.2, 8.3, 8.4 y 8.5)**. El objetivo es garantizar resiliencia bajo estrés extremo, paridad de contratos inter-servicios sin infraestructura externa (*Zero-Infra*), seguridad por diseño (DISA ASD STIG V6R5 + OWASP Developer Guide v4.2) y cero ejecución local en el host.
+# Canonical Testing and Validation Guide for PHP 8.2–8.5 (QA-11X v3.0)
+
+This document contains the non-negotiable **Level-11X (QA-11X v3.0)** corporate instructions you MUST follow when generating, structuring, and running automated tests for backend APIs and microservices built in **PHP (versions 8.2, 8.3, 8.4, and 8.5)**. The goal is to guarantee resilience under extreme stress, cross-service contract parity without external infrastructure (*Zero-Infra*), security by design (DISA ASD STIG V6R5 + OWASP Developer Guide v4.2), and zero local execution on the host.
 
 ---
 
-## 1. Reglas Estrictas de Ejecución (Regla Cero, No-Root y Contenedores Oficiales v2)
+## 1. Strict Execution Rules (Rule Zero, Non-Root & Official v2 Containers)
 
-**NUNCA** debes instruir la instalación local de PHP, extensiones PECL o Composer en la máquina host ni ejecutar procesos como `root` dentro del contenedor. Toda validación corre en contenedores Docker efímeros con mapeo explícito de UID/GID del usuario anfitrión y cachés en `/tmp`:
+**NEVER** instruct local installation of PHP, PECL extensions, or Composer on the host machine, nor run processes as `root` inside the container. Every validation runs inside ephemeral Docker containers with explicit host user UID/GID mapping and `/tmp` caches:
 
 ```bash
 docker run --rm \
@@ -21,49 +23,49 @@ docker run --rm \
   composer run-script qa:unit
 ```
 
-* **Para PHP, Linting, PHPStan (`max`), Psalm, PHPUnit/Pest (`PCOV`) y Mutación (`Infection`):** `sinfallas/basephpcomposer:8.5` (tags oficiales disponibles: `8.2`, `8.3`, `8.4`, `8.5`, `latest` y `11x-v2-php{8.2,8.3,8.4,8.5}`).
-* **Para Persistencia Real y Aislamiento Multi-Tenant (Anti-Mock Blindness):** `postgres:17-alpine` con usuario de aplicación `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`.
-* **Para Idempotencia, Sesiones Concurrentes y Caché Multi-Hilo:** `eqalpha/keydb:alpine`.
-* **Para Pruebas BDD de Caja Negra API:** `sinfallas/karatelabs:1.5.1` (inyectando `Idempotency-Key` en toda mutación).
-* **Para Pruebas de Carga Declarativas y SLOs:** `grafana/k6:2.4.0`.
-* **Para Seguridad Dinámica (DAST) y Caos:** `zaproxy/zap-stable`, `gaiaadm/pumba:latest` y `prom/prometheus:latest`.
+* **For PHP, Linting, PHPStan (`max`), Psalm, PHPUnit/Pest (`PCOV`), and Mutation (`Infection`):** `sinfallas/basephpcomposer:8.5` (official available tags: `8.2`, `8.3`, `8.4`, `8.5`, `latest`, and `11x-v2-php{8.2,8.3,8.4,8.5}`).
+* **For Real Persistence & Multi-Tenant Isolation (Anti-Mock Blindness):** `postgres:17-alpine` with application role `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`.
+* **For Idempotency, Concurrent Sessions & Multi-Threaded Caching:** `eqalpha/keydb:alpine`.
+* **For API Black-Box BDD Tests:** `sinfallas/karatelabs:1.5.1` (injecting `Idempotency-Key` on every mutation).
+* **For Declarative Load Tests & SLOs:** `grafana/k6:2.4.0`.
+* **For Dynamic Security (DAST) & Chaos:** `zaproxy/zap-stable`, `gaiaadm/pumba:latest`, and `prom/prometheus:latest`.
 
 ---
 
-## 2. Matriz Tecnológica de las 13 Capas 11X para PHP
+## 2. 13-Layer 11X Tech Matrix for PHP
 
-1. **Tipado Estricto y Formato:** `declare(strict_types=1);` obligatorio en todo archivo PHP + `friendsofphp/php-cs-fixer` (`@PER-CS2.0`).
-2. **Análisis Estático y Complejidad Cognitiva:** `phpstan/phpstan` (nivel `max` / 9 + `phpstan-strict-rules`) y `tomasvotruba/cognitive-complexity` (complejidad `<= 5` en módulos críticos / `<= 9` global).
-3. **Seguridad Estática (SAST) y CVEs:** `vimeo/psalm` (`--taint-analysis`) y `composer audit` (0 CVEs High/Critical).
-4. **Pruebas Unitarias Aisladas:** `pestphp/pest` o `phpunit/phpunit` 11.5+–13.x con motor ligero `pcov` (cobertura innegociable `>= 95.0%` en líneas y ramas).
-5. **Pruebas de Mutación:** `infection/infection` (`minMsi: 80`, `minCoveredMsi: 80`, 0 mutantes vivos críticos).
-6. **Paridad de Base de Datos y PostgreSQL 17 `FORCE RLS`:** Verificación de migraciones Doctrine / Laravel contra `postgres:17-alpine` real ejecutando `ALTER TABLE ... ENABLE ROW LEVEL SECURITY; ALTER TABLE ... FORCE ROW LEVEL SECURITY;` bajo rol `NOBYPASSRLS` y re-aplicación por transacción de `SET LOCAL app.current_tenant_id` (prohibido depender de `SELECT *` sin política RLS activa).
-7. **Contratos Consumer-Driven Zero-Infra (`Pact` V3/V4) y OpenAPI 3.1:**
-   * Toda integración inter-servicios (por ejemplo, PHP como proveedor o consumidor frente a `fastapi/` o `node-backend/`) DEBE validar contratos JSON deterministas en `PACT_OUTPUT_DIR` sin depender de un *Pact Broker* en la nube.
-   * **Precisión Monetaria Exacta:** Los importes financieros deben viajar serializados como cadenas decimales exactas (`"149.95"` vía `bcmath` o `Brick\Money`), quedando terminantemente prohibido usar `float` binario en cuerpos JSON.
-   * **Trimodal Fixtures y Anti-Silo:** Cubrir estados `nominal_configured` (`201 Created` con eco de `Idempotency-Key`), `virgin_empty` (`404 Not Found` en formato RFC 7807 `application/problem+json`) y `degraded_conflict` (lotes parciales `POST .../batch` devolviendo `200 OK` con inspección ítem por ítem de `results[].status`, más `409 Conflict` RFC 7807 ante colisión de `Idempotency-Key` con payload mutado).
-8. **Pruebas BDD de Caja Negra:** `Karate Labs` ejecutando `test/api_test.feature` contra la API viva en contenedor efímero.
-9. **Pruebas de Carga Declarativas y SLOs (`k6`):** Perfiles parametrizables por entorno (`K6_PROFILE=smoke|load|stress`, referencia en `fastapi/tests/load/smoke.k6.js`) con umbrales bloqueantes alineados a `evaluateReleaseGate` (`http_req_failed < 1%`, `p(95) < 250ms`, `p(99) < 500ms`, `checks == 100%`) e inspección por ítem de respuestas batch sin asumir éxito por `status === 200`.
-10. **Seguridad Dinámica DAST y OSHP:** OWASP ZAP Baseline verificando `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Cache-Control: no-store` y supresión de `X-Powered-By`.
-11. **Canonicalización, Criptografía e Idempotencia:** Unicode `\Normalizer::FORM_KC` antes de validar (`APSC-DV-002520`), Argon2id, AES-256-GCM con `sodium_memzero()`, y cabecera obligatoria `Idempotency-Key` (formato UUIDv4) en todo `POST`/`PUT`/`PATCH`/`DELETE` respaldada en KeyDB con hash SHA-256 del payload para bloquear mutaciones con `409 Conflict`.
-12. **Ingeniería del Caos y Observabilidad:** Inyección de latencia/fallos con Pumba (`netem`) y métricas Prometheus (`/metrics`).
-13. **SBOM Criptográfico:** `cyclonedx/cyclonedx-php-composer` generando `sbom-php.cdx.json` (CycloneDX 1.6).
+1. **Strict Typing and Formatting:** Mandatory `declare(strict_types=1);` in every PHP file + `friendsofphp/php-cs-fixer` (`@PER-CS2.0`).
+2. **Static Analysis and Cognitive Complexity:** `phpstan/phpstan` (level `max` / 9 + `phpstan-strict-rules`) and `tomasvotruba/cognitive-complexity` (complexity `<= 5` in critical modules / `<= 9` global).
+3. **Static Security (SAST) and CVEs:** `vimeo/psalm` (`--taint-analysis`) and `composer audit` (0 High/Critical CVEs).
+4. **Isolated Unit Tests:** `pestphp/pest` or `phpunit/phpunit` 11.5+–13.x with lightweight `pcov` driver (non-negotiable coverage `>= 95.0%` for lines and branches).
+5. **Mutation Testing:** `infection/infection` (`minMsi: 80`, `minCoveredMsi: 80`, 0 critical escaped mutants).
+6. **Database Parity and PostgreSQL 17 `FORCE RLS`:** Verification of Doctrine / Laravel migrations against real `postgres:17-alpine` running `ALTER TABLE ... ENABLE ROW LEVEL SECURITY; ALTER TABLE ... FORCE ROW LEVEL SECURITY;` under role `NOBYPASSRLS` and per-transaction re-application of `SET LOCAL app.current_tenant_id` (relying on `SELECT *` without an active RLS policy is prohibited).
+7. **Zero-Infra Consumer-Driven Contracts (`Pact` V3/V4) & OpenAPI 3.1:**
+   * Every inter-service integration (for example, PHP as provider or consumer against `fastapi/` or `node-backend/`) MUST validate deterministic JSON contracts in `PACT_OUTPUT_DIR` without relying on a cloud *Pact Broker*.
+   * **Exact Monetary Precision:** Financial amounts must be serialized as exact decimal strings (`"149.95"` via `bcmath` or `Brick\Money`); binary `float` in JSON bodies is strictly prohibited.
+   * **Trimodal Fixtures and Anti-Silo:** Cover `nominal_configured` (`201 Created` echoing `Idempotency-Key`), `virgin_empty` (`404 Not Found` in RFC 7807 `application/problem+json` format), and `degraded_conflict` (partial batches `POST .../batch` returning `200 OK` with item-by-item inspection of `results[].status`, plus `409 Conflict` RFC 7807 on `Idempotency-Key` collision with a mutated payload).
+8. **Black-Box BDD Tests:** `Karate Labs` executing `test/api_test.feature` against the live API inside an ephemeral container.
+9. **Declarative Load Tests & SLOs (`k6`):** Environment-parameterized profiles (`K6_PROFILE=smoke|load|stress`, reference in `fastapi/tests/load/smoke.k6.js`) with blocking thresholds aligned to `evaluateReleaseGate` (`http_req_failed < 1%`, `p(95) < 250ms`, `p(99) < 500ms`, `checks == 100%`) and per-item inspection of batch responses without assuming success from `status === 200`.
+10. **Dynamic Security DAST & OSHP:** OWASP ZAP Baseline verifying `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Cache-Control: no-store`, and `X-Powered-By` suppression.
+11. **Canonicalization, Cryptography & Idempotency:** Unicode `\Normalizer::FORM_KC` before validation (`APSC-DV-002520`), Argon2id, AES-256-GCM with `sodium_memzero()`, and mandatory `Idempotency-Key` header (UUIDv4 format) on every `POST`/`PUT`/`PATCH`/`DELETE` backed by KeyDB with a SHA-256 hash of the payload to reject mutations with `409 Conflict`.
+12. **Chaos Engineering and Observability:** Latency/fault injection with Pumba (`netem`) and Prometheus metrics (`/metrics`).
+13. **Cryptographic SBOM:** `cyclonedx/cyclonedx-php-composer` generating `sbom-php.cdx.json` (CycloneDX 1.6).
 
 ---
 
-## 3. Comandos Canónicos (`Makefile`)
+## 3. Canonical Commands (`Makefile`)
 
 ```bash
-# Desde el proyecto PHP hidratado (Regla Cero no-root):
+# From the hydrated PHP project (Rule Zero non-root):
 make qa-lint        # PHP-CS-Fixer + PHPStan (max) + Psalm Taint + Composer Audit
-make qa-unit        # Pest/PHPUnit con PCOV >= 95%
-make qa-parity      # Migraciones + verificación FORCE RLS contra PostgreSQL 17
-make qa-bdd         # Karate Labs API (con Idempotency-Key UUIDv4)
+make qa-unit        # Pest/PHPUnit with PCOV >= 95%
+make qa-parity      # Migrations + FORCE RLS verification against PostgreSQL 17
+make qa-bdd         # Karate Labs API (with Idempotency-Key UUIDv4)
 make qa-mutation    # Infection (MSI >= 80%)
 make qa-sbom        # CycloneDX 1.6
-make qa-all         # Pipeline integral 11X
+make qa-all         # Comprehensive 11X pipeline
 
-# Desde la raíz de qa-testing-blueprints (certificación cruzada Zero-Infra):
-make test-backend-blueprints  # Pact V4 Python->Node + k6 smoke + lint antipatrones
-make clean                    # Limpieza profunda sin residuos root
+# From the qa-testing-blueprints root (Zero-Infra cross-certification):
+make test-backend-blueprints  # Pact V4 Python->Node + k6 smoke + anti-pattern lint
+make clean                    # Deep cleanup without root artifacts
 ```

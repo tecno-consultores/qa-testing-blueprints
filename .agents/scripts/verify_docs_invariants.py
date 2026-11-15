@@ -24,41 +24,112 @@ FORBIDDEN_DOC_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"--profile\s+graphify", "flag obsoleto '--profile graphify' (usar './scripts/actualizar-grafos-graphify.sh')"),
 )
 
+BILINGUAL_DOC_PAIRS: tuple[tuple[str, str], ...] = (
+    ("README.md", "README.es.md"),
+    ("RESOURCES.md", "RESOURCES.es.md"),
+    ("TESTING.md", "TESTING.es.md"),
+    ("SECURITY.md", "SECURITY.es.md"),
+    ("CONTRIBUTING.md", "CONTRIBUTING.es.md"),
+    ("FAQ.md", "FAQ.es.md"),
+    ("AI_MASTER_PROMPT.md", "AI_MASTER_PROMPT.es.md"),
+    ("ROADMAP.md", "ROADMAP.es.md"),
+    ("CHANGELOG.md", "CHANGELOG.es.md"),
+    ("mcp-server/README.md", "mcp-server/README.es.md"),
+    ("mcp-server/CHANGELOG.md", "mcp-server/CHANGELOG.es.md"),
+    ("mcp-server/example/README.md", "mcp-server/example/README.es.md"),
+    ("docs/agent-setup.md", "docs/agent-setup.es.md"),
+    ("docs/specs/README.md", "docs/specs/README.es.md"),
+    ("docs/01_ARQUITECTURA_PIRAMIDE_11X.md", "docs/01_ARQUITECTURA_PIRAMIDE_11X.es.md"),
+    ("docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md", "docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md"),
+    ("docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md", "docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.es.md"),
+    ("docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md", "docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.es.md"),
+    ("docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md", "docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md"),
+    ("docs/ai-integration.md", "docs/ai-integration.es.md"),
+    ("docs/ci-cd-pipelines.md", "docs/ci-cd-pipelines.es.md"),
+    ("docs/docker-troubleshooting.md", "docs/docker-troubleshooting.es.md"),
+    ("docs/qa-philosophy.md", "docs/qa-philosophy.es.md"),
+    ("docs/ARCHITECTURE_C4.md", "docs/ARCHITECTURE_C4.es.md"),
+    ("architecture/README.md", "architecture/README.es.md"),
+    ("python/README.md", "python/README.es.md"),
+    ("fastapi/README.md", "fastapi/README.es.md"),
+    ("node-backend/README.md", "node-backend/README.es.md"),
+    ("vue3/README.md", "vue3/README.es.md"),
+    ("react-frontend/README.md", "react-frontend/README.es.md"),
+    ("php/README.md", "php/README.es.md"),
+    ("bash-scripts/README.md", "bash-scripts/README.es.md"),
+    ("mobile-appium/README.md", "mobile-appium/README.es.md"),
+    ("ai-evals/README.md", "ai-evals/README.es.md"),
+    ("vibe-rescue/README.md", "vibe-rescue/README.es.md"),
+)
+
 DOC_TARGETS: tuple[str, ...] = (
     "README.md",
     "README.es.md",
     "RESOURCES.md",
+    "RESOURCES.es.md",
     ".agents/README.md",
     "mcp-server/README.md",
     "mcp-server/README.es.md",
+    "mcp-server/example/README.md",
+    "mcp-server/example/README.es.md",
     "TESTING.md",
+    "TESTING.es.md",
     "SECURITY.md",
+    "SECURITY.es.md",
     "FAQ.md",
+    "FAQ.es.md",
     "CONTRIBUTING.md",
+    "CONTRIBUTING.es.md",
     "AI_MASTER_PROMPT.md",
+    "AI_MASTER_PROMPT.es.md",
     "docs/01_ARQUITECTURA_PIRAMIDE_11X.md",
+    "docs/01_ARQUITECTURA_PIRAMIDE_11X.es.md",
     "docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md",
+    "docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md",
     "docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md",
+    "docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.es.md",
     "docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md",
+    "docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.es.md",
     "docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md",
+    "docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md",
     "docs/docker-troubleshooting.md",
+    "docs/docker-troubleshooting.es.md",
     "docs/ci-cd-pipelines.md",
+    "docs/ci-cd-pipelines.es.md",
     "docs/ai-integration.md",
+    "docs/ai-integration.es.md",
+    "docs/qa-philosophy.md",
+    "docs/qa-philosophy.es.md",
     "docs/agent-setup.md",
+    "docs/agent-setup.es.md",
     "docs/agent-setup.en.md",
     "docs/ARCHITECTURE_C4.md",
+    "docs/ARCHITECTURE_C4.es.md",
+    "docs/specs/README.md",
+    "docs/specs/README.es.md",
     "catalogs/agenticskills-submission.md",
     "architecture/README.md",
+    "architecture/README.es.md",
     "fastapi/README.md",
+    "fastapi/README.es.md",
     "vue3/README.md",
+    "vue3/README.es.md",
     "react-frontend/README.md",
+    "react-frontend/README.es.md",
     "node-backend/README.md",
+    "node-backend/README.es.md",
     "python/README.md",
+    "python/README.es.md",
     "php/README.md",
+    "php/README.es.md",
     "bash-scripts/README.md",
+    "bash-scripts/README.es.md",
     "ai-evals/README.md",
+    "ai-evals/README.es.md",
     "mobile-appium/README.md",
+    "mobile-appium/README.es.md",
     "vibe-rescue/README.md",
+    "vibe-rescue/README.es.md",
 )
 
 BILINGUAL_TRIGGER_DOCS: tuple[str, ...] = (
@@ -71,20 +142,69 @@ INTERNAL_LINK_AUDIT_TARGETS: tuple[str, ...] = (
     "README.md",
     "README.es.md",
     "RESOURCES.md",
+    "RESOURCES.es.md",
+    "TESTING.md",
+    "TESTING.es.md",
+    "SECURITY.md",
+    "SECURITY.es.md",
+    "FAQ.md",
+    "FAQ.es.md",
+    "CONTRIBUTING.md",
+    "CONTRIBUTING.es.md",
+    "AI_MASTER_PROMPT.md",
+    "AI_MASTER_PROMPT.es.md",
     "docs/01_ARQUITECTURA_PIRAMIDE_11X.md",
+    "docs/01_ARQUITECTURA_PIRAMIDE_11X.es.md",
+    "docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md",
+    "docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md",
+    "docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md",
+    "docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.es.md",
+    "docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md",
+    "docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.es.md",
+    "docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md",
+    "docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md",
+    "docs/docker-troubleshooting.md",
+    "docs/docker-troubleshooting.es.md",
+    "docs/ci-cd-pipelines.md",
+    "docs/ci-cd-pipelines.es.md",
+    "docs/ai-integration.md",
+    "docs/ai-integration.es.md",
+    "docs/qa-philosophy.md",
+    "docs/qa-philosophy.es.md",
+    "docs/agent-setup.md",
+    "docs/agent-setup.es.md",
+    "docs/ARCHITECTURE_C4.md",
+    "docs/ARCHITECTURE_C4.es.md",
+    "docs/specs/README.md",
+    "docs/specs/README.es.md",
     "llms.txt",
     "catalogs/agenticskills-submission.md",
+    "mcp-server/README.md",
+    "mcp-server/README.es.md",
+    "mcp-server/example/README.md",
+    "mcp-server/example/README.es.md",
     "architecture/README.md",
+    "architecture/README.es.md",
     "fastapi/README.md",
+    "fastapi/README.es.md",
     "vue3/README.md",
+    "vue3/README.es.md",
     "react-frontend/README.md",
+    "react-frontend/README.es.md",
     "node-backend/README.md",
+    "node-backend/README.es.md",
     "python/README.md",
+    "python/README.es.md",
     "php/README.md",
+    "php/README.es.md",
     "bash-scripts/README.md",
+    "bash-scripts/README.es.md",
     "ai-evals/README.md",
+    "ai-evals/README.es.md",
     "mobile-appium/README.md",
+    "mobile-appium/README.es.md",
     "vibe-rescue/README.md",
+    "vibe-rescue/README.es.md",
 )
 
 EXTERNAL_LINK_PREFIXES: tuple[str, ...] = (
@@ -109,6 +229,14 @@ HUMAN_CORE_MANUALS: tuple[str, ...] = (
     "docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md",
     "docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md",
     "SECURITY.md",
+)
+
+HUMAN_CORE_MANUALS_ES: tuple[str, ...] = (
+    "docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md",
+    "docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.es.md",
+    "docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.es.md",
+    "docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md",
+    "SECURITY.es.md",
 )
 
 
@@ -150,9 +278,8 @@ def check_cognitive_budgets(root: Path) -> list[str]:
     ]
 
 
-def check_security_section_numbering(root: Path) -> list[str]:
-    """Detecta numeración duplicada '### 4.X.' en SECURITY.md."""
-    sec_md = root / "SECURITY.md"
+def _check_sec_numbering_file(root: Path, rel_path: str) -> list[str]:
+    sec_md = root / rel_path
     if not sec_md.is_file():
         return []
     seen: set[str] = set()
@@ -162,9 +289,17 @@ def check_security_section_numbering(root: Path) -> list[str]:
         if match:
             sec_id = match.group(1)
             if sec_id in seen:
-                duplicates.append(f"SECURITY.md contiene sección duplicada '### {sec_id}.'")
+                duplicates.append(f"{rel_path} contiene sección duplicada '### {sec_id}.'")
             seen.add(sec_id)
     return duplicates
+
+
+def check_security_section_numbering(root: Path) -> list[str]:
+    """Detecta numeración duplicada '### 4.X.' en SECURITY.md y SECURITY.es.md."""
+    return [
+        *_check_sec_numbering_file(root, "SECURITY.md"),
+        *_check_sec_numbering_file(root, "SECURITY.es.md"),
+    ]
 
 
 FILE_SPECIFIC_PATTERNS: tuple[tuple[str, str, str], ...] = (
@@ -174,9 +309,19 @@ FILE_SPECIFIC_PATTERNS: tuple[tuple[str, str, str], ...] = (
         "docs/ai-integration.md: prohibido activar modo shell booleano en ejemplos de subprocess.run.",
     ),
     (
+        "docs/ai-integration.es.md",
+        r"subprocess\.run\([^\n]*shell\s*=\s*" + "True",
+        "docs/ai-integration.es.md: prohibido activar modo shell booleano en ejemplos de subprocess.run.",
+    ),
+    (
         "docs/docker-troubleshooting.md",
         r"(?m)^\s*user:\s*root\b",
         "docs/docker-troubleshooting.md: prohibido recomendar directiva YAML 'user: root'.",
+    ),
+    (
+        "docs/docker-troubleshooting.es.md",
+        r"(?m)^\s*user:\s*root\b",
+        "docs/docker-troubleshooting.es.md: prohibido recomendar directiva YAML 'user: root'.",
     ),
 )
 
@@ -230,27 +375,39 @@ def _parse_uat_counts(section: str, header_regex: str) -> tuple[int | None, int]
 def _check_uat_rules_parity(root: Path) -> list[str]:
     skill_md = root / ".agents" / "skills" / "qa-11x-architect" / "SKILL.md"
     human_md = root / "docs" / "02_BUENAS_PRACTICAS_PROGRAMACION_11X.md"
+    human_es_md = root / "docs" / "02_BUENAS_PRACTICAS_PROGRAMACION_11X.es.md"
     if not skill_md.is_file() or not human_md.is_file():
         return []
     s_decl, s_num = _parse_uat_counts(
         _extract_section_slice(skill_md.read_text(encoding="utf-8"), "### 2.1."),
         r"\((\d+)\s+UAT Anti-Blindness Rules\)",
     )
+    uat_hdr_re = r"\*\*(\d+)\s+(?:mandatory test design rules|reglas obligatorias de diseño de pruebas)\*\*"
     h_decl, h_num = _parse_uat_counts(
         _extract_section_slice(human_md.read_text(encoding="utf-8"), "### 1.1."),
-        r"\*\*(\d+)\s+reglas obligatorias de diseño de pruebas\*\*",
+        uat_hdr_re,
     )
-    if s_decl and s_decl == s_num == h_decl == h_num:
-        return []
-    return [
-        f"Desfase Dual-Consumer en reglas Anti-Silo: SKILL.md §2.1 declara={s_decl}/ítems={s_num} vs docs/02 §1.1 declara={h_decl}/ítems={h_num}."
-    ]
+    errors: list[str] = []
+    if not (s_decl and s_decl == s_num == h_decl == h_num):
+        errors.append(
+            f"Desfase Dual-Consumer en reglas Anti-Silo: SKILL.md §2.1 declara={s_decl}/ítems={s_num} vs docs/02 §1.1 declara={h_decl}/ítems={h_num}."
+        )
+    if human_es_md.is_file():
+        es_decl, es_num = _parse_uat_counts(
+            _extract_section_slice(human_es_md.read_text(encoding="utf-8"), "### 1.1."),
+            uat_hdr_re,
+        )
+        if not (s_decl and s_decl == s_num == es_decl == es_num):
+            errors.append(
+                f"Desfase Dual-Consumer ES en reglas Anti-Silo: SKILL.md §2.1 declara={s_decl}/ítems={s_num} vs docs/02.es §1.1 declara={es_decl}/ítems={es_num}."
+            )
+    return errors
 
 
-def _read_existing_manuals(root: Path) -> str:
+def _read_existing_manuals(root: Path, candidates: tuple[str, ...] = HUMAN_CORE_MANUALS) -> str:
     chunks = [
         (root / rel).read_text(encoding="utf-8")
-        for rel in HUMAN_CORE_MANUALS
+        for rel in candidates
         if (root / rel).is_file()
     ]
     return "\n".join(chunks)
@@ -260,20 +417,37 @@ def _check_auditor_rules_in_human_docs(root: Path) -> list[str]:
     auditor_ts = root / "mcp-server" / "src" / "tools" / "security-auditor.ts"
     if not auditor_ts.is_file():
         return []
-    manuals_blob = _read_existing_manuals(root)
+    manuals_blob = _read_existing_manuals(root, HUMAN_CORE_MANUALS)
     if not manuals_blob:
         return []
     rule_ids = sorted(set(re.findall(r"rule_id:\s*['\"]([A-Z0-9-]+)['\"]", auditor_ts.read_text(encoding="utf-8"))))
-    return [
+    errors = [
         f"Regla '{rid}' de security-auditor.ts no está documentada en los manuales humanos (docs/01..04 o SECURITY.md)."
         for rid in rule_ids
         if rid not in manuals_blob
     ]
+    if (root / "SECURITY.es.md").is_file():
+        manuals_es_blob = _read_existing_manuals(root, HUMAN_CORE_MANUALS_ES)
+        if manuals_es_blob:
+            errors.extend(
+                f"Regla '{rid}' de security-auditor.ts no está documentada en los manuales espejo ES (docs/01..04.es.md o SECURITY.es.md)."
+                for rid in rule_ids
+                if rid not in manuals_es_blob
+            )
+    return errors
 
 
 def check_dual_consumer_parity(root: Path) -> list[str]:
-    """Verifica paridad 1:1 entre capa IA (SKILL.md / MCP) y manuales humanos en español."""
+    """Verifica paridad 1:1 entre capa IA (SKILL.md / MCP) y manuales humanos EN/ES."""
     return [*_check_uat_rules_parity(root), *_check_auditor_rules_in_human_docs(root)]
+
+
+def _token_present(content: str, token: str) -> bool:
+    if token == "**English**":
+        return "**English**" in content or "**English (Canonical)**" in content
+    if token == "**Español**":
+        return "**Español**" in content or "**Español (Espejo 1:1)**" in content
+    return token in content
 
 
 def _check_readme_cross_link(
@@ -287,7 +461,7 @@ def _check_readme_cross_link(
     return [
         f"{file_label} debe incluir selector/enlace cruzado bilingüe '{token}'."
         for token in required_tokens
-        if token not in content
+        if not _token_present(content, token)
     ]
 
 
@@ -336,7 +510,16 @@ def check_bilingual_readme_parity(root: Path) -> list[str]:
                 root / "mcp-server" / "README.es.md", "mcp-server/README.es.md", ("README.md", "**Español**")
             ),
         ])
-    if (root / "docs" / "agent-setup.en.md").is_file() or (root / "docs" / "agent-setup.md").is_file():
+    if (root / "docs" / "agent-setup.es.md").is_file():
+        errors.extend([
+            *_check_readme_cross_link(
+                root / "docs" / "agent-setup.md", "docs/agent-setup.md", ("agent-setup.es.md", "**English**")
+            ),
+            *_check_readme_cross_link(
+                root / "docs" / "agent-setup.es.md", "docs/agent-setup.es.md", ("agent-setup.md", "**Español**")
+            ),
+        ])
+    elif (root / "docs" / "agent-setup.en.md").is_file() or (root / "docs" / "agent-setup.md").is_file():
         errors.extend([
             *_check_readme_cross_link(
                 root / "docs" / "agent-setup.en.md", "docs/agent-setup.en.md", ("agent-setup.md", "**English**")
@@ -345,6 +528,75 @@ def check_bilingual_readme_parity(root: Path) -> list[str]:
                 root / "docs" / "agent-setup.md", "docs/agent-setup.md", ("agent-setup.en.md", "**Español**")
             ),
         ])
+    return errors
+
+
+_NORMATIVE_ID_RE = re.compile(
+    r"\b(?:SEC-\d+|QA-(?:\d+|[A-Z]+-[A-Z0-9-]+)|VIBE-[A-Z]+-\d+|UI-11X-\d+)\b"
+)
+_BLUEPRINT_URI_RE = re.compile(r"blueprint://[a-z0-9_/-]+")
+
+
+def _count_h2_h3(content: str) -> tuple[int, int]:
+    stripped = _HTML_COMMENT_RE.sub("", _FENCED_CODE_RE.sub("", content))
+    h2 = len(re.findall(r"(?m)^##\s+", stripped))
+    h3 = len(re.findall(r"(?m)^###\s+", stripped))
+    return h2, h3
+
+
+def _extract_normative_ids(content: str) -> set[str]:
+    return set(_NORMATIVE_ID_RE.findall(content)) | set(_BLUEPRINT_URI_RE.findall(content))
+
+
+def _check_single_bilingual_pair(root: Path, en_rel: str, es_rel: str) -> list[str]:
+    en_path = root / en_rel
+    es_path = root / es_rel
+    errors: list[str] = []
+    if not en_path.is_file() or en_path.stat().st_size == 0:
+        errors.append(f"Par bilingüe incompleto/vacío: falta o está vacío '{en_rel}'.")
+    if not es_path.is_file() or es_path.stat().st_size == 0:
+        errors.append(f"Par bilingüe incompleto/vacío: falta o está vacío '{es_rel}'.")
+    if errors:
+        return errors
+    en_text = en_path.read_text(encoding="utf-8")
+    es_text = es_path.read_text(encoding="utf-8")
+    en_head = "\n".join(en_text.splitlines()[:10])
+    es_head = "\n".join(es_text.splitlines()[:10])
+    if Path(es_rel).name not in en_head:
+        errors.append(
+            f"{en_rel}: falta banner recíproco a '{Path(es_rel).name}' en las primeras 10 líneas."
+        )
+    if Path(en_rel).name not in es_head:
+        errors.append(
+            f"{es_rel}: falta banner recíproco a '{Path(en_rel).name}' en las primeras 10 líneas."
+        )
+    h2_en, h3_en = _count_h2_h3(en_text)
+    h2_es, h3_es = _count_h2_h3(es_text)
+    if (h2_en, h3_en) != (h2_es, h3_es):
+        errors.append(
+            f"Desfase estructural en par {en_rel} ↔ {es_rel}: "
+            f"EN(H2={h2_en},H3={h3_en}) vs ES(H2={h2_es},H3={h3_es})."
+        )
+    ids_en = _extract_normative_ids(en_text)
+    ids_es = _extract_normative_ids(es_text)
+    if ids_en != ids_es:
+        only_en = sorted(ids_en - ids_es)[:3]
+        only_es = sorted(ids_es - ids_en)[:3]
+        errors.append(
+            f"Desfase de IDs normativos en {en_rel} ↔ {es_rel}: "
+            f"solo EN={only_en}, solo ES={only_es}."
+        )
+    return errors
+
+
+def check_bilingual_pair_parity(root: Path) -> list[str]:
+    """Valida existencia mutua, banner L1-10, estructura H2/H3 e IDs normativos en pares EN/ES."""
+    require_all = (root / "RESOURCES.es.md").is_file()
+    errors: list[str] = []
+    for en_rel, es_rel in BILINGUAL_DOC_PAIRS:
+        if not require_all and not (root / es_rel).is_file():
+            continue
+        errors.extend(_check_single_bilingual_pair(root, en_rel, es_rel))
     return errors
 
 
@@ -576,6 +828,7 @@ def validate_repository_docs(root: Path) -> list[str]:
         *check_active_docs(root),
         *check_dual_consumer_parity(root),
         *check_bilingual_readme_parity(root),
+        *check_bilingual_pair_parity(root),
         *check_v2_mcp_surface_counts(root),
         *check_internal_markdown_links(root),
         *check_global_catalogs_and_geo(root),

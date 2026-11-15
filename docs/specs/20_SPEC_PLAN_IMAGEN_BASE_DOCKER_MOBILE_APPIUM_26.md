@@ -1,8 +1,8 @@
 # 🐳 Especificación 20: Plan de Imagen Base Docker Endurecida para `mobile-appium` (`sinfallas/base-mobile-appium:26`)
 
 **Proyecto:** QA Testing Blueprints (Estándar Corporativo QA-11X)  
-**Versión Objetivo:** Planificación v3.x (Diseño de infraestructura — **NO construida ni publicada en v3.0.0**)  
-**Estado:** PLANIFICADO — DISEÑO DE INFRAESTRUCTURA v3.x (NO EJECUTADO EN v3.0.0)  
+**Versión Objetivo:** QA-11X v3.0 (Imagen base construida y certificada localmente)  
+**Estado:** IMPLEMENTADO Y CERTIFICADO EN QA-11X v3.0  
 **Audiencia:** Arquitectura DevSecOps, Ingeniería Móvil QA y Mantenedores de Imágenes `sinfallas/*`
 
 ---
@@ -11,7 +11,7 @@
 
 Evaluar objetivamente si el entorno [`mobile-appium/`](../../mobile-appium/README.md) requiere una nueva imagen base Docker dedicada bajo la **Regla Cero** y definir su especificación técnica completa, endurecimiento STIG/OWASP, cadena de suministro y plan de integración en CI/Compose/MCP.
 
-> **FRONTERA DE EJECUCIÓN EN v3.0.0:** En cumplimiento de las directivas de esta entrega, **no** se crea ningún `Dockerfile`, **no** se modifica `.github/workflows/audit-base-images.yml` ni `docker-compose.qa.yml` para apuntar a una imagen inexistente, y **no** se compila ni publica imagen alguna. Este documento entrega exclusivamente la planificación de arquitectura.
+> **IMPLEMENTACIÓN CERTIFICADA EN QA-11X v3.0:** Construcción multi-stage non-root (`UID/GID 10001`) completada y certificada localmente en el repositorio `base-mobile-appium` (`sinfallas/base-mobile-appium:26` / `:latest`, Trivy `HIGH/CRITICAL = 0`), integrada en [`.github/workflows/audit-base-images.yml`](../../.github/workflows/audit-base-images.yml), [`mobile-appium/*.example`](../../mobile-appium/README.md), [`Makefile`](../../Makefile) (`test-mobile-blueprints`) y servidor MCP `@sinfallas/mcp-qa-11x`.
 
 ---
 

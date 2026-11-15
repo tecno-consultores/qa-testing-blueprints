@@ -39,6 +39,8 @@ jobs:
           - 'sinfallas/karatelabs:latest'
           - 'sinfallas/base-bash-qa:latest'
           - 'sinfallas/remote-graphify:latest'
+          - 'sinfallas/base-mobile-appium:latest'
+          - 'sinfallas/base-mobile-appium:26'
 
     steps:
       - name: Scan official Docker Hub image with Trivy (HIGH/CRITICAL = 0)
@@ -70,6 +72,20 @@ jobs:
             -e HOME=/tmp \
             sinfallas/base-python-uv:3.15 \
             pip-audit --strict --desc
+
+  smoke-mobile-appium:
+    name: Mobile Appium v26 Base Image Smoke (Non-Root + Appium + ADB)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Verify non-root runtime, Java 21, Android ADB & Appium drivers (UID 10001)
+        run: |
+          docker run --rm \
+            --user 10001:10001 \
+            -e HOME=/tmp \
+            sinfallas/base-mobile-appium:26 \
+            sh -ec 'test "$(id -u)" = "10001" && java -version && adb version && node --version && pnpm --version && appium --version && appium driver list --installed --json'
 
   codeql-security-analysis:
     name: CodeQL Security Analysis (${{ matrix.language }})

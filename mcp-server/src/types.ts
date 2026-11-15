@@ -11,9 +11,14 @@ export interface ManifestFileEntry {
   size_bytes: number;
 }
 
+export type ResourceLanguage = 'en' | 'es';
+
 export interface StackDefinition {
   description: string;
   readme: string;
+  readme_es?: string;
+  readme_sha256?: string;
+  readme_es_sha256?: string;
   files: ManifestFileEntry[];
 }
 

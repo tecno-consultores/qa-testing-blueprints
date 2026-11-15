@@ -33,6 +33,7 @@ const PREFERRED_QA_SERVICES = [
   'qa-node',
   'qa-vue3',
   'qa-frontend',
+  'qa-mobile',
   'qa-python',
   'qa-bash',
 ];
@@ -48,6 +49,7 @@ const MONOREPO_COVERAGE_SUBDIRS = [
   'python',
   'php',
   'bash-scripts',
+  'mobile-appium',
   'backend',
   'mcp-server',
   'node-backend',

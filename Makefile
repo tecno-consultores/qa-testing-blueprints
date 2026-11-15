@@ -2,7 +2,7 @@
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 # Makefile canónico para desarrollo local, automatización y gobernanza Level-11X
 
-.PHONY: help clean qa-clean audit lint-workflows lint-docs sync-governance version-check validate-calm test test-mcp test-example test-karate test-py diff-cov pr-verdict test-meta-qa test-ai-offline test-frontend-blueprints test-backend-blueprints audit-llm audit-psi qa-psi lint build certify publish-mcp publish-mcp-dry
+.PHONY: help clean qa-clean audit lint-workflows lint-docs sync-governance version-check validate-calm test test-mcp test-example test-karate test-py diff-cov pr-verdict test-meta-qa test-ai-offline test-frontend-blueprints test-backend-blueprints test-mobile-blueprints audit-llm audit-psi qa-psi lint build certify publish-mcp publish-mcp-dry
 
 help:
 	@echo "Comandos canónicos de desarrollo y gobernanza para QA Testing Blueprints:"
@@ -18,6 +18,7 @@ help:
 	@echo "  make test-ai-offline - Ejecuta contratos deterministas RAG/Agentes (>=95% cob., ruff CC<=5, mypy) 100% offline"
 	@echo "  make test-frontend-blueprints - Valida Screenplay TS estricto en vue3/react-frontend y linter QA-UI-ANTI-001..005"
 	@echo "  make test-backend-blueprints  - Valida contratos Pact V4 (FastAPI->Node), k6 smoke y antipatrones"
+	@echo "  make test-mobile-blueprints   - Valida sinfallas/base-mobile-appium:26, TSC estricto, WDIO/Screenplay W3C y antipatrones"
 	@echo "  make audit-llm       - Ejecuta auditoría probabilística DeepEval + Promptfoo OWASP (requiere API key o Ollama/vLLM)"
 	@echo "  make audit-psi       - Ejecuta auditoría Google PageSpeed Insights v5 post-deploy (URL=https://... [STRATEGY=both] [MIN_PERF=0.90])"
 	@echo "  make qa-psi          - Alias de make audit-psi (Lab + CrUX sobre dominio HTTPS público)"
@@ -435,6 +436,16 @@ test-backend-blueprints:
 	cov=$$(awk '/TOTAL /{print $$NF}' "$$log_file" | tail -n 1); \
 	echo "✅ [test-backend-blueprints] Pact V4 (FastAPI->Node) + k6 smoke + antipatrones OK (cobertura_pact=$${cov:-N/A})"
 
+test-mobile-blueprints:
+	@cmd='test -x "$$(command -v java)" && test -x "$$(command -v adb)" && test -x "$$(command -v appium)" && tsc --strict --noImplicitAny --noUnusedLocals --noUnusedParameters --noImplicitReturns --erasableSyntaxOnly --allowImportingTsExtensions --target ES2023 --module NodeNext --moduleResolution NodeNext --typeRoots /opt/qa11x/node_modules/@types --types node --noEmit mobile-appium/wdio.conf.ts mobile-appium/tests/screenplay/MobileActor.ts mobile-appium/tests/mobile_screenplay.spec.ts && node --test mobile-appium/tests/mobile_screenplay.spec.ts'; \
+	if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
+		sh -c "$$cmd" && python3 .agents/scripts/lint_test_antipatterns.py mobile-appium; \
+	else \
+		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e NODE_PATH=/opt/qa11x/node_modules -v "$$(pwd):/app:ro" -w /app sinfallas/base-mobile-appium:26 sh -c "$$cmd" && \
+		lint_out=$$(docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/lint_test_antipatterns.py mobile-appium) && \
+		echo "✅ [test-mobile-blueprints] Appium/ADB + TSC estricto + Screenplay W3C + antipatrones OK | $$lint_out"; \
+	fi
+
 test-example:
 	@./scripts/probar-mcp-example.sh
 
@@ -472,7 +483,7 @@ audit-psi:
 
 qa-psi: audit-psi
 
-test: test-mcp test-example test-karate test-py test-meta-qa test-ai-offline test-frontend-blueprints test-backend-blueprints
+test: test-mcp test-example test-karate test-py test-meta-qa test-ai-offline test-frontend-blueprints test-backend-blueprints test-mobile-blueprints
 
 build:
 	@echo "📦 [Build] Compilando Servidor MCP en Docker efímero..."

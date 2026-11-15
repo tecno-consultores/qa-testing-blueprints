@@ -1,87 +1,89 @@
-# 🔐 Guía de Desarrollo Seguro y Mitigación de Vulnerabilidades (Estándar 11X)
+> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md)](04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md)
 
-> **PROPÓSITO:**  
-> Este manual técnico proporciona recetas de código concretas, patrones arquitectónicos y validaciones obligatorias para desarrolladores y Agentes de IA. Su objetivo es erradicar desde el diseño los vectores de ataque más comunes en aplicaciones modernas híbridas (SPA en Vue/React + API Asíncrona en FastAPI/Node).
+# 🔐 Secure Development and Vulnerability Mitigation Guide (Standard 11X)
+
+> **PURPOSE:**  
+> This technical manual provides concrete code recipes, architectural patterns, and mandatory validations for developers and AI Agents. Its goal is to eradicate by design the most common attack vectors across modern hybrid applications (Vue/React SPAs + Asynchronous FastAPI/Node APIs).
 
 ---
 
-## 📋 Índice de Patrones de Código Seguro
+## 📋 Secure Code Patterns Index
 
-1. [Patrón 1: Prevención de Asignación Masiva (Mass Assignment / Over-posting)](#patrón-1-prevención-de-asignación-masiva-mass-assignment--over-posting)
-2. [Patrón 2: Protección Anti-CSWSH (Cross-Site WebSocket Hijacking)](#patrón-2-protección-anti-cswsh-cross-site-websocket-hijacking)
-3. [Patrón 3: Sanitización de Errores de Validación 422 en Producción](#patrón-3-sanitización-de-errores-de-validación-422-en-producción)
-4. [Patrón 4: Defensa Anti-SSRF Estricta con Resolución DNS Previa](#patrón-4-defensa-anti-ssrf-estricta-con-resolución-dns-previa)
-5. [Patrón 5: Consultas Parametrizadas Seguras en Contextos Dinámicos de BD](#patrón-5-consultas-parametrizadas-seguras-en-contextos-dinámicos-de-bd)
-6. [Patrón 6: Cuotas y Límites Estrictos de Carga de Archivos (Anti-DoS / OOM)](#patrón-6-cuotas-y-límites-estrictos-de-carga-de-archivos-anti-dos--oom)
-7. [Patrón 7: Preservación de Cabeceras de Proxy Inverso en Nginx](#patrón-7-preservación-de-cabeceras-de-proxy-inverso-en-nginx)
-8. [Patrón 8: Middleware Anti-CSRF Desacoplado con Exclusión de Tokens Bearer](#patrón-8-middleware-anti-csrf-desacoplado-con-exclusión-de-tokens-bearer)
-9. [Patrón 9: Prevención de XSS y Prototype Pollution en Frontend](#patrón-9-prevención-de-xss-y-prototype-pollution-en-frontend)
-10. [Patrón 10: Tolerancia a Carreras Concurrentes (Grace Period de 5s) en Refresh Tokens](#patrón-10-tolerancia-a-carreras-concurrentes-grace-period-de-5s-en-refresh-tokens)
-11. [Patrón 11: Aislamiento Multi-Tenant y por Usuario en Llaves de Idempotencia](#patrón-11-aislamiento-multi-tenant-y-por-usuario-en-llaves-de-idempotencia)
-12. [Patrón 12: Ocultación de Swagger / ReDoc / OpenAPI en Producción](#patrón-12-ocultación-de-swagger--redoc--openapi-en-producción)
-13. [Patrón 13: Protocolo Shift-Left para Mitigación de CVEs Transitivos en Lockfiles](#patrón-13-protocolo-shift-left-para-mitigación-de-cves-transitivos-en-lockfiles)
-14. [Patrón 14: Límites de Sesiones Concurrentes, Timeouts por Rol y Purga Total en Logout (DISA STIG & OWASP)](#patrón-14-límites-de-sesiones-concurrentes-timeouts-por-rol-y-purga-total-en-logout-disa-stig--owasp)
-15. [Patrón 15: Bloqueo de Cuentas, Defensa Anti-Enumeración en Tiempo Constante y Ciclo de Vida de Credenciales](#patrón-15-bloqueo-de-cuentas-defensa-anti-enumeración-en-tiempo-constante-y-ciclo-de-vida-de-credenciales)
-16. [Patrón 16: Canonicalización Unicode (NFKC), Sanitización de Cabeceras ASCII y Prevención de Command Injection](#patrón-16-canonicalización-unicode-nfkc-sanitización-de-cabeceras-ascii-y-prevención-de-command-injection)
-17. [Patrón 17: Blindaje contra XML/XXE, Deserialización Insegura y Validación de Archivos por Magic Bytes](#patrón-17-blindaje-contra-xmlxxe-deserialización-insegura-y-validación-de-archivos-por-magic-bytes)
-18. [Patrón 18: Auditoría Forense Inmutable, Prevención de Log Injection (CR/LF) y Alerta de Capacidad al 75%](#patrón-18-auditoría-forense-inmutable-prevención-de-log-injection-crlf-y-alerta-de-capacidad-al-75)
-19. [Patrón 19: Criptografía Validada (FIPS 140-3), Zeroización de Secretos en Memoria y Sanitización de Exportaciones](#patrón-19-criptografía-validada-fips-140-3-zeroización-de-secretos-en-memoria-y-sanitización-de-exportaciones)
-20. [Patrón 20: Cabeceras de Seguridad HTTP (OWASP OSHP), Estado Fail-Secure y Auto-Verificación de Seguridad](#patrón-20-cabeceras-de-seguridad-http-owasp-oshp-estado-fail-secure-y-auto-verificación-de-seguridad)
-21. [Patrón 21: Mitigación de OWASP API Security Top 10 (2023), Anti-Data-Mining y Consumo Seguro de APIs](#patrón-21-mitigación-de-owasp-api-security-top-10-2023-anti-data-mining-y-consumo-seguro-de-apis)
-22. [Patrón 22: Cadena de Suministro (CycloneDX SBOM/CBOM), Firma de Artefactos y Threat Modeling como Código](#patrón-22-cadena-de-suministro-cyclonedx-sbomcbom-firma-de-artefactos-y-threat-modeling-como-código)
+1. [Pattern 1: Mass Assignment / Over-posting Prevention](#pattern-1-mass-assignment--over-posting-prevention)
+2. [Pattern 2: Anti-CSWSH (Cross-Site WebSocket Hijacking) Protection](#pattern-2-anti-cswsh-cross-site-websocket-hijacking-protection)
+3. [Pattern 3: Sanitization of 422 Validation Errors in Production](#pattern-3-sanitization-of-422-validation-errors-in-production)
+4. [Pattern 4: Strict Anti-SSRF Defense with Pre-Flight DNS Resolution](#pattern-4-strict-anti-ssrf-defense-with-pre-flight-dns-resolution)
+5. [Pattern 5: Safe Parameterized Queries in Dynamic DB Contexts](#pattern-5-safe-parameterized-queries-in-dynamic-db-contexts)
+6. [Pattern 6: Strict File Upload Quotas and Limits (Anti-DoS / OOM)](#pattern-6-strict-file-upload-quotas-and-limits-anti-dos--oom)
+7. [Pattern 7: Reverse Proxy Header Preservation in Nginx](#pattern-7-reverse-proxy-header-preservation-in-nginx)
+8. [Pattern 8: Decoupled Anti-CSRF Middleware with Bearer Token Exclusion](#pattern-8-decoupled-anti-csrf-middleware-with-bearer-token-exclusion)
+9. [Pattern 9: Frontend XSS and Prototype Pollution Prevention](#pattern-9-frontend-xss-and-prototype-pollution-prevention)
+10. [Pattern 10: Concurrent Race Tolerance (5s Grace Period) in Refresh Tokens](#pattern-10-concurrent-race-tolerance-5s-grace-period-in-refresh-tokens)
+11. [Pattern 11: Multi-Tenant and Per-User Isolation in Idempotency Keys](#pattern-11-multi-tenant-and-per-user-isolation-in-idempotency-keys)
+12. [Pattern 12: Hiding Swagger / ReDoc / OpenAPI in Production](#pattern-12-hiding-swagger--redoc--openapi-in-production)
+13. [Pattern 13: Shift-Left Protocol for Transitive CVE Mitigation in Lockfiles](#pattern-13-shift-left-protocol-for-transitive-cve-mitigation-in-lockfiles)
+14. [Pattern 14: Concurrent Session Limits, Role-Tiered Timeouts, and Full Logout Purge (DISA STIG & OWASP)](#pattern-14-concurrent-session-limits-role-tiered-timeouts-and-full-logout-purge-disa-stig--owasp)
+15. [Pattern 15: Account Lockout, Constant-Time Anti-Enumeration Defense, and Credential Lifecycle](#pattern-15-account-lockout-constant-time-anti-enumeration-defense-and-credential-lifecycle)
+16. [Pattern 16: Unicode Canonicalization (NFKC), ASCII Header Sanitization, and Command Injection Prevention](#pattern-16-unicode-canonicalization-nfkc-ascii-header-sanitization-and-command-injection-prevention)
+17. [Pattern 17: Hardening Against XML/XXE, Unsafe Deserialization, and Magic-Byte File Validation](#pattern-17-hardening-against-xmlxxe-unsafe-deserialization-and-magic-byte-file-validation)
+18. [Pattern 18: Immutable Forensic Auditing, Log Injection (CR/LF) Prevention, and 75% Capacity Alerting](#pattern-18-immutable-forensic-auditing-log-injection-crlf-prevention-and-75-capacity-alerting)
+19. [Pattern 19: Validated Cryptography (FIPS 140-3), In-Memory Secret Zeroization, and Export Sanitization](#pattern-19-validated-cryptography-fips-140-3-in-memory-secret-zeroization-and-export-sanitization)
+20. [Pattern 20: HTTP Security Headers (OWASP OSHP), Fail-Secure State, and Security Self-Tests](#pattern-20-http-security-headers-owasp-oshp-fail-secure-state-and-security-self-tests)
+21. [Pattern 21: OWASP API Security Top 10 (2023) Mitigation, Anti-Data-Mining, and Unsafe API Consumption Defense](#pattern-21-owasp-api-security-top-10-2023-mitigation-anti-data-mining-and-unsafe-api-consumption-defense)
+22. [Pattern 22: Supply Chain (CycloneDX SBOM/CBOM), Artifact Signing, and Threat Modeling as Code](#pattern-22-supply-chain-cyclonedx-sbomcbom-artifact-signing-and-threat-modeling-as-code)
 
-### 🧭 Mapa de Trazabilidad con el Auditor Estático (`audit_security_stig_owasp`: `SEC-01`..`SEC-16`)
+### 🧭 Traceability Map with the Static Auditor (`audit_security_stig_owasp`: `SEC-01`..`SEC-16`)
 
-| Regla MCP | Control / Vector Mitigado | Patrón Humano de Referencia |
+| MCP Rule | Mitigated Control / Vector | Human Reference Pattern |
 | :--- | :--- | :--- |
-| `SEC-01` | Asignación masiva en esquemas Pydantic (`ConfigDict(extra='forbid')`) | Patrón 1 |
-| `SEC-02` | Cross-Site WebSocket Hijacking (`Origin` allowlist antes de `ws.accept()`) | Patrón 2 |
-| `SEC-03` | Ejecución insegura de comandos (`shell=True`) y deserialización (`pickle`/`yaml.load`) | Patrón 16 y Patrón 17 |
-| `SEC-04` | Entidades externas XML / XXE (`defusedxml` / `resolve_entities=False`) | Patrón 17 |
-| `SEC-05` | Canonicalización Unicode `NFKC` previa a validaciones | Patrón 16 |
-| `SEC-06` | XSS (`v-html` / `dangerouslySetInnerHTML`) y *Prototype Pollution* en frontend | Patrón 9 |
-| `SEC-07` | Exposición de Swagger / ReDoc / OpenAPI en `APP_ENV=production` | Patrón 12 (`QA-SMOKE-01`) |
-| `SEC-08` | Ausencia de cabeceras HTTP de seguridad (OWASP OSHP: HSTS, CSP, `nosniff`) | Patrón 20 |
-| `SEC-09` | Ejecución de scripts arbitrarios post-instalación npm (`.npmrc` `ignore-scripts=true`), uso obsoleto de `pnpm.onlyBuiltDependencies` en `pnpm 12+` o `plugin:security/recommended` sin `-legacy` en ESLint 8 | Patrón 13 y Patrón 22 |
-| `SEC-10` | Secretos, llaves privadas o tokens hardcodeados en código o logs | Patrón 18 y Patrón 19 |
-| `SEC-11` | Identidades crudas UUID v4 (`claims["sub"]`) en trazas de auditoría humana | Patrón 18 y `docs/02` §1.1 |
-| `SEC-12` | Bypass de `Depends(require_roles)` en servicios MCP/JSON-RPC sin RBAC explícito ni `ApprovalRequest` | Patrón 21 y `docs/02` §3.5 |
-| `SEC-13` | Pérdida de contexto PostgreSQL RLS tras `commit()` sin listener `after_begin` | Patrón 5 y `docs/02` §3.1 (`QA-PG17-RLS`) |
-| `SEC-14` | Condición de carrera en cadena HMAC WORM ordenando por `created_at` sin `seq_num` + `pg_advisory_xact_lock` | Patrón 18 y `SECURITY.md` |
-| `SEC-15` | Reutilización de credenciales estáticas en smoke productivo sin secretos efímeros ni `docker exec -e` | Patrón 15 y `docs/02` §1.1 |
-| `SEC-16` | Asimetría de interceptores `401` y consumo no atómico de `challenge_id` en flujos Pre-Auth multi-etapa | Patrón 15 y `SECURITY.md` §4.20 |
-| `QA-HEALTH-01` | Caída en `unhealthy` de contenedores/workers por supervisores `asyncio` sin `task.exception()` o sondas `HEALTHCHECK` no probadas | `docs/02` §1.1 (Regla #9) y `SECURITY.md` §4.22 |
-| `QA-CLI-TTY-01` | Bloqueo indefinido en consola interactiva (`TTY`) de binarios duales CLI + Servidor MCP `stdio` sin verificar `isTTY` / `isatty()` | `docs/02` §1.1 (Regla #10) y `SECURITY.md` §4.23 |
-| `SEC-CI-ACTION-REF` | Referencias `uses:` en GitHub Actions sin fijación por commit SHA de 40 caracteres (ramas mutables o tags eliminados como `trivy-action@0.28.0`) | Patrón 22 y `SECURITY.md` §4.24 |
-| `QA-DOCKER-TTY-01` | Asignación de pseudo-TTY (`docker compose run` sin `-T`) en pipelines `CI=true` y despliegues Wrangler v4 sobre `read_only: true` sin `tmpfs` `noexec` en `.wrangler` o sin `--force` | `docs/02` §5.1 y `SECURITY.md` §4.25 |
-| `UI-11X-03` | Uso de `.webp`/`.svg` en `apple-touch-icon`, ausencia de `favicon.ico` (`>=48px`), `"any maskable"` combinado en `.webmanifest`, sobrescritura sin `! Header` en `_headers` o comodines `/*.ico` en `_routes.json` | `docs/02` §5.2 y `SECURITY.md` §4.26 |
-| `QA-CI-ESCAPE-01` | Escapes de doble dólar `$$(...)` / `$${...}` heredados de `Makefile`/`Compose` dentro de `.github/workflows/*.yml` o `.github/actions/*/action.yml` (`bash` expande `$$` al PID y rompe montajes Docker con `exit code 125`) | `docs/02` §5.3 y `SECURITY.md` §4.27 |
-| `QA-MAKE-CURDIR-01` | Uso de `$(PWD)` / `${PWD}` en sub-Makefiles (`*/Makefile`, `*/Makefile.example`) invocados vía `$(MAKE) -C <subdir>` en lugar de `$(CURDIR)`, exponiendo el directorio padre al montaje del contenedor | `docs/02` §5.3 y `SECURITY.md` §4.27 |
-| `QA-CONTRACT-SDK-01` | Servidores MCP/JSON-RPC/ACP probados únicamente invocando handlers con `MagicMock` sin conectar el transporte/cliente real del SDK en proceso (oculta rupturas de firma como `mcp 1.x -> 2.x`) | `docs/02` §1.1 (Regla #11) y `SECURITY.md` §4.28 |
-| `QA-DOCKER-LOCK-01` | `Dockerfile` con lista manual de paquetes (`pip install ...`, `npm install <pkg>`) o `uv sync` sin `--frozen` en lugar de instalar desde el lockfile, más ausencia de smoke test sobre la imagen construida (`import`, `id -u != 0`, `401`) | `docs/02` §1.1 (Regla #11) y `SECURITY.md` §4.28 |
-| `QA-PLAYWRIGHT-PIN-01` | Desalineación o rango SemVer (`^`/`~`) entre `@playwright/test`/`playwright` en `package.json` e imagen `mcr.microsoft.com/playwright:vX.Y.Z` (o `:latest`) en Compose, además de protección Anti-SSRF DNS/IP (`SEC-03`) y redacción de API keys (`SEC-06`) en `audit_pagespeed_insights.py` | `docs/02` §7, §9 y `SECURITY.md` §4.29 |
-| `QA-SSR-HYDRATION-01` | Ramificación DOM pre-hidratación (`v-if` sobre `localStorage`/`dataset.theme`) en apps SSR/SSG o ausencia de barrido Playwright dual `'light'`/`'dark'` con guardia `console`/`pageerror` (`/hydration/i`) | `docs/02` §7 y `SECURITY.md` §4.30 |
+| `SEC-01` | Mass assignment in Pydantic schemas (`ConfigDict(extra='forbid')`) | Pattern 1 |
+| `SEC-02` | Cross-Site WebSocket Hijacking (`Origin` allowlist before `ws.accept()`) | Pattern 2 |
+| `SEC-03` | Unsafe command execution (`shell=True`) and deserialization (`pickle`/`yaml.load`) | Pattern 16 and Pattern 17 |
+| `SEC-04` | XML External Entities / XXE (`defusedxml` / `resolve_entities=False`) | Pattern 17 |
+| `SEC-05` | Unicode `NFKC` canonicalization prior to validation | Pattern 16 |
+| `SEC-06` | XSS (`v-html` / `dangerouslySetInnerHTML`) and *Prototype Pollution* in frontend | Pattern 9 |
+| `SEC-07` | Exposure of Swagger / ReDoc / OpenAPI under `APP_ENV=production` | Pattern 12 (`QA-SMOKE-01`) |
+| `SEC-08` | Missing HTTP security headers (OWASP OSHP: HSTS, CSP, `nosniff`) | Pattern 20 |
+| `SEC-09` | Arbitrary npm post-install script execution (`.npmrc` `ignore-scripts=true`), deprecated `pnpm.onlyBuiltDependencies` on `pnpm 12+`, or `plugin:security/recommended` without `-legacy` on ESLint 8 | Pattern 13 and Pattern 22 |
+| `SEC-10` | Hardcoded secrets, private keys, or tokens in code or logs | Pattern 18 and Pattern 19 |
+| `SEC-11` | Raw UUID v4 identities (`claims["sub"]`) in human audit trails | Pattern 18 and `docs/02` §1.1 |
+| `SEC-12` | `Depends(require_roles)` bypass in MCP/JSON-RPC services lacking explicit RBAC or `ApprovalRequest` | Pattern 21 and `docs/02` §3.5 |
+| `SEC-13` | Loss of PostgreSQL RLS context after `commit()` without `after_begin` listener | Pattern 5 and `docs/02` §3.1 (`QA-PG17-RLS`) |
+| `SEC-14` | Race condition in WORM HMAC chain ordering by `created_at` without `seq_num` + `pg_advisory_xact_lock` | Pattern 18 and `SECURITY.md` |
+| `SEC-15` | Reuse of static credentials in production smoke tests without ephemeral secrets or `docker exec -e` | Pattern 15 and `docs/02` §1.1 |
+| `SEC-16` | `401` interceptor asymmetry and non-atomic `challenge_id` consumption in multi-step Pre-Auth flows | Pattern 15 and `SECURITY.md` §4.20 |
+| `QA-HEALTH-01` | Container/worker `unhealthy` drops caused by `asyncio` supervisors ignoring `task.exception()` or untested `HEALTHCHECK` probes | `docs/02` §1.1 (Rule #9) and `SECURITY.md` §4.22 |
+| `QA-CLI-TTY-01` | Indefinite hang in interactive console (`TTY`) for dual CLI + `stdio` MCP binaries failing to check `isTTY` / `isatty()` | `docs/02` §1.1 (Rule #10) and `SECURITY.md` §4.23 |
+| `SEC-CI-ACTION-REF` | `uses:` references in GitHub Actions not pinned by a 40-character commit SHA (mutable branches or deleted tags such as `trivy-action@0.28.0`) | Pattern 22 and `SECURITY.md` §4.24 |
+| `QA-DOCKER-TTY-01` | Pseudo-TTY allocation (`docker compose run` without `-T`) in `CI=true` pipelines and Wrangler v4 deployments on `read_only: true` without `noexec` `tmpfs` on `.wrangler` or `--force` | `docs/02` §5.1 and `SECURITY.md` §4.25 |
+| `UI-11X-03` | `.webp`/`.svg` in `apple-touch-icon`, missing `favicon.ico` (`>=48px`), combined `"any maskable"` in `.webmanifest`, header overrides lacking `! Header` in `_headers`, or `/*.ico` wildcards in `_routes.json` | `docs/02` §5.2 and `SECURITY.md` §4.26 |
+| `QA-CI-ESCAPE-01` | Double-dollar escapes `$$(...)` / `$${...}` inherited from `Makefile`/`Compose` inside `.github/workflows/*.yml` or `.github/actions/*/action.yml` (`bash` expands `$$` to PID and breaks Docker mounts with `exit code 125`) | `docs/02` §5.3 and `SECURITY.md` §4.27 |
+| `QA-MAKE-CURDIR-01` | Use of `$(PWD)` / `${PWD}` in sub-Makefiles (`*/Makefile`, `*/Makefile.example`) invoked via `$(MAKE) -C <subdir>` instead of `$(CURDIR)`, exposing the parent directory to container mounts | `docs/02` §5.3 and `SECURITY.md` §4.27 |
+| `QA-CONTRACT-SDK-01` | MCP/JSON-RPC/ACP servers tested solely by invoking handlers with `MagicMock` without wiring the real in-process SDK client/transport (masks breaking signature shifts like `mcp 1.x -> 2.x`) | `docs/02` §1.1 (Rule #11) and `SECURITY.md` §4.28 |
+| `QA-DOCKER-LOCK-01` | `Dockerfile` installing a manual package list (`pip install ...`, `npm install <pkg>`) or `uv sync` without `--frozen` instead of installing from the lockfile, plus missing post-build image smoke test (`import`, `id -u != 0`, `401`) | `docs/02` §1.1 (Rule #11) and `SECURITY.md` §4.28 |
+| `QA-PLAYWRIGHT-PIN-01` | Mismatch or SemVer range (`^`/`~`) between `@playwright/test`/`playwright` in `package.json` and `mcr.microsoft.com/playwright:vX.Y.Z` (or `:latest`) in Compose, plus DNS/IP Anti-SSRF (`SEC-03`) and API key redaction (`SEC-06`) in `audit_pagespeed_insights.py` | `docs/02` §7, §9 and `SECURITY.md` §4.29 |
+| `QA-SSR-HYDRATION-01` | Pre-hydration DOM branching (`v-if` on `localStorage`/`dataset.theme`) in SSR/SSG apps or missing dual `'light'`/`'dark'` Playwright sweep with `console`/`pageerror` guard (`/hydration/i`) | `docs/02` §7 and `SECURITY.md` §4.30 |
 
 ---
 
-## Patrón 1: Prevención de Asignación Masiva (Mass Assignment / Over-posting)
+## Pattern 1: Mass Assignment / Over-posting Prevention
 
-### El Riesgo
-Si un modelo Pydantic o DTO acepta campos adicionales sin filtrar, un atacante puede enviar `{"username": "juan", "role": "SUPERADMIN", "is_superuser": true}`. Si el backend asigna el diccionario directamente al modelo ORM, se produce una escalada de privilegios inadvertida.
+### The Risk
+If a Pydantic model or DTO accepts extra unfiltered fields, an attacker can submit `{"username": "juan", "role": "SUPERADMIN", "is_superuser": true}`. If the backend passes that dictionary directly into the ORM model, unintended privilege escalation occurs.
 
-### Implementación Obligatoria (Python / Pydantic v2)
+### Mandatory Implementation (Python / Pydantic v2)
 ```python
 from pydantic import BaseModel, ConfigDict, EmailStr
 
-# Esquema de Entrada Estricto: Rechaza cualquier campo no esperado
+# Strict Input Schema: Rejects any unexpected field
 class UserCreateRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")  # 🔒 Bloquea campos no declarados con HTTP 422
+    model_config = ConfigDict(extra="forbid")  # 🔒 Blocks undeclared fields with HTTP 422
 
     username: str
     email: EmailStr
     password: str
 
-# Desacoplamiento total del modelo de Base de Datos
+# Full decoupling from the Database model
 class UserInDB(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -89,50 +91,50 @@ class UserInDB(BaseModel):
     tenant_id: str
     username: str
     email: str
-    role: str = "OPERATOR"  # Asignado exclusivamente por lógica de negocio
+    role: str = "OPERATOR"  # Assigned exclusively by business logic
     is_active: bool = True
 ```
 
 ---
 
-## Patrón 2: Protección Anti-CSWSH (Cross-Site WebSocket Hijacking)
+## Pattern 2: Anti-CSWSH (Cross-Site WebSocket Hijacking) Protection
 
-### El Riesgo
-A diferencia de peticiones HTTP ordinarias, las conexiones WebSocket no aplican la política SOP (*Same-Origin Policy*). Si el usuario tiene una sesión activa mediante cookies, un script en un sitio malicioso puede abrir un canal WebSocket contra el backend y secuestrar datos en tiempo real.
+### The Risk
+Unlike ordinary HTTP requests, WebSocket connections do not enforce the SOP (*Same-Origin Policy*). If a user holds an active cookie-based session, a script on a malicious site can open a WebSocket channel against the backend and hijack real-time data.
 
-### Implementación Obligatoria (FastAPI WebSockets)
+### Mandatory Implementation (FastAPI WebSockets)
 ```python
 from fastapi import WebSocket, status
 from src.core.config import settings
 
 def verify_websocket_origin(websocket: WebSocket) -> bool:
     origin = websocket.headers.get("origin")
-    # En producción, rechaza orígenes nulos o no autorizados
+    # In production, reject missing or unauthorized origins
     if not origin:
         return settings.APP_ENV != "production"
     
-    # Compara contra la lista blanca de dominios permitidos
+    # Compare against the allowlisted domains
     return origin in settings.ALLOWED_ORIGINS
 
 @app.websocket("/ws/telemetry")
 async def telemetry_endpoint(websocket: WebSocket):
     if not verify_websocket_origin(websocket):
-        # 🔒 Código 4403: Forbidden Origin (Cierre antes de aceptar el canal)
-        await websocket.close(code=4403, reason="Origen no autorizado")
+        # 🔒 Code 4403: Forbidden Origin (Close before accepting the channel)
+        await websocket.close(code=4403, reason="Unauthorized origin")
         return
 
     await websocket.accept()
-    # Continuar con el canal seguro...
+    # Continue with the secure channel...
 ```
 
 ---
 
-## Patrón 3: Sanitización de Errores de Validación 422 en Producción
+## Pattern 3: Sanitization of 422 Validation Errors in Production
 
-### El Riesgo
-FastAPI devuelve por defecto en respuestas HTTP 422 un detalle exhaustivo con nombres de atributos internos, tipos esperados y expresiones regulares. Esto permite a un atacante mapear con precisión quirúrgica la arquitectura y esquemas de la API.
+### The Risk
+By default, FastAPI HTTP 422 responses return exhaustive detail containing internal attribute names, expected types, and regular expressions. This enables an attacker to map the API's architecture and schemas with surgical precision.
 
-### Implementación Obligatoria
+### Mandatory Implementation
 ```python
 import logging
 from fastapi import FastAPI, Request, status
@@ -146,31 +148,31 @@ app = FastAPI()
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    # En desarrollo, devuelve el error detallado para depuración
+    # In development, return detailed errors for debugging
     if settings.APP_ENV != "production":
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             content={"detail": exc.errors()},
         )
 
-    # 🔒 En producción: Registra el detalle en los logs del contenedor y devuelve respuesta opaca
+    # 🔒 In production: Log details inside container logs and return an opaque response
     logger.warning(
-        f"Fallo de validación 422 en {request.method} {request.url.path}: {exc.errors()}"
+        f"422 validation failure on {request.method} {request.url.path}: {exc.errors()}"
     )
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={"detail": "Los datos proporcionados no cumplen con los requisitos de validación."},
+        content={"detail": "Submitted data does not meet validation requirements."},
     )
 ```
 
 ---
 
-## Patrón 4: Defensa Anti-SSRF Estricta con Resolución DNS Previa
+## Pattern 4: Strict Anti-SSRF Defense with Pre-Flight DNS Resolution
 
-### El Riesgo
-Cuando un usuario configura URLs de webhooks o destinos de red, un atacante puede apuntar a `http://169.254.169.254/latest/meta-data/` o `http://postgres:5432/` para extraer claves de nube o acceder a microservicios internos.
+### The Risk
+When a user configures webhook URLs or network targets, an attacker can point to `http://169.254.169.254/latest/meta-data/` or `http://postgres:5432/` to extract cloud credentials or reach internal microservices.
 
-### Implementación Obligatoria
+### Mandatory Implementation
 ```python
 import ipaddress
 import socket
@@ -181,26 +183,26 @@ FORBIDDEN_CONTAINER_HOSTS = {"localhost", "api", "postgres", "keydb", "redis", "
 def validate_safe_outgoing_url(url_str: str) -> str:
     parsed = urlparse(url_str.strip())
     if parsed.scheme not in ("http", "https"):
-        raise ValueError(f"Esquema no permitido: {parsed.scheme}")
+        raise ValueError(f"Disallowed scheme: {parsed.scheme}")
 
     hostname = parsed.hostname
     if not hostname:
-        raise ValueError("URL sin hostname válido")
+        raise ValueError("URL lacks a valid hostname")
 
     if hostname.lower() in FORBIDDEN_CONTAINER_HOSTS:
-        raise ValueError("Acceso prohibido a recursos internos de infraestructura")
+        raise ValueError("Access to internal infrastructure resources is forbidden")
 
-    # 🔒 Resuelve DNS antes de realizar la petición HTTP
+    # 🔒 Resolve DNS before executing the HTTP request
     try:
         resolved_ips = socket.getaddrinfo(hostname, None)
     except socket.gaierror as exc:
-        raise ValueError(f"No se pudo resolver el host: {hostname}") from exc
+        raise ValueError(f"Could not resolve host: {hostname}") from exc
 
     for item in resolved_ips:
         ip_addr_str = item[4][0]
         ip = ipaddress.ip_address(ip_addr_str)
 
-        # Bloquea rangos privados RFC 1918, Loopback, Link-Local y Multicast
+        # Block RFC 1918 private, Loopback, Link-Local, and Multicast ranges
         if (
             ip.is_private
             or ip.is_loopback
@@ -208,25 +210,25 @@ def validate_safe_outgoing_url(url_str: str) -> str:
             or ip.is_multicast
             or ip.is_reserved
         ):
-            raise ValueError(f"Destino prohibido en red privada/reservada ({ip_addr_str})")
+            raise ValueError(f"Forbidden target in private/reserved network ({ip_addr_str})")
 
     return url_str
 ```
 
 ---
 
-## Patrón 5: Consultas Parametrizadas Seguras en Contextos Dinámicos de BD
+## Pattern 5: Safe Parameterized Queries in Dynamic DB Contexts
 
-### El Riesgo
-Uso de interpolación de cadenas de texto (`f-strings`) para configurar variables de sesión o tenant (`SET LOCAL app.current_tenant_id = f'{tenant_id}'`), susceptible a inyección SQL.
+### The Risk
+Using string interpolation (`f-strings`) to set session or tenant variables (`SET LOCAL app.current_tenant_id = f'{tenant_id}'`), creating SQL injection exposure.
 
-### Implementación Obligatoria (SQLAlchemy Core)
+### Mandatory Implementation (SQLAlchemy Core)
 ```python
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 async def set_tenant_context(session: AsyncSession, tenant_id: str) -> None:
-    # 🔒 Sentencia parametrizada obligatoria con bindparam seguro
+    # 🔒 Mandatory parameterized statement using safe bindparams
     query = text("SET LOCAL app.current_tenant_id = :tenant_id").bindparams(
         tenant_id=tenant_id
     )
@@ -235,29 +237,29 @@ async def set_tenant_context(session: AsyncSession, tenant_id: str) -> None:
 
 ---
 
-## Patrón 6: Cuotas y Límites Estrictos de Carga de Archivos (Anti-DoS / OOM)
+## Pattern 6: Strict File Upload Quotas and Limits (Anti-DoS / OOM)
 
-### El Riesgo
-Cargas de archivos masivas (CSVs o binarios) que consumen toda la memoria RAM del servidor si se leen con `await file.read()` sin límites de tamaño.
+### The Risk
+Massive file uploads (CSVs or binaries) exhausting server RAM when read wholesale with `await file.read()` without size caps.
 
-### Implementación Obligatoria
+### Mandatory Implementation
 ```python
 from fastapi import HTTPException, UploadFile, status
 
 MAX_UPLOAD_SIZE_BYTES = 2 * 1024 * 1024  # 2 MB
 
 async def read_uploaded_file_safely(file: UploadFile) -> bytes:
-    chunk_size = 64 * 1024  # 64 KB por lectura
+    chunk_size = 64 * 1024  # 64 KB per read
     total_bytes = 0
     buffer = bytearray()
 
     while chunk := await file.read(chunk_size):
         total_bytes += len(chunk)
         if total_bytes > MAX_UPLOAD_SIZE_BYTES:
-            # 🔒 Corta la lectura inmediatamente y responde 413
+            # 🔒 Abort reading immediately and return 413
             raise HTTPException(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail="El archivo excede el tamaño máximo permitido de 2 MB.",
+                detail="File exceeds the maximum allowed size of 2 MB.",
             )
         buffer.extend(chunk)
 
@@ -266,12 +268,12 @@ async def read_uploaded_file_safely(file: UploadFile) -> bytes:
 
 ---
 
-## Patrón 7: Preservación de Cabeceras de Proxy Inverso en Nginx
+## Pattern 7: Reverse Proxy Header Preservation in Nginx
 
-### El Riesgo
-Nginx actúa como terminador de TLS y proxy reverso. Si no reenvía las cabeceras originales, FastAPI y los registros de auditoría creerán que todas las peticiones provienen de la IP del puente Docker (`172.18.0.1`), anulando el rate-limiting y la trazabilidad de seguridad.
+### The Risk
+Nginx acts as TLS terminator and reverse proxy. If it fails to forward original headers, FastAPI and audit logs see every request as originating from the Docker bridge IP (`172.18.0.1`), defeating rate limiting and security traceability.
 
-### Configuración Obligatoria (`nginx.conf`)
+### Mandatory Configuration (`nginx.conf`)
 ```nginx
 location /api/ {
     proxy_pass http://api:8000;
@@ -295,12 +297,12 @@ location /ws/ {
 
 ---
 
-## Patrón 8: Middleware Anti-CSRF Desacoplado con Exclusión de Tokens Bearer
+## Pattern 8: Decoupled Anti-CSRF Middleware with Bearer Token Exclusion
 
-### El Riesgo
-Requerir tokens CSRF en llamadas de APIs Machine-to-Machine (M2M) o agentes de IA que ya usan cabeceras `Authorization: Bearer` genera bloqueos innecesarios, mientras que no exigirlos en llamadas desde cookies de navegador genera vulnerabilidad CSRF.
+### The Risk
+Requiring CSRF tokens on Machine-to-Machine (M2M) API calls or AI agents already authenticating with `Authorization: Bearer` headers causes unnecessary blocks, while failing to enforce them on cookie-based browser requests introduces CSRF vulnerabilities.
 
-### Implementación Obligatoria
+### Mandatory Implementation
 ```python
 import hmac
 from fastapi import Request, Response, status
@@ -309,43 +311,43 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 class CSRFProtectionMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
-        # Exime métodos seguros (GET, HEAD, OPTIONS)
+        # Exempt safe HTTP methods (GET, HEAD, OPTIONS)
         if request.method in ("GET", "HEAD", "OPTIONS"):
             return await call_next(request)
 
-        # 🔒 Regla OWASP: Si la petición usa cabecera Authorization: Bearer, no requiere CSRF
+        # 🔒 OWASP Rule: Requests carrying Authorization: Bearer do not require CSRF
         auth_header = request.headers.get("authorization", "")
         if auth_header.startswith("Bearer "):
             return await call_next(request)
 
-        # Si la petición depende de cookies de navegador, exige X-CSRF-Token
+        # Cookie-authenticated browser requests require X-CSRF-Token
         csrf_token = request.headers.get("X-CSRF-Token")
         if not csrf_token or not self.validate_csrf_token(csrf_token, request):
             return JSONResponse(
                 status_code=status.HTTP_403_FORBIDDEN,
-                content={"detail": "Token CSRF inválido o faltante."},
+                content={"detail": "Invalid or missing CSRF token."},
             )
 
         return await call_next(request)
 
     def validate_csrf_token(self, token: str, request: Request) -> bool:
-        # Validación HMAC con digest seguro...
+        # Constant-time HMAC digest validation...
         return True
 ```
 
 ---
 
-## Patrón 9: Prevención de XSS y Prototype Pollution en Frontend
+## Pattern 9: Frontend XSS and Prototype Pollution Prevention
 
-### El Riesgo
-Inyectar datos dinámicos en el DOM usando `element.innerHTML` o popups de mapas cartográficos sin escapar caracteres especiales, o combinar objetos JSON no sanitizados permitiendo contaminar `Object.prototype`.
+### The Risk
+Injecting dynamic data into the DOM via `element.innerHTML` or map popups without escaping special characters, or merging unsanitized JSON objects enabling `Object.prototype` pollution.
 
-### Implementación Obligatoria (TypeScript / Vue 3 / React)
+### Mandatory Implementation (TypeScript / Vue 3 / React)
 ```typescript
 // vue3/src/utils/security.ts
 
 /**
- * 🔒 Sanitiza texto para prevenir Cross-Site Scripting (XSS) en innerHTML
+ * 🔒 Sanitizes text to prevent Cross-Site Scripting (XSS) in innerHTML
  */
 export function escapeHtml(value: unknown): string {
   if (value === null || value === undefined) return '';
@@ -362,7 +364,7 @@ export function escapeHtml(value: unknown): string {
 const FORBIDDEN_PROTOTYPE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 /**
- * 🔒 Sanitiza objetos contra ataques de Prototype Pollution
+ * 🔒 Sanitizes objects against Prototype Pollution attacks
  */
 export function sanitizeObject<T>(input: T): T {
   if (input === null || typeof input !== 'object') return input;
@@ -382,12 +384,12 @@ export function sanitizeObject<T>(input: T): T {
 
 ---
 
-## Patrón 10: Tolerancia a Carreras Concurrentes (Grace Period de 5s) en Refresh Tokens
+## Pattern 10: Concurrent Race Tolerance (5s Grace Period) in Refresh Tokens
 
-### El Riesgo
-En rotación estricta de Refresh Tokens, cuando un usuario abre 3 pestañas simultáneas, las tres envían el mismo refresh token. La primera petición lo rota exitosamente; la segunda llega milisegundos después y el backend la cataloga falsamente como un intento de **reúso malicioso**, revocando la sesión y expulsando al usuario legítimo.
+### The Risk
+Under strict Refresh Token rotation, when a user opens 3 concurrent browser tabs, all three send the same refresh token. The first request rotates it successfully; the second arrives milliseconds later and the backend falsely flags it as **malicious token reuse**, revoking the session and logging out the legitimate user.
 
-### Implementación Obligatoria (KeyDB / Redis)
+### Mandatory Implementation (KeyDB / Redis)
 ```python
 import time
 
@@ -396,8 +398,8 @@ GRACE_PERIOD_SECONDS = 5
 async def rotate_refresh_token(redis_client, old_token_family_id: str, new_token: str) -> None:
     now = int(time.time())
     
-    # 🔒 En lugar de borrar el token anterior inmediatamente, almacena la llave con TTL de cortesía
-    # Esto permite que las peticiones de otras pestañas que salieron casi a la par se acepten
+    # 🔒 Instead of deleting the prior token immediately, retain the key with a grace TTL
+    # This allows nearly simultaneous requests from parallel tabs to succeed
     await redis_client.set(
         f"grace_period:{old_token_family_id}",
         new_token,
@@ -407,26 +409,26 @@ async def rotate_refresh_token(redis_client, old_token_family_id: str, new_token
 
 ---
 
-## Patrón 11: Aislamiento Multi-Tenant y por Usuario en Llaves de Idempotencia
+## Pattern 11: Multi-Tenant and Per-User Isolation in Idempotency Keys
 
-### El Riesgo
-Si la clave de idempotencia en KeyDB solo usa el UUID enviado por el cliente (`SET idemp:018f4a12-...`), un atacante de un tenant A puede generar una colisión intencional contra el tenant B, bloqueando o alterando sus transacciones.
+### The Risk
+If the idempotency key in KeyDB uses only the client-supplied UUID (`SET idemp:018f4a12-...`), an attacker in tenant A can trigger an intentional collision against tenant B, blocking or altering its transactions.
 
-### Implementación Obligatoria
+### Mandatory Implementation
 ```python
 def build_idempotency_key(tenant_id: str, user_id: str, client_key: str) -> str:
-    # 🔒 Clave aislada estrictamente por Tenant y Usuario
+    # 🔒 Key strictly isolated per Tenant and User
     return f"idemp:{tenant_id}:{user_id}:{client_key}"
 ```
 
 ---
 
-## Patrón 12: Ocultación de Swagger / ReDoc / OpenAPI en Producción
+## Pattern 12: Hiding Swagger / ReDoc / OpenAPI in Production
 
-### El Riesgo
-En producción, los endpoints `/docs`, `/redoc` y `/openapi.json` exponen detalles de implementación, parámetros de consulta y rutas ocultas a cualquier escáner de internet.
+### The Risk
+In production, `/docs`, `/redoc`, and `/openapi.json` expose implementation details, query parameters, and hidden routes to any internet scanner.
 
-### Implementación Obligatoria
+### Mandatory Implementation
 ```python
 from fastapi import FastAPI
 from src.core.config import settings
@@ -435,7 +437,7 @@ is_prod = settings.APP_ENV == "production"
 
 app = FastAPI(
     title="Corporate API",
-    # 🔒 Desactivación incondicional en producción
+    # 🔒 Unconditional disablement in production
     docs_url=None if is_prod else "/docs",
     redoc_url=None if is_prod else "/redoc",
     openapi_url=None if is_prod else "/openapi.json",
@@ -444,50 +446,50 @@ app = FastAPI(
 
 ---
 
-## Patrón 13: Protocolo Shift-Left para Mitigación de CVEs Transitivos en Lockfiles
+## Pattern 13: Shift-Left Protocol for Transitive CVE Mitigation in Lockfiles
 
-### El Riesgo
-Descubrir CVEs críticos en dependencias de producción solo cuando el workflow de GitHub Actions falla tras el commit, generando cuellos de botella y demoras en despliegue.
+### The Risk
+Discovering critical CVEs in production dependencies only when the GitHub Actions workflow fails after commit creates bottlenecks and deployment delays.
 
-### Flujo de Mitigación Local
-1. Ejecutar escaneo local:
+### Local Mitigation Workflow
+1. Run local scan:
    ```bash
    ./scripts/auditar-infra.sh
    ```
-2. Si Trivy reporta un CVE en una dependencia transitiva (ej. `certifi` o `tar`):
-   - **Para Python:** Actualizar la librería congelada en Docker:
+2. If Trivy reports a CVE in a transitive dependency (e.g., `certifi` or `tar`):
+   - **For Python:** Upgrade the pinned library inside Docker:
      ```bash
      docker compose -f fastapi/docker-compose.qa.yml run --rm qa-backend uv lock --upgrade-package certifi
      ```
-   - **Para Node.js / Frontend:** Actualizar selectivamente:
+   - **For Node.js / Frontend:** Upgrade selectively:
      ```bash
      docker compose -f vue3/docker-compose.qa.yml run --rm qa-vue3 pnpm update tar
      ```
-3. Ejecutar las pruebas unitarias (`make qa-unit`) para descartar regresiones.
-4. Re-ejecutar `./scripts/auditar-infra.sh` certificando `0` hallazgos.
+3. Run unit tests (`make qa-unit`) to rule out regressions.
+4. Re-run `./scripts/auditar-infra.sh` certifying `0` findings.
 
 ---
 
-## Patrón 14: Límites de Sesiones Concurrentes, Timeouts por Rol y Purga Total en Logout (DISA STIG & OWASP)
+## Pattern 14: Concurrent Session Limits, Role-Tiered Timeouts, and Full Logout Purge (DISA STIG & OWASP)
 
-### Referencias Normativas
+### Normative References
 - **DISA ASD STIG V6R5:** `V-222387` (`APSC-DV-000010`), `V-222388` (`APSC-DV-000060`), `V-222389` (`APSC-DV-000070`), `V-222390` (`APSC-DV-000080`), `V-222392` (`APSC-DV-000100`), `V-222549` (`APSC-DV-001800`), `V-222578`..`V-222583` (`APSC-DV-002240`..`002290`), `V-222672` (`APSC-DV-003360`).
-- **OWASP Developer Guide v4.2:** Sección `4.3.7 Session Management (SM 1-21)`.
+- **OWASP Developer Guide v4.2:** Section `4.3.7 Session Management (SM 1-21)`.
 
-### El Riesgo
-Permitir sesiones concurrentes ilimitadas o con tiempos de inactividad uniformes expone cuentas administrativas a secuestro de sesión (*Session Hijacking*), fijación de sesión (*Session Fixation*) y persistencia de datos sensibles en el almacenamiento del navegador tras cerrar sesión.
+### The Risk
+Allowing unlimited concurrent sessions or uniform inactivity timeouts exposes administrative accounts to *Session Hijacking*, *Session Fixation*, and persistence of sensitive data in browser storage after logout.
 
-### Implementación Obligatoria (Backend en FastAPI + KeyDB y Frontend en TypeScript)
+### Mandatory Implementation (FastAPI + KeyDB Backend and TypeScript Frontend)
 ```python
 import secrets
 import time
 from fastapi import HTTPException, Response, status
 
-# 🔒 DISA STIG V-222389 / V-222390: Timeouts de inactividad diferenciados por rol
-IDLE_TIMEOUT_PRIVILEGED_SEC = 10 * 60   # 10 minutos para roles administrativos
-IDLE_TIMEOUT_STANDARD_SEC = 15 * 60     # 15 minutos para roles operativos estándar
-ABSOLUTE_SESSION_LIFETIME_SEC = 8 * 3600 # OWASP SM-8: Expiración absoluta de sesión
-MAX_CONCURRENT_SESSIONS = 2             # DISA STIG V-222387: Límite de sesiones simultáneas
+# 🔒 DISA STIG V-222389 / V-222390: Role-tiered inactivity timeouts
+IDLE_TIMEOUT_PRIVILEGED_SEC = 10 * 60   # 10 minutes for administrative roles
+IDLE_TIMEOUT_STANDARD_SEC = 15 * 60     # 15 minutes for standard operational roles
+ABSOLUTE_SESSION_LIFETIME_SEC = 8 * 3600 # OWASP SM-8: Absolute session expiration
+MAX_CONCURRENT_SESSIONS = 2             # DISA STIG V-222387: Simultaneous session cap
 
 async def create_or_rotate_session(
     redis_client,
@@ -496,20 +498,20 @@ async def create_or_rotate_session(
     client_ip: str,
     previous_session_id: str | None = None,
 ) -> str:
-    # 🔒 DISA STIG V-222581 / OWASP SM-9: Invalidar sesión previa al autenticar o elevar privilegios
+    # 🔒 DISA STIG V-222581 / OWASP SM-9: Invalidate prior session upon login or privilege elevation
     if previous_session_id:
         await redis_client.delete(f"sess:{previous_session_id}")
 
-    # 🔒 DISA STIG V-222582 / V-222583: CSPRNG criptográfico (256 bits de entropía, sin reciclaje)
+    # 🔒 DISA STIG V-222582 / V-222583: Cryptographic CSPRNG (256 bits of entropy, no recycling)
     new_session_id = secrets.token_urlsafe(32)
     user_sessions_key = f"user_sessions:{user_id}"
 
-    # 🔒 DISA STIG V-222387 / V-222672: Controlar concurrencia y auditar IPs distintas
+    # 🔒 DISA STIG V-222387 / V-222672: Enforce concurrency cap and audit distinct IPs
     active_sessions = await redis_client.smembers(user_sessions_key)
     if len(active_sessions) >= MAX_CONCURRENT_SESSIONS:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Límite máximo de sesiones concurrentes alcanzado.",
+            detail="Maximum concurrent session limit reached.",
         )
 
     idle_ttl = (
@@ -533,7 +535,7 @@ async def create_or_rotate_session(
     return new_session_id
 
 async def revoke_all_user_sessions(redis_client, user_id: str) -> None:
-    """DISA STIG V-222549 / OWASP SM-19: Revocación total al deshabilitar cuenta o cambiar credenciales."""
+    """DISA STIG V-222549 / OWASP SM-19: Full revocation upon account disablement or credential change."""
     user_sessions_key = f"user_sessions:{user_id}"
     session_ids = await redis_client.smembers(user_sessions_key)
     for sid in session_ids:
@@ -543,7 +545,7 @@ async def revoke_all_user_sessions(redis_client, user_id: str) -> None:
 ```
 
 ```typescript
-// 🔒 DISA STIG V-222388, V-222392, V-222578: Purga total de almacenamiento temporal y mensaje explícito
+// 🔒 DISA STIG V-222388, V-222392, V-222578: Full temporary storage purge and explicit logoff confirmation
 export async function executeSecureLogoff(apiLogoutUrl: string): Promise<string> {
   try {
     await fetch(apiLogoutUrl, {
@@ -559,22 +561,22 @@ export async function executeSecureLogoff(apiLogoutUrl: string): Promise<string>
       await Promise.all(cacheNames.map((name) => caches.delete(name)));
     }
   }
-  return 'Su sesión ha sido cerrada de forma segura y todos los datos temporales han sido eliminados.';
+  return 'Your session has been securely closed and all temporary data has been cleared.';
 }
 ```
 
 ---
 
-## Patrón 15: Bloqueo de Cuentas, Defensa Anti-Enumeración en Tiempo Constante y Ciclo de Vida de Credenciales
+## Pattern 15: Account Lockout, Constant-Time Anti-Enumeration Defense, and Credential Lifecycle
 
-### Referencias Normativas
+### Normative References
 - **DISA ASD STIG V6R5:** `V-222408`..`V-222411` (`APSC-DV-000290`..`000320`), `V-222432`..`V-222437` (`APSC-DV-000530`..`000580`), `V-222520` (`APSC-DV-001470`), `V-222536`..`V-222547` (`APSC-DV-001680`..`001790`).
-- **OWASP Developer Guide v4.2:** Sección `4.3.7 Authentication (A 1-20) & Password Policy (P 1-12)`.
+- **OWASP Developer Guide v4.2:** Section `4.3.7 Authentication (A 1-20) & Password Policy (P 1-12)`.
 
-### El Riesgo
-Si la API responde más rápido cuando un usuario no existe que cuando la contraseña falla (porque omite el cálculo de Argon2id), un atacante puede enumerar cuentas válidas mediante análisis de tiempos (*Timing Side-Channel*) y lanzar ataques de fuerza bruta sobre cuentas huérfanas o temporales no expiradas.
+### The Risk
+If the API responds faster when a username does not exist than when a password fails (because it skips Argon2id computation), an attacker can enumerate valid accounts via *Timing Side-Channel* analysis and launch brute-force attacks against orphaned or un-expired temporary accounts.
 
-### Implementación Obligatoria (Python / FastAPI)
+### Mandatory Implementation (Python / FastAPI)
 ```python
 import re
 from datetime import datetime, timedelta, timezone
@@ -582,31 +584,31 @@ from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 
 ph = PasswordHasher(time_cost=3, memory_cost=65536, parallelism=4)
-# 🔒 Hash señuelo precalculado para garantizar tiempo constante cuando el usuario no existe (OWASP A-19, A-20)
+# 🔒 Precomputed decoy hash ensuring constant time when the user does not exist (OWASP A-19, A-20)
 DUMMY_ARGON2_HASH = ph.hash("ConstantTime_Dummy_Secret_2026!@#")
 
-MAX_FAILED_ATTEMPTS = 3          # DISA STIG V-222432: Máximo 3 intentos fallidos consecutivos
-LOCKOUT_WINDOW_SECONDS = 15 * 60 # En una ventana de 15 minutos
-TEMP_ACCOUNT_MAX_HOURS = 72      # DISA STIG V-222409: Cuentas temporales expiran en 72h
-INACTIVE_ACCOUNT_MAX_DAYS = 35   # DISA STIG V-222411: Cuentas inactivas se deshabilitan a los 35 días
+MAX_FAILED_ATTEMPTS = 3          # DISA STIG V-222432: Maximum 3 consecutive failed attempts
+LOCKOUT_WINDOW_SECONDS = 15 * 60 # Within a 15-minute window
+TEMP_ACCOUNT_MAX_HOURS = 72      # DISA STIG V-222409: Temporary accounts expire after 72h
+INACTIVE_ACCOUNT_MAX_DAYS = 35   # DISA STIG V-222411: Inactive accounts disable after 35 days
 
 def validate_password_stig_policy(new_password: str, old_password: str | None = None) -> None:
-    """DISA STIG V-222536..V-222541: Política de 15 caracteres, complejidad y diferencial de 8 caracteres."""
+    """DISA STIG V-222536..V-222541: 15-char policy, complexity, and 8-character differential."""
     if len(new_password) < 15:
-        raise ValueError("La contraseña debe tener al menos 15 caracteres (APSC-DV-001680).")
+        raise ValueError("Password must be at least 15 characters long (APSC-DV-001680).")
     if not (
         re.search(r"[A-Z]", new_password)
         and re.search(r"[a-z]", new_password)
         and re.search(r"\d", new_password)
         and re.search(r"[^A-Za-z0-9]", new_password)
     ):
-        raise ValueError("La contraseña debe incluir mayúsculas, minúsculas, números y caracteres especiales.")
+        raise ValueError("Password must include uppercase, lowercase, digits, and special characters.")
     if old_password:
         diff_chars = sum(1 for a, b in zip(new_password, old_password) if a != b) + abs(
             len(new_password) - len(old_password)
         )
         if diff_chars < 8:
-            raise ValueError("Al menos 8 caracteres deben cambiar respecto a la contraseña anterior (APSC-DV-001730).")
+            raise ValueError("At least 8 characters must differ from the previous password (APSC-DV-001730).")
 
 async def verify_credentials_constant_time(
     redis_client,
@@ -617,7 +619,7 @@ async def verify_credentials_constant_time(
     fail_key = f"auth_fail:{username_key}"
     attempts = int(await redis_client.get(fail_key) or 0)
     if attempts >= MAX_FAILED_ATTEMPTS:
-        raise PermissionError("Credenciales inválidas o cuenta temporalmente bloqueada.")
+        raise PermissionError("Invalid credentials or account temporarily locked.")
 
     target_hash = user_record["password_hash"] if user_record else DUMMY_ARGON2_HASH
     try:
@@ -631,10 +633,10 @@ async def verify_credentials_constant_time(
         pipe.incr(fail_key)
         pipe.expire(fail_key, LOCKOUT_WINDOW_SECONDS)
         await pipe.execute()
-        raise PermissionError("Credenciales inválidas o cuenta temporalmente bloqueada.")
+        raise PermissionError("Invalid credentials or account temporarily locked.")
 
     await redis_client.delete(fail_key)
-    # 🔒 DISA STIG V-222437 / OWASP P-12: Retornar fecha/hora del último inicio de sesión al usuario
+    # 🔒 DISA STIG V-222437 / OWASP P-12: Return last logon timestamp to the user
     return {
         "user_id": user_record["id"],
         "last_Interactive_logon_utc": user_record.get("last_logon_utc"),
@@ -644,35 +646,35 @@ async def verify_credentials_constant_time(
 
 ---
 
-## Patrón 16: Canonicalización Unicode (NFKC), Sanitización de Cabeceras ASCII y Prevención de Command Injection
+## Pattern 16: Unicode Canonicalization (NFKC), ASCII Header Sanitization, and Command Injection Prevention
 
-### Referencias Normativas
+### Normative References
 - **DISA ASD STIG V6R5:** `V-222604` (`APSC-DV-002510`), `V-222605` (`APSC-DV-002520`), `V-222606` (`APSC-DV-002530`).
-- **OWASP Developer Guide v4.2:** Secciones `4.3.3 SFL-9`, `4.3.5 Canonicalization (CEC 1-5)` y `4.3.6 Server-Side Validation (SSV 1-7) & Language/Framework (LF-6)`.
+- **OWASP Developer Guide v4.2:** Sections `4.3.3 SFL-9`, `4.3.5 Canonicalization (CEC 1-5)`, and `4.3.6 Server-Side Validation (SSV 1-7) & Language/Framework (LF-6)`.
 
-### El Riesgo
-Los atacantes utilizan representaciones Unicode homógrafas o descompuestas (como `＜script＞` en ancho completo `U+FF1C`) que superan los filtros de validación antes de que un componente posterior los normalice a `<script>`. Asimismo, la invocación de subprocesos con `shell=True` permite encadenar comandos arbitrarios del sistema operativo.
+### The Risk
+Attackers supply homoglyph or decomposed Unicode forms (such as full-width `＜script＞` `U+FF1C`) that bypass validation filters before a downstream component normalizes them to `<script>`. Likewise, invoking subprocesses with `shell=True` enables arbitrary OS command chaining.
 
-### Implementación Obligatoria (Python)
+### Mandatory Implementation (Python)
 ```python
 import subprocess
 import unicodedata
 from pathlib import Path
 
 def canonicalize_and_validate_text(raw_value: str, max_length: int = 256) -> str:
-    """DISA STIG V-222605 & OWASP CEC-5 / SSV-3: Canonicalizar a NFKC ANTES de validar."""
+    """DISA STIG V-222605 & OWASP CEC-5 / SSV-3: Canonicalize to NFKC BEFORE validation."""
     normalized = unicodedata.normalize("NFKC", raw_value).strip()
     if len(normalized) > max_length:
-        raise ValueError("Longitud de entrada excede el límite permitido.")
-    # Rechazar caracteres de control ASCII no imprimibles (excepto tabulación/salto de línea si aplica)
+        raise ValueError("Input length exceeds maximum allowed limit.")
+    # Reject non-printable ASCII control characters (except tab/newline where applicable)
     if any(ord(ch) < 32 or ord(ch) == 127 for ch in normalized):
-        raise ValueError("Se detectaron caracteres de control ASCII ilegales.")
+        raise ValueError("Illegal ASCII control characters detected.")
     return normalized
 
 def run_allowlisted_diagnostic_tool(target_ip: str) -> str:
-    """DISA STIG V-222604 & OWASP SFL-9: Prohibido shell=True; usar lista blanca de argumentos."""
+    """DISA STIG V-222604 & OWASP SFL-9: shell=True forbidden; use allowlisted argument list."""
     clean_ip = canonicalize_and_validate_text(target_ip, max_length=45)
-    # 🔒 Ejecución directa de binario con ruta absoluta, sin intérprete de comandos (shell=False)
+    # 🔒 Direct binary execution with absolute path, no command interpreter (shell=False)
     completed = subprocess.run(
         ["/usr/bin/ping", "-c", "1", "-W", "2", clean_ip],
         shell=False,
@@ -686,25 +688,25 @@ def run_allowlisted_diagnostic_tool(target_ip: str) -> str:
 
 ---
 
-## Patrón 17: Blindaje contra XML/XXE, Deserialización Insegura y Validación de Archivos por Magic Bytes
+## Pattern 17: Hardening Against XML/XXE, Unsafe Deserialization, and Magic-Byte File Validation
 
-### Referencias Normativas
+### Normative References
 - **DISA ASD STIG V6R5:** `V-222398`..`V-222406` (`APSC-DV-000160`..`000270`), `V-222593` (`APSC-DV-002390`), `V-222601` (`APSC-DV-002485`), `V-222608` (`APSC-DV-002550`), `V-222626` (`APSC-DV-002960`).
-- **OWASP Developer Guide v4.2:** Secciones `4.3.2 File Management (FM 1-5)`, `4.3.6 Verify Safe Deserialization (VSD 1-6)` y `File Validation (FV 1-9)`.
+- **OWASP Developer Guide v4.2:** Sections `4.3.2 File Management (FM 1-5)`, `4.3.6 Verify Safe Deserialization (VSD 1-6)`, and `File Validation (FV 1-9)`.
 
-### El Riesgo
-1. **XXE (XML External Entity):** Los analizadores XML con resolución de entidades o DTD habilitados permiten leer `/etc/passwd` o realizar SSRF internos.
-2. **Deserialización Insegura:** El uso de `pickle.loads()` o `yaml.load()` permite ejecución remota de código (RCE).
-3. **Spoofing de Archivos y Path Traversal:** Confiar en `file.filename` o `file.content_type` sin verificar los *Magic Bytes* de cabecera permite subir scripts ejecutables disfrazados de imágenes o acceder a archivos arbitrarios del servidor.
+### The Risk
+1. **XXE (XML External Entity):** XML parsers with entity resolution or DTDs enabled allow reading `/etc/passwd` or performing internal SSRF.
+2. **Unsafe Deserialization:** Calling `pickle.loads()` or `yaml.load()` permits Remote Code Execution (RCE).
+3. **File Spoofing and Path Traversal:** Trusting `file.filename` or `file.content_type` without inspecting header *Magic Bytes* enables uploading executable scripts disguised as images or accessing arbitrary server files.
 
-### Implementación Obligatoria (Python)
+### Mandatory Implementation (Python)
 ```python
 import hmac
 import hashlib
 import json
 from lxml import etree
 
-# 🔒 DISA STIG V-222593 / V-222608: Deshabilitar DTDs, entidades externas y acceso de red en XML
+# 🔒 DISA STIG V-222593 / V-222608: Disable DTDs, external entities, and network access in XML
 SAFE_XML_PARSER = etree.XMLParser(
     resolve_entities=False,
     no_network=True,
@@ -716,17 +718,17 @@ SAFE_XML_PARSER = etree.XMLParser(
 def parse_xml_safely(xml_bytes: bytes) -> etree._Element:
     return etree.fromstring(xml_bytes, parser=SAFE_XML_PARSER)
 
-# 🔒 OWASP VSD 1-6: Deserialización segura mediante JSON estricto + verificación de firma HMAC
+# 🔒 OWASP VSD 1-6: Safe deserialization via strict JSON + HMAC signature verification
 def deserialize_signed_payload(payload_bytes: bytes, signature_hex: str, secret_key: bytes) -> dict:
     expected_mac = hmac.new(secret_key, payload_bytes, hashlib.sha256).hexdigest()
     if not hmac.compare_digest(expected_mac, signature_hex):
-        raise ValueError("Firma criptográfica de payload inválida (OWASP VSD-3).")
+        raise ValueError("Invalid payload cryptographic signature (OWASP VSD-3).")
     data = json.loads(payload_bytes.decode("utf-8"))
     if not isinstance(data, dict):
-        raise ValueError("Estructura de objeto no permitida.")
+        raise ValueError("Disallowed object structure.")
     return data
 
-# 🔒 DISA STIG V-222601 / V-222626 & OWASP FV 1-9: Validación por Magic Bytes y Mapeo por Índice
+# 🔒 DISA STIG V-222601 / V-222626 & OWASP FV 1-9: Magic-Byte Validation and Index Mapping
 ALLOWED_MAGIC_BYTES: dict[str, bytes] = {
     "application/pdf": b"%PDF-",
     "image/png": b"\x89PNG\r\n\x1a\n",
@@ -741,29 +743,29 @@ REPORT_INDEX_MAP: dict[str, str] = {
 def verify_file_magic_bytes(header_bytes: bytes, declared_mime: str) -> None:
     expected_magic = ALLOWED_MAGIC_BYTES.get(declared_mime)
     if not expected_magic or not header_bytes.startswith(expected_magic):
-        raise ValueError("El encabezado binario del archivo no coincide con un formato permitido.")
+        raise ValueError("Binary file header does not match an allowed format.")
 
 def resolve_indexed_file(file_key: str) -> str:
-    """Nunca aceptar rutas directas del usuario; usar un mapa de índices en lista blanca."""
+    """Never accept raw user file paths; use an allowlisted index map."""
     if file_key not in REPORT_INDEX_MAP:
-        raise KeyError("Referencia de recurso inválida.")
+        raise KeyError("Invalid resource reference.")
     return REPORT_INDEX_MAP[file_key]
 ```
 
 ---
 
-## Patrón 18: Auditoría Forense Inmutable, Prevención de Log Injection (CR/LF) y Alerta de Capacidad al 75%
+## Pattern 18: Immutable Forensic Auditing, Log Injection (CR/LF) Prevention, and 75% Capacity Alerting
 
-### Referencias Normativas
+### Normative References
 - **DISA ASD STIG V6R5:** `V-222444` (`APSC-DV-000650`), `V-222446`..`V-222509` (`APSC-DV-000670`..`001370`).
-- **OWASP Developer Guide v4.2:** Sección `4.3.10 Security Logging (SL 1-13) & Security Log Design (SLD 1-11)`.
+- **OWASP Developer Guide v4.2:** Section `4.3.10 Security Logging (SL 1-13) & Security Log Design (SLD 1-11)`.
 
-### El Riesgo
-1. **Log Injection / Forgery:** Si un usuario introduce saltos de línea (`\r\n`) o etiquetas HTML en un campo que se registra en los logs, puede falsificar entradas de auditoría completas o ejecutar XSS en paneles de visualización de logs.
-2. **Fuga de Secretos en Logs:** Registrar tokens de sesión, contraseñas o PII convierte al SIEM en un vector de robo de credenciales (`V-222444`).
-3. **Agotamiento Silencioso de Almacenamiento:** Si el disco de auditoría se llena sin alertar al equipo de operaciones al **75% de capacidad** (`V-222483`), el sistema pierde trazabilidad forense ante un incidente.
+### The Risk
+1. **Log Injection / Forgery:** If a user injects line breaks (`\r\n`) or HTML tags into a logged field, they can forge entire audit entries or trigger XSS in log viewer dashboards.
+2. **Secret Leakage in Logs:** Logging session tokens, passwords, or PII turns the SIEM into a credential theft vector (`V-222444`).
+3. **Silent Storage Exhaustion:** If the audit disk fills without alerting operations at **75% capacity** (`V-222483`), the system loses forensic traceability during an incident.
 
-### Implementación Obligatoria (Python)
+### Mandatory Implementation (Python)
 ```python
 import hashlib
 import hmac
@@ -771,10 +773,10 @@ import json
 import shutil
 from datetime import datetime, timezone
 
-AUDIT_STORAGE_ALERT_RATIO = 0.75 # 🔒 DISA STIG V-222483: Alerta obligatoria al 75% de capacidad
+AUDIT_STORAGE_ALERT_RATIO = 0.75 # 🔒 DISA STIG V-222483: Mandatory alert at 75% capacity
 
 def sanitize_log_field(value: str) -> str:
-    """OWASP SL-4 & SLD-2: Erradica inyección CR/LF y caracteres de control en logs."""
+    """OWASP SL-4 & SLD-2: Eliminates CR/LF injection and control characters in logs."""
     return (
         value.replace("\r", "\\r")
         .replace("\n", "\\n")
@@ -795,7 +797,7 @@ def build_tamper_evident_audit_record(
     previous_record_hmac: str,
     audit_hmac_key: bytes,
 ) -> dict:
-    """DISA STIG V-222470..V-222509 & OWASP SLD 1-11: Registro UTC encadenado con HMAC."""
+    """DISA STIG V-222470..V-222509 & OWASP SLD 1-11: HMAC-chained UTC record."""
     record = {
         "timestamp_utc": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
         "app_id": sanitize_log_field(app_id),
@@ -813,7 +815,7 @@ def build_tamper_evident_audit_record(
     return record
 
 def check_audit_storage_capacity(audit_mount_path: str = "/var/log") -> dict:
-    """DISA STIG V-222483 (APSC-DV-001090): Alerta inmediata cuando el almacenamiento supera el 75%."""
+    """DISA STIG V-222483 (APSC-DV-001090): Immediate alert when storage exceeds 75%."""
     usage = shutil.disk_usage(audit_mount_path)
     used_ratio = usage.used / usage.total
     return {
@@ -824,23 +826,23 @@ def check_audit_storage_capacity(audit_mount_path: str = "/var/log") -> dict:
 
 ---
 
-## Patrón 19: Criptografía Validada (FIPS 140-3), Zeroización de Secretos en Memoria y Sanitización de Exportaciones
+## Pattern 19: Validated Cryptography (FIPS 140-3), In-Memory Secret Zeroization, and Export Sanitization
 
-### Referencias Normativas
+### Normative References
 - **DISA ASD STIG V6R5:** `V-222393`..`V-222395` (`APSC-DV-000110`..`000130`), `V-222570`..`V-222577` (`APSC-DV-002010`..`002230`), `V-222612` (`APSC-DV-002590`), `V-222643` (`APSC-DV-003120`), `V-222666` (`APSC-DV-003310`).
-- **OWASP Developer Guide v4.2:** Sección `4.3.9 Data Protection, Memory Management (MM 1-9) & Cryptographic Practices (CP 1-7)`.
+- **OWASP Developer Guide v4.2:** Section `4.3.9 Data Protection, Memory Management (MM 1-9) & Cryptographic Practices (CP 1-7)`.
 
-### El Riesgo
-Mantener claves criptográficas o contraseñas en búferes de memoria tras su uso las expone a volcados de memoria (*Core Dumps* / *Heartbleed-style leaks*). Asimismo, exportar respaldos o volcados de base de datos sin purgar credenciales administrativas o sin etiquetar la clasificación de sensibilidad expone datos críticos en entornos de preproducción.
+### The Risk
+Retaining cryptographic keys or passwords in memory buffers after use exposes them to *Core Dumps* / *Heartbleed-style* leaks. Likewise, exporting database backups or dumps without scrubbing administrative credentials or attaching sensitivity classification labels exposes critical secrets in pre-production environments.
 
-### Implementación Obligatoria (Python)
+### Mandatory Implementation (Python)
 ```python
 from contextlib import contextmanager
 from typing import Iterator
 
 @contextmanager
 def ephemeral_secret_buffer(secret_bytes: bytes) -> Iterator[bytearray]:
-    """DISA STIG V-222612 & OWASP MM-3/MM-8: Sobrescribe el búfer de memoria en todos los puntos de salida."""
+    """DISA STIG V-222612 & OWASP MM-3/MM-8: Overwrites the memory buffer on all exit paths."""
     buf = bytearray(secret_bytes)
     try:
         yield buf
@@ -851,7 +853,7 @@ def ephemeral_secret_buffer(secret_bytes: bytes) -> Iterator[bytearray]:
 SENSITIVE_EXPORT_FIELDS = {"password_hash", "totp_secret", "vault_dek", "api_private_key", "db_admin_dsn"}
 
 def sanitize_database_export_rows(rows: list[dict], security_classification: str = "CONFIDENTIAL") -> list[dict]:
-    """DISA STIG V-222393, V-222643, V-222666: Purga credenciales de exportaciones y adjunta etiqueta de seguridad."""
+    """DISA STIG V-222393, V-222643, V-222666: Scrubs credentials from exports and attaches security label."""
     sanitized: list[dict] = []
     for row in rows:
         clean_row = {k: v for k, v in row.items() if k not in SENSITIVE_EXPORT_FIELDS}
@@ -862,38 +864,38 @@ def sanitize_database_export_rows(rows: list[dict], security_classification: str
 
 ---
 
-## Patrón 20: Cabeceras de Seguridad HTTP (OWASP OSHP), Estado Fail-Secure y Auto-Verificación de Seguridad
+## Pattern 20: HTTP Security Headers (OWASP OSHP), Fail-Secure State, and Security Self-Tests
 
-### Referencias Normativas
+### Normative References
 - **DISA ASD STIG V6R5:** `V-222585` (`APSC-DV-002310`), `V-222586` (`APSC-DV-002320`), `V-222615` (`APSC-DV-002760`), `V-222616` (`APSC-DV-002770`), `V-222668` (`APSC-DV-003330`).
-- **OWASP Developer Guide v4.2:** Secciones `4.3.2 System Configuration (SC 8-11)`, `4.3.8 AC-10/AC-11`, `4.3.9 DP 5-7 / PDT 9-10` y `5.4.4 OWASP Secure Headers Project (OSHP)`.
+- **OWASP Developer Guide v4.2:** Sections `4.3.2 System Configuration (SC 8-11)`, `4.3.8 AC-10/AC-11`, `4.3.9 DP 5-7 / PDT 9-10`, and `5.4.4 OWASP Secure Headers Project (OSHP)`.
 
-### El Riesgo
-Si una aplicación continúa aceptando tráfico cuando falla la carga de políticas de seguridad o la conexión al motor de autorización (*Fail-Open*), un atacante puede provocar un fallo de recursos para eludir los controles de acceso. Además, la ausencia de cabeceras OSHP (`HSTS`, `CSP`, `Referrer-Policy`, `Cache-Control: no-store`) facilita ataques de degradación TLS, XSS y fuga de tokens en URLs.
+### The Risk
+If an application continues accepting traffic when security policy loading or authorization engine initialization fails (*Fail-Open*), an attacker can induce resource exhaustion to bypass access controls. Additionally, missing OSHP headers (`HSTS`, `CSP`, `Referrer-Policy`, `Cache-Control: no-store`) enable TLS downgrade attacks, XSS, and token leakage in URLs.
 
-### Implementación Obligatoria (FastAPI Middleware + Lifespan Fail-Secure)
+### Mandatory Implementation (FastAPI Middleware + Fail-Secure Lifespan)
 ```python
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
 async def verify_security_functions_self_test() -> None:
-    """DISA STIG V-222616 (APSC-DV-002770): Auto-verificación de funciones criptográficas y de seguridad al arranque."""
+    """DISA STIG V-222616 (APSC-DV-002770): Startup self-test of cryptographic and security functions."""
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
     key = AESGCM.generate_key(bit_length=256)
     nonce = b"\x00" * 12
     ct = AESGCM(key).encrypt(nonce, b"self-test", b"aad")
     if AESGCM(key).decrypt(nonce, ct, b"aad") != b"self-test":
-        raise RuntimeError("Fallo crítico en auto-verificación criptográfica.")
+        raise RuntimeError("Critical failure in cryptographic self-test.")
 
 @asynccontextmanager
 async def fail_secure_lifespan(app: FastAPI):
-    """DISA STIG V-222585 & OWASP AC-10: En caso de fallo de inicialización, abortar en estado seguro (Fail-Closed)."""
+    """DISA STIG V-222585 & OWASP AC-10: Abort in a secure state (Fail-Closed) upon initialization failure."""
     await verify_security_functions_self_test()
     yield
 
 class OWASPSecureHeadersMiddleware(BaseHTTPMiddleware):
-    """OWASP OSHP 5.4.4 & 4.3.9: Cabeceras de defensa en profundidad y supresión de banners de versión."""
+    """OWASP OSHP 5.4.4 & 4.3.9: Defense-in-depth headers and version banner suppression."""
 
     async def dispatch(self, request: Request, call_next) -> Response:
         response: Response = await call_next(request)
@@ -909,7 +911,7 @@ class OWASPSecureHeadersMiddleware(BaseHTTPMiddleware):
         if request.url.path.startswith("/api/"):
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
             response.headers["Pragma"] = "no-cache"
-        # 🔒 OWASP SC-11: Eliminar cabeceras que revelen versiones del servidor o framework
+        # 🔒 OWASP SC-11: Strip headers exposing server or framework versions
         for header in ("Server", "X-Powered-By"):
             if header in response.headers:
                 del response.headers[header]
@@ -918,18 +920,18 @@ class OWASPSecureHeadersMiddleware(BaseHTTPMiddleware):
 
 ---
 
-## Patrón 21: Mitigación de OWASP API Security Top 10 (2023), Anti-Data-Mining y Consumo Seguro de APIs
+## Pattern 21: OWASP API Security Top 10 (2023) Mitigation, Anti-Data-Mining, and Unsafe API Consumption Defense
 
-### Referencias Normativas
+### Normative References
 - **DISA ASD STIG V6R5:** `V-222424` (`APSC-DV-000450`), `V-222425` (`APSC-DV-000460`).
-- **OWASP Developer Guide v4.2:** Sección `7.8 OWASP API Security Top 10` (`API1:2023 BOLA`, `API3:2023 BOPLA`, `API4:2023 Unrestricted Resource Consumption`, `API5:2023 BFLA`, `API6:2023 Sensitive Business Flows`, `API10:2023 Unsafe Consumption of APIs`).
+- **OWASP Developer Guide v4.2:** Section `7.8 OWASP API Security Top 10` (`API1:2023 BOLA`, `API3:2023 BOPLA`, `API4:2023 Unrestricted Resource Consumption`, `API5:2023 BFLA`, `API6:2023 Sensitive Business Flows`, `API10:2023 Unsafe Consumption of APIs`).
 
-### El Riesgo
-1. **BOLA (`API1:2023`) y BOPLA (`API3:2023`):** Permitir el acceso a un objeto por su ID sin verificar simultáneamente la pertenencia al `tenant_id` y al propietario, o devolver atributos internos sensibles por no usar un esquema de salida explícito.
-2. **Data Mining (`V-222424` / `API4:2023`):** Consultas masivas o enumeración automatizada de registros para exfiltrar la base de datos página por página.
-3. **Consumo Inseguro de APIs de Terceros (`API10:2023`):** Confiar ciegamente en respuestas JSON de APIs externas sin aplicar timeouts, límites de tamaño ni validación de esquema.
+### The Risk
+1. **BOLA (`API1:2023`) and BOPLA (`API3:2023`):** Allowing object access by ID without verifying both `tenant_id` and owner membership, or returning sensitive internal attributes by omitting an explicit output schema.
+2. **Data Mining (`V-222424` / `API4:2023`):** Bulk queries or automated record enumeration to exfiltrate the database page by page.
+3. **Unsafe Consumption of Third-Party APIs (`API10:2023`):** Blindly trusting JSON responses from external APIs without applying timeouts, size limits, or schema validation.
 
-### Implementación Obligatoria (Python / FastAPI)
+### Mandatory Implementation (Python / FastAPI)
 ```python
 import httpx
 from fastapi import HTTPException, status
@@ -939,7 +941,7 @@ MAX_PAGE_LIMIT = 100
 DATA_MINING_QUERY_THRESHOLD_PER_MIN = 60
 
 class ExternalPartnerPayload(BaseModel):
-    """OWASP API10:2023: Validar estrictamente payloads provenientes de APIs de terceros."""
+    """OWASP API10:2023: Strictly validate payloads originating from third-party APIs."""
     model_config = ConfigDict(extra="forbid")
     partner_id: str = Field(min_length=3, max_length=64)
     status: str = Field(pattern=r"^(ACTIVE|SUSPENDED|PENDING)$")
@@ -950,11 +952,11 @@ async def enforce_anti_data_mining_quota(
     user_id: str,
     requested_limit: int,
 ) -> int:
-    """DISA STIG V-222424 (APSC-DV-000450) & OWASP API4:2023: Limita paginación y detecta extracción masiva."""
+    """DISA STIG V-222424 (APSC-DV-000450) & OWASP API4:2023: Caps pagination and detects bulk scraping."""
     if requested_limit > MAX_PAGE_LIMIT:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"El límite máximo por página es {MAX_PAGE_LIMIT}.",
+            detail=f"Maximum page limit is {MAX_PAGE_LIMIT}.",
         )
     rate_key = f"datamining:{tenant_id}:{user_id}"
     count = await redis_client.incr(rate_key)
@@ -963,44 +965,44 @@ async def enforce_anti_data_mining_quota(
     if count > DATA_MINING_QUERY_THRESHOLD_PER_MIN:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Patrón anómalo de extracción masiva de datos bloqueado (APSC-DV-000450).",
+            detail="Anomalous bulk data extraction pattern blocked (APSC-DV-000450).",
         )
     return requested_limit
 
 async def fetch_external_partner_safely(url: str) -> ExternalPartnerPayload:
-    """OWASP API10:2023: Timeouts estrictos, TLS verificado, sin redirecciones abiertas y validación Pydantic."""
+    """OWASP API10:2023: Strict timeouts, verified TLS, no open redirects, and Pydantic validation."""
     async with httpx.AsyncClient(timeout=5.0, follow_redirects=False, verify=True) as client:
         resp = await client.get(url)
         resp.raise_for_status()
         if len(resp.content) > 65536:
-            raise ValueError("Respuesta de API externa excede la cuota de seguridad.")
+            raise ValueError("External API response exceeds security quota.")
         return ExternalPartnerPayload.model_validate_json(resp.content)
 ```
 
 ---
 
-## Patrón 22: Cadena de Suministro (CycloneDX SBOM/CBOM), Firma de Artefactos y Threat Modeling como Código
+## Pattern 22: Supply Chain (CycloneDX SBOM/CBOM), Artifact Signing, and Threat Modeling as Code
 
-### Referencias Normativas
+### Normative References
 - **DISA ASD STIG V6R5:** `V-222513` (`APSC-DV-001430`), `V-222613` (`APSC-DV-002600`), `V-222645` (`APSC-DV-003140`), `V-222655` (`APSC-DV-003230`), `V-222658` (`APSC-DV-003245`).
-- **OWASP Developer Guide v4.2:** Secciones `4.2 Threat Modeling (pytm / Threat Dragon)`, `4.3.3 Software Libraries (SFL 1-15)` y `5.3.4 OWASP CycloneDX (ECMA-424 SBOM / CBOM / VEX)`.
+- **OWASP Developer Guide v4.2:** Sections `4.2 Threat Modeling (pytm / Threat Dragon)`, `4.3.3 Software Libraries (SFL 1-15)`, and `5.3.4 OWASP CycloneDX (ECMA-424 SBOM / CBOM / VEX)`.
 
-### El Riesgo
-Desplegar contenedores o paquetes sin un inventario verificable de componentes (*Software & Cryptography Bill of Materials*), sin verificar firmas criptográficas o sin modelar las amenazas de la arquitectura antes de codificar permite ataques a la cadena de suministro (*Supply Chain Attacks*) y fallos estructurales de diseño.
+### The Risk
+Deploying containers or packages without a verifiable component inventory (*Software & Cryptography Bill of Materials*), without verifying cryptographic signatures, or without threat-modeling the architecture prior to coding invites *Supply Chain Attacks* and structural design flaws.
 
-### Implementación Obligatoria (Threat Modeling como Código con `pytm` y Generación de CycloneDX SBOM)
+### Mandatory Implementation (Threat Modeling as Code with `pytm` and CycloneDX SBOM Generation)
 ```python
 # threat_model.py — OWASP pytm (DISA STIG V-222655 / OWASP 4.2.5)
 from pytm import TM, Actor, Boundary, Data, Dataflow, Datastore, DatastoreType, Server
 
-tm = TM("Arquitectura Corporativa 11X")
-tm.description = "Modelo de amenazas programático (STRIDE) sincronizado en CI/CD"
+tm = TM("Corporate Architecture 11X")
+tm.description = "Programmatic threat model (STRIDE) synchronized in CI/CD"
 tm.isOrdered = True
 
-internet = Boundary("Internet Pública")
-vpc_privada = Boundary("Red Interna de Contenedores Docker")
+internet = Boundary("Public Internet")
+vpc_privada = Boundary("Internal Docker Container Network")
 
-operador = Actor("Operador Autenticado")
+operador = Actor("Authenticated Operator")
 operador.inBoundary = internet
 
 api_gateway = Server("FastAPI Backend")
@@ -1011,13 +1013,13 @@ api_gateway.controls.sanitizesInput = True
 api_gateway.controls.validatesInput = True
 api_gateway.controls.authorizesSource = True
 
-postgres_rls = Datastore("PostgreSQL 16 con FORCE RLS")
+postgres_rls = Datastore("PostgreSQL 16 with FORCE RLS")
 postgres_rls.inBoundary = vpc_privada
 postgres_rls.type = DatastoreType.SQL
 postgres_rls.controls.isEncryptedAtRest = True
 
-credenciales = Data("Payload Autenticado con CSRF y Cookie HttpOnly")
-flujo_https = Dataflow(operador, api_gateway, "Petición HTTPS TLS 1.3")
+credenciales = Data("Authenticated Payload with CSRF & HttpOnly Cookie")
+flujo_https = Dataflow(operador, api_gateway, "HTTPS TLS 1.3 Request")
 flujo_https.protocol = "HTTPS"
 flujo_https.dstPort = 443
 flujo_https.data = credenciales
@@ -1025,28 +1027,28 @@ flujo_https.controls.isEncryptedInTransit = True
 ```
 
 ```bash
-# 🔒 Generación de SBOM / CBOM en formato estándar OWASP CycloneDX (ECMA-424) y verificación de integridad
+# 🔒 Generate SBOM / CBOM in standard OWASP CycloneDX (ECMA-424) format and verify integrity
 docker compose -f fastapi/docker-compose.qa.yml run --rm qa-backend \
   uv run cyclonedx-py environment -o sbom-backend.cdx.json
 
-# 🔒 Verificación criptográfica SHA-256 del artefacto y SBOM antes de publicación (DISA V-222513 / V-222645)
+# 🔒 Cryptographic SHA-256 verification of artifact and SBOM prior to publishing (DISA V-222513 / V-222645)
 sha256sum sbom-backend.cdx.json > sbom-backend.cdx.json.sha256
 sha256sum --check sbom-backend.cdx.json.sha256
 ```
 
 ---
 
-## Anexo PHP 8.2–8.5 (`sinfallas/basephpcomposer`): Recetario de Seguridad DISA ASD STIG V6R5 + OWASP v4.2
+## PHP 8.2–8.5 Annex (`sinfallas/basephpcomposer`): DISA ASD STIG V6R5 + OWASP v4.2 Security Cookbook
 
-En aplicaciones y APIs construidas sobre **PHP 8.2 a 8.5** utilizando la imagen base oficial multi-arquitectura (`amd64`/`arm64`) `sinfallas/basephpcomposer` (tags `8.2`, `8.3`, `8.4`, `8.5` y `latest`), se deben aplicar de forma innegociable los siguientes controles nativos:
+In applications and APIs built on **PHP 8.2 to 8.5** using the official multi-architecture (`amd64`/`arm64`) base image `sinfallas/basephpcomposer` (tags `8.2`, `8.3`, `8.4`, `8.5`, and `latest`), the following native controls must be enforced non-negotiably:
 
-1. **Directivas de Endurecimiento en `php.ini` / `conf.d/99-qa11x.ini` (`DISA APSC-DV-002430` & `OWASP OSHP`):**
-   - `expose_php = Off` (suprime el banner `X-Powered-By: PHP/8.x` en todas las respuestas HTTP).
-   - `zend.exception_ignore_args = On` y `display_errors = Off` (evita fugas de contraseñas o tokens en stack traces).
-   - `session.use_strict_mode = 1`, `session.cookie_httponly = 1`, `session.cookie_secure = 1`, `session.cookie_samesite = "Strict"` y `session.cache_expire = 15` (en PHP 8.4/8.5 se deprecaron `session.sid_length` y `session.sid_bits_per_character` en favor del CSPRNG nativo de 32 bytes; monte configuraciones personalizadas en `/usr/local/etc/php/conf.d/99-qa11x.ini` para prevalecer sobre `conf.d/docker-php-ext-pcov.ini`).
-   - `opcache.save_comments = 1` (indispensable para no romper atributos PHP 8 `#[...]` ni anotaciones de validación/rutas en Doctrine, Symfony, Laravel y Swagger-PHP).
+1. **Hardening Directives in `php.ini` / `conf.d/99-qa11x.ini` (`DISA APSC-DV-002430` & `OWASP OSHP`):**
+   - `expose_php = Off` (suppresses the `X-Powered-By: PHP/8.x` banner on all HTTP responses).
+   - `zend.exception_ignore_args = On` and `display_errors = Off` (prevents password or token leaks in stack traces).
+   - `session.use_strict_mode = 1`, `session.cookie_httponly = 1`, `session.cookie_secure = 1`, `session.cookie_samesite = "Strict"`, and `session.cache_expire = 15` (in PHP 8.4/8.5, `session.sid_length` and `session.sid_bits_per_character` were deprecated in favor of the native 32-byte CSPRNG; mount custom overrides at `/usr/local/etc/php/conf.d/99-qa11x.ini` to take precedence over `conf.d/docker-php-ext-pcov.ini`).
+   - `opcache.save_comments = 1` (essential so PHP 8 attributes `#[...]` and Doctrine, Symfony, Laravel, and Swagger-PHP validation/routing annotations remain intact).
 
-2. **Canonicalización Unicode NFKC, Bóveda AES-256-GCM con `sodium_memzero` y Argon2id en Tiempo Constante:**
+2. **Unicode NFKC Canonicalization, AES-256-GCM Vault with `sodium_memzero`, and Constant-Time Argon2id:**
 ```php
 <?php
 
@@ -1059,23 +1061,23 @@ final class DisaStigSecurityGuard
     private const DUMMY_ARGON2ID_HASH = '$argon2id$v=19$m=65536,t=4,p=1$c2luZmFsbGFzMTF4$7W5rT3x9mK2pL8vN1qR4sT6uV8wX0yZ2aB4cD6eF8gH';
 
     /**
-     * Patrón 16 (APSC-DV-002520): Canonicalización Unicode NFKC previa a cualquier validación.
+     * Pattern 16 (APSC-DV-002520): Unicode NFKC canonicalization prior to any validation.
      */
     public static function canonicalizeNfkc(string $rawInput, int $maxLength = 256): string
     {
         $normalized = \Normalizer::normalize($rawInput, \Normalizer::FORM_KC);
         if ($normalized === false) {
-            throw new \InvalidArgumentException('Secuencia UTF-8 inválida.');
+            throw new \InvalidArgumentException('Invalid UTF-8 sequence.');
         }
         $trimmed = trim($normalized);
         if (mb_strlen($trimmed, 'UTF-8') > $maxLength || preg_match('/[\x00-\x1F\x7F]/u', $trimmed) === 1) {
-            throw new \InvalidArgumentException('Entrada rechazada por longitud o caracteres de control ASCII.');
+            throw new \InvalidArgumentException('Input rejected due to length or ASCII control characters.');
         }
         return $trimmed;
     }
 
     /**
-     * Patrón 19 (APSC-DV-002010 / APSC-DV-002590): Cifrado AES-256-GCM con AAD y zeroización de clave en RAM.
+     * Pattern 19 (APSC-DV-002010 / APSC-DV-002590): AES-256-GCM encryption with AAD and in-RAM key zeroization.
      */
     public static function encryptSecretWithZeroization(string $plaintext, string &$rawKey32Bytes, string $tenantId): string
     {
@@ -1093,23 +1095,23 @@ final class DisaStigSecurityGuard
                 16
             );
             if ($ciphertext === false) {
-                throw new \RuntimeException('Fallo en cifrado autenticado AES-256-GCM.');
+                throw new \RuntimeException('AES-256-GCM authenticated encryption failure.');
             }
             return base64_encode($iv . $tag . $ciphertext);
         } finally {
-            // 🔒 Zeroización nativa en C del buffer de memoria (ext-sodium)
+            // 🔒 Native C-level zeroization of the memory buffer (ext-sodium)
             sodium_memzero($rawKey32Bytes);
         }
     }
 
     /**
-     * Patrón 15 (APSC-DV-000530): Verificación Argon2id en tiempo constante con bloqueo a 3 intentos / 15m en KeyDB.
+     * Pattern 15 (APSC-DV-000530): Constant-time Argon2id verification with 3-attempt / 15m lockout in KeyDB.
      */
     public static function verifyCredentialsConstantTime(\Redis $keydb, ?array $userRecord, string $password, string $username): bool
     {
         $failKey = "auth_fail:{$username}";
         if ((int) ($keydb->get($failKey) ?: 0) >= 3) {
-            throw new \RuntimeException('Cuenta bloqueada temporalmente por 15 minutos (APSC-DV-000530).');
+            throw new \RuntimeException('Account temporarily locked for 15 minutes (APSC-DV-000530).');
         }
         $targetHash = is_array($userRecord) && isset($userRecord['password_hash'])
             ? (string) $userRecord['password_hash']
@@ -1121,11 +1123,10 @@ final class DisaStigSecurityGuard
             if ($attempts === 1) {
                 $keydb->expire($failKey, 900);
             }
-            throw new \RuntimeException('Credenciales inválidas o cuenta bloqueada.');
+            throw new \RuntimeException('Invalid credentials or account locked.');
         }
         $keydb->del($failKey);
         return true;
     }
 }
 ```
-

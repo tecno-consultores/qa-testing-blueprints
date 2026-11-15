@@ -4,6 +4,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { Resource } from '@modelcontextprotocol/sdk/types.js';
+import type { ResourceLanguage } from '../types.js';
+import { getActiveResourceLang } from './resourceLang.js';
 
 export const AI_EVALS_REDTEAM_URI = 'blueprint://ai/evals-redteam' as const;
 export const AI_EVALS_REDTEAM_MIME_TYPE = 'text/markdown' as const;
@@ -91,8 +93,44 @@ function loadPromptfooExcerpt(workspaceRoot: string): {
 
 function renderBlueprintMarkdown(
   source: 'workspace' | 'embedded-fallback',
-  promptfooExcerpt: string
+  promptfooExcerpt: string,
+  lang: ResourceLanguage
 ): string {
+  if (lang === 'es') {
+    return [
+      '# Blueprint QA-11X de AI Evals & OWASP Red Team (`ai-evals`)',
+      '',
+      '## 1. Umbrales Cuantitativos Bloqueantes',
+      '- **Alucinación (`Hallucination`):** `Hallucination < 0.05` (bloqueante)',
+      '- **Fidelidad (`Faithfulness`):** `Faithfulness >= 0.90`',
+      '- **Trayectoria (`Trajectory`):** `Trajectory >= 0.90` (precedencia AST + `QA-GIT-GATE-01`)',
+      '- **Compilación (`Compilation`):** `Compilation > 94%` (`> 0.94`)',
+      '- **Regeneración (`Regeneration`):** `Regeneration < 1.2` iteraciones por paso',
+      '- **Cobertura y Complejidad Offline:** `>= 95%` (`CC <= 5`, `mypy --strict`)',
+      '',
+      '## 2. Suites de Evaluación Cubiertas (`ai-evals/`) y Skill',
+      '- **Skill:** `.agents/skills/qa-11x-llm-evaluator/SKILL.md` (`evaluate_agent_trajectory`, `run_llm_red_team`)',
+      '- **Tríada RAG y Fundamentación:** `ai-evals/rag/test_rag_faithfulness.py`',
+      '- **PDF Multimodal y Reconciliación Decimal OCR:** `ai-evals/multimodal-ocr/test_pdf_table_fidelity.py`',
+      '- **Latencia Voz Tiempo Real WS/WebRTC:** `ai-evals/voice-realtime/test_voice_websocket_latency.py`',
+      '- **Pipeline Trace-to-Golden con Redacción PII:** `ai-evals/golden_from_traces.py`',
+      '',
+      '## 3. Ejecución Efímera Dual-Mode (Regla Cero Docker)',
+      '- **CI Offline ($0, 0 red):** `make test-ai-offline` (`sinfallas/base-python-uv:3.15`)',
+      '- **Auditoría Probabilística en Vivo:** `make audit-llm` (`DeepEval` + `Promptfoo`, sale `2` sin credenciales evitando cuelgue TTY)',
+      '',
+      '## 4. Perfiles Locales Privados (Ollama / vLLM)',
+      '- **Ollama:** `export OLLAMA_BASE_URL="http://host.docker.internal:11434"` y `export QA_LLM_MODEL="qwen3:8b"`',
+      '- **vLLM (compatible OpenAI):** `export OPENAI_API_BASE="http://host.docker.internal:8000/v1"` y `export OPENAI_API_KEY="EMPTY"`',
+      '',
+      `## 5. Extracto Verificado de \`${AI_EVALS_PROMPTFOO_REL_PATH}\` (${source})`,
+      '```yaml',
+      promptfooExcerpt,
+      '```',
+      '',
+    ].join('\n');
+  }
+
   return [
     '# QA-11X AI Evals & OWASP Red Team Blueprint (`ai-evals`)',
     '',
@@ -127,10 +165,14 @@ function renderBlueprintMarkdown(
   ].join('\n');
 }
 
-export function readAiEvalsBlueprint(workspaceRoot?: string): AiEvalsBlueprintResult {
+export function readAiEvalsBlueprint(
+  workspaceRoot?: string,
+  lang?: ResourceLanguage
+): AiEvalsBlueprintResult {
+  const resolvedLang = getActiveResourceLang(undefined, lang);
   const effectiveRoot = workspaceRoot ?? resolveDefaultWorkspaceRoot();
   const { source, excerpt } = loadPromptfooExcerpt(effectiveRoot);
-  const text = renderBlueprintMarkdown(source, excerpt);
+  const text = renderBlueprintMarkdown(source, excerpt, resolvedLang);
   return {
     uri: AI_EVALS_REDTEAM_URI,
     mimeType: AI_EVALS_REDTEAM_MIME_TYPE,

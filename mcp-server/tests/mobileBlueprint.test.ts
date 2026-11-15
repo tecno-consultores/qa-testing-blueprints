@@ -102,11 +102,28 @@ describe('stackBlueprints MCP resource (T4.4)', () => {
       expect(byAuto.source).toBe('workspace');
       expect(byAuto.text).toContain('Appium 3 / WebdriverIO v9 + Screenplay');
       expect(byAuto.text).toContain('MobileActor');
-      expect(byAuto.text).toContain('sinfallas/base-node-ionic:26');
+      expect(byAuto.text).toContain('sinfallas/base-mobile-appium:26');
+
+      const bySpanish = readMobileAppiumBlueprint(REAL_WORKSPACE_ROOT, 'es');
+      expect(bySpanish.source).toBe('workspace');
+      expect(bySpanish.text).toContain('Regla Cero');
+      expect(bySpanish.text).toContain('sinfallas/base-mobile-appium:26');
     }
 
     const byStackName = readStackBlueprintResource('mobile-appium', REAL_WORKSPACE_ROOT);
     expect(byStackName.text).toBe(byAuto.text);
+
+    const noEsMirrorWs = makeTempDir('qa11x-mobile-en-only-');
+    fs.mkdirSync(path.join(noEsMirrorWs, 'mobile-appium'), { recursive: true });
+    fs.writeFileSync(path.join(noEsMirrorWs, MOBILE_APPIUM_README_REL_PATH), '# English Only Mirror\n', 'utf8');
+    const esFallback = readMobileAppiumBlueprint(noEsMirrorWs, 'es');
+    expect(esFallback.source).toBe('workspace');
+    expect(esFallback.text).toContain('English Only Mirror');
+
+    const emptyEsWs = makeTempDir('qa11x-mobile-empty-es-');
+    const embeddedEs = readMobileAppiumBlueprint(emptyEsWs, 'es');
+    expect(embeddedEs.source).toBe('embedded-fallback');
+    expect(embeddedEs.text).toContain('Regla Cero');
   });
 
   it('soporta autodetección vía cwd/QA_BLUEPRINTS_LOCAL_PATH y fallback seguro anti-symlink', () => {

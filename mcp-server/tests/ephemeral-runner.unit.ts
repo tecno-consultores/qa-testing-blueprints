@@ -462,6 +462,34 @@ describe('ephemeral-runner', () => {
     expect(resolveComposeDirectFallback(pyDir, 'migration')?.[0]).toEqual(
       expect.arrayContaining(['qa-backend', 'alembic', 'upgrade', 'head'])
     );
+
+    // Mobile / Appium stack (Spec 20)
+    const mobDir = path.join(tempDir, 'mob-app');
+    fs.mkdirSync(mobDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(mobDir, 'package.json'),
+      JSON.stringify({
+        name: 'mobile-app',
+        qa_11x_base_image: 'sinfallas/base-mobile-appium:26',
+        scripts: { lint: 'tsc --noEmit', test: 'node --test tests/*.spec.ts' },
+      })
+    );
+    fs.writeFileSync(
+      path.join(mobDir, 'docker-compose.qa.yml'),
+      'services:\n  qa-mobile:\n    image: sinfallas/base-mobile-appium:26\n'
+    );
+    expect(resolveComposeDirectFallback(mobDir, 'lint')?.[0]?.slice(-4)).toEqual([
+      'qa-mobile',
+      'pnpm',
+      'run',
+      'lint',
+    ]);
+    expect(resolveComposeDirectFallback(mobDir, 'unit')?.[0]?.slice(-4)).toEqual([
+      'qa-mobile',
+      'pnpm',
+      'run',
+      'test',
+    ]);
   });
 
   it('hasUnquotedShellSyntax distingue operadores/subshells no citados frente a comillas simples o escapes \\$', async () => {
@@ -624,12 +652,23 @@ describe('ephemeral-runner', () => {
         'utf8'
       );
 
+      fs.mkdirSync(path.join(tempDir, 'mobile-appium', 'coverage'), { recursive: true });
+      fs.writeFileSync(
+        path.join(tempDir, 'mobile-appium', 'coverage', 'lcov.info'),
+        'SF:/app/tests/mobile_screenplay.spec.ts\nDA:1,1\nend_of_record\n',
+        'utf8'
+      );
+
       const harvested = harvestCoverageReports(tempDir);
       expect(harvested).toEqual([
         path.join(covDir, 'php.xml'),
         path.join(covDir, 'fastapi.xml'),
+        path.join(covDir, 'mobile-appium.info'),
         path.join(covDir, 'vue3.info'),
       ]);
+      expect(fs.readFileSync(path.join(covDir, 'mobile-appium.info'), 'utf8')).toContain(
+        'SF:mobile-appium/tests/mobile_screenplay.spec.ts'
+      );
       expect(fs.existsSync(path.join(covDir, 'cobertura.xml'))).toBe(false);
       expect(fs.existsSync(path.join(covDir, 'lcov.info'))).toBe(false);
       expect(fs.readFileSync(path.join(covDir, 'php.xml'), 'utf8')).toBe('<coverage id="php-primary"/>');
