@@ -352,6 +352,29 @@ export interface QaMutationSummary {
   mutation_score: number;
 }
 
+export type TrackedFindingStatus = 'NEW' | 'PERSISTENT' | 'REGRESSION_OSCILLATION';
+
+export interface QaTrackedFindingSummary {
+  fingerprint: string;
+  layer: string;
+  stack: string;
+  relative_file: string;
+  rule_or_test_name: string;
+  canonical_message: string;
+  status: TrackedFindingStatus;
+  consecutive_streak: number;
+  oscillations: number;
+}
+
+export interface QaCircuitBreakerAlert {
+  triggered: boolean;
+  code: 'BREAKER_42' | null;
+  session_key: string;
+  max_streak_observed: number;
+  oscillations_observed: number;
+  blocking_findings: QaTrackedFindingSummary[];
+}
+
 export interface QaExecutionResult {
   status: 'PASSED' | 'FAILED' | 'SKIPPED';
   stage: string;
@@ -363,6 +386,7 @@ export interface QaExecutionResult {
   security_alerts: QaSecurityAlerts;
   mutation_summary: QaMutationSummary | null;
   tail_log: string;
+  circuit_breaker?: QaCircuitBreakerAlert;
 }
 
 export interface CertifyGateResult {

@@ -84,6 +84,7 @@ Welcome to the **QA Testing Blueprints** repository. All AI coding assistants (G
 - `inspect_blast_radius.py`: Automated bidirectional AST inspector for Code Q&A and pre-refactoring blast radius (declaring `file:line`, incoming callers, and outgoing callees).
 - `verify_topological_health.py`: Automated AST architectural validator detecting forbidden cross-layer coupling and layer boundary violations.
 - `verify_diff_coverage.py`: Multi-stack differential coverage & anti-evasion gate (`100%` delta line coverage, `>= 90%` delta branch coverage, `QA11X-APPROVED-EXCLUSION`, Anti-XXE / missing-report guards).
+- `track_findings_state.py`: Deterministic line-shift-invariant finding state tracker and anti-loop circuit breaker (`exit 42` on `consecutive_streak >= 3` or `A -> B -> A` oscillation).
 
 ---
 

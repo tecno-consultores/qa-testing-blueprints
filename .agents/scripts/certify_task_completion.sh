@@ -22,8 +22,42 @@ sanitize_shell_text() {
   local raw="$1"
   local esc
   esc=$(printf '\033')
-  printf '%s' "${raw}" \
-    | sed -E "s/${esc}\\[[0-9;]*[a-zA-Z]//g; s/(Bearer|Basic)[[:space:]]+[^[:space:]\"']+/\\1 [REDACTED]/g; s/(:\\/\\/[^\\/:@]+:)[^\\/@]+(@)/\\1[REDACTED]\\2/g; s/(token|access_token|api_key|apikey|secret|password|passwd)=[^[:space:]\"'&]+/\\1=[REDACTED]/g"
+  printf '%s' "${raw}" |
+    sed -E "s/${esc}\\[[0-9;]*[a-zA-Z]//g; s/(Bearer|Basic)[[:space:]]+[^[:space:]\"']+/\\1 [REDACTED]/g; s/(:\\/\\/[^\\/:@]+:)[^\\/@]+(@)/\\1[REDACTED]\\2/g; s/(token|access_token|api_key|apikey|secret|password|passwd)=[^[:space:]\"'&]+/\\1=[REDACTED]/g"
+}
+
+json_escape_line() {
+  printf '%s' "$1" | tr -d '\r\t\n' | sed -e 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+run_certify_findings_tracker() {
+  local payload="$1"
+  local tracker_script="${SCRIPT_DIR}/track_findings_state.py"
+
+  if [ ! -f "${tracker_script}" ] || [ ! -w "${REPO_ROOT}" ]; then
+    return 0
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    printf '%s' "${payload}" | python3 "${tracker_script}" \
+      --state-file "${REPO_ROOT}/.agents/.cache/certify_state.json" \
+      --findings-input - \
+      --workspace "${REPO_ROOT}" \
+      --max-streak 3
+    return $?
+  fi
+  if command -v docker >/dev/null 2>&1; then
+    printf '%s' "${payload}" | docker run -i --rm --network none \
+      -u "$(id -u):$(id -g)" -e HOME=/tmp \
+      -v "${REPO_ROOT}:/app" -w /app \
+      sinfallas/base-python-uv:3.15 \
+      python3 .agents/scripts/track_findings_state.py \
+      --state-file /app/.agents/.cache/certify_state.json \
+      --findings-input - \
+      --workspace /app \
+      --max-streak 3
+    return $?
+  fi
+  return 0
 }
 
 write_allure_failure_json() {
@@ -39,14 +73,14 @@ write_allure_failure_json() {
   fi
 
   QA_DIAG_PATH="${DIAGNOSTIC_JSON_PATH}" \
-  QA_GATE_NUM="${gate_num}" \
-  QA_GATE_NAME="${gate_name}" \
-  QA_CMD="${cmd_display}" \
-  QA_RC="${rc}" \
-  QA_REMEDIATION="${remediation}" \
-  QA_LOG_FILE="${gate_log}" \
-  QA_STEPS_FILE="${GATE_STEPS_LOG}" \
-  python3 - <<'PYEOF' 2>/dev/null || true
+    QA_GATE_NUM="${gate_num}" \
+    QA_GATE_NAME="${gate_name}" \
+    QA_CMD="${cmd_display}" \
+    QA_RC="${rc}" \
+    QA_REMEDIATION="${remediation}" \
+    QA_LOG_FILE="${gate_log}" \
+    QA_STEPS_FILE="${GATE_STEPS_LOG}" \
+    python3 - <<'PYEOF' 2>/dev/null || true
 import json
 import os
 import re
@@ -156,6 +190,10 @@ run_gate() {
   local gate_log
   local rc
   local summary_line
+  local diag_line
+  local finding_payload
+  local tracker_out
+  local tracker_rc
 
   gate_log="${GATE_TMP_DIR}/gate_${gate_num}.log"
   rc=0
@@ -169,6 +207,20 @@ run_gate() {
     fi
     printf '[%s/10] %s\n' "${gate_num}" "${summary_line}"
     return 0
+  fi
+
+  diag_line="$(sanitize_shell_text "$(grep -v '^[[:space:]]*$' "${gate_log}" 2>/dev/null | head -n 1 || true)")"
+  if [ -z "${diag_line}" ]; then
+    diag_line="Gate ${gate_num} (${gate_name}) failed with exit ${rc}"
+  fi
+  finding_payload="$(printf '[{"layer":"certify-gate-%s","stack":"certify","file":"gate-%s","rule":"%s","message":"%s"}]' \
+    "${gate_num}" "${gate_num}" "$(json_escape_line "${gate_name}")" "$(json_escape_line "${diag_line}")")"
+  tracker_out=""
+  tracker_rc=0
+  tracker_out="$(run_certify_findings_tracker "${finding_payload}" 2>&1)" || tracker_rc=$?
+  if [ "${tracker_rc}" -eq 42 ]; then
+    printf '\n%s\n' "${tracker_out}" >>"${gate_log}"
+    rc=42
   fi
 
   printf '%s/10|%s|failed\n' "${gate_num}" "${gate_name}" >>"${GATE_STEPS_LOG}"
@@ -411,5 +463,12 @@ run_gate 10 "Doc & Test Sync" \
   "Añade pruebas unitarias/BDD junto al código modificado y actualiza CHANGELOG.md o docs/ correspondientes." \
   "python3 .agents/scripts/verify_docs_invariants.py && git diff/status sync" \
   gate_10_doc_and_test_sync
+
+pass_tracker_out=""
+pass_tracker_rc=0
+pass_tracker_out="$(run_certify_findings_tracker '{"stage":"certify","findings":[]}' 2>/dev/null)" || pass_tracker_rc=$?
+if [ "${pass_tracker_rc}" -eq 0 ] && [ -n "${pass_tracker_out}" ]; then
+  printf '%s\n' "${pass_tracker_out}"
+fi
 
 printf '✅ CERTIFICACIÓN EXITOSA: El proyecto cumple con el estándar 11X\n'

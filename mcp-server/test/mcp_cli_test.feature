@@ -1068,5 +1068,32 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert docs02.contains('QA11X-APPROVED-EXCLUSION')
     * assert docs02.contains('verify_diff_coverage.py')
 
+  Scenario: 35. Hito 22: Memoria determinista de hallazgos y cortacircuitos Anti-Loop BREAKER-42
+    * def findEntry = function(list, pathStr) { return karate.filter(list, function(x) { return x.path == pathStr })[0] }
+    * def trackerManifest = findEntry(manifest.agent_governance_files, '.agents/scripts/track_findings_state.py')
+    * match trackerManifest.sha256 == '#regex ^[0-9a-f]{64}$'
+    * def qaEvidenceTs = karate.readAsString(repoRoot + '/mcp-server/src/services/qa-evidence.ts')
+    * assert qaEvidenceTs.contains('CERTIFY_STATE_REL_PATH')
+    * assert qaEvidenceTs.contains('EXIT_BREAKER_42 = 42')
+    * assert qaEvidenceTs.contains('recordQaStageFindingsState')
+    * def runnerTs = karate.readAsString(repoRoot + '/mcp-server/src/tools/ephemeral-runner.ts')
+    * assert runnerTs.contains('BREAKER_42')
+    * assert runnerTs.contains('formatFailVerboseReport')
+    * def certifySh = karate.readAsString(repoRoot + '/.agents/scripts/certify_task_completion.sh')
+    * assert certifySh.contains('run_certify_findings_tracker')
+    * assert certifySh.contains('track_findings_state.py')
+    * def guardrailRule = karate.readAsString(repoRoot + '/.agents/rules/anti_regression_and_side_effects_guardrail.md')
+    * assert guardrailRule.contains('BREAKER-42')
+    * assert guardrailRule.contains('track_findings_state.py')
+    * def debugSkill = karate.readAsString(repoRoot + '/.agents/skills/qa-11x-systematic-debugging/SKILL.md')
+    * assert debugSkill.contains('BREAKER-42')
+    * assert debugSkill.contains('track_findings_state.py')
+    * def docs01 = karate.readAsString(repoRoot + '/docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md')
+    * assert docs01.contains('BREAKER-42')
+    * assert docs01.contains('track_findings_state.py')
+    * def pkgJson = karate.readAsString(repoRoot + '/mcp-server/package.json')
+    * assert pkgJson.contains('18 Tools, 12 Resources')
+
+
 
 

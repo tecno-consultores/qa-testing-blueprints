@@ -36,7 +36,7 @@
 | **Hito 19** | Invariante Anti-Silo #9 (`QA-HEALTH-01`), Nivelación Documental Humana 1:1 (`docs/02` y `docs/04`) y Gobernanza Dual-Consumer en `propose_skill_evolution_pr` y `verify_docs_invariants.py` | [`docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md`](docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md) + `SECURITY.md` §4.22 | ✅ Completado | `100%` |
 | **Hito 20** | Detección de Versión sin Red Redundante (`.qa-11x-version` + TTL 24h Fail-Open), Aviso `update_available` en Tools y Auto-Sync Global de Skills por SHA-256 (`v2.20.0`) | [`docs/ai-integration.md`](docs/ai-integration.md) + [`docs/agent-setup.md`](docs/agent-setup.md) | ✅ Completado | `100%` |
 | **Hito 21** | Cobertura Diferencial Multi-Stack (`verify_diff_coverage.py`), Persistencia Efímera de Reportes y Bloqueo Anti-Evasión | [`16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md`](docs/specs/16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md) | ✅ Completado | `100%` |
-| **Hito 22** | Memoria Determinista de Hallazgos y Cortacircuitos Anti-Loop (`exit 42`) en `run_ephemeral_qa` y `certify` | [`17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md`](docs/specs/17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md) | ⏳ Pendiente | `0%` |
+| **Hito 22** | Memoria Determinista de Hallazgos y Cortacircuitos Anti-Loop (`exit 42`) en `run_ephemeral_qa` y `certify` | [`17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md`](docs/specs/17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md) | ✅ Completado | `100%` |
 | **Hito 23** | Modo Diferencial en `inspect_ast_blast_radius` (Cero Inflación MCP) y Exportador Ejecutivo `PR_VERDICT.md` | [`18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md`](docs/specs/18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md) | ⏳ Pendiente | `0%` |
 
 ---
@@ -299,16 +299,16 @@
 
 ---
 
-## ⏳ Hito 22: Memoria Determinista de Hallazgos y Cortacircuitos Anti-Loop (`exit 42`) en `run_ephemeral_qa` y `certify`
+## ✅ Hito 22: Memoria Determinista de Hallazgos y Cortacircuitos Anti-Loop (`exit 42`) en `run_ephemeral_qa` y `certify`
 **Referencia Obligatoria:** [`docs/specs/17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md`](docs/specs/17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md)
 
 ### Tareas de Implementación:
-- [ ] **22.1.** Crear `.agents/scripts/track_findings_state.py` (parte 1: normalización de hallazgos invariante a números de línea, almacenamiento `0600` en `.agents/.cache/certify_state.json` por `branch:merge_base` y flag `--reset-state`).
-- [ ] **22.2.** Completar `.agents/scripts/track_findings_state.py` (parte 2: máquina de estados `RESOLVED`/`PERSISTENT`/`REGRESSION_OSCILLATION`/`NEW` y disparo `exit 42` con `streak >= 3` u `oscillation >= 1`, `CC <= 5`).
-- [ ] **22.3.** Crear `tests/test_track_findings_state.unit.py` (`>= 95%` cobertura en `sinfallas/base-python-uv:3.15` validando desplazamiento de líneas, cambio de rama, umbral `streak == 3`, oscilación `A -> B -> A` y `--reset-state`).
-- [ ] **22.4.** Integrar seguimiento de rachas y alerta estructurada `BREAKER_42` en `mcp-server/src/services/qa-evidence.ts` y `mcp-server/src/tools/ephemeral-runner.ts` (`run_ephemeral_qa`) conservando intactas las 18 Tools MCP.
-- [ ] **22.5.** Crear pruebas unitarias TypeScript en `mcp-server/tests/` (`>= 95%` cobertura en `sinfallas/base-node-ionic:26`) y acoplar `track_findings_state.py` en `.agents/scripts/certify_task_completion.sh`.
-- [ ] **22.6.** Documentar el protocolo `BREAKER-42` en `.agents/rules/anti_regression_and_side_effects_guardrail.md`, `.agents/skills/qa-11x-systematic-debugging/SKILL.md` (`< 20 KB`) y `docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`, actualizar grafo AST, `make sync-governance` y `make certify`.
+- [x] **22.1.** Crear `.agents/scripts/track_findings_state.py` (parte 1: normalización de hallazgos invariante a números de línea, almacenamiento `0600` en `.agents/.cache/certify_state.json` por `branch:merge_base` y flag `--reset-state`).
+- [x] **22.2.** Completar `.agents/scripts/track_findings_state.py` (parte 2: máquina de estados `RESOLVED`/`PERSISTENT`/`REGRESSION_OSCILLATION`/`NEW` y disparo `exit 42` con `streak >= 3` u `oscillation >= 1`, `CC <= 5`).
+- [x] **22.3.** Crear `tests/test_track_findings_state.unit.py` (`>= 95%` cobertura en `sinfallas/base-python-uv:3.15` validando desplazamiento de líneas, cambio de rama, umbral `streak == 3`, oscilación `A -> B -> A` y `--reset-state`).
+- [x] **22.4.** Integrar seguimiento de rachas y alerta estructurada `BREAKER_42` en `mcp-server/src/services/qa-evidence.ts` y `mcp-server/src/tools/ephemeral-runner.ts` (`run_ephemeral_qa`) conservando intactas las 18 Tools MCP.
+- [x] **22.5.** Crear pruebas unitarias TypeScript en `mcp-server/tests/` (`>= 95%` cobertura en `sinfallas/base-node-ionic:26`) y acoplar `track_findings_state.py` en `.agents/scripts/certify_task_completion.sh`.
+- [x] **22.6.** Documentar el protocolo `BREAKER-42` en `.agents/rules/anti_regression_and_side_effects_guardrail.md`, `.agents/skills/qa-11x-systematic-debugging/SKILL.md` (`< 20 KB`) y `docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`, actualizar grafo AST, `make sync-governance` y `make certify`.
 
 ---
 

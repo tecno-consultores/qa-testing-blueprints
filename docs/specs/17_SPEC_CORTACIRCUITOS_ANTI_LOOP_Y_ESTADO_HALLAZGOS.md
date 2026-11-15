@@ -3,7 +3,7 @@
 **Proyecto:** QA Testing Blueprints (`tecno-consultores/qa-testing-blueprints`)  
 **Componentes Objetivo (`Hito 22`):** `.agents/scripts/track_findings_state.py`, `tests/test_track_findings_state.unit.py`, `mcp-server/src/services/qa-evidence.ts`, `mcp-server/src/tools/ephemeral-runner.ts`, `.agents/scripts/certify_task_completion.sh`  
 **Superficie Pública MCP:** Se mantienen intactas las **18 Tools** y **12 Resources** vigentes  
-**Estado:** PLANIFICADO (HITO 22 — ENTREGA 2 DE 3)
+**Estado:** IMPLEMENTADO Y CERTIFICADO (HITO 22 — 100%)
 
 ---
 

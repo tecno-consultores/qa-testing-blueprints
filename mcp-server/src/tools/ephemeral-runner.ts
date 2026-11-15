@@ -6,17 +6,25 @@ import * as path from 'path';
 import { execFile, execFileSync } from 'child_process';
 import { parseQaOutput } from '../parsers/output-parsers.js';
 import {
+  DEFAULT_BREAKER_MAX_STREAK,
+  EXIT_BREAKER_42,
   extractPathsFromPorcelainLine,
   isDocFilePath,
+  isEphemeralQaArtifactPath,
+  RawFindingInput,
   recordQaStageEvidence,
+  recordQaStageFindingsState,
 } from '../services/qa-evidence.js';
 import { QaExecutionResult } from '../types.js';
+import { formatFailVerboseReport } from '../utils/diagnosticFormatter.js';
 
 const MAX_EXEC_BUFFER_BYTES = 20 * 1024 * 1024;
 const COMPOSE_QA_FILE = 'docker-compose.qa.yml';
 const DOCKER_BINARY = 'docker';
 const MAKE_BINARY = 'make';
 const STATUS_FAILED = 'FAILED' as const;
+const BREAKER_REMEDIATION =
+  'BREAKER-42 ACTIVADO: Detén ediciones a ciegas, consulta inspect_ast_blast_radius(changed_since_ref) y aplica las 4 fases de qa-11x-systematic-debugging (--reset-state requiere intervención humana).';
 const MAX_MAKE_DELEGATION_DEPTH = 3;
 const PREFERRED_QA_SERVICES = [
   'qa-php',
@@ -1032,6 +1040,77 @@ async function executeDockerFallbackSequence(
   } else {
     parsed.tail_log = `[Fallback Rule Zero sin GNU make -> docker] ${parsed.tail_log}`.trim();
   }
+  return applyStageTrackingAndEvidence(resolvedPath, stage, parsed, execFileSyncFn);
+}
+
+function extractStageFindings(parsed: QaExecutionResult): RawFindingInput[] {
+  const issues: RawFindingInput[] = parsed.linter_and_complexity_issues.map((item) => ({
+    layer: parsed.stage,
+    file: item.file,
+    rule: item.rule,
+    message: item.message,
+  }));
+  const failures: RawFindingInput[] = parsed.failed_tests.map((test) => ({
+    layer: parsed.stage,
+    file: test.test_name,
+    rule: test.test_name,
+    message: test.error_summary,
+  }));
+  const combined = [...issues, ...failures];
+  if (combined.length === 0 && parsed.status === STATUS_FAILED && parsed.exit_code !== 124) {
+    const firstDiag =
+      parsed.tail_log
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .find((line) => line.length > 0) ?? `Stage ${parsed.stage} failed`;
+    combined.push({
+      layer: parsed.stage,
+      file: parsed.stage,
+      rule: `exit-${parsed.exit_code}`,
+      message: firstDiag,
+    });
+  }
+  return combined;
+}
+
+function applyStageTrackingAndEvidence(
+  resolvedPath: string,
+  stage: string,
+  parsed: QaExecutionResult,
+  execFileSyncFn?: typeof execFileSync
+): QaExecutionResult {
+  if (fs.existsSync(resolvedPath)) {
+    const findings = extractStageFindings(parsed);
+    const breaker = recordQaStageFindingsState(
+      resolvedPath,
+      stage,
+      findings,
+      DEFAULT_BREAKER_MAX_STREAK,
+      execFileSyncFn
+    );
+    if (breaker.triggered) {
+      const blockingTrace = breaker.blocking_findings
+        .map(
+          (f) =>
+            `[${f.status} | fp=${f.fingerprint} | streak=${f.consecutive_streak} | osc=${f.oscillations}] ${f.relative_file} [${f.rule_or_test_name}]: ${f.canonical_message}`
+        )
+        .join('\n');
+      const alertBanner = formatFailVerboseReport({
+        stageId: `${stage}:BREAKER_42`,
+        passed: false,
+        broken: true,
+        durationMs: parsed.duration_ms,
+        command: `make qa-${stage}`,
+        exitCode: EXIT_BREAKER_42,
+        stderr: blockingTrace,
+        remediationHint: BREAKER_REMEDIATION,
+      });
+      parsed.status = STATUS_FAILED;
+      parsed.exit_code = EXIT_BREAKER_42;
+      parsed.circuit_breaker = breaker;
+      parsed.tail_log = `${alertBanner}\n${parsed.tail_log}`.trim();
+    }
+  }
   recordQaStageEvidence(resolvedPath, stage, parsed.status, execFileSyncFn);
   return parsed;
 }
@@ -1138,7 +1217,9 @@ export function isDocsOnlyWorkspaceChange(
       return false;
     }
 
-    const filePaths = lines.flatMap((line) => extractPathsFromPorcelainLine(line));
+    const filePaths = lines
+      .flatMap((line) => extractPathsFromPorcelainLine(line))
+      .filter((fp) => !isEphemeralQaArtifactPath(fp));
 
     return filePaths.length > 0 && filePaths.every((fp) => isDocFilePath(fp));
   } catch {
@@ -1222,6 +1303,5 @@ export async function runEphemeralQa(
     parsed.status = STATUS_FAILED;
     parsed.tail_log = `[TIMEOUT] La ejecución de 'make ${target}' excedió el límite configurado de ${timeoutSeconds}s.\n${parsed.tail_log}`;
   }
-  recordQaStageEvidence(resolvedPath, stage, parsed.status, options?.execFileSyncFn);
-  return parsed;
+  return applyStageTrackingAndEvidence(resolvedPath, stage, parsed, options?.execFileSyncFn);
 }

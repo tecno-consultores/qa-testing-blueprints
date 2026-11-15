@@ -5,8 +5,46 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
+import {
+  QaCircuitBreakerAlert,
+  QaTrackedFindingSummary,
+  TrackedFindingStatus,
+} from '../types.js';
+import { sanitizeCommandSecrets } from '../utils/diagnosticFormatter.js';
 
 export const QA_EVIDENCE_REL_PATH = '.agents/.qa-evidence.json';
+export const CERTIFY_STATE_REL_PATH = '.agents/.cache/certify_state.json';
+export const EXIT_BREAKER_42 = 42;
+export const DEFAULT_BREAKER_MAX_STREAK = 3;
+const MAX_BREAKER_HISTORY_RUNS = 10;
+const BREAKER_CODE = 'BREAKER_42' as const;
+const UNKNOWN_TOKEN = '<unknown>';
+const TMP_MASK = '/tmp/<tmp>';
+const TRACKABLE_BREAKER_STAGES = new Set(['lint', 'unit', 'integration', 'ci', 'all']);
+const CONTAINER_PREFIXES = ['/app/', '/workspace/', '/repo/', './'] as const;
+const COLON_LINE_COL_SUFFIX_RE = /:\d{1,10}:\d{1,10}$/;
+const COLON_LINE_SUFFIX_RE = /:\d{1,10}$/;
+const PAREN_LINE_COL_SUFFIX_RE = /\(\d{1,10},\s*\d{1,10}\)$/;
+const MEM_ADDR_RE = /\b0x[0-9a-fA-F]{6,16}\b/g;
+const TMP_PATH_RE = /\/tmp\/[^\s"':)]+/g;
+const MESSAGE_NORMALIZATION_RULES: ReadonlyArray<readonly [RegExp, string]> = [
+  [MEM_ADDR_RE, '<addr>'],
+  [/\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}\.\d{1,9}[+-]\d{2}:\d{2}\b/g, '<ts>'],
+  [/\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}\.\d{1,9}Z\b/g, '<ts>'],
+  [/\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}\.\d{1,9}\b/g, '<ts>'],
+  [/\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}\b/g, '<ts>'],
+  [/\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}Z\b/g, '<ts>'],
+  [/\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}\b/g, '<ts>'],
+  [/\b\d+\.\d+\s*(?:ms|s|sec|seconds)\b/gi, '<dur>'],
+  [/\b\d+\s*(?:ms|s|sec|seconds)\b/gi, '<dur>'],
+  [TMP_PATH_RE, TMP_MASK],
+  [/:\d{1,10}:\d{1,10}/g, ''],
+  [/:\d{1,10}\b/g, ''],
+  [/\(\d{1,10},\s*\d{1,10}\)/g, ''],
+  [/\b(?:line|línea|linea|col|column)\s+\d{1,10}\b/gi, ''],
+  [/\bL\d{1,10}\b/gi, ''],
+  [/\s+/g, ' '],
+];
 
 const DOC_EXTENSIONS = new Set([
   '.md',
@@ -66,14 +104,21 @@ export function resolveExplicitGitRoot(projectPath: string): string | null {
   return null;
 }
 
-function isEphemeralOrDocIgnoredForFingerprint(relPath: string): boolean {
+export function isEphemeralQaArtifactPath(relPath: string): boolean {
   const norm = relPath.replace(/\\/g, '/').replace(/^\.\//, '');
   if (!norm) return true;
   if (norm === QA_EVIDENCE_REL_PATH || norm.endsWith('/.qa-evidence.json')) return true;
-  if (norm === 'graphify-out' || norm.startsWith('graphify-out/') || norm.includes('/graphify-out/')) {
+  if (norm === '.agents/.cache' || norm.startsWith('.agents/.cache/') || norm.includes('/.agents/.cache/')) {
     return true;
   }
-  return isDocFilePath(norm);
+  if (norm === '.agents/artifacts' || norm.startsWith('.agents/artifacts/') || norm.includes('/.agents/artifacts/')) {
+    return true;
+  }
+  return norm === 'graphify-out' || norm.startsWith('graphify-out/') || norm.includes('/graphify-out/');
+}
+
+function isEphemeralOrDocIgnoredForFingerprint(relPath: string): boolean {
+  return isEphemeralQaArtifactPath(relPath) || isDocFilePath(relPath);
 }
 
 function hashSingleCodeEntry(gitRoot: string, relFile: string): string {
@@ -272,4 +317,371 @@ export function checkLintEvidenceForDirtyCode(
       `Falta evidencia vigente de run_ephemeral_qa(stage="lint") para el árbol de código modificado (${sampleFiles}${suffix}). Ejecuta stage="lint" antes de certificar pre-push.`,
     ],
   };
+}
+
+export interface RawFindingInput {
+  layer?: string;
+  stack?: string;
+  relative_file?: string;
+  file?: string;
+  path?: string;
+  rule_or_test_name?: string;
+  rule?: string;
+  test_name?: string;
+  code?: string;
+  canonical_message?: string;
+  symbol?: string;
+  message?: string;
+  error_summary?: string;
+}
+
+export interface NormalizedFindingRecord {
+  fingerprint: string;
+  layer: string;
+  stack: string;
+  relative_file: string;
+  rule_or_test_name: string;
+  canonical_message: string;
+}
+
+interface CertifyRunRecord {
+  recorded_at: string;
+  fingerprints: string[];
+  items: Record<string, NormalizedFindingRecord>;
+}
+
+interface CertifySessionRecord {
+  updated_at: string;
+  runs: CertifyRunRecord[];
+  stage_runs: Record<string, CertifyRunRecord[]>;
+}
+
+interface CertifyStateDocument {
+  version: 1;
+  sessions: Record<string, CertifySessionRecord>;
+}
+
+function firstNonEmptyString(values: Array<string | undefined>, fallback: string): string {
+  for (const val of values) {
+    if (typeof val === 'string' && val.trim().length > 0) {
+      return val.trim();
+    }
+  }
+  return fallback;
+}
+
+function stripKnownContainerPrefixes(filePath: string): string {
+  let current = filePath;
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const prefix of CONTAINER_PREFIXES) {
+      if (current.startsWith(prefix)) {
+        current = current.slice(prefix.length);
+        changed = true;
+      }
+    }
+  }
+  return current;
+}
+
+function normalizeRelativeFindingFile(rawPath: string, workspacePath: string): string {
+  let cleaned = sanitizeCommandSecrets(rawPath).replace(/\\/g, '/').trim();
+  cleaned = cleaned
+    .replace(COLON_LINE_COL_SUFFIX_RE, '')
+    .replace(COLON_LINE_SUFFIX_RE, '')
+    .replace(PAREN_LINE_COL_SUFFIX_RE, '');
+  const wsPrefix = `${path.resolve(workspacePath).replace(/\\/g, '/').replace(/\/+$/, '')}/`;
+  if (cleaned.startsWith(wsPrefix)) {
+    cleaned = cleaned.slice(wsPrefix.length);
+  }
+  cleaned = stripKnownContainerPrefixes(cleaned).replace(TMP_PATH_RE, TMP_MASK);
+  return cleaned || UNKNOWN_TOKEN;
+}
+
+function normalizeCanonicalMessage(rawMessage: string): string {
+  let cleaned = sanitizeCommandSecrets(rawMessage);
+  for (const [pattern, replacement] of MESSAGE_NORMALIZATION_RULES) {
+    cleaned = cleaned.replace(pattern, replacement);
+  }
+  return cleaned.trim();
+}
+
+export function computeFindingFingerprint(
+  finding: Omit<NormalizedFindingRecord, 'fingerprint'>
+): string {
+  const canonical = [
+    finding.layer,
+    finding.stack,
+    finding.relative_file,
+    finding.rule_or_test_name,
+    finding.canonical_message,
+  ].join('\x1f');
+  return crypto.createHash('sha256').update(canonical, 'utf8').digest('hex').slice(0, 16);
+}
+
+export function normalizeFindingForFingerprint(
+  raw: RawFindingInput,
+  workspacePath: string,
+  defaultLayer = 'qa'
+): NormalizedFindingRecord {
+  const layer = firstNonEmptyString([raw.layer], defaultLayer).toLowerCase();
+  const stack = firstNonEmptyString([raw.stack], 'generic').toLowerCase();
+  const relative_file = normalizeRelativeFindingFile(
+    firstNonEmptyString([raw.relative_file, raw.file, raw.path], UNKNOWN_TOKEN),
+    workspacePath
+  );
+  const rule_or_test_name = normalizeCanonicalMessage(
+    firstNonEmptyString([raw.rule_or_test_name, raw.rule, raw.test_name, raw.code], '<unspecified>')
+  );
+  const canonical_message = normalizeCanonicalMessage(
+    firstNonEmptyString(
+      [raw.canonical_message, raw.symbol, raw.message, raw.error_summary],
+      rule_or_test_name
+    )
+  );
+  const base = { layer, stack, relative_file, rule_or_test_name, canonical_message };
+  return { ...base, fingerprint: computeFindingFingerprint(base) };
+}
+
+function runGitTrimmed(
+  cwd: string,
+  args: string[],
+  execFileSyncFn: typeof execFileSync
+): string | null {
+  try {
+    const raw = execFileSyncFn('git', args, {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const out = String(raw).trim();
+    return out || null;
+  } catch {
+    return null;
+  }
+}
+
+export function resolveQaSessionKey(
+  projectPath: string,
+  execFileSyncFn: typeof execFileSync = execFileSync
+): string {
+  const root = resolveExplicitGitRoot(projectPath) ?? path.resolve(projectPath);
+  const branchRaw = runGitTrimmed(root, ['rev-parse', '--abbrev-ref', 'HEAD'], execFileSyncFn);
+  if (!branchRaw) {
+    return 'nogit:unborn';
+  }
+  const branch = branchRaw === 'HEAD' ? 'detached' : branchRaw;
+  for (const ref of ['origin/main', 'main']) {
+    const base = runGitTrimmed(root, ['merge-base', 'HEAD', ref], execFileSyncFn);
+    if (base) {
+      return `${branch}:${base.slice(0, 12)}`;
+    }
+  }
+  const head = runGitTrimmed(root, ['rev-parse', '--verify', 'HEAD'], execFileSyncFn);
+  return `${branch}:${head ? head.slice(0, 12) : 'unborn'}`;
+}
+
+function assertNotSymlink(targetPath: string): void {
+  const parent = path.dirname(targetPath);
+  if (fs.existsSync(parent) && fs.lstatSync(parent).isSymbolicLink()) {
+    throw new Error(`Ruta padre symlink rechazada por seguridad: ${parent}`);
+  }
+  if (fs.existsSync(targetPath) && fs.lstatSync(targetPath).isSymbolicLink()) {
+    throw new Error(`Ruta symlink rechazada por seguridad: ${targetPath}`);
+  }
+}
+
+function normalizeSessionEntry(raw: unknown): CertifySessionRecord {
+  if (!raw || typeof raw !== 'object') {
+    return { updated_at: '', runs: [], stage_runs: {} };
+  }
+  const rec = raw as Partial<CertifySessionRecord>;
+  const runs = Array.isArray(rec.runs) ? rec.runs : [];
+  const stageRuns: Record<string, CertifyRunRecord[]> = {};
+  if (rec.stage_runs && typeof rec.stage_runs === 'object' && !Array.isArray(rec.stage_runs)) {
+    for (const [key, list] of Object.entries(rec.stage_runs)) {
+      if (Array.isArray(list)) {
+        stageRuns[key] = list;
+      }
+    }
+  }
+  return {
+    updated_at: typeof rec.updated_at === 'string' ? rec.updated_at : '',
+    runs,
+    stage_runs: stageRuns,
+  };
+}
+
+function readCertifyStateDocument(statePath: string): CertifyStateDocument {
+  assertNotSymlink(statePath);
+  if (!fs.existsSync(statePath)) {
+    return { version: 1, sessions: {} };
+  }
+  try {
+    const parsed = JSON.parse(fs.readFileSync(statePath, 'utf8')) as { sessions?: unknown };
+    if (!parsed || typeof parsed !== 'object' || !parsed.sessions || typeof parsed.sessions !== 'object' || Array.isArray(parsed.sessions)) {
+      return { version: 1, sessions: {} };
+    }
+    const sessions: Record<string, CertifySessionRecord> = {};
+    for (const [key, entry] of Object.entries(parsed.sessions as Record<string, unknown>)) {
+      sessions[key] = normalizeSessionEntry(entry);
+    }
+    return { version: 1, sessions };
+  } catch {
+    return { version: 1, sessions: {} };
+  }
+}
+
+function writeCertifyStateDocument(statePath: string, doc: CertifyStateDocument): void {
+  assertNotSymlink(statePath);
+  const parent = path.dirname(statePath);
+  fs.mkdirSync(parent, { recursive: true, mode: 0o700 });
+  fs.chmodSync(parent, 0o700);
+  fs.writeFileSync(statePath, `${JSON.stringify(doc, null, 2)}\n`, {
+    encoding: 'utf8',
+    mode: 0o600,
+  });
+  fs.chmodSync(statePath, 0o600);
+}
+
+function countOscillations(historySets: ReadonlyArray<Set<string>>, fingerprint: string): number {
+  let seenBefore = false;
+  let wasAbsent = false;
+  let oscillations = 0;
+  for (const fpSet of historySets) {
+    const present = fpSet.has(fingerprint);
+    if (present && seenBefore && wasAbsent) {
+      oscillations += 1;
+    }
+    if (present) {
+      seenBefore = true;
+      wasAbsent = false;
+    } else if (seenBefore) {
+      wasAbsent = true;
+    }
+  }
+  return oscillations;
+}
+
+function countTrailingStreak(historySets: ReadonlyArray<Set<string>>, fingerprint: string): number {
+  let streak = 0;
+  for (let idx = historySets.length - 1; idx >= 0; idx -= 1) {
+    if (!historySets[idx].has(fingerprint)) {
+      break;
+    }
+    streak += 1;
+  }
+  return streak;
+}
+
+function evaluateFindingHistory(
+  finding: NormalizedFindingRecord,
+  historySets: ReadonlyArray<Set<string>>,
+  maxStreak: number
+): { summary: QaTrackedFindingSummary; blocking: boolean } {
+  const fp = finding.fingerprint;
+  const oscillations = countOscillations([...historySets, new Set([fp])], fp);
+  const prevSet = historySets.length > 0 ? historySets[historySets.length - 1] : null;
+  let status: TrackedFindingStatus = 'NEW';
+  let consecutive_streak = 1;
+  if (prevSet && prevSet.has(fp)) {
+    status = 'PERSISTENT';
+    consecutive_streak = 1 + countTrailingStreak(historySets, fp);
+  } else if (oscillations > 0) {
+    status = 'REGRESSION_OSCILLATION';
+  }
+  const blocking = consecutive_streak >= maxStreak || oscillations >= 1;
+  return {
+    summary: {
+      ...finding,
+      status,
+      consecutive_streak,
+      oscillations,
+    },
+    blocking,
+  };
+}
+
+export function recordQaStageFindingsState(
+  projectPath: string,
+  stage: string,
+  rawFindings: readonly RawFindingInput[],
+  maxStreak = DEFAULT_BREAKER_MAX_STREAK,
+  execFileSyncFn: typeof execFileSync = execFileSync
+): QaCircuitBreakerAlert {
+  if (!TRACKABLE_BREAKER_STAGES.has(stage)) {
+    return {
+      triggered: false,
+      code: null,
+      session_key: '',
+      max_streak_observed: 0,
+      oscillations_observed: 0,
+      blocking_findings: [],
+    };
+  }
+
+  const root = resolveExplicitGitRoot(projectPath) ?? path.resolve(projectPath);
+  const sessionKey = resolveQaSessionKey(root, execFileSyncFn);
+  const statePath = path.join(root, CERTIFY_STATE_REL_PATH);
+  const doc = readCertifyStateDocument(statePath);
+  const session = doc.sessions[sessionKey] ?? { updated_at: '', runs: [], stage_runs: {} };
+  const priorRuns = (session.stage_runs[stage] ?? []).slice(-MAX_BREAKER_HISTORY_RUNS);
+  const historySets = priorRuns.map((run) => new Set(run.fingerprints));
+
+  const deduped = new Map<string, NormalizedFindingRecord>();
+  for (const item of rawFindings) {
+    const normalized = normalizeFindingForFingerprint(item, root, stage);
+    deduped.set(normalized.fingerprint, normalized);
+  }
+  const orderedKeys = Array.from(deduped.keys()).sort();
+
+  const blockingFindings: QaTrackedFindingSummary[] = [];
+  let maxStreakObserved = 0;
+  let oscillationsObserved = 0;
+  const itemsRecord: Record<string, NormalizedFindingRecord> = {};
+
+  for (const fp of orderedKeys) {
+    const finding = deduped.get(fp) as NormalizedFindingRecord;
+    itemsRecord[fp] = finding;
+    const evaluated = evaluateFindingHistory(finding, historySets, maxStreak);
+    maxStreakObserved = Math.max(maxStreakObserved, evaluated.summary.consecutive_streak);
+    oscillationsObserved += evaluated.summary.oscillations;
+    if (evaluated.blocking) {
+      blockingFindings.push(evaluated.summary);
+    }
+  }
+
+  const nowIso = new Date().toISOString();
+  const nextStageRuns = [
+    ...priorRuns,
+    { recorded_at: nowIso, fingerprints: orderedKeys, items: itemsRecord },
+  ].slice(-MAX_BREAKER_HISTORY_RUNS);
+  session.updated_at = nowIso;
+  session.stage_runs[stage] = nextStageRuns;
+  doc.sessions[sessionKey] = session;
+  writeCertifyStateDocument(statePath, doc);
+
+  const triggered = blockingFindings.length > 0;
+  return {
+    triggered,
+    code: triggered ? BREAKER_CODE : null,
+    session_key: sessionKey,
+    max_streak_observed: maxStreakObserved,
+    oscillations_observed: oscillationsObserved,
+    blocking_findings: blockingFindings,
+  };
+}
+
+export function resetQaFindingsState(
+  projectPath: string,
+  execFileSyncFn: typeof execFileSync = execFileSync
+): string {
+  const root = resolveExplicitGitRoot(projectPath) ?? path.resolve(projectPath);
+  const sessionKey = resolveQaSessionKey(root, execFileSyncFn);
+  const statePath = path.join(root, CERTIFY_STATE_REL_PATH);
+  const doc = readCertifyStateDocument(statePath);
+  delete doc.sessions[sessionKey];
+  writeCertifyStateDocument(statePath, doc);
+  return sessionKey;
 }

@@ -63,7 +63,17 @@ Before altering any shared code, service definition, or configuration:
 
 ---
 
-## 5. Cross-Functional Smoke Verification Checklist
+## 5. Deterministic Finding Memory & Anti-Loop Circuit Breaker (`BREAKER-42`)
+
+1. **Line-Shift-Invariant State Persistence & Branch Isolation:**
+   - `.agents/scripts/track_findings_state.py` (invoked by `.agents/scripts/certify_task_completion.sh`) and `recordQaStageFindingsState` (`mcp-server/src/services/qa-evidence.ts`, invoked by `run_ephemeral_qa` in `mcp-server/src/tools/ephemeral-runner.ts`) persist normalized SHA-256 finding fingerprints in `.agents/.cache/certify_state.json` (`0600` under a `0700` symlink-checked directory), isolated per `session_key = "{branch}:{merge_base_sha}"` (max `10` runs retained per stage) and classified as `RESOLVED`, `PERSISTENT`, `REGRESSION_OSCILLATION`, or `NEW`.
+2. **Mandatory Circuit Breaker Trigger (`exit 42` / `BREAKER_42`):**
+   - When any normalized finding hits `consecutive_streak >= 3` **or** regresses after passing/alternating (`A -> B -> A`, `oscillations >= 1`), `track_findings_state.py` exits with **`42` (`[BREAKER-42]`)** and `run_ephemeral_qa` returns `exit_code: 42` with a structured `[Fail-Verbose] stage=<stage>:BREAKER_42` alert.
+   - Upon `exit 42` / `BREAKER_42`, agents MUST **stop blind edit-and-rerun loops immediately**, run `inspect_ast_blast_radius` (or `python3 .agents/scripts/inspect_blast_radius.py`), and switch to `qa-11x-systematic-debugging` Phase 3 root-cause analysis. Agents are **strictly forbidden** from autonomously executing `--reset-state` without explicit human authorization.
+
+---
+
+## 6. Cross-Functional Smoke Verification Checklist
 
 Prior to submitting any task touching shared domains:
 - [ ] Are all standard ports preserved in Docker configurations?

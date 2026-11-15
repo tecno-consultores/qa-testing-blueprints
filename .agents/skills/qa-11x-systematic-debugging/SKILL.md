@@ -76,9 +76,9 @@ Follow strict scientific isolation — never bundle multiple guesses into one ed
 2. **Minimum Diagnostic Probe:**
    - Apply the smallest reversible diagnostic assertion or targeted test run inside the ephemeral container to confirm or falsify the hypothesis.
    - **If falsified:** Revert the tentative edit immediately (`git checkout -- <file>`) before testing the next hypothesis. Never stack unverified patches.
-3. **Mandatory Circuit Breaker — 3-Strike Architectural Escalation:**
-   - Track consecutive failed hypotheses (`Strike 1 -> Strike 2 -> Strike 3`).
-   - **HARD STOP AT STRIKE 3:** If **3 consecutive hypotheses fail**, **STOP editing code immediately**. Do NOT attempt a 4th speculative patch.
+3. **Mandatory Circuit Breaker — 3-Strike Architectural Escalation (`BREAKER-42`):**
+   - Track consecutive failed hypotheses (`Strike 1 -> Strike 2 -> Strike 3`). This invariant is deterministically enforced by `.agents/scripts/track_findings_state.py` (integrated into `certify_task_completion.sh`) and `recordQaStageFindingsState` (`run_ephemeral_qa` in `mcp-server/src/tools/ephemeral-runner.ts`), persisting line-shift-invariant finding fingerprints per `{branch}:{merge_base_sha}` in `.agents/.cache/certify_state.json`.
+   - **HARD STOP AT STRIKE 3 OR `A -> B -> A` OSCILLATION (`exit 42` / `BREAKER-42`):** If **3 consecutive hypotheses fail** (`consecutive_streak >= 3`) or a finding oscillates (`oscillations >= 1`), execution aborts with **`exit 42` (`[BREAKER-42]`)** — **STOP editing code immediately**. Do NOT attempt a 4th speculative patch, and NEVER run `--reset-state` without explicit human operator authorization.
    - Escalate an architectural diagnosis packet containing:
      1. Exact Docker reproduction command and fail-verbose excerpt (`/tmp/qa-11x-last-failure.json`).
      2. Summary of the 3 refuted hypotheses and their observed outputs.
