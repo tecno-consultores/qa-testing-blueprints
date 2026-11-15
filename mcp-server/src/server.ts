@@ -334,6 +334,8 @@ export function createMcpServer(options?: {
         {
           autoBuildIfMissing: args.auto_build_if_missing,
           refreshGraph: args.refresh_graph,
+          changedSinceRef: args.changed_since_ref,
+          maxTokensBudget: args.max_tokens_budget,
         }
       );
       return {

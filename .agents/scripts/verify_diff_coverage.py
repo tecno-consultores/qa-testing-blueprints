@@ -6,11 +6,13 @@
 from __future__ import annotations
 
 import argparse
+import importlib
 import os
 import re
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -242,6 +244,15 @@ def _record_cobertura_line(file_cov: FileCoverageData, line_elem: ET.Element) ->
         file_cov.merge_branch(line_num, int(match.group(1)), int(match.group(2)))
 
 
+def _resolve_safe_xml_fromstring() -> Callable[[str], ET.Element]:
+    try:
+        mod = importlib.import_module("defusedxml.ElementTree")
+        fn: Callable[[str], ET.Element] = mod.fromstring
+        return fn
+    except ImportError:
+        return ET.fromstring
+
+
 def _parse_xml_strict(raw_xml: str) -> ET.Element:
     upper = raw_xml.upper()
     if "<!DOCTYPE" in upper or "<!ENTITY" in upper:
@@ -250,8 +261,9 @@ def _parse_xml_strict(raw_xml: str) -> ET.Element:
             "<!DOCTYPE/<!ENTITY prohibido en XML."
         )
     try:
-        return ET.fromstring(raw_xml)
-    except ET.ParseError as exc:
+        parse_fn = _resolve_safe_xml_fromstring()
+        return parse_fn(raw_xml)
+    except Exception as exc:
         raise SecurityValidationError(
             f"Reporte XML inválido o corrupto: {exc}"
         ) from exc

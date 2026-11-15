@@ -2,7 +2,7 @@
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 # Makefile canónico para desarrollo local, automatización y gobernanza Level-11X
 
-.PHONY: help clean qa-clean audit lint-workflows lint-docs sync-governance validate-calm test test-mcp test-example test-karate test-py diff-cov test-meta-qa test-ai-offline test-frontend-blueprints test-backend-blueprints audit-llm audit-psi qa-psi lint build certify publish-mcp publish-mcp-dry
+.PHONY: help clean qa-clean audit lint-workflows lint-docs sync-governance validate-calm test test-mcp test-example test-karate test-py diff-cov pr-verdict test-meta-qa test-ai-offline test-frontend-blueprints test-backend-blueprints audit-llm audit-psi qa-psi lint build certify publish-mcp publish-mcp-dry
 
 help:
 	@echo "Comandos canónicos de desarrollo y gobernanza para QA Testing Blueprints:"
@@ -22,6 +22,7 @@ help:
 	@echo "  make qa-psi          - Alias de make audit-psi (Lab + CrUX sobre dominio HTTPS público)"
 	@echo "  make test-meta-qa    - Audita scripts de .agents/scripts/ contra fixtures trimodales en Docker efímero"
 	@echo "  make diff-cov        - Verifica 100% cobertura delta multi-stack, ramas >=90% y bloqueo anti-evasión"
+	@echo "  make pr-verdict      - Exporta .agents/artifacts/PR_VERDICT.md y atestación SHA-256/HMAC QA 11X"
 	@echo "  make test-example    - Certifica las 18 tools, 12 resources, quickstart y verify-v2.sh Clean-Room Docker"
 	@echo "  make lint            - Ejecuta verificación de tipos y linters (ESLint --max-warnings 0, TypeScript)"
 	@echo "  make build           - Compila la distribución de producción del Servidor MCP"
@@ -217,6 +218,14 @@ diff-cov:
 		python3 .agents/scripts/verify_diff_coverage.py --workspace . --reports-dir .agents/.cache/coverage; \
 	else \
 		docker run --rm --network none -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_diff_coverage.py --workspace /app --reports-dir .agents/.cache/coverage; \
+	fi
+
+pr-verdict:
+	@echo "🏛️ [PR Verdict] Generando PR_VERDICT.md y atestación SHA-256/HMAC en Docker efímero..."
+	@if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
+		python3 .agents/scripts/generate_pr_verdict.py --workspace . --output-md .agents/artifacts/PR_VERDICT.md --output-json .agents/artifacts/pr_verdict_attestation.json; \
+	else \
+		docker run --rm --network none -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e QA11X_ATTESTATION_KEY -v "$$(pwd):/app" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/generate_pr_verdict.py --workspace /app --output-md .agents/artifacts/PR_VERDICT.md --output-json .agents/artifacts/pr_verdict_attestation.json; \
 	fi
 
 test-meta-qa:

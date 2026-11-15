@@ -4,12 +4,15 @@
 import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { BlastRadiusResult } from '../types.js';
+import { BlastRadiusResult, DiffBundleReport } from '../types.js';
+import { buildSemanticDiffBundle } from '../utils/diff-bundle.js';
 
 export interface BlastRadiusOptions {
   autoBuildIfMissing?: boolean;
   refreshGraph?: boolean;
   graphBuilder?: (projectPath: string) => boolean;
+  changedSinceRef?: string;
+  maxTokensBudget?: number;
 }
 
 export function defaultGraphifyBuilder(resolvedPath: string): boolean {
@@ -114,11 +117,40 @@ function normalizeRelativePath(rel: string): string {
   return rel.replace(/\\/g, '/').replace(/^\.\//, '');
 }
 
+const RISK_ORDER: Record<'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL', number> = {
+  LOW: 0,
+  MEDIUM: 1,
+  HIGH: 2,
+  CRITICAL: 3,
+};
+
 function calculateRiskLevel(count: number): 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' {
   if (count > 10) return 'CRITICAL';
   if (count >= 7) return 'HIGH';
   if (count >= 5) return 'MEDIUM';
   return 'LOW';
+}
+
+function elevateRiskWithDiff(
+  baseRisk: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL',
+  diffBundle: DiffBundleReport
+): 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' {
+  let target: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' = baseRisk;
+  if (diffBundle.secret_leak_warning || diffBundle.alerts.some((a) => a.severity === 'HIGH')) {
+    target = 'HIGH';
+  } else if (diffBundle.tiers_summary.CRITICAL_FULL > 0 || diffBundle.alerts.length > 0) {
+    target = 'MEDIUM';
+  }
+  return RISK_ORDER[baseRisk] >= RISK_ORDER[target] ? baseRisk : target;
+}
+
+function mergeDiffBundleDependents(diffBundle: DiffBundleReport, ctx: GraphScanContext): void {
+  for (const diffFile of diffBundle.files) {
+    for (const dep of diffFile.ast_dependents) {
+      ctx.dependentFiles.add(dep);
+      registerSuggestedTest(dep, path.extname(dep), ctx.suggestedTests);
+    }
+  }
 }
 
 function registerSuggestedTest(rel: string, ext: string, suggestedTests: Set<string>): void {
@@ -318,13 +350,24 @@ export async function inspectAstBlastRadius(
     }
   }
 
+  let diffBundle: DiffBundleReport | undefined;
+  if (options?.changedSinceRef !== undefined) {
+    diffBundle = await buildSemanticDiffBundle(
+      resolvedPath,
+      options.changedSinceRef,
+      options.maxTokensBudget
+    );
+    mergeDiffBundleDependents(diffBundle, ctx);
+  }
+
   for (const declFile of ctx.declaringFiles) {
     ctx.dependentFiles.delete(declFile);
   }
 
   const sortedDependents = Array.from(ctx.dependentFiles).sort();
   const count = sortedDependents.length;
-  const riskLevel = calculateRiskLevel(count);
+  const baseRiskLevel = calculateRiskLevel(count);
+  const riskLevel = diffBundle ? elevateRiskWithDiff(baseRiskLevel, diffBundle) : baseRiskLevel;
   const astGraphDetected = ctx.graphFiles.length > 0;
   const astGraphActionRequired = astGraphDetected
     ? `✅ Grafo AST detectado. DIRECTRIZ OBLIGATORIA: SIEMPRE debes actualizar el grafo al terminar los cambios ejecutando './scripts/actualizar-grafos-graphify.sh'.${QA_TEST_SYNC_REMINDER}`
@@ -355,5 +398,6 @@ export async function inspectAstBlastRadius(
     ...(astGraphRebuilt ? { ast_graph_rebuilt: true } : {}),
     ast_graph_files: ctx.graphFiles.sort(),
     ast_graph_action_required: astGraphActionRequired,
+    ...(diffBundle ? { diff_bundle: diffBundle } : {}),
   };
 }

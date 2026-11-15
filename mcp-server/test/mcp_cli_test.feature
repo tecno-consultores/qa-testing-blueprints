@@ -1094,6 +1094,34 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def pkgJson = karate.readAsString(repoRoot + '/mcp-server/package.json')
     * assert pkgJson.contains('18 Tools, 12 Resources')
 
+  Scenario: 36. Hito 23: Modo diferencial en inspect_ast_blast_radius (cero inflacion MCP) y exportador PR_VERDICT.md
+    * def findEntry = function(list, pathStr) { return karate.filter(list, function(x) { return x.path == pathStr })[0] }
+    * def verdictManifest = findEntry(manifest.agent_governance_files, '.agents/scripts/generate_pr_verdict.py')
+    * match verdictManifest.sha256 == '#regex ^[0-9a-f]{64}$'
+    * def diffBundleTs = karate.readAsString(repoRoot + '/mcp-server/src/utils/diff-bundle.ts')
+    * assert diffBundleTs.contains('PRUNED_NOISE')
+    * assert diffBundleTs.contains('CRITICAL_FULL')
+    * assert diffBundleTs.contains('CORE_LOGIC')
+    * assert diffBundleTs.contains('TESTS_SUMMARY')
+    * assert diffBundleTs.contains('MISSING_KARATE_API_FEATURE')
+    * assert diffBundleTs.contains('redactPiiAndSecrets')
+    * def typesTs = karate.readAsString(repoRoot + '/mcp-server/src/types.ts')
+    * assert typesTs.contains('changed_since_ref')
+    * assert typesTs.contains('max_tokens_budget')
+    * def verdictPy = karate.readAsString(repoRoot + '/.agents/scripts/generate_pr_verdict.py')
+    * assert verdictPy.contains('APTO PARA MERGE')
+    * assert verdictPy.contains('BLOQUEADO')
+    * assert verdictPy.contains('QA11X_ATTESTATION_KEY')
+    * assert verdictPy.contains('EXIT_EVIDENCE_OR_DIVERGENCE = 30')
+    * def rootMakefile = karate.readAsString(repoRoot + '/Makefile')
+    * assert rootMakefile.contains('pr-verdict:')
+    * def docs01 = karate.readAsString(repoRoot + '/docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md')
+    * assert docs01.contains('generate_pr_verdict.py')
+    * assert docs01.contains('PR_VERDICT.md')
+    * assert docs01.contains('diff-bundle.ts')
+    * def pkgJson = karate.readAsString(repoRoot + '/mcp-server/package.json')
+    * assert pkgJson.contains('18 Tools, 12 Resources')
+
 
 
 

@@ -37,7 +37,7 @@
 | **Hito 20** | Detección de Versión sin Red Redundante (`.qa-11x-version` + TTL 24h Fail-Open), Aviso `update_available` en Tools y Auto-Sync Global de Skills por SHA-256 (`v2.20.0`) | [`docs/ai-integration.md`](docs/ai-integration.md) + [`docs/agent-setup.md`](docs/agent-setup.md) | ✅ Completado | `100%` |
 | **Hito 21** | Cobertura Diferencial Multi-Stack (`verify_diff_coverage.py`), Persistencia Efímera de Reportes y Bloqueo Anti-Evasión | [`16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md`](docs/specs/16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md) | ✅ Completado | `100%` |
 | **Hito 22** | Memoria Determinista de Hallazgos y Cortacircuitos Anti-Loop (`exit 42`) en `run_ephemeral_qa` y `certify` | [`17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md`](docs/specs/17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md) | ✅ Completado | `100%` |
-| **Hito 23** | Modo Diferencial en `inspect_ast_blast_radius` (Cero Inflación MCP) y Exportador Ejecutivo `PR_VERDICT.md` | [`18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md`](docs/specs/18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md) | ⏳ Pendiente | `0%` |
+| **Hito 23** | Modo Diferencial en `inspect_ast_blast_radius` (Cero Inflación MCP) y Exportador Ejecutivo `PR_VERDICT.md` | [`18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md`](docs/specs/18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md) | ✅ Completado | `100%` |
 
 ---
 
@@ -312,14 +312,14 @@
 
 ---
 
-## ⏳ Hito 23: Modo Diferencial en `inspect_ast_blast_radius` (Cero Inflación MCP) y Exportador Ejecutivo `PR_VERDICT.md`
+## ✅ Hito 23: Modo Diferencial en `inspect_ast_blast_radius` (Cero Inflación MCP) y Exportador Ejecutivo `PR_VERDICT.md`
 **Referencia Obligatoria:** [`docs/specs/18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md`](docs/specs/18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md)
 
 ### Tareas de Implementación:
-- [ ] **23.1.** Crear `mcp-server/src/utils/diff-bundle.ts` (`SonarJS <= 15`, `execFile` sin shell) con poda de lockfiles/generados, alerta `MISSING_KARATE_API_FEATURE`, fronteras opcionales en `.agents/ACTIVE_TASK.md` y redacción vía `promptGuard.ts`.
-- [ ] **23.2.** Extender retrocompatiblemente `BlastRadiusInputSchema` (`changed_since_ref`, `max_tokens_budget`) en `mcp-server/src/types.ts` y `mcp-server/src/tools/blast-radius.ts` sin alterar el catálogo de 18 Tools y 12 Resources.
-- [ ] **23.3.** Crear `mcp-server/tests/diff-blast-radius.unit.ts` (`>= 95%` cobertura en `sinfallas/base-node-ionic:26` validando ahorro `>= 60%` de tokens, redacción de secretos y rechazo de `baseRef` inválido) y actualizar `mcp-server/test/mcp_cli_test.feature`.
-- [ ] **23.4.** Crear `.agents/scripts/generate_pr_verdict.py` (`CC <= 5`, stdlib pura) reutilizando `release_readiness_gate.py`, `.agents/.qa-evidence.json` y `verify_diff_coverage.py` para emitir `.agents/artifacts/PR_VERDICT.md` y `pr_verdict_attestation.json` (`SHA-256`).
-- [ ] **23.5.** Crear `tests/test_generate_pr_verdict.unit.py` (`>= 95%` cobertura en `sinfallas/base-python-uv:3.15`) y exponer el target `make pr-verdict` en `Makefile`.
-- [ ] **23.6.** Actualizar `docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`, `docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md`, `TESTING.md` y `CHANGELOG.md`, actualizar grafos AST, `make sync-governance` y `make certify`.
+- [x] **23.1.** Crear `mcp-server/src/utils/diff-bundle.ts` (`SonarJS <= 15`, `execFile` sin shell) con poda de lockfiles/generados, alerta `MISSING_KARATE_API_FEATURE`, fronteras opcionales en `.agents/ACTIVE_TASK.md` y redacción vía `promptGuard.ts`.
+- [x] **23.2.** Extender retrocompatiblemente `BlastRadiusInputSchema` (`changed_since_ref`, `max_tokens_budget`) en `mcp-server/src/types.ts` y `mcp-server/src/tools/blast-radius.ts` sin alterar el catálogo de 18 Tools y 12 Resources.
+- [x] **23.3.** Crear `mcp-server/tests/diff-blast-radius.unit.ts` (`>= 95%` cobertura en `sinfallas/base-node-ionic:26` validando ahorro `>= 60%` de tokens, redacción de secretos y rechazo de `baseRef` inválido) y actualizar `mcp-server/test/mcp_cli_test.feature`.
+- [x] **23.4.** Crear `.agents/scripts/generate_pr_verdict.py` (`CC <= 5`, stdlib pura) reutilizando `release_readiness_gate.py`, `.agents/.qa-evidence.json` y `verify_diff_coverage.py` para emitir `.agents/artifacts/PR_VERDICT.md` y `pr_verdict_attestation.json` (`SHA-256`).
+- [x] **23.5.** Crear `tests/test_generate_pr_verdict.unit.py` (`>= 95%` cobertura en `sinfallas/base-python-uv:3.15`) y exponer el target `make pr-verdict` en `Makefile`.
+- [x] **23.6.** Actualizar `docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`, `docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md`, `TESTING.md` y `CHANGELOG.md`, actualizar grafos AST, `make sync-governance` y `make certify`.
 

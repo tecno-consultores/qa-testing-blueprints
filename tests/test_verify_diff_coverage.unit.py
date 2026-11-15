@@ -8,8 +8,10 @@ from __future__ import annotations
 import importlib.util
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import TYPE_CHECKING
+from unittest import mock
 
 import pytest
 
@@ -376,3 +378,12 @@ def test_parse_diff_delta_skip_when_no_executable_lines(tmp_path: Path) -> None:
         vdc.DiffCoverageConfig(workspace=repo, reports_dir="cov")
     )
     assert rep.exit_code == vdc.EXIT_OK
+
+
+def test_defusedxml_resolver_fallback_on_import_error() -> None:
+    fn = vdc._resolve_safe_xml_fromstring()
+    elem = fn("<root/>")
+    assert elem.tag == "root"
+    with mock.patch("importlib.import_module", side_effect=ImportError("missing")):
+        fallback = vdc._resolve_safe_xml_fromstring()
+    assert fallback is ET.fromstring

@@ -85,6 +85,7 @@ Welcome to the **QA Testing Blueprints** repository. All AI coding assistants (G
 - `verify_topological_health.py`: Automated AST architectural validator detecting forbidden cross-layer coupling and layer boundary violations.
 - `verify_diff_coverage.py`: Multi-stack differential coverage & anti-evasion gate (`100%` delta line coverage, `>= 90%` delta branch coverage, `QA11X-APPROVED-EXCLUSION`, Anti-XXE / missing-report guards).
 - `track_findings_state.py`: Deterministic line-shift-invariant finding state tracker and anti-loop circuit breaker (`exit 42` on `consecutive_streak >= 3` or `A -> B -> A` oscillation).
+- `generate_pr_verdict.py`: Deterministic executive PR verdict (`PR_VERDICT.md`) and cryptographic `SHA-256` / optional `HMAC-SHA256` attestation exporter (`exit 0` or `30`).
 
 ---
 

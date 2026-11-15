@@ -282,4 +282,5 @@
   ```bash
   ./.agents/scripts/certify_task_completion.sh
   ```
+* **Modo Diferencial en Blast Radius y Veredicto Ejecutivo de PR (`Hito 23`):** Antes de emitir cambios o preparar un Pull Request, inspecciona el delta compacto invocando `inspect_ast_blast_radius` con `changed_since_ref` y `max_tokens_budget` (ahorro `>= 60%` de tokens, redacción de secretos y alertas de contratos `.feature`), y genera los artefactos `.agents/artifacts/PR_VERDICT.md` + `pr_verdict_attestation.json` (`0600`) ejecutando `make pr-verdict` en Docker efímero (`exit 0` o `30` ante divergencia/evidencia faltante).
 * Si cualquiera de los pasos falla, el commit debe ser rechazado inmediatamente.

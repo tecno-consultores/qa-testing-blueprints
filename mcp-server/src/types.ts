@@ -97,6 +97,23 @@ export const BlastRadiusInputSchema = z.object({
     .describe(
       'If true, incrementally updates project AST graph before computing impact radius.'
     ),
+  changed_since_ref: z
+    .string()
+    .min(1)
+    .optional()
+    .describe(
+      'Optional Git base ref (e.g. origin/main, HEAD~1) to activate differential blast-radius and semantic diff bundle pruning.'
+    ),
+  max_tokens_budget: z
+    .number()
+    .int()
+    .min(100)
+    .max(100000)
+    .optional()
+    .default(4000)
+    .describe(
+      'Maximum output token budget (approx. ceil(chars/4)) when changed_since_ref is provided.'
+    ),
 });
 export type BlastRadiusInput = z.infer<typeof BlastRadiusInputSchema>;
 
@@ -264,6 +281,49 @@ export interface BootstrapMergeResult {
   applied_changes: MergeResultItem[];
 }
 
+export type DiffTier = 'PRUNED_NOISE' | 'CRITICAL_FULL' | 'CORE_LOGIC' | 'TESTS_SUMMARY';
+
+export type DiffAlertCode =
+  | 'MISSING_KARATE_API_FEATURE'
+  | 'BOUNDARY_VIOLATION_FORBIDDEN_GLOB'
+  | 'BOUNDARY_VIOLATION_OUTSIDE_ALLOWED_GLOBS';
+
+export interface DiffAlert {
+  code: DiffAlertCode;
+  severity: 'HIGH' | 'MEDIUM';
+  file?: string;
+  message: string;
+}
+
+export interface DiffFileSummary {
+  file: string;
+  tier: DiffTier;
+  additions: number;
+  deletions: number;
+  pruned: boolean;
+  ast_dependents: string[];
+  test_cases?: string[];
+  rendered_diff?: string;
+}
+
+export interface DiffBundleReport {
+  base_ref: string;
+  max_tokens_budget: number;
+  raw_tokens_estimate: number;
+  compacted_tokens_estimate: number;
+  token_savings_pct: number;
+  secret_leak_warning: boolean;
+  redacted_occurrences: number;
+  tiers_summary: Record<DiffTier, number>;
+  alerts: DiffAlert[];
+  boundary_globs?: {
+    allowed_globs: string[];
+    forbidden_globs: string[];
+  };
+  files: DiffFileSummary[];
+  rendered_bundle: string;
+}
+
 export interface BlastRadiusResult {
   project_path: string;
   target_symbol: string;
@@ -279,6 +339,7 @@ export interface BlastRadiusResult {
   ast_graph_rebuilt?: boolean;
   ast_graph_files?: string[];
   ast_graph_action_required?: string;
+  diff_bundle?: DiffBundleReport;
 }
 
 export interface SecurityFinding {
