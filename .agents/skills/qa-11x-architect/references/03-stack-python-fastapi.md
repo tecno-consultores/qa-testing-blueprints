@@ -16,7 +16,7 @@ Validation and execution MUST occur inside ephemeral Docker containers without l
 | **API / Test Runner** | `sinfallas/base-python-uv:3.15` | Internal / Ephemeral | Pytest, Ruff, Mypy, Bandit, Radon, Py-spy |
 | **Relational Database** | `postgres:17-alpine` | `5432:5432` | Real PostgreSQL schema parity & Alembic migrations |
 | **In-Memory Store & Cache** | `eqalpha/keydb:alpine` | `6379:6379` | Multi-threaded KeyDB (`server-threads 4`) |
-| **Black-Box REST BDD** | `sinfallas/karatelabs:latest` | Target: `http://api:8000` | Automated Gherkin HTTP test suite (`test/api_test.feature`) |
+| **Black-Box REST BDD** | `sinfallas/karatelabs:1.5.1` (`:latest`) | Target: `http://api:8000` | Automated Gherkin HTTP test suite (`test/api_test.feature`) |
 | **Dynamic Security (DAST)** | `zaproxy/zap-stable:latest` | Target: `http://api:8000` | OWASP ZAP Baseline vulnerability scan |
 | **Chaos Injection** | `gaiaadm/pumba:latest` | Docker Socket | Network latency (Jitter), packet drop & netem faults |
 | **RED Observability** | `prom/prometheus:latest` | `9090:9090` | Real-time monitoring of `/metrics` |

@@ -32,11 +32,11 @@ Naive text-based exploration (`grep` + reading multiple full files to trace call
 
 ### A. Mandatory Lifecycle Moments
 1. **Code Q&A & Pre-Modification Creation Invariant:** Whenever answering a question about a project's code/architecture OR before modifying any code, verify whether `graphify-out/graph.json` exists in the repository root or target stack directory. **If missing, you MUST generate it first** (`./scripts/actualizar-grafos-graphify.sh` or `auto_build_if_missing: true`) before running `grep` or editing code.
-2. **Post-Modification Refresh Invariant:** **ALWAYS** refresh the AST graph after completing code and test changes (prior to running `certify_task_completion.sh`, `git commit`, and `git push`).
+2. **Post-Modification Refresh Invariant:** **ALWAYS** refresh the AST graph after completing code and test changes (prior to running `certify_task_completion.sh` and local `git commit`; never run automatic `git push` per `QA-GIT-GATE-01`).
 3. **`DOCS_ONLY` Fast-Path Exemption:** Never rebuild the AST graph when a task modifies only documentation (`*.md`, `docs/**`).
 
 ### B. Canonical Incremental Script (Recommended)
-Execute the repository's Pass-Quiet wrapper script, which automatically detects stacks (`fastapi`, `python`, `node-backend`, `vue3`, `react-frontend`, `php`, `mcp-server`, `backend`, `frontend`, or root) and only rebuilds stacks with code newer than `graph.json`:
+Execute the repository's Pass-Quiet wrapper script, which automatically detects stacks (`fastapi`, `python`, `node-backend`, `vue3`, `react-frontend`, `php`, `mcp-server`, `ai-evals`, `mobile-appium`, `vibe-rescue`, `bash-scripts`, `backend`, `frontend`, or root) and only rebuilds stacks with code newer than `graph.json`:
 ```bash
 # 1. Auto-incremental mode (rebuilds only missing or modified stacks)
 ./scripts/actualizar-grafos-graphify.sh
@@ -68,12 +68,15 @@ docker run --rm -e OLLAMA_BASE_URL="" -v "$(pwd):/app" -w /app sinfallas/remote-
 
 - **Mandatory Order of Operations (`Graphify AST -> GRAPH_REPORT.md -> Windowed Read -> Grep Fallback`):**
   1. For high-level architectural questions, read `graphify-out/GRAPH_REPORT.md` first to identify functional communities and central nodes.
-  2. For symbol, function, class, route, or file questions (or pre-refactoring blast radius), query the bidirectional AST graph via CLI or MCP (`inspect_ast_blast_radius(project_path, target_symbol, max_items: 20, auto_build_if_missing: true)`), which returns the exact declaring `file:line`, incoming callers (`⬅️ Llamado por`), and outgoing callees (`➡️ Invoca a`):
+  2. For symbol, function, class, route, or file questions (or pre-refactoring blast radius), query the bidirectional AST graph via CLI or MCP (`inspect_ast_blast_radius(project_path, target_symbol, changed_since_ref, max_items: 20, auto_build_if_missing: true)`), which returns the exact declaring `file:line`, incoming callers (`⬅️ Llamado por`), and outgoing callees (`➡️ Invoca a`):
      ```bash
      # 1. Bidirectional symbol navigation (declaring file:line, incoming callers & outgoing callees)
      python3 .agents/scripts/inspect_blast_radius.py "<symbol_or_filename>"
 
-     # 2. Architectural layer boundary & circular dependency audit
+     # 2. Differential blast-radius test selector (Affected suites only)
+     python3 .agents/scripts/select_tests_by_blast_radius.py --base origin/main
+
+     # 3. Architectural layer boundary & circular dependency audit
      python3 .agents/scripts/verify_topological_health.py
      ```
      - Under **`QA-TEST-SYNC-01`**, trace and update all impacted consumer test suites (`tests/`, `*.feature`, `*.bats`) surfaced by the blast radius before finalizing changes.

@@ -179,26 +179,26 @@ export const defaultLiveCommandRunner: LiveCommandRunner = (spec) => {
 export const EVALUATE_AGENT_TRAJECTORY_TOOL: Tool = {
   name: STAGE_TRAJECTORY_ID,
   description:
-    'Evalúa trayectorias agénticas y respuestas RAG en modo offline determinista (orden AST, QA-GIT-GATE-01, promptGuard, tasas de compilación/regeneración y alucinación < 0.05) o en modo live efímero con Docker.',
+    'Evaluates agentic trajectories and RAG outputs in deterministic offline mode (AST order, QA-GIT-GATE-01, promptGuard, compilation/regeneration rates, hallucination < 0.05) or ephemeral Docker live mode.',
   inputSchema: {
     type: 'object',
     properties: {
       mode: {
         type: 'string',
         enum: ['offline', 'live'],
-        description: 'Modo de ejecución (offline por defecto, zero-red).',
+        description: 'Execution mode (offline by default, zero network).',
       },
       workspaceRoot: {
         type: 'string',
-        description: 'Raíz del proyecto donde validar contención de rutas.',
+        description: 'Project root directory for path containment checks.',
       },
       testPath: {
         type: 'string',
-        description: 'Ruta relativa al test Pytest/DeepEval (por defecto ai-evals/rag/test_rag_faithfulness.py).',
+        description: 'Relative path to Pytest/DeepEval test (default ai-evals/rag/test_rag_faithfulness.py).',
       },
       steps: {
         type: 'array',
-        description: 'Pasos de herramientas ejecutados por el agente.',
+        description: 'Tool execution steps recorded for the agent.',
         items: {
           type: 'object',
           properties: {
@@ -217,25 +217,25 @@ export const EVALUATE_AGENT_TRAJECTORY_TOOL: Tool = {
       requiredSequence: {
         type: 'array',
         items: { type: 'string' },
-        description: 'Orden esperado de herramientas clave en la trayectoria.',
+        description: 'Expected ordering of key tools across the trajectory.',
       },
       actualOutput: {
         type: 'string',
-        description: 'Texto final emitido por el agente o pipeline RAG.',
+        description: 'Final text emitted by the agent or RAG pipeline.',
       },
       retrievalContext: {
         type: 'array',
         items: { type: 'string' },
-        description: 'Fragmentos de contexto recuperados para verificar citas [doc_id] y cifras.',
+        description: 'Retrieved context snippets used to verify [doc_id] citations and numeric claims.',
       },
       enforceAstBeforeEdit: {
         type: 'boolean',
-        description: 'Exigir auditoría AST previa antes de editar archivos (true por defecto).',
+        description: 'Require prior AST blast-radius inspection before file edits (default true).',
       },
       timeoutMs: {
         type: 'number',
         minimum: 180000,
-        description: 'Timeout en milisegundos para modo live (>= 180000).',
+        description: 'Timeout in milliseconds for live mode (>= 180000).',
       },
     },
     additionalProperties: false,

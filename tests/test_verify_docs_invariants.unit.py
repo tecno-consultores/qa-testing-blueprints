@@ -115,6 +115,53 @@ class TestVerifyDocsInvariants(unittest.TestCase):
             errors = verify_docs.validate_repository_docs(root)
             self.assertTrue(any("QA-ORPHAN-99" in e for e in errors))
 
+    def test_detects_architect_12kb_cap_other_20kb_cap_and_graphify_profile(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            arch_skill = root / ".agents" / "skills" / "qa-11x-architect" / "SKILL.md"
+            arch_skill.parent.mkdir(parents=True, exist_ok=True)
+            arch_skill.write_text("a" * 12_300, encoding="utf-8")
+
+            other_skill = root / ".agents" / "skills" / "refactoring-ui" / "SKILL.md"
+            other_skill.parent.mkdir(parents=True, exist_ok=True)
+            other_skill.write_text("b" * 15_000, encoding="utf-8")
+
+            ok_other_errors = verify_docs.check_cognitive_budgets(root)
+            self.assertTrue(any("qa-11x-architect/SKILL.md" in e for e in ok_other_errors))
+            self.assertFalse(any("refactoring-ui/SKILL.md" in e for e in ok_other_errors))
+
+            other_skill.write_text("b" * 20_050, encoding="utf-8")
+            both_errors = verify_docs.check_cognitive_budgets(root)
+            self.assertTrue(any("refactoring-ui/SKILL.md" in e for e in both_errors))
+
+            readme = root / "README.md"
+            readme.write_text("Run docker compose --profile graphify up\n", encoding="utf-8")
+            doc_errors = verify_docs.check_active_docs(root)
+            self.assertTrue(any("--profile graphify" in e for e in doc_errors))
+
+    def test_checks_mcp_readme_and_agent_setup_bilingual_cross_links(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "README.es.md").write_text("**Español** -> [README.md](README.md)\n", encoding="utf-8")
+            (root / "README.md").write_text("**English** -> [README.es.md](README.es.md)\n", encoding="utf-8")
+            (root / "mcp-server").mkdir()
+            (root / "mcp-server" / "README.md").write_text("**English** -> [README.es.md](README.es.md)\n", encoding="utf-8")
+            (root / "mcp-server" / "README.es.md").write_text("Missing English backlink\n", encoding="utf-8")
+            (root / "docs").mkdir()
+            (root / "docs" / "agent-setup.en.md").write_text("**English** -> [agent-setup.md](agent-setup.md)\n", encoding="utf-8")
+            (root / "docs" / "agent-setup.md").write_text("**Español** -> [agent-setup.en.md](agent-setup.en.md)\n", encoding="utf-8")
+
+            errors = verify_docs.check_bilingual_readme_parity(root)
+            self.assertTrue(any("mcp-server/README.es.md" in e for e in errors))
+            self.assertFalse(any("agent-setup" in e for e in errors))
+
+            (root / "mcp-server" / "README.es.md").write_text("**Español** -> [README.md](README.md)\n", encoding="utf-8")
+            self.assertEqual(verify_docs.check_bilingual_readme_parity(root), [])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -38,12 +38,12 @@ describe('Agent2Agent Card Generator (buildAgentCard)', () => {
     const card = buildAgentCard();
 
     expect(card.name).toBe('qa-11x-mcp-agent');
-    expect(card.version).toBe('2.21.0');
+    expect(card.version).toBe('3.0.0');
     expect(card.protocolVersion).toBe('0.2.1');
-    expect(card.standardVersion).toBe('QA-11X v2.0');
+    expect(card.standardVersion).toBe('QA-11X v3.0');
     expect(card.activeModel).toBe('local-or-frontier-hybrid');
     expect(card.description).toContain(card.activeModel);
-    expect(card.description).toContain('QA-11X v2.0');
+    expect(card.description).toContain('QA-11X v3.0');
     expect(card.description).toContain('qa-11x-architect');
     expect(card.capabilities).toEqual({
       streaming: false,

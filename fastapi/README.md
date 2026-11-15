@@ -7,7 +7,7 @@ Este documento contiene las instrucciones corporativas de Nivel 11X que DEBES se
 ## 1. Reglas Estrictas de Ejecución (Docker Efímero y Caché)
 **NUNCA** debes instruir la construcción de imágenes locales (`docker build`) ni construir comandos manuales de `docker compose run`. Todo se ejecuta de forma efímera y segura a través del `Makefile` proporcionado, utilizando los cachés de volumen persistentes:
 *   Para la API, pruebas lógicas, contratos, profiling y estrés: `sinfallas/base-python-uv:3.15` (tags disponibles: `3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest`).
-*   Para pruebas BDD de caja negra: `sinfallas/karatelabs:latest`.
+*   Para pruebas BDD de caja negra: `sinfallas/karatelabs:1.5.1` (`:latest`).
 *   Para Seguridad Dinámica (DAST): `zaproxy/zap-stable:latest`.
 *   Para Persistencia Real y Validación de Esquemas (Anti-Mock Blindness): `postgres:17-alpine`.
 *   Para Caché de Alto Rendimiento y Sesiones: `eqalpha/keydb:alpine`.
@@ -20,7 +20,7 @@ Este documento contiene las instrucciones corporativas de Nivel 11X que DEBES se
 La estrategia de validación de FastAPI abarca 13 capas transversales (Estándar Corporativo 11X). Debes configurar e integrar:
 
 1.  **Calidad y Tipado Estricto:** `ruff` y `mypy` (`strict = true`).
-2.  **Seguridad Estática (SAST):** `uv pip audit` (CVEs) y `bandit`.
+2.  **Seguridad Estática (SAST):** `pip-audit` (CVEs) y `bandit`.
 3.  **Seguridad Dinámica (DAST):** `OWASP ZAP` (`zaproxy/zap-stable`) en escaneo *Baseline*.
 4.  **Deuda Técnica:** `radon` (Complejidad ciclomática <= B, mantenibilidad grado A).
 5.  **Profiling:** `py-spy` (Análisis de CPU/RAM mediante *Flamegraphs* sin bloquear Event Loop).
@@ -77,12 +77,11 @@ La estrategia de validación de FastAPI abarca 13 capas transversales (Estándar
 
 En lugar de construir comandos complejos de Docker, **DEBES** instruir al usuario (o ejecutar autónomamente si tienes acceso a terminal) utilizando el `Makefile` estandarizado:
 
-**Paso 0: Ingestión de Contexto (Opcional para Agentes MCP)**
-Extrae la topología del código y levanta tu servidor de contexto si requieres MCP externo:
+**Paso 0: Ingestión de Contexto y Grafo AST (`CLI-First`)**
+Extrae/actualiza el grafo de conocimiento AST del código fuente y consulta el radio de impacto antes de editar:
 ```bash
-docker compose -f docker-compose.qa.yml --profile graphify run --rm graphify bash -c "graphify extract --code-only"
-docker compose -f docker-compose.qa.yml --profile graphify up -d graphify
-# (El Agente IA externo se conecta a http://localhost:8080/sse)
+./scripts/actualizar-grafos-graphify.sh fastapi
+python3 .agents/scripts/inspect_blast_radius.py "<simbolo_o_archivo>"
 ```
 
 **Paso 1: Levantar la API y Servicios de Persistencia**

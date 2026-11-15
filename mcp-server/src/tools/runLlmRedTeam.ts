@@ -173,27 +173,27 @@ export const defaultRedTeamCommandRunner: RedTeamCommandRunner = (spec) => {
 export const RUN_LLM_RED_TEAM_TOOL: Tool = {
   name: STAGE_REDTEAM_ID,
   description:
-    'Audita configuraciones Promptfoo contra OWASP LLM Top 10 (prompt-injection, jailbreak, pii, rbac, excessive-agency), valida ausencia de secretos literales y ejecuta sondas sintéticas contra promptGuard en modo offline, o lanza promptfoo eval en Docker en modo live.',
+    'Audits Promptfoo configurations against OWASP LLM Top 10 (prompt-injection, jailbreak, pii, rbac, excessive-agency), checks for literal secrets, and runs synthetic promptGuard probes offline or Promptfoo eval in ephemeral Docker.',
   inputSchema: {
     type: 'object',
     properties: {
       mode: {
         type: 'string',
         enum: ['offline', 'live'],
-        description: 'Modo de auditoría (offline por defecto, zero-red).',
+        description: 'Audit mode (offline by default, zero network).',
       },
       workspaceRoot: {
         type: 'string',
-        description: 'Raíz del workspace para contención de rutas.',
+        description: 'Workspace root directory for path containment checks.',
       },
       configPath: {
         type: 'string',
-        description: 'Ruta relativa al archivo YAML de Promptfoo (por defecto ai-evals/promptfooconfig.yaml).',
+        description: 'Relative path to Promptfoo YAML config (default ai-evals/promptfooconfig.yaml).',
       },
       timeoutMs: {
         type: 'number',
         minimum: 180000,
-        description: 'Timeout en milisegundos para modo live (>= 180000).',
+        description: 'Timeout in milliseconds for live mode (>= 180000).',
       },
     },
     additionalProperties: false,

@@ -104,3 +104,19 @@ setup() {
   [ -f "${FAKE_ROOT}/.agents/ACTIVE_TASK.md" ]
   [ -f "${FAKE_ROOT}/mcp-server/dist/index.js" ]
 }
+
+@test "limpieza.sh: purga artefactos v3 (playwright-report, .mutmut-cache, .trivycache y mobile-appium)" {
+  mkdir -p "${FAKE_ROOT}/playwright-report" "${FAKE_ROOT}/.mutmut-cache" "${FAKE_ROOT}/.trivycache" \
+    "${FAKE_ROOT}/mobile-appium/wdio-logs" "${FAKE_ROOT}/mobile-appium/errorShots"
+  touch "${FAKE_ROOT}/playwright-report/index.html" "${FAKE_ROOT}/.mutmut-cache/cache.sqlite" \
+    "${FAKE_ROOT}/mobile-appium/wdio-logs/wdio.log" "${FAKE_ROOT}/mobile-appium/errorShots/err.png"
+
+  run env HOME="${FAKE_HOME}" TMPDIR="${FAKE_TMP}" PATH="${FAKE_BIN}" LC_ALL=C "${FAKE_ROOT}/scripts/limpieza.sh" --quiet
+  assert_success
+
+  [ ! -d "${FAKE_ROOT}/playwright-report" ]
+  [ ! -d "${FAKE_ROOT}/.mutmut-cache" ]
+  [ ! -d "${FAKE_ROOT}/.trivycache" ]
+  [ ! -d "${FAKE_ROOT}/mobile-appium/wdio-logs" ]
+  [ ! -d "${FAKE_ROOT}/mobile-appium/errorShots" ]
+}

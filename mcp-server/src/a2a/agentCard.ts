@@ -4,6 +4,7 @@
 import * as crypto from 'node:crypto';
 import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
+import { MCP_SERVER_VERSION } from '../services/github-fetcher.js';
 import {
   MAX_TASK_CAPACITY,
   MIN_TASK_CAPACITY,
@@ -19,8 +20,8 @@ export const SUPPORTED_TASK_CAPACITY_URIS = [
 ] as const;
 
 export const DEFAULT_AGENT_NAME = 'qa-11x-mcp-agent' as const;
-export const DEFAULT_AGENT_VERSION = '2.21.0' as const;
-export const DEFAULT_STANDARD_VERSION = 'QA-11X v2.0' as const;
+export const DEFAULT_AGENT_VERSION: string = MCP_SERVER_VERSION;
+export const DEFAULT_STANDARD_VERSION = 'QA-11X v3.0' as const;
 export const DEFAULT_ACTIVE_MODEL = 'local-or-frontier-hybrid' as const;
 export const DEFAULT_AGENT_URL = 'stdio://sinfallas/mcp-qa-11x' as const;
 export const DEFAULT_A2A_PROTOCOL_VERSION = '0.2.1' as const;

@@ -1,12 +1,12 @@
-# 🏛️ Arquitectura de la Pirámide de Calidad QA-11X v2.0 (13 Capas + Transversales Agénticos)
+# 🏛️ Arquitectura de la Pirámide de Calidad QA-11X v3.0 (13 Capas + Transversales Agénticos)
 
-> **PROPÓSITO:** Documento arquitectónico maestro en español corporativo que define las **13 capas de calidad**, los **planos transversales agénticos y de seguridad** de **QA-11X v2.0**, los **3 niveles progresivos de adopción** (`starter`, `standard`, `enterprise`) y las **3 vías proporcionales de ejecución** (`DOCS_ONLY`, `MICRO_CHANGE`, `FULL_11X`).
+> **PROPÓSITO:** Documento arquitectónico maestro en español corporativo que define las **13 capas de calidad**, los **planos transversales agénticos y de seguridad** de **QA-11X v3.0**, los **3 niveles progresivos de adopción** (`starter`, `standard`, `enterprise`) y las **3 vías proporcionales de ejecución** (`DOCS_ONLY`, `MICRO_CHANGE`, `FULL_11X`).
 
 ---
 
 ## 1. Adopción Proporcional en 3 Vías y 3 Perfiles
 
-Para evitar sobreingeniería en tareas pequeñas sin relajar los controles en sistemas críticos, QA-11X v2.0 separa el **nivel de adopción del repositorio** de la **vía de ejecución por cambio**:
+Para evitar sobreingeniería en tareas pequeñas sin relajar los controles en sistemas críticos, QA-11X v3.0 separa el **nivel de adopción del repositorio** de la **vía de ejecución por cambio**:
 
 | Dimensión | Clasificación | Criterio de Activación | Alcance de Validación |
 | :--- | :--- | :--- | :--- |
@@ -24,7 +24,7 @@ Para evitar sobreingeniería en tareas pequeñas sin relajar los controles en si
 
 ---
 
-## 2. Topología de la Pirámide QA-11X v2.0 (13 Capas + Transversales)
+## 2. Topología de la Pirámide QA-11X v3.0 (13 Capas + Transversales)
 
 ```mermaid
 flowchart TD
@@ -57,7 +57,7 @@ flowchart TD
 
 ## 3. Superficie MCP, Economía de Tokens y Cierre Humano (`QA-GIT-GATE-01`)
 
-* **Servidor MCP `@sinfallas/mcp-qa-11x` v2.21.0:** Expone públicamente **18 Tools** (12 núcleo v1 + 6 v2.0: `validate_calm_architecture`, `evaluate_release_gate`, `evaluate_agent_trajectory`, `run_llm_red_team`, `audit_vibe_prototype`, `sync_enterprise_tms`) y **12 Resources** (`blueprint://*`, sumando `blueprint://ai/evals-redteam`, `blueprint://mobile-appium/readme` y `blueprint://vibe-rescue/readme`) protegidos sobre `stdio` con `promptGuard` y `TaskStateGuard`.
+* **Servidor MCP `@sinfallas/mcp-qa-11x` v3.0.0:** Expone públicamente **18 Tools** (12 núcleo v1 + 6 v2.0: `validate_calm_architecture`, `evaluate_release_gate`, `evaluate_agent_trajectory`, `run_llm_red_team`, `audit_vibe_prototype`, `sync_enterprise_tms`) y **12 Resources** (`blueprint://*`, sumando `blueprint://ai/evals-redteam`, `blueprint://mobile-appium/readme` y `blueprint://vibe-rescue/readme`) protegidos sobre `stdio` con `promptGuard` y `TaskStateGuard`.
 * **Economía de Tokens (`< 20 KB` / `<= 40` líneas):** La skill orquestadora [`.agents/skills/qa-11x-architect/SKILL.md`](../.agents/skills/qa-11x-architect/SKILL.md) (`< 12 KB`) hidrata 9 sub-skills modulares bajo demanda y usa [`.agents/scripts/compact_context_11x.py`](../.agents/scripts/compact_context_11x.py) + formato `Pass-Quiet / Fail-Verbose` (`/tmp/qa-11x-last-failure.json`).
 * **Guardia Humana de Cierre (`QA-GIT-GATE-01`):** Toda tarea concluye superando las 10 etapas de [`.agents/scripts/certify_task_completion.sh`](../.agents/scripts/certify_task_completion.sh) y realizando un `git commit` local. Según [`.agents/rules/git_closure_gate.md`](../.agents/rules/git_closure_gate.md), ningún agente puede ejecutar `git push` o `npm publish` sin autorización humana explícita.
 

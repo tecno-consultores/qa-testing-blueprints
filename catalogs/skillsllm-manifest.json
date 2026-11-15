@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0.0",
-  "name": "QA Testing Blueprints (QA-11X v2.0)",
+  "name": "QA Testing Blueprints (QA-11X v3.0)",
   "slug": "qa-testing-blueprints-11x",
-  "version": "2.21.0",
-  "standard_edition": "QA-11X v2.0",
+  "version": "3.0.0",
+  "standard_edition": "QA-11X v3.0",
   "license": "MIT",
   "author": "Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)",
   "homepage": "https://github.com/tecno-consultores/qa-testing-blueprints",
@@ -116,9 +116,9 @@
       "name": "qa-11x-architect",
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-architect/SKILL.md",
-      "size_bytes": 11974,
-      "sha256": "b3357cfa066f000ef2af1f97d168267aee09387c36a93c857d74396245787b2e",
-      "description": "Master QA 11X & DevSecOps Architect (qa-testing-blueprints v2.16+). Use whenever the user asks to initialize or integrate QA in a project, merge .example templates, write or audit unit/BDD/mutation/E2E tests, enforce >=95% coverage, apply DISA ASD STIG V6R5 and OWASP v4.2 security controls, run ephemeral Docker QA suites (Rule Zero), optimize context token consumption, or update TESTING.md and CHANGELOG.md."
+      "size_bytes": 11968,
+      "sha256": "20c3ae903c5e1d6edddac3c051348751c18dac47d34d318c0220f4790d45317a",
+      "description": "Master QA 11X & DevSecOps Architect (qa-testing-blueprints v3.0+). Use whenever the user asks to initialize or integrate QA in a project, merge .example templates, write or audit unit/BDD/mutation/E2E tests, enforce >=95% coverage, apply DISA ASD STIG V6R5 and OWASP v4.2 security controls, run ephemeral Docker QA suites (Rule Zero), optimize context token consumption, or update TESTING.md and CHANGELOG.md."
     },
     {
       "id": "qa-11x-devsecops-hardener",
@@ -152,8 +152,8 @@
       "name": "qa-11x-llm-evaluator",
       "path": ".agents/skills/qa-11x-llm-evaluator/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-llm-evaluator/SKILL.md",
-      "size_bytes": 9341,
-      "sha256": "e58508766f57234d161cf54a4f83ef8f4b8edb7b1f01f4586e1aad198360f9f0",
+      "size_bytes": 9387,
+      "sha256": "ca0d29ffd43adcef12605ea91aeadfd9c249c3c859f15581cae20d953b0b8177",
       "description": "Dual-mode LLM, RAG, multimodal, voice, and autonomous agent evaluation sub-skill for Standard 11X. Enforces zero-cost deterministic offline contracts in CI (make test / make certify) and on-demand probabilistic evaluation and OWASP LLM Top 10 red-teaming via DeepEval and Promptfoo in ephemeral Docker."
     },
     {
@@ -188,8 +188,8 @@
       "name": "graphify-ast-navigator",
       "path": ".agents/skills/graphify-ast-navigator/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/graphify-ast-navigator/SKILL.md",
-      "size_bytes": 8574,
-      "sha256": "1e945fca308730848f83c5ffea6c823503767caa72045bc133a0a46c15f35624",
+      "size_bytes": 8853,
+      "sha256": "d0ff07bce7d0b0ff5902152a329b71103403bb0821d03bc3e480f30ec0bec526",
       "description": "AST Knowledge Graph lifecycle and bidirectional code navigation (why and how to create, incrementally refresh, and query graph.json & GRAPH_REPORT.md). MANDATORY FIRST STEP whenever answering questions about project code or architecture (Code Q&A), tracing callers/callees, auditing pre-refactoring blast radius, or checking layer boundaries."
     },
     {

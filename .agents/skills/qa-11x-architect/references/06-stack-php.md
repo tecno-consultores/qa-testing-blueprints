@@ -16,7 +16,7 @@ All execution MUST occur inside ephemeral Docker containers (`Rule Zero`) using 
 | **PHP API / Test Runner** | `sinfallas/basephpcomposer:8.5` | Non-root `www` (`1000:1000`) | Pest/PHPUnit + PCOV, PHPStan, Psalm, PHP-CS-Fixer, Infection |
 | **Relational Database** | `postgres:17-alpine` | `5432:5432` | Real PostgreSQL schema parity, `FORCE RLS`, Doctrine/Laravel migrations |
 | **In-Memory Store & Cache** | `eqalpha/keydb:alpine` | `6379:6379` | Multi-threaded KeyDB (`--server-threads 2`) via C `ext-redis` |
-| **Black-Box REST / UI BDD** | `sinfallas/karatelabs:latest` | Target: `http://qa-php:8000` | Gherkin HTTP & Chrome Headless (`test/api_test.feature`) |
+| **Black-Box REST / HTTP BDD** | `sinfallas/karatelabs:1.5.1` (`:latest`) | Target: `http://qa-php:8000` | Gherkin HTTP, OpenAPI & OWASP OSHP checks (`test/api_test.feature`) |
 | **Dynamic Security (DAST)** | `zaproxy/zap-stable:latest` | Target: `http://qa-php:8000` | OWASP ZAP Baseline & OSHP header verification |
 | **Chaos Injection** | `gaiaadm/pumba:latest` | Docker Socket | Network latency (`netem`), jitter, and packet loss |
 

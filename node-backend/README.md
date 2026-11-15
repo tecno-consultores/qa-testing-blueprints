@@ -50,8 +50,8 @@
 ### H. Resiliencia Extrema (Ingeniería del Caos) -> `Pumba` + `Artillery`
 *   **Regla:** Ejecutado exclusivamente mediante el perfil `--profile chaos`. Pumba inyectará 500ms de latencia de red impredecible sobre el contenedor de Node.js, mientras `Artillery` inyecta oleadas de usuarios concurrentes y Prometheus extrae las métricas. Certifica que la arquitectura no colapsa ni entra en *timeout* permanente cuando la red falla.
 
-### I. Ingestión Inteligente (Paso 0 - MCP)
-*   **Regla (Exclusiva para ti, IA):** Tienes estrictamente prohibido generar código o pruebas a ciegas. Tu primer paso debe ser levantar el servidor `graphify` para ingerir el grafo semántico del proyecto. Además, DEBES leer silenciosamente los lineamientos de dependencias, formato y linters definidos en `package.json`, `.eslintrc.json`, `.prettierrc` y `tsconfig.json` para adaptar tu código a las convenciones estrictas del repositorio y evitar rechazos en el CI/CD.
+### I. Ingestión Inteligente (Paso 0 - AST Graphify `CLI-First`)
+*   **Regla (Exclusiva para ti, IA):** Tienes estrictamente prohibido generar código o pruebas a ciegas. Tu primer paso debe ser actualizar e inspeccionar el grafo AST mediante CLI (`./scripts/actualizar-grafos-graphify.sh node-backend` y `python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"`, o la tool MCP `inspect_ast_blast_radius`) sin levantar demonios de fondo que ocupen el puerto `8080`. Además, DEBES leer silenciosamente los lineamientos de dependencias, formato y linters definidos en `package.json`, `.eslintrc.json`, `.prettierrc` y `tsconfig.json` para adaptar tu código a las convenciones estrictas del repositorio y evitar rechazos en el CI/CD.
 
 ### J. Seguridad por Diseño Obligatoria (DISA ASD STIG V6R5 & OWASP Developer Guide v4.2)
 *   Al programar o auditar microservicios en Node.js/TypeScript, DEBES aplicar y probar los controles de **[`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`](../docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md)**:
@@ -63,12 +63,11 @@
 
 En lugar de construir comandos complejos de Docker, **DEBES** instruir al usuario (o ejecutar autónomamente si tienes acceso a terminal) utilizando el `Makefile` estandarizado:
 
-**Paso 0: Ingestión de Contexto (Obligatorio para la IA antes de programar)**
-Extrae la topología del código y levanta tu servidor de contexto:
+**Paso 0: Ingestión de Contexto y Grafo AST (`CLI-First`)**
+Extrae/actualiza el grafo de conocimiento AST y consulta el radio de impacto antes de programar:
 ```bash
-docker compose -f docker-compose.qa.yml --profile graphify run --rm graphify bash -c "graphify extract --code-only"
-docker compose -f docker-compose.qa.yml --profile graphify up -d graphify
-# (El Agente IA se conecta a http://localhost:8080/sse)
+./scripts/actualizar-grafos-graphify.sh node-backend
+python3 .agents/scripts/inspect_blast_radius.py "<simbolo_o_archivo>"
 ```
 
 **Paso 1: Levantar la API en segundo plano**

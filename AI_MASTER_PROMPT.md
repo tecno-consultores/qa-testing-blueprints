@@ -56,9 +56,13 @@ Antes de escribir código o sugerir comandos, consulta la guía especializada de
 * 🟩 **Node.js Backend / Microservicios:** `node-backend/README.md`
 * 🟢 **Vue 3 UI (TypeScript):** `vue3/README.md` + `docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md`
 * ⚛️ **React UI (TypeScript):** `react-frontend/README.md`
-* 🐘 **PHP 8.2–8.5 Backend (`sinfallas/basephpcomposer`):** `docs/specs/10_SPEC_ECOSISTEMA_PHP_8_Y_HERRAMIENTAS_MCP.md` + `.agents/skills/qa-11x-architect/references/06-stack-php.md`
+* 🐘 **PHP 8.2–8.5 Backend (`sinfallas/basephpcomposer`):** `php/README.md` + `docs/specs/10_SPEC_ECOSISTEMA_PHP_8_Y_HERRAMIENTAS_MCP.md` + `.agents/skills/qa-11x-architect/references/06-stack-php.md`
 * 🐧 **DevOps & Bash Scripts:** `bash-scripts/README.md`
-* 🧠 **Servidor MCP y Skills:** `docs/specs/03_SPEC_MCP_SERVER_NODE_TS_CORE_Y_TOOLS.md` + `docs/ai-integration.md`
+* 📱 **Móvil Nativo/Híbrido (Appium 3 / WDIO):** `mobile-appium/README.md`
+* 🤖 **Evaluaciones Dual-Mode de IA & Red Team:** `ai-evals/README.md`
+* 🛡️ **Rescate Vibe-to-Enterprise:** `vibe-rescue/README.md`
+* 🏗️ **Arquitectura como Código (FINOS CALM):** `architecture/README.md` (`architecture/qa-11x.calm.json`)
+* 🧠 **Servidor MCP (`18` Tools + `12` Resources) y 10 Skills:** `docs/specs/03_SPEC_MCP_SERVER_NODE_TS_CORE_Y_TOOLS.md` + `docs/ai-integration.md`
 
 ---
 
@@ -86,7 +90,7 @@ El script certifica implacablemente las 10 etapas de calidad corporativa:
 5. **[5/10] Zero Orphan API Endpoints:** Paridad bidireccional absoluta entre rutas Frontend y Backend (`verify_no_orphan_api_endpoints.py`).
 6. **[6/10] Topological Health & AST Boundaries:** Salud topológica y límites arquitectónicos entre capas (`verify_topological_health.py`).
 7. **[7/10] ORM & Database Migration Parity:** Cero modelos SQLAlchemy desincronizados y revisiones Alembic `<= 32` chars (`verify_alembic_orm_parity.py`).
-8. **[8/10] Cryptographic Manifest Sync:** Integridad SHA-256 de todas las plantillas y archivos rastreados en `manifest.json`.
+8. **[8/10] Cryptographic Manifest & Version Sync:** Integridad SHA-256 de todas las plantillas y archivos rastreados en `manifest.json` (`sync_governance.py --check`) y paridad de versión/edición (`bump_version_11x.py --check`).
 9. **[9/10] Roadmap & Active Task Consistency:** Coherencia estricta entre la tabla de `ROADMAP.md` y tareas `- [x]`, y cero tareas pendientes en `.agents/ACTIVE_TASK.md` ante estados `COMPLETED` (`verify_roadmap_consistency.py`).
 10. **[10/10] Documentation & Mandatory Tests Sync:** Sincronización incondicional de documentación (`CHANGELOG.md`, `TESTING.md`, `README.md`), cobertura unitaria (`>= 95%`), escenarios BDD de Karate Labs y actualización obligatoria de pruebas preexistentes afectadas (`QA-TEST-SYNC-01`).
 

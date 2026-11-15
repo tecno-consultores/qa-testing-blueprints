@@ -2,31 +2,66 @@
 
 # 🤖 Guía Maestra de Configuración del Servidor MCP y Skills QA 11X por Agente de IA
 
-Esta guía describe el procedimiento paso a paso para configurar **`@sinfallas/mcp-qa-11x`** y las **5 skills corporativas** del estándar QA 11X en cualquiera de los 11 principales entornos y asistentes de IA para desarrollo de software.
+Esta guía describe el procedimiento paso a paso para configurar **`@sinfallas/mcp-qa-11x`**, sus **28 conectores declarativos de agentes IA** y las **10 skills modulares** del estándar QA 11X en IDEs, CLIs, agentes autónomos y entornos *vibe-coding*.
 
 ---
 
-## 📋 Paso 1: Instalación Común de Skills, Scripts y Gobernanza (`AGENTS.md`)
+## 📋 Paso 1: Instalación Común de Skills, Conectores (`AGENTS.md`) y Política de Idioma (`--lang es|en`)
 
-Antes de registrar el servidor MCP en tu asistente de IA, ejecuta el instalador universal en la raíz de tu proyecto para descargar las skills verificadas con **SHA-256 (`DISA STIG V-222513`)**, instalar los scripts de auditoría y configurar la gobernanza:
+Antes de registrar el servidor MCP en tu asistente de IA, inicializa la gobernanza, las skills verificadas con **SHA-256 (`DISA STIG V-222513`)** y los puentes declarativos *Thin-Repo* en la raíz del proyecto:
 
 ```bash
-# Recomendado (Detección automática de agentes globales + Dynamic Language Mirroring):
-npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts --reconcile
+# 1. Onboarding rápido integral en < 30s (quickstart soporta --tier / -T, --lang, --agents):
+npx -y @sinfallas/mcp-qa-11x@latest quickstart -T standard --lang es --agents auto
 
-# Forzando idioma específico en las directivas generadas para AGENTS.md:
-# En Español:
-npx -y @sinfallas/mcp-qa-11x@latest install-skill --lang es --init-agents --include-scripts --reconcile
+# 2. Detectar agentes globales e instalar las 10 skills + scripts + conectores Thin-Repo:
+npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --lang auto --agents auto --include-scripts --reconcile
 
-# En Inglés:
-npx -y @sinfallas/mcp-qa-11x@latest install-skill --lang en --init-agents --include-scripts --reconcile
+# 3. Apuntar explícitamente a conectores específicos (ej. Copilot, Cursor, Claude Code) en español o inglés:
+npx -y @sinfallas/mcp-qa-11x@latest init-agents --lang es --agents copilot,cursor,claude-code
+npx -y @sinfallas/mcp-qa-11x@latest init-agents --lang en --agents auto
 
-# Seleccionando un agente específico como destino de las skills:
+# 4. Seleccionar un destino específico para las 10 skills globales:
 npx -y @sinfallas/mcp-qa-11x@latest install-skill --target [auto|workspace|antigravity|claude|cursor|windsurf|codex|hermes|all] --init-agents --include-scripts --reconcile
 ```
 
 > [!NOTE]
-> El flag `--lang auto` (predeterminado) activa el **Dynamic Language Mirroring**: el modelo responde y razona en el idioma de tu prompt, y redacta commits y documentación humana respetando el idioma preexistente de `README.md` y `CHANGELOG.md` del repositorio.
+> - **Política de Idioma (`--lang`):** `--lang auto` (predeterminado en `install-skill`) activa el **Dynamic Language Mirroring**: el modelo responde y razona en el idioma de tu prompt, y redacta commits y documentación humana respetando el idioma preexistente de `README.md` y `CHANGELOG.md` del repositorio. `--lang es` / `--lang en` fuerzan explícitamente el idioma humano de salida mientras mantienen `.agents/` en inglés técnico compacto.
+> - **Arquitectura Puente Thin-Repo (`--agents <csv|auto|all>`):** En lugar de duplicar manuales extensos en cada herramienta, cada conector se mantiene en `<= 15` líneas apuntando a `AGENTS.md` (con *frontmatter* `.mdc` válido en Cursor y `read: AGENTS.md` en `.aider.conf.yml`), con protección anti *path-traversal* y `--dry-run`.
+> - **Guardia Humana de Push (`QA-GIT-GATE-01`):** Todos los conectores exigen cerrar en `git commit` local certificado y prohíben `git push` o `npm publish` automáticos sin autorización humana explícita.
+
+### 🌐 Matriz Declarativa de 28 Agentes de Programación IA Soportados (`--agents`)
+
+| ID (`--agents`) | Asistente / Entorno | Categoría | Archivo Puente Generado | Marcadores (`--agents auto`) |
+| :--- | :--- | :--- | :--- | :--- |
+| `antigravity` | Google Antigravity IDE | IDE | `AGENTS.md` | `.gemini`, `.idx` |
+| `claude-code` | Claude Code CLI | CLI | `CLAUDE.md` | `CLAUDE.md`, `.claude` |
+| `claude-desktop` | Claude Desktop | Desktop | `AGENTS.md` | `.mcp.json` |
+| `cursor` | Cursor IDE | IDE | `.cursor/rules/qa-11x.mdc` | `.cursor`, `.cursorrules` |
+| `windsurf` | Windsurf (Codeium) | IDE | `.windsurfrules` | `.windsurfrules`, `.windsurf`, `.codeium` |
+| `copilot` | GitHub Copilot (VS Code) | IDE | `.github/copilot-instructions.md` | `.github`, `.vscode` |
+| `codex` | OpenAI Codex CLI | CLI | `AGENTS.md` | `.codex` |
+| `gemini-cli` | Google Gemini CLI | CLI | `GEMINI.md` | `GEMINI.md`, `.gemini` |
+| `gemini-code-assist` | Gemini Code Assist | IDE | `.gemini/styleguide.md` | `.gemini` |
+| `cline` | Cline (VS Code) | IDE | `.clinerules` | `.clinerules`, `.cline` |
+| `roo-code` | Roo Code | IDE | `.roo/rules/qa-11x.md` | `.roo`, `.roorules` |
+| `aider` | Aider CLI | CLI | `.aider.conf.yml` (`read: AGENTS.md`) | `.aider.conf.yml`, `.aiderignore` |
+| `continue` | Continue.dev | IDE | `.continue/rules/qa-11x.md` | `.continue`, `.continuerules` |
+| `zed` | Zed Editor AI | IDE | `.rules` | `.zed`, `.rules` |
+| `devin` | Devin Autonomous Agent | Autonomous | `AGENTS.md` | `.devin` |
+| `cody` | Sourcegraph Cody | IDE | `.sourcegraph/qa-11x.rule.md` | `.sourcegraph` |
+| `amazon-q` | Amazon Q Developer | IDE | `.amazonq/rules/qa-11x.md` | `.amazonq` |
+| `jetbrains-ai` | JetBrains AI / Junie | IDE | `.junie/guidelines.md` | `.junie`, `.idea` |
+| `augment` | Augment Code | IDE | `.augment/rules/qa-11x.md` | `.augment` |
+| `trae` | Trae IDE | IDE | `.trae/rules/qa-11x.md` | `.trae` |
+| `hermes` | Hermes Agent | Autonomous | `AGENTS.md` | `.hermes` |
+| `opencode` | OpenCode CLI | CLI | `AGENTS.md` | `opencode.json`, `.opencode` |
+| `goose` | Block Goose | CLI | `.goosehints` | `.goosehints`, `.goose` |
+| `kilo-code` | Kilo Code | IDE | `.kilocode/rules/qa-11x.md` | `.kilocode` |
+| `bolt` | Bolt.new | Vibe-Coding | `.bolt/prompt` | `.bolt` |
+| `lovable` | Lovable.dev | Vibe-Coding | `.lovable/rules.md` | `.lovable` |
+| `v0` | Vercel v0 | Vibe-Coding | `.v0/rules.md` | `.v0` |
+| `replit` | Replit Agent | Vibe-Coding | `replit.md` | `.replit`, `replit.nix`, `replit.md` |
 
 ---
 

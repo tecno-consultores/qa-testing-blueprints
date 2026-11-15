@@ -11,29 +11,46 @@ Este directorio implementa el estándar abierto y emergente de la industria para
 ```text
 .agents/
 ├── README.md                                         # Este documento explicativo
-├── rules/                                            # Reglas y directivas de comportamiento forzadas (7 archivos canónicos globales)
+├── rules/                                            # Reglas y directivas de comportamiento forzadas (8 archivos canónicos globales)
 │   ├── mandatory_qa_pyramid_and_doc_sync.md          # Pirámide de pruebas multi-capa, propagación transversal Anti-Silo y sync documental
 │   ├── secure_development_and_testing_guidelines.md  # DISA ASD STIG V6R5 + OWASP v4.2: Anti-Mocks, RLS, sesiones, NFKC, XXE, auditoría semántica anti-UUID, SBOM y geometría visual
 │   ├── frontend_parity_and_closure.md                # Paridad terminal-UI, tablas mutables, Refresco Dual ([ 🔄 Refrescar ]) y protocolo de cierre
 │   ├── continuous_agent_evolution.md                 # Evolución autónoma de .agents/ y aislamiento de reglas de dominio (domain_*.md)
 │   ├── anti_regression_and_side_effects_guardrail.md # Blindaje contra regresiones y control de radio de impacto
 │   ├── ground_truth_fixtures_and_negative_invariants.md # Fixtures trimodales, Ciclo Temporal de 3 Fases e invariantes negativos
-│   └── active_task_and_planning_resilience.md        # Bitácora en caliente (.agents/ACTIVE_TASK.md) y resiliencia ante caídas de sesión
-├── skills/                                           # Habilidades y Playbooks de dominio (5 skills del catálogo)
-│   ├── qa-11x-architect/                             # Skill Maestra: 13 capas, 10 leyes 11X, Invariante Anti-Silo (11 reglas UAT Anti-Blindness) y 7 playbooks
-│   ├── qa-11x-docker-certifier/                      # Certificación 11X en Docker efímero (95% cobertura)
+│   ├── active_task_and_planning_resilience.md        # Bitácora en caliente (.agents/ACTIVE_TASK.md) y resiliencia ante caídas de sesión
+│   └── git_closure_gate.md                           # Compuerta QA-GIT-GATE-01 (commit local certificado, cero git push automático)
+├── skills/                                           # Habilidades y Playbooks de dominio (10 skills modulares del catálogo)
+│   ├── qa-11x-architect/                             # Skill Maestra: 13 capas, 10 leyes 11X, 11 reglas UAT Anti-Blindness y 9 references/
+│   ├── qa-11x-docker-certifier/                      # Certificación 11X en Docker efímero (>=95% cobertura)
+│   ├── qa-11x-devsecops-hardener/                    # Endurecimiento DISA ASD STIG V6R5 (34 reglas) & OWASP v4.2
+│   ├── qa-11x-systematic-debugging/                  # Depuración determinista en 4 fases (Rule Zero + AST Blast Radius)
+│   ├── qa-11x-screenplay-builder/                    # Arquitectura E2E Screenplay Pattern, Anti-JSDOM y aserciones temporales
+│   ├── qa-11x-llm-evaluator/                         # Evaluación dual-mode de LLMs, RAG, voz y red-teaming OWASP LLM Top 10
+│   ├── qa-11x-vibe-rescue/                           # Rescate 5-etapas de prototipos AI Vibe-to-Enterprise
 │   ├── docker-trivy-keydb-hardening/                 # Endurecimiento Docker, Trivy = 0 y KeyDB multi-hilo
-│   ├── graphify-ast-navigator/                       # Navegación AST, radio de impacto (Blast Radius) y servidor MCP
+│   ├── graphify-ast-navigator/                       # Navegación AST, radio de impacto (Blast Radius) y selector diferencial
 │   └── refactoring-ui/                               # Jerarquía visual, escalas discretas, color OKLCH, tabular-nums y WCAG 2.1 AA (SKILL.md + 9 references/)
-└── scripts/                                          # Scripts de automatización y compuertas de calidad (9 compuertas)
+└── scripts/                                          # Scripts de automatización y compuertas de calidad (20 scripts)
     ├── verify_alembic_orm_parity.py                  # Auditoría estricta: modelos ORM vs migraciones de BD (y revision <= 32 chars)
     ├── verify_json_no_duplicate_keys.py              # Auditoría estricta anti-colisión de claves duplicadas en JSON i18n
     ├── verify_topological_health.py                  # Auditoría estricta de salud topológica y límites de capas AST
     ├── inspect_blast_radius.py                       # Análisis bidireccional AST de radio de impacto y Code Q&A
+    ├── select_tests_by_blast_radius.py               # Selector determinista de suites QA por radio de impacto AST
     ├── verify_zero_orphan_vue_components.py          # Auditoría estricta: paridad y cobertura de componentes UI (0 huérfanos)
     ├── verify_no_orphan_api_endpoints.py             # Auditoría bidireccional: paridad de endpoints API Front-Back (0 huérfanos 404/405)
     ├── verify_roadmap_consistency.py                 # Auditoría bidireccional: coherencia de ROADMAP.md y ACTIVE_TASK.md
-    ├── verify_docs_invariants.py                     # Auditoría de presupuesto cognitivo (<20KB / <=40 líneas) y paridad Dual-Consumer 1:1
+    ├── verify_docs_invariants.py                     # Auditoría de presupuesto cognitivo (<12KB arquitecto / <20KB skills / <=40 líneas) y paridad Dual-Consumer 1:1
+    ├── verify_diff_coverage.py                       # Compuerta de cobertura diferencial 100% línea / >=90% rama Multi-Stack
+    ├── track_findings_state.py                       # Rastreador de estado de hallazgos y cortacircuitos anti-loop (exit 42)
+    ├── generate_pr_verdict.py                        # Generador determinista de PR_VERDICT.md y atestación SHA-256
+    ├── lint_test_antipatterns.py                     # Linter AST contra mocks ciegos de auditoría y regresiones UUID
+    ├── bump_version_11x.py                           # Sincronizador determinista Zero-LLM de versión y edición 11X
+    ├── sync_governance.py                            # Sincronizador criptográfico SHA-256 de manifest.json (100% offline)
+    ├── release_readiness_gate.py                     # Evaluador SLA de Release Readiness (GO / NO-GO)
+    ├── compact_context_11x.py                        # Compactador de contexto Zero-LLM en 2 niveles
+    ├── audit_pagespeed_insights.py                   # Auditor Core Web Vitals / PageSpeed Insights
+    ├── validate_calm_architecture.sh                 # Validador de arquitectura FINOS CALM en Docker efímero
     └── certify_task_completion.sh                    # Compuerta de certificación pre-commit automatizada (10 etapas)
 ```
 
@@ -42,7 +59,7 @@ Este directorio implementa el estándar abierto y emergente de la industria para
 ## 🌐 Estrategia Lingüística y Optimización de Tokens (Inglés Técnico vs. Español Humano)
 
 > **PREMISA DE DISEÑO ARQUITECTÓNICO:**  
-> Las instrucciones destinadas al consumo interno de los modelos de IA (`rules/` y `skills/`) están redactadas en **inglés técnico compacto de alta densidad**, mientras que toda la interacción con desarrolladores humanos, respuestas en el chat y documentación del proyecto (`docs/`, `CHANGELOG.md`, `README.md`, `TESTING.md`) se mantiene estrictamente en **español**.
+> Las instrucciones destinadas al consumo interno de los modelos de IA (`rules/` y `skills/`) están redactadas en **inglés técnico compacto de alta densidad**, mientras que la documentación operativa para humanos mantiene el estándar en **español** (`docs/`, `CHANGELOG.md`, `TESTING.md`, `README.es.md`) junto con puertas de entrada bilingües internacionales en **inglés** (`README.md`, `mcp-server/README.md`, `docs/agent-setup.en.md`, `catalogs/agenticskills-submission.md`, con política *Dynamic Mirroring* en repositorios consumidores).
 
 ### ¿Por qué las directivas de IA están en inglés?
 

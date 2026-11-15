@@ -63,7 +63,8 @@ After **EVERY** task or turn that adds, edits, or removes code or configuration 
    - Update `TESTING.md` metrics and counts.
    - Update `README.md` when user-facing interfaces or architectures change.
    - Mark `.agents/ACTIVE_TASK.md` as `COMPLETED (100%)`.
-4. **Secret, Dependency Vulnerability, i18n & Parity Certification:**
+4. **Secret, Dependency Vulnerability, i18n, Parity & Git Closure Certification:**
    - Run `./scripts/verificar-secretos.sh` (0 secret leaks).
    - Run `./scripts/auditar-infra.sh` (0 High/Critical findings).
    - Run `./.agents/scripts/certify_task_completion.sh` (all gates passed).
+   - Conclude with a clean certified local `git commit` (NEVER execute automatic `git push` or remote publishing without explicit human authorization per `QA-GIT-GATE-01`).

@@ -572,7 +572,7 @@ strict = true
   describe('server.ts tool default parameters and branches', () => {
     it('ejecuta herramientas de server.ts con argumentos por defecto y opcionales', async () => {
       const fetcher = new GitHubFetcher({ cacheDir: path.join(tempDir, 'cache') });
-      const server = createMcpServer(fetcher);
+      const server = createMcpServer({ fetcher });
       const serverAny = server as unknown as {
         _registeredTools: Record<
           string,
@@ -597,12 +597,12 @@ strict = true
       expect(resCleanExplicit.content[0].text).toContain('"dry_run":false');
       expect(resCleanExplicit.content[0].text).toContain('"deep_prune":true');
 
-      // inspect_ast_blast_radius con exclude_dirs explícito
+      // inspect_ast_blast_radius con max_items explícito
       const toolBlast = serverAny._registeredTools['inspect_ast_blast_radius'];
       const resBlast = await toolBlast.handler({
         project_path: tempDir,
         target_symbol: 'DummySymbol',
-        exclude_dirs: ['node_modules', 'dist'],
+        max_items: 10,
       });
       expect(resBlast.content[0].text).toContain('"target_symbol":"DummySymbol"');
 

@@ -169,33 +169,33 @@ export interface AuditVibePrototypeResult {
 export const AUDIT_VIBE_PROTOTYPE_TOOL: Tool = {
   name: 'audit_vibe_prototype',
   description:
-    'Audita y endurece prototipos vibe-coded (Bolt.new, Lovable, v0, Replit Agent) bajo el protocolo QA-11X de 5 etapas (VIBE-SEC-001..VIBE-QA-005), con redacción de secretos, plantilla PostgreSQL 15-17+ RLS y emisión segura opcional en dryRun=false.',
+    'Audits and hardens vibe-coded prototypes (Bolt.new, Lovable, v0, Replit Agent) under the 5-stage QA-11X protocol (VIBE-SEC-001..VIBE-QA-005), with secret redaction, PostgreSQL 15-17+ RLS template, and optional non-destructive dryRun=false emission.',
   inputSchema: {
     type: SCHEMA_OBJECT,
     properties: {
       targetDir: {
         type: SCHEMA_STRING,
-        description: 'Ruta relativa o contenida en workspaceRoot del prototipo a auditar.',
+        description: 'Relative or contained prototype directory path inside workspaceRoot.',
       },
       workspaceRoot: {
         type: SCHEMA_STRING,
-        description: 'Raíz de proyecto permitida para contención anti-Path Traversal.',
+        description: 'Allowed project root for anti-Path Traversal containment.',
       },
       dryRun: {
         type: SCHEMA_BOOLEAN,
-        description: 'Modo seguro sin escritura en disco (por defecto true).',
+        description: 'Safe read-only mode without disk writes (default true).',
       },
       remediationSubdir: {
         type: SCHEMA_STRING,
-        description: 'Subdirectorio relativo dentro de targetDir para emitir artefactos cuando dryRun=false.',
+        description: 'Relative subdirectory inside targetDir for generated remediation files when dryRun=false.',
       },
       maxLines: {
         type: SCHEMA_NUMBER,
-        description: 'Umbral máximo de líneas por módulo antes de activar VIBE-ARCH-004 (default 500).',
+        description: 'Maximum lines per module before triggering VIBE-ARCH-004 (default 500).',
       },
       enforce: {
         type: SCHEMA_BOOLEAN,
-        description: 'Si es true, marca isError=true en MCP cuando el veredicto es RESCUE_REQUIRED.',
+        description: 'If true, returns isError=true in MCP when verdict is RESCUE_REQUIRED.',
       },
     },
     additionalProperties: false,

@@ -55,12 +55,11 @@
 
 En lugar de construir comandos complejos de Docker, **DEBES** instruir al usuario (o ejecutar autónomamente si tienes acceso a terminal) utilizando el `Makefile` estandarizado:
 
-**Paso 0: Ingestión de Contexto (Opcional para Agentes MCP)**
-Extrae la topología del código fuente (componentes Vue y dependencias TS) y levanta tu servidor de contexto si requieres MCP externo:
+**Paso 0: Ingestión de Contexto y Grafo AST (`CLI-First`)**
+Actualiza el grafo AST (componentes Vue y dependencias TS) y consulta el radio de impacto antes de editar:
 ```bash
-docker compose -f docker-compose.qa.yml --profile graphify run --rm graphify bash -c "graphify extract --code-only"
-docker compose -f docker-compose.qa.yml --profile graphify up -d graphify
-# (El Agente IA se conecta a http://localhost:8080/sse)
+./scripts/actualizar-grafos-graphify.sh vue3
+python3 .agents/scripts/inspect_blast_radius.py "<ComponenteORuta>"
 ```
 
 **Paso 1: Ejecutar las suites de Validación Lógica (No requieren Build)**
@@ -81,9 +80,6 @@ make qa-orphans
 ```
 
 *   **Pruebas de Mutación Frontend (Stryker):**
-```bash
-make qa-mutation
-```
 ```bash
 make qa-mutation
 ```

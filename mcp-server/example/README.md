@@ -24,8 +24,8 @@ En lugar de evaluar las herramientas MCP únicamente con pruebas unitarias aisla
 2. **18 Herramientas Ejecutables (`callTool` sobre JSON-RPC `stdio`):**
    - **12 núcleo v1:** `inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`, `audit_test_pyramid_gaps`, `audit_security_stig_owasp`, `clean_workspace_11x`, `init_or_append_agents_md`, `reconcile_agents_governance`, `run_ephemeral_qa`, `certify_11x_gate` y `propose_skill_evolution_pr`.
    - **6 herramientas v2.0:** `validate_calm_architecture`, `evaluate_release_gate`, `evaluate_agent_trajectory`, `run_llm_red_team`, `audit_vibe_prototype` y `sync_enterprise_tms` (protegidas con `promptGuard` + `TaskStateGuard`).
-3. **4 Subcomandos CLI + Verificador Tarball Clean-Room (`verify-v2.sh`):**
-   - `quickstart`, `install-skill`, `init-agents`, `reconcile-agents`, `--version` (`2.21.0`), `--help` y sonda no bloqueante TTY `QA-CLI-TTY-01` (`< 5s`).
+3. **5 Subcomandos CLI + Verificador Tarball Clean-Room (`verify-v2.sh`):**
+   - `quickstart` (`--tier`/`-T`), `install-skill` (`install`), `init-agents`, `reconcile-agents`, `tms-sync`, `--version` (`3.0.0`), `--help`/`help` y sonda no bloqueante TTY `QA-CLI-TTY-01` (`< 5s`).
 
 ---
 

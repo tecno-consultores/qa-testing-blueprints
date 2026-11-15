@@ -357,9 +357,9 @@ describe('Modo Diferencial en inspect_ast_blast_radius y diff-bundle (Hito 23)',
     git(tmpDir, ['add', '.']);
     git(tmpDir, ['commit', '-m', 'chore: update security']);
 
-    const fetcher = new GitHubFetcher(tmpDir);
+    const fetcher = new GitHubFetcher({ localOverridePath: tmpDir });
     const merger = new SurgicalMerger();
-    const server = createMcpServer(fetcher, merger);
+    const server = createMcpServer({ fetcher, merger });
     attachPromptGuard(server);
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     const client = new Client({ name: 'test-diff-blast', version: '1.0.0' }, { capabilities: {} });

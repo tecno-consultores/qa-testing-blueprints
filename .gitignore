@@ -211,3 +211,17 @@ ACTIVE_TASK.md
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+
+# Multi-stack / Mobile / BATS / Promptfoo / Contract testing artifacts
+vendor/
+pacts/
+pact/logs/
+.bats-battery/
+kcov-merged/
+.wdio-*/
+wdio-logs/
+errorShots/
+*.apk
+*.ipa
+*.aab
+promptfoo-*results.json

@@ -12,7 +12,7 @@ flowchart TD
     Human["Desarrollador / QA Staff"]
     Agent["Agente de IA (Antigravity, Claude, Cursor, Hermes)"]
     MCP["Servidor MCP Node.js/TS (@sinfallas/mcp-qa-11x)"]
-    Skill["Skills Zero-Clone (qa-11x-architect / refactoring-ui)"]
+    Skill["Skills Zero-Clone (10 Skills Modulares < 20 KB)"]
     Gate["Compuerta de Certificacion 11X (certify_task_completion.sh - 10 Etapas)"]
     QA["QA Testing Blueprints (Makefiles / Docker Compose Efimero)"]
     Host["Maquina Host (Docker Engine)"]

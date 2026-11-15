@@ -68,5 +68,6 @@ SUPABASE_SERVICE_ROLE_KEY=<EXAMPLE_REDACTED>
 
 ## 5. Consumo Programático vía Servidor MCP
 
-- **Tool MCP:** `audit_vibe_prototype` (`mcp-server/src/tools/auditVibePrototype.ts`) — ejecuta la inspección de las 5 reglas desde el agente con contención estricta contra *Path Traversal*, `dryRun: true` por defecto, redacción `[REDACTED_SECRET]` y salida `Pass-Quiet` / `Fail-Verbose`.
+- **Tool MCP:** `audit_vibe_prototype` (`mcp-server/src/tools/auditVibePrototype.ts`) — ejecuta la inspección de las 5 reglas desde el agente con contención estricta contra *Path Traversal*, `dryRun: true` por defecto, redacción `[REDACTED_SECRET]`, flag opcional `enforce` y salida `Pass-Quiet` / `Fail-Verbose`.
 - **Recurso MCP:** `blueprint://vibe-rescue/readme` (`mcp-server/src/resources/stackBlueprints.ts`) — expone esta guía operativa directamente al contexto del agente.
+- **Nota Bilingüe:** La arquitectura de espejos EN/ES para entornos está planificada en [`docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md`](../docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md).

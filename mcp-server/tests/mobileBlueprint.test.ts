@@ -100,7 +100,7 @@ describe('stackBlueprints MCP resource (T4.4)', () => {
 
     if (REAL_WORKSPACE_ROOT) {
       expect(byAuto.source).toBe('workspace');
-      expect(byAuto.text).toContain('Appium 2 + WebdriverIO + Screenplay');
+      expect(byAuto.text).toContain('Appium 3 / WebdriverIO v9 + Screenplay');
       expect(byAuto.text).toContain('MobileActor');
       expect(byAuto.text).toContain('sinfallas/base-node-ionic:26');
     }

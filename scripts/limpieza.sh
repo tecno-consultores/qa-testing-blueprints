@@ -57,6 +57,7 @@ clean_scope_dir() {
     "${dir}/coverage" "${dir}/.nyc_output" "${dir}/.stryker-tmp" "${dir}/.clinic" \
     "${dir}/test-results" "${dir}/playwright-report" "${dir}/blob-report" "${dir}/playwright/.cache" \
     "${dir}/cypress/videos" "${dir}/cypress/screenshots" "${dir}/nginx-logs" "${dir}/reports" \
+    "${dir}/wdio-logs" "${dir}/errorShots" \
     "${dir}/.lighthouseci" "${dir}/lhci-reports" "${dir}/psi-reports" "${dir}/.lhcache" "${dir}/.eslintcache" "${dir}/.stylelintcache" \
     "${dir}/prometheus_data" 2>/dev/null || true
 
@@ -148,7 +149,7 @@ rm -rf \
 rm -f ./ACTIVE_TASK.md 2>/dev/null || true
 clean_scope_dir "." "false"
 
-for sub in backend frontend fastapi vue3 react-frontend node-backend python php bash-scripts ai-evals mcp-server mcp-server/example mcp-server/example/backend mcp-server/example/frontend; do
+for sub in backend frontend fastapi vue3 react-frontend node-backend python php bash-scripts ai-evals mobile-appium vibe-rescue mcp-server mcp-server/example mcp-server/example/backend mcp-server/example/frontend; do
   if [ -d "${sub}" ]; then
     if [ "${sub}" = "mcp-server" ]; then
       clean_scope_dir "${sub}" "true"
@@ -203,7 +204,9 @@ if command -v docker >/dev/null 2>&1; then
            /workspace/allure-results /workspace/allure-report /workspace/.allure \
            /workspace/.deepeval /workspace/.promptfoo /workspace/.nyc_output \
            /workspace/mcp-server/coverage /workspace/mcp-server/test/target \
-           /workspace/.agents/.cache /workspace/.agents/artifacts /workspace/*/.agents/.cache /workspace/*/.agents/artifacts \
+           /workspace/.agents/.cache/coverage /workspace/*/.agents/.cache /workspace/*/.agents/artifacts \
+           /workspace/mobile-appium/wdio-logs /workspace/mobile-appium/errorShots /workspace/mobile-appium/coverage \
+           /workspace/vibe-rescue/.pytest_cache /workspace/vibe-rescue/.mypy_cache /workspace/vibe-rescue/.ruff_cache \
            /workspace/backend/.pytest_cache /workspace/backend/.mypy_cache /workspace/backend/.ruff_cache /workspace/backend/htmlcov \
            /workspace/frontend/dist /workspace/frontend/coverage /workspace/frontend/.vite \
            /workspace/fastapi/.pytest_cache /workspace/fastapi/.mypy_cache /workspace/fastapi/.ruff_cache /workspace/fastapi/htmlcov \
@@ -221,6 +224,7 @@ fi
 
 if [ "${DEEP_PRUNE}" = true ]; then
   rm -rf .agents/backups .agents/proposals .agents/.qa-evidence.json \
+    .agents/.cache .agents/artifacts \
     ./*/.agents/backups ./*/.agents/proposals ./*/.agents/.qa-evidence.json \
     "${HOME}/.cache/qa-11x-blueprints" "${tmp_base}/.qa11x_trivy_cache_"* /tmp/.qa11x_trivy_cache_* 2>/dev/null || true
   if command -v docker >/dev/null 2>&1; then

@@ -16,7 +16,7 @@ Para que un agente comprenda las restricciones corporativas en tiempo real, los 
   python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"
 ```
 * **Invariante CLI-First / MCP `stdio`:** Tanto agentes con consola local (Antigravity, Claude Code, Cursor) como agentes conectados a `@sinfallas/mcp-qa-11x` (`inspect_ast_blast_radius`) consultan `graphify-out/graph.json` y `GRAPH_REPORT.md` directamente sin ocupar puertos TCP ni dejar demonios en segundo plano.
-* **Ejemplo Práctico 2 (Recursos Dinámicos Verificados con SHA-256):** El servidor MCP `@sinfallas/mcp-qa-11x` v2.21.0 expone **12 recursos dinámicos (`blueprint://*`)** y **18 herramientas MCP**. Cuando el agente detecta un stack FastAPI, consulta `blueprint://fastapi/readme` y `blueprint://database/postgres-rls-worm` recibiendo las plantillas verificadas criptográficamente contra `manifest.json`.
+* **Ejemplo Práctico 2 (Recursos Dinámicos Verificados con SHA-256):** El servidor MCP `@sinfallas/mcp-qa-11x` v3.0.0 expone **12 recursos dinámicos (`blueprint://*`)** y **18 herramientas MCP**. Cuando el agente detecta un stack FastAPI, consulta `blueprint://fastapi/readme` y `blueprint://database/postgres-rls-worm` recibiendo las plantillas verificadas criptográficamente contra `manifest.json`.
 * **Ejemplo Práctico 3 (Lectura Proactiva de Configuraciones QA):** El servidor MCP o la inspección estática no solo debe evaluar la topología. Debe auditar proactivamente los archivos de configuración de QA (como `pyproject.toml`, `.eslintrc.json`, `tsconfig.json`, `vitest.config.ts`) antes de escribir código.
   * **Regla Inquebrantable a inyectar al Agente Developer:** "Si el Agente Developer va a escribir código, su primer paso autónomo debe ser leer las reglas de linters y tipado, para generar código que cumpla con el estándar estricto (ej. `strict=true` en Mypy) desde el primer intento, ahorrando ciclos de auto-corrección (tokens)."
 
@@ -83,29 +83,35 @@ El paquete oficial de Node.js **`@sinfallas/mcp-qa-11x`** permite a cualquier Ag
 ### 6.1. Ejecución Directa en 1 Comando
 
 ```bash
-# Instalación completa recomendada en un repositorio (instala las 5 Skills, scripts .agents/scripts/* e inyecta el conector en AGENTS.md; alias: `install`):
+# Adopción rápida en 30 segundos (`quickstart`, soporta `--tier`/`-T`, `--lang`, `--agents`):
+npx -y @sinfallas/mcp-qa-11x@latest quickstart -T standard --lang es --agents auto
+
+# Instalación completa recomendada en un repositorio (instala las 10 Skills modulares, scripts .agents/scripts/* e inyecta el conector en AGENTS.md; alias: `install`):
 npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts --reconcile
 
 # Instalación con todas las opciones explícitas (especificando entorno de destino):
-npx -y @sinfallas/mcp-qa-11x@latest install-skill --target [auto|workspace|antigravity|claude|cursor|hermes|all] --init-agents --include-scripts
+npx -y @sinfallas/mcp-qa-11x@latest install-skill --target [auto|workspace|antigravity|claude|cursor|windsurf|codex|hermes|all] --init-agents --include-scripts
 
-# O inyectar/actualizar únicamente el conector QA 11X en AGENTS.md de forma aditiva y no destructiva:
-npx -y @sinfallas/mcp-qa-11x@latest init-agents [--project-path <ruta>] [--dry-run]
+# O inyectar/actualizar únicamente los conectores QA 11X en AGENTS.md e IDEs configurados:
+npx -y @sinfallas/mcp-qa-11x@latest init-agents [--project-path <ruta>] [--lang auto|en|es] [--agents auto|all|<csv>] [--dry-run]
+
+# Normalizar reportes JUnit / Allure / SARIF hacia sistemas TMS o bundles JSON:
+npx -y @sinfallas/mcp-qa-11x@latest tms-sync [--provider jira|zephyr|xray|github-issues|json] [--report <ruta>] [--dry-run]
 
 # Levantar el servidor MCP directamente sobre stdio (invocado por clientes IA; en TTY interactiva sincroniza skills y sale con 0, o usa --stdio):
 npx -y @sinfallas/mcp-qa-11x@latest [--stdio]
 ```
 
 #### Parámetros del instalador `install-skill`:
-* **`--target, -t <entorno>`:** Destino de instalación de las 5 skills (`auto` por defecto — instala exclusivamente en los directorios globales de agentes IA detectados en `$HOME`, usando `workspace` solo como fallback cuando no hay agentes globales—, `workspace`, `antigravity`, `claude`, `cursor`, `hermes` o `all`).
-* **`--init-agents`:** Crea `AGENTS.md` o agrega al final del existente el bloque conector canónico de QA 11X sin sobrescribir reglas previas (y sincroniza `~/.gemini/GEMINI.md`).
+* **`--target, -t <entorno>`:** Destino de instalación de las 10 skills modulares (`auto` por defecto — instala exclusivamente en los directorios globales de agentes IA detectados en `$HOME`, usando `workspace` solo como fallback cuando no hay agentes globales—, `workspace`, `antigravity`, `claude`, `cursor`, `windsurf`, `codex`, `hermes` o `all`).
+* **`--init-agents`:** Crea `AGENTS.md` o agrega al final del existente el bloque conector canónico de QA 11X sin sobrescribir reglas previas (y sincroniza `~/.gemini/GEMINI.md` junto con conectores Thin-Repo si se indica `--agents`).
 * **`--include-scripts`:** Descarga en el directorio actual únicamente los scripts ejecutables de certificación (`.agents/scripts/*` y `scripts/*`), archivos comunes de CI/hooks y `.agents/ACTIVE_TASK.md.example` (`0o755`), sin duplicar `.agents/rules/*.md`.
-* **`--reconcile`:** Reconcilia la gobernanza Thin-Repo del proyecto consumidor, eliminando copias locales de las 7 reglas canónicas y las 5 skills en `<proyecto>/.agents/`, y extrayendo reglas de negocio propias hacia `.agents/rules/domain_<project>_rules.md` con respaldo en `.agents/backups/`.
+* **`--reconcile`:** Reconcilia la gobernanza Thin-Repo del proyecto consumidor, eliminando copias locales de las 8 reglas canónicas y las 10 skills en `<proyecto>/.agents/`, y extrayendo reglas de negocio propias hacia `.agents/rules/domain_<project>_rules.md` con respaldo en `.agents/backups/`.
 
 ### 6.2. Configuración en Clientes de IA
 
 > [!TIP]
-> Para la guía exhaustiva con instrucciones paso a paso para los **11 agentes de IA compatibles** (incluyendo VS Code Copilot, Codex CLI, Windsurf, JetBrains y Cline con rutas en macOS, Linux y Windows), consulta **[`docs/agent-setup.md`](agent-setup.md)** (Español) o **[`docs/agent-setup.en.md`](agent-setup.en.md)** (English).
+> Para la guía exhaustiva con instrucciones paso a paso y matriz declarativa de los **28 agentes de IA soportados** (`quickstart --agents` / `init-agents --agents` incluyendo Antigravity, Claude Code/Desktop, Cursor, Windsurf, VS Code Copilot, Codex CLI, Gemini CLI, Hermes, Cline, Roo Code, Aider, JetBrains AI, Bolt, Lovable, v0 y Replit), consulta **[`docs/agent-setup.md`](agent-setup.md)** (Español) o **[`docs/agent-setup.en.md`](agent-setup.en.md)** (English).
 
 #### A. Claude Desktop / Claude Code (`claude_desktop_config.json`)
 ```json
@@ -164,23 +170,32 @@ mcp_servers:
 | `blueprint://core/cleanup-script` | `text/x-shellscript` | Script universal de saneamiento y purga segura sin sudo (`scripts/limpieza.sh`). |
 | `blueprint://core/roadmap-validator` | `text/x-python` | Script de validación de consistencia de hoja de ruta (`verify_roadmap_consistency.py`). |
 | `blueprint://database/postgres-rls-worm` | `text/markdown` | Patrón canónico PostgreSQL 17 RLS Multi-Transacción (`after_begin`) y cadena forense WORM determinista (`seq_num` + `pg_advisory_xact_lock`). |
+| `blueprint://ai/evals-redteam` | `text/markdown` | Blueprint dual-mode DeepEval + Promptfoo OWASP LLM Top 10 (fallback offline embebido). |
+| `blueprint://mobile-appium/readme` | `text/markdown` | Blueprint móvil Appium 3 / W3C + WebdriverIO Screenplay, biometría y permisos (`mobile-appium/`). |
+| `blueprint://vibe-rescue/readme` | `text/markdown` | Protocolo *Vibe-to-Enterprise* en 5 etapas, plantillas RLS/WORM y reglas `VIBE-*` (`vibe-rescue/`). |
 
 ### 6.4. Catálogo de Herramientas MCP (`Tools`)
 
 | Herramienta | Argumentos Principales | Propósito Operativo |
 | :--- | :--- | :--- |
-| **`inspect_project_config`** | `project_path` | Audita stacks presentes (`python`, `fastapi`, `node`, `vue3`, `react`, `bash`, `php`), configuraciones de linters/tipado, disponibilidad de navegador real (`BrowserTestingReadiness`) y estado estructurado `update_available` de versión/skills (`.qa-11x-version` + caché TTL 24 h *fail-open*). |
+| **`inspect_project_config`** | `project_path` | Audita stacks presentes (`python`, `fastapi`, `node`, `vue3`, `react`, `bash`, `php`, `ai-evals`, `mobile-appium`, `vibe-rescue`), linters, disponibilidad E2E (`BrowserTestingReadiness`) y estado `update_available` (`.qa-11x-version` + caché TTL 24 h *fail-open*). |
 | **`fetch_blueprint_bundle`** | `stack`, `include_common_and_agents`, `include_content` | Descarga bajo demanda los archivos del stack con verificación criptográfica SHA-256 (soporta modo índice ligero `include_content: false` para ahorro de ~50,000 tokens — ver [`13_SPEC`](specs/13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md)). |
 | **`bootstrap_or_merge_11x`** | `project_path`, `stack`, `dry_run` | Aplica una fusión quirúrgica no destructiva inyectando configuraciones QA sin alterar dependencias. |
-| **`inspect_ast_blast_radius`** | `project_path`, `target_symbol`, `max_items`, `auto_build_if_missing`, `refresh_graph` | Consulta el grafo AST (`graphify-out/graph.json` y `GRAPH_REPORT.md`) de forma bidireccional tanto para responder preguntas sobre código/arquitectura (`declaring_files`, llamadores entrantes y `outgoing_dependencies`) como para calcular el radio de impacto antes de refactorizar (`LOW` con `< 5` llamadores para `MICRO_CHANGE`). |
+| **`inspect_ast_blast_radius`** | `project_path`, `target_symbol`, `changed_since_ref`, `max_tokens_budget`, `max_items`, `auto_build_if_missing`, `refresh_graph` | Consulta el grafo AST (`graphify-out/graph.json` y `GRAPH_REPORT.md`) de forma bidireccional o diferencial (`git diff` + AST + poda semántica de 4 niveles) tanto para Code Q&A como para calcular el radio de impacto antes de refactorizar (`LOW` con `< 5` llamadores para `MICRO_CHANGE`). |
 | **`clean_workspace_11x`** | `project_path`, `dry_run`, `deep_prune` | Sanea artefactos temporales de pruebas y cachés de Docker (soporta modo simulación y fallback Alpine). |
-| **`audit_security_stig_owasp`**| `project_path`, `max_findings` | Audita estáticamente 34 reglas DISA/OWASP y Anti-Silo (`SEC-01` a `SEC-16`, `SEC-CI-ACTION-REF`, `QA-KARATE-IDEMP`, `QA-COV-01`, `QA-MYPY-01`, `QA-PG17-RLS`, `QA-SMOKE-01`, `QA-HEALTH-01`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`, `QA-CI-ESCAPE-01`, `QA-MAKE-CURDIR-01`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `UI-11X-01`, `UI-11X-02`, `UI-11X-03`, incluyendo PostgreSQL RLS `after_begin`, cadena WORM `seq_num`, propagación de credenciales efímeras, continuidad Pre-Auth multi-etapa, contrato de `healthcheck` real en orquestadores/workers, guardia anti-bloqueo `TTY` en binarios duales CLI+MCP, despliegues no interactivos `docker compose run -T` / `read_only: true`, escapes de shell en CI/sub-Makefiles `$(CURDIR)`, contratos de transporte SDK reales, instalación desde lockfile en Docker + smoke test post-build, paridad exacta `@playwright/test` <-> tag Docker, paridad SSR de hidratación bajo doble `colorScheme` en Playwright e higiene de favicons multi-formato, PWA y `_headers`/`_routes.json` Edge) con agrupación compacta (`groupFindingsByRule`) y límite `max_findings`. |
-| **`run_ephemeral_qa`** | `project_path`, `stage`, `timeout_seconds`, `skip_if_docs_only` | Ejecuta targets del `Makefile` en Docker efímero bajo la Regla Cero y condensa la salida a JSON (soporta `skip_if_docs_only`). |
+| **`audit_security_stig_owasp`**| `project_path`, `max_findings`, `include_content` | Audita estáticamente 34 reglas DISA/OWASP y Anti-Silo (`SEC-01` a `SEC-16`, `SEC-CI-ACTION-REF`, `QA-*`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `UI-11X-01..03`) con agrupación compacta (`groupFindingsByRule`) y soporte `metadata-only`. |
+| **`run_ephemeral_qa`** | `project_path`, `stage`, `timeout_seconds`, `skip_if_docs_only` | Ejecuta targets del `Makefile` en Docker efímero bajo la Regla Cero y condensa la salida a JSON (soporta `skip_if_docs_only` y cortacircuitos `BREAKER-42`). |
 | **`certify_11x_gate`** | `project_path` | Ejecución de la compuerta de certificación de cierre (secretos, JSON, componentes UI, ORM, STIG, paridad Dual-Consumer docs y aviso `update_available`). |
 | **`audit_test_pyramid_gaps`** | `project_path`, `stack`, `max_items` | Audita estáticamente las 13 capas de la pirámide 11X (`L01` a `L13`, incluyendo Ciclo Temporal de 3 Fases en `L13` y Refresco Dual en `L07`), detecta archivos huérfanos, endpoints sin BDD, vistas sin E2E y genera un plan de rescate priorizado acotado con `max_items`. |
-| **`init_or_append_agents_md`** | `project_path`, `dry_run`, `lang` | Crea `AGENTS.md` si no existe, o añade de forma aditiva y no destructiva el bloque conector de QA 11X (`--lang auto|es|en`) al final de un `AGENTS.md` existente sin modificar reglas previas. |
+| **`init_or_append_agents_md`** | `project_path`, `dry_run`, `lang`, `agents` | Crea `AGENTS.md` o añade de forma aditiva el bloque conector QA 11X (`--lang auto|es|en`, `--agents auto|all|<csv>`) y puentes Thin-Repo (`<= 15` líneas) para 28 agentes sin sobrescribir reglas previas. |
 | **`propose_skill_evolution_pr`** | `project_path`, `target_blueprint_file`, `target_human_doc_file`, `target_mcp_component`, `improvement_title`, `empirical_rationale`, `proposed_content_or_snippet`, `proposed_human_doc_summary`, `prefer_offline_fallback` | Propone mejoras federadas **Dual-Consumer** (Skill IA + Auditor MCP + Manual Humano en `docs/01..04_*.md`) a `qa-testing-blueprints` mediante `gh` CLI local autenticado o generando propuesta local con matriz de 3 capas y URL prellenada de GitHub. |
-| **`reconcile_agents_governance`** | `project_path`, `dry_run` | Reconcilia y deduplica reglas en `.agents/` para proyectos adoptantes, podando directivas ya promovidas a `qa-testing-blueprints`, aislando reglas de dominio en `domain_<project>_rules.md` y respaldando en `.agents/backups/<timestamp>/`. |
+| **`reconcile_agents_governance`** | `project_path`, `dry_run` | Reconcilia y deduplica reglas en `.agents/` para proyectos adoptantes, podando directivas globales ya promovidas a `qa-testing-blueprints`, aislando reglas de dominio en `domain_<project>_rules.md` y respaldando en `.agents/backups/<timestamp>/`. |
+| **`validate_calm_architecture`** | `project_path`, `calm_file` | Valida esquemas **FINOS CALM** (*Architecture-as-Code*), 6 nodos núcleo, 5 relaciones tipadas y 7 controles obligatorios 11X. |
+| **`evaluate_release_gate`** | `project_path`, `scope` | Calcula dictámenes cuantitativos `GO`/`NO_GO` (cobertura `>= 95%`, Trivy `HIGH/CRITICAL = 0`, MSI, CALM, STIG; devuelve `SKIPPED` fail-closed en `smoke`). |
+| **`evaluate_agent_trajectory`** | `project_path`, `trace_path`, `mode` | Evalúa trayectorias multi-paso de agentes IA en modo offline determinista (`AST-First`, tasas de alucinación, `QA-GIT-GATE-01`) o DeepEval en Docker. |
+| **`run_llm_red_team`** | `project_path`, `dry_run`, `run_live` | Audita configuraciones Promptfoo **OWASP LLM Top 10**, sondas `promptGuard` y red-teaming condicional en Docker (`SKIPPED_MISSING_CREDENTIALS` sin llaves). |
+| **`audit_vibe_prototype`** | `project_path`, `dry_run`, `enforce` | Inspecciona scaffolds generados por IA (`Bolt.new`, `Lovable`, `v0`, `Replit`) buscando riesgos `VIBE-SEC-001..QA-005`, fugas de secretos y ausencia de RLS/WORM. |
+| **`sync_enterprise_tms`** | `project_path`, `provider`, `report_path`, `dry_run` | Normaliza resultados JUnit XML / Allure / SARIF hacia **Jira**, **Zephyr Scale**, **Xray**, **GitHub Issues** o bundles JSON protegidos por `TaskStateGuard` y anti-SSRF. |
 
 ### 6.5. Auto-Sincronización Global en Arranque, Detección `update_available` y Validación Criptográfica
 
@@ -205,7 +220,7 @@ rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@la
 * **Cursor / Claude Desktop:** Ejecuta `Developer: Reload Window` o reinicia la aplicación para levantar el nuevo proceso `npx`.
 
 #### 3. Comandos de Validación de Versión e Integridad SHA-256 (`DISA STIG V-222513`)
-Para auditar que tanto el binario del servidor MCP como los 23 archivos de las 5 Skills y la documentación en caché corresponden a la última versión publicada:
+Para auditar que tanto el binario del servidor MCP como los archivos de las 10 Skills modulares y la documentación en caché corresponden a la última versión publicada:
 
 ```bash
 # 1. Comparar versión publicada en npmjs contra la instalada en la caché de npx:

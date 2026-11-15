@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 //
-// Arnés End-to-End (E2E) sobre stdio real para @sinfallas/mcp-qa-11x v2.21.0.
+// Arnés End-to-End (E2E) sobre stdio real para @sinfallas/mcp-qa-11x v3.0.0.
 // Conecta un cliente MCP oficial (@modelcontextprotocol/sdk) contra el binario
 // compilado dist/index.js y certifica empíricamente los 12 recursos, las 18 tools
 // (en escenarios negativos y limpios) y los 4 subcomandos CLI sobre una copia
@@ -644,6 +644,23 @@ async function verifyCliAndBackgroundAutoSync(ctx) {
   assert.equal(quickstartParsed.tier, 'starter');
   assert.equal(quickstartParsed.dryRun, true);
 
+  // 3c. Alias corto -T standard y subcomando tms-sync --help
+  const quickstartShortOut = execFileSync(
+    process.execPath,
+    [DIST_INDEX_JS, 'quickstart', cliProjectDir, '-T', 'standard', '--dry-run', '--json'],
+    { cwd: cliProjectDir, env: baseEnv, encoding: 'utf8', timeout: 5000 }
+  );
+  const quickstartShortParsed = JSON.parse(quickstartShortOut);
+  assert.equal(quickstartShortParsed.tier, 'standard');
+
+  const tmsHelpOut = execFileSync(process.execPath, [DIST_INDEX_JS, 'tms-sync', '--help'], {
+    cwd: cliProjectDir,
+    env: baseEnv,
+    encoding: 'utf8',
+    timeout: 5000,
+  });
+  assert.ok(tmsHelpOut.includes('sync_enterprise_tms') || tmsHelpOut.includes('--mode'));
+
   // 4. Auto-sync silencioso por SHA-256 al arrancar el servidor MCP en modo stdio
   const targetSkillMd = path.join(globalSkillsDir, 'graphify-ast-navigator', 'SKILL.md');
   const officialSha = crypto.createHash('sha256').update(fs.readFileSync(targetSkillMd)).digest('hex');
@@ -680,7 +697,7 @@ async function verifyCliAndBackgroundAutoSync(ctx) {
   }
 
   logStep(
-    `4 Subcomandos CLI (quickstart, install-skill, init-agents, reconcile-agents) + Auto-Sync global SHA-256 certificados`
+    `5 Subcomandos CLI (quickstart/-T, install-skill, init-agents, reconcile-agents, tms-sync) + Auto-Sync global SHA-256 certificados`
   );
 }
 

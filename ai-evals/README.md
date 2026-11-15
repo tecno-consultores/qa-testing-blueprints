@@ -66,4 +66,12 @@ Toda ejecución ocurre dentro de contenedores efímeros alineados al `UID:GID` d
   export QA_LLM_MODEL="qwen3:8b"
   make audit-llm
   ```
-  Ejecuta primero `deepeval` (`QA_LLM_AUDIT_LIVE=1`) en `sinfallas/base-python-uv:3.15` y luego `promptfoo eval -c ai-evals/promptfooconfig.yaml` (`PROMPTFOO_DISABLE_TELEMETRY=1`) en `sinfallas/base-node-ionic:26`. Si no detecta credenciales ni URL local, aborta inmediatamente con código de salida `2` sin bloquear `TTY` (`QA-CLI-TTY-01`).
+  Ejecuta primero `deepeval` (`QA_LLM_AUDIT_LIVE=1` o su alias heredado `RUN_LLM_AUDIT=1`) en `sinfallas/base-python-uv:3.15` y luego `promptfoo eval -c ai-evals/promptfooconfig.yaml` (`PROMPTFOO_DISABLE_TELEMETRY=1`) en `sinfallas/base-node-ionic:26`. Si no detecta credenciales ni URL local, aborta inmediatamente con código de salida `2` sin bloquear `TTY` (`QA-CLI-TTY-01`).
+
+---
+
+## 5. Consumo vía Servidor MCP y Traducción Bilingüe
+
+- **Herramientas MCP:** [`evaluate_agent_trajectory`](../mcp-server/src/tools/evaluateAgentTrajectory.ts) y [`run_llm_red_team`](../mcp-server/src/tools/runLlmRedTeam.ts) (esta última expone un flujo dual-mode seguro con `dryRun` y bandera explícita para red-teaming en vivo).
+- **Recurso MCP:** `blueprint://ai/evals-redteam` ([`aiEvalsBlueprint.ts`](../mcp-server/src/resources/aiEvalsBlueprint.ts)).
+- **Nota Bilingüe:** Las traducciones de espejos EN/ES para entornos están planificadas en [`docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md`](../docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md).

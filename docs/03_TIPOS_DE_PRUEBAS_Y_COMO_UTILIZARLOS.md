@@ -128,7 +128,7 @@
 ## 6. Pruebas BDD de Caja Negra con Karate Labs para API REST
 
 * **Propósito:** Validar el comportamiento de la API REST desde la perspectiva de un cliente externo, sin conocer el código interno. Valida códigos de estado HTTP, cabeceras de seguridad, respuestas JSON y esquemas dinámicos.
-* **Herramientas:** Contenedor oficial `sinfallas/karatelabs:latest` ejecutando archivos `.feature` de Cucumber/Gherkin.
+* **Herramientas:** Contenedor oficial `sinfallas/karatelabs:1.5.1` (`:latest`) ejecutando archivos `.feature` de Cucumber/Gherkin.
 * **Estructura:** Ubicado en `fastapi/test/api_test.feature`.
 * **Ejemplo Real de Escenario Karate Labs API:**
   ```gherkin

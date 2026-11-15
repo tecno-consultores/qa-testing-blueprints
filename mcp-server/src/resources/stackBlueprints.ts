@@ -62,7 +62,7 @@ export const MOBILE_APPIUM_RESOURCE: Resource = {
   uri: MOBILE_APPIUM_README_URI,
   name: 'QA-11X Mobile Appium 2 & Screenplay Blueprint',
   description:
-    'Guía operativa y blueprint Screenplay/WebdriverIO para pruebas móviles nativas (iOS/Android) e híbridas (Ionic/Capacitor y React Native) bajo Appium 2 y Regla Cero.',
+    'Operational Screenplay and WebdriverIO blueprint for native (iOS/Android) and hybrid (Ionic/Capacitor, React Native) mobile testing under Appium 2 and Rule Zero.',
   mimeType: MARKDOWN_MIME_TYPE,
 };
 
@@ -81,7 +81,7 @@ export const VIBE_RESCUE_RESOURCE: Resource = {
   uri: VIBE_RESCUE_README_URI,
   name: 'QA-11X Vibe-to-Enterprise Rescue Blueprint',
   description:
-    'Protocolo determinista de 5 etapas (VIBE-SEC-001..VIBE-QA-005) y plantilla RLS PostgreSQL 15-17+ para endurecer prototipos vibe-coded bajo estándar QA-11X.',
+    'Deterministic 5-stage Vibe-to-Enterprise hardening protocol (VIBE-SEC-001..VIBE-QA-005) and PostgreSQL 15-17+ RLS template for securing AI-generated prototypes.',
   mimeType: MARKDOWN_MIME_TYPE,
 };
 

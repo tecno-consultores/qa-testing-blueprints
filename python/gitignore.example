@@ -37,3 +37,6 @@ prometheus_data/
 .idea/
 *.swp
 .DS_Store
+.agents/.cache/
+.agents/artifacts/
+pacts/

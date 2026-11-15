@@ -22,10 +22,16 @@ export const CANONICAL_GLOBAL_RULE_FILES = new Set([
   'anti_regression_and_side_effects_guardrail.md',
   'ground_truth_fixtures_and_negative_invariants.md',
   'active_task_and_planning_resilience.md',
+  'git_closure_gate.md',
 ]);
 
 export const CANONICAL_GLOBAL_SKILL_DIRS = new Set([
   'qa-11x-architect',
+  'qa-11x-devsecops-hardener',
+  'qa-11x-systematic-debugging',
+  'qa-11x-screenplay-builder',
+  'qa-11x-llm-evaluator',
+  'qa-11x-vibe-rescue',
   'qa-11x-docker-certifier',
   'docker-trivy-keydb-hardening',
   'graphify-ast-navigator',
@@ -70,6 +76,8 @@ export const CANONICAL_RULE_SECTION_FINGERPRINTS = [
   'rationale & core invariant',
   'the dual planning & persistence protocol',
   'mandatory requirements & token budget',
+  'human-confirmed remote push gate',
+  'zero blind remote mutation',
   'directiva obligatoria: pirámide qa 11x',
   'directiva suprema: creación obligatoria de pruebas 11x',
   'regla cero',

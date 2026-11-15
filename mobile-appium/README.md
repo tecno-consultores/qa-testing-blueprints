@@ -1,12 +1,15 @@
-# 📱 Blueprint Móvil Nativo e Híbrido — Appium 2 + WebdriverIO + Screenplay (Estándar QA 11X)
+# 📱 Blueprint Móvil Nativo e Híbrido — Appium 3 / WebdriverIO v9 + Screenplay (Estándar QA 11X)
 
 Plantilla corporativa de automatización móvil **Nativa (iOS / Android)** e **Híbrida (Ionic / Capacitor y React Native)** regida por la **Regla Cero** (cero ejecuciones ni descargas ad-hoc en el host), **Patrón Screenplay RBAC Multi-Tenant**, localizadores semánticos resilientes y controles de seguridad móvil.
 
 ---
 
-## 1. Arquitectura bajo Regla Cero (`sinfallas/base-node-ionic:26`)
+## 1. Arquitectura bajo Regla Cero (`sinfallas/base-node-ionic:26` y Plan `sinfallas/base-mobile-appium:26`)
 
-El CLI `appium` (`Appium 3.x` compatible con protocolo W3C WebDriver / Appium 2) viene **preinstalado** dentro de `sinfallas/base-node-ionic:26`. Todas las validaciones TypeScript, linter de antipatrones y clientes de prueba corren como usuario no-root (`-u "$(id -u):$(id -g)" -e HOME=/tmp`) con **cero `npm install` o `appium driver install` en runtime**:
+El CLI `appium` (`Appium 3.x` compatible con protocolo W3C WebDriver / Appium 2) viene **preinstalado** dentro de `sinfallas/base-node-ionic:26`, permitiendo ejecutar compilación TypeScript estricta, validación de perfiles W3C WebdriverIO (`wdio.conf.ts`) y linting AST de antipatrones en modo no-root (`-u "$(id -u):$(id -g)" -e HOME=/tmp`) con **cero `npm install` en runtime**.
+
+> **Nota de Arquitectura Docker (`QA-11X v3.0`):** `sinfallas/base-node-ionic:26` NO incluye JDK 21, Android SDK (`adb`/`aapt2`) ni drivers Appium (`uiautomator2`/`xcuitest`) prehorneados. Para ejecutar sesiones reales contra dispositivos/emuladores sin servidor Appium externo, consulta la especificación planificada [`docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md`](../docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md).
+> **Nota Bilingüe:** La arquitectura de espejos EN/ES para entornos está planificada en [`docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md`](../docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md).
 
 ```bash
 # Verificar CLI Appium preinstalado sin modificar el árbol del proyecto

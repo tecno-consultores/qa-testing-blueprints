@@ -6,6 +6,7 @@ import * as fs from 'node:fs';
 import * as net from 'node:net';
 import * as path from 'node:path';
 import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
+import { MCP_SERVER_VERSION } from '../services/github-fetcher.js';
 import {
   REDACTED_PROMPT_INJECTION,
   REDACTED_SECRET,
@@ -52,7 +53,7 @@ const HEADER_AUTHORIZATION = 'Authorization';
 const HEADER_IDEMPOTENCY_KEY = 'Idempotency-Key';
 const HEADER_USER_AGENT = 'User-Agent';
 const MIME_JSON = 'application/json';
-const USER_AGENT_VALUE = 'qa-11x-tms-sync/2.21.0';
+const USER_AGENT_VALUE = `qa-11x-tms-sync/${MCP_SERVER_VERSION}`;
 
 const SCHEMA_STRING = 'string' as const;
 const SCHEMA_BOOLEAN = 'boolean' as const;
@@ -1727,7 +1728,7 @@ export async function runTmsSyncCli(
 export const SYNC_ENTERPRISE_TMS_TOOL: Tool = {
   name: STAGE_TMS_SYNC,
   description:
-    'Sincroniza trazabilidad bidireccional Zero-Infra (inventory, push-results, pull-stories) con Jira, Zephyr Scale, Xray y GitHub Issues bajo modo dry-run por defecto, validación anti-SSRF y sanitización promptGuard.',
+    'Synchronizes bidirectional Zero-Infra traceability (inventory, push-results, pull-stories) with Jira, Zephyr Scale, Xray, and GitHub Issues using dry-run mode by default, anti-SSRF validation, and promptGuard sanitization.',
   inputSchema: {
     type: SCHEMA_OBJECT,
     required: ['mode'],

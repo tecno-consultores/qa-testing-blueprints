@@ -8,19 +8,26 @@ set -euo pipefail
 
 TARGET_FILES=("$@")
 
-# Bloquear de inmediato si .env fue añadido accidentalmente al índice de Git
-if command -v git &>/dev/null && git ls-files --error-unmatch .env >/dev/null 2>&1; then
-  echo "🚨 ERROR CRÍTICO: El archivo '.env' está trackeado en Git. Ejecute 'git rm --cached .env'." >&2
-  exit 1
+# Bloquear de inmediato si .env o variantes sensibles (.env.*) fueron añadidos al índice de Git
+if command -v git >/dev/null 2>&1; then
+  TRACKED_ENV="$(git ls-files '.env' '.env.*' 2>/dev/null | grep -Ev '\.(example|sample|template)$' || true)"
+  if [ -n "${TRACKED_ENV}" ]; then
+    echo "🚨 ERROR CRÍTICO: Archivo sensible trackeado en Git (${TRACKED_ENV}). Ejecute 'git rm --cached'." >&2
+    exit 1
+  fi
 fi
 
 if [ "${#TARGET_FILES[@]}" -eq 0 ]; then
-  mapfile -t TARGET_FILES < <({
+  while IFS= read -r line; do
+    [ -n "${line}" ] && TARGET_FILES+=("${line}")
+  done < <({
     git diff --name-only HEAD 2>/dev/null || true
     git ls-files --others --exclude-standard 2>/dev/null || true
   } | sort -u)
   if [ "${#TARGET_FILES[@]}" -eq 0 ]; then
-    mapfile -t TARGET_FILES < <(git ls-files 2>/dev/null || true)
+    while IFS= read -r line; do
+      [ -n "${line}" ] && TARGET_FILES+=("${line}")
+    done < <(git ls-files 2>/dev/null || true)
   fi
 fi
 
@@ -37,7 +44,8 @@ for file in "${TARGET_FILES[@]}"; do
     [[ ! "$file" =~ \.(unit|spec|test)\.(py|ts|tsx|js|jsx)$ ]] &&
     [[ ! "$file" =~ \.bats$ ]] &&
     [[ "$file" != "scripts/verificar-secretos.sh" ]] &&
-    [[ "$file" != "mcp-server/src/tools/security-auditor.ts" ]]; then
+    [[ "$file" != "mcp-server/src/tools/security-auditor.ts" ]] &&
+    [[ "$file" != "vibe-rescue/audit_vibe_prototype.py" ]]; then
     FILTERED_FILES+=("$file")
   fi
 done

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 # Propósito: Certificar en contenedor Docker efímero (Rule Zero) las 18 tools,
-#            12 resources, 4 subcomandos CLI y tarball v2.21.0 de @sinfallas/mcp-qa-11x
+#            12 resources, 4 subcomandos CLI y tarball v3.0.0 de @sinfallas/mcp-qa-11x
 #            contra mcp-server/example/ y verify-v2.sh (Clean-Room por defecto).
 
 LC_ALL=C
@@ -66,6 +66,10 @@ trap cleanup EXIT
 echo "🧼 [Clean-Room 1/2] Preparando árbol aislado sin node_modules ni dist..."
 tar -C "${REPO_ROOT}" \
   --exclude='./.git' \
+  --exclude='./.env' \
+  --exclude='./.env.*' \
+  --exclude='./.agents/.cache' \
+  --exclude='./.agents/artifacts' \
   --exclude='./mcp-server/node_modules' \
   --exclude='./mcp-server/dist' \
   --exclude='./mcp-server/coverage' \

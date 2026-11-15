@@ -23,7 +23,7 @@ flowchart TD
     I --> J{"Secretos = 0, Paridad ORM, Docs y Grafo sincronizados?"}
     J -->|"No"| K["Correccion Inmediata"]
     K --> I
-    J -->|"Si"| L["Cierre Exitoso y Git Push"]
+    J -->|"Si"| L["Commit Local Certificado (QA-GIT-GATE-01)"]
 ```
 
 ---
@@ -70,7 +70,7 @@ Para asegurar una experiencia óptima para el equipo humano, todas las reglas in
 > Always communicate with the user, provide status updates, explain reasoning,
 > and write commit messages / user-facing documentation in Spanish.
 ```
-Toda la documentación (`docs/`, `CHANGELOG.md`, `README.md`, `TESTING.md`) y las respuestas al usuario se mantienen estrictamente en español.
+Los manuales operativos (`docs/`, `CHANGELOG.md`, `TESTING.md`, `README.es.md`) y las respuestas al usuario se mantienen en español junto a las puertas de entrada en inglés (`README.md`, `mcp-server/README.md`, `docs/agent-setup.en.md`, `catalogs/agenticskills-submission.md`).
 
 ---
 
@@ -102,7 +102,7 @@ Para evitar que los agentes deban clonar gigabytes de repositorios o saturar su 
    - `blueprint://core/roadmap-validator`: Validador de consistencia de hoja de ruta.
    - `blueprint://database/postgres-rls-worm`: Implementación de referencia de PostgreSQL 17 RLS Multi-Transacción (`after_begin`) y cadena forense WORM determinista (`seq_num` + `pg_advisory_xact_lock`).
    - `blueprint://ai/evals-redteam` *(v2.0)*: Guía de evaluación agéntica dual-mode DeepEval y Red Teaming OWASP LLM Top 10 con Promptfoo.
-   - `blueprint://mobile-appium/readme` *(v2.0)*: Blueprint Screenplay móvil Appium 2 + WebdriverIO (`mobile-appium/`).
+   - `blueprint://mobile-appium/readme` *(v2.0)*: Blueprint Screenplay móvil Appium 3 / W3C + WebdriverIO (`mobile-appium/`).
    - `blueprint://vibe-rescue/readme` *(v2.0)*: Protocolo *Vibe-to-Enterprise* en 5 etapas y endurecimiento RLS/WORM (`vibe-rescue/`).
 
 2. **18 Herramientas de Ejecución (`Tools`):**
@@ -123,7 +123,7 @@ Para evitar que los agentes deban clonar gigabytes de repositorios o saturar su 
    - `evaluate_agent_trajectory` *(v2.0)*: Evaluador offline AST-First y DeepEval para trayectorias multi-paso de agentes de IA.
    - `run_llm_red_team` *(v2.0)*: Auditor Promptfoo OWASP LLM Top 10 con sondas `promptGuard` y ejecución condicional en Docker.
    - `audit_vibe_prototype` *(v2.0)*: Detector de riesgos `VIBE-SEC-001..QA-005` en prototipos IA con planes `dryRun` hacia RLS/WORM.
-   - `sync_enterprise_tms` *(v2.0)*: Sincronizador JUnit/Allure/SARIF hacia TestRail y Jira Xray protegido con `TaskStateGuard`.
+   - `sync_enterprise_tms`: Sincronizador JUnit/Allure/SARIF hacia Jira, Zephyr Scale, Xray y GitHub Issues protegido con `TaskStateGuard`.
 
 3. **Onboarding `quickstart` y Sync Automático de 10 Skills Modulares (`install-skill`):**
    Cualquier desarrollador o agente puede adoptar la pirámide en 30 segundos con `npx -y @sinfallas/mcp-qa-11x@latest quickstart`, o autoinstalar las skills modulares, scripts operativos (`.agents/scripts/*`, `scripts/*`) y conector `AGENTS.md` mediante `install-skill --init-agents --include-scripts --reconcile` (estampando `.qa-11x-version`). Además, al arrancar en modo `stdio`, el servidor MCP sincroniza en segundo plano (`SHA-256` contra `manifest.json`) las skills globales instaladas.
@@ -163,7 +163,7 @@ Si cualquiera de los pasos falla, el agente tiene prohibido cerrar el turno.
 
 ### 📈 Evolución Incremental Implementada y Planificada (Hitos 21–23)
 
-Con el objetivo de reforzar el estándar sin inflar el catálogo público actual (**18 herramientas** y **12 recursos** MCP ni el conjunto de **7 reglas canónicas** en `.agents/rules/`), la evolución modular avanza en tres entregas sobre [`ROADMAP.md`](../ROADMAP.md):
+Con el objetivo de reforzar el estándar sobre la superficie pública estabilizada (**18 herramientas** y **12 recursos** MCP junto a **8 reglas canónicas** en `.agents/rules/` y **10 skills modulares**), la evolución incremental avanza sobre [`ROADMAP.md`](../ROADMAP.md):
 1. **Cobertura Diferencial (`Hito 21` — Implementado):** [`16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md`](specs/16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md) (`100%` en líneas delta, `>= 90%` en ramas delta y bloqueo de exclusiones no autorizadas).
 2. **Cortacircuitos Anti-Loop (`Hito 22` — Implementado):** [`17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md`](specs/17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md) implementó [`.agents/scripts/track_findings_state.py`](../.agents/scripts/track_findings_state.py) y su integración en [`mcp-server/src/services/qa-evidence.ts`](../mcp-server/src/services/qa-evidence.ts), [`mcp-server/src/tools/ephemeral-runner.ts`](../mcp-server/src/tools/ephemeral-runner.ts) (`run_ephemeral_qa`) y [`.agents/scripts/certify_task_completion.sh`](../.agents/scripts/certify_task_completion.sh): persiste huellas SHA-256 invariantes a números de línea en `.agents/.cache/certify_state.json` (`0600`, aisladas por `{branch}:{merge_base_sha}` y stage) y dispara el bloqueo determinista **`BREAKER-42` (`exit 42`)** cuando `consecutive_streak >= 3` o se detecta oscilación `A -> B -> A` (`oscillations >= 1`), obligando a detener parches a ciegas e invocar `inspect_ast_blast_radius` y `qa-11x-systematic-debugging` (el flag `--reset-state` está reservado al operador humano).
 3. **Modo Diff en Blast Radius y Veredicto PR (`Hito 23` — Implementado):** [`18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md`](specs/18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md) implementó [`mcp-server/src/utils/diff-bundle.ts`](../mcp-server/src/utils/diff-bundle.ts) y la extensión retrocompatible de `inspect_ast_blast_radius` (`changed_since_ref`, `max_tokens_budget` en [`mcp-server/src/types.ts`](../mcp-server/src/types.ts), [`mcp-server/src/tools/blast-radius.ts`](../mcp-server/src/tools/blast-radius.ts) y [`mcp-server/src/server.ts`](../mcp-server/src/server.ts), preservando las `18` tools y `12` resources MCP) con poda semántica en 4 niveles (`PRUNED_NOISE`, `CRITICAL_FULL`, `CORE_LOGIC`, `TESTS_SUMMARY`), redacción vía `promptGuard.ts`, alerta `MISSING_KARATE_API_FEATURE` y fronteras opcionales en `.agents/ACTIVE_TASK.md`; además incorporó [`.agents/scripts/generate_pr_verdict.py`](../.agents/scripts/generate_pr_verdict.py) (`make pr-verdict`) para consolidar `release_readiness_gate.py`, `.agents/.qa-evidence.json`, `.agents/.cache/certify_state.json` y `verify_diff_coverage.py` en `.agents/artifacts/PR_VERDICT.md` y `.agents/artifacts/pr_verdict_attestation.json` (`0600`, `SHA-256` / `HMAC-SHA256` opcional, `exit 0` o `30`).
@@ -181,6 +181,6 @@ el agente tiene la directiva explícita de **actualizar de forma autónoma las r
 
 ### 🛡️ Separación entre Reglas Globales Canónicas y Reglas de Dominio Local (Caso `rosgrid`)
 Para evitar que las directivas creadas por un agente en un proyecto consumidor (ej. `rosgrid`) choquen o se dupliquen con las reglas globales de `qa-testing-blueprints`:
-1. **Los 7 archivos canónicos en `.agents/rules/`** (`mandatory_qa_pyramid_and_doc_sync.md`, `secure_development_and_testing_guidelines.md`, `frontend_parity_and_closure.md`, `continuous_agent_evolution.md`, `anti_regression_and_side_effects_guardrail.md`, `ground_truth_fixtures_and_negative_invariants.md`, `active_task_and_planning_resilience.md`) pertenecen exclusivamente al estándar global `qa-testing-blueprints`.
+1. **Los 8 archivos canónicos en `.agents/rules/`** (`mandatory_qa_pyramid_and_doc_sync.md`, `secure_development_and_testing_guidelines.md`, `frontend_parity_and_closure.md`, `continuous_agent_evolution.md`, `anti_regression_and_side_effects_guardrail.md`, `ground_truth_fixtures_and_negative_invariants.md`, `active_task_and_planning_resilience.md`, `git_closure_gate.md`) pertenecen exclusivamente al estándar global `qa-testing-blueprints`.
 2. **Aislamiento de Reglas de Negocio (`domain_<proyecto>_*.md`):** Toda regla específica del dominio del proyecto consumidor (ej. comandos MikroTik RouterOS v7, reglas de WinBox o tablas exclusivas de `rosgrid`) debe residir en `.agents/rules/domain_<proyecto>_*.md` o en `AGENTS.md` fuera del bloque conector `<!-- QA_11X_MCP_CONNECTOR_START --> ... <!-- QA_11X_MCP_CONNECTOR_END -->`.
 3. **Promoción y Limpieza de Duplicados:** Cuando un hallazgo universal descubierto en un proyecto consumidor se promueve a `qa-testing-blueprints` (vía `propose_skill_evolution_pr`), se elimina la copia ad-hoc local en el proyecto consumidor (manualmente o mediante `reconcile-agents`, ver [`docs/specs/12_SPEC_RECONCILIACION_Y_DEDUPLICACION_GOBERNANZA_AGENTS_PROYECTOS.md`](specs/12_SPEC_RECONCILIACION_Y_DEDUPLICACION_GOBERNANZA_AGENTS_PROYECTOS.md)) para evitar duplicación de tokens y contradicciones entre prompts.

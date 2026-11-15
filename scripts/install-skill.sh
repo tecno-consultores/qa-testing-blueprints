@@ -5,9 +5,11 @@
 # ==============================================================================
 # 🧠 scripts/install-skill.sh — Instalador Universal de Skills QA 11X
 #
-# Descarga e instala el catálogo completo de 5 skills ('qa-11x-architect',
-# 'refactoring-ui', 'docker-trivy-keydb-hardening', 'graphify-ast-navigator' y
-# 'qa-11x-docker-certifier') con verificación criptográfica SHA-256
+# Descarga e instala el catálogo completo de 10 skills QA-11X modulares
+# ('qa-11x-architect', 'qa-11x-devsecops-hardener', 'qa-11x-systematic-debugging',
+# 'qa-11x-screenplay-builder', 'qa-11x-llm-evaluator', 'qa-11x-vibe-rescue',
+# 'qa-11x-docker-certifier', 'docker-trivy-keydb-hardening',
+# 'graphify-ast-navigator' y 'refactoring-ui') con verificación criptográfica SHA-256
 # (DISA ASD STIG V6R5 V-222513 / APSC-DV-001430) sin necesidad de clonar el
 # repositorio completo (Arquitectura Zero-Clone).
 #
@@ -354,4 +356,4 @@ for item in items:
   log_ok "Scripts de automatización instalados en $(pwd) (excluyendo publicar-mcp.sh)."
 fi
 
-printf "✅ Instalación de Skills QA 11X Completada con Éxito (5 skills: qa-11x-architect, refactoring-ui, docker-trivy-keydb-hardening, graphify-ast-navigator, qa-11x-docker-certifier).\n"
+printf "✅ Instalación de Skills QA 11X Completada con Éxito (10 skills modulares instaladas y verificadas por SHA-256).\n"

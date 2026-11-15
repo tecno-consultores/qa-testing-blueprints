@@ -38,6 +38,7 @@
 | **Hito 21** | Cobertura Diferencial Multi-Stack (`verify_diff_coverage.py`), Persistencia Efímera de Reportes y Bloqueo Anti-Evasión | [`16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md`](docs/specs/16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md) | ✅ Completado | `100%` |
 | **Hito 22** | Memoria Determinista de Hallazgos y Cortacircuitos Anti-Loop (`exit 42`) en `run_ephemeral_qa` y `certify` | [`17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md`](docs/specs/17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md) | ✅ Completado | `100%` |
 | **Hito 23** | Modo Diferencial en `inspect_ast_blast_radius` (Cero Inflación MCP) y Exportador Ejecutivo `PR_VERDICT.md` | [`18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md`](docs/specs/18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md) | ✅ Completado | `100%` |
+| **Hito 24** | Auditoría Integral `QA-11X v3.0` (`v3.0.0`), Sincronizador `bump_version_11x.py`, Protocolo MCP en Vivo y Planificación `19_SPEC` / `20_SPEC` | [`19_SPEC`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md) + [`20_SPEC`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md) | ✅ Completado | `100%` |
 
 ---
 
@@ -322,4 +323,17 @@
 - [x] **23.4.** Crear `.agents/scripts/generate_pr_verdict.py` (`CC <= 5`, stdlib pura) reutilizando `release_readiness_gate.py`, `.agents/.qa-evidence.json` y `verify_diff_coverage.py` para emitir `.agents/artifacts/PR_VERDICT.md` y `pr_verdict_attestation.json` (`SHA-256`).
 - [x] **23.5.** Crear `tests/test_generate_pr_verdict.unit.py` (`>= 95%` cobertura en `sinfallas/base-python-uv:3.15`) y exponer el target `make pr-verdict` en `Makefile`.
 - [x] **23.6.** Actualizar `docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`, `docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md`, `TESTING.md` y `CHANGELOG.md`, actualizar grafos AST, `make sync-governance` y `make certify`.
+
+---
+
+## ✅ Hito 24: Auditoría Integral `QA-11X v3.0` (`v3.0.0`), Sincronizador `bump_version_11x.py`, Protocolo MCP en Vivo y Planificación `19_SPEC` / `20_SPEC`
+**Referencia Obligatoria:** [`docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md) + [`docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md)
+
+### Tareas de Implementación:
+- [x] **24.1.** Auditar en paralelo el servidor MCP (`src/`), las 10 skills (`.agents/skills/`), catálogos (`catalogs/*`, `llms.txt`), gobernanza, `.gitignore` y las 10 documentaciones de entorno (incluyendo `ai-evals`, `mobile-appium`, `vibe-rescue` y `architecture`).
+- [x] **24.2.** Corregir paridad CLI (`tms-sync`, `-T`, `help`), versionado dinámico A2A/Allure/TMS (`MCP_SERVER_VERSION`) y reglas `.gitignore` / `<stack>/gitignore.example`.
+- [x] **24.3.** Crear el automatizador determinista `.agents/scripts/bump_version_11x.py` (`CC <= 5`, `mypy --strict`, `100%` cobertura delta en `tests/test_bump_version_11x.unit.py`) e integrarlo en `Makefile` (`make version-check`), `sync_governance.py` y `certify_task_completion.sh`.
+- [x] **24.4.** Crear las especificaciones de planificación exclusiva `v3.x`: `19_SPEC` (arquitectura bilingüe EN-primario + espejo ES sin ejecutar renombre masivo en `3.0.0`) y `20_SPEC` (plan de imagen base `sinfallas/base-mobile-appium:26` sin emulador ni `root`).
+- [x] **24.5.** Crear `mcp-server/tests/live-mcp-protocol.test.ts` (`InMemoryTransport` + `StdioClientTransport` real contra `dist/index.js`), ampliar `tests/bats/` (`test_limpieza.bats`, `test_repo_scripts.bats`), `tests/test_verify_docs_invariants.unit.py` y añadir el Escenario 37 en `mcp-server/test/mcp_cli_test.feature`.
+- [x] **24.6.** Ejecutar elevación coordinada `bump_version_11x.py --set 3.0.0 --edition "QA-11X v3.0"`, recomputar huellas SHA-256 en `manifest.json` y `catalogs/skillsllm-manifest.json`, certificar toda la matriz Docker (`Rule Zero`), actualizar `TESTING.md` / `CHANGELOG.md` y consolidar commit local certificado (sin `push` ni `npm publish`).
 

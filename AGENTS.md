@@ -6,10 +6,10 @@
 Welcome to the **QA Testing Blueprints** repository. All AI coding assistants (Google Antigravity, Claude Code / Claude Desktop, Hermes Agent, Cursor, Windsurf, etc.) and human developers must strictly adhere to the Level-11X corporate quality, security, and testing directives defined here and in `.agents/rules/`.
 
 > **OUTPUT LANGUAGE CONSTRAINT:**
-> Always interact with the user, provide status updates, explain reasoning, and write commit messages / user-facing documentation in Spanish (with explicit exception for international distribution artifacts: `mcp-server/README.md`, `mcp-server/package.json`, and `docs/agent-setup.en.md`, which remain in English for npmjs and global AI tooling registries).
+> Always interact with the user, provide status updates, explain reasoning, and write commit messages / user-facing documentation in Spanish (with explicit exception for international distribution artifacts: `README.md`, `mcp-server/README.md`, `mcp-server/package.json`, `catalogs/agenticskills-submission.md`, and `docs/agent-setup.en.md`, which remain in English for npmjs and global AI tooling registries).
 >
 > **TOKEN EFFICIENCY & LANGUAGE DESIGN:**
-> All directives in `.agents/rules/` and skills in `.agents/skills/` are maintained in concise, high-density technical English to optimize token utilization (~35% reduction in context window) and ensure maximum logical adherence across LLMs (Google Antigravity, Claude, Hermes Agent, Cursor, Windsurf, Codex). All human-facing documentation (`docs/`, `CHANGELOG.md`, `README.md`, `TESTING.md`) remains strictly in Spanish (except `docs/agent-setup.en.md` and `mcp-server/README.md`). See [.agents/README.md](.agents/README.md) for full architectural rationale.
+> All directives in `.agents/rules/` and skills in `.agents/skills/` are maintained in concise, high-density technical English to optimize token utilization (~35% reduction in context window) and ensure maximum logical adherence across LLMs (Google Antigravity, Claude, Hermes Agent, Cursor, Windsurf, Codex). Human-facing operational manuals (`docs/`, `CHANGELOG.md`, `TESTING.md`, `README.es.md`) remain in Spanish alongside English international entrypoints (`README.md`, `docs/agent-setup.en.md`, `mcp-server/README.md`). See [.agents/README.md](.agents/README.md) for full architectural rationale.
 
 ---
 
@@ -39,7 +39,7 @@ Welcome to the **QA Testing Blueprints** repository. All AI coding assistants (G
    - **Closure Protocol:** Strict execution of tests in ephemeral Docker, secret scanning, dependency audit, and clean git staging.
 
 4. [continuous_agent_evolution.md](.agents/rules/continuous_agent_evolution.md):
-   - **Autonomous Dual-Consumer Evolution of `.agents/`, MCP & Human `docs/` + Thin-Repo Anti-Collision:** Proactively update rules, skills, automation scripts/MCP auditors, **and human-facing Spanish manuals (`docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md`, `docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`, `SECURITY.md`)** whenever discovering an improvement opportunity, unhandled edge case, procedure automation, or token optimization without waiting for user prompting (`propose_skill_evolution_pr` enforces the 3-layer Dual-Consumer matrix and `verify_docs_invariants.py` enforces 1:1 rule parity). In consumer projects (e.g. `rosgrid`), consume the 5 corporate skills and 8 canonical rules from the global user configuration (`~/.gemini/config/skills/`, `~/.gemini/GEMINI.md`, etc.) without duplicating them in `<project>/.agents/`, and isolate domain-specific rules in `.agents/rules/domain_<project>_*.md` or outside the `AGENTS.md` connector block (`reconcile-agents`).
+   - **Autonomous Dual-Consumer Evolution of `.agents/`, MCP & Human `docs/` + Thin-Repo Anti-Collision:** Proactively update rules, skills, automation scripts/MCP auditors, **and human-facing Spanish manuals (`docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md`, `docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`, `SECURITY.md`)** whenever discovering an improvement opportunity, unhandled edge case, procedure automation, or token optimization without waiting for user prompting (`propose_skill_evolution_pr` enforces the 3-layer Dual-Consumer matrix and `verify_docs_invariants.py` enforces 1:1 rule parity). In consumer projects (e.g. `rosgrid`), consume the 10 modular skills and 8 canonical rules from the global user configuration (`~/.gemini/config/skills/`, `~/.gemini/GEMINI.md`, etc.) without duplicating them in `<project>/.agents/`, and isolate domain-specific rules in `.agents/rules/domain_<project>_*.md` or outside the `AGENTS.md` connector block (`reconcile-agents`).
 
 5. [anti_regression_and_side_effects_guardrail.md](.agents/rules/anti_regression_and_side_effects_guardrail.md):
    - **Anti-Regression, Test Co-Evolution (`QA-TEST-SYNC-01`) & Blast-Radius Governance:** Zero degradation of pre-existing functionality. Mandatory pre-modification impact audit for shared files, AST blast radius (`.agents/scripts/inspect_blast_radius.py` / `inspect_ast_blast_radius`), and consumer test contracts (`tests/`, `*.feature`, `*.bats`) so affected tests are updated and re-run alongside code/catalog edits. **If the AST graph (`graphify-out/graph.json`) does not exist, create it first via `./scripts/actualizar-grafos-graphify.sh`, and ALWAYS update the AST graph upon finishing changes.** Shell-capable agents MUST execute AST inspection directly via CLI/scripts. Preserve valid known state in frontend stores on error (anti-destructive catch).
@@ -61,31 +61,43 @@ Welcome to the **QA Testing Blueprints** repository. All AI coding assistants (G
 
 ---
 
-## 3. Skills Catalog in `.agents/skills/`
+## 3. Skills Catalog in `.agents/skills/` (10 Modular Skills)
 
-1. `qa-11x-architect`: Master QA 11X & DevSecOps Architect enforcing the 13 layers of the 11X Quality Pyramid, 10 Non-Negotiable Laws, 11 UAT Anti-Blindness Rules (including `SEC-16` Multi-Step Pre-Auth Continuity, `QA-HEALTH-01` Unmocked Orchestrator Container Healthcheck Contract, `QA-CLI-TTY-01` Dual CLI/MCP Interactive `TTY` Anti-Hang Guard, and `QA-CONTRACT-SDK-01`/`QA-DOCKER-LOCK-01` Real SDK Transport & Lockfile Image Smoke), High-IQ Token Economy, and 22 DISA STIG V6R5 / OWASP v4.2 controls with 9 on-demand `references/*.md` modules (`SKILL.md < 20 KB`).
+1. `qa-11x-architect`: Master QA 11X & DevSecOps Architect enforcing the 13 layers of the 11X Quality Pyramid, 10 Non-Negotiable Laws, 11 UAT Anti-Blindness Rules (including `SEC-16`, `QA-HEALTH-01`, `QA-CLI-TTY-01`, `QA-CONTRACT-SDK-01`/`QA-DOCKER-LOCK-01`), High-IQ Token Economy, and 34 DISA STIG V6R5 / OWASP v4.2 controls with 9 on-demand `references/*.md` modules (`SKILL.md < 12 KB`).
 2. `qa-11x-docker-certifier`: QA 11X Corporate Standard certifier in ephemeral Docker (coverage `>= 95%`, SonarJS, Karate Labs, mutation testing, zero host contamination).
 3. `docker-trivy-keydb-hardening`: Container hardening (Trivy HIGH/CRITICAL = 0), multi-threaded KeyDB in-memory caching engine, non-root users, and performance optimization.
 4. `graphify-ast-navigator`: Bidirectional AST Knowledge Graph navigation for Code Q&A and refactoring (`declaring_files`, incoming callers, outgoing callees), blast-radius pre-audit, layer boundary compliance, and CLI-first query protocol.
 5. `refactoring-ui`: Visual hierarchy, spacing, typography (`tabular-nums`), OKLCH color contrast (WCAG 2.1 AA), depth, dark mode, and Anti-JSDOM geometry rules from *Refactoring UI* (Wathan & Schoger) with 9 modular `references/*.md` files.
+6. `qa-11x-devsecops-hardener`: DISA ASD STIG V6R5 & OWASP v4.2 hardening sub-skill (PostgreSQL RLS, AES-256-GCM secrets vault, WORM hash-chains, mutating MCP approvals).
+7. `qa-11x-systematic-debugging`: 4-phase deterministic root-cause debugging sub-skill (`Rule Zero` Docker repro, Graphify blast radius, single-hypothesis test, RED-to-GREEN).
+8. `qa-11x-screenplay-builder`: Proportional E2E Screenplay Pattern & semantic ARIA locators (`Anti-JSDOM`, `Anti-Silo`, 3-phase temporal assertions).
+9. `qa-11x-llm-evaluator`: Dual-mode LLM/RAG/voice/agent evaluation (`make test` offline determinism + `QA_LLM_AUDIT_LIVE=1` / `RUN_LLM_AUDIT=1` DeepEval/Promptfoo red-teaming).
+10. `qa-11x-vibe-rescue`: 5-stage Vibe-to-Enterprise prototype rescue & hardening (`>= 95%` coverage, CC `<= 5`, RLS, secret quarantine, `10/10` gate closure).
 
 ---
 
-## 4. Automation Scripts in `.agents/scripts/`
+## 4. Automation Scripts in `.agents/scripts/` (20 Gates & Utilities)
 
-- `certify_task_completion.sh`: End-to-end 10-stage certification gate enforcing secret scanning, IaC auditing, i18n integrity, zero orphan UI components, zero orphan API endpoints, topological health, ORM parity, cryptographic manifest integrity, roadmap & active task consistency, and documentation/test sync.
-- `sync_governance.py`: Deterministic Zero-LLM SHA-256 manifest synchronizer (`--check`, `--with-ast`) and cognitive-budget validator (`SKILL.md < 20 KB`, `ACTIVE_TASK <= 40` lines, duplicate-free JSON).
+- `certify_task_completion.sh`: End-to-end 10-stage certification gate enforcing secret scanning, IaC auditing, i18n integrity, zero orphan UI components, zero orphan API endpoints, topological health, ORM parity, cryptographic manifest & version integrity, roadmap & active task consistency, and documentation/test sync.
+- `bump_version_11x.py`: Deterministic Zero-LLM version and edition synchronizer across manifests, catalogs, `llms.txt`, `SKILL.md`, and docs (`--check` / `--set` / `--edition` / `--dry-run`).
+- `sync_governance.py`: Deterministic Zero-LLM SHA-256 manifest synchronizer (`--check`, `--with-ast`) and cognitive-budget validator (`qa-11x-architect/SKILL.md < 12 KB`, other `SKILL.md < 20 KB`, `ACTIVE_TASK <= 40` lines, duplicate-free JSON).
 - `verify_roadmap_consistency.py`: Automated bidirectional consistency validator enforcing strict parity between `ROADMAP.md` summary table and granular section tasks (`- [x]` / `- [ ]`), plus zero-pending tasks invariant in `ACTIVE_TASK.md` when marked completed.
-- `verify_docs_invariants.py`: Automated documentation, Dual-Consumer parity & cognitive-budget validator enforcing `SKILL.md < 20 KB`, `ACTIVE_TASK <= 40` lines, 1:1 UAT rule parity (`SKILL.md` §2.1 ↔ `docs/02_*.md` §1.1), 100% `security-auditor.ts` rule-ID coverage in human manuals, valid MCP resource topics, non-duplicate security section headers, and zero stale tool/image/resource counts across docs.
+- `verify_docs_invariants.py`: Automated documentation, Dual-Consumer parity & cognitive-budget validator enforcing `qa-11x-architect/SKILL.md < 12 KB`, `SKILL.md < 20 KB`, `ACTIVE_TASK <= 40` lines, 1:1 UAT rule parity (`SKILL.md` §2.1 ↔ `docs/02_*.md` §1.1), 100% `security-auditor.ts` rule-ID coverage in human manuals, valid MCP resource topics, non-duplicate security section headers, and zero stale tool/image/resource counts across docs.
 - `verify_alembic_orm_parity.py`: Automated parity validator between ORM models and database migrations (detects schema drift and `revision > 32` chars).
 - `verify_zero_orphan_vue_components.py`: Automated parity validator ensuring 100% of UI components and views have active unit test suites.
 - `verify_no_orphan_api_endpoints.py`: Automated bidirectional parity validator ensuring 0 frontend calls to non-existent backend routes (404/405) and 0 unreferenced backend routes.
 - `verify_json_no_duplicate_keys.py`: Automated integrity validator detecting duplicate keys in i18n JSON locale files.
 - `inspect_blast_radius.py`: Automated bidirectional AST inspector for Code Q&A and pre-refactoring blast radius (declaring `file:line`, incoming callers, and outgoing callees).
+- `select_tests_by_blast_radius.py`: Deterministic selector mapping modified files & AST blast radius to affected QA test suites across all 10 stacks.
 - `verify_topological_health.py`: Automated AST architectural validator detecting forbidden cross-layer coupling and layer boundary violations.
 - `verify_diff_coverage.py`: Multi-stack differential coverage & anti-evasion gate (`100%` delta line coverage, `>= 90%` delta branch coverage, `QA11X-APPROVED-EXCLUSION`, Anti-XXE / missing-report guards).
 - `track_findings_state.py`: Deterministic line-shift-invariant finding state tracker and anti-loop circuit breaker (`exit 42` on `consecutive_streak >= 3` or `A -> B -> A` oscillation).
 - `generate_pr_verdict.py`: Deterministic executive PR verdict (`PR_VERDICT.md`) and cryptographic `SHA-256` / optional `HMAC-SHA256` attestation exporter (`exit 0` or `30`).
+- `lint_test_antipatterns.py`: AST anti-pattern linter catching blind `AsyncMock` overrides on `write_audit_log`, uuid-vs-username regressions, and hardcoded pass stubs.
+- `compact_context_11x.py`: Deterministic 2-level context compactor (`>= 70%` token savings without secondary LLM).
+- `release_readiness_gate.py`: Release Readiness Gate (`GO`/`NO-GO`) evaluator enforcing SLA thresholds before tag/publish approvals.
+- `audit_pagespeed_insights.py`: Ephemeral Google PageSpeed Insights / Core Web Vitals JSON auditor.
+- `validate_calm_architecture.sh`: Ephemeral Docker FINOS CALM schema validator for `architecture/qa-11x.calm.json`.
 
 ---
 

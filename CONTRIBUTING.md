@@ -10,9 +10,9 @@ Este ecosistema está diseñado para ser desarrollado, mantenido y extendido tan
 
 Para mantener la consistencia y la eficacia de estos blueprints, toda contribución (humana o automatizada) debe respetar los siguientes principios:
 
-1. **Imágenes Base Inmutables:** Nunca propongas cambios que requieran agregar un `Dockerfile` local o la instrucción `build:` en los orquestadores `docker-compose.qa.yml`. Todo debe funcionar utilizando exclusivamente nuestra flota de imágenes oficiales:
-   * `sinfallas/base-python-uv` (`3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest`) para Python/FastAPI.
-   * `sinfallas/base-node-ionic` (`22`, `24`, `26` y `latest`) para Node.js/Vue 3/React y el Servidor MCP.
+1. **Imágenes Base Inmutables:** En proyectos consumidores y blueprints individuales, nunca propongas cambios que requieran agregar un `Dockerfile` local o la instrucción `build:` en los orquestadores `docker-compose.qa.yml`. Todo debe funcionar utilizando exclusivamente nuestra flota de imágenes oficiales (y para nuevos entornos corporativos como `mobile-appium`, planificar formalmente la imagen dedicada antes de hornearla — ver [`docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md)):
+   * `sinfallas/base-python-uv` (`3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest`) para Python/FastAPI, `ai-evals` y `vibe-rescue`.
+   * `sinfallas/base-node-ionic` (`22`, `24`, `26` y `latest`) para Node.js/Vue 3/React, `mobile-appium` (offline TS/WDIO), Promptfoo, `@finos/calm-cli` y el Servidor MCP.
    * `sinfallas/basephpcomposer` (`8.2`, `8.3`, `8.4`, `8.5` y `latest`) para PHP.
    * `sinfallas/base-bash-qa:latest` para Bash/DevOps.
    * `sinfallas/karatelabs:1.5.1` para BDD/Caja Negra.
@@ -23,7 +23,7 @@ Para mantener la consistencia y la eficacia de estos blueprints, toda contribuci
 2. **Efimeridad Absoluta y Regla Cero (`Rule Zero`):** Toda ejecución de pruebas, linters o scripts debe ocurrir dentro de contenedores efímeros (usando `--rm`). Jamás ejecutes pruebas directamente en el host anfitrión. Las pruebas unitarias jamás deben salir a Internet; el Mocking (`nock`, `pytest-mock`) es obligatorio. Para persistencia y esquemas de base de datos rige la regla **Anti-Mock Blindness** (validación obligatoria contra base de datos real efímera).
 3. **Prompts Imperativos y Optimización Bimodal:**
    * Las directivas internas para consumo de LLMs en `.agents/rules/` y `.agents/skills/` se redactan en **inglés técnico conciso de alta densidad** para ahorrar un 35% de tokens BPE.
-   * Toda la documentación para humanos (`docs/`, `CHANGELOG.md`, `README.md`, `TESTING.md`) y respuestas de cara al usuario se redactan estrictamente en **español** (`OUTPUT LANGUAGE CONSTRAINT`).
+   * Los manuales operativos humanos (`docs/`, `CHANGELOG.md`, `TESTING.md`, `README.es.md`) y respuestas de cara al usuario se redactan en **español**, junto con puertas de entrada internacionales en **inglés** (`README.md`, `mcp-server/README.md`, `docs/agent-setup.en.md`, `catalogs/agenticskills-submission.md`; arquitectura bilingüe completa planificada en [`docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md)).
 4. **Umbral de Calidad y Deuda Técnica Innegociables:**
    * Cobertura de código unitario **>= 95%** de líneas y ramas.
    * Complejidad ciclomática Grado **A** (`CC <= 5`, `MI >= A`).
@@ -41,8 +41,8 @@ Si eres un **Agente de IA** (o un desarrollador operando en conjunto con uno) co
 2. **Bitácora Activa:** Inicia o actualiza el archivo `.agents/ACTIVE_TASK.md` desglosando las fases de la tarea con casillas `- [ ]` en tiempo real.
 3. **Inspección AST Preventiva:** Audita el radio de impacto de símbolos compartidos con `python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"` antes de modificar código.
 4. **Pirámide de Pruebas Obligatoria:** Todo código nuevo o modificado debe incorporar sus correspondientes pruebas unitarias (`>= 95%`) y escenarios BDD en Karate Labs (`api_test.feature` y `ui_business_flow.feature`).
-5. **Compuerta Universal de Certificación (10/10):** Ejecuta `./.agents/scripts/certify_task_completion.sh` y asegura que las **10 etapas** pasen limpiamente antes de dar la tarea por concluida.
-6. **Sincronización Criptográfica del Manifiesto:** Si agregas o modificas plantillas o archivos comunes, regenera `manifest.json` ejecutando `python3 scripts/generar-manifiesto.py` y verifica con `--check`.
+5. **Compuerta Universal de Certificación (10/10):** Ejecuta `./.agents/scripts/certify_task_completion.sh` y asegura que las **10 etapas** pasen limpiamente (incluyendo `bump_version_11x.py --check` y `sync_governance.py --check`) antes de concluir en un `git commit` local certificado (`QA-GIT-GATE-01`).
+6. **Sincronización Criptográfica del Manifiesto:** Si agregas o modificas plantillas o archivos comunes, regenera `manifest.json` ejecutando `make sync-governance` y verifica con `make version-check`.
 
 ---
 
@@ -56,7 +56,7 @@ Si eres un **Agente de IA** (o un desarrollador operando en conjunto con uno) co
 
 ### Si estás mejorando la Documentación, MCP o Skills
 1. Si mejoras el servidor MCP (`mcp-server/`), asegúrate de que pase `pnpm run lint`, `npx tsc --noEmit` y que la cobertura de pruebas unitarias (`pnpm test`) se mantenga en `>= 95%`.
-2. Si actualizas skills en `.agents/skills/` (`qa-11x-architect`, `refactoring-ui`), mantén el formato estándar de `SKILL.md` y actualiza las referencias en `docs/specs/`.
+2. Si actualizas cualquiera de las 10 skills modulares en `.agents/skills/`, mantén el presupuesto cognitivo (`qa-11x-architect/SKILL.md < 12 KB`, resto `< 20 KB`), actualiza `catalogs/skillsllm-manifest.json` y sincroniza `docs/specs/`.
 3. Mantén la filosofía de "cero complacencia": la documentación es concisa, restrictiva y orientada a la erradicación de errores.
 
 ### Pull Request (PR)

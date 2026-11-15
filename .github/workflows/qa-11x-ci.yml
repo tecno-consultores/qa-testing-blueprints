@@ -39,6 +39,7 @@ jobs:
             sinfallas/base-python-uv:3.15 \
             bash -c "python3 scripts/generar-manifiesto.py --check && \
               python3 .agents/scripts/sync_governance.py --check && \
+              python3 .agents/scripts/bump_version_11x.py --workspace . --check && \
               python3 .agents/scripts/verify_docs_invariants.py && \
               python3 .agents/scripts/verify_roadmap_consistency.py && \
               python3 .agents/scripts/verify_topological_health.py && \
@@ -49,7 +50,7 @@ jobs:
       - name: Execute MCP Server QA Suite in Ephemeral Docker (Rule Zero)
         run: |
           docker compose -f mcp-server/docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" mcp-server bash -c \
-            "pnpm install --frozen-lockfile && pnpm run lint && pnpm run typecheck && pnpm run test:unit && pnpm run build && pnpm run test:example && rm -rf coverage .eslintcache"
+            "pnpm install --frozen-lockfile && pnpm run lint && pnpm run typecheck && pnpm run build && pnpm run test:unit && pnpm run test:example && rm -rf coverage .eslintcache"
 
       - name: Execute Karate Labs BDD Contract Suite in Ephemeral Docker (Rule Zero)
         run: |

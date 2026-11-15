@@ -39,6 +39,7 @@ const FLAG_INCLUDE_SCRIPTS = '--include-scripts';
 const FLAG_RECONCILE = '--reconcile';
 const FLAG_DIR = '--dir';
 const FLAG_TIER = '--tier';
+const FLAG_TIER_SHORT = '-T';
 const FLAG_CI = '--ci';
 const FLAG_FORCE = '--force';
 const FLAG_FORCE_SHORT = '-f';
@@ -121,12 +122,13 @@ export const CLI_USAGE_TEXT = [
   '  init-agents       Create or update AGENTS.md and optional Thin-Repo agent bridges',
   '  install-skill     Install global 11X skills (pass --init-agents to sync connectors)',
   '  reconcile-agents  Deduplicate canonical rules in .agents/',
+  '  tms-sync          Zero-infra traceability sync (jira|zephyr|xray|github-issues)',
   '',
   'Options:',
   '  --lang, -l <es|en>               Output language policy (default: es, quickstart: en)',
   `  --agents, -a <csv|auto|all>      Bridge target IDs (${SUPPORTED_AGENT_IDS.length} supported), auto, or all`,
   '  --dir, --project-path, -p <dir>  Target project directory (default: cwd)',
-  '  --tier <starter|standard|enterprise>  Quickstart gate profile (default: starter)',
+  '  --tier, -T <starter|standard|enterprise>  Quickstart gate profile (default: starter)',
   '  --ci <github|none>               Quickstart CI workflow generator (default: github)',
   '  --target, -t <env>               Global skills target directory',
   '  --init-agents                    Run init-agents after install-skill',
@@ -206,6 +208,7 @@ const QUICKSTART_VALUE_FLAG_FIELDS: Readonly<Record<string, QuickstartValueFlagF
     [FLAG_PROJECT_PATH]: 'projectPath',
     [FLAG_PROJECT_PATH_SHORT]: 'projectPath',
     [FLAG_TIER]: 'rawTier',
+    [FLAG_TIER_SHORT]: 'rawTier',
     [FLAG_LANG]: 'rawLang',
     [FLAG_LANG_SHORT]: 'rawLang',
     [FLAG_AGENTS]: 'rawAgents',

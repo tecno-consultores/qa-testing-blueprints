@@ -1,8 +1,8 @@
 > **[SYSTEM DIRECTIVE FOR AI AGENTS]:** Act as a Staff QA Automation Engineer and DevOps Expert. Read, parse, and strictly enforce the following architectural constraints written in Spanish. You must generate code that perfectly aligns with these rules, using exclusively the ephemeral Docker containers, testing frameworks, and strict quality thresholds (e.g., 95% coverage, SAST, Infection mutation, Pact CDCT Zero-Infra, k6 SLOs) specified below. Do not suggest local installations. Process the technical logic at your highest reasoning capacity in English, but output your final response, explanations, and code comments in Spanish.
 
-# Guía Canónica de Pruebas y Validación para PHP 8.2–8.5 (Estándar 11X v2.0)
+# Guía Canónica de Pruebas y Validación para PHP 8.2–8.5 (QA-11X v3.0)
 
-Este documento contiene las instrucciones corporativas de **Nivel 11X (v2.0)** que DEBES seguir innegociablemente para generar, estructurar y ejecutar pruebas automatizadas en APIs y microservicios backend construidos en **PHP (versiones 8.2, 8.3, 8.4 y 8.5)**. El objetivo es garantizar resiliencia bajo estrés extremo, paridad de contratos inter-servicios sin infraestructura externa (*Zero-Infra*), seguridad por diseño (DISA ASD STIG V6R5 + OWASP Developer Guide v4.2) y cero ejecución local en el host.
+Este documento contiene las instrucciones corporativas de **Nivel 11X (QA-11X v3.0)** que DEBES seguir innegociablemente para generar, estructurar y ejecutar pruebas automatizadas en APIs y microservicios backend construidos en **PHP (versiones 8.2, 8.3, 8.4 y 8.5)**. El objetivo es garantizar resiliencia bajo estrés extremo, paridad de contratos inter-servicios sin infraestructura externa (*Zero-Infra*), seguridad por diseño (DISA ASD STIG V6R5 + OWASP Developer Guide v4.2) y cero ejecución local en el host.
 
 ---
 

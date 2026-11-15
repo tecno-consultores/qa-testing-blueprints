@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
 import { describe, expect, it } from 'vitest';
+import { MCP_SERVER_VERSION } from '../src/services/github-fetcher.js';
 import {
   buildFailureArtifactPath,
   cleanDiagnosticExcerpt,
@@ -134,7 +135,7 @@ describe('diagnosticFormatter (T1.5 Pass-Quiet & Fail-Verbose + Allure)', () => 
       expect(passedEnv.attachments).toEqual([]);
       expect(passedEnv.labels).toEqual([
         { name: 'agent', value: 'qa-11x-agent' },
-        { name: 'agent_version', value: '2.21.0' },
+        { name: 'agent_version', value: MCP_SERVER_VERSION },
         { name: 'environment', value: 'docker-ephemeral' },
       ]);
 

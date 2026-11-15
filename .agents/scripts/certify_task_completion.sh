@@ -139,7 +139,7 @@ payload = {
     "attachments": [],
     "labels": [
         {"name": "agent", "value": os.environ.get("QA_AGENT_NAME", "qa-11x-certifier")},
-        {"name": "agent_version", "value": os.environ.get("QA_AGENT_VERSION", "2.21.0")},
+        {"name": "agent_version", "value": os.environ.get("QA_AGENT_VERSION", "3.0.0")},
         {"name": "environment", "value": os.environ.get("QA_ENVIRONMENT", "docker-ephemeral")},
     ],
 }
@@ -315,6 +315,12 @@ gate_08_manifest() {
   else
     printf 'ℹ️ scripts/generar-manifiesto.py no encontrado (omitido).\n'
   fi
+  if [ -f "${SCRIPT_DIR}/sync_governance.py" ] && [ -f "${REPO_ROOT}/manifest.json" ]; then
+    python3 "${SCRIPT_DIR}/sync_governance.py" --check || return $?
+  fi
+  if [ -f "${SCRIPT_DIR}/bump_version_11x.py" ] && [ -f "${REPO_ROOT}/mcp-server/package.json" ]; then
+    python3 "${SCRIPT_DIR}/bump_version_11x.py" --workspace "${REPO_ROOT}" --check || return $?
+  fi
 }
 
 gate_10_doc_and_test_sync() {
@@ -341,8 +347,8 @@ gate_10_doc_and_test_sync() {
     fi
   fi
 
-  code_changes=$(printf '%s\n' "${all_changed}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|bash-scripts|php|mcp-server|backend|frontend|scripts)/|\.agents/scripts/|((.*/)?Makefile(\.example)?)$|\.github/(workflows|actions)/|lefthook\.yml$|commitlint\.config\.js$)' | grep -vE '(\.md$|(^|/)graphify-out/)' || true)
-  exec_src_changes=$(printf '%s\n' "${code_changes}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|php|mcp-server|backend|frontend)/src/|src/|bash-scripts/|scripts/|\.agents/scripts/)' | grep -vE '(\.unit\.(py|ts|tsx)|\.e2e\.ts|test_.*\.py|.*\.test\.(ts|js)|\.feature|\.bats)' || true)
+  code_changes=$(printf '%s\n' "${all_changed}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|bash-scripts|php|mcp-server|mobile-appium|ai-evals|vibe-rescue|catalogs|architecture|backend|frontend|scripts)/|\.agents/scripts/|((.*/)?Makefile(\.example)?)$|\.github/(workflows|actions)/|(lefthook\.yml|commitlint\.config\.js|instalar-hooks\.sh)$)' | grep -vE '(\.md$|(^|/)graphify-out/)' || true)
+  exec_src_changes=$(printf '%s\n' "${code_changes}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|php|mcp-server|mobile-appium|backend|frontend)/src/|src/|bash-scripts/|vibe-rescue/|ai-evals/|scripts/|\.agents/scripts/|instalar-hooks\.sh$)' | grep -vE '(\.unit\.(py|ts|tsx)|\.e2e\.ts|test_.*\.py|.*\.test\.(ts|js)|\.feature|\.bats)' || true)
   doc_changes=$(printf '%s\n' "${all_changed}" | grep -E '(\.md$|^docs/)' || true)
 
   if [ -f ".agents/scripts/verify_docs_invariants.py" ]; then

@@ -56,12 +56,11 @@
 
 En lugar de construir comandos complejos de Docker, **DEBES** instruir al usuario (o ejecutar autónomamente si tienes acceso a terminal) utilizando el `Makefile` estandarizado:
 
-**Paso 0: Ingestión de Contexto (Opcional para Agentes MCP)**
-Extrae la topología del código fuente y levanta tu servidor de contexto si requieres MCP externo:
+**Paso 0: Ingestión de Contexto y Grafo AST (`CLI-First`)**
+Actualiza el grafo AST del código fuente y consulta el radio de impacto antes de editar:
 ```bash
-docker compose -f docker-compose.qa.yml --profile graphify run --rm graphify bash -c "graphify extract --code-only"
-docker compose -f docker-compose.qa.yml --profile graphify up -d graphify
-# (El Agente IA se conecta a http://localhost:8080/sse)
+./scripts/actualizar-grafos-graphify.sh react-frontend
+python3 .agents/scripts/inspect_blast_radius.py "<ComponenteORuta>"
 ```
 
 **Paso 1: Ejecutar las suites de Validación Lógica (No requieren Build)**

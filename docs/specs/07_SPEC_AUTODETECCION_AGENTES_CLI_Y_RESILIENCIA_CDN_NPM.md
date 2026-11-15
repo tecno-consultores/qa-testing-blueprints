@@ -3,7 +3,7 @@
 **Proyecto:** QA Testing Blueprints (Estándar Corporativo Nivel 11X)  
 **Componentes Objetivo (Hito 8):** `mcp-server/src/cli/install-skill.ts`, `scripts/install-skill.sh`, `scripts/publicar-mcp.sh`, `mcp-server/tests/tools-and-resources.unit.ts`, `tests/test_install_skill.unit.py`, `tests/test_publicar_mcp.unit.py`, `mcp-server/test/mcp_cli_test.feature`  
 **Audiencia de Ejecución:** Gemini 3.8 Flash High / Claude / Antigravity  
-**Estado:** PLANIFICADO (ESPECIFICACIÓN APROBADA PARA IMPLEMENTACIÓN EN HITO 8)
+**Estado:** IMPLEMENTADO Y CERTIFICADO (HITO 8 — 100%)
 
 ---
 

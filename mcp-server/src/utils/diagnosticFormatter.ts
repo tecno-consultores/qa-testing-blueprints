@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
 import { stripVTControlCharacters } from 'node:util';
+import { MCP_SERVER_VERSION } from '../services/github-fetcher.js';
 
 const STATUS_PASSED = 'passed' as const;
 const STATUS_FAILED = 'failed' as const;
@@ -11,7 +12,7 @@ const LABEL_AGENT_VERSION = 'agent_version' as const;
 const LABEL_ENVIRONMENT = 'environment' as const;
 
 const DEFAULT_AGENT_NAME = 'qa-11x-agent';
-const DEFAULT_AGENT_VERSION = '2.21.0';
+const DEFAULT_AGENT_VERSION = MCP_SERVER_VERSION;
 const DEFAULT_ENVIRONMENT = 'docker-ephemeral';
 const DEFAULT_BUILD_ID = 'local';
 const DEFAULT_REMEDIATION =

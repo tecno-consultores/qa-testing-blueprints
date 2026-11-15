@@ -28,3 +28,6 @@ prometheus_data/
 .vscode/
 .idea/
 .DS_Store
+.agents/.cache/
+.agents/artifacts/
+pacts/

@@ -20,7 +20,7 @@ import sys
 from typing import Any, Dict, List, Optional, Tuple
 
 SCHEMA_VERSION = "1.0.0"
-DEFAULT_BLUEPRINT_VERSION = "2.21.0"
+DEFAULT_BLUEPRINT_VERSION = "3.0.0"
 REPOSITORY = "tecno-consultores/qa-testing-blueprints"
 DEFAULT_BRANCH = "main"
 RAW_BASE_URL = f"https://raw.githubusercontent.com/{REPOSITORY}/{DEFAULT_BRANCH}"
@@ -248,6 +248,10 @@ def scan_agent_governance_files(repo_root: Path) -> List[Dict[str, Any]]:
     agents_md = repo_root / "AGENTS.md"
     if agents_md.is_file():
         candidates.append(agents_md)
+
+    ai_master_prompt = repo_root / "AI_MASTER_PROMPT.md"
+    if ai_master_prompt.is_file():
+        candidates.append(ai_master_prompt)
 
     agents_readme = repo_root / ".agents" / "README.md"
     if agents_readme.is_file():

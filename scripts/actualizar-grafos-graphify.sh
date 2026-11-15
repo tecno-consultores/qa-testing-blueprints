@@ -25,7 +25,9 @@ docker pull -q "${IMAGE_NAME}" >/dev/null 2>&1 || true
 
 extract_graph_in_dir() {
   local target_dir="$1"
-  local log_file="/tmp/graphify_ast_$$.log"
+  local log_file=""
+  log_file="$(mktemp /tmp/graphify_ast.XXXXXX.log)"
+  trap 'rm -f "${log_file}"' RETURN
   if ! docker run --rm \
     -e OLLAMA_BASE_URL="" \
     -v "${target_dir}:/app" \
@@ -34,10 +36,8 @@ extract_graph_in_dir() {
     sh -c "graphify extract . --code-only && graphify cluster-only ." >"${log_file}" 2>&1; then
     echo "❌ [Graphify AST] Error al extraer el grafo en '${target_dir}':" >&2
     cat "${log_file}" >&2
-    rm -f "${log_file}"
     return 1
   fi
-  rm -f "${log_file}"
   docker run --rm \
     -v "${target_dir}:/work" \
     "${IMAGE_NAME}" \
@@ -91,11 +91,14 @@ is_active_code_stack() {
   if [ -d "${dir}/src" ] || [ -d "${dir}/app" ]; then
     return 0
   fi
+  if [ -n "$(find "${dir}" -maxdepth 2 -type f \( -name '*.py' -o -name '*.ts' -o -name '*.sh' \) -print -quit 2>/dev/null)" ]; then
+    return 0
+  fi
   return 1
 }
 
 STACKS=()
-for s in fastapi python node-backend vue3 react-frontend php mcp-server backend frontend; do
+for s in fastapi python node-backend vue3 react-frontend php mcp-server ai-evals mobile-appium vibe-rescue bash-scripts backend frontend; do
   if is_active_code_stack "${REPO_ROOT}/${s}"; then
     STACKS+=("${s}")
   fi

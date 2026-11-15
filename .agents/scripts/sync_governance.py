@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 SCHEMA_VERSION = "1.0.0"
-DEFAULT_BLUEPRINT_VERSION = "2.21.0"
+DEFAULT_BLUEPRINT_VERSION = "3.0.0"
 REPOSITORY = "tecno-consultores/qa-testing-blueprints"
 DEFAULT_BRANCH = "main"
 RAW_BASE_URL = f"https://raw.githubusercontent.com/{REPOSITORY}/{DEFAULT_BRANCH}"
@@ -282,6 +282,7 @@ def _discover_governance_paths(repo_root: Path) -> list[str]:
     candidates: list[Path] = []
     for rel in (
         "AGENTS.md",
+        "AI_MASTER_PROMPT.md",
         "llms.txt",
         ".agents/README.md",
         ".agents/ACTIVE_TASK.md.example",

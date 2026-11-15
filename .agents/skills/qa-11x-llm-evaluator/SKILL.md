@@ -61,7 +61,7 @@ Use `promptfoo` (`PROMPTFOO_DISABLE_TELEMETRY=1`) for side-by-side prompt/model 
 | **Code/Config Generation** | First-pass compile/validation rate `> 94%`; regeneration `< 1.2` iterations/scenario. | Offline compiler/linter harness (`mypy --strict`, `vue-tsc`, `ruff`) in Docker. |
 | **Trace-to-Golden Loop** | `100%` of production/UAT trace failures converted to deterministic offline golden tests. | Append failing trace fixture under `ai-evals/` before merging fix. |
 | **2-Level Compaction** | Level-1 (tool output trim) + Level-2 (state summary) fit within strict token budgets. | Offline `tiktoken`/byte-budget assertion in Mode 1. |
-| **Voice Agents (WS / WebRTC)** | Streaming `TTFAB <= 500ms`; *barge-in* interruption cutoff `<= 150ms` + TTS buffer flush. | WebSocket/WebRTC synthetic PCM harness (Vapi, ElevenLabs, LiveKit, Pipecat). |
+| **Voice Agents (WS / WebRTC)** | Streaming `TTFAB <= 500ms`; *barge-in* interruption cutoff `<= 200ms` + TTS buffer flush. | WebSocket/WebRTC synthetic PCM harness (Vapi, ElevenLabs, LiveKit, Pipecat). |
 | **PDF / OCR Table Extraction** | `100%` structural fidelity: exact row/col cardinality, `Decimal` sum parity, `0` silent cell merges. | Mode 1 golden-fixture structural diff comparing extracted JSON vs. audited tables. |
 
 ---
@@ -109,7 +109,7 @@ from deepeval import assert_test
 from deepeval.metrics import FaithfulnessMetric, HallucinationMetric, TaskCompletionMetric
 from deepeval.test_case import LLMTestCase, ToolCall
 
-RUN_PROBABILISTIC = os.environ.get("RUN_LLM_AUDIT") == "1"
+RUN_PROBABILISTIC = os.environ.get("QA_LLM_AUDIT_LIVE") == "1" or os.environ.get("RUN_LLM_AUDIT") == "1"
 
 
 @pytest.mark.skipif(not RUN_PROBABILISTIC, reason="Mode 2 probabilistic audit runs on make audit-llm")

@@ -3,7 +3,7 @@
 **Proyecto:** QA Testing Blueprints (`tecno-consultores/qa-testing-blueprints`)  
 **Componentes Objetivo (Hito 14):** `mcp-server/src/types.ts`, `mcp-server/src/server.ts`, `mcp-server/src/tools/fetch-bundle.ts`, `mcp-server/src/tools/security-auditor.ts`, `mcp-server/src/tools/test-pyramid-auditor.ts`, `mcp-server/src/tools/blast-radius.ts`, `mcp-server/src/cli/init-agents-md.ts`, `mcp-server/src/cli/install-skill.ts`, `mcp-server/src/cli/reconcile-agents.ts`, `mcp-server/tests/*.unit.ts`, `mcp-server/test/mcp_cli_test.feature`  
 **Modelo Ejecutor Objetivo:** Gemini 3.8 Flash High  
-**Estado:** PLANIFICADO (ESPECIFICACIÓN APROBADA PARA IMPLEMENTACIÓN EN HITO 14)
+**Estado:** IMPLEMENTADO Y CERTIFICADO (HITO 14 — 100%)
 
 ---
 

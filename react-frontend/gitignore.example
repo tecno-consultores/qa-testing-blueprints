@@ -46,3 +46,9 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# Gobernanza QA-11X & Contratos
+.agents/ACTIVE_TASK.md
+.agents/.cache/
+.agents/artifacts/
+pacts/

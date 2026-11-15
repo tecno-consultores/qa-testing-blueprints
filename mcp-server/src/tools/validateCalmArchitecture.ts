@@ -94,17 +94,17 @@ export interface CalmValidationResult {
 export const VALIDATE_CALM_ARCHITECTURE_TOOL: Tool = {
   name: 'validate_calm_architecture',
   description:
-    'Valida modelos FINOS CALM contra integridad estructural, referencial y los 7 controles de seguridad obligatorios QA-11X.',
+    'Validates FINOS CALM architecture models for structural, referential, and mandatory 7 QA-11X security control compliance.',
   inputSchema: {
     type: 'object',
     properties: {
       workspaceRoot: {
         type: 'string',
-        description: 'Raíz del workspace (opcional; usa el repositorio actual por defecto).',
+        description: 'Workspace root directory (optional; defaults to current repository).',
       },
       architecturePath: {
         type: 'string',
-        description: `Ruta relativa del modelo CALM dentro del workspace (por defecto '${DEFAULT_CALM_ARCHITECTURE_PATH}').`,
+        description: `Relative path of the CALM model inside workspaceRoot (default '${DEFAULT_CALM_ARCHITECTURE_PATH}').`,
       },
     },
     additionalProperties: false,

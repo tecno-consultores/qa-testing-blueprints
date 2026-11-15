@@ -149,7 +149,13 @@ docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tm
 # 5. Paso 2: Pruebas Unitarias con Cobertura >= 95%
 if [ "$SKIP_TESTS" = false ]; then
   echo "🧪 [2/6] Ejecutando pruebas unitarias con cobertura en Docker efímero..."
-  docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run test:unit
+  MCP_EXTRA_VOLS=()
+  for dir in mobile-appium vibe-rescue .github; do
+    if [ -d "${REPO_ROOT}/${dir}" ]; then
+      MCP_EXTRA_VOLS+=(-v "${REPO_ROOT}/${dir}:/${dir}:ro")
+    fi
+  done
+  docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "${MCP_DIR}:/app" ${MCP_EXTRA_VOLS[@]+"${MCP_EXTRA_VOLS[@]}"} -w /app "${IMAGE_NAME}" pnpm --silent run test:unit
 else
   echo "🧪 [2/6] Omitiendo pruebas unitarias (--skip-tests activado)."
 fi
@@ -209,7 +215,7 @@ if [ -t 0 ] && [ -t 1 ]; then
   DOCKER_TTY_ARGS=(-it)
 fi
 
-if ! docker run --rm "${DOCKER_TTY_ARGS[@]}" \
+if ! docker run --rm ${DOCKER_TTY_ARGS[@]+"${DOCKER_TTY_ARGS[@]}"} \
   -u "${CURRENT_UID}:${CURRENT_GID}" \
   -e HOME=/tmp \
   -v "${MCP_DIR}:/app" \

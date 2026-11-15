@@ -84,8 +84,8 @@ make qa-e2e
 
 ### ¿Cómo interactúa un Agente de Inteligencia Artificial con este repositorio?
 Un agente de IA (como Google Antigravity, Anthropic Claude Code / Claude Desktop, Hermes Agent de Nous Research, Cursor o Windsurf) puede interactuar de tres formas:
-1. **Vía Servidor MCP (`@sinfallas/mcp-qa-11x` v2.21.0):** Se conecta por `stdio` mediante `npx -y @sinfallas/mcp-qa-11x@latest`. El servidor expone **18 herramientas operativas** (las 12 núcleo como `inspect_project_config`, `bootstrap_or_merge_11x`, `run_ephemeral_qa`, `certify_11x_gate`, `propose_skill_evolution_pr` y `reconcile_agents_governance`, más `validate_calm_architecture`, `evaluate_release_gate`, `evaluate_agent_trajectory`, `run_llm_red_team`, `audit_vibe_prototype` y `sync_enterprise_tms`) y **12 recursos dinámicos (`blueprint://*`)**, permitiendo al agente auditar y fusionar código sin clonar el repositorio completo.
-2. **Vía Skills Zero-Clone (`qa-11x-architect` y catálogo completo de 5 skills):** Se inyectan en su entorno junto con los scripts operativos y el conector de `AGENTS.md` ejecutando `npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts` o mediante el instalador universal `curl ... | sh`. El agente adquiere de inmediato el conocimiento de las 13 capas de calidad, los 22 patrones DISA/OWASP y la prevención Anti-JSDOM.
+1. **Vía Servidor MCP (`@sinfallas/mcp-qa-11x` v3.0.0):** Se conecta por `stdio` mediante `npx -y @sinfallas/mcp-qa-11x@latest`. El servidor expone **18 herramientas operativas** (las 12 núcleo como `inspect_project_config`, `bootstrap_or_merge_11x`, `run_ephemeral_qa`, `certify_11x_gate`, `propose_skill_evolution_pr` y `reconcile_agents_governance`, más `validate_calm_architecture`, `evaluate_release_gate`, `evaluate_agent_trajectory`, `run_llm_red_team`, `audit_vibe_prototype` y `sync_enterprise_tms`) y **12 recursos dinámicos (`blueprint://*`)**, permitiendo al agente auditar y fusionar código sin clonar el repositorio completo.
+2. **Vía Skills Zero-Clone (`qa-11x-architect` y catálogo completo de 10 skills modulares):** Se inyectan en su entorno junto con los scripts operativos y el conector de `AGENTS.md` ejecutando `npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts --reconcile` o mediante el instalador universal `curl ... | sh`. El agente adquiere de inmediato el conocimiento de las 13 capas de calidad, los 22 patrones base (34 reglas estáticas) DISA/OWASP y la prevención Anti-JSDOM.
 3. **Vía Reglas Locales (`.agents/` y `AGENTS.md`):** Si el agente opera dentro del repositorio clonado, lee automáticamente las directivas en `.agents/rules/` y mantiene la bitácora activa en `.agents/ACTIVE_TASK.md`, ejecutando la compuerta universal `./.agents/scripts/certify_task_completion.sh` antes de cerrar sus turnos.
 
 ### ¿Qué es el Servidor MCP `@sinfallas/mcp-qa-11x` y por qué es superior a clonar todo el repositorio?
@@ -102,15 +102,15 @@ Siguiendo la filosofía de soberanía y aislamiento corporativo del estándar Ro
 
 ### ¿Cómo actualizo el Servidor MCP y las Skills en mi IDE después de publicar una nueva versión en npmjs y cómo valido que se descargaron los cambios?
 Aunque en `mcp_config.json` tengas configurado `"@sinfallas/mcp-qa-11x@latest"`, el IDE mantiene en memoria el proceso `stdio` iniciado al arrancar y `npx` guarda copias en `~/.npm/_npx` (además de la caché de manifiestos en `~/.cache/qa-11x-blueprints`). Para forzar la actualización y validar la integridad criptográfica:
-1. **Purga las cachés y reinstala las 5 Skills, Reglas y Scripts:**
+1. **Purga las cachés y reinstala las 10 Skills modulares, Reglas y Scripts:**
    ```bash
-   rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@latest install-skill --target all --init-agents --include-scripts
+   rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@latest install-skill --target all --init-agents --include-scripts --reconcile
    ```
 2. **Reinicia el servidor MCP en tu IDE:** En Google Antigravity ve a **`...` (Additional Options) > MCP Servers > `qa-11x` > Restart** o ejecuta `Ctrl+Shift+P` -> **`Developer: Reload Window`**.
 3. **Valida la versión y los hashes SHA-256 (`DISA STIG V-222513`):**
    * Verifica la versión en `npx`: `grep -rn '"version"' ~/.npm/_npx/*/node_modules/@sinfallas/mcp-qa-11x/package.json`
    * Verifica el manifiesto y documentación en caché: `grep -E '"blueprint_version"|"generated_at_utc"' ~/.cache/qa-11x-blueprints/manifest.json`
-   * Durante la ejecución de `install-skill`, confirma que aparezca en consola `✔ [Skills 11X] 23 archivos verificados con SHA-256 (DISA STIG V-222513)`. Si algún archivo descargado no coincidiera exactamente con el hash SHA-256 del manifiesto oficial, el instalador abortará automáticamente por violación de integridad criptográfica.
+   * Durante la ejecución de `install-skill`, confirma que aparezca en consola `✔ [Skills 11X] ... archivos verificados con SHA-256 (DISA STIG V-222513)`. Si algún archivo descargado no coincidiera exactamente con el hash SHA-256 del manifiesto oficial, el instalador abortará automáticamente por violación de integridad criptográfica.
 
 ### ¿Qué es la "Anti-Mock Blindness" (Ceguera de Mocks) y por qué se exige verificar contra PostgreSQL real y migraciones Alembic?
 En pruebas unitarias, mockear llamadas a base de datos crea una falsa sensación de seguridad. Un modelo ORM puede tener tipos de datos incompatibles o columnas inexistentes que pasan los mocks con 100% de cobertura pero rompen la base de datos en producción. En el estándar 11X, todo cambio de modelo exige migración versionada y validación con `verify_alembic_orm_parity.py` ejecutándose contra una instancia real de PostgreSQL en Docker efímero.

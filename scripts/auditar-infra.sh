@@ -112,11 +112,18 @@ if [ "${STATIC_ONLY}" = true ]; then
   exit 0
 fi
 
-# Calcular huella SHA-256 de archivos IaC, workflows, Makefiles y lockfiles de dependencias
-IAC_FINGERPRINT=$(find "${REPO_ROOT}" -maxdepth 4 \
-  \( -name node_modules -o -name .git -o -name dist -o -name .venv -o -name vendor \) -prune \
-  -o -type f \( -name 'docker-compose*.yml' -o -name 'Dockerfile*' -o -name '.trivy.yaml' -o -name 'pnpm-lock.yaml' -o -name 'package-lock.json' -o -name 'uv.lock' -o -name 'composer.lock' -o -name 'Makefile' -o -name 'Makefile.example' -o -path '*/.github/workflows/*.yml' -o -path '*/.github/workflows/*.yaml' -o -path '*/.github/actions/*/action.yml' -o -path '*/.github/actions/*/action.yaml' \) \
-  -print0 2>/dev/null | sort -z | xargs -0 sha256sum 2>/dev/null | sha256sum | awk '{print $1}')
+# Calcular huella SHA-256 portable (Linux sha256sum o macOS shasum) de IaC, workflows, Makefiles y lockfiles
+if command -v sha256sum >/dev/null 2>&1; then
+  IAC_FINGERPRINT=$(find "${REPO_ROOT}" -maxdepth 4 \
+    \( -name node_modules -o -name .git -o -name dist -o -name .venv -o -name vendor \) -prune \
+    -o -type f \( -name 'docker-compose*.yml' -o -name 'Dockerfile*' -o -name '.trivy.yaml' -o -name 'pnpm-lock.yaml' -o -name 'package-lock.json' -o -name 'uv.lock' -o -name 'composer.lock' -o -name 'Makefile' -o -name 'Makefile.example' -o -path '*/.github/workflows/*.yml' -o -path '*/.github/workflows/*.yaml' -o -path '*/.github/actions/*/action.yml' -o -path '*/.github/actions/*/action.yaml' \) \
+    -print0 2>/dev/null | sort -z | xargs -0 sha256sum 2>/dev/null | sha256sum | awk '{print $1}')
+else
+  IAC_FINGERPRINT=$(find "${REPO_ROOT}" -maxdepth 4 \
+    \( -name node_modules -o -name .git -o -name dist -o -name .venv -o -name vendor \) -prune \
+    -o -type f \( -name 'docker-compose*.yml' -o -name 'Dockerfile*' -o -name '.trivy.yaml' -o -name 'pnpm-lock.yaml' -o -name 'package-lock.json' -o -name 'uv.lock' -o -name 'composer.lock' -o -name 'Makefile' -o -name 'Makefile.example' -o -path '*/.github/workflows/*.yml' -o -path '*/.github/workflows/*.yaml' -o -path '*/.github/actions/*/action.yml' -o -path '*/.github/actions/*/action.yaml' \) \
+    -print0 2>/dev/null | sort -z | xargs -0 shasum -a 256 2>/dev/null | shasum -a 256 | awk '{print $1}')
+fi
 
 CACHE_MARKER="/tmp/.qa11x_trivy_cache_${IAC_FINGERPRINT}"
 

@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 MAX_SKILL_MD_BYTES = 20_000
+MAX_ARCHITECT_SKILL_BYTES = 12_288
 MAX_ACTIVE_TASK_LINES = 40
 
 FORBIDDEN_DOC_PATTERNS: tuple[tuple[str, str], ...] = (
@@ -20,6 +21,7 @@ FORBIDDEN_DOC_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"1\.43\.0-jammy|karatelabs:1\.5\.0", "tag de imagen Docker obsoleto"),
     (r"\buv pip audit\b", "subcomando inexistente 'uv pip audit' (usar 'pip-audit')"),
     (r"refactoring-ui/\{topic\}[^\n]*\(`01` a `09`\)", "ejemplo numérico inválido en refactoring-ui/{topic}"),
+    (r"--profile\s+graphify", "flag obsoleto '--profile graphify' (usar './scripts/actualizar-grafos-graphify.sh')"),
 )
 
 DOC_TARGETS: tuple[str, ...] = (
@@ -37,6 +39,7 @@ DOC_TARGETS: tuple[str, ...] = (
     "docs/01_ARQUITECTURA_PIRAMIDE_11X.md",
     "docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md",
     "docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md",
+    "docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md",
     "docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md",
     "docs/docker-troubleshooting.md",
     "docs/ci-cd-pipelines.md",
@@ -45,6 +48,17 @@ DOC_TARGETS: tuple[str, ...] = (
     "docs/agent-setup.en.md",
     "docs/ARCHITECTURE_C4.md",
     "catalogs/agenticskills-submission.md",
+    "architecture/README.md",
+    "fastapi/README.md",
+    "vue3/README.md",
+    "react-frontend/README.md",
+    "node-backend/README.md",
+    "python/README.md",
+    "php/README.md",
+    "bash-scripts/README.md",
+    "ai-evals/README.md",
+    "mobile-appium/README.md",
+    "vibe-rescue/README.md",
 )
 
 BILINGUAL_TRIGGER_DOCS: tuple[str, ...] = (
@@ -60,6 +74,17 @@ INTERNAL_LINK_AUDIT_TARGETS: tuple[str, ...] = (
     "docs/01_ARQUITECTURA_PIRAMIDE_11X.md",
     "llms.txt",
     "catalogs/agenticskills-submission.md",
+    "architecture/README.md",
+    "fastapi/README.md",
+    "vue3/README.md",
+    "react-frontend/README.md",
+    "node-backend/README.md",
+    "python/README.md",
+    "php/README.md",
+    "bash-scripts/README.md",
+    "ai-evals/README.md",
+    "mobile-appium/README.md",
+    "vibe-rescue/README.md",
 )
 
 EXTERNAL_LINK_PREFIXES: tuple[str, ...] = (
@@ -88,13 +113,22 @@ HUMAN_CORE_MANUALS: tuple[str, ...] = (
 
 
 def _check_skill_size(root: Path) -> list[str]:
-    skill_md = root / ".agents" / "skills" / "qa-11x-architect" / "SKILL.md"
-    if not skill_md.is_file():
+    skills_dir = root / ".agents" / "skills"
+    if not skills_dir.is_dir():
         return []
-    size = skill_md.stat().st_size
-    if size < MAX_SKILL_MD_BYTES:
-        return []
-    return [f"{skill_md.relative_to(root)} excede el presupuesto cognitivo ({size} >= {MAX_SKILL_MD_BYTES} bytes)."]
+    errors: list[str] = []
+    for skill_md in sorted(skills_dir.glob("*/SKILL.md")):
+        limit = (
+            MAX_ARCHITECT_SKILL_BYTES
+            if skill_md.parent.name == "qa-11x-architect"
+            else MAX_SKILL_MD_BYTES
+        )
+        size = skill_md.stat().st_size
+        if size >= limit:
+            errors.append(
+                f"{skill_md.relative_to(root)} excede el presupuesto cognitivo ({size} >= {limit} bytes)."
+            )
+    return errors
 
 
 def _check_scratchpad_lines(root: Path, rel: str) -> list[str]:
@@ -282,10 +316,10 @@ def check_v2_mcp_surface_counts(root: Path) -> list[str]:
 
 
 def check_bilingual_readme_parity(root: Path) -> list[str]:
-    """Valida existencia y enlace cruzado entre README.md y README.es.md."""
+    """Valida existencia y enlace cruzado entre documentos bilingües clave."""
     if not any((root / rel).is_file() for rel in BILINGUAL_TRIGGER_DOCS):
         return []
-    return [
+    errors = [
         *_check_readme_cross_link(
             root / "README.md", "README.md", ("README.es.md", "**English**")
         ),
@@ -293,6 +327,25 @@ def check_bilingual_readme_parity(root: Path) -> list[str]:
             root / "README.es.md", "README.es.md", ("README.md", "**Español**")
         ),
     ]
+    if (root / "mcp-server" / "README.md").is_file() or (root / "mcp-server" / "README.es.md").is_file():
+        errors.extend([
+            *_check_readme_cross_link(
+                root / "mcp-server" / "README.md", "mcp-server/README.md", ("README.es.md", "**English**")
+            ),
+            *_check_readme_cross_link(
+                root / "mcp-server" / "README.es.md", "mcp-server/README.es.md", ("README.md", "**Español**")
+            ),
+        ])
+    if (root / "docs" / "agent-setup.en.md").is_file() or (root / "docs" / "agent-setup.md").is_file():
+        errors.extend([
+            *_check_readme_cross_link(
+                root / "docs" / "agent-setup.en.md", "docs/agent-setup.en.md", ("agent-setup.md", "**English**")
+            ),
+            *_check_readme_cross_link(
+                root / "docs" / "agent-setup.md", "docs/agent-setup.md", ("agent-setup.en.md", "**Español**")
+            ),
+        ])
+    return errors
 
 
 def _strip_code_and_comments(text: str) -> str:

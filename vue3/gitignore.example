@@ -30,3 +30,7 @@ prometheus_data/
 *.njsproj
 *.sln
 *.sw?
+.agents/ACTIVE_TASK.md
+.agents/.cache/
+.agents/artifacts/
+pacts/

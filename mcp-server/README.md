@@ -5,7 +5,7 @@
 
 🌐 **Language / Idioma:** **English** | [Español](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/README.es.md)
 
-Official Model Context Protocol (**MCP**) server and zero-friction CLI installer for [**QA Testing Blueprints (QA-11X v2.0 — v2.21.0)**](https://github.com/tecno-consultores/qa-testing-blueprints).
+Official Model Context Protocol (**MCP**) server and zero-friction CLI installer for [**QA Testing Blueprints (QA-11X v3.0 — v3.0.0)**](https://github.com/tecno-consultores/qa-testing-blueprints).
 
 Designed for AI coding agents (**Google Antigravity**, **Claude Code / Desktop**, **Cursor**, **Windsurf**, **OpenAI Codex CLI**, **VS Code Copilot**, **Hermes Agent**, and **27+ agents**) to onboard repositories in **< 30 seconds**, audit **18 MCP tools**, query **12 cryptographic `blueprint://*` resources**, and enforce ephemeral **Docker Rule Zero**, **DISA ASD STIG V6R5**, **OWASP v4.2**, **FINOS CALM**, and **Dual-Mode AI Evals** without cloning the full blueprints repository.
 
@@ -27,10 +27,11 @@ npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-script
 ```
 
 Available CLI commands & flags:
-- `quickstart [dir] [--tier starter|standard|enterprise] [--lang en|es] [--dry-run] [--json]` — Auto-detects stack (FastAPI, Python, Node, Vue 3, React, PHP, Bash, Mobile, Vibe) and scaffolds QA-11X configs.
+- `quickstart [dir] [-T|--tier starter|standard|enterprise] [--lang en|es] [--agents auto|all|<csv>] [--dry-run] [--json]` — Auto-detects stack (FastAPI, Python, Node, Vue 3, React, PHP, Bash, Mobile, Vibe) and scaffolds QA-11X configs.
 - `install-skill` (alias: `install`) `[--target auto|workspace|antigravity|claude|cursor|windsurf|codex|hermes|all] [--init-agents] [--include-scripts] [--reconcile]`
-- `init-agents` (alias: `init-agents-md`) `[--project-path <dir>] [--lang auto|en|es] [--dry-run]`
+- `init-agents` (alias: `init-agents-md`) `[--project-path <dir>] [--lang auto|en|es] [--agents auto|all|<csv>] [--dry-run]`
 - `reconcile-agents` `[--project-path <dir>] [--dry-run]`
+- `tms-sync [--provider jira|zephyr|xray|github-issues|json] [--report <path>] [--project-key <key>] [--dry-run]` — Normalizes JUnit XML / Allure / SARIF results into enterprise TMS payloads or portable JSON bundles.
 - `[--stdio]` — Explicitly forces raw JSON-RPC listener over `stdio` (`QA_FORCE_STDIO=1` also forces headless `stdio`).
 - `--version` / `-v` | `--help` / `-h`
 
@@ -64,11 +65,11 @@ See the full 27+ client setup matrix in [`docs/agent-setup.en.md`](https://githu
 
 ---
 
-## 🛡️ Security & Lifecycle Runtime Guards (v2.21.0)
+## 🛡️ Security & Lifecycle Runtime Guards (v3.0.0)
 
 * **Fail-Closed `promptGuard` Interceptor:** Wraps `tools/call` across all 18 tools with Unicode `NFKC` canonicalization, zero-width / Trojan Source stripping, prompt-injection & `QA-GIT-GATE-01` (`git push` / `npm publish`) bypass blocking, and PII / secret redaction before dispatching handlers.
 * **`TaskStateGuard` & `Fail-Verbose` Diagnostics:** Bounds concurrent MCP tool execution capacity, isolates hung/broken tasks with explicit timeouts (`60s` standard / `>= 180s` heavy transfers), purges 0-byte failed transfer artifacts, and formats actionable Allure-ready `Fail-Verbose` reports (`diagnosticFormatter.ts`).
-* **Offline & Local LLM A2A Card:** Supports air-gapped Ollama / vLLM evaluators and publishes a discovery descriptor via [`agentCard.ts`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/src/a2a/agentCard.ts) (`v2.21.0`).
+* **Offline & Local LLM A2A Card:** Supports air-gapped Ollama / vLLM evaluators and publishes a discovery descriptor via [`agentCard.ts`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/src/a2a/agentCard.ts) (`v3.0.0`).
 
 ---
 
@@ -84,7 +85,7 @@ Led by `qa-11x-architect` (`< 12 KB`), loading 9 specialized sub-skills on deman
 1. **`inspect_project_config`:** Inspects stack markers (`pyproject.toml`, `package.json`, `composer.json`), `docker-compose.qa.yml`, test pyramid status, and Graphify AST graph health.
 2. **`fetch_blueprint_bundle`:** Streams requested blueprint files from GitHub/local mirror verifying SHA-256 checksums against `manifest.json`.
 3. **`bootstrap_or_merge_11x`:** Scaffolds or merges `.example` QA configs, Dockerfiles, Make targets, and workflows safely with `.11x-backup`.
-4. **`inspect_ast_blast_radius`:** Bidirectional AST dependency lookup (`declaring_files`, callers, callees, risk level `LOW`/`MEDIUM`/`HIGH`) with optional Graphify rebuild (`auto_build_if_missing`).
+4. **`inspect_ast_blast_radius`:** Bidirectional and differential AST dependency lookup (`declaring_files`, callers, callees, `changed_since_ref` blast scope, risk level `LOW`/`MEDIUM`/`HIGH`) with optional Graphify rebuild (`auto_build_if_missing`).
 5. **`clean_workspace_11x`:** Safely purges root-owned Docker/cache/build artifacts using Alpine ephemeral fallback without `sudo`.
 6. **`audit_security_stig_owasp`:** Scans target files across 34 static patterns (`SEC-01..SEC-16`, `SEC-CI-ACTION-REF`, `QA-*`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `UI-11X-01..03`) supporting `metadata-only` mode (`include_content: false`).
 7. **`run_ephemeral_qa`:** Executes `lint`, `unit`, `integration`, `ci`, `audit`, `secrets`, `validate-calm`, or `clean` strictly inside ephemeral Docker containers (`Rule Zero`), honoring `DOCS_ONLY` fast-path.
@@ -98,7 +99,7 @@ Led by `qa-11x-architect` (`< 12 KB`), loading 9 specialized sub-skills on deman
 15. **`evaluate_agent_trajectory` *(v2.0)*:** Evaluates multi-step AI agent tool trajectories offline (`AST-First` precedence, compilation/regeneration/hallucination rates, `QA-GIT-GATE-01` compliance) or via DeepEval in ephemeral Docker.
 16. **`run_llm_red_team` *(v2.0)*:** Audits **OWASP LLM Top 10** promptfoo suites, `promptGuard` adversarial probes, and executes live Promptfoo red-teaming when provider credentials are present (`SKIPPED_MISSING_CREDENTIALS` fail-closed otherwise).
 17. **`audit_vibe_prototype` *(v2.0)*:** Audits AI-generated prototypes (Bolt.new, Lovable, v0, Replit) for `VIBE-SEC-001..QA-005` risks, hardcoding, missing RLS/WORM, and `dryRun` remediation plans.
-18. **`sync_enterprise_tms` *(v2.0)*:** Normalizes JUnit XML / Allure / SARIF results into enterprise Test Management Systems (**TestRail**, **Jira Xray**) or portable JSON bundles with `TaskStateGuard` retry protection.
+18. **`sync_enterprise_tms` *(v2.0)*:** Normalizes JUnit XML / Allure / SARIF results into enterprise Test Management Systems (**Jira**, **Zephyr Scale**, **Xray**, **GitHub Issues**) or portable JSON bundles with `TaskStateGuard` retry protection.
 
 ---
 
@@ -114,7 +115,7 @@ Led by `qa-11x-architect` (`< 12 KB`), loading 9 specialized sub-skills on deman
 8. **`blueprint://core/cleanup-script`:** Canonical non-root Docker cleanup script (`limpieza.sh`) with Alpine fallback.
 9. **`blueprint://core/roadmap-validator`:** Bidirectional consistency verifier (`.agents/scripts/verify_roadmap_consistency.py`).
 10. **`blueprint://ai/evals-redteam` *(v2.0)*:** Dual-mode DeepEval & Promptfoo OWASP LLM Top 10 blueprint (with embedded offline fallback).
-11. **`blueprint://mobile-appium/readme` *(v2.0)*:** Appium 2 + WebdriverIO Screenplay & biometric/permission QA blueprint (`mobile-appium/`).
+11. **`blueprint://mobile-appium/readme` *(v2.0)*:** Appium 3 / W3C + WebdriverIO Screenplay & biometric/permission QA blueprint (`mobile-appium/`).
 12. **`blueprint://vibe-rescue/readme` *(v2.0)*:** 5-stage Vibe-to-Enterprise rescue blueprint, PostgreSQL 17 RLS/WORM templates, and `VIBE-*` hardening rules.
 
 ---

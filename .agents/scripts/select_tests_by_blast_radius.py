@@ -206,23 +206,41 @@ def _matches_any_prefix(files: set[str], prefixes: tuple[str, ...]) -> bool:
 def classify_suites(union_files: set[str]) -> dict[str, bool]:
     """Asigna suites QA afectadas según archivos modificados y propagados."""
     run_frontend = _matches_any_prefix(
-        union_files, ("vue3/", "react-frontend/", "frontend/")
+        union_files, ("vue3/", "react-frontend/", "frontend/", "mobile-appium/")
     ) or any(Path(f).name == "lint_test_antipatterns.py" for f in union_files)
     run_backend = _matches_any_prefix(
         union_files,
-        ("fastapi/", "python/", "node-backend/", "php/", "bash-scripts/", "backend/"),
+        (
+            "fastapi/",
+            "python/",
+            "node-backend/",
+            "php/",
+            "bash-scripts/",
+            "backend/",
+            "vibe-rescue/",
+        ),
     )
     run_mcp = _matches_any_prefix(union_files, ("mcp-server/",)) or (
         "manifest.json" in union_files
     )
     run_ai_offline = _matches_any_prefix(union_files, ("ai-evals/", "tests/evals/"))
     run_meta_qa = (
-        _matches_any_prefix(union_files, (".agents/scripts/", "scripts/"))
+        _matches_any_prefix(
+            union_files,
+            (
+                ".agents/scripts/",
+                "scripts/",
+                "vibe-rescue/",
+                "catalogs/",
+                "architecture/",
+            ),
+        )
         or any(
             f.startswith("tests/") and not f.startswith("tests/evals/")
             for f in union_files
         )
         or ("manifest.json" in union_files)
+        or ("instalar-hooks.sh" in union_files)
     )
     suites = {
         "run_frontend": run_frontend,

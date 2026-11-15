@@ -31,12 +31,12 @@ To guarantee zero context loss and immediate session recovery, all AI agents (Go
 │    └── Complete atomic subtask ──> Mark "- [ ]" to "- [x]" IMMEDIATELY.│
 │    └── On crash or context loss ─> Read .agents/ACTIVE_TASK.md first.  │
 │                                                                        │
-│ 4. CLOSURE GATE: Mandatory verification before git push                │
+│ 4. CLOSURE GATE: Mandatory verification before local git commit          │
 │    └── Update AST graph via ./scripts/actualizar-grafos-graphify.sh.   │
 │    └── Run ./.agents/scripts/certify_task_completion.sh (10/10 gates).  │
 │    └── Mark status: "COMPLETED (100%)".                                │
 │    └── Sync docs/, docs/specs/, CHANGELOG.md, ROADMAP.md, TESTING.md.  │
-│    └── Commit & push to git (git add, git commit, git push).           │
+│    └── Local certified commit (git add, git commit — NEVER git push per QA-GIT-GATE-01). │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 

@@ -50,7 +50,7 @@ import {
   handleAuditVibePrototype,
   type AuditVibePrototypeArgs,
 } from './tools/auditVibePrototype.js';
-import { SYNC_ENTERPRISE_TMS_TOOL, handleSyncEnterpriseTms } from './integrations/tmsSyncCli.js';
+import { SYNC_ENTERPRISE_TMS_TOOL, handleSyncEnterpriseTms, runTmsSyncCli } from './integrations/tmsSyncCli.js';
 import { AI_EVALS_REDTEAM_RESOURCE, readAiEvalsBlueprint } from './resources/aiEvalsBlueprint.js';
 import {
   MOBILE_APPIUM_RESOURCE,
@@ -85,6 +85,7 @@ Usage:
                                                                                      Installs skills, scripts, and AGENTS.md connector
   npx -y @sinfallas/mcp-qa-11x@latest init-agents                                   Injects or updates QA 11X connector in AGENTS.md
   npx -y @sinfallas/mcp-qa-11x@latest reconcile-agents                             Reconciles and deduplicates rules in .agents/
+  npx -y @sinfallas/mcp-qa-11x@latest tms-sync --mode <mode> [options]              Syncs Jira/Zephyr/Xray/GitHub Issues traceability
   npx -y @sinfallas/mcp-qa-11x@latest [--stdio]                                     Starts the MCP server over stdio (18 tools, 12 resources)
   npx -y @sinfallas/mcp-qa-11x@latest --version                                     Displays the active package version
   npx -y @sinfallas/mcp-qa-11x@latest --help                                        Displays this help message
@@ -150,6 +151,12 @@ const CLI_SUBCOMMAND_RUNNERS: Readonly<Record<string, CliSubcommandRunner>> = {
     await runReconcileAgentsCli(tail);
     return 0;
   },
+  'tms-sync': async (tail) => {
+    const res = await runTmsSyncCli(tail);
+    const stream = res.exitCode === 0 ? console.log : console.error;
+    stream(res.output);
+    return res.exitCode;
+  },
 };
 
 function dispatchCoreFlag(arg1: string | undefined): CliDispatchOutcome | undefined {
@@ -163,7 +170,7 @@ function dispatchCoreFlag(arg1: string | undefined): CliDispatchOutcome | undefi
     console.log(MCP_SERVER_VERSION);
     return 0;
   }
-  if (arg1 === '--help' || arg1 === '-h') {
+  if (arg1 === '--help' || arg1 === '-h' || arg1 === 'help') {
     console.log(CLI_HELP_TEXT);
     return 0;
   }

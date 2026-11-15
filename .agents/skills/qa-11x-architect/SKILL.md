@@ -1,13 +1,13 @@
 ---
 name: qa-11x-architect
 description: >-
-  Master QA 11X & DevSecOps Architect (qa-testing-blueprints v2.16+). Use whenever the user asks to
+  Master QA 11X & DevSecOps Architect (qa-testing-blueprints v3.0+). Use whenever the user asks to
   initialize or integrate QA in a project, merge .example templates, write or audit unit/BDD/mutation/E2E
   tests, enforce >=95% coverage, apply DISA ASD STIG V6R5 and OWASP v4.2 security controls, run ephemeral
   Docker QA suites (Rule Zero), optimize context token consumption, or update TESTING.md and CHANGELOG.md.
 ---
 
-# Master QA-11X v2.0 Routing Orchestrator (`qa-11x-architect`)
+# Master QA-11X v3.0 Routing Orchestrator (`qa-11x-architect`)
 
 > **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Unless target `AGENTS.md` mandates a fixed language, respond in the **user's prompt language**, and write commits/docs matching `README.md` & `CHANGELOG.md` (ignoring concise English `AGENTS.md`/`.agents/**`; default to prompt language on empty repos).
 
@@ -23,7 +23,7 @@ Classify every task before acting. **NEVER run automatic `git push`** (`QA-GIT-G
 - **`MICRO_CHANGE` (`<= 3` files, `LOW` `< 5` callers, `0` new routes/ORM):** 3-line plan -> `inspect_ast_blast_radius` -> sync affected existing unit/BDD tests (`QA-TEST-SYNC-01`) + stack QA (`run_ephemeral_qa`) -> AST refresh -> `CHANGELOG.md` -> `certify_11x_gate` -> local `git commit`.
 - **`FULL_11X` (`> 3` files, new API/UI, ORM, security, or `MEDIUM`/`HIGH` blast radius):** Full 11-step workflow (`/plan`, `.agents/ACTIVE_TASK.md <= 40L`, full pyramid + sync existing unit/BDD tests (`QA-TEST-SYNC-01`), docs/specs, AST refresh, `certify_11x_gate` 10/10, local `git commit`).
 
-### 1.1. MCP Server `qa-11x` (`@sinfallas/mcp-qa-11x` v2.21.0 — 18 Tools + 12 Resources)
+### 1.1. MCP Server `qa-11x` (`@sinfallas/mcp-qa-11x` v3.0.0 — 18 Tools + 12 Resources)
 1. `inspect_ast_blast_radius` — Code Q&A & pre-edit impact.
 2. `inspect_project_config` — stack, drift, `update_available`.
 3. `audit_test_pyramid_gaps` — 13-layer audit + config.
@@ -41,7 +41,7 @@ Classify every task before acting. **NEVER run automatic `git push`** (`QA-GIT-G
 15. `evaluate_agent_trajectory` — offline / DeepEval trajectory evals.
 16. `run_llm_red_team` — OWASP LLM Top 10 Promptfoo red-team.
 17. `audit_vibe_prototype` — `VIBE-SEC-001..QA-005` & RLS rescue.
-18. `sync_enterprise_tms` — TestRail / Xray JUnit/Allure/SARIF sync.
+18. `sync_enterprise_tms` — Jira/Zephyr/Xray/GitHub Issues sync.
 
 *Fallback (No MCP):* Load **one** module in `references/01..09.md` (§4), verify `manifest.json` via `sha256sum -c`, and run `make sync-governance`.
 
