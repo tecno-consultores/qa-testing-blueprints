@@ -6,21 +6,35 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import re
 import subprocess
 import sys
+import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from types import ModuleType
 from typing import Any
 
-_SCRIPTS_DIR = str(Path(__file__).resolve().parent)
-if _SCRIPTS_DIR not in sys.path:
-    sys.path.insert(0, _SCRIPTS_DIR)
 
-from _budgets import ACTIVE_TASK_MAX_LINES as ACTIVE_TASK_MAX_LINES  # noqa: E402
+def _load_budgets_module() -> ModuleType:
+    existing = sys.modules.get("_budgets")
+    if existing is not None:
+        return existing
+    budgets_path = Path(__file__).resolve().parent / "_budgets.py"
+    spec = importlib.util.spec_from_file_location("_budgets", budgets_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"No se pudo cargar _budgets desde {budgets_path}")
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["_budgets"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+ACTIVE_TASK_MAX_LINES: int = int(_load_budgets_module().ACTIVE_TASK_MAX_LINES)
 
 SCHEMA_VERSION = "1.0"
 STATUS_IN_PROGRESS = "IN_PROGRESS"
@@ -177,7 +191,7 @@ def _dedupe_steps(items: list[str] | tuple[str, ...]) -> tuple[str, ...]:
 def _parse_csv_arg(raw: str | None) -> tuple[str, ...] | None:
     if raw is None:
         return None
-    parts = [part.strip() for part in raw.split(",") if part.strip()]
+    parts = [clean for part in raw.split(",") if (clean := sanitize_text(part))]
     return _dedupe_steps(parts)
 
 
@@ -197,6 +211,7 @@ def _validate_workspace_paths(raw_workspace: str) -> Path:
         Path(".agents") / ".cache",
         CHECKPOINT_REL,
         ACTIVE_TASK_REL,
+        ACTIVE_TASK_TEMPLATE_REL,
     ):
         _assert_safe_session_path(resolved, rel)
     return resolved
@@ -204,14 +219,21 @@ def _validate_workspace_paths(raw_workspace: str) -> Path:
 
 def _atomic_write_text(target: Path, content: str, mode: int) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = target.parent / f".{target.name}.{os.getpid()}.tmp"
-    fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, mode)
-    with os.fdopen(fd, "w", encoding="utf-8") as handle:
-        handle.write(content)
-        handle.flush()
-        os.fsync(handle.fileno())
-    os.chmod(tmp_path, mode)
-    os.replace(tmp_path, target)
+    tmp_path = (
+        target.parent / f".{target.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp"
+    )
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(tmp_path, flags, mode)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.chmod(tmp_path, mode)
+        os.replace(tmp_path, target)
+    except OSError:
+        tmp_path.unlink(missing_ok=True)
+        raise
 
 
 def _run_git(workspace: Path, args: list[str]) -> tuple[int, str]:
@@ -365,12 +387,12 @@ def _is_non_template_active_task(workspace: Path) -> bool:
     if not task_file.is_file():
         return False
     tpl_file = workspace / ACTIVE_TASK_TEMPLATE_REL
-    content = task_file.read_text(encoding="utf-8")
+    content = task_file.read_text(encoding="utf-8-sig")
     if not content.strip():
         return False
-    if tpl_file.is_file() and content == tpl_file.read_text(encoding="utf-8"):
-        return False
-    return True
+    return not (
+        tpl_file.is_file() and content == tpl_file.read_text(encoding="utf-8-sig")
+    )
 
 
 def _resolve_hydrated_status(
@@ -391,7 +413,7 @@ def hydrate_from_active_task(
     """Importa sin pérdida globs y pasos previos desde ACTIVE_TASK.md."""
     if not _is_non_template_active_task(workspace):
         return None
-    content = (workspace / ACTIVE_TASK_REL).read_text(encoding="utf-8")
+    content = (workspace / ACTIVE_TASK_REL).read_text(encoding="utf-8-sig")
     lines = content.splitlines()
     done, pending, allowed, forbidden = _parse_active_task_sections(lines)
     status, active = _resolve_hydrated_status(content, done, pending)
@@ -413,12 +435,25 @@ def hydrate_from_active_task(
     )
 
 
+def _coerce_str_list(raw_val: Any, field_name: str) -> tuple[str, ...]:
+    if raw_val is None:
+        return ()
+    if not isinstance(raw_val, list):
+        raise TypeError(
+            f"'{field_name}' debe ser una lista en session_checkpoint.json."
+        )
+    return _dedupe_steps([str(item) for item in raw_val])
+
+
 def _parse_last_run(raw: Any) -> LastScriptRun | None:
     if not isinstance(raw, dict):
         return None
+    raw_rc = raw.get("exit_code", 0)
+    if isinstance(raw_rc, bool) or not isinstance(raw_rc, int):
+        raise TypeError("'last_script_run.exit_code' debe ser entero.")
     return LastScriptRun(
         cmd=str(raw.get("cmd", "")),
-        exit_code=int(raw.get("exit_code", 0)),
+        exit_code=raw_rc,
         timestamp=str(raw.get("timestamp", _utc_now_iso())),
         summary_1line=str(raw.get("summary_1line", "")),
     )
@@ -431,9 +466,9 @@ def load_checkpoint(
     ckpt_path = workspace / CHECKPOINT_REL
     if not ckpt_path.is_file():
         return hydrate_from_active_task(workspace, git_snap)
-    raw = json.loads(ckpt_path.read_text(encoding="utf-8"))
+    raw = json.loads(ckpt_path.read_text(encoding="utf-8-sig"))
     if not isinstance(raw, dict):
-        raise ValueError("session_checkpoint.json debe contener un objeto JSON.")
+        raise TypeError("session_checkpoint.json debe contener un objeto JSON.")
     return CheckpointData(
         schema_version=str(raw.get("schema_version", SCHEMA_VERSION)),
         status=str(raw.get("status", STATUS_IN_PROGRESS)),
@@ -442,12 +477,12 @@ def load_checkpoint(
         branch=str(raw.get("branch", "nogit")),
         base_sha=str(raw.get("base_sha", "none")),
         task_id=str(raw.get("task_id", "TASK-11X")),
-        completed_steps=_dedupe_steps(list(raw.get("completed_steps", []))),
+        completed_steps=_coerce_str_list(raw.get("completed_steps"), "completed_steps"),
         active_step=str(raw.get("active_step", "F1")),
-        planned_steps=_dedupe_steps(list(raw.get("planned_steps", []))),
-        allowed_globs=_dedupe_steps(list(raw.get("allowed_globs", []))),
-        forbidden_globs=_dedupe_steps(list(raw.get("forbidden_globs", []))),
-        intent_140chars=str(raw.get("intent_140chars", ""))[:MAX_INTENT_LEN],
+        planned_steps=_coerce_str_list(raw.get("planned_steps"), "planned_steps"),
+        allowed_globs=_coerce_str_list(raw.get("allowed_globs"), "allowed_globs"),
+        forbidden_globs=_coerce_str_list(raw.get("forbidden_globs"), "forbidden_globs"),
+        intent_140chars=str(raw.get("intent_140chars") or "")[:MAX_INTENT_LEN],
         last_script_run=_parse_last_run(raw.get("last_script_run")),
     )
 
@@ -537,12 +572,16 @@ def _require_len_bound(val: str, limit: int, label: str) -> str:
     return clean
 
 
-def _validate_set_request(req: SetRequest) -> str:
+def _validate_set_request(req: SetRequest) -> tuple[str, str]:
     if not TASK_ID_RE.match(req.task_id) or len(req.task_id) > MAX_TASK_ID_LEN:
         raise ValueError("task_id inválido (use ^[A-Za-z0-9._-]+$, <= 64 chars).")
     _require_len_bound(req.step, MAX_TASK_ID_LEN, "step")
+    clean_step = _require_len_bound(sanitize_text(req.step), MAX_TASK_ID_LEN, "step")
     raw_intent = _require_len_bound(req.intent, MAX_INTENT_LEN, "intent")
-    return sanitize_text(raw_intent)[:MAX_INTENT_LEN]
+    clean_intent = sanitize_text(raw_intent)[:MAX_INTENT_LEN]
+    if not clean_intent:
+        raise ValueError("intent vacío tras sanitización.")
+    return clean_step, clean_intent
 
 
 def _pick_preserved_tuple(
@@ -560,7 +599,7 @@ def _pick_preserved_tuple(
 
 def handle_set(req: SetRequest) -> CheckpointData:
     """Ejecuta subcomando set validando 140 chars y proyectando ACTIVE_TASK.md."""
-    clean_intent = _validate_set_request(req)
+    clean_step, clean_intent = _validate_set_request(req)
     git_snap = capture_live_git(req.workspace)
     prev = load_checkpoint(req.workspace, git_snap)
     same_branch = prev is not None and (
@@ -583,7 +622,7 @@ def handle_set(req: SetRequest) -> CheckpointData:
         base_sha=git_snap.head_sha,
         task_id=req.task_id,
         completed_steps=done,
-        active_step=req.step.strip(),
+        active_step=clean_step,
         planned_steps=planned,
         allowed_globs=allowed,
         forbidden_globs=forbidden,
@@ -719,14 +758,15 @@ def _purge_tmp_checkpoints(cache_dir: Path) -> None:
 def handle_clear(workspace: Path, purge_view: bool = False) -> None:
     """Elimina checkpoint máquina y limpia o marca CERTIFIED_CLEAN la vista humana."""
     ckpt_file = workspace / CHECKPOINT_REL
-    git_snap = capture_live_git(workspace)
-    prev = load_checkpoint(workspace, git_snap) if ckpt_file.is_file() else None
-    _purge_tmp_checkpoints(workspace / ".agents" / ".cache")
-    ckpt_file.unlink(missing_ok=True)
     task_file = workspace / ACTIVE_TASK_REL
+    _purge_tmp_checkpoints(workspace / ".agents" / ".cache")
     if purge_view:
+        ckpt_file.unlink(missing_ok=True)
         task_file.unlink(missing_ok=True)
         return
+    git_snap = capture_live_git(workspace)
+    prev = load_checkpoint(workspace, git_snap) if ckpt_file.is_file() else None
+    ckpt_file.unlink(missing_ok=True)
     if prev is not None:
         done = _dedupe_steps(
             [*prev.completed_steps, prev.active_step, *prev.planned_steps]
@@ -845,7 +885,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         workspace = _validate_workspace_paths(args.workspace)
         out = _dispatch_command(args, workspace)
-    except (ValueError, OSError, json.JSONDecodeError) as exc:
+    except (ValueError, TypeError, OSError, json.JSONDecodeError) as exc:
         print(f"[ERROR] CHECKPOINT: {exc}", file=sys.stderr)
         return EXIT_ERROR
     print(out)

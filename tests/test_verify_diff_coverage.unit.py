@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 """Pruebas unitarias para .agents/scripts/verify_diff_coverage.py (Hito 21)."""
@@ -387,3 +386,92 @@ def test_defusedxml_resolver_fallback_on_import_error() -> None:
     with mock.patch("importlib.import_module", side_effect=ImportError("missing")):
         fallback = vdc._resolve_safe_xml_fromstring()
     assert fallback is ET.fromstring
+
+
+def test_f10_8_hardening_dangling_symlink_bom_lcov_diff_and_thresholds(
+    tmp_path: Path,
+) -> None:
+    repo = _init_repo(tmp_path / "hard")
+    _write(repo, "pkg/módulo.py", "def f() -> int:\n    return 1\n")
+    _write(repo, "src/inc.ts", "let x = 0;\n++x;\n")
+    _git(repo, "add", "src/inc.ts")
+
+    # Dangling symlink fuera del workspace debe rechazarse (antes pasaba exists=False)
+    (repo / "cov").mkdir()
+    (repo / "cov" / "dangling_out.xml").symlink_to(tmp_path / "nonexistent_outside.xml")
+    sym_rep = vdc.evaluate_diff_coverage(
+        vdc.DiffCoverageConfig(workspace=repo, reports_dir="cov")
+    )
+    assert sym_rep.exit_code == vdc.EXIT_SECURITY_OR_MISSING_REPORT
+    assert "Enlace simbólico" in (sym_rep.error_detail or "")
+    (repo / "cov" / "dangling_out.xml").unlink()
+
+    # Cobertura XML con BOM UTF-8 + línea '++x;' en diff (no descartada por +++)
+    cobertura_bom = (
+        '\ufeff<coverage><packages><package><classes>'
+        '<class filename="pkg/módulo.py"><lines>'
+        '<line number="1" hits="1"/><line number="2" hits="1"/>'
+        "</lines></class>"
+        '<class filename="src/inc.ts"><lines>'
+        '<line number="1" hits="1"/><line number="2" hits="1" '
+        'condition-coverage="90% (9/10)"/>'
+        "</lines></class>"
+        "</classes></package></packages></coverage>"
+    )
+    (repo / "cov" / "python.xml").write_bytes(cobertura_bom.encode("utf-8"))
+    ok_rep = vdc.evaluate_diff_coverage(
+        vdc.DiffCoverageConfig(workspace=repo, reports_dir="cov")
+    )
+    assert ok_rep.exit_code == vdc.EXIT_OK
+
+    # --min-branch-cov 95 debe fallar y mostrar la fila de src/inc.ts (no 90 hardcoded)
+    strict_b = vdc.evaluate_diff_coverage(
+        vdc.DiffCoverageConfig(
+            workspace=repo, reports_dir="cov", min_branch_cov=95.0
+        )
+    )
+    assert strict_b.exit_code == vdc.EXIT_COVERAGE_FAIL
+    assert "src/inc.ts" in vdc.format_report_output(strict_b)
+
+    # Umbrales NaN / fuera de rango -> fail-closed exit 12
+    for bad_cfg in (
+        vdc.DiffCoverageConfig(workspace=repo, min_line_cov=float("nan")),
+        vdc.DiffCoverageConfig(workspace=repo, min_branch_cov=-1.0),
+    ):
+        bad_rep = vdc.evaluate_diff_coverage(bad_cfg)
+        assert bad_rep.exit_code == vdc.EXIT_SECURITY_OR_MISSING_REPORT
+
+    # Cobertura XML sin number / hits=nan y LCOV DA/BRDA malformados -> exit 12
+    for bad_xml in (
+        (
+            '<coverage><packages><package><classes><class filename="src/inc.ts">'
+            '<lines><line hits="1"/></lines></class></classes></package></packages>'
+            "</coverage>"
+        ),
+        (
+            '<coverage><packages><package><classes><class filename="src/inc.ts">'
+            '<lines><line number="1" hits="nan"/></lines></class></classes>'
+            "</package></packages></coverage>"
+        ),
+    ):
+        _write(repo, "cov/python.xml", bad_xml)
+        rep = vdc.evaluate_diff_coverage(
+            vdc.DiffCoverageConfig(workspace=repo, reports_dir="cov")
+        )
+        assert rep.exit_code == vdc.EXIT_SECURITY_OR_MISSING_REPORT
+
+    (repo / "cov" / "python.xml").unlink()
+    _write(repo, "cov/node.info", "SF:src/inc.ts\nDA:abc,1\nend_of_record\n")
+    assert (
+        vdc.evaluate_diff_coverage(
+            vdc.DiffCoverageConfig(workspace=repo, reports_dir="cov")
+        ).exit_code
+        == vdc.EXIT_SECURITY_OR_MISSING_REPORT
+    )
+    _write(repo, "cov/node.info", "SF:src/inc.ts\nBRDA:1,0,0,xyz\nend_of_record\n")
+    assert (
+        vdc.evaluate_diff_coverage(
+            vdc.DiffCoverageConfig(workspace=repo, reports_dir="cov")
+        ).exit_code
+        == vdc.EXIT_SECURITY_OR_MISSING_REPORT
+    )

@@ -4,14 +4,15 @@
 
 """verify_zero_orphan_vue_components.py — Invariante de Cero Componentes UI Huérfanos.
 
-Audita que cada archivo .vue o .tsx posea su correspondiente suite .unit.ts/.tsx
-dedicada o esté directamente testeado en una suite unitaria activa.
+Audita que cada archivo .vue, .tsx o .jsx posea su correspondiente suite
+.unit/.spec/.test dedicada o esté directamente testeado en una suite unitaria activa.
 """
 
 from __future__ import annotations
 
 import argparse
 import os
+import re
 import sys
 from collections.abc import Iterator
 from pathlib import Path
@@ -19,10 +20,28 @@ from pathlib import Path
 _UNIT_SUFFIXES = (
     ".unit.ts",
     ".unit.tsx",
+    ".unit.js",
+    ".unit.jsx",
     ".spec.ts",
     ".spec.tsx",
+    ".spec.js",
+    ".spec.jsx",
     ".test.ts",
     ".test.tsx",
+    ".test.js",
+    ".test.jsx",
+    ".test.vue",
+)
+_UI_EXTENSIONS = frozenset({".vue", ".tsx", ".jsx"})
+_CODE_EXTENSIONS = frozenset({".ts", ".tsx", ".js", ".jsx", ".vue"})
+_COMPOUND_TEST_EXTS = frozenset({".unit", ".spec", ".test"})
+_NON_COMPONENT_FILES = frozenset(
+    {"main.tsx", "main.jsx", "index.tsx", "index.jsx", "vite-env.d.ts"}
+)
+_HOOK_FILE_RE = re.compile(r"^use[A-Z].*\.(?:tsx|jsx)$")
+_JS_COMMENT_OR_STR_RE = re.compile(
+    r"(\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)"
+    r"|(/\*[\s\S]*?\*/|//[^\n]*|<!--[\s\S]*?-->)"
 )
 
 
@@ -33,10 +52,24 @@ def _iter_files(directories: list[Path]) -> Iterator[Path]:
                 yield Path(root) / fname
 
 
+def _strip_compound_suffix(path_or_name: str) -> str:
+    """Extrae el stem removiendo sufijos compuestos (.unit/.spec/.test + ext)."""
+    stem, ext = os.path.splitext(path_or_name)
+    if ext not in _CODE_EXTENSIONS:
+        return stem
+    inner_stem, inner_ext = os.path.splitext(stem)
+    if inner_ext in _COMPOUND_TEST_EXTS:
+        return inner_stem
+    return stem
+
+
 def _is_ui_component(filename: str) -> bool:
-    return filename.endswith(".vue") or (
-        filename.endswith(".tsx") and not filename.endswith(_UNIT_SUFFIXES)
-    )
+    if filename.endswith((".d.ts", *_UNIT_SUFFIXES)):
+        return False
+    if filename in _NON_COMPONENT_FILES or _HOOK_FILE_RE.match(filename):
+        return False
+    _, ext = os.path.splitext(filename)
+    return ext in _UI_EXTENSIONS
 
 
 def _scan_frontend_files(frontend_dirs: list[Path]) -> tuple[list[str], set[str]]:
@@ -76,31 +109,68 @@ def _collect_ui_and_unit_files(
     return sorted(ui_files), sorted(unit_files_set)
 
 
-def _has_direct_unit(uf: str, name: str, unit_basenames: set[str]) -> bool:
+def _candidate_unit_names(name: str) -> set[str]:
     camel_name = name[0].lower() + name[1:] if name else name
-    uf_path = Path(uf)
-    if (
-        uf_path.with_suffix(".unit.ts").exists()
-        or uf_path.with_suffix(".unit.tsx").exists()
-    ):
-        return True
-    expected = {
-        f"{name}.unit.ts",
-        f"{name}.unit.tsx",
-        f"{camel_name}.unit.ts",
-        f"{camel_name}.unit.tsx",
-    }
-    return bool(expected & unit_basenames)
+    candidates: set[str] = set()
+    for sfx in _UNIT_SUFFIXES:
+        candidates.add(f"{name}{sfx}")
+        candidates.add(f"{camel_name}{sfx}")
+    return candidates
+
+
+def _has_direct_unit(uf: str, name: str, unit_basenames: set[str]) -> bool:
+    uf_stem = _strip_compound_suffix(uf)
+    for sfx in _UNIT_SUFFIXES:
+        if os.path.exists(f"{uf_stem}{sfx}"):
+            return True
+    return bool(_candidate_unit_names(name) & unit_basenames)
+
+
+def _strip_js_comments(content: str) -> str:
+    """Elimina comentarios JS/TS/HTML preservando literales de cadena."""
+    return _JS_COMMENT_OR_STR_RE.sub(
+        lambda m: m.group(1) if m.group(1) is not None else " ",
+        content,
+    )
+
+
+def _build_usage_patterns(base: str, name: str) -> tuple[re.Pattern[str], ...]:
+    esc_base = re.escape(base)
+    esc_name = re.escape(name)
+    import_path_re = re.compile(
+        rf"\bimport(?:\s+(?:type\s+)?[\s\S]*?\bfrom\s+|\s*\(\s*|\s+)"
+        rf"['\"][^'\"]*(?:^|/)(?:{esc_base}|{esc_name}(?:\.[a-zA-Z0-9]+)?)['\"]"
+    )
+    import_spec_re = re.compile(
+        rf"\bimport\s+(?!type\b)"
+        rf"(?:{esc_name}\b|\{{[^}}]*\b{esc_name}\b[^}}]*\}})"
+        rf"(?:\s*,\s*(?:\{{[^}}]*\}}|\*\s+as\s+\w+))?\s+\bfrom\s+['\"][^'\"]+['\"]"
+    )
+    jsx_tag_re = re.compile(rf"(?<![\w$])<{esc_name}(?:[\s/>.]|$)")
+    mount_call_re = re.compile(
+        rf"\b(?:mount|shallowMount|render|createElement|h)\s*\(\s*<?\s*{esc_name}\b"
+    )
+    return (import_path_re, import_spec_re, jsx_tag_re, mount_call_re)
+
+
+def _read_unit_safe(unit_f: str) -> str | None:
+    try:
+        return Path(unit_f).read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+
+def _matches_any_pattern(cleaned: str, patterns: tuple[re.Pattern[str], ...]) -> bool:
+    return any(pat.search(cleaned) for pat in patterns)
 
 
 def _is_referenced_in_units(base: str, name: str, unit_files: list[str]) -> bool:
-    tokens = (base, f"'{name}'", f'"{name}"', f" {name} ")
+    patterns = _build_usage_patterns(base, name)
     for unit_f in unit_files:
-        try:
-            content = Path(unit_f).read_text(encoding="utf-8")
-        except OSError:
+        content = _read_unit_safe(unit_f)
+        if content is None:
             continue
-        if any(tok in content for tok in tokens):
+        if _matches_any_pattern(_strip_js_comments(content), patterns):
             return True
     return False
 
@@ -112,11 +182,12 @@ def _find_orphan_components(
     orphans: list[str] = []
     for uf in ui_files:
         base = os.path.basename(uf)
-        name = os.path.splitext(base)[0]
-        if _has_direct_unit(uf, name, unit_basenames):
+        name = _strip_compound_suffix(base)
+        if _has_direct_unit(uf, name, unit_basenames) or _is_referenced_in_units(
+            base, name, unit_files
+        ):
             continue
-        if not _is_referenced_in_units(base, name, unit_files):
-            orphans.append(os.path.relpath(uf, repo_root))
+        orphans.append(os.path.relpath(uf, repo_root))
     return orphans
 
 
@@ -149,7 +220,9 @@ def main(target_root: Path | None = None, exit_skipped_code: int = 0) -> int:
 
     ui_files, unit_files = _collect_ui_and_unit_files(repo_root, frontend_dirs)
     if not ui_files:
-        print("⚠️ SKIPPED [UI Orphans]: 0 componentes UI (.vue / .tsx) detectados.")
+        print(
+            "⚠️ SKIPPED [UI Orphans]: 0 componentes UI (.vue / .tsx / .jsx) detectados."
+        )
         return exit_skipped_code
 
     orphans = _find_orphan_components(repo_root, ui_files, unit_files)

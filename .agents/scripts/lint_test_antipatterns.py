@@ -44,8 +44,11 @@ MAX_PAGE_LOCATORS = 100
 MAX_PAGE_INHERITANCE_DEPTH = 2
 
 RE_JS_COMMENT = re.compile(
-    r'("(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'|`(?:\\.|[^`\\])*`)'
-    r"|//.*$|/\*.*?\*/"
+    r'("(?:\\.|[^"\\\n])*"|\'(?:\\.|[^\'\\\n])*\'|`(?:\\.|[^`\\])*`)'
+    r"|//[^\n]*|/\*[\s\S]*?\*/"
+)
+RE_TS_BRACE_OR_STR = re.compile(
+    r'"(?:\\.|[^"\\\n])*"|\'(?:\\.|[^\'\\\n])*\'|`(?:\\.|[^`\\])*`|[{}]'
 )
 RE_PY_COMMENT = re.compile(r'("(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\')|#.*$')
 RE_TEST_FILE = re.compile(
@@ -136,16 +139,17 @@ class PageClassRecord:
     locator_count: int
 
 
-def _strip_line_comment(line: str, is_python: bool) -> str:
-    stripped = line.lstrip()
-    if not is_python and stripped.startswith(("//", "/*", "*")):
-        return ""
-    pattern = RE_PY_COMMENT if is_python else RE_JS_COMMENT
-    return pattern.sub(lambda match: match.group(1) or "", line)
+def _keep_comment_newlines(match: re.Match[str]) -> str:
+    return match.group(1) or ("\n" * match.group(0).count("\n"))
 
 
 def _strip_comments(text: str, is_python: bool) -> str:
-    return "\n".join(_strip_line_comment(line, is_python) for line in text.splitlines())
+    if is_python:
+        return "\n".join(
+            RE_PY_COMMENT.sub(lambda match: match.group(1) or "", line)
+            for line in text.splitlines()
+        )
+    return RE_JS_COMMENT.sub(_keep_comment_newlines, text)
 
 
 def _is_test_spec(rel_posix: str) -> bool:
@@ -177,7 +181,7 @@ def _is_ui_test_scope(rel_posix: str) -> bool:
 
 
 def _is_candidate_file(path: Path) -> bool:
-    return path.suffix in TARGET_EXTENSIONS and ".example" not in path.name
+    return path.suffix.lower() in TARGET_EXTENSIONS and ".example" not in path.name
 
 
 def _walk_directory(directory: Path) -> list[Path]:
@@ -186,9 +190,25 @@ def _walk_directory(directory: Path) -> list[Path]:
         dirnames[:] = sorted(d for d in dirnames if d not in IGNORED_DIRS)
         for fname in sorted(filenames):
             candidate = Path(root) / fname
-            if _is_candidate_file(candidate):
+            if not candidate.is_symlink() and _is_candidate_file(candidate):
                 found.append(candidate)
     return found
+
+
+def _collect_single_target(
+    raw_target: str, root: Path, files: list[Path], missing: list[str]
+) -> None:
+    if "\0" in raw_target:
+        missing.append(raw_target)
+        return
+    candidate = Path(raw_target)
+    resolved = candidate if candidate.is_absolute() else (root / candidate)
+    if not resolved.exists():
+        missing.append(raw_target)
+    elif resolved.is_file() and _is_candidate_file(resolved):
+        files.append(resolved.resolve())
+    elif resolved.is_dir():
+        files.extend(p.resolve() for p in _walk_directory(resolved))
 
 
 def collect_target_files(
@@ -199,14 +219,7 @@ def collect_target_files(
     files: list[Path] = []
     missing: list[str] = []
     for raw_target in target_paths:
-        candidate = Path(raw_target)
-        resolved = candidate if candidate.is_absolute() else (root / candidate)
-        if not resolved.exists():
-            missing.append(raw_target)
-        elif resolved.is_file() and _is_candidate_file(resolved):
-            files.append(resolved.resolve())
-        elif resolved.is_dir():
-            files.extend(p.resolve() for p in _walk_directory(resolved))
+        _collect_single_target(raw_target, root, files, missing)
     return sorted(set(files)), missing
 
 
@@ -270,12 +283,13 @@ def _check_fragile_selectors(rel_file: str, clean_text: str) -> list[Violation]:
 
 def _find_ts_class_end(text: str, open_brace_idx: int) -> int:
     depth = 1
-    idx = open_brace_idx + 1
-    limit = len(text)
-    while idx < limit and depth > 0:
-        depth += BRACE_DELTA.get(text[idx], 0)
-        idx += 1
-    return idx
+    for match in RE_TS_BRACE_OR_STR.finditer(text, open_brace_idx + 1):
+        tok = match.group(0)
+        if tok in BRACE_DELTA:
+            depth += BRACE_DELTA[tok]
+            if depth == 0:
+                return match.end()
+    return len(text)
 
 
 def _extract_ts_page_classes(rel_file: str, clean_text: str) -> list[PageClassRecord]:
@@ -405,7 +419,9 @@ def _check_hidden_assertions(rel_file: str, clean_text: str) -> list[Violation]:
     ]
 
 
-def _check_jsdom_geometry(rel_file: str, raw_text: str) -> list[Violation]:
+def _check_jsdom_geometry(
+    rel_file: str, raw_text: str, clean_text: str | None = None
+) -> list[Violation]:
     if not RE_JSDOM_ENV.search(raw_text):
         return []
     msg = (
@@ -415,9 +431,10 @@ def _check_jsdom_geometry(rel_file: str, raw_text: str) -> list[Violation]:
     remediation = (
         "Ejecutar pruebas de geometría en navegador real (Playwright/Vitest Browser)."
     )
+    target_text = raw_text if clean_text is None else clean_text
     return [
         Violation("QA-UI-ANTI-005", rel_file, line_no, msg, remediation)
-        for line_no, line in enumerate(raw_text.splitlines(), 1)
+        for line_no, line in enumerate(target_text.splitlines(), 1)
         if RE_DOM_GEOMETRY.search(line)
     ]
 
@@ -440,14 +457,14 @@ def audit_paths(
 
     for file_path in files:
         rel_file = _relative_display(file_path, root)
-        raw_text = file_path.read_text(encoding="utf-8", errors="ignore")
-        is_python = file_path.suffix == ".py"
+        raw_text = file_path.read_text(encoding="utf-8-sig", errors="ignore")
+        is_python = file_path.suffix.lower() == ".py"
         clean_text = _strip_comments(raw_text, is_python)
 
         violations.extend(_check_arbitrary_waits(rel_file, clean_text))
         violations.extend(_check_fragile_selectors(rel_file, clean_text))
         violations.extend(_check_hidden_assertions(rel_file, clean_text))
-        violations.extend(_check_jsdom_geometry(rel_file, raw_text))
+        violations.extend(_check_jsdom_geometry(rel_file, raw_text, clean_text))
         extractor = _extract_py_page_classes if is_python else _extract_ts_page_classes
         page_records.extend(extractor(rel_file, clean_text))
 

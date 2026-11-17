@@ -2,16 +2,37 @@
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
-"""verify_json_no_duplicate_keys.py — Verificador estricto de claves duplicadas en JSON.
+"""verify_json_no_duplicate_keys.py — Verificador de claves duplicadas en JSON.
 
-El analizador estándar json.loads de Python sobreescribe silenciosamente claves repetidas,
-ocultando colisiones de traducción en diccionarios i18n o configuraciones.
-Este script implementa un decodificador con object_pairs_hook para rechazar colisiones.
+El analizador estándar json.loads de Python sobreescribe silenciosamente claves
+repetidas, ocultando colisiones de traducción en diccionarios i18n o configs.
+Este script implementa un decodificador con object_pairs_hook para rechazarlas.
 """
 
+from __future__ import annotations
+
 import json
+import os
 import sys
 from pathlib import Path
+
+_IGNORED_DIRS: frozenset[str] = frozenset(
+    {
+        "node_modules",
+        ".venv",
+        ".git",
+        ".trivycache",
+        "dist",
+        "coverage",
+        "vendor",
+        "target",
+        ".pytest_cache",
+        ".mypy_cache",
+        ".stryker-tmp",
+        "build",
+        "graphify-out",
+    }
+)
 
 
 def detect_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
@@ -32,7 +53,7 @@ def detect_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
 
 
 def audit_json_file(file_path: Path) -> list[str]:
-    errors = []
+    errors: list[str] = []
     try:
         content = file_path.read_text(encoding="utf-8")
         json.loads(content, object_pairs_hook=detect_duplicate_keys)
@@ -43,32 +64,34 @@ def audit_json_file(file_path: Path) -> list[str]:
     return errors
 
 
+def _record_unique_json(seen: dict[Path, Path], candidate: Path) -> None:
+    resolved = candidate.resolve()
+    prev = seen.get(resolved)
+    if prev is None or (prev.is_symlink() and not candidate.is_symlink()):
+        seen[resolved] = candidate
+
+
+def _append_dir_json_files(
+    dirpath: str, filenames: list[str], seen: dict[Path, Path]
+) -> None:
+    for fname in sorted(filenames):
+        if fname.endswith((".json", ".json.example")):
+            _record_unique_json(seen, Path(dirpath) / fname)
+
+
 def collect_json_candidates(repo_root: Path) -> list[Path]:
-    ignored_dirs = {
-        ".git",
-        "node_modules",
-        ".stryker-tmp",
-        "coverage",
-        ".venv",
-        "dist",
-        "build",
-        "graphify-out",
-        ".trivycache",
-        "target",
-    }
-    seen: set[Path] = set()
-    filtered: list[Path] = []
-    for pattern in ("**/*.json", "**/*.json.example"):
-        for candidate in sorted(repo_root.glob(pattern)):
-            resolved = candidate.resolve()
-            if resolved in seen:
-                continue
-            rel_parts = candidate.relative_to(repo_root).parts
-            if any(part in ignored_dirs for part in rel_parts):
-                continue
-            seen.add(resolved)
-            filtered.append(candidate)
-    return filtered
+    seen: dict[Path, Path] = {}
+    for dirpath, dirnames, filenames in os.walk(repo_root):
+        dirnames[:] = sorted(d for d in dirnames if d not in _IGNORED_DIRS)
+        _append_dir_json_files(dirpath, filenames, seen)
+    return sorted(seen.values(), key=lambda p: p.as_posix())
+
+
+def _collect_json_errors(filtered_files: list[Path]) -> list[str]:
+    all_errors: list[str] = []
+    for jf in filtered_files:
+        all_errors.extend(audit_json_file(jf))
+    return all_errors
 
 
 def main(target_root: Path | None = None) -> int:
@@ -79,19 +102,17 @@ def main(target_root: Path | None = None) -> int:
         print("✔ [JSON Integrity] 0 archivos JSON relevantes.")
         return 0
 
-    all_errors = []
-    for jf in filtered_files:
-        errors = audit_json_file(jf)
-        if errors:
-            all_errors.extend(errors)
-
+    all_errors = _collect_json_errors(filtered_files)
     if all_errors:
-        print("❌ ERROR: Se detectaron colisiones de claves duplicadas en archivos JSON:")
+        print("❌ ERROR: Colisiones de claves duplicadas en archivos JSON:")
         for err in all_errors:
             print(f"   - {err}")
         return 1
 
-    print(f"✔ [JSON Integrity] {len(filtered_files)} archivos JSON validados (0 claves duplicadas).")
+    print(
+        f"✔ [JSON Integrity] {len(filtered_files)} archivos JSON validados "
+        "(0 claves duplicadas)."
+    )
     return 0
 
 

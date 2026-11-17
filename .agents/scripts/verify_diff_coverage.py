@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import math
 import os
 import re
 import subprocess
@@ -28,15 +29,20 @@ APPROVED_EXCLUSION_RE = re.compile(r"QA11X-APPROVED-EXCLUSION\(\s*[^)\s][^)]*\)"
 CONTAINER_PREFIX_RE = re.compile(r"^(?:/app/|/workspace/|/repo/)")
 
 EVASION_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
-    ("pragma no cov" + "er", re.compile(r"#\s*pragma:\s*no\s+cov" + r"er\b", re.I)),
-    ("v8/c8 ig" + "nore", re.compile(r"(?:/\*|//)\s*(?:v8|c8)\s+ig" + r"nore\b", re.I)),
+    (
+        "pragma no cov" + "er",
+        re.compile(r"#\s*pragma:\s*no\s+cov" + r"er\b", re.IGNORECASE),
+    ),
+    (
+        "v8/c8 ig" + "nore",
+        re.compile(r"(?:/\*|//)\s*(?:v8|c8)\s+ig" + r"nore\b", re.IGNORECASE),
+    ),
     (
         "codeCoverageIg" + "nore",
         re.compile(r"@codeCoverage" + r"Ignore(?:Start|End)?\b"),
     ),
 )
 
-DOC_EXTENSIONS = frozenset({".md", ".mdx", ".txt", ".rst", ".adoc"})
 PRODUCTIVE_EXTENSIONS = frozenset({".py", ".ts", ".tsx", ".vue", ".php", ".sh"})
 NON_PRODUCTIVE_DIR_SEGMENTS = frozenset(
     {
@@ -105,6 +111,7 @@ class _DiffParseState:
     changes: dict[str, DiffFileChange]
     current_path: str | None = None
     is_new: bool = False
+    in_hunk: bool = False
     next_line: int = 0
     lines: dict[int, str] = field(default_factory=dict)
 
@@ -146,22 +153,26 @@ class DiffCoverageReport:
     missing_report_files: tuple[str, ...]
     error_detail: str | None
     summary_line: str
+    min_branch_cov: float = 90.0
 
 
 def _ensure_contained_path(workspace_root: Path, candidate: Path, label: str) -> Path:
     if "\0" in str(candidate):
         raise SecurityValidationError(f"Ruta inválida con byte nulo en {label}.")
+    ws_real = workspace_root.resolve()
+    ws_lex = Path(os.path.normpath(str(workspace_root)))
     lexical = Path(os.path.normpath(str(candidate)))
-    if not lexical.is_relative_to(workspace_root):
+    if not (lexical.is_relative_to(ws_lex) or lexical.is_relative_to(ws_real)):
         raise SecurityValidationError(
             f"La ruta '{candidate}' escapa el workspace permitido."
         )
+    is_linked_or_exists = candidate.is_symlink() or candidate.exists()
     resolved = (
         candidate.resolve()
-        if candidate.exists()
+        if is_linked_or_exists
         else candidate.parent.resolve() / candidate.name
     )
-    if not resolved.is_relative_to(workspace_root):
+    if not resolved.is_relative_to(ws_real):
         raise SecurityValidationError(
             f"Enlace simbólico fuera del workspace detectado en '{candidate}'."
         )
@@ -179,8 +190,7 @@ def resolve_contained_reports_dir(workspace_root: Path, reports_dir: str) -> Pat
 def _strip_path_prefixes(raw_path: str, workspace_root: Path) -> str:
     norm = raw_path.replace("\\", "/").strip()
     ws_prefix = workspace_root.as_posix().rstrip("/") + "/"
-    if norm.startswith(ws_prefix):
-        norm = norm[len(ws_prefix) :]
+    norm = norm.removeprefix(ws_prefix)
     norm = CONTAINER_PREFIX_RE.sub("", norm)
     while norm.startswith("./"):
         norm = norm[2:]
@@ -211,9 +221,10 @@ def normalize_reported_path(
     rel = _strip_path_prefixes(raw_path, workspace_root)
     if not rel:
         return ""
+    ws_real = workspace_root.resolve()
     for candidate in _candidate_rel_paths(rel, sources, workspace_root, report_stem):
         full = workspace_root / candidate
-        if full.is_file() and full.resolve().is_relative_to(workspace_root):
+        if full.is_file() and full.resolve().is_relative_to(ws_real):
             return candidate
     return rel
 
@@ -235,9 +246,18 @@ def _extract_cobertura_sources(root: ET.Element) -> tuple[str, ...]:
 
 
 def _record_cobertura_line(file_cov: FileCoverageData, line_elem: ET.Element) -> None:
-    line_num = int(line_elem.attrib["number"])
-    hits = int(float(line_elem.attrib.get("hits", "0")))
-    file_cov.merge_line(line_num, hits)
+    try:
+        line_num = int(line_elem.attrib["number"])
+        raw_hits = float(line_elem.attrib.get("hits", "0"))
+    except (KeyError, ValueError, TypeError) as exc:
+        raise SecurityValidationError(
+            f"Línea Cobertura XML inválida: {line_elem.attrib!r}"
+        ) from exc
+    if not math.isfinite(raw_hits):
+        raise SecurityValidationError(
+            f"Conteo de hits no finito en Cobertura XML: {line_elem.attrib!r}"
+        )
+    file_cov.merge_line(line_num, int(raw_hits))
     cond_cov = line_elem.attrib.get("condition-coverage", "")
     match = CONDITION_COV_RE.search(cond_cov)
     if match:
@@ -263,7 +283,7 @@ def _parse_xml_strict(raw_xml: str) -> ET.Element:
     try:
         parse_fn = _resolve_safe_xml_fromstring()
         return parse_fn(raw_xml)
-    except Exception as exc:
+    except (ET.ParseError, ValueError, TypeError, LookupError) as exc:
         raise SecurityValidationError(
             f"Reporte XML inválido o corrupto: {exc}"
         ) from exc
@@ -311,8 +331,15 @@ def _flush_lcov_branches(
 
 def _parse_lcov_da(file_cov: FileCoverageData, payload: str) -> None:
     parts = payload.split(",")
-    if len(parts) >= 2:
-        file_cov.merge_line(int(parts[0]), int(parts[1]))
+    if len(parts) < 2:
+        return
+    try:
+        line_no, hits = int(parts[0]), int(parts[1])
+    except ValueError as exc:
+        raise SecurityValidationError(
+            f"Registro LCOV DA inválido: {payload!r}"
+        ) from exc
+    file_cov.merge_line(line_no, hits)
 
 
 def _parse_lcov_brda(
@@ -322,8 +349,13 @@ def _parse_lcov_brda(
     parts = payload.split(",")
     if len(parts) < 4:
         return
-    line_no = int(parts[0])
-    taken = 0 if parts[3] == "-" else int(parts[3])
+    try:
+        line_no = int(parts[0])
+        taken = 0 if parts[3] == "-" else int(parts[3])
+    except ValueError as exc:
+        raise SecurityValidationError(
+            f"Registro LCOV BRDA inválido: {payload!r}"
+        ) from exc
     line_map = branches_by_line.setdefault(line_no, {})
     key = (parts[1], parts[2])
     line_map[key] = max(line_map.get(key, 0), taken)
@@ -385,7 +417,7 @@ def _load_single_report(
     if not report_file.is_file():
         return
     safe_report = _ensure_contained_path(workspace_root, report_file, report_file.name)
-    text = safe_report.read_text(encoding="utf-8", errors="replace")
+    text = safe_report.read_text(encoding="utf-8-sig", errors="replace")
     if safe_report.suffix == ".xml":
         parse_cobertura_xml(text, workspace_root, cov_map, safe_report.stem)
     elif safe_report.suffix == ".info":
@@ -404,7 +436,14 @@ def load_coverage_reports(
 
 
 def _git_cmd(workspace_root: Path, *args: str) -> list[str]:
-    return ["git", "-c", f"safe.directory={workspace_root}", *args]
+    return [
+        "git",
+        "-c",
+        f"safe.directory={workspace_root}",
+        "-c",
+        "core.quotePath=false",
+        *args,
+    ]
 
 
 def resolve_git_diff_target(workspace_root: Path, base_ref: str | None) -> str | None:
@@ -438,15 +477,18 @@ def _handle_diff_metadata(line: str, state: _DiffParseState) -> bool:
     if line.startswith("diff --git "):
         state.flush()
         parts = line.split(" b/", 1)
-        state.current_path = parts[1].strip() if len(parts) == 2 else None
+        state.current_path = parts[1].strip().strip('"') if len(parts) == 2 else None
         state.is_new = False
+        state.in_hunk = False
         state.next_line = 0
         return True
+    if state.in_hunk:
+        return False
     if line.startswith(("new file mode ", "--- /dev/null")):
         state.is_new = True
         return True
     if line.startswith("+++ "):
-        target = line[4:].strip()
+        target = line[4:].strip().strip('"')
         state.current_path = (
             None if target == "/dev/null" else target.removeprefix("b/")
         )
@@ -460,13 +502,9 @@ def _process_diff_line(line: str, state: _DiffParseState) -> None:
     if line.startswith("@@ "):
         match = HUNK_HEADER_RE.match(line)
         state.next_line = int(match.group(1)) if match else 0
+        state.in_hunk = state.next_line > 0
         return
-    if (
-        state.current_path
-        and state.next_line > 0
-        and line.startswith("+")
-        and not line.startswith("+++")
-    ):
+    if state.current_path and state.in_hunk and line.startswith("+"):
         state.lines[state.next_line] = line[1:]
         state.next_line += 1
 
@@ -729,11 +767,24 @@ def _compute_global_totals(
         missing_report_files=tuple(missing_reports),
         error_detail=None,
         summary_line=summary,
+        min_branch_cov=config.min_branch_cov,
     )
+
+
+def _validate_cov_thresholds(config: DiffCoverageConfig) -> None:
+    for label, val in (
+        ("min_line_cov", config.min_line_cov),
+        ("min_branch_cov", config.min_branch_cov),
+    ):
+        if not math.isfinite(val) or not (0.0 <= val <= 100.0):
+            raise SecurityValidationError(
+                f"Umbral '{label}' inválido (debe estar en [0, 100]): {val!r}"
+            )
 
 
 def evaluate_diff_coverage(config: DiffCoverageConfig) -> DiffCoverageReport:
     try:
+        _validate_cov_thresholds(config)
         workspace_root = config.workspace.resolve()
         reports_path = resolve_contained_reports_dir(workspace_root, config.reports_dir)
         changes = collect_git_changes(workspace_root, config.base_ref)
@@ -761,6 +812,7 @@ def evaluate_diff_coverage(config: DiffCoverageConfig) -> DiffCoverageReport:
             (),
             None,
             f"✔ [Diff Coverage] SKIPPED ({reason})",
+            config.min_branch_cov,
         )
 
     evasions = detect_diff_evasions(changes)
@@ -786,8 +838,12 @@ def evaluate_diff_coverage(config: DiffCoverageConfig) -> DiffCoverageReport:
     return _compute_global_totals(metrics, missing_reports, config)
 
 
-def _format_metric_row(metric: FileDeltaMetrics) -> str | None:
-    has_uncovered_branch = metric.total_branches > 0 and metric.branch_pct < 90.0
+def _format_metric_row(
+    metric: FileDeltaMetrics, min_branch_cov: float = 90.0
+) -> str | None:
+    has_uncovered_branch = (
+        metric.total_branches > 0 and metric.branch_pct < min_branch_cov
+    )
     if not (
         metric.missing_from_reports or metric.uncovered_lines or has_uncovered_branch
     ):
@@ -813,7 +869,9 @@ def format_report_output(report: DiffCoverageReport) -> str:
     lines.extend(f"  - {finding}" for finding in report.evasion_findings)
     rows = [
         row
-        for row in (_format_metric_row(m) for m in report.file_metrics)
+        for row in (
+            _format_metric_row(m, report.min_branch_cov) for m in report.file_metrics
+        )
         if row is not None
     ]
     if rows:

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 """Pruebas unitarias para .agents/scripts/generate_pr_verdict.py (Hito 23)."""
@@ -567,3 +566,88 @@ def test_cli_main_success_and_module_entrypoint(
     with pytest.raises(SystemExit) as exc_info:
         runpy.run_path(str(_SCRIPT_PATH), run_name="__main__")
     assert exc_info.value.code == 0
+
+
+def test_f10_8_hardening_null_bytes_bom_tz_bool_and_io_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo = _init_repo(tmp_path)
+    _write(repo, "reports/ok.xml", _junit_xml(0))
+
+    # Byte nulo en --output-md -> exit 30 limpio
+    assert gpv.main(["--workspace", str(repo), "--output-md", "bad\0.md"]) == 30
+    capsys.readouterr()
+
+    # --reports-dir fuera del workspace rechazado antes de aceptar evidencia
+    assert gpv._has_coverage_reports(repo, "cov") is False
+    with pytest.raises(gpv.VerdictDivergenceError):
+        gpv._has_coverage_reports(repo, "../escape")
+
+    # _extract_max_int_value ignora bool y NaN/inf
+    assert gpv._extract_max_int_value({"a": True, "b": float("inf"), "c": 2}) == 2
+
+    # _normalize_timestamp convierte offsets a UTC Z
+    assert gpv._normalize_timestamp("2026-11-13T18:30:00-04:00") == (
+        "2026-11-13T22:30:00Z"
+    )
+
+    # graph.json binario corrupto no rompe collect_ast_dependents; BOM sí se lee
+    (repo / "corrupt").mkdir()
+    (repo / "corrupt" / "graph.json").write_bytes(b"\xff\xfe\x00")
+    bom_graph = json.dumps(
+        {
+            "nodes": [
+                {"id": "a", "source_file": "src/app.py"},
+                {"id": "c", "source_file": "src/caller.py"},
+            ],
+            "links": [{"source": "c", "target": "a"}],
+        }
+    )
+    (repo / "graphify-out").mkdir()
+    (repo / "graphify-out" / "graph.json").write_bytes(
+        b"\xef\xbb\xbf" + bom_graph.encode("utf-8")
+    )
+    deps = gpv.collect_ast_dependents(repo.resolve(), ("src/app.py",))
+    assert deps == ("src/caller.py",)
+
+    # OSError en _run_git y en escritura de artefacto -> VerdictDivergenceError
+    def raise_os(*_a: Any, **_kw: Any) -> Any:
+        raise OSError("git not found")
+
+    monkeypatch.setattr(subprocess, "run", raise_os)
+    with pytest.raises(gpv.VerdictDivergenceError):
+        gpv._run_git(repo.resolve(), ["status"])
+    monkeypatch.undo()
+
+    (repo / "dir_as_file").mkdir()
+    assert (
+        gpv.main(
+            [
+                "--workspace",
+                str(repo),
+                "--junit-xml",
+                "reports/ok.xml",
+                "--output-md",
+                "dir_as_file",
+            ]
+        )
+        == 30
+    )
+    capsys.readouterr()
+
+    # _normalize_timestamp sin tz y texto no-ISO, más limpieza .tmp si os.replace falla
+    import os
+
+    assert gpv._normalize_timestamp("not-iso-ts") == "not-iso-ts"
+    assert gpv._normalize_timestamp("2026-11-13T18:30:00") == "2026-11-13T18:30:00Z"
+
+    def fail_replace(_src: Path | str, _dst: Path | str) -> None:
+        raise OSError("replace denied")
+
+    out_dir = tmp_path / "atomic_fail"
+    out_dir.mkdir()
+    monkeypatch.setattr(os, "replace", fail_replace)
+    with pytest.raises(OSError):
+        gpv._write_private_json(out_dir / "att.json", {"ok": True})
+    monkeypatch.undo()
+    assert list(out_dir.glob("*.tmp")) == []

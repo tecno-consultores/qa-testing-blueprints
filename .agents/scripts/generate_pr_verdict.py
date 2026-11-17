@@ -10,10 +10,12 @@ import datetime
 import hashlib
 import hmac
 import json
+import math
 import os
 import re
 import subprocess
 import sys
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -39,7 +41,7 @@ RISK_HIGH = "ALTO"
 CRITICAL_RISK_RE = re.compile(
     r"(?:^|/)(?:\.agents|alembic/versions|migrations|security|"
     r"auth|vault|rls|rbac|dockerfile|manifest\.json)",
-    re.I,
+    re.IGNORECASE,
 )
 IGNORED_AST_DIRS = frozenset(
     {
@@ -111,15 +113,25 @@ def _ensure_no_symlink_chain(workspace_real: Path, candidate: Path) -> None:
             raise VerdictDivergenceError(f"Directorio symlink no permitido: {parent}")
 
 
+def _prepare_contained_candidate(workspace_real: Path, raw_path: str) -> Path:
+    cleaned = raw_path.strip()
+    if not cleaned or "\0" in cleaned:
+        raise VerdictDivergenceError("Ruta vacía o inválida no permitida.")
+    raw_obj = Path(cleaned)
+    candidate = raw_obj if raw_obj.is_absolute() else workspace_real / raw_obj
+    lexical = Path(os.path.normpath(str(candidate)))
+    if not lexical.is_relative_to(workspace_real):
+        raise VerdictDivergenceError(
+            f"Ruta fuera del workspace permitido: {raw_path}"
+        )
+    return candidate
+
+
 def resolve_contained_path(
     workspace_real: Path, raw_path: str, must_exist: bool
 ) -> Path:
     """Resuelve una ruta dentro del workspace rechazando symlinks y traversal."""
-    cleaned = raw_path.strip()
-    if not cleaned:
-        raise VerdictDivergenceError("Ruta vacía no permitida.")
-    raw_obj = Path(cleaned)
-    candidate = raw_obj if raw_obj.is_absolute() else workspace_real / raw_obj
+    candidate = _prepare_contained_candidate(workspace_real, raw_path)
     _ensure_no_symlink_chain(workspace_real, candidate)
     resolved = candidate.resolve()
     try:
@@ -134,13 +146,18 @@ def resolve_contained_path(
 
 
 def _run_git(workspace_real: Path, args: list[str]) -> str:
-    res = subprocess.run(
-        ["git", "-C", str(workspace_real), *args],
-        capture_output=True,
-        text=True,
-        shell=False,
-        check=False,
-    )
+    try:
+        res = subprocess.run(
+            ["git", "-C", str(workspace_real), "-c", "core.quotePath=false", *args],
+            capture_output=True,
+            text=True,
+            shell=False,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise VerdictDivergenceError(
+            f"Error ejecutando Git ({' '.join(args)}): {exc}"
+        ) from exc
     if res.returncode != 0:
         detail = (res.stderr or res.stdout).strip() or f"exit={res.returncode}"
         raise VerdictDivergenceError(f"Error Git ({' '.join(args)}): {detail}")
@@ -189,7 +206,11 @@ def _collect_dirty_code_files(
 
 def _hash_code_entry(workspace_real: Path, rel_file: str) -> str:
     full = workspace_real / rel_file
-    if full.is_file() and not full.is_symlink():
+    if (
+        full.is_file()
+        and not full.is_symlink()
+        and full.resolve().is_relative_to(workspace_real)
+    ):
         digest = hashlib.sha256(full.read_bytes()).hexdigest()
         return f"{rel_file}:{digest}"
     if full.is_dir():
@@ -268,8 +289,8 @@ def _read_optional_json(
         return None
     safe_target = resolve_contained_path(workspace_real, rel_path, must_exist=True)
     try:
-        loaded = json.loads(safe_target.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        loaded = json.loads(safe_target.read_text(encoding="utf-8-sig"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise VerdictDivergenceError(f"JSON inválido en '{rel_path}': {exc}") from exc
     if not isinstance(loaded, dict):
         raise VerdictDivergenceError(f"Estructura JSON inválida en '{rel_path}'.")
@@ -305,7 +326,13 @@ def _validate_evidence_consistency(
 def _extract_max_int_value(mapping: Any, use_sum: bool = False) -> int:
     if not isinstance(mapping, dict):
         return 0
-    vals = [int(v) for v in mapping.values() if isinstance(v, (int, float))]
+    vals = [
+        int(v)
+        for v in mapping.values()
+        if not isinstance(v, bool)
+        and isinstance(v, (int, float))
+        and math.isfinite(float(v))
+    ]
     return sum(vals) if use_sum else max(vals, default=0)
 
 
@@ -409,8 +436,8 @@ def _extract_dependents_from_graph(
     out_deps: set[str],
 ) -> None:
     try:
-        payload = json.loads(graph_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+        payload = json.loads(graph_path.read_text(encoding="utf-8-sig"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         return
     if not isinstance(payload, dict):
         return
@@ -436,7 +463,12 @@ def collect_ast_dependents(
 
 
 def _has_coverage_reports(workspace_real: Path, reports_dir: str) -> bool:
-    rep_path = workspace_real / reports_dir
+    try:
+        rep_path = vdc.resolve_contained_reports_dir(
+            workspace_real.resolve(), reports_dir
+        )
+    except vdc.SecurityValidationError as exc:
+        raise VerdictDivergenceError(str(exc)) from exc
     if not rep_path.is_dir():
         return False
     return any(
@@ -455,9 +487,17 @@ def _compute_manifest_sha256(workspace_real: Path) -> str | None:
 
 
 def _normalize_timestamp(raw_ts: str | None) -> str:
-    if raw_ts:
-        return raw_ts
-    return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    if not raw_ts:
+        return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    cleaned = raw_ts.strip()
+    iso_str = f"{cleaned[:-1]}+00:00" if cleaned.endswith("Z") else cleaned
+    try:
+        dt = datetime.datetime.fromisoformat(iso_str)
+    except ValueError:
+        return cleaned
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=datetime.UTC)
+    return dt.astimezone(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _determine_risk_level(
@@ -497,12 +537,22 @@ def _write_private_json(target: Path, payload: dict[str, Any]) -> None:
         json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
         + "\n"
     )
-    fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    tmp_path = (
+        target.parent / f".{target.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp"
+    )
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(tmp_path, flags, 0o600)
     try:
-        os.write(fd, raw.encode())
-    finally:
-        os.close(fd)
-    os.chmod(target, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(raw)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.chmod(tmp_path, 0o600)
+        os.replace(tmp_path, target)
+        os.chmod(target, 0o600)
+    except OSError:
+        tmp_path.unlink(missing_ok=True)
+        raise
 
 
 def _group_modules(
@@ -643,7 +693,13 @@ def _evaluate_gate_signals(
                 reports_dir=inputs.reports_dir,
             )
         )
-    except Exception as exc:
+    except (
+        vdc.SecurityValidationError,
+        RuntimeError,
+        ValueError,
+        OSError,
+        subprocess.SubprocessError,
+    ) as exc:
         raise VerdictDivergenceError(
             f"Error evaluando cobertura diferencial: {exc}"
         ) from exc
@@ -726,9 +782,14 @@ def generate_pr_verdict(
         inputs, workspace_real, snapshot, evidence_stages, breaker, rrg_report, diff_cov
     )
     md_text = _render_pr_verdict_markdown(attestation, diff_cov)
-    safe_md.parent.mkdir(parents=True, exist_ok=True)
-    safe_md.write_text(md_text, encoding="utf-8")
-    _write_private_json(safe_json, attestation)
+    try:
+        safe_md.parent.mkdir(parents=True, exist_ok=True)
+        safe_md.write_text(md_text, encoding="utf-8")
+        _write_private_json(safe_json, attestation)
+    except OSError as exc:
+        raise VerdictDivergenceError(
+            f"Error escribiendo artefactos PR_VERDICT: {exc}"
+        ) from exc
     return EXIT_OK, attestation, md_text
 
 

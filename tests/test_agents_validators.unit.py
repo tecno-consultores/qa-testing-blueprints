@@ -35,7 +35,9 @@ def _load_script_module(module_name: str, filename: str) -> Any:
 def test_verify_json_no_duplicate_keys_detects_json_and_example_collisions(
     tmp_path: Path,
 ) -> None:
-    mod = _load_script_module("verify_json_dup", "verify_json_no_duplicate_keys.py")
+    mod = _load_script_module(
+        "verify_json_no_duplicate_keys", "verify_json_no_duplicate_keys.py"
+    )
     (tmp_path / "clean.json").write_text('{"a": 1, "b": {"a": 2}}', encoding="utf-8")
     (tmp_path / "graphify-out").mkdir()
     (tmp_path / "graphify-out" / "ignored.json").write_text(
@@ -358,7 +360,9 @@ def test_verify_no_orphan_api_endpoints_node_main_py_ignore_and_errors(
 def test_verify_topological_health_resolves_node_source_file_and_detects_violation(
     tmp_path: Path,
 ) -> None:
-    mod = _load_script_module("verify_topology", "verify_topological_health.py")
+    mod = _load_script_module(
+        "verify_topological_health", "verify_topological_health.py"
+    )
     gdir = tmp_path / "fastapi" / "graphify-out"
     gdir.mkdir(parents=True)
     bad_graph = {
@@ -379,7 +383,9 @@ def test_verify_topological_health_skip_valid_ui_violation_and_corrupt(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    mod = _load_script_module("verify_topology_ext", "verify_topological_health.py")
+    mod = _load_script_module(
+        "verify_topological_health", "verify_topological_health.py"
+    )
 
     assert mod.main(tmp_path) == 0
     out_empty = capsys.readouterr().out
@@ -440,7 +446,9 @@ def test_verify_alembic_orm_parity_all_branches(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    mod = _load_script_module("verify_orm_parity", "verify_alembic_orm_parity.py")
+    mod = _load_script_module(
+        "verify_alembic_orm_parity", "verify_alembic_orm_parity.py"
+    )
 
     assert mod.main(tmp_path) == 0
     out_empty = capsys.readouterr().out
@@ -954,7 +962,9 @@ def test_sync_governance_classifiers_compare_git_and_cli_branches(
 def test_f1_5_remaining_edge_branches_and_entrypoint_guards(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    orm_mod = _load_script_module("orm_edge", "verify_alembic_orm_parity.py")
+    orm_mod = _load_script_module(
+        "verify_alembic_orm_parity", "verify_alembic_orm_parity.py"
+    )
     assert (
         orm_mod._resolve_backend_dir(orm_mod._DEFAULT_REPO_ROOT)
         == orm_mod._DEFAULT_REPO_ROOT
@@ -1058,7 +1068,7 @@ def test_inspect_blast_radius_edge_branches(
     import re
     import runpy
 
-    mod = _load_script_module("inspect_blast_radius_edges", "inspect_blast_radius.py")
+    mod = _load_script_module("inspect_blast_radius", "inspect_blast_radius.py")
     outside = tmp_path / "outside"
     outside.mkdir()
     assert mod._stack_prefix(outside / "graph.json") == ""
@@ -1140,3 +1150,319 @@ def test_sync_governance_edge_branches(
 
     # Mantener uso de json para linters si aplica
     assert json.loads('{"ok": true}')["ok"] is True
+
+
+def test_verify_json_no_duplicate_keys_pruning_symlinks_and_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    mod = _load_script_module(
+        "verify_json_no_duplicate_keys", "verify_json_no_duplicate_keys.py"
+    )
+    ignored = (
+        "node_modules",
+        ".venv",
+        ".git",
+        ".trivycache",
+        "dist",
+        "coverage",
+        "vendor",
+        "target",
+        ".pytest_cache",
+        ".mypy_cache",
+    )
+    for dname in ignored:
+        bad = tmp_path / dname / "dup.json"
+        bad.parent.mkdir(parents=True, exist_ok=True)
+        bad.write_text('{"k": 1, "k": 2}', encoding="utf-8")
+
+    (tmp_path / "notes.txt").write_text("not json", encoding="utf-8")
+    valid = tmp_path / "app" / "ok.json"
+    valid.parent.mkdir()
+    valid.write_text('{"ok": true}', encoding="utf-8")
+    (tmp_path / "link.json").symlink_to(valid)
+
+    candidates = mod.collect_json_candidates(tmp_path)
+    assert candidates == [valid]
+    assert mod.main(tmp_path) == 0
+
+    broken = tmp_path / "app" / "broken.json"
+    broken.write_text("{bad json", encoding="utf-8")
+    assert mod.main(tmp_path) == 1
+    assert mod.audit_json_file(tmp_path) != []
+
+    monkeypatch.setattr(sys, "argv", ["verify_json_no_duplicate_keys.py"])
+    with pytest.raises(SystemExit) as exc_info:
+        runpy.run_path(
+            str(AGENTS_SCRIPTS / "verify_json_no_duplicate_keys.py"),
+            run_name="__main__",
+        )
+    assert exc_info.value.code == 0
+
+
+def test_verify_topological_health_non_src_layers_and_graph_arg(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    mod = _load_script_module(
+        "verify_topological_health", "verify_topological_health.py"
+    )
+    monkeypatch.setattr(mod, "REPO_ROOT", tmp_path)
+    custom = tmp_path / "custom_graph.json"
+    custom.write_text(
+        json.dumps(
+            {
+                "nodes": [
+                    {"id": "m", "source_file": "models/user.py"},
+                    {"id": "r", "source_file": "routes/users.py"},
+                    {"id": "c", "source_file": "components/common/Nav.vue"},
+                    {"id": "p", "source_file": "pages/Home.vue"},
+                ],
+                "links": [
+                    {"source": "m", "target": "r", "context": "import"},
+                    {"source": "c", "target": "p", "context": "import"},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    violations, stats = mod.audit_layers(mod.load_graph(custom), custom)
+    assert stats["graph_file"] == "custom_graph.json"
+    assert len(violations) == 2
+    assert violations[0].startswith("[custom_graph.json] Acoplamiento inverso")
+    assert violations[1].startswith("[custom_graph.json] Acoplamiento invertido UI")
+
+    assert mod.cli_main(["--graph", str(custom)]) == 1
+    assert "custom_graph.json" in capsys.readouterr().out
+
+    custom.write_text(
+        json.dumps(
+            {
+                "nodes": [
+                    {"id": "a", "source_file": "app/api/orders.py"},
+                    {"id": "s", "source_file": "app/services/orders.py"},
+                ],
+                "links": [{"source": "a", "target": "s"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert mod.cli_main(["--graph", str(custom)]) == 0
+    capsys.readouterr()
+
+
+def test_verify_topological_health_pruning_symlinks_and_no_bare_graph(
+    tmp_path: Path,
+) -> None:
+    mod = _load_script_module(
+        "verify_topological_health", "verify_topological_health.py"
+    )
+    for dname in (
+        "node_modules",
+        ".venv",
+        ".git",
+        ".trivycache",
+        "dist",
+        "coverage",
+        "vendor",
+        "target",
+        ".pytest_cache",
+        ".mypy_cache",
+    ):
+        ignored_g = tmp_path / dname / "graphify-out" / "graph.json"
+        ignored_g.parent.mkdir(parents=True)
+        ignored_g.write_text("{corrupt", encoding="utf-8")
+
+    bare = tmp_path / "sub" / "graph.json"
+    bare.parent.mkdir()
+    bare.write_text("{corrupt", encoding="utf-8")
+
+    real_g = tmp_path / "app" / "graphify-out" / "graph.json"
+    real_g.parent.mkdir(parents=True)
+    real_g.write_text('{"nodes": [], "links": []}', encoding="utf-8")
+
+    dup_g = tmp_path / "dup" / "graphify-out" / "graph.json"
+    dup_g.parent.mkdir(parents=True)
+    dup_g.symlink_to(real_g)
+
+    found = mod.find_graph_files(tmp_path)
+    assert found == [real_g]
+    assert mod.main(tmp_path) == 0
+
+
+def test_verify_alembic_orm_parity_recursive_no_app_and_workspace(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import inspect
+
+    mod = _load_script_module(
+        "verify_alembic_orm_parity", "verify_alembic_orm_parity.py"
+    )
+    assert "/app" not in inspect.getsource(mod._resolve_backend_dir)
+    assert mod._resolve_backend_dir(tmp_path) == tmp_path
+
+    models_sub = tmp_path / "backend" / "src" / "models" / "billing"
+    models_sub.mkdir(parents=True)
+    (models_sub / "__init__.py").write_text('__tablename__ = "bad"\n', encoding="utf-8")
+    (models_sub / "base.py").write_text('__tablename__ = "bad2"\n', encoding="utf-8")
+    (models_sub / "invoice.py").write_text(
+        'class Invoice:\n    __tablename__ = "invoices"\n', encoding="utf-8"
+    )
+    alt_models = tmp_path / "backend" / "models" / "catalog"
+    alt_models.mkdir(parents=True)
+    (alt_models / "item.py").write_text(
+        'class Item:\n    __tablename__ = "items"\n', encoding="utf-8"
+    )
+
+    mig_sub = tmp_path / "backend" / "alembic" / "versions" / "2026"
+    mig_sub.mkdir(parents=True)
+    (mig_sub / "__init__.py").write_text(
+        'revision = "r_over_32_characters_should_be_ignored_in_init"\n',
+        encoding="utf-8",
+    )
+    (mig_sub / "001_init.py").write_text(
+        'revision = "001_init"\n'
+        "def upgrade():\n"
+        '    op.create_table(table_name="invoices")\n'
+        '    op.create_table("items")\n'
+        "def downgrade():\n"
+        '    op.drop_table("invoices")\n'
+        '    op.drop_table("items")\n',
+        encoding="utf-8",
+    )
+
+    assert mod.cli_main(["--workspace", str(tmp_path)]) == 0
+    out = capsys.readouterr().out
+    assert "invoices" in out
+    assert "items" in out
+
+
+def test_verify_alembic_orm_parity_chronology_upgrade_sql_and_drops(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    mod = _load_script_module(
+        "verify_alembic_orm_parity", "verify_alembic_orm_parity.py"
+    )
+    models_dir = tmp_path / "fastapi" / "src" / "models"
+    models_dir.mkdir(parents=True)
+    (models_dir / "models.py").write_text(
+        'class Audit:\n    __tablename__ = "audit_events"\n'
+        'class Session:\n    __tablename__ = "sessions"\n'
+        'class Acc:\n    __tablename__ = "accounts"\n'
+        'class Temp:\n    __tablename__ = "temp_items"\n',
+        encoding="utf-8",
+    )
+    versions = tmp_path / "fastapi" / "migrations" / "versions"
+    versions.mkdir(parents=True)
+
+    # Nombre alfabético inverso: 01_drop corre DESPUÉS de 99_init por down_revision
+    (versions / "99_init.py").write_text(
+        'revision = "r1"\n'
+        "down_revision = None\n"
+        "async def upgrade():\n"
+        '    op.create_table("temp_items")\n'
+        '    op.create_table("users")\n'
+        '    op.execute("CREATE TABLE IF NOT EXISTS public.audit_events (id INT)")\n'
+        "    op.execute(sa.text('CREATE TABLE \"auth\".\"sessions\" (id INT)'))\n"
+        '    op.execute(text("-- DROP TABLE audit_events\\n"'
+        ' "CREATE TABLE tmp2 (i INT)"))\n',
+        encoding="utf-8",
+    )
+    (versions / "01_drop_and_rename.py").write_text(
+        'revision: str = "r2"\n'
+        'down_revision = "r1"\n'
+        "def upgrade():\n"
+        '    op.drop_table(table_name="temp_items")\n'
+        '    op.rename_table(old_table_name="users", new_table_name="accounts")\n'
+        '    op.execute(statement="DROP TABLE IF EXISTS public.tmp2 CASCADE")\n',
+        encoding="utf-8",
+    )
+
+    assert mod.main(tmp_path) == 1
+    out = capsys.readouterr().out
+    assert "'temp_items'" in out
+    assert "audit_events" not in out
+    assert "sessions" not in out
+    assert "accounts" not in out
+
+
+def test_verify_alembic_orm_parity_ast_edges_and_cycles(tmp_path: Path) -> None:
+    mod = _load_script_module(
+        "verify_alembic_orm_parity", "verify_alembic_orm_parity.py"
+    )
+    versions = tmp_path / "versions"
+    versions.mkdir()
+    (versions / "a_cyc.py").write_text(
+        'revision = "ra"\ndown_revision = "rb"\n'
+        "def upgrade():\n"
+        "    helper()\n"
+        "    other.create_table('ignored')\n"
+        "    op.other()\n"
+        "    op.create_table()\n"
+        "    op.execute()\n"
+        "    op.execute(dynamic_sql)\n"
+        "    op.execute(helper_fn('x'))\n"
+        "    op.execute(get_fn()('x'))\n",
+        encoding="utf-8",
+    )
+    (versions / "b_cyc.py").write_text(
+        'revision = "rb"\ndown_revision = ("ra",)\n'
+        'def upgrade():\n    op.create_table("from_cycle")\n',
+        encoding="utf-8",
+    )
+    (versions / "c_syntax.py").write_text(
+        'revision = "rc_bad"\ndef upgrade(:\n', encoding="utf-8"
+    )
+    (versions / "d_no_upgrade.py").write_text(
+        'revision: str\ndown_revision = 123\n', encoding="utf-8"
+    )
+    tables = mod.get_migrated_tables(versions)
+    assert tables == {"from_cycle"}
+    assert mod._iter_dir_models(tmp_path / "missing_dir") == []
+
+
+def test_inspect_blast_radius_pruning_no_bare_graph_and_graph_arg(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    mod = _load_script_module("inspect_blast_radius", "inspect_blast_radius.py")
+    monkeypatch.setattr(mod, "REPO_ROOT", tmp_path)
+
+    for dname in (
+        ".venv",
+        ".git",
+        ".trivycache",
+        "vendor",
+        "target",
+        ".pytest_cache",
+        ".mypy_cache",
+    ):
+        ig = tmp_path / dname / "graphify-out" / "graph.json"
+        ig.parent.mkdir(parents=True)
+        ig.write_text('{"nodes": [], "links": []}', encoding="utf-8")
+
+    bare = tmp_path / "bare" / "graph.json"
+    bare.parent.mkdir()
+    bare.write_text(
+        json.dumps(
+            {
+                "nodes": [{"id": "x", "label": "bare_sym", "source_file": "a.py"}],
+                "links": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    real_g = tmp_path / "graphify-out" / "graph.json"
+    real_g.parent.mkdir()
+    real_g.write_text('{"nodes": [], "links": []}', encoding="utf-8")
+    dup_g = tmp_path / "alias" / "graphify-out" / "graph.json"
+    dup_g.parent.mkdir(parents=True)
+    dup_g.symlink_to(real_g)
+
+    assert mod.find_graph_files() == [real_g]
+    assert mod.main(["bare_sym", "--graph", str(bare)]) == 0
+    assert "bare_sym" in capsys.readouterr().out
+    assert mod.main(["bare_sym", "--graph", str(tmp_path / "no.json")]) == 2
+    capsys.readouterr()

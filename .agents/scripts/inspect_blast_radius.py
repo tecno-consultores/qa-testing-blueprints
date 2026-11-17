@@ -36,19 +36,20 @@ IGNORED_DIRS: frozenset[str] = frozenset(
         "node_modules",
         ".git",
         ".venv",
+        ".trivycache",
         "__pycache__",
         "dist",
         ".cache",
         ".pytest_cache",
+        ".mypy_cache",
         "build",
         "coverage",
+        "vendor",
+        "target",
     }
 )
-FALLBACK_IGNORED_DIRS: frozenset[str] = IGNORED_DIRS | {
-    "venv",
-    "target",
-    "graphify-out",
-}
+_IGNORED_DIRS: frozenset[str] = IGNORED_DIRS
+FALLBACK_IGNORED_DIRS: frozenset[str] = IGNORED_DIRS | {"graphify-out", "venv"}
 SOURCE_EXTENSIONS: frozenset[str] = frozenset(
     {".py", ".ts", ".js", ".vue", ".tsx", ".jsx", ".php", ".sh", ".bats", ".feature"}
 )
@@ -96,25 +97,23 @@ def _rel_display_path(path: Path) -> str:
         return path.name
 
 
+def _record_unique_graph(seen: dict[Path, Path], candidate: Path) -> None:
+    resolved = candidate.resolve()
+    prev = seen.get(resolved)
+    if prev is None or (prev.is_symlink() and not candidate.is_symlink()):
+        seen[resolved] = candidate
+
+
 def find_graph_files() -> list[Path]:
-    """Busca graph.json de Graphify podando directorios ignorados."""
-    preferred: list[Path] = []
-    fallback: list[Path] = []
-    seen: set[Path] = set()
+    """Busca graphify-out/graph.json podando directorios ignorados."""
+    seen: dict[Path, Path] = {}
     for dirpath, dirnames, filenames in os.walk(REPO_ROOT):
-        dirnames[:] = sorted(d for d in dirnames if d not in IGNORED_DIRS)
-        if "graph.json" not in filenames:
-            continue
-        candidate = Path(dirpath) / "graph.json"
-        resolved = candidate.resolve()
-        if resolved in seen:
-            continue
-        seen.add(resolved)
-        target = preferred if Path(dirpath).name == "graphify-out" else fallback
-        target.append(candidate)
-    preferred.sort(key=lambda p: (p.parent.parent != REPO_ROOT, p.as_posix()))
-    fallback.sort(key=lambda p: p.as_posix())
-    return preferred + fallback
+        dirnames[:] = sorted(d for d in dirnames if d not in _IGNORED_DIRS)
+        if Path(dirpath).name == "graphify-out" and "graph.json" in filenames:
+            _record_unique_graph(seen, Path(dirpath) / "graph.json")
+    return sorted(
+        seen.values(), key=lambda p: (p.parent.parent != REPO_ROOT, p.as_posix())
+    )
 
 
 def load_graph(path: Path) -> dict[str, Any]:
@@ -396,8 +395,16 @@ def _print_contract_and_fallback(
     return len(fallback_files)
 
 
-def inspect_symbol(query: str, *, allow_missing: bool = False) -> int:
-    graph_files = find_graph_files()
+def _resolve_graph_targets(graph_file: Path | None) -> list[Path]:
+    if graph_file is not None:
+        return [graph_file] if graph_file.is_file() else []
+    return find_graph_files()
+
+
+def inspect_symbol(
+    query: str, *, allow_missing: bool = False, graph_file: Path | None = None
+) -> int:
+    graph_files = _resolve_graph_targets(graph_file)
     if not graph_files:
         print(
             f"⚠️ [Blast Radius: '{query}'] No se detectó ningún grafo Graphify "
@@ -441,8 +448,16 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Retorna código 0 aunque no exista ningún graphify-out/graph.json.",
     )
+    parser.add_argument(
+        "--graph",
+        type=Path,
+        default=None,
+        help="Ruta explícita a un archivo graph.json personalizado.",
+    )
     args = parser.parse_args(argv)
-    return inspect_symbol(args.query, allow_missing=args.allow_missing)
+    return inspect_symbol(
+        args.query, allow_missing=args.allow_missing, graph_file=args.graph
+    )
 
 
 if __name__ == "__main__":

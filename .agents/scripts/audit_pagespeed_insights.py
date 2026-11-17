@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+import http.client
 import ipaddress
 import json
 import os
@@ -19,7 +20,7 @@ import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeGuard
 
 PSI_API_ENDPOINT = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed"
 CATEGORIES: tuple[str, ...] = ("performance", "accessibility", "best-practices", "seo")
@@ -83,6 +84,9 @@ def _parse_ip(raw_host: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address | 
 
 
 def _is_unsafe_ip(ip_obj: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    mapped = getattr(ip_obj, "ipv4_mapped", None)
+    if mapped is not None and _is_unsafe_ip(mapped):
+        return True
     return (
         ip_obj.is_private
         or ip_obj.is_loopback
@@ -162,6 +166,8 @@ def validate_public_https_url(
 
 def resolve_safe_output_path(raw_path: str, base_dir: Path) -> Path:
     """Restringe salida al workspace o a una ruta absoluta dentro de /tmp."""
+    if "\0" in raw_path:
+        raise ValueError("Ruta de salida inválida con byte nulo.")
     resolved_base = base_dir.resolve()
     resolved_tmp = Path(tempfile.gettempdir()).resolve()
     candidate = Path(raw_path)
@@ -171,7 +177,9 @@ def resolve_safe_output_path(raw_path: str, base_dir: Path) -> Path:
         else (resolved_base / candidate).resolve()
     )
     in_base = target.is_relative_to(resolved_base)
-    in_tmp = target.is_relative_to(resolved_tmp) or target.is_relative_to(Path("/tmp"))
+    in_tmp = target.is_relative_to(resolved_tmp) or target.is_relative_to(
+        Path("/tmp").resolve()
+    )
     if not (in_base or (candidate.is_absolute() and in_tmp)):
         raise ValueError(f"Ruta de salida fuera de límites permitidos: {raw_path}")
     return target
@@ -190,12 +198,16 @@ def build_psi_request_url(target_url: str, strategy: str, api_key: str) -> str:
 def _default_http_fetcher(request_url: str, timeout_seconds: int) -> tuple[int, str]:
     req = urllib.request.Request(request_url, headers={"Accept": "application/json"})
     try:
-        with urllib.request.urlopen(req, timeout=timeout_seconds) as resp:  # noqa: S310
+        with urllib.request.urlopen(req, timeout=timeout_seconds) as resp:
             body = resp.read().decode("utf-8", errors="replace")
             return int(resp.status), body
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace") if exc.fp else str(exc)
         return int(exc.code), body
+
+
+def _is_numeric(value: Any) -> TypeGuard[int | float]:
+    return not isinstance(value, bool) and isinstance(value, int | float)
 
 
 def _extract_lab_scores(payload: dict[str, Any]) -> dict[str, float | None]:
@@ -205,7 +217,7 @@ def _extract_lab_scores(payload: dict[str, Any]) -> dict[str, float | None]:
     for cat in CATEGORIES:
         entry = categories.get(cat, {}) if isinstance(categories, dict) else {}
         raw = entry.get("score") if isinstance(entry, dict) else None
-        scores[cat] = round(float(raw), 4) if isinstance(raw, int | float) else None
+        scores[cat] = round(float(raw), 4) if _is_numeric(raw) else None
     return scores
 
 
@@ -234,7 +246,7 @@ def _extract_crux_metrics(payload: dict[str, Any]) -> dict[str, Any]:
 def _to_opportunity_item(audit_id: str, audit: dict[str, Any]) -> dict[str, Any] | None:
     score = audit.get("score")
     details = audit.get("details")
-    if not isinstance(score, int | float) or score >= 0.9:
+    if not _is_numeric(score) or float(score) >= 0.9:
         return None
     if not isinstance(details, dict) or details.get("type") != "opportunity":
         return None
@@ -334,7 +346,13 @@ def _audit_single_strategy(
     req_url = build_psi_request_url(opts.url, strategy, opts.api_key)
     try:
         http_status, raw_body = fetcher(req_url, opts.timeout_seconds)
-    except Exception as exc:
+    except (
+        OSError,
+        urllib.error.URLError,
+        http.client.HTTPException,
+        ValueError,
+        RuntimeError,
+    ) as exc:
         safe_err = redact_secrets(str(exc), opts.api_key)
         return _build_strategy_error(
             strategy, f"Error de red consultando PSI: {safe_err}"
@@ -367,9 +385,25 @@ def _aggregate_overall_status(results: list[dict[str, Any]]) -> tuple[str, str]:
     statuses = {str(item.get("status")) for item in results}
     if "FAILED" in statuses:
         return "FAILED", "THRESHOLD_OR_HTTP_FAILURE"
-    if statuses == {"SKIPPED"} or "SKIPPED" in statuses:
+    if "SKIPPED" in statuses:
+        if "PASSED" in statuses:
+            return "SKIPPED", "PARTIAL_STRATEGY_SKIPPED"
         return "SKIPPED", "QUOTA_EXCEEDED_NO_API_KEY"
     return "PASSED", "ALL_STRATEGIES_PASSED"
+
+
+def _summarize_strategies(
+    results: list[dict[str, Any]],
+) -> tuple[dict[str, str], list[str]]:
+    strategy_statuses = {
+        str(item.get("strategy")): str(item.get("status")) for item in results
+    }
+    passed_strategies = [
+        str(item.get("strategy"))
+        for item in results
+        if item.get("status") == "PASSED"
+    ]
+    return strategy_statuses, passed_strategies
 
 
 def _persist_report_if_requested(opts: AuditOptions, report: dict[str, Any]) -> None:
@@ -392,7 +426,12 @@ def run_pagespeed_audit(
         report: dict[str, Any] = {
             "status": "SKIPPED",
             "reason": "MISSING_TARGET_URL",
-            "message": "Sin URL pública configurada. Ejecute: make audit-psi URL=https://tu-dominio.com",
+            "message": (
+                "Sin URL pública configurada. Ejecute: "
+                "make audit-psi URL=https://tu-dominio.com"
+            ),
+            "strategy_statuses": {},
+            "passed_strategies": [],
             "strategies": [],
         }
         _persist_report_if_requested(opts, report)
@@ -404,6 +443,8 @@ def run_pagespeed_audit(
             "status": "BLOCKED_SSRF",
             "reason": "SSRF_POLICY_VIOLATION",
             "message": url_or_reason,
+            "strategy_statuses": {},
+            "passed_strategies": [],
             "strategies": [],
         }
         _persist_report_if_requested(opts, blocked)
@@ -413,10 +454,13 @@ def run_pagespeed_audit(
     strategies = _resolve_strategies(opts.strategy)
     results = [_audit_single_strategy(opts, strat, http_fn) for strat in strategies]
     overall_status, reason = _aggregate_overall_status(results)
+    strategy_statuses, passed_strategies = _summarize_strategies(results)
     final_report = {
         "status": overall_status,
         "reason": reason,
         "url": url_or_reason,
+        "strategy_statuses": strategy_statuses,
+        "passed_strategies": passed_strategies,
         "strategies": results,
     }
     _persist_report_if_requested(opts, final_report)
@@ -425,18 +469,31 @@ def run_pagespeed_audit(
 
 
 def _format_strategy_summary(item: dict[str, Any]) -> str:
+    strategy = item.get("strategy")
+    status = item.get("status")
     scores = item.get("lab_scores", {})
     crux = item.get("crux", {})
-    score_txt = ", ".join(f"{k}={scores.get(k)}" for k in CATEGORIES)
-    return (
-        f"  - [{item.get('strategy')}] status={item.get('status')} | "
-        f"{score_txt} | CrUX={crux.get('overall_category', 'NO_CRUX_DATA')}"
-    )
+    if isinstance(scores, dict) and scores:
+        score_txt = ", ".join(f"{k}={scores.get(k)}" for k in CATEGORIES)
+        crux_cat = (
+            crux.get("overall_category", "NO_CRUX_DATA")
+            if isinstance(crux, dict)
+            else "NO_CRUX_DATA"
+        )
+        return f"  - [{strategy}] status={status} | {score_txt} | CrUX={crux_cat}"
+    reason = item.get("reason", "UNKNOWN")
+    return f"  - [{strategy}] status={status} | reason={reason}"
 
 
 def format_human_summary(report: dict[str, Any]) -> str:
     """Formatea un resumen conciso para salida estándar en CI y terminal."""
-    lines = [f"[PSI-11X] status={report.get('status')} reason={report.get('reason')}"]
+    status = report.get("status")
+    reason = report.get("reason")
+    header = f"[PSI-11X] status={status} reason={reason}"
+    passed = report.get("passed_strategies")
+    if isinstance(passed, list) and passed and status != "PASSED":
+        header += f" passed_strategies={','.join(str(s) for s in passed)}"
+    lines = [header]
     msg = report.get("message")
     if isinstance(msg, str) and msg:
         lines.append(f"  {msg}")

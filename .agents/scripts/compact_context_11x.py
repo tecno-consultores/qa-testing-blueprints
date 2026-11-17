@@ -40,7 +40,11 @@ class CompactionResult:
 def _block_char_length(item: Any) -> int:
     if isinstance(item, str):
         return len(item)
-    if isinstance(item, dict) and set(item.keys()) <= {"type", "text"} and isinstance(item.get("text"), str):
+    if (
+        isinstance(item, dict)
+        and set(item.keys()) <= {"type", "text"}
+        and isinstance(item.get("text"), str)
+    ):
         return len(item["text"])
     return len(json.dumps(item, ensure_ascii=False, separators=(",", ":")))
 
@@ -60,7 +64,10 @@ def estimate_message_tokens(message: dict[str, Any]) -> int:
     total_chars = _content_char_length(message.get("content"))
     tool_calls = message.get("tool_calls")
     if tool_calls:
-        total_chars += len(json.dumps(tool_calls, ensure_ascii=False, separators=(",", ":")))
+        serialized = json.dumps(
+            tool_calls, ensure_ascii=False, separators=(",", ":")
+        )
+        total_chars += len(serialized)
     return math.ceil(total_chars / CHARS_PER_TOKEN) if total_chars > 0 else 0
 
 
@@ -76,7 +83,11 @@ def _is_tool_result_message(message: dict[str, Any]) -> bool:
     if message.get("role") == "tool":
         return True
     content = message.get("content")
-    return isinstance(content, list) and bool(content) and all(_is_tool_result_block(b) for b in content)
+    return (
+        isinstance(content, list)
+        and bool(content)
+        and all(_is_tool_result_block(b) for b in content)
+    )
 
 
 def _has_tool_calls(message: dict[str, Any]) -> bool:
@@ -90,21 +101,32 @@ def _has_tool_calls(message: dict[str, Any]) -> bool:
     )
 
 
-def _collect_tool_result_slots(messages: list[dict[str, Any]]) -> list[tuple[int, int | None]]:
+def _append_message_tool_slots(
+    slots: list[tuple[int, int | None]], msg_idx: int, msg: dict[str, Any]
+) -> None:
+    if msg.get("role") == "tool":
+        slots.append((msg_idx, None))
+        return
+    content = msg.get("content")
+    if not isinstance(content, list):
+        return
+    for block_idx, block in enumerate(content):
+        if _is_tool_result_block(block):
+            slots.append((msg_idx, block_idx))
+
+
+def _collect_tool_result_slots(
+    messages: list[dict[str, Any]],
+) -> list[tuple[int, int | None]]:
     slots: list[tuple[int, int | None]] = []
     for msg_idx, msg in enumerate(messages):
-        if msg.get("role") == "tool":
-            slots.append((msg_idx, None))
-            continue
-        content = msg.get("content")
-        if isinstance(content, list):
-            for block_idx, block in enumerate(content):
-                if _is_tool_result_block(block):
-                    slots.append((msg_idx, block_idx))
+        _append_message_tool_slots(slots, msg_idx, msg)
     return slots
 
 
-def _mask_single_slot(messages: list[dict[str, Any]], msg_idx: int, block_idx: int | None) -> int:
+def _mask_single_slot(
+    messages: list[dict[str, Any]], msg_idx: int, block_idx: int | None
+) -> int:
     if block_idx is None:
         if messages[msg_idx].get("content") == CLEARED_TOOL_MARKER:
             return 0
@@ -121,26 +143,39 @@ def apply_tier1_masking(
     messages: list[dict[str, Any]],
     keep_recent_tools: int = DEFAULT_KEEP_RECENT_TOOLS,
 ) -> tuple[list[dict[str, Any]], int]:
-    """Nivel 1: enmascara resultados de tools antiguos preservando los últimos N pares."""
+    """Nivel 1: enmascara resultados de tools antiguos preservando últimos N pares."""
     updated = copy.deepcopy(messages)
     slots = _collect_tool_result_slots(updated)
-    cutoff = len(slots) if keep_recent_tools <= 0 else max(0, len(slots) - keep_recent_tools)
-    masked = sum(_mask_single_slot(updated, msg_idx, blk_idx) for msg_idx, blk_idx in slots[:cutoff])
+    cutoff = (
+        len(slots)
+        if keep_recent_tools <= 0
+        else max(0, len(slots) - keep_recent_tools)
+    )
+    masked = sum(
+        _mask_single_slot(updated, msg_idx, blk_idx)
+        for msg_idx, blk_idx in slots[:cutoff]
+    )
     return updated, masked
 
 
-def _find_root_prefix(messages: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    first_user_idx: int | None = None
+def _find_first_user_index(messages: list[dict[str, Any]]) -> int | None:
     for idx, msg in enumerate(messages):
         if msg.get("role") == "user" and not _is_tool_result_message(msg):
-            first_user_idx = idx
-            break
+            return idx
+    return None
+
+
+def _find_root_prefix(
+    messages: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    first_user_idx = _find_first_user_index(messages)
     if first_user_idx is None:
         return [], list(messages)
     prefix: list[dict[str, Any]] = []
     rest: list[dict[str, Any]] = []
     for idx, msg in enumerate(messages):
-        if idx == first_user_idx or (idx < first_user_idx and msg.get("role") == "system"):
+        is_root_system = idx < first_user_idx and msg.get("role") == "system"
+        if idx == first_user_idx or is_root_system:
             prefix.append(msg)
         else:
             rest.append(msg)
@@ -175,7 +210,9 @@ def _needs_further_pruning(
 ) -> bool:
     if len(kept_groups) <= 1:
         return False
-    return (prefix_count + tail_count > keep_last_messages) or (projected_tokens > threshold_tokens)
+    return (prefix_count + tail_count > keep_last_messages) or (
+        projected_tokens > threshold_tokens
+    )
 
 
 def apply_tier2_atomic_prune(
@@ -184,7 +221,7 @@ def apply_tier2_atomic_prune(
     threshold_tokens: int,
     base_offset_tokens: int,
 ) -> tuple[list[dict[str, Any]], int]:
-    """Nivel 2: poda grupos antiguos preservando raíz y atomicidad tool_call <-> tool_result."""
+    """Nivel 2: poda grupos antiguos preservando raíz y atomicidad tool_call."""
     prefix, tail = _find_root_prefix(messages)
     groups = _group_atomic_units(tail)
     if not groups:
@@ -197,7 +234,12 @@ def apply_tier2_atomic_prune(
     dropped = 0
 
     while _needs_further_pruning(
-        kept, len(prefix), tail_count, keep_last_messages, base_offset_tokens + prefix_tokens + tail_tokens, threshold_tokens
+        kept,
+        len(prefix),
+        tail_count,
+        keep_last_messages,
+        base_offset_tokens + prefix_tokens + tail_tokens,
+        threshold_tokens,
     ):
         removed = kept.pop(0)
         dropped += len(removed)
@@ -215,16 +257,17 @@ def _validate_parameters(
     keep_last_messages: int,
     anchor_tokens: int,
 ) -> None:
-    if context_window <= 0:
-        raise ValueError("--context-window debe ser > 0.")
+    int_bounds = (
+        (context_window, 1, "--context-window debe ser > 0."),
+        (keep_recent_tools, 0, "--keep-recent-tools debe ser >= 0."),
+        (keep_last_messages, 1, "--keep-last-messages debe ser >= 1."),
+        (anchor_tokens, 0, "--anchor-tokens debe ser >= 0."),
+    )
+    for val, minimum, err_msg in int_bounds:
+        if val < minimum:
+            raise ValueError(err_msg)
     if not (0.0 < threshold_ratio <= 1.0):
         raise ValueError("--threshold-ratio debe estar en (0, 1].")
-    if keep_recent_tools < 0:
-        raise ValueError("--keep-recent-tools debe ser >= 0.")
-    if keep_last_messages < 1:
-        raise ValueError("--keep-last-messages debe ser >= 1.")
-    if anchor_tokens < 0:
-        raise ValueError("--anchor-tokens debe ser >= 0.")
 
 
 def compact_context(
@@ -237,7 +280,13 @@ def compact_context(
     keep_last_messages: int = DEFAULT_KEEP_LAST_MESSAGES,
 ) -> CompactionResult:
     """Ejecuta compactación determinista en 2 niveles sin LLM."""
-    _validate_parameters(context_window, threshold_ratio, keep_recent_tools, keep_last_messages, anchor_tokens)
+    _validate_parameters(
+        context_window,
+        threshold_ratio,
+        keep_recent_tools,
+        keep_last_messages,
+        anchor_tokens,
+    )
     threshold_tokens = int(context_window * threshold_ratio)
     raw_before = estimate_messages_tokens(messages)
     before_tokens = anchor_tokens + raw_before
@@ -256,7 +305,9 @@ def compact_context(
             uncompactable_single_message=oversized,
         )
 
-    tier1_msgs, masked_count = apply_tier1_masking(messages, keep_recent_tools=keep_recent_tools)
+    tier1_msgs, masked_count = apply_tier1_masking(
+        messages, keep_recent_tools=keep_recent_tools
+    )
     raw_after_t1 = estimate_messages_tokens(tier1_msgs)
     after_t1 = max(raw_after_t1, before_tokens - max(0, raw_before - raw_after_t1))
     tier_applied = 1 if masked_count > 0 else 0
@@ -298,6 +349,14 @@ def compact_context(
     )
 
 
+def _parse_anchor_tokens(raw_anchor: Any) -> int:
+    if raw_anchor is None:
+        return 0
+    if isinstance(raw_anchor, bool) or not isinstance(raw_anchor, int):
+        raise TypeError("'anchor_tokens' debe ser un entero.")
+    return raw_anchor
+
+
 def _extract_input_payload(raw_text: str) -> tuple[list[dict[str, Any]], int]:
     data = json.loads(raw_text)
     if isinstance(data, list):
@@ -305,9 +364,12 @@ def _extract_input_payload(raw_text: str) -> tuple[list[dict[str, Any]], int]:
         payload_anchor = 0
     elif isinstance(data, dict) and isinstance(data.get("messages"), list):
         messages = data["messages"]
-        payload_anchor = int(data.get("anchor_tokens", 0))
+        payload_anchor = _parse_anchor_tokens(data.get("anchor_tokens", 0))
     else:
-        raise TypeError("El JSON de entrada debe ser una lista de mensajes o un objeto con clave 'messages'.")
+        raise TypeError(
+            "El JSON de entrada debe ser una lista de mensajes "
+            "o un objeto con clave 'messages'."
+        )
     if not all(isinstance(item, dict) for item in messages):
         raise TypeError("Cada mensaje en 'messages' debe ser un objeto JSON.")
     return messages, payload_anchor
@@ -317,19 +379,23 @@ def _load_input_payload(input_path: str | None) -> tuple[list[dict[str, Any]], i
     if input_path is None or input_path == "-":
         if sys.stdin.isatty():
             raise PermissionError(
-                "[QA-CLI-TTY-01] Se requiere --input <json> o entrada por tubería stdin; TTY interactivo rechazado."
+                "[QA-CLI-TTY-01] Se requiere --input <json> o entrada por "
+                "tubería stdin; TTY interactivo rechazado."
             )
         return _extract_input_payload(sys.stdin.read())
-    if "\0" in input_path:
+    if not input_path.strip() or "\0" in input_path:
         raise ValueError("Ruta --input inválida.")
     resolved = Path(input_path).resolve()
-    return _extract_input_payload(resolved.read_text(encoding="utf-8"))
+    return _extract_input_payload(resolved.read_text(encoding="utf-8-sig"))
 
 
 def _write_output_atomic(output_path: str, result: CompactionResult) -> None:
-    if "\0" in output_path:
+    if not output_path.strip() or "\0" in output_path:
         raise ValueError("Ruta --output inválida.")
-    dest = Path(output_path).resolve()
+    raw_dest = Path(output_path)
+    if raw_dest.is_symlink():
+        raise ValueError("Symlink no permitido en --output.")
+    dest = raw_dest.resolve()
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = dest.parent / f".compact-{uuid.uuid4().hex}.tmp"
     payload = json.dumps(asdict(result), indent=2, ensure_ascii=False) + "\n"
@@ -343,15 +409,53 @@ def _write_output_atomic(output_path: str, result: CompactionResult) -> None:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Compactador determinista de contexto Zero-LLM en 2 niveles (QA-11X v3.1)."
+        description=(
+            "Compactador determinista de contexto Zero-LLM en 2 niveles "
+            "(QA-11X v3.1)."
+        )
     )
-    parser.add_argument("--input", type=str, default=None, help="Archivo JSON de mensajes (o '-' para stdin).")
-    parser.add_argument("--output", type=str, default=None, help="Archivo JSON de salida compactado.")
-    parser.add_argument("--anchor-tokens", type=int, default=None, help="Tokens base reportados del último turno.")
-    parser.add_argument("--context-window", type=int, default=DEFAULT_CONTEXT_WINDOW, help="Ventana de contexto total.")
-    parser.add_argument("--threshold-ratio", type=float, default=DEFAULT_THRESHOLD_RATIO, help="Umbral de disparo (0..1].")
-    parser.add_argument("--keep-recent-tools", type=int, default=DEFAULT_KEEP_RECENT_TOOLS, help="Pares recientes de tools a conservar.")
-    parser.add_argument("--keep-last-messages", type=int, default=DEFAULT_KEEP_LAST_MESSAGES, help="Mensajes máximos tras Tier 2.")
+    parser.add_argument(
+        "--input",
+        type=str,
+        default=None,
+        help="Archivo JSON de mensajes (o '-' para stdin).",
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Archivo JSON de salida compactado.",
+    )
+    parser.add_argument(
+        "--anchor-tokens",
+        type=int,
+        default=None,
+        help="Tokens base reportados del último turno.",
+    )
+    parser.add_argument(
+        "--context-window",
+        type=int,
+        default=DEFAULT_CONTEXT_WINDOW,
+        help="Ventana de contexto total.",
+    )
+    parser.add_argument(
+        "--threshold-ratio",
+        type=float,
+        default=DEFAULT_THRESHOLD_RATIO,
+        help="Umbral de disparo (0..1].",
+    )
+    parser.add_argument(
+        "--keep-recent-tools",
+        type=int,
+        default=DEFAULT_KEEP_RECENT_TOOLS,
+        help="Pares recientes de tools a conservar.",
+    )
+    parser.add_argument(
+        "--keep-last-messages",
+        type=int,
+        default=DEFAULT_KEEP_LAST_MESSAGES,
+        help="Mensajes máximos tras Tier 2.",
+    )
     return parser.parse_args(argv)
 
 
@@ -371,15 +475,24 @@ def main(argv: list[str] | None = None) -> int:
         )
         if args.output is not None:
             _write_output_atomic(args.output, result)
-    except (PermissionError, OSError, json.JSONDecodeError, TypeError, ValueError) as exc:
+    except (
+        PermissionError,
+        OSError,
+        json.JSONDecodeError,
+        TypeError,
+        ValueError,
+    ) as exc:
         print(f"❌ [compact-context] {exc}", file=sys.stderr)
         return 1
 
     oversized_flag = str(result.uncompactable_single_message).lower()
     print(
-        f"✅ [compact-context] tier_applied={result.tier_applied} before_tokens={result.before_tokens} "
-        f"after_tokens={result.after_tokens} threshold_tokens={result.threshold_tokens} "
-        f"masked_tool_results={result.masked_tool_results} dropped_messages={result.dropped_messages} "
+        f"✅ [compact-context] tier_applied={result.tier_applied} "
+        f"before_tokens={result.before_tokens} "
+        f"after_tokens={result.after_tokens} "
+        f"threshold_tokens={result.threshold_tokens} "
+        f"masked_tool_results={result.masked_tool_results} "
+        f"dropped_messages={result.dropped_messages} "
         f"uncompactable_single_message={oversized_flag}"
     )
     return 0

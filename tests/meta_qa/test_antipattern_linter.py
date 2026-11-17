@@ -279,3 +279,55 @@ def test_real_repo_vue3_and_react_frontend_pass_cleanly() -> None:
     assert payload["status"] == "passed"
     assert payload["violations"] == []
     assert payload["scanned_files"] >= 4
+
+
+def test_f10_8_hardening_comments_braces_in_strings_bom_and_null_bytes(
+    tmp_path: Path,
+) -> None:
+    # 1. Comentario bloque en línea NO debe ocultar waitForTimeout posterior;
+    #    comentario multilínea /* ... */ sin '*' SÍ debe ignorarse
+    _write_file(
+        tmp_path,
+        "tests/comments.spec.ts",
+        (
+            "/* safe */\n"
+            "/*\n"
+            "await page.waitForTimeout(999);\n"
+            "*/\n"
+            "/* inline */ await page.waitForTimeout(250);\n"
+        ),
+    )
+    # 2. Llaves dentro de strings en Page Object no truncan el conteo de métodos
+    methods = "\n".join(
+        f'  step{i}(): string {{ return "}}"; }}' for i in range(50)
+    )
+    _write_file(
+        tmp_path,
+        "tests/pages/BracesStringPage.TS",
+        f"export class BracesStringPage {{\n{methods}\n}}\n",
+    )
+    # 3. Comentario con getBoundingClientRect en JSDOM ignorado; llamada real sí falla
+    jsdom_content = (
+        "\ufeff// @vitest-environment jsdom\n"
+        "// Avoid getBoundingClientRect() here\n"
+        "const w = document.body.offsetWidth;\n"
+    )
+    (tmp_path / "tests" / "geom.unit.ts").write_bytes(
+        jsdom_content.encode("utf-8")
+    )
+
+    violations, missing, scanned = linter.audit_paths(
+        ["tests", "bad\0path.ts"], base_dir=tmp_path
+    )
+    assert missing == ["bad\0path.ts"]
+    assert scanned == 3
+    anti_001 = [v for v in violations if v.rule_id == "QA-UI-ANTI-001"]
+    assert [v.line for v in anti_001] == [5]
+    anti_003 = [v for v in violations if v.rule_id == "QA-UI-ANTI-003"]
+    assert len(anti_003) == 1
+    assert anti_003[0].file == "tests/pages/BracesStringPage.TS"
+    anti_005 = [v for v in violations if v.rule_id == "QA-UI-ANTI-005"]
+    assert [v.line for v in anti_005] == [3]
+
+    unclosed = "export class UnclosedPage { step1() {"
+    assert linter._find_ts_class_end(unclosed, unclosed.index("{")) == len(unclosed)

@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "3.1.0",
-  "generated_at_utc": "2026-11-17T06:47:31Z",
+  "generated_at_utc": "2026-11-17T07:40:56Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -1070,8 +1070,8 @@
       "path": ".agents/scripts/audit_pagespeed_insights.py",
       "target_name": ".agents/scripts/audit_pagespeed_insights.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "a612227367d8a2df1140ddbf488118578c044cb9cb70fd27ad637539d6992f5f",
-      "size_bytes": 18149
+      "sha256": "2accb1371d0117cc45807733b4d225dbd9989c8117839c70e013cf4a54fa5567",
+      "size_bytes": 20017
     },
     {
       "path": ".agents/scripts/bump_version_11x.py",
@@ -1091,43 +1091,43 @@
       "path": ".agents/scripts/checkpoint_ctl.py",
       "target_name": ".agents/scripts/checkpoint_ctl.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "20b994c1662d8135738b80c907e17ee340cd703428aec07fed82d52a649386b0",
-      "size_bytes": 29869
+      "sha256": "ad8b41b929f5789c70f86ef251a5b71b150cffaf25b8b17004c561f9bd815b2e",
+      "size_bytes": 31392
     },
     {
       "path": ".agents/scripts/compact_context_11x.py",
       "target_name": ".agents/scripts/compact_context_11x.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "b87abb654f59bd240009a189f254db782bcb14e82f5b2d3ad893873d7709e5a1",
-      "size_bytes": 14804
+      "sha256": "3b0aee68d22ceb35f687f90c7e7ccd21e7d32f1ab283803b3c2e8c5cc07f352b",
+      "size_bytes": 16294
     },
     {
       "path": ".agents/scripts/generate_pr_verdict.py",
       "target_name": ".agents/scripts/generate_pr_verdict.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "fe30aaf9d75b30bb161d785c81123bfbdad8623f66a07da1093db8991e3c0ed2",
-      "size_bytes": 27916
+      "sha256": "c1ff0dc65caf67a9f90b266f5230e3625b78d6006151af326c8683afeebbb38f",
+      "size_bytes": 30055
     },
     {
       "path": ".agents/scripts/inspect_blast_radius.py",
       "target_name": ".agents/scripts/inspect_blast_radius.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "bace4a02580b844137ce574add5df956beb195318f916a228b5f16c28af853a7",
-      "size_bytes": 15764
+      "sha256": "6ceb927c1ce426283c7c5ae55646a3d453c9d95317785445cc83ca8dc47791d7",
+      "size_bytes": 16262
     },
     {
       "path": ".agents/scripts/lint_test_antipatterns.py",
       "target_name": ".agents/scripts/lint_test_antipatterns.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "32333905083fc980780cf9fa7b2e35e719c0d695d4cf81ff3f2ca2ef3a9a4fd3",
-      "size_bytes": 17811
+      "sha256": "1d8a1a056c7c4b7e1f912601cc3549ff8d6b6f3528db254f5c141e0bbbb5ec26",
+      "size_bytes": 18370
     },
     {
       "path": ".agents/scripts/release_readiness_gate.py",
       "target_name": ".agents/scripts/release_readiness_gate.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "87b7fd41d1fe34ac49d325b6c8a815e6734ff49f64c9859185eb5d6eecb669d7",
-      "size_bytes": 29816
+      "sha256": "872b405f043dbeab4aadfb246528666cdc34c9ed3b6018b92aefa39921a0ad3f",
+      "size_bytes": 32899
     },
     {
       "path": ".agents/scripts/select_tests_by_blast_radius.py",
@@ -1161,36 +1161,36 @@
       "path": ".agents/scripts/verify_alembic_orm_parity.py",
       "target_name": ".agents/scripts/verify_alembic_orm_parity.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "74e700304c2305ba046ad7c2ba715ceb1c9f968fa88c82a2696b91c5a2482770",
-      "size_bytes": 7111
+      "sha256": "c72e3e3a09529ca22de800b703ee535a59276944e988e9743b9d4532d50470e9",
+      "size_bytes": 15361
     },
     {
       "path": ".agents/scripts/verify_diff_coverage.py",
       "target_name": ".agents/scripts/verify_diff_coverage.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "a97652c2771acc6835b9d639aa91f61bd0566a55bf8bfd379c2d0a04c30d8080",
-      "size_bytes": 28405
+      "sha256": "62761b9ce352da5292b8b4586b4ae6e85dc553e43f03e77275c263994878c65e",
+      "size_bytes": 30210
     },
     {
       "path": ".agents/scripts/verify_docs_invariants.py",
       "target_name": ".agents/scripts/verify_docs_invariants.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "35c1f5b4f78081d9aab58c8bcd1b05fa2c9dcc64005d413018921ed84154d66b",
-      "size_bytes": 60554
+      "sha256": "59dc6e1271721a0ac364ce2d19387a18b4ed0210b6690eddf297e11eca10e432",
+      "size_bytes": 61480
     },
     {
       "path": ".agents/scripts/verify_json_no_duplicate_keys.py",
       "target_name": ".agents/scripts/verify_json_no_duplicate_keys.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "6dae822b3c0c2723ac53014595a8f5e967369f02bbb2270530d4668eabd1630a",
-      "size_bytes": 2970
+      "sha256": "1bf86b776d205b894194aedc1a580c3c436fcfa22453ffc73543bdf2a87f366e",
+      "size_bytes": 3497
     },
     {
       "path": ".agents/scripts/verify_no_orphan_api_endpoints.py",
       "target_name": ".agents/scripts/verify_no_orphan_api_endpoints.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "bbb485acb47f0799396e29ae28d507918edf66afa4600e4e5bc662595fd75ee1",
-      "size_bytes": 17943
+      "sha256": "4b6bd6a9db84148f13535f37208b31a132779935d915e6f6557d84ed3c08a3af",
+      "size_bytes": 37601
     },
     {
       "path": ".agents/scripts/verify_roadmap_consistency.py",
@@ -1203,15 +1203,15 @@
       "path": ".agents/scripts/verify_topological_health.py",
       "target_name": ".agents/scripts/verify_topological_health.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "e52c5f4ced4cbe19bac741470a051acb4458fbebf30565d6e2f25ea5e6c86f0b",
-      "size_bytes": 5818
+      "sha256": "873d247d4357f24c1076ab346078c81c50eb776924ea4c7862c32e84bb424421",
+      "size_bytes": 6910
     },
     {
       "path": ".agents/scripts/verify_zero_orphan_vue_components.py",
       "target_name": ".agents/scripts/verify_zero_orphan_vue_components.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "e02dba615564b978134508d0e705b234c0e12b63f7906b776620403161a0b01e",
-      "size_bytes": 5802
+      "sha256": "358d0a3eff1cf7dfe7161d4ac8ca07bbe761f0f8a4234f51029d11a73539c8c6",
+      "size_bytes": 8392
     },
     {
       "path": ".agents/skills/docker-trivy-keydb-hardening/SKILL.md",

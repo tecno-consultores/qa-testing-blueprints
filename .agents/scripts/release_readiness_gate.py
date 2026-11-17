@@ -78,7 +78,9 @@ class DefectsSummary:
     qa_escapes: int
 
 
-def _security_reason(code: str, metric: str, actual: str, message: str) -> BlockingReason:
+def _security_reason(
+    code: str, metric: str, actual: str, message: str
+) -> BlockingReason:
     return BlockingReason(
         code=code,
         signal="security",
@@ -176,37 +178,42 @@ def _resolve_contained_path(
     return _validate_real_path(root_resolved, lexical, raw_path, reasons, must_exist)
 
 
-def _validate_real_path(
+def _validate_existing_real_path(
     root_resolved: Path,
     lexical: Path,
     raw_path: str,
     reasons: list[BlockingReason],
-    must_exist: bool,
 ) -> Path | None:
-    if must_exist:
-        if not lexical.exists() or not lexical.is_file():
-            reasons.append(
-                _security_reason(
-                    "FILE_NOT_FOUND",
-                    "path",
-                    raw_path,
-                    f"Archivo requerido no encontrado: '{raw_path}'.",
-                )
+    if not lexical.exists() or not lexical.is_file():
+        reasons.append(
+            _security_reason(
+                "FILE_NOT_FOUND",
+                "path",
+                raw_path,
+                f"Archivo requerido no encontrado: '{raw_path}'.",
             )
-            return None
-        real_target = lexical.resolve()
-        if not _is_contained(root_resolved, real_target):
-            reasons.append(
-                _security_reason(
-                    "PATH_TRAVERSAL",
-                    "path",
-                    raw_path,
-                    f"Enlace simbólico fuera del workspace detectado en '{raw_path}'.",
-                )
+        )
+        return None
+    real_target = lexical.resolve()
+    if not _is_contained(root_resolved, real_target):
+        reasons.append(
+            _security_reason(
+                "PATH_TRAVERSAL",
+                "path",
+                raw_path,
+                f"Enlace simbólico fuera del workspace detectado en '{raw_path}'.",
             )
-            return None
-        return real_target
+        )
+        return None
+    return real_target
 
+
+def _validate_output_real_path(
+    root_resolved: Path,
+    lexical: Path,
+    raw_path: str,
+    reasons: list[BlockingReason],
+) -> Path | None:
     parent_real = lexical.parent.resolve()
     if not _is_contained(root_resolved, parent_real):
         reasons.append(
@@ -218,7 +225,30 @@ def _validate_real_path(
             )
         )
         return None
-    return parent_real / lexical.name
+    target = parent_real / lexical.name
+    if target.is_symlink() or not _is_contained(root_resolved, target.resolve()):
+        reasons.append(
+            _security_reason(
+                "PATH_TRAVERSAL",
+                "path",
+                raw_path,
+                f"Enlace simbólico fuera del workspace detectado en '{raw_path}'.",
+            )
+        )
+        return None
+    return target
+
+
+def _validate_real_path(
+    root_resolved: Path,
+    lexical: Path,
+    raw_path: str,
+    reasons: list[BlockingReason],
+    must_exist: bool,
+) -> Path | None:
+    if must_exist:
+        return _validate_existing_real_path(root_resolved, lexical, raw_path, reasons)
+    return _validate_output_real_path(root_resolved, lexical, raw_path, reasons)
 
 
 def _empty_junit() -> JunitSummary:
@@ -238,10 +268,12 @@ def _parse_non_neg_int(raw_val: str | None) -> int:
     if raw_val is None or not raw_val.strip():
         return 0
     try:
-        parsed = int(float(raw_val.strip()))
+        fval = float(raw_val.strip())
     except ValueError:
         return 0
-    return max(0, parsed)
+    if not math.isfinite(fval):
+        return 0
+    return max(0, int(fval))
 
 
 def _collect_suite_elements(root: Any) -> tuple[int, int, int, int]:
@@ -263,6 +295,17 @@ def _collect_suite_elements(root: Any) -> tuple[int, int, int, int]:
     )
 
 
+def _testcase_label(case: Any) -> str:
+    classname = (case.attrib.get("classname") or "").strip()
+    name = (case.attrib.get("name") or "unnamed-test").strip()
+    return f"{classname}::{name}" if classname else name
+
+
+def _record_failed_name(failed_names: list[str], label: str) -> None:
+    if label not in failed_names and len(failed_names) < MAX_FAILED_TESTS_REPORTED:
+        failed_names.append(label)
+
+
 def _collect_testcases(root: Any) -> tuple[int, int, int, int, list[str]]:
     cases = list(root.iter("testcase"))
     obs_failures = 0
@@ -271,24 +314,13 @@ def _collect_testcases(root: Any) -> tuple[int, int, int, int, list[str]]:
     failed_names: list[str] = []
 
     for case in cases:
-        classname = (case.attrib.get("classname") or "").strip()
-        name = (case.attrib.get("name") or "unnamed-test").strip()
-        label = f"{classname}::{name}" if classname else name
         has_failure = case.find("failure") is not None
         has_error = case.find("error") is not None
-        has_skipped = case.find("skipped") is not None
-        if has_failure:
-            obs_failures += 1
-        if has_error:
-            obs_errors += 1
-        if has_skipped:
-            obs_skipped += 1
-        if (
-            (has_failure or has_error)
-            and label not in failed_names
-            and len(failed_names) < MAX_FAILED_TESTS_REPORTED
-        ):
-            failed_names.append(label)
+        obs_failures += int(has_failure)
+        obs_errors += int(has_error)
+        obs_skipped += int(case.find("skipped") is not None)
+        if has_failure or has_error:
+            _record_failed_name(failed_names, _testcase_label(case))
 
     return len(cases), obs_failures, obs_errors, obs_skipped, failed_names
 
@@ -363,7 +395,19 @@ def _load_junit_from_path(
     )
     if safe_path is None:
         return _empty_junit()
-    return _parse_junit_xml_text(safe_path.read_text(encoding="utf-8"), reasons)
+    try:
+        raw_xml = safe_path.read_text(encoding="utf-8-sig")
+    except (OSError, UnicodeDecodeError) as exc:
+        reasons.append(
+            _security_reason(
+                "INVALID_XML",
+                "junit.xml",
+                junit_path,
+                f"No se pudo leer XML JUnit '{junit_path}': {exc}",
+            )
+        )
+        return _empty_junit()
+    return _parse_junit_xml_text(raw_xml, reasons)
 
 
 def _load_json_dict(
@@ -379,8 +423,8 @@ def _load_json_dict(
     if safe_path is None:
         return None
     try:
-        parsed = json.loads(safe_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
+        parsed = json.loads(safe_path.read_text(encoding="utf-8-sig"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         reasons.append(
             _security_reason(
                 "INVALID_JSON", rel_path, "invalid-json", f"JSON inválido: {exc}"
@@ -440,7 +484,11 @@ def _normalize_telemetry(
 ) -> TelemetrySummary:
     if raw is None:
         return TelemetrySummary(
-            provided=False, error_rate_pct=0.0, p95_ms=0.0, p99_ms=0.0, active_incidents=0
+            provided=False,
+            error_rate_pct=0.0,
+            p95_ms=0.0,
+            p99_ms=0.0,
+            active_incidents=0,
         )
     nested = raw.get("metrics")
     merged = {**nested, **raw} if isinstance(nested, dict) else raw
@@ -512,7 +560,9 @@ def _normalize_defects(
 
 
 def _evaluate_junit_reasons(
-    junit: JunitSummary, thresholds: dict[str, float | int], reasons: list[BlockingReason]
+    junit: JunitSummary,
+    thresholds: dict[str, float | int],
+    reasons: list[BlockingReason],
 ) -> None:
     if not junit.provided or junit.total_tests == 0 or junit.executed_tests == 0:
         reasons.append(
@@ -522,7 +572,10 @@ def _evaluate_junit_reasons(
                 metric="junit.executed_tests",
                 actual=junit.executed_tests,
                 threshold=">= 1",
-                message="No se ejecutaron pruebas funcionales en alcance full (ZERO_TESTS_EXECUTED).",
+                message=(
+                    "No se ejecutaron pruebas funcionales en alcance full "
+                    "(ZERO_TESTS_EXECUTED)."
+                ),
             )
         )
         return
@@ -557,7 +610,10 @@ def _evaluate_junit_reasons(
                 metric="junit.pass_rate_pct",
                 actual=junit.pass_rate_pct,
                 threshold=min_rate,
-                message=f"Tasa de éxito JUnit ({junit.pass_rate_pct}%) inferior al mínimo ({min_rate}%).",
+                message=(
+                    f"Tasa de éxito JUnit ({junit.pass_rate_pct}%) "
+                    f"inferior al mínimo ({min_rate}%)."
+                ),
             )
         )
 
@@ -579,7 +635,10 @@ def _check_max(
                 metric=metric,
                 actual=actual,
                 threshold=threshold,
-                message=f"{metric}={actual}{unit} excede el máximo permitido ({threshold}{unit}).",
+                message=(
+                    f"{metric}={actual}{unit} excede el máximo permitido "
+                    f"({threshold}{unit})."
+                ),
             )
         )
 
@@ -664,7 +723,10 @@ def _format_failure_summary(
 ) -> str:
     mode = "DRY-RUN" if dry_run else "ENFORCE"
     lines = [
-        f"❌ [RELEASE-GATE] NO_GO (scope={scope}, mode={mode}, utc={utc_ts}, hallazgos={len(reasons)})"
+        (
+            f"❌ [RELEASE-GATE] NO_GO (scope={scope}, mode={mode}, "
+            f"utc={utc_ts}, hallazgos={len(reasons)})"
+        )
     ]
     for idx, reason in enumerate(reasons, 1):
         lines.append(
@@ -684,14 +746,30 @@ def _render_markdown(report: dict[str, Any]) -> str:
         "# 🛡️ Release Readiness Gate Report",
         "",
         f"- **Decisión:** `{report['decision']}`",
-        f"- **Alcance:** `{report['scope']}` (`dry_run={report['dry_run']}`, `gate_skipped={report['gate_skipped']}`)",
+        (
+            f"- **Alcance:** `{report['scope']}` "
+            f"(`dry_run={report['dry_run']}`, "
+            f"`gate_skipped={report['gate_skipped']}`)"
+        ),
         f"- **Evaluado (UTC):** `{report['evaluated_at_utc']}`",
         "",
         "## Señales Evaluadas",
         "",
-        f"- **JUnit:** {junit['executed_tests']}/{junit['total_tests']} ejecutados, {junit['pass_rate_pct']}% éxito, failures={junit['failures']}, errors={junit['errors']}",
-        f"- **Telemetría:** error_rate={telemetry['error_rate_pct']}%, p95={telemetry['p95_ms']}ms, p99={telemetry['p99_ms']}ms, active_incidents={telemetry['active_incidents']}",
-        f"- **Defectos:** blockers={defects['open_blockers']}, criticals={defects['open_criticals']}, qa_escapes={defects['qa_escapes']}",
+        (
+            f"- **JUnit:** {junit['executed_tests']}/{junit['total_tests']} "
+            f"ejecutados, {junit['pass_rate_pct']}% éxito, "
+            f"failures={junit['failures']}, errors={junit['errors']}"
+        ),
+        (
+            f"- **Telemetría:** error_rate={telemetry['error_rate_pct']}%, "
+            f"p95={telemetry['p95_ms']}ms, p99={telemetry['p99_ms']}ms, "
+            f"active_incidents={telemetry['active_incidents']}"
+        ),
+        (
+            f"- **Defectos:** blockers={defects['open_blockers']}, "
+            f"criticals={defects['open_criticals']}, "
+            f"qa_escapes={defects['qa_escapes']}"
+        ),
         "",
     ]
     reasons = report["blocking_reasons"]
@@ -700,11 +778,40 @@ def _render_markdown(report: dict[str, Any]) -> str:
         lines.append("")
         for reason in reasons:
             lines.append(
-                f"- **[{reason['code']}]** `{reason['metric']}` = `{reason['actual']}` (umbral: `{reason['threshold']}`) — {reason['message']}"
+                f"- **[{reason['code']}]** `{reason['metric']}` = "
+                f"`{reason['actual']}` (umbral: `{reason['threshold']}`) — "
+                f"{reason['message']}"
             )
     else:
         lines.append("## Hallazgos Bloqueantes\n\nSin bloqueos detectados.")
     return "\n".join(lines) + "\n"
+
+
+def _validate_thresholds(
+    thresholds: dict[str, float | int], reasons: list[BlockingReason]
+) -> None:
+    for key, raw_val in thresholds.items():
+        if isinstance(raw_val, bool) or not isinstance(raw_val, (int, float)):
+            reasons.append(
+                _security_reason(
+                    "INVALID_INPUT",
+                    key,
+                    str(raw_val),
+                    f"Umbral '{key}' inválido: debe ser numérico.",
+                )
+            )
+            continue
+        fval = float(raw_val)
+        upper = 100.0 if key == "min_pass_rate_pct" else math.inf
+        if not math.isfinite(fval) or fval < 0 or fval > upper:
+            reasons.append(
+                _security_reason(
+                    "INVALID_INPUT",
+                    key,
+                    str(raw_val),
+                    f"Umbral '{key}' fuera de rango válido: {raw_val!r}.",
+                )
+            )
 
 
 def evaluate_release_gate(
@@ -721,6 +828,7 @@ def evaluate_release_gate(
     """Evalúa las 3 señales y retorna (exit_code, reporte_dict)."""
     merged_thresholds = {**DEFAULT_THRESHOLDS, **(thresholds or {})}
     sec_reasons: list[BlockingReason] = []
+    _validate_thresholds(merged_thresholds, sec_reasons)
 
     if scope not in (SCOPE_FULL, SCOPE_SMOKE):
         sec_reasons.append(
@@ -849,6 +957,31 @@ def _build_report(
     }
 
 
+def _write_single_artifact(
+    workspace_root: Path,
+    raw_path: str,
+    content: str,
+    errors: list[BlockingReason],
+) -> None:
+    safe_dest = _resolve_contained_path(
+        workspace_root, raw_path, errors, must_exist=False
+    )
+    if safe_dest is None:
+        return
+    try:
+        safe_dest.parent.mkdir(parents=True, exist_ok=True)
+        safe_dest.write_text(content, encoding="utf-8")
+    except OSError as exc:
+        errors.append(
+            _security_reason(
+                "INVALID_INPUT",
+                "output",
+                raw_path,
+                f"No se pudo escribir el artefacto '{raw_path}': {exc}",
+            )
+        )
+
+
 def _write_artifacts(
     workspace_root: Path,
     output_json: str | None,
@@ -857,22 +990,12 @@ def _write_artifacts(
 ) -> list[BlockingReason]:
     errors: list[BlockingReason] = []
     if output_json is not None:
-        safe_json = _resolve_contained_path(
-            workspace_root, output_json, errors, must_exist=False
-        )
-        if safe_json is not None:
-            safe_json.parent.mkdir(parents=True, exist_ok=True)
-            safe_json.write_text(
-                json.dumps(report, indent=2, ensure_ascii=False) + "\n",
-                encoding="utf-8",
-            )
+        payload = json.dumps(report, indent=2, ensure_ascii=False) + "\n"
+        _write_single_artifact(workspace_root, output_json, payload, errors)
     if output_md is not None:
-        safe_md = _resolve_contained_path(
-            workspace_root, output_md, errors, must_exist=False
+        _write_single_artifact(
+            workspace_root, output_md, _render_markdown(report), errors
         )
-        if safe_md is not None:
-            safe_md.parent.mkdir(parents=True, exist_ok=True)
-            safe_md.write_text(_render_markdown(report), encoding="utf-8")
     return errors
 
 
@@ -891,10 +1014,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--dry-run", action="store_true", default=True)
     parser.add_argument("--enforce", action="store_true", default=False)
     parser.add_argument(
-        "--min-pass-rate", type=float, default=float(DEFAULT_THRESHOLDS["min_pass_rate_pct"])
+        "--min-pass-rate",
+        type=float,
+        default=float(DEFAULT_THRESHOLDS["min_pass_rate_pct"]),
     )
     parser.add_argument(
-        "--max-error-rate", type=float, default=float(DEFAULT_THRESHOLDS["max_error_rate_pct"])
+        "--max-error-rate",
+        type=float,
+        default=float(DEFAULT_THRESHOLDS["max_error_rate_pct"]),
     )
     parser.add_argument(
         "--max-p95-ms", type=float, default=float(DEFAULT_THRESHOLDS["max_p95_ms"])
@@ -912,7 +1039,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--max-criticals",
-        "--max-criticaIs",
         dest="max_criticals",
         type=int,
         default=int(DEFAULT_THRESHOLDS["max_open_criticals"]),
@@ -930,7 +1056,9 @@ def main(argv: list[str] | None = None) -> int:
     """Punto de entrada CLI no interactivo."""
     args = parse_args(argv)
     workspace_root = (
-        Path(args.workspace_root).resolve() if args.workspace_root else Path.cwd().resolve()
+        Path(args.workspace_root).resolve()
+        if args.workspace_root
+        else Path.cwd().resolve()
     )
     dry_run = not bool(args.enforce)
     thresholds: dict[str, float | int] = {

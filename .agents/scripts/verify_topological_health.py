@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -19,12 +20,23 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 _IGNORED_DIRS = frozenset(
-    {"node_modules", ".venv", ".trivycache", "dist", "coverage", "vendor", "target"}
+    {
+        "node_modules",
+        ".venv",
+        ".git",
+        ".trivycache",
+        "dist",
+        "coverage",
+        "vendor",
+        "target",
+        ".pytest_cache",
+        ".mypy_cache",
+    }
 )
-_DOMAIN_RE = re.compile(r"(?:^|/)src/(?:models|schemas|core|domain)/")
-_API_RE = re.compile(r"(?:^|/)src/(?:api|controllers)/")
-_UI_COMMON_RE = re.compile(r"(?:^|/)src/components/common/")
-_UI_VIEWS_RE = re.compile(r"(?:^|/)src/(?:views|pages)/")
+_DOMAIN_RE = re.compile(r"(?:^|/)(?:src/)?(?:models|schemas|core|domain)/")
+_API_RE = re.compile(r"(?:^|/)(?:src/)?(?:api|controllers|routes)/")
+_UI_COMMON_RE = re.compile(r"(?:^|/)(?:src/)?components/common/")
+_UI_VIEWS_RE = re.compile(r"(?:^|/)(?:src/)?(?:views|pages)/")
 
 _LAYER_RULES: tuple[tuple[re.Pattern[str], re.Pattern[str], str], ...] = (
     (
@@ -40,19 +52,22 @@ _LAYER_RULES: tuple[tuple[re.Pattern[str], re.Pattern[str], str], ...] = (
 )
 
 
+def _record_unique_graph(seen: dict[Path, Path], candidate: Path) -> None:
+    resolved = candidate.resolve()
+    prev = seen.get(resolved)
+    if prev is None or (prev.is_symlink() and not candidate.is_symlink()):
+        seen[resolved] = candidate
+
+
 def find_graph_files(target_root: Path | None = None) -> list[Path]:
     root = target_root or REPO_ROOT
-    graphs: list[Path] = []
-    seen: set[Path] = set()
-    for pattern in ("**/graphify-out/graph.json", "**/graph.json"):
-        for path in sorted(root.glob(pattern)):
-            resolved = path.resolve()
-            rel_parts = path.relative_to(root).parts
-            if resolved in seen or any(part in _IGNORED_DIRS for part in rel_parts):
-                continue
-            seen.add(resolved)
-            graphs.append(path)
-    return graphs
+    seen: dict[Path, Path] = {}
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = sorted(d for d in dirnames if d not in _IGNORED_DIRS)
+        current_dir = Path(dirpath)
+        if current_dir.name == "graphify-out" and "graph.json" in filenames:
+            _record_unique_graph(seen, current_dir / "graph.json")
+    return sorted(seen.values(), key=lambda p: p.as_posix())
 
 
 def load_graph(path: Path) -> dict[str, Any]:
@@ -61,6 +76,14 @@ def load_graph(path: Path) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError("El grafo AST debe contener un objeto JSON en la raíz.")
     return data
+
+
+def _display_graph_path(graph_path: Path) -> str:
+    try:
+        return graph_path.relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        parent = graph_path.parent.name
+        return f"{parent}/{graph_path.name}" if parent else graph_path.name
 
 
 def _resolve_link_files(
@@ -98,14 +121,16 @@ def _check_link_violations(
 def audit_layers(
     graph: dict[str, Any], graph_path: Path
 ) -> tuple[list[str], dict[str, Any]]:
-    _ = graph_path
+    graph_label = _display_graph_path(graph_path)
     nodes = {str(n["id"]): n for n in graph.get("nodes", [])}
     links = graph.get("links", [])
     violations: list[str] = []
     for link in links:
-        violations.extend(_check_link_violations(link, nodes))
+        for msg in _check_link_violations(link, nodes):
+            violations.append(f"[{graph_label}] {msg}")
 
     stats = {
+        "graph_file": graph_label,
         "nodes": len(nodes),
         "links": len(links),
         "communities": len({n.get("community", 0) for n in nodes.values()}),
@@ -123,18 +148,30 @@ def _audit_graphs(graph_files: list[Path]) -> tuple[list[str], int, int]:
             violations, stats = audit_layers(graph, g_path)
             total_nodes += int(stats["nodes"])
             total_links += int(stats["links"])
-            all_violations.extend(f"[{g_path.name}] {v}" for v in violations)
+            all_violations.extend(violations)
         except Exception as exc:
             print(f"❌ Error procesando grafo {g_path}: {exc}")
+            label = _display_graph_path(g_path)
             all_violations.append(
-                f"[{g_path.name}] Grafo AST corrupto o ilegible (Fail-Secure): {exc}"
+                f"[{label}] Grafo AST corrupto o ilegible (Fail-Secure): {exc}"
             )
     return all_violations, total_nodes, total_links
 
 
-def main(target_root: Path | None = None, exit_skipped_code: int = 0) -> int:
-    root = target_root or REPO_ROOT
-    graph_files = find_graph_files(root)
+def _resolve_graph_targets(
+    target_root: Path | None, graph_file: Path | None
+) -> list[Path]:
+    if graph_file is not None:
+        return [graph_file]
+    return find_graph_files(target_root or REPO_ROOT)
+
+
+def main(
+    target_root: Path | None = None,
+    exit_skipped_code: int = 0,
+    graph_file: Path | None = None,
+) -> int:
+    graph_files = _resolve_graph_targets(target_root, graph_file)
     if not graph_files:
         print("⚠️ SKIPPED [AST Topology]: 0 grafos AST (graph.json) detectados.")
         return exit_skipped_code
@@ -158,6 +195,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         description="Audita salud topológica y límites de capas Graphify AST."
     )
     parser.add_argument("target_root", nargs="?", type=Path, default=None)
+    parser.add_argument("--graph", type=Path, default=None)
     parser.add_argument("--exit-skipped-code", type=int, default=0)
     return parser.parse_args(argv)
 
@@ -167,6 +205,7 @@ def cli_main(argv: list[str] | None = None) -> int:
     return main(
         target_root=args.target_root,
         exit_skipped_code=args.exit_skipped_code,
+        graph_file=args.graph,
     )
 
 

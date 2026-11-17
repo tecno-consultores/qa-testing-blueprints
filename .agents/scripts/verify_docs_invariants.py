@@ -7,24 +7,36 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from types import ModuleType
 from typing import Any
 
-_SCRIPTS_DIR = str(Path(__file__).resolve().parent)
-if _SCRIPTS_DIR not in sys.path:
-    sys.path.insert(0, _SCRIPTS_DIR)
 
-from _budgets import (  # noqa: E402
-    ACTIVE_TASK_MAX_LINES,
-    ACTIVE_TASK_RULE_MAX_LINES,
-    ARCHITECT_SKILL_MAX_BYTES,
-    SKILL_MAX_BYTES,
-    TACTICAL_SKILL_MAX_BYTES,
-)
+def _load_budgets_module() -> ModuleType:
+    existing = sys.modules.get("_budgets")
+    if existing is not None:
+        return existing
+    budgets_path = Path(__file__).resolve().parent / "_budgets.py"
+    spec = importlib.util.spec_from_file_location("_budgets", budgets_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"No se pudo cargar _budgets desde {budgets_path}")
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["_budgets"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+_BUDGETS = _load_budgets_module()
+SKILL_MAX_BYTES: int = int(_BUDGETS.SKILL_MAX_BYTES)
+ARCHITECT_SKILL_MAX_BYTES: int = int(_BUDGETS.ARCHITECT_SKILL_MAX_BYTES)
+TACTICAL_SKILL_MAX_BYTES: int = int(_BUDGETS.TACTICAL_SKILL_MAX_BYTES)
+ACTIVE_TASK_MAX_LINES: int = int(_BUDGETS.ACTIVE_TASK_MAX_LINES)
+ACTIVE_TASK_RULE_MAX_LINES: int = int(_BUDGETS.ACTIVE_TASK_RULE_MAX_LINES)
 
 MAX_SKILL_MD_BYTES = SKILL_MAX_BYTES
 MAX_ARCHITECT_SKILL_BYTES = ARCHITECT_SKILL_MAX_BYTES
@@ -1115,8 +1127,10 @@ def _check_ref_controls_matrix(root: Path, expected_ref: int) -> list[str]:
     hdr = re.search(r"Compliance Matrix:\s*(\d+)\s+Security Controls", text)
     if hdr and int(hdr.group(1)) != expected_ref:
         return [
-            f"02-security-disa-owasp-22.md declara {hdr.group(1)} controles "
-            f"pero la matriz contiene {expected_ref}."
+            (
+                f"02-security-disa-owasp-22.md declara {hdr.group(1)} controles "
+                f"pero la matriz contiene {expected_ref}."
+            )
         ]
     return []
 
@@ -1565,8 +1579,10 @@ def _check_skill_entries(
     if not isinstance(skills_raw, list) or len(skills_raw) != expected_skills:
         count = len(skills_raw) if isinstance(skills_raw, list) else "invalid"
         return [
-            f"{rel_file}: se esperan {expected_skills} skills reales "
-            f"(encontradas={count})."
+            (
+                f"{rel_file}: se esperan {expected_skills} skills reales "
+                f"(encontradas={count})."
+            )
         ]
     errors: list[str] = []
     seen_ids: list[str] = []
@@ -1703,8 +1719,10 @@ def _validate_root_manifest(root: Path, counts: RepoExpectedCounts) -> list[str]
         return []
     found = len(stacks) if isinstance(stacks, dict) else "invalid"
     return [
-        f"manifest.json: se esperan {counts.blueprints} stacks "
-        f"(encontradas={found})."
+        (
+            f"manifest.json: se esperan {counts.blueprints} stacks "
+            f"(encontradas={found})."
+        )
     ]
 
 
@@ -1779,8 +1797,13 @@ def main(argv: list[str] | None = None) -> int:
     target_root = (
         Path(raw_target).resolve()
         if raw_target
-        else Path(__file__).resolve().parents[2]
+        else Path(__file__).resolve().parent.parent.parent
     )
+    if not target_root.is_dir():
+        print(
+            f"❌ [Docs Invariants] Workspace inválido o inexistente: {target_root}"
+        )
+        return 1
     errors = validate_repository_docs(target_root)
     if errors:
         print(

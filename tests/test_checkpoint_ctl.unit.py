@@ -634,6 +634,127 @@ def test_legacy_completed_and_certified_clean_hydration(
         "- [x] Paso 1\n- [ ] Paso 2\n",
         encoding="utf-8",
     )
-    assert ctl.main(["recover", "--workspace", str(ws_pending), "--json"]) == 0
+    assert (
+        ctl.main(["recover", "--workspace", str(ws_pending), "--json"]) == 0
+    )
     pending_payload = json.loads(capsys.readouterr().out)
     assert pending_payload["checkpoint"]["status"] == "IN_PROGRESS"
+
+
+def test_f10_8_hardening_symlinks_bom_coercion_sanitization_and_clear(
+    tmp_path: Path, capsys: Any
+) -> None:
+    repo = _init_repo(tmp_path / "hard")
+    agents_dir = repo / ".agents"
+    agents_dir.mkdir(parents=True)
+
+    # Symlink en ACTIVE_TASK.md.example debe bloquearse
+    outside_tpl = tmp_path / "outside_tpl.md"
+    outside_tpl.write_text("# secret\n", encoding="utf-8")
+    (agents_dir / "ACTIVE_TASK.md.example").symlink_to(outside_tpl)
+    assert ctl.main(["recover", "--workspace", str(repo)]) == 2
+    assert "Symlink" in capsys.readouterr().err
+    (agents_dir / "ACTIVE_TASK.md.example").unlink()
+
+    # Intent vacío tras sanitización ANSI rechazado (rc=2); step con salto sanitizado
+    assert (
+        ctl.main(
+            [
+                "set",
+                "--workspace",
+                str(repo),
+                "--task-id",
+                "HITO-10",
+                "--step",
+                "F1",
+                "--intent",
+                "\x1b[31m   \x1b[0m",
+            ]
+        )
+        == 2
+    )
+    capsys.readouterr()
+
+    assert (
+        ctl.main(
+            [
+                "set",
+                "--workspace",
+                str(repo),
+                "--task-id",
+                "HITO-10",
+                "--step",
+                "F1\n# evil",
+                "--intent",
+                "Valid",
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+    doc = json.loads(
+        (agents_dir / ".cache" / "session_checkpoint.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert "\n" not in doc["active_step"]
+
+    # BOM UTF-8 en session_checkpoint.json se lee sin error
+    bom_bytes = b"\xef\xbb\xbf" + json.dumps(doc).encode("utf-8")
+    (agents_dir / ".cache" / "session_checkpoint.json").write_bytes(bom_bytes)
+    assert ctl.main(["recover", "--workspace", str(repo), "--json"]) == 0
+    capsys.readouterr()
+
+    # Campos corruptos (completed_steps no-lista / exit_code bool) -> exit 2 limpio
+    bad_doc = dict(doc, completed_steps=123)
+    (agents_dir / ".cache" / "session_checkpoint.json").write_text(
+        json.dumps(bad_doc), encoding="utf-8"
+    )
+    assert ctl.main(["recover", "--workspace", str(repo)]) == 2
+    capsys.readouterr()
+
+    bad_run = dict(doc, last_script_run={"cmd": "x", "exit_code": True})
+    (agents_dir / ".cache" / "session_checkpoint.json").write_text(
+        json.dumps(bad_run), encoding="utf-8"
+    )
+    assert ctl.main(["recover", "--workspace", str(repo)]) == 2
+    capsys.readouterr()
+
+    # clear --purge-view limpia incluso con session_checkpoint.json corrupto
+    (agents_dir / ".cache" / "session_checkpoint.json").write_text(
+        "{corrupt", encoding="utf-8"
+    )
+    assert ctl.main(["clear", "--workspace", str(repo), "--purge-view"]) == 0
+    capsys.readouterr()
+    assert not (agents_dir / ".cache" / "session_checkpoint.json").exists()
+    assert not (agents_dir / "ACTIVE_TASK.md").exists()
+
+
+def test_f10_8_atomic_write_cleanup_coerce_none_and_budgets_loader(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import os
+
+    assert ctl._coerce_str_list(None, "planned_steps") == ()
+
+    def fail_replace(_src: Path | str, _dst: Path | str) -> None:
+        raise OSError("disk full")
+
+    target = tmp_path / "fail_target.json"
+    monkeypatch.setattr(os, "replace", fail_replace)
+    with pytest.raises(OSError):
+        ctl._atomic_write_text(target, "{}", 0o600)
+    monkeypatch.undo()
+    assert list(tmp_path.glob("*.tmp")) == []
+
+    saved_budgets = sys.modules.pop("_budgets", None)
+    try:
+        monkeypatch.setattr(
+            importlib.util, "spec_from_file_location", lambda *_a, **_kw: None
+        )
+        with pytest.raises(ImportError):
+            ctl._load_budgets_module()
+    finally:
+        monkeypatch.undo()
+        if saved_budgets is not None:
+            sys.modules["_budgets"] = saved_budgets
