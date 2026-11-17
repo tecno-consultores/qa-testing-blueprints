@@ -50,7 +50,7 @@ find . \( -name ".git" -o -name "node_modules" -o -name ".venv" -o -name "venv" 
 CURRENT_UID="$(id -u)"
 CURRENT_GID="$(id -g)"
 if command -v docker >/dev/null 2>&1; then
-  docker run --rm -v "${SCRIPT_DIR}:/work" alpine sh -c "\
+  docker run --rm -v "${SCRIPT_DIR}:/work" alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab sh -c "\
     rm -rf /work/node_modules /work/.pnpm-store /work/.turbo /work/dist /work/dist-ssr /work/.nuxt /work/.next /work/.output /work/.svelte-kit /work/.vite /work/.parcel-cache /work/storybook-static \
            /work/test-results /work/playwright-report /work/blob-report /work/playwright/.cache /work/cypress/videos /work/cypress/screenshots /work/nginx-logs /work/reports \
            /work/target /work/test/target /work/coverage /work/.nyc_output /work/.stryker-tmp \

@@ -19,6 +19,7 @@ import {
   initOrAppendAgentsMd,
   mergeAgentsMdContent,
   parseAgentsOption,
+  resolveProjectDisplayName,
   resolveSafeBridgePath,
   resolveTargetAgentIds,
   syncAgentBridgeFiles,
@@ -26,6 +27,7 @@ import {
   validateSupportedLang,
   type SupportedAiAgentId,
 } from '../src/tools/initOrAppendAgentsMd.js';
+import { WorkspacePathValidationError } from '../src/security/workspacePathValidator.js';
 import { CLI_USAGE_TEXT, parseCliArgs, runCli } from '../src/cli.js';
 import {
   initOrAppendAgentsMd as legacyInitOrAppendAgentsMd,
@@ -133,14 +135,20 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
       expect(fs.existsSync(path.join(tmpDir, 'CLAUDE.md'))).toBe(false);
     });
 
-    it('supports snake_case options (project_path, dry_run) and general/Project fallbacks', async () => {
-      const emptyBlock = buildAgentsMdConnectorBlock('EmptyApp', [], 'en');
+    it('supports snake_case options (project_path, dry_run), rejects "/" via SEC-PATH-01, and tests general/Project fallbacks', async () => {
+      const fallbackName = resolveProjectDisplayName('/');
+      expect(fallbackName).toBe('Project');
+      const emptyBlock = buildAgentsMdConnectorBlock(fallbackName, [], 'en');
+      expect(emptyBlock).toContain('This project (`Project`)');
       expect(emptyBlock).toContain('stacks: `general`');
       expect(emptyBlock).toContain('in English');
 
-      const rootDry = await initOrAppendAgentsMd({ project_path: '/', dry_run: true });
-      expect(rootDry.action).toBe('dry_run');
-      expect(rootDry.content).toContain('This project (`Project`)');
+      await expect(initOrAppendAgentsMd({ project_path: '/', dry_run: true })).rejects.toThrow(
+        WorkspacePathValidationError
+      );
+      const safeDry = await initOrAppendAgentsMd({ project_path: tmpDir, dry_run: true });
+      expect(safeDry.action).toBe('dry_run');
+      expect(fs.existsSync(path.join(tmpDir, 'AGENTS.md'))).toBe(false);
 
       const appended = mergeAgentsMdContent('# Custom Project Rules\n- Keep SLA', 'App', ['python'], 'es');
       expect(appended.action).toBe('appended');

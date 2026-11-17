@@ -20,6 +20,7 @@ import { syncGlobalGeminiMd, buildConnectorBlock } from '../src/cli/init-agents-
 import { certify11xGate } from '../src/tools/certify-gate.js';
 import { runInstallSkillCli } from '../src/cli/install-skill.js';
 import { GitHubFetcher } from '../src/services/github-fetcher.js';
+import { WorkspacePathValidationError } from '../src/security/workspacePathValidator.js';
 
 describe('reconcile-agents (Hito 13: Governance Reconciliation & Deduplication)', () => {
   let tmpDir: string;
@@ -83,14 +84,29 @@ describe('reconcile-agents (Hito 13: Governance Reconciliation & Deduplication)'
       );
     });
 
-    it('handles projects without .agents/rules/ or AGENTS.md gracefully', async () => {
+    it('handles projects without .agents/rules/ or AGENTS.md gracefully and defaults dryRun to true', async () => {
       const result = await reconcileAgentsGovernance({ projectPath: tmpDir });
       expect(result.project_path).toBe(path.resolve(tmpDir));
-      expect(result.dry_run).toBe(false);
+      expect(result.dry_run).toBe(true);
       expect(result.removed_duplicate_sections_count).toBe(0);
       expect(result.preserved_domain_sections_count).toBe(0);
       expect(result.reconciled_items).toEqual([]);
       expect(result.domain_rules_file).toBeNull();
+    });
+
+    it('rejects forbidden system, traversal, tmpdir, and HOME paths via SEC-PATH-01 (F2.5)', async () => {
+      await expect(reconcileAgentsGovernance({ projectPath: '/etc' })).rejects.toThrow(
+        WorkspacePathValidationError
+      );
+      await expect(reconcileAgentsGovernance({ projectPath: '../outside' })).rejects.toThrow(
+        WorkspacePathValidationError
+      );
+      await expect(reconcileAgentsGovernance({ projectPath: os.tmpdir() })).rejects.toThrow(
+        WorkspacePathValidationError
+      );
+      await expect(reconcileAgentsGovernance({ projectPath: os.homedir() })).rejects.toThrow(
+        WorkspacePathValidationError
+      );
     });
   });
 
@@ -290,6 +306,23 @@ describe('reconcile-agents (Hito 13: Governance Reconciliation & Deduplication)'
       fs.writeFileSync(customFile, '## Invariante Anti-Silo\nTexto promovido.', 'utf-8');
 
       const result = await reconcileAgentsGovernance({ projectPath: projectDir, dryRun: true });
+
+      expect(result.dry_run).toBe(true);
+      expect(result.backup_dir).toBeNull();
+      expect(result.removed_duplicate_sections_count).toBeGreaterThan(0);
+      expect(fs.existsSync(customFile)).toBe(true);
+      expect(fs.existsSync(path.join(projectDir, '.agents', 'backups'))).toBe(false);
+    });
+
+    it('Case 4b: omitting dryRun defaults to dry_run=true without modifying files or creating backups (F2.4)', async () => {
+      const projectDir = path.join(tmpDir, 'default-dry-run-project');
+      const rulesDir = path.join(projectDir, '.agents', 'rules');
+      fs.mkdirSync(rulesDir, { recursive: true });
+
+      const customFile = path.join(rulesDir, 'uat.md');
+      fs.writeFileSync(customFile, '## Invariante Anti-Silo\nTexto promovido.', 'utf-8');
+
+      const result = await reconcileAgentsGovernance({ projectPath: projectDir });
 
       expect(result.dry_run).toBe(true);
       expect(result.backup_dir).toBeNull();

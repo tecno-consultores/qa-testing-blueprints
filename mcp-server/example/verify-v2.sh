@@ -27,6 +27,7 @@ mkdir -p "${PKG_APP_DIR}" "${PROJ_DIR}" "${HOME_DIR}"
 
 export HOME="${HOME_DIR}"
 export npm_config_cache="${WORK_DIR}/npm-cache"
+export QA11X_WORKSPACE_ROOTS="${WORK_DIR}"
 
 TARBALL_NAME="$(npm pack --silent --pack-destination "${WORK_DIR}" | tail -n 1)"
 TARBALL_PATH="${WORK_DIR}/${TARBALL_NAME}"
@@ -128,7 +129,7 @@ await Promise.race([
 assert.deepEqual(ttyExitCodes, [0]);
 
 // 2. Conectar por stdio real al binario empaquetado sin QA_BLUEPRINTS_LOCAL_PATH
-const env = { ...process.env, HOME: homeDir, QA_DISABLE_AUTO_SYNC: '1' };
+const env = { ...process.env, HOME: homeDir, QA_DISABLE_AUTO_SYNC: '1', QA11X_WORKSPACE_ROOTS: workDir };
 delete env.QA_BLUEPRINTS_LOCAL_PATH;
 
 const transport = new StdioClientTransport({

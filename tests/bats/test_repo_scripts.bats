@@ -175,3 +175,83 @@ EOF
   assert_failure 1
   assert_output --partial "[STRICT] Certificación bloqueada: 4 gate(s) en estado SKIPPED"
 }
+
+@test "certify_task_completion.sh (F2.8 Rule Zero): usa docker --network none y nunca invoca python3 del host" {
+  WORK="${BATS_TEST_TMPDIR}/certify_rule_zero"
+  FAKE_BIN="${BATS_TEST_TMPDIR}/fake_bin"
+  DOCKER_LOG="${BATS_TEST_TMPDIR}/docker_calls.log"
+  FAKE_PY_MARKER="${BATS_TEST_TMPDIR}/host_python_called.flag"
+  mkdir -p "${WORK}/.agents/scripts" "${WORK}/scripts" "${WORK}/mcp-server" "${FAKE_BIN}"
+  cp "${REPO_ROOT}/.agents/scripts/certify_task_completion.sh" "${WORK}/.agents/scripts/certify_task_completion.sh"
+  chmod +x "${WORK}/.agents/scripts/certify_task_completion.sh"
+
+  cat >"${FAKE_BIN}/python3" <<EOF
+#!/usr/bin/env bash
+touch "${FAKE_PY_MARKER}"
+echo "HOST_PYTHON_CALLED"
+exit 99
+EOF
+  chmod +x "${FAKE_BIN}/python3"
+
+  cat >"${FAKE_BIN}/docker" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >>"${DOCKER_LOG}"
+exit 0
+EOF
+  chmod +x "${FAKE_BIN}/docker"
+
+  cat >"${WORK}/scripts/verificar-secretos.sh" <<'EOF'
+#!/usr/bin/env bash
+echo "✔ [Secretos] stub OK"
+EOF
+  cat >"${WORK}/scripts/auditar-infra.sh" <<'EOF'
+#!/usr/bin/env bash
+echo "✔ [Trivy] stub OK"
+EOF
+  chmod +x "${WORK}/scripts/verificar-secretos.sh" "${WORK}/scripts/auditar-infra.sh"
+
+  printf 'print("ok")\n' >"${WORK}/scripts/generar-manifiesto.py"
+  printf '{}\n' >"${WORK}/manifest.json"
+  printf '{"version":"3.0.0"}\n' >"${WORK}/mcp-server/package.json"
+  for stub_py in \
+    checkpoint_ctl.py \
+    track_findings_state.py \
+    verify_json_no_duplicate_keys.py \
+    verify_zero_orphan_vue_components.py \
+    verify_no_orphan_api_endpoints.py \
+    verify_topological_health.py \
+    verify_alembic_orm_parity.py \
+    sync_governance.py \
+    bump_version_11x.py \
+    verify_roadmap_consistency.py \
+    verify_docs_invariants.py; do
+    printf 'print("ok")\n' >"${WORK}/.agents/scripts/${stub_py}"
+  done
+
+  run env QA11X_DOCKERENV_PATH="/nonexistent" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${WORK}/.agents/scripts/certify_task_completion.sh"
+  assert_success
+  refute_output --partial "HOST_PYTHON_CALLED"
+  [ ! -e "${FAKE_PY_MARKER}" ]
+  run grep -F "run --rm --network none" "${DOCKER_LOG}"
+  assert_success
+  run grep -F "/app/.agents/scripts/verify_roadmap_consistency.py" "${DOCKER_LOG}"
+  assert_success
+  run grep -F "/app/.agents/scripts/checkpoint_ctl.py" "${DOCKER_LOG}"
+  assert_success
+
+  : >"${DOCKER_LOG}"
+  cat >"${WORK}/scripts/verificar-secretos.sh" <<'EOF'
+#!/usr/bin/env bash
+echo "secreto simulado" >&2
+exit 1
+EOF
+  chmod +x "${WORK}/scripts/verificar-secretos.sh"
+  run env QA11X_DOCKERENV_PATH="/nonexistent" QA_DIAGNOSTIC_JSON="${BATS_TEST_TMPDIR}/diag/fail.json" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${WORK}/.agents/scripts/certify_task_completion.sh"
+  assert_failure 1
+  refute_output --partial "HOST_PYTHON_CALLED"
+  [ ! -e "${FAKE_PY_MARKER}" ]
+  run grep -F "QA_DIAG_PATH=/qa-diag/fail.json" "${DOCKER_LOG}"
+  assert_success
+  run grep -F "/app/.agents/scripts/track_findings_state.py" "${DOCKER_LOG}"
+  assert_success
+}

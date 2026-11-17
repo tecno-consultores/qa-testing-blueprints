@@ -7,6 +7,7 @@ import * as path from 'path';
 import type { execFileSync } from 'child_process';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { certify11xGate } from '../src/tools/certify-gate.js';
+import { WorkspacePathValidationError } from '../src/security/workspacePathValidator.js';
 import { recordQaStageEvidence } from '../src/services/qa-evidence.js';
 import { CertifyGateInputSchema } from '../src/types.js';
 
@@ -74,13 +75,75 @@ describe('certify-gate', () => {
     expect(result.blockers.some((b) => b.includes('.example sin fusionar'))).toBe(true);
   });
 
-  it('permite archivos .example si el proyecto evaluado es qa-testing-blueprints', async () => {
+  it('bloquea .example aunque manifest.json o package.json suplanten qa-testing-blueprints, salvo opt-in explícito', async () => {
     setupNominalProject(tempDir);
     fs.writeFileSync(path.join(tempDir, 'manifest.json'), JSON.stringify({ repository: 'qa-testing-blueprints' }));
+    fs.mkdirSync(path.join(tempDir, 'mcp-server'), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, 'mcp-server', '.npmrc'), 'ignore-scripts=true\n');
+    fs.writeFileSync(
+      path.join(tempDir, 'mcp-server', 'package.json'),
+      JSON.stringify({ name: '@sinfallas/mcp-qa-11x' })
+    );
     fs.writeFileSync(path.join(tempDir, 'docker-compose.yml.example'), '# example');
 
-    const result = await certify11xGate(tempDir);
-    expect(result.checks.zero_unmerged_examples).toBe(true);
+    // Sin opt-in explícito debe bloquear aunque los metadatos digan qa-testing-blueprints
+    const spoofedRes = await certify11xGate(tempDir);
+    expect(spoofedRes.gate_passed).toBe(false);
+    expect(spoofedRes.checks.zero_unmerged_examples).toBe(false);
+    expect(spoofedRes.check_statuses?.zero_unmerged_examples).toBe('FAILED');
+    expect(spoofedRes.blockers.some((b) => b.includes('.example sin fusionar'))).toBe(true);
+
+    // Con allowUnmergedExamples=true reporta SKIPPED y permite aprobar si strict=false
+    const optInOptionRes = await certify11xGate(tempDir, { allowUnmergedExamples: true });
+    expect(optInOptionRes.check_statuses?.zero_unmerged_examples).toBe('SKIPPED');
+    expect(optInOptionRes.checks.zero_unmerged_examples).toBe(false);
+    expect(optInOptionRes.skipped_checks).toContain('zero_unmerged_examples');
+    expect(optInOptionRes.gate_passed).toBe(true);
+
+    // Con strict=true un check SKIPPED bloquea la compuerta
+    const strictOptInRes = await certify11xGate(tempDir, {
+      allowUnmergedExamples: true,
+      strict: true,
+    });
+    expect(strictOptInRes.gate_passed).toBe(false);
+    expect(strictOptInRes.blockers).toContain('STRICT_SKIPPED_CHECK: zero_unmerged_examples');
+
+    // Con variable de entorno QA11X_BLUEPRINT_SOURCE_REPO=1 también reporta SKIPPED
+    const prevEnv = process.env.QA11X_BLUEPRINT_SOURCE_REPO;
+    process.env.QA11X_BLUEPRINT_SOURCE_REPO = '1';
+    try {
+      const envOptInRes = await certify11xGate(tempDir);
+      expect(envOptInRes.check_statuses?.zero_unmerged_examples).toBe('SKIPPED');
+      expect(envOptInRes.gate_passed).toBe(true);
+    } finally {
+      if (prevEnv === undefined) {
+        delete process.env.QA11X_BLUEPRINT_SOURCE_REPO;
+      } else {
+        process.env.QA11X_BLUEPRINT_SOURCE_REPO = prevEnv;
+      }
+    }
+  });
+
+  it('maneja manifest.json corrupto con generar-manifiesto.py y errores de lectura en CHANGELOG.md/ROADMAP.md', async () => {
+    setupNominalProject(tempDir);
+    fs.mkdirSync(path.join(tempDir, 'scripts'), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, 'scripts', 'generar-manifiesto.py'), '# gen\n');
+    fs.writeFileSync(path.join(tempDir, 'manifest.json'), '{bad json');
+    fs.rmSync(path.join(tempDir, 'CHANGELOG.md'));
+    fs.mkdirSync(path.join(tempDir, 'CHANGELOG.md'));
+    fs.mkdirSync(path.join(tempDir, 'ROADMAP.md'));
+
+    const res = await certify11xGate(tempDir, { requireLintEvidence: false });
+    expect(res.gate_passed).toBe(false);
+    expect(res.blockers).toContain('No se pudo validar la integridad criptográfica de manifest.json.');
+    expect(res.blockers).toContain('No se pudo leer CHANGELOG.md.');
+  });
+
+  it('rechaza rutas críticas del sistema, traversal .. y raíz tmpdir/HOME en certify11xGate (F2.5)', async () => {
+    await expect(certify11xGate('/etc')).rejects.toThrow(WorkspacePathValidationError);
+    await expect(certify11xGate('../outside')).rejects.toThrow(WorkspacePathValidationError);
+    await expect(certify11xGate(os.tmpdir())).rejects.toThrow(WorkspacePathValidationError);
+    await expect(certify11xGate(os.homedir())).rejects.toThrow(WorkspacePathValidationError);
   });
 
   it('bloquea la certificación si detecta claves duplicadas en JSON', async () => {

@@ -6,10 +6,12 @@ import * as os from 'os';
 import * as path from 'path';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
+  ALPINE_FALLBACK_IMAGE,
   cleanWorkspace11x,
   executeAlpineFallback,
   removeTarget,
 } from '../src/tools/clean-workspace.js';
+import { WorkspacePathValidationError } from '../src/security/workspacePathValidator.js';
 import {
   parseLinterAndComplexity,
   parseCoverage,
@@ -61,7 +63,7 @@ describe('11X Comprehensive Branch and Edge-Case Coverage Suite', () => {
       expect(result.recommended_command).toBe('./scripts/limpieza.sh --deep');
     });
 
-    it('verifica que executeAlpineFallback use execFileSync con array seguro y rechace .. o metacaracteres', () => {
+    it('verifica que executeAlpineFallback use execFileSync con array seguro, digest fijado, --network none y rechace .. o metacaracteres', async () => {
       const recordedCalls: Array<{ cmd: string; args: readonly string[] }> = [];
       const mockExecFile = ((cmd: string, args: readonly string[]) => {
         recordedCalls.push({ cmd, args });
@@ -78,10 +80,22 @@ describe('11X Comprehensive Branch and Edge-Case Coverage Suite', () => {
       expect(ok).toBe(true);
       expect(recordedCalls.length).toBe(1);
       expect(recordedCalls[0].cmd).toBe('docker');
+      expect(recordedCalls[0].args).toContain(ALPINE_FALLBACK_IMAGE);
+      expect(recordedCalls[0].args).toContain(
+        'alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab'
+      );
+      const netIdx = recordedCalls[0].args.indexOf('--network');
+      expect(netIdx).toBeGreaterThan(-1);
+      expect(recordedCalls[0].args[netIdx + 1]).toBe('none');
       expect(recordedCalls[0].args).toContain(`${maliciousBase}:/workspace`);
       expect(recordedCalls[0].args).toContain('/workspace/coverage');
       expect(recordedCalls[0].args).not.toContain('/workspace/../outside');
       expect(recordedCalls[0].args).not.toContain('/workspace//etc/passwd');
+
+      // Rechaza baseDir vacío, con NUL o traversal ..
+      expect(executeAlpineFallback('', ['coverage'], mockExecFile)).toBe(false);
+      expect(executeAlpineFallback('/tmp/bad\0dir', ['coverage'], mockExecFile)).toBe(false);
+      expect(executeAlpineFallback('/tmp/../etc', ['coverage'], mockExecFile)).toBe(false);
 
       // Retorna false cuando todos los targets son inseguros o vacíos
       expect(executeAlpineFallback(maliciousBase, ['../escape'], mockExecFile)).toBe(false);
@@ -91,6 +105,24 @@ describe('11X Comprehensive Branch and Edge-Case Coverage Suite', () => {
         throw new Error('docker daemon unavailable');
       }) as any;
       expect(executeAlpineFallback(tempDir, ['coverage'], throwingExec)).toBe(false);
+
+      // Fallback por defecto (executeAlpineFallback) cuando no se inyecta fallbackExecutor
+      fs.writeFileSync(path.join(tempDir, '.coverage'), 'locked');
+      const origPath = process.env.PATH;
+      process.env.PATH = '';
+      try {
+        const defaultFallbackRes = await cleanWorkspace11x(tempDir, false, false, {
+          targetRemover: () => ({ removed: false }),
+        });
+        expect(defaultFallbackRes.docker_fallback_used).toBe(false);
+      } finally {
+        process.env.PATH = origPath;
+      }
+
+      // cleanWorkspace11x aplica WorkspacePathValidationError sobre rutas inseguras
+      await expect(cleanWorkspace11x('/etc')).rejects.toThrow(WorkspacePathValidationError);
+      await expect(cleanWorkspace11x(os.tmpdir())).rejects.toThrow(WorkspacePathValidationError);
+      await expect(cleanWorkspace11x('../outside')).rejects.toThrow(WorkspacePathValidationError);
     });
   });
 

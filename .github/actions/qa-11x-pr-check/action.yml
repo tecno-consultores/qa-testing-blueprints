@@ -28,11 +28,11 @@ inputs:
   python-image:
     description: 'Ephemeral non-root Python container image for Rule Zero checks'
     required: false
-    default: 'sinfallas/base-python-uv:latest'
+    default: 'sinfallas/base-python-uv:3.15'
   node-image:
     description: 'Ephemeral non-root Node container image for Rule Zero checks'
     required: false
-    default: 'sinfallas/base-node-ionic:latest'
+    default: 'sinfallas/base-node-ionic:26'
 
 outputs:
   tier:

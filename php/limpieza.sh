@@ -46,7 +46,7 @@ find . \( -name ".git" -o -name "node_modules" -o -name ".venv" -o -name "venv" 
 CURRENT_UID="$(id -u)"
 CURRENT_GID="$(id -g)"
 if command -v docker >/dev/null 2>&1; then
-  docker run --rm -v "${SCRIPT_DIR}:/work" alpine sh -c "\
+  docker run --rm -v "${SCRIPT_DIR}:/work" alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab sh -c "\
     rm -rf /work/.phpunit.cache /work/.phpunit.result.cache /work/.php-cs-fixer.cache /work/.php-cs-fixer.dist.cache /work/.psalm /work/htmlcov \
            /work/infection.log /work/infection-summary.log /work/infection-report.json \
            /work/sbom.cyclonedx.json /work/sbom-*.cdx.json /work/cbom.cyclonedx.json /work/cbom-*.cdx.json \

@@ -8,7 +8,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-IMAGE_NAME="sinfallas/remote-graphify:latest"
+IMAGE_NAME="sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0"
 FORCE_ALL=false
 
 if [ "${1:-}" = "--all" ] || [ "${1:-}" = "--force" ]; then

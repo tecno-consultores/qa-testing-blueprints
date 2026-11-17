@@ -288,6 +288,46 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
       });
       expect(reconcileRes.isError).not.toBe(true);
 
+      // F2.4: omitir dry_run usa dry_run=true por defecto sin escribir en disco
+      const mergeDefaultRes = await client.callTool({
+        name: 'bootstrap_or_merge_11x',
+        arguments: { project_path: wsDir, stack: 'fastapi' },
+      });
+      expect(mergeDefaultRes.isError).not.toBe(true);
+      expect(extractFirstText(mergeDefaultRes)).toContain('"dry_run":true');
+      expect(fs.existsSync(path.join(wsDir, 'AGENTS.md'))).toBe(false);
+
+      const reconcileDefaultRes = await client.callTool({
+        name: 'reconcile_agents_governance',
+        arguments: { project_path: wsDir },
+      });
+      expect(reconcileDefaultRes.isError).not.toBe(true);
+      expect(extractFirstText(reconcileDefaultRes)).toContain('"dry_run":true');
+      expect(fs.existsSync(path.join(wsDir, '.agents', 'backups'))).toBe(false);
+
+      // F2.5: boundary SEC-PATH-01 en tools v1 y v2 sobre transporte real
+      for (const badCall of [
+        { name: 'inspect_project_config', arguments: { project_path: '/etc' } },
+        { name: 'validate_calm_architecture', arguments: { workspaceRoot: '/etc' } },
+        { name: 'audit_vibe_prototype', arguments: { workspaceRoot: wsDir, targetDir: '../outside' } },
+        { name: 'session_flight_recorder', arguments: { project_path: '/etc', action: 'recover' } },
+      ]) {
+        const badRes = await client.callTool(badCall);
+        expect(badRes.isError).toBe(true);
+        expect(extractFirstText(badRes)).toContain('[SEC-PATH-01]');
+      }
+
+      const cwdRelVibeRes = await client.callTool({
+        name: 'audit_vibe_prototype',
+        arguments: { targetDir: 'src', dryRun: true },
+      });
+      expect(cwdRelVibeRes.isError).not.toBe(true);
+
+      const omittedArgsRes = await client.callTool({
+        name: 'validate_calm_architecture',
+      });
+      expect(omittedArgsRes).toBeDefined();
+
       const blastRes = await client.callTool({
         name: 'inspect_ast_blast_radius',
         arguments: { project_path: wsDir, target_symbol: 'ping', max_items: 5 },
@@ -437,6 +477,7 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
         ...process.env,
         HOME: homeDir,
         QA_BLUEPRINTS_LOCAL_PATH: repoPath,
+        QA11X_WORKSPACE_ROOTS: tmpRoot,
         QA_DISABLE_AUTO_SYNC: '1',
         QA_FORCE_STDIO: '1',
       },

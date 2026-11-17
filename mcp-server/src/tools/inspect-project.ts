@@ -4,6 +4,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { ProjectAuditResult, BrowserTestingReadiness, StackName } from '../types.js';
+import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { resolveSafeHomeDir } from '../services/github-fetcher.js';
 import {
   evaluateUpdateStatus,
@@ -318,7 +319,7 @@ export async function inspectProjectConfig(
   homeDir?: string,
   updateOptions?: InspectProjectUpdateOptions
 ): Promise<ProjectAuditResult> {
-  const resolvedPath = path.resolve(projectPathInput.normalize('NFKC'));
+  const resolvedPath = resolveSafeProjectPath(projectPathInput);
 
   if (!fs.existsSync(resolvedPath)) {
     throw new Error(`El directorio especificado no existe: ${resolvedPath}`);

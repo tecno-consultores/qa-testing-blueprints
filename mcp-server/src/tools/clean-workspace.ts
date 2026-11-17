@@ -4,7 +4,11 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { CleanWorkspaceResult } from '../types.js';
+
+export const ALPINE_FALLBACK_IMAGE =
+  'alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab';
 
 const CANDIDATE_DIR_NAMES = [
   '.coverage',
@@ -184,6 +188,9 @@ export function executeAlpineFallback(
   targets: string[],
   execFileFn: typeof execFileSync = execFileSync
 ): boolean {
+  if (!baseDir || baseDir.includes('\0') || /(?:^|[\\/])\.\.(?:[\\/]|$)/.test(baseDir)) {
+    return false;
+  }
   const safeTargets = targets.filter(
     (t) => t.length > 0 && !t.includes('..') && !path.isAbsolute(t) && !t.includes('\0')
   );
@@ -199,11 +206,13 @@ export function executeAlpineFallback(
       [
         'run',
         '--rm',
+        '--network',
+        'none',
         '-e',
         `TARGET_OWNER=${uid}:${gid}`,
         '-v',
         `${baseDir}:/workspace`,
-        'alpine:3.21',
+        ALPINE_FALLBACK_IMAGE,
         'sh',
         '-c',
         script,
@@ -282,7 +291,7 @@ export async function cleanWorkspace11x(
   deps: CleanWorkspaceDeps = {}
 ): Promise<CleanWorkspaceResult> {
   const { fallbackExecutor, targetRemover } = deps;
-  const resolvedPath = path.resolve(projectPathInput.normalize('NFKC'));
+  const resolvedPath = resolveSafeProjectPath(projectPathInput);
 
   if (!fs.existsSync(resolvedPath)) {
     throw new Error(`El directorio del proyecto '${projectPathInput}' no existe.`);

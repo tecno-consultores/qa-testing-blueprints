@@ -5,7 +5,8 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { main, shouldExitInteractiveTty } from '../src/index.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { INTERACTIVE_TTY_NOTICE, main, shouldExitInteractiveTty } from '../src/index.js';
 import {
   DEFAULT_HEAVY_TRANSFER_TIMEOUT_MS,
   DEFAULT_TELEMETRY_TIMEOUT_MS,
@@ -428,6 +429,82 @@ describe('TaskStateGuard & Lifecycle Resilience (T1.4)', () => {
       await expect(
         probeTtyExitNonBlocking(async () => undefined, 200)
       ).rejects.toThrowError(TaskGuardError);
+    });
+
+    it('F2.7 & F2.6: imprime INTERACTIVE_TTY_NOTICE primero y sale <5s aunque autoSyncFn se cuelgue o rechace', async () => {
+      delete process.env.QA_FORCE_STDIO;
+      const prevDisableSync = process.env.QA_DISABLE_AUTO_SYNC;
+      process.env.QA_DISABLE_AUTO_SYNC = '0';
+
+      const events: string[] = [];
+      const logSpy = vi.spyOn(console, 'log').mockImplementation((msg: unknown) => {
+        if (msg === INTERACTIVE_TTY_NOTICE) events.push('notice');
+      });
+      const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+      try {
+        const hangingProbe = await probeTtyExitNonBlocking(async (exitFn) => {
+          await main([], undefined, {
+            exitFn: (code) => {
+              events.push(`exit:${code}`);
+              exitFn(code);
+            },
+            autoSyncFn: () => {
+              events.push('autosync-start');
+              return new Promise(() => undefined);
+            },
+            isStdinTty: true,
+          });
+        }, 2_000);
+
+        expect(hangingProbe.exitCode).toBe(0);
+        expect(hangingProbe.elapsedMs).toBeLessThan(2_000);
+        expect(events[0]).toBe('notice');
+        expect(events).toContain('autosync-start');
+        expect(events[events.length - 1]).toBe('exit:0');
+        expect(logSpy).toHaveBeenCalledWith(INTERACTIVE_TTY_NOTICE);
+
+        // F2.6: async rejection y throw síncrono en autoSyncFn no rompen el arranque/cierre
+        const rejectExitCodes: number[] = [];
+        await main([], undefined, {
+          exitFn: (code) => rejectExitCodes.push(code),
+          autoSyncFn: async () => {
+            throw new Error('auto-sync async failure');
+          },
+          isStdinTty: true,
+        });
+        await main([], undefined, {
+          exitFn: (code) => rejectExitCodes.push(code),
+          autoSyncFn: () => {
+            throw new Error('auto-sync sync failure');
+          },
+          isStdinTty: true,
+        });
+        expect(rejectExitCodes).toEqual([0, 0]);
+        expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('auto-sync async failure'));
+        expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('auto-sync sync failure'));
+
+        // F2.6 en modo servidor stdio real: el rechazo de autoSyncFn se captura con stderr sin tumbar el proceso
+        const connectSpy = vi.spyOn(McpServer.prototype, 'connect').mockResolvedValue(undefined);
+        try {
+          await main(['--stdio'], undefined, {
+            isStdinTty: false,
+            autoSyncFn: () => Promise.reject(new Error('stdio-bg-sync-err')),
+          });
+          await new Promise((resolve) => setTimeout(resolve, 20));
+          expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('stdio-bg-sync-err'));
+        } finally {
+          connectSpy.mockRestore();
+        }
+      } finally {
+        logSpy.mockRestore();
+        stderrSpy.mockRestore();
+        if (prevDisableSync === undefined) {
+          delete process.env.QA_DISABLE_AUTO_SYNC;
+        } else {
+          process.env.QA_DISABLE_AUTO_SYNC = prevDisableSync;
+        }
+      }
     });
   });
 });

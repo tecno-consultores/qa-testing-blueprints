@@ -213,7 +213,14 @@ async function verifyAllNineteenTools(client, ctx) {
   assert.ok(bundleFull.files.every((f) => f.sha256_verified === true && f.content.length > 0));
   logStep('Tool 2/12 fetch_blueprint_bundle: descarga bajo demanda y verificación SHA-256 (índice + contenido)');
 
-  // 3. bootstrap_or_merge_11x (dry_run + fusión quirúrgica real sin destruir archivos del usuario)
+  // 3. bootstrap_or_merge_11x (default dry_run=true + dry_run explícito + fusión quirúrgica real sin destruir archivos del usuario)
+  const mergeDefaultDry = await callJsonTool(client, 'bootstrap_or_merge_11x', {
+    project_path: projectDir,
+    stack: 'vue3',
+  });
+  assert.equal(mergeDefaultDry.dry_run, true);
+  assert.equal(fs.existsSync(path.join(projectDir, 'lefthook.yml')), false);
+
   const mergeDry = await callJsonTool(client, 'bootstrap_or_merge_11x', {
     project_path: projectDir,
     stack: 'vue3',
@@ -391,6 +398,12 @@ async function verifyAllNineteenTools(client, ctx) {
     ].join('\n'),
     'utf8'
   );
+  const reconcileDefaultDry = await callJsonTool(client, 'reconcile_agents_governance', {
+    project_path: projectDir,
+  });
+  assert.equal(reconcileDefaultDry.dry_run, true);
+  assert.equal(reconcileDefaultDry.backup_dir, null);
+
   const reconcileRes = await callJsonTool(client, 'reconcile_agents_governance', {
     project_path: projectDir,
     dry_run: false,
@@ -575,12 +588,13 @@ async function verifyAllNineteenTools(client, ctx) {
 }
 
 async function verifyCliAndBackgroundAutoSync(ctx) {
-  const { cliProjectDir, homeDir, cacheDir, binDir, expectedVersion } = ctx;
+  const { cliProjectDir, homeDir, cacheDir, binDir, expectedVersion, tmpRoot } = ctx;
   const baseEnv = {
     ...process.env,
     HOME: homeDir,
     QA_BLUEPRINTS_LOCAL_PATH: REPO_ROOT,
     QA_BLUEPRINTS_CACHE_DIR: cacheDir,
+    QA11X_WORKSPACE_ROOTS: `${tmpRoot}${path.delimiter}${REPO_ROOT}`,
     PATH: `${binDir}:${process.env.PATH || ''}`,
   };
 
@@ -794,6 +808,7 @@ async function main() {
         HOME: homeDir,
         QA_BLUEPRINTS_LOCAL_PATH: REPO_ROOT,
         QA_BLUEPRINTS_CACHE_DIR: cacheDir,
+        QA11X_WORKSPACE_ROOTS: `${tmpRoot}${path.delimiter}${REPO_ROOT}`,
         QA_DISABLE_AUTO_SYNC: '1',
         PATH: `${binDir}:${process.env.PATH || ''}`,
       },
@@ -814,6 +829,7 @@ async function main() {
       cacheDir,
       binDir,
       expectedVersion,
+      tmpRoot,
     });
 
     console.log('══════════════════════════════════════════════════════════════════════');

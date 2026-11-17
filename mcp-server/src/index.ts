@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
+import * as path from 'node:path';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import {
@@ -19,6 +20,7 @@ import { createMcpServer } from './server.js';
 import type { ResourceLanguage } from './types.js';
 import { parseResourceUriAndLang, runWithResourceLang } from './resources/resourceLang.js';
 import { guardToolCallInput, type PromptGuardOptions } from './security/promptGuard.js';
+import { resolveSafeProjectPath } from './security/workspacePathValidator.js';
 import { runCli } from './cli.js';
 import { runInstallSkillCli } from './cli/install-skill.js';
 import { runInitAgentsCli } from './cli/init-agents-md.js';
@@ -77,6 +79,8 @@ const MARKDOWN_MIME_TYPE = 'text/markdown' as const;
 const V2_TASK_CAPACITY = 8;
 const V2_TOOL_TIMEOUT_MS = 60_000;
 const V2_HEAVY_TRANSFER_TIMEOUT_MS = 185_000;
+const INTERACTIVE_TTY_SYNC_TIMEOUT_MS = 300;
+const TRAVERSAL_SEG_RE = /(?:^|[\\/])\.\.(?:[\\/]|$)/;
 const PROMPT_GUARD_UNAVAILABLE_ERR =
   '[QA-PROMPT-GUARD] MCP server request handlers registry is unavailable.';
 
@@ -435,6 +439,38 @@ interface ProtectedToolContext {
   readonly taskGuard: TaskStateGuard;
 }
 
+function resolveV2TargetDirPath(rawTargetDir: string, rawWorkspaceRoot: unknown): string {
+  const normalizedTarget = rawTargetDir.normalize('NFKC').trim();
+  if (
+    normalizedTarget.length === 0 ||
+    normalizedTarget.includes('\0') ||
+    TRAVERSAL_SEG_RE.test(normalizedTarget) ||
+    path.isAbsolute(normalizedTarget)
+  ) {
+    return resolveSafeProjectPath(rawTargetDir);
+  }
+  const baseRoot =
+    typeof rawWorkspaceRoot === 'string'
+      ? resolveSafeProjectPath(rawWorkspaceRoot)
+      : resolveSafeProjectPath(process.cwd());
+  return resolveSafeProjectPath(path.resolve(baseRoot, normalizedTarget));
+}
+
+function validateV2ToolWorkspaceArgs(rawArgs: unknown): void {
+  if (!isRecordObject(rawArgs)) {
+    return;
+  }
+  if (typeof rawArgs.workspaceRoot === 'string') {
+    resolveSafeProjectPath(rawArgs.workspaceRoot);
+  }
+  if (typeof rawArgs.project_path === 'string') {
+    resolveSafeProjectPath(rawArgs.project_path);
+  }
+  if (typeof rawArgs.targetDir === 'string') {
+    resolveV2TargetDirPath(rawArgs.targetDir, rawArgs.workspaceRoot);
+  }
+}
+
 async function executeProtectedTool(
   toolName: string,
   context: ProtectedToolContext
@@ -445,6 +481,7 @@ async function executeProtectedTool(
     return await taskGuard.executeTask(
       async () => {
         if (Object.hasOwn(V2_TOOL_HANDLERS, toolName)) {
+          validateV2ToolWorkspaceArgs(nextRequest.params.arguments);
           return await V2_TOOL_HANDLERS[toolName](nextRequest.params.arguments);
         }
         return await existingCallHandler(nextRequest, extra);
@@ -524,6 +561,37 @@ export interface MainRuntimeOptions {
   readonly isStdinTty?: boolean;
 }
 
+function runAutoSyncSafely(
+  autoSyncFn: (fetcher: GitHubFetcher) => Promise<unknown>,
+  fetcher: GitHubFetcher
+): Promise<void> {
+  return Promise.resolve()
+    .then(() => autoSyncFn(fetcher))
+    .then(() => undefined)
+    .catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      process.stderr.write(`⚠️ [QA-11X Auto-Sync] ${msg}\n`);
+    });
+}
+
+async function runBoundedInteractiveAutoSync(
+  autoSyncFn: (fetcher: GitHubFetcher) => Promise<unknown>,
+  fetcher: GitHubFetcher
+): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const timeoutPromise = new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, INTERACTIVE_TTY_SYNC_TIMEOUT_MS);
+      timer.unref?.();
+    });
+    await Promise.race([runAutoSyncSafely(autoSyncFn, fetcher), timeoutPromise]);
+  } finally {
+    if (timer !== undefined) {
+      clearTimeout(timer);
+    }
+  }
+}
+
 export async function main(
   argv: string[] = process.argv.slice(2),
   startStdio?: () => Promise<void>,
@@ -540,11 +608,11 @@ export async function main(
   }
 
   if (shouldExitInteractiveTty(outcome, Boolean(startStdio), isStdinTty)) {
+    console.log(INTERACTIVE_TTY_NOTICE);
     if (process.env.QA_DISABLE_AUTO_SYNC !== '1') {
       const fetcher = new GitHubFetcher();
-      await autoSyncFn(fetcher);
+      await runBoundedInteractiveAutoSync(autoSyncFn, fetcher);
     }
-    console.log(INTERACTIVE_TTY_NOTICE);
     exitFn(0);
     return;
   }
@@ -566,7 +634,7 @@ export async function main(
   const transport = new StdioServerTransport();
   await server.connect(transport);
   if (process.env.QA_DISABLE_AUTO_SYNC !== '1') {
-    void autoSyncFn(fetcher);
+    void runAutoSyncSafely(autoSyncFn, fetcher);
   }
 }
 

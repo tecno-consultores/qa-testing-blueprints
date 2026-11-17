@@ -534,6 +534,21 @@ describe('Version Manager, .qa-11x-version Stamp, 24h TTL Fail-Open & Global Aut
       vi.spyOn(fetcher, 'fetchManifest').mockRejectedValue(new Error('offline'));
       const failedSync = await syncGlobalSkillsInBackground({ homeDir: fakeHome, fetcher });
       expect(failedSync.synced).toBe(false);
+
+      // F2.6: wraps entire syncGlobalSkillsInBackground body (including setup/detect) and logs to process.stderr
+      const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      const preSetupFail = await syncGlobalSkillsInBackground({
+        homeDir: 123 as unknown as string,
+        fetcher,
+      });
+      expect(preSetupFail).toEqual({
+        synced: false,
+        manifest_version: null,
+        target_dirs: [],
+        updated_files_count: 0,
+      });
+      expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('[QA-11X Auto-Sync]'));
+      stderrSpy.mockRestore();
     });
   });
 });

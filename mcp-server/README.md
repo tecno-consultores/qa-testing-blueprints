@@ -68,7 +68,8 @@ See the full 27+ client setup matrix in [`docs/agent-setup.en.md`](https://githu
 ## 🛡️ Security & Lifecycle Runtime Guards (v3.0.0)
 
 * **Fail-Closed `promptGuard` Interceptor:** Wraps `tools/call` across all 19 tools with Unicode `NFKC` canonicalization, zero-width / Trojan Source stripping, prompt-injection & `QA-GIT-GATE-01` (`git push` / `npm publish`) bypass blocking, and PII / secret redaction before dispatching handlers.
-* **`TaskStateGuard` & `Fail-Verbose` Diagnostics:** Bounds concurrent MCP tool execution capacity, isolates hung/broken tasks with explicit timeouts (`60s` standard / `>= 180s` heavy transfers), purges 0-byte failed transfer artifacts, and formats actionable Allure-ready `Fail-Verbose` reports (`diagnosticFormatter.ts`).
+* **`SEC-PATH-01` Workspace Path Confinement (`QA11X_WORKSPACE_ROOTS`):** Validates `project_path`, `workspaceRoot`, and `targetDir` via `resolveSafeProjectPath`, blocking directory traversal (`..`), NUL bytes, symlinks outside allowed roots, critical system paths (`/`, `/etc`, `/usr`, ...), `$HOME`, and bare `os.tmpdir()`. Set `QA11X_WORKSPACE_ROOTS` (delimiter-separated paths) to authorize additional workspace roots outside `process.cwd()`.
+* **`TaskStateGuard` & `Fail-Verbose` Diagnostics:** Bounds concurrent MCP tool execution capacity, isolates hung/broken tasks with explicit timeouts (`60s` standard / `>= 180s` heavy transfers), purges 0-byte failed transfer artifacts, bounds interactive TTY skill auto-sync (`< 5s` fail-open to `stderr`), and formats actionable Allure-ready `Fail-Verbose` reports (`diagnosticFormatter.ts`).
 * **Offline & Local LLM A2A Card:** Supports air-gapped Ollama / vLLM evaluators and publishes a discovery descriptor via [`agentCard.ts`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/src/a2a/agentCard.ts) (`v3.0.0`).
 
 ---
@@ -84,16 +85,16 @@ Led by `qa-11x-architect` (`< 12 KB`), loading 10 specialized sub-skills on dema
 
 1. **`inspect_project_config`:** Inspects stack markers (`pyproject.toml`, `package.json`, `composer.json`), `docker-compose.qa.yml`, test pyramid status, and Graphify AST graph health.
 2. **`fetch_blueprint_bundle`:** Streams requested blueprint files from GitHub/local mirror verifying SHA-256 checksums against `manifest.json`.
-3. **`bootstrap_or_merge_11x`:** Scaffolds or merges `.example` QA configs, Dockerfiles, Make targets, and workflows safely with `.11x-backup`.
+3. **`bootstrap_or_merge_11x`:** Scaffolds or merges `.example` QA configs, Dockerfiles, Make targets, and workflows safely with `.11x-backup` (`dry_run` defaults to `true`; pass `dry_run: false` to apply disk writes).
 4. **`inspect_ast_blast_radius`:** Bidirectional and differential AST dependency lookup (`declaring_files`, callers, callees, `changed_since_ref` blast scope, risk level `LOW`/`MEDIUM`/`HIGH`) with optional Graphify rebuild (`auto_build_if_missing`).
 5. **`clean_workspace_11x`:** Safely purges root-owned Docker/cache/build artifacts using Alpine ephemeral fallback without `sudo`.
 6. **`audit_security_stig_owasp`:** Scans target files across 34 static patterns (`SEC-01..SEC-16`, `SEC-CI-ACTION-REF`, `QA-*`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `UI-11X-01..03`) supporting `metadata-only` mode (`include_content: false`).
 7. **`run_ephemeral_qa`:** Executes `lint`, `unit`, `integration`, `ci`, `audit`, `secrets`, `validate-calm`, or `clean` strictly inside ephemeral Docker containers (`Rule Zero`), honoring `DOCS_ONLY` fast-path.
-8. **`certify_11x_gate`:** Runs the 10-stage QA-11X certification gate with Allure-style `Fail-Verbose` telemetry (`/tmp/qa-11x-last-failure.json`) and lint-evidence verification.
+8. **`certify_11x_gate`:** Runs the 10-stage QA-11X certification gate with Allure-style `Fail-Verbose` telemetry (`/tmp/qa-11x-last-failure.json`), lint-evidence verification, `strict` mode, and `allow_unmerged_examples` opt-in.
 9. **`audit_test_pyramid_gaps`:** Audits projects against the 13 layers of the 11X pyramid (`L01`–`L13`), detecting 3-phase temporal gaps and dual refresh omissions.
 10. **`init_or_append_agents_md`:** Injects or updates idempotently bounded `AGENTS.md` / IDE connector blocks using `start/end` HTML markers.
 11. **`propose_skill_evolution_pr`:** Generates Dual-Consumer QA-escape evolution proposals (AI rules + MCP + Spanish docs) adhering to `QA-GIT-GATE-01`.
-12. **`reconcile_agents_governance`:** Deduplicates promoted global skills/rules out of consumer `.agents/` and isolates domain rules into `.agents/rules/domain_<project>_rules.md`.
+12. **`reconcile_agents_governance`:** Deduplicates promoted global skills/rules out of consumer `.agents/` and isolates domain rules into `.agents/rules/domain_<project>_rules.md` (`dry_run` defaults to `true`; pass `dry_run: false` to apply changes).
 13. **`validate_calm_architecture` *(v2.0)*:** Validates **FINOS CALM** JSON architecture-as-code schemas, 6 core nodes, 5 typed relationships, and mandatory 11X controls.
 14. **`evaluate_release_gate` *(v2.0)*:** Computes quantitative Release Readiness `GO` / `NO_GO` verdicts from coverage (`>= 95%`), Trivy `HIGH/CRITICAL = 0`, Stryker/Mutmut MSI, CALM, and STIG metrics (with fail-closed `SKIPPED` smoke scope).
 15. **`evaluate_agent_trajectory` *(v2.0)*:** Evaluates multi-step AI agent tool trajectories offline (`AST-First` precedence, compilation/regeneration/hallucination rates, `QA-GIT-GATE-01` compliance) or via DeepEval in ephemeral Docker.

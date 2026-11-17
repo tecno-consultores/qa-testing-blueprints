@@ -4,9 +4,13 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { auditSecurityStigOwasp } from '../src/tools/security-auditor.js';
-import { collectProjectFiles } from '../src/tools/inspect-project.js';
+import { collectProjectFiles, inspectProjectConfig } from '../src/tools/inspect-project.js';
+import { auditTestPyramidGaps } from '../src/tools/test-pyramid-auditor.js';
+import { runEphemeralQa } from '../src/tools/ephemeral-runner.js';
+import { WorkspacePathValidationError } from '../src/security/workspacePathValidator.js';
+import { INTERACTIVE_TTY_NOTICE, main } from '../src/index.js';
 import {
   buildPrefilledIssueUrl,
   inferDualConsumerTargets,
@@ -1305,6 +1309,46 @@ describe('QA-HEALTH-01 & Dual-Consumer Evolution Suite', () => {
 
       const res = await auditSecurityStigOwasp(tmpDir);
       expect(res.findings.filter((f) => f.file.startsWith('vendor/'))).toHaveLength(0);
+    });
+
+    it('F2.5 & F2.7: enforces SEC-PATH-01 across core tools and bounded TTY exit on slow autoSyncFn', async () => {
+      await expect(inspectProjectConfig('/etc')).rejects.toThrow(WorkspacePathValidationError);
+      await expect(auditSecurityStigOwasp('../outside')).rejects.toThrow(WorkspacePathValidationError);
+      await expect(auditTestPyramidGaps(os.tmpdir())).rejects.toThrow(WorkspacePathValidationError);
+      await expect(runEphemeralQa(os.homedir(), 'lint')).rejects.toThrow(WorkspacePathValidationError);
+      await expect(
+        proposeSkillEvolutionPr({
+          project_path: '/etc',
+          target_blueprint_file: '.agents/skills/qa-11x-architect/SKILL.md',
+          improvement_title: 'Invalid path check',
+          empirical_rationale: 'SEC-PATH-01 boundary check.',
+          proposed_content_or_snippet: '### Check\nok',
+          prefer_offline_fallback: true,
+        })
+      ).rejects.toThrow(WorkspacePathValidationError);
+
+      const prevDisableSync = process.env.QA_DISABLE_AUTO_SYNC;
+      process.env.QA_DISABLE_AUTO_SYNC = '0';
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+      const exitCodes: number[] = [];
+      const start = Date.now();
+      try {
+        await main([], undefined, {
+          exitFn: (c) => exitCodes.push(c),
+          autoSyncFn: () => new Promise(() => undefined),
+          isStdinTty: true,
+        });
+        expect(Date.now() - start).toBeLessThan(2_000);
+        expect(exitCodes).toEqual([0]);
+        expect(logSpy).toHaveBeenCalledWith(INTERACTIVE_TTY_NOTICE);
+      } finally {
+        logSpy.mockRestore();
+        if (prevDisableSync === undefined) {
+          delete process.env.QA_DISABLE_AUTO_SYNC;
+        } else {
+          process.env.QA_DISABLE_AUTO_SYNC = prevDisableSync;
+        }
+      }
     });
   });
 });

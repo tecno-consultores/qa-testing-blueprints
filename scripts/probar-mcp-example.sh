@@ -58,7 +58,7 @@ CLEANROOM_PROJECT="qa_cleanroom_$$"
 cleanup() {
   docker compose -p "${CLEANROOM_PROJECT}" -f "${CLEANROOM_DIR}/mcp-server/docker-compose.qa.yml" down --remove-orphans >/dev/null 2>&1 || true
   rm -rf "${CLEANROOM_DIR}" 2>/dev/null || \
-    docker run --rm -v "${CLEANROOM_DIR}:/clean" alpine rm -rf /clean/* /clean/.[!.]* 2>/dev/null || true
+    docker run --rm -v "${CLEANROOM_DIR}:/clean" alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab rm -rf /clean/* /clean/.[!.]* 2>/dev/null || true
   rm -rf "${CLEANROOM_DIR}" 2>/dev/null || true
 }
 trap cleanup EXIT

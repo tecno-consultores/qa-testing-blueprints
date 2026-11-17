@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "3.0.0",
-  "generated_at_utc": "2026-11-17T02:33:31Z",
+  "generated_at_utc": "2026-11-17T02:58:01Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -24,8 +24,8 @@
           "path": "bash-scripts/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "aad93b8e1ee6b5afc8ded424d60ee8b6544506e198b54c67455eb452074c2cc7",
-          "size_bytes": 1586
+          "sha256": "02e802be8923dead2582a1df89d49d016d85b0695d0f6cebe836d461c3d77257",
+          "size_bytes": 1651
         },
         {
           "path": "bash-scripts/gitignore.example",
@@ -38,8 +38,8 @@
           "path": "bash-scripts/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "9a432afee16d8c1f031608f1547b4516125f101aea9968ccb1d75998c3022f63",
-          "size_bytes": 3462
+          "sha256": "79a219f3b964488e53649b837f6e34ff8ee935bfc4596ad3092328b9292016f3",
+          "size_bytes": 3539
         },
         {
           "path": "bash-scripts/test/ejemplo_mock.bats",
@@ -89,8 +89,8 @@
           "path": "fastapi/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "d9318744d1330e3c22c507a1cc60528a9d9106bc3d6e980a45a117491c3646cb",
-          "size_bytes": 4722
+          "sha256": "ebeb5ee044adf2a29bb2b3998d9b371ec539fa80c79559e577f5ebab8304ef43",
+          "size_bytes": 4799
         },
         {
           "path": "fastapi/locustfile.py.example",
@@ -196,8 +196,8 @@
           "path": "node-backend/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "12cf95d348906ed7c7504fbd984c8c9ba6b63e16eeb5349a13a09159d9ad0fbb",
-          "size_bytes": 4056
+          "sha256": "c6699059c07bd845a6a5134b6d2bc8e3c575c28f8c4ad3bdd0bc6e1e31674e5f",
+          "size_bytes": 4133
         },
         {
           "path": "node-backend/npmrc.example",
@@ -303,8 +303,8 @@
           "path": "php/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "8748f89e9d7c1ff6fde52e4231bc5bf39db317fec6e61bf2f944a7fd3e5f3437",
-          "size_bytes": 3887
+          "sha256": "8a869da2034522c7d73f859398eee34e0ec192eb7c07edbdc2d8ec80bada3cb4",
+          "size_bytes": 3964
         },
         {
           "path": "php/php.ini.example",
@@ -368,8 +368,8 @@
           "path": "python/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "86485851aab5b512527113578fa2758c0820d84f36a3dd30add1ace41f1fb873",
-          "size_bytes": 4436
+          "sha256": "3094e7df0fab00a679d50fcffb40403e23c3d879495c3852a834d4ebf049148d",
+          "size_bytes": 4513
         },
         {
           "path": "python/pyproject.toml.example",
@@ -454,8 +454,8 @@
           "path": "react-frontend/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "426e7e26937f21413b53c2d876cd53aab94357d2db491f2c03b747b14bdcfea1",
-          "size_bytes": 4669
+          "sha256": "1116555a8ada8d9d1004dafb7e326d48ced71f62c04411a648660f31095773bb",
+          "size_bytes": 4746
         },
         {
           "path": "react-frontend/nginx/default.conf.example",
@@ -603,8 +603,8 @@
           "path": "vue3/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "6b96cc01b7dd5b306ff928d22d412630df67208b9e31002250e9bea0ac21c460",
-          "size_bytes": 4701
+          "sha256": "44799af908f3af44055d259776e39b088f65792bc8aaa3238c529156303677bd",
+          "size_bytes": 4778
         },
         {
           "path": "vue3/nginx/default.conf.example",
@@ -712,15 +712,15 @@
       "path": "lefthook.yml",
       "target_name": "lefthook.yml",
       "merge_strategy": "surgical_merge",
-      "sha256": "a565b4b451290e86783d3c0e2a24240f71b78a7c99adb4dd5e718ddde4311d89",
-      "size_bytes": 8125
+      "sha256": "8e344feff5e0fe85cea6f7c443800acc26be2ba4cdc1e91466222f44fab25238",
+      "size_bytes": 8190
     },
     {
       "path": "scripts/actualizar-grafos-graphify.sh",
       "target_name": "scripts/actualizar-grafos-graphify.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "c9197f6635d4261a70c9f4a1fc9a58a47caa049fa94178f2520c7d34f533f9d0",
-      "size_bytes": 4482
+      "sha256": "918668ddc0ac5a3bd0bf4d3afd2a0f09a13676a63409aa36a6f5b89a1df81a03",
+      "size_bytes": 4547
     },
     {
       "path": "scripts/auditar-infra.sh",
@@ -740,15 +740,15 @@
       "path": "scripts/generar-sbom-cyclonedx.sh",
       "target_name": "scripts/generar-sbom-cyclonedx.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "e894701316190abdbbb692c2dc61bf1598a5d80c04dfb5adef713a7f0ff28500",
-      "size_bytes": 840
+      "sha256": "3f69dd298e6c4cab6881e0893de05ee1539177cfbd7665763bfc30149f3842c8",
+      "size_bytes": 869
     },
     {
       "path": "scripts/limpieza.sh",
       "target_name": "scripts/limpieza.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "983abd71f06ffb609a2da36734473ecbbd0907c37517b235cc7e8dde38e3644c",
-      "size_bytes": 14400
+      "sha256": "7446dde73eab10b454bce216d0b387f07b60dc61ba67882352e6fd36b564f4dc",
+      "size_bytes": 14477
     },
     {
       "path": "scripts/verificar-secretos.sh",
@@ -854,8 +854,8 @@
       "path": ".agents/scripts/certify_task_completion.sh",
       "target_name": ".agents/scripts/certify_task_completion.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "cb85fa4c3dcabd865b4e5d2af8a11e91fa7c52f8d0e03c7f306280a68e371ac5",
-      "size_bytes": 23009
+      "sha256": "7c9e533ff0400783eff7da995fe06cd0421a84b34295b25d7289823cc2aab4b6",
+      "size_bytes": 24210
     },
     {
       "path": ".agents/scripts/checkpoint_ctl.py",
@@ -910,8 +910,8 @@
       "path": ".agents/scripts/sync_governance.py",
       "target_name": ".agents/scripts/sync_governance.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "bede309e050aabfb6b342ee5bf0cec4908c8d1ee41ea2e16aa35bf64328300a3",
-      "size_bytes": 31798
+      "sha256": "ed9ff2fe3bf145c25dda454f1982a3db697253ce88255692bd31f32091633c22",
+      "size_bytes": 32775
     },
     {
       "path": ".agents/scripts/track_findings_state.py",
@@ -1197,8 +1197,8 @@
       "path": "AGENTS.md",
       "target_name": "AGENTS.md",
       "merge_strategy": "surgical_merge",
-      "sha256": "44a7d38a80af3f4a507161e4539a679113c497a5fecbea43de99fc70ec7b4c95",
-      "size_bytes": 27049
+      "sha256": "01f2db28bd1dac988fba1ca930aa46bc929613382345a3de326edab7891e6b12",
+      "size_bytes": 27342
     },
     {
       "path": "AI_MASTER_PROMPT.es.md",

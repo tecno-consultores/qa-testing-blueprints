@@ -421,7 +421,7 @@ class TestStacksHydrationSmoke(unittest.TestCase):
         hooks_sh = (REPO_ROOT / "instalar-hooks.sh").read_text(encoding="utf-8")
         required_parity_tokens = (
             "sinfallas/karatelabs:1.5.1",
-            "sinfallas/base-bash-qa:latest",
+            "sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7",
             "tests/*.unit.py",
             "tests/meta_qa/test_governance_scripts.py",
             "validate_calm_architecture.sh",

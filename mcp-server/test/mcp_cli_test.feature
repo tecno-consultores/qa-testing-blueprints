@@ -1245,6 +1245,50 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert outputParsersTs40.contains('evaluateUnitStageStatus')
     * assert outputParsersTs40.contains('TEST_STAGE_NAMES')
 
+  Scenario: 41. Contratos Fase 2 (F2.3-F2.7) — allow_unmerged_examples, dry_run=true por defecto, SEC-PATH-01 resolveSafeProjectPath y TTY/Auto-Sync <5s
+    * def typesTs41 = karate.readAsString(mcpRoot + '/src/types.ts')
+    * assert typesTs41.contains('allow_unmerged_examples:')
+
+    * def serverTs41 = karate.readAsString(mcpRoot + '/src/server.ts')
+    * assert serverTs41.contains('allowUnmergedExamples: args.allow_unmerged_examples')
+    * assert serverTs41.contains('args.dry_run ?? true')
+    * assert serverTs41.contains('resolveSafeProjectPath')
+
+    * def bootstrapTs41 = karate.readAsString(mcpRoot + '/src/tools/bootstrap-merge.ts')
+    * assert bootstrapTs41.contains('dryRun = true')
+    * assert bootstrapTs41.contains('resolveSafeProjectPath')
+
+    * def reconcileTs41 = karate.readAsString(mcpRoot + '/src/cli/reconcile-agents.ts')
+    * assert reconcileTs41.contains('options.dryRun ?? true')
+    * assert reconcileTs41.contains('resolveSafeProjectPath')
+
+    * def indexTs41 = karate.readAsString(mcpRoot + '/src/index.ts')
+    * assert indexTs41.contains('validateV2ToolWorkspaceArgs')
+    * assert indexTs41.contains('runAutoSyncSafely')
+    * assert indexTs41.contains('runBoundedInteractiveAutoSync')
+    * assert indexTs41.contains('INTERACTIVE_TTY_SYNC_TIMEOUT_MS')
+
+    * def verMgrTs41 = karate.readAsString(mcpRoot + '/src/services/version-manager.ts')
+    * assert verMgrTs41.contains('executeGlobalSkillsSync')
+    * assert verMgrTs41.contains('process.stderr.write')
+
+    * def validatorTs41 = karate.readAsString(mcpRoot + '/src/security/workspacePathValidator.ts')
+    * assert validatorTs41.contains('QA11X_WORKSPACE_ROOTS')
+    * assert validatorTs41.contains('SEC-PATH-01')
+
+    * def e2eMjs41 = karate.readAsString(mcpRoot + '/example/run-example-e2e.mjs')
+    * assert e2eMjs41.contains('QA11X_WORKSPACE_ROOTS')
+
+    * def readmeEn41 = karate.readAsString(mcpRoot + '/README.md')
+    * assert readmeEn41.contains('allow_unmerged_examples')
+    * assert readmeEn41.contains('QA11X_WORKSPACE_ROOTS')
+    * assert readmeEn41.contains('dry_run` defaults to `true')
+
+    * def readmeEs41 = karate.readAsString(mcpRoot + '/README.es.md')
+    * assert readmeEs41.contains('allow_unmerged_examples')
+    * assert readmeEs41.contains('QA11X_WORKSPACE_ROOTS')
+    * assert readmeEs41.contains('dry_run` es `true` por defecto')
+
 
 
 

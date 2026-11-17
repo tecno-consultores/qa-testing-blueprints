@@ -9,6 +9,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { attachPromptGuard } from '../src/index.js';
+import { WorkspacePathValidationError } from '../src/security/workspacePathValidator.js';
 import { createMcpServer } from '../src/server.js';
 import { GitHubFetcher } from '../src/services/github-fetcher.js';
 import { SurgicalMerger } from '../src/services/surgical-merger.js';
@@ -71,6 +72,23 @@ describe('Modo Diferencial en inspect_ast_blast_radius y diff-bundle (Hito 23)',
     expect(result.target_symbol).toBe('greetUser');
     expect(result.diff_bundle).toBeUndefined();
     expect(result.risk_level).toBe('LOW');
+  });
+
+  it('rechaza traversal, rutas críticas del sistema, raíz tmpdir y escapes por symlink (F2.5)', async () => {
+    await expect(inspectAstBlastRadius('../outside', 'greetUser')).rejects.toThrow(
+      WorkspacePathValidationError
+    );
+    await expect(inspectAstBlastRadius('/etc', 'greetUser')).rejects.toThrow(
+      WorkspacePathValidationError
+    );
+    await expect(inspectAstBlastRadius(os.tmpdir(), 'greetUser')).rejects.toThrow(
+      WorkspacePathValidationError
+    );
+    const linkToEtc = path.join(tmpDir, 'etc-escape');
+    fs.symlinkSync('/etc', linkToEtc);
+    await expect(inspectAstBlastRadius(linkToEtc, 'greetUser')).rejects.toThrow(
+      WorkspacePathValidationError
+    );
   });
 
   it('valida referencias Git seguras y rechaza inyecciones o rutas inválidas', async () => {

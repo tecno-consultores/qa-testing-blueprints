@@ -4,6 +4,7 @@
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { BlueprintResources } from './resources/blueprint-resources.js';
 import { getActiveResourceLang } from './resources/resourceLang.js';
+import { resolveSafeProjectPath } from './security/workspacePathValidator.js';
 import { GitHubFetcher, MCP_SERVER_VERSION } from './services/github-fetcher.js';
 import { SurgicalMerger } from './services/surgical-merger.js';
 import { inspectProjectConfig } from './tools/inspect-project.js';
@@ -263,7 +264,8 @@ export function createMcpServer(options?: {
     'Audits user project directory, detecting stacks, strict linter flags, missing 11X files, and QA 11X version/skill update availability.',
     InspectProjectInputSchema.shape,
     async (args) => {
-      const result = await inspectProjectConfig(args.project_path, undefined, { fetcher });
+      const safePath = resolveSafeProjectPath(args.project_path);
+      const result = await inspectProjectConfig(safePath, undefined, { fetcher });
       return {
         content: [
           {
@@ -301,10 +303,11 @@ export function createMcpServer(options?: {
   // Tool 3: bootstrap_or_merge_11x
   server.tool(
     'bootstrap_or_merge_11x',
-    'Surgically injects or merges 11X quality standard templates without altering existing production dependencies or code.',
+    'Surgically injects or merges 11X quality standard templates without altering existing production dependencies or code (dry_run default true).',
     BootstrapMergeInputSchema.shape,
     async (args) => {
-      const result = await bootstrapOrMerge11x(args.project_path, args.stack, args.dry_run, {
+      const safePath = resolveSafeProjectPath(args.project_path);
+      const result = await bootstrapOrMerge11x(safePath, args.stack, args.dry_run ?? true, {
         fetcher,
         merger,
       });
@@ -325,8 +328,9 @@ export function createMcpServer(options?: {
     'Queries the AST knowledge graph (graphify-out/graph.json) for code/architecture Q&A and pre-refactoring blast-radius analysis.',
     BlastRadiusInputSchema.shape,
     async (args) => {
+      const safePath = resolveSafeProjectPath(args.project_path);
       const result = await inspectAstBlastRadius(
-        args.project_path,
+        safePath,
         args.target_symbol,
         args.max_items,
         {
@@ -353,8 +357,9 @@ export function createMcpServer(options?: {
     'Audits or executes workspace sanitation, removing transient test artifacts and Docker cache residues (dry_run default).',
     CleanWorkspaceInputSchema.shape,
     async (args) => {
+      const safePath = resolveSafeProjectPath(args.project_path);
       const result = await cleanWorkspace11x(
-        args.project_path,
+        safePath,
         args.dry_run ?? true,
         args.deep_prune ?? false
       );
@@ -375,7 +380,8 @@ export function createMcpServer(options?: {
     'Statically audits project source code against the 34 DISA ASD STIG V6R5, OWASP v4.2, and Anti-Silo QA/Healthcheck/TTY/CI/Contract/Docker/Playwright/SSR/UI patterns (including QA-HEALTH-01, QA-CLI-TTY-01, QA-DOCKER-TTY-01, QA-CI-ESCAPE-01, QA-MAKE-CURDIR-01, QA-CONTRACT-SDK-01, QA-DOCKER-LOCK-01, QA-PLAYWRIGHT-PIN-01, QA-SSR-HYDRATION-01, and UI-11X-01..03).',
     AuditSecurityInputSchema.shape,
     async (args) => {
-      const result = await auditSecurityStigOwasp(args.project_path, args.max_findings);
+      const safePath = resolveSafeProjectPath(args.project_path);
+      const result = await auditSecurityStigOwasp(safePath, args.max_findings);
       return {
         content: [
           {
@@ -393,8 +399,9 @@ export function createMcpServer(options?: {
     'Safely runs a Makefile QA target inside ephemeral Docker containers (Rule Zero), parsing logs for extreme token economy.',
     RunEphemeralQaInputSchema.shape,
     async (args) => {
+      const safePath = resolveSafeProjectPath(args.project_path);
       const result = await runEphemeralQa(
-        args.project_path,
+        safePath,
         args.stage,
         args.timeout_seconds,
         { skipIfDocsOnly: args.skip_if_docs_only }
@@ -416,9 +423,11 @@ export function createMcpServer(options?: {
     'Executes 11X certification gates (secrets, JSON, orphan UI/API, ORM parity, lint evidence, STIG audit, docs) and checks version/skill update status before git push.',
     CertifyGateInputSchema.shape,
     async (args) => {
-      const result = await certify11xGate(args.project_path, {
+      const safePath = resolveSafeProjectPath(args.project_path);
+      const result = await certify11xGate(safePath, {
         requireLintEvidence: args.require_lint_evidence,
         strict: args.strict,
+        allowUnmergedExamples: args.allow_unmerged_examples,
         updateOptions: { fetcher },
       });
       return {
@@ -438,8 +447,9 @@ export function createMcpServer(options?: {
     'Audits existing project against the 13 layers of the 11X pyramid, reporting uncovered files/endpoints and a prioritized rescue plan.',
     AuditTestPyramidInputSchema.shape,
     async (args) => {
+      const safePath = resolveSafeProjectPath(args.project_path);
       const result = await auditTestPyramidGaps(
-        args.project_path,
+        safePath,
         args.stack,
         args.max_items
       );
@@ -460,8 +470,9 @@ export function createMcpServer(options?: {
     'Creates AGENTS.md or additively injects the QA 11X connector block with dynamic language policy without overwriting existing content.',
     InitAgentsMdInputSchema.shape,
     async (args) => {
+      const safePath = resolveSafeProjectPath(args.project_path);
       const result = await initOrAppendAgentsMd({
-        projectPath: args.project_path,
+        projectPath: safePath,
         dryRun: Boolean(args.dry_run),
         lang: args.lang,
         agents: args.agents,
@@ -483,7 +494,8 @@ export function createMcpServer(options?: {
     'Proposes a Dual-Consumer improvement (AI skill/rule + MCP executable gate + human manual in docs/) to qa-testing-blueprints via gh CLI or pre-filled GitHub URL.',
     ProposeEvolutionPrInputSchema.shape,
     async (args) => {
-      const result = await proposeSkillEvolutionPr(args);
+      const safePath = resolveSafeProjectPath(args.project_path);
+      const result = await proposeSkillEvolutionPr({ ...args, project_path: safePath });
       return {
         content: [
           {
@@ -498,12 +510,13 @@ export function createMcpServer(options?: {
   // Tool 12: reconcile_agents_governance
   server.tool(
     'reconcile_agents_governance',
-    'Reconciles .agents/ governance rules in consumer projects: creates backup, prunes promoted duplicates, and extracts domain rules.',
+    'Reconciles .agents/ governance rules in consumer projects: creates backup, prunes promoted duplicates, and extracts domain rules (dry_run default true).',
     ReconcileAgentsInputSchema.shape,
     async (args) => {
+      const safePath = resolveSafeProjectPath(args.project_path);
       const result = await reconcileAgentsGovernance({
-        projectPath: args.project_path,
-        dryRun: args.dry_run,
+        projectPath: safePath,
+        dryRun: args.dry_run ?? true,
       });
       return {
         content: [

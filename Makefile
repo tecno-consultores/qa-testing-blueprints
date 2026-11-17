@@ -7,6 +7,16 @@
 DIRECTIVE_11X_COMPLEXITY_MSG := [DIRECTIVE-11X] Complexity/Signature limit exceeded. Do NOT split into pass-through micro-helpers (>4 params). Read '.agents/skills/tactical-patterns-11x/SKILL.md' (or 'blueprint://skills/tactical-patterns-11x') and apply Table-Driven Dispatch, Parameter Object/DTO, Guard Clauses, or Functional Pipeline.
 COMPLEXITY_FAILURE_REGEX := C901|PLR0911|PLR0913|max-params|max-depth|sonarjs/cognitive-complexity|complexity.*[0-9]+|Radon
 
+PY_IMG := sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4
+NODE_IMG := sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60
+MOBILE_IMG := sinfallas/base-mobile-appium:26@sha256:595b467d1476de0bc66e4bff35e37599dd889efa7f0222ee7418f159c102af91
+BASH_IMG := sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7
+GRAPHIFY_IMG := sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0
+TRIVY_IMG := aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb
+ALPINE_IMG := alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab
+ACTIONLINT_IMG := rhysd/actionlint:1.7.7@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9
+KARATE_IMG := sinfallas/karatelabs:1.5.1
+
 help:
 	@echo "Comandos canónicos de desarrollo y gobernanza para QA Testing Blueprints:"
 	@echo "  make clean           - Limpia artefactos temporales, cachés de Docker y residuos root (./scripts/limpieza.sh)"
@@ -152,8 +162,8 @@ lint-workflows:
 			echo "⚠️ [SKIPPED] actionlint no disponible en contenedor aislado"; \
 		fi; \
 	else \
-		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 -c "$$py" || exit 1; \
-		docker run --rm --network none -u "$$(id -u):$$(id -g)" -v "$$(pwd):/repo:ro" -w /repo rhysd/actionlint:1.7.7@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9 -color .github/workflows/*.yml || exit 1; \
+		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 -c "$$py" || exit 1; \
+		docker run --rm --network none -u "$$(id -u):$$(id -g)" -v "$$(pwd):/repo:ro" -w /repo $(ACTIONLINT_IMG) -color .github/workflows/*.yml || exit 1; \
 	fi
 
 lint-docs:
@@ -188,21 +198,21 @@ lint-docs:
 	if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
 		python3 -c "$$py"; \
 	else \
-		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 -c "$$py"; \
+		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 -c "$$py"; \
 	fi
 
 sync-governance:
 	@if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
 		python3 .agents/scripts/sync_governance.py; \
 	else \
-		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/sync_governance.py; \
+		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app" -w /app $(PY_IMG) python3 .agents/scripts/sync_governance.py; \
 	fi
 
 version-check:
 	@if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
 		python3 .agents/scripts/bump_version_11x.py --workspace . --check; \
 	else \
-		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/bump_version_11x.py --workspace /app --check; \
+		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 .agents/scripts/bump_version_11x.py --workspace /app --check; \
 	fi
 
 validate-calm:
@@ -210,7 +220,7 @@ validate-calm:
 
 lint:
 	@echo "🔍 [Lint] Ejecutando linter y chequeo de tipos en Docker efímero..."
-	@if ! out=$$(docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "$$(pwd)/mcp-server:/app" -v "$$(pwd)/mobile-appium:/mobile-appium:ro" -v "$$(pwd)/vibe-rescue:/vibe-rescue:ro" -v "$$(pwd)/.github:/.github:ro" -w /app sinfallas/base-node-ionic:26 bash -c '[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run lint && pnpm --silent run typecheck' 2>&1); then \
+	@if ! out=$$(docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "$$(pwd)/mcp-server:/app" -v "$$(pwd)/mobile-appium:/mobile-appium:ro" -v "$$(pwd)/vibe-rescue:/vibe-rescue:ro" -v "$$(pwd)/.github:/.github:ro" -w /app $(NODE_IMG) bash -c '[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run lint && pnpm --silent run typecheck' 2>&1); then \
 		printf '%s\n' "$$out" >&2; \
 		if printf '%s' "$$out" | grep -qE '$(COMPLEXITY_FAILURE_REGEX)'; then printf '\n%s\n' "$(DIRECTIVE_11X_COMPLEXITY_MSG)" >&2; fi; \
 		exit 1; \
@@ -220,23 +230,23 @@ lint:
 test-mcp:
 	@echo "🧪 [Test MCP] Ejecutando pruebas unitarias Vitest (>= 95%) en Docker efímero..."
 	@mkdir -p .agents/.cache/coverage && chmod 0700 .agents/.cache
-	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "$$(pwd)/mcp-server:/app" -v "$$(pwd)/.agents/.cache/coverage:/cov-out" -v "$$(pwd)/mobile-appium:/mobile-appium:ro" -v "$$(pwd)/vibe-rescue:/vibe-rescue:ro" -v "$$(pwd)/.github:/.github:ro" -w /app sinfallas/base-node-ionic:26 bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run test:unit && if [ -f coverage/lcov.info ]; then sed -E 's|^SF:/app/|SF:mcp-server/|; s|^SF:(src/)|SF:mcp-server/\1|' coverage/lcov.info > /cov-out/mcp-server.info; fi && rm -rf coverage .eslintcache"
+	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "$$(pwd)/mcp-server:/app" -v "$$(pwd)/.agents/.cache/coverage:/cov-out" -v "$$(pwd)/mobile-appium:/mobile-appium:ro" -v "$$(pwd)/vibe-rescue:/vibe-rescue:ro" -v "$$(pwd)/.github:/.github:ro" -w /app $(NODE_IMG) bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run test:unit && if [ -f coverage/lcov.info ]; then sed -E 's|^SF:/app/|SF:mcp-server/|; s|^SF:(src/)|SF:mcp-server/\1|' coverage/lcov.info > /cov-out/mcp-server.info; fi && rm -rf coverage .eslintcache"
 
 test-karate:
 	@echo "🎭 [Karate BDD] Ejecutando contratos BDD del MCP Server en Docker efímero..."
-	@docker run --rm -v "$$(pwd)/mcp-server/test:/app/src/test/java/examples/test:ro" -v "$$(pwd):/repo:ro" sinfallas/karatelabs:1.5.1 mvn -B -q clean test
+	@docker run --rm -v "$$(pwd)/mcp-server/test:/app/src/test/java/examples/test:ro" -v "$$(pwd):/repo:ro" $(KARATE_IMG) mvn -B -q clean test
 
 test-py:
 	@echo "🐍 [Pytest] Ejecutando pruebas unitarias de gobernanza y manifiesto en Docker efímero..."
 	@mkdir -p .agents/.cache/coverage && chmod 0700 .agents/.cache
-	@docker run --rm -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e PYTHONPATH=.agents/scripts:. -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app" -w /app sinfallas/base-python-uv:3.15 uv run --with pytest --with pytest-cov pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function -W "ignore::DeprecationWarning:deepeval.*" -W "ignore::SyntaxWarning:deepeval.*" --import-mode=importlib --cov=.agents/scripts --cov=scripts --cov-fail-under=95 --cov-branch --cov-report=xml:/app/.agents/.cache/coverage/python.xml tests/*.unit.py tests/meta_qa/test_*.py -q
+	@docker run --rm -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e PYTHONPATH=.agents/scripts:. -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app" -w /app $(PY_IMG) uv run --with pytest --with pytest-cov pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function -W "ignore::DeprecationWarning:deepeval.*" -W "ignore::SyntaxWarning:deepeval.*" --import-mode=importlib --cov=.agents/scripts --cov=scripts --cov-fail-under=95 --cov-branch --cov-report=xml:/app/.agents/.cache/coverage/python.xml tests/*.unit.py tests/meta_qa/test_*.py -q
 
 diff-cov:
 	@echo "📐 [Diff Coverage] Auditando cobertura diferencial multi-stack y anti-evasión..."
 	@if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
 		python3 .agents/scripts/verify_diff_coverage.py --workspace . --reports-dir .agents/.cache/coverage; \
 	else \
-		docker run --rm --network none -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_diff_coverage.py --workspace /app --reports-dir .agents/.cache/coverage; \
+		docker run --rm --network none -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 .agents/scripts/verify_diff_coverage.py --workspace /app --reports-dir .agents/.cache/coverage; \
 	fi
 
 pr-verdict:
@@ -244,7 +254,7 @@ pr-verdict:
 	@if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
 		python3 .agents/scripts/generate_pr_verdict.py --workspace . --output-md .agents/artifacts/PR_VERDICT.md --output-json .agents/artifacts/pr_verdict_attestation.json; \
 	else \
-		docker run --rm --network none -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e QA11X_ATTESTATION_KEY -v "$$(pwd):/app" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/generate_pr_verdict.py --workspace /app --output-md .agents/artifacts/PR_VERDICT.md --output-json .agents/artifacts/pr_verdict_attestation.json; \
+		docker run --rm --network none -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e QA11X_ATTESTATION_KEY -v "$$(pwd):/app" -w /app $(PY_IMG) python3 .agents/scripts/generate_pr_verdict.py --workspace /app --output-md .agents/artifacts/PR_VERDICT.md --output-json .agents/artifacts/pr_verdict_attestation.json; \
 	fi
 
 test-meta-qa:
@@ -256,7 +266,7 @@ test-meta-qa:
 			exit 1; \
 		fi; \
 	else \
-		if ! out=$$(docker run --rm -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 sh -c "$$cmd" 2>&1); then \
+		if ! out=$$(docker run --rm -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app $(PY_IMG) sh -c "$$cmd" 2>&1); then \
 			printf '%s\n' "$$out" >&2; \
 			if printf '%s' "$$out" | grep -qE '$(COMPLEXITY_FAILURE_REGEX)'; then printf '\n%s\n' "$(DIRECTIVE_11X_COMPLEXITY_MSG)" >&2; fi; \
 			exit 1; \
@@ -391,8 +401,8 @@ test-frontend-blueprints:
 		node /tmp/verify_screenplay.mts >/dev/null && \
 		python3 .agents/scripts/lint_test_antipatterns.py vue3 react-frontend; \
 	else \
-		printf '%s\n' "$$node_script" | docker run --rm -i -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app sinfallas/base-node-ionic:26 sh -c 'tsc --strict --noImplicitAny --noUnusedLocals --noUnusedParameters --noImplicitReturns --erasableSyntaxOnly --allowImportingTsExtensions --target ES2023 --module ESNext --moduleResolution Bundler --noEmit vue3/tests/screenplay/Actor.ts react-frontend/tests/screenplay/Actor.ts vue3/tests/utils/semanticLocator.ts react-frontend/tests/utils/semanticLocator.ts && cat > /tmp/verify_screenplay.mts && node /tmp/verify_screenplay.mts >/dev/null' && \
-		lint_out=$$(docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/lint_test_antipatterns.py vue3 react-frontend) && \
+		printf '%s\n' "$$node_script" | docker run --rm -i -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app $(NODE_IMG) sh -c 'tsc --strict --noImplicitAny --noUnusedLocals --noUnusedParameters --noImplicitReturns --erasableSyntaxOnly --allowImportingTsExtensions --target ES2023 --module ESNext --moduleResolution Bundler --noEmit vue3/tests/screenplay/Actor.ts react-frontend/tests/screenplay/Actor.ts vue3/tests/utils/semanticLocator.ts react-frontend/tests/utils/semanticLocator.ts && cat > /tmp/verify_screenplay.mts && node /tmp/verify_screenplay.mts >/dev/null' && \
+		lint_out=$$(docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 .agents/scripts/lint_test_antipatterns.py vue3 react-frontend) && \
 		echo "✅ [test-frontend-blueprints] TS estricto + Screenplay RBAC + Self-Healing DOM (vue3/react) OK | $$lint_out"; \
 	fi
 
@@ -436,16 +446,16 @@ test-backend-blueprints:
 		'raise SystemExit(1)' \
 	); \
 	{ \
-		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 -e PACT_OUTPUT_DIR=/pacts -v "$$(pwd):/app:ro" -v "$$pact_dir:/pacts" -w /app sinfallas/base-python-uv:3.15 sh -c 'ruff check --select E,F,W,I,UP,B,C901,FLY --config "lint.mccabe.max-complexity=5" fastapi/tests/contracts/test_pact_consumer.py && mypy --strict --cache-dir=/tmp/mypy fastapi/tests/contracts/test_pact_consumer.py && pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function -W "ignore::DeprecationWarning:deepeval.*" -W "ignore::SyntaxWarning:deepeval.*" --import-mode=importlib --cov=fastapi/tests/contracts --cov-fail-under=95 --cov-report=term-missing fastapi/tests/contracts/test_pact_consumer.py' && \
+		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 -e PACT_OUTPUT_DIR=/pacts -v "$$(pwd):/app:ro" -v "$$pact_dir:/pacts" -w /app $(PY_IMG) sh -c 'ruff check --select E,F,W,I,UP,B,C901,FLY --config "lint.mccabe.max-complexity=5" fastapi/tests/contracts/test_pact_consumer.py && mypy --strict --cache-dir=/tmp/mypy fastapi/tests/contracts/test_pact_consumer.py && pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function -W "ignore::DeprecationWarning:deepeval.*" -W "ignore::SyntaxWarning:deepeval.*" --import-mode=importlib --cov=fastapi/tests/contracts --cov-fail-under=95 --cov-report=term-missing fastapi/tests/contracts/test_pact_consumer.py' && \
 		test -s "$$pact_dir/fastapi-billing-consumer-node-inventory-provider.json" && \
-		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e NODE_PATH=/opt/qa11x/node_modules -e PACT_OUTPUT_DIR=/pacts -v "$$(pwd):/app:ro" -v "$$pact_dir:/pacts:ro" -w /app sinfallas/base-node-ionic:26 sh -c 'tsc --strict --noImplicitAny --noUnusedLocals --noUnusedParameters --noImplicitReturns --erasableSyntaxOnly --allowImportingTsExtensions --target ES2023 --module NodeNext --moduleResolution NodeNext --typeRoots /opt/qa11x/node_modules/@types --types node --noEmit node-backend/tests/contracts/provider.pact.test.ts && node --test node-backend/tests/contracts/provider.pact.test.ts' && \
-		stub_cid=$$(docker run -d --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 sinfallas/base-python-uv:3.15 python3 -c "$$stub_script") && \
+		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e NODE_PATH=/opt/qa11x/node_modules -e PACT_OUTPUT_DIR=/pacts -v "$$(pwd):/app:ro" -v "$$pact_dir:/pacts:ro" -w /app $(NODE_IMG) sh -c 'tsc --strict --noImplicitAny --noUnusedLocals --noUnusedParameters --noImplicitReturns --erasableSyntaxOnly --allowImportingTsExtensions --target ES2023 --module NodeNext --moduleResolution NodeNext --typeRoots /opt/qa11x/node_modules/@types --types node --noEmit node-backend/tests/contracts/provider.pact.test.ts && node --test node-backend/tests/contracts/provider.pact.test.ts' && \
+		stub_cid=$$(docker run -d --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 $(PY_IMG) python3 -c "$$stub_script") && \
 		docker exec "$$stub_cid" python3 -c "$$wait_script" && \
 		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e K6_PROFILE=smoke -e API_BASE_URL=http://127.0.0.1:18080 -e K6_SUMMARY_PATH=/pacts/k6-summary.json --network "container:$$stub_cid" -v "$$(pwd)/fastapi/tests/load:/load:ro" -v "$$pact_dir:/pacts" grafana/k6:2.4.0@sha256:d41bb79cd8de5a7ad619b53570e3712633e8bff0937010a5c6c57a4747e7a276 run -q /load/smoke.k6.js && \
 		test -s "$$pact_dir/k6-summary.json" && \
 		grep -q '"thresholdsPassed": true' "$$pact_dir/k6-summary.json" && \
 		docker rm -f "$$stub_cid" >/dev/null 2>&1 && stub_cid="" && \
-		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/lint_test_antipatterns.py fastapi/tests/contracts node-backend/tests/contracts; \
+		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 .agents/scripts/lint_test_antipatterns.py fastapi/tests/contracts node-backend/tests/contracts; \
 	} >"$$log_file" 2>&1 || { cat "$$log_file" >&2; exit 1; }; \
 	cov=$$(awk '/TOTAL /{print $$NF}' "$$log_file" | tail -n 1); \
 	echo "✅ [test-backend-blueprints] Pact V4 (FastAPI->Node) + k6 smoke + antipatrones OK (cobertura_pact=$${cov:-N/A})"
@@ -455,8 +465,8 @@ test-mobile-blueprints:
 	if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
 		sh -c "$$cmd" && python3 .agents/scripts/lint_test_antipatterns.py mobile-appium; \
 	else \
-		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e NODE_PATH=/opt/qa11x/node_modules -v "$$(pwd):/app:ro" -w /app sinfallas/base-mobile-appium:26 sh -c "$$cmd" && \
-		lint_out=$$(docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/lint_test_antipatterns.py mobile-appium) && \
+		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e NODE_PATH=/opt/qa11x/node_modules -v "$$(pwd):/app:ro" -w /app $(MOBILE_IMG) sh -c "$$cmd" && \
+		lint_out=$$(docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 .agents/scripts/lint_test_antipatterns.py mobile-appium) && \
 		echo "✅ [test-mobile-blueprints] Appium/ADB + TSC estricto + Screenplay W3C + antipatrones OK | $$lint_out"; \
 	fi
 
@@ -472,7 +482,7 @@ test-ai-offline:
 			exit 1; \
 		fi; \
 	else \
-		if ! out=$$(docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e DEEPEVAL_TELEMETRY_OPT_OUT=YES -v "$$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 sh -c "$$cmd" 2>&1); then \
+		if ! out=$$(docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e DEEPEVAL_TELEMETRY_OPT_OUT=YES -v "$$(pwd):/app:ro" -w /app $(PY_IMG) sh -c "$$cmd" 2>&1); then \
 			printf '%s\n' "$$out" >&2; \
 			if printf '%s' "$$out" | grep -qE '$(COMPLEXITY_FAILURE_REGEX)'; then printf '\n%s\n' "$(DIRECTIVE_11X_COMPLEXITY_MSG)" >&2; fi; \
 			exit 1; \
@@ -488,9 +498,9 @@ audit-llm:
 		exit 2; \
 	fi
 	@echo "🤖 [audit-llm] Ejecutando evaluación DeepEval en sinfallas/base-python-uv:3.15..."
-	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e DEEPEVAL_TELEMETRY_OPT_OUT=YES -e QA_LLM_AUDIT_LIVE="$${QA_LLM_AUDIT_LIVE:-$${RUN_LLM_AUDIT:-1}}" -e RUN_LLM_AUDIT="$${RUN_LLM_AUDIT:-1}" -e PYTHONPATH=ai-evals -e OPENAI_API_KEY -e GEMINI_API_KEY -e ANTHROPIC_API_KEY -e OLLAMA_BASE_URL -e OPENAI_API_BASE -e QA_LLM_MODEL -v "$$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function --import-mode=importlib ai-evals/rag/test_rag_faithfulness.py ai-evals/voice-realtime/test_voice_websocket_latency.py ai-evals/multimodal-ocr/test_pdf_table_fidelity.py tests/evals/test_skill_adherence.py -k "live"
+	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e DEEPEVAL_TELEMETRY_OPT_OUT=YES -e QA_LLM_AUDIT_LIVE="$${QA_LLM_AUDIT_LIVE:-$${RUN_LLM_AUDIT:-1}}" -e RUN_LLM_AUDIT="$${RUN_LLM_AUDIT:-1}" -e PYTHONPATH=ai-evals -e OPENAI_API_KEY -e GEMINI_API_KEY -e ANTHROPIC_API_KEY -e OLLAMA_BASE_URL -e OPENAI_API_BASE -e QA_LLM_MODEL -v "$$(pwd):/app:ro" -w /app $(PY_IMG) pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function --import-mode=importlib ai-evals/rag/test_rag_faithfulness.py ai-evals/voice-realtime/test_voice_websocket_latency.py ai-evals/multimodal-ocr/test_pdf_table_fidelity.py tests/evals/test_skill_adherence.py -k "live"
 	@echo "🛡️ [audit-llm] Ejecutando matrices Promptfoo OWASP LLM Top 10 y Skills en sinfallas/base-node-ionic:26..."
-	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PROMPTFOO_DISABLE_TELEMETRY=1 -e PROMPTFOO_CONFIG_DIR=/tmp/.promptfoo -e OPENAI_API_KEY -e GEMINI_API_KEY -e ANTHROPIC_API_KEY -e OLLAMA_BASE_URL -e OPENAI_API_BASE -v "$$(pwd):/app:ro" -w /app sinfallas/base-node-ionic:26 sh -c "promptfoo eval -c ai-evals/promptfooconfig.yaml --no-cache -o /tmp/promptfoo-results.json && promptfoo eval -c tests/evals/promptfoo_skills_matrix.yaml --no-cache -o /tmp/promptfoo-skills-results.json"
+	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PROMPTFOO_DISABLE_TELEMETRY=1 -e PROMPTFOO_CONFIG_DIR=/tmp/.promptfoo -e OPENAI_API_KEY -e GEMINI_API_KEY -e ANTHROPIC_API_KEY -e OLLAMA_BASE_URL -e OPENAI_API_BASE -v "$$(pwd):/app:ro" -w /app $(NODE_IMG) sh -c "promptfoo eval -c ai-evals/promptfooconfig.yaml --no-cache -o /tmp/promptfoo-results.json && promptfoo eval -c tests/evals/promptfoo_skills_matrix.yaml --no-cache -o /tmp/promptfoo-skills-results.json"
 
 audit-psi:
 	@./scripts/auditar-pagespeed.sh \
@@ -505,7 +515,7 @@ test: test-mcp test-example test-karate test-py test-meta-qa test-ai-offline tes
 
 build:
 	@echo "📦 [Build] Compilando Servidor MCP en Docker efímero..."
-	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "$$(pwd)/mcp-server:/app" -w /app sinfallas/base-node-ionic:26 bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run build"
+	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "$$(pwd)/mcp-server:/app" -w /app $(NODE_IMG) bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run build"
 	@echo "✔ [Build] Servidor MCP compilado en mcp-server/dist/."
 
 publish-mcp:
@@ -515,4 +525,4 @@ publish-mcp-dry:
 	@./scripts/publicar-mcp.sh --dry-run
 
 certify:
-	@./.agents/scripts/certify_task_completion.sh
+	@QA11X_STRICT="$${QA11X_STRICT:-0}" QA11X_BLUEPRINT_SOURCE_REPO=1 ./.agents/scripts/certify_task_completion.sh

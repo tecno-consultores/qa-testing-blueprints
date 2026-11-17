@@ -4,6 +4,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { execFile } from 'node:child_process';
+import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { ProposeEvolutionPrInput, ProposeEvolutionPrResult } from '../types.js';
 
 export const UPSTREAM_REPO = 'tecno-consultores/qa-testing-blueprints';
@@ -211,7 +212,7 @@ export async function proposeSkillEvolutionPr(
   input: ProposeEvolutionPrInput,
   execRunner: ExecRunnerFunction = defaultExecRunner
 ): Promise<ProposeEvolutionPrResult> {
-  const resolvedPath = path.resolve(input.project_path.normalize('NFKC'));
+  const resolvedPath = resolveSafeProjectPath(input.project_path);
   if (!fs.existsSync(resolvedPath)) {
     throw new Error(`El directorio del proyecto especificado no existe: ${resolvedPath}`);
   }

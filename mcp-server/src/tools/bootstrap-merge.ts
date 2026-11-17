@@ -6,6 +6,7 @@ import * as path from 'node:path';
 import { GitHubFetcher } from '../services/github-fetcher.js';
 import { SurgicalMerger } from '../services/surgical-merger.js';
 import { mergeOrAppendAgentsMdContent } from '../cli/init-agents-md.js';
+import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { BootstrapMergeResult } from '../types.js';
 
 function injectAgentsConnectorIfMissingFromBundle(
@@ -47,11 +48,11 @@ export interface BootstrapMergeDeps {
 export async function bootstrapOrMerge11x(
   projectPathInput: string,
   stack: string,
-  dryRun = false,
+  dryRun = true,
   deps: BootstrapMergeDeps = {}
 ): Promise<BootstrapMergeResult> {
   const { fetcher, merger } = deps;
-  const resolvedPath = path.resolve(projectPathInput.normalize('NFKC'));
+  const resolvedPath = resolveSafeProjectPath(projectPathInput);
   const resolvedFetcher = fetcher || new GitHubFetcher();
   const resolvedMerger = merger || new SurgicalMerger();
 

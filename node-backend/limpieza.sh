@@ -48,7 +48,7 @@ find . \( -name ".git" -o -name "node_modules" -o -name ".venv" -o -name "venv" 
 CURRENT_UID="$(id -u)"
 CURRENT_GID="$(id -g)"
 if command -v docker >/dev/null 2>&1; then
-  docker run --rm -v "${SCRIPT_DIR}:/work" alpine sh -c "\
+  docker run --rm -v "${SCRIPT_DIR}:/work" alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab sh -c "\
     rm -rf /work/node_modules /work/.pnpm-store /work/.turbo /work/dist /work/.stryker-tmp /work/coverage /work/.nyc_output \
            /work/target /work/test/target /work/.clinic /work/reports /work/prometheus_data \
            /work/.eslintcache /work/.trivycache /work/karate.jar /work/karate-*.jar \

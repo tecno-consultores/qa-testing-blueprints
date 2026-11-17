@@ -3,6 +3,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { inspectProjectConfig } from '../tools/inspect-project.js';
 import {
   parseAgentsOption,
@@ -148,10 +149,14 @@ export function mergeOrAppendAgentsMdContent(
   };
 }
 
+export function resolveProjectDisplayName(resolvedPath: string): string {
+  return path.basename(resolvedPath) || 'Project';
+}
+
 export async function initOrAppendAgentsMd(
   options: InitAgentsMdOptions
 ): Promise<InitAgentsMdResult> {
-  const resolvedPath = path.resolve(options.projectPath.normalize('NFKC'));
+  const resolvedPath = resolveSafeProjectPath(options.projectPath);
 
   if (!fs.existsSync(resolvedPath)) {
     throw new Error(`El directorio especificado no existe: ${resolvedPath}`);
@@ -164,7 +169,7 @@ export async function initOrAppendAgentsMd(
 
   const inspection = await inspectProjectConfig(resolvedPath);
   const detectedStacks = inspection.detected_stacks;
-  const projectName = path.basename(resolvedPath) || 'Project';
+  const projectName = resolveProjectDisplayName(resolvedPath);
   const agentsMdPath = path.join(resolvedPath, AGENTS_MD_FILENAME);
 
   let existingContent = '';

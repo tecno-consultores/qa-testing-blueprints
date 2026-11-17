@@ -4,8 +4,12 @@
 import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { BlastRadiusResult, DiffBundleReport } from '../types.js';
 import { buildSemanticDiffBundle } from '../utils/diff-bundle.js';
+
+export const GRAPHIFY_DOCKER_IMAGE =
+  'sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0';
 
 export interface BlastRadiusOptions {
   autoBuildIfMissing?: boolean;
@@ -15,41 +19,42 @@ export interface BlastRadiusOptions {
   maxTokensBudget?: number;
 }
 
-export function defaultGraphifyBuilder(resolvedPath: string): boolean {
-  const scriptPath = path.join(resolvedPath, 'scripts', 'actualizar-grafos-graphify.sh');
+export function defaultGraphifyBuilder(
+  resolvedPath: string,
+  execFileFn: typeof execFileSync = execFileSync
+): boolean {
   try {
-    if (fs.existsSync(scriptPath)) {
-      const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
-      if (!scriptContent.includes('# SPDX-License-Identifier: MIT')) {
-        return false;
-      }
-      execFileSync('bash', [scriptPath], {
-        cwd: resolvedPath,
-        stdio: 'pipe',
-        timeout: 120000,
-      });
-      return true;
-    }
+    const safePath = resolveSafeProjectPath(resolvedPath, { allowNonExistentLeaf: false });
+    const graphOutDir = path.join(safePath, 'graphify-out');
+    fs.mkdirSync(graphOutDir, { recursive: true });
     const uid = typeof process.getuid === 'function' ? process.getuid() : 1000;
     const gid = typeof process.getgid === 'function' ? process.getgid() : 1000;
-    execFileSync(
+    execFileFn(
       'docker',
       [
         'run',
         '--rm',
+        '--network',
+        'none',
+        '-u',
+        `${uid}:${gid}`,
+        '-e',
+        'HOME=/tmp',
         '-e',
         'OLLAMA_BASE_URL=',
         '-v',
-        `${resolvedPath}:/app`,
+        `${safePath}:/app:ro`,
+        '-v',
+        `${graphOutDir}:/app/graphify-out`,
         '-w',
         '/app',
-        'sinfallas/remote-graphify:latest',
+        GRAPHIFY_DOCKER_IMAGE,
         'sh',
         '-c',
-        `graphify extract . --code-only && graphify cluster-only . && rm -rf graphify-out/cache graphify-out/20* graphify-out/.graphify_* graphify-out/.cloud-cta-shown && chown -R ${uid}:${gid} graphify-out`,
+        'graphify extract . --code-only && graphify cluster-only . && rm -rf graphify-out/cache graphify-out/20* graphify-out/.graphify_* graphify-out/.cloud-cta-shown',
       ],
       {
-        cwd: resolvedPath,
+        cwd: safePath,
         stdio: 'pipe',
         timeout: 120000,
       }
@@ -311,7 +316,7 @@ export async function inspectAstBlastRadius(
   maxItems?: number,
   options?: BlastRadiusOptions
 ): Promise<BlastRadiusResult> {
-  const resolvedPath = path.resolve(projectPathInput.normalize('NFKC'));
+  const resolvedPath = resolveSafeProjectPath(projectPathInput);
 
   if (!fs.existsSync(resolvedPath)) {
     throw new Error(`El directorio no existe: ${resolvedPath}`);

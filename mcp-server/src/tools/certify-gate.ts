@@ -10,6 +10,7 @@ import {
   evaluateUpdateStatus,
   type EvaluateUpdateOptions,
 } from '../services/version-manager.js';
+import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { auditSecurityStigOwasp } from './security-auditor.js';
 import { CertifyGateResult, GateCheckStatus } from '../types.js';
 
@@ -34,26 +35,9 @@ function buildCheckOutcome(status: GateCheckStatus, blockers: string[] = []): Ga
 export interface CertifyGateOptions {
   requireLintEvidence?: boolean;
   strict?: boolean;
+  allowUnmergedExamples?: boolean;
   execFileSyncFn?: typeof execFileSync;
   updateOptions?: Partial<Omit<EvaluateUpdateOptions, 'projectPath'>>;
-}
-
-function isQaTestingBlueprintsRepo(projectPath: string): boolean {
-  try {
-    const pkgPath = path.join(projectPath, 'mcp-server', 'package.json');
-    if (fs.existsSync(pkgPath)) {
-      const content = fs.readFileSync(pkgPath, 'utf8');
-      if (content.includes('@sinfallas/mcp-qa-11x')) return true;
-    }
-    const manifestPath = path.join(projectPath, 'manifest.json');
-    if (fs.existsSync(manifestPath)) {
-      const content = fs.readFileSync(manifestPath, 'utf8');
-      if (content.includes('qa-testing-blueprints')) return true;
-    }
-  } catch {
-    // Silencio
-  }
-  return false;
 }
 
 const ALLOWED_ENV_EXAMPLES = new Set(['.env.example', 'env.example']);
@@ -63,9 +47,14 @@ function isDeploymentEnvTemplate(fileName: string): boolean {
   return ALLOWED_ENV_EXAMPLES.has(fileName) || ENV_VARIANT_EXAMPLE_RE.test(fileName);
 }
 
-function checkUnmergedExamples(projectPath: string): GateCheckOutcome {
-  if (isQaTestingBlueprintsRepo(projectPath)) {
-    return buildCheckOutcome(GATE_STATUS_PASSED);
+function checkUnmergedExamples(
+  projectPath: string,
+  allowUnmergedExamples?: boolean
+): GateCheckOutcome {
+  const optIn =
+    allowUnmergedExamples === true || process.env.QA11X_BLUEPRINT_SOURCE_REPO === '1';
+  if (optIn) {
+    return buildCheckOutcome(GATE_STATUS_SKIPPED);
   }
 
   const blockers: string[] = [];
@@ -964,11 +953,11 @@ export async function certify11xGate(
   projectPath: string,
   options?: CertifyGateOptions
 ): Promise<CertifyGateResult> {
-  const resolvedPath = path.resolve(projectPath);
+  const resolvedPath = resolveSafeProjectPath(projectPath);
   const requireLint = options?.requireLintEvidence ?? true;
   const strict = options?.strict ?? false;
 
-  const unmerged = checkUnmergedExamples(resolvedPath);
+  const unmerged = checkUnmergedExamples(resolvedPath, options?.allowUnmergedExamples);
   const jsonCheck = checkJsonIntegrity(resolvedPath);
   const orphanUi = checkOrphanUiComponents(resolvedPath);
   const orphanApi = checkZeroOrphanApiEndpoints(resolvedPath);

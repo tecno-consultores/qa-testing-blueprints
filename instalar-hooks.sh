@@ -87,7 +87,7 @@ if [ -d "./mcp-server/test" ]; then
   docker run --rm -v "$(pwd)/mcp-server/test:/app/src/test/java/examples/test:ro" -v "$(pwd):/repo:ro" sinfallas/karatelabs:1.5.1 mvn -B -q clean test
 fi
 if [ -d "./bash-scripts/test" ]; then
-  docker run --rm -v "$(pwd):/repo:ro" -w /repo/bash-scripts sinfallas/base-bash-qa:latest \
+  docker run --rm -v "$(pwd):/repo:ro" -w /repo/bash-scripts sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7 \
     bash -c "shellcheck -x ../scripts/*.sh ../.agents/scripts/*.sh ../instalar-hooks.sh ./*.sh && bats test/*.bats ../tests/bats/*.bats"
 fi
 if [ -x "./.agents/scripts/validate_calm_architecture.sh" ]; then

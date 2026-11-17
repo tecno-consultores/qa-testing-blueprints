@@ -21,6 +21,7 @@ import {
   hasComplexityOrSignatureViolation,
   TACTICAL_PATTERNS_DIRECTIVE_11X,
 } from '../utils/diagnosticFormatter.js';
+import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { recordStageCmdCheckpoint } from './sessionFlightRecorder.js';
 
 const MAX_EXEC_BUFFER_BYTES = 20 * 1024 * 1024;
@@ -1276,7 +1277,7 @@ export async function runEphemeralQa(
   timeoutSeconds = 300,
   options?: RunEphemeralQaOptions
 ): Promise<QaExecutionResult> {
-  const resolvedPath = path.resolve(projectPath);
+  const resolvedPath = resolveSafeProjectPath(projectPath);
 
   if (options?.skipIfDocsOnly && isDocsOnlyWorkspaceChange(resolvedPath, options.execFileSyncFn)) {
     return {

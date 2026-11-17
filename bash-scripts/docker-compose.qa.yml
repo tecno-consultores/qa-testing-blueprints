@@ -3,7 +3,7 @@
 
 services:
   qa-bash:
-    image: sinfallas/base-bash-qa:latest
+    image: sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7
     container_name: bash_qa_env
     hostname: bash_qa_env
     pull_policy: if_not_present

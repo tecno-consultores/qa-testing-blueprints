@@ -8,8 +8,13 @@ import * as path from 'node:path';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { fetchBlueprintBundle } from '../src/tools/fetch-bundle.js';
 import { bootstrapOrMerge11x } from '../src/tools/bootstrap-merge.js';
-import { inspectAstBlastRadius } from '../src/tools/blast-radius.js';
+import {
+  GRAPHIFY_DOCKER_IMAGE,
+  defaultGraphifyBuilder,
+  inspectAstBlastRadius,
+} from '../src/tools/blast-radius.js';
 import { cleanWorkspace11x } from '../src/tools/clean-workspace.js';
+import { WorkspacePathValidationError } from '../src/security/workspacePathValidator.js';
 import { BlueprintResources } from '../src/resources/blueprint-resources.js';
 import {
   parseResourceUriAndLang,
@@ -455,28 +460,96 @@ describe('Tools and Resources Integration Suite', () => {
       });
       expect(refreshedRes.ast_graph_rebuilt).toBe(true);
 
-      // Probar defaultGraphifyBuilder con script local mockeado (exit 0, sin SPDX y exit 1)
+      // F2.1/F2.2/F2.5: defaultGraphifyBuilder NUNCA ejecuta bash en el host aunque exista scripts/actualizar-grafos-graphify.sh
       const scriptDir = path.join(freshDir, 'scripts');
       fs.mkdirSync(scriptDir, { recursive: true });
       const localGraphScript = path.join(scriptDir, 'actualizar-grafos-graphify.sh');
-      fs.writeFileSync(localGraphScript, '#!/usr/bin/env bash\n# SPDX-License-Identifier: MIT\nexit 0\n', { mode: 0o755 });
+      fs.writeFileSync(
+        localGraphScript,
+        '#!/usr/bin/env bash\n# SPDX-License-Identifier: MIT\nexit 1\n',
+        { mode: 0o755 }
+      );
 
-      const defaultBuilderOk = await inspectAstBlastRadius(freshDir, 'AutoBuiltSymbol', 20, {
-        refreshGraph: true,
-      });
-      expect(defaultBuilderOk.ast_graph_rebuilt).toBe(true);
+      const dockerCalls: Array<{ cmd: string; args: readonly string[]; cwd?: string }> = [];
+      const mockDockerExec = ((cmd: string, args: readonly string[], opts?: { cwd?: string }) => {
+        dockerCalls.push({ cmd, args, cwd: opts?.cwd });
+        return Buffer.from('');
+      }) as unknown as Parameters<typeof defaultGraphifyBuilder>[1];
 
-      fs.writeFileSync(localGraphScript, '#!/usr/bin/env bash\nexit 0\n', { mode: 0o755 });
-      const defaultBuilderNoSpdx = await inspectAstBlastRadius(freshDir, 'AutoBuiltSymbol', 20, {
-        refreshGraph: true,
-      });
-      expect(defaultBuilderNoSpdx.ast_graph_rebuilt).toBeUndefined();
+      const realFreshDir = fs.realpathSync(freshDir);
+      const uid = typeof process.getuid === 'function' ? process.getuid() : 1000;
+      const gid = typeof process.getgid === 'function' ? process.getgid() : 1000;
 
-      fs.writeFileSync(localGraphScript, '#!/usr/bin/env bash\n# SPDX-License-Identifier: MIT\nexit 1\n', { mode: 0o755 });
-      const defaultBuilderFail = await inspectAstBlastRadius(freshDir, 'AutoBuiltSymbol', 20, {
-        refreshGraph: true,
-      });
-      expect(defaultBuilderFail.ast_graph_rebuilt).toBeUndefined();
+      expect(defaultGraphifyBuilder(freshDir, mockDockerExec)).toBe(true);
+      expect(dockerCalls).toHaveLength(1);
+      expect(dockerCalls[0].cmd).toBe('docker');
+      expect(dockerCalls[0].cmd).not.toBe('bash');
+      expect(dockerCalls[0].args).toContain('--network');
+      expect(dockerCalls[0].args).toContain('none');
+      expect(dockerCalls[0].args).toContain(`${uid}:${gid}`);
+      expect(dockerCalls[0].args).toContain('HOME=/tmp');
+      expect(dockerCalls[0].args).toContain(`${realFreshDir}:/app:ro`);
+      expect(dockerCalls[0].args).toContain(`${path.join(realFreshDir, 'graphify-out')}:/app/graphify-out`);
+      expect(dockerCalls[0].args).toContain(GRAPHIFY_DOCKER_IMAGE);
+
+      // Si docker falla, retorna false de forma segura
+      const throwingDockerExec = (() => {
+        throw new Error('docker unavailable');
+      }) as unknown as Parameters<typeof defaultGraphifyBuilder>[1];
+      expect(defaultGraphifyBuilder(freshDir, throwingDockerExec)).toBe(false);
+
+      // Cubre fallback uid/gid = 1000 cuando process.getuid/getgid no están disponibles (Windows)
+      const origGetuid = process.getuid;
+      const origGetgid = process.getgid;
+      Object.defineProperty(process, 'getuid', { value: undefined, configurable: true });
+      Object.defineProperty(process, 'getgid', { value: undefined, configurable: true });
+      try {
+        const winCalls: Array<{ args: readonly string[] }> = [];
+        expect(
+          defaultGraphifyBuilder(freshDir, ((_c: string, args: readonly string[]) => {
+            winCalls.push({ args });
+            return Buffer.from('');
+          }) as unknown as Parameters<typeof defaultGraphifyBuilder>[1])
+        ).toBe(true);
+        expect(winCalls[0].args).toContain('1000:1000');
+      } finally {
+        Object.defineProperty(process, 'getuid', { value: origGetuid, configurable: true });
+        Object.defineProperty(process, 'getgid', { value: origGetgid, configurable: true });
+      }
+
+      // Cubre catch de archivo candidato ilegible en processCandidateFile
+      const unreadableCandidate = path.join(freshDir, 'unreadable_candidate.ts');
+      fs.writeFileSync(unreadableCandidate, 'AutoBuiltSymbol\n', { mode: 0o000 });
+      try {
+        const resWithUnreadable = await inspectAstBlastRadius(freshDir, 'AutoBuiltSymbol');
+        expect(resWithUnreadable.target_symbol).toBe('AutoBuiltSymbol');
+      } finally {
+        fs.chmodSync(unreadableCandidate, 0o644);
+      }
+
+      // Si se pasa ruta prohibida o inexistente, retorna false sin invocar docker
+      const noCallSpy = vi.fn();
+      expect(
+        defaultGraphifyBuilder('/etc', noCallSpy as unknown as Parameters<typeof defaultGraphifyBuilder>[1])
+      ).toBe(false);
+      expect(
+        defaultGraphifyBuilder(
+          path.join(tmpDir, 'nonexistent-builder-dir'),
+          noCallSpy as unknown as Parameters<typeof defaultGraphifyBuilder>[1]
+        )
+      ).toBe(false);
+      expect(noCallSpy).not.toHaveBeenCalled();
+
+      // inspectAstBlastRadius bloquea rutas prohibidas con WorkspacePathValidationError
+      await expect(inspectAstBlastRadius('/etc', 'Symbol')).rejects.toThrow(
+        WorkspacePathValidationError
+      );
+      await expect(inspectAstBlastRadius('../outside', 'Symbol')).rejects.toThrow(
+        WorkspacePathValidationError
+      );
+      await expect(inspectAstBlastRadius(os.tmpdir(), 'Symbol')).rejects.toThrow(
+        WorkspacePathValidationError
+      );
     });
   });
 
@@ -1032,10 +1105,13 @@ describe('Tools and Resources Integration Suite', () => {
       }
     });
 
-    it('throws error when project directory does not exist', async () => {
+    it('throws error when project directory does not exist and rejects forbidden paths', async () => {
       await expect(cleanWorkspace11x(path.join(tmpDir, 'non-existent'))).rejects.toThrow(
         'no existe'
       );
+      await expect(cleanWorkspace11x('/etc')).rejects.toThrow(WorkspacePathValidationError);
+      await expect(cleanWorkspace11x(os.tmpdir())).rejects.toThrow(WorkspacePathValidationError);
+      await expect(cleanWorkspace11x('../outside')).rejects.toThrow(WorkspacePathValidationError);
     });
 
     it('retrieves cleanup script resource from BlueprintResources', async () => {

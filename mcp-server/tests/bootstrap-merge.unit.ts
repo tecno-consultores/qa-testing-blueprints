@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { GitHubFetcher } from '../src/services/github-fetcher.js';
 import { SurgicalMerger } from '../src/services/surgical-merger.js';
 import { bootstrapOrMerge11x } from '../src/tools/bootstrap-merge.js';
+import { WorkspacePathValidationError } from '../src/security/workspacePathValidator.js';
 import { Manifest } from '../src/types.js';
 
 function sha256(content: string): string {
@@ -93,5 +94,25 @@ describe('bootstrapOrMerge11x Dedicated Unit Suite', () => {
     // Segunda ejecución: AGENTS.md ya idéntico y Makefile existente
     const secondRes = await bootstrapOrMerge11x(projectDir, 'python', false, { fetcher, merger });
     expect(secondRes.summary.created).toBe(0);
+  });
+
+  it('defaults dryRun to true when omitted (F2.4) without writing files to disk', async () => {
+    const res = await bootstrapOrMerge11x(projectDir, 'python', undefined, { fetcher, merger });
+    expect(res.dry_run).toBe(true);
+    expect(res.summary.created).toBe(2);
+    expect(fs.existsSync(path.join(projectDir, 'Makefile'))).toBe(false);
+    expect(fs.existsSync(path.join(projectDir, 'AGENTS.md'))).toBe(false);
+  });
+
+  it('rejects critical system paths, traversal, and os.tmpdir() root via SEC-PATH-01 (F2.5)', async () => {
+    await expect(bootstrapOrMerge11x('/etc', 'python', true, { fetcher, merger })).rejects.toThrow(
+      WorkspacePathValidationError
+    );
+    await expect(
+      bootstrapOrMerge11x('../outside', 'python', true, { fetcher, merger })
+    ).rejects.toThrow(WorkspacePathValidationError);
+    await expect(
+      bootstrapOrMerge11x(os.tmpdir(), 'python', true, { fetcher, merger })
+    ).rejects.toThrow(WorkspacePathValidationError);
   });
 });

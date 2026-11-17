@@ -3,6 +3,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { GroupedSecurityFinding, SecurityAuditResult, SecurityFinding } from '../types.js';
 
 const IGNORED_DIRS = new Set([
@@ -3676,7 +3677,7 @@ export async function auditSecurityStigOwasp(
   projectPath: string,
   maxFindings?: number
 ): Promise<SecurityAuditResult> {
-  const resolvedPath = path.resolve(projectPath);
+  const resolvedPath = resolveSafeProjectPath(projectPath);
   const allAbsoluteFiles = collectFiles(resolvedPath);
   const allRelFiles = allAbsoluteFiles.map((abs) => path.relative(resolvedPath, abs));
   const findings: SecurityFinding[] = [];

@@ -4,6 +4,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { parseInitAgentsArgs, CONNECTOR_START_MARKER, CONNECTOR_END_MARKER } from './init-agents-md.js';
+import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import type { ReconcileAgentsResult, ReconciledRuleItem } from '../types.js';
 
 const UTF8 = 'utf-8';
@@ -559,12 +560,12 @@ export async function reconcileAgentsGovernance(options: {
   projectPath: string;
   dryRun?: boolean;
 }): Promise<ReconcileAgentsResult> {
-  const resolvedPath = path.resolve(options.projectPath.normalize('NFKC'));
+  const resolvedPath = resolveSafeProjectPath(options.projectPath);
   if (!fs.existsSync(resolvedPath) || !fs.statSync(resolvedPath).isDirectory()) {
     throw new Error(`Directorio de proyecto inválido: ${resolvedPath}`);
   }
 
-  const dryRun = Boolean(options.dryRun);
+  const dryRun = options.dryRun ?? true;
   const projectSlug =
     path
       .basename(resolvedPath)

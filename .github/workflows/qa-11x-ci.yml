@@ -64,7 +64,7 @@ jobs:
           docker run --rm \
             -v "$(pwd):/repo:ro" \
             -w /repo/bash-scripts \
-            sinfallas/base-bash-qa:latest \
+            sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7 \
             bash -c "shellcheck -x ../scripts/*.sh ../.agents/scripts/*.sh ../instalar-hooks.sh ./*.sh && bats test/*.bats ../tests/bats/*.bats"
 
       - name: Validate FINOS CALM Architecture in Ephemeral Docker (Rule Zero)

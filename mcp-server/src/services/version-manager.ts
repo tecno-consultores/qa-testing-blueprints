@@ -484,54 +484,71 @@ async function syncSkillEntryAcrossDirs(
   return outdatedDirs.length;
 }
 
+interface ExecuteGlobalSkillsSyncInput {
+  readonly homeDir: string;
+  readonly targetDirs: string[];
+  readonly fetcher: GitHubFetcher;
+  readonly logFn: (message: string) => void;
+}
+
+async function executeGlobalSkillsSync(
+  input: ExecuteGlobalSkillsSyncInput
+): Promise<GlobalSkillAutoSyncResult> {
+  const { homeDir, targetDirs, fetcher, logFn } = input;
+  const manifest = await fetcher.fetchManifest();
+  const skillEntries = manifest.agent_governance_files.filter((item) =>
+    item.path.startsWith(SKILLS_PREFIX)
+  );
+  let updatedFilesCount = 0;
+
+  for (const entry of skillEntries) {
+    updatedFilesCount += await syncSkillEntryAcrossDirs(entry, targetDirs, fetcher);
+  }
+
+  for (const dir of targetDirs) {
+    if (updatedFilesCount > 0 || readVersionStamp(dir) !== manifest.blueprint_version) {
+      writeVersionStamp(dir, manifest.blueprint_version);
+    }
+  }
+
+  if (updatedFilesCount > 0) {
+    syncExistingGeminiConnectorIfPresent(homeDir);
+    logFn(
+      `✔ [QA-11X Auto-Sync] ${updatedFilesCount} archivo(s) de skills globales actualizado(s) a v${manifest.blueprint_version} (SHA-256 verificado).`
+    );
+  }
+
+  return {
+    synced: updatedFilesCount > 0,
+    manifest_version: manifest.blueprint_version,
+    target_dirs: targetDirs,
+    updated_files_count: updatedFilesCount,
+  };
+}
+
 export async function syncGlobalSkillsInBackground(
   options: AutoSyncGlobalSkillsOptions = {}
 ): Promise<GlobalSkillAutoSyncResult> {
-  const homeDir = resolveSafeHomeDir(options.homeDir);
-  const fetcher = options.fetcher ?? new GitHubFetcher();
-  const logFn = options.onLog ?? ((msg: string) => console.error(msg));
-  const targetDirs = detectExistingQa11xSkillDirs(homeDir);
-
-  if (targetDirs.length === 0) {
-    return {
-      synced: false,
-      manifest_version: null,
-      target_dirs: [],
-      updated_files_count: 0,
-    };
-  }
-
+  let targetDirs: string[] = [];
   try {
-    const manifest = await fetcher.fetchManifest();
-    const skillEntries = manifest.agent_governance_files.filter((item) =>
-      item.path.startsWith(SKILLS_PREFIX)
-    );
-    let updatedFilesCount = 0;
+    const homeDir = resolveSafeHomeDir(options.homeDir);
+    const fetcher = options.fetcher ?? new GitHubFetcher();
+    const logFn = options.onLog ?? ((msg: string) => console.error(msg));
+    targetDirs = detectExistingQa11xSkillDirs(homeDir);
 
-    for (const entry of skillEntries) {
-      updatedFilesCount += await syncSkillEntryAcrossDirs(entry, targetDirs, fetcher);
+    if (targetDirs.length === 0) {
+      return {
+        synced: false,
+        manifest_version: null,
+        target_dirs: [],
+        updated_files_count: 0,
+      };
     }
 
-    for (const dir of targetDirs) {
-      if (updatedFilesCount > 0 || readVersionStamp(dir) !== manifest.blueprint_version) {
-        writeVersionStamp(dir, manifest.blueprint_version);
-      }
-    }
-
-    if (updatedFilesCount > 0) {
-      syncExistingGeminiConnectorIfPresent(homeDir);
-      logFn(
-        `✔ [QA-11X Auto-Sync] ${updatedFilesCount} archivo(s) de skills globales actualizado(s) a v${manifest.blueprint_version} (SHA-256 verificado).`
-      );
-    }
-
-    return {
-      synced: updatedFilesCount > 0,
-      manifest_version: manifest.blueprint_version,
-      target_dirs: targetDirs,
-      updated_files_count: updatedFilesCount,
-    };
-  } catch {
+    return await executeGlobalSkillsSync({ homeDir, targetDirs, fetcher, logFn });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    process.stderr.write(`⚠️ [QA-11X Auto-Sync] Error en sincronización en segundo plano: ${msg}\n`);
     return {
       synced: false,
       manifest_version: null,

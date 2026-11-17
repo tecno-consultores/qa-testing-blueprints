@@ -30,16 +30,16 @@ jobs:
       fail-fast: false
       matrix:
         image:
-          - 'sinfallas/base-python-uv:latest'
+          - 'sinfallas/base-python-uv:latest' # qa-audit-latest-target
           - 'sinfallas/base-python-uv:3.15'
-          - 'sinfallas/base-node-ionic:latest'
+          - 'sinfallas/base-node-ionic:latest' # qa-audit-latest-target
           - 'sinfallas/base-node-ionic:26'
-          - 'sinfallas/basephpcomposer:latest'
+          - 'sinfallas/basephpcomposer:latest' # qa-audit-latest-target
           - 'sinfallas/karatelabs:1.5.1'
-          - 'sinfallas/karatelabs:latest'
-          - 'sinfallas/base-bash-qa:latest'
-          - 'sinfallas/remote-graphify:latest'
-          - 'sinfallas/base-mobile-appium:latest'
+          - 'sinfallas/karatelabs:latest' # qa-audit-latest-target
+          - 'sinfallas/base-bash-qa:latest' # qa-audit-latest-target
+          - 'sinfallas/remote-graphify:latest' # qa-audit-latest-target
+          - 'sinfallas/base-mobile-appium:latest' # qa-audit-latest-target
           - 'sinfallas/base-mobile-appium:26'
 
     steps:
@@ -51,7 +51,7 @@ jobs:
         run: |
           docker run --rm \
             -v qa11x_trivy_cache:/root/.cache/trivy \
-            aquasec/trivy:latest image \
+            aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb image \
             --db-repository "${TRIVY_DB_REPOS}" \
             --java-db-repository "${TRIVY_JAVA_DB_REPOS}" \
             --severity HIGH,CRITICAL \

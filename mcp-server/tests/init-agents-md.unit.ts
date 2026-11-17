@@ -13,8 +13,10 @@ import {
   mergeOrAppendAgentsMdContent,
   initOrAppendAgentsMd,
   parseInitAgentsArgs,
+  resolveProjectDisplayName,
   runInitAgentsCli,
 } from '../src/cli/init-agents-md.js';
+import { WorkspacePathValidationError } from '../src/security/workspacePathValidator.js';
 
 describe('init-agents-md (Non-destructive AGENTS.md connector injection)', () => {
   let tmpDir: string;
@@ -211,9 +213,19 @@ Regla Final`;
       expect(fs.existsSync(path.join(tmpDir, 'AGENTS.md'))).toBe(false);
     });
 
-    it('falls back to "Project" when path.basename is empty (e.g. root directory)', async () => {
-      const result = await initOrAppendAgentsMd({ projectPath: '/', dryRun: true });
-      expect(result.content).toContain('This project (`Project`)');
+    it('rejects "/" and unsafe paths via SEC-PATH-01 while helper falls back to "Project" when basename is empty', async () => {
+      await expect(initOrAppendAgentsMd({ projectPath: '/', dryRun: true })).rejects.toThrow(
+        WorkspacePathValidationError
+      );
+      await expect(initOrAppendAgentsMd({ projectPath: '../outside', dryRun: true })).rejects.toThrow(
+        WorkspacePathValidationError
+      );
+      await expect(initOrAppendAgentsMd({ projectPath: os.tmpdir(), dryRun: true })).rejects.toThrow(
+        WorkspacePathValidationError
+      );
+      const fallbackName = resolveProjectDisplayName('/');
+      expect(fallbackName).toBe('Project');
+      expect(buildConnectorBlock(fallbackName, [])).toContain('This project (`Project`)');
     });
   });
 

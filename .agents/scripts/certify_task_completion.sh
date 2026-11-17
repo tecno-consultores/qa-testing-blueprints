@@ -8,6 +8,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 cd "${REPO_ROOT}"
 
+PY_DOCKER_IMAGE="${QA_PYTHON_IMAGE:-sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4}"
+QA_DOCKERENV_FILE="${QA11X_DOCKERENV_PATH:-/.dockerenv}"
+
 STRICT_MODE=false
 if [ "${QA11X_STRICT:-0}" = "1" ] || [ "${QA11X_STRICT:-}" = "true" ]; then
   STRICT_MODE=true
@@ -38,6 +41,77 @@ PASS_COUNT=0
 SKIPPED_COUNT=0
 FAIL_COUNT=0
 
+run_py_rule_zero() {
+  local use_stdin=false
+  local -a extra_docker_args=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --stdin)
+        use_stdin=true
+        shift
+        ;;
+      --docker-arg)
+        extra_docker_args+=("$2")
+        shift 2
+        ;;
+      --)
+        shift
+        break
+        ;;
+      *)
+        break
+        ;;
+    esac
+  done
+
+  if [ -f "${QA_DOCKERENV_FILE}" ]; then
+    python3 "$@"
+    return $?
+  fi
+
+  if ! command -v docker >/dev/null 2>&1; then
+    printf '❌ [Rule Zero] Docker no está disponible para ejecutar Python en contenedor efímero.\n' >&2
+    return 1
+  fi
+
+  local -a container_args=()
+  local arg
+  for arg in "$@"; do
+    case "${arg}" in
+      "${REPO_ROOT}")
+        container_args+=("/app")
+        ;;
+      "${REPO_ROOT}/"*)
+        container_args+=("/app/${arg#"${REPO_ROOT}/"}")
+        ;;
+      *)
+        container_args+=("${arg}")
+        ;;
+    esac
+  done
+
+  local -a docker_cmd=(
+    docker run --rm --network none
+  )
+  if [ "${use_stdin}" = "true" ]; then
+    docker_cmd+=(-i)
+  fi
+  docker_cmd+=(
+    -u "$(id -u):$(id -g)"
+    -e HOME=/tmp
+    -v "${REPO_ROOT}:/app"
+    -w /app
+  )
+  if [ "${#extra_docker_args[@]}" -gt 0 ]; then
+    docker_cmd+=("${extra_docker_args[@]}")
+  fi
+  docker_cmd+=("${PY_DOCKER_IMAGE}" python3)
+  if [ "${#container_args[@]}" -gt 0 ]; then
+    docker_cmd+=("${container_args[@]}")
+  fi
+  "${docker_cmd[@]}"
+}
+
 cleanup_certify_tmp() {
   local final_rc=$?
   local ctl_script="${SCRIPT_DIR}/checkpoint_ctl.py"
@@ -50,17 +124,9 @@ cleanup_certify_tmp() {
     summary="[${state_tag}] CERTIFY-STATE | ${PASS_COUNT:-0}/10 PASS, ${SKIPPED_COUNT:-0} SKIPPED, ${FAIL_COUNT:-0} FAIL"
   fi
   if [ -f "${ctl_script}" ] && [ -w "${REPO_ROOT}" ]; then
-    if command -v python3 >/dev/null 2>&1; then
-      python3 "${ctl_script}" record-cmd --workspace "${REPO_ROOT}" \
-        --cmd "certify_task_completion" --rc "${final_rc}" \
-        --summary "${summary}" >/dev/null 2>&1 || true
-    elif command -v docker >/dev/null 2>&1; then
-      docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp \
-        -v "${REPO_ROOT}:/app" -w /app sinfallas/base-python-uv:3.15 \
-        python3 .agents/scripts/checkpoint_ctl.py record-cmd \
-        --workspace /app --cmd "certify_task_completion" --rc "${final_rc}" \
-        --summary "${summary}" >/dev/null 2>&1 || true
-    fi
+    run_py_rule_zero "${ctl_script}" record-cmd --workspace "${REPO_ROOT}" \
+      --cmd "certify_task_completion" --rc "${final_rc}" \
+      --summary "${summary}" >/dev/null 2>&1 || true
   fi
   rm -rf "${GATE_TMP_DIR}" 2>/dev/null || true
   exit "${final_rc}"
@@ -86,27 +152,15 @@ run_certify_findings_tracker() {
   if [ ! -f "${tracker_script}" ] || [ ! -w "${REPO_ROOT}" ]; then
     return 0
   fi
-  if command -v python3 >/dev/null 2>&1; then
-    printf '%s' "${payload}" | python3 "${tracker_script}" \
-      --state-file "${REPO_ROOT}/.agents/.cache/certify_state.json" \
-      --findings-input - \
-      --workspace "${REPO_ROOT}" \
-      --max-streak 3
-    return $?
+  if [ ! -f "${QA_DOCKERENV_FILE}" ] && ! command -v docker >/dev/null 2>&1; then
+    return 0
   fi
-  if command -v docker >/dev/null 2>&1; then
-    printf '%s' "${payload}" | docker run -i --rm --network none \
-      -u "$(id -u):$(id -g)" -e HOME=/tmp \
-      -v "${REPO_ROOT}:/app" -w /app \
-      sinfallas/base-python-uv:3.15 \
-      python3 .agents/scripts/track_findings_state.py \
-      --state-file /app/.agents/.cache/certify_state.json \
-      --findings-input - \
-      --workspace /app \
-      --max-streak 3
-    return $?
-  fi
-  return 0
+  printf '%s' "${payload}" | run_py_rule_zero --stdin -- "${tracker_script}" \
+    --state-file "${REPO_ROOT}/.agents/.cache/certify_state.json" \
+    --findings-input - \
+    --workspace "${REPO_ROOT}" \
+    --max-streak 3
+  return $?
 }
 
 write_allure_failure_json() {
@@ -116,10 +170,10 @@ write_allure_failure_json() {
   local rc="$4"
   local remediation="$5"
   local gate_log="$6"
+  local diag_dir=""
 
-  if ! command -v python3 >/dev/null 2>&1; then
-    return 0
-  fi
+  diag_dir="$(dirname "${DIAGNOSTIC_JSON_PATH}")"
+  mkdir -p "${diag_dir}" 2>/dev/null || true
 
   QA_DIAG_PATH="${DIAGNOSTIC_JSON_PATH}" \
     QA_GATE_NUM="${gate_num}" \
@@ -129,7 +183,22 @@ write_allure_failure_json() {
     QA_REMEDIATION="${remediation}" \
     QA_LOG_FILE="${gate_log}" \
     QA_STEPS_FILE="${GATE_STEPS_LOG}" \
-    python3 - <<'PYEOF' 2>/dev/null || true
+    run_py_rule_zero \
+      --stdin \
+      --docker-arg -v --docker-arg "${GATE_TMP_DIR}:/qa-tmp:ro" \
+      --docker-arg -v --docker-arg "${diag_dir}:/qa-diag" \
+      --docker-arg -e --docker-arg "QA_DIAG_PATH=/qa-diag/$(basename "${DIAGNOSTIC_JSON_PATH}")" \
+      --docker-arg -e --docker-arg "QA_LOG_FILE=/qa-tmp/$(basename "${gate_log}")" \
+      --docker-arg -e --docker-arg "QA_STEPS_FILE=/qa-tmp/$(basename "${GATE_STEPS_LOG}")" \
+      --docker-arg -e --docker-arg QA_GATE_NUM \
+      --docker-arg -e --docker-arg QA_GATE_NAME \
+      --docker-arg -e --docker-arg QA_CMD \
+      --docker-arg -e --docker-arg QA_RC \
+      --docker-arg -e --docker-arg QA_REMEDIATION \
+      --docker-arg -e --docker-arg QA_AGENT_NAME \
+      --docker-arg -e --docker-arg QA_AGENT_VERSION \
+      --docker-arg -e --docker-arg QA_ENVIRONMENT \
+      -- - <<'PYEOF' 2>/dev/null || true
 import json
 import os
 import re
@@ -382,16 +451,16 @@ gate_02_trivy() {
 gate_08_manifest() {
   local missing_manifest=0
   if [ -f "${REPO_ROOT}/scripts/generar-manifiesto.py" ]; then
-    python3 "${REPO_ROOT}/scripts/generar-manifiesto.py" --check || return $?
+    run_py_rule_zero "${REPO_ROOT}/scripts/generar-manifiesto.py" --check || return $?
   else
     printf '⚠️ [SKIPPED] scripts/generar-manifiesto.py no encontrado.\n'
     missing_manifest=1
   fi
   if [ -f "${SCRIPT_DIR}/sync_governance.py" ] && [ -f "${REPO_ROOT}/manifest.json" ]; then
-    python3 "${SCRIPT_DIR}/sync_governance.py" --check || return $?
+    run_py_rule_zero "${SCRIPT_DIR}/sync_governance.py" --check || return $?
   fi
   if [ -f "${SCRIPT_DIR}/bump_version_11x.py" ] && [ -f "${REPO_ROOT}/mcp-server/package.json" ]; then
-    python3 "${SCRIPT_DIR}/bump_version_11x.py" --workspace "${REPO_ROOT}" --check || return $?
+    run_py_rule_zero "${SCRIPT_DIR}/bump_version_11x.py" --workspace "${REPO_ROOT}" --check || return $?
   fi
   if [ "${missing_manifest}" -eq 1 ]; then
     return 20
@@ -401,9 +470,9 @@ gate_08_manifest() {
 run_validator_gate() {
   local script_path="$1"
   if grep -q -- '--exit-skipped-code' "${script_path}" 2>/dev/null; then
-    python3 "${script_path}" --exit-skipped-code 20
+    run_py_rule_zero "${script_path}" --exit-skipped-code 20
   else
-    python3 "${script_path}"
+    run_py_rule_zero "${script_path}"
   fi
 }
 
@@ -435,12 +504,8 @@ gate_10_doc_and_test_sync() {
   exec_src_changes=$(printf '%s\n' "${code_changes}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|php|mcp-server|mobile-appium|backend|frontend)/src/|src/|bash-scripts/|vibe-rescue/|ai-evals/|scripts/|\.agents/scripts/|instalar-hooks\.sh$)' | grep -vE '(\.unit\.(py|ts|tsx)|\.e2e\.ts|test_.*\.py|.*\.test\.(ts|js)|\.feature|\.bats)' || true)
   doc_changes=$(printf '%s\n' "${all_changed}" | grep -E '(\.md$|^docs/)' || true)
 
-  if [ -f ".agents/scripts/verify_docs_invariants.py" ]; then
-    if command -v python3 >/dev/null 2>&1; then
-      python3 .agents/scripts/verify_docs_invariants.py || return $?
-    else
-      docker run --rm -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_docs_invariants.py || return $?
-    fi
+  if [ -f "${SCRIPT_DIR}/verify_docs_invariants.py" ]; then
+    run_py_rule_zero "${SCRIPT_DIR}/verify_docs_invariants.py" || return $?
   fi
 
   if [ -n "${code_changes}" ]; then
@@ -473,15 +538,11 @@ gate_10_doc_and_test_sync() {
         if [ -d ".agents/.cache/coverage" ]; then
           has_cov_reports=$(find ".agents/.cache/coverage" -maxdepth 1 -type f \( -name '*.xml' -o -name '*.info' \) 2>/dev/null | head -n 1 || true)
         fi
-        if [ ! -f ".agents/scripts/verify_diff_coverage.py" ] || [ -z "${has_cov_reports}" ]; then
+        if [ ! -f "${SCRIPT_DIR}/verify_diff_coverage.py" ] || [ -z "${has_cov_reports}" ]; then
           printf '⚠️ [SKIPPED] verify_diff_coverage omitido (sin reportes de cobertura en .agents/.cache/coverage).\n'
           return 20
         fi
-        if command -v python3 >/dev/null 2>&1; then
-          python3 .agents/scripts/verify_diff_coverage.py --workspace . --reports-dir .agents/.cache/coverage || return $?
-        else
-          docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_diff_coverage.py --workspace /app --reports-dir .agents/.cache/coverage || return $?
-        fi
+        run_py_rule_zero "${SCRIPT_DIR}/verify_diff_coverage.py" --workspace "${REPO_ROOT}" --reports-dir .agents/.cache/coverage || return $?
       fi
       printf '✔ [Doc & Test Sync] %s archivo(s) de código/config | %s prueba(s) (%s) | %s doc(s) sincronizados.\n' \
         "${code_count}" "${test_count}" "${karate_status}" "${doc_count}"
@@ -552,7 +613,7 @@ run_gate 8 "Manifest SHA-256 Sync" \
 run_gate 9 "Roadmap & ActiveTask Sync" \
   "Alinea los porcentajes en ROADMAP.md y verifica que .agents/ACTIVE_TASK.md tenga <= 40 líneas sin pendientes al cerrar." \
   "python3 .agents/scripts/verify_roadmap_consistency.py" \
-  python3 "${SCRIPT_DIR}/verify_roadmap_consistency.py"
+  run_py_rule_zero "${SCRIPT_DIR}/verify_roadmap_consistency.py"
 
 run_gate 10 "Doc & Test Sync" \
   "Añade pruebas unitarias/BDD junto al código modificado y actualiza CHANGELOG.md o docs/ correspondientes." \

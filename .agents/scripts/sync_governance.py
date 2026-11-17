@@ -622,26 +622,53 @@ def count_artifacts(manifest_data: dict[str, Any]) -> int:
     return stack_total + common_total + gov_total
 
 
+def _is_ignored_git_path(path: str) -> bool:
+    """Indica si una ruta modificada se ignora al evaluar cambios estructurales."""
+    return (
+        not path
+        or path.endswith(".md")
+        or "graphify-out/" in path
+        or path == "graphify-out"
+    )
+
+
+def _extract_porcelain_z_paths(raw_stdout: bytes) -> list[str]:
+    """Extrae rutas (y origen en R/C) desde `git status --porcelain=v1 -z`."""
+    tokens = raw_stdout.decode("utf-8", errors="replace").split("\0")
+    paths: list[str] = []
+    idx = 0
+    while idx < len(tokens):
+        entry = tokens[idx]
+        idx += 1
+        if len(entry) < 4:
+            continue
+        paths.append(entry[3:])
+        if entry[0] in ("R", "C") and idx < len(tokens):
+            paths.append(tokens[idx])
+            idx += 1
+    return paths
+
+
 def has_structural_git_changes(repo_root: Path) -> bool:
-    """Detecta si existen cambios de código/configuración fuera de *.md y graphify-out."""
+    """Detecta cambios de código/configuración fuera de *.md y graphify-out."""
     if not (repo_root / ".git").exists():
         return False
-    res = subprocess.run(
-        ["git", "-C", str(repo_root), "status", "--porcelain"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        res = subprocess.run(
+            ["git", "-C", str(repo_root), "status", "--porcelain=v1", "-z"],
+            capture_output=True,
+            text=False,
+            check=False,
+            timeout=15,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return False
     if res.returncode != 0:
         return False
-    for raw_line in res.stdout.splitlines():
-        path_part = raw_line[3:].strip() if len(raw_line) > 3 else ""
-        if not path_part:
-            continue
-        if path_part.endswith(".md") or "graphify-out/" in path_part:
-            continue
-        return True
-    return False
+    return any(
+        not _is_ignored_git_path(path)
+        for path in _extract_porcelain_z_paths(res.stdout)
+    )
 
 
 def refresh_ast_if_needed(repo_root: Path, manifest_changed: bool) -> list[str]:
@@ -651,13 +678,19 @@ def refresh_ast_if_needed(repo_root: Path, manifest_changed: bool) -> list[str]:
         return []
     if not manifest_changed and not has_structural_git_changes(repo_root):
         return []
-    res = subprocess.run(
-        [str(ast_script)],
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        res = subprocess.run(
+            [str(ast_script)],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=300,
+        )
+    except subprocess.TimeoutExpired:
+        return [
+            f"Tiempo de espera agotado al actualizar grafos AST ({ast_script.name})."
+        ]
     if res.returncode != 0:
         detail = (res.stderr or res.stdout).strip() or f"exit code {res.returncode}"
         return [f"Fallo al actualizar grafos AST ({ast_script.name}): {detail}"]

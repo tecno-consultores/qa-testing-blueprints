@@ -3,6 +3,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { inspectProjectConfig } from './inspect-project.js';
 
 export const CONNECTOR_START_MARKER = '<!-- QA_11X_MCP_CONNECTOR_START -->';
@@ -750,8 +751,12 @@ export function syncAgentBridgeFiles(
   return { bridgedAgents, bridgeFiles };
 }
 
+export function resolveProjectDisplayName(resolvedPath: string): string {
+  return path.basename(resolvedPath) || 'Project';
+}
+
 function resolveValidProjectDirectory(rawPath: string): string {
-  const resolved = path.resolve(rawPath.normalize('NFKC'));
+  const resolved = resolveSafeProjectPath(rawPath);
   if (!fs.existsSync(resolved)) {
     throw new Error(`El directorio especificado no existe: ${resolved}`);
   }
@@ -774,7 +779,7 @@ export async function initOrAppendAgentsMd(
   const dryRun = Boolean(options.dryRun ?? options.dry_run);
   const inspection = await inspectProjectConfig(resolvedPath);
   const detectedStacks = inspection.detected_stacks;
-  const projectName = path.basename(resolvedPath) || 'Project';
+  const projectName = resolveProjectDisplayName(resolvedPath);
 
   const agentsMdPath = resolveSafeBridgePath(resolvedPath, AGENTS_MD_FILENAME);
   const existingAgentsMd = fs.existsSync(agentsMdPath) ? fs.readFileSync(agentsMdPath, UTF8) : '';

@@ -71,7 +71,10 @@ export type FetchBundleInput = z.infer<typeof FetchBundleInputSchema>;
 export const BootstrapMergeInputSchema = z.object({
   project_path: z.string().min(1).describe('Absolute or relative path to the target project directory.'),
   stack: StackNameSchema,
-  dry_run: z.boolean().default(false).describe('If true, simulates file creation and merging without modifying disk.'),
+  dry_run: z
+    .boolean()
+    .default(true)
+    .describe('If true (default), simulates file creation and merging without modifying disk.'),
 });
 export type BootstrapMergeInput = z.infer<typeof BootstrapMergeInputSchema>;
 
@@ -191,6 +194,13 @@ export const CertifyGateInputSchema = z.object({
     .default(false)
     .describe(
       'When true, treats any SKIPPED check (zero targets or skipped lint evidence) as a gate blocker.'
+    ),
+  allow_unmerged_examples: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe(
+      'When true, skips the zero_unmerged_examples check for template or blueprints source repositories.'
     ),
 });
 export type CertifyGateInput = z.infer<typeof CertifyGateInputSchema>;
@@ -730,8 +740,10 @@ export const ReconcileAgentsInputSchema = z.object({
     .describe('Absolute or relative path to consumer project to reconcile (e.g. rosgrid).'),
   dry_run: z
     .boolean()
-    .default(false)
-    .describe('If true, simulates deduplication reporting duplicate and domain sections without touching disk.'),
+    .default(true)
+    .describe(
+      'If true (default), simulates deduplication reporting duplicate and domain sections without touching disk.'
+    ),
 });
 export type ReconcileAgentsInput = z.infer<typeof ReconcileAgentsInputSchema>;
 

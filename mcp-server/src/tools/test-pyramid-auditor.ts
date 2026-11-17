@@ -15,6 +15,7 @@ import {
   PyramidLayerStatus,
   GapPriority,
 } from '../types.js';
+import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { inspectProjectConfig, collectProjectFiles } from './inspect-project.js';
 
 export { collectProjectFiles };
@@ -1949,7 +1950,7 @@ export async function auditTestPyramidGaps(
   stackFilter?: StackName,
   maxItems?: number
 ): Promise<TestPyramidGapResult> {
-  const resolvedPath = path.resolve(projectPathInput.normalize('NFKC'));
+  const resolvedPath = resolveSafeProjectPath(projectPathInput);
 
   if (!fs.existsSync(resolvedPath)) {
     throw new Error(`El directorio especificado no existe: ${resolvedPath}`);

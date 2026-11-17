@@ -908,7 +908,10 @@ def test_f1_5_remaining_edge_branches_and_entrypoint_guards(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     orm_mod = _load_script_module("orm_edge", "verify_alembic_orm_parity.py")
-    assert orm_mod._resolve_backend_dir(orm_mod._DEFAULT_REPO_ROOT) == orm_mod._DEFAULT_REPO_ROOT
+    assert (
+        orm_mod._resolve_backend_dir(orm_mod._DEFAULT_REPO_ROOT)
+        == orm_mod._DEFAULT_REPO_ROOT
+    )
     assert orm_mod._read_text_safe(tmp_path) is None
 
     api_mod = _load_script_module("api_edge", "verify_no_orphan_api_endpoints.py")
@@ -937,3 +940,66 @@ def test_f1_5_remaining_edge_branches_and_entrypoint_guards(
         with pytest.raises(SystemExit) as exc_info:
             runpy.run_path(str(AGENTS_SCRIPTS / fname), run_name="__main__")
         assert exc_info.value.code == 0
+
+
+def test_sync_governance_porcelain_z_renames_spaces_and_ast_timeout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    mod = _load_script_module("sync_gov_f2_9", "sync_governance.py")
+    assert mod.has_structural_git_changes(tmp_path) is False
+
+    git_repo = tmp_path / "repo"
+    (git_repo / "scripts").mkdir(parents=True)
+    (git_repo / "docs").mkdir(parents=True)
+    subprocess.run(["git", "init", "-q"], cwd=git_repo, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "qa@example.com"], cwd=git_repo, check=True
+    )
+    subprocess.run(["git", "config", "user.name", "QA Bot"], cwd=git_repo, check=True)
+
+    (git_repo / "old.py").write_text("x = 1\n", encoding="utf-8")
+    (git_repo / "docs" / "old note.md").write_text("# Old\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=git_repo, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "init"], cwd=git_repo, check=True)
+
+    subprocess.run(
+        ["git", "mv", "docs/old note.md", "docs/new note.md"],
+        cwd=git_repo,
+        check=True,
+    )
+    assert mod.has_structural_git_changes(git_repo) is False
+
+    subprocess.run(
+        ["git", "mv", "old.py", "new name.py"],
+        cwd=git_repo,
+        check=True,
+    )
+    assert mod.has_structural_git_changes(git_repo) is True
+
+    assert mod._extract_porcelain_z_paths(b"R  new.md\x00old.py\x00") == [
+        "new.md",
+        "old.py",
+    ]
+    assert mod._is_ignored_git_path("graphify-out") is True
+    assert mod._is_ignored_git_path("graphify-out/graph.json") is True
+
+    ast_script = git_repo / "scripts" / "actualizar-grafos-graphify.sh"
+    ast_script.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+    ast_script.chmod(0o755)
+
+    def _fail_git(*_args: Any, **_kwargs: Any) -> Any:
+        return subprocess.CompletedProcess(
+            args=[], returncode=1, stdout=b"", stderr=b""
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", _fail_git)
+    assert mod.has_structural_git_changes(git_repo) is False
+
+    def _raise_timeout(*_args: Any, **_kwargs: Any) -> Any:
+        raise subprocess.TimeoutExpired(cmd="stub", timeout=15)
+
+    monkeypatch.setattr(mod.subprocess, "run", _raise_timeout)
+    assert mod.has_structural_git_changes(git_repo) is False
+    errs = mod.refresh_ast_if_needed(git_repo, manifest_changed=True)
+    assert len(errs) == 1
+    assert "Tiempo de espera agotado" in errs[0]
