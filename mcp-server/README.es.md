@@ -39,7 +39,7 @@ Subcomandos y flags disponibles:
 - `reconcile-agents` `[--project-path <dir>] [--dry-run]`
 - `tms-sync --mode <inventory|push-results|pull-stories> --provider <jira|zephyr|xray|github-issues> [--junit-xml <path>] [--json] [--dry-run]` — Normaliza resultados JUnit XML para sincronización bidireccional o reportes de trazabilidad TMS.
 - `[--stdio]` — Fuerza el listener JSON-RPC `stdio` en primer plano (`QA_FORCE_STDIO=1` también fuerza `stdio` headless).
-- `--version` / `-v` | `--help` / `-h` (disponible de forma global y por subcomando sin escribir ni descargar archivos)
+- `--version` / `-v` | `--help` / `-h` — Imprime la versión SemVer activa (`npx -y @sinfallas/mcp-qa-11x --version` para caché `npx`, `mcp-qa-11x -v` en instalación global `-g`, o `@latest --version` para npm latest; nota: `npx --no-install` ignora `~/.npm/_npx/` — ver [`docs/agent-setup.es.md`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/docs/agent-setup.es.md)). Disponible globalmente y por subcomando sin escribir ni descargar archivos.
 
 > **Guardia Anti-Bloqueo TTY (`QA-CLI-TTY-01`):** Ejecutar `npx -y @sinfallas/mcp-qa-11x@latest` sin subcomandos en una terminal interactiva (`process.stdin.isTTY`) imprime la guía rápida, sincroniza skills globales sin bloquear y termina limpiamente con `exit(0)` en `< 5s` en lugar de bloquear `stdin`. Cuando un IDE abre un *pipe* no-TTY, inicia el servidor MCP `stdio` automáticamente.
 

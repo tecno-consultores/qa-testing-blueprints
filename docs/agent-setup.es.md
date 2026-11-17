@@ -310,8 +310,25 @@ Para forzar una actualización limpia eliminando binarios npm cacheados y planti
 rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@latest install-skill --target all --init-agents --include-scripts --reconcile
 ```
 
-Para verificar que el servidor MCP responde correctamente en tu terminal:
+### Cómo Verificar la Versión Instalada y Activa del MCP
+
+Según cómo tengas instalado `@sinfallas/mcp-qa-11x`, utiliza el comando correspondiente (`--version` o `-v`):
 
 ```bash
+# 1. Consultar la versión ya cacheada en ~/.npm/_npx (sin forzar @latest):
+npx -y @sinfallas/mcp-qa-11x --version
+
+# 2. Inspección offline sin red del package.json exacto en la caché de npx:
+grep '"version"' ~/.npm/_npx/*/node_modules/@sinfallas/mcp-qa-11x/package.json
+
+# 3. Consultar una instalación global (npm install -g @sinfallas/mcp-qa-11x):
+mcp-qa-11x --version   # o: mcp-qa-11x -v
+
+# 4. Consultar la última versión publicada en npm:
 npx -y @sinfallas/mcp-qa-11x@latest --version
 ```
+
+> [!NOTE]
+> **Por qué `npx --no-install @sinfallas/mcp-qa-11x --version` falla con `npm ERR! canceled`:** Cuando el servidor se registra mediante `mcpServers` (`npx -y @sinfallas/mcp-qa-11x@latest`), npm guarda el paquete en un entorno aislado bajo `~/.npm/_npx/<hash>/` y no en el `$PATH` global. En npm v7+, `--no-install` solo busca en `./node_modules/.bin` y en `$PATH`, ignorando `~/.npm/_npx/`.
+>
+> **Cómo verificar la versión activa dentro de tu IDE (Antigravity, Cursor, Claude, VS Code):** Abre el panel MCP / Customizations del IDE — `v3.1.0` registra **19 herramientas MCP** y **13 recursos MCP** (`11` URIs estáticas + `2` plantillas URI). Si aparecen menos herramientas por una versión anterior en caché, ejecuta la limpieza de caché anterior y **recarga/reinicia el servidor MCP (o la ventana del IDE)** para que el proceso `stdio` persistente cargue el nuevo binario. También puedes revisar `update_available` en `inspect_project_config` o `certify_11x_gate`.

@@ -39,7 +39,7 @@ Available CLI commands & flags:
 - `reconcile-agents` `[--project-path <dir>] [--dry-run]`
 - `tms-sync --mode <inventory|push-results|pull-stories> --provider <jira|zephyr|xray|github-issues> [--junit-xml <path>] [--json] [--dry-run]` — Normalizes JUnit XML results into enterprise TMS payloads or pull/inventory traceability reports.
 - `[--stdio]` — Explicitly forces raw JSON-RPC listener over `stdio` (`QA_FORCE_STDIO=1` also forces headless `stdio`).
-- `--version` / `-v` | `--help` / `-h` (supported globally and per subcommand without writing or fetching)
+- `--version` / `-v` | `--help` / `-h` — Prints active SemVer (`npx -y @sinfallas/mcp-qa-11x --version` for cached `npx`, `mcp-qa-11x -v` for global `-g`, or `@latest --version` for npm latest; note `npx --no-install` ignores `~/.npm/_npx/` caches — see [`docs/agent-setup.md`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/docs/agent-setup.md)). Supported globally and per subcommand without writing or fetching.
 
 > **Interactive Terminal Guard (`QA-CLI-TTY-01`):** Invoking `npx -y @sinfallas/mcp-qa-11x@latest` directly in an interactive terminal (`process.stdin.isTTY`) prints usage options, syncs global skills safely, and exits cleanly with `exit(0)` in `< 5s` instead of hanging `stdin`. Non-TTY IDE pipes launch the MCP `stdio` server automatically.
 
