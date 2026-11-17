@@ -5,7 +5,7 @@
 
 🌐 **Idioma / Language:** [English](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/README.md) | **Español**
 
-Servidor oficial **Model Context Protocol (MCP)** e instalador CLI de fricción cero para [**QA Testing Blueprints (QA-11X v3.0 — v3.0.0)**](https://github.com/tecno-consultores/qa-testing-blueprints).
+Servidor oficial **Model Context Protocol (MCP)** e instalador CLI de fricción cero para [**QA Testing Blueprints (QA-11X v3.1 — v3.1.0)**](https://github.com/tecno-consultores/qa-testing-blueprints).
 
 Diseñado para que agentes de programación IA (**Google Antigravity**, **Claude Code / Desktop**, **Cursor**, **Windsurf**, **OpenAI Codex CLI**, **VS Code Copilot**, **Hermes Agent** y **27+ agentes**) adopten QA-11X en **< 30 segundos**, ejecuten **19 herramientas MCP**, consulten **13 recursos criptográficos `blueprint://*`** y apliquen **Regla Cero Docker**, **DISA ASD STIG V6R5**, **OWASP v4.2**, **FINOS CALM** y **AI Evals Dual-Mode** sin clonar el repositorio completo.
 
@@ -65,12 +65,12 @@ Consulta la matriz completa de 27+ clientes en [`docs/agent-setup.md`](https://g
 
 ---
 
-## 🛡️ Escudo de Seguridad y Resiliencia Operativa (v3.0.0)
+## 🛡️ Escudo de Seguridad y Resiliencia Operativa (v3.1.0)
 
 * **Interceptor `promptGuard` *Fail-Closed*:** Protege `tools/call` en las 19 herramientas con canonicalización `NFKC`, purga zero-width / Trojan Source, bloqueo de inyección de prompts y evasiones `QA-GIT-GATE-01` (`git push` / `npm publish`), y redacción PII/secretos antes de despachar cualquier handler.
 * **Confinamiento de Rutas `SEC-PATH-01` (`QA11X_WORKSPACE_ROOTS`):** Valida `project_path`, `workspaceRoot` y `targetDir` mediante `resolveSafeProjectPath`, bloqueando traversal (`..`), bytes NUL, symlinks fuera de raíces permitidas, rutas críticas del sistema (`/`, `/etc`, `/usr`, ...), `$HOME` y `os.tmpdir()` raíz. Configure `QA11X_WORKSPACE_ROOTS` (rutas separadas por delimitador de PATH) para autorizar workspaces adicionales fuera de `process.cwd()`.
 * **`TaskStateGuard` y Reportes `Fail-Verbose`:** Limita concurrencia de tareas MCP, aísla timeouts (`60s` estándar / `>= 180s` transferencias pesadas), limpia artefactos truncados de `0 bytes`, acota el auto-sync TTY (`< 5s` fail-open hacia `stderr`) y formatea trazas `Fail-Verbose` sanitizadas compatibles con Allure (`diagnosticFormatter.ts`).
-* **LLMs Locales y A2A Agent Card:** Compatible con evaluadores air-gapped **Ollama / vLLM** y tarjeta de descubrimiento [`agentCard.ts`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/src/a2a/agentCard.ts) (`v3.0.0`).
+* **LLMs Locales y A2A Agent Card:** Compatible con evaluadores air-gapped **Ollama / vLLM** y tarjeta de descubrimiento [`agentCard.ts`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/src/a2a/agentCard.ts) (`v3.1.0`).
 
 ---
 
@@ -81,15 +81,15 @@ Lideradas por `qa-11x-architect` (`< 12 KB`), cargando 10 sub-skills especializa
 
 ---
 
-## 🛠️ Herramientas Expuestas en el Servidor MCP (19 Tools)
+## 🛠️ Herramientas Expuestas en el Servidor MCP (19 Tools — v3.1)
 
 1. **`inspect_project_config`:** Inspecciona señales de stack (`pyproject.toml`, `package.json`, `composer.json`), `docker-compose.qa.yml`, estado de la pirámide y grafos Graphify AST.
 2. **`fetch_blueprint_bundle`:** Descarga plantillas solicitadas desde GitHub/espejo local validando su suma SHA-256 contra `manifest.json`.
 3. **`bootstrap_or_merge_11x`:** Genera o fusiona configuraciones `.example`, Dockerfiles, Makefile y workflows de forma segura respaldando en `.11x-backup` (`dry_run` es `true` por defecto; pase `dry_run: false` para aplicar escrituras).
 4. **`inspect_ast_blast_radius`:** Inspección AST bidireccional y diferencial (`declaring_files`, invocadores, callees, `changed_since_ref` y nivel de riesgo `LOW`/`MEDIUM`/`HIGH`) con reconstrucción Graphify (`auto_build_if_missing`).
 5. **`clean_workspace_11x`:** Limpia artefactos Docker/caché pertenecientes a `root` mediante contenedor efímero Alpine sin usar `sudo`.
-6. **`audit_security_stig_owasp`:** Analiza archivos sobre 34 reglas estáticas (`SEC-01..SEC-16`, `SEC-CI-ACTION-REF`, `QA-*`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `UI-11X-01..03`) con soporte *Metadata-Only* (`include_content: false`).
-7. **`run_ephemeral_qa`:** Ejecuta `lint`, `unit`, `integration`, `ci`, `audit`, `secrets`, `validate-calm` o `clean` dentro de Docker efímero (`Regla Cero`), respetando vía rápida `DOCS_ONLY`.
+6. **`audit_security_stig_owasp`:** Analiza archivos sobre **22 controles de referencia DISA ASD STIG V6R5 / OWASP v4.2 + 34 reglas del escáner estático** (`SEC-01..SEC-16`, `SEC-CI-ACTION-REF`, `QA-*`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `UI-11X-01..03`) con soporte *Metadata-Only* (`include_content: false`).
+7. **`run_ephemeral_qa`:** Ejecuta cualquiera de las **15 etapas QA** (`lint`, `unit`, `migration`, `integration`, `ci`, `parity`, `orphans`, `contracts`, `bdd`, `mutation`, `dast`, `e2e`, `perf`, `chaos`, `all`) dentro de Docker efímero (`Regla Cero`), respetando vía rápida `DOCS_ONLY`.
 8. **`certify_11x_gate`:** Ejecuta la compuerta de 10 etapas QA-11X emitiendo telemetría `Fail-Verbose` (`/tmp/qa-11x-last-failure.json`), verificación de evidencia lint, modo `strict` y opción `allow_unmerged_examples`.
 9. **`audit_test_pyramid_gaps`:** Audita proyectos frente a las 13 capas de la pirámide 11X (`L01`–`L13`), detectando vacíos en las 3 fases temporales y refresco dual.
 10. **`init_or_append_agents_md`:** Inyecta o actualiza idempotentemente el bloque conector en `AGENTS.md` / reglas de IDE mediante marcadores HTML.
@@ -105,13 +105,13 @@ Lideradas por `qa-11x-architect` (`< 12 KB`), cargando 10 sub-skills especializa
 
 ---
 
-## 📚 Recursos Expuestos en el Servidor MCP (13 Resources)
+## 📚 Recursos Expuestos en el Servidor MCP (13 Resources — v3.1)
 
 1. **`blueprint://manifest`:** Índice SHA-256 en tiempo real (`manifest.json`) para todos los stacks soportados.
 2. **`blueprint://core/philosophy`:** Filosofía Nivel-11X de 13 capas, Regla Cero, 10 Leyes y 11 Reglas Anti-Ceguera UAT.
 3. **`blueprint://security/disa-owasp-22`:** Catálogo de los 22 patrones de endurecimiento DISA ASD STIG V6R5 y OWASP v4.2.
 4. **`blueprint://database/postgres-rls-worm`:** Referencia PostgreSQL 17 RLS multi-transacción (`after_begin`) + auditoría WORM determinista (`seq_num` + `pg_advisory_xact_lock`).
-5. **`blueprint://{stack}/readme`:** Guías operativas para `fastapi`, `python`, `node-backend`, `vue3`, `react-frontend`, `php` y `bash-scripts`.
+5. **`blueprint://{stack}/readme`:** Guías operativas para los **10 stacks**: `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals` y `vibe-rescue`.
 6. **`blueprint://ui/refactoring-ui/{topic}`:** Diseño UI táctico, `tabular-nums`, contraste OKLCH WCAG 2.1 AA, modo oscuro y geometría Anti-JSDOM.
 7. **`blueprint://core/active-task-template`:** Plantilla compacta de bitácora viva (`.agents/ACTIVE_TASK.md.example`, `<= 40` líneas).
 8. **`blueprint://core/cleanup-script`:** Script oficial de saneamiento sin `root` (`limpieza.sh`) con fallback Alpine.

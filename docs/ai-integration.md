@@ -18,7 +18,7 @@ For an agent to understand corporate constraints in real time, blueprints must b
   python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"
 ```
 * **CLI-First / MCP `stdio` Invariant:** Both console-capable agents (Antigravity, Claude Code, Cursor) and agents connected to `@sinfallas/mcp-qa-11x` (`inspect_ast_blast_radius`) query `graphify-out/graph.json` and `GRAPH_REPORT.md` directly without occupying TCP ports or leaving background daemons.
-* **Practical Example 2 (SHA-256 Verified Dynamic Resources):** The `@sinfallas/mcp-qa-11x` v3.0.0 MCP server exposes **13 dynamic resources (`blueprint://*`)** and **19 MCP tools** covering **10 hydratable stacks + `architecture/` + `mcp-server/` (= 12 matrix environments)** (including `mobile-appium` on `sinfallas/base-mobile-appium:26`). When an agent detects a FastAPI stack, it queries `blueprint://fastapi/readme` and `blueprint://database/postgres-rls-worm`, receiving templates cryptographically verified against `manifest.json`.
+* **Practical Example 2 (SHA-256 Verified Dynamic Resources):** The `@sinfallas/mcp-qa-11x` v3.1.0 MCP server exposes **13 dynamic resources (`blueprint://*`)** and **19 MCP tools** covering **10 hydratable stacks + `architecture/` + `mcp-server/` (= 12 matrix environments)** (including `mobile-appium` on `sinfallas/base-mobile-appium:26`). When an agent detects a FastAPI stack, it queries `blueprint://fastapi/readme` and `blueprint://database/postgres-rls-worm`, receiving templates cryptographically verified against `manifest.json`.
 * **Practical Example 3 (Proactive QA Config Reading):** The MCP server or static inspection must not evaluate topology alone. It must proactively audit QA configuration files (such as `pyproject.toml`, `.eslintrc.json`, `tsconfig.json`, `vitest.config.ts`) before writing code.
   * **Unbreakable Rule to Inject into the Developer Agent:** "If the Developer Agent is going to write code, its first autonomous step must be reading linter and typing rules so it generates compliant code under strict settings (e.g. `strict=true` in Mypy) on the first try, saving self-correction cycles (tokens)."
 
@@ -60,11 +60,11 @@ The `qa-testing-blueprints` ecosystem is intentionally designed to be the AI's p
 
 * **The Autonomous Observability Loop:** The agent runs tests and evaluates `stderr`. If `kcov` reports only 85% coverage, or the AI starts the `--profile chaos` profile and detects via queries to `http://localhost:9090/api/v1/query` (Prometheus) that P99 latency exceeds corporate thresholds, the AI understands the failure, rewrites business code in its workspace, and re-invokes the stress tool until the standard is met.
 
-## 5. Bilingual Governance `.agents/` and 10-Step Gate
+## 5. Bilingual Governance `.agents/`, 11-Step Closure Protocol & 10-Stage Certification Gate
 In enterprise-grade projects, the AI must follow a strict dual-language governance model:
 1. **High-Density Technical English Rules:** Instructions in `.agents/rules/` and skills in `.agents/skills/` stay exclusively in compact technical English (~35% BPE token reduction) to maximize LLM logical accuracy.
 2. **Bilingual Canonical Documentation (`*.md` EN + `*.es.md` ES) & Dynamic Mirroring:** Public human documentation follows the English canonical (`*.md`) + 1:1 Spanish mirror (`*.es.md`) architecture, while interactive agent reasoning and responses mirror the user's prompt language (`--lang auto|en|es`).
-3. **Mandatory Certification Gate (`certify_task_completion.sh`):** Before concluding any task that modifies code or architecture, the AI must run the 10 certification stages:
+3. **Mandatory 10-Stage Certification Gate (`certify_task_completion.sh`) within the 11-Step Closure Protocol:** Before concluding any `FULL_11X` task under the 11-step closure protocol (`AGENTS.md` §5), the AI must run all 10 certification stages:
    - Secret Scanning (`scripts/verificar-secretos.sh`).
    - Infrastructure & Container Audit (`scripts/auditar-infra.sh` / Trivy).
    - JSON File Integrity without duplicate keys (`verify_json_no_duplicate_keys.py`).
@@ -113,7 +113,7 @@ npx -y @sinfallas/mcp-qa-11x@latest [--stdio]
 ### 6.2. AI Client Configuration
 
 > [!TIP]
-> For the exhaustive step-by-step guide and declarative matrix covering all **28 supported AI agents** (`quickstart --agents` / `init-agents --agents`, including Antigravity, Claude Code/Desktop, Cursor, Windsurf, VS Code Copilot, Codex CLI, Gemini CLI, Hermes, Cline, Roo Code, Aider, JetBrains AI, Bolt, Lovable, v0, and Replit), see **[`docs/agent-setup.en.md`](agent-setup.en.md)** (English) or **[`docs/agent-setup.md`](agent-setup.md)** (Español).
+> For the exhaustive step-by-step guide and declarative matrix covering all **28 supported AI agents** (`quickstart --agents` / `init-agents --agents`, including Antigravity, Claude Code/Desktop, Cursor, Windsurf, VS Code Copilot, Codex CLI, Gemini CLI, Hermes, Cline, Roo Code, Aider, JetBrains AI, Bolt, Lovable, v0, and Replit), see **[`docs/agent-setup.md`](agent-setup.md)** (English) or **[`docs/agent-setup.es.md`](agent-setup.es.md)** (Español; legacy redirect at [`docs/agent-setup.en.md`](agent-setup.en.md)).
 
 #### A. Claude Desktop / Claude Code (`claude_desktop_config.json`)
 ```json
@@ -165,7 +165,7 @@ mcp_servers:
 | :--- | :--- | :--- |
 | `blueprint://manifest` | `application/json` | Complete cryptographic manifest with SHA-256 hashes of all stacks and files. |
 | `blueprint://core/philosophy` | `text/markdown` | Master prompt and Level-11X philosophy (`AI_MASTER_PROMPT.md`). |
-| `blueprint://security/disa-owasp-22` | `text/markdown` | Technical synthesis of the 22 DISA ASD STIG V6R5 and OWASP Developer Guide v4.2 patterns. |
+| `blueprint://security/disa-owasp-22` | `text/markdown` | Technical synthesis of the 22 DISA ASD STIG V6R5 and OWASP Developer Guide v4.2 reference controls (backed by 34 static scanner rules). |
 | `blueprint://{stack}/readme` | `text/markdown` | Operational guide and canonical file list for the requested hydratable stack (`python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue`). |
 | `blueprint://ui/refactoring-ui/{topic}` | `text/markdown` | Tactical design guidelines and WCAG 2.1 AA contrast (`skill`, `hierarchy`, `layout`, `type`, `color`, `depth`, `images`, `polish`, `dark-mode`, `tailwind`). |
 | `blueprint://core/active-task-template`| `text/markdown` | Canonical resilient logbook template for AI agents (`ACTIVE_TASK.md.example`). |
@@ -175,7 +175,7 @@ mcp_servers:
 | `blueprint://ai/evals-redteam` | `text/markdown` | Dual-mode DeepEval + Promptfoo OWASP LLM Top 10 blueprint (embedded offline fallback). |
 | `blueprint://mobile-appium/readme` | `text/markdown` | Appium 3 / W3C + WebdriverIO Screenplay mobile blueprint (`sinfallas/base-mobile-appium:26`, `APPIUM_HOME`, biometry & permissions). |
 | `blueprint://vibe-rescue/readme` | `text/markdown` | 5-stage *Vibe-to-Enterprise* protocol, RLS/WORM templates, and `VIBE-*` rules (`vibe-rescue/`). |
-| `blueprint://skills/tactical-patterns-11x` | `text/markdown` | JIT tactical patterns (`<= 2.5 KB`, `CC <= 5`, `max-params: 4`, Port/Adapter, Outbox) supporting `?lang=es|en`. |
+| `blueprint://skills/tactical-patterns-11x` | `text/markdown` | *(v3.1)* JIT tactical patterns (`<= 2.5 KB`, `CC <= 5`, `max-params: 4`, Port/Adapter, Outbox) supporting `?lang=es|en`. |
 
 ### 6.4. Catalog of MCP Tools (`Tools`)
 
@@ -186,7 +186,7 @@ mcp_servers:
 | **`bootstrap_or_merge_11x`** | `project_path`, `stack`, `dry_run` | Applies a non-destructive surgical merge injecting QA configs without altering dependencies. |
 | **`inspect_ast_blast_radius`** | `project_path`, `target_symbol`, `changed_since_ref`, `max_tokens_budget`, `max_items`, `auto_build_if_missing`, `refresh_graph` | Queries the AST graph (`graphify-out/graph.json` and `GRAPH_REPORT.md`) bidirectionally or differentially (`git diff` + AST + 4-level semantic pruning) for both Code Q&A and pre-refactor impact analysis (`LOW` with `< 5` callers for `MICRO_CHANGE`). |
 | **`clean_workspace_11x`** | `project_path`, `dry_run`, `deep_prune` | Sanitizes temporary test artifacts and Docker caches (supports dry-run simulation and Alpine fallback). |
-| **`audit_security_stig_owasp`**| `project_path`, `max_findings`, `include_content` | Statically audits 34 DISA/OWASP and Anti-Silo rules (`SEC-01` to `SEC-16`, `SEC-CI-ACTION-REF`, `QA-*`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `UI-11X-01..03`) with compact grouping (`groupFindingsByRule`) and `metadata-only` support. |
+| **`audit_security_stig_owasp`**| `project_path`, `max_findings`, `include_content` | Statically audits 34 static scanner rules (`SEC-01` to `SEC-16`, `SEC-CI-ACTION-REF`, `QA-*`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `UI-11X-01..03`) backing the 22 DISA ASD STIG V6R5 + OWASP v4.2 reference controls, with compact grouping (`groupFindingsByRule`) and `metadata-only` support. |
 | **`run_ephemeral_qa`** | `project_path`, `stage`, `timeout_seconds`, `skip_if_docs_only` | Runs `Makefile` targets in ephemeral Docker under Rule Zero and condenses output to JSON (supports `skip_if_docs_only` and `BREAKER-42` circuit breakers). |
 | **`certify_11x_gate`** | `project_path` | Executes the closure certification gate (secrets, JSON, UI components, ORM, STIG, Dual-Consumer docs parity, and `update_available` notice). |
 | **`audit_test_pyramid_gaps`** | `project_path`, `stack`, `max_items` | Statically audits the 13 layers of the 11X pyramid (`L01` to `L13`, including 3-Phase Temporal Cycle in `L13` and Dual Refresh in `L07`), detects orphan files, endpoints without BDD, views without E2E, and generates a prioritized rescue plan bounded by `max_items`. |
@@ -199,11 +199,11 @@ mcp_servers:
 | **`run_llm_red_team`** | `project_path`, `dry_run`, `run_live` | Audits Promptfoo **OWASP LLM Top 10** configs, `promptGuard` probes, and conditional Docker red-teaming (`SKIPPED_MISSING_CREDENTIALS` without keys). |
 | **`audit_vibe_prototype`** | `project_path`, `dry_run`, `enforce` | Inspects AI-generated scaffolds (`Bolt.new`, `Lovable`, `v0`, `Replit`) for `VIBE-SEC-001..QA-005` risks, secret leaks, and missing RLS/WORM. |
 | **`sync_enterprise_tms`** | `project_path`, `provider`, `report_path`, `dry_run` | Normalizes JUnit XML / Allure / SARIF results into **Jira**, **Zephyr Scale**, **Xray**, **GitHub Issues**, or JSON bundles guarded by `TaskStateGuard` and anti-SSRF. |
-| **`session_flight_recorder`** | `project_path`, `action`, `task_id`, `step`, `intent`, `done`, `planned` | Atomic Flight Recorder (`save` \| `recover` \| `clear`) managing `.agents/.cache/session_checkpoint.json` (`0600`) -> deterministic `<= 40`-line `.agents/ACTIVE_TASK.md` projection + live Git cross-check. |
+| **`session_flight_recorder`** | `project_path`, `action`, `task_id`, `step`, `intent`, `done`, `planned` | *(v3.1)* Atomic Flight Recorder (`save` \| `recover` \| `clear`) managing `.agents/.cache/session_checkpoint.json` (`0600`) -> deterministic `<= 40`-line `.agents/ACTIVE_TASK.md` projection + live Git cross-check. |
 
 ### 6.5. Global Auto-Sync on Startup, `update_available` Detection, and Cryptographic Validation
 
-Introduced in `v2.20.0` (and active in `v3.0.0`), `@sinfallas/mcp-qa-11x` includes three automatic lifecycle mechanisms:
+Introduced in `v2.20.0` (and active in `v3.1.0`), `@sinfallas/mcp-qa-11x` includes three automatic lifecycle mechanisms:
 1. **`.qa-11x-version` Stamp:** `install-skill` (both via CLI and `scripts/install-skill.sh`) stamps `.qa-11x-version` inside skill directories and `<project>/.agents/.qa-11x-version` when installing `--include-scripts`.
 2. **Silent Background Auto-Sync (`stdio`):** On every startup of the MCP server over `stdio`, it non-blockingly syncs (verifying `ETag` + `SHA-256` against `manifest.json`) already-installed global skills (`~/.gemini`, `~/.claude`, `~/.cursor`, `~/.codeium/windsurf`, `~/.codex`, `~/.hermes`) while preserving the language configured in `~/.gemini/GEMINI.md`.
 3. **Structured `update_available` Notice (24 h TTL *Fail-Open*):** `inspect_project_config` and `certify_11x_gate` return `update_available` so the assistant itself notifies you in chat if the MCP server, global skills, or local project scripts need updating.

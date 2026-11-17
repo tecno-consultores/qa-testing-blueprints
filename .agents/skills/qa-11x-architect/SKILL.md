@@ -7,7 +7,7 @@ description: >-
   Docker QA suites (Rule Zero), optimize context token consumption, or update TESTING.md and CHANGELOG.md.
 ---
 
-# Master QA-11X v3.0 Routing Orchestrator (`qa-11x-architect`)
+# Master QA-11X v3.1 Routing Orchestrator (`qa-11x-architect`)
 
 > **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Unless target `AGENTS.md` mandates a fixed language, respond in the **user's prompt language**, and write commits/docs matching `README.md` & `CHANGELOG.md` (ignoring concise English `AGENTS.md`/`.agents/**`; default to prompt language on empty repos).
 
@@ -23,13 +23,13 @@ Classify every task first. **NEVER auto-run `git push`** (`QA-GIT-GATE-01` — s
 - **`MICRO_CHANGE` (`<= 3` files, `< 5` callers, `0` routes/ORM):** 3-line plan -> `inspect_ast_blast_radius` -> sync unit/BDD tests (`QA-TEST-SYNC-01`) + stack QA (`run_ephemeral_qa`) -> AST refresh -> `CHANGELOG.md` -> `certify_11x_gate` -> local `git commit`.
 - **`FULL_11X` (`> 3` files, new API/UI, ORM, security, or `MED`/`HIGH` blast):** 11-step workflow (`/plan`, `session_flight_recorder` -> `ACTIVE_TASK.md <= 40L`, full pyramid + `QA-TEST-SYNC-01`, docs, AST, `certify_11x_gate` 10/10, local `git commit`).
 
-### 1.1. MCP Server `qa-11x` (`@sinfallas/mcp-qa-11x` v3.0.0 — 19 Tools + 13 Resources)
+### 1.1. MCP Server `qa-11x` (`@sinfallas/mcp-qa-11x` v3.1.0 — 19 Tools + 13 Resources)
 1. `inspect_ast_blast_radius` — Code Q&A & pre-edit impact.
 2. `inspect_project_config` — stack, drift, `update_available`.
 3. `audit_test_pyramid_gaps` — 13-layer audit + config.
 4. `fetch_blueprint_bundle` — SHA-256 index (`include_content: false`).
 5. `bootstrap_or_merge_11x` — surgical `.example` merge.
-6. `audit_security_stig_owasp` — static audit (`SEC-01..16`, `SEC-CI-ACTION-REF`, `QA-KARATE-IDEMP`, `QA-COV-01`, `QA-MYPY-01`, `QA-PG17-RLS`, `QA-SMOKE-01`, `QA-HEALTH-01`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`, `QA-CI-ESCAPE-01`, `QA-MAKE-CURDIR-01`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `UI-11X-01..03`).
+6. `audit_security_stig_owasp` — 34 static scanner rules (`SEC-01..16`, `SEC-CI-ACTION-REF`, `QA-KARATE-IDEMP`, `QA-COV-01`, `QA-MYPY-01`, `QA-PG17-RLS`, `QA-SMOKE-01`, `QA-HEALTH-01`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`, `QA-CI-ESCAPE-01`, `QA-MAKE-CURDIR-01`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `UI-11X-01..03`).
 7. `run_ephemeral_qa` — runs `lint|unit|migration|integration|ci|bdd|mutation|dast|e2e|perf|chaos|all` (`sinfallas/*`, `.qa-evidence.json`).
 8. `clean_workspace_11x` — rootless purge (keeps `dist`, `graphify-out/`).
 9. `certify_11x_gate` — 10/10 gate (`/tmp/qa-11x-last-failure.json`, lint).
@@ -58,7 +58,7 @@ Classify every task first. **NEVER auto-run `git push`** (`QA-GIT-GATE-01` — s
   4. **Anti-JSDOM & Dual Refresh:** Ban `position: fixed` footers (`UI-11X-01`); pair WebSocket/timers (`clearInterval` on unmount) with **`[ 🔄 Refrescar ]`** (`?refresh=true`).
   5. **Surgical Merge & Thin-Repo:** Merge `.example` safely; zero local duplication of global skills/rules.
   6. **Proportional BDD, Zero Orphans & Test Co-Evolution (`QA-TEST-SYNC-01`):** Dynamic `Idempotency-Key` UUIDs (`QA-KARATE-IDEMP`); `0` orphan UI/API endpoints; update affected unit/integration/BATS/Karate `.feature` tests on code, schema, skill, or `manifest.json` edits.
-  7. **STIG V6R5 & OWASP v4.2:** RLS `NOBYPASSRLS` + `after_begin` (`QA-PG17-RLS`), WORM `seq_num` + `pg_advisory_xact_lock`, Service-Layer RBAC + `ApprovalRequest`, AES-256-GCM Vault, anti-SSRF, `NFKC`, anti-XXE, OSHP, Argon2id lockout, CycloneDX SBOM, SHA-40 Actions (`SEC-CI-ACTION-REF`) (`qa-11x-devsecops-hardener`).
+  7. **22 STIG V6R5 & OWASP v4.2 Reference Controls (vs 34 Scanner Rules):** RLS `NOBYPASSRLS` + `after_begin` (`QA-PG17-RLS`), WORM `seq_num` + `pg_advisory_xact_lock`, Service-Layer RBAC + `ApprovalRequest`, AES-256-GCM Vault, anti-SSRF, `NFKC`, anti-XXE, OSHP, Argon2id lockout, CycloneDX SBOM, SHA-40 Actions (`SEC-CI-ACTION-REF`) (`qa-11x-devsecops-hardener`).
   8. **RED Pre-Chaos:** Expose `/metrics` (`trace_id`) prior to load/chaos profiles.
   9. **Trimodal & 3-Phase Clock:** Test Virgin/Nominal/Degraded states across all 3 clock phases; run `inspect_ast_blast_radius` pre-edit and refresh AST post-edit.
   10. **Closure & `QA-GIT-GATE-01`:** Keep `.agents/ACTIVE_TASK.md <= 40` lines, run `make sync-governance` + `make certify`, commit locally without `git push`, and invoke `propose_skill_evolution_pr` on QA escapes.
@@ -82,7 +82,7 @@ Classify every task first. **NEVER auto-run `git push`** (`QA-GIT-GATE-01` — s
 
 ---
 
-## 3. Progressive Hydration Matrix of Modular Sub-Skills (v2.0)
+## 3. Progressive Hydration Matrix of Modular Sub-Skills (v3.1)
 
 Hydrate specialized sub-skills **strictly on demand** by domain (canonical inline identifiers; zero eager loading):
 
@@ -102,7 +102,7 @@ Hydrate specialized sub-skills **strictly on demand** by domain (canonical inlin
 ## 4. On-Demand References (`references/01..09.md`)
 
 - [`references/01-core-13-layers.md`](references/01-core-13-layers.md) — 13 QA layers, Anti-Mock, Anti-JSDOM, Trimodal.
-- [`references/02-security-disa-owasp-22.md`](references/02-security-disa-owasp-22.md) — 22 STIG/OWASP controls & `SEC-16`.
+- [`references/02-security-disa-owasp-22.md`](references/02-security-disa-owasp-22.md) — 22 DISA/OWASP reference controls (distinct from 34 scanner rules) & `SEC-16`.
 - [`references/03-stack-python-fastapi.md`](references/03-stack-python-fastapi.md) — Python 3.13+ / FastAPI (`uv`, PG17, KeyDB).
 - [`references/04-stack-node-vue-react.md`](references/04-stack-node-vue-react.md) — Node, Vue 3, React, Vitest, Playwright `v1.52.0-noble`.
 - [`references/05-stack-bash-devops.md`](references/05-stack-bash-devops.md) — Bash, ShellCheck, shfmt, BATS, `kcov >= 95%`.

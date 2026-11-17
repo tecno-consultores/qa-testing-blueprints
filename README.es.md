@@ -4,7 +4,7 @@
   <img src="assets/qa-logo.jpeg" alt="Logo de QA Testing Blueprints" width="320" />
 </p>
 
-# QA Testing Blueprints (`QA-11X v3.0` — Estándar Corporativo Nivel 11X)
+# QA Testing Blueprints (`QA-11X v3.1` — Estándar Corporativo Nivel 11X)
 
 **Blueprint Zero-Infra de QA Agéntico, Evaluaciones de IA y Gobernanza DevSecOps**
 
@@ -12,10 +12,10 @@
 [![Regla Cero: Docker Efímero](https://img.shields.io/badge/Rule%20Zero-Non--Root%20Ephemeral%20Docker-0db7ed)](TESTING.md)
 [![Trivy Scan](https://img.shields.io/badge/Trivy-HIGH%2FCRITICAL%20%3D%200-brightgreen)](SECURITY.md)
 [![Skills Modulares IA](https://img.shields.io/badge/AI%20Skills-11%20Modulares%20(%3C20KB)-6f42c1)](.agents/skills/qa-11x-architect/SKILL.md)
-[![Agentes IA](https://img.shields.io/badge/AI%20Agents-27%2B%20Soportados-ff69b4)](docs/agent-setup.md)
+[![Agentes IA](https://img.shields.io/badge/AI%20Agents-28%20Soportados-ff69b4)](docs/agent-setup.es.md)
 [![FINOS CALM](https://img.shields.io/badge/Architecture-FINOS%20CALM-orange)](architecture/qa-11x.calm.json)
 
-**QA-11X v3.0** transforma tanto a **Agentes de Inteligencia Artificial** (Google Antigravity, Claude Code, Cursor, Windsurf, Codex, Copilot, Hermes Agent y más de 20 clientes adicionales) como a **equipos humanos de ingeniería** en operadores deterministas de QA y DevSecOps nivel Staff. Toda validación corre dentro de **contenedores Docker efímeros y no-root (`Rule Zero`)** sin contaminar el host, imponiendo cobertura `>= 95%`, paridad real con bases de datos/contratos, evaluaciones de IA en modo dual y controles **DISA ASD STIG V6R5 + OWASP v4.2** desde el día uno.
+**QA-11X v3.1** transforma tanto a **Agentes de Inteligencia Artificial** (28 agentes soportados incluyendo Google Antigravity, Claude Code, Cursor, Windsurf, Codex, Copilot, Hermes Agent y 21 clientes adicionales) como a **equipos humanos de ingeniería** en operadores deterministas de QA y DevSecOps nivel Staff. Toda validación corre dentro de **contenedores Docker efímeros y no-root (`Rule Zero`)** sin contaminar el host, imponiendo cobertura `>= 95%`, paridad real con bases de datos/contratos, evaluaciones de IA en modo dual y controles **DISA ASD STIG V6R5 + OWASP v4.2** desde el día uno.
 
 ---
 
@@ -49,7 +49,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
-      - uses: tecno-consultores/qa-testing-blueprints/.github/actions/qa-11x-pr-check@v2
+      - uses: tecno-consultores/qa-testing-blueprints/.github/actions/qa-11x-pr-check@v3.1.0 # Tag de ejemplo de release (o fijar SHA de 40 caracteres)
         with:
           tier: standard
           lang: es
@@ -57,7 +57,7 @@ jobs:
 
 ---
 
-## 🧭 Arquitectura Diferencial (`QA-11X v3.0`)
+## 🧭 Arquitectura Diferencial (`QA-11X v3.1`)
 
 ```mermaid
 flowchart TD
@@ -77,7 +77,7 @@ flowchart TD
 
 | Perfil | Caso de Uso | Compuertas y Garantías Incluidas |
 | :--- | :--- | :--- |
-| **`starter`** | Día 1 en 30 segundos | Escaneo de secretos en texto plano, higiene de contenedores `Rule Zero`, `.qa-11x.json`, conector `AGENTS.md` en 27+ agentes IA y vía rápida `DOCS_ONLY` |
+| **`starter`** | Día 1 en 30 segundos | Escaneo de secretos en texto plano, higiene de contenedores `Rule Zero`, `.qa-11x.json`, conector `AGENTS.md` en 28 agentes IA y vía rápida `DOCS_ONLY` |
 | **`standard`** | Pull Requests diarios | Todo lo de `starter` + cobertura unitaria `>= 95%`, tipado estricto (`mypy --strict`, `tsc`, `PHPStan max`), partición CI por Blast Radius AST (ahorro de `40%–60%`) y linter de antipatrones UI (`QA-UI-ANTI-001..005`) |
 | **`enterprise`** | Producción regulada | Pirámide completa `FULL_11X` de 13 capas, Arquitectura como Código bloqueante FINOS CALM, PostgreSQL 17 RLS + cadenas WORM `seq_num`, DISA STIG V6R5 / OWASP v4.2, aserciones temporales de 3 fases (`t < starts_at`, `starts_at <= t <= ends_at`, `t > ends_at`), contratos Pact + carga k6 y Release Readiness Gate (`GO` / `NO_GO` / `SKIPPED`) |
 
@@ -85,7 +85,7 @@ flowchart TD
 
 Todas las suites de análisis, mutación, contratos y BDD se ejecutan en contenedores no-root (`-u "$(id -u):$(id -g)" -e HOME=/tmp`) con **`Trivy HIGH/CRITICAL = 0`**:
 
-| Imagen Efímera | Rol en QA-11X v3.0 | Tags Certificados y Herramientas Preinstaladas |
+| Imagen Efímera | Rol en QA-11X v3.1 | Tags Certificados y Herramientas Preinstaladas |
 | :--- | :--- | :--- |
 | **[sinfallas/base-python-uv](https://hub.docker.com/r/sinfallas/base-python-uv)** | Python, FastAPI, AI Evals y Vibe-Rescue | `3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest` (`uv`, `ruff`, `mypy`, `pytest`, `bandit`, `radon`, `mutmut`, `deepeval`, `pact-python`, `tesseract-ocr`) |
 | **[sinfallas/base-node-ionic](https://hub.docker.com/r/sinfallas/base-node-ionic)** | MCP Server, Node, Vue 3, React y CALM | `22`, `24`, `26` y `latest` (`pnpm`, `promptfoo`, `@finos/calm-cli`, `playwright`, `@axe-core/playwright`, `@pact-foundation/pact`) |
@@ -102,7 +102,7 @@ Todas las suites de análisis, mutación, contratos y BDD se ejecutan en contene
 
 La matriz abarca **10 stacks hidratables** (`python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue`) más **`architecture/`** (topología FINOS CALM) y **`mcp-server/`** (`@sinfallas/mcp-qa-11x`), conformando los **12 entornos de matriz**:
 
-| Carpeta | Ecosistema | Capacidades Clave v2.0 |
+| Carpeta | Ecosistema | Capacidades Clave (v3.1) |
 | :--- | :--- | :--- |
 | **[`fastapi/`](fastapi/)** | APIs Asíncronas Python | Ruff, Mypy strict, paridad PostgreSQL 17 RLS + Alembic, consumidor Pact V4 ([`test_pact_consumer.py`](fastapi/tests/contracts/test_pact_consumer.py)), carga k6 ([`smoke.k6.js`](fastapi/tests/load/smoke.k6.js)), Karate BDD |
 | **[`python/`](python/)** | Librerías y CLIs Python | UV, Ruff (`CC <= 5`), Mypy strict, Pytest `>= 95%`, Hypothesis, Mutmut (`MSI >= 80%`), Bandit |
@@ -151,12 +151,12 @@ A continuación se resume el stack de validación corporativo a lo largo de los 
 
 ---
 
-## 🤖 11 Skills Modulares (`< 20 KB`), Servidor MCP y 27+ Agentes de IA
+## 🤖 11 Skills Modulares (`< 20 KB`), Servidor MCP y 28 Agentes de IA
 
 * **Enrutamiento Progresivo de Skills (`< 20 KB`):** Liderado por [`.agents/skills/qa-11x-architect/SKILL.md`](.agents/skills/qa-11x-architect/SKILL.md) (`< 12 KB`), hidratando bajo demanda 10 sub-skills especializadas (`qa-11x-devsecops-hardener`, `qa-11x-systematic-debugging`, `qa-11x-screenplay-builder`, `qa-11x-llm-evaluator`, `qa-11x-vibe-rescue`, `qa-11x-docker-certifier`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `refactoring-ui` y [`tactical-patterns-11x`](.agents/skills/tactical-patterns-11x/SKILL.md) `<= 2.5 KB` inyectada vía `[DIRECTIVE-11X]`).
-* **Superficie Pública MCP (`@sinfallas/mcp-qa-11x` v3.0.0):** Expone **19 herramientas** y **13 recursos `blueprint://*`** (incluyendo `blueprint://{stack}/readme` para los **10 stacks hidratables**: `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue`) sobre `stdio` (12 núcleo v1 + 6 evaluadores v2.0 + Flight Recorder atómico `session_flight_recorder` y `blueprint://skills/tactical-patterns-11x` blindados de extremo a extremo por `promptGuard` y `TaskStateGuard`).
+* **Superficie Pública MCP (`@sinfallas/mcp-qa-11x` v3.1.0):** Expone **19 herramientas** y **13 recursos `blueprint://*`** (incluyendo `blueprint://{stack}/readme` para los **10 stacks hidratables**: `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue`) sobre `stdio` — combinando 12 núcleo v1 + 6 evaluadores v2.0 + Flight Recorder atómico **v3.1** `session_flight_recorder` (`session_checkpoint.json` `0600` -> `.agents/ACTIVE_TASK.md`) y recurso **v3.1** `blueprint://skills/tactical-patterns-11x` (`11` skills modulares en total), blindados de extremo a extremo por `promptGuard` y `TaskStateGuard`.
 * **Guardia Humana de Cierre Git (`QA-GIT-GATE-01`):** Imposta por [`.agents/rules/git_closure_gate.md`](.agents/rules/git_closure_gate.md) — los agentes certifican localmente vía `make certify` y se detienen en `git commit` local; cualquier `git push` o `npm publish` automático queda estrictamente prohibido.
-* **Guías y Catálogos:** Consulta [`docs/agent-setup.md`](docs/agent-setup.md), [`docs/agent-setup.en.md`](docs/agent-setup.en.md), [`RESOURCES.md`](RESOURCES.md), [`llms.txt`](llms.txt) (índice GEO), [`catalogs/`](catalogs/agenticskills-submission.md) ([QASkills](catalogs/qaskills-pack.json), [SkillsLLM](catalogs/skillsllm-manifest.json)), [`docs/01_ARQUITECTURA_PIRAMIDE_11X.md`](docs/01_ARQUITECTURA_PIRAMIDE_11X.md), [`TESTING.md`](TESTING.md), [`SECURITY.md`](SECURITY.md) y [`ROADMAP.md`](ROADMAP.md).
+* **Guías y Catálogos:** Consulta [`docs/agent-setup.es.md`](docs/agent-setup.es.md) (Español), [`docs/agent-setup.md`](docs/agent-setup.md) (English), [`RESOURCES.md`](RESOURCES.md), [`llms.txt`](llms.txt) (índice GEO), [`catalogs/`](catalogs/agenticskills-submission.md) ([QASkills](catalogs/qaskills-pack.json), [SkillsLLM](catalogs/skillsllm-manifest.json)), [`docs/01_ARQUITECTURA_PIRAMIDE_11X.md`](docs/01_ARQUITECTURA_PIRAMIDE_11X.md), [`TESTING.md`](TESTING.md), [`SECURITY.md`](SECURITY.md) y [`ROADMAP.md`](ROADMAP.md).
 
 ```bash
 # Instalar skills globales, scripts operativos y conector AGENTS.md en los IDEs detectados:

@@ -9,16 +9,19 @@ import {
   CANONICAL_TASK_CAPACITY_URI,
   COMPAT_TASK_CAPACITY_URI,
   DEFAULT_AGENT_CARD_RELATIVE_PATH,
+  DEFAULT_STANDARD_VERSION,
   DEFAULT_TASK_CAPACITY,
   GIT_CLOSURE_HUMAN_GATE_ID,
   QA_11X_V2_SKILLS,
   buildAgentCard,
+  deriveStandardVersion,
   evaluateCapacityStatus,
   isSupportedTaskCapacityUri,
   validateTaskCapacity,
   validateTaskCapacityUri,
   writeAgentCardFile,
 } from '../src/a2a/agentCard.js';
+import { MCP_SERVER_VERSION } from '../src/services/github-fetcher.js';
 import { TaskStateGuard } from '../src/utils/taskStateGuard.js';
 
 const tempDirs: string[] = [];
@@ -36,14 +39,19 @@ afterEach(async () => {
 describe('Agent2Agent Card Generator (buildAgentCard)', () => {
   it('genera el manifiesto por defecto con las 11 skills v2.0, extensión task-capacity y seguridad 11X', () => {
     const card = buildAgentCard();
+    const expectedStandardVersion = deriveStandardVersion(MCP_SERVER_VERSION);
 
     expect(card.name).toBe('qa-11x-mcp-agent');
-    expect(card.version).toBe('3.0.0');
+    expect(card.version).toBe(MCP_SERVER_VERSION);
     expect(card.protocolVersion).toBe('0.2.1');
-    expect(card.standardVersion).toBe('QA-11X v3.0');
+    expect(card.standardVersion).toBe(DEFAULT_STANDARD_VERSION);
+    expect(card.standardVersion).toBe(expectedStandardVersion);
+    expect(deriveStandardVersion()).toBe(DEFAULT_STANDARD_VERSION);
+    expect(deriveStandardVersion('3.1.0')).toBe('QA-11X v3.1');
+    expect(deriveStandardVersion('')).toBe('QA-11X v3.0');
     expect(card.activeModel).toBe('local-or-frontier-hybrid');
     expect(card.description).toContain(card.activeModel);
-    expect(card.description).toContain('QA-11X v3.0');
+    expect(card.description).toContain(DEFAULT_STANDARD_VERSION);
     expect(card.description).toContain('qa-11x-architect');
     expect(card.capabilities).toEqual({
       streaming: false,

@@ -16,8 +16,9 @@ Because this repository acts as the corporate architectural blueprint and knowle
 
 | Version | Support Status | Infrastructure Requirements |
 | :--- | :--- | :--- |
-| **`main` (`latest`)** | ✅ Active Support | Docker 26+, PostgreSQL 17, Multi-Threaded KeyDB |
-| **`< 2.0`** | ❌ Unsupported | Discontinued versions |
+| **`3.1.x` (`main` / Active)** | ✅ Active Support | Docker 26+, PostgreSQL 17, Multi-Threaded KeyDB |
+| **`3.0.x`** | ⚠️ Security Fixes Only | Superseded by `3.1.x` (`upgrade recommended`) |
+| **`<= 2.x`** | ❌ Unsupported | Discontinued versions |
 
 ---
 

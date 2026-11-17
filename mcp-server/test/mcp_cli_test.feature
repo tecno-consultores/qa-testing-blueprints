@@ -15,6 +15,9 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def mcpRoot = repoRoot + '/mcp-server'
     * def pkg = read(mcpRoot + '/package.json')
     * def manifest = read(repoRoot + '/manifest.json')
+    * def expectedSemver3x = '#regex ^3\\.[0-9]+\\.[0-9]+$'
+    * def versionParts = pkg.version.split('.')
+    * def expectedEdition = 'QA-11X v' + versionParts[0] + '.' + versionParts[1]
 
   # ==============================================================================
   # Grupo 1: Contrato del Paquete y Metadatos CLI
@@ -562,9 +565,9 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert graphifySkillSource.contains('Graphify AST-First, Grep-Fallback, Windowed-Read-Second')
     * assert graphifySkillSource.contains('QA-TEST-SYNC-01')
 
-  Scenario: 19. Contrato v3.0.0 — SEC-16 (Pre-Auth Multi-Step Challenge Continuity), Thin-Repo bootstrap_or_merge_11x, Paridad 10/10 y CLI --version
-    * match pkg.version == '3.0.0'
-    * match manifest.blueprint_version == '3.0.0'
+  Scenario: 19. Contrato v3.x — SEC-16 (Pre-Auth Multi-Step Challenge Continuity), Thin-Repo bootstrap_or_merge_11x, Paridad 10/10 y CLI --version
+    * match pkg.version == expectedSemver3x
+    * match manifest.blueprint_version == pkg.version
 
     * def commonPaths = karate.map(manifest.common_files, function(x) { return x.path })
     * match commonPaths !contains 'scripts/publicar-mcp.sh'
@@ -641,8 +644,8 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert rlsRef.contains('relforcerowsecurity')
     * assert rlsRef.contains('pg_namespace')
 
-  Scenario: 22. Internacionalización v3.0.0 — Idioma Espejo Dinámico, Flag --lang (auto|es|en), Targets codex/windsurf y Guías Multi-Agente EN/ES
-    * match pkg.version == '3.0.0'
+  Scenario: 22. Internacionalización v3.x — Idioma Espejo Dinámico, Flag --lang (auto|es|en), Targets codex/windsurf y Guías Multi-Agente EN/ES
+    * match pkg.version == expectedSemver3x
     * match pkg.description contains 'Official MCP Server & Thin-Repo Skill Installer for QA Testing Blueprints'
     * match pkg.keywords contains 'codex'
     * match pkg.keywords contains 'windsurf'
@@ -733,9 +736,9 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert rootSecurity.contains('### 4.22.')
     * assert rootSecurity.contains('QA-HEALTH-01')
 
-  Scenario: 24. Contrato v3.0.0 — Sello .qa-11x-version, Caché TTL 24h Fail-Open, Aviso Estructurado update_available y Auto-Sync Global de Skills por SHA-256
-    * match pkg.version == '3.0.0'
-    * match manifest.blueprint_version == '3.0.0'
+  Scenario: 24. Contrato v3.x — Sello .qa-11x-version, Caché TTL 24h Fail-Open, Aviso Estructurado update_available y Auto-Sync Global de Skills por SHA-256
+    * match pkg.version == expectedSemver3x
+    * match manifest.blueprint_version == pkg.version
 
     * def versionMgrSource = karate.readAsString(mcpRoot + '/src/services/version-manager.ts')
     * assert versionMgrSource.contains('.qa-11x-version')
@@ -789,8 +792,8 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert installSkillSrc.contains('resolveSafeHomeDir()')
     * assert !installSkillSrc.contains('os.homedir()')
 
-  Scenario: 26. Contrato v3.0.0 — Arnés E2E Real sobre stdio (mcp-server/example/) + Clean-Room Tarball verify-v2.sh y 4 Barreras
-    * match pkg.version == '3.0.0'
+  Scenario: 26. Contrato v3.x — Arnés E2E Real sobre stdio (mcp-server/example/) + Clean-Room Tarball verify-v2.sh y 4 Barreras
+    * match pkg.version == expectedSemver3x
     * match pkg.scripts['test:example'] == 'node example/run-example-e2e.mjs'
     * match pkg.files == ['dist/**/*', 'README.md', 'CHANGELOG.md']
 
@@ -824,9 +827,9 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert hooksInstaller.contains('./scripts/probar-mcp-example.sh --in-place')
     * assert hooksInstaller.contains('mobile-appium vibe-rescue .github')
 
-  Scenario: 27. Contrato v3.0.0 — Saneamiento integral en limpieza.sh, clean_workspace_11x y resolveSafeHomeDir (UID Non-Root)
-    * match pkg.version == '3.0.0'
-    * match manifest.blueprint_version == '3.0.0'
+  Scenario: 27. Contrato v3.x — Saneamiento integral en limpieza.sh, clean_workspace_11x y resolveSafeHomeDir (UID Non-Root)
+    * match pkg.version == expectedSemver3x
+    * match manifest.blueprint_version == pkg.version
     * def rootCleanup = karate.readAsString(repoRoot + '/scripts/limpieza.sh')
     * assert rootCleanup.contains('qa_mcp_cleanroom_')
     * assert rootCleanup.contains('qa-11x-mcp-example-e2e-')
@@ -854,8 +857,8 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert !cleanToolTs.contains("'zap.yaml'")
 
   Scenario: 28. Invariante Dual-Consumer QA-CLI-TTY-01 (Regla UAT #10), Guardia Anti-Bloqueo TTY, Flag --stdio y Alias install
-    * match pkg.version == '3.0.0'
-    * match manifest.blueprint_version == '3.0.0'
+    * match pkg.version == expectedSemver3x
+    * match manifest.blueprint_version == pkg.version
     * def cliIndexSource = karate.readAsString(mcpRoot + '/src/index.ts')
     * assert cliIndexSource.contains('shouldExitInteractiveTty')
     * assert cliIndexSource.contains('INTERACTIVE_TTY_NOTICE')
@@ -928,16 +931,16 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert rootSecurity.contains('QA-CONTRACT-SDK-01')
     * assert rootSecurity.contains('QA-DOCKER-LOCK-01')
 
-  Scenario: 29. Cierre T5.4 — llms.txt (GEO), Catálogos Globales (QASkills, SkillsLLM, AgenticSkills), Paridad 11/19/13 y Versión 3.0.0
-    * match pkg.version == '3.0.0'
-    * match manifest.blueprint_version == '3.0.0'
+  Scenario: 29. Cierre T5.4 — llms.txt (GEO), Catálogos Globales (QASkills, SkillsLLM, AgenticSkills), Paridad 11/19/13 y Versión SemVer 3.x
+    * match pkg.version == expectedSemver3x
+    * match manifest.blueprint_version == pkg.version
     * def govPaths = karate.map(manifest.agent_governance_files, function(x){ return x.path })
     * match govPaths contains 'llms.txt'
     * match govPaths contains 'catalogs/qaskills-pack.json'
     * match govPaths contains 'catalogs/skillsllm-manifest.json'
     * match govPaths contains 'catalogs/agenticskills-submission.md'
     * def llmsTxt = karate.readAsString(repoRoot + '/llms.txt')
-    * assert llmsTxt.contains('3.0.0')
+    * assert llmsTxt.contains(pkg.version)
     * assert llmsTxt.contains('MIT')
     * assert llmsTxt.contains('qa-11x-architect')
     * assert llmsTxt.contains('validate_calm_architecture')
@@ -945,12 +948,12 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert llmsTxt.contains('blueprint://skills/tactical-patterns-11x')
     * string qaskillsRaw = karate.readAsString(repoRoot + '/catalogs/qaskills-pack.json')
     * json qaskills = qaskillsRaw
-    * match qaskills.version == '3.0.0'
+    * match qaskills.version == pkg.version
     * match qaskills.license == 'MIT'
     * match qaskills.skills == '#[11]'
     * string skillsllmRaw = karate.readAsString(repoRoot + '/catalogs/skillsllm-manifest.json')
     * json skillsllm = skillsllmRaw
-    * match skillsllm.version == '3.0.0'
+    * match skillsllm.version == pkg.version
     * match skillsllm.license == 'MIT'
     * match skillsllm.mcp_capabilities.tools_count == 19
     * match skillsllm.mcp_capabilities.resources_count == 13
@@ -959,7 +962,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * match skillsllm.blueprints == '#[10]'
     * match skillsllm.skills == '#[11]'
     * def agenticskills = karate.readAsString(repoRoot + '/catalogs/agenticskills-submission.md')
-    * assert agenticskills.contains('3.0.0')
+    * assert agenticskills.contains(pkg.version)
     * assert agenticskills.contains('qa-11x-architect')
     * assert agenticskills.contains('sync_enterprise_tms')
     * assert agenticskills.contains('blueprint://vibe-rescue/readme')
@@ -1038,7 +1041,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert secAuditor.contains('extractPythonTestBlocks')
     * assert secAuditor.contains('isUncheckedSupervisorWindow')
     * def serverTs = karate.readAsString(repoRoot + '/mcp-server/src/server.ts')
-    * assert serverTs.contains('the 34 DISA ASD STIG V6R5')
+    * assert serverTs.contains('22 DISA ASD STIG V6R5 / OWASP v4.2 reference controls + 34 static scanner rules')
     * assert serverTs.contains('QA-SSR-HYDRATION-01')
     * def screenplaySkill = karate.readAsString(repoRoot + '/.agents/skills/qa-11x-screenplay-builder/SKILL.md')
     * assert screenplaySkill.contains('QA-SSR-HYDRATION-01')
@@ -1136,9 +1139,9 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def pkgJson = karate.readAsString(repoRoot + '/mcp-server/package.json')
     * assert pkgJson.contains('19 Tools, 13 Resources')
 
-  Scenario: 37. Contrato QA-11X v3.0 (Hito 24) — bump_version_11x.py, Protocolo MCP en Vivo, Planificación 19_SPEC/20_SPEC y Catálogo v3.0.0
-    * match pkg.version == '3.0.0'
-    * match manifest.blueprint_version == '3.0.0'
+  Scenario: 37. Contrato QA-11X v3.x (Hito 24) — bump_version_11x.py, Protocolo MCP en Vivo, Planificación 19_SPEC/20_SPEC y Catálogo
+    * match pkg.version == expectedSemver3x
+    * match manifest.blueprint_version == pkg.version
     * def govPaths37 = karate.map(manifest.agent_governance_files, function(x){ return x.path })
     * match govPaths37 contains 'AI_MASTER_PROMPT.md'
     * match govPaths37 contains '.agents/scripts/bump_version_11x.py'
@@ -1151,11 +1154,11 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert rootMakefile37.contains('version-check:')
 
     * def spec19 = karate.readAsString(repoRoot + '/docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md')
-    * assert spec19.contains('IMPLEMENTADO Y CERTIFICADO EN QA-11X v3.0')
+    * assert spec19.contains('IMPLEMENTADO Y CERTIFICADO')
 
     * def spec20 = karate.readAsString(repoRoot + '/docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md')
     * assert spec20.contains('base-mobile-appium')
-    * assert spec20.contains('IMPLEMENTADO Y CERTIFICADO EN QA-11X v3.0')
+    * assert spec20.contains('IMPLEMENTADO Y CERTIFICADO')
 
     * def liveTest = karate.readAsString(mcpRoot + '/tests/live-mcp-protocol.test.ts')
     * assert liveTest.contains('StdioClientTransport')
@@ -1164,7 +1167,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
 
     * string qaskillsRaw37 = karate.readAsString(repoRoot + '/catalogs/qaskills-pack.json')
     * json qaskills37 = qaskillsRaw37
-    * match qaskills37.standard_edition == 'QA-11X v3.0'
+    * match qaskills37.standard_edition == expectedEdition
 
   Scenario: 38. Hito 25 — Matriz 15x12, base-mobile-appium:26 (Spec 20) y Arquitectura Bilingüe EN+ES con ?lang=es|en (Spec 19)
     * def rootReadmeEn38 = karate.readAsString(repoRoot + '/README.md')
@@ -1337,5 +1340,33 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def rootReadme42 = karate.readAsString(repoRoot + '/README.md')
     * assert rootReadme42.includes('10 hydratable stacks')
     * assert rootReadme42.includes('12 matrix environments')
+
+  Scenario: 43. Contratos Fase 5 (F5.3, F5.6, F5.12, F5.13) — Conteos Dinamicos Runtime, Standard Edition Dinamico, D3 y 15 Etapas run_ephemeral_qa
+    * def indexTs43 = karate.readAsString(mcpRoot + '/src/index.ts')
+    * assert indexTs43.contains('getRegisteredSurfaceCounts')
+    * assert indexTs43.contains('createConfiguredMcpServer')
+    * assert indexTs43.contains('getCliHelpText')
+    * assert indexTs43.contains('getInteractiveTtyNotice')
+    * assert !indexTs43.contains('(19 tools, 13 resources)')
+
+    * def serverTs43 = karate.readAsString(mcpRoot + '/src/server.ts')
+    * assert serverTs43.contains('getRegisteredServerSurface')
+    * assert serverTs43.contains('22 DISA ASD STIG V6R5 / OWASP v4.2 reference controls + 34 static scanner rules')
+
+    * def agentCardTs43 = karate.readAsString(mcpRoot + '/src/a2a/agentCard.ts')
+    * assert agentCardTs43.contains('deriveStandardVersion')
+    * assert !agentCardTs43.contains("DEFAULT_STANDARD_VERSION = 'QA-11X v3.0'")
+
+    * def mcpReadmeEn43 = karate.readAsString(mcpRoot + '/README.md')
+    * assert mcpReadmeEn43.contains('22 DISA ASD STIG V6R5 / OWASP v4.2 reference controls + 34 static scanner rules')
+    * assert mcpReadmeEn43.contains('15 QA stages')
+    * assert mcpReadmeEn43.contains('mutation`, `dast`, `e2e`, `perf`, `chaos`, `all`')
+    * assert mcpReadmeEn43.contains('`mobile-appium`, `ai-evals`, and `vibe-rescue`')
+
+    * def mcpReadmeEs43 = karate.readAsString(mcpRoot + '/README.es.md')
+    * assert mcpReadmeEs43.contains('22 controles de referencia DISA ASD STIG V6R5 / OWASP v4.2 + 34 reglas del escáner estático')
+    * assert mcpReadmeEs43.contains('15 etapas QA')
+    * assert mcpReadmeEs43.contains('mutation`, `dast`, `e2e`, `perf`, `chaos`, `all`')
+    * assert mcpReadmeEs43.contains('`mobile-appium`, `ai-evals` y `vibe-rescue`')
 
 

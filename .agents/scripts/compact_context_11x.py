@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
-"""Compactador determinista de contexto Zero-LLM en 2 niveles para QA-11X v3.0."""
+"""Compactador determinista de contexto Zero-LLM en 2 niveles para QA-11X v3.1."""
 
 from __future__ import annotations
 
@@ -343,7 +343,7 @@ def _write_output_atomic(output_path: str, result: CompactionResult) -> None:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Compactador determinista de contexto Zero-LLM en 2 niveles (QA-11X v3.0)."
+        description="Compactador determinista de contexto Zero-LLM en 2 niveles (QA-11X v3.1)."
     )
     parser.add_argument("--input", type=str, default=None, help="Archivo JSON de mensajes (o '-' para stdin).")
     parser.add_argument("--output", type=str, default=None, help="Archivo JSON de salida compactado.")

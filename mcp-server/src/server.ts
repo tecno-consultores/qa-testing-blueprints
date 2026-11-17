@@ -34,6 +34,42 @@ import {
   ReconcileAgentsInputSchema,
 } from './types.js';
 
+export interface ServerSurfaceRegistry {
+  readonly toolNames: ReadonlySet<string>;
+  readonly resourceUris: ReadonlySet<string>;
+}
+
+const SERVER_SURFACE_REGISTRY = new WeakMap<McpServer, ServerSurfaceRegistry>();
+
+function extractRegisteredResourceUri(uriOrTemplate: string | ResourceTemplate): string {
+  return typeof uriOrTemplate === 'string' ? uriOrTemplate : uriOrTemplate.uriTemplate.toString();
+}
+
+function attachRegistrationTracking(server: McpServer): void {
+  const toolNames = new Set<string>();
+  const resourceUris = new Set<string>();
+  const origTool = server.tool.bind(server) as (...args: readonly unknown[]) => unknown;
+  const origResource = server.resource.bind(server) as (...args: readonly unknown[]) => unknown;
+
+  Reflect.set(server, 'tool', (...args: readonly unknown[]) => {
+    toolNames.add(String(args[0]));
+    return origTool(...args);
+  });
+
+  Reflect.set(server, 'resource', (...args: readonly unknown[]) => {
+    const uriOrTemplate = args[1] as string | ResourceTemplate;
+    resourceUris.add(extractRegisteredResourceUri(uriOrTemplate));
+    return origResource(...args);
+  });
+
+  SERVER_SURFACE_REGISTRY.set(server, { toolNames, resourceUris });
+}
+
+/** Returns runtime-registered tool names and resource URIs tracked for an McpServer instance. */
+export function getRegisteredServerSurface(server: McpServer): ServerSurfaceRegistry | undefined {
+  return SERVER_SURFACE_REGISTRY.get(server);
+}
+
 export function createMcpServer(options?: {
   fetcher?: GitHubFetcher;
   merger?: SurgicalMerger;
@@ -46,6 +82,7 @@ export function createMcpServer(options?: {
     name: '@sinfallas/mcp-qa-11x',
     version: MCP_SERVER_VERSION,
   });
+  attachRegistrationTracking(server);
 
   const MARKDOWN_MIME_TYPE = 'text/markdown';
 
@@ -377,7 +414,7 @@ export function createMcpServer(options?: {
   // Tool 6: audit_security_stig_owasp
   server.tool(
     'audit_security_stig_owasp',
-    'Statically audits project source code against the 34 DISA ASD STIG V6R5, OWASP v4.2, and Anti-Silo QA/Healthcheck/TTY/CI/Contract/Docker/Playwright/SSR/UI patterns (including QA-HEALTH-01, QA-CLI-TTY-01, QA-DOCKER-TTY-01, QA-CI-ESCAPE-01, QA-MAKE-CURDIR-01, QA-CONTRACT-SDK-01, QA-DOCKER-LOCK-01, QA-PLAYWRIGHT-PIN-01, QA-SSR-HYDRATION-01, and UI-11X-01..03).',
+    'Statically audits project source code against 22 DISA ASD STIG V6R5 / OWASP v4.2 reference controls + 34 static scanner rules covering Anti-Silo QA/Healthcheck/TTY/CI/Contract/Docker/Playwright/SSR/UI patterns (including QA-HEALTH-01, QA-CLI-TTY-01, QA-DOCKER-TTY-01, QA-CI-ESCAPE-01, QA-MAKE-CURDIR-01, QA-CONTRACT-SDK-01, QA-DOCKER-LOCK-01, QA-PLAYWRIGHT-PIN-01, QA-SSR-HYDRATION-01, and UI-11X-01..03).',
     AuditSecurityInputSchema.shape,
     async (args) => {
       const safePath = resolveSafeProjectPath(args.project_path);

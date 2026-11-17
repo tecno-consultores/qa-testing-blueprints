@@ -21,7 +21,16 @@ export const SUPPORTED_TASK_CAPACITY_URIS = [
 
 export const DEFAULT_AGENT_NAME = 'qa-11x-mcp-agent' as const;
 export const DEFAULT_AGENT_VERSION: string = MCP_SERVER_VERSION;
-export const DEFAULT_STANDARD_VERSION = 'QA-11X v3.0' as const;
+
+/** Derives the QA-11X standard edition label (e.g. 'QA-11X v3.1') from a SemVer string. */
+export function deriveStandardVersion(serverVersion: string = MCP_SERVER_VERSION): string {
+  const parts = serverVersion.split('.');
+  const major = parts[0] || '3';
+  const minor = parts[1] || '0';
+  return `QA-11X v${major}.${minor}`;
+}
+
+export const DEFAULT_STANDARD_VERSION = deriveStandardVersion(MCP_SERVER_VERSION);
 export const DEFAULT_ACTIVE_MODEL = 'local-or-frontier-hybrid' as const;
 export const DEFAULT_AGENT_URL = 'stdio://sinfallas/mcp-qa-11x' as const;
 export const DEFAULT_A2A_PROTOCOL_VERSION = '0.2.1' as const;

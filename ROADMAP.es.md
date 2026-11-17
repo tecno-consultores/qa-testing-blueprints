@@ -4,9 +4,9 @@
 
 **Proyecto:** QA Testing Blueprints (`tecno-consultores/qa-testing-blueprints`)  
 **Arquitectura Objetivo:** Distribución Zero-Clone en Node.js (`npx -y @sinfallas/mcp-qa-11x@latest`) + Skill Cognitiva (`qa-11x-architect`) + Hidratación Bajo Demanda desde GitHub con Verificación SHA-256 (`manifest.json`)  
-**Modelo Ejecutor Objetivo:** Gemini 3.8 Flash High / Claude / Antigravity
+**Modelo Ejecutor Objetivo:** Modelo de Razonamiento Actual (Gemini / Claude / Antigravity)
 
-> **DIRECTIVA DE EJECUCIÓN PARA EL AGENTE DE IA (GEMINI 3.8 FLASH HIGH):**
+> **DIRECTIVA DE EJECUCIÓN PARA EL AGENTE DE IA (Modelo de Razonamiento Actual (Gemini / Claude / Antigravity)):**
 > 1. Lee siempre primero la especificación técnica asociada en `docs/specs/` antes de iniciar cada Hito.
 > 2. Respeta estrictamente la **Regla Cero (`Rule Zero`)**: toda validación de código, linters y pruebas unitarias/BDD DEBE ejecutarse dentro de los contenedores Docker efímeros (`sinfallas/*`).
 > 3. Al completar cada subtarea o Hito, marca su casilla `[x]` en `ROADMAP.md` y `ROADMAP.es.md`, actualiza `CHANGELOG.{md,es.md}` y `TESTING.{md,es.md}`, y ejecuta `./.agents/scripts/certify_task_completion.sh`.
@@ -42,6 +42,7 @@
 | **Hito 23** | Modo Diferencial en `inspect_ast_blast_radius` (Cero Inflación MCP) y Exportador Ejecutivo `PR_VERDICT.md` | [`18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md`](docs/specs/18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md) | ✅ Completado | `100%` |
 | **Hito 24** | Auditoría Integral `QA-11X v3.0` (`v3.0.0`), Sincronizador `bump_version_11x.py`, Protocolo MCP en Vivo y Planificación `19_SPEC` / `20_SPEC` | [`19_SPEC`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md) + [`20_SPEC`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md) | ✅ Completado | `100%` |
 | **Hito 25** | Matriz 15×12, `base-mobile-appium:26` y Arquitectura Documental Bilingüe | [`19_SPEC`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md) + [`20_SPEC`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md) | ✅ Completado | `100%` |
+| **Hito 26** | `QA-11X v3.1` (`3.1.0`) — Flight Recorder Atómico, `tactical-patterns-11x`, Hidratación 10 Stacks y Endurecimiento Fail-Closed | [`AGENTS.md`](AGENTS.md) + [`TESTING.es.md`](TESTING.es.md) | ✅ Completado | `100%` |
 
 ---
 
@@ -218,7 +219,7 @@
 ## ✅ Hito 14: Optimización Extrema de Tokens en Servidor MCP, Protocolo de 3 Vías Proporcionales (`DOCS_ONLY` / `MICRO_CHANGE` / `FULL_11X`), *Progressive Disclosure* y Economía Cognitiva
 **Referencia Obligatoria:** [`docs/specs/13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md`](docs/specs/13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md)
 
-### Tareas de Implementación (Para Gemini 3.8 Flash High):
+### Tareas de Implementación (Para Modelo de Razonamiento Actual (Gemini / Claude / Antigravity)):
 - [x] **14.1.** Ampliar los contratos Zod e interfaces en `mcp-server/src/types.ts`: añadir `include_content` (`default: false`) en `FetchBundleInputSchema` (`size_bytes`, `cached_path` en `FetchedFileItem`), `max_findings` (`default: 25`) en `AuditSecurityInputSchema`, `GroupedSecurityFinding` y `grouped_findings` en `SecurityAuditResult`, `max_items` (`default: 20`) en `AuditTestPyramidInputSchema` y `BlastRadiusInputSchema`, y conteos totales en `MissingTestInventory` y `BlastRadiusResult`.
 - [x] **14.2.** Optimizar `mcp-server/src/tools/fetch-bundle.ts` y `mcp-server/src/server.ts` para omitir por defecto el volcado de `content` crudo en llamadas MCP (`include_content: false`, ahorrando ~50,000 tokens por llamada mientras verifica SHA-256 en caché local), y actualizar `buildConnectorBlock()` en `mcp-server/src/cli/init-agents-md.ts` incorporando las **3 Vías Proporcionales de Ejecución (`DOCS_ONLY`, `MICRO_CHANGE`, `FULL_11X`)** y el protocolo *High-IQ Token Economy*.
 - [x] **14.3.** Implementar `groupFindingsByRule()` y el límite `maxFindings` en `mcp-server/src/tools/security-auditor.ts`, el truncado `maxItems` con conteos totales en `mcp-server/src/tools/test-pyramid-auditor.ts` y `mcp-server/src/tools/blast-radius.ts`, manteniendo complejidad cognitiva `<= 15` y `--max-warnings 0`.
@@ -349,3 +350,12 @@
 - [x] **25.1.** Integrar la imagen Docker dedicada no-root **`sinfallas/base-mobile-appium:26`** (`Node.js 26`, `pnpm`, `OpenJDK 21`, `Android SDK/ADB`, `Appium 3`, `uiautomator2`, `xcuitest`, `WebdriverIO v9`), actualizar `mobile-appium/{Makefile.example,docker-compose.qa.yml.example,package.json.example,tests/mobile_screenplay.spec.ts}`, añadir `make test-mobile-blueprints` en `Makefile` y conectar `smoke-mobile-appium` en `.github/workflows/audit-base-images.yml`.
 - [x] **25.2.** Integrar `sinfallas/base-mobile-appium:26` y `qa-mobile` en `mcp-server` (`src/resources/stackBlueprints.ts`, `src/tools/ephemeral-runner.ts`), habilitar negociación bilingüe `blueprint://*` (`?lang=es|en`) y nivelar la **Matriz de Calidad 15×12** en [`README.md`](README.md) y [`README.es.md`](README.es.md).
 - [x] **25.3.** Ejecutar la **Fase A de Spec 19**: migrar los documentos raíz, gobernanza, seguridad, pruebas, prompt, roadmap, changelog, `mcp-server/{CHANGELOG,example/README}` y `docs/agent-setup` hacia pares **Inglés Canónico (`*.md`) + Espejo 1:1 en Español (`*.es.md`)** con banners recíprocos de idioma y actualizar [`AGENTS.md`](AGENTS.md) y [`.agents/README.md`](.agents/README.md).
+
+---
+
+## ✅ Hito 26: `QA-11X v3.1` (`3.1.0`) — Flight Recorder Atómico, `tactical-patterns-11x`, Hidratación 10 Stacks y Endurecimiento Fail-Closed
+**Referencia Obligatoria:** [`AGENTS.md`](AGENTS.md), [`TESTING.es.md`](TESTING.es.md) y [`SECURITY.es.md`](SECURITY.es.md)
+
+### Tareas de Implementación:
+- [x] **26.1.** Implementar el Flight Recorder Atómico Unificado ([`.agents/schemas/session_checkpoint.schema.json`](.agents/schemas/session_checkpoint.schema.json) + [`.agents/scripts/checkpoint_ctl.py`](.agents/scripts/checkpoint_ctl.py) + herramienta MCP `session_flight_recorder`), la skill táctica JIT [`tactical-patterns-11x`](.agents/skills/tactical-patterns-11x/SKILL.md) (`<= 2.5 KB`, `blueprint://skills/tactical-patterns-11x`), `[DIRECTIVE-11X]` y los bloqueos de complejidad `max-params: 4` / `max-depth: 3`.
+- [x] **26.2.** Consolidar los 10 stacks hidratables en `manifest.json`, fuente única `_budgets.py` y `sync_governance.py`, conteos dinámicos en `verify_docs_invariants.py`, compuertas Fail-Closed, endurecimiento Docker no-root bajo Regla Cero y estabilización `QA-11X v3.1` (`3.1.0`).

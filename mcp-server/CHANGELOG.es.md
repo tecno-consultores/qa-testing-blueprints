@@ -8,9 +8,15 @@ Todos los cambios notables en el paquete npm y servidor MCP `@sinfallas/mcp-qa-1
 
 ## [Unreleased]
 
-### Añadido y Modificado
-- **Flight Recorder Atómico (`session_flight_recorder` Tool #19) y Recurso `tactical-patterns-11x` (#13):** Expuestos `session_flight_recorder` (`save|recover|clear` delegando en `checkpoint_ctl.py`) y `blueprint://skills/tactical-patterns-11x` (`?lang=es|en` + fallback offline), añadida inyección JIT `[DIRECTIVE-11X]` + `recordStageCmdCheckpoint` en `ephemeral-runner.ts`, y endurecidos los módulos TypeScript con `max-params: 4` / `max-depth: 3` (`19 Tools / 13 Resources / 11 Skills`).
-- **Ejecución Dedicada para Stack Móvil (`qa-mobile` / `sinfallas/base-mobile-appium:26`) y Negociación Bilingüe de Recursos (`?lang=es|en`):** Incorporado el soporte de contenedor `qa-mobile` / `mobile-appium` en `src/tools/ephemeral-runner.ts`, la referencia a `sinfallas/base-mobile-appium:26` en `src/resources/stackBlueprints.ts` y la negociación de idioma `?lang=es|en` en recursos `blueprint://*` conforme a Spec 19.
+## [3.1.0] - 2026-11-17
+
+### Añadido
+- **Flight Recorder Atómico (`session_flight_recorder` Tool #19) y `tactical-patterns-11x` (#13):** Expuestos `session_flight_recorder`, `blueprint://skills/tactical-patterns-11x` (`?lang=es|en` + fallback offline), inyección `[DIRECTIVE-11X]` (`ephemeral-runner.ts`) y reglas `max-params: 4` / `max-depth: 3`.
+- **Paridad Completa de 10 Stacks y Ejecución Móvil:** Ampliados `StackNameSchema`, `inspect_project_config`, `test-pyramid-auditor` y `blueprint://{stack}/readme` a los 10 stacks hidratables, junto al soporte `qa-mobile` y enrutamiento bilingüe `?lang=es|en`.
+
+### Modificado y Seguridad
+- **Conteo Dinámico en Runtime (`3.1.0` / `QA-11X v3.1`):** Derivados los conteos de tools/resources en runtime desde `src/index.ts`, calculado `DEFAULT_STANDARD_VERSION` en `src/a2a/agentCard.ts` desde `MCP_SERVER_VERSION`, documentadas las 15 etapas reales de `run_ephemeral_qa` y aclarados `22` controles vs `34` reglas del escáner.
+- **Compuertas Fail-Closed y Endurecimiento `SEC-PATH-01`:** Aplicadas salidas `INVALID_JSON`/`SKIPPED`/`strict` en `certify_11x_gate` y `evaluateQaStatus`, añadido `resolveSafeProjectPath`, eliminado el opt-out implícito `allow_unmerged_examples`, fijado `dry_run: true` en mutadores, acotado TTY `< 5s` y alineado `CERTIFIED_CLEAN` / tope `40` líneas.
 
 ## [3.0.0] - 2026-11-14
 

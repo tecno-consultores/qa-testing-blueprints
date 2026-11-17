@@ -64,7 +64,7 @@ Antes de escribir código o sugerir comandos, consulta la guía especializada de
 * 🤖 **Evaluaciones Dual-Mode de IA & Red Team:** `ai-evals/README.md`
 * 🛡️ **Rescate Vibe-to-Enterprise:** `vibe-rescue/README.md`
 * 🏗️ **Arquitectura como Código (FINOS CALM):** `architecture/README.md` (`architecture/qa-11x.calm.json`)
-* 🧠 **Servidor MCP (`19` Tools + `13` Resources) y 11 Skills:** `docs/specs/03_SPEC_MCP_SERVER_NODE_TS_CORE_Y_TOOLS.md` + `docs/ai-integration.md` (incluyendo `session_flight_recorder` + `blueprint://skills/tactical-patterns-11x`)
+* 🧠 **Servidor MCP (`19` Tools + `13` Resources) y 11 Skills:** `docs/specs/03_SPEC_MCP_SERVER_NODE_TS_CORE_Y_TOOLS.md` + `docs/ai-integration.md` (incluyendo **v3.1** `session_flight_recorder` + `blueprint://skills/tactical-patterns-11x`)
 
 ---
 

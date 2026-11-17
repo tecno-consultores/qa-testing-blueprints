@@ -19,7 +19,7 @@ SCRIPT_PATH = REPO_ROOT / ".agents" / "scripts" / "bump_version_11x.py"
 
 
 def _load_mod() -> Any:
-    spec = importlib.util.spec_from_file_location("bump_version_11x_under_test", SCRIPT_PATH)
+    spec = importlib.util.spec_from_file_location("bump_version_11x", SCRIPT_PATH)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
@@ -148,3 +148,113 @@ def test_main_modes_and_entrypoint(
     with pytest.raises(SystemExit) as exc:
         runpy.run_path(str(SCRIPT_PATH), run_name="__main__")
     assert exc.value.code == 2
+
+
+def test_extended_doc_and_calm_rules_sync_and_verify(tmp_path: Path) -> None:
+    mod = _load_mod()
+    targets = {
+        "architecture/qa-11x.calm.json",
+        "TESTING.md",
+        "TESTING.es.md",
+        "docs/qa-philosophy.md",
+        "docs/qa-philosophy.es.md",
+        "docs/ARCHITECTURE_C4.md",
+        "docs/ARCHITECTURE_C4.es.md",
+        "docs/ai-integration.md",
+        "docs/ai-integration.es.md",
+    }
+    ver_rules = tuple(r for r in mod.VERSION_RULES if r.rel_path in targets)
+    ed_rules = tuple(r for r in mod.EDITION_RULES if r.rel_path in targets)
+    assert {r.rel_path for r in ver_rules} == targets
+    assert len(ed_rules) == 7
+
+    doc_ver_rules = tuple(r for r in ver_rules if r.optional)
+    assert mod.run_rules(tmp_path, doc_ver_rules, "3.0.0", False) == ([], 0)
+    assert mod.run_rules(tmp_path, ed_rules, "QA-11X v3.0", False) == (
+        ["architecture/qa-11x.calm.json: missing file"],
+        0,
+    )
+
+    (tmp_path / "architecture").mkdir()
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "architecture" / "qa-11x.calm.json").write_text(
+        json.dumps(
+            {
+                "metadata": [
+                    {
+                        "qa-11x": {
+                            "standard": "QA-11X v3.0",
+                            "version": "3.0.0",
+                        }
+                    }
+                ]
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "TESTING.md").write_text(
+        "# Scoreboard — Corporate Standard `QA-11X v3.0` (`v3.0.0`)\n"
+        "Corporate Quality Standard Level 11X (`v3.0.0`) scoreboard.\n"
+        "### MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x` `v3.0.0`)\n"
+        "* **Certified 11X Metrics (`v3.0.0` / `QA-11X v3.0`):**\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "TESTING.es.md").write_text(
+        "# Cuadro — Estándar Corporativo `QA-11X v3.0` (`v3.0.0`)\n"
+        "Estándar de calidad Nivel 11X (`v3.0.0`) vivo.\n"
+        "### MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x` `v3.0.0`)\n"
+        "* **Métricas 11X Certificadas (`v3.0.0` / `QA-11X v3.0`):**\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "docs" / "qa-philosophy.md").write_text(
+        "Underpins `qa-testing-blueprints` (`QA-11X v3.0`).\n"
+        "Exposed by `@sinfallas/mcp-qa-11x` v3.0.0, ensuring quality.\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "docs" / "qa-philosophy.es.md").write_text(
+        "Fundamenta `qa-testing-blueprints` (`QA-11X v3.0`).\n"
+        "Expuestos por `@sinfallas/mcp-qa-11x` v3.0.0, garantizando calidad.\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "docs" / "ARCHITECTURE_C4.md").write_text(
+        "Within **QA Testing Blueprints (`QA-11X v3.0`)**.\n"
+        'MCP["Node.js/TS MCP Server (@sinfallas/mcp-qa-11x v3.0.0)"]\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "docs" / "ARCHITECTURE_C4.es.md").write_text(
+        "Dentro de **QA Testing Blueprints (`QA-11X v3.0`)**.\n"
+        'MCP["Servidor MCP Node.js/TS (@sinfallas/mcp-qa-11x v3.0.0)"]\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "docs" / "ai-integration.md").write_text(
+        "The `@sinfallas/mcp-qa-11x` v3.0.0 MCP server exposes tools.\n"
+        "Introduced in `v2.20.0` (and active in `v3.0.0`), it syncs.\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "docs" / "ai-integration.es.md").write_text(
+        "El servidor MCP `@sinfallas/mcp-qa-11x` v3.0.0 expone herramientas.\n"
+        "Introducido en `v2.20.0` (y activo en `v3.0.0`), sincroniza.\n",
+        encoding="utf-8",
+    )
+
+    assert mod.run_rules(tmp_path, ver_rules, "3.0.0", False) == ([], 0)
+    assert mod.run_rules(tmp_path, ed_rules, "QA-11X v3.0", False) == ([], 0)
+
+    v_errs, _ = mod.run_rules(tmp_path, ver_rules, "3.1.0", False)
+    e_errs, _ = mod.run_rules(tmp_path, ed_rules, "QA-11X v3.1", False)
+    assert len(v_errs) == 17
+    assert len(e_errs) == 9
+
+    assert mod.run_rules(tmp_path, ver_rules, "3.1.0", True) == ([], 9)
+    assert mod.run_rules(tmp_path, ed_rules, "QA-11X v3.1", True) == ([], 7)
+    assert mod.run_rules(tmp_path, ver_rules, "3.1.0", False) == ([], 0)
+    assert mod.run_rules(tmp_path, ed_rules, "QA-11X v3.1", False) == ([], 0)
+
+    calm_data = json.loads(
+        (tmp_path / "architecture" / "qa-11x.calm.json").read_text(encoding="utf-8")
+    )
+    assert calm_data["metadata"][0]["qa-11x"] == {
+        "standard": "QA-11X v3.1",
+        "version": "3.1.0",
+    }

@@ -16,8 +16,9 @@ Dado que este repositorio actúa como la plantilla arquitectónica y base de con
 
 | Versión | Estado de Soporte | Requisitos de Infraestructura |
 | :--- | :--- | :--- |
-| **`main` (`latest`)** | ✅ Soporte Activo | Docker 26+, PostgreSQL 17, KeyDB Multi-Hilo |
-| **`< 2.0`** | ❌ No Soportado | Versiones descontinuadas |
+| **`3.1.x` (`main` / Activa)** | ✅ Soporte Activo | Docker 26+, PostgreSQL 17, KeyDB Multi-Hilo |
+| **`3.0.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.1.x` (`actualización recomendada`) |
+| **`<= 2.x`** | ❌ No Soportado | Versiones descontinuadas |
 
 ---
 

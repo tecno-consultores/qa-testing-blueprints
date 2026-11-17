@@ -72,7 +72,7 @@ To ensure an optimal experience for human teams, all rules include the inviolabl
 > Always communicate with the user, provide status updates, explain reasoning,
 > and write commit messages / user-facing documentation in Spanish.
 ```
-Operational manuals (`docs/`, `CHANGELOG.md`, `TESTING.md`, `README.es.md`) and user responses remain in Spanish alongside English entrypoints (`README.md`, `mcp-server/README.md`, `docs/agent-setup.en.md`, `catalogs/agenticskills-submission.md`).
+Operational manuals (`docs/`, `CHANGELOG.md`, `TESTING.md`, `README.es.md`) and user responses remain in Spanish alongside English entrypoints (`README.md`, `mcp-server/README.md`, `docs/agent-setup.md`, `catalogs/agenticskills-submission.md`).
 
 ---
 
@@ -144,14 +144,14 @@ The 11X standard neither replaces the human developer nor relegates them to seco
 
 ---
 
-## 7. Mandatory Task Closure Protocol (Task Closure Gate — 10 Stages)
+## 7. Mandatory 11-Step Closure Protocol & 10-Stage Certification Gate
 
-To eradicate the habit of agents marking tasks done with half-finished tests or stale documentation, the agent must relentlessly execute the closure protocol:
+To eradicate the habit of agents marking tasks done with half-finished tests or stale documentation, the agent must relentlessly execute the **11-step closure protocol** (`AGENTS.md` §5) culminating in the **10-stage certification gate** (`certify_task_completion.sh`):
 
 1. **Mandatory 11X Test Creation:** No new code may lack unit tests (`>= 95%`) or Karate Labs BDD scenarios for API and UI.
 2. **Ephemeral Docker Execution (`Rule Zero`):** The entire suite must execute and pass 100% inside ephemeral containers (`make qa-all`).
-3. **Continuous Documentation Sync:** Update `docs/`, `CHANGELOG.md` (under `## [Unreleased]`), `ROADMAP.md`, `TESTING.md`, `README.md`, and mark `.agents/ACTIVE_TASK.md` as `COMPLETED (100%)`.
-4. **Universal Certification Gate (10/10):** Run `./.agents/scripts/certify_task_completion.sh`, verifying:
+3. **Continuous Documentation Sync & Flight Recorder Closure:** Update `docs/`, `CHANGELOG.md` (under `## [Unreleased]`), `ROADMAP.md`, `TESTING.md`, `README.md`, and close `.agents/ACTIVE_TASK.md` as `CERTIFIED_CLEAN` via `.agents/scripts/checkpoint_ctl.py` (or MCP `session_flight_recorder`, never manual Markdown editing).
+4. **10-Stage Certification Gate (`10/10`):** Run `./.agents/scripts/certify_task_completion.sh`, verifying:
    - Secret Scanning (`verificar-secretos.sh`).
    - Infrastructure and CVE audit (Trivy, `auditar-infra.sh`).
    - JSON dictionary key collision prevention.

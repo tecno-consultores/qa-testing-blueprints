@@ -15,7 +15,7 @@ En lugar de evaluar las herramientas MCP únicamente con pruebas unitarias aisla
    - `blueprint://core/philosophy`
    - `blueprint://security/disa-owasp-22`
    - `blueprint://database/postgres-rls-worm`
-   - `blueprint://{stack}/readme` (`fastapi` y `vue3`)
+   - `blueprint://{stack}/readme` (`fastapi` y `vue3` entre los 10 stacks)
    - `blueprint://ui/refactoring-ui/{topic}` (`hierarchy`)
    - `blueprint://core/active-task-template`
    - `blueprint://core/cleanup-script`
@@ -28,7 +28,7 @@ En lugar de evaluar las herramientas MCP únicamente con pruebas unitarias aisla
    - **12 núcleo v1:** `inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`, `audit_test_pyramid_gaps`, `audit_security_stig_owasp`, `clean_workspace_11x`, `init_or_append_agents_md`, `reconcile_agents_governance`, `run_ephemeral_qa`, `certify_11x_gate` y `propose_skill_evolution_pr`.
    - **7 herramientas v2.0/v3.1:** `validate_calm_architecture`, `evaluate_release_gate`, `evaluate_agent_trajectory`, `run_llm_red_team`, `audit_vibe_prototype`, `sync_enterprise_tms` y `session_flight_recorder` (protegidas con `promptGuard` + `TaskStateGuard`).
 3. **5 Subcomandos CLI + Verificador Tarball Clean-Room (`verify-v2.sh`):**
-   - `quickstart` (`--tier`/`-T`), `install-skill` (`install`), `init-agents`, `reconcile-agents`, `tms-sync`, `--version` (`3.0.0`), `--help`/`help` y sonda no bloqueante TTY `QA-CLI-TTY-01` (`< 5s`).
+   - `quickstart` (`--tier`/`-T`), `install-skill` (`install`), `init-agents`, `reconcile-agents`, `tms-sync`, `--version` (`3.1.0`), `--help`/`help` y sonda no bloqueante TTY `QA-CLI-TTY-01` (`< 5s`).
 
 ---
 

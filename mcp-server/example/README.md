@@ -15,7 +15,7 @@ Instead of testing MCP tools solely through isolated unit tests, the [`run-examp
    - `blueprint://core/philosophy`
    - `blueprint://security/disa-owasp-22`
    - `blueprint://database/postgres-rls-worm`
-   - `blueprint://{stack}/readme` (`fastapi` and `vue3`)
+   - `blueprint://{stack}/readme` (`fastapi` and `vue3` among the 10 stacks)
    - `blueprint://ui/refactoring-ui/{topic}` (`hierarchy`)
    - `blueprint://core/active-task-template`
    - `blueprint://core/cleanup-script`
@@ -28,7 +28,7 @@ Instead of testing MCP tools solely through isolated unit tests, the [`run-examp
    - **12 core v1:** `inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`, `audit_test_pyramid_gaps`, `audit_security_stig_owasp`, `clean_workspace_11x`, `init_or_append_agents_md`, `reconcile_agents_governance`, `run_ephemeral_qa`, `certify_11x_gate`, and `propose_skill_evolution_pr`.
    - **7 v2.0/v3.1 tools:** `validate_calm_architecture`, `evaluate_release_gate`, `evaluate_agent_trajectory`, `run_llm_red_team`, `audit_vibe_prototype`, `sync_enterprise_tms`, and `session_flight_recorder` (protected by `promptGuard` + `TaskStateGuard`).
 3. **5 CLI Subcommands + Clean-Room Tarball Verifier (`verify-v2.sh`):**
-   - `quickstart` (`--tier`/`-T`), `install-skill` (`install`), `init-agents`, `reconcile-agents`, `tms-sync`, `--version` (`3.0.0`), `--help`/`help`, and non-blocking TTY probe `QA-CLI-TTY-01` (`< 5s`).
+   - `quickstart` (`--tier`/`-T`), `install-skill` (`install`), `init-agents`, `reconcile-agents`, `tms-sync`, `--version` (`3.1.0`), `--help`/`help`, and non-blocking TTY probe `QA-CLI-TTY-01` (`< 5s`).
 
 ---
 

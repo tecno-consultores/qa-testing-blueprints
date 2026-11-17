@@ -5,14 +5,20 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   CLI_HELP_TEXT,
   INTERACTIVE_TTY_NOTICE,
+  createConfiguredMcpServer,
   dispatchCliArgs,
+  getCliHelpText,
+  getInteractiveTtyNotice,
+  getRegisteredSurfaceCounts,
   main,
   shouldExitInteractiveTty,
 } from '../src/index.js';
+import { createMcpServer, getRegisteredServerSurface } from '../src/server.js';
 import { MCP_SERVER_VERSION, GitHubFetcher } from '../src/services/github-fetcher.js';
 import { SurgicalMerger } from '../src/services/surgical-merger.js';
 import { runInstallSkillCli } from '../src/cli/install-skill.js';
@@ -52,16 +58,42 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
       expect(await dispatchCliArgs(['--stdio'])).toBe('stdio-forced');
       expect(await dispatchCliArgs(['--version'])).toBe(0);
       expect(await dispatchCliArgs(['-v'])).toBe(0);
+      const pkgJson = JSON.parse(
+        fs.readFileSync(path.resolve(__dirname, '..', 'package.json'), 'utf8')
+      ) as { version: string };
       expect(logSpy).toHaveBeenCalledWith(MCP_SERVER_VERSION);
-      expect(MCP_SERVER_VERSION).toBe('3.0.0');
+      expect(MCP_SERVER_VERSION).toBe(pkgJson.version);
 
       expect(await dispatchCliArgs(['--help'])).toBe(0);
       expect(await dispatchCliArgs(['-h'])).toBe(0);
+      expect(CLI_HELP_TEXT).toBe(getCliHelpText());
       expect(CLI_HELP_TEXT).toContain('--version');
       expect(CLI_HELP_TEXT).toContain('--stdio');
       expect(CLI_HELP_TEXT).toContain('quickstart');
+      expect(CLI_HELP_TEXT).toContain('(19 tools, 13 resources)');
+      expect(INTERACTIVE_TTY_NOTICE).toBe(getInteractiveTtyNotice());
       expect(INTERACTIVE_TTY_NOTICE).toContain('install-skill');
       expect(INTERACTIVE_TTY_NOTICE).toContain('quickstart');
+      expect(INTERACTIVE_TTY_NOTICE).toContain('(19 tools, 13 resources)');
+
+      const customServer = createMcpServer();
+      const surface = getRegisteredServerSurface(customServer);
+      expect(surface?.toolNames.size).toBe(12);
+      expect(surface?.resourceUris.size).toBe(9);
+      expect(getRegisteredSurfaceCounts(customServer)).toEqual({ tools: 19, resources: 13 });
+      customServer.tool('dynamic_extra_probe', 'Extra probe tool', async () => ({
+        content: [{ type: 'text', text: 'ok' }],
+      }));
+      expect(getRegisteredSurfaceCounts(customServer)).toEqual({ tools: 20, resources: 13 });
+
+      const rawUntracked = new McpServer({ name: 'raw-untracked', version: '1.0.0' });
+      expect(getRegisteredServerSurface(rawUntracked)).toBeUndefined();
+      expect(getRegisteredSurfaceCounts(rawUntracked)).toEqual({ tools: 7, resources: 6 });
+
+      const configured = createConfiguredMcpServer();
+      expect(configured.counts).toEqual({ tools: 19, resources: 13 });
+      expect(getCliHelpText({ tools: 20, resources: 14 })).toContain('(20 tools, 14 resources)');
+      expect(getInteractiveTtyNotice({ tools: 20, resources: 14 })).toContain('(20 tools, 14 resources)');
 
       expect(await dispatchCliArgs(['init-agents', '--project-path', tmpDir, '--dry-run'])).toBe(0);
       expect(await dispatchCliArgs(['init-agents-md', '--project-path', tmpDir, '--dry-run'])).toBe(0);

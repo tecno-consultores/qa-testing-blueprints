@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 //
-// Arnés End-to-End (E2E) sobre stdio real para @sinfallas/mcp-qa-11x v3.0.0.
+// Arnés End-to-End (E2E) sobre stdio real para @sinfallas/mcp-qa-11x v3.1.0.
 // Conecta un cliente MCP oficial (@modelcontextprotocol/sdk) contra el binario
 // compilado dist/index.js y certifica empíricamente los 13 recursos, las 19 tools
 // (en escenarios negativos y limpios) y los 4 subcomandos CLI sobre una copia

@@ -1,18 +1,18 @@
 > 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (01_ARQUITECTURA_PIRAMIDE_11X.es.md)](01_ARQUITECTURA_PIRAMIDE_11X.es.md)
 
-# 🏛️ QA-11X v3.0 Quality Pyramid Architecture (13 Layers + Agentic Cross-Cutting Planes)
+# 🏛️ QA-11X v3.1 Quality Pyramid Architecture (13 Layers + Agentic Cross-Cutting Planes)
 
-> **PURPOSE:** Canonical architectural specification defining the **13 quality layers**, the **agentic and security cross-cutting planes** of **QA-11X v3.0**, the **3 progressive adoption profiles** (`starter`, `standard`, `enterprise`), and the **3 proportional execution paths** (`DOCS_ONLY`, `MICRO_CHANGE`, `FULL_11X`).
+> **PURPOSE:** Canonical architectural specification defining the **13 quality layers**, the **agentic and security cross-cutting planes** of **QA-11X v3.1**, the **3 progressive adoption profiles** (`starter`, `standard`, `enterprise`), and the **3 proportional execution paths** (`DOCS_ONLY`, `MICRO_CHANGE`, `FULL_11X`).
 
 ---
 
 ## 1. Proportional Adoption Across 3 Paths and 3 Profiles
 
-To prevent over-engineering on small tasks without relaxing controls on critical systems, QA-11X v3.0 decouples the **repository adoption profile** from the **per-change execution path**:
+To prevent over-engineering on small tasks without relaxing controls on critical systems, QA-11X v3.1 decouples the **repository adoption profile** from the **per-change execution path**:
 
 | Dimension | Classification | Activation Criteria | Validation Scope |
 | :--- | :--- | :--- | :--- |
-| **Profile** | **`starter`** | 30s quickstart (`quickstart`) | Secrets = 0, non-root containers (`Rule Zero`), `.qa-11x.json`, `AGENTS.md` connector (27+ agents) |
+| **Profile** | **`starter`** | 30s quickstart (`quickstart`) | Secrets = 0, non-root containers (`Rule Zero`), `.qa-11x.json`, `AGENTS.md` connector (28 agents) |
 | **Profile** | **`standard`** | Daily PRs by product teams | `starter` + coverage `>= 95%`, strict typing (`mypy --strict`, `tsc`, `PHPStan max`), AST CI sharding (`40%–60%` savings), and UI anti-pattern linter |
 | **Profile** | **`enterprise`** | Regulated or multi-tenant systems | Full 13-layer pyramid + FINOS CALM, PostgreSQL 17 RLS + WORM, DISA STIG V6R5, Pact + k6, AI Evals, and Release Readiness Gate |
 | **Path** | **`DOCS_ONLY`** | Changes strictly limited to `*.md` or `docs/` | `0` QA containers, `0` AST rebuilds; syncs manifest/docs and certifies `make lint-docs && make certify` |
@@ -26,7 +26,7 @@ To prevent over-engineering on small tasks without relaxing controls on critical
 
 ---
 
-## 2. QA-11X v3.0 Pyramid Topology (13 Layers + Cross-Cutting Planes)
+## 2. QA-11X v3.1 Pyramid Topology (13 Layers + Cross-Cutting Planes)
 
 ```mermaid
 flowchart TD
@@ -50,7 +50,7 @@ flowchart TD
 | **L08** | **Multi-role Screenplay + Self-Healing DOM**, WCAG 2.1 AA, Lighthouse, and UI linter (`QA-UI-ANTI-001..005`) | [`vue3/tests/screenplay/Actor.ts`](../vue3/tests/screenplay/Actor.ts), [`react-frontend/tests/utils/semanticLocator.ts`](../react-frontend/tests/utils/semanticLocator.ts), [`mobile-appium/tests/screenplay/MobileActor.ts`](../mobile-appium/tests/screenplay/MobileActor.ts), [`.agents/scripts/lint_test_antipatterns.py`](../.agents/scripts/lint_test_antipatterns.py) |
 | **L09–L11** | DAST (`OWASP ZAP`), declarative load (**Grafana k6** / Locust), and chaos (`Pumba` post-RED `/metrics`) | [`fastapi/tests/load/smoke.k6.js`](../fastapi/tests/load/smoke.k6.js), [`docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md`](03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md) |
 | **L12** | **Architecture-as-Code FINOS CALM** + AST topological health + Blast Radius CI sharding | [`architecture/qa-11x.calm.json`](../architecture/qa-11x.calm.json), [`.agents/scripts/validate_calm_architecture.sh`](../.agents/scripts/validate_calm_architecture.sh), [`.agents/scripts/select_tests_by_blast_radius.py`](../.agents/scripts/select_tests_by_blast_radius.py), [`.github/workflows/ci-tiered-qa.yml`](../.github/workflows/ci-tiered-qa.yml) |
-| **L13** | Trimodal fixtures (`Virgin`/`Nominal`/`Degraded`), 3-phase clock lifecycle, and 10 Anti-Blindness laws | [`.agents/rules/ground_truth_fixtures_and_negative_invariants.md`](../.agents/rules/ground_truth_fixtures_and_negative_invariants.md), [`docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md`](02_BUENAS_PRACTICAS_PROGRAMACION_11X.md) |
+| **L13** | Trimodal fixtures (`Virgin`/`Nominal`/`Degraded`), 3-phase clock lifecycle, 10 Non-Negotiable Laws + 11 UAT Anti-Blindness Rules | [`.agents/rules/ground_truth_fixtures_and_negative_invariants.md`](../.agents/rules/ground_truth_fixtures_and_negative_invariants.md), [`docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md`](02_BUENAS_PRACTICAS_PROGRAMACION_11X.md) |
 | **AI Evals & Shield** | Mode 1 offline `$0` (`make test-ai-offline`), Mode 2 `DeepEval` + `Promptfoo` OWASP LLM Top 10 (`make audit-llm`), WebRTC voice, PDF/OCR `Decimal`, `promptGuard`, and Ollama/vLLM profiles | [`ai-evals/README.md`](../ai-evals/README.md), [`mcp-server/src/security/promptGuard.ts`](../mcp-server/src/security/promptGuard.ts), [`specs/14_LOCAL_LLM_AND_A2A_PROFILES.md`](specs/14_LOCAL_LLM_AND_A2A_PROFILES.md) |
 | **Vibe-to-Enterprise** | 5-stage rescue for AI-generated apps without breaking UX | [`vibe-rescue/README.md`](../vibe-rescue/README.md), [`vibe-rescue/audit_vibe_prototype.py`](../vibe-rescue/audit_vibe_prototype.py) |
 | **TMS, A2A & Release Gate** | Bidirectional `Jira`/`Zephyr`/`Xray`/`GitHub Issues` traceability, A2A agent card, and multi-signal gate (`GO`/`NO_GO`/`SKIPPED`) | [`specs/15_ENTERPRISE_TMS_TRACEABILITY.md`](specs/15_ENTERPRISE_TMS_TRACEABILITY.md), [`mcp-server/src/a2a/agentCard.ts`](../mcp-server/src/a2a/agentCard.ts), [`.agents/scripts/release_readiness_gate.py`](../.agents/scripts/release_readiness_gate.py) |
@@ -59,9 +59,9 @@ flowchart TD
 
 ## 3. MCP Surface, Token Economy, and Human Closure Gate (`QA-GIT-GATE-01`)
 
-* **MCP Server `@sinfallas/mcp-qa-11x` v3.0.0:** Publicly exposes **19 Tools** (12 core v1 + 6 v2.0 evaluators + `session_flight_recorder`) and **13 Resources** (`blueprint://*`, including `blueprint://skills/tactical-patterns-11x`) protected over `stdio` with `promptGuard` and `TaskStateGuard`.
+* **MCP Server `@sinfallas/mcp-qa-11x` v3.1.0:** Publicly exposes **19 Tools** (12 core v1 + 6 v2.0 evaluators + **v3.1** `session_flight_recorder`) and **13 Resources** (`blueprint://*`, including **v3.1** `blueprint://skills/tactical-patterns-11x`) protected over `stdio` with `promptGuard` and `TaskStateGuard`.
 * **Token Economy (`< 20 KB` / `<= 40` lines):** The orchestrator skill [`.agents/skills/qa-11x-architect/SKILL.md`](../.agents/skills/qa-11x-architect/SKILL.md) (`< 12 KB`) hydrates 10 modular sub-skills on demand (including JIT `tactical-patterns-11x` `<= 2.5 KB`), projects `.agents/ACTIVE_TASK.md` deterministically via `checkpoint_ctl.py`, and uses [`.agents/scripts/compact_context_11x.py`](../.agents/scripts/compact_context_11x.py) + `Pass-Quiet / Fail-Verbose` formatting (`/tmp/qa-11x-last-failure.json`).
-* **Human Closure Guard (`QA-GIT-GATE-01`):** Every task concludes by passing all 10 stages of [`.agents/scripts/certify_task_completion.sh`](../.agents/scripts/certify_task_completion.sh) and creating a local `git commit`. Per [`.agents/rules/git_closure_gate.md`](../.agents/rules/git_closure_gate.md), no agent may execute `git push` or `npm publish` without explicit human authorization.
+* **Human Closure Guard (`QA-GIT-GATE-01`):** Every `FULL_11X` task completes the 11-step closure protocol (`AGENTS.md` §5), passes all 10 stages of the certification gate ([`.agents/scripts/certify_task_completion.sh`](../.agents/scripts/certify_task_completion.sh)), marks `CERTIFIED_CLEAN` via `checkpoint_ctl.py`, and stops at a local `git commit`. Per [`.agents/rules/git_closure_gate.md`](../.agents/rules/git_closure_gate.md), no agent may execute `git push` or `npm publish` without explicit human authorization.
 
 ---
 

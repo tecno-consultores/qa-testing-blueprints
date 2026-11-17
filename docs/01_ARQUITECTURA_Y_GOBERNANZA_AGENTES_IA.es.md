@@ -72,7 +72,7 @@ Para asegurar una experiencia óptima para el equipo humano, todas las reglas in
 > Always communicate with the user, provide status updates, explain reasoning,
 > and write commit messages / user-facing documentation in Spanish.
 ```
-Los manuales operativos (`docs/`, `CHANGELOG.md`, `TESTING.md`, `README.es.md`) y las respuestas al usuario se mantienen en español junto a las puertas de entrada en inglés (`README.md`, `mcp-server/README.md`, `docs/agent-setup.en.md`, `catalogs/agenticskills-submission.md`).
+Los manuales operativos (`docs/`, `CHANGELOG.md`, `TESTING.md`, `README.es.md`) y las respuestas al usuario se mantienen en español junto a las puertas de entrada en inglés (`README.md`, `mcp-server/README.md`, `docs/agent-setup.md`, `catalogs/agenticskills-submission.md`).
 
 ---
 
@@ -144,14 +144,14 @@ El estándar 11X no reemplaza al desarrollador humano ni lo relega a tareas secu
 
 ---
 
-## 7. El Protocolo de Cierre Obligatorio (Task Closure Gate — 10 Etapas)
+## 7. Protocolo Obligatorio de Cierre en 11 Pasos y Compuerta de Certificación en 10 Etapas
 
-Para erradicar el hábito de los agentes de dar tareas por terminadas con pruebas a medias o documentación desfasada, el agente debe ejecutar de forma implacable el protocolo de cierre:
+Para erradicar el hábito de los agentes de dar tareas por terminadas con pruebas a medias o documentación desfasada, el agente debe ejecutar de forma implacable el **protocolo de cierre en 11 pasos** (`AGENTS.md` §5) culminando en la **compuerta de certificación en 10 etapas** (`certify_task_completion.sh`):
 
 1. **Creación Obligatoria de Pruebas 11X:** Ningún código nuevo puede carecer de pruebas unitarias (`>= 95%`) ni de escenarios BDD en Karate Labs para API y UI.
 2. **Ejecución en Docker Efímero (`Rule Zero`):** Toda la suite debe ejecutarse y pasar al 100% dentro de contenedores efímeros (`make qa-all`).
-3. **Sincronización Documental Continua:** Actualizar `docs/`, `CHANGELOG.md` (bajo `## [Unreleased]`), `ROADMAP.md`, `TESTING.md`, `README.md` y marcar `.agents/ACTIVE_TASK.md` como `COMPLETED (100%)`.
-4. **Compuerta Universal de Certificación (10/10):** Ejecutar `./.agents/scripts/certify_task_completion.sh` verificando:
+3. **Sincronización Documental Continua y Cierre del Flight Recorder:** Actualizar `docs/`, `CHANGELOG.md` (bajo `## [Unreleased]`), `ROADMAP.md`, `TESTING.md`, `README.md` y cerrar `.agents/ACTIVE_TASK.md` como `CERTIFIED_CLEAN` mediante `.agents/scripts/checkpoint_ctl.py` (o MCP `session_flight_recorder`, sin edición manual en Markdown).
+4. **Compuerta de Certificación en 10 Etapas (`10/10`):** Ejecutar `./.agents/scripts/certify_task_completion.sh` verificando:
    - Secret Scanning (`verificar-secretos.sh`).
    - Auditoría de infraestructura y CVEs (Trivy, `auditar-infra.sh`).
    - Anti-colisión en claves de diccionarios JSON.

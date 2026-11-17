@@ -16,7 +16,7 @@ import {
   type Resource,
   type Tool,
 } from '@modelcontextprotocol/sdk/types.js';
-import { createMcpServer } from './server.js';
+import { createMcpServer, getRegisteredServerSurface } from './server.js';
 import type { ResourceLanguage } from './types.js';
 import { parseResourceUriAndLang, runWithResourceLang } from './resources/resourceLang.js';
 import { guardToolCallInput, type PromptGuardOptions } from './security/promptGuard.js';
@@ -90,66 +90,10 @@ export interface AttachGuardOptions extends PromptGuardOptions {
   taskGuard?: TaskStateGuard;
 }
 
-export const CLI_HELP_TEXT = `
-@sinfallas/mcp-qa-11x v${MCP_SERVER_VERSION} — Official MCP Server & Skill Installer for QA Testing Blueprints
-
-Usage:
-  npx -y @sinfallas/mcp-qa-11x@latest quickstart [dir] [--tier starter|standard|enterprise] [--lang en|es] [--dry-run]
-                                                                                     Detects stack & scaffolds QA-11X in <30s
-  npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts --reconcile
-                                                                                     Installs skills, scripts, and AGENTS.md connector
-  npx -y @sinfallas/mcp-qa-11x@latest init-agents                                   Injects or updates QA 11X connector in AGENTS.md
-  npx -y @sinfallas/mcp-qa-11x@latest reconcile-agents                             Reconciles and deduplicates rules in .agents/
-  npx -y @sinfallas/mcp-qa-11x@latest tms-sync --mode <mode> [options]              Syncs Jira/Zephyr/Xray/GitHub Issues traceability
-  npx -y @sinfallas/mcp-qa-11x@latest [--stdio]                                     Starts the MCP server over stdio (19 tools, 13 resources)
-  npx -y @sinfallas/mcp-qa-11x@latest --version                                     Displays the active package version
-  npx -y @sinfallas/mcp-qa-11x@latest --help                                        Displays this help message
-
-Options for quickstart:
-  --tier, -T <level>       starter | standard | enterprise (auto-recommended by detected stack)
-  --lang, -l <mode>        auto (default) | en | es
-  --agents <target>        auto (default) | workspace | antigravity | claude | cursor | windsurf | all
-  --ci <provider>          none | github
-  --dry-run                Simulates quickstart without modifying files
-
-Options for install-skill (alias: install):
-  --target, -t <env>       auto (default) | workspace | antigravity | claude | cursor | windsurf | codex | hermes | all
-  --lang, -l <mode>        auto (default) | es | en — output language policy injected into AGENTS.md
-  --include-scripts        Installs operational scripts and common files into the current workspace
-  --init-agents            Injects or updates the QA 11X connector block into AGENTS.md
-  --reconcile              Performs deduplication and domain isolation in .agents/ before sync
-
-Options for init-agents:
-  --project-path, -p <dir> Target project directory path (default: cwd)
-  --lang, -l <mode>        auto (default) | es | en — output language policy injected into AGENTS.md
-  --dry-run                Simulates operation without writing changes to disk
-
-Options for reconcile-agents:
-  --project-path, -p <dir> Target project directory path (default: cwd)
-  --dry-run                Simulates operation without writing changes to disk
-`;
-
-export const INTERACTIVE_TTY_NOTICE = `
-ℹ️  @sinfallas/mcp-qa-11x v${MCP_SERVER_VERSION} — Interactive Terminal Detected (TTY)
-
-Running without arguments starts the JSON-RPC MCP server (19 tools, 13 resources) over stdio, which is spawned automatically by AI clients (not meant to hang an interactive shell).
-
-👉 Choose what you want to do:
-  1. Zero-friction 30s onboarding (recommended for new repositories):
-     npx -y @sinfallas/mcp-qa-11x@latest quickstart
-
-  2. Install or update skills, scripts, and AGENTS.md in this project:
-     npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts --reconcile
-
-  3. Register the MCP server in your AI coding agent:
-     • Claude Code:  claude mcp add -s user qa-11x -- npx -y @sinfallas/mcp-qa-11x@latest
-     • VS Code:      code --add-mcp '{"name":"qa-11x","command":"npx","args":["-y","@sinfallas/mcp-qa-11x@latest"]}'
-     • JSON config (Antigravity / Cursor / Claude Desktop / Windsurf):
-       { "mcpServers": { "qa-11x": { "command": "npx", "args": ["-y", "@sinfallas/mcp-qa-11x@latest"] } } }
-
-  4. Force raw JSON-RPC stdio listener in this terminal:
-     npx -y @sinfallas/mcp-qa-11x@latest --stdio
-`;
+export interface McpSurfaceCounts {
+  readonly tools: number;
+  readonly resources: number;
+}
 
 type CliSubcommandRunner = (tail: string[]) => Promise<number>;
 
@@ -308,6 +252,105 @@ const EXTRA_LISTED_RESOURCES: readonly Resource[] = [
   ...V1_TEMPLATE_RESOURCES,
   ...V2_RESOURCE_DEFINITIONS,
 ];
+
+/** Derives exact registered tool and resource counts from an McpServer plus V2 extensions. */
+export function getRegisteredSurfaceCounts(mcpServer: McpServer): McpSurfaceCounts {
+  const registered = getRegisteredServerSurface(mcpServer);
+  const toolNames = new Set<string>(registered?.toolNames ?? []);
+  for (const tool of V2_TOOL_DEFINITIONS) {
+    toolNames.add(tool.name);
+  }
+  const resourceUris = new Set<string>(registered?.resourceUris ?? []);
+  for (const res of EXTRA_LISTED_RESOURCES) {
+    resourceUris.add(res.uri);
+  }
+  return { tools: toolNames.size, resources: resourceUris.size };
+}
+
+/** Creates an McpServer wrapped with promptGuard and returns its live surface counts. */
+export function createConfiguredMcpServer(options?: {
+  fetcher?: GitHubFetcher;
+  guardOptions?: AttachGuardOptions;
+}): { server: McpServer; counts: McpSurfaceCounts } {
+  const server = attachPromptGuard(createMcpServer({ fetcher: options?.fetcher }), options?.guardOptions);
+  return { server, counts: getRegisteredSurfaceCounts(server) };
+}
+
+function formatSurfaceSummary(counts: McpSurfaceCounts): string {
+  return `${counts.tools} tools, ${counts.resources} resources`;
+}
+
+const DEFAULT_SURFACE_COUNTS: McpSurfaceCounts = getRegisteredSurfaceCounts(createMcpServer());
+
+/** Formats CLI help text using live registered MCP surface counts. */
+export function getCliHelpText(counts: McpSurfaceCounts = DEFAULT_SURFACE_COUNTS): string {
+  return `
+@sinfallas/mcp-qa-11x v${MCP_SERVER_VERSION} — Official MCP Server & Skill Installer for QA Testing Blueprints
+
+Usage:
+  npx -y @sinfallas/mcp-qa-11x@latest quickstart [dir] [--tier starter|standard|enterprise] [--lang en|es] [--dry-run]
+                                                                                     Detects stack & scaffolds QA-11X in <30s
+  npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts --reconcile
+                                                                                     Installs skills, scripts, and AGENTS.md connector
+  npx -y @sinfallas/mcp-qa-11x@latest init-agents                                   Injects or updates QA 11X connector in AGENTS.md
+  npx -y @sinfallas/mcp-qa-11x@latest reconcile-agents                             Reconciles and deduplicates rules in .agents/
+  npx -y @sinfallas/mcp-qa-11x@latest tms-sync --mode <mode> [options]              Syncs Jira/Zephyr/Xray/GitHub Issues traceability
+  npx -y @sinfallas/mcp-qa-11x@latest [--stdio]                                     Starts the MCP server over stdio (${formatSurfaceSummary(counts)})
+  npx -y @sinfallas/mcp-qa-11x@latest --version                                     Displays the active package version
+  npx -y @sinfallas/mcp-qa-11x@latest --help                                        Displays this help message
+
+Options for quickstart:
+  --tier, -T <level>       starter | standard | enterprise (auto-recommended by detected stack)
+  --lang, -l <mode>        auto (default) | en | es
+  --agents <target>        auto (default) | workspace | antigravity | claude | cursor | windsurf | all
+  --ci <provider>          none | github
+  --dry-run                Simulates quickstart without modifying files
+
+Options for install-skill (alias: install):
+  --target, -t <env>       auto (default) | workspace | antigravity | claude | cursor | windsurf | codex | hermes | all
+  --lang, -l <mode>        auto (default) | es | en — output language policy injected into AGENTS.md
+  --include-scripts        Installs operational scripts and common files into the current workspace
+  --init-agents            Injects or updates the QA 11X connector block into AGENTS.md
+  --reconcile              Performs deduplication and domain isolation in .agents/ before sync
+
+Options for init-agents:
+  --project-path, -p <dir> Target project directory path (default: cwd)
+  --lang, -l <mode>        auto (default) | es | en — output language policy injected into AGENTS.md
+  --dry-run                Simulates operation without writing changes to disk
+
+Options for reconcile-agents:
+  --project-path, -p <dir> Target project directory path (default: cwd)
+  --dry-run                Simulates operation without writing changes to disk
+`;
+}
+
+/** Formats interactive TTY guard notice using live registered MCP surface counts. */
+export function getInteractiveTtyNotice(counts: McpSurfaceCounts = DEFAULT_SURFACE_COUNTS): string {
+  return `
+ℹ️  @sinfallas/mcp-qa-11x v${MCP_SERVER_VERSION} — Interactive Terminal Detected (TTY)
+
+Running without arguments starts the JSON-RPC MCP server (${formatSurfaceSummary(counts)}) over stdio, which is spawned automatically by AI clients (not meant to hang an interactive shell).
+
+👉 Choose what you want to do:
+  1. Zero-friction 30s onboarding (recommended for new repositories):
+     npx -y @sinfallas/mcp-qa-11x@latest quickstart
+
+  2. Install or update skills, scripts, and AGENTS.md in this project:
+     npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts --reconcile
+
+  3. Register the MCP server in your AI coding agent:
+     • Claude Code:  claude mcp add -s user qa-11x -- npx -y @sinfallas/mcp-qa-11x@latest
+     • VS Code:      code --add-mcp '{"name":"qa-11x","command":"npx","args":["-y","@sinfallas/mcp-qa-11x@latest"]}'
+     • JSON config (Antigravity / Cursor / Claude Desktop / Windsurf):
+       { "mcpServers": { "qa-11x": { "command": "npx", "args": ["-y", "@sinfallas/mcp-qa-11x@latest"] } } }
+
+  4. Force raw JSON-RPC stdio listener in this terminal:
+     npx -y @sinfallas/mcp-qa-11x@latest --stdio
+`;
+}
+
+export const CLI_HELP_TEXT = getCliHelpText(DEFAULT_SURFACE_COUNTS);
+export const INTERACTIVE_TTY_NOTICE = getInteractiveTtyNotice(DEFAULT_SURFACE_COUNTS);
 
 function toReadResourceResult(
   res: ResourceSnapshotResult,
@@ -630,7 +673,7 @@ export async function main(
 
   // Modo Servidor MCP estándar sobre stdio + Auto-sync no bloqueante de skills globales
   const fetcher = new GitHubFetcher();
-  const server = attachPromptGuard(createMcpServer({ fetcher }));
+  const { server } = createConfiguredMcpServer({ fetcher });
   const transport = new StdioServerTransport();
   await server.connect(transport);
   if (process.env.QA_DISABLE_AUTO_SYNC !== '1') {

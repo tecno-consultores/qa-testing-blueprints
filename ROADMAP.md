@@ -4,9 +4,9 @@
 
 **Project:** QA Testing Blueprints (`tecno-consultores/qa-testing-blueprints`)  
 **Target Architecture:** Zero-Clone Distribution in Node.js (`npx -y @sinfallas/mcp-qa-11x@latest`) + Cognitive Skill (`qa-11x-architect`) + On-Demand Hydration from GitHub with SHA-256 Verification (`manifest.json`)  
-**Target Executor Model:** Gemini 3.8 Flash High / Claude / Antigravity
+**Target Executor Model:** Frontier Coding Model (Gemini / Claude / Antigravity)
 
-> **EXECUTION DIRECTIVE FOR AI AGENTS (GEMINI 3.8 FLASH HIGH):**
+> **EXECUTION DIRECTIVE FOR AI AGENTS (Frontier Coding Model (Gemini / Claude / Antigravity)):**
 > 1. Always read the associated technical specification in `docs/specs/` before starting each Milestone.
 > 2. Strictly enforce **Rule Zero**: all code checks, linters, and unit/BDD tests MUST run inside ephemeral Docker containers (`sinfallas/*`).
 > 3. Upon completing each subtask or Milestone, check `[x]` in `ROADMAP.md` (and `ROADMAP.es.md`), update `CHANGELOG.{md,es.md}` and `TESTING.{md,es.md}`, and run `./.agents/scripts/certify_task_completion.sh`.
@@ -42,6 +42,7 @@
 | **Milestone 23** | Differential Mode in `inspect_ast_blast_radius` (Zero MCP Bloat) & Executive `PR_VERDICT.md` Exporter | [`18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md`](docs/specs/18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md) | ✅ Completed | `100%` |
 | **Milestone 24** | Comprehensive `QA-11X v3.0` Audit (`v3.0.0`), `bump_version_11x.py` Synchronizer, Live MCP Protocol & `19_SPEC` / `20_SPEC` Planning | [`19_SPEC`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md) + [`20_SPEC`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md) | ✅ Completed | `100%` |
 | **Milestone 25** | 15×12 Matrix, `sinfallas/base-mobile-appium:26` & Bilingual Documentation Architecture | [`19_SPEC`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md) + [`20_SPEC`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md) | ✅ Completed | `100%` |
+| **Milestone 26** | `QA-11X v3.1` (`3.1.0`) — Atomic Flight Recorder, `tactical-patterns-11x`, 10-Stack Hydration & Fail-Closed Hardening | [`AGENTS.md`](AGENTS.md) + [`TESTING.md`](TESTING.md) | ✅ Completed | `100%` |
 
 ---
 
@@ -218,7 +219,7 @@
 ## ✅ Milestone 14: Extreme Token Optimization in MCP Server, 3-Path Proportional Execution (`DOCS_ONLY` / `MICRO_CHANGE` / `FULL_11X`), Progressive Disclosure & Cognitive Economy
 **Mandatory Reference:** [`docs/specs/13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md`](docs/specs/13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md)
 
-### Implementation Tasks (Gemini 3.8 Flash High):
+### Implementation Tasks (Frontier Coding Model (Gemini / Claude / Antigravity)):
 - [x] **14.1.** Extend Zod schemas and interfaces in `mcp-server/src/types.ts`: add `include_content` (`default: false`) to `FetchBundleInputSchema` (`size_bytes`, `cached_path` in `FetchedFileItem`), `max_findings` (`default: 25`) to `AuditSecurityInputSchema`, `GroupedSecurityFinding` and `grouped_findings` to `SecurityAuditResult`, `max_items` (`default: 20`) to `AuditTestPyramidInputSchema` and `BlastRadiusInputSchema`, plus total counts in `MissingTestInventory` and `BlastRadiusResult`.
 - [x] **14.2.** Optimize `mcp-server/src/tools/fetch-bundle.ts` and `mcp-server/src/server.ts` to omit raw `content` dumps by default (`include_content: false`, saving ~50,000 tokens per call while verifying SHA-256 into local cache), and update `buildConnectorBlock()` in `init-agents-md.ts` adding **3 Proportional Execution Paths (`DOCS_ONLY`, `MICRO_CHANGE`, `FULL_11X`)** and *High-IQ Token Economy*.
 - [x] **14.3.** Implement `groupFindingsByRule()` and `maxFindings` cap in `mcp-server/src/tools/security-auditor.ts`, plus `maxItems` truncation with totals in `test-pyramid-auditor.ts` and `blast-radius.ts`, maintaining cognitive complexity `<= 15` and `--max-warnings 0`.
@@ -349,3 +350,12 @@
 - [x] **25.1.** Integrate dedicated non-root Docker image **`sinfallas/base-mobile-appium:26`** (`Node.js 26`, `pnpm`, `OpenJDK 21`, `Android SDK/ADB`, `Appium 3`, `uiautomator2`, `xcuitest`, `WebdriverIO v9`), update `mobile-appium/{Makefile.example,docker-compose.qa.yml.example,package.json.example,tests/mobile_screenplay.spec.ts}`, add `make test-mobile-blueprints` in `Makefile`, and wire `smoke-mobile-appium` into `.github/workflows/audit-base-images.yml`.
 - [x] **25.2.** Wire `sinfallas/base-mobile-appium:26` and `qa-mobile` into `mcp-server` (`src/resources/stackBlueprints.ts`, `src/tools/ephemeral-runner.ts`), enable bilingual `blueprint://*` negotiation (`?lang=es|en`), and level the **15×12 Quality Matrix** across [`README.md`](README.md) and [`README.es.md`](README.es.md).
 - [x] **25.3.** Execute **Spec 19 Phase A**: migrate root governance, security, testing, prompt, roadmap, changelog, `mcp-server/{CHANGELOG,example/README}`, and `docs/agent-setup` documents to **English Canonical (`*.md`) + 1:1 Spanish Mirror (`*.es.md`)** pairs with reciprocal language banners and update [`AGENTS.md`](AGENTS.md) and [`.agents/README.md`](.agents/README.md).
+
+---
+
+## ✅ Milestone 26: `QA-11X v3.1` (`3.1.0`) — Atomic Flight Recorder, `tactical-patterns-11x`, 10-Stack Hydration & Fail-Closed Hardening
+**Mandatory Reference:** [`AGENTS.md`](AGENTS.md), [`TESTING.md`](TESTING.md), and [`SECURITY.md`](SECURITY.md)
+
+### Implementation Tasks:
+- [x] **26.1.** Implement Unified Atomic Flight Recorder ([`.agents/schemas/session_checkpoint.schema.json`](.agents/schemas/session_checkpoint.schema.json) + [`.agents/scripts/checkpoint_ctl.py`](.agents/scripts/checkpoint_ctl.py) + MCP tool `session_flight_recorder`), JIT tactical skill [`tactical-patterns-11x`](.agents/skills/tactical-patterns-11x/SKILL.md) (`<= 2.5 KB`, `blueprint://skills/tactical-patterns-11x`), `[DIRECTIVE-11X]`, and `max-params: 4` / `max-depth: 3` complexity locks.
+- [x] **26.2.** Consolidate all 10 hydratable stacks in `manifest.json`, single-source `_budgets.py` & `sync_governance.py`, dynamic `verify_docs_invariants.py` counts, Fail-Closed gates, Rule Zero non-root Docker hardening, and `QA-11X v3.1` (`3.1.0`) stabilization.

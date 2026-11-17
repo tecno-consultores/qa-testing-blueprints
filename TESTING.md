@@ -1,8 +1,8 @@
-# 🛡️ Quality Assurance Scoreboard (TESTING.md) — Corporate Standard `QA-11X v3.0` (`v3.0.0`)
+# 🛡️ Quality Assurance Scoreboard (TESTING.md) — Corporate Standard `QA-11X v3.1` (`v3.1.0`)
 
 > 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (TESTING.es.md)](TESTING.es.md)
 
-This document serves as the live certification scoreboard for Corporate Quality Standard Level 11X (`v3.0.0`) across the `qa-testing-blueprints` repository blueprints (**10 hydratable stacks** `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue` + `architecture/` + `mcp-server/` = **12 matrix environments**). All included ecosystems are evaluated under **Rule Zero**: strict, 100% isolated execution in ephemeral Docker containers with **Pass-Quiet / Fail-Verbose** output (one-line telemetry with metrics on success, full trace on failure to optimize AI agent context windows).
+This document serves as the live certification scoreboard for Corporate Quality Standard Level 11X (`v3.1.0`) across the `qa-testing-blueprints` repository blueprints (**10 hydratable stacks** `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue` + `architecture/` + `mcp-server/` = **12 matrix environments**). All included ecosystems are evaluated under **Rule Zero**: strict, 100% isolated execution in ephemeral Docker containers with **Pass-Quiet / Fail-Verbose** output (one-line telemetry with metrics on success, full trace on failure to optimize AI agent context windows).
 
 ---
 
@@ -16,7 +16,7 @@ This document serves as the live certification scoreboard for Corporate Quality 
 | **Static Security (SAST)** | `bandit`, `eslint-plugin-security`, `ShellCheck` | **0 HIGH / MEDIUM findings** | Blocked on vulnerability |
 | **Dependency CVEs & SBOM** | `pip-audit`, `pnpm audit`, `trivy`, `cyclonedx-py` | **0 CRITICAL / HIGH vulnerabilities** + CycloneDX SBOM | Software supply-chain block |
 | **Dynamic Security (DAST & OSHP)** | `zaproxy/zap-stable` (OWASP ZAP + WSTG/ASVS/OSHP) | **0 HIGH alerts**, OSHP headers & Fail-Secure state | Dynamic CI/CD block |
-| **Mutation Testing** | `mutmut`, `stryker` | Mutation score `> 80%` | Rejected for weak assertions |
+| **Mutation Testing** | `mutmut`, `stryker`, `infection` | **`>= 80%` MSI** *(targets `>= 80%` instead of the `>= 95%` line/branch unit-coverage floor due to equivalent mutants and exponential mutant execution cost)* | Rejected for weak assertions |
 | **BDD Behavior** | `sinfallas/karatelabs:1.5.1` (Gherkin) | **100% scenarios PASSED** | Functional flow block |
 | **DB Schema Parity & RLS/WORM** | `.agents/scripts/verify_alembic_orm_parity.py` + `SEC-13` (`after_begin` RLS + `NOBYPASSRLS`) + `QA-PG17-RLS` (`pg_class.relforcerowsecurity` with `JOIN pg_namespace`, never `pg_tables.forcerowsecurity`) + `SEC-14` (`seq_num` + `pg_advisory_xact_lock` WORM) | **0 orphan tables / revision `<= 32` chars / multi-tx RLS / PG 15–17+ catalog / deterministic WORM chain** | Rejected for Anti-Mock Blindness / RLS Leak / WORM Race |
 | **Anti-Silo Propagation, Multi-Stage Pre-Auth (`SEC-16`), Live Orchestrator Health (`QA-HEALTH-01`), 3 Clock Phases & Per-Item Batch** | Read-After-Write contracts, Pytest/Vitest, Karate BDD (`api_test.feature` / `ui_business_flow.feature`) and `audit_security_stig_owasp` | **0 intermediate cross-module mocks, atomic `GETDEL`/Lua continuity + `PREAUTH_PUBLIC_ROUTES` on Pre-Auth flows, mock-free `healthcheck` probe contracts (`/tmp/worker_heartbeat`) + `task.exception()` / `OPTIONAL_WORKERS`, 3 clock phases, 0 raw UUIDs in `actor_username`, Dual Refresh (`[ 🔄 Refrescar ]`), `timeout >= 180s` + `0-byte` purge & `results[].status` check on batch `200 OK`** | Rejected for Silo Mock Blindness / Unhealthy Container Escape / Pre-Auth 401 Escape |
@@ -133,16 +133,16 @@ Scope: **10 hydratable stacks** (`python`, `fastapi`, `node-backend`, `vue3`, `r
   make qa-all        # Full 11X suite
   ```
 
-### 🧠 MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x` `v3.0.0`)
+### 🧠 MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x` `v3.1.0`)
 * **Base Image:** `sinfallas/base-node-ionic:26` (Available tags: `22`, `24`, `26` and `latest`)
-* **Certified 11X Metrics (`v3.0.0` / `QA-11X v3.0`):**
+* **Certified 11X Metrics (`v3.1.0` / `QA-11X v3.1`):**
   * **Statements:** `98.94%` (`>= 95.0%`)
   * **Branches:** `95.06%` global (`src/resources` `99.54%`, `src/cli` `99.65%`, `surgical-merger.ts` `99.39%`)
   * **Functions:** `99.63%` (`>= 95.0%`)
   * **Lines:** `98.94%` (`>= 95.0%`)
   * **Unit & Live Protocol Tests:** **554 tests passing at 100%** (35 Vitest suites including `tests/live-mcp-protocol.test.ts` over `InMemoryTransport` and `StdioClientTransport`, `tests/mobileBlueprint.test.ts`, `src/index.ts`, `QA-CLI-TTY-01`, `SEC-09`, and `QA-SSR-HYDRATION-01`)
   * **Multi-Stack Differential Coverage (`verify_diff_coverage.py`):** **100.00% delta lines** and **96.61% delta branches** across modified files
-  * **MCP Surface:** **19 canonical tools** (12 v1 core + 6 v2.0+ tools for CALM, Release Gate, agent trajectory, OWASP LLM Red Team, Vibe-Rescue, and TMS sync + `session_flight_recorder`) and **13 `blueprint://*` resources** (adding `blueprint://skills/tactical-patterns-11x` with `?lang=es|en` bilingual negotiation) + **2 resource templates** enforcing Thin-Repo contract, AST graph auto-build/refresh (`auto_build_if_missing`, `refresh_graph`), Metadata-Only mode (`include_content: false`), rule grouping (`groupFindingsByRule`), 34 static rules (`SEC-01`..`SEC-16`, `SEC-CI-ACTION-REF`, `QA-*`, `QA-GIT-GATE-01`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`, `QA-CI-ESCAPE-01`, `QA-MAKE-CURDIR-01`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `UI-11X-01..03`), `TaskStateGuard` + `promptGuard`, and 10/10 parity in `certify_11x_gate`
+  * **MCP Surface:** **19 canonical tools** (12 v1 core + 6 v2.0 tools for CALM, Release Gate, agent trajectory, OWASP LLM Red Team, Vibe-Rescue, and TMS sync + **v3.1** `session_flight_recorder`) and **13 `blueprint://*` resources** (adding **v3.1** `blueprint://skills/tactical-patterns-11x` with `?lang=es|en` bilingual negotiation) + **2 resource templates** enforcing Thin-Repo contract, AST graph auto-build/refresh (`auto_build_if_missing`, `refresh_graph`), Metadata-Only mode (`include_content: false`), rule grouping (`groupFindingsByRule`), 34 static scanner rules (`SEC-01`..`SEC-16`, `SEC-CI-ACTION-REF`, `QA-*`, `QA-GIT-GATE-01`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`, `QA-CI-ESCAPE-01`, `QA-MAKE-CURDIR-01`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `UI-11X-01..03`) enforcing the 22 DISA ASD STIG V6R5 + OWASP v4.2 reference controls, `TaskStateGuard` + `promptGuard`, and 10/10 parity in `certify_11x_gate`
   * **Karate Labs BDD Scenarios:** `mcp-server/test/mcp_cli_test.feature` (**37 scenarios passed** in `sinfallas/karatelabs:1.5.1`)
 
 ### 🤖 AI / LLM Evals (`ai-evals/`), 📱 Mobile (`mobile-appium/`) and 🚑 Vibe Rescue (`vibe-rescue/`)

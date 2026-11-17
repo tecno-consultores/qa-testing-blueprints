@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0.0",
   "pack_id": "qa-11x-enterprise-pack",
-  "name": "QA Testing Blueprints (QA-11X v3.0)",
-  "version": "3.0.0",
-  "standard_edition": "QA-11X v3.0",
+  "name": "QA Testing Blueprints (QA-11X v3.1)",
+  "version": "3.1.0",
+  "standard_edition": "QA-11X v3.1",
   "license": "MIT",
   "author": "Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)",
   "repository": "https://github.com/tecno-consultores/qa-testing-blueprints",
   "install_command": "npx -y @sinfallas/mcp-qa-11x@latest quickstart",
-  "supported_agents_count": 27,
+  "supported_agents_count": 28,
   "categories": [
     "e2e",
     "api",

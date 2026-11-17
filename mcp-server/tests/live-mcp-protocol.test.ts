@@ -10,8 +10,15 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { buildAgentCard } from '../src/a2a/agentCard.js';
-import { attachPromptGuard, dispatchCliArgs } from '../src/index.js';
+import { DEFAULT_STANDARD_VERSION, buildAgentCard, deriveStandardVersion } from '../src/a2a/agentCard.js';
+import {
+  CLI_HELP_TEXT,
+  INTERACTIVE_TTY_NOTICE,
+  attachPromptGuard,
+  createConfiguredMcpServer,
+  dispatchCliArgs,
+  getRegisteredSurfaceCounts,
+} from '../src/index.js';
 import { createMcpServer } from '../src/server.js';
 import { GitHubFetcher, MCP_SERVER_VERSION } from '../src/services/github-fetcher.js';
 import { toAllureDiagnosticEnvelope } from '../src/utils/diagnosticFormatter.js';
@@ -232,11 +239,18 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
       await mcpServer.connect(serverTransport);
       await client.connect(clientTransport);
 
+      const runtimeCounts = getRegisteredSurfaceCounts(mcpServer);
+      expect(runtimeCounts).toEqual({ tools: EXPECTED_TOOLS_COUNT, resources: EXPECTED_RESOURCES_COUNT });
+
       const toolsList = await client.listTools();
-      expect(toolsList.tools).toHaveLength(EXPECTED_TOOLS_COUNT);
+      expect(toolsList.tools).toHaveLength(runtimeCounts.tools);
+      const secTool = toolsList.tools.find((t) => t.name === 'audit_security_stig_owasp');
+      expect(secTool?.description).toContain(
+        '22 DISA ASD STIG V6R5 / OWASP v4.2 reference controls + 34 static scanner rules'
+      );
 
       const resourcesList = await client.listResources();
-      expect(resourcesList.resources).toHaveLength(EXPECTED_RESOURCES_COUNT);
+      expect(resourcesList.resources).toHaveLength(runtimeCounts.resources);
 
       const templatesList = await client.listResourceTemplates();
       expect(templatesList.resourceTemplates).toHaveLength(EXPECTED_TEMPLATES_COUNT);
@@ -450,7 +464,21 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
 
     const card = buildAgentCard();
     expect(card.version).toBe(MCP_SERVER_VERSION);
+    expect(card.standardVersion).toBe(DEFAULT_STANDARD_VERSION);
+    expect(card.standardVersion).toBe(deriveStandardVersion(MCP_SERVER_VERSION));
     expect(card.standardVersion).toMatch(/^QA-11X v\d+\.\d+$/);
+
+    const configured = createConfiguredMcpServer();
+    expect(configured.counts).toEqual({
+      tools: EXPECTED_TOOLS_COUNT,
+      resources: EXPECTED_RESOURCES_COUNT,
+    });
+    expect(CLI_HELP_TEXT).toContain(
+      `(${EXPECTED_TOOLS_COUNT} tools, ${EXPECTED_RESOURCES_COUNT} resources)`
+    );
+    expect(INTERACTIVE_TTY_NOTICE).toContain(
+      `(${EXPECTED_TOOLS_COUNT} tools, ${EXPECTED_RESOURCES_COUNT} resources)`
+    );
 
     const envelope = toAllureDiagnosticEnvelope({
       stageId: 'live-mcp-protocol',

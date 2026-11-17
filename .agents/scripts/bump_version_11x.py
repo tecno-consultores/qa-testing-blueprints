@@ -26,7 +26,53 @@ class VersionRule:
     optional: bool = False
 
 
+def _bilingual_rules(
+    rel_paths: tuple[str, ...],
+    patterns: tuple[re.Pattern[str], ...],
+    *,
+    optional: bool = True,
+) -> tuple[VersionRule, ...]:
+    return tuple(
+        VersionRule(rel_path, patterns, optional=optional)
+        for rel_path in rel_paths
+    )
+
+
 _VER_CORE = r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?"
+_TESTING_VER_PATS: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        rf"((?:Corporate Standard|Estándar Corporativo) "
+        rf"`QA-11X v\d+\.\d+`\s*\(`v)({_VER_CORE})(`\))"
+    ),
+    re.compile(rf"((?:Level|Nivel) 11X \(`v)({_VER_CORE})(`\))"),
+    re.compile(rf"(`@sinfallas/mcp-qa-11x`\s*`v)({_VER_CORE})(`\))"),
+    re.compile(
+        rf"((?:Certified 11X Metrics|Métricas 11X Certificadas) "
+        rf"\(`v)({_VER_CORE})(`\s*/\s*`QA-11X v\d+\.\d+`\))"
+    ),
+)
+_TESTING_ED_PATS: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        r"((?:Corporate Standard|Estándar Corporativo) `)(QA-11X v\d+\.\d+)(`)"
+    ),
+    re.compile(r"(/\s*`)(QA-11X v\d+\.\d+)(`\):\*\*)"),
+)
+_AI_INT_VER_PATS: tuple[re.Pattern[str], ...] = (
+    re.compile(rf"(`@sinfallas/mcp-qa-11x`\s*v)({_VER_CORE})(\s)"),
+    re.compile(rf"((?:and active in|y activo en)\s+`v)({_VER_CORE})(`\))"),
+)
+_PHILOSOPHY_VER_PATS: tuple[re.Pattern[str], ...] = (
+    re.compile(rf"(`@sinfallas/mcp-qa-11x`\s*v)({_VER_CORE})(,)"),
+)
+_PHILOSOPHY_ED_PATS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"(`qa-testing-blueprints`\s*\(`)(QA-11X v\d+\.\d+)(`\))"),
+)
+_ARCH_C4_VER_PATS: tuple[re.Pattern[str], ...] = (
+    re.compile(rf'(@sinfallas/mcp-qa-11x\s*v)({_VER_CORE})(\)"\])'),
+)
+_ARCH_C4_ED_PATS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"(QA Testing Blueprints \(`)(QA-11X v\d+\.\d+)(`\))"),
+)
 
 VERSION_RULES: tuple[VersionRule, ...] = (
     VersionRule(
@@ -52,6 +98,11 @@ VERSION_RULES: tuple[VersionRule, ...] = (
     VersionRule(
         ".agents/scripts/certify_task_completion.sh",
         (re.compile(r'(os\.environ\.get\("QA_AGENT_VERSION",\s*")([^"]+)("\))'),),
+    ),
+    VersionRule(
+        "architecture/qa-11x.calm.json",
+        (re.compile(r'^(\s*"version"\s*:\s*")([^"]+)(")', re.MULTILINE),),
+        max_replacements=1,
     ),
     VersionRule(
         "catalogs/qaskills-pack.json",
@@ -161,15 +212,9 @@ VERSION_RULES: tuple[VersionRule, ...] = (
         (re.compile(rf"(@sinfallas/mcp-qa-11x`?\s*v)({_VER_CORE})([:\)\s])"),),
         optional=True,
     ),
-    VersionRule(
-        "docs/ai-integration.md",
-        (re.compile(rf"(@sinfallas/mcp-qa-11x`\s*v)({_VER_CORE})(\s)"),),
-        optional=True,
-    ),
-    VersionRule(
-        "docs/ai-integration.es.md",
-        (re.compile(rf"(@sinfallas/mcp-qa-11x`\s*v)({_VER_CORE})(\s)"),),
-        optional=True,
+    *_bilingual_rules(
+        ("docs/ai-integration.md", "docs/ai-integration.es.md"),
+        _AI_INT_VER_PATS,
     ),
     VersionRule(
         "docs/01_ARQUITECTURA_PIRAMIDE_11X.md",
@@ -180,6 +225,15 @@ VERSION_RULES: tuple[VersionRule, ...] = (
         "docs/01_ARQUITECTURA_PIRAMIDE_11X.es.md",
         (re.compile(rf"(@sinfallas/mcp-qa-11x`?\s*v)({_VER_CORE})([:\s\)])"),),
         optional=True,
+    ),
+    *_bilingual_rules(("TESTING.md", "TESTING.es.md"), _TESTING_VER_PATS),
+    *_bilingual_rules(
+        ("docs/qa-philosophy.md", "docs/qa-philosophy.es.md"),
+        _PHILOSOPHY_VER_PATS,
+    ),
+    *_bilingual_rules(
+        ("docs/ARCHITECTURE_C4.md", "docs/ARCHITECTURE_C4.es.md"),
+        _ARCH_C4_VER_PATS,
     ),
 )
 
@@ -281,10 +335,14 @@ EDITION_RULES: tuple[VersionRule, ...] = (
         (re.compile(r"([\s\(])(QA-11X v\d+\.\d+)([\.:\)])"),),
         optional=True,
     ),
-    VersionRule(
-        "mcp-server/src/a2a/agentCard.ts",
-        (re.compile(r"(DEFAULT_STANDARD_VERSION\s*=\s*')(QA-11X v\d+\.\d+)(')"),),
-        max_replacements=1,
+    *_bilingual_rules(("TESTING.md", "TESTING.es.md"), _TESTING_ED_PATS),
+    *_bilingual_rules(
+        ("docs/qa-philosophy.md", "docs/qa-philosophy.es.md"),
+        _PHILOSOPHY_ED_PATS,
+    ),
+    *_bilingual_rules(
+        ("docs/ARCHITECTURE_C4.md", "docs/ARCHITECTURE_C4.es.md"),
+        _ARCH_C4_ED_PATS,
     ),
 )
 

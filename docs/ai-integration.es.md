@@ -18,7 +18,7 @@ Para que un agente comprenda las restricciones corporativas en tiempo real, los 
   python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"
 ```
 * **Invariante CLI-First / MCP `stdio`:** Tanto agentes con consola local (Antigravity, Claude Code, Cursor) como agentes conectados a `@sinfallas/mcp-qa-11x` (`inspect_ast_blast_radius`) consultan `graphify-out/graph.json` y `GRAPH_REPORT.md` directamente sin ocupar puertos TCP ni dejar demonios en segundo plano.
-* **Ejemplo Práctico 2 (Recursos Dinámicos Verificados con SHA-256):** El servidor MCP `@sinfallas/mcp-qa-11x` v3.0.0 expone **13 recursos dinámicos (`blueprint://*`)** y **19 herramientas MCP** cubriendo **10 stacks hidratables + `architecture/` + `mcp-server/` (= 12 entornos de matriz)** (incluyendo `mobile-appium` sobre `sinfallas/base-mobile-appium:26`). Cuando el agente detecta un stack FastAPI, consulta `blueprint://fastapi/readme` y `blueprint://database/postgres-rls-worm` recibiendo las plantillas verificadas criptográficamente contra `manifest.json`.
+* **Ejemplo Práctico 2 (Recursos Dinámicos Verificados con SHA-256):** El servidor MCP `@sinfallas/mcp-qa-11x` v3.1.0 expone **13 recursos dinámicos (`blueprint://*`)** y **19 herramientas MCP** cubriendo **10 stacks hidratables + `architecture/` + `mcp-server/` (= 12 entornos de matriz)** (incluyendo `mobile-appium` sobre `sinfallas/base-mobile-appium:26`). Cuando el agente detecta un stack FastAPI, consulta `blueprint://fastapi/readme` y `blueprint://database/postgres-rls-worm` recibiendo las plantillas verificadas criptográficamente contra `manifest.json`.
 * **Ejemplo Práctico 3 (Lectura Proactiva de Configuraciones QA):** El servidor MCP o la inspección estática no solo debe evaluar la topología. Debe auditar proactivamente los archivos de configuración de QA (como `pyproject.toml`, `.eslintrc.json`, `tsconfig.json`, `vitest.config.ts`) antes de escribir código.
   * **Regla Inquebrantable a inyectar al Agente Developer:** "Si el Agente Developer va a escribir código, su primer paso autónomo debe ser leer las reglas de linters y tipado, para generar código que cumpla con el estándar estricto (ej. `strict=true` en Mypy) desde el primer intento, ahorrando ciclos de auto-corrección (tokens)."
 
@@ -60,11 +60,11 @@ El ecosistema de `qa-testing-blueprints` está diseñado intencionalmente para s
 
 * **El Bucle Autónomo de Observabilidad:** El agente ejecuta las pruebas y evalúa el `stderr`. Si `kcov` reporta solo un 85% de cobertura, o si la IA levanta el perfil `--profile chaos` y detecta mediante peticiones al endpoint `http://localhost:9090/api/v1/query` (Prometheus) que la latencia (P99) sobrepasa los umbrales corporativos, la IA comprende la falla, reescribe el código de negocio en su propio entorno interno y vuelve a invocar la herramienta de estrés hasta lograr el estándar.
 
-## 5. Gobernanza Bimodal `.agents/` y Compuerta de 10 Pasos
+## 5. Gobernanza Bimodal `.agents/`, Protocolo de Cierre en 11 Pasos y Compuerta de Certificación en 10 Etapas
 En proyectos de grado corporativo, la IA debe seguir una directriz bimodal estricta:
 1. **Reglas en Inglés Técnico de Alta Densidad:** Las instrucciones en `.agents/rules/` y habilidades en `.agents/skills/` permanecen exclusivamente en inglés técnico compacto para reducir el consumo de tokens BPE (~35%) y maximizar la precisión lógica de los modelos LLM.
 2. **Documentación Canónica Bilingüe (`*.md` EN + `*.es.md` ES) y Espejo Dinámico:** La documentación humana sigue la arquitectura de inglés canónico (`*.md`) con espejo 1:1 en español (`*.es.md`), mientras el razonamiento interactivo y las respuestas del agente reflejan el idioma del prompt del usuario (`--lang auto|en|es`).
-3. **Compuerta de Certificación Obligatoria (`certify_task_completion.sh`):** Antes de concluir cualquier tarea que modifique código o arquitectura, la IA debe ejecutar los 10 pasos de certificación:
+3. **Compuerta de Certificación en 10 Etapas (`certify_task_completion.sh`) dentro del Protocolo de Cierre en 11 Pasos:** Antes de concluir cualquier tarea `FULL_11X` bajo el protocolo de cierre en 11 pasos (`AGENTS.md` §5), la IA debe ejecutar las 10 etapas de certificación:
    - Secret Scanning (`scripts/verificar-secretos.sh`).
    - Auditoría de Infraestructura y Contenedores (`scripts/auditar-infra.sh` / Trivy).
    - Integridad de Archivos JSON sin claves duplicadas (`verify_json_no_duplicate_keys.py`).
@@ -113,7 +113,7 @@ npx -y @sinfallas/mcp-qa-11x@latest [--stdio]
 ### 6.2. Configuración en Clientes de IA
 
 > [!TIP]
-> Para la guía exhaustiva con instrucciones paso a paso y matriz declarativa de los **28 agentes de IA soportados** (`quickstart --agents` / `init-agents --agents` incluyendo Antigravity, Claude Code/Desktop, Cursor, Windsurf, VS Code Copilot, Codex CLI, Gemini CLI, Hermes, Cline, Roo Code, Aider, JetBrains AI, Bolt, Lovable, v0 y Replit), consulta **[`docs/agent-setup.md`](agent-setup.md)** (Español) o **[`docs/agent-setup.en.md`](agent-setup.en.md)** (English).
+> Para la guía exhaustiva con instrucciones paso a paso y matriz declarativa de los **28 agentes de IA soportados** (`quickstart --agents` / `init-agents --agents` incluyendo Antigravity, Claude Code/Desktop, Cursor, Windsurf, VS Code Copilot, Codex CLI, Gemini CLI, Hermes, Cline, Roo Code, Aider, JetBrains AI, Bolt, Lovable, v0 y Replit), consulta **[`docs/agent-setup.es.md`](agent-setup.es.md)** (Español) o **[`docs/agent-setup.md`](agent-setup.md)** (English; redirección heredada en [`docs/agent-setup.en.md`](agent-setup.en.md)).
 
 #### A. Claude Desktop / Claude Code (`claude_desktop_config.json`)
 ```json
@@ -165,7 +165,7 @@ mcp_servers:
 | :--- | :--- | :--- |
 | `blueprint://manifest` | `application/json` | Manifiesto criptográfico completo con hashes SHA-256 de todos los stacks y archivos. |
 | `blueprint://core/philosophy` | `text/markdown` | Prompt maestro y filosofía Level-11X (`AI_MASTER_PROMPT.md`). |
-| `blueprint://security/disa-owasp-22` | `text/markdown` | Síntesis técnica de los 22 patrones DISA ASD STIG V6R5 y OWASP Developer Guide v4.2. |
+| `blueprint://security/disa-owasp-22` | `text/markdown` | Síntesis técnica de los 22 controles de referencia DISA ASD STIG V6R5 y OWASP Developer Guide v4.2 (respaldados por 34 reglas estáticas del escáner). |
 | `blueprint://{stack}/readme` | `text/markdown` | Guía operativa y lista de archivos canónicos del stack hidratable solicitado (`python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue`). |
 | `blueprint://ui/refactoring-ui/{topic}` | `text/markdown` | Pautas de diseño táctico y contraste WCAG 2.1 AA (`skill`, `hierarchy`, `layout`, `type`, `color`, `depth`, `images`, `polish`, `dark-mode`, `tailwind`). |
 | `blueprint://core/active-task-template`| `text/markdown` | Plantilla canónica de bitácora resiliente para agentes de IA (`ACTIVE_TASK.md.example`). |
@@ -175,7 +175,7 @@ mcp_servers:
 | `blueprint://ai/evals-redteam` | `text/markdown` | Blueprint dual-mode DeepEval + Promptfoo OWASP LLM Top 10 (fallback offline embebido). |
 | `blueprint://mobile-appium/readme` | `text/markdown` | Blueprint móvil Appium 3 / W3C + WebdriverIO Screenplay (`sinfallas/base-mobile-appium:26`, `APPIUM_HOME`, biometría y permisos). |
 | `blueprint://vibe-rescue/readme` | `text/markdown` | Protocolo *Vibe-to-Enterprise* en 5 etapas, plantillas RLS/WORM y reglas `VIBE-*` (`vibe-rescue/`). |
-| `blueprint://skills/tactical-patterns-11x` | `text/markdown` | Patrones tácticos JIT (`<= 2.5 KB`, `CC <= 5`, `max-params: 4`, Port/Adapter, Outbox) con soporte `?lang=es|en`. |
+| `blueprint://skills/tactical-patterns-11x` | `text/markdown` | *(v3.1)* Patrones tácticos JIT (`<= 2.5 KB`, `CC <= 5`, `max-params: 4`, Port/Adapter, Outbox) con soporte `?lang=es|en`. |
 
 ### 6.4. Catálogo de Herramientas MCP (`Tools`)
 
@@ -186,7 +186,7 @@ mcp_servers:
 | **`bootstrap_or_merge_11x`** | `project_path`, `stack`, `dry_run` | Aplica una fusión quirúrgica no destructiva inyectando configuraciones QA sin alterar dependencias. |
 | **`inspect_ast_blast_radius`** | `project_path`, `target_symbol`, `changed_since_ref`, `max_tokens_budget`, `max_items`, `auto_build_if_missing`, `refresh_graph` | Consulta el grafo AST (`graphify-out/graph.json` y `GRAPH_REPORT.md`) de forma bidireccional o diferencial (`git diff` + AST + poda semántica de 4 niveles) tanto para Code Q&A como para calcular el radio de impacto antes de refactorizar (`LOW` con `< 5` llamadores para `MICRO_CHANGE`). |
 | **`clean_workspace_11x`** | `project_path`, `dry_run`, `deep_prune` | Sanea artefactos temporales de pruebas y cachés de Docker (soporta modo simulación y fallback Alpine). |
-| **`audit_security_stig_owasp`**| `project_path`, `max_findings`, `include_content` | Audita estáticamente 34 reglas DISA/OWASP y Anti-Silo (`SEC-01` a `SEC-16`, `SEC-CI-ACTION-REF`, `QA-*`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `UI-11X-01..03`) con agrupación compacta (`groupFindingsByRule`) y soporte `metadata-only`. |
+| **`audit_security_stig_owasp`**| `project_path`, `max_findings`, `include_content` | Audita estáticamente 34 reglas estáticas del escáner (`SEC-01` a `SEC-16`, `SEC-CI-ACTION-REF`, `QA-*`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `UI-11X-01..03`) que respaldan los 22 controles de referencia DISA ASD STIG V6R5 + OWASP v4.2, con agrupación compacta (`groupFindingsByRule`) y soporte `metadata-only`. |
 | **`run_ephemeral_qa`** | `project_path`, `stage`, `timeout_seconds`, `skip_if_docs_only` | Ejecuta targets del `Makefile` en Docker efímero bajo la Regla Cero y condensa la salida a JSON (soporta `skip_if_docs_only` y cortacircuitos `BREAKER-42`). |
 | **`certify_11x_gate`** | `project_path` | Ejecución de la compuerta de certificación de cierre (secretos, JSON, componentes UI, ORM, STIG, paridad Dual-Consumer docs y aviso `update_available`). |
 | **`audit_test_pyramid_gaps`** | `project_path`, `stack`, `max_items` | Audita estáticamente las 13 capas de la pirámide 11X (`L01` a `L13`, incluyendo Ciclo Temporal de 3 Fases en `L13` y Refresco Dual en `L07`), detecta archivos huérfanos, endpoints sin BDD, vistas sin E2E y genera un plan de rescate priorizado acotado con `max_items`. |
@@ -199,11 +199,11 @@ mcp_servers:
 | **`run_llm_red_team`** | `project_path`, `dry_run`, `run_live` | Audita configuraciones Promptfoo **OWASP LLM Top 10**, sondas `promptGuard` y red-teaming condicional en Docker (`SKIPPED_MISSING_CREDENTIALS` sin llaves). |
 | **`audit_vibe_prototype`** | `project_path`, `dry_run`, `enforce` | Inspecciona scaffolds generados por IA (`Bolt.new`, `Lovable`, `v0`, `Replit`) buscando riesgos `VIBE-SEC-001..QA-005`, fugas de secretos y ausencia de RLS/WORM. |
 | **`sync_enterprise_tms`** | `project_path`, `provider`, `report_path`, `dry_run` | Normaliza resultados JUnit XML / Allure / SARIF hacia **Jira**, **Zephyr Scale**, **Xray**, **GitHub Issues** o bundles JSON protegidos por `TaskStateGuard` y anti-SSRF. |
-| **`session_flight_recorder`** | `project_path`, `action`, `task_id`, `step`, `intent`, `done`, `planned` | Flight Recorder atómico (`save` \| `recover` \| `clear`) que gestiona `.agents/.cache/session_checkpoint.json` (`0600`) -> proyección `<= 40` líneas en `.agents/ACTIVE_TASK.md` + Git en vivo. |
+| **`session_flight_recorder`** | `project_path`, `action`, `task_id`, `step`, `intent`, `done`, `planned` | *(v3.1)* Flight Recorder atómico (`save` \| `recover` \| `clear`) que gestiona `.agents/.cache/session_checkpoint.json` (`0600`) -> proyección `<= 40` líneas en `.agents/ACTIVE_TASK.md` + Git en vivo. |
 
 ### 6.5. Auto-Sincronización Global en Arranque, Detección `update_available` y Validación Criptográfica
 
-Introducido en `v2.20.0` (y activo en `v3.0.0`), `@sinfallas/mcp-qa-11x` incorpora tres mecanismos automáticos de ciclo de vida:
+Introducido en `v2.20.0` (y activo en `v3.1.0`), `@sinfallas/mcp-qa-11x` incorpora tres mecanismos automáticos de ciclo de vida:
 1. **Sello `.qa-11x-version`:** `install-skill` (tanto vía CLI como `scripts/install-skill.sh`) estampa `.qa-11x-version` en los directorios de skills y en `<proyecto>/.agents/.qa-11x-version` al instalar `--include-scripts`.
 2. **Auto-Sync Silencioso en Segundo Plano (`stdio`):** En cada arranque del servidor MCP sobre `stdio`, sincroniza de forma no bloqueante (verificando `ETag` + `SHA-256` contra `manifest.json`) las skills globales ya instaladas (`~/.gemini`, `~/.claude`, `~/.cursor`, `~/.codeium/windsurf`, `~/.codex`, `~/.hermes`) preservando el idioma configurado en `~/.gemini/GEMINI.md`.
 3. **Aviso Estructurado `update_available` (TTL 24 h *Fail-Open*):** Las herramientas `inspect_project_config` y `certify_11x_gate` devuelven `update_available` para que el propio asistente notifique en el chat si el servidor MCP, las skills globales o los scripts locales del proyecto requieren actualización.

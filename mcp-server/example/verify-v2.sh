@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
-# Verificador Clean-Room del tarball v3.0.0 de @sinfallas/mcp-qa-11x fuera del monorepo.
+# Verificador Clean-Room del tarball v3.1.0 de @sinfallas/mcp-qa-11x fuera del monorepo.
 
 LC_ALL=C
 set -euo pipefail
@@ -53,8 +53,8 @@ ln -s "${MCP_DIR}/node_modules" "${PKG_APP_DIR}/node_modules"
 
 BIN_JS="${PKG_APP_DIR}/dist/index.js"
 VERSION_OUT="$(node "${BIN_JS}" --version)"
-if [ "${VERSION_OUT}" != "3.0.0" ]; then
-  echo "FAIL [--version] Esperado '3.0.0', obtenido '${VERSION_OUT}'" >&2
+if [ "${VERSION_OUT}" != "3.1.0" ]; then
+  echo "FAIL [--version] Esperado '3.1.0', obtenido '${VERSION_OUT}'" >&2
   exit 1
 fi
 
@@ -200,7 +200,7 @@ const transport = new StdioClientTransport({
   env,
   stderr: 'pipe',
 });
-const client = new Client({ name: 'verify-v2-cleanroom', version: '3.0.0' });
+const client = new Client({ name: 'verify-v2-cleanroom', version: '3.1.0' });
 try {
   await client.connect(transport);
   const toolsList = await client.listTools();

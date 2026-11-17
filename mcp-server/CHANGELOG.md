@@ -8,9 +8,15 @@ All notable changes to the `@sinfallas/mcp-qa-11x` npm package and MCP server ar
 
 ## [Unreleased]
 
-### Added & Changed
-- **Atomic Flight Recorder (`session_flight_recorder` Tool #19) & `tactical-patterns-11x` Resource (#13):** Exposed `session_flight_recorder` (`save|recover|clear` delegating to `checkpoint_ctl.py`) and `blueprint://skills/tactical-patterns-11x` (`?lang=es|en` + offline fallback), added `[DIRECTIVE-11X]` JIT complexity guidance + `recordStageCmdCheckpoint` in `ephemeral-runner.ts`, and enforced `max-params: 4` / `max-depth: 3` across TypeScript modules (`19 Tools / 13 Resources / 11 Skills`).
-- **Dedicated Mobile Stack Execution (`qa-mobile` / `sinfallas/base-mobile-appium:26`) & Bilingual Resource Negotiation (`?lang=es|en`):** Added `qa-mobile` / `mobile-appium` container wiring in `src/tools/ephemeral-runner.ts` and `sinfallas/base-mobile-appium:26` blueprint references in `src/resources/stackBlueprints.ts`, plus `?lang=es|en` bilingual routing across `blueprint://*` resources per Spec 19.
+## [3.1.0] - 2026-11-17
+
+### Added
+- **Atomic Flight Recorder (`session_flight_recorder` Tool #19) & JIT `tactical-patterns-11x` (#13):** Exposed `session_flight_recorder`, `blueprint://skills/tactical-patterns-11x` (`?lang=es|en` + offline fallback), `[DIRECTIVE-11X]` guidance (`ephemeral-runner.ts`), and `max-params: 4` / `max-depth: 3` rules.
+- **Full 10-Stack Parity & Mobile Execution:** Expanded `StackNameSchema`, `inspect_project_config`, `test-pyramid-auditor`, and `blueprint://{stack}/readme` to all 10 hydratable stacks, plus `qa-mobile` container wiring and bilingual `?lang=es|en` routing.
+
+### Changed & Security
+- **Dynamic Runtime Surface & Edition (`3.1.0` / `QA-11X v3.1`):** Derived tool/resource CLI counts dynamically in `src/index.ts`, computed `DEFAULT_STANDARD_VERSION` in `src/a2a/agentCard.ts` from `MCP_SERVER_VERSION`, updated `run_ephemeral_qa` docs to all 15 enum stages, and clarified `22` reference controls vs `34` scanner rules.
+- **Fail-Closed Gates & `SEC-PATH-01` Hardening:** Enforced `INVALID_JSON`/`SKIPPED`/`strict` gates in `certify_11x_gate` and `evaluateQaStatus`, added `resolveSafeProjectPath`, removed `manifest.json` auto opt-out (`allow_unmerged_examples`), defaulted `dry_run: true` on mutators, bounded TTY startup `< 5s`, and aligned `CERTIFIED_CLEAN` / `40`-line budget checks.
 
 ## [3.0.0] - 2026-11-14
 

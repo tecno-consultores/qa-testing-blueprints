@@ -1,8 +1,8 @@
-# 🛡️ Cuadro de Mando de Aseguramiento de Calidad (TESTING.md) — Estándar Corporativo `QA-11X v3.0` (`v3.0.0`)
+# 🛡️ Cuadro de Mando de Aseguramiento de Calidad (TESTING.md) — Estándar Corporativo `QA-11X v3.1` (`v3.1.0`)
 
 > 🌐 **Idioma / Language:** [🇬🇧 English (TESTING.md)](TESTING.md) | **Español (Espejo 1:1)**
 
-Este documento constituye la bitácora viva y certificación del estándar de calidad Nivel 11X (`v3.0.0`) para los blueprints del repositorio `qa-testing-blueprints` (**10 stacks hidratables** `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue` + `architecture/` + `mcp-server/` = **12 entornos de matriz**). Todos los ecosistemas incluidos son evaluados bajo la **Regla Cero** (`Rule Zero`): ejecución estricta y 100% aislada en contenedores Docker efímeros con salida **Pass-Quiet / Fail-Verbose** (telemetría de 1 línea con métricas en éxito y traza completa en fallo para optimizar la ventana de contexto de los agentes IA).
+Este documento constituye la bitácora viva y certificación del estándar de calidad Nivel 11X (`v3.1.0`) para los blueprints del repositorio `qa-testing-blueprints` (**10 stacks hidratables** `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue` + `architecture/` + `mcp-server/` = **12 entornos de matriz**). Todos los ecosistemas incluidos son evaluados bajo la **Regla Cero** (`Rule Zero`): ejecución estricta y 100% aislada en contenedores Docker efímeros con salida **Pass-Quiet / Fail-Verbose** (telemetría de 1 línea con métricas en éxito y traza completa en fallo para optimizar la ventana de contexto de los agentes IA).
 
 ---
 
@@ -16,7 +16,7 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
 | **Seguridad Estática (SAST)** | `bandit`, `eslint-plugin-security`, `ShellCheck` | **0 hallazgos HIGH / MEDIUM** | Bloqueo por vulnerabilidad |
 | **CVEs en Dependencias & SBOM** | `pip-audit`, `pnpm audit`, `trivy`, `cyclonedx-py` | **0 vulnerabilidades CRITICAL / HIGH** + SBOM CycloneDX | Bloqueo de suministro de software |
 | **Seguridad Dinámica (DAST & OSHP)** | `zaproxy/zap-stable` (OWASP ZAP + WSTG/ASVS/OSHP) | **0 alertas HIGH**, cabeceras OSHP y estado Fail-Secure | Bloqueo dinámico en CI/CD |
-| **Pruebas de Mutación** | `mutmut`, `stryker` | Puntuación de mutación `> 80%` | Rechazo por asertos débiles |
+| **Pruebas de Mutación** | `mutmut`, `stryker`, `infection` | **`>= 80%` MSI** *(apunta a `>= 80%` en lugar del piso de `>= 95%` en cobertura unitaria de líneas/ramas debido a mutantes equivalentes y al costo exponencial de ejecución)* | Rechazo por asertos débiles |
 | **Comportamiento BDD** | `sinfallas/karatelabs:1.5.1` (Gherkin) | **100% de escenarios PASSED** | Bloqueo de flujo funcional |
 | **Paridad de Esquema DB & RLS/WORM** | `.agents/scripts/verify_alembic_orm_parity.py` + `SEC-13` (`after_begin` RLS + `NOBYPASSRLS`) + `QA-PG17-RLS` (`pg_class.relforcerowsecurity` con `JOIN pg_namespace`, nunca `pg_tables.forcerowsecurity`) + `SEC-14` (`seq_num` + `pg_advisory_xact_lock` WORM) | **0 tablas huérfanas / revision `<= 32` chars / RLS multi-tx / catálogo PG 15–17+ / cadena WORM determinista** | Rechazo por Anti-Mock Blindness / Fuga RLS / Race WORM |
 | **Propagación Anti-Silo, Pre-Auth Multi-Etapa (`SEC-16`), Salud Real de Orquestadores (`QA-HEALTH-01`), 3 Fases Temporales y Batch por Ítem** | Contratos Read-After-Write, Pytest/Vitest, Karate BDD (`api_test.feature` / `ui_business_flow.feature`) y `audit_security_stig_owasp` | **0 mocks intermedios entre módulos, continuidad atómica `GETDEL`/Lua + `PREAUTH_PUBLIC_ROUTES` en flujos Pre-Auth, contrato sin mocks sobre sondas `healthcheck` (`/tmp/worker_heartbeat`) + `task.exception()` / `OPTIONAL_WORKERS`, 3 fases del reloj, 0 UUIDs crudos en `actor_username`, Refresco Dual (`[ 🔄 Refrescar ]`), `timeout >= 180s` + purga `0 bytes` y validación `results[].status` en batch `200 OK`** | Rechazo por Silo Mock Blindness / Unhealthy Container Escape / Pre-Auth 401 Escape |
@@ -133,16 +133,16 @@ Alcance: **10 stacks hidratables** (`python`, `fastapi`, `node-backend`, `vue3`,
   make qa-all        # Suite completa 11X
   ```
 
-### 🧠 MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x` `v3.0.0`)
+### 🧠 MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x` `v3.1.0`)
 * **Imagen Base:** `sinfallas/base-node-ionic:26` (Tags disponibles: `22`, `24`, `26` y `latest`)
-* **Métricas 11X Certificadas (`v3.0.0` / `QA-11X v3.0`):**
+* **Métricas 11X Certificadas (`v3.1.0` / `QA-11X v3.1`):**
   * **Sentencias (Statements):** `98.94%` (`>= 95.0%`)
   * **Ramas (Branches):** `95.06%` global (`src/resources` `99.54%`, `src/cli` `99.65%`, `surgical-merger.ts` `99.39%`)
   * **Funciones (Functions):** `99.63%` (`>= 95.0%`)
   * **Líneas (Lines):** `98.94%` (`>= 95.0%`)
   * **Pruebas Unitarias y Protocolo en Vivo:** **554 pruebas pasando al 100%** (35 suites Vitest incluyendo `tests/live-mcp-protocol.test.ts` sobre `InMemoryTransport` y `StdioClientTransport`, `tests/mobileBlueprint.test.ts`, `src/index.ts`, `QA-CLI-TTY-01`, `SEC-09` y `QA-SSR-HYDRATION-01`)
   * **Cobertura Diferencial Multi-Stack (`verify_diff_coverage.py`):** **100.00% líneas delta** y **96.61% ramas delta** sobre los archivos modificados
-  * **Herramientas MCP:** **19 herramientas canónicas** (12 v1 + 6 v2.0+ de CALM, Release Gate, trayectoria agéntica, OWASP LLM Red Team, Vibe-Rescue y sincronización TMS + `session_flight_recorder`) y **13 recursos `blueprint://*`** (añadiendo `blueprint://skills/tactical-patterns-11x` con negociación bilingüe `?lang=es|en`) + **2 *resource templates*** con contrato Thin-Repo, autoconstrucción/refresco de grafos AST (`auto_build_if_missing`, `refresh_graph`), modo *Metadata-Only* (`include_content: false`), agrupador por regla (`groupFindingsByRule`), 34 reglas estáticas (`SEC-01`..`SEC-16`, `SEC-CI-ACTION-REF`, `QA-*`, `QA-GIT-GATE-01`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`, `QA-CI-ESCAPE-01`, `QA-MAKE-CURDIR-01`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `UI-11X-01..03`), guardia `TaskStateGuard` + `promptGuard` y paridad 10/10 en `certify_11x_gate`
+  * **Herramientas MCP:** **19 herramientas canónicas** (12 núcleo v1 + 6 herramientas v2.0 de CALM, Release Gate, trayectoria agéntica, OWASP LLM Red Team, Vibe-Rescue y sincronización TMS + `session_flight_recorder` en **v3.1**) y **13 recursos `blueprint://*`** (añadiendo `blueprint://skills/tactical-patterns-11x` en **v3.1** con negociación bilingüe `?lang=es|en`) + **2 *resource templates*** con contrato Thin-Repo, autoconstrucción/refresco de grafos AST (`auto_build_if_missing`, `refresh_graph`), modo *Metadata-Only* (`include_content: false`), agrupador por regla (`groupFindingsByRule`), 34 reglas estáticas del escáner (`SEC-01`..`SEC-16`, `SEC-CI-ACTION-REF`, `QA-*`, `QA-GIT-GATE-01`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`, `QA-CI-ESCAPE-01`, `QA-MAKE-CURDIR-01`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `UI-11X-01..03`) que implementan los 22 puntos de control de referencia DISA ASD STIG V6R5 + OWASP v4.2, guardia `TaskStateGuard` + `promptGuard` y paridad 10/10 en `certify_11x_gate`
   * **Escenarios BDD Karate Labs:** `mcp-server/test/mcp_cli_test.feature` (**37 escenarios aprobados** en `sinfallas/karatelabs:1.5.1`)
 
 ### 🤖 AI / LLM Evals (`ai-evals/`), 📱 Móvil (`mobile-appium/`) y 🚑 Vibe Rescue (`vibe-rescue/`)
