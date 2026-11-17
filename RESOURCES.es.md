@@ -11,14 +11,14 @@
 * **[`README.md`](README.md):** Portada principal *English-First* con `quickstart` en 30 segundos, niveles de adopción (`starter` / `standard` / `enterprise`), matriz 15×12, matriz Docker y escudo AI Evals.
 * **[`README.es.md`](README.es.md):** Espejo íntegro 1:1 en español corporativo con la matriz completa de herramientas de pruebas.
 * **[`.github/actions/qa-11x-pr-check/action.yml`](.github/actions/qa-11x-pr-check/action.yml):** Composite Action endurecida para Pull Requests con selección por Blast Radius AST y perfiles progresivos.
-* **[`mcp-server/README.md`](mcp-server/README.md) / [`mcp-server/README.es.md`](mcp-server/README.es.md):** Documentación oficial bilingüe del paquete npm `@sinfallas/mcp-qa-11x` v3.0.0 (**18 Tools** y **12 Resources** públicos con `quickstart`, `promptGuard` y `TaskStateGuard`).
+* **[`mcp-server/README.md`](mcp-server/README.md) / [`mcp-server/README.es.md`](mcp-server/README.es.md):** Documentación oficial bilingüe del paquete npm `@sinfallas/mcp-qa-11x` v3.0.0 (**19 Tools** y **13 Resources** públicos con `quickstart`, `session_flight_recorder`, `promptGuard` y `TaskStateGuard`).
 * **[`llms.txt`](llms.txt) y Catálogos Globales (`catalogs/`):** Índice GEO para LLMs/agentes ([`llms.txt`](llms.txt)) junto a los descriptores canónicos [`catalogs/qaskills-pack.json`](catalogs/qaskills-pack.json) (QASkills.sh), [`catalogs/skillsllm-manifest.json`](catalogs/skillsllm-manifest.json) (SkillsLLM.com) y [`catalogs/agenticskills-submission.md`](catalogs/agenticskills-submission.md) (AgenticSkills.io).
 * **[`docs/agent-setup.es.md`](docs/agent-setup.es.md) / [`docs/agent-setup.md`](docs/agent-setup.md):** Guías paso a paso para configurar 28 agentes y clientes MCP (`Antigravity`, `Claude Code`, `Cursor`, `Windsurf`, `Codex`, `Copilot`, `Hermes`, `Zed`, `JetBrains`, etc.; redirección heredada en [`docs/agent-setup.en.md`](docs/agent-setup.en.md)).
 * **[`AI_MASTER_PROMPT.es.md`](AI_MASTER_PROMPT.es.md):** Prompt maestro de adopción integral para agentes autónomos ([versión canónica en inglés](AI_MASTER_PROMPT.md)).
 
 ---
 
-## 2. Las 10 Skills Modulares (`< 20 KB`) y 8 Reglas Activas (`.agents/`)
+## 2. Las 11 Skills Modulares (`< 20 KB`) y 8 Reglas Activas (`.agents/`)
 
 ### 2.1. Catálogo de Skills Modulares (`.agents/skills/`)
 
@@ -34,6 +34,7 @@
 | **`docker-trivy-keydb-hardening`** | Contenedores no-root (`Trivy HIGH/CRITICAL = 0`) y motor KeyDB | [`SKILL.md`](.agents/skills/docker-trivy-keydb-hardening/SKILL.md) |
 | **`graphify-ast-navigator`** | Grafo AST bidireccional `graph.json`, Blast Radius y límites de capas | [`SKILL.md`](.agents/skills/graphify-ast-navigator/SKILL.md) |
 | **`refactoring-ui`** | Jerarquía visual, escala tipográfica, contraste OKLCH y layout Anti-JSDOM | [`SKILL.md`](.agents/skills/refactoring-ui/SKILL.md) |
+| **`tactical-patterns-11x`** | Patrones tácticos JIT (`<= 2.5 KB`, `CC <= 5`, `max-params: 4`, Port/Adapter, Outbox) | [`SKILL.md`](.agents/skills/tactical-patterns-11x/SKILL.md) |
 
 ### 2.2. Reglas Canónicas Activas (`.agents/rules/`)
 
@@ -44,7 +45,7 @@
 * [`continuous_agent_evolution.md`](.agents/rules/continuous_agent_evolution.md) — Evolución autónoma Dual-Consumer y anti-duplicación Thin-Repo.
 * [`anti_regression_and_side_effects_guardrail.md`](.agents/rules/anti_regression_and_side_effects_guardrail.md) — Radio de impacto AST previo/posterior y contención de regresiones.
 * [`ground_truth_fixtures_and_negative_invariants.md`](.agents/rules/ground_truth_fixtures_and_negative_invariants.md) — Fixtures trimodales, 3 fases de reloj y transferencias `>= 180s`.
-* [`active_task_and_planning_resilience.md`](.agents/rules/active_task_and_planning_resilience.md) — Diario compacto `.agents/ACTIVE_TASK.md` (`<= 40` líneas).
+* [`active_task_and_planning_resilience.md`](.agents/rules/active_task_and_planning_resilience.md) — Flight Recorder atómico (`checkpoint_ctl.py` -> `.agents/ACTIVE_TASK.md` `<= 40` líneas).
 
 ---
 

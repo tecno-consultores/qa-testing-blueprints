@@ -159,6 +159,19 @@ export interface CodeStateFingerprint {
   fingerprint: string | null;
 }
 
+function collectChangedCodeFiles(rawLines: readonly string[]): string[] {
+  const codeSet = new Set<string>();
+  for (const line of rawLines) {
+    for (const p of extractPathsFromPorcelainLine(line)) {
+      const normalized = p.replace(/\\/g, '/').replace(/^\.\//, '');
+      if (!isEphemeralOrDocIgnoredForFingerprint(normalized)) {
+        codeSet.add(normalized);
+      }
+    }
+  }
+  return Array.from(codeSet).sort();
+}
+
 export function computeCodeStateFingerprint(
   projectPath: string,
   execFileSyncFn: typeof execFileSync = execFileSync
@@ -184,17 +197,7 @@ export function computeCodeStateFingerprint(
       .split(/\r?\n/)
       .filter((l) => l.trim().length > 0);
 
-    const codeSet = new Set<string>();
-    for (const line of rawLines) {
-      for (const p of extractPathsFromPorcelainLine(line)) {
-        const normalized = p.replace(/\\/g, '/').replace(/^\.\//, '');
-        if (!isEphemeralOrDocIgnoredForFingerprint(normalized)) {
-          codeSet.add(normalized);
-        }
-      }
-    }
-
-    const codeFiles = Array.from(codeSet).sort();
+    const codeFiles = collectChangedCodeFiles(rawLines);
     if (codeFiles.length === 0) {
       return {
         isGitRepo: true,
@@ -603,13 +606,19 @@ function evaluateFindingHistory(
   };
 }
 
+export interface RecordStageFindingsOptions {
+  readonly maxStreak?: number;
+  readonly execFileSyncFn?: typeof execFileSync;
+}
+
 export function recordQaStageFindingsState(
   projectPath: string,
   stage: string,
   rawFindings: readonly RawFindingInput[],
-  maxStreak = DEFAULT_BREAKER_MAX_STREAK,
-  execFileSyncFn: typeof execFileSync = execFileSync
+  options: RecordStageFindingsOptions = {}
 ): QaCircuitBreakerAlert {
+  const maxStreak = options.maxStreak ?? DEFAULT_BREAKER_MAX_STREAK;
+  const execFileSyncFn = options.execFileSyncFn ?? execFileSync;
   if (!TRACKABLE_BREAKER_STAGES.has(stage)) {
     return {
       triggered: false,

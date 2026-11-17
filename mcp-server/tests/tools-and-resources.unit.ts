@@ -251,7 +251,10 @@ describe('Tools and Resources Integration Suite', () => {
 
   describe('bootstrapOrMerge11x Tool', () => {
     it('executes non-destructive merge into target project directory', async () => {
-      const result = await bootstrapOrMerge11x(targetProjectDir, 'python', false, fetcher, merger);
+      const result = await bootstrapOrMerge11x(targetProjectDir, 'python', false, {
+        fetcher,
+        merger,
+      });
       expect(result.stack).toBe('python');
       expect(result.dry_run).toBe(false);
       expect(fs.existsSync(path.join(targetProjectDir, 'Makefile'))).toBe(true);
@@ -932,17 +935,20 @@ describe('Tools and Resources Integration Suite', () => {
       const dummyRootActive = path.join(targetProjectDir, 'ACTIVE_TASK.md');
       const validAgentsActive = path.join(targetProjectDir, '.agents', 'ACTIVE_TASK.md');
       const dummyEvidence = path.join(targetProjectDir, '.agents', '.qa-evidence.json');
+      const validCheckpoint = path.join(targetProjectDir, '.agents', '.cache', 'session_checkpoint.json');
+      const dummyCovCache = path.join(targetProjectDir, '.agents', '.cache', 'coverage');
       fs.writeFileSync(dummyCoverage, 'cov');
       fs.mkdirSync(dummySubdir, { recursive: true });
       fs.mkdirSync(dummyAllure, { recursive: true });
       fs.mkdirSync(dummyDeepeval, { recursive: true });
       fs.mkdirSync(dummyPromptfoo, { recursive: true });
-      fs.mkdirSync(path.join(targetProjectDir, '.agents'), { recursive: true });
+      fs.mkdirSync(dummyCovCache, { recursive: true });
       fs.writeFileSync(dummyRelease, '{}');
       fs.writeFileSync(dummyDsStore, 'mac');
       fs.writeFileSync(dummyRootActive, '# misplaced');
       fs.writeFileSync(validAgentsActive, '# valid');
       fs.writeFileSync(dummyEvidence, '{}');
+      fs.writeFileSync(validCheckpoint, '{"status":"IN_PROGRESS"}');
 
       const resNormal = await cleanWorkspace11x(targetProjectDir, false, false);
       expect(resNormal.dry_run).toBe(false);
@@ -952,16 +958,19 @@ describe('Tools and Resources Integration Suite', () => {
       expect(resNormal.removed_targets).toContain('allure-results');
       expect(resNormal.removed_targets).toContain('.deepeval');
       expect(resNormal.removed_targets).toContain('.promptfoo');
+      expect(resNormal.removed_targets).toContain('.agents/.cache/coverage');
       expect(resNormal.removed_targets).toContain('release-readiness.json');
       expect(resNormal.removed_targets).toContain('.DS_Store');
       expect(resNormal.removed_targets).toContain('ACTIVE_TASK.md');
       expect(fs.existsSync(dummyEvidence)).toBe(true);
       expect(fs.existsSync(validAgentsActive)).toBe(true);
+      expect(fs.existsSync(validCheckpoint)).toBe(true);
 
       const res = await cleanWorkspace11x(targetProjectDir, false, true);
       expect(res.dry_run).toBe(false);
       expect(res.deep_prune).toBe(true);
       expect(res.removed_targets).toContain('.agents/.qa-evidence.json');
+      expect(res.removed_targets).toContain('.agents/.cache');
       expect(res.recommended_command).toBe('./scripts/limpieza.sh --deep');
 
       expect(fs.existsSync(dummyCoverage)).toBe(false);
@@ -991,13 +1000,10 @@ describe('Tools and Resources Integration Suite', () => {
       });
 
       try {
-        const res = await cleanWorkspace11x(
-          targetProjectDir,
-          false,
-          false,
-          fakeFallback,
-          () => ({ removed: false })
-        );
+        const res = await cleanWorkspace11x(targetProjectDir, false, false, {
+          fallbackExecutor: fakeFallback,
+          targetRemover: () => ({ removed: false }),
+        });
         expect(res.docker_fallback_used).toBe(true);
         expect(fakeFallback).toHaveBeenCalled();
         expect(res.removed_targets).toContain('backend/.coverage');
@@ -1015,13 +1021,10 @@ describe('Tools and Resources Integration Suite', () => {
       const fakeFallback = vi.fn().mockReturnValue(false);
 
       try {
-        const res = await cleanWorkspace11x(
-          targetProjectDir,
-          false,
-          false,
-          fakeFallback,
-          () => ({ removed: false })
-        );
+        const res = await cleanWorkspace11x(targetProjectDir, false, false, {
+          fallbackExecutor: fakeFallback,
+          targetRemover: () => ({ removed: false }),
+        });
         expect(res.docker_fallback_used).toBe(false);
         expect(fakeFallback).toHaveBeenCalled();
       } finally {

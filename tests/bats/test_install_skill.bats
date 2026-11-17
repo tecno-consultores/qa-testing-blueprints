@@ -47,6 +47,8 @@ setup() {
   [ -f "${TEST_DIR}/.agents/skills/qa-11x-architect/SKILL.md" ]
   [ -f "${TEST_DIR}/.agents/skills/qa-11x-architect/references/01-core-13-layers.md" ]
   [ -f "${TEST_DIR}/.agents/skills/refactoring-ui/SKILL.md" ]
+  [ -f "${TEST_DIR}/.agents/skills/tactical-patterns-11x/SKILL.md" ]
+  [ -f "${TEST_DIR}/.agents/schemas/session_checkpoint.schema.json" ]
   [ -f "${TEST_DIR}/.agents/scripts/certify_task_completion.sh" ]
   [ ! -f "${TEST_DIR}/scripts/publicar-mcp.sh" ]
 }

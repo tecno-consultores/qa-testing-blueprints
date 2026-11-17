@@ -164,6 +164,22 @@ describe('certify-gate', () => {
     expect(result.blockers.some((b) => b.includes('Encabezado de versión duplicado en CHANGELOG.md: [1.0.0]'))).toBe(true);
     expect(result.blockers.some((b) => b.includes('excede el presupuesto compacto de 40 líneas'))).toBe(true);
     expect(result.blockers.some((b) => b.includes('marcado como COMPLETED pero aún contiene fases pendientes'))).toBe(true);
+
+    const cacheDir = path.join(agentsDir, '.cache');
+    fs.mkdirSync(cacheDir, { recursive: true });
+    fs.writeFileSync(path.join(cacheDir, 'session_checkpoint.json'), '{bad json');
+    const corruptCkpt = await certify11xGate(tempDir);
+    expect(corruptCkpt.blockers.some((b) => b.includes('session_checkpoint.json contiene JSON corrupto'))).toBe(true);
+
+    fs.writeFileSync(path.join(agentsDir, 'ACTIVE_TASK.md'), '# Active Task\n- **Estado:** IN_PROGRESS\n- [ ] F2\n');
+    fs.writeFileSync(
+      path.join(cacheDir, 'session_checkpoint.json'),
+      JSON.stringify({ status: 'CERTIFIED_CLEAN', intent_140chars: 'x'.repeat(141), planned_steps: ['F2'] })
+    );
+    const incohCkpt = await certify11xGate(tempDir);
+    expect(incohCkpt.blockers.some((b) => b.includes('excede 140 caracteres'))).toBe(true);
+    expect(incohCkpt.blockers.some((b) => b.includes('aún tiene planned_steps'))).toBe(true);
+    expect(incohCkpt.blockers.some((b) => b.includes('no coincide con Estado COMPLETED'))).toBe(true);
   });
 
   it('bloquea la certificación si graph.json presenta una violación topológica UI -> DB o está corrupto', async () => {
@@ -278,5 +294,17 @@ describe('certify-gate', () => {
     expect(failRes.checks.zero_unmerged_examples).toBe(false);
     expect(failRes.gate_passed).toBe(false);
     expect(failRes.blockers.some((b) => b.includes('pyproject.toml.example'))).toBe(true);
+  });
+
+  it('aprueba session_checkpoint.json IN_PROGRESS con intent_140chars válido', async () => {
+    setupNominalProject(tempDir);
+    const cacheDir = path.join(tempDir, '.agents', '.cache');
+    fs.mkdirSync(cacheDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(cacheDir, 'session_checkpoint.json'),
+      JSON.stringify({ status: 'IN_PROGRESS', intent_140chars: 'Tarea activa en curso' })
+    );
+    const res = await certify11xGate(tempDir);
+    expect(res.blockers.every((b) => !b.includes('session_checkpoint.json'))).toBe(true);
   });
 });

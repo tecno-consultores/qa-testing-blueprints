@@ -36,6 +36,7 @@ export const CANONICAL_GLOBAL_SKILL_DIRS = new Set([
   'docker-trivy-keydb-hardening',
   'graphify-ast-navigator',
   'refactoring-ui',
+  'tactical-patterns-11x',
 ]);
 
 /**
@@ -73,6 +74,9 @@ export const CANONICAL_RULE_SECTION_FINGERPRINTS = [
   'universal trimodal ground-truth fixture matrix',
   'negative invariant enforcement',
   'active task tracking & planning tool resilience guardrail',
+  'active task tracking & atomic flight recorder',
+  'atomic flight recorder invariant',
+  'mandatory protocol & token budget',
   'rationale & core invariant',
   'the dual planning & persistence protocol',
   'mandatory requirements & token budget',
@@ -226,23 +230,25 @@ function ensureBackupFile(
   fs.copyFileSync(srcFull, destFull);
 }
 
-function processNonCanonicalRuleFile(
-  fullPath: string,
-  relPath: string,
-  fileName: string,
-  dryRun: boolean,
-  projectPath: string,
-  backupDir: string,
-  extractedDomainBlocks: string[]
-): {
+interface ReconcileRuleCtx {
+  readonly fullPath: string;
+  readonly relPath: string;
+  readonly fileName: string;
+  readonly dryRun: boolean;
+  readonly projectPath: string;
+  readonly backupDir: string;
+  readonly extractedDomainBlocks: string[];
+}
+
+function processNonCanonicalRuleFile(ctx: ReconcileRuleCtx): {
   item: ReconciledRuleItem;
   removedCount: number;
   preservedCount: number;
 } {
-  if (fileName.startsWith(DOMAIN_PREFIX)) {
+  if (ctx.fileName.startsWith(DOMAIN_PREFIX)) {
     return {
       item: {
-        file: relPath,
+        file: ctx.relPath,
         classification: 'DOMAIN_PRESERVED',
         details: 'Archivo de dominio con prefijo domain_* preservado intacto.',
       },
@@ -251,7 +257,7 @@ function processNonCanonicalRuleFile(
     };
   }
 
-  const content = fs.readFileSync(fullPath, UTF8);
+  const content = fs.readFileSync(ctx.fullPath, UTF8);
   const sections = splitMarkdownSections(content);
   const domainOnlySections: string[] = [];
   let removedCount = 0;
@@ -264,16 +270,16 @@ function processNonCanonicalRuleFile(
     }
   }
 
-  if (!dryRun) {
-    ensureBackupFile(projectPath, relPath, backupDir);
-    fs.unlinkSync(fullPath);
+  if (!ctx.dryRun) {
+    ensureBackupFile(ctx.projectPath, ctx.relPath, ctx.backupDir);
+    fs.unlinkSync(ctx.fullPath);
   }
 
   if (domainOnlySections.length > 0) {
-    extractedDomainBlocks.push(...domainOnlySections);
+    ctx.extractedDomainBlocks.push(...domainOnlySections);
     return {
       item: {
-        file: relPath,
+        file: ctx.relPath,
         classification: 'DOMAIN_EXTRACTED_TO_DOMAIN_FILE',
         details: `Eliminadas ${removedCount} sección(es) ya promovidas al estándar global y extraídas ${domainOnlySections.length} sección(es) de dominio.`,
       },
@@ -284,7 +290,7 @@ function processNonCanonicalRuleFile(
 
   return {
     item: {
-      file: relPath,
+      file: ctx.relPath,
       classification: 'REDUNDANT_PROMOTED_REMOVED',
       details: `Archivo redundante eliminado (${removedCount} sección(es) ya forman parte de qa-testing-blueprints global).`,
     },
@@ -359,19 +365,12 @@ function cleanPromotedDuplicatesInAgentsMd(
   };
 }
 
-function processCanonicalRuleFileInConsumer(
-  fullPath: string,
-  relPath: string,
-  dryRun: boolean,
-  projectPath: string,
-  backupDir: string,
-  extractedDomainBlocks: string[]
-): {
+function processCanonicalRuleFileInConsumer(ctx: Omit<ReconcileRuleCtx, 'fileName'>): {
   item: ReconciledRuleItem;
   removedCount: number;
   preservedCount: number;
 } {
-  const content = fs.readFileSync(fullPath, UTF8);
+  const content = fs.readFileSync(ctx.fullPath, UTF8);
   const sections = splitMarkdownSections(content);
   const domainOnlySections: string[] = [];
   let removedCount = 0;
@@ -384,16 +383,16 @@ function processCanonicalRuleFileInConsumer(
     }
   }
 
-  if (!dryRun) {
-    ensureBackupFile(projectPath, relPath, backupDir);
-    fs.unlinkSync(fullPath);
+  if (!ctx.dryRun) {
+    ensureBackupFile(ctx.projectPath, ctx.relPath, ctx.backupDir);
+    fs.unlinkSync(ctx.fullPath);
   }
 
   if (domainOnlySections.length > 0) {
-    extractedDomainBlocks.push(...domainOnlySections);
+    ctx.extractedDomainBlocks.push(...domainOnlySections);
     return {
       item: {
-        file: relPath,
+        file: ctx.relPath,
         classification: 'DOMAIN_EXTRACTED_TO_DOMAIN_FILE',
         details: `Archivo canónico global eliminado tras extraer ${domainOnlySections.length} sección(es) de dominio personalizada(s) y podar ${removedCount} sección(es) canónicas/promovidas.`,
       },
@@ -404,7 +403,7 @@ function processCanonicalRuleFileInConsumer(
 
   return {
     item: {
-      file: relPath,
+      file: ctx.relPath,
       classification: 'CANONICAL_CLEAN',
       details:
         'Archivo canónico global respaldado en .agents/backups/ y eliminado de .agents/rules/ local (consumido desde la skill global).',
@@ -414,13 +413,15 @@ function processCanonicalRuleFileInConsumer(
   };
 }
 
-function reconcileRulesDir(
-  resolvedPath: string,
-  rulesDirPath: string,
-  dryRun: boolean,
-  backupDir: string,
-  extractedDomainBlocks: string[]
-): {
+interface ReconcileRulesDirOpts {
+  readonly resolvedPath: string;
+  readonly rulesDirPath: string;
+  readonly dryRun: boolean;
+  readonly backupDir: string;
+  readonly extractedDomainBlocks: string[];
+}
+
+function reconcileRulesDir(opts: ReconcileRulesDirOpts): {
   items: ReconciledRuleItem[];
   removed: number;
   preserved: number;
@@ -429,15 +430,15 @@ function reconcileRulesDir(
   let removed = 0;
   let preserved = 0;
 
-  if (!fs.existsSync(rulesDirPath)) {
+  if (!fs.existsSync(opts.rulesDirPath)) {
     return { items, removed, preserved };
   }
 
-  const upstreamRepo = isUpstreamBlueprintsRepo(resolvedPath);
-  const entries = fs.readdirSync(rulesDirPath).filter((f) => f.endsWith('.md'));
+  const upstreamRepo = isUpstreamBlueprintsRepo(opts.resolvedPath);
+  const entries = fs.readdirSync(opts.rulesDirPath).filter((f) => f.endsWith('.md'));
   for (const fileName of entries) {
     const relPath = path.join(AGENTS_DIR, RULES_DIR, fileName);
-    const fullPath = path.join(rulesDirPath, fileName);
+    const fullPath = path.join(opts.rulesDirPath, fileName);
 
     if (CANONICAL_GLOBAL_RULE_FILES.has(fileName)) {
       if (upstreamRepo) {
@@ -449,29 +450,29 @@ function reconcileRulesDir(
         continue;
       }
 
-      const canonicalRes = processCanonicalRuleFileInConsumer(
+      const canonicalRes = processCanonicalRuleFileInConsumer({
         fullPath,
         relPath,
-        dryRun,
-        resolvedPath,
-        backupDir,
-        extractedDomainBlocks
-      );
+        dryRun: opts.dryRun,
+        projectPath: opts.resolvedPath,
+        backupDir: opts.backupDir,
+        extractedDomainBlocks: opts.extractedDomainBlocks,
+      });
       items.push(canonicalRes.item);
       removed += canonicalRes.removedCount;
       preserved += canonicalRes.preservedCount;
       continue;
     }
 
-    const res = processNonCanonicalRuleFile(
+    const res = processNonCanonicalRuleFile({
       fullPath,
       relPath,
       fileName,
-      dryRun,
-      resolvedPath,
-      backupDir,
-      extractedDomainBlocks
-    );
+      dryRun: opts.dryRun,
+      projectPath: opts.resolvedPath,
+      backupDir: opts.backupDir,
+      extractedDomainBlocks: opts.extractedDomainBlocks,
+    });
     items.push(res.item);
     removed += res.removedCount;
     preserved += res.preservedCount;
@@ -532,22 +533,24 @@ function reconcileSkillsDir(
   return { items, removed };
 }
 
-function persistExtractedDomainRules(
-  resolvedPath: string,
-  rulesDirPath: string,
-  domainRulesFile: string,
-  extractedDomainBlocks: string[],
-  projectSlug: string
-): void {
-  fs.mkdirSync(rulesDirPath, { recursive: true });
-  const domainFullPath = path.join(resolvedPath, domainRulesFile);
-  const header = `# Domain-Specific Governance Rules (${projectSlug})\n\n`;
+interface PersistDomainRulesArgs {
+  readonly resolvedPath: string;
+  readonly rulesDirPath: string;
+  readonly domainRulesFile: string;
+  readonly extractedDomainBlocks: string[];
+  readonly projectSlug: string;
+}
+
+function persistExtractedDomainRules(args: PersistDomainRulesArgs): void {
+  fs.mkdirSync(args.rulesDirPath, { recursive: true });
+  const domainFullPath = path.join(args.resolvedPath, args.domainRulesFile);
+  const header = `# Domain-Specific Governance Rules (${args.projectSlug})\n\n`;
   const existingDomain = fs.existsSync(domainFullPath)
     ? fs.readFileSync(domainFullPath, UTF8) + '\n\n'
     : header;
   fs.writeFileSync(
     domainFullPath,
-    existingDomain + extractedDomainBlocks.join('\n\n') + '\n',
+    existingDomain + args.extractedDomainBlocks.join('\n\n') + '\n',
     UTF8
   );
 }
@@ -573,13 +576,13 @@ export async function reconcileAgentsGovernance(options: {
   const backupDir = path.join(resolvedPath, AGENTS_DIR, BACKUPS_DIR, timestamp);
 
   const extractedDomainBlocks: string[] = [];
-  const rulesSummary = reconcileRulesDir(
+  const rulesSummary = reconcileRulesDir({
     resolvedPath,
     rulesDirPath,
     dryRun,
     backupDir,
-    extractedDomainBlocks
-  );
+    extractedDomainBlocks,
+  });
 
   const reconciledItems: ReconciledRuleItem[] = [...rulesSummary.items];
   let totalRemoved = rulesSummary.removed;
@@ -603,13 +606,13 @@ export async function reconcileAgentsGovernance(options: {
       `${DOMAIN_PREFIX}${projectSlug}_rules.md`
     );
     if (!dryRun) {
-      persistExtractedDomainRules(
+      persistExtractedDomainRules({
         resolvedPath,
         rulesDirPath,
         domainRulesFile,
         extractedDomainBlocks,
-        projectSlug
-      );
+        projectSlug,
+      });
     }
   }
 

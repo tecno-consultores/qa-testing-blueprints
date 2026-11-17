@@ -163,23 +163,24 @@ function registerSuggestedTest(rel: string, ext: string, suggestedTests: Set<str
   }
 }
 
-function processCandidateFile(
-  fullPath: string,
-  rel: string,
-  ext: string,
-  cleanSymbol: string,
-  dependentFiles: Set<string>,
-  suggestedTests: Set<string>
-): void {
+interface CandidateScanInput {
+  readonly fullPath: string;
+  readonly rel: string;
+  readonly ext: string;
+  readonly ctx: GraphScanContext;
+}
+
+function processCandidateFile(input: CandidateScanInput): void {
+  const { fullPath, rel, ext, ctx } = input;
   try {
     const content = fs.readFileSync(fullPath, 'utf-8');
-    const safePattern = escapeRegex(cleanSymbol);
+    const safePattern = escapeRegex(ctx.cleanSymbol);
     // eslint-disable-next-line security/detect-non-literal-regexp
     const symbolRegex = new RegExp(`\\b${safePattern}\\b`);
     if (symbolRegex.test(content)) {
       const norm = normalizeRelativePath(rel);
-      dependentFiles.add(norm);
-      registerSuggestedTest(norm, ext, suggestedTests);
+      ctx.dependentFiles.add(norm);
+      registerSuggestedTest(norm, ext, ctx.suggestedTests);
     }
   } catch {
     // Ignorar archivos ilegibles
@@ -298,14 +299,7 @@ function scanDirectory(dir: string, rootPath: string, ctx: GraphScanContext): vo
       }
       const ext = path.extname(entry.name);
       if (VALID_EXTENSIONS.has(ext)) {
-        processCandidateFile(
-          fullPath,
-          rel,
-          ext,
-          ctx.cleanSymbol,
-          ctx.dependentFiles,
-          ctx.suggestedTests
-        );
+        processCandidateFile({ fullPath, rel, ext, ctx });
       }
     }
   }

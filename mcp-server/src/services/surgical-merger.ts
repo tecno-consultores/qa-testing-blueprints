@@ -83,14 +83,12 @@ export class SurgicalMerger {
     deps: Record<string, string>,
     pkgName: string,
     expected: string,
-    changes: string[],
-    sectionLabel?: string
+    changes: string[]
   ): void {
     const current = deps[pkgName];
     if (typeof current === 'string' && current !== expected) {
       deps[pkgName] = expected;
-      const where = sectionLabel ? ` en ${sectionLabel}` : '';
-      changes.push(`Alineada versión exacta "${pkgName}"${where}: "${current}" -> "${expected}"`);
+      changes.push(`Alineada versión exacta "${pkgName}": "${current}" -> "${expected}"`);
     }
   }
 
@@ -111,7 +109,7 @@ export class SurgicalMerger {
       if (!expected || !/^\d+\.\d+\.\d+$/.test(expected)) continue;
       this.alignExactPlaywrightKey(mergedDevDeps, pkgName, expected, changes);
       if (deps) {
-        this.alignExactPlaywrightKey(deps, pkgName, expected, changes, 'dependencies');
+        this.alignExactPlaywrightKey(deps, pkgName, expected, changes);
       }
     }
   }
@@ -734,22 +732,23 @@ export class SurgicalMerger {
   private evaluateSingleBundleItem(
     item: FetchedFileItem,
     targetFilePath: string,
-    exists: boolean,
     dryRun: boolean,
     projectName: string
   ): {
     status: 'created' | 'merged' | 'skipped' | 'dry_run';
     changes: string[];
     finalContent: string;
+    existed: boolean;
   } {
-    if (!exists) {
+    if (!fs.existsSync(targetFilePath)) {
       return {
         status: dryRun ? 'dry_run' : 'created',
         changes: [`Creado archivo: ${item.target_name}`],
         finalContent: this.resolveInitialFileContent(item, projectName),
+        existed: false,
       };
     }
-    return this.processExistingFile(item, targetFilePath, dryRun, projectName);
+    return { ...this.processExistingFile(item, targetFilePath, dryRun, projectName), existed: true };
   }
 
   /**
@@ -774,10 +773,9 @@ export class SurgicalMerger {
     const projectName = path.basename(path.resolve(targetProjectDir)) || 'Project';
     for (const item of bundleFiles) {
       const targetFilePath = resolveSafeChildPath(targetProjectDir, item.target_name);
-      const exists = fs.existsSync(targetFilePath);
-      const evaluated = this.evaluateSingleBundleItem(item, targetFilePath, exists, dryRun, projectName);
+      const evaluated = this.evaluateSingleBundleItem(item, targetFilePath, dryRun, projectName);
 
-      if (!exists) {
+      if (!evaluated.existed) {
         createdCount++;
       } else if (evaluated.status === 'merged' || evaluated.status === 'dry_run') {
         mergedCount++;

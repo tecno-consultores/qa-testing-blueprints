@@ -103,6 +103,12 @@ REQUIRED_SKILL_CONTRACTS: Mapping[str, tuple[str, ...]] = {
         "AES-256-GCM",
         "QA-GIT-GATE-01",
     ),
+    "tactical-patterns-11x": (
+        "CC <= 5",
+        "SonarJS <= 15",
+        "max-params <= 4",
+        "Port & Adapter",
+    ),
 }
 REQUIRED_MATRIX_PROVIDERS = ("openai:", "anthropic:", "google:", "ollama:")
 REQUIRED_MATRIX_REDTEAM = ("prompt-injection", "hijacking", "excessive-agency")
@@ -565,7 +571,7 @@ class _OfflineSkillJudgeStub(DeepEvalBaseLLM):  # type: ignore[no-untyped-call]
 
 def test_offline_master_prompt_and_skills_contracts(tmp_path: Path) -> None:
     report = audit_master_prompt_and_skills(REPO_ROOT)
-    assert report.skills_count == 10
+    assert report.skills_count == 11
     assert report.master_prompt_valid
     assert report.all_budgets_ok
     assert report.violations == ()

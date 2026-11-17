@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
-# Propósito: Certificar en contenedor Docker efímero (Rule Zero) las 18 tools,
-#            12 resources, 4 subcomandos CLI y tarball v3.0.0 de @sinfallas/mcp-qa-11x
+# Propósito: Certificar en contenedor Docker efímero (Rule Zero) las 19 tools,
+#            13 resources, 4 subcomandos CLI y tarball v3.0.0 de @sinfallas/mcp-qa-11x
 #            contra mcp-server/example/ y verify-v2.sh (Clean-Room por defecto).
 
 LC_ALL=C
@@ -85,4 +85,4 @@ QA_UID="${CURRENT_UID}" QA_GID="${CURRENT_GID}" \
   -e QA_BLUEPRINTS_LOCAL_PATH=/app \
   mcp-server bash -c "pnpm install --frozen-lockfile --silent && pnpm --silent run build && pnpm run test:example && ./example/verify-v2.sh"
 
-echo "✅ [Clean-Room E2E] Instalación limpia + compilación + 18 tools / 12 resources / quickstart / verify-v2.sh verificadas."
+echo "✅ [Clean-Room E2E] Instalación limpia + compilación + 19 tools / 13 resources / quickstart / verify-v2.sh verificadas."

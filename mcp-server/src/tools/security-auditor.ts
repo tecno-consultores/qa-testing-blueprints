@@ -1077,21 +1077,23 @@ interface EdgeHeaderBlock {
   ops: EdgeHeaderOp[];
 }
 
-function makeUi11x03Finding(
-  severity: 'HIGH' | 'MEDIUM',
-  relPath: string,
-  line: number,
-  message: string,
-  remediation: string
-): SecurityFinding {
+interface Ui11x03FindingInput {
+  readonly severity: 'HIGH' | 'MEDIUM';
+  readonly file: string;
+  readonly line: number;
+  readonly message: string;
+  readonly remediation: string;
+}
+
+function makeUi11x03Finding(input: Ui11x03FindingInput): SecurityFinding {
   return {
     rule_id: 'UI-11X-03',
-    severity,
+    severity: input.severity,
     stig_owasp_ref: UI_11X_03_REF,
-    file: relPath,
-    line,
-    message,
-    remediation,
+    file: input.file,
+    line: input.line,
+    message: input.message,
+    remediation: input.remediation,
   };
 }
 
@@ -1165,33 +1167,38 @@ function checkAppleTouchLinkTag(
   sizesAttr: string
 ): SecurityFinding | null {
   if (cleanHref.endsWith('.webp') || cleanHref.endsWith('.svg')) {
-    return makeUi11x03Finding(
-      'HIGH',
-      relPath,
+    return makeUi11x03Finding({
+      severity: 'HIGH',
+      file: relPath,
       line,
-      `Etiqueta rel="${APPLE_TOUCH_REL}" apunta a formato no soportado por Safari/iOS (${cleanHref}).`,
-      'Generar un PNG RGB opaco de 180x180 px (sin transparencia ni .webp/.svg) y referenciarlo con sizes="180x180".'
-    );
+      message: `Etiqueta rel="${APPLE_TOUCH_REL}" apunta a formato no soportado por Safari/iOS (${cleanHref}).`,
+      remediation: 'Generar un PNG RGB opaco de 180x180 px (sin transparencia ni .webp/.svg) y referenciarlo con sizes="180x180".',
+    });
   }
   if (cleanHref.endsWith('.png') && !hasSizeToken(sizesAttr, '180x180')) {
-    return makeUi11x03Finding(
-      'MEDIUM',
-      relPath,
+    return makeUi11x03Finding({
+      severity: 'MEDIUM',
+      file: relPath,
       line,
-      `Etiqueta rel="${APPLE_TOUCH_REL}" PNG omite el atributo recomendado sizes="180x180".`,
-      'Agregar sizes="180x180" al <link rel="apple-touch-icon"> apuntando al PNG opaco de 180x180 px.'
-    );
+      message: `Etiqueta rel="${APPLE_TOUCH_REL}" PNG omite el atributo recomendado sizes="180x180".`,
+      remediation: 'Agregar sizes="180x180" al <link rel="apple-touch-icon"> apuntando al PNG opaco de 180x180 px.',
+    });
   }
   return null;
 }
 
+interface HtmlLinkTagInput {
+  readonly relPath: string;
+  readonly line: number;
+  readonly tag: string;
+  readonly hasSiblingPublic: boolean;
+  readonly hasAnyIco: boolean;
+}
+
 function inspectHtmlLinkTag(
-  relPath: string,
-  line: number,
-  tag: string,
-  hasSiblingPublic: boolean,
-  hasAnyIco: boolean
+  input: HtmlLinkTagInput
 ): { findings: SecurityFinding[]; hasFavicon48: boolean } {
+  const { relPath, line, tag, hasSiblingPublic, hasAnyIco } = input;
   const findings: SecurityFinding[] = [];
   const attrs = parseHtmlLinkAttributes(tag);
   const relTokens = (attrs.rel ?? '').toLowerCase().split(/\s+/).filter(Boolean);
@@ -1213,13 +1220,13 @@ function inspectHtmlLinkTag(
   const hasFavicon48 = hasSizeToken(sizesAttr, '48x48');
   if (hasSiblingPublic && !hasAnyIco) {
     findings.push(
-      makeUi11x03Finding(
-        'HIGH',
-        relPath,
+      makeUi11x03Finding({
+        severity: 'HIGH',
+        file: relPath,
         line,
-        `index.html referencia ${PATH_FAVICON_ICO}, pero no existe public/${FAVICON_ICO_NAME} ni ${FAVICON_ICO_NAME} en disco (HTTP 404).`,
-        'Generar public/favicon.ico multi-resolución (16x16, 32x32, 48x48) con sizes="48x48".'
-      )
+        message: `index.html referencia ${PATH_FAVICON_ICO}, pero no existe public/${FAVICON_ICO_NAME} ni ${FAVICON_ICO_NAME} en disco (HTTP 404).`,
+        remediation: 'Generar public/favicon.ico multi-resolución (16x16, 32x32, 48x48) con sizes="48x48".',
+      })
     );
   }
   return { findings, hasFavicon48 };
@@ -1242,24 +1249,24 @@ function checkSubprojectFaviconPresence(
   if (!hasBrandSuite) return [];
   if (!hasPublicIco) {
     return [
-      makeUi11x03Finding(
-        'MEDIUM',
-        relPath,
-        1,
-        `Suite de marca/PWA detectada sin public/${FAVICON_ICO_NAME} en disco para navegadores clásicos y Google Search (>= 48px).`,
-        'Empaquetar public/favicon.ico con tramas 16x16, 32x32 y 48x48 y declararlo en index.html con sizes="48x48".'
-      ),
+      makeUi11x03Finding({
+        severity: 'MEDIUM',
+        file: relPath,
+        line: 1,
+        message: `Suite de marca/PWA detectada sin public/${FAVICON_ICO_NAME} en disco para navegadores clásicos y Google Search (>= 48px).`,
+        remediation: 'Empaquetar public/favicon.ico con tramas 16x16, 32x32 y 48x48 y declararlo en index.html con sizes="48x48".',
+      }),
     ];
   }
   if (!hasFaviconIco48) {
     return [
-      makeUi11x03Finding(
-        'MEDIUM',
-        relPath,
-        1,
-        `index.html no declara <link rel="icon" href="${PATH_FAVICON_ICO}" sizes="48x48" /> para cumplir el requisito >= 48px de Google Search.`,
-        'Añadir <link rel="icon" href="/favicon.ico" sizes="48x48" /> en el <head> de index.html.'
-      ),
+      makeUi11x03Finding({
+        severity: 'MEDIUM',
+        file: relPath,
+        line: 1,
+        message: `index.html no declara <link rel="icon" href="${PATH_FAVICON_ICO}" sizes="48x48" /> para cumplir el requisito >= 48px de Google Search.`,
+        remediation: 'Añadir <link rel="icon" href="/favicon.ico" sizes="48x48" /> en el <head> de index.html.',
+      }),
     ];
   }
   return [];
@@ -1289,13 +1296,13 @@ function checkHtmlFaviconAndAppleTouchLinks(
   let match: RegExpExecArray | null;
 
   while ((match = linkRe.exec(content)) !== null) {
-    const inspected = inspectHtmlLinkTag(
+    const inspected = inspectHtmlLinkTag({
       relPath,
-      lineAtOffset(content, match.index),
-      match[0],
+      line: lineAtOffset(content, match.index),
+      tag: match[0],
       hasSiblingPublic,
-      hasAnyIco
-    );
+      hasAnyIco,
+    });
     findings.push(...inspected.findings);
     if (inspected.hasFavicon48) hasFaviconIco48 = true;
   }
@@ -1355,35 +1362,35 @@ function checkWebAppManifestIcons(projectPath: string, relPath: string): Securit
   const findings: SecurityFinding[] = [];
   if (summary.hasWebp) {
     findings.push(
-      makeUi11x03Finding(
-        'MEDIUM',
-        relPath,
-        findLineNumberContaining(rawText, '.webp'),
-        'Manifiesto PWA declara iconos .webp en lugar de PNG opacos multiplataforma.',
-        'Reemplazar iconos .webp por icon-192.png (192x192) e icon-512.png (512x512) en formato image/png.'
-      )
+      makeUi11x03Finding({
+        severity: 'MEDIUM',
+        file: relPath,
+        line: findLineNumberContaining(rawText, '.webp'),
+        message: 'Manifiesto PWA declara iconos .webp en lugar de PNG opacos multiplataforma.',
+        remediation: 'Reemplazar iconos .webp por icon-192.png (192x192) e icon-512.png (512x512) en formato image/png.',
+      })
     );
   }
   if (summary.hasCombinedPurpose) {
     findings.push(
-      makeUi11x03Finding(
-        'MEDIUM',
-        relPath,
-        findLineNumberContaining(rawText, 'maskable'),
-        'Manifiesto PWA combina "any maskable" en una misma entrada (riesgo de recorte en lanzadores).',
-        'Separar en objetos distintos las entradas con "purpose": "any" y "purpose": "maskable".'
-      )
+      makeUi11x03Finding({
+        severity: 'MEDIUM',
+        file: relPath,
+        line: findLineNumberContaining(rawText, 'maskable'),
+        message: 'Manifiesto PWA combina "any maskable" en una misma entrada (riesgo de recorte en lanzadores).',
+        remediation: 'Separar en objetos distintos las entradas con "purpose": "any" y "purpose": "maskable".',
+      })
     );
   }
   if (!summary.hasPng192 || !summary.hasPng512) {
     findings.push(
-      makeUi11x03Finding(
-        'MEDIUM',
-        relPath,
-        findLineNumberContaining(rawText, '"icons"'),
-        'Manifiesto PWA carece de ambos iconos image/png requeridos (192x192 y 512x512).',
-        'Incluir entradas image/png explícitas para 192x192 y 512x512 en site.webmanifest.'
-      )
+      makeUi11x03Finding({
+        severity: 'MEDIUM',
+        file: relPath,
+        line: findLineNumberContaining(rawText, '"icons"'),
+        message: 'Manifiesto PWA carece de ambos iconos image/png requeridos (192x192 y 512x512).',
+        remediation: 'Incluir entradas image/png explícitas para 192x192 y 512x512 en site.webmanifest.',
+      })
     );
   }
   return findings;
@@ -1463,26 +1470,26 @@ function inspectSingleEdgeHeaderBlock(
     if (op.name === HDR_CORP && op.value === HDR_CROSS_ORIGIN) corpSetCrossOrigin = true;
     if (globalWatched.has(op.name) && !detached.has(op.name)) {
       findings.push(
-        makeUi11x03Finding(
-          'HIGH',
-          relPath,
-          op.line,
-          `Bloque "${block.route}" en _headers redefine "${op.name}" sin desacoplamiento previo "! ${op.name}" (concatenación aditiva desde /*).`,
-          `Anteponer "! ${op.name}" dentro del bloque "${block.route}" antes de emitir el nuevo valor.`
-        )
+        makeUi11x03Finding({
+          severity: 'HIGH',
+          file: relPath,
+          line: op.line,
+          message: `Bloque "${block.route}" en _headers redefine "${op.name}" sin desacoplamiento previo "! ${op.name}" (concatenación aditiva desde /*).`,
+          remediation: `Anteponer "! ${op.name}" dentro del bloque "${block.route}" antes de emitir el nuevo valor.`,
+        })
       );
     }
   }
 
   if (globalWatched.get(HDR_CORP) === HDR_SAME_ORIGIN && isPublicAssetEdgeRoute(block.route) && !corpSetCrossOrigin) {
     findings.push(
-      makeUi11x03Finding(
-        'MEDIUM',
-        relPath,
-        block.line,
-        `La regla global /* fija ${HDR_CORP}: ${HDR_SAME_ORIGIN}, pero "${block.route}" no habilita "${HDR_CROSS_ORIGIN}" para rastreadores y previsualizaciones OG.`,
-        `Desacoplar con "! Cross-Origin-Resource-Policy" y fijar "Cross-Origin-Resource-Policy: cross-origin" en "${block.route}".`
-      )
+      makeUi11x03Finding({
+        severity: 'MEDIUM',
+        file: relPath,
+        line: block.line,
+        message: `La regla global /* fija ${HDR_CORP}: ${HDR_SAME_ORIGIN}, pero "${block.route}" no habilita "${HDR_CROSS_ORIGIN}" para rastreadores y previsualizaciones OG.`,
+        remediation: `Desacoplar con "! Cross-Origin-Resource-Policy" y fijar "Cross-Origin-Resource-Policy: cross-origin" en "${block.route}".`,
+      })
     );
   }
   return findings;
@@ -1534,26 +1541,26 @@ function checkCloudflareRoutesJson(projectPath: string, relPath: string): Securi
   for (const pattern of [...includePatterns, ...excludePatterns]) {
     if (isInvalidPagesRoutePattern(pattern)) {
       findings.push(
-        makeUi11x03Finding(
-          'HIGH',
-          relPath,
-          findLineNumberContaining(rawText, pattern),
-          `Comodín inválido "${pattern}" en _routes.json (Cloudflare Pages v1 solo admite "*" como sufijo final).`,
-          'Reemplazar comodines de sufijo o intermedios (ej. /*.ico) por rutas exactas como "/favicon.ico" o prefijos "/favicons/*".'
-        )
+        makeUi11x03Finding({
+          severity: 'HIGH',
+          file: relPath,
+          line: findLineNumberContaining(rawText, pattern),
+          message: `Comodín inválido "${pattern}" en _routes.json (Cloudflare Pages v1 solo admite "*" como sufijo final).`,
+          remediation: 'Reemplazar comodines de sufijo o intermedios (ej. /*.ico) por rutas exactas como "/favicon.ico" o prefijos "/favicons/*".',
+        })
       );
     }
   }
 
   if (includePatterns.includes(WILDCARD_ALL_ROUTE) && Array.isArray(doc.exclude) && !excludePatterns.includes(PATH_FAVICON_ICO)) {
     findings.push(
-      makeUi11x03Finding(
-        'MEDIUM',
-        relPath,
-        findLineNumberContaining(rawText, '"exclude"'),
-        `_routes.json incluye "${WILDCARD_ALL_ROUTE}" sin excluir explícitamente "${PATH_FAVICON_ICO}" en exclude.`,
-        'Agregar "/favicon.ico" al arreglo exclude de _routes.json para evitar invocar Workers innecesariamente.'
-      )
+      makeUi11x03Finding({
+        severity: 'MEDIUM',
+        file: relPath,
+        line: findLineNumberContaining(rawText, '"exclude"'),
+        message: `_routes.json incluye "${WILDCARD_ALL_ROUTE}" sin excluir explícitamente "${PATH_FAVICON_ICO}" en exclude.`,
+        remediation: 'Agregar "/favicon.ico" al arreglo exclude de _routes.json para evitar invocar Workers innecesariamente.',
+      })
     );
   }
   return findings;
@@ -1707,28 +1714,33 @@ function collectContainerHealthFiles(projectPath: string, allRelFiles: string[])
   return Array.from(new Set([...composeFiles, ...extraDockerfiles]));
 }
 
+function collectProbesFromCandidate(
+  projectPath: string,
+  rel: string,
+  probeRegex: RegExp,
+  probes: Set<string>
+): void {
+  const content = readTextFileSafe(path.join(projectPath, rel));
+  if (!content) return;
+  const isYaml = /\.ya?ml$/i.test(rel);
+  const scopedText = isYaml
+    ? extractComposeHealthcheckText(content)
+    : extractDockerfileHealthcheckText(content);
+  if (!scopedText) return;
+  for (const match of scopedText.match(probeRegex) ?? []) {
+    if (!isExcludedProbePath(match)) {
+      probes.add(match);
+    }
+  }
+}
+
 function extractContainerProbePaths(projectPath: string, allRelFiles: string[]): string[] {
   const candidates = collectContainerHealthFiles(projectPath, allRelFiles);
   const probes = new Set<string>();
   const probeRegex = /\/(?:tmp|var\/run|run)\/[A-Za-z0-9_.-]{3,64}/g;
 
   for (const rel of candidates) {
-    try {
-      const content = fs.readFileSync(path.join(projectPath, rel), 'utf8');
-      const isYaml = /\.ya?ml$/i.test(rel);
-      const scopedText = isYaml
-        ? extractComposeHealthcheckText(content)
-        : extractDockerfileHealthcheckText(content);
-      if (!scopedText) continue;
-      const matches = scopedText.match(probeRegex) ?? [];
-      for (const match of matches) {
-        if (!isExcludedProbePath(match)) {
-          probes.add(match);
-        }
-      }
-    } catch {
-      // Ignorar errores de lectura puntual
-    }
+    collectProbesFromCandidate(projectPath, rel, probeRegex, probes);
   }
 
   return Array.from(probes);
@@ -2134,6 +2146,35 @@ function evaluateDockerfileLockViolation(
   return hasNodeManifest && hasHandwrittenNodeDeps(command);
 }
 
+function inspectDockerfileLockFile(
+  projectPath: string,
+  rel: string,
+  findings: SecurityFinding[]
+): void {
+  const absDocker = path.join(projectPath, rel);
+  const content = readTextFileSafe(absDocker);
+  if (!content) return;
+  const searchDirs = Array.from(new Set([path.dirname(absDocker), projectPath]));
+  const hasPyManifest = hasAnyManifestInDirs(searchDirs, ['pyproject.toml', 'uv.lock', 'requirements.lock']);
+  const hasUvLock = hasAnyManifestInDirs(searchDirs, ['uv.lock']);
+  const hasNodeManifest = hasAnyManifestInDirs(searchDirs, ['package.json']);
+
+  for (const block of extractDockerfileRunBlocks(content)) {
+    if (evaluateDockerfileLockViolation(block.command, hasPyManifest, hasUvLock, hasNodeManifest)) {
+      findings.push({
+        rule_id: QA_DOCKER_LOCK_01_RULE,
+        severity: 'HIGH',
+        stig_owasp_ref: QA_DOCKER_LOCK_01_REF,
+        file: rel,
+        line: block.line,
+        message:
+          'Dockerfile instala dependencias desde lista manual o sin bandera --frozen/--frozen-lockfile en lugar de usar el lockfile del proyecto, arriesgando ModuleNotFoundError en runtime.',
+        remediation: QA_DOCKER_LOCK_REMEDIATION,
+      });
+    }
+  }
+}
+
 function checkQaDockerLock01LockfileAndSmoke(projectPath: string): SecurityFinding[] {
   const dockerfiles = collectMatchingFiles(projectPath, isDockerfileEntry)
     .map((abs) => path.relative(projectPath, abs))
@@ -2141,31 +2182,7 @@ function checkQaDockerLock01LockfileAndSmoke(projectPath: string): SecurityFindi
   const findings: SecurityFinding[] = [];
 
   for (const rel of dockerfiles) {
-    try {
-      const absDocker = path.join(projectPath, rel);
-      const content = fs.readFileSync(absDocker, 'utf8');
-      const searchDirs = Array.from(new Set([path.dirname(absDocker), projectPath]));
-      const hasPyManifest = hasAnyManifestInDirs(searchDirs, ['pyproject.toml', 'uv.lock', 'requirements.lock']);
-      const hasUvLock = hasAnyManifestInDirs(searchDirs, ['uv.lock']);
-      const hasNodeManifest = hasAnyManifestInDirs(searchDirs, ['package.json']);
-
-      for (const block of extractDockerfileRunBlocks(content)) {
-        if (evaluateDockerfileLockViolation(block.command, hasPyManifest, hasUvLock, hasNodeManifest)) {
-          findings.push({
-            rule_id: QA_DOCKER_LOCK_01_RULE,
-            severity: 'HIGH',
-            stig_owasp_ref: QA_DOCKER_LOCK_01_REF,
-            file: rel,
-            line: block.line,
-            message:
-              'Dockerfile instala dependencias desde lista manual o sin bandera --frozen/--frozen-lockfile en lugar de usar el lockfile del proyecto, arriesgando ModuleNotFoundError en runtime.',
-            remediation: QA_DOCKER_LOCK_REMEDIATION,
-          });
-        }
-      }
-    } catch {
-      // Ignorar errores de lectura puntual
-    }
+    inspectDockerfileLockFile(projectPath, rel, findings);
   }
 
   return findings;
@@ -2345,13 +2362,16 @@ function hasSsrEngineInSources(projectPath: string, files: readonly string[]): b
   return false;
 }
 
-function hasSsrEngineForScope(
-  projectPath: string,
-  scopeAbsDir: string,
-  pkgContent: string,
-  scopeFiles: readonly string[],
-  extraFiles: readonly string[]
-): boolean {
+interface SsrEngineScopeInput {
+  readonly projectPath: string;
+  readonly scopeAbsDir: string;
+  readonly pkgContent: string;
+  readonly scopeFiles: readonly string[];
+  readonly extraFiles: readonly string[];
+}
+
+function hasSsrEngineForScope(input: SsrEngineScopeInput): boolean {
+  const { projectPath, scopeAbsDir, pkgContent, scopeFiles, extraFiles } = input;
   if (hasSsrNpmDependency(pkgContent)) return true;
   if (VITEPRESS_CONFIG_FILES.some((f) => fs.existsSync(path.join(scopeAbsDir, '.vitepress', f)))) {
     return true;
@@ -2474,14 +2494,17 @@ function buildMissingPlaywrightHydrationMessage(hasDual: boolean, hasGuard: bool
   return `Proyecto SSR/SSG con tematización dinámica carece de ${missing.join(' y ')} en la suite Playwright E2E.`;
 }
 
-function inspectPlaywrightHydrationContract(
-  projectPath: string,
-  scopeDir: string,
-  scopeFiles: readonly string[],
-  extraFiles: readonly string[],
-  allRelFiles: readonly string[],
-  seenConfigs: Set<string>
-): SecurityFinding[] {
+interface PlaywrightHydrationInput {
+  readonly projectPath: string;
+  readonly scopeDir: string;
+  readonly scopeFiles: readonly string[];
+  readonly extraFiles: readonly string[];
+  readonly allRelFiles: readonly string[];
+  readonly seenConfigs: Set<string>;
+}
+
+function inspectPlaywrightHydrationContract(input: PlaywrightHydrationInput): SecurityFinding[] {
+  const { projectPath, scopeDir, scopeFiles, extraFiles, allRelFiles, seenConfigs } = input;
   const scoped = [...scopeFiles, ...extraFiles];
   const { configs, usedRootFallback } = findPlaywrightScopeConfigs(scopeDir, scoped, allRelFiles);
   if (configs.length === 0 || seenConfigs.has(configs[0])) return [];
@@ -2519,13 +2542,16 @@ function inspectPlaywrightHydrationContract(
   ];
 }
 
-function inspectScopeSsrHydration(
-  projectPath: string,
-  pkgRel: string,
-  allRelFiles: readonly string[],
-  seenBranchFiles: Set<string>,
-  seenPwConfigs: Set<string>
-): SecurityFinding[] {
+interface ScopeSsrHydrationInput {
+  readonly projectPath: string;
+  readonly pkgRel: string;
+  readonly allRelFiles: readonly string[];
+  readonly seenBranchFiles: Set<string>;
+  readonly seenPwConfigs: Set<string>;
+}
+
+function inspectScopeSsrHydration(input: ScopeSsrHydrationInput): SecurityFinding[] {
+  const { projectPath, pkgRel, allRelFiles, seenBranchFiles, seenPwConfigs } = input;
   const pkgContent = readTextFileSafe(path.join(projectPath, pkgRel));
   if (!pkgContent || pkgContent.includes(QA_SSR_HYDRATION_OK_PRAGMA)) return [];
 
@@ -2536,7 +2562,7 @@ function inspectScopeSsrHydration(
     path.relative(projectPath, abs)
   );
 
-  if (!hasSsrEngineForScope(projectPath, scopeAbsDir, pkgContent, scopeFiles, extraFiles)) {
+  if (!hasSsrEngineForScope({ projectPath, scopeAbsDir, pkgContent, scopeFiles, extraFiles })) {
     return [];
   }
   if (!hasDualThemeMarkerForScope(projectPath, scopeFiles, extraFiles)) {
@@ -2545,14 +2571,14 @@ function inspectScopeSsrHydration(
 
   return [
     ...inspectSsrPrehydrateBranching(projectPath, scopeFiles, seenBranchFiles),
-    ...inspectPlaywrightHydrationContract(
+    ...inspectPlaywrightHydrationContract({
       projectPath,
       scopeDir,
       scopeFiles,
       extraFiles,
       allRelFiles,
-      seenPwConfigs
-    ),
+      seenConfigs: seenPwConfigs,
+    }),
   ];
 }
 
@@ -2570,7 +2596,13 @@ function checkQaSsrHydration01DualScheme(
 
   for (const pkgRel of packageRels) {
     findings.push(
-      ...inspectScopeSsrHydration(projectPath, pkgRel, allRelFiles, seenBranchFiles, seenPwConfigs)
+      ...inspectScopeSsrHydration({
+        projectPath,
+        pkgRel,
+        allRelFiles,
+        seenBranchFiles,
+        seenPwConfigs,
+      })
     );
   }
 

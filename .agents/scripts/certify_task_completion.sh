@@ -12,9 +12,31 @@ DIAGNOSTIC_JSON_PATH="${QA_DIAGNOSTIC_JSON:-/tmp/qa-11x-last-failure.json}"
 GATE_TMP_DIR="$(mktemp -d /tmp/qa11x-certify.XXXXXX)"
 GATE_STEPS_LOG="${GATE_TMP_DIR}/steps.log"
 : >"${GATE_STEPS_LOG}"
+CERTIFY_COMPLETED_OK=0
+LAST_SUMMARY_LINE=""
 
 cleanup_certify_tmp() {
+  local final_rc=$?
+  local ctl_script="${SCRIPT_DIR}/checkpoint_ctl.py"
+  local summary="${LAST_SUMMARY_LINE:-[CERTIFY] rc=${final_rc}}"
+  if [ "${final_rc}" -eq 0 ] && [ "${CERTIFY_COMPLETED_OK:-0}" -eq 1 ]; then
+    summary="[PASS] CERTIFY-STATE | 10/10 gates OK"
+  fi
+  if [ -f "${ctl_script}" ] && [ -w "${REPO_ROOT}" ]; then
+    if command -v python3 >/dev/null 2>&1; then
+      python3 "${ctl_script}" record-cmd --workspace "${REPO_ROOT}" \
+        --cmd "certify_task_completion" --rc "${final_rc}" \
+        --summary "${summary}" >/dev/null 2>&1 || true
+    elif command -v docker >/dev/null 2>&1; then
+      docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp \
+        -v "${REPO_ROOT}:/app" -w /app sinfallas/base-python-uv:3.15 \
+        python3 .agents/scripts/checkpoint_ctl.py record-cmd \
+        --workspace /app --cmd "certify_task_completion" --rc "${final_rc}" \
+        --summary "${summary}" >/dev/null 2>&1 || true
+    fi
+  fi
   rm -rf "${GATE_TMP_DIR}" 2>/dev/null || true
+  exit "${final_rc}"
 }
 trap cleanup_certify_tmp EXIT
 
@@ -223,6 +245,7 @@ run_gate() {
     rc=42
   fi
 
+  LAST_SUMMARY_LINE="[Gate ${gate_num}/10] ${gate_name} failed (rc=${rc})"
   printf '%s/10|%s|failed\n' "${gate_num}" "${gate_name}" >>"${GATE_STEPS_LOG}"
   write_allure_failure_json "${gate_num}" "${gate_name}" "${cmd_display}" "${rc}" "${remediation}" "${gate_log}"
   emit_fail_verbose_report "${gate_num}" "${gate_name}" "${cmd_display}" "${rc}" "${remediation}" "${gate_log}"
@@ -477,4 +500,5 @@ if [ "${pass_tracker_rc}" -eq 0 ] && [ -n "${pass_tracker_out}" ]; then
   printf '%s\n' "${pass_tracker_out}"
 fi
 
+CERTIFY_COMPLETED_OK=1
 printf '✅ CERTIFICACIÓN EXITOSA: El proyecto cumple con el estándar 11X\n'

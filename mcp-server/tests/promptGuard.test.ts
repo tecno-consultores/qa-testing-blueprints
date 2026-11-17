@@ -392,10 +392,10 @@ describe('Zero-Infra PromptGuard & MCP Interceptor (T2.4)', () => {
         });
         expect(noArgsRes.isError).toBe(true);
 
-        // 4. Superficie pública consolidada v2.0.0 (18 tools y 12 resources)
+        // 4. Superficie pública consolidada v2.0.0+ (19 tools y 13 resources)
         const toolsList = await client.listTools();
         const listedToolNames = toolsList.tools.map((t) => t.name);
-        expect(listedToolNames).toHaveLength(18);
+        expect(listedToolNames).toHaveLength(19);
         for (const v2Tool of [
           'validate_calm_architecture',
           'evaluate_release_gate',
@@ -403,17 +403,19 @@ describe('Zero-Infra PromptGuard & MCP Interceptor (T2.4)', () => {
           'run_llm_red_team',
           'audit_vibe_prototype',
           'sync_enterprise_tms',
+          'session_flight_recorder',
         ]) {
           expect(listedToolNames).toContain(v2Tool);
         }
 
         const resourcesList = await client.listResources();
         const listedUris = resourcesList.resources.map((r) => r.uri);
-        expect(listedUris).toHaveLength(12);
+        expect(listedUris).toHaveLength(13);
         for (const v2Uri of [
           'blueprint://ai/evals-redteam',
           'blueprint://mobile-appium/readme',
           'blueprint://vibe-rescue/readme',
+          'blueprint://skills/tactical-patterns-11x',
         ]) {
           expect(listedUris).toContain(v2Uri);
           const readV2 = await client.readResource({ uri: v2Uri });

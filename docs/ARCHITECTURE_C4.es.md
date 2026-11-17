@@ -14,13 +14,13 @@ flowchart TD
     Human["Desarrollador / QA Staff"]
     Agent["Agente de IA (Antigravity, Claude, Cursor, Hermes)"]
     MCP["Servidor MCP Node.js/TS (@sinfallas/mcp-qa-11x v3.0.0)"]
-    Skill["Skills Zero-Clone (10 Skills Modulares < 20 KB)"]
+    Skill["Skills Zero-Clone (11 Skills Modulares < 20 KB)"]
     Gate["Compuerta de Certificacion 11X (certify_task_completion.sh - 10 Etapas)"]
     QA["QA Testing Blueprints (10 Stacks / 12 Entornos / Docker Efimero)"]
     Host["Maquina Host (Docker Engine)"]
     Reports["Reportes y Artefactos (Coverage, ZAP, Chaos, Metricas RED)"]
 
-    Agent -->|"1. Consulta 12 Resources y ejecuta 18 Tools (stdio)"| MCP
+    Agent -->|"1. Consulta 13 Resources y ejecuta 19 Tools (stdio)"| MCP
     Agent -->|"2. Ingiere directivas y reglas"| Skill
     Human -->|"3. Instala skills (npx install-skill) o clona repo"| Skill
     Human -->|"4. Delega tareas / Pair Programming"| Agent

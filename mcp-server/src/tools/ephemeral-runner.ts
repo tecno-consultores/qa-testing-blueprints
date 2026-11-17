@@ -16,7 +16,12 @@ import {
   recordQaStageFindingsState,
 } from '../services/qa-evidence.js';
 import { QaExecutionResult } from '../types.js';
-import { formatFailVerboseReport } from '../utils/diagnosticFormatter.js';
+import {
+  formatFailVerboseReport,
+  hasComplexityOrSignatureViolation,
+  TACTICAL_PATTERNS_DIRECTIVE_11X,
+} from '../utils/diagnosticFormatter.js';
+import { recordStageCmdCheckpoint } from './sessionFlightRecorder.js';
 
 const MAX_EXEC_BUFFER_BYTES = 20 * 1024 * 1024;
 const COMPOSE_QA_FILE = 'docker-compose.qa.yml';
@@ -182,13 +187,16 @@ interface ExecCommandOutcome {
   errorMessage: string;
 }
 
-function buildStructuredFailureResult(
-  stage: string,
-  testName: string,
-  errorSummary: string,
-  tailLog: string,
-  durationMs = 0
-): QaExecutionResult {
+interface StructuredFailureInput {
+  readonly stage: string;
+  readonly testName: string;
+  readonly errorSummary: string;
+  readonly tailLog: string;
+  readonly durationMs?: number;
+}
+
+function buildStructuredFailureResult(input: StructuredFailureInput): QaExecutionResult {
+  const { stage, testName, errorSummary, tailLog, durationMs = 0 } = input;
   return {
     status: STATUS_FAILED,
     stage,
@@ -482,13 +490,10 @@ function resolveDelegatedMakeRecipe(
   const subContent = fs.readFileSync(subMakefilePath, 'utf8');
   const relSubdirPosix = path.relative(ctx.rootDir, targetDir).split(path.sep).join('/');
   for (const subTarget of delegation.targets) {
-    const subRes = resolveMakefileDockerRecipes(
-      subContent,
-      subTarget,
-      targetDir,
-      ctx.rootDir,
-      ctx.depth + 1
-    );
+    const subRes = resolveMakefileDockerRecipes(subContent, subTarget, targetDir, {
+      rootDir: ctx.rootDir,
+      depth: ctx.depth + 1,
+    });
     if (!subRes.ok) {
       return subRes.reason;
     }
@@ -596,14 +601,16 @@ function appendTargetRecipeCommands(
   return null;
 }
 
-function collectTargetCommands(
-  targetName: string,
-  parsed: ParsedMakefile,
-  visited: Set<string>,
-  active: Set<string>,
-  ctx: MakeResolutionContext,
-  commands: string[][]
-): string | null {
+interface CollectCommandsState {
+  readonly parsed: ParsedMakefile;
+  readonly visited: Set<string>;
+  readonly active: Set<string>;
+  readonly ctx: MakeResolutionContext;
+  readonly commands: string[][];
+}
+
+function collectTargetCommands(targetName: string, state: CollectCommandsState): string | null {
+  const { parsed, visited, active, ctx, commands } = state;
   if (active.has(targetName)) {
     return `Dependencia circular en Makefile al resolver '${targetName}'.`;
   }
@@ -617,7 +624,7 @@ function collectTargetCommands(
 
   active.add(targetName);
   for (const dep of deps) {
-    const depError = collectTargetCommands(dep, parsed, visited, active, ctx, commands);
+    const depError = collectTargetCommands(dep, state);
     if (depError) {
       return depError;
     }
@@ -638,6 +645,11 @@ function collectTargetCommands(
   return null;
 }
 
+export interface ResolveMakefileRecursionOptions {
+  readonly rootDir?: string;
+  readonly depth?: number;
+}
+
 /**
  * Extrae recetas Docker seguras de un Makefile cuando GNU make no está disponible en el host.
  * Aplica guardia Fail-Closed de Regla Cero: rechaza cualquier receta no basada en Docker.
@@ -646,9 +658,9 @@ export function resolveMakefileDockerRecipes(
   makefileContent: string,
   target: string,
   resolvedPath: string,
-  rootDir?: string,
-  depth = 0
+  recursion: ResolveMakefileRecursionOptions = {}
 ): RecipeResolutionResult {
+  const { rootDir, depth = 0 } = recursion;
   const currentDir = path.resolve(resolvedPath);
   const parsed = parseMakefile(makefileContent, currentDir);
   const commands: string[][] = [];
@@ -657,14 +669,13 @@ export function resolveMakefileDockerRecipes(
     currentDir,
     depth,
   };
-  const errorReason = collectTargetCommands(
-    target,
+  const errorReason = collectTargetCommands(target, {
     parsed,
-    new Set(),
-    new Set(),
+    visited: new Set(),
+    active: new Set(),
     ctx,
-    commands
-  );
+    commands,
+  });
   if (errorReason) {
     return { ok: false, reason: errorReason };
   }
@@ -901,13 +912,16 @@ export function resolveComposeDirectFallback(
   return null;
 }
 
-function execCommand(
-  executor: typeof execFile,
-  binary: string,
-  args: string[],
-  cwd: string,
-  timeoutMs: number
-): Promise<ExecCommandOutcome> {
+interface ExecCommandInput {
+  readonly executor: typeof execFile;
+  readonly binary: string;
+  readonly args: string[];
+  readonly cwd: string;
+  readonly timeoutMs: number;
+}
+
+function execCommand(input: ExecCommandInput): Promise<ExecCommandOutcome> {
+  const { executor, binary, args, cwd, timeoutMs } = input;
   return new Promise((resolve) => {
     executor(
       binary,
@@ -977,19 +991,24 @@ async function teardownComposeServices(
   resolvedPath: string
 ): Promise<void> {
   for (const downArgs of composeDownTargets) {
-    await execCommand(executor, DOCKER_BINARY, downArgs, resolvedPath, 30000);
+    await execCommand({ executor, binary: DOCKER_BINARY, args: downArgs, cwd: resolvedPath, timeoutMs: 30000 });
   }
 }
 
+interface DockerFallbackContext {
+  readonly executor: typeof execFile;
+  readonly commands: string[][];
+  readonly resolvedPath: string;
+  readonly stage: string;
+  readonly timeoutSeconds: number;
+  readonly startTime: number;
+  readonly execFileSyncFn?: typeof execFileSync;
+}
+
 async function executeDockerFallbackSequence(
-  executor: typeof execFile,
-  commands: string[][],
-  resolvedPath: string,
-  stage: string,
-  timeoutSeconds: number,
-  startTime: number,
-  execFileSyncFn?: typeof execFileSync
+  ctx: DockerFallbackContext
 ): Promise<QaExecutionResult> {
+  const { executor, commands, resolvedPath, stage, timeoutSeconds, startTime, execFileSyncFn } = ctx;
   const timeoutMs = timeoutSeconds * 1000;
   const stdoutChunks: string[] = [];
   const stderrChunks: string[] = [];
@@ -1006,13 +1025,13 @@ async function executeDockerFallbackSequence(
       break;
     }
     registerComposeDownTarget(args, seenDownKeys, composeDownTargets);
-    const res = await execCommand(
+    const res = await execCommand({
       executor,
-      DOCKER_BINARY,
+      binary: DOCKER_BINARY,
       args,
-      resolvedPath,
-      Math.max(1000, rawRemainingMs)
-    );
+      cwd: resolvedPath,
+      timeoutMs: Math.max(1000, rawRemainingMs),
+    });
     if (res.stdout) stdoutChunks.push(res.stdout);
     const errChunk = res.stderr || (res.exitCode !== 0 ? res.errorMessage : '');
     if (errChunk) stderrChunks.push(errChunk);
@@ -1029,13 +1048,10 @@ async function executeDockerFallbackSequence(
   }
 
   const durationMs = Date.now() - startTime;
-  const parsed = parseQaOutput(
-    stdoutChunks.join('\n'),
-    stderrChunks.join('\n'),
-    stage,
+  const parsed = parseQaOutput(stdoutChunks.join('\n'), stderrChunks.join('\n'), stage, {
     durationMs,
-    lastExitCode
-  );
+    exitCode: lastExitCode,
+  });
   if (lastExitCode === 124) {
     parsed.status = STATUS_FAILED;
     parsed.tail_log = `[TIMEOUT] La ejecución fallback en Docker de 'qa-${stage}' excedió el límite configurado de ${timeoutSeconds}s.\n${parsed.tail_log}`;
@@ -1083,13 +1099,10 @@ function applyStageTrackingAndEvidence(
 ): QaExecutionResult {
   if (fs.existsSync(resolvedPath)) {
     const findings = extractStageFindings(parsed);
-    const breaker = recordQaStageFindingsState(
-      resolvedPath,
-      stage,
-      findings,
-      DEFAULT_BREAKER_MAX_STREAK,
-      execFileSyncFn
-    );
+    const breaker = recordQaStageFindingsState(resolvedPath, stage, findings, {
+      maxStreak: DEFAULT_BREAKER_MAX_STREAK,
+      execFileSyncFn,
+    });
     if (breaker.triggered) {
       const blockingTrace = breaker.blocking_findings
         .map(
@@ -1113,29 +1126,52 @@ function applyStageTrackingAndEvidence(
       parsed.tail_log = `${alertBanner}\n${parsed.tail_log}`.trim();
     }
   }
+  if (
+    parsed.status === STATUS_FAILED &&
+    !parsed.tail_log.includes('[DIRECTIVE-11X]') &&
+    (hasComplexityOrSignatureViolation(parsed.tail_log) ||
+      parsed.linter_and_complexity_issues.some((issue) =>
+        hasComplexityOrSignatureViolation(`${issue.rule} ${issue.message}`)
+      ))
+  ) {
+    parsed.tail_log = `${parsed.tail_log}\n${TACTICAL_PATTERNS_DIRECTIVE_11X}`.trim();
+  }
   recordQaStageEvidence(resolvedPath, stage, parsed.status, execFileSyncFn);
+  recordStageCmdCheckpoint(
+    resolvedPath,
+    {
+      cmdName: `qa-${stage}`,
+      exitCode: parsed.exit_code,
+      summary1Line: `${parsed.status}: stage=${stage} exit=${parsed.exit_code}`,
+    },
+    execFileSyncFn
+  );
   return parsed;
 }
 
-async function runMissingMakefileFallback(
-  executor: typeof execFile,
-  resolvedPath: string,
-  stage: string,
-  timeoutSeconds: number,
-  startTime: number,
-  execFileSyncFn?: typeof execFileSync
-): Promise<QaExecutionResult> {
+interface FallbackRunnerContext {
+  readonly executor: typeof execFile;
+  readonly resolvedPath: string;
+  readonly stage: string;
+  readonly timeoutSeconds: number;
+  readonly startTime: number;
+  readonly execFileSyncFn?: typeof execFileSync;
+  readonly makefilePath?: string;
+}
+
+async function runMissingMakefileFallback(ctx: FallbackRunnerContext): Promise<QaExecutionResult> {
+  const { executor, resolvedPath, stage, timeoutSeconds, startTime, execFileSyncFn } = ctx;
   const directCommands = resolveComposeDirectFallback(resolvedPath, stage);
   if (directCommands) {
-    return executeDockerFallbackSequence(
+    return executeDockerFallbackSequence({
       executor,
-      directCommands,
+      commands: directCommands,
       resolvedPath,
       stage,
       timeoutSeconds,
       startTime,
-      execFileSyncFn
-    );
+      execFileSyncFn,
+    });
   }
   const composeExists = fs.existsSync(path.join(resolvedPath, COMPOSE_QA_FILE));
   const msg = composeExists
@@ -1144,55 +1180,53 @@ async function runMissingMakefileFallback(
   const tail = composeExists
     ? msg
     : `Error: Makefile inexistente en el directorio destino: ${resolvedPath}`;
-  const failed = buildStructuredFailureResult(stage, `make qa-${stage}`, msg, tail);
+  const failed = buildStructuredFailureResult({
+    stage,
+    testName: `make qa-${stage}`,
+    errorSummary: msg,
+    tailLog: tail,
+  });
   if (composeExists) {
     recordQaStageEvidence(resolvedPath, stage, failed.status, execFileSyncFn);
   }
   return failed;
 }
 
-async function runMakeEnoentFallback(
-  executor: typeof execFile,
-  makefilePath: string,
-  resolvedPath: string,
-  stage: string,
-  timeoutSeconds: number,
-  startTime: number,
-  execFileSyncFn?: typeof execFileSync
-): Promise<QaExecutionResult> {
-  const makefileContent = fs.readFileSync(makefilePath, 'utf8');
+async function runMakeEnoentFallback(ctx: FallbackRunnerContext): Promise<QaExecutionResult> {
+  const { executor, makefilePath, resolvedPath, stage, timeoutSeconds, startTime, execFileSyncFn } = ctx;
+  const makefileContent = fs.readFileSync(makefilePath as string, 'utf8');
   const recipeResolution = resolveMakefileDockerRecipes(makefileContent, `qa-${stage}`, resolvedPath);
   if (recipeResolution.ok) {
-    return executeDockerFallbackSequence(
+    return executeDockerFallbackSequence({
       executor,
-      recipeResolution.commands,
+      commands: recipeResolution.commands,
       resolvedPath,
       stage,
       timeoutSeconds,
       startTime,
-      execFileSyncFn
-    );
+      execFileSyncFn,
+    });
   }
   const directCommands = resolveComposeDirectFallback(resolvedPath, stage);
   if (directCommands) {
-    return executeDockerFallbackSequence(
+    return executeDockerFallbackSequence({
       executor,
-      directCommands,
+      commands: directCommands,
       resolvedPath,
       stage,
       timeoutSeconds,
       startTime,
-      execFileSyncFn
-    );
+      execFileSyncFn,
+    });
   }
   const failReason = `GNU make no disponible en el host (ENOENT) y fallback Rule Zero rechazado: ${recipeResolution.reason}`;
-  const failed = buildStructuredFailureResult(
+  const failed = buildStructuredFailureResult({
     stage,
-    `make qa-${stage}`,
-    failReason,
-    failReason,
-    Date.now() - startTime
-  );
+    testName: `make qa-${stage}`,
+    errorSummary: failReason,
+    tailLog: failReason,
+    durationMs: Date.now() - startTime,
+  });
   recordQaStageEvidence(resolvedPath, stage, failed.status, execFileSyncFn);
   return failed;
 }
@@ -1272,35 +1306,44 @@ export async function runEphemeralQa(
   const timeoutMs = timeoutSeconds * 1000;
 
   if (!fs.existsSync(makefilePath)) {
-    return runMissingMakefileFallback(
+    return runMissingMakefileFallback({
       executor,
       resolvedPath,
       stage,
       timeoutSeconds,
       startTime,
-      options?.execFileSyncFn
-    );
+      execFileSyncFn: options?.execFileSyncFn,
+    });
   }
 
   prepareCoverageCacheForStage(resolvedPath, stage);
 
-  const makeRes = await execCommand(executor, MAKE_BINARY, [target], resolvedPath, timeoutMs);
+  const makeRes = await execCommand({
+    executor,
+    binary: MAKE_BINARY,
+    args: [target],
+    cwd: resolvedPath,
+    timeoutMs,
+  });
   if (makeRes.errorCode === 'ENOENT') {
-    return runMakeEnoentFallback(
+    return runMakeEnoentFallback({
       executor,
       makefilePath,
       resolvedPath,
       stage,
       timeoutSeconds,
       startTime,
-      options?.execFileSyncFn
-    );
+      execFileSyncFn: options?.execFileSyncFn,
+    });
   }
 
   harvestCoverageForStage(resolvedPath, stage);
 
   const durationMs = Date.now() - startTime;
-  const parsed = parseQaOutput(makeRes.stdout, makeRes.stderr, stage, durationMs, makeRes.exitCode);
+  const parsed = parseQaOutput(makeRes.stdout, makeRes.stderr, stage, {
+    durationMs,
+    exitCode: makeRes.exitCode,
+  });
   if (makeRes.exitCode === 124) {
     parsed.status = STATUS_FAILED;
     parsed.tail_log = `[TIMEOUT] La ejecución de 'make ${target}' excedió el límite configurado de ${timeoutSeconds}s.\n${parsed.tail_log}`;

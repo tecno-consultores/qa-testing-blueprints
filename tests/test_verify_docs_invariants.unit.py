@@ -222,6 +222,27 @@ class TestVerifyDocsInvariants(unittest.TestCase):
             missing_errs = verify_docs.check_bilingual_pair_parity(root)
             self.assertTrue(any("Par bilingüe incompleto/vacío" in e for e in missing_errs))
 
+    def test_detects_tactical_patterns_2500b_and_active_task_rule_25l(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            tactical = root / ".agents" / "skills" / "tactical-patterns-11x" / "SKILL.md"
+            tactical.parent.mkdir(parents=True, exist_ok=True)
+            tactical.write_text("x" * 2_400, encoding="utf-8")
+
+            rule = root / ".agents" / "rules" / "active_task_and_planning_resilience.md"
+            rule.parent.mkdir(parents=True, exist_ok=True)
+            rule.write_text("\n".join(f"- rule {i}" for i in range(15)) + "\n", encoding="utf-8")
+
+            self.assertEqual(verify_docs.check_cognitive_budgets(root), [])
+
+            tactical.write_text("x" * 2_501, encoding="utf-8")
+            rule.write_text("\n".join(f"- rule {i}" for i in range(26)) + "\n", encoding="utf-8")
+            errs = verify_docs.check_cognitive_budgets(root)
+            self.assertTrue(any("tactical-patterns-11x/SKILL.md" in e for e in errs))
+            self.assertTrue(any("active_task_and_planning_resilience.md" in e for e in errs))
+
 
 if __name__ == "__main__":
     unittest.main()

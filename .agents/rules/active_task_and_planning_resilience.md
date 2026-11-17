@@ -1,49 +1,11 @@
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
-# 📋 Active Task Tracking & Planning Tool Resilience Guardrail (Standard 11X)
+# 📋 Active Task Tracking & Atomic Flight Recorder Guardrail (Standard 11X)
 
-## 1. Rationale & Core Invariant
-In long-running autonomous development across complex codebases, AI assistants and IDE processes face three catastrophic failure modes:
-1. **IDE Process Crashes & Hangs:** Sudden termination of agent sessions, terminals, or background workers.
-2. **Context Compaction & Rolling Truncation:** Context limits wipe earlier conversational rationale, instructions, and completed phase tracking.
-3. **Session Interruption & Reboot:** Loss of in-memory short-term scratchpads.
-
-To guarantee zero context loss and immediate session recovery, all AI agents (Google Antigravity, Claude, Hermes, Cursor) MUST adhere to the **Active Task Invariant**:
-> **NON-NEGOTIABLE:** Never modify source code on non-trivial tasks without initializing and maintaining `.agents/ACTIVE_TASK.md` in real-time.
-
----
-
-## 2. The Dual Planning & Persistence Protocol
-
-```text
-┌────────────────────────────────────────────────────────────────────────┐
-│              PLANNING TOOL & ACTIVE_TASK DUAL PROTOCOL                 │
-├────────────────────────────────────────────────────────────────────────┤
-│ 1. INITIATION: User issues task, bugfix, or roadmap milestone          │
-│    └── Invoke planning tool (/plan or interactive plan artifact).      │
-│                                                                        │
-│ 2. PERSISTENCE: Bootstrap .agents/ACTIVE_TASK.md from template         │
-│    └── Copy from .agents/ACTIVE_TASK.md.example if missing.            │
-│    └── Populate Metadata, Goal, Specification, and Phase Checklists.   │
-│                                                                        │
-│ 3. LIVE EXECUTION: Real-time update in filesystem                      │
-│    └── Complete atomic subtask ──> Mark "- [ ]" to "- [x]" IMMEDIATELY.│
-│    └── On crash or context loss ─> Read .agents/ACTIVE_TASK.md first.  │
-│                                                                        │
-│ 4. CLOSURE GATE: Mandatory verification before local git commit          │
-│    └── Update AST graph via ./scripts/actualizar-grafos-graphify.sh.   │
-│    └── Run ./.agents/scripts/certify_task_completion.sh (10/10 gates).  │
-│    └── Mark status: "COMPLETED (100%)".                                │
-│    └── Sync docs/, docs/specs/, CHANGELOG.md, ROADMAP.md, TESTING.md.  │
-│    └── Local certified commit (git add, git commit — NEVER git push per QA-GIT-GATE-01). │
-└────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 3. Mandatory Requirements & Token Budget (`<= 40 Lines`)
-1. **Bootstrap Template & Compact Budget (`<= 40 Lines`):** Always use `.agents/ACTIVE_TASK.md.example` as the canonical schema and keep `.agents/ACTIVE_TASK.md` strictly under **40 lines** (active checklist items only; never accumulate historical narratives that belong in `CHANGELOG.md`).
-2. **Proportional Planning (`MICRO_CHANGE` vs. `FULL_11X`):** Full `/plan` artifacts and multi-phase `ACTIVE_TASK.md` updates are mandatory for `FULL_11X` architectural tasks (`> 3` files, schema/API changes, or `MEDIUM`/`HIGH` blast radius). For `MICRO_CHANGE` tasks (`<= 3` files, `LOW` blast radius), use a concise 3-line inline plan to conserve tokens.
-3. **Live Synchronization:** Every completed phase that marks the completion of a checklist item MUST update the corresponding line in `.agents/ACTIVE_TASK.md`.
-4. **Clean Version Control & Session Compaction (`/compact`):** `.agents/ACTIVE_TASK.md` MUST remain in `.gitignore`. Upon marking a milestone `COMPLETED (100%)`, proactively recommend `/compact` or a clean session reset before starting an unrelated feature.
+## 1. Atomic Flight Recorder & Planning Protocol
+- **Planning (`FULL_11X` vs. `MICRO_CHANGE`):** Invoke `/plan` before modifying code on `FULL_11X` tasks (`> 3` files, schema/API, or `MED`/`HIGH` blast radius). Use a 3-line inline plan on `MICRO_CHANGE`.
+- **Conditional Session Recovery (Zero Waste on Clean Start):** Call `session_flight_recorder(action="recover")` (`checkpoint_ctl.py recover`) **ONLY** when resuming interrupted work or when Git shows modified files (`0` calls on clean repos with new tasks).
+- **Single Source of Truth (`0600` JSON -> Projected Markdown):** Record phase transitions **solely** via `session_flight_recorder(action="save")` (`checkpoint_ctl.py set`, `intent_140chars <= 140`). It atomically persists `.agents/.cache/session_checkpoint.json` (`0600`) and projects `.agents/ACTIVE_TASK.md` (`<= 40` lines).
+- **FORBIDDEN:** Do NOT edit `.agents/ACTIVE_TASK.md` manually with `edit_file` and do NOT narrate file diffs in prose that `git diff` already tracks.
+- **Automatic Command Telemetry & Closure:** `certify_task_completion.sh` (`trap EXIT`) and `run_ephemeral_qa` auto-record telemetry and promote `CERTIFIED_CLEAN` / `COMPLETED (100%)` on gate pass. Keep `.agents/ACTIVE_TASK.md` and `.agents/.cache/` git-ignored, conclude at local commit (`QA-GIT-GATE-01`), and suggest `/compact`.

@@ -304,13 +304,10 @@ export function createMcpServer(options?: {
     'Surgically injects or merges 11X quality standard templates without altering existing production dependencies or code.',
     BootstrapMergeInputSchema.shape,
     async (args) => {
-      const result = await bootstrapOrMerge11x(
-        args.project_path,
-        args.stack,
-        args.dry_run,
+      const result = await bootstrapOrMerge11x(args.project_path, args.stack, args.dry_run, {
         fetcher,
-        merger
-      );
+        merger,
+      });
       return {
         content: [
           {

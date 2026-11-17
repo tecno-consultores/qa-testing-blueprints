@@ -17,7 +17,7 @@ El grafo arquitectónico modela **6 nodos**, **5 relaciones tipadas** y **7 cont
 | `unique-id` | `node-type` | Rol en QA-11X |
 | :--- | :--- | :--- |
 | `qa-11x-ai-ide-host` | `actor` | Cliente IDE / agente IA que consume herramientas y recursos vía JSON-RPC `stdio`. |
-| `mcp-qa-11x-server` | `service` | Servidor MCP `@sinfallas/mcp-qa-11x` con **18 Tools**, **12 Resources**, `promptGuard` y `TaskStateGuard`. |
+| `mcp-qa-11x-server` | `service` | Servidor MCP `@sinfallas/mcp-qa-11x` con **19 Tools**, **13 Resources**, `promptGuard` y `TaskStateGuard`. |
 | `ephemeral-docker-runners` | `system` | Contenedores Docker efímeros no-root (`Rule Zero`, imágenes `sinfallas/*`). |
 | `postgres17-rls-store` | `database` | PostgreSQL 17 multi-tenant con `FORCE ROW LEVEL SECURITY` y cadena de auditoría WORM HMAC. |
 | `keydb-state-cache` | `database` | Motor en memoria KeyDB multi-hilo sobre RESP TLS para estado efímero, rate limits e idempotencia. |

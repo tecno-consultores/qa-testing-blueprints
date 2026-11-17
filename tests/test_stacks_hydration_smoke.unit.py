@@ -328,6 +328,10 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             (fake_repo / ".agents" / "proposals").mkdir(parents=True)
             (fake_repo / ".agents" / "proposals" / "draft.md").write_text("# draft", encoding="utf-8")
             (fake_repo / ".agents" / "ACTIVE_TASK.md").write_text("# valid active task", encoding="utf-8")
+            (fake_repo / ".agents" / ".cache" / "coverage").mkdir(parents=True)
+            (fake_repo / ".agents" / ".cache" / "coverage" / "py.xml").write_text("<cov/>", encoding="utf-8")
+            (fake_repo / ".agents" / ".cache" / "session_checkpoint.json").write_text('{"status":"IN_PROGRESS"}', encoding="utf-8")
+            (fake_repo / ".agents" / ".cache" / "certify_state.json").write_text("{}", encoding="utf-8")
             (fake_home / ".cache" / "qa-11x-blueprints").mkdir(parents=True)
             (fake_home / ".cache" / "qa-11x-blueprints" / "latest-version-check.json").write_text("{}", encoding="utf-8")
 
@@ -385,9 +389,12 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             self.assertTrue((fake_repo / "zap.yaml").is_file())
             self.assertTrue((fake_repo / ".agents" / "proposals" / "draft.md").is_file())
             self.assertTrue((fake_repo / ".agents" / "ACTIVE_TASK.md").is_file())
+            self.assertFalse((fake_repo / ".agents" / ".cache" / "coverage").exists())
+            self.assertTrue((fake_repo / ".agents" / ".cache" / "session_checkpoint.json").is_file())
+            self.assertTrue((fake_repo / ".agents" / ".cache" / "certify_state.json").is_file())
             self.assertTrue((fake_home / ".cache" / "qa-11x-blueprints" / "latest-version-check.json").is_file())
 
-            # En modo --deep se purgan proposals y la caché TTL 24h qa-11x-blueprints, pero NUNCA mcp-server/dist, .qa-11x-version ni .agents/ACTIVE_TASK.md
+            # En modo --deep se purgan proposals, .agents/.cache y la caché TTL 24h qa-11x-blueprints, pero NUNCA mcp-server/dist, .qa-11x-version ni .agents/ACTIVE_TASK.md
             proc_deep = subprocess.run(
                 [str(fake_repo / "scripts" / "limpieza.sh"), "--quiet", "--deep"],
                 cwd=fake_repo,
@@ -398,6 +405,7 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             )
             self.assertEqual(proc_deep.returncode, 0, msg=proc_deep.stderr)
             self.assertFalse((fake_repo / ".agents" / "proposals").exists())
+            self.assertFalse((fake_repo / ".agents" / ".cache").exists())
             self.assertFalse((fake_home / ".cache" / "qa-11x-blueprints").exists())
             self.assertTrue((fake_repo / "mcp-server" / "dist" / "index.js").is_file())
             self.assertTrue((fake_repo / ".qa-11x-version").is_file())

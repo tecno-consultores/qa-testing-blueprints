@@ -50,10 +50,8 @@ export function collectProjectFiles(projectPath: string): string[] {
     try {
       const entries = fs.readdirSync(currentDir, { withFileTypes: true });
       for (const entry of entries) {
-        if (entry.isDirectory()) {
-          if (!EXCLUDED_DIRS.has(entry.name)) {
-            scan(path.join(currentDir, entry.name));
-          }
+        if (entry.isDirectory() && !EXCLUDED_DIRS.has(entry.name)) {
+          scan(path.join(currentDir, entry.name));
         } else if (entry.isFile()) {
           const rel = path
             .relative(projectPath, path.join(currentDir, entry.name))
@@ -169,13 +167,16 @@ function inspectBashStack(resolvedPath: string, detectedStacks: string[]): void 
   }
 }
 
-function inspectPhpStack(
-  projectPath: string,
-  files: string[],
-  detectedStacks: string[],
-  strictFlags: ProjectAuditResult['strict_flags'],
-  missing11xFiles: string[]
-): void {
+interface PhpStackContext {
+  readonly projectPath: string;
+  readonly files: string[];
+  readonly detectedStacks: string[];
+  readonly strictFlags: ProjectAuditResult['strict_flags'];
+  readonly missing11xFiles: string[];
+}
+
+function inspectPhpStack(ctx: PhpStackContext): void {
+  const { projectPath, files, detectedStacks, strictFlags, missing11xFiles } = ctx;
   const composerPath = path.join(projectPath, COMPOSER_JSON_FILE);
   const hasComposer = fs.existsSync(composerPath);
   const hasPhpFiles = files.some((f) => f.endsWith('.php'));
@@ -215,6 +216,17 @@ function collectMissing11xFiles(resolvedPath: string): string[] {
   return missing;
 }
 
+function hasDependencyInPackageFile(packagePath: string, packageName: string): boolean {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(packagePath, UTF8_ENCODING));
+    const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+    return packageName in deps;
+  } catch {
+    const content = fs.readFileSync(packagePath, UTF8_ENCODING);
+    return content.includes(`"${packageName}"`);
+  }
+}
+
 function checkPackageInstalled(projectPath: string, packageName: string): boolean {
   const candidatePaths = [
     path.join(projectPath, PACKAGE_JSON),
@@ -222,18 +234,20 @@ function checkPackageInstalled(projectPath: string, packageName: string): boolea
     path.join(projectPath, REACT_FRONTEND_STACK, PACKAGE_JSON),
   ];
   for (const p of candidatePaths) {
-    if (fs.existsSync(p)) {
-      try {
-        const pkg = JSON.parse(fs.readFileSync(p, UTF8_ENCODING));
-        const deps = { ...pkg.dependencies, ...pkg.devDependencies };
-        if (packageName in deps) return true;
-      } catch {
-        const content = fs.readFileSync(p, UTF8_ENCODING);
-        if (content.includes(`"${packageName}"`)) return true;
-      }
+    if (fs.existsSync(p) && hasDependencyInPackageFile(p, packageName)) {
+      return true;
     }
   }
   return false;
+}
+
+function configMentionsBrowserMcp(configFile: string): boolean {
+  try {
+    const content = fs.readFileSync(configFile, UTF8_ENCODING);
+    return content.includes('playwright') || content.includes('chrome-devtools');
+  } catch {
+    return false;
+  }
 }
 
 function checkBrowserMcpInIde(homeDir?: string): boolean {
@@ -244,19 +258,9 @@ function checkBrowserMcpInIde(homeDir?: string): boolean {
     path.join(baseHome, '.claude.json'),
     path.join(baseHome, '.cursor', 'mcp.json'),
   ];
-  for (const configFile of configFiles) {
-    if (fs.existsSync(configFile)) {
-      try {
-        const content = fs.readFileSync(configFile, UTF8_ENCODING);
-        if (content.includes('playwright') || content.includes('chrome-devtools')) {
-          return true;
-        }
-      } catch {
-        // Ignorar errores de lectura
-      }
-    }
-  }
-  return false;
+  return configFiles.some(
+    (configFile) => fs.existsSync(configFile) && configMentionsBrowserMcp(configFile)
+  );
 }
 
 export function evaluateBrowserTestingReadiness(
@@ -339,7 +343,13 @@ export async function inspectProjectConfig(
     tsconfig_strict: tsconfigStrict,
     npmrc_ignore_scripts: npmrcIgnoreScripts,
   };
-  inspectPhpStack(resolvedPath, files, detectedStacks, strictFlags, missing11xFiles);
+  inspectPhpStack({
+    projectPath: resolvedPath,
+    files,
+    detectedStacks,
+    strictFlags,
+    missing11xFiles,
+  });
 
   const browserReadiness = evaluateBrowserTestingReadiness(
     resolvedPath,

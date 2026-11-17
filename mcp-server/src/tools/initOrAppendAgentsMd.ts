@@ -403,19 +403,24 @@ export function buildAgentsMdConnectorBlock(
     '',
     '1. **High-IQ Token Economy & AST-First:** Query `inspect_ast_blast_radius` / `.agents/scripts/inspect_blast_radius.py` and `graphify-out/GRAPH_REPORT.md` BEFORE `grep` or windowed `read_file` (40–80 lines); never read files `>150` lines blindly.',
     '2. **Rule Zero & Test Co-Evolution (`QA-TEST-SYNC-01`):** Execute all tests, linters, and migrations inside ephemeral Docker containers (`run_ephemeral_qa`), updating affected unit, integration, BATS, and Karate BDD suites alongside code edits (`>= 95%` coverage).',
-    '3. **3-Path Execution & Governance Closure (`QA-GIT-GATE-01`):** Follow `DOCS_ONLY`, `MICRO_CHANGE`, or `FULL_11X`, track progress in `.agents/ACTIVE_TASK.md` (`<= 40` lines), certify via `certify_11x_gate`, and conclude with a local `git commit` (NEVER execute `git push` or `npm publish` without explicit human authorization).',
+    '3. **3-Path Execution & Governance Closure (`QA-GIT-GATE-01`):** Follow `DOCS_ONLY`, `MICRO_CHANGE`, or `FULL_11X`, record state via `session_flight_recorder` (`save`/`recover`/`clear`, auto-projecting `.agents/ACTIVE_TASK.md` `<= 40` lines), certify via `certify_11x_gate`, and conclude with a local `git commit` (NEVER execute `git push` or `npm publish` without explicit human authorization).',
     CONNECTOR_END_MARKER,
   ].join('\n');
 }
 
+interface DelimitedSectionSpec {
+  readonly startMarker: string;
+  readonly endMarker: string;
+  readonly block: string;
+  readonly emptyDocument: string;
+  readonly appendSeparator: string;
+}
+
 function replaceDelimitedSection(
   existingContent: string,
-  startMarker: string,
-  endMarker: string,
-  block: string,
-  emptyDocument: string,
-  appendSeparator: string
+  spec: DelimitedSectionSpec
 ): { finalContent: string; action: MergeAction } {
+  const { startMarker, endMarker, block, emptyDocument, appendSeparator } = spec;
   if (!existingContent.trim()) {
     return { finalContent: emptyDocument, action: ACTION_CREATED };
   }
@@ -438,14 +443,13 @@ export function mergeAgentsMdContent(
 ): { finalContent: string; action: MergeAction } {
   const block = buildAgentsMdConnectorBlock(projectName, stacks, lang);
   const header = `# SPDX-License-Identifier: MIT\n\n# 🤖 AI Agent Directives & Technical Governance — ${projectName}\n\n`;
-  return replaceDelimitedSection(
-    existingContent,
-    CONNECTOR_START_MARKER,
-    CONNECTOR_END_MARKER,
+  return replaceDelimitedSection(existingContent, {
+    startMarker: CONNECTOR_START_MARKER,
+    endMarker: CONNECTOR_END_MARKER,
     block,
-    `${header}${block}\n`,
-    '\n\n---\n\n'
-  );
+    emptyDocument: `${header}${block}\n`,
+    appendSeparator: '\n\n---\n\n',
+  });
 }
 
 function hasUnsafeAgentIdChars(id: string): boolean {
@@ -594,14 +598,13 @@ function mergeMarkdownBridge(
   lang: SupportedLang
 ): { finalContent: string; action: MergeAction } {
   const block = buildMarkdownBridgeBlock(agentLabels, stacksLabel, lang);
-  return replaceDelimitedSection(
-    existingContent,
-    BRIDGE_START_MARKER,
-    BRIDGE_END_MARKER,
+  return replaceDelimitedSection(existingContent, {
+    startMarker: BRIDGE_START_MARKER,
+    endMarker: BRIDGE_END_MARKER,
     block,
-    `${block}\n`,
-    '\n\n'
-  );
+    emptyDocument: `${block}\n`,
+    appendSeparator: '\n\n',
+  });
 }
 
 function mergeMdcBridge(
@@ -614,14 +617,13 @@ function mergeMdcBridge(
   if (!existingContent.trim()) {
     return { finalContent: `${CURSOR_MDC_HEADER}\n\n${block}\n`, action: ACTION_CREATED };
   }
-  const merged = replaceDelimitedSection(
-    existingContent,
-    BRIDGE_START_MARKER,
-    BRIDGE_END_MARKER,
+  const merged = replaceDelimitedSection(existingContent, {
+    startMarker: BRIDGE_START_MARKER,
+    endMarker: BRIDGE_END_MARKER,
     block,
-    `${CURSOR_MDC_HEADER}\n\n${block}\n`,
-    '\n\n'
-  );
+    emptyDocument: `${CURSOR_MDC_HEADER}\n\n${block}\n`,
+    appendSeparator: '\n\n',
+  });
   if (merged.action === ACTION_APPENDED && !existingContent.trimStart().startsWith('---')) {
     return { finalContent: `${CURSOR_MDC_HEADER}\n\n${merged.finalContent}`, action: ACTION_APPENDED };
   }
@@ -654,14 +656,13 @@ function mergeAiderYamlBridge(
     AIDER_BRIDGE_END,
   ];
   const block = blockLines.join('\n');
-  return replaceDelimitedSection(
-    existingContent,
-    AIDER_BRIDGE_START,
-    AIDER_BRIDGE_END,
+  return replaceDelimitedSection(existingContent, {
+    startMarker: AIDER_BRIDGE_START,
+    endMarker: AIDER_BRIDGE_END,
     block,
-    `${block}\n`,
-    '\n\n'
-  );
+    emptyDocument: `${block}\n`,
+    appendSeparator: '\n\n',
+  });
 }
 
 type BridgeMerger = (
@@ -708,13 +709,18 @@ function groupNonAgentsMdTargets(agentIds: readonly SupportedAiAgentId[]): Group
   return Array.from(byPath.values());
 }
 
+export interface SyncAgentBridgeOptions {
+  readonly lang: SupportedLang;
+  readonly dryRun: boolean;
+}
+
 export function syncAgentBridgeFiles(
   projectRoot: string,
   agentsSpec: AgentsTargetSpec | undefined,
   stacks: string[],
-  lang: SupportedLang,
-  dryRun: boolean
+  options: SyncAgentBridgeOptions
 ): { bridgedAgents: SupportedAiAgentId[]; bridgeFiles: BridgeFileResult[] } {
+  const { lang, dryRun } = options;
   const bridgedAgents = resolveTargetAgentIds(projectRoot, agentsSpec);
   const groupedTargets = groupNonAgentsMdTargets(bridgedAgents);
   const stacksLabel = stacks.length > 0 ? stacks.join(', ') : 'general';
@@ -778,8 +784,7 @@ export async function initOrAppendAgentsMd(
     resolvedPath,
     options.agents,
     detectedStacks,
-    lang,
-    dryRun
+    { lang, dryRun }
   );
 
   if (!dryRun) {

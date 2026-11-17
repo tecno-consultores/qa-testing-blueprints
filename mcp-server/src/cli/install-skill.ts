@@ -14,6 +14,7 @@ const AGENTS_DIR_NAME = '.agents';
 const SKILLS_DIR_NAME = 'skills';
 const SKILLS_PREFIX = '.agents/skills/';
 const AGENT_SCRIPTS_PREFIX = '.agents/scripts/';
+const AGENT_SCHEMAS_PREFIX = '.agents/schemas/';
 const ACTIVE_TASK_EXAMPLE_PATH = '.agents/ACTIVE_TASK.md.example';
 const GEMINI_DIR_NAME = '.gemini';
 const CLAUDE_DIR_NAME = '.claude';
@@ -201,6 +202,7 @@ async function installIncludedScripts(
     ...(manifest.agent_governance_files || []).filter(
       (f) =>
         f.path.startsWith(AGENT_SCRIPTS_PREFIX) ||
+        f.path.startsWith(AGENT_SCHEMAS_PREFIX) ||
         f.path === ACTIVE_TASK_EXAMPLE_PATH
     ),
   ];

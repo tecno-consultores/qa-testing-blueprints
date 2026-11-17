@@ -1432,9 +1432,10 @@ def _seed_nominal_catalog_repo(root: Path) -> tuple[dict[str, Any], dict[str, An
         "docker-trivy-keydb-hardening",
         "graphify-ast-navigator",
         "refactoring-ui",
+        "tactical-patterns-11x",
     )
-    tools = [f"tool_{i:02d}" for i in range(18)]
-    resources = [f"blueprint://res/{i:02d}" for i in range(12)]
+    tools = [f"tool_{i:02d}" for i in range(19)]
+    resources = [f"blueprint://res/{i:02d}" for i in range(13)]
     blueprints = [{"id": f"bp_{i}", "path": f"bp_{i}"} for i in range(10)]
 
     (root / "mcp-server").mkdir(parents=True, exist_ok=True)
@@ -1471,8 +1472,8 @@ def _seed_nominal_catalog_repo(root: Path) -> tuple[dict[str, Any], dict[str, An
         "version": "2.21.0",
         "license": "MIT",
         "mcp_capabilities": {
-            "tools_count": 18,
-            "resources_count": 12,
+            "tools_count": 19,
+            "resources_count": 13,
             "tools": tools,
             "resources": resources,
         },

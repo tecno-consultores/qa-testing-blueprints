@@ -53,6 +53,11 @@ import {
   type AuditVibePrototypeArgs,
 } from './tools/auditVibePrototype.js';
 import { SYNC_ENTERPRISE_TMS_TOOL, handleSyncEnterpriseTms, runTmsSyncCli } from './integrations/tmsSyncCli.js';
+import {
+  SESSION_FLIGHT_RECORDER_TOOL,
+  handleSessionFlightRecorder,
+  type SessionFlightRecorderArgs,
+} from './tools/sessionFlightRecorder.js';
 import { AI_EVALS_REDTEAM_RESOURCE, readAiEvalsBlueprint } from './resources/aiEvalsBlueprint.js';
 import {
   MOBILE_APPIUM_RESOURCE,
@@ -60,6 +65,10 @@ import {
   readMobileAppiumBlueprint,
   readVibeRescueBlueprint,
 } from './resources/stackBlueprints.js';
+import {
+  TACTICAL_PATTERNS_SKILL_RESOURCE,
+  readTacticalPatternsSkillResource,
+} from './resources/tacticalPatternsSkill.js';
 
 const STDIO_MODE = 'stdio' as const;
 const STDIO_FORCED_MODE = 'stdio-forced' as const;
@@ -88,7 +97,7 @@ Usage:
   npx -y @sinfallas/mcp-qa-11x@latest init-agents                                   Injects or updates QA 11X connector in AGENTS.md
   npx -y @sinfallas/mcp-qa-11x@latest reconcile-agents                             Reconciles and deduplicates rules in .agents/
   npx -y @sinfallas/mcp-qa-11x@latest tms-sync --mode <mode> [options]              Syncs Jira/Zephyr/Xray/GitHub Issues traceability
-  npx -y @sinfallas/mcp-qa-11x@latest [--stdio]                                     Starts the MCP server over stdio (18 tools, 12 resources)
+  npx -y @sinfallas/mcp-qa-11x@latest [--stdio]                                     Starts the MCP server over stdio (19 tools, 13 resources)
   npx -y @sinfallas/mcp-qa-11x@latest --version                                     Displays the active package version
   npx -y @sinfallas/mcp-qa-11x@latest --help                                        Displays this help message
 
@@ -119,7 +128,7 @@ Options for reconcile-agents:
 export const INTERACTIVE_TTY_NOTICE = `
 ℹ️  @sinfallas/mcp-qa-11x v${MCP_SERVER_VERSION} — Interactive Terminal Detected (TTY)
 
-Running without arguments starts the JSON-RPC MCP server (18 tools, 12 resources) over stdio, which is spawned automatically by AI clients (not meant to hang an interactive shell).
+Running without arguments starts the JSON-RPC MCP server (19 tools, 13 resources) over stdio, which is spawned automatically by AI clients (not meant to hang an interactive shell).
 
 👉 Choose what you want to do:
   1. Zero-friction 30s onboarding (recommended for new repositories):
@@ -250,6 +259,7 @@ const V2_TOOL_DEFINITIONS: readonly Tool[] = [
   RUN_LLM_RED_TEAM_TOOL,
   AUDIT_VIBE_PROTOTYPE_TOOL,
   SYNC_ENTERPRISE_TMS_TOOL,
+  SESSION_FLIGHT_RECORDER_TOOL,
 ];
 
 const V2_TOOL_HANDLERS: Readonly<Record<string, V2ToolExecutor>> = {
@@ -264,6 +274,8 @@ const V2_TOOL_HANDLERS: Readonly<Record<string, V2ToolExecutor>> = {
   [AUDIT_VIBE_PROTOTYPE_TOOL.name]: (args) =>
     handleAuditVibePrototype(args as AuditVibePrototypeArgs | undefined),
   [SYNC_ENTERPRISE_TMS_TOOL.name]: async (args) => await handleSyncEnterpriseTms(args),
+  [SESSION_FLIGHT_RECORDER_TOOL.name]: async (args) =>
+    await handleSessionFlightRecorder(args as SessionFlightRecorderArgs | undefined),
 };
 
 const V1_TEMPLATE_RESOURCES: readonly Resource[] = [
@@ -285,6 +297,7 @@ const V2_RESOURCE_DEFINITIONS: readonly Resource[] = [
   AI_EVALS_REDTEAM_RESOURCE,
   MOBILE_APPIUM_RESOURCE,
   VIBE_RESCUE_RESOURCE,
+  TACTICAL_PATTERNS_SKILL_RESOURCE,
 ];
 
 const EXTRA_LISTED_RESOURCES: readonly Resource[] = [
@@ -310,6 +323,8 @@ const V2_RESOURCE_READERS: Readonly<
     toReadResourceResult(readMobileAppiumBlueprint(undefined, lang), requestedUri),
   [VIBE_RESCUE_RESOURCE.uri]: (lang, requestedUri) =>
     toReadResourceResult(readVibeRescueBlueprint(undefined, lang), requestedUri),
+  [TACTICAL_PATTERNS_SKILL_RESOURCE.uri]: (lang, requestedUri) =>
+    toReadResourceResult(readTacticalPatternsSkillResource(undefined, lang), requestedUri),
 };
 
 function getRequestHandlersMap(mcpServer: McpServer): Map<string, RawGenericHandler> {
@@ -413,13 +428,18 @@ function wrapReadResourceHandler(
   });
 }
 
+interface ProtectedToolContext {
+  readonly nextRequest: CallToolRequest;
+  readonly extra: unknown;
+  readonly existingCallHandler: RawToolRequestHandler;
+  readonly taskGuard: TaskStateGuard;
+}
+
 async function executeProtectedTool(
   toolName: string,
-  nextRequest: CallToolRequest,
-  extra: unknown,
-  existingCallHandler: RawToolRequestHandler,
-  taskGuard: TaskStateGuard
+  context: ProtectedToolContext
 ): Promise<CallToolResult> {
+  const { nextRequest, extra, existingCallHandler, taskGuard } = context;
   const startedAt = Date.now();
   try {
     return await taskGuard.executeTask(
@@ -487,26 +507,32 @@ export function attachPromptGuard(mcpServer: McpServer, options?: AttachGuardOpt
               arguments: verdict.sanitizedArgs,
             },
           };
-    return await executeProtectedTool(
-      request.params.name,
+    return await executeProtectedTool(request.params.name, {
       nextRequest,
       extra,
       existingCallHandler,
-      taskGuard
-    );
+      taskGuard,
+    });
   });
 
   return mcpServer;
 }
 
+export interface MainRuntimeOptions {
+  readonly exitFn?: (code: number) => void;
+  readonly autoSyncFn?: (fetcher: GitHubFetcher) => Promise<unknown>;
+  readonly isStdinTty?: boolean;
+}
+
 export async function main(
   argv: string[] = process.argv.slice(2),
   startStdio?: () => Promise<void>,
-  exitFn: (code: number) => void = (code) => process.exit(code),
-  autoSyncFn: (fetcher: GitHubFetcher) => Promise<unknown> = (fetcher) =>
-    syncGlobalSkillsInBackground({ fetcher }),
-  isStdinTty: boolean = Boolean(process.stdin.isTTY)
+  options: MainRuntimeOptions = {}
 ): Promise<void> {
+  const exitFn = options.exitFn ?? ((code: number) => process.exit(code));
+  const autoSyncFn =
+    options.autoSyncFn ?? ((fetcher: GitHubFetcher) => syncGlobalSkillsInBackground({ fetcher }));
+  const isStdinTty = options.isStdinTty ?? Boolean(process.stdin.isTTY);
   const outcome = await dispatchCliArgs(argv);
   if (typeof outcome === 'number') {
     exitFn(outcome);

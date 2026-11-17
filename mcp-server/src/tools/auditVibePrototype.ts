@@ -266,21 +266,22 @@ function resolveContainedSubdir(rawSubdir: string, targetReal: string): string {
   return candidate;
 }
 
-function addFinding(
-  findings: VibeFinding[],
-  ruleId: VibeRuleId,
-  severity: VibeSeverity,
-  file: string,
-  line: number,
-  message: string,
-): void {
+interface VibeFindingSpec {
+  readonly ruleId: VibeRuleId;
+  readonly severity: VibeSeverity;
+  readonly file: string;
+  readonly line: number;
+  readonly message: string;
+}
+
+function addFinding(findings: VibeFinding[], spec: VibeFindingSpec): void {
   findings.push({
-    ruleId,
-    stage: STAGE_BY_RULE[ruleId],
-    severity,
-    file,
-    line,
-    message: redactVibeSecrets(message),
+    ruleId: spec.ruleId,
+    stage: STAGE_BY_RULE[spec.ruleId],
+    severity: spec.severity,
+    file: spec.file,
+    line: spec.line,
+    message: redactVibeSecrets(spec.message),
   });
 }
 
@@ -354,13 +355,16 @@ function parseEnvAssignment(rawLine: string): { key: string; value: string } | n
   return { key, value };
 }
 
-function scanEnvLines(
-  rel: string,
-  lines: readonly string[],
-  envIgnored: boolean,
-  findings: VibeFinding[],
-  envKeys: Set<string>,
-): void {
+interface ScanEnvContext {
+  readonly rel: string;
+  readonly lines: readonly string[];
+  readonly envIgnored: boolean;
+  readonly findings: VibeFinding[];
+  readonly envKeys: Set<string>;
+}
+
+function scanEnvLines(ctx: ScanEnvContext): void {
+  const { rel, lines, envIgnored, findings, envKeys } = ctx;
   for (let idx = 0; idx < lines.length; idx += 1) {
     const parsed = parseEnvAssignment(lines[idx]);
     if (!parsed) {
@@ -370,23 +374,21 @@ function scanEnvLines(
     envKeys.add(key);
     const isPlaceholder = value.length === 0 || PLACEHOLDER_VAL_RE.test(value);
     if (CLIENT_SECRET_VAR_RE.test(key)) {
-      addFinding(
-        findings,
-        VIBE_RULE_SEC,
-        VIBE_SEVERITY_CRITICAL,
-        rel,
-        idx + 1,
-        `Variable cliente privilegiada: ${key}=${REDACTION_MARKER}`,
-      );
+      addFinding(findings, {
+        ruleId: VIBE_RULE_SEC,
+        severity: VIBE_SEVERITY_CRITICAL,
+        file: rel,
+        line: idx + 1,
+        message: `Variable cliente privilegiada: ${key}=${REDACTION_MARKER}`,
+      });
     } else if (!envIgnored && SENSITIVE_ENV_KEY_RE.test(key) && !isPlaceholder) {
-      addFinding(
-        findings,
-        VIBE_RULE_SEC,
-        VIBE_SEVERITY_CRITICAL,
-        rel,
-        idx + 1,
-        `Secreto en .env sin .gitignore: ${key}=${REDACTION_MARKER}`,
-      );
+      addFinding(findings, {
+        ruleId: VIBE_RULE_SEC,
+        severity: VIBE_SEVERITY_CRITICAL,
+        file: rel,
+        line: idx + 1,
+        message: `Secreto en .env sin .gitignore: ${key}=${REDACTION_MARKER}`,
+      });
     }
   }
 }
@@ -400,24 +402,22 @@ function scanSourceSecrets(
     const line = lines[idx];
     const clientMatch = CLIENT_SECRET_VAR_RE.exec(line);
     if (clientMatch) {
-      addFinding(
-        findings,
-        VIBE_RULE_SEC,
-        VIBE_SEVERITY_CRITICAL,
-        rel,
-        idx + 1,
-        `Credencial privilegiada en cliente: ${clientMatch[1]}`,
-      );
+      addFinding(findings, {
+        ruleId: VIBE_RULE_SEC,
+        severity: VIBE_SEVERITY_CRITICAL,
+        file: rel,
+        line: idx + 1,
+        message: `Credencial privilegiada en cliente: ${clientMatch[1]}`,
+      });
     }
     if (LITERAL_KEY_RE.test(line)) {
-      addFinding(
-        findings,
-        VIBE_RULE_SEC,
-        VIBE_SEVERITY_CRITICAL,
-        rel,
-        idx + 1,
-        `Literal de llave API detectado en código: ${REDACTION_MARKER}`,
-      );
+      addFinding(findings, {
+        ruleId: VIBE_RULE_SEC,
+        severity: VIBE_SEVERITY_CRITICAL,
+        file: rel,
+        line: idx + 1,
+        message: `Literal de llave API detectado en código: ${REDACTION_MARKER}`,
+      });
     }
   }
 }
@@ -428,86 +428,82 @@ function scanSqlFile(rel: string, rawText: string, findings: VibeFinding[]): voi
     .replace(SQL_LINE_COMMENT_RE, '');
   const lines = cleaned.split(/\r?\n/);
   if (SQL_PERMISSIVE_RE.test(cleaned)) {
-    addFinding(
-      findings,
-      VIBE_RULE_RLS,
-      VIBE_SEVERITY_CRITICAL,
-      rel,
-      findMatchingLine(lines, SQL_PERMISSIVE_RE),
-      `Política SQL permisiva detectada; aplicar ${RLS_TEMPLATE_REL_PATH}`,
-    );
+    addFinding(findings, {
+      ruleId: VIBE_RULE_RLS,
+      severity: VIBE_SEVERITY_CRITICAL,
+      file: rel,
+      line: findMatchingLine(lines, SQL_PERMISSIVE_RE),
+      message: `Política SQL permisiva detectada; aplicar ${RLS_TEMPLATE_REL_PATH}`,
+    });
   }
   if (SQL_BYPASSRLS_RE.test(cleaned)) {
-    addFinding(
-      findings,
-      VIBE_RULE_RLS,
-      VIBE_SEVERITY_CRITICAL,
-      rel,
-      findMatchingLine(lines, SQL_BYPASSRLS_RE),
-      'Uso inseguro de BYPASSRLS detectado en definición SQL',
-    );
+    addFinding(findings, {
+      ruleId: VIBE_RULE_RLS,
+      severity: VIBE_SEVERITY_CRITICAL,
+      file: rel,
+      line: findMatchingLine(lines, SQL_BYPASSRLS_RE),
+      message: 'Uso inseguro de BYPASSRLS detectado en definición SQL',
+    });
   }
   const hasForceRls = SQL_ENABLE_RLS_RE.test(cleaned) && SQL_FORCE_RLS_RE.test(cleaned);
   if (SQL_CREATE_TABLE_RE.test(cleaned) && !hasForceRls) {
-    addFinding(
-      findings,
-      VIBE_RULE_RLS,
-      VIBE_SEVERITY_CRITICAL,
-      rel,
-      findMatchingLine(lines, SQL_CREATE_TABLE_RE),
-      'CREATE TABLE sin ENABLE + FORCE ROW LEVEL SECURITY',
-    );
+    addFinding(findings, {
+      ruleId: VIBE_RULE_RLS,
+      severity: VIBE_SEVERITY_CRITICAL,
+      file: rel,
+      line: findMatchingLine(lines, SQL_CREATE_TABLE_RE),
+      message: 'CREATE TABLE sin ENABLE + FORCE ROW LEVEL SECURITY',
+    });
   }
 }
 
-function scanNonTestCode(
-  rel: string,
-  ext: string,
-  text: string,
-  lines: readonly string[],
-  maxLines: number,
-  findings: VibeFinding[],
-): void {
+interface NonTestCodeScanInput {
+  readonly rel: string;
+  readonly ext: string;
+  readonly text: string;
+  readonly lines: readonly string[];
+  readonly maxLines: number;
+  readonly findings: VibeFinding[];
+}
+
+function scanNonTestCode(input: NonTestCodeScanInput): void {
+  const { rel, ext, text, lines, maxLines, findings } = input;
   const isClient = ext === '.tsx' || ext === '.jsx' || ext === '.vue' || rel.toLowerCase().includes('client');
   if (isClient && CLIENT_SERVICE_ROLE_RE.test(text)) {
-    addFinding(
-      findings,
-      VIBE_RULE_RLS,
-      VIBE_SEVERITY_CRITICAL,
-      rel,
-      findMatchingLine(lines, CLIENT_SERVICE_ROLE_RE),
-      'Uso de service_role/supabaseAdmin en capa cliente',
-    );
+    addFinding(findings, {
+      ruleId: VIBE_RULE_RLS,
+      severity: VIBE_SEVERITY_CRITICAL,
+      file: rel,
+      line: findMatchingLine(lines, CLIENT_SERVICE_ROLE_RE),
+      message: 'Uso de service_role/supabaseAdmin en capa cliente',
+    });
   }
   if (WEAK_TYPE_RE.test(text)) {
-    addFinding(
-      findings,
-      VIBE_RULE_TYPE,
-      VIBE_SEVERITY_HIGH,
-      rel,
-      findMatchingLine(lines, WEAK_TYPE_RE),
-      'Escape de tipado estricto (: any / @ts-ignore / # type: ignore)',
-    );
+    addFinding(findings, {
+      ruleId: VIBE_RULE_TYPE,
+      severity: VIBE_SEVERITY_HIGH,
+      file: rel,
+      line: findMatchingLine(lines, WEAK_TYPE_RE),
+      message: 'Escape de tipado estricto (: any / @ts-ignore / # type: ignore)',
+    });
   }
   if (MUTATING_ROUTE_RE.test(text) && !IDEMPOTENCY_RE.test(text)) {
-    addFinding(
-      findings,
-      VIBE_RULE_TYPE,
-      VIBE_SEVERITY_HIGH,
-      rel,
-      findMatchingLine(lines, MUTATING_ROUTE_RE),
-      'Endpoint mutador sin verificación de cabecera Idempotency-Key',
-    );
+    addFinding(findings, {
+      ruleId: VIBE_RULE_TYPE,
+      severity: VIBE_SEVERITY_HIGH,
+      file: rel,
+      line: findMatchingLine(lines, MUTATING_ROUTE_RE),
+      message: 'Endpoint mutador sin verificación de cabecera Idempotency-Key',
+    });
   }
   if (lines.length > maxLines) {
-    addFinding(
-      findings,
-      VIBE_RULE_ARCH,
-      VIBE_SEVERITY_MEDIUM,
-      rel,
-      1,
-      `Archivo monolítico (${lines.length} > ${maxLines} líneas); modularizar CC <= 5`,
-    );
+    addFinding(findings, {
+      ruleId: VIBE_RULE_ARCH,
+      severity: VIBE_SEVERITY_MEDIUM,
+      file: rel,
+      line: 1,
+      message: `Archivo monolítico (${lines.length} > ${maxLines} líneas); modularizar CC <= 5`,
+    });
   }
 }
 
@@ -518,24 +514,22 @@ function scanDockerfile(
   findings: VibeFinding[],
 ): void {
   if (DOCKER_USER_ROOT_RE.test(text) || !DOCKER_ANY_USER_RE.test(text)) {
-    addFinding(
-      findings,
-      VIBE_RULE_QA,
-      VIBE_SEVERITY_HIGH,
-      rel,
-      findMatchingLine(lines, DOCKER_USER_ROOT_RE),
-      'Dockerfile ejecuta como root o carece de directiva USER no-root',
-    );
+    addFinding(findings, {
+      ruleId: VIBE_RULE_QA,
+      severity: VIBE_SEVERITY_HIGH,
+      file: rel,
+      line: findMatchingLine(lines, DOCKER_USER_ROOT_RE),
+      message: 'Dockerfile ejecuta como root o carece de directiva USER no-root',
+    });
   }
   if (DOCKER_FROM_LATEST_RE.test(text)) {
-    addFinding(
-      findings,
-      VIBE_RULE_QA,
-      VIBE_SEVERITY_HIGH,
-      rel,
-      findMatchingLine(lines, DOCKER_FROM_LATEST_RE),
-      'Dockerfile usa etiqueta mutable :latest sin digest @sha256',
-    );
+    addFinding(findings, {
+      ruleId: VIBE_RULE_QA,
+      severity: VIBE_SEVERITY_HIGH,
+      file: rel,
+      line: findMatchingLine(lines, DOCKER_FROM_LATEST_RE),
+      message: 'Dockerfile usa etiqueta mutable :latest sin digest @sha256',
+    });
   }
 }
 
@@ -543,14 +537,17 @@ function isEnvFile(baseName: string): boolean {
   return baseName === '.env' || (baseName.startsWith('.env.') && !baseName.endsWith('.example'));
 }
 
-function processSingleFile(
-  filePath: string,
-  targetReal: string,
-  envIgnored: boolean,
-  maxLines: number,
-  findings: VibeFinding[],
-  envKeys: Set<string>,
-): boolean {
+interface ProcessSingleFileInput {
+  readonly filePath: string;
+  readonly targetReal: string;
+  readonly envIgnored: boolean;
+  readonly maxLines: number;
+  readonly findings: VibeFinding[];
+  readonly envKeys: Set<string>;
+}
+
+function processSingleFile(input: ProcessSingleFileInput): boolean {
+  const { filePath, targetReal, envIgnored, maxLines, findings, envKeys } = input;
   const relPosix = path.relative(targetReal, filePath).split(path.sep).join('/');
   const baseName = path.basename(filePath);
   const ext = path.extname(filePath);
@@ -559,7 +556,7 @@ function processSingleFile(
   const lines = text.split(/\r?\n/);
 
   if (isEnvFile(baseName)) {
-    scanEnvLines(relPosix, lines, envIgnored, findings, envKeys);
+    scanEnvLines({ rel: relPosix, lines, envIgnored, findings, envKeys });
     return isTest;
   }
   if (ext === '.sql') {
@@ -568,30 +565,28 @@ function processSingleFile(
   }
   if (CODE_EXTENSIONS.has(ext)) {
     if (FIXED_WAIT_RE.test(text)) {
-      addFinding(
-        findings,
-        VIBE_RULE_QA,
-        VIBE_SEVERITY_HIGH,
-        relPosix,
-        findMatchingLine(lines, FIXED_WAIT_RE),
-        'Espera fija bloqueante detectada (waitForTimeout/sleep); usar espera por condición',
-      );
+      addFinding(findings, {
+        ruleId: VIBE_RULE_QA,
+        severity: VIBE_SEVERITY_HIGH,
+        file: relPosix,
+        line: findMatchingLine(lines, FIXED_WAIT_RE),
+        message: 'Espera fija bloqueante detectada (waitForTimeout/sleep); usar espera por condición',
+      });
     }
     if (!isTest) {
       scanSourceSecrets(relPosix, lines, findings);
-      scanNonTestCode(relPosix, ext, text, lines, maxLines, findings);
+      scanNonTestCode({ rel: relPosix, ext, text, lines, maxLines, findings });
     }
     return isTest;
   }
   if (baseName.startsWith('tsconfig') && baseName.endsWith('.json') && TS_STRICT_FALSE_RE.test(text)) {
-    addFinding(
-      findings,
-      VIBE_RULE_TYPE,
-      VIBE_SEVERITY_HIGH,
-      relPosix,
-      findMatchingLine(lines, TS_STRICT_FALSE_RE),
-      'tsconfig con strict=false; habilitar strict: true',
-    );
+    addFinding(findings, {
+      ruleId: VIBE_RULE_TYPE,
+      severity: VIBE_SEVERITY_HIGH,
+      file: relPosix,
+      line: findMatchingLine(lines, TS_STRICT_FALSE_RE),
+      message: 'tsconfig con strict=false; habilitar strict: true',
+    });
   } else if (baseName === 'Dockerfile' || baseName.startsWith('Dockerfile.')) {
     scanDockerfile(relPosix, text, lines, findings);
   }
@@ -654,16 +649,21 @@ function buildRescuePlanMarkdown(
   return `${lines.join('\n')}\n`;
 }
 
+interface RemediationBundleInput {
+  readonly outDir: string;
+  readonly targetReal: string;
+  readonly workspaceRoot: string;
+  readonly envKeys: ReadonlySet<string>;
+  readonly score: number;
+  readonly verdict: VibeVerdict;
+  readonly findings: readonly VibeFinding[];
+  readonly templatePath?: string;
+}
+
 function emitRemediationBundle(
-  outDir: string,
-  targetReal: string,
-  workspaceRoot: string,
-  envKeys: ReadonlySet<string>,
-  score: number,
-  verdict: VibeVerdict,
-  findings: readonly VibeFinding[],
-  templatePath?: string,
+  input: RemediationBundleInput,
 ): { readonly writtenFiles: string[]; readonly skippedExistingFiles: string[] } {
+  const { outDir, targetReal, workspaceRoot, envKeys, score, verdict, findings, templatePath } = input;
   fs.mkdirSync(outDir, { recursive: true });
   const writtenFiles: string[] = [];
   const skippedExistingFiles: string[] = [];
@@ -710,15 +710,18 @@ function computeSummary(findings: readonly VibeFinding[]): {
   return { counts: { critical, high, medium }, score, verdict };
 }
 
-function formatSummary(
-  verdict: VibeVerdict,
-  score: number,
-  dryRun: boolean,
-  counts: AuditVibeCounts,
-  findings: readonly VibeFinding[],
-  writtenFiles: readonly string[],
-  skippedExistingFiles: readonly string[],
-): string {
+interface FormatVibeSummaryInput {
+  readonly verdict: VibeVerdict;
+  readonly score: number;
+  readonly dryRun: boolean;
+  readonly counts: AuditVibeCounts;
+  readonly findings: readonly VibeFinding[];
+  readonly writtenFiles: readonly string[];
+  readonly skippedExistingFiles: readonly string[];
+}
+
+function formatSummary(input: FormatVibeSummaryInput): string {
+  const { verdict, score, dryRun, counts, findings, writtenFiles, skippedExistingFiles } = input;
   if (verdict === VIBE_VERDICT_READY) {
     return `✅ [VIBE-RESCUE] ${VIBE_VERDICT_READY} (score=${score}/100, critical=0, high=0, dryRun=${dryRun})`;
   }
@@ -795,34 +798,35 @@ export function auditVibePrototype(
   const files = collectFiles(targetReal, emitDir);
   let hasAnyTest = false;
   for (const fpath of files) {
-    if (processSingleFile(fpath, targetReal, envIgnored, maxLines, findings, envKeys)) {
+    if (
+      processSingleFile({ filePath: fpath, targetReal, envIgnored, maxLines, findings, envKeys })
+    ) {
       hasAnyTest = true;
     }
   }
   if (!hasAnyTest) {
-    addFinding(
-      findings,
-      VIBE_RULE_QA,
-      VIBE_SEVERITY_HIGH,
-      '.',
-      1,
-      'Cero archivos de prueba detectados; exigir >= 95% cobertura en Docker no-root',
-    );
+    addFinding(findings, {
+      ruleId: VIBE_RULE_QA,
+      severity: VIBE_SEVERITY_HIGH,
+      file: '.',
+      line: 1,
+      message: 'Cero archivos de prueba detectados; exigir >= 95% cobertura en Docker no-root',
+    });
   }
 
   const { counts, score, verdict } = computeSummary(findings);
   const emitted =
     !dryRun && emitDir !== undefined
-      ? emitRemediationBundle(
-          emitDir,
+      ? emitRemediationBundle({
+          outDir: emitDir,
           targetReal,
           workspaceRoot,
           envKeys,
           score,
           verdict,
           findings,
-          options.templatePath,
-        )
+          templatePath: options.templatePath,
+        })
       : { writtenFiles: [], skippedExistingFiles: [] };
 
   return {
@@ -836,15 +840,15 @@ export function auditVibePrototype(
     writtenFiles: emitted.writtenFiles,
     skippedExistingFiles: emitted.skippedExistingFiles,
     hasSecurityOrInputError: false,
-    summary: formatSummary(
+    summary: formatSummary({
       verdict,
       score,
       dryRun,
       counts,
       findings,
-      emitted.writtenFiles,
-      emitted.skippedExistingFiles,
-    ),
+      writtenFiles: emitted.writtenFiles,
+      skippedExistingFiles: emitted.skippedExistingFiles,
+    }),
   };
 }
 

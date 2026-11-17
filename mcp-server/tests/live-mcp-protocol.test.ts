@@ -17,8 +17,8 @@ import { GitHubFetcher, MCP_SERVER_VERSION } from '../src/services/github-fetche
 import { toAllureDiagnosticEnvelope } from '../src/utils/diagnosticFormatter.js';
 import { TaskStateGuard } from '../src/utils/taskStateGuard.js';
 
-const EXPECTED_TOOLS_COUNT = 18;
-const EXPECTED_RESOURCES_COUNT = 12;
+const EXPECTED_TOOLS_COUNT = 19;
+const EXPECTED_RESOURCES_COUNT = 13;
 const EXPECTED_TEMPLATES_COUNT = 2;
 
 const REQUIRED_CALM_CONTROLS = [
@@ -210,7 +210,7 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
     return dir;
   }
 
-  it('SIRVE 18 tools, 12 resources y 2 resource templates por JSON-RPC en vivo sobre InMemoryTransport', async () => {
+  it('SIRVE 19 tools, 13 resources y 2 resource templates por JSON-RPC en vivo sobre InMemoryTransport', async () => {
     const tmpRoot = createTempRoot();
     const wsDir = path.join(tmpRoot, 'target-project');
     const cacheDir = path.join(tmpRoot, 'cache');
@@ -249,6 +249,8 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
         'blueprint://mobile-appium/readme?lang=es',
         'blueprint://vibe-rescue/readme',
         'blueprint://vibe-rescue/readme?lang=es',
+        'blueprint://skills/tactical-patterns-11x',
+        'blueprint://skills/tactical-patterns-11x?lang=es',
         'blueprint://fastapi/readme',
         'blueprint://fastapi/readme?lang=es',
         'blueprint://core/philosophy?lang=es',
@@ -338,6 +340,18 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
         arguments: { workspaceRoot: wsDir, targetDir: '.', dryRun: true },
       });
       expect(vibeRes.isError).not.toBe(true);
+
+      const flightRes = await client.callTool({
+        name: 'session_flight_recorder',
+        arguments: {
+          project_path: wsDir,
+          action: 'save',
+          task_id: 'LIVE-19',
+          active_step: 'S1',
+          intent_140chars: 'InMemory live protocol test',
+        },
+      });
+      expect(flightRes.isError).not.toBe(true);
 
       const ssrfTmsRes = await client.callTool({
         name: 'sync_enterprise_tms',

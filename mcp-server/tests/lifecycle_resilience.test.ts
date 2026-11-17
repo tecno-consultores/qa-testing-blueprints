@@ -417,7 +417,7 @@ describe('TaskStateGuard & Lifecycle Resilience (T1.4)', () => {
       const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 
       const probe = await probeTtyExitNonBlocking(async (exitFn) => {
-        await main([], undefined, exitFn, async () => undefined, true);
+        await main([], undefined, { exitFn, autoSyncFn: async () => undefined, isStdinTty: true });
       }, 2_000);
 
       expect(probe.exitCode).toBe(0);

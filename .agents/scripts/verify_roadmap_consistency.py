@@ -22,6 +22,7 @@ Ejecución determinista estática en < 1 segundo (sin dependencias externas).
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
@@ -263,6 +264,36 @@ def validate_active_task(active_task_path: Path) -> List[str]:
     return errors
 
 
+def validate_session_checkpoint(checkpoint_path: Path, active_task_path: Path) -> List[str]:
+    """Valida estructura y coherencia de .agents/.cache/session_checkpoint.json."""
+    if not checkpoint_path.exists() and not checkpoint_path.is_symlink():
+        return []
+    if checkpoint_path.is_symlink():
+        return [".agents/.cache/session_checkpoint.json no puede ser symlink."]
+    try:
+        data = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return [f".agents/.cache/session_checkpoint.json corrupto: {exc}"]
+    if not isinstance(data, dict):
+        return [".agents/.cache/session_checkpoint.json debe ser un objeto JSON."]
+    errors: List[str] = []
+    status = data.get("status")
+    if status not in ("IN_PROGRESS", "CERTIFIED_CLEAN"):
+        errors.append("session_checkpoint.json tiene status inválido.")
+    intent = data.get("intent_140chars")
+    if not isinstance(intent, str) or not (1 <= len(intent) <= 140):
+        errors.append("session_checkpoint.json viola longitud de intent_140chars (1..140).")
+    if status == "CERTIFIED_CLEAN":
+        planned = data.get("planned_steps", [])
+        if isinstance(planned, list) and planned:
+            errors.append("session_checkpoint.json en CERTIFIED_CLEAN aún tiene planned_steps pendientes.")
+        if active_task_path.is_file():
+            md_txt = active_task_path.read_text(encoding="utf-8")
+            if "completed" not in md_txt.lower():
+                errors.append("session_checkpoint.json CERTIFIED_CLEAN difiere de ACTIVE_TASK.md.")
+    return errors
+
+
 def validate_bilingual_roadmap_parity(roadmap_en: Path, roadmap_es: Path) -> List[str]:
     """Comprueba paridad de hitos y porcentajes entre ROADMAP.md (EN) y ROADMAP.es.md (ES)."""
     if not roadmap_en.is_file() or not roadmap_es.is_file():
@@ -315,7 +346,10 @@ def main() -> int:
     if active_task_path.is_file():
         active_task_errors = validate_active_task(active_task_path)
 
-    all_errors = roadmap_errors + active_task_errors
+    checkpoint_path = repo_root / ".agents" / ".cache" / "session_checkpoint.json"
+    checkpoint_errors = validate_session_checkpoint(checkpoint_path, active_task_path)
+
+    all_errors = roadmap_errors + active_task_errors + checkpoint_errors
 
     if all_errors:
         print("❌ Se detectaron discrepancias de consistencia operativa en ROADMAP.md / ROADMAP.es.md / ACTIVE_TASK.md:")

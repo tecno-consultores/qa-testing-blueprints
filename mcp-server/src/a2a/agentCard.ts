@@ -176,6 +176,12 @@ export const QA_11X_V2_SKILLS: readonly AgentSkillDescriptor[] = [
     description: 'Jerarquía visual, escala espacial, tipografía tabular y contraste WCAG 2.1 AA.',
     tags: ['ui', 'wcag', TAG_ARCHITECTURE],
   },
+  {
+    id: 'tactical-patterns-11x',
+    name: 'Tactical Patterns 11X',
+    description: 'Patrones tácticos JIT para rescate de complejidad ciclomática/cognitiva, puertos offline y anti-sobreingeniería.',
+    tags: [TAG_GOVERNANCE, TAG_TESTING, 'patterns'],
+  },
 ] as const;
 
 function assertNonEmptyText(value: string, label: string): string {

@@ -309,6 +309,63 @@ class TestVerifyRoadmapConsistency(unittest.TestCase):
             missing_errors = vrc.validate_bilingual_roadmap_parity(en_doc, es_doc)
             self.assertTrue(len(missing_errors) >= 1)
 
+    def test_validate_session_checkpoint_variants(self) -> None:
+        import json
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            ckpt = base / "session_checkpoint.json"
+            active = base / "ACTIVE_TASK.md"
+
+            self.assertEqual(vrc.validate_session_checkpoint(ckpt, active), [])
+
+            outside = base / "outside.json"
+            outside.write_text("{}", encoding="utf-8")
+            ckpt.symlink_to(outside)
+            self.assertTrue(any("symlink" in e for e in vrc.validate_session_checkpoint(ckpt, active)))
+            ckpt.unlink()
+
+            ckpt.write_text("{corrupt", encoding="utf-8")
+            self.assertTrue(any("corrupto" in e for e in vrc.validate_session_checkpoint(ckpt, active)))
+
+            ckpt.write_text("[]", encoding="utf-8")
+            self.assertTrue(any("objeto JSON" in e for e in vrc.validate_session_checkpoint(ckpt, active)))
+
+            ckpt.write_text(json.dumps({"status": "BAD", "intent_140chars": ""}), encoding="utf-8")
+            errs_bad = vrc.validate_session_checkpoint(ckpt, active)
+            self.assertTrue(any("status inválido" in e for e in errs_bad))
+            self.assertTrue(any("intent_140chars" in e for e in errs_bad))
+
+            active.write_text("**Estado:** IN_PROGRESS\n", encoding="utf-8")
+            ckpt.write_text(
+                json.dumps(
+                    {
+                        "status": "CERTIFIED_CLEAN",
+                        "intent_140chars": "Todo listo",
+                        "planned_steps": ["F5"],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            errs_incoh = vrc.validate_session_checkpoint(ckpt, active)
+            self.assertTrue(any("planned_steps" in e for e in errs_incoh))
+            self.assertTrue(any("ACTIVE_TASK.md" in e for e in errs_incoh))
+
+            active.write_text("**Estado:** COMPLETED (100%)\n- [x] F5\n", encoding="utf-8")
+            ckpt.write_text(
+                json.dumps(
+                    {
+                        "status": "CERTIFIED_CLEAN",
+                        "intent_140chars": "Todo listo",
+                        "planned_steps": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            self.assertEqual(vrc.validate_session_checkpoint(ckpt, active), [])
+            active.unlink()
+            self.assertEqual(vrc.validate_session_checkpoint(ckpt, active), [])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -33,6 +33,16 @@
     "security/detect-object-injection": "warn",
     "sonarjs/cognitive-complexity": ["error", 15],
     "sonarjs/no-duplicate-string": "warn",
+    "max-params": ["error", 4],
+    "max-depth": ["error", 3],
     "@typescript-eslint/no-explicit-any": "error"
-  }
+  },
+  "overrides": [
+    {
+      "files": ["tests/**/*", "test/**/*", "**/*.test.*", "**/*.spec.*", "**/*.unit.*"],
+      "rules": {
+        "max-params": "off"
+      }
+    }
+  ]
 }

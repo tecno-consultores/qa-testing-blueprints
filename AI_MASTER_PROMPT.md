@@ -64,7 +64,7 @@ Before writing code or suggesting commands, inspect the specialized guide for th
 * 🤖 **Dual-Mode AI Evals & Red Team:** `ai-evals/README.md`
 * 🛡️ **Vibe-to-Enterprise Rescue:** `vibe-rescue/README.md`
 * 🏗️ **Architecture-as-Code (FINOS CALM):** `architecture/README.md` (`architecture/qa-11x.calm.json`)
-* 🧠 **MCP Server (`18` Tools + `12` Resources) & 10 Skills:** `docs/specs/03_SPEC_MCP_SERVER_NODE_TS_CORE_Y_TOOLS.md` + `docs/ai-integration.md`
+* 🧠 **MCP Server (`19` Tools + `13` Resources) & 11 Skills:** `docs/specs/03_SPEC_MCP_SERVER_NODE_TS_CORE_Y_TOOLS.md` + `docs/ai-integration.md` (including `session_flight_recorder` + `blueprint://skills/tactical-patterns-11x`)
 
 ---
 
@@ -73,7 +73,7 @@ Before writing code or suggesting commands, inspect the specialized guide for th
 To optimize the context window and ensure superior mathematical reasoning:
 * All internal directives in `.agents/rules/` and `.agents/skills/` are written in **high-density technical English**, reducing BPE token consumption by ~35% compared to verbose prose.
 * Human interaction and repository documentation follow `OUTPUT LANGUAGE & DYNAMIC MIRRORING` (maintaining 1:1 `.md` / `.es.md` parity across bilingual documentation pairs).
-* Keep the active scratchpad updated in `.agents/ACTIVE_TASK.md`, breaking down subtasks with `- [ ]` checkboxes updated to `- [x]` in real time.
+* Keep the atomic Flight Recorder synchronized via `.agents/scripts/checkpoint_ctl.py` / MCP `session_flight_recorder` (`0600` `.agents/.cache/session_checkpoint.json` -> deterministic `<= 40`-line `.agents/ACTIVE_TASK.md` projection without manual Markdown edits).
 * Whenever you detect recurring friction or fix a UAT/production bug that escaped the previous test suite (even with `>= 95%` coverage), you MUST apply `continuous_agent_evolution.md`: **without waiting for the user to ask**, include the improvement notice section in your response and invoke `propose_skill_evolution_pr` to promote the generalized invariant to `qa-testing-blueprints`.
 
 ---

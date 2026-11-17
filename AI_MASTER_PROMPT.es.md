@@ -64,7 +64,7 @@ Antes de escribir código o sugerir comandos, consulta la guía especializada de
 * 🤖 **Evaluaciones Dual-Mode de IA & Red Team:** `ai-evals/README.md`
 * 🛡️ **Rescate Vibe-to-Enterprise:** `vibe-rescue/README.md`
 * 🏗️ **Arquitectura como Código (FINOS CALM):** `architecture/README.md` (`architecture/qa-11x.calm.json`)
-* 🧠 **Servidor MCP (`18` Tools + `12` Resources) y 10 Skills:** `docs/specs/03_SPEC_MCP_SERVER_NODE_TS_CORE_Y_TOOLS.md` + `docs/ai-integration.md`
+* 🧠 **Servidor MCP (`19` Tools + `13` Resources) y 11 Skills:** `docs/specs/03_SPEC_MCP_SERVER_NODE_TS_CORE_Y_TOOLS.md` + `docs/ai-integration.md` (incluyendo `session_flight_recorder` + `blueprint://skills/tactical-patterns-11x`)
 
 ---
 
@@ -73,7 +73,7 @@ Antes de escribir código o sugerir comandos, consulta la guía especializada de
 Para optimizar la ventana de contexto y asegurar un razonamiento matemático superior:
 * Todas las directivas en `.agents/rules/` y `.agents/skills/` se redactan en **inglés técnico de alta densidad**, lo cual reduce el consumo de tokens BPE en ~35% frente al español.
 * La interacción humana y la documentación siguen `OUTPUT LANGUAGE & DYNAMIC MIRRORING` (manteniendo paridad 1:1 `.md` / `.es.md` en toda la documentación bilingüe).
-* Mantén al día la bitácora activa en `.agents/ACTIVE_TASK.md`, desglosando subtareas con casillas `- [ ]` que actualizas a `- [x]` en tiempo real.
+* Mantén sincronizado el Flight Recorder atómico mediante `.agents/scripts/checkpoint_ctl.py` / MCP `session_flight_recorder` (`0600` `.agents/.cache/session_checkpoint.json` -> proyección determinista `<= 40` líneas en `.agents/ACTIVE_TASK.md` sin ediciones manuales en Markdown).
 * Si detectas fricciones recurrentes o si corriges un bug en UAT/producción que evadió la suite de pruebas previa (incluso con `>= 95%` de cobertura), aplica obligatoriamente la directiva `continuous_agent_evolution.md`: **sin esperar a que el usuario te lo pida**, incluye en tu respuesta la sección **`💡 Oportunidad de Mejora Detectada para el Estándar QA 11X`** e invoca `propose_skill_evolution_pr` para promover el invariante generalizado a `qa-testing-blueprints`.
 
 ---

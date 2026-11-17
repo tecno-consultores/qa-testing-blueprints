@@ -93,7 +93,7 @@ This architecture works natively and identically across major AI coding assistan
 
 To prevent agents from cloning gigabytes of repositories or saturating their context window with hundreds of files, the ecosystem is distributed as an official MCP server under the Anthropic / Linux Foundation standard (see also [`docs/specs/13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md`](specs/13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md)):
 
-1. **12 Dynamic Resources (`blueprint://*`):**
+1. **13 Dynamic Resources (`blueprint://*`):**
    - `blueprint://manifest`: Cryptographic index with SHA-256 hashes of all stacks and common files.
    - `blueprint://core/philosophy` (`blueprint://philosophy`): 11X philosophy and master prompt (`AI_MASTER_PROMPT.md`).
    - `blueprint://security/disa-owasp-22`: Technical synthesis of the 22 DISA ASD STIG V6R5 and OWASP v4.2 patterns.
@@ -106,8 +106,9 @@ To prevent agents from cloning gigabytes of repositories or saturating their con
    - `blueprint://ai/evals-redteam` *(v2.0)*: Dual-mode DeepEval agent evaluation and OWASP LLM Top 10 Red Teaming guide with Promptfoo.
    - `blueprint://mobile-appium/readme` *(v2.0)*: Appium 3 / W3C + WebdriverIO mobile Screenplay blueprint (`mobile-appium/`).
    - `blueprint://vibe-rescue/readme` *(v2.0)*: 5-stage *Vibe-to-Enterprise* protocol and RLS/WORM hardening (`vibe-rescue/`).
+   - `blueprint://skills/tactical-patterns-11x` *(v3.1)*: Compact JIT tactical design patterns (`<= 2.5 KB`, `CC <= 5`, `SonarJS <= 15`, `max-params: 4`, offline Port/Adapter, Transactional Outbox) with `?lang=es|en` and embedded offline fallback.
 
-2. **18 Execution Tools (`Tools`):**
+2. **19 Execution Tools (`Tools`):**
    - `inspect_project_config`: Automatic stack detection, linters, real-browser testing availability (`BrowserTestingReadiness`), and `update_available` check (SemVer comparison with 24h TTL *fail-open* cache against `.qa-11x-version`).
    - `fetch_blueprint_bundle`: Surgical template download with SHA-256 hash verification (supports index mode `include_content: false` in Milestone 14).
    - `bootstrap_or_merge_11x`: Non-destructive merge injecting QA configurations into existing projects.
@@ -126,8 +127,9 @@ To prevent agents from cloning gigabytes of repositories or saturating their con
    - `run_llm_red_team` *(v2.0)*: Promptfoo OWASP LLM Top 10 auditor with `promptGuard` probes and conditional Docker execution.
    - `audit_vibe_prototype` *(v2.0)*: `VIBE-SEC-001..QA-005` risk detector in AI prototypes with `dryRun` migration plans toward RLS/WORM.
    - `sync_enterprise_tms`: JUnit/Allure/SARIF synchronizer toward Jira, Zephyr Scale, Xray, and GitHub Issues guarded by `TaskStateGuard`.
+   - `session_flight_recorder` *(v3.1)*: Unified Atomic Flight Recorder (`save` | `recover` | `clear`) persisting `.agents/.cache/session_checkpoint.json` (`0600`) and deterministically projecting `.agents/ACTIVE_TASK.md` (`<= 40` lines) cross-checked against live Git status.
 
-3. **`quickstart` Onboarding and Automatic Sync of 10 Modular Skills (`install-skill`):**
+3. **`quickstart` Onboarding and Automatic Sync of 11 Modular Skills (`install-skill`):**
    Any developer or agent can adopt the pyramid in 30 seconds via `npx -y @sinfallas/mcp-qa-11x@latest quickstart`, or auto-install the modular skills, operational scripts (`.agents/scripts/*`, `scripts/*`), and `AGENTS.md` connector using `install-skill --init-agents --include-scripts --reconcile` (stamping `.qa-11x-version`). Furthermore, on startup in `stdio` mode, the MCP server syncs installed global skills in the background (`SHA-256` against `manifest.json`).
 
 ---
@@ -165,7 +167,7 @@ If any step fails, the agent is forbidden from closing the turn.
 
 ### 📈 Implemented and Planned Incremental Evolution (Milestones 21–23)
 
-To strengthen the standard on top of the stabilized public surface (**18 tools** and **12 resources** in MCP alongside **8 canonical rules** in `.agents/rules/` and **10 modular skills**), incremental evolution advances along [`ROADMAP.md`](../ROADMAP.md):
+To strengthen the standard on top of the stabilized public surface (**19 tools** and **13 resources** in MCP alongside **8 canonical rules** in `.agents/rules/` and **11 modular skills**, including the unified Flight Recorder `checkpoint_ctl.py` + `session_flight_recorder` and JIT `tactical-patterns-11x`), incremental evolution advances along [`ROADMAP.md`](../ROADMAP.md):
 1. **Differential Coverage (`Milestone 21` — Implemented):** [`16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md`](specs/16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md) (`100%` on delta lines, `>= 90%` on delta branches, and blocking unauthorized exclusions).
 2. **Anti-Loop Circuit Breaker (`Milestone 22` — Implemented):** [`17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md`](specs/17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md) implemented [`.agents/scripts/track_findings_state.py`](../.agents/scripts/track_findings_state.py) and its integration in [`mcp-server/src/services/qa-evidence.ts`](../mcp-server/src/services/qa-evidence.ts), [`mcp-server/src/tools/ephemeral-runner.ts`](../mcp-server/src/tools/ephemeral-runner.ts) (`run_ephemeral_qa`), and [`.agents/scripts/certify_task_completion.sh`](../.agents/scripts/certify_task_completion.sh): persists line-number-invariant SHA-256 fingerprints in `.agents/.cache/certify_state.json` (`0600`, isolated by `{branch}:{merge_base_sha}` and stage) and triggers the deterministic **`BREAKER-42` (`exit 42`)** block when `consecutive_streak >= 3` or `A -> B -> A` oscillation (`oscillations >= 1`) is detected, forcing blind patching to stop and invoking `inspect_ast_blast_radius` and `qa-11x-systematic-debugging` (the `--reset-state` flag is reserved for the human operator).
 3. **Blast Radius Diff Mode and PR Verdict (`Milestone 23` — Implemented):** [`18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md`](specs/18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md) implemented [`mcp-server/src/utils/diff-bundle.ts`](../mcp-server/src/utils/diff-bundle.ts) and the backward-compatible extension of `inspect_ast_blast_radius` (`changed_since_ref`, `max_tokens_budget` in [`mcp-server/src/types.ts`](../mcp-server/src/types.ts), [`mcp-server/src/tools/blast-radius.ts`](../mcp-server/src/tools/blast-radius.ts), and [`mcp-server/src/server.ts`](../mcp-server/src/server.ts), preserving all `18` MCP tools and `12` MCP resources) with 4-tier semantic pruning (`PRUNED_NOISE`, `CRITICAL_FULL`, `CORE_LOGIC`, `TESTS_SUMMARY`), redaction via `promptGuard.ts`, `MISSING_KARATE_API_FEATURE` alert, and optional boundaries in `.agents/ACTIVE_TASK.md`; it also introduced [`.agents/scripts/generate_pr_verdict.py`](../.agents/scripts/generate_pr_verdict.py) (`make pr-verdict`) to consolidate `release_readiness_gate.py`, `.agents/.qa-evidence.json`, `.agents/.cache/certify_state.json`, and `verify_diff_coverage.py` into `.agents/artifacts/PR_VERDICT.md` and `.agents/artifacts/pr_verdict_attestation.json` (`0600`, `SHA-256` / optional `HMAC-SHA256`, `exit 0` or `30`).

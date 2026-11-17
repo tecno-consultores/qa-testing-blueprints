@@ -315,6 +315,25 @@ describe('Modo Diferencial en inspect_ast_blast_radius y diff-bundle (Hito 23)',
     } finally {
       fs.rmSync(outsideFile, { force: true });
     }
+
+    // Leer allowed_globs/forbidden_globs prioritariamente desde session_checkpoint.json y fallback sin globs
+    fs.rmSync(path.join(tmpDir, '.agents', 'ACTIVE_TASK.md'));
+    writeRepoFile(
+      tmpDir,
+      '.agents/.cache/session_checkpoint.json',
+      JSON.stringify({
+        allowed_globs: ['src/**'],
+        forbidden_globs: ['.github/**'],
+      })
+    );
+    const fromCheckpoint = await buildSemanticDiffBundle(tmpDir, 'HEAD');
+    expect(fromCheckpoint.boundary_globs).toEqual({
+      allowed_globs: ['src/**'],
+      forbidden_globs: ['.github/**'],
+    });
+    writeRepoFile(tmpDir, '.agents/.cache/session_checkpoint.json', JSON.stringify({ allowed_globs: [] }));
+    const emptyCheckpoint = await buildSemanticDiffBundle(tmpDir, 'HEAD');
+    expect(emptyCheckpoint.boundary_globs).toBeUndefined();
   });
 
   it('cubre utilidades auxiliares y el registro MCP preservando exactamente 18 Tools', async () => {
@@ -366,7 +385,7 @@ describe('Modo Diferencial en inspect_ast_blast_radius y diff-bundle (Hito 23)',
     await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
     try {
       const listed = await client.listTools();
-      expect(listed.tools).toHaveLength(18);
+      expect(listed.tools).toHaveLength(19);
       const callRes = await client.callTool({
         name: 'inspect_ast_blast_radius',
         arguments: {

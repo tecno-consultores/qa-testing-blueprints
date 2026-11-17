@@ -45,17 +45,14 @@ describe('11X Comprehensive Branch and Edge-Case Coverage Suite', () => {
       const targetFile = path.join(subDir, 'karate.jar');
       fs.writeFileSync(targetFile, 'dummy-jar-content');
 
-      const result = await cleanWorkspace11x(
-        tempDir,
-        false, // dryRun = false
-        true,  // deepPrune = true
-        (baseDir, targets) =>
+      const result = await cleanWorkspace11x(tempDir, false, true, {
+        fallbackExecutor: (baseDir, targets) =>
           executeAlpineFallback(baseDir, targets, (() => {
             if (fs.existsSync(targetFile)) fs.unlinkSync(targetFile);
             return Buffer.from('');
           }) as any),
-        (baseDir) => removeTarget(baseDir, 'non-existent-to-trigger-catch')
-      );
+        targetRemover: (baseDir) => removeTarget(baseDir, 'non-existent-to-trigger-catch'),
+      });
 
       expect(result.dry_run).toBe(false);
       expect(result.deep_prune).toBe(true);
@@ -183,7 +180,7 @@ src/core/auth.py 50 2 96.0%
 
     it('parseQaOutput maneja stage security con exitCode != 0 y alertas', () => {
       const stdout = 'Target: package.json (CRITICAL: 2, HIGH: 3)';
-      const result = parseQaOutput(stdout, '', 'security', 500, 1);
+      const result = parseQaOutput(stdout, '', 'security', { durationMs: 500, exitCode: 1 });
       expect(result.status).toBe('FAILED');
       expect(result.security_alerts.critical).toBe(2);
       expect(result.security_alerts.high).toBe(3);

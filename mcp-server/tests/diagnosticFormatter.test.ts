@@ -9,7 +9,9 @@ import {
   formatDiagnosticOutput,
   formatFailVerboseReport,
   formatPassQuietSummary,
+  hasComplexityOrSignatureViolation,
   sanitizeCommandSecrets,
+  TACTICAL_PATTERNS_DIRECTIVE_11X,
   toAllureDiagnosticEnvelope,
 } from '../src/utils/diagnosticFormatter.js';
 
@@ -174,6 +176,44 @@ describe('diagnosticFormatter (T1.5 Pass-Quiet & Fail-Verbose + Allure)', () => 
         { name: 'agent_version', value: '2.20.4' },
         { name: 'environment', value: 'staging-runner' },
       ]);
+    });
+  });
+
+  describe('4. Inyección JIT táctica [DIRECTIVE-11X] por complejidad/parámetros', () => {
+    it('no agrega bytes extra en formatPassQuietSummary aunque el log mencione reglas', () => {
+      const summary = formatPassQuietSummary({
+        stageId: 'lint-check',
+        passed: true,
+        checksCount: 18,
+        durationMs: 95,
+        stdout: 'All good (C901 max-params max-depth)',
+        stderr: 'PLR0913 sonarjs/cognitive-complexity ignored in pass',
+      });
+      expect(summary).not.toContain('[DIRECTIVE-11X]');
+      expect(summary).not.toContain('tactical-patterns-11x');
+      expect(summary.includes('\n')).toBe(false);
+    });
+
+    it('inyecta TACTICAL_PATTERNS_DIRECTIVE_11X en Fail-Verbose cuando detecta C901/PLR0913/max-params/max-depth/cognitive-complexity', () => {
+      for (const marker of ['C901', 'PLR0913', 'max-params', 'max-depth', 'sonarjs/cognitive-complexity']) {
+        expect(hasComplexityOrSignatureViolation(`lint failure: ${marker}`)).toBe(true);
+        const report = formatFailVerboseReport({
+          stageId: 'lint',
+          passed: false,
+          durationMs: 120,
+          stderr: `src/sample.ts error ${marker}`,
+        });
+        expect(report).toContain('[DIRECTIVE-11X]');
+        expect(report).toContain(TACTICAL_PATTERNS_DIRECTIVE_11X);
+      }
+      expect(hasComplexityOrSignatureViolation('unused variable F401')).toBe(false);
+      const nonComplexity = formatFailVerboseReport({
+        stageId: 'lint',
+        passed: false,
+        durationMs: 50,
+        stderr: 'unused variable F401',
+      });
+      expect(nonComplexity).not.toContain('[DIRECTIVE-11X]');
     });
   });
 });

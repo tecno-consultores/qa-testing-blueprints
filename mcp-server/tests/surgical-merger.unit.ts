@@ -689,6 +689,12 @@ qa-unit:
       expect(fs.readFileSync(wsPath, 'utf-8')).toContain('vue-demi: false');
       expect(fs.readFileSync(eslintPath, 'utf-8')).toContain('plugin:security/recommended-legacy');
       expect(fs.readFileSync(setupPath, 'utf-8')).toContain('localStorage');
+
+      const alignedDeps = merger.mergePackageJson(
+        JSON.stringify({ name: 'pw-deps', dependencies: { '@playwright/test': '^1.40.0' } }),
+        JSON.stringify({ devDependencies: { '@playwright/test': '1.52.0' } })
+      );
+      expect(JSON.parse(alignedDeps.merged).dependencies['@playwright/test']).toBe('1.52.0');
     });
   });
 });

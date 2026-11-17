@@ -40,6 +40,7 @@ clean_scope_dir() {
     "${dir}/dependency-reduced-pom.xml" "${dir}/profile.svg" "${dir}/.Python" \
     "${dir}/.pnp" "${dir}/.pnp.js" "${dir}/.pnp.cjs" "${dir}/.pnp.loader.mjs" \
     "${dir}/.task_scratchpad.md" "${dir}"/.agents/*.scratchpad.md \
+    "${dir}"/.agents/.cache/.session_checkpoint.*.tmp "${dir}"/.agents/.active_task.*.tmp \
     "${dir}"/*.clinic-*.html "${dir}"/*.log \
     "${dir}"/npm-debug.log* "${dir}"/yarn-debug.log* "${dir}"/yarn-error.log* "${dir}"/pnpm-debug.log* \
     "${dir}"/hs_err_pid*.log "${dir}"/*.tsbuildinfo "${dir}"/*.heapsnapshot "${dir}"/*.cpuprofile \
@@ -52,7 +53,7 @@ clean_scope_dir() {
     "${dir}/.phpunit.cache" "${dir}/.psalm" "${dir}/htmlcov" "${dir}/coverage_report" "${dir}/.bats-battery" \
     "${dir}/mutants" "${dir}/.mutmut-cache" "${dir}/target" "${dir}/test/target" "${dir}/.trivycache" \
     "${dir}/allure-results" "${dir}/allure-report" "${dir}/.allure" "${dir}/.deepeval" "${dir}/.promptfoo" \
-    "${dir}/.agents/tmp" "${dir}/.agents/.cache" "${dir}/.agents/artifacts" "${dir}/dist-ssr" "${dir}/.nuxt" "${dir}/.next" "${dir}/.output" "${dir}/.svelte-kit" \
+    "${dir}/.agents/tmp" "${dir}/.agents/.cache/coverage" "${dir}/.agents/.cache/tmp" "${dir}/.agents/artifacts" "${dir}/dist-ssr" "${dir}/.nuxt" "${dir}/.next" "${dir}/.output" "${dir}/.svelte-kit" \
     "${dir}/.vite" "${dir}/.vite-ssg-temp" "${dir}/.parcel-cache" "${dir}/storybook-static" \
     "${dir}/coverage" "${dir}/.nyc_output" "${dir}/.stryker-tmp" "${dir}/.clinic" \
     "${dir}/test-results" "${dir}/playwright-report" "${dir}/blob-report" "${dir}/playwright/.cache" \
@@ -145,7 +146,7 @@ rm -rf \
   "${tmp_base}/graphify_ast_"*.log /tmp/graphify_ast_*.log 2>/dev/null || true
 
 # 3. Purga en raíz y subcarpetas (monorepos, stacks y arnés example/)
-# Nota: Se preservan mcp-server/dist, .qa-11x-version, .agents/ACTIVE_TASK.md y graphify-out/{graph.json,GRAPH_REPORT.md,graph.html,manifest.json}
+# Nota: Se preservan mcp-server/dist, .qa-11x-version, .agents/ACTIVE_TASK.md, .agents/.cache/{session_checkpoint,certify_state}.json y graphify-out/{graph.json,GRAPH_REPORT.md,graph.html,manifest.json}
 rm -f ./ACTIVE_TASK.md 2>/dev/null || true
 clean_scope_dir "." "false"
 
@@ -204,7 +205,7 @@ if command -v docker >/dev/null 2>&1; then
            /workspace/allure-results /workspace/allure-report /workspace/.allure \
            /workspace/.deepeval /workspace/.promptfoo /workspace/.nyc_output \
            /workspace/mcp-server/coverage /workspace/mcp-server/test/target \
-           /workspace/.agents/.cache/coverage /workspace/*/.agents/.cache /workspace/*/.agents/artifacts \
+           /workspace/.agents/.cache/coverage /workspace/.agents/.cache/tmp /workspace/*/.agents/.cache/coverage /workspace/*/.agents/.cache/tmp /workspace/*/.agents/artifacts \
            /workspace/mobile-appium/wdio-logs /workspace/mobile-appium/errorShots /workspace/mobile-appium/coverage \
            /workspace/vibe-rescue/.pytest_cache /workspace/vibe-rescue/.mypy_cache /workspace/vibe-rescue/.ruff_cache \
            /workspace/backend/.pytest_cache /workspace/backend/.mypy_cache /workspace/backend/.ruff_cache /workspace/backend/htmlcov \
@@ -225,7 +226,7 @@ fi
 if [ "${DEEP_PRUNE}" = true ]; then
   rm -rf .agents/backups .agents/proposals .agents/.qa-evidence.json \
     .agents/.cache .agents/artifacts \
-    ./*/.agents/backups ./*/.agents/proposals ./*/.agents/.qa-evidence.json \
+    ./*/.agents/backups ./*/.agents/proposals ./*/.agents/.qa-evidence.json ./*/.agents/.cache \
     "${HOME}/.cache/qa-11x-blueprints" "${tmp_base}/.qa11x_trivy_cache_"* /tmp/.qa11x_trivy_cache_* 2>/dev/null || true
   if command -v docker >/dev/null 2>&1; then
     docker system prune -af --volumes >/dev/null 2>&1 || true

@@ -209,10 +209,29 @@ def test_sync_governance_syncs_checks_and_enforces_budgets(tmp_path: Path) -> No
     assert "presupuesto cognitivo" in err_skill
 
     (tmp_path / ".agents" / "skills" / "demo" / "SKILL.md").write_text("# OK\n", encoding="utf-8")
+    tactical_dir = tmp_path / ".agents" / "skills" / "tactical-patterns-11x"
+    tactical_dir.mkdir(parents=True)
+    (tactical_dir / "SKILL.md").write_text("x" * 2400, encoding="utf-8")
+    (tmp_path / ".agents" / "schemas").mkdir(parents=True)
+    (tmp_path / ".agents" / "schemas" / "session_checkpoint.schema.json").write_text('{"type": "object"}\n', encoding="utf-8")
+    (tmp_path / ".agents" / "rules" / "active_task_and_planning_resilience.md").write_text("# Rule\n", encoding="utf-8")
     (tmp_path / ".agents" / "ACTIVE_TASK.md").write_text("\n".join(["line"] * 41) + "\n", encoding="utf-8")
     code_task, err_task = mod.run_sync(tmp_path, check_only=True)
     assert code_task == 1
     assert "límite compacto" in err_task
+
+    (tmp_path / ".agents" / "ACTIVE_TASK.md").write_text("**Estado:** `COMPLETED (100%)`\n", encoding="utf-8")
+    (tactical_dir / "SKILL.md").write_text("x" * 2501, encoding="utf-8")
+    (tmp_path / ".agents" / "rules" / "active_task_and_planning_resilience.md").write_text("\n".join(["r"] * 26) + "\n", encoding="utf-8")
+    code_tact, err_tact = mod.run_sync(tmp_path, check_only=True)
+    assert code_tact == 1
+    assert "tactical-patterns-11x/SKILL.md" in err_tact
+    assert "active_task_and_planning_resilience.md" in err_tact
+
+    (tactical_dir / "SKILL.md").write_text("# Tactical\n", encoding="utf-8")
+    (tmp_path / ".agents" / "rules" / "active_task_and_planning_resilience.md").write_text("# Rule\n", encoding="utf-8")
+    assert mod.run_sync(tmp_path)[0] == 0
+    assert ".agents/schemas/session_checkpoint.schema.json" in (tmp_path / "manifest.json").read_text(encoding="utf-8")
 
 
 def test_sync_governance_with_ast_invokes_script_on_changes(tmp_path: Path) -> None:

@@ -9,6 +9,7 @@ All notable changes to the `@sinfallas/mcp-qa-11x` npm package and MCP server ar
 ## [Unreleased]
 
 ### Added & Changed
+- **Atomic Flight Recorder (`session_flight_recorder` Tool #19) & `tactical-patterns-11x` Resource (#13):** Exposed `session_flight_recorder` (`save|recover|clear` delegating to `checkpoint_ctl.py`) and `blueprint://skills/tactical-patterns-11x` (`?lang=es|en` + offline fallback), added `[DIRECTIVE-11X]` JIT complexity guidance + `recordStageCmdCheckpoint` in `ephemeral-runner.ts`, and enforced `max-params: 4` / `max-depth: 3` across TypeScript modules (`19 Tools / 13 Resources / 11 Skills`).
 - **Dedicated Mobile Stack Execution (`qa-mobile` / `sinfallas/base-mobile-appium:26`) & Bilingual Resource Negotiation (`?lang=es|en`):** Added `qa-mobile` / `mobile-appium` container wiring in `src/tools/ephemeral-runner.ts` and `sinfallas/base-mobile-appium:26` blueprint references in `src/resources/stackBlueprints.ts`, plus `?lang=es|en` bilingual routing across `blueprint://*` resources per Spec 19.
 
 ## [3.0.0] - 2026-11-14

@@ -9,6 +9,7 @@ Todos los cambios notables en el paquete npm y servidor MCP `@sinfallas/mcp-qa-1
 ## [Unreleased]
 
 ### Añadido y Modificado
+- **Flight Recorder Atómico (`session_flight_recorder` Tool #19) y Recurso `tactical-patterns-11x` (#13):** Expuestos `session_flight_recorder` (`save|recover|clear` delegando en `checkpoint_ctl.py`) y `blueprint://skills/tactical-patterns-11x` (`?lang=es|en` + fallback offline), añadida inyección JIT `[DIRECTIVE-11X]` + `recordStageCmdCheckpoint` en `ephemeral-runner.ts`, y endurecidos los módulos TypeScript con `max-params: 4` / `max-depth: 3` (`19 Tools / 13 Resources / 11 Skills`).
 - **Ejecución Dedicada para Stack Móvil (`qa-mobile` / `sinfallas/base-mobile-appium:26`) y Negociación Bilingüe de Recursos (`?lang=es|en`):** Incorporado el soporte de contenedor `qa-mobile` / `mobile-appium` en `src/tools/ephemeral-runner.ts`, la referencia a `sinfallas/base-mobile-appium:26` en `src/resources/stackBlueprints.ts` y la negociación de idioma `?lang=es|en` en recursos `blueprint://*` conforme a Spec 19.
 
 ## [3.0.0] - 2026-11-14

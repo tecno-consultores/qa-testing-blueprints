@@ -358,24 +358,26 @@ function evaluateProjectScriptsState(
   return { version: null, outdated: false };
 }
 
-function buildAgentUpdateNotice(
-  latestVersion: string,
-  runningMcpVersion: string,
-  mcpOutdated: boolean,
-  globalState: { version: string | null; outdated: boolean },
-  projectState: { version: string | null; outdated: boolean }
-): string {
+interface UpdateNoticeContext {
+  readonly latestVersion: string;
+  readonly runningMcpVersion: string;
+  readonly mcpOutdated: boolean;
+  readonly globalState: { version: string | null; outdated: boolean };
+  readonly projectState: { version: string | null; outdated: boolean };
+}
+
+function buildAgentUpdateNotice(ctx: UpdateNoticeContext): string {
   const details: string[] = [];
-  if (mcpOutdated) {
-    details.push(`servidor MCP activo en ${runningMcpVersion}`);
+  if (ctx.mcpOutdated) {
+    details.push(`servidor MCP activo en ${ctx.runningMcpVersion}`);
   }
-  if (globalState.outdated && globalState.version) {
-    details.push(`skills globales en ${globalState.version}`);
+  if (ctx.globalState.outdated && ctx.globalState.version) {
+    details.push(`skills globales en ${ctx.globalState.version}`);
   }
-  if (projectState.outdated && projectState.version) {
-    details.push(`scripts/skills locales en ${projectState.version}`);
+  if (ctx.projectState.outdated && ctx.projectState.version) {
+    details.push(`scripts/skills locales en ${ctx.projectState.version}`);
   }
-  return `Hay una nueva versión ${latestVersion} publicada (${details.join(', ')}); notifica al usuario en el chat y sugiere ejecutar: ${RECOMMENDED_UPDATE_CMD}`;
+  return `Hay una nueva versión ${ctx.latestVersion} publicada (${details.join(', ')}); notifica al usuario en el chat y sugiere ejecutar: ${RECOMMENDED_UPDATE_CMD}`;
 }
 
 export async function evaluateUpdateStatus(
@@ -410,7 +412,13 @@ export async function evaluateUpdateStatus(
     project_scripts_outdated: projectState.outdated,
     recommended_command: updateNeeded ? RECOMMENDED_UPDATE_CMD : null,
     agent_notice: updateNeeded
-      ? buildAgentUpdateNotice(latestVersion, runningVer, mcpOutdated, globalState, projectState)
+      ? buildAgentUpdateNotice({
+          latestVersion,
+          runningMcpVersion: runningVer,
+          mcpOutdated,
+          globalState,
+          projectState,
+        })
       : null,
   };
 }

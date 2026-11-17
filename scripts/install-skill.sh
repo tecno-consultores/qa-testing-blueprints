@@ -319,7 +319,7 @@ done
 if [ "${INCLUDE_SCRIPTS}" -eq 1 ]; then
   SCRIPT_INDEX="${TMP_DIR}/script_files.txt"
   if command -v jq >/dev/null 2>&1; then
-    jq -r '((.agent_governance_files // []) + (.common_files // []))[] | select((.path | startswith(".agents/scripts/") or startswith("scripts/")) and (.path != "scripts/publicar-mcp.sh")) | "\(.path) \(.sha256)"' "${MANIFEST_FILE}" >"${SCRIPT_INDEX}"
+    jq -r '((.agent_governance_files // []) + (.common_files // []))[] | select((.path | startswith(".agents/scripts/") or startswith(".agents/schemas/") or startswith("scripts/")) and (.path != "scripts/publicar-mcp.sh")) | "\(.path) \(.sha256)"' "${MANIFEST_FILE}" >"${SCRIPT_INDEX}"
   else
     python3 -c '
 import json, sys
@@ -327,7 +327,7 @@ data = json.load(open(sys.argv[1], encoding="utf-8"))
 items = data.get("agent_governance_files", []) + data.get("common_files", [])
 for item in items:
     p = item.get("path", "")
-    if (p.startswith(".agents/scripts/") or p.startswith("scripts/")) and p != "scripts/publicar-mcp.sh":
+    if (p.startswith(".agents/scripts/") or p.startswith(".agents/schemas/") or p.startswith("scripts/")) and p != "scripts/publicar-mcp.sh":
         print(f"{p} {item.get(\"sha256\", \"\")}")
 ' "${MANIFEST_FILE}" >"${SCRIPT_INDEX}"
   fi
@@ -356,4 +356,4 @@ for item in items:
   log_ok "Scripts de automatización instalados en $(pwd) (excluyendo publicar-mcp.sh)."
 fi
 
-printf "✅ Instalación de Skills QA 11X Completada con Éxito (10 skills modulares instaladas y verificadas por SHA-256).\n"
+printf "✅ Instalación de Skills QA 11X Completada con Éxito (11 skills modulares instaladas y verificadas por SHA-256).\n"

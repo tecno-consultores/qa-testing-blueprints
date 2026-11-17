@@ -367,13 +367,16 @@ function isEndpointCoveredInFeature(methodStr: string, fullPath: string, feature
   return cleanLiteral.length > 1 && !cleanLiteral.includes('{') && featureText.includes(cleanLiteral);
 }
 
-function parseEndpointsFromLine(
-  lineStr: string,
-  routerPrefix: string,
-  routeFile: string,
-  lineIndex: number,
-  featureText: string
-): UntestedApiEndpoint | null {
+interface EndpointLineParseInput {
+  readonly lineStr: string;
+  readonly routerPrefix: string;
+  readonly routeFile: string;
+  readonly lineIndex: number;
+  readonly featureText: string;
+}
+
+function parseEndpointsFromLine(input: EndpointLineParseInput): UntestedApiEndpoint | null {
+  const { lineStr, routerPrefix, routeFile, lineIndex, featureText } = input;
   const endpointRegex =
     /@(?:router|app)\.(get|post|put|patch|delete)\(\s*["']([^"']*)["']|(?:router|app|fastify)\.(get|post|put|patch|delete)\(\s*["']([^"']*)["']|@(Get|Post|Put|Patch|Delete)\(\s*["']?([^"'()]*)["']?\)/i;
   const match = endpointRegex.exec(lineStr);
@@ -402,7 +405,13 @@ function parseFileEndpoints(
   const routerPrefix = extractRouterPrefix(content);
   const lines = content.split(/\r?\n/);
   for (let i = 0; i < lines.length; i++) {
-    const item = parseEndpointsFromLine(lines[i], routerPrefix, routeFile, i, featureText);
+    const item = parseEndpointsFromLine({
+      lineStr: lines[i],
+      routerPrefix,
+      routeFile,
+      lineIndex: i,
+      featureText,
+    });
     if (item) {
       untested.push(item);
     }
@@ -665,14 +674,17 @@ function checkPhpTyping(
   return { passed: hasStrictOrMax && hasComplexity, partial: hasPhpstan || hasStrictOrMax, evidence };
 }
 
-function collectStrictTypingMissingReqs(
-  py: { passed: boolean },
-  node: { passed: boolean },
-  php: { passed: boolean },
-  hasPython: boolean,
-  hasNode: boolean,
-  hasPhp: boolean
-): string[] {
+interface StrictTypingStacksInput {
+  readonly py: { passed: boolean; partial: boolean };
+  readonly node: { passed: boolean; partial: boolean };
+  readonly php: { passed: boolean; partial: boolean };
+  readonly hasPython: boolean;
+  readonly hasNode: boolean;
+  readonly hasPhp: boolean;
+}
+
+function collectStrictTypingMissingReqs(input: StrictTypingStacksInput): string[] {
+  const { py, node, php, hasPython, hasNode, hasPhp } = input;
   const missingReqs: string[] = [];
   if (hasPython && !py.passed) missingReqs.push('Configurar mypy con strict = true y radon.');
   if (hasNode && !node.passed) missingReqs.push('Configurar tsconfig "strict": true y script typecheck.');
@@ -681,13 +693,9 @@ function collectStrictTypingMissingReqs(
 }
 
 function determineStrictTypingStatus(
-  py: { passed: boolean; partial: boolean },
-  node: { passed: boolean; partial: boolean },
-  php: { passed: boolean; partial: boolean },
-  hasPython: boolean,
-  hasNode: boolean,
-  hasPhp: boolean
+  input: StrictTypingStacksInput
 ): { status: PyramidLayerStatus; missingReqs: string[] } {
+  const { py, node, php, hasPython, hasNode, hasPhp } = input;
   const pyPassed = !hasPython || py.passed;
   const nodePassed = !hasNode || node.passed;
   const phpPassed = !hasPhp || php.passed;
@@ -699,7 +707,7 @@ function determineStrictTypingStatus(
   if (anyPartial) {
     return {
       status: STATUS_PARTIAL,
-      missingReqs: collectStrictTypingMissingReqs(py, node, php, hasPython, hasNode, hasPhp),
+      missingReqs: collectStrictTypingMissingReqs(input),
     };
   }
   return {
@@ -736,7 +744,14 @@ export function evaluateLayer02StrictTyping(
   const node = checkNodeTyping(projectPath);
   const php = checkPhpTyping(projectPath, files);
 
-  const { status, missingReqs } = determineStrictTypingStatus(py, node, php, hasPython, hasNode, hasPhp);
+  const { status, missingReqs } = determineStrictTypingStatus({
+    py,
+    node,
+    php,
+    hasPython,
+    hasNode,
+    hasPhp,
+  });
 
   return {
     layer_number: 2,
@@ -1083,13 +1098,16 @@ export function checkOperationalViewsDualRefresh(
   return { applicable: true, passed: true };
 }
 
-function applyDualRefreshToLayer07(
-  projectPath: string,
-  files: string[],
-  currentStatus: PyramidLayerStatus,
-  detected: string[],
-  missingReqs: string[]
-): PyramidLayerStatus {
+interface LayerAugmentContext {
+  readonly projectPath: string;
+  readonly files: string[];
+  readonly currentStatus: PyramidLayerStatus;
+  readonly detected: string[];
+  readonly missingReqs: string[];
+}
+
+function applyDualRefreshToLayer07(ctx: LayerAugmentContext): PyramidLayerStatus {
+  const { projectPath, files, currentStatus, detected, missingReqs } = ctx;
   const dualRefresh = checkOperationalViewsDualRefresh(projectPath, files);
   if (!dualRefresh.applicable) {
     return currentStatus;
@@ -1146,7 +1164,13 @@ export function evaluateLayer07BddUiKarate(
     missingReqs.push(`No existe ${UI_BUSINESS_FLOW_FEATURE} para validar flujos de usuario.`);
   }
 
-  status = applyDualRefreshToLayer07(projectPath, files, status, detected, missingReqs);
+  status = applyDualRefreshToLayer07({
+    projectPath,
+    files,
+    currentStatus: status,
+    detected,
+    missingReqs,
+  });
 
   return {
     layer_number: 7,
@@ -1633,13 +1657,8 @@ export function detectThreePhaseTemporalTests(
   return false;
 }
 
-function applyTemporalLifecycleToLayer13(
-  projectPath: string,
-  files: string[],
-  currentStatus: PyramidLayerStatus,
-  detected: string[],
-  missingReqs: string[]
-): PyramidLayerStatus {
+function applyTemporalLifecycleToLayer13(ctx: LayerAugmentContext): PyramidLayerStatus {
+  const { projectPath, files, currentStatus, detected, missingReqs } = ctx;
   if (!projectHasTemporalEntities(projectPath, files)) {
     return currentStatus;
   }
@@ -1695,13 +1714,13 @@ export function evaluateLayer13TrimodalFixtures(
     hasNoDevTest,
     hasFixtures
   );
-  const status = applyTemporalLifecycleToLayer13(
+  const status = applyTemporalLifecycleToLayer13({
     projectPath,
     files,
-    baseStatus,
+    currentStatus: baseStatus,
     detected,
-    missingReqs
-  );
+    missingReqs,
+  });
 
   return {
     layer_number: 13,

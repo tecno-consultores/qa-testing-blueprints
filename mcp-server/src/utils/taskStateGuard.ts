@@ -112,56 +112,58 @@ interface ActiveTaskRecord {
   timedOut: boolean;
 }
 
+interface TaskGuardErrorInit {
+  readonly statusCode: 409 | 503 | 504;
+  readonly code: GuardErrorCode;
+  readonly message: string;
+  readonly guardState: GuardLifecycleState;
+  readonly brokenReason: GuardBrokenReason;
+}
+
 export class TaskGuardError extends Error {
   readonly statusCode: 409 | 503 | 504;
   readonly code: GuardErrorCode;
   readonly guardState: GuardLifecycleState;
   readonly brokenReason: GuardBrokenReason;
 
-  constructor(
-    statusCode: 409 | 503 | 504,
-    code: GuardErrorCode,
-    message: string,
-    guardState: GuardLifecycleState,
-    brokenReason: GuardBrokenReason
-  ) {
-    super(message);
+  constructor(init: TaskGuardErrorInit) {
+    super(init.message);
     this.name = 'TaskGuardError';
-    this.statusCode = statusCode;
-    this.code = code;
-    this.guardState = guardState;
-    this.brokenReason = brokenReason;
+    this.statusCode = init.statusCode;
+    this.code = init.code;
+    this.guardState = init.guardState;
+    this.brokenReason = init.brokenReason;
   }
 }
 
 function createGuardBusyError(capacity: number): TaskGuardError {
-  return new TaskGuardError(
-    409,
-    CODE_GUARD_BUSY,
-    `409 BUSY: capacidad máxima alcanzada (${capacity} slots activos).`,
-    STATE_BUSY,
-    null
-  );
+  return new TaskGuardError({
+    statusCode: 409,
+    code: CODE_GUARD_BUSY,
+    message: `409 BUSY: capacidad máxima alcanzada (${capacity} slots activos).`,
+    guardState: STATE_BUSY,
+    brokenReason: null,
+  });
 }
 
 function createGuardBrokenError(reason: GuardBrokenReason): TaskGuardError {
-  return new TaskGuardError(
-    503,
-    CODE_GUARD_BROKEN,
-    `503 BROKEN: guardián inoperativo (${reason}).`,
-    STATE_BROKEN,
-    reason
-  );
+  return new TaskGuardError({
+    statusCode: 503,
+    code: CODE_GUARD_BROKEN,
+    message: `503 BROKEN: guardián inoperativo (${reason}).`,
+    guardState: STATE_BROKEN,
+    brokenReason: reason,
+  });
 }
 
 function createTaskStuckError(taskId: string, timeoutMs: number): TaskGuardError {
-  return new TaskGuardError(
-    504,
-    CODE_TASK_STUCK,
-    `TASK_STUCK: tarea '${taskId}' abortada tras exceder ${timeoutMs} ms.`,
-    STATE_BROKEN,
-    REASON_TASK_STUCK
-  );
+  return new TaskGuardError({
+    statusCode: 504,
+    code: CODE_TASK_STUCK,
+    message: `TASK_STUCK: tarea '${taskId}' abortada tras exceder ${timeoutMs} ms.`,
+    guardState: STATE_BROKEN,
+    brokenReason: REASON_TASK_STUCK,
+  });
 }
 
 function isValidCapacity(value: number): boolean {

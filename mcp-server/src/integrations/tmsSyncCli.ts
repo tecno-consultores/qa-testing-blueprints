@@ -618,13 +618,16 @@ function buildInventorySummary(
   };
 }
 
-function executeInventoryMode(
-  args: TmsSyncArgs,
-  provider: TmsProvider,
-  workspaceRoot: string,
-  startedAt: number,
-  deps?: TmsSyncDependencies
-): TmsSyncResult {
+interface ModeExecutionContext {
+  readonly args: TmsSyncArgs;
+  readonly provider: TmsProvider;
+  readonly workspaceRoot: string;
+  readonly startedAt: number;
+  readonly deps?: TmsSyncDependencies;
+}
+
+function executeInventoryMode(ctx: ModeExecutionContext): TmsSyncResult {
+  const { args, provider, workspaceRoot, startedAt, deps } = ctx;
   const targetDir = args.targetDir ?? '.';
   const requiredKeys = args.requiredKeys ?? [];
   const inventory = buildInventorySummary(workspaceRoot, targetDir, requiredKeys);
@@ -1146,15 +1149,20 @@ function evaluateOfflineGate(
   return { live: true, offlineStatus: STATUS_DRY_RUN, creds };
 }
 
+interface PostRequestSpec {
+  readonly fetchPort: FetchPort;
+  readonly endpoint: string;
+  readonly payload: Record<string, unknown>;
+  readonly authHeader: string;
+  readonly idempotencyKey: string;
+  readonly timeoutMs: number;
+  readonly env: Readonly<Record<string, string | undefined>>;
+}
+
 async function executePostNoRetry(
-  fetchPort: FetchPort,
-  endpoint: string,
-  payload: Record<string, unknown>,
-  authHeader: string,
-  idempotencyKey: string,
-  timeoutMs: number,
-  env: Readonly<Record<string, string | undefined>>
+  spec: PostRequestSpec
 ): Promise<{ status: TmsSyncStatus; httpStatus?: number; message: string }> {
+  const { fetchPort, endpoint, payload, authHeader, idempotencyKey, timeoutMs, env } = spec;
   try {
     const response = await fetchPort(endpoint, {
       method: 'POST',
@@ -1197,13 +1205,8 @@ async function executePostNoRetry(
   }
 }
 
-async function executePushResultsMode(
-  args: TmsSyncArgs,
-  provider: TmsProvider,
-  workspaceRoot: string,
-  startedAt: number,
-  deps?: TmsSyncDependencies
-): Promise<TmsSyncResult> {
+async function executePushResultsMode(ctx: ModeExecutionContext): Promise<TmsSyncResult> {
+  const { args, provider, workspaceRoot, startedAt, deps } = ctx;
   const env = getEnvMap(deps);
   const origin = resolveEffectiveBaseOrigin(provider, args.baseUrl);
   const rawXml = readJunitInputXml(args, workspaceRoot);
@@ -1232,15 +1235,15 @@ async function executePushResultsMode(
   }
 
   const fetchPort = deps?.fetchPort ?? defaultFetchPort;
-  const outcome = await executePostNoRetry(
+  const outcome = await executePostNoRetry({
     fetchPort,
     endpoint,
     payload,
-    gate.creds.headerValue,
+    authHeader: gate.creds.headerValue,
     idempotencyKey,
-    resolveTimeoutMs(args.timeoutMs),
-    env
-  );
+    timeoutMs: resolveTimeoutMs(args.timeoutMs),
+    env,
+  });
   return {
     mode: MODE_PUSH,
     provider,
@@ -1556,10 +1559,10 @@ export async function executeTmsSync(
   const workspaceRoot = args.workspaceRoot ?? deps?.workspaceRoot ?? process.cwd();
 
   if (mode === MODE_INVENTORY) {
-    return executeInventoryMode(args, provider, workspaceRoot, startedAt, deps);
+    return executeInventoryMode({ args, provider, workspaceRoot, startedAt, deps });
   }
   if (mode === MODE_PUSH) {
-    return executePushResultsMode(args, provider, workspaceRoot, startedAt, deps);
+    return executePushResultsMode({ args, provider, workspaceRoot, startedAt, deps });
   }
   return executePullStoriesMode(args, provider, startedAt, deps);
 }

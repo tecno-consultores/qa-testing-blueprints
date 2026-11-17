@@ -117,7 +117,7 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
       }
 
       const exitCodes: number[] = [];
-      await main(['-v'], undefined, (c) => exitCodes.push(c));
+      await main(['-v'], undefined, { exitFn: (c) => exitCodes.push(c) });
       expect(exitCodes).toEqual([0]);
 
       // Interactive TTY without arguments: runs auto-sync, prints notice, and exits cleanly with 0 (never hangs)
@@ -125,30 +125,26 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
       process.env.QA_DISABLE_AUTO_SYNC = '0';
       let autoSyncedInTty = 0;
       const ttyExitCodes: number[] = [];
-      await main(
-        [],
-        undefined,
-        (c) => ttyExitCodes.push(c),
-        async () => {
+      await main([], undefined, {
+        exitFn: (c) => ttyExitCodes.push(c),
+        autoSyncFn: async () => {
           autoSyncedInTty += 1;
         },
-        true
-      );
+        isStdinTty: true,
+      });
       expect(autoSyncedInTty).toBe(1);
       expect(ttyExitCodes).toEqual([0]);
       expect(logSpy).toHaveBeenCalledWith(INTERACTIVE_TTY_NOTICE);
 
       // Interactive TTY with QA_DISABLE_AUTO_SYNC='1' skips autoSyncFn and exits with 0
       process.env.QA_DISABLE_AUTO_SYNC = '1';
-      await main(
-        [],
-        undefined,
-        (c) => ttyExitCodes.push(c),
-        async () => {
+      await main([], undefined, {
+        exitFn: (c) => ttyExitCodes.push(c),
+        autoSyncFn: async () => {
           autoSyncedInTty += 1;
         },
-        true
-      );
+        isStdinTty: true,
+      });
       expect(autoSyncedInTty).toBe(1);
       expect(ttyExitCodes).toEqual([0, 0]);
       if (prevDisableSync === undefined) {
@@ -164,9 +160,7 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
         async () => {
           stdioStarted = true;
         },
-        undefined,
-        undefined,
-        false
+        { isStdinTty: false }
       );
       expect(stdioStarted).toBe(true);
 
@@ -177,9 +171,7 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
         async () => {
           forcedStdioStarted = true;
         },
-        undefined,
-        undefined,
-        true
+        { isStdinTty: true }
       );
       expect(forcedStdioStarted).toBe(true);
       expect(errSpy).toHaveBeenCalledWith(expect.stringContaining('listening for JSON-RPC messages over stdio'));
@@ -529,7 +521,10 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
       expect(lintIssues.length).toBe(1);
       expect(lintIssues[0].file).toBe('/app/src/demo.ts');
 
-      const noCovRes = parseQaOutput('Tests passed with no coverage table', '', 'unit', 10, 0);
+      const noCovRes = parseQaOutput('Tests passed with no coverage table', '', 'unit', {
+        durationMs: 10,
+        exitCode: 0,
+      });
       expect(noCovRes.status).toBe('FAILED');
       expect(noCovRes.coverage.detected).toBe(false);
 
@@ -725,7 +720,9 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
       const fakeFetcher = {
         fetchStackBundle: async () => [],
       } as unknown as GitHubFetcher;
-      const bmMerged = await bootstrapOrMerge11x(mergeProj, 'python', false, fakeFetcher);
+      const bmMerged = await bootstrapOrMerge11x(mergeProj, 'python', false, {
+        fetcher: fakeFetcher,
+      });
       expect(bmMerged.summary.merged).toBe(1);
 
       const fakeFetcherWithAgents = {
@@ -738,7 +735,9 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
           },
         ],
       } as unknown as GitHubFetcher;
-      const bmWithBundleAgents = await bootstrapOrMerge11x(mergeProj, 'python', true, fakeFetcherWithAgents);
+      const bmWithBundleAgents = await bootstrapOrMerge11x(mergeProj, 'python', true, {
+        fetcher: fakeFetcherWithAgents,
+      });
       expect(bmWithBundleAgents.dry_run).toBe(true);
 
       // Cover orphan UI view, missing alembic with models, git remote error in proposeSkillEvolutionPr, and PHP preauth .get()

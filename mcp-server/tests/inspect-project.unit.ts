@@ -335,5 +335,18 @@ strict=true
       expect(result.strict_flags.phpstan_strict).toBe(true);
       expect(result.missing_11x_files).not.toContain('phpstan.neon');
     });
+
+    it('ignora config MCP ilegible (directorio) al evaluar disponibilidad de navegador', async () => {
+      const fakeHome = path.join(tmpDir, 'fake-home');
+      fs.writeFileSync(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ dependencies: { vue: '^3.5.0' } }),
+        'utf-8'
+      );
+      fs.mkdirSync(path.join(fakeHome, '.cursor', 'mcp.json'), { recursive: true });
+      const result = await inspectProjectConfig(tmpDir, fakeHome);
+      expect(result.browser_testing_readiness.applicable).toBe(true);
+      expect(result.browser_testing_readiness.browser_mcp_configured_in_ide).toBe(false);
+    });
   });
 });

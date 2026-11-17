@@ -11,7 +11,7 @@
 [![Licencia: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Regla Cero: Docker Efímero](https://img.shields.io/badge/Rule%20Zero-Non--Root%20Ephemeral%20Docker-0db7ed)](TESTING.md)
 [![Trivy Scan](https://img.shields.io/badge/Trivy-HIGH%2FCRITICAL%20%3D%200-brightgreen)](SECURITY.md)
-[![Skills Modulares IA](https://img.shields.io/badge/AI%20Skills-10%20Modulares%20(%3C20KB)-6f42c1)](.agents/skills/qa-11x-architect/SKILL.md)
+[![Skills Modulares IA](https://img.shields.io/badge/AI%20Skills-11%20Modulares%20(%3C20KB)-6f42c1)](.agents/skills/qa-11x-architect/SKILL.md)
 [![Agentes IA](https://img.shields.io/badge/AI%20Agents-27%2B%20Soportados-ff69b4)](docs/agent-setup.md)
 [![FINOS CALM](https://img.shields.io/badge/Architecture-FINOS%20CALM-orange)](architecture/qa-11x.calm.json)
 
@@ -149,10 +149,10 @@ A continuación se resume el stack de validación corporativo por entorno y tipo
 
 ---
 
-## 🤖 10 Skills Modulares (`< 20 KB`), Servidor MCP y 27+ Agentes de IA
+## 🤖 11 Skills Modulares (`< 20 KB`), Servidor MCP y 27+ Agentes de IA
 
-* **Enrutamiento Progresivo de Skills (`< 20 KB`):** Liderado por [`.agents/skills/qa-11x-architect/SKILL.md`](.agents/skills/qa-11x-architect/SKILL.md) (`< 12 KB`), hidratando bajo demanda 9 sub-skills especializadas (`qa-11x-devsecops-hardener`, `qa-11x-systematic-debugging`, `qa-11x-screenplay-builder`, `qa-11x-llm-evaluator`, `qa-11x-vibe-rescue`, `qa-11x-docker-certifier`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `refactoring-ui`).
-* **Superficie Pública MCP (`@sinfallas/mcp-qa-11x` v3.0.0):** Expone **18 herramientas** y **12 recursos `blueprint://*`** sobre `stdio` (12 núcleo v1 + 6 evaluadores v2.0 para FINOS CALM, Release Gate, trayectoria de agentes, OWASP LLM Red Team, Vibe-Rescue y sincronización TMS blindados de extremo a extremo por `promptGuard` y `TaskStateGuard`).
+* **Enrutamiento Progresivo de Skills (`< 20 KB`):** Liderado por [`.agents/skills/qa-11x-architect/SKILL.md`](.agents/skills/qa-11x-architect/SKILL.md) (`< 12 KB`), hidratando bajo demanda 10 sub-skills especializadas (`qa-11x-devsecops-hardener`, `qa-11x-systematic-debugging`, `qa-11x-screenplay-builder`, `qa-11x-llm-evaluator`, `qa-11x-vibe-rescue`, `qa-11x-docker-certifier`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `refactoring-ui` y [`tactical-patterns-11x`](.agents/skills/tactical-patterns-11x/SKILL.md) `<= 2.5 KB` inyectada vía `[DIRECTIVE-11X]`).
+* **Superficie Pública MCP (`@sinfallas/mcp-qa-11x` v3.0.0):** Expone **19 herramientas** y **13 recursos `blueprint://*`** sobre `stdio` (12 núcleo v1 + 6 evaluadores v2.0 + Flight Recorder atómico `session_flight_recorder` y `blueprint://skills/tactical-patterns-11x` blindados de extremo a extremo por `promptGuard` y `TaskStateGuard`).
 * **Guardia Humana de Cierre Git (`QA-GIT-GATE-01`):** Imposta por [`.agents/rules/git_closure_gate.md`](.agents/rules/git_closure_gate.md) — los agentes certifican localmente vía `make certify` y se detienen en `git commit` local; cualquier `git push` o `npm publish` automático queda estrictamente prohibido.
 * **Guías y Catálogos:** Consulta [`docs/agent-setup.md`](docs/agent-setup.md), [`docs/agent-setup.en.md`](docs/agent-setup.en.md), [`RESOURCES.md`](RESOURCES.md), [`llms.txt`](llms.txt) (índice GEO), [`catalogs/`](catalogs/agenticskills-submission.md) ([QASkills](catalogs/qaskills-pack.json), [SkillsLLM](catalogs/skillsllm-manifest.json)), [`docs/01_ARQUITECTURA_PIRAMIDE_11X.md`](docs/01_ARQUITECTURA_PIRAMIDE_11X.md), [`TESTING.md`](TESTING.md), [`SECURITY.md`](SECURITY.md) y [`ROADMAP.md`](ROADMAP.md).
 

@@ -22,7 +22,9 @@ DEFAULT_BRANCH = "main"
 RAW_BASE_URL = f"https://raw.githubusercontent.com/{REPOSITORY}/{DEFAULT_BRANCH}"
 
 MAX_SKILL_MD_BYTES = 20_480
+MAX_TACTICAL_SKILL_BYTES = 2_500
 MAX_ACTIVE_TASK_LINES = 40
+MAX_ACTIVE_TASK_RULE_LINES = 25
 
 STACK_METADATA: dict[str, dict[str, str]] = {
     "python": {
@@ -277,6 +279,14 @@ def _discover_catalog_paths(repo_root: Path) -> list[Path]:
     ]
 
 
+def _discover_schema_paths(repo_root: Path) -> list[Path]:
+    """Descubre esquemas JSON en .agents/schemas/ cuando existen."""
+    schemas_dir = repo_root / ".agents" / "schemas"
+    if not schemas_dir.is_dir():
+        return []
+    return [p for p in sorted(schemas_dir.glob("*.json")) if p.is_file()]
+
+
 def _discover_governance_paths(repo_root: Path) -> list[str]:
     """Descubre archivos canónicos de gobernanza dentro de los directorios gobernados."""
     candidates: list[Path] = []
@@ -295,6 +305,7 @@ def _discover_governance_paths(repo_root: Path) -> list[str]:
             candidates.append(candidate)
 
     candidates.extend(_discover_catalog_paths(repo_root))
+    candidates.extend(_discover_schema_paths(repo_root))
 
     rules_dir = repo_root / ".agents" / "rules"
     if rules_dir.is_dir():
@@ -549,28 +560,44 @@ def compare_manifests(
     return diffs
 
 
+def _check_skill_budget_entry(repo_root: Path, skill_md: Path) -> str | None:
+    size = skill_md.stat().st_size
+    rel = skill_md.relative_to(repo_root).as_posix()
+    if skill_md.parent.name == "tactical-patterns-11x":
+        if size > MAX_TACTICAL_SKILL_BYTES:
+            return f"{rel} excede el presupuesto cognitivo ({size} > {MAX_TACTICAL_SKILL_BYTES} bytes)."
+        return None
+    if size >= MAX_SKILL_MD_BYTES:
+        return f"{rel} excede el presupuesto cognitivo ({size} >= {MAX_SKILL_MD_BYTES} bytes)."
+    return None
+
+
+def _check_line_limit(repo_root: Path, rel: str, max_lines: int) -> str | None:
+    candidate = repo_root / rel
+    if not candidate.is_file():
+        return None
+    line_count = len(candidate.read_text(encoding="utf-8").splitlines())
+    if line_count > max_lines:
+        return f"{rel} excede el límite compacto ({line_count} > {max_lines} líneas)."
+    return None
+
+
 def validate_cognitive_budgets(repo_root: Path) -> list[str]:
-    """Valida SKILL.md < 20480 bytes y ACTIVE_TASK.md <= 40 líneas."""
+    """Valida SKILL.md (<20480B / tactical <=2500B), ACTIVE_TASK <=40L y regla <=25L."""
     errors: list[str] = []
     skills_dir = repo_root / ".agents" / "skills"
     if skills_dir.is_dir():
         for skill_md in sorted(skills_dir.glob("*/SKILL.md")):
-            if not skill_md.is_file():
-                continue
-            size = skill_md.stat().st_size
-            if size >= MAX_SKILL_MD_BYTES:
-                rel = skill_md.relative_to(repo_root).as_posix()
-                errors.append(
-                    f"{rel} excede el presupuesto cognitivo ({size} >= {MAX_SKILL_MD_BYTES} bytes)."
-                )
-
-    active_task = repo_root / ".agents" / "ACTIVE_TASK.md"
-    if active_task.is_file():
-        line_count = len(active_task.read_text(encoding="utf-8").splitlines())
-        if line_count > MAX_ACTIVE_TASK_LINES:
-            errors.append(
-                f".agents/ACTIVE_TASK.md excede el límite compacto ({line_count} > {MAX_ACTIVE_TASK_LINES} líneas)."
-            )
+            err = _check_skill_budget_entry(repo_root, skill_md) if skill_md.is_file() else None
+            if err:
+                errors.append(err)
+    for rel, limit in (
+        (".agents/ACTIVE_TASK.md", MAX_ACTIVE_TASK_LINES),
+        (".agents/rules/active_task_and_planning_resilience.md", MAX_ACTIVE_TASK_RULE_LINES),
+    ):
+        err = _check_line_limit(repo_root, rel, limit)
+        if err:
+            errors.append(err)
     return errors
 
 

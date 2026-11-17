@@ -114,7 +114,10 @@ describe('Hito 22: Memoria determinista de hallazgos y cortacircuitos BREAKER-42
     const gitMain = createMockGitExec('main');
     const gitFeat = createMockGitExec('feat/other');
 
-    const ignored = recordQaStageFindingsState(tmpDir, 'dast', [], 3, gitMain);
+    const ignored = recordQaStageFindingsState(tmpDir, 'dast', [], {
+      maxStreak: 3,
+      execFileSyncFn: gitMain,
+    });
     expect(ignored.triggered).toBe(false);
     expect(ignored.code).toBeNull();
 
@@ -122,23 +125,23 @@ describe('Hito 22: Memoria determinista de hallazgos y cortacircuitos BREAKER-42
     const findingB = { file: 'src/b.ts:20:1', rule: 'E2', message: 'Error B' };
     const findingC = { file: 'src/c.ts:30:1', rule: 'E3', message: 'Error C' };
 
-    expect(recordQaStageFindingsState(tmpDir, 'unit', [findingA], 3, gitMain).triggered).toBe(false);
+    expect(recordQaStageFindingsState(tmpDir, 'unit', [findingA], { execFileSyncFn: gitMain }).triggered).toBe(false);
     // Stage diferente (lint limpio) no interfiere ni oscila sobre unit
-    expect(recordQaStageFindingsState(tmpDir, 'lint', [], 3, gitMain).triggered).toBe(false);
-    const secondUnit = recordQaStageFindingsState(tmpDir, 'unit', [findingA], 3, gitMain);
+    expect(recordQaStageFindingsState(tmpDir, 'lint', [], { execFileSyncFn: gitMain }).triggered).toBe(false);
+    const secondUnit = recordQaStageFindingsState(tmpDir, 'unit', [findingA], { execFileSyncFn: gitMain });
     expect(secondUnit.triggered).toBe(false);
     expect(secondUnit.max_streak_observed).toBe(2);
 
     // Rama diferente inicia limpia y corta racha previa al haber una corrida limpia intercalada
-    expect(recordQaStageFindingsState(tmpDir, 'unit', [findingA], 3, gitFeat).max_streak_observed).toBe(1);
-    expect(recordQaStageFindingsState(tmpDir, 'ci', [], 3, gitMain).triggered).toBe(false);
-    expect(recordQaStageFindingsState(tmpDir, 'ci', [findingA], 3, gitMain).max_streak_observed).toBe(1);
-    const secondCi = recordQaStageFindingsState(tmpDir, 'ci', [findingA], 3, gitMain);
+    expect(recordQaStageFindingsState(tmpDir, 'unit', [findingA], { execFileSyncFn: gitFeat }).max_streak_observed).toBe(1);
+    expect(recordQaStageFindingsState(tmpDir, 'ci', [], { execFileSyncFn: gitMain }).triggered).toBe(false);
+    expect(recordQaStageFindingsState(tmpDir, 'ci', [findingA], { execFileSyncFn: gitMain }).max_streak_observed).toBe(1);
+    const secondCi = recordQaStageFindingsState(tmpDir, 'ci', [findingA], { execFileSyncFn: gitMain });
     expect(secondCi.max_streak_observed).toBe(2);
     expect(secondCi.triggered).toBe(false);
 
     // Tercer fallo consecutivo en main/unit dispara BREAKER_42
-    const thirdUnit = recordQaStageFindingsState(tmpDir, 'unit', [findingA], 3, gitMain);
+    const thirdUnit = recordQaStageFindingsState(tmpDir, 'unit', [findingA], { execFileSyncFn: gitMain });
     expect(thirdUnit.triggered).toBe(true);
     expect(thirdUnit.code).toBe('BREAKER_42');
     expect(thirdUnit.max_streak_observed).toBe(3);
@@ -153,9 +156,9 @@ describe('Hito 22: Memoria determinista de hallazgos y cortacircuitos BREAKER-42
     expect(resetKey).toBe('main:abc123456789');
 
     // Oscilación A -> B -> A en lint dispara inmediatamente
-    expect(recordQaStageFindingsState(tmpDir, 'lint', [findingA], 3, gitMain).triggered).toBe(false);
-    expect(recordQaStageFindingsState(tmpDir, 'lint', [findingB], 3, gitMain).triggered).toBe(false);
-    const osc = recordQaStageFindingsState(tmpDir, 'lint', [findingA, findingC], 3, gitMain);
+    expect(recordQaStageFindingsState(tmpDir, 'lint', [findingA], { execFileSyncFn: gitMain }).triggered).toBe(false);
+    expect(recordQaStageFindingsState(tmpDir, 'lint', [findingB], { execFileSyncFn: gitMain }).triggered).toBe(false);
+    const osc = recordQaStageFindingsState(tmpDir, 'lint', [findingA, findingC], { execFileSyncFn: gitMain });
     expect(osc.triggered).toBe(true);
     expect(osc.oscillations_observed).toBe(1);
     expect(osc.blocking_findings).toHaveLength(1);
@@ -167,8 +170,7 @@ describe('Hito 22: Memoria determinista de hallazgos y cortacircuitos BREAKER-42
         tmpDir,
         'integration',
         [{ file: `src/i_${idx}.ts`, rule: 'R', message: `M ${idx}` }],
-        3,
-        gitMain
+        { maxStreak: 3, execFileSyncFn: gitMain }
       );
     }
     const persisted = JSON.parse(fs.readFileSync(stateFile, 'utf8')) as {
@@ -183,10 +185,10 @@ describe('Hito 22: Memoria determinista de hallazgos y cortacircuitos BREAKER-42
     const stateFile = path.join(tmpDir, CERTIFY_STATE_REL_PATH);
     fs.mkdirSync(path.dirname(stateFile), { recursive: true });
     fs.writeFileSync(stateFile, '{corrupt', 'utf8');
-    expect(recordQaStageFindingsState(tmpDir, 'lint', [], 3, gitMain).triggered).toBe(false);
+    expect(recordQaStageFindingsState(tmpDir, 'lint', [], { execFileSyncFn: gitMain }).triggered).toBe(false);
 
     fs.writeFileSync(stateFile, JSON.stringify({ version: 1, sessions: [] }), 'utf8');
-    expect(recordQaStageFindingsState(tmpDir, 'lint', [], 3, gitMain).triggered).toBe(false);
+    expect(recordQaStageFindingsState(tmpDir, 'lint', [], { execFileSyncFn: gitMain }).triggered).toBe(false);
 
     fs.writeFileSync(
       stateFile,
@@ -199,13 +201,13 @@ describe('Hito 22: Memoria determinista de hallazgos y cortacircuitos BREAKER-42
       }),
       'utf8'
     );
-    expect(recordQaStageFindingsState(tmpDir, 'lint', [], 3, gitMain).triggered).toBe(false);
+    expect(recordQaStageFindingsState(tmpDir, 'lint', [], { execFileSyncFn: gitMain }).triggered).toBe(false);
 
     const extTarget = path.join(tmpDir, 'outside.json');
     fs.writeFileSync(extTarget, '{}', 'utf8');
     fs.rmSync(stateFile, { force: true });
     fs.symlinkSync(extTarget, stateFile);
-    expect(() => recordQaStageFindingsState(tmpDir, 'lint', [], 3, gitMain)).toThrow(/symlink/);
+    expect(() => recordQaStageFindingsState(tmpDir, 'lint', [], { execFileSyncFn: gitMain })).toThrow(/symlink/);
 
     fs.rmSync(path.dirname(stateFile), { recursive: true, force: true });
     const extDir = path.join(tmpDir, 'outside-dir');

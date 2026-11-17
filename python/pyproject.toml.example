@@ -64,8 +64,18 @@ line-length = 120
 target-version = "py313"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B"]
+select = ["E", "F", "W", "I", "B", "C901", "PLR0911", "PLR0913"]
 ignore = ["E501"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 5
+
+[tool.ruff.lint.pylint]
+max-args = 5
+max-returns = 4
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["PLR0913"]
 
 [tool.mypy]
 strict = true

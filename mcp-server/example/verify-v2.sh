@@ -118,7 +118,11 @@ const [binJs, projDir, workDir, homeDir] = process.argv.slice(2);
 const indexMod = await import(pathToFileURL(binJs).href);
 const ttyExitCodes = [];
 await Promise.race([
-  indexMod.main([], undefined, (code) => ttyExitCodes.push(code), async () => {}, true),
+  indexMod.main([], undefined, {
+    exitFn: (code) => ttyExitCodes.push(code),
+    autoSyncFn: async () => {},
+    isStdinTty: true,
+  }),
   new Promise((_, reject) => setTimeout(() => reject(new Error('TTY probe exceeded 4500ms')), 4500)),
 ]);
 assert.deepEqual(ttyExitCodes, [0]);
@@ -138,15 +142,16 @@ const client = new Client({ name: 'verify-v2-cleanroom', version: '3.0.0' });
 try {
   await client.connect(transport);
   const toolsList = await client.listTools();
-  assert.equal(toolsList.tools.length, 18, `Esperadas 18 tools, obtenidas ${toolsList.tools.length}`);
+  assert.equal(toolsList.tools.length, 19, `Esperadas 19 tools, obtenidas ${toolsList.tools.length}`);
 
   const resourcesList = await client.listResources();
-  assert.equal(resourcesList.resources.length, 12, `Esperados 12 resources, obtenidos ${resourcesList.resources.length}`);
+  assert.equal(resourcesList.resources.length, 13, `Esperados 13 resources, obtenidos ${resourcesList.resources.length}`);
 
   for (const uri of [
     'blueprint://ai/evals-redteam',
     'blueprint://mobile-appium/readme',
     'blueprint://vibe-rescue/readme',
+    'blueprint://skills/tactical-patterns-11x',
   ]) {
     const res = await client.readResource({ uri });
     assert.ok(res.contents[0].text.length > 250, `Fallback insuficiente en ${uri}`);
@@ -214,4 +219,4 @@ EOF
 
 END_TS="$(date +%s)"
 ELAPSED_S=$((END_TS - START_TS))
-echo "✔ [verify-v2] Tarball ${TARBALL_NAME} | 18 tools / 12 resources / quickstart / TTY PASS (${ELAPSED_S}s)"
+echo "✔ [verify-v2] Tarball ${TARBALL_NAME} | 19 tools / 13 resources / quickstart / TTY PASS (${ELAPSED_S}s)"

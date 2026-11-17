@@ -4,7 +4,7 @@
 //
 // Arnés End-to-End (E2E) sobre stdio real para @sinfallas/mcp-qa-11x v3.0.0.
 // Conecta un cliente MCP oficial (@modelcontextprotocol/sdk) contra el binario
-// compilado dist/index.js y certifica empíricamente los 12 recursos, las 18 tools
+// compilado dist/index.js y certifica empíricamente los 13 recursos, las 19 tools
 // (en escenarios negativos y limpios) y los 4 subcomandos CLI sobre una copia
 // temporal aislada del proyecto híbrido Full-Stack mcp-server/example/.
 
@@ -110,12 +110,13 @@ async function verifyAllResources(client, expectedVersion) {
   const staticUris = listedResources.resources.map((r) => r.uri);
   const templateUris = listedTemplates.resourceTemplates.map((t) => t.uriTemplate);
 
-  assert.equal(staticUris.length, 12, `Se esperaban 12 recursos listados y llegaron ${staticUris.length}`);
+  assert.equal(staticUris.length, 13, `Se esperaban 13 recursos listados y llegaron ${staticUris.length}`);
   assert.equal(templateUris.length, 2, `Se esperaban 2 resourceTemplates y llegaron ${templateUris.length}`);
   for (const requiredUri of [
     'blueprint://ai/evals-redteam',
     'blueprint://mobile-appium/readme',
     'blueprint://vibe-rescue/readme',
+    'blueprint://skills/tactical-patterns-11x',
   ]) {
     assert.ok(staticUris.includes(requiredUri), `Falta recurso v2 '${requiredUri}' en resources/list`);
   }
@@ -135,6 +136,8 @@ async function verifyAllResources(client, expectedVersion) {
     'blueprint://ai/evals-redteam',
     'blueprint://mobile-appium/readme',
     'blueprint://vibe-rescue/readme',
+    'blueprint://skills/tactical-patterns-11x',
+    'blueprint://skills/tactical-patterns-11x?lang=es',
   ];
 
   for (const uri of urisToRead) {
@@ -149,10 +152,10 @@ async function verifyAllResources(client, expectedVersion) {
       assert.ok(parsedManifest.stacks.fastapi && parsedManifest.stacks.vue3);
     }
   }
-  logStep(`12 Recursos MCP (10 estáticos/catálogo + 2 templates dinámicos) leídos y validados (v${expectedVersion})`);
+  logStep(`13 Recursos MCP (11 estáticos/catálogo + 2 templates dinámicos) leídos y validados (v${expectedVersion})`);
 }
 
-async function verifyAllEighteenTools(client, ctx) {
+async function verifyAllNineteenTools(client, ctx) {
   const { projectDir, docsOnlyDir, expectedVersion } = ctx;
 
   const toolsResp = await client.listTools();
@@ -174,10 +177,11 @@ async function verifyAllEighteenTools(client, ctx) {
     'reconcile_agents_governance',
     'run_ephemeral_qa',
     'run_llm_red_team',
+    'session_flight_recorder',
     'sync_enterprise_tms',
     'validate_calm_architecture',
   ];
-  assert.deepEqual(toolNames, expectedTools, 'El catálogo de 18 herramientas MCP no coincide');
+  assert.deepEqual(toolNames, expectedTools, 'El catálogo de 19 herramientas MCP no coincide');
 
   // 1. inspect_project_config
   const inspected = await callJsonTool(client, 'inspect_project_config', { project_path: projectDir });
@@ -461,7 +465,7 @@ async function verifyAllEighteenTools(client, ctx) {
     target_blueprint_file: '.agents/skills/qa-11x-architect/SKILL.md',
     improvement_title: 'Certificación E2E de tools MCP sobre proyecto ejemplo real',
     empirical_rationale:
-      'Validar las 18 herramientas y 12 recursos sobre stdio contra un proyecto híbrido evita escapes por mocks o entornos locales prehidratados.',
+      'Validar las 19 herramientas y 13 recursos sobre stdio contra un proyecto híbrido evita escapes por mocks o entornos locales prehidratados.',
     proposed_content_or_snippet:
       '- Enforce E2E smoke execution (`mcp-server/example/run-example-e2e.mjs`) prior to git push and npm publish.',
     prefer_offline_fallback: true,
@@ -532,6 +536,30 @@ async function verifyAllEighteenTools(client, ctx) {
   });
   assert.ok(tmsPayload.status === 'DRY_RUN' || tmsPayload.status === 'SKIPPED');
 
+  // 19. session_flight_recorder (save -> recover -> clear con proyección determinista <= 35 líneas)
+  const frSave = await callJsonTool(client, 'session_flight_recorder', {
+    project_path: projectDir,
+    action: 'save',
+    task_id: 'E2E-FLIGHT-19',
+    active_step: 'S2',
+    completed_steps: ['S1'],
+    planned_steps: ['S2', 'S3'],
+    intent_140chars: 'Validar flight recorder atomico end-to-end',
+  });
+  assert.equal(frSave.status, 'PASSED');
+  const frRecover = await callJsonTool(client, 'session_flight_recorder', {
+    project_path: projectDir,
+    action: 'recover',
+  });
+  assert.equal(frRecover.checkpoint.task_id, 'E2E-FLIGHT-19');
+  assert.ok(fs.existsSync(path.join(projectDir, '.agents', '.cache', 'session_checkpoint.json')));
+  const frClear = await callJsonTool(client, 'session_flight_recorder', {
+    project_path: projectDir,
+    action: 'clear',
+    reason: 'E2E limpio',
+  });
+  assert.equal(frClear.checkpoint.status, 'CERTIFIED_CLEAN');
+
   // Guardia PromptGuard extremo a extremo sobre herramientas v2.0
   const blockedV2 = await client.callTool({
     name: 'evaluate_release_gate',
@@ -543,7 +571,7 @@ async function verifyAllEighteenTools(client, ctx) {
   });
   assert.equal(blockedV2.isError, true);
   assert.ok(blockedV2.content[0].text.includes('[QA-PROMPT-GUARD]'));
-  logStep('Tools 13..18/18 v2.0 + PromptGuard extremo a extremo certificados sobre stdio real');
+  logStep('Tools 13..19/19 v2.0 + PromptGuard extremo a extremo certificados sobre stdio real');
 }
 
 async function verifyCliAndBackgroundAutoSync(ctx) {
@@ -776,7 +804,7 @@ async function main() {
     await client.connect(transport);
 
     await verifyAllResources(client, expectedVersion);
-    await verifyAllEighteenTools(client, { projectDir, docsOnlyDir, expectedVersion });
+    await verifyAllNineteenTools(client, { projectDir, docsOnlyDir, expectedVersion });
     await client.close();
     client = null;
 
@@ -789,7 +817,7 @@ async function main() {
     });
 
     console.log('══════════════════════════════════════════════════════════════════════');
-    console.log(`  🎉 E2E CERTIFICADO: 12 Recursos + 18 Tools + 4 CLI operativos (v${expectedVersion})`);
+    console.log(`  🎉 E2E CERTIFICADO: 13 Recursos + 19 Tools + 4 CLI operativos (v${expectedVersion})`);
     console.log('══════════════════════════════════════════════════════════════════════');
   } finally {
     if (client) {

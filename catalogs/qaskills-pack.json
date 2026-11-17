@@ -159,6 +159,20 @@
         "anti-jsdom"
       ],
       "description": "Visual hierarchy, spacing, type, color, depth and polish rules from Refactoring UI (Wathan & Schoger), aligned with QA 11X WCAG 2.1 AA, Anti-JSDOM geometry, and Lighthouse CI. Use when building or restyling an interface, when a UI looks unpolished or cluttered and the cause is unclear, or when picking concrete values for a spacing scale, type scale, color palette or shadow set."
+    },
+    {
+      "id": "tactical-patterns-11x",
+      "name": "tactical-patterns-11x",
+      "path": ".agents/skills/tactical-patterns-11x/SKILL.md",
+      "max_size_kb": 3,
+      "tags": [
+        "complexity",
+        "patterns",
+        "outbox",
+        "port-adapter",
+        "refactoring"
+      ],
+      "description": "JIT tactical patterns for QA-11X: complexity rescue (CC <= 5, SonarJS <= 15, max-params <= 4, max-depth <= 3), offline Port/Adapter (--network none), atomic outbox/idempotency/RLS, and anti-overengineering."
     }
   ]
 }

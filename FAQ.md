@@ -86,8 +86,8 @@ make qa-e2e
 
 ### How does an AI Agent interact with this repository?
 An AI agent (such as Google Antigravity, Anthropic Claude Code / Claude Desktop, Nous Research Hermes Agent, Cursor, or Windsurf) can interact in three ways:
-1. **Via MCP Server (`@sinfallas/mcp-qa-11x` v3.0.0):** Connects over `stdio` via `npx -y @sinfallas/mcp-qa-11x@latest`. The server exposes **18 operational tools** (the 12 core v1 tools such as `inspect_project_config`, `bootstrap_or_merge_11x`, `run_ephemeral_qa`, `certify_11x_gate`, `propose_skill_evolution_pr`, and `reconcile_agents_governance`, plus `validate_calm_architecture`, `evaluate_release_gate`, `evaluate_agent_trajectory`, `run_llm_red_team`, `audit_vibe_prototype`, and `sync_enterprise_tms`) and **12 dynamic resources (`blueprint://*`, supporting `?lang=es|en`)**, allowing the agent to audit and merge templates without cloning the entire repository.
-2. **Via Zero-Clone Skills (`qa-11x-architect` and full catalog of 10 modular skills):** Injected into its environment along with operational scripts and the `AGENTS.md` connector by running `npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts --reconcile` or via the universal installer `curl ... | sh`. The agent immediately gains knowledge of the 13 quality layers, 22 baseline patterns (34 static rules) across DISA/OWASP, and Anti-JSDOM prevention.
+1. **Via MCP Server (`@sinfallas/mcp-qa-11x` v3.0.0):** Connects over `stdio` via `npx -y @sinfallas/mcp-qa-11x@latest`. The server exposes **19 operational tools** (the 12 core v1 tools plus `validate_calm_architecture`, `evaluate_release_gate`, `evaluate_agent_trajectory`, `run_llm_red_team`, `audit_vibe_prototype`, `sync_enterprise_tms`, and `session_flight_recorder`) and **13 dynamic resources (`blueprint://*`, supporting `?lang=es|en`)** including `blueprint://skills/tactical-patterns-11x`, allowing the agent to audit and merge templates without cloning the entire repository.
+2. **Via Zero-Clone Skills (`qa-11x-architect` and full catalog of 11 modular skills):** Injected into its environment along with operational scripts and the `AGENTS.md` connector by running `npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts --reconcile` or via the universal installer `curl ... | sh`. The agent immediately gains knowledge of the 13 quality layers, 22 baseline patterns (34 static rules) across DISA/OWASP, JIT complexity patterns, and Anti-JSDOM prevention.
 3. **Via Local Rules (`.agents/` and `AGENTS.md`):** When operating inside the cloned repository, the agent automatically reads directives in `.agents/rules/` and keeps the active log in `.agents/ACTIVE_TASK.md`, running the universal gate `./.agents/scripts/certify_task_completion.sh` before finishing turns.
 
 ### What is the `@sinfallas/mcp-qa-11x` MCP Server, and why is it superior to cloning the entire repository?
@@ -104,7 +104,7 @@ Following RoSGrid's corporate sovereignty and isolation philosophy, delegating n
 
 ### How do I update the MCP Server and Skills in my IDE after publishing a new version to npmjs, and how do I verify changes were downloaded?
 Even if `mcp_config.json` specifies `"@sinfallas/mcp-qa-11x@latest"`, the IDE keeps the `stdio` process in memory from startup and `npx` caches copies in `~/.npm/_npx` (plus manifest cache in `~/.cache/qa-11x-blueprints`). To force an update and verify cryptographic integrity:
-1. **Purge caches and reinstall the 10 modular Skills, Rules, and Scripts:**
+1. **Purge caches and reinstall the 11 modular Skills, Rules, and Scripts:**
    ```bash
    rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@latest install-skill --target all --init-agents --include-scripts --reconcile
    ```

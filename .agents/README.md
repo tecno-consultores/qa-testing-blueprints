@@ -18,9 +18,11 @@ Este directorio implementa el estándar abierto y emergente de la industria para
 │   ├── continuous_agent_evolution.md                 # Evolución autónoma de .agents/ y aislamiento de reglas de dominio (domain_*.md)
 │   ├── anti_regression_and_side_effects_guardrail.md # Blindaje contra regresiones y control de radio de impacto
 │   ├── ground_truth_fixtures_and_negative_invariants.md # Fixtures trimodales, Ciclo Temporal de 3 Fases e invariantes negativos
-│   ├── active_task_and_planning_resilience.md        # Bitácora en caliente (.agents/ACTIVE_TASK.md) y resiliencia ante caídas de sesión
+│   ├── active_task_and_planning_resilience.md        # Flight Recorder atómico (.agents/.cache/session_checkpoint.json -> ACTIVE_TASK.md)
 │   └── git_closure_gate.md                           # Compuerta QA-GIT-GATE-01 (commit local certificado, cero git push automático)
-├── skills/                                           # Habilidades y Playbooks de dominio (10 skills modulares del catálogo)
+├── schemas/                                          # Esquemas JSON Schema Draft 2020-12 de telemetría/estado (.agents/schemas/)
+│   └── session_checkpoint.schema.json                # Esquema estricto 0600 de session_checkpoint.json (Flight Recorder)
+├── skills/                                           # Habilidades y Playbooks de dominio (11 skills modulares del catálogo)
 │   ├── qa-11x-architect/                             # Skill Maestra: 13 capas, 10 leyes 11X, 11 reglas UAT Anti-Blindness y 9 references/
 │   ├── qa-11x-docker-certifier/                      # Certificación 11X en Docker efímero (>=95% cobertura)
 │   ├── qa-11x-devsecops-hardener/                    # Endurecimiento DISA ASD STIG V6R5 (34 reglas) & OWASP v4.2
@@ -30,8 +32,10 @@ Este directorio implementa el estándar abierto y emergente de la industria para
 │   ├── qa-11x-vibe-rescue/                           # Rescate 5-etapas de prototipos AI Vibe-to-Enterprise
 │   ├── docker-trivy-keydb-hardening/                 # Endurecimiento Docker, Trivy = 0 y KeyDB multi-hilo
 │   ├── graphify-ast-navigator/                       # Navegación AST, radio de impacto (Blast Radius) y selector diferencial
-│   └── refactoring-ui/                               # Jerarquía visual, escalas discretas, color OKLCH, tabular-nums y WCAG 2.1 AA (SKILL.md + 9 references/)
-└── scripts/                                          # Scripts de automatización y compuertas de calidad (20 scripts)
+│   ├── refactoring-ui/                               # Jerarquía visual, escalas discretas, color OKLCH, tabular-nums y WCAG 2.1 AA (SKILL.md + 9 references/)
+│   └── tactical-patterns-11x/                        # Patrones tácticos JIT <= 2.5 KB (CC <= 5, max-params: 4, Port/Adapter, Outbox)
+└── scripts/                                          # Scripts de automatización y compuertas de calidad (21 scripts)
+    ├── checkpoint_ctl.py                             # Controlador atómico Flight Recorder (JSON 0600 -> ACTIVE_TASK.md + Git en vivo)
     ├── verify_alembic_orm_parity.py                  # Auditoría estricta: modelos ORM vs migraciones de BD (y revision <= 32 chars)
     ├── verify_json_no_duplicate_keys.py              # Auditoría estricta anti-colisión de claves duplicadas en JSON i18n
     ├── verify_topological_health.py                  # Auditoría estricta de salud topológica y límites de capas AST

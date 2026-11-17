@@ -283,20 +283,21 @@ function isContainedPath(rootDir: string, candidatePath: string): boolean {
   return rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel);
 }
 
-function pushSecurityReason(
-  reasons: BlockingReason[],
-  code: BlockingReasonCode,
-  metric: string,
-  actual: string,
-  message: string
-): void {
+interface SecurityReasonSpec {
+  readonly code: BlockingReasonCode;
+  readonly metric: string;
+  readonly actual: string;
+  readonly message: string;
+}
+
+function pushSecurityReason(reasons: BlockingReason[], spec: SecurityReasonSpec): void {
   reasons.push({
-    code,
+    code: spec.code,
     signal: SIGNAL_SECURITY,
-    metric,
-    actual,
+    metric: spec.metric,
+    actual: spec.actual,
     threshold: 'contained-valid',
-    message,
+    message: spec.message,
   });
 }
 
@@ -306,18 +307,22 @@ function resolveSafeWorkspaceFile(
   reasons: BlockingReason[]
 ): string | null {
   if (candidatePath.includes('\0') || workspaceRoot.includes('\0')) {
-    pushSecurityReason(
-      reasons,
-      CODE_PATH_TRAVERSAL,
-      'path',
-      candidatePath,
-      'Ruta rechazada por contener bytes nulos.'
-    );
+    pushSecurityReason(reasons, {
+      code: CODE_PATH_TRAVERSAL,
+      metric: 'path',
+      actual: candidatePath,
+      message: 'Ruta rechazada por contener bytes nulos.',
+    });
     return null;
   }
 
   if (candidatePath.trim().length === 0) {
-    pushSecurityReason(reasons, CODE_INVALID_INPUT, 'path', candidatePath, 'La ruta no puede estar vacía.');
+    pushSecurityReason(reasons, {
+      code: CODE_INVALID_INPUT,
+      metric: 'path',
+      actual: candidatePath,
+      message: 'La ruta no puede estar vacía.',
+    });
     return null;
   }
 
@@ -332,37 +337,34 @@ function checkContainedExistingFile(
   const rootResolved = path.resolve(workspaceRoot);
   const candidateResolved = path.resolve(rootResolved, candidatePath);
   if (!isContainedPath(rootResolved, candidateResolved)) {
-    pushSecurityReason(
-      reasons,
-      CODE_PATH_TRAVERSAL,
-      'path',
-      candidatePath,
-      `La ruta '${candidatePath}' escapa los límites del workspace.`
-    );
+    pushSecurityReason(reasons, {
+      code: CODE_PATH_TRAVERSAL,
+      metric: 'path',
+      actual: candidatePath,
+      message: `La ruta '${candidatePath}' escapa los límites del workspace.`,
+    });
     return null;
   }
 
   if (!fs.existsSync(rootResolved) || !fs.existsSync(candidateResolved) || !fs.statSync(candidateResolved).isFile()) {
-    pushSecurityReason(
-      reasons,
-      CODE_FILE_NOT_FOUND,
-      'path',
-      candidatePath,
-      `Archivo requerido no encontrado: '${candidatePath}'.`
-    );
+    pushSecurityReason(reasons, {
+      code: CODE_FILE_NOT_FOUND,
+      metric: 'path',
+      actual: candidatePath,
+      message: `Archivo requerido no encontrado: '${candidatePath}'.`,
+    });
     return null;
   }
 
   const rootReal = fs.realpathSync(rootResolved);
   const targetReal = fs.realpathSync(candidateResolved);
   if (!isContainedPath(rootReal, targetReal)) {
-    pushSecurityReason(
-      reasons,
-      CODE_PATH_TRAVERSAL,
-      'path',
-      candidatePath,
-      `Enlace simbólico fuera del workspace detectado en '${candidatePath}'.`
-    );
+    pushSecurityReason(reasons, {
+      code: CODE_PATH_TRAVERSAL,
+      metric: 'path',
+      actual: candidatePath,
+      message: `Enlace simbólico fuera del workspace detectado en '${candidatePath}'.`,
+    });
     return null;
   }
 
@@ -377,24 +379,22 @@ function normalizeUtcTimestamp(
     return new Date().toISOString();
   }
   if (typeof rawTimestamp !== 'string' || rawTimestamp.trim().length === 0) {
-    pushSecurityReason(
-      reasons,
-      CODE_INVALID_INPUT,
-      'timestamp',
-      String(rawTimestamp),
-      'Timestamp ISO-8601 inválido o vacío.'
-    );
+    pushSecurityReason(reasons, {
+      code: CODE_INVALID_INPUT,
+      metric: 'timestamp',
+      actual: String(rawTimestamp),
+      message: 'Timestamp ISO-8601 inválido o vacío.',
+    });
     return new Date().toISOString();
   }
   const parsed = new Date(rawTimestamp.trim());
   if (Number.isNaN(parsed.getTime())) {
-    pushSecurityReason(
-      reasons,
-      CODE_INVALID_INPUT,
-      'timestamp',
-      rawTimestamp,
-      `No se pudo normalizar el timestamp '${rawTimestamp}' a UTC.`
-    );
+    pushSecurityReason(reasons, {
+      code: CODE_INVALID_INPUT,
+      metric: 'timestamp',
+      actual: rawTimestamp,
+      message: `No se pudo normalizar el timestamp '${rawTimestamp}' a UTC.`,
+    });
     return new Date().toISOString();
   }
   return parsed.toISOString();
@@ -407,13 +407,12 @@ function resolveScope(rawScope: unknown, reasons: BlockingReason[]): ReleaseGate
   if (rawScope === SCOPE_FULL || rawScope === SCOPE_SMOKE) {
     return rawScope;
   }
-  pushSecurityReason(
-    reasons,
-    CODE_INVALID_INPUT,
-    'scope',
-    String(rawScope),
-    `Alcance inválido '${String(rawScope)}'; valores permitidos: full, smoke.`
-  );
+  pushSecurityReason(reasons, {
+    code: CODE_INVALID_INPUT,
+    metric: 'scope',
+    actual: String(rawScope),
+    message: `Alcance inválido '${String(rawScope)}'; valores permitidos: full, smoke.`,
+  });
   return SCOPE_FULL;
 }
 
@@ -437,7 +436,12 @@ function readSafeTextFile(
     return fs.readFileSync(safePath, 'utf8');
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
-    pushSecurityReason(reasons, CODE_FILE_NOT_FOUND, 'path', relPath, `Error leyendo '${relPath}': ${detail}`);
+    pushSecurityReason(reasons, {
+      code: CODE_FILE_NOT_FOUND,
+      metric: 'path',
+      actual: relPath,
+      message: `Error leyendo '${relPath}': ${detail}`,
+    });
     return null;
   }
 }
@@ -753,20 +757,24 @@ function emptyJunitSummary(): JunitSignalSummary {
 
 function parseJunitXml(rawXml: string, reasons: BlockingReason[]): JunitSignalSummary {
   if (hasXxeDeclaration(rawXml)) {
-    pushSecurityReason(
-      reasons,
-      CODE_XXE,
-      'junit.xml',
-      '<!DOCTYPE/<!ENTITY',
-      'Payload XML rechazado por seguridad anti-XXE (APSC-DV-002390/002550): contiene <!DOCTYPE o <!ENTITY.'
-    );
+    pushSecurityReason(reasons, {
+      code: CODE_XXE,
+      metric: 'junit.xml',
+      actual: '<!DOCTYPE/<!ENTITY',
+      message: 'Payload XML rechazado por seguridad anti-XXE (APSC-DV-002390/002550): contiene <!DOCTYPE o <!ENTITY.',
+    });
     return emptyJunitSummary();
   }
 
   const cleaned = stripXmlNoise(rawXml);
   const tokens = cleaned === null ? null : tokenizeXmlTags(cleaned);
   if (!tokens) {
-    pushSecurityReason(reasons, CODE_INVALID_XML, 'junit.xml', 'malformed', 'El contenido JUnit XML está mal formado.');
+    pushSecurityReason(reasons, {
+      code: CODE_INVALID_XML,
+      metric: 'junit.xml',
+      actual: 'malformed',
+      message: 'El contenido JUnit XML está mal formado.',
+    });
     return emptyJunitSummary();
   }
 
@@ -775,13 +783,12 @@ function parseJunitXml(rawXml: string, reasons: BlockingReason[]): JunitSignalSu
     processJunitToken(acc, token);
   }
   if (!acc.hasSuiteElement) {
-    pushSecurityReason(
-      reasons,
-      CODE_INVALID_XML,
-      'junit.xml',
-      'missing-testsuite',
-      'El XML no contiene un nodo raíz <testsuite> o <testsuites>.'
-    );
+    pushSecurityReason(reasons, {
+      code: CODE_INVALID_XML,
+      metric: 'junit.xml',
+      actual: 'missing-testsuite',
+      message: 'El XML no contiene un nodo raíz <testsuite> o <testsuites>.',
+    });
     return emptyJunitSummary();
   }
 
@@ -813,26 +820,44 @@ function parseJsonObjectInput(
     parsed = JSON.parse(rawText);
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
-    pushSecurityReason(reasons, CODE_INVALID_JSON, label, 'invalid-json', `JSON inválido en '${label}': ${detail}`);
+    pushSecurityReason(reasons, {
+      code: CODE_INVALID_JSON,
+      metric: label,
+      actual: 'invalid-json',
+      message: `JSON inválido en '${label}': ${detail}`,
+    });
     return null;
   }
   if (!isPlainRecord(parsed)) {
-    pushSecurityReason(reasons, CODE_INVALID_JSON, label, typeof parsed, `La raíz de '${label}' debe ser un objeto JSON.`);
+    pushSecurityReason(reasons, {
+      code: CODE_INVALID_JSON,
+      metric: label,
+      actual: typeof parsed,
+      message: `La raíz de '${label}' debe ser un objeto JSON.`,
+    });
     return null;
   }
   return parsed;
 }
 
-function loadJsonObjectSignal(
-  inlineObj: Record<string, unknown> | undefined,
-  relPath: string | undefined,
-  label: string,
-  workspaceRoot: string,
-  reasons: BlockingReason[]
-): JsonRecord | null {
+interface JsonSignalLoadInput {
+  readonly inlineObj: Record<string, unknown> | undefined;
+  readonly relPath: string | undefined;
+  readonly label: string;
+  readonly workspaceRoot: string;
+  readonly reasons: BlockingReason[];
+}
+
+function loadJsonObjectSignal(input: JsonSignalLoadInput): JsonRecord | null {
+  const { inlineObj, relPath, label, workspaceRoot, reasons } = input;
   if (inlineObj !== undefined) {
     if (!isPlainRecord(inlineObj)) {
-      pushSecurityReason(reasons, CODE_INVALID_INPUT, label, typeof inlineObj, `'${label}' debe ser un objeto JSON.`);
+      pushSecurityReason(reasons, {
+        code: CODE_INVALID_INPUT,
+        metric: label,
+        actual: typeof inlineObj,
+        message: `'${label}' debe ser un objeto JSON.`,
+      });
       return null;
     }
     return inlineObj;
@@ -856,13 +881,12 @@ function extractNumericMetric(
       continue;
     }
     if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
-      pushSecurityReason(
-        reasons,
-        CODE_INVALID_INPUT,
-        metricName,
-        String(value),
-        `Métrica '${metricName}' inválida: debe ser un número finito >= 0.`
-      );
+      pushSecurityReason(reasons, {
+        code: CODE_INVALID_INPUT,
+        metric: metricName,
+        actual: String(value),
+        message: `Métrica '${metricName}' inválida: debe ser un número finito >= 0.`,
+      });
       return 0;
     }
     return value;
@@ -937,22 +961,24 @@ function normalizeDefects(
   };
 }
 
-function resolveThresholdNumber(
-  overrideVal: number | undefined,
-  nestedVal: number | undefined,
-  fallback: number,
-  name: string,
-  reasons: BlockingReason[]
-): number {
+interface ThresholdNumberSpec {
+  readonly overrideVal: number | undefined;
+  readonly nestedVal: number | undefined;
+  readonly fallback: number;
+  readonly name: string;
+  readonly reasons: BlockingReason[];
+}
+
+function resolveThresholdNumber(spec: ThresholdNumberSpec): number {
+  const { overrideVal, nestedVal, fallback, name, reasons } = spec;
   const candidate = overrideVal ?? nestedVal ?? fallback;
   if (typeof candidate !== 'number' || !Number.isFinite(candidate) || candidate < 0) {
-    pushSecurityReason(
-      reasons,
-      CODE_INVALID_INPUT,
-      name,
-      String(candidate),
-      `Umbral '${name}' inválido: debe ser un número finito >= 0.`
-    );
+    pushSecurityReason(reasons, {
+      code: CODE_INVALID_INPUT,
+      metric: name,
+      actual: String(candidate),
+      message: `Umbral '${name}' inválido: debe ser un número finito >= 0.`,
+    });
     return fallback;
   }
   return candidate;
@@ -965,20 +991,14 @@ function resolveThresholds(
   const t = args.thresholds ?? {};
   const d = DEFAULT_RELEASE_GATE_THRESHOLDS;
   return {
-    minPassRatePct: resolveThresholdNumber(args.minPassRatePct, t.minPassRatePct, d.minPassRatePct, 'minPassRatePct', reasons),
-    maxErrorRatePct: resolveThresholdNumber(args.maxErrorRatePct, t.maxErrorRatePct, d.maxErrorRatePct, 'maxErrorRatePct', reasons),
-    maxP95Ms: resolveThresholdNumber(args.maxP95Ms, t.maxP95Ms, d.maxP95Ms, 'maxP95Ms', reasons),
-    maxP99Ms: resolveThresholdNumber(args.maxP99Ms, t.maxP99Ms, d.maxP99Ms, 'maxP99Ms', reasons),
-    maxActiveIncidents: resolveThresholdNumber(
-      args.maxActiveIncidents,
-      t.maxActiveIncidents,
-      d.maxActiveIncidents,
-      'maxActiveIncidents',
-      reasons
-    ),
-    maxOpenBlockers: resolveThresholdNumber(args.maxOpenBlockers, t.maxOpenBlockers, d.maxOpenBlockers, 'maxOpenBlockers', reasons),
-    maxOpenCriticals: resolveThresholdNumber(args.maxOpenCriticals, t.maxOpenCriticals, d.maxOpenCriticals, 'maxOpenCriticals', reasons),
-    maxQaEscapes: resolveThresholdNumber(args.maxQaEscapes, t.maxQaEscapes, d.maxQaEscapes, 'maxQaEscapes', reasons),
+    minPassRatePct: resolveThresholdNumber({ overrideVal: args.minPassRatePct, nestedVal: t.minPassRatePct, fallback: d.minPassRatePct, name: 'minPassRatePct', reasons }),
+    maxErrorRatePct: resolveThresholdNumber({ overrideVal: args.maxErrorRatePct, nestedVal: t.maxErrorRatePct, fallback: d.maxErrorRatePct, name: 'maxErrorRatePct', reasons }),
+    maxP95Ms: resolveThresholdNumber({ overrideVal: args.maxP95Ms, nestedVal: t.maxP95Ms, fallback: d.maxP95Ms, name: 'maxP95Ms', reasons }),
+    maxP99Ms: resolveThresholdNumber({ overrideVal: args.maxP99Ms, nestedVal: t.maxP99Ms, fallback: d.maxP99Ms, name: 'maxP99Ms', reasons }),
+    maxActiveIncidents: resolveThresholdNumber({ overrideVal: args.maxActiveIncidents, nestedVal: t.maxActiveIncidents, fallback: d.maxActiveIncidents, name: 'maxActiveIncidents', reasons }),
+    maxOpenBlockers: resolveThresholdNumber({ overrideVal: args.maxOpenBlockers, nestedVal: t.maxOpenBlockers, fallback: d.maxOpenBlockers, name: 'maxOpenBlockers', reasons }),
+    maxOpenCriticals: resolveThresholdNumber({ overrideVal: args.maxOpenCriticals, nestedVal: t.maxOpenCriticals, fallback: d.maxOpenCriticals, name: 'maxOpenCriticals', reasons }),
+    maxQaEscapes: resolveThresholdNumber({ overrideVal: args.maxQaEscapes, nestedVal: t.maxQaEscapes, fallback: d.maxQaEscapes, name: 'maxQaEscapes', reasons }),
   };
 }
 
@@ -1031,15 +1051,18 @@ function evaluateJunitSignal(
   }
 }
 
-function checkMaxMetric(
-  reasons: BlockingReason[],
-  signal: ReleaseGateSignal,
-  code: BlockingReasonCode,
-  metric: string,
-  actual: number,
-  threshold: number,
-  unit: string
-): void {
+interface CheckMaxMetricSpec {
+  readonly reasons: BlockingReason[];
+  readonly signal: ReleaseGateSignal;
+  readonly code: BlockingReasonCode;
+  readonly metric: string;
+  readonly actual: number;
+  readonly threshold: number;
+  readonly unit: string;
+}
+
+function checkMaxMetric(spec: CheckMaxMetricSpec): void {
+  const { reasons, signal, code, metric, actual, threshold, unit } = spec;
   if (actual > threshold) {
     reasons.push({
       code,
@@ -1057,18 +1080,10 @@ function evaluateTelemetrySignal(
   thresholds: ReleaseGateThresholds,
   reasons: BlockingReason[]
 ): void {
-  checkMaxMetric(reasons, SIGNAL_TELEMETRY, CODE_ERROR_RATE, 'telemetry.errorRatePct', telemetry.errorRatePct, thresholds.maxErrorRatePct, '%');
-  checkMaxMetric(reasons, SIGNAL_TELEMETRY, CODE_P95, 'telemetry.p95Ms', telemetry.p95Ms, thresholds.maxP95Ms, 'ms');
-  checkMaxMetric(reasons, SIGNAL_TELEMETRY, CODE_P99, 'telemetry.p99Ms', telemetry.p99Ms, thresholds.maxP99Ms, 'ms');
-  checkMaxMetric(
-    reasons,
-    SIGNAL_TELEMETRY,
-    CODE_INCIDENTS,
-    'telemetry.activeIncidents',
-    telemetry.activeIncidents,
-    thresholds.maxActiveIncidents,
-    ''
-  );
+  checkMaxMetric({ reasons, signal: SIGNAL_TELEMETRY, code: CODE_ERROR_RATE, metric: 'telemetry.errorRatePct', actual: telemetry.errorRatePct, threshold: thresholds.maxErrorRatePct, unit: '%' });
+  checkMaxMetric({ reasons, signal: SIGNAL_TELEMETRY, code: CODE_P95, metric: 'telemetry.p95Ms', actual: telemetry.p95Ms, threshold: thresholds.maxP95Ms, unit: 'ms' });
+  checkMaxMetric({ reasons, signal: SIGNAL_TELEMETRY, code: CODE_P99, metric: 'telemetry.p99Ms', actual: telemetry.p99Ms, threshold: thresholds.maxP99Ms, unit: 'ms' });
+  checkMaxMetric({ reasons, signal: SIGNAL_TELEMETRY, code: CODE_INCIDENTS, metric: 'telemetry.activeIncidents', actual: telemetry.activeIncidents, threshold: thresholds.maxActiveIncidents, unit: '' });
 }
 
 function evaluateDefectsSignal(
@@ -1076,19 +1091,22 @@ function evaluateDefectsSignal(
   thresholds: ReleaseGateThresholds,
   reasons: BlockingReason[]
 ): void {
-  checkMaxMetric(reasons, SIGNAL_DEFECTS, CODE_BLOCKERS, 'defects.openBlockers', defects.openBlockers, thresholds.maxOpenBlockers, '');
-  checkMaxMetric(reasons, SIGNAL_DEFECTS, CODE_CRITICALS, 'defects.openCriticals', defects.openCriticals, thresholds.maxOpenCriticals, '');
-  checkMaxMetric(reasons, SIGNAL_DEFECTS, CODE_ESCAPES, 'defects.qaEscapes', defects.qaEscapes, thresholds.maxQaEscapes, '');
+  checkMaxMetric({ reasons, signal: SIGNAL_DEFECTS, code: CODE_BLOCKERS, metric: 'defects.openBlockers', actual: defects.openBlockers, threshold: thresholds.maxOpenBlockers, unit: '' });
+  checkMaxMetric({ reasons, signal: SIGNAL_DEFECTS, code: CODE_CRITICALS, metric: 'defects.openCriticals', actual: defects.openCriticals, threshold: thresholds.maxOpenCriticals, unit: '' });
+  checkMaxMetric({ reasons, signal: SIGNAL_DEFECTS, code: CODE_ESCAPES, metric: 'defects.qaEscapes', actual: defects.qaEscapes, threshold: thresholds.maxQaEscapes, unit: '' });
 }
 
-function formatVerboseFailure(
-  decision: ReleaseGateDecision,
-  scope: ReleaseGateScope,
-  dryRun: boolean,
-  evaluatedAtUtc: string,
-  junit: JunitSignalSummary,
-  reasons: BlockingReason[]
-): string {
+interface VerboseFailureSummaryInput {
+  readonly decision: ReleaseGateDecision;
+  readonly scope: ReleaseGateScope;
+  readonly dryRun: boolean;
+  readonly evaluatedAtUtc: string;
+  readonly junit: JunitSignalSummary;
+  readonly reasons: BlockingReason[];
+}
+
+function formatVerboseFailure(input: VerboseFailureSummaryInput): string {
+  const { decision, scope, dryRun, evaluatedAtUtc, junit, reasons } = input;
   const mode = dryRun ? 'DRY-RUN' : 'ENFORCE';
   const header = `❌ [RELEASE-GATE] ${decision} (scope=${scope}, mode=${mode}, utc=${evaluatedAtUtc}, hallazgos=${reasons.length})`;
   const details = reasons.map(
@@ -1112,20 +1130,20 @@ export function evaluateReleaseReadiness(
   const thresholds = resolveThresholds(args, securityOrParseReasons);
 
   const junit = loadJunitSignal(args, workspaceRoot, securityOrParseReasons);
-  const telemetryRaw = loadJsonObjectSignal(
-    args.telemetry,
-    args.telemetryJsonPath,
-    'telemetry',
+  const telemetryRaw = loadJsonObjectSignal({
+    inlineObj: args.telemetry,
+    relPath: args.telemetryJsonPath,
+    label: 'telemetry',
     workspaceRoot,
-    securityOrParseReasons
-  );
-  const defectsRaw = loadJsonObjectSignal(
-    args.defects,
-    args.defectsJsonPath,
-    'defects',
+    reasons: securityOrParseReasons,
+  });
+  const defectsRaw = loadJsonObjectSignal({
+    inlineObj: args.defects,
+    relPath: args.defectsJsonPath,
+    label: 'defects',
     workspaceRoot,
-    securityOrParseReasons
-  );
+    reasons: securityOrParseReasons,
+  });
   const telemetry = normalizeTelemetry(telemetryRaw, securityOrParseReasons);
   const defects = normalizeDefects(defectsRaw, securityOrParseReasons);
 
@@ -1143,7 +1161,14 @@ export function evaluateReleaseReadiness(
       defects,
       thresholds,
       blockingReasons: securityOrParseReasons,
-      summary: formatVerboseFailure(DECISION_NO_GO, scope, dryRun, evaluatedAtUtc, junit, securityOrParseReasons),
+      summary: formatVerboseFailure({
+        decision: DECISION_NO_GO,
+        scope,
+        dryRun,
+        evaluatedAtUtc,
+        junit,
+        reasons: securityOrParseReasons,
+      }),
     };
   }
 
@@ -1198,7 +1223,14 @@ export function evaluateReleaseReadiness(
     defects,
     thresholds,
     blockingReasons: gateReasons,
-    summary: formatVerboseFailure(DECISION_NO_GO, scope, dryRun, evaluatedAtUtc, junit, gateReasons),
+    summary: formatVerboseFailure({
+      decision: DECISION_NO_GO,
+      scope,
+      dryRun,
+      evaluatedAtUtc,
+      junit,
+      reasons: gateReasons,
+    }),
   };
 }
 

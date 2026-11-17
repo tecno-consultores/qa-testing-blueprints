@@ -59,7 +59,7 @@ If you are an **AI Agent** (or a human engineer collaborating with one) contribu
 
 ### When improving Documentation, MCP, or Skills
 1. When updating the MCP server (`mcp-server/`), verify `pnpm run lint`, `npx tsc --noEmit`, and unit test coverage (`pnpm test` `>= 95%`).
-2. When updating any of the 10 modular skills in `.agents/skills/`, keep within cognitive budgets (`qa-11x-architect/SKILL.md < 12 KB`, others `< 20 KB`), update `catalogs/skillsllm-manifest.json`, and synchronize `docs/specs/`.
+2. When updating any of the 11 modular skills in `.agents/skills/`, keep within cognitive budgets (`qa-11x-architect/SKILL.md < 12 KB`, `tactical-patterns-11x/SKILL.md <= 2.5 KB`, others `< 20 KB`), update `catalogs/skillsllm-manifest.json`, and synchronize `docs/specs/`.
 3. Maintain the "zero complacency" philosophy and keep bilingual pairs (`*.md` + `*.es.md`) in exact 1:1 structural parity.
 
 ### Pull Request (PR)

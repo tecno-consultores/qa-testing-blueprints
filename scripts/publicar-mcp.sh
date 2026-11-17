@@ -165,7 +165,7 @@ echo "⚙️ [3/6] Compilando TypeScript a dist/..."
 docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run build
 
 # 7. Paso 4: Certificación E2E Real sobre stdio con mcp-server/example/
-echo "🎯 [4/6] Certificando 18 tools + 12 resources + quickstart + Clean-Room tarball..."
+echo "🎯 [4/6] Certificando 19 tools + 13 resources + quickstart + Clean-Room tarball..."
 docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e QA_BLUEPRINTS_LOCAL_PATH=/repo -v "${REPO_ROOT}:/repo:ro" -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run test:example
 
 # 8. Paso 5: Auditoría de empaquetado (Dry-Run de npm pack)

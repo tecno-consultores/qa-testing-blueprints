@@ -372,3 +372,12 @@ Para evitar fricciones operativas en aplicaciones PHP 8.4/8.5 (Symfony/PSR-4 y L
 Complementa a Lighthouse CI (`@lhci/cli` pre-merge sobre contenedores locales) midiendo rendimiento real (*Core Web Vitals* de campo CrUX + puntuación Lighthouse en la nube) sobre dominios HTTPS públicos tras el despliegue:
 - **Ejecución estándar:** `make audit-psi URL=https://tu-dominio.com [STRATEGY=both|mobile|desktop] [MIN_PERF=0.90]` (alias `make qa-psi` en proyectos `vue3`/`react-frontend`), respaldado por `scripts/auditar-pagespeed.sh` y `.agents/scripts/audit_pagespeed_insights.py` dentro de `sinfallas/base-python-uv:3.15`.
 - **Controles de seguridad y resiliencia:** Bloqueo estricto Anti-SSRF (`SEC-03`: únicamente `https://` público, sin credenciales embebidas y resolución pre-DNS rechazando loopback/RFC1918/link-local/`.internal`), cierre limpio (`exit 0`, `SKIPPED`) ante ausencia opcional de `URL` o límite de cuota HTTP `429` sin `PAGESPEED_API_KEY`, y redacción automática de claves (`[REDACTED]`, `SEC-06`).
+
+---
+
+## 10. Patrones Tácticos JIT (`[DIRECTIVE-11X]`) y Candados Anti-Helper-Splitting
+
+Para erradicar refactorizaciones superficiales de complejidad sin sobrecargar el contexto cuando las compuertas pasan:
+- **Cero Sobrecarga en Éxito e Inyección JIT (`.agents/skills/tactical-patterns-11x/SKILL.md`):** Ante fallos de linter/complejidad (`Radon CC > 5`, `Ruff C901`, `ESLint complexity > 5`, `SonarJS > 15`, `max-params`, `PLR0913`), `ephemeral-runner.ts` y `Makefile` emiten la señal compacta `[DIRECTIVE-11X]` apuntando a `blueprint://skills/tactical-patterns-11x` (`<= 2.5 KB`), produciendo `0` bytes extra en verde.
+- **Candados Estructurales Anti-Helper-Splitting:** Partir una función compleja en sub-funciones con 6–8 argumentos posicionales queda bloqueado determinísticamente con ESLint `max-params: ["error", 4]` + `max-depth: ["error", 3]` (`mcp-server`, `node-backend`, `vue3`, `react-frontend`) y Ruff `C901` (`max-complexity = 5`) + `PLR0911` + `PLR0913` (`max-args = 4`) en `python/` y `fastapi/`, exigiendo Parameter Objects, tablas Strategy, fronteras Port & Adapter (`--network none`) y Outbox transaccional.
+- **Flight Recorder Atómico Unificado (`checkpoint_ctl.py` / `session_flight_recorder`):** El estado operativo se persiste atómicamente (`0600`) en `.agents/.cache/session_checkpoint.json` (con redacción `SEC-06`) y proyecta determinísticamente `.agents/ACTIVE_TASK.md` (`<= 40` líneas) junto al estado real de Git sin edición manual en Markdown.

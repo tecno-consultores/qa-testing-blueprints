@@ -533,17 +533,30 @@ function runSyntheticAdversarialProbes(
   );
 }
 
-function buildRedTeamSummary(
-  passed: boolean,
-  durationMs: number,
-  commandDisplay: string,
-  configPath: string,
-  owaspCoverage: readonly string[],
-  probesPassed: number,
-  violations: readonly RedTeamViolation[],
-  remediationHint: string,
-  liveTrace?: string
-): string {
+interface RedTeamSummaryInput {
+  readonly passed: boolean;
+  readonly durationMs: number;
+  readonly commandDisplay: string;
+  readonly configPath: string;
+  readonly owaspCoverage: readonly string[];
+  readonly probesPassed: number;
+  readonly violations: readonly RedTeamViolation[];
+  readonly remediationHint: string;
+  readonly liveTrace?: string;
+}
+
+function buildRedTeamSummary(input: RedTeamSummaryInput): string {
+  const {
+    passed,
+    durationMs,
+    commandDisplay,
+    configPath,
+    owaspCoverage,
+    probesPassed,
+    violations,
+    remediationHint,
+    liveTrace,
+  } = input;
   if (passed) {
     const base = formatPassQuietSummary({
       stageId: STAGE_REDTEAM_ID,
@@ -568,18 +581,32 @@ function buildRedTeamSummary(
   });
 }
 
-function buildRedTeamFailure(
-  mode: RedTeamMode,
-  status: RedTeamStatus,
-  durationMs: number,
-  commandDisplay: string,
-  configPath: string,
-  owaspCoverage: string[],
-  syntheticProbesPassed: number,
-  violations: RedTeamViolation[],
-  remediationHint: string,
-  liveTrace?: string
-): RedTeamExecutionResult {
+interface RedTeamFailureInput {
+  readonly mode: RedTeamMode;
+  readonly status: RedTeamStatus;
+  readonly durationMs: number;
+  readonly commandDisplay: string;
+  readonly configPath: string;
+  readonly owaspCoverage: string[];
+  readonly syntheticProbesPassed: number;
+  readonly violations: RedTeamViolation[];
+  readonly remediationHint: string;
+  readonly liveTrace?: string;
+}
+
+function buildRedTeamFailure(input: RedTeamFailureInput): RedTeamExecutionResult {
+  const {
+    mode,
+    status,
+    durationMs,
+    commandDisplay,
+    configPath,
+    owaspCoverage,
+    syntheticProbesPassed,
+    violations,
+    remediationHint,
+    liveTrace,
+  } = input;
   return {
     passed: false,
     status,
@@ -588,17 +615,17 @@ function buildRedTeamFailure(
     owaspCoverage,
     syntheticProbesPassed,
     violations,
-    summary: buildRedTeamSummary(
-      false,
+    summary: buildRedTeamSummary({
+      passed: false,
       durationMs,
       commandDisplay,
       configPath,
       owaspCoverage,
-      syntheticProbesPassed,
+      probesPassed: syntheticProbesPassed,
       violations,
       remediationHint,
-      liveTrace
-    ),
+      liveTrace,
+    }),
     remediationHint,
   };
 }
@@ -611,17 +638,17 @@ function runOfflineRedTeamAudit(
 ): RedTeamExecutionResult {
   const safeTarget = resolveSafeConfigTarget(workspaceRoot, configPath);
   if (!safeTarget.ok) {
-    return buildRedTeamFailure(
-      'offline',
-      'FAILED',
-      Date.now() - startedAt,
-      STAGE_REDTEAM_ID,
+    return buildRedTeamFailure({
+      mode: 'offline',
+      status: 'FAILED',
+      durationMs: Date.now() - startedAt,
+      commandDisplay: STAGE_REDTEAM_ID,
       configPath,
-      [],
-      0,
-      [safeTarget.violation],
-      REMEDIATION_TRAVERSAL
-    );
+      owaspCoverage: [],
+      syntheticProbesPassed: 0,
+      violations: [safeTarget.violation],
+      remediationHint: REMEDIATION_TRAVERSAL,
+    });
   }
 
   if (!isRegularFile(safeTarget.resolvedPath)) {
@@ -630,17 +657,17 @@ function runOfflineRedTeamAudit(
       subject: safeTarget.relativePosix,
       message: `Configuración Promptfoo no encontrada: '${safeTarget.relativePosix}'.`,
     };
-    return buildRedTeamFailure(
-      'offline',
-      'FAILED',
-      Date.now() - startedAt,
-      STAGE_REDTEAM_ID,
-      safeTarget.relativePosix,
-      [],
-      0,
-      [violation],
-      REMEDIATION_CONFIG
-    );
+    return buildRedTeamFailure({
+      mode: 'offline',
+      status: 'FAILED',
+      durationMs: Date.now() - startedAt,
+      commandDisplay: STAGE_REDTEAM_ID,
+      configPath: safeTarget.relativePosix,
+      owaspCoverage: [],
+      syntheticProbesPassed: 0,
+      violations: [violation],
+      remediationHint: REMEDIATION_CONFIG,
+    });
   }
 
   const yamlText = fs.readFileSync(safeTarget.resolvedPath, 'utf8');
@@ -652,17 +679,17 @@ function runOfflineRedTeamAudit(
 
   const durationMs = Date.now() - startedAt;
   if (violations.length > 0) {
-    return buildRedTeamFailure(
-      'offline',
-      'FAILED',
+    return buildRedTeamFailure({
+      mode: 'offline',
+      status: 'FAILED',
       durationMs,
-      STAGE_REDTEAM_ID,
-      safeTarget.relativePosix,
+      commandDisplay: STAGE_REDTEAM_ID,
+      configPath: safeTarget.relativePosix,
       owaspCoverage,
-      probesPassed,
+      syntheticProbesPassed: probesPassed,
       violations,
-      REMEDIATION_CONFIG
-    );
+      remediationHint: REMEDIATION_CONFIG,
+    });
   }
 
   return {
@@ -673,16 +700,16 @@ function runOfflineRedTeamAudit(
     owaspCoverage,
     syntheticProbesPassed: probesPassed,
     violations: [],
-    summary: buildRedTeamSummary(
-      true,
+    summary: buildRedTeamSummary({
+      passed: true,
       durationMs,
-      STAGE_REDTEAM_ID,
-      safeTarget.relativePosix,
+      commandDisplay: STAGE_REDTEAM_ID,
+      configPath: safeTarget.relativePosix,
       owaspCoverage,
       probesPassed,
-      [],
-      REMEDIATION_CONFIG
-    ),
+      violations: [],
+      remediationHint: REMEDIATION_CONFIG,
+    }),
   };
 }
 
@@ -738,17 +765,17 @@ function validateLiveRedTeamCredsAndFile(
       subject: 'llm-env',
       message: 'SKIPPED_MISSING_CREDENTIALS: sin credenciales LLM ni endpoint local configurado.',
     };
-    return buildRedTeamFailure(
-      'live',
-      'SKIPPED_MISSING_CREDENTIALS',
-      Date.now() - startedAt,
-      `docker promptfoo eval -c ${target.relativePosix}`,
-      target.relativePosix,
-      [],
-      0,
-      [violation],
-      REMEDIATION_CREDENTIALS
-    );
+    return buildRedTeamFailure({
+      mode: 'live',
+      status: 'SKIPPED_MISSING_CREDENTIALS',
+      durationMs: Date.now() - startedAt,
+      commandDisplay: `docker promptfoo eval -c ${target.relativePosix}`,
+      configPath: target.relativePosix,
+      owaspCoverage: [],
+      syntheticProbesPassed: 0,
+      violations: [violation],
+      remediationHint: REMEDIATION_CREDENTIALS,
+    });
   }
 
   if (!isRegularFile(target.resolvedPath)) {
@@ -757,17 +784,17 @@ function validateLiveRedTeamCredsAndFile(
       subject: target.relativePosix,
       message: `Configuración Promptfoo no encontrada: '${target.relativePosix}'.`,
     };
-    return buildRedTeamFailure(
-      'live',
-      'FAILED',
-      Date.now() - startedAt,
-      `docker promptfoo eval -c ${target.relativePosix}`,
-      target.relativePosix,
-      [],
-      0,
-      [violation],
-      REMEDIATION_CONFIG
-    );
+    return buildRedTeamFailure({
+      mode: 'live',
+      status: 'FAILED',
+      durationMs: Date.now() - startedAt,
+      commandDisplay: `docker promptfoo eval -c ${target.relativePosix}`,
+      configPath: target.relativePosix,
+      owaspCoverage: [],
+      syntheticProbesPassed: 0,
+      violations: [violation],
+      remediationHint: REMEDIATION_CONFIG,
+    });
   }
   return null;
 }
@@ -786,18 +813,18 @@ function finalizeLiveRedTeam(
       subject: relativePosix,
       message: `promptfoo eval falló con exitCode=${cmdResult.exitCode}.`,
     };
-    return buildRedTeamFailure(
-      'live',
-      'FAILED',
+    return buildRedTeamFailure({
+      mode: 'live',
+      status: 'FAILED',
       durationMs,
-      cmdDisplay,
-      relativePosix,
-      [],
-      0,
-      [violation],
-      REMEDIATION_LIVE_EXEC,
-      trace
-    );
+      commandDisplay: cmdDisplay,
+      configPath: relativePosix,
+      owaspCoverage: [],
+      syntheticProbesPassed: 0,
+      violations: [violation],
+      remediationHint: REMEDIATION_LIVE_EXEC,
+      liveTrace: trace,
+    });
   }
 
   const owaspCoverage = [...REQUIRED_OWASP_CATEGORIES];
@@ -809,16 +836,16 @@ function finalizeLiveRedTeam(
     owaspCoverage,
     syntheticProbesPassed: 3,
     violations: [],
-    summary: buildRedTeamSummary(
-      true,
+    summary: buildRedTeamSummary({
+      passed: true,
       durationMs,
-      cmdDisplay,
-      relativePosix,
+      commandDisplay: cmdDisplay,
+      configPath: relativePosix,
       owaspCoverage,
-      3,
-      [],
-      REMEDIATION_LIVE_EXEC
-    ),
+      probesPassed: 3,
+      violations: [],
+      remediationHint: REMEDIATION_LIVE_EXEC,
+    }),
   };
 }
 
@@ -833,28 +860,31 @@ type LiveRedTeamPlan =
       failure: RedTeamExecutionResult;
     };
 
-function prepareLiveRedTeamPlan(
-  workspaceRoot: string,
-  configPath: string,
-  args: RunLlmRedTeamArgs,
-  options: RunLlmRedTeamOptions,
-  startedAt: number
-): LiveRedTeamPlan {
+interface LiveRedTeamContext {
+  readonly workspaceRoot: string;
+  readonly configPath: string;
+  readonly args: RunLlmRedTeamArgs;
+  readonly options: RunLlmRedTeamOptions;
+  readonly startedAt: number;
+}
+
+function prepareLiveRedTeamPlan(ctx: LiveRedTeamContext): LiveRedTeamPlan {
+  const { workspaceRoot, configPath, args, options, startedAt } = ctx;
   const safeTarget = resolveSafeConfigTarget(workspaceRoot, configPath);
   if (!safeTarget.ok) {
     return {
       ok: false,
-      failure: buildRedTeamFailure(
-        'live',
-        'FAILED',
-        Date.now() - startedAt,
-        STAGE_REDTEAM_ID,
+      failure: buildRedTeamFailure({
+        mode: 'live',
+        status: 'FAILED',
+        durationMs: Date.now() - startedAt,
+        commandDisplay: STAGE_REDTEAM_ID,
         configPath,
-        [],
-        0,
-        [safeTarget.violation],
-        REMEDIATION_TRAVERSAL
-      ),
+        owaspCoverage: [],
+        syntheticProbesPassed: 0,
+        violations: [safeTarget.violation],
+        remediationHint: REMEDIATION_TRAVERSAL,
+      }),
     };
   }
 
@@ -878,20 +908,14 @@ function prepareLiveRedTeamPlan(
   };
 }
 
-async function runLiveRedTeamAudit(
-  workspaceRoot: string,
-  configPath: string,
-  args: RunLlmRedTeamArgs,
-  options: RunLlmRedTeamOptions,
-  startedAt: number
-): Promise<RedTeamExecutionResult> {
-  const plan = prepareLiveRedTeamPlan(workspaceRoot, configPath, args, options, startedAt);
+async function runLiveRedTeamAudit(ctx: LiveRedTeamContext): Promise<RedTeamExecutionResult> {
+  const plan = prepareLiveRedTeamPlan(ctx);
   if (!plan.ok) {
     return plan.failure;
   }
-  const runner = options.runner ?? defaultRedTeamCommandRunner;
+  const runner = ctx.options.runner ?? defaultRedTeamCommandRunner;
   const cmdResult = await runner(plan.spec);
-  return finalizeLiveRedTeam(cmdResult, plan.spec.args, plan.relativePosix, Date.now() - startedAt);
+  return finalizeLiveRedTeam(cmdResult, plan.spec.args, plan.relativePosix, Date.now() - ctx.startedAt);
 }
 
 export async function runLlmRedTeam(
@@ -904,7 +928,7 @@ export async function runLlmRedTeam(
   const configPath = args.configPath ?? DEFAULT_PROMPTFOO_CONFIG_PATH;
 
   if (mode === 'live') {
-    return runLiveRedTeamAudit(workspaceRoot, configPath, args, options, startedAt);
+    return runLiveRedTeamAudit({ workspaceRoot, configPath, args, options, startedAt });
   }
   return runOfflineRedTeamAudit(workspaceRoot, configPath, options, startedAt);
 }

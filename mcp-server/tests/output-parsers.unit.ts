@@ -277,7 +277,7 @@ src/Services/PaymentService.php:54:Call to an undefined method PaymentService::p
   describe('parseQaOutput', () => {
     it('genera resultado PASSED para ejecución nominal', () => {
       const stdout = 'All files | 96.50 | 92.00 | 95.00 | 96.50 |\nTests: 20 passed';
-      const result = parseQaOutput(stdout, '', 'unit', 1200, 0);
+      const result = parseQaOutput(stdout, '', 'unit', { durationMs: 1200, exitCode: 0 });
 
       expect(result.status).toBe('PASSED');
       expect(result.stage).toBe('unit');
@@ -289,19 +289,19 @@ src/Services/PaymentService.php:54:Call to an undefined method PaymentService::p
 
     it('falla en stage lint si hay issues de linter aunque el exitCode sea 0', () => {
       const stdout = 'src/foo.py:10:1: F401 unused import';
-      const result = parseQaOutput(stdout, '', 'lint', 500, 0);
+      const result = parseQaOutput(stdout, '', 'lint', { durationMs: 500, exitCode: 0 });
       expect(result.status).toBe('FAILED');
     });
 
     it('falla en stage all si la cobertura no supera el umbral', () => {
       const stdout = 'All files | 90.00 | 80.00 | 85.00 | 90.00 |';
-      const result = parseQaOutput(stdout, '', 'all', 1500, 0);
+      const result = parseQaOutput(stdout, '', 'all', { durationMs: 1500, exitCode: 0 });
       expect(result.status).toBe('FAILED');
     });
 
     it('genera resultado FAILED si la cobertura está por debajo del 95% en stage unit', () => {
       const stdout = 'All files | 91.00 | 85.00 | 90.00 | 91.00 |\nTests: 20 passed';
-      const result = parseQaOutput(stdout, '', 'unit', 1500, 0);
+      const result = parseQaOutput(stdout, '', 'unit', { durationMs: 1500, exitCode: 0 });
 
       expect(result.status).toBe('FAILED');
       expect(result.coverage.passed).toBe(false);
@@ -309,7 +309,7 @@ src/Services/PaymentService.php:54:Call to an undefined method PaymentService::p
 
     it('genera resultado FAILED si el código de salida es distinto de 0 o hay tests fallidos', () => {
       const stdout = 'FAILED tests/test_calc.py::test_sum - AssertionError';
-      const result = parseQaOutput(stdout, 'Error ejecutando pytest', 'unit', 800, 1);
+      const result = parseQaOutput(stdout, 'Error ejecutando pytest', 'unit', { durationMs: 800, exitCode: 1 });
 
       expect(result.status).toBe('FAILED');
       expect(result.exit_code).toBe(1);

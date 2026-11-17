@@ -497,13 +497,16 @@ export function parseMutation(rawLog: string): QaMutationSummary | null {
 /**
  * Determina el estado PASSED o FAILED a partir de los datos parseados.
  */
-function evaluateQaStatus(
-  exitCode: number,
-  stage: string,
-  failedTestsCount: number,
-  coverage: QaCoverageSummary,
-  linterIssuesCount: number
-): 'PASSED' | 'FAILED' {
+export interface EvaluateQaStatusInput {
+  readonly exitCode: number;
+  readonly stage: string;
+  readonly failedTestsCount: number;
+  readonly coverage: QaCoverageSummary;
+  readonly linterIssuesCount: number;
+}
+
+function evaluateQaStatus(input: EvaluateQaStatusInput): 'PASSED' | 'FAILED' {
+  const { exitCode, stage, failedTestsCount, coverage, linterIssuesCount } = input;
   if (exitCode !== 0 || failedTestsCount > 0) {
     return 'FAILED';
   }
@@ -527,13 +530,18 @@ function evaluateQaStatus(
  * Función unificada que orquesta todos los parsers ahorradores de tokens,
  * transformando miles de líneas de salida de Docker en un JSON compacto de menos de 40 líneas.
  */
+export interface ParseQaOutputOptions {
+  readonly durationMs?: number;
+  readonly exitCode?: number;
+}
+
 export function parseQaOutput(
   stdout: string,
   stderr: string,
   stage: string,
-  durationMs = 0,
-  exitCode = 0
+  options: ParseQaOutputOptions = {}
 ): QaExecutionResult {
+  const { durationMs = 0, exitCode = 0 } = options;
   const combinedLog = `${stdout}\n${stderr}`;
 
   const coverage = parseCoverage(combinedLog);
@@ -543,13 +551,13 @@ export function parseQaOutput(
   const mutationSummary = parseMutation(combinedLog);
   const tailLog = parseTailLog(combinedLog, 15);
 
-  const status = evaluateQaStatus(
+  const status = evaluateQaStatus({
     exitCode,
     stage,
-    failedTests.length,
+    failedTestsCount: failedTests.length,
     coverage,
-    linterIssues.length
-  );
+    linterIssuesCount: linterIssues.length,
+  });
 
   return {
     status,

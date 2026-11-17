@@ -10,7 +10,7 @@ Instead of testing MCP tools solely through isolated unit tests, the [`run-examp
 
 ## 🛠️ Real Coverage Certified on Every Run
 
-1. **12 Dynamic Resources (`blueprint://*,` supporting `?lang=es|en`):**
+1. **13 Dynamic Resources (`blueprint://*,` supporting `?lang=es|en`):**
    - `blueprint://manifest`
    - `blueprint://core/philosophy`
    - `blueprint://security/disa-owasp-22`
@@ -23,9 +23,10 @@ Instead of testing MCP tools solely through isolated unit tests, the [`run-examp
    - `blueprint://ai/evals-redteam` *(v2.0)*
    - `blueprint://mobile-appium/readme` *(v2.0)*
    - `blueprint://vibe-rescue/readme` *(v2.0)*
-2. **18 Executable Tools (`callTool` over JSON-RPC `stdio`):**
+   - `blueprint://skills/tactical-patterns-11x` *(v3.1)*
+2. **19 Executable Tools (`callTool` over JSON-RPC `stdio`):**
    - **12 core v1:** `inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`, `audit_test_pyramid_gaps`, `audit_security_stig_owasp`, `clean_workspace_11x`, `init_or_append_agents_md`, `reconcile_agents_governance`, `run_ephemeral_qa`, `certify_11x_gate`, and `propose_skill_evolution_pr`.
-   - **6 v2.0 tools:** `validate_calm_architecture`, `evaluate_release_gate`, `evaluate_agent_trajectory`, `run_llm_red_team`, `audit_vibe_prototype`, and `sync_enterprise_tms` (protected by `promptGuard` + `TaskStateGuard`).
+   - **7 v2.0/v3.1 tools:** `validate_calm_architecture`, `evaluate_release_gate`, `evaluate_agent_trajectory`, `run_llm_red_team`, `audit_vibe_prototype`, `sync_enterprise_tms`, and `session_flight_recorder` (protected by `promptGuard` + `TaskStateGuard`).
 3. **5 CLI Subcommands + Clean-Room Tarball Verifier (`verify-v2.sh`):**
    - `quickstart` (`--tier`/`-T`), `install-skill` (`install`), `init-agents`, `reconcile-agents`, `tms-sync`, `--version` (`3.0.0`), `--help`/`help`, and non-blocking TTY probe `QA-CLI-TTY-01` (`< 5s`).
 

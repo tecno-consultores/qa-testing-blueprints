@@ -251,6 +251,16 @@ function buildAllureSteps(steps?: readonly DiagnosticStepRecord[]): AllureStepIt
   }));
 }
 
+export const TACTICAL_PATTERNS_DIRECTIVE_11X =
+  '[DIRECTIVE-11X] Complexity/signature gate failed. MANDATORY: Read tactical-patterns-11x (.agents/skills/tactical-patterns-11x/SKILL.md or MCP blueprint://skills/tactical-patterns-11x) before refactoring. Fake _helper parameter-passing is blocked.';
+
+const COMPLEXITY_GATE_FAILURE_RE =
+  /\b(?:C901|PLR0911|PLR0912|PLR0913|PLR0915|radon-[C-F]|too complex|cyclomatic complexity|sonarjs\/cognitive-complexity|cognitive_complexity|max-params|max-depth|too many parameters|too many arguments|too many return statements|nested too deeply)\b/i;
+
+export function hasComplexityOrSignatureViolation(rawText: string): boolean {
+  return COMPLEXITY_GATE_FAILURE_RE.test(rawText);
+}
+
 export function formatPassQuietSummary(input: DiagnosticExecutionInput): string {
   const stage = sanitizeSingleLine(input.stageId);
   const checks = input.checksCount ?? 1;
@@ -264,11 +274,10 @@ export function formatFailVerboseReport(input: DiagnosticExecutionInput): string
   const command = input.command ? sanitizeCommandSecrets(input.command) : DEFAULT_COMMAND;
   const exitCode = input.exitCode ?? 1;
   const agent = resolveAgentInfo(input.agentInfo);
-  const traceLines = extractRootCauseExcerpt(input)
-    .split('\n')
-    .map((line) => `    ${line}`);
-
-  return [
+  const excerpt = extractRootCauseExcerpt(input);
+  const traceLines = excerpt.split('\n').map((line) => `    ${line}`);
+  const combinedDiag = [input.stderr ?? '', input.stdout ?? '', excerpt].join('\n');
+  const lines = [
     `❌ [Fail-Verbose] stage=${stage} | status=${statusTag} | exitCode=${exitCode} | duration=${input.durationMs}ms`,
     `  command: ${command}`,
     ...formatStepsBlock(input.steps),
@@ -277,7 +286,11 @@ export function formatFailVerboseReport(input: DiagnosticExecutionInput): string
     `  remediationHint: ${resolveRemediationHint(input)}`,
     ...formatEvidenceBlock(input.evidence),
     `  agentInfo: name=${agent.agentName} | version=${agent.agentVersion} | env=${agent.environment} | build=${agent.buildId}`,
-  ].join('\n');
+  ];
+  if (hasComplexityOrSignatureViolation(combinedDiag)) {
+    lines.push(`  ${TACTICAL_PATTERNS_DIRECTIVE_11X}`);
+  }
+  return lines.join('\n');
 }
 
 export function formatDiagnosticOutput(input: DiagnosticExecutionInput): string {

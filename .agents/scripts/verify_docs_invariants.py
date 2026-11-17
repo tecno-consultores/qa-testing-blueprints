@@ -14,10 +14,12 @@ from typing import Any
 
 MAX_SKILL_MD_BYTES = 20_000
 MAX_ARCHITECT_SKILL_BYTES = 12_288
+MAX_TACTICAL_SKILL_BYTES = 2_500
 MAX_ACTIVE_TASK_LINES = 40
+MAX_ACTIVE_TASK_RULE_LINES = 25
 
 FORBIDDEN_DOC_PATTERNS: tuple[tuple[str, str], ...] = (
-    (r"\b8 Resources\b|\b8 recursos\b|\b8 Recursos\b", "conteo obsoleto de 8 recursos MCP (debe ser 12)"),
+    (r"\b8 Resources\b|\b8 recursos\b|\b8 Recursos\b", "conteo obsoleto de 8 recursos MCP (debe ser 13)"),
     (r"1\.43\.0-jammy|karatelabs:1\.5\.0", "tag de imagen Docker obsoleto"),
     (r"\buv pip audit\b", "subcomando inexistente 'uv pip audit' (usar 'pip-audit')"),
     (r"refactoring-ui/\{topic\}[^\n]*\(`01` a `09`\)", "ejemplo numérico inválido en refactoring-ui/{topic}"),
@@ -240,41 +242,60 @@ HUMAN_CORE_MANUALS_ES: tuple[str, ...] = (
 )
 
 
+def _validate_single_skill_size(root: Path, skill_md: Path) -> str | None:
+    name = skill_md.parent.name
+    size = skill_md.stat().st_size
+    if name == "tactical-patterns-11x":
+        if size > MAX_TACTICAL_SKILL_BYTES:
+            return (
+                f"{skill_md.relative_to(root)} excede el presupuesto cognitivo "
+                f"({size} > {MAX_TACTICAL_SKILL_BYTES} bytes)."
+            )
+        return None
+    limit = MAX_ARCHITECT_SKILL_BYTES if name == "qa-11x-architect" else MAX_SKILL_MD_BYTES
+    if size >= limit:
+        return (
+            f"{skill_md.relative_to(root)} excede el presupuesto cognitivo "
+            f"({size} >= {limit} bytes)."
+        )
+    return None
+
+
 def _check_skill_size(root: Path) -> list[str]:
     skills_dir = root / ".agents" / "skills"
     if not skills_dir.is_dir():
         return []
     errors: list[str] = []
     for skill_md in sorted(skills_dir.glob("*/SKILL.md")):
-        limit = (
-            MAX_ARCHITECT_SKILL_BYTES
-            if skill_md.parent.name == "qa-11x-architect"
-            else MAX_SKILL_MD_BYTES
-        )
-        size = skill_md.stat().st_size
-        if size >= limit:
-            errors.append(
-                f"{skill_md.relative_to(root)} excede el presupuesto cognitivo ({size} >= {limit} bytes)."
-            )
+        err = _validate_single_skill_size(root, skill_md)
+        if err:
+            errors.append(err)
     return errors
 
 
-def _check_scratchpad_lines(root: Path, rel: str) -> list[str]:
+def _check_scratchpad_lines(
+    root: Path, rel: str, max_lines: int = MAX_ACTIVE_TASK_LINES
+) -> list[str]:
     candidate = root / rel
     if not candidate.is_file():
         return []
     count = len(candidate.read_text(encoding="utf-8").splitlines())
-    if count <= MAX_ACTIVE_TASK_LINES:
+    if count <= max_lines:
         return []
-    return [f"{rel} excede el límite compacto ({count} > {MAX_ACTIVE_TASK_LINES} líneas)."]
+    return [f"{rel} excede el límite compacto ({count} > {max_lines} líneas)."]
 
 
 def check_cognitive_budgets(root: Path) -> list[str]:
-    """Verifica SKILL.md < 20 KB y ACTIVE_TASK(.example) <= 40 líneas."""
+    """Verifica SKILL.md (<20 KB / <12 KB / <=2.5 KB), ACTIVE_TASK <=40L y regla <=25L."""
     return [
         *_check_skill_size(root),
         *_check_scratchpad_lines(root, ".agents/ACTIVE_TASK.md.example"),
         *_check_scratchpad_lines(root, ".agents/ACTIVE_TASK.md"),
+        *_check_scratchpad_lines(
+            root,
+            ".agents/rules/active_task_and_planning_resilience.md",
+            MAX_ACTIVE_TASK_RULE_LINES,
+        ),
     ]
 
 
@@ -484,7 +505,7 @@ def check_v2_mcp_surface_counts(root: Path) -> list[str]:
         if _STALE_V1_MCP_COUNT_RE.search(content):
             errors.append(
                 f"{rel_path}: detectado conteo MCP v1 obsoleto "
-                "(debe ser 18 Tools / 12 Resources)."
+                "(debe ser 19 Tools / 13 Resources)."
             )
     return errors
 
@@ -664,9 +685,9 @@ REQUIRED_CATALOG_FILES: tuple[str, ...] = (
     "catalogs/skillsllm-manifest.json",
     "catalogs/agenticskills-submission.md",
 )
-EXPECTED_SKILLS_COUNT = 10
-EXPECTED_TOOLS_COUNT = 18
-EXPECTED_RESOURCES_COUNT = 12
+EXPECTED_SKILLS_COUNT = 11
+EXPECTED_TOOLS_COUNT = 19
+EXPECTED_RESOURCES_COUNT = 13
 EXPECTED_BLUEPRINTS_COUNT = 10
 
 
@@ -795,7 +816,7 @@ def _validate_geo_surface(
 
 
 def check_global_catalogs_and_geo(root: Path) -> list[str]:
-    """Valida llms.txt y catálogos globales (10 skills, 18 tools, 12 resources, SHA-256)."""
+    """Valida llms.txt y catálogos globales (11 skills, 19 tools, 13 resources, SHA-256)."""
     if not (root / "llms.txt").is_file() and not (root / "catalogs").is_dir():
         return []
     missing = [rel for rel in REQUIRED_CATALOG_FILES if not (root / rel).is_file()]
@@ -810,7 +831,7 @@ def check_global_catalogs_and_geo(root: Path) -> list[str]:
         "qa-11x-architect", "qa-11x-devsecops-hardener", "qa-11x-systematic-debugging",
         "qa-11x-screenplay-builder", "qa-11x-llm-evaluator", "qa-11x-vibe-rescue",
         "qa-11x-docker-certifier", "docker-trivy-keydb-hardening",
-        "graphify-ast-navigator", "refactoring-ui",
+        "graphify-ast-navigator", "refactoring-ui", "tactical-patterns-11x",
     ]
     for rel in ("llms.txt", "catalogs/agenticskills-submission.md"):
         doc = root / rel

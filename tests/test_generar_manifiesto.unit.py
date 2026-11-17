@@ -120,6 +120,7 @@ class TestGenerarManifiesto(unittest.TestCase):
             (".agents/scripts/certify.sh", ".agents/scripts/certify.sh", "overwrite_executable"),
             (".agents/scripts/verify.py", ".agents/scripts/verify.py", "overwrite_executable"),
             (".agents/rules/mandatory.md", ".agents/rules/mandatory.md", "copy_or_overwrite"),
+            (".agents/schemas/session_checkpoint.schema.json", ".agents/schemas/session_checkpoint.schema.json", "copy_or_overwrite"),
             (".agents/skills/refactoring-ui/SKILL.md", ".agents/skills/refactoring-ui/SKILL.md", "copy_or_overwrite"),
         ]
         for rel_path, exp_target, exp_strategy in cases:
@@ -174,6 +175,10 @@ class TestGenerarManifiesto(unittest.TestCase):
         skills_dir.mkdir(parents=True)
         (skills_dir / "SKILL.md").write_text("# Skill", encoding="utf-8")
 
+        schemas_dir = self.temp_path / ".agents" / "schemas"
+        schemas_dir.mkdir(parents=True)
+        (schemas_dir / "session_checkpoint.schema.json").write_text("{}", encoding="utf-8")
+
         installer = self.temp_path / "scripts" / "install-skill.sh"
         installer.parent.mkdir(parents=True)
         installer.write_text("#!/bin/sh", encoding="utf-8")
@@ -188,6 +193,7 @@ class TestGenerarManifiesto(unittest.TestCase):
 
         self.assertIn("AGENTS.md", paths)
         self.assertIn(".agents/rules/rule1.md", paths)
+        self.assertIn(".agents/schemas/session_checkpoint.schema.json", paths)
         self.assertIn(".agents/scripts/script1.sh", paths)
         self.assertIn(".agents/scripts/script2.py", paths)
         self.assertNotIn(".agents/scripts/ignored.txt", paths)

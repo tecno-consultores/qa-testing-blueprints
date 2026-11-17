@@ -595,9 +595,37 @@ function parseBoundaryDirective(line: string): { key: 'allowed_globs' | 'forbidd
   return { key, items };
 }
 
+function toStringGlobList(raw: unknown): string[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  return raw.filter((item): item is string => typeof item === 'string' && item.trim().length > 0).map((item) => item.trim());
+}
+
+function parseCheckpointBoundaryGlobs(
+  safeWorkspacePath: string
+): { allowed_globs: string[]; forbidden_globs: string[] } | undefined {
+  const checkpointPath = path.join(safeWorkspacePath, '.agents', '.cache', 'session_checkpoint.json');
+  if (!fs.existsSync(checkpointPath)) {
+    return undefined;
+  }
+  const safeCheckpoint = resolveContainedRealPath(safeWorkspacePath, checkpointPath);
+  const parsed = JSON.parse(fs.readFileSync(safeCheckpoint, 'utf-8')) as Record<string, unknown>;
+  const allowed = toStringGlobList(parsed.allowed_globs);
+  const forbidden = toStringGlobList(parsed.forbidden_globs);
+  if (allowed.length === 0 && forbidden.length === 0) {
+    return undefined;
+  }
+  return { allowed_globs: allowed, forbidden_globs: forbidden };
+}
+
 export function parseBoundaryGlobs(
   safeWorkspacePath: string
 ): { allowed_globs: string[]; forbidden_globs: string[] } | undefined {
+  const fromCheckpoint = parseCheckpointBoundaryGlobs(safeWorkspacePath);
+  if (fromCheckpoint) {
+    return fromCheckpoint;
+  }
   const activeTaskPath = path.join(safeWorkspacePath, '.agents', 'ACTIVE_TASK.md');
   if (!fs.existsSync(activeTaskPath)) {
     return undefined;

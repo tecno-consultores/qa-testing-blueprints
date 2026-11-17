@@ -379,5 +379,22 @@ describe('evaluateReleaseGate MCP tool (T2.6)', () => {
       junitXmlPath: 'nonexistent-file-for-default-ws.xml',
     });
     expect(defaultWsRes.blockingReasons[0]?.code).toBe('FILE_NOT_FOUND');
+
+    const dirReadWs = fs.mkdtempSync(path.join(os.tmpdir(), 'qa-relgate-dir-'));
+    const unreadableFile = path.join(dirReadWs, 'unreadable.xml');
+    try {
+      fs.writeFileSync(unreadableFile, '<testsuite />', 'utf8');
+      fs.chmodSync(unreadableFile, 0o000);
+      const dirErrRes = evaluateReleaseReadiness({
+        workspaceRoot: dirReadWs,
+        junitXmlPath: 'unreadable.xml',
+      });
+      expect(dirErrRes.blockingReasons[0]?.code).toBe('FILE_NOT_FOUND');
+    } finally {
+      if (fs.existsSync(unreadableFile)) {
+        fs.chmodSync(unreadableFile, 0o644);
+      }
+      fs.rmSync(dirReadWs, { recursive: true, force: true });
+    }
   });
 });

@@ -59,8 +59,8 @@ flowchart TD
 
 ## 3. MCP Surface, Token Economy, and Human Closure Gate (`QA-GIT-GATE-01`)
 
-* **MCP Server `@sinfallas/mcp-qa-11x` v3.0.0:** Publicly exposes **18 Tools** (12 core v1 + 6 v2.0: `validate_calm_architecture`, `evaluate_release_gate`, `evaluate_agent_trajectory`, `run_llm_red_team`, `audit_vibe_prototype`, `sync_enterprise_tms`) and **12 Resources** (`blueprint://*`, adding `blueprint://ai/evals-redteam`, `blueprint://mobile-appium/readme`, and `blueprint://vibe-rescue/readme`) protected over `stdio` with `promptGuard` and `TaskStateGuard`.
-* **Token Economy (`< 20 KB` / `<= 40` lines):** The orchestrator skill [`.agents/skills/qa-11x-architect/SKILL.md`](../.agents/skills/qa-11x-architect/SKILL.md) (`< 12 KB`) hydrates 9 modular sub-skills on demand and uses [`.agents/scripts/compact_context_11x.py`](../.agents/scripts/compact_context_11x.py) + `Pass-Quiet / Fail-Verbose` formatting (`/tmp/qa-11x-last-failure.json`).
+* **MCP Server `@sinfallas/mcp-qa-11x` v3.0.0:** Publicly exposes **19 Tools** (12 core v1 + 6 v2.0 evaluators + `session_flight_recorder`) and **13 Resources** (`blueprint://*`, including `blueprint://skills/tactical-patterns-11x`) protected over `stdio` with `promptGuard` and `TaskStateGuard`.
+* **Token Economy (`< 20 KB` / `<= 40` lines):** The orchestrator skill [`.agents/skills/qa-11x-architect/SKILL.md`](../.agents/skills/qa-11x-architect/SKILL.md) (`< 12 KB`) hydrates 10 modular sub-skills on demand (including JIT `tactical-patterns-11x` `<= 2.5 KB`), projects `.agents/ACTIVE_TASK.md` deterministically via `checkpoint_ctl.py`, and uses [`.agents/scripts/compact_context_11x.py`](../.agents/scripts/compact_context_11x.py) + `Pass-Quiet / Fail-Verbose` formatting (`/tmp/qa-11x-last-failure.json`).
 * **Human Closure Guard (`QA-GIT-GATE-01`):** Every task concludes by passing all 10 stages of [`.agents/scripts/certify_task_completion.sh`](../.agents/scripts/certify_task_completion.sh) and creating a local `git commit`. Per [`.agents/rules/git_closure_gate.md`](../.agents/rules/git_closure_gate.md), no agent may execute `git push` or `npm publish` without explicit human authorization.
 
 ---

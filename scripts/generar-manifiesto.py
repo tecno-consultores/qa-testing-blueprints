@@ -238,10 +238,18 @@ def scan_common_files(repo_root: Path) -> List[Dict[str, Any]]:
     return common_files
 
 
+def _collect_agent_schemas(repo_root: Path) -> List[Path]:
+    """Descubre esquemas JSON en .agents/schemas/ cuando existen."""
+    schemas_dir = repo_root / ".agents" / "schemas"
+    if not schemas_dir.is_dir():
+        return []
+    return [f for f in sorted(schemas_dir.glob("*.json")) if f.is_file()]
+
+
 def scan_agent_governance_files(repo_root: Path) -> List[Dict[str, Any]]:
     """
     Escanea y valida los archivos de gobernanza de agentes:
-    AGENTS.md, .agents/rules/*.md, .agents/scripts/* y .agents/skills/**/*.
+    AGENTS.md, .agents/rules/*.md, .agents/schemas/*.json, .agents/scripts/* y .agents/skills/**/*.
     """
     candidates: List[Path] = []
 
@@ -274,6 +282,8 @@ def scan_agent_governance_files(repo_root: Path) -> List[Dict[str, Any]]:
         for f in sorted(rules_dir.glob("*.md")):
             if f.is_file():
                 candidates.append(f)
+
+    candidates.extend(_collect_agent_schemas(repo_root))
 
     scripts_dir = repo_root / ".agents" / "scripts"
     if scripts_dir.is_dir():

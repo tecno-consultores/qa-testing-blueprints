@@ -49,6 +49,8 @@ setup() {
   echo "env: {}" >"${FAKE_ROOT}/zap.yaml"
   echo "# active" >"${FAKE_ROOT}/.agents/ACTIVE_TASK.md"
   echo '{"evidence":true}' >"${FAKE_ROOT}/.agents/.qa-evidence.json"
+  echo '{"status":"IN_PROGRESS"}' >"${FAKE_ROOT}/.agents/.cache/session_checkpoint.json"
+  echo '{"sessions":{}}' >"${FAKE_ROOT}/.agents/.cache/certify_state.json"
   echo "{}" >"${FAKE_ROOT}/graphify-out/graph.json"
   echo "# report" >"${FAKE_ROOT}/graphify-out/GRAPH_REPORT.md"
   echo "<html/>" >"${FAKE_ROOT}/graphify-out/graph.html"
@@ -68,7 +70,7 @@ setup() {
   [ ! -f "${FAKE_ROOT}/src/edit.swp" ]
   [ ! -f "${FAKE_ROOT}/src/old.bak" ]
   [ ! -f "${FAKE_ROOT}/ACTIVE_TASK.md" ]
-  [ ! -d "${FAKE_ROOT}/.agents/.cache" ]
+  [ ! -d "${FAKE_ROOT}/.agents/.cache/coverage" ]
   [ ! -d "${FAKE_ROOT}/.agents/artifacts" ]
   [ ! -f "${FAKE_ROOT}/graphify-out/junk.tmp" ]
   [ ! -d "${FAKE_ROOT}/graphify-out/cache" ]
@@ -76,6 +78,8 @@ setup() {
   [ ! -d "${FAKE_TMP}/qa11x-certify.xyz" ]
 
   [ -f "${FAKE_ROOT}/.agents/ACTIVE_TASK.md" ]
+  [ -f "${FAKE_ROOT}/.agents/.cache/session_checkpoint.json" ]
+  [ -f "${FAKE_ROOT}/.agents/.cache/certify_state.json" ]
   [ -f "${FAKE_ROOT}/mcp-server/dist/index.js" ]
   [ -f "${FAKE_ROOT}/.qa-11x-version" ]
   [ -f "${FAKE_ROOT}/zap.yaml" ]
@@ -87,11 +91,12 @@ setup() {
   [ -d "${FAKE_ROOT}/.agents/proposals" ]
 }
 
-@test "limpieza.sh --deep: purga proposals, backups y .qa-evidence.json preservando .agents/ACTIVE_TASK.md y mcp-server/dist" {
-  mkdir -p "${FAKE_ROOT}/mcp-server/dist" "${FAKE_ROOT}/.agents/proposals" "${FAKE_ROOT}/.agents/backups"
+@test "limpieza.sh --deep: purga proposals, backups, .agents/.cache y .qa-evidence.json preservando .agents/ACTIVE_TASK.md y mcp-server/dist" {
+  mkdir -p "${FAKE_ROOT}/mcp-server/dist" "${FAKE_ROOT}/.agents/proposals" "${FAKE_ROOT}/.agents/backups" "${FAKE_ROOT}/.agents/.cache"
   echo "// dist" >"${FAKE_ROOT}/mcp-server/dist/index.js"
   echo "# active" >"${FAKE_ROOT}/.agents/ACTIVE_TASK.md"
   echo '{"evidence":true}' >"${FAKE_ROOT}/.agents/.qa-evidence.json"
+  echo '{"status":"IN_PROGRESS"}' >"${FAKE_ROOT}/.agents/.cache/session_checkpoint.json"
   echo "# draft" >"${FAKE_ROOT}/.agents/proposals/p.md"
   echo "bak" >"${FAKE_ROOT}/.agents/backups/b.md"
 
@@ -101,6 +106,7 @@ setup() {
   [ ! -d "${FAKE_ROOT}/.agents/proposals" ]
   [ ! -d "${FAKE_ROOT}/.agents/backups" ]
   [ ! -f "${FAKE_ROOT}/.agents/.qa-evidence.json" ]
+  [ ! -d "${FAKE_ROOT}/.agents/.cache" ]
   [ -f "${FAKE_ROOT}/.agents/ACTIVE_TASK.md" ]
   [ -f "${FAKE_ROOT}/mcp-server/dist/index.js" ]
 }

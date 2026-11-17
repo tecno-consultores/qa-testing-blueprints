@@ -353,13 +353,16 @@ function extractRelationshipEndpoints(relType: JsonRecord): Array<[string, strin
   return [];
 }
 
-function validateEndpointNodes(
-  relId: string,
-  src: string,
-  dst: string,
-  nodeIds: Set<string>,
-  violations: CalmViolation[]
-): boolean {
+interface EndpointNodesValidationInput {
+  readonly relId: string;
+  readonly src: string;
+  readonly dst: string;
+  readonly nodeIds: Set<string>;
+  readonly violations: CalmViolation[];
+}
+
+function validateEndpointNodes(input: EndpointNodesValidationInput): boolean {
+  const { relId, src, dst, nodeIds, violations } = input;
   let allExist = true;
   for (const endpoint of [src, dst]) {
     if (!nodeIds.has(endpoint)) {
@@ -375,14 +378,19 @@ function validateEndpointNodes(
   return allExist;
 }
 
+interface RelationshipValidationContext {
+  readonly nodeIds: Set<string>;
+  readonly relIds: Set<string>;
+  readonly state: ParsedRelationshipsResult;
+  readonly violations: CalmViolation[];
+}
+
 function validateSingleRelationship(
   entry: unknown,
   index: number,
-  nodeIds: Set<string>,
-  relIds: Set<string>,
-  state: ParsedRelationshipsResult,
-  violations: CalmViolation[]
+  ctx: RelationshipValidationContext
 ): void {
+  const { nodeIds, relIds, state, violations } = ctx;
   const fallbackSubject = `relationships[${index}]`;
   if (!isPlainRecord(entry) || !isNonEmptyString(entry[UNIQUE_ID_FIELD])) {
     violations.push({
@@ -429,7 +437,7 @@ function validateSingleRelationship(
   }
 
   for (const [src, dst] of pairs) {
-    if (validateEndpointNodes(relId, src, dst, nodeIds, violations)) {
+    if (validateEndpointNodes({ relId, src, dst, nodeIds, violations })) {
       state.edgeKeys.add(`${src}->${dst}`);
       state.connectedNodes.add(src);
       state.connectedNodes.add(dst);
@@ -460,9 +468,8 @@ function parseAndValidateRelationships(
 
   state.relationshipCount = rawRelationships.length;
   const relIds = new Set<string>();
-  rawRelationships.forEach((entry, index) =>
-    validateSingleRelationship(entry, index, nodeIds, relIds, state, violations)
-  );
+  const ctx: RelationshipValidationContext = { nodeIds, relIds, state, violations };
+  rawRelationships.forEach((entry, index) => validateSingleRelationship(entry, index, ctx));
   return state;
 }
 

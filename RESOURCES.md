@@ -11,14 +11,14 @@ Verified corporate index of entrypoints, modular skills, active rules, stack blu
 * **[`README.md`](README.md):** Primary *English-First* landing page featuring the 30-second `quickstart`, progressive adoption tiers (`starter` / `standard` / `enterprise`), the 15-column × 12-environment testing tools matrix, the ephemeral Docker matrix, and the AI Evals shield.
 * **[`README.es.md`](README.es.md):** 1:1 Spanish mirror with the full testing tools matrix and bilingual entrypoints.
 * **[`.github/actions/qa-11x-pr-check/action.yml`](.github/actions/qa-11x-pr-check/action.yml):** Hardened Composite Action for Pull Requests with AST Blast-Radius selection and progressive tiers.
-* **[`mcp-server/README.md`](mcp-server/README.md) / [`mcp-server/README.es.md`](mcp-server/README.es.md):** Official bilingual documentation for the `@sinfallas/mcp-qa-11x` v3.0.0 npm package (**18 Tools** and **12 Resources** with `quickstart`, `promptGuard`, and `TaskStateGuard`).
+* **[`mcp-server/README.md`](mcp-server/README.md) / [`mcp-server/README.es.md`](mcp-server/README.es.md):** Official bilingual documentation for the `@sinfallas/mcp-qa-11x` v3.0.0 npm package (**19 Tools** and **13 Resources** with `quickstart`, `session_flight_recorder`, `promptGuard`, and `TaskStateGuard`).
 * **[`llms.txt`](llms.txt) & Global Catalogs (`catalogs/`):** GEO index for LLMs/agents ([`llms.txt`](llms.txt)) alongside canonical descriptors [`catalogs/qaskills-pack.json`](catalogs/qaskills-pack.json) (QASkills.sh), [`catalogs/skillsllm-manifest.json`](catalogs/skillsllm-manifest.json) (SkillsLLM.com), and [`catalogs/agenticskills-submission.md`](catalogs/agenticskills-submission.md) (AgenticSkills.io).
 * **[`docs/agent-setup.md`](docs/agent-setup.md) / [`docs/agent-setup.es.md`](docs/agent-setup.es.md):** Step-by-step setup guides for 28 AI coding agents and MCP clients (`Antigravity`, `Claude Code`, `Cursor`, `Windsurf`, `Codex`, `Copilot`, `Hermes`, `Zed`, `JetBrains`, etc.; legacy redirect at [`docs/agent-setup.en.md`](docs/agent-setup.en.md)).
 * **[`AI_MASTER_PROMPT.md`](AI_MASTER_PROMPT.md):** Master adoption prompt for autonomous AI agents ([Spanish mirror](AI_MASTER_PROMPT.es.md)).
 
 ---
 
-## 2. The 10 Modular Skills (`< 20 KB`) & 8 Active Rules (`.agents/`)
+## 2. The 11 Modular Skills (`< 20 KB`) & 8 Active Rules (`.agents/`)
 
 ### 2.1. Modular Skills Catalog (`.agents/skills/`)
 
@@ -34,6 +34,7 @@ Verified corporate index of entrypoints, modular skills, active rules, stack blu
 | **`docker-trivy-keydb-hardening`** | Non-root containers (`Trivy HIGH/CRITICAL = 0`) & KeyDB engine | [`SKILL.md`](.agents/skills/docker-trivy-keydb-hardening/SKILL.md) |
 | **`graphify-ast-navigator`** | Bidirectional AST graph `graph.json`, Blast Radius & layer boundaries | [`SKILL.md`](.agents/skills/graphify-ast-navigator/SKILL.md) |
 | **`refactoring-ui`** | Visual hierarchy, typographic scale, OKLCH contrast & Anti-JSDOM layout | [`SKILL.md`](.agents/skills/refactoring-ui/SKILL.md) |
+| **`tactical-patterns-11x`** | JIT tactical design patterns (`<= 2.5 KB`, `CC <= 5`, `max-params: 4`, Port/Adapter, Outbox) | [`SKILL.md`](.agents/skills/tactical-patterns-11x/SKILL.md) |
 
 ### 2.2. Active Canonical Rules (`.agents/rules/`)
 
@@ -44,7 +45,7 @@ Verified corporate index of entrypoints, modular skills, active rules, stack blu
 * [`continuous_agent_evolution.md`](.agents/rules/continuous_agent_evolution.md) — Autonomous Dual-Consumer evolution and Thin-Repo anti-duplication.
 * [`anti_regression_and_side_effects_guardrail.md`](.agents/rules/anti_regression_and_side_effects_guardrail.md) — Pre/post AST blast-radius audit and regression containment.
 * [`ground_truth_fixtures_and_negative_invariants.md`](.agents/rules/ground_truth_fixtures_and_negative_invariants.md) — Trimodal fixtures, 3 clock phases, and `>= 180s` heavy transfers.
-* [`active_task_and_planning_resilience.md`](.agents/rules/active_task_and_planning_resilience.md) — Compact scratchpad `.agents/ACTIVE_TASK.md` (`<= 40` lines).
+* [`active_task_and_planning_resilience.md`](.agents/rules/active_task_and_planning_resilience.md) — Atomic Flight Recorder (`checkpoint_ctl.py` -> `.agents/ACTIVE_TASK.md` `<= 40` lines).
 
 ---
 

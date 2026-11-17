@@ -11,19 +11,19 @@ description: >-
 
 > **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Unless target `AGENTS.md` mandates a fixed language, respond in the **user's prompt language**, and write commits/docs matching `README.md` & `CHANGELOG.md` (ignoring concise English `AGENTS.md`/`.agents/**`; default to prompt language on empty repos).
 
-Corporate orchestrator for Standard 11X v2.0: 3-path routing, 13-layer pyramid, Rule Zero non-root Docker (`sinfallas/*`), High-IQ Token Economy (`AST-First`, `Pass-Quiet / Fail-Verbose`), `QA-GIT-GATE-01`, and lazy sub-skill hydration.
+Corporate orchestrator for Standard 11X: 3-path routing, 13-layer pyramid, Rule Zero non-root Docker (`sinfallas/*`), Token Economy (`AST-First`, `Pass-Quiet/Fail-Verbose`), `QA-GIT-GATE-01`, and lazy sub-skills.
 
 ---
 
 ## 1. 3-Path Proportional Routing & MCP Execution (`QA-GIT-GATE-01`)
 
-Classify every task before acting. **NEVER run automatic `git push`** (`QA-GIT-GATE-01` — stop at a certified local `git commit` unless the user explicitly authorizes remote push):
+Classify every task first. **NEVER auto-run `git push`** (`QA-GIT-GATE-01` — stop at local `git commit` unless human explicitly authorizes push):
 
-- **`DOCS_ONLY` (`*.md` / `docs/**` only):** `0` Docker QA runs, `0` AST rebuilds -> sync docs/`CHANGELOG.md` -> `make sync-governance` -> `certify_11x_gate` (`make certify`) -> local `git commit`.
-- **`MICRO_CHANGE` (`<= 3` files, `LOW` `< 5` callers, `0` new routes/ORM):** 3-line plan -> `inspect_ast_blast_radius` -> sync affected existing unit/BDD tests (`QA-TEST-SYNC-01`) + stack QA (`run_ephemeral_qa`) -> AST refresh -> `CHANGELOG.md` -> `certify_11x_gate` -> local `git commit`.
-- **`FULL_11X` (`> 3` files, new API/UI, ORM, security, or `MEDIUM`/`HIGH` blast radius):** Full 11-step workflow (`/plan`, `.agents/ACTIVE_TASK.md <= 40L`, full pyramid + sync existing unit/BDD tests (`QA-TEST-SYNC-01`), docs/specs, AST refresh, `certify_11x_gate` 10/10, local `git commit`).
+- **`DOCS_ONLY` (`*.md` / `docs/**` only):** `0` Docker QA runs, `0` AST rebuilds -> sync docs/`CHANGELOG.md` -> `make sync-governance` -> `certify_11x_gate` -> local `git commit`.
+- **`MICRO_CHANGE` (`<= 3` files, `< 5` callers, `0` routes/ORM):** 3-line plan -> `inspect_ast_blast_radius` -> sync unit/BDD tests (`QA-TEST-SYNC-01`) + stack QA (`run_ephemeral_qa`) -> AST refresh -> `CHANGELOG.md` -> `certify_11x_gate` -> local `git commit`.
+- **`FULL_11X` (`> 3` files, new API/UI, ORM, security, or `MED`/`HIGH` blast):** 11-step workflow (`/plan`, `session_flight_recorder` -> `ACTIVE_TASK.md <= 40L`, full pyramid + `QA-TEST-SYNC-01`, docs, AST, `certify_11x_gate` 10/10, local `git commit`).
 
-### 1.1. MCP Server `qa-11x` (`@sinfallas/mcp-qa-11x` v3.0.0 — 18 Tools + 12 Resources)
+### 1.1. MCP Server `qa-11x` (`@sinfallas/mcp-qa-11x` v3.0.0 — 19 Tools + 13 Resources)
 1. `inspect_ast_blast_radius` — Code Q&A & pre-edit impact.
 2. `inspect_project_config` — stack, drift, `update_available`.
 3. `audit_test_pyramid_gaps` — 13-layer audit + config.
@@ -42,6 +42,7 @@ Classify every task before acting. **NEVER run automatic `git push`** (`QA-GIT-G
 16. `run_llm_red_team` — OWASP LLM Top 10 Promptfoo red-team.
 17. `audit_vibe_prototype` — `VIBE-SEC-001..QA-005` & RLS rescue.
 18. `sync_enterprise_tms` — Jira/Zephyr/Xray/GitHub Issues sync.
+19. `session_flight_recorder` — `0600` JSON checkpoint + `ACTIVE_TASK.md` + Git.
 
 *Fallback (No MCP):* Load **one** module in `references/01..09.md` (§4), verify `manifest.json` via `sha256sum -c`, and run `make sync-governance`.
 
@@ -87,24 +88,25 @@ Hydrate specialized sub-skills **strictly on demand** by domain (canonical inlin
 
 | Sub-Skill | Trigger & Scope |
 | :--- | :--- |
-| `qa-11x-devsecops-hardener` | STIG V6R5, OWASP v4.2, PG17 RLS (`QA-PG17-RLS`, `NOBYPASSRLS`, `after_begin`), Vault AES-256-GCM, `QA-HEALTH-01`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`, `QA-CI-ESCAPE-01`, `QA-MAKE-CURDIR-01`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`. |
-| `qa-11x-systematic-debugging` | Mandatory 4-phase root-cause debugging (Reproduce -> Isolate -> Trace -> Verify) pre-patch. |
-| `qa-11x-screenplay-builder` | Screenplay (Actors/Abilities/Tasks/Questions) for RBAC E2E vs. POM (`<= 10` tests / `<= 3` pages) & `QA-SSR-HYDRATION-01`. |
-| `qa-11x-llm-evaluator` | Dual-Mode LLM/RAG evals: deterministic offline contracts + DeepEval/Promptfoo red-team. |
-| `qa-11x-vibe-rescue` | Vibe-to-Enterprise hardening (`>= 95%` cov, STIG security, architecture, non-root Docker). |
+| `qa-11x-devsecops-hardener` | STIG V6R5, OWASP v4.2, PG17 RLS (`QA-PG17-RLS`, `NOBYPASSRLS`, `after_begin`), AES-256-GCM, `QA-HEALTH-01`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`, `QA-CI-ESCAPE-01`, `QA-MAKE-CURDIR-01`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`. |
+| `qa-11x-systematic-debugging` | Mandatory 4-phase debugging (Reproduce -> Isolate -> Trace -> Verify) pre-patch. |
+| `qa-11x-screenplay-builder` | Screenplay (Actors/Abilities/Tasks/Questions) RBAC E2E vs POM (`<=10` tests/`<=3` pages) & `QA-SSR-HYDRATION-01`. |
+| `qa-11x-llm-evaluator` | Dual-Mode LLM/RAG evals: offline contracts + DeepEval/Promptfoo red-team. |
+| `qa-11x-vibe-rescue` | Vibe-to-Enterprise (`>=95%` cov, STIG, architecture, non-root Docker). |
+| `tactical-patterns-11x` | Hydrate ONLY on concurrency/idempotency/external ports or CC/max-params fails. |
 
-*(Companion skills: `qa-11x-docker-certifier`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `refactoring-ui`.)*
+*(Companions: `qa-11x-docker-certifier`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `refactoring-ui`.)*
 
 ---
 
 ## 4. On-Demand References (`references/01..09.md`)
 
-- [`references/01-core-13-layers.md`](references/01-core-13-layers.md) — 13 QA layers, Anti-Mock, Anti-JSDOM, Trimodal Fixtures.
-- [`references/02-security-disa-owasp-22.md`](references/02-security-disa-owasp-22.md) — 22 STIG/OWASP controls & `SEC-16` snippets.
-- [`references/03-stack-python-fastapi.md`](references/03-stack-python-fastapi.md) — Python 3.13+ / FastAPI (`uv`, PG17, KeyDB, Alembic).
-- [`references/04-stack-node-vue-react.md`](references/04-stack-node-vue-react.md) — Node, Vue 3, React, Vitest, Playwright `v1.52.0-noble`, Lighthouse.
-- [`references/05-stack-bash-devops.md`](references/05-stack-bash-devops.md) — Bash/POSIX, ShellCheck, shfmt, BATS-core, `kcov >= 95%`.
-- [`references/06-stack-php.md`](references/06-stack-php.md) — PHP 8.2–8.5 (`sinfallas/basephpcomposer`), Pest/PCOV, PHPStan Max, Infection.
-- [`references/07-mcp-agentic-security-governance.md`](references/07-mcp-agentic-security-governance.md) — Service-Layer RBAC, MCP `ApprovalRequest`, Tool Poisoning.
-- [`references/08-postgres-rls-zero-downtime-migrations.md`](references/08-postgres-rls-zero-downtime-migrations.md) — PG17 `FORCE ROW LEVEL SECURITY` (`after_begin`), Expand-Contract, `JSONB`/`Decimal`.
-- [`references/09-sre-observability-chaos-triage.md`](references/09-sre-observability-chaos-triage.md) — Prometheus RED, `trace_id`, Pumba chaos, `>= 180s` transfer timeouts.
+- [`references/01-core-13-layers.md`](references/01-core-13-layers.md) — 13 QA layers, Anti-Mock, Anti-JSDOM, Trimodal.
+- [`references/02-security-disa-owasp-22.md`](references/02-security-disa-owasp-22.md) — 22 STIG/OWASP controls & `SEC-16`.
+- [`references/03-stack-python-fastapi.md`](references/03-stack-python-fastapi.md) — Python 3.13+ / FastAPI (`uv`, PG17, KeyDB).
+- [`references/04-stack-node-vue-react.md`](references/04-stack-node-vue-react.md) — Node, Vue 3, React, Vitest, Playwright `v1.52.0-noble`.
+- [`references/05-stack-bash-devops.md`](references/05-stack-bash-devops.md) — Bash, ShellCheck, shfmt, BATS, `kcov >= 95%`.
+- [`references/06-stack-php.md`](references/06-stack-php.md) — PHP 8.2–8.5 (`basephpcomposer`), Pest/PCOV, PHPStan Max, Infection.
+- [`references/07-mcp-agentic-security-governance.md`](references/07-mcp-agentic-security-governance.md) — Service RBAC, MCP `ApprovalRequest`, Tool Poisoning.
+- [`references/08-postgres-rls-zero-downtime-migrations.md`](references/08-postgres-rls-zero-downtime-migrations.md) — PG17 RLS (`after_begin`), Expand-Contract, `JSONB`/`Decimal`.
+- [`references/09-sre-observability-chaos-triage.md`](references/09-sre-observability-chaos-triage.md) — Prometheus RED, `trace_id`, Pumba, `>=180s` timeouts.

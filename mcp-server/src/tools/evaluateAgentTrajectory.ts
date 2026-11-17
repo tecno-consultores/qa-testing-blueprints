@@ -623,15 +623,18 @@ function resolveFirstOffendingStep(violations: readonly TrajectoryViolation[]): 
   return null;
 }
 
-function buildFormattedSummary(
-  passed: boolean,
-  durationMs: number,
-  commandDisplay: string,
-  metrics: TrajectoryMetrics,
-  violations: readonly TrajectoryViolation[],
-  remediationHint: string,
-  liveTrace?: string
-): string {
+interface TrajectorySummaryInput {
+  readonly passed: boolean;
+  readonly durationMs: number;
+  readonly commandDisplay: string;
+  readonly metrics: TrajectoryMetrics;
+  readonly violations: readonly TrajectoryViolation[];
+  readonly remediationHint: string;
+  readonly liveTrace?: string;
+}
+
+function buildFormattedSummary(input: TrajectorySummaryInput): string {
+  const { passed, durationMs, commandDisplay, metrics, violations, remediationHint, liveTrace } = input;
   if (passed) {
     const base = formatPassQuietSummary({
       stageId: STAGE_TRAJECTORY_ID,
@@ -657,25 +660,29 @@ function buildFormattedSummary(
   });
 }
 
-function buildFailureResult(
-  mode: TrajectoryMode,
-  status: TrajectoryStatus,
-  durationMs: number,
-  commandDisplay: string,
-  metrics: TrajectoryMetrics,
-  violations: TrajectoryViolation[],
-  remediationHint: string,
-  liveTrace?: string
-): TrajectoryEvaluationResult {
-  const summary = buildFormattedSummary(
-    false,
+interface TrajectoryFailureInput {
+  readonly mode: TrajectoryMode;
+  readonly status: TrajectoryStatus;
+  readonly durationMs: number;
+  readonly commandDisplay: string;
+  readonly metrics: TrajectoryMetrics;
+  readonly violations: TrajectoryViolation[];
+  readonly remediationHint: string;
+  readonly liveTrace?: string;
+}
+
+function buildFailureResult(input: TrajectoryFailureInput): TrajectoryEvaluationResult {
+  const { mode, status, durationMs, commandDisplay, metrics, violations, remediationHint, liveTrace } =
+    input;
+  const summary = buildFormattedSummary({
+    passed: false,
     durationMs,
     commandDisplay,
     metrics,
     violations,
     remediationHint,
-    liveTrace
-  );
+    liveTrace,
+  });
   return {
     passed: false,
     status,
@@ -700,15 +707,15 @@ function validateOptionalOfflinePath(
   if (safeTarget.ok) {
     return null;
   }
-  return buildFailureResult(
-    'offline',
-    'FAILED',
-    Date.now() - startedAt,
-    STAGE_TRAJECTORY_ID,
-    emptyMetrics(),
-    [safeTarget.violation],
-    REMEDIATION_TRAVERSAL
-  );
+  return buildFailureResult({
+    mode: 'offline',
+    status: 'FAILED',
+    durationMs: Date.now() - startedAt,
+    commandDisplay: STAGE_TRAJECTORY_ID,
+    metrics: emptyMetrics(),
+    violations: [safeTarget.violation],
+    remediationHint: REMEDIATION_TRAVERSAL,
+  });
 }
 
 function auditTrajectorySteps(
@@ -751,15 +758,15 @@ function evaluateOfflineTrajectory(
 
   const steps = args.steps ?? [];
   if (steps.length === 0) {
-    return buildFailureResult(
-      'offline',
-      'FAILED',
-      Date.now() - startedAt,
-      STAGE_TRAJECTORY_ID,
-      emptyMetrics(),
-      [{ code: 'EMPTY_TRAJECTORY', message: 'La trayectoria debe contener al menos 1 paso de herramienta.' }],
-      REMEDIATION_TRAJECTORY
-    );
+    return buildFailureResult({
+      mode: 'offline',
+      status: 'FAILED',
+      durationMs: Date.now() - startedAt,
+      commandDisplay: STAGE_TRAJECTORY_ID,
+      metrics: emptyMetrics(),
+      violations: [{ code: 'EMPTY_TRAJECTORY', message: 'La trayectoria debe contener al menos 1 paso de herramienta.' }],
+      remediationHint: REMEDIATION_TRAJECTORY,
+    });
   }
 
   const violations: TrajectoryViolation[] = [];
@@ -770,15 +777,15 @@ function evaluateOfflineTrajectory(
 
   const durationMs = Date.now() - startedAt;
   if (violations.length > 0) {
-    return buildFailureResult(
-      'offline',
-      'FAILED',
+    return buildFailureResult({
+      mode: 'offline',
+      status: 'FAILED',
       durationMs,
-      STAGE_TRAJECTORY_ID,
+      commandDisplay: STAGE_TRAJECTORY_ID,
       metrics,
       violations,
-      REMEDIATION_TRAJECTORY
-    );
+      remediationHint: REMEDIATION_TRAJECTORY,
+    });
   }
 
   return {
@@ -788,14 +795,14 @@ function evaluateOfflineTrajectory(
     metrics,
     offendingStepIndex: null,
     violations: [],
-    summary: buildFormattedSummary(
-      true,
+    summary: buildFormattedSummary({
+      passed: true,
       durationMs,
-      STAGE_TRAJECTORY_ID,
+      commandDisplay: STAGE_TRAJECTORY_ID,
       metrics,
-      [],
-      REMEDIATION_TRAJECTORY
-    ),
+      violations: [],
+      remediationHint: REMEDIATION_TRAJECTORY,
+    }),
   };
 }
 
@@ -853,30 +860,30 @@ function validateLiveCredsAndFile(
       code: 'MISSING_CREDENTIALS',
       message: 'SKIPPED_MISSING_CREDENTIALS: sin credenciales LLM ni endpoint local configurado.',
     };
-    return buildFailureResult(
-      'live',
-      'SKIPPED_MISSING_CREDENTIALS',
-      Date.now() - startedAt,
-      `docker pytest ${target.relativePosix}`,
-      emptyMetrics(),
-      [violation],
-      REMEDIATION_CREDENTIALS
-    );
+    return buildFailureResult({
+      mode: 'live',
+      status: 'SKIPPED_MISSING_CREDENTIALS',
+      durationMs: Date.now() - startedAt,
+      commandDisplay: `docker pytest ${target.relativePosix}`,
+      metrics: emptyMetrics(),
+      violations: [violation],
+      remediationHint: REMEDIATION_CREDENTIALS,
+    });
   }
   if (!fs.existsSync(target.resolvedPath)) {
     const violation: TrajectoryViolation = {
       code: 'FILE_NOT_FOUND',
       message: `Archivo de evaluación no encontrado: '${target.relativePosix}'.`,
     };
-    return buildFailureResult(
-      'live',
-      'FAILED',
-      Date.now() - startedAt,
-      `docker pytest ${target.relativePosix}`,
-      emptyMetrics(),
-      [violation],
-      REMEDIATION_LIVE_EXEC
-    );
+    return buildFailureResult({
+      mode: 'live',
+      status: 'FAILED',
+      durationMs: Date.now() - startedAt,
+      commandDisplay: `docker pytest ${target.relativePosix}`,
+      metrics: emptyMetrics(),
+      violations: [violation],
+      remediationHint: REMEDIATION_LIVE_EXEC,
+    });
   }
   return null;
 }
@@ -904,16 +911,16 @@ function finalizeLiveTrajectory(
       code: 'LIVE_EXECUTION_FAILED',
       message: `La auditoría DeepEval live falló con exitCode=${cmdResult.exitCode}.`,
     };
-    return buildFailureResult(
-      'live',
-      'FAILED',
+    return buildFailureResult({
+      mode: 'live',
+      status: 'FAILED',
       durationMs,
-      cmdDisplay,
+      commandDisplay: cmdDisplay,
       metrics,
-      [violation],
-      REMEDIATION_LIVE_EXEC,
-      trace
-    );
+      violations: [violation],
+      remediationHint: REMEDIATION_LIVE_EXEC,
+      liveTrace: trace,
+    });
   }
 
   return {
@@ -923,14 +930,14 @@ function finalizeLiveTrajectory(
     metrics,
     offendingStepIndex: null,
     violations: [],
-    summary: buildFormattedSummary(
-      true,
+    summary: buildFormattedSummary({
+      passed: true,
       durationMs,
-      cmdDisplay,
+      commandDisplay: cmdDisplay,
       metrics,
-      [],
-      REMEDIATION_LIVE_EXEC
-    ),
+      violations: [],
+      remediationHint: REMEDIATION_LIVE_EXEC,
+    }),
   };
 }
 
@@ -961,15 +968,15 @@ function prepareLiveTrajectoryPlan(
   if (!safeTarget.ok) {
     return {
       ok: false,
-      failure: buildFailureResult(
-        'live',
-        'FAILED',
-        Date.now() - startedAt,
-        STAGE_TRAJECTORY_ID,
-        emptyMetrics(),
-        [safeTarget.violation],
-        REMEDIATION_TRAVERSAL
-      ),
+      failure: buildFailureResult({
+        mode: 'live',
+        status: 'FAILED',
+        durationMs: Date.now() - startedAt,
+        commandDisplay: STAGE_TRAJECTORY_ID,
+        metrics: emptyMetrics(),
+        violations: [safeTarget.violation],
+        remediationHint: REMEDIATION_TRAVERSAL,
+      }),
     };
   }
 

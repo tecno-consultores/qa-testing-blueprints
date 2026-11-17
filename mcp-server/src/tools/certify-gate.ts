@@ -591,9 +591,38 @@ function resolveWithParentFallback(projectPath: string, ...segments: string[]): 
   return directPath;
 }
 
+function checkSessionCheckpointGovernance(projectPath: string, activeTaskPath: string): string[] {
+  const ckptPath = resolveWithParentFallback(projectPath, '.agents', '.cache', 'session_checkpoint.json');
+  if (!fs.existsSync(ckptPath)) {
+    return [];
+  }
+  const blockers: string[] = [];
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(fs.readFileSync(ckptPath, 'utf8')) as Record<string, unknown>;
+  } catch {
+    return ['.agents/.cache/session_checkpoint.json contiene JSON corrupto o ilegible.'];
+  }
+  const intent = parsed.intent_140chars;
+  if (typeof intent !== 'string' || intent.length === 0 || intent.length > 140) {
+    blockers.push('.agents/.cache/session_checkpoint.json excede 140 caracteres en intent_140chars.');
+  }
+  if (parsed.status !== 'CERTIFIED_CLEAN') {
+    return blockers;
+  }
+  if (Array.isArray(parsed.planned_steps) && parsed.planned_steps.length > 0) {
+    blockers.push('session_checkpoint.json en CERTIFIED_CLEAN aún tiene planned_steps.');
+  }
+  if (fs.existsSync(activeTaskPath) && !/Estado:\**\s*COMPLETED/i.test(fs.readFileSync(activeTaskPath, 'utf8'))) {
+    blockers.push('session_checkpoint.json CERTIFIED_CLEAN no coincide con Estado COMPLETED en ACTIVE_TASK.md.');
+  }
+  return blockers;
+}
+
 function checkActiveTaskGovernance(projectPath: string): string[] {
   const blockers: string[] = [];
   const activeTaskPath = resolveWithParentFallback(projectPath, '.agents', 'ACTIVE_TASK.md');
+  blockers.push(...checkSessionCheckpointGovernance(projectPath, activeTaskPath));
   if (!fs.existsSync(activeTaskPath)) return blockers;
 
   try {

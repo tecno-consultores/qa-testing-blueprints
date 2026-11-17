@@ -60,6 +60,9 @@ const CANDIDATE_DIR_NAMES = [
   '.pnpm-store',
   '.turbo',
   '.agents/tmp',
+  '.agents/.cache/coverage',
+  '.agents/.cache/tmp',
+  '.agents/artifacts',
 ];
 
 const DEEP_PRUNE_DIR_NAMES = [
@@ -68,6 +71,7 @@ const DEEP_PRUNE_DIR_NAMES = [
   '.agents/backups',
   '.agents/proposals',
   '.agents/.qa-evidence.json',
+  '.agents/.cache',
 ];
 
 const CANDIDATE_FILE_PATTERNS = [
@@ -266,13 +270,18 @@ function executeTargetDeletion(
   return { removed, dockerFallbackUsed };
 }
 
+export interface CleanWorkspaceDeps {
+  readonly fallbackExecutor?: (baseDir: string, targets: string[]) => boolean;
+  readonly targetRemover?: (baseDir: string, relPath: string) => { removed: boolean };
+}
+
 export async function cleanWorkspace11x(
   projectPathInput: string,
   dryRun = true,
   deepPrune = false,
-  fallbackExecutor?: (baseDir: string, targets: string[]) => boolean,
-  targetRemover?: (baseDir: string, relPath: string) => { removed: boolean }
+  deps: CleanWorkspaceDeps = {}
 ): Promise<CleanWorkspaceResult> {
+  const { fallbackExecutor, targetRemover } = deps;
   const resolvedPath = path.resolve(projectPathInput.normalize('NFKC'));
 
   if (!fs.existsSync(resolvedPath)) {

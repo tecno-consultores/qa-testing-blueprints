@@ -328,7 +328,7 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
       expect(fs.existsSync(path.join(tmpDir, '.amazonq/rules/qa-11x.md'))).toBe(true);
 
       // Direct syncAgentBridgeFiles check with undefined
-      const noSync = syncAgentBridgeFiles(tmpDir, undefined, [], 'es', true);
+      const noSync = syncAgentBridgeFiles(tmpDir, undefined, [], { lang: 'es', dryRun: true });
       expect(noSync.bridgedAgents).toEqual([]);
       expect(noSync.bridgeFiles).toEqual([]);
     });

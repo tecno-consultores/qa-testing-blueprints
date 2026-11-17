@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qa-testing-blueprints.local/schemas/session_checkpoint.schema.json",
+  "title": "QA-11X Session Flight Recorder Checkpoint",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "updated_at",
+    "git_available",
+    "branch",
+    "base_sha",
+    "task_id",
+    "completed_steps",
+    "active_step",
+    "planned_steps",
+    "allowed_globs",
+    "forbidden_globs",
+    "intent_140chars",
+    "last_script_run"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["IN_PROGRESS", "CERTIFIED_CLEAN"]
+    },
+    "updated_at": {
+      "type": "string",
+      "minLength": 20
+    },
+    "git_available": {
+      "type": "boolean"
+    },
+    "branch": {
+      "type": "string",
+      "minLength": 1
+    },
+    "base_sha": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]+$",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "completed_steps": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "active_step": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "planned_steps": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "allowed_globs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "forbidden_globs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "intent_140chars": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 140
+    },
+    "last_script_run": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cmd", "exit_code", "timestamp", "summary_1line"],
+          "properties": {
+            "cmd": {
+              "type": "string",
+              "minLength": 1
+            },
+            "exit_code": {
+              "type": "integer"
+            },
+            "timestamp": {
+              "type": "string",
+              "minLength": 20
+            },
+            "summary_1line": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

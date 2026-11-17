@@ -39,13 +39,18 @@ function injectAgentsConnectorIfMissingFromBundle(
   });
 }
 
+export interface BootstrapMergeDeps {
+  readonly fetcher?: GitHubFetcher;
+  readonly merger?: SurgicalMerger;
+}
+
 export async function bootstrapOrMerge11x(
   projectPathInput: string,
   stack: string,
   dryRun = false,
-  fetcher?: GitHubFetcher,
-  merger?: SurgicalMerger
+  deps: BootstrapMergeDeps = {}
 ): Promise<BootstrapMergeResult> {
+  const { fetcher, merger } = deps;
   const resolvedPath = path.resolve(projectPathInput.normalize('NFKC'));
   const resolvedFetcher = fetcher || new GitHubFetcher();
   const resolvedMerger = merger || new SurgicalMerger();

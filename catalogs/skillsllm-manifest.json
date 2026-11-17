@@ -10,8 +10,8 @@
   "llms_txt_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/llms.txt",
   "mcp_package": "@sinfallas/mcp-qa-11x",
   "mcp_capabilities": {
-    "tools_count": 18,
-    "resources_count": 12,
+    "tools_count": 19,
+    "resources_count": 13,
     "tools": [
       "inspect_project_config",
       "fetch_blueprint_bundle",
@@ -30,7 +30,8 @@
       "evaluate_agent_trajectory",
       "run_llm_red_team",
       "audit_vibe_prototype",
-      "sync_enterprise_tms"
+      "sync_enterprise_tms",
+      "session_flight_recorder"
     ],
     "resources": [
       "blueprint://manifest",
@@ -44,7 +45,8 @@
       "blueprint://core/roadmap-validator",
       "blueprint://ai/evals-redteam",
       "blueprint://mobile-appium/readme",
-      "blueprint://vibe-rescue/readme"
+      "blueprint://vibe-rescue/readme",
+      "blueprint://skills/tactical-patterns-11x"
     ]
   },
   "adoption_tiers": {
@@ -116,8 +118,8 @@
       "name": "qa-11x-architect",
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-architect/SKILL.md",
-      "size_bytes": 11968,
-      "sha256": "20c3ae903c5e1d6edddac3c051348751c18dac47d34d318c0220f4790d45317a",
+      "size_bytes": 11846,
+      "sha256": "91f178f18439c23671e27bab464b531680cf94b39393bedd48b58a4007d1abfa",
       "description": "Master QA 11X & DevSecOps Architect (qa-testing-blueprints v3.0+). Use whenever the user asks to initialize or integrate QA in a project, merge .example templates, write or audit unit/BDD/mutation/E2E tests, enforce >=95% coverage, apply DISA ASD STIG V6R5 and OWASP v4.2 security controls, run ephemeral Docker QA suites (Rule Zero), optimize context token consumption, or update TESTING.md and CHANGELOG.md."
     },
     {
@@ -200,6 +202,15 @@
       "size_bytes": 8997,
       "sha256": "74e8d42e5cf806d84aa525974c5474be7add14fb7d01fd1c9186286240eb6c8a",
       "description": "Visual hierarchy, spacing, type, color, depth and polish rules from Refactoring UI (Wathan & Schoger), aligned with QA 11X WCAG 2.1 AA, Anti-JSDOM geometry, and Lighthouse CI. Use when building or restyling an interface, when a UI looks unpolished or cluttered and the cause is unclear, or when picking concrete values for a spacing scale, type scale, color palette or shadow set."
+    },
+    {
+      "id": "tactical-patterns-11x",
+      "name": "tactical-patterns-11x",
+      "path": ".agents/skills/tactical-patterns-11x/SKILL.md",
+      "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/tactical-patterns-11x/SKILL.md",
+      "size_bytes": 2356,
+      "sha256": "29f04a20cd06658f587692ad50798acebd14cad449cdcdeb64f0b53584809f1a",
+      "description": "JIT tactical patterns for QA-11X: complexity rescue (CC <= 5, SonarJS <= 15, max-params <= 4, max-depth <= 3), offline Port/Adapter (--network none), atomic outbox/idempotency/RLS, and anti-overengineering."
     }
   ]
 }
