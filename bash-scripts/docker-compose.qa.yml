@@ -7,8 +7,10 @@ services:
     container_name: bash_qa_env
     hostname: bash_qa_env
     pull_policy: if_not_present
+    user: "${QA_UID:-1000}:${QA_GID:-1000}"
     environment:
       TZ: 'America/Caracas'
+      HOME: /tmp
     volumes:
       - .:/app
     working_dir: /app
@@ -27,7 +29,7 @@ services:
     profiles:
       - observability
     ports:
-      - "9091:9091"
+      - "127.0.0.1:9091:9091"
 
   prometheus:
     image: prom/prometheus:v2.55.1
@@ -50,7 +52,7 @@ services:
         " > /tmp/prometheus.yml
         /bin/prometheus --config.file=/tmp/prometheus.yml
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     depends_on:
       - pushgateway
 

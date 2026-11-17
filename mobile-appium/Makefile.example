@@ -25,7 +25,7 @@ qa-drivers:
 
 qa-bridge:
 	@echo "🔌 [11X] Levantando Appium Driver Bridge W3C en puerto 4723..."
-	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile appium-live up -d $(BRIDGE_SERVICE)
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile appium-live up -d --wait $(BRIDGE_SERVICE)
 
 qa-e2e: qa-bridge
 	@echo "📲 [11X] Ejecutando suite WebdriverIO v9 contra Appium Driver Bridge..."

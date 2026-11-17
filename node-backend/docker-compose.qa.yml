@@ -3,7 +3,7 @@
 
 services:
   pnpm-store-init:
-    image: sinfallas/base-node-ionic:26
+    image: sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60
     pull_policy: if_not_present
     user: "0:0"
     volumes:
@@ -11,7 +11,7 @@ services:
     command: ["chmod", "-R", "a+rwX", "/pnpm"]
 
   api:
-    image: sinfallas/base-node-ionic:26
+    image: sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60
     container_name: node_api
     hostname: node_api
     pull_policy: if_not_present
@@ -30,7 +30,7 @@ services:
       - pnpm-store:/pnpm
     working_dir: /app
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     healthcheck:
       test: ["CMD-SHELL", "node -e 'fetch(\"http://127.0.0.1:3000/health\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))'"]
       interval: 5s
@@ -39,7 +39,7 @@ services:
     command: bash -c "pnpm install && pnpm run dev"
 
   qa-node-backend:
-    image: sinfallas/base-node-ionic:26
+    image: sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60
     container_name: node_qa_backend
     hostname: node_qa_backend
     pull_policy: if_not_present
@@ -123,13 +123,13 @@ services:
         " > /tmp/prometheus.yml
         /bin/prometheus --config.file=/tmp/prometheus.yml
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     depends_on:
       api:
         condition: service_healthy
 
   stress_test:
-    image: sinfallas/base-node-ionic:26
+    image: sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60
     container_name: node_chaos_artillery
     hostname: node_chaos_artillery
     pull_policy: if_not_present

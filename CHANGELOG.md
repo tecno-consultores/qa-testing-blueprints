@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+* **10-Stack Template Hardening & `.example` Unification (`F7.1–F7.25`):** Standardized 3-category `.example` rules across all 10 stacks (`limpieza.sh` + `docker-compose.qa.yml` + `Makefile.example` in `ai-evals`/`vibe-rescue`), bound all compose ports to `127.0.0.1:` with `QA_UID`/`QA_GID`, switched `vue3`/`react-frontend` to `nginxinc/nginx-unprivileged` `:8080` + `qa-frontend` + CSP `'self'` + `tsconfig`/`vite`, aligned Python `py315`, Node `>=26`/`pnpm@12.18.0`, k6 smoke in `python`/`php`, `kcov` Python gate, `--allow-insecure` in `mobile-appium`, and pinned digests.
 * **Spec 19 Bilingual Parity & CALM 1.2 Hardening (`F6.1–F6.26`):** Enforced Spec 19 EN-canonical + 1:1 ES-mirror banners/links across all doc pairs and `mcp-server/example/`, retired `docs/agent-setup.en.md`, renamed `docs/01_` -> `docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA`, added EN canonical `19_SPEC`/`20_SPEC`, converted `.agents/README.md` to concise English, and hardened `architecture/qa-11x.calm.json` (`protocol` + node/relationship control bindings + canonical IDs).
 
 ---

@@ -4,8 +4,8 @@
   "description": "Plantilla base para Frontend Vue 3 corporativo (Linting, Stryker, Lighthouse, Playwright y Vitest)",
   "packageManager": "pnpm@12.18.0",
   "engines": {
-    "node": ">=22.0.0",
-    "pnpm": ">=9.0.0"
+    "node": ">=26.0.0",
+    "pnpm": ">=12.0.0"
   },
   "scripts": {
     "dev": "vite",

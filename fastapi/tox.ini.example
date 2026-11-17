@@ -1,5 +1,5 @@
 [tox]
-env_list = py313
+env_list = py315
 isolated_build = True
 
 [testenv]

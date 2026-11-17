@@ -2,13 +2,17 @@
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
 """
-test_generar_manifiesto.unit.py — Suite de pruebas unitarias para scripts/generar-manifiesto.py.
+test_generar_manifiesto.unit.py — Suite unitaria para scripts/generar-manifiesto.py.
 
-Valida el cálculo criptográfico SHA-256, clasificación de target_name y merge_strategy,
+Valida el cálculo SHA-256, clasificación de target_name y merge_strategy,
 construcción del manifiesto, detección de derivas con --check y ejecución CLI.
 Cumple con el Estándar 11X (cobertura >= 95%).
 """
 
+from __future__ import annotations
+
+import hashlib
+import importlib
 import importlib.util
 import json
 import shutil
@@ -16,14 +20,15 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Any
 
 # Aseguramos que scripts/ esté en el sys.path para importar generar-manifiesto
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-# Importamos las funciones del generador
-
-spec = importlib.util.spec_from_file_location("generar_manifiesto", REPO_ROOT / "scripts" / "generar-manifiesto.py")
+spec = importlib.util.spec_from_file_location(
+    "generar_manifiesto", REPO_ROOT / "scripts" / "generar-manifiesto.py"
+)
 if spec is None or spec.loader is None:
     raise ImportError("No se pudo cargar scripts/generar-manifiesto.py")
 gm = importlib.util.module_from_spec(spec)
@@ -43,18 +48,14 @@ class TestGenerarManifiesto(unittest.TestCase):
         """Verifica el cálculo de SHA-256 con contenido pequeño conocido."""
         test_file = self.temp_path / "hello.txt"
         test_file.write_bytes(b"hello world")
-        # SHA-256 de "hello world"
         expected = "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
         self.assertEqual(gm.compute_sha256(test_file), expected)
 
     def test_compute_sha256_large_content(self) -> None:
         """Verifica el cálculo de SHA-256 con contenido mayor al búfer de 64KB."""
         test_file = self.temp_path / "large.bin"
-        # 128 KB de datos repetidos
         data = b"0123456789abcdef" * 8192
         test_file.write_bytes(data)
-        import hashlib
-
         expected = hashlib.sha256(data).hexdigest()
         self.assertEqual(gm.compute_sha256(test_file), expected)
 
@@ -64,22 +65,39 @@ class TestGenerarManifiesto(unittest.TestCase):
         changelog.write_text("## [3.2.1] - 2026-11-02\nSome notes", encoding="utf-8")
         self.assertEqual(gm.get_blueprint_version(self.temp_path), "3.2.1")
 
-        # Sin CHANGELOG.md -> fallback DEFAULT_BLUEPRINT_VERSION
         empty_dir = self.temp_path / "empty"
         empty_dir.mkdir()
-        self.assertEqual(gm.get_blueprint_version(empty_dir), gm.DEFAULT_BLUEPRINT_VERSION)
+        self.assertEqual(
+            gm.get_blueprint_version(empty_dir), gm.DEFAULT_BLUEPRINT_VERSION
+        )
 
     def test_classify_stack_file(self) -> None:
-        """Verifica la clasificación exacta de target_name y merge_strategy para archivos de stack."""
+        """Verifica clasificación exacta de target_name y merge_strategy."""
         cases = [
             ("gitignore.example", ".gitignore", "append_missing_lines"),
             ("sub/gitignore.example", "sub/.gitignore", "append_missing_lines"),
             ("npmrc.example", ".npmrc", "append_missing_lines"),
             ("sub/npmrc.example", "sub/.npmrc", "append_missing_lines"),
-            ("docker-compose.qa.yml", "docker-compose.qa.yml", "copy_if_missing_or_update_qa"),
-            ("sub/docker-compose.qa.yml", "sub/docker-compose.qa.yml", "copy_if_missing_or_update_qa"),
-            ("docker-compose.qa.yml.example", "docker-compose.qa.yml", "copy_if_missing_or_update_qa"),
-            ("sub/docker-compose.qa.yml.example", "sub/docker-compose.qa.yml", "copy_if_missing_or_update_qa"),
+            (
+                "docker-compose.qa.yml",
+                "docker-compose.qa.yml",
+                "copy_if_missing_or_update_qa",
+            ),
+            (
+                "sub/docker-compose.qa.yml",
+                "sub/docker-compose.qa.yml",
+                "copy_if_missing_or_update_qa",
+            ),
+            (
+                "docker-compose.qa.yml.example",
+                "docker-compose.qa.yml",
+                "copy_if_missing_or_update_qa",
+            ),
+            (
+                "sub/docker-compose.qa.yml.example",
+                "sub/docker-compose.qa.yml",
+                "copy_if_missing_or_update_qa",
+            ),
             ("Makefile.example", "Makefile", "surgical_merge"),
             ("pyproject.toml.example", "pyproject.toml", "surgical_merge"),
             ("composer.json.example", "composer.json", "surgical_merge"),
@@ -87,19 +105,47 @@ class TestGenerarManifiesto(unittest.TestCase):
             ("infection.json5.example", "infection.json5", "surgical_merge"),
             ("phpunit.xml.example", "phpunit.xml", "surgical_merge"),
             ("php.ini.example", "php.ini", "surgical_merge"),
+            ("tsconfig.json.example", "tsconfig.json", "surgical_merge"),
+            ("vite.config.ts.example", "vite.config.ts", "surgical_merge"),
+            ("vitest.config.ts.example", "vitest.config.ts", "surgical_merge"),
+            ("playwright.config.ts.example", "playwright.config.ts", "surgical_merge"),
             ("nginx/default.conf.example", "nginx/default.conf", "copy_if_missing"),
             ("test/example.unit.py.example", "test/example.unit.py", "copy_if_missing"),
+            (
+                "tests/test_production_no_dev_cleanliness.unit.py.example",
+                "tests/test_production_no_dev_cleanliness.unit.py",
+                "copy_if_missing",
+            ),
             ("test/api.feature", "test/api.feature", "copy_if_missing"),
             ("e2e/accessibility.e2e.ts", "e2e/accessibility.e2e.ts", "copy_if_missing"),
             ("test/ejemplo.bats", "test/ejemplo.bats", "copy_if_missing"),
+            ("wdio.conf.ts", "wdio.conf.ts", "copy_if_missing"),
+            (
+                "templates/rls_hardening.sql",
+                "templates/rls_hardening.sql",
+                "copy_if_missing",
+            ),
+            ("promptfooconfig.yaml", "promptfooconfig.yaml", "copy_if_missing"),
             ("limpieza.sh", "limpieza.sh", "overwrite_executable"),
             ("scripts/helper.py", "scripts/helper.py", "overwrite_executable"),
+            (
+                "audit_vibe_prototype.py",
+                "audit_vibe_prototype.py",
+                "overwrite_executable",
+            ),
+            (
+                "rag/test_rag_faithfulness.py",
+                "rag/test_rag_faithfulness.py",
+                "overwrite_executable",
+            ),
             ("other.txt", "other.txt", "copy_if_missing"),
         ]
         for rel_in_stack, exp_target, exp_strategy in cases:
             target, strategy = gm.classify_stack_file(Path(rel_in_stack))
             self.assertEqual(target, exp_target, f"Fallo target para {rel_in_stack}")
-            self.assertEqual(strategy, exp_strategy, f"Fallo strategy para {rel_in_stack}")
+            self.assertEqual(
+                strategy, exp_strategy, f"Fallo strategy para {rel_in_stack}"
+            )
 
     def test_classify_common_file(self) -> None:
         """Verifica la clasificación de archivos comunes."""
@@ -118,11 +164,31 @@ class TestGenerarManifiesto(unittest.TestCase):
         """Verifica la clasificación de archivos de gobernanza de agentes."""
         cases = [
             ("AGENTS.md", "AGENTS.md", "surgical_merge"),
-            (".agents/scripts/certify.sh", ".agents/scripts/certify.sh", "overwrite_executable"),
-            (".agents/scripts/verify.py", ".agents/scripts/verify.py", "overwrite_executable"),
-            (".agents/rules/mandatory.md", ".agents/rules/mandatory.md", "copy_or_overwrite"),
-            (".agents/schemas/session_checkpoint.schema.json", ".agents/schemas/session_checkpoint.schema.json", "copy_or_overwrite"),
-            (".agents/skills/refactoring-ui/SKILL.md", ".agents/skills/refactoring-ui/SKILL.md", "copy_or_overwrite"),
+            (
+                ".agents/scripts/certify.sh",
+                ".agents/scripts/certify.sh",
+                "overwrite_executable",
+            ),
+            (
+                ".agents/scripts/verify.py",
+                ".agents/scripts/verify.py",
+                "overwrite_executable",
+            ),
+            (
+                ".agents/rules/mandatory.md",
+                ".agents/rules/mandatory.md",
+                "copy_or_overwrite",
+            ),
+            (
+                ".agents/schemas/session_checkpoint.schema.json",
+                ".agents/schemas/session_checkpoint.schema.json",
+                "copy_or_overwrite",
+            ),
+            (
+                ".agents/skills/refactoring-ui/SKILL.md",
+                ".agents/skills/refactoring-ui/SKILL.md",
+                "copy_or_overwrite",
+            ),
         ]
         for rel_path, exp_target, exp_strategy in cases:
             target, strategy = gm.classify_governance_file(rel_path)
@@ -134,27 +200,30 @@ class TestGenerarManifiesto(unittest.TestCase):
         stack_dir = self.temp_path / "custom-stack"
         stack_dir.mkdir()
         (stack_dir / "Makefile.example").write_text("all:", encoding="utf-8")
-        (stack_dir / "README.md").write_text("# Doc", encoding="utf-8")  # Debe ignorarse
-        (stack_dir / "README.es.md").write_text("# Doc ES", encoding="utf-8")  # Debe ignorarse
-        (stack_dir / "changelog").write_text("history", encoding="utf-8")  # Debe ignorarse
-        (stack_dir / ".DS_Store").write_bytes(b"dummy")  # Debe ignorarse
+        (stack_dir / "README.md").write_text("# Doc", encoding="utf-8")
+        (stack_dir / "README.es.md").write_text("# Doc ES", encoding="utf-8")
+        (stack_dir / "changelog").write_text("history", encoding="utf-8")
+        (stack_dir / ".DS_Store").write_bytes(b"dummy")
 
         ignored_subdir = stack_dir / "__pycache__"
         ignored_subdir.mkdir()
-        (ignored_subdir / "module.pyc").write_bytes(b"pyc")  # Debe ignorarse
+        (ignored_subdir / "module.pyc").write_bytes(b"pyc")
 
         files = gm.scan_stack(self.temp_path, "custom-stack", stack_dir)
         self.assertEqual(len(files), 1)
         self.assertEqual(files[0]["path"], "custom-stack/Makefile.example")
         self.assertEqual(files[0]["target_name"], "Makefile")
 
-        # Escaneo de directorio inexistente retorna lista vacía
         non_existent = self.temp_path / "non_existent"
-        self.assertEqual(gm.scan_stack(self.temp_path, "non_existent", non_existent), [])
+        self.assertEqual(
+            gm.scan_stack(self.temp_path, "non_existent", non_existent), []
+        )
 
     def test_scan_common_files(self) -> None:
         """Verifica el escaneo de archivos comunes."""
-        (self.temp_path / "lefthook.yml").write_text("pre-commit: test", encoding="utf-8")
+        (self.temp_path / "lefthook.yml").write_text(
+            "pre-commit: test", encoding="utf-8"
+        )
         common_files = gm.scan_common_files(self.temp_path)
         self.assertEqual(len(common_files), 1)
         self.assertEqual(common_files[0]["path"], "lefthook.yml")
@@ -180,7 +249,9 @@ class TestGenerarManifiesto(unittest.TestCase):
 
         schemas_dir = self.temp_path / ".agents" / "schemas"
         schemas_dir.mkdir(parents=True)
-        (schemas_dir / "session_checkpoint.schema.json").write_text("{}", encoding="utf-8")
+        (schemas_dir / "session_checkpoint.schema.json").write_text(
+            "{}", encoding="utf-8"
+        )
 
         installer = self.temp_path / "scripts" / "install-skill.sh"
         installer.parent.mkdir(parents=True)
@@ -210,40 +281,39 @@ class TestGenerarManifiesto(unittest.TestCase):
 
     def test_compare_file_lists(self) -> None:
         """Verifica la detección de discrepancias en listas de archivos."""
-        file_a = {"path": "a.txt", "sha256": "111", "target_name": "a", "merge_strategy": "copy", "size_bytes": 10}
+        file_a: dict[str, Any] = {
+            "path": "a.txt",
+            "sha256": "111",
+            "target_name": "a",
+            "merge_strategy": "copy",
+            "size_bytes": 10,
+        }
 
-        # Idénticos -> 0 diffs
         self.assertEqual(gm.compare_file_lists("sec", [file_a], [file_a]), [])
 
-        # Faltante en manifest
         diffs = gm.compare_file_lists("sec", [], [file_a])
         self.assertEqual(len(diffs), 1)
         self.assertIn("Archivo faltante en manifest.json", diffs[0])
 
-        # Faltante en repositorio
         diffs = gm.compare_file_lists("sec", [file_a], [])
         self.assertEqual(len(diffs), 1)
         self.assertIn("ausente en disco", diffs[0])
 
-        # Hash discrepante
         file_a_modified = dict(file_a, sha256="999")
         diffs = gm.compare_file_lists("sec", [file_a], [file_a_modified])
         self.assertEqual(len(diffs), 1)
         self.assertIn("Hash SHA-256 discrepante", diffs[0])
 
-        # target_name discrepante
         file_a_target_mod = dict(file_a, target_name="changed")
         diffs = gm.compare_file_lists("sec", [file_a], [file_a_target_mod])
         self.assertEqual(len(diffs), 1)
         self.assertIn("target_name discrepante", diffs[0])
 
-        # merge_strategy discrepante
         file_a_strat_mod = dict(file_a, merge_strategy="surgical_merge")
         diffs = gm.compare_file_lists("sec", [file_a], [file_a_strat_mod])
         self.assertEqual(len(diffs), 1)
         self.assertIn("merge_strategy discrepante", diffs[0])
 
-        # size_bytes discrepante
         file_a_size_mod = dict(file_a, size_bytes=999)
         diffs = gm.compare_file_lists("sec", [file_a], [file_a_size_mod])
         self.assertEqual(len(diffs), 1)
@@ -251,19 +321,18 @@ class TestGenerarManifiesto(unittest.TestCase):
 
     def test_verify_manifest_edge_cases(self) -> None:
         """Verifica errores y casos límite al validar manifest.json."""
-        # Archivo inexistente
-        synced, diffs = gm.verify_manifest(self.temp_path, self.temp_path / "non_existent.json")
+        synced, diffs = gm.verify_manifest(
+            self.temp_path, self.temp_path / "non_existent.json"
+        )
         self.assertFalse(synced)
         self.assertIn("no existe", diffs[0])
 
-        # Archivo JSON corrupto
         bad_json = self.temp_path / "bad.json"
         bad_json.write_text("{ corrupt json ", encoding="utf-8")
         synced, diffs = gm.verify_manifest(self.temp_path, bad_json)
         self.assertFalse(synced)
         self.assertIn("Error al analizar JSON", diffs[0])
 
-        # Metadato de nivel superior alterado
         manifest_data = gm.build_manifest(REPO_ROOT)
         manifest_data["blueprint_version"] = "9.9.9-mismatch"
         mismatched_file = self.temp_path / "mismatched.json"
@@ -272,48 +341,59 @@ class TestGenerarManifiesto(unittest.TestCase):
         self.assertFalse(synced)
         self.assertTrue(any("blueprint_version" in d for d in diffs))
 
-        # Stack faltante o alterado
         manifest_data2 = gm.build_manifest(REPO_ROOT)
         manifest_data2["stacks"]["fastapi"]["description"] = "Wrong description"
         manifest_data2["stacks"]["fastapi"]["readme"] = "wrong/readme.md"
         del manifest_data2["stacks"]["vue3"]
-        manifest_data2["stacks"]["extra_unknown_stack"] = {"description": "d", "readme": "r", "files": []}
+        manifest_data2["stacks"]["extra_unknown_stack"] = {
+            "description": "d",
+            "readme": "r",
+            "files": [],
+        }
         mismatched_file2 = self.temp_path / "mismatched2.json"
         mismatched_file2.write_text(json.dumps(manifest_data2), encoding="utf-8")
         synced2, diffs2 = gm.verify_manifest(REPO_ROOT, mismatched_file2)
         self.assertFalse(synced2)
         self.assertTrue(any("Descripción discrepante" in d for d in diffs2))
         self.assertTrue(any("Readme discrepante" in d for d in diffs2))
-        self.assertTrue(any("Stack faltante en manifest.json: vue3" in d for d in diffs2))
-        self.assertTrue(any("Stack inexistente listado en manifest.json: extra_unknown_stack" in d for d in diffs2))
+        self.assertTrue(
+            any("Stack faltante en manifest.json: vue3" in d for d in diffs2)
+        )
+        self.assertTrue(
+            any(
+                "Stack inexistente listado en manifest.json: extra_unknown_stack" in d
+                for d in diffs2
+            )
+        )
 
     def test_main_cli_generation_and_check(self) -> None:
-        """Verifica la ejecución del comando CLI con generación y verificación exitosa y fallida."""
+        """Verifica generación, validación --check exitosa y detección de falla."""
         output_manifest = self.temp_path / "manifest.json"
 
-        # 1. Generación sin --repo-root (usa autodetección)
         exit_code = gm.main(["--output", str(output_manifest)])
         self.assertEqual(exit_code, 0)
         self.assertTrue(output_manifest.is_file())
 
-        # 2. Verificación exitosa (--check)
-        exit_code_check = gm.main(["--repo-root", str(REPO_ROOT), "--output", str(output_manifest), "--check"])
+        exit_code_check = gm.main(
+            ["--repo-root", str(REPO_ROOT), "--output", str(output_manifest), "--check"]
+        )
         self.assertEqual(exit_code_check, 0)
 
-        # 3. Verificación con fallo al alterar un hash
         data = json.loads(output_manifest.read_text(encoding="utf-8"))
-        # Corrompemos el hash del primer archivo
         first_stack = next(iter(data["stacks"].keys()))
         data["stacks"][first_stack]["files"][0]["sha256"] = "0" * 64
         output_manifest.write_text(json.dumps(data), encoding="utf-8")
 
-        exit_code_fail = gm.main(["--repo-root", str(REPO_ROOT), "--output", str(output_manifest), "--check"])
+        exit_code_fail = gm.main(
+            ["--repo-root", str(REPO_ROOT), "--output", str(output_manifest), "--check"]
+        )
         self.assertEqual(exit_code_fail, 1)
 
     def test_stack_metadata_includes_all_ten_stacks_and_sync_parity(self) -> None:
-        """Verifica los 10 stacks oficiales en inglés y paridad Single-Source con sync_governance."""
+        """Verifica los 10 stacks oficiales en inglés y paridad con sync_governance."""
         sg_spec = importlib.util.spec_from_file_location(
-            "sync_governance_parity", REPO_ROOT / ".agents" / "scripts" / "sync_governance.py"
+            "sync_governance_parity",
+            REPO_ROOT / ".agents" / "scripts" / "sync_governance.py",
         )
         assert sg_spec is not None and sg_spec.loader is not None
         sg_mod = importlib.util.module_from_spec(sg_spec)
@@ -376,12 +456,18 @@ class TestGenerarManifiesto(unittest.TestCase):
             content = path.read_text(encoding="utf-8")
             for block in content.split("```mermaid")[1:]:
                 mermaid_code = block.split("```")[0]
-                self.assertNotIn("<br>", mermaid_code, f"Tag <br> inválido en Mermaid de {rel_path}")
-                self.assertNotIn("<code>", mermaid_code, f"Tag <code> inválido en Mermaid de {rel_path}")
-                self.assertNotIn(r"\n", mermaid_code, f"Secuencia \\n inválida en Mermaid de {rel_path}")
+                self.assertNotIn(
+                    "<br>", mermaid_code, f"Tag <br> inválido en {rel_path}"
+                )
+                self.assertNotIn(
+                    "<code>", mermaid_code, f"Tag <code> inválido en {rel_path}"
+                )
+                self.assertNotIn(
+                    r"\n", mermaid_code, f"Secuencia \\n inválida en {rel_path}"
+                )
 
     def test_readme_bilingual_matrices_and_no_legacy_bdd_anchors(self) -> None:
-        """Verifica matrices bilingües y tags Docker en README.{md,es.md} sin anclas BDD legadas."""
+        """Verifica matrices bilingües y tags Docker en README.{md,es.md}."""
         readme_en = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
         readme_es = (REPO_ROOT / "README.es.md").read_text(encoding="utf-8")
 
@@ -402,11 +488,11 @@ class TestGenerarManifiesto(unittest.TestCase):
             "`1.5.1`",
         )
         for token in docker_tokens:
-            self.assertIn(token, readme_en, f"Falta token Docker '{token}' en README.md")
-            self.assertIn(token, readme_es, f"Falta token Docker '{token}' en README.es.md")
+            self.assertIn(token, readme_en, f"Falta '{token}' en README.md")
+            self.assertIn(token, readme_es, f"Falta '{token}' en README.es.md")
 
     def test_bilingual_stack_readme_hashes_and_es_governance_in_manifest(self) -> None:
-        """Verifica readme_sha256, readme_es, readme_es_sha256, exclusión README.es.md y gobernanza EN/ES."""
+        """Verifica readme_sha256, readme_es y gobernanza EN/ES en manifest."""
         manifest = gm.build_manifest(REPO_ROOT)
         self.assertEqual(len(manifest["stacks"]), 10)
         for stack_name, stack_entry in manifest["stacks"].items():

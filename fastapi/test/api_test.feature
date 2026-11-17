@@ -4,8 +4,9 @@
 Feature: Validación BDD de Caja Negra de la API REST FastAPI y Manejo de Errores
 
   Background:
-    # URL apuntando al servicio FastAPI dentro de la red interna de Docker
-    * url 'http://api:8000'
+    # URL apuntando al servicio FastAPI dentro de la red interna de Docker (con override vía propiedad o env)
+    * def envBaseUrl = java.lang.System.getenv('API_BASE_URL')
+    * url karate.properties['api.base.url'] || karate.properties['API_BASE_URL'] || envBaseUrl || 'http://api:8000'
     * configure headers = { 'Content-Type': 'application/json' }
     # Generador dinámico de Idempotency-Key para prevenir colisiones 409/422 en KeyDB vivo
     * def newIdempotencyKey = function(){ return java.util.UUID.randomUUID() + '' }
@@ -39,7 +40,7 @@ Feature: Validación BDD de Caja Negra de la API REST FastAPI y Manejo de Errore
 
   Scenario: 4. Envío de credenciales incompletas genera error de validación 422
     Given path '/api/v1/auth/login'
-    And header Idempotency-Key = newIdempotencyKey()
+    And header Idempotency-Key = java.util.UUID.randomUUID() + ''
     And request { username: "solouser_sinpassword" }
     When method post
     Then status 422
@@ -57,13 +58,20 @@ Feature: Validación BDD de Caja Negra de la API REST FastAPI y Manejo de Errore
 
   Scenario: 5. Verificación de rechazo de payload malformado con tipos inválidos
     Given path '/api/v1/items'
-    And header Idempotency-Key = newIdempotencyKey()
+    And header Idempotency-Key = java.util.UUID.randomUUID() + ''
     And request { title: 12345, quantity: "no_es_numero" }
     When method post
     Then status 422
     And match response.detail == '#array'
 
-  Scenario: 6. Consulta de recurso inexistente devuelve 404
+  Scenario: 6. Envío de petición mutante sin Idempotency-Key devuelve 400
+    Given path '/api/v1/items'
+    And request { title: "Sin Idempotency Key", quantity: 1 }
+    When method post
+    Then status 400
+    And match response.detail == '#string'
+
+  Scenario: 7. Consulta de recurso inexistente devuelve 404
     Given path '/api/v1/items/00000000-0000-0000-0000-000000000000'
     When method get
     Then status 404
@@ -75,10 +83,10 @@ Feature: Validación BDD de Caja Negra de la API REST FastAPI y Manejo de Errore
   # Regla 11X: Prohibido validar mutaciones en un silo sin verificar los endpoints GET
   # de los módulos consumidores y la integridad semántica de la bitácora (Anti-UUID).
 
-  Scenario: 7. Propagación transversal Read-After-Write y bitácora sin UUID crudo en actor_username
+  Scenario: 8. Propagación transversal Read-After-Write y bitácora sin UUID crudo en actor_username
     # Paso 1 (Write): Registrar una mutación válida en el módulo origen con llave de idempotencia fresca
     Given path '/api/v1/items'
-    And header Idempotency-Key = newIdempotencyKey()
+    And header Idempotency-Key = java.util.UUID.randomUUID() + ''
     And request { title: "Router Core 11X", quantity: 1 }
     When method post
     Then status 201
@@ -89,4 +97,5 @@ Feature: Validación BDD de Caja Negra de la API REST FastAPI y Manejo de Errore
     When method get
     Then status 200
     And match response.title == 'Router Core 11X'
+    * match response.actor_username == '#string'
     And match response.actor_username != '#regex (?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'

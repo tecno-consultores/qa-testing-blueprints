@@ -32,12 +32,13 @@ services:
     image: sinfallas/basephpcomposer:${PHP_VERSION:-8.5}
     pull_policy: if_not_present
     working_dir: /var/www
-    user: "1000:1000"
+    user: "${QA_UID:-1000}:${QA_GID:-1000}"
     # Si monta php.ini personalizado, móntelo en /usr/local/etc/php/conf.d/99-qa11x.ini:ro para prevalecer sobre docker-php-ext-pcov.ini
     volumes:
       - .:/var/www
       - composer-cache:/tmp/composer-cache
     environment:
+      HOME: /tmp
       APP_ENV: testing
       COMPOSER_CACHE_DIR: /tmp/composer-cache
       DATABASE_URL: postgresql://qa_user:qa_password_ephemeral@postgres-qa:5432/qa_db?serverVersion=17&charset=utf8
@@ -97,7 +98,25 @@ services:
         " > /tmp/prometheus.yml
         /bin/prometheus --config.file=/tmp/prometheus.yml
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
+    depends_on:
+      qa-php:
+        condition: service_healthy
+
+  k6-smoke:
+    image: grafana/k6:2.4.0@sha256:d41bb79cd8de5a7ad619b53570e3712633e8bff0937010a5c6c57a4747e7a276
+    pull_policy: if_not_present
+    user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    profiles:
+      - load
+    environment:
+      K6_PROFILE: ${K6_PROFILE:-smoke}
+      API_BASE_URL: ${API_BASE_URL:-http://qa-php:8000}
+      QA_TENANT_ID: ${QA_TENANT_ID:-tenant-alpha}
+      K6_SUMMARY_PATH: /tmp/k6-summary.json
+    volumes:
+      - ./tests/load:/scripts:ro
+    command: ["run", "/scripts/smoke.k6.js"]
     depends_on:
       qa-php:
         condition: service_healthy

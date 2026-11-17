@@ -4,7 +4,6 @@
 
 server {
     listen 8080;
-    listen 80;
     server_name _;
     server_tokens off;
 
@@ -20,7 +19,9 @@ server {
     add_header Cross-Origin-Resource-Policy "same-origin" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://tile.openstreetmap.org; connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self';" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://tile.openstreetmap.org; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';" always;
+    # Habilitar en producción HTTPS (comentado en QA HTTP local para evitar HSTS sobre http://127.0.0.1:8080):
+    # add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
 
     # Endpoint interno para nginx-prometheus-exporter (Perfil observability 11X)
     location = /stub_status {
@@ -60,12 +61,20 @@ server {
         proxy_read_timeout 3600s;
     }
 
-    # Activos estáticos inmutables
+    # Activos estáticos inmutables (repite cabeceras de seguridad porque add_header anula las del bloque server)
     location ~* \.(?:ico|svg|png|webmanifest)$ {
         expires 7d;
-        add_header Cache-Control "public, max-age=604800, immutable";
+        add_header Cache-Control "public, max-age=604800, immutable" always;
+        add_header X-Robots-Tag "noindex, nofollow, noarchive, nosnippet" always;
+        add_header X-Frame-Options "DENY" always;
         add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Permitted-Cross-Domain-Policies "none" always;
+        add_header Cross-Origin-Opener-Policy "same-origin" always;
         add_header Cross-Origin-Resource-Policy "cross-origin" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://tile.openstreetmap.org; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';" always;
+        # add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
         access_log off;
         try_files $uri =404;
     }
@@ -81,7 +90,8 @@ server {
         add_header Cross-Origin-Resource-Policy "same-origin" always;
         add_header Referrer-Policy "strict-origin-when-cross-origin" always;
         add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
-        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://tile.openstreetmap.org; connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self';" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://tile.openstreetmap.org; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';" always;
+        # add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
     }
 
     # Soporte de enrutamiento HTML5 History Mode (Vue Router / React Router)

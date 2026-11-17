@@ -8,11 +8,11 @@
 
 ## 1. Reglas Estrictas de Ejecución (Contenedores Efímeros y Caché)
 **NUNCA** instruyas al usuario a usar `npm install` en su máquina local, ni a utilizar `docker build`, ni a construir comandos manuales de `docker compose run`. Toda la ejecución ocurre de forma efímera a través del `Makefile` proporcionado, aprovechando los volúmenes de caché persistente:
-*   Para la API, pruebas lógicas, SAST, profiling y estrés: `sinfallas/base-node-ionic:26` (tags disponibles: `22`, `24`, `26` y `latest`).
-*   Para pruebas BDD de caja negra: `sinfallas/karatelabs:1.5.1` (`:latest`).
-*   Para Seguridad Dinámica (DAST): `zaproxy/zap-stable:latest`.
-*   Para Ingeniería del Caos y Observabilidad: `gaiaadm/pumba:latest` y `prom/prometheus:latest`.
-*   Para Optimización de Contexto IA (MCP): `sinfallas/remote-graphify:latest`.
+*   Para la API, pruebas lógicas, SAST, profiling y estrés: `sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60`.
+*   Para pruebas BDD de caja negra: `sinfallas/karatelabs:1.5.1`.
+*   Para Seguridad Dinámica (DAST): `zaproxy/zap-stable:2.15.0`.
+*   Para Ingeniería del Caos y Observabilidad: `gaiaadm/pumba:0.10.1` y `prom/prometheus:v2.55.1`.
+*   Para Optimización de Contexto IA (MCP): `sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0`.
 
 **Gestor de Paquetes y Zero-Trust:** Nuestra imagen base reemplaza `npm` por `pnpm`. La instalación en contenedor bloquea automáticamente la ejecución de scripts maliciosos de terceros (gracias a `ignore-scripts=true` en el `.npmrc`).
 **Obligatorio:** Utiliza las metas de ejecución limpias (ej. `make qa-unit`) para aislar la infraestructura y re-utilizar la caché de dependencias (`pnpm-store`). El contenedor tiene el privilegio `SYS_PTRACE` activo para inyectar *profilers* de memoria.
@@ -32,6 +32,7 @@
 *   **Frontera Estricta (Tool Boundary):** Todos los archivos de pruebas unitarias DEBEN llamarse `.unit.ts` o `.spec.ts` para separar su contexto.
 *   **Regla:** Usa `Vitest` como motor (no Jest). Usa `Supertest` para probar las rutas de Express/Fastify pasándole la instancia directamente, SIN escuchar en un puerto real.
 *   **Regla de Aislamiento:** Toda llamada a un servicio de terceros o base de datos DEBE ser simulada usando `nock` o mocks nativos de Vitest. No se permite latencia de red en pruebas unitarias.
+*   **Contratos de Proveedor Pact V4 (`node --test`):** Los archivos de verificación de contrato Zero-Infra en `tests/contracts/*.test.ts` (ej. `tests/contracts/provider.pact.test.ts`) se separan estrictamente de Vitest (`vitest.config.ts` excluye `tests/contracts/**`) y se ejecutan de forma nativa con `pnpm run test:contracts` (`node --test`) y `make qa-contracts`.
 
 ### C. Calidad de Código, Complejidad y SAST Estático -> `ESLint` + `Prettier` + `SonarJS`
 *   **Regla:** `Prettier` formatea estéticamente el código. `ESLint` gestiona las reglas lógicas.
@@ -87,6 +88,11 @@ make qa-lint
 *   **Pruebas Lógicas Internas (Aisladas con Nock/Vitest) - Exigencia >95%:**
 ```bash
 make qa-unit
+```
+
+*   **Contratos de Proveedor Pact V4 Zero-Infra (`node --test`):**
+```bash
+make qa-contracts
 ```
 
 *   **Pruebas de Mutación (Evaluar solidez de los asertos):**

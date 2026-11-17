@@ -5,8 +5,10 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     
-    // TOOL BOUNDARY ESTRICTO: Vitest solo ejecuta archivos unitarios.
+    // TOOL BOUNDARY ESTRICTO: Vitest solo ejecuta archivos unitarios;
+    // los contratos Pact Zero-Infra (tests/contracts/*.test.ts) usan `node --test` vía `pnpm run test:contracts`.
     include: ['src/**/*.unit.{ts,js}', 'src/**/*.spec.{ts,js}'],
+    exclude: ['node_modules/**', 'dist/**', 'tests/contracts/**'],
     
     coverage: {
       provider: 'v8',
@@ -23,6 +25,7 @@ export default defineConfig({
         'dist/**',
         '**/*.d.ts',
         'test/**',
+        'tests/**',
         'e2e/**',
         'vitest.config.ts',
         'stryker.conf.json'

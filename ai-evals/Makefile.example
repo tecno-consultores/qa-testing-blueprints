@@ -1,0 +1,60 @@
+.PHONY: qa-lint qa-unit qa-offline qa-ci audit-llm qa-all clean-cache clean qa-clean
+
+# ==============================================================================
+# MAKEFILE QA AI-EVALS 11X (sinfallas/base-python-uv:3.15 + base-node-ionic:26)
+# ==============================================================================
+
+COMPOSE_FILE ?= docker-compose.qa.yml
+SERVICE_NAME ?= qa-evals
+PROMPTFOO_SERVICE ?= qa-promptfoo
+PROJECT_DIR ?= $(CURDIR)
+export QA_UID := $(shell id -u)
+export QA_GID := $(shell id -g)
+
+qa-lint:
+	@echo "🔍 [11X] Verificando Ruff (CC <= 5) y Mypy --strict en AI-Evals..."
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T $(SERVICE_NAME) sh -c "\
+		ruff check --select E,F,W,I,UP,B,C901 --config \"lint.mccabe.max-complexity=5\" --config \"src=[]\" . && \
+		mypy --strict --cache-dir=/tmp/mypy golden_from_traces.py rag/test_rag_faithfulness.py voice-realtime/test_voice_websocket_latency.py multimodal-ocr/test_pdf_table_fidelity.py"
+
+qa-unit:
+	@echo "🧪 [11X] Ejecutando Contratos Offline RAG/Voz/OCR y Cobertura >= 95% (Pytest + DeepEval)..."
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T $(SERVICE_NAME) sh -c "\
+		pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function \
+		-W \"ignore::DeprecationWarning:deepeval.*\" -W \"ignore:.*HallucinationMetric.*:DeprecationWarning\" \
+		-W \"ignore::SyntaxWarning:deepeval.*\" --import-mode=importlib \
+		--cov=. --cov-fail-under=95 --cov-report=term-missing \
+		rag/test_rag_faithfulness.py voice-realtime/test_voice_websocket_latency.py multimodal-ocr/test_pdf_table_fidelity.py"
+
+qa-offline: qa-unit
+
+qa-ci: qa-lint qa-unit
+	@echo "✅ [11X] Suite Offline AI-Evals (lint + contratos >= 95%) certificada."
+
+audit-llm:
+	@if [ -z "$${OPENAI_API_KEY:-}$${GEMINI_API_KEY:-}$${ANTHROPIC_API_KEY:-}$${OLLAMA_BASE_URL:-}$${OPENAI_API_BASE:-}" ]; then \
+		echo "⚠️ [SKIPPED/MISSING_LLM_CREDENTIALS] Sin proveedor LLM configurado (exporte OPENAI_API_KEY, GEMINI_API_KEY, ANTHROPIC_API_KEY, OLLAMA_BASE_URL u OPENAI_API_BASE)." >&2; \
+		exit 2; \
+	fi
+	@echo "🤖 [11X] Ejecutando evaluación probabilística DeepEval (Modo 2)..."
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T \
+		-e QA_LLM_AUDIT_LIVE="$${QA_LLM_AUDIT_LIVE:-$${RUN_LLM_AUDIT:-1}}" \
+		-e RUN_LLM_AUDIT="$${RUN_LLM_AUDIT:-1}" \
+		-e OPENAI_API_KEY -e GEMINI_API_KEY -e ANTHROPIC_API_KEY -e OLLAMA_BASE_URL -e OPENAI_API_BASE -e QA_LLM_MODEL \
+		$(SERVICE_NAME) pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function \
+		--import-mode=importlib rag/test_rag_faithfulness.py voice-realtime/test_voice_websocket_latency.py multimodal-ocr/test_pdf_table_fidelity.py -k "live"
+	@echo "🛡️ [11X] Ejecutando matriz multi-modelo y Red Team OWASP LLM Top 10 (Promptfoo)..."
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile llm-live run --rm -T \
+		$(PROMPTFOO_SERVICE) promptfoo eval -c promptfooconfig.yaml --no-cache -o /tmp/promptfoo-results.json
+
+qa-all: qa-lint qa-unit
+	@echo "✅ [11X] Pipeline QA AI-Evals Offline completado."
+
+clean-cache:
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" down -v >/dev/null 2>&1 || true
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile llm-live down -v >/dev/null 2>&1 || true
+
+clean: clean-cache
+	@if [ -x ./limpieza.sh ]; then ./limpieza.sh; else docker run --rm --network none alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab true; fi
+
+qa-clean: clean

@@ -36,7 +36,7 @@ This blueprint establishes the **QA 11X** corporate standard for auditing **RAG*
 
 | Metric / Gate | Blocking Threshold | Engine / Layer |
 | :--- | :---: | :--- |
-| **Offline unit coverage (`ai-evals/rag/`)** | **`>= 95%`** | `pytest --cov` (Mode 1) |
+| **Offline unit coverage (`ai-evals` & `tests/evals`)** | **`>= 95%`** | `pytest --cov` (Mode 1) |
 | **Python cyclomatic complexity & typing** | **`CC <= 5` · 0 errors** | `ruff C901` + `mypy --strict` (Mode 1) |
 | **Hallucination (`HallucinationMetric`)** | **`< 0.05`** (Blocking) | `DeepEval` (Mode 2) |
 | **Context faithfulness (`FaithfulnessMetric`)** | **`>= 0.90`** | `DeepEval` / `Promptfoo` (Mode 2) |
@@ -55,7 +55,9 @@ All execution runs inside ephemeral containers mapped to the operator's `UID:GID
   ```bash
   make test-ai-offline
   ```
-  Runs `ruff` (`CC <= 5`), `mypy --strict`, and `pytest --cov=ai-evals/rag --cov-fail-under=95` inside `sinfallas/base-python-uv:3.15` with `-u "$(id -u):$(id -g)" -e HOME=/tmp -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache`.
+  Runs `ruff` (`CC <= 5`), `mypy --strict`, and `pytest --cov=ai-evals --cov=tests/evals --cov-fail-under=95` inside `sinfallas/base-python-uv:3.15` with `-u "$(id -u):$(id -g)" -e HOME=/tmp -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache`.
+
+- **Standalone Consumer Blueprint:** Copy `Makefile.example` -> `Makefile`, keep `docker-compose.qa.yml` and `limpieza.sh`, and run `make qa-all`, `make audit-llm`, or `make clean` (non-root `${QA_UID:-1000}:${QA_GID:-1000}`).
 
 - **On-Demand Probabilistic Audit (Cloud Providers or Local `Ollama` / `vLLM`):**
   ```bash

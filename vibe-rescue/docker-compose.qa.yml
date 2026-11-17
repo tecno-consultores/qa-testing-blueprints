@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
+# Orquestación Vibe-to-Enterprise 11X: Auditoría estática, endurecimiento y pruebas unitarias (Regla Cero, non-root).
+
+services:
+  qa-vibe-rescue:
+    image: sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4
+    container_name: vibe_rescue_qa
+    hostname: vibe_rescue_qa
+    pull_policy: if_not_present
+    user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    environment:
+      TZ: 'America/Caracas'
+      HOME: /tmp
+      PYTHONDONTWRITEBYTECODE: '1'
+      COVERAGE_FILE: '/tmp/.coverage'
+      UV_CACHE_DIR: /tmp/uv-cache
+      RUFF_CACHE_DIR: /tmp/ruff-cache
+      PYTHONPATH: /app
+    volumes:
+      - .:/app
+    working_dir: /app
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+    command: bash -c "echo 'Contenedor QA Vibe-Rescue listo (Regla Cero, non-root). Usa docker compose -f docker-compose.qa.yml run --rm -T qa-vibe-rescue [comando]'; sleep infinity"
+
+networks:
+  default:
+    driver: bridge

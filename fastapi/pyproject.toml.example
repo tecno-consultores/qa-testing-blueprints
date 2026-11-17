@@ -2,7 +2,7 @@
 name = "fastapi-qa-blueprint"
 version = "0.2.0"
 description = "Plantilla base para APIs en FastAPI con auditoría profunda, mocking, profiling y BDD"
-requires-python = ">=3.13"
+requires-python = ">=3.15"
 dependencies = [
     "fastapi>=0.110.0",
     "uvicorn[standard]>=0.27.0",
@@ -38,7 +38,7 @@ dev = [
     "tox-uv>=1.16.0",
     
     # Security, Vulnerability & Mutation
-    "bandit>=1.7.8",
+    "bandit[toml]>=1.7.8",
     "pip-audit>=2.7.3",
     "mutmut>=2.4.5,<3.0.0",
     
@@ -61,7 +61,7 @@ packages = ["src"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-python_files = ["*.unit.py", "*.spec.py", "test_*.py"]
+python_files = ["*.unit.py", "*.spec.py", "*.int.py", "test_*.py"]
 pythonpath = ["."]
 addopts = "--import-mode=importlib --strict-markers --cov=src/ --cov-fail-under=95 --cov-report=html:/tmp/htmlcov --cov-report=term-missing"
 markers = [
@@ -70,7 +70,7 @@ markers = [
 
 [tool.ruff]
 line-length = 120
-target-version = "py313"
+target-version = "py315"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "C901", "PLR0911", "PLR0913"]
@@ -80,7 +80,7 @@ ignore = ["B008", "E501"]
 max-complexity = 5
 
 [tool.ruff.lint.pylint]
-max-args = 5
+max-args = 4
 max-returns = 4
 
 [tool.ruff.lint.per-file-ignores]
@@ -100,7 +100,7 @@ tests_dir = "tests/"
 
 [tool.pyrefly]
 search-path = ["."]
-python-version = "3.13"
+python-version = "3.15"
 
 [tool.pyrefly.errors]
 missing-import = false

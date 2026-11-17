@@ -5,8 +5,10 @@
 # ==============================================================================
 
 COMPOSE_FILE = docker-compose.qa.yml
-SERVICE_NAME = qa-vue3
+SERVICE_NAME = qa-frontend
 E2E_SERVICE = ui-e2e
+URL ?= http://127.0.0.1:8080
+PYTHON_QA_IMAGE = sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4
 export QA_UID := $(shell id -u)
 export QA_GID := $(shell id -g)
 
@@ -50,7 +52,7 @@ qa-bdd: build-ui
 
 qa-psi:
 	@echo "🌐 [11X] Ejecutando Auditoría Post-Deploy en Google PageSpeed Insights (Modo Dual)..."
-	@docker compose -f $(COMPOSE_FILE) run --rm -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp -e PAGESPEED_API_KEY -e PSI_URL="$${PSI_URL:-$(URL)}" $(SERVICE_NAME) python3 .agents/scripts/audit_pagespeed_insights.py
+	@docker run --rm --network host -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp -e PAGESPEED_API_KEY -e PSI_URL="$${PSI_URL:-$(URL)}" -v "$$(pwd):/app" -w /app $(PYTHON_QA_IMAGE) python3 .agents/scripts/audit_pagespeed_insights.py
 
 qa-obs: build-ui
 	@echo "📊 Levantando Stack de Observabilidad Frontend..."

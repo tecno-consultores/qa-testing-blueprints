@@ -65,12 +65,14 @@ services:
     working_dir: /app
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:4723:4723"
     healthcheck:
       test: ["CMD-SHELL", "node -e 'fetch(\"http://127.0.0.1:4723/status\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))'"]
       interval: 5s
       timeout: 3s
       retries: 10
-    command: ["appium", "--address", "0.0.0.0", "--port", "4723", "--base-path", "/", "--relaxed-security"]
+    command: ["appium", "--address", "0.0.0.0", "--port", "4723", "--base-path", "/", "--allow-insecure=adb_shell,get_server_logs"]
 
 volumes:
   pnpm-store:

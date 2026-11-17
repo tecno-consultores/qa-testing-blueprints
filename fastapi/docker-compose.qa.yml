@@ -3,11 +3,13 @@
 
 services:
   api:
-    image: sinfallas/base-python-uv:3.15
+    image: sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4
     container_name: fastapi_api
     hostname: fastapi_api
     pull_policy: if_not_present
+    user: "${QA_UID:-1000}:${QA_GID:-1000}"
     environment:
+      HOME: /tmp
       TZ: 'America/Caracas'
       UV_CACHE_DIR: /tmp/uv-cache
       DATABASE_URL: 'postgresql+asyncpg://app_user:app_password@postgres:5432/qa_db'
@@ -24,7 +26,7 @@ services:
       - uv-cache:/tmp/uv-cache
     working_dir: /app
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     healthcheck:
       test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://127.0.0.1:8000/health\")' || exit 1"]
       interval: 5s
@@ -37,11 +39,12 @@ services:
     container_name: fastapi_qa_db
     hostname: postgres
     pull_policy: if_not_present
-    restart: unless-stopped
     environment:
       POSTGRES_DB: qa_db
       POSTGRES_USER: qa_user
       POSTGRES_PASSWORD: qa_password
+    tmpfs:
+      - /var/lib/postgresql/data
     volumes:
       - ./initdb:/docker-entrypoint-initdb.d:ro
     healthcheck:
@@ -55,7 +58,6 @@ services:
     container_name: fastapi_qa_keydb
     hostname: keydb
     pull_policy: if_not_present
-    restart: unless-stopped
     command: >
       keydb-server
       --server-threads 2
@@ -70,11 +72,13 @@ services:
       retries: 10
 
   qa-backend:
-    image: sinfallas/base-python-uv:3.15
+    image: sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4
     container_name: fastapi_qa_backend
     hostname: fastapi_qa_backend
     pull_policy: if_not_present
+    user: "${QA_UID:-1000}:${QA_GID:-1000}"
     environment:
+      HOME: /tmp
       TZ: 'America/Caracas'
       UV_PYTHON_DOWNLOADS: 'true'
       UV_CACHE_DIR: /tmp/uv-cache
@@ -96,6 +100,8 @@ services:
     container_name: fastapi_karate
     hostname: fastapi_karate
     pull_policy: if_not_present
+    environment:
+      API_BASE_URL: ${API_BASE_URL:-http://api:8000}
     depends_on:
       api:
         condition: service_healthy
@@ -151,22 +157,24 @@ services:
         " > /tmp/prometheus.yml
         /bin/prometheus --config.file=/tmp/prometheus.yml
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     depends_on:
       api:
         condition: service_healthy
 
   stress_test:
-    image: sinfallas/base-python-uv:3.15
+    image: sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4
     container_name: fastapi_chaos_locust
     hostname: fastapi_chaos_locust
     pull_policy: if_not_present
+    user: "${QA_UID:-1000}:${QA_GID:-1000}"
     profiles:
       - chaos
     depends_on:
       api:
         condition: service_healthy
     environment:
+      HOME: /tmp
       UV_CACHE_DIR: /tmp/uv-cache
     volumes:
       - .:/app

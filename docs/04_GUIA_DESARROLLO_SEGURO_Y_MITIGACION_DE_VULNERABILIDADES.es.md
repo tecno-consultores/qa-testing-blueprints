@@ -463,7 +463,7 @@ Descubrir CVEs críticos en dependencias de producción solo cuando el workflow 
      ```
    - **Para Node.js / Frontend:** Actualizar selectivamente:
      ```bash
-     docker compose -f vue3/docker-compose.qa.yml run --rm qa-vue3 pnpm update tar
+     docker compose -f vue3/docker-compose.qa.yml run --rm qa-frontend pnpm update tar
      ```
 3. Ejecutar las pruebas unitarias (`make qa-unit`) para descartar regresiones.
 4. Re-ejecutar `./scripts/auditar-infra.sh` certificando `0` hallazgos.

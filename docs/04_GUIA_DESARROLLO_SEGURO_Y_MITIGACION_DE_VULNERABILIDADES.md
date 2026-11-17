@@ -463,7 +463,7 @@ Discovering critical CVEs in production dependencies only when the GitHub Action
      ```
    - **For Node.js / Frontend:** Upgrade selectively:
      ```bash
-     docker compose -f vue3/docker-compose.qa.yml run --rm qa-vue3 pnpm update tar
+     docker compose -f vue3/docker-compose.qa.yml run --rm qa-frontend pnpm update tar
      ```
 3. Run unit tests (`make qa-unit`) to rule out regressions.
 4. Re-run `./scripts/auditar-infra.sh` certifying `0` findings.

@@ -3,7 +3,7 @@
 
 services:
   ui-prod:
-    image: nginx:1.27-alpine
+    image: nginxinc/nginx-unprivileged:1.27-alpine@sha256:65e3e85dbaed8ba248841d9d58a899b6197106c23cb0ff1a132b7bfe0547e4c0
     container_name: vue_ui_prod
     hostname: vue_ui_prod
     pull_policy: if_not_present
@@ -14,23 +14,23 @@ services:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
       - nginx-logs:/var/log/nginx
     ports:
-      - "8080:80"
+      - "127.0.0.1:8080:8080"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/ >/dev/null || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/ >/dev/null || exit 1"]
       interval: 5s
       timeout: 3s
       retries: 10
 
   pnpm-store-init:
-    image: sinfallas/base-node-ionic:26
+    image: sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60
     pull_policy: if_not_present
     user: "0:0"
     volumes:
       - pnpm-store:/pnpm
     command: ["chmod", "-R", "a+rwX", "/pnpm"]
 
-  qa-vue3:
-    image: sinfallas/base-node-ionic:26
+  qa-frontend:
+    image: sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60
     container_name: vue_qa_frontend
     hostname: vue_qa_frontend
     pull_policy: if_not_present
@@ -56,6 +56,9 @@ services:
     hostname: vue_ui_e2e
     pull_policy: if_not_present
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    depends_on:
+      pnpm-store-init:
+        condition: service_completed_successfully
     environment:
       TZ: 'America/Caracas'
       HOME: /tmp
@@ -79,7 +82,7 @@ services:
       ui-prod:
         condition: service_healthy
     environment:
-      - UI_BASE_URL=http://ui-prod:80
+      - UI_BASE_URL=http://ui-prod:8080
     volumes:
       - ./test:/app/src/test/java/examples/test
     command: bash -c "echo 'Contenedor Karate listo. Usa docker compose run --rm karatelabs mvn clean test'; sleep infinity"
@@ -92,9 +95,9 @@ services:
     profiles:
       - observability
     command:
-      - "-nginx.scrape-uri=http://ui-prod:80/stub_status"
+      - "-nginx.scrape-uri=http://ui-prod:8080/stub_status"
     ports:
-      - "9113:9113"
+      - "127.0.0.1:9113:9113"
     depends_on:
       ui-prod:
         condition: service_healthy
@@ -120,7 +123,7 @@ services:
         " > /tmp/prometheus.yml
         /bin/prometheus --config.file=/tmp/prometheus.yml
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     depends_on:
       - nginx-exporter
 

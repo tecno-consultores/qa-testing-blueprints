@@ -4,8 +4,8 @@
   "description": "Plantilla base para APIs Node.js corporativas (Linting estricto, Mocking, Profiling, BDD y Mutación)",
   "packageManager": "pnpm@12.18.0",
   "engines": {
-    "node": ">=22.0.0",
-    "pnpm": ">=9.0.0"
+    "node": ">=26.0.0",
+    "pnpm": ">=12.0.0"
   },
   "scripts": {
     "dev": "tsx watch src/server.ts",
@@ -16,6 +16,7 @@
     "lint": "eslint \"src/**/*.ts\" --max-warnings 0",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:contracts": "node --test tests/contracts/*.test.ts",
     "mutate": "stryker run",
     "audit:deps": "pnpm audit --prod",
     "test:load": "artillery run artillery.yml",

@@ -11,11 +11,11 @@
 
 *   **Gestor de Paquetes y Zero-Trust:** Usamos `pnpm` en lugar de `npm`. La ejecución silenciosa de *scripts* maliciosos durante la instalación está bloqueada por el `.npmrc`. Revisa `package.json` si dependencias como `esbuild` o `playwright` fallan.
 *   **Obligatorio:** Utiliza las metas predefinidas en el `Makefile` (ej. `make qa-unit`) para aislar la infraestructura y re-utilizar la caché de dependencias.
-*   **Para pruebas lógicas (Vitest/RTL) y Mutación:** Usamos el contenedor ligero `qa-frontend` (`sinfallas/base-node-ionic:26`; tags disponibles: `22`, `24`, `26` y `latest`).
+*   **Para pruebas lógicas (Vitest/RTL) y Mutación:** Usamos el contenedor ligero `qa-frontend` (`sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60`).
 *   **Para Lighthouse y UI E2E (Playwright):** Usamos el contenedor pesado `ui-e2e`.
-*   **Para pruebas BDD (Caja Negra HTTP/OSHP):** Usamos la imagen oficial `sinfallas/karatelabs:1.5.1` (`:latest`).
-*   **Para Observabilidad (Métricas de Servidor):** Usamos los contenedores `nginx/nginx-prometheus-exporter:latest` y `prom/prometheus:latest`.
-*   **Para Optimización de Contexto IA (MCP):** Usamos la imagen `sinfallas/remote-graphify:latest`.
+*   **Para pruebas BDD (Caja Negra HTTP/OSHP):** Usamos la imagen oficial `sinfallas/karatelabs:1.5.1`.
+*   **Para Observabilidad (Métricas de Servidor):** Usamos los contenedores `nginx/nginx-prometheus-exporter:1.3.0` y `prom/prometheus:v2.55.1`.
+*   **Para Optimización de Contexto IA (MCP):** Usamos la imagen `sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0`.
 
 ## 2. Pila Tecnológica y Separación de Responsabilidades
 
@@ -40,13 +40,13 @@
 *   **Lighthouse CI:** Ataca el build de producción estático en Nginx para auditar rendimiento estricto (Core Web Vitals). Si el *Performance Score* baja de 90, el pipeline falla.
 
 ### E. Flujos de Negocio BDD -> `Karate Labs` + `Playwright`
-*   **Regla:** `sinfallas/karatelabs:1.5.1` (`:latest`) no incluye binario Chrome/Chromium; utiliza `test/ui_business_flow.feature` exclusivamente para contratos HTTP/Nginx/SSG, cabeceras OWASP OSHP y XML/SEO (`* string xmlText = response`), delegando la interacción DOM real, `[ 🔄 Refrescar ]` y WCAG 2.1 AA a Playwright (`ui-e2e`).
+*   **Regla:** `sinfallas/karatelabs:1.5.1` no incluye binario Chrome/Chromium; utiliza `test/ui_business_flow.feature` exclusivamente para contratos HTTP/Nginx/SSG, cabeceras OWASP OSHP y XML/SEO (`* string xmlText = response`), delegando la interacción DOM real, `[ 🔄 Refrescar ]` y WCAG 2.1 AA a Playwright (`ui-e2e`).
 
 ### F. Observabilidad -> `Nginx Prometheus Exporter`
 *   **Regla:** El monitoreo del frontend se realiza externamente a través de los logs de acceso de Nginx. Esto se ejecuta mediante el perfil `--profile observability`.
 
 ### G. Ingestión Inteligente (Paso 0 - MCP / AST CLI-First)
-*   **Regla (Exclusiva para ti, IA):** Tienes estrictamente prohibido generar código o pruebas a ciegas. Si tienes acceso a shell (Antigravity), realiza inspecciones estáticas vía CLI sin ocupar puertos. Si eres un agente externo (Hermes, Claude), conéctate al servidor MCP `sinfallas/remote-graphify:latest`. Además, DEBES leer silenciosamente las configuraciones de linters, dependencias y *scripts* prohibidos en `package.json`, `.eslintrc.json` y `vite.config.ts` para evitar fallos de pipeline.
+*   **Regla (Exclusiva para ti, IA):** Tienes estrictamente prohibido generar código o pruebas a ciegas. Si tienes acceso a shell (Antigravity), realiza inspecciones estáticas vía CLI sin ocupar puertos. Si eres un agente externo (Hermes, Claude), conéctate al servidor MCP `sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0`. Además, DEBES leer silenciosamente las configuraciones de linters, dependencias y *scripts* prohibidos en `package.json`, `.eslintrc.json`, `tsconfig.json` y `vite.config.ts` para evitar fallos de pipeline.
 
 ### H. Seguridad Frontend Obligatoria (DISA ASD STIG V6R5 & OWASP Developer Guide v4.2)
 *   Al construir o probar componentes en React (`.tsx`) y stores (Zustand/Redux), DEBES aplicar y verificar con pruebas unitarias/BDD los controles de **[`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md`](../docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md)**:

@@ -8,13 +8,13 @@ Este documento contiene las instrucciones corporativas de Nivel 11X que DEBES se
 
 ## 1. Reglas Estrictas de Ejecución (Docker Efímero y Caché)
 **NUNCA** debes instruir la construcción de imágenes locales (`docker build`) ni construir comandos manuales de `docker compose run`. Todo se ejecuta de forma efímera y segura a través del `Makefile` proporcionado, utilizando los cachés de volumen persistentes:
-*   Para la API, pruebas lógicas, contratos, profiling y estrés: `sinfallas/base-python-uv:3.15` (tags disponibles: `3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest`).
-*   Para pruebas BDD de caja negra: `sinfallas/karatelabs:1.5.1` (`:latest`).
-*   Para Seguridad Dinámica (DAST): `zaproxy/zap-stable:latest`.
+*   Para la API, pruebas lógicas, contratos, profiling y estrés: `sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4` (tags disponibles: `3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest`).
+*   Para pruebas BDD de caja negra: `sinfallas/karatelabs:1.5.1@sha256:a9a52ca9c5491ab39b64f0b4fdc3dea879c2213c9bc995be58d6cd4b9a80cc89`.
+*   Para Seguridad Dinámica (DAST): `zaproxy/zap-stable:2.15.0`.
 *   Para Persistencia Real y Validación de Esquemas (Anti-Mock Blindness): `postgres:17-alpine`.
 *   Para Caché de Alto Rendimiento y Sesiones: `eqalpha/keydb:6.3.4`.
-*   Para Ingeniería del Caos y Observabilidad: `gaiaadm/pumba:latest` y `prom/prometheus:latest`.
-*   Para Optimización de Contexto IA (MCP): `sinfallas/remote-graphify:latest`.
+*   Para Ingeniería del Caos y Observabilidad: `gaiaadm/pumba:0.10.1` y `prom/prometheus:v2.55.1`.
+*   Para Optimización de Contexto IA (MCP): `sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0`.
 
 **Obligatorio:** Utiliza metas de ejecución limpias (ej. `make qa-unit`) para aprovechar la configuración de `uv-cache`, evitando re-descargar dependencias masivamente.
 
@@ -67,7 +67,7 @@ La estrategia de validación de FastAPI abarca 13 capas transversales (Estándar
 *   Las pruebas de estrés tradicionales asumen una red perfecta. Con la configuración de perfil `--profile chaos`, Pumba inyectará latencia aleatoria (Jitter) y cortes temporales a nivel del Kernel de Linux directamente sobre el contenedor de FastAPI, mientras Locust envía oleadas de usuarios concurrentes. El objetivo es certificar que la arquitectura no entra en un interbloqueo (*deadlock*) cuando la infraestructura subyacente falla.
 
 ### G. Ingestión Inteligente (Paso 0 - MCP / AST CLI-First)
-*   **Regla (Exclusiva para ti, IA):** Tienes estrictamente prohibido generar código o pruebas a ciegas. Si tienes capacidad de shell (Antigravity), inspecciona el AST y el radio de impacto directamente vía CLI (`python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"`), sin levantar demonios de fondo que ocupen el puerto 8080. Si eres un agente externo (Hermes, Claude), conéctate al servidor MCP `sinfallas/remote-graphify:latest`. Además, DEBES leer silenciosamente los lineamientos de linters y dependencias definidos en `pyproject.toml` para adaptar tu código a las reglas del repositorio y pasar las métricas en tu primer intento.
+*   **Regla (Exclusiva para ti, IA):** Tienes estrictamente prohibido generar código o pruebas a ciegas. Si tienes capacidad de shell (Antigravity), inspecciona el AST y el radio de impacto directamente vía CLI (`python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"`), sin levantar demonios de fondo que ocupen el puerto 8080. Si eres un agente externo (Hermes, Claude), conéctate al servidor MCP `sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0`. Además, DEBES leer silenciosamente los lineamientos de linters y dependencias definidos en `pyproject.toml` para adaptar tu código a las reglas del repositorio y pasar las métricas en tu primer intento.
 
 ### H. Seguridad por Diseño Obligatoria (DISA ASD STIG V6R5 & OWASP Developer Guide v4.2)
 *   Al programar o auditar endpoints en FastAPI, DEBES implementar y cubrir con pruebas unitarias/BDD los **22 patrones de [`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md`](../docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md)**:

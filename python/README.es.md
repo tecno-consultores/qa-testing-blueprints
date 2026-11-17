@@ -8,10 +8,10 @@ Este documento contiene las instrucciones corporativas de Nivel 11X que DEBES se
 
 ## 1. Reglas Estrictas de Ejecución (Contenedores Efímeros No-Root y Caché)
 **NUNCA** debes instruir la construcción de imágenes locales (`docker build`), instalaciones globales en el host ni ejecuciones como `root`. Toda ejecución corre en contenedores efímeros con UID/GID mapeado (`-u "$(id -u):$(id -g)"`), `HOME=/tmp`, `COVERAGE_FILE=/tmp/.coverage` y `UV_CACHE_DIR=/tmp/uv-cache`:
-*   Para pruebas lógicas, contratos Pact, linting, tipado estricto y profiling: `sinfallas/base-python-uv:3.15` (tags disponibles: `3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest`).
-*   Para pruebas de carga declarativas (`smoke|load|stress`) y SLOs: `grafana/k6:2.4.0`.
-*   Para Recolección de Métricas: `prom/prometheus:latest` (y Pushgateway si aplica).
-*   Para AST Semántico Graphify: `sinfallas/remote-graphify:latest` (vía `./scripts/actualizar-grafos-graphify.sh`).
+*   Para pruebas lógicas, contratos Pact, linting, tipado estricto y profiling: `sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4` (tags disponibles: `3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest`).
+*   Para pruebas de carga declarativas (`smoke|load|stress`) y SLOs: `grafana/k6:2.4.0@sha256:d41bb79cd8de5a7ad619b53570e3712633e8bff0937010a5c6c57a4747e7a276`.
+*   Para Recolección de Métricas: `prom/prometheus:v2.55.1` (y Pushgateway si aplica).
+*   Para AST Semántico Graphify: `sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0` (vía `./scripts/actualizar-grafos-graphify.sh`).
 
 **Gestor de Paquetes:** La sincronización de dependencias usa `uv` respaldado por `/tmp/uv-cache` y librerías preinstaladas en la imagen v2 (`pact` 4.2.0, `ruff`, `mypy`, `pytest`, `pip-audit`).
 **Obligatorio:** Utiliza las metas limpias del `Makefile` (`make qa-lint`, `make qa-unit`, y desde la raíz del catálogo `make test-backend-blueprints`) para preservar aislamiento total y cero archivos propiedad de `root`.
@@ -26,7 +26,7 @@ Al generar código, configurar el entorno o plantear soluciones, debes asegurar 
 *   **Profiling (Memoria y CPU):** `py-spy` (Detección de cuellos de botella mediante *Flamegraphs*).
 *   **Pruebas Lógicas Base e Intercepción:** `pytest` como motor principal, potenciado obligatoriamente por `pytest-mock` y `unittest.mock` para aislar la red y dependencias externas.
 *   **Contratos Consumer-Driven Zero-Infra (`Pact` V3/V4):** Paquete `pact` preinstalado exportando artefactos deterministas en `PACT_OUTPUT_DIR` (sin *Pact Broker* externo) sobre *Trimodal Fixtures* (`nominal_configured`, `virgin_empty`, `degraded_conflict`), serialización monetaria exacta con `Decimal` (prohibido `float`), cabecera obligatoria `Idempotency-Key` UUIDv4, errores RFC 7807 (`application/problem+json`) e inspección por ítem de respuestas batch (`results[].status`).
-*   **Comportamiento BDD y Carga SLO (`k6`):** `pytest-bdd` para Gherkin local y `fastapi/tests/load/smoke.k6.js` (`K6_PROFILE=smoke|load|stress`) para validar `p(95) < 250ms`, `p(99) < 500ms` y error `< 1%` sin falsos verdes.
+*   **Comportamiento BDD y Carga SLO (`k6`):** `pytest-bdd` para Gherkin local y `python/tests/load/smoke.k6.js` (`K6_PROFILE=smoke|load|stress`) para validar `p(95) < 250ms`, `p(99) < 500ms` y error `< 1%` sin falsos verdes.
 *   **Cobertura (Coverage):** `pytest-cov` (se exige un mínimo del 95% con `COVERAGE_FILE=/tmp/.coverage`).
 *   **Pruebas de Mutación:** `mutmut` (para validar si las pruebas fallan cuando el código lógico cambia).
 *   **Matriz de Compatibilidad y RLS:** `tox` con `tox-uv` y verificación contra `postgres:17-alpine` (`NOBYPASSRLS`, `FORCE RLS`, `SET LOCAL app.current_tenant_id`).

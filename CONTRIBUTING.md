@@ -49,6 +49,16 @@ If you are an **AI Agent** (or a human engineer collaborating with one) contribu
 
 ---
 
+## 📦 Blueprint `.example` File Convention (3 Categories)
+
+All files inside the 10 stack directories follow a strict 3-category convention separating repository QA infrastructure from hydratable consumer project templates (`sync_governance.py` / `manifest.json`):
+
+1. **Category 1 (No `.example` — Root QA Infrastructure):** `docker-compose.qa.yml` (`copy_if_missing_or_update_qa`) and `limpieza.sh` (`overwrite_executable`) across all 10 stacks (`python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue`). Executed directly inside this repository under Rule Zero and copied/updated directly in target projects.
+2. **Category 2 (No `.example` — Direct Executable Rule Zero Suites / Runtime Assets):** `tests/**`, `test/*.feature`, `test/*.bats`, `e2e/*.ts`, `mobile-appium/wdio.conf.ts`, `vibe-rescue/audit_vibe_prototype.py`, `vibe-rescue/templates/rls_hardening.sql`, `ai-evals/**/*.py`, and `ai-evals/promptfooconfig.yaml`. Directly runnable without renaming.
+3. **Category 3 (With `.example` — Merge/Copy Root Project Configs & Sample App Templates):** `Makefile.example`, `package.json.example`, `pyproject.toml.example`, `tsconfig.json.example`, `vite.config.ts.example`, `vitest.config.ts.example`, `playwright.config.ts.example`, `gitignore.example` (hydrates to `.gitignore`), `php.ini.example`, `nginx/default.conf.example`, `fastapi/initdb/01-init-rls-role.sql.example`, and `fastapi/tests/test_production_no_dev_cleanliness.unit.py.example`. Stripped of `.example` when hydrated into target projects via `surgical_merge`, `append_missing_lines`, or `copy_if_missing`.
+
+---
+
 ## 🛠️ How to Propose a Change
 
 ### When adding a technical tool or modifying a stack

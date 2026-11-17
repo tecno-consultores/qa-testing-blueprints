@@ -46,6 +46,8 @@ docker run --rm -u "$(id -u):$(id -g)" \
     --target /app --no-dry-run --emit-remediation qa11x-rescue --enforce
 ```
 
+- **Plantilla Standalone para Consumidores:** Copia `Makefile.example` -> `Makefile`, conserva `docker-compose.qa.yml` y `limpieza.sh`, y ejecuta `make qa-lint`, `make qa-audit`, `make qa-unit` o `make clean` (non-root `${QA_UID:-1000}:${QA_GID:-1000}`).
+
 ### Marcadores Seguros de Configuración
 
 Nunca incluyas secretos reales en documentación ni plantillas; utiliza marcadores explícitos:

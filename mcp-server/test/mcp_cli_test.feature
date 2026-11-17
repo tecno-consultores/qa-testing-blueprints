@@ -207,11 +207,11 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
   # Grupo 9: Contrato del Ecosistema PHP 8.2-8.5 en Manifiesto y Servidor MCP
   # ==============================================================================
 
-  Scenario: 9. El manifiesto indexa oficialmente el stack PHP con sus 10 plantillas y fusión quirúrgica
+  Scenario: 9. El manifiesto indexa oficialmente el stack PHP con sus 11 plantillas y fusión quirúrgica
     * match manifest.stacks.php == '#object'
     * match manifest.stacks.php.description contains 'PHP 8.2-8.5'
     * match manifest.stacks.php.readme == 'php/README.md'
-    * match manifest.stacks.php.files == '#[10]'
+    * match manifest.stacks.php.files == '#[11]'
 
     # Verificar que composer.json.example aplique estrategia surgical_merge
     * def findComposer = function(f) { return f.target_name == 'composer.json' }
@@ -223,6 +223,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def filePaths = karate.map(manifest.stacks.php.files, function(x) { return x.path })
     * match filePaths contains 'php/composer.json.example'
     * match filePaths contains 'php/docker-compose.qa.yml'
+    * match filePaths contains 'php/tests/load/smoke.k6.js'
     * match filePaths contains 'php/gitignore.example'
     * match filePaths contains 'php/phpstan.neon.example'
     * match filePaths contains 'php/phpunit.xml.example'
@@ -1200,8 +1201,10 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert rootReadmeEs38.contains('Matriz de Herramientas de Pruebas')
     * assert rootReadmeEs38.contains('sinfallas/base-mobile-appium')
 
-    * def mobileCompose38 = karate.readAsString(repoRoot + '/mobile-appium/docker-compose.qa.yml.example')
+    * def mobileCompose38 = karate.readAsString(repoRoot + '/mobile-appium/docker-compose.qa.yml')
     * assert mobileCompose38.contains('sinfallas/base-mobile-appium:26')
+    * assert mobileCompose38.contains('--allow-insecure=')
+    * assert !mobileCompose38.contains('--relaxed-security')
     * def auditBaseWf38 = karate.readAsString(repoRoot + '/.github/workflows/audit-base-images.yml')
     * assert auditBaseWf38.contains('sinfallas/base-mobile-appium:26')
 
@@ -1438,5 +1441,79 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert calmTestTs44.contains("controlId: 'SEC-14'")
     * assert calmTestTs44.contains("controlId: 'QA-CLI-TTY-01'")
     * assert calmTestTs44.contains("protocol: 'TLS'")
+
+  Scenario: 45. Contratos Fase 7 (F7.5, F7.9, F7.13, F7.14, F7.15) — Convención .example en 3 Categorías, Vite/TS, nginx-unprivileged, qa-frontend, puertos 127.0.0.1 y mobile-appium
+    * def repoFsRoot45 = Files.exists(Paths.get('/repo/manifest.json')) ? '/repo' : '..'
+    * def contribEn45 = karate.readAsString(repoRoot + '/CONTRIBUTING.md')
+    * assert contribEn45.contains('Category 1')
+    * assert contribEn45.contains('Category 2')
+    * assert contribEn45.contains('Category 3')
+    * assert contribEn45.contains('tsconfig.json.example')
+    * assert contribEn45.contains('vite.config.ts.example')
+    * assert contribEn45.contains('fastapi/tests/test_production_no_dev_cleanliness.unit.py.example')
+    * def contribEs45 = karate.readAsString(repoRoot + '/CONTRIBUTING.es.md')
+    * assert contribEs45.contains('Categoría 1')
+    * assert contribEs45.contains('Categoría 2')
+    * assert contribEs45.contains('Categoría 3')
+    * assert contribEs45.contains('tsconfig.json.example')
+    * assert contribEs45.contains('vite.config.ts.example')
+    * assert contribEs45.contains('fastapi/tests/test_production_no_dev_cleanliness.unit.py.example')
+
+    * def troubleEn45 = karate.readAsString(repoRoot + '/docs/docker-troubleshooting.md')
+    * assert troubleEn45.contains('mobile-appium/docker-compose.qa.yml')
+    * assert !troubleEn45.contains('mobile-appium/docker-compose.qa.yml.example')
+    * def troubleEs45 = karate.readAsString(repoRoot + '/docs/docker-troubleshooting.es.md')
+    * assert troubleEs45.contains('mobile-appium/docker-compose.qa.yml')
+    * assert !troubleEs45.contains('mobile-appium/docker-compose.qa.yml.example')
+
+    * def docs04En45 = karate.readAsString(repoRoot + '/docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md')
+    * assert docs04En45.contains('qa-frontend')
+    * assert !docs04En45.contains('qa-vue3')
+    * def docs04Es45 = karate.readAsString(repoRoot + '/docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md')
+    * assert docs04Es45.contains('qa-frontend')
+    * assert !docs04Es45.contains('qa-vue3')
+
+    * def spec20En45 = karate.readAsString(repoRoot + '/docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md')
+    * assert spec20En45.contains('mobile-appium/docker-compose.qa.yml')
+    * assert !spec20En45.contains('mobile-appium/docker-compose.qa.yml.example')
+    * def spec20Es45 = karate.readAsString(repoRoot + '/docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.es.md')
+    * assert spec20Es45.contains('mobile-appium/docker-compose.qa.yml')
+    * assert !spec20Es45.contains('mobile-appium/docker-compose.qa.yml.example')
+
+    * assert Files.exists(Paths.get(repoFsRoot45 + '/fastapi/tests/test_production_no_dev_cleanliness.unit.py.example'))
+    * assert !Files.exists(Paths.get(repoFsRoot45 + '/fastapi/test/test_production_no_dev_cleanliness.unit.py.example'))
+    * assert Files.exists(Paths.get(repoFsRoot45 + '/mobile-appium/docker-compose.qa.yml'))
+    * assert !Files.exists(Paths.get(repoFsRoot45 + '/mobile-appium/docker-compose.qa.yml.example'))
+
+    * def expectedStacks45 = ['python', 'fastapi', 'node-backend', 'vue3', 'react-frontend', 'bash-scripts', 'php', 'mobile-appium', 'ai-evals', 'vibe-rescue']
+    * def stackReady45 =
+      """
+      function(s) {
+        var base = repoFsRoot45 + '/' + s;
+        return Files.exists(Paths.get(base + '/docker-compose.qa.yml'))
+          && !Files.exists(Paths.get(base + '/docker-compose.qa.yml.example'))
+          && Files.exists(Paths.get(base + '/Makefile.example'))
+          && Files.exists(Paths.get(base + '/gitignore.example'))
+          && Files.exists(Paths.get(base + '/limpieza.sh'));
+      }
+      """
+    * def readyStacks45 = karate.filter(expectedStacks45, stackReady45)
+    * match readyStacks45 == '#[10]'
+
+    * def vueCompose45 = karate.readAsString(repoRoot + '/vue3/docker-compose.qa.yml')
+    * assert vueCompose45.contains('nginxinc/nginx-unprivileged')
+    * assert vueCompose45.contains('qa-frontend')
+    * assert !vueCompose45.contains('qa-vue3')
+    * assert vueCompose45.contains(':8080')
+    * assert Files.exists(Paths.get(repoFsRoot45 + '/vue3/tsconfig.json.example'))
+    * assert Files.exists(Paths.get(repoFsRoot45 + '/vue3/vite.config.ts.example'))
+
+    * def reactCompose45 = karate.readAsString(repoRoot + '/react-frontend/docker-compose.qa.yml')
+    * assert reactCompose45.contains('nginxinc/nginx-unprivileged')
+    * assert reactCompose45.contains('qa-frontend')
+    * assert reactCompose45.contains(':8080')
+    * assert Files.exists(Paths.get(repoFsRoot45 + '/react-frontend/tsconfig.json.example'))
+    * assert Files.exists(Paths.get(repoFsRoot45 + '/react-frontend/vite.config.ts.example'))
+
 
 

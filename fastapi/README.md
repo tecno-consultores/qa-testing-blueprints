@@ -8,13 +8,13 @@ This document contains the non-negotiable Level-11X corporate instructions you M
 
 ## 1. Strict Execution Rules (Ephemeral Docker & Cache)
 **NEVER** instruct local image builds (`docker build`) or manual `docker compose run` commands. Everything runs ephemerally and securely through the provided `Makefile`, leveraging persistent cache volumes:
-*   For the API, logic tests, contracts, profiling, and stress: `sinfallas/base-python-uv:3.15` (available tags: `3.11`, `3.12`, `3.13`, `3.14`, `3.15`, and `latest`).
-*   For black-box BDD tests: `sinfallas/karatelabs:1.5.1` (`:latest`).
-*   For Dynamic Security (DAST): `zaproxy/zap-stable:latest`.
+*   For the API, logic tests, contracts, profiling, and stress: `sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4` (available tags: `3.11`, `3.12`, `3.13`, `3.14`, `3.15`, and `latest`).
+*   For black-box BDD tests: `sinfallas/karatelabs:1.5.1@sha256:a9a52ca9c5491ab39b64f0b4fdc3dea879c2213c9bc995be58d6cd4b9a80cc89`.
+*   For Dynamic Security (DAST): `zaproxy/zap-stable:2.15.0`.
 *   For Real Persistence & Schema Validation (Anti-Mock Blindness): `postgres:17-alpine`.
 *   For High-Performance Caching & Sessions: `eqalpha/keydb:6.3.4`.
-*   For Chaos Engineering & Observability: `gaiaadm/pumba:latest` and `prom/prometheus:latest`.
-*   For AI Context Optimization (MCP): `sinfallas/remote-graphify:latest`.
+*   For Chaos Engineering & Observability: `gaiaadm/pumba:0.10.1` and `prom/prometheus:v2.55.1`.
+*   For AI Context Optimization (MCP): `sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0`.
 
 **Mandatory:** Use clean execution targets (e.g., `make qa-unit`) to leverage the `uv-cache` configuration and avoid massively re-downloading dependencies.
 
@@ -67,7 +67,7 @@ The FastAPI validation strategy spans 13 cross-cutting layers (Corporate Standar
 *   Traditional stress tests assume a perfect network. With the `--profile chaos` configuration, Pumba will inject random latency (Jitter) and temporary Linux Kernel-level dropouts directly onto the FastAPI container while Locust sends waves of concurrent users. The goal is to certify that the architecture does not enter a deadlock when underlying infrastructure fails.
 
 ### G. Smart Ingestion (Step 0 - MCP / AST CLI-First)
-*   **Rule (Exclusive to you, AI):** You are strictly forbidden from generating code or tests blindly. If you have shell access (Antigravity), inspect the AST and blast radius directly via CLI (`python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"`), without spinning up background daemons occupying port 8080. If you are an external agent (Hermes, Claude), connect to the `sinfallas/remote-graphify:latest` MCP server. Additionally, you MUST silently read linter rules and dependencies defined in `pyproject.toml` to align your code with repository rules and pass metrics on your first attempt.
+*   **Rule (Exclusive to you, AI):** You are strictly forbidden from generating code or tests blindly. If you have shell access (Antigravity), inspect the AST and blast radius directly via CLI (`python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"`), without spinning up background daemons occupying port 8080. If you are an external agent (Hermes, Claude), connect to the `sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0` MCP server. Additionally, you MUST silently read linter rules and dependencies defined in `pyproject.toml` to align your code with repository rules and pass metrics on your first attempt.
 
 ### H. Mandatory Security by Design (DISA ASD STIG V6R5 & OWASP Developer Guide v4.2)
 *   When programming or auditing FastAPI endpoints, you MUST implement and cover with unit/BDD tests the **22 patterns in [`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`](../docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md)**:

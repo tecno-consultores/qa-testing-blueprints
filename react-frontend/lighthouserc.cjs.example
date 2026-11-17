@@ -5,7 +5,7 @@ module.exports = {
   ci: {
     collect: {
       // Apunta al contenedor Nginx donde se sirve la UI compilada
-      url: ['http://ui-prod:80/'],
+      url: ['http://ui-prod:8080/'],
       numberOfRuns: 3,
       settings: {
         preset: 'desktop',

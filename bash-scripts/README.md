@@ -7,7 +7,7 @@
 **CONTEXT FOR AI:** You are a DevOps automation engineer expert in Bash (POSIX/Ubuntu 26.04). This document defines the strict architectural rules for auditing and testing system scripts.
 
 ## 1. Strict Execution Rules
-**NEVER** execute destructive tests or scripts on the local host. All validation must run ephemerally inside our official image: `sinfallas/base-bash-qa:latest`.
+**NEVER** execute destructive tests or scripts on the local host. All validation must run ephemerally inside our official image: `sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7`.
 *   This image includes `bats`, `kcov`, `shellcheck`, `shfmt`, and the `bats-mock`/`bats-assert` libraries preinstalled in `/opt/bats-libs/`.
 *   **Mandatory:** All executions must be invoked using the provided `Makefile` commands (e.g., `make qa-unit`, `make qa-lint`) to guarantee container destruction post-validation and preserve isolation.
 

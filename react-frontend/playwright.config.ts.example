@@ -16,7 +16,7 @@ export default defineConfig({
   reporter: [['html', { open: 'never' }], ['list']],
   use: {
     // Apunta al servidor Nginx de producción que levantó docker-compose
-    baseURL: 'http://ui-prod:80',
+    baseURL: 'http://ui-prod:8080',
     trace: 'retain-on-failure',
     video: 'retain-on-failure',
     screenshot: 'only-on-failure',

@@ -1,4 +1,4 @@
-.PHONY: qa-lint qa-unit qa-e2e qa-mutation qa-stress qa-all clean-cache clean qa-clean
+.PHONY: qa-lint qa-unit qa-contracts qa-e2e qa-mutation qa-stress qa-all clean-cache clean qa-clean
 
 # Variables
 COMPOSE_FILE = docker-compose.qa.yml
@@ -13,6 +13,10 @@ qa-lint:
 qa-unit:
 	@echo "🧪 Ejecutando Pruebas Unitarias (Vitest)..."
 	@docker compose -f $(COMPOSE_FILE) run --rm -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run test:coverage"
+
+qa-contracts:
+	@echo "🤝 Ejecutando Pruebas de Contrato Pact Zero-Infra (node --test)..."
+	@docker compose -f $(COMPOSE_FILE) run --rm -u "$(QA_UID):$(QA_GID)" -e PACT_OUTPUT_DIR $(SERVICE_NAME) bash -c "node --test tests/contracts/*.test.ts"
 
 qa-e2e:
 	@echo "🎭 Ejecutando Pruebas BDD (Karate Labs)..."

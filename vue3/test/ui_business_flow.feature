@@ -4,11 +4,11 @@
 Feature: Contratos BDD HTTP, Cabeceras OWASP OSHP, Rutas SPA/SSG y SEO para Vue 3 (Karate 1.5.1)
   # Nota de Frontera 11X: sinfallas/karatelabs:1.5.1 no incluye Chrome/Chromium.
   # Las interacciones DOM, botón [ 🔄 Refrescar ] y WCAG 2.1 AA se certifican en Playwright (ui-e2e).
-  # Karate certifica en caja negra la entrega HTTP/Nginx/SSG, cabeceras OSHP y XML/SEO sobre ui-prod:80.
+  # Karate certifica en caja negra la entrega HTTP/Nginx/SSG, cabeceras OSHP y XML/SEO sobre ui-prod:8080.
 
   Background:
     * def envBaseUrl = java.lang.System.getenv('UI_BASE_URL')
-    * def baseUrl = karate.properties['UI_BASE_URL'] || envBaseUrl || 'http://ui-prod:80'
+    * def baseUrl = karate.properties['UI_BASE_URL'] || envBaseUrl || 'http://ui-prod:8080'
     * url baseUrl
 
   # ==============================================================================
@@ -38,6 +38,8 @@ Feature: Contratos BDD HTTP, Cabeceras OWASP OSHP, Rutas SPA/SSG y SEO para Vue 
     And match header Referrer-Policy == 'strict-origin-when-cross-origin'
     And match header Permissions-Policy contains 'geolocation=()'
     And match header Content-Security-Policy contains "default-src 'self'"
+    * def cspBanner = responseHeaders['Content-Security-Policy'] ? responseHeaders['Content-Security-Policy'][0] : ''
+    * assert cspBanner.contains("connect-src 'self';") && !cspBanner.contains('ws:') && !cspBanner.contains('wss:')
 
   # ==============================================================================
   # Grupo 3: Resolución de Rutas SPA / SSG y Endurecimiento de Cabecera Server

@@ -126,3 +126,46 @@ setup() {
   [ ! -d "${FAKE_ROOT}/mobile-appium/wdio-logs" ]
   [ ! -d "${FAKE_ROOT}/mobile-appium/errorShots" ]
 }
+
+@test "limpieza.sh stacks (mobile-appium, ai-evals, vibe-rescue): purga caches y preserva graphify-out (--quiet y --deep)" {
+  cat >"${FAKE_BIN}/docker" <<'EOF'
+#!/usr/bin/env bash
+if [ "${1:-}" = "compose" ] && [ "${2:-}" = "--profile" ]; then
+  exit 1
+fi
+exit 0
+EOF
+  chmod +x "${FAKE_BIN}/docker"
+
+  for stack in mobile-appium ai-evals vibe-rescue; do
+    stack_dir="${BATS_TEST_TMPDIR}/stack-${stack}"
+    mkdir -p "${stack_dir}/graphify-out/cache" "${stack_dir}/.trivycache" \
+      "${stack_dir}/.pytest_cache" "${stack_dir}/wdio-logs" "${stack_dir}/coverage" \
+      "${stack_dir}/.agents/proposals" "${stack_dir}/.agents/backups"
+    cp "${REPO_ROOT}/${stack}/limpieza.sh" "${stack_dir}/limpieza.sh"
+    chmod +x "${stack_dir}/limpieza.sh"
+    echo "{}" >"${stack_dir}/graphify-out/graph.json"
+    echo "tmp" >"${stack_dir}/graphify-out/junk.tmp"
+    echo "log" >"${stack_dir}/wdio-logs/run.log"
+    echo "cov" >"${stack_dir}/.coverage"
+    echo "v" >"${stack_dir}/.trivycache/db"
+
+    run env HOME="${FAKE_HOME}" TMPDIR="${FAKE_TMP}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C "${stack_dir}/limpieza.sh" --quiet
+    assert_success
+    [ ! -d "${stack_dir}/.trivycache" ]
+    if [ "${stack}" = "mobile-appium" ]; then
+      [ ! -d "${stack_dir}/wdio-logs" ]
+    else
+      [ ! -d "${stack_dir}/.pytest_cache" ]
+      [ ! -f "${stack_dir}/.coverage" ]
+    fi
+    [ ! -f "${stack_dir}/graphify-out/junk.tmp" ]
+    [ -f "${stack_dir}/graphify-out/graph.json" ]
+    [ -d "${stack_dir}/.agents/proposals" ]
+
+    run env HOME="${FAKE_HOME}" TMPDIR="${FAKE_TMP}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C "${stack_dir}/limpieza.sh" --deep
+    assert_success
+    [ ! -d "${stack_dir}/.agents/proposals" ]
+    [ ! -d "${stack_dir}/.agents/backups" ]
+  done
+}

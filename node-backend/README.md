@@ -8,11 +8,11 @@
 
 ## 1. Strict Execution Rules (Ephemeral Containers & Cache)
 **NEVER** instruct the user to run `npm install` on their local machine, use `docker build`, or construct manual `docker compose run` commands. All execution runs ephemerally through the provided `Makefile`, leveraging persistent cache volumes:
-*   For the API, logic tests, SAST, profiling, and stress: `sinfallas/base-node-ionic:26` (available tags: `22`, `24`, `26`, and `latest`).
-*   For black-box BDD tests: `sinfallas/karatelabs:1.5.1` (`:latest`).
-*   For Dynamic Security (DAST): `zaproxy/zap-stable:latest`.
-*   For Chaos Engineering & Observability: `gaiaadm/pumba:latest` and `prom/prometheus:latest`.
-*   For AI Context Optimization (MCP): `sinfallas/remote-graphify:latest`.
+*   For the API, logic tests, SAST, profiling, and stress: `sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60`.
+*   For black-box BDD tests: `sinfallas/karatelabs:1.5.1`.
+*   For Dynamic Security (DAST): `zaproxy/zap-stable:2.15.0`.
+*   For Chaos Engineering & Observability: `gaiaadm/pumba:0.10.1` and `prom/prometheus:v2.55.1`.
+*   For AI Context Optimization (MCP): `sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0`.
 
 **Package Manager and Zero-Trust:** Our base image replaces `npm` with `pnpm`. Container installation automatically blocks execution of malicious third-party scripts (via `ignore-scripts=true` in `.npmrc`).
 **Mandatory:** Use clean execution targets (e.g., `make qa-unit`) to isolate infrastructure and reuse the dependency cache (`pnpm-store`). The container has the `SYS_PTRACE` capability enabled to attach memory *profilers*.
@@ -32,6 +32,7 @@
 *   **Strict Boundary (Tool Boundary):** All unit test files MUST be named `.unit.ts` or `.spec.ts` to separate their context.
 *   **Rule:** Use `Vitest` as the test runner (not Jest). Use `Supertest` to test Express/Fastify routes by passing the app instance directly WITHOUT listening on a real port.
 *   **Isolation Rule:** Every call to a third-party service or database MUST be mocked using `nock` or native Vitest mocks. No network latency is allowed in unit tests.
+*   **Pact V4 Provider Contracts (`node --test`):** Zero-Infra contract verification files in `tests/contracts/*.test.ts` (e.g., `tests/contracts/provider.pact.test.ts`) are strictly separated from Vitest (`vitest.config.ts` excludes `tests/contracts/**`) and execute natively via `pnpm run test:contracts` (`node --test`) and `make qa-contracts`.
 
 ### C. Code Quality, Complexity & Static SAST -> `ESLint` + `Prettier` + `SonarJS`
 *   **Rule:** `Prettier` handles aesthetic code formatting. `ESLint` enforces logical rules.
@@ -87,6 +88,11 @@ make qa-lint
 *   **Internal Logic Tests (Isolated with Nock/Vitest) - Requirement >95%:**
 ```bash
 make qa-unit
+```
+
+*   **Zero-Infra Pact V4 Provider Contracts (`node --test`):**
+```bash
+make qa-contracts
 ```
 
 *   **Mutation Testing (Evaluate assertion strength):**

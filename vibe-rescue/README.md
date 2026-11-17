@@ -46,6 +46,8 @@ docker run --rm -u "$(id -u):$(id -g)" \
     --target /app --no-dry-run --emit-remediation qa11x-rescue --enforce
 ```
 
+- **Standalone Consumer Blueprint:** Copy `Makefile.example` -> `Makefile`, keep `docker-compose.qa.yml` and `limpieza.sh`, and run `make qa-lint`, `make qa-audit`, `make qa-unit`, or `make clean` (non-root `${QA_UID:-1000}:${QA_GID:-1000}`).
+
 ### Safe Configuration Placeholders
 
 Never include real secrets in documentation or templates; use explicit placeholders:

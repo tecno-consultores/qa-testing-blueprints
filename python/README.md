@@ -8,10 +8,10 @@ This document contains the non-negotiable Level-11X corporate instructions you M
 
 ## 1. Strict Execution Rules (Non-Root Ephemeral Containers & Cache)
 **NEVER** instruct local image builds (`docker build`), global host installations, or running as `root`. Every execution runs in ephemeral containers with mapped UID/GID (`-u "$(id -u):$(id -g)"`), `HOME=/tmp`, `COVERAGE_FILE=/tmp/.coverage`, and `UV_CACHE_DIR=/tmp/uv-cache`:
-*   For logic tests, Pact contracts, linting, strict typing, and profiling: `sinfallas/base-python-uv:3.15` (available tags: `3.11`, `3.12`, `3.13`, `3.14`, `3.15`, and `latest`).
-*   For declarative load tests (`smoke|load|stress`) and SLOs: `grafana/k6:2.4.0`.
-*   For Metrics Collection: `prom/prometheus:latest` (and Pushgateway if applicable).
-*   For Graphify Semantic AST: `sinfallas/remote-graphify:latest` (via `./scripts/actualizar-grafos-graphify.sh`).
+*   For logic tests, Pact contracts, linting, strict typing, and profiling: `sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4` (available tags: `3.11`, `3.12`, `3.13`, `3.14`, `3.15`, and `latest`).
+*   For declarative load tests (`smoke|load|stress`) and SLOs: `grafana/k6:2.4.0@sha256:d41bb79cd8de5a7ad619b53570e3712633e8bff0937010a5c6c57a4747e7a276`.
+*   For Metrics Collection: `prom/prometheus:v2.55.1` (and Pushgateway if applicable).
+*   For Graphify Semantic AST: `sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0` (via `./scripts/actualizar-grafos-graphify.sh`).
 
 **Package Manager:** Dependency synchronization uses `uv` backed by `/tmp/uv-cache` and preinstalled libraries in the v2 image (`pact` 4.2.0, `ruff`, `mypy`, `pytest`, `pip-audit`).
 **Mandatory:** Use clean `Makefile` targets (`make qa-lint`, `make qa-unit`, and from the catalog root `make test-backend-blueprints`) to preserve full isolation and zero `root`-owned files.
@@ -26,7 +26,7 @@ When generating code, configuring the environment, or proposing solutions, you m
 *   **Profiling (Memory and CPU):** `py-spy` (bottleneck detection via *Flamegraphs*).
 *   **Core Logic Tests and Interception:** `pytest` as the primary engine, mandatorily enhanced with `pytest-mock` and `unittest.mock` to isolate networking and external dependencies.
 *   **Zero-Infra Consumer-Driven Contracts (`Pact` V3/V4):** Preinstalled `pact` package exporting deterministic artifacts into `PACT_OUTPUT_DIR` (without an external *Pact Broker*) over *Trimodal Fixtures* (`nominal_configured`, `virgin_empty`, `degraded_conflict`), exact monetary serialization using `Decimal` (`float` prohibited), mandatory UUIDv4 `Idempotency-Key` header, RFC 7807 errors (`application/problem+json`), and per-item inspection of batch responses (`results[].status`).
-*   **BDD Behavior and SLO Load (`k6`):** `pytest-bdd` for local Gherkin and `fastapi/tests/load/smoke.k6.js` (`K6_PROFILE=smoke|load|stress`) to validate `p(95) < 250ms`, `p(99) < 500ms`, and error `< 1%` without false greens.
+*   **BDD Behavior and SLO Load (`k6`):** `pytest-bdd` for local Gherkin and `python/tests/load/smoke.k6.js` (`K6_PROFILE=smoke|load|stress`) to validate `p(95) < 250ms`, `p(99) < 500ms`, and error `< 1%` without false greens.
 *   **Coverage:** `pytest-cov` (minimum 95% required with `COVERAGE_FILE=/tmp/.coverage`).
 *   **Mutation Testing:** `mutmut` (to verify whether tests fail when logic code changes).
 *   **Compatibility Matrix and RLS:** `tox` with `tox-uv` and verification against `postgres:17-alpine` (`NOBYPASSRLS`, `FORCE RLS`, `SET LOCAL app.current_tenant_id`).
