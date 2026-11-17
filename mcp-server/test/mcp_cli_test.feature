@@ -35,7 +35,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * match pkg.bin['mcp-qa-11x'] == 'dist/index.js'
     * match pkg.type == 'module'
     * match pkg.license == 'MIT'
-    * match pkg.engines.node == '>=20.0.0'
+    * match pkg.engines.node == '>=24.0.0'
 
   # ==============================================================================
   # Grupo 2: Contrato Criptográfico del Manifiesto Remoto
@@ -780,8 +780,16 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
 
   Scenario: 25. Alineación Non-Root UID 10001 en CI / Stacks Node (pnpm-store-init) y Paridad Documental Integral
     * def ciWorkflow = karate.readAsString(repoRoot + '/.github/workflows/qa-11x-ci.yml')
-    * assert ciWorkflow.contains('run --rm -T -u "$(id -u):$(id -g)"')
-    * assert ciWorkflow.contains('mcp-server bash -c')
+    * assert ciWorkflow.contains('make lint && make build && make test-mcp && make test-example')
+    * assert ciWorkflow.contains('make test-karate')
+    * assert ciWorkflow.contains('make test-py && make test-meta-qa')
+
+    * def rootMakefile25 = karate.readAsString(repoRoot + '/Makefile')
+    * assert rootMakefile25.contains('-u "$$(id -u):$$(id -g)"')
+    * assert rootMakefile25.contains('-e HOME=/tmp')
+
+    * def mcpMakefile25 = karate.readAsString(mcpRoot + '/Makefile')
+    * assert mcpMakefile25.contains('docker compose -f docker-compose.qa.yml run --rm -T')
 
     * def mcpCompose = karate.readAsString(mcpRoot + '/docker-compose.qa.yml')
     * assert mcpCompose.contains('pnpm-store-init:')
@@ -811,7 +819,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
   Scenario: 26. Contrato v3.x — Arnés E2E Real sobre stdio (mcp-server/example/) + Clean-Room Tarball verify-v2.sh y 4 Barreras
     * match pkg.version == expectedSemver3x
     * match pkg.scripts['test:example'] == 'node example/run-example-e2e.mjs'
-    * match pkg.files == ['dist/**/*', 'README.md', 'CHANGELOG.md']
+    * match pkg.files == ['dist/**/*', 'LICENSE', 'README.md', 'README.es.md', 'CHANGELOG.md', 'CHANGELOG.es.md']
 
     * def e2eRunner = karate.readAsString(mcpRoot + '/example/run-example-e2e.mjs')
     * assert e2eRunner.contains('StdioClientTransport')
@@ -832,7 +840,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert publisherScript.contains('pnpm --silent run test:example')
 
     * def ciWorkflow = karate.readAsString(repoRoot + '/.github/workflows/qa-11x-ci.yml')
-    * assert ciWorkflow.contains('pnpm run test:example')
+    * assert ciWorkflow.contains('make lint && make build && make test-mcp && make test-example')
 
     * def lefthookCfg = karate.readAsString(repoRoot + '/lefthook.yml')
     * assert lefthookCfg.contains('mcp-example-smoke:')
@@ -1514,6 +1522,52 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert reactCompose45.contains(':8080')
     * assert Files.exists(Paths.get(repoFsRoot45 + '/react-frontend/tsconfig.json.example'))
     * assert Files.exists(Paths.get(repoFsRoot45 + '/react-frontend/vite.config.ts.example'))
+
+  Scenario: 46. Contratos Fase 8 (F8.13, F8.17, F8.18, F8.19, F8.20, F8.21) — Limpieza legacy, LICENSE/engines/files MCP, .example secretos, pre-pack dist y tarball CLI
+    * def repoFsRoot46 = Files.exists(Paths.get('/repo/manifest.json')) ? '/repo' : '..'
+    * assert !Files.exists(Paths.get(repoFsRoot46 + '/commitlint.config.js'))
+    * assert Files.exists(Paths.get(repoFsRoot46 + '/pytest.ini'))
+    * def pytestIni46 = karate.readAsString(repoRoot + '/pytest.ini')
+    * assert pytestIni46.contains('addopts = --import-mode=importlib')
+    * assert pytestIni46.contains('cache_dir = /tmp/pytest-cache')
+
+    * def rootLicense46 = karate.readAsString(repoRoot + '/LICENSE')
+    * def mcpLicense46 = karate.readAsString(mcpRoot + '/LICENSE')
+    * match mcpLicense46 == rootLicense46
+
+    * match pkg.dependencies['@modelcontextprotocol/sdk'] == '^1.32.2'
+    * match pkg.engines.node == '>=24.0.0'
+    * match pkg.packageManager == 'pnpm@12.18.0'
+    * match pkg.files == ['dist/**/*', 'LICENSE', 'README.md', 'README.es.md', 'CHANGELOG.md', 'CHANGELOG.es.md']
+
+    * def syncGov46 = karate.readAsString(repoRoot + '/.agents/scripts/sync_governance.py')
+    * assert !syncGov46.contains('commitlint.config.js')
+    * def blastSel46 = karate.readAsString(repoRoot + '/.agents/scripts/select_tests_by_blast_radius.py')
+    * assert !blastSel46.contains('commitlint.config.js')
+    * def certify46 = karate.readAsString(repoRoot + '/.agents/scripts/certify_task_completion.sh')
+    * assert !certify46.contains('commitlint')
+
+    * def verificarSecretos46 = karate.readAsString(repoRoot + '/scripts/verificar-secretos.sh')
+    * assert !verificarSecretos46.contains('svg|pyc|example')
+    * assert verificarSecretos46.contains('EXAMPLE_ONLY')
+    * assert verificarSecretos46.contains('CHANGE[_-]?ME')
+    * assert verificarSecretos46.contains('00000000')
+    * assert verificarSecretos46.contains('tu_clave_aqui')
+
+    * def probarMcp46 = karate.readAsString(repoRoot + '/scripts/probar-mcp-example.sh')
+    * assert probarMcp46.contains('package/LICENSE')
+    * assert probarMcp46.contains('package/README.es.md')
+    * assert probarMcp46.contains('package/CHANGELOG.es.md')
+    * assert probarMcp46.contains('init-agents')
+    * assert probarMcp46.contains('--offline')
+
+    * def publicarMcp46 = karate.readAsString(repoRoot + '/scripts/publicar-mcp.sh')
+    * assert publicarMcp46.contains('ensure_fresh_dist_before_pack')
+
+    * def liveMcpTest46 = karate.readAsString(mcpRoot + '/tests/live-mcp-protocol.test.ts')
+    * assert liveMcpTest46.contains('getLatestTsMtimeMs')
+    * assert liveMcpTest46.contains('mtimeMs')
+
 
 
 

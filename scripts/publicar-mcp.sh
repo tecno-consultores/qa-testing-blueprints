@@ -74,7 +74,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPO_ROOT="${QA11X_REPO_ROOT:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
 MCP_DIR="${REPO_ROOT}/mcp-server"
 PACKAGE_JSON="${MCP_DIR}/package.json"
 
@@ -141,9 +141,33 @@ echo "🧹 [0/6] Saneando espacio de trabajo..."
 CURRENT_UID="$(id -u)"
 CURRENT_GID="$(id -g)"
 
+ensure_fresh_dist_before_pack() {
+  local dist_entry="${MCP_DIR}/dist/index.js"
+  local src_dir="${MCP_DIR}/src"
+  local stale_files=""
+
+  if [ -d "${src_dir}" ] && [ -f "${dist_entry}" ]; then
+    stale_files="$(find "${src_dir}" -type f -newer "${dist_entry}" -print -quit 2>/dev/null || true)"
+  fi
+
+  if [ ! -f "${dist_entry}" ] || [ -n "${stale_files}" ]; then
+    echo "🔄 [Pre-Pack] dist/index.js ausente o desactualizado respecto a mcp-server/src/ (ignore-scripts=true omite prepublishOnly); recompilando en Docker..."
+    docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run build
+    stale_files=""
+    if [ -d "${src_dir}" ] && [ -f "${dist_entry}" ]; then
+      stale_files="$(find "${src_dir}" -type f -newer "${dist_entry}" -print -quit 2>/dev/null || true)"
+    fi
+    if [ ! -f "${dist_entry}" ] || [ -n "${stale_files}" ]; then
+      echo -e "\e[31m❌ ERROR [Pre-Pack]: dist/index.js ausente o desactualizado respecto a mcp-server/src/ (${stale_files:-dist/index.js}).\e[0m" >&2
+      exit 1
+    fi
+  fi
+  echo "✔ [Pre-Pack] dist/index.js presente y actualizado respecto a mcp-server/src/."
+}
+
 # 4. Paso 1: Hidratación de dependencias y Verificación de Calidad (Rule Zero)
 echo "🔍 [1/6] Verificando dependencias, Lint & Typecheck en Docker efímero..."
-docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" sh -c \
+docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" sh -c \
   "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run lint && pnpm --silent run typecheck"
 
 # 5. Paso 2: Pruebas Unitarias con Cobertura >= 95%
@@ -155,22 +179,24 @@ if [ "$SKIP_TESTS" = false ]; then
       MCP_EXTRA_VOLS+=(-v "${REPO_ROOT}/${dir}:/${dir}:ro")
     fi
   done
-  docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "${MCP_DIR}:/app" ${MCP_EXTRA_VOLS[@]+"${MCP_EXTRA_VOLS[@]}"} -w /app "${IMAGE_NAME}" pnpm --silent run test:unit
+  docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "${MCP_DIR}:/app" ${MCP_EXTRA_VOLS[@]+"${MCP_EXTRA_VOLS[@]}"} -w /app "${IMAGE_NAME}" pnpm --silent run test:unit
 else
   echo "🧪 [2/6] Omitiendo pruebas unitarias (--skip-tests activado)."
 fi
 
 # 6. Paso 3: Compilación TypeScript a dist/
 echo "⚙️ [3/6] Compilando TypeScript a dist/..."
-docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run build
+docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run build
 
 # 7. Paso 4: Certificación E2E Real sobre stdio con mcp-server/example/
 echo "🎯 [4/6] Certificando 19 tools + 13 resources + quickstart + Clean-Room tarball..."
-docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e QA_BLUEPRINTS_LOCAL_PATH=/repo -v "${REPO_ROOT}:/repo:ro" -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run test:example
+docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e QA_BLUEPRINTS_LOCAL_PATH=/repo -e pnpm_config_manage_package_manager_versions=false -v "${REPO_ROOT}:/repo:ro" -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run test:example
 
-# 8. Paso 5: Auditoría de empaquetado (Dry-Run de npm pack)
+# 8. Paso 5: Verificación explícita de compilación pre-pack y Auditoría de empaquetado (Dry-Run de npm pack)
+ensure_fresh_dist_before_pack
 echo "📦 [5/6] Validando empaquetado (npm pack --dry-run)..."
-PACK_SUMMARY=$(docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" npm pack --dry-run 2>&1 | grep -E "package size:|unpacked size:|total files:|\.tgz" || true)
+PACK_OUTPUT=$(docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" npm pack --dry-run 2>&1)
+PACK_SUMMARY=$(printf '%s\n' "${PACK_OUTPUT}" | grep -E "package size:|unpacked size:|total files:|\.tgz" || true)
 # shellcheck disable=SC2001
 echo "${PACK_SUMMARY}" | sed 's/^/  /'
 
@@ -206,6 +232,7 @@ if [ "$DRY_RUN" = true ]; then
 fi
 
 # Publicación real con inyección de token efímero en memoria y soporte interactivo 2FA/OTP
+ensure_fresh_dist_before_pack
 echo -e "\n🚀 Publicando ${PKG_NAME}@${PKG_VERSION} en npmjs.org..."
 echo "💡 Nota: Si su cuenta de npmjs requiere confirmación 2FA y el token no tiene 'Bypass 2FA',"
 echo "   abra la URL https://www.npmjs.com/auth/cli/... que aparecerá abajo en su navegador para autorizar."

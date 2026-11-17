@@ -16,12 +16,12 @@ pre-commit:
     fastapi-lint:
       root: "fastapi/"
       glob: "*.py"
-      run: docker compose -f docker-compose.qa.yml run --rm qa-backend bash -c "uv pip install --system -e '.[dev]' -q && ruff check {staged_files} && ruff format --check {staged_files}"
+      run: docker compose -f docker-compose.qa.yml run --rm -T qa-backend bash -c "uv pip install --system -e '.[dev]' -q && ruff check {staged_files} && ruff format --check {staged_files}"
 
     python-lint:
       root: "python/"
       glob: "*.py"
-      run: docker compose -f docker-compose.qa.yml run --rm qa-backend bash -c "uv pip install --system -e '.[dev]' -q && ruff check {staged_files} && ruff format --check {staged_files}"
+      run: docker compose -f docker-compose.qa.yml run --rm -T qa-backend bash -c "uv pip install --system -e '.[dev]' -q && ruff check {staged_files} && ruff format --check {staged_files}"
 
     # --------------------------------------------------------------------------
     # ECOSISTEMA JAVASCRIPT (NODE, VUE3 & REACT)
@@ -29,17 +29,17 @@ pre-commit:
     vue3-lint:
       root: "vue3/"
       glob: "*.{js,ts,vue}"
-      run: docker compose -f docker-compose.qa.yml run --rm qa-vue3 bash -c "pnpm install --silent && npx prettier --check {staged_files} && npx eslint {staged_files}"
+      run: docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-frontend bash -c "pnpm install --silent && npx prettier --check {staged_files} && npx eslint {staged_files}"
 
     react-lint:
       root: "react-frontend/"
       glob: "*.{js,ts,tsx}"
-      run: docker compose -f docker-compose.qa.yml run --rm qa-frontend bash -c "pnpm install --silent && npx prettier --check {staged_files} && npx eslint {staged_files}"
+      run: docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-frontend bash -c "pnpm install --silent && npx prettier --check {staged_files} && npx eslint {staged_files}"
 
     node-backend-lint:
       root: "node-backend/"
       glob: "*.{js,ts}"
-      run: docker compose -f docker-compose.qa.yml run --rm qa-node-backend bash -c "pnpm install --silent && npx prettier --check {staged_files} && npx eslint {staged_files}"
+      run: docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-node-backend bash -c "pnpm install --silent && npx prettier --check {staged_files} && npx eslint {staged_files}"
 
     # --------------------------------------------------------------------------
     # ECOSISTEMA PHP 8.2-8.5
@@ -47,7 +47,7 @@ pre-commit:
     php-lint:
       root: "php/"
       glob: "*.php"
-      run: docker compose -f docker-compose.qa.yml run --rm qa-php composer --quiet run-script qa:lint
+      run: docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-php composer --quiet run-script qa:lint
 
     # --------------------------------------------------------------------------
     # ECOSISTEMA BASH (DEVOPS)
@@ -55,39 +55,41 @@ pre-commit:
     bash-lint:
       root: "bash-scripts/"
       glob: "*.sh"
-      # shellCheck evalúa vulnerabilidades POSIX, shfmt verifica la estética (-d es modo dry-run/check)
-      run: docker compose -f docker-compose.qa.yml run --rm qa-bash bash -c "shellcheck {staged_files} && shfmt -d {staged_files}"
+      # ShellCheck evalúa vulnerabilidades POSIX, shfmt -i 2 -ci -d verifica el formato canónico en modo check
+      run: docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-bash bash -c "shellcheck -x {staged_files} && shfmt -i 2 -ci -d {staged_files}"
+
+    repo-bash-lint:
+      glob: "{scripts/*.sh,.agents/scripts/*.sh,instalar-hooks.sh,*/limpieza.sh}"
+      run: docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/repo:ro" -w /repo sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7 bash -c 'shellcheck -x "$@" && shfmt -i 2 -ci -d "$@"' _ {staged_files}
 
     # --------------------------------------------------------------------------
-    # PROTECCIÓN DE SECRETOS (Global)
+    # PROTECCIÓN DE SECRETOS (Global, deduplicado sobre staged)
     # --------------------------------------------------------------------------
-    leaks-check:
+    secret-scan:
       glob: "**/*"
       # Ejecuta el escáner corporativo unificado (entropía, llaves privadas, tokens y .env)
       run: ./scripts/verificar-secretos.sh {staged_files}
 
     # --------------------------------------------------------------------------
-    # GOBERNANZA ZERO-LLM, SECRETOS E INVARIANTES DOCUMENTALES (QA-11X v3.1)
+    # GOBERNANZA ZERO-LLM E INVARIANTES DOCUMENTALES (QA-11X v3.1)
     # --------------------------------------------------------------------------
     governance-sync-check:
-      run: docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/sync_governance.py --check
-
-    secret-scan:
-      run: ./scripts/verificar-secretos.sh
+      glob: "{manifest.json,AGENTS.md,lefthook.yml,.trivy.yaml,.env.example,*.md,**/*.md,.agents/**,docs/**,scripts/*.sh,**/*.example,**/docker-compose.qa.yml,**/limpieza.sh,fastapi/**,python/**,node-backend/**,vue3/**,react-frontend/**,php/**,bash-scripts/**,mobile-appium/**,ai-evals/**,vibe-rescue/**}"
+      run: docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/sync_governance.py --check
 
     docs-invariants:
       glob: "{*.md,**/*.md,manifest.json,.agents/*,.agents/**/*}"
-      run: docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_docs_invariants.py
+      run: docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_docs_invariants.py
 
 commit-msg:
   commands:
     # --------------------------------------------------------------------------
-    # AUDITORÍA DE CONVENCIONES DE GIT (Conventional Commits — Rule Zero POSIX)
+    # AUDITORÍA DE CONVENCIONES DE GIT (Fuente Única de Verdad — Rule Zero POSIX)
     # --------------------------------------------------------------------------
     conventional-commits:
-      # Valida Conventional Commits en Bash puro sin exigir Node.js/npx en el host
+      # Valida Conventional Commits en Bash puro (<= 100 caracteres, sin commitlint.config.js)
       run: |-
-        bash -c 'first_line=$(head -n 1 "{1}"); printf "%s\n" "$first_line" | grep -Eq "^(Merge |Revert \"|(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-zA-Z0-9_.,/-]+\))?!?: .+)" || { echo "❌ [Conventional Commits] Formato requerido: <tipo>(<alcance>): <descripción>" >&2; exit 1; }'
+        bash -c 'first_line=$(head -n 1 "{1}"); printf "%s\n" "$first_line" | grep -Eq "^(Merge |Revert \")" || printf "%s\n" "$first_line" | grep -Eq "^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|security)(\([a-z0-9._/-]+\))?!?: .{1,100}$" || { echo "❌ [Conventional Commits] Formato requerido (<= 100 chars): ^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|security)(\([a-z0-9._/-]+\))?!?: .{1,100}$" >&2; exit 1; }'
 
 pre-push:
   commands:
@@ -105,17 +107,18 @@ pre-push:
 
     mcp-unit-and-lint:
       glob: "{mcp-server/**,manifest.json}"
-      run: bash -c '[ ! -f mcp-server/package.json ] && exit 0; MCP_EXTRA_VOLS=(); for dir in mobile-appium vibe-rescue .github; do [ -d "./${dir}" ] && MCP_EXTRA_VOLS+=(-v "$(pwd)/${dir}:/${dir}:ro"); done; docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "$(pwd)/mcp-server:/app" ${MCP_EXTRA_VOLS[@]+"${MCP_EXTRA_VOLS[@]}"} -w /app sinfallas/base-node-ionic:26 bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run lint && pnpm --silent run typecheck && pnpm --silent run test:unit && rm -rf coverage .eslintcache"'
+      run: bash -c '[ ! -f mcp-server/package.json ] && exit 0; MCP_EXTRA_VOLS=(); for dir in mobile-appium vibe-rescue .github; do [ -d "./${dir}" ] && MCP_EXTRA_VOLS+=(-v "$(pwd)/${dir}:/${dir}:ro"); done; docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "$(pwd)/mcp-server:/app" ${MCP_EXTRA_VOLS[@]+"${MCP_EXTRA_VOLS[@]}"} -w /app sinfallas/base-node-ionic:26 bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run lint && pnpm --silent run typecheck && pnpm --silent run test:unit && rm -rf coverage .eslintcache"'
 
     python-governance-and-meta-qa:
-      run: bash -c '[ ! -f scripts/generar-manifiesto.py ] && exit 0; docker run --rm -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONPATH=/app/.agents/scripts -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app" -w /app sinfallas/base-python-uv:3.15 bash -c "python3 scripts/generar-manifiesto.py --check && python3 .agents/scripts/sync_governance.py --check && python3 .agents/scripts/bump_version_11x.py --workspace . --check && python3 .agents/scripts/verify_docs_invariants.py && python3 .agents/scripts/verify_roadmap_consistency.py && python3 .agents/scripts/verify_topological_health.py && python3 .agents/scripts/verify_json_no_duplicate_keys.py && ruff check tests/meta_qa .agents/scripts/release_readiness_gate.py && uv run --with pytest --with pytest-cov pytest -o cache_dir=/tmp/pytest-cache --import-mode=importlib tests/*.unit.py tests/meta_qa/test_governance_scripts.py -q"'
+      # Ejecuta tests/*.unit.py y tests/meta_qa/test_governance_scripts.py (más test_antipattern_linter.py) vía make test-py && make test-meta-qa
+      run: bash -c '[ ! -f scripts/generar-manifiesto.py ] && exit 0; docker run --rm --network none -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONPATH=/app/.agents/scripts -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 bash -c "python3 scripts/generar-manifiesto.py --check && python3 .agents/scripts/sync_governance.py --check && python3 .agents/scripts/bump_version_11x.py --workspace . --check && python3 .agents/scripts/verify_docs_invariants.py && python3 .agents/scripts/verify_roadmap_consistency.py && python3 .agents/scripts/verify_topological_health.py && python3 .agents/scripts/verify_json_no_duplicate_keys.py" && if command -v make >/dev/null 2>&1; then make test-py && make test-meta-qa; else docker run --rm --network none -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e HOME=/tmp -u "$(id -u):$(id -g)" -v "$(pwd):/app" -w /app sinfallas/base-python-uv:3.15 sh -c "make test-py && make test-meta-qa"; fi'
 
     karate-bdd-contracts:
       glob: "{mcp-server/**,manifest.json,.agents/skills/**}"
-      run: bash -c '[ ! -d mcp-server/test ] && exit 0; docker run --rm -v "$(pwd)/mcp-server/test:/app/src/test/java/examples/test:ro" -v "$(pwd):/repo:ro" sinfallas/karatelabs:1.5.1 mvn -B -q clean test'
+      run: bash -c '[ ! -d mcp-server/test ] && exit 0; docker run --rm --network none --security-opt=no-new-privileges:true -v "$(pwd)/mcp-server/test:/app/src/test/java/examples/test:ro" -v "$(pwd):/repo:ro" sinfallas/karatelabs:1.5.1 mvn -B -q clean test'
 
     bash-shellcheck-bats:
-      run: bash -c '[ ! -d bash-scripts/test ] && exit 0; docker run --rm -v "$(pwd):/repo:ro" -w /repo/bash-scripts sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7 bash -c "shellcheck -x ../scripts/*.sh ../.agents/scripts/*.sh ../instalar-hooks.sh ./*.sh && bats test/*.bats ../tests/bats/*.bats"'
+      run: bash -c '[ ! -d bash-scripts/test ] && exit 0; docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/repo:ro" -w /repo/bash-scripts sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7 bash -c "shellcheck -x ../scripts/*.sh ../.agents/scripts/*.sh ../instalar-hooks.sh ./*.sh && shfmt -i 2 -ci -d ../scripts/*.sh ../.agents/scripts/*.sh ../instalar-hooks.sh ./*.sh && bats test/*.bats ../tests/bats/*.bats"'
 
     calm-architecture-gate:
       run: bash -c '[ ! -x .agents/scripts/validate_calm_architecture.sh ] && exit 0; ./.agents/scripts/validate_calm_architecture.sh'

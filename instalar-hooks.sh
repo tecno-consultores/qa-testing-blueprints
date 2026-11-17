@@ -11,8 +11,8 @@ cd "${SCRIPT_DIR}"
 
 echo "🛡️ Configurando Barrera de Entrada Corporativa (Estándar QA 11X)..."
 
-if [ ! -d ".git" ]; then
-  echo "❌ Error: No se encontró un repositorio Git (.git) en $(pwd)." >&2
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "❌ Error: No se encontró un repositorio Git válido en $(pwd)." >&2
   exit 1
 fi
 
@@ -22,82 +22,111 @@ if command -v lefthook >/dev/null 2>&1; then
   exit 0
 fi
 
-mkdir -p .git/hooks
+HOOKS_DIR="$(git rev-parse --git-path hooks)"
+mkdir -p "${HOOKS_DIR}"
+BACKUP_TS="$(date +%Y%m%d%H%M%S)"
 
-cat > .git/hooks/pre-commit << 'EOF'
+backup_hook_if_unmanaged() {
+  local hook_path="$1"
+  if { [ -e "${hook_path}" ] || [ -L "${hook_path}" ]; } &&
+    ! grep -qF "# Managed by QA-11X instalar-hooks.sh" "${hook_path}" 2>/dev/null; then
+    local backup_path="${hook_path}.bak.${BACKUP_TS}"
+    mv "${hook_path}" "${backup_path}"
+    echo "📦 Hook previo respaldado en: ${backup_path}"
+  fi
+}
+
+backup_hook_if_unmanaged "${HOOKS_DIR}/pre-commit"
+cat >"${HOOKS_DIR}/pre-commit" <<'EOF'
 #!/usr/bin/env bash
+# Managed by QA-11X instalar-hooks.sh
 set -euo pipefail
-STAGED=$(git diff --cached --name-only --diff-filter=ACMR)
-if [ -n "${STAGED}" ] && [ -x "./scripts/verificar-secretos.sh" ]; then
-  # shellcheck disable=SC2086
-  ./scripts/verificar-secretos.sh ${STAGED}
+STAGED_FILES=()
+while IFS= read -r staged_file; do
+	[ -n "${staged_file}" ] && STAGED_FILES+=("${staged_file}")
+done < <(git diff --cached --name-only --diff-filter=ACMR)
+if [ "${#STAGED_FILES[@]}" -gt 0 ] && [ -x "./scripts/verificar-secretos.sh" ]; then
+	./scripts/verificar-secretos.sh "${STAGED_FILES[@]}"
 fi
 if [ -f "./.agents/scripts/sync_governance.py" ] && [ -f "./manifest.json" ]; then
-  docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 \
-    bash -c "python3 .agents/scripts/sync_governance.py --check && python3 .agents/scripts/verify_docs_invariants.py"
+	docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 \
+		bash -c "python3 .agents/scripts/sync_governance.py --check && python3 .agents/scripts/verify_docs_invariants.py"
 fi
 EOF
 
-cat > .git/hooks/commit-msg << 'EOF'
+backup_hook_if_unmanaged "${HOOKS_DIR}/commit-msg"
+cat >"${HOOKS_DIR}/commit-msg" <<'EOF'
 #!/usr/bin/env bash
+# Managed by QA-11X instalar-hooks.sh
 set -euo pipefail
 MSG_FILE="${1:-}"
 if [ -n "${MSG_FILE}" ] && [ -f "${MSG_FILE}" ]; then
-  FIRST_LINE=$(head -n 1 "${MSG_FILE}")
-  if ! printf '%s\n' "${FIRST_LINE}" | grep -Eq '^(Merge |Revert "|(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-zA-Z0-9_.,/-]+\))?!?: .+)'; then
-    echo "❌ [Conventional Commits] El mensaje no cumple el formato '<tipo>(<alcance>): <descripción>'." >&2
-    exit 1
-  fi
+	FIRST_LINE=$(head -n 1 "${MSG_FILE}")
+	if ! printf '%s\n' "${FIRST_LINE}" | grep -Eq '^(Merge |Revert ")' &&
+		! printf '%s\n' "${FIRST_LINE}" | grep -Eq '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|security)(\([a-z0-9._/-]+\))?!?: .{1,100}$'; then
+		echo "❌ [Conventional Commits] Formato requerido (<= 100 chars): ^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|security)(\([a-z0-9._/-]+\))?!?: .{1,100}$" >&2
+		exit 1
+	fi
 fi
 EOF
 
-cat > .git/hooks/pre-push << 'EOF'
+backup_hook_if_unmanaged "${HOOKS_DIR}/pre-push"
+cat >"${HOOKS_DIR}/pre-push" <<'EOF'
 #!/usr/bin/env bash
+# Managed by QA-11X instalar-hooks.sh
 set -euo pipefail
 if [ -x "./scripts/auditar-infra.sh" ]; then
-  ./scripts/auditar-infra.sh
+	./scripts/auditar-infra.sh
 fi
 MCP_CHANGED=false
 if ! git rev-parse --verify origin/main >/dev/null 2>&1; then
-  MCP_CHANGED=true
+	MCP_CHANGED=true
 elif git diff --name-only origin/main...HEAD | grep -Eq '^(mcp-server/|manifest\.json$)'; then
-  MCP_CHANGED=true
+	MCP_CHANGED=true
 fi
 if [ "${MCP_CHANGED}" = true ] && [ -f "./mcp-server/package.json" ]; then
-  MCP_EXTRA_VOLS=()
-  for dir in mobile-appium vibe-rescue .github; do
-    if [ -d "./${dir}" ]; then
-      MCP_EXTRA_VOLS+=(-v "$(pwd)/${dir}:/${dir}:ro")
-    fi
-  done
-  docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store \
-    -v "$(pwd)/mcp-server:/app" ${MCP_EXTRA_VOLS[@]+"${MCP_EXTRA_VOLS[@]}"} -w /app sinfallas/base-node-ionic:26 \
-    bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run lint && pnpm --silent run typecheck && pnpm --silent run test:unit && rm -rf coverage .eslintcache"
-  if [ -x "./scripts/probar-mcp-example.sh" ]; then
-    ./scripts/probar-mcp-example.sh --in-place
-  fi
+	MCP_EXTRA_VOLS=()
+	for dir in mobile-appium vibe-rescue .github; do
+		if [ -d "./${dir}" ]; then
+			MCP_EXTRA_VOLS+=(-v "$(pwd)/${dir}:/${dir}:ro")
+		fi
+	done
+	docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store \
+		-v "$(pwd)/mcp-server:/app" ${MCP_EXTRA_VOLS[@]+"${MCP_EXTRA_VOLS[@]}"} -w /app sinfallas/base-node-ionic:26 \
+		bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run lint && pnpm --silent run typecheck && pnpm --silent run test:unit && rm -rf coverage .eslintcache"
+	if [ -x "./scripts/probar-mcp-example.sh" ]; then
+		./scripts/probar-mcp-example.sh --in-place
+	fi
 fi
 if [ -f "./scripts/generar-manifiesto.py" ]; then
-  docker run --rm -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache \
-    -e PYTHONPATH=/app/.agents/scripts \
-    -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app" -w /app sinfallas/base-python-uv:3.15 \
-    bash -c "python3 scripts/generar-manifiesto.py --check && python3 .agents/scripts/sync_governance.py --check && python3 .agents/scripts/bump_version_11x.py --workspace . --check && python3 .agents/scripts/verify_docs_invariants.py && python3 .agents/scripts/verify_roadmap_consistency.py && python3 .agents/scripts/verify_topological_health.py && python3 .agents/scripts/verify_json_no_duplicate_keys.py && ruff check tests/meta_qa .agents/scripts/release_readiness_gate.py && uv run --with pytest --with pytest-cov pytest -o cache_dir=/tmp/pytest-cache --import-mode=importlib tests/*.unit.py tests/meta_qa/test_governance_scripts.py -q"
+	docker run --rm --network none -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache \
+		-e PYTHONPATH=/app/.agents/scripts \
+		-u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 \
+		bash -c "python3 scripts/generar-manifiesto.py --check && python3 .agents/scripts/sync_governance.py --check && python3 .agents/scripts/bump_version_11x.py --workspace . --check && python3 .agents/scripts/verify_docs_invariants.py && python3 .agents/scripts/verify_roadmap_consistency.py && python3 .agents/scripts/verify_topological_health.py && python3 .agents/scripts/verify_json_no_duplicate_keys.py"
+	# Ejecuta tests/*.unit.py y tests/meta_qa/test_governance_scripts.py (más test_antipattern_linter.py) vía make
+	if command -v make >/dev/null 2>&1; then
+		make test-py && make test-meta-qa
+	else
+		docker run --rm --network none -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e HOME=/tmp \
+			-u "$(id -u):$(id -g)" -v "$(pwd):/app" -w /app sinfallas/base-python-uv:3.15 \
+			sh -c "make test-py && make test-meta-qa"
+	fi
 fi
 if [ -d "./mcp-server/test" ]; then
-  docker run --rm -v "$(pwd)/mcp-server/test:/app/src/test/java/examples/test:ro" -v "$(pwd):/repo:ro" sinfallas/karatelabs:1.5.1 mvn -B -q clean test
+	docker run --rm --network none --security-opt=no-new-privileges:true -v "$(pwd)/mcp-server/test:/app/src/test/java/examples/test:ro" -v "$(pwd):/repo:ro" sinfallas/karatelabs:1.5.1 mvn -B -q clean test
 fi
 if [ -d "./bash-scripts/test" ]; then
-  docker run --rm -v "$(pwd):/repo:ro" -w /repo/bash-scripts sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7 \
-    bash -c "shellcheck -x ../scripts/*.sh ../.agents/scripts/*.sh ../instalar-hooks.sh ./*.sh && bats test/*.bats ../tests/bats/*.bats"
+	docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/repo:ro" -w /repo/bash-scripts sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7 \
+		bash -c "shellcheck -x ../scripts/*.sh ../.agents/scripts/*.sh ../instalar-hooks.sh ./*.sh && shfmt -i 2 -ci -d ../scripts/*.sh ../.agents/scripts/*.sh ../instalar-hooks.sh ./*.sh && bats test/*.bats ../tests/bats/*.bats"
 fi
 if [ -x "./.agents/scripts/validate_calm_architecture.sh" ]; then
-  ./.agents/scripts/validate_calm_architecture.sh
+	./.agents/scripts/validate_calm_architecture.sh
 fi
 if [ -x "./.agents/scripts/certify_task_completion.sh" ]; then
-  ./.agents/scripts/certify_task_completion.sh
+	./.agents/scripts/certify_task_completion.sh
 fi
 EOF
 
-chmod +x .git/hooks/pre-commit .git/hooks/commit-msg .git/hooks/pre-push
+chmod +x "${HOOKS_DIR}/pre-commit" "${HOOKS_DIR}/commit-msg" "${HOOKS_DIR}/pre-push"
 echo "✅ ¡Barrera Git POSIX activada sin contaminar el host (Rule Zero)!"
 exit 0

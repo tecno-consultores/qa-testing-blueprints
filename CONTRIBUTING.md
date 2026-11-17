@@ -72,6 +72,12 @@ All files inside the 10 stack directories follow a strict 3-category convention 
 2. When updating any of the 11 modular skills in `.agents/skills/`, keep within cognitive budgets (`qa-11x-architect/SKILL.md < 12 KB`, `tactical-patterns-11x/SKILL.md <= 2.5 KB`, others `< 20 KB`), update `catalogs/skillsllm-manifest.json`, and synchronize `docs/specs/`.
 3. Maintain the "zero complacency" philosophy and keep bilingual pairs (`*.md` + `*.es.md`) in exact 1:1 structural parity.
 
+### Commit Message Convention (Single Source of Truth)
+* [`lefthook.yml`](lefthook.yml) (`commit-msg` hook, mirrored in POSIX by [`instalar-hooks.sh`](instalar-hooks.sh) without Node.js dependencies) is the **single source of truth** for commit header validation.
+* Every commit subject line must follow Conventional Commits with a **`<= 100` characters** description limit matching:
+  `^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|security)(\([a-z0-9._/-]+\))?!?: .{1,100}$`
+* Scopes must use lowercase alphanumeric characters (`[a-z0-9._/-]+`); standard Git `Merge ` and `Revert "..."` headers are accepted automatically.
+
 ### Pull Request (PR)
 Open a PR detailing:
 * **Which technology, document, MCP tool, or skill are you modifying?**

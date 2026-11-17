@@ -30,7 +30,7 @@ while [ "$#" -gt 0 ]; do
       ARCH_ARG="${1#--arch=}"
       shift
       ;;
-    -h|--help)
+    -h | --help)
       usage
       exit 0
       ;;

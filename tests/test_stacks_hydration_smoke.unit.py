@@ -470,11 +470,16 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn(
-            'docker compose -f mcp-server/docker-compose.qa.yml run --rm -T '
-            '-u "$(id -u):$(id -g)"',
+            "make lint && make build && make test-mcp && make test-example",
             ci_workflow,
         )
-        self.assertIn("pnpm run test:example", ci_workflow)
+        root_makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+        self.assertIn('-u "$$(id -u):$$(id -g)"', root_makefile)
+        self.assertIn("pnpm install --frozen-lockfile --prefer-offline", root_makefile)
+        mcp_makefile = (REPO_ROOT / "mcp-server" / "Makefile").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('run --rm -T -u "$(QA_UID):$(QA_GID)"', mcp_makefile)
 
         node_targets = (
             ("mcp-server", "Makefile"),

@@ -72,6 +72,12 @@ Todos los archivos dentro de los 10 directorios de stack siguen una convención 
 2. Si actualizas cualquiera de las 11 skills modulares en `.agents/skills/`, mantén el presupuesto cognitivo (`qa-11x-architect/SKILL.md < 12 KB`, `tactical-patterns-11x/SKILL.md <= 2.5 KB`, resto `< 20 KB`), actualiza `catalogs/skillsllm-manifest.json` y sincroniza `docs/specs/`.
 3. Mantén la filosofía de "cero complacencia" y preserva la paridad estructural 1:1 entre parejas bilingües (`*.md` + `*.es.md`).
 
+### Convención de Mensajes de Commit (Fuente Única de Verdad)
+* [`lefthook.yml`](lefthook.yml) (hook `commit-msg`, replicado en POSIX por [`instalar-hooks.sh`](instalar-hooks.sh) sin dependencias de Node.js) es la **fuente única de verdad** para validar mensajes de commit.
+* Todo encabezado de commit debe seguir Conventional Commits con un límite **`<= 100` caracteres** en la descripción conforme a la expresión regular:
+  `^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|security)(\([a-z0-9._/-]+\))?!?: .{1,100}$`
+* Los alcances deben usar caracteres alfanuméricos en minúsculas (`[a-z0-9._/-]+`); las cabeceras estándar de Git `Merge ` y `Revert "..."` se aceptan automáticamente.
+
 ### Pull Request (PR)
 Abre un PR detallando:
 * **¿Qué tecnología, documento, herramienta MCP o skill estás modificando?**

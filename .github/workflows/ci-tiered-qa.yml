@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 #
-# Pipeline CI escalonado por radio de impacto AST (Graphify): PR acotado vs regresión nocturna.
+# Pipeline CI escalonado por radio de impacto AST (Graphify):
+# - PRs: planeamiento AST + suites blueprint no cubiertas por qa-11x-ci.yml (cero duplicación D12).
+# - Nocturno / Manual: regresión completa 11X multi-stack + certificación 10/10.
 
 name: QA 11X Tiered CI by AST Blast Radius
 
@@ -25,9 +27,10 @@ jobs:
   blast-radius-plan:
     name: Compute AST Blast Radius Plan
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     outputs:
       tier: ${{ steps.plan.outputs.tier }}
+      graph: ${{ steps.plan.outputs.graph }}
       run_frontend: ${{ steps.plan.outputs.run_frontend }}
       run_backend: ${{ steps.plan.outputs.run_backend }}
       run_mcp: ${{ steps.plan.outputs.run_mcp }}
@@ -39,132 +42,168 @@ jobs:
 
     steps:
       - name: Checkout repository with history for PR diff
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           fetch-depth: 0
+          persist-credentials: false
 
-      - name: Compute tiered test plan in ephemeral Python container (Rule Zero)
+      - name: Cache Graphify AST graph
+        id: cache-graph
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: graphify-out
+          key: ${{ runner.os }}-graphify-${{ hashFiles('**/*.py', '**/*.ts', '**/*.tsx', '**/*.js', '**/*.vue', '**/*.php', '**/*.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-graphify-
+
+      - name: Compute AST graph and tiered test plan in ephemeral Docker (Rule Zero)
         id: plan
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REF: ${{ github.base_ref }}
+          CACHE_HIT: ${{ steps.cache-graph.outputs.cache-hit }}
         run: |
-          : > "${RUNNER_TEMP}/changed_files.txt"
-          : > "${RUNNER_TEMP}/blast_outputs.txt"
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BASE_SHA="${{ github.event.pull_request.base.sha }}"
-            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          set -euo pipefail
+          CI_TMP_DIR="$(mktemp -d "${RUNNER_TEMP:-/tmp}/qa-11x-tiered-$$.XXXXXX")"
+          cleanup_tmp() {
+            rm -rf "${CI_TMP_DIR}" 2>/dev/null || true
+          }
+          trap cleanup_tmp EXIT
+
+          : > "${CI_TMP_DIR}/changed_files.txt"
+          : > "${CI_TMP_DIR}/blast_outputs.txt"
+
+          if [ "${EVENT_NAME}" = "pull_request" ]; then
             if [ -n "${BASE_SHA}" ] && [ -n "${HEAD_SHA}" ]; then
-              git diff --name-only "${BASE_SHA}" "${HEAD_SHA}" > "${RUNNER_TEMP}/changed_files.txt"
-            else
-              git diff --name-only "origin/${{ github.base_ref }}...HEAD" > "${RUNNER_TEMP}/changed_files.txt"
+              git diff --name-only "${BASE_SHA}" "${HEAD_SHA}" > "${CI_TMP_DIR}/changed_files.txt"
+            elif [ -n "${BASE_REF}" ]; then
+              if [[ ! "${BASE_REF}" =~ ^[A-Za-z0-9._/-]+$ ]] || [[ "${BASE_REF}" == *".."* ]]; then
+                echo "::error::Invalid BASE_REF '${BASE_REF}'." >&2
+                exit 1
+              fi
+              git diff --name-only "origin/${BASE_REF}...HEAD" > "${CI_TMP_DIR}/changed_files.txt"
             fi
           fi
-          docker run --rm \
+
+          if [ "${CACHE_HIT}" != "true" ] || [ ! -s "graphify-out/graph.json" ]; then
+            if ! docker run --rm --network none \
+              -u "$(id -u):$(id -g)" \
+              -e HOME=/tmp \
+              -e OLLAMA_BASE_URL="" \
+              -v "$(pwd):/app" \
+              -w /app \
+              sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0 \
+              sh -c "graphify extract . --code-only && graphify cluster-only ."; then
+              echo "::warning::Graphify AST extraction failed; continuing with prefix fallback." >&2
+            fi
+          fi
+
+          GRAPH_STATUS="SKIPPED"
+          if [ -s "graphify-out/graph.json" ]; then
+            GRAPH_STATUS="PASS"
+          else
+            echo "::warning::[graph=SKIPPED] graphify-out/graph.json unavailable; blast selector using prefix fallback." >&2
+          fi
+
+          docker run --rm --network none \
             -u "$(id -u):$(id -g)" \
             -e HOME=/tmp \
             -e PYTHONDONTWRITEBYTECODE=1 \
             -v "$(pwd):/app:ro" \
-            -v "${RUNNER_TEMP}:/ci-tmp" \
+            -v "${CI_TMP_DIR}:/ci-tmp" \
             -w /app \
             sinfallas/base-python-uv:3.15 \
             python3 .agents/scripts/select_tests_by_blast_radius.py \
-              --event "${{ github.event_name }}" \
+              --event "${EVENT_NAME}" \
               --changed-files-file /ci-tmp/changed_files.txt \
               --graph graphify-out/graph.json \
               --github-output /ci-tmp/blast_outputs.txt
-          cat "${RUNNER_TEMP}/blast_outputs.txt" >> "${GITHUB_OUTPUT}"
 
-  docs-and-calm-fast-gate:
-    name: Docs Invariants & Conditional CALM Gate
-    needs:
-      - blast-radius-plan
-    if: needs.blast-radius-plan.outputs.run_full_regression != 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - name: Verify documentation invariants and git gate
-        run: make lint-docs
-
-      - name: Validate FINOS CALM architecture when MCP or architecture changes
-        if: needs.blast-radius-plan.outputs.validate_calm == 'true'
-        run: make validate-calm
+          printf 'graph=%s\n' "${GRAPH_STATUS}" >> "${GITHUB_OUTPUT}"
+          cat "${CI_TMP_DIR}/blast_outputs.txt" >> "${GITHUB_OUTPUT}"
 
   targeted-frontend-qa:
-    name: Targeted Frontend Screenplay & Anti-Pattern QA
+    name: Targeted Frontend & Mobile Blueprints QA
     needs:
       - blast-radius-plan
     if: >-
-      needs.blast-radius-plan.outputs.run_full_regression != 'true' &&
-      needs.blast-radius-plan.outputs.run_frontend == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - name: Execute frontend Screenplay TS and antipattern linter (Rule Zero)
-        run: make test-frontend-blueprints
-
-  targeted-mcp-and-meta-qa:
-    name: Targeted MCP, Meta-QA & AI Offline Suites
-    needs:
-      - blast-radius-plan
-    if: >-
-      needs.blast-radius-plan.outputs.run_full_regression != 'true' &&
-      (needs.blast-radius-plan.outputs.run_mcp == 'true' ||
-       needs.blast-radius-plan.outputs.run_meta_qa == 'true' ||
-       needs.blast-radius-plan.outputs.run_ai_offline == 'true' ||
-       needs.blast-radius-plan.outputs.run_backend == 'true')
+      github.event_name == 'pull_request' &&
+      (needs.blast-radius-plan.outputs.run_frontend == 'true' ||
+       needs.blast-radius-plan.outputs.run_full_regression == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
 
-      - name: Run targeted MCP lint and unit suite
-        if: needs.blast-radius-plan.outputs.run_mcp == 'true'
-        run: make lint && make test-mcp
+      - name: Execute frontend & mobile Screenplay blueprints (Rule Zero)
+        run: make test-frontend-blueprints && make test-mobile-blueprints
 
-      - name: Run Meta-QA governance and linter suites
-        if: needs.blast-radius-plan.outputs.run_meta_qa == 'true' || needs.blast-radius-plan.outputs.run_backend == 'true'
-        run: make test-meta-qa && make test-py
-
-      - name: Run targeted backend contract and load blueprints (Rule Zero)
-        if: needs.blast-radius-plan.outputs.run_backend == 'true'
-        run: make test-backend-blueprints
-
-      - name: Run offline AI evaluation contracts
-        if: needs.blast-radius-plan.outputs.run_ai_offline == 'true'
-        run: make test-ai-offline
-
-  nightly-full-regression:
-    name: Full Regression & 10-Stage Certification (Nightly / High Blast)
+  targeted-backend-and-ai-qa:
+    name: Targeted Backend Contracts & AI Offline Blueprints QA
     needs:
       - blast-radius-plan
-    if: needs.blast-radius-plan.outputs.run_full_regression == 'true'
+    if: >-
+      github.event_name == 'pull_request' &&
+      (needs.blast-radius-plan.outputs.run_backend == 'true' ||
+       needs.blast-radius-plan.outputs.run_ai_offline == 'true' ||
+       needs.blast-radius-plan.outputs.run_full_regression == 'true')
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 15
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+
+      - name: Run targeted backend contract and load blueprints (Rule Zero)
+        if: needs.blast-radius-plan.outputs.run_backend == 'true' || needs.blast-radius-plan.outputs.run_full_regression == 'true'
+        run: make test-backend-blueprints
+
+      - name: Run offline AI evaluation contracts
+        if: needs.blast-radius-plan.outputs.run_ai_offline == 'true' || needs.blast-radius-plan.outputs.run_full_regression == 'true'
+        run: make test-ai-offline
+
+  nightly-full-regression:
+    name: Full Regression & 10-Stage Certification (Nightly / Manual)
+    needs:
+      - blast-radius-plan
+    if: github.event_name != 'pull_request' && needs.blast-radius-plan.outputs.run_full_regression == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           fetch-depth: 2
+          persist-credentials: false
 
       - name: Run full 11X QA regression and certification
         run: >-
           make test-frontend-blueprints &&
           make test-backend-blueprints &&
+          make test-mobile-blueprints &&
           make test-meta-qa &&
           make test-ai-offline &&
           make test-py &&
           make lint &&
+          make build &&
           make test-mcp &&
+          make test-example &&
+          make test-karate &&
+          make shellcheck &&
+          make shfmt &&
+          make test-bats &&
           make validate-calm &&
           make lint-workflows &&
           make lint-docs &&
+          make version-check &&
+          make diff-cov &&
           make certify

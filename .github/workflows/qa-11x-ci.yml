@@ -14,61 +14,37 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   certify-11x-and-mcp-qa:
     name: Gate 10/10 & Ephemeral Docker QA (Rule Zero)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           fetch-depth: 2
+          persist-credentials: false
 
-      - name: Execute Python Governance Validators & Unit Suite in Ephemeral Docker (Rule Zero)
-        run: |
-          docker run --rm \
-            -e COVERAGE_FILE=/tmp/.coverage \
-            -e UV_CACHE_DIR=/tmp/uv-cache \
-            -e RUFF_CACHE_DIR=/tmp/ruff-cache \
-            -e HOME=/tmp \
-            -u "$(id -u):$(id -g)" \
-            -v "$(pwd):/app" \
-            -w /app \
-            sinfallas/base-python-uv:3.15 \
-            bash -c "python3 scripts/generar-manifiesto.py --check && \
-              python3 .agents/scripts/sync_governance.py --check && \
-              python3 .agents/scripts/bump_version_11x.py --workspace . --check && \
-              python3 .agents/scripts/verify_docs_invariants.py && \
-              python3 .agents/scripts/verify_roadmap_consistency.py && \
-              python3 .agents/scripts/verify_topological_health.py && \
-              python3 .agents/scripts/verify_json_no_duplicate_keys.py && \
-              ruff check tests/meta_qa .agents/scripts/release_readiness_gate.py && \
-              uv run --with pytest --with pytest-cov pytest -o cache_dir=/tmp/pytest-cache --import-mode=importlib tests/*.unit.py tests/meta_qa/test_governance_scripts.py -q"
+      - name: Validate workflows, docs, version & CALM architecture
+        run: make lint-workflows && make lint-docs && make version-check && make validate-calm
 
-      - name: Execute MCP Server QA Suite in Ephemeral Docker (Rule Zero)
-        run: |
-          docker compose -f mcp-server/docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" mcp-server bash -c \
-            "pnpm install --frozen-lockfile && pnpm run lint && pnpm run typecheck && pnpm run build && pnpm run test:unit && pnpm run test:example && rm -rf coverage .eslintcache"
+      - name: Execute Bash ShellCheck, shfmt & BATS suites
+        run: make shellcheck && make shfmt && make test-bats
 
-      - name: Execute Karate Labs BDD Contract Suite in Ephemeral Docker (Rule Zero)
-        run: |
-          docker run --rm \
-            -v "$(pwd)/mcp-server/test:/app/src/test/java/examples/test:ro" \
-            -v "$(pwd):/repo:ro" \
-            sinfallas/karatelabs:1.5.1 mvn -B clean test
+      - name: Execute Python unit & Meta-QA governance suites
+        run: make test-py && make test-meta-qa
 
-      - name: Execute Bash Scripts BATS & ShellCheck in Ephemeral Docker (Rule Zero)
-        run: |
-          docker run --rm \
-            -v "$(pwd):/repo:ro" \
-            -w /repo/bash-scripts \
-            sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7 \
-            bash -c "shellcheck -x ../scripts/*.sh ../.agents/scripts/*.sh ../instalar-hooks.sh ./*.sh && bats test/*.bats ../tests/bats/*.bats"
+      - name: Execute MCP Server lint, build, unit & clean-room example E2E
+        run: make lint && make build && make test-mcp && make test-example
 
-      - name: Validate FINOS CALM Architecture in Ephemeral Docker (Rule Zero)
-        run: bash ./.agents/scripts/validate_calm_architecture.sh
+      - name: Execute Karate Labs BDD contract suite
+        run: make test-karate
 
-      - name: Run 10-Stage Certification Gate
-        run: bash ./.agents/scripts/certify_task_completion.sh
+      - name: Verify differential coverage & 10-stage certification gate
+        run: make diff-cov && make certify

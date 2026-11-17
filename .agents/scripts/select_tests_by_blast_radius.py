@@ -25,7 +25,6 @@ CRITICAL_EXACT: frozenset[str] = frozenset(
     {
         ".trivy.yaml",
         "Makefile",
-        "commitlint.config.js",
         "docker-compose.qa.yml",
         "docker-compose.yml",
         "lefthook.yml",

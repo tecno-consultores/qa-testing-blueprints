@@ -1,5 +1,13 @@
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
+#
+# QA-11X Composite PR Check Action.
+# Adoption tiers (input.tier): starter | standard | enterprise
+# Blast-radius execution tiers (output.blast-plan-tier):
+#   - docs-only: documentation-only changes (omits code/runtime gates; ~85% compute savings)
+#   - pr-targeted: scoped code changes via AST blast radius (runs affected gates; ~40-60% savings)
+#   - nightly-full: scheduled or manual full-suite regression across all stacks
+#   - full-regression: critical files, security keywords, or high AST caller count (>=15)
 
 name: 'QA-11X PR-Aware Quality Gate'
 description: 'Proportional PR-aware QA-11X adoption gate using ephemeral non-root Docker containers (Rule Zero) and AST blast-radius selection.'
@@ -10,7 +18,7 @@ branding:
 
 inputs:
   tier:
-    description: 'starter | standard | enterprise'
+    description: 'QA-11X adoption tier (starter | standard | enterprise). Controls gate depth alongside blast-plan-tier (docs-only | pr-targeted | nightly-full | full-regression).'
     required: false
     default: 'starter'
   lang:
@@ -36,14 +44,17 @@ inputs:
 
 outputs:
   tier:
-    description: 'Validated QA-11X adoption tier'
+    description: 'Validated QA-11X adoption tier (starter | standard | enterprise)'
     value: ${{ steps.compute-pr-diff.outputs.tier }}
   blast-plan-tier:
-    description: 'Computed blast radius classification (docs-only | pr-targeted | full)'
+    description: 'Computed blast radius classification (docs-only | pr-targeted | nightly-full | full-regression)'
     value: ${{ steps.blast-radius-plan.outputs.blast-plan-tier }}
   estimated-savings-pct:
     description: 'Estimated CI compute savings percentage'
     value: ${{ steps.blast-radius-plan.outputs.estimated-savings-pct }}
+  graph:
+    description: 'AST graph availability/generation status (PASS | SKIPPED)'
+    value: ${{ steps.blast-radius-plan.outputs.graph }}
   verdict:
     description: 'Final proportional gate verdict (PASS | FAIL | SKIPPED)'
     value: ${{ steps.run-proportional-gates.outputs.verdict }}
@@ -100,7 +111,18 @@ runs:
         fi
 
         cd "${INPUT_WORKDIR}"
-        CHANGED_FILE="/tmp/qa11x-pr-changed.txt"
+        QA_TMP_DIR="${RUNNER_TEMP:-/tmp}/qa-11x-ci-$$"
+        mkdir -p "${QA_TMP_DIR}"
+        chmod 0700 "${QA_TMP_DIR}"
+        cleanup_diff_on_error() {
+          local rc=$?
+          if [ "${rc}" -ne 0 ]; then
+            rm -rf "${QA_TMP_DIR}" 2>/dev/null || true
+          fi
+        }
+        trap cleanup_diff_on_error EXIT
+
+        CHANGED_FILE="${QA_TMP_DIR}/qa11x-pr-changed.txt"
         : > "${CHANGED_FILE}"
 
         if [ "${EVENT_NAME:-pull_request}" = "pull_request" ] && [ -n "${PR_BASE_SHA:-}" ] && [ -n "${PR_HEAD_SHA:-}" ]; then
@@ -113,7 +135,17 @@ runs:
 
         if [ -n "${GITHUB_OUTPUT:-}" ]; then
           printf 'tier=%s\n' "${INPUT_TIER}" >> "${GITHUB_OUTPUT}"
+          printf 'tmp-dir=%s\n' "${QA_TMP_DIR}" >> "${GITHUB_OUTPUT}"
         fi
+
+    - name: Cache Graphify AST graph
+      id: cache-graph
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: ${{ inputs.working-directory }}/graphify-out
+        key: ${{ runner.os }}-graphify-${{ hashFiles('**/*.py', '**/*.ts', '**/*.tsx', '**/*.js', '**/*.vue', '**/*.php', '**/*.sh') }}
+        restore-keys: |
+          ${{ runner.os }}-graphify-
 
     - name: Compute AST blast radius plan (Rule Zero)
       id: blast-radius-plan
@@ -122,24 +154,65 @@ runs:
         INPUT_WORKDIR: ${{ inputs.working-directory }}
         INPUT_PYTHON_IMAGE: ${{ inputs.python-image }}
         EVENT_NAME: ${{ github.event_name }}
+        SHARED_TMP_DIR: ${{ steps.compute-pr-diff.outputs.tmp-dir }}
+        CACHE_HIT: ${{ steps.cache-graph.outputs.cache-hit }}
       run: |
         set -euo pipefail
         cd "${INPUT_WORKDIR}"
 
-        CHANGED_FILE="/tmp/qa11x-pr-changed.txt"
-        BLAST_TMP="/tmp/qa11x-blast-outputs.txt"
+        OWN_TMP=0
+        QA_TMP_DIR="${SHARED_TMP_DIR:-}"
+        if [ -z "${QA_TMP_DIR}" ]; then
+          QA_TMP_DIR="${RUNNER_TEMP:-/tmp}/qa-11x-ci-$$"
+          mkdir -p "${QA_TMP_DIR}"
+          chmod 0700 "${QA_TMP_DIR}"
+          OWN_TMP=1
+        fi
+        cleanup_blast_tmp() {
+          local rc=$?
+          if [ "${OWN_TMP}" -eq 1 ] || [ "${rc}" -ne 0 ]; then
+            rm -rf "${QA_TMP_DIR}" 2>/dev/null || true
+          fi
+        }
+        trap cleanup_blast_tmp EXIT
+
+        CHANGED_FILE="${QA_TMP_DIR}/qa11x-pr-changed.txt"
+        BLAST_TMP="${QA_TMP_DIR}/qa11x-blast-outputs.txt"
+        [ -f "${CHANGED_FILE}" ] || : > "${CHANGED_FILE}"
         : > "${BLAST_TMP}"
 
         BLAST_TIER="pr-targeted"
         SAVINGS_PCT="50"
+        GRAPH_STATUS="SKIPPED"
+
+        if [ -f ".agents/scripts/select_tests_by_blast_radius.py" ] || [ -f ".agents/scripts/inspect_blast_radius.py" ]; then
+          if [ "${CACHE_HIT:-false}" != "true" ] || [ ! -s "graphify-out/graph.json" ]; then
+            if ! docker run --rm --network none \
+              -u "$(id -u):$(id -g)" \
+              -e HOME=/tmp \
+              -e OLLAMA_BASE_URL="" \
+              -v "$(pwd):/app" \
+              -w /app \
+              sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0 \
+              sh -c "graphify extract . --code-only && graphify cluster-only ."; then
+              echo "::warning::Graphify AST extraction unavailable; using fallback AST handling." >&2
+            fi
+          fi
+          if [ -s "graphify-out/graph.json" ]; then
+            GRAPH_STATUS="PASS"
+          fi
+        fi
 
         if [ -f ".agents/scripts/select_tests_by_blast_radius.py" ]; then
-          docker run --rm \
+          if [ "${GRAPH_STATUS}" != "PASS" ]; then
+            echo "::warning::[graph=SKIPPED] graphify-out/graph.json unavailable; blast selector using prefix fallback." >&2
+          fi
+          docker run --rm --network none \
             -u "$(id -u):$(id -g)" \
             -e HOME=/tmp \
             -e PYTHONDONTWRITEBYTECODE=1 \
             -v "$(pwd):/app:ro" \
-            -v "/tmp:/ci-tmp" \
+            -v "${QA_TMP_DIR}:/ci-tmp" \
             -w /app \
             "${INPUT_PYTHON_IMAGE}" \
             python3 .agents/scripts/select_tests_by_blast_radius.py \
@@ -152,17 +225,46 @@ runs:
           PARSED_SAVINGS="$(grep -E '^estimated_savings_pct=' "${BLAST_TMP}" | tail -n 1 | cut -d= -f2 || true)"
           [ -n "${PARSED_TIER}" ] && BLAST_TIER="${PARSED_TIER}"
           [ -n "${PARSED_SAVINGS}" ] && SAVINGS_PCT="${PARSED_SAVINGS}"
+        elif [ -f ".agents/scripts/inspect_blast_radius.py" ] && [ -s "${CHANGED_FILE}" ]; then
+          FIRST_CHANGED="$(head -n 1 "${CHANGED_FILE}")"
+          INSPECT_RC=0
+          docker run --rm --network none \
+            -u "$(id -u):$(id -g)" \
+            -e HOME=/tmp \
+            -e PYTHONDONTWRITEBYTECODE=1 \
+            -v "$(pwd):/app:ro" \
+            -w /app \
+            "${INPUT_PYTHON_IMAGE}" \
+            python3 .agents/scripts/inspect_blast_radius.py --allow-missing -- "${FIRST_CHANGED}" || INSPECT_RC=$?
+          if [ "${INSPECT_RC}" -eq 2 ] || [ "${GRAPH_STATUS}" != "PASS" ]; then
+            GRAPH_STATUS="SKIPPED"
+            echo "::warning::[graph=SKIPPED] inspect_blast_radius fallback (rc=${INSPECT_RC})." >&2
+          fi
+          NON_DOC_COUNT="$(grep -vcE '(\.md$|^docs/)' "${CHANGED_FILE}" || true)"
+          if [ "${NON_DOC_COUNT}" -eq 0 ]; then
+            BLAST_TIER="docs-only"
+            SAVINGS_PCT="85"
+          fi
+        elif [ "${EVENT_NAME:-pull_request}" = "schedule" ] || [ "${EVENT_NAME:-pull_request}" = "workflow_dispatch" ]; then
+          BLAST_TIER="nightly-full"
+          SAVINGS_PCT="0"
         elif [ -s "${CHANGED_FILE}" ]; then
           NON_DOC_COUNT="$(grep -vcE '(\.md$|^docs/)' "${CHANGED_FILE}" || true)"
           if [ "${NON_DOC_COUNT}" -eq 0 ]; then
             BLAST_TIER="docs-only"
             SAVINGS_PCT="85"
           fi
+        else
+          BLAST_TIER="full-regression"
+          SAVINGS_PCT="0"
         fi
 
         if [ -n "${GITHUB_OUTPUT:-}" ]; then
-          printf 'blast-plan-tier=%s\n' "${BLAST_TIER}" >> "${GITHUB_OUTPUT}"
-          printf 'estimated-savings-pct=%s\n' "${SAVINGS_PCT}" >> "${GITHUB_OUTPUT}"
+          {
+            printf 'blast-plan-tier=%s\n' "${BLAST_TIER}"
+            printf 'estimated-savings-pct=%s\n' "${SAVINGS_PCT}"
+            printf 'graph=%s\n' "${GRAPH_STATUS}"
+          } >> "${GITHUB_OUTPUT}"
         fi
 
     - name: Run proportional QA-11X gates (Rule Zero)
@@ -176,14 +278,19 @@ runs:
         INPUT_NODE_IMAGE: ${{ inputs.node-image }}
         BLAST_PLAN_TIER: ${{ steps.blast-radius-plan.outputs.blast-plan-tier }}
         SAVINGS_PCT: ${{ steps.blast-radius-plan.outputs.estimated-savings-pct }}
+        GRAPH_STATUS: ${{ steps.blast-radius-plan.outputs.graph }}
+        SHARED_TMP_DIR: ${{ steps.compute-pr-diff.outputs.tmp-dir }}
       run: |
         set -euo pipefail
         cd "${INPUT_WORKDIR}"
 
+        GATE_TMP_DIR="${RUNNER_TEMP:-/tmp}/qa-11x-ci-$$"
+        mkdir -p "${GATE_TMP_DIR}"
+        chmod 0700 "${GATE_TMP_DIR}"
         SKIPPED_GATES=0
         FINAL_VERDICT=""
         CERTIFY_LOG=""
-        SUMMARY_FILE="${GITHUB_STEP_SUMMARY:-/tmp/qa11x-step-summary.md}"
+        SUMMARY_FILE="${GITHUB_STEP_SUMMARY:-${GATE_TMP_DIR}/qa11x-step-summary.md}"
 
         write_gate_verdict() {
           local rc=$?
@@ -207,6 +314,7 @@ runs:
             echo "| Lang | \`${INPUT_LANG}\` |"
             echo "| Blast Plan | \`${BLAST_PLAN_TIER:-pr-targeted}\` |"
             echo "| Est. Savings | \`${SAVINGS_PCT:-50}%\` |"
+            echo "| AST Graph | \`${GRAPH_STATUS:-SKIPPED}\` |"
             echo "| Skipped Gates | \`${SKIPPED_GATES}\` |"
             echo "| Verdict | **${verdict}** |"
           } >> "${SUMMARY_FILE}"
@@ -215,6 +323,10 @@ runs:
           fi
           if [ -n "${CERTIFY_LOG}" ]; then
             rm -f "${CERTIFY_LOG}" 2>/dev/null || true
+          fi
+          rm -rf "${GATE_TMP_DIR}" 2>/dev/null || true
+          if [ -n "${SHARED_TMP_DIR:-}" ] && [ "${SHARED_TMP_DIR}" != "${GATE_TMP_DIR}" ]; then
+            rm -rf "${SHARED_TMP_DIR}" 2>/dev/null || true
           fi
           exit "${rc}"
         }
@@ -309,7 +421,7 @@ runs:
             ./.agents/scripts/validate_calm_architecture.sh
           fi
 
-          CERTIFY_LOG="$(mktemp /tmp/qa11x-certify.XXXXXX.log)"
+          CERTIFY_LOG="$(mktemp "${GATE_TMP_DIR}/qa11x-certify.XXXXXX.log")"
           if [ -f "Makefile" ] && grep -q '^certify:' Makefile; then
             make certify 2>&1 | tee "${CERTIFY_LOG}"
           elif [ -x ".agents/scripts/certify_task_completion.sh" ]; then

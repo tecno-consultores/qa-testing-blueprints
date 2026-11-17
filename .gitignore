@@ -225,3 +225,6 @@ errorShots/
 *.ipa
 *.aab
 promptfoo-*results.json
+
+# Overrides locales de Git Hooks (Lefthook)
+lefthook-local.yml

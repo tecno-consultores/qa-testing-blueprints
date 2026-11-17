@@ -20,7 +20,7 @@ for arg in "$@"; do
     --strict)
       STRICT_MODE=true
       ;;
-    -h|--help)
+    -h | --help)
       printf 'Uso: %s [--strict]\n' "$0"
       exit 0
       ;;
@@ -184,21 +184,21 @@ write_allure_failure_json() {
     QA_LOG_FILE="${gate_log}" \
     QA_STEPS_FILE="${GATE_STEPS_LOG}" \
     run_py_rule_zero \
-      --stdin \
-      --docker-arg -v --docker-arg "${GATE_TMP_DIR}:/qa-tmp:ro" \
-      --docker-arg -v --docker-arg "${diag_dir}:/qa-diag" \
-      --docker-arg -e --docker-arg "QA_DIAG_PATH=/qa-diag/$(basename "${DIAGNOSTIC_JSON_PATH}")" \
-      --docker-arg -e --docker-arg "QA_LOG_FILE=/qa-tmp/$(basename "${gate_log}")" \
-      --docker-arg -e --docker-arg "QA_STEPS_FILE=/qa-tmp/$(basename "${GATE_STEPS_LOG}")" \
-      --docker-arg -e --docker-arg QA_GATE_NUM \
-      --docker-arg -e --docker-arg QA_GATE_NAME \
-      --docker-arg -e --docker-arg QA_CMD \
-      --docker-arg -e --docker-arg QA_RC \
-      --docker-arg -e --docker-arg QA_REMEDIATION \
-      --docker-arg -e --docker-arg QA_AGENT_NAME \
-      --docker-arg -e --docker-arg QA_AGENT_VERSION \
-      --docker-arg -e --docker-arg QA_ENVIRONMENT \
-      -- - <<'PYEOF' 2>/dev/null || true
+    --stdin \
+    --docker-arg -v --docker-arg "${GATE_TMP_DIR}:/qa-tmp:ro" \
+    --docker-arg -v --docker-arg "${diag_dir}:/qa-diag" \
+    --docker-arg -e --docker-arg "QA_DIAG_PATH=/qa-diag/$(basename "${DIAGNOSTIC_JSON_PATH}")" \
+    --docker-arg -e --docker-arg "QA_LOG_FILE=/qa-tmp/$(basename "${gate_log}")" \
+    --docker-arg -e --docker-arg "QA_STEPS_FILE=/qa-tmp/$(basename "${GATE_STEPS_LOG}")" \
+    --docker-arg -e --docker-arg QA_GATE_NUM \
+    --docker-arg -e --docker-arg QA_GATE_NAME \
+    --docker-arg -e --docker-arg QA_CMD \
+    --docker-arg -e --docker-arg QA_RC \
+    --docker-arg -e --docker-arg QA_REMEDIATION \
+    --docker-arg -e --docker-arg QA_AGENT_NAME \
+    --docker-arg -e --docker-arg QA_AGENT_VERSION \
+    --docker-arg -e --docker-arg QA_ENVIRONMENT \
+    -- - <<'PYEOF' 2>/dev/null || true
 import json
 import os
 import re
@@ -502,7 +502,7 @@ gate_10_doc_and_test_sync() {
     fi
   fi
 
-  raw_code_candidates=$(printf '%s\n' "${all_changed}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|bash-scripts|php|mcp-server|mobile-appium|ai-evals|vibe-rescue|catalogs|architecture|backend|frontend|scripts)/|\.agents/(scripts|schemas|skills|rules)/|((.*/)?Makefile(\.example)?)$|\.github/(workflows|actions)/|(manifest\.json|llms\.txt|\.trivy\.yaml|lefthook\.yml|commitlint\.config\.js|instalar-hooks\.sh)$)' | grep -vE '(^|/)graphify-out/' || true)
+  raw_code_candidates=$(printf '%s\n' "${all_changed}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|bash-scripts|php|mcp-server|mobile-appium|ai-evals|vibe-rescue|catalogs|architecture|backend|frontend|scripts)/|\.agents/(scripts|schemas|skills|rules)/|((.*/)?Makefile(\.example)?)$|\.github/(workflows|actions)/|(manifest\.json|llms\.txt|\.trivy\.yaml|lefthook\.yml|instalar-hooks\.sh)$)' | grep -vE '(^|/)graphify-out/' || true)
   code_changes=$(printf '%s\n' "${raw_code_candidates}" | awk '/^$/ {next} /^\.agents\/(skills|rules)\// {print; next} /\.md$/ {next} {print}' || true)
   exec_src_changes=$(printf '%s\n' "${code_changes}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|php|mcp-server|mobile-appium|backend|frontend)/src/|src/|bash-scripts/|vibe-rescue/|ai-evals/|scripts/|\.agents/scripts/|instalar-hooks\.sh$)' | grep -vE '(\.unit\.(py|ts|tsx)|\.e2e\.ts|test_.*\.py|.*\.test\.(ts|js)|\.feature|\.bats)' || true)
   test_sync_changes=$(printf '%s\n' "${code_changes}" | grep -E '^(\.agents/(schemas|skills|rules)/|(manifest\.json|llms\.txt)$)' || true)

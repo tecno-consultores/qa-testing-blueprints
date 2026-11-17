@@ -8,21 +8,21 @@ Valida:
 1. Menú de ayuda CLI (--help / -h) y opciones disponibles.
 2. Detección y rechazo de ejecución sin token NPM_TOKEN en modo real.
 3. Rechazo de token con valor de plantilla de ejemplo.
-4. Lectura controlada de NPM_TOKEN desde .env.
-5. Ejecución en modo simulación (--dry-run) sin interactuar con la red de publicación.
-6. Manejo de flags inválidos.
+4. Verificación pre-pack de frescura de dist/index.js (ignore-scripts=true).
+5. Bucle resiliente de verificación CDN y manejo de flags inválidos.
 """
 
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT_PATH = REPO_ROOT / "scripts" / "publicar-mcp.sh"
+SAMPLE_PKG_JSON = '{"name": "@sinfallas/mcp-qa-11x", "version": "3.1.0"}\n'
 
 
 class TestPublicarMcp(unittest.TestCase):
@@ -61,30 +61,53 @@ class TestPublicarMcp(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("Opción no reconocida", result.stderr)
 
+    def _create_publish_sandbox(
+        self, tmpdir: str, docker_stub: str | None = None, *, with_dist: bool = True
+    ) -> tuple[Path, Path, Path]:
+        fake_root = Path(tmpdir)
+        fake_mcp = fake_root / "mcp-server"
+        fake_src = fake_mcp / "src"
+        fake_src.mkdir(parents=True)
+        (fake_mcp / "package.json").write_text(SAMPLE_PKG_JSON, encoding="utf-8")
+        src_file = fake_src / "index.ts"
+        src_file.write_text("export const v = 1;\n", encoding="utf-8")
+
+        if with_dist:
+            fake_dist = fake_mcp / "dist"
+            fake_dist.mkdir(parents=True)
+            dist_file = fake_dist / "index.js"
+            dist_file.write_text("export const v = 1;\n", encoding="utf-8")
+            src_mtime = src_file.stat().st_mtime
+            os.utime(dist_file, (src_mtime + 10, src_mtime + 10))
+
+        fake_scripts = fake_root / "scripts"
+        fake_scripts.mkdir()
+        fake_script = fake_scripts / "publicar-mcp.sh"
+        fake_script.write_text(
+            SCRIPT_PATH.read_text(encoding="utf-8"), encoding="utf-8"
+        )
+        fake_script.chmod(0o755)
+
+        fake_clean = fake_scripts / "limpieza.sh"
+        fake_clean.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        fake_clean.chmod(0o755)
+
+        fake_bin = fake_root / "bin"
+        fake_bin.mkdir()
+        if docker_stub is not None:
+            fake_docker = fake_bin / "docker"
+            fake_docker.write_text(docker_stub, encoding="utf-8")
+            fake_docker.chmod(0o755)
+        return fake_root, fake_script, fake_bin
+
     def test_missing_token_in_real_mode_fails_cleanly(self):
-        # Aseguramos un entorno limpio sin NPM_TOKEN
         env = dict(os.environ)
         env.pop("NPM_TOKEN", None)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            # Creamos un repo falso sin .env
-            fake_root = Path(tmpdir)
-            fake_mcp = fake_root / "mcp-server"
-            fake_mcp.mkdir()
-            fake_pkg = fake_mcp / "package.json"
-            fake_pkg.write_text('{"name": "@sinfallas/mcp-qa-11x", "version": "2.7.0"}\n', encoding="utf-8")
-
-            fake_scripts = fake_root / "scripts"
-            fake_scripts.mkdir()
-            fake_script = fake_scripts / "publicar-mcp.sh"
-            fake_script.write_text(SCRIPT_PATH.read_text(encoding="utf-8"), encoding="utf-8")
-            fake_script.chmod(0o755)
-
-            # Fallback mock para scripts/limpieza.sh
-            fake_clean = fake_scripts / "limpieza.sh"
-            fake_clean.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
-            fake_clean.chmod(0o755)
-
+            fake_root, fake_script, _ = self._create_publish_sandbox(
+                tmpdir, with_dist=False
+            )
             result = subprocess.run(
                 [str(fake_script)],
                 capture_output=True,
@@ -100,22 +123,9 @@ class TestPublicarMcp(unittest.TestCase):
         env["NPM_TOKEN"] = "npm_TU_TOKEN_DE_NPMJS_AQUI"
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            fake_root = Path(tmpdir)
-            fake_mcp = fake_root / "mcp-server"
-            fake_mcp.mkdir()
-            fake_pkg = fake_mcp / "package.json"
-            fake_pkg.write_text('{"name": "@sinfallas/mcp-qa-11x", "version": "2.7.0"}\n', encoding="utf-8")
-
-            fake_scripts = fake_root / "scripts"
-            fake_scripts.mkdir()
-            fake_script = fake_scripts / "publicar-mcp.sh"
-            fake_script.write_text(SCRIPT_PATH.read_text(encoding="utf-8"), encoding="utf-8")
-            fake_script.chmod(0o755)
-
-            fake_clean = fake_scripts / "limpieza.sh"
-            fake_clean.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
-            fake_clean.chmod(0o755)
-
+            fake_root, fake_script, _ = self._create_publish_sandbox(
+                tmpdir, with_dist=False
+            )
             result = subprocess.run(
                 [str(fake_script)],
                 capture_output=True,
@@ -124,7 +134,10 @@ class TestPublicarMcp(unittest.TestCase):
                 env=env,
             )
             self.assertEqual(result.returncode, 1)
-            self.assertIn("Variable NPM_TOKEN no configurada o contiene el valor de ejemplo", result.stderr)
+            self.assertIn(
+                "Variable NPM_TOKEN no configurada o contiene el valor de ejemplo",
+                result.stderr,
+            )
 
     def test_missing_package_json_fails(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -132,7 +145,9 @@ class TestPublicarMcp(unittest.TestCase):
             fake_scripts = fake_root / "scripts"
             fake_scripts.mkdir()
             fake_script = fake_scripts / "publicar-mcp.sh"
-            fake_script.write_text(SCRIPT_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+            fake_script.write_text(
+                SCRIPT_PATH.read_text(encoding="utf-8"), encoding="utf-8"
+            )
             fake_script.chmod(0o755)
 
             result = subprocess.run(
@@ -145,13 +160,99 @@ class TestPublicarMcp(unittest.TestCase):
             self.assertIn("No se encontró mcp-server/package.json", result.stderr)
 
     def test_cdn_retry_loop_present_in_publish_script(self):
-        """Verifica que scripts/publicar-mcp.sh implemente el bucle resiliente de verificación CDN (Hito 8)."""
+        """Verifica verificación CDN resiliente y guarda pre-pack."""
         content = SCRIPT_PATH.read_text(encoding="utf-8")
         self.assertIn("VERIFY_ATTEMPTS=6", content)
         self.assertIn("VERIFY_DELAY=5", content)
         self.assertIn("Verificando propagación en el CDN", content)
         self.assertIn("Esperando propagación asíncrona del CDN", content)
         self.assertIn("npm publish concluyó con éxito", content)
+        self.assertIn("ensure_fresh_dist_before_pack", content)
+
+    def test_prepack_fails_when_dist_stays_missing_or_stale(self):
+        """Bloquea empaquetado si ignore-scripts=true y dist/index.js falta/obsoleto."""
+        docker_noop_stub = (
+            "#!/usr/bin/env bash\n"
+            'printf "%s\\n" "$*" >> "${DOCKER_LOG_FILE}"\n'
+            "exit 0\n"
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            fake_root, fake_script, fake_bin = self._create_publish_sandbox(
+                tmpdir, docker_noop_stub, with_dist=False
+            )
+            log_file = fake_root / "docker.log"
+            env = dict(os.environ)
+            env["PATH"] = f"{fake_bin}:{env.get('PATH', '')}"
+            env["DOCKER_LOG_FILE"] = str(log_file)
+
+            res = subprocess.run(
+                [str(fake_script), "--dry-run", "--skip-tests"],
+                capture_output=True,
+                text=True,
+                cwd=str(fake_root),
+                env=env,
+            )
+            self.assertEqual(res.returncode, 1)
+            self.assertIn("dist/index.js ausente o desactualizado", res.stderr)
+            self.assertNotIn("npm pack --dry-run", log_file.read_text(encoding="utf-8"))
+
+    def test_prepack_rebuilds_stale_dist_and_completes_dry_run(self):
+        """Detecta dist/index.js obsoleto, recompila en Docker y completa dry-run."""
+        docker_rebuild_stub = (
+            "#!/usr/bin/env bash\n"
+            'printf "%s\\n" "$*" >> "${DOCKER_LOG_FILE}"\n'
+            'if [[ "$*" == *"npm pack --dry-run"* ]]; then\n'
+            '  echo "npm notice package size: 42.0 kB"\n'
+            '  echo "npm notice total files: 12"\n'
+            "  exit 0\n"
+            "fi\n"
+            'if [[ "$*" == *"npm view"* ]]; then\n'
+            "  exit 1\n"
+            "fi\n"
+            'if [[ "$*" == *"pnpm --silent run build"* ]]; then\n'
+            "  count=0\n"
+            '  [ -f "${BUILD_COUNT_FILE}" ] && count=$(cat "${BUILD_COUNT_FILE}")\n'
+            "  count=$((count + 1))\n"
+            '  printf "%s" "${count}" > "${BUILD_COUNT_FILE}"\n'
+            '  if [ "${count}" -ge 2 ]; then\n'
+            '    mkdir -p "${MCP_DIR_PATH}/dist"\n'
+            '    echo "export const ok = 1;" > "${MCP_DIR_PATH}/dist/index.js"\n'
+            "  fi\n"
+            "fi\n"
+            "exit 0\n"
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            fake_root, fake_script, fake_bin = self._create_publish_sandbox(
+                tmpdir, docker_rebuild_stub, with_dist=True
+            )
+            dist_file = fake_root / "mcp-server" / "dist" / "index.js"
+            src_file = fake_root / "mcp-server" / "src" / "index.ts"
+            old_mtime = src_file.stat().st_mtime - 60
+            os.utime(dist_file, (old_mtime, old_mtime))
+
+            log_file = fake_root / "docker.log"
+            build_count_file = fake_root / "build.count"
+            env = dict(os.environ)
+            env["PATH"] = f"{fake_bin}:{env.get('PATH', '')}"
+            env["DOCKER_LOG_FILE"] = str(log_file)
+            env["BUILD_COUNT_FILE"] = str(build_count_file)
+            env["MCP_DIR_PATH"] = str(fake_root / "mcp-server")
+
+            res = subprocess.run(
+                [str(fake_script), "--dry-run", "--skip-tests"],
+                capture_output=True,
+                text=True,
+                cwd=str(fake_root),
+                env=env,
+            )
+            self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+            self.assertIn("recompilando en Docker", res.stdout)
+            self.assertIn("dist/index.js presente y actualizado", res.stdout)
+            self.assertIn("SIMULACIÓN EXITOSA", res.stdout)
+            self.assertEqual(build_count_file.read_text(encoding="utf-8"), "2")
+            logged = log_file.read_text(encoding="utf-8")
+            self.assertIn("pnpm --silent run build", logged)
+            self.assertIn("npm pack --dry-run", logged)
 
 
 if __name__ == "__main__":

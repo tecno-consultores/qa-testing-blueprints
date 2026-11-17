@@ -116,7 +116,6 @@ STACK_METADATA: dict[str, dict[str, str]] = {
 
 COMMON_FILE_PATHS: tuple[str, ...] = (
     "lefthook.yml",
-    "commitlint.config.js",
     "scripts/auditar-infra.sh",
     "scripts/auditar-pagespeed.sh",
     "scripts/verificar-secretos.sh",
@@ -282,7 +281,7 @@ def classify_common_file(rel_path: str) -> tuple[str, str]:
     filename = Path(rel_path).name
     if filename.endswith(".sh"):
         return rel_path, "overwrite_executable"
-    if filename in ("commitlint.config.js", ".trivy.yaml", ".env.example"):
+    if filename in (".trivy.yaml", ".env.example"):
         return rel_path, "copy_if_missing"
     return rel_path, "surgical_merge"
 

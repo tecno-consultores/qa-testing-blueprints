@@ -151,7 +151,7 @@ class TestGenerarManifiesto(unittest.TestCase):
         """Verifica la clasificación de archivos comunes."""
         cases = [
             ("auditar-infra.sh", "auditar-infra.sh", "overwrite_executable"),
-            ("commitlint.config.js", "commitlint.config.js", "copy_if_missing"),
+            (".env.example", ".env.example", "copy_if_missing"),
             (".trivy.yaml", ".trivy.yaml", "copy_if_missing"),
             ("lefthook.yml", "lefthook.yml", "surgical_merge"),
         ]
@@ -438,6 +438,8 @@ class TestGenerarManifiesto(unittest.TestCase):
         self.assertNotIn("8.1", gm.STACK_METADATA["php"]["description"])
         self.assertIn("scripts/actualizar-grafos-graphify.sh", gm.COMMON_FILE_PATHS)
         self.assertIn("scripts/auditar-pagespeed.sh", gm.COMMON_FILE_PATHS)
+        self.assertNotIn("commitlint.config.js", gm.COMMON_FILE_PATHS)
+        self.assertNotIn("commitlint.config.js", sg_mod.COMMON_FILE_PATHS)
 
     def test_mermaid_blocks_have_no_broken_html_tags(self) -> None:
         """Verifica bloques Mermaid sin etiquetas HTML rotas ni escapes \\n."""

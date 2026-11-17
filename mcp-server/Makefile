@@ -4,25 +4,25 @@ export QA_UID := $(shell id -u)
 export QA_GID := $(shell id -g)
 
 install:
-	@docker compose -f docker-compose.qa.yml run --rm -u "$(QA_UID):$(QA_GID)" mcp-server bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent"
+	@docker compose -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" mcp-server bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent"
 
 qa-lint:
-	@docker compose -f docker-compose.qa.yml run --rm -u "$(QA_UID):$(QA_GID)" mcp-server bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run lint"
+	@docker compose -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" mcp-server bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run lint"
 
 qa-typecheck:
-	@docker compose -f docker-compose.qa.yml run --rm -u "$(QA_UID):$(QA_GID)" mcp-server bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run typecheck"
+	@docker compose -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" mcp-server bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run typecheck"
 
 qa-unit:
-	@docker compose -f docker-compose.qa.yml run --rm -u "$(QA_UID):$(QA_GID)" mcp-server bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run test:unit"
+	@docker compose -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" mcp-server bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run test:unit"
 
 qa-example:
-	@docker compose -f docker-compose.qa.yml run --rm -u "$(QA_UID):$(QA_GID)" -e QA_BLUEPRINTS_LOCAL_PATH=/app mcp-server bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run build && pnpm run test:example"
+	@docker compose -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" -e QA_BLUEPRINTS_LOCAL_PATH=/app mcp-server bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run build && pnpm run test:example"
 
 qa-e2e:
-	@docker compose -f docker-compose.qa.yml run --rm karatelabs mvn -B clean test
+	@docker compose -f docker-compose.qa.yml run --rm -T karatelabs mvn -B clean test
 
 build:
-	@docker compose -f docker-compose.qa.yml run --rm -u "$(QA_UID):$(QA_GID)" mcp-server bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run build"
+	@docker compose -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" mcp-server bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run build"
 
 qa-all: qa-lint qa-typecheck qa-unit qa-example qa-e2e build
 

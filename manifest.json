@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "3.1.0",
-  "generated_at_utc": "2026-11-17T05:05:38Z",
+  "generated_at_utc": "2026-11-17T05:32:41Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -45,8 +45,8 @@
           "path": "ai-evals/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "2a75d67f7508744f3b27d883a17917877b8a333faa22e383d9e8cc682d6d8275",
-          "size_bytes": 4056
+          "sha256": "e6ec3853746389063a933e8e74b1570f46aebe1809b6ae55ffa62b5a560cf3bb",
+          "size_bytes": 4083
         },
         {
           "path": "ai-evals/multimodal-ocr/test_pdf_table_fidelity.py",
@@ -110,8 +110,8 @@
           "path": "bash-scripts/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "79a219f3b964488e53649b837f6e34ff8ee935bfc4596ad3092328b9292016f3",
-          "size_bytes": 3539
+          "sha256": "55c7435845c742dc280f6f6a46989e5a570cd2161921475ddfc38c1ef757f213",
+          "size_bytes": 3563
         },
         {
           "path": "bash-scripts/test/ejemplo_mock.bats",
@@ -247,8 +247,8 @@
           "path": "mobile-appium/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "3919d27c6d2fd0122bfceb4c3d808465a508ed74d5d7a6b638b938d47e423042",
-          "size_bytes": 3507
+          "sha256": "94fff0a7c374d0ce078c96806377e6e217995e566b64439e32eb5df2bb937ce3",
+          "size_bytes": 3532
         },
         {
           "path": "mobile-appium/package.json.example",
@@ -740,8 +740,8 @@
           "path": "vibe-rescue/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "9ce4a2fb5b3878d4e17d39ebaef38a9d23867ea639da6e401a5ab85780b9dea5",
-          "size_bytes": 3885
+          "sha256": "73647018cbbc348a0c63b06c78d84bd3d48b279be4d4135d42967206f165fc65",
+          "size_bytes": 3910
         },
         {
           "path": "vibe-rescue/templates/rls_hardening.sql",
@@ -932,18 +932,11 @@
       "size_bytes": 896
     },
     {
-      "path": "commitlint.config.js",
-      "target_name": "commitlint.config.js",
-      "merge_strategy": "copy_if_missing",
-      "sha256": "0273fc8684dbc5f36444753ccc6b746ec80e4e80c03c8be73a3b7f74b0be4afc",
-      "size_bytes": 2981
-    },
-    {
       "path": "lefthook.yml",
       "target_name": "lefthook.yml",
       "merge_strategy": "surgical_merge",
-      "sha256": "5372e2ba6673b9c509c2064a831a770373f4643b6157058f3f721f5c6de43c28",
-      "size_bytes": 8190
+      "sha256": "60641f73b20758206d31db1348e152f4f249daa01275716e3e80bcc901615bbc",
+      "size_bytes": 9658
     },
     {
       "path": "scripts/actualizar-grafos-graphify.sh",
@@ -970,22 +963,22 @@
       "path": "scripts/generar-sbom-cyclonedx.sh",
       "target_name": "scripts/generar-sbom-cyclonedx.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "3f69dd298e6c4cab6881e0893de05ee1539177cfbd7665763bfc30149f3842c8",
-      "size_bytes": 869
+      "sha256": "2184226b130267977f5f8e7bbb70b4dd8313fec770d5822543c4b67506ca9aab",
+      "size_bytes": 1369
     },
     {
       "path": "scripts/limpieza.sh",
       "target_name": "scripts/limpieza.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "7446dde73eab10b454bce216d0b387f07b60dc61ba67882352e6fd36b564f4dc",
-      "size_bytes": 14477
+      "sha256": "e2476623c8b364e8687dfca3337db8c2db279191914854bb2900a24843ae7279",
+      "size_bytes": 14469
     },
     {
       "path": "scripts/verificar-secretos.sh",
       "target_name": "scripts/verificar-secretos.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "271823c554ff08e7f4f38dcd2aa09fd6976147cd3cf04da6648f61f7da2a1fa1",
-      "size_bytes": 2961
+      "sha256": "7eec184887f70325b177a2c26d3a71165eafe1642bd1064867c5d911ab7b12ec",
+      "size_bytes": 3175
     }
   ],
   "agent_governance_files": [
@@ -1091,8 +1084,8 @@
       "path": ".agents/scripts/certify_task_completion.sh",
       "target_name": ".agents/scripts/certify_task_completion.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "ae5a56ad54d30776e3bebc7f00fcd2485f6bed4ff533113abfbf7d122aaf7ebb",
-      "size_bytes": 24787
+      "sha256": "ac3f928dc0163e364c24ea0037b20cb1a182a6ccc80c4508707c9af2a3ffe8c6",
+      "size_bytes": 24736
     },
     {
       "path": ".agents/scripts/checkpoint_ctl.py",
@@ -1140,15 +1133,15 @@
       "path": ".agents/scripts/select_tests_by_blast_radius.py",
       "target_name": ".agents/scripts/select_tests_by_blast_radius.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "feb997bc9d0bc5fad7c3fd4202d407aab603819c6d2d96577e566148567dce81",
-      "size_bytes": 15623
+      "sha256": "5642bdbb44f4a08a0a1f43b15c9c88322d16b7272f9098080818fe93efd5a016",
+      "size_bytes": 15591
     },
     {
       "path": ".agents/scripts/sync_governance.py",
       "target_name": ".agents/scripts/sync_governance.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "b69a51f139a2562277e975f82b6b1f5d9cf9d23d9a8613ae23380473ddd70ebb",
-      "size_bytes": 38297
+      "sha256": "ec07823a7a7af170a0aa3fd6f86dab36c048aef481289b909ded5b1a3064e829",
+      "size_bytes": 38245
     },
     {
       "path": ".agents/scripts/track_findings_state.py",
@@ -1161,8 +1154,8 @@
       "path": ".agents/scripts/validate_calm_architecture.sh",
       "target_name": ".agents/scripts/validate_calm_architecture.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "e4e044db220311c9ef92435141abd0854c317b26f0fb2d0844f88dc9eb3724a4",
-      "size_bytes": 10064
+      "sha256": "39bfcb687d006d569b20695d13d2e19f8e936989a0bd53e9c035636944fa2f53",
+      "size_bytes": 10066
     },
     {
       "path": ".agents/scripts/verify_alembic_orm_parity.py",

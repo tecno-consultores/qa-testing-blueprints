@@ -7,8 +7,21 @@
 
 set -euo pipefail
 
+if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
+  echo "Uso: ./scripts/generar-sbom-cyclonedx.sh [archivo_salida_relativo]"
+  echo "  Por defecto genera sbom.cyclonedx.json en la raíz del repositorio."
+  exit 0
+fi
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUTPUT_FILE="${1:-sbom.cyclonedx.json}"
+
+if [[ "${OUTPUT_FILE}" == /* ]] || [[ "${OUTPUT_FILE}" == *".."* ]] || [ -z "${OUTPUT_FILE}" ]; then
+  echo "ERROR: La ruta de salida debe ser relativa dentro del repositorio (recibido: '${OUTPUT_FILE}')." >&2
+  exit 1
+fi
+
+mkdir -p "$(dirname "${REPO_ROOT}/${OUTPUT_FILE}")"
 
 docker run --rm \
   -u "$(id -u):$(id -g)" \

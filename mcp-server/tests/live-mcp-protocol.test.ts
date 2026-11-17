@@ -185,12 +185,29 @@ function extractFirstText(result: { content: unknown }): string {
   return items[0]?.text ?? '';
 }
 
+function getLatestTsMtimeMs(dirPath: string): number {
+  if (!fs.existsSync(dirPath)) return 0;
+  let latest = 0;
+  for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
+    const fullPath = path.join(dirPath, entry.name);
+    const mtime = entry.isDirectory()
+      ? getLatestTsMtimeMs(fullPath)
+      : entry.name.endsWith('.ts')
+        ? fs.statSync(fullPath).mtimeMs
+        : 0;
+    if (mtime > latest) latest = mtime;
+  }
+  return latest;
+}
+
 function ensureBuiltDistEntry(): string {
   const mcpRoot = fs.existsSync(path.resolve(process.cwd(), 'src', 'index.ts'))
     ? process.cwd()
     : path.resolve(process.cwd(), 'mcp-server');
   const distEntry = path.join(mcpRoot, 'dist', 'index.js');
-  if (!fs.existsSync(distEntry)) {
+  const srcLatestMtime = getLatestTsMtimeMs(path.join(mcpRoot, 'src'));
+  const needsBuild = !fs.existsSync(distEntry) || srcLatestMtime > fs.statSync(distEntry).mtimeMs;
+  if (needsBuild) {
     const localTsc = path.join(mcpRoot, 'node_modules', '.bin', 'tsc');
     if (fs.existsSync(localTsc)) {
       execFileSync(localTsc, [], { cwd: mcpRoot, stdio: 'pipe' });

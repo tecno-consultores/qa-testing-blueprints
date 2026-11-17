@@ -39,7 +39,7 @@ fi
 FILTERED_FILES=()
 for file in "${TARGET_FILES[@]}"; do
   [ -n "$file" ] || continue
-  if [ -f "$file" ] && [[ ! "$file" =~ \.(png|jpg|jpeg|gif|ico|pdf|lock|svg|pyc|example)$ ]] &&
+  if [ -f "$file" ] && [[ ! "$file" =~ \.(png|jpg|jpeg|gif|ico|pdf|lock|svg|pyc)$ ]] &&
     [[ ! "$file" =~ (^|/)(tests?|__tests__)/ ]] &&
     [[ ! "$file" =~ \.(unit|spec|test)\.(py|ts|tsx|js|jsx)$ ]] &&
     [[ ! "$file" =~ \.bats$ ]] &&
@@ -56,7 +56,7 @@ if [ "${#TARGET_FILES[@]}" -gt 0 ] && [ "${#FILTERED_FILES[@]}" -eq 0 ]; then
 fi
 
 SECRET_REGEX='-----BEGIN (RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----|((npm|ghp|gho|ghu|ghs)_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|glpat-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16})|(password|passwd|secret|api_key|token)[=:] *["'\'']?[A-Za-z0-9_/-]{16,}["'\'']?'
-PLACEHOLDER_REGEX='(TU_TOKEN|placeholder|example|dummy|test-load-token|mock|fake|changeme|ephemeral|xxxxxx|123456|env\.|process\.env|os\.environ|\$\{)'
+PLACEHOLDER_REGEX='(TU_TOKEN|tu_clave_aqui|tu_token_aqui|CHANGE[_-]?ME|EXAMPLE_ONLY|example_placeholder|YOUR_TOKEN_EXAMPLE|TU_TOKEN_EXAMPLE|sk-proj-placeholder|placeholder|dummy|00000000|test-load-token|mock|fake|ephemeral|xxxxxx|123456|<[^>]+>|https?://(127\.0\.0\.1|localhost|0\.0\.0\.0|\[::1\]|([a-z0-9-]+\.)?example\.(com|org|net))|env\.|process\.env|os\.environ|\$\{)'
 
 MATCHED_FILES=()
 for f in "${FILTERED_FILES[@]}"; do

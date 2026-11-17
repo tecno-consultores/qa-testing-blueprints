@@ -51,9 +51,13 @@
   },
   "files": [
     "dist/**/*",
+    "LICENSE",
     "README.md",
-    "CHANGELOG.md"
+    "README.es.md",
+    "CHANGELOG.md",
+    "CHANGELOG.es.md"
   ],
+  "packageManager": "pnpm@12.18.0",
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "pnpm run build",
@@ -64,7 +68,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.4",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "zod": "^3.24.1"
   },
   "devDependencies": {
@@ -79,7 +83,7 @@
     "vitest": "^2.1.8"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=24.0.0"
   },
   "publishConfig": {
     "access": "public"

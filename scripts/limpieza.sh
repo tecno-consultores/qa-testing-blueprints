@@ -182,10 +182,10 @@ find . \
 find . \
   \( -name ".git" -o -name "node_modules" -o -name ".venv" -o -name "venv" -o -name "vendor" \) -prune \
   -o -type f \( \
-    -name "*.py[cod]" -o -name "*\$py.class" -o \
-    -name ".DS_Store" -o -name "._*" -o -name "Thumbs.db" -o -name "ehthumbs.db" -o -name "Desktop.ini" -o \
-    -name "*.swp" -o -name "*.swo" -o -name "*.swn" -o -name "*~" -o -name ".#*" -o -name "#*#" -o \
-    -name "*.orig" -o -name "*.rej" -o -name "*.bak" \
+  -name "*.py[cod]" -o -name "*\$py.class" -o \
+  -name ".DS_Store" -o -name "._*" -o -name "Thumbs.db" -o -name "ehthumbs.db" -o -name "Desktop.ini" -o \
+  -name "*.swp" -o -name "*.swo" -o -name "*.swn" -o -name "*~" -o -name ".#*" -o -name "#*#" -o \
+  -name "*.orig" -o -name "*.rej" -o -name "*.bak" \
   \) -exec rm -f {} + 2>/dev/null || true
 
 # 5. Fallback con contenedor efímero Alpine para archivos creados por UID 0 (root) o UID 10001 (base-node-ionic) y normalización UID:GID
