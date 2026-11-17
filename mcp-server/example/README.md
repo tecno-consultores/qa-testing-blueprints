@@ -1,6 +1,9 @@
-# 🧪 Full-Stack Seed Project for E2E Certification of `@sinfallas/mcp-qa-11x` (`example/`)
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores) -->
 
-> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (README.es.md)](README.es.md)
+> 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](README.es.md)
+
+# 🧪 Full-Stack Seed Project for E2E Certification of `@sinfallas/mcp-qa-11x` (`example/`)
 
 This directory implements the **end-to-end reference and smoke project (`example/`)** for the `@sinfallas/mcp-qa-11x` MCP server, analogous to the `example/` folder of corporate Docker images (`sinfallas/base-node-ionic`).
 
@@ -10,7 +13,7 @@ Instead of testing MCP tools solely through isolated unit tests, the [`run-examp
 
 ## 🛠️ Real Coverage Certified on Every Run
 
-1. **13 Dynamic Resources (`blueprint://*,` supporting `?lang=es|en`):**
+1. **13 Dynamic Resources (`blueprint://*`, supporting `?lang=es|en`):**
    - `blueprint://manifest`
    - `blueprint://core/philosophy`
    - `blueprint://security/disa-owasp-22`

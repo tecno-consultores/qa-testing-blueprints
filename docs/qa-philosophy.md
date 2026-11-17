@@ -1,4 +1,4 @@
-> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (qa-philosophy.es.md)](qa-philosophy.es.md)
+> 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](qa-philosophy.es.md)
 
 # Quality Philosophy (QA Philosophy)
 

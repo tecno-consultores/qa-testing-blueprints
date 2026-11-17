@@ -1,6 +1,6 @@
 # 🗺️ Hoja de Ruta Maestra (ROADMAP.es.md) — Ecosistema Zero-Clone: Skill + Servidor MCP (Estándar 11X)
 
-> 🌐 **Idioma / Language:** [🇬🇧 English (ROADMAP.md)](ROADMAP.md) | **Español (Espejo 1:1)**
+> 🌐 **Idioma:** [🇺🇸 English (Canonical)](ROADMAP.md) · **Español (Espejo 1:1)**
 
 **Proyecto:** QA Testing Blueprints (`tecno-consultores/qa-testing-blueprints`)  
 **Arquitectura Objetivo:** Distribución Zero-Clone en Node.js (`npx -y @sinfallas/mcp-qa-11x@latest`) + Skill Cognitiva (`qa-11x-architect`) + Hidratación Bajo Demanda desde GitHub con Verificación SHA-256 (`manifest.json`)  
@@ -34,14 +34,14 @@
 | **Hito 15** | Endurecimiento Integral `v2.16.0` de los 7 Stacks Corporativos, Contrato *Thin-Repo*, Hooks POSIX Rule-Zero y Convergencia 10/10 de Compuertas | [`TESTING.es.md`](TESTING.es.md) + [`SECURITY.es.md`](SECURITY.es.md) | ✅ Completado | `100%` |
 | **Hito 16** | Invariante Anti-Silo Pre-Auth Multi-Etapa (`SEC-16`), Presupuesto Cognitivo `SKILL.md < 20 KB` y Verificador Documental Determinista (`verify_docs_invariants.py`) | [`SECURITY.es.md`](SECURITY.es.md) §4.20 + `02-security-disa-owasp-22.md` | ✅ Completado | `100%` |
 | **Hito 17** | Paridad Pre-Push 1:1 con CI (`v2.17.0`) en MCP `qa-11x`: Sello de Evidencia `lint`, Stages `integration`/`ci`, Parser de Endpoints Dinámicos e Invariantes Python/PostgreSQL 17 (`QA-MYPY-01`, `QA-PG17-RLS`, `importlib`) | `03-stack-python-fastapi.md` + `08-postgres-rls-zero-downtime-migrations.md` | ✅ Completado | `100%` |
-| **Hito 18** | Internacionalización v2.18.0: Idioma Espejo Dinámico, Flag `--lang (auto/es/en)`, Targets `codex`/`windsurf` y Guías Multi-Agente EN/ES | [`docs/agent-setup.md`](docs/agent-setup.md) + [`docs/agent-setup.es.md`](docs/agent-setup.es.md) | ✅ Completado | `100%` |
-| **Hito 19** | Invariante Anti-Silo #9 (`QA-HEALTH-01`), Nivelación Documental Humana 1:1 (`docs/02` y `docs/04`) y Gobernanza Dual-Consumer en `propose_skill_evolution_pr` y `verify_docs_invariants.py` | [`docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md`](docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md) + `SECURITY.es.md` §4.22 | ✅ Completado | `100%` |
-| **Hito 20** | Detección de Versión sin Red Redundante (`.qa-11x-version` + TTL 24h Fail-Open), Aviso `update_available` en Tools y Auto-Sync Global de Skills por SHA-256 (`v2.20.0`) | [`docs/ai-integration.md`](docs/ai-integration.md) + [`docs/agent-setup.es.md`](docs/agent-setup.es.md) | ✅ Completado | `100%` |
+| **Hito 18** | Internacionalización v2.18.0: Idioma Espejo Dinámico, Flag `--lang (auto/es/en)`, Targets `codex`/`windsurf` y Guías Multi-Agente EN/ES | [`docs/agent-setup.es.md`](docs/agent-setup.es.md) (`docs/agent-setup.md`) | ✅ Completado | `100%` |
+| **Hito 19** | Invariante Anti-Silo #9 (`QA-HEALTH-01`), Nivelación Documental Humana 1:1 (`docs/02` y `docs/04`) y Gobernanza Dual-Consumer en `propose_skill_evolution_pr` y `verify_docs_invariants.py` | [`docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.es.md`](docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.es.md) + `SECURITY.es.md` §4.22 | ✅ Completado | `100%` |
+| **Hito 20** | Detección de Versión sin Red Redundante (`.qa-11x-version` + TTL 24h Fail-Open), Aviso `update_available` en Tools y Auto-Sync Global de Skills por SHA-256 (`v2.20.0`) | [`docs/ai-integration.es.md`](docs/ai-integration.es.md) + [`docs/agent-setup.es.md`](docs/agent-setup.es.md) | ✅ Completado | `100%` |
 | **Hito 21** | Cobertura Diferencial Multi-Stack (`verify_diff_coverage.py`), Persistencia Efímera de Reportes y Bloqueo Anti-Evasión | [`16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md`](docs/specs/16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md) | ✅ Completado | `100%` |
 | **Hito 22** | Memoria Determinista de Hallazgos y Cortacircuitos Anti-Loop (`exit 42`) en `run_ephemeral_qa` y `certify` | [`17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md`](docs/specs/17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md) | ✅ Completado | `100%` |
 | **Hito 23** | Modo Diferencial en `inspect_ast_blast_radius` (Cero Inflación MCP) y Exportador Ejecutivo `PR_VERDICT.md` | [`18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md`](docs/specs/18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md) | ✅ Completado | `100%` |
-| **Hito 24** | Auditoría Integral `QA-11X v3.0` (`v3.0.0`), Sincronizador `bump_version_11x.py`, Protocolo MCP en Vivo y Planificación `19_SPEC` / `20_SPEC` | [`19_SPEC`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md) + [`20_SPEC`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md) | ✅ Completado | `100%` |
-| **Hito 25** | Matriz 15×12, `base-mobile-appium:26` y Arquitectura Documental Bilingüe | [`19_SPEC`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md) + [`20_SPEC`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md) | ✅ Completado | `100%` |
+| **Hito 24** | Auditoría Integral `QA-11X v3.0` (`v3.0.0`), Sincronizador `bump_version_11x.py`, Protocolo MCP en Vivo y Planificación `19_SPEC` / `20_SPEC` | [`19_SPEC`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md) + [`20_SPEC`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.es.md) | ✅ Completado | `100%` |
+| **Hito 25** | Matriz 15×12, `base-mobile-appium:26` y Arquitectura Documental Bilingüe | [`19_SPEC`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md) + [`20_SPEC`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.es.md) | ✅ Completado | `100%` |
 | **Hito 26** | `QA-11X v3.1` (`3.1.0`) — Flight Recorder Atómico, `tactical-patterns-11x`, Hidratación 10 Stacks y Endurecimiento Fail-Closed | [`AGENTS.md`](AGENTS.md) + [`TESTING.es.md`](TESTING.es.md) | ✅ Completado | `100%` |
 
 ---
@@ -136,7 +136,7 @@
 - [x] **7.3.** Registrar la Tool 9 (`audit_test_pyramid_gaps`) con su esquema Zod (`AuditTestPyramidInputSchema`) en `mcp-server/src/server.ts`.
 - [x] **7.4.** Incorporar el **Playbook 6 (Existing Project Test Gap Audit & 13-Layer Rescue)** en `.agents/skills/qa-11x-architect/SKILL.md` y sincronizar `manifest.json` con `python3 scripts/generar-manifiesto.py`.
 - [x] **7.5.** Crear la suite de pruebas unitarias `mcp-server/tests/test-pyramid-auditor.unit.ts` (cubriendo los escenarios trimodales: proyecto virgen 0%, proyecto brownfield parcial y proyecto 11X al 100%, manteniendo cobertura global `>= 95.0%`) y actualizar `mcp-server/test/mcp_cli_test.feature`.
-- [x] **7.6.** Actualizar `README.md`, `TESTING.md`, `docs/ai-integration.md` y `CHANGELOG.md` documentando la 9.ª herramienta del servidor MCP (`audit_test_pyramid_gaps`) y certificar con `./.agents/scripts/certify_task_completion.sh`.
+- [x] **7.6.** Actualizar `README.md`, `TESTING.md`, `docs/ai-integration.md` y `CHANGELOG.md` documentando `audit_test_pyramid_gaps` y certificar con `./.agents/scripts/certify_task_completion.sh`.
 
 ---
 
@@ -210,8 +210,8 @@
 ### Tareas de Implementación:
 - [x] **13.1.** Añadir en `mcp-server/src/types.ts` los contratos `ReconcileAgentsInputSchema`, `ReconciledRuleItem` y `ReconcileAgentsResult`.
 - [x] **13.2.** Implementar `mcp-server/src/cli/reconcile-agents.ts` (`reconcileAgentsGovernance`, `isPromotedSection`, `splitMarkdownSections`, respaldo automático en `.agents/backups/<timestamp>/`, poda de directivas ya promovidas al estándar global y extracción segura de reglas específicas del proyecto hacia `.agents/rules/domain_<project>_rules.md`).
-- [x] **13.3.** Registrar la Tool 12 (`reconcile_agents_governance`) en `mcp-server/src/server.ts`, exponer el subcomando CLI `reconcile-agents` en `mcp-server/src/index.ts`, actualizar `mcp-server/src/cli/install-skill.ts` para instalar también los 7 archivos canónicos `.agents/rules/*.md` con `--include-scripts` y ejecutar reconciliación previa con `--reconcile`, actualizar `buildConnectorBlock()` y añadir `syncGlobalGeminiMd()` en `mcp-server/src/cli/init-agents-md.ts` (sincronizando no destructivamente `~/.gemini/GEMINI.md` e incluyendo la directiva obligatoria de Post-Mortem de Escapes QA con `propose_skill_evolution_pr`), e inyectar `upstream_evolution_reminder` en la salida de `certify_11x_gate` (`mcp-server/src/tools/certify-gate.ts`).
-- [x] **13.4.** Crear la suite unitaria `mcp-server/tests/reconcile-agents.unit.ts` (validando deduplicación en proyectos tipo `rosgrid`, preservación de archivos `domain_*.md`, respaldos en `.agents/backups/`, modo `dry_run`, `syncGlobalGeminiMd` y `upstream_evolution_reminder`, manteniendo cobertura global `>= 95.0%` en contenedor efímero `sinfallas/base-node-ionic:26`) y actualizar `mcp-server/test/mcp_cli_test.feature`.
+- [x] **13.3.** Registrar la Tool 12 (`reconcile_agents_governance`) en `mcp-server/src/server.ts`, exponer el subcomando CLI `reconcile-agents` en `mcp-server/src/index.ts`, actualizar `mcp-server/src/cli/install-skill.ts` para instalar también los archivos canónicos `.agents/rules/*.md` con `--include-scripts` y ejecutar reconciliación previa con `--reconcile`, actualizar `buildConnectorBlock()` y añadir `syncGlobalGeminiMd()` en `mcp-server/src/cli/init-agents-md.ts` (sincronizando no destructivamente `~/.gemini/GEMINI.md` e incluyendo la directiva obligatoria de Post-Mortem de Escapes QA con `propose_skill_evolution_pr`), e inyectar `upstream_evolution_reminder` en la salida de `certify_11x_gate` (`mcp-server/src/tools/certify-gate.ts`).
+- [x] **13.4.** Crear la suite unitaria `mcp-server/tests/reconcile-agents.unit.ts` (validando deduplicación en proyectos tipo `rosgrid`, preservación de archivos `domain_*.md`, respaldos en `.agents/backups/`, modo `dry_run`, `syncGlobalGeminiMd` y `upstream_evolution_reminder`, manteniendo cobertura global `>= 95.0%`) y actualizar `mcp-server/test/mcp_cli_test.feature`.
 - [x] **13.5.** Sincronizar `README.md`, `TESTING.md`, `docs/ai-integration.md`, `.agents/skills/qa-11x-architect/SKILL.md`, `.agents/skills/graphify-ast-navigator/SKILL.md` y `CHANGELOG.md`, blindar el protocolo obligatorio de 11 directrices operativas y ciclo de vida del grafo AST (`scripts/actualizar-grafos-graphify.sh` e `inspect_ast_blast_radius`) tanto para uso local como para consumidores del MCP, regenerar `manifest.json` y certificar con `./.agents/scripts/certify_task_completion.sh`.
 
 ---
@@ -259,7 +259,7 @@
 ---
 
 ## ✅ Hito 18: Internacionalización v2.18.0 — Idioma Espejo Dinámico, Flag `--lang (auto|es|en)`, Targets `codex`/`windsurf` y Guías Multi-Agente EN/ES
-**Referencia Obligatoria:** [`docs/agent-setup.md`](docs/agent-setup.md) y [`docs/agent-setup.es.md`](docs/agent-setup.es.md)
+**Referencia Obligatoria:** [`docs/agent-setup.es.md`](docs/agent-setup.es.md) (`docs/agent-setup.md`)
 
 ### Tareas de Implementación:
 - [x] **18.1.** Incorporar el modo de idioma `OutputLanguageModeSchema` (`auto`, `es`, `en`) en `mcp-server/src/types.ts` e inyectar el protocolo *Dynamic Language Mirroring* en `init-agents-md.ts` (manteniendo retrocompatibilidad exacta en español para el Escenario 18 de Karate), con soporte de flags `--lang` / `-l` y variable de entorno `QA_OUTPUT_LANG`.
@@ -270,7 +270,7 @@
 ---
 
 ## ✅ Hito 19: Invariante Anti-Silo #9 (`QA-HEALTH-01`), Nivelación Documental Humana 1:1 y Gobernanza Dual-Consumer
-**Referencia Obligatoria:** [`docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md`](docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md), [`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`](docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md) y [`SECURITY.es.md`](SECURITY.es.md) §4.22
+**Referencia Obligatoria:** [`docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.es.md`](docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.es.md), [`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md`](docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md) y [`SECURITY.es.md`](SECURITY.es.md) §4.22
 
 ### Tareas de Implementación:
 - [x] **19.1.** Implementar la regla estática `QA-HEALTH-01` en `mcp-server/src/tools/security-auditor.ts` (detección de supervisores `asyncio` sin `task.exception()` y sondas físicas de `healthcheck` en `Dockerfile`/`docker-compose*.yml` sin aserción real en `tests/`) e incorporarla como Regla #9 Anti-Ceguera UAT en `qa-11x-architect` (`SKILL.md < 20 KB`, `03-stack-python-fastapi.md`, `01-core-13-layers.md`).
@@ -281,7 +281,7 @@
 ---
 
 ## ✅ Hito 20: Detección de Versión sin Red Redundante (`.qa-11x-version` + TTL 24h Fail-Open), Aviso `update_available` en Tools y Auto-Sync Global de Skills por SHA-256 (`v2.20.0`)
-**Referencia Obligatoria:** [`docs/ai-integration.md`](docs/ai-integration.md) y [`docs/agent-setup.es.md`](docs/agent-setup.es.md)
+**Referencia Obligatoria:** [`docs/ai-integration.es.md`](docs/ai-integration.es.md) y [`docs/agent-setup.es.md`](docs/agent-setup.es.md)
 
 ### Tareas de Implementación:
 - [x] **20.1.** Implementar `mcp-server/src/services/version-manager.ts` con estampado determinista `.qa-11x-version` en `install-skill.ts` y `scripts/install-skill.sh`, reutilización de `manifest.json` (`ETag`) y caché `latest-version-check.json` (TTL `24 h` con *fail-open* offline).
@@ -313,7 +313,7 @@
 - [x] **22.3.** Crear `tests/test_track_findings_state.unit.py` (`>= 95%` cobertura en `sinfallas/base-python-uv:3.15` validando desplazamiento de líneas, cambio de rama, umbral `streak == 3`, oscilación `A -> B -> A` y `--reset-state`).
 - [x] **22.4.** Integrar seguimiento de rachas y alerta estructurada `BREAKER_42` en `mcp-server/src/services/qa-evidence.ts` y `mcp-server/src/tools/ephemeral-runner.ts` (`run_ephemeral_qa`) conservando intactas las 18 Tools MCP.
 - [x] **22.5.** Crear pruebas unitarias TypeScript en `mcp-server/tests/` (`>= 95%` cobertura en `sinfallas/base-node-ionic:26`) y acoplar `track_findings_state.py` en `.agents/scripts/certify_task_completion.sh`.
-- [x] **22.6.** Documentar el protocolo `BREAKER-42` en `.agents/rules/anti_regression_and_side_effects_guardrail.md`, `.agents/skills/qa-11x-systematic-debugging/SKILL.md` (`< 20 KB`) y `docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`, actualizar grafo AST, `make sync-governance` y `make certify`.
+- [x] **22.6.** Documentar el protocolo `BREAKER-42` en `.agents/rules/anti_regression_and_side_effects_guardrail.md`, `.agents/skills/qa-11x-systematic-debugging/SKILL.md` (`< 20 KB`) y `docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`, actualizar grafo AST, `make sync-governance` y `make certify`.
 
 ---
 
@@ -326,12 +326,12 @@
 - [x] **23.3.** Crear `mcp-server/tests/diff-blast-radius.unit.ts` (`>= 95%` cobertura en `sinfallas/base-node-ionic:26` validando ahorro `>= 60%` de tokens, redacción de secretos y rechazo de `baseRef` inválido) y actualizar `mcp-server/test/mcp_cli_test.feature`.
 - [x] **23.4.** Crear `.agents/scripts/generate_pr_verdict.py` (`CC <= 5`, stdlib pura) reutilizando `release_readiness_gate.py`, `.agents/.qa-evidence.json` y `verify_diff_coverage.py` para emitir `.agents/artifacts/PR_VERDICT.md` y `pr_verdict_attestation.json` (`SHA-256`).
 - [x] **23.5.** Crear `tests/test_generate_pr_verdict.unit.py` (`>= 95%` cobertura en `sinfallas/base-python-uv:3.15`) y exponer el target `make pr-verdict` en `Makefile`.
-- [x] **23.6.** Actualizar `docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`, `docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md`, `TESTING.md` y `CHANGELOG.md`, actualizar grafos AST, `make sync-governance` y `make certify`.
+- [x] **23.6.** Actualizar `docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`, `docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md`, `TESTING.md` y `CHANGELOG.md`, actualizar grafos AST, `make sync-governance` y `make certify`.
 
 ---
 
 ## ✅ Hito 24: Auditoría Integral `QA-11X v3.0` (`v3.0.0`), Sincronizador `bump_version_11x.py`, Protocolo MCP en Vivo y Planificación `19_SPEC` / `20_SPEC`
-**Referencia Obligatoria:** [`docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md) + [`docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md)
+**Referencia Obligatoria:** [`docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md) + [`docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.es.md`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.es.md)
 
 ### Tareas de Implementación:
 - [x] **24.1.** Auditar en paralelo el servidor MCP (`src/`), las 10 skills (`.agents/skills/`), catálogos (`catalogs/*`, `llms.txt`), gobernanza, `.gitignore` y las 10 documentaciones de entorno (incluyendo `ai-evals`, `mobile-appium`, `vibe-rescue` y `architecture`).
@@ -344,11 +344,11 @@
 ---
 
 ## ✅ Hito 25: Matriz 15×12, `base-mobile-appium:26` y Arquitectura Documental Bilingüe
-**Referencia Obligatoria:** [`docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md) + [`docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md)
+**Referencia Obligatoria:** [`docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md) + [`docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.es.md`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.es.md)
 
 ### Tareas de Implementación:
 - [x] **25.1.** Integrar la imagen Docker dedicada no-root **`sinfallas/base-mobile-appium:26`** (`Node.js 26`, `pnpm`, `OpenJDK 21`, `Android SDK/ADB`, `Appium 3`, `uiautomator2`, `xcuitest`, `WebdriverIO v9`), actualizar `mobile-appium/{Makefile.example,docker-compose.qa.yml.example,package.json.example,tests/mobile_screenplay.spec.ts}`, añadir `make test-mobile-blueprints` en `Makefile` y conectar `smoke-mobile-appium` en `.github/workflows/audit-base-images.yml`.
-- [x] **25.2.** Integrar `sinfallas/base-mobile-appium:26` y `qa-mobile` en `mcp-server` (`src/resources/stackBlueprints.ts`, `src/tools/ephemeral-runner.ts`), habilitar negociación bilingüe `blueprint://*` (`?lang=es|en`) y nivelar la **Matriz de Calidad 15×12** en [`README.md`](README.md) y [`README.es.md`](README.es.md).
+- [x] **25.2.** Integrar `sinfallas/base-mobile-appium:26` y `qa-mobile` en `mcp-server` (`src/resources/stackBlueprints.ts`, `src/tools/ephemeral-runner.ts`), habilitar negociación bilingüe `blueprint://*` (`?lang=es|en`) y nivelar la **Matriz de Calidad 15×12** en [`README.es.md`](README.es.md) (`README.md`).
 - [x] **25.3.** Ejecutar la **Fase A de Spec 19**: migrar los documentos raíz, gobernanza, seguridad, pruebas, prompt, roadmap, changelog, `mcp-server/{CHANGELOG,example/README}` y `docs/agent-setup` hacia pares **Inglés Canónico (`*.md`) + Espejo 1:1 en Español (`*.es.md`)** con banners recíprocos de idioma y actualizar [`AGENTS.md`](AGENTS.md) y [`.agents/README.md`](.agents/README.md).
 
 ---

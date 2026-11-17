@@ -9,7 +9,7 @@ description: >-
 
 # Master QA-11X v3.1 Routing Orchestrator (`qa-11x-architect`)
 
-> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Unless target `AGENTS.md` mandates a fixed language, respond in the **user's prompt language**, and write commits/docs matching `README.md` & `CHANGELOG.md` (ignoring concise English `AGENTS.md`/`.agents/**`; default to prompt language on empty repos).
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Unless target `AGENTS.md` mandates a fixed language, interact in the **user's prompt language**; human docs use EN canonical (`*.md`) + 1:1 ES mirror (`*.es.md`) (matching `README.md`/`CHANGELOG.md` in consumer repos, defaulting to prompt language if empty); `.agents/**` stays concise English.
 
 Corporate orchestrator for Standard 11X: 3-path routing, 13-layer pyramid, Rule Zero non-root Docker (`sinfallas/*`), Token Economy (`AST-First`, `Pass-Quiet/Fail-Verbose`), `QA-GIT-GATE-01`, and lazy sub-skills.
 

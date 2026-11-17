@@ -1,4 +1,4 @@
-> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (ci-cd-pipelines.es.md)](ci-cd-pipelines.es.md)
+> 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](ci-cd-pipelines.es.md)
 
 # CI/CD Pipelines (Continuous Integration and Sovereign Execution)
 
@@ -55,7 +55,7 @@ Run `./scripts/limpieza.sh` (or `make clean`) to destroy temporary artifacts and
 Below is an illustrative reference template for external projects adopting this blueprint that need to configure a verification workflow in GitHub Actions (e.g., in `.github/workflows/qa-pipeline.yml`). Using corporate `Makefiles` under Rule Zero keeps the pipeline clean, installs zero runtimes on the runner, and delegates all intelligence to the official ephemeral images:
 
 ```yaml
-name: QA Testing Blueprint Pipeline (Nivel 11X)
+name: QA Testing Blueprint Pipeline (Level 11X)
 
 on:
   pull_request:

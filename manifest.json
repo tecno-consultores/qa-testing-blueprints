@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "3.1.0",
-  "generated_at_utc": "2026-11-17T04:21:13Z",
+  "generated_at_utc": "2026-11-17T04:46:36Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -9,9 +9,9 @@
     "ai-evals": {
       "description": "Dual-Mode AI & Multimodal Evals (DeepEval, Promptfoo OWASP LLM Top 10, WebRTC voice latency, PDF/OCR Decimal)",
       "readme": "ai-evals/README.md",
-      "readme_sha256": "b79fc911dc6f69d55b682b41c58d659670e1c12c5ce38f6c196a632c9def6a75",
+      "readme_sha256": "644f38bed8852ed23f2d7e9e1887014c0cce480ebca803eb10cb2d3646c6406d",
       "readme_es": "ai-evals/README.es.md",
-      "readme_es_sha256": "f117a6611a22d83d4a0c9a4dce77fab9865147fe0b2bd50a8ab428a48215bbc7",
+      "readme_es_sha256": "a3cba9514c8c3b5450b016044373b6fd6db4e3f153ab14bee9ed730aed89bfe0",
       "files": [
         {
           "path": "ai-evals/gitignore.example",
@@ -60,9 +60,9 @@
     "bash-scripts": {
       "description": "POSIX / Bash DevOps Automation Scripts (ShellCheck, shfmt, BATS-core, kcov >= 95%)",
       "readme": "bash-scripts/README.md",
-      "readme_sha256": "fc7bff3e1c99b2960a7d192c034c8403981e855132ef3bfc3aaa07e8a6ce74fa",
+      "readme_sha256": "1445414939d98c8eba9e6fec9eeaa6e95ddea051c19d65223eff745cbcc8c70d",
       "readme_es": "bash-scripts/README.es.md",
-      "readme_es_sha256": "0314d1c8c85ef3bcb99e9a0b1630066c66032727f2c978cee3c5ccadeb20244f",
+      "readme_es_sha256": "6c518752695bddf86c503078f447ef9347150ada4aa5c55eea5c4760e611d73f",
       "files": [
         {
           "path": "bash-scripts/Makefile.example",
@@ -104,9 +104,9 @@
     "fastapi": {
       "description": "Async Python REST APIs (FastAPI + PostgreSQL 17 RLS + KeyDB + Alembic + Pact/k6)",
       "readme": "fastapi/README.md",
-      "readme_sha256": "2ff4cc0ea61f3f59e4bcdc8eef70a559dbb3cf613986071cde01219fd39d2967",
+      "readme_sha256": "ac4d8d2e3cd582d87180af5e7bb7907c2c516049248156ccb4d53b0a9f8f1bbe",
       "readme_es": "fastapi/README.es.md",
-      "readme_es_sha256": "a67ffbde88c6b9ebd68ee1d2d533cfcb8793ba9e12ce5d3d77c9429cba1e00d3",
+      "readme_es_sha256": "2497c25d51f743b9c1ca07b6150bbfa273aaba232daca32bd49e1a39b301c430",
       "files": [
         {
           "path": "fastapi/Makefile.example",
@@ -197,9 +197,9 @@
     "mobile-appium": {
       "description": "Native & Hybrid Mobile QA (Appium 3 / WebdriverIO v9, MobileActor Screenplay for Android, iOS, Ionic, React Native)",
       "readme": "mobile-appium/README.md",
-      "readme_sha256": "becf47f48dd282bb54ed0e6824c120865247f8cd03ade7e06ed6ad94c6ed7603",
+      "readme_sha256": "f45e0ec86dedaefdb7acc2a86e438f1e2b39ea456b48865ac1e689b726162b7f",
       "readme_es": "mobile-appium/README.es.md",
-      "readme_es_sha256": "7ef34993da57bb80f0e05c2cfb637466b06f0fe3c493f948bc1df49b41e4a610",
+      "readme_es_sha256": "33168c8c07545cbe27b054f5b6dd88eb1610a636a3973b2c41d6ab4c5699d012",
       "files": [
         {
           "path": "mobile-appium/Makefile.example",
@@ -255,9 +255,9 @@
     "node-backend": {
       "description": "Node.js / TypeScript Backend Microservices (Express / Fastify + Vitest >= 95% + Pact/k6)",
       "readme": "node-backend/README.md",
-      "readme_sha256": "2799c1acb07490c2a012d4be20b4b909ada82deec024cca868b81e88342ef65f",
+      "readme_sha256": "fd0d0c862c6b3f4c702100d3bb1508c20cca06b9eab7925c106c263f519e670f",
       "readme_es": "node-backend/README.es.md",
-      "readme_es_sha256": "68a9a26f43e428d0324860f329f9127216d28dcfe9f75ded0874d697d75b6f46",
+      "readme_es_sha256": "7d896c1aeece482ea9500a705a0aa5a3dfd469fd91f2e46a1a7183f865dbdfa9",
       "files": [
         {
           "path": "node-backend/.eslintrc.json.example",
@@ -369,9 +369,9 @@
     "php": {
       "description": "PHP 8.2-8.5 Backend APIs and Services (PHP-CS-Fixer, PHPStan Level Max, Psalm, PCOV >= 95%, Infection, Karate BDD)",
       "readme": "php/README.md",
-      "readme_sha256": "3c92b953097c9c55e7acbff8fd4253fecff7cdc4109a2fa006c5f64c3dc9745f",
+      "readme_sha256": "3406c7a70206a943cccfd08d1062c36f5af380556911788fb5c302839db0c3b3",
       "readme_es": "php/README.es.md",
-      "readme_es_sha256": "deb9edcf4e6ab78a1794c3a3adc0aa70475aa9c45f80d88f8e20156f4598a34c",
+      "readme_es_sha256": "37eb268de1f84f1a19d3a9923ec6ac353c114d13b2ba3521f30c2ce429763844",
       "files": [
         {
           "path": "php/Makefile.example",
@@ -448,9 +448,9 @@
     "python": {
       "description": "Standalone Python Libraries and CLIs (uv, Ruff CC <= 5, Mypy strict, Pytest >= 95%, Mutmut)",
       "readme": "python/README.md",
-      "readme_sha256": "76276c47b17d7a06485b5c3e6dae92d18403bdbe6bb40fd657a5e40dabc4220d",
+      "readme_sha256": "6fac26afe0d4b3582dd7d79e61b0ac23b2d505818d6f8ff734a507a819fd9d53",
       "readme_es": "python/README.es.md",
-      "readme_es_sha256": "919337f8efeb954ea5c3d7794908099f44706090ffed910ccd889a7020421cc0",
+      "readme_es_sha256": "73d6394e3a809111bc08cf4fd1884ed182f267c683d904076d007cb387dd856a",
       "files": [
         {
           "path": "python/Makefile.example",
@@ -499,9 +499,9 @@
     "react-frontend": {
       "description": "React + TypeScript + Vite Frontend (Screenplay, RTL, Playwright, Axe-core, Lighthouse)",
       "readme": "react-frontend/README.md",
-      "readme_sha256": "6f2be9d0cacb165a293bfec94cfc75424364971f3ad1a77188cb1d02bc09e064",
+      "readme_sha256": "fd24f0fb2dcddc1c2f8542b358f00be8c9d804cfb3ebf64262f9c36f56b77220",
       "readme_es": "react-frontend/README.es.md",
-      "readme_es_sha256": "79e05304c08dd1755bbc975cfa1a4a53b10c749f4376d834357bac899857124b",
+      "readme_es_sha256": "1a2b3b80b64abc39ebdf2890ecff56146426b9d43d71eb090c3cd65a32e62fb1",
       "files": [
         {
           "path": "react-frontend/.browserslistrc.example",
@@ -648,9 +648,9 @@
     "vibe-rescue": {
       "description": "Vibe-to-Enterprise Hardening (audit_vibe_prototype.py, VIBE-SEC-001..QA-005, PostgreSQL 17 RLS/WORM template)",
       "readme": "vibe-rescue/README.md",
-      "readme_sha256": "547773d6431e0c346b7ad58bc1221f46149733de51e4fa4cb8bfa049b8c7f1b4",
+      "readme_sha256": "9e17fcd5c11d42c53c5076444c5112e73cc8130429b35e3846ae491d074a3809",
       "readme_es": "vibe-rescue/README.es.md",
-      "readme_es_sha256": "93fa538814f18760fa082a2ae900037cb94b869293bb99f155bb7a00f01dd799",
+      "readme_es_sha256": "2192f3ddbbd51717044f467603e527c1e4809cb34dec3d96d89ef0fd27007828",
       "files": [
         {
           "path": "vibe-rescue/audit_vibe_prototype.py",
@@ -678,9 +678,9 @@
     "vue3": {
       "description": "Vue 3 + TypeScript + Vite Frontend (Screenplay, Vitest >= 95%, Playwright, Axe-core, Lighthouse)",
       "readme": "vue3/README.md",
-      "readme_sha256": "0dd11f860f40436b939fd6d0082b94d30c590d19c2a39fca797f9bf9ef444297",
+      "readme_sha256": "3e0d4862ac20dcee67109daf9485300ca8268d8910f7cd34641dee158953789a",
       "readme_es": "vue3/README.es.md",
-      "readme_es_sha256": "72504146ebbf32c74348497ffbe671b50af16c65239e8338a5c348243ed3eef8",
+      "readme_es_sha256": "c4fcfc15185ae56e20d7009d708a674cce5248de1436d742efedf75de2dd8a0e",
       "files": [
         {
           "path": "vue3/.browserslistrc.example",
@@ -909,8 +909,8 @@
       "path": ".agents/README.md",
       "target_name": ".agents/README.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "01905e7bf9ce4230f4f900870635f94135da525acedea209c020615c635650c8",
-      "size_bytes": 13182
+      "sha256": "dea1d19a4228aae5c64c3f9243b1be972e753392088d5e975a8bccc4a0b38147",
+      "size_bytes": 12116
     },
     {
       "path": ".agents/rules/active_task_and_planning_resilience.md",
@@ -930,8 +930,8 @@
       "path": ".agents/rules/continuous_agent_evolution.md",
       "target_name": ".agents/rules/continuous_agent_evolution.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "76ee5fbbdf9e7f29da79370c5606fe508acb8f41a5db6f804e833c90430998ad",
-      "size_bytes": 5790
+      "sha256": "f8505e94a730adcfbf53431e375d7f51a259303060fa316cedb21ad9e14cf5f3",
+      "size_bytes": 5872
     },
     {
       "path": ".agents/rules/frontend_parity_and_closure.md",
@@ -1091,8 +1091,8 @@
       "path": ".agents/scripts/verify_docs_invariants.py",
       "target_name": ".agents/scripts/verify_docs_invariants.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "fd90e6b423f718557c82deb56a22dde8544b7b7f33494675e5693f90becca05e",
-      "size_bytes": 52841
+      "sha256": "a7d40e87977c0866c88742c583ed2fc3a7fe2f9b24add4d7e85565bc20d0b696",
+      "size_bytes": 60140
     },
     {
       "path": ".agents/scripts/verify_json_no_duplicate_keys.py",
@@ -1147,8 +1147,8 @@
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "2db568f3b25ec7fa1103b3e2143d4e84e70cf7ae5ea47b43e2dbd26d411955a5",
-      "size_bytes": 11944
+      "sha256": "c838da9d6bfb41f069323815ab86e3f1612f1f004af3bb03a205a3cde41db46a",
+      "size_bytes": 11986
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
@@ -1343,22 +1343,22 @@
       "path": "AGENTS.md",
       "target_name": "AGENTS.md",
       "merge_strategy": "surgical_merge",
-      "sha256": "a5dad7bb35ad26c1704470de249ca1a08c4c174c0b90793ddf8f9426029268f7",
-      "size_bytes": 27796
+      "sha256": "b7d5d74f47e82a1cb3e232ddccda0c0b2f193d176be954bab7cad29e1a9d0995",
+      "size_bytes": 28694
     },
     {
       "path": "AI_MASTER_PROMPT.es.md",
       "target_name": "AI_MASTER_PROMPT.es.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "63ed8075c0012b7466f5c12e1fe534b8d00891d8a9cedae57f2278744273eaa7",
-      "size_bytes": 15328
+      "sha256": "653995b404476e4bc30776eca6b92da81a2b1721e3588b89ce944ffe39706b23",
+      "size_bytes": 15390
     },
     {
       "path": "AI_MASTER_PROMPT.md",
       "target_name": "AI_MASTER_PROMPT.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "0e28dcaf7c44985f142f718136a042b13161081512400d8e384a0371a256ab74",
-      "size_bytes": 14334
+      "sha256": "1f76a1abc6f4c405728b4e4fc00b98145988540204ff0d45fc781b5d24871cf9",
+      "size_bytes": 14365
     },
     {
       "path": "SECURITY.es.md",
@@ -1392,15 +1392,15 @@
       "path": "catalogs/skillsllm-manifest.json",
       "target_name": "catalogs/skillsllm-manifest.json",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "fa2aba5014694efa1c51543f7b23b00be9ee5b30e8e17fbb2447df67eaf26e7a",
+      "sha256": "9b8f3c6b57bb8c9a68a18a28faf26833483c583ebbe5dd5e8df689cc4cf7ea6c",
       "size_bytes": 11800
     },
     {
       "path": "llms.txt",
       "target_name": "llms.txt",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "33522a106fb1636a5351e2019134742af6df6d5cbdada4f903aef437e5e773a3",
-      "size_bytes": 16249
+      "sha256": "01b90cfa4b263068f2608e9140eef6f722149b1f6ab1475509b180eb39cfaf5c",
+      "size_bytes": 16206
     },
     {
       "path": "scripts/install-skill.sh",

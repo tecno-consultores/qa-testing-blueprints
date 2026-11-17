@@ -1,4 +1,4 @@
-> 🌐 **Language:** **English** (Canonical) · [🇪🇸 Leer en Español](README.es.md)
+> 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](README.es.md)
 
 # 📱 Native & Hybrid Mobile Blueprint — Appium 3 / WebdriverIO v9 + Screenplay (QA-11X Standard)
 

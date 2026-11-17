@@ -1,6 +1,6 @@
-> 🌐 **Idioma:** [🇺🇸 English](README.md) · **Español** (Espejo 1:1)
+> 🌐 **Idioma:** [🇺🇸 English (Canonical)](README.md) · **Español (Espejo 1:1)**
 
-> **[SYSTEM DIRECTIVE FOR AI AGENTS]:** Act as a Staff QA Automation Engineer and DevOps Expert. Read, parse, and strictly enforce the following architectural constraints written in Spanish. You must generate code that perfectly aligns with these rules, using exclusively ephemeral Docker containers (`sinfallas/base-python-uv:3.15` and `sinfallas/base-node-ionic:26`), strict Dual-Mode separation, and blocking quantitative thresholds (`HallucinationMetric < 0.05`, `FaithfulnessMetric >= 0.90`, `>= 95%` offline unit coverage). Do not suggest local installations or hardcoded API keys. Output your final response, explanations, and code comments in Spanish.
+> **[DIRECTIVA DE SISTEMA PARA AGENTES DE IA]:** Actúa como un Ingeniero Staff de Automatización QA y Experto DevOps. Lee, analiza y aplica estrictamente las siguientes restricciones arquitectónicas redactadas en español. Debes generar código que se alinee perfectamente con estas reglas, utilizando exclusivamente contenedores Docker efímeros (`sinfallas/base-python-uv:3.15` y `sinfallas/base-node-ionic:26`), separación estricta Dual-Mode y umbrales cuantitativos bloqueantes (`HallucinationMetric < 0.05`, `FaithfulnessMetric >= 0.90`, cobertura unitaria offline `>= 95%`). No sugieras instalaciones locales ni API keys hardcodeadas. Procesa la lógica técnica con tu máxima capacidad de razonamiento en inglés, pero emite tu respuesta final, explicaciones y comentarios de código en español.
 
 # Guía de Evaluación Dual de IA Generativa, RAG y Agentes Autónomos (`ai-evals`)
 
@@ -76,4 +76,4 @@ Toda ejecución ocurre dentro de contenedores efímeros alineados al `UID:GID` d
 
 - **Herramientas MCP:** [`evaluate_agent_trajectory`](../mcp-server/src/tools/evaluateAgentTrajectory.ts) y [`run_llm_red_team`](../mcp-server/src/tools/runLlmRedTeam.ts) (esta última expone un flujo dual-mode seguro con `dryRun` y bandera explícita para red-teaming en vivo).
 - **Recurso MCP:** `blueprint://ai/evals-redteam` ([`aiEvalsBlueprint.ts`](../mcp-server/src/resources/aiEvalsBlueprint.ts)).
-- **Arquitectura Bilingüe:** Mantenida bajo el estándar Inglés Primario + Espejo Español 1:1 definido en [`docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md`](../docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md).
+- **Arquitectura Bilingüe:** Mantenida bajo el estándar Inglés Primario + Espejo Español 1:1 definido en [`docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md`](../docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md).

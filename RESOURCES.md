@@ -1,4 +1,4 @@
-> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (RESOURCES.es.md)](RESOURCES.es.md)
+> 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](RESOURCES.es.md)
 
 # 📚 Master Catalog of Resources & Artifacts (`QA-11X v3.1`)
 
@@ -13,7 +13,7 @@ Verified corporate index of entrypoints, modular skills, active rules, stack blu
 * **[`.github/actions/qa-11x-pr-check/action.yml`](.github/actions/qa-11x-pr-check/action.yml):** Hardened Composite Action for Pull Requests with AST Blast-Radius selection and progressive tiers.
 * **[`mcp-server/README.md`](mcp-server/README.md) / [`mcp-server/README.es.md`](mcp-server/README.es.md):** Official bilingual documentation for the `@sinfallas/mcp-qa-11x` v3.1.0 npm package (**19 Tools** and **13 Resources** including `quickstart`, **v3.1** `session_flight_recorder` + `blueprint://skills/tactical-patterns-11x`, `promptGuard`, and `TaskStateGuard`).
 * **[`llms.txt`](llms.txt) & Global Catalogs (`catalogs/`):** GEO index for LLMs/agents ([`llms.txt`](llms.txt)) alongside canonical descriptors [`catalogs/qaskills-pack.json`](catalogs/qaskills-pack.json) (QASkills.sh), [`catalogs/skillsllm-manifest.json`](catalogs/skillsllm-manifest.json) (SkillsLLM.com), and [`catalogs/agenticskills-submission.md`](catalogs/agenticskills-submission.md) (AgenticSkills.io).
-* **[`docs/agent-setup.md`](docs/agent-setup.md) / [`docs/agent-setup.es.md`](docs/agent-setup.es.md):** Step-by-step setup guides for 28 AI coding agents and MCP clients (`Antigravity`, `Claude Code`, `Cursor`, `Windsurf`, `Codex`, `Copilot`, `Hermes`, `Zed`, `JetBrains`, etc.; legacy redirect at [`docs/agent-setup.en.md`](docs/agent-setup.en.md)).
+* **[`docs/agent-setup.md`](docs/agent-setup.md) / [`docs/agent-setup.es.md`](docs/agent-setup.es.md):** Step-by-step setup guides for 28 AI coding agents and MCP clients (`Antigravity`, `Claude Code`, `Cursor`, `Windsurf`, `Codex`, `Copilot`, `Hermes`, `Zed`, `JetBrains`, etc.).
 * **[`AI_MASTER_PROMPT.md`](AI_MASTER_PROMPT.md):** Master adoption prompt for autonomous AI agents ([Spanish mirror](AI_MASTER_PROMPT.es.md)).
 
 ---
@@ -64,7 +64,7 @@ Verified corporate index of entrypoints, modular skills, active rules, stack blu
 * **Architecture & Manifest:** [`architecture/README.md`](architecture/README.md) ([`qa-11x.calm.json`](architecture/qa-11x.calm.json) + [`validate_calm_architecture.sh`](.agents/scripts/validate_calm_architecture.sh)), [`manifest.json`](manifest.json) (SHA-256 Zero-Clone index).
 * **Core Manuals & Specs:**
   * [`docs/01_ARQUITECTURA_PIRAMIDE_11X.md`](docs/01_ARQUITECTURA_PIRAMIDE_11X.md) — 13-layer pyramid, proportional adoption, JVM-free native BDD, FINOS CALM, Screenplay, Pact/k6, AI Evals, Vibe-Rescue, TMS, and Release Gate.
-  * [`docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`](docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md) — Multi-agent governance and token economy.
+  * [`docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`](docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md) — Multi-agent governance and token economy.
   * [`docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md`](docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md) — Anti-Silo invariants and engineering best practices.
   * [`docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md`](docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md) — Operational technical guide per testing layer.
   * [`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`](docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md) — Handbook of 22 DISA STIG V6R5 + OWASP v4.2 reference controls and 34 static scanner rules.

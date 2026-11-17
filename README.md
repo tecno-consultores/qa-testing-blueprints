@@ -1,4 +1,4 @@
-> 🌐 Language: **English** | [Español](README.es.md)
+> 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](README.es.md)
 
 <p align="center">
   <img src="assets/qa-logo.jpeg" alt="QA Testing Blueprints Logo" width="320" />
@@ -170,13 +170,3 @@ npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-script
 * **Author:** Jesus Palencia (`<sinfallas@gmail.com>`)
 * **Copyright:** `Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)`
 * **License:** Distributed under the [MIT License](LICENSE).
-
-<!-- QA-11X-BDD-COMPATIBILITY-ANCHORS
-## 🛠 Matriz de Herramientas de Pruebas
-| Entorno | Linting / Formateo | Pruebas Unitarias / Mocking |
-* `3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest`
-* `22`, `24`, `26` y `latest`
-* `8.2`, `8.3`, `8.4`, `8.5` y `latest`
-* 13 recursos `blueprint://*`
-* 19 herramientas MCP (`@sinfallas/mcp-qa-11x` v3.1.0)
--->

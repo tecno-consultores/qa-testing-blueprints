@@ -1,3 +1,5 @@
+> 📜 **Aviso de Archivo Histórico (Spec 19 §3.4):** Especificación histórica preservada en español como registro arquitectónico inmutable (exenta de espejo bilingüe EN/ES). Para rutas y métricas vigentes, véase [README.es.md](README.es.md).
+
 # 🛡️ Especificación 04: Parsers Ahorradores de Tokens, Auditor DISA STIG / OWASP y Compuerta 11X (Tools 5–7)
 
 **Proyecto:** QA Testing Blueprints (Estándar Corporativo Nivel 11X)  

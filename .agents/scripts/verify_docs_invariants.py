@@ -92,7 +92,39 @@ FORBIDDEN_DOC_PATTERNS: tuple[tuple[str, str], ...] = (
             "(usar './scripts/actualizar-grafos-graphify.sh')"
         ),
     ),
+    (
+        r"\]\([^)]*agent-setup\.en\.md(?:#[^)]*)?\)",
+        (
+            "enlace obsoleto a 'agent-setup.en.md' "
+            "(usar 'agent-setup.md' o 'agent-setup.es.md')"
+        ),
+    ),
 )
+
+_AGENT_SETUP_EN_STRICT_TARGETS: tuple[str, ...] = (
+    "README.md",
+    "README.es.md",
+    "RESOURCES.md",
+    "RESOURCES.es.md",
+    "llms.txt",
+    "docs/agent-setup.md",
+    "docs/agent-setup.es.md",
+    "mcp-server/README.md",
+    "mcp-server/README.es.md",
+)
+
+_IGNORED_SCAN_DIRS: frozenset[str] = frozenset({
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    "__pycache__",
+    "dist",
+    "graphify-out",
+    "htmlcov",
+    "node_modules",
+})
 
 BILINGUAL_DOC_PAIRS: tuple[tuple[str, str], ...] = (
     ("README.md", "README.es.md"),
@@ -107,15 +139,25 @@ BILINGUAL_DOC_PAIRS: tuple[tuple[str, str], ...] = (
     ("mcp-server/README.md", "mcp-server/README.es.md"),
     ("mcp-server/CHANGELOG.md", "mcp-server/CHANGELOG.es.md"),
     ("mcp-server/example/README.md", "mcp-server/example/README.es.md"),
+    ("mcp-server/example/CHANGELOG.md", "mcp-server/example/CHANGELOG.es.md"),
+    ("mcp-server/example/TESTING.md", "mcp-server/example/TESTING.es.md"),
     ("docs/agent-setup.md", "docs/agent-setup.es.md"),
     ("docs/specs/README.md", "docs/specs/README.es.md"),
+    (
+        "docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md",
+        "docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md",
+    ),
+    (
+        "docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md",
+        "docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.es.md",
+    ),
     (
         "docs/01_ARQUITECTURA_PIRAMIDE_11X.md",
         "docs/01_ARQUITECTURA_PIRAMIDE_11X.es.md",
     ),
     (
-        "docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md",
-        "docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md",
+        "docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md",
+        "docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md",
     ),
     (
         "docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md",
@@ -157,6 +199,11 @@ DOC_TARGETS: tuple[str, ...] = (
     "mcp-server/README.es.md",
     "mcp-server/example/README.md",
     "mcp-server/example/README.es.md",
+    "mcp-server/example/AGENTS.md",
+    "mcp-server/example/CHANGELOG.md",
+    "mcp-server/example/CHANGELOG.es.md",
+    "mcp-server/example/TESTING.md",
+    "mcp-server/example/TESTING.es.md",
     "TESTING.md",
     "TESTING.es.md",
     "SECURITY.md",
@@ -169,8 +216,8 @@ DOC_TARGETS: tuple[str, ...] = (
     "AI_MASTER_PROMPT.es.md",
     "docs/01_ARQUITECTURA_PIRAMIDE_11X.md",
     "docs/01_ARQUITECTURA_PIRAMIDE_11X.es.md",
-    "docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md",
-    "docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md",
+    "docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md",
+    "docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md",
     "docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md",
     "docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.es.md",
     "docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md",
@@ -187,11 +234,14 @@ DOC_TARGETS: tuple[str, ...] = (
     "docs/qa-philosophy.es.md",
     "docs/agent-setup.md",
     "docs/agent-setup.es.md",
-    "docs/agent-setup.en.md",
     "docs/ARCHITECTURE_C4.md",
     "docs/ARCHITECTURE_C4.es.md",
     "docs/specs/README.md",
     "docs/specs/README.es.md",
+    "docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md",
+    "docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md",
+    "docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md",
+    "docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.es.md",
     "catalogs/agenticskills-submission.md",
     "architecture/README.md",
     "architecture/README.es.md",
@@ -240,8 +290,8 @@ INTERNAL_LINK_AUDIT_TARGETS: tuple[str, ...] = (
     "AI_MASTER_PROMPT.es.md",
     "docs/01_ARQUITECTURA_PIRAMIDE_11X.md",
     "docs/01_ARQUITECTURA_PIRAMIDE_11X.es.md",
-    "docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md",
-    "docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md",
+    "docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md",
+    "docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md",
     "docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md",
     "docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.es.md",
     "docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md",
@@ -262,12 +312,21 @@ INTERNAL_LINK_AUDIT_TARGETS: tuple[str, ...] = (
     "docs/ARCHITECTURE_C4.es.md",
     "docs/specs/README.md",
     "docs/specs/README.es.md",
+    "docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md",
+    "docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md",
+    "docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md",
+    "docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.es.md",
     "llms.txt",
     "catalogs/agenticskills-submission.md",
     "mcp-server/README.md",
     "mcp-server/README.es.md",
     "mcp-server/example/README.md",
     "mcp-server/example/README.es.md",
+    "mcp-server/example/AGENTS.md",
+    "mcp-server/example/CHANGELOG.md",
+    "mcp-server/example/CHANGELOG.es.md",
+    "mcp-server/example/TESTING.md",
+    "mcp-server/example/TESTING.es.md",
     "architecture/README.md",
     "architecture/README.es.md",
     "fastapi/README.md",
@@ -311,7 +370,7 @@ _IMG_SRC_RE = re.compile(
 )
 
 HUMAN_CORE_MANUALS: tuple[str, ...] = (
-    "docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md",
+    "docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md",
     "docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md",
     "docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md",
     "docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md",
@@ -319,7 +378,7 @@ HUMAN_CORE_MANUALS: tuple[str, ...] = (
 )
 
 HUMAN_CORE_MANUALS_ES: tuple[str, ...] = (
-    "docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md",
+    "docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md",
     "docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.es.md",
     "docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.es.md",
     "docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md",
@@ -882,14 +941,49 @@ def check_stale_surface_counts(
     return errors
 
 
+_AGENT_SETUP_EN_REF_RE = re.compile(r"\bagent-setup\.en\.md\b")
+
+
+def _extra_agent_setup_files(root: Path) -> list[str]:
+    docs_dir = root / "docs"
+    if not docs_dir.is_dir():
+        return []
+    return [
+        p.relative_to(root).as_posix()
+        for p in sorted(docs_dir.glob("agent-setup*"))
+        if p.name != "agent-setup.en.md"
+    ]
+
+
+def _collect_agent_setup_strict_files(root: Path) -> list[tuple[str, Path]]:
+    ordered = dict.fromkeys(
+        [*_AGENT_SETUP_EN_STRICT_TARGETS, *_extra_agent_setup_files(root)]
+    )
+    return [(rel, root / rel) for rel in ordered if (root / rel).is_file()]
+
+
+def _check_forbidden_agent_setup_en(root: Path) -> list[str]:
+    errors: list[str] = []
+    if (root / "docs" / "agent-setup.en.md").exists():
+        errors.append(
+            "docs/agent-setup.en.md: archivo legado prohibido "
+            "(usar docs/agent-setup.md y docs/agent-setup.es.md)."
+        )
+    for rel, full in _collect_agent_setup_strict_files(root):
+        if _AGENT_SETUP_EN_REF_RE.search(full.read_text(encoding="utf-8")):
+            errors.append(
+                f"{rel}: referencia prohibida a 'agent-setup.en.md' "
+                "(usar 'agent-setup.md' o 'agent-setup.es.md')."
+            )
+    return errors
+
+
 def check_active_docs(root: Path) -> list[str]:
     """Valida invariantes y ausencia de derivas en documentos activos."""
-    errors: list[str] = []
-    for rel_path in DOC_TARGETS:
-        full_path = root / rel_path
-        if full_path.is_file():
-            content = full_path.read_text(encoding="utf-8")
-            errors.extend(_scan_file_patterns(rel_path, content))
+    errors = _check_forbidden_agent_setup_en(root)
+    for rel_path, full_path in _iter_active_doc_paths(root):
+        content = full_path.read_text(encoding="utf-8")
+        errors.extend(_scan_file_patterns(rel_path, content))
     return errors
 
 
@@ -972,7 +1066,7 @@ def _check_auditor_rules_in_human_docs(root: Path) -> list[str]:
     errors = [
         (
             f"Regla '{rid}' de security-auditor.ts no está documentada en los "
-            "manuales humanos (docs/01..04 o SECURITY.md)."
+            "manuales humanos (docs/02..05 o SECURITY.md)."
         )
         for rid in rule_ids
         if rid not in manuals_blob
@@ -983,7 +1077,7 @@ def _check_auditor_rules_in_human_docs(root: Path) -> list[str]:
             errors.extend(
                 (
                     f"Regla '{rid}' de security-auditor.ts no está documentada en "
-                    "los manuales espejo ES (docs/01..04.es.md o SECURITY.es.md)."
+                    "los manuales espejo ES (docs/02..05.es.md o SECURITY.es.md)."
                 )
                 for rid in rule_ids
                 if rid not in manuals_es_blob
@@ -1087,8 +1181,16 @@ def _check_mcp_readme_links(root: Path) -> list[str]:
 
 def _check_agent_setup_links(root: Path) -> list[str]:
     docs_dir = root / "docs"
-    if (docs_dir / "agent-setup.es.md").is_file():
-        return [
+    errors: list[str] = []
+    if (docs_dir / "agent-setup.en.md").exists():
+        errors.append(
+            "docs/agent-setup.en.md: archivo legado prohibido "
+            "(usar docs/agent-setup.md y docs/agent-setup.es.md)."
+        )
+    if (docs_dir / "agent-setup.es.md").is_file() or (
+        docs_dir / "agent-setup.md"
+    ).is_file():
+        errors.extend([
             *_check_readme_cross_link(
                 docs_dir / "agent-setup.md",
                 "docs/agent-setup.md",
@@ -1099,23 +1201,8 @@ def _check_agent_setup_links(root: Path) -> list[str]:
                 "docs/agent-setup.es.md",
                 ("agent-setup.md", "**Español**"),
             ),
-        ]
-    if (docs_dir / "agent-setup.en.md").is_file() or (
-        docs_dir / "agent-setup.md"
-    ).is_file():
-        return [
-            *_check_readme_cross_link(
-                docs_dir / "agent-setup.en.md",
-                "docs/agent-setup.en.md",
-                ("agent-setup.md", "**English**"),
-            ),
-            *_check_readme_cross_link(
-                docs_dir / "agent-setup.md",
-                "docs/agent-setup.md",
-                ("agent-setup.en.md", "**Español**"),
-            ),
-        ]
-    return []
+        ])
+    return errors
 
 
 def check_bilingual_readme_parity(root: Path) -> list[str]:
@@ -1153,22 +1240,131 @@ def _extract_normative_ids(content: str) -> set[str]:
     )
 
 
+_ES_LINK_OR_CODE_RE = re.compile(
+    r"`[^`\n]+`|(?<!!)\[([^\]]*)\]\(([^)\n]+)\)"
+)
+_KNOWN_BILINGUAL_ES: frozenset[str] = frozenset(
+    es_rel for _, es_rel in BILINGUAL_DOC_PAIRS
+)
+
+
+def _has_spec19_en_banner(en_head: str, es_name: str) -> bool:
+    has_marker = any(tok in en_head for tok in ("🌐", "Language", "Idioma"))
+    has_es_tok = "Español" in en_head or "🇪🇸" in en_head
+    return (
+        es_name in en_head
+        and has_marker
+        and "English" in en_head
+        and has_es_tok
+    )
+
+
+def _has_spec19_es_banner(es_head: str, en_name: str) -> bool:
+    has_marker = any(tok in es_head for tok in ("🌐", "Idioma", "Language"))
+    return (
+        en_name in es_head
+        and has_marker
+        and "English" in es_head
+        and "Español" in es_head
+    )
+
+
 def _check_pair_banners(
     en_rel: str, es_rel: str, en_text: str, es_text: str
 ) -> list[str]:
     en_head = "\n".join(en_text.splitlines()[:10])
     es_head = "\n".join(es_text.splitlines()[:10])
     errors: list[str] = []
-    if Path(es_rel).name not in en_head:
+    if not _has_spec19_en_banner(en_head, Path(es_rel).name):
         errors.append(
             f"{en_rel}: falta banner recíproco a '{Path(es_rel).name}' "
             "en las primeras 10 líneas."
         )
-    if Path(en_rel).name not in es_head:
+    if not _has_spec19_es_banner(es_head, Path(en_rel).name):
         errors.append(
             f"{es_rel}: falta banner recíproco a '{Path(en_rel).name}' "
             "en las primeras 10 líneas."
         )
+    return errors
+
+
+def _keep_newlines(match: re.Match[str]) -> str:
+    return "\n" * match.group(0).count("\n")
+
+
+def _mask_code_preserve_lines(text: str) -> str:
+    cleaned = _FENCED_CODE_RE.sub(_keep_newlines, text)
+    return _HTML_COMMENT_RE.sub(_keep_newlines, cleaned)
+
+
+def _is_banner_switch_line(line: str) -> bool:
+    has_marker = any(
+        tok in line for tok in ("🌐", "Idioma", "Language", "🇺🇸", "🇬🇧")
+    )
+    return has_marker and ("English" in line or "Español" in line)
+
+
+def _iter_es_md_links(es_text: str) -> list[tuple[int, str, str]]:
+    masked = _mask_code_preserve_lines(es_text)
+    items: list[tuple[int, str, str]] = []
+    for line_no, line in enumerate(masked.splitlines(), 1):
+        for match in _ES_LINK_OR_CODE_RE.finditer(line):
+            raw_target = match.group(2)
+            if raw_target:
+                items.append((line_no, line, raw_target))
+    return items
+
+
+def _resolve_non_es_md_candidate(
+    root_resolved: Path, es_path: Path, raw_target: str
+) -> tuple[str, Path] | None:
+    target = _normalize_link_target(raw_target)
+    if (
+        _is_external_or_anchor(target)
+        or not target.endswith(".md")
+        or target.endswith(".es.md")
+    ):
+        return None
+    candidate = (es_path.parent / target).resolve()
+    if not candidate.is_relative_to(root_resolved):
+        return None
+    return target, candidate
+
+
+def _check_single_es_link(
+    root_resolved: Path,
+    es_path: Path,
+    en_resolved: Path,
+    item: tuple[int, str, str],
+) -> str | None:
+    line_no, line, raw_target = item
+    resolved = _resolve_non_es_md_candidate(root_resolved, es_path, raw_target)
+    if resolved is None:
+        return None
+    target, candidate = resolved
+    if line_no <= 10 and candidate == en_resolved and _is_banner_switch_line(line):
+        return None
+    sibling_es = candidate.with_name(f"{candidate.stem}.es.md")
+    if not sibling_es.is_file():
+        return None
+    es_rel = es_path.relative_to(root_resolved).as_posix()
+    return (
+        f"{es_rel}:{line_no}: enlace ES→EN '{target}' "
+        f"debe apuntar a '{sibling_es.name}'."
+    )
+
+
+def _check_es_mirror_links(
+    root: Path, es_rel: str, en_rel: str, es_text: str
+) -> list[str]:
+    root_resolved = root.resolve()
+    es_path = (root_resolved / es_rel).resolve()
+    en_resolved = (root_resolved / en_rel).resolve()
+    errors: list[str] = []
+    for item in _iter_es_md_links(es_text):
+        err = _check_single_es_link(root_resolved, es_path, en_resolved, item)
+        if err:
+            errors.append(err)
     return errors
 
 
@@ -1216,16 +1412,33 @@ def _check_single_bilingual_pair(
     return [
         *_check_pair_banners(en_rel, es_rel, en_text, es_text),
         *_check_pair_structure_and_ids(en_rel, es_rel, en_text, es_text),
+        *_check_es_mirror_links(root, es_rel, en_rel, es_text),
     ]
 
 
+def _is_ignored_scan_path(rel_parts: tuple[str, ...]) -> bool:
+    return any(part in _IGNORED_SCAN_DIRS for part in rel_parts)
+
+
+def _discover_extra_es_pairs(root: Path) -> list[tuple[str, str]]:
+    pairs: list[tuple[str, str]] = []
+    for es_path in sorted(root.rglob("*.es.md")):
+        rel = es_path.relative_to(root)
+        es_rel = rel.as_posix()
+        if es_rel in _KNOWN_BILINGUAL_ES or _is_ignored_scan_path(rel.parts):
+            continue
+        pairs.append((f"{es_rel[:-6]}.md", es_rel))
+    return pairs
+
+
 def check_bilingual_pair_parity(root: Path) -> list[str]:
-    """Valida existencia, banner L1-10, H2/H3 e IDs normativos en pares EN/ES."""
+    """Valida banner L1-10, H2/H3, IDs y enlaces ES→EN en pares EN/ES."""
     require_all = (root / "RESOURCES.es.md").is_file()
     errors: list[str] = []
     for en_rel, es_rel in BILINGUAL_DOC_PAIRS:
-        if not require_all and not (root / es_rel).is_file():
-            continue
+        if require_all or (root / es_rel).is_file():
+            errors.extend(_check_single_bilingual_pair(root, en_rel, es_rel))
+    for en_rel, es_rel in _discover_extra_es_pairs(root):
         errors.extend(_check_single_bilingual_pair(root, en_rel, es_rel))
     return errors
 

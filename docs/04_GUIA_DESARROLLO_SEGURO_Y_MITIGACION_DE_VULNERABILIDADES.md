@@ -1,4 +1,4 @@
-> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md)](04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md)
+> 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md)
 
 # 🔐 Secure Development and Vulnerability Mitigation Guide (Standard 11X)
 
@@ -344,7 +344,7 @@ Injecting dynamic data into the DOM via `element.innerHTML` or map popups withou
 
 ### Mandatory Implementation (TypeScript / Vue 3 / React)
 ```typescript
-// vue3/src/utils/security.ts
+// vue3/src/utils/security.ts (illustrative path)
 
 /**
  * 🔒 Sanitizes text to prevent Cross-Site Scripting (XSS) in innerHTML

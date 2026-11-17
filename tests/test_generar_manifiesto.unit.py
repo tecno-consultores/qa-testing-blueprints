@@ -364,7 +364,8 @@ class TestGenerarManifiesto(unittest.TestCase):
         mermaid_files = [
             "README.md",
             "SECURITY.md",
-            "docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md",
+            "docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md",
+            "docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md",
             "docs/ARCHITECTURE_C4.md",
             "docs/specs/01_SPEC_ARQUITECTURA_ZERO_CLONE_Y_MANIFIESTO_REMOTO.md",
         ]
@@ -378,6 +379,31 @@ class TestGenerarManifiesto(unittest.TestCase):
                 self.assertNotIn("<br>", mermaid_code, f"Tag <br> inválido en Mermaid de {rel_path}")
                 self.assertNotIn("<code>", mermaid_code, f"Tag <code> inválido en Mermaid de {rel_path}")
                 self.assertNotIn(r"\n", mermaid_code, f"Secuencia \\n inválida en Mermaid de {rel_path}")
+
+    def test_readme_bilingual_matrices_and_no_legacy_bdd_anchors(self) -> None:
+        """Verifica matrices bilingües y tags Docker en README.{md,es.md} sin anclas BDD legadas."""
+        readme_en = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+        readme_es = (REPO_ROOT / "README.es.md").read_text(encoding="utf-8")
+
+        self.assertIn("## 🛠 Testing Tools Matrix", readme_en)
+        self.assertIn("## 🛠 Matriz de Herramientas de Pruebas", readme_es)
+        self.assertNotIn("QA-11X-BDD-COMPATIBILITY-ANCHORS", readme_en)
+        self.assertNotIn("QA-11X-BDD-COMPATIBILITY-ANCHORS", readme_es)
+
+        docker_tokens = (
+            "sinfallas/base-python-uv",
+            "`3.15`",
+            "sinfallas/base-node-ionic",
+            "`26`",
+            "sinfallas/base-mobile-appium",
+            "sinfallas/basephpcomposer",
+            "`8.5`",
+            "sinfallas/karatelabs",
+            "`1.5.1`",
+        )
+        for token in docker_tokens:
+            self.assertIn(token, readme_en, f"Falta token Docker '{token}' en README.md")
+            self.assertIn(token, readme_es, f"Falta token Docker '{token}' en README.es.md")
 
     def test_bilingual_stack_readme_hashes_and_es_governance_in_manifest(self) -> None:
         """Verifica readme_sha256, readme_es, readme_es_sha256, exclusión README.es.md y gobernanza EN/ES."""

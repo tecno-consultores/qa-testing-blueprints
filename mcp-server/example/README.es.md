@@ -1,6 +1,9 @@
-# 🧪 Proyecto Semilla Full-Stack para Certificación E2E de `@sinfallas/mcp-qa-11x` (`example/`)
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores) -->
 
-> 🌐 **Idioma / Language:** [🇬🇧 English (README.md)](README.md) | **Español (Espejo 1:1)**
+> 🌐 **Idioma:** [🇺🇸 English (Canonical)](README.md) · **Español (Espejo 1:1)**
+
+# 🧪 Proyecto Semilla Full-Stack para Certificación E2E de `@sinfallas/mcp-qa-11x` (`example/`)
 
 Este directorio implementa el **proyecto de referencia y humo end-to-end (`example/`)** del servidor MCP `@sinfallas/mcp-qa-11x`, análogo a la carpeta `example/` de las imágenes Docker corporativas (`sinfallas/base-node-ionic`).
 

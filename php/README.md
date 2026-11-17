@@ -1,6 +1,6 @@
 > **[SYSTEM DIRECTIVE FOR AI AGENTS]:** Act as a Staff QA Automation Engineer and DevOps Expert. Read, parse, and strictly enforce the following architectural constraints written in English. You must generate code that perfectly aligns with these rules, using exclusively the ephemeral Docker containers, testing frameworks, and strict quality thresholds (e.g., 95% coverage, SAST, Infection mutation, Pact CDCT Zero-Infra, k6 SLOs) specified below. Do not suggest local installations. Process the technical logic at your highest reasoning capacity in English, and output your final response, explanations, and code comments in the user's prompt language (defaulting to English).
 
-> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (README.es.md)](README.es.md)
+> 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](README.es.md)
 
 # Canonical Testing and Validation Guide for PHP 8.2–8.5 (QA-11X v3.1)
 
@@ -25,7 +25,7 @@ docker run --rm \
 
 * **For PHP, Linting, PHPStan (`max`), Psalm, PHPUnit/Pest (`PCOV`), and Mutation (`Infection`):** `sinfallas/basephpcomposer:8.5` (official available tags: `8.2`, `8.3`, `8.4`, `8.5`, `latest`, and `11x-v2-php{8.2,8.3,8.4,8.5}`).
 * **For Real Persistence & Multi-Tenant Isolation (Anti-Mock Blindness):** `postgres:17-alpine` with application role `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`.
-* **For Idempotency, Concurrent Sessions & Multi-Threaded Caching:** `eqalpha/keydb:alpine`.
+* **For Idempotency, Concurrent Sessions & Multi-Threaded Caching:** `eqalpha/keydb:6.3.4`.
 * **For API Black-Box BDD Tests:** `sinfallas/karatelabs:1.5.1` (injecting `Idempotency-Key` on every mutation).
 * **For Declarative Load Tests & SLOs:** `grafana/k6:2.4.0`.
 * **For Dynamic Security (DAST) & Chaos:** `zaproxy/zap-stable`, `gaiaadm/pumba:latest`, and `prom/prometheus:latest`.

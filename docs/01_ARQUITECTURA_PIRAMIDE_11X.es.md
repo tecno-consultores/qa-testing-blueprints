@@ -1,4 +1,4 @@
-> 🌐 **Idioma / Language:** [🇬🇧 English (01_ARQUITECTURA_PIRAMIDE_11X.md)](01_ARQUITECTURA_PIRAMIDE_11X.md) | **Español (Espejo 1:1)**
+> 🌐 **Idioma:** [🇺🇸 English (Canonical)](01_ARQUITECTURA_PIRAMIDE_11X.md) · **Español (Espejo 1:1)**
 
 # 🏛️ Arquitectura de la Pirámide de Calidad QA-11X v3.1 (13 Capas + Transversales Agénticos)
 
@@ -51,8 +51,8 @@ flowchart TD
 | **L09–L11** | DAST (`OWASP ZAP`), carga declarativa (**Grafana k6** / Locust) y caos (`Pumba` post-RED `/metrics`) | [`fastapi/tests/load/smoke.k6.js`](../fastapi/tests/load/smoke.k6.js), [`docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.es.md`](03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.es.md) |
 | **L12** | **Arquitectura como Código FINOS CALM** + salud topológica AST + partición CI por Blast Radius | [`architecture/qa-11x.calm.json`](../architecture/qa-11x.calm.json), [`.agents/scripts/validate_calm_architecture.sh`](../.agents/scripts/validate_calm_architecture.sh), [`.agents/scripts/select_tests_by_blast_radius.py`](../.agents/scripts/select_tests_by_blast_radius.py), [`.github/workflows/ci-tiered-qa.yml`](../.github/workflows/ci-tiered-qa.yml) |
 | **L13** | Fixtures trimodales (`Virgin`/`Nominal`/`Degraded`), ciclo temporal de 3 fases, 10 Leyes Innegociables + 11 Reglas UAT Anti-Ceguera | [`.agents/rules/ground_truth_fixtures_and_negative_invariants.md`](../.agents/rules/ground_truth_fixtures_and_negative_invariants.md), [`docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.es.md`](02_BUENAS_PRACTICAS_PROGRAMACION_11X.es.md) |
-| **AI Evals & Shield** | Modo 1 offline `$0` (`make test-ai-offline`), Modo 2 `DeepEval` + `Promptfoo` OWASP LLM Top 10 (`make audit-llm`), voz WebRTC, PDF/OCR `Decimal`, `promptGuard` y perfiles Ollama/vLLM | [`ai-evals/README.md`](../ai-evals/README.md), [`mcp-server/src/security/promptGuard.ts`](../mcp-server/src/security/promptGuard.ts), [`specs/14_LOCAL_LLM_AND_A2A_PROFILES.md`](specs/14_LOCAL_LLM_AND_A2A_PROFILES.md) |
-| **Vibe-to-Enterprise** | Rescate en 5 etapas para apps generadas por IA sin destruir UX | [`vibe-rescue/README.md`](../vibe-rescue/README.md), [`vibe-rescue/audit_vibe_prototype.py`](../vibe-rescue/audit_vibe_prototype.py) |
+| **AI Evals & Shield** | Modo 1 offline `$0` (`make test-ai-offline`), Modo 2 `DeepEval` + `Promptfoo` OWASP LLM Top 10 (`make audit-llm`), voz WebRTC, PDF/OCR `Decimal`, `promptGuard` y perfiles Ollama/vLLM | [`ai-evals/README.es.md`](../ai-evals/README.es.md), [`mcp-server/src/security/promptGuard.ts`](../mcp-server/src/security/promptGuard.ts), [`specs/14_LOCAL_LLM_AND_A2A_PROFILES.md`](specs/14_LOCAL_LLM_AND_A2A_PROFILES.md) |
+| **Vibe-to-Enterprise** | Rescate en 5 etapas para apps generadas por IA sin destruir UX | [`vibe-rescue/README.es.md`](../vibe-rescue/README.es.md), [`vibe-rescue/audit_vibe_prototype.py`](../vibe-rescue/audit_vibe_prototype.py) |
 | **TMS, A2A & Release Gate** | Trazabilidad bidireccional `Jira`/`Zephyr`/`Xray`/`GitHub Issues`, tarjeta A2A y compuerta multi-señal (`GO`/`NO_GO`/`SKIPPED`) | [`specs/15_ENTERPRISE_TMS_TRACEABILITY.md`](specs/15_ENTERPRISE_TMS_TRACEABILITY.md), [`mcp-server/src/a2a/agentCard.ts`](../mcp-server/src/a2a/agentCard.ts), [`.agents/scripts/release_readiness_gate.py`](../.agents/scripts/release_readiness_gate.py) |
 
 ---
@@ -67,7 +67,7 @@ flowchart TD
 
 ## 4. Documentación Relacionada
 
-* [Portada Global English-First (`README.md`)](../README.md) · [Espejo en Español (`README.es.md`)](../README.es.md)
-* [Catálogo Maestro de Recursos (`RESOURCES.md`)](../RESOURCES.md)
-* [Gobernanza de Agentes IA (`01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md`)](01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md)
+* [Portada en Español (`README.es.md`)](../README.es.md)
+* [Catálogo Maestro de Recursos (`RESOURCES.es.md`)](../RESOURCES.es.md)
+* [Gobernanza de Agentes IA (`05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md`)](05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md)
 * [Guía de Desarrollo Seguro (`04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md`)](04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md)

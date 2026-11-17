@@ -1,4 +1,4 @@
-> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (02_BUENAS_PRACTICAS_PROGRAMACION_11X.es.md)](02_BUENAS_PRACTICAS_PROGRAMACION_11X.es.md)
+> 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](02_BUENAS_PRACTICAS_PROGRAMACION_11X.es.md)
 
 # 🛡️ Programming and Architecture Best Practices (Level 11X)
 

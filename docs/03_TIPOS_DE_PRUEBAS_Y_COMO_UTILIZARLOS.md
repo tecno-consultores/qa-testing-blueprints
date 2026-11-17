@@ -1,4 +1,4 @@
-> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.es.md)](03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.es.md)
+> 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.es.md)
 
 # 🧪 Test Types in the QA 11X Standard and How to Use Them
 
@@ -66,7 +66,7 @@
   - Frontend: `vitest` with `@vitest/coverage-v8` engine.
 * **Example (Backend - Python with Pytest):**
   ```python
-  # fastapi/tests/core/test_token_manager.unit.py
+  # fastapi/tests/core/test_token_manager.unit.py (illustrative path)
   import pytest
   from src.core.token_manager import generate_access_token, verify_token
 
@@ -79,7 +79,7 @@
   ```
 * **Example (Frontend - Vue 3 with Vitest):**
   ```typescript
-  // vue3/src/composables/useIdempotency.unit.ts
+  // vue3/src/composables/useIdempotency.unit.ts (illustrative path)
   import { describe, it, expect } from 'vitest';
   import { useIdempotency } from './useIdempotency';
 
@@ -247,7 +247,7 @@
 
 * **Purpose:** Bombard the running application with active web attacks (SQL injection, reflected XSS, insecure HTTP headers, cookies missing security flags) and certify compliance with **OWASP Application Security Verification Standard (ASVS Level 2/3)**, **OWASP Web Security Testing Guide (WSTG)**, **OWASP API Security Top 10 (2023)**, and **DISA ASD STIG V6R5** (`APSC-DV-003160`..`003230`).
 * **Tools:**
-  - Container `zaproxy/zap-stable:latest` running `zap-baseline.py` / `zap-api-scan.py` against `http://api:8000`.
+  - Container `zaproxy/zap-stable:2.15.0` running `zap-baseline.py` / `zap-api-scan.py` against `http://api:8000`.
   - Validation of **OWASP Secure Headers Project (OSHP)** headers: `Strict-Transport-Security`, `Content-Security-Policy`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Cache-Control: no-store`, and absence of `Server` / `X-Powered-By` banners.
   - Supply chain verification with **OWASP CycloneDX SBOM/CBOM** (`cyclonedx-py`, `@cyclonedx/cyclonedx-npm`) and SCA auditing with `Trivy` / `OWASP Dependency-Check`.
   - Fail-secure initialization, shutdown, and abort testing (*Fail-Secure State Testing*, `DISA V-222585` / `V-222647`): certify that upon configuration errors or critical dependency outages, the application denies access by default without leaking stack traces or permitting authentication bypass.
@@ -258,7 +258,7 @@
 ## 12. Chaos Engineering (Pumba) and Resilience
 
 * **Purpose:** Verify whether the application survives and recovers automatically under real network infrastructure faults (extreme latency, dropped packets, microservice crashes).
-* **Tools:** `gaiaadm/pumba:latest` orchestrated via Docker socket to inject `netem` network faults against the API container while `Prometheus` monitors error rates on `/metrics`.
+* **Tools:** `gaiaadm/pumba:0.10.1` orchestrated via Docker socket to inject `netem` network faults against the API container while `Prometheus` monitors error rates on `/metrics`.
 
 ---
 

@@ -1,3 +1,5 @@
+> 📜 **Aviso de Archivo Histórico (Spec 19 §3.4):** Especificación histórica preservada en español como registro arquitectónico inmutable (exenta de espejo bilingüe EN/ES). Para rutas y métricas vigentes, véase [README.es.md](README.es.md).
+
 # ⚡ Especificación Técnica 13: Optimización Extrema de Tokens en Servidor MCP, Protocolo de 3 Vías Proporcionales (`DOCS_ONLY` / `MICRO_CHANGE` / `FULL_11X`), *Progressive Disclosure* y Economía Cognitiva (`Hito 14`)
 
 **Proyecto:** QA Testing Blueprints (`tecno-consultores/qa-testing-blueprints`)  

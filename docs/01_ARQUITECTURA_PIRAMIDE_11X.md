@@ -1,4 +1,4 @@
-> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (01_ARQUITECTURA_PIRAMIDE_11X.es.md)](01_ARQUITECTURA_PIRAMIDE_11X.es.md)
+> 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](01_ARQUITECTURA_PIRAMIDE_11X.es.md)
 
 # 🏛️ QA-11X v3.1 Quality Pyramid Architecture (13 Layers + Agentic Cross-Cutting Planes)
 
@@ -69,5 +69,5 @@ flowchart TD
 
 * [Global English-First Entrypoint (`README.md`)](../README.md) · [Spanish Mirror (`README.es.md`)](../README.es.md)
 * [Master Resource Catalog (`RESOURCES.md`)](../RESOURCES.md)
-* [AI Agent Governance (`01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`)](01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md)
+* [AI Agent Governance (`05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`)](05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md)
 * [Secure Development Guide (`04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`)](04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md)

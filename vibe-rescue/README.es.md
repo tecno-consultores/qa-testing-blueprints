@@ -1,4 +1,4 @@
-> 🌐 **Idioma:** [🇺🇸 English](README.md) · **Español** (Espejo 1:1)
+> 🌐 **Idioma:** [🇺🇸 English (Canonical)](README.md) · **Español (Espejo 1:1)**
 
 # 🛡️ Blueprint Vibe-to-Enterprise — Rescate y Endurecimiento QA-11X (`vibe-rescue/`)
 
@@ -72,4 +72,4 @@ SUPABASE_SERVICE_ROLE_KEY=<EXAMPLE_REDACTED>
 
 - **Tool MCP:** `audit_vibe_prototype` (`mcp-server/src/tools/auditVibePrototype.ts`) — ejecuta la inspección de las 5 reglas desde el agente con contención estricta contra *Path Traversal*, `dryRun: true` por defecto, redacción `[REDACTED_SECRET]`, flag opcional `enforce` y salida `Pass-Quiet` / `Fail-Verbose`.
 - **Recurso MCP:** `blueprint://vibe-rescue/readme` (`mcp-server/src/resources/stackBlueprints.ts`) — expone esta guía operativa directamente al contexto del agente.
-- **Arquitectura Bilingüe:** Mantenida bajo el estándar Inglés Primario + Espejo Español 1:1 definido en [`docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md`](../docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md).
+- **Arquitectura Bilingüe:** Mantenida bajo el estándar Inglés Primario + Espejo Español 1:1 definido en [`docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md`](../docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md).

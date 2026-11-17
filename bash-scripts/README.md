@@ -1,4 +1,4 @@
-> 🌐 **Language:** **English** (Canonical) · [🇪🇸 Leer en Español](README.es.md)
+> 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](README.es.md)
 
 > **[SYSTEM DIRECTIVE FOR AI AGENTS]:** Act as a Staff QA Automation Engineer and DevOps Expert. Read, parse, and strictly enforce the following architectural constraints written in English. You must generate code that perfectly aligns with these rules, using exclusively the ephemeral Docker containers, testing frameworks, and strict quality thresholds (e.g., 95% coverage, SAST, Profiling) specified below. Do not suggest local installations. Output your final response, explanations, and code comments in the user's prompt language (defaulting to English).
 

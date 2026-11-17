@@ -1,6 +1,6 @@
 # 🗺️ Master Roadmap (ROADMAP.md) — Zero-Clone Ecosystem: Skill + MCP Server (Standard 11X)
 
-> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (ROADMAP.es.md)](ROADMAP.es.md)
+> 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](ROADMAP.es.md)
 
 **Project:** QA Testing Blueprints (`tecno-consultores/qa-testing-blueprints`)  
 **Target Architecture:** Zero-Clone Distribution in Node.js (`npx -y @sinfallas/mcp-qa-11x@latest`) + Cognitive Skill (`qa-11x-architect`) + On-Demand Hydration from GitHub with SHA-256 Verification (`manifest.json`)  
@@ -313,7 +313,7 @@
 - [x] **22.3.** Create `tests/test_track_findings_state.unit.py` (`>= 95%` coverage in `sinfallas/base-python-uv:3.15` validating line-shift invariance, branch switching, `streak == 3` threshold, `A -> B -> A` oscillation, and `--reset-state`).
 - [x] **22.4.** Integrate streak tracking and structured `BREAKER_42` alert into `mcp-server/src/services/qa-evidence.ts` and `mcp-server/src/tools/ephemeral-runner.ts` (`run_ephemeral_qa`) preserving the 18 MCP tools intact.
 - [x] **22.5.** Add TypeScript unit tests in `mcp-server/tests/` (`>= 95%` coverage in `sinfallas/base-node-ionic:26`) and wire `track_findings_state.py` into `.agents/scripts/certify_task_completion.sh`.
-- [x] **22.6.** Document the `BREAKER-42` protocol in `.agents/rules/anti_regression_and_side_effects_guardrail.md`, `.agents/skills/qa-11x-systematic-debugging/SKILL.md` (`< 20 KB`), and `docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`, refresh AST graph, run `make sync-governance`, and pass `make certify`.
+- [x] **22.6.** Document the `BREAKER-42` protocol in `.agents/rules/anti_regression_and_side_effects_guardrail.md`, `.agents/skills/qa-11x-systematic-debugging/SKILL.md` (`< 20 KB`), and `docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`, refresh AST graph, run `make sync-governance`, and pass `make certify`.
 
 ---
 
@@ -326,7 +326,7 @@
 - [x] **23.3.** Create `mcp-server/tests/diff-blast-radius.unit.ts` (`>= 95%` coverage in `sinfallas/base-node-ionic:26` verifying `>= 60%` token savings, secret redaction, and invalid `baseRef` rejection) and update `mcp-server/test/mcp_cli_test.feature`.
 - [x] **23.4.** Create `.agents/scripts/generate_pr_verdict.py` (`CC <= 5`, pure stdlib) reusing `release_readiness_gate.py`, `.agents/.qa-evidence.json`, and `verify_diff_coverage.py` to emit `.agents/artifacts/PR_VERDICT.md` and `pr_verdict_attestation.json` (`SHA-256`).
 - [x] **23.5.** Create `tests/test_generate_pr_verdict.unit.py` (`>= 95%` coverage in `sinfallas/base-python-uv:3.15`) and expose `make pr-verdict` target in `Makefile`.
-- [x] **23.6.** Update `docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`, `docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md`, `TESTING.md`, and `CHANGELOG.md`, update AST graphs, run `make sync-governance`, and pass `make certify`.
+- [x] **23.6.** Update `docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`, `docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md`, `TESTING.md`, and `CHANGELOG.md`, update AST graphs, run `make sync-governance`, and pass `make certify`.
 
 ---
 

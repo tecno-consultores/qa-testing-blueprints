@@ -1,9 +1,9 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores) -->
 
-# `@sinfallas/mcp-qa-11x` — Servidor MCP Oficial e Instalador de Skills de QA Testing Blueprints
+> 🌐 **Idioma:** [🇺🇸 English (Canonical)](README.md) · **Español (Espejo 1:1)**
 
-🌐 **Idioma / Language:** [English](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/README.md) | **Español**
+# `@sinfallas/mcp-qa-11x` — Servidor MCP Oficial e Instalador de Skills de QA Testing Blueprints
 
 Servidor oficial **Model Context Protocol (MCP)** e instalador CLI de fricción cero para [**QA Testing Blueprints (QA-11X v3.1 — v3.1.0)**](https://github.com/tecno-consultores/qa-testing-blueprints).
 
@@ -35,7 +35,7 @@ Subcomandos y flags disponibles:
 - `[--stdio]` — Fuerza el listener JSON-RPC `stdio` en primer plano (`QA_FORCE_STDIO=1` también fuerza `stdio` headless).
 - `--version` / `-v` | `--help` / `-h`
 
-> **Guardia Anti-Bloqueo TTY (`QA-CLI-TTY-01`):** Ejecutar `npx -y @sinfallas/mcp-qa-11x@latest` sin subcomandos en una terminal interactiva (`process.stdin.isTTY`) imprime la guía rápida, sincroniza skills globales sin bloquear y termina limpiamente con `exit(0)` en `< 5s`. Cuando un IDE abre un *pipe* no-TTY, inicia el servidor MCP `stdio` automáticamente.
+> **Guardia Anti-Bloqueo TTY (`QA-CLI-TTY-01`):** Ejecutar `npx -y @sinfallas/mcp-qa-11x@latest` sin subcomandos en una terminal interactiva (`process.stdin.isTTY`) imprime la guía rápida, sincroniza skills globales sin bloquear y termina limpiamente con `exit(0)` en `< 5s` en lugar de bloquear `stdin`. Cuando un IDE abre un *pipe* no-TTY, inicia el servidor MCP `stdio` automáticamente.
 
 ---
 
@@ -61,7 +61,7 @@ Subcomandos y flags disponibles:
   }
   ```
 
-Consulta la matriz completa de 27+ clientes en [`docs/agent-setup.md`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/docs/agent-setup.md).
+Consulta la matriz completa de 27+ clientes en [`docs/agent-setup.es.md`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/docs/agent-setup.es.md).
 
 ---
 
@@ -81,7 +81,7 @@ Lideradas por `qa-11x-architect` (`< 12 KB`), cargando 10 sub-skills especializa
 
 ---
 
-## 🛠️ Herramientas Expuestas en el Servidor MCP (19 Tools — v3.1)
+## 🛠️ Herramientas Expuestas en el Servidor MCP (19 herramientas — v3.1)
 
 1. **`inspect_project_config`:** Inspecciona señales de stack (`pyproject.toml`, `package.json`, `composer.json`), `docker-compose.qa.yml`, estado de la pirámide y grafos Graphify AST.
 2. **`fetch_blueprint_bundle`:** Descarga plantillas solicitadas desde GitHub/espejo local validando su suma SHA-256 contra `manifest.json`.
@@ -105,7 +105,7 @@ Lideradas por `qa-11x-architect` (`< 12 KB`), cargando 10 sub-skills especializa
 
 ---
 
-## 📚 Recursos Expuestos en el Servidor MCP (13 Resources — v3.1)
+## 📚 Recursos Expuestos en el Servidor MCP (13 recursos — v3.1)
 
 1. **`blueprint://manifest`:** Índice SHA-256 en tiempo real (`manifest.json`) para todos los stacks soportados.
 2. **`blueprint://core/philosophy`:** Filosofía Nivel-11X de 13 capas, Regla Cero, 10 Leyes y 11 Reglas Anti-Ceguera UAT.

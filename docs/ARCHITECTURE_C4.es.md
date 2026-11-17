@@ -1,4 +1,4 @@
-> 🌐 **Idioma / Language:** [🇬🇧 English (ARCHITECTURE_C4.md)](ARCHITECTURE_C4.md) | **Español (Espejo 1:1)**
+> 🌐 **Idioma:** [🇺🇸 English (Canonical)](ARCHITECTURE_C4.md) · **Español (Espejo 1:1)**
 
 # Arquitectura del Ecosistema de Pruebas (Modelo C4)
 
@@ -16,7 +16,7 @@ flowchart TD
     MCP["Servidor MCP Node.js/TS (@sinfallas/mcp-qa-11x v3.1.0)"]
     Skill["Skills Zero-Clone (11 Skills Modulares < 20 KB)"]
     Gate["Compuerta de Certificacion 11X (certify_task_completion.sh - 10 Etapas)"]
-    QA["QA Testing Blueprints (10 Stacks Hidratables + architecture/ + mcp-server/ = 12 Entornos de Matriz / Docker Efimero)"]
+    QA["QA Testing Blueprints (10 Stacks Hidratables + architecture/ + mcp-server/ = 12 Entornos de Matriz / Docker Efímero)"]
     Host["Maquina Host (Docker Engine)"]
     Reports["Reportes y Artefactos (Coverage, ZAP, Chaos, Metricas RED)"]
 
@@ -50,13 +50,13 @@ Muestra la interacción entre los clientes de IA, el servidor MCP en Node.js/Typ
 
 ```mermaid
 flowchart LR
-    subgraph ClienteIDE["Entorno del Cliente / IDE"]
+    subgraph ClientIDE["Entorno del Cliente / IDE"]
         Client["Cliente IA / IDE (Antigravity / Claude / Cursor)"]
         MCPServer["@sinfallas/mcp-qa-11x (stdio / Node 20+)"]
         Client <-->|"JSON-RPC (stdio)"| MCPServer
     end
 
-    subgraph RedQABridge["Red Virtual Aislada IPv4 (QA Bridge)"]
+    subgraph QABridge["Red Virtual Aislada IPv4 (QA Bridge)"]
         API["App Viva (Nginx / Uvicorn / Node / PHP-FPM)"]
         Test["Contenedor QA Efimero (Vitest / Pytest / Pest, SAST)"]
         DB["PostgreSQL 17 (Persistencia Real, Alembic, RLS)"]

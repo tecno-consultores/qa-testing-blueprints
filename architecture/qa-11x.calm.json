@@ -20,7 +20,22 @@
         {
           "unique-id": "ide-mcp-stdio-client"
         }
-      ]
+      ],
+      "controls": {
+        "git-closure-human-gate": {
+          "description": "Human-confirmed remote push gate (QA-GIT-GATE-01) forbidding automated git push or npm publish.",
+          "requirements": [
+            {
+              "requirement-url": "https://calm.finos.org/release/1.2/meta/control-requirement.json",
+              "config": {
+                "control-id": "QA-GIT-GATE-01",
+                "name": "Human-Confirmed Remote Push Gate",
+                "description": "Conclude verified tasks at local git commit and require explicit human approval before remote push or registry publish."
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "unique-id": "mcp-qa-11x-server",
@@ -37,7 +52,48 @@
         {
           "unique-id": "mcp-governance-verifier"
         }
-      ]
+      ],
+      "controls": {
+        "prompt-injection-guard": {
+          "description": "NFKC Unicode canonicalization, PII/credential redaction, and Fail-Closed blocking via promptGuard.ts.",
+          "requirements": [
+            {
+              "requirement-url": "https://calm.finos.org/release/1.2/meta/control-requirement.json",
+              "config": {
+                "control-id": "QA-PROMPT-GUARD",
+                "name": "Prompt Injection and PII Guard",
+                "description": "Sanitize NFKC inputs, redact PII/credentials, and enforce Fail-Closed interception on CallToolRequestSchema."
+              }
+            }
+          ]
+        },
+        "cli-tty-anti-hang-guard": {
+          "description": "Dual CLI/MCP interactive TTY anti-hang guard (QA-CLI-TTY-01) and unmocked container health contract (QA-HEALTH-01).",
+          "requirements": [
+            {
+              "requirement-url": "https://calm.finos.org/release/1.2/meta/control-requirement.json",
+              "config": {
+                "control-id": "QA-CLI-TTY-01",
+                "name": "TTY Anti-Hang and Container Health Contract",
+                "description": "Prevent interactive TTY stdio deadlocks and require unmocked container HEALTHCHECK verification (QA-HEALTH-01)."
+              }
+            }
+          ]
+        },
+        "vault-aes-256-gcm": {
+          "description": "FIPS 140-3 AES-256-GCM authenticated secret vault encryption with memory zeroization and anti-SSRF guards.",
+          "requirements": [
+            {
+              "requirement-url": "https://calm.finos.org/release/1.2/meta/control-requirement.json",
+              "config": {
+                "control-id": "QA-VAULT-FIPS-SSRF",
+                "name": "AES-256-GCM Vault and Anti-SSRF Control",
+                "description": "Encrypt secrets using FIPS 140-3 AES-256-GCM with buffer zeroization and block private-network SSRF targets."
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "unique-id": "ephemeral-docker-runners",
@@ -54,7 +110,48 @@
         {
           "unique-id": "runner-cache-client"
         }
-      ]
+      ],
+      "controls": {
+        "rule-zero-ephemeral-docker": {
+          "description": "All tests, linters, and audits execute inside non-root ephemeral sinfallas/* Docker containers.",
+          "requirements": [
+            {
+              "requirement-url": "https://calm.finos.org/release/1.2/meta/control-requirement.json",
+              "config": {
+                "control-id": "QA-RULE-ZERO",
+                "name": "Rule Zero Ephemeral Non-Root Execution",
+                "description": "Require non-root UID:GID mapping, HOME=/tmp, and Trivy HIGH=0 CRITICAL=0 hardened containers."
+              }
+            }
+          ]
+        },
+        "cli-tty-anti-hang-guard": {
+          "description": "Dual CLI/MCP interactive TTY anti-hang guard (QA-CLI-TTY-01) and unmocked container health contract (QA-HEALTH-01).",
+          "requirements": [
+            {
+              "requirement-url": "https://calm.finos.org/release/1.2/meta/control-requirement.json",
+              "config": {
+                "control-id": "QA-CLI-TTY-01",
+                "name": "TTY Anti-Hang and Container Health Contract",
+                "description": "Prevent interactive TTY stdio deadlocks and require unmocked container HEALTHCHECK verification (QA-HEALTH-01)."
+              }
+            }
+          ]
+        },
+        "vault-aes-256-gcm": {
+          "description": "FIPS 140-3 AES-256-GCM authenticated secret vault encryption with memory zeroization and anti-SSRF guards.",
+          "requirements": [
+            {
+              "requirement-url": "https://calm.finos.org/release/1.2/meta/control-requirement.json",
+              "config": {
+                "control-id": "QA-VAULT-FIPS-SSRF",
+                "name": "AES-256-GCM Vault and Anti-SSRF Control",
+                "description": "Encrypt secrets using FIPS 140-3 AES-256-GCM with buffer zeroization and block private-network SSRF targets."
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "unique-id": "postgres17-rls-store",
@@ -65,7 +162,35 @@
         {
           "unique-id": "postgres-tls-5432"
         }
-      ]
+      ],
+      "controls": {
+        "postgres-rls-isolation": {
+          "description": "Multi-tenant PostgreSQL 17 isolation with NOSUPERUSER NOBYPASSRLS and FORCE ROW LEVEL SECURITY.",
+          "requirements": [
+            {
+              "requirement-url": "https://calm.finos.org/release/1.2/meta/control-requirement.json",
+              "config": {
+                "control-id": "QA-PG17-RLS",
+                "name": "PostgreSQL 17 Forced RLS Isolation",
+                "description": "Enforce tenant isolation via SET LOCAL app.current_tenant_id, NOBYPASSRLS role, and FORCE ROW LEVEL SECURITY."
+              }
+            }
+          ]
+        },
+        "worm-hmac-audit-chain": {
+          "description": "Tamper-proof WORM audit log chained with HMAC-SHA256, BIGINT seq_num, and pg_advisory_xact_lock.",
+          "requirements": [
+            {
+              "requirement-url": "https://calm.finos.org/release/1.2/meta/control-requirement.json",
+              "config": {
+                "control-id": "SEC-14",
+                "name": "WORM HMAC-SHA256 Audit Chain",
+                "description": "Serialize append-only audit entries with BIGINT seq_num, pg_advisory_xact_lock, and cryptographic HMAC-SHA256 chaining (DISA STIG APSC-DV-001350)."
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "unique-id": "keydb-state-cache",
@@ -76,7 +201,22 @@
         {
           "unique-id": "keydb-resp-tls-6379"
         }
-      ]
+      ],
+      "controls": {
+        "vault-aes-256-gcm": {
+          "description": "FIPS 140-3 AES-256-GCM authenticated secret vault encryption with memory zeroization and anti-SSRF guards.",
+          "requirements": [
+            {
+              "requirement-url": "https://calm.finos.org/release/1.2/meta/control-requirement.json",
+              "config": {
+                "control-id": "QA-VAULT-FIPS-SSRF",
+                "name": "AES-256-GCM Vault and Anti-SSRF Control",
+                "description": "Encrypt secrets using FIPS 140-3 AES-256-GCM with buffer zeroization and block private-network SSRF targets."
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "unique-id": "governance-certification-gate",
@@ -87,13 +227,32 @@
         {
           "unique-id": "governance-sha256-gate"
         }
-      ]
+      ],
+      "controls": {
+        "git-closure-human-gate": {
+          "description": "Human-confirmed remote push gate (QA-GIT-GATE-01) forbidding automated git push or npm publish.",
+          "requirements": [
+            {
+              "requirement-url": "https://calm.finos.org/release/1.2/meta/control-requirement.json",
+              "config": {
+                "control-id": "QA-GIT-GATE-01",
+                "name": "Human-Confirmed Remote Push Gate",
+                "description": "Conclude verified tasks at local git commit and require explicit human approval before remote push or registry publish."
+              }
+            }
+          ]
+        }
+      }
     }
   ],
   "relationships": [
     {
       "unique-id": "rel-ide-to-mcp-server",
       "description": "MCP stdio JSON-RPC 2.0 transport guarded by promptGuard and QA-CLI-TTY-01.",
+      "metadata": {
+        "protocol": "stdio",
+        "transport": "JSON-RPC 2.0"
+      },
       "relationship-type": {
         "connects": {
           "source": {
@@ -109,11 +268,43 @@
             ]
           }
         }
+      },
+      "controls": {
+        "prompt-injection-guard": {
+          "description": "NFKC Unicode canonicalization, PII/credential redaction, and Fail-Closed blocking via promptGuard.ts.",
+          "requirements": [
+            {
+              "requirement-url": "https://calm.finos.org/release/1.2/meta/control-requirement.json",
+              "config": {
+                "control-id": "QA-PROMPT-GUARD",
+                "name": "Prompt Injection and PII Guard",
+                "description": "Sanitize NFKC inputs, redact PII/credentials, and enforce Fail-Closed interception on CallToolRequestSchema."
+              }
+            }
+          ]
+        },
+        "cli-tty-anti-hang-guard": {
+          "description": "Dual CLI/MCP interactive TTY anti-hang guard (QA-CLI-TTY-01) and unmocked container health contract (QA-HEALTH-01).",
+          "requirements": [
+            {
+              "requirement-url": "https://calm.finos.org/release/1.2/meta/control-requirement.json",
+              "config": {
+                "control-id": "QA-CLI-TTY-01",
+                "name": "TTY Anti-Hang and Container Health Contract",
+                "description": "Prevent interactive TTY stdio deadlocks and require unmocked container HEALTHCHECK verification (QA-HEALTH-01)."
+              }
+            }
+          ]
+        }
       }
     },
     {
       "unique-id": "rel-mcp-to-ephemeral-runners",
       "description": "Docker CLI Rule Zero dispatch (-u uid:gid -e HOME=/tmp) guarded by taskStateGuard.",
+      "metadata": {
+        "protocol": "CLI",
+        "transport": "Docker CLI (Rule Zero)"
+      },
       "relationship-type": {
         "connects": {
           "source": {
@@ -128,6 +319,21 @@
               "docker-engine-cli"
             ]
           }
+        }
+      },
+      "controls": {
+        "rule-zero-ephemeral-docker": {
+          "description": "All tests, linters, and audits execute inside non-root ephemeral sinfallas/* Docker containers.",
+          "requirements": [
+            {
+              "requirement-url": "https://calm.finos.org/release/1.2/meta/control-requirement.json",
+              "config": {
+                "control-id": "QA-RULE-ZERO",
+                "name": "Rule Zero Ephemeral Non-Root Execution",
+                "description": "Require non-root UID:GID mapping, HOME=/tmp, and Trivy HIGH=0 CRITICAL=0 hardened containers."
+              }
+            }
+          ]
         }
       }
     },
@@ -150,6 +356,34 @@
             ]
           }
         }
+      },
+      "controls": {
+        "postgres-rls-isolation": {
+          "description": "Multi-tenant PostgreSQL 17 isolation with NOSUPERUSER NOBYPASSRLS and FORCE ROW LEVEL SECURITY.",
+          "requirements": [
+            {
+              "requirement-url": "https://calm.finos.org/release/1.2/meta/control-requirement.json",
+              "config": {
+                "control-id": "QA-PG17-RLS",
+                "name": "PostgreSQL 17 Forced RLS Isolation",
+                "description": "Enforce tenant isolation via SET LOCAL app.current_tenant_id, NOBYPASSRLS role, and FORCE ROW LEVEL SECURITY."
+              }
+            }
+          ]
+        },
+        "worm-hmac-audit-chain": {
+          "description": "Tamper-proof WORM audit log chained with HMAC-SHA256, BIGINT seq_num, and pg_advisory_xact_lock.",
+          "requirements": [
+            {
+              "requirement-url": "https://calm.finos.org/release/1.2/meta/control-requirement.json",
+              "config": {
+                "control-id": "SEC-14",
+                "name": "WORM HMAC-SHA256 Audit Chain",
+                "description": "Serialize append-only audit entries with BIGINT seq_num, pg_advisory_xact_lock, and cryptographic HMAC-SHA256 chaining (DISA STIG APSC-DV-001350)."
+              }
+            }
+          ]
+        }
       }
     },
     {
@@ -171,11 +405,30 @@
             ]
           }
         }
+      },
+      "controls": {
+        "vault-aes-256-gcm": {
+          "description": "FIPS 140-3 AES-256-GCM authenticated secret vault encryption with memory zeroization and anti-SSRF guards.",
+          "requirements": [
+            {
+              "requirement-url": "https://calm.finos.org/release/1.2/meta/control-requirement.json",
+              "config": {
+                "control-id": "QA-VAULT-FIPS-SSRF",
+                "name": "AES-256-GCM Vault and Anti-SSRF Control",
+                "description": "Encrypt secrets using FIPS 140-3 AES-256-GCM with buffer zeroization and block private-network SSRF targets."
+              }
+            }
+          ]
+        }
       }
     },
     {
       "unique-id": "rel-mcp-to-governance-gate",
       "description": "Deterministic SHA-256 verification against manifest.json and 10-stage 11X certification gate.",
+      "metadata": {
+        "protocol": "SHA-256",
+        "transport": "Local"
+      },
       "relationship-type": {
         "connects": {
           "source": {
@@ -190,6 +443,21 @@
               "governance-sha256-gate"
             ]
           }
+        }
+      },
+      "controls": {
+        "git-closure-human-gate": {
+          "description": "Human-confirmed remote push gate (QA-GIT-GATE-01) forbidding automated git push or npm publish.",
+          "requirements": [
+            {
+              "requirement-url": "https://calm.finos.org/release/1.2/meta/control-requirement.json",
+              "config": {
+                "control-id": "QA-GIT-GATE-01",
+                "name": "Human-Confirmed Remote Push Gate",
+                "description": "Conclude verified tasks at local git commit and require explicit human approval before remote push or registry publish."
+              }
+            }
+          ]
         }
       }
     }
@@ -240,9 +508,9 @@
         {
           "requirement-url": "https://calm.finos.org/release/1.2/meta/control-requirement.json",
           "config": {
-            "control-id": "SEC-14-APSC-DV-001350",
+            "control-id": "SEC-14",
             "name": "WORM HMAC-SHA256 Audit Chain",
-            "description": "Serialize append-only audit entries with BIGINT seq_num, pg_advisory_xact_lock, and cryptographic HMAC-SHA256 chaining."
+            "description": "Serialize append-only audit entries with BIGINT seq_num, pg_advisory_xact_lock, and cryptographic HMAC-SHA256 chaining (DISA STIG APSC-DV-001350)."
           }
         }
       ]
@@ -279,9 +547,9 @@
         {
           "requirement-url": "https://calm.finos.org/release/1.2/meta/control-requirement.json",
           "config": {
-            "control-id": "QA-CLI-TTY-01-HEALTH-01",
+            "control-id": "QA-CLI-TTY-01",
             "name": "TTY Anti-Hang and Container Health Contract",
-            "description": "Prevent interactive TTY stdio deadlocks and require unmocked container HEALTHCHECK verification."
+            "description": "Prevent interactive TTY stdio deadlocks and require unmocked container HEALTHCHECK verification (QA-HEALTH-01)."
           }
         }
       ]

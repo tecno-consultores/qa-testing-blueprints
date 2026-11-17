@@ -28,7 +28,7 @@ the AI agent is **strictly authorized and mandated** to act **PROACTIVELY withou
 
 When updating `.agents/`:
 1. **Never relax quality thresholds:** Coverage must stay `>= 95%`, zero secrets, zero schema drift.
-2. **Preserve Linguistic Architecture:** Agent directives in `rules/` and `skills/` must remain in high-density technical English. User interaction and documentation must remain strictly in Spanish.
+2. **Preserve Linguistic Architecture (Spec 19):** Agent directives in `rules/` and `skills/` must remain in high-density technical English. Interact in the user's prompt language and maintain bilingual human docs under English Canonical (`*.md`) + 1:1 Spanish Mirror (`*.es.md`).
 3. **Validate Automation Scripts:** Any new Python or Bash script in `.agents/scripts/` must be executable (`chmod +x`), pass `ruff` / `ShellCheck`, and be referenced in `certify_task_completion.sh` if it acts as a gate.
 4. **Log the Evolution:** Document changes made to `.agents/` in `CHANGELOG.md` under `## [Unreleased]`.
 5. **Thin-Repo Governance & Anti-Collision Rule for Consumer Projects (e.g. `rosgrid`):**

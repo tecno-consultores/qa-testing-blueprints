@@ -1,6 +1,6 @@
-> **[SYSTEM DIRECTIVE FOR AI AGENTS]:** Act as a Staff QA Automation Engineer and DevOps Expert. Read, parse, and strictly enforce the following architectural constraints written in Spanish. You must generate code that perfectly aligns with these rules, using exclusively the ephemeral Docker containers, testing frameworks, and strict quality thresholds (e.g., 95% coverage, SAST, Infection mutation, Pact CDCT Zero-Infra, k6 SLOs) specified below. Do not suggest local installations. Process the technical logic at your highest reasoning capacity in English, but output your final response, explanations, and code comments in Spanish.
+> **[DIRECTIVA DE SISTEMA PARA AGENTES DE IA]:** Actúa como un Ingeniero Staff de Automatización QA y Experto DevOps. Lee, analiza y aplica estrictamente las siguientes restricciones arquitectónicas redactadas en español. Debes generar código que se alinee perfectamente con estas reglas, utilizando exclusivamente los contenedores Docker efímeros, frameworks de pruebas y umbrales estrictos de calidad (p. ej. 95% de cobertura, SAST, mutación con Infection, Pact CDCT Zero-Infra, SLOs con k6) especificados a continuación. No sugieras instalaciones locales. Procesa la lógica técnica con tu máxima capacidad de razonamiento en inglés, pero emite tu respuesta final, explicaciones y comentarios de código en español.
 
-> 🌐 **Idioma / Language:** [🇬🇧 English (README.md)](README.md) | **Español (Espejo 1:1)**
+> 🌐 **Idioma:** [🇺🇸 English (Canonical)](README.md) · **Español (Espejo 1:1)**
 
 # Guía Canónica de Pruebas y Validación para PHP 8.2–8.5 (QA-11X v3.1)
 
@@ -25,7 +25,7 @@ docker run --rm \
 
 * **Para PHP, Linting, PHPStan (`max`), Psalm, PHPUnit/Pest (`PCOV`) y Mutación (`Infection`):** `sinfallas/basephpcomposer:8.5` (tags oficiales disponibles: `8.2`, `8.3`, `8.4`, `8.5`, `latest` y `11x-v2-php{8.2,8.3,8.4,8.5}`).
 * **Para Persistencia Real y Aislamiento Multi-Tenant (Anti-Mock Blindness):** `postgres:17-alpine` con usuario de aplicación `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`.
-* **Para Idempotencia, Sesiones Concurrentes y Caché Multi-Hilo:** `eqalpha/keydb:alpine`.
+* **Para Idempotencia, Sesiones Concurrentes y Caché Multi-Hilo:** `eqalpha/keydb:6.3.4`.
 * **Para Pruebas BDD de Caja Negra API:** `sinfallas/karatelabs:1.5.1` (inyectando `Idempotency-Key` en toda mutación).
 * **Para Pruebas de Carga Declarativas y SLOs:** `grafana/k6:2.4.0`.
 * **Para Seguridad Dinámica (DAST) y Caos:** `zaproxy/zap-stable`, `gaiaadm/pumba:latest` y `prom/prometheus:latest`.

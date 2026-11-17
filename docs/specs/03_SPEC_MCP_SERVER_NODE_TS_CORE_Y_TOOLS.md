@@ -1,3 +1,5 @@
+> 📜 **Aviso de Archivo Histórico (Spec 19 §3.4):** Especificación histórica preservada en español como registro arquitectónico inmutable (exenta de espejo bilingüe EN/ES). Para rutas y métricas vigentes, véase [README.es.md](README.es.md).
+
 # ⚙️ Especificación 03: Servidor MCP en Node.js / TypeScript (`@sinfallas/mcp-qa-11x`) — Núcleo, Recursos y Herramientas 1–4
 
 **Proyecto:** QA Testing Blueprints (Estándar Corporativo Nivel 11X)  

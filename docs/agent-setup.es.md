@@ -1,4 +1,4 @@
-> 🌐 **Idioma / Language:** [🇬🇧 English (agent-setup.md)](agent-setup.md) | **Español (Espejo 1:1)**
+> 🌐 **Idioma:** [🇺🇸 English (Canonical)](agent-setup.md) · **Español (Espejo 1:1)**
 
 # 🤖 Guía de Configuración e Integración de Agentes — Servidor MCP y Skills QA 11X
 
@@ -6,7 +6,7 @@ Esta guía proporciona instrucciones paso a paso para configurar **`@sinfallas/m
 
 ---
 
-## 📋 Paso 1: Instalación Universal de Skills, Conectores (`AGENTS.md`) y Política de Idioma (`--lang es|en`)
+## 📋 Paso 1: Instalación Universal de Skills, Conectores (`AGENTS.md`) y Política de Idioma (`--lang auto|es|en`)
 
 Antes de registrar el servidor MCP en tu asistente de IA, inicializa la gobernanza y los archivos puente Thin-Repo en la raíz de tu proyecto:
 
@@ -14,8 +14,8 @@ Antes de registrar el servidor MCP en tu asistente de IA, inicializa la gobernan
 # 1. Auto-detectar agentes instalados en el proyecto e inyectar directivas en inglés:
 npx -y @sinfallas/mcp-qa-11x@latest init-agents --lang en --agents auto
 
-# 2. Aplicar política de salida humana en español (por defecto) solo en AGENTS.md (100% compatible):
-npx -y @sinfallas/mcp-qa-11x@latest init-agents --lang es
+# 2. Usar Dynamic Language Mirroring (`auto` por defecto — refleja el idioma del prompt y de README/CHANGELOG) o forzar español (`--lang es`):
+npx -y @sinfallas/mcp-qa-11x@latest init-agents --lang auto
 
 # 3. Apuntar explícitamente a puentes específicos (ej. GitHub Copilot, Cursor, Claude Code) en inglés:
 npx -y @sinfallas/mcp-qa-11x@latest init-agents --lang en --agents copilot,cursor,claude-code
@@ -25,7 +25,7 @@ npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --lang en --agen
 ```
 
 > [!NOTE]
-> - **Política de Idioma (`--lang`):** `init-agents` soporta `--lang es` (por defecto, respuestas/espejos en español para humanos) y `--lang en` (respuestas/documentos en inglés para humanos), manteniendo las directivas internas `.agents/` en inglés técnico compacto. Re-ejecutar `init-agents` con otro `--lang` actualiza de forma idempotente únicamente el bloque conector delimitado QA-11X sin alterar reglas personalizadas del proyecto.
+> - **Política de Idioma (`--lang`):** `init-agents` usa `--lang auto` por defecto (*Dynamic Language Mirroring*, reflejando el idioma del prompt del usuario y el idioma existente en `README.md`/`CHANGELOG.md`), y también soporta explícitamente `--lang es` (respuestas/espejos en español para humanos) y `--lang en` (respuestas/documentos en inglés para humanos), manteniendo las directivas internas `.agents/` en inglés técnico compacto. Re-ejecutar `init-agents` con otro `--lang` actualiza de forma idempotente únicamente el bloque conector delimitado QA-11X sin alterar reglas personalizadas del proyecto.
 > - **Negociación Bilingüe de Recursos MCP (`?lang=es|en`):** Las URIs MCP `blueprint://*` y `qa-11x://docs/*` soportan `?lang=en` (inglés canónico, por defecto) y `?lang=es` (espejo 1:1 en español `.es.md`, ej. `blueprint://mobile-appium/readme?lang=es` para `sinfallas/base-mobile-appium:26`).
 > - **Arquitectura Puente Thin-Repo (`--agents <csv|auto|all>`):** En lugar de duplicar manuales extensos en cada carpeta de herramienta, cada puente se mantiene estrictamente en `<= 15` líneas y apunta directo a `AGENTS.md` (incluyendo *frontmatter* `.mdc` válido para Cursor y sintaxis YAML `read:` sin duplicación para `.aider.conf.yml`), con protección contra *path-traversal* y simulación `--dry-run`.
 > - **Guardia de Push Confirmado por Humanos (`QA-GIT-GATE-01`):** Los conectores generados exigen cierre local certificado con `git commit` y prohíben `git push` o `npm publish` automáticos sin autorización humana explícita.

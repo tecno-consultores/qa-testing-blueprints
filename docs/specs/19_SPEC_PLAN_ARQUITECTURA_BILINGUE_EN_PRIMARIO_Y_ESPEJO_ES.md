@@ -1,74 +1,77 @@
-# 📐 Especificación 19: Plan de Arquitectura Documental Bilingüe (Inglés Primario `.md` + Espejo Español `.es.md`)
+> 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md)
 
-**Proyecto:** QA Testing Blueprints (Estándar Corporativo QA-11X)  
-**Versión Objetivo:** QA-11X v3.0 (`v3.0.0` — Implementación ejecutada)  
-**Estado:** IMPLEMENTADO Y CERTIFICADO EN QA-11X v3.0  
-**Audiencia:** Mantenedores del Estándar 11X, Ingenieros Humanos y Agentes de IA
+# 📐 Specification 19: Bilingual Documentation Architecture Plan (English-Primary `.md` + Spanish Mirror `.es.md`)
 
----
-
-## 1. Propósito y Alcance Estricto
-
-Esta especificación define la planificación técnica detallada para migrar toda la documentación humana y de gobernanza visible de **`qa-testing-blueprints`** hacia una arquitectura **English-Primary (`*.md`) + 1:1 Spanish Mirror (`*.es.md`)**, preservando compatibilidad hacia atrás con enlaces históricos y optimizando la economía de tokens para Agentes de IA.
-
-> **ESTADO DE EJECUCIÓN EN QA-11X v3.0:** Las **4 fases (A, B, C y D)** de la arquitectura bilingüe **English-Primary (`*.md`) + 1:1 Spanish Mirror (`*.es.md`)** están implementadas: documentación raíz, los 10 stacks (`<stack>/README.{md,es.md}`), `architecture/`, `docs/specs/README.{md,es.md}`, manuales operativos en `docs/`, resolución dinámica MCP `?lang=es|en` (`resourceLang.ts`), campos `readme_es` / `readme_sha256` / `readme_es_sha256` en `manifest.json` y paridad automatizada en `verify_docs_invariants.py`, `verify_roadmap_consistency.py` y `bump_version_11x.py` (manteniendo las Specs históricas `01..20` en español conforme al §3.4).
+**Project:** QA Testing Blueprints (QA-11X Corporate Standard)  
+**Target Version:** QA-11X v3.0 / v3.1 (`v3.0.0` – `v3.1.0`, Phases A–D Completed)  
+**Status:** IMPLEMENTED AND CERTIFIED IN QA-11X v3.1 (Phases A–D Completed)  
+**Audience:** 11X Standard Maintainers, Human Engineers, and AI Agents
 
 ---
 
-## 2. Inventario Histórico Base (Pre-v3.0) y Métricas Vigentes
+## 1. Purpose and Strict Scope
 
-> **Nota Histórica (Baseline Pre-v3.0 vs. Métricas Vigentes):** Esta sección preserva el **inventario diagnóstico histórico previo a `v3.0.0`** que motivó las 4 fases. En el estado vigente implementado (`v3.0.0` + evolución `v3.1`), el repositorio cuenta con **11** `.agents/skills/*/SKILL.md`, normalización completa de `docs/agent-setup.md` ↔ `docs/agent-setup.es.md` (con redirección en `docs/agent-setup.en.md`), paridad bilingüe EN+ES en los documentos raíz, manuales de `docs/` y los 10 stacks, además de **19** herramientas MCP y **13** recursos `blueprint://*`.
+This specification defines the detailed technical roadmap for migrating all human-facing and public governance documentation of **`qa-testing-blueprints`** to an **English-Primary (`*.md`) + 1:1 Spanish Mirror (`*.es.md`)** architecture while preserving backwards compatibility with historical links and optimizing token economy for AI Agents.
 
-| Categoría | Archivos Observados (Baseline Histórico Pre-v3.0 / Estado Vigente) | Idioma Baseline | Estado Bilingüe |
+> **EXECUTION STATUS IN QA-11X v3.1:** All **4 phases (A, B, C, and D)** of the **English-Primary (`*.md`) + 1:1 Spanish Mirror (`*.es.md`)** bilingual architecture are implemented and certified: root documentation, all 10 stacks (`<stack>/README.{md,es.md}`), `architecture/`, `docs/specs/README.{md,es.md}`, `docs/specs/19..20+.{md,es.md}`, deep operational manuals under `docs/` (including `docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.{md,es.md}`), dynamic MCP `?lang=es|en` negotiation (`resourceLang.ts`), `readme_es` / `readme_sha256` / `readme_es_sha256` fields in `manifest.json`, and automated parity validation across `verify_docs_invariants.py`, `verify_roadmap_consistency.py`, and `bump_version_11x.py` (preserving only historical Specs `01..18` in Spanish per §3.4).
+
+---
+
+## 2. Historical Baseline Inventory (Pre-v3.0) and Current Metrics
+
+> **Historical Note (Pre-v3.0 Baseline vs. Current Metrics):** This section preserves the **pre-`v3.0.0` diagnostic inventory** that motivated all 4 phases. In the active implemented state (`v3.0.0` + `v3.1` evolution), the repository includes **11** `.agents/skills/*/SKILL.md`, full normalization of `docs/agent-setup.md` ↔ `docs/agent-setup.es.md` (with the legacy `docs/agent-setup.en.md` stub retired after the transition cycle), EN+ES bilingual parity across root docs, `docs/` manuals (`01..05`), all 10 stacks, and Specs `19..20+`, plus **19** MCP Tools and **13** `blueprint://*` Resources.
+
+| Category | Observed Files (Pre-v3.0 Baseline / Current State) | Baseline Language | Bilingual Status |
 | :--- | :--- | :--- | :--- |
-| **Puntos de Entrada Bilingües** | `README.md` ↔ `README.es.md`<br>`mcp-server/README.md` ↔ `mcp-server/README.es.md`<br>`docs/agent-setup.md` ↔ `docs/agent-setup.es.md` *(baseline pre-v3.0: `.en.md` vs `.md`)* | EN + ES | Normalizado en Fase A (redirección heredada en `docs/agent-setup.en.md`) |
-| **Artefactos Públicos Solo Inglés** | `catalogs/agenticskills-submission.md`, `mcp-server/package.json` | EN | Exclusivo registros internacionales |
-| **Gobernanza y Skills IA (`.agents/`)** | `AGENTS.md`, `.agents/README.md`, `8` `.agents/rules/*.md`, `11` `.agents/skills/*/SKILL.md` *(baseline pre-v3.0: `10`)* + `references/*.md` | EN (+ notas ES en `.agents/README.md` y cabecera `AGENTS.md`) | Monolítico EN óptimo para LLM (~35% ahorro de tokens) |
-| **Documentos Raíz (Baseline Pre-v3.0)** | `RESOURCES.md`, `TESTING.md`, `SECURITY.md`, `CONTRIBUTING.md`, `FAQ.md`, `AI_MASTER_PROMPT.md`, `ROADMAP.md`, `CHANGELOG.md`, `CODE_OF_CONDUCT.md` (plantilla), `mcp-server/CHANGELOG.md`, `mcp-server/example/README.md` | ES *(baseline pre-v3.0)* | Migrado a par EN+ES en Fase A (`v3.0.0`) |
-| **Manuales Maestros (Baseline Pre-v3.0 `docs/`)** | `docs/01_ARQUITECTURA_PIRAMIDE_11X.md`, `docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`, `docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md`, `docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md`, `docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`, `docs/ai-integration.md`, `docs/ci-cd-pipelines.md`, `docs/docker-troubleshooting.md`, `docs/qa-philosophy.md`, `docs/ARCHITECTURE_C4.md` | ES *(baseline pre-v3.0)* | Migrado a par EN+ES en Fase C (`v3.0.0`) |
-| **Entornos y Arquitectura (Baseline Pre-v3.0 `<stack>/README.md`)** | `architecture/README.md`, `fastapi/README.md`, `vue3/README.md`, `react-frontend/README.md`, `node-backend/README.md`, `python/README.md`, `php/README.md`, `bash-scripts/README.md`, `ai-evals/README.md`, `mobile-appium/README.md`, `vibe-rescue/README.md` | ES *(baseline pre-v3.0)* | Migrado a par EN+ES en Fase B (`v3.0.0`) |
-| **Especificaciones Técnicas (`docs/specs/`)** | `docs/specs/01_*.md` a `20_*.md` | ES (título 14/15 mixto) | Decisiones internas (ADRs/Specs) |
+| **Bilingual Entry Points** | `README.md` ↔ `README.es.md`<br>`mcp-server/README.md` ↔ `mcp-server/README.es.md`<br>`docs/agent-setup.md` ↔ `docs/agent-setup.es.md` *(pre-v3.0 baseline: `.en.md` vs `.md`)* | EN + ES | Normalized in Phase A (legacy `docs/agent-setup.en.md` stub retired in v3.1) |
+| **English-Only Public Artifacts** | `catalogs/agenticskills-submission.md`, `mcp-server/package.json` | EN | International registries only |
+| **AI Governance & Skills (`.agents/`)** | `AGENTS.md`, `.agents/README.md`, `8` `.agents/rules/*.md`, `11` `.agents/skills/*/SKILL.md` + `references/*.md` | EN (with `.agents/scripts/*` CLI diagnostics in ES) | Optimal monolingual EN for LLMs (~35% token savings) |
+| **Root Documents (Pre-v3.0 Baseline)** | `RESOURCES.md`, `TESTING.md`, `SECURITY.md`, `CONTRIBUTING.md`, `FAQ.md`, `AI_MASTER_PROMPT.md`, `ROADMAP.md`, `CHANGELOG.md`, `CODE_OF_CONDUCT.md` (template), `mcp-server/CHANGELOG.md`, `mcp-server/example/README.md` | ES *(pre-v3.0 baseline)* | Migrated to EN+ES pairs in Phase A (`v3.0.0`) |
+| **Master Manuals (Pre-v3.0 `docs/` Baseline)** | `docs/01_ARQUITECTURA_PIRAMIDE_11X.md`, `docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md`, `docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md`, `docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`, `docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md` *(renumbered from `01_` in v3.1)*, `docs/ai-integration.md`, `docs/ci-cd-pipelines.md`, `docs/docker-troubleshooting.md`, `docs/qa-philosophy.md`, `docs/ARCHITECTURE_C4.md` | ES *(pre-v3.0 baseline)* | Migrated to EN+ES pairs in Phase C (`v3.0.0`) |
+| **Stacks & Architecture (Pre-v3.0 `<stack>/README.md` Baseline)** | `architecture/README.md`, `fastapi/README.md`, `vue3/README.md`, `react-frontend/README.md`, `node-backend/README.md`, `python/README.md`, `php/README.md`, `bash-scripts/README.md`, `ai-evals/README.md`, `mobile-appium/README.md`, `vibe-rescue/README.md` | ES *(pre-v3.0 baseline)* | Migrated to EN+ES pairs in Phase B (`v3.0.0`) |
+| **Technical Specifications (`docs/specs/`)** | `docs/specs/01_*.md` through `18_*.md` (historical ES ADRs) + `docs/specs/19..20_*.{md,es.md}` | ES (`01..18`) / EN+ES (`19..20+`) | Historical ADRs `01..18` preserved in ES; `19..20+` bilingual EN+ES |
 
 ---
 
-## 3. Convención Canónica Objetivo (`*.md` EN + `*.es.md` ES)
+## 3. Target Canonical Convention (`*.md` EN + `*.es.md` ES)
 
 ```
-<ruta>/<DOCUMENTO>.md       -> Versión Canónica Primaria en Inglés (International Default)
-<ruta>/<DOCUMENTO>.es.md    -> Espejo Humano 1:1 en Español (Exact Section & Rule Parity)
+<path>/<DOCUMENT>.md        -> English Canonical Primary Version (International Default)
+<path>/<DOCUMENT>.es.md     -> 1:1 Spanish Human Mirror (Exact Section & Rule Parity)
 ```
 
-### Reglas de Diseño Lingüístico
-1. **Exención Explícita de `.agents/**` (Economía Cognitiva LLM):**
-   - Los archivos en `.agents/rules/*.md` y `.agents/skills/**` permanecen **exclusivamente en inglés técnico compacto** como fuente única de verdad para todos los LLMs (~35% de ahorro de ventana de contexto y cero riesgo de divergencia entre reglas gemelas).
-   - Se mantiene el **Espejo Dinámico de Idioma**: el servidor MCP y los conectores responden e interactúan en el idioma del usuario (`--lang auto|es|en`), consumiendo instrucciones internas en inglés.
-2. **Normalización de `docs/agent-setup*`:**
-   - Convertir `docs/agent-setup.md` al archivo en **inglés** y crear/renombrar `docs/agent-setup.es.md` como espejo español, manteniendo un *stub* temporal o enlace en `docs/agent-setup.en.md` durante un ciclo menor antes de deprecar el sufijo `.en.md`.
-3. **Banner Bidireccional Obligatorio:**
-   - Todo documento primario EN incluirá en las primeras 5 líneas:
-     `> 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](<DOCUMENTO>.es.md)`
-   - Todo espejo ES incluirá en las primeras 5 líneas:
-     `> 🌐 **Idioma:** [🇺🇸 English (Canonical)](<DOCUMENTO>.md) · **Español (Espejo 1:1)**`
-4. **Especificaciones Históricas (`docs/specs/01..18`):**
-   - Por ROI de mantenimiento, las Specs `01..18` pueden permanecer como registros históricos en español (indexadas desde un `docs/specs/README.md` + `README.es.md` en inglés/español), exigiendo formato bilingüe (`NN_SPEC_*.md` + `.es.md`) o inglés canónico únicamente a partir de nuevas especificaciones v3.x+.
+### Linguistic Design Rules
+1. **Explicit `.agents/**` Exemption (LLM Cognitive Economy) and `.agents/scripts/*` CLI Diagnostics:**
+   - Directive files in `.agents/README.md`, `.agents/rules/*.md`, and `.agents/skills/**` remain **exclusively in compact technical English** as the single source of truth for all LLMs (~35% context-window savings and zero twin-rule drift risk).
+   - Terminal/`stderr` diagnostic outputs from `.agents/scripts/*` (and human-facing projections such as `.agents/ACTIVE_TASK.md` / `PR_VERDICT.md`) remain intentionally in Spanish for human operators without penalizing LLM prompt token budgets.
+   - **Dynamic Language Mirroring** applies across runtime interfaces: the MCP server and connectors respond in the user's language (`--lang auto|es|en`) while consuming internal English directives.
+2. **Normalization of `docs/agent-setup*`:**
+   - Convert `docs/agent-setup.md` into the **English** canonical file and create/rename `docs/agent-setup.es.md` as the Spanish mirror, keeping a temporary stub in `docs/agent-setup.en.md` for one minor cycle before deprecating and removing the `.en.md` suffix (completed in v3.1).
+3. **Mandatory Bidirectional Banner:**
+   - Every canonical EN document must include within its first 5 lines:
+     `> 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](<DOCUMENT>.es.md)`
+   - Every ES mirror must include within its first 5 lines:
+     `> 🌐 **Idioma:** [🇺🇸 English (Canonical)](<DOCUMENT>.md) · **Español (Espejo 1:1)**`
+4. **Historical Specifications (`docs/specs/01..18`):**
+   - For maintenance ROI, Specs `01..18` remain preserved in Spanish as immutable historical records (indexed from [`docs/specs/README.md`](README.md) and its counterpart `docs/specs/README.es.md` with an explicit archival notice), requiring bilingual pairs (`NN_SPEC_*.md` + `.es.md`) starting from v3.x+ specifications (`19_SPEC`, `20_SPEC`, and beyond).
 
 ---
 
-## 4. Hoja de Ruta en 4 Fases (Zero-Breakage Rollout)
+## 4. 4-Phase Rollout Roadmap (Zero-Breakage Rollout)
 
-| Fase | Alcance y Entregables | Compatibilidad y Contratos | Criterio de Salida |
+| Phase | Scope & Deliverables | Compatibility & Contracts | Exit Criteria |
 | :--- | :--- | :--- | :--- |
-| **Fase A: Raíz, Gobernanza Pública y Onboarding** | `RESOURCES.md` + `.es.md`, `TESTING.md` + `.es.md`, `SECURITY.md` + `.es.md`, `CONTRIBUTING.md` + `.es.md`, `FAQ.md` + `.es.md`, `AI_MASTER_PROMPT.md` + `.es.md`, `ROADMAP.md` + `.es.md`, `CHANGELOG.md` + `.es.md`, normalización de `docs/agent-setup.md` / `.es.md`, y actualización de `AGENTS.md` (sección *Output Language Constraint*). | Actualizar `verify_docs_invariants.py` (`HUMAN_CORE_MANUALS` y `BILINGUAL_TRIGGER_DOCS`) y escenarios Karate BDD en el mismo PR (`QA-TEST-SYNC-01`). | `0` enlaces rotos; `100%` paridad de IDs `SEC-01..QA-SSR-HYDRATION-01` entre `SECURITY.md` y `SECURITY.es.md`. |
-| **Fase B: 10 Entornos (`<stack>/README.md`) + `architecture/README.md` + MCP `blueprint://*`** | Generar pareja `<stack>/README.md` (EN) + `<stack>/README.es.md` (ES) en los 10 stacks y `architecture/README.md` / `.es.md`. Extender `blueprint-resources.ts` y `manifest.json` (`scripts/generar-manifiesto.py`) para exponer recursos EN por defecto y variantes ES (`?lang=es` o URI espejo sin romper URIs `blueprint://<stack>/readme`). | Actualizar `mcp-server/src/cli/quickstart.ts`, `stackBlueprints.ts`, `tests/meta_qa/` y `live-mcp-protocol.test.ts` para verificar fallback determinista ES <-> EN cuando un proyecto solicite `--lang es` o `--lang en`. | `make test-mcp`, `make test-py` y `make test-karate` al 100% sobre ambas variantes lingüísticas. |
-| **Fase C: Manuales Profundos (`docs/01..04*`, `ai-integration`, `ci-cd`, `docker-troubleshooting`, `qa-philosophy`, `ARCHITECTURE_C4`)** | Traducir los 10 manuales de `docs/` a inglés canónico (`*.md`) manteniendo espejos `*.es.md` con bloques de código, diagramas Mermaid y comandos Docker verificados idénticos. | Actualizar referencias en `llms.txt`, `manifest.json`, `catalogs/agenticskills-submission.md` y `AGENTS.md` sin romper anclas históricas de Specs `01..20`. | Cero divergencia de tablas/comandos (`karatelabs:1.5.1`, `base-python-uv:3.15`, `19` tools, `13` resources, `11` reglas UAT). |
-| **Fase D: Compuerta Automatizada de Paridad Bilingüe y Política `AGENTS.md`** | Añadir validador `check_bilingual_pair_parity()` en `.agents/scripts/verify_docs_invariants.py` + cambio oficial de política en `AGENTS.md`: nuevos PRs documentales requieren pareja `.md` + `.es.md` en el mismo commit. | Integrar en `make lint-docs` y `./.agents/scripts/certify_task_completion.sh`. | Compuerta `10/10` bloqueante ante desincronización EN/ES. |
+| **Phase A: Root, Public Governance & Onboarding** | `RESOURCES.md` + `.es.md`, `TESTING.md` + `.es.md`, `SECURITY.md` + `.es.md`, `CONTRIBUTING.md` + `.es.md`, `FAQ.md` + `.es.md`, `AI_MASTER_PROMPT.md` + `.es.md`, `ROADMAP.md` + `.es.md`, `CHANGELOG.md` + `.es.md`, `docs/agent-setup.md` / `.es.md` normalization, and `AGENTS.md` update (*Output Language Constraint* section). | Update `verify_docs_invariants.py` (`HUMAN_CORE_MANUALS` and `BILINGUAL_TRIGGER_DOCS`) and Karate BDD scenarios in the same PR (`QA-TEST-SYNC-01`). | `0` broken links; `100%` ID parity `SEC-01..QA-SSR-HYDRATION-01` between `SECURITY.md` and `SECURITY.es.md`. |
+| **Phase B: 10 Stacks (`<stack>/README.md`) + `architecture/README.md` + MCP `blueprint://*`** | Generate `<stack>/README.md` (EN) + `<stack>/README.es.md` (ES) pairs across all 10 stacks and `architecture/README.md` / `.es.md`. Extend `blueprint-resources.ts` and `manifest.json` (`scripts/generar-manifiesto.py`) to serve EN resources by default and ES variants (`?lang=es` or mirror URI without breaking `blueprint://<stack>/readme`). | Update `mcp-server/src/cli/quickstart.ts`, `stackBlueprints.ts`, `tests/meta_qa/`, and `live-mcp-protocol.test.ts` to verify deterministic ES <-> EN fallback when projects pass `--lang es` or `--lang en`. | `make test-mcp`, `make test-py`, and `make test-karate` at 100% across both language variants. |
+| **Phase C: Deep Manuals (`docs/01..05*`, `ai-integration`, `ci-cd`, `docker-troubleshooting`, `qa-philosophy`, `ARCHITECTURE_C4`)** | Translate all 10 `docs/` manuals into canonical English (`*.md`) while maintaining `*.es.md` mirrors with identical verified code blocks, Mermaid diagrams, and Docker commands. | Update references across `llms.txt`, `manifest.json`, `catalogs/agenticskills-submission.md`, and `AGENTS.md` without breaking historical anchors from Specs `01..18`. | Zero drift in tables/commands (`karatelabs:1.5.1`, `base-python-uv:3.15`, `19` tools, `13` resources, `11` UAT rules). |
+| **Phase D: Automated Bilingual Parity Gate & `AGENTS.md` Policy** | Add `check_bilingual_pair_parity()` validator in `.agents/scripts/verify_docs_invariants.py` + official policy enforcement in `AGENTS.md`: new documentation PRs require `.md` + `.es.md` pairs in the same commit. | Integrate into `make lint-docs` and `./.agents/scripts/certify_task_completion.sh`. | `10/10` gate blocking on EN/ES desynchronization. |
 
 ---
 
-## 5. Diseño del Validador Automatizado de Paridad (`verify_docs_invariants.py`)
+## 5. Automated Parity Validator Design (`verify_docs_invariants.py`)
 
-En la Fase D, `check_bilingual_pair_parity(root: Path)` aplicará cuatro comprobaciones deterministas **Zero-LLM** sobre cada pareja declarada `(doc.md, doc.es.md)`:
-1. **Existencia Mutua y Banner:** Ambas rutas existen, tienen `size > 0` y enlazan recíprocamente a su contraparte en las primeras 10 líneas.
-2. **Paridad Estructural (`H2`/`H3`):** La cantidad de encabezados `##` y `###` coincide exactamente entre `.md` y `.es.md` (`abs(len_en - len_es) == 0`).
-3. **Paridad de Identificadores Normativos:** Todos los códigos estables (`SEC-\d+`, `QA-[A-Z0-9-]+`, `VIBE-[A-Z]+-\d+`, `UI-11X-\d+`, nombres de herramientas MCP y URIs `blueprint://*`) presentes en un idioma aparecen idénticos en el otro.
-4. **Higiene de Enlaces Internos:** Los enlaces relativos dentro de `doc.md` apuntan preferentemente a hermanos `.md` y los de `doc.es.md` a hermanos `.es.md` (cuando exista espejo).
+In Phase D, `check_bilingual_pair_parity(root: Path)` executes four deterministic **Zero-LLM** checks on every declared pair `(doc.md, doc.es.md)`:
+1. **Mutual Existence & Banner:** Both paths exist, have `size > 0`, and reciprocally link to their counterpart within the first 10 lines.
+2. **Structural Parity (`H2`/`H3`):** The count of `##` and `###` headings matches exactly between `.md` and `.es.md` (`abs(len_en - len_es) == 0`).
+3. **Normative Identifier Parity:** All stable codes (`SEC-\d+`, `QA-[A-Z0-9-]+`, `VIBE-[A-Z]+-\d+`, `UI-11X-\d+`, MCP tool names, and `blueprint://*` URIs) present in one language appear identically in the other.
+4. **Internal Link Hygiene:** Relative links inside `doc.md` point preferably to `.md` siblings, and links inside `doc.es.md` point to `.es.md` siblings (whenever a mirror exists).

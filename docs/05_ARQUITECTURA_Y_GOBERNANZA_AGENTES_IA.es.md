@@ -1,4 +1,4 @@
-> 🌐 **Idioma / Language:** [🇬🇧 English (01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md)](01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md) | **Español (Espejo 1:1)**
+> 🌐 **Idioma:** [🇺🇸 English (Canonical)](05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md) · **Español (Espejo 1:1)**
 
 # 🤖 Arquitectura y Gobernanza de Agentes de Inteligencia Artificial (Nivel 11X)
 
@@ -64,15 +64,16 @@ Un dilema común al gobernar agentes de IA es el idioma y el consumo de ventana 
 5. **Mayor Adherencia Lógica e Instruccional:**
    - Los modelos de frontera exhiben una adherencia más rigurosa a las directivas de seguridad y lógica cuando las restricciones están expresadas en la terminología canónica de la ingeniería de software (RFCs, **DISA ASD STIG V6R5**, **OWASP Developer Guide v4.2 / ASVS / WSTG / API Top 10 / OSHP / CycloneDX SBOM**, FIPS 140-3, ISO).
 
-### Garantía de Salida en Español para Humanos (`OUTPUT LANGUAGE CONSTRAINT`)
+### Garantía Bilingüe para Humanos y Salida Dinámica del Agente (`Spec 19`)
 
-Para asegurar una experiencia óptima para el equipo humano, todas las reglas incluyen la cláusula inviolable:
+Bajo la **Spec 19**, la documentación humana y la interacción del agente siguen una arquitectura bilingüe determinista:
 ```markdown
-> **OUTPUT LANGUAGE CONSTRAINT:**
-> Always communicate with the user, provide status updates, explain reasoning,
-> and write commit messages / user-facing documentation in Spanish.
+> **OUTPUT LANGUAGE CONSTRAINT (Spec 19):**
+> Interact and explain reasoning in the user's prompt language (or Spanish when configured via `--lang es`).
+> Keep `.agents/**` in concise technical English (~35% token savings) and maintain human docs as
+> English Canonical (`*.md`) + 1:1 Spanish Mirror (`*.es.md`) pairs.
 ```
-Los manuales operativos (`docs/`, `CHANGELOG.md`, `TESTING.md`, `README.es.md`) y las respuestas al usuario se mantienen en español junto a las puertas de entrada en inglés (`README.md`, `mcp-server/README.md`, `docs/agent-setup.md`, `catalogs/agenticskills-submission.md`).
+Los manuales humanos y documentos de gobernanza (`docs/*.md`, `CHANGELOG.md`, `TESTING.md`, `README.md`, `docs/agent-setup.md`) usan **Inglés Canónico (`*.md`)** acompañado de **Espejos 1:1 en Español (`*.es.md`)** (`docs/*.es.md`, `CHANGELOG.es.md`, `TESTING.es.md`, `README.es.md`, `docs/agent-setup.es.md`), mientras `.agents/**` permanece en inglés técnico conciso y los descriptores internacionales (`catalogs/agenticskills-submission.md`, `mcp-server/package.json`) se mantienen en inglés.
 
 ---
 
@@ -84,7 +85,7 @@ Esta arquitectura funciona de forma nativa e idéntica en las principales herram
 | :--- | :--- | :--- | :--- |
 | **Google Antigravity** | `mcp_config.json` (`npx -y @sinfallas/mcp-qa-11x@latest`) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target antigravity --init-agents --include-scripts` | `.agents/` + `AGENTS.md` |
 | **Anthropic Claude Code / Desktop** | `claude_desktop_config.json` (`stdio`) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target claude --init-agents --include-scripts` | `AGENTS.md` + `.agents/skills/` |
-| **Hermes Agent (Nous Research)** | `config.yaml` (`mcp_servers`) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target hermes --init-agents --include-scripts` | `AI_MASTER_PROMPT.md` + `Makefile` |
+| **Hermes Agent (Nous Research)** | `config.yaml` (`mcp_servers`) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target hermes --init-agents --include-scripts` | `AI_MASTER_PROMPT.es.md` + `Makefile` |
 | **Cursor / Windsurf** | `.cursor/mcp.json` (`mcpServers`) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target cursor --init-agents --include-scripts` | `AGENTS.md` y `.agents/rules/` |
 
 ---
@@ -95,7 +96,7 @@ Para evitar que los agentes deban clonar gigabytes de repositorios o saturar su 
 
 1. **13 Recursos Dinámicos (`blueprint://*`):**
    - `blueprint://manifest`: Índice criptográfico con hashes SHA-256 de todos los stacks y archivos comunes.
-   - `blueprint://core/philosophy` (`blueprint://philosophy`): Filosofía 11X y prompt maestro (`AI_MASTER_PROMPT.md`).
+   - `blueprint://core/philosophy` (`blueprint://philosophy`): Filosofía 11X y prompt maestro (`AI_MASTER_PROMPT.es.md`).
    - `blueprint://security/disa-owasp-22`: Síntesis técnica de los 22 patrones DISA ASD STIG V6R5 y OWASP v4.2.
    - `blueprint://{stack}/readme`: Especificación del stack hidratable solicitado (`python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue` — conformando junto con `architecture/` y `mcp-server/` los **12 entornos de matriz**).
    - `blueprint://ui/refactoring-ui/{topic}`: Directivas tácticas visuales y WCAG 2.1 AA (`skill`, `hierarchy`, `layout`, `type`, `color`, `depth`, `images`, `polish`, `dark-mode`, `tailwind`).
@@ -150,7 +151,7 @@ Para erradicar el hábito de los agentes de dar tareas por terminadas con prueba
 
 1. **Creación Obligatoria de Pruebas 11X:** Ningún código nuevo puede carecer de pruebas unitarias (`>= 95%`) ni de escenarios BDD en Karate Labs para API y UI.
 2. **Ejecución en Docker Efímero (`Rule Zero`):** Toda la suite debe ejecutarse y pasar al 100% dentro de contenedores efímeros (`make qa-all`).
-3. **Sincronización Documental Continua y Cierre del Flight Recorder:** Actualizar `docs/`, `CHANGELOG.md` (bajo `## [Unreleased]`), `ROADMAP.md`, `TESTING.md`, `README.md` y cerrar `.agents/ACTIVE_TASK.md` como `CERTIFIED_CLEAN` mediante `.agents/scripts/checkpoint_ctl.py` (o MCP `session_flight_recorder`, sin edición manual en Markdown).
+3. **Sincronización Documental Continua y Cierre del Flight Recorder:** Actualizar `docs/`, `CHANGELOG.es.md` (bajo `## [Unreleased]`), `ROADMAP.es.md`, `TESTING.es.md`, `README.es.md` y cerrar `.agents/ACTIVE_TASK.md` como `CERTIFIED_CLEAN` mediante `.agents/scripts/checkpoint_ctl.py` (o MCP `session_flight_recorder`, sin edición manual en Markdown).
 4. **Compuerta de Certificación en 10 Etapas (`10/10`):** Ejecutar `./.agents/scripts/certify_task_completion.sh` verificando:
    - Secret Scanning (`verificar-secretos.sh`).
    - Auditoría de infraestructura y CVEs (Trivy, `auditar-infra.sh`).
@@ -160,14 +161,14 @@ Para erradicar el hábito de los agentes de dar tareas por terminadas con prueba
    - Salud topológica y límites arquitectónicos AST.
    - Paridad ORM entre modelos SQLAlchemy y migraciones Alembic.
    - Sincronización criptográfica del manifiesto SHA-256 (`manifest.json`).
-   - Consistencia estricta de `ROADMAP.md` y `ACTIVE_TASK.md`.
+   - Consistencia estricta de `ROADMAP.es.md` y `ACTIVE_TASK.md`.
    - Sincronización incondicional de documentación y pruebas obligatorias.
 
 Si cualquiera de los pasos falla, el agente tiene prohibido cerrar el turno.
 
 ### 📈 Evolución Incremental Implementada y Planificada (Hitos 21–23)
 
-Con el objetivo de reforzar el estándar sobre la superficie pública estabilizada (**19 herramientas** y **13 recursos** MCP junto a **8 reglas canónicas** en `.agents/rules/` y **11 skills modulares**, incorporando el Flight Recorder unificado `checkpoint_ctl.py` + `session_flight_recorder` y la micro-skill JIT `tactical-patterns-11x`), la evolución incremental avanza sobre [`ROADMAP.md`](../ROADMAP.md):
+Con el objetivo de reforzar el estándar sobre la superficie pública estabilizada (**19 herramientas** y **13 recursos** MCP junto a **8 reglas canónicas** en `.agents/rules/` y **11 skills modulares**, incorporando el Flight Recorder unificado `checkpoint_ctl.py` + `session_flight_recorder` y la micro-skill JIT `tactical-patterns-11x`), la evolución incremental avanza sobre [`ROADMAP.es.md`](../ROADMAP.es.md):
 1. **Cobertura Diferencial (`Hito 21` — Implementado):** [`16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md`](specs/16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md) (`100%` en líneas delta, `>= 90%` en ramas delta y bloqueo de exclusiones no autorizadas).
 2. **Cortacircuitos Anti-Loop (`Hito 22` — Implementado):** [`17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md`](specs/17_SPEC_CORTACIRCUITOS_ANTI_LOOP_Y_ESTADO_HALLAZGOS.md) implementó [`.agents/scripts/track_findings_state.py`](../.agents/scripts/track_findings_state.py) y su integración en [`mcp-server/src/services/qa-evidence.ts`](../mcp-server/src/services/qa-evidence.ts), [`mcp-server/src/tools/ephemeral-runner.ts`](../mcp-server/src/tools/ephemeral-runner.ts) (`run_ephemeral_qa`) y [`.agents/scripts/certify_task_completion.sh`](../.agents/scripts/certify_task_completion.sh): persiste huellas SHA-256 invariantes a números de línea en `.agents/.cache/certify_state.json` (`0600`, aisladas por `{branch}:{merge_base_sha}` y stage) y dispara el bloqueo determinista **`BREAKER-42` (`exit 42`)** cuando `consecutive_streak >= 3` o se detecta oscilación `A -> B -> A` (`oscillations >= 1`), obligando a detener parches a ciegas e invocar `inspect_ast_blast_radius` y `qa-11x-systematic-debugging` (el flag `--reset-state` está reservado al operador humano).
 3. **Modo Diff en Blast Radius y Veredicto PR (`Hito 23` — Implementado):** [`18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md`](specs/18_SPEC_MODO_DIFF_BLAST_RADIUS_Y_VEREDICTO_PR.md) implementó [`mcp-server/src/utils/diff-bundle.ts`](../mcp-server/src/utils/diff-bundle.ts) y la extensión retrocompatible de `inspect_ast_blast_radius` (`changed_since_ref`, `max_tokens_budget` en [`mcp-server/src/types.ts`](../mcp-server/src/types.ts), [`mcp-server/src/tools/blast-radius.ts`](../mcp-server/src/tools/blast-radius.ts) y [`mcp-server/src/server.ts`](../mcp-server/src/server.ts), preservando las `18` tools y `12` resources MCP) con poda semántica en 4 niveles (`PRUNED_NOISE`, `CRITICAL_FULL`, `CORE_LOGIC`, `TESTS_SUMMARY`), redacción vía `promptGuard.ts`, alerta `MISSING_KARATE_API_FEATURE` y fronteras opcionales en `.agents/ACTIVE_TASK.md`; además incorporó [`.agents/scripts/generate_pr_verdict.py`](../.agents/scripts/generate_pr_verdict.py) (`make pr-verdict`) para consolidar `release_readiness_gate.py`, `.agents/.qa-evidence.json`, `.agents/.cache/certify_state.json` y `verify_diff_coverage.py` en `.agents/artifacts/PR_VERDICT.md` y `.agents/artifacts/pr_verdict_attestation.json` (`0600`, `SHA-256` / `HMAC-SHA256` opcional, `exit 0` o `30`).
@@ -181,7 +182,7 @@ Los agentes no deben ser estáticos. Si durante el desarrollo descubren:
 - Un antipatrón funcional en UAT (como *Silo Mock Blindness*, omisión del ciclo temporal de 3 fases o mocks ciegos en `write_audit_log`),
 - Una oportunidad de optimizar el consumo de tokens o simplificar un procedimiento,
 
-el agente tiene la directiva explícita de **actualizar de forma autónoma las reglas y skills** en `.agents/`, documentando el cambio en el `CHANGELOG.md`.
+el agente tiene la directiva explícita de **actualizar de forma autónoma las reglas y skills** en `.agents/`, documentando el cambio en el `CHANGELOG.es.md`.
 
 ### 🛡️ Separación entre Reglas Globales Canónicas y Reglas de Dominio Local (Caso `rosgrid`)
 Para evitar que las directivas creadas por un agente en un proyecto consumidor (ej. `rosgrid`) choquen o se dupliquen con las reglas globales de `qa-testing-blueprints`:

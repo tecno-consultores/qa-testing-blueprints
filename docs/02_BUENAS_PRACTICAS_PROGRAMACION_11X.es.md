@@ -1,4 +1,4 @@
-> 🌐 **Idioma / Language:** [🇬🇧 English (02_BUENAS_PRACTICAS_PROGRAMACION_11X.md)](02_BUENAS_PRACTICAS_PROGRAMACION_11X.md) | **Español (Espejo 1:1)**
+> 🌐 **Idioma:** [🇺🇸 English (Canonical)](02_BUENAS_PRACTICAS_PROGRAMACION_11X.md) · **Español (Espejo 1:1)**
 
 # 🛡️ Buenas Prácticas de Programación y Arquitectura (Nivel 11X)
 

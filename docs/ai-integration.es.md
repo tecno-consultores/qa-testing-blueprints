@@ -1,4 +1,4 @@
-> 🌐 **Idioma / Language:** [🇬🇧 English (ai-integration.md)](ai-integration.md) | **Español (Espejo 1:1)**
+> 🌐 **Idioma:** [🇺🇸 English (Canonical)](ai-integration.md) · **Español (Espejo 1:1)**
 
 # Integración Autónoma con Agentes de IA
 
@@ -73,8 +73,8 @@ En proyectos de grado corporativo, la IA debe seguir una directriz bimodal estri
    - Salud Topológica y Aislamiento de Capas (`verify_topological_health.py`).
    - Paridad ORM y Esquemas Relacionales (`verify_alembic_orm_parity.py`).
    - Sincronización Criptográfica del Manifiesto Remoto (`manifest.json`).
-   - Consistencia Interna de `ROADMAP.md` y `ACTIVE_TASK.md` (`verify_roadmap_consistency.py`).
-   - Sincronización incondicional de documentación y pruebas obligatorias (`CHANGELOG.md`, `TESTING.md`, `README.md`).
+   - Consistencia Interna de `ROADMAP.es.md` y `ACTIVE_TASK.md` (`verify_roadmap_consistency.py`).
+   - Sincronización incondicional de documentación y pruebas obligatorias (`CHANGELOG.es.md`, `TESTING.es.md`, `README.es.md`).
 
 ---
 
@@ -113,7 +113,7 @@ npx -y @sinfallas/mcp-qa-11x@latest [--stdio]
 ### 6.2. Configuración en Clientes de IA
 
 > [!TIP]
-> Para la guía exhaustiva con instrucciones paso a paso y matriz declarativa de los **28 agentes de IA soportados** (`quickstart --agents` / `init-agents --agents` incluyendo Antigravity, Claude Code/Desktop, Cursor, Windsurf, VS Code Copilot, Codex CLI, Gemini CLI, Hermes, Cline, Roo Code, Aider, JetBrains AI, Bolt, Lovable, v0 y Replit), consulta **[`docs/agent-setup.es.md`](agent-setup.es.md)** (Español) o **[`docs/agent-setup.md`](agent-setup.md)** (English; redirección heredada en [`docs/agent-setup.en.md`](agent-setup.en.md)).
+> Para la guía exhaustiva con instrucciones paso a paso y matriz declarativa de los **28 agentes de IA soportados** (`quickstart --agents` / `init-agents --agents` incluyendo Antigravity, Claude Code/Desktop, Cursor, Windsurf, VS Code Copilot, Codex CLI, Gemini CLI, Hermes, Cline, Roo Code, Aider, JetBrains AI, Bolt, Lovable, v0 y Replit), consulta **[`docs/agent-setup.es.md`](agent-setup.es.md)** (Español; versión canónica en inglés en `docs/agent-setup.md`).
 
 #### A. Claude Desktop / Claude Code (`claude_desktop_config.json`)
 ```json
@@ -164,7 +164,7 @@ mcp_servers:
 | URI del Recurso | Tipo MIME | Descripción Operativa |
 | :--- | :--- | :--- |
 | `blueprint://manifest` | `application/json` | Manifiesto criptográfico completo con hashes SHA-256 de todos los stacks y archivos. |
-| `blueprint://core/philosophy` | `text/markdown` | Prompt maestro y filosofía Level-11X (`AI_MASTER_PROMPT.md`). |
+| `blueprint://core/philosophy` | `text/markdown` | Prompt maestro y filosofía Level-11X (`AI_MASTER_PROMPT.es.md`). |
 | `blueprint://security/disa-owasp-22` | `text/markdown` | Síntesis técnica de los 22 controles de referencia DISA ASD STIG V6R5 y OWASP Developer Guide v4.2 (respaldados por 34 reglas estáticas del escáner). |
 | `blueprint://{stack}/readme` | `text/markdown` | Guía operativa y lista de archivos canónicos del stack hidratable solicitado (`python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue`). |
 | `blueprint://ui/refactoring-ui/{topic}` | `text/markdown` | Pautas de diseño táctico y contraste WCAG 2.1 AA (`skill`, `hierarchy`, `layout`, `type`, `color`, `depth`, `images`, `polish`, `dark-mode`, `tailwind`). |

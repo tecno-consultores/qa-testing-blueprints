@@ -24,7 +24,9 @@ class TestVerifyDocsInvariants(unittest.TestCase):
         self.assertEqual(verify_docs.main([str(REPO_ROOT)]), 0)
 
     def test_all_registered_core_manuals_and_doc_targets_exist_on_disk(self) -> None:
-        self.assertIn("docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md", verify_docs.DOC_TARGETS)
+        self.assertIn("docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md", verify_docs.DOC_TARGETS)
+        self.assertIn("docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md", verify_docs.DOC_TARGETS)
+        self.assertNotIn("docs/agent-setup.en.md", verify_docs.DOC_TARGETS)
         self.assertIn(".agents/README.md", verify_docs.DOC_TARGETS)
         for rel in verify_docs.HUMAN_CORE_MANUALS:
             self.assertTrue((REPO_ROOT / rel).is_file(), f"Manual inexistente en HUMAN_CORE_MANUALS: {rel}")
@@ -160,21 +162,38 @@ class TestVerifyDocsInvariants(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "README.es.md").write_text("**Español** -> [README.md](README.md)\n", encoding="utf-8")
-            (root / "README.md").write_text("**English** -> [README.es.md](README.es.md)\n", encoding="utf-8")
+            (root / "README.es.md").write_text(
+                "> 🌐 **Idioma:** [🇺🇸 English](README.md) | **Español**\n", encoding="utf-8"
+            )
+            (root / "README.md").write_text(
+                "> 🌐 **Language:** **English** | [🇪🇸 Español](README.es.md)\n", encoding="utf-8"
+            )
             (root / "mcp-server").mkdir()
-            (root / "mcp-server" / "README.md").write_text("**English** -> [README.es.md](README.es.md)\n", encoding="utf-8")
+            (root / "mcp-server" / "README.md").write_text(
+                "> 🌐 **Language:** **English** | [🇪🇸 Español](README.es.md)\n", encoding="utf-8"
+            )
             (root / "mcp-server" / "README.es.md").write_text("Missing English backlink\n", encoding="utf-8")
             (root / "docs").mkdir()
-            (root / "docs" / "agent-setup.en.md").write_text("**English** -> [agent-setup.md](agent-setup.md)\n", encoding="utf-8")
-            (root / "docs" / "agent-setup.md").write_text("**Español** -> [agent-setup.en.md](agent-setup.en.md)\n", encoding="utf-8")
+            (root / "docs" / "agent-setup.md").write_text(
+                "> 🌐 **Language:** **English** | [🇪🇸 Español](agent-setup.es.md)\n", encoding="utf-8"
+            )
+            (root / "docs" / "agent-setup.es.md").write_text(
+                "> 🌐 **Idioma:** [🇺🇸 English](agent-setup.md) | **Español**\n", encoding="utf-8"
+            )
 
             errors = verify_docs.check_bilingual_readme_parity(root)
             self.assertTrue(any("mcp-server/README.es.md" in e for e in errors))
             self.assertFalse(any("agent-setup" in e for e in errors))
 
-            (root / "mcp-server" / "README.es.md").write_text("**Español** -> [README.md](README.md)\n", encoding="utf-8")
+            (root / "mcp-server" / "README.es.md").write_text(
+                "> 🌐 **Idioma:** [🇺🇸 English](README.md) | **Español**\n", encoding="utf-8"
+            )
             self.assertEqual(verify_docs.check_bilingual_readme_parity(root), [])
+
+            # El archivo legado docs/agent-setup.en.md en disco debe fallar determinísticamente
+            (root / "docs" / "agent-setup.en.md").write_text("Redirect\n", encoding="utf-8")
+            legacy_readme_errs = verify_docs.check_bilingual_readme_parity(root)
+            self.assertTrue(any("agent-setup.en.md" in e for e in legacy_readme_errs))
 
     def test_detects_bilingual_agent_setup_and_pair_parity_mismatches(self) -> None:
         import tempfile
@@ -182,20 +201,28 @@ class TestVerifyDocsInvariants(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / "docs").mkdir(parents=True, exist_ok=True)
-            (root / "README.md").write_text("**English** -> [README.es.md](README.es.md)\n", encoding="utf-8")
-            (root / "README.es.md").write_text("**Español** -> [README.md](README.md)\n", encoding="utf-8")
-            (root / "docs" / "agent-setup.md").write_text("**English** -> [agent-setup.es.md](agent-setup.es.md)\n", encoding="utf-8")
+            (root / "README.md").write_text(
+                "> 🌐 **Language:** **English** | [🇪🇸 Español](README.es.md)\n", encoding="utf-8"
+            )
+            (root / "README.es.md").write_text(
+                "> 🌐 **Idioma:** [🇺🇸 English](README.md) | **Español**\n", encoding="utf-8"
+            )
+            (root / "docs" / "agent-setup.md").write_text(
+                "> 🌐 **Language:** **English** | [🇪🇸 Español](agent-setup.es.md)\n", encoding="utf-8"
+            )
             (root / "docs" / "agent-setup.es.md").write_text("Missing link\n", encoding="utf-8")
 
             readme_errs = verify_docs.check_bilingual_readme_parity(root)
             self.assertTrue(any("agent-setup.es.md" in e for e in readme_errs))
 
-            (root / "docs" / "agent-setup.es.md").write_text("**Español** -> [agent-setup.md](agent-setup.md)\n", encoding="utf-8")
+            (root / "docs" / "agent-setup.es.md").write_text(
+                "> 🌐 **Idioma:** [🇺🇸 English](agent-setup.md) | **Español**\n", encoding="utf-8"
+            )
             self.assertEqual(verify_docs.check_bilingual_readme_parity(root), [])
 
             # Par nominal con código cercado y comentario HTML ignorados al contar H2/H3
             (root / "TESTING.md").write_text(
-                "> 🌐 **English** | [TESTING.es.md](TESTING.es.md)\n\n"
+                "> 🌐 **Language:** **English** | [🇪🇸 Español](TESTING.es.md)\n\n"
                 "## Section 1\n### Detail A\n\n"
                 "```bash\n## comment inside code\n```\n"
                 "<!-- ## comment inside html -->\n"
@@ -203,7 +230,7 @@ class TestVerifyDocsInvariants(unittest.TestCase):
                 encoding="utf-8",
             )
             (root / "TESTING.es.md").write_text(
-                "> 🌐 **Español** | [TESTING.md](TESTING.md)\n\n"
+                "> 🌐 **Idioma:** [🇺🇸 English](TESTING.md) | **Español**\n\n"
                 "## Sección 1\n### Detalle A\n\n"
                 "Control SEC-01 y blueprint://core/philosophy\n",
                 encoding="utf-8",
@@ -222,7 +249,7 @@ class TestVerifyDocsInvariants(unittest.TestCase):
 
             # Cuando existe RESOURCES.es.md se exige el conjunto completo BILINGUAL_DOC_PAIRS
             (root / "RESOURCES.es.md").write_text(
-                "> 🌐 **Español** | [RESOURCES.md](RESOURCES.md)\n",
+                "> 🌐 **Idioma:** [🇺🇸 English](RESOURCES.md) | **Español**\n",
                 encoding="utf-8",
             )
             missing_errs = verify_docs.check_bilingual_pair_parity(root)
@@ -581,6 +608,111 @@ class TestVerifyDocsInvariants(unittest.TestCase):
                 encoding="utf-8",
             )
             self.assertEqual(verify_docs.check_global_catalogs_and_geo(root), [])
+
+    def test_blocks_legacy_agent_setup_en_links_and_live_references(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "docs").mkdir(parents=True, exist_ok=True)
+            (root / "mcp-server").mkdir(parents=True, exist_ok=True)
+
+            # Estado limpio sin referencias a agent-setup.en.md -> 0 errores
+            (root / "README.md").write_text("See [docs/agent-setup.md](docs/agent-setup.md)\n", encoding="utf-8")
+            (root / "README.es.md").write_text("Ver [docs/agent-setup.es.md](docs/agent-setup.es.md)\n", encoding="utf-8")
+            (root / "RESOURCES.md").write_text("[Setup](docs/agent-setup.md)\n", encoding="utf-8")
+            (root / "llms.txt").write_text("docs/agent-setup.md\n", encoding="utf-8")
+            (root / "mcp-server" / "README.md").write_text("See docs/agent-setup.md\n", encoding="utf-8")
+            (root / "docs" / "agent-setup.md").write_text("Guide EN\n", encoding="utf-8")
+            (root / "docs" / "agent-setup.es.md").write_text("Guía ES\n", encoding="utf-8")
+            (root / "docs" / "ai-integration.md").write_text("See [setup](agent-setup.md)\n", encoding="utf-8")
+            self.assertEqual(verify_docs.check_active_docs(root), [])
+
+            # Referencias vivas y enlaces activos a agent-setup.en.md deben bloquearse
+            (root / "docs" / "agent-setup.en.md").write_text("Redirect\n", encoding="utf-8")
+            (root / "README.md").write_text("Legacy `docs/agent-setup.en.md`\n", encoding="utf-8")
+            (root / "RESOURCES.es.md").write_text("Ver [old](docs/agent-setup.en.md)\n", encoding="utf-8")
+            (root / "llms.txt").write_text("redirect: docs/agent-setup.en.md\n", encoding="utf-8")
+            (root / "mcp-server" / "README.md").write_text(
+                "See [docs/agent-setup.en.md](https://example.org/docs/agent-setup.en.md)\n",
+                encoding="utf-8",
+            )
+            (root / "docs" / "agent-setup.md").write_text("Old `agent-setup.en.md`\n", encoding="utf-8")
+            (root / "docs" / "ai-integration.md").write_text("See [legacy](agent-setup.en.md)\n", encoding="utf-8")
+
+            errs = verify_docs.check_active_docs(root)
+            for marker in (
+                "docs/agent-setup.en.md: archivo legado prohibido",
+                "README.md: referencia prohibida",
+                "RESOURCES.es.md: referencia prohibida",
+                "llms.txt: referencia prohibida",
+                "mcp-server/README.md: referencia prohibida",
+                "docs/agent-setup.md: referencia prohibida",
+                "docs/ai-integration.md: detectado enlace obsoleto",
+            ):
+                self.assertTrue(any(marker in e for e in errs), f"Faltó error esperado '{marker}' en {errs}")
+
+    def test_bilingual_pair_parity_spec19_banner_and_es_internal_links(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "guides").mkdir(parents=True, exist_ok=True)
+            (root / "docs" / "specs").mkdir(parents=True, exist_ok=True)
+
+            # Par válido base para destinos hermanos y documento histórico sin espejo .es.md
+            (root / "TESTING.md").write_text(
+                "> 🌐 **Language:** **English** · [🇪🇸 Leer en Español](TESTING.es.md)\n\n## Guide\n",
+                encoding="utf-8",
+            )
+            (root / "TESTING.es.md").write_text(
+                "> 🌐 **Idioma:** [🇺🇸 English](TESTING.md) · **Español** (Espejo 1:1)\n\n## Guía\n",
+                encoding="utf-8",
+            )
+            (root / "docs" / "specs" / "01_HIST.md").write_text("# Historical\n", encoding="utf-8")
+
+            # 1. Par custom fuera de BILINGUAL_DOC_PAIRS con banner Spec 19 (backlink exento), enlace ES->ES y código ignorado
+            (root / "guides" / "workflow.md").write_text(
+                "> 🌐 **Language:** **English** · [🇪🇸 Leer en Español](workflow.es.md)\n\n"
+                "## Overview\nSee [Testing](../TESTING.md) and [Spec 01](../docs/specs/01_HIST.md).\n",
+                encoding="utf-8",
+            )
+            (root / "guides" / "workflow.es.md").write_text(
+                "> 🌐 **Idioma:** [🇺🇸 English](workflow.md) · **Español** (Espejo 1:1)\n\n"
+                "## Resumen\nVer [Pruebas](../TESTING.es.md), [Spec 01](../docs/specs/01_HIST.md) y [fuera](../../../outside.md).\n"
+                "Ignorar `[ejemplo](../TESTING.md)` y bloque:\n"
+                "```markdown\n[no-aplica](../TESTING.md)\n```\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(verify_docs.check_bilingual_pair_parity(root), [])
+
+            # 2. Fallo: enlace ES->EN en cuerpo hacia archivo cuyo hermano .es.md existe
+            (root / "guides" / "workflow.es.md").write_text(
+                "> 🌐 **Idioma:** [🇬🇧 English (workflow.md)](workflow.md) | **Español (Espejo 1:1)**\n\n"
+                "## Resumen\nVer [Pruebas](../TESTING.md#seccion) y no banner.\n",
+                encoding="utf-8",
+            )
+            link_errs = verify_docs.check_bilingual_pair_parity(root)
+            self.assertTrue(
+                any("guides/workflow.es.md:4: enlace ES→EN '../TESTING.md'" in e and "TESTING.es.md" in e for e in link_errs),
+                f"Se esperaba error ES->EN, obtenido: {link_errs}",
+            )
+
+            # 3. Fallo: banner sin marcador Spec 19 o fuera de las 10 primeras líneas
+            (root / "guides" / "workflow.es.md").write_text(
+                "> Ver [workflow.md](workflow.md)\n\n## Resumen\n",
+                encoding="utf-8",
+            )
+            banner_errs = verify_docs.check_bilingual_pair_parity(root)
+            self.assertTrue(any("guides/workflow.es.md: falta banner recíproco" in e for e in banner_errs))
+
+            # 4. Fallo: espejo .es.md huérfano sin contraparte .md
+            (root / "guides" / "orphan.es.md").write_text(
+                "> 🌐 **Idioma:** [🇺🇸 English](orphan.md) · **Español**\n",
+                encoding="utf-8",
+            )
+            orphan_errs = verify_docs.check_bilingual_pair_parity(root)
+            self.assertTrue(any("falta o está vacío 'guides/orphan.md'" in e for e in orphan_errs))
 
 
 if __name__ == "__main__":

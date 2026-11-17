@@ -1,9 +1,11 @@
+> 📜 **Aviso de Archivo Histórico (Spec 19 §3.4):** Especificación histórica preservada en español como registro arquitectónico inmutable (exenta de espejo bilingüe EN/ES). Para rutas y métricas vigentes, véase [README.es.md](README.es.md).
+
 # 🎯 Especificación Técnica 16: Cobertura Diferencial Multi-Stack y Bloqueo Anti-Evasión (Hito 21)
 
 **Proyecto:** QA Testing Blueprints (`tecno-consultores/qa-testing-blueprints`)  
 **Componentes Objetivo (`Hito 21`):** `.agents/scripts/verify_diff_coverage.py`, `tests/test_verify_diff_coverage.unit.py`, `Makefile`, `.agents/scripts/certify_task_completion.sh`, `mcp-server/src/tools/ephemeral-runner.ts`  
 **Superficie Pública MCP:** Se mantienen intactas las **18 Tools** y **12 Resources** vigentes  
-**Estado:** COMPLETADO (HITO 21 — ENTREGA 1 DE 3)
+**Estado:** IMPLEMENTADO Y CERTIFICADO (HITO 21 — ENTREGA 1 DE 3)
 
 ---
 

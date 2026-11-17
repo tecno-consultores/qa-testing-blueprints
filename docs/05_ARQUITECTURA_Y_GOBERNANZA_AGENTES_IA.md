@@ -1,4 +1,4 @@
-> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md)](01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md)
+> 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md)
 
 # 🤖 AI Agent Architecture and Governance (Level 11X)
 
@@ -64,15 +64,16 @@ A common dilemma when governing AI agents is language choice versus context wind
 5. **Stronger Logical and Instructional Adherence:**
    - Frontier models adhere more strictly to security and logic constraints when expressed in canonical software engineering terminology (RFCs, **DISA ASD STIG V6R5**, **OWASP Developer Guide v4.2 / ASVS / WSTG / API Top 10 / OSHP / CycloneDX SBOM**, FIPS 140-3, ISO).
 
-### Output Language Guarantee for Humans (`OUTPUT LANGUAGE CONSTRAINT`)
+### Bilingual Human Documentation Guarantee & Dynamic Agent Output (`Spec 19`)
 
-To ensure an optimal experience for human teams, all rules include the inviolable clause:
+Under **Spec 19**, human-facing documentation and agent interaction follow a deterministic bilingual architecture:
 ```markdown
-> **OUTPUT LANGUAGE CONSTRAINT:**
-> Always communicate with the user, provide status updates, explain reasoning,
-> and write commit messages / user-facing documentation in Spanish.
+> **OUTPUT LANGUAGE CONSTRAINT (Spec 19):**
+> Interact and explain reasoning in the user's prompt language (or Spanish when configured via `--lang es`).
+> Keep `.agents/**` in concise technical English (~35% token savings) and maintain human docs as
+> English Canonical (`*.md`) + 1:1 Spanish Mirror (`*.es.md`) pairs.
 ```
-Operational manuals (`docs/`, `CHANGELOG.md`, `TESTING.md`, `README.es.md`) and user responses remain in Spanish alongside English entrypoints (`README.md`, `mcp-server/README.md`, `docs/agent-setup.md`, `catalogs/agenticskills-submission.md`).
+Human manuals and governance files (`docs/*.md`, `CHANGELOG.md`, `TESTING.md`, `README.md`, `docs/agent-setup.md`) use **English Canonical (`*.md`)** paired with **1:1 Spanish Mirrors (`*.es.md`)** (`docs/*.es.md`, `CHANGELOG.es.md`, `TESTING.es.md`, `README.es.md`, `docs/agent-setup.es.md`), while `.agents/**` remains in concise technical English and international registry descriptors (`catalogs/agenticskills-submission.md`, `mcp-server/package.json`) remain in English.
 
 ---
 

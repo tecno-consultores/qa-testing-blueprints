@@ -375,14 +375,23 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
 
   Scenario: 13. El README restaura la Matriz de Herramientas de Pruebas y actualiza tags oficiales de Docker Hub
     * def readmeContent = karate.readAsString(repoRoot + '/README.md')
-    * match readmeContent contains '## 🛠 Matriz de Herramientas de Pruebas'
-    * match readmeContent contains '| Entorno | Linting / Formateo | Pruebas Unitarias / Mocking |'
-    * match readmeContent contains '`3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest`'
-    * match readmeContent contains '`8.2`, `8.3`, `8.4`, `8.5` y `latest`'
-    * match readmeContent contains '`22`, `24`, `26` y `latest`'
+    * match readmeContent contains '## 🛠 Testing Tools Matrix'
+    * match readmeContent contains '| Environment | Linting / Formatting | Unit Tests / Mocking |'
+    * match readmeContent contains '`3.11`, `3.12`, `3.13`, `3.14`, `3.15`, `latest`'
+    * match readmeContent contains '`8.2`, `8.3`, `8.4`, `8.5`, `latest`'
+    * match readmeContent contains '`22`, `24`, `26`, `latest`'
     * match readmeContent contains '`t < starts_at`, `starts_at <= t <= ends_at`, `t > ends_at`'
+    * match readmeContent !contains 'QA-11X-BDD-COMPATIBILITY-ANCHORS'
     * match readmeContent !contains '\\text{'
     * match readmeContent !contains '<code>@sinfallas/mcp-qa-11x</code>'
+
+    * def readmeEsContent = karate.readAsString(repoRoot + '/README.es.md')
+    * match readmeEsContent contains '## 🛠 Matriz de Herramientas de Pruebas'
+    * match readmeEsContent contains '| Entorno | Linting / Formateo | Pruebas Unitarias / Mocking |'
+    * match readmeEsContent contains '`3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest`'
+    * match readmeEsContent contains '`8.2`, `8.3`, `8.4`, `8.5` y `latest`'
+    * match readmeEsContent contains '`22`, `24`, `26` y `latest`'
+    * match readmeEsContent contains '`t < starts_at`, `starts_at <= t <= ends_at`, `t > ends_at`'
 
   # ==============================================================================
   # Grupo 14: Contrato de Fast-Path Documental (DOCS_ONLY) y Economía de Tokens v2.10.0
@@ -609,8 +618,10 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert sec22Ref.contains('PREAUTH_TTL_SECONDS = 300')
 
     * def rootReadme = karate.readAsString(repoRoot + '/README.md')
-    * assert rootReadme.contains('13 recursos `blueprint://*`')
+    * assert rootReadme.contains('13 Resources')
     * assert !rootReadme.contains('8 Resources')
+    * def rootReadmeEs = karate.readAsString(repoRoot + '/README.es.md')
+    * assert rootReadmeEs.contains('13 recursos `blueprint://*`')
 
   Scenario: 21. Paridad Pre-Push 1:1 con CI — Sello de Evidencia Lint, Stages integration/ci, Parser de Endpoints Dinámicos e Invariantes Python/PostgreSQL 17
     * def typesSource = karate.readAsString(mcpRoot + '/src/types.ts')
@@ -670,24 +681,28 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
 
     * def mcpReadme = karate.readAsString(mcpRoot + '/README.md')
     * assert mcpReadme.contains('Official MCP Server & Skill Installer for QA Testing Blueprints')
-    * assert mcpReadme.contains('Language / Idioma')
-    * assert mcpReadme.contains('docs/agent-setup.en.md')
+    * assert mcpReadme.contains('English (Canonical)')
+    * assert mcpReadme.contains('README.es.md')
+    * assert mcpReadme.contains('docs/agent-setup.md')
+    * assert !mcpReadme.contains('agent-setup.en.md')
 
     * def mcpReadmeEs = karate.readAsString(mcpRoot + '/README.es.md')
-    * assert mcpReadmeEs.contains('Idioma / Language')
-    * assert mcpReadmeEs.contains('docs/agent-setup.md')
+    * assert mcpReadmeEs.contains('Español (Espejo 1:1)')
+    * assert mcpReadmeEs.contains('docs/agent-setup.es.md')
+    * assert !mcpReadmeEs.contains('agent-setup.en.md')
 
     * def agentSetupEn = karate.readAsString(repoRoot + '/docs/agent-setup.md')
     * assert agentSetupEn.contains('Agent Setup & Integration Guide — QA 11X MCP Server & Skills')
     * assert agentSetupEn.contains('agent-setup.es.md')
+    * assert !agentSetupEn.contains('agent-setup.en.md')
 
     * def agentSetupEs = karate.readAsString(repoRoot + '/docs/agent-setup.es.md')
     * assert agentSetupEs.contains('Guía de Configuración e Integración de Agentes — Servidor MCP y Skills QA 11X')
     * assert agentSetupEs.contains('agent-setup.md')
+    * assert !agentSetupEs.contains('agent-setup.en.md')
 
-    * def agentSetupRedirect = karate.readAsString(repoRoot + '/docs/agent-setup.en.md')
-    * assert agentSetupRedirect.contains('Redirect: Agent Setup & Integration Guide')
-    * assert agentSetupRedirect.contains('agent-setup.md')
+    * def repoFsRoot22 = Files.exists(Paths.get('/repo/manifest.json')) ? '/repo' : '..'
+    * assert !Files.exists(Paths.get(repoFsRoot22 + '/docs/agent-setup.en.md'))
 
     * def archSkill = karate.readAsString(repoRoot + '/.agents/skills/qa-11x-architect/SKILL.md')
     * assert archSkill.contains('OUTPUT LANGUAGE & DYNAMIC MIRRORING')
@@ -773,15 +788,15 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert mcpCompose.contains('pnpm_config_store_dir: /pnpm/store')
     * assert mcpCompose.contains('user: "${QA_UID:-1000}:${QA_GID:-1000}"')
 
-    * def govDoc = karate.readAsString(repoRoot + '/docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md')
+    * def govDoc = karate.readAsString(repoRoot + '/docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md')
     * assert govDoc.contains('13 Dynamic Resources')
     * assert govDoc.contains('blueprint://database/postgres-rls-worm')
     * assert govDoc.contains('update_available')
-    * def govDocEs = karate.readAsString(repoRoot + '/docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md')
+    * def govDocEs = karate.readAsString(repoRoot + '/docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md')
     * assert govDocEs.contains('13 Recursos Dinámicos')
 
     * def agentsReadme = karate.readAsString(repoRoot + '/.agents/README.md')
-    * assert agentsReadme.contains('11 reglas UAT Anti-Blindness')
+    * assert agentsReadme.contains('11 UAT Anti-Blindness Rules')
     * assert agentsReadme.contains('verify_docs_invariants.py')
 
     * def dockerTrouble = karate.readAsString(repoRoot + '/docs/docker-troubleshooting.md')
@@ -1105,9 +1120,9 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def debugSkill = karate.readAsString(repoRoot + '/.agents/skills/qa-11x-systematic-debugging/SKILL.md')
     * assert debugSkill.contains('BREAKER-42')
     * assert debugSkill.contains('track_findings_state.py')
-    * def docs01 = karate.readAsString(repoRoot + '/docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md')
-    * assert docs01.contains('BREAKER-42')
-    * assert docs01.contains('track_findings_state.py')
+    * def docs05 = karate.readAsString(repoRoot + '/docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md')
+    * assert docs05.contains('BREAKER-42')
+    * assert docs05.contains('track_findings_state.py')
     * def pkgJson = karate.readAsString(repoRoot + '/mcp-server/package.json')
     * assert pkgJson.contains('19 Tools, 13 Resources')
 
@@ -1132,10 +1147,10 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert verdictPy.contains('EXIT_EVIDENCE_OR_DIVERGENCE = 30')
     * def rootMakefile = karate.readAsString(repoRoot + '/Makefile')
     * assert rootMakefile.contains('pr-verdict:')
-    * def docs01 = karate.readAsString(repoRoot + '/docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md')
-    * assert docs01.contains('generate_pr_verdict.py')
-    * assert docs01.contains('PR_VERDICT.md')
-    * assert docs01.contains('diff-bundle.ts')
+    * def docs05Verdict = karate.readAsString(repoRoot + '/docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md')
+    * assert docs05Verdict.contains('generate_pr_verdict.py')
+    * assert docs05Verdict.contains('PR_VERDICT.md')
+    * assert docs05Verdict.contains('diff-bundle.ts')
     * def pkgJson = karate.readAsString(repoRoot + '/mcp-server/package.json')
     * assert pkgJson.contains('19 Tools, 13 Resources')
 
@@ -1153,12 +1168,20 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def rootMakefile37 = karate.readAsString(repoRoot + '/Makefile')
     * assert rootMakefile37.contains('version-check:')
 
-    * def spec19 = karate.readAsString(repoRoot + '/docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md')
-    * assert spec19.contains('IMPLEMENTADO Y CERTIFICADO')
+    * def spec19En = karate.readAsString(repoRoot + '/docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md')
+    * assert spec19En.contains('19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md')
+    * assert spec19En.contains('QA-11X')
+    * def spec19Es = karate.readAsString(repoRoot + '/docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md')
+    * assert spec19Es.contains('19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md')
+    * assert spec19Es.contains('IMPLEMENTADO Y CERTIFICADO')
 
-    * def spec20 = karate.readAsString(repoRoot + '/docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md')
-    * assert spec20.contains('base-mobile-appium')
-    * assert spec20.contains('IMPLEMENTADO Y CERTIFICADO')
+    * def spec20En = karate.readAsString(repoRoot + '/docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md')
+    * assert spec20En.contains('20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.es.md')
+    * assert spec20En.contains('base-mobile-appium')
+    * def spec20Es = karate.readAsString(repoRoot + '/docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.es.md')
+    * assert spec20Es.contains('20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md')
+    * assert spec20Es.contains('base-mobile-appium')
+    * assert spec20Es.contains('IMPLEMENTADO Y CERTIFICADO')
 
     * def liveTest = karate.readAsString(mcpRoot + '/tests/live-mcp-protocol.test.ts')
     * assert liveTest.contains('StdioClientTransport')
@@ -1327,7 +1350,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert typesTs42.includes("'mobile-appium'") || typesTs42.includes('"mobile-appium"')
     * assert typesTs42.includes("'vibe-rescue'") || typesTs42.includes('"vibe-rescue"')
 
-    * def govDoc42 = karate.readAsString(repoRoot + '/docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md')
+    * def govDoc42 = karate.readAsString(repoRoot + '/docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md')
     * assert govDoc42.includes('12 matrix environments')
     * assert govDoc42.includes('mobile-appium')
     * assert govDoc42.includes('ai-evals')
@@ -1368,5 +1391,52 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert mcpReadmeEs43.contains('15 etapas QA')
     * assert mcpReadmeEs43.contains('mutation`, `dast`, `e2e`, `perf`, `chaos`, `all`')
     * assert mcpReadmeEs43.contains('`mobile-appium`, `ai-evals` y `vibe-rescue`')
+
+  Scenario: 44. Contratos Fase 6 (F6.4, F6.6, F6.7, F6.16, F6.20, F6.25) — Purga agent-setup.en.md, Paridad Spec 19 ES->ES, docs/05_ARQUITECTURA y Metadatos CALM
+    * def repoFsRoot44 = Files.exists(Paths.get('/repo/manifest.json')) ? '/repo' : '..'
+    * assert !Files.exists(Paths.get(repoFsRoot44 + '/docs/agent-setup.en.md'))
+    * assert !Files.exists(Paths.get(repoFsRoot44 + '/docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md'))
+    * assert !Files.exists(Paths.get(repoFsRoot44 + '/docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md'))
+    * assert Files.exists(Paths.get(repoFsRoot44 + '/docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md'))
+    * assert Files.exists(Paths.get(repoFsRoot44 + '/docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md'))
+
+    * def readmeEn44 = karate.readAsString(repoRoot + '/README.md')
+    * assert !readmeEn44.contains('QA-11X-BDD-COMPATIBILITY-ANCHORS')
+    * assert !readmeEn44.contains('agent-setup.en.md')
+    * def readmeEs44 = karate.readAsString(repoRoot + '/README.es.md')
+    * assert !readmeEs44.contains('agent-setup.en.md')
+    * def resourcesEn44 = karate.readAsString(repoRoot + '/RESOURCES.md')
+    * assert !resourcesEn44.contains('agent-setup.en.md')
+    * def resourcesEs44 = karate.readAsString(repoRoot + '/RESOURCES.es.md')
+    * assert !resourcesEs44.contains('agent-setup.en.md')
+    * def llms44 = karate.readAsString(repoRoot + '/llms.txt')
+    * assert !llms44.contains('agent-setup.en.md')
+    * def aiIntEn44 = karate.readAsString(repoRoot + '/docs/ai-integration.md')
+    * assert !aiIntEn44.contains('agent-setup.en.md')
+    * def aiIntEs44 = karate.readAsString(repoRoot + '/docs/ai-integration.es.md')
+    * assert !aiIntEs44.contains('agent-setup.en.md')
+
+    * def verifyDocsPy44 = karate.readAsString(repoRoot + '/.agents/scripts/verify_docs_invariants.py')
+    * assert verifyDocsPy44.contains('docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md')
+    * assert verifyDocsPy44.contains('docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md')
+    * assert verifyDocsPy44.contains('19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES')
+    * assert verifyDocsPy44.contains('20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26')
+    * assert verifyDocsPy44.contains('mcp-server/example/AGENTS.md')
+    * assert verifyDocsPy44.contains('_check_forbidden_agent_setup_en')
+    * assert verifyDocsPy44.contains('_check_es_mirror_links')
+    * assert verifyDocsPy44.contains('enlace ES→EN')
+
+    * def govPaths44 = karate.map(manifest.agent_governance_files, function(x) { return x.path })
+    * match govPaths44 contains '.agents/scripts/verify_docs_invariants.py'
+
+    * string calmRaw44 = karate.readAsString(repoRoot + '/architecture/qa-11x.calm.json')
+    * json calm44 = calmRaw44
+    * match calm44.controls['worm-hmac-audit-chain'].requirements[0].config['control-id'] contains 'SEC-14'
+    * match calm44.controls['cli-tty-anti-hang-guard'].requirements[0].config['control-id'] contains 'QA-CLI-TTY-01'
+    * match calm44.controls['git-closure-human-gate'].requirements[0].config['control-id'] == 'QA-GIT-GATE-01'
+    * def calmTestTs44 = karate.readAsString(mcpRoot + '/tests/calm.test.ts')
+    * assert calmTestTs44.contains("controlId: 'SEC-14'")
+    * assert calmTestTs44.contains("controlId: 'QA-CLI-TTY-01'")
+    * assert calmTestTs44.contains("protocol: 'TLS'")
 
 

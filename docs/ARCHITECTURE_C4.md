@@ -1,4 +1,4 @@
-> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (ARCHITECTURE_C4.es.md)](ARCHITECTURE_C4.es.md)
+> 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](ARCHITECTURE_C4.es.md)
 
 # Test Ecosystem Architecture (C4 Model)
 

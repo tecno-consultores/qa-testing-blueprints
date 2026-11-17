@@ -1,9 +1,11 @@
+> 📜 **Aviso de Archivo Histórico (Spec 19 §3.4):** Especificación histórica preservada en español como registro arquitectónico inmutable (exenta de espejo bilingüe EN/ES). Para rutas y métricas vigentes, véase [README.es.md](README.es.md).
+
 # 🔗 Especificación Técnica 15: Trazabilidad Bidireccional Enterprise Zero-Infra (Jira, Zephyr Scale, Xray y GitHub Issues — `T4.6`)
 
 **Proyecto:** QA Testing Blueprints (`tecno-consultores/qa-testing-blueprints`)  
 **Componentes Objetivo (`T4.6`):** `mcp-server/src/integrations/tmsSyncCli.ts`, `mcp-server/tests/tmsSyncCli.test.ts`  
 **Superficie Exportada:** CLI programático (`runTmsSyncCli`) + Descriptor MCP (`SYNC_ENTERPRISE_TMS_TOOL` / `handleSyncEnterpriseTms`, programado para registro público conjunto en `T5.3`)  
-**Estado:** IMPLEMENTADO (CERTIFICACIÓN QA-11X v2.0 — FASE 4)
+**Estado:** IMPLEMENTADO Y CERTIFICADO (QA-11X v2.0 — FASE 4)
 
 ---
 

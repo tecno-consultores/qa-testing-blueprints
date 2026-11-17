@@ -1,4 +1,4 @@
-> 🌐 **Language:** **English** (Canonical) · [🇪🇸 Leer en Español](README.es.md)
+> 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](README.es.md)
 
 # 🛡️ Vibe-to-Enterprise Blueprint — QA-11X Rescue & Hardening (`vibe-rescue/`)
 

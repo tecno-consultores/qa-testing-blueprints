@@ -1,4 +1,4 @@
-> 🌐 **Idioma / Language:** [🇬🇧 English (ci-cd-pipelines.md)](ci-cd-pipelines.md) | **Español (Espejo 1:1)**
+> 🌐 **Idioma:** [🇺🇸 English (Canonical)](ci-cd-pipelines.md) · **Español (Espejo 1:1)**
 
 # Pipelines de CI/CD (Integración Continua y Ejecución Soberana)
 

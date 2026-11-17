@@ -1,4 +1,4 @@
-> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (ai-integration.es.md)](ai-integration.es.md)
+> 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](ai-integration.es.md)
 
 # Autonomous AI Agent Integration
 
@@ -113,7 +113,7 @@ npx -y @sinfallas/mcp-qa-11x@latest [--stdio]
 ### 6.2. AI Client Configuration
 
 > [!TIP]
-> For the exhaustive step-by-step guide and declarative matrix covering all **28 supported AI agents** (`quickstart --agents` / `init-agents --agents`, including Antigravity, Claude Code/Desktop, Cursor, Windsurf, VS Code Copilot, Codex CLI, Gemini CLI, Hermes, Cline, Roo Code, Aider, JetBrains AI, Bolt, Lovable, v0, and Replit), see **[`docs/agent-setup.md`](agent-setup.md)** (English) or **[`docs/agent-setup.es.md`](agent-setup.es.md)** (Español; legacy redirect at [`docs/agent-setup.en.md`](agent-setup.en.md)).
+> For the exhaustive step-by-step guide and declarative matrix covering all **28 supported AI agents** (`quickstart --agents` / `init-agents --agents`, including Antigravity, Claude Code/Desktop, Cursor, Windsurf, VS Code Copilot, Codex CLI, Gemini CLI, Hermes, Cline, Roo Code, Aider, JetBrains AI, Bolt, Lovable, v0, and Replit), see **[`docs/agent-setup.md`](agent-setup.md)** (English; Spanish mirror at `docs/agent-setup.es.md`).
 
 #### A. Claude Desktop / Claude Code (`claude_desktop_config.json`)
 ```json
@@ -241,6 +241,6 @@ m = json.load(open(pathlib.Path.home() / ".cache/qa-11x-blueprints/manifest.json
 skills = [f for f in m["agent_governance_files"] if f["path"].startswith(".agents/skills/")]
 dest = pathlib.Path.home() / ".gemini/config/skills"
 ok = sum(1 for s in skills if (p := dest / s["path"].replace(".agents/skills/", "", 1)).exists() and hashlib.sha256(p.read_bytes()).hexdigest() == s["sha256"])
-print(f"✔ Skills en {dest}: {ok}/{len(skills)} archivos coinciden bit a bit con manifest.json (v{m[\"blueprint_version\"]})")
+print(f"✔ Skills in {dest}: {ok}/{len(skills)} files match manifest.json bit-for-bit (v{m[\"blueprint_version\"]})")
 '
 ```

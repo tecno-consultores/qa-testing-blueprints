@@ -1,6 +1,6 @@
 > **[SYSTEM DIRECTIVE FOR AI AGENTS]:** Act as a Staff QA Automation Engineer and DevOps Expert. Read, parse, and strictly enforce the following architectural constraints written in English. You must generate code that perfectly aligns with these rules, using exclusively the ephemeral Docker containers, testing frameworks, and strict quality thresholds (e.g., 95% coverage, SAST, Profiling) specified below. Do not suggest local installations. Process the technical logic at your highest reasoning capacity in English, and output your final response, explanations, and code comments in the user's prompt language (defaulting to English).
 
-> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (README.es.md)](README.es.md)
+> 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](README.es.md)
 
 # Testing and Validation Guide for APIs (FastAPI)
 
@@ -12,7 +12,7 @@ This document contains the non-negotiable Level-11X corporate instructions you M
 *   For black-box BDD tests: `sinfallas/karatelabs:1.5.1` (`:latest`).
 *   For Dynamic Security (DAST): `zaproxy/zap-stable:latest`.
 *   For Real Persistence & Schema Validation (Anti-Mock Blindness): `postgres:17-alpine`.
-*   For High-Performance Caching & Sessions: `eqalpha/keydb:alpine`.
+*   For High-Performance Caching & Sessions: `eqalpha/keydb:6.3.4`.
 *   For Chaos Engineering & Observability: `gaiaadm/pumba:latest` and `prom/prometheus:latest`.
 *   For AI Context Optimization (MCP): `sinfallas/remote-graphify:latest`.
 

@@ -1,4 +1,4 @@
-> 🌐 **Idioma:** [🇺🇸 English](README.md) · **Español** (Espejo 1:1)
+> 🌐 **Idioma:** [🇺🇸 English (Canonical)](README.md) · **Español (Espejo 1:1)**
 
 # 📱 Blueprint Móvil Nativo e Híbrido — Appium 3 / WebdriverIO v9 + Screenplay (Estándar QA 11X)
 
@@ -8,14 +8,14 @@ Plantilla corporativa de automatización móvil **Nativa (iOS / Android)** e **H
 
 ## 1. Arquitectura bajo Regla Cero (`sinfallas/base-mobile-appium:26`)
 
-[`sinfallas/base-mobile-appium:26`](../docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md) es la **imagen base oficial no-root endurecida** (`UID 10001`, compatible con `-u "$(id -u):$(id -g)" -e HOME=/tmp`) con **Node.js 26**, **pnpm**, **OpenJDK 21**, **Android SDK (`ANDROID_HOME=/opt/android-sdk`) / ADB / `aapt2`**, **Appium 3** (`APPIUM_HOME=/opt/appium-home`) con drivers **`uiautomator2`** y **`xcuitest`** preinstalados, y **WebdriverIO v9** (`/opt/qa11x/node_modules`) sin descargas en runtime (**cero `npm install`**).
+[`sinfallas/base-mobile-appium:26`](../docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.es.md) es la **imagen base oficial no-root endurecida** (`UID 10001`, compatible con `-u "$(id -u):$(id -g)" -e HOME=/tmp`) con **Node.js 26**, **pnpm**, **OpenJDK 21**, **Android SDK (`ANDROID_HOME=/opt/android-sdk`) / ADB / `aapt2`**, **Appium 3** (`APPIUM_HOME=/opt/appium-home`) con drivers **`uiautomator2`** y **`xcuitest`** preinstalados, y **WebdriverIO v9** (`/opt/qa11x/node_modules`) sin descargas en runtime (**cero `npm install`**).
 
 | Imagen | Alcance Oficial Móvil QA-11X | Herramientas Prehorneadas |
 | :--- | :--- | :--- |
 | **`sinfallas/base-mobile-appium:26`** | **Predeterminada oficial** para CI móvil autocontenido, Driver Bridge W3C local, Android ADB y WebdriverIO v9 | Node.js 26, pnpm, **OpenJDK 21**, **Android SDK/ADB**, **Appium 3 (`uiautomator2`/`xcuitest`)**, **WebdriverIO v9**, TypeScript |
 | **`sinfallas/base-node-ionic:26`** | Verificaciones ligeras Ionic web o delegación a granjas W3C externas sin sobrecarga Java/Android | Node.js 26, pnpm, TypeScript, Playwright (delega drivers móviles reales a granjas externas) |
 
-> **Arquitectura Bilingüe:** Mantenida bajo el estándar Inglés Primario + Espejo Español 1:1 definido en [`docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md`](../docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md).
+> **Arquitectura Bilingüe:** Mantenida bajo el estándar Inglés Primario + Espejo Español 1:1 definido en [`docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md`](../docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md).
 
 ```bash
 # Verificar OpenJDK 21, Android ADB, Appium 3 y drivers preinstalados sin modificar el árbol

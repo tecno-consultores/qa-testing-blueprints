@@ -1,77 +1,79 @@
-# 🐳 Especificación 20: Plan de Imagen Base Docker Endurecida para `mobile-appium` (`sinfallas/base-mobile-appium:26`)
+> 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.es.md)
 
-**Proyecto:** QA Testing Blueprints (Estándar Corporativo QA-11X)  
-**Versión Objetivo:** QA-11X v3.0 (Imagen base construida y certificada localmente)  
-**Estado:** IMPLEMENTADO Y CERTIFICADO EN QA-11X v3.0  
-**Audiencia:** Arquitectura DevSecOps, Ingeniería Móvil QA y Mantenedores de Imágenes `sinfallas/*`
+# 🐳 Specification 20: Hardened Base Docker Image Plan for `mobile-appium` (`sinfallas/base-mobile-appium:26`)
 
----
-
-## 1. Propósito y Contexto
-
-Evaluar objetivamente si el entorno [`mobile-appium/`](../../mobile-appium/README.md) requiere una nueva imagen base Docker dedicada bajo la **Regla Cero** y definir su especificación técnica completa, endurecimiento STIG/OWASP, cadena de suministro y plan de integración en CI/Compose/MCP.
-
-> **IMPLEMENTACIÓN CERTIFICADA EN QA-11X v3.0:** Construcción multi-stage non-root (`UID/GID 10001`) completada y certificada localmente en el repositorio `base-mobile-appium` (`sinfallas/base-mobile-appium:26` / `:latest`, Trivy `HIGH/CRITICAL = 0`), integrada en [`.github/workflows/audit-base-images.yml`](../../.github/workflows/audit-base-images.yml), [`mobile-appium/*.example`](../../mobile-appium/README.md), [`Makefile`](../../Makefile) (`test-mobile-blueprints`) y servidor MCP `@sinfallas/mcp-qa-11x`.
+**Project:** QA Testing Blueprints (QA-11X Corporate Standard)  
+**Target Version:** QA-11X v3.0 / v3.1 (Multi-Arch Base Image Built & Certified)  
+**Status:** IMPLEMENTED AND CERTIFIED IN QA-11X v3.1 (Phases 1–4 Completed)  
+**Audience:** DevSecOps Architecture, Mobile QA Engineering, and `sinfallas/*` Image Maintainers
 
 ---
 
-## 2. Diagnóstico Técnico: Qué Cubre `sinfallas/base-node-ionic:26` vs. Brechas Reales
+## 1. Purpose and Context
 
-De acuerdo con [`mobile-appium/README.md`](../../mobile-appium/README.md), [`mobile-appium/wdio.conf.ts`](../../mobile-appium/wdio.conf.ts) y [`mobile-appium/tests/screenplay/MobileActor.ts`](../../mobile-appium/tests/screenplay/MobileActor.ts), las capacidades actuales frente a las necesarias para ejecutar pruebas Appium 3 reales se comparan así:
+Objectively evaluate whether the [`mobile-appium/`](../../mobile-appium/README.md) blueprint requires a dedicated base Docker image under **Rule Zero**, and define its full technical specification, STIG/OWASP hardening, supply-chain attestation, and CI/Compose/MCP integration plan.
 
-| Capacidad Requerida por `mobile-appium` | `sinfallas/base-node-ionic:26` Actual | Brecha Observada |
+> **CERTIFIED IMPLEMENTATION IN QA-11X v3.1:** Multi-stage non-root build (`UID/GID 10001`) completed and certified in the `base-mobile-appium` repository (`sinfallas/base-mobile-appium:26` / `:latest`, Trivy `HIGH/CRITICAL = 0`), integrated into [`.github/workflows/audit-base-images.yml`](../../.github/workflows/audit-base-images.yml), [`mobile-appium/docker-compose.qa.yml.example`](../../mobile-appium/docker-compose.qa.yml.example) (hydrated to `docker-compose.qa.yml` in target projects) and sibling `*.example` templates, [`Makefile`](../../Makefile) (`test-mobile-blueprints`), and the `@sinfallas/mcp-qa-11x` MCP server.
+
+---
+
+## 2. Technical Diagnosis: `sinfallas/base-node-ionic:26` Coverage vs. Real Gaps
+
+According to [`mobile-appium/README.md`](../../mobile-appium/README.md), [`mobile-appium/wdio.conf.ts`](../../mobile-appium/wdio.conf.ts), and [`mobile-appium/tests/screenplay/MobileActor.ts`](../../mobile-appium/tests/screenplay/MobileActor.ts), current capabilities versus requirements for real Appium 3 execution compare as follows:
+
+| Capability Required by `mobile-appium` | Current `sinfallas/base-node-ionic:26` | Observed Gap |
 | :--- | :--- | :--- |
-| Compilación TypeScript estricta (`tsc --noEmit`, `0 any`, `--erasableSyntaxOnly`) | **Cubierta** (`Node` + `TypeScript` preinstalados en `/opt/qa11x`) | Ninguna para validación estática y Screenplay TS. |
-| Validación de perfiles `wdio.conf.ts` (`node --experimental-strip-types`) | **Cubierta** | Ninguna para pruebas unitarias de configuración. |
-| Auditoría AST anti-XPath / anti-`waitForTimeout` (`lint_test_antipatterns.py`) | **Cubierta** (junto a `sinfallas/base-python-uv:3.15`) | Ninguna. |
-| CLI base `appium` (`Appium 3.x` compatible W3C) | **Parcial** (binario `appium` presente, **sin drivers prehorneados**) | `appium driver list --installed` vacío o dependiente de descargas bloqueadas en contenedores efímeros sin red / `read_only`. |
-| **Ejecución real Android (`android-uiautomator2`, `hybrid-ionic`, `hybrid-rn`)** | **Ausente** | Faltan **OpenJDK 21 LTS (`JAVA_HOME`)**, **Android SDK Command-Line Tools**, **`platform-tools` (`adb`)** y **`build-tools` (`aapt2`, `apksigner`)**. |
-| **Drivers W3C prehorneados no-root (`APPIUM_HOME`)** | **Ausente** | Faltan drivers `uiautomator2` (e iOS W3C cliente `xcuitest` para remoting hacia granjas macOS) bajo `/opt/appium-home` con permisos de lectura globales para `-u "$(id -u):$(id -g)"`. |
-| **Runner WebdriverIO v9 Zero-Runtime (`Rule Zero`)** | **Ausente** | Faltan `@wdio/cli`, `@wdio/local-runner`, `@wdio/mocha-framework`, `@wdio/spec-reporter`, `@wdio/appium-service`, `webdriverio` v9 y `@wdio/allure-reporter` prehorneados en `/opt/qa11x/node_modules` para cumplir cero `npm install` en runtime y `.npmrc` `ignore-scripts=true`. |
+| Strict TypeScript compilation (`tsc --noEmit`, `0 any`, `--erasableSyntaxOnly`) | **Covered** (`Node` + `TypeScript` preinstalled in `/opt/qa11x`) | None for static validation and TS Screenplay. |
+| Profile validation for `wdio.conf.ts` (`node --experimental-strip-types`) | **Covered** | None for configuration unit tests. |
+| AST anti-XPath / anti-`waitForTimeout` audit (`lint_test_antipatterns.py`) | **Covered** (alongside `sinfallas/base-python-uv:3.15`) | None. |
+| Base `appium` CLI (W3C-compatible `Appium 3.x`) | **Partial** (`appium` binary present, **no pre-baked drivers**) | `appium driver list --installed` empty or dependent on downloads blocked inside offline / `read_only` ephemeral containers. |
+| **Real Android execution (`android-uiautomator2`, `hybrid-ionic`, `hybrid-rn`)** | **Absent** | Missing **OpenJDK 21 LTS (`JAVA_HOME`)**, **Android SDK Command-Line Tools**, **`platform-tools` (`adb`)**, and **`build-tools` (`aapt2`, `apksigner`)**. |
+| **Non-root pre-baked W3C drivers (`APPIUM_HOME`)** | **Absent** | Missing `uiautomator2` (and iOS W3C client `xcuitest` for remoting to macOS device farms) under `/opt/appium-home` with world-readable permissions for `-u "$(id -u):$(id -g)"`. |
+| **Zero-Runtime WebdriverIO v9 Runner (`Rule Zero`)** | **Absent** | Missing pre-baked `@wdio/cli`, `@wdio/local-runner`, `@wdio/mocha-framework`, `@wdio/spec-reporter`, `@wdio/appium-service`, `webdriverio` v9, and `@wdio/allure-reporter` under `/opt/qa11x/node_modules` to enforce zero runtime `npm install` and `.npmrc` `ignore-scripts=true`. |
 
 ---
 
-## 3. Veredicto Arquitectónico: **SÍ se Justifica (`sinfallas/base-mobile-appium:26`, Sin Emulador Embebido)**
+## 3. Architectural Verdict: **YES, Justified (`sinfallas/base-mobile-appium:26`, No Embedded Emulator)**
 
-1. **Sí es necesaria una nueva imagen base dedicada (`sinfallas/base-mobile-appium:26`)** porque inyectar OpenJDK 21 + Android `platform-tools`/`build-tools` + drivers Appium 3 + WebdriverIO v9 dentro de `sinfallas/base-node-ionic:26` degradaría gravemente la base web/Ionic (añadiendo ~450–600 MB innecesarios y superficie Java CVE al auditor Trivy de proyectos web puros como Vue 3 o React).
-2. **Principio de Separación (Sin Emulador QEMU/KVM Embebido):**
-   - La imagen `sinfallas/base-mobile-appium:26` será estrictamente un **Runner + Driver Bridge W3C sin emulador Android embebido**, manteniendo la imagen ligera (`< 950 MB` comprimida), portable sin `--privileged` ni `/dev/kvm` dentro de CI estándar, y fácil de auditar (`Trivy HIGH/CRITICAL = 0`).
-   - En ejecución viva se conectará por TCP/W3C hacia: (a) un emulador efímero en servicio hermano (`budtmo/docker-android` / red privada Docker o `host.docker.internal`), (b) granja W3C (Device Farm / BrowserStack / Appium Grid), o (c) servidor Appium remoto en runner macOS para perfiles `ios-xcuitest`.
+1. **A dedicated base image (`sinfallas/base-mobile-appium:26`) IS required** because injecting OpenJDK 21 + Android `platform-tools`/`build-tools` + Appium 3 drivers + WebdriverIO v9 into `sinfallas/base-node-ionic:26` would severely degrade the web/Ionic base (adding ~450–600 MB of unnecessary bloat and Java CVE surface to Trivy audits of pure web projects like Vue 3 or React).
+2. **Separation Principle (No Embedded QEMU/KVM Emulator):**
+   - `sinfallas/base-mobile-appium:26` is strictly a **Runner + W3C Driver Bridge without an embedded Android emulator**, keeping the image compact (`< 950 MB` compressed), portable without `--privileged` or `/dev/kvm` in standard CI runners, and clean under Trivy (`HIGH/CRITICAL = 0`).
+   - At runtime it connects over TCP/W3C to: (a) an ephemeral sibling emulator service (`budtmo/docker-android` / private Docker network or `host.docker.internal`), (b) a W3C device farm (Device Farm / BrowserStack / Appium Grid), or (c) a remote Appium server on a macOS runner for `ios-xcuitest` profiles.
 
 ---
 
-## 4. Diseño Endurecido de `sinfallas/base-mobile-appium:26` (DISA STIG & Non-Root)
+## 4. Hardened Design of `sinfallas/base-mobile-appium:26` (DISA STIG & Non-Root)
 
-### 4.1. Arquitectura Multi-Etapa y Variables Canónicas (`linux/amd64` + `linux/arm64`)
-- **Base OS + Node:** Misma familia base minimalista endurecida Debian 13 `trixie` (`node:26-slim`), `pnpm`, `bash`, `ca-certificates`, `unzip` solo en etapa `android-sdk-builder`.
+### 4.1. Multi-Stage Architecture and Canonical Variables (`linux/amd64` + `linux/arm64`)
+- **Base OS + Node:** Same hardened minimal Debian 13 `trixie` family (`node:26-slim`), `pnpm`, `bash`, `ca-certificates`, `unzip` restricted to the `android-sdk-builder` stage.
 - **Stage 1 (`android-sdk-builder`, `--platform=$BUILDPLATFORM`):**
-  - Instala **OpenJDK 21 Headless JDK** a velocidad nativa del host.
-  - Descarga **Android `commandlinetools-linux-15641748_latest.zip`** (`cmdline-tools;21.0`) fijado por **SHA-256** (`a66d5ef0238fc0162e9c1446602ce0dd41702d4dd7a94d2ce42d12b7f80baf7e`), última revisión **100% Java puro (`SdkManagerCli`)** con `REPO_OS_OVERRIDE=linux`, evitando el wrapper `v22+/v23+` (`16111833`) que delega en el binario ELF `bin/android` exclusivo de `x86_64` (`exit 127` en `linux/arm64`).
-  - Instala exclusivamente `platform-tools` (`adb`), `build-tools;35.0.0` (`aapt2`, `apksigner`, `zipalign`) y `platforms;android-35` (excluyendo `system-images`, `emulator`, NDK y purgando `cmdline-tools` al finalizar).
-- **Stage 2 (`node-builder`, plataforma destino nativa `$TARGETPLATFORM`):**
-  - Prehornea en `/opt/qa11x/` desde lockfile (`npm ci --omit=dev --ignore-scripts`, compilando/resolviendo addons nativos `@img/sharp-linux-*`, `@esbuild/linux-*` y `bare-*` para `$TARGETARCH`): `appium@3.x`, `webdriverio@^9`, `@wdio/cli@^9`, `@wdio/mocha-framework@^9`, `@wdio/spec-reporter@^9`, `@wdio/appium-service@^9`, `@wdio/allure-reporter@^9`, `typescript`, y genera el SBOM CycloneDX (`/opt/qa11x/sbom.cdx.json`).
-  - Prehornea drivers en `APPIUM_HOME=/opt/appium-home` durante build (`appium driver install uiautomator2` y `appium driver install xcuitest`).
-- **Stage 3 (`runtime` endurecido, `ARG TARGETARCH`):**
-  - Copia únicamente `JRE 21`, `ANDROID_HOME=/opt/android-sdk`, `APPIUM_HOME=/opt/appium-home` y `/opt/qa11x` con `chmod -R a+rX` (sin escritura en `/opt`).
-  - Mantiene los binarios oficiales de Google en `amd64`; cuando `TARGETARCH=arm64`, instala `adb`, `aapt` (`aapt` + `aapt2`) y `zipalign` nativos `arm64` de Debian 13 (`trixie`), purga los ELF `x86_64` incompatibles y enlaza `/usr/lib/android-sdk/...` dentro de `${ANDROID_HOME}/platform-tools` y `${ANDROID_HOME}/build-tools/35.0.0`, conservando intactos los artefactos Java/DEX multiplataforma (`apksigner`, `d8`, `platforms/android-35`).
-  - Usuario no-root por defecto `USER 10001:10001` compatible con sobreescritura `-u "$(id -u):$(id -g)"`.
-  - Variables de entorno: `HOME=/tmp`, `JAVA_HOME=/opt/java/openjdk`, `ANDROID_HOME=/opt/android-sdk`, `ANDROID_USER_HOME=/tmp/.android`, `APPIUM_HOME=/opt/appium-home`, `NODE_PATH=/opt/qa11x/node_modules`, `QA_MOBILE_ARTIFACT_DIR=/tmp/qa-11x-mobile-artifacts`.
-  - Sin secretos, sin SSH, sin `sudo`, `HEALTHCHECK` invocando `appium --version && adb --version`.
+  - Installs **OpenJDK 21 Headless JDK** at native host speed.
+  - Downloads **Android `commandlinetools-linux-15641748_latest.zip`** (`cmdline-tools;21.0`) pinned by **SHA-256** (`a66d5ef0238fc0162e9c1446602ce0dd41702d4dd7a94d2ce42d12b7f80baf7e`), the last **100% pure-Java (`SdkManagerCli`)** revision using `REPO_OS_OVERRIDE=linux`, avoiding the `v22+/v23+` (`16111833`) wrapper that delegates to the `x86_64`-only ELF binary `bin/android` (`exit 127` on `linux/arm64`).
+  - Installs only `platform-tools` (`adb`), `build-tools;35.0.0` (`aapt2`, `apksigner`, `zipalign`), and `platforms;android-35` (excluding `system-images`, `emulator`, NDK, and purging `cmdline-tools` afterwards).
+- **Stage 2 (`node-builder`, native target platform `$TARGETPLATFORM`):**
+  - Pre-bakes into `/opt/qa11x/` from lockfile (`npm ci --omit=dev --ignore-scripts`, compiling/resolving native addons `@img/sharp-linux-*`, `@esbuild/linux-*`, and `bare-*` for `$TARGETARCH`): `appium@3.x`, `webdriverio@^9`, `@wdio/cli@^9`, `@wdio/mocha-framework@^9`, `@wdio/spec-reporter@^9`, `@wdio/appium-service@^9`, `@wdio/allure-reporter@^9`, `typescript`, and generates the CycloneDX SBOM (`/opt/qa11x/sbom.cdx.json`).
+  - Pre-bakes drivers under `APPIUM_HOME=/opt/appium-home` at build time (`appium driver install uiautomator2` and `appium driver install xcuitest`).
+- **Stage 3 (Hardened `runtime`, `ARG TARGETARCH`):**
+  - Copies only `JRE 21`, `ANDROID_HOME=/opt/android-sdk`, `APPIUM_HOME=/opt/appium-home`, and `/opt/qa11x` with `chmod -R a+rX` (non-writable `/opt`).
+  - Retains official Google binaries on `amd64`; when `TARGETARCH=arm64`, installs native `arm64` `adb`, `aapt` (`aapt` + `aapt2`), and `zipalign` from Debian 13 (`trixie`), purges incompatible `x86_64` ELFs, and symlinks `/usr/lib/android-sdk/...` inside `${ANDROID_HOME}/platform-tools` and `${ANDROID_HOME}/build-tools/35.0.0` while preserving cross-platform Java/DEX artifacts (`apksigner`, `d8`, `platforms/android-35`).
+  - Default non-root user `USER 10001:10001` compatible with `-u "$(id -u):$(id -g)"` overrides.
+  - Environment variables: `HOME=/tmp`, `JAVA_HOME=/opt/java/openjdk`, `ANDROID_HOME=/opt/android-sdk`, `ANDROID_USER_HOME=/tmp/.android`, `APPIUM_HOME=/opt/appium-home`, `NODE_PATH=/opt/qa11x/node_modules`, `QA_MOBILE_ARTIFACT_DIR=/tmp/qa-11x-mobile-artifacts`.
+  - Zero secrets, zero SSH, zero `sudo`; `HEALTHCHECK` running `appium --version && adb --version`.
 
 ---
 
-## 5. Seguridad, Cadena de Suministro y Plan de Integración (4 Fases)
+## 5. Security, Supply Chain & Integration Plan (4 Phases)
 
-| Fase | Entregables y Tareas | Verificación Objetivo |
+| Phase | Deliverables & Tasks | Target Verification |
 | :--- | :--- | :--- |
-| **Fase 1: Construcción y Smoke de Imagen** | Crear Dockerfile multi-etapa en repositorio de imágenes base con `lockfile` y checksums SHA-256 para Java + Android `cmdline-tools`; generar **SBOM CycloneDX (`ECMA-424`)** y firma **Cosign** antes del push inicial de `sinfallas/base-mobile-appium:26`. | `id -u != 0`, `appium --version`, `appium driver list --installed`, `adb version`, `tsc --noEmit` sobre `mobile-appium/`, `Trivy HIGH/CRITICAL = 0`. |
-| **Fase 2: Auditoría Continua en `audit-base-images.yml`** | Añadir `'sinfallas/base-mobile-appium:26'` a la matriz `trivy-base-images` de `.github/workflows/audit-base-images.yml` y añadir job de smoke no-root (`--user 10001:10001 -e HOME=/tmp`). | Escaneo diario automático en GitHub Actions con `0` hallazgos `HIGH`/`CRITICAL` ignorando solo `unfixed`. |
-| **Fase 3: Integración en `mobile-appium/` y `Makefile`** | Crear `mobile-appium/docker-compose.qa.yml.example` (servicio `qa-mobile` con `read_only: true`, `cap_drop: [ALL]`, `no-new-privileges:true`, `tmpfs: [/tmp]`), `mobile-appium/package.json.example` (sin instalar `webdriverio` en runtime) y `mobile-appium/Makefile.example` usando `$(CURDIR)` (`QA-MAKE-CURDIR-01`). | `mobile-appium/tests/mobile_screenplay.spec.ts` ejecutándose contra un mock/servidor Appium W3C efímero en Compose con `Pass-Quiet / Fail-Verbose` en `/tmp`. |
-| **Fase 4: Actualización de Blueprints y MCP (`QA-TEST-SYNC-01`)** | Actualizar `mcp-server/src/resources/stackBlueprints.ts`, `mcp-server/src/tools/ephemeral-runner.ts` (`PREFERRED_QA_SERVICES` incluyendo `qa-mobile`), `README.md`, `README.es.md`, `RESOURCES.md` y escenarios Karate BDD. | `make test-mcp`, `make test-py`, `make test-karate`, `make lint-docs` y `certify_task_completion.sh` al `100%`. |
+| **Phase 1: Image Build & Smoke Verification** | Author multi-stage Dockerfile in the base-images repository with `lockfile` and SHA-256 checksums for Java + Android `cmdline-tools`; generate **CycloneDX SBOM (`ECMA-424`)** and **Cosign** signature prior to initial push of `sinfallas/base-mobile-appium:26`. | `id -u != 0`, `appium --version`, `appium driver list --installed`, `adb version`, `tsc --noEmit` on `mobile-appium/`, `Trivy HIGH/CRITICAL = 0`. |
+| **Phase 2: Continuous Audit in `audit-base-images.yml`** | Add `'sinfallas/base-mobile-appium:26'` to the `trivy-base-images` matrix in `.github/workflows/audit-base-images.yml` and add a non-root `smoke-mobile-appium` job (`--user 10001:10001 -e HOME=/tmp`). | Automated daily scan on GitHub Actions with `0` `HIGH`/`CRITICAL` findings ignoring only `unfixed`. |
+| **Phase 3: Integration in `mobile-appium/` & `Makefile`** | Create [`mobile-appium/docker-compose.qa.yml.example`](../../mobile-appium/docker-compose.qa.yml.example) (hydrated to `docker-compose.qa.yml` in target projects: `pnpm-store-init`, non-root `qa-mobile` service `${QA_UID:-1000}:${QA_GID:-1000}` with `HOME=/tmp`, `ANDROID_HOME`, `APPIUM_HOME`, `NODE_PATH`, `extra_hosts`, and `appium-live` profile for `appium-bridge` with `/status` `healthcheck` and `ADB_SERVER_SOCKET`), [`mobile-appium/package.json.example`](../../mobile-appium/package.json.example) (zero runtime `webdriverio` install), and [`mobile-appium/Makefile.example`](../../mobile-appium/Makefile.example) anchored with `$(CURDIR)` (`QA-MAKE-CURDIR-01`), plus `make test-mobile-blueprints` in [`Makefile`](../../Makefile). | `mobile-appium/tests/mobile_screenplay.spec.ts` executing against an ephemeral Appium W3C stub/server (`node --test`) with `Pass-Quiet / Fail-Verbose` diagnostics under `/tmp`. |
+| **Phase 4: Blueprints & MCP Update (`QA-TEST-SYNC-01`)** | Update `mcp-server/src/resources/stackBlueprints.ts`, `mcp-server/src/tools/ephemeral-runner.ts` (`PREFERRED_QA_SERVICES` including `qa-mobile`), [`README.md`](../../README.md), [`RESOURCES.md`](../../RESOURCES.md), and Karate BDD scenarios. | `make test-mcp`, `make test-py`, `make test-karate`, `make lint-docs`, and `certify_task_completion.sh` at `100%`. |
 
 ---
 
-## 6. Matriz de Decisión: ¿Cuándo Usar Cada Imagen?
+## 6. Decision Matrix: When to Use Each Image?
 
-* **`sinfallas/base-node-ionic:26`**: Proyectos Angular/Ionic web, verificación rápida `tsc` + `lint_test_antipatterns.py`, y proyectos `mobile-appium` que delegan Appium/drivers a una granja externa (BrowserStack / Sauce Labs / runner macOS).
-* **`sinfallas/base-mobile-appium:26` *(Certificada Multi-Arch `linux/amd64` y `linux/arm64`)***: Ejecución autocontenida de `WebdriverIO + Appium 3 + UiAutomator2 + ADB` desde contenedor CI contra dispositivos Android en red o emuladores TCP sin descargas en runtime.
+* **`sinfallas/base-node-ionic:26`**: Angular/Ionic web projects, fast `tsc` + `lint_test_antipatterns.py` checks, and `mobile-appium` projects delegating Appium/drivers to an external grid (BrowserStack / Sauce Labs / macOS runner).
+* **`sinfallas/base-mobile-appium:26` *(Certified Multi-Arch `linux/amd64` and `linux/arm64`)***: Self-contained `WebdriverIO + Appium 3 + UiAutomator2 + ADB` execution from CI containers against networked Android devices or TCP emulators with zero runtime downloads.

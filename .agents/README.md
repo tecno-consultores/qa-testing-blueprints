@@ -1,130 +1,123 @@
-# 🤖 Carpeta `.agents/` — Gobernanza de Inteligencia Artificial y Reglas de Calidad 11X (QA Blueprints)
+# 🤖 `.agents/` — AI Governance & Standard 11X Quality Directives
 
-Bienvenido a la carpeta de configuración y gobernanza para **Agentes de Inteligencia Artificial** y **Desarrolladores Humanos** del repositorio **QA Testing Blueprints**.
+Governance and quality configuration directory for **autonomous AI coding agents** and **human engineers** in **QA Testing Blueprints**.
 
-Este directorio implementa el estándar abierto y emergente de la industria para agentes autónomos (Google Antigravity, Anthropic Claude Code / Claude Desktop, Hermes Agent de Nous Research, Cursor, Windsurf, etc.), proporcionando el contexto técnico, las restricciones de seguridad y las compuertas de calidad necesarias para mantener cualquier proyecto en el estándar de calidad corporativa **Nivel 11X**.
+This directory implements the portable, open agent-governance layout across Google Antigravity, Anthropic Claude Code / Claude Desktop, Nous Research Hermes Agent, Cursor, Windsurf, and Codex—enforcing **Standard 11X** security, architectural, and verification gates without polluting target repositories.
 
 ---
 
-## 📂 Estructura del Directorio
+## 📂 Directory Structure
 
 ```text
 .agents/
-├── README.md                                         # Este documento explicativo
-├── rules/                                            # Reglas y directivas de comportamiento forzadas (8 archivos canónicos globales)
-│   ├── mandatory_qa_pyramid_and_doc_sync.md          # Pirámide de pruebas multi-capa, propagación transversal Anti-Silo y sync documental
-│   ├── secure_development_and_testing_guidelines.md  # DISA ASD STIG V6R5 + OWASP v4.2: Anti-Mocks, RLS, sesiones, NFKC, XXE, auditoría semántica anti-UUID, SBOM y geometría visual
-│   ├── frontend_parity_and_closure.md                # Paridad terminal-UI, tablas mutables, Refresco Dual ([ 🔄 Refrescar ]) y protocolo de cierre
-│   ├── continuous_agent_evolution.md                 # Evolución autónoma de .agents/ y aislamiento de reglas de dominio (domain_*.md)
-│   ├── anti_regression_and_side_effects_guardrail.md # Blindaje contra regresiones y control de radio de impacto
-│   ├── ground_truth_fixtures_and_negative_invariants.md # Fixtures trimodales, Ciclo Temporal de 3 Fases e invariantes negativos
-│   ├── active_task_and_planning_resilience.md        # Flight Recorder atómico (.agents/.cache/session_checkpoint.json -> ACTIVE_TASK.md)
-│   └── git_closure_gate.md                           # Compuerta QA-GIT-GATE-01 (commit local certificado, cero git push automático)
-├── schemas/                                          # Esquemas JSON Schema Draft 2020-12 de telemetría/estado (.agents/schemas/)
-│   └── session_checkpoint.schema.json                # Esquema estricto 0600 de session_checkpoint.json (Flight Recorder)
-├── skills/                                           # Habilidades y Playbooks de dominio (11 skills modulares del catálogo)
-│   ├── qa-11x-architect/                             # Skill Maestra: 13 capas, 10 leyes 11X, 11 reglas UAT Anti-Blindness y 9 references/
-│   ├── qa-11x-docker-certifier/                      # Certificación 11X en Docker efímero (>=95% cobertura)
-│   ├── qa-11x-devsecops-hardener/                    # Endurecimiento DISA ASD STIG V6R5 (34 reglas) & OWASP v4.2
-│   ├── qa-11x-systematic-debugging/                  # Depuración determinista en 4 fases (Rule Zero + AST Blast Radius)
-│   ├── qa-11x-screenplay-builder/                    # Arquitectura E2E Screenplay Pattern, Anti-JSDOM y aserciones temporales
-│   ├── qa-11x-llm-evaluator/                         # Evaluación dual-mode de LLMs, RAG, voz y red-teaming OWASP LLM Top 10
-│   ├── qa-11x-vibe-rescue/                           # Rescate 5-etapas de prototipos AI Vibe-to-Enterprise
-│   ├── docker-trivy-keydb-hardening/                 # Endurecimiento Docker, Trivy = 0 y KeyDB multi-hilo
-│   ├── graphify-ast-navigator/                       # Navegación AST, radio de impacto (Blast Radius) y selector diferencial
-│   ├── refactoring-ui/                               # Jerarquía visual, escalas discretas, color OKLCH, tabular-nums y WCAG 2.1 AA (SKILL.md + 9 references/)
-│   └── tactical-patterns-11x/                        # Patrones tácticos JIT <= 2.5 KB (CC <= 5, max-params: 4, Port/Adapter, Outbox)
-└── scripts/                                          # Scripts de automatización y compuertas de calidad (21 scripts)
-    ├── checkpoint_ctl.py                             # Controlador atómico Flight Recorder (JSON 0600 -> ACTIVE_TASK.md + Git en vivo)
-    ├── verify_alembic_orm_parity.py                  # Auditoría estricta: modelos ORM vs migraciones de BD (y revision <= 32 chars)
-    ├── verify_json_no_duplicate_keys.py              # Auditoría estricta anti-colisión de claves duplicadas en JSON i18n
-    ├── verify_topological_health.py                  # Auditoría estricta de salud topológica y límites de capas AST
-    ├── inspect_blast_radius.py                       # Análisis bidireccional AST de radio de impacto y Code Q&A
-    ├── select_tests_by_blast_radius.py               # Selector determinista de suites QA por radio de impacto AST
-    ├── verify_zero_orphan_vue_components.py          # Auditoría estricta: paridad y cobertura de componentes UI (0 huérfanos)
-    ├── verify_no_orphan_api_endpoints.py             # Auditoría bidireccional: paridad de endpoints API Front-Back (0 huérfanos 404/405)
-    ├── verify_roadmap_consistency.py                 # Auditoría bidireccional: coherencia de ROADMAP.md y ACTIVE_TASK.md
-    ├── verify_docs_invariants.py                     # Auditoría de presupuesto cognitivo (<12KB arquitecto / <20KB skills / <=40 líneas) y paridad Dual-Consumer 1:1
-    ├── verify_diff_coverage.py                       # Compuerta de cobertura diferencial 100% línea / >=90% rama Multi-Stack
-    ├── track_findings_state.py                       # Rastreador de estado de hallazgos y cortacircuitos anti-loop (exit 42)
-    ├── generate_pr_verdict.py                        # Generador determinista de PR_VERDICT.md y atestación SHA-256
-    ├── lint_test_antipatterns.py                     # Linter AST contra mocks ciegos de auditoría y regresiones UUID
-    ├── bump_version_11x.py                           # Sincronizador determinista Zero-LLM de versión y edición 11X
-    ├── sync_governance.py                            # Sincronizador criptográfico SHA-256 de manifest.json (100% offline)
-    ├── release_readiness_gate.py                     # Evaluador SLA de Release Readiness (GO / NO-GO)
-    ├── compact_context_11x.py                        # Compactador de contexto Zero-LLM en 2 niveles
-    ├── audit_pagespeed_insights.py                   # Auditor Core Web Vitals / PageSpeed Insights
-    ├── validate_calm_architecture.sh                 # Validador de arquitectura FINOS CALM en Docker efímero
-    └── certify_task_completion.sh                    # Compuerta de certificación pre-commit automatizada (10 etapas)
+├── README.md                                         # This technical governance overview
+├── ACTIVE_TASK.md.example                            # Compact <= 40-line task projection template
+├── rules/                                            # Enforced behavioral directives (8 canonical global files)
+│   ├── mandatory_qa_pyramid_and_doc_sync.md          # Multi-layer test pyramid, Anti-Silo cross-module propagation & doc sync
+│   ├── secure_development_and_testing_guidelines.md  # DISA ASD STIG V6R5 + OWASP v4.2: Anti-Mock, PG17 RLS, sessions, NFKC, XXE, WORM audit, SBOM & visual geometry
+│   ├── frontend_parity_and_closure.md                # Terminal-UI parity, mutable operational tables, Dual Refresh ([ 🔄 Refrescar ]) & closure protocol
+│   ├── continuous_agent_evolution.md                 # Autonomous .agents/ evolution & consumer domain-rule isolation (domain_*.md)
+│   ├── anti_regression_and_side_effects_guardrail.md # Anti-regression guardrails, AST blast-radius checks & BREAKER-42 protocol
+│   ├── ground_truth_fixtures_and_negative_invariants.md # Trimodal fixtures, 3-phase temporal lifecycle & negative invariants
+│   ├── active_task_and_planning_resilience.md        # Atomic Flight Recorder (.agents/.cache/session_checkpoint.json -> ACTIVE_TASK.md)
+│   └── git_closure_gate.md                           # QA-GIT-GATE-01 (certified local git commit; zero automatic git push)
+├── schemas/                                          # JSON Schema Draft 2020-12 state & telemetry schemas
+│   └── session_checkpoint.schema.json                # Strict 0600 schema for session_checkpoint.json (Flight Recorder)
+├── skills/                                           # Domain playbooks & progressive-disclosure skills (11 modular skills)
+│   ├── qa-11x-architect/                             # Master orchestrator: 13 layers, 10 laws, 11 UAT Anti-Blindness rules & 9 references/
+│   ├── qa-11x-docker-certifier/                      # Ephemeral Docker Rule Zero certification (>=95% coverage)
+│   ├── qa-11x-devsecops-hardener/                    # DISA ASD STIG V6R5 & OWASP v4.2 hardening (22 ref controls / 34 scanner rules)
+│   ├── qa-11x-systematic-debugging/                  # 4-phase deterministic root-cause debugging (Rule Zero + AST Blast Radius)
+│   ├── qa-11x-screenplay-builder/                    # Proportional Screenplay E2E pattern, Anti-JSDOM & 3-phase temporal assertions
+│   ├── qa-11x-llm-evaluator/                         # Dual-mode LLM, RAG, voice & OWASP LLM Top 10 red-team evaluation
+│   ├── qa-11x-vibe-rescue/                           # 5-stage Vibe-to-Enterprise prototype rescue & hardening
+│   ├── docker-trivy-keydb-hardening/                 # Non-root container hardening, Trivy = 0 & multi-threaded KeyDB
+│   ├── graphify-ast-navigator/                       # Bidirectional AST Knowledge Graph navigation & blast-radius analysis
+│   ├── refactoring-ui/                               # Visual hierarchy, discrete scales, OKLCH contrast, tabular-nums & WCAG 2.1 AA (SKILL.md + 9 references/)
+│   └── tactical-patterns-11x/                        # Ultra-compact JIT tactical patterns <= 2.5 KB (CC <= 5, max-params: 4, Port/Adapter, Outbox)
+└── scripts/                                          # Deterministic automation gates & utilities (22 files: _budgets.py + 21 CLI scripts)
+    ├── _budgets.py                                   # Single-source cognitive budgets & AST blast-radius thresholds
+    ├── checkpoint_ctl.py                             # Atomic Flight Recorder controller (0600 JSON -> ACTIVE_TASK.md + live Git check)
+    ├── verify_alembic_orm_parity.py                  # Strict ORM model vs. migration parity auditor (revision <= 32 chars)
+    ├── verify_json_no_duplicate_keys.py              # Strict duplicate-key validator for i18n JSON locale files
+    ├── verify_topological_health.py                  # AST architectural layer-boundary validator
+    ├── inspect_blast_radius.py                       # Bidirectional AST blast-radius inspector & Code Q&A helper
+    ├── select_tests_by_blast_radius.py               # Deterministic QA suite selector from AST blast radius
+    ├── verify_zero_orphan_vue_components.py          # Zero-orphan UI component test parity validator
+    ├── verify_no_orphan_api_endpoints.py             # Bidirectional frontend-backend API route parity validator
+    ├── verify_roadmap_consistency.py                 # Bidirectional ROADMAP.md & ACTIVE_TASK.md consistency validator
+    ├── verify_docs_invariants.py                     # Cognitive-budget (<12KB architect / <20KB skills / <=40 lines) & bilingual/Dual-Consumer parity validator
+    ├── verify_diff_coverage.py                       # Multi-stack differential coverage gate (100% lines / >=90% branches) & anti-evasion guard
+    ├── track_findings_state.py                       # Line-shift-invariant finding state tracker & BREAKER-42 anti-loop circuit breaker (exit 42)
+    ├── generate_pr_verdict.py                        # Deterministic PR_VERDICT.md & SHA-256/HMAC attestation generator
+    ├── lint_test_antipatterns.py                     # AST test anti-pattern linter (blind audit mocks, UUID regressions, XPath/sleep)
+    ├── bump_version_11x.py                           # Zero-LLM deterministic version & edition synchronizer
+    ├── sync_governance.py                            # Offline SHA-256 cryptographic manifest.json synchronizer
+    ├── release_readiness_gate.py                     # SLA Release Readiness Gate evaluator (GO / NO_GO)
+    ├── compact_context_11x.py                        # Two-tier Zero-LLM conversation context compactor
+    ├── audit_pagespeed_insights.py                   # Ephemeral PageSpeed Insights / Core Web Vitals auditor
+    ├── validate_calm_architecture.sh                 # Ephemeral Docker FINOS CALM architecture validator
+    └── certify_task_completion.sh                    # Automated 10-stage pre-commit certification gate
 ```
 
 ---
 
-## 🌐 Estrategia Lingüística y Optimización de Tokens (Inglés Técnico vs. Español Humano)
+## 🌐 Linguistic Strategy, Token Economy & Intentional Spanish CLI Diagnostics
 
-> **PREMISA DE DISEÑO ARQUITECTÓNICO:**  
-> Las instrucciones destinadas al consumo interno de los modelos de IA (`rules/` y `skills/`) están redactadas en **inglés técnico compacto de alta densidad**, mientras que la documentación para humanos adopta la arquitectura bilingüe **Inglés Canónico (`*.md`) + Espejo 1:1 en Español (`*.es.md`)** (`README.{md,es.md}`, `TESTING.{md,es.md}`, `CHANGELOG.{md,es.md}`, `SECURITY.{md,es.md}`, `ROADMAP.{md,es.md}`, `docs/agent-setup.{md,es.md}`, `mcp-server/`, con `docs/01..04*.md` y stacks migrando en Fases B–C, más política *Dynamic Mirroring* en consumidores).
+> **ARCHITECTURAL DESIGN PREMISE (Spec 19):**
+> Internal AI governance artifacts under `.agents/` (`AGENTS.md`, `.agents/README.md`, `.agents/rules/*.md`, `.agents/skills/**`) are authored exclusively in **concise, high-density technical English**. Human-facing repository documentation uses **English Canonical (`*.md`) + 1:1 Spanish Mirror (`*.es.md`)** pairs (with historical ADRs `docs/specs/01..18` preserved in Spanish per Spec 19 §3.4).
 
-### ¿Por qué las directivas de IA están en inglés?
-
-1. **Economía de Tokens en la Ventana de Contexto (~35% de Ahorro):**
-   - Los tokenizadores de frontera basados en BPE (*Byte-Pair Encoding*, ej. Tiktoken, Gemini Tokenizer, Claude Tokenizer) dividen las palabras en español en una mayor cantidad de fragmentos o subtokens debido a sufijos, conjugaciones y menor frecuencia estadística en los corpus de entrenamiento masivo.
-   - Redactar las reglas y habilidades en inglés técnico de alta densidad reduce drásticamente el consumo de tokens en el prompt de sistema en cada interacción, dejando mayor espacio disponible en el contexto para el código fuente del proyecto, esquemas de bases de datos y trazas de depuración.
-
-2. **Menor Latencia y Mayor Velocidad de Respuesta:**
-   - Menos tokens de entrada se traducen directamente en menor tiempo de procesamiento (*Time-To-First-Token* y tiempo de procesamiento por turno) en herramientas de IA autónomas.
-
-3. **Adherencia Semántica y Rigor Lógico Superior:**
-   - La literatura técnica de software y estándares de seguridad (RFCs, DISA ASD STIG V6R5, OWASP Developer Guide / ASVS / WSTG / API Top 10 / OSHP / CycloneDX, CIS Benchmark, RLS, FIPS 140-3 AES-256-GCM, WCAG 2.1 AA) tienen su máxima densidad conceptual y precisión de alineación en inglés. Los modelos exhiben un cumplimiento de instrucciones (*instruction following*) más estricto y predecible al procesar directivas en este idioma.
-
-4. **Garantía Inviolable de Salida en Español (`OUTPUT LANGUAGE CONSTRAINT`):**
-   - Para garantizar que el desarrollador reciba siempre explicaciones claras y fluidas en su lengua materna, cada archivo en `.agents/rules/` y `.agents/skills/` incluye la directiva forzada:
-     ```markdown
-     > **OUTPUT LANGUAGE CONSTRAINT:**
-     > Always communicate with the user, provide status updates, explain reasoning,
-     > and write commit messages / user-facing documentation in Spanish.
-     ```
-
-5. **Revelación Progresiva en 3 Niveles (*3-Tier Progressive Disclosure*) y Economía Cognitiva de Tokens (*High-IQ Token Economy*):**
-   - **Nivel 1 (Conector `AGENTS.md` / `GEMINI.md`):** Índice ligero siempre activo (`< 35 líneas`) que clasifica la tarea en **3 Vías Proporcionales de Ejecución**: `DOCS_ONLY` (Fast-Path documental), `MICRO_CHANGE` (Vía Quirúrgica para `<= 3` archivos y `LOW` Blast Radius) y `FULL_11X` / `CODE_CHANGE` (Flujo completo de 11 pasos para cambios arquitectónicos).
-   - **Nivel 2 (`SKILL.md` Ejecutivo):** Resume las 10 Leyes, las 11 Reglas UAT Anti-Blindness (incluyendo *Zero Hardcoded Pass*, `SEC-16`, `QA-HEALTH-01`, `QA-CLI-TTY-01`, `QA-CONTRACT-SDK-01` y `QA-DOCKER-LOCK-01`), los 7 Playbooks y las **6 Estrategias Cognitivas de Ahorro de Tokens** (`Graphify AST-First, Grep-Fallback, Windowed-Read-Second`, `Zero Redundant Re-Read`, `Parallel Tool Batching`, `Subagent Context Isolation <= 20 líneas`, `Pass-Quiet Terminal Filtering` y `Compact ACTIVE_TASK.md <= 40 líneas`) sin duplicar párrafos completos de `.agents/rules/`.
-   - **Nivel 3 (`references/*.md` y `.agents/rules/*.md`):** Se cargan bajo demanda estricta únicamente cuando la tarea toca ese stack o dominio específico.
+1. **Context-Window Token Economy (~35% Token Savings):**
+   - BPE tokenizers split Spanish inflectional suffixes and conjugations into significantly more sub-tokens than compact technical English. Keeping `.agents/**` monolingual in technical English maximizes context capacity for source code, schemas, and traces while eliminating dual-language rule drift.
+2. **Lower Latency & Higher Normative Precision:**
+   - Security and engineering standards (RFCs, DISA ASD STIG V6R5, OWASP v4.2 / ASVS / API Top 10 / OSHP / CycloneDX, CIS Benchmarks, PostgreSQL RLS, FIPS 140-3 AES-256-GCM, WCAG 2.1 AA) align with peak semantic precision in technical English.
+3. **Intentional Spanish CLI Diagnostics in `.agents/scripts/*`:**
+   - Terminal `stdout`/`stderr` diagnostic messages, error tables, and projected `.agents/ACTIVE_TASK.md` / `PR_VERDICT.md` human operator summaries emitted by `.agents/scripts/*.{py,sh}` (e.g., `certify_task_completion.sh`, `verify_docs_invariants.py`, `verify_roadmap_consistency.py`, `checkpoint_ctl.py`) remain **intentionally in Spanish**. Because LLMs only inspect script failures on demand (`Pass-Quiet / Fail-Verbose`), keeping operator CLI diagnostics in Spanish preserves operator ergonomics with zero prompt-bloat penalty.
+4. **Dynamic Output Language Mirroring:**
+   - Unless a target repository's `AGENTS.md` pins a fixed language (such as Spanish interaction in `qa-testing-blueprints`), agents respond in the **user's prompt language** and synchronize human docs in EN/ES (`*.md` + `*.es.md`).
+5. **3-Tier Progressive Disclosure & High-IQ Token Economy:**
+   - **Tier 1 (`AGENTS.md` / `GEMINI.md` Connector):** Compact always-on routing index (`< 35` lines in consumer repos) routing tasks across **3 Proportional Execution Paths**: `DOCS_ONLY`, `MICRO_CHANGE`, and `FULL_11X`.
+   - **Tier 2 (`SKILL.md` Executive Layer):** Summarizes the 10 Non-Negotiable Laws, **11 UAT Anti-Blindness Rules** (including Zero Hardcoded Pass, `SEC-16`, `QA-HEALTH-01`, `QA-CLI-TTY-01`, `QA-CONTRACT-SDK-01`, and `QA-DOCKER-LOCK-01`), Playbooks, and the **6 Cognitive Token-Saving Invariants** (`Graphify AST-First, Grep-Fallback, Windowed-Read-Second`, `Zero Redundant Re-Read`, `Parallel Tool Batching`, `Subagent Context Isolation <= 20 lines`, `Pass-Quiet Terminal Filtering`, and `Compact ACTIVE_TASK.md <= 40 lines`).
+   - **Tier 3 (`references/*.md` & `.agents/rules/*.md`):** Loaded strictly on demand when touching the corresponding stack or control domain.
 
 ---
 
-## 🤝 Compatibilidad Multi-Agente
+## 🤝 Multi-Agent Compatibility
 
-Esta carpeta **NO es exclusiva de una sola herramienta**. Ha sido diseñada bajo especificaciones estándar y portables:
+`.agents/` is vendor-neutral and portable across autonomous coding environments:
 
-1. **Google Antigravity:** Carga automáticamente las directivas en `rules/` y expone las habilidades en `skills/` en cada sesión de trabajo.
-2. **Anthropic Claude Code / Claude Desktop:** Puede consumir los playbooks de `skills/` y leer `rules/` como System Prompt contextual.
-3. **Hermes Agent (Nous Research):** Compatible nativo para agentes de terminal autónomos conectados vía Model Context Protocol (MCP).
-4. **Cursor / Windsurf / Copilot:** Las directivas de `rules/` y `AGENTS.md` en la raíz son leídas automáticamente como reglas de contexto para generación de código.
-5. **Ingenieros y Desarrolladores Humanos:** Funciona como un catálogo centralizado de directivas ("guía de estilo viva") que explica exactamente cómo probar el sistema, qué trampas evitar (ej. mocks ciegos de base de datos) y cómo certificar la entrega.
-
----
-
-## 🔒 Seguridad y Versionado en Git
-
-**¿Es seguro y recomendable versionar `.agents/` en Git?**
-**Sí, es 100% recomendable y una práctica de ingeniería de software moderna:**
-- **Cero Secretos:** Este directorio solo contiene directivas en Markdown, configuraciones de muestra (`.json`, `.yaml`) y scripts en Python/Bash. No contiene tokens de producción, contraseñas ni variables de entorno.
-- **Reproducibilidad:** Permite que cualquier desarrollador que clone el repositorio obtenga inmediatamente un agente de IA calibrado y alineado con las reglas del estándar 11X, sin riesgo de que introduzca código roto, modelos sin migración o fallos de seguridad.
-- **Auditoría Continua:** Cualquier script añadido a `.agents/scripts/` es auditado por `ShellCheck` y `./scripts/verificar-secretos.sh` en el pipeline de CI/CD.
+1. **Google Antigravity:** Auto-loads `.agents/rules/` directives and hydrates `.agents/skills/` playbooks on demand.
+2. **Anthropic Claude Code / Claude Desktop:** Consumes `.agents/skills/` playbooks and `.agents/rules/` as contextual governance.
+3. **Nous Research Hermes Agent:** Natively compatible with terminal MCP workflows (`@sinfallas/mcp-qa-11x` exposing **19 MCP Tools** and **13 MCP Resources** across **10 stacks**).
+4. **Cursor / Windsurf / Codex:** Reads root `AGENTS.md` and `.agents/rules/` automatically as contextual coding constraints.
+5. **Human Engineers:** Serves as a single auditable source of truth for test pyramids, security invariants, and release gates.
 
 ---
 
-## 🚀 Cómo Usar las Automatizaciones
+## 🔒 Git Security & Versioning
 
-Para certificar localmente que una tarea cumple con todos los requisitos antes de hacer commit:
+Versioning `.agents/` in Git is safe and recommended:
+- **Zero Secrets:** Contains only Markdown governance, JSON schemas, and deterministic Python/Bash gates—never tokens, passwords, or `.env` secrets.
+- **Reproducibility:** Ensures every contributor and CI run shares identical 11X quality thresholds (`>= 95%` coverage, `CC <= 5`, `0` Trivy HIGH/CRITICAL findings).
+- **Continuous Auditing:** All scripts in `.agents/scripts/` are audited by `ShellCheck`, `ruff`, `mypy --strict`, and `./scripts/verificar-secretos.sh`.
+
+---
+
+## 🚀 Running Ephemeral Automation Gates (Rule Zero)
+
+Execute governance and certification gates via `make` or ephemeral Docker containers (`sinfallas/base-python-uv:3.15`):
 
 ```bash
-# Ejecutar compuerta integral de certificación 11X
-./.agents/scripts/certify_task_completion.sh
+# Run the full 10-stage 11X certification gate
+make certify
 
-# Auditar paridad 100% de componentes Vue sin huérfanos
-python3 ./.agents/scripts/verify_zero_orphan_vue_components.py
+# Validate cognitive budgets, Dual-Consumer parity & bilingual doc links in Docker
+docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp \
+  -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 \
+  python3 .agents/scripts/verify_docs_invariants.py
 
-# Auditar que no existen modelos ORM huérfanos sin migración
-python3 ./.agents/scripts/verify_alembic_orm_parity.py
+# Audit zero-orphan UI components and ORM-migration parity in Docker
+docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp \
+  -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 \
+  sh -ec 'python3 .agents/scripts/verify_zero_orphan_vue_components.py && python3 .agents/scripts/verify_alembic_orm_parity.py'
 ```

@@ -1,3 +1,5 @@
+> 📜 **Aviso de Archivo Histórico (Spec 19 §3.4):** Especificación histórica preservada en español como registro arquitectónico inmutable (exenta de espejo bilingüe EN/ES). Para rutas y métricas vigentes, véase [README.es.md](README.es.md).
+
 # 📦 Especificación 05: Guía Paso a Paso de Publicación en npm (Node.js) y Arquitectura Soberana sin CI/CD Externo
 
 **Proyecto:** QA Testing Blueprints (Estándar Corporativo Nivel 11X)  

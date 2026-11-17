@@ -1,4 +1,4 @@
-> 🌐 **Idioma / Language:** [🇬🇧 English (04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md)](04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md) | **Español (Espejo 1:1)**
+> 🌐 **Idioma:** [🇺🇸 English (Canonical)](04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md) · **Español (Espejo 1:1)**
 
 # 🔐 Guía de Desarrollo Seguro y Mitigación de Vulnerabilidades (Estándar 11X)
 
@@ -49,20 +49,20 @@
 | `SEC-11` | Identidades crudas UUID v4 (`claims["sub"]`) en trazas de auditoría humana | Patrón 18 y `docs/02` §1.1 |
 | `SEC-12` | Bypass de `Depends(require_roles)` en servicios MCP/JSON-RPC sin RBAC explícito ni `ApprovalRequest` | Patrón 21 y `docs/02` §3.5 |
 | `SEC-13` | Pérdida de contexto PostgreSQL RLS tras `commit()` sin listener `after_begin` | Patrón 5 y `docs/02` §3.1 (`QA-PG17-RLS`) |
-| `SEC-14` | Condición de carrera en cadena HMAC WORM ordenando por `created_at` sin `seq_num` + `pg_advisory_xact_lock` | Patrón 18 y `SECURITY.md` |
+| `SEC-14` | Condición de carrera en cadena HMAC WORM ordenando por `created_at` sin `seq_num` + `pg_advisory_xact_lock` | Patrón 18 y `SECURITY.es.md` |
 | `SEC-15` | Reutilización de credenciales estáticas en smoke productivo sin secretos efímeros ni `docker exec -e` | Patrón 15 y `docs/02` §1.1 |
-| `SEC-16` | Asimetría de interceptores `401` y consumo no atómico de `challenge_id` en flujos Pre-Auth multi-etapa | Patrón 15 y `SECURITY.md` §4.20 |
-| `QA-HEALTH-01` | Caída en `unhealthy` de contenedores/workers por supervisores `asyncio` sin `task.exception()` o sondas `HEALTHCHECK` no probadas | `docs/02` §1.1 (Regla #9) y `SECURITY.md` §4.22 |
-| `QA-CLI-TTY-01` | Bloqueo indefinido en consola interactiva (`TTY`) de binarios duales CLI + Servidor MCP `stdio` sin verificar `isTTY` / `isatty()` | `docs/02` §1.1 (Regla #10) y `SECURITY.md` §4.23 |
-| `SEC-CI-ACTION-REF` | Referencias `uses:` en GitHub Actions sin fijación por commit SHA de 40 caracteres (ramas mutables o tags eliminados como `trivy-action@0.28.0`) | Patrón 22 y `SECURITY.md` §4.24 |
-| `QA-DOCKER-TTY-01` | Asignación de pseudo-TTY (`docker compose run` sin `-T`) en pipelines `CI=true` y despliegues Wrangler v4 sobre `read_only: true` sin `tmpfs` `noexec` en `.wrangler` o sin `--force` | `docs/02` §5.1 y `SECURITY.md` §4.25 |
-| `UI-11X-03` | Uso de `.webp`/`.svg` en `apple-touch-icon`, ausencia de `favicon.ico` (`>=48px`), `"any maskable"` combinado en `.webmanifest`, sobrescritura sin `! Header` en `_headers` o comodines `/*.ico` en `_routes.json` | `docs/02` §5.2 y `SECURITY.md` §4.26 |
-| `QA-CI-ESCAPE-01` | Escapes de doble dólar `$$(...)` / `$${...}` heredados de `Makefile`/`Compose` dentro de `.github/workflows/*.yml` o `.github/actions/*/action.yml` (`bash` expande `$$` al PID y rompe montajes Docker con `exit code 125`) | `docs/02` §5.3 y `SECURITY.md` §4.27 |
-| `QA-MAKE-CURDIR-01` | Uso de `$(PWD)` / `${PWD}` en sub-Makefiles (`*/Makefile`, `*/Makefile.example`) invocados vía `$(MAKE) -C <subdir>` en lugar de `$(CURDIR)`, exponiendo el directorio padre al montaje del contenedor | `docs/02` §5.3 y `SECURITY.md` §4.27 |
-| `QA-CONTRACT-SDK-01` | Servidores MCP/JSON-RPC/ACP probados únicamente invocando handlers con `MagicMock` sin conectar el transporte/cliente real del SDK en proceso (oculta rupturas de firma como `mcp 1.x -> 2.x`) | `docs/02` §1.1 (Regla #11) y `SECURITY.md` §4.28 |
-| `QA-DOCKER-LOCK-01` | `Dockerfile` con lista manual de paquetes (`pip install ...`, `npm install <pkg>`) o `uv sync` sin `--frozen` en lugar de instalar desde el lockfile, más ausencia de smoke test sobre la imagen construida (`import`, `id -u != 0`, `401`) | `docs/02` §1.1 (Regla #11) y `SECURITY.md` §4.28 |
-| `QA-PLAYWRIGHT-PIN-01` | Desalineación o rango SemVer (`^`/`~`) entre `@playwright/test`/`playwright` en `package.json` e imagen `mcr.microsoft.com/playwright:vX.Y.Z` (o `:latest`) en Compose, además de protección Anti-SSRF DNS/IP (`SEC-03`) y redacción de API keys (`SEC-06`) en `audit_pagespeed_insights.py` | `docs/02` §7, §9 y `SECURITY.md` §4.29 |
-| `QA-SSR-HYDRATION-01` | Ramificación DOM pre-hidratación (`v-if` sobre `localStorage`/`dataset.theme`) en apps SSR/SSG o ausencia de barrido Playwright dual `'light'`/`'dark'` con guardia `console`/`pageerror` (`/hydration/i`) | `docs/02` §7 y `SECURITY.md` §4.30 |
+| `SEC-16` | Asimetría de interceptores `401` y consumo no atómico de `challenge_id` en flujos Pre-Auth multi-etapa | Patrón 15 y `SECURITY.es.md` §4.20 |
+| `QA-HEALTH-01` | Caída en `unhealthy` de contenedores/workers por supervisores `asyncio` sin `task.exception()` o sondas `HEALTHCHECK` no probadas | `docs/02` §1.1 (Regla #9) y `SECURITY.es.md` §4.22 |
+| `QA-CLI-TTY-01` | Bloqueo indefinido en consola interactiva (`TTY`) de binarios duales CLI + Servidor MCP `stdio` sin verificar `isTTY` / `isatty()` | `docs/02` §1.1 (Regla #10) y `SECURITY.es.md` §4.23 |
+| `SEC-CI-ACTION-REF` | Referencias `uses:` en GitHub Actions sin fijación por commit SHA de 40 caracteres (ramas mutables o tags eliminados como `trivy-action@0.28.0`) | Patrón 22 y `SECURITY.es.md` §4.24 |
+| `QA-DOCKER-TTY-01` | Asignación de pseudo-TTY (`docker compose run` sin `-T`) en pipelines `CI=true` y despliegues Wrangler v4 sobre `read_only: true` sin `tmpfs` `noexec` en `.wrangler` o sin `--force` | `docs/02` §5.1 y `SECURITY.es.md` §4.25 |
+| `UI-11X-03` | Uso de `.webp`/`.svg` en `apple-touch-icon`, ausencia de `favicon.ico` (`>=48px`), `"any maskable"` combinado en `.webmanifest`, sobrescritura sin `! Header` en `_headers` o comodines `/*.ico` en `_routes.json` | `docs/02` §5.2 y `SECURITY.es.md` §4.26 |
+| `QA-CI-ESCAPE-01` | Escapes de doble dólar `$$(...)` / `$${...}` heredados de `Makefile`/`Compose` dentro de `.github/workflows/*.yml` o `.github/actions/*/action.yml` (`bash` expande `$$` al PID y rompe montajes Docker con `exit code 125`) | `docs/02` §5.3 y `SECURITY.es.md` §4.27 |
+| `QA-MAKE-CURDIR-01` | Uso de `$(PWD)` / `${PWD}` en sub-Makefiles (`*/Makefile`, `*/Makefile.example`) invocados vía `$(MAKE) -C <subdir>` en lugar de `$(CURDIR)`, exponiendo el directorio padre al montaje del contenedor | `docs/02` §5.3 y `SECURITY.es.md` §4.27 |
+| `QA-CONTRACT-SDK-01` | Servidores MCP/JSON-RPC/ACP probados únicamente invocando handlers con `MagicMock` sin conectar el transporte/cliente real del SDK en proceso (oculta rupturas de firma como `mcp 1.x -> 2.x`) | `docs/02` §1.1 (Regla #11) y `SECURITY.es.md` §4.28 |
+| `QA-DOCKER-LOCK-01` | `Dockerfile` con lista manual de paquetes (`pip install ...`, `npm install <pkg>`) o `uv sync` sin `--frozen` en lugar de instalar desde el lockfile, más ausencia de smoke test sobre la imagen construida (`import`, `id -u != 0`, `401`) | `docs/02` §1.1 (Regla #11) y `SECURITY.es.md` §4.28 |
+| `QA-PLAYWRIGHT-PIN-01` | Desalineación o rango SemVer (`^`/`~`) entre `@playwright/test`/`playwright` en `package.json` e imagen `mcr.microsoft.com/playwright:vX.Y.Z` (o `:latest`) en Compose, además de protección Anti-SSRF DNS/IP (`SEC-03`) y redacción de API keys (`SEC-06`) en `audit_pagespeed_insights.py` | `docs/02` §7, §9 y `SECURITY.es.md` §4.29 |
+| `QA-SSR-HYDRATION-01` | Ramificación DOM pre-hidratación (`v-if` sobre `localStorage`/`dataset.theme`) en apps SSR/SSG o ausencia de barrido Playwright dual `'light'`/`'dark'` con guardia `console`/`pageerror` (`/hydration/i`) | `docs/02` §7 y `SECURITY.es.md` §4.30 |
 
 ---
 
@@ -344,7 +344,7 @@ Inyectar datos dinámicos en el DOM usando `element.innerHTML` o popups de mapas
 
 ### Implementación Obligatoria (TypeScript / Vue 3 / React)
 ```typescript
-// vue3/src/utils/security.ts
+// vue3/src/utils/security.ts (ruta ilustrativa)
 
 /**
  * 🔒 Sanitiza texto para prevenir Cross-Site Scripting (XSS) en innerHTML

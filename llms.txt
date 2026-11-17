@@ -9,7 +9,7 @@
 - Multi-agent and language support (`28` AI coding agents, `--lang en|es`, `--agents auto|all`, `--tier starter|standard|enterprise`, `--dry-run`).
 - [README.md](https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/README.md) (`README.md`) — English-first project overview, Docker matrix, and 30-second quickstart.
 - [README.es.md](https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/README.es.md) (`README.es.md`) — Full Spanish mirror and testing tools matrix.
-- [docs/agent-setup.md](https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/docs/agent-setup.md) (`docs/agent-setup.md`) — Setup matrix for 28 AI coding agents and MCP clients (Spanish mirror: `docs/agent-setup.es.md`, legacy redirect: `docs/agent-setup.en.md`).
+- [docs/agent-setup.md](https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/docs/agent-setup.md) (`docs/agent-setup.md`) — Setup matrix for 28 AI coding agents and MCP clients (Spanish mirror: `docs/agent-setup.es.md`).
 
 ## Core Architecture & Governance
 

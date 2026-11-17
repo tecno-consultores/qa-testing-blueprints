@@ -1,4 +1,4 @@
-> 🌐 **Idioma / Language:** [🇬🇧 English (docker-troubleshooting.md)](docker-troubleshooting.md) | **Español (Espejo 1:1)**
+> 🌐 **Idioma:** [🇺🇸 English (Canonical)](docker-troubleshooting.md) · **Español (Espejo 1:1)**
 
 # Solución de Problemas de Docker (Troubleshooting)
 
@@ -230,7 +230,7 @@ Al ejecutar pruebas móviles con `sinfallas/base-mobile-appium:26`, Appium repor
 Bajo la Regla Cero y el endurecimiento no-root (`-u "$(id -u):$(id -g)"` con `HOME=/tmp`), Appium busca drivers en `$HOME/.appium` en lugar de usar el directorio prehorneado `/opt/appium-home` si no se preserva explícitamente `APPIUM_HOME`, y Node requiere `NODE_PATH=/opt/qa11x/node_modules`. Además, `sinfallas/base-mobile-appium:26` opera como Driver Bridge W3C sin emulador QEMU/KVM embebido (`ANDROID_HOME=/opt/android-sdk`), conectándose por TCP al servidor ADB del host o a una granja W3C remota.
 
 **La Solución:**
-1. Preservar las variables de entorno canónicas en `mobile-appium/docker-compose.qa.yml` (`HOME: /tmp`, `APPIUM_HOME: /opt/appium-home`, `ANDROID_HOME: /opt/android-sdk`, `ANDROID_SDK_ROOT: /opt/android-sdk`, `NODE_PATH: /opt/qa11x/node_modules`, `QA_MOBILE_ARTIFACTS_DIR: /tmp/qa-11x-mobile-artifacts`).
+1. Preservar las variables de entorno canónicas en `mobile-appium/docker-compose.qa.yml.example` (`HOME: /tmp`, `APPIUM_HOME: /opt/appium-home`, `ANDROID_HOME: /opt/android-sdk`, `ANDROID_SDK_ROOT: /opt/android-sdk`, `NODE_PATH: /opt/qa11x/node_modules`, `QA_MOBILE_ARTIFACTS_DIR: /tmp/qa-11x-mobile-artifacts`).
 2. Levantar el perfil del puente Appium (`--profile appium-live`) y auditar runtimes/drivers instalados (`uiautomator2`, `xcuitest`) antes de lanzar las suites E2E:
 ```bash
 # Auditar OpenJDK 21, Android ADB, Appium 3 y drivers prehorneados bajo APPIUM_HOME=/opt/appium-home:

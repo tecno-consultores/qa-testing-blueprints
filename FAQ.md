@@ -1,6 +1,6 @@
 # Frequently Asked Questions (FAQ) - QA Testing Blueprints
 
-> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (FAQ.es.md)](FAQ.es.md)
+> 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](FAQ.es.md)
 
 This document addresses architectural questions and the most common issues when implementing and running the standardized testing ecosystems (Level 11X) in this repository.
 
@@ -112,7 +112,7 @@ Even if `mcp_config.json` specifies `"@sinfallas/mcp-qa-11x@latest"`, the IDE ke
 3. **Verify version and SHA-256 hashes (`DISA STIG V-222513`):**
    * Check the `npx` version: `grep -rn '"version"' ~/.npm/_npx/*/node_modules/@sinfallas/mcp-qa-11x/package.json`
    * Check cached manifest and docs metadata: `grep -E '"blueprint_version"|"generated_at_utc"' ~/.cache/qa-11x-blueprints/manifest.json`
-   * During `install-skill` execution, verify console output displays `✔ [Skills 11X] ... archivos verificados con SHA-256 (DISA STIG V-222513)`. If any downloaded file mismatches the official manifest SHA-256 hash, the installer aborts automatically due to a cryptographic integrity violation.
+   * During `install-skill` execution, verify console output displays `✔ [Skills 11X] ... files verified with SHA-256 (DISA STIG V-222513)`. If any downloaded file mismatches the official manifest SHA-256 hash, the installer aborts automatically due to a cryptographic integrity violation.
 
 ### What is "Anti-Mock Blindness", and why is verification against real PostgreSQL and Alembic migrations mandatory?
 In unit tests, mocking database calls creates a false sense of security. An ORM model can contain incompatible data types or missing columns that pass mocked tests with 100% coverage yet break production databases. Under Standard 11X, every model change requires a versioned migration and verification via `verify_alembic_orm_parity.py` running against a real PostgreSQL instance in ephemeral Docker.

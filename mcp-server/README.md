@@ -1,9 +1,9 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores) -->
 
-# `@sinfallas/mcp-qa-11x` — Official MCP Server & Skill Installer for QA Testing Blueprints
+> 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/README.es.md)
 
-🌐 **Language / Idioma:** **English** | [Español](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/README.es.md)
+# `@sinfallas/mcp-qa-11x` — Official MCP Server & Skill Installer for QA Testing Blueprints
 
 Official Model Context Protocol (**MCP**) server and zero-friction CLI installer for [**QA Testing Blueprints (QA-11X v3.1 — v3.1.0)**](https://github.com/tecno-consultores/qa-testing-blueprints).
 
@@ -61,7 +61,7 @@ Available CLI commands & flags:
   }
   ```
 
-See the full 27+ client setup matrix in [`docs/agent-setup.en.md`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/docs/agent-setup.en.md).
+See the full 27+ client setup matrix in [`docs/agent-setup.md`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/docs/agent-setup.md).
 
 ---
 
@@ -96,7 +96,7 @@ Led by `qa-11x-architect` (`< 12 KB`), loading 10 specialized sub-skills on dema
 11. **`propose_skill_evolution_pr`:** Generates Dual-Consumer QA-escape evolution proposals (AI rules + MCP + Spanish docs) adhering to `QA-GIT-GATE-01`.
 12. **`reconcile_agents_governance`:** Deduplicates promoted global skills/rules out of consumer `.agents/` and isolates domain rules into `.agents/rules/domain_<project>_rules.md` (`dry_run` defaults to `true`; pass `dry_run: false` to apply changes).
 13. **`validate_calm_architecture` *(v2.0)*:** Validates **FINOS CALM** JSON architecture-as-code schemas, 6 core nodes, 5 typed relationships, and mandatory 11X controls.
-14. **`evaluate_release_gate` *(v2.0)*:** Computes quantitative Release Readiness `GO` / `NO_GO` verdicts from coverage (`>= 95%`), Trivy `HIGH/CRITICAL = 0`, Stryker/Mutmut MSI, CALM, and STIG metrics (with fail-closed `SKIPPED` smoke scope).
+14. **`evaluate_release_gate` *(v2.0)*:** Computes quantitative Release Readiness `GO` / `NO_GO` verdicts from coverage (`>= 95%`), Trivy `HIGH/CRITICAL = 0`, Stryker/Mutmut MSI, CALM, and STIG metrics (returning fail-closed `SKIPPED` in `smoke` mode).
 15. **`evaluate_agent_trajectory` *(v2.0)*:** Evaluates multi-step AI agent tool trajectories offline (`AST-First` precedence, compilation/regeneration/hallucination rates, `QA-GIT-GATE-01` compliance) or via DeepEval in ephemeral Docker.
 16. **`run_llm_red_team` *(v2.0)*:** Audits **OWASP LLM Top 10** promptfoo suites, `promptGuard` adversarial probes, and executes live Promptfoo red-teaming when provider credentials are present (`SKIPPED_MISSING_CREDENTIALS` fail-closed otherwise).
 17. **`audit_vibe_prototype` *(v2.0)*:** Audits AI-generated prototypes (Bolt.new, Lovable, v0, Replit) for `VIBE-SEC-001..QA-005` risks, hardcoding, missing RLS/WORM, and `dryRun` remediation plans.

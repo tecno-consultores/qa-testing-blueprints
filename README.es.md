@@ -1,4 +1,4 @@
-> 🌐 Idioma: [English](README.md) | **Español**
+> 🌐 **Idioma:** [🇺🇸 English (Canonical)](README.md) · **Español (Espejo 1:1)**
 
 <p align="center">
   <img src="assets/qa-logo.jpeg" alt="Logo de QA Testing Blueprints" width="320" />
@@ -9,8 +9,8 @@
 **Blueprint Zero-Infra de QA Agéntico, Evaluaciones de IA y Gobernanza DevSecOps**
 
 [![Licencia: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Regla Cero: Docker Efímero](https://img.shields.io/badge/Rule%20Zero-Non--Root%20Ephemeral%20Docker-0db7ed)](TESTING.md)
-[![Trivy Scan](https://img.shields.io/badge/Trivy-HIGH%2FCRITICAL%20%3D%200-brightgreen)](SECURITY.md)
+[![Regla Cero: Docker Efímero](https://img.shields.io/badge/Rule%20Zero-Non--Root%20Ephemeral%20Docker-0db7ed)](TESTING.es.md)
+[![Trivy Scan](https://img.shields.io/badge/Trivy-HIGH%2FCRITICAL%20%3D%200-brightgreen)](SECURITY.es.md)
 [![Skills Modulares IA](https://img.shields.io/badge/AI%20Skills-11%20Modulares%20(%3C20KB)-6f42c1)](.agents/skills/qa-11x-architect/SKILL.md)
 [![Agentes IA](https://img.shields.io/badge/AI%20Agents-28%20Soportados-ff69b4)](docs/agent-setup.es.md)
 [![FINOS CALM](https://img.shields.io/badge/Architecture-FINOS%20CALM-orange)](architecture/qa-11x.calm.json)
@@ -114,7 +114,7 @@ La matriz abarca **10 stacks hidratables** (`python`, `fastapi`, `node-backend`,
 | **[`mobile-appium/`](mobile-appium/)** | Móvil Nativo e Híbrido | Appium 3 / W3C + WebdriverIO ([`wdio.conf.ts`](mobile-appium/wdio.conf.ts)), [`MobileActor.ts`](mobile-appium/tests/screenplay/MobileActor.ts) (Android, iOS, Ionic, RN) |
 | **[`ai-evals/`](ai-evals/)** | QA de IA y Multimodal | Fidelidad RAG, Promptfoo OWASP LLM Top 10, latencia voz WebRTC ([`test_voice_websocket_latency.py`](ai-evals/voice-realtime/test_voice_websocket_latency.py)), fidelidad PDF/OCR `Decimal` ([`test_pdf_table_fidelity.py`](ai-evals/multimodal-ocr/test_pdf_table_fidelity.py)), [`golden_from_traces.py`](ai-evals/golden_from_traces.py) |
 | **[`vibe-rescue/`](vibe-rescue/)** | Rescate *Vibe-to-Enterprise* | [`audit_vibe_prototype.py`](vibe-rescue/audit_vibe_prototype.py) (`VIBE-SEC-001..QA-005`), plantilla PostgreSQL 17 RLS/WORM ([`rls_hardening.sql`](vibe-rescue/templates/rls_hardening.sql)) |
-| **[`architecture/`](architecture/README.md)** | Arquitectura como Código | Topología FINOS CALM bloqueante ([`qa-11x.calm.json`](architecture/qa-11x.calm.json)) y 7 controles obligatorios 11X (`make validate-calm`) |
+| **[`architecture/`](architecture/README.es.md)** | Arquitectura como Código | Topología FINOS CALM bloqueante ([`qa-11x.calm.json`](architecture/qa-11x.calm.json)) y 7 controles obligatorios 11X (`make validate-calm`) |
 | **[`mcp-server/`](mcp-server/)** | `@sinfallas/mcp-qa-11x` | Servidor MCP Node.js (`stdio`), `quickstart`, `install-skill`, `init-agents`, `reconcile-agents`, `tms-sync` y *Agent Card* A2A |
 
 ---
@@ -155,8 +155,8 @@ A continuación se resume el stack de validación corporativo a lo largo de los 
 
 * **Enrutamiento Progresivo de Skills (`< 20 KB`):** Liderado por [`.agents/skills/qa-11x-architect/SKILL.md`](.agents/skills/qa-11x-architect/SKILL.md) (`< 12 KB`), hidratando bajo demanda 10 sub-skills especializadas (`qa-11x-devsecops-hardener`, `qa-11x-systematic-debugging`, `qa-11x-screenplay-builder`, `qa-11x-llm-evaluator`, `qa-11x-vibe-rescue`, `qa-11x-docker-certifier`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `refactoring-ui` y [`tactical-patterns-11x`](.agents/skills/tactical-patterns-11x/SKILL.md) `<= 2.5 KB` inyectada vía `[DIRECTIVE-11X]`).
 * **Superficie Pública MCP (`@sinfallas/mcp-qa-11x` v3.1.0):** Expone **19 herramientas** y **13 recursos `blueprint://*`** (incluyendo `blueprint://{stack}/readme` para los **10 stacks hidratables**: `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue`) sobre `stdio` — combinando 12 núcleo v1 + 6 evaluadores v2.0 + Flight Recorder atómico **v3.1** `session_flight_recorder` (`session_checkpoint.json` `0600` -> `.agents/ACTIVE_TASK.md`) y recurso **v3.1** `blueprint://skills/tactical-patterns-11x` (`11` skills modulares en total), blindados de extremo a extremo por `promptGuard` y `TaskStateGuard`.
-* **Guardia Humana de Cierre Git (`QA-GIT-GATE-01`):** Imposta por [`.agents/rules/git_closure_gate.md`](.agents/rules/git_closure_gate.md) — los agentes certifican localmente vía `make certify` y se detienen en `git commit` local; cualquier `git push` o `npm publish` automático queda estrictamente prohibido.
-* **Guías y Catálogos:** Consulta [`docs/agent-setup.es.md`](docs/agent-setup.es.md) (Español), [`docs/agent-setup.md`](docs/agent-setup.md) (English), [`RESOURCES.md`](RESOURCES.md), [`llms.txt`](llms.txt) (índice GEO), [`catalogs/`](catalogs/agenticskills-submission.md) ([QASkills](catalogs/qaskills-pack.json), [SkillsLLM](catalogs/skillsllm-manifest.json)), [`docs/01_ARQUITECTURA_PIRAMIDE_11X.md`](docs/01_ARQUITECTURA_PIRAMIDE_11X.md), [`TESTING.md`](TESTING.md), [`SECURITY.md`](SECURITY.md) y [`ROADMAP.md`](ROADMAP.md).
+* **Guardia Humana de Cierre Git (`QA-GIT-GATE-01`):** Impuesta por [`.agents/rules/git_closure_gate.md`](.agents/rules/git_closure_gate.md) — los agentes certifican localmente vía `make certify` y se detienen en `git commit` local; cualquier `git push` o `npm publish` automático queda estrictamente prohibido.
+* **Guías y Catálogos:** Consulta [`docs/agent-setup.es.md`](docs/agent-setup.es.md) (Español; versión en inglés en `docs/agent-setup.md`), [`RESOURCES.es.md`](RESOURCES.es.md), [`llms.txt`](llms.txt) (índice GEO), [`catalogs/`](catalogs/agenticskills-submission.md) ([QASkills](catalogs/qaskills-pack.json), [SkillsLLM](catalogs/skillsllm-manifest.json)), [`docs/01_ARQUITECTURA_PIRAMIDE_11X.es.md`](docs/01_ARQUITECTURA_PIRAMIDE_11X.es.md), [`TESTING.es.md`](TESTING.es.md), [`SECURITY.es.md`](SECURITY.es.md) y [`ROADMAP.es.md`](ROADMAP.es.md).
 
 ```bash
 # Instalar skills globales, scripts operativos y conector AGENTS.md en los IDEs detectados:

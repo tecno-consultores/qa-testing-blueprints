@@ -1,4 +1,4 @@
-> 🌐 **Idioma / Language:** [🇬🇧 English (CONTRIBUTING.md)](CONTRIBUTING.md) | **Español (Espejo 1:1)**
+> 🌐 **Idioma:** [🇺🇸 English (Canonical)](CONTRIBUTING.md) · **Español (Espejo 1:1)**
 
 # Guía de Contribución (Ecosistema Híbrido Humano + Agentes IA)
 
@@ -12,7 +12,7 @@ Este ecosistema está diseñado para ser desarrollado, mantenido y extendido tan
 
 Para mantener la consistencia y la eficacia de estos blueprints, toda contribución (humana o automatizada) debe respetar los siguientes principios:
 
-1. **Imágenes Base Inmutables:** En proyectos consumidores y blueprints individuales, nunca propongas cambios que requieran agregar un `Dockerfile` local o la instrucción `build:` en los orquestadores `docker-compose.qa.yml`. Todo debe funcionar utilizando exclusivamente nuestra flota de imágenes oficiales (y para nuevos entornos corporativos como `mobile-appium`, planificar y certificar formalmente la imagen dedicada conforme a [`docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md)):
+1. **Imágenes Base Inmutables:** En proyectos consumidores y blueprints individuales, nunca propongas cambios que requieran agregar un `Dockerfile` local o la instrucción `build:` en los orquestadores `docker-compose.qa.yml`. Todo debe funcionar utilizando exclusivamente nuestra flota de imágenes oficiales (y para nuevos entornos corporativos como `mobile-appium`, planificar y certificar formalmente la imagen dedicada conforme a [`docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.es.md`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.es.md)):
    * `sinfallas/base-python-uv` (`3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest`) para Python/FastAPI, `ai-evals` y `vibe-rescue`.
    * `sinfallas/base-node-ionic` (`22`, `24`, `26` y `latest`) para Node.js/Vue 3/React, Promptfoo, `@finos/calm-cli` y el Servidor MCP.
    * `sinfallas/base-mobile-appium` (`26` y `latest`) para Móvil Nativo e Híbrido W3C Bridge (`mobile-appium/`: Node.js 26, `pnpm`, OpenJDK 21, Android SDK/ADB, Appium 3, `uiautomator2`, `xcuitest`, WebdriverIO v9).
@@ -26,12 +26,12 @@ Para mantener la consistencia y la eficacia de estos blueprints, toda contribuci
 2. **Efimeridad Absoluta y Regla Cero (`Rule Zero`):** Toda ejecución de pruebas, linters o scripts debe ocurrir dentro de contenedores efímeros (usando `--rm`). Jamás ejecutes pruebas directamente en el host anfitrión. Las pruebas unitarias jamás deben salir a Internet; el Mocking (`nock`, `pytest-mock`) es obligatorio. Para persistencia y esquemas de base de datos rige la regla **Anti-Mock Blindness** (validación obligatoria contra base de datos real efímera).
 3. **Prompts Imperativos y Arquitectura Bilingüe (`Spec 19`):**
    * Las directivas internas para consumo de LLMs en `.agents/rules/` y `.agents/skills/` se redactan en **inglés técnico conciso de alta densidad** para ahorrar un ~35% de tokens BPE.
-   * La documentación raíz, gobernanza y guías de onboarding (`README.md`, `RESOURCES.md`, `TESTING.md`, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `FAQ.md`, `AI_MASTER_PROMPT.md`, `ROADMAP.md`, `CHANGELOG.md`, `mcp-server/*`, `docs/agent-setup.md`) siguen la convención **Inglés Canónico (`*.md`) + Espejo 1:1 en Español (`*.es.md`)** ([`docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md)), mientras los manuales profundos (`docs/01..04*`) y READMEs por stack transicionan en las Fases B–C.
+   * La documentación raíz, gobernanza y guías de onboarding (`README.md`, `RESOURCES.md`, `TESTING.md`, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `FAQ.md`, `AI_MASTER_PROMPT.md`, `ROADMAP.md`, `CHANGELOG.md`, `mcp-server/*`, `docs/agent-setup.md`) siguen la convención **Inglés Canónico (`*.md`) + Espejo 1:1 en Español (`*.es.md`)** ([`docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md)), mientras los manuales profundos (`docs/01..04*`) y READMEs por stack transicionan en las Fases B–C.
 4. **Umbral de Calidad y Deuda Técnica Innegociables:**
    * Cobertura de código unitario **>= 95%** de líneas y ramas.
    * Complejidad ciclomática Grado **A** (`CC <= 5`, `MI >= A`).
    * Accesibilidad web WCAG 2.1 AA (0 violaciones en `@axe-core`) y rendimiento en Lighthouse **>= 90**.
-   * Cumplimiento estricto de **DISA ASD STIG V6R5** y **OWASP Developer Guide v4.2** documentadas en [`SECURITY.es.md`](SECURITY.es.md) y [`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`](docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md).
+   * Cumplimiento estricto de **DISA ASD STIG V6R5** y **OWASP Developer Guide v4.2** documentadas en [`SECURITY.es.md`](SECURITY.es.md) y [`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md`](docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md).
 5. **IPv4 Estricto:** Toda configuración de red en los `docker-compose.qa.yml` debe utilizar exclusivamente el driver `bridge` estándar en IPv4. Prohibido habilitar `enable_ipv6: true` para evitar conflictos de enrutamiento y NAT.
 
 ---
@@ -55,7 +55,7 @@ Si eres un **Agente de IA** (o un desarrollador operando en conjunto con uno) co
 1. Haz un *fork* del repositorio, crea una rama descriptiva (`git checkout -b feature/agregar-k6-stresstest`) e **instala inmediatamente los hooks de seguridad locales** ejecutando `./instalar-hooks.sh` en tu terminal.
 2. Modifica el archivo de configuración (`pyproject.toml.example`, `package.json.example`, etc.) y el orquestador `docker-compose.qa.yml` si es estrictamente necesario. *(Nota: Si agregas herramientas de Profiling como `py-spy` o `clinic.js`, recuerda incluir los privilegios `cap_add: - SYS_PTRACE` y `security_opt: - seccomp:unconfined`)*.
 3. Actualiza la documentación correspondiente en `docs/`, `TESTING.md` / `TESTING.es.md` y los `Makefiles` documentando el comando de ejecución exacto.
-4. Antes de hacer el commit o Pull Request, ejecuta el saneamiento `./scripts/limpieza.sh` y certifica la suite completa ejecutando `./.agents/scripts/certify_task_completion.sh` en local (**10 compuertas en verde**).
+4. Antes de hacer el commit o Pull Request, ejecuta el saneamiento `./scripts/limpieza.sh` y certifica la suite completa ejecutando `./.agents/scripts/certify_task_completion.sh` en local (**10/10 compuertas en verde**).
 
 ### Si estás mejorando la Documentación, MCP o Skills
 1. Si mejoras el servidor MCP (`mcp-server/`), asegúrate de que pase `pnpm run lint`, `npx tsc --noEmit` y que la cobertura de pruebas unitarias (`pnpm test`) se mantenga en `>= 95%`.

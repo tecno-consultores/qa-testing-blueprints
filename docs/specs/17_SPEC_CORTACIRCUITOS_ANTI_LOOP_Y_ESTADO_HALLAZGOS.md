@@ -1,3 +1,5 @@
+> 📜 **Aviso de Archivo Histórico (Spec 19 §3.4):** Especificación histórica preservada en español como registro arquitectónico inmutable (exenta de espejo bilingüe EN/ES). Para rutas y métricas vigentes, véase [README.es.md](README.es.md).
+
 # 🛑 Especificación Técnica 17: Cortacircuitos Anti-Loop y Memoria Determinista de Hallazgos (Hito 22)
 
 **Proyecto:** QA Testing Blueprints (`tecno-consultores/qa-testing-blueprints`)  
@@ -57,7 +59,7 @@ En cada corrida `R_n`, el conjunto de huellas activas se compara contra `[R_1, .
 Respetando la arquitectura *Thin-Client* y `mcp-server/src/cli/reconcile-agents.ts` (que mantiene fijo el conjunto de 7 reglas canónicas más `git_closure_gate.md`), **no se crean archivos adicionales en `.agents/rules/`**. La directiva de respuesta ante `BREAKER-42` (`exit 42`) se incorpora como inciso compacto *Dual-Consumer* en:
 - `.agents/rules/anti_regression_and_side_effects_guardrail.md` (regla LLM existente).
 - `.agents/skills/qa-11x-systematic-debugging/SKILL.md` (manteniendo el límite `< 20 KB`).
-- `docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md` (manual humano en español).
+- `docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md` (manual humano en español).
 
 ---
 
@@ -70,4 +72,4 @@ Respetando la arquitectura *Thin-Client* y `mcp-server/src/cli/reconcile-agents.
 | **`22.3`** | Crear `tests/test_track_findings_state.unit.py` (`>= 95%` cobertura) probando desplazamiento de líneas, cambio de rama, umbral `streak == 3`, oscilación `A -> B -> A` y `--reset-state`. | `docker run --rm --network none -e COVERAGE_FILE=/tmp/.coverage -u "$(id -u):$(id -g)" -v "$(pwd):/app" -w /app sinfallas/base-python-uv:3.15 uv run --with pytest --with pytest-cov pytest tests/test_track_findings_state.unit.py` |
 | **`22.4`** | Integrar seguimiento de rachas y señal `BREAKER_42` en `mcp-server/src/services/qa-evidence.ts` y `mcp-server/src/tools/ephemeral-runner.ts` sin alterar las 18 Tools MCP. | `make lint` en `sinfallas/base-node-ionic:26`. |
 | **`22.5`** | Crear pruebas unitarias TS en `mcp-server/tests/` (`>= 95%` cobertura) y conectar `track_findings_state.py` en `.agents/scripts/certify_task_completion.sh`. | `make test-mcp` en `sinfallas/base-node-ionic:26` + `make certify`. |
-| **`22.6`** | Documentar `BREAKER-42` en `anti_regression_and_side_effects_guardrail.md`, `qa-11x-systematic-debugging/SKILL.md` (`< 20 KB`) y `docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`. | `./scripts/actualizar-grafos-graphify.sh`, `make sync-governance`, `make lint-docs` y `make certify`. |
+| **`22.6`** | Documentar `BREAKER-42` en `anti_regression_and_side_effects_guardrail.md`, `qa-11x-systematic-debugging/SKILL.md` (`< 20 KB`) y `docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`. | `./scripts/actualizar-grafos-graphify.sh`, `make sync-governance`, `make lint-docs` y `make certify`. |

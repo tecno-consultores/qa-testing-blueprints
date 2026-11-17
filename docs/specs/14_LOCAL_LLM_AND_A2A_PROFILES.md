@@ -1,9 +1,11 @@
+> 📜 **Aviso de Archivo Histórico (Spec 19 §3.4):** Especificación histórica preservada en español como registro arquitectónico inmutable (exenta de espejo bilingüe EN/ES). Para rutas y métricas vigentes, véase [README.es.md](README.es.md).
+
 # ⚡ Especificación Técnica 14: Perfiles de Inferencia Local (`Ollama` / `vLLM`), Tarjeta A2A (`task-capacity`) y Compactador Zero-LLM en 2 Niveles (`T2.7`)
 
 **Proyecto:** QA Testing Blueprints (`tecno-consultores/qa-testing-blueprints`)  
 **Componentes Objetivo (T2.7):** `mcp-server/src/a2a/agentCard.ts`, `mcp-server/tests/a2a.test.ts`, `.agents/scripts/compact_context_11x.py`, `tests/meta_qa/test_governance_scripts.py`, `mcp-server/src/utils/taskStateGuard.ts`  
 **Modelo Ejecutor Objetivo:** Modelos locales abiertos (Qwen 3.8 / Ollama / vLLM) y modelos *frontier* híbridos  
-**Estado:** IMPLEMENTADO (CERTIFICACIÓN QA-11X v2.0)
+**Estado:** IMPLEMENTADO Y CERTIFICADO (QA-11X v2.0)
 
 ---
 

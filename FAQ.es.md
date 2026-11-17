@@ -1,6 +1,6 @@
 # Preguntas Frecuentes (FAQ) - QA Testing Blueprints
 
-> 🌐 **Idioma / Language:** [🇬🇧 English (FAQ.md)](FAQ.md) | **Español (Espejo 1:1)**
+> 🌐 **Idioma:** [🇺🇸 English (Canonical)](FAQ.md) · **Español (Espejo 1:1)**
 
 Este documento resuelve las dudas arquitectónicas y los errores más comunes al implementar y ejecutar los ecosistemas de prueba estandarizados (Nivel 11X) en este repositorio.
 
@@ -17,7 +17,7 @@ Si superaste el 95% de cobertura, el pipeline ahora evalúa la **Deuda Técnica 
 1. Herramientas como `SonarJS` (Node) o `Radon` (Python) detectaron **Complejidad Ciclomática** alta (Código Espagueti). Tendrás que refactorizar las funciones muy largas.
 2. Fallaste los estándares de calidad de código visual (`Prettier`, `Ruff`).
 3. Introdujiste vulnerabilidades detectadas por `ESLint Security` o `bandit` (SAST), o fallaste el escaneo dinámico de `OWASP ZAP` (DAST).
-4. El rendimiento de Lighthouse (Vue3) bajó de 90.
+4. El rendimiento de Lighthouse (Vue 3) bajó de 90.
 
 ### ¿Qué significa "contenedor efímero" y cómo guardo los reportes si el contenedor se borra?
 Un contenedor efímero se crea dinámicamente con el flag `--rm`. Nace, ejecuta un comando único y muere. Los reportes (como la cobertura HTML o Flamegraphs de Profiling) no se pierden porque el `docker-compose.qa.yml` utiliza **volúmenes bind** (`- .:/app`), guardando los resultados directamente en tu disco duro físico.

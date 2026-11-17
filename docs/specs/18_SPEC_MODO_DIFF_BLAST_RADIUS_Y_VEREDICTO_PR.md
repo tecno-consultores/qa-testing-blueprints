@@ -1,3 +1,5 @@
+> 📜 **Aviso de Archivo Histórico (Spec 19 §3.4):** Especificación histórica preservada en español como registro arquitectónico inmutable (exenta de espejo bilingüe EN/ES). Para rutas y métricas vigentes, véase [README.es.md](README.es.md).
+
 # ⚡ Especificación Técnica 18: Modo Diferencial en Blast Radius y Exportador Ejecutivo `PR_VERDICT.md` (Hito 23)
 
 **Proyecto:** QA Testing Blueprints (`tecno-consultores/qa-testing-blueprints`)  
@@ -63,4 +65,4 @@ El generador `.agents/scripts/generate_pr_verdict.py` (Python 3.12+ stdlib pura,
 | **`23.3`** | Crear `mcp-server/tests/diff-blast-radius.unit.ts` (`>= 95%` cobertura: ahorro `>= 60%`, redacción de secretos, `baseRef` inválido) y actualizar `mcp-server/test/mcp_cli_test.feature`. | `make test-mcp && make test-karate` (`sinfallas/base-node-ionic:26`, `sinfallas/karatelabs:1.5.1`). |
 | **`23.4`** | Crear `.agents/scripts/generate_pr_verdict.py` (`CC <= 5`) reutilizando `release_readiness_gate.py`, `.agents/.qa-evidence.json` y `verify_diff_coverage.py` para emitir `PR_VERDICT.md` + `pr_verdict_attestation.json`. | Validación `ruff` (`CC <= 5`) y `mypy --strict` en `sinfallas/base-python-uv:3.15`. |
 | **`23.5`** | Crear `tests/test_generate_pr_verdict.unit.py` (`>= 95%` cobertura en `sinfallas/base-python-uv:3.15`) y exponer el target `make pr-verdict` en `Makefile`. | `make test-py && make pr-verdict`. |
-| **`23.6`** | Actualizar `docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`, `docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md`, `TESTING.md` y `CHANGELOG.md`. | `./scripts/actualizar-grafos-graphify.sh`, `make sync-governance`, `make lint-docs` y `make certify`. |
+| **`23.6`** | Actualizar `docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`, `docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md`, `TESTING.md` y `CHANGELOG.md`. | `./scripts/actualizar-grafos-graphify.sh`, `make sync-governance`, `make lint-docs` y `make certify`. |

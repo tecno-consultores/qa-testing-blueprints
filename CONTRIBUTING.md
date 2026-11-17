@@ -1,4 +1,4 @@
-> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (CONTRIBUTING.es.md)](CONTRIBUTING.es.md)
+> 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](CONTRIBUTING.es.md)
 
 # Contributing Guide (Human + AI Agents Hybrid Ecosystem)
 
