@@ -78,6 +78,13 @@ export const BootstrapMergeInputSchema = z.object({
     .boolean()
     .default(true)
     .describe('If true (default), simulates file creation and merging without modifying disk.'),
+  create_backup: z
+    .boolean()
+    .optional()
+    .default(true)
+    .describe(
+      'If true (default), creates a <file>.11x-backup copy before overwriting an existing file when dry_run is false.'
+    ),
 });
 export type BootstrapMergeInput = z.infer<typeof BootstrapMergeInputSchema>;
 
@@ -149,6 +156,13 @@ export const AuditSecurityInputSchema = z.object({
     .max(500)
     .default(25)
     .describe('Maximum number of individual findings returned in findings (token economy).'),
+  include_examples: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe(
+      'If true, includes *.example and Makefile.example blueprint templates in the audit (default false).'
+    ),
 });
 export type AuditSecurityInput = z.infer<typeof AuditSecurityInputSchema>;
 
@@ -177,7 +191,7 @@ export const RunEphemeralQaInputSchema = z.object({
     .optional()
     .default(false)
     .describe(
-      'If true and git detects only documentation changes (*.md / docs/), skips starting Docker containers and returns PASSED via Fast-Path.'
+      'If true and git detects only documentation changes (*.md / docs/), skips starting Docker containers and returns SKIPPED via Fast-Path.'
     ),
 });
 export type RunEphemeralQaInput = z.infer<typeof RunEphemeralQaInputSchema>;
@@ -510,6 +524,7 @@ export interface GitHubFetcherOptions {
 
 export interface MergeFilesOptions {
   dryRun?: boolean;
+  createBackup?: boolean;
 }
 
 // ============================================================================
@@ -649,8 +664,8 @@ export const InitAgentsMdInputSchema = z.object({
     .describe('Absolute or relative path to the target project directory.'),
   dry_run: z
     .boolean()
-    .default(false)
-    .describe('If true, simulates AGENTS.md injection without writing to disk.'),
+    .default(true)
+    .describe('If true (default), simulates AGENTS.md injection without writing to disk.'),
   lang: OutputLanguageModeSchema
     .optional()
     .default('auto')
@@ -710,15 +725,22 @@ export const ProposeEvolutionPrInputSchema = z.object({
     .min(10)
     .optional()
     .describe(
-      'Didactic explanation and code example for human engineers to incorporate into docs/01..04_*.md or SECURITY.md.'
+      'Didactic explanation and code example for human engineers to incorporate into docs/01..05_*.md or SECURITY.md.'
+    ),
+  dry_run: z
+    .boolean()
+    .optional()
+    .default(true)
+    .describe(
+      'If true (default), generates local proposal and pre-filled GitHub URL without creating a remote PR via gh CLI.'
     ),
   prefer_offline_fallback: z
     .boolean()
     .optional()
-    .default(false)
-    .describe('If true, skips gh CLI and directly generates local proposal file and pre-filled URL.'),
+    .default(true)
+    .describe('If true (default), skips gh CLI and directly generates local proposal file and pre-filled URL.'),
 });
-export type ProposeEvolutionPrInput = z.infer<typeof ProposeEvolutionPrInputSchema>;
+export type ProposeEvolutionPrInput = z.input<typeof ProposeEvolutionPrInputSchema>;
 
 export interface ProposeEvolutionPrResult {
   status: 'PR_CREATED_VIA_GH' | 'PROPOSAL_FILE_AND_URL_GENERATED';

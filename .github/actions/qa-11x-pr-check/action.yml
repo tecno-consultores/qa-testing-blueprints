@@ -36,11 +36,11 @@ inputs:
   python-image:
     description: 'Ephemeral non-root Python container image for Rule Zero checks'
     required: false
-    default: 'sinfallas/base-python-uv:3.15'
+    default: 'sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4'
   node-image:
     description: 'Ephemeral non-root Node container image for Rule Zero checks'
     required: false
-    default: 'sinfallas/base-node-ionic:26'
+    default: 'sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60'
 
 outputs:
   tier:
@@ -240,7 +240,7 @@ runs:
             GRAPH_STATUS="SKIPPED"
             echo "::warning::[graph=SKIPPED] inspect_blast_radius fallback (rc=${INSPECT_RC})." >&2
           fi
-          NON_DOC_COUNT="$(grep -vcE '(\.md$|^docs/)' "${CHANGED_FILE}" || true)"
+          NON_DOC_COUNT="$(awk 'NF && ($0 ~ /^\.agents\// || ($0 !~ /\.md$/ && $0 !~ /^docs\//)) { c++ } END { print c + 0 }' "${CHANGED_FILE}")"
           if [ "${NON_DOC_COUNT}" -eq 0 ]; then
             BLAST_TIER="docs-only"
             SAVINGS_PCT="85"
@@ -249,7 +249,7 @@ runs:
           BLAST_TIER="nightly-full"
           SAVINGS_PCT="0"
         elif [ -s "${CHANGED_FILE}" ]; then
-          NON_DOC_COUNT="$(grep -vcE '(\.md$|^docs/)' "${CHANGED_FILE}" || true)"
+          NON_DOC_COUNT="$(awk 'NF && ($0 ~ /^\.agents\// || ($0 !~ /\.md$/ && $0 !~ /^docs\//)) { c++ } END { print c + 0 }' "${CHANGED_FILE}")"
           if [ "${NON_DOC_COUNT}" -eq 0 ]; then
             BLAST_TIER="docs-only"
             SAVINGS_PCT="85"

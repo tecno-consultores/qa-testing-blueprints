@@ -475,3 +475,125 @@ def test_f10_8_hardening_dangling_symlink_bom_lcov_diff_and_thresholds(
         ).exit_code
         == vdc.EXIT_SECURITY_OR_MISSING_REPORT
     )
+
+
+def test_ci_autodiff_and_modified_existing_file_missing_report(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Cubre autodiff CI (origin/<base>...HEAD / HEAD~1..HEAD) y archivo existente."""
+    repo = _init_repo(tmp_path / "ci_repo")
+    _write(repo, "pkg/existing.py", "def calc() -> int:\n    return 1\n")
+    _git(repo, "add", "pkg/existing.py")
+    _git(repo, "commit", "-m", "add existing")
+    _git(repo, "update-ref", "refs/remotes/origin/main", "HEAD")
+
+    _write(repo, "pkg/existing.py", "def calc() -> int:\n    return 42\n")
+    _git(repo, "add", "pkg/existing.py")
+    _git(repo, "commit", "-m", "modify existing")
+
+    # Archivo existente modificado sin reporte -> SIN_REPORTE en modo CI
+    _write(repo, "cov/python.xml", "<coverage/>")
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setenv("GITHUB_BASE_REF", "main")
+    ci_missing = vdc.evaluate_diff_coverage(
+        vdc.DiffCoverageConfig(workspace=repo, reports_dir="cov")
+    )
+    assert ci_missing.exit_code == vdc.EXIT_SECURITY_OR_MISSING_REPORT
+    assert "pkg/existing.py" in ci_missing.missing_report_files
+
+    # Con reporte cubriendo la línea modificada -> OK vía origin/main...HEAD
+    _write(
+        repo,
+        "cov/python.xml",
+        (
+            "<coverage><packages><package><classes>"
+            '<class filename="pkg/existing.py"><lines>'
+            '<line number="2" hits="1"/>'
+            "</lines></class></classes></package></packages></coverage>"
+        ),
+    )
+    ci_ok = vdc.evaluate_diff_coverage(
+        vdc.DiffCoverageConfig(workspace=repo, reports_dir="cov")
+    )
+    assert ci_ok.exit_code == vdc.EXIT_OK
+
+    # Fallback a HEAD~1..HEAD cuando GITHUB_BASE_REF no existe o está vacío
+    monkeypatch.setenv("GITHUB_BASE_REF", "missing_branch")
+    ci_head1 = vdc.evaluate_diff_coverage(
+        vdc.DiffCoverageConfig(workspace=repo, reports_dir="cov")
+    )
+    assert ci_head1.exit_code == vdc.EXIT_OK
+
+    # Sin HEAD~1 ni env CI retorna None
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    monkeypatch.delenv("GITHUB_BASE_REF", raising=False)
+    monkeypatch.delenv("CI", raising=False)
+    assert vdc._resolve_ci_diff_range(repo) is None
+    monkeypatch.setenv("CI", "true")
+    single_commit_repo = _init_repo(tmp_path / "single")
+    assert vdc._resolve_ci_diff_range(single_commit_repo) is None
+
+
+def test_ignores_test_files_even_with_zero_hits_in_coverage_xml(
+    tmp_path: Path,
+) -> None:
+    """Nunca evalúa ni penaliza tests aunque aparezcan con hits=0 en el XML."""
+    repo = _init_repo(tmp_path / "filter_tests")
+    _write(repo, "pkg/prod.py", "def ok() -> int:\n    return 1\n")
+    _write(repo, "tests/helper_test.py", "def helper() -> int:\n    return 0\n")
+    _write(repo, "test_root.py", "def test_root() -> None:\n    assert True\n")
+    _write(repo, "pkg/sample.unit.py", "def test_u() -> None:\n    assert True\n")
+    _write(repo, "src/widget.test.ts", "export const t = 1;\n")
+    _git(
+        repo,
+        "add",
+        "pkg/prod.py",
+        "tests/helper_test.py",
+        "test_root.py",
+        "pkg/sample.unit.py",
+        "src/widget.test.ts",
+    )
+    _write(
+        repo,
+        "cov/python.xml",
+        (
+            "<coverage><packages><package><classes>"
+            '<class filename="pkg/prod.py"><lines>'
+            '<line number="1" hits="1"/><line number="2" hits="1"/>'
+            "</lines></class>"
+            '<class filename="tests/helper_test.py"><lines>'
+            '<line number="1" hits="0"/><line number="2" hits="0"/>'
+            "</lines></class>"
+            '<class filename="test_root.py"><lines>'
+            '<line number="1" hits="0"/></lines></class>'
+            '<class filename="pkg/sample.unit.py"><lines>'
+            '<line number="1" hits="0"/></lines></class>'
+            '<class filename="src/widget.test.ts"><lines>'
+            '<line number="1" hits="0"/></lines></class>'
+            "</classes></package></packages></coverage>"
+        ),
+    )
+    report = vdc.evaluate_diff_coverage(
+        vdc.DiffCoverageConfig(workspace=repo, reports_dir="cov")
+    )
+    assert report.exit_code == vdc.EXIT_OK
+    assert [m.file_path for m in report.file_metrics] == ["pkg/prod.py"]
+
+    only_tests = _init_repo(tmp_path / "only_tests")
+    _write(only_tests, "tests/helper_test.py", "def h() -> int:\n    return 0\n")
+    _git(only_tests, "add", "tests/helper_test.py")
+    _write(
+        only_tests,
+        "cov/python.xml",
+        (
+            "<coverage><packages><package><classes>"
+            '<class filename="tests/helper_test.py"><lines>'
+            '<line number="1" hits="0"/><line number="2" hits="0"/>'
+            "</lines></class></classes></package></packages></coverage>"
+        ),
+    )
+    only_tests_rep = vdc.evaluate_diff_coverage(
+        vdc.DiffCoverageConfig(workspace=only_tests, reports_dir="cov")
+    )
+    assert only_tests_rep.exit_code == vdc.EXIT_OK
+    assert only_tests_rep.file_metrics == ()

@@ -11,7 +11,7 @@ setup() {
   elif [ -f "/repo/scripts/verificar-secretos.sh" ]; then
     REPO_ROOT="/repo"
   else
-    REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/.." && pwd)"
+    REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd)"
   fi
 }
 
@@ -50,21 +50,17 @@ PY
 }
 
 @test "verificar-secretos.sh: aprueba codigo limpio y bloquea secreto inyectado" {
-  WORK="$(mktemp -d /tmp/qa-sec-bats.XXXXXX)"
+  WORK="${BATS_TEST_TMPDIR}/sec_work"
   mkdir -p "${WORK}/src"
   printf 'export const ok = "clean-value";\n' >"${WORK}/src/clean.ts"
 
   run env LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh" src/clean.ts' _ "${WORK}" "${REPO_ROOT}"
-  if [ "${status}" -ne 0 ]; then
-    rm -rf "${WORK}"
-    false
-  fi
+  assert_success
 
   SYNTH_KEY="AKIA""9A8B7C6D5E4F3G2H"
   printf 'export const leak = "%s";\n' "${SYNTH_KEY}" >"${WORK}/src/leak.ts"
 
   run env LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh" src/leak.ts' _ "${WORK}" "${REPO_ROOT}"
-  rm -rf "${WORK}"
   assert_failure
 }
 
@@ -250,9 +246,13 @@ EOF
   assert_failure 1
   refute_output --partial "HOST_PYTHON_CALLED"
   [ ! -e "${FAKE_PY_MARKER}" ]
+  run grep -F "PYTHONDONTWRITEBYTECODE=1" "${DOCKER_LOG}"
+  assert_success
   run grep -F "QA_DIAG_PATH=/qa-diag/fail.json" "${DOCKER_LOG}"
   assert_success
   run grep -F "/app/.agents/scripts/track_findings_state.py" "${DOCKER_LOG}"
+  assert_success
+  run grep -F -- "--stage" "${DOCKER_LOG}"
   assert_success
 }
 
@@ -492,7 +492,7 @@ EOF
   assert_success
 }
 
-@test "probar-mcp-example.sh (F8.18): ejecuta --in-place --offline, clean-room y verify_tarball_cli (valido y rechazos)" {
+_setup_probar_mcp_example_env() {
   WORK="${BATS_TEST_TMPDIR}/ex_repo"
   FAKE_BIN="${BATS_TEST_TMPDIR}/ex_bin"
   FAKE_HOME="${BATS_TEST_TMPDIR}/ex_home"
@@ -538,6 +538,9 @@ if [ "${TEST_TARBALL_MODE:-ok}" = "leak_src" ]; then
   mkdir -p "${stage}/package/src"
   printf '// leak\n' >"${stage}/package/src/leak.ts"
 fi
+if [ "${TEST_TARBALL_MODE:-ok}" = "leak_map" ]; then
+  printf '{"version":3}\n' >"${stage}/package/dist/index.js.map"
+fi
 tar -czf "${dest}/sinfallas-mcp-qa-11x-3.1.0.tgz" -C "${stage}" package
 rm -rf "${stage}"
 printf 'sinfallas-mcp-qa-11x-3.1.0.tgz\n'
@@ -570,15 +573,12 @@ fi
 exit 0
 EOF
   chmod +x "${FAKE_BIN}/pnpm" "${FAKE_BIN}/npm" "${FAKE_BIN}/node" "${FAKE_BIN}/docker"
+}
 
-  run env QA11X_REPO_ROOT="${WORK}" HOME="${FAKE_HOME}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/probar-mcp-example.sh" --in-place --offline
-  assert_success
-
-  run env QA11X_REPO_ROOT="${WORK}" HOME="${FAKE_HOME}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/probar-mcp-example.sh" --offline
-  assert_success
-  assert_output --partial "[Clean-Room E2E]"
-
+@test "probar-mcp-example.sh (F8.18): verify_tarball_cli valida paquete y rechaza LICENSE, src/ o .map" {
+  _setup_probar_mcp_example_env
   cd "${WORK}/mcp-server"
+
   run env QA11X_REPO_ROOT="${WORK}" HOME="${FAKE_HOME}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/probar-mcp-example.sh" --verify-tarball
   assert_success
   assert_output --partial "Empaquetado real"
@@ -591,8 +591,23 @@ EOF
   assert_failure
   assert_output --partial "Fuentes src/ filtradas"
 
+  run env QA11X_REPO_ROOT="${WORK}" TEST_TARBALL_MODE="leak_map" HOME="${FAKE_HOME}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/probar-mcp-example.sh" --verify-tarball
+  assert_failure
+  assert_output --partial "Archivos .map filtrados"
+
   run env QA11X_REPO_ROOT="${WORK}" TEST_TARBALL_MODE="node_fail" HOME="${FAKE_HOME}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/probar-mcp-example.sh" --verify-tarball
   assert_failure
+}
+
+@test "probar-mcp-example.sh (F8.18): ejecuta --in-place --offline y clean-room" {
+  _setup_probar_mcp_example_env
+
+  run env QA11X_REPO_ROOT="${WORK}" HOME="${FAKE_HOME}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/probar-mcp-example.sh" --in-place --offline
+  assert_success
+
+  run env QA11X_REPO_ROOT="${WORK}" HOME="${FAKE_HOME}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/probar-mcp-example.sh" --offline
+  assert_success
+  assert_output --partial "[Clean-Room E2E]"
 }
 
 @test "publicar-mcp.sh (F8.20): valida ensure_fresh_dist_before_pack recompilando si falta dist y bloqueando si persiste obsoleto" {
@@ -645,8 +660,8 @@ EOF
   assert_output --partial "SIMULACIÓN EXITOSA"
 
   # Segunda corrida con dist ya fresco -> valida rama live sin publish real (docker stub)
-  sleep 1
-  touch "${WORK}/mcp-server/dist/index.js"
+  touch -t 202601010000 "${WORK}/mcp-server/src/index.ts"
+  touch -t 202601010001 "${WORK}/mcp-server/dist/index.js"
   run env QA11X_REPO_ROOT="${WORK}" NPM_TOKEN="npm_realMock1234567890" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --skip-tests
   assert_success
   assert_output --partial "PUBLICACIÓN EXITOSA"
@@ -697,5 +712,209 @@ EOF
   run grep -F -- "-e _USER=qa" "${REPO_ROOT}/instalar-hooks.sh"
   assert_success
   run grep -F -- "_USER: qa" "${REPO_ROOT}/bash-scripts/docker-compose.qa.yml"
+  assert_success
+}
+
+@test "verificar-secretos.sh: bloquea .env en subdirectorios, bloquea tests/ sin marcador y permite # qa-secret-fixture-ok" {
+  WORK="${BATS_TEST_TMPDIR}/sec_subdir_ws"
+  mkdir -p "${WORK}/apps/api" "${WORK}/tests"
+  printf 'API_KEY=CHANGE_ME_OK_0001\n' >"${WORK}/apps/api/.env.example"
+  printf 'OK=1\n' >"${WORK}/apps/api/.env"
+
+  run env LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh" apps/api/.env.example' _ "${WORK}" "${REPO_ROOT}"
+  assert_success
+
+  run env LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh" apps/api/.env' _ "${WORK}" "${REPO_ROOT}"
+  assert_failure 1
+  assert_output --partial "apps/api/.env"
+
+  SYNTH_GKEY="AIza""SynthToken99887766"
+  printf 'KEY = "%s"\n' "${SYNTH_GKEY}" >"${WORK}/tests/sample.unit.py"
+  run env LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh" tests/sample.unit.py' _ "${WORK}" "${REPO_ROOT}"
+  assert_failure 1
+  assert_output --partial "tests/sample.unit.py"
+
+  printf 'KEY = "%s"  # qa-secret-fixture-ok\n' "${SYNTH_GKEY}" >"${WORK}/tests/sample.unit.py"
+  run env LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh" tests/sample.unit.py' _ "${WORK}" "${REPO_ROOT}"
+  assert_success
+}
+
+@test "generar-sbom-cyclonedx.sh: rechaza ruta absoluta fuera del repositorio con exit 1" {
+  run env LC_ALL=C bash "${REPO_ROOT}/scripts/generar-sbom-cyclonedx.sh" "/tmp/evil-sbom.json"
+  assert_failure 1
+  assert_output --partial "ERROR: La ruta de salida debe ser relativa"
+}
+
+@test "certify_task_completion.sh: activa breaker rc=42 tras 3 fallos consecutivos de Gate 1" {
+  WORK="${BATS_TEST_TMPDIR}/certify_breaker_42_ws"
+  mkdir -p "${WORK}/.agents/scripts" "${WORK}/.agents/.cache" "${WORK}/scripts"
+  cp "${REPO_ROOT}/.agents/scripts/certify_task_completion.sh" "${WORK}/.agents/scripts/certify_task_completion.sh"
+  cp "${REPO_ROOT}/.agents/scripts/track_findings_state.py" "${WORK}/.agents/scripts/track_findings_state.py"
+  cp "${REPO_ROOT}/.agents/scripts/_budgets.py" "${WORK}/.agents/scripts/_budgets.py"
+  chmod +x "${WORK}/.agents/scripts/certify_task_completion.sh"
+
+  cat >"${WORK}/scripts/verificar-secretos.sh" <<'EOF'
+#!/usr/bin/env bash
+echo "secreto bloqueante gate-01" >&2
+exit 1
+EOF
+  chmod +x "${WORK}/scripts/verificar-secretos.sh"
+
+  DIAG="${BATS_TEST_TMPDIR}/breaker42/diag.json"
+  run env QA11X_DOCKERENV_PATH="/.dockerenv" QA_DIAGNOSTIC_JSON="${DIAG}" LC_ALL=C bash "${WORK}/.agents/scripts/certify_task_completion.sh"
+  assert_failure 1
+
+  run env QA11X_DOCKERENV_PATH="/.dockerenv" QA_DIAGNOSTIC_JSON="${DIAG}" LC_ALL=C bash "${WORK}/.agents/scripts/certify_task_completion.sh"
+  assert_failure 1
+
+  run env QA11X_DOCKERENV_PATH="/.dockerenv" QA_DIAGNOSTIC_JSON="${DIAG}" LC_ALL=C bash "${WORK}/.agents/scripts/certify_task_completion.sh"
+  assert_failure 42
+  assert_output --partial "[BREAKER-42]"
+}
+
+@test "probar-mcp-example.sh: exige guardia anti-root y falla con exit 1 si EUID=0 fuera de Docker" {
+  run grep -F '[[ "${EUID}" -eq 0 ]] && [ ! -f /.dockerenv ]' "${REPO_ROOT}/scripts/probar-mcp-example.sh"
+  assert_success
+
+  local copy_script="${BATS_TEST_TMPDIR}/probar-root-guard.sh"
+  sed 's/\[\[[[:space:]]*"\${EUID}"[[:space:]]*-eq[[:space:]]*0[[:space:]]*\]\]/[ "${QA_MOCK_EUID:-${EUID}}" -eq 0 ]/; s|/\.dockerenv|/__nonexistent_dockerenv__|g' \
+    "${REPO_ROOT}/scripts/probar-mcp-example.sh" >"${copy_script}"
+  chmod +x "${copy_script}"
+
+  run env QA_MOCK_EUID=0 LC_ALL=C bash "${copy_script}" --help
+  assert_failure 1
+  assert_output --partial "No debe ejecutar este script como root en el host"
+}
+
+@test "publicar-mcp.sh: read_dotenv_value, bump_version_11x pre-check y MCP_EXTRA_VOLS en dry-run" {
+  WORK="${BATS_TEST_TMPDIR}/pub_env_repo"
+  FAKE_BIN="${BATS_TEST_TMPDIR}/pub_env_bin"
+  DOCKER_LOG="${BATS_TEST_TMPDIR}/pub_env_docker.log"
+  mkdir -p "${WORK}/mcp-server/src" "${WORK}/mcp-server/dist" "${WORK}/scripts" "${WORK}/.agents/scripts" \
+    "${WORK}/mobile-appium" "${WORK}/vibe-rescue" "${WORK}/.github" "${FAKE_BIN}"
+
+  printf '{\n  "name": "@sinfallas/mcp-qa-11x",\n  "version": "3.1.0"\n}\n' >"${WORK}/mcp-server/package.json"
+  printf 'export const v = "3.1.0";\n' >"${WORK}/mcp-server/src/index.ts"
+  touch -t 202601010000 "${WORK}/mcp-server/src/index.ts"
+  printf 'console.log("fresh");\n' >"${WORK}/mcp-server/dist/index.js"
+  touch -t 202601010001 "${WORK}/mcp-server/dist/index.js"
+  printf '#!/usr/bin/env bash\nexit 0\n' >"${WORK}/scripts/limpieza.sh"
+  chmod +x "${WORK}/scripts/limpieza.sh"
+  printf 'print("ok")\n' >"${WORK}/.agents/scripts/bump_version_11x.py"
+
+  cat >"${FAKE_BIN}/docker" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >>"${DOCKER_LOG}"
+if printf '%s\n' "\$*" | grep -q "npm view"; then
+  if [ -n "\${QA_STUB_PUBLISHED_FILE:-}" ] && [ -f "\${QA_STUB_PUBLISHED_FILE}" ]; then
+    printf '%s\n' "3.1.0"
+    exit 0
+  fi
+  exit 1
+fi
+if printf '%s\n' "\$*" | grep -q "npm publish"; then
+  if [ "\${QA_STUB_FAIL_PUBLISH:-0}" = "1" ]; then
+    exit 1
+  fi
+  if [ -n "\${QA_STUB_PUBLISHED_FILE:-}" ]; then
+    : >"\${QA_STUB_PUBLISHED_FILE}"
+  fi
+  exit 0
+fi
+if printf '%s\n' "\$*" | grep -q "npm pack --dry-run"; then
+  printf 'package size: 10 kB\ntotal files: 5\n'
+  exit 0
+fi
+exit 0
+EOF
+  chmod +x "${FAKE_BIN}/docker"
+
+  cat >"${WORK}/.env" <<'EOF'
+NPM_TOKEN="npm_realMock1234567890"
+EOF
+  chmod 644 "${WORK}/.env"
+
+  run env QA11X_REPO_ROOT="${WORK}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --dry-run --skip-tests
+  assert_success
+  assert_output --partial "SIMULACIÓN EXITOSA"
+  [ "$(stat -c "%a" "${WORK}/.env")" = "600" ]
+
+  : >"${DOCKER_LOG}"
+  cat >"${WORK}/.env" <<'EOF'
+NPM_TOKEN="npm_realMock1234567890"
+NPM_REGISTRY='https://registry.npmjs.org/'
+NPM_OTP=123456 # 2fa comment
+EOF
+  chmod 600 "${WORK}/.env"
+
+  run env QA11X_REPO_ROOT="${WORK}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --dry-run --skip-tests
+  assert_success
+  assert_output --partial "SIMULACIÓN EXITOSA"
+
+  run grep -F "bump_version_11x.py --check" "${DOCKER_LOG}"
+  assert_success
+  run grep -F "/mobile-appium:ro" "${DOCKER_LOG}"
+  assert_success
+  run grep -F "/vibe-rescue:ro" "${DOCKER_LOG}"
+  assert_success
+  run grep -F "/.github:ro" "${DOCKER_LOG}"
+  assert_success
+
+  : >"${DOCKER_LOG}"
+  PUB_STAMP="${BATS_TEST_TMPDIR}/pub_done.flag"
+  run env QA11X_REPO_ROOT="${WORK}" QA_STUB_PUBLISHED_FILE="${PUB_STAMP}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --skip-tests --otp 654321
+  assert_success
+  assert_output --partial "PUBLICACIÓN EXITOSA"
+  run grep -F " -e NPM_TOKEN -e NPM_OTP -e NPM_REGISTRY " "${DOCKER_LOG}"
+  assert_success
+  run grep -F "npm publish --access public" "${DOCKER_LOG}"
+  assert_success
+
+  run env QA11X_REPO_ROOT="${WORK}" QA_STUB_FAIL_PUBLISH=1 PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --skip-tests --otp 654321
+  assert_failure 1
+  assert_output --partial "No se completó la publicación"
+}
+
+@test "verificar-secretos.sh: cubre autodeteccion git (limpio ls-files, sucio/untracked) y archivos excluidos" {
+  WORK="${BATS_TEST_TMPDIR}/sec_git_ws"
+  FAKE_BIN="${BATS_TEST_TMPDIR}/sec_git_bin"
+  DOCKER_LOG="${BATS_TEST_TMPDIR}/sec_git_docker.log"
+  mkdir -p "${WORK}/src" "${FAKE_BIN}"
+  printf 'export const clean = "ok";\n' >"${WORK}/src/clean.ts"
+  git -C "${WORK}" init -q
+  git -C "${WORK}" config user.email "qa@example.com"
+  git -C "${WORK}" config user.name "QA Bot"
+  git -C "${WORK}" add src/clean.ts
+  git -C "${WORK}" commit -q -m "chore: init"
+
+  # 1. Arbol limpio sin argumentos -> fallback git ls-files (L52)
+  run env LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${WORK}" "${REPO_ROOT}"
+  assert_success
+  assert_output --partial "0 secretos expuestos"
+
+  # 2. Archivo untracked/modificado sin argumentos -> git diff/ls-files --others (L46-47)
+  printf 'export const extra = "clean-extra";\n' >"${WORK}/src/extra.ts"
+  run env LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${WORK}" "${REPO_ROOT}"
+  assert_success
+  assert_output --partial "0 secretos expuestos"
+
+  # 3. Solo archivos excluidos (png) -> L73 "0 archivos sujetos a escaneo de secretos."
+  printf 'PNG' >"${WORK}/logo.png"
+  run env LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh" logo.png' _ "${WORK}" "${REPO_ROOT}"
+  assert_success
+  assert_output --partial "0 archivos sujetos a escaneo de secretos"
+
+  # 4. Re-encapsulamiento Rule Zero cuando /.dockerenv no existe
+  cat >"${FAKE_BIN}/docker" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >>"${DOCKER_LOG}"
+exit 0
+EOF
+  chmod +x "${FAKE_BIN}/docker"
+  run env QA11X_DOCKERENV_PATH="/nonexistent" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh" src/clean.ts' _ "${WORK}" "${REPO_ROOT}"
+  assert_success
+  run grep -F "run --rm --network none" "${DOCKER_LOG}"
+  assert_success
+  run grep -F "QA11X_INSIDE_DOCKER=1" "${DOCKER_LOG}"
   assert_success
 }

@@ -153,9 +153,9 @@ const E164_PHONE_RE =
   /(?<![A-Za-z0-9+/=_-])\+[1-9]\d{7,14}(?![A-Za-z0-9_-])/g;
 
 const PATH_LIKE_KEY_SNAKE_RE =
-  /(?:^|_)(?:path|dir|directory|file|filename)$/i;
+  /(?:^|_)(?:path|dir|directory|file|filename|root)$/i;
 
-const PATH_LIKE_KEY_CAMEL_RE = /(?:Path|Dir|Directory|File|Filename)$/;
+const PATH_LIKE_KEY_CAMEL_RE = /(?:Path|Dir|Directory|File|Filename|Root)$/;
 
 const SECRET_AND_PII_RULES: ReadonlyArray<RedactionRule> = [
   { pattern: PEM_PRIVATE_KEY_BLOCK_RE, replacement: REDACTED_SECRET },
@@ -258,10 +258,13 @@ function hasIndirectExfiltration(text: string): boolean {
 
 function hasGateBypassInLine(line: string): boolean {
   const cleanLine = collapseHorizontalWhitespace(line);
+  if (DEFENSIVE_NEGATION_RE.test(cleanLine)) {
+    return false;
+  }
   if (GATE_BYPASS_ACTION_RE.test(cleanLine) || GATE_FORCE_FLAG_RE.test(cleanLine)) {
     return true;
   }
-  return GATE_IMPERATIVE_RE.test(cleanLine) && !DEFENSIVE_NEGATION_RE.test(cleanLine);
+  return GATE_IMPERATIVE_RE.test(cleanLine);
 }
 
 function hasGateBypassDirective(text: string): boolean {

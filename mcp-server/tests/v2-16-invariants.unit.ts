@@ -581,6 +581,7 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
           improvement_title: 'Consumer Repo Remote',
           empirical_rationale: 'Test',
           proposed_content_or_snippet: 'ok',
+          dry_run: false,
           prefer_offline_fallback: false,
         },
         (file, args) => {
@@ -844,6 +845,7 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
           improvement_title: 'Git Remote Error Branch',
           empirical_rationale: 'Test',
           proposed_content_or_snippet: 'ok',
+          dry_run: false,
           prefer_offline_fallback: false,
         },
         (file, args) => {

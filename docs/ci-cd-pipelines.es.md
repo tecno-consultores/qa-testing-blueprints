@@ -61,10 +61,14 @@ on:
   pull_request:
     branches: [ "main", "develop" ]
 
+permissions:
+  contents: read
+
 jobs:
   auditoria-y-pruebas:
     name: 🛡️ Auditoría Estricta (95% Coverage) y Resiliencia
     runs-on: ubuntu-latest
+    timeout-minutes: 25
 
     steps:
       - name: 1️⃣ Checkout del código (fijar SHA inmutable en producción)
@@ -73,9 +77,9 @@ jobs:
       - name: 2️⃣ Verificación de Secretos y Configuración Efímera Segura
         run: |
           ./scripts/verificar-secretos.sh
-          # Inyectar variables de entorno de prueba (NUNCA credenciales reales de producción en runners)
+          # Inyectar variables de entorno de prueba con rol no-superusuario NOBYPASSRLS (NUNCA credenciales reales)
           echo "ENVIRONMENT=test" >> .env.test
-          echo "DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/test_db" >> .env.test
+          echo "DATABASE_URL=postgresql+asyncpg://app_user:test_only_rls_pwd@postgres:5432/test_db" >> .env.test
 
       - name: 3️⃣ Auditoría de Infraestructura y Contenedores (Trivy)
         run: |
@@ -93,18 +97,19 @@ jobs:
         # Asegura que las pruebas realmente validen la lógica alterando el AST.
         run: make qa-mutation
 
-      - name: 7️⃣ Compuerta de Certificación 11X (ORM Parity, Orphans y Topología)
+      - name: 7️⃣ Compuerta de Certificación 11X (ORM Parity, Orphans y Topología en Docker Regla Cero)
         run: |
-          chmod +x .agents/scripts/*.sh .agents/scripts/*.py
-          ./.agents/scripts/certify_task_completion.sh
+          docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp \
+            -v "$(pwd):/app" -w /app sinfallas/base-python-uv:3.15 \
+            bash ./.agents/scripts/certify_task_completion.sh
 
       - name: 8️⃣ Seguridad Dinámica DAST (OWASP ZAP Baseline)
         # Levanta los servicios de persistencia y la API, luego ejecuta ZAP.
         # (Nota: Ignorar este paso si es un script Bash o Python Standalone)
         run: |
           docker compose -f docker-compose.qa.yml up -d postgres keydb api || docker compose -f docker-compose.qa.yml up -d api
-          docker compose -f docker-compose.qa.yml run --rm zap zap-baseline.py -t http://api:8000 -r zap-report.html || \
-          docker compose -f docker-compose.qa.yml run --rm zap zap-baseline.py -t http://api:3000 -r zap-report.html
+          docker compose -f docker-compose.qa.yml run --rm -T zap zap-baseline.py -t http://api:8000 -r zap-report.html || \
+          docker compose -f docker-compose.qa.yml run --rm -T zap zap-baseline.py -t http://api:3000 -r zap-report.html
 
       - name: 9️⃣ Ingeniería del Caos y Observabilidad (Prometheus + Pumba)
         # Activa el perfil oculto para inyectar latencia y levantar Prometheus automáticamente.

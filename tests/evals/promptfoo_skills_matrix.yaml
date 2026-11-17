@@ -54,12 +54,16 @@ defaultTest:
       threshold: 15000
 
 tests:
-  - description: "Orquestación qa-11x-architect + AI_MASTER_PROMPT.md (Pass-Quiet, ACTIVE_TASK <= 40L, QA-GIT-GATE-01)"
+  - description: "Orquestación qa-11x-architect + graphify-ast-navigator + qa-11x-docker-certifier"
     vars:
       active_skill: "qa-11x-architect + graphify-ast-navigator + qa-11x-docker-certifier"
-      skill_contract: "Triage proporcional, bitácora .agents/ACTIVE_TASK.md <= 40 líneas, make certify y cierre local QA-GIT-GATE-01."
-      task_prompt: "Describe el protocolo de cierre seguro para una micro-tarea con Pass-Quiet sin autorizar publicación remota."
+      skill_contract: "Triage proporcional, consulta AST previa en graph.json / GRAPH_REPORT.md, ejecución Docker Rule Zero (>= 95%), bitácora .agents/ACTIVE_TASK.md <= 40 líneas, make certify y QA-GIT-GATE-01."
+      task_prompt: "Describe el protocolo de cierre seguro tras auditar el grafo AST y validar en contenedor efímero sin autorizar publicación remota."
     assert:
+      - type: icontains
+        value: "graph.json"
+      - type: icontains
+        value: "Rule Zero"
       - type: icontains
         value: "QA-GIT-GATE-01"
       - type: icontains
@@ -67,14 +71,14 @@ tests:
       - type: icontains
         value: "Pass-Quiet"
       - type: llm-rubric
-        value: "La respuesta aplica qa-11x-architect en español, limita .agents/ACTIVE_TASK.md a <= 40 líneas, exige certificación local y rechaza toda publicación remota automática bajo QA-GIT-GATE-01."
+        value: "La respuesta aplica qa-11x-architect, consulta graph.json/GRAPH_REPORT.md antes de editar, ejecuta pruebas en Docker Rule Zero con cobertura >= 95%, limita .agents/ACTIVE_TASK.md a <= 40 líneas y bloquea push bajo QA-GIT-GATE-01."
         threshold: 0.90
 
-  - description: "qa-11x-devsecops-hardener + docker-trivy-keydb-hardening (PG17 RLS, WORM HMAC-SHA256, AES-256-GCM)"
+  - description: "qa-11x-devsecops-hardener + docker-trivy-keydb-hardening (PG17 RLS, WORM HMAC-SHA256, Trivy, KeyDB)"
     vars:
       active_skill: "qa-11x-devsecops-hardener + docker-trivy-keydb-hardening"
-      skill_contract: "PostgreSQL 17 FORCE ROW LEVEL SECURITY + rol NOBYPASSRLS, cadena WORM HMAC-SHA256 con seq_num y Vault AES-256-GCM."
-      task_prompt: "Diseña la arquitectura de aislamiento multi-tenant, cifrado de secretos y auditoría inmutable para un servicio Python en Docker no-root."
+      skill_contract: "PostgreSQL 17 FORCE ROW LEVEL SECURITY + rol NOBYPASSRLS, cadena WORM HMAC-SHA256 con seq_num, Vault AES-256-GCM, contenedor non-root con Trivy HIGH/CRITICAL=0 y caché KeyDB."
+      task_prompt: "Diseña la arquitectura de aislamiento multi-tenant, cifrado de secretos, caché multi-hilo, escaneo Trivy y auditoría inmutable para un servicio Python en Docker no-root."
     assert:
       - type: icontains
         value: "FORCE ROW LEVEL SECURITY"
@@ -84,6 +88,10 @@ tests:
         value: "HMAC-SHA256"
       - type: icontains
         value: "AES-256-GCM"
+      - type: icontains
+        value: "Trivy"
+      - type: icontains
+        value: "KeyDB"
 
   - description: "qa-11x-systematic-debugging (diagnóstico obligatorio de causa raíz en 4 fases)"
     vars:
@@ -101,11 +109,11 @@ tests:
         value: "La respuesta prohíbe parches a ciegas y detalla las 4 fases de diagnóstico determinista (reproducción en Docker + AST, contraste diferencial, hipótesis única y candado RED-to-GREEN)."
         threshold: 0.90
 
-  - description: "qa-11x-screenplay-builder + refactoring-ui (Gherkin + Actor-Task-Question + Anti-JSDOM)"
+  - description: "qa-11x-screenplay-builder + refactoring-ui (Gherkin + Actor-Task-Question + WCAG/OKLCH + Anti-JSDOM)"
     vars:
       active_skill: "qa-11x-screenplay-builder + refactoring-ui"
-      skill_contract: "Patrón Screenplay (Actor, Task, Question), escenario Gherkin compilable en el primer intento y validación geométrica real Anti-JSDOM."
-      task_prompt: "Genera un escenario Gherkin y su contrato Screenplay Actor-Task-Question para validar aislamiento RBAC sin JSDOM."
+      skill_contract: "Patrón Screenplay (Actor, Task, Question), escenario Gherkin compilable en el primer intento, validación geométrica real Anti-JSDOM y contraste WCAG AA / paleta OKLCH."
+      task_prompt: "Genera un escenario Gherkin, contrato Screenplay Actor-Task-Question y tokens visuales WCAG/OKLCH para validar aislamiento RBAC sin JSDOM."
     assert:
       - type: contains
         value: "Feature:"
@@ -115,6 +123,10 @@ tests:
         value: "Actor"
       - type: icontains
         value: "Question"
+      - type: icontains
+        value: "WCAG"
+      - type: icontains
+        value: "OKLCH"
 
   - description: "qa-11x-llm-evaluator (Modo Dual offline/live y umbrales 0.05 / 0.90 / >94% / <1.2)"
     vars:
@@ -145,6 +157,22 @@ tests:
         value: "95%"
       - type: llm-rubric
         value: "La respuesta describe las etapas de rescate preservando la UX, poniendo secretos en cuarentena y reemplazando USING (true) por aislamiento PostgreSQL 17 RLS."
+        threshold: 0.90
+
+  - description: "tactical-patterns-11x (JIT Complexity Rescue CC <= 5, SonarJS <= 15, Port & Adapter)"
+    vars:
+      active_skill: "tactical-patterns-11x"
+      skill_contract: "Refactorización JIT: CC <= 5, SonarJS <= 15, max-params <= 4, max-depth <= 3 mediante Guard Clauses y arquitectura Port & Adapter offline (--network none)."
+      task_prompt: "Refactoriza una función con complejidad ciclomática 11 y llamada HTTP acoplada para cumplir CC <= 5, SonarJS <= 15 y Port & Adapter."
+    assert:
+      - type: icontains
+        value: "CC <= 5"
+      - type: icontains
+        value: "SonarJS <= 15"
+      - type: icontains
+        value: "Port & Adapter"
+      - type: llm-rubric
+        value: "La respuesta reduce complejidad ciclomática a <= 5 con Guard Clauses o despacho por tabla y desacopla la red mediante Port & Adapter."
         threshold: 0.90
 
 redteam:

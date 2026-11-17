@@ -5,9 +5,15 @@
 
 # `@sinfallas/mcp-qa-11x` — Official MCP Server & Skill Installer for QA Testing Blueprints
 
+[![npm version](https://img.shields.io/npm/v/%40sinfallas%2Fmcp-qa-11x)](https://www.npmjs.com/package/@sinfallas/mcp-qa-11x)
+[![Node.js >=24](https://img.shields.io/badge/node-%3E%3D24.0.0-brightgreen)](https://nodejs.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/LICENSE)
+
 Official Model Context Protocol (**MCP**) server and zero-friction CLI installer for [**QA Testing Blueprints (QA-11X v3.1 — v3.1.0)**](https://github.com/tecno-consultores/qa-testing-blueprints).
 
-Designed for AI coding agents (**Google Antigravity**, **Claude Code / Desktop**, **Cursor**, **Windsurf**, **OpenAI Codex CLI**, **VS Code Copilot**, **Hermes Agent**, and **27+ agents**) to onboard repositories in **< 30 seconds**, audit **19 MCP tools**, query **13 cryptographic `blueprint://*` resources** (11 static URIs + 2 URI templates), and enforce ephemeral **Docker Rule Zero**, **DISA ASD STIG V6R5**, **OWASP v4.2**, **FINOS CALM**, and **Dual-Mode AI Evals** without cloning the full blueprints repository.
+Designed for AI coding agents (**Google Antigravity**, **Claude Code / Desktop**, **Cursor**, **Windsurf**, **OpenAI Codex CLI**, **VS Code Copilot**, **Hermes Agent**, and **28 agents**) to onboard repositories in **< 30 seconds**, audit **19 MCP tools**, query **13 cryptographic `blueprint://*` resources** (11 static URIs + 2 URI templates), and enforce ephemeral **Docker Rule Zero**, **DISA ASD STIG V6R5**, **OWASP v4.2**, **FINOS CALM**, and **Dual-Mode AI Evals** without cloning the full blueprints repository.
+
+**Prerequisites:** **Node.js >= 24.0.0** and **Docker** (for ephemeral Rule Zero QA execution via `run_ephemeral_qa` and live AI evals).
 
 ---
 
@@ -27,13 +33,13 @@ npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-script
 ```
 
 Available CLI commands & flags:
-- `quickstart [dir] [-T|--tier starter|standard|enterprise] [--lang en|es] [--agents auto|all|<csv>] [--dry-run] [--json]` — Auto-detects stack (FastAPI, Python, Node, Vue 3, React, PHP, Bash, Mobile, Vibe) and scaffolds QA-11X configs.
-- `install-skill` (alias: `install`) `[--target auto|workspace|antigravity|claude|cursor|windsurf|codex|hermes|all] [--init-agents] [--include-scripts] [--reconcile]`
+- `quickstart [dir] [-T|--tier starter|standard|enterprise] [--lang auto|en|es] [--agents auto|all|<csv>] [--ci github|none] [--force] [--dry-run] [--json]` — Auto-detects stack (FastAPI, Python, Node, Vue 3, React, PHP, Bash, Mobile, AI Evals, Vibe) and scaffolds QA-11X configs.
+- `install-skill` (alias: `install`) `[--target auto|workspace|antigravity|claude|cursor|windsurf|codex|hermes|all] [--lang auto|en|es] [--agents auto|all|<csv>] [--init-agents] [--include-scripts] [--reconcile] [--dry-run]`
 - `init-agents` (alias: `init-agents-md`) `[--project-path <dir>] [--lang auto|en|es] [--agents auto|all|<csv>] [--dry-run]`
 - `reconcile-agents` `[--project-path <dir>] [--dry-run]`
-- `tms-sync [--provider jira|zephyr|xray|github-issues|json] [--report <path>] [--project-key <key>] [--dry-run]` — Normalizes JUnit XML / Allure / SARIF results into enterprise TMS payloads or portable JSON bundles.
+- `tms-sync --mode <inventory|push-results|pull-stories> --provider <jira|zephyr|xray|github-issues> [--junit-xml <path>] [--json] [--dry-run]` — Normalizes JUnit XML results into enterprise TMS payloads or pull/inventory traceability reports.
 - `[--stdio]` — Explicitly forces raw JSON-RPC listener over `stdio` (`QA_FORCE_STDIO=1` also forces headless `stdio`).
-- `--version` / `-v` | `--help` / `-h`
+- `--version` / `-v` | `--help` / `-h` (supported globally and per subcommand without writing or fetching)
 
 > **Interactive Terminal Guard (`QA-CLI-TTY-01`):** Invoking `npx -y @sinfallas/mcp-qa-11x@latest` directly in an interactive terminal (`process.stdin.isTTY`) prints usage options, syncs global skills safely, and exits cleanly with `exit(0)` in `< 5s` instead of hanging `stdin`. Non-TTY IDE pipes launch the MCP `stdio` server automatically.
 
@@ -61,7 +67,7 @@ Available CLI commands & flags:
   }
   ```
 
-See the full 27+ client setup matrix in [`docs/agent-setup.md`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/docs/agent-setup.md).
+See the full 28 client setup matrix in [`docs/agent-setup.md`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/docs/agent-setup.md).
 
 ---
 
@@ -88,19 +94,19 @@ Led by `qa-11x-architect` (`< 12 KB`), loading 10 specialized sub-skills on dema
 3. **`bootstrap_or_merge_11x`:** Scaffolds or merges `.example` QA configs, Dockerfiles, Make targets, and workflows safely with `.11x-backup` (`dry_run` defaults to `true`; pass `dry_run: false` to apply disk writes).
 4. **`inspect_ast_blast_radius`:** Bidirectional and differential AST dependency lookup (`declaring_files`, callers, callees, `changed_since_ref` blast scope, risk level `LOW`/`MEDIUM`/`HIGH`) with optional Graphify rebuild (`auto_build_if_missing`).
 5. **`clean_workspace_11x`:** Safely purges root-owned Docker/cache/build artifacts using Alpine ephemeral fallback without `sudo`.
-6. **`audit_security_stig_owasp`:** Scans target files across **22 DISA ASD STIG V6R5 / OWASP v4.2 reference controls + 34 static scanner rules** (`SEC-01..SEC-16`, `SEC-CI-ACTION-REF`, `QA-*`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `UI-11X-01..03`) supporting `metadata-only` mode (`include_content: false`).
+6. **`audit_security_stig_owasp`:** Scans target files across **22 DISA ASD STIG V6R5 / OWASP v4.2 reference controls + 34 static scanner rules** (`SEC-01..SEC-16`, `SEC-CI-ACTION-REF`, `QA-*`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `UI-11X-01..03`) with configurable `max_findings` and optional `include_examples: true` auditing of `.example` templates.
 7. **`run_ephemeral_qa`:** Executes any of the **15 QA stages** (`lint`, `unit`, `migration`, `integration`, `ci`, `parity`, `orphans`, `contracts`, `bdd`, `mutation`, `dast`, `e2e`, `perf`, `chaos`, `all`) strictly inside ephemeral Docker containers (`Rule Zero`), honoring `DOCS_ONLY` fast-path.
-8. **`certify_11x_gate`:** Runs the 10-stage QA-11X certification gate with Allure-style `Fail-Verbose` telemetry (`/tmp/qa-11x-last-failure.json`), lint-evidence verification, `strict` mode, and `allow_unmerged_examples` opt-in.
+8. **`certify_11x_gate`:** Runs the 10-check QA-11X certification gate (unmerged `.example`, secrets, JSON integrity, orphan UI/API, ORM/Alembic parity, AST topology, lint evidence, STIG/OWASP, docs/manifest/roadmap) plus version update checks, `strict` mode, and `allow_unmerged_examples` opt-in.
 9. **`audit_test_pyramid_gaps`:** Audits projects against the 13 layers of the 11X pyramid (`L01`–`L13`), detecting 3-phase temporal gaps and dual refresh omissions.
-10. **`init_or_append_agents_md`:** Injects or updates idempotently bounded `AGENTS.md` / IDE connector blocks using `start/end` HTML markers.
-11. **`propose_skill_evolution_pr`:** Generates Dual-Consumer QA-escape evolution proposals (AI rules + MCP + Spanish docs) adhering to `QA-GIT-GATE-01`.
+10. **`init_or_append_agents_md`:** Injects or updates idempotently bounded `AGENTS.md` / IDE connector blocks using `start/end` HTML markers (`dry_run` defaults to `true`; pass `dry_run: false` to apply writes).
+11. **`propose_skill_evolution_pr`:** Generates Dual-Consumer QA-escape evolution proposals (AI rules + MCP + EN/ES docs in `docs/01..05_*.md`), adhering to `QA-GIT-GATE-01` (`dry_run` and `prefer_offline_fallback` default to `true`).
 12. **`reconcile_agents_governance`:** Deduplicates promoted global skills/rules out of consumer `.agents/` and isolates domain rules into `.agents/rules/domain_<project>_rules.md` (`dry_run` defaults to `true`; pass `dry_run: false` to apply changes).
 13. **`validate_calm_architecture` *(v2.0)*:** Validates **FINOS CALM** JSON architecture-as-code schemas, 6 core nodes, 5 typed relationships, and mandatory 11X controls.
 14. **`evaluate_release_gate` *(v2.0)*:** Computes quantitative Release Readiness `GO` / `NO_GO` verdicts from coverage (`>= 95%`), Trivy `HIGH/CRITICAL = 0`, Stryker/Mutmut MSI, CALM, and STIG metrics (returning fail-closed `SKIPPED` in `smoke` mode).
 15. **`evaluate_agent_trajectory` *(v2.0)*:** Evaluates multi-step AI agent tool trajectories offline (`AST-First` precedence, compilation/regeneration/hallucination rates, `QA-GIT-GATE-01` compliance) or via DeepEval in ephemeral Docker.
 16. **`run_llm_red_team` *(v2.0)*:** Audits **OWASP LLM Top 10** promptfoo suites, `promptGuard` adversarial probes, and executes live Promptfoo red-teaming when provider credentials are present (`SKIPPED_MISSING_CREDENTIALS` fail-closed otherwise).
 17. **`audit_vibe_prototype` *(v2.0)*:** Audits AI-generated prototypes (Bolt.new, Lovable, v0, Replit) for `VIBE-SEC-001..QA-005` risks, hardcoding, missing RLS/WORM, and `dryRun` remediation plans.
-18. **`sync_enterprise_tms` *(v2.0)*:** Normalizes JUnit XML / Allure / SARIF results into enterprise Test Management Systems (**Jira**, **Zephyr Scale**, **Xray**, **GitHub Issues**) or portable JSON bundles with `TaskStateGuard` retry protection.
+18. **`sync_enterprise_tms` *(v2.0)*:** Synchronizes bidirectional traceability (`inventory`, `push-results`, `pull-stories`) using JUnit XML against enterprise Test Management Systems (**Jira**, **Zephyr Scale**, **Xray**, **GitHub Issues**) with `TaskStateGuard` retry protection (`dryRun` defaults to `true`).
 19. **`session_flight_recorder` *(v3.1)*:** Manages the atomic JSON Flight Recorder (`.agents/.cache/session_checkpoint.json` `0600` -> deterministic `<= 40`-line `.agents/ACTIVE_TASK.md` projection + live Git cross-check via `save` | `recover` | `clear`).
 
 ---

@@ -9,13 +9,13 @@
 ## 1. Strict Execution Rules (Containers & Cache)
 **NEVER** instruct the user to install Node dependencies locally, use `docker build`, or run long manual `docker compose` commands. All execution runs in ephemeral containers using the isolated QA orchestrator and leveraging persistent cache volumes (`pnpm-store`).
 
-*   **Package Manager and Zero-Trust:** We use `pnpm` instead of `npm`. Silent execution of malicious *scripts* during installation is blocked by `.npmrc`. Check `package.json` if dependencies such as `esbuild` or `playwright` fail.
+*   **Package Manager and Zero-Trust:** We use `pnpm` v12 instead of `npm`. Silent execution of malicious *scripts* during installation is blocked by `.npmrc`, while trusted native packages are declared explicitly in `pnpm-workspace.yaml#allowBuilds`.
 *   **Mandatory:** Use the predefined targets in the `Makefile` (e.g., `make qa-unit`) to isolate infrastructure and reuse the dependency cache.
 *   **For logic tests (Vitest/RTL) and Mutation:** We use the lightweight container `qa-frontend` (`sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60`).
 *   **For Lighthouse and UI E2E (Playwright):** We use the heavyweight container `ui-e2e`.
 *   **For BDD tests (HTTP/OSHP Black-Box):** We use the official image `sinfallas/karatelabs:1.5.1`.
 *   **For Observability (Server Metrics):** We use the containers `nginx/nginx-prometheus-exporter:1.3.0` and `prom/prometheus:v2.55.1`.
-*   **For AI Context Optimization (MCP):** We use the image `sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0`.
+*   **For Ephemeral AST Graph Extraction (Graphify CLI):** We use the image `sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0`.
 
 ## 2. Tech Stack & Separation of Responsibilities
 
@@ -45,8 +45,8 @@
 ### F. Observability -> `Nginx Prometheus Exporter`
 *   **Rule:** Frontend monitoring is performed externally via Nginx access logs. This runs via the `--profile observability` profile.
 
-### G. Smart Ingestion (Step 0 - MCP / AST CLI-First)
-*   **Rule (Exclusive to you, AI):** You are strictly forbidden from generating code or tests blindly. If you have shell access (Antigravity), perform static inspections via CLI without occupying ports. If you are an external agent (Hermes, Claude), connect to the `sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0` MCP server. Additionally, you MUST silently read linter configurations, dependencies, and forbidden *scripts* defined in `package.json`, `eslint.config.mjs`, `tsconfig.json`, and `vite.config.ts` to prevent pipeline failures.
+### G. Smart Ingestion (Step 0 - Graphify AST CLI-First)
+*   **Rule (Exclusive to you, AI):** You are strictly forbidden from generating code or tests blindly. Extract or refresh the stack AST graph via the ephemeral CLI extractor (`./scripts/actualizar-grafos-graphify.sh react-frontend`) and query callers/callees via `python3 .agents/scripts/inspect_blast_radius.py "<ComponenteORuta>"` (or the `inspect_ast_blast_radius` MCP tool), without spinning up daemons on port 8080. Additionally, you MUST silently read linter configurations, dependencies, and blocked *scripts* defined in `package.json`, `pnpm-workspace.yaml#allowBuilds`, `eslint.config.mjs`, `tsconfig.json`, and `vite.config.ts`.
 
 ### H. Mandatory Frontend Security (DISA ASD STIG V6R5 & OWASP Developer Guide v4.2)
 *   When building or testing React components (`.tsx`) and stores (Zustand/Redux), you MUST apply and verify with unit/BDD tests the controls from **[`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`](../docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md)**:
@@ -75,6 +75,11 @@ make qa-lint
 *   **Isolated Unit Tests (Vitest + RTL - 95% Requirement):**
 ```bash
 make qa-unit
+```
+
+*   **Orphan Component Audit (Zero components without a unit test):**
+```bash
+make qa-orphans
 ```
 
 *   **Frontend Mutation Testing (Stryker):**

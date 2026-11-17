@@ -1,5 +1,7 @@
 # Reference 07: MCP Server, Agentic Tool-Calling & Non-Human Identity (NHI) Security Governance
 
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Respond in **user's prompt language** (unless `AGENTS.md` fixes it); docs/commits match `README.md`/`CHANGELOG.md` (Spec 19; `.agents/**` English).
+
 > **ON-DEMAND PROGRESSIVE DISCLOSURE MODULE (0 Prompt Overhead until loaded)**  
 > Load this reference ONLY when designing, auditing, or testing Model Context Protocol (MCP) servers, internal JSON-RPC tool dispatchers, AI agent workflows, or automated infrastructure orchestration tools.
 

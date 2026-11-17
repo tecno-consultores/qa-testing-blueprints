@@ -39,11 +39,11 @@ Cualquier proyecto corporativo que implemente el estándar 11X debe aplicar las 
 
 ```mermaid
 flowchart TD
-    subgraph Capa1["Capa 1: Perimetro y Proxy"]
-        L1["Nginx Non-Root - Preservacion X-Forwarded-*, CSP Estricta, Limite Upload 2MB"]
+    subgraph Capa1["Capa 1: Perímetro y Proxy"]
+        L1["Nginx Non-Root - Preservación X-Forwarded-*, CSP Estricta, Límite Upload <= 10 MB (2 MB avatares/JSON)"]
     end
 
-    subgraph Capa2["Capa 2: Identidad y Sesion"]
+    subgraph Capa2["Capa 2: Identidad y Sesión"]
         L2["Argon2id + 2FA TOTP - Cookies __Host- HttpOnly + CSRF HMAC-SHA256"]
     end
 
@@ -51,12 +51,12 @@ flowchart TD
         L3["FORCE ROW LEVEL SECURITY (RLS) en PostgreSQL 17 + Consultas Parametrizadas"]
     end
 
-    subgraph Capa4["Capa 4: Boveda Criptografica y Cache"]
-        L4["Boveda AES-256-GCM con AAD + KeyDB Multi-Hilo con Idempotency-Key"]
+    subgraph Capa4["Capa 4: Bóveda Criptográfica y Caché"]
+        L4["Bóveda AES-256-GCM con AAD + KeyDB Multi-Hilo con Idempotency-Key"]
     end
 
     subgraph Capa5["Capa 5: Resiliencia de Transporte"]
-        L5["Validacion Anti-CSWSH en WebSockets + Defensa Anti-SSRF Saliente"]
+        L5["Validación Anti-CSWSH en WebSockets + Defensa Anti-SSRF Saliente"]
     end
 
     L1 --> L2 --> L3 --> L4 --> L5
@@ -99,7 +99,7 @@ La integración entre aplicaciones SPA (Vue 3, React) y APIs REST/WebSockets (Fa
 ### 4.6. Límites Estrictos de Carga de Archivos (Anti-DoS / OOM)
 - **Riesgo:** Agotamiento de memoria RAM en el backend mediante subida de archivos gigantescos no autenticados o payloads masivos.
 - **Mitigación:**
-  - Imponer un límite estricto de cuota (ej. 2 MB o 5 MB) en streaming, rechazando solicitudes que excedan el umbral con HTTP `413 Payload Too Large`.
+  - Imponer un límite estricto de cuota en streaming (`<= 10 MB` general y `2 MB` estricto para avatares/JSON), rechazando solicitudes que excedan el umbral con HTTP `413 Payload Too Large`.
 
 ### 4.7. Preservación de Cabeceras de Proxy Inverso en Nginx
 - **Riesgo:** Pérdida de la IP real del cliente ante proxies reversos, impidiendo auditorías forenses, rate limiting y detección de ataques de fuerza bruta.
@@ -125,7 +125,7 @@ La integración entre aplicaciones SPA (Vue 3, React) y APIs REST/WebSockets (Fa
 ### 4.10. Seguridad en el Ecosistema MCP y Agentes de IA Autónomos
 - **Aislamiento de Ejecución y Regla Cero (`Rule Zero`):** Las herramientas MCP ejecutadas por agentes de IA (`run_ephemeral_qa`, `certify_11x_gate`) operan estrictamente dentro de contenedores efímeros aislados (`sinfallas/*`), impidiendo el escape al sistema anfitrión.
 - **Validación Criptográfica de Descargas Zero-Clone (DISA ASD STIG V6R5 `V-222513` / `APSC-DV-001430`):** Toda plantilla o skill descargada dinámicamente por la herramienta `fetch_blueprint_bundle` o el instalador `install-skill` es contrastada contra su hash SHA-256 precalculado en `manifest.json`, bloqueando cualquier manipulación o envenenamiento en tránsito.
-- **Publicación Soberana de Artefactos (Modelo RoSGrid):** Se prohíbe alojar secretos de publicación de paquetes (`NPM_TOKEN`) en corredores de CI/CD de terceros. Toda publicación se realiza desde entornos controlados en memoria volátil mediante `scripts/publicar-mcp.sh` (`.env` con permisos `0600`) con autodestrucción del token tras la ejecución.
+- **Publicación Soberana de Artefactos y Compuerta Humana (`QA-GIT-GATE-01`):** Se prohíbe alojar secretos de publicación de paquetes (`NPM_TOKEN`) en corredores de CI/CD de terceros. Toda publicación se realiza desde entornos controlados en memoria volátil mediante `scripts/publicar-mcp.sh` (`.env` con permisos `0600`) con autodestrucción del token tras la ejecución, y **exige confirmación humana explícita** (`QA-GIT-GATE-01` — queda prohibido que agentes de IA ejecuten `git push` o `npm publish` automáticamente).
 
 ### 4.11. Tolerancia a Carreras Concurrentes (*Grace Period Leeway* de 5s) en Refresh Tokens
 - **Riesgo:** Cuando un usuario abre múltiples pestañas en el navegador, todas intentan refrescar el JWT casi simultáneamente. Un sistema estricto de rotación detecta la segunda petición como "reúso malicioso" y cierra la sesión de forma abrupta.
@@ -188,24 +188,24 @@ La integración entre aplicaciones SPA (Vue 3, React) y APIs REST/WebSockets (Fa
   - Consumir el desafío de forma **atómica y de un solo uso** en KeyDB/Redis (`GETDEL` o script Lua) o bajo espacio de nombres `idemp:preauth:{challenge_id}:{key}`, con `TTL <= 300s` y purga inmediata al superar `3–5` intentos fallidos (`APSC-DV-000530`).
   - Compartir simétricamente la lista blanca explícita `PREAUTH_PUBLIC_ROUTES` entre los middlewares backend y el interceptor HTTP `401` del frontend, validando la cadena completa en un único test continuo sin mocks intermedios.
 
-### 4.21. Integridad de Auditoría de Catálogo RLS en PostgreSQL 15–17+ (`QA-PG17-RLS` — `DISA STIG V-222543` & `Standard 11X Law 7`)
+### 4.21. Integridad de Auditoría de Catálogo RLS en PostgreSQL 15–17+ (`QA-PG17-RLS` — `DISA STIG V-222543` y `Ley 7 Estándar 11X`)
 - **Riesgo:** Consultas de prueba o validación que verifican `FORCE ROW LEVEL SECURITY` leyendo `pg_tables.forcerowsecurity` fallan en motores reales PostgreSQL 15–17+ (donde dicha columna no existe en la vista `pg_tables`), enmascarando errores en entornos con mocks o rompiendo pipelines CI.
 - **Mitigación:**
   - Auditar siempre el estado de RLS consultando `pg_catalog.pg_class` (`relrowsecurity` y `relforcerowsecurity`) mediante `JOIN pg_catalog.pg_namespace` (`nspname = 'public' AND relkind = 'r'`), bloqueando estáticamente cualquier referencia a `pg_tables.forcerowsecurity` mediante `QA-PG17-RLS`.
 
-### 4.22. Contrato de Salud Real en Contenedores y Semántica de Salida en Supervisores Asíncronos (`QA-HEALTH-01` — `DISA APSC-DV-002310`, `APSC-DV-002770` & `Standard 11X UAT Rule #9`)
+### 4.22. Contrato de Salud Real en Contenedores y Semántica de Salida en Supervisores Asíncronos (`QA-HEALTH-01` — `DISA APSC-DV-002310`, `APSC-DV-002770` y `Regla UAT #9 Estándar 11X`)
 - **Riesgo:** Orquestadores y runners de workers en segundo plano superan `>= 95%` de cobertura con sub-workers mockeados (`AsyncMock`), pero al desplegarse en contenedores reales caen en bucle `unhealthy` porque los supervisores `asyncio` tratan el retorno limpio (`return None`) de workers opt-in deshabilitados como un fallo fatal (`task.done() and not task.cancelled()`) o jamás verifican la escritura real de la sonda física exigida por `HEALTHCHECK` (`/tmp/worker_heartbeat`).
 - **Mitigación:**
   - Inspeccionar explícitamente `task.exception() is not None` en bucles supervisores y declarar un conjunto inmutable `OPTIONAL_WORKERS` para distinguir salidas limpias por feature-flag deshabilitado de caídas reales de bucles infinitos obligatorios (`APSC-DV-002310`).
   - Exigir al menos un test de contrato que arranque el orquestador real bajo `Settings()` de producción por defecto sin mockear los loops opcionales y haga `assert` explícito sobre el artefacto observable de `healthcheck` (`APSC-DV-002770`, auditado estáticamente mediante `QA-HEALTH-01`).
 
-### 4.23. Guardia Anti-Bloqueo en Terminal Interactiva (`TTY`) para Binarios Duales CLI + Servidor MCP `stdio` (`QA-CLI-TTY-01` — `DISA APSC-DV-002310` & `Standard 11X UAT Rule #10`)
+### 4.23. Guardia Anti-Bloqueo en Terminal Interactiva (`TTY`) para Binarios Duales CLI + Servidor MCP `stdio` (`QA-CLI-TTY-01` — `DISA APSC-DV-002310` y `Regla UAT #10 Estándar 11X`)
 - **Riesgo:** Los paquetes híbridos que combinan subcomandos CLI (`npx ... install-skill`, `argparse`) con un servidor MCP sobre `stdio` (`StdioServerTransport` / `stdio_server()`) superan al 100% las pruebas unitarias (que inyectan callbacks falsos `startStdio`) y las pruebas E2E en CI (donde `stdin` siempre es un *pipe* con `isTTY === false`), pero al ser ejecutados sin argumentos por un desarrollador humano en una terminal interactiva (`TTY`) bloquean indefinidamente la consola esperando tramas JSON-RPC en `stdin`.
 - **Mitigación:**
   - Verificar explícitamente `process.stdin.isTTY` (Node/TS) o `sys.stdin.isatty()` (Python) cuando el binario se invoca sin subcomandos: en una sesión `TTY` interactiva (salvo que se fuerce `--stdio` o `QA_FORCE_STDIO=1`), ejecutar cualquier auto-sincronización segura, imprimir la guía de uso rápido y finalizar con código `0` sin abrir el transporte bloqueante (`APSC-DV-002310`, auditado estáticamente mediante `QA-CLI-TTY-01`).
   - Incluir obligatoriamente en la suite E2E una sonda en subproceso con `TTY` simulado y `timeout <= 5s` que certifique la salida limpia e inmediata.
 
-### 4.24. Fijación Inmutable por Commit SHA-40 en GitHub Actions (`SEC-CI-ACTION-REF` — `DISA STIG V-222513`, `APSC-DV-001430` & `Supply Chain Hardening`)
+### 4.24. Fijación Inmutable por Commit SHA-40 en GitHub Actions (`SEC-CI-ACTION-REF` — `DISA STIG V-222513`, `APSC-DV-001430` y `Endurecimiento Cadena de Suministro`)
 - **Riesgo:** Referenciar acciones de terceros mediante ramas mutables (`@main`, `@master`) o etiquetas heredadas sin prefijo `v` (como `aquasecurity/trivy-action@0.28.0`, eliminada aguas arriba provocando el fallo `Unable to resolve action` en GitHub Actions aunque el escaneo local de Trivy pase) expone el pipeline CI/CD a roturas inesperadas y ataques de reescritura de etiquetas en la cadena de suministro.
 - **Mitigación:**
   - Fijar todas las acciones externas en `.github/workflows/*.yml` y `.github/actions/*/action.yml` mediante el hash SHA-1 completo de 40 caracteres del commit anotado (`uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0`) y validar que las etiquetas semánticas existan en remoto (`git ls-remote --tags`), prohibiendo explícitamente etiquetas legacy sin prefijo `v` en `aquasecurity/trivy-action@0.x.y` y ramas mutables (`SEC-CI-ACTION-REF`, auditado estáticamente mediante `audit_security_stig_owasp` y `make lint-workflows`).
@@ -240,7 +240,7 @@ La integración entre aplicaciones SPA (Vue 3, React) y APIs REST/WebSockets (Fa
   - Fijar versión exacta sin prefijos (`"1.52.0"`) en `@playwright/test` / `playwright` sincronizada 1:1 con el tag `mcr.microsoft.com/playwright:v1.52.0-*` (`QA-PLAYWRIGHT-PIN-01` en `audit_security_stig_owasp`, alineación automática en `SurgicalMerger.mergePackageJson` y ejecución no-root `QA_UID:QA_GID` prioritizando `./node_modules/.bin/{playwright,lhci}`).
   - Validar todas las URLs objetivo de `.agents/scripts/audit_pagespeed_insights.py` (`make audit-psi` / `make qa-psi`) con esquema `https://` exclusivo, bloqueo pre-DNS contra rangos privados/loopback/link-local/`.internal` (`SEC-03`) y redacción obligatoria de parámetros `key=`/`PAGESPEED_API_KEY` (`SEC-06`).
 
-### 4.30. Paridad de Hidratación SSR/SSG bajo Doble Esquema de Color en Playwright (`QA-SSR-HYDRATION-01` — `Standard 11X Layer 8` & `APSC-DV-002310`)
+### 4.30. Paridad de Hidratación SSR/SSG bajo Doble Esquema de Color en Playwright (`QA-SSR-HYDRATION-01` — `Capa 9 Estándar 11X (L09 Playwright/SSR)` y `APSC-DV-002310`)
 - **Riesgo:** En aplicaciones SSR/SSG con selector de tema claro/oscuro, un script inline en `<head>` que muta `dataset.theme` o `.dark` antes de la hidratación provoca divergencias DOM silenciosas (*Hydration completed but contains mismatches*) cuando los componentes usan `v-if` dependiente del cliente o cuando `playwright.config.ts` fija únicamente un `colorScheme` (p. ej. `'dark'`), ocultando degradaciones en producción bajo `prefers-color-scheme: light`.
 - **Mitigación:**
   - Evitar ramificar la estructura HTML inicial (`v-if`) según `localStorage` o `dataset.theme` antes del montaje; renderizar ambas variantes por CSS (`display: none` / `hidden dark:block`) y sincronizar el estado reactivo en `onMounted`.
@@ -254,7 +254,7 @@ En los proyectos regidos por el estándar 11X, toda vulnerabilidad debe ser dete
 
 ```mermaid
 flowchart LR
-    DEV["Codigo / Dependencias"] --> LINT["Linters y SAST"]
+    DEV["Código / Dependencias"] --> LINT["Linters y SAST"]
     LINT --> TEST["Pruebas Unitarias 11X"]
     TEST --> AUDIT["scripts/auditar-infra.sh (Trivy IaC + FS)"]
     AUDIT --> GATE["certify_task_completion.sh"]
@@ -279,7 +279,7 @@ flowchart LR
 
 Antes de cada commit, el código supera de forma automatizada:
 1. **Detección de Secretos:** `./scripts/verificar-secretos.sh` (0 credenciales hardcodeadas).
-2. **SAST Estático:** `Bandit` (Python) y `eslint-plugin-security` (`plugin:security/recommended-legacy` en ESLint 8), con `.npmrc` configurado con `ignore-scripts=true` y excepciones nativas declaradas mediante el mapa booleano `allowBuilds` en `pnpm-workspace.yaml` (`SEC-09`).
+2. **SAST Estático:** `Bandit` (Python) y `eslint-plugin-security` (vía **ESLint 9 Flat Config (`eslint.config.mjs`)** + `sonarjs` v3 + reglas *type-aware*, o `plugin:security/recommended-legacy` en repos heredados ESLint 8), con `.npmrc` configurado con `ignore-scripts=true` y excepciones nativas declaradas mediante el mapa booleano `allowBuilds` en `pnpm-workspace.yaml` (`SEC-09`).
 3. **Auditoría IaC y Contenedores:** `Trivy` (`./scripts/auditar-infra.sh`) exigiendo `0` vulnerabilidades `HIGH` o `CRITICAL` y ejecución no-root.
 4. **Compuerta de Certificación:** `./.agents/scripts/certify_task_completion.sh` con salida en exit code 0.
 5. **Validación de Workflows y Auditoría Continua:** `make lint-workflows` en local y `.github/workflows/audit-base-images.yml` (`Trivy`, `pip-audit` y `CodeQL`) en CI.

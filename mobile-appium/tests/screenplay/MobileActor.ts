@@ -34,9 +34,11 @@ export interface MobileAbility {
   readonly abilityName: string;
 }
 
-export type MobileAbilityClass<T extends MobileAbility = MobileAbility> = abstract new (
+export type MobileAbilityClass<T extends MobileAbility = MobileAbility> = (abstract new (
   ...args: never[]
-) => T;
+) => T) & {
+  readonly abilityName?: string;
+};
 
 export class MissingMobileAbilityError extends Error {
   readonly actorName: string;
@@ -87,6 +89,16 @@ export class CollapsedMobileGeometryError extends Error {
     this.name = 'CollapsedMobileGeometryError';
     this.locatorSummary = locatorSummary;
     this.bounds = bounds;
+  }
+}
+
+export class HiddenMobileElementError extends Error {
+  readonly locatorSummary: string;
+
+  constructor(locatorSummary: string) {
+    super(`Elemento movil no visible para ${locatorSummary}`);
+    this.name = 'HiddenMobileElementError';
+    this.locatorSummary = locatorSummary;
   }
 }
 
@@ -219,7 +231,10 @@ function parseValidatedDeepLink(rawUrl: string, policy: DeepLinkPolicy): URL {
 function validateDeepLinkHost(parsed: URL, rawUrl: string, policy: DeepLinkPolicy): void {
   const host = parsed.hostname.toLowerCase();
   if (!policy.allowedHosts || policy.allowedHosts.length === 0) {
-    return;
+    throw new UnsafeDeepLinkError(
+      rawUrl,
+      'Lista allowedHosts vacia; bloqueado por politica Fail-Closed contra Intent/Deep-Link Hijacking.',
+    );
   }
   const allowedHosts = policy.allowedHosts.map((h) => h.toLowerCase());
   if (!host || !allowedHosts.includes(host)) {
@@ -231,7 +246,8 @@ function validateDeepLinkHost(parsed: URL, rawUrl: string, policy: DeepLinkPolic
 }
 
 export class InteractWithMobile implements MobileAbility {
-  readonly abilityName = 'InteractWithMobile';
+  static readonly abilityName = 'InteractWithMobile';
+  readonly abilityName = InteractWithMobile.abilityName;
   private readonly driver: MobileDriverPort;
   private readonly deepLinkPolicy: DeepLinkPolicy;
 
@@ -249,7 +265,13 @@ export class InteractWithMobile implements MobileAbility {
 
   async requireVisibleElement(locator: MobileLocator): Promise<MobileElementPort> {
     const element = this.driver.locate(locator);
-    const bounds = await element.readBounds();
+    const [visible, bounds] = await Promise.all([
+      element.isVisible(),
+      element.readBounds(),
+    ]);
+    if (!visible) {
+      throw new HiddenMobileElementError(formatMobileLocator(locator));
+    }
     if (bounds.width <= 0 || bounds.height <= 0) {
       throw new CollapsedMobileGeometryError(formatMobileLocator(locator), bounds);
     }
@@ -363,7 +385,8 @@ function buildMobileApiHeaders(
 }
 
 export class CallMobileApi implements MobileAbility {
-  readonly abilityName = 'CallMobileApi';
+  static readonly abilityName = 'CallMobileApi';
+  readonly abilityName = CallMobileApi.abilityName;
   private readonly client: MobileApiClientPort;
 
   constructor(client: MobileApiClientPort) {
@@ -609,15 +632,18 @@ export class MobileActor {
 
   whoCan(...abilities: readonly MobileAbility[]): this {
     for (const ability of abilities) {
-      this.abilities.set(ability.abilityName, ability);
+      const ctorAbilityName = (ability.constructor as { readonly abilityName?: string }).abilityName;
+      const key = ctorAbilityName ?? ability.abilityName ?? ability.constructor.name;
+      this.abilities.set(key, ability);
     }
     return this;
   }
 
   abilityTo<T extends MobileAbility>(AbilityClass: MobileAbilityClass<T>): T {
-    const found = this.abilities.get(AbilityClass.name);
+    const key = AbilityClass.abilityName ?? AbilityClass.name;
+    const found = this.abilities.get(key);
     if (!found) {
-      throw new MissingMobileAbilityError(this.identity.name, AbilityClass.name);
+      throw new MissingMobileAbilityError(this.identity.name, key);
     }
     return found as T;
   }

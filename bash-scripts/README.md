@@ -26,8 +26,8 @@ You are strictly prohibited from allowing tests to interact with the container's
 *   **Injection example:**
 
 ```bash
-# Upon completing a successful task inside the script:
-echo "script_success_total 1" | curl -s -X POST --data-binary @- http://pushgateway:9091/metrics/job/bash_scripts
+# Upon completing a successful task inside the script (timeout-bounded & non-blocking):
+echo "script_success_total 1" | curl -fsS --connect-timeout 2 --max-time 4 -X POST --data-binary @- http://pushgateway:9091/metrics/job/bash_scripts >/dev/null 2>&1 || true
 ```
 
 ## 4. Local Execution Commands for the Developer (and AI Agents)
@@ -51,7 +51,7 @@ make qa-lint
 
 * **Step 3: Unit and logic tests (BATS-core)**
 * **Step 4: Coverage audit (kcov) - 95% requirement**
-Run tests and generate the unified coverage report with:
+Run `clean_artifacts.sh` tests (`test/ejemplo_mock.bats`) and generate the unified coverage report with:
 ```bash
 make qa-unit
 ```
@@ -60,6 +60,6 @@ make qa-unit
 Start Prometheus and verify metric emission from the ephemeral script:
 ```bash
 docker compose -f docker-compose.qa.yml --profile observability up -d prometheus
-docker compose -f docker-compose.qa.yml run --rm qa-bash bash ./myscript.sh
+docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-bash bash ./clean_artifacts.sh --dry-run
 # (You can verify the pushed metric by visiting http://localhost:9090)
 ```

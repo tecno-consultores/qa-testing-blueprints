@@ -174,7 +174,10 @@ function isUnderDir(baseDir: string, candidate: string): boolean {
 }
 
 function resolveArtifactDir(env: Readonly<Record<string, string | undefined>>): string {
-  const raw = readTrimmed(env, 'QA_MOBILE_ARTIFACT_DIR') ?? DEFAULT_MOBILE_ARTIFACT_DIR;
+  const raw =
+    readTrimmed(env, 'QA_MOBILE_ARTIFACT_DIR') ??
+    readTrimmed(env, 'QA_MOBILE_ARTIFACTS_DIR') ??
+    DEFAULT_MOBILE_ARTIFACT_DIR;
   const resolved = path.resolve(raw);
   const tmpRoots = [path.resolve('/tmp'), path.resolve(os.tmpdir())];
   if (!tmpRoots.some((root) => isUnderDir(root, resolved))) {
@@ -324,10 +327,16 @@ async function safeCaptureTreeAndShot(
       screenshotBase64: '',
     };
   }
-  const [xmlTree, screenshotBase64] = await Promise.all([
+  const [treeResult, shotResult] = await Promise.allSettled([
     driver.getPageSource(),
     driver.takeScreenshot(),
   ]);
+  const xmlTree =
+    treeResult.status === 'fulfilled'
+      ? treeResult.value
+      : '<hierarchy status="capture_failed" />';
+  const screenshotBase64 =
+    shotResult.status === 'fulfilled' ? shotResult.value : '';
   return { xmlTree, screenshotBase64 };
 }
 
@@ -414,7 +423,7 @@ export function buildMobileWdioConfig(
     port,
     path: '/',
     runner: 'local',
-    specs: ['./tests/specs/**/*.spec.ts'],
+    specs: ['./tests/**/*.spec.ts'],
     maxInstances: 1,
     logLevel: 'error',
     waitforTimeout,
@@ -453,5 +462,5 @@ export function buildMobileWdioConfig(
   };
 }
 
-export const config: MobileWdioConfig = buildMobileWdioConfig({});
+export const config: MobileWdioConfig = buildMobileWdioConfig(process.env);
 export default config;

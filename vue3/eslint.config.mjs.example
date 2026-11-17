@@ -63,8 +63,18 @@ export default tseslint.config(
     ...tseslint.configs.disableTypeChecked,
   },
   {
-    files: ['tests/**/*', 'test/**/*', '**/*.test.*', '**/*.spec.*', '**/*.unit.*'],
+    files: [
+      'tests/**/*',
+      'test/**/*',
+      'e2e/**/*',
+      '**/*.test.*',
+      '**/*.spec.*',
+      '**/*.unit.*',
+      '**/*.e2e.*',
+    ],
     rules: {
+      'sonarjs/no-duplicate-string': 'off',
+      'security/detect-object-injection': 'off',
       'max-params': 'off',
     },
   }

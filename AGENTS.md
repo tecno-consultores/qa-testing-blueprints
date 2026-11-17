@@ -63,7 +63,7 @@ Welcome to the **QA Testing Blueprints** repository. All AI coding assistants (G
 
 ## 3. Skills Catalog in `.agents/skills/` (11 Modular Skills)
 
-1. `qa-11x-architect`: Master QA 11X & DevSecOps Architect enforcing the 13 layers of the 11X Quality Pyramid, 10 Non-Negotiable Laws, 11 UAT Anti-Blindness Rules (including `SEC-16`, `QA-HEALTH-01`, `QA-CLI-TTY-01`, `QA-CONTRACT-SDK-01`/`QA-DOCKER-LOCK-01`), High-IQ Token Economy, and 22 DISA STIG V6R5 / OWASP v4.2 reference controls + 34 security-auditor static scanner rules with 9 on-demand `references/*.md` modules (`SKILL.md < 12 KB`).
+1. `qa-11x-architect`: Master QA 11X & DevSecOps Architect enforcing the 13 layers of the 11X Quality Pyramid, 10 Non-Negotiable Laws, 11 UAT Anti-Blindness Rules (including `SEC-16`, `QA-HEALTH-01`, `QA-CLI-TTY-01`, `QA-CONTRACT-SDK-01`/`QA-DOCKER-LOCK-01`), High-IQ Token Economy, and 22 DISA STIG V6R5 / OWASP v4.2 reference controls + 34 security-auditor static scanner rules with 9 on-demand `references/*.md` modules (`SKILL.md <= 12 KB` / `12,288 B`).
 2. `qa-11x-docker-certifier`: QA 11X Corporate Standard certifier in ephemeral Docker (coverage `>= 95%`, SonarJS, Karate Labs, mutation testing, zero host contamination).
 3. `docker-trivy-keydb-hardening`: Container hardening (Trivy HIGH/CRITICAL = 0), multi-threaded KeyDB in-memory caching engine, non-root users, and performance optimization.
 4. `graphify-ast-navigator`: Bidirectional AST Knowledge Graph navigation for Code Q&A and refactoring (`declaring_files`, incoming callers, outgoing callees), blast-radius pre-audit, layer boundary compliance, and CLI-first query protocol.
@@ -79,6 +79,8 @@ Welcome to the **QA Testing Blueprints** repository. All AI coding assistants (G
 
 ## 4. Automation Scripts in `.agents/scripts/` (22 Gates & Utilities)
 
+> **Repository Surface Inventory:** `10` operational scripts in `scripts/` (`9` Bash + `generar-manifiesto.py`), `22` files in `.agents/scripts/` (`_budgets.py`, `19` Python CLIs, `2` Bash scripts — `21` Python governance scripts total), and `26` files in `tests/` (`15` unit suites, `6` BATS, `2` evals, `2` Meta-QA suites + `1` seed fixture).
+
 - `_budgets.py`: Single-source cognitive budgets (`SKILL_MAX_BYTES = 20_480`, `ARCHITECT_SKILL_MAX_BYTES = 12_288`, `TACTICAL_SKILL_MAX_BYTES = 2_560`, `ACTIVE_TASK_MAX_LINES = 40`, `ACTIVE_TASK_RULE_MAX_LINES = 25`) and AST blast-radius thresholds shared across governance validators.
 - `checkpoint_ctl.py`: Atomic JSON Flight Recorder controller (`0600` `.agents/.cache/session_checkpoint.json` -> deterministic `<= 40`-line `.agents/ACTIVE_TASK.md` Spanish projection + live Git cross-check, `SEC-06` redaction, `< 25 ms`).
 
@@ -86,18 +88,18 @@ Welcome to the **QA Testing Blueprints** repository. All AI coding assistants (G
 - `bump_version_11x.py`: Deterministic Zero-LLM version and edition synchronizer across manifests, catalogs, `llms.txt`, `SKILL.md`, and docs (`--check` / `--set` / `--edition` / `--dry-run`).
 - `sync_governance.py`: Deterministic Zero-LLM SHA-256 manifest synchronizer (`--check`, `--with-ast`) and cognitive-budget validator (`qa-11x-architect/SKILL.md <= 12 KB` / `12_288 B`, `tactical-patterns-11x/SKILL.md <= 2.5 KB` / `2_560 B`, other `SKILL.md < 20 KB`, `ACTIVE_TASK <= 40` lines, duplicate-free JSON; sourced from `_budgets.py`).
 - `verify_roadmap_consistency.py`: Automated bidirectional consistency validator enforcing strict parity between `ROADMAP.md` summary table and granular section tasks (`- [x]` / `- [ ]`), plus zero-pending tasks invariant in `ACTIVE_TASK.md` when marked completed.
-- `verify_docs_invariants.py`: Automated documentation, Dual-Consumer parity & cognitive-budget validator enforcing `qa-11x-architect/SKILL.md < 12 KB`, `SKILL.md < 20 KB`, `ACTIVE_TASK <= 40` lines, 1:1 UAT rule parity (`SKILL.md` §2.1 ↔ `docs/02_*.md` §1.1), 100% `security-auditor.ts` rule-ID coverage in human manuals, valid MCP resource topics, non-duplicate security section headers, and zero stale tool/image/resource counts across docs.
+- `verify_docs_invariants.py`: Automated documentation, Dual-Consumer parity & cognitive-budget validator enforcing `qa-11x-architect/SKILL.md <= 12 KB` (`12,288 B`), `SKILL.md < 20 KB`, `ACTIVE_TASK <= 40` lines, 1:1 UAT rule parity (`SKILL.md` §2.1 ↔ `docs/02_*.md` §1.1), 100% `security-auditor.ts` rule-ID coverage in human manuals, valid MCP resource topics, non-duplicate security section headers, and zero stale tool/image/resource counts across docs.
 - `verify_alembic_orm_parity.py`: Automated parity validator between ORM models and database migrations (detects schema drift and `revision > 32` chars).
 - `verify_zero_orphan_vue_components.py`: Automated parity validator ensuring 100% of UI components and views have active unit test suites.
 - `verify_no_orphan_api_endpoints.py`: Automated bidirectional parity validator ensuring 0 frontend calls to non-existent backend routes (404/405) and 0 unreferenced backend routes.
 - `verify_json_no_duplicate_keys.py`: Automated integrity validator detecting duplicate keys in i18n JSON locale files.
 - `inspect_blast_radius.py`: Automated bidirectional AST inspector for Code Q&A and pre-refactoring blast radius (declaring `file:line`, incoming callers, and outgoing callees).
 - `select_tests_by_blast_radius.py`: Deterministic selector mapping modified files & AST blast radius to affected QA test suites across all 10 stacks.
-- `verify_topological_health.py`: Automated AST architectural validator detecting forbidden cross-layer coupling and layer boundary violations.
+- `verify_topological_health.py`: Automated AST architectural validator detecting directed dependency cycles (3-color DFS) and forbidden cross-layer coupling (`models/`/`schemas/`/`core/`/`domain/`/`services/` -> `api/`/`controllers/`/`routes/`/`views/`, and `components/common/` -> `views/`/`pages/`).
 - `verify_diff_coverage.py`: Multi-stack differential coverage & anti-evasion gate (`100%` delta line coverage, `>= 90%` delta branch coverage, `QA11X-APPROVED-EXCLUSION`, Anti-XXE / missing-report guards).
 - `track_findings_state.py`: Deterministic line-shift-invariant finding state tracker and anti-loop circuit breaker (`exit 42` on `consecutive_streak >= 3` or `A -> B -> A` oscillation).
 - `generate_pr_verdict.py`: Deterministic executive PR verdict (`PR_VERDICT.md`) and cryptographic `SHA-256` / optional `HMAC-SHA256` attestation exporter (`exit 0` or `30`).
-- `lint_test_antipatterns.py`: AST anti-pattern linter catching blind `AsyncMock` overrides on `write_audit_log`, uuid-vs-username regressions, and hardcoded pass stubs.
+- `lint_test_antipatterns.py`: Deterministic UI & Python AST anti-pattern linter enforcing `QA-UI-ANTI-001..005` (arbitrary waits, brittle XPath/CSS, God Page Objects, hidden assertions, JSDOM geometry) and `QA-PY-ANTI-001..003` (blind `AsyncMock` on `write_audit_log`, UUID-vs-username regressions, hardcoded pass stubs).
 - `compact_context_11x.py`: Deterministic 2-level context compactor (`>= 70%` token savings without secondary LLM).
 - `release_readiness_gate.py`: Release Readiness Gate (`GO`/`NO-GO`) evaluator enforcing SLA thresholds before tag/publish approvals.
 - `audit_pagespeed_insights.py`: Ephemeral Google PageSpeed Insights / Core Web Vitals JSON auditor.

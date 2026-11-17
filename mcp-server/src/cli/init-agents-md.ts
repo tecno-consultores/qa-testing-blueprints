@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
-import { inspectProjectConfig } from '../tools/inspect-project.js';
 import { pickAt } from '../utils/diagnosticFormatter.js';
 import {
   CONNECTOR_START_MARKER,
@@ -14,13 +10,12 @@ import {
   buildConnectorBlock,
   buildGlobalGeminiBlock,
   mergeOrAppendAgentsMdContent,
-  mergeGlobalGeminiContent,
   resolveProjectDisplayName,
+  syncGlobalGeminiMd,
 } from '../services/agents-connector.js';
 import {
+  initOrAppendAgentsMd,
   parseAgentsOption,
-  syncAgentBridgeFiles,
-  type SupportedLang,
 } from '../tools/initOrAppendAgentsMd.js';
 import type {
   AgentsTargetSpec,
@@ -37,14 +32,16 @@ export {
   buildThinConnectorBlock,
   buildConnectorBlock,
   buildGlobalGeminiBlock,
+  initOrAppendAgentsMd,
   mergeOrAppendAgentsMdContent,
   resolveProjectDisplayName,
+  syncGlobalGeminiMd,
 };
 
-const AGENTS_MD_FILENAME = 'AGENTS.md';
-const UTF8 = 'utf-8';
 const DIVIDER = '\n══════════════════════════════════════════════════════════════════════';
 const DRY_RUN_FLAG = '--dry-run';
+const HELP_FLAG = '--help';
+const HELP_SHORT_FLAG = '-h';
 const PROJECT_PATH_FLAG = '--project-path';
 const PROJECT_PATH_SHORT_FLAG = '-p';
 const LANG_FLAG = '--lang';
@@ -52,59 +49,18 @@ const LANG_SHORT_FLAG = '-l';
 const AGENTS_FLAG = '--agents';
 const AGENTS_SHORT_FLAG = '-a';
 
+export const INIT_AGENTS_HELP_TEXT = [
+  'Uso: npx -y @sinfallas/mcp-qa-11x init-agents [dir] [opciones]',
+  '',
+  'Opciones:',
+  '  --project-path, -p <dir>  Directorio del proyecto destino (por defecto: cwd)',
+  '  --lang, -l <auto|es|en>   Política de idioma en AGENTS.md (por defecto: auto)',
+  '  --agents, -a <spec>       Puentes opcionales (auto | all | lista CSV de 28 agentes)',
+  '  --dry-run                 Simula sin modificar archivos en disco',
+  '  --help, -h                Muestra esta ayuda y sale con código 0',
+].join('\n');
+
 export type { InitAgentsMdOptions, InitAgentsMdResult, InitAgentsAction, OutputLanguageMode };
-
-export async function initOrAppendAgentsMd(
-  options: InitAgentsMdOptions
-): Promise<InitAgentsMdResult> {
-  const resolvedPath = resolveSafeProjectPath(options.projectPath);
-
-  if (!fs.existsSync(resolvedPath)) {
-    throw new Error(`El directorio especificado no existe: ${resolvedPath}`);
-  }
-
-  const stat = fs.statSync(resolvedPath);
-  if (!stat.isDirectory()) {
-    throw new Error(`La ruta especificada no es un directorio: ${resolvedPath}`);
-  }
-
-  const inspection = await inspectProjectConfig(resolvedPath);
-  const detectedStacks = inspection.detected_stacks;
-  const projectName = resolveProjectDisplayName(resolvedPath);
-  const agentsMdPath = path.join(resolvedPath, AGENTS_MD_FILENAME);
-
-  let existingContent = '';
-  if (fs.existsSync(agentsMdPath)) {
-    existingContent = fs.readFileSync(agentsMdPath, UTF8);
-  }
-
-  const lang = options.lang ?? 'auto';
-  const mergeRes = mergeOrAppendAgentsMdContent(existingContent, projectName, detectedStacks, lang);
-  const isDryRun = Boolean(options.dryRun);
-  const bridgeLang: SupportedLang = lang === 'en' ? 'en' : 'es';
-  const bridgeSync =
-    options.agents !== undefined
-      ? syncAgentBridgeFiles(resolvedPath, options.agents, detectedStacks, {
-          lang: bridgeLang,
-          dryRun: isDryRun,
-        })
-      : undefined;
-
-  if (!isDryRun) {
-    fs.writeFileSync(agentsMdPath, mergeRes.finalContent, UTF8);
-  }
-
-  return {
-    project_path: resolvedPath,
-    agents_md_path: agentsMdPath,
-    action: isDryRun ? 'dry_run' : mergeRes.action,
-    detected_stacks: detectedStacks,
-    content: mergeRes.finalContent,
-    ...(bridgeSync
-      ? { bridged_agents: bridgeSync.bridgedAgents, bridge_files: bridgeSync.bridgeFiles }
-      : {}),
-  };
-}
 
 function resolveLangOption(rawLang: string | undefined): OutputLanguageMode {
   const normalizedRaw = rawLang && rawLang !== 'undefined' ? rawLang : 'auto';
@@ -122,18 +78,26 @@ function extractOptionValue(
   shortFlag: string
 ): { value: string; consumed: number } | null {
   const arg = pickAt(args, index);
-  if (arg.startsWith(`${longFlag}=`)) {
-    return { value: arg.slice(longFlag.length + 1), consumed: 0 };
-  }
-  const nextValue = args[index + 1];
-  if ((arg === longFlag || arg === shortFlag) && nextValue) {
+  if (arg === longFlag || arg === shortFlag) {
+    const nextValue = args[index + 1];
+    if (!nextValue || nextValue.startsWith('-')) {
+      throw new Error(`Falta el valor requerido para la opción '${arg}'.`);
+    }
     return { value: nextValue, consumed: 1 };
+  }
+  if (arg.startsWith(`${longFlag}=`)) {
+    const inlineValue = arg.slice(longFlag.length + 1);
+    if (!inlineValue) {
+      throw new Error(`Falta el valor requerido para la opción '${longFlag}'.`);
+    }
+    return { value: inlineValue, consumed: 0 };
   }
   return null;
 }
 
 interface InitAgentsCliParseState {
   projectPath: string;
+  hasPositionalDir: boolean;
   dryRun: boolean;
   rawLang: string | undefined;
   rawAgents: string | undefined;
@@ -147,6 +111,9 @@ function consumeInitAgentsToken(
   const arg = pickAt(args, index);
   if (arg === DRY_RUN_FLAG) {
     state.dryRun = true;
+    return 0;
+  }
+  if (arg === HELP_FLAG || arg === HELP_SHORT_FLAG) {
     return 0;
   }
   const pathOpt = extractOptionValue(args, index, PROJECT_PATH_FLAG, PROJECT_PATH_SHORT_FLAG);
@@ -164,9 +131,14 @@ function consumeInitAgentsToken(
     state.rawAgents = agentsOpt.value;
     return agentsOpt.consumed;
   }
-  if (!arg.startsWith('-')) {
-    state.projectPath = arg;
+  if (arg.startsWith('-')) {
+    throw new Error(`Opción CLI desconocida en init-agents: '${arg}'. Ejecuta con --help para ver las opciones válidas.`);
   }
+  if (state.hasPositionalDir) {
+    throw new Error(`Argumento posicional inesperado en init-agents: '${arg}'.`);
+  }
+  state.projectPath = arg;
+  state.hasPositionalDir = true;
   return 0;
 }
 
@@ -178,6 +150,7 @@ export function parseInitAgentsArgs(args: string[]): {
 } {
   const state: InitAgentsCliParseState = {
     projectPath: process.cwd(),
+    hasPositionalDir: false,
     dryRun: false,
     rawLang: process.env.QA_OUTPUT_LANG,
     rawAgents: undefined,
@@ -196,6 +169,10 @@ export function parseInitAgentsArgs(args: string[]): {
 }
 
 export async function runInitAgentsCli(args: string[]): Promise<void> {
+  if (args.includes(HELP_FLAG) || args.includes(HELP_SHORT_FLAG)) {
+    console.log(INIT_AGENTS_HELP_TEXT);
+    return;
+  }
   const { projectPath, dryRun, lang, agents } = parseInitAgentsArgs(args);
 
   console.log(DIVIDER);
@@ -223,24 +200,4 @@ export async function runInitAgentsCli(args: string[]): Promise<void> {
   console.log(DIVIDER);
   console.log('   ✅ Proceso de Conexión Finalizado Exitosamente                     ');
   console.log(`${DIVIDER}\n`);
-}
-
-export function syncGlobalGeminiMd(
-  homeDir: string,
-  dryRun = false,
-  lang: OutputLanguageMode = 'auto'
-): { updated: boolean; geminiMdPath: string } {
-  const geminiDir = path.join(homeDir, '.gemini');
-  const geminiMdPath = path.join(geminiDir, 'GEMINI.md');
-  if (!fs.existsSync(geminiDir)) {
-    return { updated: false, geminiMdPath };
-  }
-
-  const existing = fs.existsSync(geminiMdPath) ? fs.readFileSync(geminiMdPath, UTF8) : '';
-  const finalContent = mergeGlobalGeminiContent(existing, lang);
-
-  if (!dryRun) {
-    fs.writeFileSync(geminiMdPath, finalContent, UTF8);
-  }
-  return { updated: true, geminiMdPath };
 }

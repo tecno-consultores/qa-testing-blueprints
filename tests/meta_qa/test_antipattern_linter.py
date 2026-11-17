@@ -1,14 +1,17 @@
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
-"""Suite Meta-QA para lint_test_antipatterns.py (QA-UI-ANTI-001..005)."""
+"""Suite Meta-QA para lint_test_antipatterns.py (UI-001..005 y PY-001..003)."""
 
 from __future__ import annotations
 
+import ast
 import json
+import runpy
 import subprocess
 import sys
 from pathlib import Path
+from unittest import mock
 
 import lint_test_antipatterns as linter
 import pytest
@@ -331,3 +334,163 @@ def test_f10_8_hardening_comments_braces_in_strings_bom_and_null_bytes(
 
     unclosed = "export class UnclosedPage { step1() {"
     assert linter._find_ts_class_end(unclosed, unclosed.index("{")) == len(unclosed)
+
+
+def test_detects_qa_py_anti_001_002_003_and_exemptions(tmp_path: Path) -> None:
+    """Valida detección AST Python QA-PY-ANTI-001..003 y exenciones."""
+    uid_v4 = "550e8400-e29b-41d4-a716-446655440000"
+    _write_file(
+        tmp_path,
+        "tests/test_py_bad.py",
+        (
+            "from unittest import mock\n"
+            "def test_blind_patch() -> None:\n"
+            '    with mock.patch("svc.write_audit_log", new_callable=mock.AsyncMock):\n'
+            "        pass\n"
+            "def test_blind_assign() -> None:\n"
+            "    svc.write_audit_log = mock.MagicMock()\n"
+            "def test_uuid_fields() -> None:\n"
+            f'    d = {{"actor_username": "{uid_v4}"}}\n'
+            f'    Audit(resource_display_name="{uid_v4}")\n'
+            f'    d["actor_username"] = "{uid_v4}"\n'
+            f'    obj.resource_display_name = "{uid_v4}"\n'
+            f'    actor_username: str = "{uid_v4}"\n'
+            "def verify_gate(skip: bool) -> object:\n"
+            "    try:\n"
+            "        if skip:\n"
+            '            return "PASSED"\n'
+            "    except RuntimeError:\n"
+            "        return True\n"
+            "    return False\n"
+        ),
+    )
+    _write_file(
+        tmp_path,
+        "tests/test_py_good.py",
+        (
+            "from unittest import mock\n"
+            "def test_asserted_patch() -> None:\n"
+            '    with mock.patch("svc.write_audit_log", mock.AsyncMock()) as m:\n'
+            "        m.assert_awaited_once()\n"
+            "def test_passthrough_and_exempt() -> None:\n"
+            '    with mock.patch("svc.write_audit_log", wraps=lambda x: x):\n'
+            "        pass\n"
+            "    # qa-py-anti-ok\n"
+            f'    d = {{"actor_username": "{uid_v4}"}}\n'
+            f'    ok = {{"actor_username": "ana.perez", '
+            f'"resource_display_name": "router-core-01"}}\n'
+            "def check_gate_clean(skip: bool) -> str:\n"
+            "    try:\n"
+            "        if skip:\n"
+            '            return "SKIPPED"\n'
+            "    except RuntimeError:\n"
+            '        return "FAILED"\n'
+            '    return "OK"\n'
+            "def helper_fn() -> bool:\n"
+            "    try:\n"
+            "        return False\n"
+            "    except ValueError:\n"
+            "        return True\n"
+        ),
+    )
+    _write_file(
+        tmp_path,
+        "tests/test_top_exempt.py",
+        (
+            "# qa-py-anti-ok\n"
+            f'actor_username = "{uid_v4}"\n'
+        ),
+    )
+    _write_file(tmp_path, "tests/test_broken_syntax.py", "def bad(:\n")
+    _write_file(
+        tmp_path,
+        "src/audit.py",
+        f'actor_username = "{uid_v4}"\n',
+    )
+
+    violations, _, _ = linter.audit_paths(["."], base_dir=tmp_path)
+    by_rule = {v.rule_id for v in violations}
+    assert {"QA-PY-ANTI-001", "QA-PY-ANTI-002", "QA-PY-ANTI-003"}.issubset(by_rule)
+    assert all(v.file == "tests/test_py_bad.py" for v in violations)
+    assert sum(1 for v in violations if v.rule_id == "QA-PY-ANTI-001") == 2
+    assert sum(1 for v in violations if v.rule_id == "QA-PY-ANTI-002") == 5
+    assert sum(1 for v in violations if v.rule_id == "QA-PY-ANTI-003") == 2
+    assert linter._call_leaf_name(
+        ast.Constant(value="x")
+    ) == ""
+    assert not linter._assign_targets_audit([ast.Constant(value="x")])
+    assert not linter._expr_mentions_write_audit(ast.List(elts=[]))
+    assert not linter._expr_uses_mock_ctor(ast.Constant(value=1))
+    assert linter._target_audit_field_name(ast.Constant(value=1)) is None
+
+
+def test_cli_autodetect_skipped_and_entrypoint(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Valida autodetección sin argumentos, modo SKIPPED y __main__."""
+    empty_ws = tmp_path / "empty_ws"
+    empty_ws.mkdir()
+    assert linter.main([], base_dir=empty_ws) == 0
+    assert "SKIPPED" in capsys.readouterr().out
+
+    assert linter.main(["--json"], base_dir=empty_ws) == 0
+    assert json.loads(capsys.readouterr().out)["status"] == "skipped"
+
+    pop_ws = tmp_path / "pop_ws"
+    _write_file(pop_ws, "tests/test_ok.py", "def test_ok() -> None:\n    assert 1\n")
+    assert linter.main([], base_dir=pop_ws) == 0
+    assert "0 antipatrones detectados en 1 archivo(s)" in capsys.readouterr().out
+
+    with (
+        mock.patch.object(sys, "argv", [str(LINTER_SCRIPT), str(pop_ws / "tests")]),
+        pytest.raises(SystemExit) as exc,
+    ):
+        runpy.run_path(str(LINTER_SCRIPT), run_name="__main__")
+    assert exc.value.code == 0
+    capsys.readouterr()
+
+
+def test_py_ast_antipattern_edge_branches_and_meta_qa_scope(tmp_path: Path) -> None:
+    """Cubre variantes Name/Attribute/inline-exempt/no-audit y exclusión meta_qa."""
+    uid_v4 = "550e8400-e29b-41d4-a716-446655440000"
+    _write_file(
+        tmp_path,
+        "tests/test_py_edges.py",
+        (
+            f'actor_username = "{uid_v4}"\n'
+            "# filler 2\n# filler 3\n# filler 4\n# filler 5\n"
+            f'Audit(resource_display_name="{uid_v4}")  # qa-py-anti-ok\n'
+            "def test_variants() -> None:\n"
+            '    with mock.patch("svc.other_fn", new=mock.AsyncMock()):\n'
+            "        pass\n"
+            "    with mock.patch(write_audit_log, new=AsyncMock):\n"
+            "        pass\n"
+            "    with mock.patch(svc.write_audit_log, new=mock.AsyncMock()):\n"
+            "        pass\n"
+            '    with mock.patch("svc.write_audit_log", new=mock.AsyncMock()):  '
+            "# qa-py-anti-ok\n"
+            "        pass\n"
+            '    with mock.patch("svc.write_audit_log", wraps=custom_wrap):\n'
+            "        pass\n"
+            "    write_audit_log = mock.MagicMock()\n"
+        ),
+    )
+    _write_file(
+        tmp_path,
+        "tests/meta_qa/test_sample.py",
+        "import time\ndef test_m() -> None:\n    time.sleep(0.1)\n",
+    )
+
+    violations, _, _ = linter.audit_paths(["tests"], base_dir=tmp_path)
+    py_001 = [v for v in violations if v.rule_id == "QA-PY-ANTI-001"]
+    py_002 = [v for v in violations if v.rule_id == "QA-PY-ANTI-002"]
+    ui_001 = [v for v in violations if v.rule_id == "QA-UI-ANTI-001"]
+    assert [v.line for v in py_001] == [10, 12, 18]
+    assert [v.line for v in py_002] == [1]
+    assert ui_001 == []
+    assert not linter._expr_mentions_write_audit(ast.Name(id="other"))
+    assert not linter._expr_mentions_write_audit(
+        ast.Attribute(value=ast.Name(id="svc"), attr="other")
+    )

@@ -29,7 +29,7 @@ help:
 	@echo "  make validate-calm   - Valida arquitectura como código FINOS CALM y controles 11X en Docker efímero"
 	@echo "  make shellcheck      - Ejecuta ShellCheck (-x) sobre scripts Bash del repositorio en Docker efímero"
 	@echo "  make shfmt           - Verifica formato canónico Bash (shfmt -d) en Docker efímero"
-	@echo "  make test            - Ejecuta suite integral (lint, docs, workflows, Bash, MCP, Karate, Pytest, Meta-QA, AI y stacks)"
+	@echo "  make test            - Ejecuta suite integral (lint, docs, version-check, validate-calm, workflows, Bash, MCP, Karate, Pytest, Meta-QA, AI y stacks)"
 	@echo "  make test-mcp        - Ejecuta pruebas unitarias Vitest (>=95%) del Servidor MCP en Docker efímero"
 	@echo "  make test-karate     - Ejecuta contratos BDD Karate Labs del Servidor MCP en Docker efímero"
 	@echo "  make test-py         - Ejecuta pruebas unitarias Python de gobernanza y manifiesto (>=95%) en Docker efímero"
@@ -211,7 +211,7 @@ sync-governance:
 	@if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
 		python3 .agents/scripts/sync_governance.py; \
 	else \
-		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app" -w /app $(PY_IMG) python3 .agents/scripts/sync_governance.py; \
+		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$$(pwd):/app" -w /app $(PY_IMG) python3 .agents/scripts/sync_governance.py; \
 	fi
 
 version-check:
@@ -248,31 +248,166 @@ test-py:
 	@if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
 		COVERAGE_FILE=/tmp/.coverage UV_CACHE_DIR=/tmp/uv-cache PYTHONPATH=.agents/scripts:. uv run --with pytest --with pytest-cov pytest --cov=.agents/scripts --cov=scripts --cov-fail-under=95 --cov-branch --cov-report=xml:.agents/.cache/coverage/python.xml tests/*.unit.py tests/meta_qa/test_*.py -q; \
 	else \
-		docker run --rm -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e PYTHONPATH=.agents/scripts:. -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app" -w /app $(PY_IMG) uv run --with pytest --with pytest-cov pytest --cov=.agents/scripts --cov=scripts --cov-fail-under=95 --cov-branch --cov-report=xml:/app/.agents/.cache/coverage/python.xml tests/*.unit.py tests/meta_qa/test_*.py -q; \
+		docker run --rm -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONPATH=.agents/scripts:. -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app" -w /app $(PY_IMG) uv run --with pytest --with pytest-cov pytest --cov=.agents/scripts --cov=scripts --cov-fail-under=95 --cov-branch --cov-report=xml:/app/.agents/.cache/coverage/python.xml tests/*.unit.py tests/meta_qa/test_*.py -q; \
 	fi
 
 shellcheck:
 	@echo "🐚 [ShellCheck] Auditando scripts Bash (-x) en Docker efímero..."
-	@docker run --rm --network none -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/repo:ro" -w /repo $(BASH_IMG) bash -c 'shopt -s nullglob; mapfile -t files < <(printf "%s\n" scripts/*.sh .agents/scripts/*.sh instalar-hooks.sh */limpieza.sh bash-scripts/*.sh | sort -u); shellcheck -x "$${files[@]}"'
+	@docker run --rm --network none -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/repo:ro" -w /repo $(BASH_IMG) bash -c 'shopt -s nullglob; mapfile -t files < <(printf "%s\n" scripts/*.sh .agents/scripts/*.sh instalar-hooks.sh */limpieza.sh bash-scripts/*.sh mcp-server/example/verify-v2.sh | sort -u); shellcheck -x "$${files[@]}"'
 	@echo "✔ [ShellCheck] 0 hallazgos en scripts Bash."
 
 shfmt:
 	@echo "📐 [shfmt] Verificando formato Bash (shfmt -i 2 -ci -d) en Docker efímero..."
-	@docker run --rm --network none -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/repo:ro" -w /repo $(BASH_IMG) bash -c 'shopt -s nullglob; mapfile -t files < <(printf "%s\n" scripts/*.sh .agents/scripts/*.sh instalar-hooks.sh */limpieza.sh bash-scripts/*.sh | sort -u); shfmt -i 2 -ci -d "$${files[@]}"'
+	@docker run --rm --network none -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/repo:ro" -w /repo $(BASH_IMG) bash -c 'shopt -s nullglob; mapfile -t files < <(printf "%s\n" scripts/*.sh .agents/scripts/*.sh instalar-hooks.sh */limpieza.sh bash-scripts/*.sh mcp-server/example/verify-v2.sh | sort -u); shfmt -i 2 -ci -d "$${files[@]}"'
 	@echo "✔ [shfmt] Formato Bash conforme."
 
 test-bats:
 	@echo "🦇 [BATS + kcov] Ejecutando pruebas BATS y generando Cobertura XML en Docker efímero..."
 	@mkdir -p .agents/.cache/coverage && chmod 0700 .agents/.cache
-	@docker run --rm --network none --cap-add=SYS_PTRACE --security-opt seccomp=unconfined -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e _USER=qa -v "$$(pwd):/repo:ro" -v "$$(pwd)/.agents/.cache/coverage:/cov-out" -w /repo $(BASH_IMG) bash -c 'rm -rf /tmp/kcov-bash; rc=0; kcov --include-path=/repo/scripts,/repo/.agents/scripts,/repo/bash-scripts,/repo/instalar-hooks.sh --exclude-pattern=/repo/tests,/repo/bash-scripts/test /tmp/kcov-bash bats tests/bats/ bash-scripts/test/ >/tmp/bats-tap.log 2>/tmp/kcov-stderr.log || rc=$$?; cat /tmp/bats-tap.log; if [ "$${rc}" -ne 0 ]; then if ! grep -q "^not ok " /tmp/bats-tap.log 2>/dev/null; then tail -n 40 /tmp/kcov-stderr.log >&2; fi; exit "$${rc}"; fi; /usr/bin/python3 -c "import pathlib, re, sys; xmls = sorted(p for p in pathlib.Path(\"/tmp/kcov-bash\").rglob(\"cobertura.xml\") if not p.parent.is_symlink()); sys.exit(1) if not xmls else pathlib.Path(\"/cov-out/bash.xml\").write_text(re.sub(r\"<!DOCTYPE[^>]*>\s*\", \"\", xmls[0].read_text(encoding=\"utf-8\")), encoding=\"utf-8\")"'
+	@kcov_norm_py=$$(printf '%s\n' \
+	'import os, pathlib, re, sys, xml.etree.ElementTree as ET' \
+	'repo = pathlib.Path("/repo")' \
+	'xmls = sorted(p for p in pathlib.Path("/tmp/kcov-bash").rglob("cobertura.xml") if not p.parent.is_symlink())' \
+	'if not xmls: sys.exit(1)' \
+	'merged_xmls = [p for p in xmls if p.parent.name == "kcov-merged"]' \
+	'target_xmls = merged_xmls if merged_xmls else xmls' \
+	'stacks = ("ai-evals", "bash-scripts", "fastapi", "mobile-appium", "node-backend", "php", "python", "react-frontend", "vibe-rescue", "vue3")' \
+	'tracked = set()' \
+	'if (repo / "instalar-hooks.sh").is_file(): tracked.add("instalar-hooks.sh")' \
+	'for d in ("scripts", ".agents/scripts", "bash-scripts"):' \
+	'    pdir = repo / d' \
+	'    if pdir.is_dir(): tracked.update(f.relative_to(repo).as_posix() for f in pdir.glob("*.sh") if f.is_file())' \
+	'for st in stacks:' \
+	'    if (repo / st / "limpieza.sh").is_file(): tracked.add(f"{st}/limpieza.sh")' \
+	'if (repo / "mcp-server/example/verify-v2.sh").is_file(): tracked.add("mcp-server/example/verify-v2.sh")' \
+	'by_base, base_cnt = {}, {}' \
+	'for rel in sorted(tracked):' \
+	'    b = pathlib.PurePosixPath(rel).name' \
+	'    base_cnt[b] = base_cnt.get(b, 0) + 1' \
+	'    by_base[b] = rel' \
+	'uniq_base = {b: r for b, r in by_base.items() if base_cnt.get(b) == 1}' \
+	'sorted_tracked = sorted(tracked, key=len, reverse=True)' \
+	'real_cache, sq_cache = {}, {}' \
+	'SQ, DQ, BS = chr(39), chr(34), chr(92)' \
+	'def get_lines(rel):' \
+	'    if rel not in real_cache: real_cache[rel] = (repo / rel).read_text(encoding="utf-8", errors="replace").splitlines()' \
+	'    return real_cache[rel]' \
+	'def sq_cont(rel):' \
+	'    if rel in sq_cache: return sq_cache[rel]' \
+	'    st, res = None, set()' \
+	'    for idx, line in enumerate(get_lines(rel), 1):' \
+	'        if st in (SQ, "$$" + SQ): res.add(idx)' \
+	'        i, n = 0, len(line)' \
+	'        while i < n:' \
+	'            c = line[i]' \
+	'            if st is None:' \
+	'                if c == BS and i + 1 < n: i += 2; continue' \
+	'                if c == "#" and (i == 0 or line[i - 1] in (" ", "\t", ";", "&", "|", "(", "{")): break' \
+	'                if c == "$$" and i + 1 < n and line[i + 1] == SQ: st = "$$" + SQ; i += 2; continue' \
+	'                if c == SQ: st = SQ' \
+	'                elif c == DQ: st = DQ' \
+	'            elif st == SQ:' \
+	'                if c == SQ: st = None' \
+	'            elif st == "$$" + SQ:' \
+	'                if c == BS and i + 1 < n: i += 2; continue' \
+	'                if c == SQ: st = None' \
+	'            elif st == DQ:' \
+	'                if c == BS and i + 1 < n: i += 2; continue' \
+	'                if c == DQ: st = None' \
+	'            i += 1' \
+	'    sq_cache[rel] = res' \
+	'    return res' \
+	'def resolve_rel(raw_fn, sources, line_elems):' \
+	'    cands = [raw_fn.replace("\\", "/").strip()]' \
+	'    if cands[0] and not cands[0].startswith(("/", "repo/", "tmp/")):' \
+	'        for s in sources: cands.append(s.replace("\\", "/").rstrip("/") + "/" + cands[0].lstrip("./"))' \
+	'    rel, from_tmp = None, False' \
+	'    for fn in cands:' \
+	'        if fn.startswith("/repo/") and fn[6:] in tracked: rel = fn[6:]; break' \
+	'        if fn.startswith("repo/") and fn[5:] in tracked: rel = fn[5:]; break' \
+	'        if fn in tracked: rel = fn; break' \
+	'        if fn.startswith(("/tmp/", "tmp/")):' \
+	'            from_tmp = True' \
+	'            norm = "/" + fn.lstrip("/")' \
+	'            for cand in sorted_tracked:' \
+	'                if norm.endswith("/" + cand): rel = cand; break' \
+	'            if rel is None:' \
+	'                b = pathlib.PurePosixPath(norm).name' \
+	'                if b in uniq_base: rel = uniq_base[b]' \
+	'            if rel is not None: break' \
+	'    if rel is None or rel not in tracked: return None' \
+	'    if from_tmp:' \
+	'        rl = get_lines(rel)' \
+	'        try: lnums = [int(le.attrib["number"]) for le in line_elems]' \
+	'        except (KeyError, ValueError): return None' \
+	'        if not lnums or max(lnums) > len(rl): return None' \
+	'        for ln in lnums:' \
+	'            txt = rl[ln - 1].strip()' \
+	'            if not txt or txt.startswith("#"): return None' \
+	'        if len(rl) >= 15 and (max(lnums) < 10 or len(lnums) < 5): return None' \
+	'    return rel' \
+	'merged = {}' \
+	'for xp in target_xmls:' \
+	'    raw = re.sub(r"<!DOCTYPE[^>]*>\s*", "", xp.read_text(encoding="utf-8"))' \
+	'    root = ET.fromstring(raw)' \
+	'    srcs = [n.text.strip() for n in root.findall("./sources/source") if n.text and n.text.strip()]' \
+	'    for ce in root.iter("class"):' \
+	'        les = ce.findall("./lines/line")' \
+	'        rel = resolve_rel(ce.attrib.get("filename", ""), srcs, les)' \
+	'        if rel is None: continue' \
+	'        fl = merged.setdefault(rel, {})' \
+	'        skip = sq_cont(rel)' \
+	'        for le in les:' \
+	'            ln = int(le.attrib["number"])' \
+	'            if ln in skip: continue' \
+	'            hits = max(0, int(float(le.attrib.get("hits", "0"))))' \
+	'            br = le.attrib.get("branch")' \
+	'            cond = le.attrib.get("condition-coverage")' \
+	'            cur = fl.get(ln)' \
+	'            if cur is None: fl[ln] = [hits, br, cond]' \
+	'            else:' \
+	'                cur[0] += hits' \
+	'                if br == "true": cur[1] = "true"' \
+	'                if cond:' \
+	'                    mn = re.search(r"\((\d+)/(\d+)\)", cond)' \
+	'                    mo = re.search(r"\((\d+)/(\d+)\)", cur[2] or "")' \
+	'                    if mn and mo:' \
+	'                        c_cov, c_tot = max(int(mn.group(1)), int(mo.group(1))), max(int(mn.group(2)), int(mo.group(2)))' \
+	'                        cur[2] = f"{int(round(c_cov * 100.0 / c_tot)) if c_tot else 100}% ({c_cov}/{c_tot})"' \
+	'                    elif mn or not cur[2]: cur[2] = cond' \
+	'tot_v = sum(len(v) for v in merged.values())' \
+	'tot_c = sum(1 for v in merged.values() for e in v.values() if e[0] > 0)' \
+	'rate = (tot_c / tot_v) if tot_v else 1.0' \
+	'cov_el = ET.Element("coverage", {"line-rate": f"{rate:.4f}", "branch-rate": "1.0", "lines-covered": str(tot_c), "lines-valid": str(tot_v), "complexity": "1.0", "version": "1.9", "timestamp": "0"})' \
+	'srcs_el = ET.SubElement(cov_el, "sources")' \
+	'ET.SubElement(srcs_el, "source").text = "/repo/"' \
+	'pkgs_el = ET.SubElement(cov_el, "packages")' \
+	'pkg_el = ET.SubElement(pkgs_el, "package", {"name": "bats", "line-rate": f"{rate:.4f}", "branch-rate": "1.0", "complexity": "1.0"})' \
+	'clss_el = ET.SubElement(pkg_el, "classes")' \
+	'for idx, rel in enumerate(sorted(merged)):' \
+	'    ld = merged[rel]' \
+	'    if not ld: continue' \
+	'    fv, fc = len(ld), sum(1 for e in ld.values() if e[0] > 0)' \
+	'    ce = ET.SubElement(clss_el, "class", {"name": re.sub(r"[^a-zA-Z0-9_]", "_", rel) + f"__{idx}", "filename": rel, "branch-rate": "1.0", "complexity": "1.0", "line-rate": f"{(fc / fv) if fv else 1.0:.4f}"})' \
+	'    le_root = ET.SubElement(ce, "lines")' \
+	'    for ln in sorted(ld):' \
+	'        hits, br, cond = ld[ln]' \
+	'        attrs = {"number": str(ln), "hits": str(hits)}' \
+	'        if br is not None: attrs["branch"] = br' \
+	'        if cond is not None: attrs["condition-coverage"] = cond' \
+	'        ET.SubElement(le_root, "line", attrs)' \
+	'ET.indent(cov_el, space="  ")' \
+	'pathlib.Path("/cov-out/bash.xml").write_text("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" + ET.tostring(cov_el, encoding="unicode") + "\n", encoding="utf-8")' \
+	); \
+	docker run --rm --network none --cap-add=SYS_PTRACE --security-opt seccomp=unconfined -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e _USER=qa -e KCOV_NORM_PY="$${kcov_norm_py}" -v "$$(pwd):/repo:ro" -v "$$(pwd)/.agents/.cache/coverage:/cov-out" -w /repo $(BASH_IMG) bash -c 'rm -rf /tmp/kcov-bash; rc=0; kcov --include-path=/repo,/tmp --exclude-pattern=/repo/tests,/repo/bash-scripts/test,/tmp/kcov-bash,.bats.src,/tmp/bats-mock /tmp/kcov-bash bats tests/bats/ bash-scripts/test/ >/tmp/bats-tap.log 2>/tmp/kcov-stderr.log || rc=$$?; cat /tmp/bats-tap.log; if [ "$${rc}" -ne 0 ]; then if ! grep -q "^not ok " /tmp/bats-tap.log 2>/dev/null; then tail -n 40 /tmp/kcov-stderr.log >&2; fi; exit "$${rc}"; fi; /usr/bin/python3 -c "$$KCOV_NORM_PY"'
 	@echo "✔ [BATS + kcov] Suites BATS OK y reporte Cobertura emitido en .agents/.cache/coverage/bash.xml."
 
 diff-cov:
 	@echo "📐 [Diff Coverage] Auditando cobertura diferencial multi-stack y anti-evasión..."
 	@if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
-		python3 .agents/scripts/verify_diff_coverage.py --workspace . --reports-dir .agents/.cache/coverage; \
+		python3 .agents/scripts/verify_diff_coverage.py --workspace . --reports-dir .agents/.cache/coverage $(if $(BASE_REF),--base-ref "$(BASE_REF)",); \
 	else \
-		docker run --rm --network none -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 .agents/scripts/verify_diff_coverage.py --workspace /app --reports-dir .agents/.cache/coverage; \
+		docker run --rm --network none -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 .agents/scripts/verify_diff_coverage.py --workspace /app --reports-dir .agents/.cache/coverage $(if $(BASE_REF),--base-ref "$(BASE_REF)",); \
 	fi
 
 pr-verdict:
@@ -280,11 +415,11 @@ pr-verdict:
 	@if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
 		python3 .agents/scripts/generate_pr_verdict.py --workspace . --output-md .agents/artifacts/PR_VERDICT.md --output-json .agents/artifacts/pr_verdict_attestation.json; \
 	else \
-		docker run --rm --network none -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e QA11X_ATTESTATION_KEY -v "$$(pwd):/app" -w /app $(PY_IMG) python3 .agents/scripts/generate_pr_verdict.py --workspace /app --output-md .agents/artifacts/PR_VERDICT.md --output-json .agents/artifacts/pr_verdict_attestation.json; \
+		docker run --rm --network none -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e QA11X_ATTESTATION_KEY -v "$$(pwd):/app" -w /app $(PY_IMG) python3 .agents/scripts/generate_pr_verdict.py --workspace /app --output-md .agents/artifacts/PR_VERDICT.md --output-json .agents/artifacts/pr_verdict_attestation.json; \
 	fi
 
 test-meta-qa:
-	@cmd='ruff check --select E,F,W,I,UP,B,C901,FLY --config "lint.mccabe.max-complexity=5" .agents/scripts/_budgets.py .agents/scripts/checkpoint_ctl.py .agents/scripts/lint_test_antipatterns.py .agents/scripts/select_tests_by_blast_radius.py .agents/scripts/audit_pagespeed_insights.py .agents/scripts/bump_version_11x.py vibe-rescue/audit_vibe_prototype.py tests/meta_qa/test_antipattern_linter.py && ruff check tests/meta_qa && MYPYPATH=.agents/scripts mypy --strict --cache-dir=/tmp/mypy .agents/scripts/_budgets.py .agents/scripts/checkpoint_ctl.py .agents/scripts/lint_test_antipatterns.py .agents/scripts/select_tests_by_blast_radius.py .agents/scripts/audit_pagespeed_insights.py .agents/scripts/bump_version_11x.py vibe-rescue/audit_vibe_prototype.py tests/meta_qa/test_antipattern_linter.py && PYTHONPATH=.agents/scripts pytest --cov=lint_test_antipatterns --cov-fail-under=95 --cov-report=term-missing tests/meta_qa/test_antipattern_linter.py && PYTHONPATH=.agents/scripts pytest --cov=select_tests_by_blast_radius --cov-fail-under=95 --cov-report=term-missing tests/meta_qa/test_governance_scripts.py && PYTHONPATH=.agents/scripts pytest --cov=audit_pagespeed_insights --cov-fail-under=95 --cov-report=term-missing -k pagespeed tests/meta_qa/test_governance_scripts.py && PYTHONPATH=.agents/scripts pytest --cov=vibe-rescue --cov-fail-under=95 --cov-report=term-missing -k vibe_rescue tests/meta_qa/test_governance_scripts.py && PYTHONPATH=.agents/scripts pytest --cov=.agents/scripts --cov-report=term-missing tests/meta_qa/test_governance_scripts.py tests/meta_qa/test_antipattern_linter.py -q'; \
+	@cmd='ruff check --select E,F,W,I,UP,B,C901,FLY --config "lint.mccabe.max-complexity=5" .agents/scripts scripts tests vibe-rescue/audit_vibe_prototype.py && MYPYPATH=.agents/scripts:ai-evals:vibe-rescue mypy --strict --cache-dir=/tmp/mypy .agents/scripts/*.py scripts/*.py tests/*.unit.py tests/meta_qa/*.py tests/evals/*.py vibe-rescue/audit_vibe_prototype.py && PYTHONPATH=.agents/scripts pytest --cov=lint_test_antipatterns --cov-fail-under=95 --cov-report=term-missing tests/meta_qa/test_antipattern_linter.py && PYTHONPATH=.agents/scripts pytest --cov=select_tests_by_blast_radius --cov-fail-under=95 --cov-report=term-missing tests/meta_qa/test_governance_scripts.py && PYTHONPATH=.agents/scripts pytest --cov=audit_pagespeed_insights --cov-fail-under=95 --cov-report=term-missing -k pagespeed tests/meta_qa/test_governance_scripts.py && PYTHONPATH=.agents/scripts pytest --cov=vibe-rescue --cov-fail-under=95 --cov-report=term-missing -k vibe_rescue tests/meta_qa/test_governance_scripts.py && PYTHONPATH=.agents/scripts pytest --cov=.agents/scripts --cov-report=term-missing tests/meta_qa/test_governance_scripts.py tests/meta_qa/test_antipattern_linter.py -q'; \
 	if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
 		if ! out=$$(PYTHONDONTWRITEBYTECODE=1 RUFF_CACHE_DIR=/tmp/ruff-cache COVERAGE_FILE=/tmp/.coverage UV_CACHE_DIR=/tmp/uv-cache sh -c "$$cmd" 2>&1); then \
 			printf '%s\n' "$$out" >&2; \
@@ -500,7 +635,7 @@ test-example:
 	@./scripts/probar-mcp-example.sh
 
 test-ai-offline:
-	@cmd='ruff check --select E,F,W,I,UP,B,C901 --config "lint.mccabe.max-complexity=5" ai-evals tests/evals && MYPYPATH=ai-evals mypy --strict --cache-dir=/tmp/mypy ai-evals/golden_from_traces.py ai-evals/rag/test_rag_faithfulness.py ai-evals/voice-realtime/test_voice_websocket_latency.py ai-evals/multimodal-ocr/test_pdf_table_fidelity.py tests/evals/test_skill_adherence.py && PYTHONPATH=ai-evals pytest --cov=ai-evals --cov=tests/evals --cov-fail-under=95 --cov-report=term-missing ai-evals/rag/test_rag_faithfulness.py ai-evals/voice-realtime/test_voice_websocket_latency.py ai-evals/multimodal-ocr/test_pdf_table_fidelity.py tests/evals/test_skill_adherence.py'; \
+	@cmd='ruff check --select E,F,W,I,UP,B,C901 --config "lint.mccabe.max-complexity=5" ai-evals tests/evals && MYPYPATH=ai-evals mypy --strict --cache-dir=/tmp/mypy ai-evals/golden_from_traces.py ai-evals/_llm_judge.py ai-evals/rag/test_rag_faithfulness.py ai-evals/voice-realtime/test_voice_websocket_latency.py ai-evals/multimodal-ocr/test_pdf_table_fidelity.py tests/evals/test_skill_adherence.py && PYTHONPATH=ai-evals pytest --cov=ai-evals --cov=tests/evals --cov-fail-under=95 --cov-report=term-missing ai-evals/rag/test_rag_faithfulness.py ai-evals/voice-realtime/test_voice_websocket_latency.py ai-evals/multimodal-ocr/test_pdf_table_fidelity.py ai-evals/tests/test_golden_from_traces.py tests/evals/test_skill_adherence.py'; \
 	if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
 		if ! out=$$(PYTHONDONTWRITEBYTECODE=1 RUFF_CACHE_DIR=/tmp/ruff-cache COVERAGE_FILE=/tmp/.coverage UV_CACHE_DIR=/tmp/uv-cache DEEPEVAL_TELEMETRY_OPT_OUT=YES sh -c "$$cmd" 2>&1); then \
 			printf '%s\n' "$$out" >&2; \
@@ -537,7 +672,7 @@ audit-psi:
 
 qa-psi: audit-psi
 
-test: lint lint-docs lint-workflows shellcheck shfmt test-bats test-mcp test-example test-karate test-py test-meta-qa test-ai-offline test-frontend-blueprints test-backend-blueprints test-mobile-blueprints
+test: lint lint-docs version-check validate-calm lint-workflows shellcheck shfmt test-bats test-mcp test-example test-karate test-py test-meta-qa test-ai-offline test-frontend-blueprints test-backend-blueprints test-mobile-blueprints
 
 build:
 	@echo "📦 [Build] Compilando Servidor MCP en Docker efímero..."

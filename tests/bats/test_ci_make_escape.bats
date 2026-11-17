@@ -12,7 +12,7 @@ setup() {
   elif [ -f "/repo/scripts/auditar-infra.sh" ]; then
     REPO_ROOT="/repo"
   else
-    REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/.." && pwd)"
+    REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd)"
   fi
   AUDIT_SCRIPT="${REPO_ROOT}/scripts/auditar-infra.sh"
 
@@ -172,7 +172,7 @@ EOF
 }
 
 @test ".trivy.yaml (Repo real): excluye patrones glob **/vendor, **/.venv, **/node_modules, **/mutants y compose QA" {
-  local trivy_cfg="${BATS_TEST_DIRNAME}/../../.trivy.yaml"
+  local trivy_cfg="${REPO_ROOT}/.trivy.yaml"
   [ -f "${trivy_cfg}" ]
 
   run cat "${trivy_cfg}"
@@ -349,4 +349,58 @@ EOF
   assert_output --partial "verdict=PASS"
   run cat "${sum_pass}"
   assert_output --partial "**PASS**"
+}
+
+@test "auditar-infra.sh: propaga fallo exit 1 si Trivy config o Trivy fs detectan HIGH/CRITICAL" {
+  cat >"${FAKE_BIN}/docker" <<'EOF'
+#!/usr/bin/env bash
+for arg in "$@"; do
+  if [ "${arg}" = "config" ] && [ "${MOCK_TRIVY_STAGE_FAIL:-}" = "config" ]; then
+    echo "HIGH: Misconfig simulated"
+    exit 1
+  fi
+  if [ "${arg}" = "fs" ] && [ "${MOCK_TRIVY_STAGE_FAIL:-}" = "fs" ]; then
+    echo "CRITICAL: CVE simulated"
+    exit 1
+  fi
+done
+exit 0
+EOF
+  chmod +x "${FAKE_BIN}/docker"
+  printf 'all:\n\techo ok\n' >"${FAKE_ROOT}/Makefile"
+  rm -f /tmp/.qa11x_trivy_cache_* 2>/dev/null || true
+
+  run env PATH="${FAKE_BIN}" MOCK_TRIVY_STAGE_FAIL=config LC_ALL=C bash "${FAKE_ROOT}/scripts/auditar-infra.sh" --force
+  assert_failure 1
+  assert_output --partial "[Trivy IaC] Misconfiguraciones HIGH/CRITICAL detectadas"
+
+  run env PATH="${FAKE_BIN}" MOCK_TRIVY_STAGE_FAIL=fs LC_ALL=C bash "${FAKE_ROOT}/scripts/auditar-infra.sh" --force
+  assert_failure 1
+  assert_output --partial "[Trivy FS] Vulnerabilidades HIGH/CRITICAL detectadas"
+}
+
+@test "auditar-infra.sh: crea cache diaria SHA-256 y omite Trivy en segunda corrida sin --force" {
+  local docker_calls="${BATS_TEST_TMPDIR}/trivy_cache_calls.log"
+  : >"${docker_calls}"
+  cat >"${FAKE_BIN}/docker" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >>"${docker_calls}"
+exit 0
+EOF
+  chmod +x "${FAKE_BIN}/docker"
+  printf 'all:\n\techo clean\n' >"${FAKE_ROOT}/Makefile"
+  rm -f /tmp/.qa11x_trivy_cache_* 2>/dev/null || true
+
+  run env PATH="${FAKE_BIN}" LC_ALL=C bash "${FAKE_ROOT}/scripts/auditar-infra.sh"
+  assert_success
+  refute_output --partial "(caché SHA-256)"
+  [ "$(wc -l <"${docker_calls}")" -eq 2 ]
+
+  : >"${docker_calls}"
+  run env PATH="${FAKE_BIN}" LC_ALL=C bash "${FAKE_ROOT}/scripts/auditar-infra.sh"
+  assert_success
+  assert_output --partial "(caché SHA-256)"
+  [ "$(wc -l <"${docker_calls}")" -eq 0 ]
+
+  rm -f /tmp/.qa11x_trivy_cache_* 2>/dev/null || true
 }

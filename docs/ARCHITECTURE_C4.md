@@ -52,7 +52,7 @@ Shows the interaction between AI clients, the Node.js/TypeScript MCP server, and
 flowchart LR
     subgraph ClientIDE["Client / IDE Environment"]
         Client["AI Client / IDE (Antigravity / Claude / Cursor)"]
-        MCPServer["@sinfallas/mcp-qa-11x (stdio / Node 20+)"]
+        MCPServer["@sinfallas/mcp-qa-11x (stdio / Node >= 24)"]
         Client <-->|"JSON-RPC (stdio)"| MCPServer
     end
 
@@ -112,43 +112,45 @@ flowchart LR
 ---
 
 ## Level 3: Component Diagram (Internal Execution Flow)
-Non-negotiable 13-layer execution chain. If any link fails, the pipeline aborts immediately (Fail-Fast Principle).
+Non-negotiable 13-layer execution chain plus transversal meta-gates. If any link fails, the pipeline aborts immediately (Fail-Fast Principle).
 
 ```mermaid
 flowchart TD
-    subgraph Pipeline11X["Pipeline Execution (Standard 11X - 13 Layers)"]
+    subgraph Pipeline11X["Pipeline Execution (Standard 11X — L01..L13 Canon)"]
         direction TB
 
-        Blast["0. Blast Radius & AST (inspect_blast_radius.py)"]
-        Obs["1. RED Instrumentation (Middleware or Pushgateway)"]
-        IaC["2. IaC & Secrets Audit (Trivy / verificar-secretos.sh)"]
-        SAST["3. Static Security (Bandit / ESLint Security / Psalm)"]
-        Static["4. Quality & Complexity (Radon <= B / SonarJS / PHPStan)"]
-        Unit["5. Isolated Unit Logic (Pytest / Vitest / Pest)"]
-        Coverage{"6. Total Coverage >= 95%?"}
-        Mutation["7. Mutation Testing (Stryker / Mutmut / Infection)"]
-        Parity["8. Real Schema Parity (Alembic / PostgreSQL 17)"]
-        BDD["9. Behavior & Black-Box (Karate Labs API & UI)"]
-        Performance["10. Performance Profiling (py-spy / clinic.js)"]
-        DAST["11. Dynamic Security (OWASP ZAP Baseline)"]
-        Chaos["12. Chaos Engineering (Pumba + Locust / Artillery)"]
+        Blast["Transversal: Blast Radius, AST Topology & FINOS CALM"]
+        L01["L01: Static Analysis, Secrets & IaC (Ruff / ESLint / Trivy 0.76.2)"]
+        L02["L02: Strict Typing & Complexity (Mypy / Radon Grade A CC <= 5 / SonarJS / PHPStan)"]
+        L03["L03: Isolated Unit Tests (Pytest / Vitest / Pest / BATS)"]
+        Coverage{"L03 Gate: Total Coverage >= 95%?"}
+        L04["L04: Live DB Schema & ORM Parity (Alembic / PostgreSQL 17 RLS)"]
+        L05["L05: Integration Contracts & Fuzzing (Pact V4 / Schemathesis)"]
+        L06L07["L06-L07: Karate Labs API (Idempotency-Key) & UI HTTP/OSHP/SSG"]
+        L08["L08: Mutation Testing (Mutmut / Stryker / Infection MSI >= 80%)"]
+        L09["L09: Playwright Screenplay, WCAG 2.1 AA, Visual Geometry & Lighthouse"]
+        L10["L10: Performance & Load (grafana/k6:2.4.0 / Locust / Artillery)"]
+        L11["L11: Dynamic Security DAST (OWASP ZAP Baseline)"]
+        L12["L12: Chaos Engineering & RED Metrics (Pumba + Prometheus)"]
+        L13["L13: Trimodal Fixtures, 3-Phase Clock & 10/10 Closure Gate"]
     end
 
-    Blast -->|"Bounded Impact"| Obs
-    Obs -->|"Observable App"| IaC
-    IaC -->|"Secure Infrastructure"| SAST
-    SAST -->|"Passes"| Static
-    Static -->|"Clean Code"| Unit
-    Unit --> Coverage
-    Coverage -->|"Yes"| Mutation
+    Blast -->|"Bounded Impact & CALM OK"| L01
+    L01 -->|"0 Secrets / 0 Criticals"| L02
+    L02 -->|"Clean Types & CC <= 5"| L03
+    L03 --> Coverage
+    Coverage -->|"Yes"| L04
     Coverage -->|"No (Exit Code 1)"| FallaPipeline(("Pipeline Fails"))
-    Mutation -->|"Mutants Survive"| FallaPipeline
-    Mutation -->|"Solid Assertions"| Parity
-    Parity -->|"0 Orphan Schemas"| BDD
-    BDD -->|"Validated Contracts"| Performance
-    Performance -->|"No Bottlenecks"| DAST
-    DAST -->|"Secure Headers"| Chaos
-    Chaos -->|"Stable RED Metrics"| Exito(("11X Certified"))
+    L04 -->|"0 Schema Drift"| L05
+    L05 -->|"Contracts Verified"| L06L07
+    L06L07 -->|"API & HTTP/OSHP Pass"| L08
+    L08 -->|"Mutants Survive"| FallaPipeline
+    L08 -->|"MSI >= 80%"| L09
+    L09 -->|"WCAG & Geometry Pass"| L10
+    L10 -->|"No Bottlenecks"| L11
+    L11 -->|"Secure Headers"| L12
+    L12 -->|"Stable RED Metrics"| L13
+    L13 -->|"10/10 Certified"| Exito(("11X Certified"))
 
     classDef pass fill:#2e8b57,stroke:#fff,color:#fff;
     classDef fail fill:#b22222,stroke:#fff,color:#fff;

@@ -53,7 +53,7 @@ El ecosistema de `qa-testing-blueprints` está diseñado intencionalmente para s
   def ejecutar_comando_qa(comando: str) -> str:
       partes = shlex.split(comando)
       if len(partes) == 2 and partes[0] == "make" and partes[1] in ALLOWED_TARGETS:
-          resultado = subprocess.run(partes, shell=False, capture_output=True, text=True, check=False)
+          resultado = subprocess.run(partes, shell=False, capture_output=True, text=True, check=False, timeout=300)
           return resultado.stdout if resultado.returncode == 0 else resultado.stderr
       return "ERROR: Operación denegada. Solo se permiten metas allowlisted del Makefile (shell=False, APSC-DV-002510)."
 ```
@@ -97,8 +97,8 @@ npx -y @sinfallas/mcp-qa-11x@latest install-skill --target [auto|workspace|antig
 # O inyectar/actualizar únicamente los conectores QA 11X en AGENTS.md e IDEs configurados:
 npx -y @sinfallas/mcp-qa-11x@latest init-agents [--project-path <ruta>] [--lang auto|en|es] [--agents auto|all|<csv>] [--dry-run]
 
-# Normalizar reportes JUnit / Allure / SARIF hacia sistemas TMS o bundles JSON:
-npx -y @sinfallas/mcp-qa-11x@latest tms-sync [--provider jira|zephyr|xray|github-issues|json] [--report <ruta>] [--dry-run]
+# Sincronizar inventario BDD o enviar resultados JUnit XML hacia sistemas TMS corporativos:
+npx -y @sinfallas/mcp-qa-11x@latest tms-sync --mode <inventory|push-results|pull-stories> --provider jira|zephyr|xray|github-issues [--junit-xml <ruta>] [--json] [--dry-run]
 
 # Levantar el servidor MCP directamente sobre stdio (invocado por clientes IA; en TTY interactiva sincroniza skills y sale con 0, o usa --stdio):
 npx -y @sinfallas/mcp-qa-11x@latest [--stdio]
@@ -185,23 +185,23 @@ mcp_servers:
 | :--- | :--- | :--- |
 | **`inspect_project_config`** | `project_path` | Audita stacks presentes (`python`, `fastapi`, `node`, `vue3`, `react`, `bash`, `php`, `ai-evals`, `mobile-appium`, `vibe-rescue`), linters, disponibilidad E2E (`BrowserTestingReadiness`) y estado `update_available` (`.qa-11x-version` + caché TTL 24 h *fail-open*). |
 | **`fetch_blueprint_bundle`** | `stack`, `include_common_and_agents`, `include_content` | Descarga bajo demanda los archivos del stack con verificación criptográfica SHA-256 (soporta modo índice ligero `include_content: false` para ahorro de ~50,000 tokens — ver [`13_SPEC`](specs/13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md)). |
-| **`bootstrap_or_merge_11x`** | `project_path`, `stack`, `dry_run` | Aplica una fusión quirúrgica no destructiva inyectando configuraciones QA sin alterar dependencias. |
+| **`bootstrap_or_merge_11x`** | `project_path`, `stack`, `dry_run`, `create_backup` | Aplica una fusión quirúrgica no destructiva inyectando configuraciones QA sin alterar dependencias (crea respaldos `.11x-backup` por defecto). |
 | **`inspect_ast_blast_radius`** | `project_path`, `target_symbol`, `changed_since_ref`, `max_tokens_budget`, `max_items`, `auto_build_if_missing`, `refresh_graph` | Consulta el grafo AST (`graphify-out/graph.json` y `GRAPH_REPORT.md`) de forma bidireccional o diferencial (`git diff` + AST + poda semántica de 4 niveles) tanto para Code Q&A como para calcular el radio de impacto antes de refactorizar (`LOW` con `< 5` llamadores para `MICRO_CHANGE`). |
 | **`clean_workspace_11x`** | `project_path`, `dry_run`, `deep_prune` | Sanea artefactos temporales de pruebas y cachés de Docker (soporta modo simulación y fallback Alpine). |
-| **`audit_security_stig_owasp`**| `project_path`, `max_findings`, `include_content` | Audita estáticamente 34 reglas estáticas del escáner (`SEC-01` a `SEC-16`, `SEC-CI-ACTION-REF`, `QA-*`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `UI-11X-01..03`) que respaldan los 22 controles de referencia DISA ASD STIG V6R5 + OWASP v4.2, con agrupación compacta (`groupFindingsByRule`) y soporte `metadata-only`. |
+| **`audit_security_stig_owasp`**| `project_path`, `max_findings`, `include_examples` | Audita estáticamente 34 reglas estáticas del escáner (`SEC-01` a `SEC-16`, `SEC-CI-ACTION-REF`, `QA-*`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `UI-11X-01..03`) que respaldan los 22 controles de referencia DISA ASD STIG V6R5 + OWASP v4.2, con agrupación compacta (`groupFindingsByRule`) y soporte `include_examples`. |
 | **`run_ephemeral_qa`** | `project_path`, `stage`, `timeout_seconds`, `skip_if_docs_only` | Ejecuta targets del `Makefile` en Docker efímero bajo la Regla Cero y condensa la salida a JSON (soporta `skip_if_docs_only` y cortacircuitos `BREAKER-42`). |
-| **`certify_11x_gate`** | `project_path` | Ejecución de la compuerta de certificación de cierre (secretos, JSON, componentes UI, ORM, STIG, paridad Dual-Consumer docs y aviso `update_available`). |
+| **`certify_11x_gate`** | `project_path`, `require_lint_evidence`, `strict`, `allow_unmerged_examples` | Ejecución de la compuerta de certificación de cierre (secretos, JSON, componentes UI, ORM, STIG, paridad Dual-Consumer docs, sello de evidencia `lint` y aviso `update_available`). |
 | **`audit_test_pyramid_gaps`** | `project_path`, `stack`, `max_items` | Audita estáticamente las 13 capas de la pirámide 11X (`L01` a `L13`, incluyendo Ciclo Temporal de 3 Fases en `L13` y Refresco Dual en `L07`), detecta archivos huérfanos, endpoints sin BDD, vistas sin E2E y genera un plan de rescate priorizado acotado con `max_items`. |
 | **`init_or_append_agents_md`** | `project_path`, `dry_run`, `lang`, `agents` | Crea `AGENTS.md` o añade de forma aditiva el bloque conector QA 11X (`--lang auto|es|en`, `--agents auto|all|<csv>`) y puentes Thin-Repo (`<= 15` líneas) para 28 agentes sin sobrescribir reglas previas. |
-| **`propose_skill_evolution_pr`** | `project_path`, `target_blueprint_file`, `target_human_doc_file`, `target_mcp_component`, `improvement_title`, `empirical_rationale`, `proposed_content_or_snippet`, `proposed_human_doc_summary`, `prefer_offline_fallback` | Propone mejoras federadas **Dual-Consumer** (Skill IA + Auditor MCP + Manual Humano en `docs/01..04_*.md`) a `qa-testing-blueprints` mediante `gh` CLI local autenticado o generando propuesta local con matriz de 3 capas y URL prellenada de GitHub. |
+| **`propose_skill_evolution_pr`** | `project_path`, `target_blueprint_file`, `target_human_doc_file`, `target_mcp_component`, `improvement_title`, `empirical_rationale`, `proposed_content_or_snippet`, `proposed_human_doc_summary`, `dry_run`, `prefer_offline_fallback` | Propone mejoras federadas **Dual-Consumer** (Skill IA + Auditor MCP + Manual Humano en `docs/01..04_*.md`) a `qa-testing-blueprints` mediante `gh` CLI local autenticado o generando propuesta local con matriz de 3 capas y URL prellenada de GitHub. |
 | **`reconcile_agents_governance`** | `project_path`, `dry_run` | Reconcilia y deduplica reglas en `.agents/` para proyectos adoptantes, podando directivas globales ya promovidas a `qa-testing-blueprints`, aislando reglas de dominio en `domain_<project>_rules.md` y respaldando en `.agents/backups/<timestamp>/`. |
-| **`validate_calm_architecture`** | `project_path`, `calm_file` | Valida esquemas **FINOS CALM** (*Architecture-as-Code*), 6 nodos núcleo, 5 relaciones tipadas y 7 controles obligatorios 11X. |
-| **`evaluate_release_gate`** | `project_path`, `scope` | Calcula dictámenes cuantitativos `GO`/`NO_GO` (cobertura `>= 95%`, Trivy `HIGH/CRITICAL = 0`, MSI, CALM, STIG; devuelve `SKIPPED` fail-closed en `smoke`). |
-| **`evaluate_agent_trajectory`** | `project_path`, `trace_path`, `mode` | Evalúa trayectorias multi-paso de agentes IA en modo offline determinista (`AST-First`, tasas de alucinación, `QA-GIT-GATE-01`) o DeepEval en Docker. |
-| **`run_llm_red_team`** | `project_path`, `dry_run`, `run_live` | Audita configuraciones Promptfoo **OWASP LLM Top 10**, sondas `promptGuard` y red-teaming condicional en Docker (`SKIPPED_MISSING_CREDENTIALS` sin llaves). |
-| **`audit_vibe_prototype`** | `project_path`, `dry_run`, `enforce` | Inspecciona scaffolds generados por IA (`Bolt.new`, `Lovable`, `v0`, `Replit`) buscando riesgos `VIBE-SEC-001..QA-005`, fugas de secretos y ausencia de RLS/WORM. |
-| **`sync_enterprise_tms`** | `project_path`, `provider`, `report_path`, `dry_run` | Normaliza resultados JUnit XML / Allure / SARIF hacia **Jira**, **Zephyr Scale**, **Xray**, **GitHub Issues** o bundles JSON protegidos por `TaskStateGuard` y anti-SSRF. |
-| **`session_flight_recorder`** | `project_path`, `action`, `task_id`, `step`, `intent`, `done`, `planned` | *(v3.1)* Flight Recorder atómico (`save` \| `recover` \| `clear`) que gestiona `.agents/.cache/session_checkpoint.json` (`0600`) -> proyección `<= 40` líneas en `.agents/ACTIVE_TASK.md` + Git en vivo. |
+| **`validate_calm_architecture`** | `workspaceRoot`, `architecturePath` | Valida esquemas **FINOS CALM** (*Architecture-as-Code*), 6 nodos núcleo, 5 relaciones tipadas y 7 controles obligatorios 11X. |
+| **`evaluate_release_gate`** | `workspaceRoot`, `scope`, `dryRun`, `enforce`, `junitXmlPath`, `telemetryJsonPath`, `defectsJsonPath`, `thresholds` | Calcula dictámenes cuantitativos `GO`/`NO_GO` (cobertura `>= 95%`, Trivy `HIGH/CRITICAL = 0`, MSI, CALM, STIG; devuelve `SKIPPED` fail-closed en `smoke`). |
+| **`evaluate_agent_trajectory`** | `mode`, `workspaceRoot`, `testPath`, `steps`, `requiredSequence`, `actualOutput`, `retrievalContext`, `enforceAstBeforeEdit`, `timeoutMs` | Evalúa trayectorias multi-paso de agentes IA en modo offline determinista (`AST-First`, tasas de alucinación, `QA-GIT-GATE-01`) o DeepEval en Docker. |
+| **`run_llm_red_team`** | `mode`, `workspaceRoot`, `configPath`, `timeoutMs` | Audita configuraciones Promptfoo **OWASP LLM Top 10**, sondas `promptGuard` y red-teaming condicional en Docker (`SKIPPED_MISSING_CREDENTIALS` sin llaves). |
+| **`audit_vibe_prototype`** | `targetDir`, `workspaceRoot`, `dryRun`, `remediationSubdir`, `maxLines`, `enforce` | Inspecciona scaffolds generados por IA (`Bolt.new`, `Lovable`, `v0`, `Replit`) buscando riesgos `VIBE-SEC-001..QA-005`, fugas de secretos y ausencia de RLS/WORM. |
+| **`sync_enterprise_tms`** | `mode`, `provider`, `targetDir`, `junitXmlPath`, `baseUrl`, `projectKey`, `issueKey`, `testExecutionKey`, `repo`, `requiredKeys`, `dryRun`, `timeoutMs`, `workspaceRoot` | Valida inventarios de trazabilidad `@JIRA`/`@TC` y envía resultados JUnit XML hacia **Jira**, **Zephyr Scale**, **Xray** o **GitHub Issues** protegidos por `TaskStateGuard` y anti-SSRF. |
+| **`session_flight_recorder`** | `project_path`, `action`, `task_id`, `active_step`, `intent_140chars`, `completed_steps`, `planned_steps`, `allowed_globs`, `forbidden_globs`, `reason` | *(v3.1)* Flight Recorder atómico (`save` \| `recover` \| `clear`) que gestiona `.agents/.cache/session_checkpoint.json` (`0600`) -> proyección `<= 40` líneas en `.agents/ACTIVE_TASK.md` + Git en vivo. |
 
 ### 6.5. Auto-Sincronización Global en Arranque, Detección `update_available` y Validación Criptográfica
 
@@ -236,13 +236,17 @@ grep -rn '"version"' ~/.npm/_npx/*/node_modules/@sinfallas/mcp-qa-11x/package.js
 # 2. Verificar la versión del manifiesto y su marca de tiempo UTC en la caché local:
 grep -E '"blueprint_version"|"generated_at_utc"' ~/.cache/qa-11x-blueprints/manifest.json
 
-# 3. Validar que el hash SHA-256 de cada archivo de Skill instalado en el IDE coincide con manifest.json:
-python3 -c '
+# 3. Validar dentro de Docker efímero (Regla Cero) que cada SHA-256 de Skill coincide con manifest.json:
+docker run --rm --network none -u "$(id -u):$(id -g)" -v "$(pwd):/app:ro" -w /app \
+  -v "${HOME}/.cache/qa-11x-blueprints:/cache:ro" \
+  -v "${HOME}/.gemini/config/skills:/skills:ro" \
+  sinfallas/base-python-uv:3.15 python3 -c '
 import hashlib, json, pathlib
-m = json.load(open(pathlib.Path.home() / ".cache/qa-11x-blueprints/manifest.json"))
+m = json.loads(pathlib.Path("/cache/manifest.json").read_text(encoding="utf-8"))
 skills = [f for f in m["agent_governance_files"] if f["path"].startswith(".agents/skills/")]
-dest = pathlib.Path.home() / ".gemini/config/skills"
+dest = pathlib.Path("/skills")
 ok = sum(1 for s in skills if (p := dest / s["path"].replace(".agents/skills/", "", 1)).exists() and hashlib.sha256(p.read_bytes()).hexdigest() == s["sha256"])
-print(f"✔ Skills en {dest}: {ok}/{len(skills)} archivos coinciden bit a bit con manifest.json (v{m[\"blueprint_version\"]})")
+ver = m["blueprint_version"]
+print(f"✔ Skills en {dest}: {ok}/{len(skills)} archivos coinciden bit a bit con manifest.json (v{ver})")
 '
 ```

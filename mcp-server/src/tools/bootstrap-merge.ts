@@ -9,12 +9,16 @@ import { mergeOrAppendAgentsMdContent } from '../cli/init-agents-md.js';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { BootstrapMergeResult } from '../types.js';
 
-function injectAgentsConnectorIfMissingFromBundle(
-  resolvedPath: string,
-  stack: string,
-  dryRun: boolean,
-  result: Awaited<ReturnType<SurgicalMerger['mergeFiles']>>
-): void {
+interface AgentsConnectorInjectionInput {
+  readonly resolvedPath: string;
+  readonly stack: string;
+  readonly dryRun: boolean;
+  readonly createBackup: boolean;
+  readonly result: Awaited<ReturnType<SurgicalMerger['mergeFiles']>>;
+}
+
+function injectAgentsConnectorIfMissingFromBundle(input: AgentsConnectorInjectionInput): void {
+  const { resolvedPath, stack, dryRun, createBackup, result } = input;
   const agentsPath = path.join(resolvedPath, 'AGENTS.md');
   const hadAgentsFile = fs.existsSync(agentsPath);
   const existingAgents = hadAgentsFile ? fs.readFileSync(agentsPath, 'utf-8') : '';
@@ -27,6 +31,9 @@ function injectAgentsConnectorIfMissingFromBundle(
 
   if (!dryRun) {
     fs.mkdirSync(resolvedPath, { recursive: true });
+    if (createBackup && hadAgentsFile) {
+      fs.copyFileSync(agentsPath, `${agentsPath}.11x-backup`);
+    }
     fs.writeFileSync(agentsPath, agentsRes.finalContent, 'utf-8');
   }
 
@@ -44,6 +51,7 @@ function injectAgentsConnectorIfMissingFromBundle(
 export interface BootstrapMergeDeps {
   readonly fetcher?: GitHubFetcher;
   readonly merger?: SurgicalMerger;
+  readonly createBackup?: boolean;
 }
 
 export async function bootstrapOrMerge11x(
@@ -52,7 +60,7 @@ export async function bootstrapOrMerge11x(
   dryRun = true,
   deps: BootstrapMergeDeps = {}
 ): Promise<BootstrapMergeResult> {
-  const { fetcher, merger } = deps;
+  const { fetcher, merger, createBackup = true } = deps;
   const resolvedPath = resolveSafeProjectPath(projectPathInput);
   const resolvedFetcher = fetcher || new GitHubFetcher();
   const resolvedMerger = merger || new SurgicalMerger();
@@ -61,10 +69,10 @@ export async function bootstrapOrMerge11x(
   const bundle = await resolvedFetcher.fetchStackBundle(stack, true, true);
 
   // Ejecutar la fusión quirúrgica no destructiva
-  const result = await resolvedMerger.mergeFiles(resolvedPath, bundle, { dryRun });
+  const result = await resolvedMerger.mergeFiles(resolvedPath, bundle, { dryRun, createBackup });
 
   if (!bundle.some((b) => path.basename(b.target_name) === 'AGENTS.md')) {
-    injectAgentsConnectorIfMissingFromBundle(resolvedPath, stack, dryRun, result);
+    injectAgentsConnectorIfMissingFromBundle({ resolvedPath, stack, dryRun, createBackup, result });
   }
 
   return {

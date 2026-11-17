@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import os
 import re
@@ -36,6 +37,15 @@ TARGET_EXTENSIONS: frozenset[str] = frozenset(
 )
 SCOPE_DIR_PARTS: frozenset[str] = frozenset(
     {"cypress", "e2e", "pages", "playwright", "screenplay", "test", "tests"}
+)
+AUTO_DETECT_DIRS: tuple[str, ...] = (
+    "vue3",
+    "react-frontend",
+    "mobile-appium",
+    "frontend",
+    "src",
+    "tests",
+    "e2e",
 )
 BRACE_DELTA: dict[str, int] = {"{": 1, "}": -1}
 
@@ -114,6 +124,23 @@ RE_JSDOM_ENV = re.compile(
 RE_DOM_GEOMETRY = re.compile(
     r"\bgetBoundingClientRect\s*\(|\.(?:offsetWidth|offsetHeight)\b"
 )
+RE_PY_TEST_FILE = re.compile(
+    r"(?:^|/)(?:test_[^/]+\.py|[^/]+_(?:test|unit|spec|e2e)\.py|"
+    r"[^/]+\.(?:unit|spec|test|e2e)\.py|(?:tests?|e2e)/.*\.py)$"
+)
+RE_UUID_V4 = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+RE_GATE_FN = re.compile(
+    r"(?:^|_)(?:gate|check|verify|validate|audit|certify)(?:_|$)", re.IGNORECASE
+)
+PY_AUDIT_FIELDS: frozenset[str] = frozenset(
+    {"actor_username", "resource_display_name"}
+)
+PY_MOCK_CTORS: frozenset[str] = frozenset({"AsyncMock", "MagicMock"})
+PY_PATCH_FUNCS: frozenset[str] = frozenset({"patch", "object", "setattr"})
+PY_ANTI_EXEMPT_TAG = "qa-py-anti-ok"
 
 
 @dataclass(frozen=True)
@@ -258,9 +285,44 @@ def _check_promise_waits(rel_file: str, clean_text: str) -> list[Violation]:
     ]
 
 
-def _check_arbitrary_waits(rel_file: str, clean_text: str) -> list[Violation]:
+def _is_positive_number(node: ast.expr) -> bool:
+    return (
+        isinstance(node, ast.Constant)
+        and isinstance(node.value, (int, float))
+        and not isinstance(node.value, bool)
+        and float(node.value) > 0
+    )
+
+
+def _check_py_time_sleep_ast(rel_file: str, raw_text: str) -> list[Violation]:
+    try:
+        tree = ast.parse(raw_text)
+    except SyntaxError:
+        return []
+    msg = "Uso de time.sleep(>0) en archivo de pruebas UI."
+    rem = "Esperar por transición DOM/ARIA, respuesta API o estado determinista."
+    hits: list[Violation] = []
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "sleep"
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "time"
+            and node.args
+            and _is_positive_number(node.args[0])
+        ):
+            hits.append(Violation("QA-UI-ANTI-001", rel_file, node.lineno, msg, rem))
+    return hits
+
+
+def _check_arbitrary_waits(
+    rel_file: str, clean_text: str, is_python: bool = False, raw_text: str = ""
+) -> list[Violation]:
     if not _is_ui_test_scope(rel_file):
         return []
+    if is_python:
+        return _check_py_time_sleep_ast(rel_file, raw_text or clean_text)
     return [
         *_check_line_waits(rel_file, clean_text),
         *_check_promise_waits(rel_file, clean_text),
@@ -439,6 +501,295 @@ def _check_jsdom_geometry(
     ]
 
 
+def _has_py_anti_exempt(raw_lines: list[str], line_no: int) -> bool:
+    if any(PY_ANTI_EXEMPT_TAG in ln for ln in raw_lines[:5]):
+        return True
+    if 1 <= line_no <= len(raw_lines) and PY_ANTI_EXEMPT_TAG in raw_lines[line_no - 1]:
+        return True
+    if 2 <= line_no <= len(raw_lines):
+        prev = raw_lines[line_no - 2].lstrip()
+        return prev.startswith("#") and PY_ANTI_EXEMPT_TAG in prev
+    return False
+
+
+def _is_py_test_scope(rel_posix: str) -> bool:
+    return rel_posix.endswith(".py") and bool(RE_PY_TEST_FILE.search(rel_posix))
+
+
+def _call_leaf_name(node: ast.expr) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return ""
+
+
+def _expr_mentions_write_audit(node: ast.expr) -> bool:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return "write_audit_log" in node.value
+    if isinstance(node, ast.Name):
+        return node.id == "write_audit_log"
+    if isinstance(node, ast.Attribute):
+        return node.attr == "write_audit_log"
+    return False
+
+
+def _expr_uses_mock_ctor(node: ast.expr) -> bool:
+    if isinstance(node, ast.Name):
+        return node.id in PY_MOCK_CTORS
+    if isinstance(node, ast.Call):
+        return _call_leaf_name(node.func) in PY_MOCK_CTORS
+    return False
+
+
+def _is_audit_patch_call(call: ast.Call) -> bool:
+    if _call_leaf_name(call.func) not in PY_PATCH_FUNCS:
+        return False
+    targets_audit = any(_expr_mentions_write_audit(arg) for arg in call.args[:2])
+    if not targets_audit:
+        return False
+    kw_mock = any(
+        kw.arg in {"new", "new_callable", "return_value"}
+        and _expr_uses_mock_ctor(kw.value)
+        for kw in call.keywords
+    )
+    arg_mock = len(call.args) >= 3 and _expr_uses_mock_ctor(call.args[2])
+    has_passthrough = any(
+        kw.arg in {"wraps", "side_effect"} and not _expr_uses_mock_ctor(kw.value)
+        for kw in call.keywords
+    )
+    return kw_mock or arg_mock or not has_passthrough
+
+
+def _assign_targets_audit(targets: Sequence[ast.expr]) -> bool:
+    for tgt in targets:
+        if isinstance(tgt, ast.Name) and tgt.id == "write_audit_log":
+            return True
+        if isinstance(tgt, ast.Attribute) and tgt.attr == "write_audit_log":
+            return True
+    return False
+
+
+def _has_audit_mock_assertion(scope: ast.AST) -> bool:
+    for node in ast.walk(scope):
+        if isinstance(node, ast.Attribute) and (
+            node.attr.startswith(("assert_called", "assert_awaited"))
+            or node.attr in {"call_args", "call_args_list"}
+        ):
+            return True
+    return False
+
+
+def _find_audit_patch_lines(scope: ast.AST) -> list[int]:
+    lines: list[int] = []
+    for node in ast.walk(scope):
+        if isinstance(node, ast.Call) and _is_audit_patch_call(node):
+            lines.append(node.lineno)
+        elif (
+            isinstance(node, ast.Assign)
+            and _assign_targets_audit(node.targets)
+            and _expr_uses_mock_ctor(node.value)
+        ):
+            lines.append(node.lineno)
+    return lines
+
+
+def _collect_scope_audit_violations(
+    scope: ast.AST,
+    rel_file: str,
+    raw_lines: list[str],
+    seen_lines: set[int],
+) -> list[Violation]:
+    msg = (
+        "Mock ciego sobre write_audit_log sin aserciones "
+        "(assert_called* / call_args)."
+    )
+    rem = (
+        "Verificar call_args verificando actor_username y "
+        "resource_display_name legibles."
+    )
+    hits: list[Violation] = []
+    for line_no in _find_audit_patch_lines(scope):
+        if line_no in seen_lines or _has_py_anti_exempt(raw_lines, line_no):
+            continue
+        seen_lines.add(line_no)
+        hits.append(Violation("QA-PY-ANTI-001", rel_file, line_no, msg, rem))
+    return hits
+
+
+def _check_py_blind_audit_mock(
+    tree: ast.Module, rel_file: str, raw_lines: list[str]
+) -> list[Violation]:
+    fn_scopes: list[ast.AST] = [
+        n
+        for n in ast.walk(tree)
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+    ]
+    scopes: list[ast.AST] = fn_scopes or [tree]
+    violations: list[Violation] = []
+    seen_lines: set[int] = set()
+    for scope in scopes:
+        if not _has_audit_mock_assertion(scope):
+            violations.extend(
+                _collect_scope_audit_violations(
+                    scope, rel_file, raw_lines, seen_lines
+                )
+            )
+    return violations
+
+
+def _is_uuid_v4_const(node: ast.expr) -> bool:
+    return (
+        isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and bool(RE_UUID_V4.match(node.value))
+    )
+
+
+def _target_audit_field_name(tgt: ast.expr) -> str | None:
+    if isinstance(tgt, ast.Name) and tgt.id in PY_AUDIT_FIELDS:
+        return tgt.id
+    if isinstance(tgt, ast.Attribute) and tgt.attr in PY_AUDIT_FIELDS:
+        return tgt.attr
+    if (
+        isinstance(tgt, ast.Subscript)
+        and isinstance(tgt.slice, ast.Constant)
+        and isinstance(tgt.slice.value, str)
+        and tgt.slice.value in PY_AUDIT_FIELDS
+    ):
+        return tgt.slice.value
+    return None
+
+
+def _uuid_hits_in_node(node: ast.AST) -> list[tuple[int, str]]:
+    if isinstance(node, ast.Dict):
+        return [
+            (val.lineno, str(key.value))
+            for key, val in zip(node.keys, node.values, strict=False)
+            if isinstance(key, ast.Constant)
+            and isinstance(key.value, str)
+            and key.value in PY_AUDIT_FIELDS
+            and _is_uuid_v4_const(val)
+        ]
+    if isinstance(node, ast.Call):
+        return [
+            (kw.value.lineno, kw.arg)
+            for kw in node.keywords
+            if kw.arg in PY_AUDIT_FIELDS and _is_uuid_v4_const(kw.value)
+        ]
+    if isinstance(node, ast.Assign) and _is_uuid_v4_const(node.value):
+        return [
+            (node.lineno, name)
+            for tgt in node.targets
+            if (name := _target_audit_field_name(tgt)) is not None
+        ]
+    if (
+        isinstance(node, ast.AnnAssign)
+        and node.value is not None
+        and _is_uuid_v4_const(node.value)
+    ):
+        name = _target_audit_field_name(node.target)
+        return [(node.lineno, name)] if name else []
+    return []
+
+
+def _check_py_uuid_audit_fields(
+    tree: ast.Module, rel_file: str, raw_lines: list[str]
+) -> list[Violation]:
+    rem = "Usar nombre de usuario o recurso legible en lugar de UUID v4 literal."
+    violations: list[Violation] = []
+    for node in ast.walk(tree):
+        for line_no, field_name in _uuid_hits_in_node(node):
+            if not _has_py_anti_exempt(raw_lines, line_no):
+                violations.append(
+                    Violation(
+                        "QA-PY-ANTI-002",
+                        rel_file,
+                        line_no,
+                        f"UUID v4 literal asignado a '{field_name}'.",
+                        rem,
+                    )
+                )
+    return violations
+
+
+def _is_hardcoded_pass_return(node: ast.AST) -> bool:
+    if not isinstance(node, ast.Return) or not isinstance(node.value, ast.Constant):
+        return False
+    val = node.value.value
+    if val is True:
+        return True
+    return isinstance(val, str) and val.strip().upper() in {"PASS", "PASSED"}
+
+
+def _collect_hardcoded_pass_lines(stmts: Sequence[ast.stmt]) -> list[int]:
+    hits: list[int] = []
+    for stmt in stmts:
+        for sub in ast.walk(stmt):
+            if _is_hardcoded_pass_return(sub):
+                hits.append(sub.lineno)  # type: ignore[attr-defined]
+    return hits
+
+
+def _scan_gate_function(
+    fn_node: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> list[int]:
+    if not RE_GATE_FN.search(fn_node.name):
+        return []
+    lines: list[int] = []
+    for sub in ast.walk(fn_node):
+        if isinstance(sub, ast.ExceptHandler):
+            lines.extend(_collect_hardcoded_pass_lines(sub.body))
+        elif isinstance(sub, ast.If) and "skip" in ast.unparse(sub.test).lower():
+            lines.extend(_collect_hardcoded_pass_lines(sub.body))
+    return sorted(set(lines))
+
+
+def _collect_gate_func_violations(
+    node: ast.AST, rel_file: str, raw_lines: list[str]
+) -> list[Violation]:
+    if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        return []
+    msg = (
+        "Función gate/check devuelve literal True/'PASSED' "
+        "en rama except o skip."
+    )
+    rem = "Retornar False, 'SKIPPED' o propagar el fallo real."
+    return [
+        Violation("QA-PY-ANTI-003", rel_file, line_no, msg, rem)
+        for line_no in _scan_gate_function(node)
+        if not _has_py_anti_exempt(raw_lines, line_no)
+    ]
+
+
+def _check_py_hardcoded_gate_pass(
+    tree: ast.Module, rel_file: str, raw_lines: list[str]
+) -> list[Violation]:
+    violations: list[Violation] = []
+    for node in ast.walk(tree):
+        violations.extend(
+            _collect_gate_func_violations(node, rel_file, raw_lines)
+        )
+    return violations
+
+
+def _check_python_ast_antipatterns(
+    rel_file: str, raw_text: str
+) -> list[Violation]:
+    if not _is_py_test_scope(rel_file):
+        return []
+    try:
+        tree = ast.parse(raw_text)
+    except SyntaxError:
+        return []
+    raw_lines = raw_text.splitlines()
+    return [
+        *_check_py_blind_audit_mock(tree, rel_file, raw_lines),
+        *_check_py_uuid_audit_fields(tree, rel_file, raw_lines),
+        *_check_py_hardcoded_gate_pass(tree, rel_file, raw_lines),
+    ]
+
+
 def _relative_display(file_path: Path, base_dir: Path) -> str:
     try:
         return file_path.relative_to(base_dir).as_posix()
@@ -446,27 +797,40 @@ def _relative_display(file_path: Path, base_dir: Path) -> str:
         return file_path.as_posix()
 
 
+def _audit_single_file(
+    file_path: Path, root: Path, page_records: list[PageClassRecord]
+) -> list[Violation]:
+    rel_file = _relative_display(file_path, root)
+    raw_text = file_path.read_text(encoding="utf-8-sig", errors="ignore")
+    is_python = file_path.suffix.lower() == ".py"
+    clean_text = _strip_comments(raw_text, is_python)
+    violations: list[Violation] = []
+    if "meta_qa" not in Path(rel_file).parts:
+        violations.extend(
+            _check_arbitrary_waits(rel_file, clean_text, is_python, raw_text)
+        )
+        violations.extend(_check_fragile_selectors(rel_file, clean_text))
+        violations.extend(_check_hidden_assertions(rel_file, clean_text))
+        if not is_python:
+            violations.extend(_check_jsdom_geometry(rel_file, raw_text, clean_text))
+        extractor = _extract_py_page_classes if is_python else _extract_ts_page_classes
+        page_records.extend(extractor(rel_file, clean_text))
+    if is_python:
+        violations.extend(_check_python_ast_antipatterns(rel_file, raw_text))
+    return violations
+
+
 def audit_paths(
     target_paths: Sequence[str], base_dir: Path | None = None
 ) -> tuple[list[Violation], list[str], int]:
-    """Ejecuta las 5 reglas QA-UI-ANTI-001..005 sobre las rutas objetivo."""
+    """Ejecuta las reglas QA-UI-ANTI-001..005 y QA-PY-ANTI-001..003."""
     root = (base_dir or Path.cwd()).resolve()
     files, missing = collect_target_files(target_paths, root)
     violations: list[Violation] = []
     page_records: list[PageClassRecord] = []
 
     for file_path in files:
-        rel_file = _relative_display(file_path, root)
-        raw_text = file_path.read_text(encoding="utf-8-sig", errors="ignore")
-        is_python = file_path.suffix.lower() == ".py"
-        clean_text = _strip_comments(raw_text, is_python)
-
-        violations.extend(_check_arbitrary_waits(rel_file, clean_text))
-        violations.extend(_check_fragile_selectors(rel_file, clean_text))
-        violations.extend(_check_hidden_assertions(rel_file, clean_text))
-        violations.extend(_check_jsdom_geometry(rel_file, raw_text, clean_text))
-        extractor = _extract_py_page_classes if is_python else _extract_ts_page_classes
-        page_records.extend(extractor(rel_file, clean_text))
+        violations.extend(_audit_single_file(file_path, root, page_records))
 
     violations.extend(_evaluate_page_records(page_records))
     violations.sort(key=lambda item: (item.file, item.line, item.rule_id))
@@ -475,13 +839,16 @@ def audit_paths(
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Linter estático QA-11X de antipatrones UI (QA-UI-ANTI-001..005)."
+        description=(
+            "Linter estático QA-11X de antipatrones UI/Python "
+            "(QA-UI-ANTI-001..005 / QA-PY-ANTI-001..003)."
+        )
     )
     parser.add_argument(
         "paths",
         nargs="*",
-        default=["vue3", "react-frontend"],
-        help="Archivos o directorios objetivo (por defecto: vue3 react-frontend).",
+        default=[],
+        help="Archivos o directorios objetivo (si se omite, autodetecta en workspace).",
     )
     parser.add_argument(
         "--json",
@@ -489,6 +856,36 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Emite el reporte estructurado en formato JSON.",
     )
     return parser
+
+
+def _resolve_cli_paths(
+    raw_paths: Sequence[str], root: Path
+) -> tuple[list[str], bool]:
+    if raw_paths:
+        return list(raw_paths), False
+    return [d for d in AUTO_DETECT_DIRS if (root / d).is_dir()], True
+
+
+def _emit_skipped_report(as_json: bool) -> int:
+    if as_json:
+        print(
+            json.dumps(
+                {
+                    "status": "skipped",
+                    "scanned_files": 0,
+                    "missing_paths": [],
+                    "violations": [],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+    else:
+        print(
+            "⚠️ [SKIPPED] [lint-antipatterns] Sin directorios auditables "
+            "detectados en workspace."
+        )
+    return 0
 
 
 def _emit_json_report(
@@ -527,7 +924,11 @@ def _emit_text_report(
 def main(argv: list[str] | None = None, base_dir: Path | None = None) -> int:
     """Punto de entrada CLI con salida Pass-Quiet / Fail-Verbose."""
     args = _build_parser().parse_args(argv)
-    violations, missing, scanned = audit_paths(args.paths, base_dir=base_dir)
+    root = (base_dir or Path.cwd()).resolve()
+    target_paths, auto_mode = _resolve_cli_paths(args.paths, root)
+    if auto_mode and not target_paths:
+        return _emit_skipped_report(bool(args.json))
+    violations, missing, scanned = audit_paths(target_paths, base_dir=root)
     if args.json:
         _emit_json_report(violations, missing, scanned)
     else:

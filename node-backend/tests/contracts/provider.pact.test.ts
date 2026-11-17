@@ -73,8 +73,26 @@ function isJsonObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function canonicalizeJsonValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => canonicalizeJsonValue(item));
+  }
+  if (!isJsonObject(value)) {
+    return value;
+  }
+  const sorted: Record<string, unknown> = {};
+  for (const key of Object.keys(value).sort()) {
+    const entry = value[key];
+    if (entry !== undefined) {
+      sorted[key] = canonicalizeJsonValue(entry);
+    }
+  }
+  return sorted;
+}
+
 function sha256Canonical(value: unknown): string {
-  return crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
+  const serialized = JSON.stringify(canonicalizeJsonValue(value));
+  return crypto.createHash("sha256").update(serialized).digest("hex");
 }
 
 function createInitialSnapshot(): ProviderStateSnapshot {
@@ -341,7 +359,20 @@ async function startEphemeralProvider(
 ): Promise<{ baseUrl: string; close: () => Promise<void> }> {
   const state = createInitialSnapshot();
   const server = http.createServer((req, res) => {
-    void routeProviderRequest(state, faultMode, req, res);
+    routeProviderRequest(state, faultMode, req, res).catch((err: unknown) => {
+      if (!res.headersSent) {
+        const detail = err instanceof Error ? err.message : "Unhandled provider error";
+        sendProblem(
+          res,
+          500,
+          "https://qa-11x.internal/problems/provider-error",
+          "Internal Server Error",
+          detail,
+        );
+      } else {
+        res.end();
+      }
+    });
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
@@ -625,6 +656,33 @@ describe("Node Inventory Provider — Pact V4 Contract Verification (Zero-Infra)
         body: JSON.stringify({ state: "unregistered_state" }),
       });
       assert.equal(stateRes.status, 400);
+
+      const idemKey = "550e8400-e29b-41d4-a716-446655440011";
+      const headers = {
+        "Content-Type": "application/json",
+        "X-Tenant-ID": "tenant-acme",
+        "Idempotency-Key": idemKey,
+      };
+      const resA = await fetch(`${provider.baseUrl}/api/v1/reservations`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          sku: "ROUTER-CCR2004",
+          unitPrice: "149.95",
+          metadata: { zeta: 2, alpha: 1 },
+        }),
+      });
+      assert.equal(resA.status, 201);
+      const resReordered = await fetch(`${provider.baseUrl}/api/v1/reservations`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          metadata: { alpha: 1, zeta: 2 },
+          unitPrice: "149.95",
+          sku: "ROUTER-CCR2004",
+        }),
+      });
+      assert.equal(resReordered.status, 201);
     } finally {
       await provider.close();
     }

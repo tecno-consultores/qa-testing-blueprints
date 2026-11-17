@@ -9,7 +9,7 @@ description: >-
 
 # QA 11X Screenplay Builder (`qa-11x-screenplay-builder`)
 
-> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Unless the target repository's `AGENTS.md` explicitly mandates a fixed output language, respond and explain reasoning in the **user's prompt language**, and write commit messages / human-facing documentation matching the **existing language of `README.md` and `CHANGELOG.md`** (explicitly ignoring `AGENTS.md` and `.agents/**`, which remain in concise English for token economy; default to the prompt language on empty repos).
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Respond in **user's prompt language** (unless `AGENTS.md` fixes it); docs/commits match `README.md`/`CHANGELOG.md` (Spec 19; `.agents/**` English).
 
 Proportional E2E and acceptance test architecture sub-skill for Standard 11X (`qa-11x-architect`), preventing brittle God Page Objects and unnecessary enterprise boilerplate by matching pattern complexity to domain scope while enforcing real-browser geometry, semantic locators, Anti-Silo verification, and 3-phase temporal assertions.
 

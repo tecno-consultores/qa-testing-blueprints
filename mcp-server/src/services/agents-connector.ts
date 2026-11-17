@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { OutputLanguageMode } from '../types.js';
+
+const UTF8 = 'utf-8';
 
 export const CONNECTOR_START_MARKER = '<!-- QA_11X_MCP_CONNECTOR_START -->';
 export const CONNECTOR_END_MARKER = '<!-- QA_11X_MCP_CONNECTOR_END -->';
 
-export type ConnectorLang = 'es' | 'en';
+export type ConnectorLang = OutputLanguageMode;
 export type ConnectorMergeAction = 'created' | 'appended' | 'updated_block';
 
 export interface DelimitedSectionSpec {
@@ -17,11 +20,6 @@ export interface DelimitedSectionSpec {
   readonly emptyDocument: string;
   readonly appendSeparator: string;
 }
-
-const COMPACT_LANGUAGE_CONSTRAINTS: Readonly<Record<ConnectorLang, string>> = Object.freeze({
-  es: 'Always interact with the user, provide status updates, explain reasoning, and write commit messages / user-facing documentation in Spanish (español), while keeping internal `.agents/` directives in concise technical English for token economy.',
-  en: 'Always interact with the user, provide status updates, explain reasoning, and write commit messages / user-facing documentation in English, while keeping internal `.agents/` directives in high-density technical English for token economy.',
-});
 
 export function resolveProjectDisplayName(resolvedPath: string): string {
   return path.basename(resolvedPath) || 'Project';
@@ -137,7 +135,7 @@ export function mergeOrAppendAgentsMdContent(
   lang: OutputLanguageMode = 'auto'
 ): { finalContent: string; action: ConnectorMergeAction; changes: string[] } {
   const block = buildThinConnectorBlock(projectName, stacks, lang);
-  const header = `# SPDX-License-Identifier: MIT\n# Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)\n\n# 🤖 AI Agent Directives & Technical Governance — ${projectName}\n\n`;
+  const header = `# SPDX-License-Identifier: MIT\n<!-- QA-11X Standard Governance -->\n\n# 🤖 AI Agent Directives & Technical Governance — ${projectName}\n\n`;
   const result = replaceDelimitedSection(existingContent, {
     startMarker: CONNECTOR_START_MARKER,
     endMarker: CONNECTOR_END_MARKER,
@@ -158,7 +156,7 @@ export function mergeGlobalGeminiContent(
 ): string {
   const block = buildGlobalGeminiBlock(lang);
   const header =
-    '# SPDX-License-Identifier: MIT\n# Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)\n\n# 🤖 Global AI Agent Directives — QA 11X Standard (`@sinfallas/mcp-qa-11x`)\n\n';
+    '# SPDX-License-Identifier: MIT\n<!-- QA-11X Standard Governance -->\n\n# 🤖 Global AI Agent Directives — QA 11X Standard (`@sinfallas/mcp-qa-11x`)\n\n';
   return replaceDelimitedSection(existingContent, {
     startMarker: CONNECTOR_START_MARKER,
     endMarker: CONNECTOR_END_MARKER,
@@ -168,40 +166,25 @@ export function mergeGlobalGeminiContent(
   }).finalContent;
 }
 
-export function buildAgentsMdConnectorBlock(
-  projectName: string,
-  stacks: string[],
-  lang: ConnectorLang = 'es'
-): string {
-  const stacksLabel = stacks.length > 0 ? stacks.join(', ') : 'general';
-  return [
-    CONNECTOR_START_MARKER,
-    '## 🤖 Central QA 11X Skill & MCP Server Connector (`@sinfallas/mcp-qa-11x`)',
-    '',
-    `> **OUTPUT LANGUAGE CONSTRAINT:** ${COMPACT_LANGUAGE_CONSTRAINTS[lang]}`,
-    '',
-    `This project (\`${projectName}\`) enforces the **Level-11X Quality & DevSecOps Standard** (stacks: \`${stacksLabel}\`).`,
-    '',
-    '1. **High-IQ Token Economy & AST-First:** Query `inspect_ast_blast_radius` / `.agents/scripts/inspect_blast_radius.py` and `graphify-out/GRAPH_REPORT.md` BEFORE `grep` or windowed `read_file` (40–80 lines); never read files `>150` lines blindly.',
-    '2. **Rule Zero & Test Co-Evolution (`QA-TEST-SYNC-01`):** Execute all tests, linters, and migrations inside ephemeral Docker containers (`run_ephemeral_qa`), updating affected unit, integration, BATS, and Karate BDD suites alongside code edits (`>= 95%` coverage).',
-    '3. **3-Path Execution & Governance Closure (`QA-GIT-GATE-01`):** Follow `DOCS_ONLY`, `MICRO_CHANGE`, or `FULL_11X`, record state via `session_flight_recorder` (`save`/`recover`/`clear`, auto-projecting `.agents/ACTIVE_TASK.md` `<= 40` lines), certify via `certify_11x_gate`, and conclude with a local `git commit` (NEVER execute `git push` or `npm publish` without explicit human authorization).',
-    CONNECTOR_END_MARKER,
-  ].join('\n');
-}
+export const buildAgentsMdConnectorBlock = buildThinConnectorBlock;
+export const mergeAgentsMdContent = mergeOrAppendAgentsMdContent;
 
-export function mergeAgentsMdContent(
-  existingContent: string,
-  projectName: string,
-  stacks: string[],
-  lang: ConnectorLang = 'es'
-): { finalContent: string; action: ConnectorMergeAction } {
-  const block = buildAgentsMdConnectorBlock(projectName, stacks, lang);
-  const header = `# SPDX-License-Identifier: MIT\n\n# 🤖 AI Agent Directives & Technical Governance — ${projectName}\n\n`;
-  return replaceDelimitedSection(existingContent, {
-    startMarker: CONNECTOR_START_MARKER,
-    endMarker: CONNECTOR_END_MARKER,
-    block,
-    emptyDocument: `${header}${block}\n`,
-    appendSeparator: '\n\n---\n\n',
-  });
+export function syncGlobalGeminiMd(
+  homeDir: string,
+  dryRun = false,
+  lang: OutputLanguageMode = 'auto'
+): { updated: boolean; geminiMdPath: string } {
+  const geminiDir = path.join(homeDir, '.gemini');
+  const geminiMdPath = path.join(geminiDir, 'GEMINI.md');
+  if (!fs.existsSync(geminiDir)) {
+    return { updated: false, geminiMdPath };
+  }
+
+  const existing = fs.existsSync(geminiMdPath) ? fs.readFileSync(geminiMdPath, UTF8) : '';
+  const finalContent = mergeGlobalGeminiContent(existing, lang);
+
+  if (!dryRun) {
+    fs.writeFileSync(geminiMdPath, finalContent, UTF8);
+  }
+  return { updated: true, geminiMdPath };
 }

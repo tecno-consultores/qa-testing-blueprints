@@ -63,7 +63,8 @@ Feature: Contratos BDD HTTP, Cabeceras OWASP OSHP, Rutas SPA/SSG y SEO para Reac
     Then status 200
     * string pageText = response
     * assert !pageText.contains('Traceback')
-    * assert !pageText.contains('__NEXT_DATA__')
+    * assert !pageText.contains('__NEXT_ERROR__')
+    * assert !pageText.contains('Application error: a client-side exception')
     * match pageText !contains '#regex [0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}'
 
   # ==============================================================================

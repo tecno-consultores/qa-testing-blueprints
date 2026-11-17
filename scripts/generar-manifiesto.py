@@ -87,7 +87,9 @@ DEFAULT_BLUEPRINT_VERSION = "3.1.0"
 
 
 def build_manifest(
-    repo_root: Path, generated_at_utc: str | None = None
+    repo_root: Path,
+    generated_at_utc: str | None = None,
+    existing_manifest: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Construye el diccionario completo del manifiesto con orden determinista."""
     timestamp = generated_at_utc or datetime.datetime.now(datetime.UTC).strftime(
@@ -96,8 +98,16 @@ def build_manifest(
     fallback = DEFAULT_BLUEPRINT_VERSION or _SYNC_DEFAULT_BLUEPRINT_VERSION
     blueprint_version = get_blueprint_version(repo_root, fallback=fallback)
 
+    prev = existing_manifest or {}
+    raw_stacks = prev.get("stacks", {})
+    existing_stacks = raw_stacks if isinstance(raw_stacks, dict) else {}
+    raw_common = prev.get("common_files", [])
+    existing_common = raw_common if isinstance(raw_common, list) else []
+    raw_gov = prev.get("agent_governance_files", [])
+    existing_gov = raw_gov if isinstance(raw_gov, list) else []
+
     stacks_dict = {
-        stack_name: _build_single_stack_entry(repo_root, stack_name, {})
+        stack_name: _build_single_stack_entry(repo_root, stack_name, existing_stacks)
         for stack_name in sorted(STACK_METADATA)
     }
 
@@ -109,8 +119,10 @@ def build_manifest(
         "default_branch": DEFAULT_BRANCH,
         "raw_base_url": RAW_BASE_URL,
         "stacks": stacks_dict,
-        "common_files": scan_common_files(repo_root),
-        "agent_governance_files": scan_agent_governance_files(repo_root),
+        "common_files": scan_common_files(repo_root, existing_entries=existing_common),
+        "agent_governance_files": scan_agent_governance_files(
+            repo_root, existing_entries=existing_gov
+        ),
     }
 
 
@@ -128,7 +140,9 @@ def verify_manifest(
 
     raw_ts = existing_manifest.get("generated_at_utc")
     ts = raw_ts if isinstance(raw_ts, str) else None
-    actual_manifest = build_manifest(repo_root, generated_at_utc=ts)
+    actual_manifest = build_manifest(
+        repo_root, generated_at_utc=ts, existing_manifest=existing_manifest
+    )
     diffs = compare_manifests(existing_manifest, actual_manifest)
     return len(diffs) == 0, diffs
 

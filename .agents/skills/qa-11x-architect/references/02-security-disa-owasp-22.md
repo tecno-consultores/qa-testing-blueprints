@@ -1,7 +1,6 @@
 # 🔐 The 22 Canonical Security Patterns (DISA ASD STIG V6R5 + OWASP Developer Guide v4.2)
 
-> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:**
-> Unless target `AGENTS.md` mandates a fixed language, interact in the **user's prompt language**; human docs use EN canonical (`*.md`) + 1:1 ES mirror (`*.es.md`) (matching `README.md`/`CHANGELOG.md` in consumer repos, defaulting to prompt language if empty); `.agents/**` stays concise English.
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Respond in **user's prompt language** (unless `AGENTS.md` fixes it); docs/commits match `README.md`/`CHANGELOG.md` (Spec 19; `.agents/**` English).
 
 This reference provides the comprehensive compliance matrix and tactical implementation blueprints for the **22 canonical security patterns** mandated across all 11X architectures.
 

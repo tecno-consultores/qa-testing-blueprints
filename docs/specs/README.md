@@ -2,7 +2,7 @@
 
 # 📐 Technical Specifications Index (ADRs & Specs `01..20`)
 
-Central bilingual index of all **20 technical specifications** governing **QA Testing Blueprints (`QA-11X v3.1`)**. Under the policy established in Spec 19 (§3.4), **Specs `01..18` are archived historical Spanish ADRs** preserved as immutable point-in-time records, while v3.0+ specifications (`19..20+`) and operational documentation follow the **English-Primary (`*.md`) + 1:1 Spanish Mirror (`*.es.md`)** architecture.
+Central bilingual index of all **20 technical specifications** governing **QA Testing Blueprints (`QA-11X v3.1`)**. Under the policy established in Spec 19 (§3, Rule 4), **Specs `01..18` are archived historical Spanish ADRs** preserved as immutable point-in-time records, while v3.0+ specifications (`19..20+`) and operational documentation follow the **English-Primary (`*.md`) + 1:1 Spanish Mirror (`*.es.md`)** architecture.
 
 ---
 
@@ -35,7 +35,7 @@ Central bilingual index of all **20 technical specifications** governing **QA Te
 
 ## 2. Maintenance Policy & Scope Clarifications (Spec 19)
 
-- **Historical Spanish Archival ADRs (`Specs 01–18`):** Preserved in Spanish as immutable architectural records (`v2.x` point-in-time design snapshots, exempt from bilingual EN/ES mirroring per [`19_SPEC`](19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md) §3.4). Only archival notices, unified status headers (`IMPLEMENTED AND CERTIFIED` / `IMPLEMENTADO Y CERTIFICADO`), and moved document paths (such as `docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`) are maintained to guarantee zero broken links.
+- **Historical Spanish Archival ADRs (`Specs 01–18`):** Preserved in Spanish as immutable architectural records (`v2.x` point-in-time design snapshots, exempt from bilingual EN/ES mirroring per [`19_SPEC`](19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md) §3, Rule 4). Only archival notices, unified status headers (`IMPLEMENTED AND CERTIFIED` / `IMPLEMENTADO Y CERTIFICADO`), and moved document paths (such as `docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`) are maintained to guarantee zero broken links.
 - **v3.0+ Specifications & Stack Blueprints (`Specs 19–20+`):** Authored and maintained as canonical English (`*.md`) + 1:1 Spanish Mirror (`*.es.md`) pairs linked from [`README.md`](../../README.md) (and its Spanish mirror `README.es.md`), reflecting the active **19 Tools**, **13 Resources**, **11 modular skills**, and **10 stacks** surface.
 
 ### `16_SPEC` Implementation Scope vs. Roadmap Milestone 21 (`verify_diff_coverage.py`)

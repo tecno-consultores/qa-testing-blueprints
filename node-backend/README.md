@@ -12,10 +12,10 @@
 *   For black-box BDD tests: `sinfallas/karatelabs:1.5.1`.
 *   For Dynamic Security (DAST): `zaproxy/zap-stable:2.15.0`.
 *   For Chaos Engineering & Observability: `gaiaadm/pumba:0.10.1` and `prom/prometheus:v2.55.1`.
-*   For AI Context Optimization (MCP): `sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0`.
+*   For Ephemeral AST Graph Extraction (Graphify CLI): `sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0`.
 
-**Package Manager and Zero-Trust:** Our base image replaces `npm` with `pnpm`. Container installation automatically blocks execution of malicious third-party scripts (via `ignore-scripts=true` in `.npmrc`).
-**Mandatory:** Use clean execution targets (e.g., `make qa-unit`) to isolate infrastructure and reuse the dependency cache (`pnpm-store`). The container has the `SYS_PTRACE` capability enabled to attach memory *profilers*.
+**Package Manager and Zero-Trust:** Our base image replaces `npm` with `pnpm` v12 (`ignore-scripts=true` in `.npmrc` and allowlisted build trust via `pnpm-workspace.yaml#allowBuilds`).
+**Mandatory:** Use clean execution targets (e.g., `make qa-unit`) to isolate infrastructure, run non-root with `no-new-privileges:true`, and reuse the dependency cache (`pnpm-store`).
 
 ## 2. Tech Stack & Separation of Responsibilities
 
@@ -54,7 +54,7 @@
 *   **Rule:** Executed exclusively via the `--profile chaos` profile. Pumba injects 500ms of unpredictable network latency onto the Node.js container while `Artillery` sends waves of concurrent users and Prometheus scrapes metrics. It certifies that the architecture neither collapses nor enters permanent *timeouts* when networking degrades.
 
 ### I. Smart Ingestion (Step 0 - AST Graphify `CLI-First`)
-*   **Rule (Exclusive to you, AI):** You are strictly forbidden from generating code or tests blindly. Your first step must be updating and inspecting the AST graph via CLI (`./scripts/actualizar-grafos-graphify.sh node-backend` and `python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"`, or the `inspect_ast_blast_radius` MCP tool) without starting background daemons occupying port `8080`. Additionally, you MUST silently read dependency, formatting, and linter rules defined in `package.json`, `eslint.config.mjs`, `.prettierrc`, and `tsconfig.json` to adapt your code to strict repository conventions and avoid CI/CD rejections.
+*   **Rule (Exclusive to you, AI):** You are strictly forbidden from generating code or tests blindly. Your first step must be updating and inspecting the AST graph via CLI (`./scripts/actualizar-grafos-graphify.sh node-backend` and `python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"`, or the `inspect_ast_blast_radius` MCP tool) without starting background daemons occupying port `8080`. Additionally, you MUST silently read dependency, formatting, and linter rules defined in `package.json`, `eslint.config.mjs`, `.prettierrc`, `tsconfig.json`, and `tsconfig.build.json` to adapt your code to strict repository conventions and avoid CI/CD rejections.
 
 ### J. Mandatory Security by Design (DISA ASD STIG V6R5 & OWASP Developer Guide v4.2)
 *   When programming or auditing Node.js/TypeScript microservices, you MUST apply and test the controls from **[`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`](../docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md)**:
@@ -107,12 +107,12 @@ make qa-e2e
 
 *   **Dynamic Security DAST (OWASP ZAP):**
 ```bash
-docker compose -f docker-compose.qa.yml run --rm zap zap-baseline.py -t http://api:3000 -r zap-report.html
+make qa-dast
 ```
 
 *   **Cumulative Profiling (CPU Flamegraph):**
 ```bash
-docker compose -f docker-compose.qa.yml run --rm qa-node-backend bash -c "pnpm install && pnpm run profile:cpu"
+docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-node-backend bash -c "pnpm run profile:cpu"
 ```
 
 **Step 3: Level-11X Certification (Chaos Engineering & Observability)**

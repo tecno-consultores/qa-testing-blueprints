@@ -4,31 +4,37 @@
 # MAKEFILE QA PHP 8.2-8.5 (ESTÁNDAR CORPORATIVO 11X)
 # ==============================================================================
 
-COMPOSE_FILE = docker-compose.qa.yml
-SERVICE_NAME = qa-php
+COMPOSE_FILE ?= docker-compose.qa.yml
+SERVICE_NAME ?= qa-php
+PROJECT_DIR ?= $(CURDIR)
+QA_UID ?= $(shell id -u)
+QA_GID ?= $(shell id -g)
+export QA_UID QA_GID
 
 qa-lint:
 	@echo "🔍 [11X] Ejecutando PHP-CS-Fixer, PHPStan (Max), Psalm Taint y Composer Audit..."
-	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) sh -c "[ -f vendor/autoload.php ] || composer install --no-interaction --prefer-dist --quiet; composer --quiet run-script qa:lint"
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) sh -c "[ -f vendor/autoload.php ] || composer install --no-interaction --prefer-dist --quiet; composer --quiet run-script qa:lint"
 
 qa-unit:
 	@echo "🧪 [11X] Ejecutando Pruebas Unitarias Aisladas con PCOV y Cobertura >= 95% (Pest/PHPUnit)..."
-	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) sh -c "[ -f vendor/autoload.php ] || composer install --no-interaction --prefer-dist --quiet; composer run-script qa:unit"
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) sh -c "[ -f vendor/autoload.php ] || composer install --no-interaction --prefer-dist --quiet; composer run-script qa:unit"
 
 qa-parity:
 	@echo "🗄️ [11X] Verificando paridad de esquema y migraciones con PostgreSQL 17..."
-	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) sh -c "\
-		if [ -f bin/console ]; then \
-			php bin/console doctrine:schema:validate --skip-sync; \
-		elif [ -f artisan ]; then \
-			php artisan migrate:status; \
-		else \
-			echo '✔ [PHP Parity] Sin consola ORM (Doctrine/Laravel); paridad aprobada.'; \
-		fi"
+	@bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" down -v >/dev/null 2>&1 || true" EXIT; \
+		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" up -d --wait postgres-qa keydb-qa && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) sh -c "\
+			if [ -f bin/console ]; then \
+				php bin/console doctrine:schema:validate --skip-sync; \
+			elif [ -f artisan ]; then \
+				php artisan migrate:status; \
+			else \
+				echo \"✔ [PHP Parity] Sin consola ORM (Doctrine/Laravel); paridad aprobada.\"; \
+			fi"'
 
 qa-contracts:
 	@echo "📐 [11X] Verificando contratos de esquema OpenAPI 3.1..."
-	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) sh -c "\
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) sh -c "\
 		if [ -f vendor/bin/openapi ]; then \
 			./vendor/bin/openapi src/ -o openapi.json --format json; \
 		else \
@@ -37,32 +43,35 @@ qa-contracts:
 
 qa-bdd:
 	@echo "📚 [11X] Ejecutando Pruebas BDD de Caja Negra (Karate Labs API)..."
-	@docker compose -f $(COMPOSE_FILE) up -d postgres-qa keydb-qa qa-php
-	@docker compose -f $(COMPOSE_FILE) run --rm karatelabs mvn -B clean test
+	@bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" down -v >/dev/null 2>&1 || true" EXIT; \
+		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" up -d --wait postgres-qa keydb-qa qa-php && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T karatelabs mvn -B clean test'
 
 qa-mutation:
 	@echo "👽 [11X] Ejecutando Pruebas de Mutación con Infection (MSI >= 80%)..."
-	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) sh -c "[ -f vendor/autoload.php ] || composer install --no-interaction --prefer-dist --quiet; composer run-script qa:mutation"
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) sh -c "[ -f vendor/autoload.php ] || composer install --no-interaction --prefer-dist --quiet; composer run-script qa:mutation"
 
 qa-dast:
 	@echo "🛡️ [11X] Ejecutando Auditoría Dinámica DAST y Verificación OSHP (OWASP ZAP)..."
-	@docker compose -f $(COMPOSE_FILE) up -d postgres-qa keydb-qa qa-php
-	@docker compose -f $(COMPOSE_FILE) run --rm zap zap-baseline.py -t http://qa-php:8000 -r zap-report.html
+	@bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" down -v >/dev/null 2>&1 || true" EXIT; \
+		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" up -d --wait postgres-qa keydb-qa qa-php && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp zap zap-baseline.py -t http://qa-php:8000 -r zap-report.html'
 
 qa-chaos:
 	@echo "💥 [11X] Ejecutando Ingeniería del Caos (Pumba + Prometheus)..."
-	@docker compose -f $(COMPOSE_FILE) --profile chaos up --abort-on-container-exit pumba
+	@bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" --profile chaos down -v >/dev/null 2>&1 || true" EXIT; \
+		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile chaos up --abort-on-container-exit pumba'
 
 qa-sbom:
 	@echo "📜 [11X] Generando SBOM CycloneDX 1.6 Criptográfico..."
-	@docker compose -f $(COMPOSE_FILE) run --rm $(SERVICE_NAME) sh -c "[ -f vendor/autoload.php ] || composer install --no-interaction --prefer-dist --quiet; composer run-script qa:sbom"
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) sh -c "[ -f vendor/autoload.php ] || composer install --no-interaction --prefer-dist --quiet; composer run-script qa:sbom"
 
 qa-all: qa-lint qa-unit qa-parity qa-bdd qa-mutation qa-sbom
 	@echo "✅ Pipeline QA PHP 8.2-8.5 (Estándar 11X) completado exitosamente."
 
 clean-cache:
-	@docker compose -f $(COMPOSE_FILE) down -v >/dev/null 2>&1 || true
-	@docker compose -f $(COMPOSE_FILE) --profile chaos down -v >/dev/null 2>&1 || true
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" down -v >/dev/null 2>&1 || true
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile chaos down -v >/dev/null 2>&1 || true
 
 clean:
 	@./limpieza.sh

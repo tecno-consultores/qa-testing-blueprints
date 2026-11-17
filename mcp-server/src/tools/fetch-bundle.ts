@@ -1,9 +1,24 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
+import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { GitHubFetcher } from '../services/github-fetcher.js';
+import { GitHubFetcher, resolveSafeChildPath } from '../services/github-fetcher.js';
 import { FetchedFileItem } from '../types.js';
+
+function resolveBundleCachedPath(
+  localOverridePath: string | null,
+  cacheDir: string,
+  relPath: string
+): string {
+  if (localOverridePath) {
+    const localFile = resolveSafeChildPath(localOverridePath, relPath);
+    if (fs.existsSync(localFile)) {
+      return localFile;
+    }
+  }
+  return path.join(cacheDir, 'files', relPath);
+}
 
 export async function fetchBlueprintBundle(
   stack: string,
@@ -19,6 +34,10 @@ export async function fetchBlueprintBundle(
   const resolvedFetcher = fetcher || new GitHubFetcher();
   const rawFiles = await resolvedFetcher.fetchStackBundle(stack, includeCommonAndAgents);
   const cacheDir = resolvedFetcher.getCacheDir();
+  const localOverridePath =
+    typeof resolvedFetcher.getLocalOverridePath === 'function'
+      ? resolvedFetcher.getLocalOverridePath()
+      : null;
 
   if (includeContent) {
     return {
@@ -35,7 +54,7 @@ export async function fetchBlueprintBundle(
     content: '',
     sha256_verified: item.sha256_verified,
     size_bytes: Buffer.byteLength(item.content, 'utf-8'),
-    cached_path: path.join(cacheDir, 'files', item.path),
+    cached_path: resolveBundleCachedPath(localOverridePath, cacheDir, item.path),
   }));
 
   return {

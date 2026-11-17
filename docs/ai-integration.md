@@ -15,7 +15,7 @@ For an agent to understand corporate constraints in real time, blueprints must b
   ./scripts/actualizar-grafos-graphify.sh
 
   # 2. Query exact file:L<line> location, incoming callers, and outgoing callees
-  python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"
+  python3 .agents/scripts/inspect_blast_radius.py "<symbol>"
 ```
 * **CLI-First / MCP `stdio` Invariant:** Both console-capable agents (Antigravity, Claude Code, Cursor) and agents connected to `@sinfallas/mcp-qa-11x` (`inspect_ast_blast_radius`) query `graphify-out/graph.json` and `GRAPH_REPORT.md` directly without occupying TCP ports or leaving background daemons.
 * **Practical Example 2 (SHA-256 Verified Dynamic Resources):** The `@sinfallas/mcp-qa-11x` v3.1.0 MCP server exposes **13 MCP resources (`blueprint://*`: 11 static via `resources/list` + 2 dynamic templates via `resources/templates/list`)** and **19 MCP tools** covering **10 hydratable stacks + `architecture/` + `mcp-server/` (= 12 matrix environments)** (including `mobile-appium` on `sinfallas/base-mobile-appium:26`). When an agent detects a FastAPI stack, it queries `blueprint://fastapi/readme` and `blueprint://database/postgres-rls-worm`, receiving templates cryptographically verified against `manifest.json`.
@@ -50,11 +50,11 @@ The `qa-testing-blueprints` ecosystem is intentionally designed to be the AI's p
 
   ALLOWED_TARGETS = {"qa-lint", "qa-unit", "qa-bdd", "qa-e2e", "qa-all", "clean"}
 
-  def ejecutar_comando_qa(comando: str) -> str:
-      partes = shlex.split(comando)
-      if len(partes) == 2 and partes[0] == "make" and partes[1] in ALLOWED_TARGETS:
-          resultado = subprocess.run(partes, shell=False, capture_output=True, text=True, check=False)
-          return resultado.stdout if resultado.returncode == 0 else resultado.stderr
+  def run_qa_command(command: str) -> str:
+      parts = shlex.split(command)
+      if len(parts) == 2 and parts[0] == "make" and parts[1] in ALLOWED_TARGETS:
+          result = subprocess.run(parts, shell=False, capture_output=True, text=True, check=False, timeout=300)
+          return result.stdout if result.returncode == 0 else result.stderr
       return "ERROR: Operation denied. Only allowlisted Makefile targets are permitted (shell=False, APSC-DV-002510)."
 ```
 
@@ -97,8 +97,8 @@ npx -y @sinfallas/mcp-qa-11x@latest install-skill --target [auto|workspace|antig
 # Or inject/update only QA 11X connectors in AGENTS.md and configured IDEs:
 npx -y @sinfallas/mcp-qa-11x@latest init-agents [--project-path <path>] [--lang auto|en|es] [--agents auto|all|<csv>] [--dry-run]
 
-# Normalize JUnit / Allure / SARIF reports into TMS systems or JSON bundles:
-npx -y @sinfallas/mcp-qa-11x@latest tms-sync [--provider jira|zephyr|xray|github-issues|json] [--report <path>] [--dry-run]
+# Synchronize BDD inventory or push JUnit XML results to enterprise TMS providers:
+npx -y @sinfallas/mcp-qa-11x@latest tms-sync --mode <inventory|push-results|pull-stories> --provider jira|zephyr|xray|github-issues [--junit-xml <path>] [--json] [--dry-run]
 
 # Start the MCP server directly over stdio (invoked by AI clients; on interactive TTY syncs skills and exits 0, or use --stdio):
 npx -y @sinfallas/mcp-qa-11x@latest [--stdio]
@@ -185,23 +185,23 @@ mcp_servers:
 | :--- | :--- | :--- |
 | **`inspect_project_config`** | `project_path` | Audits present stacks (`python`, `fastapi`, `node`, `vue3`, `react`, `bash`, `php`, `ai-evals`, `mobile-appium`, `vibe-rescue`), linters, E2E readiness (`BrowserTestingReadiness`), and `update_available` status (`.qa-11x-version` + 24 h fail-open TTL cache). |
 | **`fetch_blueprint_bundle`** | `stack`, `include_common_and_agents`, `include_content` | Fetches stack files on demand with SHA-256 cryptographic verification (supports lightweight index mode `include_content: false` saving ~50,000 tokens — see [`13_SPEC`](specs/13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md)). |
-| **`bootstrap_or_merge_11x`** | `project_path`, `stack`, `dry_run` | Applies a non-destructive surgical merge injecting QA configs without altering dependencies. |
+| **`bootstrap_or_merge_11x`** | `project_path`, `stack`, `dry_run`, `create_backup` | Applies a non-destructive surgical merge injecting QA configs without altering dependencies (creates `.11x-backup` snapshots by default). |
 | **`inspect_ast_blast_radius`** | `project_path`, `target_symbol`, `changed_since_ref`, `max_tokens_budget`, `max_items`, `auto_build_if_missing`, `refresh_graph` | Queries the AST graph (`graphify-out/graph.json` and `GRAPH_REPORT.md`) bidirectionally or differentially (`git diff` + AST + 4-level semantic pruning) for both Code Q&A and pre-refactor impact analysis (`LOW` with `< 5` callers for `MICRO_CHANGE`). |
 | **`clean_workspace_11x`** | `project_path`, `dry_run`, `deep_prune` | Sanitizes temporary test artifacts and Docker caches (supports dry-run simulation and Alpine fallback). |
-| **`audit_security_stig_owasp`**| `project_path`, `max_findings`, `include_content` | Statically audits 34 static scanner rules (`SEC-01` to `SEC-16`, `SEC-CI-ACTION-REF`, `QA-*`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `UI-11X-01..03`) backing the 22 DISA ASD STIG V6R5 + OWASP v4.2 reference controls, with compact grouping (`groupFindingsByRule`) and `metadata-only` support. |
+| **`audit_security_stig_owasp`**| `project_path`, `max_findings`, `include_examples` | Statically audits 34 static scanner rules (`SEC-01` to `SEC-16`, `SEC-CI-ACTION-REF`, `QA-*`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `UI-11X-01..03`) backing the 22 DISA ASD STIG V6R5 + OWASP v4.2 reference controls, with compact grouping (`groupFindingsByRule`) and `include_examples` opt-in. |
 | **`run_ephemeral_qa`** | `project_path`, `stage`, `timeout_seconds`, `skip_if_docs_only` | Runs `Makefile` targets in ephemeral Docker under Rule Zero and condenses output to JSON (supports `skip_if_docs_only` and `BREAKER-42` circuit breakers). |
-| **`certify_11x_gate`** | `project_path` | Executes the closure certification gate (secrets, JSON, UI components, ORM, STIG, Dual-Consumer docs parity, and `update_available` notice). |
+| **`certify_11x_gate`** | `project_path`, `require_lint_evidence`, `strict`, `allow_unmerged_examples` | Executes the closure certification gate (secrets, JSON, UI components, ORM, STIG, Dual-Consumer docs parity, lint evidence seal, and `update_available` notice). |
 | **`audit_test_pyramid_gaps`** | `project_path`, `stack`, `max_items` | Statically audits the 13 layers of the 11X pyramid (`L01` to `L13`, including 3-Phase Temporal Cycle in `L13` and Dual Refresh in `L07`), detects orphan files, endpoints without BDD, views without E2E, and generates a prioritized rescue plan bounded by `max_items`. |
 | **`init_or_append_agents_md`** | `project_path`, `dry_run`, `lang`, `agents` | Creates `AGENTS.md` or additively appends the QA 11X connector block (`--lang auto|es|en`, `--agents auto|all|<csv>`) and Thin-Repo bridges (`<= 15` lines) for 28 agents without overwriting prior rules. |
-| **`propose_skill_evolution_pr`** | `project_path`, `target_blueprint_file`, `target_human_doc_file`, `target_mcp_component`, `improvement_title`, `empirical_rationale`, `proposed_content_or_snippet`, `proposed_human_doc_summary`, `prefer_offline_fallback` | Proposes federated **Dual-Consumer** improvements (AI Skill + MCP Auditor + Human Manual in `docs/01..04_*.md`) to `qa-testing-blueprints` via authenticated local `gh` CLI or generates a local proposal with 3-layer matrix and prefilled GitHub URL. |
+| **`propose_skill_evolution_pr`** | `project_path`, `target_blueprint_file`, `target_human_doc_file`, `target_mcp_component`, `improvement_title`, `empirical_rationale`, `proposed_content_or_snippet`, `proposed_human_doc_summary`, `dry_run`, `prefer_offline_fallback` | Proposes federated **Dual-Consumer** improvements (AI Skill + MCP Auditor + Human Manual in `docs/01..04_*.md`) to `qa-testing-blueprints` via authenticated local `gh` CLI or generates a local proposal with 3-layer matrix and prefilled GitHub URL. |
 | **`reconcile_agents_governance`** | `project_path`, `dry_run` | Reconciles and deduplicates `.agents/` rules for adopting projects, pruning global directives already promoted to `qa-testing-blueprints`, isolating domain rules in `domain_<project>_rules.md`, and backing up in `.agents/backups/<timestamp>/`. |
-| **`validate_calm_architecture`** | `project_path`, `calm_file` | Validates **FINOS CALM** (*Architecture-as-Code*) schemas, 6 core nodes, 5 typed relationships, and 7 mandatory 11X controls. |
-| **`evaluate_release_gate`** | `project_path`, `scope` | Computes quantitative `GO`/`NO_GO` verdicts (`>= 95%` coverage, Trivy `HIGH/CRITICAL = 0`, MSI, CALM, STIG; returns fail-closed `SKIPPED` on `smoke`). |
-| **`evaluate_agent_trajectory`** | `project_path`, `trace_path`, `mode` | Evaluates multi-step AI agent trajectories in deterministic offline mode (`AST-First`, hallucination rates, `QA-GIT-GATE-01`) or DeepEval in Docker. |
-| **`run_llm_red_team`** | `project_path`, `dry_run`, `run_live` | Audits Promptfoo **OWASP LLM Top 10** configs, `promptGuard` probes, and conditional Docker red-teaming (`SKIPPED_MISSING_CREDENTIALS` without keys). |
-| **`audit_vibe_prototype`** | `project_path`, `dry_run`, `enforce` | Inspects AI-generated scaffolds (`Bolt.new`, `Lovable`, `v0`, `Replit`) for `VIBE-SEC-001..QA-005` risks, secret leaks, and missing RLS/WORM. |
-| **`sync_enterprise_tms`** | `project_path`, `provider`, `report_path`, `dry_run` | Normalizes JUnit XML / Allure / SARIF results into **Jira**, **Zephyr Scale**, **Xray**, **GitHub Issues**, or JSON bundles guarded by `TaskStateGuard` and anti-SSRF. |
-| **`session_flight_recorder`** | `project_path`, `action`, `task_id`, `step`, `intent`, `done`, `planned` | *(v3.1)* Atomic Flight Recorder (`save` \| `recover` \| `clear`) managing `.agents/.cache/session_checkpoint.json` (`0600`) -> deterministic `<= 40`-line `.agents/ACTIVE_TASK.md` projection + live Git cross-check. |
+| **`validate_calm_architecture`** | `workspaceRoot`, `architecturePath` | Validates **FINOS CALM** (*Architecture-as-Code*) schemas, 6 core nodes, 5 typed relationships, and 7 mandatory 11X controls. |
+| **`evaluate_release_gate`** | `workspaceRoot`, `scope`, `dryRun`, `enforce`, `junitXmlPath`, `telemetryJsonPath`, `defectsJsonPath`, `thresholds` | Computes quantitative `GO`/`NO_GO` verdicts (`>= 95%` coverage, Trivy `HIGH/CRITICAL = 0`, MSI, CALM, STIG; returns fail-closed `SKIPPED` on `smoke`). |
+| **`evaluate_agent_trajectory`** | `mode`, `workspaceRoot`, `testPath`, `steps`, `requiredSequence`, `actualOutput`, `retrievalContext`, `enforceAstBeforeEdit`, `timeoutMs` | Evaluates multi-step AI agent trajectories in deterministic offline mode (`AST-First`, hallucination rates, `QA-GIT-GATE-01`) or DeepEval in Docker. |
+| **`run_llm_red_team`** | `mode`, `workspaceRoot`, `configPath`, `timeoutMs` | Audits Promptfoo **OWASP LLM Top 10** configs, `promptGuard` probes, and conditional Docker red-teaming (`SKIPPED_MISSING_CREDENTIALS` without keys). |
+| **`audit_vibe_prototype`** | `targetDir`, `workspaceRoot`, `dryRun`, `remediationSubdir`, `maxLines`, `enforce` | Inspects AI-generated scaffolds (`Bolt.new`, `Lovable`, `v0`, `Replit`) for `VIBE-SEC-001..QA-005` risks, secret leaks, and missing RLS/WORM. |
+| **`sync_enterprise_tms`** | `mode`, `provider`, `targetDir`, `junitXmlPath`, `baseUrl`, `projectKey`, `issueKey`, `testExecutionKey`, `repo`, `requiredKeys`, `dryRun`, `timeoutMs`, `workspaceRoot` | Validates `@JIRA`/`@TC` traceability inventories and pushes JUnit XML results to **Jira**, **Zephyr Scale**, **Xray**, or **GitHub Issues** guarded by `TaskStateGuard` and anti-SSRF. |
+| **`session_flight_recorder`** | `project_path`, `action`, `task_id`, `active_step`, `intent_140chars`, `completed_steps`, `planned_steps`, `allowed_globs`, `forbidden_globs`, `reason` | *(v3.1)* Atomic Flight Recorder (`save` \| `recover` \| `clear`) managing `.agents/.cache/session_checkpoint.json` (`0600`) -> deterministic `<= 40`-line `.agents/ACTIVE_TASK.md` projection + live Git cross-check. |
 
 ### 6.5. Global Auto-Sync on Startup, `update_available` Detection, and Cryptographic Validation
 
@@ -236,13 +236,17 @@ grep -rn '"version"' ~/.npm/_npx/*/node_modules/@sinfallas/mcp-qa-11x/package.js
 # 2. Check the manifest version and UTC timestamp in the local cache:
 grep -E '"blueprint_version"|"generated_at_utc"' ~/.cache/qa-11x-blueprints/manifest.json
 
-# 3. Validate that the SHA-256 hash of every Skill file installed in the IDE matches manifest.json:
-python3 -c '
+# 3. Validate inside ephemeral Docker (Rule Zero) that every Skill SHA-256 matches manifest.json:
+docker run --rm --network none -u "$(id -u):$(id -g)" -v "$(pwd):/app:ro" -w /app \
+  -v "${HOME}/.cache/qa-11x-blueprints:/cache:ro" \
+  -v "${HOME}/.gemini/config/skills:/skills:ro" \
+  sinfallas/base-python-uv:3.15 python3 -c '
 import hashlib, json, pathlib
-m = json.load(open(pathlib.Path.home() / ".cache/qa-11x-blueprints/manifest.json"))
+m = json.loads(pathlib.Path("/cache/manifest.json").read_text(encoding="utf-8"))
 skills = [f for f in m["agent_governance_files"] if f["path"].startswith(".agents/skills/")]
-dest = pathlib.Path.home() / ".gemini/config/skills"
+dest = pathlib.Path("/skills")
 ok = sum(1 for s in skills if (p := dest / s["path"].replace(".agents/skills/", "", 1)).exists() and hashlib.sha256(p.read_bytes()).hexdigest() == s["sha256"])
-print(f"✔ Skills in {dest}: {ok}/{len(skills)} files match manifest.json bit-for-bit (v{m[\"blueprint_version\"]})")
+ver = m["blueprint_version"]
+print(f"✔ Skills in {dest}: {ok}/{len(skills)} files match manifest.json bit-for-bit (v{ver})")
 '
 ```

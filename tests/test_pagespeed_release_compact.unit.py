@@ -4,12 +4,15 @@
 
 from __future__ import annotations
 
+import importlib
 import io
 import json
 import socket
 import sys
 import urllib.error
 import urllib.request
+import xml.etree.ElementTree as ET
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Self
 
@@ -17,6 +20,13 @@ import audit_pagespeed_insights as psi
 import compact_context_11x as cc
 import pytest
 import release_readiness_gate as rrg
+
+
+def _make_bad_json_fetcher(body: str) -> Callable[[str, int], tuple[int, str]]:
+    def _fetcher(_url: str, _timeout: int) -> tuple[int, str]:
+        return (200, body)
+
+    return _fetcher
 
 
 def _good_psi_payload() -> str:
@@ -240,24 +250,25 @@ def test_pagespeed_parsers_fetcher_paths_and_error_redaction(
     for raw_body in ("{broken", "[]"):
         _, rep_bad_json = psi.run_pagespeed_audit(
             psi.AuditOptions(url="https://ejemplo-publico.com", strategy="mobile"),
-            fetcher=lambda _u, _t, body=raw_body: (200, body),
+            fetcher=_make_bad_json_fetcher(raw_body),
             resolver=lambda _h: ["93.184.216.34"],
         )
         assert rep_bad_json["status"] == "FAILED"
 
+    fake_psi_key = "AIzaSuperSecret99"  # qa-secret-fixture-ok
     _, rep_net = psi.run_pagespeed_audit(
         psi.AuditOptions(
             url="https://ejemplo-publico.com",
             strategy="mobile",
-            api_key="AIzaSuperSecret99",
+            api_key=fake_psi_key,
         ),
         fetcher=lambda _u, _t: (_ for _ in ()).throw(
-            RuntimeError("fail ?key=AIzaSuperSecret99")
+            RuntimeError(f"fail ?key={fake_psi_key}")
         ),
         resolver=lambda _h: ["93.184.216.34"],
     )
     assert rep_net["status"] == "FAILED"
-    assert "AIzaSuperSecret99" not in json.dumps(rep_net)
+    assert fake_psi_key not in json.dumps(rep_net)
 
     with pytest.raises(ValueError, match="byte nulo"):
         psi.resolve_safe_output_path("bad\0.json", tmp_path)
@@ -455,6 +466,43 @@ def test_release_gate_full_signals_smoke_and_security_paths(
     assert rrg.evaluate_release_gate(workspace_root=ws, scope="bad")[0] == 1
 
 
+def test_release_gate_nested_testsuites_and_defusedxml_fallback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Cubre acumulación recursiva de <testsuite> anidados y fallback XML."""
+    ws = tmp_path / "nested_ws"
+    ws.mkdir()
+    nested_xml = (
+        '<testsuite name="root_group">'
+        '<testsuite name="empty_leaf"/>'
+        '<testsuite name="nested_ok" tests="2" failures="0" errors="0" skipped="1">'
+        '<testcase classname="s" name="ok"/>'
+        '<testcase classname="s" name="sk"><skipped/></testcase>'
+        "</testsuite>"
+        '<testsuite name="nested_fail" tests="1" failures="1" errors="0" skipped="0">'
+        '<testcase classname="s" name="bad"><failure/></testcase>'
+        "</testsuite>"
+        "</testsuite>"
+    )
+    (ws / "nested.xml").write_text(nested_xml, encoding="utf-8")
+    rc, rep = rrg.evaluate_release_gate(
+        workspace_root=ws, junit_xml="nested.xml", dry_run=False
+    )
+    assert rc == 1
+    assert rep["decision"] == "NO_GO"
+    junit_sig = rep["junit"]
+    assert junit_sig["total_tests"] == 3
+    assert junit_sig["failures"] == 1
+    assert junit_sig["skipped"] == 1
+
+    monkeypatch.setattr(
+        importlib,
+        "import_module",
+        lambda _name: (_ for _ in ()).throw(ImportError("missing defusedxml")),
+    )
+    assert rrg._resolve_xml_fromstring() is ET.fromstring
+
+
 def test_compact_context_tiers_anthropic_and_hardening(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -509,7 +557,7 @@ def test_compact_context_tiers_anthropic_and_hardening(
     res_giant = cc.compact_context(giant, context_window=200, threshold_ratio=0.90)
     assert res_giant.uncompactable_single_message is True
 
-    already_cleared = [
+    already_cleared: list[dict[str, Any]] = [
         {"role": "tool", "content": cc.CLEARED_TOOL_MARKER},
         {
             "role": "user",

@@ -10,7 +10,7 @@ Este documento resuelve las dudas arquitectónicas y los errores más comunes al
 Para garantizar **inmutabilidad y paridad absoluta con producción**. El problema de "en mi máquina sí funciona" suele deberse a versiones globales ocultas de Node, Python o variables de entorno residuales. Al forzar el uso de contenedores efímeros (a través de los comandos simplificados como `make qa-unit`), el entorno nace completamente virgen, utilizando cachés aislados, ejecuta la suite y se autodestruye.
 
 ### Lefthook bloqueó mi `git commit`, ¿qué hago?
-Nuestra política es **"Fail & Forbid" (Rechazo Educativo)**. Si Lefthook detectó errores de formato o un secreto *hardcodeado*, abortará tu commit. NO intentes evadirlo con `--no-verify`. Debes ejecutar el comando sugerido en la terminal (ej. `ruff format` o `Prettier`), revisar que el código haya quedado bien, y volver a intentar hacer commit.
+Nuestra política es **"Fail & Forbid" (Rechazo Educativo)**. Si Lefthook detectó errores de formato o un secreto *hardcodeado*, abortará tu commit. NO intentes evadirlo con `--no-verify`. Ejecuta el target Docker bajo Regla Cero (`make lint` en la raíz o `make qa-lint` dentro del contenedor del stack afectado), revisa que el código haya quedado limpio y vuelve a intentar hacer commit.
 
 ### Todo mi código funciona y mi cobertura está en 100%, ¿por qué el pipeline sigue arrojando fallo?
 Si superaste el 95% de cobertura, el pipeline ahora evalúa la **Deuda Técnica y Seguridad**. Es altamente probable que:
@@ -68,8 +68,10 @@ Los contenedores y gestores acumulan cachés masivos.
 **Solución:** Ejecuta el script maestro de saneamiento sin necesidad de `sudo`:
 ```bash
 ./scripts/limpieza.sh
-# O utiliza la meta del Makefile en tu proyecto:
-make clean-cache
+# En la raíz del monorepo, utiliza:
+make clean           # o make qa-clean
+# Dentro de cada stack individual (ej. fastapi/, vue3/), utiliza:
+make clean-cache     # o make clean
 ```
 Esto purga reportes temporales, artefactos de prueba y cachés huérfanas mediante una estrategia híbrida (eliminación local y fallback en Docker efímero con permisos internos de contenedor), limpiando también los volúmenes nombrados de caché (`pnpm-store` o `uv-cache`).
 
@@ -87,7 +89,7 @@ make qa-e2e
 ### ¿Cómo interactúa un Agente de Inteligencia Artificial con este repositorio?
 Un agente de IA (como Google Antigravity, Anthropic Claude Code / Claude Desktop, Hermes Agent de Nous Research, Cursor o Windsurf) puede interactuar de tres formas:
 1. **Vía Servidor MCP (`@sinfallas/mcp-qa-11x` v3.1.0):** Se conecta por `stdio` mediante `npx -y @sinfallas/mcp-qa-11x@latest`. El servidor expone **19 herramientas operativas** (las 12 núcleo v1, 6 evaluadores v2.0 — `validate_calm_architecture`, `evaluate_release_gate`, `evaluate_agent_trajectory`, `run_llm_red_team`, `audit_vibe_prototype`, `sync_enterprise_tms` — más `session_flight_recorder` en **v3.1**) y **13 recursos dinámicos (`blueprint://*`, con soporte `?lang=es|en`)** incluyendo `blueprint://skills/tactical-patterns-11x` en **v3.1**, permitiendo al agente auditar y fusionar código sin clonar el repositorio completo.
-2. **Vía Skills Zero-Clone (`qa-11x-architect` y catálogo completo de 11 skills modulares):** Se inyectan en su entorno junto con los scripts operativos y el conector de `AGENTS.md` ejecutando `npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts --reconcile` o mediante el instalador universal `curl ... | sh`. El agente adquiere de inmediato el conocimiento de las 13 capas de calidad, los 22 controles de referencia base DISA/OWASP (respaldados por 34 reglas estáticas del escáner), patrones JIT de complejidad y la prevención Anti-JSDOM.
+2. **Vía Skills Zero-Clone (`qa-11x-architect` y catálogo completo de 11 skills modulares):** Se inyectan en su entorno junto con los scripts operativos y el conector de `AGENTS.md` ejecutando `npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts --reconcile` (verificado con SHA-256 contra `manifest.json`), o descargando e inspeccionando `scripts/install-skill.sh` tras comprobar su checksum SHA-256 antes de ejecutarlo localmente (evita tuberías ciegas `curl ... | sh`). El agente adquiere de inmediato el conocimiento de las 13 capas de calidad, los 22 controles de referencia base DISA/OWASP (respaldados por 34 reglas estáticas del escáner), patrones JIT de complejidad y la prevención Anti-JSDOM.
 3. **Vía Reglas Locales (`.agents/` y `AGENTS.md`):** Si el agente opera dentro del repositorio clonado, lee automáticamente las directivas en `.agents/rules/` y mantiene la bitácora activa en `.agents/ACTIVE_TASK.md`, ejecutando la compuerta universal `./.agents/scripts/certify_task_completion.sh` antes de cerrar sus turnos.
 
 ### ¿Qué es el Servidor MCP `@sinfallas/mcp-qa-11x` y por qué es superior a clonar todo el repositorio?

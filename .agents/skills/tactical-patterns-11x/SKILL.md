@@ -7,7 +7,7 @@ description: >-
 
 # Tactical Patterns (`tactical-patterns-11x`)
 
-> **OUTPUT:** Respond in **user's prompt language**; docs/commits match `README.md`/`CHANGELOG.md`.
+> **OUTPUT:** Respond in **user's prompt language** (unless `AGENTS.md` fixes it); docs/commits match `README.md`/`CHANGELOG.md` (Spec 19; `.agents/**` English).
 
 ## 1. Complexity Gate Rescue (`Radon CC > 5` | `SonarJS > 15` | `PHP Cognitive > 9` | `max-args` / `max-params`)
 - `depth > 3` -> **Guard Clauses** (early return; main path at indent 0).

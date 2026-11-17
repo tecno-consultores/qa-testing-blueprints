@@ -18,12 +18,103 @@ const AGENT_SCRIPTS_PREFIX = '.agents/scripts/';
 const AGENT_SCHEMAS_PREFIX = '.agents/schemas/';
 const ACTIVE_TASK_EXAMPLE_PATH = '.agents/ACTIVE_TASK.md.example';
 const GEMINI_DIR_NAME = '.gemini';
+const GEMINI_ANTIGRAVITY_DIR = 'antigravity';
 const CLAUDE_DIR_NAME = '.claude';
 const HERMES_DIR_NAME = '.hermes';
 const CURSOR_DIR_NAME = '.cursor';
 const CODEX_DIR_NAME = '.codex';
 const WINDSURF_REL_DIR = path.join('.codeium', 'windsurf');
 const UTF8 = 'utf-8';
+
+export const INSTALL_SKILL_HELP_TEXT = [
+  'Uso: npx -y @sinfallas/mcp-qa-11x install-skill [opciones]',
+  '',
+  'Opciones:',
+  '  --target, -t <env>       auto (default) | workspace | antigravity | claude | cursor | windsurf | codex | hermes | all',
+  '  --lang, -l <auto|es|en>  Política de idioma inyectada al usar --init-agents (default: auto)',
+  '  --agents, -a <spec>      Puentes opcionales al usar --init-agents (auto | all | CSV de 28 agentes)',
+  '  --include-scripts        Instala scripts operacionales (.agents/scripts, .agents/schemas y comunes)',
+  '  --init-agents            Ejecuta init-agents en el proyecto tras instalar skills globales',
+  '  --reconcile              Reconcilia y poda reglas duplicadas en .agents/ antes de sincronizar',
+  '  --dry-run                Muestra el plan de instalación sin escribir archivos en disco',
+  '  --help, -h               Muestra esta ayuda y sale con código 0',
+].join('\n');
+
+interface InstallSkillCliOptions {
+  targetArg: string;
+  lang: OutputLanguageMode;
+  agents?: AgentsTargetSpec;
+  includeScripts: boolean;
+  initAgents: boolean;
+  reconcile: boolean;
+  dryRun: boolean;
+  help: boolean;
+}
+
+const INSTALL_SKILL_VALUE_FLAGS = new Set(['--target', '-t', '--lang', '-l', '--agents', '-a']);
+const INSTALL_SKILL_BOOL_FLAGS = new Set([
+  '--include-scripts',
+  '--init-agents',
+  '--reconcile',
+  '--dry-run',
+  '--help',
+  '-h',
+]);
+
+function readFlagValueStrict(
+  args: readonly string[],
+  index: number,
+  arg: string
+): { flag: string; value: string; consumed: number } | null {
+  const eqIdx = arg.indexOf('=');
+  if (eqIdx !== -1) {
+    const flag = arg.slice(0, eqIdx);
+    if (!INSTALL_SKILL_VALUE_FLAGS.has(flag)) {
+      return null;
+    }
+    const inlineValue = arg.slice(eqIdx + 1);
+    if (!inlineValue) {
+      throw new Error(`Falta el valor requerido para la opción '${flag}'.`);
+    }
+    return { flag, value: inlineValue, consumed: 0 };
+  }
+  if (!INSTALL_SKILL_VALUE_FLAGS.has(arg)) {
+    return null;
+  }
+  const nextArg = args[index + 1];
+  if (!nextArg || nextArg.startsWith('-')) {
+    throw new Error(`Falta el valor requerido para la opción '${arg}'.`);
+  }
+  return { flag: arg, value: nextArg, consumed: 1 };
+}
+
+function validateAndParseInstallSkillArgs(args: string[]): InstallSkillCliOptions {
+  for (let i = 0; i < args.length; i++) {
+    const arg = pickAt(args, i);
+    if (INSTALL_SKILL_BOOL_FLAGS.has(arg)) {
+      continue;
+    }
+    const valFlag = readFlagValueStrict(args, i, arg);
+    if (valFlag) {
+      i += valFlag.consumed;
+      continue;
+    }
+    if (arg.startsWith('-')) {
+      throw new Error(`Opción CLI desconocida en install-skill: '${arg}'. Ejecuta con --help para ver las opciones válidas.`);
+    }
+    throw new Error(`Argumento posicional inesperado en install-skill: '${arg}'.`);
+  }
+  return {
+    targetArg: parseTargetArg(args),
+    lang: parseLangArg(args),
+    agents: parseAgentsArg(args),
+    includeScripts: args.includes('--include-scripts'),
+    initAgents: args.includes('--init-agents'),
+    reconcile: args.includes('--reconcile'),
+    dryRun: args.includes('--dry-run'),
+    help: args.includes('--help') || args.includes('-h'),
+  };
+}
 
 function parseTargetArg(args: string[]): string {
   let targetArg = process.env.QA_SKILL_TARGET || 'auto';
@@ -78,10 +169,19 @@ export function parseLangArg(args: string[]): OutputLanguageMode {
   return selectedLang;
 }
 
+function resolveGeminiSkillDirs(homeDir: string): string[] {
+  const dirs = [path.join(homeDir, GEMINI_DIR_NAME, 'config', SKILLS_DIR_NAME)];
+  const antigravityDir = path.join(homeDir, GEMINI_DIR_NAME, GEMINI_ANTIGRAVITY_DIR);
+  if (fs.existsSync(antigravityDir)) {
+    dirs.push(path.join(antigravityDir, SKILLS_DIR_NAME));
+  }
+  return dirs;
+}
+
 function detectInstalledGlobalAgentDirs(homeDir: string): string[] {
   const dirs: string[] = [];
   if (fs.existsSync(path.join(homeDir, GEMINI_DIR_NAME))) {
-    dirs.push(path.join(homeDir, GEMINI_DIR_NAME, 'config', SKILLS_DIR_NAME));
+    dirs.push(...resolveGeminiSkillDirs(homeDir));
   }
   if (fs.existsSync(path.join(homeDir, CLAUDE_DIR_NAME))) {
     dirs.push(path.join(homeDir, CLAUDE_DIR_NAME, SKILLS_DIR_NAME));
@@ -119,7 +219,7 @@ function resolveAllGlobalAgentDirs(homeDir: string): string[] {
     return Array.from(new Set(detected));
   }
   return [
-    path.join(homeDir, GEMINI_DIR_NAME, 'config', SKILLS_DIR_NAME),
+    ...resolveGeminiSkillDirs(homeDir),
     path.join(homeDir, CLAUDE_DIR_NAME, SKILLS_DIR_NAME),
     path.join(homeDir, HERMES_DIR_NAME, SKILLS_DIR_NAME),
     path.join(homeDir, CURSOR_DIR_NAME, SKILLS_DIR_NAME),
@@ -137,7 +237,7 @@ function resolveDestinationDirs(targetArg: string, homeDir: string, cwd: string)
     case 'cursor':
       return [path.join(homeDir, CURSOR_DIR_NAME, SKILLS_DIR_NAME)];
     case 'antigravity':
-      return [path.join(homeDir, GEMINI_DIR_NAME, 'config', SKILLS_DIR_NAME)];
+      return resolveGeminiSkillDirs(homeDir);
     case 'claude':
       return [path.join(homeDir, CLAUDE_DIR_NAME, SKILLS_DIR_NAME)];
     case 'hermes':
@@ -204,12 +304,8 @@ function writeScriptEntry(cwd: string, entry: ManifestFileEntry, content: string
   }
 }
 
-async function installIncludedScripts(
-  cwd: string,
-  manifest: Manifest,
-  fetcher: GitHubFetcher
-): Promise<void> {
-  const scriptEntries: ManifestFileEntry[] = [
+function selectScriptEntries(manifest: Manifest): ManifestFileEntry[] {
+  return [
     ...(manifest.common_files || []).filter((f) => f.path !== 'scripts/publicar-mcp.sh'),
     ...(manifest.agent_governance_files || []).filter(
       (f) =>
@@ -218,7 +314,14 @@ async function installIncludedScripts(
         f.path === ACTIVE_TASK_EXAMPLE_PATH
     ),
   ];
+}
 
+async function installIncludedScripts(
+  cwd: string,
+  manifest: Manifest,
+  fetcher: GitHubFetcher
+): Promise<void> {
+  const scriptEntries = selectScriptEntries(manifest);
   if (scriptEntries.length === 0) {
     return;
   }
@@ -231,40 +334,83 @@ async function installIncludedScripts(
   console.log(`✔ [Scripts 11X] ${scriptEntries.length} scripts y archivos comunes instalados [0o755].`);
 }
 
+interface DryRunPlanContext {
+  readonly opts: InstallSkillCliOptions;
+  readonly cwd: string;
+  readonly homeDir: string;
+  readonly inHomeDir: boolean;
+  readonly destDirs: string[];
+  readonly skillCount: number;
+  readonly manifest: Manifest;
+}
+
+async function executeDryRunPlan(ctx: DryRunPlanContext): Promise<void> {
+  const { opts, cwd, homeDir, inHomeDir, destDirs, skillCount, manifest } = ctx;
+  console.log(`🔍 [DRY-RUN] Plan install-skill (v${manifest.blueprint_version}):`);
+  console.log(`  - Destinos de skills (${destDirs.length}): ${destDirs.join(', ')}`);
+  console.log(`  - Archivos de skills planificados: ${skillCount}`);
+  if (fs.existsSync(path.join(homeDir, GEMINI_DIR_NAME))) {
+    syncGlobalGeminiMd(homeDir, true, opts.lang);
+    console.log(`  - Actualizaría conector global en ${path.join(homeDir, GEMINI_DIR_NAME, 'GEMINI.md')}`);
+  }
+  if (!inHomeDir && opts.includeScripts) {
+    const plannedScripts = selectScriptEntries(manifest);
+    console.log(`  - Scripts/archivos comunes planificados: ${plannedScripts.length}`);
+  }
+  if (!inHomeDir && opts.initAgents) {
+    const initPlan = await initOrAppendAgentsMd({
+      projectPath: cwd,
+      dryRun: true,
+      lang: opts.lang,
+      ...(opts.agents !== undefined ? { agents: opts.agents } : {}),
+    });
+    console.log(`  - AGENTS.md planificado (${initPlan.action}) en ${initPlan.agents_md_path}`);
+  }
+}
+
 export async function runInstallSkillCli(args: string[], fetcher?: GitHubFetcher): Promise<void> {
+  if (args.includes('--help') || args.includes('-h')) {
+    console.log(INSTALL_SKILL_HELP_TEXT);
+    return;
+  }
+
+  const opts = validateAndParseInstallSkillArgs(args);
   const resolvedFetcher = fetcher || new GitHubFetcher();
-  const targetArg = parseTargetArg(args);
-  const lang = parseLangArg(args);
-  const agents = parseAgentsArg(args);
-  const includeScripts = args.includes('--include-scripts');
-  const initAgents = args.includes('--init-agents');
-  const reconcile = args.includes('--reconcile');
   const cwd = process.cwd();
   const homeDir = resolveSafeHomeDir();
   const inHomeDir = isHomeDirectory(homeDir, cwd);
 
-  if (reconcile && !inHomeDir) {
-    const recRes = await reconcileAgentsGovernance({ projectPath: cwd, dryRun: false });
+  if (opts.reconcile && !inHomeDir) {
+    const recRes = await reconcileAgentsGovernance({ projectPath: cwd, dryRun: opts.dryRun });
+    const recPrefix = opts.dryRun ? '🔍 [DRY-RUN Reconcile 11X]' : '✔ [Reconcile 11X]';
     console.log(
-      `✔ [Reconcile 11X] ${recRes.removed_duplicate_sections_count} sección(es) duplicada(s) podada(s), ${recRes.preserved_domain_sections_count} sección(es) de dominio preservada(s).`
+      `${recPrefix} ${recRes.removed_duplicate_sections_count} sección(es) duplicada(s) podada(s), ${recRes.preserved_domain_sections_count} sección(es) de dominio preservada(s).`
     );
   }
 
   const manifest = await resolvedFetcher.fetchManifest();
-
-  // Filtrar todos los archivos dentro de .agents/skills/ (catálogo completo de skills)
   const skillEntries = manifest.agent_governance_files.filter((f) =>
     f.path.startsWith(SKILLS_PREFIX)
   );
-
   if (skillEntries.length === 0) {
     throw new Error('No se encontraron archivos de skills en manifest.json.');
   }
 
-  const destDirs = resolveDestinationDirs(targetArg, homeDir, cwd);
+  const destDirs = resolveDestinationDirs(opts.targetArg, homeDir, cwd);
+  if (opts.dryRun) {
+    await executeDryRunPlan({
+      opts,
+      cwd,
+      homeDir,
+      inHomeDir,
+      destDirs,
+      skillCount: skillEntries.length,
+      manifest,
+    });
+    return;
+  }
 
   const downloadedFiles: Array<{ relSkillPath: string; content: string }> = [];
-
   for (const entry of skillEntries) {
     const content = await resolvedFetcher.fetchFileContent(entry.path, entry.sha256);
     const relSkillPath = entry.path.replace(/^\.agents\/skills\//, '');
@@ -275,25 +421,25 @@ export async function runInstallSkillCli(args: string[], fetcher?: GitHubFetcher
   writeDownloadedSkills(destDirs, downloadedFiles, manifest.blueprint_version);
 
   if (fs.existsSync(path.join(homeDir, GEMINI_DIR_NAME))) {
-    syncGlobalGeminiMd(homeDir, false, lang);
+    syncGlobalGeminiMd(homeDir, false, opts.lang);
   }
 
-  if (inHomeDir && (includeScripts || initAgents || reconcile)) {
+  if (inHomeDir && (opts.includeScripts || opts.initAgents || opts.reconcile)) {
     console.log(
       `ℹ️ [Modo Global $HOME] Omitiendo escritura de archivos de proyecto (AGENTS.md, scripts/, .agents/, lefthook.yml) en el directorio personal (${homeDir}).`
     );
     return;
   }
 
-  if (includeScripts) {
+  if (opts.includeScripts) {
     await installIncludedScripts(cwd, manifest, resolvedFetcher);
   }
 
-  if (initAgents) {
+  if (opts.initAgents) {
     const initResult = await initOrAppendAgentsMd({
       projectPath: cwd,
-      lang,
-      ...(agents !== undefined ? { agents } : {}),
+      lang: opts.lang,
+      ...(opts.agents !== undefined ? { agents: opts.agents } : {}),
     });
     console.log(`✔ [AGENTS.md] Conector procesado (${initResult.action}) en ${initResult.agents_md_path}`);
   }

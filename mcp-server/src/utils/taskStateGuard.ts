@@ -7,6 +7,7 @@ import { reportDebugCatchError } from './diagnosticFormatter.js';
 export const TASK_CAPACITY_EXTENSION_URI = 'urn:quaia:extensions:task-capacity:v1' as const;
 export const MIN_TASK_CAPACITY = 1;
 export const MAX_TASK_CAPACITY = 32;
+export const MAX_STUCK_TASKS = 32;
 export const DEFAULT_TELEMETRY_TIMEOUT_MS = 8_000;
 export const DEFAULT_HEAVY_TRANSFER_TIMEOUT_MS = 180_000;
 export const DEFAULT_TTY_PROBE_TIMEOUT_MS = 4_000;
@@ -157,13 +158,18 @@ function createGuardBrokenError(reason: GuardBrokenReason): TaskGuardError {
   });
 }
 
-function createTaskStuckError(taskId: string, timeoutMs: number): TaskGuardError {
+function createTaskStuckError(
+  taskId: string,
+  timeoutMs: number,
+  guardState: GuardLifecycleState = STATE_AVAILABLE,
+  brokenReason: GuardBrokenReason = null
+): TaskGuardError {
   return new TaskGuardError({
     statusCode: 504,
     code: CODE_TASK_STUCK,
     message: `TASK_STUCK: tarea '${taskId}' abortada tras exceder ${timeoutMs} ms.`,
-    guardState: STATE_BROKEN,
-    brokenReason: REASON_TASK_STUCK,
+    guardState,
+    brokenReason,
   });
 }
 
@@ -372,7 +378,7 @@ export class TaskStateGuard {
   }
 
   probeHealth(options?: { autoRecoverStuck?: boolean }): HealthProbeReport {
-    if (options?.autoRecoverStuck && this.isStuckBroken()) {
+    if (options?.autoRecoverStuck && (this.isStuckBroken() || this.stuckTasks.size > 0)) {
       const report = this.recoverStuckTasks();
       return {
         healthy: true,
@@ -498,10 +504,22 @@ export class TaskStateGuard {
     reject: (reason?: unknown) => void
   ): void {
     record.timedOut = true;
+    this.clearRecordTimer(record);
     this.activeTasks.delete(record.taskId);
     this.stuckTasks.set(record.taskId, record);
-    this.markBroken(REASON_TASK_STUCK);
-    const stuckError = createTaskStuckError(record.taskId, timeoutMs);
+    if (this.stuckTasks.size > MAX_STUCK_TASKS) {
+      const oldestKey = this.stuckTasks.keys().next().value;
+      if (oldestKey !== undefined) {
+        this.stuckTasks.delete(oldestKey);
+      }
+    }
+    this.syncOperationalState();
+    const stuckError = createTaskStuckError(
+      record.taskId,
+      timeoutMs,
+      this.state,
+      this.brokenReason
+    );
     record.controller.abort(stuckError);
     reject(stuckError);
   }

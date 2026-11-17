@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
-import { execFileSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { promisify } from 'node:util';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { BlastRadiusResult, BlastRiskLevel, DiffBundleReport } from '../types.js';
 import { buildSemanticDiffBundle } from '../utils/diff-bundle.js';
@@ -12,25 +13,50 @@ import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 export const GRAPHIFY_DOCKER_IMAGE =
   'sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0';
 
+export interface GraphifyBuilderOptions {
+  execFileFn?: typeof execFile;
+  signal?: AbortSignal;
+}
+
 export interface BlastRadiusOptions {
   autoBuildIfMissing?: boolean;
   refreshGraph?: boolean;
-  graphBuilder?: (projectPath: string) => boolean;
+  graphBuilder?: (projectPath: string, signal?: AbortSignal) => boolean | Promise<boolean>;
   changedSinceRef?: string;
   maxTokensBudget?: number;
+  signal?: AbortSignal;
 }
 
-export function defaultGraphifyBuilder(
+function resolveBuilderArgs(
+  execFileFnOrOptions?: typeof execFile | GraphifyBuilderOptions,
+  signalArg?: AbortSignal
+): { executor: typeof execFile; signal?: AbortSignal } {
+  if (typeof execFileFnOrOptions === 'function') {
+    return { executor: execFileFnOrOptions, signal: signalArg };
+  }
+  return {
+    executor: execFileFnOrOptions?.execFileFn ?? execFile,
+    signal: execFileFnOrOptions?.signal ?? signalArg,
+  };
+}
+
+export async function defaultGraphifyBuilder(
   resolvedPath: string,
-  execFileFn: typeof execFileSync = execFileSync
-): boolean {
+  execFileFnOrOptions?: typeof execFile | GraphifyBuilderOptions,
+  signalArg?: AbortSignal
+): Promise<boolean> {
+  const { executor, signal } = resolveBuilderArgs(execFileFnOrOptions, signalArg);
+  if (signal?.aborted) {
+    return false;
+  }
   try {
     const safePath = resolveSafeProjectPath(resolvedPath, { allowNonExistentLeaf: false });
     const graphOutDir = path.join(safePath, 'graphify-out');
     fs.mkdirSync(graphOutDir, { recursive: true });
     const uid = typeof process.getuid === 'function' ? process.getuid() : 1000;
     const gid = typeof process.getgid === 'function' ? process.getgid() : 1000;
-    execFileFn(
+    const execFileAsync = promisify(executor);
+    await execFileAsync(
       'docker',
       [
         'run',
@@ -56,8 +82,8 @@ export function defaultGraphifyBuilder(
       ],
       {
         cwd: safePath,
-        stdio: 'pipe',
         timeout: 120000,
+        ...(signal ? { signal } : {}),
       }
     );
     return true;
@@ -331,7 +357,7 @@ export async function inspectAstBlastRadius(
   let astGraphRebuilt = false;
 
   if (options?.refreshGraph) {
-    astGraphRebuilt = builder(resolvedPath);
+    astGraphRebuilt = await builder(resolvedPath, options?.signal);
   }
 
   const ctx: GraphScanContext = {
@@ -348,7 +374,7 @@ export async function inspectAstBlastRadius(
   scanDirectory(resolvedPath, resolvedPath, ctx);
 
   if (ctx.graphFiles.length === 0 && options?.autoBuildIfMissing && !astGraphRebuilt) {
-    astGraphRebuilt = builder(resolvedPath);
+    astGraphRebuilt = await builder(resolvedPath, options?.signal);
     if (astGraphRebuilt) {
       scanDirectory(resolvedPath, resolvedPath, ctx);
     }

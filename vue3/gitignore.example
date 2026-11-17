@@ -9,6 +9,8 @@ playwright-report/
 blob-report/
 playwright/.cache/
 coverage/
+.stryker-tmp/
+nginx-logs/
 target/
 test/target/
 lhci-reports/

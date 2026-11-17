@@ -1,7 +1,6 @@
 # 🌐 Node.js, Vue 3 & React Stack Reference (Standard 11X)
 
-> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:**
-> Unless target `AGENTS.md` mandates a fixed language, interact in the **user's prompt language**; human docs use EN canonical (`*.md`) + 1:1 ES mirror (`*.es.md`) (matching `README.md`/`CHANGELOG.md` in consumer repos, defaulting to prompt language if empty); `.agents/**` stays concise English.
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Respond in **user's prompt language** (unless `AGENTS.md` fixes it); docs/commits match `README.md`/`CHANGELOG.md` (Spec 19; `.agents/**` English).
 
 This reference provides technical rules, testing conventions, and ephemeral Docker commands for Node.js backends and modern frontend Single Page Applications (Vue 3 and React 19+).
 
@@ -19,7 +18,7 @@ This reference provides technical rules, testing conventions, and ephemeral Dock
    ```
 2. **Ephemeral Docker Execution & Non-Root Host UID Alignment (`UID 10001` Guardrail):**  
    All builds, typechecks, linters, and unit/BDD tests execute inside `sinfallas/base-node-ionic:26` (available tags: `22`, `24`, `26`, and `latest`) with a persistent `pnpm-store` named volume (`Rule Zero`). Because `sinfallas/base-node-ionic:26` runs by default as `uid=10001(appuser)` and pre-populates `/pnpm/store/v11/files/*` as `10001:10001`:
-   - Always pass `-u "$(id -u):$(id -g)"` on `docker compose run --rm` (and set `user: "${QA_UID:-1000}:${QA_GID:-1000}"` in `docker-compose.qa.yml`) so `node_modules/.pnpm` and `dist/` match the host/CI runner UID (`1001` on GitHub Actions, `1000` on Linux, `501` on macOS) without `ERR_PNPM_PACKAGE_MANAGER_CREATE_SLOT_DIR` (`os error 13`).
+   - Always pass `-u "$(id -u):$(id -g)"` on `docker compose run --rm -T` (and set `user: "${QA_UID:-1000}:${QA_GID:-1000}"` in `docker-compose.qa.yml`) so `node_modules/.pnpm` and `dist/` match the host/CI runner UID (`1001` on GitHub Actions, `1000` on Linux, `501` on macOS) without `ERR_PNPM_PACKAGE_MANAGER_CREATE_SLOT_DIR` (`os error 13`).
    - Declare a one-shot `pnpm-store-init` service (`user: "0:0"`, `command: ["chmod", "-R", "a+rwX", "/pnpm"]`) with `depends_on: { pnpm-store-init: { condition: service_completed_successfully } }`, plus `HOME: /tmp` and `pnpm_config_store_dir: /pnpm/store` (`pnpm` v12+ ignores legacy `npm_config_*`), preventing CAFS permission errors and preventing cross-device fallback creation of `/app/.pnpm-store`.
    - Never invoke bare `os.homedir()` without `try/catch` in Node.js CLIs/tools: under arbitrary non-root UIDs absent from container `/etc/passwd` (e.g. GitHub Actions `UID 1001`, OpenShift random UIDs) when `process.env.HOME` is unset, `uv_os_homedir` throws `SystemError: ENOENT`; always resolve `process.env.HOME || process.env.USERPROFILE` first and fall back to `os.tmpdir()` inside `catch`.
 3. **Node 26 + pnpm 12 Supply-Chain `allowBuilds`, ESLint 9 Flat Config & `vue-tsc`:**
@@ -54,15 +53,15 @@ This reference provides technical rules, testing conventions, and ephemeral Dock
 ### File Naming Convention & Tool Boundaries
 - **Unit Tests:** `src/**/*.unit.ts` or `src/**/*.unit.tsx`. Executed with Vitest (`@vitest/coverage-v8`). NEVER import Playwright or real network drivers in `.unit.ts`.
 - **E2E / A11y Tests:** `e2e/**/*.e2e.ts`. Executed with Playwright (`ui-e2e`, `mcr.microsoft.com/playwright:v1.52.0-noble`) and `@axe-core/playwright` for real DOM interactions, Screenplay/POM flows, Anti-JSDOM geometry, and WCAG 2.1 AA.
-- **UI BDD Scenarios:** `test/ui_business_flow.feature`. Executed with `sinfallas/karatelabs:1.5.1` (`:latest` has no Chrome/Chromium binary installed) to certify HTTP/Nginx delivery on `http://ui-prod:80`, SPA/SSG routes, OWASP OSHP headers, and SEO/XML endpoints (`* string xmlText = response`).
+- **UI BDD Scenarios:** `test/ui_business_flow.feature`. Executed with `sinfallas/karatelabs:1.5.1` (no Chrome/Chromium binary installed) to certify HTTP/Nginx delivery on `http://ui-prod:8080`, SPA/SSG routes, OWASP OSHP headers, and SEO/XML endpoints (`* string xmlText = response`).
 
 ### Inflexible Linter Standard & Hermetic Test Isolation
 1. **Zero-Warning Tolerance (`--max-warnings 0`):** The `"lint"` script in `package.json` MUST enforce `--max-warnings 0`. Any ESLint, SonarJS, or TypeScript warning MUST fail the process immediately (`Exit Code 1`), preventing silent accumulation of technical debt.
 2. **Hermetic Unit Test Isolation (Zero Network Leaks):** Unit tests (`.unit.ts`) MUST NEVER perform live network requests. When testing fallbacks, offline modes, or error handling, intercept or mock `globalThis.fetch` or HTTP clients deterministically to ensure tests pass without depending on external connectivity.
 
 ### Zero-Orphan & Anti-Silo UI Invariants
-1. **Zero Orphan UI Components:** Every single `.vue` or `.tsx` component MUST have an active `.unit.ts` file asserting its rendering and behavior. Verified via `.agents/scripts/verify_zero_orphan_vue_components.py`.
-2. **Zero Orphan API Routes:** All frontend API client calls (`api.get('/endpoint')`) must correspond to a registered backend route, preventing 404/405 errors. Verified via `.agents/scripts/verify_no_orphan_api_endpoints.py`.
+1. **Zero Orphan UI Components:** Every single `.vue` or `.tsx` component MUST have an active `.unit.ts` file asserting its rendering and behavior (`Rule Zero` container execution: `docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_zero_orphan_vue_components.py`).
+2. **Zero Orphan API Routes:** All frontend API client calls (`api.get('/endpoint')`) must correspond to a registered backend route, preventing 404/405 errors (`docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_no_orphan_api_endpoints.py`).
 3. **3-Phase Temporal Lifecycle in UI Views:** Views displaying scheduled windows or countdowns (`starts_at` / `ends_at`) MUST render and test all 3 temporal states (`Programada` when `t < starts_at`, `En Curso` / `Activa` when `starts_at <= t <= ends_at`, and `Cancelada` / `Expirada` when `t > ends_at` or cancelled), prohibiting 2-state static ternaries (`is_cancelled ? 'Cancelada' : 'Programada'`).
 4. **Semantic Event Badge Mapping & Anti-Raw UUIDs:** Event ribbons and audit feeds MUST assert that `actor_username` and `resource_display_name` never display raw UUID v4 strings (`/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i`), and event mappers MUST explicitly classify categories (`CAÍDA`, `MANTENIMIENTO`, `RESPALDO`, `SEGURIDAD`, `OPERACIÓN`) without catch-all `else return 'MAINTENANCE'` clauses.
 5. **Dual Auto + Manual Refresh Invariant:** Every monitoring dashboard, NOC wallboard, or real-time map MUST implement both periodic/reactive refresh (`setInterval` with `clearInterval` inside `onUnmounted` / `useEffect` cleanup + WebSocket listener) AND an explicit **`[ 🔄 Refrescar ]`** button (`?refresh=true`) for immediate operator reload without `F5`.
@@ -144,8 +143,8 @@ qa-unit:
 	docker compose -f docker-compose.qa.yml run --rm -T ui pnpm exec vitest run --coverage
 
 qa-orphans:
-	python3 .agents/scripts/verify_zero_orphan_vue_components.py
-	python3 .agents/scripts/verify_no_orphan_api_endpoints.py
+	docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(CURDIR):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_zero_orphan_vue_components.py
+	docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(CURDIR):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_no_orphan_api_endpoints.py
 
 qa-mutation:
 	docker compose -f docker-compose.qa.yml run --rm -T ui pnpm exec stryker run
@@ -169,14 +168,14 @@ qa-all: qa-lint qa-unit qa-orphans qa-bdd
 
 ## 5. UI Acceptance BDD: Karate Labs (`test/ui_business_flow.feature`)
 
-Because `sinfallas/karatelabs:1.5.1` (`:latest`) ships without Chrome/Chromium, Karate focuses on HTTP/Nginx delivery, OWASP OSHP headers, SPA/SSG routes, and XML/SEO safety, while Playwright (`ui-e2e`) certifies DOM/WCAG 2.1 AA:
+Because `sinfallas/karatelabs:1.5.1` ships without Chrome/Chromium, Karate focuses on HTTP/Nginx delivery, OWASP OSHP headers, SPA/SSG routes, and XML/SEO safety, while Playwright (`ui-e2e`) certifies DOM/WCAG 2.1 AA:
 
 ```gherkin
 Feature: HTTP Edge, OWASP OSHP Headers & SSG/SEO Contract (Karate 1.5.1)
 
   Background:
     * def envBaseUrl = java.lang.System.getenv('UI_BASE_URL')
-    * def baseUrl = karate.properties['UI_BASE_URL'] || envBaseUrl || 'http://ui-prod:80'
+    * def baseUrl = karate.properties['UI_BASE_URL'] || envBaseUrl || 'http://ui-prod:8080'
     * url baseUrl
 
   Scenario: Root HTML delivery and OWASP OSHP headers on internal Nginx

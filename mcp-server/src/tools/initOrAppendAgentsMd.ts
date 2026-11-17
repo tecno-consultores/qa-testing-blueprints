@@ -371,6 +371,7 @@ export const SUPPORTED_AGENT_IDS: readonly SupportedAiAgentId[] = Object.freeze(
 );
 
 const BRIDGE_LANG_SUMMARIES: Readonly<Record<SupportedLang, string>> = Object.freeze({
+  auto: "Mirror the user's prompt language and README/CHANGELOG language; keep `.agents/` rules in concise English.",
   es: 'Respond and write user-facing docs/commits in Spanish (`es`); keep `.agents/` rules in concise English.',
   en: 'Respond and write user-facing docs/commits in English (`en`); keep `.agents/` rules in concise English.',
 });
@@ -388,10 +389,10 @@ export function validateSupportedLang(rawLang?: string): SupportedLang {
     return 'es';
   }
   const normalized = rawLang.normalize('NFKC').trim().toLowerCase();
-  if (normalized === 'es' || normalized === 'en') {
+  if (normalized === 'auto' || normalized === 'es' || normalized === 'en') {
     return normalized;
   }
-  throw new Error(`Unsupported language '${rawLang}'. Allowed values for lang: 'es' | 'en'.`);
+  throw new Error(`Unsupported language '${rawLang}'. Allowed values for lang: 'auto' | 'es' | 'en'.`);
 }
 
 function hasUnsafeAgentIdChars(id: string): boolean {

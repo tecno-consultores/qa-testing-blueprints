@@ -9,9 +9,11 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from collections import deque
 from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -41,11 +43,13 @@ CRITICAL_PREFIXES: tuple[str, ...] = (
 )
 _CAMEL_BOUNDARY_RE = re.compile(r"([a-z0-9])([A-Z])")
 _NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
+_SAFE_GIT_REF_RE = re.compile(r"^[A-Za-z0-9._/~^-]+$")
 SELF_STRUCTURAL_RELATIONS: frozenset[str] = frozenset(
     {"contains", "defines", "rationale_for"}
 )
 PRIMARY_SUITES: tuple[str, ...] = (
     "run_frontend",
+    "run_mobile",
     "run_backend",
     "run_mcp",
     "run_ai_offline",
@@ -54,6 +58,7 @@ PRIMARY_SUITES: tuple[str, ...] = (
 OUTPUT_KEYS: tuple[str, ...] = (
     "tier",
     "run_frontend",
+    "run_mobile",
     "run_backend",
     "run_mcp",
     "run_ai_offline",
@@ -226,9 +231,14 @@ def _matches_any_prefix(files: set[str], prefixes: tuple[str, ...]) -> bool:
 
 def classify_suites(union_files: set[str]) -> dict[str, bool]:
     """Asigna suites QA afectadas según archivos modificados y propagados."""
-    run_frontend = _matches_any_prefix(
-        union_files, ("vue3/", "react-frontend/", "frontend/", "mobile-appium/")
-    ) or any(Path(f).name == "lint_test_antipatterns.py" for f in union_files)
+    linter_touched = any(
+        Path(item).name == "lint_test_antipatterns.py" for item in union_files
+    )
+    run_frontend = (
+        _matches_any_prefix(union_files, ("vue3/", "react-frontend/", "frontend/"))
+        or linter_touched
+    )
+    run_mobile = _matches_any_prefix(union_files, ("mobile-appium/",)) or linter_touched
     run_backend = _matches_any_prefix(
         union_files,
         (
@@ -268,6 +278,7 @@ def classify_suites(union_files: set[str]) -> dict[str, bool]:
     )
     suites = {
         "run_frontend": run_frontend,
+        "run_mobile": run_mobile,
         "run_backend": run_backend,
         "run_mcp": run_mcp,
         "run_ai_offline": run_ai_offline,
@@ -281,32 +292,35 @@ def classify_suites(union_files: set[str]) -> dict[str, bool]:
     return suites
 
 
-def _build_plan_payload(
-    *,
-    tier: str,
-    suites: dict[str, bool],
-    run_full_regression: bool,
-    savings: int,
-    caller_count: int,
-    graph_loaded: bool,
-    changed_files: Sequence[str],
-    impacted_files: Sequence[str],
-) -> dict[str, Any]:
+@dataclass(frozen=True)
+class _PlanBuildSpec:
+    tier: str
+    suites: dict[str, bool]
+    run_full_regression: bool
+    savings: int
+    caller_count: int
+    graph_loaded: bool
+    changed_files: Sequence[str]
+    impacted_files: Sequence[str]
+
+
+def _build_plan_payload(spec: _PlanBuildSpec) -> dict[str, Any]:
     return {
-        "tier": tier,
-        **suites,
-        "run_full_regression": run_full_regression,
-        "estimated_savings_pct": savings,
-        "caller_count": caller_count,
-        "graph_loaded": graph_loaded,
-        "changed_files": list(changed_files),
-        "impacted_files": sorted(impacted_files),
+        "tier": spec.tier,
+        **spec.suites,
+        "run_full_regression": spec.run_full_regression,
+        "estimated_savings_pct": spec.savings,
+        "caller_count": spec.caller_count,
+        "graph_loaded": spec.graph_loaded,
+        "changed_files": list(spec.changed_files),
+        "impacted_files": sorted(spec.impacted_files),
     }
 
 
 def _all_suites(enabled: bool) -> dict[str, bool]:
     return {
         "run_frontend": enabled,
+        "run_mobile": enabled,
         "run_backend": enabled,
         "run_mcp": enabled,
         "run_ai_offline": enabled,
@@ -334,27 +348,31 @@ def _build_full_or_targeted_plan(
         or caller_count >= high_blast_threshold
     ):
         return _build_plan_payload(
-            tier="full-regression",
-            suites=_all_suites(True),
-            run_full_regression=True,
-            savings=0,
-            caller_count=caller_count,
-            graph_loaded=graph_loaded,
-            changed_files=norm_changed,
-            impacted_files=sorted(union_files),
+            _PlanBuildSpec(
+                tier="full-regression",
+                suites=_all_suites(True),
+                run_full_regression=True,
+                savings=0,
+                caller_count=caller_count,
+                graph_loaded=graph_loaded,
+                changed_files=norm_changed,
+                impacted_files=sorted(union_files),
+            )
         )
     suites = classify_suites(union_files)
     active_count = sum(1 for key in PRIMARY_SUITES if suites[key])
     savings = min(60, max(40, 40 + (5 - active_count) * 5))
     return _build_plan_payload(
-        tier="pr-targeted",
-        suites=suites,
-        run_full_regression=False,
-        savings=savings,
-        caller_count=caller_count,
-        graph_loaded=graph_loaded,
-        changed_files=norm_changed,
-        impacted_files=sorted(union_files),
+        _PlanBuildSpec(
+            tier="pr-targeted",
+            suites=suites,
+            run_full_regression=False,
+            savings=savings,
+            caller_count=caller_count,
+            graph_loaded=graph_loaded,
+            changed_files=norm_changed,
+            impacted_files=sorted(union_files),
+        )
     )
 
 
@@ -369,14 +387,16 @@ def select_test_plan(
     norm_changed = _dedupe_normalized(changed_files)
     if event in {"schedule", "workflow_dispatch"}:
         return _build_plan_payload(
-            tier="nightly-full",
-            suites=_all_suites(True),
-            run_full_regression=True,
-            savings=0,
-            caller_count=0,
-            graph_loaded=graph_path.is_file(),
-            changed_files=norm_changed,
-            impacted_files=norm_changed,
+            _PlanBuildSpec(
+                tier="nightly-full",
+                suites=_all_suites(True),
+                run_full_regression=True,
+                savings=0,
+                caller_count=0,
+                graph_loaded=graph_path.is_file(),
+                changed_files=norm_changed,
+                impacted_files=norm_changed,
+            )
         )
     has_critical = any(is_critical_file(item) for item in norm_changed)
     if (
@@ -385,14 +405,16 @@ def select_test_plan(
         and all(is_doc_file(item) for item in norm_changed)
     ):
         return _build_plan_payload(
-            tier="docs-only",
-            suites=_all_suites(False),
-            run_full_regression=False,
-            savings=85,
-            caller_count=0,
-            graph_loaded=graph_path.is_file(),
-            changed_files=norm_changed,
-            impacted_files=norm_changed,
+            _PlanBuildSpec(
+                tier="docs-only",
+                suites=_all_suites(False),
+                run_full_regression=False,
+                savings=85,
+                caller_count=0,
+                graph_loaded=graph_path.is_file(),
+                changed_files=norm_changed,
+                impacted_files=norm_changed,
+            )
         )
     return _build_full_or_targeted_plan(
         norm_changed=norm_changed,
@@ -416,6 +438,56 @@ def write_github_outputs(plan: dict[str, Any], output_path: Path) -> None:
         handle.write("\n".join(lines) + "\n")
 
 
+def _validate_base_ref(raw_ref: str) -> str:
+    cleaned = raw_ref.strip()
+    if (
+        not cleaned
+        or cleaned.startswith("-")
+        or ".." in cleaned
+        or not _SAFE_GIT_REF_RE.match(cleaned)
+    ):
+        raise ValueError(f"Referencia Git base insegura: {raw_ref!r}")
+    return cleaned
+
+
+def _run_git_diff_names(workspace: Path, diff_expr: str) -> tuple[int, list[str]]:
+    try:
+        res = subprocess.run(
+            [
+                "git",
+                "-c",
+                f"safe.directory={workspace}",
+                "-c",
+                "core.quotePath=false",
+                "diff",
+                "--name-only",
+                diff_expr,
+            ],
+            cwd=workspace,
+            capture_output=True,
+            text=True,
+            shell=False,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return 1, []
+    return res.returncode, _dedupe_normalized(res.stdout.splitlines())
+
+
+def _resolve_git_changed_files(base_ref: str, workspace: Path) -> list[str]:
+    safe_ref = _validate_base_ref(base_ref)
+    rc, files = _run_git_diff_names(workspace, f"{safe_ref}...HEAD")
+    if rc == 0:
+        return files
+    if not safe_ref.startswith("origin/"):
+        rc_orig, orig_files = _run_git_diff_names(
+            workspace, f"origin/{safe_ref}...HEAD"
+        )
+        if rc_orig == 0:
+            return orig_files
+    return []
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Selector determinista de suites por radio de impacto AST."
@@ -435,6 +507,13 @@ def _build_parser() -> argparse.ArgumentParser:
         "--changed-files-file",
         default=None,
         help="Ruta a archivo con rutas modificadas ('-' lee stdin si no es TTY).",
+    )
+    parser.add_argument(
+        "--base-ref",
+        "--base",
+        dest="base_ref",
+        default=None,
+        help="Referencia Git base para resolver diff vía git diff --name-only.",
     )
     parser.add_argument(
         "--graph",
@@ -463,10 +542,21 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _resolve_input_changed_files(args: argparse.Namespace) -> list[str]:
+    changed = parse_changed_files(args.changed_files, args.changed_files_file)
+    if not changed and args.base_ref:
+        return _resolve_git_changed_files(args.base_ref, Path.cwd())
+    return changed
+
+
 def main(argv: list[str] | None = None) -> int:
     """Punto de entrada CLI con salida Pass-Quiet o JSON estructurado."""
     args = _build_parser().parse_args(argv)
-    changed = parse_changed_files(args.changed_files, args.changed_files_file)
+    try:
+        changed = _resolve_input_changed_files(args)
+    except ValueError as exc:
+        print(f"❌ [blast-selector] {exc}", file=sys.stderr)
+        return 2
     plan = select_test_plan(
         event=args.event,
         changed_files=changed,

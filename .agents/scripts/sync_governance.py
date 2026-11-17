@@ -210,7 +210,7 @@ def _version_from_package_json(pkg_path: Path) -> str | None:
         return None
     if isinstance(pkg_data, dict):
         version = str(pkg_data.get("version", "")).strip()
-        if re.match(r"^\d+\.\d+\.\d+$", version):
+        if re.match(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$", version):
             return version
     return None
 
@@ -222,7 +222,9 @@ def _version_from_changelog(changelog_path: Path) -> str | None:
         content = changelog_path.read_text(encoding="utf-8")
     except OSError:
         return None
-    match = re.search(r"##\s*\[(\d+\.\d+\.\d+)\]", content)
+    match = re.search(
+        r"##\s*\[(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)\]", content
+    )
     return match.group(1) if match else None
 
 
@@ -291,6 +293,8 @@ def classify_governance_file(rel_path: str) -> tuple[str, str]:
     path_obj = Path(rel_path)
     if path_obj.name == "ACTIVE_TASK.md.example":
         return ".agents/ACTIVE_TASK.md", "copy_if_missing"
+    if path_obj.name == "_budgets.py" or path_obj.suffix == ".json":
+        return rel_path, "copy_or_overwrite"
     if path_obj.suffix in (".sh", ".py"):
         return rel_path, "overwrite_executable"
     if path_obj.name == "AGENTS.md":
@@ -660,10 +664,15 @@ def _compare_single_stack_entry(
     if not isinstance(exp_stack, dict):
         return [f"Stack '{stack_name}' inválido en manifest.json."]
     diffs: list[str] = []
-    if exp_stack.get("description") != act_stack.get("description"):
-        diffs.append(f"Descripción discrepante en stack {stack_name}")
-    if exp_stack.get("readme") != act_stack.get("readme"):
-        diffs.append(f"Readme discrepante en stack {stack_name}")
+    for field, label in (
+        ("description", "Descripción"),
+        ("readme", "Readme"),
+        ("readme_sha256", "SHA-256 de readme"),
+        ("readme_es", "Readme ES"),
+        ("readme_es_sha256", "SHA-256 de readme_es"),
+    ):
+        if exp_stack.get(field) != act_stack.get(field):
+            diffs.append(f"{label} discrepante en stack {stack_name}")
     exp_files = exp_stack.get("files", [])
     diffs.extend(
         compare_file_lists(

@@ -18,8 +18,12 @@ app.include_router(devices_router)
 @app.middleware("http")
 async def inject_oshp_security_headers(request: Request, call_next: object) -> Response:
     response: Response = await call_next(request)  # type: ignore[operator]
-    response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
-    response.headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none'"
+    response.headers["Strict-Transport-Security"] = (
+        "max-age=63072000; includeSubDomains; preload"
+    )
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; frame-ancestors 'none'"
+    )
     response.headers["X-Content-Type-Options"] = "nosniff"
     return response
 

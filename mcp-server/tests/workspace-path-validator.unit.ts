@@ -185,4 +185,18 @@ describe('workspacePathValidator (F2.5 SEC-PATH-01)', () => {
       WorkspacePathValidationError
     );
   });
+
+  it('excluye cwd "/" de raíces permitidas, tolera realpathSync fallido e indica QA11X_WORKSPACE_ROOTS en error', () => {
+    delete process.env.VITEST;
+    process.env.NODE_ENV = 'production';
+    delete process.env.QA11X_WORKSPACE_ROOTS;
+
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue('/');
+    expect(() => resolveSafeProjectPath('/opt/outside-project')).toThrow(/QA11X_WORKSPACE_ROOTS/);
+
+    cwdSpy.mockReturnValue('/nonexistent-cwd-11x');
+    expect(() => resolveSafeProjectPath('/opt/outside-project')).toThrow(
+      WorkspacePathValidationError
+    );
+  });
 });

@@ -2,7 +2,7 @@
 
 # 📐 Índice de Especificaciones Técnicas (ADRs y Specs `01..20`)
 
-Índice bilingüe central de las **20 especificaciones técnicas** que rigen **QA Testing Blueprints (`QA-11X v3.1`)**. Conforme a la política definida en la Spec 19 (§3.4), las **Specs `01..18` son ADRs históricos archivados en español** preservados como registros inmutables de diseño, mientras que las especificaciones v3.0+ (`19..20+`) y la documentación operativa adoptan la arquitectura **Inglés Primario (`*.md`) + Espejo Español 1:1 (`*.es.md`)**.
+Índice bilingüe central de las **20 especificaciones técnicas** que rigen **QA Testing Blueprints (`QA-11X v3.1`)**. Conforme a la política definida en la Spec 19 (§3, Regla 4), las **Specs `01..18` son ADRs históricos archivados en español** preservados como registros inmutables de diseño, mientras que las especificaciones v3.0+ (`19..20+`) y la documentación operativa adoptan la arquitectura **Inglés Primario (`*.md`) + Espejo Español 1:1 (`*.es.md`)**.
 
 ---
 
@@ -35,7 +35,7 @@
 
 ## 2. Política de Mantenimiento y Aclaraciones de Alcance (Spec 19)
 
-- **ADRs Históricos Archivados en Español (`Specs 01–18`):** Conservados en español como registros arquitectónicos inmutables (instantáneas de diseño `v2.x`, exentas de espejo bilingüe EN/ES conforme a [`19_SPEC`](19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md) §3.4). Únicamente se actualizan avisos de archivo histórico, cabeceras unificadas de estado (`IMPLEMENTADO Y CERTIFICADO` / `IMPLEMENTED AND CERTIFIED`) y rutas de manuales reubicados (como `docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md`) para preservar cero enlaces rotos.
+- **ADRs Históricos Archivados en Español (`Specs 01–18`):** Conservados en español como registros arquitectónicos inmutables (instantáneas de diseño `v2.x`, exentas de espejo bilingüe EN/ES conforme a [`19_SPEC`](19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md) §3, Regla 4). Únicamente se actualizan avisos de archivo histórico, cabeceras unificadas de estado (`IMPLEMENTADO Y CERTIFICADO` / `IMPLEMENTED AND CERTIFIED`) y rutas de manuales reubicados (como `docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md`) para preservar cero enlaces rotos.
 - **Especificaciones y Blueprints v3.0+ (`Specs 19–20+`):** Redactadas y mantenidas como pares Inglés Canónico (`*.md`) + Espejo Español 1:1 (`*.es.md`) enlazados desde [`README.es.md`](../../README.es.md) (y la portada canónica `README.md`), reflejando la superficie vigente de **19 herramientas**, **13 recursos**, **11 skills modulares** y **10 stacks**.
 
 ### Alcance de Implementación de `16_SPEC` vs. Hito 21 del Roadmap (`verify_diff_coverage.py`)

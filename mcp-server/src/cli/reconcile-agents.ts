@@ -3,9 +3,19 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { parseInitAgentsArgs, CONNECTOR_START_MARKER, CONNECTOR_END_MARKER } from './init-agents-md.js';
+import { CONNECTOR_START_MARKER, CONNECTOR_END_MARKER } from './init-agents-md.js';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
+import { pickAt } from '../utils/diagnosticFormatter.js';
 import type { ReconcileAgentsResult, ReconciledRuleItem } from '../types.js';
+
+export const RECONCILE_AGENTS_HELP_TEXT = [
+  'Uso: npx -y @sinfallas/mcp-qa-11x reconcile-agents [dir] [opciones]',
+  '',
+  'Opciones:',
+  '  --project-path, --dir, -p <dir>  Directorio del proyecto destino (por defecto: cwd)',
+  '  --dry-run                        Simula poda sin modificar archivos ni respaldos',
+  '  --help, -h                       Muestra esta ayuda y sale con código 0',
+].join('\n');
 
 const UTF8 = 'utf-8';
 const AGENTS_DIR = '.agents';
@@ -637,8 +647,77 @@ function executeReconcileAgentsGovernance(options: {
   };
 }
 
+function readReconcilePathFlagValue(
+  args: readonly string[],
+  index: number,
+  arg: string
+): { value: string; step: number } | null {
+  for (const longFlag of ['--project-path', '--dir']) {
+    if (arg.startsWith(`${longFlag}=`)) {
+      const inlineValue = arg.slice(longFlag.length + 1);
+      if (!inlineValue) {
+        throw new Error(`Falta el valor requerido para la opción '${longFlag}'.`);
+      }
+      return { value: inlineValue, step: 0 };
+    }
+  }
+  if (arg === '--project-path' || arg === '--dir' || arg === '-p') {
+    const nextValue = args[index + 1];
+    if (!nextValue || nextValue.startsWith('-')) {
+      throw new Error(`Falta el valor requerido para la opción '${arg}'.`);
+    }
+    return { value: nextValue, step: 1 };
+  }
+  return null;
+}
+
+export function parseReconcileAgentsArgs(args: readonly string[]): {
+  projectPath: string;
+  dryRun: boolean;
+  help: boolean;
+} {
+  let projectPath = process.cwd();
+  let hasPositionalDir = false;
+  let dryRun = false;
+  let help = false;
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = pickAt(args, i);
+    if (arg === '--help' || arg === '-h') {
+      help = true;
+      continue;
+    }
+    if (arg === '--dry-run') {
+      dryRun = true;
+      continue;
+    }
+    const pathOpt = readReconcilePathFlagValue(args, i, arg);
+    if (pathOpt) {
+      projectPath = pathOpt.value;
+      i += pathOpt.step;
+      continue;
+    }
+    if (arg.startsWith('-')) {
+      throw new Error(
+        `Opción CLI desconocida en reconcile-agents: '${arg}'. Ejecuta con --help para ver las opciones válidas.`
+      );
+    }
+    if (hasPositionalDir) {
+      throw new Error(`Argumento posicional inesperado en reconcile-agents: '${arg}'.`);
+    }
+    projectPath = arg;
+    hasPositionalDir = true;
+  }
+
+  return { projectPath, dryRun, help };
+}
+
 export async function runReconcileAgentsCli(args: string[]): Promise<void> {
-  const { projectPath, dryRun } = parseInitAgentsArgs(args);
+  if (args.includes('--help') || args.includes('-h')) {
+    console.log(RECONCILE_AGENTS_HELP_TEXT);
+    return;
+  }
+  const { projectPath, dryRun } = parseReconcileAgentsArgs(args);
   const result = await reconcileAgentsGovernance({ projectPath, dryRun });
   console.log(
     `✔ [Reconcile 11X] ${result.removed_duplicate_sections_count} sección(es) duplicada(s) podada(s), ${result.preserved_domain_sections_count} sección(es) de dominio preservada(s).`

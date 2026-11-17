@@ -232,7 +232,8 @@ src/core/auth.py 50 2 96.0%
       const merger = new SurgicalMerger();
       const res = merger.mergePackageJson('not valid json {', '{"scripts": {"test": "vitest"}}');
       expect(res.changes.length).toBeGreaterThan(0);
-      expect(res.merged).toContain('"test": "vitest"');
+      expect(res.changes[0]).toContain('Error:');
+      expect(res.merged).toBe('not valid json {');
     });
 
     it('fusiona archivos con append_missing_lines en modo dry-run y modo efectivo', async () => {
@@ -365,7 +366,7 @@ strict = true
       // SEC-01 (HIGH) y SEC-10 (CRITICAL) en archivo productivo (sin 'test' en la ruta)
       fs.writeFileSync(
         path.join(tempDir, 'service.py'),
-        'class UserCreate(BaseModel):\n    name: str\n\nghp_123456789012345678901234567890123456 = 1\n'
+        'class UserCreate(BaseModel):\n    name: str\n\nghp_123456789012345678901234567890123456 = 1\n' // qa-secret-fixture-ok
       );
 
       const res = await certify11xGate(tempDir);

@@ -19,15 +19,22 @@ Este blueprint establece el estándar corporativo **QA 11X** para auditar pipeli
 
 ---
 
-## 2. Complementariedad entre DeepEval y Promptfoo
+## 2. Complementariedad entre DeepEval, Módulos Voz/OCR/Golden y Promptfoo
 
-1. **DeepEval (`ai-evals/rag/test_rag_faithfulness.py` — Code-First en Python/Pytest):**
-   - Ideal para descomposición diagnóstica de pipelines RAG (`LLMTestCase`) y auditoría granular de trayectorias agénticas (`ToolCall`).
+1. **DeepEval RAG y Juez Compartido (`ai-evals/rag/test_rag_faithfulness.py`, `ai-evals/_llm_judge.py`):**
+   - Ideal para descomposición diagnóstica de pipelines RAG (`LLMTestCase`) y auditoría de trayectorias (`ToolCall`), respaldado por resolución compartida de jueces (`OpenAI`, `Gemini`, `Anthropic`, `Ollama` normalizado `/v1` o `LocalModel`).
    - En **Modo 1**, valida contratos deterministas de esquema, citas huérfanas, cifras no sustentadas y orden obligatorio de herramientas (`inspect_blast_radius` previo a edición).
-   - En **Modo 2** (`QA_LLM_AUDIT_LIVE=1`), ejecuta `assert_test` contra el juez configurado (`OpenAI`, `Gemini`, `Anthropic`, `Ollama` o `LocalModel`).
+   - En **Modo 2** (`QA_LLM_AUDIT_LIVE=1`), ejecuta `assert_test` contra el juez resuelto mediante `resolve_deepeval_judge_model`.
 
-2. **Promptfoo (`ai-evals/promptfooconfig.yaml` — Config-First en YAML):**
-   - Ideal para comparar lado a lado el mismo prompt y dataset dorado entre múltiples proveedores (`openai:gpt-4.1-mini`, `anthropic:messages:claude-sonnet-4-5`, `google:gemini-2.5-flash` y `ollama:chat:qwen3:8b`).
+2. **Módulos Voz en Tiempo Real y OCR Multimodal (`ai-evals/voice-realtime/`, `ai-evals/multimodal-ocr/`):**
+   - `voice-realtime/test_voice_websocket_latency.py`: Reinyecta eventos WebSocket/WebRTC (`vapi`, `elevenlabs`, `livekit`, `pipecat`) validando `TTFB p95 <= 500ms`, latencia de turno `<= 800ms`, pérdida de paquetes `<= 2%`, barge-in `<= 200ms` e higiene PII/secretos.
+   - `multimodal-ocr/test_pdf_table_fidelity.py`: Audita extracción tabular PDF y OCR Tesseract usando aritmética exacta `Decimal` (`2500.00`), cabeceras obligatorias y juez DeepEval compartido.
+
+3. **Conversor de Trazas Fallidas a Golden Tests (`ai-evals/golden_from_traces.py`, `ai-evals/tests/test_golden_from_traces.py`):**
+   - Normaliza entradas con `NFKC`, deduplica por SHA-256, redacta llaves privadas PEM, JWTs, secretos API, credenciales en URI y PII, y exporta JSON DeepEval (`GoldenExportOptions` DTO) o YAML Promptfoo emitiendo `vars.query`.
+
+4. **Promptfoo (`ai-evals/promptfooconfig.yaml` — Config-First en YAML):**
+   - Ideal para comparar múltiples proveedores (`openai:gpt-4.1-mini`, `anthropic:messages:claude-sonnet-4-5`, `google:gemini-2.5-flash`, `ollama:chat:qwen3:8b`) parametrizando el juez mediante `defaultTest.options.provider` (`PROMPTFOO_JUDGE_PROVIDER`).
    - Combina aserciones deterministas (`is-json`, `contains`, `not-icontains`, presupuesto de `latency`) con rúbricas semánticas (`context-faithfulness`, `answer-relevance`, `llm-rubric`) y bloque `redteam` alineado con **OWASP LLM Top 10** (`indirect-prompt-injection`, `prompt-injection`, `jailbreak`, `pii`, `rbac`, `excessive-agency`, `hijacking`).
 
 ---

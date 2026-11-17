@@ -34,7 +34,7 @@ import {
   parseInitAgentsArgs,
   runInitAgentsCli,
 } from '../src/cli/init-agents-md.js';
-import { parseAgentsArg, runInstallSkillCli } from '../src/cli/install-skill.js';
+import { INSTALL_SKILL_HELP_TEXT, parseAgentsArg, runInstallSkillCli } from '../src/cli/install-skill.js';
 import { GitHubFetcher } from '../src/services/github-fetcher.js';
 
 const EXPECTED_28_AGENTS: readonly SupportedAiAgentId[] = [
@@ -128,9 +128,10 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
       expect(res.action).toBe('created');
       expect(res.bridged_agents).toEqual([]);
       expect(res.bridge_files).toEqual([]);
-      expect(res.content).toContain('OUTPUT LANGUAGE CONSTRAINT');
-      expect(res.content).toContain('Spanish (español)');
+      expect(res.content).toContain('OUTPUT LANGUAGE & HIGH-IQ TOKEN ECONOMY');
+      expect(res.content).toContain('strictly in **Spanish**');
       expect(res.content).toContain('QA-GIT-GATE-01');
+      expect(res.content).not.toContain('Jesus Palencia');
       expect(fs.existsSync(path.join(tmpDir, 'AGENTS.md'))).toBe(true);
       expect(fs.existsSync(path.join(tmpDir, 'CLAUDE.md'))).toBe(false);
     });
@@ -141,7 +142,7 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
       const emptyBlock = buildAgentsMdConnectorBlock(fallbackName, [], 'en');
       expect(emptyBlock).toContain('This project (`Project`)');
       expect(emptyBlock).toContain('stacks: `general`');
-      expect(emptyBlock).toContain('in English');
+      expect(emptyBlock).toContain('strictly in **English**');
 
       await expect(initOrAppendAgentsMd({ project_path: '/', dry_run: true })).rejects.toThrow(
         WorkspacePathValidationError
@@ -169,7 +170,7 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
       const enContent = fs.readFileSync(agentsMdPath, 'utf-8');
       expect(enContent.startsWith(header)).toBe(true);
       expect(enContent.endsWith(footer)).toBe(true);
-      expect(enContent).toContain('write commit messages / user-facing documentation in English');
+      expect(enContent).toContain('strictly in **English**');
       expect(enContent).not.toContain('legacy block');
 
       const toEs = await initOrAppendAgentsMd({ projectPath: tmpDir, lang: 'es' });
@@ -178,7 +179,7 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
       const esContent = fs.readFileSync(agentsMdPath, 'utf-8');
       expect(esContent.startsWith(header)).toBe(true);
       expect(esContent.endsWith(footer)).toBe(true);
-      expect(esContent).toContain('Spanish (español)');
+      expect(esContent).toContain('strictly in **Spanish**');
 
       const toEsRepeat = await initOrAppendAgentsMd({ projectPath: tmpDir, lang: 'es' });
       expect(toEsRepeat.action).toBe('updated_block');
@@ -469,11 +470,38 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
       expect(recRes.command).toBe('reconcile-agents');
       expect(recSpy).toHaveBeenCalledWith([tmpDir, '--dry-run']);
 
-      const unknownFlagParsed = parseCliArgs(
-        ['init-agents', '--unknown-inline=value', '--unknown-flag'],
-        tmpDir
-      );
-      expect(unknownFlagParsed.projectPath).toBe(tmpDir);
+      const initRunnerCalls: string[][] = [];
+      const customInitRes = await runCli(['init-agents', '--dir', tmpDir, '--dry-run'], {
+        initAgentsRunner: (fwd) => {
+          initRunnerCalls.push(fwd);
+          return Promise.resolve();
+        },
+        log: vi.fn(),
+      });
+      expect(customInitRes.exitCode).toBe(0);
+      expect(customInitRes.command).toBe('init-agents');
+      expect(initRunnerCalls).toEqual([['--dir', tmpDir, '--dry-run']]);
+
+      const defaultHelpLogs: string[] = [];
+      const versionHelpRes = await runCli(['--version', '--help'], {
+        log: (m) => defaultHelpLogs.push(m),
+      });
+      expect(versionHelpRes.exitCode).toBe(0);
+      expect(defaultHelpLogs[0]).toBe(CLI_USAGE_TEXT);
+
+      const tmsLogs: string[] = [];
+      const tmsErrors: string[] = [];
+      const tmsFailRes = await runCli(['tms-sync', '--unknown-tms-flag'], {
+        log: (m) => tmsLogs.push(m),
+        errorLog: (m) => tmsErrors.push(m),
+      });
+      expect(tmsFailRes.exitCode).toBe(1);
+      expect(tmsLogs).toEqual([]);
+      expect(tmsErrors[0]).toContain('[Fail-Verbose]');
+
+      expect(() =>
+        parseCliArgs(['init-agents', '--unknown-inline=value', '--unknown-flag'], tmpDir)
+      ).toThrow("Unknown CLI flag '--unknown-inline=value'");
       expect(() => parseCliArgs(['init-agents', '--agents='])).toThrow("Missing value for flag '--agents'");
       expect(() => parseCliArgs(['unknown-cmd'])).toThrow('Unknown CLI subcommand');
       expect(() => parseCliArgs(['init-agents', '--lang', 'fr'])).toThrow("Unsupported language 'fr'");
@@ -540,6 +568,42 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
           fetcher
         );
         expect(fs.existsSync(path.join(tmpDir, '.bolt/prompt'))).toBe(true);
+
+        // Direct runInstallSkillCli --help/-h, invalid/missing option values, positional rejections, and --dry-run plan branches
+        await runInstallSkillCli(['--help']);
+        await runInstallSkillCli(['-h']);
+        expect(logSpy).toHaveBeenCalledWith(INSTALL_SKILL_HELP_TEXT);
+
+        await expect(runInstallSkillCli(['--unknown=val'])).rejects.toThrow(/Opción CLI desconocida/);
+        await expect(runInstallSkillCli(['--target='])).rejects.toThrow(
+          "Falta el valor requerido para la opción '--target'"
+        );
+        await expect(runInstallSkillCli(['--target'])).rejects.toThrow(
+          "Falta el valor requerido para la opción '--target'"
+        );
+        await expect(runInstallSkillCli(['--target', '--dry-run'])).rejects.toThrow(
+          "Falta el valor requerido para la opción '--target'"
+        );
+        await expect(runInstallSkillCli(['unexpected-positional'])).rejects.toThrow(
+          /Argumento posicional inesperado/
+        );
+
+        await runInstallSkillCli(
+          [
+            '--target=workspace',
+            '--dry-run',
+            '--include-scripts',
+            '--init-agents',
+            '--reconcile',
+            '--lang=en',
+            '--agents=cursor',
+          ],
+          fetcher
+        );
+        await runInstallSkillCli(['--target=workspace', '--dry-run', '--init-agents'], fetcher);
+        expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('[DRY-RUN Reconcile 11X]'));
+        expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Scripts/archivos comunes planificados'));
+        expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('AGENTS.md planificado'));
       } finally {
         process.chdir(origCwd);
         process.env.HOME = origHome;

@@ -9,8 +9,7 @@ import {
   resolveSafeChildPath,
   resolveSafeHomeDir,
 } from './github-fetcher.js';
-import { syncGlobalGeminiMd } from '../cli/init-agents-md.js';
-import { CONNECTOR_START_MARKER } from './agents-connector.js';
+import { CONNECTOR_START_MARKER, syncGlobalGeminiMd } from './agents-connector.js';
 import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 import type {
   GlobalSkillAutoSyncResult,
@@ -50,6 +49,7 @@ export interface EvaluateUpdateOptions {
   nowMs?: number;
   fetchFn?: typeof fetch;
   npmTimeoutMs?: number;
+  signal?: AbortSignal;
 }
 
 export interface AutoSyncGlobalSkillsOptions {
@@ -232,12 +232,16 @@ function writeLatestCheckCache(cacheDir: string, latestVersion: string, nowMs: n
 
 async function fetchNpmLatestVersion(
   fetchFn: typeof fetch,
-  timeoutMs: number
+  timeoutMs: number,
+  signal?: AbortSignal
 ): Promise<string | null> {
+  if (signal?.aborted) return null;
   try {
+    const timeoutSignal = AbortSignal.timeout(timeoutMs);
+    const combinedSignal = signal ? AbortSignal.any([timeoutSignal, signal]) : timeoutSignal;
     const response = await fetchFn(NPM_LATEST_URL, {
       headers: { Accept: 'application/json' },
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: combinedSignal,
     });
     if (!response.ok) return null;
     const data = (await response.json()) as { version?: string };
@@ -285,7 +289,7 @@ export async function resolveLatestPublishedVersion(
   if (allowNetwork && !isCacheFresh) {
     const [manifestVer, npmVer] = await Promise.all([
       fetchManifestVersionFailOpen(fetcher),
-      fetchNpmLatestVersion(fetchFn, npmTimeoutMs),
+      fetchNpmLatestVersion(fetchFn, npmTimeoutMs, options.signal),
     ]);
     const fetchedBest = pickHigherSemver(manifestVer, npmVer);
     if (fetchedBest) {
@@ -413,6 +417,7 @@ export async function evaluateUpdateStatus(
     nowMs: options.nowMs,
     fetchFn: options.fetchFn,
     npmTimeoutMs: options.npmTimeoutMs,
+    signal: options.signal,
   });
 
   const mcpOutdated = isStrictlyNewer(latestVersion, runningVer);

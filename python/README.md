@@ -22,7 +22,7 @@ When generating code, configuring the environment, or proposing solutions, you m
 *   **Linting and Formatting:** `ruff` (`C901` with max complexity `<= 5` in critical tests and new modules).
 *   **Strict Typing:** `mypy --strict --cache-dir=/tmp/mypy` (prevents runtime exceptions).
 *   **Security and Auditing:** `pip-audit` (dependency CVEs) and `bandit` (SAST vulnerabilities in the codebase).
-*   **Complexity Analysis (Technical Debt):** `radon` (Maintainability Index Grade A and cyclomatic complexity <= B).
+*   **Complexity Analysis (Technical Debt):** `radon` (Maintainability Index Grade A and cyclomatic complexity Grade `A`, `CC <= 5`).
 *   **Profiling (Memory and CPU):** `py-spy` (bottleneck detection via *Flamegraphs*).
 *   **Core Logic Tests and Interception:** `pytest` as the primary engine, mandatorily enhanced with `pytest-mock` and `unittest.mock` to isolate networking and external dependencies.
 *   **Zero-Infra Consumer-Driven Contracts (`Pact` V3/V4):** Preinstalled `pact` package exporting deterministic artifacts into `PACT_OUTPUT_DIR` (without an external *Pact Broker*) over *Trimodal Fixtures* (`nominal_configured`, `virgin_empty`, `degraded_conflict`), exact monetary serialization using `Decimal` (`float` prohibited), mandatory UUIDv4 `Idempotency-Key` header, RFC 7807 errors (`application/problem+json`), and per-item inspection of batch responses (`results[].status`).
@@ -49,6 +49,8 @@ Depending on the script's nature, you must instrument it in one of these two way
 
 2.  **If it is an Ephemeral Script (Batch Task / Cron):** Prometheus will not have time to scrape it. Instead, use `push_to_gateway` to send collected metrics before the script exits.
     ```python
+    import logging
+    from urllib.error import URLError
     from prometheus_client import CollectorRegistry, push_to_gateway
     # ... collect your metrics in the registry ...
     if __name__ == '__main__':
@@ -56,8 +58,8 @@ Depending on the script's nature, you must instrument it in one of these two way
         # ... script logic ...
         try:
             push_to_gateway('python_pushgateway:9091', job='batch_script', registry=registry)
-        except Exception as e:
-            pass # Silent failure if no live QA network is present
+        except (OSError, URLError) as exc:
+            logging.warning("Pushgateway unavailable; metrics skipped: %s", exc)
     ```
 
 ### B. Unit Tests (Mocked / Isolated)
@@ -74,7 +76,7 @@ Depending on the script's nature, you must instrument it in one of these two way
 *   **Benchmarking:** Mark heavy math or data-processing functions with the `benchmark` fixture to ensure future refactorings do not degrade speed.
 
 ### E. Cyclomatic Complexity (`radon`)
-*   **Rule:** No generated method may exceed cyclomatic complexity grade `B` or drop below grade `A` in Maintainability Index (MI). If code is too complex, split it.
+*   **Rule:** No generated method may exceed cyclomatic complexity Grade `A` (`CC <= 5`) or drop below Grade `A` in Maintainability Index (MI). Apply `[DIRECTIVE-11X]` patterns from `.agents/skills/tactical-patterns-11x/SKILL.md` (table-driven dispatch, Parameter Object/DTO, guard clauses, or pipelines) rather than pass-through helpers.
 
 ### F. Smart Ingestion (Step 0 - AST Graphify)
 *   **Rule (Exclusive to you, AI):** You are strictly forbidden from generating code or tests blindly. Before modifying code, query the AST graph with `python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"` (or update it with `./scripts/actualizar-grafos-graphify.sh`). Additionally, you MUST read linter configurations and dependencies defined in `pyproject.toml` to adapt your code to strict repository conventions and avoid CI/CD rejections.

@@ -40,17 +40,17 @@ This directory implements the portable, open agent-governance layout across Goog
     ├── checkpoint_ctl.py                             # Atomic Flight Recorder controller (0600 JSON -> ACTIVE_TASK.md + live Git check)
     ├── verify_alembic_orm_parity.py                  # Strict ORM model vs. migration parity auditor (revision <= 32 chars)
     ├── verify_json_no_duplicate_keys.py              # Strict duplicate-key validator for i18n JSON locale files
-    ├── verify_topological_health.py                  # AST architectural layer-boundary validator
+    ├── verify_topological_health.py                  # AST directed cycle (DFS) & layer-boundary validator (services/domain -> api/views)
     ├── inspect_blast_radius.py                       # Bidirectional AST blast-radius inspector & Code Q&A helper
     ├── select_tests_by_blast_radius.py               # Deterministic QA suite selector from AST blast radius
     ├── verify_zero_orphan_vue_components.py          # Zero-orphan UI component test parity validator
     ├── verify_no_orphan_api_endpoints.py             # Bidirectional frontend-backend API route parity validator
     ├── verify_roadmap_consistency.py                 # Bidirectional ROADMAP.md & ACTIVE_TASK.md consistency validator
-    ├── verify_docs_invariants.py                     # Cognitive-budget (<12KB architect / <20KB skills / <=40 lines) & bilingual/Dual-Consumer parity validator
+    ├── verify_docs_invariants.py                     # Cognitive-budget (<=12KB architect / <20KB skills / <=40 lines) & bilingual/Dual-Consumer parity validator
     ├── verify_diff_coverage.py                       # Multi-stack differential coverage gate (100% lines / >=90% branches) & anti-evasion guard
     ├── track_findings_state.py                       # Line-shift-invariant finding state tracker & BREAKER-42 anti-loop circuit breaker (exit 42)
     ├── generate_pr_verdict.py                        # Deterministic PR_VERDICT.md & SHA-256/HMAC attestation generator
-    ├── lint_test_antipatterns.py                     # AST test anti-pattern linter (blind audit mocks, UUID regressions, XPath/sleep)
+    ├── lint_test_antipatterns.py                     # UI (QA-UI-ANTI-001..005) & Python AST (QA-PY-ANTI-001..003) anti-pattern linter
     ├── bump_version_11x.py                           # Zero-LLM deterministic version & edition synchronizer
     ├── sync_governance.py                            # Offline SHA-256 cryptographic manifest.json synchronizer
     ├── release_readiness_gate.py                     # SLA Release Readiness Gate evaluator (GO / NO_GO)
@@ -99,7 +99,7 @@ This directory implements the portable, open agent-governance layout across Goog
 Versioning `.agents/` in Git is safe and recommended:
 - **Zero Secrets:** Contains only Markdown governance, JSON schemas, and deterministic Python/Bash gates—never tokens, passwords, or `.env` secrets.
 - **Reproducibility:** Ensures every contributor and CI run shares identical 11X quality thresholds (`>= 95%` coverage, `CC <= 5`, `0` Trivy HIGH/CRITICAL findings).
-- **Continuous Auditing:** All scripts in `.agents/scripts/` are audited by `ShellCheck`, `ruff`, `mypy --strict`, and `./scripts/verificar-secretos.sh`.
+- **Continuous Auditing:** All 21 Python governance scripts (`.agents/scripts/*.py` + `scripts/generar-manifiesto.py`) maintain 100% `ruff` (`CC <= 5`) and `mypy --strict` compliance, alongside `ShellCheck`/`shfmt` on Bash gates and `./scripts/verificar-secretos.sh`.
 
 ---
 

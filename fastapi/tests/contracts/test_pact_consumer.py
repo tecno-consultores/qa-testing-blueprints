@@ -8,6 +8,7 @@ import json
 import os
 import re
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -131,7 +132,12 @@ def validate_tenant_id(tenant_id: str) -> str:
 
 
 def _decode_json_object(raw_bytes: bytes) -> dict[str, object]:
-    loaded = json.loads(raw_bytes.decode("utf-8"))
+    try:
+        loaded = json.loads(raw_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ContractViolationError(
+            f"Respuesta JSON invalida desde el proveedor: {exc}"
+        ) from exc
     if not isinstance(loaded, dict):
         raise ContractViolationError("Se esperaba un objeto JSON desde el proveedor.")
     return {str(k): v for k, v in loaded.items()}
@@ -141,15 +147,25 @@ def _normalize_headers(headers: Mapping[str, str]) -> dict[str, str]:
     return {k.lower(): v for k, v in headers.items()}
 
 
+def _validate_http_url(url: str) -> str:
+    parsed = urllib.parse.urlsplit(url)
+    if parsed.scheme.lower() not in {"http", "https"} or not parsed.netloc:
+        raise ContractViolationError(
+            f"Esquema URL no permitido para contrato HTTP: {url!r}"
+        )
+    return url
+
+
 def _execute_http_json(
     url: str,
     method: str,
     headers: Mapping[str, str],
     payload: Mapping[str, object] | None,
 ) -> tuple[int, dict[str, str], dict[str, object]]:
+    safe_url = _validate_http_url(url)
     body_bytes = None if payload is None else json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
-        url,
+        safe_url,
         data=body_bytes,
         headers=dict(headers),
         method=method,
@@ -644,3 +660,9 @@ def test_client_detects_contract_breaks_with_fake_responses(
         client.reserve_batch([req_item], BATCH_IDEMPOTENCY_KEY)
     with pytest.raises(ContractViolationError, match="HTTP 200"):
         client.reserve_batch([req_item], BATCH_IDEMPOTENCY_KEY)
+    with pytest.raises(ContractViolationError, match="JSON invalida"):
+        _decode_json_object(b"{broken-json")
+    with pytest.raises(ContractViolationError, match="JSON invalida"):
+        _decode_json_object(b"\xff\xfe")
+    with pytest.raises(ContractViolationError, match="Esquema URL"):
+        _execute_http_json("file:///etc/passwd", "GET", {}, None)

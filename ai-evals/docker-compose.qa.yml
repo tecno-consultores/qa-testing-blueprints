@@ -9,6 +9,8 @@ services:
     hostname: ai_evals_qa
     pull_policy: if_not_present
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    security_opt:
+      - no-new-privileges:true
     environment:
       TZ: 'America/Caracas'
       HOME: /tmp
@@ -21,10 +23,6 @@ services:
     volumes:
       - .:/app
     working_dir: /app
-    cap_add:
-      - SYS_PTRACE
-    security_opt:
-      - seccomp:unconfined
     extra_hosts:
       - "host.docker.internal:host-gateway"
     command: bash -c "echo 'Contenedor QA AI-Evals listo (Regla Cero, non-root). Usa docker compose -f docker-compose.qa.yml run --rm -T qa-evals [comando]'; sleep infinity"
@@ -37,6 +35,8 @@ services:
     profiles:
       - llm-live
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    security_opt:
+      - no-new-privileges:true
     environment:
       TZ: 'America/Caracas'
       HOME: /tmp
@@ -45,7 +45,6 @@ services:
       OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
       GEMINI_API_KEY: "${GEMINI_API_KEY:-}"
       ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
-      OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-}"
       OPENAI_API_BASE: "${OPENAI_API_BASE:-}"
     volumes:
       - .:/app

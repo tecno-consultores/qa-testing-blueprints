@@ -15,7 +15,7 @@ export default defineConfig({
     setupFiles: ['./vitest.setup.ts'],
 
     // TOOL BOUNDARY ESTRICTO: Vitest solo ejecuta archivos unitarios rápidos.
-    include: ['src/**/*.unit.{ts,tsx}', 'src/**/*.spec.{ts,tsx}'],
+    include: ['src/**/*.unit.{ts,tsx}', 'src/**/*.spec.{ts,tsx}', 'tests/**/*.unit.{ts,tsx}'],
 
     coverage: {
       provider: 'v8',

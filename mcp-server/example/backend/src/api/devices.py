@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: MIT
 from __future__ import annotations
 
-from decimal import Decimal
 import unicodedata
+from decimal import Decimal
 from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException
@@ -24,11 +24,17 @@ class CreateDevicePayload(BaseModel):
 
 
 @router.get("")
-async def get_devices_endpoint(x_tenant_id: str = Header(default="tenant-demo")) -> list[dict[str, str]]:
+async def get_devices_endpoint(
+    x_tenant_id: str = Header(default="tenant-demo"),
+) -> list[dict[str, str]]:
     clean_tenant = unicodedata.normalize("NFKC", x_tenant_id)
     items = list_tenant_devices(_MEMORY_STORE, clean_tenant)
     return [
-        {"id": item.id, "hostname": item.hostname, "cpu_load_pct": str(item.cpu_load_pct)}
+        {
+            "id": item.id,
+            "hostname": item.hostname,
+            "cpu_load_pct": str(item.cpu_load_pct),
+        }
         for item in items
     ]
 
@@ -39,7 +45,11 @@ async def create_device_endpoint(
     idempotency_key: str = Header(..., alias="Idempotency-Key", min_length=8),
 ) -> dict[str, Any]:
     _ = unicodedata.normalize("NFKC", idempotency_key)
-    claims = {"tenant_id": "tenant-demo", "role": "operator", "username": "operador.noc"}
+    claims = {
+        "tenant_id": "tenant-demo",
+        "role": "operator",
+        "username": "operador.noc",
+    }
     try:
         device, audit = register_tenant_device(
             _MEMORY_STORE,
@@ -50,4 +60,8 @@ async def create_device_endpoint(
         )
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
-    return {"id": device.id, "hostname": device.hostname, "audit_actor": audit["actor_username"]}
+    return {
+        "id": device.id,
+        "hostname": device.hostname,
+        "audit_actor": audit["actor_username"],
+    }

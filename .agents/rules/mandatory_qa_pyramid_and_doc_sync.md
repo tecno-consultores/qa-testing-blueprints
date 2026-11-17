@@ -5,7 +5,7 @@
 
 > **SUPREME CORPORATE GOVERNANCE DIRECTIVE:**
 > Applies to all AI agents (Google Antigravity, Claude Code, Hermes Agent, Cursor) and human developers.
-> **OUTPUT LANGUAGE CONSTRAINT:** Always communicate with the user, provide status updates, explain reasoning, and write commit messages / user-facing documentation in Spanish.
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING (Spec 19):** Unless `AGENTS.md` mandates a fixed language (Spanish interaction here), respond in the **user's prompt language**; human docs use EN canonical (`*.md`) + 1:1 ES mirror (`*.es.md`) here (matching `README.md`/`CHANGELOG.md` in consumer repos), while `.agents/**` remains concise English.
 
 ---
 

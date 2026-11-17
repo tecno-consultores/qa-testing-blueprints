@@ -43,6 +43,9 @@ export default tseslint.config(
     files: ['tests/**/*', 'test/**/*', '**/*.test.*', '**/*.spec.*', '**/*.unit.*'],
     rules: {
       'max-params': 'off',
+      'sonarjs/no-duplicate-string': 'off',
+      'security/detect-object-injection': 'off',
+      '@typescript-eslint/explicit-function-return-type': 'off',
     },
   }
 );

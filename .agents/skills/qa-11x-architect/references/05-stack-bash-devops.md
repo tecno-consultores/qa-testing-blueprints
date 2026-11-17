@@ -1,7 +1,6 @@
 # 🐧 Bash & DevOps Shell Stack Reference (Standard 11X)
 
-> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:**
-> Unless target `AGENTS.md` mandates a fixed language, interact in the **user's prompt language**; human docs use EN canonical (`*.md`) + 1:1 ES mirror (`*.es.md`) (matching `README.md`/`CHANGELOG.md` in consumer repos, defaulting to prompt language if empty); `.agents/**` stays concise English.
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Respond in **user's prompt language** (unless `AGENTS.md` fixes it); docs/commits match `README.md`/`CHANGELOG.md` (Spec 19; `.agents/**` English).
 
 This reference provides technical standards, testing directives, and ephemeral Docker commands for Bash, POSIX Shell, and DevOps automation scripts.
 
@@ -9,7 +8,7 @@ This reference provides technical standards, testing directives, and ephemeral D
 
 ## 1. Zero-Contamination Runtime & Docker Environment
 
-All shell testing and linting MUST execute strictly inside `sinfallas/base-bash-qa:latest` (`Rule Zero`).
+All shell testing and linting MUST execute strictly inside `sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7` (`Rule Zero`).
 - Preinstalled tools in image: `bats`, `kcov`, `shellcheck`, `shfmt`, and BATS libraries in `/opt/bats-libs/` (`bats-support`, `bats-assert`, `bats-mock`).
 - Never execute destructive or environment-altering scripts directly on the host machine.
 
@@ -69,8 +68,8 @@ teardown() {
 @test "script successfully cleans directory and pushes metric" {
   export PATH="${MOCK_CURL%/*}:${PATH}"
   
-  # Run the script under test
-  run ./limpieza.sh "${TEST_TEMP_DIR}"
+  # Run the script under test (use ./limpieza.sh inside a hydrated bash-scripts stack)
+  run ./scripts/limpieza.sh "${TEST_TEMP_DIR}"
   
   assert_success
   assert_output --partial "Limpieza completada"
@@ -85,12 +84,12 @@ teardown() {
 .PHONY: qa-lint qa-unit qa-all
 
 qa-lint:
-	docker compose -f docker-compose.qa.yml run --rm qa-bash shellcheck -s bash -x *.sh test/*.bats
-	docker compose -f docker-compose.qa.yml run --rm qa-bash shfmt -d -i 2 -ci *.sh
+	docker compose -f docker-compose.qa.yml run --rm -T qa-bash shellcheck -s bash -x *.sh test/*.bats
+	docker compose -f docker-compose.qa.yml run --rm -T qa-bash shfmt -d -i 2 -ci *.sh
 
 qa-unit:
-	docker compose -f docker-compose.qa.yml run --rm qa-bash kcov --include-path=. /tmp/coverage bats test/
-	docker compose -f docker-compose.qa.yml run --rm qa-bash bash -c "python3 -c 'import json; ...' || true"
+	docker compose -f docker-compose.qa.yml run --rm -T -e _USER=qa qa-bash kcov --include-path=. /tmp/coverage bats test/
+	docker compose -f docker-compose.qa.yml run --rm -T -e _USER=qa qa-bash python3 -c "import json, pathlib, sys; d = json.loads(pathlib.Path('/tmp/coverage/bats/coverage.json').read_text()); sys.exit(0 if float(d.get('percent_covered', 0)) >= 95.0 else 1)"
 
 qa-all: qa-lint qa-unit
 ```

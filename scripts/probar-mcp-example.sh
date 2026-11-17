@@ -73,6 +73,11 @@ verify_tarball_cli() {
     rm -rf "${pack_tmp}"
     return 1
   fi
+  if printf "%s\n" "${tar_list}" | grep -q '\.map$'; then
+    echo "FAIL [Tarball CLI] Archivos .map filtrados en ${tarball_file}" >&2
+    rm -rf "${pack_tmp}"
+    return 1
+  fi
   mkdir -p "${pack_tmp}/installed" "${pack_tmp}/proj" "${pack_tmp}/home"
   tar -xzf "${pack_tmp}/${tarball_file}" -C "${pack_tmp}/installed" --strip-components=1
   ln -s "$(pwd)/node_modules" "${pack_tmp}/installed/node_modules"

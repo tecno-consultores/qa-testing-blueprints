@@ -26,8 +26,8 @@ Tienes estrictamente prohibido permitir que las pruebas interactúen con el hard
 *   **Ejemplo de Inyección:**
 
 ```bash
-# Al finalizar una tarea exitosa dentro del script:
-echo "script_success_total 1" | curl -s -X POST --data-binary @- http://pushgateway:9091/metrics/job/bash_scripts
+# Al finalizar una tarea exitosa dentro del script (con timeout acotado y no bloqueante):
+echo "script_success_total 1" | curl -fsS --connect-timeout 2 --max-time 4 -X POST --data-binary @- http://pushgateway:9091/metrics/job/bash_scripts >/dev/null 2>&1 || true
 ```
 
 ## 4. Comandos de Ejecución Local para el Desarrollador (y para la IA)
@@ -51,7 +51,7 @@ make qa-lint
 
 * **Paso 3: Pruebas unitarias y lógicas (BATS-core)**
 * **Paso 4: Auditoría de Cobertura (kcov) - Exigencia del 95%**
-Ejecuta las pruebas y genera el reporte de cobertura unificado con:
+Ejecuta las pruebas sobre `clean_artifacts.sh` (`test/ejemplo_mock.bats`) y genera el reporte de cobertura unificado con:
 ```bash
 make qa-unit
 ```
@@ -60,6 +60,6 @@ make qa-unit
 Levanta Prometheus y evalúa la emisión de métricas del script efímero:
 ```bash
 docker compose -f docker-compose.qa.yml --profile observability up -d prometheus
-docker compose -f docker-compose.qa.yml run --rm qa-bash bash ./miscript.sh
+docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-bash bash ./clean_artifacts.sh --dry-run
 # (Puedes verificar la métrica empujada accediendo a http://localhost:9090)
 ```

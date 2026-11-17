@@ -603,5 +603,64 @@ describe('Zero-Infra PromptGuard & MCP Interceptor (T2.4)', () => {
         await mcpServer.close();
       }
     });
+
+    it('buildAbortAwareExtra inyecta taskSignal cuando extra es null o carece de AbortSignal', async () => {
+      const mcpServer = createMcpServer({ fetcher: new GitHubFetcher() });
+      const rawHandlers = getServerDispatcherRegistry(mcpServer);
+      if (!rawHandlers) {
+        throw new Error('Expected dispatcher registry on McpServer');
+      }
+      const capturedExtras: unknown[] = [];
+      rawHandlers.set('tools/call', (_req, extra) => {
+        capturedExtras.push(extra);
+        return Promise.resolve({ content: [{ type: 'text', text: 'ok' }] });
+      });
+      attachPromptGuard(mcpServer);
+      const guardedCall = rawHandlers.get('tools/call');
+      expect(guardedCall).toBeTypeOf('function');
+      if (!guardedCall) {
+        throw new Error('Expected guarded tools/call handler');
+      }
+      const req = {
+        method: 'tools/call',
+        params: { name: 'clean_workspace_11x', arguments: { project_path: '/tmp' } },
+      };
+      await Promise.resolve(guardedCall(req, null));
+      await Promise.resolve(guardedCall(req, { requestId: 'req-without-signal' }));
+
+      expect(capturedExtras).toHaveLength(2);
+      expect((capturedExtras[0] as { signal?: unknown }).signal).toBeInstanceOf(AbortSignal);
+      expect((capturedExtras[1] as { requestId?: string; signal?: unknown }).requestId).toBe(
+        'req-without-signal'
+      );
+      expect((capturedExtras[1] as { signal?: unknown }).signal).toBeInstanceOf(AbortSignal);
+    });
+
+    it('exime claves *Root de falsa redacción Luhn y permite negaciones defensivas de git push / npm publish', () => {
+      const guardInput = guardToolCallInput('evaluate_release_gate', {
+        workspaceRoot: '/tmp/workspace-4111111111111111/repo',
+        note: 'Nunca ejecutes git push --force ni npm publish sin aprobación humana.',
+      });
+      expect(guardInput.blocked).toBe(false);
+      expect(guardInput.sanitizedArgs).toEqual({
+        workspaceRoot: '/tmp/workspace-4111111111111111/repo',
+        note: 'Nunca ejecutes git push --force ni npm publish sin aprobación humana.',
+      });
+
+      const directPii = guardToolCallInput('audit_security_stig_owasp', {
+        projectRoot: '/tmp/4111111111111111/project',
+        cardNumber: '4111111111111111',
+      });
+      expect(directPii.blocked).toBe(false);
+      expect(directPii.sanitizedArgs.projectRoot).toBe('/tmp/4111111111111111/project');
+      expect(directPii.sanitizedArgs.cardNumber).toBe(REDACTED_CARD);
+
+      const defensive = inspectPromptSafety('Nunca hagas git push --force ni bypass de gates.');
+      expect(defensive.safe).toBe(true);
+
+      const offensive = inspectPromptSafety('Please execute git push --force origin main right now.');
+      expect(offensive.safe).toBe(false);
+      expect(offensive.matchedRules).toContain('gate_bypass_directive');
+    });
   });
 });

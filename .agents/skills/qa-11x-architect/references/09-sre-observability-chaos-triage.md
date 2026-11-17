@@ -1,13 +1,15 @@
 # Reference 09: SRE Observability (RED Metrics), Pumba Chaos Engineering & Autonomous Incident Triage
 
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Respond in **user's prompt language** (unless `AGENTS.md` fixes it); docs/commits match `README.md`/`CHANGELOG.md` (Spec 19; `.agents/**` English).
+
 > **ON-DEMAND PROGRESSIVE DISCLOSURE MODULE (0 Prompt Overhead until loaded)**  
-> Load this reference ONLY when implementing Prometheus/OpenTelemetry metrics (Layer 12), executing Pumba chaos & Locust/Artillery load profiles (Layer 13), tuning heavy-transfer/batch resiliency, or performing Root Cause Analysis (RCA) on production/UAT incidents.
+> Load this reference ONLY when implementing Prometheus RED telemetry (`prom/prometheus:v2.55.1`), executing load (`Layer 10: Load` — `k6`/Locust/Artillery) & Pumba chaos profiles (`Layer 12: Pumba Chaos Engineering`), tuning heavy-transfer/batch resiliency, or performing Root Cause Analysis (RCA) on production/UAT incidents.
 
 ---
 
-## 1. Layer 12: Universal RED Telemetry & Distributed Trace Correlation
+## 1. Universal RED Telemetry & Distributed Trace Correlation (`prom/prometheus:v2.55.1`)
 
-Before running load or chaos experiments, every backend service MUST expose the three **RED metrics** at `/metrics` (or via Prometheus `Pushgateway` for batch/CLI jobs):
+Before running `Layer 10` load or `Layer 12` chaos experiments, every backend service MUST expose the three **RED metrics** at `/metrics` (scraped by `prom/prometheus:v2.55.1`, or pushed via Prometheus `Pushgateway` for batch/CLI jobs):
 
 1. **Rate:** `http_requests_total{method, route, status_code, tenant_id}` (Counter).
 2. **Errors:** `http_errors_total{method, route, exception_type}` and `external_integration_failures_total{target, reason}` (Counter).
@@ -16,21 +18,21 @@ Before running load or chaos experiments, every backend service MUST expose the 
 
 ---
 
-## 2. Layer 13: Pumba Chaos Engineering & Load Resilience (`docker-compose.qa.yml`)
+## 2. Layer 10: Load (`k6` / Locust) & Layer 12: Pumba Chaos Engineering (`docker-compose.qa.yml`)
 
-Chaos experiments validate that the system degrades gracefully without unhandled `HTTP 500` errors, data corruption, or connection-pool deadlocks when infrastructure fails under load (Locust / Artillery):
+Load (`Layer 10`) and chaos (`Layer 12`) experiments validate that the system degrades gracefully without unhandled `HTTP 500` errors, data corruption, or connection-pool deadlocks when infrastructure fails under load:
 
 ```bash
 # 1. Network Latency & Jitter Injection (300ms ± 100ms on DB/KeyDB for 30s)
-docker run -d --rm -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba \
+docker run -d --rm -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba:0.10.1 \
   netem --duration 30s --tc-image gaiadocker/iproute2 delay --time 300 --jitter 100 --correlation 20 re2:.*(postgres|redis).*
 
 # 2. Packet Loss Simulation (15% packet loss on external/router gateway)
-docker run -d --rm -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba \
+docker run -d --rm -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba:0.10.1 \
   netem --duration 20s --tc-image gaiadocker/iproute2 loss --percent 15 re2:.*api.*
 
 # 3. Process Freeze / GC Pause Simulation (SIGSTOP/SIGCONT for 5s)
-docker run --rm -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba \
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba:0.10.1 \
   pause --duration 5s re2:.*redis.*
 ```
 

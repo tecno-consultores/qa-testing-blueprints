@@ -4,7 +4,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { execFile, execFileSync } from 'child_process';
 import {
   runEphemeralQa,
@@ -769,5 +769,39 @@ describe('ephemeral-runner', () => {
     const directCmds = resolveComposeDirectFallback(brokenNodeDir, 'unit');
     expect(directCmds).not.toBeNull();
     expect(directCmds?.[0]).toEqual(expect.arrayContaining(['pnpm', 'run', 'test:unit']));
+  });
+
+  it('runEphemeralQa propaga AbortSignal al subproceso y aborta inmediatamente si ya fue cancelada', async () => {
+    fs.writeFileSync(path.join(tempDir, 'Makefile'), 'qa-lint:\n\t@echo ok\n', 'utf8');
+    let observedSignal: AbortSignal | undefined;
+    const mockExec = ((
+      _file: string,
+      _args: readonly string[],
+      options: { signal?: AbortSignal },
+      cb: (error: Error | null, stdout: string, stderr: string) => void
+    ) => {
+      observedSignal = options.signal;
+      cb(null, '0 warnings', '');
+    }) as unknown as typeof execFile;
+
+    const okController = new AbortController();
+    const okRes = await runEphemeralQa(tempDir, 'lint', 30, {
+      execFileFn: mockExec,
+      signal: okController.signal,
+    });
+    expect(okRes.status).toBe('PASSED');
+    expect(observedSignal).toBe(okController.signal);
+
+    const abortedController = new AbortController();
+    abortedController.abort(new Error('task cancelled early'));
+    const noInvoke = vi.fn<() => void>();
+    const abortedRes = await runEphemeralQa(tempDir, 'lint', 30, {
+      execFileFn: noInvoke as unknown as typeof execFile,
+      signal: abortedController.signal,
+    });
+    expect(abortedRes.status).toBe('FAILED');
+    expect(abortedRes.exit_code).toBe(124);
+    expect(abortedRes.tail_log).toContain('[TIMEOUT]');
+    expect(noInvoke).not.toHaveBeenCalled();
   });
 });

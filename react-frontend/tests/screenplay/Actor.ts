@@ -370,10 +370,14 @@ export class Actor {
 }
 
 function appendRefreshQueryParam(rawPath: string): string {
-  if (/[?&]refresh=true(?:&|$)/.test(rawPath)) {
+  const hashIndex = rawPath.indexOf('#');
+  const pathAndQuery = hashIndex >= 0 ? rawPath.slice(0, hashIndex) : rawPath;
+  const hashFragment = hashIndex >= 0 ? rawPath.slice(hashIndex) : '';
+  if (/[?&]refresh=true(?:&|$)/.test(pathAndQuery)) {
     return rawPath;
   }
-  return rawPath.includes('?') ? `${rawPath}&refresh=true` : `${rawPath}?refresh=true`;
+  const separator = pathAndQuery.includes('?') ? '&' : '?';
+  return `${pathAndQuery}${separator}refresh=true${hashFragment}`;
 }
 
 export function ClickSemantic(locator: SemanticLocator, targetLabel?: string): Interaction {
@@ -424,6 +428,16 @@ export interface TemporalWindow {
 }
 
 export function resolveTemporalLifecycleState(window: TemporalWindow): TemporalLifecycleState {
+  if (
+    !Number.isFinite(window.startsAtMs) ||
+    !Number.isFinite(window.endsAtMs) ||
+    !Number.isFinite(window.nowMs)
+  ) {
+    throw new RangeError('Ventana temporal invalida: marcas de tiempo deben ser finitas.');
+  }
+  if (window.endsAtMs < window.startsAtMs) {
+    throw new RangeError('Ventana temporal invalida: endsAtMs < startsAtMs.');
+  }
   if (window.cancelled === true || window.nowMs > window.endsAtMs) {
     return 'expired';
   }

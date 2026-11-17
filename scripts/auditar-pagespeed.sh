@@ -26,5 +26,5 @@ exec docker run --rm \
   -e PSI_URL \
   -v "${REPO_ROOT}:/app" \
   -w /app \
-  sinfallas/base-python-uv:3.15 \
+  sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 \
   python3 "${TARGET_SCRIPT}" "$@"

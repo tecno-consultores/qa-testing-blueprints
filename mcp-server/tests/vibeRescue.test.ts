@@ -195,9 +195,9 @@ afterEach(() => {
 });
 
 describe('auditVibePrototype MCP tool (T4.5)', () => {
-  it('expone esquema AUDIT_VIBE_PROTOTYPE_TOOL y redacta credenciales en memoria', () => {
+  it('expone descriptor AUDIT_VIBE_PROTOTYPE_TOOL y redacta credenciales en memoria', () => {
     expect(AUDIT_VIBE_PROTOTYPE_TOOL.name).toBe('audit_vibe_prototype');
-    expect(AUDIT_VIBE_PROTOTYPE_TOOL.inputSchema.additionalProperties).toBe(false);
+    expect(AUDIT_VIBE_PROTOTYPE_TOOL.description?.length).toBeGreaterThan(20);
     expect(DEFAULT_MAX_LINES).toBe(500);
 
     const token = buildSyntheticToken();

@@ -23,3 +23,7 @@ scan:
     - react-frontend/docker-compose.qa.yml
     - bash-scripts/docker-compose.qa.yml
     - php/docker-compose.qa.yml
+    - ai-evals/docker-compose.qa.yml
+    - mobile-appium/docker-compose.qa.yml
+    - vibe-rescue/docker-compose.qa.yml
+    - mcp-server/example/docker-compose.qa.yml

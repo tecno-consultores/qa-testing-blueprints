@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
+import { randomUUID } from 'node:crypto';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import {
@@ -11,6 +12,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import {
   createMcpServer,
+  getDeclaredSurfaceCounts,
   getRegisteredServerSurface,
   getServerDispatcherRegistry,
   wrapReadResourceDispatcher,
@@ -18,13 +20,9 @@ import {
 } from './server.js';
 import { guardToolCallInput, type PromptGuardOptions } from './security/promptGuard.js';
 import { runCli } from './cli.js';
-import { runInstallSkillCli } from './cli/install-skill.js';
-import { runInitAgentsCli } from './cli/init-agents-md.js';
-import { runReconcileAgentsCli } from './cli/reconcile-agents.js';
-import { runTmsSyncCli } from './integrations/tmsSyncCli.js';
 import { GitHubFetcher, MCP_SERVER_VERSION } from './services/github-fetcher.js';
 import { syncGlobalSkillsInBackground } from './services/version-manager.js';
-import { TaskGuardError, TaskStateGuard } from './utils/taskStateGuard.js';
+import { TaskGuardError, TaskStateGuard, type ExecuteTaskOptions } from './utils/taskStateGuard.js';
 import { formatFailVerboseReport } from './utils/diagnosticFormatter.js';
 
 export { getServerDispatcherRegistry, type RawGenericHandler } from './server.js';
@@ -35,6 +33,9 @@ const CONTENT_TYPE_TEXT = 'text' as const;
 const V2_TASK_CAPACITY = 8;
 const V2_TOOL_TIMEOUT_MS = 60_000;
 const V2_HEAVY_TRANSFER_TIMEOUT_MS = 185_000;
+const EPHEMERAL_QA_MIN_TIMEOUT_MS = 1_000;
+const EPHEMERAL_QA_MAX_TIMEOUT_MS = 900_000;
+const EPHEMERAL_QA_DEFAULT_SECS = 300;
 const INTERACTIVE_TTY_SYNC_TIMEOUT_MS = 300;
 const PROMPT_GUARD_UNAVAILABLE_ERR =
   '[QA-PROMPT-GUARD] MCP server request handlers registry is unavailable.';
@@ -49,29 +50,6 @@ export interface McpSurfaceCounts {
   readonly tools: number;
   readonly resources: number;
 }
-
-type CliSubcommandRunner = (tail: string[]) => Promise<number>;
-
-const CLI_SUBCOMMAND_RUNNERS: Readonly<Record<string, CliSubcommandRunner>> = {
-  'init-agents': async (tail) => {
-    await runInitAgentsCli(tail);
-    return 0;
-  },
-  'init-agents-md': async (tail) => {
-    await runInitAgentsCli(tail);
-    return 0;
-  },
-  'reconcile-agents': async (tail) => {
-    await runReconcileAgentsCli(tail);
-    return 0;
-  },
-  'tms-sync': async (tail) => {
-    const res = await runTmsSyncCli(tail);
-    const stream = res.exitCode === 0 ? console.log : console.error;
-    stream(res.output);
-    return res.exitCode;
-  },
-};
 
 function dispatchCoreFlag(
   arg1: string | undefined
@@ -103,26 +81,8 @@ export async function dispatchCliArgs(
     return coreOutcome.outcome;
   }
 
-  if (arg1 === 'install-skill' || arg1 === 'install') {
-    await runInstallSkillCli(args.slice(1), fetcher);
-    return 0;
-  }
-
-  if (arg1 === 'quickstart') {
-    const cliResult = await runCli(args);
-    return cliResult.exitCode;
-  }
-
-  const subcommandRunner =
-    arg1 && Object.hasOwn(CLI_SUBCOMMAND_RUNNERS, arg1)
-      ? CLI_SUBCOMMAND_RUNNERS[arg1]
-      : undefined;
-  if (subcommandRunner) {
-    return await subcommandRunner(args.slice(1));
-  }
-
-  console.error(`❌ Unknown subcommand or flag: '${arg1}'. Run with --help to view available options.`);
-  return 1;
+  const cliResult = await runCli(args, { fetcher });
+  return cliResult.exitCode;
 }
 
 export function shouldExitInteractiveTty(
@@ -165,9 +125,9 @@ function formatSurfaceSummary(counts: McpSurfaceCounts): string {
   return `${counts.tools} tools, ${counts.resources} resources`;
 }
 
-const DEFAULT_SURFACE_COUNTS: McpSurfaceCounts = getRegisteredSurfaceCounts(createMcpServer());
+const DEFAULT_SURFACE_COUNTS: McpSurfaceCounts = getDeclaredSurfaceCounts();
 
-/** Formats CLI help text using live registered MCP surface counts. */
+/** Formats CLI help text using declared MCP surface counts without eager server instantiation. */
 export function getCliHelpText(counts: McpSurfaceCounts = DEFAULT_SURFACE_COUNTS): string {
   return `
 @sinfallas/mcp-qa-11x v${MCP_SERVER_VERSION} — Official MCP Server & Skill Installer for QA Testing Blueprints
@@ -187,7 +147,7 @@ Usage:
 Options for quickstart:
   --tier, -T <level>       starter | standard | enterprise (auto-recommended by detected stack)
   --lang, -l <mode>        auto (default) | en | es
-  --agents <target>        auto (default) | workspace | antigravity | claude | cursor | windsurf | all
+  --agents <target>        auto | all | antigravity | claude-code | cursor | windsurf | <csv>
   --ci <provider>          none | github
   --dry-run                Simulates quickstart without modifying files
 
@@ -197,6 +157,7 @@ Options for install-skill (alias: install):
   --include-scripts        Installs operational scripts and common files into the current workspace
   --init-agents            Injects or updates the QA 11X connector block into AGENTS.md
   --reconcile              Performs deduplication and domain isolation in .agents/ before sync
+  --dry-run                Shows installation plan without writing files to disk
 
 Options for init-agents:
   --project-path, -p <dir> Target project directory path (default: cwd)
@@ -253,16 +214,90 @@ interface ProtectedToolContext {
   readonly taskGuard: TaskStateGuard;
 }
 
+const HEAVY_TRANSFER_TOOL_NAMES = new Set([
+  'certify_11x_gate',
+  'fetch_blueprint_bundle',
+  'bootstrap_or_merge_11x',
+]);
+
+const DYNAMIC_LIVE_TOOL_NAMES = new Set([
+  'evaluate_agent_trajectory',
+  'run_llm_red_team',
+  'sync_enterprise_tms',
+]);
+
+function resolvePositiveFiniteTimeout(raw: unknown): number | undefined {
+  if (typeof raw !== 'number' && typeof raw !== 'string') {
+    return undefined;
+  }
+  const num = Number(raw);
+  return Number.isFinite(num) && num > 0 ? num : undefined;
+}
+
+export function resolveToolExecutionOptions(
+  toolName: string,
+  rawArgs: unknown,
+  startedAt: number = Date.now()
+): ExecuteTaskOptions {
+  const args =
+    typeof rawArgs === 'object' && rawArgs !== null ? (rawArgs as Record<string, unknown>) : {};
+  const taskId = `${toolName}-${startedAt}-${randomUUID().slice(0, 8)}`;
+
+  if (toolName === 'run_ephemeral_qa') {
+    const rawSeconds = resolvePositiveFiniteTimeout(args.timeout_seconds) ?? EPHEMERAL_QA_DEFAULT_SECS;
+    const clampedMs = Math.min(
+      Math.max(rawSeconds * 1000, EPHEMERAL_QA_MIN_TIMEOUT_MS),
+      EPHEMERAL_QA_MAX_TIMEOUT_MS
+    );
+    return { taskId, timeoutMs: clampedMs };
+  }
+
+  if (DYNAMIC_LIVE_TOOL_NAMES.has(toolName)) {
+    const explicitTimeoutMs = resolvePositiveFiniteTimeout(args.timeoutMs);
+    if (explicitTimeoutMs !== undefined) {
+      return { taskId, timeoutMs: explicitTimeoutMs };
+    }
+    if (args.mode === 'live') {
+      return { taskId, timeoutMs: V2_HEAVY_TRANSFER_TIMEOUT_MS };
+    }
+    return { taskId };
+  }
+
+  if (HEAVY_TRANSFER_TOOL_NAMES.has(toolName)) {
+    return { taskId, profile: 'heavy_transfer' };
+  }
+
+  return { taskId };
+}
+
+function buildAbortAwareExtra(extra: unknown, taskSignal: AbortSignal): unknown {
+  if (typeof extra !== 'object' || extra === null) {
+    return { signal: taskSignal };
+  }
+  const record = extra as Record<string, unknown>;
+  const upstreamSignal = record.signal instanceof AbortSignal ? record.signal : undefined;
+  const combinedSignal = upstreamSignal
+    ? AbortSignal.any([upstreamSignal, taskSignal])
+    : taskSignal;
+  return { ...record, signal: combinedSignal };
+}
+
 async function executeProtectedTool(
   toolName: string,
   context: ProtectedToolContext
 ): Promise<CallToolResult> {
   const { nextRequest, extra, existingCallHandler, taskGuard } = context;
   const startedAt = Date.now();
+  const executionOptions = resolveToolExecutionOptions(
+    toolName,
+    nextRequest.params.arguments,
+    startedAt
+  );
   try {
     return await taskGuard.executeTask(
-      async () => await existingCallHandler(nextRequest, extra),
-      { taskId: `${toolName}-${startedAt}` }
+      async (taskSignal) =>
+        await existingCallHandler(nextRequest, buildAbortAwareExtra(extra, taskSignal)),
+      executionOptions
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

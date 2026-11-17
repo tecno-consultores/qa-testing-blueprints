@@ -5,11 +5,11 @@
 # ==============================================================================
 # 🧠 scripts/install-skill.sh — Instalador Universal de Skills QA 11X
 #
-# Descarga e instala el catálogo completo de 10 skills QA-11X modulares
+# Descarga e instala el catálogo completo de 11 skills QA-11X modulares
 # ('qa-11x-architect', 'qa-11x-devsecops-hardener', 'qa-11x-systematic-debugging',
 # 'qa-11x-screenplay-builder', 'qa-11x-llm-evaluator', 'qa-11x-vibe-rescue',
 # 'qa-11x-docker-certifier', 'docker-trivy-keydb-hardening',
-# 'graphify-ast-navigator' y 'refactoring-ui') con verificación criptográfica SHA-256
+# 'graphify-ast-navigator', 'refactoring-ui' y 'tactical-patterns-11x') con verificación criptográfica SHA-256
 # (DISA ASD STIG V6R5 V-222513 / APSC-DV-001430) sin necesidad de clonar el
 # repositorio completo (Arquitectura Zero-Clone).
 #
@@ -349,7 +349,10 @@ for item in items:
     fi
     mkdir -p "$(dirname "./${s_path}")"
     cp "${s_tmp}" "./${s_path}"
-    chmod +x "./${s_path}"
+    case "${s_path}" in
+      *.json | */_budgets.py) chmod 0644 "./${s_path}" ;;
+      *) chmod +x "./${s_path}" ;;
+    esac
   done <"${SCRIPT_INDEX}"
   mkdir -p "./.agents"
   printf '{\n  "blueprint_version": "%s",\n  "mcp_version": "%s",\n  "updated_at_utc": "%s"\n}\n' "${BLUEPRINT_VERSION}" "${BLUEPRINT_VERSION}" "${STAMP_UTC}" >"./.agents/.qa-11x-version"

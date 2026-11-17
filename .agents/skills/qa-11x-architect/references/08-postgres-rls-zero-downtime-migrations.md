@@ -1,5 +1,7 @@
 # Reference 08: PostgreSQL 17 Row-Level Security (RLS), Zero-Downtime Migrations & ORM Parity
 
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Respond in **user's prompt language** (unless `AGENTS.md` fixes it); docs/commits match `README.md`/`CHANGELOG.md` (Spec 19; `.agents/**` English).
+
 > **ON-DEMAND PROGRESSIVE DISCLOSURE MODULE (0 Prompt Overhead until loaded)**  
 > Load this reference ONLY when creating or modifying SQLAlchemy/Doctrine/Prisma ORM models, authoring Alembic/database migrations, tuning PostgreSQL queries, or writing persistence unit/integration tests.
 
@@ -96,11 +98,22 @@ Never order hash-chained immutable audit logs (`audit_logs`) solely by `created_
 3. In-memory session tracking (`session.sync_session.info["_in_tx_audit_hash"]` / `session.__dict__["_rg_in_tx_audit_hash"]`) + `await session.flush()` after each `write_audit_log()` call:
 
 ```python
-import hashlib, json
+import hashlib
+import hmac
+import json
+import os
+import re
+from typing import Any
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 GENESIS_HASH = "0" * 64
+UUID_V4_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
+
+
+def _sanitize_log_text(value: str) -> str:
+    return value.replace("\r", " ").replace("\n", " ").strip()
+
 
 async def write_audit_log(
     session: AsyncSession,
@@ -109,11 +122,17 @@ async def write_audit_log(
     actor_username: str,
     action: str,
     resource_display_name: str,
-    payload: dict,
+    before_state: dict[str, Any] | None = None,
+    after_state: dict[str, Any] | None = None,
 ) -> AuditLog:
+    clean_actor = _sanitize_log_text(actor_username)
+    clean_resource = _sanitize_log_text(resource_display_name)
+    if UUID_V4_RE.match(clean_actor) or UUID_V4_RE.match(clean_resource):
+        raise ValueError("Audit identity fields must be human-readable, never raw UUID v4")
+
     # 1. Serialize hash-chain generation per tenant within the active transaction
-    lock_key = f"audit_chain:{tenant_id}"
-    await session.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": lock_key})
+    lock_key = f"audit:{tenant_id}"
+    await session.execute(text("SELECT pg_advisory_xact_lock(hashtext(:lock_key))"), {"lock_key": lock_key})
 
     # 2. Resolve previous hash from in-tx session memory first, falling back to monotonic seq_num DESC
     prev_hash = session.__dict__.get("_rg_in_tx_audit_hash") or session.sync_session.info.get("_in_tx_audit_hash")
@@ -126,26 +145,30 @@ async def write_audit_log(
         )
         prev_hash = row.scalar_one_or_none() or GENESIS_HASH
 
-    canonical = json.dumps(
+    # Strict JSON serialization WITHOUT default=str (catches unserialized Decimal/UUID early)
+    canonical_payload = json.dumps(
         {
             "tenant_id": str(tenant_id),
-            "actor_username": actor_username,
+            "actor_username": clean_actor,
+            "resource_display_name": clean_resource,
             "action": action,
-            "resource_display_name": resource_display_name,
-            "payload": payload,
+            "before_state": before_state,
+            "after_state": after_state,
             "prev_record_hash": prev_hash,
         },
         sort_keys=True,
-    )
-    record_hash = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        separators=(",", ":"),
+    ).encode("utf-8")
+    hmac_key = os.environ["AUDIT_HMAC_KEY"].encode("utf-8")
+    record_hash = hmac.new(hmac_key, canonical_payload, hashlib.sha256).hexdigest()
 
     entry = AuditLog(
         tenant_id=tenant_id,
-        actor_username=actor_username,
+        actor_username=clean_actor,
         action=action,
-        resource_display_name=resource_display_name,
-        before_state=payload.get("before"),
-        after_state=payload.get("after"),
+        resource_display_name=clean_resource,
+        before_state=json.loads(json.dumps(before_state)) if before_state is not None else None,
+        after_state=json.loads(json.dumps(after_state)) if after_state is not None else None,
         prev_record_hash=prev_hash,
         record_sha256_hash=record_hash,
     )
@@ -201,6 +224,6 @@ WHERE n.nspname = 'public'
 ```
 
 - [ ] Does every new/modified ORM model have a matching migration verified against a real `postgres:17-alpine` container (`run_ephemeral_qa(stage="integration")`)?
-- [ ] Does `python3 .agents/scripts/verify_alembic_orm_parity.py` pass with 0 drift and `revision <= 32` chars?
+- [ ] Does `docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_alembic_orm_parity.py` pass with 0 drift and `revision <= 32` chars?
 - [ ] Do all multi-tenant tables assert `relrowsecurity = true` AND `relforcerowsecurity = true` via `pg_class` + `pg_namespace`?
 - [ ] Do `MockDbSession` unit tests validate `JSONB` columns via `json.dumps()` without `default=str` and use `decimal.Decimal` for `Numeric` fields?

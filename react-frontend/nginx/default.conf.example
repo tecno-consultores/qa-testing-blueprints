@@ -62,9 +62,9 @@ server {
     }
 
     # Activos estáticos inmutables (repite cabeceras de seguridad porque add_header anula las del bloque server)
-    location ~* \.(?:ico|svg|png|webmanifest)$ {
-        expires 7d;
-        add_header Cache-Control "public, max-age=604800, immutable" always;
+    location ~* \.(?:js|mjs|css|woff2|woff|ttf|ico|svg|png|webp|avif|webmanifest)$ {
+        expires 1y;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
         add_header X-Robots-Tag "noindex, nofollow, noarchive, nosnippet" always;
         add_header X-Frame-Options "DENY" always;
         add_header X-Content-Type-Options "nosniff" always;

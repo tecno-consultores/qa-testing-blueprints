@@ -79,7 +79,7 @@ Structured submission bundle ready for `https://agenticskills.io/submit` and `ht
 1. **`qa-11x-architect`** (`architecture`)
    - **Upstream Path:** [`.agents/skills/qa-11x-architect/SKILL.md`](../.agents/skills/qa-11x-architect/SKILL.md) (`https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-architect/SKILL.md`)
    - **Summary:** Master 11X orchestrator (<12KB): 3-path routing, 13-layer pyramid, Rule Zero, and DISA/OWASP governance.
-   - **Key Capabilities:** Proportional execution (`DOCS_ONLY`, `MICRO_CHANGE`, `FULL_11X`), lazy hydration of 9 sub-skills, 11 Anti-Blindness UAT rules, and `QA-TEST-SYNC-01`.
+   - **Key Capabilities:** Proportional execution (`DOCS_ONLY`, `MICRO_CHANGE`, `FULL_11X`), lazy hydration of 10 sub-skills, 11 Anti-Blindness UAT rules, and `QA-TEST-SYNC-01`.
 2. **`qa-11x-devsecops-hardener`** (`security`)
    - **Upstream Path:** [`.agents/skills/qa-11x-devsecops-hardener/SKILL.md`](../.agents/skills/qa-11x-devsecops-hardener/SKILL.md) (`https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-devsecops-hardener/SKILL.md`)
    - **Summary:** Hardens PostgreSQL 17 RLS, AES-GCM vaults, WORM audit chains, and mutating MCP tools to STIG V6R5.

@@ -271,6 +271,28 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
         '22 DISA ASD STIG V6R5 / OWASP v4.2 reference controls + 34 static scanner rules'
       );
 
+      for (const v2ToolName of [
+        'validate_calm_architecture',
+        'evaluate_release_gate',
+        'evaluate_agent_trajectory',
+        'run_llm_red_team',
+        'audit_vibe_prototype',
+        'sync_enterprise_tms',
+        'session_flight_recorder',
+      ]) {
+        const toolEntry = toolsList.tools.find((t) => t.name === v2ToolName);
+        const props = (toolEntry?.inputSchema?.properties ?? {}) as Record<
+          string,
+          { description?: string }
+        >;
+        const propEntries = Object.entries(props);
+        expect(propEntries.length).toBeGreaterThan(0);
+        for (const [, propSchema] of propEntries) {
+          expect(typeof propSchema.description).toBe('string');
+          expect((propSchema.description ?? '').trim().length).toBeGreaterThan(5);
+        }
+      }
+
       const resourcesList = await client.listResources();
       expect(resourcesList.resources).toHaveLength(EXPECTED_STATIC_RESOURCES_COUNT);
 
@@ -343,6 +365,23 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
       expect(reconcileDefaultRes.isError).not.toBe(true);
       expect(extractFirstText(reconcileDefaultRes)).toContain('"dry_run":true');
       expect(fs.existsSync(path.join(wsDir, '.agents', 'backups'))).toBe(false);
+
+      const agentsDefaultRes = await client.callTool({
+        name: 'init_or_append_agents_md',
+        arguments: { project_path: wsDir },
+      });
+      expect(agentsDefaultRes.isError).not.toBe(true);
+      expect(extractFirstText(agentsDefaultRes)).toContain('"action":"dry_run"');
+      expect(fs.existsSync(path.join(wsDir, 'AGENTS.md'))).toBe(false);
+
+      // Zod .min(180_000) rechaza timeouts inferiores en evaluate_agent_trajectory y run_llm_red_team
+      for (const toolName of ['evaluate_agent_trajectory', 'run_llm_red_team']) {
+        const minTimeoutRes = await client.callTool({
+          name: toolName,
+          arguments: { workspaceRoot: wsDir, timeoutMs: 1_000 },
+        });
+        expect(minTimeoutRes.isError).toBe(true);
+      }
 
       // F2.5: boundary SEC-PATH-01 en tools v1 y v2 sobre transporte real
       for (const badCall of [

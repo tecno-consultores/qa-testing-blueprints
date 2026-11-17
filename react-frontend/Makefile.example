@@ -1,30 +1,33 @@
 .PHONY: qa-lint qa-unit qa-orphans qa-mutation qa-perf qa-e2e qa-bdd qa-psi qa-obs qa-all build-ui clean-cache clean qa-clean
 
 # Variables
-COMPOSE_FILE = docker-compose.qa.yml
-SERVICE_NAME = qa-frontend
-E2E_SERVICE = ui-e2e
+COMPOSE_FILE ?= docker-compose.qa.yml
+SERVICE_NAME ?= qa-frontend
+E2E_SERVICE ?= ui-e2e
 URL ?= http://127.0.0.1:8080
+PROJECT_DIR ?= $(CURDIR)
 PYTHON_QA_IMAGE = sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4
-export QA_UID := $(shell id -u)
-export QA_GID := $(shell id -g)
+QA_UID ?= $(shell id -u)
+QA_GID ?= $(shell id -g)
+export QA_UID QA_GID
 
 build-ui:
 	@echo "🏗️ Compilando la aplicación (Vite) para entorno E2E/Producción..."
-	@docker compose -f $(COMPOSE_FILE) run --rm -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm --silent run build"
-	@docker compose -f $(COMPOSE_FILE) up -d ui-prod
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm --silent run build"
+	@bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" down -v >/dev/null 2>&1 || true" ERR INT TERM; \
+		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" up -d --wait ui-prod'
 
 qa-lint:
 	@echo "🔍 Ejecutando Auditoría de CVEs, Linter, Types y Formateo (React/TS)..."
-	@docker compose -f $(COMPOSE_FILE) run --rm -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run audit:deps && pnpm run type-check && pnpm run format:check && pnpm lint"
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run audit:deps && pnpm run type-check && pnpm run format:check && pnpm lint"
 
 qa-unit:
 	@echo "🧪 Ejecutando Pruebas Unitarias Aisladas (Vitest + RTL >= 95%)..."
-	@docker compose -f $(COMPOSE_FILE) run --rm -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run test:coverage"
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run test:coverage"
 
 qa-orphans:
 	@echo "🧩 [11X] Verificando cero componentes UI huérfanos en Docker (Rule Zero)..."
-	@docker compose -f $(COMPOSE_FILE) run --rm -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "\
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "\
 		if [ -f .agents/scripts/verify_zero_orphan_vue_components.py ]; then \
 			python3 .agents/scripts/verify_zero_orphan_vue_components.py; \
 		else \
@@ -33,34 +36,40 @@ qa-orphans:
 
 qa-mutation:
 	@echo "👽 Ejecutando Pruebas de Mutación Frontend (Stryker)..."
-	@docker compose -f $(COMPOSE_FILE) run --rm -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run mutate"
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run mutate"
 
 qa-perf: build-ui
 	@echo "⚡ Ejecutando Auditoría de Rendimiento (Lighthouse CI)..."
-	@docker compose -f $(COMPOSE_FILE) run --rm -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp $(E2E_SERVICE) bash -c "export CHROME_PATH=\$$(ls -d /ms-playwright/chromium-*/chrome-linux/chrome 2>/dev/null | head -n 1) && if [ -x ./node_modules/.bin/lhci ]; then ./node_modules/.bin/lhci autorun --config=lighthouserc.cjs; elif command -v pnpm >/dev/null 2>&1; then pnpm install --silent && pnpm run test:perf; else corepack pnpm install --silent && corepack pnpm run test:perf; fi"
+	@bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" down -v >/dev/null 2>&1 || true" EXIT; \
+		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" up -d --wait ui-prod && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp $(E2E_SERVICE) bash -c "export CHROME_PATH=\$$(ls -d /ms-playwright/chromium-*/chrome-linux/chrome 2>/dev/null | head -n 1) && if [ -x ./node_modules/.bin/lhci ]; then ./node_modules/.bin/lhci autorun --config=lighthouserc.cjs; elif command -v pnpm >/dev/null 2>&1; then pnpm install --silent && pnpm run test:perf; else corepack pnpm install --silent && corepack pnpm run test:perf; fi"'
 
 qa-e2e: build-ui
 	@echo "🎭 Ejecutando Regresión Visual y E2E (Playwright)..."
-	@docker compose -f $(COMPOSE_FILE) run --rm -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp $(E2E_SERVICE) bash -c "if [ -x ./node_modules/.bin/playwright ]; then ./node_modules/.bin/playwright test; elif command -v pnpm >/dev/null 2>&1; then pnpm install --silent && pnpm exec playwright test; else corepack pnpm install --silent && corepack pnpm exec playwright test; fi"
+	@bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" down -v >/dev/null 2>&1 || true" EXIT; \
+		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" up -d --wait ui-prod && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp $(E2E_SERVICE) bash -c "if [ -x ./node_modules/.bin/playwright ]; then ./node_modules/.bin/playwright test; elif command -v pnpm >/dev/null 2>&1; then pnpm install --silent && pnpm exec playwright test; else corepack pnpm install --silent && corepack pnpm exec playwright test; fi"'
 
 qa-bdd: build-ui
 	@echo "📚 Ejecutando Pruebas de Aceptación BDD (Karate Contratos HTTP/OSHP/SSG sobre Nginx)..."
-	@docker compose -f $(COMPOSE_FILE) run --rm karatelabs mvn -B clean test
+	@bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" down -v >/dev/null 2>&1 || true" EXIT; \
+		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" up -d --wait ui-prod && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T karatelabs mvn -B clean test'
 
 qa-psi:
 	@echo "🌐 [11X] Ejecutando Auditoría Post-Deploy en Google PageSpeed Insights (Modo Dual)..."
-	@docker run --rm --network host -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp -e PAGESPEED_API_KEY -e PSI_URL="$${PSI_URL:-$(URL)}" -v "$$(pwd):/app" -w /app $(PYTHON_QA_IMAGE) python3 .agents/scripts/audit_pagespeed_insights.py
+	@docker run --rm --network host -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp -e PAGESPEED_API_KEY -e PSI_URL="$${PSI_URL:-$(URL)}" -v "$(PROJECT_DIR):/app" -w /app $(PYTHON_QA_IMAGE) python3 .agents/scripts/audit_pagespeed_insights.py
 
 qa-obs: build-ui
 	@echo "📊 Levantando Stack de Observabilidad Frontend..."
-	@docker compose -f $(COMPOSE_FILE) --profile observability up -d prometheus nginx-exporter
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile observability up -d --wait prometheus nginx-exporter
 
 qa-all: qa-lint qa-orphans qa-unit qa-mutation qa-perf qa-e2e qa-bdd
 	@echo "✅ Pipeline QA Frontend (React 11X) completado."
 
 clean-cache:
-	@docker compose -f $(COMPOSE_FILE) down -v >/dev/null 2>&1 || true
-	@docker compose -f $(COMPOSE_FILE) --profile observability down -v >/dev/null 2>&1 || true
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" down -v >/dev/null 2>&1 || true
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile observability down -v >/dev/null 2>&1 || true
 
 clean:
 	@./limpieza.sh

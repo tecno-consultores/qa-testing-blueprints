@@ -22,6 +22,7 @@ EXIT_FAIL = 1
 EXIT_CLI_ERROR = 2
 EXIT_BREAKER_42 = 42
 MAX_HISTORY_RUNS = 10
+STATE_SCHEMA_VERSION = 2
 
 SAFE_GIT_REF_RE = re.compile(r"^[A-Za-z0-9._/~^-]+$")
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
@@ -232,14 +233,14 @@ def _ensure_no_symlink(target: Path) -> None:
 def _load_state_doc(state_file: Path) -> dict[str, Any]:
     _ensure_no_symlink(state_file)
     if not state_file.is_file():
-        return {"version": 1, "sessions": {}}
+        return {"version": STATE_SCHEMA_VERSION, "sessions": {}}
     try:
         parsed = json.loads(state_file.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return {"version": 1, "sessions": {}}
+        return {"version": STATE_SCHEMA_VERSION, "sessions": {}}
     if not isinstance(parsed, dict) or not isinstance(parsed.get("sessions"), dict):
-        return {"version": 1, "sessions": {}}
-    return {"version": 1, "sessions": dict(parsed["sessions"])}
+        return {"version": STATE_SCHEMA_VERSION, "sessions": {}}
+    return {"version": STATE_SCHEMA_VERSION, "sessions": dict(parsed["sessions"])}
 
 
 def _ensure_private_parent(parent: Path) -> None:
@@ -277,6 +278,12 @@ def _extract_raw_findings(payload: Any) -> tuple[str, list[dict[str, Any]]]:
     raise ValueError("El payload JSON debe ser una lista o un objeto con 'findings'.")
 
 
+def _resolve_stage_id(explicit_stage: str | None, payload_stage: str) -> str:
+    if isinstance(explicit_stage, str) and explicit_stage.strip():
+        return explicit_stage.strip()
+    return payload_stage
+
+
 def _read_findings_payload(findings_input: str) -> Any:
     if findings_input == "-":
         raw_text = sys.stdin.read()
@@ -297,8 +304,14 @@ def _deduplicate_findings(
     return {fp: deduped[fp] for fp in sorted(deduped)}
 
 
-def _extract_history_sets(session_entry: dict[str, Any]) -> list[set[str]]:
-    raw_runs = session_entry.get("runs")
+def _extract_history_sets(
+    session_entry: dict[str, Any], stage: str = "qa"
+) -> list[set[str]]:
+    stage_runs = session_entry.get("stage_runs")
+    if isinstance(stage_runs, dict):
+        raw_runs = stage_runs.get(stage)
+    else:
+        raw_runs = session_entry.get("runs")
     if not isinstance(raw_runs, list):
         return []
     result: list[set[str]] = []
@@ -410,20 +423,51 @@ def _build_evaluation_report(
     )
 
 
+@dataclass(frozen=True)
+class _SessionRunUpdate:
+    session_key: str
+    stage: str
+    active: dict[str, NormalizedFinding]
+    report: EvaluationReport
+
+
+def _ensure_dict_field(parent: dict[str, Any], key: str) -> dict[str, Any]:
+    raw_val = parent.get(key)
+    return dict(raw_val) if isinstance(raw_val, dict) else {}
+
+
+def _resolve_stage_history_seed(entry: dict[str, Any], stage: str) -> list[Any]:
+    raw_sr = entry.get("stage_runs")
+    if isinstance(raw_sr, dict):
+        raw_runs = raw_sr.get(stage)
+        return list(raw_runs) if isinstance(raw_runs, list) else []
+    legacy = entry.get("runs")
+    return list(legacy) if isinstance(legacy, list) else []
+
+
 def _persist_session_run(
-    state_doc: dict[str, Any],
-    session_key: str,
-    active: dict[str, NormalizedFinding],
+    state_doc: dict[str, Any], update: _SessionRunUpdate
 ) -> None:
     sessions: dict[str, Any] = state_doc.setdefault("sessions", {})
-    raw_entry = sessions.get(session_key)
-    entry: dict[str, Any] = dict(raw_entry) if isinstance(raw_entry, dict) else {}
-    raw_runs = entry.get("runs")
-    runs: list[Any] = list(raw_runs) if isinstance(raw_runs, list) else []
-    runs.append(_to_run_record(active))
+    entry = _ensure_dict_field(sessions, update.session_key)
+    stage_runs = _ensure_dict_field(entry, "stage_runs")
+    runs = _resolve_stage_history_seed(entry, update.stage)
+    runs.append(_to_run_record(update.active))
+    stage_runs[update.stage] = runs[-MAX_HISTORY_RUNS:]
+    streaks = _ensure_dict_field(entry, "streaks")
+    oscillations = _ensure_dict_field(entry, "oscillations")
+    streaks[update.stage] = max(
+        (item.consecutive_streak for item in update.report.evaluations), default=0
+    )
+    oscillations[update.stage] = sum(
+        item.oscillations for item in update.report.evaluations
+    )
+    entry.pop("runs", None)
     entry["updated_at"] = datetime.now(UTC).isoformat()
-    entry["runs"] = runs[-MAX_HISTORY_RUNS:]
-    sessions[session_key] = entry
+    entry["stage_runs"] = stage_runs
+    entry["streaks"] = streaks
+    entry["oscillations"] = oscillations
+    sessions[update.session_key] = entry
 
 
 def evaluate_and_record(
@@ -434,6 +478,7 @@ def evaluate_and_record(
     max_streak: int = 3,
     base_ref: str | None = None,
     reset_state: bool = False,
+    stage: str | None = None,
 ) -> EvaluationReport:
     """Evalúa los hallazgos de R_n contra el historial de sesión y persiste R_n."""
     if max_streak < 1:
@@ -442,16 +487,25 @@ def evaluate_and_record(
     state_doc = _load_state_doc(state_file)
     if reset_state:
         state_doc.setdefault("sessions", {}).pop(session_key, None)
-    default_layer, raw_items = _extract_raw_findings(payload)
-    active = _deduplicate_findings(raw_items, workspace, default_layer)
+    payload_stage, raw_items = _extract_raw_findings(payload)
+    resolved_stage = _resolve_stage_id(stage, payload_stage)
+    active = _deduplicate_findings(raw_items, workspace, resolved_stage)
     session_entry = state_doc.get("sessions", {}).get(session_key, {})
     history_sets = (
-        _extract_history_sets(session_entry)
+        _extract_history_sets(session_entry, stage=resolved_stage)
         if isinstance(session_entry, dict)
         else []
     )
     report = _build_evaluation_report(session_key, active, history_sets, max_streak)
-    _persist_session_run(state_doc, session_key, active)
+    _persist_session_run(
+        state_doc,
+        _SessionRunUpdate(
+            session_key=session_key,
+            stage=resolved_stage,
+            active=active,
+            report=report,
+        ),
+    )
     _save_state_doc(state_file, state_doc)
     return report
 
@@ -534,6 +588,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Referencia Git base para merge-base.",
     )
     parser.add_argument(
+        "--stage",
+        default=None,
+        help="Etapa QA a registrar en stage_runs (default: payload.stage o 'qa').",
+    )
+    parser.add_argument(
         "--reset-state",
         action="store_true",
         help="Reinicia el estado de la sesión actual (intervención humana explícita).",
@@ -560,6 +619,7 @@ def main(argv: list[str] | None = None) -> int:
             max_streak=args.max_streak,
             base_ref=args.base_ref,
             reset_state=args.reset_state,
+            stage=args.stage,
         )
     except (ValueError, OSError, json.JSONDecodeError) as exc:
         print(f"[ERROR] CERTIFY-STATE: {exc}", file=sys.stderr)

@@ -768,5 +768,67 @@ qa-unit:
         chmodSpy.mockRestore();
       }
     });
+
+    it('preserva package.json con JSON corrupto/no-objeto y crea respaldo .11x-backup antes de fusionar', async () => {
+      const brokenRaw = '{ "name": "broken", ';
+      const pkgMerge = merger.mergePackageJson(brokenRaw, '{"scripts":{"qa":"echo ok"}}');
+      expect(pkgMerge.merged).toBe(brokenRaw);
+      expect(pkgMerge.changes[0]).toContain('Error:');
+
+      const arrMerge = merger.mergePackageJson('[]', '{"scripts":{"qa":"echo ok"}}');
+      expect(arrMerge.merged).toBe('[]');
+      expect(arrMerge.changes[0]).toContain('Error:');
+
+      const pkgPath = path.join(tmpDir, 'package.json');
+      fs.writeFileSync(pkgPath, brokenRaw, 'utf-8');
+      const skipInvalid = await merger.mergeFiles(tmpDir, [
+        {
+          path: 'node-backend/package.json.example',
+          target_name: 'package.json',
+          merge_strategy: 'surgical_merge',
+          content: '{"scripts":{"qa-lint":"eslint ."}}',
+          sha256_verified: true,
+        },
+      ]);
+      expect(skipInvalid.summary.skipped).toBe(1);
+      expect(fs.readFileSync(pkgPath, 'utf-8')).toBe(brokenRaw);
+
+      // Respaldo .11x-backup para archivos existentes modificados cuando createBackup=true
+      const mkPath = path.join(tmpDir, 'Makefile');
+      fs.writeFileSync(mkPath, 'build:\n\t@echo app\n', 'utf-8');
+      const withBackup = await merger.mergeFiles(
+        tmpDir,
+        [
+          {
+            path: 'python/Makefile.example',
+            target_name: 'Makefile',
+            merge_strategy: 'append_makefile_targets',
+            content: 'qa-unit:\n\t@echo unit\n',
+            sha256_verified: true,
+          },
+        ],
+        { createBackup: true }
+      );
+      expect(withBackup.summary.merged).toBe(1);
+      expect(fs.readFileSync(`${mkPath}.11x-backup`, 'utf-8')).toBe('build:\n\t@echo app\n');
+
+      // Sin respaldo adicional cuando createBackup=false
+      const envPath = path.join(tmpDir, '.env.example');
+      fs.writeFileSync(envPath, 'APP_NAME=demo\n', 'utf-8');
+      await merger.mergeFiles(
+        tmpDir,
+        [
+          {
+            path: 'python/.env.example',
+            target_name: '.env.example',
+            merge_strategy: 'overwrite',
+            content: 'APP_NAME=updated\n',
+            sha256_verified: true,
+          },
+        ],
+        { createBackup: false }
+      );
+      expect(fs.existsSync(`${envPath}.11x-backup`)).toBe(false);
+    });
   });
 });

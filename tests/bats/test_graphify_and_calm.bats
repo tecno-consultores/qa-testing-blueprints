@@ -1,0 +1,383 @@
+#!/usr/bin/env bats
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 QA Testing Blueprints Contributors
+
+setup() {
+  load '/opt/bats-libs/bats-support/load.bash'
+  load '/opt/bats-libs/bats-assert/load.bash'
+
+  if [ -f "${BATS_TEST_DIRNAME}/../../scripts/actualizar-grafos-graphify.sh" ]; then
+    REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd)"
+  elif [ -f "/repo/scripts/actualizar-grafos-graphify.sh" ]; then
+    REPO_ROOT="/repo"
+  else
+    REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd)"
+  fi
+
+  GRAPHIFY_SCRIPT="${REPO_ROOT}/scripts/actualizar-grafos-graphify.sh"
+  CALM_SCRIPT="${REPO_ROOT}/.agents/scripts/validate_calm_architecture.sh"
+}
+
+_populate_minimal_bin() {
+  local bin_dir="$1"
+  mkdir -p "${bin_dir}"
+  local tool resolved
+  for tool in bash sh dirname basename cd pwd find grep awk sort xargs git touch mkdir rm cp mv cat mktemp chmod chown tr head tail sed python3 env id; do
+    resolved="$(command -v "${tool}" || true)"
+    if [ -n "${resolved}" ]; then
+      ln -sf "${resolved}" "${bin_dir}/${tool}"
+    fi
+  done
+}
+
+_setup_graphify_docker_stub() {
+  local bin_dir="$1"
+  local docker_log="$2"
+  : >"${docker_log}"
+  cat >"${bin_dir}/docker" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >>"${docker_log}"
+if [ "\${1:-}" = "pull" ]; then
+  exit 0
+fi
+if [ "\${MOCK_GRAPHIFY_FAIL:-0}" = "1" ]; then
+  echo "simulated graphify failure" >&2
+  exit 1
+fi
+mount_host=""
+prev=""
+for arg in "\$@"; do
+  if [ "\${prev}" = "-v" ]; then
+    mount_host="\${arg%%:*}"
+  fi
+  prev="\${arg}"
+done
+if [ -n "\${mount_host}" ] && printf '%s' "\$*" | grep -q "graphify extract"; then
+  mkdir -p "\${mount_host}/graphify-out"
+  printf '{"nodes":[],"links":[]}\n' >"\${mount_host}/graphify-out/graph.json"
+fi
+exit 0
+EOF
+  chmod +x "${bin_dir}/docker"
+}
+
+_install_calm_node_and_cli_stubs() {
+  local bin_dir="$1"
+  cat >"${bin_dir}/node" <<'PYEOF'
+#!/usr/bin/env python3
+import json
+import os
+import sys
+from pathlib import Path
+
+REQUIRED_NODES = (
+    "qa-11x-ai-ide-host",
+    "mcp-qa-11x-server",
+    "ephemeral-docker-runners",
+    "postgres17-rls-store",
+    "keydb-state-cache",
+    "governance-certification-gate",
+)
+REQUIRED_EDGES = (
+    ("qa-11x-ai-ide-host", "mcp-qa-11x-server"),
+    ("mcp-qa-11x-server", "ephemeral-docker-runners"),
+    ("ephemeral-docker-runners", "postgres17-rls-store"),
+    ("ephemeral-docker-runners", "keydb-state-cache"),
+    ("mcp-qa-11x-server", "governance-certification-gate"),
+)
+REQUIRED_CONTROLS = (
+    "prompt-injection-guard",
+    "rule-zero-ephemeral-docker",
+    "postgres-rls-isolation",
+    "worm-hmac-audit-chain",
+    "vault-aes-256-gcm",
+    "git-closure-human-gate",
+    "cli-tty-anti-hang-guard",
+)
+
+def fail(rel_path: str, errors: list[str]) -> None:
+    sys.stderr.write(f"❌ [CALM] {rel_path} rechazado ({len(errors)} violación(es)):\n")
+    for err in errors:
+        sys.stderr.write(f"  - {err}\n")
+    sys.exit(1)
+
+script = sys.stdin.read()
+if "CALM_OUT" in script:
+    raw = os.environ.get("CALM_OUT", "")
+    start = raw.find("{")
+    end = raw.rfind("}")
+    if start >= 0 and end > start:
+        report = json.loads(raw[start : end + 1])
+        if report.get("hasErrors") or report.get("hasWarnings"):
+            sys.stderr.write("❌ [CALM] @finos/calm-cli reportó errores/advertencias\n")
+            sys.exit(1)
+    sys.exit(0)
+
+root = Path(os.getcwd()).resolve()
+rel = os.environ.get("ARCH_INPUT", "architecture/qa-11x.calm.json")
+if not rel or "\x00" in rel or Path(rel).is_absolute():
+    fail(rel, ["[PATH_TRAVERSAL] Ruta inválida o absoluta."])
+candidate = (root / rel).resolve()
+try:
+    rel_clean = candidate.relative_to(root).as_posix()
+except ValueError:
+    fail(rel, [f"[PATH_TRAVERSAL] La ruta {rel} escapa el workspace."])
+if not candidate.is_file():
+    fail(rel, [f"[FILE_NOT_FOUND] Archivo no encontrado: {rel}"])
+
+dups: list[str] = []
+def _hook(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    seen: set[str] = set()
+    out: dict[str, object] = {}
+    for k, v in pairs:
+        if k in seen:
+            dups.append(k)
+        seen.add(k)
+        out[k] = v
+    return out
+
+raw_txt = candidate.read_text(encoding="utf-8")
+doc = json.loads(raw_txt, object_pairs_hook=_hook)
+if dups:
+    fail(rel, [f"[DUPLICATE_JSON_KEY] Claves duplicadas: {', '.join(dups)}"])
+
+nodes = doc.get("nodes") or []
+node_ids = {n.get("unique-id") for n in nodes if isinstance(n, dict) and n.get("unique-id")}
+rels = doc.get("relationships") or []
+edges: set[tuple[str, str]] = set()
+connected: set[str] = set()
+for r in rels:
+    conn = (r.get("relationship-type") or {}).get("connects") or {}
+    s = (conn.get("source") or {}).get("node")
+    d = (conn.get("destination") or {}).get("node")
+    if s in node_ids and d in node_ids:
+        edges.add((s, d))
+        connected.update((s, d))
+
+errors: list[str] = []
+for req_n in REQUIRED_NODES:
+    if req_n not in node_ids:
+        errors.append(f"[MISSING_REQUIRED_NODE] {req_n}")
+for nid in node_ids:
+    if nid not in connected:
+        errors.append(f"[ORPHAN_CRITICAL_NODE] {nid}")
+for src, dst in REQUIRED_EDGES:
+    if (src, dst) not in edges:
+        errors.append(f"[MISSING_REQUIRED_RELATIONSHIP] {src}->{dst}")
+ctrls = doc.get("controls") if isinstance(doc.get("controls"), dict) else {}
+for req_c in REQUIRED_CONTROLS:
+    if req_c not in ctrls:
+        errors.append(f"[MISSING_REQUIRED_CONTROL] {req_c}")
+
+if errors:
+    fail(rel_clean, errors)
+sys.stdout.write(f"{rel_clean}|{len(nodes)}|{len(rels)}|{len(ctrls)}")
+PYEOF
+  cat >"${bin_dir}/calm" <<'EOF'
+#!/usr/bin/env bash
+if [ "${MOCK_CALM_CLI_FAIL:-0}" = "1" ]; then
+  echo "calm-cli syntax failure" >&2
+  exit 1
+fi
+if [ "${MOCK_CALM_HAS_ERRORS:-0}" = "1" ]; then
+  printf '{"hasErrors":true,"hasWarnings":false}\n'
+  exit 0
+fi
+printf '{"hasErrors":false,"hasWarnings":false}\n'
+exit 0
+EOF
+  chmod +x "${bin_dir}/node" "${bin_dir}/calm"
+}
+
+@test "actualizar-grafos-graphify.sh (Virgen): repo vacio sin grafos construye grafo root en Docker pineado" {
+  local work="${BATS_TEST_TMPDIR}/graph_virgin_ws"
+  local bin_dir="${BATS_TEST_TMPDIR}/graph_virgin_bin"
+  local docker_log="${BATS_TEST_TMPDIR}/graph_virgin_docker.log"
+  mkdir -p "${work}/scripts"
+  cp "${GRAPHIFY_SCRIPT}" "${work}/scripts/actualizar-grafos-graphify.sh"
+  chmod +x "${work}/scripts/actualizar-grafos-graphify.sh"
+  _populate_minimal_bin "${bin_dir}"
+  _setup_graphify_docker_stub "${bin_dir}" "${docker_log}"
+
+  run env PATH="${bin_dir}" LC_ALL=C bash "${work}/scripts/actualizar-grafos-graphify.sh"
+  assert_success
+  assert_output --partial "Actualizados: 1 (root)"
+  assert_output --partial "Omitidos sin cambios de código: 0 (ninguno)"
+  [ -f "${work}/graphify-out/graph.json" ]
+
+  run grep -F "sinfallas/remote-graphify@sha256:" "${docker_log}"
+  assert_success
+  run grep -F -- "-e OLLAMA_BASE_URL=" "${docker_log}"
+  assert_success
+}
+
+@test "actualizar-grafos-graphify.sh (Nominal): incremental por mtime, git dirty no-.md, target stack y --all" {
+  local work="${BATS_TEST_TMPDIR}/graph_nom_ws"
+  local bin_dir="${BATS_TEST_TMPDIR}/graph_nom_bin"
+  local docker_log="${BATS_TEST_TMPDIR}/graph_nom_docker.log"
+  mkdir -p "${work}/scripts" "${work}/fastapi/graphify-out" "${work}/graphify-out"
+  cp "${GRAPHIFY_SCRIPT}" "${work}/scripts/actualizar-grafos-graphify.sh"
+  chmod +x "${work}/scripts/actualizar-grafos-graphify.sh"
+  printf '[project]\nname="api"\n' >"${work}/fastapi/pyproject.toml"
+  printf 'def ping():\n    return True\n' >"${work}/fastapi/app.py"
+  printf '# Docs\n' >"${work}/fastapi/README.md"
+  printf '{"nodes":[],"links":[]}\n' >"${work}/fastapi/graphify-out/graph.json"
+  printf '{"nodes":[],"links":[]}\n' >"${work}/graphify-out/graph.json"
+
+  git -C "${work}" init -q
+  git -C "${work}" config user.email "qa@example.com"
+  git -C "${work}" config user.name "QA Bot"
+  git -C "${work}" add .
+  git -C "${work}" commit -q -m "chore: baseline"
+
+  # 1. Todo más viejo que graph.json -> omite root y fastapi
+  touch -t 202601010000 "${work}/scripts/actualizar-grafos-graphify.sh" "${work}/fastapi/app.py" "${work}/fastapi/README.md" "${work}/fastapi/pyproject.toml"
+  touch -t 202601010010 "${work}/graphify-out/graph.json" "${work}/fastapi/graphify-out/graph.json"
+  _populate_minimal_bin "${bin_dir}"
+  _setup_graphify_docker_stub "${bin_dir}" "${docker_log}"
+
+  run env PATH="${bin_dir}" LC_ALL=C bash "${work}/scripts/actualizar-grafos-graphify.sh"
+  assert_success
+  assert_output --partial "Actualizados: 0 (ninguno)"
+  assert_output --partial "Omitidos sin cambios de código: 2 (root fastapi)"
+
+  # 2. Cambio en *.md solamente con mtime anterior -> sigue omitiendo
+  printf '# Docs v2\n' >"${work}/fastapi/README.md"
+  touch -t 202601010000 "${work}/fastapi/README.md"
+  run env PATH="${bin_dir}" LC_ALL=C bash "${work}/scripts/actualizar-grafos-graphify.sh"
+  assert_success
+  assert_output --partial "Actualizados: 0 (ninguno)"
+
+  # 3. Script en raíz más nuevo que graph.json -> actualiza root y omite fastapi
+  touch -t 202601010020 "${work}/scripts/actualizar-grafos-graphify.sh"
+  run env PATH="${bin_dir}" LC_ALL=C bash "${work}/scripts/actualizar-grafos-graphify.sh"
+  assert_success
+  assert_output --partial "Actualizados: 1 (root)"
+  assert_output --partial "Omitidos sin cambios de código: 1 (fastapi)"
+  touch -t 202601010000 "${work}/scripts/actualizar-grafos-graphify.sh"
+  touch -t 202601010030 "${work}/graphify-out/graph.json"
+
+  # 4. Cambio sucio en git aunque mtime sea antiguo -> actualiza fastapi y root
+  printf 'def ping():\n    return 2\n' >"${work}/fastapi/app.py"
+  touch -t 202601010000 "${work}/fastapi/app.py"
+  touch -t 202601010030 "${work}/fastapi/graphify-out/graph.json"
+  run env PATH="${bin_dir}" LC_ALL=C bash "${work}/scripts/actualizar-grafos-graphify.sh"
+  assert_success
+  assert_output --partial "Actualizados: 2 (root fastapi)"
+  git -C "${work}" checkout -- fastapi/app.py fastapi/README.md
+  touch -t 202601010000 "${work}/fastapi/app.py" "${work}/fastapi/README.md"
+  touch -t 202601010040 "${work}/graphify-out/graph.json" "${work}/fastapi/graphify-out/graph.json"
+
+  # 5. Stack específico + --all
+  run env PATH="${bin_dir}" LC_ALL=C bash "${work}/scripts/actualizar-grafos-graphify.sh" fastapi
+  assert_success
+  assert_output --partial "Grafo semántico actualizado para 'fastapi' -> fastapi/graphify-out/graph.json"
+
+  run env PATH="${bin_dir}" LC_ALL=C bash "${work}/scripts/actualizar-grafos-graphify.sh" --all
+  assert_success
+  assert_output --partial "Actualizados: 2 (root fastapi)"
+}
+
+@test "actualizar-grafos-graphify.sh (Degradado): falla sin docker y propaga fallo en extraccion" {
+  local work="${BATS_TEST_TMPDIR}/graph_deg_ws"
+  local bin_dir="${BATS_TEST_TMPDIR}/graph_deg_bin"
+  local docker_log="${BATS_TEST_TMPDIR}/graph_deg_docker.log"
+  mkdir -p "${work}/scripts"
+  cp "${GRAPHIFY_SCRIPT}" "${work}/scripts/actualizar-grafos-graphify.sh"
+  chmod +x "${work}/scripts/actualizar-grafos-graphify.sh"
+  _populate_minimal_bin "${bin_dir}"
+
+  run env PATH="${bin_dir}" LC_ALL=C bash "${work}/scripts/actualizar-grafos-graphify.sh"
+  assert_failure 1
+  assert_output --partial "Docker no está instalado"
+
+  _setup_graphify_docker_stub "${bin_dir}" "${docker_log}"
+  run env PATH="${bin_dir}" MOCK_GRAPHIFY_FAIL=1 LC_ALL=C bash "${work}/scripts/actualizar-grafos-graphify.sh"
+  assert_failure 1
+  assert_output --partial "Error al extraer el grafo"
+}
+
+@test "validate_calm_architecture.sh (CLI & Docker Rule Zero): --help, flags invalidos e invocacion --network none" {
+  run env LC_ALL=C bash "${CALM_SCRIPT}" --help
+  assert_success
+  assert_output --partial "Uso: validate_calm_architecture.sh"
+
+  run env LC_ALL=C bash "${CALM_SCRIPT}" --unknown-flag
+  assert_failure 1
+  assert_output --partial "Argumento no soportado"
+
+  run env LC_ALL=C bash "${CALM_SCRIPT}" --arch ""
+  assert_failure 1
+  assert_output --partial "Falta argumento para --arch"
+
+  local work="${BATS_TEST_TMPDIR}/calm_docker_ws"
+  local bin_dir="${BATS_TEST_TMPDIR}/calm_docker_bin"
+  local docker_log="${BATS_TEST_TMPDIR}/calm_docker.log"
+  mkdir -p "${work}/.agents/scripts"
+  cp "${CALM_SCRIPT}" "${work}/.agents/scripts/validate_calm_architecture.sh"
+  chmod +x "${work}/.agents/scripts/validate_calm_architecture.sh"
+  _populate_minimal_bin "${bin_dir}"
+  cat >"${bin_dir}/docker" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >"${docker_log}"
+exit 0
+EOF
+  chmod +x "${bin_dir}/docker"
+
+  run env PATH="${bin_dir}" LC_ALL=C bash "${work}/.agents/scripts/validate_calm_architecture.sh" --arch=architecture/qa-11x.calm.json
+  assert_success
+  run cat "${docker_log}"
+  assert_success
+  assert_output --partial "--network none"
+  assert_output --partial "ARCH_INPUT=architecture/qa-11x.calm.json"
+  assert_output --partial ":ro"
+  assert_output --partial "sinfallas/base-node-ionic:26@sha256:"
+}
+
+@test "validate_calm_architecture.sh (Trimodal Virgen / Nominal / Degradado): valida arquitectura CALM real y bloquea anomalias" {
+  local work="${BATS_TEST_TMPDIR}/calm_tri_ws"
+  local bin_dir="${BATS_TEST_TMPDIR}/calm_tri_bin"
+  mkdir -p "${work}/.agents/scripts" "${work}/architecture"
+  cp "${CALM_SCRIPT}" "${work}/.agents/scripts/validate_calm_architecture.sh"
+  cp "${REPO_ROOT}/architecture/qa-11x.calm.json" "${work}/architecture/qa-11x.calm.json"
+  chmod +x "${work}/.agents/scripts/validate_calm_architecture.sh"
+  _populate_minimal_bin "${bin_dir}"
+  _install_calm_node_and_cli_stubs "${bin_dir}"
+
+  # 1. Virgen (archivo inexistente)
+  run env PATH="${bin_dir}" LC_ALL=C bash "${work}/.agents/scripts/validate_calm_architecture.sh" --arch architecture/missing.calm.json
+  assert_failure 1
+  assert_output --partial "[FILE_NOT_FOUND]"
+
+  # 2. Nominal (arquitectura real + @finos/calm-cli limpio)
+  run env PATH="${bin_dir}" LC_ALL=C bash "${work}/.agents/scripts/validate_calm_architecture.sh" --arch architecture/qa-11x.calm.json
+  assert_success
+  assert_output --partial "✅ [CALM] architecture/qa-11x.calm.json validado"
+
+  # 3. Degradado: path traversal
+  run env PATH="${bin_dir}" LC_ALL=C bash "${work}/.agents/scripts/validate_calm_architecture.sh" --arch ../escape.json
+  assert_failure 1
+  assert_output --partial "[PATH_TRAVERSAL]"
+
+  # 4. Degradado: clave JSON duplicada
+  printf '{"nodes":[],"nodes":[]}\n' >"${work}/architecture/dup.calm.json"
+  run env PATH="${bin_dir}" LC_ALL=C bash "${work}/.agents/scripts/validate_calm_architecture.sh" --arch architecture/dup.calm.json
+  assert_failure 1
+  assert_output --partial "[DUPLICATE_JSON_KEY]"
+
+  # 5. Degradado: nodos requeridos ausentes / huérfanos
+  printf '{"nodes":[{"unique-id":"only-one"}],"relationships":[],"controls":{}}\n' >"${work}/architecture/orphan.calm.json"
+  run env PATH="${bin_dir}" LC_ALL=C bash "${work}/.agents/scripts/validate_calm_architecture.sh" --arch architecture/orphan.calm.json
+  assert_failure 1
+  assert_output --partial "[MISSING_REQUIRED_NODE]"
+  assert_output --partial "[ORPHAN_CRITICAL_NODE]"
+
+  # 6. Degradado: @finos/calm-cli reporta hasErrors=true o exit 1
+  run env PATH="${bin_dir}" MOCK_CALM_HAS_ERRORS=1 LC_ALL=C bash "${work}/.agents/scripts/validate_calm_architecture.sh" --arch architecture/qa-11x.calm.json
+  assert_failure 1
+  assert_output --partial "@finos/calm-cli reportó errores/advertencias"
+
+  run env PATH="${bin_dir}" MOCK_CALM_CLI_FAIL=1 LC_ALL=C bash "${work}/.agents/scripts/validate_calm_architecture.sh" --arch architecture/qa-11x.calm.json
+  assert_failure 1
+  assert_output --partial "Falló @finos/calm-cli"
+}

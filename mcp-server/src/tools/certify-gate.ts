@@ -39,6 +39,20 @@ export interface CertifyGateOptions {
   allowUnmergedExamples?: boolean;
   execFileSyncFn?: typeof execFileSync;
   updateOptions?: Partial<Omit<EvaluateUpdateOptions, 'projectPath'>>;
+  signal?: AbortSignal;
+}
+
+function throwIfCertifyAborted(signal?: AbortSignal): void {
+  if (!signal?.aborted) return;
+  const reason: unknown = signal.reason;
+  if (reason instanceof Error) {
+    throw reason;
+  }
+  throw new Error(
+    typeof reason === 'string' && reason.length > 0
+      ? reason
+      : 'certify_11x_gate abortado por timeout o cancelación.'
+  );
 }
 
 const ALLOWED_ENV_EXAMPLES = new Set(['.env.example', 'env.example']);
@@ -1013,6 +1027,8 @@ export async function certify11xGate(
   projectPath: string,
   options?: CertifyGateOptions
 ): Promise<CertifyGateResult> {
+  const signal = options?.signal;
+  throwIfCertifyAborted(signal);
   const resolvedPath = resolveSafeProjectPath(projectPath);
   const requireLint = options?.requireLintEvidence ?? true;
   const strict = options?.strict ?? false;
@@ -1028,6 +1044,7 @@ export async function certify11xGate(
     : buildCheckOutcome(GATE_STATUS_SKIPPED);
   const docCheck = checkDocumentationSync(resolvedPath);
 
+  throwIfCertifyAborted(signal);
   const securityAudit = await auditSecurityStigOwasp(resolvedPath);
   const { secretsExposed, blockers: securityBlockers } = collectSecurityOutcome(securityAudit);
 
@@ -1064,10 +1081,12 @@ export async function certify11xGate(
     ...strictBlockers,
   ];
 
+  throwIfCertifyAborted(signal);
   const checks = mapCheckStatusesToBooleans(checkStatuses);
   const gatePassed = allBlockers.length === 0;
   const updateAvailable = await evaluateUpdateStatus({
     projectPath: resolvedPath,
+    signal,
     ...options?.updateOptions,
   });
 

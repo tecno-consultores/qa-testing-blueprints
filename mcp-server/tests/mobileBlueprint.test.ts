@@ -357,8 +357,7 @@ function createFakeMobileHarness() {
           return Promise.resolve(textValues[key] ?? null);
         },
         isVisible() {
-          const b = boundsMap[key] ?? { width: 100, height: 40 };
-          return Promise.resolve(b.width > 0 && b.height > 0);
+          return Promise.resolve(key !== '~hidden-widget');
         },
         readBounds() {
           return Promise.resolve(boundsMap[key] ?? { width: 100, height: 40 });

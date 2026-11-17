@@ -1,7 +1,6 @@
 # 🏛️ Core 13 Quality Layers, Anti-Mock Blindness & Anti-JSDOM Geometry
 
-> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:**
-> Unless target `AGENTS.md` mandates a fixed language, interact in the **user's prompt language**; human docs use EN canonical (`*.md`) + 1:1 ES mirror (`*.es.md`) (matching `README.md`/`CHANGELOG.md` in consumer repos, defaulting to prompt language if empty); `.agents/**` stays concise English.
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Respond in **user's prompt language** (unless `AGENTS.md` fixes it); docs/commits match `README.md`/`CHANGELOG.md` (Spec 19; `.agents/**` English).
 
 This reference provides the foundational execution matrix for the 13 layers of the 11X Quality Pyramid, along with the operational rules for Anti-Mock Blindness, Anti-JSDOM visual geometry, and Universal Trimodal Fixtures.
 
@@ -14,15 +13,15 @@ This reference provides the foundational execution matrix for the 13 layers of t
 | **01** | **Static Analysis, Formatting & SAST** | `ruff`, `bandit`, `eslint` (`--max-warnings 0`), `eslint-plugin-security`, `shellcheck`, `shfmt`, `php-cs-fixer`, `psalm --taint-analysis` | **0 errors, 0 warnings (enforced via `--max-warnings 0`), 0 HIGH/MEDIUM vulnerabilities** | `make qa-lint` |
 | **02** | **Strict Typing & Complexity** | `mypy --strict`, `vue-tsc --noEmit`, `radon cc`, `sonarjs`, `phpstan` (`level: max` + `cognitive-complexity`) | **0 type errors, Grade A (`CC <= 5`), Cognitive Complexity `<= 15` (PHP `<= 9`)** | `make qa-lint` |
 | **03** | **Isolated Unit Tests with Network Mocks** | `pytest-cov`, `vitest` (`@vitest/coverage-v8`), `kcov` (BATS), `pest` / `phpunit` (`pcov`) | **`>= 95.0%` coverage (lines, branches, statements), 100% offline isolation (zero network leaks)** | `make qa-unit` |
-| **04** | **Database Schema Parity & Migrations** | `alembic`, `verify_alembic_orm_parity.py`, `doctrine:schema:validate`, ephemeral PostgreSQL 17 | **0 schema drifts, Alembic revision ID `<= 32` chars** | `make qa-parity` |
-| **05** | **Front-Back Integration Contracts & Cross-Module State Propagation** | Real ephemeral API + KeyDB + PostgreSQL, Schemathesis, Read-After-Write E2E | **0 payload/schema mismatches, Read-After-Write propagation from Module A (`POST/PUT/PATCH`) to Consumer Module B (`GET`) with 0 intermediate mocks** | `make qa-contracts` |
-| **06** | **Black-Box REST API BDD** | `sinfallas/karatelabs:1.5.1` (`:latest`, Gherkin HTTP) | **100% scenarios PASSED** in `api_test.feature` (incl. cross-module & audit payload checks) | `make qa-bdd` |
+| **04** | **Database Schema Parity & Migrations** | `alembic`, `verify_alembic_orm_parity.py`, `doctrine:schema:validate`, ephemeral PostgreSQL 17 | **0 schema drifts, Alembic revision ID `<= 32` chars** | `make qa-migration` (`qa-parity` PHP) |
+| **05** | **Front-Back Integration Contracts & Cross-Module State Propagation** | Real ephemeral API + KeyDB + PostgreSQL, Schemathesis, Pact V4, Read-After-Write E2E | **0 payload/schema mismatches, Read-After-Write propagation from Module A (`POST/PUT/PATCH`) to Consumer Module B (`GET`) with 0 intermediate mocks** | `make qa-integration` / `make qa-contracts` |
+| **06** | **Black-Box REST API BDD** | `sinfallas/karatelabs:1.5.1` (Gherkin HTTP) | **100% scenarios PASSED** in `api_test.feature` (incl. cross-module & audit payload checks) | `make qa-bdd` |
 | **07** | **UI Acceptance BDD & Dual Refresh** | `sinfallas/karatelabs:1.5.1` (HTTP/Edge/OSHP Contract) + Playwright `ui-e2e` (Chromium) | **100% scenarios PASSED** in `ui_business_flow.feature` + Dual Auto/Manual Refresh (`[ 🔄 Refrescar ]`) | `make qa-bdd` |
 | **08** | **Mutation Testing (Test of Tests)** | `mutmut` (Python), `stryker` (JS/TS), `infection` (PHP) | **Mutation score `> 80%`, 0 surviving critical mutants** | `make qa-mutation` |
 | **09** | **Web Accessibility & Visual Geometry** | `@axe-core/playwright`, `lhci autorun`, Anti-JSDOM checks | **0 WCAG 2.1 AA violations, Lighthouse A11y `>= 0.95`** | `make qa-e2e` / `make qa-perf` |
-| **10** | **Concurrency & Stress / Load** | `locust` (headless), `artillery` | **0% error rate, P95 latency `< 200 ms` under target load** | `make qa-chaos` / `make qa-stress` |
-| **11** | **Dynamic Security DAST & OSHP Headers** | `zaproxy/zap-stable` (OWASP ZAP Baseline), OSHP validator | **0 HIGH alerts, OWASP OSHP headers enforced, Fail-Secure verified** | `make qa-dast` |
-| **12** | **Chaos Engineering & Resilience** | `gaiaadm/pumba:latest` (`netem` jitter/delay/loss) + Prometheus | **Zero unhandled panics, graceful retry, RED metrics active** | `make qa-chaos` |
+| **10** | **Concurrency & Stress / Load** | `k6`, `locust` (headless), `artillery` | **0% error rate, P95 latency `< 200 ms` under target load** | `make qa-chaos` / `make qa-stress` |
+| **11** | **Dynamic Security DAST & OSHP Headers** | `zaproxy/zap-stable:2.15.0` (OWASP ZAP Baseline), OSHP validator | **0 HIGH alerts, OWASP OSHP headers enforced, Fail-Secure verified** | `make qa-dast` |
+| **12** | **Chaos Engineering & Resilience** | `gaiaadm/pumba:0.10.1` (`netem` jitter/delay/loss) + Prometheus | **Zero unhandled panics, graceful retry, RED metrics active** | `make qa-chaos` |
 | **13** | **Trimodal Fixtures, 3-Phase Temporal Lifecycle & Negative Invariants**| Ground-truth payloads (Virgin, Nominal, Degraded) + 3-Phase Clock (`t < starts_at`, `starts_at <= t <= ends_at`, `t > ends_at`) | **Zero mock blindness, 100% negative invariants & all 3 temporal lifecycle states verified** | `make qa-unit` / `make qa-bdd` |
 
 ---
@@ -148,7 +147,7 @@ def test_degraded_device_graceful_fallback():
 
 ---
 
-## 4. Active Task Logbook & Planning Tool Protocol (`.agents/ACTIVE_TASK.md`)
+## 5. Atomic Flight Recorder & Planning Tool Protocol (`.agents/ACTIVE_TASK.md`)
 
 ### The Resilience Rationale
 In long-running autonomous workflows across complex codebases, AI assistants and IDEs face three critical failure modes:
@@ -159,24 +158,25 @@ In long-running autonomous workflows across complex codebases, AI assistants and
 ### The Canonical Workflow
 ```text
 ┌────────────────────────────────────────────────────────────────────────┐
-│              PLANNING TOOL & ACTIVE_TASK DUAL PROTOCOL                 │
+│              PLANNING TOOL & FLIGHT RECORDER PROTOCOL                  │
 ├────────────────────────────────────────────────────────────────────────┤
 │ 1. INITIATION: User issues non-trivial task or Roadmap milestone       │
 │    └── Agent triggers planning tool (/plan or interactive artifact).   │
 │                                                                        │
-│ 2. PERSISTENCE: Blueprint .agents/ACTIVE_TASK.md from template.        │
-│    └── Populate Metadata, Goal, Specification, and Phase Checklists.   │
+│ 2. PERSISTENCE: Call checkpoint_ctl.py / MCP session_flight_recorder.  │
+│    └── Writes 0600 .agents/.cache/session_checkpoint.json & projects   │
+│        deterministic <= 40-line .agents/ACTIVE_TASK.md automatically.  │
 │                                                                        │
-│ 3. LIVE EXECUTION: Real-time update in filesystem.                     │
-│    └── Complete atomic subtask ──> Mark "- [ ]" to "- [x]" IMMEDIATELY.│
-│    └── If crash occurs ──────────> Re-read .agents/ACTIVE_TASK.md.     │
+│ 3. LIVE EXECUTION: Update phases atomically via Flight Recorder.       │
+│    └── Transition phase -> session_flight_recorder(action="save").     │
+│    └── If crash occurs  -> session_flight_recorder(action="recover").  │
 │                                                                        │
 │ 4. CLOSURE GATE: Mandatory verification before local git commit.       │
 │    └── Run ./.agents/scripts/certify_task_completion.sh                │
-│    └── Mark status: "CERTIFIED_CLEAN" (via checkpoint_ctl / MCP)       │
-│    └── Sync CHANGELOG.md, ROADMAP.md, TESTING.md                       │
+│    └── Auto-marks "CERTIFIED_CLEAN" via checkpoint_ctl.py (trap EXIT)  │
+│    └── Sync CHANGELOG.md, ROADMAP.md, TESTING.md (QA-GIT-GATE-01)      │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Template Blueprint
-Always initialize from `.agents/ACTIVE_TASK.md.example`. Ensure `.agents/ACTIVE_TASK.md` remains in `.gitignore` to avoid staging local volatile work-in-progress state into source control.
+### Single Source of Truth (Zero Manual Markdown Edits)
+NEVER create or edit `.agents/ACTIVE_TASK.md` manually (nor copy `.agents/ACTIVE_TASK.md.example` by hand). Always manage state through `.agents/scripts/checkpoint_ctl.py` (inside Docker) or MCP `session_flight_recorder`, keeping `.agents/ACTIVE_TASK.md` and `.agents/.cache/` git-ignored.

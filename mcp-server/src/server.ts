@@ -40,7 +40,8 @@ import { auditSecurityStigOwasp } from './tools/security-auditor.js';
 import { runEphemeralQa } from './tools/ephemeral-runner.js';
 import { certify11xGate } from './tools/certify-gate.js';
 import { auditTestPyramidGaps } from './tools/test-pyramid-auditor.js';
-import { initOrAppendAgentsMd } from './cli/init-agents-md.js';
+import { initOrAppendAgentsMd } from './tools/initOrAppendAgentsMd.js';
+import { reportDebugCatchError } from './utils/diagnosticFormatter.js';
 import { proposeSkillEvolutionPr } from './tools/propose-evolution-pr.js';
 import { reconcileAgentsGovernance } from './cli/reconcile-agents.js';
 import {
@@ -81,6 +82,7 @@ import {
   InitAgentsMdInputSchema,
   ProposeEvolutionPrInputSchema,
   ReconcileAgentsInputSchema,
+  type ResourceLanguage,
 } from './types.js';
 
 const MARKDOWN_MIME_TYPE = 'text/markdown' as const;
@@ -94,7 +96,7 @@ export interface ServerSurfaceRegistry {
 }
 
 export interface V2ToolRegistration {
-  readonly definition: Tool;
+  readonly definition: Pick<Tool, 'name' | 'description'>;
   readonly inputSchema: z.ZodType<Record<string, unknown>>;
   readonly execute: (args: Record<string, unknown>) => Promise<CallToolResult> | CallToolResult;
 }
@@ -105,127 +107,351 @@ const WRAPPED_READ_HANDLERS = new WeakSet<RawGenericHandler>();
 
 const ValidateCalmInputSchema = z
   .object({
-    workspaceRoot: z.string().optional(),
-    architecturePath: z.string().optional(),
+    workspaceRoot: z
+      .string()
+      .optional()
+      .describe('Workspace root directory (optional; defaults to current repository).'),
+    architecturePath: z
+      .string()
+      .optional()
+      .describe("Relative path of the FINOS CALM model inside workspaceRoot (default 'architecture/qa-11x.calm.json')."),
   })
   .passthrough();
 
 const EvaluateReleaseGateInputSchema = z
   .object({
-    workspaceRoot: z.string().optional(),
-    scope: z.enum(['full', 'smoke']).optional(),
-    dryRun: z.boolean().optional(),
-    enforce: z.boolean().optional(),
-    timestamp: z.string().optional(),
-    junitXmlPath: z.string().optional(),
-    junitXmlContent: z.string().optional(),
-    telemetryJsonPath: z.string().optional(),
-    telemetry: z.record(z.unknown()).optional(),
-    defectsJsonPath: z.string().optional(),
-    defects: z.record(z.unknown()).optional(),
+    workspaceRoot: z
+      .string()
+      .optional()
+      .describe('Workspace root for path containment (optional).'),
+    scope: z
+      .enum(['full', 'smoke'])
+      .optional()
+      .describe('Evaluation scope: full (evaluates 3 signals) or smoke (returns SKIPPED).'),
+    dryRun: z
+      .boolean()
+      .optional()
+      .describe('Informative mode by default (true). When false, NO_GO sets isError=true.'),
+    enforce: z
+      .boolean()
+      .optional()
+      .describe('Equivalent to dryRun=false when true.'),
+    timestamp: z
+      .string()
+      .optional()
+      .describe('Optional ISO-8601 timestamp normalized to UTC (Z).'),
+    junitXmlPath: z
+      .string()
+      .optional()
+      .describe('Relative path to JUnit XML report inside workspaceRoot.'),
+    junitXmlContent: z
+      .string()
+      .optional()
+      .describe('Inline JUnit XML payload (alternative to junitXmlPath).'),
+    telemetryJsonPath: z
+      .string()
+      .optional()
+      .describe('Relative path to observability telemetry JSON (OTel/Prometheus/Datadog/Grafana).'),
+    telemetry: z
+      .record(z.unknown())
+      .optional()
+      .describe('Inline telemetry JSON snapshot (snake_case or camelCase).'),
+    defectsJsonPath: z
+      .string()
+      .optional()
+      .describe('Relative path to QA defects and escapes JSON.'),
+    defects: z
+      .record(z.unknown())
+      .optional()
+      .describe('Inline defect summary JSON (open_blockers, open_criticals, qa_escapes).'),
     thresholds: z
       .object({
-        minPassRatePct: z.number().optional(),
-        maxErrorRatePct: z.number().optional(),
-        maxP95Ms: z.number().optional(),
-        maxP99Ms: z.number().optional(),
-        maxActiveIncidents: z.number().optional(),
-        maxOpenBlockers: z.number().optional(),
-        maxOpenCriticals: z.number().optional(),
-        maxQaEscapes: z.number().optional(),
+        minPassRatePct: z
+          .number()
+          .optional()
+          .describe('Minimum JUnit pass percentage (default 100).'),
+        maxErrorRatePct: z
+          .number()
+          .optional()
+          .describe('Maximum error rate % (default 1.0).'),
+        maxP95Ms: z
+          .number()
+          .optional()
+          .describe('Maximum p95 latency in ms (default 500).'),
+        maxP99Ms: z
+          .number()
+          .optional()
+          .describe('Maximum p99 latency in ms (default 1000).'),
+        maxActiveIncidents: z
+          .number()
+          .optional()
+          .describe('Maximum active incidents (default 0).'),
+        maxOpenBlockers: z
+          .number()
+          .optional()
+          .describe('Maximum open blockers (default 0).'),
+        maxOpenCriticals: z
+          .number()
+          .optional()
+          .describe('Maximum open criticals (default 0).'),
+        maxQaEscapes: z
+          .number()
+          .optional()
+          .describe('Maximum QA escapes (default 0).'),
       })
       .passthrough()
-      .optional(),
-    minPassRatePct: z.number().optional(),
-    maxErrorRatePct: z.number().optional(),
-    maxP95Ms: z.number().optional(),
-    maxP99Ms: z.number().optional(),
-    maxActiveIncidents: z.number().optional(),
-    maxOpenBlockers: z.number().optional(),
-    maxOpenCriticals: z.number().optional(),
-    maxQaEscapes: z.number().optional(),
+      .optional()
+      .describe('Partial override of corporate release thresholds.'),
+    minPassRatePct: z
+      .number()
+      .optional()
+      .describe('Direct override for minPassRatePct.'),
+    maxErrorRatePct: z
+      .number()
+      .optional()
+      .describe('Direct override for maxErrorRatePct.'),
+    maxP95Ms: z
+      .number()
+      .optional()
+      .describe('Direct override for maxP95Ms.'),
+    maxP99Ms: z
+      .number()
+      .optional()
+      .describe('Direct override for maxP99Ms.'),
+    maxActiveIncidents: z
+      .number()
+      .optional()
+      .describe('Direct override for maxActiveIncidents.'),
+    maxOpenBlockers: z
+      .number()
+      .optional()
+      .describe('Direct override for maxOpenBlockers.'),
+    maxOpenCriticals: z
+      .number()
+      .optional()
+      .describe('Direct override for maxOpenCriticals.'),
+    maxQaEscapes: z
+      .number()
+      .optional()
+      .describe('Direct override for maxQaEscapes.'),
   })
   .passthrough();
 
 const EvaluateTrajectoryInputSchema = z
   .object({
-    mode: z.enum(['offline', 'live']).optional(),
-    workspaceRoot: z.string().optional(),
-    testPath: z.string().optional(),
+    mode: z
+      .enum(['offline', 'live'])
+      .optional()
+      .describe('Execution mode (offline by default, zero network).'),
+    workspaceRoot: z
+      .string()
+      .optional()
+      .describe('Project root directory for path containment checks.'),
+    testPath: z
+      .string()
+      .optional()
+      .describe('Relative path to Pytest/DeepEval test (default ai-evals/rag/test_rag_faithfulness.py).'),
     steps: z
       .array(
         z
           .object({
-            tool: z.string(),
-            args: z.unknown().optional(),
-            status: z.enum(['passed', 'failed', 'error']).optional(),
-            output: z.string().optional(),
-            retries: z.number().min(0).optional(),
-            compiled: z.boolean().optional(),
-            durationMs: z.number().min(0).optional(),
+            tool: z.string().describe('Invoked tool identifier.'),
+            args: z.unknown().optional().describe('Arguments supplied to the tool call.'),
+            status: z
+              .enum(['passed', 'failed', 'error'])
+              .optional()
+              .describe('Execution status of the step.'),
+            output: z.string().optional().describe('Raw step output text.'),
+            retries: z.number().min(0).optional().describe('Retry count for this step (>= 0).'),
+            compiled: z.boolean().optional().describe('Whether compilation passed after edit.'),
+            durationMs: z
+              .number()
+              .min(0)
+              .optional()
+              .describe('Observed step execution duration in milliseconds.'),
           })
           .passthrough()
       )
-      .optional(),
-    requiredSequence: z.array(z.string()).optional(),
-    actualOutput: z.string().optional(),
-    retrievalContext: z.array(z.string()).optional(),
-    enforceAstBeforeEdit: z.boolean().optional(),
-    timeoutMs: z.number().optional(),
+      .optional()
+      .describe('Tool execution steps recorded for the agent.'),
+    requiredSequence: z
+      .array(z.string())
+      .optional()
+      .describe('Expected ordering of key tools across the trajectory.'),
+    actualOutput: z
+      .string()
+      .optional()
+      .describe('Final text emitted by the agent or RAG pipeline.'),
+    retrievalContext: z
+      .array(z.string())
+      .optional()
+      .describe('Retrieved context snippets used to verify [doc_id] citations and numeric claims.'),
+    enforceAstBeforeEdit: z
+      .boolean()
+      .optional()
+      .describe('Require prior AST blast-radius inspection before file edits (default true).'),
+    timeoutMs: z
+      .number()
+      .min(180_000, 'Live mode requires timeoutMs >= 180000 ms.')
+      .optional()
+      .describe('Timeout in milliseconds for live mode (>= 180000).'),
   })
   .passthrough();
 
 const RunLlmRedTeamInputSchema = z
   .object({
-    mode: z.enum(['offline', 'live']).optional(),
-    workspaceRoot: z.string().optional(),
-    configPath: z.string().optional(),
-    timeoutMs: z.number().optional(),
+    mode: z
+      .enum(['offline', 'live'])
+      .optional()
+      .describe('Audit mode (offline by default, zero network).'),
+    workspaceRoot: z
+      .string()
+      .optional()
+      .describe('Workspace root directory for path containment checks.'),
+    configPath: z
+      .string()
+      .optional()
+      .describe('Relative path to Promptfoo YAML config (default ai-evals/promptfooconfig.yaml).'),
+    timeoutMs: z
+      .number()
+      .min(180_000, 'Live mode requires timeoutMs >= 180000 ms.')
+      .optional()
+      .describe('Timeout in milliseconds for live mode (>= 180000).'),
   })
   .passthrough();
 
 const AuditVibeInputSchema = z
   .object({
-    targetDir: z.string().optional(),
-    workspaceRoot: z.string().optional(),
-    dryRun: z.boolean().optional(),
-    remediationSubdir: z.string().optional(),
-    maxLines: z.number().optional(),
-    enforce: z.boolean().optional(),
+    targetDir: z
+      .string()
+      .optional()
+      .describe('Relative or contained prototype directory path inside workspaceRoot.'),
+    workspaceRoot: z
+      .string()
+      .optional()
+      .describe('Allowed project root for anti-Path Traversal containment.'),
+    dryRun: z
+      .boolean()
+      .optional()
+      .describe('Safe read-only mode without disk writes (default true).'),
+    remediationSubdir: z
+      .string()
+      .optional()
+      .describe('Relative subdirectory inside targetDir for generated remediation files when dryRun=false.'),
+    maxLines: z
+      .number()
+      .optional()
+      .describe('Maximum lines per module before triggering VIBE-ARCH-004 (default 500).'),
+    enforce: z
+      .boolean()
+      .optional()
+      .describe('If true, returns isError=true in MCP when verdict is RESCUE_REQUIRED.'),
   })
   .passthrough();
 
 const SyncEnterpriseTmsInputSchema = z
   .object({
-    mode: z.enum(['inventory', 'push-results', 'pull-stories']),
-    provider: z.enum(['jira', 'zephyr', 'xray', 'github-issues']).optional(),
-    targetDir: z.string().optional(),
-    junitXmlPath: z.string().optional(),
-    junitXmlContent: z.string().optional(),
-    baseUrl: z.string().optional(),
-    projectKey: z.string().optional(),
-    issueKey: z.string().optional(),
-    testExecutionKey: z.string().optional(),
-    repo: z.string().optional(),
-    requiredKeys: z.array(z.string()).optional(),
-    dryRun: z.boolean().optional(),
-    timeoutMs: z.number().optional(),
-    workspaceRoot: z.string().optional(),
+    mode: z
+      .enum(['inventory', 'push-results', 'pull-stories'])
+      .describe('Synchronization operation mode: inventory, push-results, or pull-stories.'),
+    provider: z
+      .enum(['jira', 'zephyr', 'xray', 'github-issues'])
+      .optional()
+      .describe('Target enterprise TMS provider (jira, zephyr, xray, or github-issues).'),
+    targetDir: z
+      .string()
+      .optional()
+      .describe('Relative subdirectory containing BDD features or test suites.'),
+    junitXmlPath: z
+      .string()
+      .optional()
+      .describe('Relative path to JUnit XML report inside workspaceRoot.'),
+    junitXmlContent: z
+      .string()
+      .optional()
+      .describe('Inline JUnit XML payload (alternative to junitXmlPath).'),
+    baseUrl: z
+      .string()
+      .optional()
+      .describe('HTTPS base URL of the enterprise TMS instance (anti-SSRF validated).'),
+    projectKey: z
+      .string()
+      .optional()
+      .describe('Enterprise TMS project key (e.g. QA11X).'),
+    issueKey: z
+      .string()
+      .optional()
+      .describe('Target TMS issue or story key (e.g. QA11X-42).'),
+    testExecutionKey: z
+      .string()
+      .optional()
+      .describe('Optional Xray/Zephyr test execution key.'),
+    repo: z
+      .string()
+      .optional()
+      .describe('GitHub owner/repo identifier when provider is github-issues.'),
+    requiredKeys: z
+      .array(z.string())
+      .optional()
+      .describe('Mandatory @JIRA/@TC traceability keys required during inventory validation.'),
+    dryRun: z
+      .boolean()
+      .optional()
+      .describe('Safe simulation mode (default true) without executing remote writes.'),
+    timeoutMs: z
+      .number()
+      .positive()
+      .max(180_000)
+      .optional()
+      .describe('HTTP request timeout in milliseconds (positive, <= 180000).'),
+    workspaceRoot: z
+      .string()
+      .optional()
+      .describe('Workspace root directory for path containment checks.'),
   })
   .passthrough();
 
 const SessionFlightRecorderInputSchema = z
   .object({
-    project_path: z.string().optional(),
-    action: z.enum(['save', 'recover', 'clear']),
-    task_id: z.string().optional(),
-    active_step: z.string().optional(),
-    intent_140chars: z.string().optional(),
-    completed_steps: z.array(z.string()).optional(),
-    planned_steps: z.array(z.string()).optional(),
-    allowed_globs: z.array(z.string()).optional(),
-    forbidden_globs: z.array(z.string()).optional(),
-    reason: z.string().optional(),
+    project_path: z
+      .string()
+      .optional()
+      .describe('Target project workspace root directory (defaults to current directory).'),
+    action: z
+      .enum(['save', 'recover', 'clear'])
+      .describe("Operation to perform: 'save', 'recover', or 'clear'."),
+    task_id: z
+      .string()
+      .optional()
+      .describe("Task identifier (e.g. 'HITO-26-V31'). Required for 'save'."),
+    active_step: z
+      .string()
+      .optional()
+      .describe("Active step identifier (e.g. 'F4'). Required for 'save'."),
+    intent_140chars: z
+      .string()
+      .optional()
+      .describe('Concise active intent strictly <= 140 Unicode chars (SEC-06 sanitized). Required for save.'),
+    completed_steps: z
+      .array(z.string())
+      .optional()
+      .describe('List of completed step IDs.'),
+    planned_steps: z
+      .array(z.string())
+      .optional()
+      .describe('Ordered list of planned step IDs.'),
+    allowed_globs: z
+      .array(z.string())
+      .optional()
+      .describe('Optional diff blast-radius allowed globs.'),
+    forbidden_globs: z
+      .array(z.string())
+      .optional()
+      .describe('Optional diff blast-radius forbidden globs.'),
+    reason: z
+      .string()
+      .optional()
+      .describe("Optional closure/abort reason for 'clear'."),
   })
   .passthrough();
 
@@ -601,7 +827,22 @@ function registerCoreResources(server: McpServer, resources: BlueprintResources)
   );
 }
 
-function registerExtensionResources(server: McpServer): void {
+async function readRemoteOrEmbeddedStackBlueprint(
+  resources: BlueprintResources,
+  stackId: 'mobile-appium' | 'vibe-rescue',
+  lang: ResourceLanguage,
+  embeddedFallback: () => { readonly mimeType: string; readonly text: string }
+): Promise<{ readonly mimeType: string; readonly text: string }> {
+  try {
+    return await resources.getStackReadmeResource(stackId, lang);
+  } catch (err: unknown) {
+    // Offline/network/SHA failure falls back cleanly to embedded blueprint outside the monorepo
+    reportDebugCatchError(`server.readRemoteOrEmbeddedStackBlueprint(${stackId})`, err);
+    return embeddedFallback();
+  }
+}
+
+function registerExtensionResources(server: McpServer, resources: BlueprintResources): void {
   server.registerResource(
     AI_EVALS_REDTEAM_RESOURCE.name,
     AI_EVALS_REDTEAM_RESOURCE.uri,
@@ -619,8 +860,15 @@ function registerExtensionResources(server: McpServer): void {
       description: MOBILE_APPIUM_RESOURCE.description,
       mimeType: MOBILE_APPIUM_RESOURCE.mimeType,
     },
-    (uri) =>
-      toSingleResourceResult(uri, readMobileAppiumBlueprint(undefined, getActiveResourceLang(uri)))
+    async (uri) => {
+      const lang = getActiveResourceLang(uri);
+      return toSingleResourceResult(
+        uri,
+        await readRemoteOrEmbeddedStackBlueprint(resources, 'mobile-appium', lang, () =>
+          readMobileAppiumBlueprint(undefined, lang)
+        )
+      );
+    }
   );
 
   server.registerResource(
@@ -630,8 +878,15 @@ function registerExtensionResources(server: McpServer): void {
       description: VIBE_RESCUE_RESOURCE.description,
       mimeType: VIBE_RESCUE_RESOURCE.mimeType,
     },
-    (uri) =>
-      toSingleResourceResult(uri, readVibeRescueBlueprint(undefined, getActiveResourceLang(uri)))
+    async (uri) => {
+      const lang = getActiveResourceLang(uri);
+      return toSingleResourceResult(
+        uri,
+        await readRemoteOrEmbeddedStackBlueprint(resources, 'vibe-rescue', lang, () =>
+          readVibeRescueBlueprint(undefined, lang)
+        )
+      );
+    }
   );
 
   server.registerResource(
@@ -698,6 +953,7 @@ function registerCoreAnalysisTools(
         await bootstrapOrMerge11x(safePath, args.stack, args.dry_run, {
           fetcher,
           merger,
+          createBackup: args.create_backup,
         })
       );
     }
@@ -710,7 +966,7 @@ function registerCoreAnalysisTools(
         'Queries the AST knowledge graph (graphify-out/graph.json) for code/architecture Q&A and pre-refactoring blast-radius analysis.',
       inputSchema: BlastRadiusInputSchema.shape,
     },
-    async (args) => {
+    async (args, extra) => {
       const safePath = resolveSafeProjectPath(args.project_path);
       return toJsonToolResult(
         await inspectAstBlastRadius(safePath, args.target_symbol, args.max_items, {
@@ -718,6 +974,7 @@ function registerCoreAnalysisTools(
           refreshGraph: args.refresh_graph,
           changedSinceRef: args.changed_since_ref,
           maxTokensBudget: args.max_tokens_budget,
+          signal: extra.signal,
         })
       );
     }
@@ -747,7 +1004,12 @@ function registerCoreAnalysisTools(
     },
     async (args) => {
       const safePath = resolveSafeProjectPath(args.project_path);
-      return toJsonToolResult(await auditSecurityStigOwasp(safePath, args.max_findings));
+      return toJsonToolResult(
+        await auditSecurityStigOwasp(safePath, {
+          maxFindings: args.max_findings,
+          includeExamples: args.include_examples,
+        })
+      );
     }
   );
 }
@@ -760,11 +1022,12 @@ function registerQaGovernanceTools(server: McpServer, fetcher: GitHubFetcher): v
         'Safely runs a Makefile QA target inside ephemeral Docker containers (Rule Zero), parsing logs for extreme token economy.',
       inputSchema: RunEphemeralQaInputSchema.shape,
     },
-    async (args) => {
+    async (args, extra) => {
       const safePath = resolveSafeProjectPath(args.project_path);
       return toJsonToolResult(
         await runEphemeralQa(safePath, args.stage, args.timeout_seconds, {
           skipIfDocsOnly: args.skip_if_docs_only,
+          signal: extra.signal,
         })
       );
     }
@@ -777,7 +1040,7 @@ function registerQaGovernanceTools(server: McpServer, fetcher: GitHubFetcher): v
         'Executes 11X certification gates (secrets, JSON, orphan UI/API, ORM parity, lint evidence, STIG audit, docs) and checks version/skill update status before git push.',
       inputSchema: CertifyGateInputSchema.shape,
     },
-    async (args) => {
+    async (args, extra) => {
       const safePath = resolveSafeProjectPath(args.project_path);
       return toJsonToolResult(
         await certify11xGate(safePath, {
@@ -785,6 +1048,7 @@ function registerQaGovernanceTools(server: McpServer, fetcher: GitHubFetcher): v
           strict: args.strict,
           allowUnmergedExamples: args.allow_unmerged_examples,
           updateOptions: { fetcher },
+          signal: extra.signal,
         })
       );
     }
@@ -871,6 +1135,45 @@ function registerV2Tools(server: McpServer): void {
   }
 }
 
+const CORE_REGISTERED_TOOL_NAMES = [
+  'inspect_project_config',
+  'fetch_blueprint_bundle',
+  'bootstrap_or_merge_11x',
+  'inspect_ast_blast_radius',
+  'clean_workspace_11x',
+  'audit_security_stig_owasp',
+  'run_ephemeral_qa',
+  'certify_11x_gate',
+  'audit_test_pyramid_gaps',
+  'init_or_append_agents_md',
+  'propose_skill_evolution_pr',
+  'reconcile_agents_governance',
+] as const;
+
+const REGISTERED_RESOURCE_URIS = [
+  'blueprint://manifest',
+  'blueprint://core/philosophy',
+  'blueprint://security/disa-owasp-22',
+  'blueprint://database/postgres-rls-worm',
+  'blueprint://{stack}/readme',
+  'blueprint://ui/refactoring-ui/{topic}',
+  'blueprint://core/active-task-template',
+  'blueprint://core/cleanup-script',
+  'blueprint://core/roadmap-validator',
+  AI_EVALS_REDTEAM_RESOURCE.uri,
+  MOBILE_APPIUM_RESOURCE.uri,
+  VIBE_RESCUE_RESOURCE.uri,
+  TACTICAL_PATTERNS_SKILL_RESOURCE.uri,
+] as const;
+
+/** Computes declared MCP tool & resource surface counts without instantiating McpServer. */
+export function getDeclaredSurfaceCounts(): { readonly tools: number; readonly resources: number } {
+  return {
+    tools: CORE_REGISTERED_TOOL_NAMES.length + V2_TOOL_REGISTRATIONS.length,
+    resources: REGISTERED_RESOURCE_URIS.length,
+  };
+}
+
 export function createMcpServer(options?: {
   fetcher?: GitHubFetcher;
   merger?: SurgicalMerger;
@@ -888,7 +1191,7 @@ export function createMcpServer(options?: {
   attachRegistrationTracking(server);
 
   registerCoreResources(server, resources);
-  registerExtensionResources(server);
+  registerExtensionResources(server, resources);
   registerCoreAnalysisTools(server, fetcher, merger);
   registerQaGovernanceTools(server, fetcher);
   registerV2Tools(server);

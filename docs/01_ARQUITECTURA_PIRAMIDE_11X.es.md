@@ -30,30 +30,36 @@ Para evitar sobreingeniería en tareas pequeñas sin relajar los controles en si
 
 ```mermaid
 flowchart TD
-    L01["L1-L2: Linting + Tipado Estricto + Secretos + Trivy"] --> L03["L3-L4: Unitarias >=95% + Mutacion MSI >=80%"]
-    L03 --> L05["L5-L7: Paridad DB/ORM + Contratos Pact + BDD Karate o Nativo"]
-    L05 --> L08["L8-L9: Screenplay + Self-Healing DOM + WCAG 2.1 AA + DAST ZAP"]
-    L08 --> L10["L10-L11: Carga k6/Locust + Caos Pumba + OTel/Prometheus"]
-    L10 --> L12["L12-L13: Salud Topologica AST + FINOS CALM + Trimodal 3-Fases"]
-    L12 --> Transversal["Transversales v2.0: AI Evals + Vibe-Rescue + TMS + A2A + Release Gate"]
+    L01["L01-L02: Estático/SAST/Trivy + Tipado Estricto y CC <= 5"] --> L03["L03-L04: Unitarias >= 95% + Paridad DB/ORM"]
+    L03 --> L05["L05-L07: Pact V4/OpenAPI + Karate API + Karate UI/OSHP"]
+    L05 --> L08["L08-L09: Mutación MSI >= 80% + Playwright WCAG/Geometría/Lighthouse"]
+    L08 --> L10["L10-L12: Carga k6/Locust + DAST ZAP + Caos Pumba/Prometheus RED"]
+    L10 --> L13["L13: Fixtures Trimodales + Ciclo 3 Fases + Invariantes Negativos"]
+    L13 --> Transversal["Meta-Compuertas Transversales: AST/CALM + AI Evals + Vibe-Rescue + TMS/Release Gate"]
     Transversal --> Closure["Compuerta 10/10 + Commit Local QA-GIT-GATE-01"]
 ```
 
-### Desglose de las 13 Capas y Planos Transversales v2.0
+### Desglose de las 13 Capas y Meta-Compuertas Transversales
 
-| Capa / Plano | Responsabilidad Principal | Artefactos e Implementación en el Monorepo |
+| Capa / Meta-Compuerta | Responsabilidad Principal | Artefactos e Implementación en el Monorepo |
 | :--- | :--- | :--- |
-| **L01–L02** | Lint (`CC <= 5`), tipado estricto, secretos, SBOM CycloneDX y Trivy `HIGH/CRITICAL = 0` | [`scripts/verificar-secretos.sh`](../scripts/verificar-secretos.sh), [`scripts/auditar-infra.sh`](../scripts/auditar-infra.sh), [`scripts/generar-sbom-cyclonedx.sh`](../scripts/generar-sbom-cyclonedx.sh) |
-| **L03–L04** | Unitarias herméticas `>= 95%` y mutación (`MSI >= 80%`) | `pytest-cov`, `@vitest/coverage-v8`, `PCOV`, `Mutmut`, `Stryker`, `Infection` |
-| **L05** | Migraciones reales en `postgres:17-alpine`, RLS + WORM `seq_num` | [`.agents/scripts/verify_alembic_orm_parity.py`](../.agents/scripts/verify_alembic_orm_parity.py), [`vibe-rescue/templates/rls_hardening.sql`](../vibe-rescue/templates/rls_hardening.sql) |
-| **L06–L07** | Contratos Consumer-Driven **Pact V4** y BDD proporcional (Karate o nativo) | [`fastapi/tests/contracts/test_pact_consumer.py`](../fastapi/tests/contracts/test_pact_consumer.py), [`node-backend/tests/contracts/provider.pact.test.ts`](../node-backend/tests/contracts/provider.pact.test.ts) |
-| **L08** | **Screenplay multi-rol + Self-Healing DOM**, WCAG 2.1 AA, Lighthouse y linter UI (`QA-UI-ANTI-001..005`) | [`vue3/tests/screenplay/Actor.ts`](../vue3/tests/screenplay/Actor.ts), [`react-frontend/tests/utils/semanticLocator.ts`](../react-frontend/tests/utils/semanticLocator.ts), [`mobile-appium/tests/screenplay/MobileActor.ts`](../mobile-appium/tests/screenplay/MobileActor.ts), [`.agents/scripts/lint_test_antipatterns.py`](../.agents/scripts/lint_test_antipatterns.py) |
-| **L09–L11** | DAST (`OWASP ZAP`), carga declarativa (**Grafana k6** / Locust) y caos (`Pumba` post-RED `/metrics`) | [`fastapi/tests/load/smoke.k6.js`](../fastapi/tests/load/smoke.k6.js), [`docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.es.md`](03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.es.md) |
-| **L12** | **Arquitectura como Código FINOS CALM** + salud topológica AST + partición CI por Blast Radius | [`architecture/qa-11x.calm.json`](../architecture/qa-11x.calm.json), [`.agents/scripts/validate_calm_architecture.sh`](../.agents/scripts/validate_calm_architecture.sh), [`.agents/scripts/select_tests_by_blast_radius.py`](../.agents/scripts/select_tests_by_blast_radius.py), [`.github/workflows/ci-tiered-qa.yml`](../.github/workflows/ci-tiered-qa.yml) |
+| **L01** | Análisis estático, linters (`--max-warnings 0`), secretos, SBOM CycloneDX y Trivy `HIGH/CRITICAL = 0` | [`scripts/verificar-secretos.sh`](../scripts/verificar-secretos.sh), [`scripts/auditar-infra.sh`](../scripts/auditar-infra.sh), [`scripts/generar-sbom-cyclonedx.sh`](../scripts/generar-sbom-cyclonedx.sh) |
+| **L02** | Tipado estricto (`mypy --strict`, `tsc`, `PHPStan max`) y Radon Grado A (`CC <= 5`) / SonarJS (`<= 15`) | [`fastapi/pyproject.toml.example`](../fastapi/pyproject.toml.example), [`mcp-server/eslint.config.mjs`](../mcp-server/eslint.config.mjs), [`php/phpstan.neon.example`](../php/phpstan.neon.example) |
+| **L03** | Pruebas unitarias herméticas aisladas (`>= 95%` líneas/ramas/sentencias) | `pytest-cov`, `@vitest/coverage-v8`, `PCOV`, `BATS-core/kcov` |
+| **L04** | Paridad real de esquemas BD y migraciones ORM en `postgres:17-alpine`, RLS + WORM `seq_num` | [`.agents/scripts/verify_alembic_orm_parity.py`](../.agents/scripts/verify_alembic_orm_parity.py), [`vibe-rescue/templates/rls_hardening.sql`](../vibe-rescue/templates/rls_hardening.sql) |
+| **L05** | Contratos Consumer-Driven **Pact V4** y fuzzing OpenAPI (`Schemathesis`) | [`fastapi/tests/contracts/test_pact_consumer.py`](../fastapi/tests/contracts/test_pact_consumer.py), [`node-backend/tests/contracts/provider.pact.test.ts`](../node-backend/tests/contracts/provider.pact.test.ts) |
+| **L06** | Contratos BDD API de caja negra (**Karate Labs API** con `Idempotency-Key` dinámico o runners nativos autorizados) | [`fastapi/test/api_test.feature`](../fastapi/test/api_test.feature), [`node-backend/test/node_api.feature`](../node-backend/test/node_api.feature), [`mcp-server/test/mcp_cli_test.feature`](../mcp-server/test/mcp_cli_test.feature) |
+| **L07** | Contratos BDD UI HTTP/OSHP/SSG de caja negra (**Karate Labs UI** sin navegador headless + Refresco Dual) | [`vue3/test/ui_business_flow.feature`](../vue3/test/ui_business_flow.feature), [`react-frontend/test/ui_business_flow.feature`](../react-frontend/test/ui_business_flow.feature) |
+| **L08** | Pruebas de mutación (`MSI >= 80%`, anti-falsos positivos) | `Mutmut`, `Stryker`, `Infection` |
+| **L09** | **Playwright** Screenplay multi-rol + Self-Healing DOM, WCAG 2.1 AA, Lighthouse CI y linter UI (`QA-UI-ANTI-001..005`) | [`vue3/tests/screenplay/Actor.ts`](../vue3/tests/screenplay/Actor.ts), [`react-frontend/tests/utils/semanticLocator.ts`](../react-frontend/tests/utils/semanticLocator.ts), [`mobile-appium/tests/screenplay/MobileActor.ts`](../mobile-appium/tests/screenplay/MobileActor.ts), [`.agents/scripts/lint_test_antipatterns.py`](../.agents/scripts/lint_test_antipatterns.py) |
+| **L10** | Pruebas de rendimiento, concurrencia y estrés (`grafana/k6:2.4.0` / `Locust` / `Artillery`) | [`fastapi/tests/load/smoke.k6.js`](../fastapi/tests/load/smoke.k6.js), [`docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.es.md`](03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.es.md) |
+| **L11** | Seguridad dinámica DAST (`OWASP ZAP`), cabeceras OSHP y pruebas Fail-Secure | [`docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.es.md`](03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.es.md), [`SECURITY.es.md`](../SECURITY.es.md) |
+| **L12** | Ingeniería del caos (`Pumba`) y telemetría RED pre-caos (`/metrics` en `Prometheus`) | [`docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.es.md`](03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.es.md), [`fastapi/docker-compose.qa.yml`](../fastapi/docker-compose.qa.yml) |
 | **L13** | Fixtures trimodales (`Virgin`/`Nominal`/`Degraded`), ciclo temporal de 3 fases, 10 Leyes Innegociables + 11 Reglas UAT Anti-Ceguera | [`.agents/rules/ground_truth_fixtures_and_negative_invariants.md`](../.agents/rules/ground_truth_fixtures_and_negative_invariants.md), [`docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.es.md`](02_BUENAS_PRACTICAS_PROGRAMACION_11X.es.md) |
-| **AI Evals & Shield** | Modo 1 offline `$0` (`make test-ai-offline`), Modo 2 `DeepEval` + `Promptfoo` OWASP LLM Top 10 (`make audit-llm`), voz WebRTC, PDF/OCR `Decimal`, `promptGuard` y perfiles Ollama/vLLM | [`ai-evals/README.es.md`](../ai-evals/README.es.md), [`mcp-server/src/security/promptGuard.ts`](../mcp-server/src/security/promptGuard.ts), [`specs/14_LOCAL_LLM_AND_A2A_PROFILES.md`](specs/14_LOCAL_LLM_AND_A2A_PROFILES.md) |
-| **Vibe-to-Enterprise** | Rescate en 5 etapas para apps generadas por IA sin destruir UX | [`vibe-rescue/README.es.md`](../vibe-rescue/README.es.md), [`vibe-rescue/audit_vibe_prototype.py`](../vibe-rescue/audit_vibe_prototype.py) |
-| **TMS, A2A & Release Gate** | Trazabilidad bidireccional `Jira`/`Zephyr`/`Xray`/`GitHub Issues`, tarjeta A2A y compuerta multi-señal (`GO`/`NO_GO`/`SKIPPED`) | [`specs/15_ENTERPRISE_TMS_TRACEABILITY.md`](specs/15_ENTERPRISE_TMS_TRACEABILITY.md), [`mcp-server/src/a2a/agentCard.ts`](../mcp-server/src/a2a/agentCard.ts), [`.agents/scripts/release_readiness_gate.py`](../.agents/scripts/release_readiness_gate.py) |
+| **Transversal: AST, CALM y Compuerta 10/10** | **Arquitectura como Código FINOS CALM**, salud topológica AST, partición CI por Blast Radius y compuerta de 10 etapas | [`architecture/qa-11x.calm.json`](../architecture/qa-11x.calm.json), [`.agents/scripts/validate_calm_architecture.sh`](../.agents/scripts/validate_calm_architecture.sh), [`.agents/scripts/select_tests_by_blast_radius.py`](../.agents/scripts/select_tests_by_blast_radius.py), [`.github/workflows/ci-tiered-qa.yml`](../.github/workflows/ci-tiered-qa.yml) |
+| **Transversal: AI Evals & Shield** | Modo 1 offline `$0` (`make test-ai-offline`), Modo 2 `DeepEval` + `Promptfoo` OWASP LLM Top 10 (`make audit-llm`), voz WebRTC, PDF/OCR `Decimal`, `promptGuard` y perfiles Ollama/vLLM | [`ai-evals/README.es.md`](../ai-evals/README.es.md), [`mcp-server/src/security/promptGuard.ts`](../mcp-server/src/security/promptGuard.ts), [`specs/14_LOCAL_LLM_AND_A2A_PROFILES.md`](specs/14_LOCAL_LLM_AND_A2A_PROFILES.md) |
+| **Transversal: Vibe-Rescue** | Rescate en 5 etapas para apps generadas por IA sin destruir UX | [`vibe-rescue/README.es.md`](../vibe-rescue/README.es.md), [`vibe-rescue/audit_vibe_prototype.py`](../vibe-rescue/audit_vibe_prototype.py) |
+| **Transversal: TMS, A2A & Release Gate** | Trazabilidad bidireccional `Jira`/`Zephyr`/`Xray`/`GitHub Issues`, tarjeta A2A y compuerta multi-señal (`GO`/`NO_GO`/`SKIPPED`) | [`specs/15_ENTERPRISE_TMS_TRACEABILITY.md`](specs/15_ENTERPRISE_TMS_TRACEABILITY.md), [`mcp-server/src/a2a/agentCard.ts`](../mcp-server/src/a2a/agentCard.ts), [`.agents/scripts/release_readiness_gate.py`](../.agents/scripts/release_readiness_gate.py) |
 
 ---
 

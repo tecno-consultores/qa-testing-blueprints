@@ -12,7 +12,12 @@ BEGIN
         -- La credencial se inyecta externamente desde Vault/Secret Manager en tiempo de despliegue.
         CREATE ROLE app_runtime_user WITH LOGIN
             NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
-    ELSE
+    ELSIF EXISTS (
+        SELECT 1
+        FROM pg_roles
+        WHERE rolname = 'app_runtime_user'
+          AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolbypassrls)
+    ) THEN
         ALTER ROLE app_runtime_user WITH
             NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
     END IF;
@@ -94,17 +99,24 @@ CREATE POLICY tenants_isolation_policy ON tenants
         id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
     );
 
+DROP POLICY IF EXISTS tenants_definer_lookup_policy ON tenants;
+CREATE POLICY tenants_definer_lookup_policy ON tenants
+    FOR SELECT
+    TO CURRENT_USER
+    USING (current_user <> 'app_runtime_user');
+
 GRANT SELECT ON TABLE tenants TO app_runtime_user;
 
 CREATE OR REPLACE FUNCTION resolve_tenant_by_slug(p_slug TEXT)
 RETURNS TABLE(id UUID, slug VARCHAR, is_active BOOLEAN)
 LANGUAGE sql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = pg_catalog, public
 AS $$
     SELECT t.id, t.slug, t.is_active
     FROM public.tenants t
-    WHERE t.slug = p_slug
+    WHERE t.slug = NULLIF(pg_catalog.btrim(p_slug), '')
+      AND t.is_active IS TRUE
     LIMIT 1;
 $$;
 
@@ -128,6 +140,7 @@ CREATE TABLE IF NOT EXISTS audit_log_worm (
 REVOKE ALL ON TABLE audit_log_worm FROM PUBLIC;
 REVOKE UPDATE, DELETE, TRUNCATE ON TABLE audit_log_worm FROM app_runtime_user;
 GRANT SELECT, INSERT ON TABLE audit_log_worm TO app_runtime_user;
+GRANT USAGE ON SEQUENCE public.audit_log_worm_seq_num_seq TO app_runtime_user;
 
 ALTER TABLE audit_log_worm ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_log_worm FORCE ROW LEVEL SECURITY;
@@ -151,17 +164,27 @@ CREATE POLICY audit_log_worm_insert_policy ON audit_log_worm
 CREATE OR REPLACE FUNCTION prevent_worm_audit_mutation()
 RETURNS TRIGGER
 LANGUAGE plpgsql
+SET search_path = pg_catalog, public
 AS $$
 BEGIN
     RAISE EXCEPTION 'WORM violation: audit_log_worm is append-only';
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_prevent_worm_audit_mutation ON audit_log_worm;
+DROP TRIGGER IF EXISTS trg_prevent_worm_audit_mutation ON public.audit_log_worm;
 CREATE TRIGGER trg_prevent_worm_audit_mutation
-    BEFORE UPDATE OR DELETE ON audit_log_worm
+    BEFORE UPDATE OR DELETE ON public.audit_log_worm
     FOR EACH ROW
     EXECUTE FUNCTION prevent_worm_audit_mutation();
+
+DROP TRIGGER IF EXISTS trg_prevent_worm_audit_truncate ON public.audit_log_worm;
+CREATE TRIGGER trg_prevent_worm_audit_truncate
+    BEFORE TRUNCATE ON public.audit_log_worm
+    FOR EACH STATEMENT
+    EXECUTE FUNCTION prevent_worm_audit_mutation();
+
+DROP FUNCTION IF EXISTS append_worm_audit_entry(UUID, UUID, VARCHAR, VARCHAR, VARCHAR, JSONB, JSONB, CHAR);
+DROP FUNCTION IF EXISTS append_worm_audit_entry(UUID, UUID, VARCHAR, VARCHAR, VARCHAR, JSONB, JSONB, CHAR(64));
 
 CREATE OR REPLACE FUNCTION append_worm_audit_entry(
     p_id UUID,
@@ -171,17 +194,25 @@ CREATE OR REPLACE FUNCTION append_worm_audit_entry(
     p_action VARCHAR,
     p_before_state JSONB,
     p_after_state JSONB,
-    p_record_sha256_hash CHAR
+    p_record_sha256_hash CHAR(64) DEFAULT NULL
 )
 RETURNS BIGINT
 LANGUAGE plpgsql
-SET search_path = public
+SET search_path = pg_catalog, public
 AS $$
 DECLARE
     v_prev_hash CHAR(64);
+    v_canonical_payload TEXT;
+    v_expected_hash CHAR(64);
+    v_supplied_hash TEXT;
+    v_final_hash CHAR(64);
     v_seq_num BIGINT;
 BEGIN
-    PERFORM pg_advisory_xact_lock(hashtext(p_tenant_id::text));
+    IF p_id IS NULL OR p_tenant_id IS NULL THEN
+        RAISE EXCEPTION 'WORM validation error: p_id and p_tenant_id are required';
+    END IF;
+
+    PERFORM pg_advisory_xact_lock(hashtext('audit:' || p_tenant_id::text));
 
     SELECT a.record_sha256_hash
     INTO v_prev_hash
@@ -191,7 +222,42 @@ BEGIN
     LIMIT 1;
 
     IF v_prev_hash IS NULL THEN
-        v_prev_hash := repeat('0', 64);
+        v_prev_hash := pg_catalog.repeat('0', 64);
+    END IF;
+
+    v_canonical_payload := pg_catalog.concat_ws(
+        '|',
+        v_prev_hash,
+        p_id::text,
+        p_tenant_id::text,
+        COALESCE(p_actor_username, ''),
+        COALESCE(p_resource_display_name, ''),
+        COALESCE(p_action, ''),
+        COALESCE(p_before_state::text, 'null'),
+        COALESCE(p_after_state::text, 'null')
+    );
+    v_expected_hash := pg_catalog.encode(
+        pg_catalog.sha256(pg_catalog.convert_to(v_canonical_payload, 'UTF8')),
+        'hex'
+    );
+
+    IF p_record_sha256_hash IS NOT NULL THEN
+        v_supplied_hash := pg_catalog.lower(pg_catalog.btrim(p_record_sha256_hash));
+        IF v_supplied_hash !~ '^[0-9a-f]{64}$' THEN
+            RAISE EXCEPTION 'WORM hash validation error: p_record_sha256_hash must be 64 hex chars';
+        END IF;
+        IF v_supplied_hash = v_expected_hash THEN
+            v_final_hash := v_expected_hash;
+        ELSE
+            v_final_hash := pg_catalog.encode(
+                pg_catalog.sha256(
+                    pg_catalog.convert_to(v_prev_hash || '|' || v_supplied_hash, 'UTF8')
+                ),
+                'hex'
+            );
+        END IF;
+    ELSE
+        v_final_hash := v_expected_hash;
     END IF;
 
     INSERT INTO public.audit_log_worm (
@@ -214,7 +280,7 @@ BEGIN
         p_before_state,
         p_after_state,
         v_prev_hash,
-        p_record_sha256_hash
+        v_final_hash
     )
     RETURNING seq_num INTO v_seq_num;
 
@@ -222,5 +288,5 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION append_worm_audit_entry(UUID, UUID, VARCHAR, VARCHAR, VARCHAR, JSONB, JSONB, CHAR) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION append_worm_audit_entry(UUID, UUID, VARCHAR, VARCHAR, VARCHAR, JSONB, JSONB, CHAR) TO app_runtime_user;
+REVOKE ALL ON FUNCTION append_worm_audit_entry(UUID, UUID, VARCHAR, VARCHAR, VARCHAR, JSONB, JSONB, CHAR(64)) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION append_worm_audit_entry(UUID, UUID, VARCHAR, VARCHAR, VARCHAR, JSONB, JSONB, CHAR(64)) TO app_runtime_user;

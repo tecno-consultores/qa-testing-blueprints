@@ -115,4 +115,32 @@ describe('bootstrapOrMerge11x Dedicated Unit Suite', () => {
       bootstrapOrMerge11x(os.tmpdir(), 'python', true, { fetcher, merger })
     ).rejects.toThrow(WorkspacePathValidationError);
   });
+
+  it('crea respaldo .11x-backup antes de sobrescribir/fusionar cuando createBackup=true y lo omite si false', async () => {
+    const makefilePath = path.join(projectDir, 'Makefile');
+    const agentsPath = path.join(projectDir, 'AGENTS.md');
+    fs.writeFileSync(makefilePath, 'custom-target:\n\t@echo custom\n', 'utf-8');
+    fs.writeFileSync(agentsPath, '# Custom Agents Rules\n', 'utf-8');
+
+    const resWithBackup = await bootstrapOrMerge11x(projectDir, 'python', false, {
+      fetcher,
+      merger,
+      createBackup: true,
+    });
+    expect(resWithBackup.summary.merged).toBe(2);
+    expect(fs.readFileSync(`${makefilePath}.11x-backup`, 'utf-8')).toBe('custom-target:\n\t@echo custom\n');
+    expect(fs.readFileSync(`${agentsPath}.11x-backup`, 'utf-8')).toBe('# Custom Agents Rules\n');
+
+    const noBackupProj = path.join(tmpDir, 'target-no-backup');
+    fs.mkdirSync(noBackupProj, { recursive: true });
+    fs.writeFileSync(path.join(noBackupProj, 'Makefile'), 'app:\n\t@echo app\n', 'utf-8');
+    fs.writeFileSync(path.join(noBackupProj, 'AGENTS.md'), '# Existing\n', 'utf-8');
+    await bootstrapOrMerge11x(noBackupProj, 'python', false, {
+      fetcher,
+      merger,
+      createBackup: false,
+    });
+    expect(fs.existsSync(path.join(noBackupProj, 'Makefile.11x-backup'))).toBe(false);
+    expect(fs.existsSync(path.join(noBackupProj, 'AGENTS.md.11x-backup'))).toBe(false);
+  });
 });

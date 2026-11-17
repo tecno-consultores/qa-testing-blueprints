@@ -199,7 +199,6 @@ function findWorkspaceRootWithFile(primaryRelPath: string, fallbackRelPath?: str
     cwd,
     path.dirname(cwd),
     path.resolve(import.meta.dirname, '..', '..', '..'),
-    '/',
   ];
   for (const relPath of fallbackRelPath ? [primaryRelPath, fallbackRelPath] : [primaryRelPath]) {
     for (const candidate of candidates) {

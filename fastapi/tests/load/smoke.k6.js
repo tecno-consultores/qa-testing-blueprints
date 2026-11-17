@@ -71,7 +71,7 @@ export default function runLoadBlueprint() {
   const healthBody = safeJson(healthRes);
   check(healthRes, {
     'health status 200': (r) => r.status === 200,
-    'health body ok': () => Boolean(healthBody && healthBody.status === 'ok'),
+    'health body ok': () => Boolean(healthBody && (healthBody.status === 'ok' || healthBody.status === 'healthy')),
   });
 
   const createKey = uuidv4(__ITER * 2 + 1, __VU);

@@ -27,15 +27,24 @@ _SCRIPT_PATH = (
 
 if TYPE_CHECKING:
     import generate_pr_verdict as gpv
+    import track_findings_state as tfs
 else:
     _SCRIPTS_DIR = _SCRIPT_PATH.parent
-    if str(_SCRIPTS_DIR) not in sys.path:
+    _ADDED_PATH = str(_SCRIPTS_DIR) not in sys.path
+    if _ADDED_PATH:
         sys.path.insert(0, str(_SCRIPTS_DIR))
-    _SPEC = importlib.util.spec_from_file_location("generate_pr_verdict", _SCRIPT_PATH)
-    assert _SPEC is not None and _SPEC.loader is not None
-    gpv = importlib.util.module_from_spec(_SPEC)
-    sys.modules["generate_pr_verdict"] = gpv
-    _SPEC.loader.exec_module(gpv)
+    try:
+        _SPEC = importlib.util.spec_from_file_location(
+            "generate_pr_verdict", _SCRIPT_PATH
+        )
+        assert _SPEC is not None and _SPEC.loader is not None
+        gpv = importlib.util.module_from_spec(_SPEC)
+        sys.modules["generate_pr_verdict"] = gpv
+        _SPEC.loader.exec_module(gpv)
+        tfs = sys.modules["track_findings_state"]
+    finally:
+        if _ADDED_PATH and str(_SCRIPTS_DIR) in sys.path:
+            sys.path.remove(str(_SCRIPTS_DIR))
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -246,19 +255,21 @@ def test_dirty_worktree_fingerprint_ast_deps_and_cov(
             }
         ),
     )
+    active_head_key = tfs.resolve_session_key(repo, base_ref="HEAD")
     _write(
         repo,
         ".agents/.cache/certify_state.json",
         json.dumps(
             {
+                "version": 2,
                 "sessions": {
                     "ignored": "bad",
-                    "main:h": {
-                        "runs": [{"fingerprints": []}],
-                        "streaks": {"f1": 1},
-                        "oscillations": {},
+                    active_head_key: {
+                        "stage_runs": {"qa": [{"fingerprints": []}], "skip": "bad"},
+                        "streaks": {"qa": 0},
+                        "oscillations": {"qa": 0},
                     },
-                }
+                },
             }
         ),
     )
@@ -284,24 +295,31 @@ def test_dirty_worktree_fingerprint_ast_deps_and_cov(
     assert "HMAC-SHA256" not in md
 
 
-def test_blocked_verdict_junit_diff_cov_and_breaker(tmp_path: Path) -> None:
+def test_blocked_verdict_junit_diff_cov_and_breaker(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     repo = _init_repo(tmp_path)
     _write(repo, "src/app.py", "def run() -> int:\n    return 9\n")
     _write(repo, "reports/junit.xml", _junit_xml(failures=1))
     _write(repo, "cov/python.xml", _cobertura_xml({"src/app.py": (2,)}, hits=0))
+    active_key = tfs.resolve_session_key(repo)
     _write(
         repo,
         ".agents/.cache/certify_state.json",
         json.dumps(
             {
+                "version": 2,
                 "sessions": {
-                    "s1": {
-                        "runs": [{"fingerprints": ["abc"]}],
-                        "streaks": {"abc": 3},
-                        "oscillations": {"abc": 1},
+                    active_key: {
+                        "stage_runs": {
+                            "qa": [{"fingerprints": ["abc"]}],
+                            "unit": [],
+                        },
+                        "streaks": {"qa": 3},
+                        "oscillations": {"qa": 1},
                     },
                     "empty_runs": {"runs": []},
-                }
+                },
             }
         ),
     )
@@ -310,13 +328,82 @@ def test_blocked_verdict_junit_diff_cov_and_breaker(tmp_path: Path) -> None:
         ".agents/artifacts/PR_VERDICT.md",
         ".agents/artifacts/att.json",
     )
-    assert code == 0
+    assert code == gpv.EXIT_BLOCKED == 30
     assert att["verdict"] == gpv.VERDICT_BLOCKED
     assert att["risk_level"] == gpv.RISK_HIGH
     assert att["breaker_health"]["blocked"] is True
+    assert att["breaker_health"]["max_streak"] == 3
+    assert att["breaker_health"]["total_oscillations"] == 1
     assert len(att["blocking_reasons"]) >= 3
     assert "## Motivos de Bloqueo" in md
     assert "N/A" in md
+
+    cli_blocked = gpv.main(
+        [
+            "--workspace",
+            str(repo),
+            "--junit-xml",
+            "reports/junit.xml",
+            "--reports-dir",
+            "cov",
+        ]
+    )
+    assert cli_blocked == 30
+    assert "BLOQUEADO" in capsys.readouterr().err
+
+    code_report_only, att_ro, _ = gpv.generate_pr_verdict(
+        _make_inputs(repo, junit_xml="reports/junit.xml", report_only=True),
+        ".agents/artifacts/PR_VERDICT.md",
+        ".agents/artifacts/att.json",
+    )
+    assert code_report_only == 0
+    assert att_ro["verdict"] == gpv.VERDICT_BLOCKED
+
+    cli_ro = gpv.main(
+        [
+            "--workspace",
+            str(repo),
+            "--junit-xml",
+            "reports/junit.xml",
+            "--reports-dir",
+            "cov",
+            "--report-only",
+        ]
+    )
+    assert cli_ro == 0
+    assert "BLOQUEADO" in capsys.readouterr().out
+
+
+def test_breaker_legacy_runs_and_edge_helpers(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    assert gpv._extract_history_sets("bad") == []
+    assert gpv._extract_non_bool_int(True) == 0
+    assert gpv._extract_non_bool_int(-5) == 0
+    assert gpv._extract_non_bool_int(7) == 7
+    assert gpv._analyze_run_sequence([]) == (0, 0, 0)
+    assert gpv._stage_persisted_int("bad", "qa") == 0
+    assert gpv._build_graph_nodes_map("bad", "") == {}
+    assert gpv._collect_link_dependent("bad", {}, "", set()) is None
+
+    empty_snap = gpv._evaluate_session_entry({"runs": []})
+    assert empty_snap.has_data is False
+
+    legacy_snap = gpv._evaluate_session_entry(
+        {
+            "runs": [{"fingerprints": ["f1"]}],
+            "streaks": {"f1": 3},
+            "oscillations": {"f1": 1},
+        }
+    )
+    assert legacy_snap.has_data is True
+    assert legacy_snap.blocked is True
+    assert legacy_snap.max_streak == 3
+
+    _write(repo, gpv.CERTIFY_STATE_REL, json.dumps({"sessions": "bad"}))
+    assert gpv._load_breaker_snapshot(repo).has_data is False
+
+    with pytest.raises(gpv.VerdictDivergenceError):
+        gpv._load_breaker_snapshot(repo, base_ref="-bad-ref")
 
 
 def test_risk_levels_and_helper_edge_cases(tmp_path: Path) -> None:

@@ -10,7 +10,7 @@ This document addresses architectural questions and the most common issues when 
 To guarantee **immutability and absolute parity with production**. The "works on my machine" problem is usually caused by hidden global Node/Python versions or residual environment variables. By forcing ephemeral containers (through simplified commands such as `make qa-unit`), the environment starts completely clean, uses isolated caches, executes the suite, and destroys itself.
 
 ### Lefthook blocked my `git commit` — what should I do?
-Our policy is **"Fail & Forbid" (Educational Rejection)**. If Lefthook detected formatting errors or a hardcoded secret, it will abort your commit. Do NOT try to bypass it with `--no-verify`. Run the suggested command in your terminal (e.g., `ruff format` or `Prettier`), verify that the code is clean, and retry the commit.
+Our policy is **"Fail & Forbid" (Educational Rejection)**. If Lefthook detected formatting errors or a hardcoded secret, it will abort your commit. Do NOT try to bypass it with `--no-verify`. Run the suggested Docker Rule Zero target (`make lint` at root, or `make qa-lint` inside the affected stack container), verify that the code is clean, and retry the commit.
 
 ### All my code works and coverage is 100% — why does the pipeline still fail?
 Once you exceed 95% coverage, the pipeline evaluates **Technical Debt and Security**. Most likely:
@@ -68,8 +68,10 @@ Containers and package managers accumulate massive caches.
 **Solution:** Run the master cleanup script without requiring `sudo`:
 ```bash
 ./scripts/limpieza.sh
-# Or use the Makefile target in your project:
-make clean-cache
+# At the monorepo root, use:
+make clean           # or make qa-clean
+# Inside individual stacks (e.g., fastapi/, vue3/), use:
+make clean-cache     # or make clean
 ```
 This purges temporary reports, test artifacts, and orphan caches using a hybrid strategy (local removal plus an ephemeral Docker fallback with container permissions), also cleaning named cache volumes (`pnpm-store` or `uv-cache`).
 
@@ -87,7 +89,7 @@ make qa-e2e
 ### How does an AI Agent interact with this repository?
 An AI agent (such as Google Antigravity, Anthropic Claude Code / Claude Desktop, Nous Research Hermes Agent, Cursor, or Windsurf) can interact in three ways:
 1. **Via MCP Server (`@sinfallas/mcp-qa-11x` v3.1.0):** Connects over `stdio` via `npx -y @sinfallas/mcp-qa-11x@latest`. The server exposes **19 operational tools** (the 12 core v1 tools, 6 v2.0 evaluators — `validate_calm_architecture`, `evaluate_release_gate`, `evaluate_agent_trajectory`, `run_llm_red_team`, `audit_vibe_prototype`, `sync_enterprise_tms` — plus the **v3.1** `session_flight_recorder`) and **13 dynamic resources (`blueprint://*`, supporting `?lang=es|en`)** including **v3.1** `blueprint://skills/tactical-patterns-11x`, allowing the agent to audit and merge templates without cloning the entire repository.
-2. **Via Zero-Clone Skills (`qa-11x-architect` and full catalog of 11 modular skills):** Injected into its environment along with operational scripts and the `AGENTS.md` connector by running `npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts --reconcile` or via the universal installer `curl ... | sh`. The agent immediately gains knowledge of the 13 quality layers, 22 baseline DISA/OWASP reference controls (enforced by 34 static scanner rules), JIT complexity patterns, and Anti-JSDOM prevention.
+2. **Via Zero-Clone Skills (`qa-11x-architect` and full catalog of 11 modular skills):** Injected into its environment along with operational scripts and the `AGENTS.md` connector by running `npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts --reconcile` (SHA-256 verified against `manifest.json`), or by downloading and inspecting `scripts/install-skill.sh` with checksum verification before running it locally (avoid blind `curl ... | sh` piping). The agent immediately gains knowledge of the 13 quality layers, 22 baseline DISA/OWASP reference controls (enforced by 34 static scanner rules), JIT complexity patterns, and Anti-JSDOM prevention.
 3. **Via Local Rules (`.agents/` and `AGENTS.md`):** When operating inside the cloned repository, the agent automatically reads directives in `.agents/rules/` and keeps the active log in `.agents/ACTIVE_TASK.md`, running the universal gate `./.agents/scripts/certify_task_completion.sh` before finishing turns.
 
 ### What is the `@sinfallas/mcp-qa-11x` MCP Server, and why is it superior to cloning the entire repository?

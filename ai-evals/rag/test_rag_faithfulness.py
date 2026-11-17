@@ -8,13 +8,13 @@ import asyncio
 import json
 import os
 import re
+import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import pytest
 import yaml  # type: ignore[import-untyped]
-from deepeval.errors import DeepEvalError
 from deepeval.evaluate import assert_test
 from deepeval.metrics import (
     AnswerRelevancyMetric,
@@ -35,6 +35,12 @@ from deepeval.models.base_model import DeepEvalBaseLLM
 from deepeval.test_case import LLMTestCase, ToolCall
 from deepeval.test_case.llm_test_case import RetrievedContextData
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
+
+_AI_EVALS_ROOT = str(Path(__file__).resolve().parents[1])
+if _AI_EVALS_ROOT not in sys.path:
+    sys.path.insert(0, _AI_EVALS_ROOT)
+
+from _llm_judge import resolve_deepeval_judge_model  # noqa: E402
 
 DOC_ID_RE = re.compile(r"\[([a-zA-Z0-9_:-]+)\]")
 NUMERIC_TOKEN_RE = re.compile(r"(?<![A-Za-z0-9_-])\d+(?:[.,]\d+)?%?")
@@ -334,70 +340,6 @@ def build_golden_deepeval_case() -> LLMTestCase:
             ToolCall(name="run_ephemeral_qa", input_parameters=None),
         ],
     )
-
-
-def _build_provider_or_local(
-    provider_cls: Any,
-    fallback_base_url: str,
-    model_name: str,
-    api_key: str,
-) -> DeepEvalBaseLLM:
-    try:
-        return cast(DeepEvalBaseLLM, provider_cls(model=model_name, api_key=api_key))
-    except DeepEvalError:
-        return LocalModel(
-            model=model_name,
-            base_url=fallback_base_url,
-            api_key=api_key,
-        )
-
-
-def _resolve_cloud_judge(active_env: Mapping[str, str]) -> DeepEvalBaseLLM | None:
-    if active_env.get("OPENAI_API_KEY"):
-        return OpenAIModel(
-            model=active_env.get("QA_LLM_MODEL", "gpt-4.1-mini"),
-            api_key=active_env["OPENAI_API_KEY"],
-        )
-    if active_env.get("GEMINI_API_KEY"):
-        return _build_provider_or_local(
-            GeminiModel,
-            "https://generativelanguage.googleapis.com/v1beta/openai/",
-            active_env.get("QA_LLM_MODEL", "gemini-2.5-flash"),
-            active_env["GEMINI_API_KEY"],
-        )
-    if active_env.get("ANTHROPIC_API_KEY"):
-        return _build_provider_or_local(
-            AnthropicModel,
-            "https://api.anthropic.com/v1/",
-            active_env.get("QA_LLM_MODEL", "claude-sonnet-4-5"),
-            active_env["ANTHROPIC_API_KEY"],
-        )
-    return None
-
-
-def resolve_deepeval_judge_model(
-    env: Mapping[str, str] | None = None,
-) -> DeepEvalBaseLLM:
-    """Selecciona el modelo juez de DeepEval desde credenciales o endpoints locales."""
-    active_env = os.environ if env is None else env
-    cloud = _resolve_cloud_judge(active_env)
-    if cloud is not None:
-        return cloud
-    local_model = active_env.get("QA_LLM_MODEL", "qwen3:8b")
-    if active_env.get("OLLAMA_BASE_URL"):
-        ollama_base = active_env["OLLAMA_BASE_URL"].rstrip("/")
-        return LocalModel(
-            model=local_model,
-            base_url=f"{ollama_base}/v1",
-            api_key="ephemeral-ollama-key",
-        )
-    if active_env.get("OPENAI_API_BASE"):
-        return LocalModel(
-            model=local_model,
-            base_url=active_env["OPENAI_API_BASE"],
-            api_key="ephemeral-local-key",
-        )
-    raise RuntimeError("MISSING_LLM_CREDENTIALS")
 
 
 def build_corporate_deepeval_metrics(

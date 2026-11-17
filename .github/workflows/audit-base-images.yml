@@ -10,7 +10,10 @@ on:
   pull_request:
     paths:
       - '.github/workflows/audit-base-images.yml'
+      - 'Makefile'
       - 'docker-compose.qa.yml'
+      - '*/docker-compose.qa.yml'
+      - 'mcp-server/example/docker-compose.qa.yml'
       - 'RESOURCES.md'
       - 'SECURITY.md'
 
@@ -35,6 +38,7 @@ jobs:
           - 'sinfallas/base-node-ionic:latest' # qa-audit-latest-target
           - 'sinfallas/base-node-ionic:26'
           - 'sinfallas/basephpcomposer:latest' # qa-audit-latest-target
+          - 'sinfallas/basephpcomposer:8.5'
           - 'sinfallas/karatelabs:1.5.1'
           - 'sinfallas/karatelabs:latest' # qa-audit-latest-target
           - 'sinfallas/base-bash-qa:latest' # qa-audit-latest-target
@@ -70,7 +74,7 @@ jobs:
           docker run --rm \
             --user 10001:10001 \
             -e HOME=/tmp \
-            sinfallas/base-python-uv:3.15 \
+            sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 \
             pip-audit --strict --desc
 
   smoke-mobile-appium:
@@ -84,7 +88,7 @@ jobs:
           docker run --rm \
             --user 10001:10001 \
             -e HOME=/tmp \
-            sinfallas/base-mobile-appium:26 \
+            sinfallas/base-mobile-appium:26@sha256:595b467d1476de0bc66e4bff35e37599dd889efa7f0222ee7418f159c102af91 \
             sh -ec 'test "$(id -u)" = "10001" && java -version && adb version && node --version && pnpm --version && appium --version && appium driver list --installed --json'
 
   codeql-security-analysis:

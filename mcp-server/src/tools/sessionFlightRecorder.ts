@@ -82,7 +82,7 @@ const BACKEND_NATIVE_TS = 'native-ts' as const;
 const BACKEND_PYTHON_CTL = 'python-ctl' as const;
 const WORKSPACE_FLAG = '--workspace' as const;
 const MAX_INTENT_CHARS = 140;
-const MAX_ACTIVE_TASK_LINES = 35;
+const MAX_ACTIVE_TASK_LINES = 40;
 const UTF8_ENCODING = 'utf8' as const;
 const EXEC_TIMEOUT_MS = 10_000;
 
@@ -100,62 +100,10 @@ const SECRET_REDACTION_PATTERNS: ReadonlyArray<readonly [RegExp, string]> = [
   [/\bsk-[A-Za-z0-9]{10,}\b/g, '[REDACTED_TOKEN]'],
 ];
 
-export const SESSION_FLIGHT_RECORDER_TOOL: Tool = {
+export const SESSION_FLIGHT_RECORDER_TOOL: Pick<Tool, 'name' | 'description'> = {
   name: 'session_flight_recorder',
   description:
-    'Atomic Flight Recorder (QA-11X): saves, recovers (with live Git diff/status cross-check), or clears session state in .agents/.cache/session_checkpoint.json (0600) and deterministically projects <=35-line Spanish .agents/ACTIVE_TASK.md.',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      project_path: {
-        type: 'string',
-        description: 'Target project workspace root directory (defaults to current directory).',
-      },
-      action: {
-        type: 'string',
-        enum: ['save', 'recover', 'clear'],
-        description: "Operation to perform: 'save', 'recover', or 'clear'.",
-      },
-      task_id: {
-        type: 'string',
-        description: "Task identifier (e.g. 'HITO-26-V31'). Required for 'save'.",
-      },
-      active_step: {
-        type: 'string',
-        description: "Active step identifier (e.g. 'F4'). Required for 'save'.",
-      },
-      intent_140chars: {
-        type: 'string',
-        description: 'Concise active intent strictly <= 140 Unicode chars (SEC-06 sanitized). Required for save.',
-      },
-      completed_steps: {
-        type: 'array',
-        items: { type: 'string' },
-        description: 'List of completed step IDs.',
-      },
-      planned_steps: {
-        type: 'array',
-        items: { type: 'string' },
-        description: 'Ordered list of planned step IDs.',
-      },
-      allowed_globs: {
-        type: 'array',
-        items: { type: 'string' },
-        description: 'Optional diff blast-radius allowed globs.',
-      },
-      forbidden_globs: {
-        type: 'array',
-        items: { type: 'string' },
-        description: 'Optional diff blast-radius forbidden globs.',
-      },
-      reason: {
-        type: 'string',
-        description: "Optional closure/abort reason for 'clear'.",
-      },
-    },
-    required: ['action'],
-    additionalProperties: false,
-  },
+    'Atomic Flight Recorder (QA-11X): saves, recovers (with live Git diff/status cross-check), or clears session state in .agents/.cache/session_checkpoint.json (0600) and deterministically projects <=40-line Spanish .agents/ACTIVE_TASK.md.',
 };
 
 function sanitizeSingleLineSec06(rawText: string): string {

@@ -120,7 +120,18 @@ function isCriticalSystemPath(realTarget: string, realTmpDir: string): boolean {
 }
 
 function getAllowedWorkspaceRoots(): string[] {
-  const roots: string[] = [fs.realpathSync(process.cwd())];
+  const roots: string[] = [];
+  const cwd = process.cwd();
+  if (cwd && path.resolve(cwd) !== path.parse(path.resolve(cwd)).root) {
+    try {
+      const realCwd = fs.realpathSync(cwd);
+      if (realCwd !== path.parse(realCwd).root) {
+        roots.push(realCwd);
+      }
+    } catch {
+      // Ignore unavailable/deleted process.cwd() and rely on explicit QA11X_WORKSPACE_ROOTS
+    }
+  }
   const extraRoots = (process.env.QA11X_WORKSPACE_ROOTS ?? '')
     .split(path.delimiter)
     .map((entry) => entry.trim())
@@ -180,7 +191,7 @@ export function resolveSafeProjectPath(
 
   if (!isWithinAllowedWorkspace(realTarget, realTmpDir)) {
     throw new WorkspacePathValidationError(
-      `${SEC_PATH_PREFIX} Ruta fuera de los workspaces permitidos: ${realTarget}`
+      `${SEC_PATH_PREFIX} Ruta fuera de los workspaces permitidos (configure QA11X_WORKSPACE_ROOTS para habilitar raíces adicionales): ${realTarget}`
     );
   }
 

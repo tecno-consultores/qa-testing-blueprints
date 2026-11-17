@@ -7,18 +7,16 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import importlib
 import json
 import math
 import os
 import sys
+import xml.etree.ElementTree as ET
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
-
-try:
-    import defusedxml.ElementTree as ET  # type: ignore[import-untyped]
-except ImportError:
-    import xml.etree.ElementTree as ET  # pre-validado contra XXE antes de parsear
 
 SCOPE_FULL = "full"
 SCOPE_SMOKE = "smoke"
@@ -276,23 +274,51 @@ def _parse_non_neg_int(raw_val: str | None) -> int:
     return max(0, int(fval))
 
 
-def _collect_suite_elements(root: Any) -> tuple[int, int, int, int]:
-    suites = list(root.iter("testsuite"))
-    if not suites and root.tag == "testsuite":
-        suites = [root]
-    if suites:
-        return (
-            sum(_parse_non_neg_int(s.attrib.get("tests")) for s in suites),
-            sum(_parse_non_neg_int(s.attrib.get("failures")) for s in suites),
-            sum(_parse_non_neg_int(s.attrib.get("errors")) for s in suites),
-            sum(_parse_non_neg_int(s.attrib.get("skipped")) for s in suites),
-        )
+def _suite_attr_tuple(suite: Any) -> tuple[int, int, int, int]:
     return (
-        _parse_non_neg_int(root.attrib.get("tests")),
-        _parse_non_neg_int(root.attrib.get("failures")),
-        _parse_non_neg_int(root.attrib.get("errors")),
-        _parse_non_neg_int(root.attrib.get("skipped")),
+        _parse_non_neg_int(suite.attrib.get("tests")),
+        _parse_non_neg_int(suite.attrib.get("failures")),
+        _parse_non_neg_int(suite.attrib.get("errors")),
+        _parse_non_neg_int(suite.attrib.get("skipped")),
     )
+
+
+def _sum_suite_tree(suite: Any) -> tuple[int, int, int, int]:
+    if any(k in suite.attrib for k in ("tests", "failures", "errors", "skipped")):
+        return _suite_attr_tuple(suite)
+    children = suite.findall("testsuite")
+    if not children:
+        return (0, 0, 0, 0)
+    totals = [0, 0, 0, 0]
+    for child in children:
+        vals = _sum_suite_tree(child)
+        for idx in range(4):
+            totals[idx] += vals[idx]
+    return totals[0], totals[1], totals[2], totals[3]
+
+
+def _collect_suite_elements(root: Any) -> tuple[int, int, int, int]:
+    if root.tag == "testsuite":
+        return _sum_suite_tree(root)
+    direct = root.findall("testsuite")
+    if direct:
+        totals = [0, 0, 0, 0]
+        for suite in direct:
+            vals = _sum_suite_tree(suite)
+            for idx in range(4):
+                totals[idx] += vals[idx]
+        return totals[0], totals[1], totals[2], totals[3]
+    return _suite_attr_tuple(root)
+
+
+def _resolve_xml_fromstring() -> Callable[[str], Any]:
+    try:
+        mod = importlib.import_module("defusedxml.ElementTree")
+        fn: Callable[[str], Any] = mod.fromstring
+        return fn
+    except ImportError:
+        fallback: Callable[[str], Any] = ET.fromstring
+        return fallback
 
 
 def _testcase_label(case: Any) -> str:
@@ -339,8 +365,9 @@ def _parse_junit_xml_text(raw_xml: str, reasons: list[BlockingReason]) -> JunitS
         return _empty_junit()
 
     try:
-        root = ET.fromstring(raw_xml)
-    except (ET.ParseError, ValueError) as exc:
+        parse_fn = _resolve_xml_fromstring()
+        root = parse_fn(raw_xml)
+    except (ET.ParseError, ValueError, TypeError) as exc:
         reasons.append(
             _security_reason(
                 "INVALID_XML",

@@ -4,19 +4,23 @@
 
 services:
   pnpm-store-init:
-    image: sinfallas/base-mobile-appium:26
+    image: sinfallas/base-mobile-appium:26@sha256:595b467d1476de0bc66e4bff35e37599dd889efa7f0222ee7418f159c102af91
     pull_policy: if_not_present
     user: "0:0"
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - pnpm-store:/pnpm
     command: ["chmod", "-R", "a+rwX", "/pnpm"]
 
   qa-mobile:
-    image: sinfallas/base-mobile-appium:26
+    image: sinfallas/base-mobile-appium:26@sha256:595b467d1476de0bc66e4bff35e37599dd889efa7f0222ee7418f159c102af91
     container_name: mobile_qa_runner
     hostname: mobile_qa_runner
     pull_policy: if_not_present
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       pnpm-store-init:
         condition: service_completed_successfully
@@ -29,27 +33,25 @@ services:
       ANDROID_HOME: /opt/android-sdk
       ANDROID_SDK_ROOT: /opt/android-sdk
       APPIUM_HOME: /opt/appium-home
-      QA_MOBILE_ARTIFACTS_DIR: /tmp/qa-11x-mobile-artifacts
+      QA_MOBILE_ARTIFACT_DIR: /tmp/qa-11x-mobile-artifacts
     volumes:
       - .:/app
       - pnpm-store:/pnpm
     working_dir: /app
-    cap_add:
-      - SYS_PTRACE
-    security_opt:
-      - seccomp:unconfined
     extra_hosts:
       - "host.docker.internal:host-gateway"
     command: bash -c "echo 'Contenedor QA Mobile Appium 26 listo (Rule Zero, UID no-root). Usa docker compose -f docker-compose.qa.yml run --rm -T qa-mobile [comando]'; sleep infinity"
 
   appium-bridge:
-    image: sinfallas/base-mobile-appium:26
+    image: sinfallas/base-mobile-appium:26@sha256:595b467d1476de0bc66e4bff35e37599dd889efa7f0222ee7418f159c102af91
     container_name: mobile_appium_bridge
     hostname: mobile_appium_bridge
     pull_policy: if_not_present
     profiles:
       - appium-live
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       pnpm-store-init:
         condition: service_completed_successfully

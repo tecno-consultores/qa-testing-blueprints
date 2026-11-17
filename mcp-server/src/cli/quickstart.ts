@@ -21,9 +21,9 @@ const ACTIVE_TASK_REL_PATH = '.agents/ACTIVE_TASK.md' as const;
 const GITHUB_WORKFLOW_REL_PATH = '.github/workflows/qa-11x-pr.yml' as const;
 const AGENTS_MD_REL_PATH = 'AGENTS.md' as const;
 const PR_CHECK_ACTION_REF =
-  'tecno-consultores/qa-testing-blueprints/.github/actions/qa-11x-pr-check@v2' as const;
+  'tecno-consultores/qa-testing-blueprints/.github/actions/qa-11x-pr-check@v3' as const;
 const CHECKOUT_PINNED_REF =
-  'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2' as const;
+  'actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v5.1.0' as const;
 
 export const TIER_STARTER = 'starter' as const;
 export const TIER_STANDARD = 'standard' as const;

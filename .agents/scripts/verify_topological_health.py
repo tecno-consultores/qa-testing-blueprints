@@ -14,6 +14,7 @@ import json
 import os
 import re
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -33,10 +34,13 @@ _IGNORED_DIRS = frozenset(
         ".mypy_cache",
     }
 )
-_DOMAIN_RE = re.compile(r"(?:^|/)(?:src/)?(?:models|schemas|core|domain)/")
-_API_RE = re.compile(r"(?:^|/)(?:src/)?(?:api|controllers|routes)/")
+_DOMAIN_RE = re.compile(r"(?:^|/)(?:src/)?(?:models|schemas|core|domain|services)/")
+_API_RE = re.compile(r"(?:^|/)(?:src/)?(?:api|controllers|routes|views)/")
 _UI_COMMON_RE = re.compile(r"(?:^|/)(?:src/)?components/common/")
 _UI_VIEWS_RE = re.compile(r"(?:^|/)(?:src/)?(?:views|pages)/")
+_STRUCTURAL_RELATIONS = frozenset(
+    {"contains", "rationale_for", "documented_in", "defines", "declares", "method"}
+)
 
 _LAYER_RULES: tuple[tuple[re.Pattern[str], re.Pattern[str], str], ...] = (
     (
@@ -89,6 +93,8 @@ def _display_graph_path(graph_path: Path) -> str:
 def _resolve_link_files(
     link: dict[str, Any], nodes: dict[str, dict[str, Any]]
 ) -> tuple[str, str] | None:
+    if not isinstance(link, dict):
+        return None
     src_node = nodes.get(str(link.get("source", "")))
     raw_src = link.get("source_file") or (
         src_node.get("source_file", "") if src_node else ""
@@ -118,6 +124,103 @@ def _check_link_violations(
     return found
 
 
+@dataclass
+class _DfsState:
+    adj: dict[str, list[str]]
+    color: dict[str, int]
+    path: list[str]
+    found: set[tuple[str, ...]]
+
+
+def _is_same_file_call(
+    rel: str, link: dict[str, Any], nodes: dict[str, dict[str, Any]]
+) -> bool:
+    if rel != "calls":
+        return False
+    files = _resolve_link_files(link, nodes)
+    return files is not None and files[0] == files[1]
+
+
+def _is_dependency_edge(
+    link: dict[str, Any], nodes: dict[str, dict[str, Any]]
+) -> tuple[str, str] | None:
+    if not isinstance(link, dict):
+        return None
+    src = str(link.get("source") or "")
+    tgt = str(link.get("target") or "")
+    rel = str(link.get("relation") or "")
+    if not src or not tgt or src == tgt or rel in _STRUCTURAL_RELATIONS:
+        return None
+    if _is_same_file_call(rel, link, nodes):
+        return None
+    return src, tgt
+
+
+def _build_dependency_graph(
+    links: list[dict[str, Any]], nodes: dict[str, dict[str, Any]]
+) -> dict[str, list[str]]:
+    raw_adj: dict[str, set[str]] = {}
+    for link in links:
+        edge = _is_dependency_edge(link, nodes)
+        if edge is not None:
+            raw_adj.setdefault(edge[0], set()).add(edge[1])
+    return {key: sorted(vals) for key, vals in raw_adj.items()}
+
+
+def _canonical_cycle(cycle: list[str]) -> tuple[str, ...]:
+    core = cycle[:-1]
+    min_idx = min(range(len(core)), key=lambda idx: core[idx])
+    rotated = core[min_idx:] + core[:min_idx]
+    return (*rotated, rotated[0])
+
+
+def _handle_dfs_neighbor(
+    nxt: str, stack: list[tuple[str, int]], state: _DfsState
+) -> None:
+    nxt_color = state.color.get(nxt, 0)
+    if nxt_color == 1:
+        pos = state.path.index(nxt)
+        state.found.add(_canonical_cycle([*state.path[pos:], nxt]))
+    elif nxt_color == 0:
+        state.color[nxt] = 1
+        state.path.append(nxt)
+        stack.append((nxt, 0))
+
+
+def _dfs_from_start(start: str, state: _DfsState) -> None:
+    state.color[start] = 1
+    state.path.append(start)
+    stack: list[tuple[str, int]] = [(start, 0)]
+    while stack:
+        node, idx = stack[-1]
+        neighbors = state.adj.get(node, ())
+        if idx >= len(neighbors):
+            stack.pop()
+            state.path.pop()
+            state.color[node] = 2
+            continue
+        stack[-1] = (node, idx + 1)
+        _handle_dfs_neighbor(neighbors[idx], stack, state)
+
+
+def _detect_directed_cycles(
+    links: list[dict[str, Any]], nodes: dict[str, dict[str, Any]], graph_label: str
+) -> list[str]:
+    state = _DfsState(
+        adj=_build_dependency_graph(links, nodes),
+        color={},
+        path=[],
+        found=set(),
+    )
+    for start in sorted(state.adj):
+        if state.color.get(start, 0) == 0:
+            _dfs_from_start(start, state)
+    return [
+        f"[{graph_label}] Dependencia cíclica detectada: {' -> '.join(cycle)}"
+        for cycle in sorted(state.found)
+    ]
+
+
 def audit_layers(
     graph: dict[str, Any], graph_path: Path
 ) -> tuple[list[str], dict[str, Any]]:
@@ -128,6 +231,7 @@ def audit_layers(
     for link in links:
         for msg in _check_link_violations(link, nodes):
             violations.append(f"[{graph_label}] {msg}")
+    violations.extend(_detect_directed_cycles(links, nodes, graph_label))
 
     stats = {
         "graph_file": graph_label,

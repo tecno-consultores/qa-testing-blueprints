@@ -30,30 +30,36 @@ To prevent over-engineering on small tasks without relaxing controls on critical
 
 ```mermaid
 flowchart TD
-    L01["L1-L2: Linting + Strict Typing + Secrets + Trivy"] --> L03["L3-L4: Unit >=95% + Mutation MSI >=80%"]
-    L03 --> L05["L5-L7: DB/ORM Parity + Pact Contracts + Karate or Native BDD"]
-    L05 --> L08["L8-L9: Screenplay + Self-Healing DOM + WCAG 2.1 AA + ZAP DAST"]
-    L08 --> L10["L10-L11: Load k6/Locust + Chaos Pumba + OTel/Prometheus"]
-    L10 --> L12["L12-L13: AST Topological Health + FINOS CALM + Trimodal 3-Phase"]
-    L12 --> Transversal["v2.0 Cross-Cutting: AI Evals + Vibe-Rescue + TMS + A2A + Release Gate"]
-    Transversal --> Closure["10/10 Gate + Local Commit QA-GIT-GATE-01"]
+    L01["L01-L02: Static/SAST/Trivy + Strict Types & CC <= 5"] --> L03["L03-L04: Unit >= 95% + Live DB/ORM Parity"]
+    L03 --> L05["L05-L07: Pact V4/OpenAPI + Karate API + Karate UI/OSHP"]
+    L05 --> L08["L08-L09: Mutation MSI >= 80% + Playwright WCAG/Geometry/Lighthouse"]
+    L08 --> L10["L10-L12: Load k6/Locust + ZAP DAST + Chaos Pumba/Prometheus RED"]
+    L10 --> L13["L13: Trimodal Fixtures + 3-Phase Clock + Negative Invariants"]
+    L13 --> Transversal["Transversal Meta-Gates: AST/CALM + AI Evals + Vibe-Rescue + TMS/Release Gate"]
+    Transversal --> Closure["10/10 Certification Gate + Local Commit QA-GIT-GATE-01"]
 ```
 
-### Breakdown of the 13 Layers and v2.0 Cross-Cutting Planes
+### Breakdown of the 13 Layers and Transversal Meta-Gates
 
-| Layer / Plane | Primary Responsibility | Monorepo Artifacts & Implementation |
+| Layer / Meta-Gate | Primary Responsibility | Monorepo Artifacts & Implementation |
 | :--- | :--- | :--- |
-| **L01–L02** | Linting (`CC <= 5`), strict typing, secrets, CycloneDX SBOM, and Trivy `HIGH/CRITICAL = 0` | [`scripts/verificar-secretos.sh`](../scripts/verificar-secretos.sh), [`scripts/auditar-infra.sh`](../scripts/auditar-infra.sh), [`scripts/generar-sbom-cyclonedx.sh`](../scripts/generar-sbom-cyclonedx.sh) |
-| **L03–L04** | Hermetic unit tests `>= 95%` and mutation testing (`MSI >= 80%`) | `pytest-cov`, `@vitest/coverage-v8`, `PCOV`, `Mutmut`, `Stryker`, `Infection` |
-| **L05** | Live migrations on `postgres:17-alpine`, RLS + WORM `seq_num` | [`.agents/scripts/verify_alembic_orm_parity.py`](../.agents/scripts/verify_alembic_orm_parity.py), [`vibe-rescue/templates/rls_hardening.sql`](../vibe-rescue/templates/rls_hardening.sql) |
-| **L06–L07** | Consumer-Driven **Pact V4** contracts and proportional BDD (Karate or native) | [`fastapi/tests/contracts/test_pact_consumer.py`](../fastapi/tests/contracts/test_pact_consumer.py), [`node-backend/tests/contracts/provider.pact.test.ts`](../node-backend/tests/contracts/provider.pact.test.ts) |
-| **L08** | **Multi-role Screenplay + Self-Healing DOM**, WCAG 2.1 AA, Lighthouse, and UI linter (`QA-UI-ANTI-001..005`) | [`vue3/tests/screenplay/Actor.ts`](../vue3/tests/screenplay/Actor.ts), [`react-frontend/tests/utils/semanticLocator.ts`](../react-frontend/tests/utils/semanticLocator.ts), [`mobile-appium/tests/screenplay/MobileActor.ts`](../mobile-appium/tests/screenplay/MobileActor.ts), [`.agents/scripts/lint_test_antipatterns.py`](../.agents/scripts/lint_test_antipatterns.py) |
-| **L09–L11** | DAST (`OWASP ZAP`), declarative load (**Grafana k6** / Locust), and chaos (`Pumba` post-RED `/metrics`) | [`fastapi/tests/load/smoke.k6.js`](../fastapi/tests/load/smoke.k6.js), [`docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md`](03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md) |
-| **L12** | **Architecture-as-Code FINOS CALM** + AST topological health + Blast Radius CI sharding | [`architecture/qa-11x.calm.json`](../architecture/qa-11x.calm.json), [`.agents/scripts/validate_calm_architecture.sh`](../.agents/scripts/validate_calm_architecture.sh), [`.agents/scripts/select_tests_by_blast_radius.py`](../.agents/scripts/select_tests_by_blast_radius.py), [`.github/workflows/ci-tiered-qa.yml`](../.github/workflows/ci-tiered-qa.yml) |
+| **L01** | Static analysis, linters (`--max-warnings 0`), secrets, CycloneDX SBOM, and Trivy `HIGH/CRITICAL = 0` | [`scripts/verificar-secretos.sh`](../scripts/verificar-secretos.sh), [`scripts/auditar-infra.sh`](../scripts/auditar-infra.sh), [`scripts/generar-sbom-cyclonedx.sh`](../scripts/generar-sbom-cyclonedx.sh) |
+| **L02** | Strict static typing (`mypy --strict`, `tsc`, `PHPStan max`) and Radon Grade A (`CC <= 5`) / SonarJS (`<= 15`) | [`fastapi/pyproject.toml.example`](../fastapi/pyproject.toml.example), [`mcp-server/eslint.config.mjs`](../mcp-server/eslint.config.mjs), [`php/phpstan.neon.example`](../php/phpstan.neon.example) |
+| **L03** | Hermetic isolated unit tests (`>= 95%` lines/branches/statements) | `pytest-cov`, `@vitest/coverage-v8`, `PCOV`, `BATS-core/kcov` |
+| **L04** | Live DB schema & ORM migration parity on `postgres:17-alpine`, RLS + WORM `seq_num` | [`.agents/scripts/verify_alembic_orm_parity.py`](../.agents/scripts/verify_alembic_orm_parity.py), [`vibe-rescue/templates/rls_hardening.sql`](../vibe-rescue/templates/rls_hardening.sql) |
+| **L05** | Consumer-Driven **Pact V4** contracts and OpenAPI fuzzing (`Schemathesis`) | [`fastapi/tests/contracts/test_pact_consumer.py`](../fastapi/tests/contracts/test_pact_consumer.py), [`node-backend/tests/contracts/provider.pact.test.ts`](../node-backend/tests/contracts/provider.pact.test.ts) |
+| **L06** | Black-box API BDD contracts (**Karate Labs API** with dynamic `Idempotency-Key`, or authorized JVM-free runners) | [`fastapi/test/api_test.feature`](../fastapi/test/api_test.feature), [`node-backend/test/node_api.feature`](../node-backend/test/node_api.feature), [`mcp-server/test/mcp_cli_test.feature`](../mcp-server/test/mcp_cli_test.feature) |
+| **L07** | Black-box UI HTTP/OSHP/SSG contracts (**Karate Labs UI** without headless browser + Dual Refresh) | [`vue3/test/ui_business_flow.feature`](../vue3/test/ui_business_flow.feature), [`react-frontend/test/ui_business_flow.feature`](../react-frontend/test/ui_business_flow.feature) |
+| **L08** | Mutation testing (`MSI >= 80%`, anti-false positives) | `Mutmut`, `Stryker`, `Infection` |
+| **L09** | **Playwright** multi-role Screenplay + Self-Healing DOM, WCAG 2.1 AA, Lighthouse CI, and UI linter (`QA-UI-ANTI-001..005`) | [`vue3/tests/screenplay/Actor.ts`](../vue3/tests/screenplay/Actor.ts), [`react-frontend/tests/utils/semanticLocator.ts`](../react-frontend/tests/utils/semanticLocator.ts), [`mobile-appium/tests/screenplay/MobileActor.ts`](../mobile-appium/tests/screenplay/MobileActor.ts), [`.agents/scripts/lint_test_antipatterns.py`](../.agents/scripts/lint_test_antipatterns.py) |
+| **L10** | Performance, concurrency, and stress testing (`grafana/k6:2.4.0` / `Locust` / `Artillery`) | [`fastapi/tests/load/smoke.k6.js`](../fastapi/tests/load/smoke.k6.js), [`docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md`](03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md) |
+| **L11** | Dynamic security DAST (`OWASP ZAP`), OSHP security headers, and Fail-Secure state testing | [`docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md`](03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md), [`SECURITY.md`](../SECURITY.md) |
+| **L12** | Chaos engineering (`Pumba`) and pre-chaos RED telemetry (`/metrics` on `Prometheus`) | [`docs/03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md`](03_TIPOS_DE_PRUEBAS_Y_COMO_UTILIZARLOS.md), [`fastapi/docker-compose.qa.yml`](../fastapi/docker-compose.qa.yml) |
 | **L13** | Trimodal fixtures (`Virgin`/`Nominal`/`Degraded`), 3-phase clock lifecycle, 10 Non-Negotiable Laws + 11 UAT Anti-Blindness Rules | [`.agents/rules/ground_truth_fixtures_and_negative_invariants.md`](../.agents/rules/ground_truth_fixtures_and_negative_invariants.md), [`docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md`](02_BUENAS_PRACTICAS_PROGRAMACION_11X.md) |
-| **AI Evals & Shield** | Mode 1 offline `$0` (`make test-ai-offline`), Mode 2 `DeepEval` + `Promptfoo` OWASP LLM Top 10 (`make audit-llm`), WebRTC voice, PDF/OCR `Decimal`, `promptGuard`, and Ollama/vLLM profiles | [`ai-evals/README.md`](../ai-evals/README.md), [`mcp-server/src/security/promptGuard.ts`](../mcp-server/src/security/promptGuard.ts), [`specs/14_LOCAL_LLM_AND_A2A_PROFILES.md`](specs/14_LOCAL_LLM_AND_A2A_PROFILES.md) |
-| **Vibe-to-Enterprise** | 5-stage rescue for AI-generated apps without breaking UX | [`vibe-rescue/README.md`](../vibe-rescue/README.md), [`vibe-rescue/audit_vibe_prototype.py`](../vibe-rescue/audit_vibe_prototype.py) |
-| **TMS, A2A & Release Gate** | Bidirectional `Jira`/`Zephyr`/`Xray`/`GitHub Issues` traceability, A2A agent card, and multi-signal gate (`GO`/`NO_GO`/`SKIPPED`) | [`specs/15_ENTERPRISE_TMS_TRACEABILITY.md`](specs/15_ENTERPRISE_TMS_TRACEABILITY.md), [`mcp-server/src/a2a/agentCard.ts`](../mcp-server/src/a2a/agentCard.ts), [`.agents/scripts/release_readiness_gate.py`](../.agents/scripts/release_readiness_gate.py) |
+| **Transversal: AST, CALM & 10/10 Gate** | **Architecture-as-Code FINOS CALM**, AST topological health, Blast Radius CI sharding, and 10-stage closure gate | [`architecture/qa-11x.calm.json`](../architecture/qa-11x.calm.json), [`.agents/scripts/validate_calm_architecture.sh`](../.agents/scripts/validate_calm_architecture.sh), [`.agents/scripts/select_tests_by_blast_radius.py`](../.agents/scripts/select_tests_by_blast_radius.py), [`.github/workflows/ci-tiered-qa.yml`](../.github/workflows/ci-tiered-qa.yml) |
+| **Transversal: AI Evals & Shield** | Mode 1 offline `$0` (`make test-ai-offline`), Mode 2 `DeepEval` + `Promptfoo` OWASP LLM Top 10 (`make audit-llm`), WebRTC voice, PDF/OCR `Decimal`, `promptGuard`, and Ollama/vLLM profiles | [`ai-evals/README.md`](../ai-evals/README.md), [`mcp-server/src/security/promptGuard.ts`](../mcp-server/src/security/promptGuard.ts), [`specs/14_LOCAL_LLM_AND_A2A_PROFILES.md`](specs/14_LOCAL_LLM_AND_A2A_PROFILES.md) |
+| **Transversal: Vibe-Rescue** | 5-stage rescue for AI-generated prototypes without breaking UX | [`vibe-rescue/README.md`](../vibe-rescue/README.md), [`vibe-rescue/audit_vibe_prototype.py`](../vibe-rescue/audit_vibe_prototype.py) |
+| **Transversal: TMS, A2A & Release Gate** | Bidirectional `Jira`/`Zephyr`/`Xray`/`GitHub Issues` traceability, A2A agent card, and multi-signal gate (`GO`/`NO_GO`/`SKIPPED`) | [`specs/15_ENTERPRISE_TMS_TRACEABILITY.md`](specs/15_ENTERPRISE_TMS_TRACEABILITY.md), [`mcp-server/src/a2a/agentCard.ts`](../mcp-server/src/a2a/agentCard.ts), [`.agents/scripts/release_readiness_gate.py`](../.agents/scripts/release_readiness_gate.py) |
 
 ---
 

@@ -1,7 +1,6 @@
 # 🐍 Python & FastAPI Stack Reference (Standard 11X)
 
-> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:**
-> Unless target `AGENTS.md` mandates a fixed language, interact in the **user's prompt language**; human docs use EN canonical (`*.md`) + 1:1 ES mirror (`*.es.md`) (matching `README.md`/`CHANGELOG.md` in consumer repos, defaulting to prompt language if empty); `.agents/**` stays concise English.
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Respond in **user's prompt language** (unless `AGENTS.md` fixes it); docs/commits match `README.md`/`CHANGELOG.md` (Spec 19; `.agents/**` English).
 
 This reference provides the technical directives, configuration blueprints, and ephemeral Docker commands for Python Standalone projects and asynchronous APIs built with FastAPI.
 
@@ -15,11 +14,11 @@ Validation and execution MUST occur inside ephemeral Docker containers without l
 | :--- | :--- | :--- | :--- |
 | **API / Test Runner** | `sinfallas/base-python-uv:3.15` | Internal / Ephemeral | Pytest, Ruff, Mypy, Bandit, Radon, Py-spy |
 | **Relational Database** | `postgres:17-alpine` | `5432:5432` | Real PostgreSQL schema parity & Alembic migrations |
-| **In-Memory Store & Cache** | `eqalpha/keydb:alpine` | `6379:6379` | Multi-threaded KeyDB (`server-threads 4`) |
-| **Black-Box REST BDD** | `sinfallas/karatelabs:1.5.1` (`:latest`) | Target: `http://api:8000` | Automated Gherkin HTTP test suite (`test/api_test.feature`) |
-| **Dynamic Security (DAST)** | `zaproxy/zap-stable:latest` | Target: `http://api:8000` | OWASP ZAP Baseline vulnerability scan |
-| **Chaos Injection** | `gaiaadm/pumba:latest` | Docker Socket | Network latency (Jitter), packet drop & netem faults |
-| **RED Observability** | `prom/prometheus:latest` | `9090:9090` | Real-time monitoring of `/metrics` |
+| **In-Memory Store & Cache** | `eqalpha/keydb:6.3.4` | `6379:6379` | Multi-threaded KeyDB (`server-threads 4`) |
+| **Black-Box REST BDD** | `sinfallas/karatelabs:1.5.1` | Target: `http://api:8000` | Automated Gherkin HTTP test suite (`test/api_test.feature`) |
+| **Dynamic Security (DAST)** | `zaproxy/zap-stable:2.15.0` | Target: `http://api:8000` | OWASP ZAP Baseline vulnerability scan |
+| **Chaos Injection** | `gaiaadm/pumba:0.10.1` | Docker Socket | Network latency (Jitter), packet drop & netem faults |
+| **RED Observability** | `prom/prometheus:v2.55.1` | `9090:9090` | Real-time monitoring of `/metrics` |
 
 ---
 
@@ -83,7 +82,11 @@ Instrumentator().instrument(app).expose(app)
 ### C. Database Parity, Anti-Mock Blindness & Cross-Module State Propagation
 - NEVER mock SQLAlchemy sessions or Alembic migrations when testing persistence layers.
 - Run migrations against real PostgreSQL 17 in `docker-compose.qa.yml`.
-- Verify ORM parity using `.agents/scripts/verify_alembic_orm_parity.py`.
+- Verify ORM parity inside ephemeral Docker (`Rule Zero`):
+  ```bash
+  docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app \
+    sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_alembic_orm_parity.py
+  ```
 - Alembic revision IDs must be `<= 32` characters to avoid DB column truncation.
 - **Anti-Silo Read-After-Write Propagation:** Never test a state-mutating endpoint (`POST /api/v1/maintenance/windows`, device state change, Safe Mode activation) in isolation while mocking the consumer endpoint. Immediately query the consumer `GET` endpoints (`GET /api/v1/inventory/routers`, dashboard KPIs) against the live database without intermediate mocks to verify end-to-end state propagation.
 - **3-Phase Temporal Lifecycle, Heavy-Transfer Timeouts & Audit Payload Assertions:**
@@ -131,14 +134,14 @@ def is_supervisor_healthy(tasks: dict[str, asyncio.Task[None]]) -> bool:
 ```toml
 [tool.ruff]
 line-length = 100
-target-version = "py312"
+target-version = "py315"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "S", "PT"]
 ignore = ["B008"]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.15"
 strict = true
 disallow_untyped_defs = true
 warn_unused_ignores = true
@@ -147,39 +150,41 @@ warn_unused_ignores = true
 testpaths = ["tests", "test"]
 python_files = ["*.unit.py", "*.spec.py", "test_*.py"]
 asyncio_mode = "auto"
-addopts = "--cov=src --cov-report=term-missing --cov-report=xml --cov-fail-under=95"
+addopts = "--import-mode=importlib --cov=src --cov-report=term-missing --cov-report=xml --cov-fail-under=95"
 ```
 
 ### `Makefile` Targets
 ```makefile
-.PHONY: qa-lint qa-unit qa-parity qa-contracts qa-bdd qa-mutation qa-dast qa-chaos qa-all
+.PHONY: qa-lint qa-unit qa-migration qa-integration qa-ci qa-bdd qa-mutation qa-dast qa-chaos qa-all
 
 qa-lint:
-	docker compose -f docker-compose.qa.yml run --rm api ruff check src/ tests/
-	docker compose -f docker-compose.qa.yml run --rm api mypy src/
-	docker compose -f docker-compose.qa.yml run --rm api bandit -r src/ -ll
-	docker compose -f docker-compose.qa.yml run --rm api radon cc src/ -nb -s
+	docker compose -f docker-compose.qa.yml run --rm -T api ruff check src/ tests/
+	docker compose -f docker-compose.qa.yml run --rm -T api mypy --strict --cache-dir=/tmp/mypy src/
+	docker compose -f docker-compose.qa.yml run --rm -T api bandit -r src/ -ll
+	docker compose -f docker-compose.qa.yml run --rm -T api sh -c 'test -z "$$(uv run radon cc src/ -nb -s)"'
 
 qa-unit:
-	docker compose -f docker-compose.qa.yml run --rm api pytest tests/
+	docker compose -f docker-compose.qa.yml run --rm -T -e COVERAGE_FILE=/tmp/.coverage -e PYTHONPATH=/app/src api pytest --import-mode=importlib tests/
 
-qa-parity:
-	docker compose -f docker-compose.qa.yml run --rm api alembic upgrade head
-	python3 .agents/scripts/verify_alembic_orm_parity.py
+qa-migration:
+	docker compose -f docker-compose.qa.yml run --rm -T api alembic upgrade head
+	docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(CURDIR):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_alembic_orm_parity.py
 
-qa-contracts:
-	docker compose -f docker-compose.qa.yml run --rm api schemathesis run http://api:8000/openapi.json --checks all
+qa-integration:
+	docker compose -f docker-compose.qa.yml run --rm -T -e COVERAGE_FILE=/tmp/.coverage -e PYTHONPATH=/app/src api pytest --import-mode=importlib -m integration tests/
+
+qa-ci: qa-lint qa-unit qa-migration qa-integration
 
 qa-bdd:
-	docker compose -f docker-compose.qa.yml run --rm karatelabs mvn test -Dkarate.options="test/api_test.feature"
+	docker compose -f docker-compose.qa.yml run --rm -T karatelabs mvn -B clean test -Dkarate.options="test/api_test.feature"
 
 qa-mutation:
-	docker compose -f docker-compose.qa.yml run --rm api mutmut run
+	docker compose -f docker-compose.qa.yml run --rm -T api mutmut run
 
 qa-dast:
-	docker compose -f docker-compose.qa.yml run --rm zap zap-baseline.py -t http://api:8000 -r zap-report.html
+	docker compose -f docker-compose.qa.yml run --rm -T -u "$$(id -u):$$(id -g)" -e HOME=/tmp zap zap-baseline.py -t http://api:8000 -r zap-report.html
 
-qa-all: qa-lint qa-unit qa-parity qa-bdd
+qa-all: qa-lint qa-unit qa-migration qa-bdd
 ```
 
 ---

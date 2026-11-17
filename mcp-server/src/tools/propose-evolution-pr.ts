@@ -239,7 +239,13 @@ export async function proposeSkillEvolutionPr(
   const proposalFilePath = writeProposalFile(proposalsDir, slug, input, dualTargets);
   const { issueBody, prefilledUrl } = buildPrefilledIssueUrl(input);
 
-  if (input.prefer_offline_fallback) {
+  const isDryRun = input.dry_run ?? true;
+  const preferOffline = input.prefer_offline_fallback ?? true;
+
+  if (isDryRun || preferOffline) {
+    const modeReason = isDryRun
+      ? 'modo dry_run=true activo por seguridad'
+      : 'modo offline seleccionado';
     return {
       status: STATUS_PROPOSAL_GENERATED,
       target_repo: UPSTREAM_REPO,
@@ -251,7 +257,7 @@ export async function proposeSkillEvolutionPr(
       pull_request_url: null,
       prefilled_github_url: prefilledUrl,
       local_proposal_file: proposalFilePath,
-      message: 'Propuesta Dual-Consumer generada localmente y URL prellenada creada (modo offline seleccionado).',
+      message: `Propuesta Dual-Consumer generada localmente y URL prellenada creada (${modeReason}).`,
     };
   }
 

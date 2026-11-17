@@ -115,8 +115,8 @@ Los entornos de prueba basados en DOM virtual como **JSDOM** o **HappyDOM** simu
 1. **Ergonomía In-Flow (Anti-Sticky Footer — `UI-11X-01`):**
    - Prohibir pies de página flotantes fijos (`position: fixed`) en interfaces operativas densas (`UI-11X-01`).
    - El contenedor `<main>` debe tener `display: flex; flex-direction: column; min-height: 100vh;` y el pie de página debe usar `margin-top: auto` dentro del flujo natural del documento, garantizando que nunca se superponga al contenido.
-2. **Validación en Navegador Real:**
-   - Utilizar **Karate UI** o **Playwright** con Chrome headless para verificar la visibilidad interactiva real (`waitFor`, `click`), asegurando que los elementos sean geométricamente clicables en el viewport.
+2. **Validación en Navegador Real (`ui-e2e` vs. BDD HTTP):**
+   - Utilizar **Playwright** (`ui-e2e`) con Chromium headless real para verificar geometría DOM, `[ 🔄 Refrescar ]` y visibilidad interactiva (`waitFor`, `click`), asegurando que los elementos sean geométricamente clicables en el viewport; reservar `sinfallas/karatelabs:1.5.1` (BDD HTTP sin navegador) para contratos HTTP/Nginx/OSHP/SSG.
 
 ---
 
@@ -185,13 +185,13 @@ Para profundizar en las implementaciones de código (prevención de Asignación 
 ## 5. Endurecimiento de Contenedores y Motor en Memoria KeyDB
 
 1. **Ejecución No-Root Obligatoria:**
-   - Los contenedores de producción y QA deben ejecutarse bajo usuarios sin privilegios (`appuser` con UID 10001 en Python, `node` con UID 1000 en Node.js, o `www` con UID 1000 en PHP `sinfallas/basephpcomposer`).
+   - Los contenedores de producción y QA deben ejecutarse bajo usuarios sin privilegios (`appuser` con UID 10001 en Python, `appuser` con UID 10001 en Node.js `sinfallas/base-node-ionic:26`, o `www` con UID 1000 en PHP `sinfallas/basephpcomposer`).
 2. **Compilaciones Multi-Etapa (Multi-Stage Builds) e Imágenes Pre-Compiladas:**
    - Aislar el compilador y los archivos de cabecera en una etapa de construcción (`builder`), copiando solo los artefactos finales compilados a la imagen de ejecución mínima (Alpine o distroless). En PHP (`8.2` a `8.5`), utilizar `sinfallas/basephpcomposer` (tags `8.2`, `8.3`, `8.4`, `8.5` y `latest`) con extensiones nativas C pre-compiladas (`pcov`, `redis`, `pdo_pgsql`, `intl`, `sodium`, `opcache` con `save_comments=1` y JIT) y `expose_php = Off`.
 3. **Motor en Memoria: KeyDB Multi-Threaded:**
-   - Reemplazar Redis tradicional de un solo hilo por **KeyDB** (`eqalpha/keydb:alpine`) con `--server-threads 2`. Permite multiplicar el rendimiento de operaciones de lectura/escritura y pub/sub por 3x sin modificar código cliente, manteniendo 100% de compatibilidad con librerías Redis.
+   - Reemplazar Redis tradicional de un solo hilo por **KeyDB** (`eqalpha/keydb:6.3.4`) con `--server-threads 2`. Permite multiplicar el rendimiento de operaciones de lectura/escritura y pub/sub por 3x sin modificar código cliente, manteniendo 100% de compatibilidad con librerías Redis.
 4. **Auditoría Preventiva con Trivy:**
-   - Integrar escaneos automáticos de vulnerabilidades con `aquasec/trivy:latest` sobre el sistema de archivos y manifiestos de infraestructura (`./scripts/auditar-infra.sh`), bloqueando el pase a producción si existen hallazgos de severidad CRITICAL o HIGH.
+   - Integrar escaneos automáticos de vulnerabilidades con `aquasec/trivy:0.76.2` sobre el sistema de archivos y manifiestos de infraestructura (`./scripts/auditar-infra.sh`), bloqueando el pase a producción si existen hallazgos de severidad CRITICAL o HIGH.
 
 ### 5.1. Despliegues No Interactivos (`docker compose run -T`) y Wrangler v4 (Cloudflare Pages) en Contenedores `read_only: true` (`QA-DOCKER-TTY-01`)
 
@@ -281,10 +281,10 @@ Durante auditorías de pipelines reales bajo **Regla Cero**, se identificaron do
 1. **Prohibido usar `$$(...)` o `$${...}` en bloques `run:` de GitHub Actions (`QA-CI-ESCAPE-01`):** En recetas de GNU Make (o `command:` de `docker-compose.yml`) se escribe `$$(pwd)`, `$$(id -u)` o `$${VAR}` para escapar el signo `$` antes de entregarlo al shell. En cambio, GitHub Actions entrega el bloque `run:` directamente a `bash`: escribir `$$(pwd)` expande `$$` al **PID numérico del proceso** (ej. `2970(pwd)`), rompiendo montajes `-v` de Docker con `exit code 125`. Utilice siempre sustitución simple `$(pwd)` / `$(id -u):$(id -g)` / `${VAR}` en workflows y *composite actions* (use `# qa-ci-escape-ok` solo si el paso genera literalmente un `Makefile` o `docker-compose.yml`).
    ```yaml
    # ❌ ANTIPATRÓN (bash expande $$ al PID del proceso -> "create 2970(pwd)" exit code 125)
-   - run: docker run --rm -u "$$(id -u):$$(id -g)" -v "$$(pwd):/workspace:ro" aquasec/trivy:latest config .
+   - run: docker run --rm -u "$$(id -u):$$(id -g)" -v "$$(pwd):/workspace:ro" aquasec/trivy:0.76.2 config .
 
    # ✔️ PATRÓN 11X (sustitución simple directa en bash)
-   - run: docker run --rm -u "$(id -u):$(id -g)" -v "$(pwd):/workspace:ro" aquasec/trivy:latest config .
+   - run: docker run --rm -u "$(id -u):$(id -g)" -v "$(pwd):/workspace:ro" aquasec/trivy:0.76.2 config .
    ```
 2. **Uso obligatorio de `$(CURDIR)` en sub-Makefiles (`QA-MAKE-CURDIR-01`):** Cuando un `Makefile` raíz delega con `$(MAKE) -C backend <target>`, GNU Make cambia al subdirectorio y actualiza `$(CURDIR)`, pero conserva `$(PWD)` / `${PWD}` apuntando al directorio padre del llamador. En `*/Makefile` y `*/Makefile.example` utilice siempre `$(CURDIR)` (ej. `HOST_PWD ?= $(CURDIR)`, eximible con `# qa-make-curdir-ok`) para preservar la frontera exacta de volumen en contenedores efímeros.
    ```makefile

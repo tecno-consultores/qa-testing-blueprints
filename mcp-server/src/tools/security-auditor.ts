@@ -212,22 +212,47 @@ const PIP_VALUE_FLAGS = new Set([
   '--root',
 ]);
 
-function isScannableFile(entry: fs.Dirent): boolean {
-  if (!entry.isFile()) return false;
-  const ext = path.extname(entry.name).toLowerCase();
+function stripExampleSuffix(name: string): string {
+  return name.endsWith('.example') ? name.slice(0, -'.example'.length) : name;
+}
+
+function hasScannableBasename(name: string): boolean {
+  const ext = path.extname(name).toLowerCase();
   return (
     SCANNABLE_EXTS.has(ext) ||
-    entry.name === '.npmrc' ||
-    entry.name === '_headers' ||
-    entry.name.startsWith('.env') ||
-    MAKEFILE_NAMES.has(entry.name)
+    name === '.npmrc' ||
+    name === '_headers' ||
+    name.startsWith('.env') ||
+    MAKEFILE_NAMES.has(name)
   );
 }
 
-function isDockerfileEntry(entry: fs.Dirent): boolean {
+function isScannableFile(entry: fs.Dirent): boolean {
+  return entry.isFile() && hasScannableBasename(entry.name);
+}
+
+function isScannableFileOrExample(entry: fs.Dirent): boolean {
   if (!entry.isFile()) return false;
-  if (entry.name.endsWith('.example')) return false;
-  return entry.name === 'Dockerfile' || /^Dockerfile\.[A-Za-z0-9_.-]+$/.test(entry.name);
+  if (hasScannableBasename(entry.name)) return true;
+  return entry.name.endsWith('.example') && hasScannableBasename(stripExampleSuffix(entry.name));
+}
+
+function hasDockerfileBasename(name: string): boolean {
+  return name === 'Dockerfile' || /^Dockerfile\.[A-Za-z0-9_.-]+$/.test(name);
+}
+
+function isDockerfileEntry(entry: fs.Dirent): boolean {
+  return entry.isFile() && !entry.name.endsWith('.example') && hasDockerfileBasename(entry.name);
+}
+
+function isDockerfileOrExampleEntry(entry: fs.Dirent): boolean {
+  return entry.isFile() && hasDockerfileBasename(stripExampleSuffix(entry.name));
+}
+
+function normalizeExampleRelPath(relPath: string, options?: AuditSecurityOptions): string {
+  return options?.includeExamples && relPath.endsWith('.example')
+    ? stripExampleSuffix(relPath)
+    : relPath;
 }
 
 function shouldSkipDirectory(entry: fs.Dirent): boolean {
@@ -265,8 +290,9 @@ function collectMatchingFiles(
 /**
  * Recopila recursivamente todos los archivos auditables del proyecto.
  */
-function collectFiles(dirPath: string): string[] {
-  return collectMatchingFiles(dirPath, isScannableFile);
+function collectFiles(dirPath: string, options?: AuditSecurityOptions): string[] {
+  const predicate = options?.includeExamples ? isScannableFileOrExample : isScannableFile;
+  return collectMatchingFiles(dirPath, predicate);
 }
 
 function checkSec01MassAssignment(relPath: string, lines: string[]): SecurityFinding[] {
@@ -1591,15 +1617,19 @@ function checkUi11x03FaviconPwaAndEdgeHeaders(
   return findings;
 }
 
-function checkProjectLevelRules(projectPath: string, allRelFiles: string[]): SecurityFinding[] {
+function checkProjectLevelRules(
+  projectPath: string,
+  allRelFiles: string[],
+  options?: AuditSecurityOptions
+): SecurityFinding[] {
   return [
     ...checkSec09Npmrc(projectPath),
     ...checkSec08Oshp(projectPath, allRelFiles),
     ...checkQaMypy01StrictChain(projectPath),
-    ...checkQaHealth01ContainerHeartbeatContract(projectPath, allRelFiles),
+    ...checkQaHealth01ContainerHeartbeatContract(projectPath, allRelFiles, options),
     ...checkQaContractSdk01RealTransport(projectPath, allRelFiles),
-    ...checkQaDockerLock01LockfileAndSmoke(projectPath),
-    ...checkQaPlaywrightPin01VersionParity(projectPath, allRelFiles),
+    ...checkQaDockerLock01LockfileAndSmoke(projectPath, options),
+    ...checkQaPlaywrightPin01VersionParity(projectPath, allRelFiles, options),
     ...checkQaSsrHydration01DualScheme(projectPath, allRelFiles),
     ...checkUi11x03FaviconPwaAndEdgeHeaders(projectPath, allRelFiles),
   ];
@@ -1703,12 +1733,23 @@ function extractComposeHealthcheckText(content: string): string {
   return captured.join('\n');
 }
 
-function collectContainerHealthFiles(projectPath: string, allRelFiles: string[]): string[] {
-  const composeFiles = allRelFiles.filter(
-    (rel) => !rel.endsWith('.example') && /(?:^|\/)(?:docker-compose|compose)[^/]*\.ya?ml$/i.test(rel)
-  );
+function collectContainerHealthFiles(
+  projectPath: string,
+  allRelFiles: string[],
+  options?: AuditSecurityOptions
+): string[] {
+  const includeExamples = options?.includeExamples ?? false;
+  const composeFiles = allRelFiles.filter((rel) => {
+    const effective = normalizeExampleRelPath(rel, options);
+    return (
+      (includeExamples || !rel.endsWith('.example')) &&
+      /(?:^|\/)(?:docker-compose|compose)[^/]*\.ya?ml$/i.test(effective)
+    );
+  });
   const dockerDirs = ['', 'fastapi', 'python', 'backend', 'node-backend'];
-  const dockerVariants = ['Dockerfile', 'Dockerfile.prod', 'Dockerfile.workers'];
+  const dockerVariants = includeExamples
+    ? ['Dockerfile', 'Dockerfile.prod', 'Dockerfile.workers', 'Dockerfile.example']
+    : ['Dockerfile', 'Dockerfile.prod', 'Dockerfile.workers'];
   const extraDockerfiles: string[] = [];
 
   for (const sub of dockerDirs) {
@@ -1745,8 +1786,12 @@ function collectProbesFromCandidate(
   }
 }
 
-function extractContainerProbePaths(projectPath: string, allRelFiles: string[]): string[] {
-  const candidates = collectContainerHealthFiles(projectPath, allRelFiles);
+function extractContainerProbePaths(
+  projectPath: string,
+  allRelFiles: string[],
+  options?: AuditSecurityOptions
+): string[] {
+  const candidates = collectContainerHealthFiles(projectPath, allRelFiles, options);
   const probes = new Set<string>();
   const probeRegex = /\/(?:tmp|var\/run|run)\/[A-Za-z0-9_.-]{3,64}/g;
 
@@ -1897,9 +1942,10 @@ function hasUnmockedProbeTestAssertion(
 
 function checkQaHealth01ContainerHeartbeatContract(
   projectPath: string,
-  allRelFiles: string[]
+  allRelFiles: string[],
+  options?: AuditSecurityOptions
 ): SecurityFinding[] {
-  const probePaths = extractContainerProbePaths(projectPath, allRelFiles);
+  const probePaths = extractContainerProbePaths(projectPath, allRelFiles, options);
   const findings: SecurityFinding[] = [];
 
   for (const probePath of probePaths) {
@@ -2200,8 +2246,12 @@ function inspectDockerfileLockFile(
   }
 }
 
-function checkQaDockerLock01LockfileAndSmoke(projectPath: string): SecurityFinding[] {
-  const dockerfiles = collectMatchingFiles(projectPath, isDockerfileEntry)
+function checkQaDockerLock01LockfileAndSmoke(
+  projectPath: string,
+  options?: AuditSecurityOptions
+): SecurityFinding[] {
+  const predicate = options?.includeExamples ? isDockerfileOrExampleEntry : isDockerfileEntry;
+  const dockerfiles = collectMatchingFiles(projectPath, predicate)
     .map((abs) => path.relative(projectPath, abs))
     .filter((rel) => !isTestFilePath(rel));
   const findings: SecurityFinding[] = [];
@@ -2220,18 +2270,23 @@ interface PlaywrightDockerTag {
 
 function collectPlaywrightDockerTags(
   projectPath: string,
-  allRelFiles: string[]
+  allRelFiles: string[],
+  options?: AuditSecurityOptions
 ): PlaywrightDockerTag[] {
-  const composeRels = allRelFiles.filter(
-    (rel) =>
-      !rel.endsWith('.example') &&
-      !isTestFilePath(rel) &&
-      !isAuditorSelfDefinition(rel) &&
-      /(?:^|\/)(?:docker-compose|compose)[^/]*\.ya?ml$/i.test(rel)
-  );
-  const dockerRels = collectMatchingFiles(projectPath, isDockerfileEntry)
+  const includeExamples = options?.includeExamples ?? false;
+  const composeRels = allRelFiles.filter((rel) => {
+    const effective = normalizeExampleRelPath(rel, options);
+    return (
+      (includeExamples || !rel.endsWith('.example')) &&
+      !isTestFilePath(effective) &&
+      !isAuditorSelfDefinition(effective) &&
+      /(?:^|\/)(?:docker-compose|compose)[^/]*\.ya?ml$/i.test(effective)
+    );
+  });
+  const dockerPredicate = includeExamples ? isDockerfileOrExampleEntry : isDockerfileEntry;
+  const dockerRels = collectMatchingFiles(projectPath, dockerPredicate)
     .map((abs) => path.relative(projectPath, abs))
-    .filter((rel) => !rel.endsWith('.example') && !isTestFilePath(rel));
+    .filter((rel) => (includeExamples || !rel.endsWith('.example')) && !isTestFilePath(rel));
   const tags: PlaywrightDockerTag[] = [];
 
   for (const rel of new Set([...composeRels, ...dockerRels])) {
@@ -2324,14 +2379,15 @@ function inspectPackageJsonPlaywrightPin(
 
 function checkQaPlaywrightPin01VersionParity(
   projectPath: string,
-  allRelFiles: string[]
+  allRelFiles: string[],
+  options?: AuditSecurityOptions
 ): SecurityFinding[] {
-  const dockerTags = collectPlaywrightDockerTags(projectPath, allRelFiles);
+  const dockerTags = collectPlaywrightDockerTags(projectPath, allRelFiles, options);
   if (dockerTags.length === 0) return [];
 
   const findings: SecurityFinding[] = [];
   for (const relPath of allRelFiles) {
-    const norm = relPath.replace(/\\/g, '/');
+    const norm = normalizeExampleRelPath(relPath, options).replace(/\\/g, '/');
     if (!/(?:^|\/)package\.json$/.test(norm) || isTestFilePath(norm) || isAuditorSelfDefinition(norm)) {
       continue;
     }
@@ -3619,7 +3675,11 @@ function checkQaMakeCurdir01SubMakefile(relPath: string, lines: string[]): Secur
   return findings;
 }
 
-function scanSingleFile(absPath: string, relPath: string): SecurityFinding[] {
+function scanSingleFile(
+  absPath: string,
+  relPath: string,
+  options?: AuditSecurityOptions
+): SecurityFinding[] {
   let content: string;
   try {
     content = fs.readFileSync(absPath, 'utf8');
@@ -3630,34 +3690,40 @@ function scanSingleFile(absPath: string, relPath: string): SecurityFinding[] {
   }
 
   const lines = content.split(/\r?\n/);
-  return [
-    ...checkSec01MassAssignment(relPath, lines),
-    ...checkSec02AntiCswsh(relPath, lines),
-    ...checkSec03CommandAndDeserialization(relPath, lines),
-    ...checkSec04Xxe(relPath, lines),
-    ...checkSec05UnicodeNfkc(relPath, lines),
-    ...checkSec06XssPrototypePollution(relPath, lines),
-    ...checkSec07SwaggerInProd(relPath, lines),
-    ...checkSec10Secrets(relPath, lines),
-    ...checkSec11AuditSemanticIntegrity(relPath, lines),
-    ...checkSec12McpServiceRbac(relPath, lines),
-    ...checkSec13RlsMultiTxPersistence(relPath, lines),
-    ...checkSec14WormDeterministicChain(relPath, lines),
-    ...checkSec15EphemeralProdPipelineCreds(relPath, lines),
-    ...checkSec16PreAuthMultiStepContinuity(relPath, lines),
-    ...checkSecCiActionRef(relPath, lines),
-    ...checkQaCiEscape01WorkflowExpansion(relPath, lines),
-    ...checkQaMakeCurdir01SubMakefile(relPath, lines),
-    ...checkQaCov01AddoptsBypass(relPath, lines),
-    ...checkQaPg17RlsInvalidCatalog(relPath, lines),
-    ...checkQaSmoke01SettingsSingletonSync(relPath, lines),
-    ...checkQaHealth01SupervisorTaskExit(relPath, lines),
-    ...checkQaCliTty01InteractiveHangGuard(relPath, lines),
-    ...checkQaDockerTty01NonInteractiveAndReadOnly(relPath, lines),
-    ...checkQaKarateStaticIdempotency(relPath, lines),
-    ...checkUi11x01VisualGeometry(relPath, lines),
-    ...checkUi11x02DualRefreshAndSemanticElse(relPath, lines),
+  const effectiveRel = normalizeExampleRelPath(relPath, options);
+  const rawFindings = [
+    ...checkSec01MassAssignment(effectiveRel, lines),
+    ...checkSec02AntiCswsh(effectiveRel, lines),
+    ...checkSec03CommandAndDeserialization(effectiveRel, lines),
+    ...checkSec04Xxe(effectiveRel, lines),
+    ...checkSec05UnicodeNfkc(effectiveRel, lines),
+    ...checkSec06XssPrototypePollution(effectiveRel, lines),
+    ...checkSec07SwaggerInProd(effectiveRel, lines),
+    ...checkSec10Secrets(effectiveRel, lines),
+    ...checkSec11AuditSemanticIntegrity(effectiveRel, lines),
+    ...checkSec12McpServiceRbac(effectiveRel, lines),
+    ...checkSec13RlsMultiTxPersistence(effectiveRel, lines),
+    ...checkSec14WormDeterministicChain(effectiveRel, lines),
+    ...checkSec15EphemeralProdPipelineCreds(effectiveRel, lines),
+    ...checkSec16PreAuthMultiStepContinuity(effectiveRel, lines),
+    ...checkSecCiActionRef(effectiveRel, lines),
+    ...checkQaCiEscape01WorkflowExpansion(effectiveRel, lines),
+    ...checkQaMakeCurdir01SubMakefile(effectiveRel, lines),
+    ...checkQaCov01AddoptsBypass(effectiveRel, lines),
+    ...checkQaPg17RlsInvalidCatalog(effectiveRel, lines),
+    ...checkQaSmoke01SettingsSingletonSync(effectiveRel, lines),
+    ...checkQaHealth01SupervisorTaskExit(effectiveRel, lines),
+    ...checkQaCliTty01InteractiveHangGuard(effectiveRel, lines),
+    ...checkQaDockerTty01NonInteractiveAndReadOnly(effectiveRel, lines),
+    ...checkQaKarateStaticIdempotency(effectiveRel, lines),
+    ...checkUi11x01VisualGeometry(effectiveRel, lines),
+    ...checkUi11x02DualRefreshAndSemanticElse(effectiveRel, lines),
   ];
+  return effectiveRel === relPath
+    ? rawFindings
+    : rawFindings.map((finding) =>
+        finding.file === effectiveRel ? { ...finding, file: relPath } : finding
+      );
 }
 
 function countSeverities(findings: SecurityFinding[]): {
@@ -3705,25 +3771,41 @@ export function groupFindingsByRule(
   return Array.from(groups.values());
 }
 
+export interface AuditSecurityOptions {
+  maxFindings?: number;
+  includeExamples?: boolean;
+}
+
 /**
  * Tool 5: audit_security_stig_owasp
  * Audita estáticamente el código fuente frente a los 22 patrones DISA ASD STIG V6R5 y OWASP v4.2.
  */
 export async function auditSecurityStigOwasp(
   projectPath: string,
-  maxFindings?: number
+  maxFindingsOrOptions?: number | AuditSecurityOptions,
+  extraOptions?: Omit<AuditSecurityOptions, 'maxFindings'>
 ): Promise<SecurityAuditResult> {
+  const maxFindings =
+    typeof maxFindingsOrOptions === 'number'
+      ? maxFindingsOrOptions
+      : maxFindingsOrOptions?.maxFindings;
+  const includeExamples =
+    (typeof maxFindingsOrOptions === 'object' ? maxFindingsOrOptions?.includeExamples : undefined) ??
+    extraOptions?.includeExamples ??
+    false;
+
   return Promise.resolve().then(() => {
     const resolvedPath = resolveSafeProjectPath(projectPath);
-    const allAbsoluteFiles = collectFiles(resolvedPath);
+    const auditOptions: AuditSecurityOptions = { includeExamples };
+    const allAbsoluteFiles = collectFiles(resolvedPath, auditOptions);
     const allRelFiles = allAbsoluteFiles.map((abs) => path.relative(resolvedPath, abs));
     const findings: SecurityFinding[] = [];
 
     for (const [i, absPath] of allAbsoluteFiles.entries()) {
-      findings.push(...scanSingleFile(absPath, pickAt(allRelFiles, i)));
+      findings.push(...scanSingleFile(absPath, pickAt(allRelFiles, i), auditOptions));
     }
 
-    findings.push(...checkProjectLevelRules(resolvedPath, allRelFiles));
+    findings.push(...checkProjectLevelRules(resolvedPath, allRelFiles, auditOptions));
 
     const counts = countSeverities(findings);
     const passed = counts.CRITICAL === 0 && counts.HIGH === 0;

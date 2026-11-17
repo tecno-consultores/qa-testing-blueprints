@@ -12,19 +12,19 @@
 ```text
                ▲
               / \
-             /   \      [13] Fixtures Trimodales & Invariantes Negativos
-            /     \     [12] Ingeniería del Caos (Pumba) & Resiliencia
-           /       \    [11] Seguridad Dinámica DAST (OWASP ZAP)
-          /         \   [10] Rendimiento & Estrés (Locust / Artillery)
-         /           \  [09] Accesibilidad WCAG 2.1 AA & Geometría Visual
-        /             \ [08] Mutación: Pruebas de las Pruebas (Mutmut / Stryker)
-       /               \[07] Contratos HTTP/OSHP/SSG Frontend (Karate Labs HTTP + Playwright DOM)
-      /                 \[06] BDD API Caja Negra (Karate Labs HTTP)
-     /                   \[05] Contratos de Integración Front-Back
-    /                     \[04] Paridad de Esquema DB & Migraciones (Alembic)
-   /                       \[03] Pruebas Unitarias Aisladas (Pytest / Vitest >= 95%)
-  /                         \[02] Tipado Estricto & Complejidad (Mypy / Radon / SonarJS)
- /                           \[01] Análisis Estático, Formateo & SAST (Ruff / ESLint / Bandit)
+             /   \      [13] Fixtures Trimodales, Reloj 3 Fases & Invariantes Negativos
+            /     \     [12] Ingeniería del Caos (Pumba) & Telemetría RED (Prometheus)
+           /       \    [11] Seguridad Dinámica DAST (OWASP ZAP) & OSHP
+          /         \   [10] Rendimiento & Estrés (grafana/k6:2.4.0 / Locust / Artillery)
+         /           \  [09] Playwright WCAG 2.1 AA, Geometría Visual & Lighthouse CI
+        /             \ [08] Mutación: Pruebas de las Pruebas (Mutmut / Stryker / Infection)
+       /               \[07] Contratos HTTP/OSHP/SSG Frontend (Karate Labs HTTP)
+      /                 \[06] BDD API Caja Negra (Karate Labs API + Idempotency-Key)
+     /                   \[05] Contratos Integración Front-Back & Fuzzing OpenAPI (Pact / Schemathesis)
+    /                     \[04] Paridad de Esquema DB & Migraciones (Alembic / PostgreSQL 17)
+   /                       \[03] Pruebas Unitarias Aisladas (Pytest / Vitest / Pest >= 95%)
+  /                         \[02] Tipado Estricto & Complejidad (Mypy / Radon Grado A / SonarJS)
+ /                           \[01] Análisis Estático, Formateo & SAST/IaC (Ruff / ESLint / Trivy)
 ─────────────────────────────────────────────────────────────────────────────────────────────
 ```
 
@@ -52,9 +52,9 @@
 
 * **Propósito:** Prevenir errores de tipo en tiempo de ejecución (`AttributeError: 'NoneType'`, `TypeError: undefined is not a function`) y forzar la legibilidad eliminando funciones monolíticas.
 * **Herramientas:**
-  - Python: `mypy --strict src/` y `radon cc --min C src/` (Complejidad ciclomática Grado A: `CC <= 5`).
+  - Python: `mypy --strict src/` y `test -z "$(radon cc --min B src/)"` (exige Complejidad ciclomática Grado A: `CC <= 5`).
   - TypeScript / Vue: `vue-tsc --noEmit` y `SonarJS` (Complejidad cognitiva máxima acotada).
-* **Umbral Innegociable:** **0 errores de tipado, ninguna función grado C o inferior**.
+* **Umbral Innegociable:** **0 errores de tipado, ninguna función grado B o inferior (`CC > 5`)**.
 
 ---
 
@@ -109,9 +109,11 @@
   1. Extrae los nombres de tablas declaradas con `__tablename__` en `src/models/*.py`.
   2. Inspecciona las llamadas `op.create_table()` en los archivos de migración de Alembic.
   3. Si existe algún modelo ORM sin migración asociada, aborta la ejecución con código de salida 1.
-* **Ejecución:**
+* **Ejecución (Regla Cero Docker):**
   ```bash
-  python3 .agents/scripts/verify_alembic_orm_parity.py
+  docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp \
+    -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 \
+    python3 .agents/scripts/verify_alembic_orm_parity.py
   ```
 
 ---
@@ -149,6 +151,7 @@
 
     Scenario: Petición con payload incompleto devuelve HTTP 422
       Given path '/api/v1/auth/login'
+      And header Idempotency-Key = java.util.UUID.randomUUID() + ''
       And request { username: "operador_sin_password" }
       When method post
       Then status 422
@@ -162,7 +165,7 @@
   ```
 * **Ejecución:**
   ```bash
-  make qa-bdd   # o docker compose run --rm karatelabs mvn clean test
+  make qa-bdd   # o docker compose run --rm -T karatelabs mvn clean test
   ```
 
 ---
@@ -237,6 +240,7 @@
 
 * **Propósito:** Validar el comportamiento de la API y el consumo de recursos de memoria/CPU bajo tráfico masivo concurrente.
 * **Herramientas:**
+  - Carga declarativa k6 Smoke / Load (FastAPI y PHP): `grafana/k6:2.4.0` (`fastapi/tests/load/smoke.k6.js`, `php/tests/load/smoke.k6.js`).
   - Python / FastAPI: `locust` en modo headless con escenarios definidos en `locustfile.py`.
   - Node.js: `artillery` ejecutando escenarios definidos en `artillery.yml`.
 * **Umbral Innegociable:** **0% de peticiones fallidas y latencia P95 inferior a 200 ms**.

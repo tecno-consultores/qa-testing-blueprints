@@ -830,6 +830,7 @@ describe('QA-HEALTH-01 & Dual-Consumer Evolution Suite', () => {
           improvement_title: 'Propuesta sin borrador humano explicito',
           empirical_rationale: 'Validar recordatorio Dual-Consumer por defecto.',
           proposed_content_or_snippet: '### Regla de ejemplo\nContenido.',
+          dry_run: false,
           prefer_offline_fallback: false,
         },
         () => Promise.reject(new Error('gh not installed'))

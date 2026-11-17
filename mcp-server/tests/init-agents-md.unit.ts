@@ -8,6 +8,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   CONNECTOR_START_MARKER,
   CONNECTOR_END_MARKER,
+  INIT_AGENTS_HELP_TEXT,
   buildConnectorBlock,
   buildGlobalGeminiBlock,
   mergeOrAppendAgentsMdContent,
@@ -254,20 +255,34 @@ Regla Final`;
       expect(parsed4.projectPath).toBe('/positional/path');
       expect(parsed4.lang).toBe('auto');
 
-      // Test flags without arguments or unrecognized hyphen flags
-      const parsed5 = parseInitAgentsArgs(['--unknown', '--project-path']);
-      expect(parsed5.projectPath).toBe(process.cwd());
+      // Rejects unknown hyphen flags and missing flag values explicitly
+      expect(() => parseInitAgentsArgs(['--unknown', '--project-path'])).toThrow(
+        "Opción CLI desconocida en init-agents: '--unknown'"
+      );
+      expect(() => parseInitAgentsArgs(['-p'])).toThrow(
+        "Falta el valor requerido para la opción '-p'"
+      );
+      expect(() => parseInitAgentsArgs(['extra-one', 'extra-two'])).toThrow(
+        'Argumento posicional inesperado'
+      );
 
-      const parsed6 = parseInitAgentsArgs(['-p']);
-      expect(parsed6.projectPath).toBe(process.cwd());
-
-      // Rejects invalid lang
+      // Rejects invalid lang and empty inline option values
       expect(() => parseInitAgentsArgs(['--lang', 'fr'])).toThrow("Modo de idioma no válido: 'fr'");
+      expect(() => parseInitAgentsArgs(['--project-path='])).toThrow(
+        "Falta el valor requerido para la opción '--project-path'"
+      );
+      expect(parseInitAgentsArgs(['--help', '-h']).projectPath).toBe(process.cwd());
     });
 
-    it('runs runInitAgentsCli successfully logging information', async () => {
+    it('runs runInitAgentsCli successfully logging information and non-destructive help', async () => {
       const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
       try {
+        await runInitAgentsCli(['--help']);
+        expect(logSpy).toHaveBeenCalledWith(INIT_AGENTS_HELP_TEXT);
+        await runInitAgentsCli(['-h']);
+        expect(logSpy).toHaveBeenCalledWith(INIT_AGENTS_HELP_TEXT);
+        expect(fs.existsSync(path.join(tmpDir, 'AGENTS.md'))).toBe(false);
+
         await runInitAgentsCli(['--project-path', tmpDir]);
         expect(logSpy).toHaveBeenCalled();
         expect(fs.existsSync(path.join(tmpDir, 'AGENTS.md'))).toBe(true);

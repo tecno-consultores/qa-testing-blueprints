@@ -1,9 +1,11 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "CommonJS",
-    "outDir": "./dist",
-    "rootDir": "./src",
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "erasableSyntaxOnly": true,
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,

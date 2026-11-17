@@ -262,6 +262,43 @@ describe('Version Manager, .qa-11x-version Stamp, 24h TTL Fail-Open & Global Aut
           fetchFn: nonOkFetch as unknown as typeof fetch,
         })
       ).toBe('2.21.0');
+
+      // Covers AbortSignal branches in fetchNpmLatestVersion (pre-aborted and active combined signal)
+      const signalCacheDir = path.join(tmpRoot, 'signal-cache');
+      fs.mkdirSync(signalCacheDir, { recursive: true });
+      const signalFetcher = new GitHubFetcher({ cacheDir: signalCacheDir });
+      vi.spyOn(signalFetcher, 'fetchManifest').mockRejectedValue(new Error('offline-manifest'));
+      const abortedController = new AbortController();
+      abortedController.abort('cancelled');
+      const fetchNeverCalled = vi.fn();
+      expect(
+        await resolveLatestPublishedVersion({
+          fetcher: signalFetcher,
+          runningMcpVersion: '2.20.0',
+          allowNetworkCheck: true,
+          nowMs: now,
+          signal: abortedController.signal,
+          fetchFn: fetchNeverCalled as unknown as typeof fetch,
+        })
+      ).toBe('2.20.0');
+      expect(fetchNeverCalled).not.toHaveBeenCalled();
+
+      const activeController = new AbortController();
+      const activeSignalFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ version: '9.9.9' }),
+      });
+      expect(
+        await resolveLatestPublishedVersion({
+          fetcher: signalFetcher,
+          runningMcpVersion: '2.20.0',
+          allowNetworkCheck: true,
+          nowMs: now,
+          signal: activeController.signal,
+          fetchFn: activeSignalFetch as unknown as typeof fetch,
+        })
+      ).toBe('9.9.9');
+      expect(activeSignalFetch).toHaveBeenCalledTimes(1);
     });
   });
 

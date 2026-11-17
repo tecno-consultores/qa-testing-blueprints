@@ -758,3 +758,63 @@ def test_f10_8_atomic_write_cleanup_coerce_none_and_budgets_loader(
         monkeypatch.undo()
         if saved_budgets is not None:
             sys.modules["_budgets"] = saved_budgets
+
+
+def test_checkpoint_schema_rejects_missing_keys_and_invalid_last_run(
+    tmp_path: Path, capsys: Any
+) -> None:
+    repo = _init_repo(tmp_path / "schema_edge")
+    assert (
+        ctl.main(
+            [
+                "set",
+                "--workspace",
+                str(repo),
+                "--task-id",
+                "T-EDGE",
+                "--step",
+                "F1",
+                "--intent",
+                "Validar errores de esquema",
+            ]
+        )
+        == 0
+    )
+    assert (
+        ctl.main(
+            [
+                "record-cmd",
+                "--workspace",
+                str(repo),
+                "--cmd",
+                "pytest",
+                "--rc",
+                "0",
+                "--summary",
+                "ok",
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+    ckpt_file = repo / ".agents" / ".cache" / "session_checkpoint.json"
+    base_doc = json.loads(ckpt_file.read_text(encoding="utf-8"))
+
+    invalid_docs = [
+        {**base_doc, "last_script_run": "bad-type"},
+        {
+            **base_doc,
+            "last_script_run": {
+                "cmd": "",
+                "exit_code": 0,
+                "timestamp": "2026-11-17T12:00:00Z",
+                "summary_1line": "ok",
+            },
+        },
+        {k: v for k, v in base_doc.items() if k != "branch"},
+        {**base_doc, "git_available": "true"},
+    ]
+    for payload in invalid_docs:
+        ckpt_file.write_text(json.dumps(payload), encoding="utf-8")
+        assert ctl.main(["recover", "--workspace", str(repo)]) == 2
+        capsys.readouterr()

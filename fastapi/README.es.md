@@ -14,7 +14,7 @@ Este documento contiene las instrucciones corporativas de Nivel 11X que DEBES se
 *   Para Persistencia Real y Validación de Esquemas (Anti-Mock Blindness): `postgres:17-alpine`.
 *   Para Caché de Alto Rendimiento y Sesiones: `eqalpha/keydb:6.3.4`.
 *   Para Ingeniería del Caos y Observabilidad: `gaiaadm/pumba:0.10.1` y `prom/prometheus:v2.55.1`.
-*   Para Optimización de Contexto IA (MCP): `sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0`.
+*   Para Extracción Efímera de Grafo AST (Graphify CLI): `sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0`.
 
 **Obligatorio:** Utiliza metas de ejecución limpias (ej. `make qa-unit`) para aprovechar la configuración de `uv-cache`, evitando re-descargar dependencias masivamente.
 
@@ -24,11 +24,11 @@ La estrategia de validación de FastAPI abarca 13 capas transversales (Estándar
 1.  **Calidad y Tipado Estricto:** `ruff` y `mypy` (`strict = true`).
 2.  **Seguridad Estática (SAST):** `pip-audit` (CVEs) y `bandit`.
 3.  **Seguridad Dinámica (DAST):** `OWASP ZAP` (`zaproxy/zap-stable`) en escaneo *Baseline*.
-4.  **Deuda Técnica:** `radon` (Complejidad ciclomática <= B, mantenibilidad grado A).
+4.  **Deuda Técnica:** `radon` (Complejidad ciclomática Grado A, `CC <= 5`; mantenibilidad Grado A).
 5.  **Profiling:** `py-spy` (Análisis de CPU/RAM mediante *Flamegraphs* sin bloquear Event Loop).
 6.  **Lógica Unitaria e Intercepción:** `pytest`, `pytest-cov` (>95%), y `pytest-mock` (aislamiento puro de I/O externo).
 7.  **Paridad de Esquema Real (Anti-Mock Blindness):** `Alembic` + `PostgreSQL 17` efímero auditado con `.agents/scripts/verify_alembic_orm_parity.py`.
-8.  **Caché en Memoria Multi-Hilo:** `KeyDB` (`server-threads 4`) para operaciones atómicas, rate limiting y sesiones.
+8.  **Caché en Memoria Multi-Hilo:** `KeyDB` (`server-threads 2`) para operaciones atómicas, rate limiting y sesiones.
 9.  **Fuzzing y Contratos:** `schemathesis` (Ataque basado en el estándar OpenAPI).
 10. **Comportamiento (BDD):** `Karate Labs` (Escenarios funcionales Gherkin en `test/api_test.feature`).
 11. **Pruebas de Mutación:** `mutmut` (Inserción de mutantes lógicos para auditar los *asserts*).
@@ -53,7 +53,7 @@ La estrategia de validación de FastAPI abarca 13 capas transversales (Estándar
 *   **Anti-Mock Blindness (Obligatorio en Persistencia):** NUNCA simules la base de datos con mocks ciegos para validar modelos SQLAlchemy o migraciones Alembic. Las pruebas de integración (`.int.py` o flujos de repositorio) DEBEN validarse contra el contenedor `postgres:17` efímero. Cada cambio en `src/models/` exige su correspondiente migración `alembic revision --autogenerate` verificada en PostgreSQL real.
 
 ### C. Análisis de Complejidad y Profiling (`radon` + `py-spy`)
-*   **Regla de Complejidad:** Ningún bloque de código generado puede tener una complejidad ciclomática de grado `C` o superior. El índice de mantenibilidad (MI) debe ser `A`.
+*   **Regla de Complejidad:** Ningún bloque de código generado puede superar complejidad ciclomática Grado `A` (`CC <= 5`). El índice de mantenibilidad (MI) debe ser Grado `A`.
 *   **Profiling:** Para endpoints pesados, perfilaremos la aplicación bajo carga utilizando `py-spy` para generar un *Flamegraph* visual (`profile.svg`) que evidencie bloqueos en el *Event Loop* asíncrono.
 
 ### D. Comportamiento y Caja Negra (`Karate Labs`)
@@ -66,8 +66,8 @@ La estrategia de validación de FastAPI abarca 13 capas transversales (Estándar
 ### F. Resiliencia Extrema (Ingeniería del Caos con Pumba)
 *   Las pruebas de estrés tradicionales asumen una red perfecta. Con la configuración de perfil `--profile chaos`, Pumba inyectará latencia aleatoria (Jitter) y cortes temporales a nivel del Kernel de Linux directamente sobre el contenedor de FastAPI, mientras Locust envía oleadas de usuarios concurrentes. El objetivo es certificar que la arquitectura no entra en un interbloqueo (*deadlock*) cuando la infraestructura subyacente falla.
 
-### G. Ingestión Inteligente (Paso 0 - MCP / AST CLI-First)
-*   **Regla (Exclusiva para ti, IA):** Tienes estrictamente prohibido generar código o pruebas a ciegas. Si tienes capacidad de shell (Antigravity), inspecciona el AST y el radio de impacto directamente vía CLI (`python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"`), sin levantar demonios de fondo que ocupen el puerto 8080. Si eres un agente externo (Hermes, Claude), conéctate al servidor MCP `sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0`. Además, DEBES leer silenciosamente los lineamientos de linters y dependencias definidos en `pyproject.toml` para adaptar tu código a las reglas del repositorio y pasar las métricas en tu primer intento.
+### G. Ingestión Inteligente (Paso 0 - Graphify AST CLI-First)
+*   **Regla (Exclusiva para ti, IA):** Tienes estrictamente prohibido generar código o pruebas a ciegas. Extrae o refresca el grafo AST mediante el extractor CLI efímero (`./scripts/actualizar-grafos-graphify.sh fastapi`) y consulta invocadores/invocados vía `python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"` (o la herramienta MCP `inspect_ast_blast_radius`), sin levantar demonios en el puerto 8080. Además, DEBES leer silenciosamente los lineamientos de linters y dependencias definidos en `pyproject.toml` para adaptar tu código a las reglas del repositorio y pasar las métricas en tu primer intento.
 
 ### H. Seguridad por Diseño Obligatoria (DISA ASD STIG V6R5 & OWASP Developer Guide v4.2)
 *   Al programar o auditar endpoints en FastAPI, DEBES implementar y cubrir con pruebas unitarias/BDD los **22 patrones de [`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md`](../docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md)**:
@@ -108,29 +108,39 @@ make qa-unit
 make qa-mutation
 ```
 
+*   **Paridad de Esquema y Migraciones (PostgreSQL 17):**
+```bash
+make qa-migration
+```
+
+*   **Integración Cross-Módulo (Sin Mocks Ciegos):**
+```bash
+make qa-integration
+```
+
 *   **Fuzzing y Contratos:**
 ```bash
-docker compose -f docker-compose.qa.yml run --rm qa-backend bash -c "uv sync && uv run schemathesis run http://api:8000/openapi.json"
+docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-backend bash -c "uv run schemathesis run http://api:8000/openapi.json"
 ```
 
 *   **Comportamiento BDD (Karate):**
 ```bash
-docker compose -f docker-compose.qa.yml run --rm karatelabs mvn clean test
+make qa-bdd
 ```
 
 *   **Seguridad Dinámica DAST (OWASP ZAP):**
 ```bash
-docker compose -f docker-compose.qa.yml run --rm zap zap-baseline.py -t http://api:8000 -r zap-report.html
+make qa-dast
 ```
 
 *   **Profiling Acumulativo (Flamegraph):**
 ```bash
-docker compose -f docker-compose.qa.yml exec -T api bash -c "py-spy record -o /app/profile.svg --pid 1 --duration 30"
+docker compose -f docker-compose.qa.yml exec -T api bash -c "py-spy record -o /tmp/profile.svg --pid 1 --duration 30"
 ```
 
 **Paso 3: Certificación de Nivel 11X (Ingeniería del Caos y Observabilidad)**
 Este comando activa el perfil oculto. Despierta a Pumba, Locust y Prometheus simultáneamente para estresar la API mientras se simula una degradación severa de la red.
 ```bash
-docker compose -f docker-compose.qa.yml --profile chaos up --abort-on-container-exit stress_test
+make qa-chaos
 ```
 *(Durante el ataque, visualiza las métricas en `http://localhost:9090` o revisa `chaos-report.html` para validar la tasa de supervivencia de los requests).*

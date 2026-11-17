@@ -24,6 +24,7 @@ Ejecución determinista estática en < 1 segundo (sin dependencias externas).
 
 from __future__ import annotations
 
+import argparse
 import json
 import re
 import sys
@@ -448,8 +449,30 @@ def _collect_all_consistency_errors(repo_root: Path) -> list[str]:
     return errors
 
 
-def main() -> int:
-    repo_root = Path(__file__).resolve().parent.parent.parent
+def _has_governance_docs(repo_root: Path) -> bool:
+    return any(
+        (repo_root / rel).is_file()
+        for rel in (
+            "ROADMAP.md",
+            "ROADMAP.es.md",
+            ".agents/ACTIVE_TASK.md",
+            ".agents/.cache/session_checkpoint.json",
+        )
+    )
+
+
+def main(target_root: Path | None = None, exit_skipped_code: int = 20) -> int:
+    repo_root = (
+        target_root.resolve()
+        if target_root is not None
+        else Path(__file__).resolve().parent.parent.parent
+    )
+    if not _has_governance_docs(repo_root):
+        print(
+            "⚠️ SKIPPED [Governance Sync]: Sin ROADMAP.md ni ACTIVE_TASK.md "
+            "en el workspace."
+        )
+        return exit_skipped_code
     all_errors = _collect_all_consistency_errors(repo_root)
 
     if all_errors:
@@ -472,5 +495,22 @@ def main() -> int:
     return 0
 
 
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Valida consistencia de ROADMAP.{md,es.md} y ACTIVE_TASK.md."
+    )
+    parser.add_argument("target_root", nargs="?", type=Path, default=None)
+    parser.add_argument("--exit-skipped-code", type=int, default=20)
+    return parser.parse_args(argv)
+
+
+def cli_main(argv: list[str] | None = None) -> int:
+    args = _parse_args(argv)
+    return main(
+        target_root=args.target_root,
+        exit_skipped_code=args.exit_skipped_code,
+    )
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(cli_main())

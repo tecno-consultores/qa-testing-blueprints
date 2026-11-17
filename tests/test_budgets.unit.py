@@ -88,8 +88,12 @@ def test_governance_scripts_share_single_source_budgets(
 
     assert verify_docs.SKILL_MAX_BYTES == budgets.SKILL_MAX_BYTES
     assert gen_manifest.STACK_METADATA == sync_gov.STACK_METADATA
-    assert blast_sel.HIGH_BLAST_CALLERS_THRESHOLD == budgets.HIGH_BLAST_CALLERS_THRESHOLD
-    assert blast_insp.HIGH_BLAST_CALLERS_THRESHOLD == budgets.HIGH_BLAST_CALLERS_THRESHOLD
+    assert (
+        blast_sel.HIGH_BLAST_CALLERS_THRESHOLD == budgets.HIGH_BLAST_CALLERS_THRESHOLD
+    )
+    assert (
+        blast_insp.HIGH_BLAST_CALLERS_THRESHOLD == budgets.HIGH_BLAST_CALLERS_THRESHOLD
+    )
     assert sync_gov.SKILL_MAX_BYTES == budgets.SKILL_MAX_BYTES
     assert sync_gov.ARCHITECT_SKILL_MAX_BYTES == budgets.ARCHITECT_SKILL_MAX_BYTES
     assert sync_gov.TACTICAL_SKILL_MAX_BYTES == budgets.TACTICAL_SKILL_MAX_BYTES

@@ -27,4 +27,4 @@ build:
 qa-all: qa-lint qa-typecheck qa-unit qa-example qa-e2e build
 
 clean:
-	@rm -rf dist coverage .turbo test-results .eslintcache 2>/dev/null || docker run --rm -v "$$(pwd):/app" alpine rm -rf /app/dist /app/coverage /app/.turbo /app/test-results /app/.eslintcache 2>/dev/null || true
+	@rm -rf dist coverage .turbo test-results .eslintcache 2>/dev/null || docker run --rm -v "$$(pwd):/app" alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab rm -rf /app/dist /app/coverage /app/.turbo /app/test-results /app/.eslintcache 2>/dev/null || true

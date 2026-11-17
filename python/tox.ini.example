@@ -15,7 +15,7 @@ commands =
     ruff format --check src/ tests/
 
     # 2. Análisis estricto de tipos
-    mypy --strict src/
+    mypy --strict --cache-dir=/tmp/mypy src/
 
     # 3. Complejidad Ciclomática Grado A (CC <= 5; falla si existe cualquier bloque B o peor)
     python -c "import subprocess, sys; out = subprocess.check_output(['radon', 'cc', '--min', 'B', 'src/'], text=True).strip(); sys.exit('Complejidad > Grado A:\n' + out if out else 0)"

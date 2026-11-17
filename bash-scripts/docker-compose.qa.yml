@@ -20,13 +20,16 @@ services:
       - SYS_PTRACE
     security_opt:
       - seccomp:unconfined
-    command: bash -c "echo 'Contenedor QA Bash listo para ShellCheck, shfmt, BATS y kcov. Usa docker compose run --rm qa-bash [comando]'; sleep infinity"
+      - no-new-privileges:true
+    command: bash -c "echo 'Contenedor QA Bash listo para ShellCheck, shfmt, BATS y kcov. Usa docker compose run --rm -T qa-bash [comando]'; sleep infinity"
 
   pushgateway:
     image: prom/pushgateway:v1.10.0
     container_name: bash_pushgateway
     hostname: bash_pushgateway
     pull_policy: if_not_present
+    security_opt:
+      - no-new-privileges:true
     profiles:
       - observability
     ports:
@@ -37,6 +40,8 @@ services:
     container_name: bash_prometheus
     hostname: bash_prometheus
     pull_policy: if_not_present
+    security_opt:
+      - no-new-privileges:true
     profiles:
       - observability
     entrypoint:

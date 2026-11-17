@@ -16,6 +16,7 @@ import json
 import os
 import re
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -68,14 +69,15 @@ def _norm_rel_path(raw: str) -> str:
     return cleaned
 
 
-def _stack_prefix(graph_path: Path) -> str:
+def _stack_prefix(graph_path: Path, workspace_root: Path | None = None) -> str:
+    root = workspace_root or REPO_ROOT
     base = (
         graph_path.parent.parent
         if graph_path.parent.name == "graphify-out"
         else graph_path.parent
     )
     try:
-        rel = base.resolve().relative_to(REPO_ROOT.resolve()).as_posix()
+        rel = base.resolve().relative_to(root.resolve()).as_posix()
     except ValueError:
         return ""
     return "" if rel in {"", "."} else rel
@@ -90,9 +92,10 @@ def _to_repo_rel_path(prefix: str, raw_file: str) -> str:
     return cleaned
 
 
-def _rel_display_path(path: Path) -> str:
+def _rel_display_path(path: Path, workspace_root: Path | None = None) -> str:
+    root = workspace_root or REPO_ROOT
     try:
-        return path.relative_to(REPO_ROOT).as_posix()
+        return path.relative_to(root).as_posix()
     except ValueError:
         return path.name
 
@@ -104,15 +107,16 @@ def _record_unique_graph(seen: dict[Path, Path], candidate: Path) -> None:
         seen[resolved] = candidate
 
 
-def find_graph_files() -> list[Path]:
+def find_graph_files(workspace: Path | None = None) -> list[Path]:
     """Busca graphify-out/graph.json podando directorios ignorados."""
+    root = workspace.resolve() if workspace is not None else REPO_ROOT
     seen: dict[Path, Path] = {}
-    for dirpath, dirnames, filenames in os.walk(REPO_ROOT):
+    for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = sorted(d for d in dirnames if d not in _IGNORED_DIRS)
         if Path(dirpath).name == "graphify-out" and "graph.json" in filenames:
             _record_unique_graph(seen, Path(dirpath) / "graph.json")
     return sorted(
-        seen.values(), key=lambda p: (p.parent.parent != REPO_ROOT, p.as_posix())
+        seen.values(), key=lambda p: (p.parent.parent != root, p.as_posix())
     )
 
 
@@ -257,26 +261,33 @@ def _file_matches_pattern(path: Path, pattern: re.Pattern[str]) -> bool:
     return pattern.search(text) is not None
 
 
-def _scan_repo_pattern(query: str, extensions: frozenset[str]) -> list[str]:
+def _scan_repo_pattern(
+    query: str, extensions: frozenset[str], workspace: Path | None = None
+) -> list[str]:
+    root = workspace.resolve() if workspace is not None else REPO_ROOT
     pattern = re.compile(rf"\b{re.escape(query)}\b")
     matched_files: list[str] = []
-    for dirpath, dirnames, filenames in os.walk(REPO_ROOT):
+    for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = sorted(d for d in dirnames if d not in FALLBACK_IGNORED_DIRS)
         for fname in filenames:
             path = Path(dirpath) / fname
             if path.suffix in extensions and _file_matches_pattern(path, pattern):
-                matched_files.append(path.relative_to(REPO_ROOT).as_posix())
+                matched_files.append(path.relative_to(root).as_posix())
     return sorted(matched_files)
 
 
-def scan_fallback_references(query: str) -> list[str]:
+def scan_fallback_references(
+    query: str, workspace: Path | None = None
+) -> list[str]:
     """Escanea archivos fuente cuando el grafo no cubre el símbolo."""
-    return _scan_repo_pattern(query, SOURCE_EXTENSIONS)
+    return _scan_repo_pattern(query, SOURCE_EXTENSIONS, workspace)
 
 
-def scan_contract_files(query: str) -> list[str]:
+def scan_contract_files(
+    query: str, workspace: Path | None = None
+) -> list[str]:
     """Rastrea contratos BDD (*.feature) y BATS (*.bats) afectados."""
-    return _scan_repo_pattern(query, CONTRACT_EXTENSIONS)
+    return _scan_repo_pattern(query, CONTRACT_EXTENSIONS, workspace)
 
 
 def _is_security_token(tok: str) -> bool:
@@ -316,15 +327,28 @@ def _print_bounded_list(
         print(f"   ... (+{len(items) - 5} {overflow_label})")
 
 
+@dataclass
+class _InspectAccum:
+    workspace_root: Path
+    seen_nodes: set[tuple[str, str, str]] = field(default_factory=set)
+    total_caller_pairs: set[tuple[str, str]] = field(default_factory=set)
+    total_files: set[str] = field(default_factory=set)
+
+
 def _print_node_radius(
-    g_path: Path, node: dict[str, Any], radius: dict[str, Any], node_where: str
+    g_path: Path,
+    node: dict[str, Any],
+    radius: dict[str, Any],
+    node_where: str,
+    workspace_root: Path | None = None,
 ) -> None:
     callers_count = int(radius["direct_callers_count"])
     files_count = int(radius["unique_files_count"])
     node_id = str(node.get("id") or "")
     risk = assess_risk_level(node_id, callers_count, files_count)
+    disp = _rel_display_path(g_path, workspace_root)
     print(
-        f"🔹 [{_rel_display_path(g_path)}] '{node.get('label')}' ({node_where}) "
+        f"🔹 [{disp}] '{node.get('label')}' ({node_where}) "
         f"-> {callers_count} llamadores en {files_count} archivos | {risk}"
     )
     _print_bounded_list(radius["direct_callers"], "⬅️ [Llamado por]", "llamadores más")
@@ -336,34 +360,32 @@ def _print_node_radius(
 
 
 def _process_graph_file(
-    g_path: Path,
-    query: str,
-    seen_nodes: set[tuple[str, str, str]],
-    total_caller_pairs: set[tuple[str, str]],
-    total_files: set[str],
+    g_path: Path, query: str, accum: _InspectAccum
 ) -> None:
     try:
         graph = load_graph(g_path)
     except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
         print(f"⚠️ Error procesando grafo {g_path}: {exc}")
         return
-    prefix = _stack_prefix(g_path)
+    prefix = _stack_prefix(g_path, accum.workspace_root)
     for node in find_matching_nodes(graph, query):
         node_file = _to_repo_rel_path(prefix, str(node.get("source_file") or "unknown"))
         node_label = str(node.get("label") or "")
         node_loc = str(node.get("source_location") or "")
         node_key = (node_file, node_label, node_loc.lstrip("L"))
-        if node_key in seen_nodes:
+        if node_key in accum.seen_nodes:
             continue
-        seen_nodes.add(node_key)
+        accum.seen_nodes.add(node_key)
         radius = compute_blast_radius(graph, str(node.get("id") or ""))
         for caller in radius["direct_callers"]:
             raw_caller_file = str(caller.get("raw_file") or caller["file"])
             c_file = _to_repo_rel_path(prefix, raw_caller_file)
-            total_caller_pairs.add((c_file, str(caller.get("label") or "")))
-            total_files.add(c_file)
+            accum.total_caller_pairs.add((c_file, str(caller.get("label") or "")))
+            accum.total_files.add(c_file)
         node_where = f"{node_file}:{node_loc}" if node_loc else node_file
-        _print_node_radius(g_path, node, radius, node_where)
+        _print_node_radius(
+            g_path, node, radius, node_where, accum.workspace_root
+        )
 
 
 def _print_file_hits(hits: list[str], prefix_tag: str, overflow_label: str) -> None:
@@ -376,35 +398,42 @@ def _print_file_hits(hits: list[str], prefix_tag: str, overflow_label: str) -> N
 def _print_contract_and_fallback(
     graph_files: list[Path],
     query: str,
-    total_callers: int,
-    total_files: set[str],
+    accum: _InspectAccum,
 ) -> int:
     if graph_files:
         _print_file_hits(
-            scan_contract_files(query),
+            scan_contract_files(query, accum.workspace_root),
             "🧪 [Contrato BDD/BATS (QA-TEST-SYNC-01)]",
             "contratos más",
         )
+    total_callers = len(accum.total_caller_pairs)
     if total_callers != 0:
         return total_callers
-    fallback_files = scan_fallback_references(query)
+    fallback_files = scan_fallback_references(query, accum.workspace_root)
     if not fallback_files:
         return 0
-    total_files.update(fallback_files)
+    accum.total_files.update(fallback_files)
     _print_file_hits(fallback_files, "-> [AST/Source Scan]", "archivos más")
     return len(fallback_files)
 
 
-def _resolve_graph_targets(graph_file: Path | None) -> list[Path]:
+def _resolve_graph_targets(
+    graph_file: Path | None, workspace: Path | None = None
+) -> list[Path]:
     if graph_file is not None:
         return [graph_file] if graph_file.is_file() else []
-    return find_graph_files()
+    return find_graph_files(workspace)
 
 
 def inspect_symbol(
-    query: str, *, allow_missing: bool = False, graph_file: Path | None = None
+    query: str,
+    *,
+    allow_missing: bool = False,
+    graph_file: Path | None = None,
+    workspace: Path | None = None,
 ) -> int:
-    graph_files = _resolve_graph_targets(graph_file)
+    root = workspace.resolve() if workspace is not None else REPO_ROOT
+    graph_files = _resolve_graph_targets(graph_file, workspace)
     if not graph_files:
         print(
             f"⚠️ [Blast Radius: '{query}'] No se detectó ningún grafo Graphify "
@@ -413,19 +442,15 @@ def inspect_symbol(
             "(más información en qa-testing-blueprints)."
         )
 
-    seen_nodes: set[tuple[str, str, str]] = set()
-    total_caller_pairs: set[tuple[str, str]] = set()
-    total_files: set[str] = set()
+    accum = _InspectAccum(workspace_root=root)
     for g_path in graph_files:
-        _process_graph_file(g_path, query, seen_nodes, total_caller_pairs, total_files)
+        _process_graph_file(g_path, query, accum)
 
-    total_callers = _print_contract_and_fallback(
-        graph_files, query, len(total_caller_pairs), total_files
-    )
-    final_risk = assess_risk_level(query, total_callers, len(total_files))
+    total_callers = _print_contract_and_fallback(graph_files, query, accum)
+    final_risk = assess_risk_level(query, total_callers, len(accum.total_files))
     print(
         f"📊 [Blast Radius '{query}'] Llamadores: {total_callers} | "
-        f"Archivos afectados: {len(total_files)} | {final_risk}"
+        f"Archivos afectados: {len(accum.total_files)} | {final_risk}"
     )
     print(
         "🔄 [Recordatorio 11X | QA-TEST-SYNC-01] Audita y actualiza todas las pruebas "
@@ -454,9 +479,18 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Ruta explícita a un archivo graph.json personalizado.",
     )
+    parser.add_argument(
+        "--workspace",
+        type=Path,
+        default=None,
+        help="Raíz del workspace donde buscar grafos y fuentes (default: REPO_ROOT).",
+    )
     args = parser.parse_args(argv)
     return inspect_symbol(
-        args.query, allow_missing=args.allow_missing, graph_file=args.graph
+        args.query,
+        allow_missing=args.allow_missing,
+        graph_file=args.graph,
+        workspace=args.workspace,
     )
 
 

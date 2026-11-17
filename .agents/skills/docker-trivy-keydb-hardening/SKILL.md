@@ -8,7 +8,7 @@ description: >-
 # Docker Trivy Hardening & KeyDB Performance Skill
 
 This skill guides the implementation of production-grade Docker containers and ultra-fast in-memory caching engines.
-> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Unless the target repository's `AGENTS.md` explicitly mandates a fixed output language, respond and explain reasoning in the **user's prompt language**, and write commit messages / human-facing documentation matching the **existing language of `README.md` and `CHANGELOG.md`** (explicitly ignoring `AGENTS.md` and `.agents/**`, which remain in concise English for token economy; default to the prompt language on empty repos).
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Respond in **user's prompt language** (unless `AGENTS.md` fixes it); docs/commits match `README.md`/`CHANGELOG.md` (Spec 19; `.agents/**` English).
 
 ---
 
@@ -31,7 +31,7 @@ This skill guides the implementation of production-grade Docker containers and u
    - Enforce `security_opt: ["no-new-privileges:true"]`, default `seccomp` profile (`RuntimeDefault`), and `read_only: true` root filesystems (mounting `/tmp` or `/run` as `tmpfs:size=64M,noexec,nosuid,nodev` and restricting writes exclusively to dedicated data volumes).
    - When a `read_only: true` container requires writable cache/state dirs outside `/tmp` or `/run` (e.g., `/app/.wrangler` for Wrangler v4 `saveToConfigCache`), pre-create them in the `Dockerfile` (`mkdir -p /app/.wrangler && chown ...`) and mount them as `tmpfs` with `mode=1777,noexec,nosuid,nodev` (`QA-DOCKER-TTY-01`).
 4. **Shift-Left Vulnerability Scans, CycloneDX SBOM & Artifact Integrity (DISA STIG & OWASP):**
-   - Execute `./scripts/auditar-infra.sh` (`trivy config` on Dockerfiles/Compose manifests + `trivy fs --exit-code 1 --severity HIGH,CRITICAL .`) ensuring 0 unresolved findings.
+   - Execute `./scripts/auditar-infra.sh` (`aquasec/trivy:0.76.2` `trivy config` on Dockerfiles/Compose manifests + `trivy fs --exit-code 1 --severity HIGH,CRITICAL .`) ensuring 0 unresolved findings.
    - Generate **OWASP CycloneDX SBOM/CBOM (ECMA-424)** (`cyclonedx-py` / `@cyclonedx/cyclonedx-npm`) and verify SHA-256 cryptographic hashes/signatures of release deliverables (`APSC-DV-001430`, `APSC-DV-003140`).
    - Remove deprecated or superseded software components upon upgrade (`APSC-DV-002600`) and monitor audit log storage to alert at **75% capacity** (`APSC-DV-001090`).
 
@@ -40,7 +40,7 @@ This skill guides the implementation of production-grade Docker containers and u
 ## 2. In-Memory Engine: KeyDB Multi-Threaded
 
 When deploying cache, rate-limiting, idempotency locks (`idemp:{tenant_id}:{user_id}:{key}`), session concurrency limits (`APSC-DV-000010`), role-based idle timeouts (`10m` admin / `15m` standard, `APSC-DV-000070/000080`), 3-attempt/15m account lockouts (`APSC-DV-000530`), anti-data-mining rate quotas (`APSC-DV-000450`), or WebSocket pub/sub:
-- **Default Choice:** `eqalpha/keydb:alpine`
+- **Default Choice:** `eqalpha/keydb:6.3.4`
 - **Rationale:** KeyDB is a drop-in multi-threaded Redis alternative yielding 3× to 5× higher throughput on multi-core servers with lower tail latency.
 - **Production Hardening & OOM Guardrails:**
   - Always cap `--maxmemory` to **~75–80% of the container memory limit** to leave headroom for KeyDB fragmentation/buffers and prevent Linux kernel OOM-killer terminations.
@@ -48,7 +48,7 @@ When deploying cache, rate-limiting, idempotency locks (`idemp:{tenant_id}:{user
 - **Recommended Configuration:**
   ```yaml
   redis:
-    image: eqalpha/keydb:alpine
+    image: eqalpha/keydb:6.3.4
     read_only: true
     tmpfs:
       - /tmp:size=32M,noexec,nosuid,nodev
@@ -61,11 +61,14 @@ When deploying cache, rate-limiting, idempotency locks (`idemp:{tenant_id}:{user
       --server-threads 2
       --appendonly no
       --save ""
+      --protected-mode yes
+      --requirepass "${KEYDB_PASSWORD}"
       --maxmemory 256mb
       --maxmemory-policy volatile-lru
       --tcp-keepalive 300
       --rename-command FLUSHALL ""
       --rename-command FLUSHDB ""
+      --rename-command CONFIG ""
       --rename-command DEBUG ""
     healthcheck:
       test: ["CMD-SHELL", "keydb-cli ping | grep PONG"]

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
 import unittest
 from pathlib import Path
 
@@ -14,6 +15,7 @@ SCRIPT_PATH = REPO_ROOT / ".agents" / "scripts" / "verify_docs_invariants.py"
 spec = importlib.util.spec_from_file_location("verify_docs_invariants", SCRIPT_PATH)
 assert spec is not None and spec.loader is not None
 verify_docs = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = verify_docs
 spec.loader.exec_module(verify_docs)
 
 
@@ -1058,7 +1060,7 @@ class TestVerifyDocsInvariants(unittest.TestCase):
                 sys.modules["_budgets"] = saved_budgets
 
     def test_f11_3_skill_references_and_mobile_appium_no_stale_terms(self) -> None:
-        """Verifica que referencias de skill y mobile-appium no conserven terminos legados."""
+        """Verifica que skill refs y mobile-appium no conserven terminos legados."""
         repo_root = Path(__file__).resolve().parent.parent
         refs_dir = (
             repo_root / ".agents" / "skills" / "qa-11x-architect" / "references"
@@ -1088,6 +1090,61 @@ class TestVerifyDocsInvariants(unittest.TestCase):
                 "Appium 2",
                 mobile_content,
                 f"Referencia obsoleta a 'Appium 2' en {mobile_rel}",
+            )
+
+    def test_refactoring_ui_topics_and_agents_markdown_links(self) -> None:
+        """Valida temas blueprint://ui/refactoring-ui/* y enlaces en .agents/."""
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            refs_dir = root / ".agents" / "skills" / "refactoring-ui" / "references"
+            refs_dir.mkdir(parents=True)
+            (refs_dir / "color.md").write_text("# Color\n", encoding="utf-8")
+            (refs_dir / "hierarchy.md").write_text("# Hierarchy\n", encoding="utf-8")
+            (root / ".agents" / "rules").mkdir(parents=True)
+            (root / ".agents" / ".cache").mkdir(parents=True)
+            (root / ".agents" / "artifacts").mkdir(parents=True)
+            (root / "docs" / "specs").mkdir(parents=True)
+
+            # Enlaces y temas válidos + archivos ignorados en .cache/artifacts/specs
+            (root / "AGENTS.md").write_text(
+                "Ver [Regla](.agents/rules/sample.md) y "
+                "`blueprint://ui/refactoring-ui/color`.\n",
+                encoding="utf-8",
+            )
+            (root / ".agents" / "rules" / "sample.md").write_text(
+                "Usar `blueprint://ui/refactoring-ui/skill` y "
+                "`blueprint://ui/refactoring-ui/hierarchy`.\n",
+                encoding="utf-8",
+            )
+            (root / ".agents" / ".cache" / "tmp.md").write_text(
+                "[ignorado](no-existe.md)\n", encoding="utf-8"
+            )
+            (root / ".agents" / "artifacts" / "out.md").write_text(
+                "[ignorado](tampoco-existe.md)\n", encoding="utf-8"
+            )
+            (root / "docs" / "specs" / "01_SPEC_HISTORICAL.md").write_text(
+                "`blueprint://ui/refactoring-ui/invented`\n", encoding="utf-8"
+            )
+
+            self.assertEqual(verify_docs.check_internal_markdown_links(root), [])
+            self.assertEqual(verify_docs._check_refactoring_ui_topics(root), [])
+
+            # Tema inválido + enlace roto en .agents/rules/sample.md
+            (root / ".agents" / "rules" / "sample.md").write_text(
+                "Malo `blueprint://ui/refactoring-ui/nonexistent` y "
+                "[roto](missing_rule.md).\n",
+                encoding="utf-8",
+            )
+            link_errs = verify_docs.check_internal_markdown_links(root)
+            topic_errs = verify_docs._check_refactoring_ui_topics(root)
+            self.assertTrue(any("missing_rule.md" in e for e in link_errs))
+            self.assertTrue(
+                any(
+                    "blueprint://ui/refactoring-ui/nonexistent" in e
+                    for e in topic_errs
+                )
             )
 
 

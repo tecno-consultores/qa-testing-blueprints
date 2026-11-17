@@ -20,10 +20,8 @@ services:
     volumes:
       - .:/app
     working_dir: /app
-    cap_add:
-      - SYS_PTRACE
     security_opt:
-      - seccomp:unconfined
+      - no-new-privileges:true
     command: bash -c "echo 'Contenedor QA Vibe-Rescue listo (Regla Cero, non-root). Usa docker compose -f docker-compose.qa.yml run --rm -T qa-vibe-rescue [comando]'; sleep infinity"
 
 networks:

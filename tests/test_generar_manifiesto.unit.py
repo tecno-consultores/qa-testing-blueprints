@@ -22,9 +22,7 @@ import unittest
 from pathlib import Path
 from typing import Any
 
-# Aseguramos que scripts/ esté en el sys.path para importar generar-manifiesto
 REPO_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 spec = importlib.util.spec_from_file_location(
     "generar_manifiesto", REPO_ROOT / "scripts" / "generar-manifiesto.py"
@@ -344,6 +342,8 @@ class TestGenerarManifiesto(unittest.TestCase):
         manifest_data2 = gm.build_manifest(REPO_ROOT)
         manifest_data2["stacks"]["fastapi"]["description"] = "Wrong description"
         manifest_data2["stacks"]["fastapi"]["readme"] = "wrong/readme.md"
+        manifest_data2["stacks"]["python"]["readme_sha256"] = "0" * 64
+        manifest_data2["stacks"]["python"]["readme_es_sha256"] = "f" * 64
         del manifest_data2["stacks"]["vue3"]
         manifest_data2["stacks"]["extra_unknown_stack"] = {
             "description": "d",
@@ -356,6 +356,8 @@ class TestGenerarManifiesto(unittest.TestCase):
         self.assertFalse(synced2)
         self.assertTrue(any("Descripción discrepante" in d for d in diffs2))
         self.assertTrue(any("Readme discrepante" in d for d in diffs2))
+        self.assertTrue(any("SHA-256 de readme" in d for d in diffs2))
+        self.assertTrue(any("SHA-256 de readme_es" in d for d in diffs2))
         self.assertTrue(
             any("Stack faltante en manifest.json: vue3" in d for d in diffs2)
         )

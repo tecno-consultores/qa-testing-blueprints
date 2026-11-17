@@ -7,6 +7,8 @@ services:
     container_name: react_ui_prod
     hostname: react_ui_prod
     pull_policy: if_not_present
+    security_opt:
+      - no-new-privileges:true
     environment:
       TZ: 'America/Caracas'
     volumes:
@@ -25,6 +27,8 @@ services:
     image: sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60
     pull_policy: if_not_present
     user: "0:0"
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - pnpm-store:/pnpm
     command: ["chmod", "-R", "a+rwX", "/pnpm"]
@@ -35,6 +39,8 @@ services:
     hostname: react_qa_frontend
     pull_policy: if_not_present
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       pnpm-store-init:
         condition: service_completed_successfully
@@ -56,6 +62,8 @@ services:
     hostname: react_ui_e2e
     pull_policy: if_not_present
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       pnpm-store-init:
         condition: service_completed_successfully
@@ -71,13 +79,15 @@ services:
       - pnpm-store:/pnpm
     working_dir: /app
     entrypoint: ["bash", "-c", "mkdir -p /tmp/.corepack-bin && corepack enable --install-directory /tmp/.corepack-bin >/dev/null 2>&1 || true; exec \"$@\"", "--"]
-    command: bash -c "echo 'Contenedor E2E listo. Usa docker compose run --rm ui-e2e [comando]'; sleep infinity"
+    command: bash -c "echo 'Contenedor E2E listo. Usa docker compose run --rm -T ui-e2e [comando]'; sleep infinity"
 
   karatelabs:
     image: sinfallas/karatelabs:1.5.1
     container_name: react_ui_karate
     hostname: react_ui_karate
     pull_policy: if_not_present
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       ui-prod:
         condition: service_healthy
@@ -85,13 +95,15 @@ services:
       - UI_BASE_URL=http://ui-prod:8080
     volumes:
       - ./test:/app/src/test/java/examples/test
-    command: bash -c "echo 'Contenedor Karate listo. Usa docker compose run --rm karatelabs mvn clean test'; sleep infinity"
+    command: bash -c "echo 'Contenedor Karate listo. Usa docker compose run --rm -T karatelabs mvn clean test'; sleep infinity"
 
   nginx-exporter:
     image: nginx/nginx-prometheus-exporter:1.3.0
     container_name: react_nginx_exporter
     hostname: react_nginx_exporter
     pull_policy: if_not_present
+    security_opt:
+      - no-new-privileges:true
     profiles:
       - observability
     command:
@@ -107,6 +119,8 @@ services:
     container_name: react_prometheus
     hostname: react_prometheus
     pull_policy: if_not_present
+    security_opt:
+      - no-new-privileges:true
     profiles:
       - observability
     entrypoint:

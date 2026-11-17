@@ -22,7 +22,7 @@ Al generar código, configurar el entorno o plantear soluciones, debes asegurar 
 *   **Linting y Formateo:** `ruff` (`C901` con complejidad máxima `<= 5` en pruebas críticas y módulos nuevos).
 *   **Tipado Estricto:** `mypy --strict --cache-dir=/tmp/mypy` (prevención de excepciones en tiempo de ejecución).
 *   **Seguridad y Auditoría:** `pip-audit` (CVEs de dependencias) y `bandit` (vulnerabilidades SAST en el código base).
-*   **Análisis de Complejidad (Deuda Técnica):** `radon` (Mantenibilidad Grado A y complejidad ciclomática <= B).
+*   **Análisis de Complejidad (Deuda Técnica):** `radon` (Mantenibilidad Grado A y complejidad ciclomática Grado `A`, `CC <= 5`).
 *   **Profiling (Memoria y CPU):** `py-spy` (Detección de cuellos de botella mediante *Flamegraphs*).
 *   **Pruebas Lógicas Base e Intercepción:** `pytest` como motor principal, potenciado obligatoriamente por `pytest-mock` y `unittest.mock` para aislar la red y dependencias externas.
 *   **Contratos Consumer-Driven Zero-Infra (`Pact` V3/V4):** Paquete `pact` preinstalado exportando artefactos deterministas en `PACT_OUTPUT_DIR` (sin *Pact Broker* externo) sobre *Trimodal Fixtures* (`nominal_configured`, `virgin_empty`, `degraded_conflict`), serialización monetaria exacta con `Decimal` (prohibido `float`), cabecera obligatoria `Idempotency-Key` UUIDv4, errores RFC 7807 (`application/problem+json`) e inspección por ítem de respuestas batch (`results[].status`).
@@ -49,6 +49,8 @@ Dependiendo de la naturaleza del script, debes instrumentarlo de una de estas do
 
 2.  **Si es un Script Efímero (Batch Task / Cron):** Prometheus no tendrá tiempo de rasparlo. En su lugar, usa `push_to_gateway` para enviar las métricas recolectadas antes de que el script muera.
     ```python
+    import logging
+    from urllib.error import URLError
     from prometheus_client import CollectorRegistry, push_to_gateway
     # ... recolecta tus métricas en el registro ...
     if __name__ == '__main__':
@@ -56,8 +58,8 @@ Dependiendo de la naturaleza del script, debes instrumentarlo de una de estas do
         # ... lógica del script ...
         try:
             push_to_gateway('python_pushgateway:9091', job='batch_script', registry=registry)
-        except Exception as e:
-            pass # Falla silenciosa si no hay red de QA viva
+        except (OSError, URLError) as exc:
+            logging.warning("Pushgateway no disponible; métricas omitidas: %s", exc)
     ```
 
 ### B. Pruebas Unitarias (Mockeadas / Aisladas)
@@ -74,7 +76,7 @@ Dependiendo de la naturaleza del script, debes instrumentarlo de una de estas do
 *   **Benchmarking:** Marca las funciones matemáticas pesadas o de procesamiento de datos con el fixture `benchmark` para asegurar que refactorizaciones futuras no degraden la velocidad.
 
 ### E. Complejidad Ciclomática (`radon`)
-*   **Regla:** Ningún método generado puede superar el grado `B` de complejidad ciclomática ni caer del grado `A` en índice de mantenibilidad (MI). Si el código es muy complejo, divídelo.
+*   **Regla:** Ningún método generado puede superar el Grado `A` (`CC <= 5`) de complejidad ciclomática ni caer del Grado `A` en índice de mantenibilidad (MI). Aplica patrones `[DIRECTIVE-11X]` de `.agents/skills/tactical-patterns-11x/SKILL.md` (tablas de despacho, Parameter Object/DTO, cláusulas de guarda o pipelines) evitando micro-helpers pass-through.
 
 ### F. Ingestión Inteligente (Paso 0 - AST Graphify)
 *   **Regla (Exclusiva para ti, IA):** Tienes estrictamente prohibido generar código o pruebas a ciegas. Antes de modificar código, consulta el grafo AST con `python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"` (o actualiza con `./scripts/actualizar-grafos-graphify.sh`). Además, DEBES leer las configuraciones de linters y dependencias definidos en `pyproject.toml` para adaptar tu código a las convenciones estrictas del repositorio y evitar rechazos en el CI/CD.

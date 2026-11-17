@@ -1,3 +1,5 @@
+> **[SYSTEM DIRECTIVE FOR AI AGENTS]:** Act as a Staff DevSecOps & QA Rescue Architect. Read, parse, and strictly enforce the 5-stage Vibe-to-Enterprise hardening protocol below inside ephemeral non-root Docker containers (`sinfallas/base-python-uv:3.15` / `sinfallas/base-node-ionic:26`, Rule Zero). Preserve validated visual UX while eliminating exposed client secrets, open SQL policies (enforce per-table `ENABLE + FORCE ROW LEVEL SECURITY` and atomic WORM `audit_log_worm`), weak types, monolithic files (`> 500` lines, `CC <= 5`, `args <= 4`), and missing test suites (`>= 95%` coverage). Output your final response, explanations, and code comments in the user's prompt language (defaulting to English).
+
 > 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](README.es.md)
 
 # 🛡️ Vibe-to-Enterprise Blueprint — QA-11X Rescue & Hardening (`vibe-rescue/`)
@@ -20,14 +22,14 @@ AI-generated prototypes deliver functional interfaces in minutes, yet routinely 
 | `VIBE-RLS-002` | **Stage 2: PostgreSQL 15–17+ RLS & Service RBAC** | `CRITICAL` | SQL policies with `USING (true)` / `WITH CHECK (true)`, multi-tenant `CREATE TABLE` schemas lacking `ENABLE` + `FORCE ROW LEVEL SECURITY`, `BYPASSRLS`, or client-side `service_role` / `supabaseAdmin` usage. | Apply `vibe-rescue/templates/rls_hardening.sql` (`NOBYPASSRLS` role, `FORCE ROW LEVEL SECURITY`, `SECURITY DEFINER` function, and `seq_num` WORM chain). |
 | `VIBE-TYPE-003` | **Stage 3: Strict Typing & Validated Boundaries** | `HIGH` | Abuse of `: any` / `as any`, `@ts-ignore`, `@ts-nocheck`, `# type: ignore`, `"strict": false` in `tsconfig.json`, or mutating routes (`POST`/`PUT`/`PATCH`/`DELETE`) missing `Idempotency-Key`. | Enable `strict: true`, validate payloads with Zod `.strict()` / Pydantic `extra="forbid"`, `NFKC` normalization, and `Idempotency-Key`. |
 | `VIBE-ARCH-004` | **Stage 3: Modular Decomposition (`CC <= 5`)** | `MEDIUM` | Monolithic components, pages, or controllers exceeding the configurable threshold (`> 500` lines). | Extract domain hooks/stores and presentational widgets (`CC <= 5`) while preserving in-flow layout and visual tokens (`refactoring-ui`). |
-| `VIBE-QA-005` | **Stage 4: Rule Zero & Test Safety Net (`>= 95%`)** | `HIGH` | Complete absence of test files (`tests/`, `*.test.*`, `*.spec.*`), fixed sleeps (`waitForTimeout`, `time.sleep`), or `Dockerfile` with `USER root` / unpinned `:latest` tag. | Containerize under non-root `sinfallas/base-python-uv:3.15` or `sinfallas/base-node-ionic:26`, remove fixed sleeps, and enforce `>= 95%` coverage. |
+| `VIBE-QA-005` | **Stage 4: Rule Zero & Test Safety Net (`>= 95%`)** | `HIGH` | Absence of tests (`.test.*`, `.spec.*`, `.unit.*`, `.int.*`, `.e2e.*`, `Test.php`, `.bats`), fixed sleeps (`waitForTimeout`, `time.sleep`), unpinned `:latest`/untagged `FROM`, or final-stage `Dockerfile` running as `USER root`. | Containerize under non-root `sinfallas/base-python-uv:3.15` or `sinfallas/base-node-ionic:26`, remove fixed sleeps, and enforce `>= 95%` coverage (`tests/test_audit_vibe_prototype.unit.py`). |
 | *(Closure)* | **Stage 5: Governance Sealing (`QA-GIT-GATE-01`)** | `INFO` | Rescued repository missing *Thin-Repo* connector or certified closure. | Run `make sync-governance`, `./.agents/scripts/certify_task_completion.sh` (`10/10`), and local commit (no automated `git push`). |
 
 ---
 
 ## 3. Execution Under Rule Zero (`vibe-rescue/audit_vibe_prototype.py`)
 
-The CLI auditor is implemented in **pure Python 3 stdlib** (`CC <= 5`, `mypy --strict`, safe default `--dry-run` mode, and automatic redaction as `[REDACTED_SECRET]`). Always run it inside `sinfallas/base-python-uv:3.15` as a non-root user:
+The CLI auditor is modularized across `audit_vibe_prototype.py` and `_vibe_rules.py` (`< 500` lines each, **pure Python 3 stdlib**, `CC <= 5`, `max-args <= 4`, `mypy --strict`, safe default `--dry-run`, per-table SQL RLS checks preserving line numbers, and automatic redaction as `[REDACTED_SECRET]`). Always run it inside `sinfallas/base-python-uv:3.15` as a non-root user:
 
 ```bash
 # Audit in dry-run mode (Pass-Quiet when clean; Fail-Verbose when rescue is required)
@@ -46,7 +48,7 @@ docker run --rm -u "$(id -u):$(id -g)" \
     --target /app --no-dry-run --emit-remediation qa11x-rescue --enforce
 ```
 
-- **Standalone Consumer Blueprint:** Copy `Makefile.example` -> `Makefile`, keep `docker-compose.qa.yml` and `limpieza.sh`, and run `make qa-lint`, `make qa-audit`, `make qa-unit`, or `make clean` (non-root `${QA_UID:-1000}:${QA_GID:-1000}`).
+- **Standalone Consumer Blueprint:** Copy `Makefile.example` -> `Makefile`, keep `docker-compose.qa.yml` and `limpieza.sh`, and run `make qa-lint`, `make qa-audit`, `make qa-audit-enforce`, `make qa-ci`, `make qa-unit` (`>= 95%` over `tests/test_audit_vibe_prototype.unit.py`), `make qa-all`, or `make clean` (non-root `${QA_UID:-1000}:${QA_GID:-1000}`).
 
 ### Safe Configuration Placeholders
 
@@ -66,7 +68,7 @@ SUPABASE_SERVICE_ROLE_KEY=<EXAMPLE_REDACTED>
 1. **`app_runtime_user` role** with `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`.
 2. **Revocation of `PUBLIC`/`anon`/`authenticated`** and removal (`DROP POLICY IF EXISTS`) of permissive policies inherited from Supabase scaffolds.
 3. **`ENABLE ROW LEVEL SECURITY` + `FORCE ROW LEVEL SECURITY`** and `tenant_isolation_policy` bound to `NULLIF(current_setting('app.current_tenant_id', true), '')::uuid`.
-4. **Pre-auth function `resolve_tenant_by_slug`** (`SECURITY DEFINER`, `SET search_path = public`) and immutable **`audit_log_worm`** table (monotonic `seq_num BIGINT`, anti-`UPDATE`/`DELETE` trigger, and per-tenant serialization via `pg_advisory_xact_lock`).
+4. **Pre-auth function `resolve_tenant_by_slug`** (`SECURITY DEFINER`, `SET search_path = pg_catalog, public`, scoped `tenants_definer_lookup_policy` under `FORCE RLS`, active trimmed lookup) and immutable **`audit_log_worm`** table (monotonic `seq_num BIGINT` with `GRANT USAGE ON SEQUENCE`, `BEFORE UPDATE/DELETE/TRUNCATE` triggers, and `append_worm_audit_entry` computing/validating `CHAR(64)` SHA-256 chains under `pg_advisory_xact_lock(hashtext('audit:' || p_tenant_id::text))`).
 
 ---
 

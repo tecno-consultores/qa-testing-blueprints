@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 # Propósito: Script de limpieza y purga profunda para el entorno QA PHP 8.2-8.5 (Estándar 11X)
-# Erradica bloqueos de permisos generados por Docker (UID 0 / UID 10001) sin requerir sudo mediante Alpine efímero.
+# Erradica bloqueos de permisos generados por Docker (UID 0 / UID 10001 / UID no-coincidente) sin requerir sudo mediante Alpine efímero.
 
 LC_ALL=C
 set -euo pipefail
@@ -24,9 +24,12 @@ if command -v docker >/dev/null 2>&1; then
     docker compose -f docker-compose.qa.yml down --remove-orphans -v >/dev/null 2>&1 || true
 fi
 
+CURRENT_UID="$(id -u)"
+CURRENT_GID="$(id -g)"
 tmp_base="${TMPDIR:-/tmp}"
 rm -rf "${tmp_base}/qa-11x-last-failure.json" /tmp/qa-11x-last-failure.json \
   "${tmp_base}/qa11x-certify."* /tmp/qa11x-certify.* 2>/dev/null || true
+find "${tmp_base}" -maxdepth 1 -user "${CURRENT_UID}" \( -name 'qa-11x-last-failure.json' -o -name 'qa11x-certify.*' \) -exec rm -rf {} + 2>/dev/null || true
 
 rm -f ./ACTIVE_TASK.md .phpunit.result.cache .php-cs-fixer.cache .php-cs-fixer.dist.cache \
   infection.log infection-summary.log infection-report.json \
@@ -43,24 +46,26 @@ fi
 find . \( -name ".git" -o -name "node_modules" -o -name ".venv" -o -name "venv" -o -name "vendor" \) -prune \
   -o -type f \( -name ".DS_Store" -o -name "._*" -o -name "Thumbs.db" -o -name "ehthumbs.db" -o -name "Desktop.ini" -o -name "*.swp" -o -name "*.swo" -o -name "*.swn" -o -name "*~" -o -name ".#*" -o -name "#*#" -o -name "*.orig" -o -name "*.rej" -o -name "*.bak" \) -exec rm -f {} + 2>/dev/null || true
 
-CURRENT_UID="$(id -u)"
-CURRENT_GID="$(id -g)"
 if command -v docker >/dev/null 2>&1; then
-  docker run --rm -v "${SCRIPT_DIR}:/work" alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab sh -c "\
+  docker run --rm --network none -v "${SCRIPT_DIR}:/work" alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab sh -c '
     rm -rf /work/.phpunit.cache /work/.phpunit.result.cache /work/.php-cs-fixer.cache /work/.php-cs-fixer.dist.cache /work/.psalm /work/htmlcov \
-           /work/infection.log /work/infection-summary.log /work/infection-report.json \
-           /work/sbom.cyclonedx.json /work/sbom-*.cdx.json /work/cbom.cyclonedx.json /work/cbom-*.cdx.json \
-           /work/target /work/test/target /work/karate.jar /work/karate-*.jar /work/.trivycache \
-           /work/allure-results /work/allure-report /work/.allure 2>/dev/null || true; \
-    find /work \( -name '.git' -o -name 'node_modules' -o -name 'vendor' \) -prune -o -type f \( -name '.DS_Store' -o -name 'Thumbs.db' -o -name '*.swp' -o -name '*.swo' -o -name '*~' -o -name '*.orig' -o -name '*.rej' -o -name '*.bak' \) -exec rm -f {} + 2>/dev/null || true; \
-    chown -R ${CURRENT_UID}:${CURRENT_GID} /work/src /work/tests /work/test /work/config 2>/dev/null || true; \
-    find /work -maxdepth 2 \( -user 0 -o -user 10001 \) -exec chown ${CURRENT_UID}:${CURRENT_GID} {} + 2>/dev/null || true" >/dev/null 2>&1 || true
+      /work/infection.log /work/infection-summary.log /work/infection-report.json \
+      /work/sbom.cyclonedx.json /work/sbom-*.cdx.json /work/cbom.cyclonedx.json /work/cbom-*.cdx.json \
+      /work/target /work/test/target /work/karate.jar /work/karate-*.jar /work/.trivycache \
+      /work/allure-results /work/allure-report /work/.allure 2>/dev/null || true
+    if [ "$3" = "true" ]; then
+      rm -rf /work/node_modules /work/.venv /work/venv 2>/dev/null || true
+    fi
+    find /work \( -name ".git" -o -name "node_modules" -o -name ".venv" -o -name "venv" -o -name "vendor" \) -prune -o -type f \( -name ".DS_Store" -o -name "Thumbs.db" -o -name "*.swp" -o -name "*.swo" -o -name "*~" -o -name "*.orig" -o -name "*.rej" -o -name "*.bak" \) -exec rm -f {} + 2>/dev/null || true
+    chown -hR "$1:$2" /work/src /work/tests /work/test /work/config 2>/dev/null || true
+    find /work \( -name ".git" -o -name "node_modules" -o -name ".venv" -o -name "venv" -o -name "vendor" \) -prune -o \( -user 0 -o -user 10001 -o ! -user "$1" -o ! -group "$2" \) -exec chown -h "$1:$2" {} + 2>/dev/null || true
+  ' _ "${CURRENT_UID}" "${CURRENT_GID}" "${DEEP_PRUNE}" >/dev/null 2>&1 || true
 fi
 
 if [ "${DEEP_PRUNE}" = true ]; then
-  rm -rf .agents/backups .agents/proposals .agents/.qa-evidence.json 2>/dev/null || true
+  rm -rf node_modules .venv venv .agents/backups .agents/proposals .agents/.qa-evidence.json 2>/dev/null || true
   if command -v docker >/dev/null 2>&1; then
-    docker system prune -af --volumes >/dev/null 2>&1 || true
+    docker compose -f docker-compose.qa.yml down -v --rmi local --remove-orphans 2>/dev/null || true
   fi
 fi
 

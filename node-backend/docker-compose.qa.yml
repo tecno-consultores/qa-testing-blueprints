@@ -6,6 +6,8 @@ services:
     image: sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60
     pull_policy: if_not_present
     user: "0:0"
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - pnpm-store:/pnpm
     command: ["chmod", "-R", "a+rwX", "/pnpm"]
@@ -16,6 +18,8 @@ services:
     hostname: node_api
     pull_policy: if_not_present
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       pnpm-store-init:
         condition: service_completed_successfully
@@ -44,6 +48,8 @@ services:
     hostname: node_qa_backend
     pull_policy: if_not_present
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       pnpm-store-init:
         condition: service_completed_successfully
@@ -56,35 +62,38 @@ services:
       - .:/app
       - pnpm-store:/pnpm
     working_dir: /app
-    cap_add:
-      - SYS_PTRACE
-    security_opt:
-      - seccomp:unconfined
-    command: bash -c "echo 'Contenedor QA Node listo para Lint, Unit, BDD y Mutación. Usa docker compose run --rm qa-node-backend [comando]'; sleep infinity"
+    command: bash -c "echo 'Contenedor QA Node listo para Lint, Unit, BDD y Mutación. Usa docker compose run --rm -T qa-node-backend [comando]'; sleep infinity"
 
   karatelabs:
     image: sinfallas/karatelabs:1.5.1
     container_name: node_karate
     hostname: node_karate
     pull_policy: if_not_present
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       api:
         condition: service_healthy
     volumes:
       - ./test:/app/src/test/java/examples/test
-    command: bash -c "echo 'Contenedor Karate listo. Usa docker compose run --rm karatelabs mvn clean test'; sleep infinity"
+    command: bash -c "echo 'Contenedor Karate listo. Usa docker compose run --rm -T karatelabs mvn clean test'; sleep infinity"
 
   zap:
     image: zaproxy/zap-stable:2.15.0
     container_name: node_zap
     hostname: node_zap
     pull_policy: if_not_present
+    user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      HOME: /tmp
     depends_on:
       api:
         condition: service_healthy
     volumes:
       - .:/zap/wrk/:rw
-    command: bash -c "echo 'Contenedor ZAP listo. Usa docker compose run --rm zap zap-baseline.py -t http://api:3000 -r zap-report.html'; sleep infinity"
+    command: bash -c "echo 'Contenedor ZAP listo. Usa docker compose run --rm -T zap zap-baseline.py -t http://api:3000 -r zap-report.html'; sleep infinity"
 
   pumba:
     image: gaiaadm/pumba:0.10.1
@@ -105,6 +114,8 @@ services:
     container_name: node_prometheus
     hostname: node_prometheus
     pull_policy: if_not_present
+    security_opt:
+      - no-new-privileges:true
     profiles:
       - chaos
     # Inyección de configuración inline (raspa la API de Node cada 2s para ver el impacto de Pumba)
@@ -134,6 +145,8 @@ services:
     hostname: node_chaos_artillery
     pull_policy: if_not_present
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    security_opt:
+      - no-new-privileges:true
     profiles:
       - chaos
     depends_on:

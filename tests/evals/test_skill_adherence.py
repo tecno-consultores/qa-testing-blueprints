@@ -6,9 +6,11 @@ from __future__ import annotations
 
 import ast
 import asyncio
+import importlib.util
 import json
 import os
 import re
+import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -26,8 +28,23 @@ from pydantic import BaseModel, ConfigDict, Field
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 MATRIX_YAML_PATH = Path(__file__).resolve().parent / "promptfoo_skills_matrix.yaml"
-DEFAULT_SKILL_LIMIT_BYTES = 20_480
-ARCHITECT_SKILL_LIMIT_BYTES = 12_288
+
+
+def _load_budgets_module() -> Any:
+    budgets_path = REPO_ROOT / ".agents" / "scripts" / "_budgets.py"
+    spec = importlib.util.spec_from_file_location("_budgets_evals", budgets_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"No se pudo cargar {budgets_path}")
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+_BUDGETS = _load_budgets_module()
+DEFAULT_SKILL_LIMIT_BYTES: int = int(_BUDGETS.SKILL_MAX_BYTES)
+ARCHITECT_SKILL_LIMIT_BYTES: int = int(_BUDGETS.ARCHITECT_SKILL_MAX_BYTES)
+TACTICAL_SKILL_LIMIT_BYTES: int = int(_BUDGETS.TACTICAL_SKILL_MAX_BYTES)
 MIN_COMPILATION_RATE = 0.94
 MAX_REGENERATION_RATE = 1.2
 
@@ -109,17 +126,40 @@ REQUIRED_SKILL_CONTRACTS: Mapping[str, tuple[str, ...]] = {
         "max-params <= 4",
         "Port & Adapter",
     ),
+    "qa-11x-docker-certifier": (
+        "Rule Zero",
+        "CC <= 5",
+        "docker-compose.qa.yml",
+    ),
+    "docker-trivy-keydb-hardening": (
+        "trivy",
+        "KeyDB",
+        "CycloneDX",
+    ),
+    "graphify-ast-navigator": (
+        "graph.json",
+        "GRAPH_REPORT.md",
+    ),
+    "refactoring-ui": (
+        "WCAG",
+        "OKLCH",
+        "tabular-nums",
+    ),
 }
 REQUIRED_MATRIX_PROVIDERS = ("openai:", "anthropic:", "google:", "ollama:")
 REQUIRED_MATRIX_REDTEAM = ("prompt-injection", "hijacking", "excessive-agency")
 REQUIRED_MATRIX_SKILLS = (
-    "AI_MASTER_PROMPT.md",
     "qa-11x-architect",
     "qa-11x-devsecops-hardener",
     "qa-11x-systematic-debugging",
     "qa-11x-screenplay-builder",
     "qa-11x-llm-evaluator",
     "qa-11x-vibe-rescue",
+    "qa-11x-docker-certifier",
+    "docker-trivy-keydb-hardening",
+    "graphify-ast-navigator",
+    "refactoring-ui",
+    "tactical-patterns-11x",
 )
 
 
@@ -196,19 +236,25 @@ def _parse_skill_frontmatter(raw_text: str, skill_path: Path) -> list[str]:
     return _validate_frontmatter_fields(loaded, skill_dir)
 
 
+def _resolve_skill_limit(skill_name: str) -> int:
+    limits = {
+        "qa-11x-architect": ARCHITECT_SKILL_LIMIT_BYTES,
+        "tactical-patterns-11x": TACTICAL_SKILL_LIMIT_BYTES,
+    }
+    return limits.get(skill_name, DEFAULT_SKILL_LIMIT_BYTES)
+
+
 def _check_skill_budget_and_contracts(
     skill_name: str, raw_bytes: int, raw_text: str
 ) -> tuple[bool, list[str]]:
-    limit = (
-        ARCHITECT_SKILL_LIMIT_BYTES
-        if skill_name == "qa-11x-architect"
-        else DEFAULT_SKILL_LIMIT_BYTES
+    limit = _resolve_skill_limit(skill_name)
+    budget_ok = raw_bytes <= limit if limit < DEFAULT_SKILL_LIMIT_BYTES else (
+        raw_bytes < limit
     )
-    budget_ok = raw_bytes < limit
     errors: list[str] = []
     if not budget_ok:
         errors.append(
-            f"{skill_name}: excede presupuesto ({raw_bytes} >= {limit} bytes)"
+            f"{skill_name}: excede presupuesto ({raw_bytes} > {limit} bytes)"
         )
     if FORBIDDEN_AUTO_PUSH_RE.search(raw_text):
         errors.append(f"{skill_name}: viola QA-GIT-GATE-01 con git push automático")
@@ -422,6 +468,35 @@ def _validate_matrix_providers_and_redteam(
     return provider_ids, redteam_ids, errors
 
 
+def _extract_active_skills(tests_cfg: Any) -> set[str]:
+    if not isinstance(tests_cfg, Sequence) or isinstance(tests_cfg, str):
+        return set()
+    active: set[str] = set()
+    for entry in tests_cfg:
+        if not isinstance(entry, Mapping):
+            continue
+        vars_cfg = entry.get("vars")
+        if not isinstance(vars_cfg, Mapping):
+            continue
+        raw_skills = str(vars_cfg.get("active_skill", "")).strip()
+        active.update(
+            tok for tok in re.split(r"[+,\s]+", raw_skills) if tok
+        )
+    return active
+
+
+def _validate_master_prompt_ref(loaded: Mapping[str, Any]) -> list[str]:
+    prompts_cfg = loaded.get("prompts")
+    if not isinstance(prompts_cfg, Sequence) or isinstance(prompts_cfg, str):
+        return ["sección prompts faltante para validar AI_MASTER_PROMPT.md"]
+    has_ref = any(
+        isinstance(item, Mapping)
+        and "AI_MASTER_PROMPT.md" in str(item.get("raw", ""))
+        for item in prompts_cfg
+    )
+    return [] if has_ref else ["falta referencia AI_MASTER_PROMPT.md en prompts"]
+
+
 def validate_skills_promptfoo_matrix(
     matrix_path: Path = MATRIX_YAML_PATH,
 ) -> SkillsMatrixAuditSummary:
@@ -433,18 +508,20 @@ def validate_skills_promptfoo_matrix(
     provider_ids, redteam_ids, errors = _validate_matrix_providers_and_redteam(
         loaded, raw_yaml
     )
+    errors.extend(_validate_master_prompt_ref(loaded))
     tests_cfg = loaded.get("tests")
     tests_count = (
         len(tests_cfg)
         if isinstance(tests_cfg, Sequence) and not isinstance(tests_cfg, str)
         else 0
     )
-    if tests_count < 6:
-        errors.append(f"se requieren >= 6 escenarios en tests (actual={tests_count})")
-    covered = tuple(ref for ref in REQUIRED_MATRIX_SKILLS if ref in raw_yaml)
+    if tests_count < 7:
+        errors.append(f"se requieren >= 7 escenarios en tests (actual={tests_count})")
+    active_skills = _extract_active_skills(tests_cfg)
+    covered = tuple(ref for ref in REQUIRED_MATRIX_SKILLS if ref in active_skills)
     missing_refs = sorted(set(REQUIRED_MATRIX_SKILLS) - set(covered))
     if missing_refs:
-        errors.append(f"referencias faltantes en matriz: {missing_refs}")
+        errors.append(f"skills faltantes en vars.active_skill: {missing_refs}")
     if errors:
         raise ValueError("; ".join(errors))
     return SkillsMatrixAuditSummary(
@@ -588,6 +665,24 @@ def test_offline_master_prompt_and_skills_contracts(tmp_path: Path) -> None:
     assert not bad_report.all_budgets_ok
     assert any("excede presupuesto" in v for v in bad_report.violations)
     assert any("campo 'name'" in v for v in bad_report.violations)
+
+    tactical_over = tmp_path / "tactical_over"
+    tac_dir = tactical_over / ".agents" / "skills" / "tactical-patterns-11x"
+    tac_dir.mkdir(parents=True)
+    (tactical_over / "AI_MASTER_PROMPT.md").write_text(
+        " ".join(REQUIRED_MASTER_TOKENS), encoding="utf-8"
+    )
+    (tac_dir / "SKILL.md").write_text(
+        "---\nname: tactical-patterns-11x\ndescription: demo\n---\n"
+        + ("z" * 2_600),
+        encoding="utf-8",
+    )
+    tac_rep = audit_master_prompt_and_skills(tactical_over)
+    assert not tac_rep.all_budgets_ok
+    assert any(
+        "tactical-patterns-11x: excede presupuesto" in v
+        for v in tac_rep.violations
+    )
 
     invalid_yaml_repo = tmp_path / "invalid_yaml"
     bad_skill = invalid_yaml_repo / ".agents" / "skills" / "qa-11x-llm-evaluator"
@@ -740,10 +835,12 @@ def test_offline_plan_act_verify_batch_evaluator() -> None:
 
 
 def test_offline_promptfoo_skills_matrix_contract(tmp_path: Path) -> None:
+    assert len(REQUIRED_MATRIX_SKILLS) == 11
+    assert len(REQUIRED_SKILL_CONTRACTS) == 11
     summary = validate_skills_promptfoo_matrix(MATRIX_YAML_PATH)
     assert summary.providers_count == 4
-    assert summary.tests_count >= 6
-    assert set(REQUIRED_MATRIX_SKILLS).issubset(summary.covered_skills)
+    assert summary.tests_count >= 7
+    assert set(REQUIRED_MATRIX_SKILLS) == set(summary.covered_skills)
     assert set(REQUIRED_MATRIX_REDTEAM).issubset(summary.redteam_controls)
 
     non_map = tmp_path / "non_map.yaml"
@@ -769,6 +866,18 @@ def test_offline_promptfoo_skills_matrix_contract(tmp_path: Path) -> None:
     )
     with pytest.raises(ValueError, match="credencial literal"):
         validate_skills_promptfoo_matrix(literal)
+
+    missing_active = tmp_path / "missing_active.yaml"
+    raw_ok = MATRIX_YAML_PATH.read_text(encoding="utf-8")
+    missing_active.write_text(
+        raw_ok.replace(
+            'active_skill: "tactical-patterns-11x"',
+            'active_skill: "qa-11x-architect"',
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="vars.active_skill"):
+        validate_skills_promptfoo_matrix(missing_active)
 
 
 def test_offline_live_helpers_and_judge_resolution() -> None:

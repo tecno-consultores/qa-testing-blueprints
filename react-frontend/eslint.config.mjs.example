@@ -67,17 +67,21 @@ export default tseslint.config(
   {
     files: [
       'tests/**/*',
+      'test/**/*',
+      'e2e/**/*',
       '**/*.test.ts',
       '**/*.test.tsx',
       '**/*.spec.ts',
       '**/*.spec.tsx',
       '**/*.unit.ts',
       '**/*.unit.tsx',
+      '**/*.e2e.ts',
     ],
     rules: {
       'sonarjs/no-duplicate-string': 'off',
+      'security/detect-object-injection': 'off',
       'max-params': 'off',
-      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-explicit-any': 'error',
     },
   }
 );

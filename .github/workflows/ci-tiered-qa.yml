@@ -32,6 +32,7 @@ jobs:
       tier: ${{ steps.plan.outputs.tier }}
       graph: ${{ steps.plan.outputs.graph }}
       run_frontend: ${{ steps.plan.outputs.run_frontend }}
+      run_mobile: ${{ steps.plan.outputs.run_mobile }}
       run_backend: ${{ steps.plan.outputs.run_backend }}
       run_mcp: ${{ steps.plan.outputs.run_mcp }}
       run_ai_offline: ${{ steps.plan.outputs.run_ai_offline }}
@@ -107,6 +108,18 @@ jobs:
             echo "::warning::[graph=SKIPPED] graphify-out/graph.json unavailable; blast selector using prefix fallback." >&2
           fi
 
+          SELECT_ARGS=(
+            --event "${EVENT_NAME}"
+            --changed-files-file /ci-tmp/changed_files.txt
+            --graph graphify-out/graph.json
+            --github-output /ci-tmp/blast_outputs.txt
+          )
+          if [ -n "${BASE_REF:-}" ] && git rev-parse --verify "origin/${BASE_REF}" >/dev/null 2>&1; then
+            SELECT_ARGS+=(--base-ref "origin/${BASE_REF}")
+          elif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+            SELECT_ARGS+=(--base-ref "HEAD~1")
+          fi
+
           docker run --rm --network none \
             -u "$(id -u):$(id -g)" \
             -e HOME=/tmp \
@@ -114,12 +127,8 @@ jobs:
             -v "$(pwd):/app:ro" \
             -v "${CI_TMP_DIR}:/ci-tmp" \
             -w /app \
-            sinfallas/base-python-uv:3.15 \
-            python3 .agents/scripts/select_tests_by_blast_radius.py \
-              --event "${EVENT_NAME}" \
-              --changed-files-file /ci-tmp/changed_files.txt \
-              --graph graphify-out/graph.json \
-              --github-output /ci-tmp/blast_outputs.txt
+            sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 \
+            python3 .agents/scripts/select_tests_by_blast_radius.py "${SELECT_ARGS[@]}"
 
           printf 'graph=%s\n' "${GRAPH_STATUS}" >> "${GITHUB_OUTPUT}"
           cat "${CI_TMP_DIR}/blast_outputs.txt" >> "${GITHUB_OUTPUT}"
@@ -131,6 +140,7 @@ jobs:
     if: >-
       github.event_name == 'pull_request' &&
       (needs.blast-radius-plan.outputs.run_frontend == 'true' ||
+       needs.blast-radius-plan.outputs.run_mobile == 'true' ||
        needs.blast-radius-plan.outputs.run_full_regression == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -141,8 +151,13 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Execute frontend & mobile Screenplay blueprints (Rule Zero)
-        run: make test-frontend-blueprints && make test-mobile-blueprints
+      - name: Execute frontend Screenplay blueprints (Rule Zero)
+        if: needs.blast-radius-plan.outputs.run_frontend == 'true' || needs.blast-radius-plan.outputs.run_full_regression == 'true'
+        run: make test-frontend-blueprints
+
+      - name: Execute mobile Screenplay blueprints (Rule Zero)
+        if: needs.blast-radius-plan.outputs.run_mobile == 'true' || needs.blast-radius-plan.outputs.run_full_regression == 'true'
+        run: make test-mobile-blueprints
 
   targeted-backend-and-ai-qa:
     name: Targeted Backend Contracts & AI Offline Blueprints QA
@@ -182,28 +197,45 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
-          fetch-depth: 2
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Run full 11X QA regression and certification
-        run: >-
-          make test-frontend-blueprints &&
-          make test-backend-blueprints &&
-          make test-mobile-blueprints &&
-          make test-meta-qa &&
-          make test-ai-offline &&
-          make test-py &&
-          make lint &&
-          make build &&
-          make test-mcp &&
-          make test-example &&
-          make test-karate &&
-          make shellcheck &&
-          make shfmt &&
-          make test-bats &&
-          make validate-calm &&
-          make lint-workflows &&
-          make lint-docs &&
-          make version-check &&
-          make diff-cov &&
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          make test-frontend-blueprints
+          make test-backend-blueprints
+          make test-mobile-blueprints
+          make test-meta-qa
+          make test-ai-offline
+          make test-py
+          make lint
+          make build
+          make test-mcp
+          make test-example
+          make test-karate
+          make shellcheck
+          make shfmt
+          make test-bats
+          make validate-calm
+          make lint-workflows
+          make lint-docs
+          make version-check
+          DIFF_ARGS=(--workspace /app --reports-dir .agents/.cache/coverage)
+          if [ "${EVENT_NAME}" = "pull_request" ] && [ -n "${BASE_REF}" ] && git rev-parse --verify "origin/${BASE_REF}" >/dev/null 2>&1; then
+            DIFF_ARGS+=(--base-ref "origin/${BASE_REF}")
+          elif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+            DIFF_ARGS+=(--base-ref "HEAD~1")
+          fi
+          docker run --rm --network none \
+            -u "$(id -u):$(id -g)" \
+            -e HOME=/tmp \
+            -e PYTHONDONTWRITEBYTECODE=1 \
+            -v "$(pwd):/app:ro" \
+            -w /app \
+            sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 \
+            python3 .agents/scripts/verify_diff_coverage.py "${DIFF_ARGS[@]}"
           make certify

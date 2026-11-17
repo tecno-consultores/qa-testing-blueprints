@@ -2,12 +2,27 @@
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
 services:
+  uv-cache-init:
+    image: sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4
+    pull_policy: if_not_present
+    user: "0:0"
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - uv-cache:/tmp/uv-cache
+    command: ["chmod", "-R", "a+rwX", "/tmp/uv-cache"]
+
   qa-backend:
     image: sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4
     container_name: python_qa_backend
     hostname: python_qa_backend
     pull_policy: if_not_present
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      uv-cache-init:
+        condition: service_completed_successfully
     environment:
       HOME: /tmp
       TZ: 'America/Caracas'
@@ -18,17 +33,15 @@ services:
       - .:/app
       - uv-cache:/tmp/uv-cache
     working_dir: /app
-    cap_add:
-      - SYS_PTRACE
-    security_opt:
-      - seccomp:unconfined
-    command: bash -c "echo 'Contenedor QA Backend (Python) listo. Utilice docker compose run --rm qa-backend [comando]'; sleep infinity"
+    command: bash -c "echo 'Contenedor QA Backend (Python) listo. Utilice docker compose run --rm -T qa-backend [comando]'; sleep infinity"
 
   prometheus:
     image: prom/prometheus:v2.55.1
     container_name: python_prometheus
     hostname: python_prometheus
     pull_policy: if_not_present
+    security_opt:
+      - no-new-privileges:true
     profiles:
       - observability
     entrypoint:
@@ -59,6 +72,8 @@ services:
     container_name: python_pushgateway
     hostname: python_pushgateway
     pull_policy: if_not_present
+    security_opt:
+      - no-new-privileges:true
     profiles:
       - observability
     ports:
@@ -70,6 +85,8 @@ services:
     hostname: python_k6_smoke
     pull_policy: if_not_present
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    security_opt:
+      - no-new-privileges:true
     profiles:
       - load
     environment:

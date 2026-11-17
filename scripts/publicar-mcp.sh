@@ -16,7 +16,8 @@ fi
 DRY_RUN=false
 SKIP_TESTS=false
 CLI_OTP=""
-IMAGE_NAME="sinfallas/base-node-ionic:26"
+IMAGE_NAME="sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60"
+PY_IMAGE_NAME="sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4"
 NPM_REGISTRY="https://registry.npmjs.org/"
 
 # Procesar argumentos CLI
@@ -94,6 +95,31 @@ echo "  Versión:  ${PKG_VERSION}"
 echo "  Modo:     $([ "$DRY_RUN" = true ] && echo "🔍 Simulación (Dry-Run)" || echo "🌐 Publicación en Vivo")"
 echo "══════════════════════════════════════════════════════════════════════"
 
+read_dotenv_value() {
+  local key="$1"
+  local env_path="$2"
+  local raw_line raw_val first_char
+
+  raw_line="$(grep -E "^[[:space:]]*${key}=" "${env_path}" | head -n 1 || true)"
+  if [ -z "${raw_line}" ]; then
+    return 0
+  fi
+  raw_val="${raw_line#*=}"
+  raw_val="${raw_val#"${raw_val%%[![:space:]]*}"}"
+  first_char="${raw_val%"${raw_val#?}"}"
+  if [ "${first_char}" = '"' ]; then
+    raw_val="${raw_val#\"}"
+    raw_val="${raw_val%%\"*}"
+  elif [ "${first_char}" = "'" ]; then
+    raw_val="${raw_val#\'}"
+    raw_val="${raw_val%%\'*}"
+  else
+    raw_val="${raw_val%%#*}"
+    raw_val="${raw_val%"${raw_val##*[![:space:]]}"}"
+  fi
+  printf '%s' "${raw_val}"
+}
+
 # 2. Cargar token de autenticación desde .env en la raíz
 ENV_FILE="${REPO_ROOT}/.env"
 if [ -f "${ENV_FILE}" ]; then
@@ -103,15 +129,15 @@ if [ -f "${ENV_FILE}" ]; then
     chmod 600 "${ENV_FILE}"
   fi
   echo -e "\n📄 Cargando variables de autenticación desde .env..."
-  TOKEN_VAL=$(grep -E '^\s*NPM_TOKEN=' "${ENV_FILE}" | head -n 1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" | tr -d ' ' || true)
+  TOKEN_VAL="$(read_dotenv_value 'NPM_TOKEN' "${ENV_FILE}")"
   if [ -n "${TOKEN_VAL}" ]; then
     NPM_TOKEN="${TOKEN_VAL}"
   fi
-  REG_VAL=$(grep -E '^\s*NPM_REGISTRY=' "${ENV_FILE}" | head -n 1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" | tr -d ' ' || true)
+  REG_VAL="$(read_dotenv_value 'NPM_REGISTRY' "${ENV_FILE}")"
   if [ -n "${REG_VAL}" ]; then
     NPM_REGISTRY="${REG_VAL}"
   fi
-  OTP_VAL=$(grep -E '^\s*NPM_OTP=' "${ENV_FILE}" | head -n 1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" | tr -d ' ' || true)
+  OTP_VAL="$(read_dotenv_value 'NPM_OTP' "${ENV_FILE}")"
   if [ -n "${OTP_VAL}" ]; then
     NPM_OTP="${OTP_VAL}"
   fi
@@ -141,6 +167,11 @@ echo "🧹 [0/6] Saneando espacio de trabajo..."
 CURRENT_UID="$(id -u)"
 CURRENT_GID="$(id -g)"
 
+if [ -f "${REPO_ROOT}/.agents/scripts/bump_version_11x.py" ]; then
+  echo "🔢 [Pre-Check] Verificando paridad de versión SemVer (bump_version_11x.py --check)..."
+  docker run --rm --network none -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -v "${REPO_ROOT}:/repo:ro" -w /repo "${PY_IMAGE_NAME}" python3 .agents/scripts/bump_version_11x.py --check
+fi
+
 ensure_fresh_dist_before_pack() {
   local dist_entry="${MCP_DIR}/dist/index.js"
   local src_dir="${MCP_DIR}/src"
@@ -166,19 +197,20 @@ ensure_fresh_dist_before_pack() {
 }
 
 # 4. Paso 1: Hidratación de dependencias y Verificación de Calidad (Rule Zero)
+MCP_EXTRA_VOLS=()
+for dir in mobile-appium vibe-rescue .github; do
+  if [ -d "${REPO_ROOT}/${dir}" ]; then
+    MCP_EXTRA_VOLS+=(-v "${REPO_ROOT}/${dir}:/${dir}:ro")
+  fi
+done
+
 echo "🔍 [1/6] Verificando dependencias, Lint & Typecheck en Docker efímero..."
-docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" sh -c \
-  "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run lint && pnpm --silent run typecheck"
+docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "${MCP_DIR}:/app" ${MCP_EXTRA_VOLS[@]+"${MCP_EXTRA_VOLS[@]}"} -w /app "${IMAGE_NAME}" sh -c \
+  "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent; pnpm --silent run lint && pnpm --silent run typecheck"
 
 # 5. Paso 2: Pruebas Unitarias con Cobertura >= 95%
 if [ "$SKIP_TESTS" = false ]; then
   echo "🧪 [2/6] Ejecutando pruebas unitarias con cobertura en Docker efímero..."
-  MCP_EXTRA_VOLS=()
-  for dir in mobile-appium vibe-rescue .github; do
-    if [ -d "${REPO_ROOT}/${dir}" ]; then
-      MCP_EXTRA_VOLS+=(-v "${REPO_ROOT}/${dir}:/${dir}:ro")
-    fi
-  done
   docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "${MCP_DIR}:/app" ${MCP_EXTRA_VOLS[@]+"${MCP_EXTRA_VOLS[@]}"} -w /app "${IMAGE_NAME}" pnpm --silent run test:unit
 else
   echo "🧪 [2/6] Omitiendo pruebas unitarias (--skip-tests activado)."
@@ -188,9 +220,9 @@ fi
 echo "⚙️ [3/6] Compilando TypeScript a dist/..."
 docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run build
 
-# 7. Paso 4: Certificación E2E Real sobre stdio con mcp-server/example/
+# 7. Paso 4: Certificación E2E Real sobre stdio con mcp-server/example/ + verify-v2.sh
 echo "🎯 [4/6] Certificando 19 tools + 13 resources + quickstart + Clean-Room tarball..."
-docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e QA_BLUEPRINTS_LOCAL_PATH=/repo -e pnpm_config_manage_package_manager_versions=false -v "${REPO_ROOT}:/repo:ro" -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run test:example
+docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e QA_BLUEPRINTS_LOCAL_PATH=/repo -e pnpm_config_manage_package_manager_versions=false -v "${REPO_ROOT}:/repo:ro" -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" sh -c 'pnpm --silent run test:example && bash ./example/verify-v2.sh'
 
 # 8. Paso 5: Verificación explícita de compilación pre-pack y Auditoría de empaquetado (Dry-Run de npm pack)
 ensure_fresh_dist_before_pack
@@ -234,7 +266,7 @@ fi
 # Publicación real con inyección de token efímero en memoria y soporte interactivo 2FA/OTP
 ensure_fresh_dist_before_pack
 echo -e "\n🚀 Publicando ${PKG_NAME}@${PKG_VERSION} en npmjs.org..."
-echo "💡 Nota: Si su cuenta de npmjs requiere confirmación 2FA y el token no tiene 'Bypass 2FA',"
+echo "💡 Nota: Si su cuenta de npmjs requiere confirmación 2FA y el token no tiene \"Bypass 2FA\","
 echo "   abra la URL https://www.npmjs.com/auth/cli/... que aparecerá abajo en su navegador para autorizar."
 
 DOCKER_TTY_ARGS=()
@@ -242,20 +274,25 @@ if [ -t 0 ] && [ -t 1 ]; then
   DOCKER_TTY_ARGS=(-it)
 fi
 
+export NPM_TOKEN
+export NPM_OTP="${NPM_OTP:-}"
+export NPM_REGISTRY
+
 if ! docker run --rm ${DOCKER_TTY_ARGS[@]+"${DOCKER_TTY_ARGS[@]}"} \
   -u "${CURRENT_UID}:${CURRENT_GID}" \
   -e HOME=/tmp \
   -v "${MCP_DIR}:/app" \
   -w /app \
-  -e NPM_TOKEN="${NPM_TOKEN}" \
-  -e NPM_OTP="${NPM_OTP:-}" \
+  -e NPM_TOKEN \
+  -e NPM_OTP \
+  -e NPM_REGISTRY \
   "${IMAGE_NAME}" \
-  sh -c 'npm config set //registry.npmjs.org/:_authToken "${NPM_TOKEN}" && if [ -n "${NPM_OTP:-}" ]; then npm publish --access public --no-browser --otp="${NPM_OTP}"; else npm publish --access public --no-browser; fi'; then
+  sh -c 'reg_norm="${NPM_REGISTRY%/}/"; reg_key="//${reg_norm#http://}"; reg_key="//${reg_key#https://}"; reg_key="${reg_key#////}"; printf "//%s:_authToken=%s\nregistry=%s\n" "${reg_key}" "${NPM_TOKEN}" "${NPM_REGISTRY}" > /tmp/.npmrc && chmod 600 /tmp/.npmrc && trap "rm -f /tmp/.npmrc" EXIT && export NPM_CONFIG_USERCONFIG=/tmp/.npmrc && if [ -n "${NPM_OTP:-}" ]; then export NPM_CONFIG_OTP="${NPM_OTP}"; fi && npm publish --access public --no-browser --registry="${NPM_REGISTRY}"'; then
   echo -e "\n\e[31m❌ ERROR: No se completó la publicación en npmjs.org (posible requerimiento 2FA / EOTP).\e[0m" >&2
   echo "💡 Soluciones:" >&2
   echo "   1. Ejecute desde su terminal interactiva y abra en el navegador el enlace https://www.npmjs.com/auth/cli/... cuando aparezca." >&2
   echo "   2. Pase su código 2FA de 6 dígitos directamente: ./scripts/publicar-mcp.sh --skip-tests --otp 123456" >&2
-  echo "   3. O regenere su Granular Access Token en npmjs.com marcando la casilla '[x] Bypass two-factor authentication (2FA)'." >&2
+  echo "   3. O regenere su Granular Access Token en npmjs.com marcando la casilla \"[x] Bypass two-factor authentication (2FA)\"." >&2
   exit 1
 fi
 

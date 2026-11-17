@@ -34,11 +34,6 @@ const CODE_BLOCKERS = 'OPEN_BLOCKERS_EXCEEDED' as const;
 const CODE_CRITICALS = 'OPEN_CRITICALS_EXCEEDED' as const;
 const CODE_ESCAPES = 'QA_ESCAPES_EXCEEDED' as const;
 
-const SCHEMA_STRING = 'string' as const;
-const SCHEMA_NUMBER = 'number' as const;
-const SCHEMA_BOOLEAN = 'boolean' as const;
-const SCHEMA_OBJECT = 'object' as const;
-
 const MAX_FAILED_TESTS_REPORTED = 20;
 const MCP_SERVER_DIR_SUFFIX = `${path.sep}mcp-server`;
 
@@ -167,72 +162,10 @@ export interface ReleaseGateEvaluationResult {
   summary: string;
 }
 
-function strProp(description: string): { type: typeof SCHEMA_STRING; description: string } {
-  return { type: SCHEMA_STRING, description };
-}
-
-function numProp(description: string): { type: typeof SCHEMA_NUMBER; description: string } {
-  return { type: SCHEMA_NUMBER, description };
-}
-
-function boolProp(description: string): { type: typeof SCHEMA_BOOLEAN; description: string } {
-  return { type: SCHEMA_BOOLEAN, description };
-}
-
-export const EVALUATE_RELEASE_GATE_TOOL: Tool = {
+export const EVALUATE_RELEASE_GATE_TOOL: Pick<Tool, 'name' | 'description'> = {
   name: 'evaluate_release_gate',
   description:
     'Evaluates the multi-signal GO/NO_GO release readiness gate combining JUnit XML results (with anti-XXE defense), observability telemetry, and QA defects.',
-  inputSchema: {
-    type: SCHEMA_OBJECT,
-    properties: {
-      workspaceRoot: strProp('Workspace root for path containment (optional).'),
-      scope: {
-        type: SCHEMA_STRING,
-        enum: [SCOPE_FULL, SCOPE_SMOKE],
-        description: 'Evaluation scope: full (evaluates 3 signals) or smoke (returns SKIPPED).',
-      },
-      dryRun: boolProp('Informative mode by default (true). When false, NO_GO sets isError=true.'),
-      enforce: boolProp('Equivalent to dryRun=false when true.'),
-      timestamp: strProp('Optional ISO-8601 timestamp normalized to UTC (Z).'),
-      junitXmlPath: strProp('Relative path to JUnit XML report inside workspaceRoot.'),
-      junitXmlContent: strProp('Inline JUnit XML payload (alternative to junitXmlPath).'),
-      telemetryJsonPath: strProp('Relative path to observability telemetry JSON (OTel/Prometheus/Datadog/Grafana).'),
-      telemetry: {
-        type: SCHEMA_OBJECT,
-        description: 'Inline telemetry JSON snapshot (snake_case or camelCase).',
-      },
-      defectsJsonPath: strProp('Relative path to QA defects and escapes JSON.'),
-      defects: {
-        type: SCHEMA_OBJECT,
-        description: 'Inline defect summary JSON (open_blockers, open_criticals, qa_escapes).',
-      },
-      thresholds: {
-        type: SCHEMA_OBJECT,
-        description: 'Partial override of corporate release thresholds.',
-        properties: {
-          minPassRatePct: numProp('Minimum JUnit pass percentage (default 100).'),
-          maxErrorRatePct: numProp('Maximum error rate % (default 1.0).'),
-          maxP95Ms: numProp('Maximum p95 latency in ms (default 500).'),
-          maxP99Ms: numProp('Maximum p99 latency in ms (default 1000).'),
-          maxActiveIncidents: numProp('Maximum active incidents (default 0).'),
-          maxOpenBlockers: numProp('Maximum open blockers (default 0).'),
-          maxOpenCriticals: numProp('Maximum open criticals (default 0).'),
-          maxQaEscapes: numProp('Maximum QA escapes (default 0).'),
-        },
-        additionalProperties: false,
-      },
-      minPassRatePct: numProp('Direct override for minPassRatePct.'),
-      maxErrorRatePct: numProp('Direct override for maxErrorRatePct.'),
-      maxP95Ms: numProp('Direct override for maxP95Ms.'),
-      maxP99Ms: numProp('Direct override for maxP99Ms.'),
-      maxActiveIncidents: numProp('Direct override for maxActiveIncidents.'),
-      maxOpenBlockers: numProp('Direct override for maxOpenBlockers.'),
-      maxOpenCriticals: numProp('Direct override for maxOpenCriticals.'),
-      maxQaEscapes: numProp('Direct override for maxQaEscapes.'),
-    },
-    additionalProperties: false,
-  },
 };
 
 type JsonRecord = Record<string, unknown>;

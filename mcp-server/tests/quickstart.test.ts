@@ -468,6 +468,39 @@ describe('T5.1: Quickstart CLI & PR-Aware Composite GitHub Action', () => {
         const defaultOk = await runCli(['quickstart', '--dir', tmpDir, '--dry-run']);
         expect(defaultOk.exitCode).toBe(0);
         expect(logSpy).toHaveBeenCalled();
+
+        // --help y -h son estrictamente no destructivos en repo vacío
+        const helpTmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qa-qs-help-empty-'));
+        try {
+          const helpLogs: string[] = [];
+          const qsHelp = await runCli(['quickstart', '--help', helpTmpDir], {
+            cwd: helpTmpDir,
+            log: (m) => helpLogs.push(m),
+            errorLog: () => undefined,
+          });
+          expect(qsHelp.exitCode).toBe(0);
+          expect(helpLogs.join('\n')).toContain('quickstart');
+          expect(fs.readdirSync(helpTmpDir)).toEqual([]);
+        } finally {
+          fs.rmSync(helpTmpDir, { recursive: true, force: true });
+        }
+
+        // Plantilla workflow usa @v3 y actions/checkout@v5.1.0 pineado
+        const workflowTmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qa-qs-v3-'));
+        try {
+          const realQs = await runQuickstart({ dir: workflowTmpDir, ci: 'github' });
+          expect(realQs.dryRun).toBe(false);
+          const workflowText = fs.readFileSync(
+            path.join(workflowTmpDir, '.github/workflows/qa-11x-pr.yml'),
+            'utf8'
+          );
+          expect(workflowText).toContain('qa-11x-pr-check@v3 # sec-ci-action-ref-ok');
+          expect(workflowText).toContain(
+            'actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v5.1.0'
+          );
+        } finally {
+          fs.rmSync(workflowTmpDir, { recursive: true, force: true });
+        }
       } finally {
         errSpy.mockRestore();
         logSpy.mockRestore();

@@ -14,6 +14,7 @@ import { fetchBlueprintBundle } from '../src/tools/fetch-bundle.js';
 import { bootstrapOrMerge11x } from '../src/tools/bootstrap-merge.js';
 import {
   GRAPHIFY_DOCKER_IMAGE,
+  type GraphifyBuilderOptions,
   defaultGraphifyBuilder,
   inspectAstBlastRadius,
 } from '../src/tools/blast-radius.js';
@@ -55,7 +56,15 @@ import {
   initOrAppendAgentsMd as runToolInitAgentsMd,
 } from '../src/tools/initOrAppendAgentsMd.js';
 import { runInstallSkillCli } from '../src/cli/install-skill.js';
-import { attachPromptGuard, createConfiguredMcpServer, main } from '../src/index.js';
+import { runCli } from '../src/cli.js';
+import { parseReconcileAgentsArgs, runReconcileAgentsCli } from '../src/cli/reconcile-agents.js';
+import {
+  CLI_HELP_TEXT,
+  attachPromptGuard,
+  createConfiguredMcpServer,
+  main,
+  resolveToolExecutionOptions,
+} from '../src/index.js';
 import { TaskStateGuard } from '../src/utils/taskStateGuard.js';
 import {
   attachDispatcherTracking,
@@ -294,7 +303,7 @@ describe('Tools and Resources Integration Suite', () => {
       expect(firstFile?.size_bytes).toBeGreaterThan(0);
       expect(firstFile?.sha256_verified).toBe(true);
       expect(firstFile?.cached_path).toBeDefined();
-      expect(firstFile?.cached_path).toContain('files');
+      expect(firstFile?.cached_path).toBe(path.join(localRepoDir, 'python', 'Makefile.example'));
     });
   });
 
@@ -514,18 +523,33 @@ describe('Tools and Resources Integration Suite', () => {
         { mode: 0o755 }
       );
 
-      const dockerCalls: Array<{ cmd: string; args: readonly string[]; cwd?: string }> = [];
-      const mockDockerExec = ((cmd: string, args: readonly string[], opts?: { cwd?: string }) => {
-        dockerCalls.push({ cmd, args, cwd: opts?.cwd });
-        return Buffer.from('');
+      const dockerCalls: Array<{
+        cmd: string;
+        args: readonly string[];
+        cwd?: string;
+        signal?: AbortSignal;
+      }> = [];
+      const mockDockerExec = ((
+        cmd: string,
+        args: readonly string[],
+        opts: { cwd?: string; signal?: AbortSignal } | undefined,
+        cb: (err: Error | null, stdout?: string, stderr?: string) => void
+      ) => {
+        dockerCalls.push({ cmd, args, cwd: opts?.cwd, signal: opts?.signal });
+        cb(null, '', '');
       }) as unknown as Parameters<typeof defaultGraphifyBuilder>[1];
 
       const realFreshDir = fs.realpathSync(freshDir);
       const uid = typeof process.getuid === 'function' ? process.getuid() : 1000;
       const gid = typeof process.getgid === 'function' ? process.getgid() : 1000;
 
-      expect(defaultGraphifyBuilder(freshDir, mockDockerExec)).toBe(true);
-      expect(dockerCalls).toHaveLength(1);
+      const controller = new AbortController();
+      const execFileFn = mockDockerExec as unknown as NonNullable<GraphifyBuilderOptions['execFileFn']>;
+      expect(await defaultGraphifyBuilder(freshDir, mockDockerExec, controller.signal)).toBe(true);
+      expect(await defaultGraphifyBuilder(freshDir, { execFileFn, signal: controller.signal })).toBe(true);
+      expect(await defaultGraphifyBuilder(freshDir, { execFileFn }, controller.signal)).toBe(true);
+      expect(await defaultGraphifyBuilder('/etc', {})).toBe(false);
+      expect(dockerCalls).toHaveLength(3);
       const firstDockerCall = dockerCalls[0];
       expect(firstDockerCall).toBeDefined();
       if (!firstDockerCall) {
@@ -533,6 +557,7 @@ describe('Tools and Resources Integration Suite', () => {
       }
       expect(firstDockerCall.cmd).toBe('docker');
       expect(firstDockerCall.cmd).not.toBe('bash');
+      expect(firstDockerCall.signal).toBe(controller.signal);
       expect(firstDockerCall.args).toContain('--network');
       expect(firstDockerCall.args).toContain('none');
       expect(firstDockerCall.args).toContain(`${uid}:${gid}`);
@@ -541,11 +566,29 @@ describe('Tools and Resources Integration Suite', () => {
       expect(firstDockerCall.args).toContain(`${path.join(realFreshDir, 'graphify-out')}:/app/graphify-out`);
       expect(firstDockerCall.args).toContain(GRAPHIFY_DOCKER_IMAGE);
 
+      // Si AbortSignal ya está abortada, aborta sin ejecutar docker
+      const abortedController = new AbortController();
+      abortedController.abort(new Error('timeout abort'));
+      const abortedNoCall = vi.fn();
+      expect(
+        await defaultGraphifyBuilder(
+          freshDir,
+          abortedNoCall as unknown as Parameters<typeof defaultGraphifyBuilder>[1],
+          abortedController.signal
+        )
+      ).toBe(false);
+      expect(abortedNoCall).not.toHaveBeenCalled();
+
       // Si docker falla, retorna false de forma segura
-      const throwingDockerExec = (() => {
-        throw new Error('docker unavailable');
+      const throwingDockerExec = ((
+        _cmd: string,
+        _args: readonly string[],
+        _opts: unknown,
+        cb: (err: Error | null) => void
+      ) => {
+        cb(new Error('docker unavailable'));
       }) as unknown as Parameters<typeof defaultGraphifyBuilder>[1];
-      expect(defaultGraphifyBuilder(freshDir, throwingDockerExec)).toBe(false);
+      expect(await defaultGraphifyBuilder(freshDir, throwingDockerExec)).toBe(false);
 
       // Cubre fallback uid/gid = 1000 cuando process.getuid/getgid no están disponibles (Windows)
       const origGetuid = process.getuid;
@@ -555,9 +598,14 @@ describe('Tools and Resources Integration Suite', () => {
       try {
         const winCalls: Array<{ args: readonly string[] }> = [];
         expect(
-          defaultGraphifyBuilder(freshDir, ((_c: string, args: readonly string[]) => {
+          await defaultGraphifyBuilder(freshDir, ((
+            _c: string,
+            args: readonly string[],
+            _opts: unknown,
+            cb: (err: Error | null, stdout?: string, stderr?: string) => void
+          ) => {
             winCalls.push({ args });
-            return Buffer.from('');
+            cb(null, '', '');
           }) as unknown as Parameters<typeof defaultGraphifyBuilder>[1])
         ).toBe(true);
         expect(winCalls[0]?.args).toContain('1000:1000');
@@ -579,10 +627,10 @@ describe('Tools and Resources Integration Suite', () => {
       // Si se pasa ruta prohibida o inexistente, retorna false sin invocar docker
       const noCallSpy = vi.fn();
       expect(
-        defaultGraphifyBuilder('/etc', noCallSpy as unknown as Parameters<typeof defaultGraphifyBuilder>[1])
+        await defaultGraphifyBuilder('/etc', noCallSpy as unknown as Parameters<typeof defaultGraphifyBuilder>[1])
       ).toBe(false);
       expect(
-        defaultGraphifyBuilder(
+        await defaultGraphifyBuilder(
           path.join(tmpDir, 'nonexistent-builder-dir'),
           noCallSpy as unknown as Parameters<typeof defaultGraphifyBuilder>[1]
         )
@@ -2158,6 +2206,108 @@ describe('Tools and Resources Integration Suite', () => {
 
         await main(['--version']);
         expect(exitSpy).toHaveBeenCalledWith(0);
+
+        // 7. resolveToolExecutionOptions, ayuda --help no destructiva, --dry-run en install-skill y antigravity/skills sync
+        const qaOpts = resolveToolExecutionOptions('run_ephemeral_qa', { timeout_seconds: 1200 }, 1000);
+        expect(qaOpts.timeoutMs).toBe(900_000);
+        expect(qaOpts.taskId?.startsWith('run_ephemeral_qa-1000-')).toBe(true);
+
+        const qaMinOpts = resolveToolExecutionOptions('run_ephemeral_qa', { timeout_seconds: 0.2 }, 1000);
+        expect(qaMinOpts.timeoutMs).toBe(1000);
+        expect(resolveToolExecutionOptions('run_ephemeral_qa', { timeout_seconds: 0 }, 1000).timeoutMs).toBe(300_000);
+        expect(resolveToolExecutionOptions('run_ephemeral_qa', { timeout_seconds: 'invalid' }, 1000).timeoutMs).toBe(300_000);
+
+        const qaIdA = resolveToolExecutionOptions('run_ephemeral_qa', {}, 1000).taskId;
+        const qaIdB = resolveToolExecutionOptions('run_ephemeral_qa', {}, 1000).taskId;
+        expect(qaIdA).not.toBe(qaIdB);
+
+        expect(
+          resolveToolExecutionOptions('evaluate_agent_trajectory', { mode: 'live' }).timeoutMs
+        ).toBe(185_000);
+        expect(
+          resolveToolExecutionOptions('run_llm_red_team', { timeoutMs: 240_000 }).timeoutMs
+        ).toBe(240_000);
+        expect(resolveToolExecutionOptions('certify_11x_gate', {}).profile).toBe('heavy_transfer');
+        expect(resolveToolExecutionOptions('fetch_blueprint_bundle', {}).profile).toBe('heavy_transfer');
+        expect(resolveToolExecutionOptions('bootstrap_or_merge_11x', {}).profile).toBe('heavy_transfer');
+
+        expect(CLI_HELP_TEXT).toContain('antigravity | claude-code | cursor | windsurf');
+        expect(CLI_HELP_TEXT).not.toContain('--agents <target>        auto | all | workspace');
+
+        // Subcomandos con --help/-h no escriben ni llaman a red
+        const helpSandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'qa-cli-help-sandbox-'));
+        try {
+          for (const subArgs of [
+            ['quickstart', '--help', helpSandbox],
+            ['install-skill', '--help', helpSandbox],
+            ['init-agents', '-h', helpSandbox],
+            ['reconcile-agents', '--help', helpSandbox],
+            ['tms-sync', '--help'],
+          ]) {
+            const outLines: string[] = [];
+            const helpRes = await runCli(subArgs, {
+              cwd: helpSandbox,
+              log: (m) => outLines.push(m),
+              errorLog: () => undefined,
+            });
+            expect(helpRes.exitCode).toBe(0);
+            expect(outLines.join('\n').length).toBeGreaterThan(20);
+          }
+          expect(fs.readdirSync(helpSandbox)).toEqual([]);
+
+          // reconcile-agents e install-skill rechazan flags desconocidos explícitamente
+          expect(() => parseReconcileAgentsArgs(['--unknown-flag'])).toThrow(/Opción CLI desconocida/);
+          await expect(runInstallSkillCli(['--unknown-flag'])).rejects.toThrow(/Opción CLI desconocida/);
+          await expect(runReconcileAgentsCli(['--unknown-flag'])).rejects.toThrow(/Opción CLI desconocida/);
+
+          // install-skill --dry-run simula sin escribir en HOME ni workspace; sin dry-run sincroniza .gemini/antigravity/skills si existe
+          const skillSandboxHome = fs.mkdtempSync(path.join(os.tmpdir(), 'qa-skill-home-'));
+          const prevHomeEnv = process.env.HOME;
+          const prevCwdCli = process.cwd();
+          try {
+            process.env.HOME = skillSandboxHome;
+            fs.mkdirSync(path.join(skillSandboxHome, '.gemini', 'antigravity'), { recursive: true });
+            const drySkillFetcher = new GitHubFetcher({ cacheDir: path.join(skillSandboxHome, 'c') });
+            const dryManifestSpy = vi.spyOn(drySkillFetcher, 'fetchManifest').mockResolvedValue({
+              ...mockManifest,
+              agent_governance_files: [
+                {
+                  path: '.agents/skills/qa-11x-architect/SKILL.md',
+                  target_name: '.agents/skills/qa-11x-architect/SKILL.md',
+                  merge_strategy: 'overwrite',
+                  sha256: 'abc',
+                  size_bytes: 10,
+                },
+              ],
+            });
+            const dryFetchSpy = vi.spyOn(drySkillFetcher, 'fetchFileContent').mockResolvedValue('# Dry Skill');
+            process.chdir(helpSandbox);
+            await runInstallSkillCli(['--target=auto', '--dry-run'], drySkillFetcher);
+            expect(dryFetchSpy).not.toHaveBeenCalled();
+            expect(fs.existsSync(path.join(skillSandboxHome, '.gemini', 'config', 'skills'))).toBe(false);
+
+            await runInstallSkillCli(['--target=antigravity'], drySkillFetcher);
+            expect(dryManifestSpy).toHaveBeenCalled();
+            expect(
+              fs.existsSync(
+                path.join(
+                  skillSandboxHome,
+                  '.gemini',
+                  'antigravity',
+                  'skills',
+                  'qa-11x-architect',
+                  'SKILL.md'
+                )
+              )
+            ).toBe(true);
+          } finally {
+            process.chdir(prevCwdCli);
+            process.env.HOME = prevHomeEnv;
+            fs.rmSync(skillSandboxHome, { recursive: true, force: true });
+          }
+        } finally {
+          fs.rmSync(helpSandbox, { recursive: true, force: true });
+        }
       } finally {
         exitSpy.mockRestore();
         stderrSpy.mockRestore();

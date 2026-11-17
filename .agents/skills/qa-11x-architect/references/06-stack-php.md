@@ -1,7 +1,6 @@
 # 🐘 PHP 8.2–8.5 Stack Reference (`sinfallas/basephpcomposer` — Standard 11X)
 
-> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:**
-> Unless target `AGENTS.md` mandates a fixed language, interact in the **user's prompt language**; human docs use EN canonical (`*.md`) + 1:1 ES mirror (`*.es.md`) (matching `README.md`/`CHANGELOG.md` in consumer repos, defaulting to prompt language if empty); `.agents/**` stays concise English.
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Respond in **user's prompt language** (unless `AGENTS.md` fixes it); docs/commits match `README.md`/`CHANGELOG.md` (Spec 19; `.agents/**` English).
 
 This reference provides the technical directives, hardened container/INI blueprints, and ephemeral Docker commands for PHP 8.2–8.5 APIs, microservices, and enterprise applications (Symfony, Laravel, Slim, or standalone PHP).
 
@@ -15,10 +14,10 @@ All execution MUST occur inside ephemeral Docker containers (`Rule Zero`) using 
 | :--- | :--- | :--- | :--- |
 | **PHP API / Test Runner** | `sinfallas/basephpcomposer:8.5` | Non-root `www` (`1000:1000`) | Pest/PHPUnit + PCOV, PHPStan, Psalm, PHP-CS-Fixer, Infection |
 | **Relational Database** | `postgres:17-alpine` | `5432:5432` | Real PostgreSQL schema parity, `FORCE RLS`, Doctrine/Laravel migrations |
-| **In-Memory Store & Cache** | `eqalpha/keydb:alpine` | `6379:6379` | Multi-threaded KeyDB (`--server-threads 2`) via C `ext-redis` |
-| **Black-Box REST / HTTP BDD** | `sinfallas/karatelabs:1.5.1` (`:latest`) | Target: `http://qa-php:8000` | Gherkin HTTP, OpenAPI & OWASP OSHP checks (`test/api_test.feature`) |
-| **Dynamic Security (DAST)** | `zaproxy/zap-stable:latest` | Target: `http://qa-php:8000` | OWASP ZAP Baseline & OSHP header verification |
-| **Chaos Injection** | `gaiaadm/pumba:latest` | Docker Socket | Network latency (`netem`), jitter, and packet loss |
+| **In-Memory Store & Cache** | `eqalpha/keydb:6.3.4` | `6379:6379` | Multi-threaded KeyDB (`--server-threads 2`) via C `ext-redis` |
+| **Black-Box REST / HTTP BDD** | `sinfallas/karatelabs:1.5.1` | Target: `http://qa-php:8000` | Gherkin HTTP, OpenAPI & OWASP OSHP checks (`test/api_test.feature`) |
+| **Dynamic Security (DAST)** | `zaproxy/zap-stable:2.15.0` | Target: `http://qa-php:8000` | OWASP ZAP Baseline & OSHP header verification |
+| **Chaos Injection** | `gaiaadm/pumba:0.10.1` | Docker Socket | Network latency (`netem`), jitter, and packet loss |
 
 ---
 
@@ -116,25 +115,25 @@ parameters:
 .PHONY: qa-lint qa-unit qa-parity qa-bdd qa-mutation qa-sbom qa-all clean
 
 qa-lint:
-	docker compose -f docker-compose.qa.yml run --rm qa-php composer qa:lint
+	docker compose -f docker-compose.qa.yml run --rm -T qa-php composer qa:lint
 
 qa-unit:
-	docker compose -f docker-compose.qa.yml run --rm qa-php composer qa:unit
+	docker compose -f docker-compose.qa.yml run --rm -T qa-php composer qa:unit
 
 qa-parity:
-	docker compose -f docker-compose.qa.yml run --rm qa-php php bin/console doctrine:schema:validate
+	docker compose -f docker-compose.qa.yml run --rm -T qa-php php bin/console doctrine:schema:validate
 
 qa-bdd:
-	docker compose -f docker-compose.qa.yml run --rm karatelabs mvn test -Dkarate.options="test/api_test.feature"
+	docker compose -f docker-compose.qa.yml run --rm -T karatelabs mvn test -Dkarate.options="test/api_test.feature"
 
 qa-mutation:
-	docker compose -f docker-compose.qa.yml run --rm qa-php composer qa:mutation
+	docker compose -f docker-compose.qa.yml run --rm -T qa-php composer qa:mutation
 
 qa-sbom:
-	docker compose -f docker-compose.qa.yml run --rm qa-php composer qa:sbom
+	docker compose -f docker-compose.qa.yml run --rm -T qa-php composer qa:sbom
 
 qa-all: qa-lint qa-unit qa-parity qa-bdd qa-mutation
 
 clean:
-	@./limpieza.sh
+	@./scripts/limpieza.sh  # (or @./limpieza.sh inside hydrated stack)
 ```

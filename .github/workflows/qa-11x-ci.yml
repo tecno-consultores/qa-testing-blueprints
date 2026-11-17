@@ -28,7 +28,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
-          fetch-depth: 2
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Validate workflows, docs, version & CALM architecture
@@ -47,4 +47,23 @@ jobs:
         run: make test-karate
 
       - name: Verify differential coverage & 10-stage certification gate
-        run: make diff-cov && make certify
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          DIFF_ARGS=(--workspace /app --reports-dir .agents/.cache/coverage)
+          if [ "${EVENT_NAME}" = "pull_request" ] && [ -n "${BASE_REF}" ] && git rev-parse --verify "origin/${BASE_REF}" >/dev/null 2>&1; then
+            DIFF_ARGS+=(--base-ref "origin/${BASE_REF}")
+          elif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+            DIFF_ARGS+=(--base-ref "HEAD~1")
+          fi
+          docker run --rm --network none \
+            -u "$(id -u):$(id -g)" \
+            -e HOME=/tmp \
+            -e PYTHONDONTWRITEBYTECODE=1 \
+            -v "$(pwd):/app:ro" \
+            -w /app \
+            sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 \
+            python3 .agents/scripts/verify_diff_coverage.py "${DIFF_ARGS[@]}"
+          make certify

@@ -109,6 +109,7 @@ export class HealingTelemetryCollector {
 
 export interface SemanticResolutionOptions {
   readonly telemetry?: HealingTelemetryCollector;
+  readonly allowBusy?: boolean;
 }
 
 export interface SemanticResolutionResult<TRef = unknown> {
@@ -190,8 +191,22 @@ export function isVueTeleportPortal(candidate: DomCandidateNode<unknown>): boole
   return landmark === 'dialog' && (role === 'dialog' || role === 'alertdialog');
 }
 
-function isEligibleNode<TRef>(candidate: DomCandidateNode<TRef>): boolean {
-  if (!candidate.visible) {
+function isDisabledCandidate<TRef>(candidate: DomCandidateNode<TRef>): boolean {
+  const disabledAttr = candidate.attributes['disabled'];
+  return (
+    (disabledAttr !== undefined && disabledAttr !== 'false') ||
+    candidate.attributes['aria-disabled'] === 'true'
+  );
+}
+
+function isEligibleNode<TRef>(
+  candidate: DomCandidateNode<TRef>,
+  options?: SemanticResolutionOptions,
+): boolean {
+  if (!candidate.visible || isDisabledCandidate(candidate)) {
+    return false;
+  }
+  if (options?.allowBusy !== true && candidate.attributes['aria-busy'] === 'true') {
     return false;
   }
   if (candidate.bounds === undefined) {
@@ -386,7 +401,7 @@ export function resolveSemanticLocator<TRef>(
 ): SemanticResolutionResult<TRef> {
   const scored: ScoredCandidate<TRef>[] = [];
   for (const candidate of candidates) {
-    if (!isEligibleNode(candidate)) {
+    if (!isEligibleNode(candidate, options)) {
       continue;
     }
     const result = scoreCandidate(target, candidate);

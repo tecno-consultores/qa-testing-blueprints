@@ -12,7 +12,7 @@ deps =
 commands =
     ruff check src/ tests/
     ruff format --check src/ tests/
-    mypy --strict src/
+    mypy --strict --cache-dir=/tmp/mypy src/
     python -c "import subprocess, sys; out = subprocess.check_output(['radon', 'cc', '--min', 'B', 'src/'], text=True).strip(); sys.exit('Complejidad > Grado A:\n' + out if out else 0)"
     python -c "import subprocess, sys; out = subprocess.check_output(['radon', 'mi', '--min', 'B', 'src/'], text=True).strip(); sys.exit('Mantenibilidad < Grado A:\n' + out if out else 0)"
     pip-audit

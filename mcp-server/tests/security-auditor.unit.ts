@@ -261,11 +261,13 @@ app = FastAPI(title="Mi API")
   it('detecta violación SEC-10 (Secretos o claves privadas hardcodeadas)', async () => {
     fs.writeFileSync(
       path.join(tempDir, 'keys.py'),
-      `
-TOKEN = "ghp_123456789012345678901234567890123456"
-PRIVATE_KEY = "-----BEGIN RSA PRIVATE KEY-----\\nMIIEowIBAAKCAQEA..."
-password = "SuperSecretPassword123!"
-      `
+      [
+        '',
+        'TOKEN = "ghp_123456789012345678901234567890123456"', // qa-secret-fixture-ok
+        'PRIVATE_KEY = "-----BEGIN RSA PRIVATE KEY-----\\nMIIEowIBAAKCAQEA..."', // qa-secret-fixture-ok
+        'password = "SuperSecretPassword123!"',
+        '      ',
+      ].join('\n')
     );
 
     const result = await auditSecurityStigOwasp(tempDir);
@@ -1101,6 +1103,36 @@ docker exec -e ROSGRID_ADMIN_PASSWORD="\${LOCAL_ADMIN_PASS}" api pytest tests/co
       } finally {
         for (const f of lockedFiles) fs.chmodSync(f, 0o600);
       }
+    });
+
+    it('soporta includeExamples=true para auditar plantillas *.example bajo demanda sin afectar el default', async () => {
+      const exDir = path.join(tempDir, 'examples-scan');
+      fs.mkdirSync(exDir, { recursive: true });
+      fs.writeFileSync(path.join(exDir, 'pyproject.toml'), '[project]\nname = "ex-app"\n', 'utf8');
+      fs.writeFileSync(
+        path.join(exDir, 'package.json.example'),
+        JSON.stringify({ name: 'ex-pkg' }),
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(exDir, 'main.py.example'),
+        'eval("1 + 1")\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(exDir, 'Dockerfile.example'),
+        'FROM python:3.13-slim\nRUN pip install fastapi\n',
+        'utf8'
+      );
+
+      const defaultAudit = await auditSecurityStigOwasp(exDir);
+      expect(defaultAudit.total_files_scanned).toBe(0);
+      expect(defaultAudit.findings.some((f) => f.rule_id === 'QA-DOCKER-LOCK-01')).toBe(false);
+
+      const withExamples = await auditSecurityStigOwasp(exDir, { includeExamples: true });
+      expect(withExamples.total_files_scanned).toBe(2);
+      expect(withExamples.findings.some((f) => f.rule_id === 'SEC-03')).toBe(true);
+      expect(withExamples.findings.some((f) => f.rule_id === 'QA-DOCKER-LOCK-01')).toBe(true);
     });
   });
 });

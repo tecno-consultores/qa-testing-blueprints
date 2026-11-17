@@ -12,10 +12,10 @@
 *   Para pruebas BDD de caja negra: `sinfallas/karatelabs:1.5.1`.
 *   Para Seguridad Dinámica (DAST): `zaproxy/zap-stable:2.15.0`.
 *   Para Ingeniería del Caos y Observabilidad: `gaiaadm/pumba:0.10.1` y `prom/prometheus:v2.55.1`.
-*   Para Optimización de Contexto IA (MCP): `sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0`.
+*   Para Extracción Efímera de Grafo AST (Graphify CLI): `sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0`.
 
-**Gestor de Paquetes y Zero-Trust:** Nuestra imagen base reemplaza `npm` por `pnpm`. La instalación en contenedor bloquea automáticamente la ejecución de scripts maliciosos de terceros (gracias a `ignore-scripts=true` en el `.npmrc`).
-**Obligatorio:** Utiliza las metas de ejecución limpias (ej. `make qa-unit`) para aislar la infraestructura y re-utilizar la caché de dependencias (`pnpm-store`). El contenedor tiene el privilegio `SYS_PTRACE` activo para inyectar *profilers* de memoria.
+**Gestor de Paquetes y Zero-Trust:** Nuestra imagen base reemplaza `npm` por `pnpm` v12 (`ignore-scripts=true` en `.npmrc` y confianza de compilación en `pnpm-workspace.yaml#allowBuilds`).
+**Obligatorio:** Utiliza las metas de ejecución limpias (ej. `make qa-unit`) para aislar infraestructura, ejecutar sin root con `no-new-privileges:true` y reutilizar la caché (`pnpm-store`).
 
 ## 2. Pila Tecnológica y Separación de Responsabilidades
 
@@ -54,7 +54,7 @@
 *   **Regla:** Ejecutado exclusivamente mediante el perfil `--profile chaos`. Pumba inyectará 500ms de latencia de red impredecible sobre el contenedor de Node.js, mientras `Artillery` inyecta oleadas de usuarios concurrentes y Prometheus extrae las métricas. Certifica que la arquitectura no colapsa ni entra en *timeout* permanente cuando la red falla.
 
 ### I. Ingestión Inteligente (Paso 0 - AST Graphify `CLI-First`)
-*   **Regla (Exclusiva para ti, IA):** Tienes estrictamente prohibido generar código o pruebas a ciegas. Tu primer paso debe ser actualizar e inspeccionar el grafo AST mediante CLI (`./scripts/actualizar-grafos-graphify.sh node-backend` y `python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"`, o la tool MCP `inspect_ast_blast_radius`) sin levantar demonios de fondo que ocupen el puerto `8080`. Además, DEBES leer silenciosamente los lineamientos de dependencias, formato y linters definidos en `package.json`, `eslint.config.mjs`, `.prettierrc` y `tsconfig.json` para adaptar tu código a las convenciones estrictas del repositorio y evitar rechazos en el CI/CD.
+*   **Regla (Exclusiva para ti, IA):** Tienes estrictamente prohibido generar código o pruebas a ciegas. Tu primer paso debe ser actualizar e inspeccionar el grafo AST mediante CLI (`./scripts/actualizar-grafos-graphify.sh node-backend` y `python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"`, o la tool MCP `inspect_ast_blast_radius`) sin levantar demonios de fondo que ocupen el puerto `8080`. Además, DEBES leer silenciosamente los lineamientos de dependencias, formato y linters definidos en `package.json`, `eslint.config.mjs`, `.prettierrc`, `tsconfig.json` y `tsconfig.build.json` para adaptar tu código a las convenciones estrictas del repositorio y evitar rechazos en el CI/CD.
 
 ### J. Seguridad por Diseño Obligatoria (DISA ASD STIG V6R5 & OWASP Developer Guide v4.2)
 *   Al programar o auditar microservicios en Node.js/TypeScript, DEBES aplicar y probar los controles de **[`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md`](../docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md)**:
@@ -107,12 +107,12 @@ make qa-e2e
 
 *   **Seguridad Dinámica DAST (OWASP ZAP):**
 ```bash
-docker compose -f docker-compose.qa.yml run --rm zap zap-baseline.py -t http://api:3000 -r zap-report.html
+make qa-dast
 ```
 
 *   **Profiling Acumulativo (Flamegraph de CPU):**
 ```bash
-docker compose -f docker-compose.qa.yml run --rm qa-node-backend bash -c "pnpm install && pnpm run profile:cpu"
+docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-node-backend bash -c "pnpm run profile:cpu"
 ```
 
 **Paso 3: Certificación de Nivel 11X (Ingeniería del Caos y Observabilidad)**

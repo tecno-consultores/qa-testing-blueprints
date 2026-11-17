@@ -1,27 +1,30 @@
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
-"""Fidelidad tabular PDF + OCR Tesseract con Decimal y suite golden_from_traces."""
+"""Fidelidad tabular PDF + OCR Tesseract con Decimal."""
 
 from __future__ import annotations
 
-import json
 import os
+import sys
 from collections.abc import Mapping, Sequence
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-import golden_from_traces
 import pytesseract  # type: ignore[import-untyped]
 import pytest
-import yaml  # type: ignore[import-untyped]
 from deepeval.evaluate import assert_test
 from deepeval.metrics import BaseMetric, FaithfulnessMetric, HallucinationMetric
 from deepeval.models import LocalModel, OpenAIModel
-from deepeval.models.base_model import DeepEvalBaseLLM
 from deepeval.test_case import LLMTestCase
 from PIL import Image, ImageDraw, ImageFont
 from pydantic import BaseModel, ConfigDict, Field
 from pypdf import PdfReader
+
+_AI_EVALS_ROOT = str(Path(__file__).resolve().parents[1])
+if _AI_EVALS_ROOT not in sys.path:
+    sys.path.insert(0, _AI_EVALS_ROOT)
+
+from _llm_judge import resolve_deepeval_judge_model  # noqa: E402
 
 SAMPLE_TABLE_LINES: tuple[str, ...] = (
     "CODE | CONCEPT | SUBTOTAL",
@@ -279,23 +282,6 @@ def evaluate_table_extraction_fidelity(
     return result, case
 
 
-def _resolve_ocr_judge_model(env: Mapping[str, str] | None = None) -> DeepEvalBaseLLM:
-    active = os.environ if env is None else env
-    if active.get("OPENAI_API_KEY"):
-        return OpenAIModel(
-            model=active.get("QA_LLM_MODEL", "gpt-4.1-mini"),
-            api_key=active["OPENAI_API_KEY"],
-        )
-    base_url = active.get("OLLAMA_BASE_URL") or active.get("OPENAI_API_BASE")
-    if base_url:
-        return LocalModel(
-            model=active.get("QA_LLM_MODEL", "qwen3:8b"),
-            base_url=base_url,
-            api_key=active.get("OPENAI_API_KEY", "ephemeral-local-key"),
-        )
-    raise RuntimeError("MISSING_LLM_CREDENTIALS")
-
-
 def test_offline_pdf_table_extraction_fidelity(tmp_path: Path) -> None:
     pdf_path = write_synthetic_table_pdf(
         tmp_path / "invoice_table.pdf", SAMPLE_TABLE_LINES
@@ -361,123 +347,18 @@ def test_offline_table_negative_mutations() -> None:
     assert any("total declarado ausente" in v for v in empty_res.violations)
 
 
-def test_golden_from_traces_filtering_dedup_and_redaction(tmp_path: Path) -> None:
-    sk_secret = "sk-" + ("A" * 20)
-    ghp_secret = "ghp_" + ("B" * 20)
-    jsonl_path = tmp_path / "traces.jsonl"
-    records = [
-        {
-            "input": "Consulta verde sin regresiones",
-            "actual_output": "OK",
-            "passed": True,
-            "score": 0.99,
-        },
-        {
-            "input": f"  Consulta   con secreto {sk_secret} y correo qa@empresa.com  ",
-            "actual_output": f"Bearer {ghp_secret} en https://admin:clave123@db.local/api",
-            "expected_output": "No exponer secretos ni PII.",
-            "retrieval_context": [f"Contexto con {'to' + 'ken'}=valor_prueba_12345"],
-            "passed": False,
-            "domain": "rag",
-        },
-        {
-            "input": f"consulta con secreto {sk_secret} y correo qa@empresa.com",
-            "actual_output": "duplicado normalizado",
-            "status": "error",
-            "domain": "rag",
-        },
-        {
-            "prompt": "Validar latencia voice websocket",
-            "output": "TTFB=650ms",
-            "score": 0.72,
-            "threshold": 0.90,
-            "retrieval_context": "SLA <= 500ms",
-            "domain": "voice",
-        },
-    ]
-    jsonl_path.write_text(
-        "\n".join(json.dumps(item) for item in records) + "\n", encoding="utf-8"
-    )
-
-    out_json = tmp_path / "out" / "goldens.json"
-    out_yaml = tmp_path / "out" / "promptfoo_goldens.yaml"
-    json_str = golden_from_traces.export_golden_dataset(
-        jsonl_path, out_json, output_format="json", allowed_roots=(tmp_path,)
-    )
-    yaml_str = golden_from_traces.export_golden_dataset(
-        jsonl_path, out_yaml, output_format="yaml", allowed_roots=(tmp_path,)
-    )
-
-    exported_json = json.loads(json_str)
-    assert len(exported_json) == 2
-    assert sk_secret not in json_str
-    assert ghp_secret not in json_str
-    assert "clave123" not in json_str
-    assert "qa@empresa.com" not in json_str
-    assert "[REDACTED_SECRET]" in json_str
-    assert "[REDACTED_PII]" in json_str
-
-    parsed_yaml = yaml.safe_load(yaml_str)
-    assert len(parsed_yaml["tests"]) == 2
-    assert out_json.is_file() and out_yaml.is_file()
-
-
-def test_golden_from_traces_allure_json_cli_and_security_guards(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    allure_failure = {
-        "name": "gate-10-Doc & Test Sync",
-        "status": "failed",
-        "command": f"bash certify.sh --{'to' + 'ken'}=valor_cli_prueba",
-        "remediation": "Actualizar CHANGELOG.md",
-        "statusDetails": {
-            "message": "Fallo en gate 10",
-            "trace": "https://user:pass123@git.local/repo.git",
-        },
-    }
-    fail_json = tmp_path / "qa-11x-last-failure.json"
-    fail_json.write_text(json.dumps(allure_failure), encoding="utf-8")
-
-    rc = golden_from_traces.main(
-        ["--input", str(fail_json), "--format", "yaml", "--dry-run"]
-    )
-    captured = capsys.readouterr()
-    assert rc == 0
-    assert "pass123" not in captured.out
-    assert "[REDACTED_SECRET]" in captured.out
-
-    list_json = tmp_path / "list.json"
-    list_json.write_text(json.dumps([allure_failure]), encoding="utf-8")
-    assert len(golden_from_traces.load_raw_traces(list_json)) == 1
-
-    nested_json = tmp_path / "nested.json"
-    nested_json.write_text(json.dumps({"traces": [allure_failure]}), encoding="utf-8")
-    assert len(golden_from_traces.load_raw_traces(nested_json)) == 1
-
-    bad_json = tmp_path / "scalar.json"
-    bad_json.write_text('"only-a-string"', encoding="utf-8")
-    with pytest.raises(ValueError, match="no soportado"):
-        golden_from_traces.load_raw_traces(bad_json)
-
-    with pytest.raises(ValueError, match="Path traversal"):
-        golden_from_traces.export_golden_dataset(
-            "../../etc/passwd", dry_run=True, allowed_roots=(tmp_path,)
-        )
-    with pytest.raises(ValueError, match="fuera de directorios"):
-        golden_from_traces.resolve_safe_path("/etc/passwd", allowed_roots=(tmp_path,))
-    with pytest.raises(ValueError, match="Se requiere output_path"):
-        golden_from_traces.export_golden_dataset(
-            fail_json, output_path=None, dry_run=False, allowed_roots=(tmp_path,)
-        )
+def test_offline_ocr_judge_resolution() -> None:
+    """Valida resolucion compartida del juez OCR ante credenciales o Ollama."""
     with pytest.raises(RuntimeError, match="MISSING_LLM_CREDENTIALS"):
-        _resolve_ocr_judge_model({})
+        resolve_deepeval_judge_model({})
     assert isinstance(
-        _resolve_ocr_judge_model({"OPENAI_API_KEY": "placeholder-key"}), OpenAIModel
+        resolve_deepeval_judge_model({"OPENAI_API_KEY": "placeholder-key"}),
+        OpenAIModel,
     )
-    assert isinstance(
-        _resolve_ocr_judge_model({"OLLAMA_BASE_URL": "http://127.0.0.1:11434"}),
-        LocalModel,
+    ollama = resolve_deepeval_judge_model(
+        {"OLLAMA_BASE_URL": "http://127.0.0.1:11434/v1"}
     )
+    assert isinstance(ollama, LocalModel)
 
 
 @pytest.mark.skipif(
@@ -495,7 +376,7 @@ def test_live_multimodal_ocr_table_deepeval(tmp_path: Path) -> None:
         required_headers=("CODE", "CONCEPT", "SUBTOTAL"),
         expected_rows=EXPECTED_ROW_SUBTOTALS,
     )
-    judge = _resolve_ocr_judge_model()
+    judge = resolve_deepeval_judge_model()
     live_metrics: list[BaseMetric] = [
         FaithfulnessMetric(threshold=0.90, model=judge),
         HallucinationMetric(threshold=0.05, model=judge),

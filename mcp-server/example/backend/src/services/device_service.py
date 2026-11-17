@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: MIT
 from __future__ import annotations
 
+import unicodedata
 from datetime import datetime
 from decimal import Decimal
-import unicodedata
 from typing import Any
 
 from models.device import TelemetryDevice
@@ -22,7 +22,9 @@ def evaluate_maintenance_phase(device: TelemetryDevice, now_utc: datetime) -> st
     return "Expirada"
 
 
-def list_tenant_devices(store: list[TelemetryDevice], tenant_id: str) -> list[TelemetryDevice]:
+def list_tenant_devices(
+    store: list[TelemetryDevice], tenant_id: str
+) -> list[TelemetryDevice]:
     """Retorna únicamente los dispositivos del tenant activo."""
     normalized_tenant = unicodedata.normalize("NFKC", tenant_id).strip()
     return [dev for dev in store if dev.tenant_id == normalized_tenant]

@@ -656,22 +656,22 @@ def derive_expected_counts(root: Path) -> RepoExpectedCounts:
 def _validate_single_skill_size(root: Path, skill_md: Path) -> str | None:
     name = skill_md.parent.name
     size = skill_md.stat().st_size
-    if name == "tactical-patterns-11x":
-        if size > MAX_TACTICAL_SKILL_BYTES:
+    special_limits = {
+        "tactical-patterns-11x": MAX_TACTICAL_SKILL_BYTES,
+        "qa-11x-architect": MAX_ARCHITECT_SKILL_BYTES,
+    }
+    special = special_limits.get(name)
+    if special is not None:
+        if size > special:
             return (
                 f"{skill_md.relative_to(root)} excede el presupuesto cognitivo "
-                f"({size} > {MAX_TACTICAL_SKILL_BYTES} bytes)."
+                f"({size} > {special} bytes)."
             )
         return None
-    limit = (
-        MAX_ARCHITECT_SKILL_BYTES
-        if name == "qa-11x-architect"
-        else MAX_SKILL_MD_BYTES
-    )
-    if size >= limit:
+    if size >= MAX_SKILL_MD_BYTES:
         return (
             f"{skill_md.relative_to(root)} excede el presupuesto cognitivo "
-            f"({size} >= {limit} bytes)."
+            f"({size} >= {MAX_SKILL_MD_BYTES} bytes)."
         )
     return None
 
@@ -1521,11 +1521,83 @@ def _validate_doc_links(root: Path, rel_path: str) -> list[str]:
     return errors
 
 
+_DEFAULT_REFACTORING_UI_TOPICS = frozenset(
+    {
+        "skill",
+        "hierarchy",
+        "layout",
+        "type",
+        "color",
+        "depth",
+        "images",
+        "polish",
+        "dark-mode",
+        "tailwind",
+    }
+)
+_REFACTORING_URI_RE = re.compile(r"blueprint://ui/refactoring-ui/([A-Za-z0-9_-]+)")
+
+
+def _collect_agent_markdown_targets(root: Path) -> list[str]:
+    targets: list[str] = ["AGENTS.md"] if (root / "AGENTS.md").is_file() else []
+    agents_dir = root / ".agents"
+    if not agents_dir.is_dir():
+        return targets
+    for md_file in sorted(agents_dir.rglob("*.md")):
+        rel_parts = md_file.relative_to(agents_dir).parts
+        if ".cache" in rel_parts or "artifacts" in rel_parts:
+            continue
+        targets.append(md_file.relative_to(root).as_posix())
+    return targets
+
+
 def check_internal_markdown_links(root: Path) -> list[str]:
-    """Audita enlaces Markdown e imágenes internas en portadas y docs v2.0."""
+    """Audita enlaces Markdown e imágenes internas en portadas, docs y .agents/."""
+    seen: set[str] = set()
+    targets: list[str] = []
+    for rel_path in (
+        *INTERNAL_LINK_AUDIT_TARGETS,
+        *_collect_agent_markdown_targets(root),
+    ):
+        if rel_path not in seen:
+            seen.add(rel_path)
+            targets.append(rel_path)
     errors: list[str] = []
-    for rel_path in INTERNAL_LINK_AUDIT_TARGETS:
+    for rel_path in targets:
         errors.extend(_validate_doc_links(root, rel_path))
+    return errors
+
+
+def _derive_refactoring_ui_topics(root: Path) -> frozenset[str]:
+    refs_dir = root / ".agents" / "skills" / "refactoring-ui" / "references"
+    if not refs_dir.is_dir():
+        return _DEFAULT_REFACTORING_UI_TOPICS
+    stems = {p.stem for p in refs_dir.glob("*.md") if p.is_file()}
+    return frozenset({"skill", *stems}) if stems else _DEFAULT_REFACTORING_UI_TOPICS
+
+
+def _scan_doc_refactoring_topics(
+    root: Path, rel_path: str, valid_topics: frozenset[str]
+) -> list[str]:
+    doc = root / rel_path
+    if not doc.is_file():
+        return []
+    content = doc.read_text(encoding="utf-8", errors="ignore")
+    return [
+        f"{rel_path}: tema inválido en "
+        f"'blueprint://ui/refactoring-ui/{match.group(1)}'."
+        for match in _REFACTORING_URI_RE.finditer(content)
+        if match.group(1) not in valid_topics
+    ]
+
+
+def _check_refactoring_ui_topics(root: Path) -> list[str]:
+    valid_topics = _derive_refactoring_ui_topics(root)
+    targets = sorted(set((*DOC_TARGETS, *_collect_agent_markdown_targets(root))))
+    errors: list[str] = []
+    for rel_path in targets:
+        if not _HISTORICAL_SPEC_RE.match(rel_path):
+            errors.extend(_scan_doc_refactoring_topics(root, rel_path, valid_topics))
     return errors
 
 
@@ -1778,6 +1850,7 @@ def validate_repository_docs(root: Path) -> list[str]:
         *check_bilingual_pair_parity(root),
         *check_v2_mcp_surface_counts(root),
         *check_internal_markdown_links(root),
+        *_check_refactoring_ui_topics(root),
         *check_global_catalogs_and_geo(root),
     ]
 

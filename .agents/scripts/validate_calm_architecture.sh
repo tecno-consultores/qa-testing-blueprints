@@ -6,7 +6,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-CALM_DOCKER_IMAGE="${QA_NODE_IMAGE:-sinfallas/base-node-ionic:26}"
+CALM_DOCKER_IMAGE="${QA_NODE_IMAGE:-sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60}"
 ARCH_ARG="architecture/qa-11x.calm.json"
 
 usage() {
@@ -248,6 +248,34 @@ for (const [src, dst] of REQUIRED_EDGES) {
   }
 }
 
+const referencedControls = new Set();
+for (const node of nodes) {
+  if (node && typeof node === "object" && node.controls && typeof node.controls === "object" && !Array.isArray(node.controls)) {
+    for (const key of Object.keys(node.controls)) referencedControls.add(key);
+  }
+}
+for (const rel of rels) {
+  if (rel && typeof rel === "object" && rel.controls && typeof rel.controls === "object" && !Array.isArray(rel.controls)) {
+    for (const key of Object.keys(rel.controls)) referencedControls.add(key);
+  }
+}
+
+const collectControlTargetRefs = (entry) => {
+  const refs = [];
+  if (!entry || typeof entry !== "object") return refs;
+  for (const field of ["node", "relationship", "target"]) {
+    if (typeof entry[field] === "string" && entry[field].trim()) refs.push(entry[field].trim());
+  }
+  for (const field of ["nodes", "relationships", "applies-to"]) {
+    if (Array.isArray(entry[field])) {
+      for (const item of entry[field]) {
+        if (typeof item === "string" && item.trim()) refs.push(item.trim());
+      }
+    }
+  }
+  return refs;
+};
+
 const controls = doc.controls && typeof doc.controls === "object" && !Array.isArray(doc.controls) ? doc.controls : null;
 if (!controls) {
   errors.push("[MISSING_REQUIRED_CONTROL] Falta bloque controls.");
@@ -258,6 +286,18 @@ if (!controls) {
       errors.push(`[MISSING_REQUIRED_CONTROL] Falta control obligatorio ${ctrl}`);
     } else if (entry.enabled === false || !entry.description || !Array.isArray(entry.requirements) || entry.requirements.length === 0) {
       errors.push(`[INACTIVE_CONTROL] Control inactivo o incompleto: ${ctrl}`);
+    }
+  }
+  for (const [ctrlId, entry] of Object.entries(controls)) {
+    const targetRefs = collectControlTargetRefs(entry);
+    for (const targetId of targetRefs) {
+      if (!nodeIds.has(targetId) && !relIds.has(targetId)) {
+        errors.push(`[DANGLING_CONTROL_TARGET] Control ${ctrlId} referencia nodo o relación inexistente: ${targetId}`);
+      }
+    }
+    const validDirectRef = targetRefs.some((targetId) => nodeIds.has(targetId) || relIds.has(targetId));
+    if (!referencedControls.has(ctrlId) && !validDirectRef) {
+      errors.push(`[UNREFERENCED_CONTROL] Control ${ctrlId} no referencia ningún nodo ni relación existente.`);
     }
   }
 }

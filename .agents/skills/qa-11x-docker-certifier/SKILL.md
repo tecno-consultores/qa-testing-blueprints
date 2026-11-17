@@ -2,14 +2,14 @@
 name: qa-11x-docker-certifier
 description: >-
   QA 11X Corporate Standard certifier in ephemeral Docker containers. Enforces Rule Zero
-  (zero host executions on Ubuntu/macOS), Cyclomatic/Cognitive Complexity Grade A, unit test coverage >= 95%,
+  (zero host executions on Ubuntu/macOS/Windows), Cyclomatic/Cognitive Complexity Grade A, unit test coverage >= 95%,
   mutation testing, WCAG 2.1 AA accessibility, Lighthouse CI, and silent mode RAM conservation.
 ---
 
 # QA 11X Corporate Standard Certifier (Ephemeral Docker Execution)
 
 This skill governs all tests, linters, audits, and cleanups in projects implementing QA 11X.
-> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Unless the target repository's `AGENTS.md` explicitly mandates a fixed output language, respond and explain reasoning in the **user's prompt language**, and write commit messages / human-facing documentation matching the **existing language of `README.md` and `CHANGELOG.md`** (explicitly ignoring `AGENTS.md` and `.agents/**`, which remain in concise English for token economy; default to the prompt language on empty repos).
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Respond in **user's prompt language** (unless `AGENTS.md` fixes it); docs/commits match `README.md`/`CHANGELOG.md` (Spec 19; `.agents/**` English).
 
 ---
 
@@ -26,7 +26,7 @@ This skill governs all tests, linters, audits, and cleanups in projects implemen
 | Ecosystem | Tool / Suite | Mandatory Gate | Container Command |
 | :--- | :--- | :--- | :--- |
 | **Backend (Python/FastAPI)** | `Ruff` + `Mypy --strict` + `Bandit` | **0 errors / 0 vulnerabilities** | `make qa-lint` |
-| **Backend (Python/FastAPI)** | `Radon` (Cyclomatic Complexity) | **Grade A (`CC <= 5`, `MI >= B`)** | `make qa-lint` |
+| **Backend (Python/FastAPI)** | `Radon` (Cyclomatic Complexity) | **Grade A (`CC <= 5`, `MI >= A`)** | `make qa-lint` |
 | **Backend (Python/FastAPI)** | `Pytest` (Unit Coverage) | **`>= 95.0%` real coverage on `src/`** | `make qa-unit` |
 | **Backend (Python/FastAPI)** | `Mutmut` / `Karate Labs` / `ZAP` | Zero contract failures, 0 surviving critical mutants, OWASP OSHP headers & ASVS/WSTG verified | `make qa-mutation` / `make qa-bdd` |
 | **Security & STIG (All)** | `DISA ASD STIG V6R5` + `OWASP v4.2` | Verify session timeouts (10m/15m), 3-attempt lockout, `NFKC` input, anti-XXE, HMAC logs, Fail-Secure & CycloneDX SBOM | `make qa-unit` / `make qa-dast` |
@@ -51,7 +51,7 @@ This skill governs all tests, linters, audits, and cleanups in projects implemen
    - Run the complete multi-stage pyramid (`make qa-all`) on `FULL_11X` architectural changes.
 3. **Mandatory Post-QA Cleanup, Non-Root `COVERAGE_FILE=/tmp/.coverage`, `importlib` & Pass-Quiet Output:**
    - Never invoke `pytest -o addopts=""` without explicitly appending `--import-mode=importlib --cov=src --cov-fail-under=95` and `-e PYTHONPATH=/app/src` (preventing `ModuleNotFoundError` on `*.unit.py` / `*.int.py` and preserving coverage enforcement).
-   - In hardened non-root containers (`USER 1001`) mounting host volumes (`UID 1000`), always pass `-e COVERAGE_FILE=/tmp/.coverage` so `coverage.py` writes its SQLite database to `/tmp/.coverage` instead of failing with `sqlite3.DataError: Couldn't use data file '/app/.coverage'`.
+   - In hardened non-root containers (`USER 1001`) mounting host volumes (`UID 1000`), always pass `-u "$(id -u):$(id -g)" -e HOME=/tmp -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache` so `coverage.py` and `uv` write to `/tmp` instead of failing with `sqlite3.DataError: Couldn't use data file '/app/.coverage'` or host bind-mount permission errors.
    - After running coverage or mutation tests, execute `make clean` / `./scripts/limpieza.sh` (`clean_workspace_11x`), purging temporary mutation sandboxes, `.coverage`, root-owned Docker artifacts (via ephemeral Alpine `chown`), and browser caches.
    - **Non-Interactive CI Compose (`QA-DOCKER-TTY-01`):** In `CI=true` pipelines, `deploy*.sh`, and AI agent workflows, always invoke `docker compose ... run --rm -T` to disable pseudo-TTY allocation and prevent `NoDefaultValueProvided` aborts when `process.stdin.isTTY === true` collides with `CI=true`.
    - **GitHub Actions Shell Escaping vs. Makefile/Compose (`QA-CI-ESCAPE-01`):** NEVER paste Makefile/Compose double-dollar expansions (`$$(pwd)`, `$$(id -u)`, `$${VAR}`) into `.github/workflows/*.{yml,yaml}` or `.github/actions/*/action.{yml,yaml}` `run:` steps. GitHub Actions executes `run:` directly in `bash`, where `$$` expands to the shell PID (`<PID>(pwd)` -> Docker `exit code 125`). Always use single-dollar `$(pwd)`, `$(id -u)`, `${VAR}` (exempt intentional heredoc generators via `# qa-ci-escape-ok`).

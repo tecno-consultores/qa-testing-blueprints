@@ -306,5 +306,38 @@ describe('Hito 22: Memoria determinista de hallazgos y cortacircuitos BREAKER-42
 
     const slashNorm = normalizeFindingForFingerprint({ file: '/src/app.ts' }, '/');
     expect(slashNorm.relative_file).toBe('src/app.ts');
+
+    // Persiste streaks[stage] y oscillations[stage] en certify_state.json
+    const streakRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'qa11x-streaks-'));
+    try {
+      const gitMock = createMockGitExec('feat/streaks');
+      const finding = [{ file: 'src/a.ts', line: 10, message: 'err', severity: 'error' as const }];
+      recordQaStageFindingsState(streakRoot, 'lint', finding, { execFileSyncFn: gitMock });
+      recordQaStageFindingsState(streakRoot, 'lint', finding, { execFileSyncFn: gitMock });
+
+      const afterStreak = JSON.parse(
+        fs.readFileSync(path.join(streakRoot, CERTIFY_STATE_REL_PATH), 'utf-8')
+      ) as {
+        sessions: Record<string, { streaks?: Record<string, number> }>;
+      };
+      expect(Object.values(afterStreak.sessions)[0]?.streaks?.lint).toBe(2);
+
+      recordQaStageFindingsState(streakRoot, 'lint', [], { execFileSyncFn: gitMock });
+      recordQaStageFindingsState(streakRoot, 'lint', finding, { execFileSyncFn: gitMock });
+
+      const persisted = JSON.parse(
+        fs.readFileSync(path.join(streakRoot, CERTIFY_STATE_REL_PATH), 'utf-8')
+      ) as {
+        sessions: Record<
+          string,
+          { streaks?: Record<string, number>; oscillations?: Record<string, number> }
+        >;
+      };
+      const session = Object.values(persisted.sessions)[0];
+      expect(session?.streaks?.lint).toBe(1);
+      expect(session?.oscillations?.lint).toBeGreaterThanOrEqual(1);
+    } finally {
+      fs.rmSync(streakRoot, { recursive: true, force: true });
+    }
   });
 });

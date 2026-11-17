@@ -11,7 +11,7 @@ setup() {
   elif [ -f "/repo/scripts/auditar-pagespeed.sh" ]; then
     REPO_ROOT="/repo"
   else
-    REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/.." && pwd)"
+    REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd)"
   fi
   PSI_SCRIPT="${REPO_ROOT}/scripts/auditar-pagespeed.sh"
 }
@@ -33,4 +33,46 @@ setup() {
   run env -u PSI_URL LC_ALL=C bash "${PSI_SCRIPT}" --require-url
   assert_failure 2
   assert_output --partial "MISSING_TARGET_URL"
+}
+
+@test "auditar-pagespeed.sh (Nominal Wrapper Docker): invoca imagen pineada con --url y retorna 0" {
+  local work="${BATS_TEST_TMPDIR}/psi_nom_ws"
+  local fake_bin="${BATS_TEST_TMPDIR}/psi_nom_bin"
+  local docker_log="${BATS_TEST_TMPDIR}/psi_docker.log"
+  mkdir -p "${work}/scripts" "${work}/.agents/scripts" "${fake_bin}"
+  cp "${PSI_SCRIPT}" "${work}/scripts/auditar-pagespeed.sh"
+  cp "${REPO_ROOT}/.agents/scripts/audit_pagespeed_insights.py" "${work}/.agents/scripts/audit_pagespeed_insights.py"
+  chmod +x "${work}/scripts/auditar-pagespeed.sh"
+
+  cat >"${fake_bin}/docker" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >"${docker_log}"
+printf '{"status":"PASSED","strategies":[]}\n'
+exit 0
+EOF
+  chmod +x "${fake_bin}/docker"
+
+  run env PATH="${fake_bin}:/usr/bin:/bin" LC_ALL=C bash "${work}/scripts/auditar-pagespeed.sh" --url "https://ejemplo-nominal.example" --strategy desktop
+  assert_success
+  assert_output --partial "PASSED"
+
+  run cat "${docker_log}"
+  assert_success
+  assert_output --partial "sinfallas/base-python-uv:3.15@sha256:"
+  assert_output --partial "--url https://ejemplo-nominal.example"
+  assert_output --partial "--strategy desktop"
+}
+
+@test "auditar-pagespeed.sh (Degradado): rechaza script ausente y estrategia invalida" {
+  local empty_ws="${BATS_TEST_TMPDIR}/psi_missing_ws"
+  mkdir -p "${empty_ws}/scripts"
+  cp "${PSI_SCRIPT}" "${empty_ws}/scripts/auditar-pagespeed.sh"
+  chmod +x "${empty_ws}/scripts/auditar-pagespeed.sh"
+
+  run env LC_ALL=C bash "${empty_ws}/scripts/auditar-pagespeed.sh" --url "https://ejemplo.example"
+  assert_failure 1
+  assert_output --partial "No se encontró"
+
+  run env LC_ALL=C bash "${PSI_SCRIPT}" --url "https://ejemplo.example" --strategy tablet
+  assert_failure 2
 }

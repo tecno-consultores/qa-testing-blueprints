@@ -546,14 +546,53 @@ def _collect_untracked_files(
             )
 
 
-def collect_git_changes(
-    workspace_root: Path, base_ref: str | None
-) -> dict[str, DiffFileChange]:
-    target = resolve_git_diff_target(workspace_root, base_ref)
-    diff_args = _git_cmd(
-        workspace_root, "diff", "--unified=0", "--no-color", "--no-ext-diff"
+def _is_ci_env() -> bool:
+    return (
+        os.environ.get("GITHUB_ACTIONS", "").lower() == "true"
+        or os.environ.get("CI", "").lower() == "true"
+        or bool(os.environ.get("GITHUB_BASE_REF", "").strip())
     )
-    diff_args.append(target if target is not None else "--cached")
+
+
+def _git_ref_exists(workspace_root: Path, ref: str) -> bool:
+    res = subprocess.run(
+        _git_cmd(workspace_root, "rev-parse", "--verify", ref),
+        cwd=workspace_root,
+        capture_output=True,
+        text=True,
+        shell=False,
+        check=False,
+    )
+    return res.returncode == 0
+
+
+def _resolve_ci_diff_range(workspace_root: Path) -> str | None:
+    if not _is_ci_env():
+        return None
+    gh_base = os.environ.get("GITHUB_BASE_REF", "").strip()
+    if (
+        gh_base
+        and not gh_base.startswith("-")
+        and ".." not in gh_base
+        and SAFE_GIT_REF_RE.match(gh_base)
+    ):
+        origin_ref = f"origin/{gh_base}"
+        if _git_ref_exists(workspace_root, origin_ref):
+            return f"{origin_ref}...HEAD"
+    if _git_ref_exists(workspace_root, "HEAD~1"):
+        return "HEAD~1..HEAD"
+    return None
+
+
+def _run_git_diff(workspace_root: Path, diff_target: str) -> str:
+    diff_args = _git_cmd(
+        workspace_root,
+        "diff",
+        "--unified=0",
+        "--no-color",
+        "--no-ext-diff",
+        diff_target,
+    )
     diff_res = subprocess.run(
         diff_args,
         cwd=workspace_root,
@@ -562,7 +601,21 @@ def collect_git_changes(
         shell=False,
         check=True,
     )
-    changes = parse_unified_diff(diff_res.stdout)
+    return diff_res.stdout
+
+
+def collect_git_changes(
+    workspace_root: Path, base_ref: str | None
+) -> dict[str, DiffFileChange]:
+    target = resolve_git_diff_target(workspace_root, base_ref)
+    raw_diff = _run_git_diff(
+        workspace_root, target if target is not None else "--cached"
+    )
+    if base_ref is None and target == "HEAD" and not raw_diff.strip():
+        ci_range = _resolve_ci_diff_range(workspace_root)
+        if ci_range is not None:
+            raw_diff = _run_git_diff(workspace_root, ci_range)
+    changes = parse_unified_diff(raw_diff)
     if base_ref is None:
         _collect_untracked_files(workspace_root, changes)
     return changes
@@ -666,6 +719,28 @@ def _compute_file_delta(
     )
 
 
+def _evaluate_productive_file(
+    rel_path: str,
+    change: DiffFileChange,
+    cov_data: FileCoverageData | None,
+) -> FileDeltaMetrics | None:
+    if cov_data is not None:
+        return _compute_file_delta(rel_path, change, cov_data)
+    if _has_non_trivial_code(change.added_lines):
+        return FileDeltaMetrics(
+            rel_path,
+            0,
+            len(change.added_lines),
+            0.0,
+            0,
+            0,
+            100.0,
+            tuple(sorted(change.added_lines)),
+            True,
+        )
+    return None
+
+
 def _evaluate_file_metrics(
     changes: dict[str, DiffFileChange],
     cov_map: dict[str, FileCoverageData],
@@ -673,30 +748,15 @@ def _evaluate_file_metrics(
     metrics: list[FileDeltaMetrics] = []
     missing_reports: list[str] = []
     for rel_path in sorted(changes):
-        change = changes[rel_path]
-        if rel_path in cov_map:
-            delta = _compute_file_delta(rel_path, change, cov_map[rel_path])
-            if delta is not None:
-                metrics.append(delta)
-        elif (
-            change.is_new_file
-            and is_productive_source_file(rel_path)
-            and _has_non_trivial_code(change.added_lines)
-        ):
-            missing_reports.append(rel_path)
-            metrics.append(
-                FileDeltaMetrics(
-                    rel_path,
-                    0,
-                    len(change.added_lines),
-                    0.0,
-                    0,
-                    0,
-                    100.0,
-                    tuple(sorted(change.added_lines)),
-                    True,
-                )
-            )
+        if not is_productive_source_file(rel_path):
+            continue
+        delta = _evaluate_productive_file(
+            rel_path, changes[rel_path], cov_map.get(rel_path)
+        )
+        if delta is not None:
+            metrics.append(delta)
+            if delta.missing_from_reports:
+                missing_reports.append(rel_path)
     return metrics, missing_reports
 
 

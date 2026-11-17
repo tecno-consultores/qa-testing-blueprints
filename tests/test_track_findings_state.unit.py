@@ -133,13 +133,15 @@ def test_streak_three_triggers_breaker_42_and_resolution(tmp_path: Path) -> None
         == 0
     )
     assert (
-        tfs.evaluate_and_record(state_file=state_file, workspace=repo, payload=[finding])
-        .exit_code
+        tfs.evaluate_and_record(
+            state_file=state_file, workspace=repo, payload=[finding]
+        ).exit_code
         == 1
     )
     assert (
-        tfs.evaluate_and_record(state_file=state_file, workspace=repo, payload=[finding])
-        .exit_code
+        tfs.evaluate_and_record(
+            state_file=state_file, workspace=repo, payload=[finding]
+        ).exit_code
         == 1
     )
     r3 = tfs.evaluate_and_record(
@@ -153,16 +155,36 @@ def test_streak_three_triggers_breaker_42_and_resolution(tmp_path: Path) -> None
     assert "inspect_ast_blast_radius" in text
     assert "qa-11x-systematic-debugging" in text
 
+    # Etapa distinta ('certify') no mezcla historial de 'qa'
+    r_certify = tfs.evaluate_and_record(
+        state_file=state_file,
+        workspace=repo,
+        payload={"stage": "certify", "findings": []},
+    )
+    assert r_certify.exit_code == 0
+    assert r_certify.resolved_count == 0
+
+    # Al pasar stage="qa" explícito con lista vacía sí resuelve el hallazgo previo
     r4 = tfs.evaluate_and_record(
         state_file=state_file,
         workspace=repo,
         payload={"stage": "certify", "findings": []},
+        stage="qa",
     )
     assert r4.exit_code == 0
     assert r4.resolved_count == 1
     pass_line = tfs.format_report_output(r4)
     assert pass_line.startswith("[PASS] CERTIFY-STATE |")
     assert "\n" not in pass_line
+
+    raw_doc = json.loads(state_file.read_text(encoding="utf-8"))
+    assert raw_doc["version"] == 2
+    session_entry = raw_doc["sessions"][r4.session_key]
+    assert "qa" in session_entry["stage_runs"]
+    assert "certify" in session_entry["stage_runs"]
+    assert session_entry["streaks"]["qa"] == 0
+    assert session_entry["oscillations"]["qa"] == 0
+    assert tfs._resolve_stage_id("  lint  ", "qa") == "lint"
 
 
 def test_oscillation_a_b_a_triggers_breaker_42_only_blocking(tmp_path: Path) -> None:
@@ -238,7 +260,9 @@ def test_branch_isolation_detached_unborn_and_nogit(
 
     _git(repo, "checkout", "--detach", "HEAD")
     assert tfs.resolve_session_key(repo).startswith("detached:")
-    assert tfs.resolve_session_key(repo, base_ref="nonexistent_ref").startswith("detached:")
+    assert tfs.resolve_session_key(repo, base_ref="nonexistent_ref").startswith(
+        "detached:"
+    )
 
     unborn = _init_repo(tmp_path / "unborn_wrap", with_commit=False)
     assert tfs.resolve_session_key(unborn).endswith(":unborn")
@@ -274,12 +298,21 @@ def test_history_cap_corrupt_state_and_cwd_parent(
 
     raw_doc = json.loads(state_file.read_text(encoding="utf-8"))
     session_key = tfs.resolve_session_key(repo)
-    assert len(raw_doc["sessions"][session_key]["runs"]) == 10
+    assert raw_doc["version"] == 2
+    assert "runs" not in raw_doc["sessions"][session_key]
+    assert len(raw_doc["sessions"][session_key]["stage_runs"]["qa"]) == 10
+    assert raw_doc["sessions"][session_key]["streaks"]["qa"] == 1
+    assert raw_doc["sessions"][session_key]["oscillations"]["qa"] == 0
 
-    state_file.write_text(json.dumps({"version": 1, "sessions": []}), encoding="utf-8")
+    state_file.write_text(json.dumps({"version": 2, "sessions": []}), encoding="utf-8")
     loaded = tfs._load_state_doc(state_file)
-    assert loaded == {"version": 1, "sessions": {}}
+    assert loaded == {"version": 2, "sessions": {}}
+    state_file.write_text(
+        json.dumps({"version": 2, "sessions": {"s": {}}}), encoding="utf-8"
+    )
+    assert tfs._load_state_doc(state_file) == {"version": 2, "sessions": {"s": {}}}
     assert tfs._extract_history_sets({"runs": ["invalid-run-entry"]}) == []
+    assert tfs._extract_history_sets({"stage_runs": {"qa": ["bad"]}}, stage="qa") == []
 
 
 def test_cli_reset_stdin_symlinks_and_error_paths(
@@ -338,11 +371,16 @@ def test_cli_reset_stdin_symlinks_and_error_paths(
             str(findings_file),
             "--workspace",
             str(repo),
+            "--stage",
+            "lint",
             "--reset-state",
         ]
     )
     assert rc_reset_with_file == 0
     assert "[PASS] CERTIFY-STATE" in capsys.readouterr().out
+    saved_doc = json.loads(state_file.read_text(encoding="utf-8"))
+    s_key = tfs.resolve_session_key(repo)
+    assert "lint" in saved_doc["sessions"][s_key]["stage_runs"]
 
     bad_payload = tmp_path / "bad_payload.json"
     bad_payload.write_text('"not-a-list"', encoding="utf-8")

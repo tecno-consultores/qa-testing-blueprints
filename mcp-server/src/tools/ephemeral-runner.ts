@@ -170,6 +170,7 @@ export interface RunEphemeralQaOptions {
   execFileFn?: typeof execFile;
   execFileSyncFn?: typeof execFileSync;
   skipIfDocsOnly?: boolean;
+  signal?: AbortSignal;
 }
 
 interface ParsedTarget {
@@ -953,10 +954,39 @@ interface ExecCommandInput {
   readonly args: string[];
   readonly cwd: string;
   readonly timeoutMs: number;
+  readonly signal?: AbortSignal;
+}
+
+function resolveExecErrorExitCode(errWithCode: NodeJS.ErrnoException & {
+  code?: number | string;
+  killed?: boolean;
+  signal?: string;
+}): number {
+  if (typeof errWithCode.code === 'number') {
+    return errWithCode.code;
+  }
+  if (
+    errWithCode.killed ||
+    errWithCode.signal === 'SIGTERM' ||
+    errWithCode.code === 'ABORT_ERR' ||
+    errWithCode.name === 'AbortError'
+  ) {
+    return 124;
+  }
+  return 1;
 }
 
 function execCommand(input: ExecCommandInput): Promise<ExecCommandOutcome> {
-  const { executor, binary, args, cwd, timeoutMs } = input;
+  const { executor, binary, args, cwd, timeoutMs, signal } = input;
+  if (signal?.aborted) {
+    return Promise.resolve({
+      exitCode: 124,
+      errorCode: 'ABORT_ERR',
+      stdout: '',
+      stderr: '',
+      errorMessage: 'Execution aborted before spawn',
+    });
+  }
   return new Promise((resolve) => {
     executor(
       binary,
@@ -966,6 +996,7 @@ function execCommand(input: ExecCommandInput): Promise<ExecCommandOutcome> {
         timeout: timeoutMs,
         shell: false,
         maxBuffer: MAX_EXEC_BUFFER_BYTES,
+        ...(signal ? { signal } : {}),
       },
       (error, stdout, stderr) => {
         const stdoutStr = stdout ? stdout.toString() : '';
@@ -979,12 +1010,7 @@ function execCommand(input: ExecCommandInput): Promise<ExecCommandOutcome> {
           killed?: boolean;
           signal?: string;
         };
-        let exitCode = 1;
-        if (typeof errWithCode.code === 'number') {
-          exitCode = errWithCode.code;
-        } else if (errWithCode.killed || errWithCode.signal === 'SIGTERM') {
-          exitCode = 124;
-        }
+        const exitCode = resolveExecErrorExitCode(errWithCode);
         resolve({
           exitCode,
           errorCode: typeof errWithCode.code === 'string' ? errWithCode.code : undefined,
@@ -1038,12 +1064,22 @@ interface DockerFallbackContext {
   readonly timeoutSeconds: number;
   readonly startTime: number;
   readonly execFileSyncFn?: typeof execFileSync;
+  readonly signal?: AbortSignal;
 }
 
 async function executeDockerFallbackSequence(
   ctx: DockerFallbackContext
 ): Promise<QaExecutionResult> {
-  const { executor, commands, resolvedPath, stage, timeoutSeconds, startTime, execFileSyncFn } = ctx;
+  const {
+    executor,
+    commands,
+    resolvedPath,
+    stage,
+    timeoutSeconds,
+    startTime,
+    execFileSyncFn,
+    signal,
+  } = ctx;
   const timeoutMs = timeoutSeconds * 1000;
   const stdoutChunks: string[] = [];
   const stderrChunks: string[] = [];
@@ -1055,7 +1091,7 @@ async function executeDockerFallbackSequence(
 
   for (const args of commands) {
     const rawRemainingMs = timeoutMs - (Date.now() - startTime);
-    if (rawRemainingMs <= 0) {
+    if (rawRemainingMs <= 0 || signal?.aborted) {
       lastExitCode = 124;
       break;
     }
@@ -1066,6 +1102,7 @@ async function executeDockerFallbackSequence(
       args,
       cwd: resolvedPath,
       timeoutMs: Math.max(1000, rawRemainingMs),
+      signal,
     });
     if (res.stdout) stdoutChunks.push(res.stdout);
     const errChunk = res.stderr || (res.exitCode !== 0 ? res.errorMessage : '');
@@ -1192,10 +1229,12 @@ interface FallbackRunnerContext {
   readonly startTime: number;
   readonly execFileSyncFn?: typeof execFileSync;
   readonly makefilePath?: string;
+  readonly signal?: AbortSignal;
 }
 
 async function runMissingMakefileFallback(ctx: FallbackRunnerContext): Promise<QaExecutionResult> {
-  const { executor, resolvedPath, stage, timeoutSeconds, startTime, execFileSyncFn } = ctx;
+  const { executor, resolvedPath, stage, timeoutSeconds, startTime, execFileSyncFn, signal } =
+    ctx;
   const directCommands = resolveComposeDirectFallback(resolvedPath, stage);
   if (directCommands) {
     return executeDockerFallbackSequence({
@@ -1206,6 +1245,7 @@ async function runMissingMakefileFallback(ctx: FallbackRunnerContext): Promise<Q
       timeoutSeconds,
       startTime,
       execFileSyncFn,
+      signal,
     });
   }
   const composeExists = fs.existsSync(path.join(resolvedPath, COMPOSE_QA_FILE));
@@ -1228,7 +1268,16 @@ async function runMissingMakefileFallback(ctx: FallbackRunnerContext): Promise<Q
 }
 
 async function runMakeEnoentFallback(ctx: FallbackRunnerContext): Promise<QaExecutionResult> {
-  const { executor, makefilePath, resolvedPath, stage, timeoutSeconds, startTime, execFileSyncFn } = ctx;
+  const {
+    executor,
+    makefilePath,
+    resolvedPath,
+    stage,
+    timeoutSeconds,
+    startTime,
+    execFileSyncFn,
+    signal,
+  } = ctx;
   const makefileContent = fs.readFileSync(makefilePath as string, 'utf8');
   const recipeResolution = resolveMakefileDockerRecipes(makefileContent, `qa-${stage}`, resolvedPath);
   if (recipeResolution.ok) {
@@ -1240,6 +1289,7 @@ async function runMakeEnoentFallback(ctx: FallbackRunnerContext): Promise<QaExec
       timeoutSeconds,
       startTime,
       execFileSyncFn,
+      signal,
     });
   }
   const directCommands = resolveComposeDirectFallback(resolvedPath, stage);
@@ -1252,6 +1302,7 @@ async function runMakeEnoentFallback(ctx: FallbackRunnerContext): Promise<QaExec
       timeoutSeconds,
       startTime,
       execFileSyncFn,
+      signal,
     });
   }
   const failReason = `GNU make no disponible en el host (ENOENT) y fallback Rule Zero rechazado: ${recipeResolution.reason}`;
@@ -1350,6 +1401,7 @@ export async function runEphemeralQa(
       timeoutSeconds,
       startTime,
       execFileSyncFn: options?.execFileSyncFn,
+      signal: options?.signal,
     });
   }
 
@@ -1361,6 +1413,7 @@ export async function runEphemeralQa(
     args: [target],
     cwd: resolvedPath,
     timeoutMs,
+    signal: options?.signal,
   });
   if (makeRes.errorCode === 'ENOENT') {
     return runMakeEnoentFallback({
@@ -1371,6 +1424,7 @@ export async function runEphemeralQa(
       timeoutSeconds,
       startTime,
       execFileSyncFn: options?.execFileSyncFn,
+      signal: options?.signal,
     });
   }
 

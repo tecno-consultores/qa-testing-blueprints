@@ -1,3 +1,5 @@
+> **[DIRECTIVA DE SISTEMA PARA AGENTES DE IA]:** Actúa como un Ingeniero Staff de Automatización QA Móvil y Experto DevOps. Lee, analiza y aplica estrictamente las siguientes restricciones arquitectónicas. Genera código alineado exclusivamente con Regla Cero (`sinfallas/base-mobile-appium:26`, cero ejecuciones en host, `-T -u "$(id -u):$(id -g)"`), TypeScript estricto (`--erasableSyntaxOnly`), Screenplay RBAC Multi-Tenant (`MobileActor.ts`), localizadores semánticos (`accessibilityId`, `iosPredicate`, `androidUiAutomator`, roles ARIA WebView; cero XPath crudo ni esperas fijas) y guardias Fail-Closed de deep links. Emite tu respuesta final, explicaciones y comentarios en español.
+
 > 🌐 **Idioma:** [🇺🇸 English (Canonical)](README.md) · **Español (Espejo 1:1)**
 
 # 📱 Blueprint Móvil Nativo e Híbrido — Appium 3 / WebdriverIO v9 + Screenplay (Estándar QA 11X)
@@ -56,10 +58,10 @@ docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1
 
 [`mobile-appium/tests/screenplay/MobileActor.ts`](tests/screenplay/MobileActor.ts) implementa composición pura sin herencia profunda ni aserciones ocultas (`expect`/`assert` viven exclusivamente en los `.spec.ts`), validada de extremo a extremo por [`mobile-appium/tests/mobile_screenplay.spec.ts`](tests/mobile_screenplay.spec.ts) (`node:test` + stub HTTP W3C WebDriver local):
 
-1. **Identidad Multi-Tenant (`MobileActorIdentity`):** Exige `tenantId`, `role`, `platform` (`android | ios`), `hybridShell` (`ionic-capacitor | react-native | native`) y lista explícita de `permissions` (`MissingMobileAbilityError` si falta la capacidad).
+1. **Identidad Multi-Tenant (`MobileActorIdentity`):** Exige `tenantId`, `role`, `platform` (`android | ios`), `hybridShell` (`ionic-capacitor | react-native | native`), indexación estática `abilityName` entre `whoCan`/`abilityTo` y lista explícita de `permissions` (`MissingMobileAbilityError` si falta).
 2. **Conmutación Segura de Contexto (`SwitchMobileContext`):** Inspecciona `getContexts()` antes de cambiar entre `NATIVE_APP` y `WEBVIEW_<paquete>`; si el WebView no existe lanza `MobileContextNotFoundError` en lugar de colgarse indefinidamente.
-3. **Geometría Anti-Colapso (`VisibleMobileBounds`):** Rechaza elementos con bounding box `0x0` (`CollapsedMobileGeometryError`) antes de tocar o escribir.
-4. **Defensa contra *Intent / Deep-Link Hijacking* (`OpenVerifiedDeepLink`):** Bloquea esquemas peligrosos (`javascript:`, `file:`, `data:`, `content:`) y hosts externos fuera de lista blanca lanzando `UnsafeDeepLinkError`.
+3. **Geometría Anti-Colapso y Visibilidad (`VisibleMobileBounds`):** Verifica tanto `await element.isVisible()` (`HiddenMobileElementError`) como dimensiones no nulas (`CollapsedMobileGeometryError` en `0x0`) antes de tocar o escribir.
+4. **Defensa contra *Intent / Deep-Link Hijacking* (`OpenVerifiedDeepLink`):** Bloquea esquemas peligrosos (`javascript:`, `file:`, `data:`, `content:`), aplica *Fail-Closed* cuando `allowedHosts` está vacío y rechaza hosts externos no autorizados con `UnsafeDeepLinkError`.
 5. **Biometría y Permisos Explícitos (`SimulateBiometricPrompt`):** Permite simular coincidencia o rechazo (`faceId`, `touchId`, `fingerprint`) mientras `wdio.conf.ts` mantiene `appium:autoGrantPermissions: false` y `appium:autoAcceptAlerts: false` para auditar diálogos reales de permisos.
 6. **Resiliencia Offline, `Idempotency-Key` y Paridad Antisilosis (`VerifyOfflineSyncParity`):** Conmuta conectividad (`SetMobileNetworkState('offline' | 'online')`), envía sincronizaciones mutables con `X-Tenant-ID` e `Idempotency-Key` (UUIDv4), inspecciona `results[].status` ítem por ítem (`inspectBatchSync`), evalúa las 3 fases temporales (`MobileTemporalLifecycleState`: `pending`, `active`, `expired`) y verifica la paridad pantalla móvil <-> `GET` real del backend sin mocks intermedios.
 
@@ -67,13 +69,13 @@ docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1
 
 ## 4. Perfiles W3C en `wdio.conf.ts` y Diagnóstico `Pass-Quiet` / `Fail-Verbose`
 
-[`buildMobileWdioConfig(env)`](wdio.conf.ts) selecciona el perfil mediante `MOBILE_PROFILE`:
+[`buildMobileWdioConfig(process.env)`](wdio.conf.ts) resuelve specs (`./tests/**/*.spec.ts`) y selecciona el perfil activo mediante `MOBILE_PROFILE`:
 
 - `android-uiautomator2`: `platformName: 'Android'`, `appium:automationName: 'UiAutomator2'`, `appium:noReset: false`, `appium:autoGrantPermissions: false`.
 - `ios-xcuitest`: `platformName: 'iOS'`, `appium:automationName: 'XCUITest'`, `appium:isolateSimDevice: true`, `appium:autoAcceptAlerts: false`.
 - `hybrid-ionic` / `hybrid-rn`: `appium:autoWebview: false` por defecto para conmutación explícita `NATIVE_APP` <-> `WEBVIEW_*` con `appium:webviewConnectTimeout: 10000`.
-- **Guardias `QA-CLI-TTY-01` & `Fail-Closed`:** Puertos fuera de `1..65535`, perfiles desconocidos o rutas de artefactos fuera de `/tmp` lanzan `MobileConfigValidationError`. Los timeouts quedan acotados (`connectionRetryTimeout: 30000`, `connectionRetryCount: 1`, `waitforTimeout: 10000`, `appium:newCommandTimeout: 60`).
-- **Diagnóstico `Pass-Quiet` / `Fail-Verbose`:** En éxito (`passed: true`), `afterTest` no escribe archivos ni emite ruido; en fallo (`passed: false`), guarda el árbol XML/DOM, captura PNG y metadatos Allure (`deviceProfile`, `context`, `tenantId`) bajo `/tmp/qa-11x-mobile-artifacts` sin contaminar el árbol Git.
+- **Guardias `QA-CLI-TTY-01` & `Fail-Closed`:** Puertos fuera de `1..65535`, perfiles desconocidos o rutas de artefactos fuera de `/tmp` (`QA_MOBILE_ARTIFACT_DIR` con respaldo `QA_MOBILE_ARTIFACTS_DIR`) lanzan `MobileConfigValidationError`. Los timeouts quedan acotados (`connectionRetryTimeout: 30000`, `connectionRetryCount: 1`, `waitforTimeout: 10000`, `appium:newCommandTimeout: 60`).
+- **Diagnóstico `Pass-Quiet` / `Fail-Verbose`:** En éxito (`passed: true`), `afterTest` no escribe archivos ni emite ruido; en fallo (`passed: false`), `safeCaptureTreeAndShot` usa `Promise.allSettled` para preservar capturas XML/DOM o PNG parciales y metadatos Allure (`deviceProfile`, `context`, `tenantId`) bajo `/tmp/qa-11x-mobile-artifacts`.
 
 ---
 

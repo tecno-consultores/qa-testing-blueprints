@@ -20,13 +20,13 @@ Para mantener la consistencia y la eficacia de estos blueprints, toda contribuci
    * `sinfallas/base-bash-qa:latest` para Bash/DevOps.
    * `sinfallas/karatelabs:1.5.1` para contratos BDD/Caja Negra.
    * `sinfallas/remote-graphify:latest` para Optimización de Contexto IA (análisis AST CLI-first).
-   * *Nota: Se permite el uso de imágenes oficiales consolidadas exclusivamente para Sidecars periféricos (ej. `prom/prometheus:latest`, `zaproxy/zap-stable:latest`, `postgres:17-alpine`, `eqalpha/keydb:alpine`, `mcr.microsoft.com/playwright:v1.52.0-noble`).*
+   * *Nota: Se permite el uso de imágenes oficiales consolidadas exclusivamente para Sidecars periféricos (ej. `prom/prometheus:v2.55.1`, `zaproxy/zap-stable:2.15.0`, `postgres:17-alpine`, `eqalpha/keydb:6.3.4`, `mcr.microsoft.com/playwright:v1.52.0-noble`).*
    * **REGLA DE CACHÉ Y UID NO-ROOT:** Si agregas una imagen que dependa de un gestor de paquetes (`uv`, `pnpm`, `composer`), DEBES declarar obligatoriamente volúmenes nombrados compatibles con cualquier usuario no-root del host/CI (`-u "$(id -u):$(id -g)"`): ej. `/tmp/uv-cache` con `UV_CACHE_DIR=/tmp/uv-cache` y `COVERAGE_FILE=/tmp/.coverage` en Python, o `pnpm-store:/pnpm` inicializado por `pnpm-store-init` (`chmod -R a+rwX /pnpm`) junto a `HOME=/tmp` y `pnpm_config_store_dir=/pnpm/store` en `sinfallas/base-node-ionic:26` / `sinfallas/base-mobile-appium:26` (`uid=10001`).
 
 2. **Efimeridad Absoluta y Regla Cero (`Rule Zero`):** Toda ejecución de pruebas, linters o scripts debe ocurrir dentro de contenedores efímeros (usando `--rm`). Jamás ejecutes pruebas directamente en el host anfitrión. Las pruebas unitarias jamás deben salir a Internet; el Mocking (`nock`, `pytest-mock`) es obligatorio. Para persistencia y esquemas de base de datos rige la regla **Anti-Mock Blindness** (validación obligatoria contra base de datos real efímera).
 3. **Prompts Imperativos y Arquitectura Bilingüe (`Spec 19`):**
    * Las directivas internas para consumo de LLMs en `.agents/rules/` y `.agents/skills/` se redactan en **inglés técnico conciso de alta densidad** para ahorrar un ~35% de tokens BPE.
-   * La documentación raíz, gobernanza y guías de onboarding (`README.md`, `RESOURCES.md`, `TESTING.md`, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `FAQ.md`, `AI_MASTER_PROMPT.md`, `ROADMAP.md`, `CHANGELOG.md`, `mcp-server/*`, `docs/agent-setup.md`) siguen la convención **Inglés Canónico (`*.md`) + Espejo 1:1 en Español (`*.es.md`)** ([`docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md)), mientras los manuales profundos (`docs/01..04*`) y READMEs por stack transicionan en las Fases B–C.
+   * La documentación raíz, gobernanza, guías de onboarding, READMEs por stack (`<stack>/README.{md,es.md}`), `architecture/`, `docs/specs/{README,19,20}*.{md,es.md}` y los manuales operativos profundos (`docs/01..05*.{md,es.md}`) siguen la convención **Inglés Canónico (`*.md`) + Espejo 1:1 en Español (`*.es.md`)** ([`docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md), Fases A–D completadas; solo las ADRs históricas `01..18` permanecen en español conforme a la Regla 4).
 4. **Umbral de Calidad y Deuda Técnica Innegociables:**
    * Cobertura de código unitario **>= 95%** de líneas y ramas.
    * Complejidad ciclomática Grado **A** (`CC <= 5`, `MI >= A`).
@@ -41,7 +41,7 @@ Para mantener la consistencia y la eficacia de estos blueprints, toda contribuci
 Si eres un **Agente de IA** (o un desarrollador operando en conjunto con uno) contribuyendo a este repositorio, DEBES acatar incondicionalmente el siguiente ciclo:
 
 1. **Lectura de Directivas:** Lee `.agents/rules/` y `AGENTS.md` antes de generar cualquier propuesta.
-2. **Bitácora Activa:** Inicia o actualiza el archivo `.agents/ACTIVE_TASK.md` desglosando las fases de la tarea con casillas `- [ ]` en tiempo real (`<= 40` líneas).
+2. **Bitácora Activa:** Registra las fases de la tarea atómicamente mediante `.agents/scripts/checkpoint_ctl.py` / MCP `session_flight_recorder` (`0600` `.agents/.cache/session_checkpoint.json` -> proyección determinista `<= 40` líneas en `.agents/ACTIVE_TASK.md` + verificación Git en vivo, sin editar `ACTIVE_TASK.md` manualmente).
 3. **Inspección AST Preventiva:** Audita el radio de impacto de símbolos compartidos con `python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"` antes de modificar código.
 4. **Pirámide de Pruebas Obligatoria:** Todo código nuevo o modificado debe incorporar sus correspondientes pruebas unitarias (`>= 95%`) y escenarios BDD en Karate Labs (`api_test.feature` y `ui_business_flow.feature`), actualizando las pruebas preexistentes afectadas (`QA-TEST-SYNC-01`).
 5. **Compuerta Universal de Certificación (10/10):** Ejecuta `./.agents/scripts/certify_task_completion.sh` y asegura que las **10 etapas** pasen limpiamente (incluyendo `bump_version_11x.py --check` y `sync_governance.py --check`) antes de concluir en un `git commit` local certificado (`QA-GIT-GATE-01`).
@@ -68,7 +68,7 @@ Todos los archivos dentro de los 10 directorios de stack siguen una convención 
 4. Antes de hacer el commit o Pull Request, ejecuta el saneamiento `./scripts/limpieza.sh` y certifica la suite completa ejecutando `./.agents/scripts/certify_task_completion.sh` en local (**10/10 compuertas en verde**).
 
 ### Si estás mejorando la Documentación, MCP o Skills
-1. Si mejoras el servidor MCP (`mcp-server/`), asegúrate de que pase `pnpm run lint`, `npx tsc --noEmit` y que la cobertura de pruebas unitarias (`pnpm test`) se mantenga en `>= 95%`.
+1. Si mejoras el servidor MCP (`mcp-server/`), verifica todo dentro de Docker efímero (`Rule Zero`): ejecuta `make lint`, `make test-mcp` y `make -C mcp-server qa-all` (`>= 95%` de cobertura, `0` warnings en ESLint/SonarJS y TypeScript estricto).
 2. Si actualizas cualquiera de las 11 skills modulares en `.agents/skills/`, mantén el presupuesto cognitivo (`qa-11x-architect/SKILL.md < 12 KB`, `tactical-patterns-11x/SKILL.md <= 2.5 KB`, resto `< 20 KB`), actualiza `catalogs/skillsllm-manifest.json` y sincroniza `docs/specs/`.
 3. Mantén la filosofía de "cero complacencia" y preserva la paridad estructural 1:1 entre parejas bilingües (`*.md` + `*.es.md`).
 

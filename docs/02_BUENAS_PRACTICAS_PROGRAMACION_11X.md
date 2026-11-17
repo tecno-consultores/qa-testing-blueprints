@@ -115,8 +115,8 @@ Virtual DOM test environments like **JSDOM** or **HappyDOM** simulate HTML nodes
 1. **In-Flow Ergonomics (Anti-Sticky Footer — `UI-11X-01`):**
    - Forbid fixed floating footers (`position: fixed`) in dense operational interfaces (`UI-11X-01`).
    - The `<main>` container must use `display: flex; flex-direction: column; min-height: 100vh;` and the footer must use `margin-top: auto` in natural document flow, guaranteeing it never overlaps content.
-2. **Real Browser Validation:**
-   - Use **Karate UI** or **Playwright** with headless Chrome to verify real interactive visibility (`waitFor`, `click`), ensuring elements are geometrically clickable in the viewport.
+2. **Real Browser Validation (`ui-e2e` vs. HTTP BDD):**
+   - Use **Playwright** (`ui-e2e`) with real headless Chromium to verify DOM geometry, `[ 🔄 Refrescar ]`, and interactive visibility (`waitFor`, `click`), ensuring elements are geometrically clickable in the viewport; reserve `sinfallas/karatelabs:1.5.1` (`--network` HTTP BDD, no browser) for HTTP/Nginx/OSHP/SSG delivery contracts.
 
 ---
 
@@ -185,13 +185,13 @@ For deep code implementations (Mass Assignment prevention with `extra="forbid"`,
 ## 5. Container Hardening and KeyDB In-Memory Engine
 
 1. **Mandatory Non-Root Execution:**
-   - Production and QA containers must run under unprivileged users (`appuser` UID 10001 in Python, `node` UID 1000 in Node.js, or `www` UID 1000 in PHP `sinfallas/basephpcomposer`).
+   - Production and QA containers must run under unprivileged users (`appuser` UID 10001 in Python, `appuser` UID 10001 in Node.js `sinfallas/base-node-ionic:26`, or `www` UID 1000 in PHP `sinfallas/basephpcomposer`).
 2. **Multi-Stage Builds and Pre-Compiled Images:**
    - Isolate compilers and header files in a build stage (`builder`), copying only compiled final artifacts into the minimal runtime image (Alpine or distroless). In PHP (`8.2` to `8.5`), use `sinfallas/basephpcomposer` (tags `8.2`, `8.3`, `8.4`, `8.5`, and `latest`) with pre-compiled native C extensions (`pcov`, `redis`, `pdo_pgsql`, `intl`, `sodium`, `opcache` with `save_comments=1` and JIT) and `expose_php = Off`.
 3. **In-Memory Engine: Multi-Threaded KeyDB:**
-   - Replace traditional single-threaded Redis with **KeyDB** (`eqalpha/keydb:alpine`) using `--server-threads 2`. This multiplies read/write and pub/sub throughput by 3x without altering client code while retaining 100% compatibility with Redis libraries.
+   - Replace traditional single-threaded Redis with **KeyDB** (`eqalpha/keydb:6.3.4`) using `--server-threads 2`. This multiplies read/write and pub/sub throughput by 3x without altering client code while retaining 100% compatibility with Redis libraries.
 4. **Preventive Auditing with Trivy:**
-   - Integrate automated vulnerability scans with `aquasec/trivy:latest` across the filesystem and infrastructure manifests (`./scripts/auditar-infra.sh`), blocking production release if any CRITICAL or HIGH findings exist.
+   - Integrate automated vulnerability scans with `aquasec/trivy:0.76.2` across the filesystem and infrastructure manifests (`./scripts/auditar-infra.sh`), blocking production release if any CRITICAL or HIGH findings exist.
 
 ### 5.1. Non-Interactive Deployments (`docker compose run -T`) and Wrangler v4 (Cloudflare Pages) in `read_only: true` Containers (`QA-DOCKER-TTY-01`)
 
@@ -281,10 +281,10 @@ During audits of real pipelines under **Rule Zero**, two frequent failures surfa
 1. **Forbidden `$$(...)` or `$${...}` inside GitHub Actions `run:` blocks (`QA-CI-ESCAPE-01`):** Inside GNU Make recipes (or `docker-compose.yml` `command:` fields), `$$(pwd)`, `$$(id -u)`, or `$${VAR}` is written to escape `$` before passing to the shell. By contrast, GitHub Actions hands `run:` blocks directly to `bash`: writing `$$(pwd)` expands `$$` to the **numeric process PID** (e.g., `2970(pwd)`), breaking Docker `-v` mounts with `exit code 125`. Always use single-dollar substitution `$(pwd)` / `$(id -u):$(id -g)` / `${VAR}` in workflows and composite actions (use `# qa-ci-escape-ok` only when the step literally generates a `Makefile` or `docker-compose.yml`).
    ```yaml
    # ❌ ANTI-PATTERN (bash expands $$ to the process PID -> "create 2970(pwd)" exit code 125)
-   - run: docker run --rm -u "$$(id -u):$$(id -g)" -v "$$(pwd):/workspace:ro" aquasec/trivy:latest config .
+   - run: docker run --rm -u "$$(id -u):$$(id -g)" -v "$$(pwd):/workspace:ro" aquasec/trivy:0.76.2 config .
 
    # ✔️ 11X PATTERN (direct single-dollar bash substitution)
-   - run: docker run --rm -u "$(id -u):$(id -g)" -v "$(pwd):/workspace:ro" aquasec/trivy:latest config .
+   - run: docker run --rm -u "$(id -u):$(id -g)" -v "$(pwd):/workspace:ro" aquasec/trivy:0.76.2 config .
    ```
 2. **Mandatory use of `$(CURDIR)` in sub-Makefiles (`QA-MAKE-CURDIR-01`):** When a root `Makefile` delegates via `$(MAKE) -C backend <target>`, GNU Make changes into the subdirectory and updates `$(CURDIR)`, but leaves `$(PWD)` / `${PWD}` pointing to the caller's parent directory. In `*/Makefile` and `*/Makefile.example`, always use `$(CURDIR)` (e.g., `HOST_PWD ?= $(CURDIR)`, exemptible via `# qa-make-curdir-ok`) to preserve exact volume boundaries in ephemeral containers.
    ```makefile

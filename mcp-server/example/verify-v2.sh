@@ -33,7 +33,7 @@ TARBALL_NAME="$(npm pack --silent --pack-destination "${WORK_DIR}" | tail -n 1)"
 TARBALL_PATH="${WORK_DIR}/${TARBALL_NAME}"
 
 TAR_CONTENTS="$(tar -tzf "${TARBALL_PATH}")"
-for expected_entry in "package/package.json" "package/README.md" "package/CHANGELOG.md" "package/dist/index.js"; do
+for expected_entry in "package/package.json" "package/LICENSE" "package/README.md" "package/README.es.md" "package/CHANGELOG.md" "package/CHANGELOG.es.md" "package/dist/index.js"; do
   if ! printf '%s\n' "${TAR_CONTENTS}" | grep -qx "${expected_entry}"; then
     echo "FAIL [Clean-Room Tarball] Falta '${expected_entry}' dentro de ${TARBALL_NAME}" >&2
     exit 1
@@ -41,6 +41,10 @@ for expected_entry in "package/package.json" "package/README.md" "package/CHANGE
 done
 if printf '%s\n' "${TAR_CONTENTS}" | grep -q "^package/src/"; then
   echo "FAIL [Clean-Room Tarball] Fuentes TypeScript filtradas inesperadamente en ${TARBALL_NAME}" >&2
+  exit 1
+fi
+if printf '%s\n' "${TAR_CONTENTS}" | grep -q '\.map$'; then
+  echo "FAIL [Clean-Room Tarball] Archivos .map filtrados en ${TARBALL_NAME}" >&2
   exit 1
 fi
 
@@ -51,10 +55,11 @@ if [ ! -d "${MCP_DIR}/node_modules" ]; then
 fi
 ln -s "${MCP_DIR}/node_modules" "${PKG_APP_DIR}/node_modules"
 
+EXPECTED_PKG_VERSION="$(node -p "JSON.parse(require('node:fs').readFileSync(process.argv[1], 'utf8')).version" "${MCP_DIR}/package.json")"
 BIN_JS="${PKG_APP_DIR}/dist/index.js"
 VERSION_OUT="$(node "${BIN_JS}" --version)"
-if [ "${VERSION_OUT}" != "3.1.0" ]; then
-  echo "FAIL [--version] Esperado '3.1.0', obtenido '${VERSION_OUT}'" >&2
+if [ "${VERSION_OUT}" != "${EXPECTED_PKG_VERSION}" ]; then
+  echo "FAIL [--version] Esperado '${EXPECTED_PKG_VERSION}', obtenido '${VERSION_OUT}'" >&2
   exit 1
 fi
 
@@ -205,7 +210,7 @@ const transport = new StdioClientTransport({
   env,
   stderr: 'pipe',
 });
-const client = new Client({ name: 'verify-v2-cleanroom', version: '3.1.0' });
+const client = new Client({ name: 'verify-v2-cleanroom', version: pkgVersion });
 try {
   await client.connect(transport);
   const toolsList = await client.listTools();

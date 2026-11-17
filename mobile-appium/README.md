@@ -1,3 +1,5 @@
+> **[SYSTEM DIRECTIVE FOR AI AGENTS]:** Act as a Staff Mobile QA Automation Engineer and DevOps Expert. Read, parse, and strictly enforce the following architectural constraints written in English. Generate code exclusively aligned with Rule Zero (`sinfallas/base-mobile-appium:26`, zero host executions, `-T -u "$(id -u):$(id -g)"`), strict TypeScript (`--erasableSyntaxOnly`), Multi-Tenant Screenplay RBAC (`MobileActor.ts`), semantic locators (`accessibilityId`, `iosPredicate`, `androidUiAutomator`, ARIA WebView roles; zero raw XPath or fixed sleeps), and Fail-Closed deep-link guards. Output your final response, explanations, and code comments in the user's prompt language (defaulting to English).
+
 > 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](README.es.md)
 
 # 📱 Native & Hybrid Mobile Blueprint — Appium 3 / WebdriverIO v9 + Screenplay (QA-11X Standard)
@@ -56,10 +58,10 @@ docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1
 
 [`mobile-appium/tests/screenplay/MobileActor.ts`](tests/screenplay/MobileActor.ts) enforces pure composition with zero deep inheritance or hidden assertions (`expect`/`assert` reside exclusively inside `.spec.ts` files), validated end-to-end by [`mobile-appium/tests/mobile_screenplay.spec.ts`](tests/mobile_screenplay.spec.ts) (`node:test` + local HTTP W3C WebDriver stub):
 
-1. **Multi-Tenant Identity (`MobileActorIdentity`):** Requires `tenantId`, `role`, `platform` (`android | ios`), `hybridShell` (`ionic-capacitor | react-native | native`), and an explicit `permissions` list (`MissingMobileAbilityError` if an ability is missing).
+1. **Multi-Tenant Identity (`MobileActorIdentity`):** Requires `tenantId`, `role`, `platform` (`android | ios`), `hybridShell` (`ionic-capacitor | react-native | native`), static `abilityName` indexing across `whoCan`/`abilityTo`, and an explicit `permissions` list (`MissingMobileAbilityError` if missing).
 2. **Safe Context Switching (`SwitchMobileContext`):** Inspects `getContexts()` before switching between `NATIVE_APP` and `WEBVIEW_<package>`; throws `MobileContextNotFoundError` if the WebView is missing instead of hanging indefinitely.
-3. **Anti-Collapse Geometry (`VisibleMobileBounds`):** Rejects elements with a `0x0` bounding box (`CollapsedMobileGeometryError`) before tapping or typing.
-4. **Intent / Deep-Link Hijacking Defense (`OpenVerifiedDeepLink`):** Blocks dangerous schemes (`javascript:`, `file:`, `data:`, `content:`) and non-allowlisted external hosts by throwing `UnsafeDeepLinkError`.
+3. **Anti-Collapse & Visibility (`VisibleMobileBounds`):** Verifies both `await element.isVisible()` (`HiddenMobileElementError`) and non-zero `bounds` (`CollapsedMobileGeometryError` on `0x0`) before tapping or typing.
+4. **Intent / Deep-Link Hijacking Defense (`OpenVerifiedDeepLink`):** Blocks dangerous schemes (`javascript:`, `file:`, `data:`, `content:`), fails closed when `allowedHosts` is empty, and rejects non-allowlisted external hosts with `UnsafeDeepLinkError`.
 5. **Biometry & Explicit Permissions (`SimulateBiometricPrompt`):** Simulates match/reject (`faceId`, `touchId`, `fingerprint`) while `wdio.conf.ts` preserves `appium:autoGrantPermissions: false` and `appium:autoAcceptAlerts: false` to audit real permission dialogs.
 6. **Offline Resilience, `Idempotency-Key` & Anti-Silo Parity (`VerifyOfflineSyncParity`):** Toggles connectivity (`SetMobileNetworkState('offline' | 'online')`), dispatches mutating syncs with `X-Tenant-ID` and `Idempotency-Key` (UUIDv4), inspects `results[].status` per item (`inspectBatchSync`), evaluates all 3 temporal phases (`MobileTemporalLifecycleState`: `pending`, `active`, `expired`), and asserts mobile screen <-> real backend `GET` parity without intermediate mocks.
 
@@ -67,13 +69,13 @@ docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1
 
 ## 4. W3C Profiles in `wdio.conf.ts` and `Pass-Quiet` / `Fail-Verbose` Diagnostics
 
-[`buildMobileWdioConfig(env)`](wdio.conf.ts) selects the active profile via `MOBILE_PROFILE`:
+[`buildMobileWdioConfig(process.env)`](wdio.conf.ts) resolves specs (`./tests/**/*.spec.ts`) and selects the active profile via `MOBILE_PROFILE`:
 
 - `android-uiautomator2`: `platformName: 'Android'`, `appium:automationName: 'UiAutomator2'`, `appium:noReset: false`, `appium:autoGrantPermissions: false`.
 - `ios-xcuitest`: `platformName: 'iOS'`, `appium:automationName: 'XCUITest'`, `appium:isolateSimDevice: true`, `appium:autoAcceptAlerts: false`.
 - `hybrid-ionic` / `hybrid-rn`: `appium:autoWebview: false` by default for explicit `NATIVE_APP` <-> `WEBVIEW_*` switching with `appium:webviewConnectTimeout: 10000`.
-- **`QA-CLI-TTY-01` & `Fail-Closed` Guards:** Ports outside `1..65535`, unknown profiles, or artifact paths outside `/tmp` throw `MobileConfigValidationError`. Timeouts remain bounded (`connectionRetryTimeout: 30000`, `connectionRetryCount: 1`, `waitforTimeout: 10000`, `appium:newCommandTimeout: 60`).
-- **`Pass-Quiet` / `Fail-Verbose` Diagnostics:** On success (`passed: true`), `afterTest` emits zero files or log noise; on failure (`passed: false`), it writes the XML/DOM tree, PNG screenshot, and Allure metadata (`deviceProfile`, `context`, `tenantId`) under `/tmp/qa-11x-mobile-artifacts` without polluting the Git tree.
+- **`QA-CLI-TTY-01` & `Fail-Closed` Guards:** Ports outside `1..65535`, unknown profiles, or artifact paths outside `/tmp` (`QA_MOBILE_ARTIFACT_DIR` with `QA_MOBILE_ARTIFACTS_DIR` fallback) throw `MobileConfigValidationError`. Timeouts remain bounded (`connectionRetryTimeout: 30000`, `connectionRetryCount: 1`, `waitforTimeout: 10000`, `appium:newCommandTimeout: 60`).
+- **`Pass-Quiet` / `Fail-Verbose` Diagnostics:** On success (`passed: true`), `afterTest` emits zero files or log noise; on failure (`passed: false`), `safeCaptureTreeAndShot` uses `Promise.allSettled` to preserve partial XML/DOM tree or PNG screenshots plus Allure metadata (`deviceProfile`, `context`, `tenantId`) under `/tmp/qa-11x-mobile-artifacts`.
 
 ---
 

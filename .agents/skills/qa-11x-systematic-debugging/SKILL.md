@@ -8,7 +8,7 @@ description: >-
 
 # QA 11X Systematic Debugging (`qa-11x-systematic-debugging`)
 
-> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Unless the target repository's `AGENTS.md` explicitly mandates a fixed output language, respond and explain reasoning in the **user's prompt language**, and write commit messages / human-facing documentation matching the **existing language of `README.md` and `CHANGELOG.md`** (explicitly ignoring `AGENTS.md` and `.agents/**`, which remain in concise English for token economy; default to the prompt language on empty repos).
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Respond in **user's prompt language** (unless `AGENTS.md` fixes it); docs/commits match `README.md`/`CHANGELOG.md` (Spec 19; `.agents/**` English).
 
 Deterministic 4-phase root-cause troubleshooting protocol under Standard 11X (`qa-11x-architect`), enforcing **Rule Zero** ephemeral reproduction, AST knowledge graph tracing (`graphify-ast-navigator`), single-hypothesis experimentation with a 3-strike circuit breaker, and unmocked **RED-to-GREEN** regression locking.
 

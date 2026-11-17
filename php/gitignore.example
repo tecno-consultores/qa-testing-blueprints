@@ -4,6 +4,7 @@ vendor/
 .php-cs-fixer.cache
 .psalm/
 coverage/
+htmlcov/
 infection.log
 infection-summary.log
 sbom-php.cdx.json

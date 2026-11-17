@@ -40,7 +40,7 @@ Every corporate project implementing Standard 11X must enforce the following **d
 ```mermaid
 flowchart TD
     subgraph Layer1["Layer 1: Perimeter & Proxy"]
-        L1["Non-Root Nginx - X-Forwarded-* Preservation, Strict CSP, 2MB Upload Limit"]
+        L1["Non-Root Nginx - X-Forwarded-* Preservation, Strict CSP, <= 10 MB Upload Cap (2 MB avatars/JSON)"]
     end
 
     subgraph Layer2["Layer 2: Identity & Session"]
@@ -99,7 +99,7 @@ Integrating SPAs (Vue 3, React) with REST/WebSocket APIs (FastAPI, Node.js) crea
 ### 4.6. Strict File Upload Limits (Anti-DoS / OOM)
 - **Risk:** Backend RAM exhaustion via massive unauthenticated uploads or oversized payloads.
 - **Mitigation:**
-  - Enforce a strict streaming quota limit (e.g., 2 MB or 5 MB), rejecting requests above the threshold with HTTP `413 Payload Too Large`.
+  - Enforce a strict streaming quota limit (`<= 10 MB` general upload cap, with a strict `2 MB` cap for avatars/JSON payloads), rejecting requests above the threshold with HTTP `413 Payload Too Large`.
 
 ### 4.7. Reverse Proxy Header Preservation in Nginx
 - **Risk:** Loss of true client IP behind reverse proxies, obstructing forensic audits, rate limiting, and brute-force detection.
@@ -125,7 +125,7 @@ Integrating SPAs (Vue 3, React) with REST/WebSocket APIs (FastAPI, Node.js) crea
 ### 4.10. Security in the MCP Ecosystem and Autonomous AI Agents
 - **Execution Isolation & `Rule Zero`:** MCP tools executed by AI agents (`run_ephemeral_qa`, `certify_11x_gate`) operate strictly inside isolated ephemeral containers (`sinfallas/*`), preventing host escape.
 - **Cryptographic Zero-Clone Download Verification (DISA ASD STIG V6R5 `V-222513` / `APSC-DV-001430`):** Every blueprint or skill dynamically fetched via `fetch_blueprint_bundle` or `install-skill` is verified against its precomputed SHA-256 hash in `manifest.json`, blocking in-transit tampering or poisoning.
-- **Sovereign Artifact Publishing (RoSGrid Model):** Storing package publishing credentials (`NPM_TOKEN`) in third-party CI/CD runners is prohibited. All publishing runs from controlled volatile in-memory sessions via `scripts/publicar-mcp.sh` (`.env` with `0600` permissions) destroying the token immediately after execution.
+- **Sovereign Artifact Publishing & Human Gate (`QA-GIT-GATE-01`):** Storing package publishing credentials (`NPM_TOKEN`) in third-party CI/CD runners is prohibited. All publishing runs from controlled volatile in-memory sessions via `scripts/publicar-mcp.sh` (`.env` with `0600` permissions) destroying the token immediately after execution, and **strictly requires explicit human authorization** (`QA-GIT-GATE-01` — automated `git push` or `npm publish` by AI agents is forbidden).
 
 ### 4.11. Concurrent Race Tolerance (*5s Grace Period Leeway*) on Refresh Tokens
 - **Risk:** When a user opens multiple browser tabs, all tabs attempt to refresh the JWT nearly simultaneously. Strict token rotation treats the second request as "malicious reuse" and abruptly terminates the session.
@@ -240,7 +240,7 @@ Integrating SPAs (Vue 3, React) with REST/WebSocket APIs (FastAPI, Node.js) crea
   - Pin exact unprefixed versions (`"1.52.0"`) in `@playwright/test` / `playwright` matched 1:1 with `mcr.microsoft.com/playwright:v1.52.0-*` (`QA-PLAYWRIGHT-PIN-01` in `audit_security_stig_owasp`, auto-aligned in `SurgicalMerger.mergePackageJson`, executed non-root as `QA_UID:QA_GID` prioritizing `./node_modules/.bin/{playwright,lhci}`).
   - Validate all target URLs in `.agents/scripts/audit_pagespeed_insights.py` (`make audit-psi` / `make qa-psi`) enforcing exclusive `https://` scheme, pre-DNS blocking of private/loopback/link-local/`.internal` ranges (`SEC-03`), and mandatory redaction of `key=`/`PAGESPEED_API_KEY` parameters (`SEC-06`).
 
-### 4.30. SSR/SSG Hydration Parity under Dual Color Schemes in Playwright (`QA-SSR-HYDRATION-01` — `Standard 11X Layer 8` & `APSC-DV-002310`)
+### 4.30. SSR/SSG Hydration Parity under Dual Color Schemes in Playwright (`QA-SSR-HYDRATION-01` — `Standard 11X Layer 9 (L09 Playwright/SSR)` & `APSC-DV-002310`)
 - **Risk:** In SSR/SSG apps with light/dark theme switching, an inline `<head>` script mutating `dataset.theme` or `.dark` before hydration causes silent DOM mismatches (*Hydration completed but contains mismatches*) when components use client-dependent `v-if` or when `playwright.config.ts` hardcodes only one `colorScheme` (e.g., `'dark'`), hiding production regressions under `prefers-color-scheme: light`.
 - **Mitigation:**
   - Avoid branching initial HTML structure (`v-if`) on `localStorage` or `dataset.theme` before mount; render both variants via CSS (`display: none` / `hidden dark:block`) and sync reactive state in `onMounted`.
@@ -279,7 +279,7 @@ flowchart LR
 
 Before every commit, code automatically passes:
 1. **Secret Detection:** `./scripts/verificar-secretos.sh` (0 hardcoded credentials).
-2. **Static SAST:** `Bandit` (Python) and `eslint-plugin-security` (`plugin:security/recommended-legacy` in ESLint 8), with `.npmrc` configured with `ignore-scripts=true` and native exemptions declared via the `allowBuilds` boolean map in `pnpm-workspace.yaml` (`SEC-09`).
+2. **Static SAST:** `Bandit` (Python) and `eslint-plugin-security` (via **ESLint 9 Flat Config (`eslint.config.mjs`)** + `sonarjs` v3 + type-aware rules, or `plugin:security/recommended-legacy` on legacy ESLint 8 repos), with `.npmrc` configured with `ignore-scripts=true` and native exemptions declared via the `allowBuilds` boolean map in `pnpm-workspace.yaml` (`SEC-09`).
 3. **IaC & Container Audit:** `Trivy` (`./scripts/auditar-infra.sh`) requiring `0` `HIGH` or `CRITICAL` vulnerabilities and non-root execution.
 4. **Certification Gate:** `./.agents/scripts/certify_task_completion.sh` returning exit code 0.
 5. **Workflow Validation & Continuous Audit:** `make lint-workflows` locally and `.github/workflows/audit-base-images.yml` (`Trivy`, `pip-audit`, and `CodeQL`) in CI.

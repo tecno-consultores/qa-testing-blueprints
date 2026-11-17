@@ -49,7 +49,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
-      - uses: tecno-consultores/qa-testing-blueprints/.github/actions/qa-11x-pr-check@v3.1.0 # Example release tag (or pin a 40-char commit SHA)
+      - uses: tecno-consultores/qa-testing-blueprints/.github/actions/qa-11x-pr-check@v3 # sec-ci-action-ref-ok (example tag; pin a 40-char commit SHA in production)
         with:
           tier: standard
           lang: en
@@ -91,10 +91,10 @@ All runtime, lint, mutation, contract, and BDD suites execute inside non-root co
 | **[sinfallas/base-node-ionic](https://hub.docker.com/r/sinfallas/base-node-ionic)** | MCP Server, Node, Vue 3, React & CALM | `22`, `24`, `26`, `latest` (`pnpm`, `promptfoo`, `@finos/calm-cli`, `playwright`, `@axe-core/playwright`, `@pact-foundation/pact`) |
 | **[sinfallas/base-mobile-appium](https://hub.docker.com/r/sinfallas/base-mobile-appium)** | Native & Hybrid Mobile W3C Bridge (Android/iOS) | `26`, `latest` (`Node.js 26`, `pnpm`, `OpenJDK 21`, `Android SDK/ADB`, `Appium 3`, `uiautomator2`, `xcuitest`, `WebdriverIO v9`) |
 | **[sinfallas/basephpcomposer](https://hub.docker.com/r/sinfallas/basephpcomposer)** | PHP 8.2–8.5 APIs & Services | `8.2`, `8.3`, `8.4`, `8.5`, `latest` (`pcov`, `phpstan`, `psalm`, `pest`, `phpunit`, `infection`) |
-| **[sinfallas/karatelabs](https://hub.docker.com/r/sinfallas/karatelabs)** | API & HTTP/Edge/OSHP/XML BDD Contracts | `1.5.1` / `11x-v2-local` (Java + Maven + Karate JUnit5; proportional to stateful multi-service `FULL_11X` flows) |
+| **[sinfallas/karatelabs](https://hub.docker.com/r/sinfallas/karatelabs)** | API & HTTP/Edge/OSHP/XML BDD Contracts | `1.5.1` (Java + Maven + Karate JUnit5; proportional to stateful multi-service `FULL_11X` flows) |
 | **[sinfallas/base-bash-qa](https://hub.docker.com/r/sinfallas/base-bash-qa)** | DevOps & POSIX Shell Scripts | `latest` (`ShellCheck`, `shfmt`, `BATS-core`, `bats-mock`, `kcov`) |
 | **[sinfallas/remote-graphify](https://hub.docker.com/r/sinfallas/remote-graphify)** | AST Context Optimization & Blast Radius | `latest` (`graphify` Tree-sitter AST graph & cluster extraction) |
-| **Infra & Load Engines** | Live DB, Cache & Smoke Load | `postgres:17-alpine`, `eqalpha/keydb:alpine`, `grafana/k6:2.4.0` |
+| **Infra, Security & Load Engines** | Live DB, Cache, DAST, Chaos & Load | `postgres:17-alpine`, `eqalpha/keydb:6.3.4`, `aquasec/trivy:0.76.2`, `zaproxy/zap-stable:2.15.0`, `gaiaadm/pumba:0.10.1`, `prom/prometheus:v2.55.1`, `grafana/k6:2.4.0` |
 
 ---
 

@@ -8,7 +8,7 @@ description: >-
 
 # QA 11X LLM & Agentic Evaluator (`qa-11x-llm-evaluator`)
 
-> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Unless the target repository's `AGENTS.md` explicitly mandates a fixed output language, respond and explain reasoning in the **user's prompt language**, and write commit messages / human-facing documentation matching the **existing language of `README.md` and `CHANGELOG.md`** (explicitly ignoring `AGENTS.md` and `.agents/**`, which remain in concise English for token economy; default to the prompt language on empty repos).
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Respond in **user's prompt language** (unless `AGENTS.md` fixes it); docs/commits match `README.md`/`CHANGELOG.md` (Spec 19; `.agents/**` English).
 
 Dual-mode evaluation standard for AI-powered applications, RAG pipelines, voice agents, multimodal extractors, and autonomous MCP tool-callers—guaranteeing **zero API-key friction in offline CI** while enforcing blocking probabilistic, safety, and latency thresholds during on-demand ephemeral audits.
 
@@ -140,13 +140,16 @@ description: "11X Cross-Model & OWASP LLM Top 10 Matrix"
 prompts:
   - "file://prompts/rag_system.txt"
 providers:
-  - id: openai:gpt-4o-mini
+  - id: openai:gpt-4.1-mini
     config:
-      apiKeyEnvar: OPENAI_API_KEY
-  - id: anthropic:messages:claude-3-5-sonnet-latest
+      apiKey: "${OPENAI_API_KEY}"
+  - id: anthropic:messages:claude-sonnet-4-5
     config:
-      apiKeyEnvar: ANTHROPIC_API_KEY
-  - id: ollama:chat:qwen2.5:14b
+      apiKey: "${ANTHROPIC_API_KEY}"
+  - id: google:gemini-2.5-flash
+    config:
+      apiKey: "${GEMINI_API_KEY}"
+  - id: ollama:chat:qwen3:8b
 redteam:
   purpose: "Multi-tenant infrastructure telemetry assistant with strict RBAC."
   plugins:

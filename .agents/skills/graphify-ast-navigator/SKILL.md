@@ -9,7 +9,7 @@ description: >-
 # Graphify AST Knowledge Graph & Bidirectional Code Navigator (`graphify-ast-navigator`)
 
 This skill governs the creation, incremental maintenance, and bidirectional querying of deterministic Abstract Syntax Tree (AST) knowledge graphs (`graphify-out/graph.json` and `graphify-out/GRAPH_REPORT.md`) to answer code/architecture questions (`Code Q&A`), eliminate blind file-exploration loops, prevent regressions, and enforce clean architectural layer boundaries.
-> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Unless the target repository's `AGENTS.md` explicitly mandates a fixed output language, respond and explain reasoning in the **user's prompt language**, and write commit messages / human-facing documentation matching the **existing language of `README.md` and `CHANGELOG.md`** (explicitly ignoring `AGENTS.md` and `.agents/**`, which remain in concise English for token economy; default to the prompt language on empty repos).
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Respond in **user's prompt language** (unless `AGENTS.md` fixes it); docs/commits match `README.md`/`CHANGELOG.md` (Spec 19; `.agents/**` English).
 
 ---
 
@@ -24,7 +24,7 @@ Naive text-based exploration (`grep` + reading multiple full files to trace call
 3. **Multi-Hop Transitive Blast Radius (GraphRAG for Code):**
    - Unlike flat string matching or vector embeddings, AST graph traversal exposes multi-hop ripple effects across API routes, service layers, ORM models, and UI stores before a single line of code is changed.
 4. **Automated Topological Layer Governance (Certification Gate 6/10):**
-   - Powers `verify_topological_health.py` inside `certify_task_completion.sh` to statically block circular dependencies and forbidden cross-layer coupling (e.g., UI components importing database models directly or domain services depending on HTTP presentation layers).
+   - Powers `verify_topological_health.py` inside `certify_task_completion.sh` to statically block directed circular dependencies (3-color DFS) and forbidden cross-layer coupling (`models/`/`schemas/`/`core/`/`domain/`/`services/` depending on `api/`/`controllers/`/`routes/`/`views/`, or `components/common/` depending on `views/`/`pages/`).
 
 ---
 
@@ -73,8 +73,8 @@ docker run --rm -e OLLAMA_BASE_URL="" -v "$(pwd):/app" -w /app sinfallas/remote-
      # 1. Bidirectional symbol navigation (declaring file:line, incoming callers & outgoing callees)
      python3 .agents/scripts/inspect_blast_radius.py "<symbol_or_filename>"
 
-     # 2. Differential blast-radius test selector (Affected suites only)
-     python3 .agents/scripts/select_tests_by_blast_radius.py --base origin/main
+     # 2. Differential blast-radius test selector (Affected suites only; also accepts --base)
+     python3 .agents/scripts/select_tests_by_blast_radius.py --base-ref origin/main
 
      # 3. Architectural layer boundary & circular dependency audit
      python3 .agents/scripts/verify_topological_health.py

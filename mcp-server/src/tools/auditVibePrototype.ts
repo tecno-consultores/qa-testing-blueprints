@@ -29,10 +29,6 @@ const STAGE_TYPE = 'Stage 3: Strict Typing & Borders';
 const STAGE_ARCH = 'Stage 3: Modularization (CC <= 5)';
 const STAGE_QA = 'Stage 4: Rule Zero & Test Net';
 
-const SCHEMA_STRING = 'string' as const;
-const SCHEMA_BOOLEAN = 'boolean' as const;
-const SCHEMA_NUMBER = 'number' as const;
-const SCHEMA_OBJECT = 'object' as const;
 const UTF8_ENCODING = 'utf8' as const;
 
 const IGNORED_DIRS = new Set([
@@ -179,40 +175,10 @@ export interface AuditVibePrototypeResult {
   readonly summary: string;
 }
 
-export const AUDIT_VIBE_PROTOTYPE_TOOL: Tool = {
+export const AUDIT_VIBE_PROTOTYPE_TOOL: Pick<Tool, 'name' | 'description'> = {
   name: 'audit_vibe_prototype',
   description:
     'Audits and hardens vibe-coded prototypes (Bolt.new, Lovable, v0, Replit Agent) under the 5-stage QA-11X protocol (VIBE-SEC-001..VIBE-QA-005), with secret redaction, PostgreSQL 15-17+ RLS template, and optional non-destructive dryRun=false emission.',
-  inputSchema: {
-    type: SCHEMA_OBJECT,
-    properties: {
-      targetDir: {
-        type: SCHEMA_STRING,
-        description: 'Relative or contained prototype directory path inside workspaceRoot.',
-      },
-      workspaceRoot: {
-        type: SCHEMA_STRING,
-        description: 'Allowed project root for anti-Path Traversal containment.',
-      },
-      dryRun: {
-        type: SCHEMA_BOOLEAN,
-        description: 'Safe read-only mode without disk writes (default true).',
-      },
-      remediationSubdir: {
-        type: SCHEMA_STRING,
-        description: 'Relative subdirectory inside targetDir for generated remediation files when dryRun=false.',
-      },
-      maxLines: {
-        type: SCHEMA_NUMBER,
-        description: 'Maximum lines per module before triggering VIBE-ARCH-004 (default 500).',
-      },
-      enforce: {
-        type: SCHEMA_BOOLEAN,
-        description: 'If true, returns isError=true in MCP when verdict is RESCUE_REQUIRED.',
-      },
-    },
-    additionalProperties: false,
-  },
 };
 
 export function redactVibeSecrets(text: string): string {

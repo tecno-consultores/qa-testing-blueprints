@@ -1,12 +1,16 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores) -->
-> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (CHANGELOG.es.md)](CHANGELOG.es.md)
+> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (CHANGELOG.es.md)](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/CHANGELOG.es.md)
 
 # Changelog — `@sinfallas/mcp-qa-11x`
 
 All notable changes to the `@sinfallas/mcp-qa-11x` npm package and MCP server are documented in this file.
 
 ## [Unreleased]
+
+### Fixed
+- **Timeout Isolation, Non-Destructive CLI, Safe Merge & AST Acyclicity:** Isolated `TaskStateGuard` per-task timeouts (`AbortSignal` propagation without global `503 BROKEN`), fixed non-destructive `--help`/`--dry-run` across all CLI subcommands, updated `quickstart` to `@v3` + `actions/checkout` v5.1.0, protected `SurgicalMerger` against invalid JSON with `.11x-backup`, and broke the `services -> cli` AST cycle in `agents-connector.ts`.
+- **npmjs Packaging, Zod Schemas & Remote Stack Resources:** Added `tsconfig.build.json` (eliminating `1.1 MB` of `.map` files from the tarball) and ESM `exports`, added Zod `.describe()` metadata on V2/V3 tools, wired `mobile-appium`/`vibe-rescue` resources through `GitHubFetcher`, hardened `promptGuard` (`workspaceRoot` + defensive negations), and synced `tms-sync` and `README.{md,es.md}` docs.
 
 ## [3.1.0] - 2026-11-17
 

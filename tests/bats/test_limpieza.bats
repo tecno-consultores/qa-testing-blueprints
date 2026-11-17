@@ -12,7 +12,7 @@ setup() {
   elif [ -f "/repo/scripts/limpieza.sh" ]; then
     REPO_ROOT="/repo"
   else
-    REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/.." && pwd)"
+    REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd)"
   fi
   CLEAN_SCRIPT="${REPO_ROOT}/scripts/limpieza.sh"
 
@@ -127,7 +127,7 @@ setup() {
   [ ! -d "${FAKE_ROOT}/mobile-appium/errorShots" ]
 }
 
-@test "limpieza.sh stacks (mobile-appium, ai-evals, vibe-rescue): purga caches y preserva graphify-out (--quiet y --deep)" {
+@test "limpieza.sh stacks (10 stacks): purga caches, node_modules/.venv en --deep y preserva graphify-out" {
   cat >"${FAKE_BIN}/docker" <<'EOF'
 #!/usr/bin/env bash
 if [ "${1:-}" = "compose" ] && [ "${2:-}" = "--profile" ]; then
@@ -137,11 +137,12 @@ exit 0
 EOF
   chmod +x "${FAKE_BIN}/docker"
 
-  for stack in mobile-appium ai-evals vibe-rescue; do
-    stack_dir="${BATS_TEST_TMPDIR}/stack-${stack}"
+  for stack in ai-evals bash-scripts fastapi mobile-appium node-backend php python react-frontend vibe-rescue vue3; do
+    stack_dir="${BATS_TEST_TMPDIR}/${stack}"
     mkdir -p "${stack_dir}/graphify-out/cache" "${stack_dir}/.trivycache" \
       "${stack_dir}/.pytest_cache" "${stack_dir}/wdio-logs" "${stack_dir}/coverage" \
-      "${stack_dir}/.agents/proposals" "${stack_dir}/.agents/backups"
+      "${stack_dir}/.agents/proposals" "${stack_dir}/.agents/backups" \
+      "${stack_dir}/node_modules" "${stack_dir}/.venv" "${stack_dir}/.phpunit.cache"
     cp "${REPO_ROOT}/${stack}/limpieza.sh" "${stack_dir}/limpieza.sh"
     chmod +x "${stack_dir}/limpieza.sh"
     echo "{}" >"${stack_dir}/graphify-out/graph.json"
@@ -149,23 +150,21 @@ EOF
     echo "log" >"${stack_dir}/wdio-logs/run.log"
     echo "cov" >"${stack_dir}/.coverage"
     echo "v" >"${stack_dir}/.trivycache/db"
+    echo "nm" >"${stack_dir}/node_modules/pkg.txt"
 
     run env HOME="${FAKE_HOME}" TMPDIR="${FAKE_TMP}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C "${stack_dir}/limpieza.sh" --quiet
     assert_success
     [ ! -d "${stack_dir}/.trivycache" ]
-    if [ "${stack}" = "mobile-appium" ]; then
-      [ ! -d "${stack_dir}/wdio-logs" ]
-    else
-      [ ! -d "${stack_dir}/.pytest_cache" ]
-      [ ! -f "${stack_dir}/.coverage" ]
-    fi
     [ ! -f "${stack_dir}/graphify-out/junk.tmp" ]
     [ -f "${stack_dir}/graphify-out/graph.json" ]
     [ -d "${stack_dir}/.agents/proposals" ]
+    [ -d "${stack_dir}/node_modules" ]
 
-    run env HOME="${FAKE_HOME}" TMPDIR="${FAKE_TMP}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C "${stack_dir}/limpieza.sh" --deep
+    run env HOME="${FAKE_HOME}" TMPDIR="${FAKE_TMP}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C "${stack_dir}/limpieza.sh" --deep --quiet
     assert_success
     [ ! -d "${stack_dir}/.agents/proposals" ]
     [ ! -d "${stack_dir}/.agents/backups" ]
+    [ ! -d "${stack_dir}/node_modules" ]
+    [ ! -d "${stack_dir}/.venv" ]
   done
 }

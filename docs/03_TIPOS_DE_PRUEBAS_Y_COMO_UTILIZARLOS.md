@@ -12,19 +12,19 @@
 ```text
                ▲
               / \
-             /   \      [13] Trimodal Fixtures & Negative Invariants
-            /     \     [12] Chaos Engineering (Pumba) & Resilience
-           /       \    [11] Dynamic Security DAST (OWASP ZAP)
-          /         \   [10] Performance & Stress (Locust / Artillery)
-         /           \  [09] WCAG 2.1 AA Accessibility & Visual Geometry
-        /             \ [08] Mutation Testing: Tests of Tests (Mutmut / Stryker)
-       /               \[07] Frontend HTTP/OSHP/SSG Contracts (Karate Labs HTTP + Playwright DOM)
-      /                 \[06] Black-Box API BDD (Karate Labs HTTP)
-     /                   \[05] Front-Back Integration Contracts
-    /                     \[04] DB Schema & Migration Parity (Alembic)
-   /                       \[03] Isolated Unit Tests (Pytest / Vitest >= 95%)
-  /                         \[02] Strict Typing & Complexity (Mypy / Radon / SonarJS)
- /                           \[01] Static Analysis, Formatting & SAST (Ruff / ESLint / Bandit)
+             /   \      [13] Trimodal Fixtures, 3-Phase Clock & Negative Invariants
+            /     \     [12] Chaos Engineering (Pumba) & RED Telemetry (Prometheus)
+           /       \    [11] Dynamic Security DAST (OWASP ZAP) & OSHP
+          /         \   [10] Performance & Stress (grafana/k6:2.4.0 / Locust / Artillery)
+         /           \  [09] Playwright WCAG 2.1 AA, Visual Geometry & Lighthouse CI
+        /             \ [08] Mutation Testing: Tests of Tests (Mutmut / Stryker / Infection)
+       /               \[07] Frontend HTTP/OSHP/SSG Contracts (Karate Labs HTTP)
+      /                 \[06] Black-Box API BDD (Karate Labs API + Idempotency-Key)
+     /                   \[05] Front-Back Integration Contracts & OpenAPI Fuzzing (Pact / Schemathesis)
+    /                     \[04] DB Schema & Migration Parity (Alembic / PostgreSQL 17)
+   /                       \[03] Isolated Unit Tests (Pytest / Vitest / Pest >= 95%)
+  /                         \[02] Strict Typing & Complexity (Mypy / Radon Grade A / SonarJS)
+ /                           \[01] Static Analysis, Formatting & SAST/IaC (Ruff / ESLint / Trivy)
 ─────────────────────────────────────────────────────────────────────────────────────────────
 ```
 
@@ -52,9 +52,9 @@
 
 * **Purpose:** Prevent runtime type errors (`AttributeError: 'NoneType'`, `TypeError: undefined is not a function`) and enforce readability by eliminating monolithic functions.
 * **Tools:**
-  - Python: `mypy --strict src/` and `radon cc --min C src/` (Grade A Cyclomatic Complexity: `CC <= 5`).
+  - Python: `mypy --strict src/` and `test -z "$(radon cc --min B src/)"` (enforces Grade A Cyclomatic Complexity: `CC <= 5`).
   - TypeScript / Vue: `vue-tsc --noEmit` and `SonarJS` (bounded maximum cognitive complexity).
-* **Non-Negotiable Threshold:** **0 typing errors, zero functions at grade C or worse**.
+* **Non-Negotiable Threshold:** **0 typing errors, zero functions at grade B or worse (`CC > 5`)**.
 
 ---
 
@@ -109,9 +109,11 @@
   1. Extracts table names declared with `__tablename__` in `src/models/*.py`.
   2. Inspects `op.create_table()` calls inside Alembic migration files.
   3. If any ORM model lacks an associated migration, aborts execution with exit code 1.
-* **Execution:**
+* **Execution (Docker Rule Zero):**
   ```bash
-  python3 .agents/scripts/verify_alembic_orm_parity.py
+  docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp \
+    -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 \
+    python3 .agents/scripts/verify_alembic_orm_parity.py
   ```
 
 ---
@@ -149,6 +151,7 @@
 
     Scenario: Request with incomplete payload returns HTTP 422
       Given path '/api/v1/auth/login'
+      And header Idempotency-Key = java.util.UUID.randomUUID() + ''
       And request { username: "operator_without_password" }
       When method post
       Then status 422
@@ -158,11 +161,11 @@
       Given path '/api/v1/users/me'
       When method get
       Then status 401
-      And match response.detail contains 'No autenticado'
+      And match response.detail contains 'Not authenticated'
   ```
 * **Execution:**
   ```bash
-  make qa-bdd   # or docker compose run --rm karatelabs mvn clean test
+  make qa-bdd   # or docker compose run --rm -T karatelabs mvn clean test
   ```
 
 ---
@@ -237,6 +240,7 @@
 
 * **Purpose:** Validate API behavior and memory/CPU resource consumption under massive concurrent traffic.
 * **Tools:**
+  - Declarative k6 Smoke / Load (FastAPI & PHP): `grafana/k6:2.4.0` (`fastapi/tests/load/smoke.k6.js`, `php/tests/load/smoke.k6.js`).
   - Python / FastAPI: `locust` in headless mode with scenarios defined in `locustfile.py`.
   - Node.js: `artillery` executing scenarios defined in `artillery.yml`.
 * **Non-Negotiable Threshold:** **0% failed requests and P95 latency under 200 ms**.

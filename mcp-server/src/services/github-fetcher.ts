@@ -93,6 +93,10 @@ export class GitHubFetcher {
     return this.cacheDir;
   }
 
+  public getLocalOverridePath(): string | null {
+    return this.localOverridePath;
+  }
+
   private ensureDir(dirPath: string): void {
     if (!fs.existsSync(dirPath)) {
       fs.mkdirSync(dirPath, { recursive: true });
@@ -284,6 +288,7 @@ export class GitHubFetcher {
         ? manifest.agent_governance_files.filter(
             (f) =>
               f.path.startsWith('.agents/scripts/') ||
+              f.path.startsWith('.agents/schemas/') ||
               f.path === '.agents/ACTIVE_TASK.md.example'
           )
         : manifest.agent_governance_files;

@@ -214,11 +214,11 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
   # Grupo 9: Contrato del Ecosistema PHP 8.2-8.5 en Manifiesto y Servidor MCP
   # ==============================================================================
 
-  Scenario: 9. El manifiesto indexa oficialmente el stack PHP con sus 11 plantillas y fusión quirúrgica
+  Scenario: 9. El manifiesto indexa oficialmente el stack PHP con sus 12 plantillas y fusión quirúrgica
     * match manifest.stacks.php == '#object'
     * match manifest.stacks.php.description contains 'PHP 8.2-8.5'
     * match manifest.stacks.php.readme == 'php/README.md'
-    * match manifest.stacks.php.files == '#[11]'
+    * match manifest.stacks.php.files == '#[12]'
 
     # Verificar que composer.json.example aplique estrategia surgical_merge
     * def findComposer = function(f) { return f.target_name == 'composer.json' }
@@ -234,6 +234,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * match filePaths contains 'php/gitignore.example'
     * match filePaths contains 'php/phpstan.neon.example'
     * match filePaths contains 'php/phpunit.xml.example'
+    * match filePaths contains 'php/psalm.xml.example'
     * match filePaths contains 'php/infection.json5.example'
     * match filePaths contains 'php/php.ini.example'
     * match filePaths contains 'php/limpieza.sh'
@@ -899,7 +900,10 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert cliIndexSource.contains('shouldExitInteractiveTty')
     * assert cliIndexSource.contains('INTERACTIVE_TTY_NOTICE')
     * assert cliIndexSource.contains("arg1 === '--stdio'")
-    * assert cliIndexSource.contains("arg1 === 'install-skill' || arg1 === 'install'")
+    * assert cliIndexSource.contains('runCli(args')
+    * def cliRouterSource = karate.readAsString(mcpRoot + '/src/cli.ts')
+    * assert cliRouterSource.contains("'install-skill': CMD_INSTALL_SKILL")
+    * assert cliRouterSource.contains('install: CMD_INSTALL_SKILL')
     * assert cliIndexSource.contains('process.stdin.isTTY')
 
     * def secAuditorSource = karate.readAsString(mcpRoot + '/src/tools/security-auditor.ts')
@@ -1646,6 +1650,35 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert hooks48.contains('-e _USER=qa')
     * def probar48 = karate.readAsString(repoRoot48 + '/scripts/probar-mcp-example.sh')
     * assert probar48.contains('--prefer-offline --trust-lockfile')
+
+  Scenario: 49. Contratos Fase 1 — Aislamiento TaskStateGuard, Empaquetado tsconfig.build, Seguridad Prompt/Merge y Quickstart @v3
+    * match pkg.main == './dist/index.js'
+    * match pkg.types == './dist/index.d.ts'
+    * match pkg.exports['./agent-card'].default == './dist/a2a/agentCard.js'
+    * match pkg.scripts.build == 'rm -rf dist && tsc -p tsconfig.build.json'
+
+    * def tsconfigBuild = read(mcpRoot + '/tsconfig.build.json')
+    * match tsconfigBuild.compilerOptions.sourceMap == false
+    * match tsconfigBuild.compilerOptions.declarationMap == false
+
+    * def guardSrc49 = karate.readAsString(mcpRoot + '/src/utils/taskStateGuard.ts')
+    * assert guardSrc49.contains('MAX_STUCK_TASKS = 32')
+
+    * def indexSrc49 = karate.readAsString(mcpRoot + '/src/index.ts')
+    * assert indexSrc49.contains('resolveToolExecutionOptions')
+    * assert indexSrc49.contains('heavy_transfer')
+
+    * def quickstartSrc49 = karate.readAsString(mcpRoot + '/src/cli/quickstart.ts')
+    * assert quickstartSrc49.contains('qa-11x-pr-check@v3')
+    * assert quickstartSrc49.contains('actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v5.1.0')
+
+    * def typesSrc49 = karate.readAsString(mcpRoot + '/src/types.ts')
+    * assert typesSrc49.contains('create_backup')
+    * assert typesSrc49.contains('include_examples')
+
+    * def qaEvSrc49 = karate.readAsString(mcpRoot + '/src/services/qa-evidence.ts')
+    * assert qaEvSrc49.contains('streaks')
+    * assert qaEvSrc49.contains('oscillations')
 
 
 

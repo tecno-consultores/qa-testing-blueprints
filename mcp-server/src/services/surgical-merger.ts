@@ -24,11 +24,24 @@ export class SurgicalMerger {
     let targetObj: Record<string, unknown> = {};
     if (targetContent.trim()) {
       try {
-        targetObj = JSON.parse(targetContent) as Record<string, unknown>;
+        const parsed = JSON.parse(targetContent) as unknown;
+        if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+          return {
+            merged: targetContent,
+            changes: [
+              'Error: package.json destino no contiene un objeto JSON válido; preservado sin modificar',
+            ],
+          };
+        }
+        targetObj = parsed as Record<string, unknown>;
       } catch (err: unknown) {
-        // Invalid existing package.json JSON starts from clean merge object rather than crashing
         reportDebugCatchError('surgicalMerger.mergePackageJson', err);
-        targetObj = {};
+        return {
+          merged: targetContent,
+          changes: [
+            'Error: package.json destino contiene JSON inválido; preservado sin modificar',
+          ],
+        };
       }
     }
 
@@ -728,6 +741,9 @@ export class SurgicalMerger {
         item.content,
         projectName
       );
+      if (res.changes.some((c) => c.startsWith('Error:'))) {
+        return { status: 'skipped', changes: res.changes, finalContent: existingContent };
+      }
       const status = this.resolveMergeStatus(res.changes.length > 0, dryRun);
       return { status, changes: res.changes, finalContent: res.finalContent };
     }
@@ -824,6 +840,7 @@ export class SurgicalMerger {
     applied_changes: MergeResultItem[];
   } {
     const dryRun = options?.dryRun ?? false;
+    const createBackup = options?.createBackup ?? true;
     const appliedChanges: MergeResultItem[] = [];
     let createdCount = 0;
     let mergedCount = 0;
@@ -843,6 +860,9 @@ export class SurgicalMerger {
       }
 
       if (!dryRun && evaluated.status !== 'skipped') {
+        if (createBackup && evaluated.existed && fs.existsSync(targetFilePath)) {
+          fs.copyFileSync(targetFilePath, `${targetFilePath}.11x-backup`);
+        }
         this.writeMergedFile(targetFilePath, evaluated.finalContent, item.merge_strategy, item.target_name);
       }
 

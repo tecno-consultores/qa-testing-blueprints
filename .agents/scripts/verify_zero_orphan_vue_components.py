@@ -45,10 +45,14 @@ _JS_COMMENT_OR_STR_RE = re.compile(
 )
 
 
+_IGNORED_DIRS = frozenset({"node_modules", "dist", ".git"})
+
+
 def _iter_files(directories: list[Path]) -> Iterator[Path]:
     for directory in directories:
-        for root, _, files in os.walk(directory):
-            for fname in files:
+        for root, dirnames, files in os.walk(directory):
+            dirnames[:] = sorted(d for d in dirnames if d not in _IGNORED_DIRS)
+            for fname in sorted(files):
                 yield Path(root) / fname
 
 

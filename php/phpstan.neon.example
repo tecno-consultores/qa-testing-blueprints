@@ -1,5 +1,6 @@
 includes:
     - vendor/phpstan/phpstan-strict-rules/rules.neon
+    - vendor/tomasvotruba/cognitive-complexity/config/extension.neon
 
 parameters:
     level: max

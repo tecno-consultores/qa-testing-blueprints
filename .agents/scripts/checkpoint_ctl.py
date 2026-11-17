@@ -79,6 +79,30 @@ NOISE_GIT_PREFIXES = (
     ".agents/.qa-evidence.json",
     "graphify-out/",
 )
+_CHECKPOINT_REQUIRED_KEYS = frozenset(
+    {
+        "schema_version",
+        "status",
+        "updated_at",
+        "git_available",
+        "branch",
+        "base_sha",
+        "task_id",
+        "completed_steps",
+        "active_step",
+        "planned_steps",
+        "allowed_globs",
+        "forbidden_globs",
+        "intent_140chars",
+        "last_script_run",
+    }
+)
+_LAST_RUN_REQUIRED_KEYS = frozenset(
+    {"cmd", "exit_code", "timestamp", "summary_1line"}
+)
+_VALID_CHECKPOINT_STATUSES = frozenset(
+    {STATUS_IN_PROGRESS, STATUS_CERTIFIED_CLEAN}
+)
 
 
 @dataclass(frozen=True)
@@ -445,18 +469,65 @@ def _coerce_str_list(raw_val: Any, field_name: str) -> tuple[str, ...]:
     return _dedupe_steps([str(item) for item in raw_val])
 
 
-def _parse_last_run(raw: Any) -> LastScriptRun | None:
-    if not isinstance(raw, dict):
-        return None
-    raw_rc = raw.get("exit_code", 0)
+def _validate_last_run_scalars(raw: dict[str, Any]) -> LastScriptRun:
+    raw_rc = raw.get("exit_code")
     if isinstance(raw_rc, bool) or not isinstance(raw_rc, int):
         raise TypeError("'last_script_run.exit_code' debe ser entero.")
+    cmd = raw.get("cmd")
+    ts = raw.get("timestamp")
+    summary = raw.get("summary_1line")
+    if not isinstance(cmd, str) or not cmd or not isinstance(summary, str):
+        raise TypeError("'last_script_run' tiene cmd o summary_1line inválidos.")
+    if not isinstance(ts, str) or len(ts) < 20:
+        raise ValueError("'last_script_run.timestamp' debe tener >= 20 caracteres.")
     return LastScriptRun(
-        cmd=str(raw.get("cmd", "")),
-        exit_code=raw_rc,
-        timestamp=str(raw.get("timestamp", _utc_now_iso())),
-        summary_1line=str(raw.get("summary_1line", "")),
+        cmd=cmd, exit_code=raw_rc, timestamp=ts, summary_1line=summary
     )
+
+
+def _validate_last_run_schema(raw: Any) -> LastScriptRun | None:
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise TypeError("'last_script_run' debe ser objeto o null.")
+    keys = set(raw.keys())
+    unknown = sorted(keys - _LAST_RUN_REQUIRED_KEYS)
+    missing = sorted(_LAST_RUN_REQUIRED_KEYS - keys)
+    if unknown or missing:
+        raise ValueError(
+            f"'last_script_run' inválido (unknown={unknown}, missing={missing})."
+        )
+    return _validate_last_run_scalars(raw)
+
+
+def _validate_checkpoint_keys_and_status(raw: dict[str, Any]) -> None:
+    keys = set(raw.keys())
+    unknown = sorted(keys - _CHECKPOINT_REQUIRED_KEYS)
+    if unknown:
+        raise ValueError(
+            f"Claves desconocidas en session_checkpoint.json: {unknown}"
+        )
+    missing = sorted(_CHECKPOINT_REQUIRED_KEYS - keys)
+    if missing:
+        raise ValueError(
+            f"Campos requeridos faltantes en session_checkpoint.json: {missing}"
+        )
+    if raw.get("schema_version") != SCHEMA_VERSION:
+        raise ValueError("schema_version inválida en session_checkpoint.json.")
+    if raw.get("status") not in _VALID_CHECKPOINT_STATUSES:
+        raise ValueError("status inválido en session_checkpoint.json.")
+
+
+def _validate_checkpoint_scalar_fields(raw: dict[str, Any]) -> None:
+    if not isinstance(raw.get("git_available"), bool):
+        raise TypeError("'git_available' debe ser booleano.")
+    for field in ("updated_at", "branch", "base_sha", "task_id", "active_step"):
+        val = raw.get(field)
+        if not isinstance(val, str) or not val:
+            raise TypeError(f"'{field}' debe ser una cadena no vacía.")
+    intent = raw.get("intent_140chars")
+    if not isinstance(intent, str) or not (1 <= len(intent) <= MAX_INTENT_LEN):
+        raise ValueError("intent_140chars inválido en session_checkpoint.json.")
 
 
 def load_checkpoint(
@@ -469,21 +540,23 @@ def load_checkpoint(
     raw = json.loads(ckpt_path.read_text(encoding="utf-8-sig"))
     if not isinstance(raw, dict):
         raise TypeError("session_checkpoint.json debe contener un objeto JSON.")
+    _validate_checkpoint_keys_and_status(raw)
+    _validate_checkpoint_scalar_fields(raw)
     return CheckpointData(
-        schema_version=str(raw.get("schema_version", SCHEMA_VERSION)),
-        status=str(raw.get("status", STATUS_IN_PROGRESS)),
-        updated_at=str(raw.get("updated_at", _utc_now_iso())),
-        git_available=bool(raw.get("git_available", False)),
-        branch=str(raw.get("branch", "nogit")),
-        base_sha=str(raw.get("base_sha", "none")),
-        task_id=str(raw.get("task_id", "TASK-11X")),
-        completed_steps=_coerce_str_list(raw.get("completed_steps"), "completed_steps"),
-        active_step=str(raw.get("active_step", "F1")),
-        planned_steps=_coerce_str_list(raw.get("planned_steps"), "planned_steps"),
-        allowed_globs=_coerce_str_list(raw.get("allowed_globs"), "allowed_globs"),
-        forbidden_globs=_coerce_str_list(raw.get("forbidden_globs"), "forbidden_globs"),
-        intent_140chars=str(raw.get("intent_140chars") or "")[:MAX_INTENT_LEN],
-        last_script_run=_parse_last_run(raw.get("last_script_run")),
+        schema_version=str(raw["schema_version"]),
+        status=str(raw["status"]),
+        updated_at=str(raw["updated_at"]),
+        git_available=bool(raw["git_available"]),
+        branch=str(raw["branch"]),
+        base_sha=str(raw["base_sha"]),
+        task_id=str(raw["task_id"]),
+        completed_steps=_coerce_str_list(raw["completed_steps"], "completed_steps"),
+        active_step=str(raw["active_step"]),
+        planned_steps=_coerce_str_list(raw["planned_steps"], "planned_steps"),
+        allowed_globs=_coerce_str_list(raw["allowed_globs"], "allowed_globs"),
+        forbidden_globs=_coerce_str_list(raw["forbidden_globs"], "forbidden_globs"),
+        intent_140chars=str(raw["intent_140chars"]),
+        last_script_run=_validate_last_run_schema(raw["last_script_run"]),
     )
 
 

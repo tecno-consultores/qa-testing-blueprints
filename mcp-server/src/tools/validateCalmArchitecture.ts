@@ -91,24 +91,10 @@ export interface CalmValidationResult {
   remediationHint?: string;
 }
 
-export const VALIDATE_CALM_ARCHITECTURE_TOOL: Tool = {
+export const VALIDATE_CALM_ARCHITECTURE_TOOL: Pick<Tool, 'name' | 'description'> = {
   name: 'validate_calm_architecture',
   description:
     'Validates FINOS CALM architecture models for structural, referential, and mandatory 7 QA-11X security control compliance.',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      workspaceRoot: {
-        type: 'string',
-        description: 'Workspace root directory (optional; defaults to current repository).',
-      },
-      architecturePath: {
-        type: 'string',
-        description: `Relative path of the CALM model inside workspaceRoot (default '${DEFAULT_CALM_ARCHITECTURE_PATH}').`,
-      },
-    },
-    additionalProperties: false,
-  },
 };
 
 type JsonRecord = Record<string, unknown>;

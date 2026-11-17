@@ -8,16 +8,23 @@ import asyncio
 import math
 import os
 import re
+import sys
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 from typing import Any, Literal
 
 import pytest
 from deepeval.evaluate import assert_test
 from deepeval.metrics import BaseMetric, FaithfulnessMetric, HallucinationMetric
 from deepeval.models import LocalModel, OpenAIModel
-from deepeval.models.base_model import DeepEvalBaseLLM
 from deepeval.test_case import LLMTestCase
 from pydantic import BaseModel, ConfigDict, Field
+
+_AI_EVALS_ROOT = str(Path(__file__).resolve().parents[1])
+if _AI_EVALS_ROOT not in sys.path:
+    sys.path.insert(0, _AI_EVALS_ROOT)
+
+from _llm_judge import resolve_deepeval_judge_model  # noqa: E402
 
 ConnectorName = Literal["vapi", "elevenlabs", "livekit", "pipecat"]
 EventKind = Literal[
@@ -386,23 +393,6 @@ def build_voice_deepeval_case(
     )
 
 
-def _resolve_voice_judge_model(
-    env: Mapping[str, str] | None = None,
-) -> DeepEvalBaseLLM:
-    active = os.environ if env is None else env
-    model_name = active.get("QA_LLM_MODEL", "gpt-4.1-mini")
-    if active.get("OPENAI_API_KEY"):
-        return OpenAIModel(model=model_name, api_key=active["OPENAI_API_KEY"])
-    base_url = active.get("OLLAMA_BASE_URL") or active.get("OPENAI_API_BASE")
-    if base_url:
-        return LocalModel(
-            model=active.get("QA_LLM_MODEL", "qwen3:8b"),
-            base_url=base_url,
-            api_key=active.get("OPENAI_API_KEY", "ephemeral-local-key"),
-        )
-    raise RuntimeError("MISSING_LLM_CREDENTIALS")
-
-
 def _sample_provider_frames(provider: ConnectorName) -> list[dict[str, Any]]:
     wire_map: dict[ConnectorName, dict[str, str]] = {
         "vapi": {
@@ -556,12 +546,12 @@ def test_offline_voice_invalid_wire_event_and_judge_resolution() -> None:
     with pytest.raises(ValueError, match="no soportado"):
         normalize_provider_wire_event("vapi", {"type": "unknown.frame"})
     with pytest.raises(RuntimeError, match="MISSING_LLM_CREDENTIALS"):
-        _resolve_voice_judge_model({})
+        resolve_deepeval_judge_model({})
     assert isinstance(
-        _resolve_voice_judge_model({"OPENAI_API_KEY": "placeholder-key"}), OpenAIModel
+        resolve_deepeval_judge_model({"OPENAI_API_KEY": "placeholder-key"}), OpenAIModel
     )
     assert isinstance(
-        _resolve_voice_judge_model({"OLLAMA_BASE_URL": "http://127.0.0.1:11434"}),
+        resolve_deepeval_judge_model({"OLLAMA_BASE_URL": "http://127.0.0.1:11434"}),
         LocalModel,
     )
     assert _percentile_95(()) == 0.0
@@ -583,7 +573,7 @@ def test_live_voice_multiturn_deepeval() -> None:
     case = build_voice_deepeval_case(
         metrics, context=("Factura INV-101 conciliada con total 2500.00.",)
     )
-    judge = _resolve_voice_judge_model()
+    judge = resolve_deepeval_judge_model()
     live_metrics: list[BaseMetric] = [
         FaithfulnessMetric(threshold=0.90, model=judge),
         HallucinationMetric(threshold=0.05, model=judge),

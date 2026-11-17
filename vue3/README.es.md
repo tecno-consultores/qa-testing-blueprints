@@ -9,13 +9,13 @@
 ## 1. Reglas Estrictas de Ejecución (Contenedores y Caché)
 **NUNCA** instruyas al usuario a instalar dependencias de Node localmente, ni a usar `docker build`, ni a ejecutar comandos manuales largos de `docker compose`. Toda la ejecución ocurre en contenedores efímeros usando el orquestador aislado de QA y aprovechando los volúmenes de caché persistente (`pnpm-store`).
 
-*   **Gestor de Paquetes y Zero-Trust:** Usamos `pnpm` en lugar de `npm`. La ejecución silenciosa de *scripts* maliciosos durante la instalación está bloqueada por el `.npmrc`. Revisa `package.json` si dependencias como `esbuild` o `playwright` fallan.
+*   **Gestor de Paquetes y Zero-Trust:** Usamos `pnpm` v12 en lugar de `npm`. La ejecución silenciosa de *scripts* maliciosos durante la instalación está bloqueada por el `.npmrc`, declarando paquetes nativos de confianza en `pnpm-workspace.yaml#allowBuilds`.
 *   **Obligatorio:** Utiliza las metas predefinidas en el `Makefile` (ej. `make qa-unit`) para aislar la infraestructura y re-utilizar la caché de dependencias.
 *   **Para pruebas lógicas (Vitest) y Mutación:** Usamos el contenedor ligero `qa-frontend` (`sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60`).
 *   **Para Lighthouse y UI E2E (Playwright):** Usamos el contenedor pesado `ui-e2e`.
 *   **Para pruebas BDD (Caja Negra HTTP/OSHP):** Usamos la imagen oficial `sinfallas/karatelabs:1.5.1`.
 *   **Para Observabilidad (Métricas de Servidor):** Usamos los contenedores `nginx/nginx-prometheus-exporter:1.3.0` y `prom/prometheus:v2.55.1`.
-*   **Para Optimización de Contexto IA (MCP):** Usamos la imagen `sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0`.
+*   **Para Extracción Efímera de Grafo AST (Graphify CLI):** Usamos la imagen `sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0`.
 
 ## 2. Pila Tecnológica y Separación de Responsabilidades
 
@@ -44,8 +44,8 @@
 ### F. Observabilidad -> `Nginx Prometheus Exporter`
 *   **Regla:** El monitoreo del frontend se realiza externamente a través de los logs de acceso de Nginx para no agregar dependencias al código de la aplicación. Esto se ejecuta mediante el perfil `--profile observability`.
 
-### G. Ingestión Inteligente (Paso 0 - MCP / AST CLI-First)
-*   **Regla (Exclusiva para ti, IA):** Tienes estrictamente prohibido generar código o pruebas a ciegas. Si tienes acceso a shell (Antigravity), audita componentes y dependencias vía scripts directos sin ocupar el puerto 8080. Si eres un agente externo (Hermes, Claude), conéctate al servidor MCP `sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0`. Además, DEBES leer silenciosamente las configuraciones de linters, dependencias y *scripts* prohibidos en `package.json`, `tsconfig.json` y `vite.config.ts` para evitar fallos de pipeline.
+### G. Ingestión Inteligente (Paso 0 - Graphify AST CLI-First)
+*   **Regla (Exclusiva para ti, IA):** Tienes estrictamente prohibido generar código o pruebas a ciegas. Extrae o refresca el grafo AST mediante el extractor CLI efímero (`./scripts/actualizar-grafos-graphify.sh vue3`) y consulta invocadores/invocados vía `python3 .agents/scripts/inspect_blast_radius.py "<ComponenteORuta>"` (o la tool MCP `inspect_ast_blast_radius`), sin levantar demonios en el puerto 8080. Además, DEBES leer silenciosamente los linters, dependencias y scripts permitidos en `package.json`, `pnpm-workspace.yaml#allowBuilds`, `tsconfig.json` y `vite.config.ts`.
 
 ### H. Seguridad Frontend Obligatoria (DISA ASD STIG V6R5 & OWASP Developer Guide v4.2)
 *   Al construir o probar componentes en Vue 3 y tiendas Pinia, DEBES aplicar y verificar con pruebas unitarias/BDD los controles de **[`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md`](../docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md)**:

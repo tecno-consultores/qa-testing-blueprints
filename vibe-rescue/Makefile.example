@@ -8,27 +8,28 @@ COMPOSE_FILE ?= docker-compose.qa.yml
 SERVICE_NAME ?= qa-vibe-rescue
 PROJECT_DIR ?= $(CURDIR)
 TARGET_DIR ?= /app
-export QA_UID := $(shell id -u)
-export QA_GID := $(shell id -g)
+QA_UID ?= $(shell id -u)
+QA_GID ?= $(shell id -g)
+export QA_UID QA_GID
 
 qa-lint:
 	@echo "🔍 [11X] Verificando Ruff (CC <= 5) y Mypy --strict en Vibe-Rescue..."
-	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T $(SERVICE_NAME) sh -c "\
-		ruff check --select E,F,W,I,UP,B,C901 --config \"lint.mccabe.max-complexity=5\" . && \
-		mypy --strict --cache-dir=/tmp/mypy audit_vibe_prototype.py"
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) sh -c "\
+		ruff check --select E,F,W,I,UP,B,C901,FLY,PLR0913 --config \"lint.mccabe.max-complexity=5\" --config \"lint.pylint.max-args=4\" . && \
+		mypy --strict --cache-dir=/tmp/mypy _vibe_rules.py audit_vibe_prototype.py tests/test_audit_vibe_prototype.unit.py"
 
 qa-audit:
 	@echo "🛡️ [11X] Ejecutando auditoría Vibe-to-Enterprise en modo dry-run..."
-	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T $(SERVICE_NAME) python3 audit_vibe_prototype.py --target "$(TARGET_DIR)" --json
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) python3 audit_vibe_prototype.py --target "$(TARGET_DIR)" --json
 
 qa-audit-enforce:
 	@echo "🚨 [11X] Ejecutando auditoría bloqueante Vibe-to-Enterprise (--enforce)..."
-	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T $(SERVICE_NAME) python3 audit_vibe_prototype.py --target "$(TARGET_DIR)" --enforce
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) python3 audit_vibe_prototype.py --target "$(TARGET_DIR)" --enforce
 
 qa-unit:
 	@echo "🧪 [11X] Ejecutando pruebas unitarias (>= 95% cobertura) en contenedor efímero..."
-	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T $(SERVICE_NAME) sh -c "\
-		if [ -d tests ] && find tests -type f \( -name 'test_*.py' -o -name '*_test.py' \) | grep -q .; then \
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) sh -c "\
+		if [ -d tests ] && find tests -type f \( -name 'test_*.py' -o -name '*_test.py' -o -name '*.unit.py' \) | grep -q .; then \
 			pytest -q --tb=short --import-mode=importlib -o cache_dir=/tmp/pytest-cache --cov=. --cov-fail-under=95 --cov-report=term-missing; \
 		else \
 			echo '⚠️ [SKIPPED/NO_TESTS_DIR] Sin suite pytest en tests/; agregue pruebas en tests/ para habilitar --cov-fail-under=95.' >&2; \

@@ -164,7 +164,7 @@
       "id": "tactical-patterns-11x",
       "name": "tactical-patterns-11x",
       "path": ".agents/skills/tactical-patterns-11x/SKILL.md",
-      "max_size_kb": 3,
+      "max_size_kb": 2.5,
       "tags": [
         "complexity",
         "patterns",

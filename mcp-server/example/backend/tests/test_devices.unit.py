@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: MIT
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
-from decimal import Decimal
 import json
 import unittest
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 from models.device import TelemetryDevice
 from services.device_service import (
@@ -56,8 +56,12 @@ class TestTelemetryDevicesUnit(unittest.TestCase):
             maintenance_ends_at=t0 + timedelta(minutes=40),
         )
         self.assertEqual(evaluate_maintenance_phase(dev, t0), "Programada")
-        self.assertEqual(evaluate_maintenance_phase(dev, t0 + timedelta(minutes=20)), "En Curso")
-        self.assertEqual(evaluate_maintenance_phase(dev, t0 + timedelta(minutes=50)), "Expirada")
+        self.assertEqual(
+            evaluate_maintenance_phase(dev, t0 + timedelta(minutes=20)), "En Curso"
+        )
+        self.assertEqual(
+            evaluate_maintenance_phase(dev, t0 + timedelta(minutes=50)), "Expirada"
+        )
 
 
 if __name__ == "__main__":

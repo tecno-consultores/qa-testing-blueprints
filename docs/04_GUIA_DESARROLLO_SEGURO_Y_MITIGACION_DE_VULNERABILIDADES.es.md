@@ -32,7 +32,7 @@
 21. [Patrón 21: Mitigación de OWASP API Security Top 10 (2023), Anti-Data-Mining y Consumo Seguro de APIs](#patrón-21-mitigación-de-owasp-api-security-top-10-2023-anti-data-mining-y-consumo-seguro-de-apis)
 22. [Patrón 22: Cadena de Suministro (CycloneDX SBOM/CBOM), Firma de Artefactos y Threat Modeling como Código](#patrón-22-cadena-de-suministro-cyclonedx-sbomcbom-firma-de-artefactos-y-threat-modeling-como-código)
 
-### 🧭 Mapa de Trazabilidad con el Auditor Estático (`audit_security_stig_owasp`: `SEC-01`..`SEC-16`)
+### 🧭 Mapa de Trazabilidad con el Auditor Estático (`audit_security_stig_owasp` — 34 Reglas: `SEC-01`..`SEC-16`, `QA-*`, `UI-11X-*`)
 
 | Regla MCP | Control / Vector Mitigado | Patrón Humano de Referencia |
 | :--- | :--- | :--- |
@@ -42,20 +42,27 @@
 | `SEC-04` | Entidades externas XML / XXE (`defusedxml` / `resolve_entities=False`) | Patrón 17 |
 | `SEC-05` | Canonicalización Unicode `NFKC` previa a validaciones | Patrón 16 |
 | `SEC-06` | XSS (`v-html` / `dangerouslySetInnerHTML`) y *Prototype Pollution* en frontend | Patrón 9 |
-| `SEC-07` | Exposición de Swagger / ReDoc / OpenAPI en `APP_ENV=production` | Patrón 12 (`QA-SMOKE-01`) |
+| `SEC-07` | Exposición de Swagger / ReDoc / OpenAPI en `APP_ENV=production` | Patrón 12 |
 | `SEC-08` | Ausencia de cabeceras HTTP de seguridad (OWASP OSHP: HSTS, CSP, `nosniff`) | Patrón 20 |
 | `SEC-09` | Ejecución de scripts arbitrarios post-instalación npm (`.npmrc` `ignore-scripts=true`), uso obsoleto de `pnpm.onlyBuiltDependencies` en `pnpm 12+` o `plugin:security/recommended` sin `-legacy` en ESLint 8 | Patrón 13 y Patrón 22 |
 | `SEC-10` | Secretos, llaves privadas o tokens hardcodeados en código o logs | Patrón 18 y Patrón 19 |
 | `SEC-11` | Identidades crudas UUID v4 (`claims["sub"]`) en trazas de auditoría humana | Patrón 18 y `docs/02` §1.1 |
 | `SEC-12` | Bypass de `Depends(require_roles)` en servicios MCP/JSON-RPC sin RBAC explícito ni `ApprovalRequest` | Patrón 21 y `docs/02` §3.5 |
-| `SEC-13` | Pérdida de contexto PostgreSQL RLS tras `commit()` sin listener `after_begin` | Patrón 5 y `docs/02` §3.1 (`QA-PG17-RLS`) |
+| `SEC-13` | Pérdida de contexto PostgreSQL RLS tras `commit()` sin listener `after_begin` | Patrón 5 y `docs/02` §3.1 |
 | `SEC-14` | Condición de carrera en cadena HMAC WORM ordenando por `created_at` sin `seq_num` + `pg_advisory_xact_lock` | Patrón 18 y `SECURITY.es.md` |
 | `SEC-15` | Reutilización de credenciales estáticas en smoke productivo sin secretos efímeros ni `docker exec -e` | Patrón 15 y `docs/02` §1.1 |
 | `SEC-16` | Asimetría de interceptores `401` y consumo no atómico de `challenge_id` en flujos Pre-Auth multi-etapa | Patrón 15 y `SECURITY.es.md` §4.20 |
+| `QA-COV-01` | Supresión de `--cov` con `-o addopts=""`, ausencia de `COVERAGE_FILE=/tmp/.coverage` para Docker no-root o falta de `--import-mode=importlib` en `.unit.py`/`.int.py` | `docs/02` §2 y `SECURITY.es.md` |
+| `QA-MYPY-01` | Ausencia de verificación estricta de tipos (`mypy --strict`) en targets `qa-lint` de Makefiles Python/FastAPI | `docs/02` §2 y `SECURITY.es.md` |
+| `QA-KARATE-IDEMP` | Escenarios Karate BDD API mutables (`POST`/`PUT`/`PATCH`/`DELETE`) con UUID estático o sin `Idempotency-Key` dinámico | Patrón 11 y `docs/03` §6 |
+| `QA-PG17-RLS` | PostgreSQL 15–17+ `FORCE ROW LEVEL SECURITY`, rol `NOBYPASSRLS` no-root y paridad catálogo/fixtures RLS multi-transacción | Patrón 5 y `docs/02` §3.1 |
+| `QA-SMOKE-01` | Fuga OpenAPI/Swagger en producción o desincronización singleton en smoke test en proceso (`APSC-DV-002430`) | Patrón 12 y `SECURITY.es.md` |
 | `QA-HEALTH-01` | Caída en `unhealthy` de contenedores/workers por supervisores `asyncio` sin `task.exception()` o sondas `HEALTHCHECK` no probadas | `docs/02` §1.1 (Regla #9) y `SECURITY.es.md` §4.22 |
 | `QA-CLI-TTY-01` | Bloqueo indefinido en consola interactiva (`TTY`) de binarios duales CLI + Servidor MCP `stdio` sin verificar `isTTY` / `isatty()` | `docs/02` §1.1 (Regla #10) y `SECURITY.es.md` §4.23 |
 | `SEC-CI-ACTION-REF` | Referencias `uses:` en GitHub Actions sin fijación por commit SHA de 40 caracteres (ramas mutables o tags eliminados como `trivy-action@0.28.0`) | Patrón 22 y `SECURITY.es.md` §4.24 |
 | `QA-DOCKER-TTY-01` | Asignación de pseudo-TTY (`docker compose run` sin `-T`) en pipelines `CI=true` y despliegues Wrangler v4 sobre `read_only: true` sin `tmpfs` `noexec` en `.wrangler` o sin `--force` | `docs/02` §5.1 y `SECURITY.es.md` §4.25 |
+| `UI-11X-01` | `<footer>` fijo flotante robando viewport, `outline-none` sin `:focus-visible` y bajo contraste `text-white/30..50` (`WCAG 2.1 AA`, Anti-JSDOM) | `docs/02` §7 y `SECURITY.es.md` |
+| `UI-11X-02` | Fallbacks catch-all `else return 'MAINTENANCE'` en badges y fugas `setInterval` sin limpieza `clearInterval` | `docs/02` §7 y `SECURITY.es.md` |
 | `UI-11X-03` | Uso de `.webp`/`.svg` en `apple-touch-icon`, ausencia de `favicon.ico` (`>=48px`), `"any maskable"` combinado en `.webmanifest`, sobrescritura sin `! Header` en `_headers` o comodines `/*.ico` en `_routes.json` | `docs/02` §5.2 y `SECURITY.es.md` §4.26 |
 | `QA-CI-ESCAPE-01` | Escapes de doble dólar `$$(...)` / `$${...}` heredados de `Makefile`/`Compose` dentro de `.github/workflows/*.yml` o `.github/actions/*/action.yml` (`bash` expande `$$` al PID y rompe montajes Docker con `exit code 125`) | `docs/02` §5.3 y `SECURITY.es.md` §4.27 |
 | `QA-MAKE-CURDIR-01` | Uso de `$(PWD)` / `${PWD}` en sub-Makefiles (`*/Makefile`, `*/Makefile.example`) invocados vía `$(MAKE) -C <subdir>` en lugar de `$(CURDIR)`, exponiendo el directorio padre al montaje del contenedor | `docs/02` §5.3 y `SECURITY.es.md` §4.27 |
@@ -155,10 +162,13 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             content={"detail": exc.errors()},
         )
 
-    # 🔒 En producción: Registra el detalle en los logs del contenedor y devuelve respuesta opaca
-    logger.warning(
-        f"Fallo de validación 422 en {request.method} {request.url.path}: {exc.errors()}"
-    )
+    # 🔒 En producción: Registra solo rutas/tipos de campo (sin input crudo) sanitizando CR/LF
+    safe_errors = [
+        {"loc": err.get("loc"), "type": str(err.get("type", "")).replace("\r", "").replace("\n", "")}
+        for err in exc.errors()
+    ]
+    safe_path = request.url.path.replace("\r", "").replace("\n", "")
+    logger.warning("Fallo de validación 422 en %s %s: %s", request.method, safe_path, safe_errors)
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={"detail": "Los datos proporcionados no cumplen con los requisitos de validación."},
@@ -224,15 +234,27 @@ Uso de interpolación de cadenas de texto (`f-strings`) para configurar variable
 
 ### Implementación Obligatoria (SQLAlchemy Core)
 ```python
-from sqlalchemy import text
+from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+
+@event.listens_for(AsyncSession.sync_session_class, "after_begin")
+def _rebind_tenant_after_begin(session, transaction, connection) -> None:  # noqa: ARG001
+    tenant_id = session.info.get("tenant_id")
+    if tenant_id:
+        connection.execute(
+            text("SELECT set_config('app.current_tenant_id', :tid, true)"),
+            {"tid": tenant_id},
+        )
+
+
 async def set_tenant_context(session: AsyncSession, tenant_id: str) -> None:
-    # 🔒 Sentencia parametrizada obligatoria con bindparam seguro
-    query = text("SET LOCAL app.current_tenant_id = :tenant_id").bindparams(
-        tenant_id=tenant_id
+    # 🔒 Persistir tenant en session.info (sobrevive al commit vía after_begin) y fijar con set_config
+    session.sync_session.info["tenant_id"] = tenant_id
+    await session.execute(
+        text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+        {"tenant_id": tenant_id},
     )
-    await session.execute(query)
 ```
 
 ---
@@ -452,18 +474,18 @@ app = FastAPI(
 Descubrir CVEs críticos en dependencias de producción solo cuando el workflow de GitHub Actions falla tras el commit, generando cuellos de botella y demoras en despliegue.
 
 ### Flujo de Mitigación Local
-1. Ejecutar escaneo local:
+1. Ejecutar escaneo local (`aquasec/trivy:0.76.2`):
    ```bash
    ./scripts/auditar-infra.sh
    ```
-2. Si Trivy reporta un CVE en una dependencia transitiva (ej. `certifi` o `tar`):
+2. Si Trivy (`aquasec/trivy:0.76.2`) reporta un CVE en una dependencia transitiva (ej. `certifi` o `tar`):
    - **Para Python:** Actualizar la librería congelada en Docker:
      ```bash
-     docker compose -f fastapi/docker-compose.qa.yml run --rm qa-backend uv lock --upgrade-package certifi
+     docker compose -f fastapi/docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-backend uv lock --upgrade-package certifi
      ```
    - **Para Node.js / Frontend:** Actualizar selectivamente:
      ```bash
-     docker compose -f vue3/docker-compose.qa.yml run --rm qa-frontend pnpm update tar
+     docker compose -f vue3/docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" -e HOME=/tmp qa-frontend pnpm update tar
      ```
 3. Ejecutar las pruebas unitarias (`make qa-unit`) para descartar regresiones.
 4. Re-ejecutar `./scripts/auditar-infra.sh` certificando `0` hallazgos.
@@ -481,6 +503,7 @@ Permitir sesiones concurrentes ilimitadas o con tiempos de inactividad uniformes
 
 ### Implementación Obligatoria (Backend en FastAPI + KeyDB y Frontend en TypeScript)
 ```python
+from dataclasses import dataclass
 import secrets
 import time
 from fastapi import HTTPException, Response, status
@@ -491,24 +514,39 @@ IDLE_TIMEOUT_STANDARD_SEC = 15 * 60     # 15 minutos para roles operativos está
 ABSOLUTE_SESSION_LIFETIME_SEC = 8 * 3600 # OWASP SM-8: Expiración absoluta de sesión
 MAX_CONCURRENT_SESSIONS = 2             # DISA STIG V-222387: Límite de sesiones simultáneas
 
+
+@dataclass(frozen=True)
+class SessionCreateSpec:
+    user_id: str
+    role: str
+    client_ip: str
+
+
 async def create_or_rotate_session(
     redis_client,
-    user_id: str,
-    role: str,
-    client_ip: str,
+    spec: SessionCreateSpec,
     previous_session_id: str | None = None,
 ) -> str:
-    # 🔒 DISA STIG V-222581 / OWASP SM-9: Invalidar sesión previa al autenticar o elevar privilegios
+    user_sessions_key = f"user_sessions:{spec.user_id}"
+    # 🔒 DISA STIG V-222581 / OWASP SM-9: Invalidar sesión previa y depurarla del SET de usuario
     if previous_session_id:
         await redis_client.delete(f"sess:{previous_session_id}")
+        await redis_client.srem(user_sessions_key, previous_session_id)
 
     # 🔒 DISA STIG V-222582 / V-222583: CSPRNG criptográfico (256 bits de entropía, sin reciclaje)
     new_session_id = secrets.token_urlsafe(32)
-    user_sessions_key = f"user_sessions:{user_id}"
 
-    # 🔒 DISA STIG V-222387 / V-222672: Controlar concurrencia y auditar IPs distintas
-    active_sessions = await redis_client.smembers(user_sessions_key)
-    if len(active_sessions) >= MAX_CONCURRENT_SESSIONS:
+    # 🔒 DISA STIG V-222387 / V-222672: Purgar IDs expirados antes de contar concurrencia
+    raw_sessions = await redis_client.smembers(user_sessions_key)
+    live_sessions = []
+    for raw_sid in raw_sessions:
+        sid = raw_sid.decode() if isinstance(raw_sid, bytes) else raw_sid
+        if await redis_client.exists(f"sess:{sid}"):
+            live_sessions.append(sid)
+        else:
+            await redis_client.srem(user_sessions_key, sid)
+
+    if len(live_sessions) >= MAX_CONCURRENT_SESSIONS:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Límite máximo de sesiones concurrentes alcanzado.",
@@ -516,16 +554,16 @@ async def create_or_rotate_session(
 
     idle_ttl = (
         IDLE_TIMEOUT_PRIVILEGED_SEC
-        if role in {"SUPERADMIN", "ADMIN", "SECOPS"}
+        if spec.role in {"SUPERADMIN", "ADMIN", "SECOPS"}
         else IDLE_TIMEOUT_STANDARD_SEC
     )
     now = int(time.time())
     await redis_client.hset(
         f"sess:{new_session_id}",
         mapping={
-            "user_id": user_id,
-            "role": role,
-            "ip": client_ip,
+            "user_id": spec.user_id,
+            "role": spec.role,
+            "ip": spec.client_ip,
             "created_at": str(now),
             "last_activity": str(now),
         },
@@ -619,6 +657,10 @@ async def verify_credentials_constant_time(
     fail_key = f"auth_fail:{username_key}"
     attempts = int(await redis_client.get(fail_key) or 0)
     if attempts >= MAX_FAILED_ATTEMPTS:
+        try:
+            ph.verify(DUMMY_ARGON2_HASH, candidate_password)
+        except VerifyMismatchError:
+            pass
         raise PermissionError("Credenciales inválidas o cuenta temporalmente bloqueada.")
 
     target_hash = user_record["password_hash"] if user_record else DUMMY_ARGON2_HASH
@@ -767,6 +809,7 @@ def resolve_indexed_file(file_key: str) -> str:
 
 ### Implementación Obligatoria (Python)
 ```python
+from dataclasses import dataclass
 import hashlib
 import hmac
 import json
@@ -774,6 +817,22 @@ import shutil
 from datetime import datetime, timezone
 
 AUDIT_STORAGE_ALERT_RATIO = 0.75 # 🔒 DISA STIG V-222483: Alerta obligatoria al 75% de capacidad
+
+
+@dataclass(frozen=True)
+class AuditEntrySpec:
+    app_id: str
+    component: str
+    event_type: str
+    actor_id: str
+    actor_username: str
+    source_ip: str
+    destination_ip: str
+    outcome: str
+    trace_id: str
+    seq_num: int
+    previous_record_hmac: str
+
 
 def sanitize_log_field(value: str) -> str:
     """OWASP SL-4 & SLD-2: Erradica inyección CR/LF y caracteres de control en logs."""
@@ -785,30 +844,29 @@ def sanitize_log_field(value: str) -> str:
         .replace(">", "&gt;")
     )
 
+
 def build_tamper_evident_audit_record(
-    app_id: str,
-    component: str,
-    event_type: str,
-    actor_id: str,
-    source_ip: str,
-    destination_ip: str,
-    outcome: str,
-    trace_id: str,
-    previous_record_hmac: str,
+    spec: AuditEntrySpec,
     audit_hmac_key: bytes,
 ) -> dict:
-    """DISA STIG V-222470..V-222509 & OWASP SLD 1-11: Registro UTC encadenado con HMAC."""
+    """DISA STIG V-222470..V-222509 & OWASP SLD 1-11: Registro UTC encadenado con HMAC.
+
+    SEC-11: Persistir actor_username legible (nunca UUID v4 crudo claims['sub']).
+    SEC-14: Adquirir SELECT pg_advisory_xact_lock(hashtext(f"audit:{tenant_id}")) antes de leer prev_hmac y avanzar seq_num monótono.
+    """
     record = {
+        "seq_num": spec.seq_num,
         "timestamp_utc": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
-        "app_id": sanitize_log_field(app_id),
-        "component": sanitize_log_field(component),
-        "event_type": sanitize_log_field(event_type),
-        "actor_id": sanitize_log_field(actor_id),
-        "source_ip": sanitize_log_field(source_ip),
-        "destination_ip": sanitize_log_field(destination_ip),
-        "outcome": sanitize_log_field(outcome),
-        "trace_id": sanitize_log_field(trace_id),
-        "prev_hmac": previous_record_hmac,
+        "app_id": sanitize_log_field(spec.app_id),
+        "component": sanitize_log_field(spec.component),
+        "event_type": sanitize_log_field(spec.event_type),
+        "actor_id": sanitize_log_field(spec.actor_id),
+        "actor_username": sanitize_log_field(spec.actor_username),
+        "source_ip": sanitize_log_field(spec.source_ip),
+        "destination_ip": sanitize_log_field(spec.destination_ip),
+        "outcome": sanitize_log_field(spec.outcome),
+        "trace_id": sanitize_log_field(spec.trace_id),
+        "prev_hmac": spec.previous_record_hmac,
     }
     canonical_payload = json.dumps(record, sort_keys=True, separators=(",", ":")).encode("utf-8")
     record["record_hmac"] = hmac.new(audit_hmac_key, canonical_payload, hashlib.sha256).hexdigest()
@@ -970,13 +1028,19 @@ async def enforce_anti_data_mining_quota(
     return requested_limit
 
 async def fetch_external_partner_safely(url: str) -> ExternalPartnerPayload:
-    """OWASP API10:2023: Timeouts estrictos, TLS verificado, sin redirecciones abiertas y validación Pydantic."""
+    """OWASP API10:2023: Pre-flight SSRF, timeouts estrictos, streaming acotado y sin redirecciones."""
+    safe_url = validate_safe_outgoing_url(url)
+    chunks: list[bytes] = []
+    total_bytes = 0
     async with httpx.AsyncClient(timeout=5.0, follow_redirects=False, verify=True) as client:
-        resp = await client.get(url)
-        resp.raise_for_status()
-        if len(resp.content) > 65536:
-            raise ValueError("Respuesta de API externa excede la cuota de seguridad.")
-        return ExternalPartnerPayload.model_validate_json(resp.content)
+        async with client.stream("GET", safe_url) as resp:
+            resp.raise_for_status()
+            async for chunk in resp.aiter_bytes():
+                total_bytes += len(chunk)
+                if total_bytes > 65536:
+                    raise ValueError("Respuesta de API externa excede la cuota de seguridad.")
+                chunks.append(chunk)
+    return ExternalPartnerPayload.model_validate_json(b"".join(chunks))
 ```
 
 ---
@@ -1013,7 +1077,7 @@ api_gateway.controls.sanitizesInput = True
 api_gateway.controls.validatesInput = True
 api_gateway.controls.authorizesSource = True
 
-postgres_rls = Datastore("PostgreSQL 16 con FORCE RLS")
+postgres_rls = Datastore("PostgreSQL 17 con FORCE RLS")
 postgres_rls.inBoundary = vpc_privada
 postgres_rls.type = DatastoreType.SQL
 postgres_rls.controls.isEncryptedAtRest = True
@@ -1028,7 +1092,7 @@ flujo_https.controls.isEncryptedInTransit = True
 
 ```bash
 # 🔒 Generación de SBOM / CBOM en formato estándar OWASP CycloneDX (ECMA-424) y verificación de integridad
-docker compose -f fastapi/docker-compose.qa.yml run --rm qa-backend \
+docker compose -f fastapi/docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-backend \
   uv run cyclonedx-py environment -o sbom-backend.cdx.json
 
 # 🔒 Verificación criptográfica SHA-256 del artefacto y SBOM antes de publicación (DISA V-222513 / V-222645)
@@ -1111,6 +1175,7 @@ final class DisaStigSecurityGuard
     {
         $failKey = "auth_fail:{$username}";
         if ((int) ($keydb->get($failKey) ?: 0) >= 3) {
+            password_verify($password, self::DUMMY_ARGON2ID_HASH);
             throw new \RuntimeException('Cuenta bloqueada temporalmente por 15 minutos (APSC-DV-000530).');
         }
         $targetHash = is_array($userRecord) && isset($userRecord['password_hash'])
@@ -1119,10 +1184,7 @@ final class DisaStigSecurityGuard
 
         $isValid = password_verify($password, $targetHash) && $userRecord !== null;
         if (!$isValid) {
-            $attempts = $keydb->incr($failKey);
-            if ($attempts === 1) {
-                $keydb->expire($failKey, 900);
-            }
+            $keydb->multi()->incr($failKey)->expire($failKey, 900)->exec();
             throw new \RuntimeException('Credenciales inválidas o cuenta bloqueada.');
         }
         $keydb->del($failKey);

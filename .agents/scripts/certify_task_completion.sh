@@ -96,12 +96,7 @@ run_py_rule_zero() {
   if [ "${use_stdin}" = "true" ]; then
     docker_cmd+=(-i)
   fi
-  docker_cmd+=(
-    -u "$(id -u):$(id -g)"
-    -e HOME=/tmp
-    -v "${REPO_ROOT}:/app"
-    -w /app
-  )
+  docker_cmd+=(-u "$(id -u):$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "${REPO_ROOT}:/app" -w /app)
   if [ "${#extra_docker_args[@]}" -gt 0 ]; then
     docker_cmd+=("${extra_docker_args[@]}")
   fi
@@ -135,10 +130,8 @@ trap cleanup_certify_tmp EXIT
 
 sanitize_shell_text() {
   local raw="$1"
-  local esc
-  esc=$(printf '\033')
   printf '%s' "${raw}" |
-    sed -E "s/${esc}\\[[0-9;]*[a-zA-Z]//g; s/(Bearer|Basic)[[:space:]]+[^[:space:]\"']+/\\1 [REDACTED]/g; s/(:\\/\\/[^\\/:@]+:)[^\\/@]+(@)/\\1[REDACTED]\\2/g; s/(token|access_token|api_key|apikey|secret|password|passwd)=[^[:space:]\"'&]+/\\1=[REDACTED]/g"
+    sed -E "s/\\x1b\\[[0-9;]*[a-zA-Z]//g; s/(Bearer|Basic)[[:space:]]+[^[:space:]\"']+/\\1 [REDACTED]/g; s/(:\\/\\/[^\\/:@]+:)[^\\/@]+(@)/\\1[REDACTED]\\2/g; s/(token|access_token|api_key|apikey|secret|password|passwd)=[^[:space:]\"'&]+/\\1=[REDACTED]/g"
 }
 
 json_escape_line() {
@@ -146,7 +139,8 @@ json_escape_line() {
 }
 
 run_certify_findings_tracker() {
-  local payload="$1"
+  local stage_id="$1"
+  local payload="$2"
   local tracker_script="${SCRIPT_DIR}/track_findings_state.py"
 
   if [ ! -f "${tracker_script}" ] || [ ! -w "${REPO_ROOT}" ]; then
@@ -159,6 +153,7 @@ run_certify_findings_tracker() {
     --state-file "${REPO_ROOT}/.agents/.cache/certify_state.json" \
     --findings-input - \
     --workspace "${REPO_ROOT}" \
+    --stage "${stage_id}" \
     --max-streak 3
   return $?
 }
@@ -309,10 +304,12 @@ run_gate() {
   local rc
   local summary_line
   local diag_line
+  local stage_id
   local finding_payload
   local tracker_out
   local tracker_rc
 
+  stage_id="gate-${gate_num}"
   gate_log="${GATE_TMP_DIR}/gate_${gate_num}.log"
   rc=0
   "$@" >"${gate_log}" 2>&1 || rc=$?
@@ -340,6 +337,7 @@ run_gate() {
     if [ -z "${summary_line}" ]; then
       summary_line="✔ [${gate_name}] OK"
     fi
+    run_certify_findings_tracker "${stage_id}" "{\"stage\":\"${stage_id}\",\"findings\":[]}" >/dev/null 2>&1 || true
     printf '[%s/10] %s\n' "${gate_num}" "${summary_line}"
     return 0
   fi
@@ -349,11 +347,10 @@ run_gate() {
   if [ -z "${diag_line}" ]; then
     diag_line="Gate ${gate_num} (${gate_name}) failed with exit ${rc}"
   fi
-  finding_payload="$(printf '[{"layer":"certify-gate-%s","stack":"certify","file":"gate-%s","rule":"%s","message":"%s"}]' \
-    "${gate_num}" "${gate_num}" "$(json_escape_line "${gate_name}")" "$(json_escape_line "${diag_line}")")"
+  finding_payload="$(printf '{"stage":"%s","findings":[{"layer":"certify-gate-%s","stack":"certify","file":"gate-%s","rule":"%s","message":"%s"}]}' "${stage_id}" "${gate_num}" "${gate_num}" "$(json_escape_line "${gate_name}")" "$(json_escape_line "${diag_line}")")"
   tracker_out=""
   tracker_rc=0
-  tracker_out="$(run_certify_findings_tracker "${finding_payload}" 2>&1)" || tracker_rc=$?
+  tracker_out="$(run_certify_findings_tracker "${stage_id}" "${finding_payload}" 2>&1)" || tracker_rc=$?
   if [ "${tracker_rc}" -eq 42 ]; then
     printf '\n%s\n' "${tracker_out}" >>"${gate_log}"
     rc=42
@@ -639,7 +636,7 @@ fi
 
 pass_tracker_out=""
 pass_tracker_rc=0
-pass_tracker_out="$(run_certify_findings_tracker '{"stage":"certify","findings":[]}' 2>/dev/null)" || pass_tracker_rc=$?
+pass_tracker_out="$(run_certify_findings_tracker "certify" '{"stage":"certify","findings":[]}' 2>/dev/null)" || pass_tracker_rc=$?
 if [ "${pass_tracker_rc}" -eq 0 ] && [ -n "${pass_tracker_out}" ]; then
   printf '%s\n' "${pass_tracker_out}"
 fi

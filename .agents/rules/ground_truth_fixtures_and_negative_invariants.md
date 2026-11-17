@@ -5,7 +5,7 @@
 
 > **CORE GOVERNANCE DIRECTIVE — ZERO MOCK BLINDNESS:**
 > Applies to all AI agents and developers creating or testing integrations with external APIs, hardware, or databases.
-> **OUTPUT LANGUAGE CONSTRAINT:** Always communicate with the user and write final explanations in Spanish.
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING (Spec 19):** Unless `AGENTS.md` mandates a fixed language (Spanish interaction here), respond in the **user's prompt language**; human docs use EN canonical (`*.md`) + 1:1 ES mirror (`*.es.md`) here (matching `README.md`/`CHANGELOG.md` in consumer repos), while `.agents/**` remains concise English.
 
 ---
 

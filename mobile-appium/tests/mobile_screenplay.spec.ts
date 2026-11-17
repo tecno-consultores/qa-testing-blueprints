@@ -20,6 +20,7 @@ import {
   ByIosPredicate,
   ByWebviewRole,
   CallMobileApi,
+  HiddenMobileElementError,
   InteractWithMobile,
   MissingMobileAbilityError,
   MobileActor,
@@ -292,6 +293,10 @@ describe('QA 11X Mobile Appium Screenplay & WDIO Contract', () => {
 
       const defaultCfg = buildMobileWdioConfig({});
       assert.equal(defaultCfg.artifactDir, DEFAULT_MOBILE_ARTIFACT_DIR);
+      assert.deepEqual(defaultCfg.specs, ['./tests/**/*.spec.ts']);
+
+      const aliasCfg = buildMobileWdioConfig({ QA_MOBILE_ARTIFACTS_DIR: tmpArtifacts });
+      assert.equal(aliasCfg.artifactDir, tmpArtifacts);
 
       assert.throws(
         () => buildMobileWdioConfig({ QA_MOBILE_ARTIFACT_DIR: '/var/log/mobile' }),
@@ -318,6 +323,22 @@ describe('QA 11X Mobile Appium Screenplay & WDIO Contract', () => {
       assert.equal(fs.existsSync(artifact.metadataPath), true);
       assert.equal(fs.existsSync(artifact.pageSourcePath), true);
       assert.equal(fs.existsSync(artifact.screenshotPath), true);
+
+      const partialArtifact = await failCfg.afterTest?.(
+        { title: 'resiliente si XML tree falla', parent: 'MobileAuth' },
+        { tenantId: 'tenant-fieldops', activeContext: 'NATIVE_APP' },
+        { passed: false, error: new Error('WebView crashed') },
+        {
+          getContext: async () => 'NATIVE_APP',
+          getPageSource: async () => {
+            throw new Error('DOM unavailable');
+          },
+          takeScreenshot: async () => 'YmFzZTY0',
+        },
+      );
+      assert.ok(partialArtifact);
+      assert.match(fs.readFileSync(partialArtifact.pageSourcePath, 'utf-8'), /capture_failed/);
+      assert.equal(fs.existsSync(partialArtifact.screenshotPath), true);
     } finally {
       fs.rmSync(tmpArtifacts, { recursive: true, force: true });
     }
@@ -427,6 +448,38 @@ describe('QA 11X Mobile Appium Screenplay & WDIO Contract', () => {
       ),
       'expired',
     );
+
+    const failClosedActor = MobileActor.named('FailClosedGuard', { tenantId: 'tenant-fieldops' }).whoCan(
+      InteractWithMobile.using(harness.driver, { allowedSchemes: ['https'], allowedHosts: [] }),
+    );
+    await assert.rejects(
+      () => failClosedActor.attemptsTo(OpenVerifiedDeepLink('https://app.sinfallas.local/orders/1')),
+      UnsafeDeepLinkError,
+    );
+
+    const hiddenDriver: MobileDriverPort = {
+      ...harness.driver,
+      locate(locator) {
+        const base = harness.driver.locate(locator);
+        return { ...base, isVisible: async () => false };
+      },
+    };
+    const hiddenActor = MobileActor.named('HiddenGuard', { tenantId: 'tenant-fieldops' }).whoCan(
+      InteractWithMobile.using(hiddenDriver),
+    );
+    await assert.rejects(
+      () => hiddenActor.attemptsTo(TapAccessibilityId('~submit-order-btn')),
+      HiddenMobileElementError,
+    );
+
+    class RenamedRuntimeAbility {
+      static readonly abilityName = 'StableMobileAbilityKey';
+      readonly abilityName = 'different-instance-name';
+    }
+    const abilityActor = MobileActor.named('AbilityKeyGuard', { tenantId: 'tenant-fieldops' }).whoCan(
+      new RenamedRuntimeAbility(),
+    );
+    assert.ok(abilityActor.abilityTo(RenamedRuntimeAbility) instanceof RenamedRuntimeAbility);
 
     await harness.closeSession();
     assert.equal(stubState.closed, true);

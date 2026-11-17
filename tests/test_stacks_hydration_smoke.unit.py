@@ -13,17 +13,36 @@ manifest.json cumplan todos los contratos estructurales y de seguridad v3.1.
 from __future__ import annotations
 
 import importlib
+import importlib.util
 import json
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import tomllib
 import unittest
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def _load_architect_budget_bytes() -> int:
+    existing = sys.modules.get("_budgets")
+    if existing is not None:
+        return int(existing.ARCHITECT_SKILL_MAX_BYTES)
+    budgets_path = REPO_ROOT / ".agents" / "scripts" / "_budgets.py"
+    spec = importlib.util.spec_from_file_location("_budgets", budgets_path)
+    assert spec is not None and spec.loader is not None
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["_budgets"] = mod
+    spec.loader.exec_module(mod)
+    return int(mod.ARCHITECT_SKILL_MAX_BYTES)
+
+
+ARCHITECT_SKILL_MAX_BYTES = _load_architect_budget_bytes()
 EXPECTED_STACKS = (
     "vue3",
     "react-frontend",
@@ -742,7 +761,7 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             and str(entry.get("path", "")).startswith(".agents/skills/")
             and str(entry.get("path", "")).endswith("/SKILL.md")
         )
-        self.assertGreaterEqual(len(skill_paths), 10)
+        self.assertEqual(len(skill_paths), 11)
 
         feature_text = (
             REPO_ROOT / "mcp-server" / "test" / "mcp_cli_test.feature"
@@ -783,11 +802,48 @@ class TestStacksHydrationSmoke(unittest.TestCase):
         architect_skill = (
             REPO_ROOT / ".agents" / "skills" / "qa-11x-architect" / "SKILL.md"
         )
-        self.assertLess(
+        self.assertLessEqual(
             architect_skill.stat().st_size,
-            12_000,
-            "qa-11x-architect/SKILL.md supera el límite compacto de 12 KB",
+            ARCHITECT_SKILL_MAX_BYTES,
+            "qa-11x-architect/SKILL.md supera el límite compacto de _budgets.py",
         )
+
+    def test_wave1_new_stack_templates_and_eval_helpers_exist(self) -> None:
+        """Valida plantillas y contratos añadidos en node-backend, php, vibe y ai."""
+        node_build_cfg = json.loads(
+            (REPO_ROOT / "node-backend" / "tsconfig.build.json.example").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(node_build_cfg["extends"], "./tsconfig.json")
+        self.assertIs(node_build_cfg["compilerOptions"]["noEmit"], False)
+        self.assertIs(
+            node_build_cfg["compilerOptions"]["allowImportingTsExtensions"], False
+        )
+        self.assertEqual(node_build_cfg["compilerOptions"]["outDir"], "./dist")
+
+        psalm_root = ET.fromstring(
+            (REPO_ROOT / "php" / "psalm.xml.example").read_text(encoding="utf-8")
+        )
+        self.assertEqual(psalm_root.attrib.get("errorLevel"), "1")
+        src_dirs = [
+            el.attrib.get("name")
+            for el in psalm_root.iter()
+            if el.tag.endswith("directory")
+        ]
+        self.assertIn("src", src_dirs)
+        self.assertIn("tests", src_dirs)
+
+        vibe_test = (
+            REPO_ROOT / "vibe-rescue" / "tests" / "test_audit_vibe_prototype.unit.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("audit_vibe_prototype", vibe_test)
+        self.assertIn("VIBE-QA-005", vibe_test)
+
+        llm_judge = (REPO_ROOT / "ai-evals" / "_llm_judge.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("def resolve_deepeval_judge_model", llm_judge)
 
     def test_mobile_appium_stack_hydrates_cleanly_with_dedicated_image(self) -> None:
         """Verifica mobile-appium/docker-compose.qa.yml, --allow-insecure= y Spec 20."""

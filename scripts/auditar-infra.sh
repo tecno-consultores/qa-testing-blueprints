@@ -125,7 +125,8 @@ else
     -print0 2>/dev/null | sort -z | xargs -0 shasum -a 256 2>/dev/null | shasum -a 256 | awk '{print $1}')
 fi
 
-CACHE_MARKER="/tmp/.qa11x_trivy_cache_${IAC_FINGERPRINT}"
+CACHE_UTC_DAY="$(date -u +%Y%m%d 2>/dev/null || echo 'nodate')"
+CACHE_MARKER="/tmp/.qa11x_trivy_cache_${IAC_FINGERPRINT}_${CACHE_UTC_DAY}"
 
 if [ "${FORCE_SCAN}" = false ] && [ -n "${IAC_FINGERPRINT}" ] && [ -f "${CACHE_MARKER}" ]; then
   echo "✔ [Trivy] IaC (HIGH/CRIT=0) y File System (HIGH/CRIT=0) verificados sin hallazgos (caché SHA-256)."

@@ -35,6 +35,8 @@ providers:
       temperature: 0
 
 defaultTest:
+  options:
+    provider: "${PROMPTFOO_JUDGE_PROVIDER:-openai:gpt-4.1-mini}"
   assert:
     - type: is-json
     - type: not-icontains

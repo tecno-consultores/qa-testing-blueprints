@@ -21,9 +21,11 @@ from pathlib import Path
 from typing import Any
 
 import release_readiness_gate as rrg
+import track_findings_state as tfs
 import verify_diff_coverage as vdc
 
 EXIT_OK = 0
+EXIT_BLOCKED = 30
 EXIT_EVIDENCE_OR_DIVERGENCE = 30
 ATTESTATION_KEY_ENV = "QA11X_ATTESTATION_KEY"
 QA_EVIDENCE_REL = ".agents/.qa-evidence.json"
@@ -101,6 +103,16 @@ class VerdictInputs:
     expected_head_sha: str | None
     expected_tree_sha: str | None
     timestamp: str | None
+    report_only: bool = False
+
+
+@dataclass(frozen=True)
+class _AttestationContext:
+    snapshot: GitTreeSnapshot
+    evidence_stages: dict[str, Any]
+    breaker: BreakerSnapshot
+    rrg_report: dict[str, Any]
+    diff_cov: vdc.DiffCoverageReport
 
 
 def _ensure_no_symlink_chain(workspace_real: Path, candidate: Path) -> None:
@@ -336,43 +348,123 @@ def _extract_max_int_value(mapping: Any, use_sum: bool = False) -> int:
     return sum(vals) if use_sum else max(vals, default=0)
 
 
-def _inspect_session_runs(
-    session: dict[str, Any], reasons: list[str]
-) -> tuple[bool, int, int]:
-    runs = session.get("runs")
-    if not isinstance(runs, list) or not runs or not isinstance(runs[-1], dict):
-        return False, 0, 0
-    active_raw = runs[-1].get("fingerprints")
-    active_count = len(active_raw) if isinstance(active_raw, list) else 0
-    max_streak = _extract_max_int_value(session.get("streaks"), use_sum=False)
-    total_osc = _extract_max_int_value(session.get("oscillations"), use_sum=True)
-    if max_streak >= 3 or total_osc >= 1 or active_count > 0:
-        reasons.append(
-            f"BREAKER_STATE: streak={max_streak}, "
-            f"oscilaciones={total_osc}, hallazgos_activos={active_count}."
+def _extract_history_sets(raw_runs: Any) -> list[set[str]]:
+    if not isinstance(raw_runs, list):
+        return []
+    sets: list[set[str]] = []
+    for run in raw_runs[-tfs.MAX_HISTORY_RUNS :]:
+        if isinstance(run, dict) and isinstance(run.get("fingerprints"), list):
+            sets.append({str(fp) for fp in run["fingerprints"]})
+    return sets
+
+
+def _extract_non_bool_int(val: Any) -> int:
+    if (
+        not isinstance(val, bool)
+        and isinstance(val, (int, float))
+        and math.isfinite(float(val))
+    ):
+        return max(0, int(val))
+    return 0
+
+
+def _analyze_run_sequence(history_sets: list[set[str]]) -> tuple[int, int, int]:
+    if not history_sets:
+        return 0, 0, 0
+    latest = history_sets[-1]
+    streak = max(
+        (tfs._count_trailing_streak(history_sets, fp) for fp in latest),
+        default=0,
+    )
+    osc = sum(tfs._count_oscillations(history_sets, fp) for fp in latest)
+    return len(latest), streak, osc
+
+
+def _stage_persisted_int(mapping: Any, stage_name: str) -> int:
+    if not isinstance(mapping, dict):
+        return 0
+    return _extract_non_bool_int(mapping.get(stage_name))
+
+
+def _inspect_stage_runs_map(
+    session: dict[str, Any], stage_runs: dict[str, Any]
+) -> tuple[bool, int, int, int]:
+    has_data = False
+    max_streak = 0
+    total_osc = 0
+    active_count = 0
+    for stage_name in sorted(stage_runs):
+        history_sets = _extract_history_sets(stage_runs[stage_name])
+        if not history_sets:
+            continue
+        has_data = True
+        st_active, st_streak, st_osc = _analyze_run_sequence(history_sets)
+        st_streak = max(
+            st_streak, _stage_persisted_int(session.get("streaks"), stage_name)
         )
-        return True, max_streak, total_osc
-    return False, max_streak, total_osc
+        st_osc = max(
+            st_osc, _stage_persisted_int(session.get("oscillations"), stage_name)
+        )
+        active_count += st_active
+        max_streak = max(max_streak, st_streak)
+        total_osc += st_osc
+    return has_data, max_streak, total_osc, active_count
 
 
-def _load_breaker_snapshot(workspace_real: Path) -> BreakerSnapshot:
+def _inspect_legacy_runs(session: dict[str, Any]) -> tuple[bool, int, int, int]:
+    history_sets = _extract_history_sets(session.get("runs"))
+    if not history_sets:
+        return False, 0, 0, 0
+    active_count, comp_streak, comp_osc = _analyze_run_sequence(history_sets)
+    persisted_streak = _extract_max_int_value(session.get("streaks"), use_sum=False)
+    persisted_osc = _extract_max_int_value(session.get("oscillations"), use_sum=True)
+    return (
+        True,
+        max(comp_streak, persisted_streak),
+        max(comp_osc, persisted_osc),
+        active_count,
+    )
+
+
+def _evaluate_session_entry(session: dict[str, Any]) -> BreakerSnapshot:
+    stage_runs = session.get("stage_runs")
+    if isinstance(stage_runs, dict):
+        has_data, max_streak, total_osc, active_count = _inspect_stage_runs_map(
+            session, stage_runs
+        )
+    else:
+        has_data, max_streak, total_osc, active_count = _inspect_legacy_runs(session)
+    if not has_data:
+        return BreakerSnapshot(False, False, 0, 0, ())
+    blocked = max_streak >= 3 or total_osc >= 1 or active_count > 0
+    reasons: tuple[str, ...] = (
+        (
+            f"BREAKER_STATE: streak={max_streak}, "
+            f"oscilaciones={total_osc}, hallazgos_activos={active_count}.",
+        )
+        if blocked
+        else ()
+    )
+    return BreakerSnapshot(True, blocked, max_streak, total_osc, reasons)
+
+
+def _load_breaker_snapshot(
+    workspace_real: Path, base_ref: str | None = None
+) -> BreakerSnapshot:
+    try:
+        active_key = tfs.resolve_session_key(workspace_real, base_ref=base_ref)
+    except ValueError as exc:
+        raise VerdictDivergenceError(str(exc)) from exc
     state_doc = _read_optional_json(workspace_real, CERTIFY_STATE_REL)
     if state_doc is None:
         return BreakerSnapshot(False, False, 0, 0, ())
     sessions = state_doc.get("sessions")
-    if not isinstance(sessions, dict) or not sessions:
+    if not isinstance(sessions, dict):
         return BreakerSnapshot(False, False, 0, 0, ())
-    reasons: list[str] = []
-    max_streak = 0
-    total_osc = 0
-    blocked = False
-    for entry in sessions.values():
-        if isinstance(entry, dict):
-            s_blk, s_str, s_osc = _inspect_session_runs(entry, reasons)
-            blocked = blocked or s_blk
-            max_streak = max(max_streak, s_str)
-            total_osc += s_osc
-    return BreakerSnapshot(True, blocked, max_streak, total_osc, tuple(reasons))
+    entry = sessions.get(active_key)
+    if not isinstance(entry, dict):
+        return BreakerSnapshot(False, False, 0, 0, ())
+    return _evaluate_session_entry(entry)
 
 
 def _resolve_graph_prefix(workspace_real: Path, graph_path: Path) -> str:
@@ -418,15 +510,23 @@ def _collect_link_dependent(
     nodes_map: dict[str, str],
     prefix: str,
     changed_set: set[str],
-    out_deps: set[str],
-) -> None:
+) -> str | None:
     if not isinstance(link, dict):
-        return
+        return None
     tgt = nodes_map.get(str(link.get("target", "")))
     src_raw = link.get("source_file") or nodes_map.get(str(link.get("source", "")))
     caller = _qualify_graph_path(str(src_raw), prefix) if src_raw else ""
     if tgt in changed_set and caller and caller != tgt:
-        out_deps.add(caller)
+        return caller
+    return None
+
+
+def _load_graph_payload(graph_path: Path) -> dict[str, Any] | None:
+    try:
+        payload = json.loads(graph_path.read_text(encoding="utf-8-sig"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
 
 
 def _extract_dependents_from_graph(
@@ -435,18 +535,16 @@ def _extract_dependents_from_graph(
     changed_set: set[str],
     out_deps: set[str],
 ) -> None:
-    try:
-        payload = json.loads(graph_path.read_text(encoding="utf-8-sig"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
-        return
-    if not isinstance(payload, dict):
+    payload = _load_graph_payload(graph_path)
+    links = payload.get("links") if payload else None
+    if payload is None or not isinstance(links, list):
         return
     prefix = _resolve_graph_prefix(workspace_real, graph_path)
     nodes_map = _build_graph_nodes_map(payload.get("nodes"), prefix)
-    links = payload.get("links")
-    if isinstance(links, list):
-        for link in links:
-            _collect_link_dependent(link, nodes_map, prefix, changed_set, out_deps)
+    for link in links:
+        dep = _collect_link_dependent(link, nodes_map, prefix, changed_set)
+        if dep:
+            out_deps.add(dep)
 
 
 def collect_ast_dependents(
@@ -711,41 +809,39 @@ def _evaluate_gate_signals(
 def _build_attestation_payload(
     inputs: VerdictInputs,
     workspace_real: Path,
-    snapshot: GitTreeSnapshot,
-    evidence_stages: dict[str, Any],
-    breaker: BreakerSnapshot,
-    rrg_report: dict[str, Any],
-    diff_cov: vdc.DiffCoverageReport,
+    ctx: _AttestationContext,
 ) -> dict[str, Any]:
-    blocking_reasons = _collect_blocking_reasons(rrg_report, diff_cov, breaker)
+    blocking_reasons = _collect_blocking_reasons(
+        ctx.rrg_report, ctx.diff_cov, ctx.breaker
+    )
     verdict = VERDICT_BLOCKED if blocking_reasons else VERDICT_MERGE_OK
-    ast_deps = collect_ast_dependents(workspace_real, snapshot.changed_files)
-    risk_level = _determine_risk_level(verdict, snapshot.changed_files, ast_deps)
+    ast_deps = collect_ast_dependents(workspace_real, ctx.snapshot.changed_files)
+    risk_level = _determine_risk_level(verdict, ctx.snapshot.changed_files, ast_deps)
     core_payload: dict[str, Any] = {
         "schema_version": 1,
         "generated_at_utc": _normalize_timestamp(inputs.timestamp),
-        "git_head_sha": snapshot.head_sha,
-        "git_tree_sha": snapshot.tree_sha,
-        "worktree_clean": snapshot.worktree_clean,
+        "git_head_sha": ctx.snapshot.head_sha,
+        "git_tree_sha": ctx.snapshot.tree_sha,
+        "worktree_clean": ctx.snapshot.worktree_clean,
         "manifest_sha256": _compute_manifest_sha256(workspace_real),
         "verdict": verdict,
         "risk_level": risk_level,
-        "changed_files": list(snapshot.changed_files),
+        "changed_files": list(ctx.snapshot.changed_files),
         "ast_dependents": list(ast_deps),
-        "qa_evidence_stages": sorted(evidence_stages.keys()),
+        "qa_evidence_stages": sorted(ctx.evidence_stages.keys()),
         "release_gate": {
-            "decision": rrg_report["decision"],
-            "scope": rrg_report["scope"],
+            "decision": ctx.rrg_report["decision"],
+            "scope": ctx.rrg_report["scope"],
         },
         "diff_coverage": {
-            "status": diff_cov.status,
-            "line_coverage_pct": diff_cov.line_coverage_pct,
-            "branch_coverage_pct": diff_cov.branch_coverage_pct,
+            "status": ctx.diff_cov.status,
+            "line_coverage_pct": ctx.diff_cov.line_coverage_pct,
+            "branch_coverage_pct": ctx.diff_cov.branch_coverage_pct,
         },
         "breaker_health": {
-            "blocked": breaker.blocked,
-            "max_streak": breaker.max_streak,
-            "total_oscillations": breaker.total_oscillations,
+            "blocked": ctx.breaker.blocked,
+            "max_streak": ctx.breaker.max_streak,
+            "total_oscillations": ctx.breaker.total_oscillations,
         },
         "blocking_reasons": blocking_reasons,
     }
@@ -774,12 +870,20 @@ def generate_pr_verdict(
     snapshot = inspect_git_snapshot(inputs, workspace_real)
     evidence_doc = _read_optional_json(workspace_real, QA_EVIDENCE_REL)
     evidence_stages = _validate_evidence_consistency(evidence_doc, snapshot)
-    breaker = _load_breaker_snapshot(workspace_real)
+    breaker = _load_breaker_snapshot(workspace_real, base_ref=inputs.base_ref)
     _validate_minimum_evidence(inputs, workspace_real, evidence_stages, breaker)
     rrg_report, diff_cov = _evaluate_gate_signals(inputs, workspace_real)
 
     attestation = _build_attestation_payload(
-        inputs, workspace_real, snapshot, evidence_stages, breaker, rrg_report, diff_cov
+        inputs,
+        workspace_real,
+        _AttestationContext(
+            snapshot=snapshot,
+            evidence_stages=evidence_stages,
+            breaker=breaker,
+            rrg_report=rrg_report,
+            diff_cov=diff_cov,
+        ),
     )
     md_text = _render_pr_verdict_markdown(attestation, diff_cov)
     try:
@@ -790,7 +894,12 @@ def generate_pr_verdict(
         raise VerdictDivergenceError(
             f"Error escribiendo artefactos PR_VERDICT: {exc}"
         ) from exc
-    return EXIT_OK, attestation, md_text
+    exit_code = (
+        EXIT_OK
+        if (attestation["verdict"] != VERDICT_BLOCKED or inputs.report_only)
+        else EXIT_BLOCKED
+    )
+    return exit_code, attestation, md_text
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -813,11 +922,16 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--output-json", default=DEFAULT_OUTPUT_JSON, help="Salida JSON."
     )
+    parser.add_argument(
+        "--report-only",
+        action="store_true",
+        help="Retorna 0 incluso cuando el veredicto es BLOQUEADO (modo informativo).",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Punto de entrada CLI: 0 en éxito, 30 si falta evidencia o hay divergencia."""
+    """Punto de entrada CLI: 0 en éxito, 30 si falta evidencia/divergencia/bloqueo."""
     args = build_arg_parser().parse_args(argv)
     inputs = VerdictInputs(
         workspace=Path(args.workspace),
@@ -829,6 +943,7 @@ def main(argv: list[str] | None = None) -> int:
         expected_head_sha=args.expected_head_sha,
         expected_tree_sha=args.expected_tree_sha,
         timestamp=args.timestamp,
+        report_only=bool(args.report_only),
     )
     try:
         code, attestation, _ = generate_pr_verdict(
@@ -837,10 +952,13 @@ def main(argv: list[str] | None = None) -> int:
     except VerdictDivergenceError as exc:
         print(f"⛔ [PR-VERDICT] {exc}", file=sys.stderr)
         return EXIT_EVIDENCE_OR_DIVERGENCE
+    icon = "✔" if code == EXIT_OK else "⛔"
+    stream = sys.stdout if code == EXIT_OK else sys.stderr
     print(
-        f"✔ [PR-VERDICT] {attestation['verdict']} "
+        f"{icon} [PR-VERDICT] {attestation['verdict']} "
         f"(riesgo={attestation['risk_level']}, "
-        f"sha256={attestation['attestation_sha256'][:12]})"
+        f"sha256={attestation['attestation_sha256'][:12]})",
+        file=stream,
     )
     return code
 

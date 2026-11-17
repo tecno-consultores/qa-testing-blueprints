@@ -57,12 +57,6 @@ const HEADER_USER_AGENT = 'User-Agent';
 const MIME_JSON = 'application/json';
 const USER_AGENT_VALUE = `qa-11x-tms-sync/${MCP_SERVER_VERSION}`;
 
-const SCHEMA_STRING = 'string' as const;
-const SCHEMA_BOOLEAN = 'boolean' as const;
-const SCHEMA_NUMBER = 'number' as const;
-const SCHEMA_ARRAY = 'array' as const;
-const SCHEMA_OBJECT = 'object' as const;
-
 const STAGE_TMS_SYNC = 'sync_enterprise_tms';
 const DEFAULT_TIMEOUT_MS = 15_000;
 const MAX_TIMEOUT_MS = 180_000;
@@ -1734,31 +1728,10 @@ export async function runTmsSyncCli(
   }
 }
 
-export const SYNC_ENTERPRISE_TMS_TOOL: Tool = {
+export const SYNC_ENTERPRISE_TMS_TOOL: Pick<Tool, 'name' | 'description'> = {
   name: STAGE_TMS_SYNC,
   description:
     'Synchronizes bidirectional Zero-Infra traceability (inventory, push-results, pull-stories) with Jira, Zephyr Scale, Xray, and GitHub Issues using dry-run mode by default, anti-SSRF validation, and promptGuard sanitization.',
-  inputSchema: {
-    type: SCHEMA_OBJECT,
-    required: ['mode'],
-    properties: {
-      mode: { type: SCHEMA_STRING, enum: [...TMS_SYNC_MODES] },
-      provider: { type: SCHEMA_STRING, enum: [...TMS_PROVIDERS] },
-      targetDir: { type: SCHEMA_STRING },
-      junitXmlPath: { type: SCHEMA_STRING },
-      junitXmlContent: { type: SCHEMA_STRING },
-      baseUrl: { type: SCHEMA_STRING },
-      projectKey: { type: SCHEMA_STRING },
-      issueKey: { type: SCHEMA_STRING },
-      testExecutionKey: { type: SCHEMA_STRING },
-      repo: { type: SCHEMA_STRING },
-      requiredKeys: { type: SCHEMA_ARRAY, items: { type: SCHEMA_STRING } },
-      dryRun: { type: SCHEMA_BOOLEAN },
-      timeoutMs: { type: SCHEMA_NUMBER },
-      workspaceRoot: { type: SCHEMA_STRING },
-    },
-    additionalProperties: false,
-  },
 };
 
 export async function handleSyncEnterpriseTms(

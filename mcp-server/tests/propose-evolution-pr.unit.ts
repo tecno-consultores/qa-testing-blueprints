@@ -4,7 +4,7 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   proposeSkillEvolutionPr,
   buildEvolutionSlug,
@@ -124,6 +124,7 @@ describe('propose_skill_evolution_pr Tool Suite (Zero-Trust Skill Evolution)', (
           improvement_title: IMPROVEMENT_TITLE,
           empirical_rationale: RATIONALE,
           proposed_content_or_snippet: SNIPPET,
+          dry_run: false,
           prefer_offline_fallback: false,
         },
         mockExecRunner
@@ -155,6 +156,7 @@ describe('propose_skill_evolution_pr Tool Suite (Zero-Trust Skill Evolution)', (
           improvement_title: IMPROVEMENT_TITLE,
           empirical_rationale: RATIONALE,
           proposed_content_or_snippet: SNIPPET,
+          dry_run: false,
           prefer_offline_fallback: false,
         },
         mockExecRunner
@@ -185,6 +187,7 @@ describe('propose_skill_evolution_pr Tool Suite (Zero-Trust Skill Evolution)', (
           improvement_title: IMPROVEMENT_TITLE,
           empirical_rationale: RATIONALE,
           proposed_content_or_snippet: SNIPPET,
+          dry_run: false,
           prefer_offline_fallback: false,
         },
         mockExecRunner
@@ -214,6 +217,7 @@ describe('propose_skill_evolution_pr Tool Suite (Zero-Trust Skill Evolution)', (
           improvement_title: IMPROVEMENT_TITLE,
           empirical_rationale: RATIONALE,
           proposed_content_or_snippet: SNIPPET,
+          dry_run: false,
           prefer_offline_fallback: false,
         },
         mockExecRunner
@@ -221,6 +225,58 @@ describe('propose_skill_evolution_pr Tool Suite (Zero-Trust Skill Evolution)', (
 
       expect(result.status).toBe(STATUS_PR_CREATED);
       expect(result.pull_request_url).toBe('custom-output-identifier');
+    });
+
+    it('blocks remote gh CLI calls when dry_run is omitted or true even if prefer_offline_fallback is false', async () => {
+      const ghSpy: ExecRunnerFunction = vi.fn(() =>
+        Promise.reject(new Error('gh must not execute during dry_run'))
+      );
+      const result = await proposeSkillEvolutionPr(
+        {
+          project_path: tmpDir,
+          target_blueprint_file: TARGET_FILE,
+          improvement_title: IMPROVEMENT_TITLE,
+          empirical_rationale: RATIONALE,
+          proposed_content_or_snippet: SNIPPET,
+          prefer_offline_fallback: false,
+        },
+        ghSpy
+      );
+
+      expect(result.status).toBe(STATUS_PROPOSAL_GENERATED);
+      expect(result.pull_request_url).toBeNull();
+      expect(result.message).toContain('dry_run=true');
+      expect(ghSpy).not.toHaveBeenCalled();
+
+      const explicitOffline = await proposeSkillEvolutionPr(
+        {
+          project_path: tmpDir,
+          target_blueprint_file: TARGET_FILE,
+          improvement_title: IMPROVEMENT_TITLE,
+          empirical_rationale: RATIONALE,
+          proposed_content_or_snippet: SNIPPET,
+          dry_run: false,
+          prefer_offline_fallback: true,
+        },
+        ghSpy
+      );
+      expect(explicitOffline.status).toBe(STATUS_PROPOSAL_GENERATED);
+      expect(explicitOffline.message).toContain('modo offline seleccionado');
+
+      const defaultedOffline = await proposeSkillEvolutionPr(
+        {
+          project_path: tmpDir,
+          target_blueprint_file: TARGET_FILE,
+          improvement_title: IMPROVEMENT_TITLE,
+          empirical_rationale: RATIONALE,
+          proposed_content_or_snippet: SNIPPET,
+          dry_run: false,
+        },
+        ghSpy
+      );
+      expect(defaultedOffline.status).toBe(STATUS_PROPOSAL_GENERATED);
+      expect(defaultedOffline.message).toContain('modo offline seleccionado');
+      expect(ghSpy).not.toHaveBeenCalled();
     });
 
     it('enforces Zero-Trust: zero tokens or secrets are expected or manipulated in the process', async () => {

@@ -372,6 +372,8 @@ interface CertifySessionRecord {
   updated_at: string;
   runs: CertifyRunRecord[];
   stage_runs: Record<string, CertifyRunRecord[]>;
+  streaks?: Record<string, number>;
+  oscillations?: Record<string, number>;
 }
 
 interface CertifyStateDocument {
@@ -520,6 +522,19 @@ function assertNotSymlink(targetPath: string): void {
   }
 }
 
+function parseNumericStageRecord(raw: unknown): Record<string, number> | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return undefined;
+  }
+  const parsed: Record<string, number> = {};
+  for (const [key, val] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof val === 'number' && Number.isFinite(val)) {
+      parsed[key] = val;
+    }
+  }
+  return Object.keys(parsed).length > 0 ? parsed : undefined;
+}
+
 function normalizeSessionEntry(raw: unknown): CertifySessionRecord {
   if (!raw || typeof raw !== 'object') {
     return { updated_at: '', runs: [], stage_runs: {} };
@@ -534,10 +549,14 @@ function normalizeSessionEntry(raw: unknown): CertifySessionRecord {
       }
     }
   }
+  const streaks = parseNumericStageRecord(rec.streaks);
+  const oscillations = parseNumericStageRecord(rec.oscillations);
   return {
     updated_at: typeof rec.updated_at === 'string' ? rec.updated_at : '',
     runs,
     stage_runs: stageRuns,
+    ...(streaks ? { streaks } : {}),
+    ...(oscillations ? { oscillations } : {}),
   };
 }
 
@@ -696,6 +715,8 @@ export function recordQaStageFindingsState(
   ].slice(-MAX_BREAKER_HISTORY_RUNS);
   session.updated_at = nowIso;
   session.stage_runs[stage] = nextStageRuns;
+  session.streaks = { ...(session.streaks ?? {}), [stage]: maxStreakObserved };
+  session.oscillations = { ...(session.oscillations ?? {}), [stage]: oscillationsObserved };
   doc.sessions[sessionKey] = session;
   writeCertifyStateDocument(statePath, doc);
 

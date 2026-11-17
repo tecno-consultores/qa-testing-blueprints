@@ -2,25 +2,30 @@
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
-"""test_verify_roadmap_consistency.unit.py — Pruebas Unitarias del Validador de Roadmap y Active Task.
+"""test_verify_roadmap_consistency.unit.py — Pruebas Unitarias del Validador.
 
 Valida:
 1. Parseo determinista de la tabla resumen de ROADMAP.md.
 2. Análisis de casillas de tareas [x] y [ ] en secciones.
-3. Detección de inconsistencias: tabla dice Pendiente pero tareas completadas (caso Hito 4).
-4. Detección de inconsistencias: tabla dice Completado pero tareas vacías.
+3. Detección de inconsistencias: tabla Pendiente con tareas [x] (caso Hito 4).
+4. Detección de inconsistencias: tabla Completado con tareas vacías.
 5. Detección de discrepancias en iconos de encabezado (## ✅ vs ## ⏳).
-6. Validación de .agents/ACTIVE_TASK.md (completado con casillas pendientes, estado ausente, etc.).
-7. Ejecución de la función main() con salida determinista y códigos de salida 0 y 1.
+6. Validación de .agents/ACTIVE_TASK.md y session_checkpoint.json.
+7. Ejecución de main()/cli_main() con códigos 0, 1 y 20 (SKIPPED).
 """
 
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
+import io
+import json
+import runpy
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
+from pathlib import Path
+from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT_PATH = REPO_ROOT / ".agents" / "scripts" / "verify_roadmap_consistency.py"
@@ -29,13 +34,14 @@ spec = importlib.util.spec_from_file_location("verify_roadmap_consistency", SCRI
 if spec is None or spec.loader is None:
     raise ImportError(f"No se pudo cargar {SCRIPT_PATH}")
 vrc = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = vrc
 spec.loader.exec_module(vrc)
 
 
 class TestVerifyRoadmapConsistency(unittest.TestCase):
     """Suite de pruebas unitarias para verify_roadmap_consistency.py."""
 
-    def test_parse_roadmap_table_valid(self):
+    def test_parse_roadmap_table_valid(self) -> None:
         sample = """
 # ROADMAP
 | Hito | Nombre | Spec | Estado | Progreso |
@@ -58,11 +64,11 @@ class TestVerifyRoadmapConsistency(unittest.TestCase):
         self.assertTrue(table[2]["is_in_progress"])
         self.assertEqual(table[2]["progreso_pct"], 50)
 
-    def test_parse_roadmap_table_empty(self):
+    def test_parse_roadmap_table_empty(self) -> None:
         table = vrc.parse_roadmap_table("# No table here\nJust text")
         self.assertEqual(table, [])
 
-    def test_parse_roadmap_sections(self):
+    def test_parse_roadmap_sections(self) -> None:
         sample = """
 ## ✅ Hito 1: Setup y Base
 - [x] Tarea 1.1
@@ -86,7 +92,7 @@ class TestVerifyRoadmapConsistency(unittest.TestCase):
         self.assertTrue(sections["2"]["is_all_pending"])
         self.assertEqual(sections["2"]["header_icon"], "⏳")
 
-    def test_validate_roadmap_perfect_match(self):
+    def test_validate_roadmap_perfect_match(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             roadmap = Path(tmpdir) / "ROADMAP.md"
             roadmap.write_text(
@@ -107,7 +113,7 @@ class TestVerifyRoadmapConsistency(unittest.TestCase):
             errors = vrc.validate_roadmap_consistency(roadmap)
             self.assertEqual(errors, [])
 
-    def test_validate_roadmap_detects_pending_when_tasks_completed(self):
+    def test_validate_roadmap_detects_pending_when_tasks_completed(self) -> None:
         """Replica exactamente el caso del Hito 4 reportado por el usuario."""
         with tempfile.TemporaryDirectory() as tmpdir:
             roadmap = Path(tmpdir) / "ROADMAP.md"
@@ -124,9 +130,14 @@ class TestVerifyRoadmapConsistency(unittest.TestCase):
                 encoding="utf-8",
             )
             errors = vrc.validate_roadmap_consistency(roadmap)
-            self.assertTrue(any("Inconsistencia en Hito 4" in e and "completadas [x]" in e for e in errors))
+            self.assertTrue(
+                any(
+                    "Inconsistencia en Hito 4" in e and "completadas [x]" in e
+                    for e in errors
+                )
+            )
 
-    def test_validate_roadmap_detects_completed_when_tasks_pending(self):
+    def test_validate_roadmap_detects_completed_when_tasks_pending(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             roadmap = Path(tmpdir) / "ROADMAP.md"
             roadmap.write_text(
@@ -142,9 +153,14 @@ class TestVerifyRoadmapConsistency(unittest.TestCase):
                 encoding="utf-8",
             )
             errors = vrc.validate_roadmap_consistency(roadmap)
-            self.assertTrue(any("Inconsistencia en Hito 5" in e and "0 tareas completadas" in e for e in errors))
+            self.assertTrue(
+                any(
+                    "Inconsistencia en Hito 5" in e and "0 tareas completadas" in e
+                    for e in errors
+                )
+            )
 
-    def test_validate_roadmap_detects_header_icon_mismatch(self):
+    def test_validate_roadmap_detects_header_icon_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             roadmap = Path(tmpdir) / "ROADMAP.md"
             roadmap.write_text(
@@ -161,7 +177,7 @@ class TestVerifyRoadmapConsistency(unittest.TestCase):
             errors = vrc.validate_roadmap_consistency(roadmap)
             self.assertTrue(any("icono '⏳'" in e for e in errors))
 
-    def test_validate_roadmap_missing_section(self):
+    def test_validate_roadmap_missing_section(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             roadmap = Path(tmpdir) / "ROADMAP.md"
             roadmap.write_text(
@@ -175,7 +191,7 @@ class TestVerifyRoadmapConsistency(unittest.TestCase):
             errors = vrc.validate_roadmap_consistency(roadmap)
             self.assertTrue(any("carece de sección" in e for e in errors))
 
-    def test_validate_active_task_valid_in_progress(self):
+    def test_validate_active_task_valid_in_progress(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             task_file = Path(tmpdir) / "ACTIVE_TASK.md"
             task_file.write_text(
@@ -189,7 +205,7 @@ class TestVerifyRoadmapConsistency(unittest.TestCase):
             errors = vrc.validate_active_task(task_file)
             self.assertEqual(errors, [])
 
-    def test_validate_active_task_valid_certified_clean(self):
+    def test_validate_active_task_valid_certified_clean(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             task_file = Path(tmpdir) / "ACTIVE_TASK.md"
             task_file.write_text(
@@ -203,7 +219,7 @@ class TestVerifyRoadmapConsistency(unittest.TestCase):
             errors = vrc.validate_active_task(task_file)
             self.assertEqual(errors, [])
 
-    def test_validate_active_task_certified_clean_with_pending_checkboxes(self):
+    def test_validate_active_task_certified_clean_with_pending_checkboxes(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             task_file = Path(tmpdir) / "ACTIVE_TASK.md"
             task_file.write_text(
@@ -217,7 +233,7 @@ class TestVerifyRoadmapConsistency(unittest.TestCase):
             errors = vrc.validate_active_task(task_file)
             self.assertTrue(any("casillas pendientes sin marcar" in e for e in errors))
 
-    def test_validate_active_task_valid_completed(self):
+    def test_validate_active_task_valid_completed(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             task_file = Path(tmpdir) / "ACTIVE_TASK.md"
             task_file.write_text(
@@ -231,7 +247,7 @@ class TestVerifyRoadmapConsistency(unittest.TestCase):
             errors = vrc.validate_active_task(task_file)
             self.assertEqual(errors, [])
 
-    def test_validate_active_task_completed_with_pending_checkboxes(self):
+    def test_validate_active_task_completed_with_pending_checkboxes(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             task_file = Path(tmpdir) / "ACTIVE_TASK.md"
             task_file.write_text(
@@ -245,19 +261,20 @@ class TestVerifyRoadmapConsistency(unittest.TestCase):
             errors = vrc.validate_active_task(task_file)
             self.assertTrue(any("casillas pendientes sin marcar" in e for e in errors))
 
-    def test_validate_active_task_missing_state(self):
+    def test_validate_active_task_missing_state(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             task_file = Path(tmpdir) / "ACTIVE_TASK.md"
-            task_file.write_text("# Tarea Activa sin estado\n- [ ] Algo", encoding="utf-8")
+            task_file.write_text(
+                "# Tarea Activa sin estado\n- [ ] Algo", encoding="utf-8"
+            )
             errors = vrc.validate_active_task(task_file)
-            self.assertTrue(any("carece del campo obligatorio '**Estado:**'" in e for e in errors))
+            self.assertTrue(
+                any("carece del campo obligatorio '**Estado:**'" in e for e in errors)
+            )
 
-    def test_main_cli_execution_success(self):
-        # Ejecuta main sobre el repositorio real actual (que está sincronizado)
-        # Nota: durante la ejecución de una tarea activa puede estar IN_PROGRESS, que también retorna 0
-        import io
-        from contextlib import redirect_stdout
-
+    def test_main_cli_execution_success(self) -> None:
+        # Ejecuta main sobre el repositorio real actual (que está sincronizado).
+        # Durante tareas activas puede estar IN_PROGRESS, que también retorna 0.
         buf = io.StringIO()
         with redirect_stdout(buf):
             exit_code = vrc.main()
@@ -267,29 +284,39 @@ class TestVerifyRoadmapConsistency(unittest.TestCase):
         self.assertEqual(len(output.splitlines()), 1)
 
     def test_validate_bilingual_en_roadmap_and_parity(self) -> None:
-        import tempfile
-
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
             en_doc = tmp_path / "ROADMAP.md"
             es_doc = tmp_path / "ROADMAP.es.md"
 
+            en_hdr = (
+                "| Milestone | Milestone Name | Associated Specification "
+                "| Status | Progress |\n"
+            )
             en_doc.write_text(
                 "# Roadmap\n\n"
-                "| Milestone | Milestone Name | Associated Specification | Status | Progress |\n"
-                "| :--- | :--- | :--- | :---: | :---: |\n"
-                "| **Milestone 1** | Bilingual EN | `19_SPEC` | ✅ Completed | `100%` |\n"
-                "| **Milestone 2** | Mobile Spec 20 | `20_SPEC` | 🟡 Pending | `0%` |\n\n"
+                + en_hdr
+                + "| :--- | :--- | :--- | :---: | :---: |\n"
+                "| **Milestone 1** | Bilingual EN | `19_SPEC` "
+                "| ✅ Completed | `100%` |\n"
+                "| **Milestone 2** | Mobile Spec 20 | `20_SPEC` "
+                "| 🟡 Pending | `0%` |\n\n"
                 "## ✅ Milestone 1: Bilingual EN\n- [x] **T1:** Done.\n\n"
                 "## ⏳ Milestone 2: Mobile Spec 20\n- [ ] **T2:** Todo.\n",
                 encoding="utf-8",
             )
+            es_hdr = (
+                "| Hito | Nombre del Hito | Especificación Asociada "
+                "| Estado | Progreso |\n"
+            )
             es_doc.write_text(
                 "# Roadmap\n\n"
-                "| Hito | Nombre del Hito | Especificación Asociada | Estado | Progreso |\n"
-                "| :--- | :--- | :--- | :---: | :---: |\n"
-                "| **Hito 1** | Bilingüe EN | `19_SPEC` | ✅ Completado | `100%` |\n"
-                "| **Hito 2** | Spec Móvil 20 | `20_SPEC` | 🟡 Pendiente | `0%` |\n\n"
+                + es_hdr
+                + "| :--- | :--- | :--- | :---: | :---: |\n"
+                "| **Hito 1** | Bilingüe EN | `19_SPEC` "
+                "| ✅ Completado | `100%` |\n"
+                "| **Hito 2** | Spec Móvil 20 | `20_SPEC` "
+                "| 🟡 Pendiente | `0%` |\n\n"
                 "## ✅ Hito 1: Bilingüe EN\n- [x] **T1:** Listo.\n\n"
                 "## ⏳ Hito 2: Spec Móvil 20\n- [ ] **T2:** Por hacer.\n",
                 encoding="utf-8",
@@ -299,47 +326,61 @@ class TestVerifyRoadmapConsistency(unittest.TestCase):
             self.assertEqual(vrc.validate_roadmap_consistency(es_doc), [])
             self.assertEqual(vrc.validate_bilingual_roadmap_parity(en_doc, es_doc), [])
             # Caso trivial cuando falta uno de los archivos o ambos carecen de tabla
-            self.assertEqual(vrc.validate_bilingual_roadmap_parity(en_doc, tmp_path / "missing.md"), [])
+            self.assertEqual(
+                vrc.validate_bilingual_roadmap_parity(
+                    en_doc, tmp_path / "missing.md"
+                ),
+                [],
+            )
             empty_en = tmp_path / "EMPTY_EN.md"
             empty_es = tmp_path / "EMPTY_ES.md"
             empty_en.write_text("# Empty\n", encoding="utf-8")
             empty_es.write_text("# Vacío\n", encoding="utf-8")
-            self.assertEqual(vrc.validate_bilingual_roadmap_parity(empty_en, empty_es), [])
+            self.assertEqual(
+                vrc.validate_bilingual_roadmap_parity(empty_en, empty_es), []
+            )
 
             # Divergencia de progreso entre idiomas
             es_doc.write_text(
-                es_doc.read_text(encoding="utf-8").replace("| 🟡 Pendiente | `0%` |", "| ✅ Completado | `100%` |"),
+                es_doc.read_text(encoding="utf-8").replace(
+                    "| 🟡 Pendiente | `0%` |", "| ✅ Completado | `100%` |"
+                ),
                 encoding="utf-8",
             )
             parity_errors = vrc.validate_bilingual_roadmap_parity(en_doc, es_doc)
-            self.assertTrue(any("Desfase bilingüe en Hito/Milestone 2" in e for e in parity_errors))
+            self.assertTrue(
+                any("Desfase bilingüe en Hito/Milestone 2" in e for e in parity_errors)
+            )
 
-            # Divergencia únicamente en estado is_completed manteniendo igual porcentaje
+            # Divergencia únicamente en estado is_completed manteniendo porcentaje
             es_doc.write_text(
                 "# Roadmap\n\n"
-                "| Hito | Nombre del Hito | Especificación Asociada | Estado | Progreso |\n"
-                "| :--- | :--- | :--- | :---: | :---: |\n"
-                "| **Hito 1** | Bilingüe EN | `19_SPEC` | 🚧 En Progreso | `100%` |\n"
-                "| **Hito 2** | Spec Móvil 20 | `20_SPEC` | 🟡 Pendiente | `0%` |\n",
+                + es_hdr
+                + "| :--- | :--- | :--- | :---: | :---: |\n"
+                "| **Hito 1** | Bilingüe EN | `19_SPEC` "
+                "| 🚧 En Progreso | `100%` |\n"
+                "| **Hito 2** | Spec Móvil 20 | `20_SPEC` "
+                "| 🟡 Pendiente | `0%` |\n",
                 encoding="utf-8",
             )
             status_diff = vrc.validate_bilingual_roadmap_parity(en_doc, es_doc)
-            self.assertTrue(any("Desfase bilingüe en Hito/Milestone 1" in e for e in status_diff))
+            self.assertTrue(
+                any("Desfase bilingüe en Hito/Milestone 1" in e for e in status_diff)
+            )
 
             # Hito presente en EN pero faltante en ES
             es_doc.write_text(
                 "# Roadmap\n\n"
-                "| Hito | Nombre del Hito | Especificación Asociada | Estado | Progreso |\n"
-                "| :--- | :--- | :--- | :---: | :---: |\n"
-                "| **Hito 1** | Bilingüe EN | `19_SPEC` | ✅ Completado | `100%` |\n",
+                + es_hdr
+                + "| :--- | :--- | :--- | :---: | :---: |\n"
+                "| **Hito 1** | Bilingüe EN | `19_SPEC` "
+                "| ✅ Completado | `100%` |\n",
                 encoding="utf-8",
             )
             missing_errors = vrc.validate_bilingual_roadmap_parity(en_doc, es_doc)
             self.assertTrue(len(missing_errors) >= 1)
 
     def test_validate_session_checkpoint_variants(self) -> None:
-        import json
-
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
             ckpt = base / "session_checkpoint.json"
@@ -350,16 +391,22 @@ class TestVerifyRoadmapConsistency(unittest.TestCase):
             outside = base / "outside.json"
             outside.write_text("{}", encoding="utf-8")
             ckpt.symlink_to(outside)
-            self.assertTrue(any("symlink" in e for e in vrc.validate_session_checkpoint(ckpt, active)))
+            errs_sym = vrc.validate_session_checkpoint(ckpt, active)
+            self.assertTrue(any("symlink" in e for e in errs_sym))
             ckpt.unlink()
 
             ckpt.write_text("{corrupt", encoding="utf-8")
-            self.assertTrue(any("corrupto" in e for e in vrc.validate_session_checkpoint(ckpt, active)))
+            errs_corrupt = vrc.validate_session_checkpoint(ckpt, active)
+            self.assertTrue(any("corrupto" in e for e in errs_corrupt))
 
             ckpt.write_text("[]", encoding="utf-8")
-            self.assertTrue(any("objeto JSON" in e for e in vrc.validate_session_checkpoint(ckpt, active)))
+            errs_obj = vrc.validate_session_checkpoint(ckpt, active)
+            self.assertTrue(any("objeto JSON" in e for e in errs_obj))
 
-            ckpt.write_text(json.dumps({"status": "BAD", "intent_140chars": ""}), encoding="utf-8")
+            ckpt.write_text(
+                json.dumps({"status": "BAD", "intent_140chars": ""}),
+                encoding="utf-8",
+            )
             errs_bad = vrc.validate_session_checkpoint(ckpt, active)
             self.assertTrue(any("status inválido" in e for e in errs_bad))
             self.assertTrue(any("intent_140chars" in e for e in errs_bad))
@@ -379,7 +426,9 @@ class TestVerifyRoadmapConsistency(unittest.TestCase):
             self.assertTrue(any("planned_steps" in e for e in errs_incoh))
             self.assertTrue(any("ACTIVE_TASK.md" in e for e in errs_incoh))
 
-            active.write_text("**Estado:** CERTIFIED_CLEAN\n- [x] F5\n", encoding="utf-8")
+            active.write_text(
+                "**Estado:** CERTIFIED_CLEAN\n- [x] F5\n", encoding="utf-8"
+            )
             ckpt.write_text(
                 json.dumps(
                     {
@@ -392,16 +441,14 @@ class TestVerifyRoadmapConsistency(unittest.TestCase):
             )
             self.assertEqual(vrc.validate_session_checkpoint(ckpt, active), [])
             # Compatibilidad con archivos legacy marcados COMPLETED (100%)
-            active.write_text("**Estado:** COMPLETED (100%)\n- [x] F5\n", encoding="utf-8")
+            active.write_text(
+                "**Estado:** COMPLETED (100%)\n- [x] F5\n", encoding="utf-8"
+            )
             self.assertEqual(vrc.validate_session_checkpoint(ckpt, active), [])
             active.unlink()
             self.assertEqual(vrc.validate_session_checkpoint(ckpt, active), [])
 
     def test_validate_partial_hitos_non_numeric_and_main_error_path(self) -> None:
-        import io
-        from contextlib import redirect_stdout
-        from unittest import mock
-
         rows = vrc.parse_roadmap_table(
             "| **Hito 1** | X | `s` | 🚧 En Progreso | `N/A` |\n"
         )
@@ -456,14 +503,39 @@ class TestVerifyRoadmapConsistency(unittest.TestCase):
                 [],
             )
 
+            # Caso SKIPPED=20 en workspace vacío sin ROADMAP ni ACTIVE_TASK
+            empty_ws = base / "empty_ws"
+            empty_ws.mkdir()
+            buf_skip = io.StringIO()
+            with redirect_stdout(buf_skip):
+                rc_skip = vrc.main(target_root=empty_ws)
+            self.assertEqual(rc_skip, 20)
+            self.assertIn("SKIPPED", buf_skip.getvalue())
+            self.assertEqual(
+                vrc.cli_main([str(empty_ws), "--exit-skipped-code", "0"]), 0
+            )
+
+            # Con ROADMAP inválido retorna 1
             (base / ".agents" / "scripts").mkdir(parents=True)
-            fake_script = base / ".agents" / "scripts" / "verify_roadmap_consistency.py"
+            fake_script = (
+                base / ".agents" / "scripts" / "verify_roadmap_consistency.py"
+            )
             fake_script.write_text("# stub\n", encoding="utf-8")
             buf = io.StringIO()
-            with mock.patch.object(vrc, "__file__", str(fake_script)), redirect_stdout(buf):
+            with (
+                mock.patch.object(vrc, "__file__", str(fake_script)),
+                redirect_stdout(buf),
+            ):
                 rc = vrc.main()
             self.assertEqual(rc, 1)
             self.assertIn("discrepancias de consistencia", buf.getvalue())
+
+            with (
+                mock.patch.object(sys, "argv", [str(SCRIPT_PATH), str(empty_ws)]),
+                self.assertRaises(SystemExit) as exc,
+            ):
+                runpy.run_path(str(SCRIPT_PATH), run_name="__main__")
+            self.assertEqual(exc.exception.code, 20)
 
 
 if __name__ == "__main__":

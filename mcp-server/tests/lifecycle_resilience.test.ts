@@ -172,8 +172,8 @@ describe('TaskStateGuard & Lifecycle Resilience (T1.4)', () => {
     });
   });
 
-  describe('2. Detección de TASK_STUCK, AbortSignal y recuperación determinista', () => {
-    it('aborta tarea colgada, transiciona a BROKEN (TASK_STUCK), rechaza 503 y recupera', async () => {
+  describe('2. Detección de TASK_STUCK, AbortSignal y aislamiento de fallos', () => {
+    it('aborta tarea colgada con 504 TASK_STUCK sin inutilizar el servidor (mantiene AVAILABLE) y acota stuckTasks a 32', async () => {
       const guard = new TaskStateGuard({ capacity: 2, defaultTimeoutMs: 30 });
       let observedAborted = false;
 
@@ -194,30 +194,38 @@ describe('TaskStateGuard & Lifecycle Resilience (T1.4)', () => {
       expect(stuckErr.statusCode).toBe(504);
       expect(stuckErr.code).toBe('TASK_STUCK');
       expect(observedAborted).toBe(true);
-      expect(guard.getState()).toBe('BROKEN');
-      expect(guard.getBrokenReason()).toBe('TASK_STUCK');
+      expect(guard.getState()).toBe('AVAILABLE');
+      expect(guard.getBrokenReason()).toBeNull();
+      expect(guard.getActiveCount()).toBe(0);
 
       const healthBefore = guard.probeHealth();
-      expect(healthBefore.healthy).toBe(false);
+      expect(healthBefore.healthy).toBe(true);
       expect(healthBefore.recovered).toBe(false);
       expect(healthBefore.snapshot.stuckTasks).toBe(1);
 
-      const blockedErr = await guard.executeTask(() => Promise.resolve('nope')).catch((err: unknown) => err);
-      expect(blockedErr).toBeInstanceOf(TaskGuardError);
-      expect((blockedErr as TaskGuardError).statusCode).toBe(503);
-      expect((blockedErr as TaskGuardError).code).toBe('GUARD_BROKEN');
+      const healthyFollowup = await guard.executeTask(() => Promise.resolve('isolated-healthy'));
+      expect(healthyFollowup).toBe('isolated-healthy');
 
-      const recovery = guard.recoverStuckTasks();
+      // Verificar límite acotado de 32 registros históricos de stuckTasks (sin fuga de memoria)
+      const capGuard = new TaskStateGuard({ capacity: 4, defaultTimeoutMs: 10 });
+      for (let i = 0; i < 36; i += 1) {
+        const res = await capGuard
+          .executeTask(() => new Promise<never>(() => undefined), {
+            taskId: `cap-stuck-${i}`,
+            timeoutMs: 10,
+          })
+          .catch((err: unknown) => err);
+        expect((res as TaskGuardError).code).toBe('TASK_STUCK');
+      }
+      expect(capGuard.getState()).toBe('AVAILABLE');
+      expect(capGuard.probeHealth().snapshot.stuckTasks).toBe(32);
+
+      const recovery = capGuard.recoverStuckTasks();
       expect(recovery).toEqual({
-        recoveredCount: 1,
-        previousReason: 'TASK_STUCK',
+        recoveredCount: 32,
+        previousReason: null,
         state: 'AVAILABLE',
       });
-      expect(guard.getState()).toBe('AVAILABLE');
-      expect(guard.getBrokenReason()).toBeNull();
-
-      const afterRecovery = await guard.executeTask(() => Promise.resolve('healthy-again'));
-      expect(afterRecovery).toBe('healthy-again');
     });
 
     it('soporta autoRecoverStuck en probeHealth() y cancelación de slots activos remanentes', async () => {

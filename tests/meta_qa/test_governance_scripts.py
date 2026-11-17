@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
-"""Suite Meta-QA trimodal (Virgin, Nominal, Broken) para scripts de gobernanza .agents/scripts/."""
+"""Suite Meta-QA trimodal (Virgin, Nominal, Broken) para .agents/scripts/."""
 
 from __future__ import annotations
 
@@ -93,6 +93,56 @@ def _materialize_scenario(root: Path, section_name: str) -> None:
         _seal_manifest_if_requested(root)
 
 
+_DIRECT_PATH_VALIDATORS = frozenset(
+    {
+        "verify_json_no_duplicate_keys.py",
+        "verify_zero_orphan_vue_components.py",
+        "verify_no_orphan_api_endpoints.py",
+    }
+)
+_REPO_ROOT_ATTR_VALIDATORS = frozenset(
+    {
+        "verify_topological_health.py",
+        "verify_alembic_orm_parity.py",
+    }
+)
+
+
+def _invoke_roadmap_validator(
+    mod: ModuleType,
+    target_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> int:
+    fake_script_loc = (
+        target_root / ".agents" / "scripts" / "verify_roadmap_consistency.py"
+    )
+    fake_script_loc.parent.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(mod, "__file__", str(fake_script_loc))
+    return int(mod.main())
+
+
+def _invoke_validator_module(
+    mod: ModuleType,
+    script_name: str,
+    target_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> int:
+    cli_args: dict[str, list[str]] = {
+        "verify_docs_invariants.py": [str(target_root)],
+        "sync_governance.py": ["--repo-root", str(target_root), "--check"],
+    }
+    if script_name in _DIRECT_PATH_VALIDATORS:
+        return int(mod.main(target_root))
+    if script_name in cli_args:
+        return int(mod.main(cli_args[script_name]))
+    if script_name in _REPO_ROOT_ATTR_VALIDATORS:
+        monkeypatch.setattr(mod, "REPO_ROOT", target_root)
+        return int(mod.main())
+    if script_name == "verify_roadmap_consistency.py":
+        return _invoke_roadmap_validator(mod, target_root, monkeypatch)
+    raise AssertionError(f"Validador no soportado: {script_name}")
+
+
 def _run_validator_inprocess(
     script_name: str,
     target_root: Path,
@@ -104,31 +154,7 @@ def _run_validator_inprocess(
     mod = _load_script(
         script_name, f"meta_qa_{script_name.removesuffix('.py')}_{alias_suffix}"
     )
-
-    if script_name in (
-        "verify_json_no_duplicate_keys.py",
-        "verify_zero_orphan_vue_components.py",
-        "verify_no_orphan_api_endpoints.py",
-    ):
-        rc = int(mod.main(target_root))
-    elif script_name == "verify_docs_invariants.py":
-        rc = int(mod.main([str(target_root)]))
-    elif script_name == "sync_governance.py":
-        rc = int(mod.main(["--repo-root", str(target_root), "--check"]))
-    elif script_name in (
-        "verify_topological_health.py",
-        "verify_alembic_orm_parity.py",
-    ):
-        monkeypatch.setattr(mod, "REPO_ROOT", target_root)
-        rc = int(mod.main())
-    elif script_name == "verify_roadmap_consistency.py":
-        fake_script_loc = target_root / ".agents" / "scripts" / script_name
-        fake_script_loc.parent.mkdir(parents=True, exist_ok=True)
-        monkeypatch.setattr(mod, "__file__", str(fake_script_loc))
-        rc = int(mod.main())
-    else:
-        raise AssertionError(f"Validador no soportado: {script_name}")
-
+    rc = _invoke_validator_module(mod, script_name, target_root, monkeypatch)
     captured = capsys.readouterr()
     return rc, captured.out + captured.err
 
@@ -172,7 +198,7 @@ def test_virgin_minimal_graceful_degradation(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Verifica degradación elegante (sin Traceback) sobre un repositorio mínimo virgen."""
+    """Verifica degradación elegante (sin Traceback) en repo mínimo virgen."""
     _materialize_scenario(tmp_path, "virgin_minimal")
 
     if script_name == "sync_governance.py":
@@ -186,7 +212,11 @@ def test_virgin_minimal_graceful_degradation(
         script_name, tmp_path, monkeypatch, capsys, alias_suffix="virgin"
     )
     assert "Traceback" not in output
-    assert rc == 0, f"{script_name} falló en virgin_minimal:\n{output}"
+    if script_name == "verify_roadmap_consistency.py":
+        assert rc == 20, f"{script_name} debió retornar 20 SKIPPED:\n{output}"
+        assert "SKIPPED" in output
+    else:
+        assert rc == 0, f"{script_name} falló en virgin_minimal:\n{output}"
 
 
 @pytest.mark.parametrize("script_name", ALL_VALIDATORS)
@@ -196,7 +226,7 @@ def test_nominal_valid_zero_false_positives(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Certifica 0 falsos positivos (in-process y CLI) sobre el fixture nominal_valid."""
+    """Certifica 0 falsos positivos (in-process y CLI) en nominal_valid."""
     _materialize_scenario(tmp_path, "nominal_valid")
 
     rc_in, out_in = _run_validator_inprocess(
@@ -217,7 +247,7 @@ def test_seeded_failures_zero_false_negatives(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Certifica 0 falsos negativos cuando se inyecta cada mutación de seeded_failures."""
+    """Certifica 0 falsos negativos ante cada mutación de seeded_failures."""
     _materialize_scenario(tmp_path, "nominal_valid")
 
     mutation = SEED_CATALOG["seeded_failures"][failure_id]
@@ -235,7 +265,7 @@ def test_seeded_failures_zero_false_negatives(
     assert "Traceback" not in out_in
     for expected in expected_outputs:
         assert expected in out_in, (
-            f"Falta diagnóstico '{expected}' en {validator} para '{failure_id}':\n{out_in}"
+            f"Falta '{expected}' en {validator} para '{failure_id}':\n{out_in}"
         )
 
     rc_cli, out_cli = _run_validator_cli(validator, tmp_path)
@@ -378,7 +408,7 @@ def test_inspect_blast_radius_precision_dedup_and_exit_codes(
 def test_verificar_secretos_detects_synthetic_token_and_passes_clean_repo(
     tmp_path: Path,
 ) -> None:
-    """Valida detección de secretos sobre un git init aislado con token generado en runtime."""
+    """Valida detección de secretos en git init aislado con token en runtime."""
     repo_dir = tmp_path / "isolated_repo"
     (repo_dir / "scripts").mkdir(parents=True)
     (repo_dir / "src").mkdir(parents=True)
@@ -440,7 +470,7 @@ def test_release_readiness_gate_go_skipped_and_dry_run_vs_enforce(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Valida GO, SKIPPED (smoke) y NO_GO (--dry-run vs --enforce) en CLI e in-process."""
+    """Valida GO, SKIPPED (smoke) y NO_GO (--dry-run/--enforce) CLI e in-proc."""
     gate_script = AGENTS_SCRIPTS_DIR / "release_readiness_gate.py"
     mod = _load_script("release_readiness_gate.py", "meta_qa_release_gate")
 
@@ -600,7 +630,8 @@ def test_release_readiness_gate_security_xxe_traversal_and_zero_tests(
     gate_script = AGENTS_SCRIPTS_DIR / "release_readiness_gate.py"
     xxe_file = tmp_path / "xxe.xml"
     xxe_file.write_text(
-        '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><testsuite tests="1" />',
+        '<?xml version="1.0"?><!DOCTYPE foo '
+        '[<!ENTITY xxe SYSTEM "file:///etc/passwd">]><testsuite tests="1" />',
         encoding="utf-8",
     )
 
@@ -675,7 +706,7 @@ def test_release_readiness_gate_inprocess_security_and_parse_edges(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Cubre validaciones in-process de XXE, JSON/XML inválido, symlinks, métricas y errores de salida."""
+    """Cubre XXE, JSON/XML inválido, symlinks, métricas y errores."""
     mod = _load_script("release_readiness_gate.py", "meta_qa_release_gate_edges")
     outside = tmp_path.parent / "outside_secret_rg.xml"
     outside.write_text("<testsuite tests='1' />", encoding="utf-8")
@@ -693,28 +724,47 @@ def test_release_readiness_gate_inprocess_security_and_parse_edges(
     xxe_xml = tmp_path / "xxe_inproc.xml"
     xxe_xml.write_text("<!ENTITY a 'b'><testsuite tests='1' />", encoding="utf-8")
     neg_tel = tmp_path / "neg_tel.json"
-    neg_tel.write_text(json.dumps({"metrics": {"p95_ms": -5}, "error_rate_pct": True}), encoding="utf-8")
+    neg_tel.write_text(
+        json.dumps({"metrics": {"p95_ms": -5}, "error_rate_pct": True}),
+        encoding="utf-8",
+    )
     err_xml = tmp_path / "err.xml"
     err_xml.write_text(
-        "<testsuites tests='2' errors='1'><testcase name='e'><error /></testcase><testcase name='ok' /></testsuites>",
+        "<testsuites tests='2' errors='1'>"
+        "<testcase name='e'><error /></testcase>"
+        "<testcase name='ok' /></testsuites>",
         encoding="utf-8",
     )
 
-    assert mod.main(["--workspace-root", str(tmp_path), "--junit-xml", "xxe_inproc.xml"]) == 1
-    assert mod.main(["--workspace-root", str(tmp_path), "--junit-xml", "sym.xml"]) == 1
-    assert mod.main(["--workspace-root", str(tmp_path), "--junit-xml", "missing.xml"]) == 1
-    assert mod.main(["--workspace-root", str(tmp_path), "--junit-xml", "   "]) == 1
-    assert mod.main(["--workspace-root", str(tmp_path), "--junit-xml", "a\x00b.xml"]) == 1
-    assert mod.main(["--workspace-root", str(tmp_path), "--junit-xml", "bad.xml"]) == 1
-    assert mod.main(["--workspace-root", str(tmp_path), "--junit-xml", "malformed.xml"]) == 1
-    assert mod.main(["--workspace-root", str(tmp_path), "--telemetry-json", "bad.json"]) == 1
-    assert mod.main(["--workspace-root", str(tmp_path), "--defects-json", "arr.json"]) == 1
-    assert mod.main(["--workspace-root", str(tmp_path), "--telemetry-json", "neg_tel.json"]) == 1
-    assert mod.main(["--workspace-root", str(tmp_path), "--timestamp", "not-iso"]) == 1
-    assert mod.main(["--workspace-root", str(tmp_path), "--timestamp", ""]) == 1
-    assert mod.main(["--workspace-root", str(tmp_path), "--junit-xml", "err.xml", "--enforce"]) == 1
-    assert mod.main(["--workspace-root", str(tmp_path), "--junit-xml", "err.xml", "--output-json", "../../bad.json"]) == 1
-    rc_dir_escape, _ = mod.evaluate_release_gate(workspace_root=tmp_path, scope="invalid")
+    ws = str(tmp_path)
+    failing_invocations = [
+        ["--workspace-root", ws, "--junit-xml", "xxe_inproc.xml"],
+        ["--workspace-root", ws, "--junit-xml", "sym.xml"],
+        ["--workspace-root", ws, "--junit-xml", "missing.xml"],
+        ["--workspace-root", ws, "--junit-xml", "   "],
+        ["--workspace-root", ws, "--junit-xml", "a\x00b.xml"],
+        ["--workspace-root", ws, "--junit-xml", "bad.xml"],
+        ["--workspace-root", ws, "--junit-xml", "malformed.xml"],
+        ["--workspace-root", ws, "--telemetry-json", "bad.json"],
+        ["--workspace-root", ws, "--defects-json", "arr.json"],
+        ["--workspace-root", ws, "--telemetry-json", "neg_tel.json"],
+        ["--workspace-root", ws, "--timestamp", "not-iso"],
+        ["--workspace-root", ws, "--timestamp", ""],
+        ["--workspace-root", ws, "--junit-xml", "err.xml", "--enforce"],
+        [
+            "--workspace-root",
+            ws,
+            "--junit-xml",
+            "err.xml",
+            "--output-json",
+            "../../bad.json",
+        ],
+    ]
+    for argv in failing_invocations:
+        assert mod.main(argv) == 1
+    rc_dir_escape, _ = mod.evaluate_release_gate(
+        workspace_root=tmp_path, scope="invalid"
+    )
     assert rc_dir_escape == 1
     capsys.readouterr()
 
@@ -741,7 +791,7 @@ def _make_tool_pair(idx: int, payload_chars: int) -> list[dict[str, Any]]:
 
 
 def test_compact_context_11x_noop_and_tier1_masking() -> None:
-    """Valida no-op bajo 90% y enmascaramiento Tier 1 preservando 6 resultados recientes."""
+    """Valida no-op bajo 90% y enmascaramiento Tier 1 (6 recientes)."""
     mod = _load_script("compact_context_11x.py", "meta_qa_compact_t1")
 
     small_msgs = [
@@ -761,7 +811,7 @@ def test_compact_context_11x_noop_and_tier1_masking() -> None:
     for i in range(10):
         msgs.extend(_make_tool_pair(i, payload_chars=400))
 
-    # 10 pares * ~120 tokens ~= 1200 tokens; con anchor_tokens=700 supera 90% de 2000 (1800)
+    # 10 pares * ~120 tokens ~= 1200 tokens; anchor_tokens=700 supera 1800
     res_t1 = mod.compact_context(
         msgs,
         anchor_tokens=700,
@@ -782,8 +832,60 @@ def test_compact_context_11x_noop_and_tier1_masking() -> None:
     assert all(len(m.get("tool_calls", [])) == 1 for m in assistants)
 
 
+def _assert_valid_tool_pairing(messages: list[dict[str, Any]]) -> None:
+    for idx, msg in enumerate(messages):
+        if msg.get("role") == "assistant" and msg.get("tool_calls"):
+            call_ids = {c["id"] for c in msg["tool_calls"]}
+            assert idx + 1 < len(messages)
+            nxt = messages[idx + 1]
+            assert nxt.get("role") == "tool"
+            assert nxt.get("tool_call_id") in call_ids
+        if msg.get("role") == "tool":
+            assert idx > 0 and messages[idx - 1].get("role") == "assistant"
+
+
+def _make_anthropic_tool_history(count: int) -> list[dict[str, Any]]:
+    history: list[dict[str, Any]] = [
+        {"role": "system", "content": [{"type": "text", "text": "sys"}]},
+        {
+            "role": "user",
+            "content": ["parte 1", {"type": "image_url", "url": "https://local"}],
+        },
+        {"role": "assistant", "content": None},
+        {"role": "assistant", "content": {"status": "ok"}},
+    ]
+    for i in range(count):
+        history.append(
+            {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": f"tu_{i}",
+                        "name": "read",
+                        "input": {"i": i},
+                    }
+                ],
+            }
+        )
+        content = "[tool result cleared]" if i == 0 else ("r" * 400)
+        history.append(
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": f"tu_{i}",
+                        "content": content,
+                    }
+                ],
+            }
+        )
+    return history
+
+
 def test_compact_context_11x_tier2_atomic_prune_and_anthropic_blocks() -> None:
-    """Valida escalado a Tier 2 preservando raíz y pares tool_calls <-> tool sin huérfanos."""
+    """Valida escalado a Tier 2 preservando raíz y pares tool sin huérfanos."""
     mod = _load_script("compact_context_11x.py", "meta_qa_compact_t2")
 
     msgs: list[dict[str, Any]] = [
@@ -794,17 +896,24 @@ def test_compact_context_11x_tier2_atomic_prune_and_anthropic_blocks() -> None:
         msgs.append({"role": "user", "content": f"seguimiento {i} " + ("u" * 320)})
         msgs.extend(_make_tool_pair(i, payload_chars=240))
 
-    # Además incluimos un bloque tool_use / tool_result al final
     msgs.append(
         {
             "role": "assistant",
-            "content": [{"type": "tool_use", "id": "tu_last", "name": "verify", "input": {}}],
+            "content": [
+                {"type": "tool_use", "id": "tu_last", "name": "verify", "input": {}}
+            ],
         }
     )
     msgs.append(
         {
             "role": "user",
-            "content": [{"type": "tool_result", "tool_use_id": "tu_last", "content": "ok_" + ("z" * 80)}],
+            "content": [
+                {
+                    "type": "tool_result",
+                    "tool_use_id": "tu_last",
+                    "content": "ok_" + ("z" * 80),
+                }
+            ],
         }
     )
 
@@ -821,44 +930,9 @@ def test_compact_context_11x_tier2_atomic_prune_and_anthropic_blocks() -> None:
     assert len(res_t2.messages) <= 20
     assert res_t2.messages[0]["content"] == "system root"
     assert res_t2.messages[1]["content"] == "root user task"
+    _assert_valid_tool_pairing(res_t2.messages)
 
-    # Ningún assistant con tool_calls queda sin su(s) tool result inmediatamente después
-    for idx, msg in enumerate(res_t2.messages):
-        if msg.get("role") == "assistant" and msg.get("tool_calls"):
-            call_ids = {c["id"] for c in msg["tool_calls"]}
-            assert idx + 1 < len(res_t2.messages)
-            nxt = res_t2.messages[idx + 1]
-            assert nxt.get("role") == "tool"
-            assert nxt.get("tool_call_id") in call_ids
-        if msg.get("role") == "tool":
-            assert idx > 0 and res_t2.messages[idx - 1].get("role") == "assistant"
-
-    # Enmascaramiento Tier 1 sobre bloques Anthropic tool_result + casos de estimación
-    anthropic_msgs: list[dict[str, Any]] = [
-        {"role": "system", "content": [{"type": "text", "text": "sys"}]},
-        {"role": "user", "content": ["parte 1", {"type": "image_url", "url": "https://local"}]},
-        {"role": "assistant", "content": None},
-        {"role": "assistant", "content": {"status": "ok"}},
-    ]
-    for i in range(8):
-        anthropic_msgs.append(
-            {
-                "role": "assistant",
-                "content": [{"type": "tool_use", "id": f"tu_{i}", "name": "read", "input": {"i": i}}],
-            }
-        )
-        anthropic_msgs.append(
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "tool_result",
-                        "tool_use_id": f"tu_{i}",
-                        "content": "[tool result cleared]" if i == 0 else ("r" * 400),
-                    }
-                ],
-            }
-        )
+    anthropic_msgs = _make_anthropic_tool_history(8)
     res_anth = mod.compact_context(
         anthropic_msgs,
         context_window=1050,
@@ -871,9 +945,13 @@ def test_compact_context_11x_tier2_atomic_prune_and_anthropic_blocks() -> None:
     assert res_anth.messages[7]["content"][0]["content"] == "[tool result cleared]"
     assert res_anth.messages[9]["content"][0]["content"] == "r" * 400
 
-    # Historial sin mensaje user (solo system) en Tier 2
-    sys_only = [{"role": "system", "content": "s" * 400}, {"role": "assistant", "content": "a" * 400}]
-    res_sys_only = mod.compact_context(sys_only, context_window=100, threshold_ratio=0.90)
+    sys_only = [
+        {"role": "system", "content": "s" * 400},
+        {"role": "assistant", "content": "a" * 400},
+    ]
+    res_sys_only = mod.compact_context(
+        sys_only, context_window=100, threshold_ratio=0.90
+    )
     assert res_sys_only.tier_applied == 2
     assert len(res_sys_only.messages) == 1
 
@@ -883,7 +961,7 @@ def test_compact_context_11x_oversized_single_message_and_cli_tty_guard(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Cubre mensaje único gigante, guardia QA-CLI-TTY-01 y ejecución CLI/stdin/output."""
+    """Cubre mensaje único gigante, guardia QA-CLI-TTY-01 y CLI/stdin."""
     mod = _load_script("compact_context_11x.py", "meta_qa_compact_cli")
     script_path = AGENTS_SCRIPTS_DIR / "compact_context_11x.py"
 
@@ -1008,7 +1086,9 @@ def test_select_tests_by_blast_radius_all_four_tiers_and_cli(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Cubre docs-only, pr-targeted con propagación AST, full-regression y nightly."""
-    mod = _load_script("select_tests_by_blast_radius.py", "select_tests_by_blast_radius")
+    mod = _load_script(
+        "select_tests_by_blast_radius.py", "select_tests_by_blast_radius"
+    )
     graph_path = tmp_path / "graph.json"
     graph_payload = {
         "nodes": [
@@ -1141,7 +1221,7 @@ def test_select_tests_by_blast_radius_all_four_tiers_and_cli(
     assert edge15_plan["tier"] == "full-regression"
     assert edge15_plan["caller_count"] == 15
 
-    # F3.1: .agents/skills/** y .agents/rules/** y .github/actions/** nunca son docs-only
+    # F3.1: .agents/skills/**, .agents/rules/** y .github/actions/** no son docs-only
     for gov_path in (
         ".agents/skills/qa-11x-architect/SKILL.md",
         ".agents/rules/git_closure_gate.md",
@@ -1306,7 +1386,8 @@ def test_vibe_rescue_auditor_detects_five_rules_redacts_and_emits_bundle(
         "\n".join(
             [
                 "// @ts-ignore",
-                f"const k = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '{raw_token}';",
+                f"const k = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY "
+                f"|| '{raw_token}';",
                 "const c: any = supabaseAdmin;",
                 "await page.waitForTimeout(1000);",
                 padding,
@@ -1479,7 +1560,10 @@ def test_vibe_rescue_auditor_clean_pass_quiet_and_path_traversal(
     ).read_text(encoding="utf-8")
 
     # Rechazo de Path Traversal y entradas invalidas
-    assert mod.main(["--target", "../../etc/passwd", "--workspace-root", str(tmp_path)]) == 2
+    assert (
+        mod.main(["--target", "../../etc/passwd", "--workspace-root", str(tmp_path)])
+        == 2
+    )
     assert (
         mod.main(
             [
@@ -1522,7 +1606,7 @@ def test_vibe_rescue_auditor_clean_pass_quiet_and_path_traversal(
 def test_verify_docs_invariants_bilingual_readme_and_internal_links(
     tmp_path: Path,
 ) -> None:
-    """Valida modelo bilingüe English-First, enlaces internos reales y bloqueo de path traversal."""
+    """Valida modelo bilingüe, enlaces internos reales y anti-traversal."""
     mod = _load_script("verify_docs_invariants.py", "meta_qa_verify_docs_bilingual")
     (tmp_path / "docs").mkdir(parents=True)
     (tmp_path / "assets").mkdir()
@@ -1532,7 +1616,8 @@ def test_verify_docs_invariants_bilingual_readme_and_internal_links(
     (tmp_path / "README.md").write_text(
         "> 🌐 Language: **English** | [Español](README.es.md)\n\n"
         '<img src="assets/qa-logo.jpeg" alt="Logo" />\n\n'
-        "[Docs](docs/01_ARQUITECTURA_PIRAMIDE_11X.md) · [License](LICENSE) · [Ext](https://example.com)\n",
+        "[Docs](docs/01_ARQUITECTURA_PIRAMIDE_11X.md) · "
+        "[License](LICENSE) · [Ext](https://example.com)\n",
         encoding="utf-8",
     )
     (tmp_path / "README.es.md").write_text(
@@ -1565,15 +1650,19 @@ def test_verify_docs_invariants_bilingual_readme_and_internal_links(
     missing_en = mod.validate_repository_docs(tmp_path)
     assert any("falta README.md" in err for err in missing_en)
 
-    # Caso 3: Enlaces cruzados faltantes, enlace roto y path traversal fuera del repo
+    # Caso 3: Enlaces cruzados faltantes, enlace roto y path traversal
     (tmp_path / "README.md").write_text(
         "# English Only\n\n[Broken](missing/doc.md) · [Escape](../../etc/passwd)\n",
         encoding="utf-8",
     )
     (tmp_path / "README.es.md").write_text("# Solo Español\n", encoding="utf-8")
     broken_errors = mod.validate_repository_docs(tmp_path)
-    assert any("README.es.md" in err and "selector/enlace" in err for err in broken_errors)
-    assert any("README.md" in err and "selector/enlace" in err for err in broken_errors)
+    assert any(
+        "README.es.md" in err and "selector/enlace" in err for err in broken_errors
+    )
+    assert any(
+        "README.md" in err and "selector/enlace" in err for err in broken_errors
+    )
     assert any("enlace interno roto" in err for err in broken_errors)
     assert any("fuera del repositorio" in err for err in broken_errors)
 
@@ -1709,58 +1798,8 @@ def test_verify_docs_invariants_global_catalogs_trimodal(
     )
 
 
-def test_pagespeed_insights_audit_trimodal_and_ssrf(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
-    """Audita audit_pagespeed_insights.py en escenarios Virgen, Anti-SSRF, Nominal, Degradado, 429 y CLI."""
-    import io
-    import socket
-    import urllib.error
-    import urllib.request
-
-    psi: Any = _load_script("audit_pagespeed_insights.py", "audit_pagespeed_insights")
-
-    # 1. Virgen (sin URL) y --require-url
-    code_skip, rep_skip = psi.run_pagespeed_audit(psi.AuditOptions(url=""))
-    assert code_skip == 0
-    assert rep_skip["status"] == "SKIPPED"
-    assert rep_skip["reason"] == "MISSING_TARGET_URL"
-
-    code_req, _ = psi.run_pagespeed_audit(psi.AuditOptions(url="   ", require_url=True))
-    assert code_req == 2
-
-    # 2. Anti-SSRF SEC-03 (http://, credenciales, localhost, IPs privadas/link-local, suffix .internal, single label, DNS privado)
-    bad_urls = [
-        "http://ejemplo.com",
-        "https://user:pass@ejemplo.com",
-        "https://localhost/app",
-        "https://127.0.0.1/status",
-        "https://169.254.169.254/latest/meta-data",
-        "https://api.internal/health",
-        "https://backend-db/metrics",
-    ]
-    for bad in bad_urls:
-        code_bad, rep_bad = psi.run_pagespeed_audit(psi.AuditOptions(url=bad))
-        assert code_bad == 1, f"Debió bloquear {bad}"
-        assert rep_bad["status"] == "BLOCKED_SSRF"
-
-    code_dns, rep_dns = psi.run_pagespeed_audit(
-        psi.AuditOptions(url="https://public.ejemplo.com"),
-        resolver=lambda _h: ["10.0.0.15"],
-    )
-    assert code_dns == 1
-    assert rep_dns["status"] == "BLOCKED_SSRF"
-
-    # Cobertura del resolver DNS por defecto (hit público y OSError)
-    monkeypatch.setattr(
-        socket,
-        "getaddrinfo",
-        lambda *_args, **_kwargs: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 0))],
-    )
-    assert psi._default_dns_resolver("example.com") == ["93.184.216.34"]
-    monkeypatch.setattr(socket, "getaddrinfo", lambda *_a, **_kw: (_ for _ in ()).throw(OSError("dns down")))
-    assert psi._default_dns_resolver("example.com") == []
-
-    # 3. Nominal: mobile + desktop (Lab + CrUX + Top Opportunities + persistencia segura)
-    good_payload = {
+def _good_pagespeed_payload() -> dict[str, Any]:
+    return {
         "lighthouseResult": {
             "categories": {
                 "performance": {"score": 0.94},
@@ -1786,11 +1825,79 @@ def test_pagespeed_insights_audit_trimodal_and_ssrf(tmp_path: Path, monkeypatch)
         "loadingExperience": {
             "overall_category": "FAST",
             "metrics": {
-                "LARGEST_CONTENTFUL_PAINT_MS": {"percentile": 1800, "category": "FAST"},
-                "INTERACTION_TO_NEXT_PAINT": {"percentile": 120, "category": "FAST"},
+                "LARGEST_CONTENTFUL_PAINT_MS": {
+                    "percentile": 1800,
+                    "category": "FAST",
+                },
+                "INTERACTION_TO_NEXT_PAINT": {
+                    "percentile": 120,
+                    "category": "FAST",
+                },
             },
         },
     }
+
+
+def test_pagespeed_insights_virgin_and_ssrf(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Audita audit_pagespeed_insights.py en Virgen y bloqueo Anti-SSRF SEC-03."""
+    import socket
+
+    psi: Any = _load_script("audit_pagespeed_insights.py", "audit_pagespeed_insights")
+
+    code_skip, rep_skip = psi.run_pagespeed_audit(psi.AuditOptions(url=""))
+    assert code_skip == 0
+    assert rep_skip["status"] == "SKIPPED"
+    assert rep_skip["reason"] == "MISSING_TARGET_URL"
+
+    code_req, _ = psi.run_pagespeed_audit(
+        psi.AuditOptions(url="   ", require_url=True)
+    )
+    assert code_req == 2
+
+    bad_urls = [
+        "http://ejemplo.com",
+        "https://user:pass@ejemplo.com",
+        "https://localhost/app",
+        "https://127.0.0.1/status",
+        "https://169.254.169.254/latest/meta-data",
+        "https://api.internal/health",
+        "https://backend-db/metrics",
+    ]
+    for bad in bad_urls:
+        code_bad, rep_bad = psi.run_pagespeed_audit(psi.AuditOptions(url=bad))
+        assert code_bad == 1, f"Debió bloquear {bad}"
+        assert rep_bad["status"] == "BLOCKED_SSRF"
+
+    code_dns, rep_dns = psi.run_pagespeed_audit(
+        psi.AuditOptions(url="https://public.ejemplo.com"),
+        resolver=lambda _h: ["10.0.0.15"],
+    )
+    assert code_dns == 1
+    assert rep_dns["status"] == "BLOCKED_SSRF"
+
+    monkeypatch.setattr(
+        socket,
+        "getaddrinfo",
+        lambda *_args, **_kwargs: [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 0))
+        ],
+    )
+    assert psi._default_dns_resolver("example.com") == ["93.184.216.34"]
+    monkeypatch.setattr(
+        socket,
+        "getaddrinfo",
+        lambda *_a, **_kw: (_ for _ in ()).throw(OSError("dns down")),
+    )
+    assert psi._default_dns_resolver("example.com") == []
+
+
+def test_pagespeed_insights_nominal_and_persistence(tmp_path: Path) -> None:
+    """Audita audit_pagespeed_insights.py en escenario Nominal (Lab+CrUX)."""
+    psi: Any = _load_script("audit_pagespeed_insights.py", "audit_pagespeed_insights")
+    good_payload = _good_pagespeed_payload()
+
     code_ok, rep_ok = psi.run_pagespeed_audit(
         psi.AuditOptions(
             url="https://ejemplo-publico.com",
@@ -1805,12 +1912,16 @@ def test_pagespeed_insights_audit_trimodal_and_ssrf(tmp_path: Path, monkeypatch)
     assert rep_ok["status"] == "PASSED"
     assert len(rep_ok["strategies"]) == 2
     assert rep_ok["strategies"][0]["crux"]["overall_category"] == "FAST"
-    assert rep_ok["strategies"][0]["top_opportunities"][0]["id"] == "render-blocking-resources"
+    first_opp = rep_ok["strategies"][0]["top_opportunities"][0]
+    assert first_opp["id"] == "render-blocking-resources"
     assert (tmp_path / "psi-reports" / "psi-report.json").is_file()
     summary = psi.format_human_summary(rep_ok)
     assert "PASSED" in summary and "FAST" in summary
 
-    # 4. Degradado: umbrales violados, CrUX no dict/vacío, score None, JSON inválido, no-dict, fallo de red
+
+def test_pagespeed_insights_degraded_redaction_and_cli() -> None:
+    """Audita audit_pagespeed_insights.py en Degradado, 429 y redacción."""
+    psi: Any = _load_script("audit_pagespeed_insights.py", "audit_pagespeed_insights")
     bad_scores_payload = {
         "lighthouseResult": {
             "categories": {
@@ -1833,52 +1944,70 @@ def test_pagespeed_insights_audit_trimodal_and_ssrf(tmp_path: Path, monkeypatch)
     )
     assert code_fail == 1
     assert rep_fail["status"] == "FAILED"
-    assert any("performance: 0.60 < 0.90" in b for b in rep_fail["strategies"][0]["breaches"])
-    assert any("sin puntaje reportado" in b for b in rep_fail["strategies"][0]["breaches"])
+    breaches = rep_fail["strategies"][0]["breaches"]
+    assert any("performance: 0.60 < 0.90" in b for b in breaches)
+    assert any("sin puntaje reportado" in b for b in breaches)
 
-    _, rep_json_err = psi.run_pagespeed_audit(
-        psi.AuditOptions(url="https://ejemplo-publico.com", strategy="mobile"),
-        fetcher=lambda _u, _t: (200, "{broken-json"),
-        resolver=lambda _h: ["93.184.216.34"],
-    )
-    assert rep_json_err["status"] == "FAILED"
+    for bad_body in ("{broken-json", "[]"):
+        _, rep_bad_json = psi.run_pagespeed_audit(
+            psi.AuditOptions(url="https://ejemplo-publico.com", strategy="mobile"),
+            fetcher=lambda _u, _t, body=bad_body: (200, body),
+            resolver=lambda _h: ["93.184.216.34"],
+        )
+        assert rep_bad_json["status"] == "FAILED"
 
-    _, rep_list_err = psi.run_pagespeed_audit(
-        psi.AuditOptions(url="https://ejemplo-publico.com", strategy="mobile"),
-        fetcher=lambda _u, _t: (200, "[]"),
-        resolver=lambda _h: ["93.184.216.34"],
-    )
-    assert rep_list_err["status"] == "FAILED"
-
+    fake_key_net = "AIzaSuperSecret99"  # qa-secret-fixture-ok
     _, rep_net_err = psi.run_pagespeed_audit(
-        psi.AuditOptions(url="https://ejemplo-publico.com", strategy="mobile", api_key="AIzaSuperSecret99"),
-        fetcher=lambda _u, _t: (_ for _ in ()).throw(RuntimeError("GET https://googleapis.com?key=AIzaSuperSecret99 failed")),
+        psi.AuditOptions(
+            url="https://ejemplo-publico.com",
+            strategy="mobile",
+            api_key=fake_key_net,
+        ),
+        fetcher=lambda _u, _t: (_ for _ in ()).throw(
+            RuntimeError(f"GET https://googleapis.com?key={fake_key_net} failed")
+        ),
         resolver=lambda _h: ["93.184.216.34"],
     )
     assert rep_net_err["status"] == "FAILED"
-    assert "AIzaSuperSecret99" not in json.dumps(rep_net_err)
+    assert fake_key_net not in json.dumps(rep_net_err)
     assert "[REDACTED]" in json.dumps(rep_net_err)
 
-    # 5. HTTP 429: SKIPPED sin api_key y FAILED con api_key (redacción de secreto)
     code_429_skip, rep_429_skip = psi.run_pagespeed_audit(
-        psi.AuditOptions(url="https://ejemplo-publico.com", strategy="mobile", api_key=""),
+        psi.AuditOptions(
+            url="https://ejemplo-publico.com", strategy="mobile", api_key=""
+        ),
         fetcher=lambda _u, _t: (429, '{"error":"quota"}'),
         resolver=lambda _h: ["93.184.216.34"],
     )
     assert code_429_skip == 0
     assert rep_429_skip["status"] == "SKIPPED"
 
+    fake_key_429 = "AIzaSecretKey123456"  # qa-secret-fixture-ok
     code_429_key, rep_429_key = psi.run_pagespeed_audit(
-        psi.AuditOptions(url="https://ejemplo-publico.com", strategy="mobile", api_key="AIzaSecretKey123456"),
-        fetcher=lambda _u, _t: (429, "Quota error for ?key=AIzaSecretKey123456"),
+        psi.AuditOptions(
+            url="https://ejemplo-publico.com",
+            strategy="mobile",
+            api_key=fake_key_429,
+        ),
+        fetcher=lambda _u, _t: (429, f"Quota error for ?key={fake_key_429}"),
         resolver=lambda _h: ["93.184.216.34"],
     )
     assert code_429_key == 1
     assert rep_429_key["status"] == "FAILED"
-    assert "AIzaSecretKey123456" not in json.dumps(rep_429_key)
+    assert fake_key_429 not in json.dumps(rep_429_key)
 
-    # Cobertura de _default_http_fetcher (200 y HTTPError)
+
+def test_pagespeed_insights_http_fetcher_paths_and_cli(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Cubre _default_http_fetcher, rutas seguras /tmp y argumentos CLI."""
+    import io
+    import urllib.error
+    import urllib.request
     from typing import Self
+
+    psi: Any = _load_script("audit_pagespeed_insights.py", "audit_pagespeed_insights")
 
     class _FakeResp:
         status = 200
@@ -1892,31 +2021,319 @@ def test_pagespeed_insights_audit_trimodal_and_ssrf(tmp_path: Path, monkeypatch)
         def read(self) -> bytes:
             return b'{"ok":true}'
 
-    monkeypatch.setattr(urllib.request, "urlopen", lambda _req, timeout=60: _FakeResp())
-    assert psi._default_http_fetcher("https://www.googleapis.com/x", 10) == (200, '{"ok":true}')
+    monkeypatch.setattr(
+        urllib.request, "urlopen", lambda _req, timeout=60: _FakeResp()
+    )
+    assert psi._default_http_fetcher("https://www.googleapis.com/x", 10) == (
+        200,
+        '{"ok":true}',
+    )
 
-    http_err = urllib.error.HTTPError("https://x", 503, "Unavailable", {}, io.BytesIO(b"busy"))  # type: ignore[arg-type]
-    monkeypatch.setattr(urllib.request, "urlopen", lambda _req, timeout=60: (_ for _ in ()).throw(http_err))
-    assert psi._default_http_fetcher("https://www.googleapis.com/x", 10) == (503, "busy")
+    http_err = urllib.error.HTTPError(
+        "https://x", 503, "Unavailable", {}, io.BytesIO(b"busy")  # type: ignore[arg-type]
+    )
+    monkeypatch.setattr(
+        urllib.request,
+        "urlopen",
+        lambda _req, timeout=60: (_ for _ in ()).throw(http_err),
+    )
+    assert psi._default_http_fetcher("https://www.googleapis.com/x", 10) == (
+        503,
+        "busy",
+    )
 
-    # 6. Contención anti-traversal, ruta absoluta permitida en /tmp, estrategia inválida y CLI main()
     for bad_out in ("../escape.json", "/etc/escape.json"):
-        try:
+        with pytest.raises(ValueError):
             psi.resolve_safe_output_path(bad_out, tmp_path)
-            raise AssertionError(f"Debió rechazar {bad_out}")
-        except ValueError:
-            pass
-    assert str(psi.resolve_safe_output_path("/tmp/psi-ok.json", tmp_path)).startswith("/tmp")
+    safe_tmp = psi.resolve_safe_output_path("/tmp/psi-ok.json", tmp_path)
+    assert str(safe_tmp).startswith("/tmp")
 
-    try:
+    with pytest.raises(ValueError):
         psi._resolve_strategies("tablet")
-        raise AssertionError("Debió rechazar estrategia inválida")
-    except ValueError:
-        pass
 
     assert psi.main(["--url", "", "--json"]) == 0
     assert psi.main(["--url", "http://127.0.0.1"]) == 1
 
 
+def test_verify_topological_health_cycle_dfs_and_structural_filter(
+    tmp_path: Path,
+) -> None:
+    """Valida DFS de ciclos cross-file y exclusión de aristas estructurales."""
+    mod = _load_script("verify_topological_health.py", "meta_qa_topo_cycles")
+    graph_path = tmp_path / "graphify-out" / "graph.json"
+    graph_path.parent.mkdir(parents=True)
 
+    clean_graph: dict[str, Any] = {
+        "nodes": [
+            {"id": "a1", "source_file": "src/a.py"},
+            {"id": "a2", "source_file": "src/a.py"},
+            {"id": "b1", "source_file": "src/b.py"},
+            {"id": "d1", "source_file": "src/d.py"},
+        ],
+        "links": [
+            "not-a-dict",
+            {"source": "a1", "target": "a2", "relation": "calls"},
+            {"source": "a2", "target": "a1", "relation": "calls"},
+            {"source": "a1", "target": "b1", "relation": "contains"},
+            {"source": "b1", "target": "a1", "relation": "defines"},
+            {"source": "a1", "target": "b1", "relation": "imports"},
+            {"source": "b1", "target": "d1", "relation": "imports"},
+            {"source": "a1", "target": "d1", "relation": "imports"},
+        ],
+    }
+    graph_path.write_text(json.dumps(clean_graph), encoding="utf-8")
+    violations_clean, _ = mod.audit_layers(clean_graph, graph_path)
+    assert violations_clean == []
+    assert mod.cli_main(["--graph", str(graph_path)]) == 0
+
+    cyclic_graph: dict[str, Any] = {
+        "nodes": [
+            {"id": "mod_a", "source_file": "src/a.py"},
+            {"id": "mod_b", "source_file": "src/b.py"},
+            {"id": "mod_c", "source_file": "src/c.py"},
+        ],
+        "links": [
+            {"source": "mod_b", "target": "mod_c", "relation": "calls"},
+            {"source": "mod_c", "target": "mod_a", "relation": "imports"},
+            {"source": "mod_a", "target": "mod_b", "relation": "calls"},
+        ],
+    }
+    graph_path.write_text(json.dumps(cyclic_graph), encoding="utf-8")
+    violations_cyc, _ = mod.audit_layers(cyclic_graph, graph_path)
+    assert len(violations_cyc) == 1
+    assert "Dependencia cíclica detectada" in violations_cyc[0]
+    assert "mod_a -> mod_b -> mod_c -> mod_a" in violations_cyc[0]
+    assert mod.cli_main(["--graph", str(graph_path)]) == 1
+
+
+def _assert_checkpoint_rejections(mod: Any, tmp_path: Path, snap: Any) -> None:
+    ckpt_file = tmp_path / ".agents" / ".cache" / "session_checkpoint.json"
+    baseline = json.loads(ckpt_file.read_text(encoding="utf-8"))
+    bad_mutations: list[tuple[dict[str, Any], type[Exception]]] = [
+        ({**baseline, "extra_field": 1}, ValueError),
+        ({**baseline, "schema_version": "2.0"}, ValueError),
+        ({**baseline, "status": "BOGUS"}, ValueError),
+        ({**baseline, "task_id": ""}, TypeError),
+        ({**baseline, "intent_140chars": "x" * 141}, ValueError),
+        ({**baseline, "completed_steps": "not-a-list"}, TypeError),
+        (
+            {
+                **baseline,
+                "last_script_run": {
+                    "cmd": "pytest",
+                    "exit_code": True,
+                    "timestamp": "2026-11-17T12:00:00Z",
+                    "summary_1line": "ok",
+                },
+            },
+            TypeError,
+        ),
+        (
+            {
+                **baseline,
+                "last_script_run": {
+                    "cmd": "pytest",
+                    "exit_code": 0,
+                    "timestamp": "short",
+                    "summary_1line": "ok",
+                },
+            },
+            ValueError,
+        ),
+    ]
+    for payload, exc_type in bad_mutations:
+        ckpt_file.write_text(json.dumps(payload), encoding="utf-8")
+        with pytest.raises(exc_type):
+            mod.load_checkpoint(tmp_path, snap)
+
+
+def test_checkpoint_ctl_strict_schema_validation_contract(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Valida contrato session_checkpoint.schema.json y rechazo estricto."""
+    mod = _load_script("checkpoint_ctl.py", "meta_qa_checkpoint_schema")
+    schema_path = REPO_ROOT / ".agents" / "schemas" / "session_checkpoint.schema.json"
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+
+    assert (
+        mod.main(
+            [
+                "set",
+                "--workspace",
+                str(tmp_path),
+                "--task-id",
+                "T-SCHEMA-1",
+                "--step",
+                "S1",
+                "--intent",
+                "Validar schema estricto 11X",
+                "--done",
+                "S0",
+                "--planned",
+                "S1,S2",
+            ]
+        )
+        == 0
+    )
+    assert (
+        mod.main(
+            [
+                "record-cmd",
+                "--workspace",
+                str(tmp_path),
+                "--cmd",
+                "make test-meta-qa",
+                "--rc",
+                "0",
+                "--summary",
+                "Meta-QA ok",
+            ]
+        )
+        == 0
+    )
+    _ = capsys.readouterr()
+
+    ckpt_file = tmp_path / ".agents" / ".cache" / "session_checkpoint.json"
+    payload = json.loads(ckpt_file.read_text(encoding="utf-8"))
+    assert set(schema["required"]) == set(payload.keys())
+    assert payload["schema_version"] == schema["properties"]["schema_version"]["const"]
+    assert payload["status"] in schema["properties"]["status"]["enum"]
+    last_props = schema["properties"]["last_script_run"]["oneOf"][1]
+    assert set(last_props["required"]) == set(payload["last_script_run"].keys())
+
+    snap = mod.capture_live_git(tmp_path)
+    _assert_checkpoint_rejections(mod, tmp_path, snap)
+
+
+def test_inspect_blast_radius_workspace_cli(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Valida --workspace en inspect_blast_radius.py sin consultar el repo raíz."""
+    mod = _load_script("inspect_blast_radius.py", "meta_qa_inspect_ws")
+    ws = tmp_path / "isolated_ws"
+    (ws / "graphify-out").mkdir(parents=True)
+    (ws / "app").mkdir(parents=True)
+    (ws / "tests").mkdir(parents=True)
+    (ws / "tests" / "test_do_work.bats").write_text(
+        "do_work()\n", encoding="utf-8"
+    )
+
+    graph = {
+        "nodes": [
+            {
+                "id": "fn_do_work",
+                "label": "do_work",
+                "source_file": "app/core.py",
+                "source_location": "L10",
+            },
+            {
+                "id": "fn_api",
+                "label": "handle_api",
+                "source_file": "app/api.py",
+                "source_location": "L20",
+                "community_name": "api",
+            },
+            {
+                "id": "fn_cli",
+                "label": "handle_cli",
+                "source_file": "app/cli.py",
+                "source_location": "L30",
+                "community_name": "cli",
+            },
+        ],
+        "links": [
+            {"source": "fn_api", "target": "fn_do_work", "relation": "calls"},
+            {"source": "fn_cli", "target": "fn_do_work", "relation": "calls"},
+        ],
+    }
+    (ws / "graphify-out" / "graph.json").write_text(
+        json.dumps(graph), encoding="utf-8"
+    )
+    assert mod.main(["do_work", "--workspace", str(ws)]) == 0
+    out_ws = capsys.readouterr().out
+    assert "Llamadores: 2" in out_ws
+    assert "test_do_work.bats" in out_ws
+
+    virgin_ws = tmp_path / "virgin_ws"
+    (virgin_ws / "src").mkdir(parents=True)
+    (virgin_ws / "src" / "only.py").write_text("do_work()\n", encoding="utf-8")
+    assert mod.main(["do_work", "--workspace", str(virgin_ws)]) == 2
+    assert (
+        mod.main(["do_work", "--workspace", str(virgin_ws), "--allow-missing"]) == 0
+    )
+    out_virgin = capsys.readouterr().out
+    assert "src/only.py" in out_virgin
+
+
+def _init_temp_git_repo(repo: Path) -> None:
+    for cmd in (
+        ["git", "init", "-b", "main"],
+        ["git", "config", "user.name", "QA Bot"],
+        ["git", "config", "user.email", "qa@example.com"],
+    ):
+        subprocess.run(cmd, cwd=repo, check=True, capture_output=True)
+    (repo / "README.md").write_text("init\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=repo, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", "init"], cwd=repo, check=True, capture_output=True
+    )
+    subprocess.run(
+        ["git", "checkout", "-b", "feat/mobile"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    (repo / "mobile-appium" / "src").mkdir(parents=True)
+    (repo / "mobile-appium" / "src" / "App.tsx").write_text("x\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=repo, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", "mobile"], cwd=repo, check=True, capture_output=True
+    )
+
+
+def test_select_tests_by_blast_radius_base_ref_and_unsafe_ref(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Valida --base-ref/--base git diff y rechazo de refs inseguras."""
+    mod = _load_script(
+        "select_tests_by_blast_radius.py", "select_tests_by_blast_radius"
+    )
+    assert mod.main(["--base-ref=-evil"]) == 2
+    assert "insegura" in capsys.readouterr().err
+    assert mod.main(["--base", "main..HEAD"]) == 2
+    _ = capsys.readouterr()
+
+    repo = tmp_path / "git_ws"
+    repo.mkdir()
+    _init_temp_git_repo(repo)
+    monkeypatch.chdir(repo)
+
+    rc = mod.main(["--base-ref", "main", "--json"])
+    assert rc == 0
+    plan = json.loads(capsys.readouterr().out)
+    assert plan["changed_files"] == ["mobile-appium/src/App.tsx"]
+    assert plan["run_mobile"] is True
+
+    # Fallback origin/<ref> cuando ref local no existe, origin/ directo y OSError
+    subprocess.run(
+        ["git", "update-ref", "refs/remotes/origin/remote-main", "HEAD~1"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    assert mod._resolve_git_changed_files("remote-main", repo) == [
+        "mobile-appium/src/App.tsx"
+    ]
+    assert mod._resolve_git_changed_files("origin/nonexistent", repo) == []
+    assert mod._resolve_git_changed_files("nonexistent-branch", repo) == []
+    monkeypatch.setattr(
+        mod.subprocess,
+        "run",
+        lambda *_a, **_kw: (_ for _ in ()).throw(OSError("no git")),
+    )
+    assert mod._run_git_diff_names(repo, "main...HEAD") == (1, [])
 

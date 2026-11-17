@@ -35,8 +35,8 @@ docker run --rm \
 ## 2. Matriz Tecnológica de las 13 Capas 11X para PHP
 
 1. **Tipado Estricto y Formato:** `declare(strict_types=1);` obligatorio en todo archivo PHP + `friendsofphp/php-cs-fixer` (`@PER-CS2.0`).
-2. **Análisis Estático y Complejidad Cognitiva:** `phpstan/phpstan` (nivel `max` / 9 + `phpstan-strict-rules`) y `tomasvotruba/cognitive-complexity` (complejidad `<= 5` en módulos críticos / `<= 9` global).
-3. **Seguridad Estática (SAST) y CVEs:** `vimeo/psalm` (`--taint-analysis`) y `composer audit` (0 CVEs High/Critical).
+2. **Análisis Estático y Complejidad Cognitiva:** `phpstan/phpstan` (nivel `max` / 9 + `phpstan-strict-rules`, `phpstan/extension-installer`) y `tomasvotruba/cognitive-complexity` (complejidad `<= 5` en módulos críticos / `<= 9` global).
+3. **Seguridad Estática (SAST) y CVEs:** `vimeo/psalm` (`--taint-analysis` configurado en `psalm.xml`) y `composer audit` (0 CVEs High/Critical).
 4. **Pruebas Unitarias Aisladas:** `pestphp/pest` o `phpunit/phpunit` 11.5+–13.x con motor ligero `pcov` (cobertura innegociable `>= 95.0%` en líneas y ramas).
 5. **Pruebas de Mutación:** `infection/infection` (`minMsi: 80`, `minCoveredMsi: 80`, 0 mutantes vivos críticos).
 6. **Paridad de Base de Datos y PostgreSQL 17 `FORCE RLS`:** Verificación de migraciones Doctrine / Laravel contra `postgres:17-alpine` real ejecutando `ALTER TABLE ... ENABLE ROW LEVEL SECURITY; ALTER TABLE ... FORCE ROW LEVEL SECURITY;` bajo rol `NOBYPASSRLS` y re-aplicación por transacción de `SET LOCAL app.current_tenant_id` (prohibido depender de `SELECT *` sin política RLS activa).
@@ -60,7 +60,10 @@ docker run --rm \
 make qa-lint        # PHP-CS-Fixer + PHPStan (max) + Psalm Taint + Composer Audit
 make qa-unit        # Pest/PHPUnit con PCOV >= 95%
 make qa-parity      # Migraciones + verificación FORCE RLS contra PostgreSQL 17
+make qa-contracts   # Contratos Pact V4 Zero-Infra consumidor/proveedor + verificación SLO
 make qa-bdd         # Karate Labs API (con Idempotency-Key UUIDv4)
+make qa-dast        # Seguridad Dinámica Baseline Scan (OWASP ZAP)
+make qa-chaos       # Ingeniería del Caos (Pumba netem) + resiliencia bajo carga k6
 make qa-mutation    # Infection (MSI >= 80%)
 make qa-sbom        # CycloneDX 1.6
 make qa-all         # Pipeline integral 11X

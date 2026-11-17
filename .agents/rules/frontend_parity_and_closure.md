@@ -5,7 +5,7 @@
 
 > **CORE GOVERNANCE DIRECTIVE:**
 > Applies to all AI agents and developers.
-> **OUTPUT LANGUAGE CONSTRAINT:** Always communicate with the user and write final explanations in Spanish.
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING (Spec 19):** Unless `AGENTS.md` mandates a fixed language (Spanish interaction here), respond in the **user's prompt language**; human docs use EN canonical (`*.md`) + 1:1 ES mirror (`*.es.md`) here (matching `README.md`/`CHANGELOG.md` in consumer repos), while `.agents/**` remains concise English.
 
 ---
 
@@ -50,7 +50,7 @@ Before exposing new endpoints or frontend views:
 
 After **EVERY** task or turn that adds, edits, or removes code or configuration files, the AI agent **MUST** autonomously execute this protocol before concluding:
 
-0. **Active Task Initiation:** Formulate a phased plan (via `/plan` or interactive plan artifact) and initialize/update `.agents/ACTIVE_TASK.md` (from `.agents/ACTIVE_TASK.md.example`), updating sub-steps in real-time.
+0. **Active Task Initiation:** Formulate a phased plan (via `/plan` or interactive plan artifact) and track phases atomically via `checkpoint_ctl.py` / MCP `session_flight_recorder` (`0600` `.agents/.cache/session_checkpoint.json` projecting `.agents/ACTIVE_TASK.md` `<= 40` lines without manual Markdown editing).
 1. **Mandatory 11X Test Creation (Including Karate Labs for API & UI):**
    - Backend mutations: add/update unit tests (`tests/**/*.unit.py`) AND mandatory BDD scenarios in Karate API (`fastapi/test/api_test.feature`).
    - Frontend mutations: add/update unit tests (`src/**/*.unit.ts`) AND mandatory BDD scenarios in Karate UI (`vue3/test/ui_business_flow.feature`).

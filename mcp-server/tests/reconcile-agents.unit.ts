@@ -9,6 +9,8 @@ import {
   isPromotedSection,
   isCanonicalRuleSection,
   isUpstreamBlueprintsRepo,
+  parseReconcileAgentsArgs,
+  RECONCILE_AGENTS_HELP_TEXT,
   splitMarkdownSections,
   reconcileAgentsGovernance,
   runReconcileAgentsCli,
@@ -495,6 +497,43 @@ describe('reconcile-agents (Hito 13: Governance Reconciliation & Deduplication)'
         expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('[Reconcile 11X]'));
       } finally {
         process.chdir(originalCwd);
+      }
+    });
+
+    it('parseReconcileAgentsArgs y runReconcileAgentsCli cubren inline =, posicionales, errores y --help/-h', async () => {
+      expect(parseReconcileAgentsArgs([`--project-path=${tmpDir}`, '--dry-run'])).toEqual({
+        projectPath: tmpDir,
+        dryRun: true,
+        help: false,
+      });
+      expect(parseReconcileAgentsArgs([`--dir=${tmpDir}`]).projectPath).toBe(tmpDir);
+      expect(parseReconcileAgentsArgs(['--help']).help).toBe(true);
+      expect(parseReconcileAgentsArgs(['-h']).help).toBe(true);
+      expect(parseReconcileAgentsArgs([tmpDir]).projectPath).toBe(tmpDir);
+
+      expect(() => parseReconcileAgentsArgs(['--project-path='])).toThrow(
+        "Falta el valor requerido para la opción '--project-path'"
+      );
+      expect(() => parseReconcileAgentsArgs(['-p'])).toThrow(
+        "Falta el valor requerido para la opción '-p'"
+      );
+      expect(() => parseReconcileAgentsArgs(['--dir', '--dry-run'])).toThrow(
+        "Falta el valor requerido para la opción '--dir'"
+      );
+      expect(() => parseReconcileAgentsArgs([tmpDir, '/second-dir'])).toThrow(
+        'Argumento posicional inesperado en reconcile-agents'
+      );
+
+      const helpLogs: string[] = [];
+      const logSpy = vi.spyOn(console, 'log').mockImplementation((msg: unknown) => {
+        helpLogs.push(String(msg));
+      });
+      try {
+        await runReconcileAgentsCli(['--help']);
+        await runReconcileAgentsCli(['-h']);
+        expect(helpLogs).toEqual([RECONCILE_AGENTS_HELP_TEXT, RECONCILE_AGENTS_HELP_TEXT]);
+      } finally {
+        logSpy.mockRestore();
       }
     });
   });

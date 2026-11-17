@@ -8,7 +8,9 @@ import argparse
 import hashlib
 import json
 import re
+import unicodedata
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
@@ -19,10 +21,25 @@ from pydantic import BaseModel, ConfigDict, Field
 OutputFormat = Literal["json", "yaml"]
 
 _REDACTION_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (
+        re.compile(
+            r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----"
+            r"[\s\S]*?"
+            r"-----END [A-Z0-9 ]*PRIVATE KEY-----",
+            re.IGNORECASE,
+        ),
+        "[REDACTED_SECRET]",
+    ),
     (re.compile(r"(://[^/\s:@]+:)[^/\s@]+(@)"), r"\1[REDACTED_SECRET]\2"),
     (
         re.compile(r"\b(Bearer|Basic)\s+[A-Za-z0-9._~+/-]+=*", re.IGNORECASE),
         r"\1 [REDACTED_SECRET]",
+    ),
+    (
+        re.compile(
+            r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{6,}\b"
+        ),
+        "[REDACTED_SECRET]",
     ),
     (
         re.compile(
@@ -57,9 +74,19 @@ class NormalizedTraceFailure(BaseModel):
     retrieval_context: tuple[str, ...] = ()
 
 
+@dataclass(frozen=True)
+class GoldenExportOptions:
+    """Agrupa opciones de exportacion manteniendo aridad <= 4."""
+
+    output_format: OutputFormat = "json"
+    default_threshold: float = 0.90
+    dry_run: bool = False
+    allowed_roots: Sequence[Path] | None = None
+
+
 def sanitize_trace_text(text: str) -> str:
-    """Redacta secretos, credenciales en URI y PII antes de exportar casos golden."""
-    cleaned = text
+    """Normaliza NFKC y redacta PEM, JWT, secretos, credenciales URI y PII."""
+    cleaned = unicodedata.normalize("NFKC", text)
     for pattern, replacement in _REDACTION_PATTERNS:
         cleaned = pattern.sub(replacement, cleaned)
     return cleaned
@@ -85,8 +112,9 @@ def resolve_safe_path(
 
 
 def normalize_input_hash(raw_input: str) -> str:
-    """Calcula SHA-256 determinista sobre el input normalizado para deduplicación."""
-    normalized = " ".join(raw_input.strip().lower().split())
+    """Calcula SHA-256 determinista sobre input NFKC normalizado."""
+    canonical = unicodedata.normalize("NFKC", raw_input)
+    normalized = " ".join(canonical.strip().lower().split())
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
 
@@ -133,6 +161,7 @@ def _extract_trace_fields(record: Mapping[str, Any]) -> NormalizedTraceFailure:
     raw_input = _first_non_empty(
         (
             record.get("input"),
+            record.get("query"),
             record.get("prompt"),
             record.get("command"),
             record.get("name"),
@@ -234,7 +263,7 @@ def serialize_goldens_json(dataset: EvaluationDataset) -> str:
 
 
 def serialize_promptfoo_yaml(dataset: EvaluationDataset) -> str:
-    """Serializa los casos golden en estructura YAML compatible con Promptfoo."""
+    """Serializa los casos golden en YAML Promptfoo con vars.query."""
     tests: list[dict[str, Any]] = []
     for g in _iter_goldens(dataset):
         meta = g.additional_metadata or {}
@@ -245,7 +274,7 @@ def serialize_promptfoo_yaml(dataset: EvaluationDataset) -> str:
                     f"{str(meta.get('input_sha256', ''))[:8]}"
                 ),
                 "vars": {
-                    "prompt": g.input,
+                    "query": g.input,
                     "context": g.retrieval_context or [],
                     "expected_output": g.expected_output or "",
                 },
@@ -265,25 +294,25 @@ def serialize_promptfoo_yaml(dataset: EvaluationDataset) -> str:
 def export_golden_dataset(
     input_path: str | Path,
     output_path: str | Path | None = None,
-    output_format: OutputFormat = "json",
-    default_threshold: float = 0.90,
-    dry_run: bool = False,
-    allowed_roots: Sequence[Path] | None = None,
+    options: GoldenExportOptions | None = None,
 ) -> str:
-    """Ejecuta el flujo completo lectura -> filtrado -> redacción -> exportación."""
-    safe_input = resolve_safe_path(input_path, allowed_roots=allowed_roots)
+    """Ejecuta el flujo lectura -> filtrado -> redaccion -> exportacion."""
+    opts = GoldenExportOptions() if options is None else options
+    safe_input = resolve_safe_path(input_path, allowed_roots=opts.allowed_roots)
     records = load_raw_traces(safe_input)
-    dataset = build_deepeval_dataset(records, default_threshold=default_threshold)
+    dataset = build_deepeval_dataset(
+        records, default_threshold=opts.default_threshold
+    )
     rendered = (
         serialize_promptfoo_yaml(dataset)
-        if output_format == "yaml"
+        if opts.output_format == "yaml"
         else serialize_goldens_json(dataset)
     )
-    if dry_run:
+    if opts.dry_run:
         return rendered
     if output_path is None:
         raise ValueError("Se requiere output_path cuando dry_run=False")
-    safe_output = resolve_safe_path(output_path, allowed_roots=allowed_roots)
+    safe_output = resolve_safe_path(output_path, allowed_roots=opts.allowed_roots)
     safe_output.parent.mkdir(parents=True, exist_ok=True)
     safe_output.write_text(rendered, encoding="utf-8")
     return rendered
@@ -320,12 +349,15 @@ def build_cli_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     """Punto de entrada CLI sin bloqueo de terminal (stdin nunca leído)."""
     args = build_cli_parser().parse_args(list(argv) if argv is not None else None)
-    rendered = export_golden_dataset(
-        input_path=args.input,
-        output_path=args.output,
+    options = GoldenExportOptions(
         output_format=args.output_format,
         default_threshold=args.threshold,
         dry_run=bool(args.dry_run),
+    )
+    rendered = export_golden_dataset(
+        input_path=args.input,
+        output_path=args.output,
+        options=options,
     )
     print(rendered, end="")
     return 0

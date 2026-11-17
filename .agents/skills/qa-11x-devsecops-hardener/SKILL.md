@@ -8,7 +8,7 @@ description: >-
 
 # QA 11X DevSecOps Hardener (`qa-11x-devsecops-hardener`)
 
-> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Unless the target repository's `AGENTS.md` explicitly mandates a fixed output language, respond and explain reasoning in the **user's prompt language**, and write commit messages / human-facing documentation matching the **existing language of `README.md` and `CHANGELOG.md`** (explicitly ignoring `AGENTS.md` and `.agents/**`, which remain in concise English for token economy; default to the prompt language on empty repos).
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Respond in **user's prompt language** (unless `AGENTS.md` fixes it); docs/commits match `README.md`/`CHANGELOG.md` (Spec 19; `.agents/**` English).
 
 Operational security-by-design sub-skill for Standard 11X (`qa-11x-architect`), enforcing the **22 canonical DISA ASD STIG V6R5 & OWASP v4.2 controls**, PostgreSQL 15–17+ RLS (`QA-PG17-RLS`), pre-auth continuity (`SEC-16`), AES-256-GCM Vaults, WORM hash-chains, service-layer RBAC, and rootless container runtime contracts.
 

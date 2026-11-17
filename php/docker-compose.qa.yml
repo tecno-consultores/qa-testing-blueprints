@@ -3,9 +3,21 @@
 # Orquestador efímero QA 11X para PHP 8.2-8.5 (sinfallas/basephpcomposer)
 
 services:
+  composer-cache-init:
+    image: sinfallas/basephpcomposer:${PHP_VERSION:-8.5}
+    pull_policy: if_not_present
+    user: "0:0"
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - composer-cache:/tmp/composer-cache
+    command: ["chmod", "-R", "a+rwX", "/tmp/composer-cache"]
+
   postgres-qa:
     image: postgres:17-alpine
     pull_policy: if_not_present
+    security_opt:
+      - no-new-privileges:true
     environment:
       POSTGRES_USER: qa_user
       POSTGRES_PASSWORD: qa_password_ephemeral
@@ -21,6 +33,8 @@ services:
   keydb-qa:
     image: eqalpha/keydb:6.3.4
     pull_policy: if_not_present
+    security_opt:
+      - no-new-privileges:true
     command: keydb-server --server-threads 2 --appendonly no --save ""
     healthcheck:
       test: ["CMD", "keydb-cli", "ping"]
@@ -33,6 +47,8 @@ services:
     pull_policy: if_not_present
     working_dir: /var/www
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    security_opt:
+      - no-new-privileges:true
     # Si monta php.ini personalizado, móntelo en /usr/local/etc/php/conf.d/99-qa11x.ini:ro para prevalecer sobre docker-php-ext-pcov.ini
     volumes:
       - .:/var/www
@@ -45,6 +61,8 @@ services:
       REDIS_URL: redis://keydb-qa:6379/0
       PCOV_ENABLED: "1"
     depends_on:
+      composer-cache-init:
+        condition: service_completed_successfully
       postgres-qa:
         condition: service_healthy
       keydb-qa:
@@ -59,6 +77,8 @@ services:
   karatelabs:
     image: sinfallas/karatelabs:1.5.1
     pull_policy: if_not_present
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - ./test:/app/src/test/java/examples/test
     environment:
@@ -66,11 +86,16 @@ services:
     depends_on:
       qa-php:
         condition: service_healthy
-    command: bash -c "echo 'Contenedor Karate listo. Usa docker compose run --rm karatelabs mvn -B clean test'; sleep infinity"
+    command: bash -c "echo 'Contenedor Karate listo. Usa docker compose run --rm -T karatelabs mvn -B clean test'; sleep infinity"
 
   zap:
     image: zaproxy/zap-stable:2.15.0
     pull_policy: if_not_present
+    user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      HOME: /tmp
     working_dir: /zap/wrk
     volumes:
       - .:/zap/wrk
@@ -81,6 +106,8 @@ services:
   prometheus:
     image: prom/prometheus:v2.55.1
     pull_policy: if_not_present
+    security_opt:
+      - no-new-privileges:true
     profiles:
       - chaos
     entrypoint:
@@ -107,6 +134,8 @@ services:
     image: grafana/k6:2.4.0@sha256:d41bb79cd8de5a7ad619b53570e3712633e8bff0937010a5c6c57a4747e7a276
     pull_policy: if_not_present
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    security_opt:
+      - no-new-privileges:true
     profiles:
       - load
     environment:

@@ -211,7 +211,7 @@ describe('certify-gate', () => {
 
   it('bloquea la certificación y propaga secretos como vulnerabilidad crítica', async () => {
     setupNominalProject(tempDir);
-    fs.writeFileSync(path.join(tempDir, 'secret.py'), 'TOKEN = "ghp_111122223333444455556666777788889999"\n');
+    fs.writeFileSync(path.join(tempDir, 'secret.py'), 'TOKEN = "ghp_111122223333444455556666777788889999"\n'); // qa-secret-fixture-ok
 
     const result = await certify11xGate(tempDir);
     expect(result.gate_passed).toBe(false);
@@ -684,5 +684,25 @@ describe('certify-gate', () => {
       fs.chmodSync(unreadableTest, 0o600);
       fs.chmodSync(unreadableActiveTask, 0o600);
     }
+  });
+
+  it('certify11xGate aborta tempranamente cuando AbortSignal ya fue cancelada', async () => {
+    const controller = new AbortController();
+    controller.abort(new Error('gate aborted by TaskStateGuard timeout'));
+    await expect(
+      certify11xGate(tempDir, { requireLintEvidence: false, signal: controller.signal })
+    ).rejects.toThrow(/gate aborted by TaskStateGuard timeout/);
+
+    const strReasonController = new AbortController();
+    strReasonController.abort('cancelado manualmente en prueba');
+    await expect(
+      certify11xGate(tempDir, { requireLintEvidence: false, signal: strReasonController.signal })
+    ).rejects.toThrow('cancelado manualmente en prueba');
+
+    const emptyReasonController = new AbortController();
+    emptyReasonController.abort('');
+    await expect(
+      certify11xGate(tempDir, { requireLintEvidence: false, signal: emptyReasonController.signal })
+    ).rejects.toThrow('certify_11x_gate abortado por timeout o cancelación.');
   });
 });

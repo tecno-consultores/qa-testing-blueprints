@@ -7,20 +7,20 @@ export QA_UID := $(shell id -u)
 export QA_GID := $(shell id -g)
 
 qa-lint:
-	@docker compose -f docker-compose.qa.yml run --rm -u "$(QA_UID):$(QA_GID)" qa-backend bash -c \
+	@docker compose -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-backend bash -c \
 		"ruff check src/ tests/ && ruff format --check src/ tests/ && mypy --strict --cache-dir=/tmp/mypy src/"
 
 qa-unit:
-	@docker compose -f docker-compose.qa.yml run --rm -u "$(QA_UID):$(QA_GID)" \
+	@docker compose -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" \
 		-e COVERAGE_FILE=/tmp/.coverage -e PYTHONPATH=/app/backend/src qa-backend bash -c \
-		"pytest -o addopts=\"\" --import-mode=importlib --cov=src --cov-fail-under=95 backend/tests/*.unit.py"
+		"pytest -o addopts=\"\" --import-mode=importlib --cov=src --cov-fail-under=95 tests/*.unit.py"
 
 qa-integration:
-	@docker compose -f docker-compose.qa.yml run --rm -u "$(QA_UID):$(QA_GID)" qa-backend bash -c \
-		"alembic -c backend/alembic.ini upgrade head"
+	@docker compose -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-backend bash -c \
+		"alembic -c alembic.ini upgrade head"
 
 qa-e2e:
-	@docker compose -f docker-compose.qa.yml run --rm -u "$(QA_UID):$(QA_GID)" qa-frontend bash -c \
+	@docker compose -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-frontend bash -c \
 		"pnpm --silent run test:e2e"
 
 qa-all: qa-lint qa-unit

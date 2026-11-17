@@ -9,7 +9,7 @@ description: >-
 
 # QA 11X Vibe-to-Enterprise Rescue (`qa-11x-vibe-rescue`)
 
-> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Unless the target repository's `AGENTS.md` explicitly mandates a fixed output language, respond and explain reasoning in the **user's prompt language**, and write commit messages / human-facing documentation matching the **existing language of `README.md` and `CHANGELOG.md`** (explicitly ignoring `AGENTS.md` and `.agents/**`, which remain in concise English for token economy; default to the prompt language on empty repos).
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Respond in **user's prompt language** (unless `AGENTS.md` fixes it); docs/commits match `README.md`/`CHANGELOG.md` (Spec 19; `.agents/**` English).
 
 5-stage deterministic rescue protocol converting AI-generated prototypes (Bolt.new, Lovable, v0, Replit Agent, rapid vibe-coding scaffolds) into enterprise-grade, DISA STIG V6R5 / OWASP v4.2 compliant Standard 11X systems **without destroying validated visual UX or product velocity**.
 
@@ -17,7 +17,7 @@ description: >-
 
 ## 1. Rescue Philosophy: Preserve UX, Eradicate Structural Debt
 
-AI-generated prototypes frequently deliver strong visual layouts alongside severe hidden liabilities: client-exposed service keys, permissive `USING (true)` database policies, untyped `any` payloads, 800-line god components, zero tests, and host-coupled dev scripts. Execute the 5 stages below sequentially (aligning artifacts under `vibe-rescue/` conventions when bootstrapping rescue templates):
+AI-generated prototypes frequently deliver strong visual layouts alongside severe hidden liabilities: client-exposed service keys, permissive `USING (true)` database policies, untyped `any` payloads, 800-line god components, zero tests, and host-coupled dev scripts. Execute the 5 stages below sequentially enforcing `VIBE-SEC-001..VIBE-QA-005` (aligning artifacts under `vibe-rescue/` conventions when bootstrapping rescue templates):
 
 ---
 

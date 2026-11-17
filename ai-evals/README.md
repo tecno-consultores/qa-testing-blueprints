@@ -19,15 +19,22 @@ This blueprint establishes the **QA 11X** corporate standard for auditing **RAG*
 
 ---
 
-## 2. Complementarity Between DeepEval and Promptfoo
+## 2. Complementarity Between DeepEval, Voice/OCR/Golden Modules, and Promptfoo
 
-1. **DeepEval (`ai-evals/rag/test_rag_faithfulness.py` — Code-First in Python/Pytest):**
-   - Ideal for diagnostic decomposition of RAG pipelines (`LLMTestCase`) and granular auditing of agent trajectories (`ToolCall`).
+1. **DeepEval RAG & Shared Judge (`ai-evals/rag/test_rag_faithfulness.py`, `ai-evals/_llm_judge.py`):**
+   - Ideal for diagnostic decomposition of RAG pipelines (`LLMTestCase`) and granular auditing of agent trajectories (`ToolCall`), backed by shared judge resolution (`OpenAI`, `Gemini`, `Anthropic`, `/v1`-normalized `Ollama`, or `LocalModel`).
    - In **Mode 1**, validates deterministic schema contracts, orphan citations, unsupported numeric claims, and mandatory tool ordering (`inspect_blast_radius` before editing).
-   - In **Mode 2** (`QA_LLM_AUDIT_LIVE=1`), executes `assert_test` against the configured judge (`OpenAI`, `Gemini`, `Anthropic`, `Ollama`, or `LocalModel`).
+   - In **Mode 2** (`QA_LLM_AUDIT_LIVE=1`), executes `assert_test` against the resolved judge via `resolve_deepeval_judge_model`.
 
-2. **Promptfoo (`ai-evals/promptfooconfig.yaml` — Config-First in YAML):**
-   - Ideal for side-by-side comparison of the same prompt and golden dataset across multiple providers (`openai:gpt-4.1-mini`, `anthropic:messages:claude-sonnet-4-5`, `google:gemini-2.5-flash`, and `ollama:chat:qwen3:8b`).
+2. **Real-Time Voice & Multimodal OCR Modules (`ai-evals/voice-realtime/`, `ai-evals/multimodal-ocr/`):**
+   - `voice-realtime/test_voice_websocket_latency.py`: Replays WebSocket/WebRTC streaming events (`vapi`, `elevenlabs`, `livekit`, `pipecat`) validating `TTFB p95 <= 500ms`, turn latency `<= 800ms`, packet loss `<= 2%`, barge-in `<= 200ms`, and PII/secret hygiene.
+   - `multimodal-ocr/test_pdf_table_fidelity.py`: Audits PDF & Tesseract OCR table extraction using exact `Decimal` arithmetic (`2500.00`), required column headers, and shared DeepEval judge checks.
+
+3. **Failure Traces to Golden Regression Converter (`ai-evals/golden_from_traces.py`, `ai-evals/tests/test_golden_from_traces.py`):**
+   - Normalizes inputs with `NFKC`, deduplicates via SHA-256, redacts PEM private keys, JWTs, API secrets, URI credentials, and PII, and exports DeepEval JSON (`GoldenExportOptions` DTO) or Promptfoo YAML emitting `vars.query`.
+
+4. **Promptfoo (`ai-evals/promptfooconfig.yaml` — Config-First in YAML):**
+   - Ideal for side-by-side comparison across multiple providers (`openai:gpt-4.1-mini`, `anthropic:messages:claude-sonnet-4-5`, `google:gemini-2.5-flash`, `ollama:chat:qwen3:8b`) with judge parameterized via `defaultTest.options.provider` (`PROMPTFOO_JUDGE_PROVIDER`).
    - Combines deterministic assertions (`is-json`, `contains`, `not-icontains`, `latency` budget) with semantic rubrics (`context-faithfulness`, `answer-relevance`, `llm-rubric`) and a `redteam` block aligned with **OWASP LLM Top 10** (`indirect-prompt-injection`, `prompt-injection`, `jailbreak`, `pii`, `rbac`, `excessive-agency`, `hijacking`).
 
 ---

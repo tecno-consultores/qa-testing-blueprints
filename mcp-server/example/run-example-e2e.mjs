@@ -5,7 +5,7 @@
 // Arnés End-to-End (E2E) sobre stdio real para @sinfallas/mcp-qa-11x v3.1.0.
 // Conecta un cliente MCP oficial (@modelcontextprotocol/sdk) contra el binario
 // compilado dist/index.js y certifica empíricamente los 13 recursos, las 19 tools
-// (en escenarios negativos y limpios) y los 4 subcomandos CLI sobre una copia
+// (en escenarios negativos y limpios) y los 5 subcomandos CLI sobre una copia
 // temporal aislada del proyecto híbrido Full-Stack mcp-server/example/.
 
 import assert from 'node:assert/strict';
@@ -484,7 +484,7 @@ async function verifyAllNineteenTools(client, ctx) {
     assert.equal(checkVal, true, `Check '${checkName}' no pasó en certify_11x_gate`);
   }
   assert.equal(gatePassed.update_available.running_mcp_version, expectedVersion);
-  logStep('Tools 10 & 11/18 run_ephemeral_qa + certify_11x_gate: DOCS_ONLY SKIPPED, cobertura 98% y Gate 10/10 PASSED');
+  logStep('Tools 10 & 11/19 run_ephemeral_qa + certify_11x_gate: DOCS_ONLY SKIPPED, cobertura 98% y Gate 10/10 PASSED');
 
   // 12. propose_skill_evolution_pr (fallback offline determinista con matriz Dual-Consumer)
   const proposal = await callJsonTool(client, 'propose_skill_evolution_pr', {
@@ -501,7 +501,7 @@ async function verifyAllNineteenTools(client, ctx) {
   assert.equal(proposal.target_human_doc_file, 'docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md');
   assert.ok(proposal.prefilled_github_url.startsWith('https://github.com/tecno-consultores/qa-testing-blueprints/'));
   assert.equal(fs.existsSync(proposal.local_proposal_file), true);
-  logStep('Tool 12/18 propose_skill_evolution_pr: propuesta Dual-Consumer generada y verificada en disco');
+  logStep('Tool 12/19 propose_skill_evolution_pr: propuesta Dual-Consumer generada y verificada en disco');
 
   // 13. validate_calm_architecture (modelo FINOS CALM oficial del monorepo)
   const calmRes = await client.callTool({
@@ -563,7 +563,7 @@ async function verifyAllNineteenTools(client, ctx) {
   });
   assert.ok(tmsPayload.status === 'DRY_RUN' || tmsPayload.status === 'SKIPPED');
 
-  // 19. session_flight_recorder (save -> recover -> clear con proyección determinista <= 35 líneas)
+  // 19. session_flight_recorder (save -> recover -> clear con proyección determinista <= 40 líneas)
   const frSave = await callJsonTool(client, 'session_flight_recorder', {
     project_path: projectDir,
     action: 'save',
@@ -847,7 +847,7 @@ async function main() {
     });
 
     console.log('══════════════════════════════════════════════════════════════════════');
-    console.log(`  🎉 E2E CERTIFICADO: 13 Recursos + 19 Tools + 4 CLI operativos (v${expectedVersion})`);
+    console.log(`  🎉 E2E CERTIFICADO: 13 Recursos + 19 Tools + 5 CLI operativos (v${expectedVersion})`);
     console.log('══════════════════════════════════════════════════════════════════════');
   } finally {
     if (client) {

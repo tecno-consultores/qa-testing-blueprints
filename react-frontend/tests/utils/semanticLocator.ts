@@ -180,11 +180,19 @@ function computeJaccard(aTokens: readonly string[], bTokens: readonly string[]):
   return unionSize === 0 ? 0 : intersection / unionSize;
 }
 
+function isDisabledCandidate<TRef>(candidate: DomCandidateNode<TRef>): boolean {
+  const disabledAttr = candidate.attributes['disabled'];
+  return (
+    (disabledAttr !== undefined && disabledAttr !== 'false') ||
+    candidate.attributes['aria-disabled'] === 'true'
+  );
+}
+
 function isEligibleNode<TRef>(
   candidate: DomCandidateNode<TRef>,
   options?: SemanticResolutionOptions,
 ): boolean {
-  if (!candidate.visible) {
+  if (!candidate.visible || isDisabledCandidate(candidate)) {
     return false;
   }
   if (options?.allowBusy !== true && candidate.attributes['aria-busy'] === 'true') {

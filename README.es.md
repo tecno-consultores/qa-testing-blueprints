@@ -49,7 +49,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
-      - uses: tecno-consultores/qa-testing-blueprints/.github/actions/qa-11x-pr-check@v3.1.0 # Tag de ejemplo de release (o fijar SHA de 40 caracteres)
+      - uses: tecno-consultores/qa-testing-blueprints/.github/actions/qa-11x-pr-check@v3 # sec-ci-action-ref-ok (tag de ejemplo; fija un SHA de 40 caracteres en producción)
         with:
           tier: standard
           lang: es
@@ -65,7 +65,7 @@ flowchart TD
     Quickstart --> Router{"3 Vías y Perfiles Progresivos"}
     Router -->|"DOCS_ONLY"| FastDocs["make sync-governance + make lint-docs"]
     Router -->|"MICRO_CHANGE / standard"| BlastAST["Blast Radius AST y CI Escalonado"]
-    Router -->|"FULL_11X / enterprise"| FullPyramid["Piramide 13 Capas + FINOS CALM"]
+    Router -->|"FULL_11X / enterprise"| FullPyramid["Pirámide 13 Capas + FINOS CALM"]
     BlastAST --> RuleZero["Regla Cero Docker No-Root sinfallas/*"]
     FullPyramid --> RuleZero
     RuleZero --> Shields["AI Evals Modo Dual + DISA/OWASP + Release Gate"]
@@ -91,10 +91,10 @@ Todas las suites de análisis, mutación, contratos y BDD se ejecutan en contene
 | **[sinfallas/base-node-ionic](https://hub.docker.com/r/sinfallas/base-node-ionic)** | MCP Server, Node, Vue 3, React y CALM | `22`, `24`, `26` y `latest` (`pnpm`, `promptfoo`, `@finos/calm-cli`, `playwright`, `@axe-core/playwright`, `@pact-foundation/pact`) |
 | **[sinfallas/base-mobile-appium](https://hub.docker.com/r/sinfallas/base-mobile-appium)** | Móvil Nativo e Híbrido Driver Bridge W3C (Android/iOS) | `26` y `latest` (`Node.js 26`, `pnpm`, `OpenJDK 21`, `Android SDK/ADB`, `Appium 3`, `uiautomator2`, `xcuitest`, `WebdriverIO v9`) |
 | **[sinfallas/basephpcomposer](https://hub.docker.com/r/sinfallas/basephpcomposer)** | APIs y Servicios PHP 8.2–8.5 | `8.2`, `8.3`, `8.4`, `8.5` y `latest` (`pcov`, `phpstan`, `psalm`, `pest`, `phpunit`, `infection`) |
-| **[sinfallas/karatelabs](https://hub.docker.com/r/sinfallas/karatelabs)** | Contratos BDD API y HTTP/Edge/OSHP/XML | `1.5.1` / `11x-v2-local` (Java + Maven + Karate JUnit5; proporcional a flujos `FULL_11X` multi-servicio con estado) |
+| **[sinfallas/karatelabs](https://hub.docker.com/r/sinfallas/karatelabs)** | Contratos BDD API y HTTP/Edge/OSHP/XML | `1.5.1` (Java + Maven + Karate JUnit5; proporcional a flujos `FULL_11X` multi-servicio con estado) |
 | **[sinfallas/base-bash-qa](https://hub.docker.com/r/sinfallas/base-bash-qa)** | DevOps y Automatización POSIX / Bash | `latest` (`ShellCheck`, `shfmt`, `BATS-core`, `bats-mock`, `kcov`) |
 | **[sinfallas/remote-graphify](https://hub.docker.com/r/sinfallas/remote-graphify)** | Optimización de Contexto AST y Blast Radius | `latest` (`graphify` extracción AST Tree-sitter y clustering) |
-| **Motores de Infra y Carga** | BD Real, Caché y Smoke Load | `postgres:17-alpine`, `eqalpha/keydb:alpine`, `grafana/k6:2.4.0` |
+| **Motores de Infra, Seguridad y Carga** | BD Real, Caché, DAST, Caos y Carga | `postgres:17-alpine`, `eqalpha/keydb:6.3.4`, `aquasec/trivy:0.76.2`, `zaproxy/zap-stable:2.15.0`, `gaiaadm/pumba:0.10.1`, `prom/prometheus:v2.55.1`, `grafana/k6:2.4.0` |
 
 ---
 

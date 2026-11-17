@@ -177,70 +177,10 @@ export const defaultLiveCommandRunner: LiveCommandRunner = (spec) => {
   });
 };
 
-export const EVALUATE_AGENT_TRAJECTORY_TOOL: Tool = {
+export const EVALUATE_AGENT_TRAJECTORY_TOOL: Pick<Tool, 'name' | 'description'> = {
   name: STAGE_TRAJECTORY_ID,
   description:
     'Evaluates agentic trajectories and RAG outputs in deterministic offline mode (AST order, QA-GIT-GATE-01, promptGuard, compilation/regeneration rates, hallucination < 0.05) or ephemeral Docker live mode.',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      mode: {
-        type: 'string',
-        enum: ['offline', 'live'],
-        description: 'Execution mode (offline by default, zero network).',
-      },
-      workspaceRoot: {
-        type: 'string',
-        description: 'Project root directory for path containment checks.',
-      },
-      testPath: {
-        type: 'string',
-        description: 'Relative path to Pytest/DeepEval test (default ai-evals/rag/test_rag_faithfulness.py).',
-      },
-      steps: {
-        type: 'array',
-        description: 'Tool execution steps recorded for the agent.',
-        items: {
-          type: 'object',
-          properties: {
-            tool: { type: 'string' },
-            args: {},
-            status: { type: 'string', enum: ['passed', 'failed', 'error'] },
-            output: { type: 'string' },
-            retries: { type: 'number', minimum: 0 },
-            compiled: { type: 'boolean' },
-            durationMs: { type: 'number', minimum: 0 },
-          },
-          required: ['tool'],
-          additionalProperties: false,
-        },
-      },
-      requiredSequence: {
-        type: 'array',
-        items: { type: 'string' },
-        description: 'Expected ordering of key tools across the trajectory.',
-      },
-      actualOutput: {
-        type: 'string',
-        description: 'Final text emitted by the agent or RAG pipeline.',
-      },
-      retrievalContext: {
-        type: 'array',
-        items: { type: 'string' },
-        description: 'Retrieved context snippets used to verify [doc_id] citations and numeric claims.',
-      },
-      enforceAstBeforeEdit: {
-        type: 'boolean',
-        description: 'Require prior AST blast-radius inspection before file edits (default true).',
-      },
-      timeoutMs: {
-        type: 'number',
-        minimum: 180000,
-        description: 'Timeout in milliseconds for live mode (>= 180000).',
-      },
-    },
-    additionalProperties: false,
-  },
 };
 
 function round4(value: number): number {

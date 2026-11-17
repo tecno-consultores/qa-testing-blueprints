@@ -138,12 +138,7 @@ VERSION_RULES: tuple[VersionRule, ...] = (
     ),
     VersionRule(
         "mcp-server/example/verify-v2.sh",
-        (
-            re.compile(rf"(tarball v)({_VER_CORE})(\s)"),
-            re.compile(rf'(VERSION_OUT\}}" != ")({_VER_CORE})(")'),
-            re.compile(rf"(Esperado ')({_VER_CORE})(')"),
-            re.compile(rf"(version:\s*')({_VER_CORE})(')"),
-        ),
+        (re.compile(rf"(tarball v)({_VER_CORE})(\s)"),),
     ),
     VersionRule(
         "mcp-server/example/run-example-e2e.mjs",
@@ -481,7 +476,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"FAIL [bump_version_11x] {exc}", file=sys.stderr)
         return 2
 
-    write_mode = bool(args.set_version) and not args.check and not args.dry_run
+    write_mode = (
+        bool(args.set_version or args.edition)
+        and not args.check
+        and not args.dry_run
+    )
     errors, changed = run_rules(root, VERSION_RULES, version, write_mode)
     if edition is not None:
         ed_errors, ed_changed = run_rules(root, EDITION_RULES, edition, write_mode)

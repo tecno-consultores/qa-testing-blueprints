@@ -5,7 +5,7 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GitHubFetcher } from '../src/services/github-fetcher.js';
 import { fetchBlueprintBundle } from '../src/tools/fetch-bundle.js';
 import {
@@ -192,5 +192,104 @@ describe('fetchBlueprintBundle Dedicated Unit Suite', () => {
       expect(BootstrapMergeInputSchema.parse({ project_path: '.', stack }).stack).toBe(stack);
     }
     expect(FetchBundleInputSchema.safeParse({ stack: 'unknown-stack' }).success).toBe(false);
+  });
+
+  it('devuelve ruta local real en cached_path con QA_BLUEPRINTS_LOCAL_PATH e incluye .agents/schemas/ en thinRepoOnly', async () => {
+    const schemaPath = '.agents/schemas/certify.schema.json';
+    const schemaContent = '{"$schema":"https://json-schema.org/draft/2020-12/schema"}\n';
+    fs.mkdirSync(path.join(localRepoDir, '.agents', 'schemas'), { recursive: true });
+    fs.writeFileSync(path.join(localRepoDir, schemaPath), schemaContent, 'utf-8');
+    const updatedManifest = JSON.parse(
+      fs.readFileSync(path.join(localRepoDir, 'manifest.json'), 'utf-8')
+    ) as Manifest;
+    updatedManifest.agent_governance_files = [
+      {
+        path: '.agents/skills/qa-11x-architect/SKILL.md',
+        target_name: '.agents/skills/qa-11x-architect/SKILL.md',
+        merge_strategy: 'overwrite',
+        sha256: sha256('# Skill'),
+        size_bytes: 7,
+      },
+      {
+        path: schemaPath,
+        target_name: schemaPath,
+        merge_strategy: 'overwrite',
+        sha256: sha256(schemaContent),
+        size_bytes: schemaContent.length,
+      },
+    ];
+    fs.mkdirSync(path.join(localRepoDir, '.agents', 'skills', 'qa-11x-architect'), {
+      recursive: true,
+    });
+    fs.writeFileSync(
+      path.join(localRepoDir, '.agents', 'skills', 'qa-11x-architect', 'SKILL.md'),
+      '# Skill',
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(localRepoDir, 'manifest.json'),
+      JSON.stringify(updatedManifest),
+      'utf-8'
+    );
+
+    const fetched = await fetchBlueprintBundle('python', true, fetcher, false);
+    const localSchema = path.join(localRepoDir, schemaPath);
+    const schemaEntry = fetched.files.find((f) => f.path === schemaPath);
+    expect(schemaEntry).toBeDefined();
+    expect(schemaEntry?.cached_path).toBe(localSchema);
+
+    const thinOnly = await fetcher.fetchStackBundle('python', true, true);
+    expect(thinOnly.some((f) => f.path === schemaPath)).toBe(true);
+    expect(thinOnly.some((f) => f.path === '.agents/skills/qa-11x-architect/SKILL.md')).toBe(
+      false
+    );
+  });
+
+  it('usa cacheDir/files cuando no hay localOverridePath, el archivo no existe localmente o fetcher omite getLocalOverridePath', async () => {
+    const virtualFile = 'python/virtual-only.txt';
+    const customCacheDir = path.join(tmpDir, 'custom-cache');
+    const noOverrideFetcher = new GitHubFetcher({ cacheDir: customCacheDir });
+    vi.spyOn(noOverrideFetcher, 'fetchStackBundle').mockResolvedValue([
+      {
+        path: virtualFile,
+        target_name: 'virtual-only.txt',
+        merge_strategy: 'overwrite',
+        content: 'hello',
+        sha256_verified: true,
+      },
+    ]);
+    const noOverrideRes = await fetchBlueprintBundle('python', false, noOverrideFetcher, false);
+    expect(noOverrideRes.files[0]?.cached_path).toBe(
+      path.join(customCacheDir, 'files', virtualFile)
+    );
+
+    vi.spyOn(fetcher, 'fetchStackBundle').mockResolvedValue([
+      {
+        path: virtualFile,
+        target_name: 'virtual-only.txt',
+        merge_strategy: 'overwrite',
+        content: 'hello',
+        sha256_verified: true,
+      },
+    ]);
+    const missingLocalRes = await fetchBlueprintBundle('python', false, fetcher, false);
+    expect(missingLocalRes.files[0]?.cached_path).toBe(
+      path.join(tmpDir, 'cache', 'files', virtualFile)
+    );
+
+    const minimalFetcherStub = {
+      fetchStackBundle: vi.fn().mockResolvedValue([
+        {
+          path: virtualFile,
+          target_name: 'virtual-only.txt',
+          merge_strategy: 'overwrite',
+          content: 'stub',
+          sha256_verified: true,
+        },
+      ]),
+      getCacheDir: () => customCacheDir,
+    } as unknown as GitHubFetcher;
+    const stubRes = await fetchBlueprintBundle('python', false, minimalFetcherStub, false);
+    expect(stubRes.files[0]?.cached_path).toBe(path.join(customCacheDir, 'files', virtualFile));
   });
 });
