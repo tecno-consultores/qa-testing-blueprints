@@ -63,11 +63,16 @@ const DETERMINISTIC_ASSERTION_TYPES = new Set<string>([
   'python',
 ]);
 
-const HARDCODED_SECRET_RE =
-  /\b(?:sk-(?:proj-|ant-|live-|test-)?[A-Za-z0-9_-]{16,}|AIza[0-9A-Za-z_-]{20,}|(?:ghp|gho|ghu|ghs|ghr|npm)_[A-Za-z0-9]{20,}|glpat-[A-Za-z0-9_-]{16,}|(?:AKIA|ASIA)[0-9A-Z]{16})\b/;
+const HARDCODED_SECRET_PATTERNS: readonly RegExp[] = [
+  /\bsk-(?:proj-|ant-|live-|test-)?[A-Za-z0-9_-]{16,}\b/,
+  /\bAIza[0-9A-Za-z_-]{20,}\b/,
+  /\b(?:ghp|gho|ghu|ghs|ghr|npm)_[A-Za-z0-9]{20,}\b/,
+  /\bglpat-[A-Za-z0-9_-]{16,}\b/,
+  /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/,
+];
 const LITERAL_CREDENTIAL_RE =
-  /\b(?:apiKey|api_key|token|secret|password)\s*:\s*['"]?([A-Za-z0-9_/-]{12,})['"]?/i;
-const TOP_LEVEL_KEY_RE = /^([A-Za-z_][A-Za-z0-9_]*)\s*:/;
+  /\b(?:apiKey|api_key|token|secret|password)\s*:\s*['"]?([a-z0-9_/-]{12,})['"]?/i;
+const TOP_LEVEL_KEY_RE = /^([A-Za-z_]\w*)\s*:/;
 const SLUG_ID_RE = /^[a-z0-9-]+$/i;
 const ASSERT_TYPE_RE = /^\s*-\s*type\s*:\s*["']?([a-z0-9_-]+)["']?/i;
 const SUBSECTION_KEY_RE = /^\s{2}(plugins|strategies)\s*:/;
@@ -287,7 +292,10 @@ function checkSecretLines(yamlText: string, violations: RedTeamViolation[]): voi
     if (trimmed.length === 0 || trimmed.startsWith('#')) {
       return;
     }
-    if (HARDCODED_SECRET_RE.test(trimmed) || LITERAL_CREDENTIAL_RE.test(trimmed)) {
+    if (
+      HARDCODED_SECRET_PATTERNS.some((re) => re.test(trimmed)) ||
+      LITERAL_CREDENTIAL_RE.test(trimmed)
+    ) {
       violations.push({
         code: 'HARDCODED_API_SECRET',
         subject: `line:${index + 1}`,
@@ -302,21 +310,21 @@ function updateYamlCursor(
   state: { section: string; subSection: string }
 ): void {
   const topMatch = TOP_LEVEL_KEY_RE.exec(line);
-  if (topMatch) {
+  if (topMatch && topMatch[1] !== undefined) {
     state.section = topMatch[1];
     state.subSection = '';
     return;
   }
   if (state.section === 'redteam') {
     const subMatch = SUBSECTION_KEY_RE.exec(line);
-    if (subMatch) {
+    if (subMatch && subMatch[1] !== undefined) {
       state.subSection = subMatch[1];
     }
   }
 }
 
 function extractRedteamId(line: string): string | null {
-  const cleaned = line.split('#')[0].trim();
+  const cleaned = (line.split('#')[0] ?? '').trim();
   if (!cleaned.startsWith('-')) {
     return null;
   }
@@ -373,7 +381,7 @@ function recordDeterministicAssertion(
     return;
   }
   const assertMatch = ASSERT_TYPE_RE.exec(line);
-  if (assertMatch && DETERMINISTIC_ASSERTION_TYPES.has(assertMatch[1].toLowerCase())) {
+  if (assertMatch && assertMatch[1] && DETERMINISTIC_ASSERTION_TYPES.has(assertMatch[1].toLowerCase())) {
     parsed.deterministicAssertions += 1;
   }
 }

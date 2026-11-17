@@ -87,19 +87,17 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * match expectedTools == '#[19]'
 
   # ==============================================================================
-  # Grupo 4: Contratos de Esquema de Recursos MCP (Resources 1 a 13)
+  # Grupo 4: Contratos de Esquema de Recursos MCP (11 estáticos + 2 templates = 13 Resources)
   # ==============================================================================
 
-  Scenario: 4. Definición de URIs y tipos MIME para los 13 Recursos MCP
-    * def expectedResources =
+  Scenario: 4. Definición de URIs y tipos MIME para los 13 Recursos MCP (11 estáticos + 2 templates)
+    * def expectedStaticResources =
       """
       [
         { uri: 'blueprint://manifest', mimeType: 'application/json' },
         { uri: 'blueprint://core/philosophy', mimeType: 'text/markdown' },
         { uri: 'blueprint://security/disa-owasp-22', mimeType: 'text/markdown' },
         { uri: 'blueprint://database/postgres-rls-worm', mimeType: 'text/markdown' },
-        { uri: 'blueprint://{stack}/readme', mimeType: 'text/markdown' },
-        { uri: 'blueprint://ui/refactoring-ui/{topic}', mimeType: 'text/markdown' },
         { uri: 'blueprint://core/active-task-template', mimeType: 'text/markdown' },
         { uri: 'blueprint://core/cleanup-script', mimeType: 'text/x-shellscript' },
         { uri: 'blueprint://core/roadmap-validator', mimeType: 'text/x-python' },
@@ -109,7 +107,16 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
         { uri: 'blueprint://skills/tactical-patterns-11x', mimeType: 'text/markdown' }
       ]
       """
-    * match expectedResources == '#[13]'
+    * def expectedResourceTemplates =
+      """
+      [
+        { uriTemplate: 'blueprint://{stack}/readme', mimeType: 'text/markdown' },
+        { uriTemplate: 'blueprint://ui/refactoring-ui/{topic}', mimeType: 'text/markdown' }
+      ]
+      """
+    * match expectedStaticResources == '#[11]'
+    * match expectedResourceTemplates == '#[2]'
+    * assert (expectedStaticResources.length + expectedResourceTemplates.length) == 13
 
   # ==============================================================================
   # Grupo 5: Contrato de Salida de Herramientas MCP
@@ -566,9 +573,10 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
 
     * def initAgentsSource = karate.readAsString(mcpRoot + '/src/cli/init-agents-md.ts')
     * assert initAgentsSource.contains('buildGlobalGeminiBlock')
-    * assert initAgentsSource.contains('Conector Global Thin-Client QA 11X')
-    * assert initAgentsSource.contains('Graphify AST-First (Consultas de Código Q&A y Pre-Cambio)')
-    * assert initAgentsSource.contains('QA-TEST-SYNC-01')
+    * def agentsConnectorSource = karate.readAsString(mcpRoot + '/src/services/agents-connector.ts')
+    * assert agentsConnectorSource.contains('Conector Global Thin-Client QA 11X')
+    * assert agentsConnectorSource.contains('Graphify AST-First (Consultas de Código Q&A y Pre-Cambio)')
+    * assert agentsConnectorSource.contains('QA-TEST-SYNC-01')
 
     * def graphifySkillSource = karate.readAsString(repoRoot + '/.agents/skills/graphify-ast-navigator/SKILL.md')
     * assert graphifySkillSource.contains('Code Q&A')
@@ -671,7 +679,8 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def initAgentsSource = karate.readAsString(mcpRoot + '/src/cli/init-agents-md.ts')
     * assert initAgentsSource.contains('buildLanguagePolicyLine')
     * assert initAgentsSource.contains('OutputLanguageMode')
-    * assert initAgentsSource.contains('Conector Global Thin-Client QA 11X')
+    * def agentsConnectorSource21 = karate.readAsString(mcpRoot + '/src/services/agents-connector.ts')
+    * assert agentsConnectorSource21.contains('Conector Global Thin-Client QA 11X')
 
     * def installSkillSource = karate.readAsString(mcpRoot + '/src/cli/install-skill.ts')
     * assert installSkillSource.contains('parseLangArg')
@@ -824,13 +833,16 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def e2eRunner = karate.readAsString(mcpRoot + '/example/run-example-e2e.mjs')
     * assert e2eRunner.contains('StdioClientTransport')
     * assert e2eRunner.contains('verifyAllResources')
+    * assert e2eRunner.contains('staticUris.length, 11')
+    * assert e2eRunner.contains('templateUris.length, 2')
     * assert e2eRunner.contains('verifyAllNineteenTools')
     * assert e2eRunner.contains('verifyCliAndBackgroundAutoSync')
 
     * def verifyV2Script = karate.readAsString(mcpRoot + '/example/verify-v2.sh')
     * assert verifyV2Script.contains('npm pack')
     * assert verifyV2Script.contains('toolsList.tools.length, 19')
-    * assert verifyV2Script.contains('resourcesList.resources.length, 13')
+    * assert verifyV2Script.contains('resourcesList.resources.length, 11')
+    * assert verifyV2Script.contains('templatesList.resourceTemplates.length, 2')
 
     * def cleanroomScript = karate.readAsString(repoRoot + '/scripts/probar-mcp-example.sh')
     * assert cleanroomScript.contains('--exclude=\'./mcp-server/node_modules\'')
@@ -1008,7 +1020,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * string vuePkgRaw = karate.readAsString(repoRoot + '/vue3/package.json.example')
     * json vuePkg = vuePkgRaw
     * assert vuePkg.pnpm == null
-    * match vuePkg.devDependencies['vue-tsc'] == '^2.2.8'
+    * match vuePkg.devDependencies['vue-tsc'] == '^2.2.12'
 
   Scenario: 31. Compatibilidad PHP 8.4/8.5 (sin session.sid_length + pcov.directory), exclusión vendor en Trivy IaC y fallback Docker en ephemeral-runner
     * def phpRef = karate.readAsString(repoRoot + '/.agents/skills/qa-11x-architect/references/06-stack-php.md')
@@ -1227,8 +1239,8 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def resourceLangTs = karate.readAsString(mcpRoot + '/src/resources/resourceLang.ts')
     * assert resourceLangTs.contains('parseResourceUriAndLang')
     * assert resourceLangTs.contains('runWithResourceLang')
-    * def indexTs38 = karate.readAsString(mcpRoot + '/src/index.ts')
-    * assert indexTs38.contains('wrapReadResourceHandler')
+    * def serverTs38 = karate.readAsString(mcpRoot + '/src/server.ts')
+    * assert serverTs38.contains('wrapReadResourceDispatcher')
 
   Scenario: 39. Hito 26 — Flight Recorder Atómico (checkpoint_ctl.py + session_flight_recorder) y Micro-Skill Táctica JIT (tactical-patterns-11x + candados linter)
     * def findEntry = function(list, pathStr) { return karate.filter(list, function(x) { return x.path == pathStr })[0] }
@@ -1251,9 +1263,14 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert diagTs.contains('TACTICAL_PATTERNS_DIRECTIVE_11X')
     * assert diagTs.contains('[DIRECTIVE-11X]')
 
-    * def eslintMcp = karate.readAsString(mcpRoot + '/.eslintrc.json')
-    * assert eslintMcp.contains('"max-params"')
-    * assert eslintMcp.contains('"max-depth"')
+    * def eslintMcp = karate.readAsString(mcpRoot + '/eslint.config.mjs')
+    * assert eslintMcp.contains('max-params')
+    * assert eslintMcp.contains('max-depth')
+    * assert eslintMcp.contains('sonarjs')
+    * assert eslintMcp.contains('eslint-plugin-security')
+    * assert eslintMcp.contains('@typescript-eslint/no-floating-promises')
+    * def tsconfigTypecheckMcp = karate.readAsString(mcpRoot + '/tsconfig.typecheck.json')
+    * assert tsconfigTypecheckMcp.contains('tsconfig.json')
     * def pyExample = karate.readAsString(repoRoot + '/python/pyproject.toml.example')
     * assert pyExample.contains('PLR0913')
     * def activeRule = karate.readAsString(repoRoot + '/.agents/rules/active_task_and_planning_resilience.md')
@@ -1288,7 +1305,8 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
 
     * def serverTs41 = karate.readAsString(mcpRoot + '/src/server.ts')
     * assert serverTs41.contains('allowUnmergedExamples: args.allow_unmerged_examples')
-    * assert serverTs41.contains('args.dry_run ?? true')
+    * assert serverTs41.contains('args.dry_run')
+    * assert serverTs41.contains('validateV2ToolWorkspaceArgs')
     * assert serverTs41.contains('resolveSafeProjectPath')
 
     * def bootstrapTs41 = karate.readAsString(mcpRoot + '/src/tools/bootstrap-merge.ts')
@@ -1300,7 +1318,6 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert reconcileTs41.contains('resolveSafeProjectPath')
 
     * def indexTs41 = karate.readAsString(mcpRoot + '/src/index.ts')
-    * assert indexTs41.contains('validateV2ToolWorkspaceArgs')
     * assert indexTs41.contains('runAutoSyncSafely')
     * assert indexTs41.contains('runBoundedInteractiveAutoSync')
     * assert indexTs41.contains('INTERACTIVE_TTY_SYNC_TIMEOUT_MS')
@@ -1567,6 +1584,50 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def liveMcpTest46 = karate.readAsString(mcpRoot + '/tests/live-mcp-protocol.test.ts')
     * assert liveMcpTest46.contains('getLatestTsMtimeMs')
     * assert liveMcpTest46.contains('mtimeMs')
+
+  Scenario: 47. Contratos Fase 9 (F9.1, F9.9) — Separación resources/list (11) vs resources/templates/list (2), ESLint 9 Flat Config, tsconfig.typecheck y Vite 6 / vue-tsc
+    * def repoFsRoot47 = Files.exists(Paths.get('/repo/manifest.json')) ? '/repo' : '..'
+    * def mcpFsRoot47 = repoFsRoot47 + '/mcp-server'
+    * assert !Files.exists(Paths.get(mcpFsRoot47 + '/.eslintrc.json'))
+    * assert Files.exists(Paths.get(mcpFsRoot47 + '/eslint.config.mjs'))
+    * assert Files.exists(Paths.get(mcpFsRoot47 + '/tsconfig.typecheck.json'))
+    * assert Files.exists(Paths.get(repoFsRoot47 + '/vue3/eslint.config.mjs.example'))
+    * assert !Files.exists(Paths.get(repoFsRoot47 + '/vue3/.eslintrc.json.example'))
+    * assert Files.exists(Paths.get(repoFsRoot47 + '/react-frontend/eslint.config.mjs.example'))
+    * assert !Files.exists(Paths.get(repoFsRoot47 + '/react-frontend/.eslintrc.json.example'))
+    * assert Files.exists(Paths.get(repoFsRoot47 + '/node-backend/eslint.config.mjs.example'))
+    * assert !Files.exists(Paths.get(repoFsRoot47 + '/node-backend/.eslintrc.json.example'))
+
+    * def e2eMjs47 = karate.readAsString(mcpRoot + '/example/run-example-e2e.mjs')
+    * assert e2eMjs47.contains('staticUris.length, 11')
+    * assert e2eMjs47.contains('templateUris.length, 2')
+    * assert e2eMjs47.contains('blueprint://core/philosophy?lang=es')
+
+    * def verifyV247 = karate.readAsString(mcpRoot + '/example/verify-v2.sh')
+    * assert verifyV247.contains('resourcesList.resources.length, 11')
+    * assert verifyV247.contains('templatesList.resourceTemplates.length, 2')
+
+    * def nodeVueRef47 = karate.readAsString(repoRoot + '/.agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md')
+    * assert nodeVueRef47.contains('eslint.config.mjs')
+    * assert nodeVueRef47.contains('no-floating-promises')
+    * assert nodeVueRef47.contains('^2.2.12')
+    * assert nodeVueRef47.contains('SEC-09')
+
+    * def docs02En47 = karate.readAsString(repoRoot + '/docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md')
+    * assert docs02En47.contains('eslint.config.mjs')
+    * assert docs02En47.contains('SEC-09')
+    * def docs02Es47 = karate.readAsString(repoRoot + '/docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.es.md')
+    * assert docs02Es47.contains('eslint.config.mjs')
+    * assert docs02Es47.contains('SEC-09')
+
+    * def aiIntEn47 = karate.readAsString(repoRoot + '/docs/ai-integration.md')
+    * assert aiIntEn47.contains('11 static')
+    * assert aiIntEn47.contains('eslint.config.mjs')
+    * assert aiIntEn47.contains('22 DISA ASD STIG V6R5 and OWASP Developer Guide v4.2 reference controls')
+    * def aiIntEs47 = karate.readAsString(repoRoot + '/docs/ai-integration.es.md')
+    * assert aiIntEs47.contains('11 estáticos')
+    * assert aiIntEs47.contains('eslint.config.mjs')
+    * assert aiIntEs47.contains('22 controles de referencia DISA ASD STIG V6R5 y OWASP Developer Guide v4.2')
 
 
 

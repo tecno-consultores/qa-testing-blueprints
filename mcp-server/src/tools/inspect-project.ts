@@ -3,13 +3,14 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { ProjectAuditResult, BrowserTestingReadiness, StackName } from '../types.js';
+import { ProjectAuditResult, BrowserTestingReadiness } from '../types.js';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { resolveSafeHomeDir } from '../services/github-fetcher.js';
 import {
   evaluateUpdateStatus,
   type EvaluateUpdateOptions,
 } from '../services/version-manager.js';
+import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 
 const BASH_STACK_NAME = 'bash-scripts';
 const PHP_STACK_NAME = 'php';
@@ -70,8 +71,9 @@ export function collectProjectFiles(projectPath: string): string[] {
           result.push(rel);
         }
       }
-    } catch {
-      // Ignorar directorios inaccesibles
+    } catch (err: unknown) {
+      // Unreadable subdirectory is skipped without halting project stack inspection
+      reportDebugCatchError(`inspectProject.collectProjectFiles(${currentDir})`, err);
     }
   }
   scan(projectPath);
@@ -101,7 +103,9 @@ function extractPackageDepNames(content: string): Set<string> | null {
     collectSectionKeys(pkg.devDependencies, names);
     collectSectionKeys(pkg.peerDependencies, names);
     return names;
-  } catch {
+  } catch (err: unknown) {
+    // Malformed package.json returns null so string fallback handles partial detection
+    reportDebugCatchError('inspectProject.extractPackageDepNames', err);
     return null;
   }
 }
@@ -307,8 +311,9 @@ function inspectBashStack(resolvedPath: string, detectedStacks: string[]): void 
     if (hasBash && !detectedStacks.includes(BASH_STACK_NAME)) {
       detectedStacks.push(BASH_STACK_NAME);
     }
-  } catch {
-    // Ignorar errores de lectura
+  } catch (err: unknown) {
+    // Unreadable project root omits optional bash stack auto-detection
+    reportDebugCatchError('inspectProject.inspectBashStack', err);
   }
 }
 
@@ -362,13 +367,18 @@ function collectMissing11xFiles(resolvedPath: string): string[] {
 }
 
 function hasDependencyInPackageFile(packagePath: string, packageName: string): boolean {
+  const raw = fs.readFileSync(packagePath, UTF8_ENCODING);
   try {
-    const pkg = JSON.parse(fs.readFileSync(packagePath, UTF8_ENCODING));
+    const pkg = JSON.parse(raw) as {
+      dependencies?: Record<string, unknown>;
+      devDependencies?: Record<string, unknown>;
+    };
     const deps = { ...pkg.dependencies, ...pkg.devDependencies };
-    return packageName in deps;
-  } catch {
-    const content = fs.readFileSync(packagePath, UTF8_ENCODING);
-    return content.includes(`"${packageName}"`);
+    return Object.prototype.hasOwnProperty.call(deps, packageName);
+  } catch (err: unknown) {
+    // Malformed package.json JSON falls back safely to literal token match
+    reportDebugCatchError(`inspectProject.hasDependencyInPackageFile(${packagePath})`, err);
+    return raw.includes(`"${packageName}"`);
   }
 }
 
@@ -390,7 +400,9 @@ function configMentionsBrowserMcp(configFile: string): boolean {
   try {
     const content = fs.readFileSync(configFile, UTF8_ENCODING);
     return content.includes('playwright') || content.includes('chrome-devtools');
-  } catch {
+  } catch (err: unknown) {
+    // Optional IDE MCP config probe: unreadable config safely reports false
+    reportDebugCatchError(`inspectProject.configMentionsBrowserMcp(${configFile})`, err);
     return false;
   }
 }
@@ -411,7 +423,7 @@ function checkBrowserMcpInIde(homeDir?: string): boolean {
 export function evaluateBrowserTestingReadiness(
   projectPath: string,
   files: string[],
-  stacks: (StackName | string)[],
+  stacks: string[],
   homeDir?: string
 ): BrowserTestingReadiness {
   const isApplicable = stacks.includes('vue3') || stacks.includes('react-frontend');

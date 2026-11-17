@@ -13,6 +13,7 @@ import {
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { auditSecurityStigOwasp } from './security-auditor.js';
 import { CertifyGateResult, GateCheckStatus } from '../types.js';
+import { pickAt, reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 
 const GATE_STATUS_PASSED: GateCheckStatus = 'PASSED';
 const GATE_STATUS_FAILED: GateCheckStatus = 'FAILED';
@@ -66,8 +67,15 @@ function checkUnmergedExamples(
         blockers.push(`Archivo .example sin fusionar en la raíz: ${file}`);
       }
     }
-  } catch {
-    return buildCheckOutcome(GATE_STATUS_SKIPPED);
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') {
+      // Missing target workspace directory yields SKIPPED rather than crashing pre-creation probes
+      return buildCheckOutcome(GATE_STATUS_SKIPPED);
+    }
+    reportDebugCatchError('certifyGate.checkUnmergedExamples', err);
+    return buildCheckOutcome(GATE_STATUS_FAILED, [
+      'No se pudo enumerar el directorio raíz para verificar archivos .example sin fusionar.',
+    ]);
   }
 
   return buildCheckOutcome(blockers.length === 0 ? GATE_STATUS_PASSED : GATE_STATUS_FAILED, blockers);
@@ -99,7 +107,11 @@ function readJsonQuotedString(text: string, startQuoteIdx: number): JsonStringRe
 
 function skipWhitespace(text: string, idx: number): number {
   let i = idx;
-  while (i < text.length && /\s/.test(text[i])) {
+  while (i < text.length) {
+    const ch = text[i];
+    if (ch === undefined || !/\s/.test(ch)) {
+      break;
+    }
     i++;
   }
   return i;
@@ -151,7 +163,7 @@ function findDuplicateKeysInText(jsonText: string): string[] {
   let i = 0;
 
   while (i < jsonText.length) {
-    const ch = jsonText[i];
+    const ch = pickAt(jsonText, i);
     if (ch === '"') {
       i = handleJsonStringToken(jsonText, i, scopeStack[scopeStack.length - 1], duplicates);
     } else {
@@ -173,7 +185,8 @@ function inspectSingleJsonFile(projectPath: string, file: string): string[] {
       blockers.push(`Claves duplicadas detectadas en ${rel}: ${dups.join(', ')}`);
     }
     JSON.parse(text);
-  } catch {
+  } catch (err: unknown) {
+    reportDebugCatchError(`certifyGate.inspectSingleJsonFile(${rel})`, err);
     blockers.push(`INVALID_JSON: JSON inválido o ilegible en ${rel}`);
   }
   return blockers;
@@ -208,13 +221,16 @@ function checkJsonIntegrity(projectPath: string): GateCheckOutcome {
           jsonFiles.push(full);
         }
       }
-    } catch {
-      // Ignorar errores de acceso
+    } catch (err: unknown) {
+      reportDebugCatchError(`certifyGate.collectJson(${dir})`, err);
+      if (dir === projectPath && (err as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+        blockers.push(`No se pudo enumerar el directorio raíz para validar integridad JSON: ${dir}`);
+      }
     }
   }
 
   collectJson(projectPath);
-  if (jsonFiles.length === 0) {
+  if (jsonFiles.length === 0 && blockers.length === 0) {
     return buildCheckOutcome(GATE_STATUS_SKIPPED);
   }
 
@@ -242,7 +258,7 @@ function hasUnitTestForComponent(
   const file = path.basename(compFilePath);
   const compDir = path.dirname(compFilePath);
   const baseName = file.replace(/\.(vue|tsx|jsx)$/, '');
-  const camelName = baseName ? baseName[0].toLowerCase() + baseName.slice(1) : baseName;
+  const camelName = pickAt(baseName, 0).toLowerCase() + baseName.slice(1);
 
   const directCandidates = [
     path.join(compDir, `${baseName}.unit.ts`),
@@ -271,7 +287,9 @@ function hasUnitTestForComponent(
     if (content === undefined) {
       try {
         content = fs.readFileSync(tf, 'utf8');
-      } catch {
+      } catch (err: unknown) {
+        // Unreadable candidate test file safely yields empty text so remaining test files are inspected
+        reportDebugCatchError(`certifyGate.hasUnitTestForComponent(${tf})`, err);
         content = '';
       }
       testContentsCache.set(tf, content);
@@ -361,9 +379,18 @@ function isRouteParamSegment(rSeg: string): boolean {
   return rSeg.startsWith('{') || rSeg.startsWith(':');
 }
 
+function trimTrailingSlashes(raw: string): string {
+  let end = raw.length;
+  while (end > 0 && raw[end - 1] === '/') {
+    end -= 1;
+  }
+  return raw.slice(0, end);
+}
+
 function segmentsPrefixMatch(routeSegs: string[], urlSegs: string[], count: number): boolean {
   for (let i = 0; i < count; i++) {
-    if (!isRouteParamSegment(routeSegs[i]) && routeSegs[i] !== urlSegs[i]) {
+    const rSeg = pickAt(routeSegs, i);
+    if (!isRouteParamSegment(rSeg) && rSeg !== urlSegs[i]) {
       return false;
     }
   }
@@ -371,10 +398,10 @@ function segmentsPrefixMatch(routeSegs: string[], urlSegs: string[], count: numb
 }
 
 function matchesRouteSegments(routePath: string, testUrl: string): boolean {
-  const routeSegs = routePath.replace(/\/+$/, '').split('/');
-  const urlSegs = testUrl.replace(/\/+$/, '').split('/');
-  const lastRouteSeg = routeSegs[routeSegs.length - 1];
-  const lastUrlSeg = urlSegs[urlSegs.length - 1];
+  const routeSegs = trimTrailingSlashes(routePath).split('/');
+  const urlSegs = trimTrailingSlashes(testUrl).split('/');
+  const lastRouteSeg = pickAt(routeSegs, routeSegs.length - 1);
+  const lastUrlSeg = pickAt(urlSegs, urlSegs.length - 1);
 
   if (lastRouteSeg.startsWith('{') && lastRouteSeg.endsWith(':path}')) {
     return urlSegs.length >= routeSegs.length && segmentsPrefixMatch(routeSegs, urlSegs, routeSegs.length - 1);
@@ -415,16 +442,16 @@ function extractBackendRoutesFromFile(
   const code = fs.readFileSync(filePath, 'utf8');
   const ignoredInParity = code.includes('api-parity-ignore');
   const relFile = path.relative(projectPath, filePath);
-  const prefixMatch = code.match(/APIRouter\([^)]*prefix\s*=\s*['"]([^'"]+)['"]/);
-  const routerPrefix = prefixMatch ? prefixMatch[1].replace(/\/+$/, '') : '';
+  const prefixMatch = /APIRouter\([^)]*prefix\s*=\s*['"]([^'"]+)['"]/.exec(code);
+  const routerPrefix = prefixMatch?.[1] ? trimTrailingSlashes(prefixMatch[1]) : '';
   const hasV1Dir = filePath.split(path.sep).includes('v1');
   const basePrefix = hasV1Dir && !routerPrefix.startsWith('/api/v1') ? '/api/v1' : '';
 
-  const decoRegex = /@(?:[a-zA-Z0-9_]+)\.(get|post|put|patch|delete)\(\s*['"]([^'"]*)['"]/gi;
+  const decoRegex = /@(?:\w+)\.(get|post|put|patch|delete)\(\s*['"]([^'"]*)['"]/gi;
   let m: RegExpExecArray | null;
   while ((m = decoRegex.exec(code)) !== null) {
-    const verb = m[1].toUpperCase();
-    const subNorm = normalizeSubRoute(m[2]);
+    const verb = pickAt(m, 1).toUpperCase();
+    const subNorm = normalizeSubRoute(pickAt(m, 2));
     routes.push({
       verb,
       path: `${basePrefix}${routerPrefix}${subNorm}` || '/',
@@ -436,7 +463,7 @@ function extractBackendRoutesFromFile(
   if (!filePath.endsWith('.py')) {
     const expressRegex = /\b(?:router|app)\.(get|post|put|patch|delete)\(\s*['"]([^'"]+)['"]/gi;
     while ((m = expressRegex.exec(code)) !== null) {
-      routes.push({ verb: m[1].toUpperCase(), path: m[2], relFile, ignoredInParity });
+      routes.push({ verb: pickAt(m, 1).toUpperCase(), path: pickAt(m, 2), relFile, ignoredInParity });
     }
   }
   return routes;
@@ -444,10 +471,10 @@ function extractBackendRoutesFromFile(
 
 function stripDynamicQuerySuffix(url: string): string {
   // Elimina ternarios con '?' o interpolaciones de query pegadas al final de un segmento (ej. `/routers${query}`)
-  let cleaned = url.replace(/\$\{[^}]*\?[^}]*\}/g, '');
-  cleaned = cleaned.split('?')[0];
+  let cleaned = url.replace(/\$\{[^}?]*\?[^}]*\}/g, '');
+  cleaned = pickAt(cleaned.split('?'), 0);
   cleaned = cleaned.replace(/([a-zA-Z0-9_}\]])\$\{[^}]+\}$/g, '$1');
-  return cleaned.replace(/\/+$/, '');
+  return trimTrailingSlashes(cleaned);
 }
 
 function replaceFrontendInterpolations(url: string): string {
@@ -475,7 +502,7 @@ function extractFetchCallsFromCode(
   const fetchRegex = /\bfetch\s*\(\s*(['"`])/g;
   let m: RegExpExecArray | null;
   while ((m = fetchRegex.exec(code)) !== null) {
-    const quote = m[1];
+    const quote = pickAt(m, 1);
     const urlStart = m.index + m[0].length;
     const urlEnd = code.indexOf(quote, urlStart);
     const newlineIdx = code.indexOf('\n', urlStart);
@@ -488,8 +515,8 @@ function extractFetchCallsFromCode(
     const tailSlice = code.slice(urlEnd + 1, Math.min(code.length, urlEnd + 320));
     const closeParenIdx = tailSlice.indexOf(')');
     const optionsWindow = closeParenIdx >= 0 ? tailSlice.slice(0, closeParenIdx) : tailSlice;
-    const methodMatch = optionsWindow.match(/\bmethod\s*:\s*['"](GET|POST|PUT|PATCH|DELETE)['"]/i);
-    const verb = methodMatch ? methodMatch[1].toUpperCase() : 'GET';
+    const methodMatch = /\bmethod\s*:\s*['"](GET|POST|PUT|PATCH|DELETE)['"]/i.exec(optionsWindow);
+    const verb = (methodMatch?.[1] ?? 'GET').toUpperCase();
     calls.push({ verb, url: cleanUrl, relFile });
   }
   return calls;
@@ -506,9 +533,9 @@ function extractFrontendCallsFromFile(
   const callRegex = /\b(?:http|api|axios)\.(get|post|put|patch|delete)\b[^(\n]*\(\s*(['"`])((?:(?!\2)[^\n])+)\2/gi;
   let m: RegExpExecArray | null;
   while ((m = callRegex.exec(code)) !== null) {
-    const cleanUrl = normalizeFrontendApiUrl(m[3]);
+    const cleanUrl = normalizeFrontendApiUrl(pickAt(m, 3));
     if (!cleanUrl) continue;
-    calls.push({ verb: m[1].toUpperCase(), url: cleanUrl, relFile });
+    calls.push({ verb: pickAt(m, 1).toUpperCase(), url: cleanUrl, relFile });
   }
   calls.push(...extractFetchCallsFromCode(code, relFile));
   return calls;
@@ -534,8 +561,8 @@ function isBackendRouteReferenced(
 ): boolean {
   if (route.ignoredInParity) return true;
   const concreteSample = route.path
-    .replace(/\{[^}]+\}/g, 'test_param')
-    .replace(/:[a-zA-Z0-9_]+/g, 'test_param');
+    .replace(/\{[^{}]+\}/g, 'test_param')
+    .replace(/:\w+/g, 'test_param');
   if (matchesAnyRoute(route.verb, concreteSample, whitelist)) return true;
 
   for (const call of frontendCalls) {
@@ -657,8 +684,8 @@ function checkDuplicateVersionHeaders(changelogContent: string): string[] {
   const lines = changelogContent.split(/\r?\n/);
 
   for (const line of lines) {
-    const match = line.match(/^##\s+\[([^\]]+)\]/);
-    if (!match) continue;
+    const match = /^##\s+\[([^\]]+)\]/.exec(line);
+    if (!match || match[1] === undefined) continue;
     const versionTag = match[1].trim();
     if (seenVersions.has(versionTag)) {
       blockers.push(`Encabezado de versión duplicado en CHANGELOG.md: [${versionTag}].`);
@@ -713,7 +740,8 @@ function checkSessionCheckpointGovernance(projectPath: string, activeTaskPath: s
   let parsed: Record<string, unknown>;
   try {
     parsed = JSON.parse(fs.readFileSync(ckptPath, 'utf8')) as Record<string, unknown>;
-  } catch {
+  } catch (err: unknown) {
+    reportDebugCatchError('certifyGate.checkSessionCheckpointGovernance', err);
     return ['.agents/.cache/session_checkpoint.json contiene JSON corrupto o ilegible.'];
   }
   const intent = parsed.intent_140chars;
@@ -757,8 +785,10 @@ function checkActiveTaskGovernance(projectPath: string): string[] {
         '.agents/ACTIVE_TASK.md está marcado como COMPLETED pero aún contiene fases pendientes (- [ ]).'
       );
     }
-  } catch {
-    // Ignorar error de lectura
+  } catch (err: unknown) {
+    // Fail-secure: an existing ACTIVE_TASK.md that cannot be read blocks certification
+    reportDebugCatchError('certifyGate.checkActiveTaskGovernance', err);
+    blockers.push('No se pudo leer .agents/ACTIVE_TASK.md.');
   }
 
   return blockers;
@@ -803,7 +833,8 @@ function inspectSingleGraphTopology(projectPath: string, gPath: string): string[
         blockers.push(`Violación topológica AST en ${relGraph}: ${srcRef} -> ${tgtRef}`);
       }
     }
-  } catch {
+  } catch (err: unknown) {
+    reportDebugCatchError(`certifyGate.inspectSingleGraphTopology(${relGraph})`, err);
     blockers.push(`Archivo de grafo AST corrupto: ${relGraph}`);
   }
 
@@ -859,7 +890,8 @@ function checkManifestCryptographicParity(projectPath: string): string[] {
         blockers.push(`Desfase SHA-256 en manifest.json para '${entry.path}' (ejecute scripts/generar-manifiesto.py).`);
       }
     }
-  } catch {
+  } catch (err: unknown) {
+    reportDebugCatchError('certifyGate.checkManifestCryptographicParity', err);
     blockers.push('No se pudo validar la integridad criptográfica de manifest.json.');
   }
   return blockers;
@@ -871,7 +903,7 @@ function collectCompletedHitosFromSummary(lines: string[]): Set<string> {
   for (const line of lines) {
     if (!line.trimStart().startsWith('|') || !line.includes('100%')) continue;
     const rowMatch = hitoTokenRe.exec(line);
-    if (rowMatch) summaryComplete.add(rowMatch[1].toLowerCase());
+    if (rowMatch && rowMatch[1]) summaryComplete.add(rowMatch[1].toLowerCase());
   }
   return summaryComplete;
 }
@@ -887,7 +919,7 @@ function checkRoadmapConsistency(projectPath: string): string[] {
     let activeHito: string | null = null;
     for (const line of lines) {
       const secMatch = line.startsWith('##') ? hitoTokenRe.exec(line) : null;
-      if (secMatch) {
+      if (secMatch && secMatch[1]) {
         activeHito = secMatch[1].toLowerCase();
         continue;
       }
@@ -896,8 +928,10 @@ function checkRoadmapConsistency(projectPath: string): string[] {
         summaryComplete.delete(activeHito);
       }
     }
-  } catch {
-    // Ignorar error de lectura
+  } catch (err: unknown) {
+    // Fail-secure: an existing ROADMAP.md that cannot be read blocks certification
+    reportDebugCatchError('certifyGate.checkRoadmapConsistency', err);
+    blockers.push('No se pudo leer ROADMAP.md.');
   }
   return blockers;
 }
@@ -920,7 +954,8 @@ function checkDocumentationSync(projectPath: string): GateCheckOutcome {
         blockers.push('CHANGELOG.md carece de la sección obligatoria ## [Unreleased].');
       }
       blockers.push(...checkDuplicateVersionHeaders(content));
-    } catch {
+    } catch (err: unknown) {
+      reportDebugCatchError('certifyGate.checkDocumentationSync(CHANGELOG.md)', err);
       blockers.push('No se pudo leer CHANGELOG.md.');
     }
   }

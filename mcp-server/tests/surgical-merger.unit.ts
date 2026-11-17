@@ -1,12 +1,35 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
-import * as fs from 'node:fs';
+import fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { SurgicalMerger } from '../src/services/surgical-merger.js';
 import { FetchedFileItem } from '../src/types.js';
+
+interface ParsedPackageJson {
+  name?: string;
+  scripts?: Record<string, string>;
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+  pnpm?: Record<string, unknown>;
+}
+
+interface ParsedComposerJson {
+  name?: string;
+  require?: Record<string, string>;
+  'require-dev'?: Record<string, string>;
+  scripts?: Record<string, string>;
+  config?: {
+    'allow-plugins'?: Record<string, boolean>;
+  };
+}
+
+interface ParsedEslintJson {
+  extends?: string[];
+  ignorePatterns?: string[];
+}
 
 describe('SurgicalMerger Service (Non-destructive AST/Configuration Merging)', () => {
   let merger: SurgicalMerger;
@@ -55,18 +78,18 @@ describe('SurgicalMerger Service (Non-destructive AST/Configuration Merging)', (
       });
 
       const { merged, changes } = merger.mergePackageJson(target, example);
-      const parsed = JSON.parse(merged);
+      const parsed = JSON.parse(merged) as ParsedPackageJson;
 
       expect(parsed.name).toBe('my-app');
-      expect(parsed.scripts.start).toBe('node index.js');
-      expect(parsed.scripts.test).toBe('my-custom-test'); // Preservado
-      expect(parsed.scripts['qa:lint']).toBe('eslint .'); // Inyectado
-      expect(parsed.scripts['qa:unit']).toBe('vitest run'); // Inyectado
+      expect(parsed.scripts?.start).toBe('node index.js');
+      expect(parsed.scripts?.test).toBe('my-custom-test'); // Preservado
+      expect(parsed.scripts?.['qa:lint']).toBe('eslint .'); // Inyectado
+      expect(parsed.scripts?.['qa:unit']).toBe('vitest run'); // Inyectado
 
-      expect(parsed.dependencies.express).toBe('^4.19.0');
-      expect(parsed.devDependencies.typescript).toBe('^5.0.0'); // Preservado
-      expect(parsed.devDependencies.vitest).toBe('^2.1.8'); // Inyectado
-      expect(parsed.devDependencies.eslint).toBe('^8.57.0'); // Inyectado
+      expect(parsed.dependencies?.express).toBe('^4.19.0');
+      expect(parsed.devDependencies?.typescript).toBe('^5.0.0'); // Preservado
+      expect(parsed.devDependencies?.vitest).toBe('^2.1.8'); // Inyectado
+      expect(parsed.devDependencies?.eslint).toBe('^8.57.0'); // Inyectado
       expect(parsed.pnpm).toBeUndefined();
 
       expect(changes.length).toBeGreaterThan(0);
@@ -78,7 +101,7 @@ describe('SurgicalMerger Service (Non-destructive AST/Configuration Merging)', (
         pnpm: { onlyBuiltDependencies: ['esbuild'] },
       });
       const res1 = merger.mergePackageJson(onlyLegacyTarget, JSON.stringify({ scripts: {} }));
-      const parsed1 = JSON.parse(res1.merged);
+      const parsed1 = JSON.parse(res1.merged) as ParsedPackageJson;
       expect(parsed1.pnpm).toBeUndefined();
       expect(res1.changes.some((c) => c.includes('pnpm.onlyBuiltDependencies'))).toBe(true);
 
@@ -87,7 +110,7 @@ describe('SurgicalMerger Service (Non-destructive AST/Configuration Merging)', (
         pnpm: { onlyBuiltDependencies: ['esbuild'], overrides: { tar: '^7.5.0' } },
       });
       const res2 = merger.mergePackageJson(mixedTarget, JSON.stringify({ scripts: {} }));
-      const parsed2 = JSON.parse(res2.merged);
+      const parsed2 = JSON.parse(res2.merged) as ParsedPackageJson;
       expect(parsed2.pnpm).toEqual({ overrides: { tar: '^7.5.0' } });
     });
 
@@ -97,10 +120,10 @@ describe('SurgicalMerger Service (Non-destructive AST/Configuration Merging)', (
         devDependencies: { vitest: '^2.0.0' },
       });
       const { merged, changes } = merger.mergePackageJson('', example);
-      const parsed = JSON.parse(merged);
+      const parsed = JSON.parse(merged) as ParsedPackageJson;
 
-      expect(parsed.scripts['qa:all']).toBe('make qa-all');
-      expect(parsed.devDependencies.vitest).toBe('^2.0.0');
+      expect(parsed.scripts?.['qa:all']).toBe('make qa-all');
+      expect(parsed.devDependencies?.vitest).toBe('^2.0.0');
       expect(changes).toHaveLength(2);
     });
 
@@ -117,9 +140,9 @@ describe('SurgicalMerger Service (Non-destructive AST/Configuration Merging)', (
         },
       });
       const { merged, changes } = merger.mergePackageJson(target, example);
-      const parsed = JSON.parse(merged);
+      const parsed = JSON.parse(merged) as ParsedPackageJson;
 
-      expect(parsed.scripts.lint).toBe('eslint src --ext .ts --max-warnings 0');
+      expect(parsed.scripts?.lint).toBe('eslint src --ext .ts --max-warnings 0');
       expect(changes).toContain('Inyectado flag estricto "--max-warnings 0" en script "lint"');
     });
 
@@ -136,9 +159,9 @@ describe('SurgicalMerger Service (Non-destructive AST/Configuration Merging)', (
         },
       });
       const { merged } = merger.mergePackageJson(target, example);
-      const parsed = JSON.parse(merged);
+      const parsed = JSON.parse(merged) as ParsedPackageJson;
 
-      expect(parsed.scripts.lint).toBe('eslint src --max-warnings 0');
+      expect(parsed.scripts?.lint).toBe('eslint src --max-warnings 0');
     });
 
     it('aligns @playwright/test and playwright semver ranges to exact pinned versions from template', () => {
@@ -157,11 +180,11 @@ describe('SurgicalMerger Service (Non-destructive AST/Configuration Merging)', (
         },
       });
       const { merged } = merger.mergePackageJson(target, example);
-      const parsed = JSON.parse(merged);
+      const parsed = JSON.parse(merged) as ParsedPackageJson;
 
-      expect(parsed.devDependencies['@playwright/test']).toBe('1.52.0');
-      expect(parsed.devDependencies.playwright).toBe('1.52.0');
-      expect(parsed.devDependencies.vitest).toBe('^3.2.4');
+      expect(parsed.devDependencies?.['@playwright/test']).toBe('1.52.0');
+      expect(parsed.devDependencies?.playwright).toBe('1.52.0');
+      expect(parsed.devDependencies?.vitest).toBe('^3.2.4');
     });
   });
 
@@ -435,7 +458,7 @@ qa-unit:
 
       const res = await merger.mergeFiles(tmpDir, bundle, { dryRun: false });
       expect(res.summary.skipped).toBe(1);
-      expect(res.applied_changes[0].status).toBe('skipped');
+      expect(res.applied_changes[0]?.status).toBe('skipped');
     });
 
     it('surgically merges AGENTS.md preserving existing content and adding connector block', async () => {
@@ -526,23 +549,23 @@ qa-unit:
       });
 
       const { merged, changes } = merger.mergeComposerJson(existing, template);
-      const parsed = JSON.parse(merged);
+      const parsed = JSON.parse(merged) as ParsedComposerJson;
 
       expect(parsed.name).toBe('my/app');
-      expect(parsed.require.php).toBe('^8.2');
+      expect(parsed.require?.php).toBe('^8.2');
       // Preserves existing version
-      expect(parsed['require-dev']['phpunit/phpunit']).toBe('^11.0');
+      expect(parsed['require-dev']?.['phpunit/phpunit']).toBe('^11.0');
       // Injects new dev deps
-      expect(parsed['require-dev']['pestphp/pest']).toBe('^3.7');
-      expect(parsed['require-dev']['phpstan/phpstan']).toBe('^2.1');
+      expect(parsed['require-dev']?.['pestphp/pest']).toBe('^3.7');
+      expect(parsed['require-dev']?.['phpstan/phpstan']).toBe('^2.1');
       // Preserves existing script
-      expect(parsed.scripts.test).toBe('phpunit');
+      expect(parsed.scripts?.test).toBe('phpunit');
       // Injects new script
-      expect(parsed.scripts['qa:unit']).toBe('pest --coverage');
+      expect(parsed.scripts?.['qa:unit']).toBe('pest --coverage');
       // Preserves existing plugin setting
-      expect(parsed.config['allow-plugins']['existing/plugin']).toBe(true);
+      expect(parsed.config?.['allow-plugins']?.['existing/plugin']).toBe(true);
       // Injects new plugin setting
-      expect(parsed.config['allow-plugins']['pestphp/pest-plugin']).toBe(true);
+      expect(parsed.config?.['allow-plugins']?.['pestphp/pest-plugin']).toBe(true);
       expect(changes.length).toBeGreaterThan(0);
     });
 
@@ -570,11 +593,11 @@ qa-unit:
       const res = await merger.mergeFiles(tmpDir, bundle, { dryRun: false });
       expect(res.summary.merged).toBe(1);
 
-      const updated = JSON.parse(fs.readFileSync(composerPath, 'utf-8'));
+      const updated = JSON.parse(fs.readFileSync(composerPath, 'utf-8')) as ParsedComposerJson;
       expect(updated.name).toBe('org/custom');
-      expect(updated.scripts.start).toBe('php -S 0.0.0.0:8000');
-      expect(updated.scripts['qa:lint']).toBe('phpstan');
-      expect(updated['require-dev']['pestphp/pest']).toBe('^3.7');
+      expect(updated.scripts?.start).toBe('php -S 0.0.0.0:8000');
+      expect(updated.scripts?.['qa:lint']).toBe('phpstan');
+      expect(updated['require-dev']?.['pestphp/pest']).toBe('^3.7');
     });
 
     it('rejects bundle files with path traversal in target_name (CWE-22)', async () => {
@@ -629,7 +652,7 @@ qa-unit:
           ignorePatterns: ['dist/', 'coverage/', 'graphify-out/'],
         })
       );
-      const parsedEslint = JSON.parse(eslintMigrated.merged);
+      const parsedEslint = JSON.parse(eslintMigrated.merged) as ParsedEslintJson;
       expect(parsedEslint.extends).toContain('plugin:security/recommended-legacy');
       expect(parsedEslint.extends).not.toContain('plugin:security/recommended');
       expect(parsedEslint.ignorePatterns).toEqual(['dist/', 'coverage/', 'graphify-out/']);
@@ -694,7 +717,56 @@ qa-unit:
         JSON.stringify({ name: 'pw-deps', dependencies: { '@playwright/test': '^1.40.0' } }),
         JSON.stringify({ devDependencies: { '@playwright/test': '1.52.0' } })
       );
-      expect(JSON.parse(alignedDeps.merged).dependencies['@playwright/test']).toBe('1.52.0');
+      expect((JSON.parse(alignedDeps.merged) as ParsedPackageJson).dependencies?.['@playwright/test']).toBe('1.52.0');
+    });
+
+    it('merges eslint.config.mjs (Flat Config) non-destructively and idempotently', async () => {
+      const template = 'export default [{ rules: { "max-depth": ["error", 3] } }];\n';
+      const created = merger.mergeEslintConfigMjs('', template);
+      expect(created.merged).toBe(template);
+      expect(created.changes).toEqual([
+        'Creado eslint.config.mjs con configuración Flat Config 11X.',
+      ]);
+
+      const customConfig = 'export default [{ ignores: ["dist/**"] }];\n';
+      const preserved = merger.mergeEslintConfigMjs(customConfig, template);
+      expect(preserved.merged).toBe(customConfig);
+      expect(preserved.changes).toHaveLength(0);
+
+      const mjsPath = path.join(tmpDir, 'eslint.config.mjs');
+      fs.writeFileSync(mjsPath, customConfig, 'utf-8');
+      const mergeRes = await merger.mergeFiles(tmpDir, [
+        {
+          path: 'node-backend/eslint.config.mjs.example',
+          target_name: 'eslint.config.mjs',
+          merge_strategy: 'surgical_merge',
+          content: template,
+          sha256_verified: true,
+        },
+      ]);
+      expect(mergeRes.summary.skipped).toBe(1);
+      expect(fs.readFileSync(mjsPath, 'utf-8')).toBe(customConfig);
+    });
+
+    it('ignora fallos de fs.chmodSync en writeMergedFile de forma no bloqueante', async () => {
+      const chmodSpy = vi.spyOn(fs, 'chmodSync').mockImplementationOnce(() => {
+        throw new Error('EPERM: chmod unsupported');
+      });
+      try {
+        const res = await merger.mergeFiles(tmpDir, [
+          {
+            path: 'scripts/run.sh',
+            target_name: 'scripts/run.sh',
+            merge_strategy: 'overwrite_executable',
+            content: '#!/bin/sh\necho ok\n',
+            sha256_verified: true,
+          },
+        ]);
+        expect(res.summary.created).toBe(1);
+        expect(chmodSpy).toHaveBeenCalledTimes(1);
+      } finally {
+        chmodSpy.mockRestore();
+      }
     });
   });
 });

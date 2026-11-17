@@ -159,6 +159,11 @@ function seedOfflineBlueprintDir(baseDir, version) {
     };
   }
 
+  const govFiles = [
+    writeEntry('AI_MASTER_PROMPT.es.md', '# Master Prompt QA 11X (ES)\nRegla Cero, 13 capas y STIG V6R5.\n', 'AI_MASTER_PROMPT.es.md', 'copy_if_missing'),
+    writeEntry('.agents/skills/refactoring-ui/references/hierarchy.md', '# Visual Hierarchy\nUse one primary CTA per viewport and WCAG 2.1 AA contrast.\n', 'hierarchy.md', 'copy_if_missing'),
+  ];
+
   const schemaVer = '1.0.0';
   const manifest = {
     schema_version: schemaVer,
@@ -169,7 +174,7 @@ function seedOfflineBlueprintDir(baseDir, version) {
     raw_base_url: 'https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main',
     stacks,
     common_files: [],
-    agent_governance_files: [],
+    agent_governance_files: govFiles,
   };
   fs.mkdirSync(repoDir, { recursive: true });
   fs.writeFileSync(path.join(repoDir, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf8');
@@ -215,7 +220,17 @@ try {
   }
 
   const resourcesList = await client.listResources();
-  assert.equal(resourcesList.resources.length, 13, `Esperados 13 resources, obtenidos ${resourcesList.resources.length}`);
+  assert.equal(resourcesList.resources.length, 11, `Esperados 11 static resources, obtenidos ${resourcesList.resources.length}`);
+  const staticUris = resourcesList.resources.map((r) => r.uri);
+  assert.ok(!staticUris.includes('blueprint://{stack}/readme'), 'resources/list no debe incluir template blueprint://{stack}/readme');
+  assert.ok(!staticUris.includes('blueprint://ui/refactoring-ui/{topic}'), 'resources/list no debe incluir template blueprint://ui/refactoring-ui/{topic}');
+
+  const templatesList = await client.listResourceTemplates();
+  assert.equal(templatesList.resourceTemplates.length, 2, `Esperados 2 resourceTemplates, obtenidos ${templatesList.resourceTemplates.length}`);
+  const templateUris = templatesList.resourceTemplates.map((t) => t.uriTemplate);
+  assert.ok(templateUris.includes('blueprint://{stack}/readme'), 'Falta template blueprint://{stack}/readme en resources/templates/list');
+  assert.ok(templateUris.includes('blueprint://ui/refactoring-ui/{topic}'), 'Falta template blueprint://ui/refactoring-ui/{topic} en resources/templates/list');
+  assert.equal(resourcesList.resources.length + templatesList.resourceTemplates.length, 13, 'Superficie total de recursos MCP debe ser 13 (11 static + 2 templates)');
 
   for (const uri of [
     'blueprint://ai/evals-redteam',
@@ -225,10 +240,14 @@ try {
     'blueprint://vibe-rescue/readme',
     'blueprint://vibe-rescue/readme?lang=es',
     'blueprint://skills/tactical-patterns-11x',
+    'blueprint://skills/tactical-patterns-11x?lang=es',
   ]) {
     const res = await client.readResource({ uri });
     assert.ok(res.contents[0].text.length > 250, `Fallback insuficiente en ${uri}`);
   }
+
+  const philoEsFallback = await client.readResource({ uri: 'blueprint://core/philosophy?lang=es' });
+  assert.ok(philoEsFallback.contents[0].text.length > 40, 'Fallback insuficiente en blueprint://core/philosophy?lang=es');
 
   const smokeGate = await client.callTool({
     name: 'evaluate_release_gate',
@@ -326,6 +345,12 @@ try {
   assert.ok(fastapiEn.contents[0].text.includes('fastapi QA-11X Clean-Room Blueprint'));
   const fastapiEs = await localClient.readResource({ uri: 'blueprint://fastapi/readme?lang=es' });
   assert.ok(fastapiEs.contents[0].text.includes('fastapi Blueprint Clean-Room QA-11X'));
+  const pythonEn = await localClient.readResource({ uri: 'blueprint://python/readme' });
+  assert.ok(pythonEn.contents[0].text.includes('python QA-11X Clean-Room Blueprint'));
+  const uiHierarchy = await localClient.readResource({ uri: 'blueprint://ui/refactoring-ui/hierarchy' });
+  assert.ok(uiHierarchy.contents[0].text.includes('Visual Hierarchy'));
+  const philoEs = await localClient.readResource({ uri: 'blueprint://core/philosophy?lang=es' });
+  assert.ok(philoEs.contents[0].text.includes('Master Prompt QA 11X (ES)'));
 
   for (const stack of ['fastapi', 'mobile-appium', 'ai-evals', 'vibe-rescue']) {
     const bundleRes = await localClient.callTool({
@@ -345,4 +370,4 @@ EOF
 
 END_TS="$(date +%s)"
 ELAPSED_S=$((END_TS - START_TS))
-echo "✔ [verify-v2] Tarball ${TARBALL_NAME} | 19 tools / 13 resources / 10 stacks / quickstart / TTY PASS (${ELAPSED_S}s)"
+echo "✔ [verify-v2] Tarball ${TARBALL_NAME} | 19 tools / 13 resources (11 static + 2 templates) / 10 stacks / quickstart / TTY PASS (${ELAPSED_S}s)"

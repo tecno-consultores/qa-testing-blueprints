@@ -26,6 +26,19 @@ import { TaskStateGuard } from '../src/utils/taskStateGuard.js';
 
 const tempDirs: string[] = [];
 
+interface PersistedAgentCardJson {
+  activeModel?: string;
+  extensions?: Array<{
+    params?: {
+      capacity?: number;
+    };
+  }>;
+}
+
+function parsePersistedAgentCard(rawJson: string): PersistedAgentCardJson {
+  return JSON.parse(rawJson) as PersistedAgentCardJson;
+}
+
 async function makeTempWorkspace(): Promise<string> {
   const dir = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'qa11x-a2a-'));
   tempDirs.push(dir);
@@ -99,7 +112,8 @@ describe('Agent2Agent Card Generator (buildAgentCard)', () => {
       securityProfile: { promptGuard: true, ruleZeroEphemeralDocker: true, gitClosureHumanGate: 'QA-GIT-GATE-01' },
     });
 
-    customSkills[0].tags.push('mutated');
+    expect(customSkills[0]).toBeDefined();
+    customSkills[0]?.tags.push('mutated');
     expect(card.name).toBe('rosgrid-a2a-worker');
     expect(card.description).toBe('Worker especializado de telemetría QA.');
     expect(card.activeModel).toBe('qwen3.8-32b-instruct');
@@ -174,7 +188,7 @@ describe('Agent2Agent Capacity Evaluation (evaluateCapacityStatus)', () => {
     expect(evaluateCapacityStatus(32, 32).state).toBe('BUSY');
   });
 
-  it('mantiene paridad de estado con TaskStateGuard y rechaza contadores inválidos', async () => {
+  it('mantiene paridad de estado con TaskStateGuard y rechaza contadores inválidos', () => {
     const guard = new TaskStateGuard({ capacity: 2 });
     expect(evaluateCapacityStatus(guard.getActiveCount(), guard.getCapacity()).state).toBe('AVAILABLE');
 
@@ -210,15 +224,15 @@ describe('Agent2Agent Card File Writer (writeAgentCardFile)', () => {
 
     expect(result.relativePath).toBe(DEFAULT_AGENT_CARD_RELATIVE_PATH);
     expect(result.bytesWritten).toBeGreaterThan(100);
-    const persisted = JSON.parse(await fsPromises.readFile(result.outputPath, 'utf-8'));
+    const persisted = parsePersistedAgentCard(await fsPromises.readFile(result.outputPath, 'utf-8'));
     expect(persisted.activeModel).toBe('qwen3.8-14b-ollama');
-    expect(persisted.extensions[0].params.capacity).toBe(8);
+    expect(persisted.extensions?.[0]?.params?.capacity).toBe(8);
 
     // Sobrescritura atómica en ruta relativa directa al root
     const customWrite = await writeAgentCardFile(workspace, 'custom-card.json', { capacity: 1 });
     expect(customWrite.relativePath).toBe('custom-card.json');
-    const customJson = JSON.parse(await fsPromises.readFile(customWrite.outputPath, 'utf-8'));
-    expect(customJson.extensions[0].params.capacity).toBe(1);
+    const customJson = parsePersistedAgentCard(await fsPromises.readFile(customWrite.outputPath, 'utf-8'));
+    expect(customJson.extensions?.[0]?.params?.capacity).toBe(1);
   });
 
   it('bloquea Path Traversal, rutas absolutas, symlinks escapados y destinos inválidos', async () => {

@@ -714,6 +714,26 @@ class TestVerifyDocsInvariants(unittest.TestCase):
             orphan_errs = verify_docs.check_bilingual_pair_parity(root)
             self.assertTrue(any("falta o está vacío 'guides/orphan.md'" in e for e in orphan_errs))
 
+    def test_derive_counts_supports_register_tool_and_v2_registrations(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src_dir = root / "mcp-server" / "src"
+            src_dir.mkdir(parents=True, exist_ok=True)
+            (src_dir / "server.ts").write_text(
+                "export const V2_TOOL_REGISTRATIONS = [\n"
+                "  { definition: SECOND_V2_TOOL },\n"
+                "];\n"
+                "server.registerTool('t1', {}, async () => ({}));\n"
+                "server.registerResource('r1', 'blueprint://one', {}, async () => ({}));\n"
+                "server.registerResource(EXT_RESOURCE.name, EXT_RESOURCE.uri, {}, async () => ({}));\n",
+                encoding="utf-8",
+            )
+            (src_dir / "index.ts").write_text("", encoding="utf-8")
+            self.assertEqual(verify_docs._derive_tools_count(root), 2)
+            self.assertEqual(verify_docs._derive_resources_count(root), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

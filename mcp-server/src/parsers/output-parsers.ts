@@ -10,6 +10,7 @@ import {
   QaSecurityAlerts,
   QaMutationSummary,
 } from '../types.js';
+import { pickAt } from '../utils/diagnosticFormatter.js';
 
 /**
  * Elimina secuencias de escape ANSI de una cadena de texto.
@@ -32,52 +33,77 @@ export function parseTailLog(rawLog: string, maxLines = 15): string {
   return lines.slice(-maxLines).join('\n');
 }
 
+const VITEST_ALL_FILES_RE =
+  /All files\s*\|\s*([0-9.]+)\s*\|\s*([0-9.]+)\s*\|\s*([0-9.]+)\s*\|\s*([0-9.]+)/;
+const VITEST_FILE_COL_RE = /^[\w./\\-]+\.[a-zA-Z0-9]+$/;
+const NUMERIC_COL_RE = /^[0-9.]+$/;
+const MISSING_LINES_COL_RE = /^[0-9,\- ]+$/;
+
+function parseVitestCoverageRow(line: string): QaCoverageFile | null {
+  const cols = line.split('|').map((c) => c.trim());
+  if (cols.length < 6) return null;
+  const fileName = pickAt(cols, 0);
+  if (!fileName || fileName.toLowerCase() === 'all files' || !VITEST_FILE_COL_RE.test(fileName)) {
+    return null;
+  }
+  const c1 = pickAt(cols, 1);
+  const c2 = pickAt(cols, 2);
+  const c3 = pickAt(cols, 3);
+  const c4 = pickAt(cols, 4);
+  const missingLines = pickAt(cols, 5);
+  if (
+    !NUMERIC_COL_RE.test(c1) ||
+    !NUMERIC_COL_RE.test(c2) ||
+    !NUMERIC_COL_RE.test(c3) ||
+    !NUMERIC_COL_RE.test(c4) ||
+    !MISSING_LINES_COL_RE.test(missingLines)
+  ) {
+    return null;
+  }
+  const fileCover = parseFloat(c4);
+  return {
+    file: fileName,
+    coverage_percent: isNaN(fileCover) ? 0 : fileCover,
+    missing_lines: missingLines,
+  };
+}
+
 function parseVitestCoverage(clean: string): { detected: boolean; percent: number; uncovered: QaCoverageFile[] } {
-  const vitestAllFilesMatch = clean.match(
-    /All files\s*\|\s*([0-9.]+)\s*\|\s*([0-9.]+)\s*\|\s*([0-9.]+)\s*\|\s*([0-9.]+)/
-  );
+  const vitestAllFilesMatch = VITEST_ALL_FILES_RE.exec(clean);
 
   if (!vitestAllFilesMatch) {
     return { detected: false, percent: 0, uncovered: [] };
   }
 
-  const linesCover = parseFloat(vitestAllFilesMatch[4]);
-  const percent = isNaN(linesCover) ? parseFloat(vitestAllFilesMatch[1]) : linesCover;
+  const linesCover = parseFloat(pickAt(vitestAllFilesMatch, 4));
+  const fallbackCover = parseFloat(pickAt(vitestAllFilesMatch, 1));
+  const percent = isNaN(linesCover) ? fallbackCover : linesCover;
   const uncovered: QaCoverageFile[] = [];
 
-  const rowRegex = /^\s*([a-zA-Z0-9_./\\-]+\.[a-zA-Z0-9]+)\s*\|\s*[0-9.]+\s*\|\s*[0-9.]+\s*\|\s*[0-9.]+\s*\|\s*([0-9.]+)\s*\|\s*([0-9,\- ]+)\s*$/gm;
-  let match: RegExpExecArray | null;
-  while ((match = rowRegex.exec(clean)) !== null) {
-    const fileName = match[1].trim();
-    if (fileName.toLowerCase() === 'all files') continue;
-    const fileCover = parseFloat(match[2]);
-    const missingLines = match[3].trim();
-    if (missingLines) {
-      uncovered.push({
-        file: fileName,
-        coverage_percent: isNaN(fileCover) ? 0 : fileCover,
-        missing_lines: missingLines,
-      });
+  for (const line of clean.split(/\r?\n/)) {
+    const row = parseVitestCoverageRow(line);
+    if (row) {
+      uncovered.push(row);
     }
   }
 
-  return { detected: true, percent, uncovered };
+  return { detected: true, percent: isNaN(percent) ? 0 : percent, uncovered };
 }
 
 function parsePytestCoverage(clean: string): { detected: boolean; percent: number; uncovered: QaCoverageFile[] } {
-  const pytestTotalMatch = clean.match(/TOTAL\s+\d+\s+\d+\s+([0-9.]+)%/);
+  const pytestTotalMatch = /TOTAL\s+\d+\s+\d+\s+([0-9.]+)%/.exec(clean);
   if (!pytestTotalMatch) {
     return { detected: false, percent: 0, uncovered: [] };
   }
 
-  const percent = parseFloat(pytestTotalMatch[1]);
+  const percent = parseFloat(pickAt(pytestTotalMatch, 1, '0'));
   const uncovered: QaCoverageFile[] = [];
-  const pytestRowRegex = /^([a-zA-Z0-9_./\\-]+\.py)\s+\d+\s+([1-9]\d*)\s+([0-9.]+)%\s*(.*)$/gm;
+  const pytestRowRegex = /^([\w./\\-]+\.py)[^\S\r\n]+\d+[^\S\r\n]+([1-9]\d*)[^\S\r\n]+([0-9.]+)%([^\r\n]*)$/gm;
   let match: RegExpExecArray | null;
   while ((match = pytestRowRegex.exec(clean)) !== null) {
-    const fileName = match[1].trim();
-    const fileCover = parseFloat(match[3]);
-    const missing = match[4].trim();
+    const fileName = pickAt(match, 1).trim();
+    const fileCover = parseFloat(pickAt(match, 3, '0'));
+    const missing = pickAt(match, 4).trim();
     uncovered.push({
       file: fileName,
       coverage_percent: isNaN(fileCover) ? 0 : fileCover,
@@ -89,11 +115,11 @@ function parsePytestCoverage(clean: string): { detected: boolean; percent: numbe
 }
 
 function parsePhpCoverage(clean: string): { detected: boolean; percent: number; uncovered: QaCoverageFile[] } {
-  const match = clean.match(/(?:Lines|Total):\s+([0-9.]+)%/i);
+  const match = /(?:Lines|Total):\s+([0-9.]+)%/i.exec(clean);
   if (!match) {
     return { detected: false, percent: 0, uncovered: [] };
   }
-  const percent = parseFloat(match[1]);
+  const percent = parseFloat(pickAt(match, 1, '0'));
   return { detected: true, percent, uncovered: [] };
 }
 
@@ -137,9 +163,9 @@ export function parseCoverage(rawLog: string): QaCoverageSummary {
     };
   }
 
-  const genericCoverageMatch = clean.match(/(?:Total coverage|Coverage):\s*([0-9.]+)%/i);
+  const genericCoverageMatch = /(?:Total coverage|Coverage):\s*([0-9.]+)%/i.exec(clean);
   if (genericCoverageMatch) {
-    const percent = parseFloat(genericCoverageMatch[1]);
+    const percent = parseFloat(pickAt(genericCoverageMatch, 1, '0'));
     return {
       detected: true,
       percent: Math.round(percent * 100) / 100,
@@ -159,9 +185,9 @@ export function parseCoverage(rawLog: string): QaCoverageSummary {
 }
 
 function parsePytestFailedItem(lines: string[], i: number): { item: QaFailedTest; nextIdx: number } {
-  const line = lines[i].trim();
+  const line = pickAt(lines, i).trim();
   const rest = line.substring(7).trim();
-  const parts = rest.split(/\s*-\s*/);
+  const parts = rest.split('-').map((p) => p.trim());
   const testName = parts[0] || rest;
   let errorSummary = parts.slice(1).join(' - ');
 
@@ -180,7 +206,7 @@ function parsePytestFailedItem(lines: string[], i: number): { item: QaFailedTest
 }
 
 function parseVitestFailedItem(lines: string[], i: number): QaFailedTest {
-  const line = lines[i].trim();
+  const line = pickAt(lines, i).trim();
   const testName = line.replace(/^FAIL\s+/, '').trim();
   const errorLines = lines
     .slice(i + 1, i + 5)
@@ -194,11 +220,12 @@ function parseVitestFailedItem(lines: string[], i: number): QaFailedTest {
 }
 
 function parseBatsFailedItem(lines: string[], i: number): QaFailedTest {
-  const line = lines[i].trim();
+  const line = pickAt(lines, i).trim();
   const testName = line.replace(/^not ok\s+\d+\s*-?\s*/, '').trim();
   let errorSummary = '';
-  if (i + 1 < lines.length && lines[i + 1].trim().startsWith('#')) {
-    errorSummary = lines[i + 1].trim().replace(/^#\s*/, '');
+  const nextRaw = lines[i + 1];
+  if (nextRaw !== undefined && nextRaw.trim().startsWith('#')) {
+    errorSummary = nextRaw.trim().replace(/^#\s*/, '');
   }
 
   return {
@@ -215,8 +242,11 @@ export function parseFailedTests(rawLog: string): QaFailedTest[] {
   const failedTests: QaFailedTest[] = [];
   const lines = clean.split(/\r?\n/);
 
-  for (let i = 0; i < lines.length && failedTests.length < 20; i++) {
-    const line = lines[i].trim();
+  for (const [i, rawLine] of lines.entries()) {
+    if (failedTests.length >= 20) {
+      break;
+    }
+    const line = rawLine.trim();
 
     if (line.startsWith('FAILED ')) {
       const parsed = parsePytestFailedItem(lines, i);
@@ -234,9 +264,9 @@ export function parseFailedTests(rawLog: string): QaFailedTest[] {
 function parseRadonIssue(line: string): QaLinterIssue | null {
   const parts = line.split(':');
   if (parts.length < 3) return null;
-  const file = parts[0].trim();
+  const file = pickAt(parts, 0).trim();
   if (!file.endsWith('.py')) return null;
-  const lineNum = parseInt(parts[1].trim(), 10);
+  const lineNum = parseInt(pickAt(parts, 1).trim(), 10);
   const rest = parts.slice(2).join(':').trim();
   const firstSpace = rest.indexOf(' ');
   if (firstSpace === -1) return null;
@@ -255,14 +285,14 @@ function parseRadonIssue(line: string): QaLinterIssue | null {
 function parseMypyIssue(line: string): QaLinterIssue | null {
   if (!line.includes(': error:') || (!line.includes('.py:') && !line.includes('.pyi:'))) return null;
   const parts = line.split(': error:');
-  const loc = parts[0].split(':');
+  const loc = pickAt(parts, 0).split(':');
   if (loc.length < 2) return null;
-  const file = loc[0].trim();
-  const lineNum = parseInt(loc[1].trim(), 10);
+  const file = pickAt(loc, 0).trim();
+  const lineNum = parseInt(pickAt(loc, 1).trim(), 10);
   const msgPart = parts.slice(1).join(': error:').trim();
-  const ruleMatch = msgPart.match(/\[([a-z-]+)\]$/);
-  const rule = ruleMatch ? `mypy-${ruleMatch[1]}` : 'mypy-error';
-  const message = ruleMatch ? msgPart.replace(/\s*\[[a-z-]+\]$/, '') : msgPart;
+  const ruleMatch = /\[([a-z-]+)\]$/.exec(msgPart);
+  const rule = ruleMatch && ruleMatch[1] ? `mypy-${ruleMatch[1]}` : 'mypy-error';
+  const message = ruleMatch ? msgPart.slice(0, ruleMatch.index).trimEnd() : msgPart;
 
   return {
     file,
@@ -275,54 +305,63 @@ function parseMypyIssue(line: string): QaLinterIssue | null {
 function parseRuffIssue(line: string): QaLinterIssue | null {
   const parts = line.split(':');
   if (parts.length < 4) return null;
-  const file = parts[0].trim();
-  const lineNum = parseInt(parts[1].trim(), 10);
+  const file = pickAt(parts, 0).trim();
+  const lineNum = parseInt(pickAt(parts, 1).trim(), 10);
   const codeAndMsg = parts.slice(3).join(':').trim();
-  const ruffCodeMatch = codeAndMsg.match(/^([A-Z]\d+)\s+(.*)$/);
-  if (!ruffCodeMatch) return null;
+  const ruffCodeMatch = /^([A-Z]\d+)\s+(\S[^\r\n]*)$/.exec(codeAndMsg);
+  if (!ruffCodeMatch || !ruffCodeMatch[1]) return null;
 
   return {
     file,
     line: isNaN(lineNum) ? 1 : lineNum,
     rule: `ruff-${ruffCodeMatch[1]}`,
-    message: ruffCodeMatch[2].trim(),
+    message: pickAt(ruffCodeMatch, 2).trim(),
+  };
+}
+
+function parseEslintStylishLine(trimmed: string, currentFile: string): QaLinterIssue | null {
+  const headMatch = /^(\d+):(\d+)[ \t]+(error|warning)[ \t]+/.exec(trimmed);
+  if (!headMatch) return null;
+  const rest = trimmed.slice(headMatch[0].length).trim();
+  const sepIdx = rest.lastIndexOf('  ');
+  if (sepIdx < 0) return null;
+  const ruleToken = rest.slice(sepIdx + 2).trim();
+  if (!/^[\w/@-]+$/.test(ruleToken)) return null;
+  return {
+    file: currentFile || 'eslint',
+    line: parseInt(pickAt(headMatch, 1, '1'), 10),
+    rule: `eslint-${ruleToken}`,
+    message: rest.slice(0, sepIdx).trim(),
   };
 }
 
 function parseEslintIssue(line: string, currentFile = ''): QaLinterIssue | null {
   if (!line.includes('error') && !line.includes('warning')) return null;
-  const stylishMatch = line.match(/^\s*(\d+):(\d+)\s+(error|warning)\s+(.+?)\s{2,}([a-zA-Z0-9_/@-]+)\s*$/);
-  if (stylishMatch) {
-    return {
-      file: currentFile || 'eslint',
-      line: parseInt(stylishMatch[1], 10),
-      rule: `eslint-${stylishMatch[5]}`,
-      message: stylishMatch[4].trim(),
-    };
-  }
+  const stylish = parseEslintStylishLine(line.trim(), currentFile);
+  if (stylish) return stylish;
   const parts = line.split(':');
   if (parts.length < 4) return null;
-  const file = parts[0].trim();
-  const lineNum = parseInt(parts[1].trim(), 10);
+  const file = pickAt(parts, 0).trim();
+  const lineNum = parseInt(pickAt(parts, 1).trim(), 10);
   if (isNaN(lineNum)) return null;
   const msgPart = parts.slice(3).join(':').trim();
-  const ruleMatch = msgPart.match(/\[([a-zA-Z0-9_/@-]+)\]$/);
+  const ruleMatch = /\[([\w/@-]+)\]$/.exec(msgPart);
 
   return {
     file,
     line: lineNum,
-    rule: ruleMatch ? `eslint-${ruleMatch[1]}` : 'eslint-issue',
-    message: ruleMatch ? msgPart.replace(/\s*\[[a-zA-Z0-9_/@-]+\]$/, '').trim() : msgPart,
+    rule: ruleMatch && ruleMatch[1] ? `eslint-${ruleMatch[1]}` : 'eslint-issue',
+    message: ruleMatch ? msgPart.slice(0, ruleMatch.index).trimEnd() : msgPart,
   };
 }
 
 function parseShellcheckGccIssue(line: string): QaLinterIssue | null {
-  const scMatch = line.match(/(SC\d+)/);
-  if (!scMatch) return null;
+  const scMatch = /(SC\d+)/.exec(line);
+  if (!scMatch || !scMatch[1]) return null;
   const parts = line.split(':');
   if (parts.length < 3) return null;
-  const file = parts[0].trim();
-  const lineNum = parseInt(parts[1].trim(), 10);
+  const file = pickAt(parts, 0).trim();
+  const lineNum = parseInt(pickAt(parts, 1).trim(), 10);
   if (isNaN(lineNum)) return null;
 
   return {
@@ -341,14 +380,14 @@ function parseShellcheckBlocks(lines: string[]): QaLinterIssue[] {
   for (const rawLine of lines) {
     const line = rawLine.trim();
     if (line.startsWith('In ') && line.includes(' line ')) {
-      const match = line.match(/^In\s+([^\s]+)\s+line\s+(\d+):/);
-      if (match) {
+      const match = /^In\s+(\S+)\s+line\s+(\d+):/.exec(line);
+      if (match && match[1] && match[2]) {
         currentFile = match[1];
         currentLine = parseInt(match[2], 10);
       }
     } else if (currentFile && line.includes('SC')) {
-      const scMatch = line.match(/(SC\d+)/);
-      if (scMatch) {
+      const scMatch = /(SC\d+)/.exec(line);
+      if (scMatch && scMatch[1]) {
         issues.push({
           file: currentFile,
           line: currentLine,
@@ -364,24 +403,29 @@ function parseShellcheckBlocks(lines: string[]): QaLinterIssue[] {
 }
 
 function parsePsalmIssue(line: string): QaLinterIssue | null {
-  const match = line.match(/^ERROR:\s*([a-zA-Z0-9_-]+)\s*-\s*([^:]+):(\d+):(?:\d+)\s*-\s*(.+)$/);
-  if (!match) return null;
+  if (!line.startsWith('ERROR:')) return null;
+  const parts = line.slice('ERROR:'.length).split(' - ');
+  if (parts.length < 3) return null;
+  const ruleCode = pickAt(parts, 0).trim();
+  const locMatch = /^([^:\r\n]+):(\d+):\d+$/.exec(pickAt(parts, 1).trim());
+  if (!/^[\w-]+$/.test(ruleCode) || !locMatch) return null;
+  const message = parts.slice(2).join(' - ').trim();
   return {
-    file: match[2].trim(),
-    line: parseInt(match[3], 10),
-    rule: `psalm-${match[1]}`,
-    message: match[4].trim(),
+    file: pickAt(locMatch, 1).trim(),
+    line: parseInt(pickAt(locMatch, 2, '1'), 10),
+    rule: `psalm-${ruleCode}`,
+    message,
   };
 }
 
 function parsePhpstanIssue(line: string): QaLinterIssue | null {
-  const match = line.match(/^([^:]+\.php):(\d+):(.+)$/);
+  const match = /^([^:]+\.php):(\d+):(.+)$/.exec(line);
   if (match) {
     return {
-      file: match[1].trim(),
-      line: parseInt(match[2], 10),
+      file: pickAt(match, 1).trim(),
+      line: parseInt(pickAt(match, 2, '1'), 10),
       rule: 'phpstan-error',
-      message: match[3].trim(),
+      message: pickAt(match, 3).trim(),
     };
   }
   return null;
@@ -427,38 +471,52 @@ export function parseLinterAndComplexity(rawLog: string): QaLinterIssue[] {
 /**
  * Parsea alertas de seguridad de Trivy y Bandit.
  */
+const SEVERITY_PATTERNS: Record<'CRITICAL' | 'HIGH', RegExp> = {
+  CRITICAL: /(?:Severity:\s*CRITICAL|\bCRITICAL\s+(?:severity|risk|vulnerability|vulnerabilities)\b|\[CRITICAL\])/gi,
+  HIGH: /(?:Severity:\s*HIGH|\bHIGH\s+(?:severity|risk|vulnerability|vulnerabilities)\b|\[HIGH\])/gi,
+};
+
+function countSeverityHits(clean: string, level: 'CRITICAL' | 'HIGH'): number {
+  const severityRe = SEVERITY_PATTERNS[level];
+  severityRe.lastIndex = 0;
+  let hits = 0;
+  while (severityRe.exec(clean) !== null) {
+    hits += 1;
+  }
+  for (const line of clean.split(/\r?\n/)) {
+    if (line.includes(level) && /\bCVE-\d{4}-\d+\b/.test(line)) {
+      hits += 1;
+    }
+  }
+  return Math.min(hits, 10);
+}
+
 export function parseSecurityAlerts(rawLog: string): QaSecurityAlerts {
   const clean = stripAnsi(rawLog);
   let critical = 0;
   let high = 0;
 
-  const trivySummaryMatch = clean.match(/CRITICAL:\s*(\d+)[\s,]+HIGH:\s*(\d+)/i);
+  const trivySummaryMatch = /CRITICAL:\s*(\d+)[\s,]+HIGH:\s*(\d+)/i.exec(clean);
   if (trivySummaryMatch) {
     return {
-      critical: parseInt(trivySummaryMatch[1], 10),
-      high: parseInt(trivySummaryMatch[2], 10),
+      critical: parseInt(pickAt(trivySummaryMatch, 1, '0'), 10),
+      high: parseInt(pickAt(trivySummaryMatch, 2, '0'), 10),
     };
   }
 
-  const critCountMatch = clean.match(/CRITICAL\s*\|\s*(\d+)/i) || clean.match(/CRITICAL:\s*(\d+)/i);
-  const highCountMatch = clean.match(/HIGH\s*\|\s*(\d+)/i) || clean.match(/HIGH:\s*(\d+)/i);
+  const critCountMatch = /CRITICAL\s*\|\s*(\d+)/i.exec(clean) || /CRITICAL:\s*(\d+)/i.exec(clean);
+  const highCountMatch = /HIGH\s*\|\s*(\d+)/i.exec(clean) || /HIGH:\s*(\d+)/i.exec(clean);
 
   if (critCountMatch) {
-    critical = parseInt(critCountMatch[1], 10);
+    critical = parseInt(pickAt(critCountMatch, 1, '0'), 10);
   } else if (!clean.includes('no security findings')) {
-    const critMatches = clean.match(
-      /(?:Severity:\s*CRITICAL|\bCRITICAL\s+(?:severity|risk|vulnerability|vulnerabilities)\b|\[(CRITICAL)\]|\bCVE-\d{4}-\d+[^\n]*\bCRITICAL\b)/gi
-    );
-    critical = critMatches ? Math.min(critMatches.length, 10) : 0;
+    critical = countSeverityHits(clean, 'CRITICAL');
   }
 
   if (highCountMatch) {
-    high = parseInt(highCountMatch[1], 10);
+    high = parseInt(pickAt(highCountMatch, 1, '0'), 10);
   } else if (!clean.includes('no security findings')) {
-    const highMatches = clean.match(
-      /(?:Severity:\s*HIGH|\bHIGH\s+(?:severity|risk|vulnerability|vulnerabilities)\b|\[(HIGH)\]|\bCVE-\d{4}-\d+[^\n]*\bHIGH\b)/gi
-    );
-    high = highMatches ? Math.min(highMatches.length, 10) : 0;
+    high = countSeverityHits(clean, 'HIGH');
   }
 
   return { critical, high };
@@ -471,22 +529,21 @@ export function parseMutation(rawLog: string): QaMutationSummary | null {
   const clean = stripAnsi(rawLog);
 
   const scoreMatch =
-    clean.match(/Mutation Score Indicator \(MSI\):\s*([0-9.]+)%/i) ||
-    clean.match(/Mutation score:\s*([0-9.]+)%/i) ||
-    clean.match(/Mutation Score:\s*([0-9.]+)%/i);
+    /Mutation Score Indicator \(MSI\):\s*([0-9.]+)%/i.exec(clean) ||
+    /Mutation score:\s*([0-9.]+)%/i.exec(clean);
 
   const survivedMatch =
-    clean.match(/(?:Survived|survived):\s*(\d+)/i) ||
-    clean.match(/Mutants survived:\s*(\d+)/i) ||
-    clean.match(/(\d+)\s+escaped/i) ||
-    clean.match(/(\d+)\s+mutants were not covered/i);
+    /Mutants survived:\s*(\d+)/i.exec(clean) ||
+    /survived:\s*(\d+)/i.exec(clean) ||
+    /\b(\d+)[ \t]+escaped/i.exec(clean) ||
+    /\b(\d+)[ \t]+mutants were not covered/i.exec(clean);
 
   if (!scoreMatch && !survivedMatch) {
     return null;
   }
 
-  const mutationScore = scoreMatch ? parseFloat(scoreMatch[1]) : 0;
-  const mutantsSurvived = survivedMatch ? parseInt(survivedMatch[1], 10) : 0;
+  const mutationScore = scoreMatch ? parseFloat(pickAt(scoreMatch, 1, '0')) : 0;
+  const mutantsSurvived = survivedMatch ? parseInt(pickAt(survivedMatch, 1, '0'), 10) : 0;
 
   return {
     mutation_score: Math.round(mutationScore * 100) / 100,
@@ -497,6 +554,7 @@ export function parseMutation(rawLog: string): QaMutationSummary | null {
 const STATUS_PASSED = 'PASSED' as const;
 const STATUS_FAILED = 'FAILED' as const;
 const STATUS_SKIPPED = 'SKIPPED' as const;
+export type QaStageStatus = typeof STATUS_PASSED | typeof STATUS_FAILED | typeof STATUS_SKIPPED;
 
 const TEST_STAGE_NAMES = new Set([
   'integration',
@@ -513,8 +571,8 @@ const EXPLICIT_TEST_COUNT_PATTERNS: readonly RegExp[] = [
   /\bTests:?\s+(\d+)\s+passed\b/i,
   /\bTests:\s*(\d+)\b/i,
   /\bOK\s*\((\d+)\s+tests?\b/i,
-  /(?:ℹ|#)\s*tests\s+(\d+)\b/i,
-  /^\s*1\.\.(\d+)\s*$/m,
+  /[ℹ#]\s*tests\s+(\d+)\b/i,
+  /^[ \t]*1\.\.(\d+)[ \t]*$/m,
   /\bscenarios:\s*(\d+)\b/i,
   /\bRan\s+(\d+)\s+tests?\s+in\b/i,
   /\b(\d+)\s+passed\b/i,
@@ -542,9 +600,9 @@ export function parseTestsDetected(rawLog: string): QaTestsDetected {
   const clean = stripAnsi(rawLog);
 
   for (const pattern of EXPLICIT_TEST_COUNT_PATTERNS) {
-    const match = clean.match(pattern);
+    const match = pattern.exec(clean);
     if (match) {
-      return { detected: true, count: parseInt(match[1], 10) };
+      return { detected: true, count: parseInt(pickAt(match, 1, '0'), 10) };
     }
   }
 
@@ -554,9 +612,9 @@ export function parseTestsDetected(rawLog: string): QaTestsDetected {
     }
   }
 
-  const pytestCollectedMatch = clean.match(/\bcollected\s+(\d+)\s+items?\b/i);
+  const pytestCollectedMatch = /\bcollected\s+(\d+)\s+items?\b/i.exec(clean);
   if (pytestCollectedMatch) {
-    return { detected: true, count: parseInt(pytestCollectedMatch[1], 10) };
+    return { detected: true, count: parseInt(pickAt(pytestCollectedMatch, 1, '0'), 10) };
   }
 
   const tapOkMatches = clean.match(/^ok\s+\d+\b/gm);
@@ -582,7 +640,7 @@ export interface EvaluateQaStatusInput {
 function evaluateUnitStageStatus(
   coverage: QaCoverageSummary,
   testsDetected: QaTestsDetected
-): 'PASSED' | 'FAILED' | 'SKIPPED' {
+): QaStageStatus {
   if (testsDetected.detected && testsDetected.count === 0) {
     return STATUS_SKIPPED;
   }
@@ -599,14 +657,14 @@ function evaluateAllStageStatus(
   coverage: QaCoverageSummary,
   linterIssuesCount: number,
   testsDetected: QaTestsDetected
-): 'PASSED' | 'FAILED' | 'SKIPPED' {
+): QaStageStatus {
   if ((coverage.detected && !coverage.passed) || linterIssuesCount > 0) {
     return STATUS_FAILED;
   }
   return !testsDetected.detected || testsDetected.count === 0 ? STATUS_SKIPPED : STATUS_PASSED;
 }
 
-function evaluateQaStatus(input: EvaluateQaStatusInput): 'PASSED' | 'FAILED' | 'SKIPPED' {
+function evaluateQaStatus(input: EvaluateQaStatusInput): QaStageStatus {
   const { exitCode, stage, failedTestsCount, coverage, linterIssuesCount, testsDetected } = input;
   if (exitCode !== 0 || failedTestsCount > 0) {
     return STATUS_FAILED;

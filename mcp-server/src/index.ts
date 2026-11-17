@@ -2,85 +2,40 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
-import * as path from 'node:path';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import {
   CallToolRequestSchema,
-  ListResourcesRequestSchema,
-  ListToolsRequestSchema,
-  ReadResourceRequestSchema,
   type CallToolRequest,
   type CallToolResult,
-  type ReadResourceResult,
-  type Resource,
-  type Tool,
 } from '@modelcontextprotocol/sdk/types.js';
-import { createMcpServer, getRegisteredServerSurface } from './server.js';
-import type { ResourceLanguage } from './types.js';
-import { parseResourceUriAndLang, runWithResourceLang } from './resources/resourceLang.js';
+import {
+  createMcpServer,
+  getRegisteredServerSurface,
+  getServerDispatcherRegistry,
+  wrapReadResourceDispatcher,
+  type RawGenericHandler,
+} from './server.js';
 import { guardToolCallInput, type PromptGuardOptions } from './security/promptGuard.js';
-import { resolveSafeProjectPath } from './security/workspacePathValidator.js';
 import { runCli } from './cli.js';
 import { runInstallSkillCli } from './cli/install-skill.js';
 import { runInitAgentsCli } from './cli/init-agents-md.js';
 import { runReconcileAgentsCli } from './cli/reconcile-agents.js';
+import { runTmsSyncCli } from './integrations/tmsSyncCli.js';
 import { GitHubFetcher, MCP_SERVER_VERSION } from './services/github-fetcher.js';
 import { syncGlobalSkillsInBackground } from './services/version-manager.js';
 import { TaskGuardError, TaskStateGuard } from './utils/taskStateGuard.js';
 import { formatFailVerboseReport } from './utils/diagnosticFormatter.js';
-import {
-  VALIDATE_CALM_ARCHITECTURE_TOOL,
-  handleValidateCalmArchitecture,
-  type ValidateCalmArchitectureArgs,
-} from './tools/validateCalmArchitecture.js';
-import {
-  EVALUATE_RELEASE_GATE_TOOL,
-  handleEvaluateReleaseGate,
-  type EvaluateReleaseGateArgs,
-} from './tools/evaluateReleaseGate.js';
-import {
-  EVALUATE_AGENT_TRAJECTORY_TOOL,
-  handleEvaluateAgentTrajectory,
-  type EvaluateAgentTrajectoryArgs,
-} from './tools/evaluateAgentTrajectory.js';
-import {
-  RUN_LLM_RED_TEAM_TOOL,
-  handleRunLlmRedTeam,
-  type RunLlmRedTeamArgs,
-} from './tools/runLlmRedTeam.js';
-import {
-  AUDIT_VIBE_PROTOTYPE_TOOL,
-  handleAuditVibePrototype,
-  type AuditVibePrototypeArgs,
-} from './tools/auditVibePrototype.js';
-import { SYNC_ENTERPRISE_TMS_TOOL, handleSyncEnterpriseTms, runTmsSyncCli } from './integrations/tmsSyncCli.js';
-import {
-  SESSION_FLIGHT_RECORDER_TOOL,
-  handleSessionFlightRecorder,
-  type SessionFlightRecorderArgs,
-} from './tools/sessionFlightRecorder.js';
-import { AI_EVALS_REDTEAM_RESOURCE, readAiEvalsBlueprint } from './resources/aiEvalsBlueprint.js';
-import {
-  MOBILE_APPIUM_RESOURCE,
-  VIBE_RESCUE_RESOURCE,
-  readMobileAppiumBlueprint,
-  readVibeRescueBlueprint,
-} from './resources/stackBlueprints.js';
-import {
-  TACTICAL_PATTERNS_SKILL_RESOURCE,
-  readTacticalPatternsSkillResource,
-} from './resources/tacticalPatternsSkill.js';
+
+export { getServerDispatcherRegistry, type RawGenericHandler } from './server.js';
 
 const STDIO_MODE = 'stdio' as const;
 const STDIO_FORCED_MODE = 'stdio-forced' as const;
 const CONTENT_TYPE_TEXT = 'text' as const;
-const MARKDOWN_MIME_TYPE = 'text/markdown' as const;
 const V2_TASK_CAPACITY = 8;
 const V2_TOOL_TIMEOUT_MS = 60_000;
 const V2_HEAVY_TRANSFER_TIMEOUT_MS = 185_000;
 const INTERACTIVE_TTY_SYNC_TIMEOUT_MS = 300;
-const TRAVERSAL_SEG_RE = /(?:^|[\\/])\.\.(?:[\\/]|$)/;
 const PROMPT_GUARD_UNAVAILABLE_ERR =
   '[QA-PROMPT-GUARD] MCP server request handlers registry is unavailable.';
 
@@ -118,22 +73,24 @@ const CLI_SUBCOMMAND_RUNNERS: Readonly<Record<string, CliSubcommandRunner>> = {
   },
 };
 
-function dispatchCoreFlag(arg1: string | undefined): CliDispatchOutcome | undefined {
+function dispatchCoreFlag(
+  arg1: string | undefined
+): { readonly handled: true; readonly outcome: CliDispatchOutcome } | { readonly handled: false } {
   if (!arg1) {
-    return STDIO_MODE;
+    return { handled: true, outcome: STDIO_MODE };
   }
   if (arg1 === '--stdio') {
-    return STDIO_FORCED_MODE;
+    return { handled: true, outcome: STDIO_FORCED_MODE };
   }
   if (arg1 === '--version' || arg1 === '-v') {
     console.log(MCP_SERVER_VERSION);
-    return 0;
+    return { handled: true, outcome: 0 };
   }
   if (arg1 === '--help' || arg1 === '-h' || arg1 === 'help') {
     console.log(CLI_HELP_TEXT);
-    return 0;
+    return { handled: true, outcome: 0 };
   }
-  return undefined;
+  return { handled: false };
 }
 
 export async function dispatchCliArgs(
@@ -142,8 +99,8 @@ export async function dispatchCliArgs(
 ): Promise<CliDispatchOutcome> {
   const arg1 = args[0];
   const coreOutcome = dispatchCoreFlag(arg1);
-  if (coreOutcome !== undefined) {
-    return coreOutcome;
+  if (coreOutcome.handled) {
+    return coreOutcome.outcome;
   }
 
   if (arg1 === 'install-skill' || arg1 === 'install') {
@@ -156,8 +113,12 @@ export async function dispatchCliArgs(
     return cliResult.exitCode;
   }
 
-  if (arg1 && Object.hasOwn(CLI_SUBCOMMAND_RUNNERS, arg1)) {
-    return await CLI_SUBCOMMAND_RUNNERS[arg1](args.slice(1));
+  const subcommandRunner =
+    arg1 && Object.hasOwn(CLI_SUBCOMMAND_RUNNERS, arg1)
+      ? CLI_SUBCOMMAND_RUNNERS[arg1]
+      : undefined;
+  if (subcommandRunner) {
+    return await subcommandRunner(args.slice(1));
   }
 
   console.error(`❌ Unknown subcommand or flag: '${arg1}'. Run with --help to view available options.`);
@@ -180,91 +141,15 @@ type RawToolRequestHandler = (
   extra: unknown
 ) => Promise<CallToolResult> | CallToolResult;
 
-type RawGenericHandler = (request: unknown, extra: unknown) => Promise<unknown> | unknown;
+const GUARDED_CALL_HANDLERS = new WeakSet<RawGenericHandler>();
 
-type V2ToolExecutor = (args: unknown) => Promise<CallToolResult> | CallToolResult;
-
-interface ToolsListPayload {
-  tools: Tool[];
-  [key: string]: unknown;
-}
-
-interface ResourcesListPayload {
-  resources: Resource[];
-  [key: string]: unknown;
-}
-
-interface ResourceSnapshotResult {
-  uri: string;
-  mimeType: string;
-  text: string;
-}
-
-const V2_TOOL_DEFINITIONS: readonly Tool[] = [
-  VALIDATE_CALM_ARCHITECTURE_TOOL,
-  EVALUATE_RELEASE_GATE_TOOL,
-  EVALUATE_AGENT_TRAJECTORY_TOOL,
-  RUN_LLM_RED_TEAM_TOOL,
-  AUDIT_VIBE_PROTOTYPE_TOOL,
-  SYNC_ENTERPRISE_TMS_TOOL,
-  SESSION_FLIGHT_RECORDER_TOOL,
-];
-
-const V2_TOOL_HANDLERS: Readonly<Record<string, V2ToolExecutor>> = {
-  [VALIDATE_CALM_ARCHITECTURE_TOOL.name]: (args) =>
-    handleValidateCalmArchitecture(args as ValidateCalmArchitectureArgs | undefined),
-  [EVALUATE_RELEASE_GATE_TOOL.name]: (args) =>
-    handleEvaluateReleaseGate(args as EvaluateReleaseGateArgs | undefined),
-  [EVALUATE_AGENT_TRAJECTORY_TOOL.name]: async (args) =>
-    await handleEvaluateAgentTrajectory(args as EvaluateAgentTrajectoryArgs | undefined),
-  [RUN_LLM_RED_TEAM_TOOL.name]: async (args) =>
-    await handleRunLlmRedTeam(args as RunLlmRedTeamArgs | undefined),
-  [AUDIT_VIBE_PROTOTYPE_TOOL.name]: (args) =>
-    handleAuditVibePrototype(args as AuditVibePrototypeArgs | undefined),
-  [SYNC_ENTERPRISE_TMS_TOOL.name]: async (args) => await handleSyncEnterpriseTms(args),
-  [SESSION_FLIGHT_RECORDER_TOOL.name]: async (args) =>
-    await handleSessionFlightRecorder(args as SessionFlightRecorderArgs | undefined),
-};
-
-const V1_TEMPLATE_RESOURCES: readonly Resource[] = [
-  {
-    uri: 'blueprint://{stack}/readme',
-    name: 'blueprint-stack-readme',
-    description: 'Operational testing and QA guide for the requested stack.',
-    mimeType: MARKDOWN_MIME_TYPE,
-  },
-  {
-    uri: 'blueprint://ui/refactoring-ui/{topic}',
-    name: 'blueprint-refactoring-ui',
-    description: 'Tactical UI design and WCAG 2.1 AA accessibility rules from Refactoring UI.',
-    mimeType: MARKDOWN_MIME_TYPE,
-  },
-];
-
-const V2_RESOURCE_DEFINITIONS: readonly Resource[] = [
-  AI_EVALS_REDTEAM_RESOURCE,
-  MOBILE_APPIUM_RESOURCE,
-  VIBE_RESCUE_RESOURCE,
-  TACTICAL_PATTERNS_SKILL_RESOURCE,
-];
-
-const EXTRA_LISTED_RESOURCES: readonly Resource[] = [
-  ...V1_TEMPLATE_RESOURCES,
-  ...V2_RESOURCE_DEFINITIONS,
-];
-
-/** Derives exact registered tool and resource counts from an McpServer plus V2 extensions. */
+/** Derives exact registered tool and resource counts from an McpServer instance. */
 export function getRegisteredSurfaceCounts(mcpServer: McpServer): McpSurfaceCounts {
   const registered = getRegisteredServerSurface(mcpServer);
-  const toolNames = new Set<string>(registered?.toolNames ?? []);
-  for (const tool of V2_TOOL_DEFINITIONS) {
-    toolNames.add(tool.name);
-  }
-  const resourceUris = new Set<string>(registered?.resourceUris ?? []);
-  for (const res of EXTRA_LISTED_RESOURCES) {
-    resourceUris.add(res.uri);
-  }
-  return { tools: toolNames.size, resources: resourceUris.size };
+  return {
+    tools: registered?.toolNames.size ?? 0,
+    resources: registered?.resourceUris.size ?? 0,
+  };
 }
 
 /** Creates an McpServer wrapped with promptGuard and returns its live surface counts. */
@@ -289,9 +174,9 @@ export function getCliHelpText(counts: McpSurfaceCounts = DEFAULT_SURFACE_COUNTS
 
 Usage:
   npx -y @sinfallas/mcp-qa-11x@latest quickstart [dir] [--tier starter|standard|enterprise] [--lang en|es] [--dry-run]
-                                                                                     Detects stack & scaffolds QA-11X in <30s
+                                                     Detects stack & scaffolds QA-11X in <30s
   npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts --reconcile
-                                                                                     Installs skills, scripts, and AGENTS.md connector
+                                                     Installs skills, scripts, and AGENTS.md connector
   npx -y @sinfallas/mcp-qa-11x@latest init-agents                                   Injects or updates QA 11X connector in AGENTS.md
   npx -y @sinfallas/mcp-qa-11x@latest reconcile-agents                             Reconciles and deduplicates rules in .agents/
   npx -y @sinfallas/mcp-qa-11x@latest tms-sync --mode <mode> [options]              Syncs Jira/Zephyr/Xray/GitHub Issues traceability
@@ -352,36 +237,6 @@ Running without arguments starts the JSON-RPC MCP server (${formatSurfaceSummary
 export const CLI_HELP_TEXT = getCliHelpText(DEFAULT_SURFACE_COUNTS);
 export const INTERACTIVE_TTY_NOTICE = getInteractiveTtyNotice(DEFAULT_SURFACE_COUNTS);
 
-function toReadResourceResult(
-  res: ResourceSnapshotResult,
-  requestedUri: string
-): ReadResourceResult {
-  return {
-    contents: [{ uri: requestedUri, mimeType: res.mimeType, text: res.text }],
-  };
-}
-
-const V2_RESOURCE_READERS: Readonly<
-  Record<string, (lang: ResourceLanguage, requestedUri: string) => ReadResourceResult>
-> = {
-  [AI_EVALS_REDTEAM_RESOURCE.uri]: (lang, requestedUri) =>
-    toReadResourceResult(readAiEvalsBlueprint(undefined, lang), requestedUri),
-  [MOBILE_APPIUM_RESOURCE.uri]: (lang, requestedUri) =>
-    toReadResourceResult(readMobileAppiumBlueprint(undefined, lang), requestedUri),
-  [VIBE_RESCUE_RESOURCE.uri]: (lang, requestedUri) =>
-    toReadResourceResult(readVibeRescueBlueprint(undefined, lang), requestedUri),
-  [TACTICAL_PATTERNS_SKILL_RESOURCE.uri]: (lang, requestedUri) =>
-    toReadResourceResult(readTacticalPatternsSkillResource(undefined, lang), requestedUri),
-};
-
-function getRequestHandlersMap(mcpServer: McpServer): Map<string, RawGenericHandler> {
-  const handlers: unknown = Reflect.get(mcpServer.server, '_requestHandlers');
-  if (!(handlers instanceof Map)) {
-    throw new Error(PROMPT_GUARD_UNAVAILABLE_ERR);
-  }
-  return handlers as Map<string, RawGenericHandler>;
-}
-
 function getRequiredCallToolHandler(handlers: Map<string, RawGenericHandler>): RawToolRequestHandler {
   const methodName = CallToolRequestSchema.shape.method.value;
   const existing = handlers.get(methodName);
@@ -391,127 +246,11 @@ function getRequiredCallToolHandler(handlers: Map<string, RawGenericHandler>): R
   return existing as RawToolRequestHandler;
 }
 
-function isRecordObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function wrapListToolsHandler(mcpServer: McpServer, handlers: Map<string, RawGenericHandler>): void {
-  const methodName = ListToolsRequestSchema.shape.method.value;
-  const existing = handlers.get(methodName);
-  if (typeof existing !== 'function') {
-    return;
-  }
-
-  mcpServer.server.setRequestHandler(ListToolsRequestSchema, async (request, extra) => {
-    const rawResult = await existing(request, extra);
-    const payload: ToolsListPayload =
-      isRecordObject(rawResult) && Array.isArray(rawResult.tools)
-        ? (rawResult as ToolsListPayload)
-        : { tools: [] };
-    const existingNames = new Set(payload.tools.map((tool) => tool.name));
-    const missingV2 = V2_TOOL_DEFINITIONS.filter((tool) => !existingNames.has(tool.name));
-    return {
-      ...payload,
-      tools: [...payload.tools, ...missingV2],
-    };
-  });
-}
-
-function wrapListResourcesHandler(
-  mcpServer: McpServer,
-  handlers: Map<string, RawGenericHandler>
-): void {
-  const methodName = ListResourcesRequestSchema.shape.method.value;
-  const existing = handlers.get(methodName);
-  if (typeof existing !== 'function') {
-    return;
-  }
-
-  mcpServer.server.setRequestHandler(ListResourcesRequestSchema, async (request, extra) => {
-    const rawResult = await existing(request, extra);
-    const payload: ResourcesListPayload =
-      isRecordObject(rawResult) && Array.isArray(rawResult.resources)
-        ? (rawResult as ResourcesListPayload)
-        : { resources: [] };
-    const existingUris = new Set(payload.resources.map((res) => res.uri));
-    const missingResources = EXTRA_LISTED_RESOURCES.filter((res) => !existingUris.has(res.uri));
-    return {
-      ...payload,
-      resources: [...payload.resources, ...missingResources],
-    };
-  });
-}
-
-function wrapReadResourceHandler(
-  mcpServer: McpServer,
-  handlers: Map<string, RawGenericHandler>
-): void {
-  const methodName = ReadResourceRequestSchema.shape.method.value;
-  const existing = handlers.get(methodName);
-  if (typeof existing !== 'function') {
-    return;
-  }
-
-  mcpServer.server.setRequestHandler(ReadResourceRequestSchema, async (request, extra) => {
-    const requestedUri = request.params.uri;
-    const { baseUri, lang } = parseResourceUriAndLang(requestedUri);
-    if (Object.hasOwn(V2_RESOURCE_READERS, baseUri)) {
-      return V2_RESOURCE_READERS[baseUri](lang, requestedUri);
-    }
-    const rewrittenRequest =
-      baseUri === requestedUri
-        ? request
-        : { ...request, params: { ...request.params, uri: baseUri } };
-    const result = (await runWithResourceLang(lang, () =>
-      existing(rewrittenRequest, extra)
-    )) as ReadResourceResult;
-    if (baseUri !== requestedUri && Array.isArray(result.contents)) {
-      return {
-        ...result,
-        contents: result.contents.map((item) => ({ ...item, uri: requestedUri })),
-      };
-    }
-    return result;
-  });
-}
-
 interface ProtectedToolContext {
   readonly nextRequest: CallToolRequest;
   readonly extra: unknown;
   readonly existingCallHandler: RawToolRequestHandler;
   readonly taskGuard: TaskStateGuard;
-}
-
-function resolveV2TargetDirPath(rawTargetDir: string, rawWorkspaceRoot: unknown): string {
-  const normalizedTarget = rawTargetDir.normalize('NFKC').trim();
-  if (
-    normalizedTarget.length === 0 ||
-    normalizedTarget.includes('\0') ||
-    TRAVERSAL_SEG_RE.test(normalizedTarget) ||
-    path.isAbsolute(normalizedTarget)
-  ) {
-    return resolveSafeProjectPath(rawTargetDir);
-  }
-  const baseRoot =
-    typeof rawWorkspaceRoot === 'string'
-      ? resolveSafeProjectPath(rawWorkspaceRoot)
-      : resolveSafeProjectPath(process.cwd());
-  return resolveSafeProjectPath(path.resolve(baseRoot, normalizedTarget));
-}
-
-function validateV2ToolWorkspaceArgs(rawArgs: unknown): void {
-  if (!isRecordObject(rawArgs)) {
-    return;
-  }
-  if (typeof rawArgs.workspaceRoot === 'string') {
-    resolveSafeProjectPath(rawArgs.workspaceRoot);
-  }
-  if (typeof rawArgs.project_path === 'string') {
-    resolveSafeProjectPath(rawArgs.project_path);
-  }
-  if (typeof rawArgs.targetDir === 'string') {
-    resolveV2TargetDirPath(rawArgs.targetDir, rawArgs.workspaceRoot);
-  }
 }
 
 async function executeProtectedTool(
@@ -522,13 +261,7 @@ async function executeProtectedTool(
   const startedAt = Date.now();
   try {
     return await taskGuard.executeTask(
-      async () => {
-        if (Object.hasOwn(V2_TOOL_HANDLERS, toolName)) {
-          validateV2ToolWorkspaceArgs(nextRequest.params.arguments);
-          return await V2_TOOL_HANDLERS[toolName](nextRequest.params.arguments);
-        }
-        return await existingCallHandler(nextRequest, extra);
-      },
+      async () => await existingCallHandler(nextRequest, extra),
       { taskId: `${toolName}-${startedAt}` }
     );
   } catch (err) {
@@ -549,8 +282,16 @@ async function executeProtectedTool(
 }
 
 export function attachPromptGuard(mcpServer: McpServer, options?: AttachGuardOptions): McpServer {
-  const handlers = getRequestHandlersMap(mcpServer);
+  const handlers = getServerDispatcherRegistry(mcpServer);
+  if (!handlers) {
+    throw new Error(PROMPT_GUARD_UNAVAILABLE_ERR);
+  }
   const existingCallHandler = getRequiredCallToolHandler(handlers);
+  if (GUARDED_CALL_HANDLERS.has(existingCallHandler as unknown as RawGenericHandler)) {
+    wrapReadResourceDispatcher(mcpServer);
+    return mcpServer;
+  }
+
   const taskGuard =
     options?.taskGuard ??
     new TaskStateGuard({
@@ -559,11 +300,12 @@ export function attachPromptGuard(mcpServer: McpServer, options?: AttachGuardOpt
       heavyTransferTimeoutMs: V2_HEAVY_TRANSFER_TIMEOUT_MS,
     });
 
-  wrapListToolsHandler(mcpServer, handlers);
-  wrapListResourcesHandler(mcpServer, handlers);
-  wrapReadResourceHandler(mcpServer, handlers);
+  wrapReadResourceDispatcher(mcpServer);
 
-  mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
+  const guardedCallHandler = async (
+    request: CallToolRequest,
+    extra: unknown
+  ): Promise<CallToolResult> => {
     const verdict = guardToolCallInput(request.params.name, request.params.arguments, options);
     if (verdict.blocked) {
       return {
@@ -593,7 +335,10 @@ export function attachPromptGuard(mcpServer: McpServer, options?: AttachGuardOpt
       existingCallHandler,
       taskGuard,
     });
-  });
+  };
+
+  GUARDED_CALL_HANDLERS.add(guardedCallHandler as unknown as RawGenericHandler);
+  mcpServer.server.setRequestHandler(CallToolRequestSchema, guardedCallHandler);
 
   return mcpServer;
 }
@@ -688,7 +433,7 @@ const isDirectExecution =
     process.argv[1].endsWith('mcp-qa-11x'));
 
 if (isDirectExecution) {
-  main().catch((err) => {
+  main().catch((err: unknown) => {
     console.error('Fatal error in @sinfallas/mcp-qa-11x:', err);
     process.exit(1);
   });

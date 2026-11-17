@@ -173,14 +173,17 @@ function normalizeStackIdentifier(stackOrUri: string): string {
 
 function resolveDescriptor(stackOrUri: string): V2StackBlueprintDescriptor {
   const stackId = normalizeStackIdentifier(stackOrUri);
-  if (!Object.prototype.hasOwnProperty.call(V2_STACK_BLUEPRINTS, stackId)) {
+  const descriptor = Object.prototype.hasOwnProperty.call(V2_STACK_BLUEPRINTS, stackId)
+    ? V2_STACK_BLUEPRINTS[stackId]
+    : undefined;
+  if (!descriptor) {
     const valid = Object.keys(V2_STACK_BLUEPRINTS).join(', ');
     throw new StackBlueprintResolutionError(
       stackOrUri,
       `Blueprint v2 '${stackId}' no registrado. Opciones disponibles: ${valid}.`,
     );
   }
-  return V2_STACK_BLUEPRINTS[stackId];
+  return descriptor;
 }
 
 function isContainedPath(rootDir: string, candidatePath: string): boolean {

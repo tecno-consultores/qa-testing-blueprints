@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
+import type { execFileSync } from 'node:child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   ALPINE_FALLBACK_IMAGE,
   cleanWorkspace11x,
@@ -49,10 +52,10 @@ describe('11X Comprehensive Branch and Edge-Case Coverage Suite', () => {
 
       const result = await cleanWorkspace11x(tempDir, false, true, {
         fallbackExecutor: (baseDir, targets) =>
-          executeAlpineFallback(baseDir, targets, (() => {
+          executeAlpineFallback(baseDir, targets, ((() => {
             if (fs.existsSync(targetFile)) fs.unlinkSync(targetFile);
             return Buffer.from('');
-          }) as any),
+          }) as unknown as typeof execFileSync)),
         targetRemover: (baseDir) => removeTarget(baseDir, 'non-existent-to-trigger-catch'),
       });
 
@@ -68,7 +71,7 @@ describe('11X Comprehensive Branch and Edge-Case Coverage Suite', () => {
       const mockExecFile = ((cmd: string, args: readonly string[]) => {
         recordedCalls.push({ cmd, args });
         return Buffer.from('');
-      }) as any;
+      }) as unknown as typeof execFileSync;
 
       const maliciousBase = '/tmp/proj"; $(touch /tmp/pwned); #';
       const ok = executeAlpineFallback(
@@ -79,18 +82,23 @@ describe('11X Comprehensive Branch and Edge-Case Coverage Suite', () => {
 
       expect(ok).toBe(true);
       expect(recordedCalls.length).toBe(1);
-      expect(recordedCalls[0].cmd).toBe('docker');
-      expect(recordedCalls[0].args).toContain(ALPINE_FALLBACK_IMAGE);
-      expect(recordedCalls[0].args).toContain(
+      const firstCall = recordedCalls[0];
+      expect(firstCall).toBeDefined();
+      if (!firstCall) {
+        throw new Error('Expected at least one recorded docker call');
+      }
+      expect(firstCall.cmd).toBe('docker');
+      expect(firstCall.args).toContain(ALPINE_FALLBACK_IMAGE);
+      expect(firstCall.args).toContain(
         'alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab'
       );
-      const netIdx = recordedCalls[0].args.indexOf('--network');
+      const netIdx = firstCall.args.indexOf('--network');
       expect(netIdx).toBeGreaterThan(-1);
-      expect(recordedCalls[0].args[netIdx + 1]).toBe('none');
-      expect(recordedCalls[0].args).toContain(`${maliciousBase}:/workspace`);
-      expect(recordedCalls[0].args).toContain('/workspace/coverage');
-      expect(recordedCalls[0].args).not.toContain('/workspace/../outside');
-      expect(recordedCalls[0].args).not.toContain('/workspace//etc/passwd');
+      expect(firstCall.args[netIdx + 1]).toBe('none');
+      expect(firstCall.args).toContain(`${maliciousBase}:/workspace`);
+      expect(firstCall.args).toContain('/workspace/coverage');
+      expect(firstCall.args).not.toContain('/workspace/../outside');
+      expect(firstCall.args).not.toContain('/workspace//etc/passwd');
 
       // Rechaza baseDir vacío, con NUL o traversal ..
       expect(executeAlpineFallback('', ['coverage'], mockExecFile)).toBe(false);
@@ -103,7 +111,7 @@ describe('11X Comprehensive Branch and Edge-Case Coverage Suite', () => {
       // Retorna false cuando execFileSync lanza excepción
       const throwingExec = (() => {
         throw new Error('docker daemon unavailable');
-      }) as any;
+      }) as unknown as typeof execFileSync;
       expect(executeAlpineFallback(tempDir, ['coverage'], throwingExec)).toBe(false);
 
       // Fallback por defecto (executeAlpineFallback) cuando no se inyecta fallbackExecutor
@@ -135,11 +143,11 @@ describe('11X Comprehensive Branch and Edge-Case Coverage Suite', () => {
       ].join('\n');
 
       const issues = parseLinterAndComplexity(log);
-      const scIssues = issues.filter((i) => i.rule.startsWith('shellcheck-'));
+      const scIssues = issues.filter((i) => i.rule?.startsWith('shellcheck-'));
       expect(scIssues.length).toBe(1);
-      expect(scIssues[0].file).toBe('scripts/deploy.sh');
-      expect(scIssues[0].line).toBe(42);
-      expect(scIssues[0].rule).toBe('shellcheck-SC2086');
+      expect(scIssues[0]?.file).toBe('scripts/deploy.sh');
+      expect(scIssues[0]?.line).toBe(42);
+      expect(scIssues[0]?.rule).toBe('shellcheck-SC2086');
     });
 
     it('parsea mypy, ruff y eslint sin reglas entre corchetes o con lineNum no numérico', () => {
@@ -167,10 +175,10 @@ FAILED tests/empty_failure.py
       `;
       const failures = parseFailedTests(log);
       expect(failures.length).toBe(3);
-      expect(failures[0].test_name).toBe('tests/test_flow.py::test_step_two');
-      expect(failures[0].error_summary).toContain('Expected status 200');
-      expect(failures[1].test_name).toBe('- generic error without test name');
-      expect(failures[2].error_summary).toBe('Assertion failed');
+      expect(failures[0]?.test_name).toBe('tests/test_flow.py::test_step_two');
+      expect(failures[0]?.error_summary).toContain('Expected status 200');
+      expect(failures[1]?.test_name).toBe('- generic error without test name');
+      expect(failures[2]?.error_summary).toBe('Assertion failed');
     });
 
     it('parsea fallos de BATS y Vitest sin detalles en líneas subsiguientes', () => {
@@ -180,8 +188,8 @@ FAIL tests/simple.unit.ts > testSingle
       `;
       const failures = parseFailedTests(log);
       expect(failures.length).toBe(2);
-      expect(failures[0].error_summary).toBe('BATS assertion failed');
-      expect(failures[1].error_summary).toBe('Test assertion failed');
+      expect(failures[0]?.error_summary).toBe('BATS assertion failed');
+      expect(failures[1]?.error_summary).toBe('Test assertion failed');
     });
 
     it('parsea radon con líneas incompletas o sin espacio de calificación', () => {
@@ -192,7 +200,7 @@ file_without_colon.py: error: some error
       `;
       const issues = parseLinterAndComplexity(log);
       expect(issues.length).toBe(1);
-      expect(issues[0].line).toBe(1);
+      expect(issues[0]?.line).toBe(1);
     });
 
     it('parsea pytest coverage con fila sin números de línea faltantes explícitos', () => {
@@ -202,7 +210,7 @@ src/core/auth.py 50 2 96.0%
       `;
       const cov = parseCoverage(output);
       expect(cov.detected).toBe(true);
-      expect(cov.uncovered_files[0].missing_lines).toBe('Uncovered lines');
+      expect(cov.uncovered_files[0]?.missing_lines).toBe('Uncovered lines');
     });
 
     it('parseTailLog retorna cadena vacía cuando la entrada está vacía', () => {
@@ -238,7 +246,7 @@ src/core/auth.py 50 2 96.0%
           target_name: '.gitignore',
           merge_strategy: 'append_missing_lines' as const,
           content: 'dist/\ncoverage/\n.env\n',
-          sha256: 'abc',
+          sha256_verified: true,
           size_bytes: 30,
         },
       ];
@@ -246,13 +254,13 @@ src/core/auth.py 50 2 96.0%
       // Modo dryRun = true
       const dryResult = await merger.mergeFiles(tempDir, bundle, { dryRun: true });
       expect(dryResult.dry_run).toBe(true);
-      expect(dryResult.applied_changes[0].status).toBe('dry_run');
-      expect(dryResult.applied_changes[0].changes).toContain('Añadida regla: "coverage/"');
+      expect(dryResult.applied_changes[0]?.status).toBe('dry_run');
+      expect(dryResult.applied_changes[0]?.changes).toContain('Añadida regla: "coverage/"');
 
       // Modo dryRun = false
       const liveResult = await merger.mergeFiles(tempDir, bundle, { dryRun: false });
       expect(liveResult.dry_run).toBe(false);
-      expect(liveResult.applied_changes[0].status).toBe('merged');
+      expect(liveResult.applied_changes[0]?.status).toBe('merged');
       const updatedContent = fs.readFileSync(gitignorePath, 'utf-8');
       expect(updatedContent).toContain('coverage/');
       expect(updatedContent).toContain('.env');
@@ -269,13 +277,13 @@ src/core/auth.py 50 2 96.0%
           target_name: '.npmrc',
           merge_strategy: 'append_missing_lines' as const,
           content: 'ignore-scripts=true\n',
-          sha256: 'xyz',
+          sha256_verified: true,
           size_bytes: 20,
         },
       ];
 
       const res = await merger.mergeFiles(tempDir, bundle, { dryRun: false });
-      expect(res.applied_changes[0].status).toBe('skipped');
+      expect(res.applied_changes[0]?.status).toBe('skipped');
     });
 
     it('fusiona pyproject.toml cuando ya existen herramientas configuradas', async () => {
@@ -301,13 +309,13 @@ strict = true
           target_name: 'pyproject.toml',
           merge_strategy: 'surgical_merge' as const,
           content: exampleContent,
-          sha256: 'tomlhash',
+          sha256_verified: true,
           size_bytes: exampleContent.length,
         },
       ];
 
       const res = await merger.mergeFiles(tempDir, bundle, { dryRun: false });
-      expect(res.applied_changes[0].status).toBe('merged');
+      expect(res.applied_changes[0]?.status).toBe('merged');
       const content = fs.readFileSync(pyprojectPath, 'utf-8');
       expect(content).toContain('[tool.mypy]');
     });
@@ -407,7 +415,7 @@ strict = true
       const res = await auditSecurityStigOwasp(tempDir);
       const sec10s = res.findings.filter((f) => f.rule_id === 'SEC-10');
       expect(sec10s.length).toBeGreaterThanOrEqual(2);
-      expect(sec10s[0].severity).toBe('CRITICAL');
+      expect(sec10s[0]?.severity).toBe('CRITICAL');
     });
 
     it('detecta footer fijo con inline style position: fixed en componente TSX o JSX', async () => {
@@ -480,9 +488,7 @@ strict = true
       });
 
       const origFetch = globalThis.fetch;
-      globalThis.fetch = async () => {
-        throw new Error('Simulated network offline');
-      };
+      globalThis.fetch = () => Promise.reject(new Error('Simulated network offline'));
       try {
         // readLocalManifest no encuentra manifest.json y cae al cache (línea 49 cubierta)
         const manifest = await fetcher.fetchManifest();
@@ -514,9 +520,7 @@ strict = true
 
       const fetcher = new GitHubFetcher({ cacheDir });
       const origFetch = globalThis.fetch;
-      globalThis.fetch = async () => {
-        throw new Error('Network offline');
-      };
+      globalThis.fetch = () => Promise.reject(new Error('Network offline'));
       try {
         const manifest = await fetcher.fetchManifest();
         expect(manifest.blueprint_version).toBe('2.7.0');
@@ -531,9 +535,7 @@ strict = true
 
       const fetcher = new GitHubFetcher({ cacheDir });
       const origFetch = globalThis.fetch;
-      globalThis.fetch = async () => {
-        throw 'NonErrorString';
-      };
+      globalThis.fetch = vi.fn().mockRejectedValue('NonErrorString');
       try {
         await expect(fetcher.fetchManifest()).rejects.toThrow('NonErrorString');
       } finally {
@@ -576,8 +578,8 @@ strict = true
       };
 
       const fetcher = new GitHubFetcher({ cacheDir: path.join(tempDir, 'cache') });
-      fetcher.fetchManifest = async () => dummyManifest;
-      fetcher.fetchFileContent = async () => '#!/bin/bash\necho "limpio"\n';
+      fetcher.fetchManifest = () => Promise.resolve(dummyManifest);
+      fetcher.fetchFileContent = () => Promise.resolve('#!/bin/bash\necho "limpio"\n');
 
       const resources = new BlueprintResources(fetcher);
       const stackRes = await resources.getStackReadmeResource('custom');
@@ -602,46 +604,60 @@ strict = true
     it('ejecuta herramientas de server.ts con argumentos por defecto y opcionales', async () => {
       const fetcher = new GitHubFetcher({ cacheDir: path.join(tempDir, 'cache') });
       const server = createMcpServer({ fetcher });
-      const serverAny = server as unknown as {
-        _registeredTools: Record<
-          string,
-          { handler: (args: Record<string, unknown>) => Promise<{ content: Array<{ text: string }> }> }
-        >;
+      const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+      const client = new Client({ name: 'edge-cases-client', version: '1.0.0' });
+      const readFirstText = (res: Awaited<ReturnType<Client['callTool']>>): string => {
+        const content = 'content' in res && Array.isArray(res.content) ? res.content : [];
+        const first = content[0] as { text?: string } | undefined;
+        return first?.text ?? '';
       };
 
-      const toolClean = serverAny._registeredTools['clean_workspace_11x'];
-      expect(toolClean).toBeDefined();
+      await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+      try {
+        // clean_workspace_11x con dry_run y deep_prune omitidos (por defecto true y false)
+        const resCleanDefault = await client.callTool({
+          name: 'clean_workspace_11x',
+          arguments: { project_path: tempDir },
+        });
+        expect(readFirstText(resCleanDefault)).toContain('"dry_run":true');
+        expect(readFirstText(resCleanDefault)).toContain('"deep_prune":false');
 
-      // clean_workspace_11x con dry_run y deep_prune omitidos (por defecto true y false)
-      const resCleanDefault = await toolClean.handler({ project_path: tempDir });
-      expect(resCleanDefault.content[0].text).toContain('"dry_run":true');
-      expect(resCleanDefault.content[0].text).toContain('"deep_prune":false');
+        // clean_workspace_11x con valores explícitos
+        const resCleanExplicit = await client.callTool({
+          name: 'clean_workspace_11x',
+          arguments: {
+            project_path: tempDir,
+            dry_run: false,
+            deep_prune: true,
+          },
+        });
+        expect(readFirstText(resCleanExplicit)).toContain('"dry_run":false');
+        expect(readFirstText(resCleanExplicit)).toContain('"deep_prune":true');
 
-      // clean_workspace_11x con valores explícitos
-      const resCleanExplicit = await toolClean.handler({
-        project_path: tempDir,
-        dry_run: false,
-        deep_prune: true,
-      });
-      expect(resCleanExplicit.content[0].text).toContain('"dry_run":false');
-      expect(resCleanExplicit.content[0].text).toContain('"deep_prune":true');
+        // inspect_ast_blast_radius con max_items explícito
+        const resBlast = await client.callTool({
+          name: 'inspect_ast_blast_radius',
+          arguments: {
+            project_path: tempDir,
+            target_symbol: 'DummySymbol',
+            max_items: 10,
+          },
+        });
+        expect(readFirstText(resBlast)).toContain('"target_symbol":"DummySymbol"');
 
-      // inspect_ast_blast_radius con max_items explícito
-      const toolBlast = serverAny._registeredTools['inspect_ast_blast_radius'];
-      const resBlast = await toolBlast.handler({
-        project_path: tempDir,
-        target_symbol: 'DummySymbol',
-        max_items: 10,
-      });
-      expect(resBlast.content[0].text).toContain('"target_symbol":"DummySymbol"');
-
-      // run_ephemeral_qa con timeout_seconds omitido (por defecto 120)
-      const toolQa = serverAny._registeredTools['run_ephemeral_qa'];
-      const resQa = await toolQa.handler({
-        project_path: tempDir,
-        stage: 'unit',
-      });
-      expect(resQa.content[0].text).toContain('"status"');
+        // run_ephemeral_qa con timeout_seconds usando valor por defecto
+        const resQa = await client.callTool({
+          name: 'run_ephemeral_qa',
+          arguments: {
+            project_path: tempDir,
+            stage: 'unit',
+          },
+        });
+        expect(readFirstText(resQa)).toContain('"status"');
+      } finally {
+        await client.close();
+        await server.close();
+      }
     });
   });
 
@@ -681,20 +697,19 @@ strict = true
         };
 
         const fetcher = new GitHubFetcher({ cacheDir: path.join(tempDir, 'cache') });
-        fetcher.fetchManifest = async () => fakeManifest;
-        fetcher.fetchFileContent = async () => '# Skill content';
+        fetcher.fetchManifest = () => Promise.resolve(fakeManifest);
+        fetcher.fetchFileContent = () => Promise.resolve('# Skill content');
 
         const destDir = path.join(tempDir, '.agents', 'skills');
         fs.mkdirSync(destDir, { recursive: true });
 
-        const origCwd = process.cwd;
-        process.cwd = () => tempDir;
+        const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tempDir);
 
         try {
           await runInstallSkillCli(['--target', 'workspace'], fetcher);
           expect(fs.existsSync(path.join(tempDir, '.agents', 'skills', 'qa-11x-architect', 'SKILL.md'))).toBe(true);
         } finally {
-          process.cwd = origCwd;
+          cwdSpy.mockRestore();
         }
       } finally {
         if (origHome === undefined) {

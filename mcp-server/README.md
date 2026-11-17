@@ -7,7 +7,7 @@
 
 Official Model Context Protocol (**MCP**) server and zero-friction CLI installer for [**QA Testing Blueprints (QA-11X v3.1 — v3.1.0)**](https://github.com/tecno-consultores/qa-testing-blueprints).
 
-Designed for AI coding agents (**Google Antigravity**, **Claude Code / Desktop**, **Cursor**, **Windsurf**, **OpenAI Codex CLI**, **VS Code Copilot**, **Hermes Agent**, and **27+ agents**) to onboard repositories in **< 30 seconds**, audit **19 MCP tools**, query **13 cryptographic `blueprint://*` resources**, and enforce ephemeral **Docker Rule Zero**, **DISA ASD STIG V6R5**, **OWASP v4.2**, **FINOS CALM**, and **Dual-Mode AI Evals** without cloning the full blueprints repository.
+Designed for AI coding agents (**Google Antigravity**, **Claude Code / Desktop**, **Cursor**, **Windsurf**, **OpenAI Codex CLI**, **VS Code Copilot**, **Hermes Agent**, and **27+ agents**) to onboard repositories in **< 30 seconds**, audit **19 MCP tools**, query **13 cryptographic `blueprint://*` resources** (11 static URIs + 2 URI templates), and enforce ephemeral **Docker Rule Zero**, **DISA ASD STIG V6R5**, **OWASP v4.2**, **FINOS CALM**, and **Dual-Mode AI Evals** without cloning the full blueprints repository.
 
 ---
 
@@ -70,7 +70,7 @@ See the full 27+ client setup matrix in [`docs/agent-setup.md`](https://github.c
 * **Fail-Closed `promptGuard` Interceptor:** Wraps `tools/call` across all 19 tools with Unicode `NFKC` canonicalization, zero-width / Trojan Source stripping, prompt-injection & `QA-GIT-GATE-01` (`git push` / `npm publish`) bypass blocking, and PII / secret redaction before dispatching handlers.
 * **`SEC-PATH-01` Workspace Path Confinement (`QA11X_WORKSPACE_ROOTS`):** Validates `project_path`, `workspaceRoot`, and `targetDir` via `resolveSafeProjectPath`, blocking directory traversal (`..`), NUL bytes, symlinks outside allowed roots, critical system paths (`/`, `/etc`, `/usr`, ...), `$HOME`, and bare `os.tmpdir()`. Set `QA11X_WORKSPACE_ROOTS` (delimiter-separated paths) to authorize additional workspace roots outside `process.cwd()`.
 * **`TaskStateGuard` & `Fail-Verbose` Diagnostics:** Bounds concurrent MCP tool execution capacity, isolates hung/broken tasks with explicit timeouts (`60s` standard / `>= 180s` heavy transfers), purges 0-byte failed transfer artifacts, bounds interactive TTY skill auto-sync (`< 5s` fail-open to `stderr`), and formats actionable Allure-ready `Fail-Verbose` reports (`diagnosticFormatter.ts`).
-* **Offline & Local LLM A2A Card:** Supports air-gapped Ollama / vLLM evaluators and publishes a discovery descriptor via [`agentCard.ts`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/src/a2a/agentCard.ts) (`v3.1.0`).
+* **Offline & Local LLM A2A Card (Internal Programmatic Library Module):** Supports air-gapped Ollama / vLLM evaluators and exposes [`src/a2a/agentCard.ts`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/src/a2a/agentCard.ts) (`v3.1.0`) exclusively as an **internal programmatic library module** (not exposed as a public MCP tool or resource over `stdio`).
 
 ---
 
@@ -105,14 +105,16 @@ Led by `qa-11x-architect` (`< 12 KB`), loading 10 specialized sub-skills on dema
 
 ---
 
-## 📚 MCP Resources (13 Resources — v3.1)
+## 📚 MCP Resources (13 Resources: 11 Static URIs + 2 URI Templates — v3.1)
+
+> **Surface Breakdown:** **11 static URIs** returned by `resources/list` + **2 URI templates** (`blueprint://{stack}/readme`, `blueprint://ui/refactoring-ui/{topic}`) returned by `resources/templates/list`.
 
 1. **`blueprint://manifest`:** Real-time SHA-256 index (`manifest.json`) tracking blueprint artifacts across all supported stacks.
 2. **`blueprint://core/philosophy`:** Level-11X 13-layer pyramid specification, Rule Zero, 10 Laws, and 11 Anti-Blindness UAT Rules.
-3. **`blueprint://security/disa-owasp-22`:** Catalog of 22 DISA ASD STIG V6R5 and OWASP Developer Guide v4.2 hardening patterns.
+3. **`blueprint://security/disa-owasp-22`:** Catalog of 22 DISA ASD STIG V6R5 and OWASP Developer Guide v4.2 reference controls + 34 static scanner rules.
 4. **`blueprint://database/postgres-rls-worm`:** PostgreSQL 17 multi-transaction RLS (`after_begin`) + deterministic WORM audit chain (`seq_num` + `pg_advisory_xact_lock`).
-5. **`blueprint://{stack}/readme`:** Operational QA guides across all **10 stacks**: `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, and `vibe-rescue`.
-6. **`blueprint://ui/refactoring-ui/{topic}`:** Tactical UI design, `tabular-nums`, OKLCH WCAG 2.1 AA, dark mode, and Anti-JSDOM geometry guides.
+5. **`blueprint://{stack}/readme` *(URI Template)*:** Operational QA guides across all **10 stacks**: `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, and `vibe-rescue`.
+6. **`blueprint://ui/refactoring-ui/{topic}` *(URI Template)*:** Tactical UI design, `tabular-nums`, OKLCH WCAG 2.1 AA, dark mode, and Anti-JSDOM geometry guides.
 7. **`blueprint://core/active-task-template`:** Canonical compact session diary template (`.agents/ACTIVE_TASK.md.example`, `<= 40` lines).
 8. **`blueprint://core/cleanup-script`:** Canonical non-root Docker cleanup script (`limpieza.sh`) with Alpine fallback.
 9. **`blueprint://core/roadmap-validator`:** Bidirectional consistency verifier (`.agents/scripts/verify_roadmap_consistency.py`).
@@ -123,4 +125,4 @@ Led by `qa-11x-architect` (`< 12 KB`), loading 10 specialized sub-skills on dema
 
 ---
 
-> **Clean-Room E2E Verification (`example/` + `verify-v2.sh`):** Every release is certified in an ephemeral non-root Docker container (`./scripts/probar-mcp-example.sh` / `pnpm run test:example`), packing `@sinfallas/mcp-qa-11x` with `npm pack`, installing the `.tgz` into an isolated clean-room workspace in `/tmp`, and asserting `quickstart`, `QA-CLI-TTY-01`, all **13 resources**, **19 tools**, `promptGuard`, and hybrid `FastAPI + Vue 3` integration end-to-end before local certification.
+> **Clean-Room E2E Verification (`example/` + `verify-v2.sh`):** Every release is certified in an ephemeral non-root Docker container (`./scripts/probar-mcp-example.sh` / `pnpm run test:example`), packing `@sinfallas/mcp-qa-11x` with `npm pack`, installing the `.tgz` into an isolated clean-room workspace in `/tmp`, and asserting `quickstart`, `QA-CLI-TTY-01`, all **13 resources** (11 static + 2 templates), **19 tools**, `promptGuard`, and hybrid `FastAPI + Vue 3` integration end-to-end before local certification.

@@ -17,6 +17,7 @@ import {
 } from '../types.js';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { inspectProjectConfig, collectProjectFiles } from './inspect-project.js';
+import { pickAt, reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 
 export { collectProjectFiles };
 
@@ -114,8 +115,9 @@ function readFileContentSafe(projectPath: string, relativePath: string): string 
     if (fs.existsSync(fullPath)) {
       return fs.readFileSync(fullPath, 'utf8');
     }
-  } catch {
-    // Retorno seguro vacío
+  } catch (err: unknown) {
+    // Missing/unreadable optional audit target file defaults safely to empty source string
+    reportDebugCatchError(`testPyramidAuditor.readFileContentSafe(${relativePath})`, err);
   }
   return '';
 }
@@ -353,8 +355,8 @@ export function findOrphanSourceFiles(
 // ============================================================================
 
 function extractRouterPrefix(content: string): string {
-  const match = content.match(/prefix\s*=\s*["']([^"']+)["']/i);
-  return match ? match[1] : '';
+  const match = /prefix\s*=\s*["']([^"']+)["']/i.exec(content);
+  return match?.[1] ?? '';
 }
 
 function resolveEndpointPath(rawPath: string, routerPrefix: string): string {
@@ -373,7 +375,7 @@ function hasKarateMethodInFeature(methodStr: string, featureText: string): boole
   const methodScanner = /\bmethod\s+([a-z]+)/gi;
   let match = methodScanner.exec(featureText);
   while (match !== null) {
-    if (match[1].toUpperCase() === upperMethod) {
+    if (pickAt(match, 1).toUpperCase() === upperMethod) {
       return true;
     }
     match = methodScanner.exec(featureText);
@@ -381,9 +383,17 @@ function hasKarateMethodInFeature(methodStr: string, featureText: string): boole
   return false;
 }
 
+function trimTrailingSlashes(raw: string): string {
+  let end = raw.length;
+  while (end > 0 && raw[end - 1] === '/') {
+    end -= 1;
+  }
+  return raw.slice(0, end);
+}
+
 function matchesKaratePathCandidate(fullPath: string, candidateRaw: string): boolean {
-  const cleanCandidate = candidateRaw.split('?')[0].replace(/\/+$/, '');
-  const cleanRoute = fullPath.replace(/\/+$/, '');
+  const cleanCandidate = trimTrailingSlashes(pickAt(candidateRaw.split('?'), 0));
+  const cleanRoute = trimTrailingSlashes(fullPath);
   const routeSegs = cleanRoute.split('/').filter(Boolean);
   const candSegs = cleanCandidate.split('/').filter(Boolean);
   if (routeSegs.length === 0) {
@@ -393,7 +403,7 @@ function matchesKaratePathCandidate(fullPath: string, candidateRaw: string): boo
   const tailSegs = candSegs.slice(candSegs.length - routeSegs.length);
   return routeSegs.every((rSeg, idx) => {
     const isParam = (rSeg.startsWith('{') && rSeg.endsWith('}')) || rSeg.startsWith(':');
-    return isParam ? tailSegs[idx].length > 0 : rSeg === tailSegs[idx];
+    return isParam || rSeg === pickAt(tailSegs, idx);
   });
 }
 
@@ -404,7 +414,8 @@ function isEndpointCoveredInFeature(methodStr: string, fullPath: string, feature
   const pathLiteralScanner = /\b(?:path|url)\s+['"]([^'"\n]+)['"]/gi;
   let match = pathLiteralScanner.exec(featureText);
   while (match !== null) {
-    if (matchesKaratePathCandidate(fullPath, match[1])) {
+    const capturedPath = match[1];
+    if (capturedPath !== undefined && matchesKaratePathCandidate(fullPath, capturedPath)) {
       return true;
     }
     match = pathLiteralScanner.exec(featureText);
@@ -421,21 +432,38 @@ interface EndpointLineParseInput {
   readonly featureText: string;
 }
 
+const ENDPOINT_DECLARATION_PATTERNS: readonly RegExp[] = [
+  /@(?:router|app)\.(get|post|put|patch|delete)\(\s*["']([^"']*)["']/i,
+  /(?:router|app|fastify)\.(get|post|put|patch|delete)\(\s*["']([^"']*)["']/i,
+  /@(Get|Post|Put|Patch|Delete)\(\s*["']([^"']*)["']\s*\)/i,
+  /@(Get|Post|Put|Patch|Delete)\(\s*([^"'()\s]+)\s*\)/i,
+  /@(Get|Post|Put|Patch|Delete)\(\s*\)/i,
+];
+
+function matchEndpointDeclaration(lineStr: string): { methodStr: string; rawPath: string } | null {
+  for (const pattern of ENDPOINT_DECLARATION_PATTERNS) {
+    const match = pattern.exec(lineStr);
+    if (match) {
+      return {
+        methodStr: pickAt(match, 1).toUpperCase(),
+        rawPath: pickAt(match, 2, '/'),
+      };
+    }
+  }
+  return null;
+}
+
 function parseEndpointsFromLine(input: EndpointLineParseInput): UntestedApiEndpoint | null {
   const { lineStr, routerPrefix, routeFile, lineIndex, featureText } = input;
-  const endpointRegex =
-    /@(?:router|app)\.(get|post|put|patch|delete)\(\s*["']([^"']*)["']|(?:router|app|fastify)\.(get|post|put|patch|delete)\(\s*["']([^"']*)["']|@(Get|Post|Put|Patch|Delete)\(\s*["']?([^"'()]*)["']?\)/i;
-  const match = endpointRegex.exec(lineStr);
-  if (!match) return null;
+  const matched = matchEndpointDeclaration(lineStr);
+  if (!matched) return null;
 
-  const methodStr = (match[1] || match[3] || match[5] || 'GET').toUpperCase();
-  const rawPath = match[2] || match[4] || match[6] || '/';
-  const fullPath = resolveEndpointPath(rawPath, routerPrefix);
+  const fullPath = resolveEndpointPath(matched.rawPath, routerPrefix);
 
-  if (isEndpointCoveredInFeature(methodStr, fullPath, featureText)) return null;
+  if (isEndpointCoveredInFeature(matched.methodStr, fullPath, featureText)) return null;
 
   return {
-    method: methodStr as 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+    method: matched.methodStr as 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
     path: fullPath,
     source_file: routeFile,
     line: lineIndex + 1,
@@ -450,9 +478,9 @@ function parseFileEndpoints(
   const untested: UntestedApiEndpoint[] = [];
   const routerPrefix = extractRouterPrefix(content);
   const lines = content.split(/\r?\n/);
-  for (let i = 0; i < lines.length; i++) {
+  for (const [i, lineStr] of lines.entries()) {
     const item = parseEndpointsFromLine({
-      lineStr: lines[i],
+      lineStr,
       routerPrefix,
       routeFile,
       lineIndex: i,

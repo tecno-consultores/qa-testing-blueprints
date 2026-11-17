@@ -37,11 +37,18 @@ import {
 const MCP_ROOT = path.resolve(import.meta.dirname, '..');
 const REPO_PARENT = path.dirname(MCP_ROOT);
 const MOUNTED_VIBE_README = '/vibe-rescue/README.md';
-const REAL_WORKSPACE_ROOT = fs.existsSync(path.join(REPO_PARENT, VIBE_RESCUE_README_REL_PATH))
-  ? REPO_PARENT
-  : fs.existsSync(MOUNTED_VIBE_README)
-    ? '/'
-    : undefined;
+
+function resolveRealWorkspaceRoot(): string | undefined {
+  if (fs.existsSync(path.join(REPO_PARENT, VIBE_RESCUE_README_REL_PATH))) {
+    return REPO_PARENT;
+  }
+  if (fs.existsSync(MOUNTED_VIBE_README)) {
+    return '/';
+  }
+  return undefined;
+}
+
+const REAL_WORKSPACE_ROOT = resolveRealWorkspaceRoot();
 
 const tempDirs: string[] = [];
 
@@ -368,7 +375,7 @@ describe('stackBlueprints MCP resource blueprint://vibe-rescue/readme (T4.5)', (
   it('registra vibe-rescue junto a mobile-appium y resuelve vibe-rescue/README.md real', () => {
     expect(VIBE_RESCUE_STACK_ID).toBe('vibe-rescue');
     expect(VIBE_RESCUE_RESOURCE.uri).toBe(VIBE_RESCUE_README_URI);
-    expect(V2_STACK_BLUEPRINTS['vibe-rescue'].readmeRelPath).toBe(VIBE_RESCUE_README_REL_PATH);
+    expect(V2_STACK_BLUEPRINTS['vibe-rescue']?.readmeRelPath).toBe(VIBE_RESCUE_README_REL_PATH);
 
     const uris = listV2StackBlueprintResources().map((entry) => entry.uri);
     expect(uris).toContain(MOBILE_APPIUM_README_URI);

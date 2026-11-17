@@ -285,7 +285,7 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
         lang: 'es',
         agents: ['cursor'],
       });
-      expect(third.bridge_files[0].action).toBe('appended');
+      expect(third.bridge_files[0]?.action).toBe('appended');
       const preservedFrontmatter = fs.readFileSync(cursorPath, 'utf-8');
       expect(preservedFrontmatter).toContain('description: Custom');
       expect(preservedFrontmatter).toContain('# Custom rule only');
@@ -344,7 +344,7 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
 
   describe('Deterministic validation, invalid inputs & Path Traversal defense', () => {
     it('rejects unsupported languages deterministically', () => {
-      expect(validateSupportedLang(undefined)).toBe('es');
+      expect(validateSupportedLang()).toBe('es');
       expect(validateSupportedLang(' EN ')).toBe('en');
       expect(() => validateSupportedLang('fr')).toThrow("Unsupported language 'fr'");
       expect(() => validateSupportedLang('')).toThrow('Unsupported language');
@@ -423,8 +423,9 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
         {
           cwd: tmpDir,
           log: vi.fn(),
-          installSkillRunner: async (fwd) => {
+          installSkillRunner: (fwd) => {
             forwardedCalls.push(fwd);
+            return Promise.resolve();
           },
         }
       );

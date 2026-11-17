@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
 import { execFile } from 'node:child_process';
+import { pickAt, reportDebugCatchError } from './diagnosticFormatter.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { redactPiiAndSecrets } from '../security/promptGuard.js';
@@ -56,10 +57,16 @@ const TEST_FILE_RE =
   /(?:\.(?:unit|test|spec|e2e)\.[^.]+$|(^|\/)test_[^/]+\.py$|\.(?:feature|feature\.example|bats)$)/i;
 const CRITICAL_DIR_RE = /(?:^|\/)(?:alembic\/versions|migrations|\.agents)(?:\/|$)/i;
 const CRITICAL_FILE_RE = /^(?:Dockerfile.*|docker-compose.*|manifest\.json)$/i;
-const CRITICAL_DOMAIN_RE =
-  /(?:^|\/)(?:security|auth|vault|rls|rbac|csrf|session|guard|crypto|routes?|routers?|controllers?|endpoints?|openapi)(?:\/|_|\.)|\.(?:route|controller|router)\.(?:ts|js|py|php)$|(?:^|\/)(?:server|types)\.(?:ts|py)$/i;
-const API_ROUTE_FILE_RE =
-  /(?:^|\/)(?:routes?|routers?|controllers?|endpoints?)(?:\/|_|\.)|\.(?:route|controller|router)\.(?:ts|js|py|php)$/i;
+const CRITICAL_DOMAIN_PATTERNS: readonly RegExp[] = [
+  /(?:^|\/)(?:security|auth|vault|rls|rbac|csrf|session|guard|crypto|openapi)[/_.]/i,
+  /(?:^|\/)(?:routes?|routers?|controllers?|endpoints?)[/_.]/i,
+  /\.(?:route|controller|router)\.(?:ts|js|py|php)$/i,
+  /(?:^|\/)(?:server|types)\.(?:ts|py)$/i,
+];
+const API_ROUTE_FILE_PATTERNS: readonly RegExp[] = [
+  /(?:^|\/)(?:routes?|routers?|controllers?|endpoints?)[/_.]/i,
+  /\.(?:route|controller|router)\.(?:ts|js|py|php)$/i,
+];
 const API_DECORATOR_RE =
   /^[+-]\s*(?:@(?:router|app)\.(?:get|post|put|patch|delete)|app\.(?:get|post|put|patch|delete)\s*\()/i;
 const FEATURE_FILE_RE = /\.feature(?:\.example)?$/i;
@@ -185,9 +192,9 @@ function parseDiffFilePath(sectionLines: string[]): string {
   if (oldPath) {
     return oldPath;
   }
-  const header = sectionLines[0] ?? '';
+  const header = pickAt(sectionLines, 0);
   const parts = header.slice('diff --git '.length).split(' b/');
-  const candidate = parts.length > 1 ? parts[parts.length - 1] : parts[0];
+  const candidate = pickAt(parts, parts.length - 1);
   return normalizePosixPath(stripGitPrefix(candidate, 'a/'));
 }
 
@@ -257,7 +264,8 @@ export function parseUnifiedDiffSections(diffText: string): ParsedDiffFile[] {
 export function classifyDiffTier(filePath: string, isBinary: boolean): DiffTier {
   const norm = normalizePosixPath(filePath);
   const segments = norm.split('/');
-  const baseLower = (segments[segments.length - 1] ?? '').toLowerCase();
+  const baseName = pickAt(segments, segments.length - 1);
+  const baseLower = baseName.toLowerCase();
   if (
     isBinary ||
     LOCKFILE_BASENAMES.has(baseLower) ||
@@ -271,8 +279,8 @@ export function classifyDiffTier(filePath: string, isBinary: boolean): DiffTier 
   }
   if (
     CRITICAL_DIR_RE.test(norm) ||
-    CRITICAL_FILE_RE.test(segments[segments.length - 1] ?? '') ||
-    CRITICAL_DOMAIN_RE.test(norm)
+    CRITICAL_FILE_RE.test(baseName) ||
+    CRITICAL_DOMAIN_PATTERNS.some((re) => re.test(norm))
   ) {
     return 'CRITICAL_FULL';
   }
@@ -282,16 +290,18 @@ export function classifyDiffTier(filePath: string, isBinary: boolean): DiffTier 
 function isSignatureLine(line: string): boolean {
   const stripped = line.startsWith('+') || line.startsWith('-') ? line.slice(1) : line;
   const tokens = stripped.trimStart().split(/\s+/);
-  if (DIRECT_SIG_KEYWORDS.has(tokens[0])) {
+  const t0 = pickAt(tokens, 0);
+  const t1 = pickAt(tokens, 1);
+  if (DIRECT_SIG_KEYWORDS.has(t0)) {
     return true;
   }
-  if (tokens[0] === 'async') {
-    return tokens[1] === 'def' || tokens[1] === 'function';
+  if (t0 === 'async') {
+    return t1 === 'def' || t1 === 'function';
   }
-  if (tokens[0] === 'export') {
+  if (t0 === 'export') {
     return (
-      EXPORT_SIG_KEYWORDS.has(tokens[1]) ||
-      (tokens[1] === 'async' && tokens[2] === 'function')
+      EXPORT_SIG_KEYWORDS.has(t1) ||
+      (t1 === 'async' && tokens[2] === 'function')
     );
   }
   return false;
@@ -381,11 +391,15 @@ function compactCoreFileToSignatures(parsed: ParsedDiffFile, redactedHunks: stri
   return `[CORE_LOGIC_COMPACT] ${parsed.file} (+${parsed.additions}/-${parsed.deletions})${body}`;
 }
 
+function countRedactedMarkers(text: string): number {
+  return Array.from(text.matchAll(REDACTED_MARKER_RE)).length;
+}
+
 function applyPromptRedaction(rawText: string, counter: RedactionCounter): string {
-  const beforeMatches = rawText.match(REDACTED_MARKER_RE)?.length ?? 0;
+  const beforeMatches = countRedactedMarkers(rawText);
   const sanitized = redactPiiAndSecrets(rawText);
   if (sanitized !== rawText) {
-    const afterMatches = sanitized.match(REDACTED_MARKER_RE)?.length ?? 0;
+    const afterMatches = countRedactedMarkers(sanitized);
     counter.occurrences += Math.max(afterMatches - beforeMatches, 1);
   }
   return sanitized;
@@ -509,18 +523,18 @@ function matchWildcardSegment(pattern: string, value: string): boolean {
   for (const ch of pattern) {
     const next = new Array<boolean>(value.length + 1).fill(false);
     if (ch === '*') {
-      next[0] = dp[0];
+      next[0] = Boolean(dp[0]);
       for (let j = 1; j <= value.length; j += 1) {
-        next[j] = next[j - 1] || dp[j];
+        next[j] = Boolean(next[j - 1]) || Boolean(dp[j]);
       }
     } else {
       for (let j = 1; j <= value.length; j += 1) {
-        next[j] = dp[j - 1] && (ch === '?' || ch === value[j - 1]);
+        next[j] = Boolean(dp[j - 1]) && (ch === '?' || ch === value.charAt(j - 1));
       }
     }
     dp = next;
   }
-  return dp[value.length];
+  return Boolean(dp[value.length]);
 }
 
 function matchGlobSegments(
@@ -538,7 +552,9 @@ function matchGlobSegments(
     }
     return si < pathSegs.length && matchGlobSegments(patSegs, pathSegs, pi, si + 1);
   }
-  if (si === pathSegs.length || !matchWildcardSegment(patSegs[pi], pathSegs[si])) {
+  const patSeg = pickAt(patSegs, pi);
+  const pathSeg = pickAt(pathSegs, si);
+  if (si === pathSegs.length || !matchWildcardSegment(patSeg, pathSeg)) {
     return false;
   }
   return matchGlobSegments(patSegs, pathSegs, pi + 1, si + 1);
@@ -564,8 +580,9 @@ function parseGlobListValue(rawVal: string): string[] {
       if (Array.isArray(parsed)) {
         return parsed.map((item) => String(item).trim()).filter(Boolean);
       }
-    } catch {
-      // Fallback por comas si el arreglo Markdown no es JSON estricto
+    } catch (err: unknown) {
+      // Fallback to comma-splitting when Markdown bracket list is not strict JSON
+      reportDebugCatchError('diffBundle.parseGlobListValue', err);
     }
   }
   return cleaned
@@ -717,8 +734,9 @@ function indexSingleGraph(graphPath: string, safeWorkspacePath: string, depMap: 
     for (const link of payload.links ?? []) {
       registerGraphLinkDependency(link, nodeFileById, prefix, depMap);
     }
-  } catch {
-    // Ignorar grafos JSON corruptos o inaccesibles
+  } catch (err: unknown) {
+    // Corrupt or unreadable graph.json is skipped when building supplemental AST dependency map
+    reportDebugCatchError(`diffBundle.indexSingleGraph(${graphPath})`, err);
   }
 }
 
@@ -736,34 +754,33 @@ function isApiRouteModification(parsed: ParsedDiffFile, tier: DiffTier): boolean
   if (tier === 'TESTS_SUMMARY' || tier === 'PRUNED_NOISE') {
     return false;
   }
-  if (API_ROUTE_FILE_RE.test(parsed.file)) {
+  if (API_ROUTE_FILE_PATTERNS.some((re) => re.test(parsed.file))) {
     return true;
   }
   return parsed.hunks.some((h) => h.split('\n').some((line) => API_DECORATOR_RE.test(line)));
 }
 
 function evaluateDiffAlerts(
-  summaries: DiffFileSummary[],
-  parsedFiles: ParsedDiffFile[],
+  entries: RenderedFileEntry[],
   boundaryGlobs?: { allowed_globs: string[]; forbidden_globs: string[] }
 ): DiffAlert[] {
   const alerts: DiffAlert[] = [];
-  const hasFeatureUpdate = summaries.some((s) => FEATURE_FILE_RE.test(s.file));
-  const changedApiFile = summaries.find((s, idx) =>
-    isApiRouteModification(parsedFiles[idx], s.tier)
+  const hasFeatureUpdate = entries.some((e) => FEATURE_FILE_RE.test(e.summary.file));
+  const changedApiEntry = entries.find((e) =>
+    isApiRouteModification(e.parsed, e.summary.tier)
   );
-  if (changedApiFile && !hasFeatureUpdate) {
+  if (changedApiEntry && !hasFeatureUpdate) {
     alerts.push({
       code: 'MISSING_KARATE_API_FEATURE',
       severity: 'HIGH',
-      file: changedApiFile.file,
-      message: `Se modificó ruta/controlador API '${changedApiFile.file}' sin actualizar ningún contrato *.feature de Karate BDD.`,
+      file: changedApiEntry.summary.file,
+      message: `Se modificó ruta/controlador API '${changedApiEntry.summary.file}' sin actualizar ningún contrato *.feature de Karate BDD.`,
     });
   }
   if (!boundaryGlobs) {
     return alerts;
   }
-  for (const item of summaries) {
+  for (const { summary: item } of entries) {
     const hitForbidden = boundaryGlobs.forbidden_globs.find((g) => matchesGlobPattern(item.file, g));
     if (hitForbidden) {
       alerts.push({
@@ -821,7 +838,7 @@ export async function buildSemanticDiffBundle(
     TESTS_SUMMARY: 0,
   };
   const entries = parsedFiles.map((parsed) => {
-    const deps = Array.from(depMap.get(parsed.file) ?? []).sort();
+    const deps = Array.from(depMap.get(parsed.file) ?? []).sort((a, b) => a.localeCompare(b));
     const entry = renderEntry(parsed, deps, redaction);
     tiersSummary[entry.summary.tier] += 1;
     return entry;
@@ -847,7 +864,7 @@ export async function buildSemanticDiffBundle(
     secret_leak_warning: redaction.occurrences > 0,
     redacted_occurrences: redaction.occurrences,
     tiers_summary: tiersSummary,
-    alerts: evaluateDiffAlerts(summaries, parsedFiles, boundaryGlobs),
+    alerts: evaluateDiffAlerts(entries, boundaryGlobs),
     ...(boundaryGlobs ? { boundary_globs: boundaryGlobs } : {}),
     files: summaries,
     rendered_bundle: renderedBundle,

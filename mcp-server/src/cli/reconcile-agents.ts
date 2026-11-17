@@ -556,10 +556,17 @@ function persistExtractedDomainRules(args: PersistDomainRulesArgs): void {
   );
 }
 
-export async function reconcileAgentsGovernance(options: {
+export function reconcileAgentsGovernance(options: {
   projectPath: string;
   dryRun?: boolean;
 }): Promise<ReconcileAgentsResult> {
+  return Promise.resolve().then(() => executeReconcileAgentsGovernance(options));
+}
+
+function executeReconcileAgentsGovernance(options: {
+  projectPath: string;
+  dryRun?: boolean;
+}): ReconcileAgentsResult {
   const resolvedPath = resolveSafeProjectPath(options.projectPath);
   if (!fs.existsSync(resolvedPath) || !fs.statSync(resolvedPath).isDirectory()) {
     throw new Error(`Directorio de proyecto inválido: ${resolvedPath}`);

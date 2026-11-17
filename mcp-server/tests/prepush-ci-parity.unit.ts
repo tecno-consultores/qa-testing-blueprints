@@ -135,7 +135,7 @@ describe('Paridad Pre-Push 1:1 con CI (QA Evidence, Stages integration/ci, Dynam
     expect(invalidated.checks.lint_evidence_verified).toBe(false);
     expect(invalidated.gate_passed).toBe(false);
 
-    // 6. Ejecutar stage="ci" con 0 tests detectados retorna SKIPPED sin grabar evidencia; con tests reales acredita todo
+    // 6. Ejecutar stage="ci" con 0 tests detectados retorna SKIPPED sin grabar evidencia; con tests reales acredita la suite completa
     const skippedCi = await runEphemeralQa(tmpDir, 'ci', 30, {
       execFileFn: mockExecPass,
       execFileSyncFn: mockExecSync,

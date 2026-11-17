@@ -57,8 +57,8 @@ All files          |   97.76 |    93.08 |   98.38 |   97.76 |
       expect(result.threshold).toBe(95.0);
       expect(result.passed).toBe(true);
       expect(result.uncovered_files.length).toBe(1);
-      expect(result.uncovered_files[0].file).toBe('src/tools/bar.ts');
-      expect(result.uncovered_files[0].missing_lines).toBe('45-52');
+      expect(result.uncovered_files[0]?.file).toBe('src/tools/bar.ts');
+      expect(result.uncovered_files[0]?.missing_lines).toBe('45-52');
     });
 
     it('marca passed=false si la cobertura de Vitest está por debajo del umbral (< 95%)', () => {
@@ -86,7 +86,7 @@ TOTAL                        70      3    95.7%
       expect(result.percent).toBe(95.7);
       expect(result.passed).toBe(true);
       expect(result.uncovered_files.length).toBe(1);
-      expect(result.uncovered_files[0].file).toBe('src/api/auth.py');
+      expect(result.uncovered_files[0]?.file).toBe('src/api/auth.py');
     });
 
     it('parsea formato genérico de kcov', () => {
@@ -128,10 +128,10 @@ FAILED tests/test_token.py::test_expired
       `;
       const failures = parseFailedTests(log);
       expect(failures.length).toBe(2);
-      expect(failures[0].test_name).toBe('tests/test_auth.py::test_login_invalid');
-      expect(failures[0].error_summary).toContain('AssertionError: 401 != 200');
-      expect(failures[1].test_name).toBe('tests/test_token.py::test_expired');
-      expect(failures[1].error_summary).toContain('Token has expired unexpectedly');
+      expect(failures[0]?.test_name).toBe('tests/test_auth.py::test_login_invalid');
+      expect(failures[0]?.error_summary).toContain('AssertionError: 401 != 200');
+      expect(failures[1]?.test_name).toBe('tests/test_token.py::test_expired');
+      expect(failures[1]?.error_summary).toContain('Token has expired unexpectedly');
     });
 
     it('parsea fallos en formato Vitest', () => {
@@ -141,8 +141,8 @@ FAIL tests/user.unit.ts > UserService > should create user
       `;
       const failures = parseFailedTests(log);
       expect(failures.length).toBe(1);
-      expect(failures[0].test_name).toContain('tests/user.unit.ts');
-      expect(failures[0].error_summary).toContain('AssertionError');
+      expect(failures[0]?.test_name).toContain('tests/user.unit.ts');
+      expect(failures[0]?.error_summary).toContain('AssertionError');
     });
 
     it('parsea fallos en formato BATS-core', () => {
@@ -153,8 +153,8 @@ not ok 2 - docker daemon is running
       `;
       const failures = parseFailedTests(log);
       expect(failures.length).toBe(1);
-      expect(failures[0].test_name).toBe('docker daemon is running');
-      expect(failures[0].error_summary).toContain('in test file test.bats');
+      expect(failures[0]?.test_name).toBe('docker daemon is running');
+      expect(failures[0]?.error_summary).toContain('in test file test.bats');
     });
 
     it('retorna array vacío cuando todas las pruebas pasan', () => {
@@ -176,21 +176,21 @@ In scripts/deploy.sh line 14:
       const issues = parseLinterAndComplexity(log);
       expect(issues.length).toBe(5);
 
-      expect(issues[0].rule).toBe('radon-C');
-      expect(issues[0].file).toBe('src/services/heavy.py');
-      expect(issues[0].line).toBe(42);
+      expect(issues[0]?.rule).toBe('radon-C');
+      expect(issues[0]?.file).toBe('src/services/heavy.py');
+      expect(issues[0]?.line).toBe(42);
 
-      expect(issues[1].rule).toBe('mypy-arg-type');
-      expect(issues[1].file).toBe('src/api/users.py');
+      expect(issues[1]?.rule).toBe('mypy-arg-type');
+      expect(issues[1]?.file).toBe('src/api/users.py');
 
-      expect(issues[2].rule).toBe('ruff-F401');
-      expect(issues[2].file).toBe('src/core/utils.py');
+      expect(issues[2]?.rule).toBe('ruff-F401');
+      expect(issues[2]?.file).toBe('src/core/utils.py');
 
-      expect(issues[3].rule).toBe('eslint-no-unused-vars');
-      expect(issues[3].file).toBe('/app/src/index.ts');
+      expect(issues[3]?.rule).toBe('eslint-no-unused-vars');
+      expect(issues[3]?.file).toBe('/app/src/index.ts');
 
-      expect(issues[4].rule).toBe('shellcheck-SC2086');
-      expect(issues[4].file).toBe('scripts/deploy.sh');
+      expect(issues[4]?.rule).toBe('shellcheck-SC2086');
+      expect(issues[4]?.file).toBe('scripts/deploy.sh');
     });
 
     it('parsea violaciones de Psalm y PHPStan para proyectos PHP', () => {
@@ -201,13 +201,13 @@ src/Services/PaymentService.php:54:Call to an undefined method PaymentService::p
       const issues = parseLinterAndComplexity(log);
       expect(issues.length).toBe(2);
 
-      expect(issues[0].rule).toBe('psalm-MissingReturnType');
-      expect(issues[0].file).toBe('src/Models/User.php');
-      expect(issues[0].line).toBe(28);
+      expect(issues[0]?.rule).toBe('psalm-MissingReturnType');
+      expect(issues[0]?.file).toBe('src/Models/User.php');
+      expect(issues[0]?.line).toBe(28);
 
-      expect(issues[1].rule).toBe('phpstan-error');
-      expect(issues[1].file).toBe('src/Services/PaymentService.php');
-      expect(issues[1].line).toBe(54);
+      expect(issues[1]?.rule).toBe('phpstan-error');
+      expect(issues[1]?.file).toBe('src/Services/PaymentService.php');
+      expect(issues[1]?.line).toBe(54);
     });
   });
 
@@ -389,6 +389,46 @@ src/Services/PaymentService.php:54:Call to an undefined method PaymentService::p
       expect(parseTestsDetected('Ran 0 tests in 0.000s\nOK')).toEqual({ detected: true, count: 0 });
 
       expect(parseTestsDetected('salida generica sin resumen')).toEqual({ detected: false, count: 0 });
+    });
+  });
+
+  describe('diff-cov edge branches', () => {
+    it('cubre fallbacks NaN en parseCoverage, límite 20 en parseFailedTests, CVE en seguridad y casos borde de linters', () => {
+      const vitestFallback = [
+        'All files | 88.50 | 80.00 | 80.00 | . |',
+        'src/a.ts | 10.00 | 10.00 | 10.00 | . | 1-2',
+      ].join('\n');
+      const covFallback = parseCoverage(vitestFallback);
+      expect(covFallback.detected).toBe(true);
+      expect(covFallback.percent).toBe(88.5);
+      expect(covFallback.uncovered_files[0]?.coverage_percent).toBe(0);
+
+      const vitestDoubleNan = parseCoverage('All files | . | 80.00 | 80.00 | . |');
+      expect(vitestDoubleNan.detected).toBe(true);
+      expect(vitestDoubleNan.percent).toBe(0);
+
+      const manyFails = Array.from({ length: 22 }, (_, idx) => `FAILED tests/t_${idx}.py::test_fail`).join('\n');
+      expect(parseFailedTests(manyFails)).toHaveLength(20);
+
+      const linterLog = [
+        '10:5  error  Unexpected console statement  no-console',
+        '12:3  warning  Single spaced message without double space separator',
+        '14:1  error  Message with invalid rule  not a valid rule!',
+        'ERROR: IncompletePsalmLine - onlytwo',
+        'ERROR: Bad Rule! - src/A.php:10:2 - message',
+      ].join('\n');
+      const linterIssues = parseLinterAndComplexity(linterLog);
+      expect(linterIssues).toHaveLength(1);
+      expect(linterIssues[0]).toMatchObject({
+        file: 'eslint',
+        line: 10,
+        rule: 'eslint-no-console',
+      });
+
+      const secAlerts = parseSecurityAlerts(
+        'CVE-2024-1234 found CRITICAL in openssl\nCVE-2025-5678 found HIGH in zlib'
+      );
+      expect(secAlerts).toEqual({ critical: 1, high: 1 });
     });
   });
 });

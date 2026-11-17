@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
+import type { execFileSync } from 'node:child_process';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -78,17 +79,17 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
 
       const customServer = createMcpServer();
       const surface = getRegisteredServerSurface(customServer);
-      expect(surface?.toolNames.size).toBe(12);
-      expect(surface?.resourceUris.size).toBe(9);
+      expect(surface?.toolNames.size).toBe(19);
+      expect(surface?.resourceUris.size).toBe(13);
       expect(getRegisteredSurfaceCounts(customServer)).toEqual({ tools: 19, resources: 13 });
-      customServer.tool('dynamic_extra_probe', 'Extra probe tool', async () => ({
+      customServer.registerTool('dynamic_extra_probe', { description: 'Extra probe tool' }, () => ({
         content: [{ type: 'text', text: 'ok' }],
       }));
       expect(getRegisteredSurfaceCounts(customServer)).toEqual({ tools: 20, resources: 13 });
 
       const rawUntracked = new McpServer({ name: 'raw-untracked', version: '1.0.0' });
       expect(getRegisteredServerSurface(rawUntracked)).toBeUndefined();
-      expect(getRegisteredSurfaceCounts(rawUntracked)).toEqual({ tools: 7, resources: 6 });
+      expect(getRegisteredSurfaceCounts(rawUntracked)).toEqual({ tools: 0, resources: 0 });
 
       const configured = createConfiguredMcpServer();
       expect(configured.counts).toEqual({ tools: 19, resources: 13 });
@@ -106,8 +107,12 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
       // Verify install-skill and 'install' alias hermetically in tmpDir
       const skillBody = '# Skill Test\n';
       const mockManifest: Manifest = {
+        schema_version: '1.0.0',
         blueprint_version: MCP_SERVER_VERSION,
         generated_at_utc: '2026-11-12T00:00:00Z',
+        repository: 'tecno-consultores/qa-testing-blueprints',
+        default_branch: 'main',
+        raw_base_url: 'https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main',
         common_files: [],
         agent_governance_files: [
           {
@@ -159,8 +164,9 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
       const ttyExitCodes: number[] = [];
       await main([], undefined, {
         exitFn: (c) => ttyExitCodes.push(c),
-        autoSyncFn: async () => {
+        autoSyncFn: () => {
           autoSyncedInTty += 1;
+          return Promise.resolve();
         },
         isStdinTty: true,
       });
@@ -172,8 +178,9 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
       process.env.QA_DISABLE_AUTO_SYNC = '1';
       await main([], undefined, {
         exitFn: (c) => ttyExitCodes.push(c),
-        autoSyncFn: async () => {
+        autoSyncFn: () => {
           autoSyncedInTty += 1;
+          return Promise.resolve();
         },
         isStdinTty: true,
       });
@@ -189,8 +196,9 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
       let stdioStarted = false;
       await main(
         [],
-        async () => {
+        () => {
           stdioStarted = true;
+          return Promise.resolve();
         },
         { isStdinTty: false }
       );
@@ -200,13 +208,43 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
       let forcedStdioStarted = false;
       await main(
         ['--stdio'],
-        async () => {
+        () => {
           forcedStdioStarted = true;
+          return Promise.resolve();
         },
         { isStdinTty: true }
       );
       expect(forcedStdioStarted).toBe(true);
       expect(errSpy).toHaveBeenCalledWith(expect.stringContaining('listening for JSON-RPC messages over stdio'));
+    });
+
+    it('executes direct CLI entrypoint and fatal catch handler when process.argv[1] ends with /index.js', async () => {
+      const origArgv = process.argv;
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never);
+      try {
+        process.argv = ['node', '/tmp/fake-bin/index.js', '--version'];
+        vi.resetModules();
+        await import('../src/index.js');
+        await vi.waitFor(() => expect(exitSpy).toHaveBeenCalledWith(0));
+
+        logSpy.mockImplementationOnce(() => {
+          throw new Error('broken stdout');
+        });
+        vi.resetModules();
+        await import('../src/index.js');
+        await vi.waitFor(() => expect(exitSpy).toHaveBeenCalledWith(1));
+        expect(errSpy).toHaveBeenCalledWith(
+          'Fatal error in @sinfallas/mcp-qa-11x:',
+          expect.any(Error)
+        );
+      } finally {
+        process.argv = origArgv;
+        exitSpy.mockRestore();
+        logSpy.mockRestore();
+        errSpy.mockRestore();
+      }
     });
   });
 
@@ -416,10 +454,11 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
       fs.writeFileSync(path.join(projDir, 'lefthook.yml'), targetYaml, 'utf8');
       const mfRes = await merger.mergeFiles(projDir, [
         {
+          path: 'lefthook.yml',
           target_name: 'lefthook.yml',
           merge_strategy: 'create_if_missing',
           content: tplYaml,
-          sha256: sha256(tplYaml),
+          sha256_verified: true,
         },
       ]);
       expect(mfRes.summary.merged).toBe(1);
@@ -512,9 +551,15 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
       expect(recRes.domain_rules_file).toContain('domain_consumer_rules.md');
 
       // Ephemeral runner porcelain edge cases
-      expect(isDocsOnlyWorkspaceChange(tmpDir, () => ' M README.md\n?? "docs/gu\\303\\255a.md"\n')).toBe(true);
-      expect(isDocsOnlyWorkspaceChange(tmpDir, () => 'R  docs/old.md -> src/exploit.ts\n')).toBe(false);
-      expect(isDocsOnlyWorkspaceChange(tmpDir, () => 'R  docs/old.md -> docs/new.md\n')).toBe(true);
+      const docsOnlyMock = (() =>
+        ' M README.md\n?? "docs/gu\\303\\255a.md"\n') as unknown as typeof execFileSync;
+      const renameMixedMock = (() =>
+        'R  docs/old.md -> src/exploit.ts\n') as unknown as typeof execFileSync;
+      const renameDocsMock = (() =>
+        'R  docs/old.md -> docs/new.md\n') as unknown as typeof execFileSync;
+      expect(isDocsOnlyWorkspaceChange(tmpDir, docsOnlyMock)).toBe(true);
+      expect(isDocsOnlyWorkspaceChange(tmpDir, renameMixedMock)).toBe(false);
+      expect(isDocsOnlyWorkspaceChange(tmpDir, renameDocsMock)).toBe(true);
 
       // Proposal safe fence, URL cap, and consumer git remote
       const longSnippet = '```markdown\nnested\n```\n' + 'x'.repeat(4000);
@@ -524,6 +569,7 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
         improvement_title: 'Nested Fence & Long Body',
         empirical_rationale: 'Test',
         proposed_content_or_snippet: longSnippet,
+        prefer_offline_fallback: false,
       });
       expect(issueBody).toContain('````markdown');
       expect(prefilledUrl.length).toBeLessThan(8000);
@@ -535,13 +581,14 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
           improvement_title: 'Consumer Repo Remote',
           empirical_rationale: 'Test',
           proposed_content_or_snippet: 'ok',
+          prefer_offline_fallback: false,
         },
-        async (file, args) => {
-          if (file === 'gh' && args[0] === 'auth') return { stdout: 'Logged in', stderr: '' };
+        (file, args) => {
+          if (file === 'gh' && args[0] === 'auth') return Promise.resolve({ stdout: 'Logged in', stderr: '' });
           if (file === 'git' && args[0] === 'remote') {
-            return { stdout: 'origin\thttps://github.com/acme/consumer-app.git (fetch)\n', stderr: '' };
+            return Promise.resolve({ stdout: 'origin\thttps://github.com/acme/consumer-app.git (fetch)\n', stderr: '' });
           }
-          throw new Error('Should not invoke gh pr create on unrelated remote');
+          return Promise.reject(new Error('Should not invoke gh pr create on unrelated remote'));
         }
       );
       expect(propRes.gh_cli_authenticated).toBe(true);
@@ -551,7 +598,7 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
       const stylishLog = '/app/src/demo.ts\n  14:7  error  Unexpected any  @typescript-eslint/no-explicit-any\n';
       const lintIssues = parseLinterAndComplexity(stylishLog);
       expect(lintIssues.length).toBe(1);
-      expect(lintIssues[0].file).toBe('/app/src/demo.ts');
+      expect(lintIssues[0]?.file).toBe('/app/src/demo.ts');
 
       const noCovRes = parseQaOutput('Tests passed with no coverage table', '', 'unit', {
         durationMs: 10,
@@ -743,14 +790,14 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
         refreshGraph: true,
         graphBuilder: () => true,
       });
-      expect(brLinks.declaring_files[0]).toContain(':10');
+      expect(brLinks.declaring_files?.[0]).toContain(':10');
 
       // bootstrapOrMerge11x merging into pre-existing custom AGENTS.md + bundle containing AGENTS.md
       const mergeProj = path.join(tmpDir, 'merge-existing-agents');
       fs.mkdirSync(mergeProj, { recursive: true });
       fs.writeFileSync(path.join(mergeProj, 'AGENTS.md'), '# Custom Domain Rules\nKeep me.\n', 'utf8');
       const fakeFetcher = {
-        fetchStackBundle: async () => [],
+        fetchStackBundle: () => Promise.resolve([]),
       } as unknown as GitHubFetcher;
       const bmMerged = await bootstrapOrMerge11x(mergeProj, 'python', false, {
         fetcher: fakeFetcher,
@@ -758,14 +805,16 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
       expect(bmMerged.summary.merged).toBe(1);
 
       const fakeFetcherWithAgents = {
-        fetchStackBundle: async () => [
-          {
-            target_name: 'AGENTS.md',
-            merge_strategy: 'merge_agents_md' as const,
-            content: '# Template\n',
-            sha256: sha256('# Template\n'),
-          },
-        ],
+        fetchStackBundle: () =>
+          Promise.resolve([
+            {
+              path: 'AGENTS.md',
+              target_name: 'AGENTS.md',
+              merge_strategy: 'merge_agents_md' as const,
+              content: '# Template\n',
+              sha256_verified: true,
+            },
+          ]),
       } as unknown as GitHubFetcher;
       const bmWithBundleAgents = await bootstrapOrMerge11x(mergeProj, 'python', true, {
         fetcher: fakeFetcherWithAgents,
@@ -795,10 +844,11 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
           improvement_title: 'Git Remote Error Branch',
           empirical_rationale: 'Test',
           proposed_content_or_snippet: 'ok',
+          prefer_offline_fallback: false,
         },
-        async (file, args) => {
-          if (file === 'gh' && args[0] === 'auth') return { stdout: 'Logged in', stderr: '' };
-          throw new Error('git not initialized');
+        (file, args) => {
+          if (file === 'gh' && args[0] === 'auth') return Promise.resolve({ stdout: 'Logged in', stderr: '' });
+          return Promise.reject(new Error('git not initialized'));
         }
       );
       expect(gitErrProp.gh_cli_authenticated).toBe(true);

@@ -106,7 +106,7 @@ result = eval("2 + 2")
     const result = await auditSecurityStigOwasp(tempDir);
     const sec03s = result.findings.filter((f) => f.rule_id === 'SEC-03');
     expect(sec03s.length).toBeGreaterThanOrEqual(4);
-    expect(sec03s[0].severity).toBe('CRITICAL');
+    expect(sec03s[0]?.severity).toBe('CRITICAL');
     expect(result.findings_count.CRITICAL).toBeGreaterThanOrEqual(4);
     expect(result.passed).toBe(false);
   });
@@ -271,7 +271,7 @@ password = "SuperSecretPassword123!"
     const result = await auditSecurityStigOwasp(tempDir);
     const sec10s = result.findings.filter((f) => f.rule_id === 'SEC-10');
     expect(sec10s.length).toBeGreaterThanOrEqual(2);
-    expect(sec10s[0].severity).toBe('CRITICAL');
+    expect(sec10s[0]?.severity).toBe('CRITICAL');
   });
 
   it('detecta violaciones de geometría visual y contraste UI-11X-01', async () => {
@@ -289,7 +289,7 @@ password = "SuperSecretPassword123!"
     const result = await auditSecurityStigOwasp(tempDir);
     const uiIssues = result.findings.filter((f) => f.rule_id === 'UI-11X-01');
     expect(uiIssues.length).toBe(3);
-    expect(uiIssues[0].severity).toBe('MEDIUM');
+    expect(uiIssues[0]?.severity).toBe('MEDIUM');
   });
 
   it('detecta violaciones de PHP: SEC-03 (unserialize inseguro, shell_exec, system, passthru)', async () => {
@@ -583,7 +583,7 @@ setInterval(() => {}, 1000);
     expect(limitedResult.truncated_findings_count).toBe(fullResult.findings.length - 2);
     expect(limitedResult.grouped_findings).toBeDefined();
     expect(limitedResult.grouped_findings?.length).toBeGreaterThanOrEqual(1);
-    expect(limitedResult.grouped_findings?.[0].occurrences_count).toBeGreaterThanOrEqual(4);
+    expect(limitedResult.grouped_findings?.[0]?.occurrences_count).toBeGreaterThanOrEqual(4);
   });
 
   it('no reporta falso positivo SEC-11 en tests unitarios que importan y ejecutan write_audit_log real para verificar record_sha256_hash', async () => {
@@ -920,6 +920,187 @@ docker exec -e ROSGRID_ADMIN_PASSWORD="\${LOCAL_ADMIN_PASS}" api pytest tests/co
 
       const pragmaRes = await auditSecurityStigOwasp(tempDir);
       expect(pragmaRes.findings.filter((f) => f.rule_id === 'UI-11X-03')).toEqual([]);
+    });
+
+    it('cubre ramas writeAuditLog, SQL ORDER BY created_at WORM y .github/actions/*.yaml', async () => {
+      fs.writeFileSync(path.join(tempDir, 'package.json'), JSON.stringify({ name: 'worm-app' }));
+      fs.writeFileSync(path.join(tempDir, '.npmrc'), 'ignore-scripts=true\n');
+      fs.mkdirSync(path.join(tempDir, 'tests'), { recursive: true });
+      fs.mkdirSync(path.join(tempDir, 'src'), { recursive: true });
+      fs.mkdirSync(path.join(tempDir, '.github', 'actions', 'custom-step'), { recursive: true });
+
+      fs.writeFileSync(
+        path.join(tempDir, 'tests', 'test_audit_camel.py'),
+        'from app.audit import writeAuditLog\ndef test_ok():\n    assert writeAuditLog is not None\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(tempDir, 'src', 'worm_raw_sql.py'),
+        [
+          'def append_worm():',
+          '    prev_record_hash = "0" * 64',
+          '    record_sha256_hash = "1" * 64',
+          '    q = "SELECT * FROM audit_log ORDER BY created_at DESC"',
+          '    return prev_record_hash, record_sha256_hash, q',
+        ].join('\n'),
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(tempDir, '.github', 'actions', 'custom-step', 'action.yaml'),
+        'name: Custom\nruns:\n  using: composite\n  steps:\n    - uses: actions/checkout@v4\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(tempDir, '.github', 'actions', 'custom-step', 'helper.yml'),
+        'steps:\n  - uses: actions/checkout@v4\n',
+        'utf8'
+      );
+
+      const res = await auditSecurityStigOwasp(tempDir);
+      expect(res.findings.some((f) => f.rule_id === 'SEC-14')).toBe(true);
+      expect(res.findings.some((f) => f.rule_id === 'SEC-CI-ACTION-REF' && f.file.endsWith('action.yaml'))).toBe(true);
+      expect(res.findings.some((f) => f.file.endsWith('helper.yml'))).toBe(false);
+    });
+
+    it('cubre continuaciones RUN en Dockerfile, versiones Playwright divergentes, fallback SSR compartido y atributos faltantes UI-11X-03', async () => {
+      fs.writeFileSync(path.join(tempDir, 'pyproject.toml'), '[project]\nname="app"\n', 'utf8');
+      fs.writeFileSync(
+        path.join(tempDir, 'Dockerfile'),
+        [
+          'FROM python:3.13-slim',
+          'RUN echo prep && pip install -r requirements.txt',
+          'RUN pip install requests \\',
+          '  # comentario en continuacion',
+          '  && echo done',
+        ].join('\n'),
+        'utf8'
+      );
+      fs.mkdirSync(path.join(tempDir, 'docker-a'), { recursive: true });
+      fs.mkdirSync(path.join(tempDir, 'docker-b'), { recursive: true });
+      fs.writeFileSync(
+        path.join(tempDir, 'docker-a', 'Dockerfile'),
+        'FROM mcr.microsoft.com/playwright:v1.50.0-noble\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(tempDir, 'docker-b', 'Dockerfile'),
+        'FROM mcr.microsoft.com/playwright:v1.51.0-noble\n',
+        'utf8'
+      );
+      fs.mkdirSync(path.join(tempDir, 'frontend'), { recursive: true });
+      fs.writeFileSync(
+        path.join(tempDir, 'frontend', 'package.json'),
+        JSON.stringify({ devDependencies: { '@playwright/test': '^1.50.0' } }),
+        'utf8'
+      );
+      fs.writeFileSync(path.join(tempDir, 'frontend', '.npmrc'), 'ignore-scripts=true\n', 'utf8');
+
+      // Dos subproyectos SSR sin playwright.config propio comparten playwright.config.ts raíz (seenConfigs)
+      fs.writeFileSync(
+        path.join(tempDir, 'playwright.config.ts'),
+        "export default { use: { colorScheme: 'light' } };\n",
+        'utf8'
+      );
+      for (const sub of ['web-a', 'web-b']) {
+        fs.mkdirSync(path.join(tempDir, sub, 'src'), { recursive: true });
+        fs.writeFileSync(
+          path.join(tempDir, sub, 'package.json'),
+          JSON.stringify({ dependencies: { nuxt: '^3.14.0' } }),
+          'utf8'
+        );
+        fs.writeFileSync(path.join(tempDir, sub, '.npmrc'), 'ignore-scripts=true\n', 'utf8');
+        fs.writeFileSync(
+          path.join(tempDir, sub, 'src', 'Theme.vue'),
+          '<script setup>const t = localStorage.getItem("theme");</script>',
+          'utf8'
+        );
+      }
+
+      // link sin href y manifest icon sin src
+      fs.mkdirSync(path.join(tempDir, 'web-a', 'public'), { recursive: true });
+      fs.writeFileSync(
+        path.join(tempDir, 'web-a', 'index.html'),
+        '<html><head><link rel="icon" /></head></html>',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(tempDir, 'web-a', 'public', 'site.webmanifest'),
+        JSON.stringify({ icons: [{ sizes: '192x192', type: 'image/png' }] }),
+        'utf8'
+      );
+
+      const res = await auditSecurityStigOwasp(tempDir);
+      expect(res.findings.some((f) => f.rule_id === 'QA-DOCKER-LOCK-01' && f.file === 'Dockerfile')).toBe(true);
+      expect(res.findings.some((f) => f.rule_id === 'QA-PLAYWRIGHT-PIN-01')).toBe(false);
+      expect(res.findings.filter((f) => f.rule_id === 'QA-SSR-HYDRATION-01' && f.file === 'playwright.config.ts')).toHaveLength(1);
+
+      // Unica version Playwright en Dockerfiles hermanos -> resolveExpectedPlaywrightTag toma uniqueVersions.size === 1
+      const singleVerProj = path.join(tempDir, 'single-pw-ver');
+      fs.mkdirSync(path.join(singleVerProj, 'e2e-runner'), { recursive: true });
+      fs.mkdirSync(path.join(singleVerProj, 'ui-app', 'src'), { recursive: true });
+      fs.writeFileSync(
+        path.join(singleVerProj, 'e2e-runner', 'Dockerfile'),
+        'FROM mcr.microsoft.com/playwright:v1.52.0-noble\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(singleVerProj, 'ui-app', 'package.json'),
+        JSON.stringify({ devDependencies: { '@playwright/test': '^1.50.0' } }),
+        'utf8'
+      );
+      fs.writeFileSync(path.join(singleVerProj, 'ui-app', '.npmrc'), 'ignore-scripts=true\n', 'utf8');
+      fs.writeFileSync(
+        path.join(singleVerProj, 'ui-app', 'src', 'check_rls.sql'),
+        'SELECT tablename FROM pg_catalog.pg_tables WHERE pg_tables.forcerowsecurity = true;\n',
+        'utf8'
+      );
+      const singleRes = await auditSecurityStigOwasp(singleVerProj);
+      expect(singleRes.findings.some((f) => f.rule_id === 'QA-PLAYWRIGHT-PIN-01')).toBe(true);
+      expect(singleRes.findings.some((f) => f.rule_id === 'QA-PG17-RLS')).toBe(true);
+    });
+
+    it('tolera archivos con permisos EACCES en OSHP, readTextFileSafe, QA-HEALTH-01, QA-CONTRACT-SDK-01 y QA-MYPY-01', async () => {
+      const caseA = path.join(tempDir, 'locked-a');
+      fs.mkdirSync(path.join(caseA, 'src'), { recursive: true });
+      const lockedMain = path.join(caseA, 'src', 'main.py');
+      const lockedWorker = path.join(caseA, 'src', 'worker.py');
+      const lockedHtml = path.join(caseA, 'index.html');
+      const lockedPyproject = path.join(caseA, 'pyproject.toml');
+      fs.writeFileSync(lockedMain, 'app = FastAPI()\n', 'utf8');
+      fs.writeFileSync(lockedWorker, 'PROBE = "/tmp/hp1"\n', 'utf8');
+      fs.writeFileSync(lockedHtml, '<html></html>', 'utf8');
+      fs.writeFileSync(lockedPyproject, '[tool.mypy]\nstrict = true\n', 'utf8');
+      fs.writeFileSync(path.join(caseA, 'Makefile'), 'qa-lint:\n\truff check src\n', 'utf8');
+      fs.writeFileSync(path.join(caseA, 'Dockerfile'), 'FROM python:3.13-slim\nHEALTHCHECK CMD test -f /tmp/hp1\n', 'utf8');
+
+      const caseB = path.join(tempDir, 'locked-b');
+      fs.mkdirSync(path.join(caseB, 'src'), { recursive: true });
+      fs.mkdirSync(path.join(caseB, 'tests'), { recursive: true });
+      fs.writeFileSync(path.join(caseB, 'package.json'), JSON.stringify({ name: 'sdk-app' }), 'utf8');
+      fs.writeFileSync(path.join(caseB, '.npmrc'), 'ignore-scripts=true\n', 'utf8');
+      fs.writeFileSync(path.join(caseB, 'Dockerfile'), 'FROM python:3.13-slim\nHEALTHCHECK CMD test -f /tmp/hp2\n', 'utf8');
+      fs.writeFileSync(path.join(caseB, 'src', 'worker.py'), 'PROBE = "/tmp/hp2"\n', 'utf8');
+      fs.writeFileSync(
+        path.join(caseB, 'src', 'mcp_srv.ts'),
+        'import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";\nserver.registerTool("x", {}, async () => ({ content: [] }));\n',
+        'utf8'
+      );
+      const lockedTestPy = path.join(caseB, 'tests', 'test_worker.py');
+      const lockedTestTs = path.join(caseB, 'tests', 'test_mcp.ts');
+      fs.writeFileSync(lockedTestPy, 'def test_w(): pass\n', 'utf8');
+      fs.writeFileSync(lockedTestTs, 'export const t = 1;\n', 'utf8');
+
+      const lockedFiles = [lockedMain, lockedWorker, lockedHtml, lockedPyproject, lockedTestPy, lockedTestTs];
+      for (const f of lockedFiles) fs.chmodSync(f, 0o000);
+      try {
+        const resA = await auditSecurityStigOwasp(caseA);
+        expect(resA.findings.some((f) => f.rule_id === 'SEC-08')).toBe(true);
+        const resB = await auditSecurityStigOwasp(caseB);
+        expect(resB.findings.some((f) => f.rule_id === 'QA-HEALTH-01')).toBe(true);
+        expect(resB.findings.some((f) => f.rule_id === 'QA-CONTRACT-SDK-01')).toBe(true);
+      } finally {
+        for (const f of lockedFiles) fs.chmodSync(f, 0o600);
+      }
     });
   });
 });

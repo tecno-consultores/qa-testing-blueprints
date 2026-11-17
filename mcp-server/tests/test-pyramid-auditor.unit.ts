@@ -495,8 +495,8 @@ services:
     const files = ['scripts/deploy.sh', 'scripts/backup.sh', 'test/test_deploy.bats'];
     const orphans = findOrphanSourceFiles(tmpDir, files, ['bash-scripts']);
     expect(orphans).toHaveLength(1);
-    expect(orphans[0].source_file).toBe('scripts/backup.sh');
-    expect(orphans[0].expected_unit_test).toBe('test/test_backup.bats');
+    expect(orphans[0]?.source_file).toBe('scripts/backup.sh');
+    expect(orphans[0]?.expected_unit_test).toBe('test/test_backup.bats');
   });
 
   it('extracts Express/NestJS endpoints and handles parametric paths', () => {
@@ -511,9 +511,9 @@ router.post('/checkout', (req, res) => {});
     );
     const endpoints = findUntestedApiEndpoints(tmpDir, ['routes.ts']);
     expect(endpoints).toHaveLength(2);
-    expect(endpoints[0].method).toBe('GET');
-    expect(endpoints[0].path).toBe('/users/:id');
-    expect(endpoints[1].method).toBe('POST');
+    expect(endpoints[0]?.method).toBe('GET');
+    expect(endpoints[0]?.path).toBe('/users/:id');
+    expect(endpoints[1]?.method).toBe('POST');
   });
 
   it('buildPrioritizedActionPlan correctly populates steps and commands', () => {
@@ -557,8 +557,8 @@ router.post('/checkout', (req, res) => {});
 
     const plan = buildPrioritizedActionPlan(dummyLayers, inventory);
     expect(plan.length).toBeGreaterThan(0);
-    expect(plan[0].priority).toBe('CRITICAL');
-    expect(plan[0].step).toBe(1);
+    expect(plan[0]?.priority).toBe('CRITICAL');
+    expect(plan[0]?.step).toBe(1);
     expect(plan.some((p) => p.priority === 'HIGH')).toBe(true);
     expect(plan.some((p) => p.priority === 'MEDIUM')).toBe(true);
   });
@@ -652,7 +652,7 @@ def create_item(): pass
     ];
 
     const untested = findUntestedUiViews(tmpDir, files);
-    expect(untested.length).toBe(2); // Dashboard falta BDD/E2E, Settings falta todo
+    expect(untested.length).toBe(2); // Dashboard falta BDD/E2E, Settings carece de todas las capas
   });
 
   it('covers partial branches for Layer 01 (Static SAST & Linters)', () => {
@@ -952,7 +952,7 @@ def create_item(): pass
     expect(l13MissingTriad.missing_requirements).toContain('Faltan fixtures trimodales completos (virgen, nominal, degradado).');
   });
 
-  it('evaluates PHP stack across 13 quality layers and detects PHP orphan source files', async () => {
+  it('evaluates PHP stack across 13 quality layers and detects PHP orphan source files', () => {
     // 1. PHP Orphan detection
     const srcDir = path.join(tmpDir, 'src', 'Services');
     fs.mkdirSync(srcDir, { recursive: true });
@@ -962,9 +962,9 @@ def create_item(): pass
     const filesWithOrphan = ['src/Services/BillingService.php'];
     const orphans = findOrphanSourceFiles(tmpDir, filesWithOrphan, ['php']);
     expect(orphans.length).toBe(1);
-    expect(orphans[0].source_file).toBe('src/Services/BillingService.php');
-    expect(orphans[0].expected_unit_test).toBe('tests/BillingServiceTest.php');
-    expect(orphans[0].stack).toBe('php');
+    expect(orphans[0]?.source_file).toBe('src/Services/BillingService.php');
+    expect(orphans[0]?.expected_unit_test).toBe('tests/BillingServiceTest.php');
+    expect(orphans[0]?.stack).toBe('php');
 
     // With test present, no orphan
     const filesWithTest = [
@@ -1247,6 +1247,59 @@ def create_item(): pass
 
     const reactOnlyOrphans = findOrphanSourceFiles(tmpDir, ['src/Widget.tsx'], ['react-frontend']);
     expect(reactOnlyOrphans).toHaveLength(1);
-    expect(reactOnlyOrphans[0].stack).toBe('react-frontend');
+    expect(reactOnlyOrphans[0]?.stack).toBe('react-frontend');
+  });
+
+  it('handles unreadable files, trailing slashes in Karate paths, mismatched feature methods, and NestJS @Get() without args', () => {
+    const apiDir = path.join(tmpDir, 'trailing-api');
+    const routesDir = path.join(apiDir, 'src', 'routes');
+    const testApi = path.join(apiDir, 'test');
+    fs.mkdirSync(routesDir, { recursive: true });
+    fs.mkdirSync(testApi, { recursive: true });
+
+    fs.writeFileSync(
+      path.join(routesDir, 'items.py'),
+      [
+        'router = APIRouter(prefix="/api/v1/")',
+        '@router.get("/items/")',
+        'def list_items(): return []',
+        '@router.get("/other")',
+        'def other_item(): return {}',
+      ].join('\n'),
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(routesDir, 'nest.controller.ts'),
+      ['@Get()', 'findRoot() {}', '@Post("/orders")', 'createOrder() {}'].join('\n'),
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(testApi, 'api_test.feature'),
+      [
+        'Feature: Items',
+        '  Scenario: List and create',
+        "    Given path '/api/v1/items/'",
+        '    When method post',
+        '    When method get',
+      ].join('\n'),
+      'utf-8'
+    );
+    const lockedFile = path.join(routesDir, 'locked.py');
+    fs.writeFileSync(lockedFile, 'def hidden(): pass\n', 'utf-8');
+    fs.chmodSync(lockedFile, 0o000);
+    try {
+      const untested = findUntestedApiEndpoints(apiDir, [
+        'src/routes/items.py',
+        'src/routes/nest.controller.ts',
+        'src/routes/locked.py',
+        'test/api_test.feature',
+      ]);
+      expect(untested.some((u) => u.path === '/api/v1/items')).toBe(false);
+      expect(untested.some((u) => u.path === '/api/v1/other')).toBe(true);
+      expect(untested.some((u) => u.path === '/' && u.method === 'GET')).toBe(true);
+      expect(untested.some((u) => u.path === '/orders' && u.method === 'POST')).toBe(true);
+    } finally {
+      fs.chmodSync(lockedFile, 0o600);
+    }
   });
 });

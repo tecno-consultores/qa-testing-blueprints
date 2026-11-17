@@ -407,7 +407,7 @@ describe('certify-gate', () => {
       expect(unreadableRes.check_statuses?.json_integrity).toBe('FAILED');
       expect(unreadableRes.blockers.some((b) => b.includes('INVALID_JSON:') && b.includes('unreadable.json'))).toBe(true);
     } finally {
-      fs.chmodSync(unreadableJson, 0o644);
+      fs.chmodSync(unreadableJson, 0o600);
     }
 
     // Sin ningún .json ni .json.example -> SKIPPED (nunca PASSED)
@@ -628,5 +628,61 @@ describe('certify-gate', () => {
     const badStatusRes = await certify11xGate(tempDir);
     expect(badStatusRes.gate_passed).toBe(true);
     expect(badStatusRes.blockers).toEqual([]);
+  });
+
+  it('blocks fail-securely on unreadable project root, unreadable candidate test files, and unreadable ACTIVE_TASK.md', async () => {
+    const lockedRoot = path.join(tempDir, 'locked-root');
+    fs.mkdirSync(lockedRoot, { recursive: true });
+    fs.chmodSync(lockedRoot, 0o000);
+    try {
+      const lockedRes = await certify11xGate(lockedRoot, {
+        requireLintEvidence: false,
+        allowUnmergedExamples: false,
+      });
+      expect(lockedRes.gate_passed).toBe(false);
+      expect(lockedRes.check_statuses?.zero_unmerged_examples).toBe('FAILED');
+      expect(lockedRes.check_statuses?.json_integrity).toBe('FAILED');
+      expect(
+        lockedRes.blockers.some((b) =>
+          b.includes('No se pudo enumerar el directorio raíz para verificar archivos .example')
+        )
+      ).toBe(true);
+      expect(
+        lockedRes.blockers.some((b) =>
+          b.includes('No se pudo enumerar el directorio raíz para validar integridad JSON')
+        )
+      ).toBe(true);
+    } finally {
+      fs.chmodSync(lockedRoot, 0o700);
+    }
+
+    const lockedFilesProj = path.join(tempDir, 'locked-files-proj');
+    fs.mkdirSync(lockedFilesProj, { recursive: true });
+    setupNominalProject(lockedFilesProj);
+    fs.writeFileSync(
+      path.join(lockedFilesProj, 'src', 'components', 'OrphanWidget.vue'),
+      '<template><div/></template>',
+      'utf8'
+    );
+    const testsDir = path.join(lockedFilesProj, 'tests');
+    fs.mkdirSync(testsDir, { recursive: true });
+    const unreadableTest = path.join(testsDir, 'unreadable.unit.ts');
+    fs.writeFileSync(unreadableTest, '// unreadable test', 'utf8');
+    const agentsDir = path.join(lockedFilesProj, '.agents');
+    fs.mkdirSync(agentsDir, { recursive: true });
+    const unreadableActiveTask = path.join(agentsDir, 'ACTIVE_TASK.md');
+    fs.writeFileSync(unreadableActiveTask, '# Active Task', 'utf8');
+
+    fs.chmodSync(unreadableTest, 0o000);
+    fs.chmodSync(unreadableActiveTask, 0o000);
+    try {
+      const res = await certify11xGate(lockedFilesProj, { requireLintEvidence: false });
+      expect(res.gate_passed).toBe(false);
+      expect(res.check_statuses?.zero_orphan_ui_components).toBe('FAILED');
+      expect(res.blockers).toContain('No se pudo leer .agents/ACTIVE_TASK.md.');
+    } finally {
+      fs.chmodSync(unreadableTest, 0o600);
+      fs.chmodSync(unreadableActiveTask, 0o600);
+    }
   });
 });

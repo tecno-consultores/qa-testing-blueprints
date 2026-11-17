@@ -11,6 +11,7 @@ import {
   GitHubFetcher,
   isOwnObjectProperty,
   resolveSafeChildPath,
+  resolveSafeHomeDir,
 } from '../src/services/github-fetcher.js';
 import { Manifest } from '../src/types.js';
 
@@ -92,7 +93,7 @@ describe('GitHubFetcher Service (DISA STIG V-222513 & Zero-Clone Hydration)', ()
       ok: true,
       status: 200,
       headers: new Headers({ etag: '"etag-12345"' }),
-      text: async () => JSON.stringify(mockManifest),
+      text: () => Promise.resolve(JSON.stringify(mockManifest)),
     });
     vi.stubGlobal('fetch', fetchMock);
 
@@ -119,23 +120,27 @@ describe('GitHubFetcher Service (DISA STIG V-222513 & Zero-Clone Hydration)', ()
     fs.writeFileSync(path.join(cacheDir, 'manifest.json'), JSON.stringify(cachedManifest), 'utf-8');
     fs.writeFileSync(path.join(cacheDir, 'manifest.etag'), '"etag-cached"', 'utf-8');
 
-    const fetchMock = vi.fn().mockResolvedValue({
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue({
       ok: false,
       status: 304,
       statusText: 'Not Modified',
       headers: new Headers(),
-    });
+    } as unknown as Response);
     vi.stubGlobal('fetch', fetchMock);
 
     const fetcher = new GitHubFetcher({ cacheDir });
     const manifest = await fetcher.fetchManifest();
 
     expect(manifest.blueprint_version).toBe('2.6.9');
-    expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining('/manifest.json'),
-      expect.objectContaining({
-        headers: expect.objectContaining({ 'If-None-Match': '"etag-cached"' }),
-      })
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const firstCall = fetchMock.mock.calls[0];
+    const requestInput = firstCall?.[0];
+    if (typeof requestInput !== 'string') {
+      throw new Error('Expected fetch to be called with a string URL');
+    }
+    expect(requestInput).toContain('/manifest.json');
+    expect((firstCall?.[1]?.headers as Record<string, string> | undefined)?.['If-None-Match']).toBe(
+      '"etag-cached"'
     );
   });
 
@@ -202,7 +207,7 @@ describe('GitHubFetcher Service (DISA STIG V-222513 & Zero-Clone Hydration)', ()
       vi.fn().mockResolvedValue({
         ok: true,
         status: 200,
-        text: async () => content,
+        text: () => Promise.resolve(content),
       })
     );
 
@@ -236,7 +241,7 @@ describe('GitHubFetcher Service (DISA STIG V-222513 & Zero-Clone Hydration)', ()
       vi.fn().mockResolvedValue({
         ok: true,
         status: 200,
-        text: async () => 'corrupted remote content',
+        text: () => Promise.resolve('corrupted remote content'),
       })
     );
 
@@ -329,10 +334,10 @@ describe('GitHubFetcher Service (DISA STIG V-222513 & Zero-Clone Hydration)', ()
     const bundle = await fetcher.fetchStackBundle('fastapi', true);
 
     expect(bundle).toHaveLength(2);
-    expect(bundle[0].target_name).toBe('Makefile');
-    expect(bundle[0].content).toBe(file1Content);
-    expect(bundle[1].target_name).toBe('lefthook.yml');
-    expect(bundle[1].content).toBe(commonContent);
+    expect(bundle[0]?.target_name).toBe('Makefile');
+    expect(bundle[0]?.content).toBe(file1Content);
+    expect(bundle[1]?.target_name).toBe('lefthook.yml');
+    expect(bundle[1]?.content).toBe(commonContent);
   });
 
   it('throws error if stack does not exist in manifest', async () => {
@@ -380,7 +385,7 @@ describe('GitHubFetcher Service (DISA STIG V-222513 & Zero-Clone Hydration)', ()
       status: 500,
       statusText: 'Internal Server Error',
       headers: new Headers(),
-      text: async () => 'Server error',
+      text: () => Promise.resolve('Server error'),
     } as unknown as Response);
 
     await expect(fetcher.fetchManifest()).rejects.toThrow(
@@ -437,7 +442,7 @@ describe('GitHubFetcher Service (DISA STIG V-222513 & Zero-Clone Hydration)', ()
         status: 200,
         statusText: 'OK',
         headers: new Headers({ etag: '"etag-fresh"' }),
-        text: async () => JSON.stringify(freshManifest),
+        text: () => Promise.resolve(JSON.stringify(freshManifest)),
       });
     vi.stubGlobal('fetch', fetchMock);
 
@@ -458,5 +463,38 @@ describe('GitHubFetcher Service (DISA STIG V-222513 & Zero-Clone Hydration)', ()
 
     const fetcher = new GitHubFetcher({ cacheDir, localOverridePath: localRepoDir });
     await expect(fetcher.fetchFileContent('../secret.txt', 'hash')).rejects.toThrow('CWE-22');
+  });
+
+  it('logs sanitized debug trace when QA11X_DEBUG=1 and homedir fails', () => {
+    const prevHome = process.env.HOME;
+    const prevUserProfile = process.env.USERPROFILE;
+    const prevDebug = process.env.QA11X_DEBUG;
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    try {
+      delete process.env.HOME;
+      delete process.env.USERPROFILE;
+      process.env.QA11X_DEBUG = '1';
+
+      expect(
+        resolveSafeHomeDir(undefined, () => {
+          throw new Error('passwd entry missing');
+        })
+      ).toBe(os.tmpdir());
+      expect(
+        resolveSafeHomeDir(undefined, () => {
+          throw 'non-error-homedir' as unknown as Error;
+        })
+      ).toBe(os.tmpdir());
+      expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('passwd entry missing'));
+      expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('homedir error'));
+    } finally {
+      stderrSpy.mockRestore();
+      if (prevHome === undefined) delete process.env.HOME;
+      else process.env.HOME = prevHome;
+      if (prevUserProfile === undefined) delete process.env.USERPROFILE;
+      else process.env.USERPROFILE = prevUserProfile;
+      if (prevDebug === undefined) delete process.env.QA11X_DEBUG;
+      else process.env.QA11X_DEBUG = prevDebug;
+    }
   });
 });

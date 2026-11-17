@@ -4,6 +4,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
+import { pickAt } from '../utils/diagnosticFormatter.js';
 
 export const VIBE_RULE_SEC = 'VIBE-SEC-001' as const;
 export const VIBE_RULE_RLS = 'VIBE-RLS-002' as const;
@@ -52,18 +53,27 @@ const DEFAULT_ENV_KEYS = ['DATABASE_URL', 'APP_ENCRYPTION_KEY', 'AUDIT_HMAC_KEY'
 
 const CLIENT_SECRET_VAR_RE =
   /\b((?:VITE|NEXT_PUBLIC|EXPO_PUBLIC|REACT_APP)_[A-Z0-9_]*(?:SERVICE_ROLE|SECRET|PRIVATE|OPENAI_API_KEY|ANTHROPIC_API_KEY|DATABASE_URL)[A-Z0-9_]*)\b/;
-const LITERAL_KEY_RE =
-  /\b(?:sk-(?:proj-)?[A-Za-z0-9_-]{16,}|(?:ghp|gho|ghs|npm)_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|glpat-[A-Za-z0-9_-]{20,})\b/;
-const ENV_KEY_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const LITERAL_KEY_PATTERNS: readonly RegExp[] = [
+  /\bsk-(?:proj-)?[A-Za-z0-9_-]{16,}\b/,
+  /\b(?:ghp|gho|ghs|npm)_[A-Za-z0-9]{20,}\b/,
+  /\bAKIA[0-9A-Z]{16}\b/,
+  /\bglpat-[A-Za-z0-9_-]{20,}\b/,
+];
+const ENV_KEY_NAME_RE = /^[A-Za-z_]\w*$/;
 const SENSITIVE_ENV_KEY_RE =
   /(?:SECRET|SERVICE_ROLE|PRIVATE|KEY|TOKEN|PASSWORD|PASSWD|DATABASE_URL)/i;
 const PLACEHOLDER_VAL_RE =
-  /(?:example|placeholder|changeme|change_me|your_|redacted|<[^>]+>)/i;
+  /(?:example|placeholder|changeme|change_me|your_|redacted)|<[^<>\n]+>/i;
 const REDACT_ASSIGN_RE =
-  /([A-Za-z0-9_]*(?:KEY|SECRET|TOKEN|PASSWORD|PASSWD|DATABASE_URL)[A-Za-z0-9_]*\s*[=:]\s*["']?)([^"'\s\r\n]+)/gi;
-const REDACT_BEARER_RE = /\b(Bearer|Basic)\s+[A-Za-z0-9._+/=-]+/gi;
-const REDACT_LITERAL_RE =
-  /\b(?:sk-(?:proj-)?[A-Za-z0-9_-]{12,}|(?:ghp|gho|ghs|npm)_[A-Za-z0-9]{16,}|AKIA[0-9A-Z]{16}|glpat-[A-Za-z0-9_-]{16,}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})/g;
+  /(\b\w*(?:KEY|SECRET|TOKEN|PASSWORD|PASSWD|DATABASE_URL)\w*[ \t]*[=:][ \t]*["']?)([^"'\s]+)/gi;
+const REDACT_BEARER_RE = /\b(Bearer|Basic)\s+[a-z0-9._+/=-]+/gi;
+const REDACT_LITERAL_PATTERNS: readonly RegExp[] = [
+  /\bsk-(?:proj-)?[A-Za-z0-9_-]{12,}\b/g,
+  /\b(?:ghp|gho|ghs|npm)_[A-Za-z0-9]{16,}\b/g,
+  /\bAKIA[0-9A-Z]{16}\b/g,
+  /\bglpat-[A-Za-z0-9_-]{16,}\b/g,
+  /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g,
+];
 
 const SQL_BLOCK_COMMENT_RE = /\/\*[\s\S]*?\*\//g;
 const SQL_LINE_COMMENT_RE = /--[^\n]*/g;
@@ -76,15 +86,18 @@ const CLIENT_SERVICE_ROLE_RE = /\b(?:service_role|supabaseAdmin)\b/;
 
 const WEAK_TYPE_RE = /(?::\s*any\b|\bas\s+any\b|@ts-ignore|@ts-nocheck|#\s*type:\s*ignore)/;
 const TS_STRICT_FALSE_RE = /"strict"\s*:\s*false/;
-const MUTATING_ROUTE_RE =
-  /(?:@(?:app|router)\.(?:post|put|patch|delete)\s*\(|\b(?:app|router)\.(?:post|put|patch|delete)\s*\(|export\s+async\s+function\s+(?:POST|PUT|PATCH|DELETE)\b)/;
+const MUTATING_ROUTE_PATTERNS: readonly RegExp[] = [
+  /@(?:app|router)\.(?:post|put|patch|delete)\s*\(/,
+  /\b(?:app|router)\.(?:post|put|patch|delete)\s*\(/,
+  /export\s+async\s+function\s+(?:POST|PUT|PATCH|DELETE)\b/,
+];
 const IDEMPOTENCY_RE = /Idempotency-Key|idempotency_key/i;
 
 const TEST_FILE_RE = /(?:\.(?:test|spec)\.[a-z0-9]+$|^test_.*\.py$|_test\.py$|\.feature$)/i;
 const FIXED_WAIT_RE = /\b(?:waitForTimeout|time\.sleep)\s*\(|\bcy\.wait\s*\(\s*\d+/;
-const DOCKER_USER_ROOT_RE = /^\s*USER\s+(?:root|0(?::0)?)\s*$/im;
-const DOCKER_ANY_USER_RE = /^\s*USER\s+\S+/im;
-const DOCKER_FROM_LATEST_RE = /^\s*FROM\s+[^\s@]+:latest\b/im;
+const DOCKER_USER_ROOT_RE = /^[ \t]*USER[ \t]+(?:root|0(?::0)?)[ \t]*$/im;
+const DOCKER_ANY_USER_RE = /^[ \t]*USER[ \t]+\S+/im;
+const DOCKER_FROM_LATEST_RE = /^[ \t]*FROM[ \t]+[^\s@]+:latest\b/im;
 
 const EMBEDDED_RLS_TEMPLATE = [
   '-- Plantilla minima QA-PG17-RLS (respaldo embebido)',
@@ -203,7 +216,10 @@ export const AUDIT_VIBE_PROTOTYPE_TOOL: Tool = {
 };
 
 export function redactVibeSecrets(text: string): string {
-  const withoutLiterals = text.replace(REDACT_LITERAL_RE, REDACTION_MARKER);
+  let withoutLiterals = text;
+  for (const literalPattern of REDACT_LITERAL_PATTERNS) {
+    withoutLiterals = withoutLiterals.replace(literalPattern, REDACTION_MARKER);
+  }
   const withoutBearer = withoutLiterals.replace(REDACT_BEARER_RE, `$1 ${REDACTION_MARKER}`);
   return withoutBearer.replace(REDACT_ASSIGN_RE, `$1${REDACTION_MARKER}`);
 }
@@ -287,7 +303,8 @@ function addFinding(findings: VibeFinding[], spec: VibeFindingSpec): void {
 
 function findMatchingLine(lines: readonly string[], pattern: RegExp): number {
   for (let idx = 0; idx < lines.length; idx += 1) {
-    if (pattern.test(lines[idx])) {
+    const line = lines[idx];
+    if (line !== undefined && pattern.test(line)) {
       return idx + 1;
     }
   }
@@ -365,8 +382,8 @@ interface ScanEnvContext {
 
 function scanEnvLines(ctx: ScanEnvContext): void {
   const { rel, lines, envIgnored, findings, envKeys } = ctx;
-  for (let idx = 0; idx < lines.length; idx += 1) {
-    const parsed = parseEnvAssignment(lines[idx]);
+  for (const [idx, rawLine] of lines.entries()) {
+    const parsed = parseEnvAssignment(rawLine);
     if (!parsed) {
       continue;
     }
@@ -398,8 +415,7 @@ function scanSourceSecrets(
   lines: readonly string[],
   findings: VibeFinding[],
 ): void {
-  for (let idx = 0; idx < lines.length; idx += 1) {
-    const line = lines[idx];
+  for (const [idx, line] of lines.entries()) {
     const clientMatch = CLIENT_SECRET_VAR_RE.exec(line);
     if (clientMatch) {
       addFinding(findings, {
@@ -407,10 +423,10 @@ function scanSourceSecrets(
         severity: VIBE_SEVERITY_CRITICAL,
         file: rel,
         line: idx + 1,
-        message: `Credencial privilegiada en cliente: ${clientMatch[1]}`,
+        message: `Credencial privilegiada en cliente: ${pickAt(clientMatch, 1, 'SECRET')}`,
       });
     }
-    if (LITERAL_KEY_RE.test(line)) {
+    if (LITERAL_KEY_PATTERNS.some((re) => re.test(line))) {
       addFinding(findings, {
         ruleId: VIBE_RULE_SEC,
         severity: VIBE_SEVERITY_CRITICAL,
@@ -487,12 +503,15 @@ function scanNonTestCode(input: NonTestCodeScanInput): void {
       message: 'Escape de tipado estricto (: any / @ts-ignore / # type: ignore)',
     });
   }
-  if (MUTATING_ROUTE_RE.test(text) && !IDEMPOTENCY_RE.test(text)) {
+  const mutatingMatchIdx = lines.findIndex((line) =>
+    MUTATING_ROUTE_PATTERNS.some((re) => re.test(line))
+  );
+  if (mutatingMatchIdx !== -1 && !IDEMPOTENCY_RE.test(text)) {
     addFinding(findings, {
       ruleId: VIBE_RULE_TYPE,
       severity: VIBE_SEVERITY_HIGH,
       file: rel,
-      line: findMatchingLine(lines, MUTATING_ROUTE_RE),
+      line: mutatingMatchIdx + 1,
       message: 'Endpoint mutador sin verificación de cabecera Idempotency-Key',
     });
   }
@@ -557,13 +576,9 @@ function processSingleFile(input: ProcessSingleFileInput): boolean {
 
   if (isEnvFile(baseName)) {
     scanEnvLines({ rel: relPosix, lines, envIgnored, findings, envKeys });
-    return isTest;
-  }
-  if (ext === '.sql') {
+  } else if (ext === '.sql') {
     scanSqlFile(relPosix, text, findings);
-    return isTest;
-  }
-  if (CODE_EXTENSIONS.has(ext)) {
+  } else if (CODE_EXTENSIONS.has(ext)) {
     if (FIXED_WAIT_RE.test(text)) {
       addFinding(findings, {
         ruleId: VIBE_RULE_QA,
@@ -577,9 +592,7 @@ function processSingleFile(input: ProcessSingleFileInput): boolean {
       scanSourceSecrets(relPosix, lines, findings);
       scanNonTestCode({ rel: relPosix, ext, text, lines, maxLines, findings });
     }
-    return isTest;
-  }
-  if (baseName.startsWith('tsconfig') && baseName.endsWith('.json') && TS_STRICT_FALSE_RE.test(text)) {
+  } else if (baseName.startsWith('tsconfig') && baseName.endsWith('.json') && TS_STRICT_FALSE_RE.test(text)) {
     addFinding(findings, {
       ruleId: VIBE_RULE_TYPE,
       severity: VIBE_SEVERITY_HIGH,
@@ -674,7 +687,10 @@ function emitRemediationBundle(
     writtenFiles,
     skippedExistingFiles,
   );
-  const sortedKeys = envKeys.size > 0 ? Array.from(envKeys).sort() : [...DEFAULT_ENV_KEYS];
+  const sortedKeys =
+    envKeys.size > 0
+      ? Array.from(envKeys).sort((a, b) => a.localeCompare(b))
+      : [...DEFAULT_ENV_KEYS];
   const envExample = sortedKeys.map((key) => `${key}=<CHANGE_ME_IN_VAULT>\n`).join('');
   writeIfAbsent(path.join(outDir, '.env.example'), envExample, writtenFiles, skippedExistingFiles);
   writeIfAbsent(

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { MCP_SERVER_VERSION } from '../src/services/github-fetcher.js';
 import {
   buildFailureArtifactPath,
@@ -10,6 +10,8 @@ import {
   formatFailVerboseReport,
   formatPassQuietSummary,
   hasComplexityOrSignatureViolation,
+  pickAt,
+  reportDebugCatchError,
   sanitizeCommandSecrets,
   TACTICAL_PATTERNS_DIRECTIVE_11X,
   toAllureDiagnosticEnvelope,
@@ -214,6 +216,50 @@ describe('diagnosticFormatter (T1.5 Pass-Quiet & Fail-Verbose + Allure)', () => 
         stderr: 'unused variable F401',
       });
       expect(nonComplexity).not.toContain('[DIRECTIVE-11X]');
+    });
+  });
+
+  describe('5. Utilidades pickAt y reportDebugCatchError', () => {
+    it('pickAt retorna el elemento definido o aplica fallback por defecto y personalizado', () => {
+      const items: Array<string | undefined> = ['alpha', undefined, 'gamma'];
+      expect(pickAt(items, 0)).toBe('alpha');
+      expect(pickAt(items, 1)).toBe('');
+      expect(pickAt(items, 2)).toBe('gamma');
+      expect(pickAt(items, 99)).toBe('');
+      expect(pickAt(items, 99, '0')).toBe('0');
+    });
+
+    it('reportDebugCatchError omite salida sin QA11X_DEBUG y sanitiza Error/string/desconocido con QA11X_DEBUG=1', () => {
+      const prevDebug = process.env.QA11X_DEBUG;
+      const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      try {
+        delete process.env.QA11X_DEBUG;
+        reportDebugCatchError('quiet.scope', new Error('hidden error'));
+        expect(stderrSpy).not.toHaveBeenCalled();
+
+        process.env.QA11X_DEBUG = '1';
+        reportDebugCatchError('parser.unit', new Error('failed to parse token'));
+        reportDebugCatchError('scope\nline', 'Bearer secret-token-123');
+        reportDebugCatchError('unknown.scope', { code: 500 });
+
+        expect(stderrSpy).toHaveBeenCalledTimes(3);
+        expect(String(stderrSpy.mock.calls[0]?.[0])).toBe(
+          '[QA11X_DEBUG] parser.unit: failed to parse token\n'
+        );
+        const secretCall = String(stderrSpy.mock.calls[1]?.[0]);
+        expect(secretCall).toBe('[QA11X_DEBUG] scope line: Bearer [REDACTED]\n');
+        expect(secretCall).not.toContain('secret-token-123');
+        expect(String(stderrSpy.mock.calls[2]?.[0])).toBe(
+          '[QA11X_DEBUG] unknown.scope: unexpected error\n'
+        );
+      } finally {
+        stderrSpy.mockRestore();
+        if (prevDebug === undefined) {
+          delete process.env.QA11X_DEBUG;
+        } else {
+          process.env.QA11X_DEBUG = prevDebug;
+        }
+      }
     });
   });
 });

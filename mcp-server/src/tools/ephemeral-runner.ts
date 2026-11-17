@@ -19,6 +19,8 @@ import { QaExecutionResult } from '../types.js';
 import {
   formatFailVerboseReport,
   hasComplexityOrSignatureViolation,
+  pickAt,
+  reportDebugCatchError,
   TACTICAL_PATTERNS_DIRECTIVE_11X,
 } from '../utils/diagnosticFormatter.js';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
@@ -170,10 +172,14 @@ export interface RunEphemeralQaOptions {
   skipIfDocsOnly?: boolean;
 }
 
+interface ParsedTarget {
+  deps: string[];
+  recipes: string[];
+}
+
 interface ParsedMakefile {
   vars: Map<string, string>;
-  rules: Map<string, string[]>;
-  recipes: Map<string, string[]>;
+  targets: Map<string, ParsedTarget>;
 }
 
 export type RecipeResolutionResult =
@@ -253,7 +259,8 @@ export function tokenizeCommandArgs(commandLine: string): string[] {
   let current = '';
   let hasToken = false;
 
-  for (let i = 0; i < commandLine.length; i += 1) {
+  let i = 0;
+  while (i < commandLine.length) {
     const ch = commandLine[i];
     if (ch === ' ' || ch === '\t') {
       if (hasToken) {
@@ -261,6 +268,7 @@ export function tokenizeCommandArgs(commandLine: string): string[] {
         current = '';
         hasToken = false;
       }
+      i += 1;
       continue;
     }
     if (ch === "'" || ch === '"') {
@@ -269,12 +277,13 @@ export function tokenizeCommandArgs(commandLine: string): string[] {
           ? readSingleQuotedToken(commandLine, i)
           : readDoubleQuotedToken(commandLine, i);
       current += seg.value;
-      i = seg.nextIndex;
+      i = seg.nextIndex + 1;
       hasToken = true;
       continue;
     }
     current += ch;
     hasToken = true;
+    i += 1;
   }
 
   if (hasToken) {
@@ -283,13 +292,18 @@ export function tokenizeCommandArgs(commandLine: string): string[] {
   return tokens;
 }
 
+function resolvePosixNumericId(kind: 'uid' | 'gid'): number {
+  const fn = kind === 'uid' ? process.getuid : process.getgid;
+  return typeof fn === 'function' ? fn.call(process) : 1000;
+}
+
 function resolveVariableValue(expr: string, vars: ReadonlyMap<string, string>): string {
   const key = expr.trim();
   if (key === 'shell id -u') {
-    return String(typeof process.getuid === 'function' ? process.getuid() : 1000);
+    return String(resolvePosixNumericId('uid'));
   }
   if (key === 'shell id -g') {
-    return String(typeof process.getgid === 'function' ? process.getgid() : 1000);
+    return String(resolvePosixNumericId('gid'));
   }
   return vars.get(key) ?? '';
 }
@@ -299,15 +313,18 @@ function resolveVariableValue(expr: string, vars: ReadonlyMap<string, string>): 
  */
 export function expandMakefileVariables(raw: string, vars: ReadonlyMap<string, string>): string {
   let out = '';
-  for (let i = 0; i < raw.length; i += 1) {
-    if (raw[i] !== '$' || i + 1 >= raw.length) {
-      out += raw[i];
+  let i = 0;
+  while (i < raw.length) {
+    const ch = pickAt(raw, i);
+    if (ch !== '$' || i + 1 >= raw.length) {
+      out += ch;
+      i += 1;
       continue;
     }
     const next = raw[i + 1];
     if (next === '$') {
       out += '$';
-      i += 1;
+      i += 2;
       continue;
     }
     if (next === '(' || next === '{') {
@@ -315,22 +332,30 @@ export function expandMakefileVariables(raw: string, vars: ReadonlyMap<string, s
       const closeIdx = raw.indexOf(closeChar, i + 2);
       if (closeIdx !== -1) {
         out += resolveVariableValue(raw.slice(i + 2, closeIdx), vars);
-        i = closeIdx;
+        i = closeIdx + 1;
         continue;
       }
     }
-    out += raw[i];
+    out += ch;
+    i += 1;
   }
   return out;
 }
 
 function parseVariableAssignment(trimmed: string, vars: Map<string, string>): boolean {
   const cleaned = trimmed.startsWith('export ') ? trimmed.slice(7).trim() : trimmed;
-  const match = /^([A-Za-z_][A-Za-z0-9_]*)\s*(\?=|:=|=)\s*(.*)$/.exec(cleaned);
-  if (!match) {
+  const eqIdx = cleaned.indexOf('=');
+  if (eqIdx <= 0) {
     return false;
   }
-  const [, name, op, rawVal] = match;
+  const prevChar = cleaned[eqIdx - 1];
+  const hasCompoundOp = prevChar === '?' || prevChar === ':';
+  const op = hasCompoundOp ? `${prevChar}=` : '=';
+  const name = cleaned.slice(0, hasCompoundOp ? eqIdx - 1 : eqIdx).trim();
+  const rawVal = cleaned.slice(eqIdx + 1);
+  if (!/^[A-Za-z_]\w*$/.test(name)) {
+    return false;
+  }
   if (op === '?=' && vars.has(name)) {
     return true;
   }
@@ -347,11 +372,14 @@ function parseRuleLine(trimmed: string, parsed: ParsedMakefile): string | null {
   if (!/^[A-Za-z0-9_.-]+$/.test(ruleName) || ruleName.startsWith('.')) {
     return null;
   }
-  const depsPart = trimmed.slice(colonIdx + 1).split('#')[0].split(';')[0].trim();
+  const withoutComment = pickAt(trimmed.slice(colonIdx + 1).split('#'), 0);
+  const depsPart = pickAt(withoutComment.split(';'), 0).trim();
   const deps = depsPart ? depsPart.split(/\s+/).filter(Boolean) : [];
-  parsed.rules.set(ruleName, deps);
-  if (!parsed.recipes.has(ruleName)) {
-    parsed.recipes.set(ruleName, []);
+  const existing = parsed.targets.get(ruleName);
+  if (existing) {
+    existing.deps = deps;
+  } else {
+    parsed.targets.set(ruleName, { deps, recipes: [] });
   }
   return ruleName;
 }
@@ -362,8 +390,7 @@ function parseMakefile(makefileContent: string, resolvedPath: string): ParsedMak
       ['CURDIR', resolvedPath],
       ['MAKE', MAKE_BINARY],
     ]),
-    rules: new Map<string, string[]>(),
-    recipes: new Map<string, string[]>(),
+    targets: new Map<string, ParsedTarget>(),
   };
   const joined = makefileContent.replace(/\\\r?\n[ \t]*/g, ' ');
   let currentTarget: string | null = null;
@@ -371,7 +398,7 @@ function parseMakefile(makefileContent: string, resolvedPath: string): ParsedMak
   for (const line of joined.split(/\r?\n/)) {
     if (line.startsWith('\t')) {
       if (currentTarget) {
-        parsed.recipes.get(currentTarget)?.push(line.slice(1));
+        parsed.targets.get(currentTarget)?.recipes.push(line.slice(1));
       }
       continue;
     }
@@ -411,7 +438,7 @@ function consumeMakeDelegationToken(
   idx: number,
   state: MakeDelegationState
 ): number | null {
-  const tok = tokens[idx];
+  const tok = pickAt(tokens, idx);
   if (SHELL_CHAIN_TOKENS.has(tok)) return null;
   if (MAKE_NOOP_FLAGS.has(tok)) return idx;
   if (tok === '-C' || tok === '--directory') {
@@ -437,10 +464,11 @@ function parseMakeDelegation(
     return null;
   }
   const state: MakeDelegationState = { subdir: null, targets: [] };
-  for (let i = 1; i < tokens.length; i += 1) {
+  let i = 1;
+  while (i < tokens.length) {
     const nextIdx = consumeMakeDelegationToken(tokens, i, state);
     if (nextIdx === null) return null;
-    i = nextIdx;
+    i = nextIdx + 1;
   }
   return state.subdir && state.targets.length > 0
     ? { subdir: state.subdir, targets: state.targets }
@@ -452,14 +480,18 @@ function rewriteDelegatedComposeArgs(args: string[], relSubdirPosix: string): st
     return args;
   }
   const rewritten = [...args];
-  for (let i = 1; i < rewritten.length - 1; i += 1) {
-    if (rewritten[i] === '-f' || rewritten[i] === '--file') {
+  let i = 1;
+  while (i < rewritten.length - 1) {
+    const flag = rewritten[i];
+    if (flag === '-f' || flag === '--file') {
       const val = rewritten[i + 1];
-      if (!path.isAbsolute(val) && !val.startsWith(`${relSubdirPosix}/`)) {
+      if (val && !path.isAbsolute(val) && !val.startsWith(`${relSubdirPosix}/`)) {
         rewritten[i + 1] = path.posix.join(relSubdirPosix, val.replace(/\\/g, '/'));
       }
-      i += 1;
+      i += 2;
+      continue;
     }
+    i += 1;
   }
   if (!rewritten.includes('--project-directory')) {
     rewritten.splice(1, 0, '--project-directory', relSubdirPosix);
@@ -542,21 +574,23 @@ function isUnquotedShellToken(src: string, idx: number): boolean {
  * Detecta operadores de encadenamiento/redirección fuera de comillas o subshells no expandidos.
  */
 export function hasUnquotedShellSyntax(commandLine: string): boolean {
-  for (let i = 0; i < commandLine.length; i += 1) {
+  let i = 0;
+  while (i < commandLine.length) {
     const ch = commandLine[i];
     if (ch === "'") {
-      i = readSingleQuotedToken(commandLine, i).nextIndex;
+      i = readSingleQuotedToken(commandLine, i).nextIndex + 1;
       continue;
     }
     if (ch === '"') {
       const scan = scanDoubleQuotedForSubshell(commandLine, i);
       if (scan.found) return true;
-      i = scan.nextIndex;
+      i = scan.nextIndex + 1;
       continue;
     }
     if (isUnquotedShellToken(commandLine, i)) {
       return true;
     }
+    i += 1;
   }
   return false;
 }
@@ -618,13 +652,13 @@ function collectTargetCommands(targetName: string, state: CollectCommandsState):
   if (visited.has(targetName)) {
     return null;
   }
-  const deps = parsed.rules.get(targetName);
-  if (!deps) {
+  const targetDef = parsed.targets.get(targetName);
+  if (!targetDef) {
     return `Target '${targetName}' no definido en Makefile.`;
   }
 
   active.add(targetName);
-  for (const dep of deps) {
+  for (const dep of targetDef.deps) {
     const depError = collectTargetCommands(dep, state);
     if (depError) {
       return depError;
@@ -632,7 +666,7 @@ function collectTargetCommands(targetName: string, state: CollectCommandsState):
   }
 
   const recipeError = appendTargetRecipeCommands(
-    parsed.recipes.get(targetName) ?? [],
+    targetDef.recipes,
     parsed.vars,
     ctx,
     commands
@@ -726,9 +760,7 @@ function extractComposeServices(composeContent: string): string[] {
 }
 
 function resolveHostUidGid(): string {
-  const uid = typeof process.getuid === 'function' ? process.getuid() : 1000;
-  const gid = typeof process.getgid === 'function' ? process.getgid() : 1000;
-  return `${uid}:${gid}`;
+  return `${resolvePosixNumericId('uid')}:${resolvePosixNumericId('gid')}`;
 }
 
 function buildComposeRunPrefix(
@@ -763,7 +795,9 @@ function readPackageScripts(resolvedPath: string): Record<string, string> {
       return {};
     }
     return parsed.scripts as Record<string, string>;
-  } catch {
+  } catch (err: unknown) {
+    // Optional package.json scripts probe: non-Node or malformed package.json falls back to empty scripts
+    reportDebugCatchError('ephemeralRunner.readPackageScripts', err);
     return {};
   }
 }
@@ -1259,7 +1293,9 @@ export function isDocsOnlyWorkspaceChange(
       .filter((fp) => !isEphemeralQaArtifactPath(fp));
 
     return filePaths.length > 0 && filePaths.every((fp) => isDocFilePath(fp));
-  } catch {
+  } catch (err: unknown) {
+    // Fail-secure: if git status fails or workspace is not a git repo, never skip QA via DOCS_ONLY fast-path
+    reportDebugCatchError('ephemeralRunner.isDocsOnlyWorkspaceChange', err);
     return false;
   }
 }

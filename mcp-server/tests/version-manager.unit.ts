@@ -185,7 +185,7 @@ describe('Version Manager, .qa-11x-version Stamp, 24h TTL Fail-Open & Global Aut
 
       const mockNpmFetch = vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ version: '2.22.0' }),
+        json: () => Promise.resolve({ version: '2.22.0' }),
       });
 
       const resolved = await resolveLatestPublishedVersion({
@@ -237,6 +237,31 @@ describe('Version Manager, .qa-11x-version Stamp, 24h TTL Fail-Open & Global Aut
         fetchFn: nonOkFetch as unknown as typeof fetch,
       });
       expect(fallbackNonOk).toBe('2.20.0');
+
+      // Malformed JSON in latest-version-check.json + read-only/file cacheDir fail-open
+      fs.writeFileSync(path.join(offlineCache, LATEST_CHECK_CACHE_FILENAME), '{corrupt', 'utf-8');
+      const fileAsCache = path.join(tmpRoot, 'file-as-cache');
+      fs.writeFileSync(fileAsCache, 'not-a-directory', 'utf-8');
+      const corruptCacheFetcher = new GitHubFetcher({ cacheDir: offlineCache });
+      expect(
+        await resolveLatestPublishedVersion({
+          fetcher: corruptCacheFetcher,
+          runningMcpVersion: '2.20.0',
+          allowNetworkCheck: false,
+        })
+      ).toBe('2.20.0');
+
+      const roFetcher = new GitHubFetcher({ cacheDir: fileAsCache });
+      vi.spyOn(roFetcher, 'fetchManifest').mockResolvedValue(manifest);
+      expect(
+        await resolveLatestPublishedVersion({
+          fetcher: roFetcher,
+          runningMcpVersion: '2.20.0',
+          allowNetworkCheck: true,
+          nowMs: now,
+          fetchFn: nonOkFetch as unknown as typeof fetch,
+        })
+      ).toBe('2.21.0');
     });
   });
 
@@ -350,6 +375,18 @@ describe('Version Manager, .qa-11x-version Stamp, 24h TTL Fail-Open & Global Aut
         allowNetworkCheck: false,
       });
       expect(monoPkgStatus.update_needed).toBe(false);
+
+      // Corrupt/unreadable mcp-server/package.json directory falls back cleanly (isSourceBlueprintsMonorepo catch)
+      const brokenMonoDir = path.join(tmpRoot, 'broken-mono');
+      fs.mkdirSync(path.join(brokenMonoDir, 'mcp-server', 'package.json'), { recursive: true });
+      const brokenMonoStatus = await evaluateUpdateStatus({
+        projectPath: brokenMonoDir,
+        homeDir: path.join(tmpRoot, 'empty-home'),
+        fetcher,
+        runningMcpVersion: '2.21.0',
+        allowNetworkCheck: false,
+      });
+      expect(brokenMonoStatus.installed_project_scripts_version).toBeNull();
 
       // Unstamped global skill when cached manifest is missing or lacks anchor entry
       const noCacheFetcher = new GitHubFetcher({ cacheDir: path.join(tmpRoot, 'no-manifest-cache') });

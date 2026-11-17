@@ -12,6 +12,7 @@ import {
 import {
   formatFailVerboseReport,
   formatPassQuietSummary,
+  pickAt,
 } from '../utils/diagnosticFormatter.js';
 
 export const DEFAULT_TRAJECTORY_TEST_PATH = 'ai-evals/rag/test_rag_faithfulness.py';
@@ -334,7 +335,7 @@ function isDestructiveRmCommand(text: string): boolean {
   if (!match) {
     return false;
   }
-  return match[1].toLowerCase().includes('r');
+  return pickAt(match, 1).toLowerCase().includes('r');
 }
 
 function hasForbiddenCommand(payload: string): boolean {
@@ -409,7 +410,15 @@ function checkAstBeforeEdit(
   steps: readonly AgentTrajectoryStep[],
   violations: TrajectoryViolation[]
 ): void {
-  const firstEditIdx = steps.findIndex((step) => EDIT_TOOL_NAMES.has(step.tool));
+  let firstEditIdx = -1;
+  let firstEditTool = '';
+  for (const [idx, step] of steps.entries()) {
+    if (EDIT_TOOL_NAMES.has(step.tool)) {
+      firstEditIdx = idx;
+      firstEditTool = step.tool;
+      break;
+    }
+  }
   if (firstEditIdx < 0) {
     return;
   }
@@ -420,7 +429,7 @@ function checkAstBeforeEdit(
     violations.push({
       code: 'INVALID_TOOL_PRECEDENCE',
       stepIndex: firstEditIdx,
-      message: `Orden inválido en paso ${firstEditIdx}: inspect_blast_radius debe preceder a '${steps[firstEditIdx].tool}'.`,
+      message: `Orden inválido en paso ${firstEditIdx}: inspect_blast_radius debe preceder a '${firstEditTool}'.`,
     });
   }
 }
@@ -451,7 +460,7 @@ function collectDocIds(text: string): string[] {
   const matches: string[] = [];
   for (const match of text.matchAll(DOC_ID_RE)) {
     const docId = match[1];
-    if (!docId.startsWith('REDACTED_')) {
+    if (docId && !docId.startsWith('REDACTED_')) {
       matches.push(docId);
     }
   }
@@ -470,14 +479,19 @@ function collectContextDocIds(retrievalContext: readonly string[]): Set<string> 
 
 function isDecimalSeparatorAt(text: string, idx: number): boolean {
   const ch = text[idx];
+  const nextCh = text[idx + 1];
   const isSep = ch === '.' || ch === ',';
-  const nextIsDigit = idx + 1 < text.length && /\d/.test(text[idx + 1]);
+  const nextIsDigit = nextCh !== undefined && /\d/.test(nextCh);
   return isSep && nextIsDigit;
 }
 
 function skipDigits(text: string, start: number): number {
   let end = start;
-  while (end < text.length && /\d/.test(text[end])) {
+  while (end < text.length) {
+    const ch = text[end];
+    if (ch === undefined || !/\d/.test(ch)) {
+      break;
+    }
     end += 1;
   }
   return end;
@@ -494,7 +508,8 @@ function isStandaloneStart(text: string, idx: number): boolean {
   if (idx <= 0) {
     return true;
   }
-  return !TOKEN_ADJACENT_CHAR_RE.test(text[idx - 1]);
+  const prevCh = text[idx - 1];
+  return prevCh === undefined || !TOKEN_ADJACENT_CHAR_RE.test(prevCh);
 }
 
 function appendTokenIfStandalone(

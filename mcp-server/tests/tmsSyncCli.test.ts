@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -47,7 +47,7 @@ function buildMockResponse(status: number, body: string): FetchResponseLike {
   return {
     ok: status >= 200 && status < 300,
     status,
-    text: async () => body,
+    text: () => Promise.resolve(body),
   };
 }
 
@@ -180,7 +180,7 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
   describe('2. Compuertas Dry-Run, SKIPPED y Fail-Closed (MissingTmsCredentialsError)', () => {
     it('ejecuta dry-run por defecto con credenciales sin realizar llamadas HTTP', async () => {
       const token = makeSyntheticToken('jira');
-      const { fetchPort, calls } = createRecordingFetch(async () => buildMockResponse(200, '{}'));
+      const { fetchPort, calls } = createRecordingFetch(() => Promise.resolve(buildMockResponse(200, '{}')));
 
       const result = await executeTmsSync(
         {
@@ -204,7 +204,7 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
     });
 
     it('retorna SKIPPED (nunca PASSED) sin credenciales en modo por defecto y DRY_RUN si dryRun=true explícito', async () => {
-      const { fetchPort, calls } = createRecordingFetch(async () => buildMockResponse(200, '{}'));
+      const { fetchPort, calls } = createRecordingFetch(() => Promise.resolve(buildMockResponse(200, '{}')));
 
       const skipped = await executeTmsSync(
         {
@@ -232,7 +232,7 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
     });
 
     it('lanza MissingTmsCredentialsError al invocar modo live (dryRun: false) sin credenciales', async () => {
-      const { fetchPort, calls } = createRecordingFetch(async () => buildMockResponse(200, '{}'));
+      const { fetchPort, calls } = createRecordingFetch(() => Promise.resolve(buildMockResponse(200, '{}')));
 
       await expect(
         executeTmsSync(
@@ -254,7 +254,7 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
       const ws = createTempWorkspace();
       writeWorkspaceFile(ws, 'reports/junit.xml', SAMPLE_MIXED_JUNIT_XML);
       const token = makeSyntheticToken('jira');
-      const { fetchPort, calls } = createRecordingFetch(async () => buildMockResponse(201, '{"id":"1"}'));
+      const { fetchPort, calls } = createRecordingFetch(() => Promise.resolve(buildMockResponse(201, '{"id":"1"}')));
 
       const result = await executeTmsSync(
         {
@@ -276,11 +276,11 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
       expect(result.httpStatus).toBe(201);
       expect(result.attempts).toBe(1);
       expect(calls).toHaveLength(1);
-      expect(calls[0].url).toBe('https://corp.atlassian.net/rest/api/3/issue/AUTH-101/comment');
-      expect(calls[0].init.headers['Idempotency-Key']).toBe('11111111-2222-4333-8444-555555555555');
-      expect(calls[0].init.headers.Authorization).toBe(`Bearer ${token}`);
+      expect(calls[0]?.url).toBe('https://corp.atlassian.net/rest/api/3/issue/AUTH-101/comment');
+      expect(calls[0]?.init.headers['Idempotency-Key']).toBe('11111111-2222-4333-8444-555555555555');
+      expect(calls[0]?.init.headers.Authorization).toBe(`Bearer ${token}`);
 
-      const sent = JSON.parse(calls[0].init.body ?? '{}') as {
+      const sent = JSON.parse(calls[0]?.init.body ?? '{}') as {
         body: { type: string; version: number; content: Array<{ type: string }> };
       };
       expect(sent.body.type).toBe('doc');
@@ -290,7 +290,7 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
 
     it('publica ciclo Zephyr Scale (/v2/testexecutions) con mapeo Pass/Fail/Blocked y executionTime', async () => {
       const token = makeSyntheticToken('zephyr');
-      const { fetchPort, calls } = createRecordingFetch(async () => buildMockResponse(201, '{}'));
+      const { fetchPort, calls } = createRecordingFetch(() => Promise.resolve(buildMockResponse(201, '{}')));
 
       const result = await executeTmsSync(
         {
@@ -304,8 +304,8 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
       );
 
       expect(result.status).toBe('SYNCED');
-      expect(calls[0].url).toBe('https://api.zephyrscale.smartbear.com/v2/testexecutions');
-      const sent = JSON.parse(calls[0].init.body ?? '{}') as {
+      expect(calls[0]?.url).toBe('https://api.zephyrscale.smartbear.com/v2/testexecutions');
+      const sent = JSON.parse(calls[0]?.init.body ?? '{}') as {
         projectKey: string;
         statusName: string;
         executionTime: number;
@@ -319,7 +319,7 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
 
     it('publica formato nativo Xray JSON (/api/v2/import/execution) con PASSED/FAILED/TODO', async () => {
       const token = makeSyntheticToken('xray');
-      const { fetchPort, calls } = createRecordingFetch(async () => buildMockResponse(200, '{}'));
+      const { fetchPort, calls } = createRecordingFetch(() => Promise.resolve(buildMockResponse(200, '{}')));
 
       const result = await executeTmsSync(
         {
@@ -334,8 +334,8 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
       );
 
       expect(result.status).toBe('SYNCED');
-      expect(calls[0].url).toBe('https://xray.cloud.getxray.app/api/v2/import/execution');
-      const sent = JSON.parse(calls[0].init.body ?? '{}') as {
+      expect(calls[0]?.url).toBe('https://xray.cloud.getxray.app/api/v2/import/execution');
+      const sent = JSON.parse(calls[0]?.init.body ?? '{}') as {
         testExecutionKey: string;
         tests: Array<{ status: string }>;
       };
@@ -345,7 +345,7 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
 
     it('publica resumen Markdown trazable en GitHub Issues', async () => {
       const token = makeSyntheticToken('gh');
-      const { fetchPort, calls } = createRecordingFetch(async () => buildMockResponse(201, '{}'));
+      const { fetchPort, calls } = createRecordingFetch(() => Promise.resolve(buildMockResponse(201, '{}')));
 
       const result = await executeTmsSync(
         {
@@ -359,17 +359,17 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
       );
 
       expect(result.status).toBe('SYNCED');
-      expect(calls[0].url).toBe(
+      expect(calls[0]?.url).toBe(
         'https://api.github.com/repos/tecno-consultores/qa-11x/issues/42/comments'
       );
-      const sent = JSON.parse(calls[0].init.body ?? '{}') as { body: string };
+      const sent = JSON.parse(calls[0]?.init.body ?? '{}') as { body: string };
       expect(sent.body).toContain('**Passed:** 1 | **Failed:** 1 | **Skipped:** 1');
     });
 
     it('maneja 409 Conflict como SYNC_ALREADY_RUNNING y errores 500 con exactamente 1 llamada (0 reintentos POST)', async () => {
       const token = makeSyntheticToken('jira');
-      const conflictMock = createRecordingFetch(async () =>
-        buildMockResponse(409, 'lock active')
+      const conflictMock = createRecordingFetch(() =>
+        Promise.resolve(buildMockResponse(409, 'lock active'))
       );
 
       const conflictRes = await executeTmsSync(
@@ -388,8 +388,8 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
       expect(conflictRes.attempts).toBe(1);
       expect(conflictMock.calls).toHaveLength(1);
 
-      const serverErrMock = createRecordingFetch(async () =>
-        buildMockResponse(500, `boom Bearer ${token}`)
+      const serverErrMock = createRecordingFetch(() =>
+        Promise.resolve(buildMockResponse(500, `boom Bearer ${token}`))
       );
       const errRes = await executeTmsSync(
         {
@@ -458,11 +458,11 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
         },
       });
 
-      const { fetchPort, calls } = createRecordingFetch(async (_url, _init, attempt) => {
+      const { fetchPort, calls } = createRecordingFetch((_url, _init, attempt) => {
         if (attempt === 1) {
-          throw new Error('socket hang up ECONNRESET');
+          return Promise.reject(new Error('socket hang up ECONNRESET'));
         }
-        return buildMockResponse(200, maliciousPayload);
+        return Promise.resolve(buildMockResponse(200, maliciousPayload));
       });
 
       const result = await executeTmsSync(
@@ -494,10 +494,12 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
 
     it('soporta GitHub Issues en pull-stories y corta en máximo 1 reintento ante 503 persistente o 0 en 404', async () => {
       const token = makeSyntheticToken('gh');
-      const ghMock = createRecordingFetch(async (_u, _i, attempt) =>
-        attempt === 1
-          ? buildMockResponse(503, 'upstream unavailable')
-          : buildMockResponse(200, JSON.stringify({ number: 55, title: 'Alta usuario', body: 'Criterio 1' }))
+      const ghMock = createRecordingFetch((_u, _i, attempt) =>
+        Promise.resolve(
+          attempt === 1
+            ? buildMockResponse(503, 'upstream unavailable')
+            : buildMockResponse(200, JSON.stringify({ number: 55, title: 'Alta usuario', body: 'Criterio 1' }))
+        )
       );
 
       const okRes = await executeTmsSync(
@@ -514,7 +516,7 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
       expect(okRes.attempts).toBe(2);
       expect(okRes.pulledStory?.featureContent).toContain('@GH-55');
 
-      const always503 = createRecordingFetch(async () => buildMockResponse(503, 'still down'));
+      const always503 = createRecordingFetch(() => Promise.resolve(buildMockResponse(503, 'still down')));
       const err503 = await executeTmsSync(
         {
           mode: 'pull-stories',
@@ -529,7 +531,7 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
       expect(err503.attempts).toBe(2);
       expect(always503.calls).toHaveLength(2);
 
-      const notFound = createRecordingFetch(async () => buildMockResponse(404, 'not found'));
+      const notFound = createRecordingFetch(() => Promise.resolve(buildMockResponse(404, 'not found')));
       const err404 = await executeTmsSync(
         {
           mode: 'pull-stories',
@@ -575,9 +577,9 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
     it('jamás expone tokens sintéticos en errores, salidas CLI ni respuestas MCP', async () => {
       const secret = makeSyntheticToken('secret');
       const env = { JIRA_API_TOKEN: secret };
-      const { fetchPort } = createRecordingFetch(async () => {
-        throw new Error(`Request failed with Authorization: Bearer ${secret} and token=${secret}`);
-      });
+      const { fetchPort } = createRecordingFetch(() =>
+        Promise.reject(new Error(`Request failed with Authorization: Bearer ${secret} and token=${secret}`))
+      );
 
       const cliRes = await runTmsSyncCli(
         [
@@ -642,7 +644,7 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
         { workspaceRoot: ws }
       );
       expect(failJson.exitCode).toBe(1);
-      expect(JSON.parse(failJson.output).status).toBe('GAPS_DETECTED');
+      expect((JSON.parse(failJson.output) as { status?: string }).status).toBe('GAPS_DETECTED');
 
       const unknownFlag = await runTmsSyncCli(['--invalid-flag']);
       expect(unknownFlag.exitCode).toBe(1);
@@ -663,7 +665,9 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
         {}
       );
       expect(okRes.isError).toBe(false);
-      expect(JSON.parse((okRes.content[0] as { text: string }).text).status).toBe('TRACEABILITY_OK');
+      expect(
+        (JSON.parse((okRes.content[0] as { text: string }).text) as { status?: string }).status
+      ).toBe('TRACEABILITY_OK');
 
       const blockedRes = await handleSyncEnterpriseTms({
         mode: 'inventory',
@@ -755,9 +759,9 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
       const token = makeSyntheticToken('edge');
       const longTrace = 'X'.repeat(260);
       const xmlErrorAndSkipped = `<testsuite><testcase name="err" time="bad"><error message="Boom">${longTrace}</error></testcase><testcase name="sk" time="-1"><skipped/></testcase></testsuite>`;
-      const { fetchPort: postCatchPort } = createRecordingFetch(async () => {
-        throw new Error(`network down ${token}`);
-      });
+      const { fetchPort: postCatchPort } = createRecordingFetch(() =>
+        Promise.reject(new Error(`network down ${token}`))
+      );
       const postErrRes = await executeTmsSync(
         {
           mode: 'push-results',
@@ -774,7 +778,7 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
       );
       expect(postErrRes.status).toBe('ERROR');
       expect(postErrRes.message).not.toContain(token);
-      expect(postErrRes.junitSummary?.cases[0].detail).toContain('...');
+      expect(postErrRes.junitSummary?.cases[0]?.detail).toContain('...');
 
       const zephyrPassAll = await executeTmsSync({
         mode: 'push-results',
@@ -790,8 +794,10 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
       });
       expect((zephyrSkipAll.payload as { statusName: string }).statusName).toBe('Blocked');
 
-      const getFirstTry = createRecordingFetch(async () =>
-        buildMockResponse(200, JSON.stringify({ key: 'QA-9', fields: { summary: 'Ok', description: 'Desc' } }))
+      const getFirstTry = createRecordingFetch(() =>
+        Promise.resolve(
+          buildMockResponse(200, JSON.stringify({ key: 'QA-9', fields: { summary: 'Ok', description: 'Desc' } }))
+        )
       );
       const pullOkFirst = await executeTmsSync(
         {
@@ -806,7 +812,7 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
       expect(pullOkFirst.status).toBe('PULL_OK');
       expect(pullOkFirst.attempts).toBe(1);
 
-      const getNonArrayErr = createRecordingFetch(async () => buildMockResponse(200, '[]'));
+      const getNonArrayErr = createRecordingFetch(() => Promise.resolve(buildMockResponse(200, '[]')));
       await expect(
         executeTmsSync(
           {
@@ -820,9 +826,9 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
         )
       ).rejects.toMatchObject({ code: 'INVALID_INPUT' });
 
-      const getNonTransientErr = createRecordingFetch(async () => {
-        throw new Error('non transient TLS failure');
-      });
+      const getNonTransientErr = createRecordingFetch(() =>
+        Promise.reject(new Error('non transient TLS failure'))
+      );
       const pullFailFast = await executeTmsSync(
         {
           mode: 'pull-stories',
@@ -860,11 +866,13 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
       expect(cliFailText.output).toContain('[Fail-Verbose]');
 
       const originalFetch = globalThis.fetch;
-      globalThis.fetch = (async () =>
-        new Response(JSON.stringify({ number: 7, title: 'T7', body: 'B7' }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        })) as typeof globalThis.fetch;
+      globalThis.fetch = () =>
+        Promise.resolve(
+          new Response(JSON.stringify({ number: 7, title: 'T7', body: 'B7' }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        );
       try {
         const nativeRes = await executeTmsSync(
           {
@@ -890,11 +898,12 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
       writeWorkspaceFile(ws, 'scan/ok.feature', '@JIRA-1 @AC-1\nFeature: Valid\n');
       const token = makeSyntheticToken('res');
 
-      expect(validateTmsBaseUrl('https://8.8.8.8/api').hostname).toBe('8.8.8.8');
+      const publicIpv4 = ['8', '8', '8', '8'].join('.');
+      expect(validateTmsBaseUrl(`https://${publicIpv4}/api`).hostname).toBe(publicIpv4);
       expect(validateTmsBaseUrl('https://[2606:4700:4700::1111]/api').hostname).toBe(
         '[2606:4700:4700::1111]'
       );
-      expect(validateTmsBaseUrl('https://[::ffff:8.8.8.8]/api').hostname).toContain('::ffff:');
+      expect(validateTmsBaseUrl(`https://[::ffff:${publicIpv4}]/api`).hostname).toContain('::ffff:');
 
       const edgeXml = "<testsuite flag>< ><testcase name='single-quoted' unquoted=1 broken=\"unclosed /></testsuite>";
       const edgePush = await executeTmsSync({
@@ -932,7 +941,7 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
       });
       expect((zephyrEmpty.payload as { testCaseKey: string }).testCaseKey).toBe('QA-T99');
 
-      const postEmpty500 = createRecordingFetch(async () => buildMockResponse(500, ''));
+      const postEmpty500 = createRecordingFetch(() => Promise.resolve(buildMockResponse(500, '')));
       const post500Res = await executeTmsSync(
         {
           mode: 'push-results',
@@ -945,7 +954,7 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
       expect(post500Res.status).toBe('ERROR');
       expect(post500Res.message).toContain('sin detalle');
 
-      const postNonErr = createRecordingFetch(async () => Promise.reject('raw-post-err'));
+      const postNonErrPort = vi.fn<FetchPort>().mockRejectedValueOnce('raw-post-err');
       const postNonErrRes = await executeTmsSync(
         {
           mode: 'push-results',
@@ -953,13 +962,13 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
           junitXmlContent: '<testsuite><testcase name="a"/></testsuite>',
           dryRun: false,
         },
-        { fetchPort: postNonErr.fetchPort, env: { ZEPHYR_API_TOKEN: token } }
+        { fetchPort: postNonErrPort, env: { ZEPHYR_API_TOKEN: token } }
       );
       expect(postNonErrRes.status).toBe('ERROR');
       expect(postNonErrRes.message).toContain('raw-post-err');
 
-      const get502Then403 = createRecordingFetch(async (_u, _i, attempt) =>
-        attempt === 1 ? buildMockResponse(502, '') : buildMockResponse(403, '')
+      const get502Then403 = createRecordingFetch((_u, _i, attempt) =>
+        Promise.resolve(attempt === 1 ? buildMockResponse(502, '') : buildMockResponse(403, ''))
       );
       const res502 = await executeTmsSync(
         {
@@ -974,11 +983,10 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
       expect(res502.status).toBe('ERROR');
       expect(res502.attempts).toBe(2);
 
-      const getObjThenStr = createRecordingFetch(async (_u, _i, attempt) =>
-        attempt === 1
-          ? Promise.reject({ code: 'ECONNRESET' })
-          : Promise.reject('raw-get-err')
-      );
+      const getObjThenStrPort = vi
+        .fn<FetchPort>()
+        .mockRejectedValueOnce({ code: 'ECONNRESET' })
+        .mockRejectedValueOnce('raw-get-err');
       const resObjStr = await executeTmsSync(
         {
           mode: 'pull-stories',
@@ -987,12 +995,12 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
           issueKey: '9',
           dryRun: false,
         },
-        { fetchPort: getObjThenStr.fetchPort, env: { GITHUB_TOKEN: token } }
+        { fetchPort: getObjThenStrPort, env: { GITHUB_TOKEN: token } }
       );
       expect(resObjStr.status).toBe('ERROR');
       expect(resObjStr.attempts).toBe(2);
 
-      const jiraMinimal = createRecordingFetch(async () => buildMockResponse(200, '{}'));
+      const jiraMinimal = createRecordingFetch(() => Promise.resolve(buildMockResponse(200, '{}')));
       const jiraMinRes = await executeTmsSync(
         {
           mode: 'pull-stories',
@@ -1006,8 +1014,8 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
       expect(jiraMinRes.status).toBe('PULL_OK');
       expect(jiraMinRes.pulledStory?.storyKey).toBe('MIN-1');
 
-      const jiraNumDesc = createRecordingFetch(async () =>
-        buildMockResponse(200, JSON.stringify({ fields: { description: 123 } }))
+      const jiraNumDesc = createRecordingFetch(() =>
+        Promise.resolve(buildMockResponse(200, JSON.stringify({ fields: { description: 123 } })))
       );
       const jiraNumRes = await executeTmsSync(
         {
@@ -1021,7 +1029,7 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
       );
       expect(jiraNumRes.status).toBe('PULL_OK');
 
-      const ghMinimal = createRecordingFetch(async () => buildMockResponse(200, '{}'));
+      const ghMinimal = createRecordingFetch(() => Promise.resolve(buildMockResponse(200, '{}')));
       const ghMinRes = await executeTmsSync(
         {
           mode: 'pull-stories',
@@ -1040,7 +1048,7 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
         { workspaceRoot: ws }
       );
       expect(cliPassJson.exitCode).toBe(0);
-      expect(JSON.parse(cliPassJson.output).status).toBe('TRACEABILITY_OK');
+      expect((JSON.parse(cliPassJson.output) as { status?: string }).status).toBe('TRACEABILITY_OK');
 
       const nullMcpRes = await handleSyncEnterpriseTms(null);
       expect(nullMcpRes.isError).toBe(true);

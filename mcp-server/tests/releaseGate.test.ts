@@ -37,6 +37,15 @@ function createTempWorkspace(): string {
   return dir;
 }
 
+function getFirstTextContent(content: ReadonlyArray<{ type: string }>): string {
+  const first = content[0] as { type?: unknown; text?: unknown } | undefined;
+  expect(first?.type).toBe('text');
+  if (typeof first?.text !== 'string') {
+    throw new Error('Expected first content block to carry text');
+  }
+  return first.text;
+}
+
 afterEach(() => {
   while (tempDirs.length > 0) {
     const dir = tempDirs.pop();
@@ -108,10 +117,7 @@ describe('evaluateReleaseGate MCP tool (T2.6)', () => {
 
     const mcpRes = handleEvaluateReleaseGate({ scope: SCOPE_SMOKE });
     expect(mcpRes.isError).toBe(false);
-    expect(mcpRes.content[0]).toEqual({
-      type: 'text',
-      text: expect.stringContaining('SKIPPED'),
-    });
+    expect(getFirstTextContent(mcpRes.content)).toContain('SKIPPED');
   });
 
   it('retorna NO_GO (ZERO_TESTS_EXECUTED) cuando scope=full tiene 0 pruebas o todas omitidas', () => {
@@ -224,10 +230,7 @@ describe('evaluateReleaseGate MCP tool (T2.6)', () => {
       junitXmlContent: doctypeXml,
     });
     expect(doctypeRes.isError).toBe(true);
-    expect(doctypeRes.content[0]).toEqual({
-      type: 'text',
-      text: expect.stringContaining('XXE_DETECTED'),
-    });
+    expect(getFirstTextContent(doctypeRes.content)).toContain('XXE_DETECTED');
 
     const entityEval = evaluateReleaseReadiness({
       junitXmlContent: '<!entity xxe "boom"><testsuite tests="1" />',
@@ -285,6 +288,14 @@ describe('evaluateReleaseGate MCP tool (T2.6)', () => {
     });
     expect(invalidInputs.hasSecurityOrParseError).toBe(true);
     expect(handleEvaluateReleaseGate({ timestamp: '' }).isError).toBe(true);
+
+    const previewCases: unknown[] = [true, null, { bad: 1 }, Symbol('bad')];
+    for (const badScope of previewCases) {
+      const previewRes = evaluateReleaseReadiness({
+        scope: badScope as typeof SCOPE_FULL,
+      });
+      expect(previewRes.blockingReasons.some((r) => r.metric === 'scope')).toBe(true);
+    }
   });
 
   it('rechaza XML mal formado, sin nodo testsuite o JSON corrupto desde archivo', () => {
@@ -339,10 +350,7 @@ describe('evaluateReleaseGate MCP tool (T2.6)', () => {
       enforce: true,
     });
     expect(res.isError).toBe(false);
-    expect(res.content[0]).toEqual({
-      type: 'text',
-      text: expect.stringContaining('GO'),
-    });
+    expect(getFirstTextContent(res.content)).toContain('GO');
   });
 
   it('cubre ramas borde de parseo XML, atributos vacíos, bloques terminales y fallback de workspace', () => {
@@ -392,7 +400,7 @@ describe('evaluateReleaseGate MCP tool (T2.6)', () => {
       expect(dirErrRes.blockingReasons[0]?.code).toBe('FILE_NOT_FOUND');
     } finally {
       if (fs.existsSync(unreadableFile)) {
-        fs.chmodSync(unreadableFile, 0o644);
+        fs.chmodSync(unreadableFile, 0o600);
       }
       fs.rmSync(dirReadWs, { recursive: true, force: true });
     }

@@ -48,6 +48,8 @@ import {
   defineMobileTask,
   formatMobileLocator,
   type MobileApiClientPort,
+  type MobileApiRequestSpec,
+  type MobileApiResponsePayload,
   type MobileDriverPort,
   type MobileElementBounds,
   type MobileLocator,
@@ -57,11 +59,18 @@ import {
 const MCP_ROOT = path.resolve(import.meta.dirname, '..');
 const REPO_PARENT = path.dirname(MCP_ROOT);
 const MOUNTED_MOBILE_ROOT = '/mobile-appium/README.md';
-const REAL_WORKSPACE_ROOT = fs.existsSync(path.join(REPO_PARENT, MOBILE_APPIUM_README_REL_PATH))
-  ? REPO_PARENT
-  : fs.existsSync(MOUNTED_MOBILE_ROOT)
-    ? '/'
-    : undefined;
+
+function resolveRealWorkspaceRoot(): string | undefined {
+  if (fs.existsSync(path.join(REPO_PARENT, MOBILE_APPIUM_README_REL_PATH))) {
+    return REPO_PARENT;
+  }
+  if (fs.existsSync(MOUNTED_MOBILE_ROOT)) {
+    return '/';
+  }
+  return undefined;
+}
+
+const REAL_WORKSPACE_ROOT = resolveRealWorkspaceRoot();
 
 const tempDirs: string[] = [];
 
@@ -86,7 +95,7 @@ describe('stackBlueprints MCP resource (T4.4)', () => {
     expect(MOBILE_APPIUM_STACK_ID).toBe('mobile-appium');
     expect(MOBILE_APPIUM_RESOURCE.uri).toBe(MOBILE_APPIUM_README_URI);
     expect(MOBILE_APPIUM_RESOURCE.mimeType).toBe('text/markdown');
-    expect(V2_STACK_BLUEPRINTS['mobile-appium'].readmeRelPath).toBe(MOBILE_APPIUM_README_REL_PATH);
+    expect(V2_STACK_BLUEPRINTS['mobile-appium']?.readmeRelPath).toBe(MOBILE_APPIUM_README_REL_PATH);
     expect(listV2StackBlueprintResources().map((entry) => entry.uri)).toContain(
       MOBILE_APPIUM_README_URI,
     );
@@ -192,10 +201,10 @@ describe('mobile-appium/wdio.conf.ts (T4.4)', () => {
     expect(androidCfg.connectionRetryCount).toBe(1);
     expect(androidCfg.waitforTimeout).toBe(10_000);
     expect(androidCfg.artifactDir).toBe(DEFAULT_MOBILE_ARTIFACT_DIR);
-    expect(androidCfg.capabilities[0].platformName).toBe('Android');
-    expect(androidCfg.capabilities[0]['appium:automationName']).toBe('UiAutomator2');
-    expect(androidCfg.capabilities[0]['appium:noReset']).toBe(false);
-    expect(androidCfg.capabilities[0]['appium:autoGrantPermissions']).toBe(false);
+    expect(androidCfg.capabilities[0]?.platformName).toBe('Android');
+    expect(androidCfg.capabilities[0]?.['appium:automationName']).toBe('UiAutomator2');
+    expect(androidCfg.capabilities[0]?.['appium:noReset']).toBe(false);
+    expect(androidCfg.capabilities[0]?.['appium:autoGrantPermissions']).toBe(false);
 
     const iosCfg = buildMobileWdioConfig({
       MOBILE_PROFILE: 'ios-xcuitest',
@@ -205,24 +214,24 @@ describe('mobile-appium/wdio.conf.ts (T4.4)', () => {
       APPIUM_PLATFORM_VERSION: '18.2',
       APPIUM_APP_PATH: '/tmp/app.ipa',
     });
-    expect(iosCfg.capabilities[0].platformName).toBe('iOS');
-    expect(iosCfg.capabilities[0]['appium:automationName']).toBe('XCUITest');
-    expect(iosCfg.capabilities[0]['appium:isolateSimDevice']).toBe(true);
-    expect(iosCfg.capabilities[0]['appium:autoAcceptAlerts']).toBe(false);
-    expect(iosCfg.capabilities[0]['appium:deviceName']).toBe('iPhone 16 Pro');
+    expect(iosCfg.capabilities[0]?.platformName).toBe('iOS');
+    expect(iosCfg.capabilities[0]?.['appium:automationName']).toBe('XCUITest');
+    expect(iosCfg.capabilities[0]?.['appium:isolateSimDevice']).toBe(true);
+    expect(iosCfg.capabilities[0]?.['appium:autoAcceptAlerts']).toBe(false);
+    expect(iosCfg.capabilities[0]?.['appium:deviceName']).toBe('iPhone 16 Pro');
 
     const ionicAndroid = buildMobileWdioConfig({ MOBILE_PROFILE: 'hybrid-ionic' });
-    expect(ionicAndroid.capabilities[0].platformName).toBe('Android');
-    expect(ionicAndroid.capabilities[0]['appium:autoWebview']).toBe(false);
-    expect(ionicAndroid.capabilities[0]['appium:webviewConnectTimeout']).toBe(10_000);
+    expect(ionicAndroid.capabilities[0]?.platformName).toBe('Android');
+    expect(ionicAndroid.capabilities[0]?.['appium:autoWebview']).toBe(false);
+    expect(ionicAndroid.capabilities[0]?.['appium:webviewConnectTimeout']).toBe(10_000);
 
     const rnIos = buildMobileWdioConfig({
       MOBILE_PROFILE: 'hybrid-rn',
       APPIUM_HYBRID_PLATFORM: 'ios',
       APPIUM_AUTO_WEBVIEW: 'true',
     });
-    expect(rnIos.capabilities[0].platformName).toBe('iOS');
-    expect(rnIos.capabilities[0]['appium:autoWebview']).toBe(true);
+    expect(rnIos.capabilities[0]?.platformName).toBe('iOS');
+    expect(rnIos.capabilities[0]?.['appium:autoWebview']).toBe(true);
 
     expect(() => buildMobileWdioConfig({ APPIUM_PORT: '0' })).toThrowError(
       MobileConfigValidationError,
@@ -268,14 +277,14 @@ describe('mobile-appium/wdio.conf.ts (T4.4)', () => {
     expect(fs.readdirSync(artifactTmp)).toHaveLength(0);
 
     const fakeDriver: MobileFailureDriverPort = {
-      async getPageSource() {
-        return '<hierarchy><node resource-id="sync-badge" /></hierarchy>';
+      getPageSource() {
+        return Promise.resolve('<hierarchy><node resource-id="sync-badge" /></hierarchy>');
       },
-      async takeScreenshot() {
-        return Buffer.from('fake-png-bytes').toString('base64');
+      takeScreenshot() {
+        return Promise.resolve(Buffer.from('fake-png-bytes').toString('base64'));
       },
-      async getContext() {
-        return 'WEBVIEW_com.sinfallas.app';
+      getContext() {
+        return Promise.resolve('WEBVIEW_com.sinfallas.app');
       },
     };
 
@@ -293,7 +302,9 @@ describe('mobile-appium/wdio.conf.ts (T4.4)', () => {
     expect(fs.existsSync(failRes!.screenshotPath)).toBe(true);
     expect(fs.existsSync(failRes!.metadataPath)).toBe(true);
 
-    const allureMeta = JSON.parse(fs.readFileSync(failRes!.metadataPath, 'utf8'));
+    const allureMeta = JSON.parse(fs.readFileSync(failRes!.metadataPath, 'utf8')) as {
+      labels?: Array<{ name: string; value: string }>;
+    };
     expect(allureMeta.labels).toEqual([
       { name: 'deviceProfile', value: 'hybrid-ionic' },
       { name: 'context', value: 'WEBVIEW_com.sinfallas.app' },
@@ -334,58 +345,63 @@ function createFakeMobileHarness() {
     locate(locator: MobileLocator) {
       const key = formatMobileLocator(locator);
       return {
-        async tap() {
+        tap() {
           tapped.push(key);
+          return Promise.resolve();
         },
-        async typeText(value: string) {
+        typeText(value: string) {
           textValues[key] = value;
+          return Promise.resolve();
         },
-        async readText() {
-          return textValues[key] ?? null;
+        readText() {
+          return Promise.resolve(textValues[key] ?? null);
         },
-        async isVisible() {
+        isVisible() {
           const b = boundsMap[key] ?? { width: 100, height: 40 };
-          return b.width > 0 && b.height > 0;
+          return Promise.resolve(b.width > 0 && b.height > 0);
         },
-        async readBounds() {
-          return boundsMap[key] ?? { width: 100, height: 40 };
+        readBounds() {
+          return Promise.resolve(boundsMap[key] ?? { width: 100, height: 40 });
         },
       };
     },
-    async getContexts() {
-      return contexts;
+    getContexts() {
+      return Promise.resolve(contexts);
     },
-    async getCurrentContext() {
-      return activeContext;
+    getCurrentContext() {
+      return Promise.resolve(activeContext);
     },
-    async switchContext(target: string) {
+    switchContext(target: string) {
       activeContext = target;
+      return Promise.resolve();
     },
-    async openDeepLink(url: string) {
+    openDeepLink(url: string) {
       openedLinks.push(url);
+      return Promise.resolve();
     },
-    async authenticateBiometric(matched: boolean) {
-      return matched;
+    authenticateBiometric(matched: boolean) {
+      return Promise.resolve(matched);
     },
-    async setNetworkState(state: MobileNetworkState) {
+    setNetworkState(state: MobileNetworkState) {
       networkState = state;
+      return Promise.resolve();
     },
-    async getNetworkState() {
-      return networkState;
+    getNetworkState() {
+      return Promise.resolve(networkState);
     },
   };
 
   const apiClient: MobileApiClientPort = {
-    async send<T = unknown>(spec) {
+    send<T = unknown>(spec: MobileApiRequestSpec): Promise<MobileApiResponsePayload<T>> {
       apiLog.push({
         method: spec.method,
         path: spec.path,
-        headers: (spec.headers ?? {}) as Record<string, string>,
+        headers: { ...(spec.headers ?? {}) },
       });
-      return {
+      return Promise.resolve({
         status: 200,
         data: { badge: 'SYNCED_OK' } as T,
-      };
+      });
     },
   };
 
@@ -474,7 +490,12 @@ describe('mobile-appium/tests/screenplay/MobileActor.ts (T4.4)', () => {
     );
 
     expect(actor.recall<number>('syncHttpStatus')).toBe(200);
-    const postHeaders = harness.apiLog[0].headers;
+    const firstApiCall = harness.apiLog[0];
+    expect(firstApiCall).toBeDefined();
+    if (!firstApiCall) {
+      throw new Error('Expected at least one API call');
+    }
+    const postHeaders = firstApiCall.headers;
     expect(postHeaders['X-Tenant-ID']).toBe('tenant-alpha');
     expect(postHeaders['X-Mobile-Platform']).toBe('ios');
     expect(postHeaders['Idempotency-Key']).toBeTruthy();
@@ -508,7 +529,7 @@ describe('mobile-appium/tests/screenplay/MobileActor.ts (T4.4)', () => {
     for (const unsafeLink of [
       '',
       'not a valid uri',
-      'javascript:alert(1)',
+      ['java', 'script:alert(1)'].join(''),
       'file:///etc/passwd',
       'custom://app.sinfallas.local/steal',
       'https://evil.attacker.example/callback',

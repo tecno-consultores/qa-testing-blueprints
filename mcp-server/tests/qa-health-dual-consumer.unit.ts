@@ -48,8 +48,8 @@ describe('QA-HEALTH-01 & Dual-Consumer Evolution Suite', () => {
       const res = await auditSecurityStigOwasp(tmpDir);
       const healthFindings = res.findings.filter((f) => f.rule_id === 'QA-HEALTH-01');
       expect(healthFindings).toHaveLength(1);
-      expect(healthFindings[0].severity).toBe('HIGH');
-      expect(healthFindings[0].file).toBe(path.join('src', 'workers', 'supervisor.py'));
+      expect(healthFindings[0]?.severity).toBe('HIGH');
+      expect(healthFindings[0]?.file).toBe(path.join('src', 'workers', 'supervisor.py'));
     });
 
     it('passes when supervisor inspects task.exception() and OPTIONAL_WORKERS or uses # qa-health-ok', async () => {
@@ -145,8 +145,8 @@ describe('QA-HEALTH-01 & Dual-Consumer Evolution Suite', () => {
       const res = await auditSecurityStigOwasp(tmpDir);
       const healthFindings = res.findings.filter((f) => f.rule_id === 'QA-HEALTH-01');
       expect(healthFindings).toHaveLength(1);
-      expect(healthFindings[0].file).toBe(path.join('src', 'workers', 'runner.py'));
-      expect(healthFindings[0].message).toContain('/tmp/worker_heartbeat');
+      expect(healthFindings[0]?.file).toBe(path.join('src', 'workers', 'runner.py'));
+      expect(healthFindings[0]?.message).toContain('/tmp/worker_heartbeat');
     });
 
     it('passes when contract test asserts WORKER_HEARTBEAT_PATH.exists() without mocking write_text', async () => {
@@ -314,7 +314,7 @@ describe('QA-HEALTH-01 & Dual-Consumer Evolution Suite', () => {
       const flaggedRes = await auditSecurityStigOwasp(tmpDir);
       const findings = flaggedRes.findings.filter((f) => f.rule_id === 'QA-HEALTH-01');
       expect(findings).toHaveLength(1);
-      expect(findings[0].message).toContain('/tmp/worker_heartbeat');
+      expect(findings[0]?.message).toContain('/tmp/worker_heartbeat');
     });
   });
 
@@ -353,7 +353,10 @@ describe('QA-HEALTH-01 & Dual-Consumer Evolution Suite', () => {
       const failingRes = await auditSecurityStigOwasp(tmpDir);
       const ttyFindings = failingRes.findings.filter((f) => f.rule_id === 'QA-CLI-TTY-01');
       expect(ttyFindings).toHaveLength(2);
-      expect(ttyFindings.map((f) => f.file).sort()).toEqual(['src/cli_mcp.py', 'src/index.ts']);
+      expect(ttyFindings.map((f) => f.file).sort((a, b) => a.localeCompare(b))).toEqual([
+        'src/cli_mcp.py',
+        'src/index.ts',
+      ]);
 
       // Guarded Node/TS (process.stdin.isTTY) and guarded Python (sys.stdin.isatty()) pass cleanly
       fs.writeFileSync(
@@ -597,7 +600,7 @@ describe('QA-HEALTH-01 & Dual-Consumer Evolution Suite', () => {
       expect(badNomount.filter((f) => f.message.includes('maybeDelegatePagesToWorkers'))).toHaveLength(2);
       const badExec = findings.filter((f) => f.file === 'docker-compose.bad-exec.yml');
       expect(badExec).toHaveLength(1);
-      expect(badExec[0].message).toContain('noexec');
+      expect(badExec[0]?.message).toContain('noexec');
       expect(findings.some((f) => f.file === 'docker-compose.good.yml')).toBe(false);
     });
   });
@@ -691,13 +694,13 @@ describe('QA-HEALTH-01 & Dual-Consumer Evolution Suite', () => {
       expect(escapeFindings).toHaveLength(3);
       expect(escapeFindings.every((f) => f.severity === 'HIGH')).toBe(true);
       expect(
-        escapeFindings.map((f) => `${f.file}:${f.line}`).sort()
+        escapeFindings.map((f) => `${f.file}:${f.line}`).sort((a, b) => a.localeCompare(b))
       ).toEqual([
         '.github/actions/qa-check/action.yml:5',
         '.github/workflows/00-iac-audit.yml:10',
         '.github/workflows/00-iac-audit.yml:9',
       ]);
-      expect(escapeFindings[0].message).toContain('exit code 125');
+      expect(escapeFindings[0]?.message).toContain('exit code 125');
       expect(res.findings.some((f) => f.rule_id === 'QA-MAKE-CURDIR-01')).toBe(false);
     });
 
@@ -748,13 +751,13 @@ describe('QA-HEALTH-01 & Dual-Consumer Evolution Suite', () => {
       expect(curdirFindings).toHaveLength(3);
       expect(curdirFindings.every((f) => f.severity === 'HIGH')).toBe(true);
       expect(
-        curdirFindings.map((f) => `${f.file}:${f.line}`).sort()
+        curdirFindings.map((f) => `${f.file}:${f.line}`).sort((a, b) => a.localeCompare(b))
       ).toEqual([
         'api/Makefile.example:1',
         'backend/Makefile:2',
         'frontend/Makefile:2',
       ]);
-      expect(curdirFindings[0].remediation).toContain('$(CURDIR)');
+      expect(curdirFindings[0]?.remediation).toContain('$(CURDIR)');
     });
   });
 
@@ -829,9 +832,7 @@ describe('QA-HEALTH-01 & Dual-Consumer Evolution Suite', () => {
           proposed_content_or_snippet: '### Regla de ejemplo\nContenido.',
           prefer_offline_fallback: false,
         },
-        async () => {
-          throw new Error('gh not installed');
-        }
+        () => Promise.reject(new Error('gh not installed'))
       );
       expect(fallbackRes.status).toBe('PROPOSAL_FILE_AND_URL_GENERATED');
       expect(
@@ -871,8 +872,8 @@ describe('QA-HEALTH-01 & Dual-Consumer Evolution Suite', () => {
       const pyFail = await auditSecurityStigOwasp(pyRoot);
       const pyFindings = pyFail.findings.filter((f) => f.rule_id === 'QA-CONTRACT-SDK-01');
       expect(pyFindings).toHaveLength(1);
-      expect(pyFindings[0].severity).toBe('HIGH');
-      expect(pyFindings[0].file).toBe(path.join('src', 'bridge.py'));
+      expect(pyFindings[0]?.severity).toBe('HIGH');
+      expect(pyFindings[0]?.file).toBe(path.join('src', 'bridge.py'));
 
       // Adding a real in-process SDK client session test clears the finding
       fs.writeFileSync(
@@ -997,7 +998,7 @@ describe('QA-HEALTH-01 & Dual-Consumer Evolution Suite', () => {
       const nodeRes = await auditSecurityStigOwasp(nodeDir);
       const nodeFindings = nodeRes.findings.filter((f) => f.rule_id === 'QA-DOCKER-LOCK-01');
       expect(nodeFindings).toHaveLength(1);
-      expect(nodeFindings[0].line).toBe(4);
+      expect(nodeFindings[0]?.line).toBe(4);
 
       // Pragma # qa-docker-lock-ok exempts explicit intentional lines
       fs.writeFileSync(
@@ -1239,8 +1240,8 @@ describe('QA-HEALTH-01 & Dual-Consumer Evolution Suite', () => {
       const res = await auditSecurityStigOwasp(tmpDir);
       const findings = res.findings.filter((f) => f.rule_id === 'QA-HEALTH-01');
       expect(findings).toHaveLength(1);
-      expect(findings[0].file).toBe('src/supervisor.py');
-      expect(findings[0].line).toBe(3);
+      expect(findings[0]?.file).toBe('src/supervisor.py');
+      expect(findings[0]?.line).toBe(3);
     });
 
     it('rejects per-function @patch/AsyncMock probe tests while passing once an unmocked test function verifies the probe', async () => {

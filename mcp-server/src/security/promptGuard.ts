@@ -101,7 +101,7 @@ const EXFIL_TARGET_RE =
   /(?:\.ssh\/|id_rsa|id_ed25519|process\.env|os\.environ|\b(?:AWS_SECRET|GITHUB_TOKEN|NPM_TOKEN|SSH_PRIVATE_KEY)\b|(?:cat|type|read)\s+[^\r\n]{0,30}\.env\b)/i;
 
 const GATE_BYPASS_ACTION_RE =
-  /\b(?:bypass\w*|skip\w*|circumvent\w*|salt[aá]\w*|evad\w*|desactiv\w*) (?:el |la |the |gate |guardia )?(?:QA-GIT-GATE-01|git push|npm publish|pre-push)\b/i;
+  /\b(?:bypass|skip|circumvent|salt[aá]|evad|desactiv)\w* (?:el |la |the |gate |guardia )?(?:QA-GIT-GATE-01|git push|npm publish|pre-push)\b/i;
 
 const GATE_FORCE_FLAG_RE =
   /\b(?:git push|npm publish)\b[^\r\n]{0,60}(?:--no-verify|--force\b|\s-f(?=\s|$)|\bsaltando QA-GIT-GATE-01|\bbypassing QA-GIT-GATE-01)/i;
@@ -127,7 +127,7 @@ const PEM_PRIVATE_KEY_HEADER_RE =
   /-----BEGIN[\x20A-Z0-9]{0,24}PRIVATE\x20KEY-----/g;
 
 const BEARER_TOKEN_RE =
-  /\bBearer\s+[A-Za-z0-9._~+/=-]{12,512}(?![A-Za-z0-9._~+/=-])/gi;
+  /\bBearer\s+[a-z0-9._~+/=-]{12,512}(?![a-z0-9._~+/=-])/gi;
 
 const JWT_TOKEN_RE =
   /\beyJ[A-Za-z0-9_-]{8,512}\.eyJ[A-Za-z0-9_-]{8,1024}\.[A-Za-z0-9_-]{8,512}(?![A-Za-z0-9_-])/g;
@@ -135,7 +135,7 @@ const JWT_TOKEN_RE =
 const AWS_ACCESS_KEY_RE = /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g;
 
 const PROVIDER_TOKEN_RE =
-  /\b(?:(?:ghp|gho|ghu|ghs|ghr|npm)_[A-Za-z0-9]{20,255}|github_pat_[A-Za-z0-9_]{20,255}|glpat-[A-Za-z0-9_-]{20,255})\b/g;
+  /\b(?:(?:ghp|gho|ghu|ghs|ghr|npm)_[A-Za-z0-9]{20,255}|github_pat_\w{20,255}|glpat-[A-Za-z0-9_-]{20,255})\b/g;
 
 const SK_API_KEY_RE =
   /\bsk-(?:proj-|ant-|live-|test-)?[A-Za-z0-9_-]{16,255}\b/g;
@@ -246,8 +246,9 @@ function hasExfiltrationInSegment(segment: string): boolean {
 
 function hasIndirectExfiltration(text: string): boolean {
   const lines = text.split(/\r?\n/);
-  for (let i = 0; i < lines.length; i += 1) {
-    const pair = i + 1 < lines.length ? `${lines[i]} ${lines[i + 1]}` : lines[i];
+  for (const [i, current] of lines.entries()) {
+    const next = lines[i + 1];
+    const pair = next !== undefined ? `${current} ${next}` : current;
     if (hasExfiltrationInSegment(pair)) {
       return true;
     }
@@ -560,12 +561,13 @@ function sanitizeValue(
   return value;
 }
 
-export function guardToolCallInput<T = Record<string, unknown> | undefined>(
+export function guardToolCallInput<T = Record<string, unknown> | null | undefined>(
   toolName: string,
   args: T,
   options?: PromptGuardOptions
 ): ToolCallGuardResult<T> {
-  if (!isPromptGuardEnabled(options) || args === undefined || args === null) {
+  const rawArgs: unknown = args;
+  if (!isPromptGuardEnabled(options) || rawArgs === undefined || rawArgs === null) {
     return {
       toolName,
       blocked: false,

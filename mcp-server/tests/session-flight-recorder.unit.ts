@@ -113,6 +113,16 @@ describe('Flight Recorder Atómico (Tool #19 session_flight_recorder & Resource 
     expect((await handleSessionFlightRecorder()).isError).toBe(true);
     const badAction = await handleSessionFlightRecorder({ project_path: wsDir, action: 'invalid' });
     expect(badAction.isError).toBe(true);
+    const numAction = await runSessionFlightRecorder({
+      project_path: wsDir,
+      action: 42 as unknown as string,
+    });
+    expect(numAction.status).toBe('FAILED');
+    const boolAction = await runSessionFlightRecorder({
+      project_path: wsDir,
+      action: false as unknown as string,
+    });
+    expect(boolAction.status).toBe('FAILED');
 
     const missingIntent = await runSessionFlightRecorder({
       project_path: wsDir,

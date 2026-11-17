@@ -19,7 +19,56 @@ const REPO_CANDIDATE = path.dirname(MCP_ROOT);
 const REAL_CALM_PATH = path.join(REPO_CANDIDATE, DEFAULT_CALM_ARCHITECTURE_PATH);
 const HAS_REAL_CALM_MODEL = fs.existsSync(REAL_CALM_PATH);
 
-type CalmDoc = Record<string, any>;
+interface CalmControlRequirement {
+  'requirement-url'?: string;
+  config?: {
+    'control-id'?: string;
+    name?: string;
+    description?: string;
+  };
+}
+
+interface CalmControl {
+  enabled?: boolean;
+  description?: string;
+  requirements?: CalmControlRequirement[];
+}
+
+interface CalmNode {
+  'unique-id'?: string;
+  'node-type'?: string;
+  name?: string;
+  description?: string;
+  interfaces?: unknown[];
+}
+
+interface CalmRelationship {
+  'unique-id'?: string;
+  description?: string;
+  protocol?: string;
+  'relationship-type'?: {
+    connects?: {
+      source?: { node?: string; interfaces?: string[] };
+      destination?: { node?: string; interfaces?: string[] };
+    };
+  } & Record<string, unknown>;
+}
+
+interface CalmDoc {
+  $schema?: string;
+  metadata?: unknown[];
+  nodes: CalmNode[];
+  relationships: CalmRelationship[];
+  controls?: Record<string, CalmControl>;
+}
+
+function getControl(doc: CalmDoc, id: string): CalmControl {
+  const ctrl = doc.controls?.[id];
+  if (!ctrl || typeof ctrl !== 'object') {
+    throw new Error(`Expected CalmControl for ${id}`);
+  }
+  return ctrl;
+}
 
 const CANONICAL_CONTROL_METADATA: Record<
   (typeof REQUIRED_CALM_CONTROL_IDS)[number],
@@ -279,20 +328,22 @@ describe('validateCalmArchitecture (FINOS CALM 11X Gate)', () => {
     expect(VALIDATE_CALM_ARCHITECTURE_TOOL.name).toBe('validate_calm_architecture');
 
     const canonicalDoc = loadCanonicalDoc();
-    expect(canonicalDoc.controls['worm-hmac-audit-chain'].requirements[0].config['control-id']).toBe('SEC-14');
-    expect(canonicalDoc.controls['cli-tty-anti-hang-guard'].requirements[0].config['control-id']).toBe(
+    expect(getControl(canonicalDoc, 'worm-hmac-audit-chain').requirements?.[0]?.config?.['control-id']).toBe('SEC-14');
+    expect(getControl(canonicalDoc, 'cli-tty-anti-hang-guard').requirements?.[0]?.config?.['control-id']).toBe(
       'QA-CLI-TTY-01'
     );
-    expect(canonicalDoc.controls['git-closure-human-gate'].requirements[0].config['control-id']).toBe('QA-GIT-GATE-01');
-    for (const node of canonicalDoc.nodes as CalmDoc[]) {
+    expect(getControl(canonicalDoc, 'git-closure-human-gate').requirements?.[0]?.config?.['control-id']).toBe(
+      'QA-GIT-GATE-01'
+    );
+    for (const node of canonicalDoc.nodes) {
       expect(Array.isArray(node.interfaces) && node.interfaces.length > 0).toBe(true);
     }
-    const relById = new Map<string, CalmDoc>(
-      (canonicalDoc.relationships as CalmDoc[]).map((rel) => [String(rel['unique-id']), rel])
+    const relById = new Map<string, CalmRelationship>(
+      canonicalDoc.relationships.map((rel) => [String(rel['unique-id']), rel])
     );
     expect(relById.get('rel-runners-to-postgres17-rls')?.protocol).toBe('TLS');
     expect(relById.get('rel-runners-to-keydb-cache')?.protocol).toBe('TLS');
-    for (const rel of canonicalDoc.relationships as CalmDoc[]) {
+    for (const rel of canonicalDoc.relationships) {
       expect(typeof rel.description === 'string' && rel.description.length > 0).toBe(true);
     }
 
@@ -339,7 +390,7 @@ describe('validateCalmArchitecture (FINOS CALM 11X Gate)', () => {
     'rejects model when mandatory security control %s is removed',
     (controlId) => {
       const doc = loadCanonicalDoc();
-      delete doc.controls[controlId];
+      delete doc.controls?.[controlId];
       const ws = createWorkspaceWithModel(doc);
 
       const res = validateCalmArchitecture({ workspaceRoot: ws });
@@ -353,28 +404,30 @@ describe('validateCalmArchitecture (FINOS CALM 11X Gate)', () => {
 
   it('rejects inactive, malformed, or missing controls block', () => {
     const disabledDoc = loadCanonicalDoc();
-    disabledDoc.controls['postgres-rls-isolation'].enabled = false;
+    getControl(disabledDoc, 'postgres-rls-isolation').enabled = false;
     const wsDisabled = createWorkspaceWithModel(disabledDoc);
     expect(validateCalmArchitecture({ workspaceRoot: wsDisabled }).violations[0]?.code).toBe(
       'INACTIVE_CONTROL'
     );
 
     const nonObjControlDoc = loadCanonicalDoc();
-    nonObjControlDoc.controls['prompt-injection-guard'] = 'invalid';
+    if (nonObjControlDoc.controls) {
+      (nonObjControlDoc.controls as Record<string, unknown>)['prompt-injection-guard'] = 'invalid';
+    }
     const wsNonObjCtrl = createWorkspaceWithModel(nonObjControlDoc);
     expect(validateCalmArchitecture({ workspaceRoot: wsNonObjCtrl }).violations[0]?.code).toBe(
       'INACTIVE_CONTROL'
     );
 
     const emptyReqsDoc = loadCanonicalDoc();
-    emptyReqsDoc.controls['vault-aes-256-gcm'].requirements = [{ 'requirement-url': '', config: {} }];
+    getControl(emptyReqsDoc, 'vault-aes-256-gcm').requirements = [{ 'requirement-url': '', config: {} }];
     const wsEmptyReqs = createWorkspaceWithModel(emptyReqsDoc);
     expect(validateCalmArchitecture({ workspaceRoot: wsEmptyReqs }).violations[0]?.code).toBe(
       'INACTIVE_CONTROL'
     );
 
     const missingConfigDoc = loadCanonicalDoc();
-    missingConfigDoc.controls['worm-hmac-audit-chain'].requirements = [
+    getControl(missingConfigDoc, 'worm-hmac-audit-chain').requirements = [
       { 'requirement-url': 'https://calm.finos.org/release/1.2/meta/control-requirement.json' },
     ];
     const wsMissingConfig = createWorkspaceWithModel(missingConfigDoc);
@@ -394,7 +447,10 @@ describe('validateCalmArchitecture (FINOS CALM 11X Gate)', () => {
 
   it('rejects dangling relationships, missing required edges, and disconnected critical nodes', () => {
     const danglingDoc = loadCanonicalDoc();
-    danglingDoc.relationships[0]['relationship-type'].connects.destination.node = 'ghost-node';
+    const firstRel = danglingDoc.relationships[0];
+    if (firstRel?.['relationship-type']?.connects?.destination) {
+      firstRel['relationship-type'].connects.destination.node = 'ghost-node';
+    }
     const wsDangling = createWorkspaceWithModel(danglingDoc);
     const resDangling = validateCalmArchitecture({ workspaceRoot: wsDangling });
     expect(resDangling.valid).toBe(false);
@@ -420,7 +476,9 @@ describe('validateCalmArchitecture (FINOS CALM 11X Gate)', () => {
 
   it('rejects duplicate IDs, missing required nodes, and malformed node or relationship entries', () => {
     const dupNodeDoc = loadCanonicalDoc();
-    dupNodeDoc.nodes.push({ ...dupNodeDoc.nodes[0] });
+    if (dupNodeDoc.nodes[0]) {
+      dupNodeDoc.nodes.push({ ...dupNodeDoc.nodes[0] });
+    }
     const wsDupNode = createWorkspaceWithModel(dupNodeDoc);
     expect(
       validateCalmArchitecture({ workspaceRoot: wsDupNode }).violations.some(
@@ -429,7 +487,9 @@ describe('validateCalmArchitecture (FINOS CALM 11X Gate)', () => {
     ).toBe(true);
 
     const dupRelDoc = loadCanonicalDoc();
-    dupRelDoc.relationships.push({ ...dupRelDoc.relationships[0] });
+    if (dupRelDoc.relationships[0]) {
+      dupRelDoc.relationships.push({ ...dupRelDoc.relationships[0] });
+    }
     const wsDupRel = createWorkspaceWithModel(dupRelDoc);
     expect(
       validateCalmArchitecture({ workspaceRoot: wsDupRel }).violations.some(
@@ -439,7 +499,7 @@ describe('validateCalmArchitecture (FINOS CALM 11X Gate)', () => {
 
     const missingNodeDoc = loadCanonicalDoc();
     missingNodeDoc.nodes = missingNodeDoc.nodes.filter(
-      (n: CalmDoc) => n['unique-id'] !== REQUIRED_CALM_NODE_IDS[3]
+      (n) => n['unique-id'] !== REQUIRED_CALM_NODE_IDS[3]
     );
     const wsMissingNode = createWorkspaceWithModel(missingNodeDoc);
     expect(
@@ -449,7 +509,7 @@ describe('validateCalmArchitecture (FINOS CALM 11X Gate)', () => {
     ).toBe(true);
 
     const badNodeDoc = loadCanonicalDoc();
-    badNodeDoc.nodes.push('not-an-object', { 'unique-id': 'bad-node', 'node-type': 'service' });
+    (badNodeDoc.nodes as unknown[]).push('not-an-object', { 'unique-id': 'bad-node', 'node-type': 'service' });
     const wsBadNode = createWorkspaceWithModel(badNodeDoc);
     const resBadNode = validateCalmArchitecture({ workspaceRoot: wsBadNode });
     expect(
@@ -457,7 +517,7 @@ describe('validateCalmArchitecture (FINOS CALM 11X Gate)', () => {
     ).toBeGreaterThanOrEqual(2);
 
     const badRelDoc = loadCanonicalDoc();
-    badRelDoc.relationships.push(
+    (badRelDoc.relationships as unknown[]).push(
       'bad-rel',
       { 'unique-id': 'missing-type' },
       { 'unique-id': 'empty-type', 'relationship-type': {} },
@@ -525,7 +585,7 @@ describe('validateCalmArchitecture (FINOS CALM 11X Gate)', () => {
       expect(resReadFail.valid).toBe(false);
       expect(resReadFail.violations[0]?.code).toBe('FILE_NOT_FOUND');
     } finally {
-      fs.chmodSync(unreadableFile, 0o644);
+      fs.chmodSync(unreadableFile, 0o600);
     }
 
     const wsArrayRoot = createWorkspaceWithModel('[]');

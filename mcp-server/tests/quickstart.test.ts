@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
-import * as fs from 'node:fs';
+import fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -246,7 +246,9 @@ describe('T5.1: Quickstart CLI & PR-Aware Composite GitHub Action', () => {
       // Customize workflow, ACTIVE_TASK, and .qa-11x.json extra metadata
       writeProjectFile(tmpDir, '.agents/ACTIVE_TASK.md', '# Custom Task\n- **Estado:** `IN_PROGRESS`\n');
       writeProjectFile(tmpDir, '.github/workflows/qa-11x-pr.yml', 'name: Custom PR Check\n');
-      const existingCfg = JSON.parse(fs.readFileSync(path.join(tmpDir, '.qa-11x.json'), 'utf8'));
+      const existingCfg = JSON.parse(
+        fs.readFileSync(path.join(tmpDir, '.qa-11x.json'), 'utf8')
+      ) as Record<string, unknown>;
       writeProjectFile(
         tmpDir,
         '.qa-11x.json',
@@ -263,7 +265,9 @@ describe('T5.1: Quickstart CLI & PR-Aware Composite GitHub Action', () => {
       expect(standard.files.find((f) => f.relativePath === '.github/workflows/qa-11x-pr.yml')?.action).toBe(
         'preserved'
       );
-      const updatedCfg = JSON.parse(fs.readFileSync(path.join(tmpDir, '.qa-11x.json'), 'utf8'));
+      const updatedCfg = JSON.parse(
+        fs.readFileSync(path.join(tmpDir, '.qa-11x.json'), 'utf8')
+      ) as { customTeamOwner?: string; tier?: string };
       expect(updatedCfg.customTeamOwner).toBe('platform-qa');
       expect(updatedCfg.tier).toBe('standard');
 
@@ -285,7 +289,9 @@ describe('T5.1: Quickstart CLI & PR-Aware Composite GitHub Action', () => {
       expect(enterprise.files.find((f) => f.relativePath === '.agents/ACTIVE_TASK.md')?.action).toBe(
         'updated'
       );
-      const forcedCfg = JSON.parse(fs.readFileSync(path.join(tmpDir, '.qa-11x.json'), 'utf8'));
+      const forcedCfg = JSON.parse(
+        fs.readFileSync(path.join(tmpDir, '.qa-11x.json'), 'utf8')
+      ) as { customTeamOwner?: string };
       expect(forcedCfg.customTeamOwner).toBeUndefined();
     });
 
@@ -359,8 +365,8 @@ describe('T5.1: Quickstart CLI & PR-Aware Composite GitHub Action', () => {
       );
       fs.unlinkSync(path.join(tmpDir, '.qa-11x.json'));
 
-      expect(validateQuickstartTier(undefined)).toBe('starter');
-      expect(validateQuickstartCi(undefined)).toBe('github');
+      expect(validateQuickstartTier()).toBe('starter');
+      expect(validateQuickstartCi()).toBe('github');
       expect(() => validateQuickstartTier('gold')).toThrow('Unsupported tier');
       expect(() => validateQuickstartCi('jenkins')).toThrow('Unsupported CI target');
     });
@@ -404,7 +410,9 @@ describe('T5.1: Quickstart CLI & PR-Aware Composite GitHub Action', () => {
       );
       expect(jsonRun.exitCode).toBe(0);
       expect(jsonRun.quickstartResult?.vibePrototypeDetected).toBe(true);
-      const parsedJson = JSON.parse(jsonLogs[0]);
+      const firstJsonLog = jsonLogs[0];
+      expect(firstJsonLog).toBeDefined();
+      const parsedJson = JSON.parse(firstJsonLog ?? '{}') as { tier?: string; activeGates?: unknown[] };
       expect(parsedJson.tier).toBe('enterprise');
       expect(parsedJson.activeGates).toHaveLength(13);
 
@@ -465,6 +473,19 @@ describe('T5.1: Quickstart CLI & PR-Aware Composite GitHub Action', () => {
         logSpy.mockRestore();
       }
     });
+
+    it('falls back safely when optional manifest files cannot be read (readTextSafe catch)', () => {
+      writeProjectFile(tmpDir, 'pyproject.toml', '[project]\nname = "demo"\n');
+      const readSpy = vi.spyOn(fs, 'readFileSync').mockImplementationOnce(() => {
+        throw new Error('EACCES: permission denied');
+      });
+      try {
+        const profile = detectProjectStackProfile(tmpDir);
+        expect(profile.stacks).toContain('generic');
+      } finally {
+        readSpy.mockRestore();
+      }
+    });
   });
 
 function extractYamlRunBlocks(rawYaml: string): string[] {
@@ -481,7 +502,7 @@ function extractYamlRunBlocks(rawYaml: string): string[] {
         blocks.push(current.join('\n'));
       }
       inRun = true;
-      baseIndent = runMatch[1].length;
+      baseIndent = (runMatch[1] ?? '').length;
       current = [];
       continue;
     }

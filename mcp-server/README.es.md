@@ -7,7 +7,7 @@
 
 Servidor oficial **Model Context Protocol (MCP)** e instalador CLI de fricción cero para [**QA Testing Blueprints (QA-11X v3.1 — v3.1.0)**](https://github.com/tecno-consultores/qa-testing-blueprints).
 
-Diseñado para que agentes de programación IA (**Google Antigravity**, **Claude Code / Desktop**, **Cursor**, **Windsurf**, **OpenAI Codex CLI**, **VS Code Copilot**, **Hermes Agent** y **27+ agentes**) adopten QA-11X en **< 30 segundos**, ejecuten **19 herramientas MCP**, consulten **13 recursos criptográficos `blueprint://*`** y apliquen **Regla Cero Docker**, **DISA ASD STIG V6R5**, **OWASP v4.2**, **FINOS CALM** y **AI Evals Dual-Mode** sin clonar el repositorio completo.
+Diseñado para que agentes de programación IA (**Google Antigravity**, **Claude Code / Desktop**, **Cursor**, **Windsurf**, **OpenAI Codex CLI**, **VS Code Copilot**, **Hermes Agent** y **27+ agentes**) adopten QA-11X en **< 30 segundos**, ejecuten **19 herramientas MCP**, consulten **13 recursos criptográficos `blueprint://*`** (11 URIs estáticas + 2 plantillas URI) y apliquen **Regla Cero Docker**, **DISA ASD STIG V6R5**, **OWASP v4.2**, **FINOS CALM** y **AI Evals Dual-Mode** sin clonar el repositorio completo.
 
 ---
 
@@ -70,7 +70,7 @@ Consulta la matriz completa de 27+ clientes en [`docs/agent-setup.es.md`](https:
 * **Interceptor `promptGuard` *Fail-Closed*:** Protege `tools/call` en las 19 herramientas con canonicalización `NFKC`, purga zero-width / Trojan Source, bloqueo de inyección de prompts y evasiones `QA-GIT-GATE-01` (`git push` / `npm publish`), y redacción PII/secretos antes de despachar cualquier handler.
 * **Confinamiento de Rutas `SEC-PATH-01` (`QA11X_WORKSPACE_ROOTS`):** Valida `project_path`, `workspaceRoot` y `targetDir` mediante `resolveSafeProjectPath`, bloqueando traversal (`..`), bytes NUL, symlinks fuera de raíces permitidas, rutas críticas del sistema (`/`, `/etc`, `/usr`, ...), `$HOME` y `os.tmpdir()` raíz. Configure `QA11X_WORKSPACE_ROOTS` (rutas separadas por delimitador de PATH) para autorizar workspaces adicionales fuera de `process.cwd()`.
 * **`TaskStateGuard` y Reportes `Fail-Verbose`:** Limita concurrencia de tareas MCP, aísla timeouts (`60s` estándar / `>= 180s` transferencias pesadas), limpia artefactos truncados de `0 bytes`, acota el auto-sync TTY (`< 5s` fail-open hacia `stderr`) y formatea trazas `Fail-Verbose` sanitizadas compatibles con Allure (`diagnosticFormatter.ts`).
-* **LLMs Locales y A2A Agent Card:** Compatible con evaluadores air-gapped **Ollama / vLLM** y tarjeta de descubrimiento [`agentCard.ts`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/src/a2a/agentCard.ts) (`v3.1.0`).
+* **LLMs Locales y A2A Agent Card (Módulo de Librería Programático Interno):** Compatible con evaluadores air-gapped **Ollama / vLLM** y expone [`src/a2a/agentCard.ts`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/src/a2a/agentCard.ts) (`v3.1.0`) exclusivamente como un **módulo de librería programático interno** (no expuesto como herramienta ni recurso MCP público sobre `stdio`).
 
 ---
 
@@ -105,14 +105,16 @@ Lideradas por `qa-11x-architect` (`< 12 KB`), cargando 10 sub-skills especializa
 
 ---
 
-## 📚 Recursos Expuestos en el Servidor MCP (13 recursos — v3.1)
+## 📚 Recursos Expuestos en el Servidor MCP (13 recursos: 11 URIs estáticas + 2 plantillas URI — v3.1)
+
+> **Desglose de Superficie:** **11 URIs estáticas** devueltas por `resources/list` + **2 plantillas URI** (`blueprint://{stack}/readme`, `blueprint://ui/refactoring-ui/{topic}`) devueltas por `resources/templates/list`.
 
 1. **`blueprint://manifest`:** Índice SHA-256 en tiempo real (`manifest.json`) para todos los stacks soportados.
 2. **`blueprint://core/philosophy`:** Filosofía Nivel-11X de 13 capas, Regla Cero, 10 Leyes y 11 Reglas Anti-Ceguera UAT.
-3. **`blueprint://security/disa-owasp-22`:** Catálogo de los 22 patrones de endurecimiento DISA ASD STIG V6R5 y OWASP v4.2.
+3. **`blueprint://security/disa-owasp-22`:** Catálogo de 22 controles de referencia DISA ASD STIG V6R5 y OWASP Developer Guide v4.2 + 34 reglas de escáner estático.
 4. **`blueprint://database/postgres-rls-worm`:** Referencia PostgreSQL 17 RLS multi-transacción (`after_begin`) + auditoría WORM determinista (`seq_num` + `pg_advisory_xact_lock`).
-5. **`blueprint://{stack}/readme`:** Guías operativas para los **10 stacks**: `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals` y `vibe-rescue`.
-6. **`blueprint://ui/refactoring-ui/{topic}`:** Diseño UI táctico, `tabular-nums`, contraste OKLCH WCAG 2.1 AA, modo oscuro y geometría Anti-JSDOM.
+5. **`blueprint://{stack}/readme` *(Plantilla URI)*:** Guías operativas para los **10 stacks**: `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals` y `vibe-rescue`.
+6. **`blueprint://ui/refactoring-ui/{topic}` *(Plantilla URI)*:** Diseño UI táctico, `tabular-nums`, contraste OKLCH WCAG 2.1 AA, modo oscuro y geometría Anti-JSDOM.
 7. **`blueprint://core/active-task-template`:** Plantilla compacta de bitácora viva (`.agents/ACTIVE_TASK.md.example`, `<= 40` líneas).
 8. **`blueprint://core/cleanup-script`:** Script oficial de saneamiento sin `root` (`limpieza.sh`) con fallback Alpine.
 9. **`blueprint://core/roadmap-validator`:** Validador bidireccional de consistencia (`.agents/scripts/verify_roadmap_consistency.py`).
@@ -123,4 +125,4 @@ Lideradas por `qa-11x-architect` (`< 12 KB`), cargando 10 sub-skills especializa
 
 ---
 
-> **Certificación Clean-Room E2E (`example/` + `verify-v2.sh`):** Cada publicación se certifica en contenedor Docker efímero no-root (`./scripts/probar-mcp-example.sh` / `pnpm run test:example`) empaquetando el tarball con `npm pack`, instalando en un proyecto aislado bajo `/tmp` y verificando `quickstart`, `QA-CLI-TTY-01`, los **13 recursos**, las **19 herramientas**, `promptGuard` y la integración híbrida `FastAPI + Vue 3`.
+> **Certificación Clean-Room E2E (`example/` + `verify-v2.sh`):** Cada publicación se certifica en contenedor Docker efímero no-root (`./scripts/probar-mcp-example.sh` / `pnpm run test:example`) empaquetando el tarball con `npm pack`, instalando en un proyecto aislado bajo `/tmp` y verificando `quickstart`, `QA-CLI-TTY-01`, los **13 recursos** (11 estáticos + 2 plantillas), las **19 herramientas**, `promptGuard` y la integración híbrida `FastAPI + Vue 3`.

@@ -109,13 +109,14 @@ describe('fetchBlueprintBundle Dedicated Unit Suite', () => {
     };
 
     fs.writeFileSync(path.join(localRepoDir, 'manifest.json'), JSON.stringify(manifest), 'utf-8');
-    for (const [relPath, fileContent] of [
+    const fixtureFiles: ReadonlyArray<readonly [string, string]> = [
       ['python/Makefile.example', makefileContent],
       ['ai-evals/promptfooconfig.yaml', promptfooContent],
       ['mobile-appium/wdio.conf.ts', wdioContent],
       ['vibe-rescue/audit_vibe_prototype.py', vibeAuditContent],
       ['.trivy.yaml', trivyContent],
-    ]) {
+    ];
+    for (const [relPath, fileContent] of fixtureFiles) {
       const fullPath = path.join(localRepoDir, relPath);
       fs.mkdirSync(path.dirname(fullPath), { recursive: true });
       fs.writeFileSync(fullPath, fileContent, 'utf-8');
@@ -145,30 +146,30 @@ describe('fetchBlueprintBundle Dedicated Unit Suite', () => {
     expect(res.stack).toBe('python');
     expect(res.total_files).toBe(1);
     expect(res.content_omitted_for_token_economy).toBeUndefined();
-    expect(res.files[0].path).toBe('python/Makefile.example');
-    expect(res.files[0].content).toContain('qa-all:');
+    expect(res.files[0]?.path).toBe('python/Makefile.example');
+    expect(res.files[0]?.content).toContain('qa-all:');
   });
 
   it('hydrates ai-evals, mobile-appium, and vibe-rescue bundles with SHA-256 verification', async () => {
     const aiRes = await fetchBlueprintBundle('ai-evals', true, fetcher, true);
     expect(aiRes.stack).toBe('ai-evals');
     expect(aiRes.total_files).toBe(2);
-    expect(aiRes.files[0].path).toBe('ai-evals/promptfooconfig.yaml');
-    expect(aiRes.files[0].sha256_verified).toBe(true);
-    expect(aiRes.files[0].content).toContain('AI Evals');
+    expect(aiRes.files[0]?.path).toBe('ai-evals/promptfooconfig.yaml');
+    expect(aiRes.files[0]?.sha256_verified).toBe(true);
+    expect(aiRes.files[0]?.content).toContain('AI Evals');
 
     const mobileRes = await fetchBlueprintBundle('mobile-appium', false, fetcher, true);
     expect(mobileRes.stack).toBe('mobile-appium');
     expect(mobileRes.total_files).toBe(1);
-    expect(mobileRes.files[0].target_name).toBe('wdio.conf.ts');
-    expect(mobileRes.files[0].content).toContain('runner: "local"');
+    expect(mobileRes.files[0]?.target_name).toBe('wdio.conf.ts');
+    expect(mobileRes.files[0]?.content).toContain('runner: "local"');
 
     const vibeCompact = await fetchBlueprintBundle('vibe-rescue', true, fetcher, false);
     expect(vibeCompact.stack).toBe('vibe-rescue');
     expect(vibeCompact.total_files).toBe(2);
     expect(vibeCompact.content_omitted_for_token_economy).toBe(true);
-    expect(vibeCompact.files[0].content).toBe('');
-    expect(vibeCompact.files[0].sha256_verified).toBe(true);
+    expect(vibeCompact.files[0]?.content).toBe('');
+    expect(vibeCompact.files[0]?.sha256_verified).toBe(true);
   });
 
   it('accepts all 10 stacks in StackNameSchema, FetchBundleInputSchema, and BootstrapMergeInputSchema', () => {

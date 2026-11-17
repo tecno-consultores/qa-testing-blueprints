@@ -351,8 +351,8 @@ strict=true
       );
       fs.mkdirSync(path.join(fakeHome, '.cursor', 'mcp.json'), { recursive: true });
       const result = await inspectProjectConfig(tmpDir, fakeHome);
-      expect(result.browser_testing_readiness.applicable).toBe(true);
-      expect(result.browser_testing_readiness.browser_mcp_configured_in_ide).toBe(false);
+      expect(result.browser_testing_readiness?.applicable).toBe(true);
+      expect(result.browser_testing_readiness?.browser_mcp_configured_in_ide).toBe(false);
     });
   });
 
@@ -523,6 +523,30 @@ strict=true
       fs.mkdirSync(path.join(aiYamlDir, 'ai-evals'), { recursive: true });
       fs.writeFileSync(path.join(aiYamlDir, 'ai-evals', 'suite.yaml'), 'tests: []\n', 'utf-8');
       expect((await inspectProjectConfig(aiYamlDir)).detected_stacks).toContain('ai-evals');
+    });
+
+    it('tolerates unreadable root and unreadable subdirectories via fail-safe catch paths', async () => {
+      const subDirProj = path.join(tmpDir, 'locked-sub-proj');
+      const lockedSub = path.join(subDirProj, 'restricted');
+      fs.mkdirSync(lockedSub, { recursive: true });
+      fs.writeFileSync(path.join(subDirProj, 'deploy.sh'), '#!/bin/sh\n', 'utf-8');
+      fs.chmodSync(lockedSub, 0o000);
+      try {
+        const res = await inspectProjectConfig(subDirProj);
+        expect(res.detected_stacks).toContain('bash-scripts');
+      } finally {
+        fs.chmodSync(lockedSub, 0o700);
+      }
+
+      const lockedRoot = path.join(tmpDir, 'locked-root-proj');
+      fs.mkdirSync(lockedRoot, { recursive: true });
+      fs.chmodSync(lockedRoot, 0o000);
+      try {
+        const res = await inspectProjectConfig(lockedRoot);
+        expect(res.detected_stacks).toEqual([]);
+      } finally {
+        fs.chmodSync(lockedRoot, 0o700);
+      }
     });
   });
 });

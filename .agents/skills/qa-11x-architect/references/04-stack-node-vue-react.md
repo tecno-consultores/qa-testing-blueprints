@@ -22,7 +22,7 @@ This reference provides technical rules, testing conventions, and ephemeral Dock
    - Always pass `-u "$(id -u):$(id -g)"` on `docker compose run --rm` (and set `user: "${QA_UID:-1000}:${QA_GID:-1000}"` in `docker-compose.qa.yml`) so `node_modules/.pnpm` and `dist/` match the host/CI runner UID (`1001` on GitHub Actions, `1000` on Linux, `501` on macOS) without `ERR_PNPM_PACKAGE_MANAGER_CREATE_SLOT_DIR` (`os error 13`).
    - Declare a one-shot `pnpm-store-init` service (`user: "0:0"`, `command: ["chmod", "-R", "a+rwX", "/pnpm"]`) with `depends_on: { pnpm-store-init: { condition: service_completed_successfully } }`, plus `HOME: /tmp` and `pnpm_config_store_dir: /pnpm/store` (`pnpm` v12+ ignores legacy `npm_config_*`), preventing CAFS permission errors and preventing cross-device fallback creation of `/app/.pnpm-store`.
    - Never invoke bare `os.homedir()` without `try/catch` in Node.js CLIs/tools: under arbitrary non-root UIDs absent from container `/etc/passwd` (e.g. GitHub Actions `UID 1001`, OpenShift random UIDs) when `process.env.HOME` is unset, `uv_os_homedir` throws `SystemError: ENOENT`; always resolve `process.env.HOME || process.env.USERPROFILE` first and fall back to `os.tmpdir()` inside `catch`.
-3. **Node 26 + pnpm 12 Supply-Chain `allowBuilds`, ESLint 8 Legacy & `vue-tsc`:**
+3. **Node 26 + pnpm 12 Supply-Chain `allowBuilds`, ESLint 9 Flat Config & `vue-tsc`:**
    - Under `sinfallas/base-node-ionic:26` (`Node v26.13+`, `pnpm 12.18+`) with `.npmrc` `ignore-scripts=true` (`SEC-09`), `package.json#pnpm` (`pnpm.onlyBuiltDependencies`) is ignored (`WARN` + `ERR_PNPM_IGNORED_BUILDS`). Omit `"pnpm"` from `package.json` and declare `pnpm-workspace.yaml` using a **boolean map (`Record<string, boolean>`, NEVER a YAML list `- pkg`, which aborts with `ERR_PNPM_INVALID_SETTING`)**:
      ```yaml
      allowBuilds:
@@ -31,7 +31,7 @@ This reference provides technical rules, testing conventions, and ephemeral Dock
        '@playwright/test': true
        vue-demi: false
      ```
-   - With ESLint `8.57.x` `.eslintrc.json` and `eslint-plugin-security@^3.0.0`, extend `"plugin:security/recommended-legacy"` (the v3 `"recommended"` export is Flat Config) and configure `"ignorePatterns": ["dist/", "dist-ssr/", "coverage/", "playwright-report/", "lhci-reports/", "target/", "graphify-out/"]`. Pin `"vue-tsc": "^2.2.8"` on Vue 3 with TypeScript `5.5+`/Vite `5+`.
+   - Standardize on **ESLint 9 Flat Config (`eslint.config.mjs`)** with `eslint-plugin-security@^3.0.0` (`security.configs.recommended`), `eslint-plugin-sonarjs@^3.0.7` (`sonarjs.configs.recommended`), and `typescript-eslint@^8.x` type-aware checks (`@typescript-eslint/no-floating-promises`, `@typescript-eslint/no-misused-promises` via `projectService` / `tsconfig.typecheck.json`), ignoring `["dist/", "dist-ssr/", "coverage/", "playwright-report/", "lhci-reports/", "target/", "graphify-out/"]`. Pin `"vue-tsc": "^2.2.12"` on Vue 3 with TypeScript `5.7+` and Vite `6`. *(Legacy consumer repos still on ESLint `8.57.x` `.eslintrc.json` remain audited by `SEC-09` and must extend `"plugin:security/recommended-legacy"`.)*
 
 ---
 

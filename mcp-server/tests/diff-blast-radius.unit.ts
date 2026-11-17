@@ -26,8 +26,12 @@ import {
   validateGitRef,
 } from '../src/utils/diff-bundle.js';
 
+const GIT_EXECUTABLE =
+  ['/usr/bin/git', '/bin/git', '/usr/local/bin/git'].find((candidate) => fs.existsSync(candidate)) ??
+  '/usr/bin/git';
+
 function git(cwd: string, args: string[]): string {
-  return execFileSync('git', args, {
+  return execFileSync(GIT_EXECUTABLE, args, {
     cwd,
     encoding: 'utf8',
     env: {
@@ -369,7 +373,7 @@ describe('Modo Diferencial en inspect_ast_blast_radius y diff-bundle (Hito 23)',
     ]);
     expect(parseUnifiedDiffSections('')).toEqual([]);
     expect(parseUnifiedDiffSections('diff --git a/ b/\n')).toEqual([]);
-    expect(parseUnifiedDiffSections('diff --git a/bin.dat b/bin.dat\nGIT binary patch\n')[0].isBinary).toBe(
+    expect(parseUnifiedDiffSections('diff --git a/bin.dat b/bin.dat\nGIT binary patch\n')[0]?.isBinary).toBe(
       true
     );
     expect(parseBoundaryGlobs(tmpDir)).toBeUndefined();
@@ -413,7 +417,9 @@ describe('Modo Diferencial en inspect_ast_blast_radius y diff-bundle (Hito 23)',
           max_tokens_budget: 2000,
         },
       });
-      const textItem = (callRes.content as Array<{ text: string }>)[0].text;
+      const firstContent = (callRes.content as Array<{ text: string }>)[0];
+      expect(firstContent).toBeDefined();
+      const textItem = firstContent?.text ?? '';
       const parsed = JSON.parse(textItem) as {
         risk_level: string;
         diff_bundle: { base_ref: string; tiers_summary: { CRITICAL_FULL: number } };

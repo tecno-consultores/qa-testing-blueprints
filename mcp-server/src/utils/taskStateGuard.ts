@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
 import * as fsPromises from 'node:fs/promises';
+import { reportDebugCatchError } from './diagnosticFormatter.js';
 
 export const TASK_CAPACITY_EXTENSION_URI = 'urn:quaia:extensions:task-capacity:v1' as const;
 export const MIN_TASK_CAPACITY = 1;
@@ -213,7 +214,9 @@ async function purgeSingleZeroByteFile(targetPath: string): Promise<boolean> {
     }
     await fsPromises.rm(targetPath, { force: true });
     return true;
-  } catch {
+  } catch (err: unknown) {
+    // Target path may not exist or already be removed during idempotent zero-byte cleanup
+    reportDebugCatchError(`taskStateGuard.purgeSingleZeroByteFile(${targetPath})`, err);
     return false;
   }
 }

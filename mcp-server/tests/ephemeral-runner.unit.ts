@@ -36,7 +36,7 @@ describe('ephemeral-runner', () => {
     expect(result.exit_code).toBe(1);
     expect(result.stage).toBe('unit');
     expect(result.failed_tests.length).toBe(1);
-    expect(result.failed_tests[0].error_summary).toContain('No se encontró archivo Makefile');
+    expect(result.failed_tests[0]?.error_summary).toContain('No se encontró archivo Makefile');
   });
 
   it('ejecuta make exitosamente y procesa la salida nominal con execFileFn mockeado', async () => {
@@ -252,8 +252,8 @@ describe('ephemeral-runner', () => {
     expect(okResult.coverage.percent).toBe(97.5);
     expect(okResult.tail_log).toContain('[Fallback Rule Zero sin GNU make -> docker]');
     expect(calls.map((c) => c.file)).toEqual(['make', 'docker']);
-    expect(calls[1].shell).toBe(false);
-    expect(calls[1].args).toEqual(['compose', '-f', 'docker-compose.qa.yml', 'run', '--rm', 'qa-php', 'composer', 'qa:unit']);
+    expect(calls[1]?.shell).toBe(false);
+    expect(calls[1]?.args).toEqual(['compose', '-f', 'docker-compose.qa.yml', 'run', '--rm', 'qa-php', 'composer', 'qa:unit']);
 
     const mockDockerFail = ((
       file: string,
@@ -336,7 +336,7 @@ describe('ephemeral-runner', () => {
 
     const unsupportedNoMakefile = await runEphemeralQa(tempDir, 'chaos', 60, { execFileFn: mockDockerOk });
     expect(unsupportedNoMakefile.status).toBe('FAILED');
-    expect(unsupportedNoMakefile.failed_tests[0].error_summary).toContain('no tiene mapeo directo seguro');
+    expect(unsupportedNoMakefile.failed_tests[0]?.error_summary).toContain('no tiene mapeo directo seguro');
 
     // Con Makefile sin el target buscado y make ENOENT -> recurre a resolveComposeDirectFallback
     fs.writeFileSync(path.join(tempDir, 'Makefile'), 'other-target:\n\t@docker run alpine true\n');
@@ -349,7 +349,7 @@ describe('ephemeral-runner', () => {
     fs.writeFileSync(path.join(tempDir, 'Makefile'), 'qa-unit:\n\tpytest -q\n');
     const rejected = await runEphemeralQa(tempDir, 'unit', 60, { execFileFn: mockDockerOk });
     expect(rejected.status).toBe('FAILED');
-    expect(rejected.failed_tests[0].error_summary).toContain('Regla Cero');
+    expect(rejected.failed_tests[0]?.error_summary).toContain('Regla Cero');
   });
 
   it('runEphemeralQa resuelve delegación recursiva $(MAKE) -C <subdir> e impide path traversal al fallar make ENOENT', async () => {
@@ -586,7 +586,7 @@ describe('ephemeral-runner', () => {
       ['compose', '-f', 'docker-compose.qa.yml', 'run', '--rm', '-T', 'qa-php', 'vendor/bin/phpunit'],
       ['compose', '-f', 'docker-compose.qa.yml', 'down', '-v', '--remove-orphans'],
     ]);
-    expect(invocations[1].timeout).toBeLessThanOrEqual(60000);
+    expect(invocations[1]?.timeout).toBeLessThanOrEqual(60000);
 
     // Presupuesto agotado tras up -d -> aborta segunda receta con 124 ([TIMEOUT]) pero ejecuta teardown down -v --remove-orphans
     const timeoutCalls: string[][] = [];
@@ -728,5 +728,46 @@ describe('ephemeral-runner', () => {
     expect(resBdd.status).toBe('SKIPPED');
     expect(resBdd.tests_detected).toBe(0);
     expect(fs.existsSync(path.join(tempDir, '.agents', '.qa-evidence.json'))).toBe(false);
+  });
+
+  it('cubre fallback POSIX uid/gid, variables/targets repetidos en Makefile y package.json corrupto en fallback Compose', () => {
+    const origGetuid = Object.getOwnPropertyDescriptor(process, 'getuid');
+    const origGetgid = Object.getOwnPropertyDescriptor(process, 'getgid');
+    Object.defineProperty(process, 'getuid', { value: undefined, configurable: true });
+    Object.defineProperty(process, 'getgid', { value: undefined, configurable: true });
+    try {
+      expect(expandMakefileVariables('$(shell id -u):$(shell id -g)', new Map())).toBe('1000:1000');
+    } finally {
+      if (origGetuid) Object.defineProperty(process, 'getuid', origGetuid);
+      if (origGetgid) Object.defineProperty(process, 'getgid', origGetgid);
+    }
+
+    const makefileWithEdgeSyntax = [
+      'bad-var-name = ignored',
+      'first_dep:',
+      '\t@echo first',
+      'second_dep:',
+      '\t@echo second',
+      'qa-unit: first_dep',
+      'qa-unit: second_dep',
+      '\tdocker compose -f docker-compose.qa.yml run --rm -T qa-php echo ok',
+    ].join('\n');
+    const parsedRecipes = resolveMakefileDockerRecipes(makefileWithEdgeSyntax, 'qa-unit', tempDir);
+    expect(parsedRecipes.ok).toBe(true);
+    if (parsedRecipes.ok) {
+      expect(parsedRecipes.commands).toHaveLength(1);
+    }
+
+    const brokenNodeDir = path.join(tempDir, 'broken-node-pkg');
+    fs.mkdirSync(brokenNodeDir, { recursive: true });
+    fs.writeFileSync(path.join(brokenNodeDir, 'package.json'), '{broken json', 'utf8');
+    fs.writeFileSync(
+      path.join(brokenNodeDir, 'docker-compose.qa.yml'),
+      'services:\n  qa-frontend:\n    image: sinfallas/base-node-ionic:26\n',
+      'utf8'
+    );
+    const directCmds = resolveComposeDirectFallback(brokenNodeDir, 'unit');
+    expect(directCmds).not.toBeNull();
+    expect(directCmds?.[0]).toEqual(expect.arrayContaining(['pnpm', 'run', 'test:unit']));
   });
 });

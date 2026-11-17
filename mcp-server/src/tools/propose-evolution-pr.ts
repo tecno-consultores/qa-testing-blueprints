@@ -6,6 +6,7 @@ import * as path from 'node:path';
 import { execFile } from 'node:child_process';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { ProposeEvolutionPrInput, ProposeEvolutionPrResult } from '../types.js';
+import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 
 export const UPSTREAM_REPO = 'tecno-consultores/qa-testing-blueprints';
 const STATUS_PR_CREATED = 'PR_CREATED_VIA_GH';
@@ -27,7 +28,8 @@ export const defaultExecRunner: ExecRunnerFunction = (file, args, options) => {
   return new Promise((resolve, reject) => {
     execFile(file, args, { ...options, shell: false }, (error, stdout, stderr) => {
       if (error) {
-        reject(error);
+        const rejectionError: Error = error;
+        reject(rejectionError);
       } else {
         resolve({ stdout: String(stdout), stderr: String(stderr) });
       }
@@ -35,15 +37,22 @@ export const defaultExecRunner: ExecRunnerFunction = (file, args, options) => {
   });
 };
 
+function trimEdgeHyphens(value: string): string {
+  let start = 0;
+  let end = value.length;
+  while (start < end && value[start] === '-') start += 1;
+  while (end > start && value[end - 1] === '-') end -= 1;
+  return value.slice(start, end);
+}
+
 export function buildEvolutionSlug(title: string): string {
   const normalized = title
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+    .replace(/[^a-z0-9]+/g, '-');
 
-  const truncated = normalized.slice(0, 40).replace(/-+$/, '');
+  const truncated = trimEdgeHyphens(trimEdgeHyphens(normalized).slice(0, 40));
   return truncated.length > 0 ? truncated : 'skill-evolution';
 }
 
@@ -179,7 +188,9 @@ async function tryCreatePullRequestViaGh(
 ): Promise<{ success: boolean; prUrl: string | null; ghAuthenticated: boolean }> {
   try {
     await execRunner('gh', ['auth', 'status'], { cwd, shell: false, timeout: 10000 });
-  } catch {
+  } catch (err: unknown) {
+    // Unauthenticated gh CLI falls back to local proposal file + prefilled GitHub URL
+    reportDebugCatchError('proposeEvolutionPr.ghAuthStatus', err);
     return { success: false, prUrl: null, ghAuthenticated: false };
   }
 
@@ -188,7 +199,9 @@ async function tryCreatePullRequestViaGh(
     if (remotes.trim().length > 0 && !remotes.includes('qa-testing-blueprints')) {
       return { success: false, prUrl: null, ghAuthenticated: true };
     }
-  } catch {
+  } catch (err: unknown) {
+    // Missing git remotes falls back to local proposal file + prefilled GitHub URL
+    reportDebugCatchError('proposeEvolutionPr.gitRemoteCheck', err);
     return { success: false, prUrl: null, ghAuthenticated: true };
   }
 
@@ -200,10 +213,12 @@ async function tryCreatePullRequestViaGh(
       { cwd, shell: false, timeout: 15000 }
     );
 
-    const match = stdout.match(/https:\/\/github\.com\/[^\s]+/);
+    const match = /https:\/\/github\.com\/\S+/.exec(stdout);
     const prUrl = match ? match[0] : stdout.trim();
     return { success: true, prUrl: prUrl || null, ghAuthenticated: true };
-  } catch {
+  } catch (err: unknown) {
+    // gh pr create failure falls back gracefully to local proposal file + prefilled GitHub URL
+    reportDebugCatchError('proposeEvolutionPr.ghPrCreate', err);
     return { success: false, prUrl: null, ghAuthenticated: true };
   }
 }

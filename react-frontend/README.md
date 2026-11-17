@@ -46,7 +46,7 @@
 *   **Rule:** Frontend monitoring is performed externally via Nginx access logs. This runs via the `--profile observability` profile.
 
 ### G. Smart Ingestion (Step 0 - MCP / AST CLI-First)
-*   **Rule (Exclusive to you, AI):** You are strictly forbidden from generating code or tests blindly. If you have shell access (Antigravity), perform static inspections via CLI without occupying ports. If you are an external agent (Hermes, Claude), connect to the `sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0` MCP server. Additionally, you MUST silently read linter configurations, dependencies, and forbidden *scripts* defined in `package.json`, `.eslintrc.json`, `tsconfig.json`, and `vite.config.ts` to prevent pipeline failures.
+*   **Rule (Exclusive to you, AI):** You are strictly forbidden from generating code or tests blindly. If you have shell access (Antigravity), perform static inspections via CLI without occupying ports. If you are an external agent (Hermes, Claude), connect to the `sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0` MCP server. Additionally, you MUST silently read linter configurations, dependencies, and forbidden *scripts* defined in `package.json`, `eslint.config.mjs`, `tsconfig.json`, and `vite.config.ts` to prevent pipeline failures.
 
 ### H. Mandatory Frontend Security (DISA ASD STIG V6R5 & OWASP Developer Guide v4.2)
 *   When building or testing React components (`.tsx`) and stores (Zustand/Redux), you MUST apply and verify with unit/BDD tests the controls from **[`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`](../docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md)**:

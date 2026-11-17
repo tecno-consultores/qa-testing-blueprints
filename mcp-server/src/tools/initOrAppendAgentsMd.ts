@@ -5,9 +5,24 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { inspectProjectConfig } from './inspect-project.js';
+import {
+  CONNECTOR_START_MARKER,
+  CONNECTOR_END_MARKER,
+  buildAgentsMdConnectorBlock,
+  mergeAgentsMdContent,
+  replaceDelimitedSection,
+  resolveProjectDisplayName,
+  type ConnectorLang,
+  type ConnectorMergeAction,
+} from '../services/agents-connector.js';
 
-export const CONNECTOR_START_MARKER = '<!-- QA_11X_MCP_CONNECTOR_START -->';
-export const CONNECTOR_END_MARKER = '<!-- QA_11X_MCP_CONNECTOR_END -->';
+export {
+  CONNECTOR_START_MARKER,
+  CONNECTOR_END_MARKER,
+  buildAgentsMdConnectorBlock,
+  mergeAgentsMdContent,
+  resolveProjectDisplayName,
+};
 export const BRIDGE_START_MARKER = '<!-- QA_11X_BRIDGE_START -->';
 export const BRIDGE_END_MARKER = '<!-- QA_11X_BRIDGE_END -->';
 export const AIDER_BRIDGE_START = '# QA_11X_BRIDGE_START';
@@ -29,10 +44,9 @@ const FMT_AIDER = 'aider-yaml' as const;
 
 const ACTION_CREATED = 'created' as const;
 const ACTION_APPENDED = 'appended' as const;
-const ACTION_UPDATED_BLOCK = 'updated_block' as const;
 const ACTION_DRY_RUN = 'dry_run' as const;
 
-export type SupportedLang = 'es' | 'en';
+export type SupportedLang = ConnectorLang;
 export type AgentCategory =
   | typeof CAT_IDE
   | typeof CAT_CLI
@@ -44,10 +58,7 @@ export type BridgeFormat =
   | typeof FMT_MARKDOWN
   | typeof FMT_MDC
   | typeof FMT_AIDER;
-export type MergeAction =
-  | typeof ACTION_CREATED
-  | typeof ACTION_APPENDED
-  | typeof ACTION_UPDATED_BLOCK;
+export type MergeAction = ConnectorMergeAction;
 export type ToolRunAction = MergeAction | typeof ACTION_DRY_RUN;
 
 export type SupportedAiAgentId =
@@ -359,11 +370,6 @@ export const SUPPORTED_AGENT_IDS: readonly SupportedAiAgentId[] = Object.freeze(
   Object.keys(SUPPORTED_AI_AGENTS) as SupportedAiAgentId[]
 );
 
-const LANGUAGE_CONSTRAINTS: Readonly<Record<SupportedLang, string>> = Object.freeze({
-  es: 'Always interact with the user, provide status updates, explain reasoning, and write commit messages / user-facing documentation in Spanish (español), while keeping internal `.agents/` directives in concise technical English for token economy.',
-  en: 'Always interact with the user, provide status updates, explain reasoning, and write commit messages / user-facing documentation in English, while keeping internal `.agents/` directives in high-density technical English for token economy.',
-});
-
 const BRIDGE_LANG_SUMMARIES: Readonly<Record<SupportedLang, string>> = Object.freeze({
   es: 'Respond and write user-facing docs/commits in Spanish (`es`); keep `.agents/` rules in concise English.',
   en: 'Respond and write user-facing docs/commits in English (`en`); keep `.agents/` rules in concise English.',
@@ -386,71 +392,6 @@ export function validateSupportedLang(rawLang?: string): SupportedLang {
     return normalized;
   }
   throw new Error(`Unsupported language '${rawLang}'. Allowed values for lang: 'es' | 'en'.`);
-}
-
-export function buildAgentsMdConnectorBlock(
-  projectName: string,
-  stacks: string[],
-  lang: SupportedLang = 'es'
-): string {
-  const stacksLabel = stacks.length > 0 ? stacks.join(', ') : 'general';
-  return [
-    CONNECTOR_START_MARKER,
-    '## 🤖 Central QA 11X Skill & MCP Server Connector (`@sinfallas/mcp-qa-11x`)',
-    '',
-    `> **OUTPUT LANGUAGE CONSTRAINT:** ${LANGUAGE_CONSTRAINTS[lang]}`,
-    '',
-    `This project (\`${projectName}\`) enforces the **Level-11X Quality & DevSecOps Standard** (stacks: \`${stacksLabel}\`).`,
-    '',
-    '1. **High-IQ Token Economy & AST-First:** Query `inspect_ast_blast_radius` / `.agents/scripts/inspect_blast_radius.py` and `graphify-out/GRAPH_REPORT.md` BEFORE `grep` or windowed `read_file` (40–80 lines); never read files `>150` lines blindly.',
-    '2. **Rule Zero & Test Co-Evolution (`QA-TEST-SYNC-01`):** Execute all tests, linters, and migrations inside ephemeral Docker containers (`run_ephemeral_qa`), updating affected unit, integration, BATS, and Karate BDD suites alongside code edits (`>= 95%` coverage).',
-    '3. **3-Path Execution & Governance Closure (`QA-GIT-GATE-01`):** Follow `DOCS_ONLY`, `MICRO_CHANGE`, or `FULL_11X`, record state via `session_flight_recorder` (`save`/`recover`/`clear`, auto-projecting `.agents/ACTIVE_TASK.md` `<= 40` lines), certify via `certify_11x_gate`, and conclude with a local `git commit` (NEVER execute `git push` or `npm publish` without explicit human authorization).',
-    CONNECTOR_END_MARKER,
-  ].join('\n');
-}
-
-interface DelimitedSectionSpec {
-  readonly startMarker: string;
-  readonly endMarker: string;
-  readonly block: string;
-  readonly emptyDocument: string;
-  readonly appendSeparator: string;
-}
-
-function replaceDelimitedSection(
-  existingContent: string,
-  spec: DelimitedSectionSpec
-): { finalContent: string; action: MergeAction } {
-  const { startMarker, endMarker, block, emptyDocument, appendSeparator } = spec;
-  if (!existingContent.trim()) {
-    return { finalContent: emptyDocument, action: ACTION_CREATED };
-  }
-  const startIdx = existingContent.indexOf(startMarker);
-  const endIdx = existingContent.indexOf(endMarker);
-  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-    const before = existingContent.slice(0, startIdx);
-    const after = existingContent.slice(endIdx + endMarker.length);
-    return { finalContent: `${before}${block}${after}`, action: ACTION_UPDATED_BLOCK };
-  }
-  const trimmed = existingContent.trimEnd();
-  return { finalContent: `${trimmed}${appendSeparator}${block}\n`, action: ACTION_APPENDED };
-}
-
-export function mergeAgentsMdContent(
-  existingContent: string,
-  projectName: string,
-  stacks: string[],
-  lang: SupportedLang = 'es'
-): { finalContent: string; action: MergeAction } {
-  const block = buildAgentsMdConnectorBlock(projectName, stacks, lang);
-  const header = `# SPDX-License-Identifier: MIT\n\n# 🤖 AI Agent Directives & Technical Governance — ${projectName}\n\n`;
-  return replaceDelimitedSection(existingContent, {
-    startMarker: CONNECTOR_START_MARKER,
-    endMarker: CONNECTOR_END_MARKER,
-    block,
-    emptyDocument: `${header}${block}\n`,
-    appendSeparator: '\n\n---\n\n',
-  });
 }
 
 function hasUnsafeAgentIdChars(id: string): boolean {
@@ -476,24 +417,28 @@ export function validateAgentId(rawAgentId: string): SupportedAiAgentId {
   return normalized as SupportedAiAgentId;
 }
 
+// eslint-disable-next-line sonarjs/function-return-type -- AgentsTargetSpec intentionally unions 'auto' | 'all' modes with SupportedAiAgentId[]
 export function parseAgentsOption(rawAgents: string): AgentsTargetSpec {
   const normalized = rawAgents.normalize('NFKC').trim();
   if (!normalized) {
     throw new Error("Invalid --agents value: expected 'auto', 'all', or comma-separated agent IDs.");
   }
+  let result: AgentsTargetSpec;
   const lowered = normalized.toLowerCase();
   if (lowered === 'auto' || lowered === 'all') {
-    return lowered;
+    result = lowered;
+  } else {
+    const parts = normalized.split(',').map((item) => item.trim());
+    if (parts.some((item) => item.length === 0)) {
+      throw new Error(`Invalid --agents list '${rawAgents}': empty agent identifier detected.`);
+    }
+    const validated = new Set<SupportedAiAgentId>();
+    for (const part of parts) {
+      validated.add(validateAgentId(part));
+    }
+    result = Array.from(validated);
   }
-  const parts = normalized.split(',').map((item) => item.trim());
-  if (parts.some((item) => item.length === 0)) {
-    throw new Error(`Invalid --agents list '${rawAgents}': empty agent identifier detected.`);
-  }
-  const validated = new Set<SupportedAiAgentId>();
-  for (const part of parts) {
-    validated.add(validateAgentId(part));
-  }
-  return Array.from(validated);
+  return result;
 }
 
 function findNearestExistingAncestor(targetPath: string): string {
@@ -567,7 +512,7 @@ export function resolveTargetAgentIds(
   if (agentsSpec === 'auto') {
     return detectProjectAgents(projectRoot);
   }
-  if (!Array.isArray(agentsSpec) || agentsSpec.length === 0) {
+  if (typeof agentsSpec !== 'object' || agentsSpec.length === 0) {
     throw new Error("The 'agents' option must be 'auto', 'all', or a non-empty list of agent IDs.");
   }
   const unique = new Set<SupportedAiAgentId>();
@@ -749,10 +694,6 @@ export function syncAgentBridgeFiles(
   }
 
   return { bridgedAgents, bridgeFiles };
-}
-
-export function resolveProjectDisplayName(resolvedPath: string): string {
-  return path.basename(resolvedPath) || 'Project';
 }
 
 function resolveValidProjectDirectory(rawPath: string): string {

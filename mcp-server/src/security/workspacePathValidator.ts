@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 
 export class WorkspacePathValidationError extends Error {
   constructor(message: string) {
@@ -91,7 +92,9 @@ function getRealHomeDir(): string | null {
   try {
     const home = os.homedir();
     return home ? resolvePathIfExists(home) : null;
-  } catch {
+  } catch (err: unknown) {
+    // Restricted container environments may lack os.homedir(); returning null omits optional home root safely
+    reportDebugCatchError('workspacePathValidator.getRealHomeDir', err);
     return null;
   }
 }

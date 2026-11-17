@@ -18,6 +18,8 @@ import {
 import {
   formatFailVerboseReport,
   formatPassQuietSummary,
+  pickAt,
+  reportDebugCatchError,
   sanitizeCommandSecrets,
 } from '../utils/diagnosticFormatter.js';
 
@@ -100,9 +102,9 @@ const SECRET_ENV_KEYS: readonly string[] = [
   'TMS_API_TOKEN',
 ];
 
-const ALL_TAG_RE = /@(?:JIRA|ZEPHYR|XRAY|TC)-[A-Za-z0-9_-]+|@(?:GH|AC)-[0-9]+/gi;
+const ALL_TAG_RE = /@(?:JIRA|ZEPHYR|XRAY|TC)-[\w-]+|@(?:GH|AC)-\d+/gi;
 const PRIMARY_TAG_PREFIX_RE = /^@(?:JIRA|ZEPHYR|XRAY|GH|TC)-/;
-const AUTH_HEADER_RE = /\b(Bearer|Basic)\s+[A-Za-z0-9._+/=-]+/gi;
+const AUTH_HEADER_RE = /\b(Bearer|Basic)\s+[a-z0-9._+/=-]+/gi;
 const SAFE_KEY_RE = /^[A-Za-z0-9._-]+$/;
 const SAFE_REPO_RE = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
 const NUMERIC_HOST_RE = /^(?:\d+|0x[0-9a-f]+)$/i;
@@ -402,7 +404,7 @@ function isPrivateIpv4Address(ipv4: string): boolean {
   if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) {
     return true;
   }
-  const [a, b] = parts;
+  const [a = 0, b = 0] = parts;
   return isLowPrivateOctet(a, b) || isHighPrivateOctet(a, b);
 }
 
@@ -418,8 +420,8 @@ function extractMappedIpv4(host: string): string | null {
   if (hexParts.length !== 2) {
     return null;
   }
-  const hi = Number.parseInt(hexParts[0], 16);
-  const lo = Number.parseInt(hexParts[1], 16);
+  const hi = Number.parseInt(pickAt(hexParts, 0, '0'), 16);
+  const lo = Number.parseInt(pickAt(hexParts, 1, '0'), 16);
   return `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
 }
 
@@ -471,7 +473,8 @@ export function validateTmsBaseUrl(rawUrl: string): URL {
   let parsed: URL;
   try {
     parsed = new URL(trimmed);
-  } catch {
+  } catch (err: unknown) {
+    reportDebugCatchError('tmsSyncCli.validateTmsBaseUrl', err);
     throw new TmsSecurityError(CODE_INVALID_INPUT, `baseUrl inválido: '${trimmed}'.`);
   }
   if (parsed.protocol !== 'https:') {
@@ -524,7 +527,10 @@ function extractCanonicalTags(content: string): { allTags: string[]; primaryTags
       primarySet.add(upper);
     }
   }
-  return { allTags: [...allSet].sort(), primaryTags: [...primarySet].sort() };
+  return {
+    allTags: [...allSet].sort((a, b) => a.localeCompare(b)),
+    primaryTags: [...primarySet].sort((a, b) => a.localeCompare(b)),
+  };
 }
 
 function matchesRequiredKey(discoveredTags: ReadonlySet<string>, rawReq: string): boolean {
@@ -573,7 +579,7 @@ function buildInventorySummary(
   const scanReal = resolveSafeWorkspacePath(workspaceRoot, targetDir, 'dir');
   const testFiles: string[] = [];
   scanDirectoryForTests(scanReal, rootReal, testFiles);
-  testFiles.sort();
+  testFiles.sort((a, b) => a.localeCompare(b));
 
   const mappedTests: MappedTestRecord[] = [];
   const untaggedTests: string[] = [];
@@ -611,7 +617,7 @@ function buildInventorySummary(
     totalTestFiles: testFiles.length,
     mappedTests,
     untaggedTests,
-    discoveredTags: [...discoveredSet].sort(),
+    discoveredTags: [...discoveredSet].sort((a, b) => a.localeCompare(b)),
     uncoveredRequirements,
     coveragePct,
     verdict,
@@ -939,7 +945,7 @@ function resolveGitHubRepoAndIssue(
   if (!SAFE_REPO_RE.test(rawRepo) || rawRepo.includes('..')) {
     throw new TmsSecurityError(CODE_INVALID_INPUT, `Repositorio GitHub inválido (esperado owner/repo): '${rawRepo}'.`);
   }
-  const [owner, repoName] = rawRepo.split('/');
+  const [owner = '', repoName = ''] = rawRepo.split('/');
   const rawIssue = args.issueKey ?? findSummaryTagByPrefix(summary, 'GH-') ?? '1';
   const issueDigits = rawIssue.trim().replace(/^@?(?:GH-)?/i, '');
   if (!/^\d+$/.test(issueDigits)) {
@@ -1621,7 +1627,7 @@ function parseTmsCliArgs(argv: readonly string[]): ParsedCliOptions {
   let help = false;
   let json = false;
   for (let i = 0; i < argv.length; i += 1) {
-    const tok = argv[i];
+    const tok = pickAt(argv, i);
     if (tok === '--help' || tok === '-h') {
       help = true;
     } else if (tok === '--json') {

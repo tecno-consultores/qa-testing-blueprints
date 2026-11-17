@@ -400,6 +400,13 @@ function normalizeUtcTimestamp(
   return parsed.toISOString();
 }
 
+function formatActualPreview(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (value === null) return 'null';
+  return JSON.stringify(value) ?? '[unserializable]';
+}
+
 function resolveScope(rawScope: unknown, reasons: BlockingReason[]): ReleaseGateScope {
   if (rawScope === undefined) {
     return SCOPE_FULL;
@@ -407,11 +414,12 @@ function resolveScope(rawScope: unknown, reasons: BlockingReason[]): ReleaseGate
   if (rawScope === SCOPE_FULL || rawScope === SCOPE_SMOKE) {
     return rawScope;
   }
+  const scopePreview = formatActualPreview(rawScope);
   pushSecurityReason(reasons, {
     code: CODE_INVALID_INPUT,
     metric: 'scope',
-    actual: String(rawScope),
-    message: `Alcance inválido '${String(rawScope)}'; valores permitidos: full, smoke.`,
+    actual: scopePreview,
+    message: `Alcance inválido '${scopePreview}'; valores permitidos: full, smoke.`,
   });
   return SCOPE_FULL;
 }
@@ -504,7 +512,11 @@ function isWhitespaceChar(ch: string): boolean {
 
 function skipWhitespace(text: string, idx: number): number {
   let pos = idx;
-  while (pos < text.length && isWhitespaceChar(text[pos])) {
+  while (pos < text.length) {
+    const ch = text[pos];
+    if (ch === undefined || !isWhitespaceChar(ch)) {
+      break;
+    }
     pos += 1;
   }
   return pos;
@@ -549,7 +561,11 @@ function parseTagToken(rawInner: string): XmlTagToken | null {
     return null;
   }
   let nameEnd = 0;
-  while (nameEnd < body.length && !isWhitespaceChar(body[nameEnd])) {
+  while (nameEnd < body.length) {
+    const ch = body[nameEnd];
+    if (ch === undefined || isWhitespaceChar(ch)) {
+      break;
+    }
     nameEnd += 1;
   }
   const name = body.slice(0, nameEnd);
@@ -884,7 +900,7 @@ function extractNumericMetric(
       pushSecurityReason(reasons, {
         code: CODE_INVALID_INPUT,
         metric: metricName,
-        actual: String(value),
+        actual: formatActualPreview(value),
         message: `Métrica '${metricName}' inválida: debe ser un número finito >= 0.`,
       });
       return 0;

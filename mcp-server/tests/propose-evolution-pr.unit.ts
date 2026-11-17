@@ -59,6 +59,7 @@ describe('propose_skill_evolution_pr Tool Suite (Zero-Trust Skill Evolution)', (
         improvement_title: IMPROVEMENT_TITLE,
         empirical_rationale: RATIONALE,
         proposed_content_or_snippet: SNIPPET,
+        prefer_offline_fallback: false,
       });
 
       expect(issueBody).toContain(UPSTREAM_REPO);
@@ -79,6 +80,7 @@ describe('propose_skill_evolution_pr Tool Suite (Zero-Trust Skill Evolution)', (
           improvement_title: IMPROVEMENT_TITLE,
           empirical_rationale: RATIONALE,
           proposed_content_or_snippet: SNIPPET,
+          prefer_offline_fallback: false,
         })
       ).rejects.toThrow('El directorio del proyecto especificado no existe');
     });
@@ -108,11 +110,11 @@ describe('propose_skill_evolution_pr Tool Suite (Zero-Trust Skill Evolution)', (
     });
 
     it('Option 2 fallback: when gh CLI is not installed or not authenticated', async () => {
-      const mockExecRunner: ExecRunnerFunction = async (file, args) => {
+      const mockExecRunner: ExecRunnerFunction = (file, args) => {
         if (file === 'gh' && args[0] === 'auth') {
-          throw new Error('You are not logged into any GitHub hosts.');
+          return Promise.reject(new Error('You are not logged into any GitHub hosts.'));
         }
-        return { stdout: '', stderr: '' };
+        return Promise.resolve({ stdout: '', stderr: '' });
       };
 
       const result = await proposeSkillEvolutionPr(
@@ -136,14 +138,14 @@ describe('propose_skill_evolution_pr Tool Suite (Zero-Trust Skill Evolution)', (
 
     it('Option 1 (Automated PR): successfully creates PR when gh CLI is authenticated', async () => {
       const prUrl = `https://github.com/${UPSTREAM_REPO}/pull/101`;
-      const mockExecRunner: ExecRunnerFunction = async (file, args) => {
+      const mockExecRunner: ExecRunnerFunction = (file, args) => {
         if (file === 'gh' && args[0] === 'auth') {
-          return { stdout: 'Logged in to github.com account dev', stderr: '' };
+          return Promise.resolve({ stdout: 'Logged in to github.com account dev', stderr: '' });
         }
         if (file === 'gh' && args[0] === 'pr' && args[1] === 'create') {
-          return { stdout: `${prUrl}\n`, stderr: '' };
+          return Promise.resolve({ stdout: `${prUrl}\n`, stderr: '' });
         }
-        return { stdout: '', stderr: '' };
+        return Promise.resolve({ stdout: '', stderr: '' });
       };
 
       const result = await proposeSkillEvolutionPr(
@@ -166,14 +168,14 @@ describe('propose_skill_evolution_pr Tool Suite (Zero-Trust Skill Evolution)', (
     });
 
     it('handles gh pr create failure gracefully when gh auth succeeds but pr command fails', async () => {
-      const mockExecRunner: ExecRunnerFunction = async (file, args) => {
+      const mockExecRunner: ExecRunnerFunction = (file, args) => {
         if (file === 'gh' && args[0] === 'auth') {
-          return { stdout: 'Logged in', stderr: '' };
+          return Promise.resolve({ stdout: 'Logged in', stderr: '' });
         }
         if (file === 'gh' && args[0] === 'pr') {
-          throw new Error('fatal: not a git repository');
+          return Promise.reject(new Error('fatal: not a git repository'));
         }
-        return { stdout: '', stderr: '' };
+        return Promise.resolve({ stdout: '', stderr: '' });
       };
 
       const result = await proposeSkillEvolutionPr(
@@ -183,6 +185,7 @@ describe('propose_skill_evolution_pr Tool Suite (Zero-Trust Skill Evolution)', (
           improvement_title: IMPROVEMENT_TITLE,
           empirical_rationale: RATIONALE,
           proposed_content_or_snippet: SNIPPET,
+          prefer_offline_fallback: false,
         },
         mockExecRunner
       );
@@ -194,14 +197,14 @@ describe('propose_skill_evolution_pr Tool Suite (Zero-Trust Skill Evolution)', (
     });
 
     it('extracts trimmed stdout as fallback when gh pr create does not match url regex', async () => {
-      const mockExecRunner: ExecRunnerFunction = async (file, args) => {
+      const mockExecRunner: ExecRunnerFunction = (file, args) => {
         if (file === 'gh' && args[0] === 'auth') {
-          return { stdout: 'Logged in', stderr: '' };
+          return Promise.resolve({ stdout: 'Logged in', stderr: '' });
         }
         if (file === 'gh' && args[0] === 'pr') {
-          return { stdout: 'custom-output-identifier', stderr: '' };
+          return Promise.resolve({ stdout: 'custom-output-identifier', stderr: '' });
         }
-        return { stdout: '', stderr: '' };
+        return Promise.resolve({ stdout: '', stderr: '' });
       };
 
       const result = await proposeSkillEvolutionPr(
@@ -211,6 +214,7 @@ describe('propose_skill_evolution_pr Tool Suite (Zero-Trust Skill Evolution)', (
           improvement_title: IMPROVEMENT_TITLE,
           empirical_rationale: RATIONALE,
           proposed_content_or_snippet: SNIPPET,
+          prefer_offline_fallback: false,
         },
         mockExecRunner
       );
@@ -236,7 +240,7 @@ describe('propose_skill_evolution_pr Tool Suite (Zero-Trust Skill Evolution)', (
       expect(result.local_proposal_file).toBeDefined();
       expect(result.prefilled_github_url).toBeDefined();
       expect(JSON.stringify(result)).not.toMatch(/ghp_[a-zA-Z0-9]{36}/);
-      expect(JSON.stringify(result)).not.toMatch(/github_pat_[a-zA-Z0-9_]+/);
+      expect(JSON.stringify(result)).not.toMatch(/github_pat_\w+/);
 
       process.env = envCopy;
     });

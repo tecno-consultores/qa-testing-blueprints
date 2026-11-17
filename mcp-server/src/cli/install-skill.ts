@@ -8,6 +8,7 @@ import { writeVersionStamp } from '../services/version-manager.js';
 import { initOrAppendAgentsMd, syncGlobalGeminiMd } from './init-agents-md.js';
 import { parseAgentsOption } from '../tools/initOrAppendAgentsMd.js';
 import { reconcileAgentsGovernance } from './reconcile-agents.js';
+import { pickAt } from '../utils/diagnosticFormatter.js';
 import type { AgentsTargetSpec, Manifest, ManifestFileEntry, OutputLanguageMode } from '../types.js';
 
 const AGENTS_DIR_NAME = '.agents';
@@ -27,36 +28,46 @@ const UTF8 = 'utf-8';
 function parseTargetArg(args: string[]): string {
   let targetArg = process.env.QA_SKILL_TARGET || 'auto';
   for (let i = 0; i < args.length; i++) {
-    if ((args[i] === '--target' || args[i] === '-t') && args[i + 1]) {
-      targetArg = args[i + 1];
+    const arg = pickAt(args, i);
+    const nextArg = args[i + 1];
+    if ((arg === '--target' || arg === '-t') && nextArg) {
+      targetArg = nextArg;
       i++;
-    } else if (args[i].startsWith('--target=')) {
-      targetArg = args[i].split('=')[1];
+    } else if (arg.startsWith('--target=')) {
+      targetArg = arg.slice('--target='.length);
     }
   }
   return targetArg;
 }
 
+// eslint-disable-next-line sonarjs/function-return-type -- AgentsTargetSpec intentionally unions 'auto' | 'all' modes with SupportedAiAgentId[]
 export function parseAgentsArg(args: string[]): AgentsTargetSpec | undefined {
+  let spec: AgentsTargetSpec | undefined;
   for (let i = 0; i < args.length; i++) {
-    if ((args[i] === '--agents' || args[i] === '-a') && args[i + 1]) {
-      return parseAgentsOption(args[i + 1]);
+    const arg = pickAt(args, i);
+    const nextArg = args[i + 1];
+    if ((arg === '--agents' || arg === '-a') && nextArg) {
+      spec = parseAgentsOption(nextArg);
+      break;
     }
-    if (args[i].startsWith('--agents=')) {
-      return parseAgentsOption(args[i].slice('--agents='.length));
+    if (arg.startsWith('--agents=')) {
+      spec = parseAgentsOption(arg.slice('--agents='.length));
+      break;
     }
   }
-  return undefined;
+  return spec;
 }
 
 export function parseLangArg(args: string[]): OutputLanguageMode {
   let rawLang = process.env.QA_OUTPUT_LANG;
   for (let i = 0; i < args.length; i++) {
-    if ((args[i] === '--lang' || args[i] === '-l') && args[i + 1]) {
-      rawLang = args[i + 1];
+    const arg = pickAt(args, i);
+    const nextArg = args[i + 1];
+    if ((arg === '--lang' || arg === '-l') && nextArg) {
+      rawLang = nextArg;
       i++;
-    } else if (args[i].startsWith('--lang=')) {
-      rawLang = args[i].split('=')[1];
+    } else if (arg.startsWith('--lang=')) {
+      rawLang = arg.slice('--lang='.length);
     }
   }
   const normalizedRaw = rawLang && rawLang !== 'undefined' ? rawLang : 'auto';
@@ -64,7 +75,7 @@ export function parseLangArg(args: string[]): OutputLanguageMode {
   if (selectedLang !== 'auto' && selectedLang !== 'es' && selectedLang !== 'en') {
     throw new Error(`Modo de idioma no válido: '${rawLang}'. Valores permitidos: auto, es, en.`);
   }
-  return selectedLang as OutputLanguageMode;
+  return selectedLang;
 }
 
 function detectInstalledGlobalAgentDirs(homeDir: string): string[] {
@@ -188,6 +199,7 @@ function writeScriptEntry(cwd: string, entry: ManifestFileEntry, content: string
   }
   fs.writeFileSync(fullPath, content, UTF8);
   if (fullPath.endsWith('.sh') || fullPath.endsWith('.py')) {
+    // eslint-disable-next-line sonarjs/file-permissions -- Shared repo scripts require 0o755 so non-root Docker UIDs can execute them
     fs.chmodSync(fullPath, 0o755);
   }
 }

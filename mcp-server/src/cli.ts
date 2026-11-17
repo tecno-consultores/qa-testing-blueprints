@@ -22,6 +22,7 @@ import {
   type QuickstartTier,
 } from './cli/quickstart.js';
 import { MCP_SERVER_VERSION } from './services/github-fetcher.js';
+import { pickAt } from './utils/diagnosticFormatter.js';
 
 export { parseAgentsOption };
 
@@ -260,7 +261,7 @@ function applyCliToken(
   index: number,
   state: MutableParseState
 ): number {
-  const token = argv[index];
+  const token = pickAt(argv, index);
   const boolField = BOOLEAN_FLAG_FIELDS[token];
   if (boolField) {
     state[boolField] = true;
@@ -284,7 +285,7 @@ function applyQuickstartToken(
   index: number,
   state: MutableQuickstartParseState
 ): number {
-  const token = argv[index];
+  const token = pickAt(argv, index);
   const boolField = QUICKSTART_BOOLEAN_FLAG_FIELDS[token];
   if (boolField) {
     state[boolField] = true;

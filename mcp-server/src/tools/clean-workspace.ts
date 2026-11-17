@@ -6,6 +6,7 @@ import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { CleanWorkspaceResult } from '../types.js';
+import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 
 export const ALPINE_FALLBACK_IMAGE =
   'alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab';
@@ -222,7 +223,9 @@ export function executeAlpineFallback(
       { stdio: 'ignore', timeout: 30000 }
     );
     return true;
-  } catch {
+  } catch (err: unknown) {
+    // Docker fallback cleanup unavailable or failed: return false so caller surfaces unremoved targets
+    reportDebugCatchError('cleanWorkspace.executeAlpineFallback', err);
     return false;
   }
 }
@@ -284,12 +287,23 @@ export interface CleanWorkspaceDeps {
   readonly targetRemover?: (baseDir: string, relPath: string) => { removed: boolean };
 }
 
-export async function cleanWorkspace11x(
+export function cleanWorkspace11x(
   projectPathInput: string,
   dryRun = true,
   deepPrune = false,
   deps: CleanWorkspaceDeps = {}
 ): Promise<CleanWorkspaceResult> {
+  return Promise.resolve().then(() =>
+    executeCleanWorkspace11x(projectPathInput, dryRun, deepPrune, deps)
+  );
+}
+
+function executeCleanWorkspace11x(
+  projectPathInput: string,
+  dryRun = true,
+  deepPrune = false,
+  deps: CleanWorkspaceDeps = {}
+): CleanWorkspaceResult {
   const { fallbackExecutor, targetRemover } = deps;
   const resolvedPath = resolveSafeProjectPath(projectPathInput);
 
@@ -300,7 +314,9 @@ export async function cleanWorkspace11x(
   const preserveRootDist = path.basename(resolvedPath) === MCP_SERVER_DIR_NAME;
   const rootArtifacts = scanDirectoryForArtifacts(resolvedPath, deepPrune, preserveRootDist);
   const subArtifacts = scanSubdirectories(resolvedPath, deepPrune);
-  const allFoundTargets = Array.from(new Set([...rootArtifacts, ...subArtifacts])).sort();
+  const allFoundTargets = Array.from(new Set([...rootArtifacts, ...subArtifacts])).sort((a, b) =>
+    a.localeCompare(b)
+  );
 
   let removedTargets: string[] = [];
   let dockerFallbackUsed = false;

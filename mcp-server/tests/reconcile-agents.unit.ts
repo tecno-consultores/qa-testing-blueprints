@@ -472,11 +472,14 @@ describe('reconcile-agents (Hito 13: Governance Reconciliation & Deduplication)'
         schema_version: '1.0.0',
         generated_at_utc: '2026-11-05T00:00:00Z',
         repository: 'tecno-consultores/qa-testing-blueprints',
-        stacks: {} as any,
+        default_branch: 'main',
+        raw_base_url: 'https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main',
+        stacks: {},
         common_files: [],
         agent_governance_files: [
           {
             path: '.agents/skills/qa-11x-architect/SKILL.md',
+            target_name: '.agents/skills/qa-11x-architect/SKILL.md',
             sha256: 'abc123def456abc123def456abc123def456abc123def456abc123def456abc1',
             size_bytes: 100,
             merge_strategy: 'overwrite',

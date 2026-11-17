@@ -218,6 +218,23 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             f"Formato de puerto inválido en {stack_name}/{svc_name}: {port_entry!r}"
         )
 
+    def _assert_eslint_flat_config_example(self, stack_dir: Path) -> None:
+        """Verifica la plantilla ESLint 9 Flat Config (eslint.config.mjs.example)."""
+        eslint_path = stack_dir / "eslint.config.mjs.example"
+        self.assertTrue(eslint_path.is_file(), f"Falta {eslint_path}")
+        eslint_cfg = eslint_path.read_text(encoding="utf-8")
+        self.assertGreater(len(eslint_cfg.strip()), 0, f"{eslint_path} está vacío")
+        for token in (
+            "no-floating-promises",
+            "no-misused-promises",
+            "sonarjs",
+            "security",
+            "graphify-out/",
+            "dist/",
+            "coverage/",
+        ):
+            self.assertIn(token, eslint_cfg, f"Falta '{token}' en {eslint_path}")
+
     def _assert_single_frontend_stack(self, fe: str) -> None:
         fe_dir = REPO_ROOT / fe
         self.assertTrue(
@@ -261,11 +278,7 @@ class TestStacksHydrationSmoke(unittest.TestCase):
         self.assertNotIn("\n  - esbuild", pnpm_ws)
         self.assertIn("esbuild: true", pnpm_ws)
 
-        eslintrc = json.loads(
-            (fe_dir / ".eslintrc.json.example").read_text(encoding="utf-8")
-        )
-        self.assertIn("plugin:security/recommended-legacy", eslintrc["extends"])
-        self.assertIn("ignorePatterns", eslintrc)
+        self._assert_eslint_flat_config_example(fe_dir)
 
         vitest_setup = (fe_dir / "vitest.setup.ts.example").read_text(encoding="utf-8")
         self.assertIn("localStorage", vitest_setup)
@@ -326,7 +339,7 @@ class TestStacksHydrationSmoke(unittest.TestCase):
         vue_pkg = json.loads(
             (REPO_ROOT / "vue3" / "package.json.example").read_text(encoding="utf-8")
         )
-        self.assertEqual(vue_pkg["devDependencies"]["vue-tsc"], "^2.2.8")
+        self.assertEqual(vue_pkg["devDependencies"]["vue-tsc"], "^2.2.12")
 
     def test_python_and_fastapi_invariants(self) -> None:
         """Verifica TOML válido, /tmp/uv-cache, Radon A, pip-audit y rol app_user."""
@@ -442,13 +455,7 @@ class TestStacksHydrationSmoke(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn("allowBuilds:", node_ws)
         self.assertIn("esbuild: true", node_ws)
-        node_eslint = json.loads(
-            (REPO_ROOT / "node-backend" / ".eslintrc.json.example").read_text(
-                encoding="utf-8"
-            )
-        )
-        self.assertIn("plugin:security/recommended-legacy", node_eslint["extends"])
-        self.assertIn("ignorePatterns", node_eslint)
+        self._assert_eslint_flat_config_example(REPO_ROOT / "node-backend")
 
         bash_compose = (REPO_ROOT / "bash-scripts" / "docker-compose.qa.yml").read_text(
             encoding="utf-8"

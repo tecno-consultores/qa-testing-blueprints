@@ -323,7 +323,7 @@ Preserving prior state ensures operational continuity in monitoring centers and 
 
 ---
 
-## 7. Toolchain Alignment: Node 26, pnpm 12, ESLint 8, and Karate 1.5.1 (Vue 3 / React / SSG)
+## 7. Toolchain Alignment: Node 26, pnpm 12, ESLint 9, and Karate 1.5.1 (Vue 3 / React / SSG)
 
 When certifying frontend and Node.js projects inside the official `sinfallas/base-node-ionic:26` (`Node v26.13+`, `pnpm 12.18+`) and `sinfallas/karatelabs:1.5.1` images, five environment contracts must be honored to avoid false pipeline failures and maintain Zero-Trust security (`SEC-09`):
 
@@ -337,10 +337,10 @@ When certifying frontend and Node.js projects inside the official `sinfallas/bas
        '@playwright/test': true
        vue-demi: false
      ```
-2. **TypeScript Compatibility in Vue 3 (`vue-tsc ^2.2.8`):**
-   - Pin `"vue-tsc": "^2.2.8"` alongside `typescript ^5.7.2` in Vue 3 + Vite projects to avoid type-resolution errors from outdated `1.x` versions.
-3. **Classic ESLint 8 + `eslint-plugin-security` v3 (`recommended-legacy`):**
-   - In `eslint-plugin-security@^3.0.0`, the `recommended` preset exports *Flat Config* (ESLint 9) and crashes under ESLint `8.57.x` `.eslintrc.json`. Always extend `"plugin:security/recommended-legacy"` and set `"ignorePatterns": ["dist/", "dist-ssr/", "coverage/", "playwright-report/", "lhci-reports/", "target/", "graphify-out/"]` (audited by `SEC-09` in `audit_security_stig_owasp`).
+2. **TypeScript & Vite Compatibility in Vue 3 (`vue-tsc ^2.2.12`, Vite 6):**
+   - Pin `"vue-tsc": "^2.2.12"` alongside `typescript ^5.7.2` and Vite `6` in Vue 3 projects to avoid type-resolution errors from outdated `1.x`/`2.2.8` versions.
+3. **ESLint 9 Flat Config (`eslint.config.mjs`) + Type-Aware Security & SonarJS (and Legacy `SEC-09` Note):**
+   - Standardize on **ESLint 9 Flat Config (`eslint.config.mjs`)** combining `eslint-plugin-security@^3.0.0` (`security.configs.recommended`), `eslint-plugin-sonarjs@^3.0.7` (`sonarjs.configs.recommended`), and `typescript-eslint@^8.x` type-aware checks (`@typescript-eslint/no-floating-promises`, `@typescript-eslint/no-misused-promises` via `projectService` / `tsconfig.typecheck.json`), ignoring `["dist/", "dist-ssr/", "coverage/", "playwright-report/", "lhci-reports/", "target/", "graphify-out/"]`. For legacy consumer repositories still on ESLint `8.57.x` `.eslintrc.json`, `SEC-09` in `audit_security_stig_owasp` requires extending `"plugin:security/recommended-legacy"` (since v3 `recommended` exports Flat Config) and preserving `"ignorePatterns"`.
 4. **In-Memory `localStorage` Polyfill for Vitest + `jsdom` on Node v26:**
    - Node v26 exposes an experimental `globalThis.localStorage` descriptor that without `--localstorage-file` lacks the `.clear()` method inside `jsdom` sessions. Register an in-memory `Storage` inside `vitest.setup.ts` (wired via `test.setupFiles` in `vitest.config.ts`) whenever `typeof globalThis.localStorage?.clear !== 'function'`.
 5. **Real Boundary of `sinfallas/karatelabs:1.5.1` (HTTP/OSHP/SSG/XML) vs Playwright (`ui-e2e`):**

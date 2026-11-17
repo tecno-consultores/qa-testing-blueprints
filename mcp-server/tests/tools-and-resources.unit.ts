@@ -5,6 +5,10 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { fetchBlueprintBundle } from '../src/tools/fetch-bundle.js';
 import { bootstrapOrMerge11x } from '../src/tools/bootstrap-merge.js';
@@ -25,8 +29,44 @@ import { readAiEvalsBlueprint } from '../src/resources/aiEvalsBlueprint.js';
 import { readVibeRescueBlueprint } from '../src/resources/stackBlueprints.js';
 import { GitHubFetcher } from '../src/services/github-fetcher.js';
 import { SurgicalMerger } from '../src/services/surgical-merger.js';
+import {
+  CONNECTOR_START_MARKER as CONNECTOR_SERVICE_START_MARKER,
+  CONNECTOR_END_MARKER as CONNECTOR_SERVICE_END_MARKER,
+  buildThinConnectorBlock as buildServiceThinConnectorBlock,
+  buildAgentsMdConnectorBlock as buildServiceAgentsMdConnectorBlock,
+  mergeOrAppendAgentsMdContent as mergeServiceOrAppendAgentsMdContent,
+  mergeAgentsMdContent as mergeServiceAgentsMdContent,
+  resolveProjectDisplayName as resolveServiceProjectDisplayName,
+} from '../src/services/agents-connector.js';
+import {
+  CONNECTOR_START_MARKER as CLI_CONNECTOR_START_MARKER,
+  CONNECTOR_END_MARKER as CLI_CONNECTOR_END_MARKER,
+  buildThinConnectorBlock as buildCliThinConnectorBlock,
+  mergeOrAppendAgentsMdContent as mergeCliAgentsMdContent,
+  resolveProjectDisplayName as resolveCliProjectDisplayName,
+  initOrAppendAgentsMd as runCliInitAgentsMd,
+} from '../src/cli/init-agents-md.js';
+import {
+  CONNECTOR_START_MARKER as TOOL_CONNECTOR_START_MARKER,
+  CONNECTOR_END_MARKER as TOOL_CONNECTOR_END_MARKER,
+  buildAgentsMdConnectorBlock as buildToolAgentsMdConnectorBlock,
+  mergeAgentsMdContent as mergeToolAgentsMdContent,
+  resolveProjectDisplayName as resolveToolProjectDisplayName,
+  initOrAppendAgentsMd as runToolInitAgentsMd,
+} from '../src/tools/initOrAppendAgentsMd.js';
 import { runInstallSkillCli } from '../src/cli/install-skill.js';
-import { createMcpServer } from '../src/server.js';
+import { attachPromptGuard, createConfiguredMcpServer, main } from '../src/index.js';
+import { TaskStateGuard } from '../src/utils/taskStateGuard.js';
+import {
+  attachDispatcherTracking,
+  attachRegistrationTracking,
+  createMcpServer,
+  extractMethodName,
+  getRegisteredServerSurface,
+  getServerDispatcherRegistry,
+  validateV2ToolWorkspaceArgs,
+  wrapReadResourceDispatcher,
+} from '../src/server.js';
 import { Manifest } from '../src/types.js';
 
 describe('Tools and Resources Integration Suite', () => {
@@ -237,8 +277,10 @@ describe('Tools and Resources Integration Suite', () => {
       const result = await fetchBlueprintBundle('python', true, fetcher, true);
       expect(result.stack).toBe('python');
       expect(result.total_files).toBeGreaterThan(0);
-      expect(result.files[0].sha256_verified).toBe(true);
-      expect(result.files[0].content.length).toBeGreaterThan(0);
+      const firstFile = result.files[0];
+      expect(firstFile).toBeDefined();
+      expect(firstFile?.sha256_verified).toBe(true);
+      expect(firstFile?.content.length).toBeGreaterThan(0);
     });
 
     it('omits file content and provides token-saving metadata by default (includeContent = false)', async () => {
@@ -246,11 +288,13 @@ describe('Tools and Resources Integration Suite', () => {
       expect(result.stack).toBe('python');
       expect(result.total_files).toBeGreaterThan(0);
       expect(result.content_omitted_for_token_economy).toBe(true);
-      expect(result.files[0].content).toBe('');
-      expect(result.files[0].size_bytes).toBeGreaterThan(0);
-      expect(result.files[0].sha256_verified).toBe(true);
-      expect(result.files[0].cached_path).toBeDefined();
-      expect(result.files[0].cached_path).toContain('files');
+      const firstFile = result.files[0];
+      expect(firstFile).toBeDefined();
+      expect(firstFile?.content).toBe('');
+      expect(firstFile?.size_bytes).toBeGreaterThan(0);
+      expect(firstFile?.sha256_verified).toBe(true);
+      expect(firstFile?.cached_path).toBeDefined();
+      expect(firstFile?.cached_path).toContain('files');
     });
   });
 
@@ -482,15 +526,20 @@ describe('Tools and Resources Integration Suite', () => {
 
       expect(defaultGraphifyBuilder(freshDir, mockDockerExec)).toBe(true);
       expect(dockerCalls).toHaveLength(1);
-      expect(dockerCalls[0].cmd).toBe('docker');
-      expect(dockerCalls[0].cmd).not.toBe('bash');
-      expect(dockerCalls[0].args).toContain('--network');
-      expect(dockerCalls[0].args).toContain('none');
-      expect(dockerCalls[0].args).toContain(`${uid}:${gid}`);
-      expect(dockerCalls[0].args).toContain('HOME=/tmp');
-      expect(dockerCalls[0].args).toContain(`${realFreshDir}:/app:ro`);
-      expect(dockerCalls[0].args).toContain(`${path.join(realFreshDir, 'graphify-out')}:/app/graphify-out`);
-      expect(dockerCalls[0].args).toContain(GRAPHIFY_DOCKER_IMAGE);
+      const firstDockerCall = dockerCalls[0];
+      expect(firstDockerCall).toBeDefined();
+      if (!firstDockerCall) {
+        throw new Error('Expected a docker call to be recorded');
+      }
+      expect(firstDockerCall.cmd).toBe('docker');
+      expect(firstDockerCall.cmd).not.toBe('bash');
+      expect(firstDockerCall.args).toContain('--network');
+      expect(firstDockerCall.args).toContain('none');
+      expect(firstDockerCall.args).toContain(`${uid}:${gid}`);
+      expect(firstDockerCall.args).toContain('HOME=/tmp');
+      expect(firstDockerCall.args).toContain(`${realFreshDir}:/app:ro`);
+      expect(firstDockerCall.args).toContain(`${path.join(realFreshDir, 'graphify-out')}:/app/graphify-out`);
+      expect(firstDockerCall.args).toContain(GRAPHIFY_DOCKER_IMAGE);
 
       // Si docker falla, retorna false de forma segura
       const throwingDockerExec = (() => {
@@ -511,7 +560,7 @@ describe('Tools and Resources Integration Suite', () => {
             return Buffer.from('');
           }) as unknown as Parameters<typeof defaultGraphifyBuilder>[1])
         ).toBe(true);
-        expect(winCalls[0].args).toContain('1000:1000');
+        expect(winCalls[0]?.args).toContain('1000:1000');
       } finally {
         Object.defineProperty(process, 'getuid', { value: origGetuid, configurable: true });
         Object.defineProperty(process, 'getgid', { value: origGetgid, configurable: true });
@@ -524,7 +573,7 @@ describe('Tools and Resources Integration Suite', () => {
         const resWithUnreadable = await inspectAstBlastRadius(freshDir, 'AutoBuiltSymbol');
         expect(resWithUnreadable.target_symbol).toBe('AutoBuiltSymbol');
       } finally {
-        fs.chmodSync(unreadableCandidate, 0o644);
+        fs.chmodSync(unreadableCandidate, 0o600);
       }
 
       // Si se pasa ruta prohibida o inexistente, retorna false sin invocar docker
@@ -559,7 +608,7 @@ describe('Tools and Resources Integration Suite', () => {
       const res = await resources.getManifestResource();
       expect(res.uri).toBe('blueprint://manifest');
       expect(res.mimeType).toBe('application/json');
-      expect(JSON.parse(res.text).blueprint_version).toBe('2.7.0');
+      expect((JSON.parse(res.text) as { blueprint_version: string }).blueprint_version).toBe('2.7.0');
     });
 
     it('returns philosophy resource', async () => {
@@ -618,21 +667,23 @@ describe('Tools and Resources Integration Suite', () => {
         if (stack !== 'mobile-appium') {
           fs.writeFileSync(fullEs, esBody, 'utf-8');
         }
+        let esMirrorFields: Partial<Manifest['stacks'][string]> = {};
+        if (stack !== 'mobile-appium' && stack !== 'ai-evals') {
+          esMirrorFields = {
+            readme_es: esPath,
+            readme_es_sha256: crypto.createHash('sha256').update(esBody).digest('hex'),
+          };
+        } else if (stack === 'ai-evals') {
+          // Omit explicit readme_es to verify automatic .es.md derivation with readme_es_sha256
+          esMirrorFields = {
+            readme_es_sha256: crypto.createHash('sha256').update(esBody).digest('hex'),
+          };
+        }
         tenStacksRecord[stack] = {
           description: `${stack} stack`,
           readme: enPath,
           readme_sha256: crypto.createHash('sha256').update(enBody).digest('hex'),
-          ...(stack !== 'mobile-appium' && stack !== 'ai-evals'
-            ? {
-                readme_es: esPath,
-                readme_es_sha256: crypto.createHash('sha256').update(esBody).digest('hex'),
-              }
-            : stack === 'ai-evals'
-            ? {
-                // Omit explicit readme_es to verify automatic .es.md derivation with readme_es_sha256
-                readme_es_sha256: crypto.createHash('sha256').update(esBody).digest('hex'),
-              }
-            : {}),
+          ...esMirrorFields,
           files: [],
         };
       }
@@ -720,8 +771,16 @@ describe('Tools and Resources Integration Suite', () => {
       const secEs = await resources.getSecurityResource('es');
       expect(secEs.text).toContain('22 Patrones de Seguridad');
 
-      const task = await resources.getActiveTaskTemplateResource();
-      expect(task.text).toContain('ACTIVE_TASK.md.example');
+      const task = await resources.getActiveTaskTemplateResource('en');
+      expect(task.text).toContain('See the template at .agents/ACTIVE_TASK.md.example');
+      const taskEs = await resources.getActiveTaskTemplateResource('es');
+      expect(taskEs.text).toContain('Consulte la plantilla en .agents/ACTIVE_TASK.md.example');
+      expect(taskEs.text).toContain('Plantilla Canónica de Bitácora Activa');
+
+      const pgEn = await resources.getPostgresRlsWormResource('en');
+      expect(pgEn.text).toContain('PostgreSQL 17 RLS Multi-Transacción');
+      const pgEs = await resources.getPostgresRlsWormResource('es');
+      expect(pgEs.text).toContain('Consulte docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md');
     });
   });
 
@@ -930,7 +989,7 @@ describe('Tools and Resources Integration Suite', () => {
         const emptyScriptsFetcher = new GitHubFetcher();
         vi.spyOn(emptyScriptsFetcher, 'fetchManifest').mockResolvedValue({
           ...mockManifest,
-          common_files: undefined as any,
+          common_files: undefined as unknown as Manifest['common_files'],
           agent_governance_files: [
             {
               path: '.agents/skills/qa-11x-architect/SKILL.md',
@@ -1259,6 +1318,74 @@ describe('Tools and Resources Integration Suite', () => {
       const rlsResources = new BlueprintResources(customFetcher);
       const loadedRes = await rlsResources.getPostgresRlsWormResource();
       expect(loadedRes.text).toBe(rlsContent);
+
+      const esDocPath = 'docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md';
+      const esDocContent = '# Guía Segura PostgreSQL RLS ES';
+      const fullEsDocFile = path.join(localRepoDir, esDocPath);
+      fs.mkdirSync(path.dirname(fullEsDocFile), { recursive: true });
+      fs.writeFileSync(fullEsDocFile, esDocContent, 'utf-8');
+      const esDocManifest: Manifest = {
+        ...mockManifest,
+        common_files: [
+          ...mockManifest.common_files,
+          {
+            path: esDocPath,
+            target_name: esDocPath,
+            merge_strategy: 'copy_or_overwrite',
+            sha256: crypto.createHash('sha256').update(esDocContent).digest('hex'),
+            size_bytes: esDocContent.length,
+          },
+        ],
+      };
+      const esDocFetcher = new GitHubFetcher({
+        cacheDir: path.join(tmpDir, 'cache-es-doc'),
+        localOverridePath: localRepoDir,
+      });
+      vi.spyOn(esDocFetcher, 'fetchManifest').mockResolvedValue(esDocManifest);
+      const loadedEsDoc = await new BlueprintResources(esDocFetcher).getPostgresRlsWormResource('es');
+      expect(loadedEsDoc.text).toBe(esDocContent);
+
+      // injectScriptLanguageHeader: shebang de 1 línea (sin \n) y contenido sin shebang
+      const singleLineClean = '#!/usr/bin/env bash';
+      const noShebangValidator = 'print("ok")';
+      fs.writeFileSync(path.join(localRepoDir, 'scripts', 'limpieza.sh'), singleLineClean, 'utf-8');
+      fs.writeFileSync(
+        path.join(localRepoDir, '.agents', 'scripts', 'verify_roadmap_consistency.py'),
+        noShebangValidator,
+        'utf-8'
+      );
+      const scriptHeaderManifest: Manifest = {
+        ...mockManifest,
+        common_files: mockManifest.common_files.map((f) =>
+          f.path === 'scripts/limpieza.sh'
+            ? {
+                ...f,
+                sha256: crypto.createHash('sha256').update(singleLineClean).digest('hex'),
+                size_bytes: singleLineClean.length,
+              }
+            : f
+        ),
+        agent_governance_files: mockManifest.agent_governance_files.map((f) =>
+          f.path === '.agents/scripts/verify_roadmap_consistency.py'
+            ? {
+                ...f,
+                sha256: crypto.createHash('sha256').update(noShebangValidator).digest('hex'),
+                size_bytes: noShebangValidator.length,
+              }
+            : f
+        ),
+      };
+      const scriptHeaderFetcher = new GitHubFetcher({
+        cacheDir: path.join(tmpDir, 'cache-script-header'),
+        localOverridePath: localRepoDir,
+      });
+      vi.spyOn(scriptHeaderFetcher, 'fetchManifest').mockResolvedValue(scriptHeaderManifest);
+      const scriptResources = new BlueprintResources(scriptHeaderFetcher);
+      const cleanOneLine = await scriptResources.getCleanupScriptResource('es');
+      expect(cleanOneLine.text).toContain('#!/usr/bin/env bash\n# QA-11X Script universal');
+      const roadNoShebang = await scriptResources.getRoadmapValidatorResource('es');
+      expect(roadNoShebang.text).toContain('#!/usr/bin/env python3\n# QA-11X Validador');
+      expect(roadNoShebang.text).toContain('print("ok")');
     });
 
     it('resuelve parámetro ?lang=es|en, fallback bilingüe y recursos localizados en BlueprintResources/v2', async () => {
@@ -1306,12 +1433,16 @@ describe('Tools and Resources Integration Suite', () => {
       fs.writeFileSync(path.join(localRepoDir, 'python', 'README.es.md'), pyEsContent, 'utf-8');
       fs.writeFileSync(path.join(localRepoDir, 'SECURITY.es.md'), secEsContent, 'utf-8');
       fs.writeFileSync(path.join(localRepoDir, 'AI_MASTER_PROMPT.es.md'), philEsContent, 'utf-8');
+      const basePythonStack = mockManifest.stacks.python;
+      if (!basePythonStack) {
+        throw new Error('Expected python stack definition in mockManifest');
+      }
       const bilingualManifest: Manifest = {
         ...mockManifest,
         stacks: {
           ...mockManifest.stacks,
           python: {
-            ...mockManifest.stacks.python,
+            ...basePythonStack,
             readme_es: 'python/README.es.md',
             readme_sha256: crypto.createHash('sha256').update('# Python Blueprint Documentation').digest('hex'),
             readme_es_sha256: crypto.createHash('sha256').update(pyEsContent).digest('hex'),
@@ -1345,6 +1476,35 @@ describe('Tools and Resources Integration Suite', () => {
       expect((await esResources.getPhilosophyResource('es')).text).toBe(philEsContent);
       expect((await esResources.getSecurityResource('es')).text).toBe(secEsContent);
       expect((await esResources.getStackReadmeResource('python', 'es')).text).toBe(pyEsContent);
+
+      const pyEsManifestFile: Manifest = {
+        ...bilingualManifest,
+        stacks: {
+          ...bilingualManifest.stacks,
+          python: {
+            ...basePythonStack,
+            readme_es: 'python/README.es.md',
+            files: [
+              ...basePythonStack.files,
+              {
+                path: 'python/README.es.md',
+                target_name: 'README.es.md',
+                merge_strategy: 'copy_or_overwrite',
+                sha256: crypto.createHash('sha256').update(pyEsContent).digest('hex'),
+                size_bytes: pyEsContent.length,
+              },
+            ],
+          },
+        },
+      };
+      const esFileFetcher = new GitHubFetcher({
+        cacheDir: path.join(tmpDir, 'cache-es-file'),
+        localOverridePath: localRepoDir,
+      });
+      vi.spyOn(esFileFetcher, 'fetchManifest').mockResolvedValue(pyEsManifestFile);
+      expect(
+        (await new BlueprintResources(esFileFetcher).getStackReadmeResource('python', 'es')).text
+      ).toBe(pyEsContent);
 
       const aiEs = readAiEvalsBlueprint(tmpDir, 'es');
       expect(aiEs.source).toBe('embedded-fallback');
@@ -1387,11 +1547,29 @@ describe('Tools and Resources Integration Suite', () => {
         localOverridePath: localRepoDir,
       });
       vi.spyOn(shaFetcher, 'fetchManifest').mockResolvedValue(shaOnlyManifest);
-      const customFallbackRes = await new BlueprintResources(shaFetcher).getStackReadmeResource(
-        'custom',
-        'es'
-      );
+      const prevDebug = process.env.QA11X_DEBUG;
+      const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      let customFallbackRes;
+      try {
+        process.env.QA11X_DEBUG = '1';
+        customFallbackRes = await new BlueprintResources(shaFetcher).getStackReadmeResource(
+          'custom',
+          'es'
+        );
+      } finally {
+        if (prevDebug === undefined) {
+          delete process.env.QA11X_DEBUG;
+        } else {
+          process.env.QA11X_DEBUG = prevDebug;
+        }
+      }
       expect(customFallbackRes.text).toBe(customPrimaryText);
+      expect(
+        stderrSpy.mock.calls.some((call) =>
+          String(call[0]).includes('blueprintResources.getStackReadmeResource')
+        )
+      ).toBe(true);
+      stderrSpy.mockRestore();
 
       // Workspace root inexistente retorna embedded-fallback en loadDescriptorMarkdown
       const missingRootRes = readVibeRescueBlueprint(
@@ -1421,168 +1599,168 @@ describe('Tools and Resources Integration Suite', () => {
       }
     });
 
+    const readResourceText = async (client: Client, uri: string): Promise<string> => {
+      const res = await client.readResource({ uri });
+      const first = res.contents[0];
+      expect(first).toBeDefined();
+      expect(first?.uri).toBe(uri);
+      return first && 'text' in first ? first.text : '';
+    };
+
+    const callToolText = async (
+      client: Client,
+      name: string,
+      args: Record<string, unknown>
+    ): Promise<string> => {
+      const res = await client.callTool({ name, arguments: args });
+      expect(res.isError).not.toBe(true);
+      const content = 'content' in res && Array.isArray(res.content) ? res.content : [];
+      const first = content[0] as { text?: string } | undefined;
+      expect(first?.text).toBeDefined();
+      return first?.text ?? '';
+    };
+
     it('initializes McpServer and executes registered resources and tools', async () => {
       const server = createMcpServer({ fetcher, merger });
       expect(server).toBeDefined();
+      const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+      const client = new Client({ name: 'tools-and-resources-unit', version: '1.0.0' });
 
-      const serverAny = server as any;
+      await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+      try {
+        // 1. Ejecutar resource: manifest
+        const manifestText = await readResourceText(client, 'blueprint://manifest');
+        expect(manifestText).toContain('"blueprint_version":"2.7.0"');
+        expect(manifestText).not.toContain('\n  ');
 
-      // 1. Ejecutar resource: manifest
-      const manifestRes = await serverAny._registeredResources['blueprint://manifest'].readCallback(
-        new URL('blueprint://manifest')
-      );
-      expect(manifestRes.contents[0].text).toContain('"blueprint_version":"2.7.0"');
-      expect(manifestRes.contents[0].text).not.toContain('\n  ');
+        // 2. Ejecutar resource: philosophy
+        expect(await readResourceText(client, 'blueprint://core/philosophy')).toBe('# Master Prompt');
 
-      // 2. Ejecutar resource: philosophy
-      const philRes = await serverAny._registeredResources['blueprint://core/philosophy'].readCallback(
-        new URL('blueprint://core/philosophy')
-      );
-      expect(philRes.contents[0].text).toBe('# Master Prompt');
+        // 3. Ejecutar resource: security
+        expect(await readResourceText(client, 'blueprint://security/disa-owasp-22')).toBe(
+          '# 22 Security Patterns'
+        );
 
-      // 3. Ejecutar resource: security
-      const secRes = await serverAny._registeredResources['blueprint://security/disa-owasp-22'].readCallback(
-        new URL('blueprint://security/disa-owasp-22')
-      );
-      expect(secRes.contents[0].text).toBe('# 22 Security Patterns');
+        // 3b. Ejecutar resource: postgres-rls-worm
+        expect(await readResourceText(client, 'blueprint://database/postgres-rls-worm')).toContain(
+          'PostgreSQL 17 RLS'
+        );
 
-      // 3b. Ejecutar resource: postgres-rls-worm
-      const rlsWormRes = await serverAny._registeredResources['blueprint://database/postgres-rls-worm'].readCallback(
-        new URL('blueprint://database/postgres-rls-worm')
-      );
-      expect(rlsWormRes.contents[0].text).toContain('PostgreSQL 17 RLS');
+        // 4. Ejecutar resource template: stack readme
+        expect(await readResourceText(client, 'blueprint://python/readme')).toContain('Python');
 
-      // 4. Ejecutar resource template: stack readme
-      const stackTemplate = serverAny._registeredResourceTemplates['blueprint-stack-readme'];
-      expect(stackTemplate).toBeDefined();
-      const stackRes = await stackTemplate.readCallback(new URL('blueprint://python/readme'), { stack: 'python' });
-      expect(stackRes.contents[0].text).toContain('Python');
+        // 5. Ejecutar resource template: refactoring-ui
+        expect(await readResourceText(client, 'blueprint://ui/refactoring-ui/skill')).toBe(
+          '# Refactoring UI'
+        );
 
-      // 5. Ejecutar resource template: refactoring-ui
-      const uiTemplate = serverAny._registeredResourceTemplates['blueprint-refactoring-ui'];
-      expect(uiTemplate).toBeDefined();
-      const uiRes = await uiTemplate.readCallback(new URL('blueprint://ui/refactoring-ui/skill'), { topic: 'skill' });
-      expect(uiRes.contents[0].text).toBe('# Refactoring UI');
+        // 6. Ejecutar resource: active-task-template
+        expect(await readResourceText(client, 'blueprint://core/active-task-template')).toBe(
+          '# Active Task Template Example'
+        );
 
-      // 6. Ejecutar resource: active-task-template
-      const taskRes = await serverAny._registeredResources['blueprint://core/active-task-template'].readCallback(
-        new URL('blueprint://core/active-task-template')
-      );
-      expect(taskRes.contents[0].text).toBe('# Active Task Template Example');
+        // 7. Ejecutar resource: cleanup-script
+        expect(await readResourceText(client, 'blueprint://core/cleanup-script')).toBe(
+          '#!/usr/bin/env bash\necho "cleaning"'
+        );
 
-      // 7. Ejecutar resource: cleanup-script
-      const cleanRes = await serverAny._registeredResources['blueprint://core/cleanup-script'].readCallback(
-        new URL('blueprint://core/cleanup-script')
-      );
-      expect(cleanRes.contents[0].text).toBe('#!/usr/bin/env bash\necho "cleaning"');
+        // 8. Ejecutar resource: roadmap-validator
+        expect(await readResourceText(client, 'blueprint://core/roadmap-validator')).toBe(
+          '#!/usr/bin/env python3\n# Roadmap and Active Task Validator'
+        );
 
-      // 8. Ejecutar resource: roadmap-validator
-      const roadRes = await serverAny._registeredResources['blueprint://core/roadmap-validator'].readCallback(
-        new URL('blueprint://core/roadmap-validator')
-      );
-      expect(roadRes.contents[0].text).toBe('#!/usr/bin/env python3\n# Roadmap and Active Task Validator');
+        // 9. Ejecutar tool: inspect_project_config
+        const inspectText = await callToolText(client, 'inspect_project_config', {
+          project_path: targetProjectDir,
+        });
+        expect(inspectText).toContain(targetProjectDir);
 
-      // 9. Ejecutar tool: inspect_project_config
-      const toolInspect = serverAny._registeredTools['inspect_project_config'];
-      expect(toolInspect).toBeDefined();
-      const inspectRes = await toolInspect.handler({ project_path: targetProjectDir });
-      expect(inspectRes.content[0].text).toContain(targetProjectDir);
+        // 10. Ejecutar tool: fetch_blueprint_bundle
+        const fetchText = await callToolText(client, 'fetch_blueprint_bundle', {
+          stack: 'python',
+          include_common_and_agents: true,
+        });
+        expect(fetchText).toContain('python');
 
-      // 9. Ejecutar tool: fetch_blueprint_bundle
-      const toolFetch = serverAny._registeredTools['fetch_blueprint_bundle'];
-      expect(toolFetch).toBeDefined();
-      const fetchRes = await toolFetch.handler({ stack: 'python', include_common_and_agents: true });
-      expect(fetchRes.content[0].text).toContain('python');
+        // 11. Ejecutar tool: bootstrap_or_merge_11x
+        const mergeText = await callToolText(client, 'bootstrap_or_merge_11x', {
+          project_path: targetProjectDir,
+          stack: 'python',
+          dry_run: true,
+        });
+        expect(mergeText).toContain('"dry_run":true');
+        expect(mergeText).not.toContain('\n  ');
 
-      // 10. Ejecutar tool: bootstrap_or_merge_11x
-      const toolMerge = serverAny._registeredTools['bootstrap_or_merge_11x'];
-      expect(toolMerge).toBeDefined();
-      const mergeRes = await toolMerge.handler({
-        project_path: targetProjectDir,
-        stack: 'python',
-        dry_run: true,
-      });
-      expect(mergeRes.content[0].text).toContain('"dry_run":true');
-      expect(mergeRes.content[0].text).not.toContain('\n  ');
+        // 12. Ejecutar tool: inspect_ast_blast_radius
+        const blastText = await callToolText(client, 'inspect_ast_blast_radius', {
+          project_path: targetProjectDir,
+          target_symbol: 'test',
+        });
+        expect(blastText).toContain('"risk_level"');
 
-      // 11. Ejecutar tool: inspect_ast_blast_radius
-      const toolBlast = serverAny._registeredTools['inspect_ast_blast_radius'];
-      expect(toolBlast).toBeDefined();
-      const blastRes = await toolBlast.handler({
-        project_path: targetProjectDir,
-        target_symbol: 'test',
-      });
-      expect(blastRes.content[0].text).toContain('"risk_level"');
+        // 13. Ejecutar tool: clean_workspace_11x
+        const cleanToolText = await callToolText(client, 'clean_workspace_11x', {
+          project_path: targetProjectDir,
+          dry_run: true,
+        });
+        expect(cleanToolText).toContain('"recommended_command"');
 
-      // 12. Ejecutar tool: clean_workspace_11x
-      const toolClean = serverAny._registeredTools['clean_workspace_11x'];
-      expect(toolClean).toBeDefined();
-      const cleanToolRes = await toolClean.handler({
-        project_path: targetProjectDir,
-        dry_run: true,
-      });
-      expect(cleanToolRes.content[0].text).toContain('"recommended_command"');
+        // 14. Ejecutar tool: audit_security_stig_owasp
+        const secToolText = await callToolText(client, 'audit_security_stig_owasp', {
+          project_path: targetProjectDir,
+        });
+        expect(secToolText).toContain('"findings_count"');
 
-      // 13. Ejecutar tool: audit_security_stig_owasp
-      const toolSec = serverAny._registeredTools['audit_security_stig_owasp'];
-      expect(toolSec).toBeDefined();
-      const secToolRes = await toolSec.handler({ project_path: targetProjectDir });
-      expect(secToolRes.content[0].text).toContain('"findings_count"');
+        // 15. Ejecutar tool: run_ephemeral_qa
+        const qaToolText = await callToolText(client, 'run_ephemeral_qa', {
+          project_path: targetProjectDir,
+          stage: 'unit',
+          timeout_seconds: 30,
+        });
+        expect(qaToolText).toContain('"status"');
 
-      // 14. Ejecutar tool: run_ephemeral_qa
-      const toolQa = serverAny._registeredTools['run_ephemeral_qa'];
-      expect(toolQa).toBeDefined();
-      const qaToolRes = await toolQa.handler({
-        project_path: targetProjectDir,
-        stage: 'unit',
-        timeout_seconds: 30,
-      });
-      expect(qaToolRes.content[0].text).toContain('"status"');
+        // 16. Ejecutar tool: certify_11x_gate
+        const certToolText = await callToolText(client, 'certify_11x_gate', {
+          project_path: targetProjectDir,
+        });
+        expect(certToolText).toContain('"gate_passed"');
 
-      // 15. Ejecutar tool: certify_11x_gate
-      const toolCert = serverAny._registeredTools['certify_11x_gate'];
-      expect(toolCert).toBeDefined();
-      const certToolRes = await toolCert.handler({ project_path: targetProjectDir });
-      expect(certToolRes.content[0].text).toContain('"gate_passed"');
+        // 17. Ejecutar tool: audit_test_pyramid_gaps
+        const pyramidToolText = await callToolText(client, 'audit_test_pyramid_gaps', {
+          project_path: targetProjectDir,
+        });
+        expect(pyramidToolText).toContain('"pyramid_score_pct"');
 
-      // 16. Ejecutar tool: audit_test_pyramid_gaps
-      const toolPyramid = serverAny._registeredTools['audit_test_pyramid_gaps'];
-      expect(toolPyramid).toBeDefined();
-      const pyramidToolRes = await toolPyramid.handler({ project_path: targetProjectDir });
-      expect(pyramidToolRes.content[0].text).toContain('"pyramid_score_pct"');
+        // 18. Ejecutar tool: init_or_append_agents_md
+        const initAgentsText = await callToolText(client, 'init_or_append_agents_md', {
+          project_path: targetProjectDir,
+          dry_run: true,
+        });
+        expect(initAgentsText).toContain('"action":"dry_run"');
+        expect(initAgentsText).toContain('<!-- QA_11X_MCP_CONNECTOR_START -->');
 
-      // 17. Ejecutar tool: init_or_append_agents_md
-      const toolInitAgents = serverAny._registeredTools['init_or_append_agents_md'];
-      expect(toolInitAgents).toBeDefined();
-      const initAgentsRes = await toolInitAgents.handler({
-        project_path: targetProjectDir,
-        dry_run: true,
-      });
-      expect(initAgentsRes.content[0].text).toContain('"action":"dry_run"');
-      expect(initAgentsRes.content[0].text).toContain('<!-- QA_11X_MCP_CONNECTOR_START -->');
+        // 19. Ejecutar tool: propose_skill_evolution_pr
+        const proposeText = await callToolText(client, 'propose_skill_evolution_pr', {
+          project_path: targetProjectDir,
+          target_blueprint_file: '.agents/skills/qa-11x-architect/SKILL.md',
+          improvement_title: 'Prueba de Integracion en Server',
+          empirical_rationale: 'Prueba de ejecucion desde handler registrado en server',
+          proposed_content_or_snippet: '### Snippet Test',
+          prefer_offline_fallback: true,
+        });
+        expect(proposeText).toContain('"status":"PROPOSAL_FILE_AND_URL_GENERATED"');
 
-      // 18. Ejecutar tool: propose_skill_evolution_pr
-      const toolPropose = serverAny._registeredTools['propose_skill_evolution_pr'];
-      expect(toolPropose).toBeDefined();
-      const proposeRes = await toolPropose.handler({
-        project_path: targetProjectDir,
-        target_blueprint_file: '.agents/skills/qa-11x-architect/SKILL.md',
-        improvement_title: 'Prueba de Integracion en Server',
-        empirical_rationale: 'Prueba de ejecucion desde handler registrado en server',
-        proposed_content_or_snippet: '### Snippet Test',
-        prefer_offline_fallback: true,
-      });
-      expect(proposeRes.content[0].text).toContain('"status":"PROPOSAL_FILE_AND_URL_GENERATED"');
-
-      // 19. Ejecutar tool: reconcile_agents_governance
-      const toolReconcile = serverAny._registeredTools['reconcile_agents_governance'];
-      expect(toolReconcile).toBeDefined();
-      const reconcileRes = await toolReconcile.handler({
-        project_path: targetProjectDir,
-        dry_run: true,
-      });
-      expect(reconcileRes.content[0].text).toContain('"dry_run":true');
-      expect(reconcileRes.content[0].text).toContain('"removed_duplicate_sections_count":0');
+        // 20. Ejecutar tool: reconcile_agents_governance
+        const reconcileText = await callToolText(client, 'reconcile_agents_governance', {
+          project_path: targetProjectDir,
+          dry_run: true,
+        });
+        expect(reconcileText).toContain('"dry_run":true');
+        expect(reconcileText).toContain('"removed_duplicate_sections_count":0');
+      } finally {
+        await client.close();
+        await server.close();
+      }
     });
 
     it('handles blueprint://{stack}/readme, fetch, bootstrap, and pyramid tools for ai-evals, mobile-appium, and vibe-rescue', async () => {
@@ -1621,29 +1799,374 @@ describe('Tools and Resources Integration Suite', () => {
       });
       vi.spyOn(extFetcher, 'fetchManifest').mockResolvedValue(tenManifest);
 
+      const extResources = new BlueprintResources(extFetcher);
       const server = createMcpServer({ fetcher: extFetcher, merger });
-      const serverAny = server as any;
-      const stackTemplate = serverAny._registeredResourceTemplates['blueprint-stack-readme'];
-      const toolFetch = serverAny._registeredTools['fetch_blueprint_bundle'];
-      const toolMerge = serverAny._registeredTools['bootstrap_or_merge_11x'];
-      const toolPyramid = serverAny._registeredTools['audit_test_pyramid_gaps'];
+      const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+      const client = new Client({ name: 'tools-ext-stacks-client', version: '1.0.0' });
 
-      for (const s of extraStacks) {
-        const res = await stackTemplate.readCallback(new URL(`blueprint://${s}/readme`), { stack: s });
-        expect(res.contents[0].text).toBe(`# ${s} Guide`);
+      await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+      try {
+        for (const s of extraStacks) {
+          const stackRes = await extResources.getStackReadmeResource(s);
+          expect(stackRes.text).toBe(`# ${s} Guide`);
 
-        const fetchOut = await toolFetch.handler({ stack: s, include_common_and_agents: false });
-        expect(fetchOut.content[0].text).toContain(`"stack":"${s}"`);
+          const liveResText = await readResourceText(client, `blueprint://${s}/readme`);
+          expect(liveResText.length).toBeGreaterThan(10);
+          expect(
+            await callToolText(client, 'fetch_blueprint_bundle', {
+              stack: s,
+              include_common_and_agents: false,
+            })
+          ).toContain(`"stack":"${s}"`);
+          expect(
+            await callToolText(client, 'bootstrap_or_merge_11x', {
+              project_path: targetProjectDir,
+              stack: s,
+              dry_run: true,
+            })
+          ).toContain(`"stack":"${s}"`);
+          expect(
+            await callToolText(client, 'audit_test_pyramid_gaps', {
+              project_path: targetProjectDir,
+              stack: s,
+            })
+          ).toContain(`"${s}"`);
+        }
+      } finally {
+        await client.close();
+        await server.close();
+      }
+    });
 
-        const mergeOut = await toolMerge.handler({
-          project_path: targetProjectDir,
-          stack: s,
-          dry_run: true,
+    it('F9.3: sirve ?lang=es vs ?lang=en en los 5 recursos localizables (BlueprintResources y MCP readResource)', async () => {
+      const rlsRel = '.agents/skills/qa-11x-architect/references/08-postgres-rls-zero-downtime-migrations.md';
+      const rlsContent = '# Reference 08 RLS after_begin & WORM seq_num';
+      const fullRlsFile = path.join(localRepoDir, rlsRel);
+      fs.mkdirSync(path.dirname(fullRlsFile), { recursive: true });
+      fs.writeFileSync(fullRlsFile, rlsContent, 'utf-8');
+
+      const manifestWithRls: Manifest = {
+        ...mockManifest,
+        agent_governance_files: [
+          ...mockManifest.agent_governance_files,
+          {
+            path: rlsRel,
+            target_name: rlsRel,
+            merge_strategy: 'copy_or_overwrite',
+            sha256: crypto.createHash('sha256').update(rlsContent).digest('hex'),
+            size_bytes: rlsContent.length,
+          },
+        ],
+      };
+      const rlsFetcher = new GitHubFetcher({
+        cacheDir: path.join(tmpDir, 'cache-f93'),
+        localOverridePath: localRepoDir,
+      });
+      vi.spyOn(rlsFetcher, 'fetchManifest').mockResolvedValue(manifestWithRls);
+
+      const directResources = new BlueprintResources(rlsFetcher);
+      const rlsEn = await directResources.getPostgresRlsWormResource('en');
+      const rlsEs = await directResources.getPostgresRlsWormResource('es');
+      expect(rlsEn.text).toBe(rlsContent);
+      expect(rlsEs.text).toContain('Guía Operativa ES');
+      expect(rlsEs.text).toContain(rlsContent);
+
+      const uiEn = await directResources.getRefactoringUiResource('skill', 'en');
+      const uiEs = await directResources.getRefactoringUiResource('skill', 'es');
+      expect(uiEn.text).toBe('# Refactoring UI');
+      expect(uiEs.text).toContain('Guía Refactoring UI (QA-11X) — Referencia Operativa ES');
+      expect(uiEs.text).toContain('# Refactoring UI');
+
+      const taskEn = await directResources.getActiveTaskTemplateResource('en');
+      const taskEs = await directResources.getActiveTaskTemplateResource('es');
+      expect(taskEn.text).toBe('# Active Task Template Example');
+      expect(taskEs.text).toContain('Plantilla Canónica de Bitácora Activa');
+      expect(taskEs.text).toContain('# Active Task Template Example');
+
+      const cleanEn = await directResources.getCleanupScriptResource('en');
+      const cleanEs = await directResources.getCleanupScriptResource('es');
+      expect(cleanEn.text).toBe('#!/usr/bin/env bash\necho "cleaning"');
+      expect(cleanEs.text).toContain('#!/usr/bin/env bash\n# QA-11X Script universal de limpieza');
+      expect(cleanEs.text).toContain('echo "cleaning"');
+
+      const roadEn = await directResources.getRoadmapValidatorResource('en');
+      const roadEs = await directResources.getRoadmapValidatorResource('es');
+      expect(roadEn.text).toBe('#!/usr/bin/env python3\n# Roadmap and Active Task Validator');
+      expect(roadEs.text).toContain('#!/usr/bin/env python3\n# QA-11X Validador bidireccional');
+      expect(roadEs.text).toContain('# Roadmap and Active Task Validator');
+
+      // Protocol roundtrip via ?lang=es and ?lang=en
+      const server = createMcpServer({ fetcher: rlsFetcher, merger });
+      const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+      const client = new Client({ name: 'f93-lang-client', version: '1.0.0' });
+      await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+      try {
+        expect(
+          await readResourceText(client, 'blueprint://database/postgres-rls-worm?lang=es')
+        ).toContain('Guía Operativa ES');
+        expect(
+          await readResourceText(client, 'blueprint://database/postgres-rls-worm?lang=en')
+        ).toBe(rlsContent);
+
+        expect(
+          await readResourceText(client, 'blueprint://ui/refactoring-ui/skill?lang=es')
+        ).toContain('Referencia Operativa ES');
+        expect(
+          await readResourceText(client, 'blueprint://ui/refactoring-ui/skill?lang=en')
+        ).toBe('# Refactoring UI');
+
+        expect(
+          await readResourceText(client, 'blueprint://core/active-task-template?lang=es')
+        ).toContain('Plantilla Canónica de Bitácora Activa');
+        expect(
+          await readResourceText(client, 'blueprint://core/active-task-template?lang=en')
+        ).toBe('# Active Task Template Example');
+
+        expect(
+          await readResourceText(client, 'blueprint://core/cleanup-script?lang=es')
+        ).toContain('Script universal de limpieza sin root');
+        expect(
+          await readResourceText(client, 'blueprint://core/cleanup-script?lang=en')
+        ).toBe('#!/usr/bin/env bash\necho "cleaning"');
+
+        expect(
+          await readResourceText(client, 'blueprint://core/roadmap-validator?lang=es')
+        ).toContain('Validador bidireccional de consistencia');
+        expect(
+          await readResourceText(client, 'blueprint://core/roadmap-validator?lang=en')
+        ).toBe('#!/usr/bin/env python3\n# Roadmap and Active Task Validator');
+      } finally {
+        await client.close();
+        await server.close();
+      }
+    });
+
+    it('F9.4: blueprint://security/disa-owasp-22 mantiene URI y usa terminología D3 (+ 34 static scanner rules)', async () => {
+      const server = createMcpServer({ fetcher, merger });
+      const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+      const client = new Client({ name: 'f94-security-meta-client', version: '1.0.0' });
+      await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+      try {
+        const listRes = await client.listResources();
+        const secMeta = listRes.resources.find(
+          (r) => r.uri === 'blueprint://security/disa-owasp-22'
+        );
+        expect(secMeta).toBeDefined();
+        expect(secMeta?.uri).toBe('blueprint://security/disa-owasp-22');
+        expect(secMeta?.description).toContain('22 DISA ASD STIG V6R5');
+        expect(secMeta?.description).toContain('OWASP Developer Guide v4.2 reference controls');
+        expect(secMeta?.description).toContain('+ 34 static scanner rules');
+      } finally {
+        await client.close();
+        await server.close();
+      }
+    });
+
+    it('F9.6: unifica marcadores y builders de agents-connector.ts entre init-agents-md y initOrAppendAgentsMd', async () => {
+      expect(CLI_CONNECTOR_START_MARKER).toBe(CONNECTOR_SERVICE_START_MARKER);
+      expect(TOOL_CONNECTOR_START_MARKER).toBe(CONNECTOR_SERVICE_START_MARKER);
+      expect(CLI_CONNECTOR_END_MARKER).toBe(CONNECTOR_SERVICE_END_MARKER);
+      expect(TOOL_CONNECTOR_END_MARKER).toBe(CONNECTOR_SERVICE_END_MARKER);
+      expect(buildCliThinConnectorBlock).toBe(buildServiceThinConnectorBlock);
+      expect(buildToolAgentsMdConnectorBlock).toBe(buildServiceAgentsMdConnectorBlock);
+      expect(mergeCliAgentsMdContent).toBe(mergeServiceOrAppendAgentsMdContent);
+      expect(mergeToolAgentsMdContent).toBe(mergeServiceAgentsMdContent);
+      expect(resolveCliProjectDisplayName).toBe(resolveServiceProjectDisplayName);
+      expect(resolveToolProjectDisplayName).toBe(resolveServiceProjectDisplayName);
+
+      const cliDir = path.join(tmpDir, 'connector-cli-ws');
+      const toolDir = path.join(tmpDir, 'connector-tool-ws');
+      fs.mkdirSync(cliDir, { recursive: true });
+      fs.mkdirSync(toolDir, { recursive: true });
+      fs.writeFileSync(path.join(cliDir, 'pyproject.toml'), '[project]\nname = "demo"\n', 'utf-8');
+      fs.writeFileSync(path.join(toolDir, 'pyproject.toml'), '[project]\nname = "demo"\n', 'utf-8');
+
+      const cliCreated = await runCliInitAgentsMd({ projectPath: cliDir, lang: 'en' });
+      expect(cliCreated.action).toBe('created');
+      expect(cliCreated.content).toContain(CONNECTOR_SERVICE_START_MARKER);
+      expect(cliCreated.content).toContain(CONNECTOR_SERVICE_END_MARKER);
+      const cliUpdated = await runCliInitAgentsMd({ projectPath: cliDir, lang: 'es' });
+      expect(cliUpdated.action).toBe('updated_block');
+
+      const toolCreated = await runToolInitAgentsMd({ projectPath: toolDir, lang: 'en' });
+      expect(toolCreated.action).toBe('created');
+      expect(toolCreated.content).toContain(CONNECTOR_SERVICE_START_MARKER);
+      expect(toolCreated.content).toContain(CONNECTOR_SERVICE_END_MARKER);
+      const toolUpdated = await runToolInitAgentsMd({ projectPath: toolDir, lang: 'es' });
+      expect(toolUpdated.action).toBe('updated_block');
+    });
+
+    it('F9.8: cubre extractMethodName, idempotencia de tracking/promptGuard, removeRequestHandler, validateV2ToolWorkspaceArgs y fallbacks de index/server', async () => {
+      // 1. extractMethodName across valid Zod v3 schemas and malformed inputs
+      expect(extractMethodName(null)).toBeUndefined();
+      expect(extractMethodName('invalid')).toBeUndefined();
+      expect(extractMethodName({})).toBeUndefined();
+      expect(extractMethodName({ shape: 'not-object' })).toBeUndefined();
+      expect(extractMethodName({ shape: { method: null } })).toBeUndefined();
+      expect(extractMethodName({ shape: { method: { value: 42 } } })).toBeUndefined();
+      expect(extractMethodName({ shape: { method: { _def: { value: 99 } } } })).toBeUndefined();
+      expect(extractMethodName({ shape: { method: { value: 'tools/call' } } })).toBe('tools/call');
+      expect(
+        extractMethodName({ shape: { method: { _def: { value: 'resources/read' } } } })
+      ).toBe('resources/read');
+
+      // 2. validateV2ToolWorkspaceArgs boundaries
+      expect(() => validateV2ToolWorkspaceArgs(null)).not.toThrow();
+      expect(() => validateV2ToolWorkspaceArgs('not-record')).not.toThrow();
+      expect(() => validateV2ToolWorkspaceArgs({ project_path: targetProjectDir })).not.toThrow();
+      expect(() =>
+        validateV2ToolWorkspaceArgs({ workspaceRoot: targetProjectDir, targetDir: 'sub/dir' })
+      ).not.toThrow();
+      expect(() => validateV2ToolWorkspaceArgs({ targetDir: 'relative-subdir' })).not.toThrow();
+      expect(() =>
+        validateV2ToolWorkspaceArgs({ workspaceRoot: targetProjectDir, targetDir: '../outside' })
+      ).toThrow(WorkspacePathValidationError);
+      expect(() =>
+        validateV2ToolWorkspaceArgs({ workspaceRoot: targetProjectDir, targetDir: '' })
+      ).toThrow(WorkspacePathValidationError);
+      expect(() =>
+        validateV2ToolWorkspaceArgs({ workspaceRoot: targetProjectDir, targetDir: 'bad\0dir' })
+      ).toThrow(WorkspacePathValidationError);
+      expect(() =>
+        validateV2ToolWorkspaceArgs({ workspaceRoot: targetProjectDir, targetDir: '/etc/passwd' })
+      ).toThrow(WorkspacePathValidationError);
+
+      // 3. wrapReadResourceDispatcher guard on untracked server + dispatcher/registration idempotency + removeRequestHandler
+      const untracked = new McpServer({ name: 'untracked-test', version: '1.0.0' });
+      expect(() => wrapReadResourceDispatcher(untracked)).not.toThrow();
+
+      const server = createMcpServer({ fetcher, merger });
+      const registry1 = getServerDispatcherRegistry(server);
+      const registry2 = attachDispatcherTracking(server);
+      expect(registry2).toBe(registry1);
+
+      const surfaceBefore = getRegisteredServerSurface(server);
+      attachRegistrationTracking(server);
+      expect(getRegisteredServerSurface(server)).toBe(surfaceBefore);
+
+      // Calling setRequestHandler with a schema lacking method hits method === undefined before SDK throws
+      expect(() =>
+        server.server.setRequestHandler(
+          {} as Parameters<typeof server.server.setRequestHandler>[0],
+          () => ({})
+        )
+      ).toThrow(/missing a method literal/i);
+
+      // removeRequestHandler deletes method from dispatcher registry; wrapReadResourceDispatcher handles missing handler
+      expect(registry1?.has('resources/read')).toBe(true);
+      server.server.removeRequestHandler('resources/read');
+      expect(registry1?.has('resources/read')).toBe(false);
+      expect(() => wrapReadResourceDispatcher(server)).not.toThrow();
+
+      // 4. Optional boolean defaults on server tools + attachPromptGuard idempotency + createConfiguredMcpServer + non-Error catch
+      const defaultConfigured = createConfiguredMcpServer();
+      expect(defaultConfigured.counts.tools).toBeGreaterThanOrEqual(19);
+
+      const guardedServer = createMcpServer({ fetcher, merger });
+      attachPromptGuard(guardedServer, { taskGuard: new TaskStateGuard() });
+      expect(attachPromptGuard(guardedServer)).toBe(guardedServer);
+
+      const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+      const client = new Client({ name: 'f98-defaults-client', version: '1.0.0' });
+      await Promise.all([
+        guardedServer.connect(serverTransport),
+        client.connect(clientTransport),
+      ]);
+      try {
+        const fetchRes = await callToolText(client, 'fetch_blueprint_bundle', {
+          stack: 'python',
+          include_common_and_agents: false,
         });
-        expect(mergeOut.content[0].text).toContain(`"stack":"${s}"`);
+        expect(fetchRes).toContain('"stack":"python"');
 
-        const pyrOut = await toolPyramid.handler({ project_path: targetProjectDir, stack: s });
-        expect(pyrOut.content[0].text).toContain(`"${s}"`);
+        const bootRes = await callToolText(client, 'bootstrap_or_merge_11x', {
+          project_path: targetProjectDir,
+          stack: 'python',
+        });
+        expect(bootRes).toContain('"dry_run":true');
+
+        const cleanRes = await callToolText(client, 'clean_workspace_11x', {
+          project_path: targetProjectDir,
+        });
+        expect(cleanRes).toContain('"dry_run":true');
+
+        const recRes = await callToolText(client, 'reconcile_agents_governance', {
+          project_path: targetProjectDir,
+        });
+        expect(recRes).toContain('"dry_run":true');
+      } finally {
+        await client.close();
+        await guardedServer.close();
+      }
+
+      // 5. Non-Error throw inside wrapped CallToolRequestSchema handler in attachPromptGuard
+      const throwServer = createMcpServer({ fetcher, merger });
+      throwServer.server.setRequestHandler(CallToolRequestSchema, () => {
+        const nonErrorPayload = 'raw-string-tool-error' as unknown as Error;
+        throw nonErrorPayload;
+      });
+      attachPromptGuard(throwServer);
+      const [errClientTx, errServerTx] = InMemoryTransport.createLinkedPair();
+      const errClient = new Client({ name: 'f98-non-error-client', version: '1.0.0' });
+      await Promise.all([throwServer.connect(errServerTx), errClient.connect(errClientTx)]);
+      try {
+        const errRes = await errClient.callTool({
+          name: 'inspect_project_config',
+          arguments: { project_path: targetProjectDir },
+        });
+        expect(errRes.isError).toBe(true);
+        const errContent = 'content' in errRes && Array.isArray(errRes.content) ? errRes.content : [];
+        expect((errContent[0] as { text?: string } | undefined)?.text).toContain(
+          'raw-string-tool-error'
+        );
+      } finally {
+        await errClient.close();
+        await throwServer.close();
+      }
+
+      // 6. index.ts main(): Error + non-Error rejection in autoSyncFn, startStdio override, and default process.exit fallback
+      const prevDisableSync = process.env.QA_DISABLE_AUTO_SYNC;
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+      const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never);
+      try {
+        delete process.env.QA_DISABLE_AUTO_SYNC;
+        const nonErrorRejection = 'non-error-sync-failure' as unknown as Error;
+        await main([], undefined, {
+          isStdinTty: true,
+          exitFn: () => undefined,
+          autoSyncFn: () => Promise.reject(nonErrorRejection),
+        });
+        await main([], undefined, {
+          isStdinTty: true,
+          exitFn: () => undefined,
+          autoSyncFn: () => Promise.reject(new Error('error-obj-sync-failure')),
+        });
+        expect(
+          stderrSpy.mock.calls.some((call) => String(call[0]).includes('non-error-sync-failure'))
+        ).toBe(true);
+        expect(
+          stderrSpy.mock.calls.some((call) => String(call[0]).includes('error-obj-sync-failure'))
+        ).toBe(true);
+
+        let startedCustomStdio = false;
+        await main(['--stdio'], async () => {
+          startedCustomStdio = true;
+          await Promise.resolve();
+        });
+        expect(startedCustomStdio).toBe(true);
+
+        await main(['--version']);
+        expect(exitSpy).toHaveBeenCalledWith(0);
+      } finally {
+        exitSpy.mockRestore();
+        stderrSpy.mockRestore();
+        logSpy.mockRestore();
+        if (prevDisableSync === undefined) {
+          delete process.env.QA_DISABLE_AUTO_SYNC;
+        } else {
+          process.env.QA_DISABLE_AUTO_SYNC = prevDisableSync;
+        }
       }
     });
   });

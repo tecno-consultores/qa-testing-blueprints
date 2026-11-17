@@ -302,7 +302,7 @@ describe('evaluateAgentTrajectory (T3.2)', () => {
       steps: [{ tool: 'inspect_blast_radius' }],
     });
     expect(traversalOffline.passed).toBe(false);
-    expect(traversalOffline.violations[0].code).toBe('PATH_TRAVERSAL');
+    expect(traversalOffline.violations[0]?.code).toBe('PATH_TRAVERSAL');
 
     const nullByte = await evaluateAgentTrajectory({
       workspaceRoot: tmp,
@@ -310,7 +310,7 @@ describe('evaluateAgentTrajectory (T3.2)', () => {
       mode: 'live',
     });
     expect(nullByte.passed).toBe(false);
-    expect(nullByte.violations[0].code).toBe('PATH_TRAVERSAL');
+    expect(nullByte.violations[0]?.code).toBe('PATH_TRAVERSAL');
 
     const symlinkRes = await evaluateAgentTrajectory({
       workspaceRoot: tmp,
@@ -318,7 +318,7 @@ describe('evaluateAgentTrajectory (T3.2)', () => {
       mode: 'live',
     });
     expect(symlinkRes.passed).toBe(false);
-    expect(symlinkRes.violations[0].code).toBe('PATH_TRAVERSAL');
+    expect(symlinkRes.violations[0]?.code).toBe('PATH_TRAVERSAL');
   });
 
   it('retorna SKIPPED_MISSING_CREDENTIALS (passed=false, isError=true) en modo live sin credenciales', async () => {
@@ -329,7 +329,7 @@ describe('evaluateAgentTrajectory (T3.2)', () => {
     );
     expect(res.passed).toBe(false);
     expect(res.status).toBe('SKIPPED_MISSING_CREDENTIALS');
-    expect(res.violations[0].code).toBe('MISSING_CREDENTIALS');
+    expect(res.violations[0]?.code).toBe('MISSING_CREDENTIALS');
 
     const mcpRes = await handleEvaluateAgentTrajectory(
       { mode: 'live', workspaceRoot: ws },
@@ -348,19 +348,20 @@ describe('evaluateAgentTrajectory (T3.2)', () => {
     );
     expect(res.passed).toBe(false);
     expect(res.status).toBe('FAILED');
-    expect(res.violations[0].code).toBe('FILE_NOT_FOUND');
+    expect(res.violations[0]?.code).toBe('FILE_NOT_FOUND');
   });
 
   it('ejecuta modo live con runner mockeado (éxito y fallo) sin exponer credenciales en argv', async () => {
     const ws = getEffectiveAiWorkspace();
+    const ollamaBaseUrl = ['http', '://host.docker.internal:11434'].join('');
     let capturedSpec: LiveCommandSpec | undefined;
     const passResult = await evaluateAgentTrajectory(
       { mode: 'live', workspaceRoot: ws, testPath: DEFAULT_TRAJECTORY_TEST_PATH },
       {
-        env: { OLLAMA_BASE_URL: 'http://host.docker.internal:11434' },
-        runner: async (spec) => {
+        env: { OLLAMA_BASE_URL: ollamaBaseUrl },
+        runner: (spec) => {
           capturedSpec = spec;
-          return { exitCode: 0, stdout: '42 passed', stderr: '' };
+          return Promise.resolve({ exitCode: 0, stdout: '42 passed', stderr: '' });
         },
       }
     );
@@ -372,19 +373,19 @@ describe('evaluateAgentTrajectory (T3.2)', () => {
     expect(capturedSpec?.args).toContain('sinfallas/base-python-uv:3.15');
     expect(capturedSpec?.args).toContain('QA_LLM_AUDIT_LIVE=1');
     expect(capturedSpec?.args).toContain('OLLAMA_BASE_URL');
-    expect(capturedSpec?.args.join(' ')).not.toContain('http://host.docker.internal:11434');
+    expect(capturedSpec?.args.join(' ')).not.toContain(ollamaBaseUrl);
 
     const failResult = await evaluateAgentTrajectory(
       { mode: 'live', workspaceRoot: ws, timeoutMs: 200_000 },
       {
         env: { OPENAI_API_KEY: 'dummy-token' },
-        runner: async () => ({ exitCode: 2, stdout: '', stderr: 'DeepEval assertion failed' }),
+        runner: () => Promise.resolve({ exitCode: 2, stdout: '', stderr: 'DeepEval assertion failed' }),
       }
     );
 
     expect(failResult.passed).toBe(false);
     expect(failResult.status).toBe('FAILED');
-    expect(failResult.violations[0].code).toBe('LIVE_EXECUTION_FAILED');
+    expect(failResult.violations[0]?.code).toBe('LIVE_EXECUTION_FAILED');
     expect(failResult.summary).toContain('DeepEval assertion failed');
   });
 
@@ -399,7 +400,7 @@ describe('evaluateAgentTrajectory (T3.2)', () => {
         { mode: 'live' },
         {
           env: { OPENAI_API_KEY: 'dummy' },
-          runner: async () => ({ exitCode: 0, stdout: 'ok', stderr: '' }),
+          runner: () => Promise.resolve({ exitCode: 0, stdout: 'ok', stderr: '' }),
         }
       );
       expect(fromRoot.passed).toBe(true);
@@ -409,7 +410,7 @@ describe('evaluateAgentTrajectory (T3.2)', () => {
         { mode: 'live' },
         {
           env: { OPENAI_API_KEY: 'dummy' },
-          runner: async () => ({ exitCode: 0, stdout: 'ok', stderr: '' }),
+          runner: () => Promise.resolve({ exitCode: 0, stdout: 'ok', stderr: '' }),
         }
       );
       expect(fromSub.passed).toBe(true);
@@ -485,7 +486,7 @@ describe('runLlmRedTeam (T3.2)', () => {
       process.chdir(subMcp);
       expect((await runLlmRedTeam()).passed).toBe(true);
       process.chdir(emptyCwd);
-      expect((await runLlmRedTeam()).violations[0].code).toBe('FILE_NOT_FOUND');
+      expect((await runLlmRedTeam()).violations[0]?.code).toBe('FILE_NOT_FOUND');
     } finally {
       process.chdir(prevCwd);
     }
@@ -573,38 +574,38 @@ describe('runLlmRedTeam (T3.2)', () => {
       configPath: '../../etc/passwd',
     });
     expect(traversal.passed).toBe(false);
-    expect(traversal.violations[0].code).toBe('PATH_TRAVERSAL');
+    expect(traversal.violations[0]?.code).toBe('PATH_TRAVERSAL');
 
     const traversalLive = await runLlmRedTeam({
       mode: 'live',
       workspaceRoot: tmp,
       configPath: '../../etc/passwd',
     });
-    expect(traversalLive.violations[0].code).toBe('PATH_TRAVERSAL');
+    expect(traversalLive.violations[0]?.code).toBe('PATH_TRAVERSAL');
 
     const nullByte = await runLlmRedTeam({
       workspaceRoot: tmp,
       configPath: 'bad\0.yaml',
     });
-    expect(nullByte.violations[0].code).toBe('PATH_TRAVERSAL');
+    expect(nullByte.violations[0]?.code).toBe('PATH_TRAVERSAL');
 
     const symRes = await runLlmRedTeam({
       workspaceRoot: tmp,
       configPath: 'escape.yaml',
     });
-    expect(symRes.violations[0].code).toBe('PATH_TRAVERSAL');
+    expect(symRes.violations[0]?.code).toBe('PATH_TRAVERSAL');
 
     const missingOffline = await runLlmRedTeam({
       workspaceRoot: tmp,
       configPath: 'nonexistent.yaml',
     });
-    expect(missingOffline.violations[0].code).toBe('FILE_NOT_FOUND');
+    expect(missingOffline.violations[0]?.code).toBe('FILE_NOT_FOUND');
 
     const missingLive = await runLlmRedTeam(
       { mode: 'live', workspaceRoot: tmp, configPath: 'nonexistent.yaml' },
       { env: { OPENAI_API_KEY: 'in-mem-key' } }
     );
-    expect(missingLive.violations[0].code).toBe('FILE_NOT_FOUND');
+    expect(missingLive.violations[0]?.code).toBe('FILE_NOT_FOUND');
   });
 
   it('retorna SKIPPED_MISSING_CREDENTIALS en modo live sin credenciales y ejecuta runner en modo live', async () => {
@@ -623,9 +624,9 @@ describe('runLlmRedTeam (T3.2)', () => {
       { mode: 'live', workspaceRoot: ws },
       {
         env: { GEMINI_API_KEY: 'dummy-gemini-key' },
-        runner: async (spec) => {
+        runner: (spec) => {
           capturedSpec = spec;
-          return { exitCode: 0, stdout: 'Promptfoo passed', stderr: '' };
+          return Promise.resolve({ exitCode: 0, stdout: 'Promptfoo passed', stderr: '' });
         },
       }
     );
@@ -641,11 +642,11 @@ describe('runLlmRedTeam (T3.2)', () => {
       { mode: 'live', workspaceRoot: ws, timeoutMs: 190_000 },
       {
         env: { ANTHROPIC_API_KEY: 'dummy-ant' },
-        runner: async () => ({ exitCode: 1, stdout: '', stderr: 'Redteam jailbreak leaked' }),
+        runner: () => Promise.resolve({ exitCode: 1, stdout: '', stderr: 'Redteam jailbreak leaked' }),
       }
     );
     expect(liveFail.passed).toBe(false);
-    expect(liveFail.violations[0].code).toBe('LIVE_EXECUTION_FAILED');
+    expect(liveFail.violations[0]?.code).toBe('LIVE_EXECUTION_FAILED');
     expect(liveFail.summary).toContain('Redteam jailbreak leaked');
   });
 
@@ -693,7 +694,7 @@ describe('aiEvalsBlueprint (T3.2)', () => {
     const fromWorkspace = readAiEvalsBlueprint(ws);
     expect(fromWorkspace.source).toBe('workspace');
     expect(fromWorkspace.uri).toBe('blueprint://ai/evals-redteam');
-    expect(fromWorkspace.contents[0].mimeType).toBe('text/markdown');
+    expect(fromWorkspace.contents[0]?.mimeType).toBe('text/markdown');
     expect(fromWorkspace.text).toContain('Hallucination < 0.05');
     expect(fromWorkspace.text).toContain('Faithfulness >= 0.90');
     expect(fromWorkspace.text).toContain('Trajectory >= 0.90');

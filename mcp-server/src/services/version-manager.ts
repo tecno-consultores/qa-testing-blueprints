@@ -10,6 +10,8 @@ import {
   resolveSafeHomeDir,
 } from './github-fetcher.js';
 import { syncGlobalGeminiMd } from '../cli/init-agents-md.js';
+import { CONNECTOR_START_MARKER } from './agents-connector.js';
+import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 import type {
   GlobalSkillAutoSyncResult,
   Manifest,
@@ -32,7 +34,6 @@ const SKILLS_PREFIX = '.agents/skills/';
 const ANCHOR_SKILL_REL = path.join('qa-11x-architect', 'SKILL.md');
 const ANCHOR_SKILL_MANIFEST_PATH = '.agents/skills/qa-11x-architect/SKILL.md';
 const LEGACY_UNSTAMPED_VERSION = 'pre-2.20.0';
-const CONNECTOR_START_MARKER = '<!-- QA_11X_MCP_CONNECTOR_START -->';
 
 interface LatestVersionCheckCache {
   latest_version: string;
@@ -68,9 +69,14 @@ export function compareSemver(a: string, b: string): number {
   const pa = parseSemver(a);
   const pb = parseSemver(b);
   if (!pa || !pb) return 0;
-  for (let i = 0; i < 3; i++) {
-    if (pa[i] > pb[i]) return 1;
-    if (pa[i] < pb[i]) return -1;
+  const pairs: readonly (readonly [number, number])[] = [
+    [pa[0], pb[0]],
+    [pa[1], pb[1]],
+    [pa[2], pb[2]],
+  ];
+  for (const [va, vb] of pairs) {
+    if (va > vb) return 1;
+    if (va < vb) return -1;
   }
   return 0;
 }
@@ -124,7 +130,9 @@ export function readVersionStamp(targetDir: string): string | null {
       return parseSemver(candidate) ? candidate.trim().replace(/^v/, '') : null;
     }
     return parseSemver(raw) ? raw.replace(/^v/, '') : null;
-  } catch {
+  } catch (err: unknown) {
+    // Optional version stamp probe: corrupt/unreadable stamp behaves as unstamped (null)
+    reportDebugCatchError('versionManager.readVersionStamp', err);
     return null;
   }
 }
@@ -160,7 +168,9 @@ function isSourceBlueprintsMonorepo(projectPath: string): boolean {
       fs.existsSync(manifestPath) &&
       fs.readFileSync(manifestPath, UTF8).includes('qa-testing-blueprints')
     );
-  } catch {
+  } catch (err: unknown) {
+    // Optional monorepo detection probe: non-monorepo fallback on I/O or JSON error
+    reportDebugCatchError('versionManager.isSourceBlueprintsMonorepo', err);
     return false;
   }
 }
@@ -170,7 +180,9 @@ function readCachedManifestSafe(cacheDir: string): Manifest | null {
   if (!fs.existsSync(manifestPath)) return null;
   try {
     return JSON.parse(fs.readFileSync(manifestPath, UTF8)) as Manifest;
-  } catch {
+  } catch (err: unknown) {
+    // Optional local cache probe: corrupt cached manifest falls back to null
+    reportDebugCatchError('versionManager.readCachedManifestSafe', err);
     return null;
   }
 }
@@ -191,7 +203,9 @@ function readLatestCheckCache(cacheDir: string): LatestVersionCheckCache | null 
       };
     }
     return null;
-  } catch {
+  } catch (err: unknown) {
+    // Optional version-check TTL cache: corrupt cache file triggers fresh check
+    reportDebugCatchError('versionManager.readLatestCheckCache', err);
     return null;
   }
 }
@@ -210,8 +224,9 @@ function writeLatestCheckCache(cacheDir: string, latestVersion: string, nowMs: n
       `${JSON.stringify(payload, null, 2)}\n`,
       UTF8
     );
-  } catch {
-    // Fail-open si el directorio de caché es de solo lectura
+  } catch (err: unknown) {
+    // Fail-open if cache directory is read-only
+    reportDebugCatchError('versionManager.writeLatestCheckCache', err);
   }
 }
 
@@ -227,7 +242,9 @@ async function fetchNpmLatestVersion(
     if (!response.ok) return null;
     const data = (await response.json()) as { version?: string };
     return data.version && parseSemver(data.version) ? data.version.trim().replace(/^v/, '') : null;
-  } catch {
+  } catch (err: unknown) {
+    // Advisory offline/timeout-safe version check: null skips remote update banner
+    reportDebugCatchError('versionManager.fetchNpmLatestVersion', err);
     return null;
   }
 }
@@ -238,7 +255,9 @@ async function fetchManifestVersionFailOpen(fetcher: GitHubFetcher): Promise<str
     return parseSemver(manifest.blueprint_version)
       ? manifest.blueprint_version.trim().replace(/^v/, '')
       : null;
-  } catch {
+  } catch (err: unknown) {
+    // Advisory offline/timeout-safe manifest version probe: null preserves running version
+    reportDebugCatchError('versionManager.fetchManifestVersionFailOpen', err);
     return null;
   }
 }

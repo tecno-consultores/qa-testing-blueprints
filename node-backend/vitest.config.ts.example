@@ -27,6 +27,7 @@ export default defineConfig({
         'test/**',
         'tests/**',
         'e2e/**',
+        '*.config.mjs',
         'vitest.config.ts',
         'stryker.conf.json'
       ]

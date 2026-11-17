@@ -90,7 +90,7 @@ describe('TaskStateGuard & Lifecycle Resilience (T1.4)', () => {
         await gate.promise;
         return 'first-ok';
       });
-      const p2 = guard.executeTask(async () => 'second-should-reject');
+      const p2 = guard.executeTask(() => Promise.resolve('second-should-reject'));
 
       expect(guard.getState()).toBe('BUSY');
       gate.resolve();
@@ -119,7 +119,11 @@ describe('TaskStateGuard & Lifecycle Resilience (T1.4)', () => {
       const makeWorker = (idx: number) =>
         guard.executeTask(async () => {
           maxObserved = Math.max(maxObserved, guard.getActiveCount());
-          return gates[idx].promise;
+          const gate = gates[idx];
+          if (!gate) {
+            throw new Error(`Missing gate at index ${idx}`);
+          }
+          return gate.promise;
         });
 
       const p1 = makeWorker(0);
@@ -139,11 +143,11 @@ describe('TaskStateGuard & Lifecycle Resilience (T1.4)', () => {
         extensionUri: TASK_CAPACITY_EXTENSION_URI,
       });
 
-      const p4 = guard.executeTask(async () => 99).catch((err: unknown) => err);
+      const p4 = guard.executeTask(() => Promise.resolve(99)).catch((err: unknown) => err);
 
-      gates[0].resolve(1);
-      gates[1].resolve(2);
-      gates[2].resolve(3);
+      gates[0]?.resolve(1);
+      gates[1]?.resolve(2);
+      gates[2]?.resolve(3);
 
       const results = await Promise.all([p1, p2, p3, p4]);
       expect(maxObserved).toBe(3);
@@ -178,7 +182,7 @@ describe('TaskStateGuard & Lifecycle Resilience (T1.4)', () => {
           new Promise<string>((_resolve, reject) => {
             signal.addEventListener('abort', () => {
               observedAborted = true;
-              reject(signal.reason);
+              reject(signal.reason instanceof Error ? signal.reason : new Error(String(signal.reason)));
             });
           }),
         { taskId: 'stuck-job' }
@@ -198,7 +202,7 @@ describe('TaskStateGuard & Lifecycle Resilience (T1.4)', () => {
       expect(healthBefore.recovered).toBe(false);
       expect(healthBefore.snapshot.stuckTasks).toBe(1);
 
-      const blockedErr = await guard.executeTask(async () => 'nope').catch((err: unknown) => err);
+      const blockedErr = await guard.executeTask(() => Promise.resolve('nope')).catch((err: unknown) => err);
       expect(blockedErr).toBeInstanceOf(TaskGuardError);
       expect((blockedErr as TaskGuardError).statusCode).toBe(503);
       expect((blockedErr as TaskGuardError).code).toBe('GUARD_BROKEN');
@@ -212,7 +216,7 @@ describe('TaskStateGuard & Lifecycle Resilience (T1.4)', () => {
       expect(guard.getState()).toBe('AVAILABLE');
       expect(guard.getBrokenReason()).toBeNull();
 
-      const afterRecovery = await guard.executeTask(async () => 'healthy-again');
+      const afterRecovery = await guard.executeTask(() => Promise.resolve('healthy-again'));
       expect(afterRecovery).toBe('healthy-again');
     });
 
@@ -244,12 +248,12 @@ describe('TaskStateGuard & Lifecycle Resilience (T1.4)', () => {
       let callsReadOnly = 0;
 
       const res1 = await guard.executeTask(
-        async () => {
+        () => {
           callsReadOnly += 1;
           if (callsReadOnly === 1) {
-            throw makeErrno('socket reset', 'ECONNRESET');
+            return Promise.reject(makeErrno('socket reset', 'ECONNRESET'));
           }
-          return 'ok-after-retry';
+          return Promise.resolve('ok-after-retry');
         },
         { readOnly: true }
       );
@@ -258,12 +262,12 @@ describe('TaskStateGuard & Lifecycle Resilience (T1.4)', () => {
 
       let callsIdempotent = 0;
       const res2 = await guard.executeTask(
-        async () => {
+        () => {
           callsIdempotent += 1;
           if (callsIdempotent === 1) {
-            throw new Error('stream truncated prematurely');
+            return Promise.reject(new Error('stream truncated prematurely'));
           }
-          return 'ok-idempotent';
+          return Promise.resolve('ok-idempotent');
         },
         { idempotent: true }
       );
@@ -273,9 +277,9 @@ describe('TaskStateGuard & Lifecycle Resilience (T1.4)', () => {
       let doubleFailCalls = 0;
       await expect(
         guard.executeTask(
-          async () => {
+          () => {
             doubleFailCalls += 1;
-            throw makeErrno('timed out twice', 'ETIMEDOUT');
+            return Promise.reject(makeErrno('timed out twice', 'ETIMEDOUT'));
           },
           { idempotent: true }
         )
@@ -289,9 +293,9 @@ describe('TaskStateGuard & Lifecycle Resilience (T1.4)', () => {
 
       await expect(
         guard.executeTask(
-          async () => {
+          () => {
             mutateCalls += 1;
-            throw makeErrno('reset during mutation', 'ECONNRESET');
+            return Promise.reject(makeErrno('reset during mutation', 'ECONNRESET'));
           },
           { idempotent: false }
         )
@@ -301,9 +305,9 @@ describe('TaskStateGuard & Lifecycle Resilience (T1.4)', () => {
       let overrideCalls = 0;
       await expect(
         guard.executeTask(
-          async () => {
+          () => {
             overrideCalls += 1;
-            throw makeErrno('reset with explicit override', 'ECONNRESET');
+            return Promise.reject(makeErrno('reset with explicit override', 'ECONNRESET'));
           },
           { readOnly: true, idempotent: false }
         )
@@ -313,9 +317,9 @@ describe('TaskStateGuard & Lifecycle Resilience (T1.4)', () => {
       let domainCalls = 0;
       await expect(
         guard.executeTask(
-          async () => {
+          () => {
             domainCalls += 1;
-            throw new Error('400 Bad Request validation failure');
+            return Promise.reject(new Error('400 Bad Request validation failure'));
           },
           { idempotent: true }
         )
@@ -354,9 +358,7 @@ describe('TaskStateGuard & Lifecycle Resilience (T1.4)', () => {
 
       await expect(
         guard.executeTask(
-          async () => {
-            throw makeErrno('stream closed mid-transfer', 'ERR_STREAM_PREMATURE_CLOSE');
-          },
+          () => Promise.reject(makeErrno('stream closed mid-transfer', 'ERR_STREAM_PREMATURE_CLOSE')),
           {
             profile: 'heavy_transfer',
             timeoutMs: 200,
@@ -418,7 +420,7 @@ describe('TaskStateGuard & Lifecycle Resilience (T1.4)', () => {
       const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 
       const probe = await probeTtyExitNonBlocking(async (exitFn) => {
-        await main([], undefined, { exitFn, autoSyncFn: async () => undefined, isStdinTty: true });
+        await main([], undefined, { exitFn, autoSyncFn: () => Promise.resolve(undefined), isStdinTty: true });
       }, 2_000);
 
       expect(probe.exitCode).toBe(0);
@@ -427,7 +429,7 @@ describe('TaskStateGuard & Lifecycle Resilience (T1.4)', () => {
       expect(shouldExitInteractiveTty('stdio-forced', false, true)).toBe(false);
 
       await expect(
-        probeTtyExitNonBlocking(async () => undefined, 200)
+        probeTtyExitNonBlocking(() => Promise.resolve(undefined), 200)
       ).rejects.toThrowError(TaskGuardError);
     });
 
@@ -468,9 +470,7 @@ describe('TaskStateGuard & Lifecycle Resilience (T1.4)', () => {
         const rejectExitCodes: number[] = [];
         await main([], undefined, {
           exitFn: (code) => rejectExitCodes.push(code),
-          autoSyncFn: async () => {
-            throw new Error('auto-sync async failure');
-          },
+          autoSyncFn: () => Promise.reject(new Error('auto-sync async failure')),
           isStdinTty: true,
         });
         await main([], undefined, {

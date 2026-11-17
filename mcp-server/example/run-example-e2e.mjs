@@ -110,22 +110,36 @@ async function verifyAllResources(client, expectedVersion) {
   const staticUris = listedResources.resources.map((r) => r.uri);
   const templateUris = listedTemplates.resourceTemplates.map((t) => t.uriTemplate);
 
-  assert.equal(staticUris.length, 13, `Se esperaban 13 recursos listados y llegaron ${staticUris.length}`);
+  assert.equal(staticUris.length, 11, `Se esperaban 11 recursos estáticos en resources/list y llegaron ${staticUris.length}`);
+  assert.ok(!staticUris.includes('blueprint://{stack}/readme'), 'resources/list no debe incluir template blueprint://{stack}/readme');
+  assert.ok(!staticUris.includes('blueprint://ui/refactoring-ui/{topic}'), 'resources/list no debe incluir template blueprint://ui/refactoring-ui/{topic}');
   assert.equal(templateUris.length, 2, `Se esperaban 2 resourceTemplates y llegaron ${templateUris.length}`);
+  assert.ok(templateUris.includes('blueprint://{stack}/readme'), 'Falta template blueprint://{stack}/readme en resources/templates/list');
+  assert.ok(templateUris.includes('blueprint://ui/refactoring-ui/{topic}'), 'Falta template blueprint://ui/refactoring-ui/{topic} en resources/templates/list');
+  assert.equal(staticUris.length + templateUris.length, 13, 'Superficie total de recursos MCP debe ser 13 (11 estáticos + 2 templates)');
   for (const requiredUri of [
+    'blueprint://manifest',
+    'blueprint://core/philosophy',
+    'blueprint://security/disa-owasp-22',
+    'blueprint://database/postgres-rls-worm',
+    'blueprint://core/active-task-template',
+    'blueprint://core/cleanup-script',
+    'blueprint://core/roadmap-validator',
     'blueprint://ai/evals-redteam',
     'blueprint://mobile-appium/readme',
     'blueprint://vibe-rescue/readme',
     'blueprint://skills/tactical-patterns-11x',
   ]) {
-    assert.ok(staticUris.includes(requiredUri), `Falta recurso v2 '${requiredUri}' en resources/list`);
+    assert.ok(staticUris.includes(requiredUri), `Falta recurso estático '${requiredUri}' en resources/list`);
   }
 
   const urisToRead = [
     'blueprint://manifest',
     'blueprint://core/philosophy',
+    'blueprint://core/philosophy?lang=es',
     'blueprint://security/disa-owasp-22',
     'blueprint://database/postgres-rls-worm',
+    'blueprint://python/readme',
     'blueprint://fastapi/readme',
     'blueprint://vue3/readme',
     'blueprint://ui/refactoring-ui/hierarchy',

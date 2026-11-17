@@ -11,7 +11,7 @@ import {
   QaTrackedFindingSummary,
   TrackedFindingStatus,
 } from '../types.js';
-import { sanitizeCommandSecrets } from '../utils/diagnosticFormatter.js';
+import { reportDebugCatchError, sanitizeCommandSecrets } from '../utils/diagnosticFormatter.js';
 
 export const QA_EVIDENCE_REL_PATH = '.agents/.qa-evidence.json';
 export const CERTIFY_STATE_REL_PATH = '.agents/.cache/certify_state.json';
@@ -133,8 +133,9 @@ function hashSingleCodeEntry(gitRoot: string, relFile: string): string {
     if (st.isDirectory()) {
       return `${relFile}:DIR`;
     }
-  } catch {
-    // Archivo eliminado o inaccesible en el árbol de trabajo
+  } catch (err: unknown) {
+    // Deleted or inaccessible working-tree file is fingerprinted deterministically as DELETED
+    reportDebugCatchError(`qaEvidence.hashSingleCodeEntry(${relFile})`, err);
   }
   return `${relFile}:DELETED`;
 }
@@ -147,7 +148,9 @@ function readHeadCommitOrFallback(gitRoot: string, execFileSyncFn: typeof execFi
       stdio: ['ignore', 'pipe', 'ignore'],
     });
     return String(out).trim() || 'UNBORN_HEAD';
-  } catch {
+  } catch (err: unknown) {
+    // Repository with no initial commit yet falls back to UNBORN_HEAD sentinel
+    reportDebugCatchError('qaEvidence.readHeadCommitOrFallback', err);
     return 'UNBORN_HEAD';
   }
 }
@@ -170,7 +173,7 @@ function collectChangedCodeFiles(rawLines: readonly string[]): string[] {
       }
     }
   }
-  return Array.from(codeSet).sort();
+  return Array.from(codeSet).sort((a, b) => a.localeCompare(b));
 }
 
 export function computeCodeStateFingerprint(
@@ -223,7 +226,9 @@ export function computeCodeStateFingerprint(
       codeFiles,
       fingerprint: hasher.digest('hex'),
     };
-  } catch {
+  } catch (err: unknown) {
+    // Git CLI unavailable or non-git workspace yields null fingerprint so gate reports SKIPPED
+    reportDebugCatchError('qaEvidence.computeCodeStateFingerprint', err);
     return {
       isGitRepo: true,
       gitRoot,
@@ -254,8 +259,9 @@ function readEvidenceDocument(evidencePath: string): QaEvidenceDocument {
         return { version: 1, stages: { ...parsed.stages } };
       }
     }
-  } catch {
-    // Si está corrupto, reiniciar estructura
+  } catch (err: unknown) {
+    // Corrupt/unreadable ephemeral evidence file resets cleanly; missing stamp still fails dirty checks
+    reportDebugCatchError(`qaEvidence.readEvidenceDocument(${evidencePath})`, err);
   }
   return { version: 1, stages: {} };
 }
@@ -291,8 +297,9 @@ export function recordQaStageEvidence(
       doc.stages.integration = stampValue;
     }
     fs.writeFileSync(evidencePath, JSON.stringify(doc, null, 2), 'utf8');
-  } catch {
-    // Entorno de solo lectura: ignorar fallo de escritura de caché efímera
+  } catch (err: unknown) {
+    // Read-only mounted workspaces cannot persist ephemeral cache stamps; emit debug trace only
+    reportDebugCatchError('qaEvidence.recordQaStageEvidence', err);
   }
 }
 
@@ -396,13 +403,21 @@ function stripKnownContainerPrefixes(filePath: string): string {
   return current;
 }
 
+function trimTrailingSlashes(raw: string): string {
+  let end = raw.length;
+  while (end > 0 && raw[end - 1] === '/') {
+    end -= 1;
+  }
+  return raw.slice(0, end);
+}
+
 function normalizeRelativeFindingFile(rawPath: string, workspacePath: string): string {
   let cleaned = sanitizeCommandSecrets(rawPath).replace(/\\/g, '/').trim();
   cleaned = cleaned
     .replace(COLON_LINE_COL_SUFFIX_RE, '')
     .replace(COLON_LINE_SUFFIX_RE, '')
     .replace(PAREN_LINE_COL_SUFFIX_RE, '');
-  const wsPrefix = `${path.resolve(workspacePath).replace(/\\/g, '/').replace(/\/+$/, '')}/`;
+  const wsPrefix = `${trimTrailingSlashes(path.resolve(workspacePath).replace(/\\/g, '/'))}/`;
   if (cleaned.startsWith(wsPrefix)) {
     cleaned = cleaned.slice(wsPrefix.length);
   }
@@ -468,7 +483,9 @@ function runGitTrimmed(
     });
     const out = String(raw).trim();
     return out || null;
-  } catch {
+  } catch (err: unknown) {
+    // Non-git or unborn branch metadata falls back to path-based session key
+    reportDebugCatchError(`qaEvidence.readGitCommandOutput(${args.join(' ')})`, err);
     return null;
   }
 }
@@ -539,7 +556,9 @@ function readCertifyStateDocument(statePath: string): CertifyStateDocument {
       sessions[key] = normalizeSessionEntry(entry);
     }
     return { version: 1, sessions };
-  } catch {
+  } catch (err: unknown) {
+    // Corrupt circuit-breaker state resets cleanly rather than crashing gate evaluation
+    reportDebugCatchError(`qaEvidence.readCertifyStateDocument(${statePath})`, err);
     return { version: 1, sessions: {} };
   }
 }
@@ -578,7 +597,8 @@ function countOscillations(historySets: ReadonlyArray<Set<string>>, fingerprint:
 function countTrailingStreak(historySets: ReadonlyArray<Set<string>>, fingerprint: string): number {
   let streak = 0;
   for (let idx = historySets.length - 1; idx >= 0; idx -= 1) {
-    if (!historySets[idx].has(fingerprint)) {
+    const entrySet = historySets[idx];
+    if (!entrySet || !entrySet.has(fingerprint)) {
       break;
     }
     streak += 1;
@@ -651,7 +671,7 @@ export function recordQaStageFindingsState(
     const normalized = normalizeFindingForFingerprint(item, root, stage);
     deduped.set(normalized.fingerprint, normalized);
   }
-  const orderedKeys = Array.from(deduped.keys()).sort();
+  const orderedKeys = Array.from(deduped.keys()).sort((a, b) => a.localeCompare(b));
 
   const blockingFindings: QaTrackedFindingSummary[] = [];
   let maxStreakObserved = 0;

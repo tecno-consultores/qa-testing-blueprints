@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
-import * as fs from 'node:fs';
+import fs from 'node:fs';
 import * as path from 'node:path';
 import { FetchedFileItem, MergeFilesOptions, MergeResultItem } from '../types.js';
-import { mergeOrAppendAgentsMdContent } from '../cli/init-agents-md.js';
+import { mergeOrAppendAgentsMdContent } from './agents-connector.js';
 import { resolveSafeChildPath } from './github-fetcher.js';
+import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 
 const ALLOW_PLUGINS_KEY = 'allow-plugins';
 const REQUIRE_DEV_KEY = 'require-dev';
@@ -23,8 +24,10 @@ export class SurgicalMerger {
     let targetObj: Record<string, unknown> = {};
     if (targetContent.trim()) {
       try {
-        targetObj = JSON.parse(targetContent);
-      } catch {
+        targetObj = JSON.parse(targetContent) as Record<string, unknown>;
+      } catch (err: unknown) {
+        // Invalid existing package.json JSON starts from clean merge object rather than crashing
+        reportDebugCatchError('surgicalMerger.mergePackageJson', err);
         targetObj = {};
       }
     }
@@ -145,7 +148,7 @@ export class SurgicalMerger {
       if (!inBlock) continue;
       if (/^[A-Za-z0-9_.-]+:/.test(line)) break;
       const entryMatch = /^\s+([^\s:#]+|"[^"]+"|'[^']+')\s*:\s*(true|false)\s*$/.exec(line);
-      if (entryMatch) {
+      if (entryMatch && entryMatch[1] !== undefined && entryMatch[2] !== undefined) {
         entries.push([entryMatch[1], entryMatch[2]]);
       }
     }
@@ -202,7 +205,11 @@ export class SurgicalMerger {
     }
 
     let insertAt = headerIdx + 1;
-    while (insertAt < targetLines.length && !/^[A-Za-z0-9_.-]+:/.test(targetLines[insertAt])) {
+    while (insertAt < targetLines.length) {
+      const candidateLine = targetLines[insertAt];
+      if (candidateLine === undefined || /^[A-Za-z0-9_.-]+:/.test(candidateLine)) {
+        break;
+      }
       insertAt++;
     }
     targetLines.splice(insertAt, 0, ...missingLines);
@@ -228,7 +235,9 @@ export class SurgicalMerger {
     try {
       targetObj = JSON.parse(targetContent) as Record<string, unknown>;
       exampleObj = JSON.parse(exampleContent) as Record<string, unknown>;
-    } catch {
+    } catch (err: unknown) {
+      // Unparseable JSON in .eslintrc.json preserves existing file content non-destructively
+      reportDebugCatchError('surgicalMerger.mergeEslintrcJson', err);
       return { merged: targetContent.trimEnd() + '\n', changes: [] };
     }
 
@@ -242,12 +251,32 @@ export class SurgicalMerger {
     };
   }
 
+  /**
+   * Fusión quirúrgica no destructiva para eslint.config.mjs (ESLint 9 Flat Config):
+   * Crea la plantilla si está vacía o preserva el módulo JS existente sin corromper sintaxis.
+   */
+  public mergeEslintConfigMjs(
+    targetContent: string,
+    exampleContent: string
+  ): { merged: string; changes: string[] } {
+    if (!targetContent.trim()) {
+      return {
+        merged: exampleContent.trimEnd() + '\n',
+        changes: ['Creado eslint.config.mjs con configuración Flat Config 11X.'],
+      };
+    }
+    return {
+      merged: targetContent.trimEnd() + '\n',
+      changes: [],
+    };
+  }
+
   private migrateSecurityRecommendedLegacy(
     targetObj: Record<string, unknown>,
     changes: string[]
   ): void {
     if (!Array.isArray(targetObj.extends)) return;
-    targetObj.extends = targetObj.extends.map((entry) => {
+    targetObj.extends = targetObj.extends.map((entry: unknown): unknown => {
       if (entry === 'plugin:security/recommended') {
         changes.push(
           'Migrado "plugin:security/recommended" a "plugin:security/recommended-legacy" (ESLint 8)'
@@ -342,14 +371,18 @@ export class SurgicalMerger {
     if (targetContent.trim()) {
       try {
         targetObj = JSON.parse(targetContent) as Record<string, unknown>;
-      } catch {
+      } catch (err: unknown) {
+        // Malformed existing composer.json falls back to empty object for template injection
+        reportDebugCatchError('surgicalMerger.mergeComposerJson(target)', err);
         targetObj = {};
       }
     }
     let exampleObj: Record<string, unknown> = {};
     try {
       exampleObj = JSON.parse(exampleContent) as Record<string, unknown>;
-    } catch {
+    } catch (err: unknown) {
+      // Unparseable example composer template safely yields no additions
+      reportDebugCatchError('surgicalMerger.mergeComposerJson(example)', err);
       exampleObj = {};
     }
     const changes: string[] = [];
@@ -405,11 +438,12 @@ export class SurgicalMerger {
     const indices: Array<{ name: string; index: number }> = [];
 
     while ((match = sectionRegex.exec(exampleContent)) !== null) {
-      indices.push({ name: match[1], index: match.index });
+      if (match[1] !== undefined) {
+        indices.push({ name: match[1], index: match.index });
+      }
     }
 
-    for (let i = 0; i < indices.length; i++) {
-      const current = indices[i];
+    for (const [i, current] of indices.entries()) {
       const next = indices[i + 1];
       const sectionText = next
         ? exampleContent.slice(current.index, next.index).trim()
@@ -494,7 +528,7 @@ export class SurgicalMerger {
 
     for (const line of targetLines) {
       const targetMatch = /^([a-zA-Z0-9_.-]+):/.exec(line);
-      if (targetMatch) {
+      if (targetMatch && targetMatch[1] !== undefined) {
         existingTargets.add(targetMatch[1]);
       }
     }
@@ -505,7 +539,7 @@ export class SurgicalMerger {
 
     for (const block of exampleBlocks) {
       const targetMatch = /^([a-zA-Z0-9_.-]+):/.exec(block.trim());
-      if (targetMatch) {
+      if (targetMatch && targetMatch[1] !== undefined) {
         const targetName = targetMatch[1];
         if (!existingTargets.has(targetName)) {
           appendedBlocks += `\n# --- Añadido por QA 11X Blueprints ---\n${block.trim()}\n`;
@@ -574,8 +608,8 @@ export class SurgicalMerger {
     let currentLines: string[] = [];
 
     for (const line of exampleContent.split(/\r?\n/)) {
-      const topMatch = line.match(/^([a-zA-Z0-9_-]+):\s*$/);
-      if (topMatch) {
+      const topMatch = /^([a-zA-Z0-9_-]+):\s*$/.exec(line);
+      if (topMatch && topMatch[1] !== undefined) {
         if (currentHeader) {
           topLevelBlocks.push({ header: currentHeader, lines: currentLines });
         }
@@ -639,6 +673,7 @@ export class SurgicalMerger {
       Makefile: (e, x) => this.mergeMakefile(e, x),
       'pnpm-workspace.yaml': (e, x) => this.mergePnpmWorkspaceYaml(e, x),
       '.eslintrc.json': (e, x) => this.mergeEslintrcJson(e, x),
+      'eslint.config.mjs': (e, x) => this.mergeEslintConfigMjs(e, x),
       'vitest.setup.ts': (e, x) => this.mergeVitestSetupTs(e, x),
       'lefthook.yml': (e, x) => this.mergeLefthookYaml(e, x),
       'lefthook.yaml': (e, x) => this.mergeLefthookYaml(e, x),
@@ -655,6 +690,13 @@ export class SurgicalMerger {
     }
     const res = this.mergeGitignoreOrNpmrc(existingContent, exampleContent);
     return { finalContent: res.merged, changes: res.changes };
+  }
+
+  private resolveMergeStatus(hasChanges: boolean, dryRun: boolean): 'merged' | 'skipped' | 'dry_run' {
+    if (!hasChanges) {
+      return 'skipped';
+    }
+    return dryRun ? 'dry_run' : 'merged';
   }
 
   private processExistingFile(
@@ -675,7 +717,7 @@ export class SurgicalMerger {
 
     if (item.merge_strategy === 'append_missing_lines') {
       const res = this.mergeGitignoreOrNpmrc(existingContent, item.content);
-      const status = res.changes.length > 0 ? (dryRun ? 'dry_run' : 'merged') : 'skipped';
+      const status = this.resolveMergeStatus(res.changes.length > 0, dryRun);
       return { status, changes: res.changes, finalContent: res.merged };
     }
 
@@ -686,7 +728,7 @@ export class SurgicalMerger {
         item.content,
         projectName
       );
-      const status = res.changes.length > 0 ? (dryRun ? 'dry_run' : 'merged') : 'skipped';
+      const status = this.resolveMergeStatus(res.changes.length > 0, dryRun);
       return { status, changes: res.changes, finalContent: res.finalContent };
     }
 
@@ -716,9 +758,11 @@ export class SurgicalMerger {
       targetName.endsWith('.py')
     ) {
       try {
+        // eslint-disable-next-line sonarjs/file-permissions -- Shared repo scripts require 0o755 so non-root Docker UIDs can execute them
         fs.chmodSync(targetFilePath, 0o755);
-      } catch {
-        // Ignorar en sistemas que no soporten chmod
+      } catch (err: unknown) {
+        // Filesystems without POSIX chmod support (e.g. Windows/read-only) safely ignore permission sync
+        reportDebugCatchError(`surgicalMerger.writeMergedFile.chmod(${targetName})`, err);
       }
     }
   }
@@ -754,7 +798,7 @@ export class SurgicalMerger {
   /**
    * Ejecuta la fusión completa no destructiva sobre el proyecto destino
    */
-  public async mergeFiles(
+  public mergeFiles(
     targetProjectDir: string,
     bundleFiles: FetchedFileItem[],
     options?: MergeFilesOptions
@@ -764,6 +808,21 @@ export class SurgicalMerger {
     summary: { total_files: number; created: number; merged: number; skipped: number };
     applied_changes: MergeResultItem[];
   }> {
+    return Promise.resolve().then(() =>
+      this.executeMergeFiles(targetProjectDir, bundleFiles, options)
+    );
+  }
+
+  private executeMergeFiles(
+    targetProjectDir: string,
+    bundleFiles: FetchedFileItem[],
+    options?: MergeFilesOptions
+  ): {
+    project_path: string;
+    dry_run: boolean;
+    summary: { total_files: number; created: number; merged: number; skipped: number };
+    applied_changes: MergeResultItem[];
+  } {
     const dryRun = options?.dryRun ?? false;
     const appliedChanges: MergeResultItem[] = [];
     let createdCount = 0;

@@ -493,18 +493,24 @@ def _derive_tools_count(root: Path) -> int:
     idx_path = root / "mcp-server" / "src" / "index.ts"
     srv_src = srv_path.read_text(encoding="utf-8") if srv_path.is_file() else ""
     idx_src = idx_path.read_text(encoding="utf-8") if idx_path.is_file() else ""
+    combined = f"{srv_src}\n{idx_src}"
     reg_re = r"\bserver\.(?:tool|registerTool)\(\s*['\"][a-z0-9_-]+['\"]"
-    v1_count = len(re.findall(reg_re, srv_src)) + len(re.findall(reg_re, idx_src))
-    v2_count = _extract_bracket_items(
-        idx_src,
-        r"V2_TOOL_DEFINITIONS[^=]*=\s*\[([^\]]+)\]",
-        r"\b[A-Z0-9_]+_TOOL\b",
+    v1_count = len(re.findall(reg_re, combined))
+    v2_match = re.search(
+        r"V2_TOOL_(?:DEFINITIONS|REGISTRATIONS)[^=]*=\s*\[(.*?)\];",
+        combined,
+        re.DOTALL,
     )
-    total = v1_count + v2_count
+    v2_tools = (
+        set(re.findall(r"\b[A-Z0-9_]+_TOOL\b", v2_match.group(1)))
+        if v2_match
+        else set()
+    )
+    total = v1_count + len(v2_tools)
     if total > 0:
         return total
     arr_count = _extract_bracket_items(
-        srv_src + "\n" + idx_src,
+        combined,
         r"\btools\s*=\s*\[([^\]]+)\]",
         r"['\"][a-z0-9_-]+['\"]",
     )
@@ -516,17 +522,26 @@ def _derive_resources_count(root: Path) -> int:
     idx_path = root / "mcp-server" / "src" / "index.ts"
     srv_src = srv_path.read_text(encoding="utf-8") if srv_path.is_file() else ""
     idx_src = idx_path.read_text(encoding="utf-8") if idx_path.is_file() else ""
+    combined = f"{srv_src}\n{idx_src}"
     res_re = (
-        r"\bserver\.(?:resource|registerResource)\(\s*['\"][^'\"]+['\"]\s*,\s*"
-        r"(?:new\s+ResourceTemplate\(\s*)?['\"]blueprint://[^'\"]+['\"]"
+        r"\bserver\.(?:resource|registerResource)\(\s*"
+        r"(?:['\"][^'\"]+['\"]|([A-Z0-9_]+_RESOURCE)\.name)\s*,\s*"
+        r"(?:(?:new\s+ResourceTemplate\(\s*)?['\"]blueprint://[^'\"]+['\"]|([A-Z0-9_]+_RESOURCE)\.uri)"
     )
-    v1_count = len(re.findall(res_re, srv_src)) + len(re.findall(res_re, idx_src))
-    v2_count = _extract_bracket_items(
-        idx_src,
+    matches = re.findall(res_re, combined)
+    registered_syms = {sym for pair in matches for sym in pair if sym}
+    v1_count = len(matches)
+    v2_match = re.search(
         r"V2_RESOURCE_DEFINITIONS[^=]*=\s*\[([^\]]+)\]",
-        r"\b[A-Z0-9_]+_RESOURCE\b",
+        combined,
+        re.DOTALL,
     )
-    total = v1_count + v2_count
+    v2_syms = (
+        set(re.findall(r"\b([A-Z0-9_]+_RESOURCE)\b", v2_match.group(1)))
+        if v2_match
+        else set()
+    )
+    total = v1_count + len(v2_syms - registered_syms)
     return total if total > 0 else EXPECTED_RESOURCES_COUNT
 
 

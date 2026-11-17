@@ -39,6 +39,7 @@ export default defineConfig({
         '*.config.ts',
         '*.config.js',
         '*.config.cjs',
+        '*.config.mjs',
         'lighthouserc.cjs',
         'lighthouserc.js',
         'src/main.tsx',

@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "3.1.0",
-  "generated_at_utc": "2026-11-17T05:32:41Z",
+  "generated_at_utc": "2026-11-17T06:47:31Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -283,17 +283,10 @@
     "node-backend": {
       "description": "Node.js / TypeScript Backend Microservices (Express / Fastify + Vitest >= 95% + Pact/k6)",
       "readme": "node-backend/README.md",
-      "readme_sha256": "7255e6300695b0cfc3b721fb335be579701a312421b7f9a860078ac278d24e04",
+      "readme_sha256": "3bb3bfa9a23ecce315680cc050db3687df1a2e458db5f7b7ab3ebf3cf0fb6db5",
       "readme_es": "node-backend/README.es.md",
-      "readme_es_sha256": "779766bac71548a7d0f2e634a1b756e941642cd1d441d13eee2092f09dfcfffd",
+      "readme_es_sha256": "ee5fd9b98b143cfbab36d180da567de710041420ff15e89ac8be667fac663327",
       "files": [
-        {
-          "path": "node-backend/.eslintrc.json.example",
-          "target_name": ".eslintrc.json",
-          "merge_strategy": "surgical_merge",
-          "sha256": "ab5f99742835539019b686f90b9d2fb204b2fd14824b25e70543eb879f219395",
-          "size_bytes": 1059
-        },
         {
           "path": "node-backend/.prettierrc.example",
           "target_name": ".prettierrc",
@@ -323,6 +316,13 @@
           "size_bytes": 4827
         },
         {
+          "path": "node-backend/eslint.config.mjs.example",
+          "target_name": "eslint.config.mjs",
+          "merge_strategy": "surgical_merge",
+          "sha256": "355f225dec4432395b80e112c44bf0d97640c96506482829d7be09d917a9deb4",
+          "size_bytes": 1482
+        },
+        {
           "path": "node-backend/gitignore.example",
           "target_name": ".gitignore",
           "merge_strategy": "append_missing_lines",
@@ -347,8 +347,8 @@
           "path": "node-backend/package.json.example",
           "target_name": "package.json",
           "merge_strategy": "surgical_merge",
-          "sha256": "8d3cc89ab6738855464aa2f4c58f8947c098573c847bcd9c78d015f6a3d31e4f",
-          "size_bytes": 1769
+          "sha256": "37f641b94f5dffc2fce8eca7744d980cc62c1666b8a21c02ad900682a180f4fc",
+          "size_bytes": 1743
         },
         {
           "path": "node-backend/pnpm-workspace.yaml.example",
@@ -389,8 +389,8 @@
           "path": "node-backend/vitest.config.ts.example",
           "target_name": "vitest.config.ts",
           "merge_strategy": "surgical_merge",
-          "sha256": "a064f8ba38696e28bd6e869b5c7cf638220fdb786ff0df677f7d1b901a0aac44",
-          "size_bytes": 936
+          "sha256": "5174cd70be2bcbff2da469c7f28252a020af9fe8711fba051e106e4700436fac",
+          "size_bytes": 960
         }
       ]
     },
@@ -541,9 +541,9 @@
     "react-frontend": {
       "description": "React + TypeScript + Vite Frontend (Screenplay, RTL, Playwright, Axe-core, Lighthouse)",
       "readme": "react-frontend/README.md",
-      "readme_sha256": "68bcb3c56b376eb9b8e15872746825c765428245b3f8ecbd651e58294c2ebdac",
+      "readme_sha256": "4bc5949acfbbf6b6216e9071b96aecb075fe5ca633abe74c1612f92288c47fe9",
       "readme_es": "react-frontend/README.es.md",
-      "readme_es_sha256": "3776bc2269f65e2881e77932e5f68bee4b6f46768c8551e1916bb72b1220391d",
+      "readme_es_sha256": "e17bcdfabc1e0687f89d0027e4efb8d18c0c6ce20fd78fcf3ba3154087ac3e1b",
       "files": [
         {
           "path": "react-frontend/.browserslistrc.example",
@@ -551,13 +551,6 @@
           "merge_strategy": "surgical_merge",
           "sha256": "00e4c16758c933c5411680decad48410c2e608760544315399a435b14141e419",
           "size_bytes": 40
-        },
-        {
-          "path": "react-frontend/.eslintrc.json.example",
-          "target_name": ".eslintrc.json",
-          "merge_strategy": "surgical_merge",
-          "sha256": "0f8b1d2ea7f314e86a7ed8bdfab788d019b9db08936804c982f09d207b0ed5e2",
-          "size_bytes": 1647
         },
         {
           "path": "react-frontend/.prettierrc.example",
@@ -586,6 +579,13 @@
           "merge_strategy": "copy_if_missing",
           "sha256": "5ecb63033e982cabf2bec5a369c15cbb852d452623f8fb75d1cda18990fadd92",
           "size_bytes": 2495
+        },
+        {
+          "path": "react-frontend/eslint.config.mjs.example",
+          "target_name": "eslint.config.mjs",
+          "merge_strategy": "surgical_merge",
+          "sha256": "207742279e245a4b0186d785c9d0f41514cb0d5bf58b804c9fd8d64f0528a77f",
+          "size_bytes": 2241
         },
         {
           "path": "react-frontend/gitignore.example",
@@ -626,8 +626,8 @@
           "path": "react-frontend/package.json.example",
           "target_name": "package.json",
           "merge_strategy": "surgical_merge",
-          "sha256": "c67986e222ce9430b7a4b69507624ef68e9e764798c6fad45318366309715a04",
-          "size_bytes": 2009
+          "sha256": "8fd2b7dba44e4e11d0e04e69d561d2ddde6560401945e6d17dc3fb978f06568f",
+          "size_bytes": 1971
         },
         {
           "path": "react-frontend/playwright.config.ts.example",
@@ -689,8 +689,8 @@
           "path": "react-frontend/vitest.config.ts.example",
           "target_name": "vitest.config.ts",
           "merge_strategy": "surgical_merge",
-          "sha256": "2f3423537838f62d2bebbc7dfce6cfa4f2abac3bd4f2f5d532500c6f54fe85b2",
-          "size_bytes": 1169
+          "sha256": "a9bbecd18d49f234784f2bfda25e1c2d36945e55bfc4856ba851845e1083d750",
+          "size_bytes": 1193
         },
         {
           "path": "react-frontend/vitest.setup.ts.example",
@@ -767,13 +767,6 @@
           "size_bytes": 40
         },
         {
-          "path": "vue3/.eslintrc.json.example",
-          "target_name": ".eslintrc.json",
-          "merge_strategy": "surgical_merge",
-          "sha256": "4e3c87654e0c8f400f9fd14c85e1dc11b9e92b204a89ff1592bce9e94e0691c5",
-          "size_bytes": 1139
-        },
-        {
           "path": "vue3/.prettierrc.example",
           "target_name": ".prettierrc",
           "merge_strategy": "surgical_merge",
@@ -800,6 +793,13 @@
           "merge_strategy": "copy_if_missing",
           "sha256": "5ecb63033e982cabf2bec5a369c15cbb852d452623f8fb75d1cda18990fadd92",
           "size_bytes": 2495
+        },
+        {
+          "path": "vue3/eslint.config.mjs.example",
+          "target_name": "eslint.config.mjs",
+          "merge_strategy": "surgical_merge",
+          "sha256": "7cc2b596561a88560b526f0b1c1b67a4f1c365f4b3c7bf5fe4ed6cf14cfacc03",
+          "size_bytes": 1922
         },
         {
           "path": "vue3/gitignore.example",
@@ -840,8 +840,8 @@
           "path": "vue3/package.json.example",
           "target_name": "package.json",
           "merge_strategy": "surgical_merge",
-          "sha256": "d4623d5f01ad9e90b2189190b0bac3ee7e35d119d955ea2456db4d2b2731bf94",
-          "size_bytes": 1802
+          "sha256": "495861409ef579a3c02df1fca4bb9cad8c9ede3c3207a782eee340cdcb6f75de",
+          "size_bytes": 1760
         },
         {
           "path": "vue3/playwright.config.ts.example",
@@ -903,8 +903,8 @@
           "path": "vue3/vitest.config.ts.example",
           "target_name": "vitest.config.ts",
           "merge_strategy": "surgical_merge",
-          "sha256": "07870f2189ac24f46786c313ef3e98c7651d1414b909913108ea1738f722d5ae",
-          "size_bytes": 1162
+          "sha256": "6f3e263dfb70b97353d577344037b3698d66a9b33685ae59d3583f2bf543ae94",
+          "size_bytes": 1186
         },
         {
           "path": "vue3/vitest.setup.ts.example",
@@ -1175,8 +1175,8 @@
       "path": ".agents/scripts/verify_docs_invariants.py",
       "target_name": ".agents/scripts/verify_docs_invariants.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "a7d40e87977c0866c88742c583ed2fc3a7fe2f9b24add4d7e85565bc20d0b696",
-      "size_bytes": 60140
+      "sha256": "35c1f5b4f78081d9aab58c8bcd1b05fa2c9dcc64005d413018921ed84154d66b",
+      "size_bytes": 60554
     },
     {
       "path": ".agents/scripts/verify_json_no_duplicate_keys.py",
@@ -1259,8 +1259,8 @@
       "path": ".agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md",
       "target_name": ".agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "23932baed07a03d534ddc54b340b931fd591fc39c2600235b8a8f30cf3ab0eaa",
-      "size_bytes": 19470
+      "sha256": "501bfdfdc402f0c3818876be1e3efc836827b83178b6b30d680c4c05190ce717",
+      "size_bytes": 19819
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/05-stack-bash-devops.md",
@@ -1434,15 +1434,15 @@
       "path": "AI_MASTER_PROMPT.es.md",
       "target_name": "AI_MASTER_PROMPT.es.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "653995b404476e4bc30776eca6b92da81a2b1721e3588b89ce944ffe39706b23",
-      "size_bytes": 15390
+      "sha256": "860f67fe94838907640a0521ecb044d75be704731abe550aa44a41735995fd9c",
+      "size_bytes": 15393
     },
     {
       "path": "AI_MASTER_PROMPT.md",
       "target_name": "AI_MASTER_PROMPT.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "1f76a1abc6f4c405728b4e4fc00b98145988540204ff0d45fc781b5d24871cf9",
-      "size_bytes": 14365
+      "sha256": "0a51fce4e4d411bf3435f0c54c671180a16cb3334f621e2379cc18cd518ed56e",
+      "size_bytes": 14368
     },
     {
       "path": "SECURITY.es.md",

@@ -1,0 +1,71 @@
+import js from '@eslint/js';
+import tseslint from 'typescript-eslint';
+import pluginVue from 'eslint-plugin-vue';
+import vueParser from 'vue-eslint-parser';
+import sonarjs from 'eslint-plugin-sonarjs';
+import security from 'eslint-plugin-security';
+import eslintConfigPrettier from 'eslint-config-prettier';
+
+export default tseslint.config(
+  {
+    ignores: [
+      'dist/**',
+      'dist-ssr/**',
+      'coverage/**',
+      'playwright-report/**',
+      'lhci-reports/**',
+      'target/**',
+      'graphify-out/**',
+      '*.config.*',
+    ],
+  },
+  js.configs.recommended,
+  ...tseslint.configs.recommendedTypeChecked,
+  ...pluginVue.configs['flat/recommended'],
+  sonarjs.configs.recommended,
+  security.configs.recommended,
+  eslintConfigPrettier,
+  {
+    files: ['**/*.{ts,tsx,vue}'],
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+        extraFileExtensions: ['.vue'],
+      },
+    },
+    rules: {
+      'vue/multi-word-component-names': 'off',
+      'security/detect-object-injection': 'warn',
+      'sonarjs/cognitive-complexity': ['error', 15],
+      'sonarjs/no-duplicate-string': 'warn',
+      'max-params': ['error', 4],
+      'max-depth': ['error', 3],
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-misused-promises': 'error',
+    },
+  },
+  {
+    files: ['**/*.vue'],
+    languageOptions: {
+      parser: vueParser,
+      parserOptions: {
+        parser: tseslint.parser,
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+        extraFileExtensions: ['.vue'],
+      },
+    },
+  },
+  {
+    files: ['**/*.{js,mjs,cjs}'],
+    ...tseslint.configs.disableTypeChecked,
+  },
+  {
+    files: ['tests/**/*', 'test/**/*', '**/*.test.*', '**/*.spec.*', '**/*.unit.*'],
+    rules: {
+      'max-params': 'off',
+    },
+  }
+);

@@ -8,8 +8,51 @@ import {
 } from '../services/github-fetcher.js';
 import type { Manifest, ManifestFileEntry, ResourceLanguage, StackDefinition } from '../types.js';
 import { getActiveResourceLang } from './resourceLang.js';
+import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 
 const MIME_MARKDOWN = 'text/markdown';
+const BASH_SHEBANG = '#!/usr/bin/env bash';
+const PYTHON_SHEBANG = '#!/usr/bin/env python3';
+const POSTGRES_ES_DOC_PATH = 'docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md';
+const POSTGRES_EN_REF_SUFFIX = '08-postgres-rls-zero-downtime-migrations.md';
+
+const POSTGRES_RLS_ES_BANNER = [
+  '# PostgreSQL 17 RLS Multi-Transacción (`after_begin`) y Auditoría WORM Determinista — Guía Operativa ES',
+  '',
+  `> **Nota Bilingüe:** Las referencias técnicas de \`${POSTGRES_EN_REF_SUFFIX}\` se mantienen en inglés por eficiencia de tokens; consulta \`${POSTGRES_ES_DOC_PATH}\` para el manual completo en español.`,
+  '',
+].join('\n');
+
+const REFACTORING_UI_ES_BANNER = [
+  '# Guía Refactoring UI (QA-11X) — Referencia Operativa ES',
+  '',
+  '> **Nota Bilingüe:** Las reglas normativas de `refactoring-ui` se mantienen en inglés de alta densidad por eficiencia de tokens; aplica estas pautas junto con contraste OKLCH WCAG 2.1 AA, `tabular-nums` y geometría Anti-JSDOM.',
+  '',
+].join('\n');
+
+const ACTIVE_TASK_ES_BANNER = [
+  '<!-- QA-11X Plantilla Canónica de Bitácora Activa (.agents/ACTIVE_TASK.md.example) — Guía ES -->',
+  '> **Nota Operativa:** Bitácora determinista `<= 40` líneas proyectada por `checkpoint_ctl.py` / `session_flight_recorder` (`0600` `.agents/.cache/session_checkpoint.json`).',
+  '',
+].join('\n');
+
+function injectScriptLanguageHeader(
+  rawContent: string,
+  defaultShebang: string,
+  headerComment: string
+): string {
+  const normalized = rawContent.replace(/\r\n/g, '\n');
+  if (normalized.startsWith('#!')) {
+    const newlineIdx = normalized.indexOf('\n');
+    if (newlineIdx === -1) {
+      return `${normalized}\n${headerComment}\n`;
+    }
+    const shebangLine = normalized.slice(0, newlineIdx);
+    const rest = normalized.slice(newlineIdx + 1);
+    return `${shebangLine}\n${headerComment}\n${rest}`;
+  }
+  return `${defaultShebang}\n${headerComment}\n${normalized}`;
+}
 
 export interface ResourceResponse {
   uri: string;
@@ -74,7 +117,7 @@ export class BlueprintResources {
     } else {
       content =
         resolvedLang === 'es'
-          ? '# 22 Patrones de Seguridad DISA ASD STIG V6R5 & OWASP v4.2\n\nConsulte docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md'
+          ? `# 22 Patrones de Seguridad DISA ASD STIG V6R5 & OWASP v4.2\n\nConsulte ${POSTGRES_ES_DOC_PATH}`
           : '# 22 Security Patterns DISA ASD STIG V6R5 & OWASP v4.2\n\nSee docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md';
     }
     return {
@@ -84,17 +127,29 @@ export class BlueprintResources {
     };
   }
 
-  public async getPostgresRlsWormResource(): Promise<ResourceResponse> {
+  public async getPostgresRlsWormResource(lang?: ResourceLanguage): Promise<ResourceResponse> {
+    const effectiveLang = getActiveResourceLang(undefined, lang);
     const manifest = await this.fetcher.fetchManifest();
-    const rlsRef = manifest.agent_governance_files.find((f) =>
-      f.path.endsWith('08-postgres-rls-zero-downtime-migrations.md')
+    const esDocRef =
+      effectiveLang === 'es'
+        ? manifest.agent_governance_files.find((f) => f.path === POSTGRES_ES_DOC_PATH) ??
+          manifest.common_files.find((f) => f.path === POSTGRES_ES_DOC_PATH)
+        : undefined;
+    const enRlsRef = manifest.agent_governance_files.find((f) =>
+      f.path.endsWith(POSTGRES_EN_REF_SUFFIX)
     );
+
     let content = '';
-    if (rlsRef) {
-      content = await this.fetcher.fetchFileContent(rlsRef.path, rlsRef.sha256);
+    if (esDocRef) {
+      content = await this.fetcher.fetchFileContent(esDocRef.path, esDocRef.sha256);
+    } else if (enRlsRef) {
+      const enContent = await this.fetcher.fetchFileContent(enRlsRef.path, enRlsRef.sha256);
+      content = effectiveLang === 'es' ? `${POSTGRES_RLS_ES_BANNER}${enContent}` : enContent;
     } else {
       content =
-        '# PostgreSQL 17 RLS Multi-Transacción (after_begin) & Cadena WORM Determinista (seq_num + pg_advisory_xact_lock)\n\nConsulte .agents/skills/qa-11x-architect/references/08-postgres-rls-zero-downtime-migrations.md';
+        effectiveLang === 'es'
+          ? `# PostgreSQL 17 RLS Multi-Transacción (after_begin) y Cadena WORM Determinista (seq_num + pg_advisory_xact_lock)\n\nConsulte ${POSTGRES_ES_DOC_PATH} y .agents/skills/qa-11x-architect/references/${POSTGRES_EN_REF_SUFFIX}`
+          : `# PostgreSQL 17 RLS Multi-Transacción (after_begin) & Cadena WORM Determinista (seq_num + pg_advisory_xact_lock)\n\nConsulte .agents/skills/qa-11x-architect/references/${POSTGRES_EN_REF_SUFFIX}`;
     }
     return {
       uri: 'blueprint://database/postgres-rls-worm',
@@ -148,7 +203,9 @@ export class BlueprintResources {
     if (effectiveLang === 'es' && esTargetPath && esTargetSha) {
       try {
         content = await this.fetcher.fetchFileContent(esTargetPath, esTargetSha);
-      } catch {
+      } catch (err) {
+        // Fallback to primary English README when localized ES README fetch fails
+        reportDebugCatchError('blueprintResources.getStackReadmeResource', err);
         content = await this.fetchPrimaryOrFallbackStackReadme(stackDef, readmeFile);
       }
     } else {
@@ -162,7 +219,11 @@ export class BlueprintResources {
     };
   }
 
-  public async getRefactoringUiResource(topic: string): Promise<ResourceResponse> {
+  public async getRefactoringUiResource(
+    topic: string,
+    lang?: ResourceLanguage
+  ): Promise<ResourceResponse> {
+    const effectiveLang = getActiveResourceLang(undefined, lang);
     const manifest = await this.fetcher.fetchManifest();
     const cleanTopic = assertSafeRelativePath(topic.replace(/\.md$/, ''));
     if (cleanTopic.includes('/') || cleanTopic.includes('\\')) {
@@ -170,10 +231,10 @@ export class BlueprintResources {
         `Tema de diseño '${topic}' inválido (no se permiten subdirectorios).`
       );
     }
-    let targetPath = `.agents/skills/refactoring-ui/references/${cleanTopic}.md`;
-    if (cleanTopic === 'skill') {
-      targetPath = '.agents/skills/refactoring-ui/SKILL.md';
-    }
+    const targetPath =
+      cleanTopic === 'skill'
+        ? '.agents/skills/refactoring-ui/SKILL.md'
+        : `.agents/skills/refactoring-ui/references/${cleanTopic}.md`;
 
     const fileEntry = manifest.agent_governance_files.find((f) => f.path === targetPath);
     if (!fileEntry) {
@@ -182,7 +243,9 @@ export class BlueprintResources {
       );
     }
 
-    const content = await this.fetcher.fetchFileContent(fileEntry.path, fileEntry.sha256);
+    const rawContent = await this.fetcher.fetchFileContent(fileEntry.path, fileEntry.sha256);
+    const content =
+      effectiveLang === 'es' ? `${REFACTORING_UI_ES_BANNER}${rawContent}` : rawContent;
     return {
       uri: `blueprint://ui/refactoring-ui/${cleanTopic}`,
       mimeType: MIME_MARKDOWN,
@@ -190,17 +253,23 @@ export class BlueprintResources {
     };
   }
 
-  public async getActiveTaskTemplateResource(): Promise<ResourceResponse> {
+  public async getActiveTaskTemplateResource(lang?: ResourceLanguage): Promise<ResourceResponse> {
+    const effectiveLang = getActiveResourceLang(undefined, lang);
     const manifest = await this.fetcher.fetchManifest();
     const taskEntry = manifest.agent_governance_files.find(
       (f) => f.path === '.agents/ACTIVE_TASK.md.example'
     );
-    let content = '';
+    let rawContent = '';
     if (taskEntry) {
-      content = await this.fetcher.fetchFileContent(taskEntry.path, taskEntry.sha256);
+      rawContent = await this.fetcher.fetchFileContent(taskEntry.path, taskEntry.sha256);
     } else {
-      content = '# ACTIVE_TASK.md.example\n\nConsulte la plantilla en .agents/ACTIVE_TASK.md.example';
+      rawContent =
+        effectiveLang === 'es'
+          ? '# ACTIVE_TASK.md.example\n\nConsulte la plantilla en .agents/ACTIVE_TASK.md.example'
+          : '# ACTIVE_TASK.md.example\n\nSee the template at .agents/ACTIVE_TASK.md.example';
     }
+    const content =
+      effectiveLang === 'es' ? `${ACTIVE_TASK_ES_BANNER}${rawContent}` : rawContent;
     return {
       uri: 'blueprint://core/active-task-template',
       mimeType: MIME_MARKDOWN,
@@ -208,39 +277,45 @@ export class BlueprintResources {
     };
   }
 
-  public async getCleanupScriptResource(): Promise<ResourceResponse> {
+  public async getCleanupScriptResource(lang?: ResourceLanguage): Promise<ResourceResponse> {
+    const effectiveLang = getActiveResourceLang(undefined, lang);
     const manifest = await this.fetcher.fetchManifest();
     const cleanEntry = manifest.common_files.find(
       (f) => f.path === 'scripts/limpieza.sh' || f.path === 'limpieza.sh'
     );
-    let content = '';
-    if (cleanEntry) {
-      content = await this.fetcher.fetchFileContent(cleanEntry.path, cleanEntry.sha256);
-    } else {
-      content = '#!/usr/bin/env bash\n# Script universal de limpieza QA 11X\n';
-    }
+    const headerComment =
+      '# QA-11X Script universal de limpieza sin root (limpieza.sh) — purga artefactos Docker y cachés efímeras.';
+    const rawContent = cleanEntry
+      ? await this.fetcher.fetchFileContent(cleanEntry.path, cleanEntry.sha256)
+      : `${BASH_SHEBANG}\n`;
     return {
       uri: 'blueprint://core/cleanup-script',
       mimeType: 'text/x-shellscript',
-      text: content,
+      text:
+        effectiveLang === 'es'
+          ? injectScriptLanguageHeader(rawContent, BASH_SHEBANG, headerComment)
+          : rawContent,
     };
   }
 
-  public async getRoadmapValidatorResource(): Promise<ResourceResponse> {
+  public async getRoadmapValidatorResource(lang?: ResourceLanguage): Promise<ResourceResponse> {
+    const effectiveLang = getActiveResourceLang(undefined, lang);
     const manifest = await this.fetcher.fetchManifest();
     const validatorEntry = manifest.agent_governance_files.find(
       (f) => f.path === '.agents/scripts/verify_roadmap_consistency.py'
     );
-    let content = '';
-    if (validatorEntry) {
-      content = await this.fetcher.fetchFileContent(validatorEntry.path, validatorEntry.sha256);
-    } else {
-      content = '#!/usr/bin/env python3\n# Validador de consistencia ROADMAP y ACTIVE_TASK\n';
-    }
+    const headerComment =
+      '# QA-11X Validador bidireccional de consistencia (ROADMAP.md y ACTIVE_TASK.md).';
+    const rawContent = validatorEntry
+      ? await this.fetcher.fetchFileContent(validatorEntry.path, validatorEntry.sha256)
+      : `${PYTHON_SHEBANG}\n`;
     return {
       uri: 'blueprint://core/roadmap-validator',
       mimeType: 'text/x-python',
-      text: content,
+      text:
+        effectiveLang === 'es'
+          ? injectScriptLanguageHeader(rawContent, PYTHON_SHEBANG, headerComment)
+          : rawContent,
     };
   }
 }

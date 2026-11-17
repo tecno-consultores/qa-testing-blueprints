@@ -57,7 +57,12 @@ export function resolveSafeHomeDir(
   }
   try {
     return homedirFn();
-  } catch {
+  } catch (err: unknown) {
+    // Container UIDs without /etc/passwd entry fall back safely to OS tmpdir
+    if (process.env.QA11X_DEBUG === '1') {
+      const msg = err instanceof Error ? err.message : 'homedir error';
+      process.stderr.write(`[QA11X_DEBUG] githubFetcher.resolveSafeHomeDir: ${msg.slice(0, 120)}\n`);
+    }
     return os.tmpdir();
   }
 }

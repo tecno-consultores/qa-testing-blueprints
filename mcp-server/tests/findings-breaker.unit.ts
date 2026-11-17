@@ -12,6 +12,7 @@ import {
   computeFindingFingerprint,
   isEphemeralQaArtifactPath,
   normalizeFindingForFingerprint,
+  recordQaStageEvidence,
   recordQaStageFindingsState,
   resetQaFindingsState,
   resolveQaSessionKey,
@@ -162,7 +163,7 @@ describe('Hito 22: Memoria determinista de hallazgos y cortacircuitos BREAKER-42
     expect(osc.triggered).toBe(true);
     expect(osc.oscillations_observed).toBe(1);
     expect(osc.blocking_findings).toHaveLength(1);
-    expect(osc.blocking_findings[0].status).toBe('REGRESSION_OSCILLATION');
+    expect(osc.blocking_findings[0]?.status).toBe('REGRESSION_OSCILLATION');
 
     // Límite máximo de 10 corridas retenidas por stage
     for (let idx = 0; idx < 12; idx += 1) {
@@ -176,8 +177,8 @@ describe('Hito 22: Memoria determinista de hallazgos y cortacircuitos BREAKER-42
     const persisted = JSON.parse(fs.readFileSync(stateFile, 'utf8')) as {
       sessions: Record<string, { stage_runs: Record<string, unknown[]> }>;
     };
-    expect(persisted.sessions[resetKey].stage_runs.integration).toHaveLength(10);
-    expect(persisted.sessions['feat/other:abc123456789'].stage_runs.unit).toHaveLength(1);
+    expect(persisted.sessions[resetKey]?.stage_runs.integration).toHaveLength(10);
+    expect(persisted.sessions['feat/other:abc123456789']?.stage_runs.unit).toHaveLength(1);
   });
 
   it('recupera ante JSON/esquema corrupto y bloquea symlinks en certify_state.json o su directorio padre', () => {
@@ -289,5 +290,21 @@ describe('Hito 22: Memoria determinista de hallazgos y cortacircuitos BREAKER-42
     await runEphemeralQa(tmpDir, 'integration', 30, { execFileFn: mockRawFail, execFileSyncFn: gitMock });
     const i3 = await runEphemeralQa(tmpDir, 'integration', 30, { execFileFn: mockRawFail, execFileSyncFn: gitMock });
     expect(i3.exit_code).toBe(EXIT_BREAKER_42);
+  });
+
+  it('recordQaStageEvidence captura fallo de escritura en catch y normaliza workspace root "/"', () => {
+    const roRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'qa11x-ro-ev-'));
+    try {
+      fs.mkdirSync(path.join(roRoot, '.git'), { recursive: true });
+      fs.writeFileSync(path.join(roRoot, '.agents'), 'blocking-file', 'utf8');
+      expect(() =>
+        recordQaStageEvidence(roRoot, 'lint', 'PASSED', createMockGitExec('main'))
+      ).not.toThrow();
+    } finally {
+      fs.rmSync(roRoot, { recursive: true, force: true });
+    }
+
+    const slashNorm = normalizeFindingForFingerprint({ file: '/src/app.ts' }, '/');
+    expect(slashNorm.relative_file).toBe('src/app.ts');
   });
 });

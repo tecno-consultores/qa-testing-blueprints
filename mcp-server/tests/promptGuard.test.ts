@@ -24,7 +24,7 @@ import {
   redactPiiAndSecrets,
   sanitizeUntrustedOutput,
 } from '../src/security/promptGuard.js';
-import { createMcpServer } from '../src/server.js';
+import { createMcpServer, getServerDispatcherRegistry } from '../src/server.js';
 import { GitHubFetcher } from '../src/services/github-fetcher.js';
 
 function buildRuntimeToken(prefix: string, body: string): string {
@@ -304,14 +304,22 @@ describe('Zero-Infra PromptGuard & MCP Interceptor (T2.4)', () => {
   });
 
   describe('5. Integración E2E sobre el dispatcher MCP (Client + InMemoryTransport + attachPromptGuard)', () => {
-    it('rechaza errores de inicialización si el McpServer carece de registro de handlers válido', () => {
-      const brokenMock = { server: {} } as unknown as McpServer;
-      expect(() => attachPromptGuard(brokenMock)).toThrow(/handlers registry is unavailable/i);
+    const extractFirstToolText = (res: Awaited<ReturnType<Client['callTool']>>): string => {
+      const content = 'content' in res && Array.isArray(res.content) ? res.content : [];
+      const first = content[0] as { text?: string } | undefined;
+      expect(first?.text).toBeDefined();
+      return first?.text ?? '';
+    };
 
-      const emptyMapMock = {
-        server: { _requestHandlers: new Map() },
-      } as unknown as McpServer;
-      expect(() => attachPromptGuard(emptyMapMock)).toThrow(/is not registered/i);
+    it('rechaza errores de inicialización si el McpServer carece de registro de handlers válido', () => {
+      const untrackedServer = new McpServer({ name: 'untracked-prompt-guard', version: '1.0.0' });
+      expect(() => attachPromptGuard(untrackedServer)).toThrow(/handlers registry is unavailable/i);
+
+      const missingHandlerServer = createMcpServer({ fetcher: new GitHubFetcher() });
+      const registry = getServerDispatcherRegistry(missingHandlerServer);
+      expect(registry).toBeInstanceOf(Map);
+      registry?.delete('tools/call');
+      expect(() => attachPromptGuard(missingHandlerServer)).toThrow(/is not registered/i);
     });
 
     it('bloquea tool call con prompt injection antes de invocar la tool y sanitiza argumentos legítimos', async () => {
@@ -322,16 +330,17 @@ describe('Zero-Infra PromptGuard & MCP Interceptor (T2.4)', () => {
 
       const spySideEffect = vi.fn();
       const mcpServer = createMcpServer({ fetcher: new GitHubFetcher() });
-      const rawHandlers = Reflect.get(mcpServer.server, '_requestHandlers') as Map<
-        string,
-        (req: unknown, extra: unknown) => Promise<unknown>
-      >;
-      const originalHandler = rawHandlers.get('tools/call');
+      const rawHandlers = getServerDispatcherRegistry(mcpServer);
+      expect(rawHandlers).toBeDefined();
+      const originalHandler = rawHandlers?.get('tools/call');
       expect(originalHandler).toBeTypeOf('function');
+      if (!rawHandlers || !originalHandler) {
+        throw new Error('Expected tools/call handler in dispatcher registry');
+      }
 
       rawHandlers.set('tools/call', async (req, extra) => {
         spySideEffect(req);
-        return await originalHandler!(req, extra);
+        return await originalHandler(req, extra);
       });
       attachPromptGuard(mcpServer);
 
@@ -357,7 +366,7 @@ describe('Zero-Infra PromptGuard & MCP Interceptor (T2.4)', () => {
 
         expect(blockedRes.isError).toBe(true);
         expect(spySideEffect).not.toHaveBeenCalled();
-        const blockedText = (blockedRes.content as Array<{ type: string; text: string }>)[0].text;
+        const blockedText = extractFirstToolText(blockedRes);
         expect(blockedText).toContain('[QA-PROMPT-GUARD] Blocked potential prompt injection');
 
         // 2. Llamada legítima con PII en campo textual se sanitiza antes de llegar a la tool real
@@ -376,9 +385,10 @@ describe('Zero-Infra PromptGuard & MCP Interceptor (T2.4)', () => {
 
         expect(okRes.isError).not.toBe(true);
         expect(spySideEffect).toHaveBeenCalledTimes(1);
-        const okPayload = JSON.parse(
-          (okRes.content as Array<{ type: string; text: string }>)[0].text
-        ) as { status: string; local_proposal_file: string };
+        const okPayload = JSON.parse(extractFirstToolText(okRes)) as {
+          status: string;
+          local_proposal_file: string;
+        };
         expect(okPayload.status).toBe('PROPOSAL_FILE_AND_URL_GENERATED');
         const proposalContent = fs.readFileSync(okPayload.local_proposal_file, 'utf8');
         expect(proposalContent).not.toContain('admin@empresa.com');
@@ -410,7 +420,17 @@ describe('Zero-Infra PromptGuard & MCP Interceptor (T2.4)', () => {
 
         const resourcesList = await client.listResources();
         const listedUris = resourcesList.resources.map((r) => r.uri);
-        expect(listedUris).toHaveLength(13);
+        expect(listedUris).toHaveLength(11);
+        expect(listedUris).not.toContain('blueprint://{stack}/readme');
+        expect(listedUris).not.toContain('blueprint://ui/refactoring-ui/{topic}');
+
+        const templatesList = await client.listResourceTemplates();
+        const listedTemplateUris = templatesList.resourceTemplates.map((t) => t.uriTemplate);
+        expect(listedTemplateUris).toHaveLength(2);
+        expect(listedTemplateUris).toContain('blueprint://{stack}/readme');
+        expect(listedTemplateUris).toContain('blueprint://ui/refactoring-ui/{topic}');
+        expect(listedUris.length + listedTemplateUris.length).toBe(13);
+
         for (const v2Uri of [
           'blueprint://ai/evals-redteam',
           'blueprint://mobile-appium/readme',
@@ -419,10 +439,13 @@ describe('Zero-Infra PromptGuard & MCP Interceptor (T2.4)', () => {
         ]) {
           expect(listedUris).toContain(v2Uri);
           const readV2 = await client.readResource({ uri: v2Uri });
-          expect(readV2.contents[0].text.length).toBeGreaterThan(200);
+          const firstV2 = readV2.contents[0];
+          expect(firstV2).toBeDefined();
+          const v2Text = firstV2 && 'text' in firstV2 ? firstV2.text : '';
+          expect(v2Text.length).toBeGreaterThan(200);
         }
         const readV1Manifest = await client.readResource({ uri: 'blueprint://manifest' });
-        expect(readV1Manifest.contents[0].uri).toBe('blueprint://manifest');
+        expect(readV1Manifest.contents[0]?.uri).toBe('blueprint://manifest');
 
         // 5. Ejecución de las 6 tools v2.0 a través de attachPromptGuard (hermético en tmpDir)
         const requiredControls = [
@@ -553,14 +576,13 @@ describe('Zero-Infra PromptGuard & MCP Interceptor (T2.4)', () => {
 
     it('protege errores de ejecución y saturación TaskStateGuard formateando reporte Fail-Verbose', async () => {
       const mcpServer = createMcpServer({ fetcher: new GitHubFetcher() });
-      const rawHandlers = Reflect.get(mcpServer.server, '_requestHandlers') as Map<
-        string,
-        (req: unknown, extra: unknown) => Promise<unknown>
-      >;
+      const rawHandlers = getServerDispatcherRegistry(mcpServer);
+      expect(rawHandlers).toBeDefined();
+      if (!rawHandlers) {
+        throw new Error('Expected dispatcher registry on McpServer');
+      }
       const slowBlockingError = new Error('Timeout simulado del subproceso');
-      rawHandlers.set('tools/call', async () => {
-        throw slowBlockingError;
-      });
+      rawHandlers.set('tools/call', () => Promise.reject(slowBlockingError));
       attachPromptGuard(mcpServer);
 
       const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -573,7 +595,7 @@ describe('Zero-Infra PromptGuard & MCP Interceptor (T2.4)', () => {
           arguments: { project_path: '/tmp' },
         });
         expect(failRes.isError).toBe(true);
-        const failText = (failRes.content as Array<{ type: string; text: string }>)[0].text;
+        const failText = extractFirstToolText(failRes);
         expect(failText).toContain('[Fail-Verbose]');
         expect(failText).toContain('Timeout simulado del subproceso');
       } finally {

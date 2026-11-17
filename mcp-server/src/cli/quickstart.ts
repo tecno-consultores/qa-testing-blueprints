@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
-import * as fs from 'node:fs';
+import fs from 'node:fs';
 import * as path from 'node:path';
 import {
   initOrAppendAgentsMd,
@@ -12,6 +12,7 @@ import {
   type InitOrAppendAgentsMdResult,
   type SupportedLang,
 } from '../tools/initOrAppendAgentsMd.js';
+import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 
 const UTF8_ENCODING = 'utf8' as const;
 const SCHEMA_VERSION_2 = '2.0.0' as const;
@@ -67,7 +68,7 @@ export interface QuickstartOptions {
   readonly baseBoundaryDir?: string;
   readonly tier?: QuickstartTier;
   readonly lang?: SupportedLang;
-  readonly agents?: AgentsTargetSpec | string;
+  readonly agents?: readonly string[] | string;
   readonly ci?: QuickstartCiProvider;
   readonly dryRun?: boolean;
   readonly force?: boolean;
@@ -328,7 +329,9 @@ function readTextSafe(filePath: string): string | null {
     return fs.existsSync(filePath) && fs.statSync(filePath).isFile()
       ? fs.readFileSync(filePath, UTF8_ENCODING)
       : null;
-  } catch {
+  } catch (err: unknown) {
+    // Optional project inspection probe: unreadable/missing files fall back safely to null
+    reportDebugCatchError(`quickstart.readTextSafe(${filePath})`, err);
     return null;
   }
 }
@@ -344,7 +347,9 @@ function readJsonRecordSafe(filePath: string): Record<string, unknown> | null {
       return parsed as Record<string, unknown>;
     }
     return null;
-  } catch {
+  } catch (err: unknown) {
+    // Optional config probe: malformed JSON returns null so starter defaults apply
+    reportDebugCatchError(`quickstart.readJsonRecordSafe(${filePath})`, err);
     return null;
   }
 }
@@ -574,7 +579,9 @@ function resolveEffectiveTier(
   if (!force && existingConfig !== null && typeof existingConfig.tier === 'string') {
     try {
       return validateQuickstartTier(existingConfig.tier);
-    } catch {
+    } catch (err: unknown) {
+      // Unrecognized persisted tier in optional .qa-11x.json safely defaults to starter
+      reportDebugCatchError('quickstart.resolveEffectiveTier', err);
       return TIER_STARTER;
     }
   }
@@ -599,14 +606,15 @@ function resolveEffectiveLang(
   return 'en';
 }
 
-function resolveAgentsSpec(rawAgents?: AgentsTargetSpec | string): AgentsTargetSpec {
-  if (rawAgents === undefined) {
-    return 'auto';
-  }
+// eslint-disable-next-line sonarjs/function-return-type -- AgentsTargetSpec intentionally unions 'auto' | 'all' modes with SupportedAiAgentId[]
+function resolveAgentsSpec(rawAgents?: readonly string[] | string): AgentsTargetSpec {
+  let resolved: AgentsTargetSpec = 'auto';
   if (typeof rawAgents === 'string') {
-    return parseAgentsOption(rawAgents);
+    resolved = parseAgentsOption(rawAgents);
+  } else if (rawAgents !== undefined) {
+    resolved = rawAgents;
   }
-  return rawAgents;
+  return resolved;
 }
 
 function buildCompactActiveTaskContent(

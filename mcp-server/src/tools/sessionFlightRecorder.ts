@@ -5,12 +5,13 @@ import { execFile, execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
+import { pickAt, reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 
 export type FlightRecorderAction = 'save' | 'recover' | 'clear';
 
 export interface SessionFlightRecorderArgs {
   readonly project_path?: string;
-  readonly action?: FlightRecorderAction | string;
+  readonly action?: string;
   readonly task_id?: string;
   readonly active_step?: string;
   readonly intent_140chars?: string;
@@ -89,13 +90,13 @@ const EXEC_TIMEOUT_MS = 10_000;
 const ANSI_ESCAPE_RE = /\u001b\[[0-9;]*[A-Za-z]/g;
 
 const SECRET_REDACTION_PATTERNS: ReadonlyArray<readonly [RegExp, string]> = [
-  [/\b(Bearer|Basic)\s+[A-Za-z0-9\-._~+/]+=*/gi, '$1 [REDACTED]'],
-  [/([a-z][a-z0-9+.-]*:\/\/[^:\s/@]+:)([^@\s/]+)(@)/gi, '$1[REDACTED]$3'],
+  [/\b(Bearer|Basic)\s+[a-z0-9._~+/=-]+/gi, '$1 [REDACTED]'],
+  [/\b([a-z][a-z0-9+.-]*:\/\/[^:\s/@]+:)([^@\s/]+)(@)/gi, '$1[REDACTED]$3'],
   [
     /((?:token|api[_-]?key|secret|password|passwd|auth)\s*[:=]\s*)([^\s,;'"`]+)/gi,
     '$1[REDACTED]',
   ],
-  [/\b(?:ghp|gho|ghs|ghu|github_pat|npm)_[A-Za-z0-9_]{6,}\b/g, '[REDACTED_TOKEN]'],
+  [/\b(?:ghp|gho|ghs|ghu|github_pat|npm)_\w{6,}\b/g, '[REDACTED_TOKEN]'],
   [/\bsk-[A-Za-z0-9]{10,}\b/g, '[REDACTED_TOKEN]'],
 ];
 
@@ -236,7 +237,9 @@ function runGitCapture(
       stdio: ['ignore', 'pipe', 'ignore'],
     });
     return String(out).trimEnd();
-  } catch {
+  } catch (err: unknown) {
+    // Non-git workspace or git binary absent falls back to git_available=false snapshot
+    reportDebugCatchError(`sessionFlightRecorder.runGitCapture(${pickAt(gitArgs, 0, 'git')})`, err);
     return null;
   }
 }
@@ -775,8 +778,18 @@ const NATIVE_ACTION_HANDLERS: Readonly<
   [ACTION_CLEAR]: executeNativeClear,
 };
 
+function stringifyRawAction(rawAction: unknown): string {
+  if (typeof rawAction === 'string') {
+    return rawAction;
+  }
+  if (typeof rawAction === 'number' || typeof rawAction === 'boolean') {
+    return String(rawAction);
+  }
+  return '';
+}
+
 function parseFlightRecorderAction(rawAction: unknown): FlightRecorderAction | null {
-  const normalized = String(rawAction ?? '').trim().toLowerCase() as FlightRecorderAction;
+  const normalized = stringifyRawAction(rawAction).trim().toLowerCase() as FlightRecorderAction;
   return VALID_ACTIONS.has(normalized) ? normalized : null;
 }
 
@@ -789,7 +802,7 @@ function resolveValidatedRecorderContext(
 } {
   const action = parseFlightRecorderAction(rawArgs.action);
   if (!action) {
-    const rawLabel = String(rawArgs.action ?? '').trim().toLowerCase();
+    const rawLabel = stringifyRawAction(rawArgs.action).trim().toLowerCase();
     return {
       ok: false,
       errorResult: buildErrorResult(
@@ -908,7 +921,8 @@ export function recordStageCmdCheckpoint(
       },
     };
     persistCheckpointAndProjection(checkpointPath, activeTaskPath, nextDoc);
-  } catch {
-    // Registro no bloqueante para preservar flujo QA ante errores de permisos externos
+  } catch (err: unknown) {
+    // Non-blocking best-effort flight-recorder telemetry write on read-only/restricted filesystems
+    reportDebugCatchError('sessionFlightRecorder.recordNativeScriptRun', err);
   }
 }

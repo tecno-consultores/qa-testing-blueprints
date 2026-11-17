@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { GroupedSecurityFinding, SecurityAuditResult, SecurityFinding } from '../types.js';
+import { pickAt, reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 
 const IGNORED_DIRS = new Set([
   'node_modules',
@@ -105,7 +106,7 @@ const SEC_CI_ACTION_REMEDIATION =
   'Fijar la acción mediante el hash SHA-1 completo de 40 caracteres del commit anotado (uses: owner/repo@<sha40> # vX.Y.Z) y verificar que el tag exista en remoto con git ls-remote --tags.';
 const SHA40_RE = /^[0-9a-f]{40}$/;
 const MUTABLE_BRANCH_RE = /^(?:main|master|head|develop|latest)$/i;
-const UNPREFIXED_SEMVER_RE = /^[0-9]+\.[0-9]+/;
+const UNPREFIXED_SEMVER_RE = /^\d+\.\d+/;
 const QA_CI_ESCAPE_01_REF = 'APSC-DV-002510 / Rule Zero GitHub Actions vs Makefile Shell Expansion';
 const QA_CI_ESCAPE_OK_PRAGMA = 'qa-ci-escape-ok';
 const QA_CI_ESCAPE_REMEDIATION =
@@ -167,10 +168,12 @@ const SSR_THEME_MARKERS = [
   ".classList.toggle('dark'",
   '.classList.toggle("dark"',
 ];
-const SSR_PREHYDRATE_V_IF_RE =
-  /(?:\bv-(?:else-)?if)\s*=\s*(?:"[^"]*(?:localStorage|dataset\.theme|document\.documentElement)[^"]*"|'[^']*(?:localStorage|dataset\.theme|document\.documentElement)[^']*')/;
+const SSR_PREHYDRATE_V_IF_PATTERNS: readonly RegExp[] = [
+  /\bv-(?:else-)?if\s*=\s*"[^"\n]*(?:localStorage|dataset\.theme|document\.documentElement)/,
+  /\bv-(?:else-)?if\s*=\s*'[^'\n]*(?:localStorage|dataset\.theme|document\.documentElement)/,
+];
 const PLAYWRIGHT_CONFIG_RE = /(?:^|\/)playwright\.config\.(?:ts|js|mjs|mts)$/i;
-const E2E_TEST_FILE_RE = /(?:^|\/)(?:e2e|tests\/e2e)\/|\.(?:e2e|spec)\.(?:ts|tsx|js|jsx|mjs)$/i;
+const E2E_TEST_FILE_RE = /(?:(?:^|\/)(?:e2e|tests\/e2e)\/)|(?:\.(?:e2e|spec)\.(?:ts|tsx|js|jsx|mjs)$)/i;
 const HYDRATION_LISTENER_RE = /\bon\(\s*['"](?:console|pageerror)['"]/;
 const PROBE_ASSERTION_MARKERS = [
   '.exists()',
@@ -251,8 +254,9 @@ function collectMatchingFiles(
         results.push(fullPath);
       }
     }
-  } catch {
-    // Si no se puede leer el directorio, continuar silenciosamente
+  } catch (err: unknown) {
+    // Tolerar directorios ilegibles (permisos/enlaces rotos) para no abortar el escaneo del resto del proyecto
+    reportDebugCatchError('security-auditor.collectMatchingFiles', err);
   }
 
   return results;
@@ -269,12 +273,11 @@ function checkSec01MassAssignment(relPath: string, lines: string[]): SecurityFin
   if (!relPath.endsWith('.py')) return [];
   const findings: SecurityFinding[] = [];
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const classMatch = line.match(/^class\s+([A-Za-z0-9_]+)\s*\((?:[^)]*BaseModel[^)]*)\):/);
+  for (const [i, line] of lines.entries()) {
+    const classMatch = /^class\s+(\w+)\s*\((?:[^)]*BaseModel[^)]*)\):/.exec(line);
     if (!classMatch) continue;
+    const className = pickAt(classMatch, 1);
 
-    const className = classMatch[1];
     const isInputModel = /(?:Request|Create|Update|In)$/i.test(className);
     if (!isInputModel) continue;
 
@@ -305,8 +308,7 @@ function checkSec02AntiCswsh(relPath: string, lines: string[]): SecurityFinding[
   if (!relPath.endsWith('.py')) return [];
   const findings: SecurityFinding[] = [];
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  for (const [i, line] of lines.entries()) {
     if (line.includes('@') && line.includes('.websocket(')) {
       const funcBody = lines.slice(i + 1, i + 30).join('\n');
       const hasOriginCheck =
@@ -426,8 +428,7 @@ function checkSec03CommandAndDeserialization(relPath: string, lines: string[]): 
   const isPhp = relPath.endsWith('.php');
   const findings: SecurityFinding[] = [];
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  for (const [i, line] of lines.entries()) {
     if (line.trim().startsWith('#') || line.trim().startsWith('//')) continue;
 
     const finding = isPhp
@@ -481,8 +482,7 @@ function checkSec04Xxe(relPath: string, lines: string[]): SecurityFinding[] {
   if (!isPy && !isPhp) return [];
   const findings: SecurityFinding[] = [];
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  for (const [i, line] of lines.entries()) {
     if (isPhp) {
       const phpXxe = checkPhpXxe(line, relPath, i + 1);
       if (phpXxe) {
@@ -553,8 +553,7 @@ function checkSec06XssPrototypePollution(relPath: string, lines: string[]): Secu
   }
   const findings: SecurityFinding[] = [];
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  for (const [i, line] of lines.entries()) {
     if (line.includes('v-html') || line.includes('innerHTML') || line.includes('dangerouslySetInnerHTML')) {
       const hasSanitize = line.includes('escapeHtml') || line.includes('DOMPurify') || line.includes('sanitize');
       if (!hasSanitize) {
@@ -578,8 +577,7 @@ function checkSec07SwaggerInProd(relPath: string, lines: string[]): SecurityFind
   if (!relPath.endsWith('.py')) return [];
   const findings: SecurityFinding[] = [];
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  for (const [i, line] of lines.entries()) {
     if (line.includes('FastAPI(')) {
       const surrounding = lines.slice(i, i + 15).join('\n');
       const hasProdDocsCheck =
@@ -616,8 +614,7 @@ function checkSec10Secrets(relPath: string, lines: string[]): SecurityFinding[] 
   }
   const findings: SecurityFinding[] = [];
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  for (const [i, line] of lines.entries()) {
     if (line.trim().startsWith('#') || line.trim().startsWith('//')) continue;
 
     if (line.includes('BEGIN PRIVATE KEY') || line.includes('BEGIN RSA PRIVATE KEY') || line.includes('BEGIN OPENSSH PRIVATE KEY')) {
@@ -640,7 +637,7 @@ function checkSec10Secrets(relPath: string, lines: string[]): SecurityFinding[] 
         message: 'Token de acceso personal de GitHub hardcodeado detectado.',
         remediation: 'Revocar el token de inmediato e inyectarlo vía variables de entorno seguras.',
       });
-    } else if (/(?:password|passwd|secret_key)\s*=\s*["'][a-zA-Z0-9!@#$%^&*()_+]{8,}["']/i.test(line) && !line.includes('placeholder') && !line.includes('example')) {
+    } else if (/(?:password|passwd|secret_key)\s*=\s*["'][a-z0-9!@#$%^&*()_+]{8,}["']/i.test(line) && !line.includes('placeholder') && !line.includes('example')) {
       findings.push({
         rule_id: 'SEC-10',
         severity: 'CRITICAL',
@@ -662,9 +659,7 @@ function checkUi11x01VisualGeometry(relPath: string, lines: string[]): SecurityF
   }
   const findings: SecurityFinding[] = [];
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-
+  for (const [i, line] of lines.entries()) {
     if (line.includes('<footer') && (line.includes('fixed') || line.includes('position: fixed'))) {
       findings.push({
         rule_id: 'UI-11X-01',
@@ -726,8 +721,7 @@ function checkRawSubInActorUsername(relPath: string, lines: string[]): SecurityF
   const rawSubPattern =
     /actor_username\s*[:=]\s*(?:claims\.get\(\s*["']sub["']\s*\)|claims\[\s*["']sub["']\s*\]|(?:token|payload|jwt_payload)\.sub\b)/;
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  for (const [i, line] of lines.entries()) {
     if (line.trim().startsWith('#') || line.trim().startsWith('//')) continue;
     if (rawSubPattern.test(line)) {
       findings.push({
@@ -747,9 +741,12 @@ function checkRawSubInActorUsername(relPath: string, lines: string[]): SecurityF
 }
 
 function isDirectRealAuditFunctionTest(fullContent: string): boolean {
-  const importsRealAuditFn =
-    /\bfrom\s+[A-Za-z0-9_.]*audit\s+import\s+[^\n]*\b(?:write_audit_log|writeAuditLog)\b/.test(
-      fullContent
+  const importsRealAuditFn = fullContent
+    .split(/\r?\n/)
+    .some(
+      (line) =>
+        /\bfrom[ \t]+[\w.]*audit[ \t]+import\b/.test(line) &&
+        (line.includes('write_audit_log') || line.includes('writeAuditLog'))
     );
   const patchesAuditFn =
     /(?:patch|setattr)\s*\([^)]*(?:write_audit_log|writeAuditLog)/.test(fullContent) ||
@@ -824,10 +821,10 @@ function checkSec11AuditSemanticIntegrity(relPath: string, lines: string[]): Sec
 function checkCatchAllDomainElse(relPath: string, lines: string[]): SecurityFinding[] {
   const findings: SecurityFinding[] = [];
   const catchAllPattern =
-    /\belse\s*\{?\s*return\s+["'](?:MAINTENANCE|MANTENIMIENTO|CAÍDA|CAIDA|CRITICAL|SECURITY|SEGURIDAD)["']/i;
+    /(?:\belse\s*\{\s*|\belse\s+)return\s+["'](?:MAINTENANCE|MANTENIMIENTO|CAÍDA|CAIDA|CRITICAL|SECURITY|SEGURIDAD)["']/i;
 
-  for (let i = 0; i < lines.length; i++) {
-    if (catchAllPattern.test(lines[i])) {
+  for (const [i, line] of lines.entries()) {
+    if (catchAllPattern.test(line)) {
       findings.push({
         rule_id: 'UI-11X-02',
         severity: 'MEDIUM',
@@ -929,7 +926,9 @@ function readJsonObjectSafe(filePath: string): Record<string, unknown> | null {
     return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
       ? (parsed as Record<string, unknown>)
       : null;
-  } catch {
+  } catch (err: unknown) {
+    // JSON malformado o ilegible se devuelve como null; los verificadores superiores tratan null como ausente
+    reportDebugCatchError('security-auditor.readJsonObjectSafe', err);
     return null;
   }
 }
@@ -1025,8 +1024,9 @@ function checkSec08Oshp(projectPath: string, allRelFiles: string[]): SecurityFin
       ) {
         return [];
       }
-    } catch {
-      // Ignorar errores de lectura
+    } catch (err: unknown) {
+      // Continuar buscando cabeceras OSHP en el resto del proyecto si un archivo puntual es ilegible
+      reportDebugCatchError('security-auditor.checkSec08Oshp', err);
     }
   }
 
@@ -1101,7 +1101,9 @@ function makeUi11x03Finding(input: Ui11x03FindingInput): SecurityFinding {
 function readTextFileSafe(filePath: string): string | null {
   try {
     return fs.readFileSync(filePath, 'utf8');
-  } catch {
+  } catch (err: unknown) {
+    // Lectura opcional de archivo candidato durante auditoría estática; null representa ausente o ilegible
+    reportDebugCatchError('security-auditor.readTextFileSafe', err);
     return null;
   }
 }
@@ -1112,7 +1114,9 @@ function parseJsonObjectTextSafe(rawText: string): Record<string, unknown> | nul
     return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
       ? (parsed as Record<string, unknown>)
       : null;
-  } catch {
+  } catch (err: unknown) {
+    // Manifiesto JSONC o inválido tratado como no parseable sin abortar el resto del escaneo
+    reportDebugCatchError('security-auditor.parseJsonObjectTextSafe', err);
     return null;
   }
 }
@@ -1120,7 +1124,9 @@ function parseJsonObjectTextSafe(rawText: string): Record<string, unknown> | nul
 function isDirectorySafe(dirPath: string): boolean {
   try {
     return fs.statSync(dirPath).isDirectory();
-  } catch {
+  } catch (err: unknown) {
+    // Directorio opcional inexistente o sin permisos equivale a false en detección de estructura
+    reportDebugCatchError('security-auditor.isDirectorySafe', err);
     return false;
   }
 }
@@ -1133,7 +1139,7 @@ function findLineNumberContaining(text: string, needle: string): number {
   if (!needle) return 1;
   const lines = text.split(/\r?\n/);
   const idx = lines.findIndex((l) => l.includes(needle));
-  return idx >= 0 ? idx + 1 : 1;
+  return Math.max(1, idx + 1);
 }
 
 function parseHtmlLinkAttributes(tag: string): Record<string, string> {
@@ -1141,7 +1147,10 @@ function parseHtmlLinkAttributes(tag: string): Record<string, string> {
   const attrRe = /\s([a-z-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/gi;
   let match: RegExpExecArray | null;
   while ((match = attrRe.exec(tag)) !== null) {
-    attrs[match[1].toLowerCase()] = (match[2] ?? match[3] ?? '').trim();
+    const attrName = match[1];
+    if (attrName) {
+      attrs[attrName.toLowerCase()] = pickAt(match, 2, pickAt(match, 3)).trim();
+    }
   }
   return attrs;
 }
@@ -1203,7 +1212,7 @@ function inspectHtmlLinkTag(
   const findings: SecurityFinding[] = [];
   const attrs = parseHtmlLinkAttributes(tag);
   const relTokens = (attrs.rel ?? '').toLowerCase().split(/\s+/).filter(Boolean);
-  const cleanHref = (attrs.href ?? '').split(/[?#]/, 1)[0].toLowerCase();
+  const cleanHref = pickAt((attrs.href ?? '').split(/[?#]/, 1), 0).toLowerCase();
   const sizesAttr = attrs.sizes ?? '';
 
   if (relTokens.includes(APPLE_TOUCH_REL)) {
@@ -1324,7 +1333,7 @@ interface ManifestIconSummary {
 function inspectManifestIconEntry(entry: unknown, summary: ManifestIconSummary): void {
   if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return;
   const icon = entry as Record<string, unknown>;
-  const cleanSrc = typeof icon.src === 'string' ? icon.src.split(/[?#]/, 1)[0].toLowerCase() : '';
+  const cleanSrc = typeof icon.src === 'string' ? pickAt(icon.src.split(/[?#]/, 1), 0).toLowerCase() : '';
   const mimeType = typeof icon.type === 'string' ? icon.type.toLowerCase() : '';
   const purposeTokens =
     typeof icon.purpose === 'string' ? icon.purpose.toLowerCase().split(/\s+/).filter(Boolean) : [];
@@ -1420,8 +1429,7 @@ function parseEdgeHeadersBlocks(lines: string[]): EdgeHeaderBlock[] {
   const blocks: EdgeHeaderBlock[] = [];
   let current: EdgeHeaderBlock | null = null;
 
-  for (let i = 0; i < lines.length; i++) {
-    const raw = lines[i];
+  for (const [i, raw] of lines.entries()) {
     const trimmed = raw.trim();
     if (!trimmed || trimmed.startsWith('#')) continue;
     if (!/^\s/.test(raw)) {
@@ -1728,9 +1736,11 @@ function collectProbesFromCandidate(
     ? extractComposeHealthcheckText(content)
     : extractDockerfileHealthcheckText(content);
   if (!scopedText) return;
-  for (const match of scopedText.match(probeRegex) ?? []) {
-    if (!isExcludedProbePath(match)) {
-      probes.add(match);
+  probeRegex.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = probeRegex.exec(scopedText)) !== null) {
+    if (!isExcludedProbePath(match[0])) {
+      probes.add(match[0]);
     }
   }
 }
@@ -1772,11 +1782,11 @@ function extractAssignedConstants(lines: string[], targetToken: string): { line:
   let firstLine = 1;
   const constRegex = /^\s*([A-Z][A-Z0-9_]{2,50})\b/;
 
-  for (let i = 0; i < lines.length; i++) {
-    if (!lines[i].includes(targetToken)) continue;
+  for (const [i, line] of lines.entries()) {
+    if (!line.includes(targetToken)) continue;
     if (firstLine === 1) firstLine = i + 1;
-    const match = lines[i].match(constRegex);
-    if (match) symbols.push(match[1]);
+    const match = constRegex.exec(line);
+    if (match) symbols.push(pickAt(match, 1));
   }
 
   return { line: firstLine, symbols };
@@ -1798,14 +1808,15 @@ function findSourceOrchestratorForProbe(
       const matchedToken = content.includes(probePath) ? probePath : baseToken;
       const { line, symbols } = extractAssignedConstants(lines, matchedToken);
       return { relFile: rel, line, symbolNames: symbols };
-    } catch {
-      // Ignorar errores de lectura puntual
+    } catch (err: unknown) {
+      // Continuar evaluando candidatos si un archivo puntual del repositorio no es legible
+      reportDebugCatchError('security-auditor.findSourceOrchestratorForProbe', err);
     }
   }
   return null;
 }
 
-const PY_TEST_FUNC_LINE_RE = /^(?:async )?def test_[A-Za-z0-9_]+ ?\(/;
+const PY_TEST_FUNC_LINE_RE = /^(?:async )?def test_\w+ ?\(/;
 
 function isPythonTestDefLine(line: string): boolean {
   const normalized = line.trimStart().replace(/[ \t]+/g, ' ');
@@ -1876,8 +1887,9 @@ function hasUnmockedProbeTestAssertion(
     try {
       const content = fs.readFileSync(path.join(projectPath, rel), 'utf8');
       if (testFileAssertsProbeUnmocked(content, tokens)) return true;
-    } catch {
-      // Ignorar errores de lectura puntual
+    } catch (err: unknown) {
+      // Tolerar errores puntuales de lectura mientras se buscan aserciones en archivos de prueba
+      reportDebugCatchError('security-auditor.hasUnmockedProbeTestAssertion', err);
     }
   }
   return false;
@@ -1929,8 +1941,8 @@ const TS_SDK_CLIENT_RE =
 
 function findMatchingLineNumber(content: string, pattern: RegExp): number {
   const lines = content.split(/\r?\n/);
-  for (let i = 0; i < lines.length; i++) {
-    if (pattern.test(lines[i])) return i + 1;
+  for (const [i, line] of lines.entries()) {
+    if (pattern.test(line)) return i + 1;
   }
   return 1;
 }
@@ -1961,8 +1973,9 @@ function findProtocolServerDeclaration(
       const content = fs.readFileSync(path.join(projectPath, rel), 'utf8');
       const match = matchProtocolServerFile(rel, content);
       if (match) return match;
-    } catch {
-      // Ignorar errores de lectura puntual
+    } catch (err: unknown) {
+      // Tolerar errores de lectura puntual sin ocultar el resto de archivos MCP/SDK
+      reportDebugCatchError('security-auditor.findProtocolServerDeclaration', err);
     }
   }
   return null;
@@ -1985,8 +1998,9 @@ function hasRealSdkTransportContractTest(projectPath: string, allRelFiles: strin
     try {
       const content = fs.readFileSync(path.join(projectPath, rel), 'utf8');
       if (hasRealSdkTransportMarkers(content)) return true;
-    } catch {
-      // Ignorar errores de lectura puntual
+    } catch (err: unknown) {
+      // Tolerar errores puntuales de lectura al inspeccionar suites de contrato SDK
+      reportDebugCatchError('security-auditor.hasRealSdkTransportContractTest', err);
     }
   }
   return false;
@@ -2031,7 +2045,7 @@ function consumeRunContinuation(
 
   while (combined.endsWith('\\') && idx + 1 < rawLines.length) {
     idx++;
-    const nextRaw = rawLines[idx];
+    const nextRaw = pickAt(rawLines, idx);
     if (nextRaw.includes(QA_DOCKER_LOCK_OK_PRAGMA)) hasPragma = true;
     const nextTrimmed = nextRaw.trim();
     if (!nextTrimmed.startsWith('#')) {
@@ -2049,18 +2063,23 @@ function extractDockerfileRunBlocks(content: string): DockerRunBlock[] {
   }
 
   const blocks: DockerRunBlock[] = [];
-  for (let i = 0; i < rawLines.length; i++) {
-    const trimmed = rawLines[i].trim();
-    if (!/^RUN\b/i.test(trimmed)) continue;
+  let i = 0;
+  while (i < rawLines.length) {
+    const rawLine = pickAt(rawLines, i);
+    const trimmed = rawLine.trim();
+    if (!/^RUN\b/i.test(trimmed)) {
+      i += 1;
+      continue;
+    }
 
-    const prevLine = i > 0 ? rawLines[i - 1] : '';
+    const prevLine = pickAt(rawLines, i - 1);
     const initialPragma =
-      prevLine.includes(QA_DOCKER_LOCK_OK_PRAGMA) || rawLines[i].includes(QA_DOCKER_LOCK_OK_PRAGMA);
+      prevLine.includes(QA_DOCKER_LOCK_OK_PRAGMA) || rawLine.includes(QA_DOCKER_LOCK_OK_PRAGMA);
     const consumed = consumeRunContinuation(rawLines, i, trimmed.slice(3).trim(), initialPragma);
     if (!consumed.hasPragma) {
       blocks.push({ line: i + 1, command: consumed.command });
     }
-    i = consumed.nextIndex;
+    i = consumed.nextIndex + 1;
   }
 
   return blocks;
@@ -2073,18 +2092,16 @@ const NODE_PKG_INSTALL_RE = /^\s*(?:npm\s+(?:install|i|add)|pnpm\s+add|yarn\s+ad
 
 function normalizePipPackageName(rawToken: string): string {
   const cleaned = rawToken.replace(/^["']|["']$/g, '').trim();
-  const base = cleaned.replace(/\[.*?\]/g, '').split(/[=<>!~@;]/)[0].trim();
+  const base = pickAt(cleaned.replace(/\[[^[\]\n]*\]/g, '').split(/[=<>!~@;]/), 0).trim();
   return base.toLowerCase().replace(/_/g, '-');
 }
 
-function extractPipPositionalPackages(pipSegment: string): string[] {
-  const match = pipSegment.match(PIP_INSTALL_CMD_RE);
-  if (!match || match.index === undefined) return [];
+function extractPipPositionalPackages(pipSegment: string, match: RegExpExecArray): string[] {
   const tokens = pipSegment.slice(match.index + match[0].length).trim().split(/\s+/).filter(Boolean);
   const packages: string[] = [];
 
   for (let i = 0; i < tokens.length; i++) {
-    const raw = tokens[i].replace(/^["']|["']$/g, '');
+    const raw = pickAt(tokens, i).replace(/^["']|["']$/g, '');
     if (PIP_VALUE_FLAGS.has(raw)) {
       i++;
       continue;
@@ -2100,10 +2117,11 @@ function extractPipPositionalPackages(pipSegment: string): string[] {
 }
 
 function hasHandwrittenPythonPipDeps(command: string): boolean {
-  for (const segment of command.split(/\s*(?:&&|\|\||;)\s*/)) {
-    if (!PIP_INSTALL_CMD_RE.test(segment)) continue;
+  for (const segment of command.split(/(?:&&|\|\||;)/)) {
+    const match = PIP_INSTALL_CMD_RE.exec(segment);
+    if (!match) continue;
     if (PIP_LOCKED_OR_EDITABLE_RE.test(segment)) continue;
-    const pkgs = extractPipPositionalPackages(segment);
+    const pkgs = extractPipPositionalPackages(segment, match);
     if (pkgs.some((pkg) => !BOOTSTRAP_PY_PACKAGES.has(pkg))) {
       return true;
     }
@@ -2117,14 +2135,20 @@ function hasUnfrozenUvSync(command: string, hasUvLock: boolean): boolean {
 }
 
 function hasHandwrittenNodeDeps(command: string): boolean {
-  for (const segment of command.split(/\s*(?:&&|\|\||;)\s*/)) {
+  for (const segment of command.split(/(?:&&|\|\||;)/)) {
     const trimmed = segment.trim();
     if (!NODE_PKG_INSTALL_RE.test(trimmed)) continue;
     if (/(?:\s|^)(?:-g|--global)(?:\s|$)/.test(trimmed)) continue;
     const tokens = trimmed.split(/\s+/).slice(2);
     const hasExplicitPkg = tokens.some((tok) => {
       const clean = tok.replace(/^["']|["']$/g, '');
-      return clean && clean !== '.' && !clean.startsWith('-') && !clean.startsWith('./') && !clean.startsWith('/');
+      return (
+        Boolean(clean) &&
+        clean !== '.' &&
+        !clean.startsWith('-') &&
+        !clean.startsWith('./') &&
+        !clean.startsWith('/')
+      );
     });
     if (hasExplicitPkg) return true;
   }
@@ -2241,7 +2265,7 @@ function resolveExpectedPlaywrightTag(
   if (ancestorOrChild) return ancestorOrChild.version;
 
   const uniqueVersions = new Set(dockerTags.map((t) => t.version));
-  return uniqueVersions.size === 1 ? dockerTags[0].version : null;
+  return uniqueVersions.size === 1 ? pickAt(Array.from(uniqueVersions), 0) : null;
 }
 
 function collectDeclaredPlaywrightSpecs(
@@ -2407,13 +2431,12 @@ function hasDualThemeMarkerForScope(
 function inspectPrehydrateLinesInFile(relPath: string, content: string): SecurityFinding[] {
   const findings: SecurityFinding[] = [];
   const lines = content.split(/\r?\n/);
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const prev = i > 0 ? lines[i - 1] : '';
+  for (const [i, line] of lines.entries()) {
+    const prev = pickAt(lines, i - 1);
     if (line.includes(QA_SSR_HYDRATION_OK_PRAGMA) || prev.includes(QA_SSR_HYDRATION_OK_PRAGMA)) {
       continue;
     }
-    if (SSR_PREHYDRATE_V_IF_RE.test(line)) {
+    if (SSR_PREHYDRATE_V_IF_PATTERNS.some((re) => re.test(line))) {
       findings.push({
         rule_id: QA_SSR_HYDRATION_RULE,
         severity: 'MEDIUM',
@@ -2508,8 +2531,9 @@ function inspectPlaywrightHydrationContract(input: PlaywrightHydrationInput): Se
   const { projectPath, scopeDir, scopeFiles, extraFiles, allRelFiles, seenConfigs } = input;
   const scoped = [...scopeFiles, ...extraFiles];
   const { configs, usedRootFallback } = findPlaywrightScopeConfigs(scopeDir, scoped, allRelFiles);
-  if (configs.length === 0 || seenConfigs.has(configs[0])) return [];
-  seenConfigs.add(configs[0]);
+  const primaryConfig = configs[0];
+  if (!primaryConfig || seenConfigs.has(primaryConfig)) return [];
+  seenConfigs.add(primaryConfig);
 
   const pwTexts = readExistingTexts(projectPath, configs);
   if (pwTexts.some((txt) => txt.includes(QA_SSR_HYDRATION_OK_PRAGMA))) return [];
@@ -2535,7 +2559,7 @@ function inspectPlaywrightHydrationContract(input: PlaywrightHydrationInput): Se
       rule_id: QA_SSR_HYDRATION_RULE,
       severity: 'MEDIUM',
       stig_owasp_ref: QA_SSR_HYDRATION_REF,
-      file: configs[0],
+      file: primaryConfig,
       line: 1,
       message: buildMissingPlaywrightHydrationMessage(hasDual, hasGuard),
       remediation: `Añadir prueba Playwright con browser.newContext({ colorScheme: 'light' }) / emulateMedia cubriendo ambos esquemas y aserción sobre eventos console/pageerror para /hydration/i (o eximir con ${QA_SSR_HYDRATION_OK_PRAGMA}).`,
@@ -2641,8 +2665,9 @@ function checkQaMypy01StrictChain(projectPath: string): SecurityFinding[] {
             'Encadenar obligatoriamente mypy --strict --cache-dir=/tmp/mypy src/ junto a ruff check y ruff format --check antes de pytest.',
         });
       }
-    } catch {
-      // Ignorar errores de lectura puntual
+    } catch (err: unknown) {
+      // Tolerar errores puntuales de lectura de pyproject/Makefile durante escaneo de proyecto
+      reportDebugCatchError('security-auditor.checkQaMypy01StrictChain', err);
     }
   }
 
@@ -2655,8 +2680,7 @@ function checkQaKarateStaticIdempotency(relPath: string, lines: string[]): Secur
   const staticUuidHeaderRegex =
     /header\s+Idempotency-Key\s*=\s*['"][0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}['"]/i;
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  for (const [i, line] of lines.entries()) {
     if (line.includes('# static-ok')) continue;
     if (staticUuidHeaderRegex.test(line)) {
       findings.push({
@@ -2699,10 +2723,10 @@ function checkSec12McpServiceRbac(relPath: string, lines: string[]): SecurityFin
   if (hasRbacOrApproval) return [];
 
   const findings: SecurityFinding[] = [];
-  const mutatingToolRegex = /^\s*async\s+def\s+(?:dispatch_|handle_|tool_)?(?:create|update|delete|execute|apply|reboot)_[A-Za-z0-9_]+\s*\(/;
+  const mutatingToolRegex = /^\s*async\s+def\s+(?:dispatch_|handle_|tool_)?(?:create|update|delete|execute|apply|reboot)_\w+\s*\(/;
 
-  for (let i = 0; i < lines.length; i++) {
-    if (mutatingToolRegex.test(lines[i])) {
+  for (const [i, line] of lines.entries()) {
+    if (mutatingToolRegex.test(line)) {
       findings.push({
         rule_id: 'SEC-12',
         severity: 'HIGH',
@@ -2737,7 +2761,7 @@ function checkSec13RlsMultiTxPersistence(relPath: string, lines: string[]): Secu
       severity: 'HIGH',
       stig_owasp_ref: 'Standard 11X Law 7 / PostgreSQL RLS Multi-Transaction Persistence (after_begin)',
       file: relPath,
-      line: (lineIdx >= 0 ? lineIdx : 0) + 1,
+      line: Math.max(1, lineIdx + 1),
       message:
         'Se detectó SET LOCAL / set_config("app.current_tenant_id") en AsyncSession sin listener "after_begin". Tras un await db.commit() intermedio, la segunda transacción perderá el contexto RLS.',
       remediation:
@@ -2755,7 +2779,8 @@ function checkSec14WormDeterministicChain(relPath: string, lines: string[]): Sec
   if (!isWormChainFile) return [];
 
   const ordersByCreatedAt =
-    /order_by\s*\([^)]*created_at/i.test(fullText) || /ORDER\s+BY\s+[^\n]*created_at/i.test(fullText);
+    /order_by\s*\([^)]*created_at/i.test(fullText) ||
+    lines.some((line) => /\border[ \t]+by\b/i.test(line) && /\bcreated_at\b/i.test(line));
   const hasDeterministicLockAndSeq =
     fullText.includes('seq_num') && fullText.includes('pg_advisory_xact_lock');
 
@@ -2768,7 +2793,7 @@ function checkSec14WormDeterministicChain(relPath: string, lines: string[]): Sec
       severity: 'HIGH',
       stig_owasp_ref: 'APSC-DV-001350 / Standard 11X Law 7 / Deterministic WORM Audit Chain',
       file: relPath,
-      line: (lineIdx >= 0 ? lineIdx : 0) + 1,
+      line: Math.max(1, lineIdx + 1),
       message:
         'Cadena forense WORM (prev_record_hash) ordena únicamente por created_at DESC sin secuencia monotónica (seq_num) ni pg_advisory_xact_lock, quedando vulnerable a empates de reloj y condiciones de carrera.',
       remediation:
@@ -2794,8 +2819,7 @@ function checkQaCov01AddoptsBypass(relPath: string, lines: string[]): SecurityFi
   const findings: SecurityFinding[] = [];
   const bareAddoptsRegex = /\bpytest\b[^\n]*-o\s+addopts=(?:""|''|\\""|\\'')/;
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  for (const [i, line] of lines.entries()) {
     if (!bareAddoptsRegex.test(line)) continue;
 
     if (!line.includes('--cov')) {
@@ -2844,7 +2868,7 @@ function checkQaPg17RlsInvalidCatalog(relPath: string, lines: string[]): Securit
       severity: 'HIGH',
       stig_owasp_ref: 'Standard 11X Law 7 / PostgreSQL 15-17+ RLS Catalog Parity',
       file: relPath,
-      line: lineIdx >= 0 ? lineIdx + 1 : 1,
+      line: Math.max(1, lineIdx + 1),
       message:
         'Auditoría RLS consulta la columna inexistente pg_tables.forcerowsecurity (ausente en PostgreSQL 15–17+), causando errores SQL en integración/CI.',
       remediation:
@@ -2863,7 +2887,7 @@ function checkQaSmoke01SettingsSingletonSync(relPath: string, lines: string[]): 
   if (!setsOsEnvironProd) return [];
 
   const syncsSingleton =
-    /\bsettings\.[A-Za-z0-9_]*ENV\s*=\s*["']production["']/.test(fullText) ||
+    /\bsettings\.\w*ENV\s*=\s*["']production["']/.test(fullText) ||
     /\bsetattr\s*\(\s*settings\b/.test(fullText) ||
     /\bpatch\s*\([^)]*settings/.test(fullText) ||
     fullText.includes('cache_clear()');
@@ -2877,7 +2901,7 @@ function checkQaSmoke01SettingsSingletonSync(relPath: string, lines: string[]): 
       severity: 'HIGH',
       stig_owasp_ref: 'APSC-DV-002430 / OWASP SC-11 / In-Process Smoke Test Singleton Sync',
       file: relPath,
-      line: (lineIdx >= 0 ? lineIdx : 0) + 1,
+      line: Math.max(1, lineIdx + 1),
       message:
         'Smoke test muta os.environ["..._ENV"] = "production" antes de create_app() sin sincronizar el singleton settings ya instanciado en memoria tras importar src/.',
       remediation:
@@ -2913,7 +2937,7 @@ function checkSec15EphemeralProdPipelineCreds(relPath: string, lines: string[]):
       severity: 'HIGH',
       stig_owasp_ref: 'APSC-DV-002310 / Fail-Secure Ephemeral Credential Propagation',
       file: relPath,
-      line: (lineIdx >= 0 ? lineIdx : 0) + 1,
+      line: Math.max(1, lineIdx + 1),
       message:
         'Script de validación productiva define LOCAL_ADMIN_PASS / EPHEMERAL_ADMIN_PASS pero ejecuta docker exec sin propagar la contraseña efímera mediante -e <PASS_ENV_VAR>="${LOCAL_ADMIN_PASS}".',
       remediation:
@@ -2950,7 +2974,7 @@ function checkPreAuthFrontendInterceptorAsymmetry(
     severity: 'HIGH',
     stig_owasp_ref: SEC_16_REF,
     file: relPath,
-    line: lineIdx >= 0 ? lineIdx + 1 : 1,
+    line: Math.max(1, lineIdx + 1),
     message:
       'Interceptor HTTP 401 excluye /auth/login y /auth/refresh pero omite rutas pre-autenticación multi-etapa (/auth/bootstrap, /auth/2fa/*, confirm-enrollment).',
     remediation:
@@ -2991,7 +3015,7 @@ function checkPreAuthNonAtomicChallengeConsumption(
     severity: 'HIGH',
     stig_owasp_ref: SEC_16_REF,
     file: relPath,
-    line: lineIdx >= 0 ? lineIdx + 1 : 1,
+    line: Math.max(1, lineIdx + 1),
     message:
       'Consumo no atómico (.get sin GETDEL/Lua ni idemp:preauth) de challenge_id efímero de pre-autenticación en Redis/KeyDB (riesgo TOCTOU CWE-362).',
     remediation:
@@ -3032,8 +3056,7 @@ function checkQaHealth01SupervisorTaskExit(relPath: string, lines: string[]): Se
 
   const findings: SecurityFinding[] = [];
   let lastReportedLine = -1;
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  for (const [i, line] of lines.entries()) {
     if (i <= lastReportedLine || line.includes(QA_HEALTH_OK_PRAGMA) || !line.includes('.done()')) {
       continue;
     }
@@ -3151,7 +3174,7 @@ function consumeContinuedCommand(
   const parts: string[] = [];
   let idx = startIndex;
   while (idx < lines.length) {
-    const cur = lines[idx];
+    const cur = pickAt(lines, idx);
     if (cur.includes(QA_DOCKER_TTY_OK_PRAGMA)) exempt = true;
     const cleanEnd = cur.trimEnd();
     const continues = cleanEnd.endsWith('\\') && !cleanEnd.endsWith('\\\\');
@@ -3167,7 +3190,7 @@ function collectLogicalCommands(lines: string[]): LogicalShellCommand[] {
   let prevPragma = false;
   let i = 0;
   while (i < lines.length) {
-    const line = lines[i];
+    const line = pickAt(lines, i);
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) {
       prevPragma = trimmed.startsWith('#') && line.includes(QA_DOCKER_TTY_OK_PRAGMA);
@@ -3196,7 +3219,7 @@ function readQuotedSpan(
   let chunk = '';
   let idx = startIdx + 1;
   while (idx < text.length && text[idx] !== quoteChar) {
-    chunk += text[idx];
+    chunk += pickAt(text, idx);
     idx++;
   }
   return { chunk, endIdx: idx };
@@ -3212,20 +3235,23 @@ function shellSeparatorLength(text: string, idx: number): number {
 function splitShellTokens(text: string): string[] {
   const tokens: string[] = [];
   let current = '';
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
+  let i = 0;
+  while (i < text.length) {
+    const ch = pickAt(text, i);
     const sepLen = shellSeparatorLength(text, i);
     if (ch === "'" || ch === '"') {
       const span = readQuotedSpan(text, i, ch);
       current += span.chunk;
-      i = span.endIdx;
+      i = span.endIdx + 1;
     } else if (sepLen > 0) {
       current = pushTokenAndReset(tokens, current, ';');
-      i += sepLen - 1;
+      i += sepLen;
     } else if (/\s/.test(ch)) {
       current = pushTokenAndReset(tokens, current);
+      i += 1;
     } else {
       current += ch;
+      i += 1;
     }
   }
   pushTokenAndReset(tokens, current);
@@ -3235,7 +3261,7 @@ function splitShellTokens(text: string): string[] {
 function advanceComposeSubcommand(tokens: string[], afterComposeIdx: number): number {
   let idx = afterComposeIdx;
   while (idx < tokens.length && tokens[idx] !== ';') {
-    const tok = tokens[idx];
+    const tok = pickAt(tokens, idx);
     if (!tok.startsWith('-')) return idx;
     idx += COMPOSE_VALUE_FLAGS.has(tok) ? 2 : 1;
   }
@@ -3246,9 +3272,9 @@ function checkRunFlagsMissingNoTty(tokens: string[], runIdx: number): boolean {
   let idx = runIdx + 1;
   let hasNoTty = false;
   while (idx < tokens.length && tokens[idx] !== ';') {
-    const tok = tokens[idx];
+    const tok = pickAt(tokens, idx);
     if (!tok.startsWith('-')) break;
-    const isShortNoTty = tok.startsWith('-') && !tok.startsWith('--') && tok.includes('T');
+    const isShortNoTty = !tok.startsWith('--') && tok.includes('T');
     if (tok === '--no-TTY' || isShortNoTty) {
       hasNoTty = true;
     }
@@ -3285,8 +3311,7 @@ function isTargetComposeRunnerFile(relPath: string, lines: string[]): boolean {
 function extractActiveComposeLines(lines: string[]): ActiveComposeLine[] {
   const active: ActiveComposeLine[] = [];
   let prevPragma = false;
-  for (let i = 0; i < lines.length; i++) {
-    const raw = lines[i];
+  for (const [i, raw] of lines.entries()) {
     const trimmed = raw.trimStart();
     if (!trimmed || trimmed.startsWith('#')) {
       prevPragma = trimmed.startsWith('#') && raw.includes(QA_DOCKER_TTY_OK_PRAGMA);
@@ -3409,14 +3434,17 @@ function isGithubWorkflowOrActionFile(relPath: string): boolean {
   if (ghIdx === -1 || (ghIdx > 0 && lower[ghIdx - 1] !== '/')) return false;
   const sub = lower.slice(ghIdx + '.github/'.length);
   const parts = sub.split('/');
-  if (parts.length === 2 && parts[0] === 'workflows' && parts[1].length > 0) {
+  const firstPart = pickAt(parts, 0);
+  const secondPart = pickAt(parts, 1);
+  const thirdPart = pickAt(parts, 2);
+  if (parts.length === 2 && firstPart === 'workflows' && secondPart.length > 0) {
     return true;
   }
   return (
     parts.length === 3 &&
-    parts[0] === 'actions' &&
-    parts[1].length > 0 &&
-    (parts[2] === 'action.yml' || parts[2] === 'action.yaml')
+    firstPart === 'actions' &&
+    secondPart.length > 0 &&
+    (thirdPart === 'action.yml' || thirdPart === 'action.yaml')
   );
 }
 
@@ -3431,16 +3459,25 @@ function stripWrappingQuotes(value: string): string {
   return value;
 }
 
+function stripInlineYamlComment(rawRest: string): string {
+  for (let i = 1; i < rawRest.length; i++) {
+    if (rawRest[i] === '#' && /\s/.test(pickAt(rawRest, i - 1))) {
+      return rawRest.slice(0, i).trim();
+    }
+  }
+  return rawRest;
+}
+
 function extractThirdPartyActionTarget(line: string): string | null {
   const trimmed = line.trimStart();
   if (!trimmed || trimmed.startsWith('#')) return null;
-  const isSeqItem = trimmed.startsWith('-') && trimmed.length > 1 && /\s/.test(trimmed[1]);
+  const isSeqItem = trimmed.startsWith('-') && /\s/.test(pickAt(trimmed, 1));
   const candidate = isSeqItem ? trimmed.slice(1).trimStart() : trimmed;
   if (!candidate.startsWith('uses')) return null;
   const afterUses = candidate.slice(4).trimStart();
   if (!afterUses.startsWith(':')) return null;
   const rawRest = afterUses.slice(1).trim();
-  const withoutComment = rawRest.split(/\s+#/, 1)[0].trim();
+  const withoutComment = stripInlineYamlComment(rawRest);
   const rawTarget = stripWrappingQuotes(withoutComment);
   if (
     !rawTarget ||
@@ -3474,9 +3511,8 @@ function checkSecCiActionRef(relPath: string, lines: string[]): SecurityFinding[
   if (lines.slice(0, 5).some((l) => l.includes(SEC_CI_ACTION_OK_PRAGMA))) return [];
 
   const findings: SecurityFinding[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const prevLine = i > 0 ? lines[i - 1] : '';
+  for (const [i, line] of lines.entries()) {
+    const prevLine = pickAt(lines, i - 1);
     if (line.includes(SEC_CI_ACTION_OK_PRAGMA) || prevLine.includes(SEC_CI_ACTION_OK_PRAGMA)) {
       continue;
     }
@@ -3511,9 +3547,8 @@ function checkQaCiEscape01WorkflowExpansion(
   if (lines.slice(0, 5).some((l) => l.includes(QA_CI_ESCAPE_OK_PRAGMA))) return [];
 
   const findings: SecurityFinding[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const prevLine = i > 0 ? lines[i - 1] : '';
+  for (const [i, line] of lines.entries()) {
+    const prevLine = pickAt(lines, i - 1);
     if (isLineCommentOrPragmaExempt(line, prevLine, QA_CI_ESCAPE_OK_PRAGMA)) continue;
     if (!DOUBLE_DOLLAR_CI_RE.test(line)) continue;
     findings.push({
@@ -3536,7 +3571,7 @@ function isSubdirectoryMakefile(relPath: string): boolean {
   if (isTestFilePath(clean) || isAuditorSelfDefinition(clean)) return false;
   const parts = clean.split('/');
   if (parts.length < 2) return false;
-  const fileName = parts[parts.length - 1];
+  const fileName = pickAt(parts, parts.length - 1);
   return MAKEFILE_NAMES.has(fileName);
 }
 
@@ -3553,7 +3588,7 @@ function countPrecedingDollars(text: string, index: number): number {
 function hasUnescapedMakePwdVar(line: string): boolean {
   MAKE_PWD_VAR_RE.lastIndex = 0;
   for (const match of line.matchAll(MAKE_PWD_VAR_RE)) {
-    const idx = match.index ?? 0;
+    const idx = match.index;
     if (countPrecedingDollars(line, idx) % 2 === 0) {
       return true;
     }
@@ -3566,9 +3601,8 @@ function checkQaMakeCurdir01SubMakefile(relPath: string, lines: string[]): Secur
   if (lines.slice(0, 5).some((l) => l.includes(QA_MAKE_CURDIR_OK_PRAGMA))) return [];
 
   const findings: SecurityFinding[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const prevLine = i > 0 ? lines[i - 1] : '';
+  for (const [i, line] of lines.entries()) {
+    const prevLine = pickAt(lines, i - 1);
     if (isLineCommentOrPragmaExempt(line, prevLine, QA_MAKE_CURDIR_OK_PRAGMA)) continue;
     if (!hasUnescapedMakePwdVar(line)) continue;
     findings.push({
@@ -3589,7 +3623,9 @@ function scanSingleFile(absPath: string, relPath: string): SecurityFinding[] {
   let content: string;
   try {
     content = fs.readFileSync(absPath, 'utf8');
-  } catch {
+  } catch (err: unknown) {
+    // Archivo inaccesible o enlace simbólico roto durante recorrido del proyecto; omitir solo ese archivo
+    reportDebugCatchError('security-auditor.scanSingleFile', err);
     return [];
   }
 
@@ -3677,36 +3713,38 @@ export async function auditSecurityStigOwasp(
   projectPath: string,
   maxFindings?: number
 ): Promise<SecurityAuditResult> {
-  const resolvedPath = resolveSafeProjectPath(projectPath);
-  const allAbsoluteFiles = collectFiles(resolvedPath);
-  const allRelFiles = allAbsoluteFiles.map((abs) => path.relative(resolvedPath, abs));
-  const findings: SecurityFinding[] = [];
+  return Promise.resolve().then(() => {
+    const resolvedPath = resolveSafeProjectPath(projectPath);
+    const allAbsoluteFiles = collectFiles(resolvedPath);
+    const allRelFiles = allAbsoluteFiles.map((abs) => path.relative(resolvedPath, abs));
+    const findings: SecurityFinding[] = [];
 
-  for (let i = 0; i < allAbsoluteFiles.length; i++) {
-    findings.push(...scanSingleFile(allAbsoluteFiles[i], allRelFiles[i]));
-  }
+    for (const [i, absPath] of allAbsoluteFiles.entries()) {
+      findings.push(...scanSingleFile(absPath, pickAt(allRelFiles, i)));
+    }
 
-  findings.push(...checkProjectLevelRules(resolvedPath, allRelFiles));
+    findings.push(...checkProjectLevelRules(resolvedPath, allRelFiles));
 
-  const counts = countSeverities(findings);
-  const passed = counts.CRITICAL === 0 && counts.HIGH === 0;
-  const groupedFindings = groupFindingsByRule(findings);
+    const counts = countSeverities(findings);
+    const passed = counts.CRITICAL === 0 && counts.HIGH === 0;
+    const groupedFindings = groupFindingsByRule(findings);
 
-  let returnedFindings = findings;
-  let truncatedCount: number | undefined;
+    let returnedFindings = findings;
+    let truncatedCount: number | undefined;
 
-  if (typeof maxFindings === 'number' && maxFindings >= 0 && findings.length > maxFindings) {
-    returnedFindings = findings.slice(0, maxFindings);
-    truncatedCount = findings.length - maxFindings;
-  }
+    if (typeof maxFindings === 'number' && maxFindings >= 0 && findings.length > maxFindings) {
+      returnedFindings = findings.slice(0, maxFindings);
+      truncatedCount = findings.length - maxFindings;
+    }
 
-  return {
-    project_path: resolvedPath,
-    passed,
-    total_files_scanned: allAbsoluteFiles.length,
-    findings_count: counts,
-    findings: returnedFindings,
-    grouped_findings: groupedFindings,
-    ...(truncatedCount !== undefined ? { truncated_findings_count: truncatedCount } : {}),
-  };
+    return {
+      project_path: resolvedPath,
+      passed,
+      total_files_scanned: allAbsoluteFiles.length,
+      findings_count: counts,
+      findings: returnedFindings,
+      grouped_findings: groupedFindings,
+      ...(truncatedCount !== undefined ? { truncated_findings_count: truncatedCount } : {}),
+    };
+  });
 }

@@ -116,6 +116,34 @@ export function sanitizeCommandSecrets(rawCommand: string): string {
   return sanitizeSingleLine(masked);
 }
 
+/**
+ * Emite diagnósticos acotados a stderr solo cuando QA11X_DEBUG=1, evitando silenciar errores inesperados en catch.
+ */
+export function reportDebugCatchError(scope: string, err: unknown): void {
+  if (process.env.QA11X_DEBUG !== '1') {
+    return;
+  }
+  let raw = 'unexpected error';
+  if (err instanceof Error) {
+    raw = err.message;
+  } else if (typeof err === 'string') {
+    raw = err;
+  }
+  const safeDetail = sanitizeCommandSecrets(raw).slice(0, 180);
+  process.stderr.write(`[QA11X_DEBUG] ${sanitizeSingleLine(scope)}: ${safeDetail}\n`);
+}
+
+/**
+ * Lee un índice de arreglo/captura RegExp con valor por defecto sin duplicar ramas ?? en llamadas estrictas.
+ */
+export function pickAt(
+  items: ArrayLike<string | undefined>,
+  index: number,
+  fallback = ''
+): string {
+  return items[index] ?? fallback;
+}
+
 function trimEdgeDashes(value: string): string {
   let start = 0;
   let end = value.length;

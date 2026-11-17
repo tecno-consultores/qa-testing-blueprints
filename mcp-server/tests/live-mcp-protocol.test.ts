@@ -19,14 +19,15 @@ import {
   dispatchCliArgs,
   getRegisteredSurfaceCounts,
 } from '../src/index.js';
-import { createMcpServer } from '../src/server.js';
+import { createMcpServer, getServerDispatcherRegistry } from '../src/server.js';
 import { GitHubFetcher, MCP_SERVER_VERSION } from '../src/services/github-fetcher.js';
 import { toAllureDiagnosticEnvelope } from '../src/utils/diagnosticFormatter.js';
 import { TaskStateGuard } from '../src/utils/taskStateGuard.js';
 
 const EXPECTED_TOOLS_COUNT = 19;
-const EXPECTED_RESOURCES_COUNT = 13;
+const EXPECTED_STATIC_RESOURCES_COUNT = 11;
 const EXPECTED_TEMPLATES_COUNT = 2;
+const EXPECTED_RESOURCES_COUNT = EXPECTED_STATIC_RESOURCES_COUNT + EXPECTED_TEMPLATES_COUNT;
 
 const REQUIRED_CALM_CONTROLS = [
   'prompt-injection-guard',
@@ -180,8 +181,10 @@ function seedTargetWorkspace(wsDir: string): void {
   );
 }
 
-function extractFirstText(result: { content: unknown }): string {
-  const items = result.content as ToolCallTextContent[];
+function extractFirstText(result: Awaited<ReturnType<Client['callTool']>>): string {
+  const items = 'content' in result && Array.isArray(result.content)
+    ? (result.content as ToolCallTextContent[])
+    : [];
   return items[0]?.text ?? '';
 }
 
@@ -190,11 +193,12 @@ function getLatestTsMtimeMs(dirPath: string): number {
   let latest = 0;
   for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
     const fullPath = path.join(dirPath, entry.name);
-    const mtime = entry.isDirectory()
-      ? getLatestTsMtimeMs(fullPath)
-      : entry.name.endsWith('.ts')
-        ? fs.statSync(fullPath).mtimeMs
-        : 0;
+    let mtime = 0;
+    if (entry.isDirectory()) {
+      mtime = getLatestTsMtimeMs(fullPath);
+    } else if (entry.name.endsWith('.ts')) {
+      mtime = fs.statSync(fullPath).mtimeMs;
+    }
     if (mtime > latest) latest = mtime;
   }
   return latest;
@@ -212,7 +216,8 @@ function ensureBuiltDistEntry(): string {
     if (fs.existsSync(localTsc)) {
       execFileSync(localTsc, [], { cwd: mcpRoot, stdio: 'pipe' });
     } else {
-      execFileSync('pnpm', ['run', 'build'], { cwd: mcpRoot, stdio: 'pipe' });
+      const tscBin = path.join(mcpRoot, 'node_modules', 'typescript', 'bin', 'tsc');
+      execFileSync(process.execPath, [tscBin], { cwd: mcpRoot, stdio: 'pipe' });
     }
   }
   return distEntry;
@@ -267,10 +272,13 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
       );
 
       const resourcesList = await client.listResources();
-      expect(resourcesList.resources).toHaveLength(runtimeCounts.resources);
+      expect(resourcesList.resources).toHaveLength(EXPECTED_STATIC_RESOURCES_COUNT);
 
       const templatesList = await client.listResourceTemplates();
       expect(templatesList.resourceTemplates).toHaveLength(EXPECTED_TEMPLATES_COUNT);
+      expect(resourcesList.resources.length + templatesList.resourceTemplates.length).toBe(
+        runtimeCounts.resources
+      );
 
       for (const uri of [
         'blueprint://manifest',
@@ -536,7 +544,13 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
       expect(toolsRes.tools).toHaveLength(EXPECTED_TOOLS_COUNT);
 
       const resList = await client.listResources();
-      expect(resList.resources).toHaveLength(EXPECTED_RESOURCES_COUNT);
+      expect(resList.resources).toHaveLength(EXPECTED_STATIC_RESOURCES_COUNT);
+
+      const tplList = await client.listResourceTemplates();
+      expect(tplList.resourceTemplates).toHaveLength(EXPECTED_TEMPLATES_COUNT);
+      expect(resList.resources.length + tplList.resourceTemplates.length).toBe(
+        EXPECTED_RESOURCES_COUNT
+      );
 
       const aiRes = await client.readResource({ uri: 'blueprint://ai/evals-redteam' });
       const aiText = (aiRes.contents[0] as { text?: string }).text ?? '';
@@ -555,13 +569,12 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
   it('PROTEGE saturación TaskStateGuard (capacity: 1) y emite reporte Fail-Verbose en fallos del servidor', async () => {
     const taskGuard = new TaskStateGuard({ capacity: 1, defaultTimeoutMs: 5_000 });
     const mcpServer = createMcpServer({ fetcher: new GitHubFetcher() });
-    const handlers = Reflect.get(mcpServer.server, '_requestHandlers') as Map<
-      string,
-      (req: unknown, extra: unknown) => Promise<unknown>
-    >;
-    handlers.set('tools/call', async () => {
-      throw new Error('Fallo controlado de prueba');
-    });
+    const handlers = getServerDispatcherRegistry(mcpServer);
+    expect(handlers).toBeDefined();
+    if (!handlers) {
+      throw new Error('Expected dispatcher registry on McpServer');
+    }
+    handlers.set('tools/call', () => Promise.reject(new Error('Fallo controlado de prueba')));
     attachPromptGuard(mcpServer, { taskGuard });
 
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -584,7 +597,7 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
           async () => {
             expect(taskGuard.getSnapshot().state).toBe('BUSY');
             await expect(
-              taskGuard.executeTask(async () => 'blocked', { taskId: 'slot-2' })
+              taskGuard.executeTask(() => Promise.resolve('blocked'), { taskId: 'slot-2' })
             ).rejects.toMatchObject({ code: 'GUARD_BUSY' });
             return 'done';
           },

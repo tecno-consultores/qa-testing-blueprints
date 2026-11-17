@@ -18,8 +18,8 @@ For an agent to understand corporate constraints in real time, blueprints must b
   python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"
 ```
 * **CLI-First / MCP `stdio` Invariant:** Both console-capable agents (Antigravity, Claude Code, Cursor) and agents connected to `@sinfallas/mcp-qa-11x` (`inspect_ast_blast_radius`) query `graphify-out/graph.json` and `GRAPH_REPORT.md` directly without occupying TCP ports or leaving background daemons.
-* **Practical Example 2 (SHA-256 Verified Dynamic Resources):** The `@sinfallas/mcp-qa-11x` v3.1.0 MCP server exposes **13 dynamic resources (`blueprint://*`)** and **19 MCP tools** covering **10 hydratable stacks + `architecture/` + `mcp-server/` (= 12 matrix environments)** (including `mobile-appium` on `sinfallas/base-mobile-appium:26`). When an agent detects a FastAPI stack, it queries `blueprint://fastapi/readme` and `blueprint://database/postgres-rls-worm`, receiving templates cryptographically verified against `manifest.json`.
-* **Practical Example 3 (Proactive QA Config Reading):** The MCP server or static inspection must not evaluate topology alone. It must proactively audit QA configuration files (such as `pyproject.toml`, `.eslintrc.json`, `tsconfig.json`, `vitest.config.ts`) before writing code.
+* **Practical Example 2 (SHA-256 Verified Dynamic Resources):** The `@sinfallas/mcp-qa-11x` v3.1.0 MCP server exposes **13 MCP resources (`blueprint://*`: 11 static via `resources/list` + 2 dynamic templates via `resources/templates/list`)** and **19 MCP tools** covering **10 hydratable stacks + `architecture/` + `mcp-server/` (= 12 matrix environments)** (including `mobile-appium` on `sinfallas/base-mobile-appium:26`). When an agent detects a FastAPI stack, it queries `blueprint://fastapi/readme` and `blueprint://database/postgres-rls-worm`, receiving templates cryptographically verified against `manifest.json`.
+* **Practical Example 3 (Proactive QA Config Reading):** The MCP server or static inspection must not evaluate topology alone. It must proactively audit QA configuration files (such as `pyproject.toml`, `eslint.config.mjs`, `tsconfig.json`, `vitest.config.ts`) before writing code.
   * **Unbreakable Rule to Inject into the Developer Agent:** "If the Developer Agent is going to write code, its first autonomous step must be reading linter and typing rules so it generates compliant code under strict settings (e.g. `strict=true` in Mypy) on the first try, saving self-correction cycles (tokens)."
 
 ## 2. Multi-Agent Orchestration (Pantheon / Hermes Architectures)
@@ -159,15 +159,17 @@ mcp_servers:
     args: ["-y", "@sinfallas/mcp-qa-11x@latest"]
 ```
 
-### 6.3. Catalog of Exposed MCP Resources (`blueprint://*`)
+### 6.3. Catalog of Exposed MCP Resources (`blueprint://*`: 11 Static + 2 Templates = 13 Resources)
+
+> `resources/list` returns the **11 static** URIs below, while `resources/templates/list` exposes the **2 dynamic `ResourceTemplate`** URIs (`blueprint://{stack}/readme` and `blueprint://ui/refactoring-ui/{topic}`).
 
 | Resource URI | MIME Type | Operational Description |
 | :--- | :--- | :--- |
 | `blueprint://manifest` | `application/json` | Complete cryptographic manifest with SHA-256 hashes of all stacks and files. |
 | `blueprint://core/philosophy` | `text/markdown` | Master prompt and Level-11X philosophy (`AI_MASTER_PROMPT.md`). |
 | `blueprint://security/disa-owasp-22` | `text/markdown` | Technical synthesis of the 22 DISA ASD STIG V6R5 and OWASP Developer Guide v4.2 reference controls (backed by 34 static scanner rules). |
-| `blueprint://{stack}/readme` | `text/markdown` | Operational guide and canonical file list for the requested hydratable stack (`python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue`). |
-| `blueprint://ui/refactoring-ui/{topic}` | `text/markdown` | Tactical design guidelines and WCAG 2.1 AA contrast (`skill`, `hierarchy`, `layout`, `type`, `color`, `depth`, `images`, `polish`, `dark-mode`, `tailwind`). |
+| `blueprint://{stack}/readme` | `text/markdown` | *(Resource Template — `resources/templates/list`)* Operational guide and canonical file list for the requested hydratable stack (`python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue`). |
+| `blueprint://ui/refactoring-ui/{topic}` | `text/markdown` | *(Resource Template — `resources/templates/list`)* Tactical design guidelines and WCAG 2.1 AA contrast (`skill`, `hierarchy`, `layout`, `type`, `color`, `depth`, `images`, `polish`, `dark-mode`, `tailwind`). |
 | `blueprint://core/active-task-template`| `text/markdown` | Canonical resilient logbook template for AI agents (`ACTIVE_TASK.md.example`). |
 | `blueprint://core/cleanup-script` | `text/x-shellscript` | Universal safe cleanup and purge script without sudo (`scripts/limpieza.sh`). |
 | `blueprint://core/roadmap-validator` | `text/x-python` | Roadmap consistency validation script (`verify_roadmap_consistency.py`). |

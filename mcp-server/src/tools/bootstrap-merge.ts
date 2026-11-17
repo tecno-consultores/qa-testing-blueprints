@@ -30,12 +30,13 @@ function injectAgentsConnectorIfMissingFromBundle(
     fs.writeFileSync(agentsPath, agentsRes.finalContent, 'utf-8');
   }
 
+  const existingStatus = hadAgentsFile ? 'merged' : 'created';
   result.summary.total_files += 1;
-  result.summary[hadAgentsFile ? 'merged' : 'created'] += 1;
+  result.summary[existingStatus] += 1;
   result.applied_changes.push({
     file: 'AGENTS.md',
     strategy: 'merge_agents_md',
-    status: dryRun ? 'dry_run' : hadAgentsFile ? 'merged' : 'created',
+    status: dryRun ? 'dry_run' : existingStatus,
     changes: agentsRes.changes,
   });
 }

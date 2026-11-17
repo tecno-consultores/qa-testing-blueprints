@@ -349,10 +349,12 @@ export interface DiffBundleReport {
   rendered_bundle: string;
 }
 
+export type BlastRiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
 export interface BlastRadiusResult {
   project_path: string;
   target_symbol: string;
-  risk_level: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  risk_level: BlastRiskLevel;
   dependent_files_count: number;
   dependent_files: string[];
   truncated_dependents_count?: number;

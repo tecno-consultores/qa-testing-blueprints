@@ -5,8 +5,9 @@ import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
-import { BlastRadiusResult, DiffBundleReport } from '../types.js';
+import { BlastRadiusResult, BlastRiskLevel, DiffBundleReport } from '../types.js';
 import { buildSemanticDiffBundle } from '../utils/diff-bundle.js';
+import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 
 export const GRAPHIFY_DOCKER_IMAGE =
   'sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0';
@@ -60,7 +61,9 @@ export function defaultGraphifyBuilder(
       }
     );
     return true;
-  } catch {
+  } catch (err: unknown) {
+    // Ephemeral Graphify Docker rebuild failed/unavailable; caller records ast_graph_rebuilt=false
+    reportDebugCatchError('blastRadius.defaultGraphifyBuilder', err);
     return false;
   }
 }
@@ -122,14 +125,14 @@ function normalizeRelativePath(rel: string): string {
   return rel.replace(/\\/g, '/').replace(/^\.\//, '');
 }
 
-const RISK_ORDER: Record<'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL', number> = {
+const RISK_ORDER: Record<BlastRiskLevel, number> = {
   LOW: 0,
   MEDIUM: 1,
   HIGH: 2,
   CRITICAL: 3,
 };
 
-function calculateRiskLevel(count: number): 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' {
+function calculateRiskLevel(count: number): BlastRiskLevel {
   if (count > 10) return 'CRITICAL';
   if (count >= 7) return 'HIGH';
   if (count >= 5) return 'MEDIUM';
@@ -137,10 +140,10 @@ function calculateRiskLevel(count: number): 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICA
 }
 
 function elevateRiskWithDiff(
-  baseRisk: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL',
+  baseRisk: BlastRiskLevel,
   diffBundle: DiffBundleReport
-): 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' {
-  let target: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' = baseRisk;
+): BlastRiskLevel {
+  let target: BlastRiskLevel = baseRisk;
   if (diffBundle.secret_leak_warning || diffBundle.alerts.some((a) => a.severity === 'HIGH')) {
     target = 'HIGH';
   } else if (diffBundle.tiers_summary.CRITICAL_FULL > 0 || diffBundle.alerts.length > 0) {
@@ -187,8 +190,9 @@ function processCandidateFile(input: CandidateScanInput): void {
       ctx.dependentFiles.add(norm);
       registerSuggestedTest(norm, ext, ctx.suggestedTests);
     }
-  } catch {
-    // Ignorar archivos ilegibles
+  } catch (err: unknown) {
+    // Unreadable candidate file (e.g. broken symlink or chmod 000) is skipped during grep fallback scan
+    reportDebugCatchError(`blastRadius.processCandidateFile(${rel})`, err);
   }
 }
 
@@ -276,8 +280,9 @@ function collectGraphCallers(graphFilePath: string, ctx: GraphScanContext): void
         ctx.outgoingDependencies.add(outgoing);
       }
     }
-  } catch {
-    // Ignorar grafos corruptos o ilegibles
+  } catch (err: unknown) {
+    // Corrupt or unreadable graph.json falls back cleanly to regex scan + ast_graph_action_required guidance
+    reportDebugCatchError(`blastRadius.collectGraphCallers(${graphFilePath})`, err);
   }
 }
 
@@ -363,7 +368,7 @@ export async function inspectAstBlastRadius(
     ctx.dependentFiles.delete(declFile);
   }
 
-  const sortedDependents = Array.from(ctx.dependentFiles).sort();
+  const sortedDependents = Array.from(ctx.dependentFiles).sort((a, b) => a.localeCompare(b));
   const count = sortedDependents.length;
   const baseRiskLevel = calculateRiskLevel(count);
   const riskLevel = diffBundle ? elevateRiskWithDiff(baseRiskLevel, diffBundle) : baseRiskLevel;
@@ -373,7 +378,7 @@ export async function inspectAstBlastRadius(
     : `⚠️ No se detectó grafo AST (graphify-out/graph.json). DIRECTRIZ OBLIGATORIA: Si el grafo no existe debes crearlo ejecutando './scripts/actualizar-grafos-graphify.sh' (más información en qa-testing-blueprints) y SIEMPRE debes actualizar el grafo al terminar los cambios.${QA_TEST_SYNC_REMINDER}`;
 
   let returnedDependents = sortedDependents;
-  let returnedSuggestedTests = Array.from(ctx.suggestedTests).sort();
+  let returnedSuggestedTests = Array.from(ctx.suggestedTests).sort((a, b) => a.localeCompare(b));
   let truncatedDependentsCount: number | undefined;
 
   if (typeof maxItems === 'number' && maxItems > 0 && count > maxItems) {
@@ -390,12 +395,12 @@ export async function inspectAstBlastRadius(
     dependent_files: returnedDependents,
     truncated_dependents_count: truncatedDependentsCount,
     suggested_tests_to_run: returnedSuggestedTests,
-    declaring_files: Array.from(ctx.declaringLocations).sort(),
-    outgoing_dependencies: Array.from(ctx.outgoingDependencies).sort(),
-    graph_reports: ctx.graphReports.sort(),
+    declaring_files: Array.from(ctx.declaringLocations).sort((a, b) => a.localeCompare(b)),
+    outgoing_dependencies: Array.from(ctx.outgoingDependencies).sort((a, b) => a.localeCompare(b)),
+    graph_reports: [...ctx.graphReports].sort((a, b) => a.localeCompare(b)),
     ast_graph_detected: astGraphDetected,
     ...(astGraphRebuilt ? { ast_graph_rebuilt: true } : {}),
-    ast_graph_files: ctx.graphFiles.sort(),
+    ast_graph_files: [...ctx.graphFiles].sort((a, b) => a.localeCompare(b)),
     ast_graph_action_required: astGraphActionRequired,
     ...(diffBundle ? { diff_bundle: diffBundle } : {}),
   };
