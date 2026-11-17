@@ -2,7 +2,7 @@
 
 # Test Ecosystem Architecture (C4 Model)
 
-This document graphically describes how tools, containers, and networks interact within **QA Testing Blueprints (`QA-11X v3.0`)**. We use an adaptation of the C4 Model tailored to ephemeral infrastructure to illustrate strict test isolation across **10 stacks / 12 environments**, including Dynamic Security (DAST), Chaos Engineering, Mobile W3C Bridge (`sinfallas/base-mobile-appium:26`), and Observability (Level 11X).
+This document graphically describes how tools, containers, and networks interact within **QA Testing Blueprints (`QA-11X v3.0`)**. We use an adaptation of the C4 Model tailored to ephemeral infrastructure to illustrate strict test isolation across **10 hydratable stacks + `architecture/` + `mcp-server/` (= 12 matrix environments)**, including Dynamic Security (DAST), Chaos Engineering, Mobile W3C Bridge (`sinfallas/base-mobile-appium:26`), and Observability (Level 11X).
 
 ---
 
@@ -16,7 +16,7 @@ flowchart TD
     MCP["Node.js/TS MCP Server (@sinfallas/mcp-qa-11x v3.0.0)"]
     Skill["Zero-Clone Skills (11 Modular Skills < 20 KB)"]
     Gate["11X Certification Gate (certify_task_completion.sh - 10 Stages)"]
-    QA["QA Testing Blueprints (10 Stacks / 12 Environments / Ephemeral Docker)"]
+    QA["QA Testing Blueprints (10 Hydratable Stacks + architecture/ + mcp-server/ = 12 Matrix Environments / Ephemeral Docker)"]
     Host["Host Machine (Docker Engine)"]
     Reports["Reports & Artifacts (Coverage, ZAP, Chaos, RED Metrics)"]
 

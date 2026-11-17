@@ -1,13 +1,64 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "3.0.0",
-  "generated_at_utc": "2026-11-17T03:23:11Z",
+  "generated_at_utc": "2026-11-17T04:03:20Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
   "stacks": {
+    "ai-evals": {
+      "description": "Dual-Mode AI & Multimodal Evals (DeepEval, Promptfoo OWASP LLM Top 10, WebRTC voice latency, PDF/OCR Decimal)",
+      "readme": "ai-evals/README.md",
+      "readme_sha256": "b79fc911dc6f69d55b682b41c58d659670e1c12c5ce38f6c196a632c9def6a75",
+      "readme_es": "ai-evals/README.es.md",
+      "readme_es_sha256": "f117a6611a22d83d4a0c9a4dce77fab9865147fe0b2bd50a8ab428a48215bbc7",
+      "files": [
+        {
+          "path": "ai-evals/gitignore.example",
+          "target_name": ".gitignore",
+          "merge_strategy": "append_missing_lines",
+          "sha256": "5ecb76f4d3969987232038ba3ece85acea1dd8009fcaee964fc0a09fc4abb07a",
+          "size_bytes": 265
+        },
+        {
+          "path": "ai-evals/golden_from_traces.py",
+          "target_name": "golden_from_traces.py",
+          "merge_strategy": "overwrite_executable",
+          "sha256": "1531e45c98024a4d2ba98de4235f6b2d257a82e6305642ad8ca64a6546fdb86c",
+          "size_bytes": 11923
+        },
+        {
+          "path": "ai-evals/multimodal-ocr/test_pdf_table_fidelity.py",
+          "target_name": "multimodal-ocr/test_pdf_table_fidelity.py",
+          "merge_strategy": "overwrite_executable",
+          "sha256": "3a851da857d84039efa2f3e2cca9173dce6041a2dc7df64cda38d6a4aa2af696",
+          "size_bytes": 18393
+        },
+        {
+          "path": "ai-evals/promptfooconfig.yaml",
+          "target_name": "promptfooconfig.yaml",
+          "merge_strategy": "copy_if_missing",
+          "sha256": "2280d2d94fe02b0ab540bc301598c80ebe88e04f09aaf6905fa4e5b625330cdf",
+          "size_bytes": 3608
+        },
+        {
+          "path": "ai-evals/rag/test_rag_faithfulness.py",
+          "target_name": "rag/test_rag_faithfulness.py",
+          "merge_strategy": "overwrite_executable",
+          "sha256": "4873d81da427647edaf70790d7f0e9ff8a9e79de2e0994b0b518f256f34002e0",
+          "size_bytes": 22502
+        },
+        {
+          "path": "ai-evals/voice-realtime/test_voice_websocket_latency.py",
+          "target_name": "voice-realtime/test_voice_websocket_latency.py",
+          "merge_strategy": "overwrite_executable",
+          "sha256": "81d90c6f7c6a747dd42d6847a1da20c10accc52d8d3e1971da07c9c1521e5617",
+          "size_bytes": 21522
+        }
+      ]
+    },
     "bash-scripts": {
-      "description": "Scripts DevOps y Automatización en Bash / POSIX Shell",
+      "description": "POSIX / Bash DevOps Automation Scripts (ShellCheck, shfmt, BATS-core, kcov >= 95%)",
       "readme": "bash-scripts/README.md",
       "readme_sha256": "fc7bff3e1c99b2960a7d192c034c8403981e855132ef3bfc3aaa07e8a6ce74fa",
       "readme_es": "bash-scripts/README.es.md",
@@ -51,7 +102,7 @@
       ]
     },
     "fastapi": {
-      "description": "APIs Backend Asíncronas en Python (FastAPI + PostgreSQL 17 + KeyDB)",
+      "description": "Async Python REST APIs (FastAPI + PostgreSQL 17 RLS + KeyDB + Alembic + Pact/k6)",
       "readme": "fastapi/README.md",
       "readme_sha256": "2ff4cc0ea61f3f59e4bcdc8eef70a559dbb3cf613986071cde01219fd39d2967",
       "readme_es": "fastapi/README.es.md",
@@ -143,8 +194,66 @@
         }
       ]
     },
+    "mobile-appium": {
+      "description": "Native & Hybrid Mobile QA (Appium 3 / WebdriverIO v9, MobileActor Screenplay for Android, iOS, Ionic, React Native)",
+      "readme": "mobile-appium/README.md",
+      "readme_sha256": "becf47f48dd282bb54ed0e6824c120865247f8cd03ade7e06ed6ad94c6ed7603",
+      "readme_es": "mobile-appium/README.es.md",
+      "readme_es_sha256": "7ef34993da57bb80f0e05c2cfb637466b06f0fe3c493f948bc1df49b41e4a610",
+      "files": [
+        {
+          "path": "mobile-appium/Makefile.example",
+          "target_name": "Makefile",
+          "merge_strategy": "surgical_merge",
+          "sha256": "92ac2145d15b9b515451c47f5d3ba1bf021fbd9a80d9e1dd48de633075088f5b",
+          "size_bytes": 2745
+        },
+        {
+          "path": "mobile-appium/docker-compose.qa.yml.example",
+          "target_name": "docker-compose.qa.yml",
+          "merge_strategy": "copy_if_missing_or_update_qa",
+          "sha256": "1bd47b60a6ca02db05e1b3289f86ad6292f12520990476b269d6b329738f8a20",
+          "size_bytes": 2493
+        },
+        {
+          "path": "mobile-appium/gitignore.example",
+          "target_name": ".gitignore",
+          "merge_strategy": "append_missing_lines",
+          "sha256": "de2a00f3fa0cdf67cd80b8a71d37f42bb22706853df4eb79fd2028d24a325738",
+          "size_bytes": 253
+        },
+        {
+          "path": "mobile-appium/package.json.example",
+          "target_name": "package.json",
+          "merge_strategy": "surgical_merge",
+          "sha256": "63f302631b5c25c643c060c22b3163ea41d0efbc2e304ee243a451390cfd6f9b",
+          "size_bytes": 1243
+        },
+        {
+          "path": "mobile-appium/tests/mobile_screenplay.spec.ts",
+          "target_name": "tests/mobile_screenplay.spec.ts",
+          "merge_strategy": "copy_if_missing",
+          "sha256": "49c881ce3d4d81169350a2c138ae19208f7ba3d6de9088d8243fe71f3384b1d0",
+          "size_bytes": 14768
+        },
+        {
+          "path": "mobile-appium/tests/screenplay/MobileActor.ts",
+          "target_name": "tests/screenplay/MobileActor.ts",
+          "merge_strategy": "copy_if_missing",
+          "sha256": "c920d5e81a76bbf857e7b9d413ebf631104b651748ddddb1f3192b6cf159391f",
+          "size_bytes": 21236
+        },
+        {
+          "path": "mobile-appium/wdio.conf.ts",
+          "target_name": "wdio.conf.ts",
+          "merge_strategy": "copy_if_missing",
+          "sha256": "e843237a887affcad7f6a9393b2829751c479eae1cbbf13162dd4cbde4dcf658",
+          "size_bytes": 14643
+        }
+      ]
+    },
     "node-backend": {
-      "description": "Microservicios Backend en Node.js / TypeScript (Express / Fastify)",
+      "description": "Node.js / TypeScript Backend Microservices (Express / Fastify + Vitest >= 95% + Pact/k6)",
       "readme": "node-backend/README.md",
       "readme_sha256": "2799c1acb07490c2a012d4be20b4b909ada82deec024cca868b81e88342ef65f",
       "readme_es": "node-backend/README.es.md",
@@ -258,7 +367,7 @@
       ]
     },
     "php": {
-      "description": "APIs, Microservicios y Aplicaciones Backend en PHP 8.2-8.5 con PCOV, PHPStan, Psalm, Pest/PHPUnit, Infection y Karate BDD",
+      "description": "PHP 8.2-8.5 Backend APIs and Services (PHP-CS-Fixer, PHPStan Level Max, Psalm, PCOV >= 95%, Infection, Karate BDD)",
       "readme": "php/README.md",
       "readme_sha256": "510c45ed3a0120cda38833fb2f9125fa1e34073445d236b19aeaa27be0460225",
       "readme_es": "php/README.es.md",
@@ -337,7 +446,7 @@
       ]
     },
     "python": {
-      "description": "Scripts Standalone y Librerías en Python",
+      "description": "Standalone Python Libraries and CLIs (uv, Ruff CC <= 5, Mypy strict, Pytest >= 95%, Mutmut)",
       "readme": "python/README.md",
       "readme_sha256": "76276c47b17d7a06485b5c3e6dae92d18403bdbe6bb40fd657a5e40dabc4220d",
       "readme_es": "python/README.es.md",
@@ -388,7 +497,7 @@
       ]
     },
     "react-frontend": {
-      "description": "Frontend Web en React + TypeScript + Vite",
+      "description": "React + TypeScript + Vite Frontend (Screenplay, RTL, Playwright, Axe-core, Lighthouse)",
       "readme": "react-frontend/README.md",
       "readme_sha256": "6f2be9d0cacb165a293bfec94cfc75424364971f3ad1a77188cb1d02bc09e064",
       "readme_es": "react-frontend/README.es.md",
@@ -536,8 +645,38 @@
         }
       ]
     },
+    "vibe-rescue": {
+      "description": "Vibe-to-Enterprise Hardening (audit_vibe_prototype.py, VIBE-SEC-001..QA-005, PostgreSQL 17 RLS/WORM template)",
+      "readme": "vibe-rescue/README.md",
+      "readme_sha256": "547773d6431e0c346b7ad58bc1221f46149733de51e4fa4cb8bfa049b8c7f1b4",
+      "readme_es": "vibe-rescue/README.es.md",
+      "readme_es_sha256": "93fa538814f18760fa082a2ae900037cb94b869293bb99f155bb7a00f01dd799",
+      "files": [
+        {
+          "path": "vibe-rescue/audit_vibe_prototype.py",
+          "target_name": "audit_vibe_prototype.py",
+          "merge_strategy": "overwrite_executable",
+          "sha256": "fd33b0fc365d5049c16c2bc1f94c9c1c96ac5fa209c4a48b5d17267090fb22bf",
+          "size_bytes": 24060
+        },
+        {
+          "path": "vibe-rescue/gitignore.example",
+          "target_name": ".gitignore",
+          "merge_strategy": "append_missing_lines",
+          "sha256": "191ff30374de394f82ce9b5a0a87af9ffea3f200f3f54a6d1e640d43e067fc74",
+          "size_bytes": 208
+        },
+        {
+          "path": "vibe-rescue/templates/rls_hardening.sql",
+          "target_name": "templates/rls_hardening.sql",
+          "merge_strategy": "copy_if_missing",
+          "sha256": "76ada47951305fe98ae66659560ffcf3697a9e6ea413dcfd57b64c019275d3b7",
+          "size_bytes": 7702
+        }
+      ]
+    },
     "vue3": {
-      "description": "Frontend Web en Vue 3 + TypeScript + Vite",
+      "description": "Vue 3 + TypeScript + Vite Frontend (Screenplay, Vitest >= 95%, Playwright, Axe-core, Lighthouse)",
       "readme": "vue3/README.md",
       "readme_sha256": "0dd11f860f40436b939fd6d0082b94d30c590d19c2a39fca797f9bf9ef444297",
       "readme_es": "vue3/README.es.md",
@@ -917,8 +1056,8 @@
       "path": ".agents/scripts/sync_governance.py",
       "target_name": ".agents/scripts/sync_governance.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "442ca9abae682acb5d3be1f6cf8b81fad1d9ee90bd323f08f127ea69f0618555",
-      "size_bytes": 36783
+      "sha256": "c46a88cff9e073085243ccbb29721e6b89f8cb623b9c87b9a610180b180c8710",
+      "size_bytes": 38297
     },
     {
       "path": ".agents/scripts/track_findings_state.py",
@@ -952,8 +1091,8 @@
       "path": ".agents/scripts/verify_docs_invariants.py",
       "target_name": ".agents/scripts/verify_docs_invariants.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "16ab0650548410f6a6ff300699171fa7715d3243e0de80803df29efe8cabcaad",
-      "size_bytes": 52167
+      "sha256": "fd90e6b423f718557c82deb56a22dde8544b7b7f33494675e5693f90becca05e",
+      "size_bytes": 52841
     },
     {
       "path": ".agents/scripts/verify_json_no_duplicate_keys.py",
@@ -1229,6 +1368,13 @@
       "size_bytes": 35135
     },
     {
+      "path": "SECURITY.md",
+      "target_name": "SECURITY.md",
+      "merge_strategy": "copy_or_overwrite",
+      "sha256": "f1b63a796106fad0ca5f5f1debf4660e49606de08919e11418d5a439250f97f0",
+      "size_bytes": 31650
+    },
+    {
       "path": "catalogs/agenticskills-submission.md",
       "target_name": "catalogs/agenticskills-submission.md",
       "merge_strategy": "copy_or_overwrite",
@@ -1253,8 +1399,8 @@
       "path": "llms.txt",
       "target_name": "llms.txt",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "e6b58364a716c5515c25fcc724d6408725f9d5e2639d5cd174bb924da8f649cb",
-      "size_bytes": 15694
+      "sha256": "355b5224c64b706885ebad29f7d5f3a1a98d377ee9a13370c9158a3478f165dc",
+      "size_bytes": 15985
     },
     {
       "path": "scripts/install-skill.sh",

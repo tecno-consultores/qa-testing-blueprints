@@ -9,6 +9,12 @@ import {
   inspectProjectConfig,
   evaluateBrowserTestingReadiness,
 } from '../src/tools/inspect-project.js';
+import {
+  AuditTestPyramidInputSchema,
+  BootstrapMergeInputSchema,
+  FetchBundleInputSchema,
+  StackNameSchema,
+} from '../src/types.js';
 
 describe('inspectProjectConfig Tool (Zero-Shot Project Assessment)', () => {
   let tmpDir: string;
@@ -347,6 +353,176 @@ strict=true
       const result = await inspectProjectConfig(tmpDir, fakeHome);
       expect(result.browser_testing_readiness.applicable).toBe(true);
       expect(result.browser_testing_readiness.browser_mcp_configured_in_ide).toBe(false);
+    });
+  });
+
+  describe('10-stack detection (mobile-appium, ai-evals, vibe-rescue) and StackNameSchema', () => {
+    it('exposes all 10 hydratable stacks in StackNameSchema and MCP input schemas', () => {
+      expect(StackNameSchema.options).toHaveLength(10);
+      expect(StackNameSchema.options).toEqual([
+        'python',
+        'fastapi',
+        'node-backend',
+        'vue3',
+        'react-frontend',
+        'bash-scripts',
+        'php',
+        'mobile-appium',
+        'ai-evals',
+        'vibe-rescue',
+      ]);
+      for (const stack of StackNameSchema.options) {
+        expect(FetchBundleInputSchema.parse({ stack }).stack).toBe(stack);
+        expect(BootstrapMergeInputSchema.parse({ project_path: tmpDir, stack }).stack).toBe(stack);
+        expect(AuditTestPyramidInputSchema.parse({ project_path: tmpDir, stack }).stack).toBe(stack);
+      }
+    });
+
+    it('detects mobile-appium without spuriously adding node-backend, and supports express+appium', async () => {
+      const mobileSub = path.join(tmpDir, 'mobile-only');
+      fs.mkdirSync(path.join(mobileSub, 'mobile-appium'), { recursive: true });
+      fs.writeFileSync(
+        path.join(mobileSub, 'mobile-appium', 'wdio.conf.ts'),
+        'export const config = {};\n',
+        'utf-8'
+      );
+      fs.writeFileSync(
+        path.join(mobileSub, 'mobile-appium', 'package.json'),
+        JSON.stringify({
+          name: 'mobile-suite',
+          dependencies: { webdriverio: '^9.0.0' },
+          devDependencies: { '@wdio/cli': '^9.0.0', appium: '^3.0.0', typescript: '^5.8.0' },
+        }),
+        'utf-8'
+      );
+      fs.writeFileSync(
+        path.join(mobileSub, 'mobile-appium', 'tsconfig.json'),
+        JSON.stringify({ compilerOptions: { strict: true } }),
+        'utf-8'
+      );
+      fs.writeFileSync(path.join(mobileSub, 'mobile-appium', '.npmrc'), 'ignore-scripts=true\n', 'utf-8');
+
+      const mobileRes = await inspectProjectConfig(mobileSub);
+      expect(mobileRes.detected_stacks).toContain('mobile-appium');
+      expect(mobileRes.detected_stacks).not.toContain('node-backend');
+      expect(mobileRes.strict_flags.tsconfig_strict).toBe(true);
+      expect(mobileRes.strict_flags.npmrc_ignore_scripts).toBe(true);
+
+      const rootWdioJs = path.join(tmpDir, 'root-wdio-js');
+      fs.mkdirSync(rootWdioJs, { recursive: true });
+      fs.writeFileSync(path.join(rootWdioJs, 'wdio.conf.js'), 'exports.config = {};\n', 'utf-8');
+      expect((await inspectProjectConfig(rootWdioJs)).detected_stacks).toContain('mobile-appium');
+
+      const malformedCombo = path.join(tmpDir, 'malformed-appium-express');
+      fs.mkdirSync(malformedCombo, { recursive: true });
+      fs.writeFileSync(
+        path.join(malformedCombo, 'package.json'),
+        '{ invalid json "appium": "3.0.0", "express": "4.19.0", "dependencies": [] }',
+        'utf-8'
+      );
+      const comboRes = await inspectProjectConfig(malformedCombo);
+      expect(comboRes.detected_stacks).toContain('mobile-appium');
+      expect(comboRes.detected_stacks).toContain('node-backend');
+    });
+
+    it('detects ai-evals via promptfooconfig, ai-evals dir, pyproject.toml, requirements, and package.json', async () => {
+      const yamlDir = path.join(tmpDir, 'ai-yaml');
+      fs.mkdirSync(yamlDir, { recursive: true });
+      fs.writeFileSync(path.join(yamlDir, 'promptfooconfig.yaml'), 'providers: []\n', 'utf-8');
+      expect((await inspectProjectConfig(yamlDir)).detected_stacks).toEqual(['ai-evals']);
+
+      const dirEval = path.join(tmpDir, 'ai-dir');
+      fs.mkdirSync(path.join(dirEval, 'ai-evals', 'rag'), { recursive: true });
+      fs.writeFileSync(path.join(dirEval, 'ai-evals', 'golden_from_traces.py'), '# golden\n', 'utf-8');
+      expect((await inspectProjectConfig(dirEval)).detected_stacks).toEqual(['ai-evals']);
+
+      const emptyAiDir = path.join(tmpDir, 'ai-empty-dir');
+      fs.mkdirSync(path.join(emptyAiDir, 'ai-evals'), { recursive: true });
+      expect((await inspectProjectConfig(emptyAiDir)).detected_stacks).not.toContain('ai-evals');
+
+      const pyEvalDir = path.join(tmpDir, 'ai-py');
+      fs.mkdirSync(pyEvalDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(pyEvalDir, 'pyproject.toml'),
+        '[project]\ndependencies = ["deepeval>=1.0"]\n',
+        'utf-8'
+      );
+      const pyRes = await inspectProjectConfig(pyEvalDir);
+      expect(pyRes.detected_stacks).toContain('python');
+      expect(pyRes.detected_stacks).toContain('ai-evals');
+
+      const pkgEvalDir = path.join(tmpDir, 'ai-pkg');
+      fs.mkdirSync(pkgEvalDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(pkgEvalDir, 'package.json'),
+        JSON.stringify({ devDependencies: { promptfoo: '^0.100.0' } }),
+        'utf-8'
+      );
+      fs.writeFileSync(path.join(pkgEvalDir, 'requirements.txt'), 'deepeval>=1.0\n', 'utf-8');
+      expect((await inspectProjectConfig(pkgEvalDir)).detected_stacks).toContain('ai-evals');
+    });
+
+    it('detects vibe-rescue only on explicit markers and never false-positives on clean Vite/React apps', async () => {
+      const cleanReact = path.join(tmpDir, 'clean-react-vite');
+      fs.mkdirSync(path.join(cleanReact, 'src'), { recursive: true });
+      fs.writeFileSync(
+        path.join(cleanReact, 'package.json'),
+        JSON.stringify({
+          name: 'clean-app',
+          dependencies: { react: '^19.0.0' },
+          devDependencies: { vite: '^6.0.0', typescript: '^5.8.0' },
+        }),
+        'utf-8'
+      );
+      fs.writeFileSync(path.join(cleanReact, 'src', 'App.tsx'), 'export const App = () => null;\n', 'utf-8');
+      const cleanRes = await inspectProjectConfig(cleanReact);
+      expect(cleanRes.detected_stacks).toContain('react-frontend');
+      expect(cleanRes.detected_stacks).not.toContain('vibe-rescue');
+
+      const vibeSubdir = path.join(tmpDir, 'vibe-subdir');
+      fs.mkdirSync(path.join(vibeSubdir, 'vibe-rescue'), { recursive: true });
+      fs.writeFileSync(
+        path.join(vibeSubdir, 'vibe-rescue', 'audit_vibe_prototype.py'),
+        '# audit\n',
+        'utf-8'
+      );
+      expect((await inspectProjectConfig(vibeSubdir)).detected_stacks).toEqual(['vibe-rescue']);
+
+      const vibeRoot = path.join(tmpDir, 'vibe-root-markers');
+      fs.mkdirSync(path.join(vibeRoot, '.lovable'), { recursive: true });
+      fs.writeFileSync(
+        path.join(vibeRoot, 'package.json'),
+        JSON.stringify({ dependencies: { react: '^18.0.0' }, devDependencies: { 'lovable-tagger': '^1.0.0' } }),
+        'utf-8'
+      );
+      const vibeRes = await inspectProjectConfig(vibeRoot);
+      expect(vibeRes.detected_stacks).toContain('react-frontend');
+      expect(vibeRes.detected_stacks).toContain('vibe-rescue');
+
+      const lovableFileDir = path.join(tmpDir, 'vibe-lovable-file');
+      fs.mkdirSync(lovableFileDir, { recursive: true });
+      fs.writeFileSync(path.join(lovableFileDir, '.lovable'), 'project=1\n', 'utf-8');
+      expect((await inspectProjectConfig(lovableFileDir)).detected_stacks).toEqual(['vibe-rescue']);
+
+      const lovableBridgeOnlyDir = path.join(tmpDir, 'lovable-bridge-only');
+      fs.mkdirSync(path.join(lovableBridgeOnlyDir, '.lovable'), { recursive: true });
+      fs.writeFileSync(path.join(lovableBridgeOnlyDir, '.lovable', 'rules.md'), '# Bridge\n', 'utf-8');
+      expect((await inspectProjectConfig(lovableBridgeOnlyDir)).detected_stacks).not.toContain('vibe-rescue');
+
+      const aiYmlDir = path.join(tmpDir, 'ai-evals-yml-only');
+      fs.mkdirSync(path.join(aiYmlDir, 'ai-evals'), { recursive: true });
+      fs.writeFileSync(path.join(aiYmlDir, 'ai-evals', 'eval_cfg.yml'), 'providers: []\n', 'utf-8');
+      expect((await inspectProjectConfig(aiYmlDir)).detected_stacks).toContain('ai-evals');
+
+      const aiTsDir = path.join(tmpDir, 'ai-evals-ts-only');
+      fs.mkdirSync(path.join(aiTsDir, 'ai-evals'), { recursive: true });
+      fs.writeFileSync(path.join(aiTsDir, 'ai-evals', 'eval_helper.ts'), 'export const x = 1;\n', 'utf-8');
+      expect((await inspectProjectConfig(aiTsDir)).detected_stacks).toContain('ai-evals');
+
+      const aiYamlDir = path.join(tmpDir, 'ai-evals-yaml-only');
+      fs.mkdirSync(path.join(aiYamlDir, 'ai-evals'), { recursive: true });
+      fs.writeFileSync(path.join(aiYamlDir, 'ai-evals', 'suite.yaml'), 'tests: []\n', 'utf-8');
+      expect((await inspectProjectConfig(aiYamlDir)).detected_stacks).toContain('ai-evals');
     });
   });
 });

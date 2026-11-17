@@ -39,39 +39,78 @@ RAW_BASE_URL = f"https://raw.githubusercontent.com/{REPOSITORY}/{DEFAULT_BRANCH}
 
 STACK_METADATA: dict[str, dict[str, str]] = {
     "python": {
-        "description": "Scripts Standalone y Librerías en Python",
+        "description": (
+            "Standalone Python Libraries and CLIs "
+            "(uv, Ruff CC <= 5, Mypy strict, Pytest >= 95%, Mutmut)"
+        ),
         "readme": "python/README.md",
     },
     "fastapi": {
         "description": (
-            "APIs Backend Asíncronas en Python (FastAPI + PostgreSQL 17 + KeyDB)"
+            "Async Python REST APIs "
+            "(FastAPI + PostgreSQL 17 RLS + KeyDB + Alembic + Pact/k6)"
         ),
         "readme": "fastapi/README.md",
     },
     "node-backend": {
         "description": (
-            "Microservicios Backend en Node.js / TypeScript (Express / Fastify)"
+            "Node.js / TypeScript Backend Microservices "
+            "(Express / Fastify + Vitest >= 95% + Pact/k6)"
         ),
         "readme": "node-backend/README.md",
     },
     "vue3": {
-        "description": "Frontend Web en Vue 3 + TypeScript + Vite",
+        "description": (
+            "Vue 3 + TypeScript + Vite Frontend "
+            "(Screenplay, Vitest >= 95%, Playwright, Axe-core, Lighthouse)"
+        ),
         "readme": "vue3/README.md",
     },
     "react-frontend": {
-        "description": "Frontend Web en React + TypeScript + Vite",
+        "description": (
+            "React + TypeScript + Vite Frontend "
+            "(Screenplay, RTL, Playwright, Axe-core, Lighthouse)"
+        ),
         "readme": "react-frontend/README.md",
     },
     "bash-scripts": {
-        "description": "Scripts DevOps y Automatización en Bash / POSIX Shell",
+        "description": (
+            "POSIX / Bash DevOps Automation Scripts "
+            "(ShellCheck, shfmt, BATS-core, kcov >= 95%)"
+        ),
         "readme": "bash-scripts/README.md",
     },
     "php": {
         "description": (
-            "APIs, Microservicios y Aplicaciones Backend en PHP 8.2-8.5 "
-            "con PCOV, PHPStan, Psalm, Pest/PHPUnit, Infection y Karate BDD"
+            "PHP 8.2-8.5 Backend APIs and Services "
+            "(PHP-CS-Fixer, PHPStan Level Max, Psalm, PCOV >= 95%, "
+            "Infection, Karate BDD)"
         ),
         "readme": "php/README.md",
+    },
+    "mobile-appium": {
+        "description": (
+            "Native & Hybrid Mobile QA "
+            "(Appium 3 / WebdriverIO v9, MobileActor Screenplay for "
+            "Android, iOS, Ionic, React Native)"
+        ),
+        "readme": "mobile-appium/README.md",
+    },
+    "ai-evals": {
+        "description": (
+            "Dual-Mode AI & Multimodal Evals "
+            "(DeepEval, Promptfoo OWASP LLM Top 10, WebRTC voice latency, "
+            "PDF/OCR Decimal)"
+        ),
+        "readme": "ai-evals/README.md",
+    },
+    "vibe-rescue": {
+        "description": (
+            "Vibe-to-Enterprise Hardening "
+            "(audit_vibe_prototype.py, VIBE-SEC-001..QA-005, "
+            "PostgreSQL 17 RLS/WORM template)"
+        ),
+        "readme": "vibe-rescue/README.md",
     },
 }
 
@@ -105,6 +144,10 @@ _EXACT_STACK_EXAMPLES: dict[str, tuple[str, str]] = {
     "gitignore.example": (".gitignore", "append_missing_lines"),
     "npmrc.example": (".npmrc", "append_missing_lines"),
     "docker-compose.qa.yml": (
+        "docker-compose.qa.yml",
+        "copy_if_missing_or_update_qa",
+    ),
+    "docker-compose.qa.yml.example": (
         "docker-compose.qa.yml",
         "copy_if_missing_or_update_qa",
     ),
@@ -264,14 +307,16 @@ def _should_ignore_stack_item(item: Path, rel_in_stack: Path) -> bool:
     return item.name in IGNORED_STACK_NAMES
 
 
-def scan_stack(repo_root: Path, stack_name: str) -> list[dict[str, Any]]:
+def scan_stack(
+    repo_root: Path, stack_name: str, stack_dir: Path | None = None
+) -> list[dict[str, Any]]:
     """Escanea recursivamente los archivos rastreados dentro de un stack."""
-    stack_dir = repo_root / stack_name
-    if not stack_dir.is_dir():
+    resolved_dir = stack_dir if stack_dir is not None else repo_root / stack_name
+    if not resolved_dir.is_dir():
         return []
     entries: list[dict[str, Any]] = []
-    for item in sorted(stack_dir.rglob("*")):
-        rel_in_stack = item.relative_to(stack_dir)
+    for item in sorted(resolved_dir.rglob("*")):
+        rel_in_stack = item.relative_to(resolved_dir)
         if _should_ignore_stack_item(item, rel_in_stack):
             continue
         target_name, merge_strategy = classify_stack_file(rel_in_stack)
@@ -298,10 +343,10 @@ def _preserve_or_classify_existing(
 
 
 def scan_common_files(
-    repo_root: Path, existing_entries: list[dict[str, Any]]
+    repo_root: Path, existing_entries: list[dict[str, Any]] | None = None
 ) -> list[dict[str, Any]]:
     """Escanea archivos comunes canónicos y rutas comunes heredadas existentes."""
-    preserved = _preserve_or_classify_existing(existing_entries)
+    preserved = _preserve_or_classify_existing(existing_entries or [])
     ordered_paths = sorted(set(COMMON_FILE_PATHS) | set(preserved.keys()))
     entries: list[dict[str, Any]] = []
     for rel_path in ordered_paths:
@@ -339,12 +384,16 @@ def _discover_schema_paths(repo_root: Path) -> list[Path]:
     return [p for p in sorted(schemas_dir.glob("*.json")) if p.is_file()]
 
 
+_collect_agent_schemas = _discover_schema_paths
+
+
 def _discover_root_governance_paths(repo_root: Path) -> list[Path]:
     candidates: list[Path] = []
     for rel in (
         "AGENTS.md",
         "AI_MASTER_PROMPT.md",
         "AI_MASTER_PROMPT.es.md",
+        "SECURITY.md",
         "SECURITY.es.md",
         "llms.txt",
         ".agents/README.md",
@@ -387,10 +436,10 @@ def _discover_governance_paths(repo_root: Path) -> list[str]:
 
 
 def scan_agent_governance_files(
-    repo_root: Path, existing_entries: list[dict[str, Any]]
+    repo_root: Path, existing_entries: list[dict[str, Any]] | None = None
 ) -> list[dict[str, Any]]:
     """Escanea artefactos de gobernanza canónicos y preserva rutas previas."""
-    preserved = _preserve_or_classify_existing(existing_entries)
+    preserved = _preserve_or_classify_existing(existing_entries or [])
     discovered = set(_discover_governance_paths(repo_root))
     all_paths = sorted(discovered | set(preserved.keys()))
     entries: list[dict[str, Any]] = []

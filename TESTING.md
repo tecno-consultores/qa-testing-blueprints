@@ -2,7 +2,7 @@
 
 > 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (TESTING.es.md)](TESTING.es.md)
 
-This document serves as the live certification scoreboard for Corporate Quality Standard Level 11X (`v3.0.0`) across the `qa-testing-blueprints` repository blueprints. All included ecosystems are evaluated under **Rule Zero**: strict, 100% isolated execution in ephemeral Docker containers with **Pass-Quiet / Fail-Verbose** output (one-line telemetry with metrics on success, full trace on failure to optimize AI agent context windows).
+This document serves as the live certification scoreboard for Corporate Quality Standard Level 11X (`v3.0.0`) across the `qa-testing-blueprints` repository blueprints (**10 hydratable stacks** `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue` + `architecture/` + `mcp-server/` = **12 matrix environments**). All included ecosystems are evaluated under **Rule Zero**: strict, 100% isolated execution in ephemeral Docker containers with **Pass-Quiet / Fail-Verbose** output (one-line telemetry with metrics on success, full trace on failure to optimize AI agent context windows).
 
 ---
 
@@ -31,6 +31,8 @@ This document serves as the live certification scoreboard for Corporate Quality 
 ---
 
 ## 2. Tech Ecosystem Matrix and Ephemeral Commands
+
+Scope: **10 hydratable stacks** (`python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue`) + `architecture/` + `mcp-server/` (= **12 matrix environments**).
 
 ### ⚡ FastAPI (Python Backend) — 13 Layers
 * **Base Image:** `sinfallas/base-python-uv:3.15` (Available tags: `3.11`, `3.12`, `3.13`, `3.14`, `3.15` and `latest`)
@@ -257,7 +259,7 @@ The script sequentially and strictly evaluates 10 mandatory gates:
 
 * **Universal Cleanup and Sanitization Script (`scripts/limpieza.sh`):**
   * **Test Suites:** `tests/test_stacks_hydration_smoke.unit.py` (isolated without `docker`), `tests/bats/test_limpieza.bats`, `mcp-server/tests/tools-and-resources.unit.ts`, `mcp-server/tests/v2-16-invariants.unit.ts`, and Scenario 27 of `mcp-server/test/mcp_cli_test.feature`.
-  * **Script Quality Validation:** ShellCheck and `shfmt` in ephemeral container `sinfallas/base-bash-qa:latest` certifying **0 errors and 0 warnings** (exit code 0) across `scripts/limpieza.sh`, `scripts/probar-mcp-example.sh`, and the 7 stack scripts (`fastapi/`, `vue3/`, `react-frontend/`, `node-backend/`, `python/`, `php/`, `bash-scripts/`).
+  * **Script Quality Validation:** ShellCheck and `shfmt` in ephemeral container `sinfallas/base-bash-qa:latest` certifying **0 errors and 0 warnings** (exit code 0) across `scripts/limpieza.sh`, `scripts/probar-mcp-example.sh`, and the canonical per-stack `limpieza.sh` scripts (`fastapi/`, `vue3/`, `react-frontend/`, `node-backend/`, `python/`, `php/`, `bash-scripts/`), alongside root orchestration and `mobile-appium/`, `ai-evals/`, and `vibe-rescue/` templates across the **10 hydratable stacks + `architecture/` + `mcp-server/` (= 12 matrix environments)**.
   * **Validated Assertions in Ephemeral Docker:**
     * Ordered shutdown of ephemeral containers (all Compose profiles), networks, and orphan clean-room containers (`docker compose --profile "*" down -v --remove-orphans` + selective purge by `working_dir` label).
     * Eradication of recent test artifacts (`allure-results/`, `.deepeval/`, `.promptfoo/`, `.agents/.cache/`, `.agents/artifacts/`, `release-readiness.*`, `cbom*.json`, `/tmp/qa-11x-last-failure.json`, `/tmp/qa11x-certify.*`, `qa_mcp_cleanroom_*`, `qa-11x-mcp-example-e2e-*`) and Docker `UID 0`/`10001`-locked files without `sudo` via Alpine fallback.

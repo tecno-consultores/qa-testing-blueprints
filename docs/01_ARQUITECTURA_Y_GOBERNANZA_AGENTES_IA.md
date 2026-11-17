@@ -97,7 +97,7 @@ To prevent agents from cloning gigabytes of repositories or saturating their con
    - `blueprint://manifest`: Cryptographic index with SHA-256 hashes of all stacks and common files.
    - `blueprint://core/philosophy` (`blueprint://philosophy`): 11X philosophy and master prompt (`AI_MASTER_PROMPT.md`).
    - `blueprint://security/disa-owasp-22`: Technical synthesis of the 22 DISA ASD STIG V6R5 and OWASP v4.2 patterns.
-   - `blueprint://{stack}/readme`: Specification of the requested stack (`fastapi`, `vue3`, `node-backend`, `python`, `react-frontend`, `bash-scripts`, `php`).
+   - `blueprint://{stack}/readme`: Specification of the requested hydratable stack (`python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue` — forming with `architecture/` and `mcp-server/` the **12 matrix environments**).
    - `blueprint://ui/refactoring-ui/{topic}`: Tactical visual and WCAG 2.1 AA directives (`skill`, `hierarchy`, `layout`, `type`, `color`, `depth`, `images`, `polish`, `dark-mode`, `tailwind`).
    - `blueprint://core/active-task-template`: Resilient tracking template for agents.
    - `blueprint://core/cleanup-script`: Universal cleanup script without `sudo`.

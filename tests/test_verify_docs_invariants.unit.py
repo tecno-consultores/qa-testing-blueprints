@@ -512,6 +512,76 @@ class TestVerifyDocsInvariants(unittest.TestCase):
             (root / "README.md").write_text("**English** [README.es.md](README.es.md)\nExposes 12 Tools and 9 Resources.\n", encoding="utf-8")
             self.assertTrue(any("conteo MCP v1 obsoleto" in e for e in verify_docs.check_v2_mcp_surface_counts(root)))
 
+    def test_root_manifest_stack_count_enforcement(self) -> None:
+        import hashlib
+        import json
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            # 1. Consumer repo con manifest.json parcial y sin llms.txt/catalogs -> 0 falsos positivos
+            (root / "manifest.json").write_text(
+                json.dumps({"stacks": {"python": {}, "fastapi": {}}}),
+                encoding="utf-8",
+            )
+            self.assertEqual(verify_docs.check_global_catalogs_and_geo(root), [])
+
+            # 2. Blueprint repo con llms.txt + catalogs/ + manifest.json con 10 stacks esperadas
+            skill_md = root / ".agents" / "skills" / "demo-skill" / "SKILL.md"
+            skill_md.parent.mkdir(parents=True, exist_ok=True)
+            raw = b"# Demo\n"
+            skill_md.write_bytes(raw)
+            (root / "mcp-server" / "src").mkdir(parents=True, exist_ok=True)
+            (root / "mcp-server" / "package.json").write_text(json.dumps({"version": "3.0.0"}), encoding="utf-8")
+            (root / "mcp-server" / "src" / "server.ts").write_text(
+                "server.tool('t1', '', {}, async () => ({}));\n"
+                "server.resource('r1', 'blueprint://one', {}, async () => ({}));\n",
+                encoding="utf-8",
+            )
+            (root / "catalogs").mkdir(parents=True, exist_ok=True)
+            (root / "catalogs" / "qaskills-pack.json").write_text(
+                json.dumps({"license": "MIT", "version": "3.0.0", "skills": [{"id": "demo-skill", "path": ".agents/skills/demo-skill/SKILL.md"}]}),
+                encoding="utf-8",
+            )
+            (root / "catalogs" / "skillsllm-manifest.json").write_text(
+                json.dumps({
+                    "license": "MIT",
+                    "version": "3.0.0",
+                    "mcp_capabilities": {"tools_count": 1, "resources_count": 1, "tools": ["t1"], "resources": ["blueprint://one"]},
+                    "blueprints": [{"id": f"b{i}"} for i in range(10)],
+                    "skills": [{"id": "demo-skill", "path": ".agents/skills/demo-skill/SKILL.md", "sha256": hashlib.sha256(raw).hexdigest(), "size_bytes": len(raw)}],
+                }),
+                encoding="utf-8",
+            )
+            geo_ok = "demo-skill\nt1\nblueprint://one\n"
+            (root / "llms.txt").write_text(geo_ok, encoding="utf-8")
+            (root / "catalogs" / "agenticskills-submission.md").write_text(geo_ok, encoding="utf-8")
+
+            # 2a. 7 stacks -> fallo
+            (root / "manifest.json").write_text(
+                json.dumps({"stacks": {f"s{i}": {} for i in range(7)}}),
+                encoding="utf-8",
+            )
+            errs_7 = verify_docs.check_global_catalogs_and_geo(root)
+            self.assertTrue(any("manifest.json: se esperan 10 stacks (encontradas=7)" in e for e in errs_7))
+
+            # 2b. JSON corrupto -> fallo
+            (root / "manifest.json").write_text("{bad", encoding="utf-8")
+            errs_bad = verify_docs.check_global_catalogs_and_geo(root)
+            self.assertTrue(any("manifest.json: JSON inválido" in e for e in errs_bad))
+
+            # 2c. stacks no-dict -> fallo
+            (root / "manifest.json").write_text(json.dumps({"stacks": []}), encoding="utf-8")
+            errs_type = verify_docs.check_global_catalogs_and_geo(root)
+            self.assertTrue(any("encontradas=invalid" in e for e in errs_type))
+
+            # 2d. 10 stacks -> OK
+            (root / "manifest.json").write_text(
+                json.dumps({"stacks": {f"s{i}": {} for i in range(10)}}),
+                encoding="utf-8",
+            )
+            self.assertEqual(verify_docs.check_global_catalogs_and_geo(root), [])
+
 
 if __name__ == "__main__":
     unittest.main()

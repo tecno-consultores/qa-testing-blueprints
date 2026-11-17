@@ -2,7 +2,7 @@
 
 > 🌐 **Idioma / Language:** [🇬🇧 English (TESTING.md)](TESTING.md) | **Español (Espejo 1:1)**
 
-Este documento constituye la bitácora viva y certificación del estándar de calidad Nivel 11X (`v3.0.0`) para los blueprints del repositorio `qa-testing-blueprints`. Todos los ecosistemas incluidos son evaluados bajo la **Regla Cero** (`Rule Zero`): ejecución estricta y 100% aislada en contenedores Docker efímeros con salida **Pass-Quiet / Fail-Verbose** (telemetría de 1 línea con métricas en éxito y traza completa en fallo para optimizar la ventana de contexto de los agentes IA).
+Este documento constituye la bitácora viva y certificación del estándar de calidad Nivel 11X (`v3.0.0`) para los blueprints del repositorio `qa-testing-blueprints` (**10 stacks hidratables** `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue` + `architecture/` + `mcp-server/` = **12 entornos de matriz**). Todos los ecosistemas incluidos son evaluados bajo la **Regla Cero** (`Rule Zero`): ejecución estricta y 100% aislada en contenedores Docker efímeros con salida **Pass-Quiet / Fail-Verbose** (telemetría de 1 línea con métricas en éxito y traza completa en fallo para optimizar la ventana de contexto de los agentes IA).
 
 ---
 
@@ -31,6 +31,8 @@ Este documento constituye la bitácora viva y certificación del estándar de ca
 ---
 
 ## 2. Matriz de Ecosistemas Tecnológicos y Comandos Efímeros
+
+Alcance: **10 stacks hidratables** (`python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue`) + `architecture/` + `mcp-server/` (= **12 entornos de matriz**).
 
 ### ⚡ FastAPI (Backend Python) — 13 Capas
 * **Imagen Base:** `sinfallas/base-python-uv:3.15` (Tags disponibles: `3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest`)
@@ -257,7 +259,7 @@ El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
 
 * **Script Universal de Limpieza y Saneamiento (`scripts/limpieza.sh`):**
   * **Suites de Pruebas:** `tests/test_stacks_hydration_smoke.unit.py` (aislado sin `docker`), `tests/bats/test_limpieza.bats`, `mcp-server/tests/tools-and-resources.unit.ts`, `mcp-server/tests/v2-16-invariants.unit.ts` y Escenario 27 de `mcp-server/test/mcp_cli_test.feature`.
-  * **Validación de Calidad de Scripts:** ShellCheck y `shfmt` en contenedor efímero `sinfallas/base-bash-qa:latest` certificando **0 errores y 0 advertencias** (código de salida 0) en `scripts/limpieza.sh`, `scripts/probar-mcp-example.sh` y los 7 scripts por stack (`fastapi/`, `vue3/`, `react-frontend/`, `node-backend/`, `python/`, `php/`, `bash-scripts/`).
+  * **Validación de Calidad de Scripts:** ShellCheck y `shfmt` en contenedor efímero `sinfallas/base-bash-qa:latest` certificando **0 errores y 0 advertencias** (código de salida 0) en `scripts/limpieza.sh`, `scripts/probar-mcp-example.sh` y los scripts canónicos `limpieza.sh` por stack (`fastapi/`, `vue3/`, `react-frontend/`, `node-backend/`, `python/`, `php/`, `bash-scripts/`), junto con la orquestación raíz y las plantillas de `mobile-appium/`, `ai-evals/` y `vibe-rescue/` a lo largo de los **10 stacks hidratables + `architecture/` + `mcp-server/` (= 12 entornos de matriz)**.
   * **Aserciones Validadas en Docker Efímero:**
     * Detención ordenada de contenedores efímeros (todos los perfiles Compose), redes y contenedores huérfanos *clean-room* (`docker compose --profile "*" down -v --remove-orphans` + purga selectiva por label `working_dir`).
     * Erradicación de restos de pruebas recientes (`allure-results/`, `.deepeval/`, `.promptfoo/`, `.agents/.cache/`, `.agents/artifacts/`, `release-readiness.*`, `cbom*.json`, `/tmp/qa-11x-last-failure.json`, `/tmp/qa11x-certify.*`, `qa_mcp_cleanroom_*`, `qa-11x-mcp-example-e2e-*`) y archivos bloqueados por Docker `UID 0`/`10001` sin requerir `sudo` mediante fallback Alpine.

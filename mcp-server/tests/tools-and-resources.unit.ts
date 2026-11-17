@@ -592,6 +592,81 @@ describe('Tools and Resources Integration Suite', () => {
       );
     });
 
+    it('serves blueprint://{stack}/readme for all 10 stacks including ai-evals, mobile-appium, and vibe-rescue with es fallback', async () => {
+      const allTenStacks = [
+        'python',
+        'fastapi',
+        'node-backend',
+        'vue3',
+        'react-frontend',
+        'bash-scripts',
+        'php',
+        'mobile-appium',
+        'ai-evals',
+        'vibe-rescue',
+      ];
+      const tenStacksRecord: Manifest['stacks'] = {};
+      for (const stack of allTenStacks) {
+        const enPath = `${stack}/README.md`;
+        const enBody = `# ${stack} English Blueprint`;
+        const esPath = `${stack}/README.es.md`;
+        const esBody = `# ${stack} Blueprint Español`;
+        const fullEn = path.join(localRepoDir, enPath);
+        const fullEs = path.join(localRepoDir, esPath);
+        fs.mkdirSync(path.dirname(fullEn), { recursive: true });
+        fs.writeFileSync(fullEn, enBody, 'utf-8');
+        if (stack !== 'mobile-appium') {
+          fs.writeFileSync(fullEs, esBody, 'utf-8');
+        }
+        tenStacksRecord[stack] = {
+          description: `${stack} stack`,
+          readme: enPath,
+          readme_sha256: crypto.createHash('sha256').update(enBody).digest('hex'),
+          ...(stack !== 'mobile-appium' && stack !== 'ai-evals'
+            ? {
+                readme_es: esPath,
+                readme_es_sha256: crypto.createHash('sha256').update(esBody).digest('hex'),
+              }
+            : stack === 'ai-evals'
+            ? {
+                // Omit explicit readme_es to verify automatic .es.md derivation with readme_es_sha256
+                readme_es_sha256: crypto.createHash('sha256').update(esBody).digest('hex'),
+              }
+            : {}),
+          files: [],
+        };
+      }
+
+      const fullManifest: Manifest = { ...mockManifest, stacks: tenStacksRecord };
+      const tenFetcher = new GitHubFetcher({
+        cacheDir: path.join(tmpDir, 'cache-ten-stacks'),
+        localOverridePath: localRepoDir,
+      });
+      vi.spyOn(tenFetcher, 'fetchManifest').mockResolvedValue(fullManifest);
+      const tenResources = new BlueprintResources(tenFetcher);
+
+      for (const stack of allTenStacks) {
+        const enRes = await tenResources.getStackReadmeResource(stack, 'en');
+        expect(enRes.uri).toBe(`blueprint://${stack}/readme`);
+        expect(enRes.text).toBe(`# ${stack} English Blueprint`);
+      }
+
+      expect((await tenResources.getStackReadmeResource('ai-evals', 'es')).text).toBe(
+        '# ai-evals Blueprint Español'
+      );
+      expect((await tenResources.getStackReadmeResource('vibe-rescue', 'es')).text).toBe(
+        '# vibe-rescue Blueprint Español'
+      );
+      // mobile-appium has no Spanish mirror in fixture -> falls back cleanly to English README
+      expect((await tenResources.getStackReadmeResource('mobile-appium', 'es')).text).toBe(
+        '# mobile-appium English Blueprint'
+      );
+
+      await expect(tenResources.getStackReadmeResource('non-existent')).rejects.toThrow(
+        `Opciones válidas: ${allTenStacks.join(', ')}`
+      );
+    });
+
     it('returns refactoring-ui resource', async () => {
       const resources = new BlueprintResources(fetcher);
       const res = await resources.getRefactoringUiResource('skill');
@@ -1508,6 +1583,68 @@ describe('Tools and Resources Integration Suite', () => {
       });
       expect(reconcileRes.content[0].text).toContain('"dry_run":true');
       expect(reconcileRes.content[0].text).toContain('"removed_duplicate_sections_count":0');
+    });
+
+    it('handles blueprint://{stack}/readme, fetch, bootstrap, and pyramid tools for ai-evals, mobile-appium, and vibe-rescue', async () => {
+      const extraStacks = ['ai-evals', 'mobile-appium', 'vibe-rescue'] as const;
+      const extraStackEntries: Manifest['stacks'] = {};
+      for (const s of extraStacks) {
+        const readmeRel = `${s}/README.md`;
+        const readmeBody = `# ${s} Guide`;
+        const tplRel = `${s}/template.txt`;
+        const tplBody = `template-${s}`;
+        fs.mkdirSync(path.join(localRepoDir, s), { recursive: true });
+        fs.writeFileSync(path.join(localRepoDir, readmeRel), readmeBody, 'utf-8');
+        fs.writeFileSync(path.join(localRepoDir, tplRel), tplBody, 'utf-8');
+        extraStackEntries[s] = {
+          description: `${s} Stack`,
+          readme: readmeRel,
+          readme_sha256: crypto.createHash('sha256').update(readmeBody).digest('hex'),
+          files: [
+            {
+              path: tplRel,
+              target_name: `${s}-template.txt`,
+              merge_strategy: 'copy_if_missing',
+              sha256: crypto.createHash('sha256').update(tplBody).digest('hex'),
+              size_bytes: tplBody.length,
+            },
+          ],
+        };
+      }
+      const tenManifest: Manifest = {
+        ...mockManifest,
+        stacks: { ...mockManifest.stacks, ...extraStackEntries },
+      };
+      const extFetcher = new GitHubFetcher({
+        cacheDir: path.join(tmpDir, 'cache-ext-stacks'),
+        localOverridePath: localRepoDir,
+      });
+      vi.spyOn(extFetcher, 'fetchManifest').mockResolvedValue(tenManifest);
+
+      const server = createMcpServer({ fetcher: extFetcher, merger });
+      const serverAny = server as any;
+      const stackTemplate = serverAny._registeredResourceTemplates['blueprint-stack-readme'];
+      const toolFetch = serverAny._registeredTools['fetch_blueprint_bundle'];
+      const toolMerge = serverAny._registeredTools['bootstrap_or_merge_11x'];
+      const toolPyramid = serverAny._registeredTools['audit_test_pyramid_gaps'];
+
+      for (const s of extraStacks) {
+        const res = await stackTemplate.readCallback(new URL(`blueprint://${s}/readme`), { stack: s });
+        expect(res.contents[0].text).toBe(`# ${s} Guide`);
+
+        const fetchOut = await toolFetch.handler({ stack: s, include_common_and_agents: false });
+        expect(fetchOut.content[0].text).toContain(`"stack":"${s}"`);
+
+        const mergeOut = await toolMerge.handler({
+          project_path: targetProjectDir,
+          stack: s,
+          dry_run: true,
+        });
+        expect(mergeOut.content[0].text).toContain(`"stack":"${s}"`);
+
+        const pyrOut = await toolPyramid.handler({ project_path: targetProjectDir, stack: s });
+        expect(pyrOut.content[0].text).toContain(`"${s}"`);
+      }
     });
   });
 });

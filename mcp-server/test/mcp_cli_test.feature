@@ -1289,6 +1289,53 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert readmeEs41.contains('QA11X_WORKSPACE_ROOTS')
     * assert readmeEs41.contains('dry_run` es `true` por defecto')
 
+  Scenario: 42. Contratos Fase 4 (F4.5-F4.7) — Manifiesto 10 Stacks, Descripciones en Ingles, SECURITY.md y Clarificacion 10 Stacks / 12 Entornos
+    * def expectedStacks42 = ['python', 'fastapi', 'node-backend', 'vue3', 'react-frontend', 'bash-scripts', 'php', 'mobile-appium', 'ai-evals', 'vibe-rescue']
+    * def stackKeys42 = karate.keysOf(manifest.stacks)
+    * match stackKeys42 == '#[10]'
+    * match stackKeys42 contains only expectedStacks42
 
+    * def isValidStack42 =
+      """
+      function(name) {
+        var s = manifest.stacks[name];
+        if (!s || !s.description || s.description.length < 10) return false;
+        if (/[áéíóúñÁÉÍÓÚÑ]/.test(s.description)) return false;
+        if (/(^|\s)(y|en|con|para|de|sin|sobre)(\s|$)/i.test(s.description)) return false;
+        if (!s.files || s.files.length < 1) return false;
+        var shaRe = /^[0-9a-f]{64}$/;
+        if (!shaRe.test(s.readme_sha256 || '') || !shaRe.test(s.readme_es_sha256 || '')) return false;
+        for (var i = 0; i < s.files.length; i++) {
+          var f = s.files[i];
+          if (!f || !shaRe.test(f.sha256 || '') || !(f.size_bytes >= 0)) return false;
+        }
+        return true;
+      }
+      """
+    * def validStacks42 = karate.filter(expectedStacks42, isValidStack42)
+    * match validStacks42 == '#[10]'
+
+    * def govPaths42 = karate.map(manifest.agent_governance_files, function(x) { return x.path })
+    * match govPaths42 contains 'SECURITY.md'
+    * match govPaths42 contains 'SECURITY.es.md'
+
+    * def typesTs42 = karate.readAsString(mcpRoot + '/src/types.ts')
+    * assert typesTs42.includes("'ai-evals'") || typesTs42.includes('"ai-evals"')
+    * assert typesTs42.includes("'mobile-appium'") || typesTs42.includes('"mobile-appium"')
+    * assert typesTs42.includes("'vibe-rescue'") || typesTs42.includes('"vibe-rescue"')
+
+    * def govDoc42 = karate.readAsString(repoRoot + '/docs/01_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md')
+    * assert govDoc42.includes('12 matrix environments')
+    * assert govDoc42.includes('mobile-appium')
+    * assert govDoc42.includes('ai-evals')
+    * assert govDoc42.includes('vibe-rescue')
+
+    * def testingDoc42 = karate.readAsString(repoRoot + '/TESTING.md')
+    * assert testingDoc42.includes('10 hydratable stacks')
+    * assert testingDoc42.includes('12 matrix environments')
+
+    * def rootReadme42 = karate.readAsString(repoRoot + '/README.md')
+    * assert rootReadme42.includes('10 hydratable stacks')
+    * assert rootReadme42.includes('12 matrix environments')
 
 

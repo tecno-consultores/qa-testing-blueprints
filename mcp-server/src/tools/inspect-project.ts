@@ -20,6 +20,16 @@ const PACKAGE_JSON = 'package.json';
 const PYPROJECT_TOML = 'pyproject.toml';
 const REACT_FRONTEND_STACK = 'react-frontend';
 const NODE_BACKEND_STACK = 'node-backend';
+const MOBILE_APPIUM_STACK = 'mobile-appium';
+const AI_EVALS_STACK = 'ai-evals';
+const VIBE_RESCUE_STACK = 'vibe-rescue';
+const WDIO_CONF_TS = 'wdio.conf.ts';
+const WDIO_CONF_JS = 'wdio.conf.js';
+const PROMPTFOO_YAML = 'promptfooconfig.yaml';
+const PROMPTFOO_YML = 'promptfooconfig.yml';
+const AUDIT_VIBE_PY = 'audit_vibe_prototype.py';
+const MOBILE_DEPS = ['appium', 'webdriverio', '@wdio/cli'];
+const AI_PYTHON_TOKENS = ['deepeval', 'promptfoo'];
 const INSTRUCTION_BOOTSTRAP =
   "Ejecute la tool MCP 'bootstrap_or_merge_11x' para inyectar automáticamente @playwright/test, @axe-core/playwright, @lhci/cli y e2e/accessibility.e2e.ts en el proyecto.";
 const INSTRUCTION_BROWSER_MCP =
@@ -68,6 +78,45 @@ export function collectProjectFiles(projectPath: string): string[] {
   return result;
 }
 
+function addDetectedStack(detectedStacks: string[], stack: string): void {
+  if (!detectedStacks.includes(stack)) {
+    detectedStacks.push(stack);
+  }
+}
+
+function collectSectionKeys(block: unknown, names: Set<string>): void {
+  if (typeof block !== 'object' || block === null) {
+    return;
+  }
+  for (const key of Object.keys(block)) {
+    names.add(key);
+  }
+}
+
+function extractPackageDepNames(content: string): Set<string> | null {
+  try {
+    const pkg = JSON.parse(content) as Record<string, unknown>;
+    const names = new Set<string>();
+    collectSectionKeys(pkg.dependencies, names);
+    collectSectionKeys(pkg.devDependencies, names);
+    collectSectionKeys(pkg.peerDependencies, names);
+    return names;
+  } catch {
+    return null;
+  }
+}
+
+function hasAnyPackageDep(
+  content: string,
+  depNames: Set<string> | null,
+  targets: string[]
+): boolean {
+  if (depNames !== null) {
+    return targets.some((t) => depNames.has(t));
+  }
+  return targets.some((t) => content.includes(`"${t}"`) || content.includes(`'${t}'`));
+}
+
 function inspectPythonStack(resolvedPath: string, detectedStacks: string[]): boolean {
   const candidates = [
     path.join(resolvedPath, PYPROJECT_TOML),
@@ -81,8 +130,9 @@ function inspectPythonStack(resolvedPath: string, detectedStacks: string[]): boo
     if (!fs.existsSync(pyprojectPath)) continue;
     const content = fs.readFileSync(pyprojectPath, UTF8_ENCODING);
     const stackToAdd = content.includes('fastapi') ? 'fastapi' : 'python';
-    if (!detectedStacks.includes(stackToAdd)) {
-      detectedStacks.push(stackToAdd);
+    addDetectedStack(detectedStacks, stackToAdd);
+    if (AI_PYTHON_TOKENS.some((tok) => content.includes(tok))) {
+      addDetectedStack(detectedStacks, AI_EVALS_STACK);
     }
     if (content.includes('strict = true') || content.includes('strict=true')) {
       mypyStrict = true;
@@ -92,26 +142,49 @@ function inspectPythonStack(resolvedPath: string, detectedStacks: string[]): boo
   return mypyStrict;
 }
 
-function detectNodeFrameworks(packageJsonPath: string, detectedStacks: string[]): void {
+function detectAuxiliaryNodeDeps(
+  content: string,
+  depNames: Set<string> | null,
+  detectedStacks: string[]
+): void {
+  if (hasAnyPackageDep(content, depNames, ['promptfoo'])) {
+    addDetectedStack(detectedStacks, AI_EVALS_STACK);
+  }
+  if (hasAnyPackageDep(content, depNames, ['lovable-tagger'])) {
+    addDetectedStack(detectedStacks, VIBE_RESCUE_STACK);
+  }
+}
+
+function detectNodeFrameworks(
+  packageJsonPath: string,
+  detectedStacks: string[],
+  isMobileDir = false
+): void {
   if (!fs.existsSync(packageJsonPath)) return;
   const content = fs.readFileSync(packageJsonPath, UTF8_ENCODING);
-  let matchedUi = false;
+  const depNames = extractPackageDepNames(content);
+  let matchedUiOrMobile = isMobileDir;
   if (content.includes('"vue"') || content.includes("'vue'")) {
-    if (!detectedStacks.includes('vue3')) detectedStacks.push('vue3');
-    matchedUi = true;
+    addDetectedStack(detectedStacks, 'vue3');
+    matchedUiOrMobile = true;
   }
   if (content.includes('"react"') || content.includes("'react'")) {
-    if (!detectedStacks.includes(REACT_FRONTEND_STACK)) detectedStacks.push(REACT_FRONTEND_STACK);
-    matchedUi = true;
+    addDetectedStack(detectedStacks, REACT_FRONTEND_STACK);
+    matchedUiOrMobile = true;
   }
+  if (isMobileDir || hasAnyPackageDep(content, depNames, MOBILE_DEPS)) {
+    addDetectedStack(detectedStacks, MOBILE_APPIUM_STACK);
+    matchedUiOrMobile = true;
+  }
+  detectAuxiliaryNodeDeps(content, depNames, detectedStacks);
   const isBackendOrCli =
     content.includes('"express"') ||
     content.includes('"fastify"') ||
     content.includes('"@nestjs/core"') ||
     content.includes('"@modelcontextprotocol/sdk"') ||
-    (!matchedUi && (content.includes('"typescript"') || content.includes('"vitest"')));
-  if (isBackendOrCli && !detectedStacks.includes(NODE_BACKEND_STACK)) {
-    detectedStacks.push(NODE_BACKEND_STACK);
+    (!matchedUiOrMobile && (content.includes('"typescript"') || content.includes('"vitest"')));
+  if (isBackendOrCli) {
+    addDetectedStack(detectedStacks, NODE_BACKEND_STACK);
   }
 }
 
@@ -131,6 +204,7 @@ function inspectNodeStack(
   resolvedPath: string,
   detectedStacks: string[]
 ): { tsconfigStrict: boolean; npmrcIgnoreScripts: boolean } {
+  const mobileBase = path.join(resolvedPath, MOBILE_APPIUM_STACK);
   const nodeBases = [
     resolvedPath,
     path.join(resolvedPath, 'vue3'),
@@ -138,6 +212,7 @@ function inspectNodeStack(
     path.join(resolvedPath, 'frontend'),
     path.join(resolvedPath, NODE_BACKEND_STACK),
     path.join(resolvedPath, 'mcp-server'),
+    mobileBase,
   ];
 
   let tsconfigStrict = false;
@@ -146,12 +221,81 @@ function inspectNodeStack(
   for (const base of nodeBases) {
     const pkgPath = path.join(base, PACKAGE_JSON);
     if (!fs.existsSync(pkgPath)) continue;
-    detectNodeFrameworks(pkgPath, detectedStacks);
+    detectNodeFrameworks(pkgPath, detectedStacks, base === mobileBase);
     if (checkTsconfigStrict(path.join(base, 'tsconfig.json'))) tsconfigStrict = true;
     if (checkNpmrcIgnoreScripts(path.join(base, '.npmrc'))) npmrcIgnoreScripts = true;
   }
 
   return { tsconfigStrict, npmrcIgnoreScripts };
+}
+
+function inspectMobileAppiumStack(
+  resolvedPath: string,
+  files: string[],
+  detectedStacks: string[]
+): void {
+  const hasWdio =
+    fs.existsSync(path.join(resolvedPath, WDIO_CONF_TS)) ||
+    fs.existsSync(path.join(resolvedPath, WDIO_CONF_JS)) ||
+    fs.existsSync(path.join(resolvedPath, MOBILE_APPIUM_STACK, WDIO_CONF_TS)) ||
+    fs.existsSync(path.join(resolvedPath, MOBILE_APPIUM_STACK, WDIO_CONF_JS)) ||
+    files.some((f) => f.endsWith(`/${WDIO_CONF_TS}`) || f.endsWith(`/${WDIO_CONF_JS}`));
+  if (hasWdio) {
+    addDetectedStack(detectedStacks, MOBILE_APPIUM_STACK);
+  }
+}
+
+function isAiEvalsArtifact(file: string): boolean {
+  return (
+    file === PROMPTFOO_YAML ||
+    file === PROMPTFOO_YML ||
+    (file.startsWith(`${AI_EVALS_STACK}/`) &&
+      (file.endsWith('.py') ||
+        file.endsWith('.ts') ||
+        file.endsWith('.yaml') ||
+        file.endsWith('.yml')))
+  );
+}
+
+function hasAiTokenInFile(filePath: string): boolean {
+  if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) return false;
+  const content = fs.readFileSync(filePath, UTF8_ENCODING);
+  return AI_PYTHON_TOKENS.some((tok) => content.includes(tok));
+}
+
+function inspectAiEvalsStack(
+  resolvedPath: string,
+  files: string[],
+  detectedStacks: string[]
+): void {
+  const aiManifestPaths = [
+    path.join(resolvedPath, AI_EVALS_STACK, PYPROJECT_TOML),
+    path.join(resolvedPath, 'requirements.txt'),
+    path.join(resolvedPath, 'python', 'requirements.txt'),
+  ];
+  if (files.some(isAiEvalsArtifact) || aiManifestPaths.some(hasAiTokenInFile)) {
+    addDetectedStack(detectedStacks, AI_EVALS_STACK);
+  }
+}
+
+function hasLovableScaffoldMarker(resolvedPath: string): boolean {
+  const lovablePath = path.join(resolvedPath, '.lovable');
+  if (!fs.existsSync(lovablePath)) return false;
+  if (!fs.statSync(lovablePath).isDirectory()) return true;
+  const entries = fs.readdirSync(lovablePath);
+  return entries.length === 0 || entries.some((entry) => entry !== 'rules.md');
+}
+
+function inspectVibeRescueStack(resolvedPath: string, detectedStacks: string[]): void {
+  const markers = [
+    path.join(resolvedPath, AUDIT_VIBE_PY),
+    path.join(resolvedPath, VIBE_RESCUE_STACK, AUDIT_VIBE_PY),
+    path.join(resolvedPath, VIBE_RESCUE_STACK, 'templates', 'rls_hardening.sql'),
+    path.join(resolvedPath, '.bolt', 'config.json'),
+  ];
+  if (hasLovableScaffoldMarker(resolvedPath) || markers.some((m) => fs.existsSync(m))) {
+    addDetectedStack(detectedStacks, VIBE_RESCUE_STACK);
+  }
 }
 
 function inspectBashStack(resolvedPath: string, detectedStacks: string[]): void {
@@ -351,6 +495,9 @@ export async function inspectProjectConfig(
     strictFlags,
     missing11xFiles,
   });
+  inspectMobileAppiumStack(resolvedPath, files, detectedStacks);
+  inspectAiEvalsStack(resolvedPath, files, detectedStacks);
+  inspectVibeRescueStack(resolvedPath, detectedStacks);
 
   const browserReadiness = evaluateBrowserTestingReadiness(
     resolvedPath,

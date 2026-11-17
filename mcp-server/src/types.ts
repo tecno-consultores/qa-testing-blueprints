@@ -42,6 +42,9 @@ export const StackNameSchema = z.enum([
   'react-frontend',
   'bash-scripts',
   'php',
+  'mobile-appium',
+  'ai-evals',
+  'vibe-rescue',
 ]);
 export type StackName = z.infer<typeof StackNameSchema>;
 

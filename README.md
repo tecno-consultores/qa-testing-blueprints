@@ -100,6 +100,8 @@ All runtime, lint, mutation, contract, and BDD suites execute inside non-root co
 
 ## 🗂️ Full-Stack, Mobile, AI Evals & Vibe-Rescue Blueprints
 
+The matrix covers **10 hydratable stacks** (`python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue`) plus **`architecture/`** (FINOS CALM topology) and **`mcp-server/`** (`@sinfallas/mcp-qa-11x`), forming the **12 matrix environments**:
+
 | Directory | Domain | Key v2.0 Capabilities |
 | :--- | :--- | :--- |
 | **[`fastapi/`](fastapi/)** | Python Async APIs | Ruff, Mypy strict, PostgreSQL 17 RLS + Alembic parity, Pact V4 consumer ([`test_pact_consumer.py`](fastapi/tests/contracts/test_pact_consumer.py)), k6 smoke load ([`smoke.k6.js`](fastapi/tests/load/smoke.k6.js)), Karate BDD |
@@ -119,7 +121,7 @@ All runtime, lint, mutation, contract, and BDD suites execute inside non-root co
 
 ## 🛠 Testing Tools Matrix
 
-Below is the corporate validation stack summarized per environment and test type. `N/A` indicates test categories that do not apply due to the intrinsic nature of the environment (e.g. a standalone Python CLI, Bash script, or declarative architecture topology does not expose an HTTP server, so DAST and Chaos Engineering do not apply).
+Below is the corporate validation stack summarized across all **12 matrix environments** (**10 hydratable stacks** + `architecture/` + `mcp-server/`) and test type. `N/A` indicates test categories that do not apply due to the intrinsic nature of the environment (e.g. a standalone Python CLI, Bash script, or declarative architecture topology does not expose an HTTP server, so DAST and Chaos Engineering do not apply).
 
 | Environment | Linting / Formatting | Unit Tests / Mocking | Coverage | Dependency Audit | Static Security (SAST) | Mutation | BDD / Black-Box | Concurrency / Stress | Profiling / Complexity | DAST (Dynamic) | Chaos Engineering | Observability (Metrics) | IaC / Docker Audit | Local Git Hooks |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -152,7 +154,7 @@ Below is the corporate validation stack summarized per environment and test type
 ## 🤖 11 Modular Skills (`< 20 KB`), MCP Server & 27+ AI Agents
 
 * **Progressive Skill Routing (`< 20 KB` budget):** Led by [`.agents/skills/qa-11x-architect/SKILL.md`](.agents/skills/qa-11x-architect/SKILL.md) (`< 12 KB`), loading 10 specialized sub-skills on demand (`qa-11x-devsecops-hardener`, `qa-11x-systematic-debugging`, `qa-11x-screenplay-builder`, `qa-11x-llm-evaluator`, `qa-11x-vibe-rescue`, `qa-11x-docker-certifier`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `refactoring-ui`, and JIT [`tactical-patterns-11x`](.agents/skills/tactical-patterns-11x/SKILL.md) `<= 2.5 KB` injected via `[DIRECTIVE-11X]`).
-* **Public MCP Surface (`@sinfallas/mcp-qa-11x` v3.0.0):** Exposes **19 Tools** and **13 Resources** (`blueprint://*`) over `stdio` — combining 12 core v1 tools + 6 v2.0 evaluators + atomic Flight Recorder `session_flight_recorder` (`session_checkpoint.json` `0600` -> `.agents/ACTIVE_TASK.md`) and `blueprint://skills/tactical-patterns-11x` protected end-to-end by `promptGuard` & `TaskStateGuard`.
+* **Public MCP Surface (`@sinfallas/mcp-qa-11x` v3.0.0):** Exposes **19 Tools** and **13 Resources** (`blueprint://*`, including `blueprint://{stack}/readme` across all **10 hydratable stacks**: `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue`) over `stdio` — combining 12 core v1 tools + 6 v2.0 evaluators + atomic Flight Recorder `session_flight_recorder` (`session_checkpoint.json` `0600` -> `.agents/ACTIVE_TASK.md`) and `blueprint://skills/tactical-patterns-11x` protected end-to-end by `promptGuard` & `TaskStateGuard`.
 * **Human-Confirmed Git Closure (`QA-GIT-GATE-01`):** Enforced by [`.agents/rules/git_closure_gate.md`](.agents/rules/git_closure_gate.md) — agents certify locally via `make certify` and stop at a local `git commit`; automatic `git push` or `npm publish` is strictly forbidden.
 * **Setup & Catalog Guides:** See [`docs/agent-setup.en.md`](docs/agent-setup.en.md) (English), [`docs/agent-setup.md`](docs/agent-setup.md) (Spanish), [`RESOURCES.md`](RESOURCES.md), [`llms.txt`](llms.txt) (GEO index), [`catalogs/`](catalogs/agenticskills-submission.md) ([QASkills](catalogs/qaskills-pack.json), [SkillsLLM](catalogs/skillsllm-manifest.json)), [`docs/01_ARQUITECTURA_PIRAMIDE_11X.md`](docs/01_ARQUITECTURA_PIRAMIDE_11X.md), [`TESTING.md`](TESTING.md), [`SECURITY.md`](SECURITY.md), and [`ROADMAP.md`](ROADMAP.md).
 

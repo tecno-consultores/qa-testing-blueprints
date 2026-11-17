@@ -100,6 +100,8 @@ Todas las suites de análisis, mutación, contratos y BDD se ejecutan en contene
 
 ## 🗂️ Blueprints Full-Stack, Móvil, AI Evals y Vibe-Rescue
 
+La matriz abarca **10 stacks hidratables** (`python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue`) más **`architecture/`** (topología FINOS CALM) y **`mcp-server/`** (`@sinfallas/mcp-qa-11x`), conformando los **12 entornos de matriz**:
+
 | Carpeta | Ecosistema | Capacidades Clave v2.0 |
 | :--- | :--- | :--- |
 | **[`fastapi/`](fastapi/)** | APIs Asíncronas Python | Ruff, Mypy strict, paridad PostgreSQL 17 RLS + Alembic, consumidor Pact V4 ([`test_pact_consumer.py`](fastapi/tests/contracts/test_pact_consumer.py)), carga k6 ([`smoke.k6.js`](fastapi/tests/load/smoke.k6.js)), Karate BDD |
@@ -119,7 +121,7 @@ Todas las suites de análisis, mutación, contratos y BDD se ejecutan en contene
 
 ## 🛠 Matriz de Herramientas de Pruebas
 
-A continuación se resume el stack de validación corporativo por entorno y tipo de prueba. Se indica `N/A` en las pruebas que no aplican por la naturaleza intrínseca del entorno (ej. un script *standalone* de Python o Bash o una topología estática no levanta servidores HTTP, por ende no se le aplica DAST ni Ingeniería del Caos).
+A continuación se resume el stack de validación corporativo a lo largo de los **12 entornos de matriz** (**10 stacks hidratables** + `architecture/` + `mcp-server/`) por tipo de prueba. Se indica `N/A` en las pruebas que no aplican por la naturaleza intrínseca del entorno (ej. un script *standalone* de Python o Bash o una topología estática no levanta servidores HTTP, por ende no se le aplica DAST ni Ingeniería del Caos).
 
 | Entorno | Linting / Formateo | Pruebas Unitarias / Mocking | Cobertura | Auditoría de Dependencias | Seguridad Estática (SAST) | Mutación | BDD / Caja Negra | Concurrencia / Estrés | Profiling / Complejidad | DAST (Dinámica) | Ingeniería del Caos | Observabilidad (Métricas) | Auditoría IaC / Docker | Git Hooks Locales |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -152,7 +154,7 @@ A continuación se resume el stack de validación corporativo por entorno y tipo
 ## 🤖 11 Skills Modulares (`< 20 KB`), Servidor MCP y 27+ Agentes de IA
 
 * **Enrutamiento Progresivo de Skills (`< 20 KB`):** Liderado por [`.agents/skills/qa-11x-architect/SKILL.md`](.agents/skills/qa-11x-architect/SKILL.md) (`< 12 KB`), hidratando bajo demanda 10 sub-skills especializadas (`qa-11x-devsecops-hardener`, `qa-11x-systematic-debugging`, `qa-11x-screenplay-builder`, `qa-11x-llm-evaluator`, `qa-11x-vibe-rescue`, `qa-11x-docker-certifier`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `refactoring-ui` y [`tactical-patterns-11x`](.agents/skills/tactical-patterns-11x/SKILL.md) `<= 2.5 KB` inyectada vía `[DIRECTIVE-11X]`).
-* **Superficie Pública MCP (`@sinfallas/mcp-qa-11x` v3.0.0):** Expone **19 herramientas** y **13 recursos `blueprint://*`** sobre `stdio` (12 núcleo v1 + 6 evaluadores v2.0 + Flight Recorder atómico `session_flight_recorder` y `blueprint://skills/tactical-patterns-11x` blindados de extremo a extremo por `promptGuard` y `TaskStateGuard`).
+* **Superficie Pública MCP (`@sinfallas/mcp-qa-11x` v3.0.0):** Expone **19 herramientas** y **13 recursos `blueprint://*`** (incluyendo `blueprint://{stack}/readme` para los **10 stacks hidratables**: `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue`) sobre `stdio` (12 núcleo v1 + 6 evaluadores v2.0 + Flight Recorder atómico `session_flight_recorder` y `blueprint://skills/tactical-patterns-11x` blindados de extremo a extremo por `promptGuard` y `TaskStateGuard`).
 * **Guardia Humana de Cierre Git (`QA-GIT-GATE-01`):** Imposta por [`.agents/rules/git_closure_gate.md`](.agents/rules/git_closure_gate.md) — los agentes certifican localmente vía `make certify` y se detienen en `git commit` local; cualquier `git push` o `npm publish` automático queda estrictamente prohibido.
 * **Guías y Catálogos:** Consulta [`docs/agent-setup.md`](docs/agent-setup.md), [`docs/agent-setup.en.md`](docs/agent-setup.en.md), [`RESOURCES.md`](RESOURCES.md), [`llms.txt`](llms.txt) (índice GEO), [`catalogs/`](catalogs/agenticskills-submission.md) ([QASkills](catalogs/qaskills-pack.json), [SkillsLLM](catalogs/skillsllm-manifest.json)), [`docs/01_ARQUITECTURA_PIRAMIDE_11X.md`](docs/01_ARQUITECTURA_PIRAMIDE_11X.md), [`TESTING.md`](TESTING.md), [`SECURITY.md`](SECURITY.md) y [`ROADMAP.md`](ROADMAP.md).
 

@@ -106,14 +106,75 @@ cat >"${WORK_DIR}/arch.calm.json" <<'EOF'
 EOF
 
 START_TS="$(date +%s)"
-node --input-type=module - "${BIN_JS}" "${PROJ_DIR}" "${WORK_DIR}" "${HOME_DIR}" <<'EOF'
+node --input-type=module - "${BIN_JS}" "${PROJ_DIR}" "${WORK_DIR}" "${HOME_DIR}" "${VERSION_OUT}" <<'EOF'
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
+import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
-const [binJs, projDir, workDir, homeDir] = process.argv.slice(2);
+const [binJs, projDir, workDir, homeDir, pkgVersion] = process.argv.slice(2);
+const EXPECTED_STACKS = [
+  'python',
+  'fastapi',
+  'node-backend',
+  'vue3',
+  'react-frontend',
+  'bash-scripts',
+  'php',
+  'mobile-appium',
+  'ai-evals',
+  'vibe-rescue',
+];
+
+function seedOfflineBlueprintDir(baseDir, version) {
+  const repoDir = path.join(baseDir, 'offline-bp');
+  const writeEntry = (relPath, content, targetName, mergeStrategy) => {
+    const absPath = path.join(repoDir, relPath);
+    fs.mkdirSync(path.dirname(absPath), { recursive: true });
+    fs.writeFileSync(absPath, content, 'utf8');
+    return {
+      path: relPath,
+      target_name: targetName,
+      merge_strategy: mergeStrategy,
+      sha256: crypto.createHash('sha256').update(content, 'utf8').digest('hex'),
+      size_bytes: Buffer.byteLength(content, 'utf8'),
+    };
+  };
+
+  const stacks = {};
+  for (const st of EXPECTED_STACKS) {
+    const enReadme = writeEntry(`${st}/README.md`, `# ${st} QA-11X Clean-Room Blueprint\nOffline verified.\n`, 'README.md', 'copy_if_missing');
+    const esReadme = writeEntry(`${st}/README.es.md`, `# ${st} Blueprint Clean-Room QA-11X\nVerificado offline.\n`, 'README.es.md', 'copy_if_missing');
+    const cfgFile = writeEntry(`${st}/Makefile.example`, `qa-lint:\n\t@echo "${st} ok"\n`, 'Makefile', 'copy_if_missing');
+    stacks[st] = {
+      description: `${st} clean-room offline stack blueprint`,
+      readme: enReadme.path,
+      readme_es: esReadme.path,
+      readme_sha256: enReadme.sha256,
+      readme_es_sha256: esReadme.sha256,
+      files: [cfgFile],
+    };
+  }
+
+  const schemaVer = '1.0.0';
+  const manifest = {
+    schema_version: schemaVer,
+    blueprint_version: version,
+    generated_at_utc: '2026-11-17T00:00:00Z',
+    repository: 'tecno-consultores/qa-testing-blueprints',
+    default_branch: 'main',
+    raw_base_url: 'https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main',
+    stacks,
+    common_files: [],
+    agent_governance_files: [],
+  };
+  fs.mkdirSync(repoDir, { recursive: true });
+  fs.writeFileSync(path.join(repoDir, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf8');
+  return repoDir;
+}
 
 // 1. Verificar QA-CLI-TTY-01 (< 5s sin colgar terminal interactiva)
 const indexMod = await import(pathToFileURL(binJs).href);
@@ -128,7 +189,7 @@ await Promise.race([
 ]);
 assert.deepEqual(ttyExitCodes, [0]);
 
-// 2. Conectar por stdio real al binario empaquetado sin QA_BLUEPRINTS_LOCAL_PATH
+// 2. Conectar por stdio real al binario empaquetado sin QA_BLUEPRINTS_LOCAL_PATH (fallbacks embebidos)
 const env = { ...process.env, HOME: homeDir, QA_DISABLE_AUTO_SYNC: '1', QA11X_WORKSPACE_ROOTS: workDir };
 delete env.QA_BLUEPRINTS_LOCAL_PATH;
 
@@ -145,13 +206,24 @@ try {
   const toolsList = await client.listTools();
   assert.equal(toolsList.tools.length, 19, `Esperadas 19 tools, obtenidas ${toolsList.tools.length}`);
 
+  for (const stackToolName of ['fetch_blueprint_bundle', 'bootstrap_or_merge_11x']) {
+    const toolDef = toolsList.tools.find((t) => t.name === stackToolName);
+    const enumValues = toolDef?.inputSchema?.properties?.stack?.enum ?? [];
+    for (const st of EXPECTED_STACKS) {
+      assert.ok(enumValues.includes(st), `StackNameSchema en ${stackToolName} omite '${st}'`);
+    }
+  }
+
   const resourcesList = await client.listResources();
   assert.equal(resourcesList.resources.length, 13, `Esperados 13 resources, obtenidos ${resourcesList.resources.length}`);
 
   for (const uri of [
     'blueprint://ai/evals-redteam',
+    'blueprint://ai/evals-redteam?lang=es',
     'blueprint://mobile-appium/readme',
+    'blueprint://mobile-appium/readme?lang=es',
     'blueprint://vibe-rescue/readme',
+    'blueprint://vibe-rescue/readme?lang=es',
     'blueprint://skills/tactical-patterns-11x',
   ]) {
     const res = await client.readResource({ uri });
@@ -171,6 +243,15 @@ try {
   });
   assert.notEqual(vibeAudit.isError, true);
   assert.ok(vibeAudit.content[0].text.includes('VIBE-RESCUE'));
+
+  const missingMakeQa = await client.callTool({
+    name: 'run_ephemeral_qa',
+    arguments: { project_path: projDir, stage: 'lint', timeout_seconds: 10 },
+  });
+  assert.notEqual(missingMakeQa.isError, true);
+  const qaPayload = JSON.parse(missingMakeQa.content[0].text);
+  assert.equal(qaPayload.status, 'FAILED');
+  assert.ok(String(qaPayload.tail_log).includes('Makefile'));
 
   const calmValid = await client.callTool({
     name: 'validate_calm_architecture',
@@ -216,8 +297,52 @@ try {
 } finally {
   await client.close();
 }
+
+// 3. Verificar blueprint://fastapi/readme, blueprint://manifest y fetch_blueprint_bundle 100% offline con override local
+const offlineBpDir = seedOfflineBlueprintDir(workDir, pkgVersion);
+const localTransport = new StdioClientTransport({
+  command: process.execPath,
+  args: [binJs],
+  cwd: projDir,
+  env: {
+    ...process.env,
+    HOME: homeDir,
+    QA_DISABLE_AUTO_SYNC: '1',
+    QA11X_WORKSPACE_ROOTS: workDir,
+    QA_BLUEPRINTS_LOCAL_PATH: offlineBpDir,
+  },
+  stderr: 'pipe',
+});
+const localClient = new Client({ name: 'verify-v2-cleanroom-local', version: pkgVersion });
+try {
+  await localClient.connect(localTransport);
+  const manifestRes = await localClient.readResource({ uri: 'blueprint://manifest' });
+  const manifestJson = JSON.parse(manifestRes.contents[0].text);
+  for (const st of EXPECTED_STACKS) {
+    assert.ok(manifestJson.stacks[st], `Falta stack '${st}' en blueprint://manifest`);
+  }
+
+  const fastapiEn = await localClient.readResource({ uri: 'blueprint://fastapi/readme' });
+  assert.ok(fastapiEn.contents[0].text.includes('fastapi QA-11X Clean-Room Blueprint'));
+  const fastapiEs = await localClient.readResource({ uri: 'blueprint://fastapi/readme?lang=es' });
+  assert.ok(fastapiEs.contents[0].text.includes('fastapi Blueprint Clean-Room QA-11X'));
+
+  for (const stack of ['fastapi', 'mobile-appium', 'ai-evals', 'vibe-rescue']) {
+    const bundleRes = await localClient.callTool({
+      name: 'fetch_blueprint_bundle',
+      arguments: { stack, include_common_and_agents: false, include_content: false },
+    });
+    assert.notEqual(bundleRes.isError, true);
+    const bundle = JSON.parse(bundleRes.content[0].text);
+    assert.equal(bundle.stack, stack);
+    assert.equal(bundle.content_omitted_for_token_economy, true);
+    assert.ok(bundle.files.length >= 1 && bundle.files[0].sha256_verified === true);
+  }
+} finally {
+  await localClient.close();
+}
 EOF
 
 END_TS="$(date +%s)"
 ELAPSED_S=$((END_TS - START_TS))
-echo "✔ [verify-v2] Tarball ${TARBALL_NAME} | 19 tools / 13 resources / quickstart / TTY PASS (${ELAPSED_S}s)"
+echo "✔ [verify-v2] Tarball ${TARBALL_NAME} | 19 tools / 13 resources / 10 stacks / quickstart / TTY PASS (${ELAPSED_S}s)"

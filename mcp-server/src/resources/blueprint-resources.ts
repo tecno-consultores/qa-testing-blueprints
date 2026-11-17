@@ -142,7 +142,7 @@ export class BlueprintResources {
       effectiveLang === 'es' ? this.findStackManifestEntry(manifest, stackDef, readmeEsPath) : undefined;
     const readmeFile = this.findStackManifestEntry(manifest, stackDef, stackDef.readme);
 
-    const esTargetPath = esFile?.path ?? stackDef.readme_es;
+    const esTargetPath = esFile?.path ?? readmeEsPath;
     const esTargetSha = esFile?.sha256 ?? stackDef.readme_es_sha256;
     let content = '';
     if (effectiveLang === 'es' && esTargetPath && esTargetSha) {

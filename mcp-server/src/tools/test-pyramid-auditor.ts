@@ -73,6 +73,9 @@ const STACK_VUE3: StackName = 'vue3';
 const STACK_REACT_FRONTEND: StackName = 'react-frontend';
 const STACK_BASH_SCRIPTS: StackName = 'bash-scripts';
 const STACK_PHP: StackName = 'php';
+const STACK_MOBILE_APPIUM: StackName = 'mobile-appium';
+const STACK_AI_EVALS: StackName = 'ai-evals';
+const STACK_VIBE_RESCUE: StackName = 'vibe-rescue';
 
 const COMPOSER_JSON = 'composer.json';
 const PHPSTAN_NEON = 'phpstan.neon';
@@ -85,6 +88,9 @@ const ALL_STACKS: StackName[] = [
   STACK_REACT_FRONTEND,
   STACK_BASH_SCRIPTS,
   STACK_PHP,
+  STACK_MOBILE_APPIUM,
+  STACK_AI_EVALS,
+  STACK_VIBE_RESCUE,
 ];
 
 const CODE_STACKS: StackName[] = [
@@ -94,6 +100,9 @@ const CODE_STACKS: StackName[] = [
   STACK_VUE3,
   STACK_REACT_FRONTEND,
   STACK_PHP,
+  STACK_MOBILE_APPIUM,
+  STACK_AI_EVALS,
+  STACK_VIBE_RESCUE,
 ];
 
 const BACKEND_STACKS: StackName[] = [STACK_FASTAPI, STACK_NODE_BACKEND, STACK_PHP];
@@ -123,6 +132,7 @@ function isSourceCandidate(file: string): boolean {
     file.includes('.e2e.') ||
     file.endsWith('.bats') ||
     file.includes('.config.') ||
+    file.includes('wdio.conf.') ||
     file.endsWith('.d.ts') ||
     file.endsWith('vite-env.d.ts')
   ) {
@@ -188,6 +198,34 @@ function hasBashUnitTest(files: string[], baseName: string): boolean {
   });
 }
 
+const STACK_DIR_PREFIXES: ReadonlyArray<readonly [string, StackName]> = [
+  [`${STACK_MOBILE_APPIUM}/`, STACK_MOBILE_APPIUM],
+  [`${STACK_VIBE_RESCUE}/`, STACK_VIBE_RESCUE],
+  [`${STACK_AI_EVALS}/`, STACK_AI_EVALS],
+  ['fastapi/', STACK_FASTAPI],
+];
+
+const PYTHON_STACK_PRIORITY: readonly StackName[] = [
+  STACK_FASTAPI,
+  STACK_PYTHON,
+  STACK_AI_EVALS,
+  STACK_VIBE_RESCUE,
+];
+
+const NODE_STACK_PRIORITY: readonly StackName[] = [
+  STACK_NODE_BACKEND,
+  STACK_MOBILE_APPIUM,
+  STACK_VIBE_RESCUE,
+  STACK_AI_EVALS,
+];
+
+function resolvePrefixedStack(file: string): StackName | null {
+  for (const [prefix, stackName] of STACK_DIR_PREFIXES) {
+    if (file.startsWith(prefix)) return stackName;
+  }
+  return null;
+}
+
 function checkPythonOrphan(
   file: string,
   baseName: string,
@@ -195,13 +233,16 @@ function checkPythonOrphan(
   stacks: StackName[]
 ): OrphanSourceFile | null {
   if (hasPythonUnitTest(files, baseName)) return null;
-  const isFastapi = stacks.includes(STACK_FASTAPI) || file.startsWith('fastapi/');
+  const prefixed = resolvePrefixedStack(file);
+  const stackChoice =
+    prefixed ?? PYTHON_STACK_PRIORITY.find((s) => stacks.includes(s)) ?? STACK_PYTHON;
   return {
     source_file: file,
-    expected_unit_test: isFastapi
-      ? `fastapi/test/test_${baseName}.unit.py`
-      : `tests/test_${baseName}.unit.py`,
-    stack: isFastapi ? STACK_FASTAPI : STACK_PYTHON,
+    expected_unit_test:
+      stackChoice === STACK_FASTAPI
+        ? `fastapi/test/test_${baseName}.unit.py`
+        : `tests/test_${baseName}.unit.py`,
+    stack: stackChoice,
   };
 }
 
@@ -212,13 +253,17 @@ function checkNodeOrphan(
   stacks: StackName[]
 ): OrphanSourceFile | null {
   if (hasNodeUnitTest(files, baseName)) return null;
-  const isVue = file.endsWith('.vue') || stacks.includes(STACK_VUE3);
-  const isReact = file.endsWith('.tsx') || stacks.includes(STACK_REACT_FRONTEND);
-  const stackChoice = isVue
-    ? STACK_VUE3
-    : isReact
-    ? STACK_REACT_FRONTEND
-    : STACK_NODE_BACKEND;
+  const prefixed = resolvePrefixedStack(file);
+  let stackChoice: StackName | undefined = prefixed ?? undefined;
+  if (!stackChoice) {
+    if (file.endsWith('.vue') || stacks.includes(STACK_VUE3)) {
+      stackChoice = STACK_VUE3;
+    } else if (file.endsWith('.tsx') || stacks.includes(STACK_REACT_FRONTEND)) {
+      stackChoice = STACK_REACT_FRONTEND;
+    } else {
+      stackChoice = NODE_STACK_PRIORITY.find((s) => stacks.includes(s)) ?? STACK_NODE_BACKEND;
+    }
+  }
   return {
     source_file: file,
     expected_unit_test: `${path.dirname(file)}/__tests__/${baseName}.unit.ts`,
@@ -524,16 +569,18 @@ function detectLinterCapabilities(
 ): { hasLinter: boolean; detected: string[] } {
   const pyproject = readFileContentSafe(projectPath, PYPROJECT_TOML);
   const pkgJson = readFileContentSafe(projectPath, PACKAGE_JSON);
+  const mobilePkgJson = readFileContentSafe(projectPath, `${STACK_MOBILE_APPIUM}/${PACKAGE_JSON}`);
+  const combinedPkg = `${pkgJson}\n${mobilePkgJson}`;
 
   const hasPythonLinter = pyproject.includes('ruff') && pyproject.includes('bandit');
   const hasNodeLinter =
-    pkgJson.includes('--max-warnings 0') &&
-    (pkgJson.includes('sonarjs') || pkgJson.includes('security'));
+    combinedPkg.includes('--max-warnings 0') &&
+    (combinedPkg.includes('sonarjs') || combinedPkg.includes('security'));
   const hasBashLinter =
     files.some((f) => f.endsWith('.sh')) &&
     (files.some((f) => f.includes('shellcheck')) ||
       pyproject.includes('shellcheck') ||
-      pkgJson.includes('shellcheck'));
+      combinedPkg.includes('shellcheck'));
   const composer = readFileContentSafe(projectPath, COMPOSER_JSON);
   const hasPhpLinter =
     files.some((f) => f.includes('phpstan') || f.includes('psalm')) ||
@@ -547,6 +594,25 @@ function detectLinterCapabilities(
   if (hasPhpLinter) detected.push('phpstan/psalm configurado');
 
   return { hasLinter: hasPythonLinter || hasNodeLinter || hasBashLinter || hasPhpLinter, detected };
+}
+
+function appendStackL01Evidence(
+  stacks: StackName[],
+  files: string[],
+  detected: string[]
+): void {
+  if (stacks.includes(STACK_AI_EVALS) && files.some((f) => f.includes('promptfooconfig'))) {
+    detected.push('Configuración Red-Team Promptfoo');
+  }
+  if (stacks.includes(STACK_MOBILE_APPIUM) && files.some((f) => f.includes('wdio.conf.'))) {
+    detected.push('Configuración WebdriverIO/Appium');
+  }
+  if (
+    stacks.includes(STACK_VIBE_RESCUE) &&
+    files.some((f) => f.endsWith('audit_vibe_prototype.py'))
+  ) {
+    detected.push('Auditor estático audit_vibe_prototype.py');
+  }
 }
 
 function detectScriptsCapabilities(files: string[]): {
@@ -591,6 +657,7 @@ export function evaluateLayer01StaticSast(
   const linter = detectLinterCapabilities(projectPath, files);
   const scripts = detectScriptsCapabilities(files);
   const detected = [...scripts.detected, ...linter.detected];
+  appendStackL01Evidence(stacks, files, detected);
 
   let status: PyramidLayerStatus = STATUS_MISSING;
   const missingReqs: string[] = [];
@@ -630,6 +697,8 @@ function checkPythonTyping(
   const pyStrict = pyproject.includes('strict = true') || pyproject.includes('strict=true');
   const pyRadon =
     pyproject.includes('radon') ||
+    pyproject.includes('C901') ||
+    pyproject.includes('max-complexity') ||
     makefile.includes('radon') ||
     files.some((f) => f.includes('radon'));
   const evidence: string[] = [];
@@ -641,10 +710,23 @@ function checkPythonTyping(
 function checkNodeTyping(
   projectPath: string
 ): { passed: boolean; partial: boolean; evidence: string[] } {
-  const pkgJson = readFileContentSafe(projectPath, PACKAGE_JSON);
-  const tsconfig = readFileContentSafe(projectPath, 'tsconfig.json');
-  const tsStrict = tsconfig.includes('"strict": true') || tsconfig.includes('"strict":true');
-  const tsTypecheck = pkgJson.includes('typecheck') || pkgJson.includes('tsc --noEmit');
+  const pkgJson = `${readFileContentSafe(projectPath, PACKAGE_JSON)}\n${readFileContentSafe(
+    projectPath,
+    `${STACK_MOBILE_APPIUM}/${PACKAGE_JSON}`
+  )}`;
+  const tsconfig = `${readFileContentSafe(projectPath, 'tsconfig.json')}\n${readFileContentSafe(
+    projectPath,
+    `${STACK_MOBILE_APPIUM}/tsconfig.json`
+  )}`;
+  const tsStrict =
+    tsconfig.includes('"strict": true') ||
+    tsconfig.includes('"strict":true') ||
+    pkgJson.includes('tsc --strict');
+  const tsTypecheck =
+    pkgJson.includes('typecheck') ||
+    pkgJson.includes('type-check') ||
+    pkgJson.includes('tsc --noEmit') ||
+    pkgJson.includes('tsc --strict');
   const evidence: string[] = [];
   if (tsStrict) evidence.push('tsconfig.json "strict": true');
   if (tsTypecheck) evidence.push('script typecheck (tsc --noEmit)');
@@ -717,6 +799,31 @@ function determineStrictTypingStatus(
   };
 }
 
+function resolveStrictTypingLanguages(
+  files: string[],
+  stacks: StackName[]
+): { hasPython: boolean; hasNode: boolean; hasPhp: boolean } {
+  const hasPyFiles = files.some((f) => f.endsWith('.py') || f.endsWith(PYPROJECT_TOML));
+  const hasNodeFiles = files.some(
+    (f) => /\.(?:ts|tsx|js|jsx|vue)$/.test(f) || f.endsWith(PACKAGE_JSON)
+  );
+  const hasHybridStack =
+    stacks.includes(STACK_AI_EVALS) || stacks.includes(STACK_VIBE_RESCUE);
+  return {
+    hasPython:
+      stacks.includes(STACK_PYTHON) ||
+      stacks.includes(STACK_FASTAPI) ||
+      (hasHybridStack && hasPyFiles),
+    hasNode:
+      stacks.includes(STACK_NODE_BACKEND) ||
+      stacks.includes(STACK_VUE3) ||
+      stacks.includes(STACK_REACT_FRONTEND) ||
+      stacks.includes(STACK_MOBILE_APPIUM) ||
+      (hasHybridStack && hasNodeFiles),
+    hasPhp: stacks.includes(STACK_PHP),
+  };
+}
+
 export function evaluateLayer02StrictTyping(
   projectPath: string,
   files: string[],
@@ -737,9 +844,7 @@ export function evaluateLayer02StrictTyping(
     };
   }
 
-  const hasPython = stacks.includes(STACK_PYTHON) || stacks.includes(STACK_FASTAPI);
-  const hasNode = stacks.includes(STACK_NODE_BACKEND) || stacks.includes(STACK_VUE3) || stacks.includes(STACK_REACT_FRONTEND);
-  const hasPhp = stacks.includes(STACK_PHP);
+  const { hasPython, hasNode, hasPhp } = resolveStrictTypingLanguages(files, stacks);
 
   const py = checkPythonTyping(projectPath, files);
   const node = checkNodeTyping(projectPath);
@@ -789,6 +894,26 @@ function determineUnitStatus(
   return { status: STATUS_MISSING, missingReqs };
 }
 
+function isUnitTestCandidateFile(file: string, stacks: StackName[]): boolean {
+  if (file.includes('.unit.') || file.endsWith('.bats')) return true;
+  if (file.includes('tests/') && file.endsWith('.py')) return true;
+  if (file.includes('tests/') && (file.endsWith('Test.php') || file.endsWith('.unit.php'))) {
+    return true;
+  }
+  if (
+    stacks.includes(STACK_MOBILE_APPIUM) &&
+    file.includes('tests/') &&
+    (file.endsWith('.spec.ts') || file.endsWith('.test.ts'))
+  ) {
+    return true;
+  }
+  return (
+    (stacks.includes(STACK_AI_EVALS) || file.startsWith(`${STACK_AI_EVALS}/`)) &&
+    path.basename(file).startsWith('test_') &&
+    file.endsWith('.py')
+  );
+}
+
 export function evaluateLayer03UnitIsolated(
   projectPath: string,
   files: string[],
@@ -812,21 +937,20 @@ export function evaluateLayer03UnitIsolated(
 
   const pyproject = readFileContentSafe(projectPath, PYPROJECT_TOML);
   const vitestConfig = readFileContentSafe(projectPath, 'vitest.config.ts');
-  const pkgJson = readFileContentSafe(projectPath, PACKAGE_JSON);
+  const pkgJson = `${readFileContentSafe(projectPath, PACKAGE_JSON)}\n${readFileContentSafe(
+    projectPath,
+    `${STACK_MOBILE_APPIUM}/${PACKAGE_JSON}`
+  )}`;
+  const makefile = readFileContentSafe(projectPath, MAKEFILE_NAME);
   const composer = readFileContentSafe(projectPath, COMPOSER_JSON);
   const phpunitXml = readFileContentSafe(projectPath, 'phpunit.xml');
 
-  const unitFiles = files.filter(
-    (f) =>
-      f.includes('.unit.') ||
-      f.endsWith('.bats') ||
-      (f.includes('tests/') && f.endsWith('.py')) ||
-      (f.includes('tests/') && (f.endsWith('Test.php') || f.endsWith('.unit.php')))
-  );
+  const unitFiles = files.filter((f) => isUnitTestCandidateFile(f, stacks));
 
   const threshold95 =
     pyproject.includes('fail_under = 95') ||
     pyproject.includes('fail-under = 95') ||
+    makefile.includes('--cov-fail-under=95') ||
     /(?:lines|branches|functions|statements)\s*:\s*95\b/.test(vitestConfig) ||
     pkgJson.includes('thresholds: 95') ||
     composer.includes('--min=95') ||
@@ -918,7 +1042,7 @@ export function evaluateLayer04OrmParity(
     layer_id: 'L04_ORM_MIGRATION_PARITY',
     layer_name: 'Paridad Real de Esquemas ORM y Migraciones (Anti-Mock Blindness)',
     status,
-    applicable_stacks: [STACK_FASTAPI, STACK_PYTHON, STACK_NODE_BACKEND].filter((s) => stacks.includes(s)),
+    applicable_stacks: [STACK_FASTAPI, STACK_PYTHON, STACK_NODE_BACKEND, STACK_VIBE_RESCUE].filter((s) => stacks.includes(s)),
     detected_evidence: detected,
     missing_requirements: missingReqs,
     recommended_blueprint_files: [
@@ -1559,6 +1683,7 @@ function detectTrimodalTriad(projectPath: string, files: string[]): boolean {
       f.includes('.test.') ||
       f.includes('.spec.') ||
       f.includes('tests/') ||
+      path.basename(f).startsWith('test_') ||
       f.endsWith('.bats');
     if (isTestOrFixture && (f.endsWith('.py') || f.endsWith('.ts') || f.endsWith('.json'))) {
       const content = readFileContentSafe(projectPath, f).toLowerCase();

@@ -1463,6 +1463,23 @@ def _validate_geo_surface(
     return [f"{label}: faltan {kind} ({', '.join(missing[:3])})."]
 
 
+def _validate_root_manifest(root: Path, counts: RepoExpectedCounts) -> list[str]:
+    manifest_path = root / "manifest.json"
+    if not manifest_path.is_file():
+        return []
+    data, err = _load_json_strict(manifest_path)
+    if err or data is None:
+        return [f"manifest.json: JSON inválido ({err})."]
+    stacks = data.get("stacks")
+    if isinstance(stacks, dict) and len(stacks) == counts.blueprints:
+        return []
+    found = len(stacks) if isinstance(stacks, dict) else "invalid"
+    return [
+        f"manifest.json: se esperan {counts.blueprints} stacks "
+        f"(encontradas={found})."
+    ]
+
+
 def check_global_catalogs_and_geo(root: Path) -> list[str]:
     """Valida llms.txt y catálogos globales contra conteos reales y SHA-256."""
     if not (root / "llms.txt").is_file() and not (root / "catalogs").is_dir():
@@ -1473,9 +1490,10 @@ def check_global_catalogs_and_geo(root: Path) -> list[str]:
     counts = derive_expected_counts(root)
     expected_ver = _expected_pkg_version(root)
     repo_skills = _extract_repo_skill_ids(root)
-    errors = _validate_qaskills_pack(
-        root, expected_ver, repo_skills, counts.skills
-    )
+    errors = [
+        *_validate_root_manifest(root, counts),
+        *_validate_qaskills_pack(root, expected_ver, repo_skills, counts.skills),
+    ]
     s_errors, tools, resources = _validate_skillsllm_manifest(
         root, expected_ver, repo_skills, counts
     )

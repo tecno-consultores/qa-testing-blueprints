@@ -21,7 +21,8 @@ def _load_script_without_scripts_in_syspath(
 ) -> ModuleType:
     cleaned_path = [p for p in sys.path if Path(p).resolve() != _SCRIPTS_DIR.resolve()]
     monkeypatch.setattr(sys, "path", cleaned_path)
-    script_path = _SCRIPTS_DIR / filename
+    candidate = Path(filename)
+    script_path = candidate if candidate.is_absolute() else _SCRIPTS_DIR / filename
     spec = importlib.util.spec_from_file_location(alias, script_path)
     assert spec is not None and spec.loader is not None
     mod = importlib.util.module_from_spec(spec)
@@ -79,8 +80,14 @@ def test_governance_scripts_share_single_source_budgets(
     blast_insp = _load_script_without_scripts_in_syspath(
         monkeypatch, "inspect_blast_radius.py", "blast_insp_budgets_check"
     )
+    gen_manifest = _load_script_without_scripts_in_syspath(
+        monkeypatch,
+        str(_REPO_ROOT / "scripts" / "generar-manifiesto.py"),
+        "gen_manifest_isolated",
+    )
 
     assert verify_docs.SKILL_MAX_BYTES == budgets.SKILL_MAX_BYTES
+    assert gen_manifest.STACK_METADATA == sync_gov.STACK_METADATA
     assert blast_sel.HIGH_BLAST_CALLERS_THRESHOLD == budgets.HIGH_BLAST_CALLERS_THRESHOLD
     assert blast_insp.HIGH_BLAST_CALLERS_THRESHOLD == budgets.HIGH_BLAST_CALLERS_THRESHOLD
     assert sync_gov.SKILL_MAX_BYTES == budgets.SKILL_MAX_BYTES

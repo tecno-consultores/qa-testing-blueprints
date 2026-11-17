@@ -17,6 +17,8 @@ import {
 } from '../src/cli/quickstart.js';
 import { CLI_USAGE_TEXT, parseCliArgs, parseQuickstartCliArgs, runCli } from '../src/cli.js';
 import { auditSecurityStigOwasp } from '../src/tools/security-auditor.js';
+import { inspectProjectConfig } from '../src/tools/inspect-project.js';
+import { StackNameSchema } from '../src/types.js';
 
 const THIS_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(THIS_DIR, '../..');
@@ -162,6 +164,36 @@ describe('T5.1: Quickstart CLI & PR-Aware Composite GitHub Action', () => {
       );
       const safeProfile = detectProjectStackProfile(safeSqlDir);
       expect(safeProfile.vibePrototypeDetected).toBe(false);
+    });
+
+    it('aligns all 10 StackNameSchema stacks across quickstart profile and inspectProjectConfig', async () => {
+      writeProjectFile(
+        tmpDir,
+        'package.json',
+        JSON.stringify({ dependencies: { vue: '^3.5.0', express: '^5.0.0' } })
+      );
+      writeProjectFile(
+        tmpDir,
+        'react-frontend/package.json',
+        JSON.stringify({ dependencies: { react: '^19.0.0' } })
+      );
+      writeProjectFile(tmpDir, 'mobile-appium/wdio.conf.ts', 'export const config = {};\n');
+      writeProjectFile(tmpDir, 'fastapi/pyproject.toml', '[project]\ndependencies = ["fastapi"]\n');
+      writeProjectFile(tmpDir, 'python/pyproject.toml', '[project]\ndependencies = ["deepeval"]\n');
+      writeProjectFile(tmpDir, 'php/composer.json', '{"name":"acme/php"}');
+      writeProjectFile(tmpDir, 'php/index.php', '<?php echo "ok";\n');
+      writeProjectFile(tmpDir, 'check.sh', '#!/usr/bin/env bash\necho ok\n');
+      writeProjectFile(tmpDir, 'vibe-rescue/audit_vibe_prototype.py', '# audit\n');
+      writeProjectFile(tmpDir, '.bolt/config.json', '{"template":"vite"}\n');
+
+      const quickstartProfile = detectProjectStackProfile(tmpDir);
+      expect(quickstartProfile.vibePrototypeDetected).toBe(true);
+      const inspectResult = await inspectProjectConfig(tmpDir);
+
+      expect(StackNameSchema.options).toHaveLength(10);
+      for (const stack of StackNameSchema.options) {
+        expect(inspectResult.detected_stacks).toContain(stack);
+      }
     });
   });
 

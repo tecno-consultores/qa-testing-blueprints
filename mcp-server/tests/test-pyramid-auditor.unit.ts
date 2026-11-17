@@ -1145,4 +1145,108 @@ def create_item(): pass
     expect(result.missing_test_inventory.total_untested_apis_count).toBeDefined();
     expect(result.missing_test_inventory.total_untested_views_count).toBeDefined();
   });
+
+  it('evaluates mobile-appium, ai-evals, and vibe-rescue stacks cleanly without misclassifying orphans', async () => {
+    const orphanCandidates = [
+      'src/wdio.conf.ts',
+      'mobile-appium/src/LoginScreen.ts',
+      'src/DeviceBridge.ts',
+      'ai-evals/src/rag_eval.py',
+      'ai-evals/src/prompt_runner.ts',
+      'ai-evals/rag/test_rag_faithfulness.py',
+      'mobile-appium/tests/mobile_screenplay.spec.ts',
+      'vibe-rescue/src/sanitizer.py',
+      'vibe-rescue/src/env_guard.ts',
+    ];
+    const mobileOrphans = findOrphanSourceFiles(tmpDir, ['src/wdio.conf.ts', 'mobile-appium/src/LoginScreen.ts', 'src/DeviceBridge.ts'], ['mobile-appium']);
+    expect(mobileOrphans.map((o) => o.source_file)).not.toContain('src/wdio.conf.ts');
+    expect(mobileOrphans.every((o) => o.stack === 'mobile-appium')).toBe(true);
+
+    const aiOrphans = findOrphanSourceFiles(tmpDir, ['ai-evals/src/rag_eval.py', 'ai-evals/src/prompt_runner.ts', 'src/judge.py'], ['ai-evals']);
+    expect(aiOrphans.every((o) => o.stack === 'ai-evals')).toBe(true);
+
+    const vibeOrphans = findOrphanSourceFiles(tmpDir, ['vibe-rescue/src/sanitizer.py', 'vibe-rescue/src/env_guard.ts', 'src/rls_check.py', 'src/guard.ts'], ['vibe-rescue']);
+    expect(vibeOrphans.every((o) => o.stack === 'vibe-rescue')).toBe(true);
+    expect(orphanCandidates).toHaveLength(9);
+
+    // AI Evals full 11X audit (L01, L02, L03, L13)
+    const aiDir = path.join(tmpDir, 'ai-evals-proj');
+    fs.mkdirSync(path.join(aiDir, 'ai-evals', 'rag'), { recursive: true });
+    fs.mkdirSync(path.join(aiDir, 'scripts'), { recursive: true });
+    fs.mkdirSync(path.join(aiDir, 'test'), { recursive: true });
+    fs.writeFileSync(path.join(aiDir, 'ai-evals', 'promptfooconfig.yaml'), 'redteam:\n  plugins: [pii]\n', 'utf-8');
+    fs.writeFileSync(
+      path.join(aiDir, 'ai-evals', 'rag', 'test_rag_faithfulness.py'),
+      'virgin = {}\nnominal = {"ok": True}\ndegraded = {"err": 1}\ntest_production_no_dev_cleanliness = True\n',
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(aiDir, 'pyproject.toml'),
+      '[tool.ruff]\n[tool.ruff.lint]\nselect = ["C901"]\n[tool.bandit]\n[tool.mypy]\nstrict = true\n',
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(aiDir, 'Makefile'),
+      'qa-unit:\n\tpytest --cov=ai-evals/rag --cov-fail-under=95\n',
+      'utf-8'
+    );
+    fs.writeFileSync(path.join(aiDir, 'scripts', 'auditar-infra.sh'), '#!/bin/sh\n', 'utf-8');
+    fs.writeFileSync(path.join(aiDir, 'scripts', 'verificar-secretos.sh'), '#!/bin/sh\n', 'utf-8');
+    fs.writeFileSync(path.join(aiDir, 'test', 'test_auditar-infra.bats'), '@test "a" { run true; }\n', 'utf-8');
+    fs.writeFileSync(path.join(aiDir, 'test', 'test_verificar-secretos.bats'), '@test "s" { run true; }\n', 'utf-8');
+    const aiAudit = await auditTestPyramidGaps(aiDir, 'ai-evals');
+    expect(aiAudit.detected_stacks).toEqual(['ai-evals']);
+    expect(aiAudit.layers_audit.find((l) => l.layer_id === 'L01_STATIC_SAST_IAC')?.status).toBe('COVERED');
+    expect(aiAudit.layers_audit.find((l) => l.layer_id === 'L01_STATIC_SAST_IAC')?.detected_evidence).toContain('Configuración Red-Team Promptfoo');
+    expect(aiAudit.layers_audit.find((l) => l.layer_id === 'L02_STRICT_TYPING_COMPLEXITY')?.status).toBe('COVERED');
+    expect(aiAudit.layers_audit.find((l) => l.layer_id === 'L03_UNIT_ISOLATED')?.status).toBe('COVERED');
+    expect(aiAudit.layers_audit.find((l) => l.layer_id === 'L13_TRIMODAL_FIXTURES_NEGATIVE')?.status).toBe('COVERED');
+
+    // Mobile Appium audit (L01, L02, L03 via mobile-appium/ subdir)
+    const mobDir = path.join(tmpDir, 'mobile-proj');
+    fs.mkdirSync(path.join(mobDir, 'mobile-appium', 'tests'), { recursive: true });
+    fs.mkdirSync(path.join(mobDir, 'scripts'), { recursive: true });
+    fs.mkdirSync(path.join(mobDir, 'test'), { recursive: true });
+    fs.writeFileSync(path.join(mobDir, 'mobile-appium', 'wdio.conf.ts'), 'export const config = {};\n', 'utf-8');
+    fs.writeFileSync(
+      path.join(mobDir, 'mobile-appium', 'package.json'),
+      JSON.stringify({
+        dependencies: { webdriverio: '^9.0.0' },
+        scripts: {
+          lint: 'eslint --max-warnings 0',
+          'type-check': 'tsc --strict --noEmit wdio.conf.ts',
+          'test:unit': 'vitest --coverage thresholds: 95',
+        },
+        devDependencies: { 'eslint-plugin-sonarjs': '^0.24.0' },
+      }),
+      'utf-8'
+    );
+    fs.writeFileSync(path.join(mobDir, 'mobile-appium', 'tests', 'mobile_screenplay.spec.ts'), 'export {};\n', 'utf-8');
+    fs.writeFileSync(path.join(mobDir, 'scripts', 'auditar-infra.sh'), '#!/bin/sh\n', 'utf-8');
+    fs.writeFileSync(path.join(mobDir, 'scripts', 'verificar-secretos.sh'), '#!/bin/sh\n', 'utf-8');
+    fs.writeFileSync(path.join(mobDir, 'test', 'test_auditar-infra.bats'), '@test "a" { run true; }\n', 'utf-8');
+    fs.writeFileSync(path.join(mobDir, 'test', 'test_verificar-secretos.bats'), '@test "s" { run true; }\n', 'utf-8');
+    const mobAudit = await auditTestPyramidGaps(mobDir);
+    expect(mobAudit.detected_stacks).toContain('mobile-appium');
+    expect(mobAudit.layers_audit.find((l) => l.layer_id === 'L01_STATIC_SAST_IAC')?.status).toBe('COVERED');
+    expect(mobAudit.layers_audit.find((l) => l.layer_id === 'L01_STATIC_SAST_IAC')?.detected_evidence).toContain('Configuración WebdriverIO/Appium');
+    expect(mobAudit.layers_audit.find((l) => l.layer_id === 'L02_STRICT_TYPING_COMPLEXITY')?.status).toBe('COVERED');
+    expect(mobAudit.layers_audit.find((l) => l.layer_id === 'L03_UNIT_ISOLATED')?.status).toBe('COVERED');
+
+    // Vibe Rescue audit (L01 evidence, L02 missing without typing, L04 applicable_stacks includes vibe-rescue)
+    const vibeDir = path.join(tmpDir, 'vibe-proj');
+    fs.mkdirSync(path.join(vibeDir, 'vibe-rescue'), { recursive: true });
+    fs.mkdirSync(path.join(vibeDir, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(vibeDir, 'vibe-rescue', 'audit_vibe_prototype.py'), '# audit\n', 'utf-8');
+    fs.writeFileSync(path.join(vibeDir, 'src', 'models.py'), 'class Tenant: pass\n', 'utf-8');
+    const vibeAudit = await auditTestPyramidGaps(vibeDir, 'vibe-rescue');
+    expect(vibeAudit.detected_stacks).toEqual(['vibe-rescue']);
+    expect(vibeAudit.layers_audit.find((l) => l.layer_id === 'L01_STATIC_SAST_IAC')?.detected_evidence).toContain('Auditor estático audit_vibe_prototype.py');
+    expect(vibeAudit.layers_audit.find((l) => l.layer_id === 'L02_STRICT_TYPING_COMPLEXITY')?.status).toBe('MISSING');
+    expect(vibeAudit.layers_audit.find((l) => l.layer_id === 'L04_ORM_MIGRATION_PARITY')?.applicable_stacks).toContain('vibe-rescue');
+
+    const reactOnlyOrphans = findOrphanSourceFiles(tmpDir, ['src/Widget.tsx'], ['react-frontend']);
+    expect(reactOnlyOrphans).toHaveLength(1);
+    expect(reactOnlyOrphans[0].stack).toBe('react-frontend');
+  });
 });

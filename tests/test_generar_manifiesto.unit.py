@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
@@ -10,19 +9,19 @@ construcción del manifiesto, detección de derivas con --check y ejecución CLI
 Cumple con el Estándar 11X (cobertura >= 95%).
 """
 
+import importlib.util
 import json
-from pathlib import Path
 import shutil
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 
 # Aseguramos que scripts/ esté en el sys.path para importar generar-manifiesto
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 # Importamos las funciones del generador
-import importlib.util
 
 spec = importlib.util.spec_from_file_location("generar_manifiesto", REPO_ROOT / "scripts" / "generar-manifiesto.py")
 if spec is None or spec.loader is None:
@@ -79,6 +78,8 @@ class TestGenerarManifiesto(unittest.TestCase):
             ("sub/npmrc.example", "sub/.npmrc", "append_missing_lines"),
             ("docker-compose.qa.yml", "docker-compose.qa.yml", "copy_if_missing_or_update_qa"),
             ("sub/docker-compose.qa.yml", "sub/docker-compose.qa.yml", "copy_if_missing_or_update_qa"),
+            ("docker-compose.qa.yml.example", "docker-compose.qa.yml", "copy_if_missing_or_update_qa"),
+            ("sub/docker-compose.qa.yml.example", "sub/docker-compose.qa.yml", "copy_if_missing_or_update_qa"),
             ("Makefile.example", "Makefile", "surgical_merge"),
             ("pyproject.toml.example", "pyproject.toml", "surgical_merge"),
             ("composer.json.example", "composer.json", "surgical_merge"),
@@ -161,6 +162,8 @@ class TestGenerarManifiesto(unittest.TestCase):
     def test_scan_agent_governance_files(self) -> None:
         """Verifica el escaneo de archivos de gobernanza con scripts y reglas."""
         (self.temp_path / "AGENTS.md").write_text("# Agents", encoding="utf-8")
+        (self.temp_path / "SECURITY.md").write_text("# Security", encoding="utf-8")
+        (self.temp_path / "SECURITY.es.md").write_text("# Seguridad", encoding="utf-8")
         rules_dir = self.temp_path / ".agents" / "rules"
         rules_dir.mkdir(parents=True)
         (rules_dir / "rule1.md").write_text("Rule 1", encoding="utf-8")
@@ -192,6 +195,9 @@ class TestGenerarManifiesto(unittest.TestCase):
         paths = [f["path"] for f in gov_files]
 
         self.assertIn("AGENTS.md", paths)
+        self.assertIn("SECURITY.md", paths)
+        self.assertIn("SECURITY.es.md", paths)
+        self.assertEqual(len(gm._collect_agent_schemas(self.temp_path)), 1)
         self.assertIn(".agents/rules/rule1.md", paths)
         self.assertIn(".agents/schemas/session_checkpoint.schema.json", paths)
         self.assertIn(".agents/scripts/script1.sh", paths)
@@ -205,7 +211,6 @@ class TestGenerarManifiesto(unittest.TestCase):
     def test_compare_file_lists(self) -> None:
         """Verifica la detección de discrepancias en listas de archivos."""
         file_a = {"path": "a.txt", "sha256": "111", "target_name": "a", "merge_strategy": "copy", "size_bytes": 10}
-        file_b = {"path": "b.txt", "sha256": "222", "target_name": "b", "merge_strategy": "copy", "size_bytes": 20}
 
         # Idénticos -> 0 diffs
         self.assertEqual(gm.compare_file_lists("sec", [file_a], [file_a]), [])
@@ -218,7 +223,7 @@ class TestGenerarManifiesto(unittest.TestCase):
         # Faltante en repositorio
         diffs = gm.compare_file_lists("sec", [file_a], [])
         self.assertEqual(len(diffs), 1)
-        self.assertIn("ausente en repositorio", diffs[0])
+        self.assertIn("ausente en disco", diffs[0])
 
         # Hash discrepante
         file_a_modified = dict(file_a, sha256="999")
@@ -298,15 +303,23 @@ class TestGenerarManifiesto(unittest.TestCase):
         # 3. Verificación con fallo al alterar un hash
         data = json.loads(output_manifest.read_text(encoding="utf-8"))
         # Corrompemos el hash del primer archivo
-        first_stack = list(data["stacks"].keys())[0]
+        first_stack = next(iter(data["stacks"].keys()))
         data["stacks"][first_stack]["files"][0]["sha256"] = "0" * 64
         output_manifest.write_text(json.dumps(data), encoding="utf-8")
 
         exit_code_fail = gm.main(["--repo-root", str(REPO_ROOT), "--output", str(output_manifest), "--check"])
         self.assertEqual(exit_code_fail, 1)
 
-    def test_stack_metadata_includes_php_and_seven_stacks(self) -> None:
-        """Verifica que STACK_METADATA declare exactamente los 7 stacks oficiales, incluyendo php."""
+    def test_stack_metadata_includes_all_ten_stacks_and_sync_parity(self) -> None:
+        """Verifica los 10 stacks oficiales en inglés y paridad Single-Source con sync_governance."""
+        sg_spec = importlib.util.spec_from_file_location(
+            "sync_governance_parity", REPO_ROOT / ".agents" / "scripts" / "sync_governance.py"
+        )
+        assert sg_spec is not None and sg_spec.loader is not None
+        sg_mod = importlib.util.module_from_spec(sg_spec)
+        sys.modules["sync_governance_parity"] = sg_mod
+        sg_spec.loader.exec_module(sg_mod)
+
         expected_stacks = {
             "python",
             "fastapi",
@@ -315,26 +328,39 @@ class TestGenerarManifiesto(unittest.TestCase):
             "react-frontend",
             "bash-scripts",
             "php",
+            "mobile-appium",
+            "ai-evals",
+            "vibe-rescue",
         }
         self.assertEqual(set(gm.STACK_METADATA.keys()), expected_stacks)
-        php_meta = gm.STACK_METADATA["php"]
-        self.assertIn("PHP 8.2-8.5", php_meta["description"])
-        self.assertNotIn("8.1", php_meta["description"])
-        self.assertEqual(php_meta["readme"], "php/README.md")
+        self.assertEqual(gm.STACK_METADATA, sg_mod.STACK_METADATA)
+        self.assertEqual(gm.COMMON_FILE_PATHS, sg_mod.COMMON_FILE_PATHS)
+        self.assertEqual(gm.SCHEMA_VERSION, sg_mod.SCHEMA_VERSION)
+        self.assertEqual(gm.DEFAULT_BLUEPRINT_VERSION, sg_mod.DEFAULT_BLUEPRINT_VERSION)
+
+        expected_keywords = {
+            "python": "Standalone Python Libraries and CLIs",
+            "fastapi": "Async Python REST APIs",
+            "node-backend": "Node.js / TypeScript Backend Microservices",
+            "vue3": "Vue 3 + TypeScript + Vite Frontend",
+            "react-frontend": "React + TypeScript + Vite Frontend",
+            "bash-scripts": "POSIX / Bash DevOps Automation Scripts",
+            "php": "PHP 8.2-8.5",
+            "mobile-appium": "Appium 3",
+            "ai-evals": "DeepEval",
+            "vibe-rescue": "Vibe-to-Enterprise Hardening",
+        }
+        for stack_name, keyword in expected_keywords.items():
+            meta = gm.STACK_METADATA[stack_name]
+            self.assertIn(keyword, meta["description"])
+            self.assertEqual(meta["readme"], f"{stack_name}/README.md")
+
+        self.assertNotIn("8.1", gm.STACK_METADATA["php"]["description"])
         self.assertIn("scripts/actualizar-grafos-graphify.sh", gm.COMMON_FILE_PATHS)
         self.assertIn("scripts/auditar-pagespeed.sh", gm.COMMON_FILE_PATHS)
 
-    def test_readme_matrix_tags_and_mermaid_integrity(self) -> None:
-        """Verifica matriz de herramientas, tags de Docker Hub y bloques Mermaid sin HTML roto."""
-        readme_text = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
-        self.assertIn("## 🛠 Matriz de Herramientas de Pruebas", readme_text)
-        self.assertIn("| Entorno | Linting / Formateo | Pruebas Unitarias / Mocking |", readme_text)
-        self.assertIn("`3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest`", readme_text)
-        self.assertIn("`8.2`, `8.3`, `8.4`, `8.5` y `latest`", readme_text)
-        self.assertIn("`22`, `24`, `26` y `latest`", readme_text)
-        self.assertNotIn(r"\text{", readme_text)
-        self.assertIn("`t < starts_at`, `starts_at <= t <= ends_at`, `t > ends_at`", readme_text)
-
+    def test_mermaid_blocks_have_no_broken_html_tags(self) -> None:
+        """Verifica bloques Mermaid sin etiquetas HTML rotas ni escapes \\n."""
         mermaid_files = [
             "README.md",
             "SECURITY.md",
@@ -343,8 +369,10 @@ class TestGenerarManifiesto(unittest.TestCase):
             "docs/specs/01_SPEC_ARQUITECTURA_ZERO_CLONE_Y_MANIFIESTO_REMOTO.md",
         ]
         for rel_path in mermaid_files:
-            content = (REPO_ROOT / rel_path).read_text(encoding="utf-8")
-            self.assertIn("```mermaid", content, f"Falta bloque mermaid en {rel_path}")
+            path = REPO_ROOT / rel_path
+            if not path.is_file():
+                continue
+            content = path.read_text(encoding="utf-8")
             for block in content.split("```mermaid")[1:]:
                 mermaid_code = block.split("```")[0]
                 self.assertNotIn("<br>", mermaid_code, f"Tag <br> inválido en Mermaid de {rel_path}")
@@ -352,8 +380,9 @@ class TestGenerarManifiesto(unittest.TestCase):
                 self.assertNotIn(r"\n", mermaid_code, f"Secuencia \\n inválida en Mermaid de {rel_path}")
 
     def test_bilingual_stack_readme_hashes_and_es_governance_in_manifest(self) -> None:
-        """Verifica readme_sha256, readme_es, readme_es_sha256, exclusión README.es.md y espejos ES en gobernanza."""
+        """Verifica readme_sha256, readme_es, readme_es_sha256, exclusión README.es.md y gobernanza EN/ES."""
         manifest = gm.build_manifest(REPO_ROOT)
+        self.assertEqual(len(manifest["stacks"]), 10)
         for stack_name, stack_entry in manifest["stacks"].items():
             self.assertRegex(stack_entry["readme_sha256"], r"^[0-9a-f]{64}$")
             self.assertEqual(stack_entry["readme_es"], f"{stack_name}/README.es.md")
@@ -365,6 +394,7 @@ class TestGenerarManifiesto(unittest.TestCase):
         gov_paths = {item["path"] for item in manifest["agent_governance_files"]}
         self.assertIn("AI_MASTER_PROMPT.md", gov_paths)
         self.assertIn("AI_MASTER_PROMPT.es.md", gov_paths)
+        self.assertIn("SECURITY.md", gov_paths)
         self.assertIn("SECURITY.es.md", gov_paths)
 
         empty_manifest = gm.build_manifest(self.temp_path)

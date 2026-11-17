@@ -24,7 +24,7 @@ Typically, CI pipelines install the language runtime directly on the GitHub/GitL
 *   **Why is this wrong for us?** Because it breaks isolation. The CI runner could have pre-installed global Ubuntu dependencies that mask errors, causing the pipeline to pass on GitHub while failing on your production Proxmox server.
 
 **Our Approach (Blueprints):**
-The CI runner is treated as a "dumb" machine whose only job is having Docker installed. **We run the exact same Makefile-encapsulated commands we use locally across all 10 stacks / 12 environments**.
+The CI runner is treated as a "dumb" machine whose only job is having Docker installed. **We run the exact same Makefile-encapsulated commands we use locally across all 10 hydratable stacks + `architecture/` + `mcp-server/` (= 12 matrix environments)**.
 *   **Why is it like this?** Absolute parity. If `make qa-unit` passes on your laptop, it will pass in CI and work in production. All intelligence, tools (SAST, Mutation, BATS, Appium 3), `.npmrc` configs, and dependencies live inside the certified `sinfallas/*` base images (`sinfallas/base-python-uv:3.15`, `sinfallas/base-node-ionic:26`, `sinfallas/base-mobile-appium:26`, `sinfallas/basephpcomposer:8.5`, `sinfallas/karatelabs:1.5.1`, `sinfallas/base-bash-qa:latest`, `sinfallas/remote-graphify:latest`) backed by cache volumes.
 
 ---

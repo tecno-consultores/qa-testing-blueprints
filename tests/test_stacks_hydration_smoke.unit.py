@@ -2,11 +2,11 @@
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
 """
-test_stacks_hydration_smoke.unit.py — Suite Smoke de Hidratación e Invariantes de los 7 Stacks QA 11X.
+test_stacks_hydration_smoke.unit.py — Suite Smoke de Hidratación e Invariantes de los 10 Stacks QA 11X.
 
-Valida determinísticamente que las 7 plantillas corporativas (vue3, react-frontend, python,
-fastapi, php, node-backend, bash-scripts), los scripts de automatización y manifest.json
-cumplan todos los contratos estructurales y de seguridad v2.16.0.
+Valida determinísticamente que las 10 plantillas corporativas (vue3, react-frontend, python,
+fastapi, php, node-backend, bash-scripts, mobile-appium, ai-evals, vibe-rescue), los scripts
+de automatización y manifest.json cumplan todos los contratos estructurales y de seguridad v3.0.0.
 """
 
 import json
@@ -27,6 +27,19 @@ EXPECTED_STACKS = (
     "php",
     "node-backend",
     "bash-scripts",
+    "mobile-appium",
+    "ai-evals",
+    "vibe-rescue",
+)
+COMPOSE_ENABLED_STACKS = (
+    "vue3",
+    "react-frontend",
+    "python",
+    "fastapi",
+    "php",
+    "node-backend",
+    "bash-scripts",
+    "mobile-appium",
 )
 
 
@@ -34,9 +47,10 @@ class TestStacksHydrationSmoke(unittest.TestCase):
     def setUp(self) -> None:
         self.manifest = json.loads((REPO_ROOT / "manifest.json").read_text(encoding="utf-8"))
 
-    def test_all_seven_stacks_exist_and_hydrate_cleanly(self) -> None:
-        """Verifica que los 7 stacks estén indexados en manifest.json y sus archivos hidraten sin colisiones."""
+    def test_all_ten_stacks_exist_and_hydrate_cleanly(self) -> None:
+        """Verifica que los 10 stacks estén indexados en manifest.json y sus archivos hidraten sin colisiones."""
         stacks = self.manifest.get("stacks", {})
+        self.assertEqual(set(stacks.keys()), set(EXPECTED_STACKS))
         for stack_name in EXPECTED_STACKS:
             self.assertIn(stack_name, stacks, f"Falta stack {stack_name} en manifest.json")
             files = stacks[stack_name].get("files", [])
@@ -52,16 +66,21 @@ class TestStacksHydrationSmoke(unittest.TestCase):
                     shutil.copy2(src, dest)
                     self.assertTrue(dest.is_file())
 
-                # Todo stack debe tener .gitignore y docker-compose.qa.yml tras hidratar
+                # Todo stack debe tener .gitignore; los 8 stacks con Compose deben hidratar docker-compose.qa.yml
                 self.assertTrue((tmp_dir / ".gitignore").is_file(), f"Falta .gitignore en {stack_name}")
-                self.assertTrue((tmp_dir / "docker-compose.qa.yml").is_file(), f"Falta compose en {stack_name}")
+                if stack_name in COMPOSE_ENABLED_STACKS:
+                    self.assertTrue((tmp_dir / "docker-compose.qa.yml").is_file(), f"Falta compose en {stack_name}")
             finally:
                 shutil.rmtree(tmp_dir, ignore_errors=True)
 
     def test_docker_compose_files_have_no_graphify_daemon_or_broken_karate_tag(self) -> None:
         """Certifica cero daemons graphify:8080 y cero imágenes inexistentes karatelabs:1.5.0."""
-        for stack_name in EXPECTED_STACKS:
-            compose_text = (REPO_ROOT / stack_name / "docker-compose.qa.yml").read_text(encoding="utf-8")
+        for stack_name in COMPOSE_ENABLED_STACKS:
+            compose_path = REPO_ROOT / stack_name / "docker-compose.qa.yml"
+            if not compose_path.is_file():
+                compose_path = REPO_ROOT / stack_name / "docker-compose.qa.yml.example"
+            self.assertTrue(compose_path.is_file(), f"Falta compose QA en {stack_name}")
+            compose_text = compose_path.read_text(encoding="utf-8")
             self.assertNotIn("graphify:", compose_text, f"Daemon graphify residual en {stack_name}")
             self.assertNotIn("sinfallas/karatelabs:1.5.0", compose_text, f"Tag roto 1.5.0 en {stack_name}")
             if "sinfallas/karatelabs:" in compose_text:

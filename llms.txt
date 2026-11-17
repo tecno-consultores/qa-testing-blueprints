@@ -34,7 +34,7 @@
 - [mcp-server/src/security/promptGuard.ts](https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/mcp-server/src/security/promptGuard.ts) (`mcp-server/src/security/promptGuard.ts`) — Fail-closed `tools/call` interceptor (`NFKC` canonicalization, Trojan Source stripping, injection & `QA-GIT-GATE-01` bypass blocking, PII redaction).
 - [mcp-server/src/utils/taskStateGuard.ts](https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/mcp-server/src/utils/taskStateGuard.ts) (`mcp-server/src/utils/taskStateGuard.ts`) — Bounded concurrency state machine (`AVAILABLE | BUSY | BROKEN`), `AbortController` timeouts, and 0-byte artifact cleanup.
 - **19 MCP Tools (`tools/list`):** `inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`, `clean_workspace_11x`, `audit_security_stig_owasp`, `run_ephemeral_qa`, `certify_11x_gate`, `audit_test_pyramid_gaps`, `init_or_append_agents_md`, `propose_skill_evolution_pr`, `reconcile_agents_governance`, `validate_calm_architecture`, `evaluate_release_gate`, `evaluate_agent_trajectory`, `run_llm_red_team`, `audit_vibe_prototype`, `sync_enterprise_tms`, `session_flight_recorder`.
-- **13 MCP Resources (`blueprint://*`):** `blueprint://manifest`, `blueprint://core/philosophy`, `blueprint://security/disa-owasp-22`, `blueprint://database/postgres-rls-worm`, `blueprint://{stack}/readme`, `blueprint://ui/refactoring-ui/{topic}`, `blueprint://core/active-task-template`, `blueprint://core/cleanup-script`, `blueprint://core/roadmap-validator`, `blueprint://ai/evals-redteam`, `blueprint://mobile-appium/readme`, `blueprint://vibe-rescue/readme`, `blueprint://skills/tactical-patterns-11x`.
+- **13 MCP Resources (`blueprint://*`):** `blueprint://manifest`, `blueprint://core/philosophy`, `blueprint://security/disa-owasp-22`, `blueprint://database/postgres-rls-worm`, `blueprint://{stack}/readme` (`python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue`), `blueprint://ui/refactoring-ui/{topic}`, `blueprint://core/active-task-template`, `blueprint://core/cleanup-script`, `blueprint://core/roadmap-validator`, `blueprint://ai/evals-redteam`, `blueprint://mobile-appium/readme`, `blueprint://vibe-rescue/readme`, `blueprint://skills/tactical-patterns-11x`.
 
 ## 11 Modular AI Agent Skills (`< 20 KB` each)
 
@@ -51,6 +51,8 @@
 - [tactical-patterns-11x](https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/tactical-patterns-11x/SKILL.md) (`.agents/skills/tactical-patterns-11x/SKILL.md`, `<= 2.5 KB`) — JIT tactical design patterns on complexity/lint failures (`CC <= 5`, `SonarJS <= 15`, `max-params: 4`, offline Port/Adapter, Transactional Outbox).
 
 ## 10 Production Blueprints
+
+> Matrix scope: **10 hydratable stacks** below + `architecture/` (FINOS CALM topology) + `mcp-server/` (`@sinfallas/mcp-qa-11x`) = **12 matrix environments**.
 
 - [python/](https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/python/README.md) (`python/README.md`) — Standalone Python libraries and CLIs (`uv`, `ruff CC <= 5`, `mypy --strict`, `pytest >= 95%`, Hypothesis, Mutmut, Bandit).
 - [fastapi/](https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/fastapi/README.md) (`fastapi/README.md`) — Async FastAPI services (`PostgreSQL 17` RLS + Alembic parity, Pact V4 consumer, Grafana `k6` smoke, Karate API BDD).
