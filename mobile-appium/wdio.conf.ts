@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
 /**
- * Configuracion tipada WebdriverIO + Appium 2 W3C para mobile-appium (Estandar QA-11X).
+ * Configuracion tipada WebdriverIO + Appium 3 W3C para mobile-appium (Estandar QA-11X).
  * Cero dependencias externas, 0 any, CC <= 5, Fail-Closed y diagnostico Pass-Quiet / Fail-Verbose.
  */
 

@@ -1,7 +1,7 @@
 # 🐍 Python & FastAPI Stack Reference (Standard 11X)
 
-> **OUTPUT LANGUAGE CONSTRAINT:**
-> Always communicate with the user, provide status updates, explain reasoning, and write commit messages / user-facing documentation strictly in Spanish.
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:**
+> Unless target `AGENTS.md` mandates a fixed language, interact in the **user's prompt language**; human docs use EN canonical (`*.md`) + 1:1 ES mirror (`*.es.md`) (matching `README.md`/`CHANGELOG.md` in consumer repos, defaulting to prompt language if empty); `.agents/**` stays concise English.
 
 This reference provides the technical directives, configuration blueprints, and ephemeral Docker commands for Python Standalone projects and asynchronous APIs built with FastAPI.
 

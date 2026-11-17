@@ -1,7 +1,7 @@
 # 🌐 Node.js, Vue 3 & React Stack Reference (Standard 11X)
 
-> **OUTPUT LANGUAGE CONSTRAINT:**
-> Always communicate with the user, provide status updates, explain reasoning, and write commit messages / user-facing documentation strictly in Spanish.
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:**
+> Unless target `AGENTS.md` mandates a fixed language, interact in the **user's prompt language**; human docs use EN canonical (`*.md`) + 1:1 ES mirror (`*.es.md`) (matching `README.md`/`CHANGELOG.md` in consumer repos, defaulting to prompt language if empty); `.agents/**` stays concise English.
 
 This reference provides technical rules, testing conventions, and ephemeral Docker commands for Node.js backends and modern frontend Single Page Applications (Vue 3 and React 19+).
 

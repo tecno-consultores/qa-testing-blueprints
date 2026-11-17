@@ -1,7 +1,7 @@
 # 🏛️ Core 13 Quality Layers, Anti-Mock Blindness & Anti-JSDOM Geometry
 
-> **OUTPUT LANGUAGE CONSTRAINT:**
-> Always communicate with the user, provide status updates, explain reasoning, and write commit messages / user-facing documentation strictly in Spanish.
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING:**
+> Unless target `AGENTS.md` mandates a fixed language, interact in the **user's prompt language**; human docs use EN canonical (`*.md`) + 1:1 ES mirror (`*.es.md`) (matching `README.md`/`CHANGELOG.md` in consumer repos, defaulting to prompt language if empty); `.agents/**` stays concise English.
 
 This reference provides the foundational execution matrix for the 13 layers of the 11X Quality Pyramid, along with the operational rules for Anti-Mock Blindness, Anti-JSDOM visual geometry, and Universal Trimodal Fixtures.
 

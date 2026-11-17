@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
 /**
- * Patron Screenplay multi-rol RBAC y multi-tenant para Appium 2 (Nativo + Hibrido Ionic/RN).
+ * Patron Screenplay multi-rol RBAC y multi-tenant para Appium 3 (Nativo + Hibrido Ionic/RN).
  * Estandar QA-11X: 0 any, CC <= 5, 0 aserciones internas, anti-XPath y anti-Deep-Link Hijacking.
  */
 

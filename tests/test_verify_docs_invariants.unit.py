@@ -1057,6 +1057,39 @@ class TestVerifyDocsInvariants(unittest.TestCase):
             if saved_budgets is not None:
                 sys.modules["_budgets"] = saved_budgets
 
+    def test_f11_3_skill_references_and_mobile_appium_no_stale_terms(self) -> None:
+        """Verifica que referencias de skill y mobile-appium no conserven terminos legados."""
+        repo_root = Path(__file__).resolve().parent.parent
+        refs_dir = (
+            repo_root / ".agents" / "skills" / "qa-11x-architect" / "references"
+        )
+        for ref_file in sorted(refs_dir.glob("*.md")):
+            content = ref_file.read_text(encoding="utf-8")
+            self.assertNotIn(
+                "strictly in Spanish",
+                content,
+                f"Texto legado 'strictly in Spanish' hallado en {ref_file}",
+            )
+            if ref_file.name.startswith(
+                ("01-", "02-", "03-", "04-", "05-", "06-")
+            ):
+                self.assertIn(
+                    "OUTPUT LANGUAGE & DYNAMIC MIRRORING",
+                    content,
+                    f"Falta politica Spec 19 en {ref_file}",
+                )
+
+        for mobile_rel in (
+            "mobile-appium/wdio.conf.ts",
+            "mobile-appium/tests/screenplay/MobileActor.ts",
+        ):
+            mobile_content = (repo_root / mobile_rel).read_text(encoding="utf-8")
+            self.assertNotIn(
+                "Appium 2",
+                mobile_content,
+                f"Referencia obsoleta a 'Appium 2' en {mobile_rel}",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
