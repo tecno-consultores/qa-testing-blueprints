@@ -3,6 +3,8 @@
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
 setup() {
+  # Evita "id: cannot find name for user ID <UID>" en bats-mock bajo UIDs sin /etc/passwd (CI 1001, macOS 501)
+  export _USER="${_USER:-$(id -un 2>/dev/null || id -u)}"
   # Carga las librerías preinstaladas en la imagen sinfallas/base-bash-qa
   load '/opt/bats-libs/bats-support/load.bash'
   load '/opt/bats-libs/bats-assert/load.bash'

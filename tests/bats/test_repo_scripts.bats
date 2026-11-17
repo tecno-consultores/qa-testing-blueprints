@@ -442,9 +442,6 @@ EOF
   WORK="${BATS_TEST_TMPDIR}/hooks_ws"
   FAKE_BIN="${BATS_TEST_TMPDIR}/hooks_bin"
   mkdir -p "${WORK}/custom-hooks" "${WORK}/scripts" "${FAKE_BIN}"
-  cp "${REPO_ROOT}/instalar-hooks.sh" "${WORK}/instalar-hooks.sh"
-  chmod +x "${WORK}/instalar-hooks.sh"
-
   for tool in bash git cat chmod mkdir mv cp rm date dirname basename pwd id env printf grep head sort tr sed touch; do
     resolved="$(command -v "${tool}" || true)"
     [ -n "${resolved}" ] && ln -sf "${resolved}" "${FAKE_BIN}/${tool}"
@@ -458,7 +455,7 @@ EOF
   printf '#!/usr/bin/env bash\necho "legacy pre-commit"\n' >"${WORK}/custom-hooks/pre-commit"
   chmod +x "${WORK}/custom-hooks/pre-commit"
 
-  run env PATH="${FAKE_BIN}" LC_ALL=C bash "${WORK}/instalar-hooks.sh"
+  run env QA11X_REPO_ROOT="${WORK}" PATH="${FAKE_BIN}" LC_ALL=C bash "${REPO_ROOT}/instalar-hooks.sh"
   assert_success
 
   # Verificar respaldo .bak* del hook preexistente
@@ -672,4 +669,33 @@ EOF
   PATH="${FAKE_BIN}:${PATH}" run bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --dry-run --skip-tests
   assert_failure 1
   assert_output --partial "ERROR [Pre-Pack]"
+}
+
+@test "ejemplo_mock.bats y base-bash-qa: aislan _USER ante UIDs sin entrada en /etc/passwd (CI UID 1001)" {
+  FAKE_ID_BIN="${BATS_TEST_TMPDIR}/no_passwd_id_bin"
+  mkdir -p "${FAKE_ID_BIN}"
+  REAL_ID="$(command -v id)"
+
+  cat >"${FAKE_ID_BIN}/id" <<EOF
+#!/usr/bin/env bash
+if [ "\${1:-}" = "-un" ]; then
+  echo "id: cannot find name for user ID 1001" >&2
+  exit 1
+fi
+exec "${REAL_ID}" "\$@"
+EOF
+  chmod +x "${FAKE_ID_BIN}/id"
+
+  run env -u _USER -u USER PATH="${FAKE_ID_BIN}:${PATH}" bats "${REPO_ROOT}/bash-scripts/test/ejemplo_mock.bats"
+  assert_success
+  refute_output --partial "cannot find name for user ID"
+
+  run grep -F -- "-e _USER=qa" "${REPO_ROOT}/Makefile"
+  assert_success
+  run grep -F -- "-e _USER=qa" "${REPO_ROOT}/lefthook.yml"
+  assert_success
+  run grep -F -- "-e _USER=qa" "${REPO_ROOT}/instalar-hooks.sh"
+  assert_success
+  run grep -F -- "_USER: qa" "${REPO_ROOT}/bash-scripts/docker-compose.qa.yml"
+  assert_success
 }

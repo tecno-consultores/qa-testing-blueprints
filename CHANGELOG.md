@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Fixed
+* **CI UID `1001` `bats-mock` Isolation, `kcov` Quiet Stderr & `pnpm` Cold-Install Parity:** Exported `_USER` fallback in [`bash-scripts/test/ejemplo_mock.bats`](bash-scripts/test/ejemplo_mock.bats) and `-e _USER=qa` / `_USER: qa` across [`Makefile`](Makefile), [`bash-scripts/docker-compose.qa.yml`](bash-scripts/docker-compose.qa.yml), [`lefthook.yml`](lefthook.yml), and [`instalar-hooks.sh`](instalar-hooks.sh) to prevent `id -un` stderr leaks on UIDs without `/etc/passwd`; redirected `kcov` `PS4` xtrace stderr to `/tmp/kcov-stderr.log` (Fail-Verbose on runner error) while preserving real `cobertura.xml` coverage (`instalar-hooks.sh` `QA11X_REPO_ROOT`); and added `--prefer-offline --trust-lockfile` in [`scripts/probar-mcp-example.sh`](scripts/probar-mcp-example.sh).
+
 ---
 
 ## [3.1.0] - 2026-11-17

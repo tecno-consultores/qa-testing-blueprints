@@ -14,6 +14,7 @@
 ## 2. Aislamiento y Mocking (Regla de Oro)
 Tienes estrictamente prohibido permitir que las pruebas interactúen con el hardware, la red o el gestor de paquetes reales del contenedor.
 *   **Comandos destructivos:** Si el script usa `rm`, `apt`, `systemctl`, `docker` o manipula interfaces de red, **DEBES** crear funciones de intercepción o utilizar `bats-mock` para falsear el éxito/fracaso de dichos comandos.
+*   **Aislamiento de UID para `bats-mock`:** Bajo UIDs sin entrada en `/etc/passwd` (como `UID 1001` en GitHub Actions o `UID 501` en macOS), define `_USER=qa` en Compose/Docker y `export _USER="${_USER:-$(id -un 2>/dev/null || id -u)}"` antes de cargar `bats-mock` para evitar ruido de `id -un` en `stderr` / `$output`.
 *   **Sistema de archivos:** Las manipulaciones de archivos deben hacerse en `$BATS_TEST_TMPDIR`.
 
 ## 3. Observabilidad mediante Pushgateway y Seguridad DevSecOps (DISA STIG & OWASP)

@@ -7,7 +7,8 @@ LC_ALL=C
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "${SCRIPT_DIR}"
+REPO_ROOT="${QA11X_REPO_ROOT:-${SCRIPT_DIR}}"
+cd "${REPO_ROOT}"
 
 echo "🛡️ Configurando Barrera de Entrada Corporativa (Estándar QA 11X)..."
 
@@ -116,7 +117,7 @@ if [ -d "./mcp-server/test" ]; then
 	docker run --rm --network none --security-opt=no-new-privileges:true -v "$(pwd)/mcp-server/test:/app/src/test/java/examples/test:ro" -v "$(pwd):/repo:ro" sinfallas/karatelabs:1.5.1 mvn -B -q clean test
 fi
 if [ -d "./bash-scripts/test" ]; then
-	docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/repo:ro" -w /repo/bash-scripts sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7 \
+	docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -e _USER=qa -v "$(pwd):/repo:ro" -w /repo/bash-scripts sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7 \
 		bash -c "shellcheck -x ../scripts/*.sh ../.agents/scripts/*.sh ../instalar-hooks.sh ./*.sh && shfmt -i 2 -ci -d ../scripts/*.sh ../.agents/scripts/*.sh ../instalar-hooks.sh ./*.sh && bats test/*.bats ../tests/bats/*.bats"
 fi
 if [ -x "./.agents/scripts/validate_calm_architecture.sh" ]; then

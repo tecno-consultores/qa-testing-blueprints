@@ -44,6 +44,8 @@ All shell testing and linting MUST execute strictly inside `sinfallas/base-bash-
 ### Test Isolation Principles
 - Manipulate files only within `$BATS_TEST_TMPDIR`.
 - Intercept destructive commands (`rm`, `apt`, `systemctl`, `docker`, `curl`) using `bats-mock` or mock wrapper functions.
+- In rootless containers whose mapped UID lacks an `/etc/passwd` entry (e.g., GitHub Actions `UID 1001` or macOS `UID 501`), `bats-mock`'s `id -un` lookup emits stderr noise that breaks `assert_output`: always pass `-e _USER=qa` (`_USER: qa` in Compose) and set `export _USER="${_USER:-$(id -un 2>/dev/null || id -u)}"` in `setup()`.
+- Redirect `kcov` `PS4` xtrace stderr to `/tmp/kcov-stderr.log` (`2>/tmp/kcov-stderr.log`, surfacing its tail only on non-BATS runner failures) without using `--bash-method=DEBUG` (which drops child subshell coverage in `cobertura.xml`).
 - Enforce **`>= 95.0%` line coverage** via `kcov`.
 
 ### Example BATS Unit Test (`test/ejemplo_mock.bats`)
@@ -55,6 +57,7 @@ load '/opt/bats-libs/bats-assert/load'
 load '/opt/bats-libs/bats-mock/load'
 
 setup() {
+  export _USER="${_USER:-$(id -un 2>/dev/null || id -u)}"
   TEST_TEMP_DIR="$(temp_make)"
   MOCK_CURL="$(mock_create)"
 }

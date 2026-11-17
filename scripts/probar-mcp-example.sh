@@ -51,9 +51,9 @@ REPO_ROOT="${QA11X_REPO_ROOT:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
 CURRENT_UID="$(id -u)"
 CURRENT_GID="$(id -g)"
 
-PNPM_INSTALL_FLAGS="--frozen-lockfile --silent"
+PNPM_INSTALL_FLAGS="--frozen-lockfile --prefer-offline --trust-lockfile --silent"
 if [ "${OFFLINE}" = true ]; then
-  PNPM_INSTALL_FLAGS="--frozen-lockfile --offline --silent"
+  PNPM_INSTALL_FLAGS="--frozen-lockfile --offline --trust-lockfile --silent"
 fi
 
 verify_tarball_cli() {

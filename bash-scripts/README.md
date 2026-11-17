@@ -14,6 +14,7 @@
 ## 2. Isolation and Mocking (Golden Rule)
 You are strictly prohibited from allowing tests to interact with the container's real hardware, network, or package manager.
 *   **Destructive commands:** If the script invokes `rm`, `apt`, `systemctl`, `docker`, or manipulates network interfaces, you **MUST** create interception functions or use `bats-mock` to stub success/failure of those commands.
+*   **Rootless `bats-mock` UID isolation:** On UIDs without an `/etc/passwd` entry (such as GitHub Actions `UID 1001` or macOS `UID 501`), define `_USER=qa` in Compose/Docker and `export _USER="${_USER:-$(id -un 2>/dev/null || id -u)}"` before loading `bats-mock` so `id -un` cannot pollute `stderr` / `$output`.
 *   **Filesystem:** File operations must take place inside `$BATS_TEST_TMPDIR`.
 
 ## 3. Observability via Pushgateway and DevSecOps Security (DISA STIG & OWASP)

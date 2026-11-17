@@ -8,6 +8,9 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### Corregido
+* **Aislamiento `_USER` para `bats-mock` en CI `UID 1001`, Silenciado `kcov` y Paridad `pnpm`:** Exportado respaldo `_USER` en [`bash-scripts/test/ejemplo_mock.bats`](bash-scripts/test/ejemplo_mock.bats) y `-e _USER=qa` / `_USER: qa` en [`Makefile`](Makefile), [`bash-scripts/docker-compose.qa.yml`](bash-scripts/docker-compose.qa.yml), [`lefthook.yml`](lefthook.yml) e [`instalar-hooks.sh`](instalar-hooks.sh) evitando ruido `id -un` en UIDs sin `/etc/passwd`; filtrado stderr `PS4` de `kcov` hacia `/tmp/kcov-stderr.log` (*Fail-Verbose* ante fallos de arranque) conservando cobertura XML real en `instalar-hooks.sh` (`QA11X_REPO_ROOT`); y añadido `--prefer-offline --trust-lockfile` en [`scripts/probar-mcp-example.sh`](scripts/probar-mcp-example.sh).
+
 ---
 
 ## [3.1.0] - 2026-11-17

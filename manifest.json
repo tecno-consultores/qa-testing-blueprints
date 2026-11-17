@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "3.1.0",
-  "generated_at_utc": "2026-11-17T07:53:54Z",
+  "generated_at_utc": "2026-11-17T11:10:17Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -81,23 +81,23 @@
     "bash-scripts": {
       "description": "POSIX / Bash DevOps Automation Scripts (ShellCheck, shfmt, BATS-core, kcov >= 95%)",
       "readme": "bash-scripts/README.md",
-      "readme_sha256": "c64d4d66218d957d25add6f3bdf4770f1d0c497284d792d98de3f8544944f63a",
+      "readme_sha256": "483aaf67ddeeb8ef2d914a67e684b0130e6f6033021f11fa412e3cf0a8d0c2d8",
       "readme_es": "bash-scripts/README.es.md",
-      "readme_es_sha256": "d5c9835b534c1b9331bb61adf7caceea77b4cc35346b7007237ed05fb900f237",
+      "readme_es_sha256": "3227d4e2c1ee02005b3cef7606041a48c54ece9c069e7c0f565f78d5fbdc89f8",
       "files": [
         {
           "path": "bash-scripts/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "7bcb1e10f721abdb64225032cdf65157d72e342638625bd2f78fb32e3359bd09",
-          "size_bytes": 1800
+          "sha256": "0acf832270ba85b6d99f61abff98378be1b0680a80d7f958264f8c9e1554f02c",
+          "size_bytes": 2025
         },
         {
           "path": "bash-scripts/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "f67af92d96acbed595c9c4fc219710287a1e06dea1714f18e69774e018ba87b5",
-          "size_bytes": 1732
+          "sha256": "5f2d30ac42b46d0d22f19a29837f836c0b6a4d954568f3f62658cc563b5b634a",
+          "size_bytes": 1748
         },
         {
           "path": "bash-scripts/gitignore.example",
@@ -117,8 +117,8 @@
           "path": "bash-scripts/test/ejemplo_mock.bats",
           "target_name": "test/ejemplo_mock.bats",
           "merge_strategy": "copy_if_missing",
-          "sha256": "ea3f99d2af05fed5bd93980c095e4404ded4dcfe30683b66113017aaebd3a215",
-          "size_bytes": 1140
+          "sha256": "9419db8e42c2036bde2c2d8350b761375966edcaf82dd64a8909b1a76ff16f71",
+          "size_bytes": 1309
         }
       ]
     },
@@ -935,8 +935,8 @@
       "path": "lefthook.yml",
       "target_name": "lefthook.yml",
       "merge_strategy": "surgical_merge",
-      "sha256": "60641f73b20758206d31db1348e152f4f249daa01275716e3e80bcc901615bbc",
-      "size_bytes": 9658
+      "sha256": "67060cf6949d72a90c2e1357da86aa4b4951bd2cc45ca07f08ac4fcb809b5557",
+      "size_bytes": 9670
     },
     {
       "path": "scripts/actualizar-grafos-graphify.sh",
@@ -1266,8 +1266,8 @@
       "path": ".agents/skills/qa-11x-architect/references/05-stack-bash-devops.md",
       "target_name": ".agents/skills/qa-11x-architect/references/05-stack-bash-devops.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "5bb66dbfb1296a67feb7225b238cd7e7b649952d18fc57c3f5f44ddeb665701d",
-      "size_bytes": 3505
+      "sha256": "5e390d4f294eb43fd364a1e82c4f93a5b65a572ed4e676125194805758680510",
+      "size_bytes": 4135
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/06-stack-php.md",

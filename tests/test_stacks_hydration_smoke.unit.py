@@ -729,6 +729,7 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             "certify_task_completion.sh",
             "mobile-appium vibe-rescue .github",
             "MCP_EXTRA_VOLS",
+            "-e _USER=qa",
         )
         for token in required_parity_tokens:
             self.assertIn(token, lefthook_text, f"Falta '{token}' en lefthook.yml")

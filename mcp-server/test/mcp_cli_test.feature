@@ -1629,6 +1629,24 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert aiIntEs47.contains('eslint.config.mjs')
     * assert aiIntEs47.contains('22 controles de referencia DISA ASD STIG V6R5 y OWASP Developer Guide v4.2')
 
+  Scenario: 48. Regresión BATS UID sin /etc/passwd (_USER) y filtrado Pass-Quiet de kcov en CI
+    * def repoRoot48 = Files.exists(Paths.get('/repo/manifest.json')) ? 'file:/repo' : '..'
+    * def bashCompose48 = karate.readAsString(repoRoot48 + '/bash-scripts/docker-compose.qa.yml')
+    * assert bashCompose48.contains('_USER: qa')
+    * def mockBats48 = karate.readAsString(repoRoot48 + '/bash-scripts/test/ejemplo_mock.bats')
+    * assert mockBats48.contains('export _USER=')
+    * def rootMake48 = karate.readAsString(repoRoot48 + '/Makefile')
+    * assert rootMake48.contains('-e _USER=qa')
+    * assert rootMake48.contains('/tmp/kcov-stderr.log')
+    * def bashMake48 = karate.readAsString(repoRoot48 + '/bash-scripts/Makefile.example')
+    * assert bashMake48.contains('/tmp/kcov-stderr.log')
+    * def lefthook48 = karate.readAsString(repoRoot48 + '/lefthook.yml')
+    * assert lefthook48.contains('-e _USER=qa')
+    * def hooks48 = karate.readAsString(repoRoot48 + '/instalar-hooks.sh')
+    * assert hooks48.contains('-e _USER=qa')
+    * def probar48 = karate.readAsString(repoRoot48 + '/scripts/probar-mcp-example.sh')
+    * assert probar48.contains('--prefer-offline --trust-lockfile')
+
 
 
 
