@@ -67,6 +67,14 @@ npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --lang en --agen
 
 ## 🛠️ Paso 2: Registrar el Servidor MCP por Agente de Programación IA
 
+> [!TIP]
+> Puedes imprimir o fusionar de forma segura las entradas `mcpServers` JSON/TOML (respaldando configuraciones previas en `.11x-backup` con permisos `0600`) usando `mcp-config`:
+> ```bash
+> npx -y @sinfallas/mcp-qa-11x@latest mcp-config --client antigravity --install
+> # Previsualizar snippets/comandos CLI para todos los clientes soportados o fijar versión:
+> npx -y @sinfallas/mcp-qa-11x@latest mcp-config --client all --print --pin-version
+> ```
+
 Selecciona tu entorno de desarrollo o asistente de IA a continuación:
 
 ### Grupo A: Asistentes de Programación IA Principales
@@ -303,32 +311,68 @@ Hermes Agent utiliza **YAML** para su archivo principal de configuración.
 > [!TIP]
 > A partir de `v2.20.0`, en cada arranque `stdio` el servidor MCP sincroniza silenciosamente en segundo plano las skills globales preinstaladas mediante verificación `SHA-256`, expone metadatos estructurados `update_available` en `inspect_project_config` y `certify_11x_gate` (respaldados por marcas `.qa-11x-version` y caché TTL fail-open de 24h) y soporta ejecución efímera móvil (`qa-mobile` / `sinfallas/base-mobile-appium:26`) más entrega bilingüe de recursos (`?lang=es|en`).
 
-Para forzar una actualización limpia eliminando binarios npm cacheados y plantillas antiguas:
+Para ejecutar una actualización quirúrgica que elimine únicamente las entradas obsoletas de `@sinfallas/mcp-qa-11x` en `~/.npm/_npx` y `~/.cache/qa-11x-blueprints` (sin borrar cachés `npx` de otras herramientas) y resincronice las skills globales:
 
 ```bash
-# Limpiar cachés e instalar en todos los agentes globales:
+# Actualización quirúrgica (limpia cachés de @sinfallas/mcp-qa-11x + resincroniza skills):
+npx -y @sinfallas/mcp-qa-11x@latest upgrade
+
+# Previsualizar objetivos o limpiar solo cachés (alias: cache-clean):
+npx -y @sinfallas/mcp-qa-11x@latest upgrade --dry-run
+npx -y @sinfallas/mcp-qa-11x@latest cache-clean
+
+# Reseteo total como último recurso (borra TODAS las cachés npx + instala scripts del proyecto):
 rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@latest install-skill --target all --init-agents --include-scripts --reconcile
 ```
 
 ### Cómo Verificar la Versión Instalada y Activa del MCP
 
-Según cómo tengas instalado `@sinfallas/mcp-qa-11x`, utiliza el comando correspondiente (`--version` o `-v`):
+Ejecuta **`doctor`** (alias: `status`) para inspeccionar todo el entorno en un solo comando (origen del binario activo, todas las cachés `~/.npm/_npx`, sellos `.qa-11x-version` en skills globales, configuraciones MCP en IDEs, estado del proyecto y demonio Docker), o usa `--version` / `-v` según tu modo de instalación:
 
 ```bash
-# 1. Consultar la versión ya cacheada en ~/.npm/_npx (sin forzar @latest):
+# 1. Diagnóstico integral del entorno (origen de binario, cachés _npx, skills, IDEs y Docker):
+npx -y @sinfallas/mcp-qa-11x@latest doctor
+npx -y @sinfallas/mcp-qa-11x@latest doctor --offline --json
+
+# 2. Diagnóstico offline vía --version (--verbose o --json redirige a doctor --offline):
+npx -y @sinfallas/mcp-qa-11x --version --verbose
+npx -y @sinfallas/mcp-qa-11x --version --json
+
+# 3. Consultar la versión ya cacheada en ~/.npm/_npx (sin forzar @latest):
 npx -y @sinfallas/mcp-qa-11x --version
 
-# 2. Inspección offline sin red del package.json exacto en la caché de npx:
+# 4. Inspección offline sin red del package.json exacto en la caché de npx:
 grep '"version"' ~/.npm/_npx/*/node_modules/@sinfallas/mcp-qa-11x/package.json
 
-# 3. Consultar una instalación global (npm install -g @sinfallas/mcp-qa-11x):
+# 5. Consultar una instalación global (npm install -g @sinfallas/mcp-qa-11x):
 mcp-qa-11x --version   # o: mcp-qa-11x -v
 
-# 4. Consultar la última versión publicada en npm:
+# 6. Consultar la última versión publicada en npm:
 npx -y @sinfallas/mcp-qa-11x@latest --version
+
+# 7. Escribir o refrescar de forma segura la configuración MCP del IDE (con respaldo .11x-backup):
+npx -y @sinfallas/mcp-qa-11x@latest mcp-config --client cursor --install
+```
+
+#### Instalación de Autocompletado Nativo de Shell (`completion`)
+
+Genera los scripts de autocompletado para `fish`, `bash` o `zsh`:
+
+```bash
+# Fish:
+mkdir -p ~/.config/fish/completions
+npx -y @sinfallas/mcp-qa-11x@latest completion fish > ~/.config/fish/completions/mcp-qa-11x.fish
+
+# Bash (autocompletado persistente de usuario o sesión actual):
+mkdir -p ~/.local/share/bash-completion/completions
+npx -y @sinfallas/mcp-qa-11x@latest completion bash > ~/.local/share/bash-completion/completions/mcp-qa-11x
+
+# Zsh (asegura que ~/.zsh/completions esté en fpath antes de compinit):
+mkdir -p ~/.zsh/completions
+npx -y @sinfallas/mcp-qa-11x@latest completion zsh > ~/.zsh/completions/_mcp-qa-11x
 ```
 
 > [!NOTE]
 > **Por qué `npx --no-install @sinfallas/mcp-qa-11x --version` falla con `npm ERR! canceled`:** Cuando el servidor se registra mediante `mcpServers` (`npx -y @sinfallas/mcp-qa-11x@latest`), npm guarda el paquete en un entorno aislado bajo `~/.npm/_npx/<hash>/` y no en el `$PATH` global. En npm v7+, `--no-install` solo busca en `./node_modules/.bin` y en `$PATH`, ignorando `~/.npm/_npx/`.
 >
-> **Cómo verificar la versión activa dentro de tu IDE (Antigravity, Cursor, Claude, VS Code):** Abre el panel MCP / Customizations del IDE — `v3.1.0` registra **19 herramientas MCP** y **13 recursos MCP** (`11` URIs estáticas + `2` plantillas URI). Si aparecen menos herramientas por una versión anterior en caché, ejecuta la limpieza de caché anterior y **recarga/reinicia el servidor MCP (o la ventana del IDE)** para que el proceso `stdio` persistente cargue el nuevo binario. También puedes revisar `update_available` en `inspect_project_config` o `certify_11x_gate`.
+> **Cómo verificar la versión activa dentro de tu IDE (Antigravity, Cursor, Claude, VS Code):** Abre el panel MCP / Customizations del IDE — `v3.1.0` registra **19 herramientas MCP** y **13 recursos MCP** (`11` URIs estáticas + `2` plantillas URI). Si aparecen menos herramientas por una versión anterior en caché, ejecuta `npx -y @sinfallas/mcp-qa-11x@latest upgrade` y **recarga/reinicia el servidor MCP (o la ventana del IDE)** para que el proceso `stdio` persistente cargue el nuevo binario. También puedes revisar `update_available` en `doctor`, `inspect_project_config` o `certify_11x_gate`.

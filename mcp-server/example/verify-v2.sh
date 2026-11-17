@@ -80,6 +80,40 @@ EOF
 printf '{"service":"cleanroom-api"}\n' >"${PROJ_DIR}/sample.json"
 printf 'print("api_key = 12345")\n' >"${PROJ_DIR}/app.py"
 
+DOCTOR_JSON="$(node "${BIN_JS}" doctor "${PROJ_DIR}" --offline --json)"
+node --input-type=module - "${DOCTOR_JSON}" "${EXPECTED_PKG_VERSION}" <<'EOF'
+import assert from 'node:assert/strict';
+const parsed = JSON.parse(process.argv[2]);
+assert.equal(parsed.mcp_version, process.argv[3]);
+EOF
+
+UPGRADE_JSON="$(node "${BIN_JS}" upgrade --dry-run --json)"
+node --input-type=module - "${UPGRADE_JSON}" <<'EOF'
+import assert from 'node:assert/strict';
+const parsed = JSON.parse(process.argv[2]);
+assert.equal(parsed.dry_run, true);
+EOF
+
+AUDIT_SARIF="$(node "${BIN_JS}" audit "${PROJ_DIR}" --mode security --fail-on none --sarif)"
+node --input-type=module - "${AUDIT_SARIF}" <<'EOF'
+import assert from 'node:assert/strict';
+const parsed = JSON.parse(process.argv[2]);
+assert.equal(parsed.version, '2.1.0');
+assert.ok(Array.isArray(parsed.runs) && parsed.runs.length === 1);
+EOF
+
+MCP_CFG_OUT="$(node "${BIN_JS}" mcp-config --client antigravity --pin-version)"
+if ! printf '%s\n' "${MCP_CFG_OUT}" | grep -q "@sinfallas/mcp-qa-11x@${EXPECTED_PKG_VERSION}"; then
+  echo "FAIL [mcp-config] No fijó @sinfallas/mcp-qa-11x@${EXPECTED_PKG_VERSION}" >&2
+  exit 1
+fi
+
+COMPLETION_OUT="$(node "${BIN_JS}" completion fish)"
+if ! printf '%s\n' "${COMPLETION_OUT}" | grep -q "complete -c mcp-qa-11x"; then
+  echo "FAIL [completion] No emitió autocompletado fish para mcp-qa-11x" >&2
+  exit 1
+fi
+
 cat >"${WORK_DIR}/arch.calm.json" <<'EOF'
 {
   "$schema": "https://calm.finos.org/release/1.2/meta/calm.json",

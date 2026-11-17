@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+* **Zero-Clone CLI Diagnostics, Headless CI Gates & Shell Autocompletion (`@sinfallas/mcp-qa-11x`):** Added 7 CLI subcommands (`doctor`/`status`, surgical `upgrade`/`cache-clean`, headless `certify` with `--strict`/`--release-gate`, Zero-LLM `audit` with `--mode` and SARIF v2.1.0 `--sarif`, differential AST `blast-radius`, `mcp-config` safe IDE/CLI config generator/installer, and `completion` for `fish`/`bash`/`zsh`) plus `--version --verbose|--json`, synchronized across [`mcp-server/README.md`](mcp-server/README.md), [`docs/agent-setup.md`](docs/agent-setup.md), [`docs/ai-integration.md`](docs/ai-integration.md), and [`TESTING.md`](TESTING.md).
+
 ### Fixed
 * **MCP CLI Installed & Active Version Inspection Docs:** Documented cached `npx` (`~/.npm/_npx/`), global (`mcp-qa-11x -v`), and IDE surface verification (`19 MCP tools` / `13 MCP resources`), plus why `npx --no-install` fails with `npm ERR! canceled` on isolated `npx` caches across [`docs/agent-setup.md`](docs/agent-setup.md) and [`mcp-server/README.md`](mcp-server/README.md).
 * **CI UID `1001` `bats-mock` Isolation, `kcov` Quiet Stderr & `pnpm` Cold-Install Parity:** Exported `_USER` fallback in [`bash-scripts/test/ejemplo_mock.bats`](bash-scripts/test/ejemplo_mock.bats) and `-e _USER=qa` / `_USER: qa` across [`Makefile`](Makefile), [`bash-scripts/docker-compose.qa.yml`](bash-scripts/docker-compose.qa.yml), [`lefthook.yml`](lefthook.yml), and [`instalar-hooks.sh`](instalar-hooks.sh) to prevent `id -un` stderr leaks on UIDs without `/etc/passwd`; redirected `kcov` `PS4` xtrace stderr to `/tmp/kcov-stderr.log` (Fail-Verbose on runner error) while preserving real `cobertura.xml` coverage (`instalar-hooks.sh` `QA11X_REPO_ROOT`); and added `--prefer-offline --trust-lockfile` in [`scripts/probar-mcp-example.sh`](scripts/probar-mcp-example.sh).

@@ -24,6 +24,7 @@ import {
 } from './cli/quickstart.js';
 import { runTmsSyncCli } from './integrations/tmsSyncCli.js';
 import { GitHubFetcher, MCP_SERVER_VERSION } from './services/github-fetcher.js';
+import type { CliCommandOutput } from './cli/cliArgHelpers.js';
 import { pickAt } from './utils/diagnosticFormatter.js';
 
 export { parseAgentsOption };
@@ -55,6 +56,13 @@ const CMD_INSTALL_SKILL = 'install-skill' as const;
 const CMD_RECONCILE_AGENTS = 'reconcile-agents' as const;
 const CMD_QUICKSTART = 'quickstart' as const;
 const CMD_TMS_SYNC = 'tms-sync' as const;
+const CMD_DOCTOR = 'doctor' as const;
+const CMD_UPGRADE = 'upgrade' as const;
+const CMD_CERTIFY = 'certify' as const;
+const CMD_AUDIT = 'audit' as const;
+const CMD_BLAST_RADIUS = 'blast-radius' as const;
+const CMD_MCP_CONFIG = 'mcp-config' as const;
+const CMD_COMPLETION = 'completion' as const;
 const CMD_HELP = 'help' as const;
 const CMD_VERSION = 'version' as const;
 const CMD_STDIO = 'stdio' as const;
@@ -65,6 +73,13 @@ export type CliCommandName =
   | typeof CMD_RECONCILE_AGENTS
   | typeof CMD_QUICKSTART
   | typeof CMD_TMS_SYNC
+  | typeof CMD_DOCTOR
+  | typeof CMD_UPGRADE
+  | typeof CMD_CERTIFY
+  | typeof CMD_AUDIT
+  | typeof CMD_BLAST_RADIUS
+  | typeof CMD_MCP_CONFIG
+  | typeof CMD_COMPLETION
   | typeof CMD_HELP
   | typeof CMD_VERSION
   | typeof CMD_STDIO;
@@ -106,9 +121,12 @@ export type InitAgentsRunner = (args: string[]) => Promise<void>;
 
 export interface CliDeps {
   readonly cwd?: string;
+  readonly homeDir?: string;
   readonly baseBoundaryDir?: string;
   readonly isStdinTty?: boolean;
   readonly fetcher?: GitHubFetcher;
+  readonly fetchFn?: typeof fetch;
+  readonly dockerProbeFn?: () => string | null;
   readonly log?: (message: string) => void;
   readonly errorLog?: (message: string) => void;
   readonly installSkillRunner?: InstallSkillRunner;
@@ -135,6 +153,13 @@ export const CLI_USAGE_TEXT = [
   '  install-skill     Install global 11X skills (pass --init-agents to sync connectors)',
   '  reconcile-agents  Deduplicate canonical rules in .agents/',
   '  tms-sync          Zero-infra traceability sync (jira|zephyr|xray|github-issues)',
+  '  doctor            Inspect active binary, npx caches, global skills, IDE configs & Docker (alias: status)',
+  '  upgrade           Surgical clean of @sinfallas/mcp-qa-11x caches + global skills sync (alias: cache-clean)',
+  '  certify           Headless 10-check 11X gate & release readiness verdict (--strict, --release-gate)',
+  '  audit             Static Zero-LLM audit (security|pyramid|vibe|calm|all) with text/json/sarif output',
+  '  blast-radius      Bidirectional AST impact & differential PR routing triage',
+  '  mcp-config        Print or safely merge mcpServers config for supported IDE/CLI clients',
+  '  completion        Emit native shell completions (fish|bash|zsh)',
   '',
   'Options:',
   '  --lang, -l <es|en>               Output language policy (default: es, quickstart: en)',
@@ -176,6 +201,15 @@ const SUBCOMMAND_MAP: Readonly<Record<string, CliCommandName>> = Object.freeze({
   'reconcile-agents': CMD_RECONCILE_AGENTS,
   quickstart: CMD_QUICKSTART,
   'tms-sync': CMD_TMS_SYNC,
+  doctor: CMD_DOCTOR,
+  status: CMD_DOCTOR,
+  upgrade: CMD_UPGRADE,
+  'cache-clean': CMD_UPGRADE,
+  certify: CMD_CERTIFY,
+  audit: CMD_AUDIT,
+  'blast-radius': CMD_BLAST_RADIUS,
+  'mcp-config': CMD_MCP_CONFIG,
+  completion: CMD_COMPLETION,
   '--help': CMD_HELP,
   '-h': CMD_HELP,
   help: CMD_HELP,
@@ -289,6 +323,13 @@ const CLI_BOOLEAN_FLAGS_BY_CMD: Readonly<Record<CliCommandName, ReadonlySet<stri
   [CMD_RECONCILE_AGENTS]: new Set([FLAG_DRY_RUN]),
   [CMD_QUICKSTART]: new Set([FLAG_DRY_RUN, FLAG_FORCE, FLAG_FORCE_SHORT, FLAG_JSON]),
   [CMD_TMS_SYNC]: new Set<string>(),
+  [CMD_DOCTOR]: new Set<string>(),
+  [CMD_UPGRADE]: new Set<string>(),
+  [CMD_CERTIFY]: new Set<string>(),
+  [CMD_AUDIT]: new Set<string>(),
+  [CMD_BLAST_RADIUS]: new Set<string>(),
+  [CMD_MCP_CONFIG]: new Set<string>(),
+  [CMD_COMPLETION]: new Set<string>(),
   [CMD_HELP]: new Set<string>(),
   [CMD_VERSION]: new Set<string>(),
   [CMD_STDIO]: new Set<string>(),
@@ -317,6 +358,13 @@ const CLI_VALUE_FLAGS_BY_CMD: Readonly<Record<CliCommandName, ReadonlySet<string
   [CMD_RECONCILE_AGENTS]: new Set([FLAG_PROJECT_PATH, FLAG_PROJECT_PATH_SHORT, FLAG_DIR]),
   [CMD_QUICKSTART]: new Set<string>(),
   [CMD_TMS_SYNC]: new Set<string>(),
+  [CMD_DOCTOR]: new Set<string>(),
+  [CMD_UPGRADE]: new Set<string>(),
+  [CMD_CERTIFY]: new Set<string>(),
+  [CMD_AUDIT]: new Set<string>(),
+  [CMD_BLAST_RADIUS]: new Set<string>(),
+  [CMD_MCP_CONFIG]: new Set<string>(),
+  [CMD_COMPLETION]: new Set<string>(),
   [CMD_HELP]: new Set<string>(),
   [CMD_VERSION]: new Set<string>(),
   [CMD_STDIO]: new Set<string>(),
@@ -484,7 +532,7 @@ export function parseCliArgs(
     };
   }
 
-  const command = SUBCOMMAND_MAP[first];
+  const command = Object.hasOwn(SUBCOMMAND_MAP, first) ? SUBCOMMAND_MAP[first] : undefined;
   if (!command) {
     throw new Error(`Unknown CLI subcommand '${first}'. Run with --help to view usage.`);
   }
@@ -493,9 +541,9 @@ export function parseCliArgs(
   if (command === CMD_QUICKSTART) {
     return mapQuickstartToParsedCliArgs(parseQuickstartCliArgs(tail, cwd), tail);
   }
-  if (command === CMD_TMS_SYNC) {
+  if (command === CMD_TMS_SYNC || Object.hasOwn(LAZY_CLI_HANDLERS, command)) {
     return {
-      command: CMD_TMS_SYNC,
+      command,
       projectPath: cwd,
       lang: 'es',
       dryRun: false,
@@ -683,14 +731,105 @@ async function dispatchCliCommand(
   return { exitCode: 0, command: CMD_RECONCILE_AGENTS, parsed };
 }
 
+type LazySubcommand =
+  | typeof CMD_DOCTOR
+  | typeof CMD_UPGRADE
+  | typeof CMD_CERTIFY
+  | typeof CMD_AUDIT
+  | typeof CMD_BLAST_RADIUS
+  | typeof CMD_MCP_CONFIG
+  | typeof CMD_COMPLETION;
+
+type LazyCliHandler = (tail: readonly string[], deps: CliDeps) => Promise<CliCommandOutput>;
+
+const LAZY_CLI_HANDLERS: Readonly<Record<LazySubcommand, LazyCliHandler>> = Object.freeze({
+  [CMD_DOCTOR]: async (tail, deps) => {
+    const { runDoctorCli } = await import('./cli/doctor.js');
+    return await runDoctorCli(tail, {
+      cwd: deps.cwd,
+      homeDir: deps.homeDir,
+      fetcher: deps.fetcher,
+      fetchFn: deps.fetchFn,
+      dockerProbeFn: deps.dockerProbeFn,
+    });
+  },
+  [CMD_UPGRADE]: async (tail, deps) => {
+    const { runUpgradeCli } = await import('./cli/upgrade.js');
+    return await runUpgradeCli(tail, {
+      homeDir: deps.homeDir,
+      fetcher: deps.fetcher,
+    });
+  },
+  [CMD_CERTIFY]: async (tail, deps) => {
+    const { runCertifyCli } = await import('./cli/certify-cli.js');
+    return await runCertifyCli(tail, {
+      cwd: deps.cwd,
+      homeDir: deps.homeDir,
+      fetchFn: deps.fetchFn,
+    });
+  },
+  [CMD_AUDIT]: async (tail, deps) => {
+    const { runAuditCli } = await import('./cli/audit-cli.js');
+    return await runAuditCli(tail, { cwd: deps.cwd });
+  },
+  [CMD_BLAST_RADIUS]: async (tail, deps) => {
+    const { runBlastRadiusCli } = await import('./cli/blast-radius-cli.js');
+    return await runBlastRadiusCli(tail, { cwd: deps.cwd });
+  },
+  [CMD_MCP_CONFIG]: async (tail, deps) => {
+    const { runMcpConfigCli } = await import('./cli/mcp-config.js');
+    return runMcpConfigCli(tail, {
+      homeDir: deps.homeDir,
+      cwd: deps.cwd,
+    });
+  },
+  [CMD_COMPLETION]: async (tail) => {
+    const { runCompletionCli } = await import('./cli/completion.js');
+    return runCompletionCli(tail);
+  },
+});
+
+async function handleLazySubcommand(
+  rawToken: string,
+  tail: readonly string[],
+  deps: CliDeps
+): Promise<CliRunResult | null> {
+  if (!Object.hasOwn(SUBCOMMAND_MAP, rawToken)) {
+    return null;
+  }
+  const mapped = SUBCOMMAND_MAP[rawToken];
+  if (!mapped || !Object.hasOwn(LAZY_CLI_HANDLERS, mapped)) {
+    return null;
+  }
+  const command = mapped as LazySubcommand;
+  const effectiveTail = rawToken === 'cache-clean' ? ['--cache-only', ...tail] : tail;
+  const res = await LAZY_CLI_HANDLERS[command](effectiveTail, deps);
+  const log = deps.log ?? console.log;
+  const errorLog = deps.errorLog ?? console.error;
+  const stream = res.isError ? errorLog : log;
+  stream(res.output);
+  return {
+    exitCode: res.exitCode,
+    command,
+    ...(res.isError ? { errorMessage: res.output } : {}),
+  };
+}
+
 export async function runCli(
   argv: readonly string[],
   deps: CliDeps = {}
 ): Promise<CliRunResult> {
   const log = deps.log ?? console.log;
   const errorLog = deps.errorLog ?? console.error;
-  if (argv[0] === CMD_QUICKSTART) {
+  const first = argv[0];
+  if (first === CMD_QUICKSTART) {
     return await handleQuickstartCommand(argv.slice(1), deps, log);
+  }
+  if (first !== undefined) {
+    const lazyResult = await handleLazySubcommand(first, argv.slice(1), deps);
+    if (lazyResult !== null) {
+      return lazyResult;
+    }
   }
   let parsed: ParsedCliArgs;
   try {

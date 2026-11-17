@@ -649,4 +649,50 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
       await mcpServer.close();
     }
   });
+
+  it('EJECUTA subcomandos CLI reales (doctor, completion, --version) contra subproceso node dist/index.js', () => {
+    const tmpRoot = createTempRoot();
+    const wsDir = path.join(tmpRoot, 'cli-subproc-ws');
+    const homeDir = path.join(tmpRoot, 'home');
+    fs.mkdirSync(wsDir, { recursive: true });
+    fs.mkdirSync(homeDir, { recursive: true });
+    seedTargetWorkspace(wsDir);
+    const distEntry = ensureBuiltDistEntry();
+    const childEnv = {
+      ...process.env,
+      HOME: homeDir,
+      QA11X_WORKSPACE_ROOTS: tmpRoot,
+      QA_DISABLE_AUTO_SYNC: '1',
+    };
+
+    const versionOut = execFileSync(process.execPath, [distEntry, '--version'], {
+      cwd: wsDir,
+      env: childEnv,
+      encoding: 'utf8',
+    }).trim();
+    expect(versionOut).toBe(MCP_SERVER_VERSION);
+
+    const doctorOut = execFileSync(process.execPath, [distEntry, 'doctor', wsDir, '--offline', '--json'], {
+      cwd: wsDir,
+      env: childEnv,
+      encoding: 'utf8',
+    });
+    const doctorParsed = JSON.parse(doctorOut) as {
+      mcp_version: string;
+      project_path: string;
+      graphify_graph_present: boolean;
+    };
+    expect(doctorParsed.mcp_version).toBe(MCP_SERVER_VERSION);
+    expect(doctorParsed.project_path).toBe(fs.realpathSync(wsDir));
+    expect(doctorParsed.graphify_graph_present).toBe(true);
+
+    const completionOut = execFileSync(process.execPath, [distEntry, 'completion', 'fish'], {
+      cwd: wsDir,
+      env: childEnv,
+      encoding: 'utf8',
+    });
+    expect(completionOut).toContain('complete -c mcp-qa-11x');
+    expect(completionOut).toContain('doctor');
+    expect(completionOut).toContain('completion');
+  });
 });

@@ -100,6 +100,17 @@ npx -y @sinfallas/mcp-qa-11x@latest init-agents [--project-path <ruta>] [--lang 
 # Sincronizar inventario BDD o enviar resultados JUnit XML hacia sistemas TMS corporativos:
 npx -y @sinfallas/mcp-qa-11x@latest tms-sync --mode <inventory|push-results|pull-stories> --provider jira|zephyr|xray|github-issues [--junit-xml <ruta>] [--json] [--dry-run]
 
+# Diagnóstico de entorno, actualización quirúrgica de caché, config MCP de IDEs y autocompletado shell:
+npx -y @sinfallas/mcp-qa-11x@latest doctor [dir] [--offline] [--json]   # alias: status (o --version --verbose|--json)
+npx -y @sinfallas/mcp-qa-11x@latest upgrade [--cache-only] [--dry-run]  # alias: cache-clean
+npx -y @sinfallas/mcp-qa-11x@latest mcp-config --client <id> [--print|--install] [--pin-version]
+npx -y @sinfallas/mcp-qa-11x@latest completion <fish|bash|zsh>
+
+# Compuertas CI/CD headless (certificación de 10 puntos, auditoría SARIF v2.1.0 y enrutamiento diferencial AST):
+npx -y @sinfallas/mcp-qa-11x@latest certify [dir] [--strict] [--release-gate] [--junit-xml <ruta>] [--json]
+npx -y @sinfallas/mcp-qa-11x@latest audit [dir] --mode <security|pyramid|vibe|calm|all> [--sarif|--json] [--fail-on high]
+npx -y @sinfallas/mcp-qa-11x@latest blast-radius [simbolo] [--changed-since origin/main] [--auto-build] [--json]
+
 # Levantar el servidor MCP directamente sobre stdio (invocado por clientes IA; en TTY interactiva sincroniza skills y sale con 0, o usa --stdio):
 npx -y @sinfallas/mcp-qa-11x@latest [--stdio]
 ```
@@ -210,14 +221,18 @@ Introducido en `v2.20.0` (y activo en `v3.1.0`), `@sinfallas/mcp-qa-11x` incorpo
 2. **Auto-Sync Silencioso en Segundo Plano (`stdio`):** En cada arranque del servidor MCP sobre `stdio`, sincroniza de forma no bloqueante (verificando `ETag` + `SHA-256` contra `manifest.json`) las skills globales ya instaladas (`~/.gemini`, `~/.claude`, `~/.cursor`, `~/.codeium/windsurf`, `~/.codex`, `~/.hermes`) preservando el idioma configurado en `~/.gemini/GEMINI.md`.
 3. **Aviso Estructurado `update_available` (TTL 24 h *Fail-Open*):** Las herramientas `inspect_project_config` y `certify_11x_gate` devuelven `update_available` para que el propio asistente notifique en el chat si el servidor MCP, las skills globales o los scripts locales del proyecto requieren actualización.
 
-Si además deseas forzar manualmente la purga de cachés de `npx` (`~/.npm/_npx`) y blueprints (`~/.cache/qa-11x-blueprints`), ejecuta el siguiente protocolo:
+Para diagnosticar tu entorno o purgar entradas antiguas de `@sinfallas/mcp-qa-11x` en las cachés de `npx` (`~/.npm/_npx`) y blueprints (`~/.cache/qa-11x-blueprints`) sin borrar paquetes de otras herramientas, ejecuta `doctor` y `upgrade`:
 
-#### 1. Purga de Cachés y Rehidratación Completa
+#### 1. Actualización Quirúrgica de Cachés y Rehidratación Completa
 ```bash
-# A. Actualización global de IDEs (Antigravity, Claude, Cursor, Hermes) desde $HOME o cualquier carpeta:
-rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@latest install-skill
+# A. Inspeccionar origen del binario activo, cachés _npx, sellos de skills, configs de IDEs y Docker:
+npx -y @sinfallas/mcp-qa-11x@latest doctor
 
-# B. Actualización dentro de la carpeta raíz de un proyecto (IDEs globales + AGENTS.md, .agents/ y scripts/ del proyecto):
+# B. Actualización quirúrgica (limpia solo cachés de @sinfallas/mcp-qa-11x + resincroniza skills globales):
+npx -y @sinfallas/mcp-qa-11x@latest upgrade
+
+# C. Limpieza quirúrgica solo de cachés (alias: cache-clean) o reseteo total manual en un proyecto:
+npx -y @sinfallas/mcp-qa-11x@latest upgrade --cache-only
 rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@latest install-skill --target all --init-agents --include-scripts
 ```
 

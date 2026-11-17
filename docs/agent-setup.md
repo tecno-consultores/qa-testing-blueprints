@@ -67,6 +67,14 @@ npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --lang en --agen
 
 ## 🛠️ Step 2: Register the MCP Server per AI Coding Agent
 
+> [!TIP]
+> You can automatically print or safely merge `mcpServers` JSON/TOML entries (backing up existing configs to `.11x-backup` with `0600` permissions) using `mcp-config`:
+> ```bash
+> npx -y @sinfallas/mcp-qa-11x@latest mcp-config --client antigravity --install
+> # Preview snippets/CLI commands for all supported clients or pin the current release:
+> npx -y @sinfallas/mcp-qa-11x@latest mcp-config --client all --print --pin-version
+> ```
+
 Select your development environment or AI assistant below:
 
 ### Group A: Major AI Coding Assistants
@@ -303,32 +311,68 @@ Hermes Agent uses **YAML** for its primary configuration file.
 > [!TIP]
 > Starting in `v2.20.0`, on every `stdio` startup the MCP server silently auto-syncs pre-installed global skills via `SHA-256` verification in the background, exposes structured `update_available` metadata in `inspect_project_config` and `certify_11x_gate` (backed by `.qa-11x-version` stamps and a 24h fail-open TTL cache), and supports ephemeral mobile execution (`qa-mobile` / `sinfallas/base-mobile-appium:26`) plus bilingual resource delivery (`?lang=es|en`).
 
-To force a clean update clearing cached npm binaries and stale blueprint templates:
+To perform a surgical upgrade that clears only stale `@sinfallas/mcp-qa-11x` entries inside `~/.npm/_npx` and `~/.cache/qa-11x-blueprints` (without wiping unrelated `npx` caches for other tools) and re-syncs global skills:
 
 ```bash
-# Clean caches and install to all global agents:
+# Surgical upgrade (cleans @sinfallas/mcp-qa-11x caches + re-syncs global skills):
+npx -y @sinfallas/mcp-qa-11x@latest upgrade
+
+# Preview targets first or clean caches only (alias: cache-clean):
+npx -y @sinfallas/mcp-qa-11x@latest upgrade --dry-run
+npx -y @sinfallas/mcp-qa-11x@latest cache-clean
+
+# Last-resort full reset (removes ALL cached npx packages + installs project scripts):
 rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@latest install-skill --target all --init-agents --include-scripts --reconcile
 ```
 
 ### Checking Your Installed & Active MCP Version
 
-Depending on how `@sinfallas/mcp-qa-11x` is installed, use the matching command (`--version` or `-v`):
+Run **`doctor`** (alias: `status`) for a single-command environment inspection (active binary origin, all `~/.npm/_npx` caches, global skills `.qa-11x-version` stamps, IDE MCP configs, project readiness, and Docker daemon), or use `--version` / `-v` depending on your installation method:
 
 ```bash
-# 1. Check the version already cached in ~/.npm/_npx (without forcing @latest):
+# 1. Full environment diagnostics (binary origin, _npx caches, skills, IDE configs & Docker):
+npx -y @sinfallas/mcp-qa-11x@latest doctor
+npx -y @sinfallas/mcp-qa-11x@latest doctor --offline --json
+
+# 2. Offline diagnostics via --version (--verbose or --json routes to doctor --offline):
+npx -y @sinfallas/mcp-qa-11x --version --verbose
+npx -y @sinfallas/mcp-qa-11x --version --json
+
+# 3. Check the version already cached in ~/.npm/_npx (without forcing @latest):
 npx -y @sinfallas/mcp-qa-11x --version
 
-# 2. Offline zero-network inspection of the exact cached npx package.json:
+# 4. Offline zero-network inspection of the exact cached npx package.json:
 grep '"version"' ~/.npm/_npx/*/node_modules/@sinfallas/mcp-qa-11x/package.json
 
-# 3. Check a global installation (npm install -g @sinfallas/mcp-qa-11x):
+# 5. Check a global installation (npm install -g @sinfallas/mcp-qa-11x):
 mcp-qa-11x --version   # or: mcp-qa-11x -v
 
-# 4. Fetch and display the latest version published on npm:
+# 6. Fetch and display the latest version published on npm:
 npx -y @sinfallas/mcp-qa-11x@latest --version
+
+# 7. Safely write or refresh IDE MCP client configuration (.11x-backup preserved):
+npx -y @sinfallas/mcp-qa-11x@latest mcp-config --client cursor --install
+```
+
+#### Installing Native Shell Autocompletion (`completion`)
+
+Generate autocompletion scripts for `fish`, `bash`, or `zsh`:
+
+```bash
+# Fish:
+mkdir -p ~/.config/fish/completions
+npx -y @sinfallas/mcp-qa-11x@latest completion fish > ~/.config/fish/completions/mcp-qa-11x.fish
+
+# Bash (persistent user completions or current session):
+mkdir -p ~/.local/share/bash-completion/completions
+npx -y @sinfallas/mcp-qa-11x@latest completion bash > ~/.local/share/bash-completion/completions/mcp-qa-11x
+
+# Zsh (ensure ~/.zsh/completions is in fpath before compinit):
+mkdir -p ~/.zsh/completions
+npx -y @sinfallas/mcp-qa-11x@latest completion zsh > ~/.zsh/completions/_mcp-qa-11x
 ```
 
 > [!NOTE]
 > **Why `npx --no-install @sinfallas/mcp-qa-11x --version` fails with `npm ERR! canceled`:** When registered via `mcpServers` (`npx -y @sinfallas/mcp-qa-11x@latest`), npm caches the package inside an isolated `~/.npm/_npx/<hash>/` directory rather than global `$PATH`. In npm v7+, `--no-install` only searches `./node_modules/.bin` and `$PATH`, ignoring `~/.npm/_npx/`.
 >
-> **Verifying the active version inside your IDE (Antigravity, Cursor, Claude, VS Code):** Open the IDE's MCP / Customizations panel — `v3.1.0` registers **19 MCP tools** and **13 MCP resources** (`11` static URIs + `2` URI templates). If fewer tools appear from an older cached release, run the cache refresh command above and **reload/restart the MCP server (or IDE window)** so the long-lived `stdio` process restarts on the updated binary. You can also check `update_available` telemetry in `inspect_project_config` or `certify_11x_gate`.
+> **Verifying the active version inside your IDE (Antigravity, Cursor, Claude, VS Code):** Open the IDE's MCP / Customizations panel — `v3.1.0` registers **19 MCP tools** and **13 MCP resources** (`11` static URIs + `2` URI templates). If fewer tools appear from an older cached release, run `npx -y @sinfallas/mcp-qa-11x@latest upgrade` and **reload/restart the MCP server (or IDE window)** so the long-lived `stdio` process restarts on the updated binary. You can also check `update_available` telemetry in `doctor`, `inspect_project_config`, or `certify_11x_gate`.

@@ -38,8 +38,15 @@ Available CLI commands & flags:
 - `init-agents` (alias: `init-agents-md`) `[--project-path <dir>] [--lang auto|en|es] [--agents auto|all|<csv>] [--dry-run]`
 - `reconcile-agents` `[--project-path <dir>] [--dry-run]`
 - `tms-sync --mode <inventory|push-results|pull-stories> --provider <jira|zephyr|xray|github-issues> [--junit-xml <path>] [--json] [--dry-run]` — Normalizes JUnit XML results into enterprise TMS payloads or pull/inventory traceability reports.
+- `doctor` (alias: `status`) `[dir] [--project-path|-p <dir>] [--offline] [--json]` — Inspects active binary origin, `~/.npm/_npx` caches, global skills stamps, IDE MCP configs, project readiness, and Docker daemon.
+- `upgrade` (alias: `cache-clean`) `[--cache-only] [--target|-t <env>] [--offline] [--dry-run] [--json]` — Surgically removes only `@sinfallas/mcp-qa-11x` entries in `~/.npm/_npx` plus `~/.cache/qa-11x-blueprints` and re-syncs global skills (`cache-clean` runs with `--cache-only`).
+- `certify [dir] [--project-path|-p <dir>] [--strict] [--require-lint-evidence] [--allow-unmerged-examples] [--release-gate] [--junit-xml <path>] [--offline] [--json]` — Runs the headless 10-check 11X gate (`exit 20` on `--strict` skipped checks) and optional Release Readiness gate (`exit 30` on `NO_GO`).
+- `audit [dir] [--project-path|-p <dir>] [--mode|-m security|pyramid|vibe|calm|all] [--format|-f text|json|sarif] [--json] [--sarif] [--fail-on critical|high|medium|any|none] [--include-examples] [--max-findings <n>] [--architecture-path <rel>]` — Executes deterministic Zero-LLM static audits with text, JSON, or SARIF v2.1.0 output for CI/CD.
+- `blast-radius [symbol] [--symbol|-s <symbol>] [--project-path|-p <dir>] [--changed-since <ref>] [--auto-build] [--refresh] [--max-tokens <n>] [--max-items <n>] [--json]` — Inspects bidirectional AST impact and differential PR routing (`DOCS_ONLY` | `MICRO_CHANGE` | `FULL_11X`).
+- `mcp-config [--client|-c antigravity|claude-code|claude-desktop|cursor|vscode|windsurf|codex|gemini-cli|hermes|all] [--print] [--install] [--pin-version] [--dry-run] [--json]` — Prints or safely merges `mcpServers` JSON/TOML configs with `.11x-backup` (`0600`) or native IDE CLI commands.
+- `completion <fish|bash|zsh>` (or `--shell <fish|bash|zsh>`) — Emits native shell autocompletion scripts for `mcp-qa-11x`.
 - `[--stdio]` — Explicitly forces raw JSON-RPC listener over `stdio` (`QA_FORCE_STDIO=1` also forces headless `stdio`).
-- `--version` / `-v` | `--help` / `-h` — Prints active SemVer (`npx -y @sinfallas/mcp-qa-11x --version` for cached `npx`, `mcp-qa-11x -v` for global `-g`, or `@latest --version` for npm latest; note `npx --no-install` ignores `~/.npm/_npx/` caches — see [`docs/agent-setup.md`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/docs/agent-setup.md)). Supported globally and per subcommand without writing or fetching.
+- `--version` / `-v` `[--verbose|--json]` | `--help` / `-h` — Prints active SemVer (`npx -y @sinfallas/mcp-qa-11x --version` for cached `npx`, `mcp-qa-11x -v` for global `-g`, `@latest --version` for npm latest, or `--version --verbose|--json` for offline `doctor` diagnostics; note `npx --no-install` ignores `~/.npm/_npx/` caches — see [`docs/agent-setup.md`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/docs/agent-setup.md)). Supported globally and per subcommand without writing or fetching.
 
 > **Interactive Terminal Guard (`QA-CLI-TTY-01`):** Invoking `npx -y @sinfallas/mcp-qa-11x@latest` directly in an interactive terminal (`process.stdin.isTTY`) prints usage options, syncs global skills safely, and exits cleanly with `exit(0)` in `< 5s` instead of hanging `stdin`. Non-TTY IDE pipes launch the MCP `stdio` server automatically.
 
@@ -65,6 +72,13 @@ Available CLI commands & flags:
       }
     }
   }
+  ```
+
+* **Auto-generate or safely merge client configs (`mcp-config`):**
+  ```bash
+  npx -y @sinfallas/mcp-qa-11x@latest mcp-config --client antigravity --install
+  # Preview all supported IDE/CLI snippets or pin the exact release:
+  npx -y @sinfallas/mcp-qa-11x@latest mcp-config --client all --print --pin-version
   ```
 
 See the full 28 client setup matrix in [`docs/agent-setup.md`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/docs/agent-setup.md).

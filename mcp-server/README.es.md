@@ -38,8 +38,15 @@ Subcomandos y flags disponibles:
 - `init-agents` (alias: `init-agents-md`) `[--project-path <dir>] [--lang auto|en|es] [--agents auto|all|<csv>] [--dry-run]`
 - `reconcile-agents` `[--project-path <dir>] [--dry-run]`
 - `tms-sync --mode <inventory|push-results|pull-stories> --provider <jira|zephyr|xray|github-issues> [--junit-xml <path>] [--json] [--dry-run]` — Normaliza resultados JUnit XML para sincronización bidireccional o reportes de trazabilidad TMS.
+- `doctor` (alias: `status`) `[dir] [--project-path|-p <dir>] [--offline] [--json]` — Inspecciona el origen del binario activo, cachés `~/.npm/_npx`, sellos de skills globales, configuraciones MCP en IDEs, estado del proyecto y demonio Docker.
+- `upgrade` (alias: `cache-clean`) `[--cache-only] [--target|-t <env>] [--offline] [--dry-run] [--json]` — Limpia quirúrgicamente solo entradas de `@sinfallas/mcp-qa-11x` en `~/.npm/_npx` más `~/.cache/qa-11x-blueprints` y resincroniza skills globales (`cache-clean` aplica `--cache-only`).
+- `certify [dir] [--project-path|-p <dir>] [--strict] [--require-lint-evidence] [--allow-unmerged-examples] [--release-gate] [--junit-xml <path>] [--offline] [--json]` — Ejecuta la compuerta headless 11X de 10 verificaciones (`exit 20` si `--strict` detecta controles en `SKIPPED`) y compuerta opcional Release Readiness (`exit 30` en `NO_GO`).
+- `audit [dir] [--project-path|-p <dir>] [--mode|-m security|pyramid|vibe|calm|all] [--format|-f text|json|sarif] [--json] [--sarif] [--fail-on critical|high|medium|any|none] [--include-examples] [--max-findings <n>] [--architecture-path <rel>]` — Ejecuta auditorías estáticas deterministas Zero-LLM con salida texto, JSON o SARIF v2.1.0 para CI/CD.
+- `blast-radius [symbol] [--symbol|-s <symbol>] [--project-path|-p <dir>] [--changed-since <ref>] [--auto-build] [--refresh] [--max-tokens <n>] [--max-items <n>] [--json]` — Inspecciona impacto bidireccional AST y enrutamiento diferencial de PR (`DOCS_ONLY` | `MICRO_CHANGE` | `FULL_11X`).
+- `mcp-config [--client|-c antigravity|claude-code|claude-desktop|cursor|vscode|windsurf|codex|gemini-cli|hermes|all] [--print] [--install] [--pin-version] [--dry-run] [--json]` — Imprime o fusiona de forma segura configuraciones `mcpServers` JSON/TOML con respaldo `.11x-backup` (`0600`) o comandos nativos de CLI para IDEs.
+- `completion <fish|bash|zsh>` (o `--shell <fish|bash|zsh>`) — Emite scripts nativos de autocompletado de shell para `mcp-qa-11x`.
 - `[--stdio]` — Fuerza el listener JSON-RPC `stdio` en primer plano (`QA_FORCE_STDIO=1` también fuerza `stdio` headless).
-- `--version` / `-v` | `--help` / `-h` — Imprime la versión SemVer activa (`npx -y @sinfallas/mcp-qa-11x --version` para caché `npx`, `mcp-qa-11x -v` en instalación global `-g`, o `@latest --version` para npm latest; nota: `npx --no-install` ignora `~/.npm/_npx/` — ver [`docs/agent-setup.es.md`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/docs/agent-setup.es.md)). Disponible globalmente y por subcomando sin escribir ni descargar archivos.
+- `--version` / `-v` `[--verbose|--json]` | `--help` / `-h` — Imprime la versión SemVer activa (`npx -y @sinfallas/mcp-qa-11x --version` para caché `npx`, `mcp-qa-11x -v` en instalación global `-g`, `@latest --version` para npm latest, o `--version --verbose|--json` para diagnóstico `doctor` offline; nota: `npx --no-install` ignora `~/.npm/_npx/` — ver [`docs/agent-setup.es.md`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/docs/agent-setup.es.md)). Disponible globalmente y por subcomando sin escribir ni descargar archivos.
 
 > **Guardia Anti-Bloqueo TTY (`QA-CLI-TTY-01`):** Ejecutar `npx -y @sinfallas/mcp-qa-11x@latest` sin subcomandos en una terminal interactiva (`process.stdin.isTTY`) imprime la guía rápida, sincroniza skills globales sin bloquear y termina limpiamente con `exit(0)` en `< 5s` en lugar de bloquear `stdin`. Cuando un IDE abre un *pipe* no-TTY, inicia el servidor MCP `stdio` automáticamente.
 
@@ -65,6 +72,13 @@ Subcomandos y flags disponibles:
       }
     }
   }
+  ```
+
+* **Generación o fusión segura en clientes (`mcp-config`):**
+  ```bash
+  npx -y @sinfallas/mcp-qa-11x@latest mcp-config --client antigravity --install
+  # Previsualizar todos los snippets IDE/CLI soportados o fijar la versión exacta:
+  npx -y @sinfallas/mcp-qa-11x@latest mcp-config --client all --print --pin-version
   ```
 
 Consulta la matriz completa de 28 clientes en [`docs/agent-setup.es.md`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/docs/agent-setup.es.md).

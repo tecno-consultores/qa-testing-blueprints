@@ -1680,6 +1680,43 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert qaEvSrc49.contains('streaks')
     * assert qaEvSrc49.contains('oscillations')
 
+  Scenario: 50. Contratos Fase 2 — 7 Subcomandos CLI (doctor, upgrade, certify, audit, blast-radius, mcp-config, completion), SARIF 2.1.0 y Paridad 19 Tools / 13 Resources
+    * def cliSrc50 = karate.readAsString(mcpRoot + '/src/cli.ts')
+    * assert cliSrc50.contains("'doctor'")
+    * assert cliSrc50.contains("'upgrade'")
+    * assert cliSrc50.contains("'certify'")
+    * assert cliSrc50.contains("'audit'")
+    * assert cliSrc50.contains("'blast-radius'")
+    * assert cliSrc50.contains("'mcp-config'")
+    * assert cliSrc50.contains("'completion'")
+    * assert cliSrc50.contains('status: CMD_DOCTOR')
+    * assert cliSrc50.contains("'cache-clean': CMD_UPGRADE")
+    * assert cliSrc50.contains('LAZY_CLI_HANDLERS')
+
+    * def indexSrc50 = karate.readAsString(mcpRoot + '/src/index.ts')
+    * assert indexSrc50.contains('doctor')
+    * assert indexSrc50.contains('upgrade')
+    * assert indexSrc50.contains('certify')
+    * assert indexSrc50.contains('audit')
+    * assert indexSrc50.contains('blast-radius')
+    * assert indexSrc50.contains('mcp-config')
+    * assert indexSrc50.contains('completion')
+    * assert indexSrc50.contains('--verbose')
+    * assert indexSrc50.contains('getDeclaredSurfaceCounts')
+
+    * def sarifSrc50 = karate.readAsString(mcpRoot + '/src/utils/sarifFormatter.ts')
+    * assert sarifSrc50.contains("SARIF_VERSION = '2.1.0'")
+    * assert sarifSrc50.contains('https://json.schemastore.org/sarif-2.1.0.json')
+
+    * def verifyV250 = karate.readAsString(mcpRoot + '/example/verify-v2.sh')
+    * assert verifyV250.contains('doctor "${PROJ_DIR}" --offline --json')
+    * assert verifyV250.contains('upgrade --dry-run --json')
+    * assert verifyV250.contains('audit "${PROJ_DIR}" --mode security --fail-on none --sarif')
+    * assert verifyV250.contains('mcp-config --client antigravity --pin-version')
+    * assert verifyV250.contains('completion fish')
+    * assert verifyV250.contains('toolsList.tools.length, 19')
+    * assert verifyV250.contains('resourcesList.resources.length + templatesList.resourceTemplates.length, 13')
+
 
 
 

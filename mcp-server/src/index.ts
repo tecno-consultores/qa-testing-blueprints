@@ -52,7 +52,8 @@ export interface McpSurfaceCounts {
 }
 
 function dispatchCoreFlag(
-  arg1: string | undefined
+  arg1: string | undefined,
+  args: readonly string[]
 ): { readonly handled: true; readonly outcome: CliDispatchOutcome } | { readonly handled: false } {
   if (!arg1) {
     return { handled: true, outcome: STDIO_MODE };
@@ -60,7 +61,7 @@ function dispatchCoreFlag(
   if (arg1 === '--stdio') {
     return { handled: true, outcome: STDIO_FORCED_MODE };
   }
-  if (arg1 === '--version' || arg1 === '-v') {
+  if ((arg1 === '--version' || arg1 === '-v') && args.length === 1) {
     console.log(MCP_SERVER_VERSION);
     return { handled: true, outcome: 0 };
   }
@@ -76,7 +77,15 @@ export async function dispatchCliArgs(
   fetcher?: GitHubFetcher
 ): Promise<CliDispatchOutcome> {
   const arg1 = args[0];
-  const coreOutcome = dispatchCoreFlag(arg1);
+  if (
+    (arg1 === '--version' || arg1 === '-v') &&
+    (args.includes('--verbose') || args.includes('--json'))
+  ) {
+    const doctorArgs = ['doctor', '--offline', ...(args.includes('--json') ? ['--json'] : [])];
+    const doctorRes = await runCli(doctorArgs, { fetcher });
+    return doctorRes.exitCode;
+  }
+  const coreOutcome = dispatchCoreFlag(arg1, args);
   if (coreOutcome.handled) {
     return coreOutcome.outcome;
   }
@@ -140,8 +149,15 @@ Usage:
   npx -y @sinfallas/mcp-qa-11x@latest init-agents                                   Injects or updates QA 11X connector in AGENTS.md
   npx -y @sinfallas/mcp-qa-11x@latest reconcile-agents                             Reconciles and deduplicates rules in .agents/
   npx -y @sinfallas/mcp-qa-11x@latest tms-sync --mode <mode> [options]              Syncs Jira/Zephyr/Xray/GitHub Issues traceability
+  npx -y @sinfallas/mcp-qa-11x@latest doctor [dir] [--offline] [--json]            Inspects active version, npx cache, skills & Docker
+  npx -y @sinfallas/mcp-qa-11x@latest upgrade [--cache-only] [--dry-run] [--json]  Surgically cleans mcp-qa-11x caches & syncs skills
+  npx -y @sinfallas/mcp-qa-11x@latest certify [dir] [--strict] [--release-gate]    Runs 10-check 11X gate & release readiness verdict
+  npx -y @sinfallas/mcp-qa-11x@latest audit [dir] [--mode security] [--sarif]      Audits security, pyramid, vibe & CALM deterministically
+  npx -y @sinfallas/mcp-qa-11x@latest blast-radius [symbol] [--changed-since ref]  Inspects AST impact radius & proportional PR routing
+  npx -y @sinfallas/mcp-qa-11x@latest mcp-config --client <id> [--install]         Prints or merges IDE/CLI mcpServers config safely
+  npx -y @sinfallas/mcp-qa-11x@latest completion <fish|bash|zsh>                    Emits native shell autocompletion script
   npx -y @sinfallas/mcp-qa-11x@latest [--stdio]                                     Starts the MCP server over stdio (${formatSurfaceSummary(counts)})
-  npx -y @sinfallas/mcp-qa-11x@latest --version                                     Displays the active package version
+  npx -y @sinfallas/mcp-qa-11x@latest --version [--verbose|--json]                 Displays active package version (or offline diagnostics)
   npx -y @sinfallas/mcp-qa-11x@latest --help                                        Displays this help message
 
 Options for quickstart:
