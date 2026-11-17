@@ -418,6 +418,7 @@ export function createMcpServer(options?: {
     async (args) => {
       const result = await certify11xGate(args.project_path, {
         requireLintEvidence: args.require_lint_evidence,
+        strict: args.strict,
         updateOptions: { fetcher },
       });
       return {

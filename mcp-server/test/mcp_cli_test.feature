@@ -1052,8 +1052,8 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert securityDoc.contains('### 4.30.')
     * assert securityDoc.contains('QA-SSR-HYDRATION-01')
     * def trivyCfg = karate.readAsString(repoRoot + '/.trivy.yaml')
-    * assert trivyCfg.contains('- vendor')
-    * assert trivyCfg.contains('- php/vendor')
+    * assert trivyCfg.contains('**/vendor')
+    * assert trivyCfg.contains('**/node_modules')
     * def phpunitXml = karate.readAsString(repoRoot + '/php/phpunit.xml.example')
     * assert phpunitXml.contains('<ini name="pcov.directory" value="src"/>')
     * def runnerTs = karate.readAsString(repoRoot + '/mcp-server/src/tools/ephemeral-runner.ts')
@@ -1222,6 +1222,28 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def activeRule = karate.readAsString(repoRoot + '/.agents/rules/active_task_and_planning_resilience.md')
     * assert activeRule.contains('session_flight_recorder')
     * assert pkg.description.includes('19 Tools, 13 Resources')
+
+  Scenario: 40. Contratos Fase 1 (F1.6-F1.9) — Fail-Closed JSON, Cero Falsos Positivos SKIPPED, Modo strict en certify_11x_gate y parseTestsDetected
+    * def typesTs40 = karate.readAsString(mcpRoot + '/src/types.ts')
+    * assert typesTs40.contains('GateCheckStatus')
+    * assert typesTs40.contains('check_statuses')
+    * assert typesTs40.contains('skipped_checks')
+    * assert typesTs40.contains('tests_detected')
+    * assert typesTs40.contains('strict:')
+
+    * def certifyTs40 = karate.readAsString(mcpRoot + '/src/tools/certify-gate.ts')
+    * assert certifyTs40.contains('INVALID_JSON:')
+    * assert certifyTs40.contains('STRICT_SKIPPED_CHECK:')
+    * assert certifyTs40.contains('inspectSingleJsonFile')
+    * assert certifyTs40.contains('GATE_STATUS_SKIPPED')
+
+    * def qaEvidenceTs40 = karate.readAsString(mcpRoot + '/src/services/qa-evidence.ts')
+    * assert qaEvidenceTs40.contains("status: 'SKIPPED'")
+
+    * def outputParsersTs40 = karate.readAsString(mcpRoot + '/src/parsers/output-parsers.ts')
+    * assert outputParsersTs40.contains('parseTestsDetected')
+    * assert outputParsersTs40.contains('evaluateUnitStageStatus')
+    * assert outputParsersTs40.contains('TEST_STAGE_NAMES')
 
 
 

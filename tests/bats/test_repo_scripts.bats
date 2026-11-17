@@ -16,9 +16,10 @@ setup() {
 }
 
 @test "bump_version_11x.py: verifica paridad limpia (--check 0) y detecta desfase (--check 1)" {
-  if ! command -v python3 >/dev/null 2>&1; then
-    skip "python3 no disponible en contenedor base-bash-qa"
-  fi
+  run python3 "${REPO_ROOT}/.agents/scripts/bump_version_11x.py" --workspace "${REPO_ROOT}" --check
+  assert_success
+  assert_output --partial "OK [bump_version_11x]"
+
   WORK="${BATS_TEST_TMPDIR}/bump_ws"
   mkdir -p "${WORK}/mcp-server" "${WORK}/catalogs"
   cat >"${WORK}/mcp-server/package.json" <<'EOF'
@@ -31,9 +32,6 @@ EOF
   "blueprint_version": "3.0.0"
 }
 EOF
-
-  run python3 -c "import sys; sys.exit(0)"
-  assert_success
 
   python3 - "${REPO_ROOT}/.agents/scripts/bump_version_11x.py" "${WORK}" <<'PY'
 import importlib.util, re, sys
@@ -78,4 +76,102 @@ PY
 
   run env LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --otp
   assert_failure 1
+}
+
+@test "certify_task_completion.sh (F1.4): reporta SKIPPED si falta verificar-secretos.sh y bloquea con --strict y QA11X_STRICT=1" {
+  WORK="${BATS_TEST_TMPDIR}/certify_ws"
+  mkdir -p "${WORK}/.agents/scripts" "${WORK}/scripts"
+  cp "${REPO_ROOT}/.agents/scripts/certify_task_completion.sh" "${WORK}/.agents/scripts/certify_task_completion.sh"
+  chmod +x "${WORK}/.agents/scripts/certify_task_completion.sh"
+
+  cat >"${WORK}/scripts/auditar-infra.sh" <<'EOF'
+#!/usr/bin/env bash
+echo "✔ [Trivy] stub OK"
+EOF
+  chmod +x "${WORK}/scripts/auditar-infra.sh"
+
+  printf 'print("✔ [Manifest] stub OK")\n' >"${WORK}/scripts/generar-manifiesto.py"
+
+  for stub_py in \
+    verify_json_no_duplicate_keys.py \
+    verify_zero_orphan_vue_components.py \
+    verify_no_orphan_api_endpoints.py \
+    verify_topological_health.py \
+    verify_alembic_orm_parity.py \
+    verify_roadmap_consistency.py; do
+    printf 'print("✔ [%s] stub OK")\n' "${stub_py}" >"${WORK}/.agents/scripts/${stub_py}"
+  done
+
+  run env LC_ALL=C bash "${WORK}/.agents/scripts/certify_task_completion.sh"
+  assert_success
+  assert_output --partial "[1/10] ⚠️ SKIPPED:"
+  assert_output --partial "[WARN] CERTIFY-STATE | 9/10 PASS, 1 SKIPPED, 0 FAIL"
+  refute_output --partial "10/10 PASS"
+  refute_output --partial "10/10 gates OK"
+
+  run env LC_ALL=C bash "${WORK}/.agents/scripts/certify_task_completion.sh" --strict
+  assert_failure 1
+  assert_output --partial "[WARN] CERTIFY-STATE | 9/10 PASS, 1 SKIPPED, 0 FAIL"
+  assert_output --partial "[STRICT] Certificación bloqueada: 1 gate(s) en estado SKIPPED"
+
+  run env QA11X_STRICT=1 LC_ALL=C bash "${WORK}/.agents/scripts/certify_task_completion.sh"
+  assert_failure 1
+  assert_output --partial "[STRICT] Certificación bloqueada: 1 gate(s) en estado SKIPPED"
+
+  cat >"${WORK}/scripts/verificar-secretos.sh" <<'EOF'
+#!/usr/bin/env bash
+echo "✔ [Secretos] stub OK"
+EOF
+  chmod +x "${WORK}/scripts/verificar-secretos.sh"
+
+  run env LC_ALL=C bash "${WORK}/.agents/scripts/certify_task_completion.sh" --strict
+  assert_success
+  assert_output --partial "[PASS] CERTIFY-STATE | 10/10 PASS, 0 SKIPPED, 0 FAIL"
+}
+
+@test "certify_task_completion.sh (F1.4 gates 2/4/8/10): detecta SKIPPED en auditar-infra/manifiesto/validador/diff-cov y bloquea en --strict" {
+  WORK="${BATS_TEST_TMPDIR}/certify_multi_skip"
+  mkdir -p "${WORK}/.agents/scripts" "${WORK}/scripts" "${WORK}/tests/bats"
+  cp "${REPO_ROOT}/.agents/scripts/certify_task_completion.sh" "${WORK}/.agents/scripts/certify_task_completion.sh"
+  chmod +x "${WORK}/.agents/scripts/certify_task_completion.sh"
+
+  cat >"${WORK}/scripts/verificar-secretos.sh" <<'EOF'
+#!/usr/bin/env bash
+echo "✔ [Secretos] stub OK"
+EOF
+  chmod +x "${WORK}/scripts/verificar-secretos.sh"
+
+  for stub_py in \
+    verify_json_no_duplicate_keys.py \
+    verify_no_orphan_api_endpoints.py \
+    verify_topological_health.py \
+    verify_alembic_orm_parity.py \
+    verify_roadmap_consistency.py; do
+    printf 'print("✔ [%s] stub OK")\n' "${stub_py}" >"${WORK}/.agents/scripts/${stub_py}"
+  done
+  printf 'print("⚠️ SKIPPED [UI Orphans] sin directorio frontend")\n' >"${WORK}/.agents/scripts/verify_zero_orphan_vue_components.py"
+
+  printf '#!/usr/bin/env bash\necho base\n' >"${WORK}/scripts/app.sh"
+  printf '@test "t" { true; }\n' >"${WORK}/tests/bats/app.bats"
+  printf '# Demo\n' >"${WORK}/README.md"
+  git -C "${WORK}" init -q
+  git -C "${WORK}" config user.email "qa@example.com"
+  git -C "${WORK}" config user.name "QA Bot"
+  git -C "${WORK}" add .
+  git -C "${WORK}" commit -q -m "chore: init"
+  printf '#!/usr/bin/env bash\necho changed\n' >"${WORK}/scripts/app.sh"
+  printf '@test "t" { true; }\n# updated\n' >"${WORK}/tests/bats/app.bats"
+  printf '# Demo updated\n' >"${WORK}/README.md"
+
+  run env LC_ALL=C bash "${WORK}/.agents/scripts/certify_task_completion.sh"
+  assert_success
+  assert_output --partial "[2/10] ⚠️ SKIPPED:"
+  assert_output --partial "[4/10] ⚠️ SKIPPED:"
+  assert_output --partial "[8/10] ⚠️ SKIPPED:"
+  assert_output --partial "[10/10] ⚠️ SKIPPED:"
+  assert_output --partial "[WARN] CERTIFY-STATE | 6/10 PASS, 4 SKIPPED, 0 FAIL"
+
+  run env LC_ALL=C bash "${WORK}/.agents/scripts/certify_task_completion.sh" --strict
+  assert_failure 1
+  assert_output --partial "[STRICT] Certificación bloqueada: 4 gate(s) en estado SKIPPED"
 }

@@ -128,22 +128,27 @@ fi
 CACHE_MARKER="/tmp/.qa11x_trivy_cache_${IAC_FINGERPRINT}"
 
 if [ "${FORCE_SCAN}" = false ] && [ -n "${IAC_FINGERPRINT}" ] && [ -f "${CACHE_MARKER}" ]; then
-  echo "✔ [Trivy] IaC (HIGH/CRIT=0) y File System (CRIT=0) verificados sin hallazgos (caché SHA-256)."
+  echo "✔ [Trivy] IaC (HIGH/CRIT=0) y File System (HIGH/CRIT=0) verificados sin hallazgos (caché SHA-256)."
   exit 0
 fi
 
+TRIVY_IMAGE="aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb"
 TRIVY_CACHE_VOLUME="qa11x_trivy_cache"
 TRIVY_DB_REPOS="public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2,mirror.gcr.io/aquasec/trivy-db:2"
 TRIVY_SKIP_DIRS="node_modules,.git,dist,target,graphify-out,vendor,.venv"
+TRIVY_CONFIG_ARGS=(--skip-dirs "${TRIVY_SKIP_DIRS}")
+if [ -f "${REPO_ROOT}/.trivy.yaml" ]; then
+  TRIVY_CONFIG_ARGS=(--config .trivy.yaml)
+fi
 
 # 1. Escaneo de misconfiguraciones IaC (Pass-Quiet / Fail-Verbose)
 if ! IAC_OUT=$(docker run --rm \
   -v "${REPO_ROOT}:/app:ro" \
   -v "${TRIVY_CACHE_VOLUME}:/root/.cache/trivy" \
   -w /app \
-  aquasec/trivy:latest config . \
+  "${TRIVY_IMAGE}" config . \
   --quiet \
-  --skip-dirs "${TRIVY_SKIP_DIRS}" \
+  "${TRIVY_CONFIG_ARGS[@]}" \
   --severity HIGH,CRITICAL \
   --exit-code 1 2>&1); then
   echo "❌ [Trivy IaC] Misconfiguraciones HIGH/CRITICAL detectadas:" >&2
@@ -151,20 +156,20 @@ if ! IAC_OUT=$(docker run --rm \
   exit 1
 fi
 
-# 2. Escaneo de vulnerabilidades críticas (CVEs) en lockfiles y dependencias locales
+# 2. Escaneo de vulnerabilidades HIGH/CRITICAL (CVEs) en lockfiles y dependencias locales
 if ! FS_OUT=$(docker run --rm \
   -v "${REPO_ROOT}:/app:ro" \
   -v "${TRIVY_CACHE_VOLUME}:/root/.cache/trivy" \
   -w /app \
-  aquasec/trivy:latest fs . \
+  "${TRIVY_IMAGE}" fs . \
   --quiet \
   --scanners vuln \
-  --skip-dirs "${TRIVY_SKIP_DIRS}" \
+  "${TRIVY_CONFIG_ARGS[@]}" \
   --db-repository "${TRIVY_DB_REPOS}" \
   --timeout 10m \
-  --severity CRITICAL \
+  --severity HIGH,CRITICAL \
   --exit-code 1 2>&1); then
-  echo "❌ [Trivy FS] Vulnerabilidades CRITICAL detectadas:" >&2
+  echo "❌ [Trivy FS] Vulnerabilidades HIGH/CRITICAL detectadas:" >&2
   echo "${FS_OUT}" >&2
   exit 1
 fi
@@ -174,5 +179,5 @@ if [ -n "${IAC_FINGERPRINT}" ]; then
   touch "${CACHE_MARKER}" 2>/dev/null || true
 fi
 
-echo "✔ [Trivy] IaC (HIGH/CRIT=0) y File System (CRIT=0) verificados sin hallazgos."
+echo "✔ [Trivy] IaC (HIGH/CRIT=0) y File System (HIGH/CRIT=0) verificados sin hallazgos."
 exit 0

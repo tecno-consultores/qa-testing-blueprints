@@ -5,22 +5,17 @@
 # user: root para OWASP ZAP y docker.sock:ro para Pumba Chaos) del escaneo IaC de producción.
 scan:
   skip-dirs:
-    - mutants
-    - fastapi/mutants
-    - python/mutants
-    - node_modules
-    - vue3/node_modules
-    - react-frontend/node_modules
-    - node-backend/node_modules
-    - dist
-    - vue3/dist
-    - react-frontend/dist
-    - vendor
-    - php/vendor
-    - .venv
-    - target
-    - graphify-out
+    - "**/node_modules"
+    - "**/.git"
+    - "**/dist"
+    - "**/target"
+    - "**/graphify-out"
+    - "**/vendor"
+    - "**/.venv"
+    - "**/mutants"
   skip-files:
+    - docker-compose.qa.yml
+    - mcp-server/docker-compose.qa.yml
     - python/docker-compose.qa.yml
     - fastapi/docker-compose.qa.yml
     - node-backend/docker-compose.qa.yml

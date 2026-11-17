@@ -696,4 +696,37 @@ describe('ephemeral-runner', () => {
       'SF:/app/src/index.ts\nDA:1,1\nend_of_record\n'
     );
   });
+
+  it('F1.8: runEphemeralQa devuelve SKIPPED y no graba evidencia cuando 0 pruebas fueron ejecutadas', async () => {
+    fs.writeFileSync(
+      path.join(tempDir, 'Makefile'),
+      'qa-unit:\n\t@echo ok\nqa-integration:\n\t@echo ok\nqa-bdd:\n\t@echo ok\n',
+      'utf8'
+    );
+    fs.mkdirSync(path.join(tempDir, '.git'), { recursive: true });
+    const mockGit = ((cmd: string, args?: readonly string[]) => {
+      if (cmd === 'git' && args?.[0] === 'status') return ' M Makefile\n';
+      if (cmd === 'git' && args?.[0] === 'rev-parse') return 'abc123\n';
+      return '';
+    }) as unknown as typeof execFileSync;
+
+    const mockPyZero = ((_f: string, _a: readonly string[], _o: unknown, cb: (e: null, out: string, err: string) => void) =>
+      cb(null, 'collected 0 items\n=== no tests ran in 0.01s ===', '')) as unknown as typeof execFile;
+    const resUnit = await runEphemeralQa(tempDir, 'unit', 30, { execFileFn: mockPyZero, execFileSyncFn: mockGit });
+    expect(resUnit.status).toBe('SKIPPED');
+    expect(resUnit.tests_detected).toBe(0);
+
+    const mockBatsZero = ((_f: string, _a: readonly string[], _o: unknown, cb: (e: null, out: string, err: string) => void) =>
+      cb(null, '1..0', '')) as unknown as typeof execFile;
+    const resInteg = await runEphemeralQa(tempDir, 'integration', 30, { execFileFn: mockBatsZero, execFileSyncFn: mockGit });
+    expect(resInteg.status).toBe('SKIPPED');
+    expect(resInteg.tests_detected).toBe(0);
+
+    const mockKarateZero = ((_f: string, _a: readonly string[], _o: unknown, cb: (e: null, out: string, err: string) => void) =>
+      cb(null, 'scenarios: 0 | passed: 0 | failed: 0', '')) as unknown as typeof execFile;
+    const resBdd = await runEphemeralQa(tempDir, 'bdd', 30, { execFileFn: mockKarateZero, execFileSyncFn: mockGit });
+    expect(resBdd.status).toBe('SKIPPED');
+    expect(resBdd.tests_detected).toBe(0);
+    expect(fs.existsSync(path.join(tempDir, '.agents', '.qa-evidence.json'))).toBe(false);
+  });
 });

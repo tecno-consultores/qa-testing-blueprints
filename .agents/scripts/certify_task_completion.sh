@@ -8,19 +8,46 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 cd "${REPO_ROOT}"
 
+STRICT_MODE=false
+if [ "${QA11X_STRICT:-0}" = "1" ] || [ "${QA11X_STRICT:-}" = "true" ]; then
+  STRICT_MODE=true
+fi
+for arg in "$@"; do
+  case "${arg}" in
+    --strict)
+      STRICT_MODE=true
+      ;;
+    -h|--help)
+      printf 'Uso: %s [--strict]\n' "$0"
+      exit 0
+      ;;
+    *)
+      printf 'Opción no reconocida: %s\n' "${arg}" >&2
+      exit 1
+      ;;
+  esac
+done
+
 DIAGNOSTIC_JSON_PATH="${QA_DIAGNOSTIC_JSON:-/tmp/qa-11x-last-failure.json}"
 GATE_TMP_DIR="$(mktemp -d /tmp/qa11x-certify.XXXXXX)"
 GATE_STEPS_LOG="${GATE_TMP_DIR}/steps.log"
 : >"${GATE_STEPS_LOG}"
 CERTIFY_COMPLETED_OK=0
 LAST_SUMMARY_LINE=""
+PASS_COUNT=0
+SKIPPED_COUNT=0
+FAIL_COUNT=0
 
 cleanup_certify_tmp() {
   local final_rc=$?
   local ctl_script="${SCRIPT_DIR}/checkpoint_ctl.py"
   local summary="${LAST_SUMMARY_LINE:-[CERTIFY] rc=${final_rc}}"
   if [ "${final_rc}" -eq 0 ] && [ "${CERTIFY_COMPLETED_OK:-0}" -eq 1 ]; then
-    summary="[PASS] CERTIFY-STATE | 10/10 gates OK"
+    local state_tag="PASS"
+    if [ "${SKIPPED_COUNT:-0}" -gt 0 ]; then
+      state_tag="WARN"
+    fi
+    summary="[${state_tag}] CERTIFY-STATE | ${PASS_COUNT:-0}/10 PASS, ${SKIPPED_COUNT:-0} SKIPPED, ${FAIL_COUNT:-0} FAIL"
   fi
   if [ -f "${ctl_script}" ] && [ -w "${REPO_ROOT}" ]; then
     if command -v python3 >/dev/null 2>&1; then
@@ -221,7 +248,24 @@ run_gate() {
   rc=0
   "$@" >"${gate_log}" 2>&1 || rc=$?
 
+  if [ "${rc}" -eq 0 ] && grep -qE '^(⚠️[[:space:]]*)?\[?SKIPPED\b' "${gate_log}" 2>/dev/null; then
+    rc=20
+  fi
+
+  if [ "${rc}" -eq 20 ]; then
+    SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+    printf '%s/10|%s|skipped\n' "${gate_num}" "${gate_name}" >>"${GATE_STEPS_LOG}"
+    summary_line="$(grep -v '^[[:space:]]*$' "${gate_log}" 2>/dev/null | tail -n 1 || true)"
+    summary_line="$(printf '%s' "${summary_line}" | sed -E 's/^⚠️?[[:space:]]*\[?SKIPPED\]?[[:space:]]*:?[[:space:]]*//')"
+    if [ -z "${summary_line}" ]; then
+      summary_line="${gate_name}"
+    fi
+    printf '[%s/10] ⚠️ SKIPPED: %s\n' "${gate_num}" "${summary_line}"
+    return 0
+  fi
+
   if [ "${rc}" -eq 0 ]; then
+    PASS_COUNT=$((PASS_COUNT + 1))
     printf '%s/10|%s|passed\n' "${gate_num}" "${gate_name}" >>"${GATE_STEPS_LOG}"
     summary_line="$(grep -v '^[[:space:]]*$' "${gate_log}" 2>/dev/null | tail -n 1 || true)"
     if [ -z "${summary_line}" ]; then
@@ -231,6 +275,7 @@ run_gate() {
     return 0
   fi
 
+  FAIL_COUNT=$((FAIL_COUNT + 1))
   diag_line="$(sanitize_shell_text "$(grep -v '^[[:space:]]*$' "${gate_log}" 2>/dev/null | head -n 1 || true)")"
   if [ -z "${diag_line}" ]; then
     diag_line="Gate ${gate_num} (${gate_name}) failed with exit ${rc}"
@@ -258,7 +303,8 @@ gate_01_secrets() {
   elif [ -f "${REPO_ROOT}/verificar-secretos.sh" ]; then
     bash "${REPO_ROOT}/verificar-secretos.sh" || return $?
   else
-    printf 'ℹ️ Script verificar-secretos.sh no encontrado (omitido).\n'
+    printf '⚠️ [SKIPPED] Script verificar-secretos.sh no encontrado.\n'
+    return 20
   fi
 }
 
@@ -328,21 +374,36 @@ gate_02_trivy() {
     bash "${REPO_ROOT}/auditar-infra.sh" || return $?
   else
     audit_ci_and_submakefiles_fallback || return $?
-    printf 'ℹ️ Script auditar-infra.sh no encontrado (solo validación estática CI/Makefile ejecutada; Trivy omitido).\n'
+    printf '⚠️ [SKIPPED] Script auditar-infra.sh no encontrado (Trivy omitido).\n'
+    return 20
   fi
 }
 
 gate_08_manifest() {
+  local missing_manifest=0
   if [ -f "${REPO_ROOT}/scripts/generar-manifiesto.py" ]; then
     python3 "${REPO_ROOT}/scripts/generar-manifiesto.py" --check || return $?
   else
-    printf 'ℹ️ scripts/generar-manifiesto.py no encontrado (omitido).\n'
+    printf '⚠️ [SKIPPED] scripts/generar-manifiesto.py no encontrado.\n'
+    missing_manifest=1
   fi
   if [ -f "${SCRIPT_DIR}/sync_governance.py" ] && [ -f "${REPO_ROOT}/manifest.json" ]; then
     python3 "${SCRIPT_DIR}/sync_governance.py" --check || return $?
   fi
   if [ -f "${SCRIPT_DIR}/bump_version_11x.py" ] && [ -f "${REPO_ROOT}/mcp-server/package.json" ]; then
     python3 "${SCRIPT_DIR}/bump_version_11x.py" --workspace "${REPO_ROOT}" --check || return $?
+  fi
+  if [ "${missing_manifest}" -eq 1 ]; then
+    return 20
+  fi
+}
+
+run_validator_gate() {
+  local script_path="$1"
+  if grep -q -- '--exit-skipped-code' "${script_path}" 2>/dev/null; then
+    python3 "${script_path}" --exit-skipped-code 20
+  else
+    python3 "${script_path}"
   fi
 }
 
@@ -407,14 +468,19 @@ gate_10_doc_and_test_sync() {
     fi
 
     if [ "${gate10_failed}" -eq 0 ]; then
-      if [ -n "${exec_src_changes}" ] && [ -f ".agents/scripts/verify_diff_coverage.py" ] && [ -d ".agents/.cache/coverage" ]; then
-        has_cov_reports=$(find ".agents/.cache/coverage" -maxdepth 1 -type f \( -name '*.xml' -o -name '*.info' \) 2>/dev/null | head -n 1 || true)
-        if [ -n "${has_cov_reports}" ]; then
-          if command -v python3 >/dev/null 2>&1; then
-            python3 .agents/scripts/verify_diff_coverage.py --workspace . --reports-dir .agents/.cache/coverage || return $?
-          else
-            docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_diff_coverage.py --workspace /app --reports-dir .agents/.cache/coverage || return $?
-          fi
+      if [ -n "${exec_src_changes}" ]; then
+        has_cov_reports=""
+        if [ -d ".agents/.cache/coverage" ]; then
+          has_cov_reports=$(find ".agents/.cache/coverage" -maxdepth 1 -type f \( -name '*.xml' -o -name '*.info' \) 2>/dev/null | head -n 1 || true)
+        fi
+        if [ ! -f ".agents/scripts/verify_diff_coverage.py" ] || [ -z "${has_cov_reports}" ]; then
+          printf '⚠️ [SKIPPED] verify_diff_coverage omitido (sin reportes de cobertura en .agents/.cache/coverage).\n'
+          return 20
+        fi
+        if command -v python3 >/dev/null 2>&1; then
+          python3 .agents/scripts/verify_diff_coverage.py --workspace . --reports-dir .agents/.cache/coverage || return $?
+        else
+          docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_diff_coverage.py --workspace /app --reports-dir .agents/.cache/coverage || return $?
         fi
       fi
       printf '✔ [Doc & Test Sync] %s archivo(s) de código/config | %s prueba(s) (%s) | %s doc(s) sincronizados.\n' \
@@ -456,27 +522,27 @@ run_gate 2 "Trivy IaC & FS" \
 run_gate 3 "JSON Integrity" \
   "Elimina las claves duplicadas en los JSON afectados y valida con verify_json_no_duplicate_keys.py." \
   "python3 .agents/scripts/verify_json_no_duplicate_keys.py" \
-  python3 "${SCRIPT_DIR}/verify_json_no_duplicate_keys.py"
+  run_validator_gate "${SCRIPT_DIR}/verify_json_no_duplicate_keys.py"
 
 run_gate 4 "Zero Orphan UI Components" \
   "Crea o actualiza el test unitario correspondiente para cada componente o vista UI detectada." \
   "python3 .agents/scripts/verify_zero_orphan_vue_components.py" \
-  python3 "${SCRIPT_DIR}/verify_zero_orphan_vue_components.py"
+  run_validator_gate "${SCRIPT_DIR}/verify_zero_orphan_vue_components.py"
 
 run_gate 5 "No Orphan API Endpoints" \
   "Sincroniza el cliente frontend o router backend para eliminar rutas huérfanas." \
   "python3 .agents/scripts/verify_no_orphan_api_endpoints.py" \
-  python3 "${SCRIPT_DIR}/verify_no_orphan_api_endpoints.py"
+  run_validator_gate "${SCRIPT_DIR}/verify_no_orphan_api_endpoints.py"
 
 run_gate 6 "AST Topological Health" \
   "Corrige el acoplamiento inverso de capas y regenera el grafo con ./scripts/actualizar-grafos-graphify.sh." \
   "python3 .agents/scripts/verify_topological_health.py" \
-  python3 "${SCRIPT_DIR}/verify_topological_health.py"
+  run_validator_gate "${SCRIPT_DIR}/verify_topological_health.py"
 
 run_gate 7 "ORM & Migration Parity" \
   "Genera la migración de base de datos pendiente (revision <= 32 chars) y re-ejecuta verify_alembic_orm_parity.py." \
   "python3 .agents/scripts/verify_alembic_orm_parity.py" \
-  python3 "${SCRIPT_DIR}/verify_alembic_orm_parity.py"
+  run_validator_gate "${SCRIPT_DIR}/verify_alembic_orm_parity.py"
 
 run_gate 8 "Manifest SHA-256 Sync" \
   "Sincroniza manifest.json ejecutando make sync-governance (o python3 .agents/scripts/sync_governance.py)." \
@@ -493,6 +559,19 @@ run_gate 10 "Doc & Test Sync" \
   "python3 .agents/scripts/verify_docs_invariants.py && git diff/status sync" \
   gate_10_doc_and_test_sync
 
+state_tag="PASS"
+if [ "${SKIPPED_COUNT}" -gt 0 ]; then
+  state_tag="WARN"
+fi
+printf '[%s] CERTIFY-STATE | %s/10 PASS, %s SKIPPED, %s FAIL\n' \
+  "${state_tag}" "${PASS_COUNT}" "${SKIPPED_COUNT}" "${FAIL_COUNT}"
+
+if [ "${STRICT_MODE}" = "true" ] && [ "${SKIPPED_COUNT}" -gt 0 ]; then
+  LAST_SUMMARY_LINE="[FAIL] CERTIFY-STATE | ${PASS_COUNT}/10 PASS, ${SKIPPED_COUNT} SKIPPED, ${FAIL_COUNT} FAIL (strict)"
+  printf '❌ [STRICT] Certificación bloqueada: %s gate(s) en estado SKIPPED.\n' "${SKIPPED_COUNT}" >&2
+  exit 1
+fi
+
 pass_tracker_out=""
 pass_tracker_rc=0
 pass_tracker_out="$(run_certify_findings_tracker '{"stage":"certify","findings":[]}' 2>/dev/null)" || pass_tracker_rc=$?
@@ -501,4 +580,9 @@ if [ "${pass_tracker_rc}" -eq 0 ] && [ -n "${pass_tracker_out}" ]; then
 fi
 
 CERTIFY_COMPLETED_OK=1
-printf '✅ CERTIFICACIÓN EXITOSA: El proyecto cumple con el estándar 11X\n'
+if [ "${SKIPPED_COUNT}" -gt 0 ]; then
+  printf '⚠️ CERTIFICACIÓN COMPLETADA CON OMISIONES: %s/10 PASS, %s SKIPPED (usa --strict para bloquear).\n' \
+    "${PASS_COUNT}" "${SKIPPED_COUNT}"
+else
+  printf '✅ CERTIFICACIÓN EXITOSA: El proyecto cumple con el estándar 11X\n'
+fi

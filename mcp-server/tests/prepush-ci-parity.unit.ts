@@ -45,6 +45,8 @@ describe('Paridad Pre-Push 1:1 con CI (QA Evidence, Stages integration/ci, Dynam
 
     const gateDefault = CertifyGateInputSchema.parse({ project_path: tmpDir });
     expect(gateDefault.require_lint_evidence).toBe(true);
+    expect(gateDefault.strict).toBe(false);
+    expect(CertifyGateInputSchema.parse({ project_path: tmpDir, strict: true }).strict).toBe(true);
   });
 
   it('bloquea certify11xGate cuando hay cambios de código sucios en Git sin evidencia lint y aprueba tras runEphemeralQa(lint)', async () => {
@@ -66,12 +68,23 @@ describe('Paridad Pre-Push 1:1 con CI (QA Evidence, Stages integration/ci, Dynam
     expect(blocked.checks.lint_evidence_verified).toBe(false);
     expect(blocked.blockers.some((b) => b.includes('stage="lint"'))).toBe(true);
 
-    // 2. Con requireLintEvidence: false -> permite omitir explícitamente
+    // 2. Con requireLintEvidence: false -> marca SKIPPED (nunca PASSED=true) y bloquea si strict=true
     const skippedLintGate = await certify11xGate(tmpDir, {
       requireLintEvidence: false,
       execFileSyncFn: mockExecSync,
     });
-    expect(skippedLintGate.checks.lint_evidence_verified).toBe(true);
+    expect(skippedLintGate.checks.lint_evidence_verified).toBe(false);
+    expect(skippedLintGate.check_statuses?.lint_evidence_verified).toBe('SKIPPED');
+    expect(skippedLintGate.skipped_checks).toContain('lint_evidence_verified');
+    expect(skippedLintGate.gate_passed).toBe(true);
+
+    const strictSkippedGate = await certify11xGate(tmpDir, {
+      requireLintEvidence: false,
+      strict: true,
+      execFileSyncFn: mockExecSync,
+    });
+    expect(strictSkippedGate.gate_passed).toBe(false);
+    expect(strictSkippedGate.blockers).toContain('STRICT_SKIPPED_CHECK: lint_evidence_verified');
 
     // 3. Si runEphemeralQa falla -> NO graba sello
     const mockExecFail = ((
@@ -122,9 +135,27 @@ describe('Paridad Pre-Push 1:1 con CI (QA Evidence, Stages integration/ci, Dynam
     expect(invalidated.checks.lint_evidence_verified).toBe(false);
     expect(invalidated.gate_passed).toBe(false);
 
-    // 6. Ejecutar stage="ci" acredita lint, unit e integration simultáneamente
-    await runEphemeralQa(tmpDir, 'ci', 30, {
+    // 6. Ejecutar stage="ci" con 0 tests detectados retorna SKIPPED sin grabar evidencia; con tests reales acredita todo
+    const skippedCi = await runEphemeralQa(tmpDir, 'ci', 30, {
       execFileFn: mockExecPass,
+      execFileSyncFn: mockExecSync,
+    });
+    expect(skippedCi.status).toBe('SKIPPED');
+    expect(skippedCi.tests_detected).toBe(0);
+    const stillInvalidated = await certify11xGate(tmpDir, { execFileSyncFn: mockExecSync });
+    expect(stillInvalidated.checks.lint_evidence_verified).toBe(false);
+
+    const mockCiPass = ((
+      _file: string,
+      _args: readonly string[],
+      _opts: unknown,
+      cb: (err: Error | null, stdout: string, stderr: string) => void
+    ) => {
+      cb(null, 'All files | 98.00 | 95.00 | 100.0 | 98.00 |\n12 passed', '');
+    }) as unknown as typeof execFile;
+
+    await runEphemeralQa(tmpDir, 'ci', 30, {
+      execFileFn: mockCiPass,
       execFileSyncFn: mockExecSync,
     });
     const certifiedAfterCi = await certify11xGate(tmpDir, { execFileSyncFn: mockExecSync });
@@ -145,7 +176,7 @@ describe('Paridad Pre-Push 1:1 con CI (QA Evidence, Stages integration/ci, Dynam
     fs.mkdirSync(subStack, { recursive: true });
     fs.mkdirSync(path.join(tmpDir, 'subpkg'), { recursive: true });
 
-    // Caso DOCS_ONLY + artefactos ignorados -> hasDirtyCodeChanges: false + CLEAN_HEAD stamp
+    // Caso DOCS_ONLY + artefactos ignorados -> hasDirtyCodeChanges: false + status SKIPPED
     const mockDocsOnly = ((cmd: string, args?: readonly string[]) => {
       if (cmd === 'git' && args?.[0] === 'status') {
         return ' M README.md\n?? docs/arch.png\n?? graphify-out/graph.json\n?? .agents/.qa-evidence.json\n';
@@ -157,7 +188,10 @@ describe('Paridad Pre-Push 1:1 con CI (QA Evidence, Stages integration/ci, Dynam
     expect(docsState.isGitRepo).toBe(true);
     expect(docsState.hasDirtyCodeChanges).toBe(false);
     recordQaStageEvidence(subStack, 'unit', 'PASSED', mockDocsOnly);
-    expect(checkLintEvidenceForDirtyCode(subStack, mockDocsOnly).passed).toBe(true);
+    const docsLintRes = checkLintEvidenceForDirtyCode(subStack, mockDocsOnly);
+    expect(docsLintRes.passed).toBe(false);
+    expect(docsLintRes.status).toBe('SKIPPED');
+    expect(docsLintRes.blockers).toEqual([]);
 
     // Caso con rename entre comillas, directorio, archivo eliminado, >3 archivos y UNBORN_HEAD + evidencia corrupta
     fs.mkdirSync(path.join(tmpDir, '.agents'), { recursive: true });

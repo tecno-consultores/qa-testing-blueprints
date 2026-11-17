@@ -45,7 +45,7 @@ if [ "${IN_PLACE}" = true ]; then
     docker compose -f "${REPO_ROOT}/mcp-server/docker-compose.qa.yml" run --rm -T \
     -u "${CURRENT_UID}:${CURRENT_GID}" \
     -e QA_BLUEPRINTS_LOCAL_PATH=/app \
-    mcp-server bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run build && pnpm run test:example && ./example/verify-v2.sh" || rc=$?
+    mcp-server bash -c "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --silent; pnpm --silent run build && pnpm run test:example && bash ./example/verify-v2.sh" || rc=$?
   docker compose -f "${REPO_ROOT}/mcp-server/docker-compose.qa.yml" rm -sf pnpm-store-init >/dev/null 2>&1 || true
   exit "${rc}"
 fi
@@ -83,6 +83,6 @@ QA_UID="${CURRENT_UID}" QA_GID="${CURRENT_GID}" \
   docker compose -p "${CLEANROOM_PROJECT}" -f "${CLEANROOM_DIR}/mcp-server/docker-compose.qa.yml" run --rm -T \
   -u "${CURRENT_UID}:${CURRENT_GID}" \
   -e QA_BLUEPRINTS_LOCAL_PATH=/app \
-  mcp-server bash -c "pnpm install --frozen-lockfile --silent && pnpm --silent run build && pnpm run test:example && ./example/verify-v2.sh"
+  mcp-server bash -c "pnpm install --frozen-lockfile --silent && pnpm --silent run build && pnpm run test:example && bash ./example/verify-v2.sh"
 
 echo "✅ [Clean-Room E2E] Instalación limpia + compilación + 19 tools / 13 resources / quickstart / verify-v2.sh verificadas."

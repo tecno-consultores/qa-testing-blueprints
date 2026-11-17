@@ -494,8 +494,81 @@ export function parseMutation(rawLog: string): QaMutationSummary | null {
   };
 }
 
+const STATUS_PASSED = 'PASSED' as const;
+const STATUS_FAILED = 'FAILED' as const;
+const STATUS_SKIPPED = 'SKIPPED' as const;
+
+const TEST_STAGE_NAMES = new Set([
+  'integration',
+  'bdd',
+  'e2e',
+  'contracts',
+  'ci',
+  'mutation',
+  'migration',
+]);
+
+const EXPLICIT_TEST_COUNT_PATTERNS: readonly RegExp[] = [
+  /\bTests:?\s+\d+\s+failed\s*\|\s*(\d+)\s+passed\b/i,
+  /\bTests:?\s+(\d+)\s+passed\b/i,
+  /\bTests:\s*(\d+)\b/i,
+  /\bOK\s*\((\d+)\s+tests?\b/i,
+  /(?:ℹ|#)\s*tests\s+(\d+)\b/i,
+  /^\s*1\.\.(\d+)\s*$/m,
+  /\bscenarios:\s*(\d+)\b/i,
+  /\bRan\s+(\d+)\s+tests?\s+in\b/i,
+  /\b(\d+)\s+passed\b/i,
+];
+
+const ZERO_TEST_INDICATOR_PATTERNS: readonly RegExp[] = [
+  /\bcollected\s+0\s+items?\b/i,
+  /\bno tests ran\b/i,
+  /\b0\s+selected\b/i,
+  /\bno test files found\b/i,
+  /\bno tests found\b/i,
+  /\bno tests executed\b/i,
+];
+
+export interface QaTestsDetected {
+  detected: boolean;
+  count: number;
+}
+
 /**
- * Determina el estado PASSED o FAILED a partir de los datos parseados.
+ * Detecta la cantidad de pruebas ejecutadas a partir de resúmenes de pytest,
+ * Vitest, node --test, BATS, Pest/PHPUnit y Karate.
+ */
+export function parseTestsDetected(rawLog: string): QaTestsDetected {
+  const clean = stripAnsi(rawLog);
+
+  for (const pattern of EXPLICIT_TEST_COUNT_PATTERNS) {
+    const match = clean.match(pattern);
+    if (match) {
+      return { detected: true, count: parseInt(match[1], 10) };
+    }
+  }
+
+  for (const zeroPattern of ZERO_TEST_INDICATOR_PATTERNS) {
+    if (zeroPattern.test(clean)) {
+      return { detected: true, count: 0 };
+    }
+  }
+
+  const pytestCollectedMatch = clean.match(/\bcollected\s+(\d+)\s+items?\b/i);
+  if (pytestCollectedMatch) {
+    return { detected: true, count: parseInt(pytestCollectedMatch[1], 10) };
+  }
+
+  const tapOkMatches = clean.match(/^ok\s+\d+\b/gm);
+  if (tapOkMatches && tapOkMatches.length > 0) {
+    return { detected: true, count: tapOkMatches.length };
+  }
+
+  return { detected: false, count: 0 };
+}
+
+/**
+ * Determina el estado PASSED, FAILED o SKIPPED a partir de los datos parseados.
  */
 export interface EvaluateQaStatusInput {
   readonly exitCode: number;
@@ -503,27 +576,56 @@ export interface EvaluateQaStatusInput {
   readonly failedTestsCount: number;
   readonly coverage: QaCoverageSummary;
   readonly linterIssuesCount: number;
+  readonly testsDetected: QaTestsDetected;
 }
 
-function evaluateQaStatus(input: EvaluateQaStatusInput): 'PASSED' | 'FAILED' {
-  const { exitCode, stage, failedTestsCount, coverage, linterIssuesCount } = input;
+function evaluateUnitStageStatus(
+  coverage: QaCoverageSummary,
+  testsDetected: QaTestsDetected
+): 'PASSED' | 'FAILED' | 'SKIPPED' {
+  if (testsDetected.detected && testsDetected.count === 0) {
+    return STATUS_SKIPPED;
+  }
+  if (!coverage.detected || !coverage.passed) {
+    return STATUS_FAILED;
+  }
+  if (!testsDetected.detected) {
+    return STATUS_SKIPPED;
+  }
+  return STATUS_PASSED;
+}
+
+function evaluateAllStageStatus(
+  coverage: QaCoverageSummary,
+  linterIssuesCount: number,
+  testsDetected: QaTestsDetected
+): 'PASSED' | 'FAILED' | 'SKIPPED' {
+  if ((coverage.detected && !coverage.passed) || linterIssuesCount > 0) {
+    return STATUS_FAILED;
+  }
+  return !testsDetected.detected || testsDetected.count === 0 ? STATUS_SKIPPED : STATUS_PASSED;
+}
+
+function evaluateQaStatus(input: EvaluateQaStatusInput): 'PASSED' | 'FAILED' | 'SKIPPED' {
+  const { exitCode, stage, failedTestsCount, coverage, linterIssuesCount, testsDetected } = input;
   if (exitCode !== 0 || failedTestsCount > 0) {
-    return 'FAILED';
+    return STATUS_FAILED;
   }
 
-  if (stage === 'unit' && (!coverage.detected || !coverage.passed)) {
-    return 'FAILED';
+  if (stage === 'unit') {
+    return evaluateUnitStageStatus(coverage, testsDetected);
   }
-  if (stage === 'all' && coverage.detected && !coverage.passed) {
-    return 'FAILED';
+  if (stage === 'all') {
+    return evaluateAllStageStatus(coverage, linterIssuesCount, testsDetected);
+  }
+  if (stage === 'lint') {
+    return linterIssuesCount > 0 ? STATUS_FAILED : STATUS_PASSED;
+  }
+  if (TEST_STAGE_NAMES.has(stage) && (!testsDetected.detected || testsDetected.count === 0)) {
+    return STATUS_SKIPPED;
   }
 
-  const isLintStage = stage === 'lint' || stage === 'all';
-  if (isLintStage && linterIssuesCount > 0) {
-    return 'FAILED';
-  }
-
-  return 'PASSED';
+  return STATUS_PASSED;
 }
 
 /**
@@ -549,6 +651,7 @@ export function parseQaOutput(
   const linterIssues = parseLinterAndComplexity(combinedLog);
   const securityAlerts = parseSecurityAlerts(combinedLog);
   const mutationSummary = parseMutation(combinedLog);
+  const testsDetected = parseTestsDetected(combinedLog);
   const tailLog = parseTailLog(combinedLog, 15);
 
   const status = evaluateQaStatus({
@@ -557,6 +660,7 @@ export function parseQaOutput(
     failedTestsCount: failedTests.length,
     coverage,
     linterIssuesCount: linterIssues.length,
+    testsDetected,
   });
 
   return {
@@ -564,6 +668,7 @@ export function parseQaOutput(
     stage,
     exit_code: exitCode,
     duration_ms: durationMs,
+    tests_detected: testsDetected.count,
     coverage,
     failed_tests: failedTests,
     linter_and_complexity_issues: linterIssues,

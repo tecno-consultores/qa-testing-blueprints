@@ -11,10 +11,29 @@ import {
   type EvaluateUpdateOptions,
 } from '../services/version-manager.js';
 import { auditSecurityStigOwasp } from './security-auditor.js';
-import { CertifyGateResult } from '../types.js';
+import { CertifyGateResult, GateCheckStatus } from '../types.js';
+
+const GATE_STATUS_PASSED: GateCheckStatus = 'PASSED';
+const GATE_STATUS_FAILED: GateCheckStatus = 'FAILED';
+const GATE_STATUS_SKIPPED: GateCheckStatus = 'SKIPPED';
+
+interface GateCheckOutcome {
+  passed: boolean;
+  status: GateCheckStatus;
+  blockers: string[];
+}
+
+function buildCheckOutcome(status: GateCheckStatus, blockers: string[] = []): GateCheckOutcome {
+  return {
+    passed: status === GATE_STATUS_PASSED,
+    status,
+    blockers,
+  };
+}
 
 export interface CertifyGateOptions {
   requireLintEvidence?: boolean;
+  strict?: boolean;
   execFileSyncFn?: typeof execFileSync;
   updateOptions?: Partial<Omit<EvaluateUpdateOptions, 'projectPath'>>;
 }
@@ -44,9 +63,9 @@ function isDeploymentEnvTemplate(fileName: string): boolean {
   return ALLOWED_ENV_EXAMPLES.has(fileName) || ENV_VARIANT_EXAMPLE_RE.test(fileName);
 }
 
-function checkUnmergedExamples(projectPath: string): { passed: boolean; blockers: string[] } {
+function checkUnmergedExamples(projectPath: string): GateCheckOutcome {
   if (isQaTestingBlueprintsRepo(projectPath)) {
-    return { passed: true, blockers: [] };
+    return buildCheckOutcome(GATE_STATUS_PASSED);
   }
 
   const blockers: string[] = [];
@@ -59,10 +78,10 @@ function checkUnmergedExamples(projectPath: string): { passed: boolean; blockers
       }
     }
   } catch {
-    // Si no se puede leer, continuar
+    return buildCheckOutcome(GATE_STATUS_SKIPPED);
   }
 
-  return { passed: blockers.length === 0, blockers };
+  return buildCheckOutcome(blockers.length === 0 ? GATE_STATUS_PASSED : GATE_STATUS_FAILED, blockers);
 }
 
 interface JsonStringResult {
@@ -155,7 +174,23 @@ function findDuplicateKeysInText(jsonText: string): string[] {
   return duplicates;
 }
 
-function checkJsonIntegrity(projectPath: string): { passed: boolean; blockers: string[] } {
+function inspectSingleJsonFile(projectPath: string, file: string): string[] {
+  const rel = path.relative(projectPath, file);
+  const blockers: string[] = [];
+  try {
+    const text = fs.readFileSync(file, 'utf8');
+    const dups = findDuplicateKeysInText(text);
+    if (dups.length > 0) {
+      blockers.push(`Claves duplicadas detectadas en ${rel}: ${dups.join(', ')}`);
+    }
+    JSON.parse(text);
+  } catch {
+    blockers.push(`INVALID_JSON: JSON inválido o ilegible en ${rel}`);
+  }
+  return blockers;
+}
+
+function checkJsonIntegrity(projectPath: string): GateCheckOutcome {
   const blockers: string[] = [];
   const jsonFiles: string[] = [];
   const ignoredJsonDirs = new Set([
@@ -190,21 +225,15 @@ function checkJsonIntegrity(projectPath: string): { passed: boolean; blockers: s
   }
 
   collectJson(projectPath);
-
-  for (const file of jsonFiles) {
-    try {
-      const text = fs.readFileSync(file, 'utf8');
-      const dups = findDuplicateKeysInText(text);
-      if (dups.length > 0) {
-        const rel = path.relative(projectPath, file);
-        blockers.push(`Claves duplicadas detectadas en ${rel}: ${dups.join(', ')}`);
-      }
-    } catch {
-      // Si el archivo JSON no es texto o no se puede leer, omitir
-    }
+  if (jsonFiles.length === 0) {
+    return buildCheckOutcome(GATE_STATUS_SKIPPED);
   }
 
-  return { passed: blockers.length === 0, blockers };
+  for (const file of jsonFiles) {
+    blockers.push(...inspectSingleJsonFile(projectPath, file));
+  }
+
+  return buildCheckOutcome(blockers.length === 0 ? GATE_STATUS_PASSED : GATE_STATUS_FAILED, blockers);
 }
 
 function isUiTestFile(fileName: string): boolean {
@@ -265,8 +294,23 @@ function hasUnitTestForComponent(
   return false;
 }
 
-function checkOrphanUiComponents(projectPath: string): { passed: boolean; blockers: string[] } {
-  const blockers: string[] = [];
+function collectCandidateUiComponents(candidateRoots: readonly string[]): string[] {
+  const visited = new Set<string>();
+  const components: string[] = [];
+  for (const rootDir of candidateRoots) {
+    if (!fs.existsSync(rootDir)) continue;
+    for (const fullFile of collectFilesWithExtensions(rootDir, ['.vue', '.tsx', '.jsx'])) {
+      if (visited.has(fullFile)) continue;
+      visited.add(fullFile);
+      if (isUiComponentFile(path.basename(fullFile))) {
+        components.push(fullFile);
+      }
+    }
+  }
+  return components;
+}
+
+function checkOrphanUiComponents(projectPath: string): GateCheckOutcome {
   const candidateRoots = [
     path.join(projectPath, 'src', 'components'),
     path.join(projectPath, 'src', 'views'),
@@ -282,6 +326,11 @@ function checkOrphanUiComponents(projectPath: string): { passed: boolean; blocke
     path.join(projectPath, REACT_FRONTEND_DIR, 'tests'),
   ];
 
+  const components = collectCandidateUiComponents(candidateRoots);
+  if (components.length === 0) {
+    return buildCheckOutcome(GATE_STATUS_SKIPPED);
+  }
+
   const allTestFiles = Array.from(
     new Set(
       testRoots
@@ -290,22 +339,14 @@ function checkOrphanUiComponents(projectPath: string): { passed: boolean; blocke
     )
   );
   const testContentsCache = new Map<string, string>();
-  const visitedComponents = new Set<string>();
-
-  for (const rootDir of candidateRoots) {
-    if (!fs.existsSync(rootDir)) continue;
-    const files = collectFilesWithExtensions(rootDir, ['.vue', '.tsx', '.jsx']);
-    for (const fullFile of files) {
-      if (visitedComponents.has(fullFile)) continue;
-      visitedComponents.add(fullFile);
-      const base = path.basename(fullFile);
-      if (isUiComponentFile(base) && !hasUnitTestForComponent(fullFile, allTestFiles, testContentsCache)) {
-        blockers.push(`Componente UI huérfano sin prueba unitaria: ${path.relative(projectPath, fullFile)}`);
-      }
+  const blockers: string[] = [];
+  for (const compFile of components) {
+    if (!hasUnitTestForComponent(compFile, allTestFiles, testContentsCache)) {
+      blockers.push(`Componente UI huérfano sin prueba unitaria: ${path.relative(projectPath, compFile)}`);
     }
   }
 
-  return { passed: blockers.length === 0, blockers };
+  return buildCheckOutcome(blockers.length === 0 ? GATE_STATUS_PASSED : GATE_STATUS_FAILED, blockers);
 }
 
 const ARCHITECTURAL_API_WHITELIST: Array<{ verb: string; path: string }> = [
@@ -428,6 +469,43 @@ function replaceFrontendInterpolations(url: string): string {
   return withSubpath.replace(/\$\{[^}]+\}/g, 'test_param');
 }
 
+function normalizeFrontendApiUrl(raw: string): string | null {
+  let rawUrl = raw.replace(/\s+/g, '');
+  if (!rawUrl.startsWith('/api/v1') && !rawUrl.startsWith('api/v1') && !rawUrl.startsWith('/health')) {
+    return null;
+  }
+  if (!rawUrl.startsWith('/')) rawUrl = `/${rawUrl}`;
+  return stripDynamicQuerySuffix(rawUrl);
+}
+
+function extractFetchCallsFromCode(
+  code: string,
+  relFile: string
+): Array<{ verb: string; url: string; relFile: string }> {
+  const calls: Array<{ verb: string; url: string; relFile: string }> = [];
+  const fetchRegex = /\bfetch\s*\(\s*(['"`])/g;
+  let m: RegExpExecArray | null;
+  while ((m = fetchRegex.exec(code)) !== null) {
+    const quote = m[1];
+    const urlStart = m.index + m[0].length;
+    const urlEnd = code.indexOf(quote, urlStart);
+    const newlineIdx = code.indexOf('\n', urlStart);
+    if (urlEnd < 0 || (newlineIdx >= 0 && urlEnd > newlineIdx)) {
+      continue;
+    }
+    const cleanUrl = normalizeFrontendApiUrl(code.slice(urlStart, urlEnd));
+    if (!cleanUrl) continue;
+
+    const tailSlice = code.slice(urlEnd + 1, Math.min(code.length, urlEnd + 320));
+    const closeParenIdx = tailSlice.indexOf(')');
+    const optionsWindow = closeParenIdx >= 0 ? tailSlice.slice(0, closeParenIdx) : tailSlice;
+    const methodMatch = optionsWindow.match(/\bmethod\s*:\s*['"](GET|POST|PUT|PATCH|DELETE)['"]/i);
+    const verb = methodMatch ? methodMatch[1].toUpperCase() : 'GET';
+    calls.push({ verb, url: cleanUrl, relFile });
+  }
+  return calls;
+}
+
 function extractFrontendCallsFromFile(
   projectPath: string,
   filePath: string
@@ -435,18 +513,15 @@ function extractFrontendCallsFromFile(
   const calls: Array<{ verb: string; url: string; relFile: string }> = [];
   if (/\.(unit|spec|test|e2e)\.(ts|tsx|js|jsx)$/.test(filePath)) return calls;
   const code = fs.readFileSync(filePath, 'utf8');
+  const relFile = path.relative(projectPath, filePath);
   const callRegex = /\b(?:http|api|axios)\.(get|post|put|patch|delete)\b[^(\n]*\(\s*(['"`])((?:(?!\2)[^\n])+)\2/gi;
   let m: RegExpExecArray | null;
   while ((m = callRegex.exec(code)) !== null) {
-    const verb = m[1].toUpperCase();
-    let rawUrl = m[3].replace(/\s+/g, '');
-    if (!rawUrl.startsWith('/api/v1') && !rawUrl.startsWith('api/v1') && !rawUrl.startsWith('/health')) {
-      continue;
-    }
-    if (!rawUrl.startsWith('/')) rawUrl = `/${rawUrl}`;
-    const cleanUrl = stripDynamicQuerySuffix(rawUrl);
-    calls.push({ verb, url: cleanUrl, relFile: path.relative(projectPath, filePath) });
+    const cleanUrl = normalizeFrontendApiUrl(m[3]);
+    if (!cleanUrl) continue;
+    calls.push({ verb: m[1].toUpperCase(), url: cleanUrl, relFile });
   }
+  calls.push(...extractFetchCallsFromCode(code, relFile));
   return calls;
 }
 
@@ -482,7 +557,37 @@ function isBackendRouteReferenced(
   return false;
 }
 
-function checkZeroOrphanApiEndpoints(projectPath: string): { passed: boolean; blockers: string[] } {
+function collectFrontendCallBlockers(
+  frontendCalls: Array<{ verb: string; url: string; relFile: string }>,
+  allAllowedRoutes: Array<{ verb: string; path: string }>
+): string[] {
+  const blockers: string[] = [];
+  for (const call of frontendCalls) {
+    if (!matchesAnyRoute(call.verb, call.url, allAllowedRoutes)) {
+      blockers.push(
+        `Llamada HTTP huérfana en frontend hacia endpoint inexistente (404/405): [${call.verb}] ${call.url} en ${call.relFile}`
+      );
+    }
+  }
+  return blockers;
+}
+
+function collectBackendRouteBlockers(
+  backendRoutes: Array<{ verb: string; path: string; relFile: string; ignoredInParity: boolean }>,
+  frontendCalls: Array<{ verb: string; url: string }>
+): string[] {
+  const blockers: string[] = [];
+  for (const route of backendRoutes) {
+    if (!isBackendRouteReferenced(route, frontendCalls, ARCHITECTURAL_API_WHITELIST)) {
+      blockers.push(
+        `Endpoint backend huérfano sin consumidor en frontend: [${route.verb}] ${route.path} en ${route.relFile}`
+      );
+    }
+  }
+  return blockers;
+}
+
+function checkZeroOrphanApiEndpoints(projectPath: string): GateCheckOutcome {
   const backendDirs = [
     path.join(projectPath, 'fastapi', 'src'),
     path.join(projectPath, 'node-backend', 'src'),
@@ -496,6 +601,8 @@ function checkZeroOrphanApiEndpoints(projectPath: string): { passed: boolean; bl
     path.join(projectPath, 'frontend', 'src'),
   ];
 
+  const hasBackendDir = backendDirs.some((d) => fs.existsSync(d));
+  const hasFrontendDir = frontendDirs.some((d) => fs.existsSync(d));
   const backendFiles = backendDirs.flatMap((d) => collectFilesWithExtensions(d, ['.py', '.ts', '.js']));
   const frontendFiles = frontendDirs.flatMap((d) =>
     collectFilesWithExtensions(d, ['.ts', '.tsx', '.vue', '.js', '.jsx'])
@@ -504,33 +611,26 @@ function checkZeroOrphanApiEndpoints(projectPath: string): { passed: boolean; bl
   const backendRoutes = backendFiles.flatMap((f) => extractBackendRoutesFromFile(projectPath, f));
   const frontendCalls = frontendFiles.flatMap((f) => extractFrontendCallsFromFile(projectPath, f));
 
-  if (backendRoutes.length === 0 || frontendCalls.length === 0) {
-    return { passed: true, blockers: [] };
+  if (backendRoutes.length === 0 && frontendCalls.length === 0) {
+    return buildCheckOutcome(GATE_STATUS_SKIPPED);
+  }
+  if (backendRoutes.length > 0 && frontendCalls.length === 0 && !hasFrontendDir) {
+    return buildCheckOutcome(GATE_STATUS_SKIPPED);
+  }
+  if (frontendCalls.length > 0 && backendRoutes.length === 0 && !hasBackendDir) {
+    return buildCheckOutcome(GATE_STATUS_SKIPPED);
   }
 
   const allAllowedRoutes = [...backendRoutes, ...ARCHITECTURAL_API_WHITELIST];
-  const blockers: string[] = [];
+  const blockers = [
+    ...collectFrontendCallBlockers(frontendCalls, allAllowedRoutes),
+    ...collectBackendRouteBlockers(backendRoutes, frontendCalls),
+  ];
 
-  for (const call of frontendCalls) {
-    if (!matchesAnyRoute(call.verb, call.url, allAllowedRoutes)) {
-      blockers.push(
-        `Llamada HTTP huérfana en frontend hacia endpoint inexistente (404/405): [${call.verb}] ${call.url} en ${call.relFile}`
-      );
-    }
-  }
-
-  for (const route of backendRoutes) {
-    if (!isBackendRouteReferenced(route, frontendCalls, ARCHITECTURAL_API_WHITELIST)) {
-      blockers.push(
-        `Endpoint backend huérfano sin consumidor en frontend: [${route.verb}] ${route.path} en ${route.relFile}`
-      );
-    }
-  }
-
-  return { passed: blockers.length === 0, blockers };
+  return buildCheckOutcome(blockers.length === 0 ? GATE_STATUS_PASSED : GATE_STATUS_FAILED, blockers);
 }
 
-function checkOrmParity(projectPath: string): { passed: boolean; blockers: string[] } {
+function checkOrmParity(projectPath: string): GateCheckOutcome {
   const blockers: string[] = [];
   const modelPaths = [
     path.join(projectPath, 'src', 'models'),
@@ -542,22 +642,24 @@ function checkOrmParity(projectPath: string): { passed: boolean; blockers: strin
   ];
 
   const hasModels = modelPaths.some((p) => fs.existsSync(p));
-  if (hasModels) {
-    const alembicPaths = [
-      path.join(projectPath, 'alembic', 'versions'),
-      path.join(projectPath, 'migrations', 'versions'),
-      path.join(projectPath, 'fastapi', 'alembic', 'versions'),
-      path.join(projectPath, 'fastapi', 'migrations', 'versions'),
-      path.join(projectPath, 'backend', 'alembic', 'versions'),
-      path.join(projectPath, 'backend', 'migrations', 'versions'),
-    ];
-    const hasAlembic = alembicPaths.some((p) => fs.existsSync(p));
-    if (!hasAlembic) {
-      blockers.push('Modelos SQLAlchemy detectados pero no se encontró directorio alembic/versions o migrations/versions.');
-    }
+  if (!hasModels) {
+    return buildCheckOutcome(GATE_STATUS_SKIPPED);
   }
 
-  return { passed: blockers.length === 0, blockers };
+  const alembicPaths = [
+    path.join(projectPath, 'alembic', 'versions'),
+    path.join(projectPath, 'migrations', 'versions'),
+    path.join(projectPath, 'fastapi', 'alembic', 'versions'),
+    path.join(projectPath, 'fastapi', 'migrations', 'versions'),
+    path.join(projectPath, 'backend', 'alembic', 'versions'),
+    path.join(projectPath, 'backend', 'migrations', 'versions'),
+  ];
+  const hasAlembic = alembicPaths.some((p) => fs.existsSync(p));
+  if (!hasAlembic) {
+    blockers.push('Modelos SQLAlchemy detectados pero no se encontró directorio alembic/versions o migrations/versions.');
+  }
+
+  return buildCheckOutcome(blockers.length === 0 ? GATE_STATUS_PASSED : GATE_STATUS_FAILED, blockers);
 }
 
 function checkDuplicateVersionHeaders(changelogContent: string): string[] {
@@ -694,7 +796,7 @@ function inspectSingleGraphTopology(projectPath: string, gPath: string): string[
   return blockers;
 }
 
-function checkAstTopology(projectPath: string): { passed: boolean; blockers: string[] } {
+function checkAstTopology(projectPath: string): GateCheckOutcome {
   const blockers: string[] = [];
   const graphPaths = [
     path.join(projectPath, GRAPHIFY_OUT_DIR, GRAPH_JSON_FILE),
@@ -703,11 +805,16 @@ function checkAstTopology(projectPath: string): { passed: boolean; blockers: str
     path.join(projectPath, 'mcp-server', GRAPHIFY_OUT_DIR, GRAPH_JSON_FILE),
   ];
 
-  for (const gPath of graphPaths) {
+  const existingGraphs = graphPaths.filter((gPath) => fs.existsSync(gPath));
+  if (existingGraphs.length === 0) {
+    return buildCheckOutcome(GATE_STATUS_SKIPPED);
+  }
+
+  for (const gPath of existingGraphs) {
     blockers.push(...inspectSingleGraphTopology(projectPath, gPath));
   }
 
-  return { passed: blockers.length === 0, blockers };
+  return buildCheckOutcome(blockers.length === 0 ? GATE_STATUS_PASSED : GATE_STATUS_FAILED, blockers);
 }
 
 function checkManifestCryptographicParity(projectPath: string): string[] {
@@ -781,7 +888,7 @@ function checkRoadmapConsistency(projectPath: string): string[] {
   return blockers;
 }
 
-function checkDocumentationSync(projectPath: string): { passed: boolean; blockers: string[] } {
+function checkDocumentationSync(projectPath: string): GateCheckOutcome {
   const blockers: string[] = [];
   const testingMd = resolveWithParentFallback(projectPath, 'TESTING.md');
   const changelogMd = resolveWithParentFallback(projectPath, 'CHANGELOG.md');
@@ -808,7 +915,44 @@ function checkDocumentationSync(projectPath: string): { passed: boolean; blocker
   blockers.push(...checkManifestCryptographicParity(projectPath));
   blockers.push(...checkRoadmapConsistency(projectPath));
 
-  return { passed: blockers.length === 0, blockers };
+  return buildCheckOutcome(blockers.length === 0 ? GATE_STATUS_PASSED : GATE_STATUS_FAILED, blockers);
+}
+
+function collectSecurityOutcome(
+  securityAudit: Awaited<ReturnType<typeof auditSecurityStigOwasp>>
+): { secretsExposed: boolean; blockers: string[] } {
+  const blockers: string[] = [];
+  let secretsExposed = false;
+
+  for (const finding of securityAudit.findings) {
+    if (finding.rule_id === 'SEC-10') {
+      secretsExposed = true;
+      blockers.push(`Secreto detectado (${finding.file}:${finding.line}): ${finding.message}`);
+    } else if (finding.severity === 'CRITICAL' || finding.severity === 'HIGH') {
+      blockers.push(
+        `Vulnerabilidad ${finding.severity} (${finding.rule_id} en ${finding.file}:${finding.line}): ${finding.message}`
+      );
+    }
+  }
+
+  return { secretsExposed, blockers };
+}
+
+function mapCheckStatusesToBooleans(
+  checkStatuses: Record<string, GateCheckStatus>
+): CertifyGateResult['checks'] {
+  return {
+    zero_unmerged_examples: checkStatuses.zero_unmerged_examples === GATE_STATUS_PASSED,
+    zero_secrets_exposed: checkStatuses.zero_secrets_exposed === GATE_STATUS_PASSED,
+    json_integrity: checkStatuses.json_integrity === GATE_STATUS_PASSED,
+    zero_orphan_ui_components: checkStatuses.zero_orphan_ui_components === GATE_STATUS_PASSED,
+    zero_orphan_api_endpoints: checkStatuses.zero_orphan_api_endpoints === GATE_STATUS_PASSED,
+    orm_alembic_parity: checkStatuses.orm_alembic_parity === GATE_STATUS_PASSED,
+    ast_topology_clean: checkStatuses.ast_topology_clean === GATE_STATUS_PASSED,
+    lint_evidence_verified: checkStatuses.lint_evidence_verified === GATE_STATUS_PASSED,
+    security_stig_owasp_clean: checkStatuses.security_stig_owasp_clean === GATE_STATUS_PASSED,
+    documentation_synced: checkStatuses.documentation_synced === GATE_STATUS_PASSED,
+  };
 }
 
 /**
@@ -822,6 +966,7 @@ export async function certify11xGate(
 ): Promise<CertifyGateResult> {
   const resolvedPath = path.resolve(projectPath);
   const requireLint = options?.requireLintEvidence ?? true;
+  const strict = options?.strict ?? false;
 
   const unmerged = checkUnmergedExamples(resolvedPath);
   const jsonCheck = checkJsonIntegrity(resolvedPath);
@@ -829,23 +974,33 @@ export async function certify11xGate(
   const orphanApi = checkZeroOrphanApiEndpoints(resolvedPath);
   const ormCheck = checkOrmParity(resolvedPath);
   const astTopology = checkAstTopology(resolvedPath);
-  const lintEvidence = requireLint
+  const lintEvidence: GateCheckOutcome = requireLint
     ? checkLintEvidenceForDirtyCode(resolvedPath, options?.execFileSyncFn)
-    : { passed: true, blockers: [] };
+    : buildCheckOutcome(GATE_STATUS_SKIPPED);
   const docCheck = checkDocumentationSync(resolvedPath);
 
   const securityAudit = await auditSecurityStigOwasp(resolvedPath);
-  const securityBlockers: string[] = [];
-  let secretsExposed = false;
+  const { secretsExposed, blockers: securityBlockers } = collectSecurityOutcome(securityAudit);
 
-  for (const finding of securityAudit.findings) {
-    if (finding.rule_id === 'SEC-10') {
-      secretsExposed = true;
-      securityBlockers.push(`Secreto detectado (${finding.file}:${finding.line}): ${finding.message}`);
-    } else if (finding.severity === 'CRITICAL' || finding.severity === 'HIGH') {
-      securityBlockers.push(`Vulnerabilidad ${finding.severity} (${finding.rule_id} en ${finding.file}:${finding.line}): ${finding.message}`);
-    }
-  }
+  const checkStatuses: Record<string, GateCheckStatus> = {
+    zero_unmerged_examples: unmerged.status,
+    zero_secrets_exposed: secretsExposed ? GATE_STATUS_FAILED : GATE_STATUS_PASSED,
+    json_integrity: jsonCheck.status,
+    zero_orphan_ui_components: orphanUi.status,
+    zero_orphan_api_endpoints: orphanApi.status,
+    orm_alembic_parity: ormCheck.status,
+    ast_topology_clean: astTopology.status,
+    lint_evidence_verified: lintEvidence.status,
+    security_stig_owasp_clean: securityAudit.passed ? GATE_STATUS_PASSED : GATE_STATUS_FAILED,
+    documentation_synced: docCheck.status,
+  };
+
+  const skippedChecks = Object.entries(checkStatuses)
+    .filter(([, status]) => status === GATE_STATUS_SKIPPED)
+    .map(([key]) => key);
+  const strictBlockers = strict
+    ? skippedChecks.map((key) => `STRICT_SKIPPED_CHECK: ${key}`)
+    : [];
 
   const allBlockers = [
     ...unmerged.blockers,
@@ -857,21 +1012,10 @@ export async function certify11xGate(
     ...lintEvidence.blockers,
     ...securityBlockers,
     ...docCheck.blockers,
+    ...strictBlockers,
   ];
 
-  const checks = {
-    zero_unmerged_examples: unmerged.passed,
-    zero_secrets_exposed: !secretsExposed,
-    json_integrity: jsonCheck.passed,
-    zero_orphan_ui_components: orphanUi.passed,
-    zero_orphan_api_endpoints: orphanApi.passed,
-    orm_alembic_parity: ormCheck.passed,
-    ast_topology_clean: astTopology.passed,
-    lint_evidence_verified: lintEvidence.passed,
-    security_stig_owasp_clean: securityAudit.passed,
-    documentation_synced: docCheck.passed,
-  };
-
+  const checks = mapCheckStatusesToBooleans(checkStatuses);
   const gatePassed = allBlockers.length === 0;
   const updateAvailable = await evaluateUpdateStatus({
     projectPath: resolvedPath,
@@ -882,6 +1026,8 @@ export async function certify11xGate(
     gate_passed: gatePassed,
     project_path: resolvedPath,
     checks,
+    check_statuses: checkStatuses,
+    skipped_checks: skippedChecks,
     blockers: allBlockers,
     upstream_evolution_reminder:
       'MANDATORY POST-MORTEM CHECK: If this fixed a UAT/prod bug that bypassed tests, present "💡 Oportunidad de Mejora Detectada para el Estándar QA 11X" in Spanish and invoke propose_skill_evolution_pr.',

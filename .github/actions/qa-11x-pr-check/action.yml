@@ -45,7 +45,7 @@ outputs:
     description: 'Estimated CI compute savings percentage'
     value: ${{ steps.blast-radius-plan.outputs.estimated-savings-pct }}
   verdict:
-    description: 'Final proportional gate verdict (PASS | FAIL)'
+    description: 'Final proportional gate verdict (PASS | FAIL | SKIPPED)'
     value: ${{ steps.run-proportional-gates.outputs.verdict }}
 
 runs:
@@ -180,6 +180,46 @@ runs:
         set -euo pipefail
         cd "${INPUT_WORKDIR}"
 
+        SKIPPED_GATES=0
+        FINAL_VERDICT=""
+        CERTIFY_LOG=""
+        SUMMARY_FILE="${GITHUB_STEP_SUMMARY:-/tmp/qa11x-step-summary.md}"
+
+        write_gate_verdict() {
+          local rc=$?
+          trap - EXIT
+          local verdict="${FINAL_VERDICT}"
+          if [ "${rc}" -ne 0 ]; then
+            verdict="FAIL"
+          elif [ -z "${verdict}" ]; then
+            if [ "${SKIPPED_GATES}" -gt 0 ]; then
+              verdict="SKIPPED"
+            else
+              verdict="PASS"
+            fi
+          fi
+          {
+            echo "### QA-11X PR-Aware Check (${INPUT_TIER})"
+            echo ""
+            echo "| Metric | Value |"
+            echo "| :--- | :--- |"
+            echo "| Tier | \`${INPUT_TIER}\` |"
+            echo "| Lang | \`${INPUT_LANG}\` |"
+            echo "| Blast Plan | \`${BLAST_PLAN_TIER:-pr-targeted}\` |"
+            echo "| Est. Savings | \`${SAVINGS_PCT:-50}%\` |"
+            echo "| Skipped Gates | \`${SKIPPED_GATES}\` |"
+            echo "| Verdict | **${verdict}** |"
+          } >> "${SUMMARY_FILE}"
+          if [ -n "${GITHUB_OUTPUT:-}" ]; then
+            printf 'verdict=%s\n' "${verdict}" >> "${GITHUB_OUTPUT}"
+          fi
+          if [ -n "${CERTIFY_LOG}" ]; then
+            rm -f "${CERTIFY_LOG}" 2>/dev/null || true
+          fi
+          exit "${rc}"
+        }
+        trap write_gate_verdict EXIT
+
         if [ ! -f ".qa-11x.json" ] && [ ! -f "AGENTS.md" ]; then
           echo "::warning::Neither .qa-11x.json nor AGENTS.md was found; run 'npx @sinfallas/mcp-qa-11x quickstart'."
         fi
@@ -242,14 +282,23 @@ runs:
             if [ -f "Makefile" ] && grep -q '^lint:' Makefile; then
               make lint
             elif [ -f "package.json" ] && grep -q '"lint"' package.json; then
+              LINT_RC=0
               docker run --rm \
                 -u "$(id -u):$(id -g)" \
                 -e HOME=/tmp \
                 -v "$(pwd):/app" \
                 -w /app \
                 "${INPUT_NODE_IMAGE}" \
-                sh -c '[ -d node_modules/.bin ] && npm run lint || echo "ℹ Skipping npm lint without installed node_modules"'
+                sh -c 'if [ -d node_modules/.bin ]; then npm run lint || exit 1; else echo "⚠️ [SKIPPED] npm lint omitted (no node_modules)"; exit 20; fi' || LINT_RC=$?
+              if [ "${LINT_RC}" -eq 20 ]; then
+                SKIPPED_GATES=$((SKIPPED_GATES + 1))
+              elif [ "${LINT_RC}" -ne 0 ]; then
+                exit "${LINT_RC}"
+              fi
             fi
+          else
+            echo "⚠️ [SKIPPED] Code gates omitted for docs-only blast plan."
+            SKIPPED_GATES=$((SKIPPED_GATES + 1))
           fi
         fi
 
@@ -260,26 +309,19 @@ runs:
             ./.agents/scripts/validate_calm_architecture.sh
           fi
 
+          CERTIFY_LOG="$(mktemp /tmp/qa11x-certify.XXXXXX.log)"
           if [ -f "Makefile" ] && grep -q '^certify:' Makefile; then
-            make certify
+            make certify 2>&1 | tee "${CERTIFY_LOG}"
           elif [ -x ".agents/scripts/certify_task_completion.sh" ]; then
-            ./.agents/scripts/certify_task_completion.sh
+            ./.agents/scripts/certify_task_completion.sh 2>&1 | tee "${CERTIFY_LOG}"
+          fi
+          if grep -qE '[1-9][0-9]* SKIPPED' "${CERTIFY_LOG}" 2>/dev/null; then
+            SKIPPED_GATES=$((SKIPPED_GATES + 1))
           fi
         fi
 
-        SUMMARY_FILE="${GITHUB_STEP_SUMMARY:-/tmp/qa11x-step-summary.md}"
-        {
-          echo "### QA-11X PR-Aware Check (${INPUT_TIER})"
-          echo ""
-          echo "| Metric | Value |"
-          echo "| :--- | :--- |"
-          echo "| Tier | \`${INPUT_TIER}\` |"
-          echo "| Lang | \`${INPUT_LANG}\` |"
-          echo "| Blast Plan | \`${BLAST_PLAN_TIER:-pr-targeted}\` |"
-          echo "| Est. Savings | \`${SAVINGS_PCT:-50}%\` |"
-          echo "| Verdict | **PASS** |"
-        } >> "${SUMMARY_FILE}"
-
-        if [ -n "${GITHUB_OUTPUT:-}" ]; then
-          printf 'verdict=PASS\n' >> "${GITHUB_OUTPUT}"
+        if [ "${SKIPPED_GATES}" -gt 0 ]; then
+          FINAL_VERDICT="SKIPPED"
+        else
+          FINAL_VERDICT="PASS"
         fi

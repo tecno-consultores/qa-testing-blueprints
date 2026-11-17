@@ -5,7 +5,7 @@
 # Registro de Tarea Activa: [ID-TAREA]
 **Fecha:** AAAA-MM-DD | **Tarea:** `TASK-11X` | **Rama:** `main@0000000` | **Estado:** IN_PROGRESS
 **Objetivo Activo (`F1`):** [Intención concisa <= 140 caracteres vía session_flight_recorder / checkpoint_ctl.py]
-**Última Telemetría:** `certify_task_completion` (`rc=0`, `AAAA-MM-DDTHH:MM:SSZ`) — [PASS] 10/10 gates OK
+**Última Telemetría:** `certify_task_completion` (`rc=0`, `AAAA-MM-DDTHH:MM:SSZ`) — [PASS] CERTIFY-STATE | 10/10 PASS, 0 SKIPPED, 0 FAIL
 
 ## 📋 Progreso Atómico
 - [x] F0 — Radio de impacto AST (`inspect_ast_blast_radius`)

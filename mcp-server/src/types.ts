@@ -185,6 +185,13 @@ export const CertifyGateInputSchema = z.object({
     .describe(
       'When true (default), requires recent run_ephemeral_qa(stage=\'lint\') evidence if git working tree contains code modifications.'
     ),
+  strict: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe(
+      'When true, treats any SKIPPED check (zero targets or skipped lint evidence) as a gate blocker.'
+    ),
 });
 export type CertifyGateInput = z.infer<typeof CertifyGateInputSchema>;
 
@@ -441,11 +448,14 @@ export interface QaCircuitBreakerAlert {
   blocking_findings: QaTrackedFindingSummary[];
 }
 
+export type GateCheckStatus = 'PASSED' | 'FAILED' | 'SKIPPED';
+
 export interface QaExecutionResult {
   status: 'PASSED' | 'FAILED' | 'SKIPPED';
   stage: string;
   exit_code: number;
   duration_ms: number;
+  tests_detected?: number;
   coverage: QaCoverageSummary;
   failed_tests: QaFailedTest[];
   linter_and_complexity_issues: QaLinterIssue[];
@@ -470,6 +480,8 @@ export interface CertifyGateResult {
     security_stig_owasp_clean: boolean;
     documentation_synced: boolean;
   };
+  check_statuses?: Record<string, GateCheckStatus>;
+  skipped_checks?: string[];
   blockers: string[];
   upstream_evolution_reminder?: string;
   update_available?: UpdateAvailabilityInfo;

@@ -4,8 +4,11 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import type { execFileSync } from 'child_process';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { certify11xGate } from '../src/tools/certify-gate.js';
+import { recordQaStageEvidence } from '../src/services/qa-evidence.js';
+import { CertifyGateInputSchema } from '../src/types.js';
 
 describe('certify-gate', () => {
   let tempDir: string;
@@ -49,6 +52,15 @@ describe('certify-gate', () => {
     expect(result.checks.orm_alembic_parity).toBe(true);
     expect(result.checks.security_stig_owasp_clean).toBe(true);
     expect(result.checks.documentation_synced).toBe(true);
+    expect(result.checks.zero_orphan_api_endpoints).toBe(false);
+    expect(result.checks.ast_topology_clean).toBe(false);
+    expect(result.checks.lint_evidence_verified).toBe(false);
+    expect(result.check_statuses?.zero_orphan_api_endpoints).toBe('SKIPPED');
+    expect(result.check_statuses?.ast_topology_clean).toBe('SKIPPED');
+    expect(result.check_statuses?.lint_evidence_verified).toBe('SKIPPED');
+    expect(result.skipped_checks).toEqual(
+      expect.arrayContaining(['zero_orphan_api_endpoints', 'ast_topology_clean', 'lint_evidence_verified'])
+    );
     expect(result.blockers.length).toBe(0);
   });
 
@@ -306,5 +318,192 @@ describe('certify-gate', () => {
     );
     const res = await certify11xGate(tempDir);
     expect(res.blockers.every((b) => !b.includes('session_checkpoint.json'))).toBe(true);
+  });
+
+  it('F1.9: bloquea en modo fail-closed ante JSON sintácticamente corrupto o ilegible y marca SKIPPED si no hay JSON', async () => {
+    setupNominalProject(tempDir);
+    fs.writeFileSync(path.join(tempDir, 'corrupt.json'), '{ "broken": true, }', 'utf8');
+    fs.writeFileSync(path.join(tempDir, 'broken.json.example'), '{"unclosed": [1, 2', 'utf8');
+
+    const corruptRes = await certify11xGate(tempDir);
+    expect(corruptRes.gate_passed).toBe(false);
+    expect(corruptRes.checks.json_integrity).toBe(false);
+    expect(corruptRes.check_statuses?.json_integrity).toBe('FAILED');
+    expect(corruptRes.blockers.some((b) => b.includes('INVALID_JSON:') && b.includes('corrupt.json'))).toBe(true);
+    expect(corruptRes.blockers.some((b) => b.includes('INVALID_JSON:') && b.includes('broken.json.example'))).toBe(true);
+
+    // Archivo JSON ilegible (sin permisos de lectura) también falla fail-closed
+    fs.rmSync(path.join(tempDir, 'corrupt.json'));
+    fs.rmSync(path.join(tempDir, 'broken.json.example'));
+    const unreadableJson = path.join(tempDir, 'unreadable.json');
+    fs.writeFileSync(unreadableJson, '{"ok": true}', 'utf8');
+    fs.chmodSync(unreadableJson, 0o000);
+    try {
+      const unreadableRes = await certify11xGate(tempDir);
+      expect(unreadableRes.gate_passed).toBe(false);
+      expect(unreadableRes.check_statuses?.json_integrity).toBe('FAILED');
+      expect(unreadableRes.blockers.some((b) => b.includes('INVALID_JSON:') && b.includes('unreadable.json'))).toBe(true);
+    } finally {
+      fs.chmodSync(unreadableJson, 0o644);
+    }
+
+    // Sin ningún .json ni .json.example -> SKIPPED (nunca PASSED)
+    fs.rmSync(unreadableJson);
+    fs.rmSync(path.join(tempDir, 'package.json'));
+    const noJsonRes = await certify11xGate(tempDir);
+    expect(noJsonRes.checks.json_integrity).toBe(false);
+    expect(noJsonRes.check_statuses?.json_integrity).toBe('SKIPPED');
+    expect(noJsonRes.skipped_checks).toContain('json_integrity');
+    expect(noJsonRes.gate_passed).toBe(true);
+  });
+
+  it('F1.6/F1.7: en modo strict=true convierte checks SKIPPED en blockers y pasa cuando todos los 10 checks tienen targets', async () => {
+    expect(CertifyGateInputSchema.parse({ project_path: tempDir }).strict).toBe(false);
+    expect(CertifyGateInputSchema.parse({ project_path: tempDir, strict: true }).strict).toBe(true);
+
+    setupNominalProject(tempDir);
+    const strictBlocked = await certify11xGate(tempDir, { strict: true });
+    expect(strictBlocked.gate_passed).toBe(false);
+    expect(strictBlocked.blockers).toEqual(
+      expect.arrayContaining([
+        'STRICT_SKIPPED_CHECK: zero_orphan_api_endpoints',
+        'STRICT_SKIPPED_CHECK: ast_topology_clean',
+        'STRICT_SKIPPED_CHECK: lint_evidence_verified',
+      ])
+    );
+
+    // Completar targets restantes para los 10 checks: API bidireccional, AST graph y lint evidence
+    fs.mkdirSync(path.join(tempDir, 'fastapi', 'src', 'api', 'v1'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tempDir, 'fastapi', 'src', 'api', 'v1', 'items.py'),
+      'router = APIRouter(prefix="/items")\n@router.get("")\nasync def list_items():\n    return []\n',
+      'utf8'
+    );
+    fs.mkdirSync(path.join(tempDir, 'vue3', 'src', 'views'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tempDir, 'vue3', 'src', 'views', 'Items.vue'),
+      '<script setup>http.get("/api/v1/items");</script>\n',
+      'utf8'
+    );
+    fs.writeFileSync(path.join(tempDir, 'vue3', 'src', 'views', 'Items.unit.ts'), '// test\n', 'utf8');
+    fs.mkdirSync(path.join(tempDir, 'graphify-out'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tempDir, 'graphify-out', 'graph.json'),
+      JSON.stringify({ nodes: [{ id: 'a', source_file: 'src/app.py' }], links: [] }),
+      'utf8'
+    );
+    fs.mkdirSync(path.join(tempDir, '.git'), { recursive: true });
+    const mockGit = ((cmd: string, args?: readonly string[]) => {
+      if (cmd === 'git' && args?.[0] === 'status') return ' M src/models/user.py\n';
+      if (cmd === 'git' && args?.[0] === 'rev-parse') return 'abc123\n';
+      return '';
+    }) as unknown as typeof execFileSync;
+    recordQaStageEvidence(tempDir, 'lint', 'PASSED', mockGit);
+
+    const strictPassed = await certify11xGate(tempDir, { strict: true, execFileSyncFn: mockGit });
+    expect(strictPassed.gate_passed).toBe(true);
+    expect(strictPassed.skipped_checks).toEqual([]);
+    expect(Object.values(strictPassed.check_statuses ?? {}).every((s) => s === 'PASSED')).toBe(true);
+  });
+
+  it('F1.6/F1.7: detecta endpoints backend huérfanos cuando existe directorio frontend con 0 llamadas API y omite solo en mono-layer real', async () => {
+    setupNominalProject(tempDir);
+    fs.mkdirSync(path.join(tempDir, 'fastapi', 'src', 'api', 'v1'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tempDir, 'fastapi', 'src', 'api', 'v1', 'orders.py'),
+      'router = APIRouter(prefix="/orders")\n@router.get("")\nasync def list_orders():\n    return []\n',
+      'utf8'
+    );
+
+    // Sin frontend dir -> mono-layer backend -> SKIPPED (no false PASSED)
+    const monoBackendRes = await certify11xGate(tempDir);
+    expect(monoBackendRes.checks.zero_orphan_api_endpoints).toBe(false);
+    expect(monoBackendRes.check_statuses?.zero_orphan_api_endpoints).toBe('SKIPPED');
+    expect(monoBackendRes.skipped_checks).toContain('zero_orphan_api_endpoints');
+    expect(monoBackendRes.gate_passed).toBe(true);
+
+    // Con vue3/src existente en disco y 0 llamadas API -> FAILED (anti-mono-layer pitfall)
+    fs.mkdirSync(path.join(tempDir, 'vue3', 'src', 'views'), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, 'vue3', 'src', 'views', 'Empty.vue'), '<template><div/></template>', 'utf8');
+    fs.writeFileSync(path.join(tempDir, 'vue3', 'src', 'views', 'Empty.unit.ts'), '// unit', 'utf8');
+
+    const fullstackOrphanRes = await certify11xGate(tempDir);
+    expect(fullstackOrphanRes.gate_passed).toBe(false);
+    expect(fullstackOrphanRes.checks.zero_orphan_api_endpoints).toBe(false);
+    expect(fullstackOrphanRes.check_statuses?.zero_orphan_api_endpoints).toBe('FAILED');
+    expect(
+      fullstackOrphanRes.blockers.some((b) => b.includes('Endpoint backend huérfano') && b.includes('/api/v1/orders'))
+    ).toBe(true);
+
+    // Con directorio backend existente (0 rutas) y frontend haciendo llamadas API -> FAILED
+    fs.writeFileSync(
+      path.join(tempDir, 'fastapi', 'src', 'api', 'v1', 'orders.py'),
+      '# sin rutas\n',
+      'utf8'
+    );
+    fs.writeFileSync(
+      path.join(tempDir, 'vue3', 'src', 'views', 'Empty.vue'),
+      '<script setup>http.get("/api/v1/ghost");</script>',
+      'utf8'
+    );
+    const ghostCallRes = await certify11xGate(tempDir);
+    expect(ghostCallRes.check_statuses?.zero_orphan_api_endpoints).toBe('FAILED');
+    expect(ghostCallRes.blockers.some((b) => b.includes('Llamada HTTP huérfana') && b.includes('/api/v1/ghost'))).toBe(
+      true
+    );
+
+    // Sin backend dir (mono-layer frontend) -> SKIPPED
+    fs.rmSync(path.join(tempDir, 'fastapi'), { recursive: true, force: true });
+    const monoFrontendRes = await certify11xGate(tempDir);
+    expect(monoFrontendRes.check_statuses?.zero_orphan_api_endpoints).toBe('SKIPPED');
+    expect(monoFrontendRes.checks.zero_orphan_api_endpoints).toBe(false);
+  });
+
+  it('F1.6: empareja llamadas nativas fetch() con método implícito GET y método explícito POST', async () => {
+    setupNominalProject(tempDir);
+    fs.mkdirSync(path.join(tempDir, 'fastapi', 'src', 'api', 'v1'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tempDir, 'fastapi', 'src', 'api', 'v1', 'devices.py'),
+      [
+        'router = APIRouter(prefix="/devices")',
+        '@router.get("")',
+        'async def list_devices():',
+        '    return []',
+        '@router.post("")',
+        'async def create_device():',
+        '    return {}',
+      ].join('\n'),
+      'utf8'
+    );
+    fs.mkdirSync(path.join(tempDir, 'frontend', 'src', 'api'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tempDir, 'frontend', 'src', 'api', 'devicesClient.ts'),
+      [
+        'export async function load() { return fetch(`/api/v1/devices${q ? "?refresh=true" : ""}`); }',
+        "export async function save(body: string) { return fetch('/api/v1/devices', {\n  method: 'POST',\n  body,\n}); }",
+      ].join('\n'),
+      'utf8'
+    );
+
+    const res = await certify11xGate(tempDir, { requireLintEvidence: false });
+    expect(res.check_statuses?.zero_orphan_api_endpoints).toBe('PASSED');
+    expect(res.checks.zero_orphan_api_endpoints).toBe(true);
+    expect(res.blockers).toEqual([]);
+
+    // Cobertura de rama: fetch sin comilla de cierre en la misma línea y ruta inexistente en checkUnmergedExamples
+    fs.writeFileSync(
+      path.join(tempDir, 'frontend', 'src', 'api', 'devicesClient.ts'),
+      [
+        "const bad = fetch('/api/v1/broken",
+        "export async function load() { return fetch('/api/v1/devices'); }",
+        "export async function save(body: string) { return fetch('/api/v1/devices', { method: 'POST', body }); }",
+      ].join('\n'),
+      'utf8'
+    );
+    const partialFetchRes = await certify11xGate(tempDir, { requireLintEvidence: false });
+    expect(partialFetchRes.check_statuses?.zero_orphan_api_endpoints).toBe('PASSED');
+
+    const missingDirRes = await certify11xGate(path.join(tempDir, 'does-not-exist'), { requireLintEvidence: false });
+    expect(missingDirRes.check_statuses?.zero_unmerged_examples).toBe('SKIPPED');
   });
 });

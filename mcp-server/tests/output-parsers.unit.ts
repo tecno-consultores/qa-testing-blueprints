@@ -10,6 +10,7 @@ import {
   parseLinterAndComplexity,
   parseSecurityAlerts,
   parseMutation,
+  parseTestsDetected,
   parseQaOutput,
 } from '../src/parsers/output-parsers.js';
 
@@ -314,6 +315,80 @@ src/Services/PaymentService.php:54:Call to an undefined method PaymentService::p
       expect(result.status).toBe('FAILED');
       expect(result.exit_code).toBe(1);
       expect(result.failed_tests.length).toBe(1);
+    });
+
+    it('F1.8: devuelve SKIPPED cuando se detectan 0 pruebas en unit, integration, bdd, e2e, contracts, ci, mutation, migration y all', () => {
+      const unitZero = parseQaOutput('collected 0 items\n=== no tests ran in 0.01s ===', '', 'unit', { exitCode: 0 });
+      expect(unitZero.status).toBe('SKIPPED');
+      expect(unitZero.tests_detected).toBe(0);
+
+      const unitCovOnly = parseQaOutput('All files | 98.00 | 95.00 | 100.0 | 98.00 |', '', 'unit', { exitCode: 0 });
+      expect(unitCovOnly.status).toBe('SKIPPED');
+      expect(unitCovOnly.tests_detected).toBe(0);
+
+      const unitNoCov = parseQaOutput('Tests passed with no coverage table', '', 'unit', { exitCode: 0 });
+      expect(unitNoCov.status).toBe('FAILED');
+
+      for (const stage of ['integration', 'bdd', 'e2e', 'contracts', 'ci', 'mutation', 'migration', 'all']) {
+        const res = parseQaOutput('No test files found', '', stage, { exitCode: 0 });
+        expect(res.status).toBe('SKIPPED');
+        expect(res.tests_detected).toBe(0);
+      }
+
+      const emptyStageRes = parseQaOutput('echo ok', '', 'integration', { exitCode: 0 });
+      expect(emptyStageRes.status).toBe('SKIPPED');
+
+      const passedIntegration = parseQaOutput('12 passed in 1.2s', '', 'integration', { exitCode: 0 });
+      expect(passedIntegration.status).toBe('PASSED');
+      expect(passedIntegration.tests_detected).toBe(12);
+
+      const passedAll = parseQaOutput('All files | 97.00 | 94.00 | 96.00 | 97.00 |\nTests  15 passed (15)', '', 'all', { exitCode: 0 });
+      expect(passedAll.status).toBe('PASSED');
+      expect(passedAll.tests_detected).toBe(15);
+
+      const lintAll = parseQaOutput('src/foo.py:1:1: F401 unused import', '', 'all', { exitCode: 0 });
+      expect(lintAll.status).toBe('FAILED');
+
+      const lintPass = parseQaOutput('eslint clean', '', 'lint', { exitCode: 0 });
+      expect(lintPass.status).toBe('PASSED');
+
+      const securityPass = parseQaOutput('no security findings', '', 'security', { exitCode: 0 });
+      expect(securityPass.status).toBe('PASSED');
+    });
+  });
+
+  describe('parseTestsDetected', () => {
+    it('soporta pytest, vitest, node --test, BATS, Pest/PHPUnit y Karate', () => {
+      expect(parseTestsDetected('collected 14 items\n14 passed in 0.4s')).toEqual({ detected: true, count: 14 });
+      expect(parseTestsDetected('collected 0 items')).toEqual({ detected: true, count: 0 });
+      expect(parseTestsDetected('collected 5 items\n5 deselected\nno tests ran')).toEqual({ detected: true, count: 0 });
+      expect(parseTestsDetected('collected 3 items')).toEqual({ detected: true, count: 3 });
+
+      expect(parseTestsDetected('Test Files  3 passed (3)\nTests  25 passed (25)')).toEqual({ detected: true, count: 25 });
+      expect(parseTestsDetected('Tests  2 failed | 18 passed (20)')).toEqual({ detected: true, count: 18 });
+      expect(parseTestsDetected('Tests  0 passed (0)')).toEqual({ detected: true, count: 0 });
+      expect(parseTestsDetected('No test files found')).toEqual({ detected: true, count: 0 });
+
+      expect(parseTestsDetected('ℹ tests 12\nℹ pass 12')).toEqual({ detected: true, count: 12 });
+      expect(parseTestsDetected('# tests 9\n# pass 9')).toEqual({ detected: true, count: 9 });
+      expect(parseTestsDetected('ℹ tests 0')).toEqual({ detected: true, count: 0 });
+
+      expect(parseTestsDetected('1..8\nok 1 - test a')).toEqual({ detected: true, count: 8 });
+      expect(parseTestsDetected('1..0')).toEqual({ detected: true, count: 0 });
+      expect(parseTestsDetected('ok 1 - check\nok 2 - check')).toEqual({ detected: true, count: 2 });
+
+      expect(parseTestsDetected('Tests: 14, Assertions: 30')).toEqual({ detected: true, count: 14 });
+      expect(parseTestsDetected('OK (11 tests, 22 assertions)')).toEqual({ detected: true, count: 11 });
+      expect(parseTestsDetected('Tests:  0 passed')).toEqual({ detected: true, count: 0 });
+      expect(parseTestsDetected('No tests executed!')).toEqual({ detected: true, count: 0 });
+
+      expect(parseTestsDetected('scenarios: 39 | passed: 39 | failed: 0')).toEqual({ detected: true, count: 39 });
+      expect(parseTestsDetected('scenarios:  0 | passed:  0 | failed:  0')).toEqual({ detected: true, count: 0 });
+
+      expect(parseTestsDetected('Ran 2 tests in 0.000s\nOK')).toEqual({ detected: true, count: 2 });
+      expect(parseTestsDetected('Ran 0 tests in 0.000s\nOK')).toEqual({ detected: true, count: 0 });
+
+      expect(parseTestsDetected('salida generica sin resumen')).toEqual({ detected: false, count: 0 });
     });
   });
 });

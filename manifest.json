@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "3.0.0",
-  "generated_at_utc": "2026-11-17T01:00:41Z",
+  "generated_at_utc": "2026-11-17T02:33:31Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -698,8 +698,8 @@
       "path": ".trivy.yaml",
       "target_name": ".trivy.yaml",
       "merge_strategy": "copy_if_missing",
-      "sha256": "b824602d27833acce3903f339f274cd43a91aea0fd3b5a24a84886388f546cec",
-      "size_bytes": 970
+      "sha256": "3ad9c1e8c290d87269079e343ee8e01e317a832a207405d26ed21cad960558a9",
+      "size_bytes": 896
     },
     {
       "path": "commitlint.config.js",
@@ -726,8 +726,8 @@
       "path": "scripts/auditar-infra.sh",
       "target_name": "scripts/auditar-infra.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "ff099a069d78df9f57858134d32a3f2684dd78fadd573d146a6d0aa5d935f4e0",
-      "size_bytes": 6896
+      "sha256": "8d8d475021824d034a0a75ac1f610853953a8cbd185b86fa8c8105c1044e7d16",
+      "size_bytes": 7147
     },
     {
       "path": "scripts/auditar-pagespeed.sh",
@@ -763,8 +763,8 @@
       "path": ".agents/ACTIVE_TASK.md.example",
       "target_name": ".agents/ACTIVE_TASK.md",
       "merge_strategy": "copy_if_missing",
-      "sha256": "259b2f699884c3e4cea714be8ae8a8ae97792780379d8c8c6fded213da99c841",
-      "size_bytes": 879
+      "sha256": "78890f7ade16ed970b2b97f39668d63b5623d11dc93d87b7081d2157c9881121",
+      "size_bytes": 910
     },
     {
       "path": ".agents/README.md",
@@ -854,8 +854,8 @@
       "path": ".agents/scripts/certify_task_completion.sh",
       "target_name": ".agents/scripts/certify_task_completion.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "71847977b62d87c26974e1f0c0d40191deecc5078390fd7086e347b9d6aa4881",
-      "size_bytes": 20397
+      "sha256": "cb85fa4c3dcabd865b4e5d2af8a11e91fa7c52f8d0e03c7f306280a68e371ac5",
+      "size_bytes": 23009
     },
     {
       "path": ".agents/scripts/checkpoint_ctl.py",
@@ -931,8 +931,8 @@
       "path": ".agents/scripts/verify_alembic_orm_parity.py",
       "target_name": ".agents/scripts/verify_alembic_orm_parity.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "8324dbb2a173e51db90ee765e0e41e166153b32add201f717813a13e336b8438",
-      "size_bytes": 5870
+      "sha256": "74e700304c2305ba046ad7c2ba715ceb1c9f968fa88c82a2696b91c5a2482770",
+      "size_bytes": 7111
     },
     {
       "path": ".agents/scripts/verify_diff_coverage.py",
@@ -959,8 +959,8 @@
       "path": ".agents/scripts/verify_no_orphan_api_endpoints.py",
       "target_name": ".agents/scripts/verify_no_orphan_api_endpoints.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "1c6a63511934a10bb2f506a81d8b7e17087fa625deda55099376dfb0e733d40e",
-      "size_bytes": 13838
+      "sha256": "bbb485acb47f0799396e29ae28d507918edf66afa4600e4e5bc662595fd75ee1",
+      "size_bytes": 17943
     },
     {
       "path": ".agents/scripts/verify_roadmap_consistency.py",
@@ -973,15 +973,15 @@
       "path": ".agents/scripts/verify_topological_health.py",
       "target_name": ".agents/scripts/verify_topological_health.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "22954be7b44459b5cfec28c695d08196edc4190fadc86c60cb5ee5b6ee883d99",
-      "size_bytes": 4028
+      "sha256": "e52c5f4ced4cbe19bac741470a051acb4458fbebf30565d6e2f25ea5e6c86f0b",
+      "size_bytes": 5818
     },
     {
       "path": ".agents/scripts/verify_zero_orphan_vue_components.py",
       "target_name": ".agents/scripts/verify_zero_orphan_vue_components.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "ee5702d4782becea431224399e9e2758e656c5a12a312be5aff16f1a51828e58",
-      "size_bytes": 4267
+      "sha256": "e02dba615564b978134508d0e705b234c0e12b63f7906b776620403161a0b01e",
+      "size_bytes": 5802
     },
     {
       "path": ".agents/skills/docker-trivy-keydb-hardening/SKILL.md",

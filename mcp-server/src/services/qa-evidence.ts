@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
 import {
+  GateCheckStatus,
   QaCircuitBreakerAlert,
   QaTrackedFindingSummary,
   TrackedFindingStatus,
@@ -295,13 +296,19 @@ export function recordQaStageEvidence(
   }
 }
 
+export interface LintEvidenceCheckResult {
+  passed: boolean;
+  status: GateCheckStatus;
+  blockers: string[];
+}
+
 export function checkLintEvidenceForDirtyCode(
   projectPath: string,
   execFileSyncFn: typeof execFileSync = execFileSync
-): { passed: boolean; blockers: string[] } {
+): LintEvidenceCheckResult {
   const state = computeCodeStateFingerprint(projectPath, execFileSyncFn);
   if (!state.gitRoot || !state.fingerprint) {
-    return { passed: true, blockers: [] };
+    return { passed: false, status: 'SKIPPED', blockers: [] };
   }
 
   const evidencePath = path.join(state.gitRoot, QA_EVIDENCE_REL_PATH);
@@ -309,13 +316,14 @@ export function checkLintEvidenceForDirtyCode(
   const lintStamp = doc.stages.lint;
 
   if (lintStamp && lintStamp.fingerprint === state.fingerprint) {
-    return { passed: true, blockers: [] };
+    return { passed: true, status: 'PASSED', blockers: [] };
   }
 
   const sampleFiles = state.codeFiles.slice(0, 3).join(', ');
   const suffix = state.codeFiles.length > 3 ? ` (+${state.codeFiles.length - 3} más)` : '';
   return {
     passed: false,
+    status: 'FAILED',
     blockers: [
       `Falta evidencia vigente de run_ephemeral_qa(stage="lint") para el árbol de código modificado (${sampleFiles}${suffix}). Ejecuta stage="lint" antes de certificar pre-push.`,
     ],

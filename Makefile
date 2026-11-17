@@ -45,7 +45,7 @@ audit:
 
 lint-workflows:
 	@py=$$(printf '%s\n' \
-	'import re, shutil, subprocess, sys, yaml' \
+	'import re, sys, yaml' \
 	'from pathlib import Path' \
 	'class UniqueKeyLoader(yaml.SafeLoader): pass' \
 	'def _cm(loader, node, deep=False):' \
@@ -139,18 +139,21 @@ lint-workflows:
 	'        if make_pwd_re.search(line.replace(dol + dol, "__DBL__")):' \
 	'            errors.append(f"{mf}:{ln}: [QA-MAKE-CURDIR-01] sub-Makefile usa {dol}(PWD)/{dol}{{PWD}}; use {dol}(CURDIR)")' \
 	'        prev = line' \
-	'if shutil.which("actionlint"):' \
-	'    res = subprocess.run(["actionlint", *[str(p) for p in files]], capture_output=True, text=True)' \
-	'    if res.returncode != 0: errors.append((res.stdout + res.stderr).strip())' \
 	'if errors:' \
 	'    for e in errors: print(f"❌ [lint-workflows] {e}", file=sys.stderr)' \
 	'    sys.exit(1)' \
 	'print(f"✅ [lint-workflows] {len(files)} workflows y {len(action_files)} actions validados sin hallazgos")' \
 	); \
 	if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
-		python3 -c "$$py"; \
+		python3 -c "$$py" || exit 1; \
+		if command -v actionlint >/dev/null 2>&1; then \
+			actionlint -color .github/workflows/*.yml || exit 1; \
+		else \
+			echo "⚠️ [SKIPPED] actionlint no disponible en contenedor aislado"; \
+		fi; \
 	else \
-		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 -c "$$py"; \
+		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 -c "$$py" || exit 1; \
+		docker run --rm --network none -u "$$(id -u):$$(id -g)" -v "$$(pwd):/repo:ro" -w /repo rhysd/actionlint:1.7.7@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9 -color .github/workflows/*.yml || exit 1; \
 	fi
 
 lint-docs:
@@ -226,7 +229,7 @@ test-karate:
 test-py:
 	@echo "🐍 [Pytest] Ejecutando pruebas unitarias de gobernanza y manifiesto en Docker efímero..."
 	@mkdir -p .agents/.cache/coverage && chmod 0700 .agents/.cache
-	@docker run --rm -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app" -w /app sinfallas/base-python-uv:3.15 uv run --with pytest --with pytest-cov pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function -W "ignore::DeprecationWarning:deepeval.*" -W "ignore::SyntaxWarning:deepeval.*" --import-mode=importlib --cov=.agents/scripts --cov=scripts --cov-fail-under=95 --cov-branch --cov-report=xml:/app/.agents/.cache/coverage/python.xml tests/*.unit.py -q
+	@docker run --rm -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e PYTHONPATH=.agents/scripts:. -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app" -w /app sinfallas/base-python-uv:3.15 uv run --with pytest --with pytest-cov pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function -W "ignore::DeprecationWarning:deepeval.*" -W "ignore::SyntaxWarning:deepeval.*" --import-mode=importlib --cov=.agents/scripts --cov=scripts --cov-fail-under=95 --cov-branch --cov-report=xml:/app/.agents/.cache/coverage/python.xml tests/*.unit.py tests/meta_qa/test_*.py -q
 
 diff-cov:
 	@echo "📐 [Diff Coverage] Auditando cobertura diferencial multi-stack y anti-evasión..."
@@ -389,7 +392,7 @@ test-frontend-blueprints:
 		python3 .agents/scripts/lint_test_antipatterns.py vue3 react-frontend; \
 	else \
 		printf '%s\n' "$$node_script" | docker run --rm -i -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app sinfallas/base-node-ionic:26 sh -c 'tsc --strict --noImplicitAny --noUnusedLocals --noUnusedParameters --noImplicitReturns --erasableSyntaxOnly --allowImportingTsExtensions --target ES2023 --module ESNext --moduleResolution Bundler --noEmit vue3/tests/screenplay/Actor.ts react-frontend/tests/screenplay/Actor.ts vue3/tests/utils/semanticLocator.ts react-frontend/tests/utils/semanticLocator.ts && cat > /tmp/verify_screenplay.mts && node /tmp/verify_screenplay.mts >/dev/null' && \
-		lint_out=$$(docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/lint_test_antipatterns.py vue3 react-frontend); \
+		lint_out=$$(docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/lint_test_antipatterns.py vue3 react-frontend) && \
 		echo "✅ [test-frontend-blueprints] TS estricto + Screenplay RBAC + Self-Healing DOM (vue3/react) OK | $$lint_out"; \
 	fi
 
