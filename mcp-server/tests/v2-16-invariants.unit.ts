@@ -71,10 +71,13 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
       expect(CLI_HELP_TEXT).toContain('--version');
       expect(CLI_HELP_TEXT).toContain('--stdio');
       expect(CLI_HELP_TEXT).toContain('quickstart');
+      expect(CLI_HELP_TEXT).toContain('mcp-config');
+      expect(CLI_HELP_TEXT).toContain('blast-radius');
       expect(CLI_HELP_TEXT).toContain('(19 tools, 13 resources)');
       expect(INTERACTIVE_TTY_NOTICE).toBe(getInteractiveTtyNotice());
       expect(INTERACTIVE_TTY_NOTICE).toContain('install-skill');
       expect(INTERACTIVE_TTY_NOTICE).toContain('quickstart');
+      expect(INTERACTIVE_TTY_NOTICE).toContain('mcp-config');
       expect(INTERACTIVE_TTY_NOTICE).toContain('(19 tools, 13 resources)');
 
       const customServer = createMcpServer();
@@ -135,6 +138,7 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
       cwdSpy.mockRestore();
 
       expect(await dispatchCliArgs(['unknown-subcommand'])).toBe(1);
+      expect(await dispatchCliArgs(['--help', 'nonexistent-subcommand'])).toBe(1);
       expect(errSpy).toHaveBeenCalled();
 
       // shouldExitInteractiveTty matrix

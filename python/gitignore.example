@@ -22,6 +22,9 @@ dist/
 .coverage.*
 coverage.xml
 htmlcov/
+.mutmut-cache/
+mutants/
+k6-summary.json
 .benchmarks/
 profile.svg
 graphify-out/

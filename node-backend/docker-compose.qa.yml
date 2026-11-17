@@ -65,7 +65,7 @@ services:
     command: bash -c "echo 'Contenedor QA Node listo para Lint, Unit, BDD y Mutación. Usa docker compose run --rm -T qa-node-backend [comando]'; sleep infinity"
 
   karatelabs:
-    image: sinfallas/karatelabs:1.5.1
+    image: sinfallas/karatelabs:1.5.1@sha256:a9a52ca9c5491ab39b64f0b4fdc3dea879c2213c9bc995be58d6cd4b9a80cc89
     container_name: node_karate
     hostname: node_karate
     pull_policy: if_not_present
@@ -74,8 +74,10 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    environment:
+      - API_BASE_URL=http://api:3000
     volumes:
-      - ./test:/app/src/test/java/examples/test
+      - ./test:/app/src/test/java/examples/test:ro
     command: bash -c "echo 'Contenedor Karate listo. Usa docker compose run --rm -T karatelabs mvn clean test'; sleep infinity"
 
   zap:
@@ -100,6 +102,8 @@ services:
     container_name: node_pumba
     hostname: node_pumba
     pull_policy: if_not_present
+    security_opt:
+      - no-new-privileges:true
     profiles:
       - chaos
     volumes:

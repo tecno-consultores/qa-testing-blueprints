@@ -8,7 +8,7 @@
 
 > **DIRECTIVA DE EJECUCIÓN PARA EL AGENTE DE IA (Modelo de Razonamiento Actual (Gemini / Claude / Antigravity)):**
 > 1. Lee siempre primero la especificación técnica asociada en `docs/specs/` antes de iniciar cada Hito.
-> 2. Respeta estrictamente la **Regla Cero (`Rule Zero`)**: toda validación de código, linters y pruebas unitarias/BDD DEBE ejecutarse dentro de los contenedores Docker efímeros (`sinfallas/*`).
+> 2. Respeta estrictamente la **Regla Cero (Rule Zero)**: toda validación de código, linters y pruebas unitarias/BDD DEBE ejecutarse dentro de los contenedores Docker efímeros (`sinfallas/*`).
 > 3. Al completar cada subtarea o Hito, marca su casilla `[x]` en `ROADMAP.md` y `ROADMAP.es.md`, actualiza `CHANGELOG.{md,es.md}` y `TESTING.{md,es.md}`, y ejecuta `./.agents/scripts/certify_task_completion.sh`.
 
 ---
@@ -34,7 +34,7 @@
 | **Hito 15** | Endurecimiento Integral `v2.16.0` de los 7 Stacks Corporativos, Contrato *Thin-Repo*, Hooks POSIX Rule-Zero y Convergencia 10/10 de Compuertas | [`TESTING.es.md`](TESTING.es.md) + [`SECURITY.es.md`](SECURITY.es.md) | ✅ Completado | `100%` |
 | **Hito 16** | Invariante Anti-Silo Pre-Auth Multi-Etapa (`SEC-16`), Presupuesto Cognitivo `SKILL.md < 20 KB` y Verificador Documental Determinista (`verify_docs_invariants.py`) | [`SECURITY.es.md`](SECURITY.es.md) §4.20 + `02-security-disa-owasp-22.md` | ✅ Completado | `100%` |
 | **Hito 17** | Paridad Pre-Push 1:1 con CI (`v2.17.0`) en MCP `qa-11x`: Sello de Evidencia `lint`, Stages `integration`/`ci`, Parser de Endpoints Dinámicos e Invariantes Python/PostgreSQL 17 (`QA-MYPY-01`, `QA-PG17-RLS`, `importlib`) | `03-stack-python-fastapi.md` + `08-postgres-rls-zero-downtime-migrations.md` | ✅ Completado | `100%` |
-| **Hito 18** | Internacionalización v2.18.0: Idioma Espejo Dinámico, Flag `--lang (auto/es/en)`, Targets `codex`/`windsurf` y Guías Multi-Agente EN/ES | [`docs/agent-setup.es.md`](docs/agent-setup.es.md) (`docs/agent-setup.md`) | ✅ Completado | `100%` |
+| **Hito 18** | Internacionalización `v2.18.0`: Idioma Espejo Dinámico, Flag `--lang (auto/es/en)`, Targets `codex`/`windsurf` y Guías Multi-Agente EN/ES | [`docs/agent-setup.es.md`](docs/agent-setup.es.md) (`docs/agent-setup.md`) | ✅ Completado | `100%` |
 | **Hito 19** | Invariante Anti-Silo #9 (`QA-HEALTH-01`), Nivelación Documental Humana 1:1 (`docs/02` y `docs/04`) y Gobernanza Dual-Consumer en `propose_skill_evolution_pr` y `verify_docs_invariants.py` | [`docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.es.md`](docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.es.md) + `SECURITY.es.md` §4.22 | ✅ Completado | `100%` |
 | **Hito 20** | Detección de Versión sin Red Redundante (`.qa-11x-version` + TTL 24h Fail-Open), Aviso `update_available` en Tools y Auto-Sync Global de Skills por SHA-256 (`v2.20.0`) | [`docs/ai-integration.es.md`](docs/ai-integration.es.md) + [`docs/agent-setup.es.md`](docs/agent-setup.es.md) | ✅ Completado | `100%` |
 | **Hito 21** | Cobertura Diferencial Multi-Stack (`verify_diff_coverage.py`), Persistencia Efímera de Reportes y Bloqueo Anti-Evasión | [`16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md`](docs/specs/16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md) | ✅ Completado | `100%` |
@@ -43,6 +43,7 @@
 | **Hito 24** | Auditoría Integral `QA-11X v3.0` (`v3.0.0`), Sincronizador `bump_version_11x.py`, Protocolo MCP en Vivo y Planificación `19_SPEC` / `20_SPEC` | [`19_SPEC`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md) + [`20_SPEC`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.es.md) | ✅ Completado | `100%` |
 | **Hito 25** | Matriz 15×12, `base-mobile-appium:26` y Arquitectura Documental Bilingüe | [`19_SPEC`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md) + [`20_SPEC`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.es.md) | ✅ Completado | `100%` |
 | **Hito 26** | `QA-11X v3.1` (`3.1.0`) — Flight Recorder Atómico, `tactical-patterns-11x`, Hidratación 10 Stacks y Endurecimiento Fail-Closed | [`AGENTS.md`](AGENTS.md) + [`TESTING.es.md`](TESTING.es.md) | ✅ Completado | `100%` |
+| **Hito 27** | `v3.2.0` (`QA-11X v3.1`) — Remediación Integral 99/99 Hallazgos, 12 Subcomandos CLI, Anotaciones MCP 2026, A2A v1.0 y 100% Diff Coverage | [`CHANGELOG.es.md`](CHANGELOG.es.md) + [`TESTING.es.md`](TESTING.es.md) | ✅ Completado | `100%` |
 
 ---
 
@@ -258,7 +259,7 @@
 
 ---
 
-## ✅ Hito 18: Internacionalización v2.18.0 — Idioma Espejo Dinámico, Flag `--lang (auto|es|en)`, Targets `codex`/`windsurf` y Guías Multi-Agente EN/ES
+## ✅ Hito 18: Internacionalización `v2.18.0` — Idioma Espejo Dinámico, Flag `--lang (auto|es|en)`, Targets `codex`/`windsurf` y Guías Multi-Agente EN/ES
 **Referencia Obligatoria:** [`docs/agent-setup.es.md`](docs/agent-setup.es.md) (`docs/agent-setup.md`)
 
 ### Tareas de Implementación:
@@ -284,7 +285,7 @@
 **Referencia Obligatoria:** [`docs/ai-integration.es.md`](docs/ai-integration.es.md) y [`docs/agent-setup.es.md`](docs/agent-setup.es.md)
 
 ### Tareas de Implementación:
-- [x] **20.1.** Implementar `mcp-server/src/services/version-manager.ts` con estampado determinista `.qa-11x-version` en `install-skill.ts` y `scripts/install-skill.sh`, reutilización de `manifest.json` (`ETag`) y caché `latest-version-check.json` (TTL `24 h` con *fail-open* offline).
+- [x] **20.1.** Implementar `mcp-server/src/services/version-manager.ts` con estampado determinista `.qa-11x-version` en `install-skill.ts` y `scripts/install-skill.sh`, reutilización de `manifest.json` (`ETag`) y caché `latest-version-check.json` (TTL 24 h con *fail-open* offline).
 - [x] **20.2.** Exponer el campo estructurado `update_available` (`agent_notice` y `recommended_command`) en `inspect_project_config` y `certify_11x_gate` para notificación proactiva a través del agente de IA sin contaminar `stdout` JSON-RPC.
 - [x] **20.3.** Incorporar `syncGlobalSkillsInBackground` en el arranque `stdio` del servidor MCP (`index.ts`) para sincronizar silenciosamente por `SHA-256` las skills globales preinstaladas preservando el idioma del conector en `~/.gemini/GEMINI.md`.
 - [x] **20.4.** Certificar con `tests/version-manager.unit.ts` (`337/337` tests Vitest `>= 95%`), Escenario 24 en `mcp_cli_test.feature`, actualización de `manifest.json` y grafos AST, y publicación `v2.20.0` en `npmjs`.
@@ -359,3 +360,13 @@
 ### Tareas de Implementación:
 - [x] **26.1.** Implementar el Flight Recorder Atómico Unificado ([`.agents/schemas/session_checkpoint.schema.json`](.agents/schemas/session_checkpoint.schema.json) + [`.agents/scripts/checkpoint_ctl.py`](.agents/scripts/checkpoint_ctl.py) + herramienta MCP `session_flight_recorder`), la skill táctica JIT [`tactical-patterns-11x`](.agents/skills/tactical-patterns-11x/SKILL.md) (`<= 2.5 KB`, `blueprint://skills/tactical-patterns-11x`), `[DIRECTIVE-11X]` y los bloqueos de complejidad `max-params: 4` / `max-depth: 3`.
 - [x] **26.2.** Consolidar los 10 stacks hidratables en `manifest.json`, fuente única `_budgets.py` y `sync_governance.py`, conteos dinámicos en `verify_docs_invariants.py`, compuertas Fail-Closed, endurecimiento Docker no-root bajo Regla Cero y estabilización `QA-11X v3.1` (`3.1.0`).
+
+---
+
+## ✅ Hito 27: `v3.2.0` (`QA-11X v3.1`) — Remediación Integral 99/99 Hallazgos, 12 Subcomandos CLI, Estándares MCP 2026 y 100% Diff Coverage
+**Referencia Obligatoria:** [`CHANGELOG.es.md`](CHANGELOG.es.md), [`TESTING.es.md`](TESTING.es.md) y [`AGENTS.md`](AGENTS.md)
+
+### Tareas de Implementación:
+- [x] **27.1.** Cerrar hallazgos de seguridad y runtime en el Servidor MCP (`src/utils/ideConfigPaths.ts`, `src/security/pathRealResolver.ts`, Zod `.strict()`, `annotations` MCP 2026, `A2A v1.0`, propagación `AbortSignal`) y certificar E2E Clean-Room `.tgz` + Karate BDD (`51/51`).
+- [x] **27.2.** Endurecer los 10 stacks blueprints (digest OCI multi-arch `sinfallas/base-mobile-appium:26`, contratos portal/refresco dual React, `mutmut >= 3.7.0`, Promptfoo Nunjucks, SQL WORM fail-closed) y corregir scripts CI/Bash/Python (`make sbom` + `.sha256`, `make compact-context`, fallback `install-skill.sh` sin `jq`).
+- [x] **27.3.** Sincronizar documentación 1:1 EN/ES (`docs/`, `README`, `TESTING`, `CHANGELOG`, `ROADMAP`), alcanzar `100.00%` de cobertura diferencial en líneas sobre Python/TS/Bash (`verify_diff_coverage.py`) y sellar localmente la versión `3.2.0` bajo `QA-GIT-GATE-01`.

@@ -115,12 +115,16 @@ def _collect_project_files(
     return collected
 
 
-def _gitignore_covers_env(target_dir: Path) -> bool:
+def _read_gitignore_patterns(target_dir: Path) -> frozenset[str]:
     gitignore = target_dir / ".gitignore"
     if not gitignore.is_file() or gitignore.is_symlink():
-        return False
+        return frozenset()
     lines = gitignore.read_text(encoding="utf-8", errors="replace").splitlines()
-    return any(line.strip() in {".env", "/.env", "*.env", ".env*"} for line in lines)
+    return frozenset(
+        line.strip().lstrip("/")
+        for line in lines
+        if line.strip() and not line.lstrip().startswith("#")
+    )
 
 
 def _is_env_target(fname: str) -> bool:
@@ -245,8 +249,9 @@ def _scan_directory_tree(
 ) -> tuple[list[AuditFinding], set[str]]:
     ctx = ScanContext(
         target_dir=target_dir,
-        env_ignored=_gitignore_covers_env(target_dir),
+        env_ignored=False,
         max_lines=max_lines,
+        gitignore_patterns=_read_gitignore_patterns(target_dir),
     )
     for fpath in _collect_project_files(target_dir, emit_dir):
         _process_single_file(fpath, ctx)

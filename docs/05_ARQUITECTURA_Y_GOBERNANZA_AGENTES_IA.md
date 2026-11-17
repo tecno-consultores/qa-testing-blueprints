@@ -68,8 +68,8 @@ A common dilemma when governing AI agents is language choice versus context wind
 
 Under **Spec 19**, human-facing documentation and agent interaction follow a deterministic bilingual architecture:
 ```markdown
-> **OUTPUT LANGUAGE CONSTRAINT (Spec 19):**
-> Interact and explain reasoning in the user's prompt language (or Spanish when configured via `--lang es`).
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING (Spec 19):**
+> Interact and explain reasoning in the user's prompt language (unless explicitly pinned via `--lang es|en`).
 > Keep `.agents/**` in concise technical English (~35% token savings) and maintain human docs as
 > English Canonical (`*.md`) + 1:1 Spanish Mirror (`*.es.md`) pairs.
 ```
@@ -79,13 +79,13 @@ Human manuals and governance files (`docs/*.md`, `CHANGELOG.md`, `TESTING.md`, `
 
 ## 4. Multi-Agent Compatibility and MCP Ecosystem
 
-This architecture works natively and identically across major AI coding assistants and autonomous agents:
+This architecture works natively across **28 supported AI coding agents** (`--agents auto|all|<csv>`, see [`docs/agent-setup.md`](agent-setup.md)), including:
 
 | Tool / Agent | MCP Ingestion Mechanism | Skills, Scripts & Connector Integration | Entry / Config File |
 | :--- | :--- | :--- | :--- |
-| **Google Antigravity** | `mcp_config.json` (`npx -y @sinfallas/mcp-qa-11x@latest`) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target antigravity --init-agents --include-scripts` | `.agents/` + `AGENTS.md` |
-| **Anthropic Claude Code / Desktop** | `claude_desktop_config.json` (`stdio`) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target claude --init-agents --include-scripts` | `AGENTS.md` + `.agents/skills/` |
-| **Hermes Agent (Nous Research)** | `config.yaml` (`mcp_servers`) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target hermes --init-agents --include-scripts` | `AI_MASTER_PROMPT.md` + `Makefile` |
+| **Google Antigravity** | `~/.gemini/antigravity/mcp_config.json` (fallback `~/.gemini/config/mcp_config.json`) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target antigravity --init-agents --include-scripts` | `.agents/` + `AGENTS.md` |
+| **Anthropic Claude Code / Desktop** | `claude_desktop_config.json` (`stdio`, multi-OS) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target claude --init-agents --include-scripts` | `AGENTS.md` + `.agents/skills/` |
+| **Hermes Agent (Nous Research)** | `config.yaml` (`mcp_servers`) / `mcp.json` | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target hermes --init-agents --include-scripts` | `AI_MASTER_PROMPT.md` + `Makefile` |
 | **Cursor / Windsurf** | `.cursor/mcp.json` (`mcpServers`) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target cursor --init-agents --include-scripts` | `AGENTS.md` and `.agents/rules/` |
 
 ---
@@ -127,11 +127,11 @@ To prevent agents from cloning gigabytes of repositories or saturating their con
    - `evaluate_agent_trajectory` *(v2.0)*: Offline AST-First and DeepEval evaluator for multi-step AI agent trajectories.
    - `run_llm_red_team` *(v2.0)*: Promptfoo OWASP LLM Top 10 auditor with `promptGuard` probes and conditional Docker execution.
    - `audit_vibe_prototype` *(v2.0)*: `VIBE-SEC-001..QA-005` risk detector in AI prototypes with `dryRun` migration plans toward RLS/WORM.
-   - `sync_enterprise_tms`: JUnit/Allure/SARIF synchronizer toward Jira, Zephyr Scale, Xray, and GitHub Issues guarded by `TaskStateGuard`.
+   - `sync_enterprise_tms` *(v2.0)*: Bidirectional Zero-Infra traceability synchronizer (`inventory`, `push-results`, `pull-stories`) using JUnit XML toward Jira, Zephyr Scale, Xray, and GitHub Issues guarded by `TaskStateGuard`.
    - `session_flight_recorder` *(v3.1)*: Unified Atomic Flight Recorder (`save` | `recover` | `clear`) persisting `.agents/.cache/session_checkpoint.json` (`0600`) and deterministically projecting `.agents/ACTIVE_TASK.md` (`<= 40` lines) cross-checked against live Git status.
 
-3. **`quickstart` Onboarding and Automatic Sync of 11 Modular Skills (`install-skill`):**
-   Any developer or agent can adopt the pyramid in 30 seconds via `npx -y @sinfallas/mcp-qa-11x@latest quickstart`, or auto-install the modular skills, operational scripts (`.agents/scripts/*`, `scripts/*`), and `AGENTS.md` connector using `install-skill --init-agents --include-scripts --reconcile` (stamping `.qa-11x-version`). Furthermore, on startup in `stdio` mode, the MCP server syncs installed global skills in the background (`SHA-256` against `manifest.json`).
+3. **`quickstart` Onboarding, 12 CLI Subcommands & Automatic Sync of 11 Modular Skills:**
+   Any developer or agent can adopt the pyramid in 30 seconds across **28 AI coding agents** via `npx -y @sinfallas/mcp-qa-11x@latest quickstart`, operate any of the **12 CLI subcommands** (`quickstart`, `install-skill`, `init-agents`, `reconcile-agents`, `tms-sync`, `doctor`, `upgrade`, `certify`, `audit`, `blast-radius`, `mcp-config`, `completion`), or auto-install the modular skills, operational scripts (`.agents/scripts/*`, `scripts/*`), and `AGENTS.md` connector using `install-skill --init-agents --include-scripts --reconcile` (stamping `.qa-11x-version`, `--lang auto` default). Furthermore, on startup in `stdio` mode, the MCP server syncs installed global skills in the background (`SHA-256` against `manifest.json`).
 
 ---
 

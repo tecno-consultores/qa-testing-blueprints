@@ -16,6 +16,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -95,7 +96,7 @@ class TestInstallSkill(unittest.TestCase):
         env["QA_BLUEPRINTS_LOCAL_PATH"] = str(mock_repo)
 
         res = subprocess.run(
-            ["sh", str(INSTALL_SCRIPT), "--target", "workspace"],
+            ["/bin/sh", str(INSTALL_SCRIPT), "--target", "workspace"],
             cwd=str(dest_workspace),
             env=env,
             capture_output=True,
@@ -144,7 +145,7 @@ class TestInstallSkill(unittest.TestCase):
         env["QA_BLUEPRINTS_LOCAL_PATH"] = str(mock_repo)
 
         res = subprocess.run(
-            ["sh", str(INSTALL_SCRIPT), "--target", "workspace"],
+            ["/bin/sh", str(INSTALL_SCRIPT), "--target", "workspace"],
             cwd=str(dest_workspace),
             env=env,
             capture_output=True,
@@ -366,6 +367,81 @@ class TestInstallSkill(unittest.TestCase):
         self.assertEqual(res_inv.returncode, 1)
         self.assertIn("windsurf", res_inv.stderr)
         self.assertIn("codex", res_inv.stderr)
+
+    def test_docker_python_fallback_when_jq_and_python3_absent(self) -> None:
+        """Verifica fallback a PY_IMG en Docker si faltan jq y python3 locales."""
+        mock_repo = self.temp_path / "mock_repo_dkr"
+        skill_dir = mock_repo / ".agents" / "skills" / "qa-11x-architect"
+        skill_dir.mkdir(parents=True)
+        skill_md = skill_dir / "SKILL.md"
+        skill_md.write_text("# Architect\n", encoding="utf-8")
+        sha = hashlib.sha256(skill_md.read_bytes()).hexdigest()
+        (mock_repo / "manifest.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": "1.0.0",
+                    "blueprint_version": "3.1.0",
+                    "agent_governance_files": [
+                        {
+                            "path": ".agents/skills/qa-11x-architect/SKILL.md",
+                            "sha256": sha,
+                            "size_bytes": skill_md.stat().st_size,
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        fake_bin = self.temp_path / "fake_bin"
+        fake_bin.mkdir()
+        docker_log = self.temp_path / "docker_calls.log"
+        tools = (
+            "awk", "basename", "cat", "chmod", "cp", "dirname", "id",
+            "mkdir", "mktemp", "rm", "sh", "sha256sum", "tr", "wc", "date",
+        )
+        for tool in tools:
+            src_tool = Path("/usr/bin") / tool
+            if not src_tool.exists():
+                src_tool = Path("/bin") / tool
+            if src_tool.exists():
+                (fake_bin / tool).symlink_to(src_tool)
+        real_py = sys.executable
+        docker_stub = fake_bin / "docker"
+        docker_stub.write_text(
+            "#!/bin/sh\n"
+            f'printf "%s\\n" "$*" >> "{docker_log}"\n'
+            'mount_dir=""\n'
+            'while [ "$#" -gt 0 ]; do\n'
+            '  case "$1" in\n'
+            '    -v) mount_dir="${2%%:*}"; shift 2 ;;\n'
+            '    python3) shift; break ;;\n'
+            '    *) shift ;;\n'
+            "  esac\n"
+            "done\n"
+            'py_code="$2"\n'
+            'manifest_host="${mount_dir}/manifest.json"\n'
+            f'exec "{real_py}" -c "${{py_code}}" "${{manifest_host}}"\n',
+            encoding="utf-8",
+        )
+        docker_stub.chmod(0o755)
+        ws = self.temp_path / "ws_dkr"
+        ws.mkdir()
+        env = {
+            "PATH": str(fake_bin),
+            "HOME": str(self.temp_path / "home_dkr"),
+            "QA_BLUEPRINTS_LOCAL_PATH": str(mock_repo),
+        }
+        res = subprocess.run(
+            ["/bin/sh", str(INSTALL_SCRIPT), "--target", "workspace"],
+            cwd=str(ws),
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(res.returncode, 0, res.stderr + res.stdout)
+        installed = ws / ".agents" / "skills" / "qa-11x-architect" / "SKILL.md"
+        self.assertTrue(installed.is_file())
+        self.assertIn("--network none", docker_log.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

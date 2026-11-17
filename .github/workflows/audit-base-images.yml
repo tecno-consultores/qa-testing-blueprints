@@ -10,12 +10,22 @@ on:
   pull_request:
     paths:
       - '.github/workflows/audit-base-images.yml'
+      - '.github/actions/**'
       - 'Makefile'
+      - '.trivy.yaml'
       - 'docker-compose.qa.yml'
-      - '*/docker-compose.qa.yml'
+      - '*/docker-compose.qa.yml*'
       - 'mcp-server/example/docker-compose.qa.yml'
+      - 'scripts/auditar-infra.sh'
+      - 'scripts/generar-sbom-cyclonedx.sh'
+      - '*/package.json*'
+      - '*/pyproject.toml*'
+      - '*/composer.json*'
+      - 'vibe-rescue/**'
       - 'RESOURCES.md'
+      - 'RESOURCES.es.md'
       - 'SECURITY.md'
+      - 'SECURITY.es.md'
 
 permissions:
   contents: read
@@ -88,7 +98,7 @@ jobs:
           docker run --rm \
             --user 10001:10001 \
             -e HOME=/tmp \
-            sinfallas/base-mobile-appium:26@sha256:595b467d1476de0bc66e4bff35e37599dd889efa7f0222ee7418f159c102af91 \
+            sinfallas/base-mobile-appium:26@sha256:1bb9e70613a786008fe06c418a557aeaa5fe7c62b3db29a26b4e0ce86d3c6728 \
             sh -ec 'test "$(id -u)" = "10001" && java -version && adb version && node --version && pnpm --version && appium --version && appium driver list --installed --json'
 
   codeql-security-analysis:

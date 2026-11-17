@@ -705,4 +705,69 @@ describe('certify-gate', () => {
       certify11xGate(tempDir, { requireLintEvidence: false, signal: emptyReasonController.signal })
     ).rejects.toThrow('certify_11x_gate abortado por timeout o cancelación.');
   });
+
+  it('soporta rutas PHP (.php), omite php/src sin rutas, evita fallback sobre .. cuando existe .git, ignora vendor/target/venv/build y verifica readme_sha256', async () => {
+    setupNominalProject(tempDir);
+
+    // php/src único sin rutas + frontend con llamadas -> SKIPPED sin falso bloqueador
+    fs.mkdirSync(path.join(tempDir, 'php', 'src'), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, 'php', 'src', 'Entity.php'), '<?php class Entity {}', 'utf8');
+    fs.mkdirSync(path.join(tempDir, 'frontend', 'src'), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, 'frontend', 'src', 'app.ts'), "fetch('/api/v1/items');", 'utf8');
+    const phpOnlyNoRoutes = await certify11xGate(tempDir);
+    expect(phpOnlyNoRoutes.check_statuses?.zero_orphan_api_endpoints).toBe('SKIPPED');
+
+    // Con rutas PHP Laravel + Symfony attribute (explícito y default GET sin methods)
+    fs.writeFileSync(
+      path.join(tempDir, 'php', 'src', 'Routes.php'),
+      "<?php\nRoute::get('/api/v1/items', fn() => []);\n#[Route('/api/v1/orders', methods: ['POST'])]\n#[Route('/api/v1/status')]\n",
+      'utf8'
+    );
+    fs.writeFileSync(
+      path.join(tempDir, 'frontend', 'src', 'app.ts'),
+      "fetch('/api/v1/items'); fetch('/api/v1/orders', { method: 'POST' }); fetch('/api/v1/status');",
+      'utf8'
+    );
+    const phpParityPass = await certify11xGate(tempDir);
+    expect(phpParityPass.check_statuses?.zero_orphan_api_endpoints).toBe('PASSED');
+
+    // vendor/, target/, venv/, build/ con JSON corrupto deben ser ignorados en checkJsonIntegrity
+    for (const ignoredDir of ['vendor', 'target', 'venv', 'build']) {
+      fs.mkdirSync(path.join(tempDir, ignoredDir), { recursive: true });
+      fs.writeFileSync(path.join(tempDir, ignoredDir, 'bad.json'), '{corrupt', 'utf8');
+    }
+    const ignoredJsonPass = await certify11xGate(tempDir);
+    expect(ignoredJsonPass.check_statuses?.json_integrity).toBe('PASSED');
+
+    // readme_sha256 / readme_es_sha256 desfasados en manifest.json bloquean
+    fs.mkdirSync(path.join(tempDir, 'scripts'), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, 'scripts', 'generar-manifiesto.py'), '# gen\n', 'utf8');
+    fs.mkdirSync(path.join(tempDir, 'python'), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, 'python', 'README.md'), '# Python\n', 'utf8');
+    fs.writeFileSync(path.join(tempDir, 'python', 'README.es.md'), '# Python ES\n', 'utf8');
+    fs.writeFileSync(
+      path.join(tempDir, 'manifest.json'),
+      JSON.stringify({
+        stacks: {
+          python: {
+            readme: 'python/README.md',
+            readme_sha256: '0'.repeat(64),
+            readme_es: 'python/README.es.md',
+            readme_es_sha256: '0'.repeat(64),
+          },
+        },
+      }),
+      'utf8'
+    );
+    const shaMismatch = await certify11xGate(tempDir);
+    expect(shaMismatch.gate_passed).toBe(false);
+    expect(shaMismatch.blockers.some((b) => b.includes('sync_governance.py'))).toBe(true);
+
+    // Subproyecto con propio .git NO hereda TESTING.md / CHANGELOG.md del directorio padre
+    const childGitProj = path.join(tempDir, 'child-repo');
+    fs.mkdirSync(path.join(childGitProj, '.git'), { recursive: true });
+    const isolatedRes = await certify11xGate(childGitProj);
+    expect(isolatedRes.gate_passed).toBe(false);
+    expect(isolatedRes.blockers.some((b) => b.includes('CHANGELOG.md'))).toBe(true);
+  });
 });

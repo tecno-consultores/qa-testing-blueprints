@@ -1,8 +1,8 @@
-# 🛡️ Quality Assurance Scoreboard (TESTING.md) — Corporate Standard `QA-11X v3.1` (`v3.1.0`)
+# 🛡️ Quality Assurance Scoreboard (TESTING.md) — Corporate Standard `QA-11X v3.1` (`v3.2.0`)
 
 > 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (TESTING.es.md)](TESTING.es.md)
 
-This document serves as the live certification scoreboard for Corporate Quality Standard Level 11X (`v3.1.0`) across the `qa-testing-blueprints` repository blueprints (**10 hydratable stacks** `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue` + `architecture/` + `mcp-server/` = **12 matrix environments**). All included ecosystems are evaluated under **Rule Zero**: strict, 100% isolated execution in ephemeral Docker containers with **Pass-Quiet / Fail-Verbose** output (one-line telemetry with metrics on success, full trace on failure to optimize AI agent context windows).
+This document serves as the live certification scoreboard for Corporate Quality Standard Level 11X (`v3.2.0`) across the `qa-testing-blueprints` repository blueprints (**10 hydratable stacks** `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue` + `architecture/` + `mcp-server/` = **12 matrix environments**). All included ecosystems are evaluated under **Rule Zero**: strict, 100% isolated execution in ephemeral Docker containers with **Pass-Quiet / Fail-Verbose** output (one-line telemetry with metrics on success, full trace on failure to optimize AI agent context windows).
 
 ---
 
@@ -43,12 +43,14 @@ Scope: **10 hydratable stacks** (`python`, `fastapi`, `node-backend`, `vue3`, `r
 | `make lint-workflows` / `make lint-docs` | Validates GitHub workflow security/keys, doc/roadmap parity, and `QA-GIT-GATE-01` |
 | `make sync-governance` / `make version-check` | Verifies SHA-256 `manifest.json` integrity, cognitive budgets, and SemVer/edition parity |
 | `make test` / `make certify` | Executes the full monorepo QA suite or the 10-stage `.agents/scripts/certify_task_completion.sh` gate |
-| `make test-mcp` / `make test-karate` / `make test-example` | Runs MCP Vitest (`>= 95%`), Karate Labs BDD (49 baseline scenarios + Scenario 50 CLI subcommands contract), and Clean-Room `stdio` `.tgz` E2E |
+| `make test-mcp` / `make test-karate` / `make test-example` | Runs MCP Vitest (`>= 95%`, 42 suites), Karate Labs BDD (`51` scenarios), and Clean-Room `stdio` `.tgz` E2E |
 | `make test-py` / `make test-bats` / `make test-meta-qa` | Executes Python unit tests, BATS-core + kcov coverage XML, and `.agents/scripts/` trimodal Meta-QA |
-| `make test-ai-offline` / `make audit-llm` | Runs zero-cost deterministic AI contracts (`98.04%`) or on-demand DeepEval + Promptfoo OWASP audits |
+| `make test-ai-offline` / `make audit-llm` | Runs zero-cost deterministic AI contracts (`97.71%`) or on-demand DeepEval + Promptfoo OWASP audits |
 | `make test-frontend-blueprints` / `make test-backend-blueprints` / `make test-mobile-blueprints` | Certifies Vue/React Screenplay+anti-patterns, FastAPI↔Node Pact V4+k6, and `base-mobile-appium:26` W3C |
 | `make diff-cov` / `make pr-verdict` / `make audit-psi` (`qa-psi`) | Checks 100% delta line coverage (`>= 90%` branch), exports `PR_VERDICT.md`, or runs PSI v5 |
 | `make build` / `make publish-mcp-dry` / `make publish-mcp` | Compiles `mcp-server/dist`; **`make publish-mcp` enforces `QA-GIT-GATE-01` (requires explicit human authorization)** |
+
+> **Monorepo `Makefile.example` Note:** Inside this blueprints repository, the 10 hydratable stack directories ship `Makefile.example` templates (copied/merged into `Makefile` in consumer repositories upon hydration via `bootstrap_or_merge_11x`). From the monorepo root, run root `Makefile` targets (`make test-*`) or `make -C <stack> -f Makefile.example qa-*`; inside hydrated consumer projects (and in `mcp-server/` / `mcp-server/example/`), run `make qa-*` directly.
 
 ### ⚡ FastAPI (Python Backend) — 13 Layers
 * **Base Image:** `sinfallas/base-python-uv:3.15` (Available tags: `3.11`, `3.12`, `3.13`, `3.14`, `3.15` and `latest`)
@@ -161,23 +163,23 @@ Scope: **10 hydratable stacks** (`python`, `fastapi`, `node-backend`, `vue3`, `r
   make qa-all        # Full 11X suite
   ```
 
-### 🧠 MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x` `v3.1.0`)
+### 🧠 MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x` `v3.2.0`)
 * **Base Image:** `sinfallas/base-node-ionic:26` (Available tags: `22`, `24`, `26` and `latest`)
-* **Certified 11X Metrics (`v3.1.0` / `QA-11X v3.1`):**
-  * **Statements:** `98.94%` (`>= 95.0%`)
-  * **Branches:** `95.06%` global (`src/resources` `99.54%`, `src/cli` `99.65%`, `surgical-merger.ts` `99.39%`)
-  * **Functions:** `99.63%` (`>= 95.0%`)
-  * **Lines:** `98.94%` (`>= 95.0%`)
-  * **Unit & Live Protocol Tests:** **628 tests passing at 100%** (37 Vitest suites including `tests/live-mcp-protocol.test.ts` over `InMemoryTransport` and `StdioClientTransport`, `tests/mobileBlueprint.test.ts`, `src/index.ts`, `QA-CLI-TTY-01`, `SEC-09`, and `QA-SSR-HYDRATION-01`)
-  * **Multi-Stack Differential Coverage (`verify_diff_coverage.py`):** **100.00% delta lines** and **96.61% delta branches** across modified files
+* **Certified 11X Metrics (`v3.2.0` / `QA-11X v3.1`):**
+  * **Statements:** `99.47%` (`>= 95.0%`)
+  * **Branches:** `96.73%` global (`src/resources` `98.80%`, `src/cli` `98.24%`, `surgical-merger.ts` `98.86%`)
+  * **Functions:** `99.73%` (`>= 95.0%`)
+  * **Lines:** `99.47%` (`>= 95.0%`)
+  * **Unit & Live Protocol Tests:** **673 tests passing at 100%** (42 Vitest suites including `tests/live-mcp-protocol.test.ts` over `InMemoryTransport` and `StdioClientTransport`, `tests/mobileBlueprint.test.ts`, `tests/path-real-resolver.unit.ts`, `tests/ide-config-paths.unit.ts`, `tests/cli-certify-audit.unit.ts`, `tests/cli-doctor-upgrade.unit.ts`, `tests/cli-dx-tools.unit.ts`, `src/index.ts`, `QA-CLI-TTY-01`, `SEC-09`, and `QA-SSR-HYDRATION-01`)
+  * **Multi-Stack Differential Coverage (`verify_diff_coverage.py`):** **100.00% delta lines** and **>= 90.00% delta branches** across modified files
   * **MCP Surface:** **19 canonical tools** (12 v1 core + 6 v2.0 tools for CALM, Release Gate, agent trajectory, OWASP LLM Red Team, Vibe-Rescue, and TMS sync + **v3.1** `session_flight_recorder`) and **13 `blueprint://*` resources** (adding **v3.1** `blueprint://skills/tactical-patterns-11x` with `?lang=es|en` bilingual negotiation) + **2 resource templates** enforcing Thin-Repo contract, AST graph auto-build/refresh (`auto_build_if_missing`, `refresh_graph`), Metadata-Only mode (`include_content: false`), rule grouping (`groupFindingsByRule`), 34 static scanner rules (`SEC-01`..`SEC-16`, `SEC-CI-ACTION-REF`, `QA-*`, `QA-GIT-GATE-01`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`, `QA-CI-ESCAPE-01`, `QA-MAKE-CURDIR-01`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `UI-11X-01..03`) enforcing the 22 DISA ASD STIG V6R5 + OWASP v4.2 reference controls, `TaskStateGuard` + `promptGuard`, and 10/10 parity in `certify_11x_gate`
-  * **Karate Labs BDD Scenarios:** `mcp-server/test/mcp_cli_test.feature` (**49 baseline scenarios passed** in `sinfallas/karatelabs:1.5.1`; **Scenario 50** documents the CLI subcommands contract for `doctor`, `upgrade`, `certify`, `audit`, `blast-radius`, `mcp-config`, and `completion`)
+  * **Karate Labs BDD Scenarios:** `mcp-server/test/mcp_cli_test.feature` (**51 scenarios** in `sinfallas/karatelabs:1.5.1`, including **Scenarios 50–51** covering the 12 CLI subcommands, shared IDE config paths, Clean-Room tarball verification, and SARIF v2.1.0 contracts)
   * **Headless CI CLI Gates & Diagnostics Surface:** `doctor`/`status`, surgical `upgrade`/`cache-clean`, `certify` (`--strict` exit `20` / `--release-gate` exit `30`), `audit` (`--mode security|pyramid|vibe|calm|all`, `--sarif` v2.1.0), `blast-radius` (`--changed-since` routing `DOCS_ONLY`/`MICRO_CHANGE`/`FULL_11X`), `mcp-config` (`--client <id> --install --pin-version` with `.11x-backup`), `completion <fish|bash|zsh>`, and offline `--version --verbose|--json`.
 
 ### 🤖 AI / LLM Evals (`ai-evals/`), 📱 Mobile (`mobile-appium/`) and 🚑 Vibe Rescue (`vibe-rescue/`)
-* **Offline AI (`make test-ai-offline` in `sinfallas/base-python-uv:3.15`):** **21 deterministic tests passed** (4 `live` tests skipped by design in offline mode), **98.04% coverage**, `ruff CC <= 5` + `mypy --strict` with **0 findings**.
+* **Offline AI (`make test-ai-offline` in `sinfallas/base-python-uv:3.15`):** **23 deterministic tests passed** (4 `live` tests skipped by design in offline mode), **97.71% coverage**, `ruff CC <= 5` + `mypy --strict` with **0 findings**.
 * **Native/Hybrid Mobile (`mobile-appium/`):** Executed on dedicated image **`sinfallas/base-mobile-appium:26`** (`Node.js 26`, `pnpm`, `OpenJDK 21`, `Android SDK/ADB`, `Appium 3`, `uiautomator2`, `xcuitest`, `WebdriverIO v9`), validating `java`/`adb`/`appium` binaries, strict TypeScript + `MobileActor` Screenplay unit suite (`make test-mobile-blueprints` from repo root), and `lint_test_antipatterns.py`; specification in [`docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md).
-* **Vibe-to-Enterprise Rescue (`vibe-rescue/`):** AST-first audit (`audit_vibe_prototype.py`) with **`99.30%`** Meta-QA coverage, `ruff CC <= 5`, and `mypy --strict` (**0 findings**).
+* **Vibe-to-Enterprise Rescue (`vibe-rescue/`):** AST-first audit (`audit_vibe_prototype.py`) with **19 unit tests (`99.24%` coverage)**, `ruff CC <= 5`, and `mypy --strict` (**0 findings**).
 * **Validation Commands:**
   ```bash
   # AI / LLM Evals, Vibe-Rescue & Mobile (Rule Zero in ephemeral Docker):
@@ -249,12 +251,12 @@ The script sequentially and strictly evaluates 10 mandatory gates:
 
 * **Universal QA 11X Skills Installer (`scripts/install-skill.sh`):**
   * **Test Suites:**
-    * **Python Unit & Meta-QA:** `tests/*.unit.py` (**176 unit tests collected** (`168+` floor), including `test_bump_version_11x.unit.py`) + `tests/meta_qa/` (**50+ Meta-QA tests** with `ruff CC <= 5` and `mypy --strict`).
-    * **BATS-core & ShellCheck (`sinfallas/base-bash-qa:latest`):** `bash-scripts/test/ejemplo_mock.bats`, `tests/bats/{test_ci_make_escape,test_graphify_and_calm,test_install_skill,test_limpieza,test_pagespeed,test_repo_scripts}.bats` (**39+ BATS tests** and ShellCheck with 0 warnings).
+    * **Python Unit & Meta-QA:** `tests/*.unit.py` (**186 unit tests collected**, including `test_bump_version_11x.unit.py`) + `tests/meta_qa/` (**62 Meta-QA tests** with `ruff CC <= 5` and `mypy --strict`).
+    * **BATS-core & ShellCheck (`sinfallas/base-bash-qa:latest`):** `bash-scripts/test/ejemplo_mock.bats`, `tests/bats/{test_ci_make_escape,test_graphify_and_calm,test_install_skill,test_limpieza,test_pagespeed,test_repo_scripts}.bats` (**62 BATS tests** and ShellCheck with 0 warnings).
   * **Ephemeral Execution:**
     * `docker run --rm -e COVERAGE_FILE=/tmp/.coverage -u "$(id -u):$(id -g)" -v "${PWD}:/app" -w /app sinfallas/base-python-uv:3.15 uv run --with pytest pytest -q --import-mode=importlib tests/*.unit.py`
     * `docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "${PWD}:/repo:ro" -w /repo/bash-scripts sinfallas/base-bash-qa:latest bash -c "shellcheck -x ../scripts/*.sh ../.agents/scripts/*.sh ../mcp-server/example/verify-v2.sh ../instalar-hooks.sh ./*.sh && bats test/*.bats ../tests/bats/*.bats"`
-  * **Coverage & Metrics:** **100% assertions passed** (**39+** BATS tests, **176** Python unit tests, **50+** Meta-QA tests) and **0 errors / 0 warnings** in ShellCheck.
+  * **Coverage & Metrics:** **100% assertions passed** (**62** BATS tests, **186** Python unit tests, **62** Meta-QA tests) and **0 errors / 0 warnings** in ShellCheck.
   * **Validated Assertions:** Smart auto-detection without polluting `$HOME/.agents`, target resolution (`workspace`, `antigravity`, `claude`, `cursor`, `hermes`, `all`), full catalog installation of all 11 modular skills (`qa-11x-architect`, `refactoring-ui`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `qa-11x-docker-certifier`, `qa-11x-devsecops-hardener`, `qa-11x-systematic-debugging`, `qa-11x-screenplay-builder`, `qa-11x-llm-evaluator`, `qa-11x-vibe-rescue`, `tactical-patterns-11x`) plus `.agents/schemas/`, SHA-256 verification against `manifest.json`, strict tampering detection (aborting with exit code 1 under DISA STIG `V-222513`), and `--help` flag check.
 
 * **Node.js / TypeScript MCP Server & Skills Installer (`mcp-server/`):**
@@ -277,8 +279,9 @@ The script sequentially and strictly evaluates 10 mandatory gates:
     * `tests/v2-18-i18n-agents.unit.ts` (10 tests): Language mode `--lang auto|es|en` (`QA_OUTPUT_LANG`), *Dynamic Language Mirroring*, global targets `codex` and `windsurf` with auto-detection, and bilingual CLI.
     * `tests/qa-health-dual-consumer.unit.ts` (7 tests): Static rule `QA-HEALTH-01` (`task.exception()` / `OPTIONAL_WORKERS` semantics in `asyncio` supervisors and physical `healthcheck` probe contracts in `Dockerfile`/`docker-compose*.yml` with `# qa-health-ok` exemption) plus 3-layer Dual-Consumer inference and matrix in `propose_skill_evolution_pr`.
     * `tests/version-manager.unit.ts` (6 blocks / 40+ assertions): SemVer comparison, `.qa-11x-version` stamps, 24h TTL cached resolution (`latest-version-check.json`) with offline *fail-open*, `update_available` field in `inspect_project_config` and `certify_11x_gate`, and silent background auto-sync of global skills via `SHA-256` preserving `~/.gemini/GEMINI.md` language.
-    * `example/run-example-e2e.mjs` + `example/verify-v2.sh` + `scripts/probar-mcp-example.sh` (Clean-Room live `stdio` + `.tgz` tarball E2E harness): Clones the repo without `node_modules` or `dist`, compiles and packs `dist/index.js` in ephemeral Docker, and connects an official MCP client (`StdioClientTransport`) against the clean tarball in `/tmp` and the temporary copy of `mcp-server/example/` (`FastAPI + Vue 3`), certifying without mocks all **13 `blueprint://*` resources**, **19 tools** (negative and clean cases), and CLI subcommands (`quickstart`, `install-skill`, `init-agents`, `reconcile-agents`, `tms-sync`, `--version`, `QA-CLI-TTY-01`); automatically gates `publicar-mcp.sh`, CI, `pre-push`, and `make test-example`.
-    * `mcp-server/test/mcp_cli_test.feature` (**Scenario 50** CLI subcommands contract): Contract/doc alignment for `doctor` (`status`), surgical `upgrade` (`cache-clean`), `certify` (`--strict` / `--release-gate`), `audit --sarif` (`security|pyramid|vibe|calm|all`), `blast-radius` (`--changed-since`), `mcp-config` (`--client <id> --install --pin-version`), `completion <fish|bash|zsh>`, and `--version --verbose|--json`.
+    * **New CLI, Live Protocol, Mobile & Security Suites (remaining 22 of 42 Vitest suites):** `tests/cli-certify-audit.unit.ts`, `tests/cli-doctor-upgrade.unit.ts`, `tests/cli-dx-tools.unit.ts`, `tests/live-mcp-protocol.test.ts` (live `InMemoryTransport` + `StdioClientTransport`), `tests/mobileBlueprint.test.ts`, `tests/path-real-resolver.unit.ts`, `tests/ide-config-paths.unit.ts`, `tests/v2-16-invariants.unit.ts`, `tests/a2a.test.ts`, `tests/agents27.test.ts`, `tests/aiTools.test.ts`, `tests/bootstrap-merge.unit.ts`, `tests/calm.test.ts`, `tests/diagnosticFormatter.test.ts`, `tests/fetch-bundle.unit.ts`, `tests/lifecycle_resilience.test.ts`, `tests/propose-evolution-pr.unit.ts`, `tests/quickstart.test.ts`, `tests/releaseGate.test.ts`, `tests/tmsSyncCli.test.ts`, `tests/vibeRescue.test.ts`, and `tests/workspace-path-validator.unit.ts`.
+    * `example/run-example-e2e.mjs` + `example/verify-v2.sh` + `scripts/probar-mcp-example.sh` (Clean-Room live `stdio` + `.tgz` tarball E2E harness): Clones the repo without `node_modules` or `dist`, compiles and packs `dist/index.js` in ephemeral Docker, and connects an official MCP client (`StdioClientTransport`) against the clean tarball in `/tmp` and the temporary copy of `mcp-server/example/` (`FastAPI + Vue 3`), certifying without mocks all **13 `blueprint://*` resources**, **19 tools** (negative and clean cases), and all **12 CLI subcommands** (`quickstart`, `install-skill`, `init-agents`, `reconcile-agents`, `tms-sync`, `doctor`, `upgrade`, `certify`, `audit`, `blast-radius`, `mcp-config`, `completion`, `--version`, `QA-CLI-TTY-01`); automatically gates `publicar-mcp.sh`, CI, `pre-push`, and `make test-example`.
+    * `mcp-server/test/mcp_cli_test.feature` (**51 Karate BDD scenarios**, including **Scenarios 50–51** CLI subcommands & shared IDE config contract): Contract/doc alignment for `doctor` (`status`), surgical `upgrade` (`cache-clean`), `certify` (`--strict` / `--release-gate`), `audit --sarif` (`security|pyramid|vibe|calm|all`), `blast-radius` (`--changed-since`), `mcp-config` (`--client <id> --install --pin-version`), `completion <fish|bash|zsh>`, and `--version --verbose|--json`.
   * **Ephemeral Execution (`mcp-server/Makefile`):**
     * `make -C mcp-server qa-lint`
     * `make -C mcp-server qa-typecheck`
@@ -286,9 +289,9 @@ The script sequentially and strictly evaluates 10 mandatory gates:
     * `make -C mcp-server build`
     * `make -C mcp-server qa-example && make -C mcp-server qa-e2e` (or `./scripts/probar-mcp-example.sh`)
   * **Coverage & Metrics Achieved:**
-    * **100% assertions passed** (**628/628** Vitest tests passing in **37 suites** + **49/49** baseline Karate BDD scenarios, plus **Scenario 50** CLI subcommands contract + **176** `tests/*.unit.py` + **50+** Meta-QA + **21** Offline AI + **39+** BATS + live E2E over `stdio`).
-    * **98.94% line/statement coverage and 95.06% branch coverage** (exceeding the `>= 95%` threshold).
-    * **99.63% function coverage**.
+    * **100% assertions passed** (**673** Vitest tests across **42 Vitest suites** + **51** Karate BDD scenarios including **Scenarios 50–51** CLI & IDE config contracts + **186** `tests/*.unit.py` + **62** Meta-QA + **23** Offline AI + **62** BATS + **19** Vibe-Rescue + live E2E over `stdio`).
+    * **99.47% line/statement coverage and 96.73% branch coverage** (exceeding the `>= 95%` threshold).
+    * **99.73% function coverage**.
     * **0 errors from ESLint (`--max-warnings 0`), SonarJS (Cognitive `<= 15`), and TypeScript (`strict: true`)**.
 
 * **Universal Cleanup and Sanitization Script (`scripts/limpieza.sh`):**
@@ -296,7 +299,7 @@ The script sequentially and strictly evaluates 10 mandatory gates:
   * **Script Quality Validation:** ShellCheck and `shfmt` in ephemeral container `sinfallas/base-bash-qa:latest` certifying **0 errors and 0 warnings** (exit code 0) across `scripts/limpieza.sh`, `scripts/probar-mcp-example.sh`, and the canonical per-stack `limpieza.sh` scripts (`fastapi/`, `vue3/`, `react-frontend/`, `node-backend/`, `python/`, `php/`, `bash-scripts/`), alongside root orchestration and `mobile-appium/`, `ai-evals/`, and `vibe-rescue/` templates across the **10 hydratable stacks + `architecture/` + `mcp-server/` (= 12 matrix environments)**.
   * **Validated Assertions in Ephemeral Docker:**
     * Ordered shutdown of ephemeral containers (all Compose profiles), networks, and orphan clean-room containers (`docker compose --profile "*" down -v --remove-orphans` + selective purge by `working_dir` label).
-    * Eradication of recent test artifacts (`allure-results/`, `.deepeval/`, `.promptfoo/`, `.agents/.cache/`, `.agents/artifacts/`, `release-readiness.*`, `cbom*.json`, `/tmp/qa-11x-last-failure.json`, `/tmp/qa11x-certify.*`, `qa_mcp_cleanroom_*`, `qa-11x-mcp-example-e2e-*`) and Docker `UID 0`/`10001`-locked files without `sudo` via Alpine fallback.
+    * Eradication of recent test artifacts (`allure-results/`, `.deepeval/`, `.promptfoo/`, `.agents/.cache/`, `.agents/artifacts/`, `release-readiness.*`, `cbom*.json`, `.agents/.cache/qa-11x-last-failure.json`, `/tmp/qa11x-certify.*`, `qa_mcp_cleanroom_*`, `qa-11x-mcp-example-e2e-*`) and Docker `UID 0`/`10001`-locked files without `sudo` via Alpine fallback.
     * Recursive sweep of OS/editor clutter (`.DS_Store`, `Thumbs.db`, `Desktop.ini`, `*.swp`, `*.bak`, `*.orig`, `*.rej`) and misplaced `./ACTIVE_TASK.md` in root, restoring ownership to `$(id -u):$(id -g)`.
     * Strict preservation of `.agents/ACTIVE_TASK.md`, `mcp-server/dist`, `.qa-11x-version`, and `graphify-out/{GRAPH_REPORT.md,graph.html,graph.json,manifest.json}` (purging stale internal leftovers in `graphify-out/`).
     * Optional deep pruning via `--deep` or `--docker-prune` flags (including `.agents/{backups,proposals,.qa-evidence.json}` and `~/.cache/qa-11x-blueprints` cache).

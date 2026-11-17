@@ -6,6 +6,7 @@ graphify-out/
 !.env.example
 .DS_Store
 .agents/ACTIVE_TASK.md
+.agents/.qa-evidence.json
 .agents/.cache/
 .agents/artifacts/
 pacts/

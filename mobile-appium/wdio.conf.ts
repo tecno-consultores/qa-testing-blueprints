@@ -102,6 +102,9 @@ export interface MobileWdioConfig {
   readonly path: string;
   readonly runner: 'local';
   readonly specs: readonly string[];
+  readonly exclude: readonly string[];
+  readonly framework: 'mocha';
+  readonly reporters: readonly string[];
   readonly maxInstances: number;
   readonly logLevel: 'error';
   readonly waitforTimeout: number;
@@ -424,6 +427,9 @@ export function buildMobileWdioConfig(
     path: '/',
     runner: 'local',
     specs: ['./tests/**/*.spec.ts'],
+    exclude: ['./tests/mobile_screenplay.spec.ts'],
+    framework: 'mocha',
+    reporters: ['spec'],
     maxInstances: 1,
     logLevel: 'error',
     waitforTimeout,
@@ -440,9 +446,11 @@ export function buildMobileWdioConfig(
       if (result.passed) {
         return null;
       }
+      const resolvedDriver =
+        driver ?? (globalThis as { readonly browser?: MobileFailureDriverPort }).browser;
       const [activeContext, capture] = await Promise.all([
-        safeCaptureContext(driver, context),
-        safeCaptureTreeAndShot(driver),
+        safeCaptureContext(resolvedDriver, context),
+        safeCaptureTreeAndShot(resolvedDriver),
       ]);
       return writeFailureDiagnosticFiles(
         artifactDir,

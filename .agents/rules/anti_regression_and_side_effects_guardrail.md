@@ -14,29 +14,30 @@ Before altering any shared code, service definition, or configuration:
 1. **Shared Configuration & Port Invariants (`docker-compose*.yml`):**
    - **Never delete or overwrite canonical protocol ports** when adding or exposing alternative ports.
    - Verify that base HTTP/HTTPS/WSS and database bindings remain reachable.
-2. **Graphify AST Blast-Radius Pre-Audit, Auto-Creation & Post-Change Update (CLI-First Invariant):**
-   - Prior to modifying or refactoring any shared function, model, utility, or state store, run the canonical blast radius inspector directly via CLI (or `inspect_ast_blast_radius` via MCP):
+2. **Graphify AST Blast-Radius Pre-Audit, Auto-Creation & Post-Change Update (CLI-First Ephemeral Docker Invariant):**
+   - Prior to modifying or refactoring any shared function, model, utility, or state store, run the canonical blast radius inspector via ephemeral Docker (`Rule Zero`) or `inspect_ast_blast_radius` via MCP:
      ```bash
-     python3 .agents/scripts/inspect_blast_radius.py "<symbol_name>"
+     docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app \
+       sinfallas/base-python-uv:3.15 python3 .agents/scripts/inspect_blast_radius.py "<symbol_name>"
      ```
    - **Mandatory AST Graph Creation If Missing (Code Changes Only):** If `graphify-out/graph.json` does not exist in the repository or target stack, you **MUST create it first** before modifying code by running (`DOCS_ONLY` tasks touching ONLY human `*.md` / `docs/` files are exempt per `AGENTS.md` §5; governance `.agents/skills/**` and `.agents/rules/**` are NOT `DOCS_ONLY`):
      ```bash
      ./scripts/actualizar-grafos-graphify.sh
      ```
    - **Mandatory Post-Change AST Graph Update (Code Changes Only):** Upon completing code, test, or script modifications, you **MUST ALWAYS update the AST graph** by running `./scripts/actualizar-grafos-graphify.sh` (which incrementally updates only modified stacks in 1 Pass-Quiet line). **Skip AST graph inspection, creation, and rebuild on `DOCS_ONLY` tasks** (where only human `*.md` / `docs/` changed).
-   - **CLI-First Execution Rule:** Shell-capable agents (Google Antigravity, local terminal agents) MUST execute the inspector and query tools directly via CLI. They MUST NOT spawn background Docker MCP containers or occupy port 8080, which are reserved exclusively for external non-shell clients (Claude Desktop, Hermes Agent).
+   - **CLI-First Execution Rule:** Shell-capable agents (Google Antigravity, local terminal agents) MUST execute the inspector and query tools via ephemeral Docker CLI (`sinfallas/base-python-uv:3.15`) or wrapper scripts. They MUST NOT spawn background Docker MCP containers or occupy port 8080, which are reserved exclusively for external non-shell clients (Claude Desktop, Hermes Agent).
    - For any symbol assessed as `MODERATE` or `HIGH/CRITICAL` risk, the agent's implementation plan must explicitly list all affected caller files and guarantee that their contracts and parameters remain intact.
 3. **Test Suite & Contract Co-Evolution Audit (`QA-TEST-SYNC-01`):**
    - Alongside production callers, always inspect consumer test suites (`tests/**`, `mcp-server/tests/**`, `mcp-server/test/*.feature`, `tests/bats/**`) to synchronize counts, schemas, fixtures, and contract assertions impacted by legitimate code or catalog updates without weakening regression invariants.
 
 ---
 
-## 2. Strict Pre-Build Static Analysis (Zero Missing Imports)
+## 2. Strict Pre-Build Static Analysis (Zero Missing Imports — Ephemeral Docker)
 
-1. **Mandatory Immediate Linting:**
-   - Before executing builds, restarting containers, or concluding a turn, verify syntactic integrity:
-     - Backend: `ruff check src/`
-     - Frontend: `vue-tsc --noEmit` or `tsc --noEmit`
+1. **Mandatory Immediate Linting (`Rule Zero`):**
+   - Before executing builds, restarting containers, or concluding a turn, verify syntactic integrity inside ephemeral Docker containers (`make qa-lint` / `run_ephemeral_qa(stage="lint")`):
+     - Backend: `make qa-lint` (`ruff check src/ tests/`, `ruff format --check src/ tests/`, `mypy --strict --cache-dir=/tmp/mypy src/`, `radon`, `bandit` / `phpstan`, `psalm`)
+     - Frontend: `make qa-lint` (`eslint --max-warnings 0`, `vue-tsc --noEmit` or `tsc --noEmit`, `audit:deps`)
 2. **Zero Runtime Exceptions:**
    - Missing imports or unhandled type mutations must be detected during static check, never discovered through runtime container failure or blank screens.
 

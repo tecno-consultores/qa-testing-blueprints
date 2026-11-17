@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 # Propósito: Certificar en contenedor Docker efímero (Rule Zero) las 19 tools,
-#            13 resources, 5 subcomandos CLI y tarball v3.1.0 de @sinfallas/mcp-qa-11x
+#            13 resources, 12 subcomandos CLI y tarball v3.2.0 de @sinfallas/mcp-qa-11x
 #            contra mcp-server/example/, verify-v2.sh y validación funcional del
 #            tarball empaquetado (Clean-Room por defecto).
 
@@ -73,7 +73,7 @@ verify_tarball_cli() {
     rm -rf "${pack_tmp}"
     return 1
   fi
-  if printf "%s\n" "${tar_list}" | grep -q '\.map$'; then
+  if printf "%s\n" "${tar_list}" | grep -q "[.]map\$"; then
     echo "FAIL [Tarball CLI] Archivos .map filtrados en ${tarball_file}" >&2
     rm -rf "${pack_tmp}"
     return 1
@@ -147,4 +147,4 @@ QA_UID="${CURRENT_UID}" QA_GID="${CURRENT_GID}" \
   -e pnpm_config_manage_package_manager_versions=false \
   mcp-server bash -c "pnpm install ${PNPM_INSTALL_FLAGS} && pnpm --silent run build && pnpm run test:example && bash ./example/verify-v2.sh && $(declare -f verify_tarball_cli) && verify_tarball_cli"
 
-echo "✅ [Clean-Room E2E] Instalación limpia + compilación + 19 tools / 13 resources / quickstart / verify-v2.sh / tarball CLI verificadas."
+echo "✅ [Clean-Room E2E] Instalación limpia + compilación + 19 tools / 13 resources / 12 CLI / verify-v2.sh / tarball CLI verificadas."

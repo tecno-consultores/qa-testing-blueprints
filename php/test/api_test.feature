@@ -6,7 +6,7 @@ Feature: Validación BDD de Caja Negra de la API REST PHP (8.2-8.5) y Manejo de 
   Background:
     # URL apuntando al servicio PHP dentro de la red interna de Docker
     * def envBaseUrl = java.lang.System.getenv('API_BASE_URL')
-    * url karate.properties['API_BASE_URL'] || envBaseUrl || 'http://qa-php:8000'
+    * url karate.properties['API_BASE_URL'] || envBaseUrl || 'http://php-api:8000'
     * configure headers = { 'Content-Type': 'application/json' }
     * def newIdempotencyKey = function(){ return java.util.UUID.randomUUID() + '' }
 
@@ -52,7 +52,7 @@ Feature: Validación BDD de Caja Negra de la API REST PHP (8.2-8.5) y Manejo de 
 
   Scenario: 5. Envío de petición mutante sin Idempotency-Key devuelve 400
     Given path '/api/v1/transfers'
-    And request { amount: 100, currency: "USD", recipient: "USR-001" }
+    And request { amount: "100.00", currency: "USD", recipient: "USR-001" }
     When method post
     Then status 400
     And match response.error contains 'Idempotency-Key'
@@ -70,7 +70,7 @@ Feature: Validación BDD de Caja Negra de la API REST PHP (8.2-8.5) y Manejo de 
   Scenario: 7. Propagación transversal Read-After-Write con Idempotency-Key dinámica
     Given path '/api/v1/transfers'
     And header Idempotency-Key = newIdempotencyKey()
-    And request { amount: 250, currency: "USD", recipient: "USR-11X" }
+    And request { amount: "250.00", currency: "USD", recipient: "USR-11X" }
     When method post
     Then status 201
     * def transferId = response.id
@@ -78,5 +78,5 @@ Feature: Validación BDD de Caja Negra de la API REST PHP (8.2-8.5) y Manejo de 
     Given path '/api/v1/transfers', transferId
     When method get
     Then status 200
-    And match response.amount == 250
+    And match response.amount == '250.00'
     And match response.actor_username != '#regex (?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'

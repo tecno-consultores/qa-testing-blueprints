@@ -23,7 +23,6 @@ from pathlib import Path
 _DEFAULT_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 REPO_ROOT = _DEFAULT_REPO_ROOT
 
-_TABLE_RE = re.compile(r'__tablename__\s*=\s*["\']([^"\']+)["\']')
 _REV_RE = re.compile(
     r'^\s*revision(?:\s*:\s*[^=]+)?\s*=\s*["\']([^"\']+)["\']',
     re.MULTILINE,
@@ -113,13 +112,34 @@ def _read_text_safe(path: Path) -> str | None:
         return None
 
 
+def _extract_class_tables(cls_node: ast.ClassDef) -> set[str]:
+    tables: set[str] = set()
+    for stmt in cls_node.body:
+        expr = _extract_assigned_expr(stmt, "__tablename__")
+        if isinstance(expr, ast.Constant) and isinstance(expr.value, str):
+            tables.add(expr.value)
+    return tables
+
+
+def _extract_tables_from_ast(content: str) -> set[str]:
+    try:
+        tree = ast.parse(content)
+    except SyntaxError:
+        return set()
+    tables: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef):
+            tables.update(_extract_class_tables(node))
+    return tables
+
+
 def get_orm_tables(model_files: list[Path]) -> set[str]:
     """Extrae nombres de tablas a partir de __tablename__ en los modelos ORM."""
     tables: set[str] = set()
     for py_file in model_files:
         content = _read_text_safe(py_file)
         if content is not None:
-            tables.update(m.group(1) for m in _TABLE_RE.finditer(content))
+            tables.update(_extract_tables_from_ast(content))
     return tables
 
 

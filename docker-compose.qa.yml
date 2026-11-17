@@ -9,7 +9,7 @@ services:
     profiles:
       - k6
       - load
-    user: "${UID:-1000}:${GID:-1000}"
+    user: "${QA_UID:-1000}:${QA_GID:-1000}"
     working_dir: /work
     environment:
       - HOME=/tmp

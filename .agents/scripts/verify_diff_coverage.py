@@ -43,7 +43,9 @@ EVASION_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ),
 )
 
-PRODUCTIVE_EXTENSIONS = frozenset({".py", ".ts", ".tsx", ".vue", ".php", ".sh"})
+PRODUCTIVE_EXTENSIONS = frozenset(
+    {".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".vue", ".php", ".sh"}
+)
 NON_PRODUCTIVE_DIR_SEGMENTS = frozenset(
     {
         "tests",
@@ -798,7 +800,12 @@ def _compute_global_totals(
     branch_pct = round(
         (cov_branches * 100.0 / tot_branches) if tot_branches > 0 else 100.0, 2
     )
-    failed_cov = line_pct < config.min_line_cov or (
+    line_failed = (
+        cov_lines < tot_lines
+        if config.min_line_cov >= 100.0
+        else line_pct < config.min_line_cov
+    )
+    failed_cov = line_failed or (
         tot_branches > 0 and branch_pct < config.min_branch_cov
     )
     exit_code = (

@@ -351,13 +351,19 @@ def _try_parse_json_list(trimmed: str) -> tuple[str, ...] | None:
 
 
 def _parse_glob_list(raw_val: str) -> tuple[str, ...]:
-    trimmed = raw_val.strip()
+    trimmed = sanitize_text(raw_val)
     if trimmed.startswith("["):
         parsed = _try_parse_json_list(trimmed)
         if parsed is not None:
             return parsed
     items = [part.strip(" []'\"") for part in trimmed.split(",")]
     return _dedupe_steps(items)
+
+
+def _parse_optional_glob_list(raw_val: str | None) -> tuple[str, ...] | None:
+    if raw_val is None:
+        return None
+    return _parse_glob_list(raw_val)
 
 
 def _extract_task_id_from_lines(lines: list[str]) -> str:
@@ -575,11 +581,21 @@ def _raw_step_lines(ckpt: CheckpointData) -> list[str]:
     return [f"- [x] {s}" for s in done] + [f"- [ ] {s}" for s in pending]
 
 
+def _build_compact_budget_one(ckpt: CheckpointData, total_steps: int) -> list[str]:
+    if ckpt.status != STATUS_CERTIFIED_CLEAN:
+        pending = _collect_pending_steps(ckpt)
+        if pending:
+            return [f"- [ ] {pending[0]} (+{total_steps - 1} pasos compactados)"]
+    return [f"- [x] (+{total_steps} pasos compactados)"]
+
+
 def _build_step_lines(ckpt: CheckpointData, budget: int) -> list[str]:
     raw_lines = _raw_step_lines(ckpt)
     if len(raw_lines) <= budget:
         return raw_lines
-    kept_tail = raw_lines[-(max(1, budget - 1)) :]
+    if budget <= 1:
+        return _build_compact_budget_one(ckpt, len(raw_lines))
+    kept_tail = raw_lines[-(budget - 1) :]
     collapsed = len(raw_lines) - len(kept_tail)
     return [f"- [x] (+{collapsed} pasos compactados)", *kept_tail]
 
@@ -907,8 +923,8 @@ def _cmd_set(args: argparse.Namespace, workspace: Path) -> str:
             intent=args.intent,
             done=_parse_csv_arg(args.done),
             planned=_parse_csv_arg(args.planned),
-            allowed_globs=_parse_csv_arg(args.allowed_globs),
-            forbidden_globs=_parse_csv_arg(args.forbidden_globs),
+            allowed_globs=_parse_optional_glob_list(args.allowed_globs),
+            forbidden_globs=_parse_optional_glob_list(args.forbidden_globs),
         )
     )
     return (

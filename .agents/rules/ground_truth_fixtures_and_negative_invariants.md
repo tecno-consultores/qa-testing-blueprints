@@ -5,7 +5,7 @@
 
 > **CORE GOVERNANCE DIRECTIVE — ZERO MOCK BLINDNESS:**
 > Applies to all AI agents and developers creating or testing integrations with external APIs, hardware, or databases.
-> **OUTPUT LANGUAGE & DYNAMIC MIRRORING (Spec 19):** Unless `AGENTS.md` mandates a fixed language (Spanish interaction here), respond in the **user's prompt language**; human docs use EN canonical (`*.md`) + 1:1 ES mirror (`*.es.md`) here (matching `README.md`/`CHANGELOG.md` in consumer repos), while `.agents/**` remains concise English.
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING (Spec 19):** Respond in the **user's prompt language** (unless `AGENTS.md` explicitly pins `--lang es|en`); human docs use EN canonical (`*.md`) + 1:1 ES mirror (`*.es.md`) here (matching `README.md`/`CHANGELOG.md` in consumer repos), while `.agents/**` remains concise English.
 
 ---
 

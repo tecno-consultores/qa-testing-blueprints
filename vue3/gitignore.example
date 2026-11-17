@@ -1,38 +1,59 @@
+# Node dependencies
 node_modules/
 .pnp
 .pnp.js
+
+# Build outputs
 dist/
 dist-ssr/
 build/
+*.tsbuildinfo
+
+# Environment variables and secrets (CRITICAL)
+.env
+.env.*
+!.env.example
+
+# QA 11X artifacts
+coverage/
+.stryker-tmp/
 test-results/
 playwright-report/
 blob-report/
 playwright/.cache/
-coverage/
-.stryker-tmp/
-nginx-logs/
-target/
-test/target/
 lhci-reports/
 psi-reports/
 psi-report.json
 .lhcache/
+.lighthouseci/
+.eslintcache
+target/
+test/target/
 graphify-out/
 prometheus_data/
+
+# Logs (Nginx and Node)
+nginx-logs/
 *.log
-.local
-.env
-.env.*
-!.env.example
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS and editor caches
+.DS_Store
+Thumbs.db
 .vscode/
 .idea/
-.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# QA-11X governance and contracts
 .agents/ACTIVE_TASK.md
 .agents/.cache/
 .agents/artifacts/
+.agents/.qa-evidence.json
 pacts/

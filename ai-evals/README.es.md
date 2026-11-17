@@ -23,7 +23,7 @@ Este blueprint establece el estándar corporativo **QA 11X** para auditar pipeli
 
 1. **DeepEval RAG y Juez Compartido (`ai-evals/rag/test_rag_faithfulness.py`, `ai-evals/_llm_judge.py`):**
    - Ideal para descomposición diagnóstica de pipelines RAG (`LLMTestCase`) y auditoría de trayectorias (`ToolCall`), respaldado por resolución compartida de jueces (`OpenAI`, `Gemini`, `Anthropic`, `Ollama` normalizado `/v1` o `LocalModel`).
-   - En **Modo 1**, valida contratos deterministas de esquema, citas huérfanas, cifras no sustentadas y orden obligatorio de herramientas (`inspect_blast_radius` previo a edición).
+   - En **Modo 1**, valida contratos deterministas de esquema, citas huérfanas, cifras no sustentadas y orden obligatorio de herramientas (`inspect_blast_radius` / `inspect_ast_blast_radius` previo a edición).
    - En **Modo 2** (`QA_LLM_AUDIT_LIVE=1`), ejecuta `assert_test` contra el juez resuelto mediante `resolve_deepeval_judge_model`.
 
 2. **Módulos Voz en Tiempo Real y OCR Multimodal (`ai-evals/voice-realtime/`, `ai-evals/multimodal-ocr/`):**
@@ -34,8 +34,8 @@ Este blueprint establece el estándar corporativo **QA 11X** para auditar pipeli
    - Normaliza entradas con `NFKC`, deduplica por SHA-256, redacta llaves privadas PEM, JWTs, secretos API, credenciales en URI y PII, y exporta JSON DeepEval (`GoldenExportOptions` DTO) o YAML Promptfoo emitiendo `vars.query`.
 
 4. **Promptfoo (`ai-evals/promptfooconfig.yaml` — Config-First en YAML):**
-   - Ideal para comparar múltiples proveedores (`openai:gpt-4.1-mini`, `anthropic:messages:claude-sonnet-4-5`, `google:gemini-2.5-flash`, `ollama:chat:qwen3:8b`) parametrizando el juez mediante `defaultTest.options.provider` (`PROMPTFOO_JUDGE_PROVIDER`).
-   - Combina aserciones deterministas (`is-json`, `contains`, `not-icontains`, presupuesto de `latency`) con rúbricas semánticas (`context-faithfulness`, `answer-relevance`, `llm-rubric`) y bloque `redteam` alineado con **OWASP LLM Top 10** (`indirect-prompt-injection`, `prompt-injection`, `jailbreak`, `pii`, `rbac`, `excessive-agency`, `hijacking`).
+   - Ideal para comparar múltiples proveedores (`openai:gpt-4.1-mini`, `anthropic:messages:claude-sonnet-4-5`, `google:gemini-2.5-flash`, `ollama:chat:qwen3:8b`) parametrizando el juez mediante Nunjucks en `defaultTest.options.provider` (`{{ env.PROMPTFOO_JUDGE_PROVIDER | default('openai:gpt-4.1-mini', true) }}`), leyendo llaves directamente del entorno (cero overrides literales `"${...}"` en `apiKey`) y filtrando proveedores activos vía `--filter-providers`.
+   - Combina aserciones deterministas (`is-json`, `contains`, `not-icontains`, presupuesto de `latency`) con rúbricas semánticas (`context-faithfulness`, `answer-relevance`, `llm-rubric`) y bloque `redteam` alineado con **OWASP LLM Top 10** (`indirect-prompt-injection`, `prompt-injection`, `jailbreak`, `pii`, `rbac`, `excessive-agency`, `hijacking`) ejecutado sin bloqueo interactivo mediante `PROMPTFOO_DISABLE_REDTEAM_REMOTE_GENERATION=1`.
 
 ---
 
@@ -62,7 +62,7 @@ Toda ejecución ocurre dentro de contenedores efímeros alineados al `UID:GID` d
   ```bash
   make test-ai-offline
   ```
-  Ejecuta `ruff` (`CC <= 5`), `mypy --strict` y `pytest --cov=ai-evals --cov=tests/evals --cov-fail-under=95` en `sinfallas/base-python-uv:3.15` con `-u "$(id -u):$(id -g)" -e HOME=/tmp -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache`.
+  Ejecuta `ruff` (`CC <= 5`), `mypy --strict` y `pytest --cov=ai-evals --cov=tests/evals --cov-fail-under=95` en `sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4` con `-u "$(id -u):$(id -g)" -e HOME=/tmp -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache`.
 
 - **Plantilla Standalone para Consumidores:** Copia `Makefile.example` -> `Makefile`, conserva `docker-compose.qa.yml` y `limpieza.sh`, y ejecuta `make qa-all`, `make audit-llm` o `make clean` (non-root `${QA_UID:-1000}:${QA_GID:-1000}`).
 
@@ -77,7 +77,7 @@ Toda ejecución ocurre dentro de contenedores efímeros alineados al `UID:GID` d
   export QA_LLM_MODEL="qwen3:8b"
   make audit-llm
   ```
-  Ejecuta primero `deepeval` (`QA_LLM_AUDIT_LIVE=1` o su alias heredado `RUN_LLM_AUDIT=1`) en `sinfallas/base-python-uv:3.15` y luego `promptfoo eval -c ai-evals/promptfooconfig.yaml` (`PROMPTFOO_DISABLE_TELEMETRY=1`) en `sinfallas/base-node-ionic:26`. Si no detecta credenciales ni URL local, aborta inmediatamente con código de salida `2` sin bloquear `TTY` (`QA-CLI-TTY-01`).
+  Ejecuta primero `deepeval` (`QA_LLM_AUDIT_LIVE=1` o su alias heredado `RUN_LLM_AUDIT=1`) en `sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4` y luego `promptfoo eval -c ai-evals/promptfooconfig.yaml --filter-providers ...` (`PROMPTFOO_DISABLE_TELEMETRY=1`, `PROMPTFOO_DISABLE_REDTEAM_REMOTE_GENERATION=1`) en `sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60`. Si no detecta credenciales ni URL local, aborta inmediatamente con código de salida `2` sin bloquear `TTY` (`QA-CLI-TTY-01`).
 
 ---
 

@@ -475,6 +475,31 @@ def test_py_ast_antipattern_edge_branches_and_meta_qa_scope(tmp_path: Path) -> N
             '    with mock.patch("svc.write_audit_log", wraps=custom_wrap):\n'
             "        pass\n"
             "    write_audit_log = mock.MagicMock()\n"
+            "def test_unrelated_mock_assertion_does_not_mask_blind_audit() -> None:\n"
+            "    other_mock = mock.MagicMock()\n"
+            "    other_mock.assert_called_once()\n"
+            '    with mock.patch("svc.write_audit_log", mock.AsyncMock()):\n'
+            "        pass\n"
+            '    patched = mock.patch("svc.write_audit_log", mock.MagicMock())\n'
+            "@other_deco\n"
+            '@mock.patch("svc.other_fn")\n'
+            '@mock.patch("svc.write_audit_log")\n'
+            "def test_decorator_audit_patch(audit_arg: object) -> None:\n"
+            "    _ = audit_arg\n"
+            "def test_attr_receiver_ok() -> None:\n"
+            '    with mock.patch("svc.write_audit_log"):\n'
+            "        assert svc.write_audit_log.call_args is not None\n"
+        ),
+    )
+    _write_file(
+        tmp_path,
+        "gates/verify_fake_gate.py",
+        (
+            "def verify_deploy_gate() -> bool:\n"
+            "    try:\n"
+            "        return False\n"
+            "    except OSError:\n"
+            "        return True\n"
         ),
     )
     _write_file(
@@ -483,14 +508,47 @@ def test_py_ast_antipattern_edge_branches_and_meta_qa_scope(tmp_path: Path) -> N
         "import time\ndef test_m() -> None:\n    time.sleep(0.1)\n",
     )
 
-    violations, _, _ = linter.audit_paths(["tests"], base_dir=tmp_path)
+    violations, _, _ = linter.audit_paths(["tests", "gates"], base_dir=tmp_path)
     py_001 = [v for v in violations if v.rule_id == "QA-PY-ANTI-001"]
     py_002 = [v for v in violations if v.rule_id == "QA-PY-ANTI-002"]
+    py_003 = [v for v in violations if v.rule_id == "QA-PY-ANTI-003"]
     ui_001 = [v for v in violations if v.rule_id == "QA-UI-ANTI-001"]
-    assert [v.line for v in py_001] == [10, 12, 18]
+    assert [v.line for v in py_001] == [10, 12, 18, 22, 24, 27]
     assert [v.line for v in py_002] == [1]
+    assert any(v.file == "gates/verify_fake_gate.py" for v in py_003)
     assert ui_001 == []
     assert not linter._expr_mentions_write_audit(ast.Name(id="other"))
     assert not linter._expr_mentions_write_audit(
         ast.Attribute(value=ast.Name(id="svc"), attr="other")
     )
+    tree_ok = ast.parse("m.assert_called_once()\n")
+    assert linter._has_audit_mock_assertion(tree_ok) is True
+    assert linter._has_audit_mock_assertion(tree_ok, expected_targets={"m"}) is True
+    assert linter._has_audit_mock_assertion(tree_ok, expected_targets={"x"}) is False
+
+
+def test_py_ast_patch_object_call_receiver_and_nested_patch(tmp_path: Path) -> None:
+    """Cubre args[2] de patch.object, receptor Call y patch anidado (EnterStack)."""
+    _write_file(
+        tmp_path,
+        "tests/test_py_nested.py",
+        (
+            "from contextlib import ExitStack\n"
+            "from unittest import mock\n"
+            "def test_patch_object_unasserted() -> None:\n"
+            "    my_bad_mock = mock.AsyncMock()\n"
+            '    with mock.patch.object(svc, "write_audit_log", my_bad_mock):\n'
+            "        get_mock().assert_called_once()\n"
+            "def test_patch_object_asserted() -> None:\n"
+            "    my_ok_mock = mock.AsyncMock()\n"
+            '    with mock.patch.object(svc, "write_audit_log", my_ok_mock):\n'
+            "        my_ok_mock.assert_called_once()\n"
+            "def test_exit_stack_nested_patch() -> None:\n"
+            "    with ExitStack() as stack:\n"
+            '        stack.enter_context(mock.patch("svc.write_audit_log"))\n'
+        ),
+    )
+
+    violations, _, _ = linter.audit_paths(["tests"], base_dir=tmp_path)
+    py_001 = [v for v in violations if v.rule_id == "QA-PY-ANTI-001"]
+    assert [v.line for v in py_001] == [5, 13]

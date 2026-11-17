@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "name": "QA Testing Blueprints (QA-11X v3.1)",
   "slug": "qa-testing-blueprints-11x",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "standard_edition": "QA-11X v3.1",
   "license": "MIT",
   "author": "Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)",
@@ -118,9 +118,9 @@
       "name": "qa-11x-architect",
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-architect/SKILL.md",
-      "size_bytes": 11446,
-      "sha256": "ed2661776510d568ef7c3536633e0907f43bd43be9cb81b2f595581a253a2117",
-      "description": "Master QA 11X & DevSecOps Architect (qa-testing-blueprints v3.0+). Use whenever the user asks to initialize or integrate QA in a project, merge .example templates, write or audit unit/BDD/mutation/E2E tests, enforce >=95% coverage, apply DISA ASD STIG V6R5 and OWASP v4.2 security controls, run ephemeral Docker QA suites (Rule Zero), optimize context token consumption, or update TESTING.md and CHANGELOG.md."
+      "size_bytes": 11539,
+      "sha256": "e61ba9b87b400d50a119d7d63a29d37ec55cd1e388ad04677e11452c77895321",
+      "description": "Master QA 11X & DevSecOps Architect (qa-testing-blueprints v3.1+). Use whenever the user asks to initialize or integrate QA in a project, merge .example templates, write or audit unit/BDD/mutation/E2E tests, enforce >=95% coverage, apply DISA ASD STIG V6R5 and OWASP v4.2 security controls, run ephemeral Docker QA suites (Rule Zero), optimize context token consumption, or update TESTING.md and CHANGELOG.md."
     },
     {
       "id": "qa-11x-devsecops-hardener",
@@ -129,15 +129,15 @@
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-devsecops-hardener/SKILL.md",
       "size_bytes": 13923,
       "sha256": "d72b10ed94559af1e4b9b5c5d78eec05b59c8755dda73b6d72692b2f4769cf6b",
-      "description": "DISA ASD STIG V6R5 and OWASP Developer Guide v4.2 hardening sub-skill for Standard 11X. Use whenever designing, auditing, or modifying multi-tenant PostgreSQL 15-17+ RLS schemas, authentication and session flows, cryptographic secret vaults, WORM audit hash-chains, mutating MCP/JSON-RPC tools, or non-root Docker containers."
+      "description": "DISA ASD STIG V6R5 and OWASP Developer Guide v4.2 hardening sub-skill for Standard 11X. Use whenever designing, auditing, or modifying multi-tenant PostgreSQL 15–17+ RLS schemas, authentication and session flows, cryptographic secret vaults, WORM audit hash-chains, mutating MCP/JSON-RPC tools, or non-root Docker containers."
     },
     {
       "id": "qa-11x-systematic-debugging",
       "name": "qa-11x-systematic-debugging",
       "path": ".agents/skills/qa-11x-systematic-debugging/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-systematic-debugging/SKILL.md",
-      "size_bytes": 10633,
-      "sha256": "350ea9436028bd112377f128f67db1a0738d71340411f1c288892b541602bd80",
+      "size_bytes": 11076,
+      "sha256": "aa158cb80a9077796ec0392a7619b79c814a0447bb5c633040554ca61a26b4ea",
       "description": "Mandatory 4-phase deterministic root-cause debugging sub-skill for Standard 11X. Use before applying any bug fix, test repair, regression patch, or runtime troubleshooting to isolate root causes via Docker Rule Zero reproduction, Graphify AST blast-radius tracing, single-hypothesis testing, and RED-to-GREEN locks."
     },
     {
@@ -163,8 +163,8 @@
       "name": "qa-11x-vibe-rescue",
       "path": ".agents/skills/qa-11x-vibe-rescue/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-vibe-rescue/SKILL.md",
-      "size_bytes": 8559,
-      "sha256": "75472d4686a8131b0156c78ca99d6b911a7926f21c42b58c8b39e3196e363598",
+      "size_bytes": 8609,
+      "sha256": "fe765265de81ae9c2fe13b415b54cf6a70eb5141c9ae33fe2945418fd95ab988",
       "description": "5-stage Vibe-to-Enterprise rescue and hardening sub-skill for Standard 11X. Audits and hardens AI-generated prototypes (Bolt.new, Lovable, v0, Replit Agent, rapid vibe-coding scaffolds) without destroying their UX, enforcing secret quarantine, PostgreSQL 17 RLS, strict typing (CC <= 5), non-root Docker Rule Zero (>= 95% coverage), and 10/10 gate closure."
     },
     {
@@ -172,9 +172,9 @@
       "name": "qa-11x-docker-certifier",
       "path": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-docker-certifier/SKILL.md",
-      "size_bytes": 7521,
-      "sha256": "3f0a1458dbae936ae871580b2c32feda6b97b24688546bb61000c801d44f2009",
-      "description": "QA 11X Corporate Standard certifier in ephemeral Docker containers. Enforces Rule Zero (zero host executions on Ubuntu/macOS), Cyclomatic/Cognitive Complexity Grade A, unit test coverage >= 95%, mutation testing, WCAG 2.1 AA accessibility, Lighthouse CI, and silent mode RAM conservation."
+      "size_bytes": 8522,
+      "sha256": "b447ee6eced08077ef513db9b2f4115936bae326fa490096d6a94a3de7798f33",
+      "description": "QA 11X Corporate Standard certifier in ephemeral Docker containers. Enforces Rule Zero (zero host executions on Ubuntu/macOS/Windows), Cyclomatic/Cognitive Complexity Grade A, unit test coverage >= 95%, mutation testing, WCAG 2.1 AA accessibility, Lighthouse CI, and silent mode RAM conservation."
     },
     {
       "id": "docker-trivy-keydb-hardening",
@@ -190,8 +190,8 @@
       "name": "graphify-ast-navigator",
       "path": ".agents/skills/graphify-ast-navigator/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/graphify-ast-navigator/SKILL.md",
-      "size_bytes": 8697,
-      "sha256": "735d80483d1a7888c5ac10794943b9fe7b97b45bff1430ce48ad520e65a86cf1",
+      "size_bytes": 9183,
+      "sha256": "834c610eee90eccafe673fa9e72ac196eb34989e89bfeec4af9a8ff63fcefdf8",
       "description": "AST Knowledge Graph lifecycle and bidirectional code navigation (why and how to create, incrementally refresh, and query graph.json & GRAPH_REPORT.md). MANDATORY FIRST STEP whenever answering questions about project code or architecture (Code Q&A), tracing callers/callees, auditing pre-refactoring blast radius, or checking layer boundaries."
     },
     {

@@ -15,7 +15,7 @@ import {
   validateQuickstartCi,
   validateQuickstartTier,
 } from '../src/cli/quickstart.js';
-import { CLI_USAGE_TEXT, parseCliArgs, parseQuickstartCliArgs, runCli } from '../src/cli.js';
+import { CLI_USAGE_TEXT, QUICKSTART_HELP_TEXT, parseCliArgs, parseQuickstartCliArgs, runCli } from '../src/cli.js';
 import { auditSecurityStigOwasp } from '../src/tools/security-auditor.js';
 import { inspectProjectConfig } from '../src/tools/inspect-project.js';
 import { StackNameSchema } from '../src/types.js';
@@ -206,7 +206,7 @@ describe('T5.1: Quickstart CLI & PR-Aware Composite GitHub Action', () => {
       });
       expect(result.dryRun).toBe(true);
       expect(result.tier).toBe('starter');
-      expect(result.lang).toBe('en');
+      expect(result.lang).toBe('auto');
       expect(result.detectedStacks).toEqual(['generic']);
       expect(result.plannedFiles).toEqual([
         '.qa-11x.json',
@@ -327,6 +327,15 @@ describe('T5.1: Quickstart CLI & PR-Aware Composite GitHub Action', () => {
       writeProjectFile(tmpDir, '.qa-11x.json', '{corrupt');
       const res2 = await runQuickstart({ dir: tmpDir, ci: 'none' });
       expect(res2.tier).toBe('starter');
+
+      writeProjectFile(tmpDir, '.qa-11x.json', JSON.stringify({ lang: 'auto' }));
+      const resAutoCfg = await runQuickstart({ dir: tmpDir, ci: 'none' });
+      expect(resAutoCfg.lang).toBe('auto');
+
+      writeProjectFile(tmpDir, '.qa-11x.json', JSON.stringify({ lang: 'fr' }));
+      writeProjectFile(tmpDir, 'AGENTS.md', '# Neutral Directives\nRun checks inside Docker.\n');
+      const resNeutral = await runQuickstart({ dir: tmpDir, ci: 'none' });
+      expect(resNeutral.lang).toBe('auto');
     });
   });
 
@@ -361,9 +370,22 @@ describe('T5.1: Quickstart CLI & PR-Aware Composite GitHub Action', () => {
       fs.unlinkSync(path.join(tmpDir, '.qa-11x.json'));
       fs.symlinkSync(path.join(outsideDir, 'dangling-target.json'), path.join(tmpDir, '.qa-11x.json'));
       await expect(runQuickstart({ dir: tmpDir })).rejects.toThrow(
+        'Symlink path traversal outside project root detected'
+      );
+      fs.unlinkSync(path.join(tmpDir, '.qa-11x.json'));
+
+      const insideTarget = path.join(tmpDir, 'inside-target.json');
+      fs.writeFileSync(insideTarget, '{}', 'utf8');
+      fs.symlinkSync(insideTarget, path.join(tmpDir, '.qa-11x.json'));
+      await expect(runQuickstart({ dir: tmpDir })).rejects.toThrow(
         'Symbolic link target is forbidden for managed file'
       );
       fs.unlinkSync(path.join(tmpDir, '.qa-11x.json'));
+
+      const sysSymlink = path.join(tmpDir, 'etc-link');
+      fs.symlinkSync('/etc', sysSymlink);
+      expect(() => resolveQuickstartTargetDir(sysSymlink)).toThrow('SEC-PATH-01');
+      fs.unlinkSync(sysSymlink);
 
       expect(validateQuickstartTier()).toBe('starter');
       expect(validateQuickstartCi()).toBe('github');
@@ -376,7 +398,7 @@ describe('T5.1: Quickstart CLI & PR-Aware Composite GitHub Action', () => {
 
       const minimalParsed = parseCliArgs(['quickstart'], tmpDir);
       expect(minimalParsed.command).toBe('quickstart');
-      expect(minimalParsed.lang).toBe('en');
+      expect(minimalParsed.lang).toBe('auto');
       expect(minimalParsed.tier).toBeUndefined();
 
       const parsed = parseCliArgs(
@@ -412,9 +434,15 @@ describe('T5.1: Quickstart CLI & PR-Aware Composite GitHub Action', () => {
       expect(jsonRun.quickstartResult?.vibePrototypeDetected).toBe(true);
       const firstJsonLog = jsonLogs[0];
       expect(firstJsonLog).toBeDefined();
-      const parsedJson = JSON.parse(firstJsonLog ?? '{}') as { tier?: string; activeGates?: unknown[] };
+      const parsedJson = JSON.parse(firstJsonLog ?? '{}') as {
+        tier?: string;
+        activeGates?: unknown[];
+        nextCommand?: string;
+      };
       expect(parsedJson.tier).toBe('enterprise');
       expect(parsedJson.activeGates).toHaveLength(13);
+      expect(parsedJson.nextCommand).toBe('npx -y @sinfallas/mcp-qa-11x@latest audit --mode vibe');
+      expect(QUICKSTART_HELP_TEXT).toContain('(default: starter)');
 
       if (!jsonRun.quickstartResult) {
         throw new Error('Expected quickstartResult to be defined');
@@ -496,7 +524,7 @@ describe('T5.1: Quickstart CLI & PR-Aware Composite GitHub Action', () => {
           );
           expect(workflowText).toContain('qa-11x-pr-check@v3 # sec-ci-action-ref-ok');
           expect(workflowText).toContain(
-            'actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v5.1.0'
+            'actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0'
           );
         } finally {
           fs.rmSync(workflowTmpDir, { recursive: true, force: true });
@@ -564,6 +592,8 @@ function extractYamlRunBlocks(rawYaml: string): string[] {
       const raw = fs.readFileSync(ACTION_YML_PATH, 'utf8');
 
       expect(raw).toContain("using: 'composite'");
+      expect(raw).toContain("default: 'auto'");
+      expect(raw).toContain('auto|en|es)');
       for (const requiredInput of [
         'tier:',
         'lang:',

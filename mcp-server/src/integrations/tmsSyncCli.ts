@@ -21,6 +21,7 @@ import {
   pickAt,
   reportDebugCatchError,
   sanitizeCommandSecrets,
+  throwIfSignalAborted,
 } from '../utils/diagnosticFormatter.js';
 
 export const TMS_PROVIDERS = ['jira', 'zephyr', 'xray', 'github-issues'] as const;
@@ -168,6 +169,7 @@ export interface TmsSyncDependencies {
   workspaceRoot?: string;
   nowMs?: () => number;
   randomUuid?: () => string;
+  signal?: AbortSignal;
 }
 
 export interface TmsSyncArgs {
@@ -1149,6 +1151,11 @@ function evaluateOfflineGate(
   return { live: true, offlineStatus: STATUS_DRY_RUN, creds };
 }
 
+function combineAbortSignal(timeoutMs: number, callerSignal?: AbortSignal): AbortSignal {
+  const timeoutSignal = AbortSignal.timeout(timeoutMs);
+  return callerSignal ? AbortSignal.any([timeoutSignal, callerSignal]) : timeoutSignal;
+}
+
 interface PostRequestSpec {
   readonly fetchPort: FetchPort;
   readonly endpoint: string;
@@ -1157,12 +1164,13 @@ interface PostRequestSpec {
   readonly idempotencyKey: string;
   readonly timeoutMs: number;
   readonly env: Readonly<Record<string, string | undefined>>;
+  readonly signal?: AbortSignal;
 }
 
 async function executePostNoRetry(
   spec: PostRequestSpec
 ): Promise<{ status: TmsSyncStatus; httpStatus?: number; message: string }> {
-  const { fetchPort, endpoint, payload, authHeader, idempotencyKey, timeoutMs, env } = spec;
+  const { fetchPort, endpoint, payload, authHeader, idempotencyKey, timeoutMs, env, signal } = spec;
   try {
     const response = await fetchPort(endpoint, {
       method: 'POST',
@@ -1174,7 +1182,7 @@ async function executePostNoRetry(
         [HEADER_USER_AGENT]: USER_AGENT_VALUE,
       },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: combineAbortSignal(timeoutMs, signal),
     });
     if (response.status === 409) {
       return {
@@ -1243,6 +1251,7 @@ async function executePushResultsMode(ctx: ModeExecutionContext): Promise<TmsSyn
     idempotencyKey,
     timeoutMs: resolveTimeoutMs(args.timeoutMs),
     env,
+    signal: deps?.signal,
   });
   return {
     mode: MODE_PUSH,
@@ -1270,21 +1279,26 @@ function isTransientTransportError(err: unknown): boolean {
   return TRANSIENT_TRANSPORT_RE.test(`${code} ${msg}`);
 }
 
+interface GetRequestSpec {
+  readonly fetchPort: FetchPort;
+  readonly endpoint: string;
+  readonly authHeader: string;
+  readonly timeoutMs: number;
+  readonly signal?: AbortSignal;
+}
+
 async function performSingleGetAttempt(
-  fetchPort: FetchPort,
-  endpoint: string,
-  authHeader: string,
-  timeoutMs: number
+  spec: GetRequestSpec
 ): Promise<{ kind: 'ok'; status: number; body: string } | { kind: 'retry'; status?: number; err: string } | { kind: 'fail'; status?: number; err: string }> {
   try {
-    const res = await fetchPort(endpoint, {
+    const res = await spec.fetchPort(spec.endpoint, {
       method: 'GET',
       headers: {
         [HEADER_ACCEPT]: MIME_JSON,
-        [HEADER_AUTHORIZATION]: authHeader,
+        [HEADER_AUTHORIZATION]: spec.authHeader,
         [HEADER_USER_AGENT]: USER_AGENT_VALUE,
       },
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: combineAbortSignal(spec.timeoutMs, spec.signal),
     });
     const body = await res.text();
     if (res.ok) {
@@ -1303,19 +1317,16 @@ async function performSingleGetAttempt(
 }
 
 async function executeGetWithSingleRetry(
-  fetchPort: FetchPort,
-  endpoint: string,
-  authHeader: string,
-  timeoutMs: number
+  spec: GetRequestSpec
 ): Promise<{ ok: true; status: number; body: string; attempts: number } | { ok: false; status?: number; err: string; attempts: number }> {
-  const first = await performSingleGetAttempt(fetchPort, endpoint, authHeader, timeoutMs);
+  const first = await performSingleGetAttempt(spec);
   if (first.kind === 'ok') {
     return { ok: true, status: first.status, body: first.body, attempts: 1 };
   }
   if (first.kind === 'fail') {
     return { ok: false, status: first.status, err: first.err, attempts: 1 };
   }
-  const second = await performSingleGetAttempt(fetchPort, endpoint, authHeader, timeoutMs);
+  const second = await performSingleGetAttempt(spec);
   if (second.kind === 'ok') {
     return { ok: true, status: second.status, body: second.body, attempts: 2 };
   }
@@ -1503,12 +1514,13 @@ async function executePullStoriesMode(
   }
 
   const fetchPort = deps?.fetchPort ?? defaultFetchPort;
-  const response = await executeGetWithSingleRetry(
+  const response = await executeGetWithSingleRetry({
     fetchPort,
     endpoint,
-    gate.creds.headerValue,
-    resolveTimeoutMs(args.timeoutMs)
-  );
+    authHeader: gate.creds.headerValue,
+    timeoutMs: resolveTimeoutMs(args.timeoutMs),
+    signal: deps?.signal,
+  });
   if (!response.ok) {
     return {
       mode: MODE_PULL,
@@ -1554,6 +1566,7 @@ export async function executeTmsSync(
   args: TmsSyncArgs,
   deps?: TmsSyncDependencies
 ): Promise<TmsSyncResult> {
+  throwIfSignalAborted(deps?.signal, 'sync_enterprise_tms abortado por timeout o cancelación.');
   const startedAt = getNowMs(deps);
   const { mode, provider } = validateModeAndProvider(args);
   const workspaceRoot = args.workspaceRoot ?? deps?.workspaceRoot ?? process.cwd();

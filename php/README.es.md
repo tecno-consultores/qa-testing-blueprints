@@ -24,9 +24,9 @@ docker run --rm \
 ```
 
 * **Para PHP, Linting, PHPStan (`max`), Psalm, PHPUnit/Pest (`PCOV`) y Mutación (`Infection`):** `sinfallas/basephpcomposer:8.5` (tags oficiales disponibles: `8.2`, `8.3`, `8.4`, `8.5`, `latest` y `11x-v2-php{8.2,8.3,8.4,8.5}`).
-* **Para Persistencia Real y Aislamiento Multi-Tenant (Anti-Mock Blindness):** `postgres:17-alpine` con usuario de aplicación `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`.
+* **Para Persistencia Real y Aislamiento Multi-Tenant (Anti-Mock Blindness):** `postgres:17-alpine@sha256:d3244e8ce3f165ee3c93d9c4a4b1d0fe48b3a89e2287b717fdcbbde92d405065` con usuario de aplicación `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`.
 * **Para Idempotencia, Sesiones Concurrentes y Caché Multi-Hilo:** `eqalpha/keydb:6.3.4`.
-* **Para Pruebas BDD de Caja Negra API:** `sinfallas/karatelabs:1.5.1` (inyectando `Idempotency-Key` en toda mutación).
+* **Para Pruebas BDD de Caja Negra API:** `sinfallas/karatelabs:1.5.1@sha256:a9a52ca9c5491ab39b64f0b4fdc3dea879c2213c9bc995be58d6cd4b9a80cc89` (inyectando `Idempotency-Key` en toda mutación).
 * **Para Pruebas de Carga Declarativas y SLOs:** `grafana/k6:2.4.0@sha256:d41bb79cd8de5a7ad619b53570e3712633e8bff0937010a5c6c57a4747e7a276`.
 * **Para Seguridad Dinámica (DAST) y Caos:** `zaproxy/zap-stable:2.15.0`, `gaiaadm/pumba:0.10.1` y `prom/prometheus:v2.55.1`.
 
@@ -37,11 +37,11 @@ docker run --rm \
 1. **Tipado Estricto y Formato:** `declare(strict_types=1);` obligatorio en todo archivo PHP + `friendsofphp/php-cs-fixer` (`@PER-CS2.0`).
 2. **Análisis Estático y Complejidad Cognitiva:** `phpstan/phpstan` (nivel `max` / 9 + `phpstan-strict-rules`, `phpstan/extension-installer`) y `tomasvotruba/cognitive-complexity` (complejidad `<= 5` en módulos críticos / `<= 9` global).
 3. **Seguridad Estática (SAST) y CVEs:** `vimeo/psalm` (`--taint-analysis` configurado en `psalm.xml`) y `composer audit` (0 CVEs High/Critical).
-4. **Pruebas Unitarias Aisladas:** `pestphp/pest` o `phpunit/phpunit` 11.5+–13.x con motor ligero `pcov` (cobertura innegociable `>= 95.0%` en líneas y ramas).
+4. **Pruebas Unitarias Aisladas:** `pestphp/pest` o `phpunit/phpunit` 11.5+–13.x con `defaultTestSuite="Unit"` en `phpunit.xml` y motor ligero `pcov` (cobertura innegociable `>= 95.0%` en líneas y ramas; monta `php.ini` personalizado en `/usr/local/etc/php/conf.d/99-qa11x.ini:ro` para prevalecer sobre `docker-php-ext-pcov.ini`, o pasa `-d pcov.directory=app` en Laravel).
 5. **Pruebas de Mutación:** `infection/infection` (`minMsi: 80`, `minCoveredMsi: 80`, 0 mutantes vivos críticos).
-6. **Paridad de Base de Datos y PostgreSQL 17 `FORCE RLS`:** Verificación de migraciones Doctrine / Laravel contra `postgres:17-alpine` real ejecutando `ALTER TABLE ... ENABLE ROW LEVEL SECURITY; ALTER TABLE ... FORCE ROW LEVEL SECURITY;` bajo rol `NOBYPASSRLS` y re-aplicación por transacción de `SET LOCAL app.current_tenant_id` (prohibido depender de `SELECT *` sin política RLS activa).
+6. **Paridad de Base de Datos y PostgreSQL 17 `FORCE RLS`:** Verificación de migraciones Doctrine / Laravel contra `postgres:17-alpine@sha256:d3244e8ce3f165ee3c93d9c4a4b1d0fe48b3a89e2287b717fdcbbde92d405065` real ejecutando `ALTER TABLE ... ENABLE ROW LEVEL SECURITY; ALTER TABLE ... FORCE ROW LEVEL SECURITY;` bajo rol `NOBYPASSRLS` y re-aplicación por transacción de `SET LOCAL app.current_tenant_id` (prohibido depender de `SELECT *` sin política RLS activa; `make qa-parity` emite `[SKIPPED]` si no existe consola ORM).
 7. **Contratos Consumer-Driven Zero-Infra (`Pact` V3/V4) y OpenAPI 3.1:**
-   * Toda integración inter-servicios (por ejemplo, PHP como proveedor o consumidor frente a `fastapi/` o `node-backend/`) DEBE validar contratos JSON deterministas en `PACT_OUTPUT_DIR` sin depender de un *Pact Broker* en la nube.
+   * `make qa-contracts` genera `openapi.json` mediante `vendor/bin/openapi` (emitiendo `[SKIPPED]` si falta), mientras toda integración inter-servicios (por ejemplo, PHP como proveedor o consumidor frente a `fastapi/` o `node-backend/`) DEBE validar contratos JSON deterministas en `PACT_OUTPUT_DIR` sin depender de un *Pact Broker* en la nube.
    * **Precisión Monetaria Exacta:** Los importes financieros deben viajar serializados como cadenas decimales exactas (`"149.95"` vía `bcmath` o `Brick\Money`), quedando terminantemente prohibido usar `float` binario en cuerpos JSON.
    * **Trimodal Fixtures y Anti-Silo:** Cubrir estados `nominal_configured` (`201 Created` con eco de `Idempotency-Key`), `virgin_empty` (`404 Not Found` en formato RFC 7807 `application/problem+json`) y `degraded_conflict` (lotes parciales `POST .../batch` devolviendo `200 OK` con inspección ítem por ítem de `results[].status`, más `409 Conflict` RFC 7807 ante colisión de `Idempotency-Key` con payload mutado).
 8. **Pruebas BDD de Caja Negra:** `Karate Labs` ejecutando `test/api_test.feature` contra la API viva en contenedor efímero.
@@ -60,10 +60,11 @@ docker run --rm \
 make qa-lint        # PHP-CS-Fixer + PHPStan (max) + Psalm Taint + Composer Audit
 make qa-unit        # Pest/PHPUnit con PCOV >= 95%
 make qa-parity      # Migraciones + verificación FORCE RLS contra PostgreSQL 17
-make qa-contracts   # Contratos Pact V4 Zero-Infra consumidor/proveedor + verificación SLO
-make qa-bdd         # Karate Labs API (con Idempotency-Key UUIDv4)
+make qa-contracts   # Exportación OpenAPI 3.1 (emite [SKIPPED] si falta) + contratos Pact V4
+make qa-bdd         # Karate Labs API contra php-api (con Idempotency-Key UUIDv4)
 make qa-dast        # Seguridad Dinámica Baseline Scan (OWASP ZAP)
-make qa-chaos       # Ingeniería del Caos (Pumba netem) + resiliencia bajo carga k6
+make qa-load        # Pruebas de carga declarativas k6 (smoke | load | stress)
+make qa-chaos       # Ingeniería del Caos (Pumba netem + scraping Prometheus)
 make qa-mutation    # Infection (MSI >= 80%)
 make qa-sbom        # CycloneDX 1.6
 make qa-all         # Pipeline integral 11X

@@ -40,7 +40,7 @@ Feature: Validación BDD de Caja Negra de la API REST FastAPI y Manejo de Errore
 
   Scenario: 4. Envío de credenciales incompletas genera error de validación 422
     Given path '/api/v1/auth/login'
-    And header Idempotency-Key = java.util.UUID.randomUUID() + ''
+    And header Idempotency-Key = newIdempotencyKey()
     And request { username: "solouser_sinpassword" }
     When method post
     Then status 422
@@ -58,7 +58,7 @@ Feature: Validación BDD de Caja Negra de la API REST FastAPI y Manejo de Errore
 
   Scenario: 5. Verificación de rechazo de payload malformado con tipos inválidos
     Given path '/api/v1/items'
-    And header Idempotency-Key = java.util.UUID.randomUUID() + ''
+    And header Idempotency-Key = newIdempotencyKey()
     And request { title: 12345, quantity: "no_es_numero" }
     When method post
     Then status 422
@@ -86,7 +86,7 @@ Feature: Validación BDD de Caja Negra de la API REST FastAPI y Manejo de Errore
   Scenario: 8. Propagación transversal Read-After-Write y bitácora sin UUID crudo en actor_username
     # Paso 1 (Write): Registrar una mutación válida en el módulo origen con llave de idempotencia fresca
     Given path '/api/v1/items'
-    And header Idempotency-Key = java.util.UUID.randomUUID() + ''
+    And header Idempotency-Key = newIdempotencyKey()
     And request { title: "Router Core 11X", quantity: 1 }
     When method post
     Then status 201

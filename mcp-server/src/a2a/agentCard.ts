@@ -33,7 +33,8 @@ export function deriveStandardVersion(serverVersion: string = MCP_SERVER_VERSION
 export const DEFAULT_STANDARD_VERSION = deriveStandardVersion(MCP_SERVER_VERSION);
 export const DEFAULT_ACTIVE_MODEL = 'local-or-frontier-hybrid' as const;
 export const DEFAULT_AGENT_URL = 'stdio://sinfallas/mcp-qa-11x' as const;
-export const DEFAULT_A2A_PROTOCOL_VERSION = '0.2.1' as const;
+export const DEFAULT_A2A_PROTOCOL_VERSION = '1.0' as const;
+export const DEFAULT_A2A_PROTOCOL_BINDING = 'JSONRPC' as const;
 export const DEFAULT_TASK_CAPACITY = 4;
 export const DEFAULT_AGENT_CARD_RELATIVE_PATH = '.well-known/agent-card.json' as const;
 export const GIT_CLOSURE_HUMAN_GATE_ID = 'QA-GIT-GATE-01' as const;
@@ -80,12 +81,19 @@ export interface AgentSecurityProfile {
   gitClosureHumanGate: string;
 }
 
+export interface AgentInterfaceDescriptor {
+  url: string;
+  protocolBinding: string;
+  protocolVersion: string;
+}
+
 export interface AgentCard {
   name: string;
   description: string;
   version: string;
   url: string;
   protocolVersion: string;
+  supportedInterfaces: AgentInterfaceDescriptor[];
   standardVersion: string;
   activeModel: string;
   capabilities: AgentCapabilities;
@@ -124,74 +132,76 @@ export interface WriteAgentCardResult {
   card: AgentCard;
 }
 
-export const QA_11X_V2_SKILLS: readonly AgentSkillDescriptor[] = [
+export const QA_11X_SKILLS: readonly AgentSkillDescriptor[] = [
   {
     id: 'qa-11x-architect',
     name: 'QA 11X Architect',
-    description: 'Orquestación maestra de la pirámide 11X, 13 capas y gobernanza de proyectos.',
+    description: 'Master orchestration of the 11X 13-layer quality pyramid and project governance.',
     tags: [TAG_GOVERNANCE, TAG_TESTING, 'pyramid'],
   },
   {
     id: 'qa-11x-devsecops-hardener',
     name: 'QA 11X DevSecOps Hardener',
-    description: 'Controles DISA ASD STIG V6R5, OWASP v4.2, RLS multi-tenant y bóveda AES-GCM.',
+    description: 'DISA ASD STIG V6R5, OWASP v4.2 controls, multi-tenant RLS, and AES-GCM secrets vault.',
     tags: [TAG_SECURITY, 'stig', 'owasp'],
   },
   {
     id: 'qa-11x-docker-certifier',
     name: 'QA 11X Docker Certifier',
-    description: 'Ejecución efímera Regla Cero, cobertura >= 95%, mutación y complejidad Grado A.',
+    description: 'Rule Zero ephemeral Docker execution, >= 95% coverage, mutation testing, and Grade A complexity.',
     tags: [TAG_DOCKER, TAG_TESTING, 'rule-zero'],
   },
   {
     id: 'qa-11x-systematic-debugging',
     name: 'QA 11X Systematic Debugging',
-    description: 'Diagnóstico determinista en 4 fases con aislamiento de causa raíz y bloqueo RED-to-GREEN.',
+    description: 'Deterministic 4-phase root-cause isolation with Docker reproduction and RED-to-GREEN locks.',
     tags: [TAG_TESTING, 'debugging', 'root-cause'],
   },
   {
     id: 'qa-11x-screenplay-builder',
     name: 'QA 11X Screenplay Builder',
-    description: 'Arquitectura Screenplay proporcional E2E, selectores ARIA y aserciones temporales.',
+    description: 'Proportional E2E Screenplay architecture, semantic ARIA locators, and 3-phase temporal assertions.',
     tags: [TAG_TESTING, 'e2e', 'screenplay'],
   },
   {
     id: 'qa-11x-llm-evaluator',
     name: 'QA 11X LLM Evaluator',
-    description: 'Evaluación dual offline determinista y red-teaming OWASP LLM Top 10 en Docker.',
+    description: 'Dual-mode offline deterministic contracts and live DeepEval/Promptfoo OWASP LLM Top 10 red-teaming.',
     tags: [TAG_SECURITY, TAG_TESTING, 'llm-eval'],
   },
   {
     id: 'qa-11x-vibe-rescue',
     name: 'QA 11X Vibe Rescue',
-    description: 'Endurecimiento empresarial en 5 etapas para prototipos AI sin degradar UX.',
+    description: '5-stage enterprise hardening for AI-generated prototypes without degrading UX.',
     tags: [TAG_SECURITY, TAG_GOVERNANCE, 'hardening'],
   },
   {
     id: 'docker-trivy-keydb-hardening',
     name: 'Docker Trivy & KeyDB Hardening',
-    description: 'Contenedores non-root, Trivy HIGH/CRITICAL=0, builds multi-etapa y caché KeyDB.',
+    description: 'Non-root containers, Trivy HIGH/CRITICAL=0, multi-stage builds, and KeyDB caching.',
     tags: [TAG_DOCKER, TAG_SECURITY, 'trivy'],
   },
   {
     id: 'graphify-ast-navigator',
     name: 'Graphify AST Navigator',
-    description: 'Grafo de conocimiento AST, radio de impacto y salud topológica entre capas.',
+    description: 'AST knowledge graph queries, pre-change blast radius, and topological layer boundary health.',
     tags: [TAG_ARCHITECTURE, 'ast', 'blast-radius'],
   },
   {
     id: 'refactoring-ui',
     name: 'Refactoring UI',
-    description: 'Jerarquía visual, escala espacial, tipografía tabular y contraste WCAG 2.1 AA.',
+    description: 'Visual hierarchy, spacing scale, tabular typography, and WCAG 2.1 AA OKLCH contrast.',
     tags: ['ui', 'wcag', TAG_ARCHITECTURE],
   },
   {
     id: 'tactical-patterns-11x',
     name: 'Tactical Patterns 11X',
-    description: 'Patrones tácticos JIT para rescate de complejidad ciclomática/cognitiva, puertos offline y anti-sobreingeniería.',
+    description: 'JIT tactical patterns for complexity rescue, offline port/adapters, and anti-overengineering.',
     tags: [TAG_GOVERNANCE, TAG_TESTING, 'patterns'],
   },
 ] as const;
+
+export const QA_11X_V2_SKILLS = QA_11X_SKILLS;
 
 function assertNonEmptyText(value: string, label: string): string {
   if (typeof value !== 'string' || value.trim().length === 0 || value.includes('\0')) {
@@ -293,7 +303,7 @@ export function buildAgentCard(options: BuildAgentCardOptions = {}): AgentCard {
   const extensionUri = validateTaskCapacityUri(
     options.taskCapacityExtensionUri ?? CANONICAL_TASK_CAPACITY_URI
   );
-  const skills = cloneSkills(options.skills ?? QA_11X_V2_SKILLS);
+  const skills = cloneSkills(options.skills ?? QA_11X_SKILLS);
   const description =
     options.description === undefined
       ? buildDefaultDescription(activeModel, standardVersion, skills)
@@ -305,6 +315,13 @@ export function buildAgentCard(options: BuildAgentCardOptions = {}): AgentCard {
     version,
     url,
     protocolVersion,
+    supportedInterfaces: [
+      {
+        url,
+        protocolBinding: DEFAULT_A2A_PROTOCOL_BINDING,
+        protocolVersion,
+      },
+    ],
     standardVersion,
     activeModel,
     capabilities: resolveCapabilities(options.capabilities),
@@ -314,7 +331,7 @@ export function buildAgentCard(options: BuildAgentCardOptions = {}): AgentCard {
         uri: extensionUri,
         required: true,
         description:
-          'Declaración determinista de capacidad concurrente de tareas (1..32 slots) alineada con TaskStateGuard.',
+          'Deterministic concurrent task capacity declaration (1..32 slots) aligned with TaskStateGuard.',
         params: {
           capacity,
           minCapacity: MIN_TASK_CAPACITY,

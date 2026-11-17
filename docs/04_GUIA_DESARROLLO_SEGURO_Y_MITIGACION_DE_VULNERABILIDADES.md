@@ -52,8 +52,8 @@
 | `SEC-14` | Race condition in WORM HMAC chain ordering by `created_at` without `seq_num` + `pg_advisory_xact_lock` | Pattern 18 and `SECURITY.md` |
 | `SEC-15` | Reuse of static credentials in production smoke tests without ephemeral secrets or `docker exec -e` | Pattern 15 and `docs/02` §1.1 |
 | `SEC-16` | `401` interceptor asymmetry and non-atomic `challenge_id` consumption in multi-step Pre-Auth flows | Pattern 15 and `SECURITY.md` §4.20 |
-| `QA-COV-01` | Suppression of `--cov` via `-o addopts=""`, missing `COVERAGE_FILE=/tmp/.coverage` for non-root Docker, or missing `--import-mode=importlib` on `.unit.py`/`.int.py` | `docs/02` §2 and `SECURITY.md` |
-| `QA-MYPY-01` | Missing strict static type verification (`mypy --strict`) in Python/FastAPI `qa-lint` Makefile targets | `docs/02` §2 and `SECURITY.md` |
+| `QA-COV-01` | Suppression of `--cov` via `-o addopts=""`, missing `COVERAGE_FILE=/tmp/.coverage` for non-root Docker, or missing `--import-mode=importlib` on `.unit.py`/`.int.py` | `docs/02` §1.1 and `TESTING.md` §1 |
+| `QA-MYPY-01` | Missing strict static type verification (`mypy --strict`) in Python/FastAPI `qa-lint` Makefile targets | `docs/02` §1.1 and `TESTING.md` §1 |
 | `QA-KARATE-IDEMP` | State-mutating Karate BDD API scenarios (`POST`/`PUT`/`PATCH`/`DELETE`) using static UUIDs or missing dynamic `Idempotency-Key` | Pattern 11 and `docs/03` §6 |
 | `QA-PG17-RLS` | PostgreSQL 15–17+ `FORCE ROW LEVEL SECURITY`, non-root `NOBYPASSRLS` role, and multi-transaction RLS catalog/fixture parity | Pattern 5 and `docs/02` §3.1 |
 | `QA-SMOKE-01` | Production OpenAPI/Swagger exposure or in-process smoke test singleton desync (`APSC-DV-002430`) | Pattern 12 and `SECURITY.md` |
@@ -61,8 +61,8 @@
 | `QA-CLI-TTY-01` | Indefinite hang in interactive console (`TTY`) for dual CLI + `stdio` MCP binaries failing to check `isTTY` / `isatty()` | `docs/02` §1.1 (Rule #10) and `SECURITY.md` §4.23 |
 | `SEC-CI-ACTION-REF` | `uses:` references in GitHub Actions not pinned by a 40-character commit SHA (mutable branches or deleted tags such as `trivy-action@0.28.0`) | Pattern 22 and `SECURITY.md` §4.24 |
 | `QA-DOCKER-TTY-01` | Pseudo-TTY allocation (`docker compose run` without `-T`) in `CI=true` pipelines and Wrangler v4 deployments on `read_only: true` without `noexec` `tmpfs` on `.wrangler` or `--force` | `docs/02` §5.1 and `SECURITY.md` §4.25 |
-| `UI-11X-01` | Fixed floating `<footer>` stealing viewport, `outline-none` without `:focus-visible`, and low-contrast `text-white/30..50` (`WCAG 2.1 AA`, Anti-JSDOM) | `docs/02` §7 and `SECURITY.md` |
-| `UI-11X-02` | Catch-all `else return 'MAINTENANCE'` badge fallbacks and leaked `setInterval` timers lacking `clearInterval` cleanup | `docs/02` §7 and `SECURITY.md` |
+| `UI-11X-01` | Fixed floating `<footer>` stealing viewport, `outline-none` without `:focus-visible`, and low-contrast `text-white/30..50` (`WCAG 2.1 AA`, Anti-JSDOM) | `docs/02` §2 and `SECURITY.md` |
+| `UI-11X-02` | Catch-all `else return 'MAINTENANCE'` badge fallbacks and leaked `setInterval` timers lacking `clearInterval` cleanup | `docs/02` §1.1 and `SECURITY.md` |
 | `UI-11X-03` | `.webp`/`.svg` in `apple-touch-icon`, missing `favicon.ico` (`>=48px`), combined `"any maskable"` in `.webmanifest`, header overrides lacking `! Header` in `_headers`, or `/*.ico` wildcards in `_routes.json` | `docs/02` §5.2 and `SECURITY.md` §4.26 |
 | `QA-CI-ESCAPE-01` | Double-dollar escapes `$$(...)` / `$${...}` inherited from `Makefile`/`Compose` inside `.github/workflows/*.yml` or `.github/actions/*/action.yml` (`bash` expands `$$` to PID and breaks Docker mounts with `exit code 125`) | `docs/02` §5.3 and `SECURITY.md` §4.27 |
 | `QA-MAKE-CURDIR-01` | Use of `$(PWD)` / `${PWD}` in sub-Makefiles (`*/Makefile`, `*/Makefile.example`) invoked via `$(MAKE) -C <subdir>` instead of `$(CURDIR)`, exposing the parent directory to container mounts | `docs/02` §5.3 and `SECURITY.md` §4.27 |
@@ -927,6 +927,7 @@ def sanitize_database_export_rows(rows: list[dict], security_classification: str
 ### Normative References
 - **DISA ASD STIG V6R5:** `V-222585` (`APSC-DV-002310`), `V-222586` (`APSC-DV-002320`), `V-222615` (`APSC-DV-002760`), `V-222616` (`APSC-DV-002770`), `V-222668` (`APSC-DV-003330`).
 - **OWASP Developer Guide v4.2:** Sections `4.3.2 System Configuration (SC 8-11)`, `4.3.8 AC-10/AC-11`, `4.3.9 DP 5-7 / PDT 9-10`, and `5.4.4 OWASP Secure Headers Project (OSHP)`.
+- **OWASP Top 10:2025:** `A10:2025` (*Mishandling of Exceptional Conditions* — Fail-Closed startup, bounded error handlers, and zero silent fallbacks).
 
 ### The Risk
 If an application continues accepting traffic when security policy loading or authorization engine initialization fails (*Fail-Open*), an attacker can induce resource exhaustion to bypass access controls. Additionally, missing OSHP headers (`HSTS`, `CSP`, `Referrer-Policy`, `Cache-Control: no-store`) enable TLS downgrade attacks, XSS, and token leakage in URLs.
@@ -1050,6 +1051,7 @@ async def fetch_external_partner_safely(url: str) -> ExternalPartnerPayload:
 ### Normative References
 - **DISA ASD STIG V6R5:** `V-222513` (`APSC-DV-001430`), `V-222613` (`APSC-DV-002600`), `V-222645` (`APSC-DV-003140`), `V-222655` (`APSC-DV-003230`), `V-222658` (`APSC-DV-003245`).
 - **OWASP Developer Guide v4.2:** Sections `4.2 Threat Modeling (pytm / Threat Dragon)`, `4.3.3 Software Libraries (SFL 1-15)`, and `5.3.4 OWASP CycloneDX (ECMA-424 SBOM / CBOM / VEX)`.
+- **OWASP Top 10:2025 & OWASP Agentic AI 2026:** `A03:2025` (*Software Supply Chain Failures* — lockfiles, `.npmrc` `ignore-scripts=true` / `pnpm-workspace.yaml#allowBuilds`, SHA-40 pinned GitHub Actions, signed CycloneDX SBOM/CBOM) and **OWASP Agentic AI 2026** (tool-use confinement via `SEC-PATH-01`, `NFKC`/prompt-injection interception via `promptGuard`, and human-in-the-loop approval via `QA-GIT-GATE-01`).
 
 ### The Risk
 Deploying containers or packages without a verifiable component inventory (*Software & Cryptography Bill of Materials*), without verifying cryptographic signatures, or without threat-modeling the architecture prior to coding invites *Supply Chain Attacks* and structural design flaws.

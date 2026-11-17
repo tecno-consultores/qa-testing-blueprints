@@ -117,19 +117,20 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
   });
 
   describe('Backward compatibility & idempotent es <-> en switching', () => {
-    it('defaults to lang="es" and modifies only AGENTS.md when lang and agents are omitted', async () => {
+    it('defaults to lang="auto" (Dynamic Language Mirroring) and modifies only AGENTS.md when lang and agents are omitted', async () => {
+      expect(validateSupportedLang()).toBe('auto');
       fs.writeFileSync(
         path.join(tmpDir, 'package.json'),
         JSON.stringify({ name: 'demo', dependencies: { express: '^4.0.0' } })
       );
 
       const res = await initOrAppendAgentsMd({ projectPath: tmpDir });
-      expect(res.lang).toBe('es');
+      expect(res.lang).toBe('auto');
       expect(res.action).toBe('created');
       expect(res.bridged_agents).toEqual([]);
       expect(res.bridge_files).toEqual([]);
       expect(res.content).toContain('OUTPUT LANGUAGE & HIGH-IQ TOKEN ECONOMY');
-      expect(res.content).toContain('strictly in **Spanish**');
+      expect(res.content).toContain("user's prompt language");
       expect(res.content).toContain('QA-GIT-GATE-01');
       expect(res.content).not.toContain('Jesus Palencia');
       expect(fs.existsSync(path.join(tmpDir, 'AGENTS.md'))).toBe(true);
@@ -345,7 +346,7 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
 
   describe('Deterministic validation, invalid inputs & Path Traversal defense', () => {
     it('rejects unsupported languages deterministically', () => {
-      expect(validateSupportedLang()).toBe('es');
+      expect(validateSupportedLang()).toBe('auto');
       expect(validateSupportedLang(' EN ')).toBe('en');
       expect(() => validateSupportedLang('fr')).toThrow("Unsupported language 'fr'");
       expect(() => validateSupportedLang('')).toThrow('Unsupported language');
@@ -364,6 +365,9 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
       expect(() => resolveSafeBridgePath(tmpDir, '/etc/passwd')).toThrow('Path traversal');
       expect(() => resolveSafeBridgePath(tmpDir, 'sub/../../outside.md')).toThrow('Path traversal');
       expect(() => resolveSafeBridgePath(tmpDir, 'file\0.md')).toThrow('Path traversal');
+      expect(() => resolveSafeBridgePath(tmpDir, 'C:drive-rel.md')).toThrow('Path traversal');
+      expect(resolveSafeBridgePath(tmpDir, '.')).toBe(path.resolve(tmpDir));
+      expect(resolveSafeBridgePath('/', 'AGENTS.md')).toBe('/AGENTS.md');
 
       const symlinkPath = path.join(tmpDir, 'escape-link');
       fs.symlinkSync(outsideDir, symlinkPath);
@@ -432,11 +436,76 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
       );
       expect(res.exitCode).toBe(0);
       expect(forwardedCalls).toEqual([
-        ['--target', 'workspace', '--include-scripts', '--reconcile', '--lang', 'en'],
+        ['--target', 'workspace', '--include-scripts', '--reconcile', '--project-path', tmpDir, '--lang', 'en'],
       ]);
       expect(res.initResult?.bridged_agents).toEqual(['claude-code', 'replit']);
       expect(fs.existsSync(path.join(tmpDir, 'CLAUDE.md'))).toBe(true);
       expect(fs.existsSync(path.join(tmpDir, 'replit.md'))).toBe(true);
+
+      // Default --lang in cli.ts resolves to 'auto' and respects QA_OUTPUT_LANG
+      const defaultLangParsed = parseCliArgs(['init-agents', '-p', tmpDir], tmpDir);
+      expect(defaultLangParsed.lang).toBe('auto');
+
+      // Forwards -p / --project-path into real runInstallSkillCli (without relying on process.cwd())
+      const customTargetDir = path.join(tmpDir, 'custom-install-target');
+      fs.mkdirSync(customTargetDir, { recursive: true });
+      const { createHash } = await import('node:crypto');
+      const skillBody = '# Skill Test\n';
+      const scriptBody = '#!/usr/bin/env bash\nexit 0\n';
+      const localBp = path.join(tmpDir, 'local-bp-for-install');
+      fs.mkdirSync(path.join(localBp, '.agents', 'skills', 'qa-11x-architect'), { recursive: true });
+      fs.mkdirSync(path.join(localBp, 'scripts'), { recursive: true });
+      fs.writeFileSync(path.join(localBp, '.agents', 'skills', 'qa-11x-architect', 'SKILL.md'), skillBody, 'utf8');
+      fs.writeFileSync(path.join(localBp, 'scripts', 'demo.sh'), scriptBody, 'utf8');
+      fs.writeFileSync(
+        path.join(localBp, 'manifest.json'),
+        JSON.stringify({
+          schema_version: '1.0.0',
+          blueprint_version: '3.1.0',
+          generated_at_utc: '2026-11-17T00:00:00Z',
+          repository: 'tecno-consultores/qa-testing-blueprints',
+          default_branch: 'main',
+          raw_base_url: 'https://example.invalid',
+          stacks: {},
+          common_files: [
+            {
+              path: 'scripts/demo.sh',
+              target_name: 'scripts/demo.sh',
+              merge_strategy: 'overwrite',
+              sha256: createHash('sha256').update(scriptBody, 'utf8').digest('hex'),
+              size_bytes: Buffer.byteLength(scriptBody, 'utf8'),
+            },
+          ],
+          agent_governance_files: [
+            {
+              path: '.agents/skills/qa-11x-architect/SKILL.md',
+              target_name: '.agents/skills/qa-11x-architect/SKILL.md',
+              merge_strategy: 'overwrite',
+              sha256: createHash('sha256').update(skillBody, 'utf8').digest('hex'),
+              size_bytes: Buffer.byteLength(skillBody, 'utf8'),
+            },
+          ],
+        }),
+        'utf8'
+      );
+      const localFetcher = new GitHubFetcher({ cacheDir: path.join(tmpDir, 'bp-cache'), localOverridePath: localBp });
+      const logSpyInstall = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+      try {
+        await runCli(
+          ['install-skill', '-t=workspace', '-l=es', '--include-scripts', '-p', customTargetDir],
+          { cwd: outsideDir, fetcher: localFetcher, log: vi.fn() }
+        );
+        expect(fs.existsSync(path.join(customTargetDir, '.agents/skills/qa-11x-architect/SKILL.md'))).toBe(true);
+        expect(fs.existsSync(path.join(customTargetDir, 'scripts/demo.sh'))).toBe(true);
+        expect(fs.existsSync(path.join(outsideDir, 'scripts/demo.sh'))).toBe(false);
+
+        await runInstallSkillCli(
+          ['-t=workspace', '-a=cursor', '-l=en', `-p=${customTargetDir}`, '--dry-run'],
+          localFetcher
+        );
+      } finally {
+        logSpyInstall.mockRestore();
+      }
 
       const withoutInit = await runCli(['install-skill', '--dry-run'], {
         cwd: tmpDir,

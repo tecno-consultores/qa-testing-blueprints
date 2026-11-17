@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "pack_id": "qa-11x-enterprise-pack",
   "name": "QA Testing Blueprints (QA-11X v3.1)",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "standard_edition": "QA-11X v3.1",
   "license": "MIT",
   "author": "Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)",
@@ -33,7 +33,7 @@
         "devsecops",
         "token-economy"
       ],
-      "description": "Master QA 11X & DevSecOps Architect (qa-testing-blueprints v3.0+). Use whenever the user asks to initialize or integrate QA in a project, merge .example templates, write or audit unit/BDD/mutation/E2E tests, enforce >=95% coverage, apply DISA ASD STIG V6R5 and OWASP v4.2 security controls, run ephemeral Docker QA suites (Rule Zero), optimize context token consumption, or update TESTING.md and CHANGELOG.md."
+      "description": "Master QA 11X & DevSecOps Architect (qa-testing-blueprints v3.1+). Use whenever the user asks to initialize or integrate QA in a project, merge .example templates, write or audit unit/BDD/mutation/E2E tests, enforce >=95% coverage, apply DISA ASD STIG V6R5 and OWASP v4.2 security controls, run ephemeral Docker QA suites (Rule Zero), optimize context token consumption, or update TESTING.md and CHANGELOG.md."
     },
     {
       "id": "qa-11x-devsecops-hardener",
@@ -47,7 +47,7 @@
         "postgres-rls",
         "worm-audit"
       ],
-      "description": "DISA ASD STIG V6R5 and OWASP Developer Guide v4.2 hardening sub-skill for Standard 11X. Use whenever designing, auditing, or modifying multi-tenant PostgreSQL 15-17+ RLS schemas, authentication and session flows, cryptographic secret vaults, WORM audit hash-chains, mutating MCP/JSON-RPC tools, or non-root Docker containers."
+      "description": "DISA ASD STIG V6R5 and OWASP Developer Guide v4.2 hardening sub-skill for Standard 11X. Use whenever designing, auditing, or modifying multi-tenant PostgreSQL 15–17+ RLS schemas, authentication and session flows, cryptographic secret vaults, WORM audit hash-chains, mutating MCP/JSON-RPC tools, or non-root Docker containers."
     },
     {
       "id": "qa-11x-systematic-debugging",
@@ -116,7 +116,7 @@
         "mutation-testing",
         "wcag"
       ],
-      "description": "QA 11X Corporate Standard certifier in ephemeral Docker containers. Enforces Rule Zero (zero host executions on Ubuntu/macOS), Cyclomatic/Cognitive Complexity Grade A, unit test coverage >= 95%, mutation testing, WCAG 2.1 AA accessibility, Lighthouse CI, and silent mode RAM conservation."
+      "description": "QA 11X Corporate Standard certifier in ephemeral Docker containers. Enforces Rule Zero (zero host executions on Ubuntu/macOS/Windows), Cyclomatic/Cognitive Complexity Grade A, unit test coverage >= 95%, mutation testing, WCAG 2.1 AA accessibility, Lighthouse CI, and silent mode RAM conservation."
     },
     {
       "id": "docker-trivy-keydb-hardening",

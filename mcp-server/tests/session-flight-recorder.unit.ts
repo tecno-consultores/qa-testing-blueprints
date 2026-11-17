@@ -543,5 +543,90 @@ describe('Flight Recorder Atómico (Tool #19 session_flight_recorder & Resource 
       { preferPythonCtl: false }
     );
     expect(clearNoReason.checkpoint?.status).toBe('CERTIFIED_CLEAN');
+    expect(clearNoReason.checkpoint?.active_step).toBe('');
+    expect(clearNoReason.checkpoint?.planned_steps).toEqual([]);
+  });
+
+  it('maneja JSON corrupto en checkpoint nativo/python y aborto por AbortSignal sin SyntaxError', async () => {
+    const badWs = makeTempDir('qa11x-fr-corrupt-');
+    const cacheDir = path.join(badWs, '.agents', '.cache');
+    fs.mkdirSync(cacheDir, { recursive: true });
+    fs.writeFileSync(path.join(cacheDir, 'session_checkpoint.json'), '{corrupt-json', 'utf8');
+
+    const recoverCorrupt = await runSessionFlightRecorder(
+      { project_path: badWs, action: 'recover' },
+      { preferPythonCtl: false }
+    );
+    expect(recoverCorrupt.status).toBe('FAILED');
+
+    const scriptsDir = path.join(badWs, '.agents', 'scripts');
+    fs.mkdirSync(scriptsDir, { recursive: true });
+    fs.writeFileSync(path.join(scriptsDir, 'checkpoint_ctl.py'), '# stub\n', 'utf8');
+    const badPyExec = ((
+      _b: string,
+      _a: readonly string[],
+      _o: unknown,
+      cb: (e: null, out: string, err: string) => void
+    ) => {
+      cb(null, '{not-json-stdout', '');
+    }) as unknown as typeof execFile;
+    const pyCorruptRecover = await runSessionFlightRecorder(
+      { project_path: badWs, action: 'recover' },
+      { execFileFn: badPyExec }
+    );
+    expect(pyCorruptRecover.status).toBe('FAILED');
+    expect(pyCorruptRecover.error).toContain('corrupta');
+
+    const okPySaveExec = ((
+      _b: string,
+      _a: readonly string[],
+      _o: unknown,
+      cb: (e: null, out: string, err: string) => void
+    ) => {
+      cb(null, '[PASS] SAVE', '');
+    }) as unknown as typeof execFile;
+    const pyCorruptDisk = await runSessionFlightRecorder(
+      { project_path: badWs, action: 'save', task_id: 'T1', active_step: 'S1', intent_140chars: 'x' },
+      { execFileFn: okPySaveExec }
+    );
+    expect(pyCorruptDisk.status).toBe('FAILED');
+
+    const abortController = new AbortController();
+    abortController.abort('cancelled flight recorder');
+    const abortedRes = await runSessionFlightRecorder(
+      { project_path: badWs, action: 'recover' },
+      { signal: abortController.signal }
+    );
+    expect(abortedRes.status).toBe('FAILED');
+    expect(abortedRes.error).toBe('cancelled flight recorder');
+
+    const errAbortRes = await runSessionFlightRecorder(
+      { project_path: badWs, action: 'recover' },
+      { signal: AbortSignal.abort(new Error('abort-error-reason')) }
+    );
+    expect(errAbortRes.status).toBe('FAILED');
+    expect(errAbortRes.error).toBe('abort-error-reason');
+
+    const numAbortRes = await runSessionFlightRecorder(
+      { project_path: badWs, action: 'recover' },
+      { signal: AbortSignal.abort(404) }
+    );
+    expect(numAbortRes.status).toBe('FAILED');
+    expect(numAbortRes.error).toContain('abortado por timeout o cancelación');
+
+    // JSON válido pero no-objeto ([]) en session_checkpoint.json (nativo y parseDiskCheckpointSafe)
+    fs.writeFileSync(path.join(cacheDir, 'session_checkpoint.json'), '[]', 'utf8');
+    const nativeArrayCp = await runSessionFlightRecorder(
+      { project_path: badWs, action: 'recover' },
+      { preferPythonCtl: false }
+    );
+    expect(nativeArrayCp.status).toBe('FAILED');
+
+    const pyArrayDisk = await runSessionFlightRecorder(
+      { project_path: badWs, action: 'save', task_id: 'T1', active_step: 'S1', intent_140chars: 'x' },
+      { execFileFn: okPySaveExec }
+    );
+    expect(pyArrayDisk.status).toBe('FAILED');
+    expect(pyArrayDisk.error).toContain('JSON de checkpoint inválido');
   });
 });

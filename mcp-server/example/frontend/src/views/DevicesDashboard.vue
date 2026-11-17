@@ -1,12 +1,7 @@
-<script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue';
-import { createDevice, fetchDevices, type TelemetryDeviceDto } from '../api/devicesClient';
-
-const devices = ref<TelemetryDeviceDto[]>([]);
-const errorBanner = ref<string | null>(null);
-let pollTimer: ReturnType<typeof setInterval> | null = null;
-
-export function classifyEventBadge(category: 'outage' | 'maintenance' | 'backup' | 'security' | 'operation'): string {
+<script lang="ts">
+export function classifyEventBadge(
+  category: 'outage' | 'maintenance' | 'backup' | 'security' | 'operation'
+): string {
   const mapping: Record<typeof category, string> = {
     outage: 'CAÍDA',
     maintenance: 'MANTENIMIENTO',
@@ -16,6 +11,15 @@ export function classifyEventBadge(category: 'outage' | 'maintenance' | 'backup'
   };
   return mapping[category];
 }
+</script>
+
+<script setup lang="ts">
+import { onMounted, onUnmounted, ref } from 'vue';
+import { createDevice, fetchDevices, type TelemetryDeviceDto } from '../api/devicesClient';
+
+const devices = ref<TelemetryDeviceDto[]>([]);
+const errorBanner = ref<string | null>(null);
+let pollTimer: ReturnType<typeof setInterval> | null = null;
 
 async function loadDevices(manualRefresh = false): Promise<void> {
   try {

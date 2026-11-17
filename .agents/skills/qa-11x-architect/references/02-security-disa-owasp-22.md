@@ -23,7 +23,7 @@ This reference provides the comprehensive compliance matrix and tactical impleme
 | **11** | Tenant-Isolated Idempotency Keys | `APSC-DV-002560` | OWASP API4:2023 | Key schema: `idemp:{tenant_id}:{user_id}:{key}`; return cached response. |
 | **12** | Hide API Docs in Production | `APSC-DV-002430` | OWASP SC-11 | Disable `/docs`, `/redoc`, and `openapi.json` when `APP_ENV=production`. |
 | **13** | Shift-Left Lockfile CVE Audit | `APSC-DV-001430` | OWASP A06:2021 | Audit dependencies (`pip-audit`, `pnpm audit`); block Critical/High. |
-| **14** | Concurrent Sessions & Full Purge | `APSC-DV-000010/70/80` | OWASP SM 1-19 | Max 2 sessions; 10m/15m idle timeouts; purge local/session/cache on logout. |
+| **14** | Concurrent Sessions & Full Purge | `APSC-DV-000010/70/80` | OWASP SM 1-19 | Max 2 sessions; 10m/15m idle timeouts; purge local/session/IndexedDB/cache on logout. |
 | **15** | Lockout & Constant-Time Auth | `APSC-DV-000290..580` | OWASP A 1-20 | 3-fail/15m lockout; dummy Argon2id hash; 15-char password; 72h temp account. |
 | **16** | Unicode NFKC & Anti-Command Inj | `APSC-DV-002510..2530` | OWASP CEC/SFL-9 | Normalize to NFKC *before* validation; forbid `shell=True`; use absolute paths. |
 | **17** | Anti-XXE & Magic-Bytes Validation | `APSC-DV-002390/2485` | OWASP VSD/FV | `resolve_entities=False`; JSON+HMAC; verify file magic bytes; indexed paths. |
@@ -92,6 +92,19 @@ export async function executeSecureLogoff(apiLogoutUrl: string): Promise<void> {
   } finally {
     sessionStorage.clear();
     localStorage.clear();
+    if ('indexedDB' in window && typeof indexedDB.databases === 'function') {
+      const dbs = await indexedDB.databases();
+      await Promise.all(
+        dbs.map((db) =>
+          db.name
+            ? new Promise<void>((resolve) => {
+                const req = indexedDB.deleteDatabase(db.name!);
+                req.onsuccess = req.onerror = req.onblocked = () => resolve();
+              })
+            : Promise.resolve()
+        )
+      );
+    }
     if ('caches' in window) {
       const keys = await caches.keys();
       await Promise.all(keys.map(k => caches.delete(k)));

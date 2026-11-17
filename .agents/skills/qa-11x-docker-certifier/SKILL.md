@@ -25,18 +25,22 @@ This skill governs all tests, linters, audits, and cleanups in projects implemen
 
 | Ecosystem | Tool / Suite | Mandatory Gate | Container Command |
 | :--- | :--- | :--- | :--- |
-| **Backend (Python/FastAPI)** | `Ruff` + `Mypy --strict` + `Bandit` | **0 errors / 0 vulnerabilities** | `make qa-lint` |
-| **Backend (Python/FastAPI)** | `Radon` (Cyclomatic Complexity) | **Grade A (`CC <= 5`, `MI >= A`)** | `make qa-lint` |
-| **Backend (Python/FastAPI)** | `Pytest` (Unit Coverage) | **`>= 95.0%` real coverage on `src/`** | `make qa-unit` |
-| **Backend (Python/FastAPI)** | `Mutmut` / `Karate Labs` / `ZAP` | Zero contract failures, 0 surviving critical mutants, OWASP OSHP headers & ASVS/WSTG verified | `make qa-mutation` / `make qa-bdd` |
-| **Security & STIG (All)** | `DISA ASD STIG V6R5` + `OWASP v4.2` | Verify session timeouts (10m/15m), 3-attempt lockout, `NFKC` input, anti-XXE, HMAC logs, Fail-Secure & CycloneDX SBOM | `make qa-unit` / `make qa-dast` |
-| **Frontend (Vue/React)** | `tsc/vue-tsc --noEmit` + `ESLint` + `SonarJS` | **0 type errors / Low cognitive complexity** | `make qa-lint` |
-| **Frontend (Vue/React)** | `Vitest` (`@vitest/coverage-v8`) | **`>= 95.0%` lines, functions, branches, statements** | `make qa-unit` |
-| **Frontend (Vue/React)** | `Stryker Mutator` (`perTest` + `--incremental`) | **`MSI >= 80%`**, 0 surviving critical mutants | `make qa-mutation` |
-| **Frontend (Vue/React)** | `Playwright` + `@axe-core/playwright` | **0 WCAG 2.1/2.2 A/AA violations** | `make qa-e2e` |
-| **Frontend (Vue/React)** | `Lighthouse CI` (`lhci autorun`) | **Perf/SEO/BP `>= 0.90`, A11y `>= 0.95`, `CLS = 0`, `INP < 200ms`** | `make qa-perf` |
-| **Backend (PHP 8.2–8.5)** | `PHPStan Level Max` + `Psalm --taint-analysis` + `Pest/PCOV` + `Infection` | **0 errors, `>= 95.0%` coverage, `MSI >= 80%`** | `make qa-lint` / `make qa-unit` / `make qa-mutation` |
-| **Bash / DevOps** | `ShellCheck` + `shfmt -i 2 -ci` + `BATS-core` + `kcov` | **0 warnings, `>= 95.0%` coverage** | `make qa-lint` / `make qa-unit` |
+| **Backend (`python/` / `fastapi/`)** | `Ruff` + `Mypy --strict` + `Bandit` | **0 errors / 0 vulnerabilities** | `make qa-lint` |
+| **Backend (`python/` / `fastapi/`)** | `Radon` (Cyclomatic Complexity) | **Grade A (`CC <= 5`, `MI >= A`)** | `make qa-lint` |
+| **Backend (`python/` / `fastapi/`)** | `Pytest` (Unit Coverage) | **`>= 95.0%` real coverage on `src/`** | `make qa-unit` |
+| **Backend (`python/` / `fastapi/`)** | `Mutmut` / `Karate Labs` / `ZAP` | **`MSI >= 80%`**, 0 contract failures, OWASP OSHP & ASVS/WSTG verified | `make qa-mutation` / `make qa-bdd` |
+| **Backend (`node-backend/`)** | `ESLint` + `tsc --noEmit` + `Vitest` + `Stryker` + `Pact V4` + `Karate` | **0 errors, `CC <= 5`, `SonarJS <= 15`, `>= 95%` cov, `MSI >= 80%`** | `make qa-lint` / `qa-unit` / `qa-mutation` |
+| **Frontend (`vue3/` / `react-frontend/`)** | `tsc`/`vue-tsc --noEmit` + `ESLint` + `SonarJS` | **0 errors, `CC <= 5`, `SonarJS <= 15`, `max-params: 4`** | `make qa-lint` |
+| **Frontend (`vue3/` / `react-frontend/`)** | `Vitest` (`@vitest/coverage-v8`) | **`>= 95.0%` lines, functions, branches, statements** | `make qa-unit` |
+| **Frontend (`vue3/` / `react-frontend/`)** | `Stryker Mutator` (`perTest` + `--incremental`) | **`MSI >= 80%`**, 0 surviving critical mutants | `make qa-mutation` |
+| **Frontend (`vue3/` / `react-frontend/`)** | `Playwright` + `@axe-core/playwright` | **0 WCAG 2.1/2.2 A/AA violations** | `make qa-e2e` |
+| **Frontend (`vue3/` / `react-frontend/`)** | `Lighthouse CI` (`lhci autorun`) | **Perf/SEO/BP `>= 0.90`, A11y `>= 0.95`, `CLS = 0`, `INP < 200ms`** | `make qa-perf` |
+| **Backend (`php/` 8.2–8.5)** | `PHPStan Level Max` + `Psalm --taint-analysis` + `Pest/PCOV` + `Infection` | **0 errors, PHP Cognitive `<= 9`, `>= 95.0%` cov, `MSI >= 80%`** | `make qa-lint` / `qa-unit` / `qa-mutation` |
+| **Bash / DevOps (`bash-scripts/`)** | `ShellCheck` + `shfmt -i 2 -ci` + `BATS-core` + `kcov` | **0 warnings, `>= 95.0%` coverage** | `make qa-lint` / `qa-unit` |
+| **Mobile (`mobile-appium/`)** | `tsc --noEmit` + `ESLint` + `node --test` + `Appium 3` / `WDIO` (`base-mobile-appium:26`) | **0 errors, `>= 95.0%` cov, Mobile Screenplay & biometric/a11y checks** | `make qa-lint` / `qa-unit` / `qa-e2e` |
+| **AI Evals (`ai-evals/`)** | `Pytest` offline contracts + `DeepEval` / `Promptfoo` (Mode 2) | **100% `$0` offline CI + `Hallucination < 0.05` / OWASP LLM Top 10** | `make qa-unit` / `make audit-llm` |
+| **Vibe Rescue (`vibe-rescue/`)** | `audit_vibe_prototype.py` + `Pytest` + `postgres:17-alpine` | **`VIBE-SEC-001..QA-005`, `CC <= 5`, `>= 95.0%` cov, FORCE RLS** | `make qa-lint` / `qa-unit` |
+| **Security & STIG (All 10 Stacks)** | `DISA ASD STIG V6R5` + `OWASP v4.2` + `Trivy` | Session timeouts (10m/15m), 3-fail lockout, `NFKC`, anti-XXE, WORM, SBOM, Trivy `HIGH/CRITICAL = 0` | `make qa-unit` / `make qa-dast` |
 
 ---
 

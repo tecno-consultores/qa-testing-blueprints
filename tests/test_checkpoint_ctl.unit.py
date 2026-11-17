@@ -818,3 +818,64 @@ def test_checkpoint_schema_rejects_missing_keys_and_invalid_last_run(
         ckpt_file.write_text(json.dumps(payload), encoding="utf-8")
         assert ctl.main(["recover", "--workspace", str(repo)]) == 2
         capsys.readouterr()
+
+
+def test_compact_budget_one_keeps_pending_and_cli_json_globs(
+    tmp_path: Path, capsys: Any
+) -> None:
+    """Preserva >=1 paso pendiente [ ] con budget=1 y parsea --allowed-globs JSON."""
+    repo = _init_repo(tmp_path / "budget_one")
+    assert (
+        ctl.main(
+            [
+                "set",
+                "--workspace",
+                str(repo),
+                "--task-id",
+                "T-COMP",
+                "--step",
+                "F2",
+                "--done",
+                "F1",
+                "--planned",
+                "F2,F3",
+                "--allowed-globs",
+                '["src/**", ".agents/**"]',
+                "--forbidden-globs",
+                '["secrets/**"]',
+                "--intent",
+                "Mantener paso pendiente visible",
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+    ckpt = ctl.load_checkpoint(repo, ctl.capture_live_git(repo))
+    assert ckpt is not None
+    assert ckpt.allowed_globs == ("src/**", ".agents/**")
+    assert ckpt.forbidden_globs == ("secrets/**",)
+    compact_lines = ctl._build_step_lines(ckpt, budget=1)
+    assert len(compact_lines) == 1
+    assert compact_lines[0].startswith("- [ ] F2 ")
+    assert "pasos compactados" in compact_lines[0]
+
+    from dataclasses import replace
+
+    ckpt_clean = replace(
+        ckpt,
+        active_step="F3",
+        completed_steps=("F1", "F2", "F3"),
+        status=ctl.STATUS_CERTIFIED_CLEAN,
+    )
+    assert ctl._build_step_lines(ckpt_clean, budget=1) == [
+        "- [x] (+3 pasos compactados)"
+    ]
+
+    ckpt_in_prog_all_done = replace(
+        ckpt_clean,
+        status=ctl.STATUS_IN_PROGRESS,
+        planned_steps=(),
+    )
+    assert ctl._build_step_lines(ckpt_in_prog_all_done, budget=1) == [
+        "- [x] (+3 pasos compactados)"
+    ]

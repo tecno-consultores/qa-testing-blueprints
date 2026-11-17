@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
+import { readStatNoFollow, resolveRealTargetWithSymlinks } from './pathRealResolver.js';
 
 export class WorkspacePathValidationError extends Error {
   constructor(message: string) {
@@ -70,22 +71,20 @@ function assertBasicSyntax(rawPath: string): string {
   return normalized;
 }
 
-function resolveRealTarget(candidate: string): string {
-  const tail: string[] = [];
-  let cur = candidate;
-  while (!fs.existsSync(cur)) {
-    const parent = path.dirname(cur);
-    if (parent === cur) {
-      return candidate;
-    }
-    tail.unshift(path.basename(cur));
-    cur = parent;
+export function resolveRealTarget(candidate: string): string {
+  const outcome = resolveRealTargetWithSymlinks(candidate);
+  if (!outcome.ok) {
+    throw new WorkspacePathValidationError(
+      `${SEC_PATH_PREFIX} Ciclo de enlaces simbólicos (ELOOP) detectado en '${outcome.loopPath}'.`
+    );
   }
-  return path.join(fs.realpathSync(cur), ...tail);
+  return outcome.resolved;
 }
 
 function resolvePathIfExists(targetPath: string): string {
-  return fs.existsSync(targetPath) ? fs.realpathSync(targetPath) : path.resolve(targetPath);
+  return readStatNoFollow(targetPath) !== undefined
+    ? resolveRealTarget(targetPath)
+    : path.resolve(targetPath);
 }
 
 function getRealHomeDir(): string | null {

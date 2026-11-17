@@ -22,9 +22,9 @@ inputs:
     required: false
     default: 'starter'
   lang:
-    description: 'Output language policy for QA-11X reports (en | es)'
+    description: 'Output language policy for QA-11X reports (auto | en | es)'
     required: false
-    default: 'en'
+    default: 'auto'
   base-ref:
     description: 'Base git branch reference used to compute PR changed files'
     required: false
@@ -87,9 +87,9 @@ runs:
         esac
 
         case "${INPUT_LANG}" in
-          en|es) ;;
+          auto|en|es) ;;
           *)
-            echo "::error::Unsupported lang '${INPUT_LANG}'. Allowed: en | es." >&2
+            echo "::error::Unsupported lang '${INPUT_LANG}'. Allowed: auto | en | es." >&2
             exit 1
             ;;
         esac
@@ -126,11 +126,11 @@ runs:
         : > "${CHANGED_FILE}"
 
         if [ "${EVENT_NAME:-pull_request}" = "pull_request" ] && [ -n "${PR_BASE_SHA:-}" ] && [ -n "${PR_HEAD_SHA:-}" ]; then
-          git diff --name-only "${PR_BASE_SHA}" "${PR_HEAD_SHA}" > "${CHANGED_FILE}" 2>/dev/null || true
+          git diff --relative --name-only "${PR_BASE_SHA}" "${PR_HEAD_SHA}" > "${CHANGED_FILE}" 2>/dev/null || true
         elif git rev-parse --verify "origin/${INPUT_BASE_REF}" >/dev/null 2>&1; then
-          git diff --name-only "origin/${INPUT_BASE_REF}...HEAD" > "${CHANGED_FILE}" 2>/dev/null || true
+          git diff --relative --name-only "origin/${INPUT_BASE_REF}...HEAD" > "${CHANGED_FILE}" 2>/dev/null || true
         elif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
-          git diff --name-only HEAD~1..HEAD > "${CHANGED_FILE}" 2>/dev/null || true
+          git diff --relative --name-only HEAD~1..HEAD > "${CHANGED_FILE}" 2>/dev/null || true
         fi
 
         if [ -n "${GITHUB_OUTPUT:-}" ]; then
@@ -337,7 +337,7 @@ runs:
         fi
 
         if [ -f ".qa-11x.json" ]; then
-          docker run --rm \
+          docker run --rm --network none \
             -u "$(id -u):$(id -g)" \
             -e HOME=/tmp \
             -e PYTHONDONTWRITEBYTECODE=1 \
@@ -350,7 +350,7 @@ runs:
         if [ -x "scripts/verificar-secretos.sh" ]; then
           ./scripts/verificar-secretos.sh
         else
-          docker run --rm \
+          docker run --rm --network none \
             -u "$(id -u):$(id -g)" \
             -e HOME=/tmp \
             -e PYTHONDONTWRITEBYTECODE=1 \
@@ -382,7 +382,7 @@ runs:
         if [ "${INPUT_TIER}" = "standard" ] || [ "${INPUT_TIER}" = "enterprise" ]; then
           if [ "${BLAST_PLAN_TIER:-pr-targeted}" != "docs-only" ]; then
             if [ -f ".agents/scripts/lint_test_antipatterns.py" ]; then
-              docker run --rm \
+              docker run --rm --network none \
                 -u "$(id -u):$(id -g)" \
                 -e HOME=/tmp \
                 -e PYTHONDONTWRITEBYTECODE=1 \
@@ -391,11 +391,11 @@ runs:
                 "${INPUT_PYTHON_IMAGE}" \
                 python3 .agents/scripts/lint_test_antipatterns.py
             fi
-            if [ -f "Makefile" ] && grep -q '^lint:' Makefile; then
+            if command -v make >/dev/null 2>&1 && [ -f "Makefile" ] && grep -q '^lint:' Makefile; then
               make lint
             elif [ -f "package.json" ] && grep -q '"lint"' package.json; then
               LINT_RC=0
-              docker run --rm \
+              docker run --rm --network none \
                 -u "$(id -u):$(id -g)" \
                 -e HOME=/tmp \
                 -v "$(pwd):/app" \
@@ -409,20 +409,20 @@ runs:
               fi
             fi
           else
-            echo "⚠️ [SKIPPED] Code gates omitted for docs-only blast plan."
-            SKIPPED_GATES=$((SKIPPED_GATES + 1))
+            echo "ℹ️ [FAST-PATH] Code gates omitted for docs-only blast plan."
+            FINAL_VERDICT="PASS"
           fi
         fi
 
         if [ "${INPUT_TIER}" = "enterprise" ]; then
-          if [ -f "Makefile" ] && grep -q '^validate-calm:' Makefile; then
+          if command -v make >/dev/null 2>&1 && [ -f "Makefile" ] && grep -q '^validate-calm:' Makefile; then
             make validate-calm
           elif [ -x ".agents/scripts/validate_calm_architecture.sh" ]; then
             ./.agents/scripts/validate_calm_architecture.sh
           fi
 
           CERTIFY_LOG="$(mktemp "${GATE_TMP_DIR}/qa11x-certify.XXXXXX.log")"
-          if [ -f "Makefile" ] && grep -q '^certify:' Makefile; then
+          if command -v make >/dev/null 2>&1 && [ -f "Makefile" ] && grep -q '^certify:' Makefile; then
             make certify 2>&1 | tee "${CERTIFY_LOG}"
           elif [ -x ".agents/scripts/certify_task_completion.sh" ]; then
             ./.agents/scripts/certify_task_completion.sh 2>&1 | tee "${CERTIFY_LOG}"

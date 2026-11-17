@@ -32,7 +32,7 @@ from _budgets import (  # noqa: E402
 )
 
 SCHEMA_VERSION = "1.0.0"
-DEFAULT_BLUEPRINT_VERSION = "3.1.0"
+DEFAULT_BLUEPRINT_VERSION = "3.2.0"
 REPOSITORY = "tecno-consultores/qa-testing-blueprints"
 DEFAULT_BRANCH = "main"
 RAW_BASE_URL = f"https://raw.githubusercontent.com/{REPOSITORY}/{DEFAULT_BRANCH}"
@@ -387,9 +387,6 @@ def _discover_schema_paths(repo_root: Path) -> list[Path]:
     return [p for p in sorted(schemas_dir.glob("*.json")) if p.is_file()]
 
 
-_collect_agent_schemas = _discover_schema_paths
-
-
 def _discover_root_governance_paths(repo_root: Path) -> list[Path]:
     candidates: list[Path] = []
     for rel in (
@@ -528,7 +525,7 @@ def _build_stacks_dict(
     existing_stacks = (
         existing_stacks_raw if isinstance(existing_stacks_raw, dict) else {}
     )
-    stack_names = sorted(set(STACK_METADATA.keys()) | set(existing_stacks.keys()))
+    stack_names = sorted(STACK_METADATA.keys())
     stacks_dict: dict[str, Any] = {}
     for stack_name in stack_names:
         if not (repo_root / stack_name).is_dir() and stack_name not in existing_stacks:
@@ -895,8 +892,76 @@ def refresh_ast_if_needed(repo_root: Path, manifest_changed: bool) -> list[str]:
     return []
 
 
+def _collect_yaml_block_text(lines: list[str], start_idx: int) -> str:
+    parts: list[str] = []
+    for raw in lines[start_idx:]:
+        stripped = raw.strip()
+        if stripped and not raw[0].isspace():
+            break
+        if stripped:
+            parts.append(stripped)
+    return " ".join(parts)
+
+
+def _strip_yaml_quotes(val: str) -> str:
+    if len(val) >= 2 and val[0] == val[-1] and val[0] in ("'", '"'):
+        return val[1:-1].strip()
+    return val
+
+
+def _read_frontmatter_lines(skill_file: Path) -> list[str] | None:
+    try:
+        lines = skill_file.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    if not lines or lines[0].strip() != "---":
+        return None
+    fm_lines: list[str] = []
+    for raw in lines[1:]:
+        if raw.strip() == "---":
+            return fm_lines
+        fm_lines.append(raw)
+    return None
+
+
+def _parse_description_field(fm_lines: list[str], idx: int, rest: str) -> str | None:
+    if not rest or rest in (">-", ">", "|-", "|"):
+        return _collect_yaml_block_text(fm_lines, idx + 1) or None
+    return _strip_yaml_quotes(rest) or None
+
+
+def _extract_skill_description(skill_file: Path) -> str | None:
+    fm_lines = _read_frontmatter_lines(skill_file)
+    if fm_lines is None:
+        return None
+    for idx, raw in enumerate(fm_lines):
+        if raw.startswith("description:"):
+            return _parse_description_field(
+                fm_lines, idx, raw[len("description:") :].strip()
+            )
+    return None
+
+
+def _build_skill_catalog_updates(
+    skill_file: Path, *, sync_hashes: bool
+) -> dict[str, Any]:
+    updates: dict[str, Any] = {}
+    if sync_hashes:
+        updates["size_bytes"] = skill_file.stat().st_size
+        updates["sha256"] = compute_sha256(skill_file)
+    fm_desc = _extract_skill_description(skill_file)
+    if fm_desc is not None:
+        updates["description"] = fm_desc
+    return updates
+
+
 def _sync_single_skill_entry(
-    repo_root: Path, entry: dict[str, Any], check_only: bool
+    repo_root: Path,
+    entry: dict[str, Any],
+    *,
+    catalog_rel: str = "catalogs/skillsllm-manifest.json",
+    sync_hashes: bool = True,
+    check_only: bool = False,
 ) -> tuple[bool, str | None]:
     rel_skill = entry.get("path")
     skill_file = (
@@ -904,51 +969,92 @@ def _sync_single_skill_entry(
     )
     if skill_file is None or not skill_file.is_file():
         return False, None
-    actual_size = skill_file.stat().st_size
-    actual_sha = compute_sha256(skill_file)
-    if entry.get("size_bytes") == actual_size and entry.get("sha256") == actual_sha:
+    updates = _build_skill_catalog_updates(skill_file, sync_hashes=sync_hashes)
+    if not any(entry.get(key) != val for key, val in updates.items()):
         return False, None
     if check_only:
-        return False, (
-            f"catalogs/skillsllm-manifest.json desincronizado en '{rel_skill}'."
-        )
-    entry["size_bytes"] = actual_size
-    entry["sha256"] = actual_sha
+        return False, f"{catalog_rel} desincronizado en '{rel_skill}'."
+    entry.update(updates)
     return True, None
 
 
 def _collect_skill_catalog_updates(
-    repo_root: Path, skills: list[Any], check_only: bool
+    repo_root: Path,
+    skills: list[Any],
+    *,
+    catalog_rel: str,
+    sync_hashes: bool,
+    check_only: bool,
 ) -> tuple[bool, list[str]]:
     errors: list[str] = []
     dirty = False
     for entry in skills:
         if isinstance(entry, dict):
-            changed, err = _sync_single_skill_entry(repo_root, entry, check_only)
+            changed, err = _sync_single_skill_entry(
+                repo_root,
+                entry,
+                catalog_rel=catalog_rel,
+                sync_hashes=sync_hashes,
+                check_only=check_only,
+            )
             dirty = dirty or changed
             if err:
                 errors.append(err)
     return dirty, errors
 
 
-def sync_skillsllm_catalog(repo_root: Path, check_only: bool) -> list[str]:
-    """Sincroniza o verifica size_bytes y sha256 en skillsllm-manifest.json."""
-    catalog_path = repo_root / "catalogs" / "skillsllm-manifest.json"
+def _sync_skill_catalog(
+    repo_root: Path,
+    catalog_rel: str,
+    *,
+    sync_hashes: bool,
+    check_only: bool,
+) -> list[str]:
+    catalog_path = repo_root / catalog_rel
     if not catalog_path.is_file():
         return []
     try:
         data = load_manifest_strict(catalog_path)
     except (OSError, json.JSONDecodeError, ValueError, TypeError) as exc:
-        return [f"Error al validar catalogs/skillsllm-manifest.json: {exc}"]
+        return [f"Error al validar {catalog_rel}: {exc}"]
     raw_skills = data.get("skills")
     skills = raw_skills if isinstance(raw_skills, list) else []
-    dirty, errors = _collect_skill_catalog_updates(repo_root, skills, check_only)
+    dirty, errors = _collect_skill_catalog_updates(
+        repo_root,
+        skills,
+        catalog_rel=catalog_rel,
+        sync_hashes=sync_hashes,
+        check_only=check_only,
+    )
     if dirty and not check_only:
         catalog_path.write_text(
             json.dumps(data, indent=2, ensure_ascii=False) + "\n",
             encoding="utf-8",
         )
     return errors
+
+
+def sync_skillsllm_catalog(repo_root: Path, check_only: bool) -> list[str]:
+    """Sincroniza o verifica size_bytes, sha256 y description en skillsllm-manifest."""
+    return _sync_skill_catalog(
+        repo_root,
+        "catalogs/skillsllm-manifest.json",
+        sync_hashes=True,
+        check_only=check_only,
+    )
+
+
+def sync_skill_catalogs(repo_root: Path, check_only: bool) -> list[str]:
+    """Sincroniza description YAML frontmatter en qaskills-pack y skillsllm-manifest."""
+    return [
+        *sync_skillsllm_catalog(repo_root, check_only),
+        *_sync_skill_catalog(
+            repo_root,
+            "catalogs/qaskills-pack.json",
+            sync_hashes=False,
+            check_only=check_only,
+        ),
+    ]
 
 
 def _load_existing_manifest(
@@ -977,9 +1083,7 @@ def _format_sync_ok_message(total: int) -> str:
 
 
 def _apply_manifest_write(
-    repo_root: Path,
     manifest_path: Path,
-    existing_manifest: dict[str, Any],
     existing_raw: str,
     candidate: dict[str, Any],
     diffs: list[str],
@@ -987,8 +1091,16 @@ def _apply_manifest_write(
     serialized_candidate = json.dumps(candidate, indent=2, ensure_ascii=False) + "\n"
     if not diffs and serialized_candidate == existing_raw:
         return candidate, False
-    new_ts = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-    updated = build_expected_manifest(repo_root, existing_manifest, new_ts)
+    updated = (
+        {
+            **candidate,
+            "generated_at_utc": datetime.datetime.now(datetime.UTC).strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            ),
+        }
+        if diffs or not existing_raw
+        else candidate
+    )
     updated_raw = json.dumps(updated, indent=2, ensure_ascii=False) + "\n"
     manifest_path.write_text(updated_raw, encoding="utf-8")
     return updated, True
@@ -1015,7 +1127,7 @@ def run_sync(
     )
     errors: list[str] = [
         *validate_cognitive_budgets(repo_root),
-        *sync_skillsllm_catalog(repo_root, check_only),
+        *sync_skill_catalogs(repo_root, check_only),
         *load_errors,
     ]
     if errors:
@@ -1035,7 +1147,7 @@ def run_sync(
         return _format_check_only_result(diffs, candidate)
 
     final_manifest, manifest_changed = _apply_manifest_write(
-        repo_root, manifest_path, existing_manifest, existing_raw, candidate, diffs
+        manifest_path, existing_raw, candidate, diffs
     )
     ast_errors = refresh_ast_if_needed(repo_root, manifest_changed) if with_ast else []
     if ast_errors:

@@ -57,3 +57,21 @@ setup() {
   assert_failure 1
   assert_output --partial "Error simulado de Docker"
 }
+
+@test "clean_artifacts.sh emite metrica opcional a --pushgateway-url sin bloquear (bats-mock)" {
+  work_dir="${BATS_TEST_TMPDIR}/push-work"
+  mkdir -p "${work_dir}/coverage_report"
+
+  mock_docker="$(mock_create)"
+  mock_set_status "${mock_docker}" 0 1
+  mock_curl="$(mock_create)"
+  mock_set_status "${mock_curl}" 0 1
+
+  ln -s "${mock_docker}" "${BATS_TEST_TMPDIR}/docker"
+  ln -s "${mock_curl}" "${BATS_TEST_TMPDIR}/curl"
+  PATH="${BATS_TEST_TMPDIR}:$PATH"
+
+  run bash "${BASH_STACK_DIR}/clean_artifacts.sh" --target "${work_dir}" --pushgateway-url "http://pushgateway:9091"
+  assert_success
+  [ "$(mock_get_call_num "${mock_curl}")" -eq 1 ]
+}

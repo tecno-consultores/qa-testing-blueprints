@@ -11,6 +11,7 @@ Este script implementa un decodificador con object_pairs_hook para rechazarlas.
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import sys
@@ -28,6 +29,9 @@ _IGNORED_DIRS: frozenset[str] = frozenset(
         "target",
         ".pytest_cache",
         ".mypy_cache",
+        ".cache",
+        "artifacts",
+        "__pycache__",
         ".stryker-tmp",
         "build",
         "graphify-out",
@@ -116,5 +120,32 @@ def main(target_root: Path | None = None) -> int:
     return 0
 
 
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Analiza los argumentos CLI de verify_json_no_duplicate_keys."""
+    parser = argparse.ArgumentParser(
+        description="Verifica claves JSON duplicadas en el repositorio o workspace."
+    )
+    parser.add_argument(
+        "target_root",
+        nargs="?",
+        default=None,
+        help="Ruta opcional del repositorio o directorio a inspeccionar.",
+    )
+    parser.add_argument(
+        "--workspace",
+        default=None,
+        help="Ruta del workspace a inspeccionar.",
+    )
+    return parser.parse_args(argv)
+
+
+def cli_main(argv: list[str] | None = None) -> int:
+    """Punto de entrada CLI compatible con --workspace y argumento posicional."""
+    args = parse_args(argv)
+    raw_root = args.workspace or args.target_root
+    target_path = Path(raw_root).resolve() if raw_root else None
+    return main(target_path)
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(cli_main())

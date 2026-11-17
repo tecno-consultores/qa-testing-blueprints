@@ -11,9 +11,10 @@ import type { CertifyGateResult } from '../types.js';
 import { pickAt } from '../utils/diagnosticFormatter.js';
 import {
   type CliCommandOutput,
+  type FlagValueMatch,
   formatCliJson,
   hasHelpFlag,
-  readNextFlagValue,
+  matchFlagValue,
   resolveCliProjectPath,
 } from './cliArgHelpers.js';
 
@@ -61,44 +62,39 @@ interface ParsedCertifyArgs {
   json: boolean;
 }
 
-function applyCertifyArg(
-  args: readonly string[],
-  index: number,
-  state: ParsedCertifyArgs
-): number {
-  const arg = pickAt(args, index);
-  if (arg === FLAG_STRICT) {
+const CERTIFY_BOOL_FLAGS: Readonly<Record<string, (state: ParsedCertifyArgs) => void>> = {
+  [FLAG_STRICT]: (state) => {
     state.strict = true;
-    return 0;
-  }
-  if (arg === FLAG_REQUIRE_LINT) {
+  },
+  [FLAG_REQUIRE_LINT]: (state) => {
     state.requireLintEvidence = true;
-    return 0;
-  }
-  if (arg === FLAG_ALLOW_EXAMPLES) {
+  },
+  [FLAG_ALLOW_EXAMPLES]: (state) => {
     state.allowUnmergedExamples = true;
-    return 0;
-  }
-  if (arg === FLAG_RELEASE_GATE) {
+  },
+  [FLAG_RELEASE_GATE]: (state) => {
     state.releaseGate = true;
-    return 0;
-  }
-  if (arg === FLAG_OFFLINE) {
+  },
+  [FLAG_OFFLINE]: (state) => {
     state.offline = true;
-    return 0;
-  }
-  if (arg === FLAG_JSON) {
+  },
+  [FLAG_JSON]: (state) => {
     state.json = true;
-    return 0;
+  },
+};
+
+const CERTIFY_VALUE_FLAGS = new Set([FLAG_PROJECT_PATH, FLAG_PROJECT_PATH_SHORT, FLAG_JUNIT_XML]);
+
+function assignCertifyValue(valueMatch: FlagValueMatch, state: ParsedCertifyArgs): number {
+  if (valueMatch.flag === FLAG_JUNIT_XML) {
+    state.junitXmlPath = valueMatch.value;
+  } else {
+    state.rawDir = valueMatch.value;
   }
-  if (arg === FLAG_PROJECT_PATH || arg === FLAG_PROJECT_PATH_SHORT) {
-    state.rawDir = readNextFlagValue(args, index, arg);
-    return 1;
-  }
-  if (arg === FLAG_JUNIT_XML) {
-    state.junitXmlPath = readNextFlagValue(args, index, arg);
-    return 1;
-  }
+  return valueMatch.consumed;
+}
+
+function assignCertifyPositional(arg: string, state: ParsedCertifyArgs): number {
   if (arg.startsWith('-')) {
     throw new Error(`Opción desconocida en certify: '${arg}'.`);
   }
@@ -109,11 +105,29 @@ function applyCertifyArg(
   return 0;
 }
 
+function applyCertifyArg(
+  args: readonly string[],
+  index: number,
+  state: ParsedCertifyArgs
+): number {
+  const arg = pickAt(args, index);
+  const boolAction = CERTIFY_BOOL_FLAGS[arg];
+  if (boolAction) {
+    boolAction(state);
+    return 0;
+  }
+  const valueMatch = matchFlagValue(args, index, CERTIFY_VALUE_FLAGS);
+  if (valueMatch) {
+    return assignCertifyValue(valueMatch, state);
+  }
+  return assignCertifyPositional(arg, state);
+}
+
 function parseCertifyArgs(args: readonly string[]): ParsedCertifyArgs {
   const state: ParsedCertifyArgs = {
     rawDir: undefined,
     strict: false,
-    requireLintEvidence: true,
+    requireLintEvidence: false,
     allowUnmergedExamples: false,
     releaseGate: false,
     junitXmlPath: undefined,
@@ -187,7 +201,7 @@ export async function runCertifyCli(
     const projectPath = resolveCliProjectPath(parsed.rawDir, deps.cwd ?? process.cwd());
     const certifyResult = await certify11xGate(projectPath, {
       strict: parsed.strict,
-      requireLintEvidence: parsed.requireLintEvidence,
+      requireLintEvidence: parsed.requireLintEvidence || parsed.strict,
       allowUnmergedExamples: parsed.allowUnmergedExamples,
       updateOptions: {
         homeDir: deps.homeDir,

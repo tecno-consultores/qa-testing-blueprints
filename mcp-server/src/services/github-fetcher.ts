@@ -5,6 +5,7 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { resolveRealTargetWithSymlinks } from '../security/pathRealResolver.js';
 import { FetchedFileItem, GitHubFetcherOptions, Manifest } from '../types.js';
 
 const FORBIDDEN_PATH_SEGMENTS = new Set(['..', '__proto__', 'constructor', 'prototype']);
@@ -44,6 +45,19 @@ export function resolveSafeChildPath(baseDir: string, relPath: string): string {
   if (resolvedTarget !== resolvedBase && !resolvedTarget.startsWith(resolvedBase + path.sep)) {
     throw new Error(`Violación de confinamiento de directorio (CWE-22): '${relPath}' escapa de '${baseDir}'`);
   }
+  const baseOutcome = resolveRealTargetWithSymlinks(resolvedBase);
+  const targetOutcome = resolveRealTargetWithSymlinks(resolvedTarget);
+  if (!baseOutcome.ok || !targetOutcome.ok) {
+    throw new Error(`Ciclo de enlaces simbólicos detectado (CWE-22): '${relPath}'`);
+  }
+  const realBase = baseOutcome.resolved;
+  const realBasePrefix = realBase.endsWith(path.sep) ? realBase : `${realBase}${path.sep}`;
+  const realTarget = targetOutcome.resolved;
+  if (realTarget !== realBase && !realTarget.startsWith(realBasePrefix)) {
+    throw new Error(
+      `Violación de confinamiento de symlink (CWE-22): '${relPath}' escapa de '${baseDir}'`
+    );
+  }
   return resolvedTarget;
 }
 
@@ -71,6 +85,8 @@ export class GitHubFetcher {
   private readonly rawBaseUrl: string;
   private readonly cacheDir: string;
   private readonly localOverridePath: string | null;
+  private readonly fetchFn?: typeof fetch;
+  private readonly timeoutMs: number;
 
   constructor(options?: GitHubFetcherOptions) {
     this.rawBaseUrl =
@@ -83,6 +99,8 @@ export class GitHubFetcher {
       path.join(resolveSafeHomeDir(), '.cache', 'qa-11x-blueprints');
     this.localOverridePath =
       options?.localOverridePath || process.env.QA_BLUEPRINTS_LOCAL_PATH || null;
+    this.fetchFn = options?.fetchFn;
+    this.timeoutMs = options?.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS;
   }
 
   public computeSha256(content: string | Buffer): string {
@@ -127,9 +145,10 @@ export class GitHubFetcher {
     cachedManifestPath: string,
     cachedEtagPath: string
   ): Promise<Manifest> {
-    let response = await fetch(manifestUrl, {
+    const fetchImpl = this.fetchFn ?? globalThis.fetch;
+    let response = await fetchImpl(manifestUrl, {
       headers,
-      signal: AbortSignal.timeout(DEFAULT_FETCH_TIMEOUT_MS),
+      signal: AbortSignal.timeout(this.timeoutMs),
     });
 
     if (response.status === 304) {
@@ -138,9 +157,9 @@ export class GitHubFetcher {
 
       const retryHeaders = { ...headers };
       delete retryHeaders['If-None-Match'];
-      response = await fetch(manifestUrl, {
+      response = await fetchImpl(manifestUrl, {
         headers: retryHeaders,
-        signal: AbortSignal.timeout(DEFAULT_FETCH_TIMEOUT_MS),
+        signal: AbortSignal.timeout(this.timeoutMs),
       });
     }
 
@@ -238,10 +257,11 @@ export class GitHubFetcher {
 
     const cachedFilePath = resolveSafeChildPath(path.join(this.cacheDir, 'files'), safeRelPath);
     const fileUrl = `${this.rawBaseUrl}/${safeRelPath}`;
+    const fetchImpl = this.fetchFn ?? globalThis.fetch;
     try {
-      const response = await fetch(fileUrl, {
+      const response = await fetchImpl(fileUrl, {
         headers: { 'User-Agent': `mcp-qa-11x/${MCP_SERVER_VERSION}` },
-        signal: AbortSignal.timeout(DEFAULT_FETCH_TIMEOUT_MS),
+        signal: AbortSignal.timeout(this.timeoutMs),
       });
       if (!response.ok) {
         throw new Error(`HTTP ${response.status} al descargar ${safeRelPath}: ${response.statusText}`);

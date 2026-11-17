@@ -71,10 +71,10 @@ qa-all: qa-lint qa-orphans qa-unit qa-mutation qa-perf qa-e2e qa-bdd
 	@echo "✅ Pipeline QA Frontend (Vue 3 11X) completado exitosamente."
 
 clean-cache:
-	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" down -v >/dev/null 2>&1 || true
-	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile observability down -v >/dev/null 2>&1 || true
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile "*" down -v --remove-orphans >/dev/null 2>&1 || \
+		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" down -v --remove-orphans >/dev/null 2>&1 || true
 
-clean:
+clean: clean-cache
 	@./limpieza.sh
 
 qa-clean: clean

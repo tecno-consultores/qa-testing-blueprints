@@ -23,7 +23,7 @@ setup() {
   cp "${AUDIT_SCRIPT}" "${FAKE_ROOT}/scripts/auditar-infra.sh"
   chmod +x "${FAKE_ROOT}/scripts/auditar-infra.sh"
 
-  for tool in bash dirname cd pwd find awk sort xargs sha256sum rm touch; do
+  for tool in bash dirname cd pwd find awk sort xargs sha256sum rm touch mkdir chmod date; do
     resolved="$(command -v "${tool}" || true)"
     if [ -n "${resolved}" ]; then
       ln -sf "${resolved}" "${FAKE_BIN}/${tool}"
@@ -230,6 +230,9 @@ EOF
   run cat "${action_yml}"
   assert_success
   assert_output --partial "Final proportional gate verdict (PASS | FAIL | SKIPPED)"
+  assert_output --partial "default: 'auto'"
+  assert_output --partial "auto|en|es)"
+  assert_output --partial "Allowed: auto | en | es."
   assert_output --partial "trap write_gate_verdict EXIT"
   assert_output --partial 'verdict="FAIL"'
   assert_output --partial "if [ -d node_modules/.bin ]; then npm run lint || exit 1;"
@@ -334,7 +337,9 @@ EOF
     bash "${gate_script}"
   assert_success
   run cat "${out_docs}"
-  assert_output --partial "verdict=SKIPPED"
+  assert_output --partial "verdict=PASS"
+  run cat "${sum_docs}"
+  assert_output --partial "**PASS**"
 
   local out_pass="${BATS_TEST_TMPDIR}/out_pass.txt"
   local sum_pass="${BATS_TEST_TMPDIR}/sum_pass.md"
@@ -368,7 +373,7 @@ exit 0
 EOF
   chmod +x "${FAKE_BIN}/docker"
   printf 'all:\n\techo ok\n' >"${FAKE_ROOT}/Makefile"
-  rm -f /tmp/.qa11x_trivy_cache_* 2>/dev/null || true
+  rm -rf "${FAKE_ROOT}/.agents/.cache/trivy" 2>/dev/null || true
 
   run env PATH="${FAKE_BIN}" MOCK_TRIVY_STAGE_FAIL=config LC_ALL=C bash "${FAKE_ROOT}/scripts/auditar-infra.sh" --force
   assert_failure 1
@@ -389,12 +394,13 @@ exit 0
 EOF
   chmod +x "${FAKE_BIN}/docker"
   printf 'all:\n\techo clean\n' >"${FAKE_ROOT}/Makefile"
-  rm -f /tmp/.qa11x_trivy_cache_* 2>/dev/null || true
+  rm -rf "${FAKE_ROOT}/.agents/.cache/trivy" 2>/dev/null || true
 
   run env PATH="${FAKE_BIN}" LC_ALL=C bash "${FAKE_ROOT}/scripts/auditar-infra.sh"
   assert_success
   refute_output --partial "(caché SHA-256)"
   [ "$(wc -l <"${docker_calls}")" -eq 2 ]
+  [ -d "${FAKE_ROOT}/.agents/.cache/trivy" ]
 
   : >"${docker_calls}"
   run env PATH="${FAKE_BIN}" LC_ALL=C bash "${FAKE_ROOT}/scripts/auditar-infra.sh"
@@ -402,5 +408,50 @@ EOF
   assert_output --partial "(caché SHA-256)"
   [ "$(wc -l <"${docker_calls}")" -eq 0 ]
 
-  rm -f /tmp/.qa11x_trivy_cache_* 2>/dev/null || true
+  rm -rf "${FAKE_ROOT}/.agents/.cache/trivy" 2>/dev/null || true
+}
+
+@test "docker-compose.qa.yml, Makefile y action.yml cumplen invariantes de UID, digest Karate y --network none" {
+  run grep -F 'user: "${QA_UID:-1000}:${QA_GID:-1000}"' "${REPO_ROOT}/docker-compose.qa.yml"
+  assert_success
+
+  run grep -F 'KARATE_IMG := sinfallas/karatelabs:1.5.1@sha256:a9a52ca9c5491ab39b64f0b4fdc3dea879c2213c9bc995be58d6cd4b9a80cc89' "${REPO_ROOT}/Makefile"
+  assert_success
+
+  run grep -F 'git diff --relative --name-only' "${REPO_ROOT}/.github/actions/qa-11x-pr-check/action.yml"
+  assert_success
+}
+
+@test "auditar-infra.sh: usa shasum -a 256 cuando sha256sum no esta disponible" {
+  local no_sha256_bin="${BATS_TEST_TMPDIR}/no_sha256_bin"
+  local real_sha256sum
+  real_sha256sum="$(command -v sha256sum)"
+  mkdir -p "${no_sha256_bin}"
+  for tool in bash dirname cd pwd find awk sort xargs rm touch mkdir chmod date; do
+    resolved="$(command -v "${tool}" || true)"
+    [ -n "${resolved}" ] && ln -sf "${resolved}" "${no_sha256_bin}/${tool}"
+  done
+  cat >"${no_sha256_bin}/shasum" <<EOF
+#!/usr/bin/env bash
+if [ "\${1:-}" = "-a" ] && [ "\${2:-}" = "256" ]; then
+  shift 2
+  exec "${real_sha256sum}" "\$@"
+fi
+exit 1
+EOF
+  cat >"${no_sha256_bin}/docker" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+  chmod +x "${no_sha256_bin}/shasum" "${no_sha256_bin}/docker"
+
+  printf 'all:\n\techo ok\n' >"${FAKE_ROOT}/Makefile"
+  rm -rf "${FAKE_ROOT}/.agents/.cache/trivy" 2>/dev/null || true
+
+  run env PATH="${no_sha256_bin}" LC_ALL=C bash "${FAKE_ROOT}/scripts/auditar-infra.sh"
+  assert_success
+  assert_output --partial "sin hallazgos"
+  [ -d "${FAKE_ROOT}/.agents/.cache/trivy" ]
+
+  rm -rf "${FAKE_ROOT}/.agents/.cache/trivy" 2>/dev/null || true
 }

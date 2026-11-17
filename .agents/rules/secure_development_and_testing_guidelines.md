@@ -5,7 +5,7 @@
 
 > **CORE GOVERNANCE DIRECTIVE:**
 > Applies to all AI agents and developers. Any code failing security or testing guidelines must be immediately rejected and refactored.
-> **OUTPUT LANGUAGE & DYNAMIC MIRRORING (Spec 19):** Unless `AGENTS.md` mandates a fixed language (Spanish interaction here), respond in the **user's prompt language**; human docs use EN canonical (`*.md`) + 1:1 ES mirror (`*.es.md`) here (matching `README.md`/`CHANGELOG.md` in consumer repos), while `.agents/**` remains concise English.
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING (Spec 19):** Respond in the **user's prompt language** (unless `AGENTS.md` explicitly pins `--lang es|en`); human docs use EN canonical (`*.md`) + 1:1 ES mirror (`*.es.md`) here (matching `README.md`/`CHANGELOG.md` in consumer repos), while `.agents/**` remains concise English.
 
 ---
 
@@ -110,7 +110,7 @@ Before committing code:
 - [ ] Mass assignment blocked with `extra="forbid"` and BOLA/BOPLA/BFLA checks enforced?
 - [ ] Inputs canonicalized (`NFKC`), XML external entities disabled, and logs sanitized against CR/LF injection & secret leaks?
 - [ ] Session idle/absolute timeouts, concurrency limits, and full storage purge on logoff verified?
-- [ ] Zero missing imports verified via static analysis (`ruff check`, `vue-tsc --noEmit`)?
+- [ ] Zero missing imports and type safety verified via ephemeral Docker static analysis (`make qa-lint`: `ruff check`, `mypy --strict --cache-dir=/tmp/mypy`, `vue-tsc --noEmit` / `tsc --noEmit`)?
 - [ ] Added Karate Labs API and/or UI BDD scenarios?
 - [ ] Executed secret scanning (`./scripts/verificar-secretos.sh`) with 0 leaks detected?
 - [ ] Executed IaC and dependency scan (`./scripts/auditar-infra.sh`) with 0 High/Critical findings?

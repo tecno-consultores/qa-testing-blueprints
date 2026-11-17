@@ -43,7 +43,12 @@ def test_verify_json_no_duplicate_keys_detects_json_and_example_collisions(
     (tmp_path / "graphify-out" / "ignored.json").write_text(
         '{"dup": 1, "dup": 2}', encoding="utf-8"
     )
+    (tmp_path / ".cache").mkdir()
+    (tmp_path / ".cache" / "ignored.json").write_text(
+        '{"dup": 1, "dup": 2}', encoding="utf-8"
+    )
     assert mod.main(tmp_path) == 0
+    assert mod.cli_main(["--workspace", str(tmp_path)]) == 0
 
     (tmp_path / "i18n.json.example").write_text(
         '{"save": "Guardar", "save": "Salvar"}', encoding="utf-8"
@@ -436,6 +441,20 @@ def test_verify_topological_health_skip_valid_ui_violation_and_corrupt(
     assert mod.main(tmp_path) == 1
     assert "Acoplamiento invertido UI" in capsys.readouterr().out
 
+    gpath.write_text(
+        json.dumps(
+            {
+                "nodes": [
+                    {"id": "ts", "source_file": "fastapi/tests/services/test_auth.py"},
+                    {"id": "api", "source_file": "fastapi/src/api/v1/auth.py"},
+                ],
+                "links": [{"source": "ts", "target": "api"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert mod.main(tmp_path) == 0
+
     gpath.write_text("[]", encoding="utf-8")
     assert mod.main(tmp_path) == 1
     assert "Fail-Secure" in capsys.readouterr().out
@@ -467,7 +486,9 @@ def test_verify_alembic_orm_parity_all_branches(
     assert "0 modelos con __tablename__" in capsys.readouterr().out
 
     (models_dir / "orders.py").write_text(
-        'class Order:\n    __tablename__ = "orders"\n', encoding="utf-8"
+        '# __tablename__ = "ignored_comment"\n'
+        'class Order:\n    __tablename__: str = "orders"\n',
+        encoding="utf-8",
     )
     (tmp_path / "backend" / "src" / "models.py").write_text(
         'class User:\n    __tablename__ = "users"\n', encoding="utf-8"
@@ -816,6 +837,36 @@ def test_sync_governance_syncs_skillsllm_catalog(tmp_path: Path) -> None:
     assert py_stack["readme_es"] == "python/README.es.md"
     assert len(py_stack["readme_sha256"]) == 64
     assert len(py_stack["readme_es_sha256"]) == 64
+
+    skill_path.write_text(
+        "---\nname: demo\ndescription: >-\n  Synced skill description.\n---\n# Demo\n",
+        encoding="utf-8",
+    )
+    pack_file = tmp_path / "catalogs" / "qaskills-pack.json"
+    pack_file.write_text(
+        json.dumps(
+            {
+                "skills": [
+                    {
+                        "id": "demo",
+                        "path": ".agents/skills/demo/SKILL.md",
+                        "description": "Old stale description",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert mod.run_sync(tmp_path, check_only=True)[0] == 1
+    assert mod.run_sync(tmp_path)[0] == 0
+    assert (
+        json.loads(pack_file.read_text(encoding="utf-8"))["skills"][0]["description"]
+        == "Synced skill description."
+    )
+    assert (
+        json.loads(catalog_file.read_text(encoding="utf-8"))["skills"][0]["description"]
+        == "Synced skill description."
+    )
 
 
 def test_sync_governance_classifiers_compare_git_and_cli_branches(
@@ -1466,3 +1517,67 @@ def test_inspect_blast_radius_pruning_no_bare_graph_and_graph_arg(
     assert "bare_sym" in capsys.readouterr().out
     assert mod.main(["bare_sym", "--graph", str(tmp_path / "no.json")]) == 2
     capsys.readouterr()
+
+
+def test_sync_governance_frontmatter_and_yaml_description_variants(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    mod = _load_script_module("sync_gov_fm_variants", "sync_governance.py")
+    skill = tmp_path / "SKILL.md"
+
+    skill.write_text(
+        "---\nname: demo\ndescription: >-\n  First line\n\n  Second line\ntags: [qa]\n"
+        "---\n# Body\n",
+        encoding="utf-8",
+    )
+    assert mod._extract_skill_description(skill) == "First line Second line"
+
+    skill.write_text(
+        '---\ndescription: "Quoted description"\n---\n', encoding="utf-8"
+    )
+    assert mod._extract_skill_description(skill) == "Quoted description"
+
+    skill.write_text(
+        "---\ndescription: 'Single quoted'\n---\n", encoding="utf-8"
+    )
+    assert mod._extract_skill_description(skill) == "Single quoted"
+
+    skill.write_text(
+        "---\ndescription: Plain inline value\n---\n", encoding="utf-8"
+    )
+    assert mod._extract_skill_description(skill) == "Plain inline value"
+
+    skill.write_text("---\nname: unclosed\ndescription: x\n", encoding="utf-8")
+    assert mod._extract_skill_description(skill) is None
+
+    skill.write_text("---\nname: no-desc\ntags: [qa]\n---\n", encoding="utf-8")
+    assert mod._extract_skill_description(skill) is None
+
+    skill.write_text("---\ndescription:\ntags: [qa]\n---\n", encoding="utf-8")
+    assert mod._extract_skill_description(skill) is None
+
+    skill.write_text('---\ndescription: ""\n---\n', encoding="utf-8")
+    assert mod._extract_skill_description(skill) is None
+
+    orig_read = Path.read_text
+
+    def _boom_read(self: Path, *args: Any, **kwargs: Any) -> str:
+        if self == skill:
+            raise OSError("cannot read skill")
+        return orig_read(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", _boom_read)
+    assert mod._extract_skill_description(skill) is None
+
+
+def test_verify_alembic_orm_parity_handles_model_syntax_error(tmp_path: Path) -> None:
+    mod = _load_script_module(
+        "verify_alembic_orm_parity_syntax", "verify_alembic_orm_parity.py"
+    )
+    broken = tmp_path / "broken_model.py"
+    broken.write_text("class Broken(:\n    __tablename__ = 'x'\n", encoding="utf-8")
+    valid = tmp_path / "valid_model.py"
+    valid.write_text(
+        'class Valid:\n    __tablename__ = "valid_tbl"\n', encoding="utf-8"
+    )
+    assert mod.get_orm_tables([broken, valid]) == {"valid_tbl"}

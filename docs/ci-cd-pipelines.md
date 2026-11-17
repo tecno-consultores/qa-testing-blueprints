@@ -72,7 +72,7 @@ jobs:
 
     steps:
       - name: 1️⃣ Code checkout (pin immutable SHA in production)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       - name: 2️⃣ Secrets Verification & Safe Ephemeral Config
         run: |
@@ -135,3 +135,12 @@ jobs:
         if: always()
         run: ./scripts/limpieza.sh
 ```
+
+### 3.1 Composite PR Gate (`qa-11x-pr-check@v3`), SARIF & Differential Gates
+
+For fast PR enforcement without duplicating workflow YAML, reference the composite action `tecno-consultores/qa-testing-blueprints/.github/actions/qa-11x-pr-check@v3` paired with CLI and `Makefile` gates:
+
+* **Strict Release Gate (`certify --strict --release-gate`):** Fails the pipeline if any blocker, pending `ACTIVE_TASK.md` item, unmerged `.example` file, or missing `lint` seal remains open (`make release-gate`).
+* **SARIF Security Upload (`audit --sarif`):** Emits OWASP/STIG static findings (`--fail-on high`) as SARIF v2.1.0 for native GitHub Code Scanning ingestion.
+* **AST Blast-Radius & Differential Coverage:** Run `blast-radius --changed-since origin/main` and `make diff-cov` (`100%` delta lines, `>= 90%` delta branches) to verify only impacted suites and cover every modified hunk.
+* **Signed Attestations (`make pr-verdict` & `make sbom`):** Generate `PR_VERDICT.md` (`SHA-256` / optional `HMAC-SHA256`) and signed CycloneDX SBOM/CBOM (`ECMA-424`) artifacts before merging.

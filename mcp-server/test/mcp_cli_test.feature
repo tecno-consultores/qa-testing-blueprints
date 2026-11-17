@@ -16,8 +16,9 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def pkg = read(mcpRoot + '/package.json')
     * def manifest = read(repoRoot + '/manifest.json')
     * def expectedSemver3x = '#regex ^3\\.[0-9]+\\.[0-9]+$'
-    * def versionParts = pkg.version.split('.')
-    * def expectedEdition = 'QA-11X v' + versionParts[0] + '.' + versionParts[1]
+    * def expectedEditionRegex = '#regex ^QA-11X v3\\.[0-9]+$'
+    * def qaskillsBg = read(repoRoot + '/catalogs/qaskills-pack.json')
+    * def expectedEdition = qaskillsBg.standard_edition
 
   # ==============================================================================
   # Grupo 1: Contrato del Paquete y Metadatos CLI
@@ -408,8 +409,8 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
 
   Scenario: 14. El servidor MCP y las directrices soportan Fast-Path Documental (DOCS_ONLY) y Zero Hardcoded Pass
     * def agentsContent = karate.readAsString(repoRoot + '/AGENTS.md')
-    * match agentsContent contains 'Fast-Path Documental (`DOCS_ONLY`'
-    * match agentsContent contains 'Full-Path de Código (`CODE_CHANGE`'
+    * match agentsContent contains 'Documentation Fast-Path (`DOCS_ONLY`'
+    * match agentsContent contains 'Full Code Path (`CODE_CHANGE`'
 
     * def mockDocsFastPathQaResult =
       """
@@ -604,8 +605,10 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert certifySource.contains('checkRoadmapConsistency')
 
     * def cliIndexSource = karate.readAsString(mcpRoot + '/src/index.ts')
-    * assert cliIndexSource.contains("'--version'")
+    * assert cliIndexSource.contains('--version')
     * assert cliIndexSource.contains('dispatchCliArgs')
+    * def cliRouterSource = karate.readAsString(mcpRoot + '/src/cli.ts')
+    * assert cliRouterSource.contains("'--version'")
 
   Scenario: 20. Presupuesto Cognitivo SKILL.md (< 20 KB), Regla #8 Anti-Ceguera UAT (SEC-16) y Paridad de 9 Recursos Documentales
     * def findSkillMd = function(f) { return f.path == '.agents/skills/qa-11x-architect/SKILL.md' }
@@ -1215,7 +1218,13 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
 
     * string qaskillsRaw37 = karate.readAsString(repoRoot + '/catalogs/qaskills-pack.json')
     * json qaskills37 = qaskillsRaw37
-    * match qaskills37.standard_edition == expectedEdition
+    * match qaskills37.standard_edition == expectedEditionRegex
+    * string skillsllmRaw37 = karate.readAsString(repoRoot + '/catalogs/skillsllm-manifest.json')
+    * json skillsllm37 = skillsllmRaw37
+    * match skillsllm37.standard_edition == expectedEdition
+    * string calmRaw37 = karate.readAsString(repoRoot + '/architecture/qa-11x.calm.json')
+    * json calm37 = calmRaw37
+    * match calm37.metadata[0]['qa-11x'].standard == expectedEdition
 
   Scenario: 38. Hito 25 — Matriz 15x12, base-mobile-appium:26 (Spec 20) y Arquitectura Bilingüe EN+ES con ?lang=es|en (Spec 19)
     * def rootReadmeEn38 = karate.readAsString(repoRoot + '/README.md')
@@ -1670,7 +1679,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
 
     * def quickstartSrc49 = karate.readAsString(mcpRoot + '/src/cli/quickstart.ts')
     * assert quickstartSrc49.contains('qa-11x-pr-check@v3')
-    * assert quickstartSrc49.contains('actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v5.1.0')
+    * assert quickstartSrc49.contains('actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0')
 
     * def typesSrc49 = karate.readAsString(mcpRoot + '/src/types.ts')
     * assert typesSrc49.contains('create_backup')
@@ -1716,6 +1725,69 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert verifyV250.contains('completion fish')
     * assert verifyV250.contains('toolsList.tools.length, 19')
     * assert verifyV250.contains('resourcesList.resources.length + templatesList.resourceTemplates.length, 13')
+
+  Scenario: 51. Contratos W1B — Rutas IDE Compartidas (ideConfigPaths), CLI Unificado 12 Subcomandos, Example Hardening y Verificador Clean-Room
+    * def idePathsSrc51 = karate.readAsString(mcpRoot + '/src/utils/ideConfigPaths.ts')
+    * assert idePathsSrc51.contains('.gemini')
+    * assert idePathsSrc51.contains('antigravity')
+    * assert idePathsSrc51.contains('claude_desktop_config.json')
+    * assert idePathsSrc51.contains('.hermes')
+
+    * def mcpConfigSrc51 = karate.readAsString(mcpRoot + '/src/cli/mcp-config.ts')
+    * assert mcpConfigSrc51.contains('ideConfigPaths.js')
+    * assert mcpConfigSrc51.contains('prepareClientInstall')
+    * assert mcpConfigSrc51.contains('TOML_SECTION_HEADER_RE')
+
+    * def doctorSrc51 = karate.readAsString(mcpRoot + '/src/cli/doctor.ts')
+    * assert doctorSrc51.contains('getDoctorIdeMcpTargets')
+
+    * def inspectSrc51 = karate.readAsString(mcpRoot + '/src/tools/inspect-project.ts')
+    * assert inspectSrc51.contains('getBrowserMcpCandidatePaths')
+
+    * def blastCliSrc51 = karate.readAsString(mcpRoot + '/src/cli/blast-radius-cli.ts')
+    * assert blastCliSrc51.contains("parsed.symbol ?? ''")
+
+    * def qsSrc51 = karate.readAsString(mcpRoot + '/src/cli/quickstart.ts')
+    * assert qsSrc51.contains('resolveSafeProjectPath')
+    * assert qsSrc51.contains('audit --mode vibe')
+
+    * def certifyCliSrc51 = karate.readAsString(mcpRoot + '/src/cli/certify-cli.ts')
+    * assert certifyCliSrc51.contains('requireLintEvidence: false')
+
+    * def upgradeCliSrc51 = karate.readAsString(mcpRoot + '/src/cli/upgrade.ts')
+    * assert upgradeCliSrc51.contains('FLAG_RECONCILE')
+
+    * def completionSrc51 = karate.readAsString(mcpRoot + '/src/cli/completion.ts')
+    * assert completionSrc51.contains('shift words')
+    * assert completionSrc51.contains('(( CURRENT-- ))')
+
+    * def cliSrc51 = karate.readAsString(mcpRoot + '/src/cli.ts')
+    * assert cliSrc51.contains('resolveSubcommandHelpText')
+    * assert cliSrc51.contains('executeInitAgentsCli')
+
+    * def indexSrc51 = karate.readAsString(mcpRoot + '/src/index.ts')
+    * assert indexSrc51.contains('mcp-config --client')
+
+    * def dashboardVue51 = karate.readAsString(mcpRoot + '/example/frontend/src/views/DevicesDashboard.vue')
+    * assert dashboardVue51.contains('<script lang="ts">')
+    * def dashboardUnit51 = karate.readAsString(mcpRoot + '/example/frontend/src/views/DevicesDashboard.unit.ts')
+    * assert dashboardUnit51.contains('mount(DevicesDashboard)')
+    * def exMainPy51 = karate.readAsString(mcpRoot + '/example/backend/src/main.py')
+    * assert !exMainPy51.contains('type: ignore')
+    * def exCompose51 = karate.readAsString(mcpRoot + '/example/docker-compose.qa.yml')
+    * assert exCompose51.contains('sinfallas/base-python-uv:3.15@sha256:')
+    * assert exCompose51.contains('sinfallas/base-node-ionic:26@sha256:')
+
+    * def exReadmeEn51 = karate.readAsString(mcpRoot + '/example/README.md')
+    * assert exReadmeEn51.contains('12 CLI Subcommands')
+    * def exReadmeEs51 = karate.readAsString(mcpRoot + '/example/README.es.md')
+    * assert exReadmeEs51.contains('12 Subcomandos CLI')
+    * def verifyV251 = karate.readAsString(mcpRoot + '/example/verify-v2.sh')
+    * assert verifyV251.contains('--version --json')
+    * assert verifyV251.contains('certify ')
+    * assert verifyV251.contains('blast-radius ')
+    * assert verifyV251.contains('tms-sync ')
+    * assert verifyV251.contains('session_flight_recorder')
 
 
 

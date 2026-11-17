@@ -1,18 +1,29 @@
 services:
   pnpm-store-init:
-    image: sinfallas/base-node-ionic:26
+    image: sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60
     pull_policy: if_not_present
     user: "0:0"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - FOWNER
     volumes:
       - pnpm-store:/pnpm
     command: ["chmod", "-R", "a+rwX", "/pnpm"]
 
   mcp-server:
-    image: sinfallas/base-node-ionic:26
+    image: sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60
     container_name: mcp_qa_server
     hostname: mcp_qa_server
     pull_policy: if_not_present
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     depends_on:
       pnpm-store-init:
         condition: service_completed_successfully
@@ -21,6 +32,7 @@ services:
       HOME: /tmp
       PNPM_HOME: /pnpm
       pnpm_config_store_dir: /pnpm/store
+      NODE_OPTIONS: "--max-old-space-size=4096"
     volumes:
       - ..:/app
       - pnpm-store:/pnpm
@@ -28,10 +40,14 @@ services:
     command: bash -c "echo 'Contenedor QA MCP Server listo'; sleep infinity"
 
   karatelabs:
-    image: sinfallas/karatelabs:1.5.1
+    image: sinfallas/karatelabs:1.5.1@sha256:a9a52ca9c5491ab39b64f0b4fdc3dea879c2213c9bc995be58d6cd4b9a80cc89
     container_name: mcp_karate
     hostname: mcp_karate
     pull_policy: if_not_present
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     volumes:
       - ./test:/app/src/test/java/examples/test:ro
       - ..:/repo:ro

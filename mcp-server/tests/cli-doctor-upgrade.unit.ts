@@ -36,9 +36,11 @@ vi.mock('node:child_process', async (importOriginal) => {
 import {
   formatCliJson,
   hasHelpFlag,
+  matchFlagValue,
   readNextFlagValue,
   resolveCliProjectPath,
 } from '../src/cli/cliArgHelpers.js';
+import { AUDIT_HELP_TEXT } from '../src/cli/audit-cli.js';
 import {
   DOCTOR_HELP_TEXT,
   type DoctorReport,
@@ -150,6 +152,14 @@ describe('CLI Arg Helpers, Doctor & Upgrade Subcommands (QA-11X)', () => {
       });
       expect(serialized).toContain('[REDACTED_SECRET]');
       expect(serialized).not.toContain('abcdefghijklmnopqrstuvwxyz1234');
+
+      const shortEq = matchFlagValue(['-t=workspace', '-a=cursor', '-l=en'], 0, new Set(['-t', '-a', '-l']));
+      expect(shortEq).toEqual({ flag: '-t', value: 'workspace', consumed: 0 });
+      const longEq = matchFlagValue(['--target=claude'], 0, new Set(['--target']));
+      expect(longEq).toEqual({ flag: '--target', value: 'claude', consumed: 0 });
+      expect(matchFlagValue(['--unknown=x'], 0, new Set(['--target']))).toBeNull();
+      expect(matchFlagValue(['--target'], 5, new Set(['--target']))).toBeNull();
+      expect(() => matchFlagValue(['-t='], 0, new Set(['-t']))).toThrow(/requiere un valor/);
     });
   });
 
@@ -265,10 +275,12 @@ describe('CLI Arg Helpers, Doctor & Upgrade Subcommands (QA-11X)', () => {
       const claudeSkills = path.join(homeDir, '.claude', 'skills');
       writeFile(path.join(claudeSkills, 'qa-11x-architect', 'SKILL.md'), '# skill');
 
-      // Seed IDE MCP configs
+      // Seed IDE MCP configs (including fallback antigravity + hermes config.yaml + claude-desktop)
       writeFile(path.join(homeDir, '.gemini', 'config', 'mcp_config.json'), '{"mcpServers":{"qa-11x":{}}}');
       writeFile(path.join(homeDir, '.codex', 'config.toml'), '[mcp_servers.qa-11x]\ncommand="npx"\n');
       writeFile(path.join(homeDir, '.cursor', 'mcp.json'), '{"mcpServers":{"other":{}}}');
+      writeFile(path.join(homeDir, '.hermes', 'config.yaml'), 'mcp:\n  qa-11x:\n    command: npx\n');
+      writeFile(path.join(homeDir, '.config', 'Claude', 'claude_desktop_config.json'), '{"mcpServers":{"qa-11x":{}}}');
       // Directory at .claude.json triggers readFileSync catch path safely across all UIDs
       fs.mkdirSync(path.join(homeDir, '.claude.json'), { recursive: true });
 
@@ -280,9 +292,10 @@ describe('CLI Arg Helpers, Doctor & Upgrade Subcommands (QA-11X)', () => {
         new Response(JSON.stringify({ version: '99.0.0' }), { status: 200 })
       );
 
-      const jsonRes = await runDoctorCli(['-p', projDir, '--json'], {
+      const jsonRes = await runDoctorCli([`-p=${projDir}`, '--json'], {
         cwd: tmpRoot,
         homeDir,
+        platform: 'linux',
         fetchFn: mockFetch,
         dockerProbeFn: () => '27.3.1',
         execPath: '/usr/local/bin/node',
@@ -295,8 +308,22 @@ describe('CLI Arg Helpers, Doctor & Upgrade Subcommands (QA-11X)', () => {
       expect(parsed.npx_cache.entries).toHaveLength(3);
       expect(parsed.npx_cache.entries.some((e) => e.version === 'unknown')).toBe(true);
       expect(parsed.global_skills).toHaveLength(2);
-      expect(parsed.ide_mcp_configs.find((c) => c.client === 'gemini')?.has_qa_11x).toBe(true);
+      expect(parsed.ide_mcp_configs.find((c) => c.client === 'antigravity')?.has_qa_11x).toBe(true);
+      expect(parsed.ide_mcp_configs.find((c) => c.client === 'hermes')?.has_qa_11x).toBe(true);
+      expect(parsed.ide_mcp_configs.find((c) => c.client === 'claude-desktop')?.has_qa_11x).toBe(true);
       expect(parsed.ide_mcp_configs.find((c) => c.client === 'codex')?.has_qa_11x).toBe(true);
+
+      // Canonical antigravity (.gemini/antigravity/mcp_config.json) + darwin claude-desktop + hermes mcp.json
+      const darwinHome = path.join(tmpRoot, 'home-darwin');
+      writeFile(path.join(darwinHome, '.gemini', 'antigravity', 'mcp_config.json'), '{"mcpServers":{"qa-11x":{}}}');
+      writeFile(path.join(darwinHome, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json'), '{"mcpServers":{"qa-11x":{}}}');
+      writeFile(path.join(darwinHome, '.hermes', 'mcp.json'), '{"mcpServers":{"qa-11x":{}}}');
+      const darwinDoc = JSON.parse(
+        (await runDoctorCli([projDir, '--offline', '--json'], { cwd: projDir, homeDir: darwinHome, platform: 'darwin', dockerProbeFn: () => null })).output
+      ) as DoctorReport;
+      expect(darwinDoc.ide_mcp_configs.find((c) => c.client === 'antigravity')?.path).toContain('.gemini/antigravity/mcp_config.json');
+      expect(darwinDoc.ide_mcp_configs.find((c) => c.client === 'claude-desktop')?.has_qa_11x).toBe(true);
+      expect(darwinDoc.ide_mcp_configs.find((c) => c.client === 'hermes')?.path).toContain('.hermes/mcp.json');
       expect(parsed.ide_mcp_configs.find((c) => c.client === 'cursor')).toMatchObject({
         exists: true,
         has_qa_11x: false,
@@ -384,12 +411,42 @@ describe('CLI Arg Helpers, Doctor & Upgrade Subcommands (QA-11X)', () => {
 
       process.env.HOME = homeDir;
       const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+      const consoleErrSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
       const fetcher = new GitHubFetcher({ cacheDir: path.join(tmpRoot, 'bp-cache') });
       expect(await dispatchCliArgs(['--version', '--verbose'], fetcher)).toBe(0);
       expect(await dispatchCliArgs(['-v', '--json'], fetcher)).toBe(0);
-      expect(consoleLogSpy).toHaveBeenCalledTimes(2);
-      const lastLogged = String(consoleLogSpy.mock.calls[1]?.[0] ?? '{}');
-      expect((JSON.parse(lastLogged) as DoctorReport).mcp_version).toBe(MCP_SERVER_VERSION);
+      expect(await dispatchCliArgs(['--json', '--version'], fetcher)).toBe(0);
+      expect(await dispatchCliArgs(['version'], fetcher)).toBe(0);
+      expect(await dispatchCliArgs(['--version', '--bogus'], fetcher)).toBe(1);
+      expect(await dispatchCliArgs(['help', 'audit'], fetcher)).toBe(0);
+      expect(consoleLogSpy).toHaveBeenCalledTimes(5);
+      expect(consoleLogSpy).toHaveBeenNthCalledWith(4, MCP_SERVER_VERSION);
+      expect(consoleLogSpy).toHaveBeenNthCalledWith(5, AUDIT_HELP_TEXT);
+      expect(consoleErrSpy).toHaveBeenCalledTimes(1);
+      const jsonLogged = String(consoleLogSpy.mock.calls[2]?.[0] ?? '{}');
+      expect((JSON.parse(jsonLogged) as DoctorReport).mcp_version).toBe(MCP_SERVER_VERSION);
+
+      const helpDocLogs: string[] = [];
+      const helpDocErrs: string[] = [];
+      const helpDocRes = await runCli(['help', 'doctor'], {
+        log: (m) => helpDocLogs.push(m),
+        errorLog: (m) => helpDocErrs.push(m),
+      });
+      expect(helpDocRes.exitCode).toBe(0);
+      expect(helpDocLogs[0]).toBe(DOCTOR_HELP_TEXT);
+      const helpBadRes = await runCli(['help', 'nonexistent-cmd'], {
+        log: (m) => helpDocLogs.push(m),
+        errorLog: (m) => helpDocErrs.push(m),
+      });
+      expect(helpBadRes.exitCode).toBe(1);
+      expect(helpDocErrs[0]).toContain('Unknown CLI subcommand');
+
+      const helpExtraRes = await runCli(['help', 'doctor', 'extra'], {
+        log: (m) => helpDocLogs.push(m),
+        errorLog: (m) => helpDocErrs.push(m),
+      });
+      expect(helpExtraRes.exitCode).toBe(1);
+      expect(helpExtraRes.errorMessage).toContain("Unexpected argument 'extra' for 'help'");
     });
   });
 
@@ -479,19 +536,81 @@ describe('CLI Arg Helpers, Doctor & Upgrade Subcommands (QA-11X)', () => {
       expect(fs.existsSync(nullDepsHash)).toBe(true);
     });
 
-    it('executes installSkillRunner when neither --cache-only nor --offline nor --dry-run, and handles errors', async () => {
+    it('executes installSkillRunner without --reconcile by default, honors explicit --reconcile, silences logs in --json mode, and handles errors', async () => {
       const installSpy = vi.fn().mockResolvedValue(undefined);
       const fetcher = new GitHubFetcher({ cacheDir: path.join(tmpRoot, 'bp-cache') });
 
-      const fullRes = await runUpgradeCli(['-t', 'claude'], {
+      expect(UPGRADE_HELP_TEXT).toContain('--reconcile');
+
+      const fullRes = await runUpgradeCli(['-t=claude'], {
         homeDir,
         fetcher,
         installSkillRunner: installSpy,
       });
       expect(fullRes.exitCode).toBe(0);
-      expect(installSpy).toHaveBeenCalledWith(['--target', 'claude', '--reconcile'], fetcher);
+      expect(installSpy).toHaveBeenCalledWith(['--target', 'claude'], fetcher);
       expect(fullRes.output).toContain('APLICADO');
       expect(fullRes.output).toContain('skills_synced=true');
+
+      const reconcileRes = await runUpgradeCli(['-t', 'claude', '--reconcile'], {
+        homeDir,
+        fetcher,
+        installSkillRunner: installSpy,
+      });
+      expect(reconcileRes.exitCode).toBe(0);
+      expect(installSpy).toHaveBeenLastCalledWith(['--target', 'claude', '--reconcile'], fetcher);
+
+      // Real runInstallSkillCli with --json keeps stdout pure JSON (human logs suppressed)
+      const localBp = path.join(tmpRoot, 'local-bp');
+      const skillText = '# Architect Skill\n';
+      const { createHash } = await import('node:crypto');
+      const skillSha = createHash('sha256').update(skillText, 'utf8').digest('hex');
+      writeFile(path.join(localBp, '.agents', 'skills', 'qa-11x-architect', 'SKILL.md'), skillText);
+      writeFile(
+        path.join(localBp, 'manifest.json'),
+        JSON.stringify({
+          schema_version: '1.0.0',
+          blueprint_version: MCP_SERVER_VERSION,
+          generated_at_utc: '2026-11-17T00:00:00Z',
+          repository: 'tecno-consultores/qa-testing-blueprints',
+          default_branch: 'main',
+          raw_base_url: 'https://example.invalid',
+          stacks: {},
+          common_files: [],
+          agent_governance_files: [
+            {
+              path: '.agents/skills/qa-11x-architect/SKILL.md',
+              target_name: '.agents/skills/qa-11x-architect/SKILL.md',
+              merge_strategy: 'overwrite',
+              sha256: skillSha,
+              size_bytes: Buffer.byteLength(skillText, 'utf8'),
+            },
+          ],
+        })
+      );
+      const localFetcher = new GitHubFetcher({
+        cacheDir: path.join(tmpRoot, 'bp-cache-real'),
+        localOverridePath: localBp,
+      });
+      process.env.HOME = homeDir;
+      const realStdoutLogs: string[] = [];
+      const origConsoleLog = console.log;
+      console.log = (msg?: unknown) =>
+        realStdoutLogs.push(typeof msg === 'string' ? msg : JSON.stringify(msg ?? ''));
+      try {
+        const cliJsonUpg = await runCli(['upgrade', '--target=claude', '--json'], {
+          homeDir,
+          fetcher: localFetcher,
+          log: (m) => console.log(m),
+        });
+        expect(cliJsonUpg.exitCode).toBe(0);
+      } finally {
+        console.log = origConsoleLog;
+      }
+      expect(realStdoutLogs).toHaveLength(1);
+      const parsedUpgradeStdout = JSON.parse(realStdoutLogs[0] ?? '{}') as UpgradeReport;
+      expect(parsedUpgradeStdout.skills_synced).toBe(true);
+      expect(fs.existsSync(path.join(homeDir, '.claude', 'skills', 'qa-11x-architect', 'SKILL.md'))).toBe(true);
 
       const offlineRes = await runUpgradeCli(['--target', 'all', '--offline', '--json'], {
         homeDir,

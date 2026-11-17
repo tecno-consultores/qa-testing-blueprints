@@ -26,3 +26,50 @@ SECURITY_BLAST_KEYWORDS: tuple[str, ...] = (
     "session",
     "rbac",
 )
+
+STRUCTURAL_AST_RELATIONS: frozenset[str] = frozenset(
+    {"contains", "defines", "rationale_for", "documented_in"}
+)
+
+MANIFEST_TRACKED_DOC_EXACT: frozenset[str] = frozenset(
+    {
+        "AGENTS.md",
+        "AI_MASTER_PROMPT.md",
+        "AI_MASTER_PROMPT.es.md",
+        "SECURITY.md",
+        "SECURITY.es.md",
+        ".agents/README.md",
+    }
+)
+MANIFEST_TRACKED_DOC_PREFIXES: tuple[str, ...] = (
+    ".agents/rules/",
+    ".agents/skills/",
+    "catalogs/",
+)
+STACK_README_PATHS: frozenset[str] = frozenset(
+    {
+        f"{stack}/{name}"
+        for stack in (
+            "python",
+            "fastapi",
+            "node-backend",
+            "vue3",
+            "react-frontend",
+            "bash-scripts",
+            "php",
+            "mobile-appium",
+            "ai-evals",
+            "vibe-rescue",
+        )
+        for name in ("README.md", "README.es.md")
+    }
+)
+
+
+def is_manifest_tracked_doc(rel_posix: str) -> bool:
+    """Return True for Markdown governance/catalog/stack docs in manifest.json."""
+    return (
+        rel_posix in MANIFEST_TRACKED_DOC_EXACT
+        or rel_posix in STACK_README_PATHS
+        or rel_posix.startswith(MANIFEST_TRACKED_DOC_PREFIXES)
+    )

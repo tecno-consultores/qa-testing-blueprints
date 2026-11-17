@@ -168,15 +168,28 @@ else
   fetch_file "${RAW_BASE_URL}/manifest.json" "${MANIFEST_FILE}"
 fi
 
+run_manifest_py() {
+  _py_code="$1"
+  _py_image="${QA_PYTHON_IMAGE:-sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4}"
+  if command -v python3 >/dev/null 2>&1; then
+    python3 -c "${_py_code}" "${MANIFEST_FILE}"
+  elif command -v docker >/dev/null 2>&1; then
+    docker run --rm --network none -u "$(id -u):$(id -g)" -v "${TMP_DIR}:/qa-tmp:ro" "${_py_image}" python3 -c "${_py_code}" "/qa-tmp/manifest.json"
+  else
+    log_error "Se requiere 'jq', 'python3' o 'docker' para analizar el manifiesto JSON."
+    return 1
+  fi
+}
+
 # Extraer lista de archivos de todas las skills indexadas en .agents/skills/
 # Formato de salida: <path> <sha256> <size>
 SKILL_INDEX="${TMP_DIR}/skill_files.txt"
 if command -v jq >/dev/null 2>&1; then
   BLUEPRINT_VERSION="$(jq -r '.blueprint_version // "unknown"' "${MANIFEST_FILE}")"
   jq -r '.agent_governance_files[] | select(.path | startswith(".agents/skills/")) | "\(.path) \(.sha256) \(.size_bytes)"' "${MANIFEST_FILE}" >"${SKILL_INDEX}"
-elif command -v python3 >/dev/null 2>&1; then
-  BLUEPRINT_VERSION="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8")).get("blueprint_version", "unknown"))' "${MANIFEST_FILE}")"
-  python3 -c '
+else
+  BLUEPRINT_VERSION="$(run_manifest_py 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8")).get("blueprint_version", "unknown"))')" || exit 1
+  run_manifest_py '
 import json, sys
 data = json.load(open(sys.argv[1], encoding="utf-8"))
 gov = data.get("agent_governance_files", [])
@@ -186,10 +199,7 @@ for item in gov:
         sha = item.get("sha256", "")
         size = item.get("size_bytes", 0)
         print(f"{p} {sha} {size}")
-' "${MANIFEST_FILE}" >"${SKILL_INDEX}"
-else
-  log_error "Se requiere 'jq' o 'python3' para analizar el manifiesto JSON."
-  exit 1
+' >"${SKILL_INDEX}" || exit 1
 fi
 
 TOTAL_FILES="$(wc -l <"${SKILL_INDEX}" | tr -d ' ')"
@@ -321,15 +331,16 @@ if [ "${INCLUDE_SCRIPTS}" -eq 1 ]; then
   if command -v jq >/dev/null 2>&1; then
     jq -r '((.agent_governance_files // []) + (.common_files // []))[] | select((.path | startswith(".agents/scripts/") or startswith(".agents/schemas/") or startswith("scripts/")) and (.path != "scripts/publicar-mcp.sh")) | "\(.path) \(.sha256)"' "${MANIFEST_FILE}" >"${SCRIPT_INDEX}"
   else
-    python3 -c '
+    run_manifest_py '
 import json, sys
 data = json.load(open(sys.argv[1], encoding="utf-8"))
 items = data.get("agent_governance_files", []) + data.get("common_files", [])
 for item in items:
     p = item.get("path", "")
     if (p.startswith(".agents/scripts/") or p.startswith(".agents/schemas/") or p.startswith("scripts/")) and p != "scripts/publicar-mcp.sh":
-        print(f"{p} {item.get(\"sha256\", \"\")}")
-' "${MANIFEST_FILE}" >"${SCRIPT_INDEX}"
+        sha = item.get("sha256", "")
+        print(f"{p} {sha}")
+' >"${SCRIPT_INDEX}" || exit 1
   fi
 
   while read -r s_path s_sha; do

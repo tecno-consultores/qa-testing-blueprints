@@ -101,16 +101,24 @@ const EXFIL_TARGET_RE =
   /(?:\.ssh\/|id_rsa|id_ed25519|process\.env|os\.environ|\b(?:AWS_SECRET|GITHUB_TOKEN|NPM_TOKEN|SSH_PRIVATE_KEY)\b|(?:cat|type|read)\s+[^\r\n]{0,30}\.env\b)/i;
 
 const GATE_BYPASS_ACTION_RE =
-  /\b(?:bypass|skip|circumvent|salt[aá]|evad|desactiv)\w* (?:el |la |the |gate |guardia )?(?:QA-GIT-GATE-01|git push|npm publish|pre-push)\b/i;
+  /\b(?:bypass|skip|circumvent|salt[aá]|evad|desactiv)\w* (?:el |la |the |gate |guardia )?(?:QA-GIT-GATE-01|git push|npm publish|docker push|pre-push)\b/i;
 
 const GATE_FORCE_FLAG_RE =
-  /\b(?:git push|npm publish)\b[^\r\n]{0,60}(?:--no-verify|--force\b|\s-f(?=\s|$)|\bsaltando QA-GIT-GATE-01|\bbypassing QA-GIT-GATE-01)/i;
+  /\b(?:git push|npm publish|docker push)\b[^\r\n]{0,60}(?:--no-verify|--force\b|\s-f(?=\s|$)|\bsaltando QA-GIT-GATE-01|\bbypassing QA-GIT-GATE-01)/i;
 
 const GATE_IMPERATIVE_RE =
-  /(?:^|[\s:;!])(?:run|execute|force|ejecuta|fuerza) (?:now |immediately )?(?:git push|npm publish)\b/i;
+  /(?:^|[\s:;!])(?:run|execute|force|ejecuta|fuerza) (?:now |immediately )?(?:git push|npm publish|docker push)\b/i;
 
-const DEFENSIVE_NEGATION_RE =
-  /\b(?:never|do not|don't|prohibido|nunca|jam[aá]s|prior to|before)\b/i;
+const NEGATION_SINGLE_RE = /^(?:never|don't|prohibido|nunca|jam[aá]s)$/i;
+const GATE_ACTION_PREFIX_RE = /^(?:bypass|skip|circumvent|salt[aá]|evad|desactiv)/i;
+const CLAUSE_PUNCT_CHARS = new Set([',', ';', ':', '.', '!', '?']);
+const GATE_FLAGS = new Set(['--no-verify', '--force', '-f']);
+const GATE_CONJUNCTIONS = new Set(['or', 'ni', 'and', 'y']);
+const GATE_VERB_PAIRS: ReadonlySet<string> = new Set([
+  'git push',
+  'npm publish',
+  'docker push',
+]);
 
 const JAILBREAK_PERSONA_RE =
   /\b(?:developer mode enabled|act as DAN|do anything now|modo sin restricciones)\b/i;
@@ -256,11 +264,99 @@ function hasIndirectExfiltration(text: string): boolean {
   return false;
 }
 
-function hasGateBypassInLine(line: string): boolean {
-  const cleanLine = collapseHorizontalWhitespace(line);
-  if (DEFENSIVE_NEGATION_RE.test(cleanLine)) {
-    return false;
+function matchNegationPrefix(tokens: readonly string[], idx: number): number {
+  const first = (tokens[idx] ?? '').toLowerCase();
+  if (NEGATION_SINGLE_RE.test(first)) {
+    return 1;
   }
+  const second = (tokens[idx + 1] ?? '').toLowerCase();
+  if (first === 'do' && second === 'not') {
+    return 2;
+  }
+  return 0;
+}
+
+function stripTrailingClausePunct(token: string): { readonly word: string; readonly hasBreak: boolean } {
+  let end = token.length;
+  while (end > 0 && CLAUSE_PUNCT_CHARS.has(token[end - 1] ?? '')) {
+    end -= 1;
+  }
+  return {
+    word: token.slice(0, end).toLowerCase(),
+    hasBreak: end !== token.length,
+  };
+}
+
+function matchProhibitedActionAt(tokens: readonly string[], idx: number): number {
+  const cur = stripTrailingClausePunct(tokens[idx] ?? '');
+  if (!cur.word) {
+    return 0;
+  }
+  if (!cur.hasBreak && idx + 1 < tokens.length) {
+    const next = stripTrailingClausePunct(tokens[idx + 1] ?? '');
+    if (GATE_VERB_PAIRS.has(`${cur.word} ${next.word}`)) {
+      return 2;
+    }
+  }
+  return GATE_ACTION_PREFIX_RE.test(cur.word) ? 1 : 0;
+}
+
+function extendNegatedSpanEnd(tokens: readonly string[], initialEnd: number): number {
+  let end = initialEnd;
+  while (end < tokens.length) {
+    const raw = tokens[end] ?? '';
+    const { word, hasBreak } = stripTrailingClausePunct(raw);
+    if (GATE_FLAGS.has(word)) {
+      end += 1;
+      if (hasBreak) break;
+      continue;
+    }
+    if (!GATE_CONJUNCTIONS.has(word) || hasBreak || end + 1 >= tokens.length) {
+      break;
+    }
+    const nextActionLen = matchProhibitedActionAt(tokens, end + 1);
+    if (nextActionLen === 0) {
+      break;
+    }
+    end += 1 + nextActionLen;
+  }
+  return end;
+}
+
+function findNegatedSpanEnd(tokens: readonly string[], negIdx: number, scanStart: number): number {
+  for (let offset = 0; offset <= 3; offset++) {
+    const pos = scanStart + offset;
+    if (pos >= tokens.length) break;
+    const actionLen = matchProhibitedActionAt(tokens, pos);
+    if (actionLen > 0) {
+      return extendNegatedSpanEnd(tokens, pos + actionLen);
+    }
+    if (stripTrailingClausePunct(tokens[pos] ?? '').hasBreak) {
+      break;
+    }
+  }
+  return negIdx;
+}
+
+function neutralizeAnchoredNegations(cleanLine: string): string {
+  const tokens = cleanLine.split(' ');
+  const kept: string[] = [];
+  let i = 0;
+  while (i < tokens.length) {
+    const negLen = matchNegationPrefix(tokens, i);
+    const spanEnd = negLen > 0 ? findNegatedSpanEnd(tokens, i, i + negLen) : i;
+    if (spanEnd > i) {
+      i = spanEnd;
+      continue;
+    }
+    kept.push(tokens[i] ?? '');
+    i += 1;
+  }
+  return collapseHorizontalWhitespace(kept.join(' '));
+}
+
+function hasGateBypassInLine(line: string): boolean {
+  const cleanLine = neutralizeAnchoredNegations(collapseHorizontalWhitespace(line));
   if (GATE_BYPASS_ACTION_RE.test(cleanLine) || GATE_FORCE_FLAG_RE.test(cleanLine)) {
     return true;
   }

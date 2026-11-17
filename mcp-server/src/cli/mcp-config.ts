@@ -10,10 +10,15 @@ import {
 } from '../services/github-fetcher.js';
 import { pickAt, reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 import {
+  CODEX_MCP_REL_PATH,
+  type JsonMcpClient,
+  resolveJsonMcpClientRelPath,
+} from '../utils/ideConfigPaths.js';
+import {
   type CliCommandOutput,
   formatCliJson,
   hasHelpFlag,
-  readNextFlagValue,
+  matchFlagValue,
 } from './cliArgHelpers.js';
 
 export const SUPPORTED_MCP_CLIENTS = [
@@ -35,6 +40,7 @@ type SingleMcpClient = Exclude<SupportedMcpClient, 'all'>;
 export interface McpConfigCliDeps {
   readonly homeDir?: string;
   readonly cwd?: string;
+  readonly platform?: NodeJS.Platform;
 }
 
 const PKG_NAME = '@sinfallas/mcp-qa-11x';
@@ -43,10 +49,17 @@ const MCP_SERVERS_KEY = 'mcpServers';
 const UTF8_ENCODING = 'utf-8';
 const BACKUP_SUFFIX = '.11x-backup';
 const CODEX_SECTION_HEADER = '[mcp_servers.qa-11x]';
+const TOML_SECTION_HEADER_RE = /^\s*\[[^[\]]+\]/;
 const SECURE_FILE_MODE = 0o600;
-const INVALID_JSON_ABORT_MSG =
-  '❌ [mcp-config] JSON inválido existente; se aborta para evitar corrupción.';
 const ERROR_PREFIX = '❌ [mcp-config]';
+const CLIENT_VALUE_FLAGS = new Set(['--client', '-c']);
+const JSON_MCP_CLIENTS = new Set<string>([
+  'antigravity',
+  'cursor',
+  'windsurf',
+  'claude-desktop',
+  'hermes',
+]);
 
 export const MCP_CONFIG_HELP_TEXT = [
   'Uso: npx -y @sinfallas/mcp-qa-11x mcp-config [opciones]',
@@ -61,21 +74,10 @@ export const MCP_CONFIG_HELP_TEXT = [
   '  --help, -h              Muestra esta ayuda y sale con código 0',
 ].join('\n');
 
-type JsonMcpClient = 'antigravity' | 'cursor' | 'windsurf' | 'claude-desktop' | 'hermes';
 type CommandMcpClient = 'claude-code' | 'vscode' | 'gemini-cli';
 
-const JSON_CLIENT_REL_PATHS: Readonly<Record<JsonMcpClient, string>> = {
-  antigravity: '.gemini/config/mcp_config.json',
-  cursor: '.cursor/mcp.json',
-  windsurf: '.codeium/windsurf/mcp_config.json',
-  'claude-desktop': '.config/Claude/claude_desktop_config.json',
-  hermes: '.hermes/mcp.json',
-};
-
-const CODEX_REL_PATH = '.codex/config.toml';
-
 function isJsonClient(client: SingleMcpClient): client is JsonMcpClient {
-  return Object.hasOwn(JSON_CLIENT_REL_PATHS, client);
+  return JSON_MCP_CLIENTS.has(client);
 }
 
 interface McpConfigParseState {
@@ -109,14 +111,10 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function parseMcpConfigArgs(args: readonly string[]): McpConfigParseState {
-  const state: McpConfigParseState = {
-    clientRaw: 'antigravity',
-    install: false,
-    pinVersion: false,
-    dryRun: false,
-    json: false,
-  };
+function applyMcpConfigBoolFlag(
+  token: string,
+  state: McpConfigParseState
+): boolean {
   const boolFlags: Readonly<Record<string, () => void>> = {
     '--print': () => {
       state.install = false;
@@ -134,16 +132,31 @@ function parseMcpConfigArgs(args: readonly string[]): McpConfigParseState {
       state.json = true;
     },
   };
+  const action = boolFlags[token];
+  if (!action) {
+    return false;
+  }
+  action();
+  return true;
+}
+
+function parseMcpConfigArgs(args: readonly string[]): McpConfigParseState {
+  const state: McpConfigParseState = {
+    clientRaw: 'antigravity',
+    install: false,
+    pinVersion: false,
+    dryRun: false,
+    json: false,
+  };
   for (let i = 0; i < args.length; i += 1) {
     const token = pickAt(args, i);
-    const boolAction = boolFlags[token];
-    if (boolAction) {
-      boolAction();
+    if (applyMcpConfigBoolFlag(token, state)) {
       continue;
     }
-    if (token === '--client' || token === '-c') {
-      state.clientRaw = readNextFlagValue(args, i, token);
-      i += 1;
+    const clientMatch = matchFlagValue(args, i, CLIENT_VALUE_FLAGS);
+    if (clientMatch) {
+      state.clientRaw = clientMatch.value;
+      i += clientMatch.consumed;
       continue;
     }
     throw new Error(`Opción desconocida en mcp-config: '${token}'.`);
@@ -174,18 +187,24 @@ const COMMAND_CLIENT_BUILDERS: Readonly<Record<CommandMcpClient, (pkgSpec: strin
   'gemini-cli': (pkgSpec) => `gemini mcp add ${QA_SERVER_KEY} npx -y ${pkgSpec}`,
 };
 
+interface SnippetTargetContext {
+  readonly pkgSpec: string;
+  readonly homeDir: string;
+  readonly platform: NodeJS.Platform;
+}
+
 function buildClientSnippet(
   client: SingleMcpClient,
-  pkgSpec: string,
-  homeDir: string
+  ctx: SnippetTargetContext
 ): ClientSnippetPayload {
   if (isJsonClient(client)) {
-    const doc = { [MCP_SERVERS_KEY]: { [QA_SERVER_KEY]: buildJsonServerEntry(pkgSpec) } };
+    const doc = { [MCP_SERVERS_KEY]: { [QA_SERVER_KEY]: buildJsonServerEntry(ctx.pkgSpec) } };
+    const relPath = resolveJsonMcpClientRelPath(client, ctx.platform);
     return {
       client,
       kind: 'json',
-      packageSpec: pkgSpec,
-      targetPath: resolveSafeChildPath(homeDir, JSON_CLIENT_REL_PATHS[client]),
+      packageSpec: ctx.pkgSpec,
+      targetPath: resolveSafeChildPath(ctx.homeDir, relPath),
       snippet: `${JSON.stringify(doc, null, 2)}\n`,
     };
   }
@@ -193,13 +212,13 @@ function buildClientSnippet(
     return {
       client,
       kind: 'toml',
-      packageSpec: pkgSpec,
-      targetPath: resolveSafeChildPath(homeDir, CODEX_REL_PATH),
-      snippet: `${buildCodexTomlBlock(pkgSpec)}\n`,
+      packageSpec: ctx.pkgSpec,
+      targetPath: resolveSafeChildPath(ctx.homeDir, CODEX_MCP_REL_PATH),
+      snippet: `${buildCodexTomlBlock(ctx.pkgSpec)}\n`,
     };
   }
-  const command = COMMAND_CLIENT_BUILDERS[client](pkgSpec);
-  return { client, kind: 'command', packageSpec: pkgSpec, command, snippet: command };
+  const command = COMMAND_CLIENT_BUILDERS[client](ctx.pkgSpec);
+  return { client, kind: 'command', packageSpec: ctx.pkgSpec, command, snippet: command };
 }
 
 function parseExistingJsonDoc(targetPath: string): Record<string, unknown> | null {
@@ -247,6 +266,22 @@ function stripTrailingNewlines(text: string): string {
   return normalized.slice(0, end);
 }
 
+function mergeExistingCodexSection(
+  lines: readonly string[],
+  startIdx: number,
+  blockLines: readonly string[]
+): string {
+  const relEndIdx = lines
+    .slice(startIdx + 1)
+    .findIndex((line) => TOML_SECTION_HEADER_RE.test(line));
+  const endIdx = relEndIdx === -1 ? lines.length : startIdx + 1 + relEndIdx;
+  const before = lines.slice(0, startIdx);
+  const after = lines.slice(endIdx);
+  const merged =
+    after.length > 0 ? [...before, ...blockLines, '', ...after] : [...before, ...blockLines];
+  return `${merged.join('\n')}\n`;
+}
+
 function upsertCodexToml(existing: string | null, block: string): string {
   if (existing === null || existing.trim().length === 0) {
     return `${block}\n`;
@@ -260,25 +295,32 @@ function upsertCodexToml(existing: string | null, block: string): string {
   if (startIdx === -1) {
     return `${lines.join('\n')}\n\n${block}\n`;
   }
-  const relEndIdx = lines.slice(startIdx + 1).findIndex((line) => line.trim().startsWith('['));
-  const endIdx = relEndIdx === -1 ? lines.length : startIdx + 1 + relEndIdx;
-  const before = lines.slice(0, startIdx);
-  const after = lines.slice(endIdx);
-  const merged =
-    after.length > 0 ? [...before, ...blockLines, '', ...after] : [...before, ...blockLines];
-  return `${merged.join('\n')}\n`;
+  return mergeExistingCodexSection(lines, startIdx, blockLines);
 }
 
-function installJsonClient(
-  client: SingleMcpClient,
+type PlannedClientInstall =
+  | {
+      readonly client: SingleMcpClient;
+      readonly kind: 'json' | 'toml';
+      readonly targetPath: string;
+      readonly existed: boolean;
+      readonly content: string;
+    }
+  | {
+      readonly client: SingleMcpClient;
+      readonly kind: 'command';
+      readonly command: string;
+    };
+
+function prepareJsonClientInstall(
+  client: JsonMcpClient,
   targetPath: string,
-  pkgSpec: string,
-  dryRun: boolean
-): ClientInstallOutcome | null {
+  pkgSpec: string
+): PlannedClientInstall {
   const existed = fs.existsSync(targetPath);
   const existingDoc = existed ? parseExistingJsonDoc(targetPath) : {};
   if (!existingDoc) {
-    return null;
+    throw new Error(`JSON inválido existente en '${targetPath}'; se aborta para evitar corrupción.`);
   }
   const existingServers = isPlainObject(existingDoc[MCP_SERVERS_KEY])
     ? existingDoc[MCP_SERVERS_KEY]
@@ -290,81 +332,82 @@ function installJsonClient(
       [QA_SERVER_KEY]: buildJsonServerEntry(pkgSpec),
     },
   };
-  const rendered = `${JSON.stringify(mergedDoc, null, 2)}\n`;
-  if (dryRun) {
-    return {
-      client,
-      kind: 'json',
-      status: 'dry-run',
-      targetPath,
-      ...(existed ? { backupPath: `${targetPath}${BACKUP_SUFFIX}` } : {}),
-      snippet: rendered,
-    };
-  }
-  const backupPath = writeFileAtomicWithBackup(targetPath, rendered, existed);
   return {
     client,
     kind: 'json',
-    status: 'installed',
     targetPath,
-    ...(backupPath ? { backupPath } : {}),
-    snippet: rendered,
+    existed,
+    content: `${JSON.stringify(mergedDoc, null, 2)}\n`,
   };
 }
 
-function installTomlClient(
-  targetPath: string,
-  pkgSpec: string,
-  dryRun: boolean
-): ClientInstallOutcome {
+function prepareTomlClientInstall(targetPath: string, pkgSpec: string): PlannedClientInstall {
   const existed = fs.existsSync(targetPath);
   const existingContent = existed ? fs.readFileSync(targetPath, UTF8_ENCODING) : null;
-  const rendered = upsertCodexToml(existingContent, buildCodexTomlBlock(pkgSpec));
-  if (dryRun) {
-    return {
-      client: 'codex',
-      kind: 'toml',
-      status: 'dry-run',
-      targetPath,
-      ...(existed ? { backupPath: `${targetPath}${BACKUP_SUFFIX}` } : {}),
-      snippet: rendered,
-    };
-  }
-  const backupPath = writeFileAtomicWithBackup(targetPath, rendered, existed);
   return {
     client: 'codex',
     kind: 'toml',
-    status: 'installed',
     targetPath,
-    ...(backupPath ? { backupPath } : {}),
-    snippet: rendered,
+    existed,
+    content: upsertCodexToml(existingContent, buildCodexTomlBlock(pkgSpec)),
   };
 }
 
-function installSingleClient(
+function prepareClientInstall(
   client: SingleMcpClient,
-  pkgSpec: string,
-  homeDir: string,
-  dryRun: boolean
-): ClientInstallOutcome | null {
+  ctx: SnippetTargetContext
+): PlannedClientInstall {
   if (isJsonClient(client)) {
-    return installJsonClient(
-      client,
-      resolveSafeChildPath(homeDir, JSON_CLIENT_REL_PATHS[client]),
-      pkgSpec,
-      dryRun
+    const targetPath = resolveSafeChildPath(
+      ctx.homeDir,
+      resolveJsonMcpClientRelPath(client, ctx.platform)
     );
+    return prepareJsonClientInstall(client, targetPath, ctx.pkgSpec);
   }
   if (client === 'codex') {
-    return installTomlClient(resolveSafeChildPath(homeDir, CODEX_REL_PATH), pkgSpec, dryRun);
+    return prepareTomlClientInstall(
+      resolveSafeChildPath(ctx.homeDir, CODEX_MCP_REL_PATH),
+      ctx.pkgSpec
+    );
   }
-  const command = COMMAND_CLIENT_BUILDERS[client](pkgSpec);
   return {
     client,
     kind: 'command',
-    status: 'manual-command',
-    command,
-    snippet: command,
+    command: COMMAND_CLIENT_BUILDERS[client](ctx.pkgSpec),
+  };
+}
+
+function commitPlannedInstall(
+  plan: PlannedClientInstall,
+  dryRun: boolean
+): ClientInstallOutcome {
+  if (plan.kind === 'command') {
+    return {
+      client: plan.client,
+      kind: 'command',
+      status: 'manual-command',
+      command: plan.command,
+      snippet: plan.command,
+    };
+  }
+  if (dryRun) {
+    return {
+      client: plan.client,
+      kind: plan.kind,
+      status: 'dry-run',
+      targetPath: plan.targetPath,
+      ...(plan.existed ? { backupPath: `${plan.targetPath}${BACKUP_SUFFIX}` } : {}),
+      snippet: plan.content,
+    };
+  }
+  const backupPath = writeFileAtomicWithBackup(plan.targetPath, plan.content, plan.existed);
+  return {
+    client: plan.client,
+    kind: plan.kind,
+    status: 'installed',
+    targetPath: plan.targetPath,
+    ...(backupPath ? { backupPath } : {}),
+    snippet: plan.content,
   };
 }
 
@@ -385,13 +428,13 @@ function formatInstallOutcomeText(item: ClientInstallOutcome): string {
 
 function handlePrintMode(
   clients: readonly SingleMcpClient[],
-  pkgSpec: string,
-  homeDir: string,
+  ctx: SnippetTargetContext,
   json: boolean
 ): CliCommandOutput {
-  const payloads = clients.map((client) => buildClientSnippet(client, pkgSpec, homeDir));
+  const payloads = clients.map((client) => buildClientSnippet(client, ctx));
   if (json) {
-    const jsonBody = payloads.length === 1 ? pickAtItem(payloads, 0) : { packageSpec: pkgSpec, clients: payloads };
+    const jsonBody =
+      payloads.length === 1 ? pickAtItem(payloads, 0) : { packageSpec: ctx.pkgSpec, clients: payloads };
     return { exitCode: 0, output: formatCliJson(jsonBody) };
   }
   return { exitCode: 0, output: payloads.map(formatSnippetText).join('\n\n') };
@@ -403,23 +446,17 @@ function pickAtItem<T>(items: readonly T[], index: number): T | undefined {
 
 function handleInstallMode(
   clients: readonly SingleMcpClient[],
-  pkgSpec: string,
-  homeDir: string,
+  ctx: SnippetTargetContext,
   state: McpConfigParseState
 ): CliCommandOutput {
-  const outcomes: ClientInstallOutcome[] = [];
-  for (const client of clients) {
-    const outcome = installSingleClient(client, pkgSpec, homeDir, state.dryRun);
-    if (!outcome) {
-      return { exitCode: 1, output: INVALID_JSON_ABORT_MSG, isError: true };
-    }
-    outcomes.push(outcome);
-  }
+  // Pre-validate every target file in memory before performing any write or backup on disk
+  const plans = clients.map((client) => prepareClientInstall(client, ctx));
+  const outcomes = plans.map((plan) => commitPlannedInstall(plan, state.dryRun));
   if (state.json) {
     const jsonBody =
       outcomes.length === 1
         ? pickAtItem(outcomes, 0)
-        : { packageSpec: pkgSpec, dryRun: state.dryRun, results: outcomes };
+        : { packageSpec: ctx.pkgSpec, dryRun: state.dryRun, results: outcomes };
     return { exitCode: 0, output: formatCliJson(jsonBody) };
   }
   return { exitCode: 0, output: outcomes.map(formatInstallOutcomeText).join('\n') };
@@ -442,15 +479,19 @@ export function runMcpConfigCli(
       };
     }
     const homeDir = resolveSafeHomeDir(deps.homeDir);
-    const pkgSpec = buildPackageSpec(state.pinVersion);
+    const ctx: SnippetTargetContext = {
+      pkgSpec: buildPackageSpec(state.pinVersion),
+      homeDir,
+      platform: deps.platform ?? process.platform,
+    };
     const targetClients: readonly SingleMcpClient[] =
       state.clientRaw === 'all'
         ? SUPPORTED_MCP_CLIENTS.filter((c): c is SingleMcpClient => c !== 'all')
         : [state.clientRaw];
 
     return state.install
-      ? handleInstallMode(targetClients, pkgSpec, homeDir, state)
-      : handlePrintMode(targetClients, pkgSpec, homeDir, state.json);
+      ? handleInstallMode(targetClients, ctx, state)
+      : handlePrintMode(targetClients, ctx, state.json);
   } catch (err: unknown) {
     const detail = err instanceof Error ? err.message : String(err);
     return {

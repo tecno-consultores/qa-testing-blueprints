@@ -25,7 +25,7 @@ import {
   type CliCommandOutput,
   formatCliJson,
   hasHelpFlag,
-  readNextFlagValue,
+  matchFlagValue,
   resolveCliProjectPath,
 } from './cliArgHelpers.js';
 
@@ -127,45 +127,79 @@ function parsePositiveInt(raw: string): number {
   return num;
 }
 
-function applyAuditValueFlag(
+type AuditValueSetter = (value: string, flag: string, state: ParsedAuditArgs) => void;
+
+const AUDIT_VALUE_HANDLERS: Readonly<Record<string, AuditValueSetter>> = {
+  [FLAG_PROJECT_PATH]: (val, _flag, state) => {
+    state.rawDir = val;
+  },
+  [FLAG_PROJECT_PATH_SHORT]: (val, _flag, state) => {
+    state.rawDir = val;
+  },
+  [FLAG_MODE]: (val, flag, state) => {
+    state.mode = assertInSet<AuditMode>(val, VALID_MODES, flag);
+  },
+  [FLAG_MODE_SHORT]: (val, flag, state) => {
+    state.mode = assertInSet<AuditMode>(val, VALID_MODES, flag);
+  },
+  [FLAG_FORMAT]: (val, flag, state) => {
+    state.format = assertInSet<AuditFormat>(val, VALID_FORMATS, flag);
+  },
+  [FLAG_FORMAT_SHORT]: (val, flag, state) => {
+    state.format = assertInSet<AuditFormat>(val, VALID_FORMATS, flag);
+  },
+  [FLAG_FAIL_ON]: (val, flag, state) => {
+    state.failOn = assertInSet<FailOnLevel>(val, VALID_FAIL_ON, flag);
+  },
+  [FLAG_MAX_FINDINGS]: (val, _flag, state) => {
+    state.maxFindings = parsePositiveInt(val);
+  },
+  [FLAG_ARCH_PATH]: (val, _flag, state) => {
+    state.architecturePath = val;
+  },
+};
+
+const AUDIT_VALUE_FLAG_KEYS = Object.keys(AUDIT_VALUE_HANDLERS);
+const AUDIT_BOOL_FLAGS: Readonly<Record<string, (state: ParsedAuditArgs) => void>> = {
+  [FLAG_JSON]: (state) => {
+    state.format = FORMAT_JSON;
+  },
+  [FLAG_SARIF]: (state) => {
+    state.format = FORMAT_SARIF;
+  },
+  [FLAG_INCLUDE_EXAMPLES]: (state) => {
+    state.includeExamples = true;
+  },
+};
+
+function assignAuditPositional(arg: string, state: ParsedAuditArgs): number {
+  if (arg.startsWith('-')) {
+    throw new Error(`Opción desconocida en audit: '${arg}'.`);
+  }
+  if (state.rawDir !== undefined) {
+    throw new Error(`Argumento posicional inesperado: '${arg}'.`);
+  }
+  state.rawDir = arg;
+  return 0;
+}
+
+function applyAuditToken(
   args: readonly string[],
   index: number,
-  arg: string,
   state: ParsedAuditArgs
-): number | null {
-  if (arg === FLAG_PROJECT_PATH || arg === FLAG_PROJECT_PATH_SHORT) {
-    state.rawDir = readNextFlagValue(args, index, arg);
-    return 1;
+): number {
+  const arg = pickAt(args, index);
+  const boolAction = AUDIT_BOOL_FLAGS[arg];
+  if (boolAction) {
+    boolAction(state);
+    return 0;
   }
-  if (arg === FLAG_MODE || arg === FLAG_MODE_SHORT) {
-    state.mode = assertInSet<AuditMode>(readNextFlagValue(args, index, arg), VALID_MODES, arg);
-    return 1;
+  const valueMatch = matchFlagValue(args, index, AUDIT_VALUE_FLAG_KEYS);
+  if (valueMatch) {
+    AUDIT_VALUE_HANDLERS[valueMatch.flag]?.(valueMatch.value, valueMatch.flag, state);
+    return valueMatch.consumed;
   }
-  if (arg === FLAG_FORMAT || arg === FLAG_FORMAT_SHORT) {
-    state.format = assertInSet<AuditFormat>(
-      readNextFlagValue(args, index, arg),
-      VALID_FORMATS,
-      arg
-    );
-    return 1;
-  }
-  if (arg === FLAG_FAIL_ON) {
-    state.failOn = assertInSet<FailOnLevel>(
-      readNextFlagValue(args, index, arg),
-      VALID_FAIL_ON,
-      arg
-    );
-    return 1;
-  }
-  if (arg === FLAG_MAX_FINDINGS) {
-    state.maxFindings = parsePositiveInt(readNextFlagValue(args, index, arg));
-    return 1;
-  }
-  if (arg === FLAG_ARCH_PATH) {
-    state.architecturePath = readNextFlagValue(args, index, arg);
-    return 1;
-  }
-  return null;
+  return assignAuditPositional(arg, state);
 }
 
 function parseAuditArgs(args: readonly string[]): ParsedAuditArgs {
@@ -179,25 +213,7 @@ function parseAuditArgs(args: readonly string[]): ParsedAuditArgs {
     architecturePath: undefined,
   };
   for (let i = 0; i < args.length; i++) {
-    const arg = pickAt(args, i);
-    if (arg === FLAG_JSON) {
-      state.format = FORMAT_JSON;
-    } else if (arg === FLAG_SARIF) {
-      state.format = FORMAT_SARIF;
-    } else if (arg === FLAG_INCLUDE_EXAMPLES) {
-      state.includeExamples = true;
-    } else {
-      const consumed = applyAuditValueFlag(args, i, arg, state);
-      if (consumed !== null) {
-        i += consumed;
-      } else if (arg.startsWith('-')) {
-        throw new Error(`Opción desconocida en audit: '${arg}'.`);
-      } else if (state.rawDir !== undefined) {
-        throw new Error(`Argumento posicional inesperado: '${arg}'.`);
-      } else {
-        state.rawDir = arg;
-      }
-    }
+    i += applyAuditToken(args, i, state);
   }
   return state;
 }
@@ -368,49 +384,119 @@ function formatAuditText(input: FormatAuditTextInput): string {
   return lines.join('\n');
 }
 
+function runVibeAuditWithCap(
+  projectPath: string,
+  maxFindings: number | undefined
+): AuditVibePrototypeResult {
+  const rawVibe = auditVibePrototype({
+    targetDir: projectPath,
+    workspaceRoot: projectPath,
+    dryRun: true,
+  });
+  if (maxFindings !== undefined && rawVibe.findings.length > maxFindings) {
+    return { ...rawVibe, findings: rawVibe.findings.slice(0, maxFindings) };
+  }
+  return rawVibe;
+}
+
+function runCalmAuditWithCap(
+  projectPath: string,
+  parsed: ParsedAuditArgs
+): { calm: CalmValidationResult; calmStatus: 'PASSED' | 'FAILED' } {
+  const rawCalm = validateCalmArchitecture({
+    workspaceRoot: projectPath,
+    ...(parsed.architecturePath !== undefined ? { architecturePath: parsed.architecturePath } : {}),
+  });
+  const calm =
+    parsed.maxFindings !== undefined && rawCalm.violations.length > parsed.maxFindings
+      ? { ...rawCalm, violations: rawCalm.violations.slice(0, parsed.maxFindings) }
+      : rawCalm;
+  return { calm, calmStatus: calm.valid ? 'PASSED' : 'FAILED' };
+}
+
+function shouldRunCalmAudit(projectPath: string, parsed: ParsedAuditArgs): boolean {
+  if (parsed.mode === MODE_CALM) {
+    return true;
+  }
+  if (parsed.mode !== MODE_ALL) {
+    return false;
+  }
+  if (parsed.architecturePath !== undefined) {
+    return true;
+  }
+  return fs.existsSync(path.join(projectPath, DEFAULT_CALM_ARCHITECTURE_PATH));
+}
+
+interface MutableExecutedAudits {
+  security?: Awaited<ReturnType<typeof auditSecurityStigOwasp>>;
+  pyramid?: Awaited<ReturnType<typeof auditTestPyramidGaps>>;
+  vibe?: ReturnType<typeof runVibeAuditWithCap>;
+  calm?: CalmValidationResult;
+  calm_status?: 'PASSED' | 'FAILED' | 'SKIPPED';
+}
+
+async function applySecurityAuditIfRequested(
+  out: MutableExecutedAudits,
+  projectPath: string,
+  parsed: ParsedAuditArgs
+): Promise<void> {
+  if (parsed.mode !== MODE_ALL && parsed.mode !== MODE_SECURITY) {
+    return;
+  }
+  out.security = await auditSecurityStigOwasp(projectPath, {
+    maxFindings: parsed.maxFindings,
+    includeExamples: parsed.includeExamples,
+  });
+}
+
+async function applyPyramidAuditIfRequested(
+  out: MutableExecutedAudits,
+  projectPath: string,
+  parsed: ParsedAuditArgs
+): Promise<void> {
+  if (parsed.mode !== MODE_ALL && parsed.mode !== MODE_PYRAMID) {
+    return;
+  }
+  out.pyramid = await auditTestPyramidGaps(projectPath, undefined, parsed.maxFindings);
+}
+
+function applyVibeAuditIfRequested(
+  out: MutableExecutedAudits,
+  projectPath: string,
+  parsed: ParsedAuditArgs
+): void {
+  if (parsed.mode !== MODE_ALL && parsed.mode !== MODE_VIBE) {
+    return;
+  }
+  out.vibe = runVibeAuditWithCap(projectPath, parsed.maxFindings);
+}
+
+function applyCalmAuditIfRequested(
+  out: MutableExecutedAudits,
+  projectPath: string,
+  parsed: ParsedAuditArgs
+): void {
+  if (shouldRunCalmAudit(projectPath, parsed)) {
+    const calmOutcome = runCalmAuditWithCap(projectPath, parsed);
+    out.calm = calmOutcome.calm;
+    out.calm_status = calmOutcome.calmStatus;
+    return;
+  }
+  if (parsed.mode === MODE_ALL) {
+    out.calm_status = 'SKIPPED';
+  }
+}
+
 async function executeRequestedAudits(
   projectPath: string,
   parsed: ParsedAuditArgs
 ): Promise<ExecutedAudits> {
-  const runAll = parsed.mode === MODE_ALL;
-  const security =
-    runAll || parsed.mode === MODE_SECURITY
-      ? await auditSecurityStigOwasp(projectPath, {
-          maxFindings: parsed.maxFindings,
-          includeExamples: parsed.includeExamples,
-        })
-      : undefined;
-  const pyramid =
-    runAll || parsed.mode === MODE_PYRAMID
-      ? await auditTestPyramidGaps(projectPath, undefined, parsed.maxFindings)
-      : undefined;
-  const vibe =
-    runAll || parsed.mode === MODE_VIBE
-      ? auditVibePrototype({ targetDir: projectPath, workspaceRoot: projectPath, dryRun: true })
-      : undefined;
-
-  let calm: CalmValidationResult | undefined;
-  let calmStatus: 'PASSED' | 'FAILED' | 'SKIPPED' | undefined;
-  const defaultCalmExists = fs.existsSync(path.join(projectPath, DEFAULT_CALM_ARCHITECTURE_PATH));
-  if (parsed.mode === MODE_CALM || (runAll && (parsed.architecturePath !== undefined || defaultCalmExists))) {
-    calm = validateCalmArchitecture({
-      workspaceRoot: projectPath,
-      ...(parsed.architecturePath !== undefined
-        ? { architecturePath: parsed.architecturePath }
-        : {}),
-    });
-    calmStatus = calm.valid ? 'PASSED' : 'FAILED';
-  } else if (runAll) {
-    calmStatus = 'SKIPPED';
-  }
-
-  return {
-    ...(security ? { security } : {}),
-    ...(pyramid ? { pyramid } : {}),
-    ...(vibe ? { vibe } : {}),
-    ...(calm ? { calm } : {}),
-    ...(calmStatus ? { calm_status: calmStatus } : {}),
-  };
+  const out: MutableExecutedAudits = {};
+  await applySecurityAuditIfRequested(out, projectPath, parsed);
+  await applyPyramidAuditIfRequested(out, projectPath, parsed);
+  applyVibeAuditIfRequested(out, projectPath, parsed);
+  applyCalmAuditIfRequested(out, projectPath, parsed);
+  return out;
 }
 
 export async function runAuditCli(

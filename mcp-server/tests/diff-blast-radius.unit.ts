@@ -427,9 +427,80 @@ describe('Modo Diferencial en inspect_ast_blast_radius y diff-bundle (Hito 23)',
       expect(parsed.diff_bundle.base_ref).toBe('HEAD~1');
       expect(parsed.diff_bundle.tiers_summary.CRITICAL_FULL).toBe(1);
       expect(parsed.risk_level).toBe('MEDIUM');
+
+      // target_symbol vacío con changed_since_ref no falla ni hace matching regex wildcard
+      const diffOnlyRes = await client.callTool({
+        name: 'inspect_ast_blast_radius',
+        arguments: {
+          project_path: tmpDir,
+          changed_since_ref: 'HEAD~1',
+        },
+      });
+      expect(diffOnlyRes.isError).not.toBe(true);
+      const diffOnlyParsed = JSON.parse(
+        ((diffOnlyRes.content as Array<{ text: string }>)[0]?.text ?? '{}')
+      ) as { target_symbol: string; dependent_files: string[] };
+      expect(diffOnlyParsed.target_symbol).toBe('');
+      expect(diffOnlyParsed.dependent_files).toEqual([]);
+
+      const missingTargetRes = await client.callTool({
+        name: 'inspect_ast_blast_radius',
+        arguments: {
+          project_path: tmpDir,
+          target_symbol: '   ',
+        },
+      });
+      expect(missingTargetRes.isError).toBe(true);
+      expect(((missingTargetRes.content as Array<{ text: string }>)[0]?.text ?? '')).toContain(
+        'Se requiere target_symbol'
+      );
     } finally {
       await client.close();
       await server.close();
+    }
+  });
+
+  it('omite escaneo regex cuando graph.json ya resuelve llamadores, ignora vendor/target/coverage/build/graphify-out y tolera símbolo "."', async () => {
+    const skipDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qa11x-blast-skip-'));
+    try {
+      writeRepoFile(skipDir, 'src/core.ts', 'export function calcRate() { return 1; }\n');
+      writeRepoFile(skipDir, 'src/from_graph.ts', 'export const ok = calcRate();\n');
+      writeRepoFile(skipDir, 'src/only_disk.ts', 'export const missed = calcRate();\n');
+      writeRepoFile(skipDir, 'vendor/lib.ts', 'calcRate();\n');
+      writeRepoFile(skipDir, 'target/out.ts', 'calcRate();\n');
+      writeRepoFile(skipDir, 'coverage/cov.ts', 'calcRate();\n');
+      writeRepoFile(skipDir, 'build/bundle.ts', 'calcRate();\n');
+      writeRepoFile(skipDir, 'graphify-out/notes.ts', 'calcRate();\n');
+      writeRepoFile(
+        skipDir,
+        'graphify-out/graph.json',
+        JSON.stringify({
+          nodes: [
+            { id: 'n_core', label: 'calcRate', source_file: 'src/core.ts' },
+            { id: 'n_caller', label: 'ok', source_file: 'src/from_graph.ts' },
+          ],
+          links: [{ source: 'n_caller', target: 'n_core', relation: 'calls' }],
+        })
+      );
+
+      const astRes = await inspectAstBlastRadius(skipDir, 'calcRate');
+      expect(astRes.dependent_files).toEqual(['src/from_graph.ts']);
+      expect(astRes.dependent_files).not.toContain('src/only_disk.ts');
+      expect(astRes.dependent_files).not.toContain('vendor/lib.ts');
+      expect(astRes.dependent_files).not.toContain('graphify-out/notes.ts');
+
+      const dotRes = await inspectAstBlastRadius(skipDir, '.');
+      expect(dotRes.dependent_files).toEqual([]);
+
+      await expect(inspectAstBlastRadius(skipDir, '   ')).rejects.toThrow('Se requiere target_symbol');
+
+      writeRepoFile(skipDir, 'sub/graph.json', JSON.stringify({ nodes: [], links: [] }));
+      writeRepoFile(skipDir, 'docs/GRAPH_REPORT.md', '# Custom report\n');
+      const nonGraphifyArtifacts = await inspectAstBlastRadius(skipDir, 'calcRate');
+      expect(nonGraphifyArtifacts.ast_graph_files).toContain('sub/graph.json');
+      expect(nonGraphifyArtifacts.graph_reports).toContain('docs/GRAPH_REPORT.md');
+    } finally {
+      fs.rmSync(skipDir, { recursive: true, force: true });
     }
   });
 });

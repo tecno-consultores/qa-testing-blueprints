@@ -19,7 +19,9 @@ export interface Ability {
   readonly abilityName: string;
 }
 
-export type AbilityClass<T extends Ability = Ability> = abstract new (...args: never[]) => T;
+export type AbilityClass<T extends Ability = Ability> = (abstract new (
+  ...args: never[]
+) => T) & { readonly abilityName?: string };
 
 export class MissingAbilityError extends Error {
   readonly actorName: string;
@@ -69,7 +71,8 @@ export interface WebDriverPort {
 }
 
 export class BrowseTheWeb implements Ability {
-  readonly abilityName = 'BrowseTheWeb';
+  static readonly abilityName = 'BrowseTheWeb';
+  readonly abilityName = BrowseTheWeb.abilityName;
   private readonly driver: WebDriverPort;
 
   constructor(driver: WebDriverPort) {
@@ -155,7 +158,8 @@ function buildActorHeaders(
 }
 
 export class CallAnApi implements Ability {
-  readonly abilityName = 'CallAnApi';
+  static readonly abilityName = 'CallAnApi';
+  readonly abilityName = CallAnApi.abilityName;
   private readonly client: ApiClientPort;
 
   constructor(client: ApiClientPort) {
@@ -200,10 +204,13 @@ export interface ReactTransitionPort {
   flushTransitions(): Promise<void>;
   renderedTenantId(): string;
   readHookSnapshot<T = unknown>(hookName: string): T | undefined;
+  activeIntervalCount?: () => number;
+  triggerUnmount?: () => Promise<void> | void;
 }
 
 export class InspectReactState implements Ability {
-  readonly abilityName = 'InspectReactState';
+  static readonly abilityName = 'InspectReactState';
+  readonly abilityName = InspectReactState.abilityName;
   private readonly port: ReactTransitionPort;
 
   constructor(port: ReactTransitionPort) {
@@ -228,6 +235,16 @@ export class InspectReactState implements Ability {
 
   readHookSnapshot<T = unknown>(hookName: string): T | undefined {
     return this.port.readHookSnapshot<T>(hookName);
+  }
+
+  activeIntervalCount(): number {
+    return this.port.activeIntervalCount ? this.port.activeIntervalCount() : 0;
+  }
+
+  async triggerUnmount(): Promise<void> {
+    if (this.port.triggerUnmount) {
+      await this.port.triggerUnmount();
+    }
   }
 }
 
@@ -296,7 +313,7 @@ function normalizeIdentity(
 export class Actor {
   readonly name: string;
   readonly identity: ActorIdentity;
-  private readonly abilities: Map<AbilityClass, Ability>;
+  private readonly abilities: Map<string, Ability>;
   private readonly memory: Map<string, unknown>;
   private readonly steps: RecordedStep[];
 
@@ -314,15 +331,18 @@ export class Actor {
 
   whoCan(...abilities: readonly Ability[]): this {
     for (const ability of abilities) {
-      this.abilities.set(ability.constructor as AbilityClass, ability);
+      const ctorAbilityName = (ability.constructor as { readonly abilityName?: string }).abilityName;
+      const key = ctorAbilityName ?? (ability.abilityName || ability.constructor.name);
+      this.abilities.set(key, ability);
     }
     return this;
   }
 
   abilityTo<T extends Ability>(AbilityType: AbilityClass<T>): T {
-    const found = this.abilities.get(AbilityType);
+    const key = AbilityType.abilityName ?? AbilityType.name;
+    const found = this.abilities.get(key);
     if (!found) {
-      throw new MissingAbilityError(this.name, AbilityType.name);
+      throw new MissingAbilityError(this.name, key);
     }
     return found as T;
   }
@@ -533,6 +553,58 @@ export function VerifyReactTenantIsolation(
         transitionSettled,
         hookSnapshot,
         tenantIsolated: transitionSettled && renderedTenantId === actor.identity.tenantId,
+      };
+    },
+  };
+}
+
+export interface DualRefreshContractReport {
+  readonly hookName: string;
+  readonly refreshedUrl: string;
+  readonly hasRefreshQueryParam: boolean;
+  readonly stateHasExpectedKey: boolean;
+  readonly transitionSettled: boolean;
+  readonly activeIntervalsAfterUnmount: number;
+  readonly contractSatisfied: boolean;
+}
+
+export function VerifyDualRefreshContract(options: {
+  readonly viewPath: string;
+  readonly expectedStateKey: string;
+  readonly hookName?: string;
+  readonly refreshButtonName?: string | RegExp;
+}): Question<DualRefreshContractReport> {
+  return {
+    description: `Verificar contrato React + doble refresco (?refresh=true) y limpieza de intervalos en ${options.viewPath}`,
+    async answeredBy(actor: Actor): Promise<DualRefreshContractReport> {
+      await actor.attemptsTo(
+        RefreshView({ path: options.viewPath, refreshButtonName: options.refreshButtonName }),
+      );
+      const refreshedUrl = actor.abilityTo(BrowseTheWeb).currentUrl();
+      const hasRefreshQueryParam = /[?&]refresh=true(?:&|$)/.test(refreshedUrl);
+      const react = actor.abilityTo(InspectReactState);
+      await react.flushTransitions();
+      const transitionSettled = !react.isTransitionPending();
+      const hookName = options.hookName ?? options.expectedStateKey;
+      const snapshot = react.readHookSnapshot(hookName);
+      const stateHasExpectedKey =
+        typeof snapshot === 'object' &&
+        snapshot !== null &&
+        Object.prototype.hasOwnProperty.call(snapshot, options.expectedStateKey);
+      await react.triggerUnmount();
+      const activeIntervalsAfterUnmount = react.activeIntervalCount();
+      return {
+        hookName,
+        refreshedUrl,
+        hasRefreshQueryParam,
+        stateHasExpectedKey,
+        transitionSettled,
+        activeIntervalsAfterUnmount,
+        contractSatisfied:
+          hasRefreshQueryParam &&
+          stateHasExpectedKey &&
+          transitionSettled &&
+          activeIntervalsAfterUnmount === 0,
       };
     },
   };

@@ -11,7 +11,7 @@ Este documento contiene las instrucciones corporativas de Nivel 11X que DEBES se
 *   Para la API, pruebas lógicas, contratos, profiling y estrés: `sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4` (tags disponibles: `3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest`).
 *   Para pruebas BDD de caja negra: `sinfallas/karatelabs:1.5.1@sha256:a9a52ca9c5491ab39b64f0b4fdc3dea879c2213c9bc995be58d6cd4b9a80cc89`.
 *   Para Seguridad Dinámica (DAST): `zaproxy/zap-stable:2.15.0`.
-*   Para Persistencia Real y Validación de Esquemas (Anti-Mock Blindness): `postgres:17-alpine`.
+*   Para Persistencia Real y Validación de Esquemas (Anti-Mock Blindness): `postgres:17-alpine@sha256:d3244e8ce3f165ee3c93d9c4a4b1d0fe48b3a89e2287b717fdcbbde92d405065`.
 *   Para Caché de Alto Rendimiento y Sesiones: `eqalpha/keydb:6.3.4`.
 *   Para Ingeniería del Caos y Observabilidad: `gaiaadm/pumba:0.10.1` y `prom/prometheus:v2.55.1`.
 *   Para Extracción Efímera de Grafo AST (Graphify CLI): `sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0`.
@@ -89,6 +89,8 @@ python3 .agents/scripts/inspect_blast_radius.py "<simbolo_o_archivo>"
 **Paso 1: Levantar la API y Servicios de Persistencia**
 ```bash
 docker compose -f docker-compose.qa.yml up -d postgres keydb api
+# Apagar el stack efímero y sus volúmenes al terminar (o ejecutar `make clean-cache`):
+docker compose -f docker-compose.qa.yml --profile "*" down -v
 ```
 
 **Paso 2: Ejecutar las suites de validación estándar (Pipeline Regular)**
@@ -135,7 +137,8 @@ make qa-dast
 
 *   **Profiling Acumulativo (Flamegraph):**
 ```bash
-docker compose -f docker-compose.qa.yml exec -T api bash -c "py-spy record -o /tmp/profile.svg --pid 1 --duration 30"
+# Adjuntar py-spy a un PID existente en un contenedor endurecido requiere CAP_SYS_PTRACE (`--cap-add SYS_PTRACE`) o mismo UID; ejecuta `make clean-cache` / `down -v` al finalizar.
+docker compose -f docker-compose.qa.yml exec -T -u "$(id -u):$(id -g)" api bash -c "py-spy record -o /tmp/profile.svg --pid 1 --duration 30"
 ```
 
 **Paso 3: Certificación de Nivel 11X (Ingeniería del Caos y Observabilidad)**

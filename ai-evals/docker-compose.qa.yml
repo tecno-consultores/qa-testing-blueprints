@@ -41,11 +41,14 @@ services:
       TZ: 'America/Caracas'
       HOME: /tmp
       PROMPTFOO_DISABLE_TELEMETRY: '1'
+      PROMPTFOO_DISABLE_REDTEAM_REMOTE_GENERATION: '1'
       PROMPTFOO_CONFIG_DIR: /tmp/.promptfoo
       OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
       GEMINI_API_KEY: "${GEMINI_API_KEY:-}"
       ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+      OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-}"
       OPENAI_API_BASE: "${OPENAI_API_BASE:-}"
+      PROMPTFOO_JUDGE_PROVIDER: "${PROMPTFOO_JUDGE_PROVIDER:-}"
     volumes:
       - .:/app
     working_dir: /app

@@ -17,6 +17,7 @@ export default tseslint.config(
       'target/**',
       'graphify-out/**',
       '*.config.*',
+      'lighthouserc.cjs',
     ],
   },
   js.configs.recommended,
@@ -37,8 +38,10 @@ export default tseslint.config(
     rules: {
       'vue/multi-word-component-names': 'off',
       'security/detect-object-injection': 'warn',
+      'security/detect-non-literal-regexp': 'error',
       'sonarjs/cognitive-complexity': ['error', 15],
       'sonarjs/no-duplicate-string': 'warn',
+      'sonarjs/no-identical-functions': 'error',
       'max-params': ['error', 4],
       'max-depth': ['error', 3],
       '@typescript-eslint/no-explicit-any': 'error',

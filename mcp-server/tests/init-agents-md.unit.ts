@@ -255,6 +255,14 @@ Regla Final`;
       expect(parsed4.projectPath).toBe('/positional/path');
       expect(parsed4.lang).toBe('auto');
 
+      const parsed5 = parseInitAgentsArgs(['-p=/short/eq', '-l=en', '-a=cursor']);
+      expect(parsed5.projectPath).toBe('/short/eq');
+      expect(parsed5.lang).toBe('en');
+      expect(parsed5.agents).toEqual(['cursor']);
+
+      const parsed6 = parseInitAgentsArgs(['--dir=/dir/eq']);
+      expect(parsed6.projectPath).toBe('/dir/eq');
+
       // Rejects unknown hyphen flags and missing flag values explicitly
       expect(() => parseInitAgentsArgs(['--unknown', '--project-path'])).toThrow(
         "Opción CLI desconocida en init-agents: '--unknown'"

@@ -1,6 +1,6 @@
-> 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](README.es.md)
+> **[SYSTEM DIRECTIVE FOR AI AGENTS]:** Act as a Staff QA Automation Engineer and DevOps Expert. Read, parse, and strictly enforce the following architectural constraints written in English. You must generate code that perfectly aligns with these rules, using exclusively the ephemeral Docker containers, testing frameworks, and strict quality thresholds (e.g., 95% coverage, SAST, Profiling) specified below. Do not suggest local installations. Process the technical logic at your highest reasoning capacity in English, and output your final response, explanations, and code comments in the user's prompt language (defaulting to English).
 
-> **[SYSTEM DIRECTIVE FOR AI AGENTS]:** Act as a Staff QA Automation Engineer and DevOps Expert. Read, parse, and strictly enforce the following architectural constraints written in English. You must generate code that perfectly aligns with these rules, using exclusively the ephemeral Docker containers, testing frameworks, and strict quality thresholds (e.g., 95% coverage, SAST, Profiling) specified below. Do not suggest local installations. Output your final response, explanations, and code comments in the user's prompt language (defaulting to English).
+> 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](README.es.md)
 
 # Testing and QA Guide for Scripts (Bash/Shell)
 
@@ -57,9 +57,10 @@ make qa-unit
 ```
 
 * **Step 5: Observability Certification (Level 11X)**
-Start Prometheus and verify metric emission from the ephemeral script:
+Start Prometheus and Pushgateway and verify metric emission from the ephemeral script:
 ```bash
-docker compose -f docker-compose.qa.yml --profile observability up -d prometheus
+make qa-observability
 docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-bash bash ./clean_artifacts.sh --dry-run
-# (You can verify the pushed metric by visiting http://localhost:9090)
+# Or push a metric upon real artifact cleanup: ./clean_artifacts.sh --pushgateway-url http://pushgateway:9091
+# Verify the pushed metric at http://localhost:9090, then tear down with `make clean-cache` (or `--profile "*" down -v`).
 ```

@@ -13,8 +13,11 @@ on:
     paths:
       - 'tests/evals/**'
       - 'ai-evals/**'
+      - '.agents/skills/qa-11x-llm-evaluator/**'
       - '.agents/skills/**'
       - 'AI_MASTER_PROMPT.md'
+      - 'AI_MASTER_PROMPT.es.md'
+      - 'Makefile'
       - '.github/workflows/nightly-llm-audit.yml'
 
 permissions:

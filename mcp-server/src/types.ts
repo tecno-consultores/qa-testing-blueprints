@@ -53,8 +53,7 @@ export type OutputLanguageMode = z.infer<typeof OutputLanguageModeSchema>;
 
 export const InspectProjectInputSchema = z.object({
   project_path: z.string().min(1).describe('Absolute or relative path to the target project directory to audit.'),
-});
-export type InspectProjectInput = z.infer<typeof InspectProjectInputSchema>;
+}).strict();
 
 export const FetchBundleInputSchema = z.object({
   stack: StackNameSchema.describe('Technology stack name to download blueprint templates for.'),
@@ -68,8 +67,7 @@ export const FetchBundleInputSchema = z.object({
     .describe(
       'If false (default for extreme token economy), verifies SHA-256 in local cache and returns metadata without dumping raw file content into context.'
     ),
-});
-export type FetchBundleInput = z.infer<typeof FetchBundleInputSchema>;
+}).strict();
 
 export const BootstrapMergeInputSchema = z.object({
   project_path: z.string().min(1).describe('Absolute or relative path to the target project directory.'),
@@ -85,15 +83,17 @@ export const BootstrapMergeInputSchema = z.object({
     .describe(
       'If true (default), creates a <file>.11x-backup copy before overwriting an existing file when dry_run is false.'
     ),
-});
-export type BootstrapMergeInput = z.infer<typeof BootstrapMergeInputSchema>;
+}).strict();
 
 export const BlastRadiusInputSchema = z.object({
   project_path: z.string().min(1).describe('Path to project root directory.'),
   target_symbol: z
     .string()
-    .min(1)
-    .describe('Name of file, class, function, or symbol planned for modification.'),
+    .optional()
+    .default('')
+    .describe(
+      'Name of file, class, function, or symbol planned for modification (optional when changed_since_ref is set).'
+    ),
   max_items: z
     .number()
     .int()
@@ -132,8 +132,7 @@ export const BlastRadiusInputSchema = z.object({
     .describe(
       'Maximum output token budget (approx. ceil(chars/4)) when changed_since_ref is provided.'
     ),
-});
-export type BlastRadiusInput = z.infer<typeof BlastRadiusInputSchema>;
+}).strict();
 
 export const CleanWorkspaceInputSchema = z.object({
   project_path: z.string().min(1).describe('Absolute or relative path to the project directory to clean.'),
@@ -144,8 +143,7 @@ export const CleanWorkspaceInputSchema = z.object({
     .describe(
       'If true, includes persistent directories (reports/, prometheus_data/) and recommends deep Docker pruning.'
     ),
-});
-export type CleanWorkspaceInput = z.infer<typeof CleanWorkspaceInputSchema>;
+}).strict();
 
 export const AuditSecurityInputSchema = z.object({
   project_path: z.string().min(1).describe('Absolute or relative path to the project directory to audit.'),
@@ -163,8 +161,7 @@ export const AuditSecurityInputSchema = z.object({
     .describe(
       'If true, includes *.example and Makefile.example blueprint templates in the audit (default false).'
     ),
-});
-export type AuditSecurityInput = z.infer<typeof AuditSecurityInputSchema>;
+}).strict();
 
 export const RunEphemeralQaInputSchema = z.object({
   project_path: z.string().min(1).describe('Path to the project directory containing Makefile and docker-compose.qa.yml.'),
@@ -193,8 +190,7 @@ export const RunEphemeralQaInputSchema = z.object({
     .describe(
       'If true and git detects only documentation changes (*.md / docs/), skips starting Docker containers and returns SKIPPED via Fast-Path.'
     ),
-});
-export type RunEphemeralQaInput = z.infer<typeof RunEphemeralQaInputSchema>;
+}).strict();
 
 export const CertifyGateInputSchema = z.object({
   project_path: z.string().min(1).describe('Path to the project to certify against the 11X quality standard.'),
@@ -219,8 +215,7 @@ export const CertifyGateInputSchema = z.object({
     .describe(
       'When true, skips the zero_unmerged_examples check for template or blueprints source repositories.'
     ),
-});
-export type CertifyGateInput = z.infer<typeof CertifyGateInputSchema>;
+}).strict();
 
 export interface CleanWorkspaceResult {
   project_path: string;
@@ -520,6 +515,8 @@ export interface GitHubFetcherOptions {
   rawBaseUrl?: string;
   cacheDir?: string;
   localOverridePath?: string;
+  fetchFn?: typeof fetch;
+  timeoutMs?: number;
 }
 
 export interface MergeFilesOptions {
@@ -620,8 +617,7 @@ export const AuditTestPyramidInputSchema = z.object({
     .max(200)
     .default(20)
     .describe('Maximum items per category in missing_test_inventory (token economy).'),
-});
-export type AuditTestPyramidInput = z.infer<typeof AuditTestPyramidInputSchema>;
+}).strict();
 
 // ============================================================================
 // 🔗 Contratos de Conector AGENTS.md (Hito 9)
@@ -676,8 +672,7 @@ export const InitAgentsMdInputSchema = z.object({
     .describe(
       "Optional Thin-Repo bridge targets ('auto', 'all', or explicit agent IDs among 28 supported AI coding agents)."
     ),
-});
-export type InitAgentsMdInput = z.infer<typeof InitAgentsMdInputSchema>;
+}).strict();
 
 // ============================================================================
 // 🚀 Contratos de Evolución Continua y Pull Requests Zero-Trust (Hito 10)
@@ -739,7 +734,7 @@ export const ProposeEvolutionPrInputSchema = z.object({
     .optional()
     .default(true)
     .describe('If true (default), skips gh CLI and directly generates local proposal file and pre-filled URL.'),
-});
+}).strict();
 export type ProposeEvolutionPrInput = z.input<typeof ProposeEvolutionPrInputSchema>;
 
 export interface ProposeEvolutionPrResult {
@@ -771,8 +766,7 @@ export const ReconcileAgentsInputSchema = z.object({
     .describe(
       'If true (default), simulates deduplication reporting duplicate and domain sections without touching disk.'
     ),
-});
-export type ReconcileAgentsInput = z.infer<typeof ReconcileAgentsInputSchema>;
+}).strict();
 
 export interface ReconciledRuleItem {
   file: string;

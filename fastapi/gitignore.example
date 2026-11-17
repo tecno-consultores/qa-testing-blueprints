@@ -11,10 +11,12 @@ dist/
 .tox/
 .coverage
 .coverage.*
+coverage.xml
 htmlcov/
 .mutmut-cache/
 mutants/
 k6-summary.json
+.cache/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/

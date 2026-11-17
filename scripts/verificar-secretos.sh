@@ -8,12 +8,59 @@ set -euo pipefail
 
 BASH_QA_IMAGE="${QA_BASH_IMAGE:-sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7}"
 QA_DOCKERENV_FILE="${QA11X_DOCKERENV_PATH:-/.dockerenv}"
-if [ ! -f "${QA_DOCKERENV_FILE}" ] && [ "${QA11X_INSIDE_DOCKER:-0}" != "1" ] && command -v docker >/dev/null 2>&1; then
+WORK_ROOT="$(pwd -P)"
+
+relativize_repo_targets() {
+  local arg="" dir_part="" base_part="" abs_dir="" abs_arg="" rel_arg=""
+  REL_TARGETS=()
+  for arg in "$@"; do
+    [ -n "${arg}" ] || continue
+    if [[ "${arg}" == /* ]]; then
+      dir_part="$(dirname "${arg}")"
+      base_part="$(basename "${arg}")"
+      if [ -d "${dir_part}" ]; then
+        abs_dir="$(cd "${dir_part}" 2>/dev/null && pwd -P)" || {
+          echo "🚨 ERROR CRÍTICO: No se pudo resolver la ruta (${arg})." >&2
+          exit 1
+        }
+        abs_arg="${abs_dir%/}/${base_part}"
+      else
+        abs_arg="${arg}"
+      fi
+      if [ "${abs_arg}" = "${WORK_ROOT}" ]; then
+        rel_arg="."
+      elif [[ "${abs_arg}" == "${WORK_ROOT}/"* ]]; then
+        rel_arg="${abs_arg#"${WORK_ROOT}/"}"
+      else
+        echo "🚨 ERROR CRÍTICO: Ruta fuera del repositorio (${arg})." >&2
+        exit 1
+      fi
+    else
+      case "${arg}" in
+        .. | ../* | */../* | */..)
+          echo "🚨 ERROR CRÍTICO: Path traversal bloqueado (${arg})." >&2
+          exit 1
+          ;;
+      esac
+      rel_arg="${arg#./}"
+    fi
+    REL_TARGETS+=("${rel_arg}")
+  done
+}
+
+REL_TARGETS=()
+relativize_repo_targets "$@"
+
+if [ ! -f "${QA_DOCKERENV_FILE}" ] && [ "${QA11X_INSIDE_DOCKER:-0}" != "1" ]; then
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "❌ [Secretos] Se requiere Docker para ejecutar verificar-secretos.sh bajo Regla Cero." >&2
+    exit 1
+  fi
   SCRIPT_ABS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
-  exec docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -e QA11X_INSIDE_DOCKER=1 -v "$(pwd):/repo:ro" -v "${SCRIPT_ABS}:/qa-bin/verificar-secretos.sh:ro" -w /repo "${BASH_QA_IMAGE}" bash /qa-bin/verificar-secretos.sh "$@"
+  exec docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -e QA11X_INSIDE_DOCKER=1 -v "${WORK_ROOT}:/repo:ro" -v "${SCRIPT_ABS}:/qa-bin/verificar-secretos.sh:ro" -w /repo "${BASH_QA_IMAGE}" bash /qa-bin/verificar-secretos.sh "${REL_TARGETS[@]+"${REL_TARGETS[@]}"}"
 fi
 
-TARGET_FILES=("$@")
+TARGET_FILES=("${REL_TARGETS[@]+"${REL_TARGETS[@]}"}")
 
 # Bloquear de inmediato si .env o variantes sensibles (.env.*) fueron añadidos al índice de Git o pasados como objetivo
 if command -v git >/dev/null 2>&1; then
@@ -79,13 +126,18 @@ is_test_file() {
 }
 
 SECRET_REGEX='-----BEGIN (RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----|((npm|ghp|gho|ghu|ghs)_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|glpat-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|sk-proj-[A-Za-z0-9_-]{16,}|sk-ant-[A-Za-z0-9_-]{16,}|AIza[0-9A-Za-z_-]{12,}|xox[baprs]-[0-9A-Za-z-]{10,})|(password|passwd|secret|api_key|token)[=:] *["'\'']?[A-Za-z0-9_/-]{16,}["'\'']?'
+SAFE_URL_REGEX='https?://(127\.0\.0\.1|0\.0\.0\.0|\[::1\]|([A-Za-z0-9-]+\.)?example\.(com|org|net))[^[:space:]"'\'']*'
 PLACEHOLDER_REGEX='(TU_TOKEN|tu_clave_aqui|tu_token_aqui|CHANGE[_-]?ME|EXAMPLE_ONLY|example_placeholder|YOUR_TOKEN_EXAMPLE|TU_TOKEN_EXAMPLE|sk-proj-placeholder|placeholder|dummy|00000000|test-load-token|mock|fake|ephemeral|xxxxxx|<[^>]+>|https?://(127\.0\.0\.1|0\.0\.0\.0|\[::1\]|([a-z0-9-]+\.)?example\.(com|org|net))|env\.|process\.env|os\.environ|\$\{)'
 
 MATCHED_FILES=()
 for f in "${FILTERED_FILES[@]}"; do
-  HITS=$(grep -niE -e "${SECRET_REGEX}" -- "$f" 2>/dev/null | grep -viE -e "${PLACEHOLDER_REGEX}" || true)
-  if [ -n "${HITS}" ] && is_test_file "$f"; then
-    HITS=$(printf '%s\n' "${HITS}" | grep -vF 'qa-secret-fixture-ok' || true)
+  CANDIDATE_LINES=$(sed -E "s#${SAFE_URL_REGEX}#__QA_SAFE_URL__#g" -- "$f" 2>/dev/null | grep -niE -e "${SECRET_REGEX}" || true)
+  if [ -n "${CANDIDATE_LINES}" ] && is_test_file "$f"; then
+    CANDIDATE_LINES=$(printf '%s\n' "${CANDIDATE_LINES}" | grep -vF 'qa-secret-fixture-ok' || true)
+  fi
+  HITS=""
+  if [ -n "${CANDIDATE_LINES}" ]; then
+    HITS=$(printf '%s\n' "${CANDIDATE_LINES}" | grep -oiE -e "${SECRET_REGEX}" | grep -viE -e "${PLACEHOLDER_REGEX}" || true)
   fi
   if [ -n "${HITS}" ]; then
     MATCHED_FILES+=("$f")

@@ -45,7 +45,7 @@
 *   **Rule:** Frontend monitoring is performed externally via Nginx access logs to avoid adding dependencies to application code. This runs via the `--profile observability` profile.
 
 ### G. Smart Ingestion (Step 0 - Graphify AST CLI-First)
-*   **Rule (Exclusive to you, AI):** You are strictly forbidden from generating code or tests blindly. Extract or refresh the stack AST graph via the ephemeral CLI extractor (`./scripts/actualizar-grafos-graphify.sh vue3`) and query callers/callees via `python3 .agents/scripts/inspect_blast_radius.py "<ComponenteORuta>"` (or the `inspect_ast_blast_radius` MCP tool), without spinning up daemons on port 8080. Additionally, you MUST silently read linter rules, dependencies, and blocked scripts defined in `package.json`, `pnpm-workspace.yaml#allowBuilds`, `tsconfig.json`, and `vite.config.ts`.
+*   **Rule (Exclusive to you, AI):** You are strictly forbidden from generating code or tests blindly. Extract or refresh the stack AST graph via the ephemeral CLI extractor (`./scripts/actualizar-grafos-graphify.sh vue3`) and query callers/callees via `python3 .agents/scripts/inspect_blast_radius.py "<ComponentOrRoute>"` (or the `inspect_ast_blast_radius` MCP tool), without spinning up daemons on port 8080. Additionally, you MUST silently read linter rules, dependencies, and blocked scripts defined in `package.json`, `pnpm-workspace.yaml#allowBuilds`, `tsconfig.json`, and `vite.config.ts`.
 
 ### H. Mandatory Frontend Security (DISA ASD STIG V6R5 & OWASP Developer Guide v4.2)
 *   When building or testing Vue 3 components and Pinia stores, you MUST apply and verify with unit/BDD tests the controls from **[`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`](../docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md)**:
@@ -61,7 +61,7 @@ Instead of building complex Docker commands, you **MUST** instruct the user (or 
 Update the AST graph (Vue components and TS dependencies) and query the blast radius before editing:
 ```bash
 ./scripts/actualizar-grafos-graphify.sh vue3
-python3 .agents/scripts/inspect_blast_radius.py "<ComponenteORuta>"
+python3 .agents/scripts/inspect_blast_radius.py "<ComponentOrRoute>"
 ```
 
 **Step 1: Run Logic Validation Suites (No Build Required)**
@@ -96,7 +96,7 @@ make qa-perf
 
 *   **Post-Deploy Google PageSpeed Insights v5 Audit (Lab + CrUX over public HTTPS):**
 ```bash
-make qa-psi URL=https://tu-dominio.com
+make qa-psi URL=https://your-domain.com
 ```
 
 *   **Visual Regression, E2E, and Accessibility (Playwright):**

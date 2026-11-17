@@ -72,7 +72,7 @@ jobs:
 
     steps:
       - name: 1️⃣ Checkout del código (fijar SHA inmutable en producción)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       - name: 2️⃣ Verificación de Secretos y Configuración Efímera Segura
         run: |
@@ -135,3 +135,12 @@ jobs:
         if: always()
         run: ./scripts/limpieza.sh
 ```
+
+### 3.1 Compuerta Compuesta PR (`qa-11x-pr-check@v3`), SARIF y Compuertas Diferenciales
+
+Para aplicar verificación rápida en PR sin duplicar YAML, referencia la acción compuesta `tecno-consultores/qa-testing-blueprints/.github/actions/qa-11x-pr-check@v3` junto con las compuertas CLI y `Makefile`:
+
+* **Compuerta Estricta de Release (`certify --strict --release-gate`):** Detiene el pipeline si persisten bloqueantes, tareas pendientes en `ACTIVE_TASK.md`, archivos `.example` sin fusionar o ausencia del sello `lint` (`make release-gate`).
+* **Carga de Seguridad SARIF (`audit --sarif`):** Emite hallazgos estáticos OWASP/STIG (`--fail-on high`) en formato SARIF v2.1.0 para ingesta nativa en GitHub Code Scanning.
+* **Radio de Explosión AST y Cobertura Diferencial:** Ejecuta `blast-radius --changed-since origin/main` y `make diff-cov` (`100%` líneas delta, `>= 90%` ramas delta) para validar suites impactadas y cubrir cada fragmento modificado.
+* **Atestaciones Firmadas (`make pr-verdict` y `make sbom`):** Genera `PR_VERDICT.md` (`SHA-256` / `HMAC-SHA256` opcional) y artefactos CycloneDX SBOM/CBOM firmados (`ECMA-424`) antes de fusionar.

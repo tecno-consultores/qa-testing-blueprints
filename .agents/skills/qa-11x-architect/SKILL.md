@@ -23,7 +23,7 @@ Classify every task first. **NEVER auto-run `git push`** (`QA-GIT-GATE-01` — s
 - **`MICRO_CHANGE` (`<= 3` files, `< 5` callers, `0` routes/ORM):** 3-line plan -> `inspect_ast_blast_radius` -> sync unit/BDD (`QA-TEST-SYNC-01`) + stack QA (`run_ephemeral_qa`) -> AST refresh -> `CHANGELOG.md` -> `certify_11x_gate` -> local `git commit`.
 - **`FULL_11X` (`> 3` files, new API/UI, ORM, security, or `MED`/`HIGH` blast):** 11-step flow (`/plan`, `session_flight_recorder` -> `ACTIVE_TASK.md <= 40L`, full pyramid + `QA-TEST-SYNC-01`, docs, AST, `certify_11x_gate` 10/10, local `git commit`).
 
-### 1.1. MCP Server `qa-11x` (`@sinfallas/mcp-qa-11x` v3.1.0 — 19 Tools + 13 Resources)
+### 1.1. MCP Server `qa-11x` (`@sinfallas/mcp-qa-11x` v3.2.0 — 19 Tools + 13 Resources)
 1. `inspect_ast_blast_radius` — Code Q&A & pre-edit impact.
 2. `inspect_project_config` — stack, drift, `update_available`.
 3. `audit_test_pyramid_gaps` — 13-layer audit + config.
@@ -32,7 +32,7 @@ Classify every task first. **NEVER auto-run `git push`** (`QA-GIT-GATE-01` — s
 6. `audit_security_stig_owasp` — 34 static scanner rules (`SEC-01..16`, `SEC-CI-ACTION-REF`, `QA-KARATE-IDEMP`, `QA-COV-01`, `QA-MYPY-01`, `QA-PG17-RLS`, `QA-SMOKE-01`, `QA-HEALTH-01`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`, `QA-CI-ESCAPE-01`, `QA-MAKE-CURDIR-01`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `UI-11X-01..03`).
 7. `run_ephemeral_qa` — `lint|unit|migration|integration|ci|parity|orphans|contracts|bdd|mutation|dast|e2e|perf|chaos|all` (`sinfallas/*`, `.qa-evidence.json`).
 8. `clean_workspace_11x` — rootless purge (keeps `dist`, `graphify-out/`).
-9. `certify_11x_gate` — 10/10 gate (`/tmp/qa-11x-last-failure.json`, lint).
+9. `certify_11x_gate` — 10/10 gate (lint evidence, orphans, manifest, security).
 10. `init_or_append_agents_md` — Thin-Repo `AGENTS.md` connector.
 11. `reconcile_agents_governance` — prunes duplicates; isolates `domain_<project>_*.md`.
 12. `propose_skill_evolution_pr` — Dual-Consumer PR (AI + MCP + EN/ES docs).
@@ -61,7 +61,7 @@ Classify every task first. **NEVER auto-run `git push`** (`QA-GIT-GATE-01` — s
   7. **22 STIG V6R5 & OWASP v4.2 Controls (vs 34 Scanner Rules):** RLS `NOBYPASSRLS` + `after_begin` (`QA-PG17-RLS`), WORM `seq_num` + `pg_advisory_xact_lock`, Service-Layer RBAC + `ApprovalRequest`, AES-256-GCM Vault, anti-SSRF, `NFKC`, anti-XXE, OSHP, Argon2id lockout, CycloneDX SBOM, SHA-40 Actions (`SEC-CI-ACTION-REF`) (`qa-11x-devsecops-hardener`).
   8. **RED Pre-Chaos:** Expose `/metrics` (`trace_id`) prior to load/chaos profiles.
   9. **Trimodal & 3-Phase Clock:** Test Virgin/Nominal/Degraded across all 3 clock phases; run `inspect_ast_blast_radius` pre-edit and refresh AST post-edit.
-  10. **Closure & `QA-GIT-GATE-01`:** Keep `.agents/ACTIVE_TASK.md <= 40L`, run `make sync-governance` + `make certify`, commit locally without `git push`, and invoke `propose_skill_evolution_pr` on QA escapes.
+  10. **Closure & `QA-GIT-GATE-01`:** Keep `.agents/ACTIVE_TASK.md <= 40L`, run `make sync-governance` + `make certify` (`certify_task_completion.sh` writes `.agents/.cache/qa-11x-last-failure.json` on fail), commit locally without `git push`, and invoke `propose_skill_evolution_pr` on QA escapes.
 - **High-IQ Token Economy:** `AST-First -> Grep-Fallback -> 40–80L Windowed-Read` (no blind `>150L` reads), `Zero Redundant Re-Read`, `Parallel Tool Batching`, `Subagent Isolation (<=20L)`, `Surgical Diffs`, `Pass-Quiet / Fail-Verbose`.
 
 ---

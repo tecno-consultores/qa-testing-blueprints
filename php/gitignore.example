@@ -4,14 +4,19 @@ vendor/
 .php-cs-fixer.cache
 .psalm/
 coverage/
+.coverage
+.coverage.*
 htmlcov/
 infection.log
 infection-summary.log
+k6-summary.json
 sbom-php.cdx.json
 target/
 test/target/
 zap-report.html
 chaos-report.html
+prometheus_data/
+.cache/
 graphify-out/
 *.log
 .env
@@ -21,6 +26,7 @@ graphify-out/
 .idea/
 .DS_Store
 .agents/ACTIVE_TASK.md
+.agents/.qa-evidence.json
 .agents/.cache/
 .agents/artifacts/
 pacts/

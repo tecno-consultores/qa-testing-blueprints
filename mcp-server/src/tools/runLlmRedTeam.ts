@@ -15,6 +15,7 @@ import {
 import {
   formatFailVerboseReport,
   formatPassQuietSummary,
+  throwIfSignalAborted,
 } from '../utils/diagnosticFormatter.js';
 
 export const DEFAULT_PROMPTFOO_CONFIG_PATH = 'ai-evals/promptfooconfig.yaml';
@@ -36,7 +37,8 @@ export const REDTEAM_CREDENTIAL_ENV_KEYS = [
 ] as const;
 
 const STAGE_REDTEAM_ID = 'run_llm_red_team';
-const NODE_QA_IMAGE = 'sinfallas/base-node-ionic:26';
+const NODE_QA_IMAGE =
+  'sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60';
 const REMEDIATION_TRAVERSAL =
   'Proporciona una ruta relativa contenida dentro del workspace sin saltos .. ni enlaces simbólicos externos.';
 const REMEDIATION_CREDENTIALS =
@@ -122,6 +124,7 @@ export interface RedTeamCommandSpec {
   cwd: string;
   env: NodeJS.ProcessEnv;
   timeoutMs: number;
+  signal?: AbortSignal;
 }
 
 export interface RedTeamCommandResult {
@@ -136,6 +139,7 @@ export interface RunLlmRedTeamOptions {
   runner?: RedTeamCommandRunner;
   env?: NodeJS.ProcessEnv;
   promptGuardOptions?: PromptGuardOptions;
+  signal?: AbortSignal;
 }
 
 interface ParsedPromptfooStructure {
@@ -153,6 +157,7 @@ export const defaultRedTeamCommandRunner: RedTeamCommandRunner = (spec) => {
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: false,
       timeout: spec.timeoutMs,
+      ...(spec.signal ? { signal: spec.signal } : {}),
     });
     const stdoutChunks: Buffer[] = [];
     const stderrChunks: Buffer[] = [];
@@ -888,6 +893,7 @@ function prepareLiveRedTeamPlan(ctx: LiveRedTeamContext): LiveRedTeamPlan {
       cwd: path.resolve(workspaceRoot),
       env,
       timeoutMs: Math.max(DEFAULT_REDTEAM_TIMEOUT_MS, args.timeoutMs ?? DEFAULT_REDTEAM_TIMEOUT_MS),
+      ...(options.signal ? { signal: options.signal } : {}),
     },
   };
 }
@@ -906,6 +912,7 @@ export async function runLlmRedTeam(
   args: RunLlmRedTeamArgs = {},
   options: RunLlmRedTeamOptions = {}
 ): Promise<RedTeamExecutionResult> {
+  throwIfSignalAborted(options.signal, 'run_llm_red_team abortado por timeout o cancelación.');
   const startedAt = Date.now();
   const mode: RedTeamMode = args.mode ?? 'offline';
   const workspaceRoot = args.workspaceRoot ?? resolveDefaultWorkspaceRoot();

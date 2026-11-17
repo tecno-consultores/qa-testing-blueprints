@@ -26,4 +26,5 @@ prometheus_data/
 .agents/ACTIVE_TASK.md
 .agents/.cache/
 .agents/artifacts/
+.agents/.qa-evidence.json
 pacts/

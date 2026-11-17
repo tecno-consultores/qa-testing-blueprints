@@ -5,6 +5,7 @@
   "license": "MIT",
   "require": {
     "php": ">=8.2",
+    "ext-bcmath": "*",
     "ext-ctype": "*",
     "ext-iconv": "*",
     "ext-intl": "*",

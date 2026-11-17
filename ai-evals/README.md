@@ -1,6 +1,6 @@
 > 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](README.es.md)
 
-> **[SYSTEM DIRECTIVE FOR AI AGENTS]:** Act as a Staff QA Automation Engineer and DevOps Expert. Read, parse, and strictly enforce the following architectural constraints written in English. You must generate code that perfectly aligns with these rules, using exclusively ephemeral Docker containers (`sinfallas/base-python-uv:3.15` and `sinfallas/base-node-ionic:26`), strict Dual-Mode separation, and blocking quantitative thresholds (`HallucinationMetric < 0.05`, `FaithfulnessMetric >= 0.90`, `>= 95%` offline unit coverage). Do not suggest local installations or hardcoded API keys. Output your final response, explanations, and code comments in the user's prompt language (defaulting to English).
+> **[SYSTEM DIRECTIVE FOR AI AGENTS]:** Act as a Staff QA Automation Engineer and DevOps Expert. Read, parse, and strictly enforce the following architectural constraints written in English. You must generate code that perfectly aligns with these rules, using exclusively ephemeral Docker containers (`sinfallas/base-python-uv:3.15` and `sinfallas/base-node-ionic:26`), strict Dual-Mode separation, and blocking quantitative thresholds (`HallucinationMetric < 0.05`, `FaithfulnessMetric >= 0.90`, `>= 95%` offline unit coverage). Do not suggest local installations or hardcoded API keys. Process the technical logic at your highest reasoning capacity in English, and output your final response, explanations, and code comments in the user's prompt language (defaulting to English).
 
 # Dual Evaluation Guide for Generative AI, RAG, and Autonomous Agents (`ai-evals`)
 
@@ -23,7 +23,7 @@ This blueprint establishes the **QA 11X** corporate standard for auditing **RAG*
 
 1. **DeepEval RAG & Shared Judge (`ai-evals/rag/test_rag_faithfulness.py`, `ai-evals/_llm_judge.py`):**
    - Ideal for diagnostic decomposition of RAG pipelines (`LLMTestCase`) and granular auditing of agent trajectories (`ToolCall`), backed by shared judge resolution (`OpenAI`, `Gemini`, `Anthropic`, `/v1`-normalized `Ollama`, or `LocalModel`).
-   - In **Mode 1**, validates deterministic schema contracts, orphan citations, unsupported numeric claims, and mandatory tool ordering (`inspect_blast_radius` before editing).
+   - In **Mode 1**, validates deterministic schema contracts, orphan citations, unsupported numeric claims, and mandatory tool ordering (`inspect_blast_radius` / `inspect_ast_blast_radius` before editing).
    - In **Mode 2** (`QA_LLM_AUDIT_LIVE=1`), executes `assert_test` against the resolved judge via `resolve_deepeval_judge_model`.
 
 2. **Real-Time Voice & Multimodal OCR Modules (`ai-evals/voice-realtime/`, `ai-evals/multimodal-ocr/`):**
@@ -34,8 +34,8 @@ This blueprint establishes the **QA 11X** corporate standard for auditing **RAG*
    - Normalizes inputs with `NFKC`, deduplicates via SHA-256, redacts PEM private keys, JWTs, API secrets, URI credentials, and PII, and exports DeepEval JSON (`GoldenExportOptions` DTO) or Promptfoo YAML emitting `vars.query`.
 
 4. **Promptfoo (`ai-evals/promptfooconfig.yaml` — Config-First in YAML):**
-   - Ideal for side-by-side comparison across multiple providers (`openai:gpt-4.1-mini`, `anthropic:messages:claude-sonnet-4-5`, `google:gemini-2.5-flash`, `ollama:chat:qwen3:8b`) with judge parameterized via `defaultTest.options.provider` (`PROMPTFOO_JUDGE_PROVIDER`).
-   - Combines deterministic assertions (`is-json`, `contains`, `not-icontains`, `latency` budget) with semantic rubrics (`context-faithfulness`, `answer-relevance`, `llm-rubric`) and a `redteam` block aligned with **OWASP LLM Top 10** (`indirect-prompt-injection`, `prompt-injection`, `jailbreak`, `pii`, `rbac`, `excessive-agency`, `hijacking`).
+   - Ideal for side-by-side comparison across multiple providers (`openai:gpt-4.1-mini`, `anthropic:messages:claude-sonnet-4-5`, `google:gemini-2.5-flash`, `ollama:chat:qwen3:8b`) with judge parameterized via Nunjucks in `defaultTest.options.provider` (`{{ env.PROMPTFOO_JUDGE_PROVIDER | default('openai:gpt-4.1-mini', true) }}`), reading keys directly from the environment (zero literal `"${...}"` `apiKey` overrides) and filtering active providers via `--filter-providers`.
+   - Combines deterministic assertions (`is-json`, `contains`, `not-icontains`, `latency` budget) with semantic rubrics (`context-faithfulness`, `answer-relevance`, `llm-rubric`) and a `redteam` block aligned with **OWASP LLM Top 10** (`indirect-prompt-injection`, `prompt-injection`, `jailbreak`, `pii`, `rbac`, `excessive-agency`, `hijacking`) executed non-interactively with `PROMPTFOO_DISABLE_REDTEAM_REMOTE_GENERATION=1`.
 
 ---
 
@@ -62,7 +62,7 @@ All execution runs inside ephemeral containers mapped to the operator's `UID:GID
   ```bash
   make test-ai-offline
   ```
-  Runs `ruff` (`CC <= 5`), `mypy --strict`, and `pytest --cov=ai-evals --cov=tests/evals --cov-fail-under=95` inside `sinfallas/base-python-uv:3.15` with `-u "$(id -u):$(id -g)" -e HOME=/tmp -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache`.
+  Runs `ruff` (`CC <= 5`), `mypy --strict`, and `pytest --cov=ai-evals --cov=tests/evals --cov-fail-under=95` inside `sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4` with `-u "$(id -u):$(id -g)" -e HOME=/tmp -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache`.
 
 - **Standalone Consumer Blueprint:** Copy `Makefile.example` -> `Makefile`, keep `docker-compose.qa.yml` and `limpieza.sh`, and run `make qa-all`, `make audit-llm`, or `make clean` (non-root `${QA_UID:-1000}:${QA_GID:-1000}`).
 
@@ -77,7 +77,7 @@ All execution runs inside ephemeral containers mapped to the operator's `UID:GID
   export QA_LLM_MODEL="qwen3:8b"
   make audit-llm
   ```
-  Runs `deepeval` first (`QA_LLM_AUDIT_LIVE=1` or its legacy alias `RUN_LLM_AUDIT=1`) in `sinfallas/base-python-uv:3.15` and then `promptfoo eval -c ai-evals/promptfooconfig.yaml` (`PROMPTFOO_DISABLE_TELEMETRY=1`) in `sinfallas/base-node-ionic:26`. If neither credentials nor a local URL are detected, it aborts immediately with exit code `2` without blocking `TTY` (`QA-CLI-TTY-01`).
+  Runs `deepeval` first (`QA_LLM_AUDIT_LIVE=1` or its legacy alias `RUN_LLM_AUDIT=1`) in `sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4` and then `promptfoo eval -c ai-evals/promptfooconfig.yaml --filter-providers ...` (`PROMPTFOO_DISABLE_TELEMETRY=1`, `PROMPTFOO_DISABLE_REDTEAM_REMOTE_GENERATION=1`) in `sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60`. If neither credentials nor a local URL are detected, it aborts immediately with exit code `2` without blocking `TTY` (`QA-CLI-TTY-01`).
 
 ---
 

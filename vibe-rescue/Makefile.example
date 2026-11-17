@@ -29,8 +29,8 @@ qa-audit-enforce:
 qa-unit:
 	@echo "🧪 [11X] Ejecutando pruebas unitarias (>= 95% cobertura) en contenedor efímero..."
 	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) sh -c "\
-		if [ -d tests ] && find tests -type f \( -name 'test_*.py' -o -name '*_test.py' -o -name '*.unit.py' \) | grep -q .; then \
-			pytest -q --tb=short --import-mode=importlib -o cache_dir=/tmp/pytest-cache --cov=. --cov-fail-under=95 --cov-report=term-missing; \
+		if [ -d tests ] && find tests -type f \( -name 'test_*.py' -o -name '*_test.py' -o -name '*.unit.py' -o -name '*.spec.py' \) | grep -q .; then \
+			pytest -q --tb=short --import-mode=importlib -o "python_files=test_*.py *_test.py *.unit.py *.spec.py" -o cache_dir=/tmp/pytest-cache --cov=. --cov-fail-under=95 --cov-report=term-missing; \
 		else \
 			echo '⚠️ [SKIPPED/NO_TESTS_DIR] Sin suite pytest en tests/; agregue pruebas en tests/ para habilitar --cov-fail-under=95.' >&2; \
 			exit 2; \
@@ -43,7 +43,8 @@ qa-all: qa-lint qa-audit qa-unit
 	@echo "✅ [11X] Pipeline QA Vibe-Rescue completado."
 
 clean-cache:
-	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" down -v >/dev/null 2>&1 || true
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile "*" down -v >/dev/null 2>&1 || \
+		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" down -v >/dev/null 2>&1 || true
 
 clean: clean-cache
 	@if [ -x ./limpieza.sh ]; then ./limpieza.sh; else docker run --rm --network none alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab true; fi

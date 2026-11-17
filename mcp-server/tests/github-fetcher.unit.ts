@@ -463,6 +463,21 @@ describe('GitHubFetcher Service (DISA STIG V-222513 & Zero-Clone Hydration)', ()
 
     const fetcher = new GitHubFetcher({ cacheDir, localOverridePath: localRepoDir });
     await expect(fetcher.fetchFileContent('../secret.txt', 'hash')).rejects.toThrow('CWE-22');
+
+    const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qa11x-gf-out-'));
+    try {
+      const danglingEscape = path.join(localRepoDir, 'dangling-escape');
+      fs.symlinkSync(path.join(outsideDir, 'missing-target'), danglingEscape);
+      expect(() => resolveSafeChildPath(localRepoDir, 'dangling-escape/file.txt')).toThrow('CWE-22');
+
+      const loopA = path.join(localRepoDir, 'loopA');
+      const loopB = path.join(localRepoDir, 'loopB');
+      fs.symlinkSync(loopB, loopA);
+      fs.symlinkSync(loopA, loopB);
+      expect(() => resolveSafeChildPath(localRepoDir, 'loopA')).toThrow('Ciclo de enlaces simbólicos');
+    } finally {
+      fs.rmSync(outsideDir, { recursive: true, force: true });
+    }
   });
 
   it('logs sanitized debug trace when QA11X_DEBUG=1 and homedir fails', () => {

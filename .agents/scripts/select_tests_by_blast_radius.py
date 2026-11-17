@@ -21,7 +21,12 @@ _SCRIPT_DIR = str(Path(__file__).resolve().parent)
 if _SCRIPT_DIR not in sys.path:
     sys.path.insert(0, _SCRIPT_DIR)
 
-from _budgets import HIGH_BLAST_CALLERS_THRESHOLD, SECURITY_BLAST_KEYWORDS  # noqa: E402
+from _budgets import (  # noqa: E402
+    HIGH_BLAST_CALLERS_THRESHOLD,
+    SECURITY_BLAST_KEYWORDS,
+    STRUCTURAL_AST_RELATIONS,
+    is_manifest_tracked_doc,
+)
 
 CRITICAL_EXACT: frozenset[str] = frozenset(
     {
@@ -44,9 +49,7 @@ CRITICAL_PREFIXES: tuple[str, ...] = (
 _CAMEL_BOUNDARY_RE = re.compile(r"([a-z0-9])([A-Z])")
 _NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
 _SAFE_GIT_REF_RE = re.compile(r"^[A-Za-z0-9._/~^-]+$")
-SELF_STRUCTURAL_RELATIONS: frozenset[str] = frozenset(
-    {"contains", "defines", "rationale_for"}
-)
+SELF_STRUCTURAL_RELATIONS: frozenset[str] = STRUCTURAL_AST_RELATIONS
 PRIMARY_SUITES: tuple[str, ...] = (
     "run_frontend",
     "run_mobile",
@@ -105,7 +108,9 @@ def parse_changed_files(
 
 
 def is_doc_file(rel_posix: str) -> bool:
-    """Determina si una ruta corresponde exclusivamente a documentación o licencia."""
+    """Determina si una ruta es doc humano (excluye archivos de manifest.json)."""
+    if is_manifest_tracked_doc(rel_posix):
+        return False
     name = Path(rel_posix).name
     return (
         rel_posix.endswith(".md")
@@ -160,16 +165,10 @@ def _index_node_files(graph: dict[str, Any]) -> dict[str, str]:
 
 
 def _is_self_structural(
-    link: dict[str, Any], node_files: dict[str, str]
+    link: dict[str, Any], _node_files: dict[str, str] | None = None
 ) -> bool:
-    relation = str(link.get("relation") or "")
-    if relation not in SELF_STRUCTURAL_RELATIONS:
-        return False
-    src_id = str(link.get("source") or "")
-    tgt_id = str(link.get("target") or "")
-    src_file = _norm_path(str(link.get("source_file") or node_files.get(src_id, "")))
-    tgt_file = node_files.get(tgt_id, "")
-    return bool(src_file and src_file == tgt_file)
+    relation = str(link.get("relation") or "calls")
+    return relation in SELF_STRUCTURAL_RELATIONS
 
 
 def _build_reverse_index(
@@ -273,6 +272,7 @@ def classify_suites(union_files: set[str]) -> dict[str, bool]:
             f.startswith("tests/") and not f.startswith("tests/evals/")
             for f in union_files
         )
+        or any(is_manifest_tracked_doc(f) for f in union_files)
         or ("manifest.json" in union_files)
         or ("instalar-hooks.sh" in union_files)
     )
@@ -339,7 +339,9 @@ def _build_full_or_targeted_plan(
     graph = load_ast_graph(graph_path)
     union_files, caller_count, graph_loaded = compute_blast_impact(norm_changed, graph)
     has_security = any(
-        _has_security_keyword(item) for item in union_files if not is_doc_file(item)
+        _has_security_keyword(item)
+        for item in union_files
+        if not is_doc_file(item) and not item.lower().endswith(".md")
     )
     if (
         not norm_changed

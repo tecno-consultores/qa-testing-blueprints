@@ -370,6 +370,16 @@ EOF
   run env LC_ALL=C bash "${REPO_ROOT}/scripts/verificar-secretos.sh" sample.env.example
   assert_failure
   assert_output --partial "sample.env.example"
+
+  # Placeholder en el comentario NO oculta un secreto hardcoded en la misma línea
+  printf 'export REAL_TOKEN="SecretHardcoded987654321" # <tag> ${VAR} process.env os.environ ephemeral\n' >"${WORK}/mixed_line.ts" # qa-secret-fixture-ok
+  run env LC_ALL=C bash "${REPO_ROOT}/scripts/verificar-secretos.sh" mixed_line.ts
+  assert_failure
+  assert_output --partial "mixed_line.ts"
+
+  # Ruta absoluta fuera del workspace falla cerrado
+  run env LC_ALL=C bash "${REPO_ROOT}/scripts/verificar-secretos.sh" "/etc/passwd"
+  assert_failure
 }
 
 @test "generar-sbom-cyclonedx.sh (F8.18): genera SBOM por defecto y ruta custom con docker stub, rechaza path traversal y propaga fallos" {
@@ -411,20 +421,53 @@ EOF
   assert_success
   assert_output --partial "sbom.cyclonedx.json"
   [ -f "${WORK}/sbom.cyclonedx.json" ]
+  [ -f "${WORK}/sbom.cyclonedx.json.sha256" ]
+  run grep -F "qa11x_trivy_cache:/tmp/trivy-cache" "${DOCKER_LOG}"
+  assert_success
   run grep -F -- "--format cyclonedx --output /workspace/sbom.cyclonedx.json /workspace" "${DOCKER_LOG}"
   assert_success
 
   : >"${DOCKER_LOG}"
-  run env PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${WORK}/scripts/generar-sbom-cyclonedx.sh" "artifacts/custom.cyclonedx.json"
+  run env QA11X_ATTESTATION_KEY="qa11x-sbom-key" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${WORK}/scripts/generar-sbom-cyclonedx.sh" "artifacts/custom.cyclonedx.json"
   assert_success
   assert_output --partial "artifacts/custom.cyclonedx.json"
   [ -f "${WORK}/artifacts/custom.cyclonedx.json" ]
+  [ -f "${WORK}/artifacts/custom.cyclonedx.json.sha256" ]
+  [ -f "${WORK}/artifacts/custom.cyclonedx.json.hmac" ]
   run grep -F -- "--output /workspace/artifacts/custom.cyclonedx.json" "${DOCKER_LOG}"
   assert_success
 
   run env MOCK_DOCKER_FAIL=1 PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${WORK}/scripts/generar-sbom-cyclonedx.sh" "artifacts/fail.json"
   assert_failure 1
   refute_output --partial "Generado exitosamente"
+
+  # Con .trivy.yaml y fallback shasum (sin sha256sum)
+  printf 'scan:\n  skip-dirs: []\n' >"${WORK}/.trivy.yaml"
+  local no_sha_bin="${BATS_TEST_TMPDIR}/sbom_nosha_bin"
+  local real_sha256
+  real_sha256="$(command -v sha256sum)"
+  mkdir -p "${no_sha_bin}"
+  for tool in bash dirname basename mkdir cat rm chmod awk tr grep sed openssl; do
+    resolved="$(command -v "${tool}" || true)"
+    [ -n "${resolved}" ] && ln -sf "${resolved}" "${no_sha_bin}/${tool}"
+  done
+  ln -sf "${FAKE_BIN}/docker" "${no_sha_bin}/docker"
+  cat >"${no_sha_bin}/shasum" <<EOF
+#!/usr/bin/env bash
+if [ "\${1:-}" = "-a" ] && [ "\${2:-}" = "256" ]; then
+  shift 2
+  exec "${real_sha256}" "\$@"
+fi
+exit 1
+EOF
+  chmod +x "${no_sha_bin}/shasum"
+
+  : >"${DOCKER_LOG}"
+  run env PATH="${no_sha_bin}" LC_ALL=C bash "${WORK}/scripts/generar-sbom-cyclonedx.sh" "artifacts/trivy-cfg.cyclonedx.json"
+  assert_success
+  [ -f "${WORK}/artifacts/trivy-cfg.cyclonedx.json.sha256" ]
+  run grep -F -- "--config /workspace/.trivy.yaml" "${DOCKER_LOG}"
+  assert_success
 }
 
 @test "probar-mcp-example.sh (F8.18): expone --help con --offline y rechaza opciones invalidas" {
@@ -917,4 +960,118 @@ EOF
   assert_success
   run grep -F "QA11X_INSIDE_DOCKER=1" "${DOCKER_LOG}"
   assert_success
+}
+
+@test "certify_task_completion.sh: cubre QA_DIAGNOSTIC_JSON relativo, fallback HEAD~1..HEAD y verify_diff_coverage en Gate 10" {
+  WORK="${BATS_TEST_TMPDIR}/certify_head_cov_ws"
+  DIFF_COV_LOG="${BATS_TEST_TMPDIR}/diff_cov_args.log"
+  mkdir -p "${WORK}/.agents/scripts" "${WORK}/.agents/.cache/coverage" "${WORK}/scripts" "${WORK}/tests/bats"
+  cp "${REPO_ROOT}/.agents/scripts/certify_task_completion.sh" "${WORK}/.agents/scripts/certify_task_completion.sh"
+  chmod +x "${WORK}/.agents/scripts/certify_task_completion.sh"
+
+  cat >"${WORK}/scripts/verificar-secretos.sh" <<'EOF'
+#!/usr/bin/env bash
+echo "secreto rel diag" >&2
+exit 1
+EOF
+  chmod +x "${WORK}/scripts/verificar-secretos.sh"
+
+  # A. QA_DIAGNOSTIC_JSON relativo resuelve contra REPO_ROOT
+  run env QA11X_DOCKERENV_PATH="/.dockerenv" QA_DIAGNOSTIC_JSON="./rel-diag/fail.json" LC_ALL=C bash "${WORK}/.agents/scripts/certify_task_completion.sh"
+  assert_failure 1
+  [ -f "${WORK}/rel-diag/fail.json" ]
+  rm -rf "${WORK}/rel-diag"
+
+  # B. Arbol git limpio con 2 commits (HEAD~1..HEAD) + verify_diff_coverage stub + reporte .xml
+  cat >"${WORK}/scripts/verificar-secretos.sh" <<'EOF'
+#!/usr/bin/env bash
+echo "✔ [Secretos] stub OK"
+EOF
+  cat >"${WORK}/scripts/auditar-infra.sh" <<'EOF'
+#!/usr/bin/env bash
+echo "✔ [Trivy] stub OK"
+EOF
+  chmod +x "${WORK}/scripts/verificar-secretos.sh" "${WORK}/scripts/auditar-infra.sh"
+  printf 'print("✔ [Manifest] stub OK")\n' >"${WORK}/scripts/generar-manifiesto.py"
+  for stub_py in \
+    verify_json_no_duplicate_keys.py \
+    verify_zero_orphan_vue_components.py \
+    verify_no_orphan_api_endpoints.py \
+    verify_topological_health.py \
+    verify_alembic_orm_parity.py \
+    verify_roadmap_consistency.py \
+    verify_docs_invariants.py; do
+    printf 'print("✔ [%s] stub OK")\n' "${stub_py}" >"${WORK}/.agents/scripts/${stub_py}"
+  done
+  cat >"${WORK}/.agents/scripts/verify_diff_coverage.py" <<EOF
+import sys
+from pathlib import Path
+Path("${DIFF_COV_LOG}").write_text(" ".join(sys.argv[1:]) + "\n", encoding="utf-8")
+print("✔ [Diff Coverage] stub OK")
+EOF
+
+  printf '#!/usr/bin/env bash\necho base\n' >"${WORK}/scripts/app.sh"
+  printf '@test "t" { true; }\n' >"${WORK}/tests/bats/app.bats"
+  printf '# Demo\n' >"${WORK}/README.md"
+  printf '<coverage/>\n' >"${WORK}/.agents/.cache/coverage/bash.xml"
+  printf '.agents/.cache/\n' >"${WORK}/.gitignore"
+
+  git -C "${WORK}" init -q
+  git -C "${WORK}" config user.email "qa@example.com"
+  git -C "${WORK}" config user.name "QA Bot"
+  git -C "${WORK}" add .
+  git -C "${WORK}" commit -q -m "chore: init"
+
+  printf '#!/usr/bin/env bash\necho v2\n' >"${WORK}/scripts/app.sh"
+  printf '@test "t" { true; }\n# v2\n' >"${WORK}/tests/bats/app.bats"
+  printf '# Demo v2\n' >"${WORK}/README.md"
+  git -C "${WORK}" add scripts/app.sh tests/bats/app.bats README.md
+  git -C "${WORK}" commit -q -m "feat: v2"
+
+  run env QA11X_DOCKERENV_PATH="/.dockerenv" LC_ALL=C bash "${WORK}/.agents/scripts/certify_task_completion.sh" --strict
+  assert_success
+  assert_output --partial "10/10 PASS"
+  run cat "${DIFF_COV_LOG}"
+  assert_success
+  assert_output --partial "--base-ref HEAD~1"
+  assert_output --partial "--reports-dir .agents/.cache/coverage"
+}
+
+@test "verificar-secretos.sh: cubre relativize_repo_targets y falta de Docker bajo Rule Zero" {
+  mkdir -p "${BATS_TEST_TMPDIR}/sec_rel_ws/src" "${BATS_TEST_TMPDIR}/sec_rel_ws/locked_dir"
+  WORK="$(cd "${BATS_TEST_TMPDIR}/sec_rel_ws" && pwd -P)"
+  printf 'export const ok = "clean-value";\n' >"${WORK}/src/clean.ts"
+
+  # 1. Ruta igual a WORK_ROOT (rel_arg=".") y subruta absoluta dentro del repo
+  run env LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh" "$1" "$1/src/clean.ts"' _ "${WORK}" "${REPO_ROOT}"
+  assert_success
+  assert_output --partial "0 secretos expuestos"
+
+  # 2. Directorio existente sin permiso de entrada falla al resolver ruta (lines 23-24)
+  chmod 000 "${WORK}/locked_dir"
+  run env LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh" "$1/locked_dir/file.txt"' _ "${WORK}" "${REPO_ROOT}"
+  chmod 755 "${WORK}/locked_dir"
+  [ "${status}" -eq 1 ]
+  assert_output --partial "No se pudo resolver la ruta"
+
+  # 3. Ruta absoluta con directorio padre inexistente (line 28) -> fuera del repositorio
+  run env LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh" "/nonexistent_parent_11x/file.txt"' _ "${WORK}" "${REPO_ROOT}"
+  assert_failure 1
+  assert_output --partial "Ruta fuera del repositorio"
+
+  # 4. Path traversal relativo bloqueado (lines 41-42)
+  run env LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh" "../escape.txt"' _ "${WORK}" "${REPO_ROOT}"
+  assert_failure 1
+  assert_output --partial "Path traversal bloqueado"
+
+  # 5. Sin Docker fuera de contenedor falla cerrado (lines 56-57)
+  local no_docker_bin="${BATS_TEST_TMPDIR}/sec_nodocker_bin"
+  mkdir -p "${no_docker_bin}"
+  for tool in bash dirname basename; do
+    resolved="$(command -v "${tool}" || true)"
+    [ -n "${resolved}" ] && ln -sf "${resolved}" "${no_docker_bin}/${tool}"
+  done
+  run env QA11X_DOCKERENV_PATH="/nonexistent" PATH="${no_docker_bin}" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh" src/clean.ts' _ "${WORK}" "${REPO_ROOT}"
+  assert_failure 1
+  assert_output --partial "Se requiere Docker"
 }

@@ -1,6 +1,6 @@
 {
   "name": "@sinfallas/mcp-qa-11x",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "Official MCP Server & Thin-Repo Skill Installer for QA Testing Blueprints (QA-11X v3.1: 19 Tools, 13 Resources, AI Evals, FINOS CALM, Screenplay & DevSecOps)",
   "keywords": [
     "mcp",
@@ -74,7 +74,7 @@
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "prepublishOnly": "pnpm run build",
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\" --max-warnings 0",
-    "typecheck": "tsc -p tsconfig.typecheck.json --noEmit",
+    "typecheck": "NODE_OPTIONS=\"--max-old-space-size=4096\" tsc -p tsconfig.typecheck.json --noEmit",
     "test:unit": "vitest run --coverage",
     "test:example": "node example/run-example-e2e.mjs",
     "test": "vitest run --coverage"

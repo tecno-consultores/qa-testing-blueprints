@@ -7,7 +7,7 @@ export default defineConfig({
     
     // TOOL BOUNDARY ESTRICTO: Vitest solo ejecuta archivos unitarios;
     // los contratos Pact Zero-Infra (tests/contracts/*.test.ts) usan `node --test` vía `pnpm run test:contracts`.
-    include: ['src/**/*.unit.{ts,js}', 'src/**/*.spec.{ts,js}'],
+    include: ['src/**/*.unit.{ts,js}', 'src/**/*.spec.{ts,js}', 'tests/**/*.{unit,spec}.{ts,js}'],
     exclude: ['node_modules/**', 'dist/**', 'tests/contracts/**'],
     
     coverage: {

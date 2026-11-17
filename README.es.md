@@ -46,7 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           fetch-depth: 0
       - uses: tecno-consultores/qa-testing-blueprints/.github/actions/qa-11x-pr-check@v3 # sec-ci-action-ref-ok (tag de ejemplo; fija un SHA de 40 caracteres en producción)
@@ -73,7 +73,7 @@ flowchart TD
     Shields --> LocalCommit
 ```
 
-### Perfiles de Adopción Progresiva (`Progressive Adoption Tiers`)
+### Perfiles de Adopción Progresiva (Progressive Adoption Tiers)
 
 | Perfil | Caso de Uso | Compuertas y Garantías Incluidas |
 | :--- | :--- | :--- |
@@ -104,18 +104,18 @@ La matriz abarca **10 stacks hidratables** (`python`, `fastapi`, `node-backend`,
 
 | Carpeta | Ecosistema | Capacidades Clave (v3.1) |
 | :--- | :--- | :--- |
-| **[`fastapi/`](fastapi/)** | APIs Asíncronas Python | Ruff, Mypy strict, paridad PostgreSQL 17 RLS + Alembic, consumidor Pact V4 ([`test_pact_consumer.py`](fastapi/tests/contracts/test_pact_consumer.py)), carga k6 ([`smoke.k6.js`](fastapi/tests/load/smoke.k6.js)), Karate BDD |
-| **[`python/`](python/)** | Librerías y CLIs Python | UV, Ruff (`CC <= 5`), Mypy strict, Pytest `>= 95%`, Hypothesis, Mutmut (`MSI >= 80%`), Bandit |
-| **[`node-backend/`](node-backend/)** | Microservicios Node.js / TS | ESLint `--max-warnings 0`, Vitest `>= 95%`, verificador proveedor Pact V4 ([`provider.pact.test.ts`](node-backend/tests/contracts/provider.pact.test.ts)), Stryker, ZAP |
-| **[`vue3/`](vue3/)** | Frontends Vue 3 + Vite | Screenplay [`Actor.ts`](vue3/tests/screenplay/Actor.ts), *Self-Healing DOM* [`semanticLocator.ts`](vue3/tests/utils/semanticLocator.ts), Vitest `>= 95%`, `@axe-core`, Lighthouse CI |
-| **[`react-frontend/`](react-frontend/)** | Frontends React + Vite | Screenplay [`Actor.ts`](react-frontend/tests/screenplay/Actor.ts), *Self-Healing DOM* [`semanticLocator.ts`](react-frontend/tests/utils/semanticLocator.ts), RTL, Playwright, `@axe-core` |
-| **[`php/`](php/)** | Servicios PHP 8.2–8.5 | PHP-CS-Fixer, PHPStan Level Max, Psalm Taint Analysis, Pest/PHPUnit + PCOV `>= 95%`, Infection |
-| **[`bash-scripts/`](bash-scripts/)** | Automatización POSIX / Bash | ShellCheck, shfmt, BATS-core, `bats-mock`, `kcov >= 95%` |
-| **[`mobile-appium/`](mobile-appium/)** | Móvil Nativo e Híbrido | Appium 3 / W3C + WebdriverIO ([`wdio.conf.ts`](mobile-appium/wdio.conf.ts)), [`MobileActor.ts`](mobile-appium/tests/screenplay/MobileActor.ts) (Android, iOS, Ionic, RN) |
-| **[`ai-evals/`](ai-evals/)** | QA de IA y Multimodal | Fidelidad RAG, Promptfoo OWASP LLM Top 10, latencia voz WebRTC ([`test_voice_websocket_latency.py`](ai-evals/voice-realtime/test_voice_websocket_latency.py)), fidelidad PDF/OCR `Decimal` ([`test_pdf_table_fidelity.py`](ai-evals/multimodal-ocr/test_pdf_table_fidelity.py)), [`golden_from_traces.py`](ai-evals/golden_from_traces.py) |
-| **[`vibe-rescue/`](vibe-rescue/)** | Rescate *Vibe-to-Enterprise* | [`audit_vibe_prototype.py`](vibe-rescue/audit_vibe_prototype.py) (`VIBE-SEC-001..QA-005`), plantilla PostgreSQL 17 RLS/WORM ([`rls_hardening.sql`](vibe-rescue/templates/rls_hardening.sql)) |
+| **[`fastapi/`](fastapi/README.es.md)** | APIs Asíncronas Python | Ruff, Mypy strict, paridad PostgreSQL 17 RLS + Alembic, consumidor Pact V4 ([`test_pact_consumer.py`](fastapi/tests/contracts/test_pact_consumer.py)), carga k6 ([`smoke.k6.js`](fastapi/tests/load/smoke.k6.js)), Karate BDD |
+| **[`python/`](python/README.es.md)** | Librerías y CLIs Python | UV, Ruff (`CC <= 5`), Mypy strict, Pytest `>= 95%`, Hypothesis, Mutmut (`MSI >= 80%`), Bandit |
+| **[`node-backend/`](node-backend/README.es.md)** | Microservicios Node.js / TS | ESLint `--max-warnings 0`, Vitest `>= 95%`, verificador proveedor Pact V4 ([`provider.pact.test.ts`](node-backend/tests/contracts/provider.pact.test.ts)), Stryker, ZAP |
+| **[`vue3/`](vue3/README.es.md)** | Frontends Vue 3 + Vite | Screenplay [`Actor.ts`](vue3/tests/screenplay/Actor.ts), *Self-Healing DOM* [`semanticLocator.ts`](vue3/tests/utils/semanticLocator.ts), Vitest `>= 95%`, `@axe-core`, Lighthouse CI |
+| **[`react-frontend/`](react-frontend/README.es.md)** | Frontends React + Vite | Screenplay [`Actor.ts`](react-frontend/tests/screenplay/Actor.ts), *Self-Healing DOM* [`semanticLocator.ts`](react-frontend/tests/utils/semanticLocator.ts), RTL, Playwright, `@axe-core` |
+| **[`php/`](php/README.es.md)** | Servicios PHP 8.2–8.5 | PHP-CS-Fixer, PHPStan Level Max, Psalm Taint Analysis, Pest/PHPUnit + PCOV `>= 95%`, Infection |
+| **[`bash-scripts/`](bash-scripts/README.es.md)** | Automatización POSIX / Bash | ShellCheck, shfmt, BATS-core, `bats-mock`, `kcov >= 95%` |
+| **[`mobile-appium/`](mobile-appium/README.es.md)** | Móvil Nativo e Híbrido | Appium 3 / W3C + WebdriverIO ([`wdio.conf.ts`](mobile-appium/wdio.conf.ts)), [`MobileActor.ts`](mobile-appium/tests/screenplay/MobileActor.ts) (Android, iOS, Ionic, RN) |
+| **[`ai-evals/`](ai-evals/README.es.md)** | QA de IA y Multimodal | Fidelidad RAG, Promptfoo OWASP LLM Top 10, latencia voz WebRTC ([`test_voice_websocket_latency.py`](ai-evals/voice-realtime/test_voice_websocket_latency.py)), fidelidad PDF/OCR `Decimal` ([`test_pdf_table_fidelity.py`](ai-evals/multimodal-ocr/test_pdf_table_fidelity.py)), [`golden_from_traces.py`](ai-evals/golden_from_traces.py) |
+| **[`vibe-rescue/`](vibe-rescue/README.es.md)** | Rescate *Vibe-to-Enterprise* | [`audit_vibe_prototype.py`](vibe-rescue/audit_vibe_prototype.py) (`VIBE-SEC-001..QA-005`), plantilla PostgreSQL 17 RLS/WORM ([`rls_hardening.sql`](vibe-rescue/templates/rls_hardening.sql)) |
 | **[`architecture/`](architecture/README.es.md)** | Arquitectura como Código | Topología FINOS CALM bloqueante ([`qa-11x.calm.json`](architecture/qa-11x.calm.json)) y 7 controles obligatorios 11X (`make validate-calm`) |
-| **[`mcp-server/`](mcp-server/)** | `@sinfallas/mcp-qa-11x` | Servidor MCP Node.js (`stdio`), `quickstart`, `install-skill`, `init-agents`, `reconcile-agents`, `tms-sync` y *Agent Card* A2A |
+| **[`mcp-server/`](mcp-server/README.es.md)** | `@sinfallas/mcp-qa-11x` | Servidor MCP Node.js (`stdio`), 12 subcomandos CLI (`quickstart`, `install-skill`, `init-agents`, `reconcile-agents`, `tms-sync`, `doctor`, `upgrade`, `certify`, `audit`, `blast-radius`, `mcp-config`, `completion`) y *Agent Card* A2A `v1.0` |
 
 ---
 
@@ -135,7 +135,7 @@ A continuación se resume el stack de validación corporativo a lo largo de los 
 | **Mobile Appium** (`mobile-appium/`) | `tsc --strict` + `Prettier` | `WebdriverIO v9` + `MobileActor` Screenplay (Bridge W3C, Android/iOS/Ionic/RN) | `node:test` / `C8 (>= 95%)` | `pnpm audit` + `.npmrc` + `CycloneDX SBOM` | `eslint-plugin-security` + guardias Deep-Link / Biometría | `N/A` | `Appium 3 (uiautomator2/xcuitest)` + `Karate BFF` | `N/A` | `CC <= 5` + Trazas Fail-Verbose `/tmp` | `N/A` (delegado al BFF `OWASP ZAP`) | `N/A` (Offline Sync & Biometría) | `Allure JSON Fail-Verbose` (`/tmp`) | `Trivy` + `Hadolint` + `Gitleaks` (`sinfallas/base-mobile-appium:26`) | `Lefthook` |
 | **AI Evals** (`ai-evals/`) | `Ruff (CC <= 5)` + `Mypy (Strict)` | `Pytest asyncio` + `DeepEval` + Voz WebRTC + PDF/OCR `Decimal` | `Pytest-Cov (>= 95%)` | `pip-audit` + `CycloneDX SBOM` | `Bandit` + `Promptfoo OWASP LLM Top 10` | `N/A` | `DeepEval` + `Promptfoo` (Offline + Live) | `WebRTC TTFB <= 500ms` | `Radon (CC <= A)` + `golden_from_traces.py` | `Promptfoo LLM Red-Team` | `N/A` | `Trazas JSON Trayectoria Eval` | `Trivy` + `Gitleaks` | `Lefthook` |
 | **Vibe Rescue** (`vibe-rescue/`) | `Ruff (CC <= 5)` + `Mypy (Strict)` | `Pytest` + `audit_vibe_prototype.py` (`VIBE-SEC-001..QA-005`) | `Pytest-Cov (>= 95%)` | `pip-audit` + `rls_hardening.sql` | `Bandit` + `RLS / AES-256-GCM / WORM` | `N/A` | `Compuerta Rescate QA-11X 10/10` | `N/A` | `Radon (CC <= 5)` | `OWASP ZAP (post-rescate)` | `N/A` | `Finding State Tracker JSON` | `Trivy` + `Hadolint` + `Gitleaks` | `Lefthook` |
-| **Architecture** (`architecture/`) | `AJV CLI / CALM` (`validate_calm_architecture.sh`) | `Esquema CALM` y 7 Controles (`qa-11x.calm.json`) | `N/A` | `Integridad Controles CALM` | `7 Controles Bloqueantes (RLS/WORM/mTLS)` | `N/A` | `Compuerta Arquitectónica FINOS CALM` | `N/A` | `Graphify AST Acoplamiento / Capas` | `N/A` | `N/A` | `Reporte Validación CALM` | `Trivy` + `Gitleaks` | `Lefthook` |
+| **Architecture** (`architecture/`) | `AJV CLI / CALM` (`validate_calm_architecture.sh`) | `CALM Schema & 7-Control Verification (qa-11x.calm.json)` | `N/A` | `Integridad Controles CALM` | `7 Controles Bloqueantes (RLS/WORM/mTLS)` | `N/A` | `Compuerta Arquitectónica FINOS CALM` | `N/A` | `Graphify AST Acoplamiento / Capas` | `N/A` | `N/A` | `Reporte Validación CALM` | `Trivy` + `Gitleaks` | `Lefthook` |
 | **MCP Server** (`mcp-server/`) | `ESLint (--max-warnings 0)` + `Prettier` + `tsc` | `Vitest` + `run-example-e2e.mjs` (Clean-Room `stdio`) | `@vitest/coverage-v8 (>= 95%)` | `pnpm audit` + `.npmrc (ignore-scripts=true)` | `eslint-plugin-security` + `promptGuard` + `audit_security_stig_owasp` | `Stryker` | `Karate Labs (mcp_cli_test.feature)` | `N/A` | `SonarJS (<= 15)` | `N/A` | `N/A` | `Telemetría Pass-Quiet y PR_VERDICT SHA-256` | `Trivy` + `Gitleaks` | `Lefthook` |
 
 ---
@@ -154,7 +154,7 @@ A continuación se resume el stack de validación corporativo a lo largo de los 
 ## 🤖 11 Skills Modulares (`< 20 KB`), Servidor MCP y 28 Agentes de IA
 
 * **Enrutamiento Progresivo de Skills (`< 20 KB`):** Liderado por [`.agents/skills/qa-11x-architect/SKILL.md`](.agents/skills/qa-11x-architect/SKILL.md) (`< 12 KB`), hidratando bajo demanda 10 sub-skills especializadas (`qa-11x-devsecops-hardener`, `qa-11x-systematic-debugging`, `qa-11x-screenplay-builder`, `qa-11x-llm-evaluator`, `qa-11x-vibe-rescue`, `qa-11x-docker-certifier`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `refactoring-ui` y [`tactical-patterns-11x`](.agents/skills/tactical-patterns-11x/SKILL.md) `<= 2.5 KB` inyectada vía `[DIRECTIVE-11X]`).
-* **Superficie Pública MCP (`@sinfallas/mcp-qa-11x` v3.1.0):** Expone **19 herramientas** y **13 recursos `blueprint://*`** (incluyendo `blueprint://{stack}/readme` para los **10 stacks hidratables**: `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue`) sobre `stdio` — combinando 12 núcleo v1 + 6 evaluadores v2.0 + Flight Recorder atómico **v3.1** `session_flight_recorder` (`session_checkpoint.json` `0600` -> `.agents/ACTIVE_TASK.md`) y recurso **v3.1** `blueprint://skills/tactical-patterns-11x` (`11` skills modulares en total), blindados de extremo a extremo por `promptGuard` y `TaskStateGuard`.
+* **Superficie Pública MCP (`@sinfallas/mcp-qa-11x` v3.2.0):** Expone **19 herramientas** y **13 recursos `blueprint://*`** (incluyendo `blueprint://{stack}/readme` para los **10 stacks hidratables**: `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue`) sobre `stdio` — combinando 12 núcleo v1 + 6 evaluadores v2.0 + Flight Recorder atómico **v3.1** `session_flight_recorder` (`session_checkpoint.json` `0600` -> `.agents/ACTIVE_TASK.md`) y recurso **v3.1** `blueprint://skills/tactical-patterns-11x` (`11` skills modulares en total), blindados de extremo a extremo por `promptGuard` y `TaskStateGuard`.
 * **Guardia Humana de Cierre Git (`QA-GIT-GATE-01`):** Impuesta por [`.agents/rules/git_closure_gate.md`](.agents/rules/git_closure_gate.md) — los agentes certifican localmente vía `make certify` y se detienen en `git commit` local; cualquier `git push` o `npm publish` automático queda estrictamente prohibido.
 * **Guías y Catálogos:** Consulta [`docs/agent-setup.es.md`](docs/agent-setup.es.md) (Español; versión en inglés en `docs/agent-setup.md`), [`RESOURCES.es.md`](RESOURCES.es.md), [`llms.txt`](llms.txt) (índice GEO), [`catalogs/`](catalogs/agenticskills-submission.md) ([QASkills](catalogs/qaskills-pack.json), [SkillsLLM](catalogs/skillsllm-manifest.json)), [`docs/01_ARQUITECTURA_PIRAMIDE_11X.es.md`](docs/01_ARQUITECTURA_PIRAMIDE_11X.es.md), [`TESTING.es.md`](TESTING.es.md), [`SECURITY.es.md`](SECURITY.es.md) y [`ROADMAP.es.md`](ROADMAP.es.md).
 

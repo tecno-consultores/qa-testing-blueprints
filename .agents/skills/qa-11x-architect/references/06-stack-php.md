@@ -112,28 +112,45 @@ parameters:
 
 ### `Makefile` Targets
 ```makefile
-.PHONY: qa-lint qa-unit qa-parity qa-bdd qa-mutation qa-sbom qa-all clean
+.PHONY: qa-lint qa-unit qa-parity qa-contracts qa-bdd qa-mutation qa-dast qa-chaos qa-sbom qa-all clean-cache clean qa-clean
+
+PROJECT_DIR ?= $(CURDIR)
+QA_UID ?= $(shell id -u)
+QA_GID ?= $(shell id -g)
+export QA_UID QA_GID
 
 qa-lint:
-	docker compose -f docker-compose.qa.yml run --rm -T qa-php composer qa:lint
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c "[ -f vendor/autoload.php ] || composer install --no-interaction --prefer-dist --quiet; composer --quiet run-script qa:lint"
 
 qa-unit:
-	docker compose -f docker-compose.qa.yml run --rm -T qa-php composer qa:unit
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c "[ -f vendor/autoload.php ] || composer install --no-interaction --prefer-dist --quiet; composer run-script qa:unit"
 
 qa-parity:
-	docker compose -f docker-compose.qa.yml run --rm -T qa-php php bin/console doctrine:schema:validate
+	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml down -v >/dev/null 2>&1 || true" EXIT; \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml up -d --wait postgres-qa keydb-qa && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c "if [ -f bin/console ]; then php bin/console doctrine:schema:validate --skip-sync; elif [ -f artisan ]; then php artisan migrate:status; else echo \"[SKIPPED] ORM console absent (Doctrine/Laravel).\"; fi"'
+
+qa-contracts:
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c "if [ -f vendor/bin/openapi ]; then ./vendor/bin/openapi src/ -o openapi.json --format json; else echo '[SKIPPED] OpenAPI generator not installed.'; fi"
 
 qa-bdd:
-	docker compose -f docker-compose.qa.yml run --rm -T karatelabs mvn test -Dkarate.options="test/api_test.feature"
+	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml down -v >/dev/null 2>&1 || true" EXIT; \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml up -d --wait postgres-qa keydb-qa qa-php && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T karatelabs mvn -B clean test'
 
 qa-mutation:
-	docker compose -f docker-compose.qa.yml run --rm -T qa-php composer qa:mutation
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c "[ -f vendor/autoload.php ] || composer install --no-interaction --prefer-dist --quiet; composer run-script qa:mutation"  # MSI >= 80%
 
 qa-sbom:
-	docker compose -f docker-compose.qa.yml run --rm -T qa-php composer qa:sbom
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c "[ -f vendor/autoload.php ] || composer install --no-interaction --prefer-dist --quiet; composer run-script qa:sbom"
 
-qa-all: qa-lint qa-unit qa-parity qa-bdd qa-mutation
+qa-all: qa-lint qa-unit qa-parity qa-bdd qa-mutation qa-sbom
 
-clean:
+clean-cache:
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml down -v >/dev/null 2>&1 || true
+
+clean: clean-cache
 	@./scripts/limpieza.sh  # (or @./limpieza.sh inside hydrated stack)
+
+qa-clean: clean
 ```

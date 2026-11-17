@@ -622,6 +622,9 @@ def test_release_readiness_gate_go_skipped_and_dry_run_vs_enforce(
     assert "NO_GO" in enforce_proc.stderr
     assert "auth::locks_user" in enforce_proc.stderr
 
+    with pytest.raises(SystemExit):
+        mod.parse_args(["--dry-run", "--enforce"])
+
 
 def test_release_readiness_gate_security_xxe_traversal_and_zero_tests(
     tmp_path: Path,
@@ -1113,6 +1116,12 @@ def test_select_tests_by_blast_radius_all_four_tiers_and_cli(
             {
                 "source": "n_rag",
                 "target": "n_actor",
+                "relation": "documented_in",
+                "source_file": "docs/actor.md",
+            },
+            {
+                "source": "n_rag",
+                "target": "n_actor",
                 "relation": "calls",
                 "source_file": "ai-evals/rag/test_rag_faithfulness.py",
             },
@@ -1236,14 +1245,29 @@ def test_select_tests_by_blast_radius_all_four_tiers_and_cli(
         assert gov_plan["run_meta_qa"] is True
         assert gov_plan["run_full_regression"] is True
 
-    # Docs humanos (incluso SECURITY.md) siguen en fast-path docs-only
-    sec_doc_plan = mod.select_test_plan(
+    # Docs humanos puros: fast-path docs-only; .md en manifest activan run_meta_qa
+    human_doc_plan = mod.select_test_plan(
         event="pull_request",
-        changed_files=["SECURITY.md", "docs/01_ARQUITECTURA.md", "CHANGELOG.md"],
+        changed_files=["TESTING.md", "docs/01_ARQUITECTURA.md", "CHANGELOG.md"],
         graph_path=graph_path,
     )
-    assert sec_doc_plan["tier"] == "docs-only"
-    assert sec_doc_plan["run_full_regression"] is False
+    assert human_doc_plan["tier"] == "docs-only"
+    assert human_doc_plan["run_full_regression"] is False
+
+    for manifest_doc in (
+        "AGENTS.md",
+        "SECURITY.md",
+        "catalogs/agenticskills-submission.md",
+        "python/README.md",
+    ):
+        md_gov_plan = mod.select_test_plan(
+            event="pull_request",
+            changed_files=[manifest_doc],
+            graph_path=graph_path,
+        )
+        assert md_gov_plan["tier"] == "pr-targeted"
+        assert md_gov_plan["run_meta_qa"] is True
+        assert md_gov_plan["run_full_regression"] is False
 
     # F3.5: palabras clave de seguridad escalan a full-regression sin falsos positivos
     for sec_code in ("fastapi/src/auth_service.py", "mcp-server/src/tokens.ts"):

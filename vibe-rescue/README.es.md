@@ -1,4 +1,4 @@
-> **[DIRECTIVA DE SISTEMA PARA AGENTES DE IA]:** Actúa como un Arquitecto Staff de Rescate DevSecOps y QA. Lee, analiza y aplica estrictamente el protocolo Vibe-to-Enterprise de 5 etapas dentro de contenedores Docker efímeros no-root (`sinfallas/base-python-uv:3.15` / `sinfallas/base-node-ionic:26`, Regla Cero). Preserva la UX visual validada mientras eliminas secretos en cliente, políticas SQL permisivas (`ENABLE + FORCE ROW LEVEL SECURITY` por tabla y cadena WORM atómica `audit_log_worm`), tipado débil, archivos monolíticos (`> 500` líneas, `CC <= 5`, `args <= 4`) y ausencia de pruebas (cobertura `>= 95%`). Emite tu respuesta final, explicaciones y comentarios en español.
+> **[DIRECTIVA DE SISTEMA PARA AGENTES DE IA]:** Actúa como un Arquitecto Staff de Rescate DevSecOps y QA. Lee, analiza y aplica estrictamente el protocolo Vibe-to-Enterprise de 5 etapas redactado en español dentro de contenedores Docker efímeros no-root (`sinfallas/base-python-uv:3.15` / `sinfallas/base-node-ionic:26`, Regla Cero). Preserva la UX visual validada mientras eliminas secretos en cliente, políticas SQL permisivas (`ENABLE + FORCE ROW LEVEL SECURITY` por tabla y cadena WORM atómica `audit_log_worm`), tipado débil, archivos monolíticos (`> 500` líneas, `CC <= 5`, `args <= 4`) y ausencia de pruebas (cobertura `>= 95%`). Emite tu respuesta final, explicaciones y comentarios de código en el idioma del prompt del usuario (por defecto español).
 
 > 🌐 **Idioma:** [🇺🇸 English (Canonical)](README.md) · **Español (Espejo 1:1)**
 
@@ -8,9 +8,9 @@ Protocolo determinista de **5 etapas** diseñado para convertir prototipos *vibe
 
 ---
 
-## 1. Filosofía: *Preserve UX, Eradicate Structural Debt*
+## 1. Filosofía: *Preservar la UX, Erradicar la Deuda Estructural*
 
-Los prototipos generados por IA entregan interfaces funcionales en minutos, pero suelen introducir cinco familias de deuda crítica: secretos de servicio expuestos en el bundle cliente, políticas SQL abiertas (`USING (true)`), escape de tipos (`: any`, `@ts-ignore`), componentes monolíticos (`> 500` líneas) y ausencia total de red de pruebas en contenedores no-root (`Rule Zero`).
+Los prototipos generados por IA entregan interfaces funcionales en minutos, pero suelen introducir cinco familias de deuda crítica: secretos de servicio expuestos en el bundle cliente, políticas SQL abiertas (`USING (true)`), escape de tipos (`: any`, `@ts-ignore`), componentes monolíticos (`> 500` líneas) y ausencia total de red de pruebas en contenedores no-root (`Regla Cero`).
 
 ---
 
@@ -36,14 +36,14 @@ El auditor CLI está modularizado en `audit_vibe_prototype.py` y `_vibe_rules.py
 docker run --rm -u "$(id -u):$(id -g)" \
   -e HOME=/tmp -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache \
   -v "$(pwd):/app:ro" -w /app \
-  sinfallas/base-python-uv:3.15 \
+  sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 \
   python3 vibe-rescue/audit_vibe_prototype.py --target /app --json
 
 # Generar bundle de remediación en un subdirectorio sin sobrescribir código existente
 docker run --rm -u "$(id -u):$(id -g)" \
   -e HOME=/tmp -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache \
   -v "$(pwd):/app" -w /app \
-  sinfallas/base-python-uv:3.15 \
+  sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 \
   python3 vibe-rescue/audit_vibe_prototype.py \
     --target /app --no-dry-run --emit-remediation qa11x-rescue --enforce
 ```
@@ -68,7 +68,7 @@ SUPABASE_SERVICE_ROLE_KEY=<EXAMPLE_REDACTED>
 1. **Rol `app_runtime_user`** con `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`.
 2. **Revocación de `PUBLIC`/`anon`/`authenticated`** y eliminación (`DROP POLICY IF EXISTS`) de políticas abiertas heredadas de scaffolds Supabase.
 3. **`ENABLE ROW LEVEL SECURITY` + `FORCE ROW LEVEL SECURITY`** y política `tenant_isolation_policy` vinculada a `NULLIF(current_setting('app.current_tenant_id', true), '')::uuid`.
-4. **Función pre-auth `resolve_tenant_by_slug`** (`SECURITY DEFINER`, `SET search_path = pg_catalog, public`, política acotada `tenants_definer_lookup_policy` bajo `FORCE RLS`, consulta activa normalizada) y tabla inmutable **`audit_log_worm`** (`seq_num BIGINT` monotónico con `GRANT USAGE ON SEQUENCE`, triggers anti-`UPDATE`/`DELETE`/`TRUNCATE` y `append_worm_audit_entry` calculando/validando cadenas SHA-256 `CHAR(64)` bajo `pg_advisory_xact_lock(hashtext('audit:' || p_tenant_id::text))`).
+4. **Función pre-auth `resolve_tenant_by_slug`** (`SECURITY DEFINER`, `SET search_path = pg_catalog, public`, política acotada `tenants_definer_lookup_policy` bajo `FORCE RLS`, consulta activa normalizada) y tabla inmutable **`audit_log_worm`** (`seq_num BIGINT` monotónico con `GRANT USAGE ON SEQUENCE`, triggers anti-`UPDATE`/`DELETE`/`TRUNCATE` y `append_worm_audit_entry` calculando/exigiendo cadenas SHA-256 `CHAR(64)` en modo fail-closed con `RAISE EXCEPTION` ante discrepancia de hash o `p_actor_username` vacío/UUIDv4 bajo `pg_advisory_xact_lock(hashtext('audit:' || p_tenant_id::text))`).
 
 ---
 

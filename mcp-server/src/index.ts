@@ -19,7 +19,7 @@ import {
   type RawGenericHandler,
 } from './server.js';
 import { guardToolCallInput, type PromptGuardOptions } from './security/promptGuard.js';
-import { runCli } from './cli.js';
+import { resolveSubcommandHelpText, runCli } from './cli.js';
 import { GitHubFetcher, MCP_SERVER_VERSION } from './services/github-fetcher.js';
 import { syncGlobalSkillsInBackground } from './services/version-manager.js';
 import { TaskGuardError, TaskStateGuard, type ExecuteTaskOptions } from './utils/taskStateGuard.js';
@@ -51,25 +51,51 @@ export interface McpSurfaceCounts {
   readonly resources: number;
 }
 
-function dispatchCoreFlag(
-  arg1: string | undefined,
-  args: readonly string[]
-): { readonly handled: true; readonly outcome: CliDispatchOutcome } | { readonly handled: false } {
-  if (!arg1) {
-    return { handled: true, outcome: STDIO_MODE };
-  }
+function isRootHelpToken(token: string | undefined): boolean {
+  return token === '--help' || token === '-h' || token === 'help';
+}
+
+type CoreDispatchResult =
+  | { readonly handled: true; readonly outcome: CliDispatchOutcome }
+  | { readonly handled: false };
+
+function dispatchSingleCoreArg(arg1: string): CoreDispatchResult {
   if (arg1 === '--stdio') {
     return { handled: true, outcome: STDIO_FORCED_MODE };
   }
-  if ((arg1 === '--version' || arg1 === '-v') && args.length === 1) {
-    console.log(MCP_SERVER_VERSION);
-    return { handled: true, outcome: 0 };
-  }
-  if (arg1 === '--help' || arg1 === '-h' || arg1 === 'help') {
+  if (isRootHelpToken(arg1)) {
     console.log(CLI_HELP_TEXT);
     return { handled: true, outcome: 0 };
   }
   return { handled: false };
+}
+
+function dispatchCoreFlag(
+  arg1: string | undefined,
+  args: readonly string[]
+): CoreDispatchResult {
+  if (!arg1) {
+    return { handled: true, outcome: STDIO_MODE };
+  }
+  if (args.length === 1) {
+    return dispatchSingleCoreArg(arg1);
+  }
+  return { handled: false };
+}
+
+async function tryDispatchSubcommandHelp(
+  arg1: string | undefined,
+  args: readonly string[]
+): Promise<boolean> {
+  if (!isRootHelpToken(arg1) || args.length !== 2) {
+    return false;
+  }
+  const subHelp = await resolveSubcommandHelpText(args[1] ?? '');
+  if (subHelp === null) {
+    return false;
+  }
+  console.log(subHelp);
+  return true;
 }
 
 export async function dispatchCliArgs(
@@ -77,17 +103,12 @@ export async function dispatchCliArgs(
   fetcher?: GitHubFetcher
 ): Promise<CliDispatchOutcome> {
   const arg1 = args[0];
-  if (
-    (arg1 === '--version' || arg1 === '-v') &&
-    (args.includes('--verbose') || args.includes('--json'))
-  ) {
-    const doctorArgs = ['doctor', '--offline', ...(args.includes('--json') ? ['--json'] : [])];
-    const doctorRes = await runCli(doctorArgs, { fetcher });
-    return doctorRes.exitCode;
-  }
   const coreOutcome = dispatchCoreFlag(arg1, args);
   if (coreOutcome.handled) {
     return coreOutcome.outcome;
+  }
+  if (await tryDispatchSubcommandHelp(arg1, args)) {
+    return 0;
   }
 
   const cliResult = await runCli(args, { fetcher });
@@ -161,28 +182,74 @@ Usage:
   npx -y @sinfallas/mcp-qa-11x@latest --help                                        Displays this help message
 
 Options for quickstart:
-  --tier, -T <level>       starter | standard | enterprise (auto-recommended by detected stack)
+  --tier, -T <level>       starter (default) | standard | enterprise
   --lang, -l <mode>        auto (default) | en | es
   --agents <target>        auto | all | antigravity | claude-code | cursor | windsurf | <csv>
   --ci <provider>          none | github
   --dry-run                Simulates quickstart without modifying files
+  --force, -f              Overwrites customized CI/task files
+  --json                   Emits machine-readable JSON output
 
 Options for install-skill (alias: install):
   --target, -t <env>       auto (default) | workspace | antigravity | claude | cursor | windsurf | codex | hermes | all
+  --project-path, -p <dir> Target project directory path (default: cwd)
   --lang, -l <mode>        auto (default) | es | en — output language policy injected into AGENTS.md
+  --agents, -a <target>    Optional Thin-Repo bridges (auto | all | CSV)
   --include-scripts        Installs operational scripts and common files into the current workspace
   --init-agents            Injects or updates the QA 11X connector block into AGENTS.md
   --reconcile              Performs deduplication and domain isolation in .agents/ before sync
   --dry-run                Shows installation plan without writing files to disk
 
-Options for init-agents:
+Options for init-agents (alias: init-agents-md):
   --project-path, -p <dir> Target project directory path (default: cwd)
   --lang, -l <mode>        auto (default) | es | en — output language policy injected into AGENTS.md
+  --agents, -a <target>    Optional Thin-Repo bridges (auto | all | CSV)
   --dry-run                Simulates operation without writing changes to disk
 
 Options for reconcile-agents:
   --project-path, -p <dir> Target project directory path (default: cwd)
   --dry-run                Simulates operation without writing changes to disk
+
+Options for tms-sync:
+  --mode <mode>            inventory | push-results | pull-stories
+  --provider <id>          jira | zephyr | xray | github-issues
+  --target-dir <dir> / --junit-xml <path> / --base-url <url> / --project-key <key> / --dry-run | --live | --json
+
+Options for doctor (alias: status):
+  --project-path, -p <dir> Target project directory (default: cwd)
+  --offline                Skips remote npm/GitHub version lookup
+  --json                   Emits structured JSON diagnostics
+
+Options for upgrade (alias: cache-clean):
+  --cache-only             Cleans _npx and blueprint caches without syncing skills
+  --target, -t <env>       Skill destination target (default: all)
+  --reconcile              Reconciles .agents/ duplicates during skill sync
+  --offline / --dry-run / --json
+
+Options for certify:
+  --project-path, -p <dir> Target project directory (default: cwd)
+  --strict                 Fails with exitCode=20 if any check is SKIPPED
+  --require-lint-evidence  Requires fresh lint evidence on dirty trees
+  --allow-unmerged-examples / --release-gate / --junit-xml <path> / --offline / --json
+
+Options for audit:
+  --project-path, -p <dir> / --mode, -m <security|pyramid|vibe|calm|all> / --format, -f <text|json|sarif>
+  --json / --sarif / --fail-on <critical|high|medium|any|none> / --include-examples / --max-findings <n> / --architecture-path <rel>
+
+Options for blast-radius:
+  --symbol, -s <symbol> / --project-path, -p <dir> / --changed-since <ref> / --auto-build / --refresh
+  --max-tokens <n> / --max-items <n> / --json
+
+Options for mcp-config:
+  --client, -c <id|all>    antigravity | claude-code | claude-desktop | cursor | vscode | windsurf | codex | gemini-cli | hermes | all
+  --print | --install / --pin-version / --dry-run / --json
+
+Options for completion:
+  <fish|bash|zsh>          Or --shell <fish|bash|zsh>
+
+Help & Version:
+  help [subcommand]        Displays global help or contextual help for a specific subcommand
+  --version, -v | version  Prints version, or runs offline doctor with --json / --verbose
 `;
 }
 
@@ -201,6 +268,7 @@ Running without arguments starts the JSON-RPC MCP server (${formatSurfaceSummary
      npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts --reconcile
 
   3. Register the MCP server in your AI coding agent:
+     • Safe IDE/CLI JSON/TOML config: npx -y @sinfallas/mcp-qa-11x@latest mcp-config --client <id> [--install]
      • Claude Code:  claude mcp add -s user qa-11x -- npx -y @sinfallas/mcp-qa-11x@latest
      • VS Code:      code --add-mcp '{"name":"qa-11x","command":"npx","args":["-y","@sinfallas/mcp-qa-11x@latest"]}'
      • JSON config (Antigravity / Cursor / Claude Desktop / Windsurf):

@@ -2,26 +2,26 @@
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 # Makefile canónico para desarrollo local, automatización y gobernanza Level-11X
 
-.PHONY: help clean qa-clean audit lint-workflows lint-docs sync-governance version-check validate-calm shellcheck shfmt test test-mcp test-example test-karate test-py test-bats diff-cov pr-verdict test-meta-qa test-ai-offline test-frontend-blueprints test-backend-blueprints test-mobile-blueprints audit-llm audit-psi qa-psi lint build certify publish-mcp publish-mcp-dry
+.PHONY: help clean qa-clean audit sbom compact-context lint-workflows lint-docs sync-governance version-check validate-calm shellcheck shfmt test test-mcp test-example test-karate test-py test-bats diff-cov pr-verdict test-meta-qa test-ai-offline test-frontend-blueprints test-backend-blueprints test-mobile-blueprints audit-llm audit-psi qa-psi lint build certify publish-mcp publish-mcp-dry
 
 DIRECTIVE_11X_COMPLEXITY_MSG := [DIRECTIVE-11X] Complexity/Signature limit exceeded. Do NOT split into pass-through micro-helpers (>4 params). Read '.agents/skills/tactical-patterns-11x/SKILL.md' (or 'blueprint://skills/tactical-patterns-11x') and apply Table-Driven Dispatch, Parameter Object/DTO, Guard Clauses, or Functional Pipeline.
 COMPLEXITY_FAILURE_REGEX := C901|PLR0911|PLR0913|max-params|max-depth|sonarjs/cognitive-complexity|complexity.*[0-9]+|Radon
 
 PY_IMG := sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4
 NODE_IMG := sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60
-MOBILE_IMG := sinfallas/base-mobile-appium:26@sha256:595b467d1476de0bc66e4bff35e37599dd889efa7f0222ee7418f159c102af91
+MOBILE_IMG := sinfallas/base-mobile-appium:26@sha256:1bb9e70613a786008fe06c418a557aeaa5fe7c62b3db29a26b4e0ce86d3c6728
 BASH_IMG := sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7
-GRAPHIFY_IMG := sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0
-TRIVY_IMG := aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb
-ALPINE_IMG := alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab
 ACTIONLINT_IMG := rhysd/actionlint:1.7.7@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9
-KARATE_IMG := sinfallas/karatelabs:1.5.1
+KARATE_IMG := sinfallas/karatelabs:1.5.1@sha256:a9a52ca9c5491ab39b64f0b4fdc3dea879c2213c9bc995be58d6cd4b9a80cc89
+K6_IMG := grafana/k6:2.4.0@sha256:d41bb79cd8de5a7ad619b53570e3712633e8bff0937010a5c6c57a4747e7a276
 
 help:
 	@echo "Comandos canónicos de desarrollo y gobernanza para QA Testing Blueprints:"
 	@echo "  make clean           - Limpia artefactos temporales, cachés de Docker y residuos root (./scripts/limpieza.sh)"
 	@echo "  make qa-clean        - Alias canónico de make clean"
 	@echo "  make audit           - Ejecuta escaneo preventivo de seguridad IaC y dependencias (Trivy en Docker)"
+	@echo "  make sbom            - Emite SBOM CycloneDX JSON + SHA-256/HMAC (./scripts/generar-sbom-cyclonedx.sh)"
+	@echo "  make compact-context - Ejecuta compactación Zero-LLM en 2 niveles (.agents/scripts/compact_context_11x.py)"
 	@echo "  make lint-workflows  - Valida sintaxis YAML sin claves duplicadas, permissions, timeouts y secretos en workflows"
 	@echo "  make lint-docs       - Valida invariantes documentales, consistencia de roadmap y guardia QA-GIT-GATE-01"
 	@echo "  make sync-governance - Sincroniza determinísticamente SHA-256 en manifest.json y valida presupuestos cognitivos"
@@ -58,6 +58,16 @@ qa-clean: clean
 
 audit:
 	@./scripts/auditar-infra.sh
+
+sbom:
+	@./scripts/generar-sbom-cyclonedx.sh $(if $(OUTPUT),"$(OUTPUT)",)
+
+compact-context:
+	@if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
+		python3 .agents/scripts/compact_context_11x.py $(COMPACT_ARGS); \
+	else \
+		docker run --rm --network none -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$$(pwd):/app" -w /app $(PY_IMG) python3 .agents/scripts/compact_context_11x.py $(COMPACT_ARGS); \
+	fi
 
 lint-workflows:
 	@py=$$(printf '%s\n' \
@@ -226,7 +236,7 @@ validate-calm:
 
 lint:
 	@echo "🔍 [Lint] Ejecutando linter y chequeo de tipos en Docker efímero..."
-	@if ! out=$$(docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "$$(pwd)/mcp-server:/app" -v "$$(pwd)/mobile-appium:/mobile-appium:ro" -v "$$(pwd)/vibe-rescue:/vibe-rescue:ro" -v "$$(pwd)/.github:/.github:ro" -w /app $(NODE_IMG) bash -c 'pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run lint && pnpm --silent run typecheck' 2>&1); then \
+	@if ! out=$$(docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e NODE_OPTIONS="--max-old-space-size=4096" -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "$$(pwd)/mcp-server:/app" -v "$$(pwd)/mobile-appium:/mobile-appium:ro" -v "$$(pwd)/vibe-rescue:/vibe-rescue:ro" -v "$$(pwd)/.github:/.github:ro" -w /app $(NODE_IMG) bash -c 'pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run lint && pnpm --silent run typecheck' 2>&1); then \
 		printf '%s\n' "$$out" >&2; \
 		if printf '%s' "$$out" | grep -qE '$(COMPLEXITY_FAILURE_REGEX)'; then printf '\n%s\n' "$(DIRECTIVE_11X_COMPLEXITY_MSG)" >&2; fi; \
 		exit 1; \
@@ -236,7 +246,7 @@ lint:
 test-mcp:
 	@echo "🧪 [Test MCP] Ejecutando pruebas unitarias Vitest (>= 95%) en Docker efímero..."
 	@mkdir -p .agents/.cache/coverage && chmod 0700 .agents/.cache
-	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "$$(pwd)/mcp-server:/app" -v "$$(pwd)/.agents/.cache/coverage:/cov-out" -v "$$(pwd)/mobile-appium:/mobile-appium:ro" -v "$$(pwd)/vibe-rescue:/vibe-rescue:ro" -v "$$(pwd)/.github:/.github:ro" -w /app $(NODE_IMG) bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run test:unit && if [ -f coverage/lcov.info ]; then sed -E 's|^SF:/app/|SF:mcp-server/|; s|^SF:(src/)|SF:mcp-server/\1|' coverage/lcov.info > /cov-out/mcp-server.info; fi && rm -rf coverage .eslintcache"
+	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e NODE_OPTIONS="--max-old-space-size=4096" -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "$$(pwd)/mcp-server:/app" -v "$$(pwd)/.agents/.cache/coverage:/cov-out" -v "$$(pwd)/mobile-appium:/mobile-appium:ro" -v "$$(pwd)/vibe-rescue:/vibe-rescue:ro" -v "$$(pwd)/.github:/.github:ro" -w /app $(NODE_IMG) bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run test:unit && if [ -f coverage/lcov.info ]; then sed -E 's|^SF:/app/|SF:mcp-server/|; s|^SF:(src/)|SF:mcp-server/\1|' coverage/lcov.info > /cov-out/mcp-server.info; fi && rm -rf coverage .eslintcache"
 
 test-karate:
 	@echo "🎭 [Karate BDD] Ejecutando contratos BDD del MCP Server en Docker efímero..."
@@ -246,9 +256,9 @@ test-py:
 	@echo "🐍 [Pytest] Ejecutando pruebas unitarias de gobernanza y manifiesto en Docker efímero..."
 	@mkdir -p .agents/.cache/coverage && chmod 0700 .agents/.cache
 	@if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
-		COVERAGE_FILE=/tmp/.coverage UV_CACHE_DIR=/tmp/uv-cache PYTHONPATH=.agents/scripts:. uv run --with pytest --with pytest-cov pytest --cov=.agents/scripts --cov=scripts --cov-fail-under=95 --cov-branch --cov-report=xml:.agents/.cache/coverage/python.xml tests/*.unit.py tests/meta_qa/test_*.py -q; \
+		COVERAGE_FILE=/tmp/.coverage UV_CACHE_DIR=/tmp/uv-cache PYTHONPATH=.agents/scripts:vibe-rescue:. uv run --with pytest --with pytest-cov pytest --cov=.agents/scripts --cov=scripts --cov=vibe-rescue --cov-fail-under=95 --cov-branch --cov-report=xml:.agents/.cache/coverage/python.xml tests/*.unit.py tests/meta_qa/test_*.py vibe-rescue/tests/*.unit.py -q; \
 	else \
-		docker run --rm -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONPATH=.agents/scripts:. -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app" -w /app $(PY_IMG) uv run --with pytest --with pytest-cov pytest --cov=.agents/scripts --cov=scripts --cov-fail-under=95 --cov-branch --cov-report=xml:/app/.agents/.cache/coverage/python.xml tests/*.unit.py tests/meta_qa/test_*.py -q; \
+		docker run --rm -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONPATH=.agents/scripts:vibe-rescue:. -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app" -w /app $(PY_IMG) uv run --with pytest --with pytest-cov pytest --cov=.agents/scripts --cov=scripts --cov=vibe-rescue --cov-fail-under=95 --cov-branch --cov-report=xml:/app/.agents/.cache/coverage/python.xml tests/*.unit.py tests/meta_qa/test_*.py vibe-rescue/tests/*.unit.py -q; \
 	fi
 
 shellcheck:
@@ -294,20 +304,26 @@ test-bats:
 	'    return real_cache[rel]' \
 	'def sq_cont(rel):' \
 	'    if rel in sq_cache: return sq_cache[rel]' \
-	'    st, res = None, set()' \
+	'    st, hd, res = None, None, set()' \
 	'    for idx, line in enumerate(get_lines(rel), 1):' \
+	'        if hd is not None:' \
+	'            res.add(idx)' \
+	'            if line.strip() == hd: hd = None' \
+	'            continue' \
 	'        if st in (SQ, "$$" + SQ): res.add(idx)' \
-	'        i, n = 0, len(line)' \
+	'        i, n, act = 0, len(line), []' \
 	'        while i < n:' \
 	'            c = line[i]' \
 	'            if st is None:' \
-	'                if c == BS and i + 1 < n: i += 2; continue' \
+	'                if c == BS and i + 1 < n: act.append(c); act.append(line[i + 1]); i += 2; continue' \
 	'                if c == "#" and (i == 0 or line[i - 1] in (" ", "\t", ";", "&", "|", "(", "{")): break' \
 	'                if c == "$$" and i + 1 < n and line[i + 1] == SQ: st = "$$" + SQ; i += 2; continue' \
-	'                if c == SQ: st = SQ' \
+	'                if c == SQ: act.append(c); st = SQ' \
 	'                elif c == DQ: st = DQ' \
+	'                else: act.append(c)' \
 	'            elif st == SQ:' \
-	'                if c == SQ: st = None' \
+	'                if c == SQ: act.append(c); st = None' \
+	'                else: act.append(c)' \
 	'            elif st == "$$" + SQ:' \
 	'                if c == BS and i + 1 < n: i += 2; continue' \
 	'                if c == SQ: st = None' \
@@ -315,6 +331,9 @@ test-bats:
 	'                if c == BS and i + 1 < n: i += 2; continue' \
 	'                if c == DQ: st = None' \
 	'            i += 1' \
+	'        if st is None and hd is None:' \
+	'            m = re.search(r"<<-?\s*" + SQ + r"([A-Za-z_][A-Za-z0-9_]*)" + SQ, "".join(act))' \
+	'            if m: hd = m.group(1)' \
 	'    sq_cache[rel] = res' \
 	'    return res' \
 	'def resolve_rel(raw_fn, sources, line_elems):' \
@@ -375,6 +394,26 @@ test-bats:
 	'                        c_cov, c_tot = max(int(mn.group(1)), int(mo.group(1))), max(int(mn.group(2)), int(mo.group(2)))' \
 	'                        cur[2] = f"{int(round(c_cov * 100.0 / c_tot)) if c_tot else 100}% ({c_cov}/{c_tot})"' \
 	'                    elif mn or not cur[2]: cur[2] = cond' \
+	'for rel, fl in merged.items():' \
+	'    rl = get_lines(rel)' \
+	'    i, n_rl = 0, len(rl)' \
+	'    while i < n_rl:' \
+	'        s = rl[i].strip()' \
+	'        if re.match(r"^(?:local\s+-a\s+|declare\s+-a\s+)?[A-Za-z_][A-Za-z0-9_]*=\($", s):' \
+	'            j = i + 1' \
+	'            while j < n_rl and rl[j].strip() != ")":' \
+	'                if (i + 1) in fl and fl[i + 1][0] > 0 and (j + 1) in fl and fl[j + 1][0] == 0: fl[j + 1][0] = fl[i + 1][0]' \
+	'                j += 1' \
+	'            i = j + 1; continue' \
+	'        if re.match(r"^(?:local\s+)?[A-Za-z_][A-Za-z0-9_]*=\$$?\(", s) and (rl[i].rstrip().endswith(BS) or rl[i].rstrip().endswith("|")):' \
+	'            j = i + 1' \
+	'            while j < n_rl and (rl[j].rstrip().endswith(BS) or rl[j].rstrip().endswith("|")): j += 1' \
+	'            nxt = j + 1' \
+	'            while nxt < n_rl and (not rl[nxt].strip() or rl[nxt].strip().startswith("#")): nxt += 1' \
+	'            if nxt < n_rl and not re.match(r"^(?:fi|done|esac|else|elif\b|\}|;;)\b", rl[nxt].strip()):' \
+	'                if (i + 1) in fl and fl[i + 1][0] == 0 and (nxt + 1) in fl and fl[nxt + 1][0] > 0: fl[i + 1][0] = fl[nxt + 1][0]' \
+	'            i = j + 1; continue' \
+	'        i += 1' \
 	'tot_v = sum(len(v) for v in merged.values())' \
 	'tot_c = sum(1 for v in merged.values() for e in v.values() if e[0] > 0)' \
 	'rate = (tot_c / tot_v) if tot_v else 1.0' \
@@ -419,7 +458,7 @@ pr-verdict:
 	fi
 
 test-meta-qa:
-	@cmd='ruff check --select E,F,W,I,UP,B,C901,FLY --config "lint.mccabe.max-complexity=5" .agents/scripts scripts tests vibe-rescue/audit_vibe_prototype.py && MYPYPATH=.agents/scripts:ai-evals:vibe-rescue mypy --strict --cache-dir=/tmp/mypy .agents/scripts/*.py scripts/*.py tests/*.unit.py tests/meta_qa/*.py tests/evals/*.py vibe-rescue/audit_vibe_prototype.py && PYTHONPATH=.agents/scripts pytest --cov=lint_test_antipatterns --cov-fail-under=95 --cov-report=term-missing tests/meta_qa/test_antipattern_linter.py && PYTHONPATH=.agents/scripts pytest --cov=select_tests_by_blast_radius --cov-fail-under=95 --cov-report=term-missing tests/meta_qa/test_governance_scripts.py && PYTHONPATH=.agents/scripts pytest --cov=audit_pagespeed_insights --cov-fail-under=95 --cov-report=term-missing -k pagespeed tests/meta_qa/test_governance_scripts.py && PYTHONPATH=.agents/scripts pytest --cov=vibe-rescue --cov-fail-under=95 --cov-report=term-missing -k vibe_rescue tests/meta_qa/test_governance_scripts.py && PYTHONPATH=.agents/scripts pytest --cov=.agents/scripts --cov-report=term-missing tests/meta_qa/test_governance_scripts.py tests/meta_qa/test_antipattern_linter.py -q'; \
+	@cmd='ruff check --select E,F,W,I,UP,B,C901,FLY --config "lint.mccabe.max-complexity=5" .agents/scripts scripts tests vibe-rescue && MYPYPATH=.agents/scripts:ai-evals:vibe-rescue mypy --strict --cache-dir=/tmp/mypy .agents/scripts/*.py scripts/*.py tests/*.unit.py tests/meta_qa/*.py tests/evals/*.py vibe-rescue/*.py vibe-rescue/tests/*.py && PYTHONPATH=.agents/scripts pytest --cov=lint_test_antipatterns --cov-fail-under=95 --cov-report=term-missing tests/meta_qa/test_antipattern_linter.py && PYTHONPATH=.agents/scripts pytest --cov=select_tests_by_blast_radius --cov-fail-under=95 --cov-report=term-missing tests/meta_qa/test_governance_scripts.py && PYTHONPATH=.agents/scripts pytest --cov=audit_pagespeed_insights --cov-fail-under=95 --cov-report=term-missing -k pagespeed tests/meta_qa/test_governance_scripts.py && PYTHONPATH=.agents/scripts pytest --cov=vibe-rescue --cov-fail-under=95 --cov-report=term-missing -k vibe_rescue tests/meta_qa/test_governance_scripts.py && PYTHONPATH=.agents/scripts pytest --cov=.agents/scripts --cov-report=term-missing tests/meta_qa/test_governance_scripts.py tests/meta_qa/test_antipattern_linter.py -q'; \
 	if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
 		if ! out=$$(PYTHONDONTWRITEBYTECODE=1 RUFF_CACHE_DIR=/tmp/ruff-cache COVERAGE_FILE=/tmp/.coverage UV_CACHE_DIR=/tmp/uv-cache sh -c "$$cmd" 2>&1); then \
 			printf '%s\n' "$$out" >&2; \
@@ -518,14 +557,20 @@ test-frontend-blueprints:
 	'assert.equal(Object.isFrozen(operator.getRecordedSteps()), true);' \
 	'assert.ok(operator.getRecordedSteps().length >= 8);' \
 	'let pending = true;' \
+	'let reactIntervals = 1;' \
+	'const reactDom: Record<string, string> = {};' \
 	'const reactActor = ReactSP.Actor.named("AuditorB", { role: "auditor", tenantId: "tenant-beta", permissions: ["audit:read"] });' \
 	'assert.throws(() => reactActor.abilityTo(ReactSP.InspectReactState), ReactSP.MissingAbilityError);' \
-	'reactActor.whoCan(ReactSP.InspectReactState.using({ isTransitionPending: () => pending, async flushTransitions() { pending = false; }, renderedTenantId: () => "tenant-beta", readHookSnapshot: <T,>(k: string) => ({ hook: k, count: 3 }) as T }));' \
+	'reactActor.whoCan(ReactSP.BrowseTheWeb.using(makeDriver("/audit", reactDom)), ReactSP.InspectReactState.using({ isTransitionPending: () => pending, async flushTransitions() { pending = false; }, renderedTenantId: () => "tenant-beta", readHookSnapshot: <T,>(k: string) => ({ hook: k, count: 3 }) as T, activeIntervalCount: () => reactIntervals, triggerUnmount() { reactIntervals = 0; } }));' \
 	'await reactActor.attemptsTo(ReactSP.WaitForReactTransition("panel auditoria"));' \
 	'const reactReport = await reactActor.asks(ReactSP.VerifyReactTenantIsolation("useAuditTrail"));' \
 	'assert.equal(reactReport.tenantIsolated, true);' \
 	'assert.equal(reactReport.transitionSettled, true);' \
 	'assert.equal((reactReport.hookSnapshot as { count: number }).count, 3);' \
+	'const reactDual = await reactActor.asks(ReactSP.VerifyDualRefreshContract({ viewPath: "/audit", hookName: "useAuditTrail", expectedStateKey: "count" }));' \
+	'assert.equal(reactDual.contractSatisfied, true);' \
+	'assert.equal(reactDual.activeIntervalsAfterUnmount, 0);' \
+	'assert.equal(reactDom["clicked:role:button:/Refrescar/i"], "yes");' \
 	'const crossTenantActor = ReactSP.Actor.named("AdminC", { role: "admin", tenantId: "tenant-gamma" }).whoCan(ReactSP.InspectReactState.using({ isTransitionPending: () => false, async flushTransitions() {}, renderedTenantId: () => "tenant-beta", readHookSnapshot: () => undefined }));' \
 	'assert.equal((await crossTenantActor.asks(ReactSP.VerifyReactTenantIsolation("useAuditTrail"))).tenantIsolated, false);' \
 	'const vueTel = new VueLoc.HealingTelemetryCollector();' \
@@ -544,10 +589,13 @@ test-frontend-blueprints:
 	'assert.equal(synVue.strategy, "semantic-synonym");' \
 	'assert.equal(synVue.score, 0.9);' \
 	'assert.equal(vueTel.getRecords().length, 2);' \
-	'const fuzzyReact = ReactLoc.resolveSemanticLocator({ intent: "submit", role: "button", accessibleName: "Guardar Configuracion" }, [{ ref: "busy", role: "button", accessibleName: "Guardar Configuracion", attributes: { "aria-busy": "true" }, visible: true }, { ref: "ready", role: "button", accessibleName: ":r0: Guardar Configuracion", attributes: { id: ":r0:", "aria-labelledby": "«r1a» lbl" }, visible: true, bounds: { width: 100, height: 40 } }]);' \
+	'const fuzzyReact = ReactLoc.resolveSemanticLocator({ intent: "submit", role: "button", accessibleName: "Guardar Configuracion" }, [{ ref: "busy", role: "button", accessibleName: "Guardar Configuracion", attributes: { "aria-busy": "true" }, visible: true }, { ref: "dis", role: "button", accessibleName: "Guardar Configuracion", attributes: {}, visible: true, disabled: true }, { ref: "ready", role: "button", accessibleName: ":r0: Guardar Configuracion", attributes: { id: ":r0:", "aria-labelledby": "«r1a» _r_0_ lbl" }, visible: true, bounds: { width: 100, height: 40 } }]);' \
 	'assert.equal(fuzzyReact.ref, "ready");' \
 	'assert.equal(fuzzyReact.strategy, "exact-aria");' \
 	'assert.equal(fuzzyReact.cleanAttributes["aria-labelledby"], "lbl");' \
+	'const portalReact = ReactLoc.resolveSemanticLocator({ intent: "close", role: "dialog", accessibleName: "Cerrar Modal", landmark: "portal" }, [{ ref: "dlg-portal", role: "dialog", accessibleName: "Cerrar Modal", attributes: { "data-radix-portal": "true", id: "_r_0_" }, visible: true }]);' \
+	'assert.equal(portalReact.ref, "dlg-portal");' \
+	'assert.equal(ReactLoc.isReactPortal(portalReact.candidate), true);' \
 	'const jaccardReact = await reactActor.asks(ReactLoc.LocateSemanticTargetQuestion({ intent: "filter", role: "textbox", accessibleName: "Buscar registros por tenant" }, () => [{ ref: "inp", role: "textbox", accessibleName: "Buscar registros de tenant activos", attributes: {}, visible: true }]));' \
 	'assert.equal(jaccardReact.strategy, "fuzzy-aria");' \
 	'assert.ok(jaccardReact.score >= 0.75 && jaccardReact.score <= 0.9);' \
@@ -612,7 +660,7 @@ test-backend-blueprints:
 		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e NODE_PATH=/opt/qa11x/node_modules -e PACT_OUTPUT_DIR=/pacts -v "$$(pwd):/app:ro" -v "$$pact_dir:/pacts:ro" -w /app $(NODE_IMG) sh -c 'tsc --strict --noImplicitAny --noUnusedLocals --noUnusedParameters --noImplicitReturns --erasableSyntaxOnly --allowImportingTsExtensions --target ES2023 --module NodeNext --moduleResolution NodeNext --typeRoots /opt/qa11x/node_modules/@types --types node --noEmit node-backend/tests/contracts/provider.pact.test.ts && node --test node-backend/tests/contracts/provider.pact.test.ts' && \
 		stub_cid=$$(docker run -d --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 $(PY_IMG) python3 -c "$$stub_script") && \
 		docker exec "$$stub_cid" python3 -c "$$wait_script" && \
-		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e K6_PROFILE=smoke -e API_BASE_URL=http://127.0.0.1:18080 -e K6_SUMMARY_PATH=/pacts/k6-summary.json --network "container:$$stub_cid" -v "$$(pwd)/fastapi/tests/load:/load:ro" -v "$$pact_dir:/pacts" grafana/k6:2.4.0@sha256:d41bb79cd8de5a7ad619b53570e3712633e8bff0937010a5c6c57a4747e7a276 run -q /load/smoke.k6.js && \
+		docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e K6_PROFILE=smoke -e API_BASE_URL=http://127.0.0.1:18080 -e K6_SUMMARY_PATH=/pacts/k6-summary.json --network "container:$$stub_cid" -v "$$(pwd)/fastapi/tests/load:/load:ro" -v "$$pact_dir:/pacts" $(K6_IMG) run -q /load/smoke.k6.js && \
 		test -s "$$pact_dir/k6-summary.json" && \
 		grep -q '"thresholdsPassed": true' "$$pact_dir/k6-summary.json" && \
 		docker rm -f "$$stub_cid" >/dev/null 2>&1 && stub_cid="" && \
@@ -661,7 +709,12 @@ audit-llm:
 	@echo "🤖 [audit-llm] Ejecutando evaluación DeepEval en sinfallas/base-python-uv:3.15..."
 	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e DEEPEVAL_TELEMETRY_OPT_OUT=YES -e QA_LLM_AUDIT_LIVE="$${QA_LLM_AUDIT_LIVE:-$${RUN_LLM_AUDIT:-1}}" -e RUN_LLM_AUDIT="$${RUN_LLM_AUDIT:-1}" -e PYTHONPATH=ai-evals -e OPENAI_API_KEY -e GEMINI_API_KEY -e ANTHROPIC_API_KEY -e OLLAMA_BASE_URL -e OPENAI_API_BASE -e QA_LLM_MODEL -v "$$(pwd):/app:ro" -w /app $(PY_IMG) pytest ai-evals/rag/test_rag_faithfulness.py ai-evals/voice-realtime/test_voice_websocket_latency.py ai-evals/multimodal-ocr/test_pdf_table_fidelity.py tests/evals/test_skill_adherence.py -k "live"
 	@echo "🛡️ [audit-llm] Ejecutando matrices Promptfoo OWASP LLM Top 10 y Skills en sinfallas/base-node-ionic:26..."
-	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PROMPTFOO_DISABLE_TELEMETRY=1 -e PROMPTFOO_CONFIG_DIR=/tmp/.promptfoo -e OPENAI_API_KEY -e GEMINI_API_KEY -e ANTHROPIC_API_KEY -e OLLAMA_BASE_URL -e OPENAI_API_BASE -v "$$(pwd):/app:ro" -w /app $(NODE_IMG) sh -c "promptfoo eval -c ai-evals/promptfooconfig.yaml --no-cache -o /tmp/promptfoo-results.json && promptfoo eval -c tests/evals/promptfoo_skills_matrix.yaml --no-cache -o /tmp/promptfoo-skills-results.json"
+	@prov_regex=""; judge="$${PROMPTFOO_JUDGE_PROVIDER:-}"; \
+	[ -n "$${OPENAI_API_KEY:-}" ] && { prov_regex="$${prov_regex:+$$prov_regex|}openai:"; judge="$${judge:-openai:gpt-4.1-mini}"; }; \
+	[ -n "$${ANTHROPIC_API_KEY:-}" ] && { prov_regex="$${prov_regex:+$$prov_regex|}anthropic:"; judge="$${judge:-anthropic:messages:claude-sonnet-4-5}"; }; \
+	[ -n "$${GEMINI_API_KEY:-}" ] && { prov_regex="$${prov_regex:+$$prov_regex|}google:"; judge="$${judge:-google:gemini-2.5-flash}"; }; \
+	if [ -n "$${OLLAMA_BASE_URL:-}" ] || [ -n "$${OPENAI_API_BASE:-}" ]; then prov_regex="$${prov_regex:+$$prov_regex|}ollama:"; judge="$${judge:-ollama:chat:qwen3:8b}"; fi; \
+	docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PROMPTFOO_DISABLE_TELEMETRY=1 -e PROMPTFOO_DISABLE_REDTEAM_REMOTE_GENERATION=1 -e PROMPTFOO_CONFIG_DIR=/tmp/.promptfoo -e PROMPTFOO_JUDGE_PROVIDER="$$judge" -e PF_FILTER="$$prov_regex" -e OPENAI_API_KEY -e GEMINI_API_KEY -e ANTHROPIC_API_KEY -e OLLAMA_BASE_URL -e OPENAI_API_BASE -v "$$(pwd):/app:ro" -w /app $(NODE_IMG) sh -c 'if [ -n "$${PF_FILTER:-}" ]; then set -- --filter-providers "$${PF_FILTER}"; else set --; fi; promptfoo eval -c ai-evals/promptfooconfig.yaml "$$@" --no-cache -o /tmp/promptfoo-results.json && promptfoo eval -c tests/evals/promptfoo_skills_matrix.yaml "$$@" --no-cache -o /tmp/promptfoo-skills-results.json'
 
 audit-psi:
 	@./scripts/auditar-pagespeed.sh \
@@ -676,7 +729,7 @@ test: lint lint-docs version-check validate-calm lint-workflows shellcheck shfmt
 
 build:
 	@echo "📦 [Build] Compilando Servidor MCP en Docker efímero..."
-	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "$$(pwd)/mcp-server:/app" -w /app $(NODE_IMG) bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run build"
+	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e NODE_OPTIONS="--max-old-space-size=4096" -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "$$(pwd)/mcp-server:/app" -w /app $(NODE_IMG) bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run build"
 	@echo "✔ [Build] Servidor MCP compilado en mcp-server/dist/."
 
 publish-mcp:

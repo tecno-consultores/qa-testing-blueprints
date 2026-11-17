@@ -68,8 +68,8 @@ Un dilema común al gobernar agentes de IA es el idioma y el consumo de ventana 
 
 Bajo la **Spec 19**, la documentación humana y la interacción del agente siguen una arquitectura bilingüe determinista:
 ```markdown
-> **OUTPUT LANGUAGE CONSTRAINT (Spec 19):**
-> Interact and explain reasoning in the user's prompt language (or Spanish when configured via `--lang es`).
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING (Spec 19):**
+> Interact and explain reasoning in the user's prompt language (unless explicitly pinned via `--lang es|en`).
 > Keep `.agents/**` in concise technical English (~35% token savings) and maintain human docs as
 > English Canonical (`*.md`) + 1:1 Spanish Mirror (`*.es.md`) pairs.
 ```
@@ -79,13 +79,13 @@ Los manuales humanos y documentos de gobernanza (`docs/*.md`, `CHANGELOG.md`, `T
 
 ## 4. Compatibilidad Multi-Agente y Ecosistema MCP
 
-Esta arquitectura funciona de forma nativa e idéntica en las principales herramientas de desarrollo asistido y agentes autónomos:
+Esta arquitectura funciona de forma nativa en **28 agentes de programación IA soportados** (`--agents auto|all|<csv>`, ver [`docs/agent-setup.es.md`](agent-setup.es.md)), incluyendo:
 
 | Herramienta / Agente | Mecanismo de Ingestión MCP | Integración de Skills, Scripts y Conector | Archivo de Entrada / Configuración |
 | :--- | :--- | :--- | :--- |
-| **Google Antigravity** | `mcp_config.json` (`npx -y @sinfallas/mcp-qa-11x@latest`) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target antigravity --init-agents --include-scripts` | `.agents/` + `AGENTS.md` |
-| **Anthropic Claude Code / Desktop** | `claude_desktop_config.json` (`stdio`) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target claude --init-agents --include-scripts` | `AGENTS.md` + `.agents/skills/` |
-| **Hermes Agent (Nous Research)** | `config.yaml` (`mcp_servers`) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target hermes --init-agents --include-scripts` | `AI_MASTER_PROMPT.es.md` + `Makefile` |
+| **Google Antigravity** | `~/.gemini/antigravity/mcp_config.json` (fallback `~/.gemini/config/mcp_config.json`) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target antigravity --init-agents --include-scripts` | `.agents/` + `AGENTS.md` |
+| **Anthropic Claude Code / Desktop** | `claude_desktop_config.json` (`stdio`, multi-OS) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target claude --init-agents --include-scripts` | `AGENTS.md` + `.agents/skills/` |
+| **Hermes Agent (Nous Research)** | `config.yaml` (`mcp_servers`) / `mcp.json` | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target hermes --init-agents --include-scripts` | `AI_MASTER_PROMPT.es.md` + `Makefile` |
 | **Cursor / Windsurf** | `.cursor/mcp.json` (`mcpServers`) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target cursor --init-agents --include-scripts` | `AGENTS.md` y `.agents/rules/` |
 
 ---
@@ -127,11 +127,11 @@ Para evitar que los agentes deban clonar gigabytes de repositorios o saturar su 
    - `evaluate_agent_trajectory` *(v2.0)*: Evaluador offline AST-First y DeepEval para trayectorias multi-paso de agentes de IA.
    - `run_llm_red_team` *(v2.0)*: Auditor Promptfoo OWASP LLM Top 10 con sondas `promptGuard` y ejecución condicional en Docker.
    - `audit_vibe_prototype` *(v2.0)*: Detector de riesgos `VIBE-SEC-001..QA-005` en prototipos IA con planes `dryRun` hacia RLS/WORM.
-   - `sync_enterprise_tms`: Sincronizador JUnit/Allure/SARIF hacia Jira, Zephyr Scale, Xray y GitHub Issues protegido con `TaskStateGuard`.
+   - `sync_enterprise_tms` *(v2.0)*: Sincronizador bidireccional Zero-Infra (`inventory`, `push-results`, `pull-stories`) mediante JUnit XML hacia Jira, Zephyr Scale, Xray y GitHub Issues protegido con `TaskStateGuard`.
    - `session_flight_recorder` *(v3.1)*: Flight Recorder Atómico Unificado (`save` | `recover` | `clear`) que persiste `.agents/.cache/session_checkpoint.json` (`0600`) y proyecta determinísticamente `.agents/ACTIVE_TASK.md` (`<= 40` líneas) cruzado con el estado real de Git.
 
-3. **Onboarding `quickstart` y Sync Automático de 11 Skills Modulares (`install-skill`):**
-   Cualquier desarrollador o agente puede adoptar la pirámide en 30 segundos con `npx -y @sinfallas/mcp-qa-11x@latest quickstart`, o autoinstalar las skills modulares, scripts operativos (`.agents/scripts/*`, `scripts/*`) y conector `AGENTS.md` mediante `install-skill --init-agents --include-scripts --reconcile` (estampando `.qa-11x-version`). Además, al arrancar en modo `stdio`, el servidor MCP sincroniza en segundo plano (`SHA-256` contra `manifest.json`) las skills globales instaladas.
+3. **Onboarding `quickstart`, 12 Subcomandos CLI y Sync Automático de 11 Skills Modulares:**
+   Cualquier desarrollador o agente puede adoptar la pirámide en 30 segundos en **28 agentes de programación IA** con `npx -y @sinfallas/mcp-qa-11x@latest quickstart`, operar cualquiera de los **12 subcomandos CLI** (`quickstart`, `install-skill`, `init-agents`, `reconcile-agents`, `tms-sync`, `doctor`, `upgrade`, `certify`, `audit`, `blast-radius`, `mcp-config`, `completion`), o autoinstalar las skills modulares, scripts operativos (`.agents/scripts/*`, `scripts/*`) y conector `AGENTS.md` mediante `install-skill --init-agents --include-scripts --reconcile` (estampando `.qa-11x-version`, `--lang auto` por defecto). Además, al arrancar en modo `stdio`, el servidor MCP sincroniza en segundo plano (`SHA-256` contra `manifest.json`) las skills globales instaladas.
 
 ---
 

@@ -29,6 +29,7 @@ from _budgets import (  # noqa: E402
     MICRO_CHANGE_MAX_FILES,
     MODERATE_BLAST_CALLERS_THRESHOLD,
     SECURITY_BLAST_KEYWORDS,
+    STRUCTURAL_AST_RELATIONS,
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -55,9 +56,7 @@ SOURCE_EXTENSIONS: frozenset[str] = frozenset(
     {".py", ".ts", ".js", ".vue", ".tsx", ".jsx", ".php", ".sh", ".bats", ".feature"}
 )
 CONTRACT_EXTENSIONS: frozenset[str] = frozenset({".feature", ".bats"})
-SELF_STRUCTURAL_RELATIONS: frozenset[str] = frozenset(
-    {"contains", "rationale_for", "documented_in"}
-)
+SELF_STRUCTURAL_RELATIONS: frozenset[str] = STRUCTURAL_AST_RELATIONS
 _CAMEL_BOUNDARY_RE = re.compile(r"([a-z0-9])([A-Z])")
 _NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
 

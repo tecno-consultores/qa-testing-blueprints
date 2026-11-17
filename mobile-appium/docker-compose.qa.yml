@@ -4,7 +4,7 @@
 
 services:
   pnpm-store-init:
-    image: sinfallas/base-mobile-appium:26@sha256:595b467d1476de0bc66e4bff35e37599dd889efa7f0222ee7418f159c102af91
+    image: sinfallas/base-mobile-appium:26@sha256:1bb9e70613a786008fe06c418a557aeaa5fe7c62b3db29a26b4e0ce86d3c6728
     pull_policy: if_not_present
     user: "0:0"
     security_opt:
@@ -14,7 +14,7 @@ services:
     command: ["chmod", "-R", "a+rwX", "/pnpm"]
 
   qa-mobile:
-    image: sinfallas/base-mobile-appium:26@sha256:595b467d1476de0bc66e4bff35e37599dd889efa7f0222ee7418f159c102af91
+    image: sinfallas/base-mobile-appium:26@sha256:1bb9e70613a786008fe06c418a557aeaa5fe7c62b3db29a26b4e0ce86d3c6728
     container_name: mobile_qa_runner
     hostname: mobile_qa_runner
     pull_policy: if_not_present
@@ -43,7 +43,7 @@ services:
     command: bash -c "echo 'Contenedor QA Mobile Appium 26 listo (Rule Zero, UID no-root). Usa docker compose -f docker-compose.qa.yml run --rm -T qa-mobile [comando]'; sleep infinity"
 
   appium-bridge:
-    image: sinfallas/base-mobile-appium:26@sha256:595b467d1476de0bc66e4bff35e37599dd889efa7f0222ee7418f159c102af91
+    image: sinfallas/base-mobile-appium:26@sha256:1bb9e70613a786008fe06c418a557aeaa5fe7c62b3db29a26b4e0ce86d3c6728
     container_name: mobile_appium_bridge
     hostname: mobile_appium_bridge
     pull_policy: if_not_present
@@ -74,7 +74,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
-    command: ["appium", "--address", "0.0.0.0", "--port", "4723", "--base-path", "/", "--allow-insecure=adb_shell,get_server_logs"]
+    command: ["appium", "--address", "0.0.0.0", "--port", "4723", "--base-path", "/", "--allow-insecure=*:adb_shell,*:get_server_logs"]
 
 volumes:
   pnpm-store:

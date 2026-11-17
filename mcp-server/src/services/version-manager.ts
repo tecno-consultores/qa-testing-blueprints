@@ -253,28 +253,51 @@ async function fetchNpmLatestVersion(
   }
 }
 
-async function fetchManifestVersionFailOpen(fetcher: GitHubFetcher): Promise<string | null> {
+async function fetchManifestVersionFailOpen(
+  fetcher: GitHubFetcher,
+  timeoutMs: number,
+  signal?: AbortSignal
+): Promise<string | null> {
+  if (signal?.aborted) return null;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let onAbort: (() => void) | undefined;
   try {
-    const manifest = await fetcher.fetchManifest();
+    const manifestPromise = fetcher.fetchManifest().catch((err: unknown) => {
+      reportDebugCatchError('versionManager.fetchManifestVersionFailOpen', err);
+      return null;
+    });
+    const timeoutPromise = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), timeoutMs);
+      if (signal) {
+        onAbort = () => resolve(null);
+        signal.addEventListener('abort', onAbort, { once: true });
+      }
+    });
+    const manifest = await Promise.race([manifestPromise, timeoutPromise]);
+    if (!manifest) return null;
     return parseSemver(manifest.blueprint_version)
       ? manifest.blueprint_version.trim().replace(/^v/, '')
       : null;
-  } catch (err: unknown) {
-    // Advisory offline/timeout-safe manifest version probe: null preserves running version
-    reportDebugCatchError('versionManager.fetchManifestVersionFailOpen', err);
-    return null;
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+    if (signal && onAbort) signal.removeEventListener('abort', onAbort);
   }
 }
 
 export async function resolveLatestPublishedVersion(
   options: Omit<EvaluateUpdateOptions, 'projectPath' | 'homeDir'> = {}
 ): Promise<string> {
-  const fetcher = options.fetcher ?? new GitHubFetcher();
+  const npmTimeoutMs = options.npmTimeoutMs ?? DEFAULT_NPM_TIMEOUT_MS;
+  const manifestTimeoutMs = Math.min(npmTimeoutMs, 1200);
+  const fetchFn = options.fetchFn ?? fetch;
+  const fetcher =
+    options.fetcher ??
+    new GitHubFetcher({
+      timeoutMs: manifestTimeoutMs,
+    });
   const runningVer = (options.runningMcpVersion ?? MCP_SERVER_VERSION).trim().replace(/^v/, '');
   const ttlMs = options.ttlMs ?? DEFAULT_VERSION_TTL_MS;
   const nowMs = options.nowMs ?? Date.now();
-  const fetchFn = options.fetchFn ?? fetch;
-  const npmTimeoutMs = options.npmTimeoutMs ?? DEFAULT_NPM_TIMEOUT_MS;
   const defaultAllowNetwork =
     process.env.VITEST !== 'true' && process.env.NODE_ENV !== 'test';
   const allowNetwork = options.allowNetworkCheck ?? defaultAllowNetwork;
@@ -288,7 +311,7 @@ export async function resolveLatestPublishedVersion(
   const isCacheFresh = checkCache !== null && nowMs - checkCache.checked_at_ms < ttlMs;
   if (allowNetwork && !isCacheFresh) {
     const [manifestVer, npmVer] = await Promise.all([
-      fetchManifestVersionFailOpen(fetcher),
+      fetchManifestVersionFailOpen(fetcher, manifestTimeoutMs, options.signal),
       fetchNpmLatestVersion(fetchFn, npmTimeoutMs, options.signal),
     ]);
     const fetchedBest = pickHigherSemver(manifestVer, npmVer);

@@ -27,7 +27,23 @@ const QUERY_SECRET_RE = /\b(token|access_token|api_key|apikey|secret|password|pa
 const FLAG_SECRET_RE = /(--(?:token|api-key|apikey|secret|password|passwd))\s+[^\s"']+/gi;
 const PREFIX_TOKEN_RE = /\b(?:ghp|gho|ghs|npm)_[A-Za-z0-9]{16,}\b/g;
 const WHITESPACE_COLLAPSE_RE = /[\r\n\t]+/g;
-const ARTIFACT_UNSAFE_RE = /[^a-zA-Z0-9._-]+/g;
+
+export function throwIfSignalAborted(
+  signal: AbortSignal | undefined,
+  defaultMessage: string
+): void {
+  if (!signal?.aborted) {
+    return;
+  }
+  const reason: unknown = signal.reason;
+  if (reason instanceof Error) {
+    throw reason;
+  }
+  if (typeof reason === 'string' && reason.trim().length > 0) {
+    throw new Error(reason);
+  }
+  throw new Error(defaultMessage);
+}
 
 export type DiagnosticOutcomeStatus =
   | typeof STATUS_PASSED
@@ -144,24 +160,6 @@ export function pickAt(
   return items[index] ?? fallback;
 }
 
-function trimEdgeDashes(value: string): string {
-  let start = 0;
-  let end = value.length;
-  while (start < end && value[start] === '-') {
-    start += 1;
-  }
-  while (end > start && value[end - 1] === '-') {
-    end -= 1;
-  }
-  return value.slice(start, end);
-}
-
-export function buildFailureArtifactPath(stageId: string, ext: 'png' | 'html' | 'zip'): string {
-  const replaced = stageId.replace(ARTIFACT_UNSAFE_RE, '-');
-  const cleanId = trimEdgeDashes(replaced) || 'stage';
-  return `artifacts/failures/${cleanId}.${ext}`;
-}
-
 function dedupeConsecutiveLines(lines: readonly string[]): string[] {
   const result: string[] = [];
   for (const line of lines) {
@@ -172,7 +170,7 @@ function dedupeConsecutiveLines(lines: readonly string[]): string[] {
   return result;
 }
 
-export function cleanDiagnosticExcerpt(rawText: string, maxLines: number = 10): string {
+function cleanDiagnosticExcerpt(rawText: string, maxLines: number = 10): string {
   const stripped = stripVTControlCharacters(rawText);
   const nonEmpty = stripped
     .split(/\r?\n/)
@@ -319,10 +317,6 @@ export function formatFailVerboseReport(input: DiagnosticExecutionInput): string
     lines.push(`  ${TACTICAL_PATTERNS_DIRECTIVE_11X}`);
   }
   return lines.join('\n');
-}
-
-export function formatDiagnosticOutput(input: DiagnosticExecutionInput): string {
-  return input.passed ? formatPassQuietSummary(input) : formatFailVerboseReport(input);
 }
 
 export function toAllureDiagnosticEnvelope(

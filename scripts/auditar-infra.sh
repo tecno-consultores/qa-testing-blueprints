@@ -113,20 +113,30 @@ if [ "${STATIC_ONLY}" = true ]; then
 fi
 
 # Calcular huella SHA-256 portable (Linux sha256sum o macOS shasum) de IaC, workflows, Makefiles y lockfiles
+compute_iac_fingerprint() {
+  local hasher="$1"
+  if [ "${hasher}" = "sha256sum" ]; then
+    find "${REPO_ROOT}" -maxdepth 4 \
+      \( -name node_modules -o -name .git -o -name dist -o -name .venv -o -name vendor \) -prune \
+      -o -type f \( -name 'docker-compose*.yml' -o -name 'Dockerfile*' -o -name '.trivy.yaml' -o -name 'pnpm-lock.yaml' -o -name 'package-lock.json' -o -name 'uv.lock' -o -name 'composer.lock' -o -name 'pom.xml' -o -name 'requirements*.txt' -o -name 'poetry.lock' -o -name 'Pipfile.lock' -o -name 'Cargo.lock' -o -name 'go.sum' -o -name 'Makefile' -o -name 'Makefile.example' -o -path '*/.github/workflows/*.yml' -o -path '*/.github/workflows/*.yaml' -o -path '*/.github/actions/*/action.yml' -o -path '*/.github/actions/*/action.yaml' \) \
+      -print0 2>/dev/null | sort -z | xargs -0 sha256sum 2>/dev/null | sha256sum | awk '{print $1}'
+  else
+    find "${REPO_ROOT}" -maxdepth 4 \
+      \( -name node_modules -o -name .git -o -name dist -o -name .venv -o -name vendor \) -prune \
+      -o -type f \( -name 'docker-compose*.yml' -o -name 'Dockerfile*' -o -name '.trivy.yaml' -o -name 'pnpm-lock.yaml' -o -name 'package-lock.json' -o -name 'uv.lock' -o -name 'composer.lock' -o -name 'pom.xml' -o -name 'requirements*.txt' -o -name 'poetry.lock' -o -name 'Pipfile.lock' -o -name 'Cargo.lock' -o -name 'go.sum' -o -name 'Makefile' -o -name 'Makefile.example' -o -path '*/.github/workflows/*.yml' -o -path '*/.github/workflows/*.yaml' -o -path '*/.github/actions/*/action.yml' -o -path '*/.github/actions/*/action.yaml' \) \
+      -print0 2>/dev/null | sort -z | xargs -0 shasum -a 256 2>/dev/null | shasum -a 256 | awk '{print $1}'
+  fi
+}
+
 if command -v sha256sum >/dev/null 2>&1; then
-  IAC_FINGERPRINT=$(find "${REPO_ROOT}" -maxdepth 4 \
-    \( -name node_modules -o -name .git -o -name dist -o -name .venv -o -name vendor \) -prune \
-    -o -type f \( -name 'docker-compose*.yml' -o -name 'Dockerfile*' -o -name '.trivy.yaml' -o -name 'pnpm-lock.yaml' -o -name 'package-lock.json' -o -name 'uv.lock' -o -name 'composer.lock' -o -name 'Makefile' -o -name 'Makefile.example' -o -path '*/.github/workflows/*.yml' -o -path '*/.github/workflows/*.yaml' -o -path '*/.github/actions/*/action.yml' -o -path '*/.github/actions/*/action.yaml' \) \
-    -print0 2>/dev/null | sort -z | xargs -0 sha256sum 2>/dev/null | sha256sum | awk '{print $1}')
+  IAC_FINGERPRINT="$(compute_iac_fingerprint sha256sum)"
 else
-  IAC_FINGERPRINT=$(find "${REPO_ROOT}" -maxdepth 4 \
-    \( -name node_modules -o -name .git -o -name dist -o -name .venv -o -name vendor \) -prune \
-    -o -type f \( -name 'docker-compose*.yml' -o -name 'Dockerfile*' -o -name '.trivy.yaml' -o -name 'pnpm-lock.yaml' -o -name 'package-lock.json' -o -name 'uv.lock' -o -name 'composer.lock' -o -name 'Makefile' -o -name 'Makefile.example' -o -path '*/.github/workflows/*.yml' -o -path '*/.github/workflows/*.yaml' -o -path '*/.github/actions/*/action.yml' -o -path '*/.github/actions/*/action.yaml' \) \
-    -print0 2>/dev/null | sort -z | xargs -0 shasum -a 256 2>/dev/null | shasum -a 256 | awk '{print $1}')
+  IAC_FINGERPRINT="$(compute_iac_fingerprint shasum)"
 fi
 
+CACHE_DIR="${REPO_ROOT}/.agents/.cache/trivy"
 CACHE_UTC_DAY="$(date -u +%Y%m%d 2>/dev/null || echo 'nodate')"
-CACHE_MARKER="/tmp/.qa11x_trivy_cache_${IAC_FINGERPRINT}_${CACHE_UTC_DAY}"
+CACHE_MARKER="${CACHE_DIR}/marker_${IAC_FINGERPRINT}_${CACHE_UTC_DAY}"
 
 if [ "${FORCE_SCAN}" = false ] && [ -n "${IAC_FINGERPRINT}" ] && [ -f "${CACHE_MARKER}" ]; then
   echo "✔ [Trivy] IaC (HIGH/CRIT=0) y File System (HIGH/CRIT=0) verificados sin hallazgos (caché SHA-256)."
@@ -176,8 +186,12 @@ if ! FS_OUT=$(docker run --rm \
 fi
 
 if [ -n "${IAC_FINGERPRINT}" ]; then
-  rm -f /tmp/.qa11x_trivy_cache_* 2>/dev/null || true
-  touch "${CACHE_MARKER}" 2>/dev/null || true
+  if mkdir -p "${CACHE_DIR}" 2>/dev/null; then
+    chmod 700 "${REPO_ROOT}/.agents/.cache" "${CACHE_DIR}" 2>/dev/null || true
+    rm -f "${CACHE_DIR}/marker_"* 2>/dev/null || true
+    : >"${CACHE_MARKER}" 2>/dev/null || true
+    chmod 600 "${CACHE_MARKER}" 2>/dev/null || true
+  fi
 fi
 
 echo "✔ [Trivy] IaC (HIGH/CRIT=0) y File System (HIGH/CRIT=0) verificados sin hallazgos."

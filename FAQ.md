@@ -88,7 +88,7 @@ make qa-e2e
 
 ### How does an AI Agent interact with this repository?
 An AI agent (such as Google Antigravity, Anthropic Claude Code / Claude Desktop, Nous Research Hermes Agent, Cursor, or Windsurf) can interact in three ways:
-1. **Via MCP Server (`@sinfallas/mcp-qa-11x` v3.1.0):** Connects over `stdio` via `npx -y @sinfallas/mcp-qa-11x@latest`. The server exposes **19 operational tools** (the 12 core v1 tools, 6 v2.0 evaluators — `validate_calm_architecture`, `evaluate_release_gate`, `evaluate_agent_trajectory`, `run_llm_red_team`, `audit_vibe_prototype`, `sync_enterprise_tms` — plus the **v3.1** `session_flight_recorder`) and **13 dynamic resources (`blueprint://*`, supporting `?lang=es|en`)** including **v3.1** `blueprint://skills/tactical-patterns-11x`, allowing the agent to audit and merge templates without cloning the entire repository.
+1. **Via MCP Server (`@sinfallas/mcp-qa-11x` v3.2.0):** Connects over `stdio` via `npx -y @sinfallas/mcp-qa-11x@latest`. The server exposes **19 operational tools** (the 12 core v1 tools, 6 v2.0 evaluators — `validate_calm_architecture`, `evaluate_release_gate`, `evaluate_agent_trajectory`, `run_llm_red_team`, `audit_vibe_prototype`, `sync_enterprise_tms` — plus the **v3.1** `session_flight_recorder`) and **13 dynamic resources (`blueprint://*`, supporting `?lang=es|en`)** including **v3.1** `blueprint://skills/tactical-patterns-11x`, allowing the agent to audit and merge templates without cloning the entire repository.
 2. **Via Zero-Clone Skills (`qa-11x-architect` and full catalog of 11 modular skills):** Injected into its environment along with operational scripts and the `AGENTS.md` connector by running `npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts --reconcile` (SHA-256 verified against `manifest.json`), or by downloading and inspecting `scripts/install-skill.sh` with checksum verification before running it locally (avoid blind `curl ... | sh` piping). The agent immediately gains knowledge of the 13 quality layers, 22 baseline DISA/OWASP reference controls (enforced by 34 static scanner rules), JIT complexity patterns, and Anti-JSDOM prevention.
 3. **Via Local Rules (`.agents/` and `AGENTS.md`):** When operating inside the cloned repository, the agent automatically reads directives in `.agents/rules/` and keeps the active log in `.agents/ACTIVE_TASK.md`, running the universal gate `./.agents/scripts/certify_task_completion.sh` before finishing turns.
 
@@ -105,16 +105,21 @@ The 11X standard defines a **Hybrid Pair Programming** model:
 Following RoSGrid's corporate sovereignty and isolation philosophy, delegating npm package publishing with `NPM_TOKEN` credentials to remote CI/CD runners introduces secret leakage risks and external network failures outside our control. Publishing is consolidated in the sovereign script `scripts/publicar-mcp.sh`, which runs the full 11X gate in ephemeral local Docker and handles the npm token transiently in memory with immediate cleanup.
 
 ### How do I update the MCP Server and Skills in my IDE after publishing a new version to npmjs, and how do I verify changes were downloaded?
-Even if `mcp_config.json` specifies `"@sinfallas/mcp-qa-11x@latest"`, the IDE keeps the `stdio` process in memory from startup and `npx` caches copies in `~/.npm/_npx` (plus manifest cache in `~/.cache/qa-11x-blueprints`). To force an update and verify cryptographic integrity:
-1. **Purge caches and reinstall the 11 modular Skills, Rules, and Scripts:**
+Even if `mcp_config.json` specifies `"@sinfallas/mcp-qa-11x@latest"`, the IDE keeps the `stdio` process in memory from startup and `npx` caches copies in `~/.npm/_npx` (plus manifest cache in `~/.cache/qa-11x-blueprints`). To update surgically and verify cryptographic integrity:
+1. **Run the surgical `upgrade` command (recommended first step):**
    ```bash
-   rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@latest install-skill --target all --init-agents --include-scripts --reconcile
+   npx -y @sinfallas/mcp-qa-11x@latest upgrade
    ```
+   This removes only stale `@sinfallas/mcp-qa-11x` entries inside `~/.npm/_npx` and `~/.cache/qa-11x-blueprints` (without wiping other tools), reconciles `.agents/` governance (`--reconcile`), and re-syncs all 11 modular skills. *(Only as a last resort if a corrupted cache persists, run `rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@latest install-skill --target all --init-agents --include-scripts --reconcile`.)*
 2. **Restart the MCP server in your IDE:** In Google Antigravity go to **`...` (Additional Options) > MCP Servers > `qa-11x` > Restart** or press `Ctrl+Shift+P` -> **`Developer: Reload Window`**.
-3. **Verify version and SHA-256 hashes (`DISA STIG V-222513`):**
-   * Check the `npx` version: `grep -rn '"version"' ~/.npm/_npx/*/node_modules/@sinfallas/mcp-qa-11x/package.json`
-   * Check cached manifest and docs metadata: `grep -E '"blueprint_version"|"generated_at_utc"' ~/.cache/qa-11x-blueprints/manifest.json`
-   * During `install-skill` execution, verify console output displays `✔ [Skills 11X] ... files verified with SHA-256 (DISA STIG V-222513)`. If any downloaded file mismatches the official manifest SHA-256 hash, the installer aborts automatically due to a cryptographic integrity violation.
+3. **Verify environment, active version, and SHA-256 hashes (`DISA STIG V-222513`):**
+   * Run **`doctor`** (or offline **`--version --verbose`**) to inspect active binary origin, `~/.npm/_npx` caches, global skills `.qa-11x-version` stamps, IDE configs, and Docker:
+     ```bash
+     npx -y @sinfallas/mcp-qa-11x@latest doctor
+     npx -y @sinfallas/mcp-qa-11x --version --verbose
+     ```
+   * Optionally inspect cached files directly: `grep -rn '"version"' ~/.npm/_npx/*/node_modules/@sinfallas/mcp-qa-11x/package.json` and `grep -E '"blueprint_version"|"generated_at_utc"' ~/.cache/qa-11x-blueprints/manifest.json`.
+   * During skill synchronization, verify console output displays `✔ [Skills 11X] ... files verified with SHA-256 (DISA STIG V-222513)`. If any downloaded file mismatches the official manifest SHA-256 hash, the installer aborts automatically due to a cryptographic integrity violation.
 
 ### What is "Anti-Mock Blindness", and why is verification against real PostgreSQL and Alembic migrations mandatory?
 In unit tests, mocking database calls creates a false sense of security. An ORM model can contain incompatible data types or missing columns that pass mocked tests with 100% coverage yet break production databases. Under Standard 11X, every model change requires a versioned migration and verification via `verify_alembic_orm_parity.py` running against a real PostgreSQL instance in ephemeral Docker.
@@ -123,7 +128,7 @@ In unit tests, mocking database calls creates a false sense of security. An ORM 
 JSDOM simulates DOM nodes in Node.js without computing CSS layout, Flexbox/Grid boxes, or bounding coordinates (`getBoundingClientRect()` returns `0x0`). A fixed footer (`position: fixed`) can overlap a form or table while JSDOM claims buttons exist and are clickable. Standard 11X prohibits fixed footers, mandates in-flow layouts (`margin-top: auto` on `<main>`), and validates real browser geometry with Karate Labs UI or Playwright in Chromium.
 
 ### Why are internal AI directives in `.agents/` written in technical English when human docs also support Spanish?
-For **token economy and logical precision**. BPE tokenizers split Spanish into ~35% more tokens than high-density technical English, so keeping internal rules and skills in English saves context window space for code and schemas. Meanwhile, top-level and operational documentation adopts the **English Canonical (`*.md`) + 1:1 Spanish Mirror (`*.es.md`)** architecture (Spec 19), while human interaction language obeys `AGENTS.md` and consumer repositories can follow *Dynamic Language Mirroring*.
+For **token economy and logical precision**. BPE tokenizers split Spanish into ~35% more tokens than high-density technical English, so keeping internal rules and skills in English saves context window space for code and schemas. Meanwhile, top-level and operational documentation adopts the **English Canonical (`*.md`) + 1:1 Spanish Mirror (`*.es.md`)** architecture (Spec 19), while interactive agent responses and consumer repositories follow *Dynamic Language Mirroring* (matching the user's prompt language unless explicitly pinned via `--lang es|en`).
 
 ### Why is KeyDB used instead of standard Redis?
 KeyDB is a multithreaded in-memory engine 100% compatible with Redis. It leverages multiple CPU cores simultaneously (`--server-threads 2`), scaling cache, rate-limiting, pub/sub, and idempotency-lock throughput by 3x to 5x without requiring any client library changes.

@@ -3,7 +3,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
+import { resolveRealTarget, resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { inspectProjectConfig } from './inspect-project.js';
 import {
   CONNECTOR_START_MARKER,
@@ -386,7 +386,7 @@ const CURSOR_MDC_HEADER = [
 
 export function validateSupportedLang(rawLang?: string): SupportedLang {
   if (rawLang === undefined) {
-    return 'es';
+    return 'auto';
   }
   const normalized = rawLang.normalize('NFKC').trim().toLowerCase();
   if (normalized === 'auto' || normalized === 'es' || normalized === 'en') {
@@ -442,24 +442,16 @@ export function parseAgentsOption(rawAgents: string): AgentsTargetSpec {
   return result;
 }
 
-function findNearestExistingAncestor(targetPath: string): string {
-  let cursor = targetPath;
-  while (!fs.existsSync(cursor)) {
-    const parent = path.dirname(cursor);
-    if (parent === cursor) {
-      break;
-    }
-    cursor = parent;
-  }
-  return cursor;
-}
-
 function hasTraversalSegments(normalizedRel: string): boolean {
-  if (!normalizedRel || normalizedRel.includes('\0') || path.isAbsolute(normalizedRel)) {
+  if (!normalizedRel || normalizedRel.includes('\0') || path.isAbsolute(normalizedRel) || /^[A-Za-z]:/.test(normalizedRel)) {
     return true;
   }
   const parts = normalizedRel.split(/[/\\]+/);
   return parts.some((segment) => segment === '..');
+}
+
+function isInsideOrEqualRoot(realRoot: string, realRootPrefix: string, target: string): boolean {
+  return target === realRoot || target.startsWith(realRootPrefix);
 }
 
 export function resolveSafeBridgePath(projectRoot: string, relBridgePath: string): string {
@@ -470,16 +462,10 @@ export function resolveSafeBridgePath(projectRoot: string, relBridgePath: string
 
   const rootResolved = path.resolve(projectRoot);
   const candidate = path.resolve(rootResolved, normalizedRel);
-  const rootPrefix = rootResolved.endsWith(path.sep) ? rootResolved : `${rootResolved}${path.sep}`;
-  if (candidate !== rootResolved && !candidate.startsWith(rootPrefix)) {
-    throw new Error(`Path traversal outside project root detected for '${relBridgePath}'.`);
-  }
-
-  const realRoot = fs.existsSync(rootResolved) ? fs.realpathSync(rootResolved) : rootResolved;
+  const realRoot = resolveRealTarget(rootResolved);
   const realRootPrefix = realRoot.endsWith(path.sep) ? realRoot : `${realRoot}${path.sep}`;
-  const ancestor = findNearestExistingAncestor(candidate);
-  const realAncestor = fs.realpathSync(ancestor);
-  if (realAncestor !== realRoot && !realAncestor.startsWith(realRootPrefix)) {
+  const realCandidate = resolveRealTarget(candidate);
+  if (!isInsideOrEqualRoot(realRoot, realRootPrefix, realCandidate)) {
     throw new Error(`Symlink path traversal outside project root detected for '${relBridgePath}'.`);
   }
 

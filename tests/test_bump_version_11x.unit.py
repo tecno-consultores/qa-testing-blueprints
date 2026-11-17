@@ -180,6 +180,34 @@ def test_main_modes_and_entrypoint(
     assert mod.main(["--workspace", str(tmp_path), "--set", "3.0.0", "--dry-run"]) == 0
     assert "Dry-run checked version=3.0.0 edition=n/a" in capsys.readouterr().out
 
+    # --set con --dry-run simula en memoria sin error ni escritura en disco
+    assert (
+        mod.main(
+            [
+                "--workspace",
+                str(tmp_path),
+                "--set",
+                "3.2.0",
+                "--edition",
+                "QA-11X v3.2",
+                "--dry-run",
+            ]
+        )
+        == 0
+    )
+    assert "Dry-run checked version=3.2.0 edition=QA-11X v3.2 (writes=0)" in (
+        capsys.readouterr().out
+    )
+    assert v_file.read_text(encoding="utf-8") == 'v="3.0.0"\n'
+    assert e_file.read_text(encoding="utf-8") == 'ed="QA-11X v3.1"\n'
+
+    max_rep_rule = mod.VersionRule(
+        "dup.txt",
+        (re.compile(r'^(v=")([^"]+)(")', re.MULTILINE),),
+        max_replacements=1,
+    )
+    assert mod.find_mismatches('v="3.0.0"\nv="2.0.0"\n', max_rep_rule, "3.0.0") == []
+
     assert (
         mod.main(
             [
@@ -310,3 +338,31 @@ def test_extended_doc_and_calm_rules_sync_and_verify(tmp_path: Path) -> None:
         "standard": "QA-11X v3.1",
         "version": "3.1.0",
     }
+
+
+def test_major_minor_only_security_rules(tmp_path: Path) -> None:
+    mod = _load_mod()
+    sec_rules = tuple(
+        r for r in mod.VERSION_RULES if r.rel_path in {"SECURITY.md", "SECURITY.es.md"}
+    )
+    assert len(sec_rules) == 2
+    assert all(r.major_minor_only for r in sec_rules)
+
+    (tmp_path / "SECURITY.md").write_text(
+        "| **`3.0.x` (`main` / Active)** |\nSuperseded by `3.0.x`.\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "SECURITY.es.md").write_text(
+        "| **`3.0.x` (`main` / Activa)** |\nReemplazada por `3.0.x`.\n",
+        encoding="utf-8",
+    )
+
+    assert mod.run_rules(tmp_path, sec_rules, "3.0.4", False) == ([], 0)
+    errs, _ = mod.run_rules(tmp_path, sec_rules, "3.1.2", False)
+    assert len(errs) == 4
+    assert all("expected '3.1'" in msg for msg in errs)
+
+    assert mod.run_rules(tmp_path, sec_rules, "3.1.2", True) == ([], 2)
+    assert mod.run_rules(tmp_path, sec_rules, "3.1.9", False) == ([], 0)
+    assert "3.1.x" in (tmp_path / "SECURITY.md").read_text(encoding="utf-8")
+    assert "3.1.x" in (tmp_path / "SECURITY.es.md").read_text(encoding="utf-8")

@@ -3,10 +3,11 @@ name = "python-qa-blueprint"
 version = "0.2.0"
 description = "Plantilla base corporativa (11X) para scripts de Python con pruebas exhaustivas, BDD, y Profiling"
 readme = "README.md"
-requires-python = ">=3.15"
+requires-python = ">=3.11"
 dependencies = [
     "requests>=2.31.0",
     "python-dotenv>=1.0.0",
+    "prometheus-client>=0.20.0",
 ]
 
 [project.optional-dependencies]
@@ -31,14 +32,15 @@ dev = [
     # Security & Mutation
     "bandit[toml]>=1.7.8",
     "pip-audit>=2.7.3",
-    "mutmut>=2.4.5,<3.0.0",
+    "cyclonedx-bom>=4.0.0",
+    "mutmut>=3.7.0",
     
     # Complexity & Profiling
     "radon>=6.0.1",
     "py-spy>=0.3.14",
     
-    # Observability & Metrics (Nivel 11X)
-    "prometheus-client>=0.20.0"
+    # Contracts (Zero-Infra CDCT)
+    "pact-python>=3.0.0",
 ]
 
 [tool.bandit]
@@ -85,10 +87,9 @@ max-returns = 4
 strict = true
 
 [tool.mutmut]
-paths_to_mutate = "src/"
-backup = false
-runner = "python -m pytest -x"
-tests_dir = "tests/"
+source_paths = ["src/"]
+pytest_add_cli_args = ["-x", "--no-cov", "-m", "not integration"]
+pytest_add_cli_args_test_selection = ["tests/"]
 
 [tool.pyrefly]
 search-path = ["."]

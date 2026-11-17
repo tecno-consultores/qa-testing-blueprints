@@ -43,6 +43,7 @@
 | **Milestone 24** | Comprehensive `QA-11X v3.0` Audit (`v3.0.0`), `bump_version_11x.py` Synchronizer, Live MCP Protocol & `19_SPEC` / `20_SPEC` Planning | [`19_SPEC`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md) + [`20_SPEC`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md) | ✅ Completed | `100%` |
 | **Milestone 25** | 15×12 Matrix, `sinfallas/base-mobile-appium:26` & Bilingual Documentation Architecture | [`19_SPEC`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md) + [`20_SPEC`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md) | ✅ Completed | `100%` |
 | **Milestone 26** | `QA-11X v3.1` (`3.1.0`) — Atomic Flight Recorder, `tactical-patterns-11x`, 10-Stack Hydration & Fail-Closed Hardening | [`AGENTS.md`](AGENTS.md) + [`TESTING.md`](TESTING.md) | ✅ Completed | `100%` |
+| **Milestone 27** | `v3.2.0` (`QA-11X v3.1`) — 99/99 Forensic Audit Remediation, 12 CLI Subcommands, MCP 2026 Annotations, A2A v1.0 & 100% Diff Coverage | [`CHANGELOG.md`](CHANGELOG.md) + [`TESTING.md`](TESTING.md) | ✅ Completed | `100%` |
 
 ---
 
@@ -170,7 +171,7 @@
 **Mandatory Reference:** [`docs/specs/09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md`](docs/specs/09_SPEC_DETECCION_PLAYWRIGHT_MCP_Y_PR_EVOLUCION_CONTINUA.md)
 
 ### Implementation Tasks:
-- [x] **10.1.** Add `BrowserTestingReadiness` interface in `mcp-server/src/types.ts` and implement `evaluateBrowserTestingReadiness()` in `mcp-server/src/tools/inspect-project.ts` detecting `@playwright/test`, `@axe-core/playwright`, `@lhci/cli`, `e2e/*.e2e.ts`, and IDE browser MCP configs (`@playwright/mcp` / `chrome-devtools`), providing injection instructions via `bootstrap_or_merge_11x`.
+- [x] **10.1.** Add `BrowserTestingReadiness` interface in `mcp-server/src/types.ts` and implement `evaluateBrowserTestingReadiness()` in `mcp-server/src/tools/inspect-project.ts` detecting `@playwright/test`, `@axe-core/playwright`, `@lhci/cli`, `e2e/*.e2e.ts`, and IDE browser MCP configs (`@playwright/mcp` / `chrome-devtools`) in frontend projects (`vue3`, `react-frontend`), providing injection instructions via `bootstrap_or_merge_11x`.
 - [x] **10.2.** Implement `mcp-server/src/tools/propose-evolution-pr.ts` (`proposeSkillEvolutionPr`) combining **Option 1 (authenticated local `gh` CLI via `execFile` with `shell: false`)** and **Option 2 (Zero-Credential Fallback emitting `.agents/proposals/<slug>.md` + prefilled GitHub URL)** without ever bundling tokens.
 - [x] **10.3.** Register Tool 11 (`propose_skill_evolution_pr`) with Zod schema (`ProposeEvolutionPrInputSchema`) in `mcp-server/src/server.ts`.
 - [x] **10.4.** Add **Playbook 7 (Continuous Skill Evolution & Upstream PR Proposal)** and `browser_testing_readiness` checks to `.agents/skills/qa-11x-architect/SKILL.md`, and regenerate `manifest.json` via `python3 scripts/generar-manifiesto.py`.
@@ -210,7 +211,7 @@
 ### Implementation Tasks:
 - [x] **13.1.** Add `ReconcileAgentsInputSchema`, `ReconciledRuleItem`, and `ReconcileAgentsResult` contracts to `mcp-server/src/types.ts`.
 - [x] **13.2.** Implement `mcp-server/src/cli/reconcile-agents.ts` (`reconcileAgentsGovernance`, `isPromotedSection`, `splitMarkdownSections`, automatic backups under `.agents/backups/<timestamp>/`, pruning of promoted directives, and extraction of project-specific rules into `.agents/rules/domain_<project>_rules.md`).
-- [x] **13.3.** Register Tool 12 (`reconcile_agents_governance`) in `mcp-server/src/server.ts`, expose `reconcile-agents` CLI subcommand in `mcp-server/src/index.ts`, update `install-skill.ts` to install canonical `.agents/rules/*.md` files with `--include-scripts` and reconcile via `--reconcile`, extend `buildConnectorBlock()` + add `syncGlobalGeminiMd()` in `init-agents-md.ts` (with QA-escape Post-Mortem directive using `propose_skill_evolution_pr`), and inject `upstream_evolution_reminder` into `certify_11x_gate` (`certify-gate.ts`).
+- [x] **13.3.** Register Tool 12 (`reconcile_agents_governance`) in `mcp-server/src/server.ts`, expose `reconcile-agents` CLI subcommand in `mcp-server/src/index.ts`, update `install-skill.ts` to install canonical `.agents/rules/*.md` files with `--include-scripts` and reconcile via `--reconcile`, extend `buildConnectorBlock()` + add `syncGlobalGeminiMd()` in `init-agents-md.ts` (non-destructively syncing `~/.gemini/GEMINI.md` with QA-escape Post-Mortem directive using `propose_skill_evolution_pr`), and inject `upstream_evolution_reminder` into `certify_11x_gate` (`certify-gate.ts`).
 - [x] **13.4.** Create unit suite `mcp-server/tests/reconcile-agents.unit.ts` (testing deduplication on `rosgrid`-like repos, `domain_*.md` preservation, backups in `.agents/backups/`, `dry_run`, `syncGlobalGeminiMd`, and `upstream_evolution_reminder` at `>= 95.0%` coverage) and update `mcp-server/test/mcp_cli_test.feature`.
 - [x] **13.5.** Sync `README.md`, `TESTING.md`, `docs/ai-integration.md`, `.agents/skills/qa-11x-architect/SKILL.md`, `.agents/skills/graphify-ast-navigator/SKILL.md`, and `CHANGELOG.md`, enforce the 11 operational directives + AST graph lifecycle (`scripts/actualizar-grafos-graphify.sh` & `inspect_ast_blast_radius`) locally and via MCP, regenerate `manifest.json`, and certify with `./.agents/scripts/certify_task_completion.sh`.
 
@@ -287,7 +288,7 @@
 - [x] **20.1.** Implement `mcp-server/src/services/version-manager.ts` with deterministic `.qa-11x-version` stamping in `install-skill.ts` and `scripts/install-skill.sh`, `manifest.json` (`ETag`) reuse, and `latest-version-check.json` cache (24h TTL with offline *fail-open*).
 - [x] **20.2.** Expose structured `update_available` (`agent_notice` and `recommended_command`) in `inspect_project_config` and `certify_11x_gate` for proactive agent notifications without polluting JSON-RPC `stdout`.
 - [x] **20.3.** Add `syncGlobalSkillsInBackground` on MCP server `stdio` startup (`index.ts`) to silently sync preinstalled global skills by `SHA-256` while preserving `~/.gemini/GEMINI.md` connector language.
-- [x] **20.4.** Certify with `tests/version-manager.unit.ts` (`337/337` Vitest tests `>= 95%`), Scenario 24 in `mcp_cli_test.feature`, `manifest.json` and AST graph updates, and `v2.20.0` npmjs publish.
+- [x] **20.4.** Certify with `tests/version-manager.unit.ts` (`337/337` Vitest tests `>= 95%`), Scenario 24 in `mcp_cli_test.feature`, `manifest.json` and AST graph updates, and `v2.20.0` `npmjs` publish.
 
 ---
 
@@ -359,3 +360,13 @@
 ### Implementation Tasks:
 - [x] **26.1.** Implement Unified Atomic Flight Recorder ([`.agents/schemas/session_checkpoint.schema.json`](.agents/schemas/session_checkpoint.schema.json) + [`.agents/scripts/checkpoint_ctl.py`](.agents/scripts/checkpoint_ctl.py) + MCP tool `session_flight_recorder`), JIT tactical skill [`tactical-patterns-11x`](.agents/skills/tactical-patterns-11x/SKILL.md) (`<= 2.5 KB`, `blueprint://skills/tactical-patterns-11x`), `[DIRECTIVE-11X]`, and `max-params: 4` / `max-depth: 3` complexity locks.
 - [x] **26.2.** Consolidate all 10 hydratable stacks in `manifest.json`, single-source `_budgets.py` & `sync_governance.py`, dynamic `verify_docs_invariants.py` counts, Fail-Closed gates, Rule Zero non-root Docker hardening, and `QA-11X v3.1` (`3.1.0`) stabilization.
+
+---
+
+## ✅ Milestone 27: `v3.2.0` (`QA-11X v3.1`) — 99/99 Forensic Audit Remediation, 12 CLI Subcommands, MCP 2026 Standards & 100% Diff Coverage
+**Mandatory Reference:** [`CHANGELOG.md`](CHANGELOG.md), [`TESTING.md`](TESTING.md), and [`AGENTS.md`](AGENTS.md)
+
+### Implementation Tasks:
+- [x] **27.1.** Close security and runtime findings across the MCP server (`src/utils/ideConfigPaths.ts`, `src/security/pathRealResolver.ts`, Zod `.strict()`, MCP 2026 tool `annotations`, `A2A v1.0`, `AbortSignal` propagation) and certify Clean-Room `.tgz` E2E + Karate BDD (`51/51`).
+- [x] **27.2.** Harden all 10 stack blueprints (`sinfallas/base-mobile-appium:26` multi-arch OCI digest, `React` portal/dual-refresh contracts, `mutmut >= 3.7.0`, Promptfoo Nunjucks, WORM SQL fail-closed) and fix CI/Bash/Python tooling (`make sbom` + `.sha256`, `make compact-context`, `install-skill.sh` fallback without `jq`).
+- [x] **27.3.** Synchronize 1:1 EN/ES documentation (`docs/`, `README`, `TESTING`, `CHANGELOG`, `ROADMAP`), reach `100.00%` differential line coverage across Python/TS/Bash (`verify_diff_coverage.py`), and lock local release `3.2.0` under `QA-GIT-GATE-01`.

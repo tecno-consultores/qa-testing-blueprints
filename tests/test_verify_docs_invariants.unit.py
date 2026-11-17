@@ -1092,6 +1092,17 @@ class TestVerifyDocsInvariants(unittest.TestCase):
                 f"Referencia obsoleta a 'Appium 2' en {mobile_rel}",
             )
 
+        agents_md_content = (repo_root / "AGENTS.md").read_text(encoding="utf-8")
+        self.assertIn("OUTPUT LANGUAGE & DYNAMIC MIRRORING", agents_md_content)
+        for gov_doc in (
+            repo_root / "AGENTS.md",
+            repo_root / ".agents" / "README.md",
+            *sorted((repo_root / ".agents" / "rules").glob("*.md")),
+        ):
+            gov_text = gov_doc.read_text(encoding="utf-8")
+            self.assertNotIn("Always interact with the user", gov_text)
+            self.assertNotIn("Spanish interaction", gov_text)
+
     def test_refactoring_ui_topics_and_agents_markdown_links(self) -> None:
         """Valida temas blueprint://ui/refactoring-ui/* y enlaces en .agents/."""
         import tempfile

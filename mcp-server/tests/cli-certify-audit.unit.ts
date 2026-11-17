@@ -214,10 +214,13 @@ describe('SARIF Formatter, Certify & Audit CLI Subcommands (QA-11X)', () => {
         { cwd: projDir, homeDir }
       );
       expect(jsonPass.exitCode).toBe(0);
-      expect(JSON.parse(jsonPass.output)).toMatchObject({
-        exit_code: 0,
-        certify: { gate_passed: true },
-      });
+      const jsonPassBody = JSON.parse(jsonPass.output) as {
+        exit_code: number;
+        certify: { gate_passed: boolean; check_statuses: Record<string, string> };
+      };
+      expect(jsonPassBody.exit_code).toBe(0);
+      expect(jsonPassBody.certify.gate_passed).toBe(true);
+      expect(jsonPassBody.certify.check_statuses.lint_evidence_verified).toBe('SKIPPED');
     });
 
     it('evaluates --release-gate (NO_GO -> exitCode=30 and GO -> exitCode=0) and cli.ts routing', async () => {
@@ -373,13 +376,29 @@ describe('SARIF Formatter, Certify & Audit CLI Subcommands (QA-11X)', () => {
       expect(pyramidSarif.output).toContain('PYRAMID-');
 
       const vibeJson = await runAuditCli(
-        [projDir, '--mode', 'vibe', '--fail-on', 'medium', '--json'],
+        [projDir, '--mode=vibe', '--fail-on=medium', '--json'],
         { cwd: tmpRoot }
       );
       expect(vibeJson.exitCode).toBe(1);
       expect(vibeJson.output).toContain('VIBE-TYPE-003');
 
-      // CALM failing path
+      const vibeCapped = await runAuditCli(
+        [projDir, '-m=vibe', '--max-findings=1', '--fail-on=none', '--json'],
+        { cwd: tmpRoot }
+      );
+      expect(vibeCapped.exitCode).toBe(0);
+      expect((JSON.parse(vibeCapped.output) as { vibe: { findings: unknown[] } }).vibe.findings).toHaveLength(1);
+
+      // CALM failing path with multiple violations capped by --max-findings
+      writeFile(path.join(projDir, 'architecture', 'broken.calm.json'), JSON.stringify({ nodes: [], relationships: [], controls: {} }));
+      const calmCapped = await runAuditCli(
+        [projDir, '--mode=calm', '--architecture-path=architecture/broken.calm.json', '--max-findings', '2', '--fail-on', 'none', '--json'],
+        { cwd: tmpRoot }
+      );
+      expect(calmCapped.exitCode).toBe(0);
+      expect((JSON.parse(calmCapped.output) as { calm: { violations: unknown[] } }).calm.violations).toHaveLength(2);
+
+      // CALM missing file SARIF path
       const calmFail = await runAuditCli(
         [projDir, '--mode', 'calm', '--architecture-path', 'architecture/missing.calm.json', '--sarif', '--fail-on', 'none'],
         { cwd: tmpRoot }
@@ -414,6 +433,23 @@ describe('SARIF Formatter, Certify & Audit CLI Subcommands (QA-11X)', () => {
       expect(cliAudit.exitCode).toBe(0);
       expect(cliAudit.command).toBe('audit');
       expect(JSON.parse(logs[0] ?? '{}')).toMatchObject({ exit_code: 0 });
+
+      const flagProjectAllCalm = await runAuditCli(
+        [
+          '--project-path',
+          emptyWs,
+          '--mode',
+          'all',
+          '--architecture-path',
+          'architecture/missing.calm.json',
+          '--fail-on',
+          'none',
+          '--json',
+        ],
+        { cwd: tmpRoot }
+      );
+      expect(flagProjectAllCalm.exitCode).toBe(0);
+      expect((JSON.parse(flagProjectAllCalm.output) as { calm_status: string }).calm_status).toBe('FAILED');
     });
   });
 });

@@ -1038,8 +1038,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--scope", choices=(SCOPE_FULL, SCOPE_SMOKE), default=SCOPE_FULL
     )
-    parser.add_argument("--dry-run", action="store_true", default=True)
-    parser.add_argument("--enforce", action="store_true", default=False)
+    mode_group = parser.add_mutually_exclusive_group()
+    mode_group.add_argument("--dry-run", action="store_true", default=False)
+    mode_group.add_argument("--enforce", action="store_true", default=False)
     parser.add_argument(
         "--min-pass-rate",
         type=float,

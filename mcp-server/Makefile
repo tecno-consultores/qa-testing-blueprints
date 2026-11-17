@@ -10,7 +10,7 @@ qa-lint:
 	@docker compose -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" mcp-server bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run lint"
 
 qa-typecheck:
-	@docker compose -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" mcp-server bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run typecheck"
+	@docker compose -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" -e NODE_OPTIONS="--max-old-space-size=4096" mcp-server bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run typecheck"
 
 qa-unit:
 	@docker compose -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" mcp-server bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run test:unit"

@@ -1,4 +1,4 @@
-> **[DIRECTIVA DE SISTEMA PARA AGENTES DE IA]:** Actúa como un Ingeniero Staff de Automatización QA Móvil y Experto DevOps. Lee, analiza y aplica estrictamente las siguientes restricciones arquitectónicas. Genera código alineado exclusivamente con Regla Cero (`sinfallas/base-mobile-appium:26`, cero ejecuciones en host, `-T -u "$(id -u):$(id -g)"`), TypeScript estricto (`--erasableSyntaxOnly`), Screenplay RBAC Multi-Tenant (`MobileActor.ts`), localizadores semánticos (`accessibilityId`, `iosPredicate`, `androidUiAutomator`, roles ARIA WebView; cero XPath crudo ni esperas fijas) y guardias Fail-Closed de deep links. Emite tu respuesta final, explicaciones y comentarios en español.
+> **[DIRECTIVA DE SISTEMA PARA AGENTES DE IA]:** Actúa como un Ingeniero Staff de Automatización QA Móvil y Experto DevOps. Lee, analiza y aplica estrictamente las siguientes restricciones arquitectónicas redactadas en español. Genera código alineado exclusivamente con Regla Cero (`sinfallas/base-mobile-appium:26`, cero ejecuciones en host, `-T -u "$(id -u):$(id -g)"`), TypeScript estricto (`--erasableSyntaxOnly`), Screenplay RBAC Multi-Tenant (`MobileActor.ts`), localizadores semánticos (`accessibilityId`, `iosPredicate`, `androidUiAutomator`, roles ARIA WebView; cero XPath crudo ni esperas fijas) y guardias Fail-Closed de deep links. Emite tu respuesta final, explicaciones y comentarios de código en el idioma del prompt del usuario (por defecto español).
 
 > 🌐 **Idioma:** [🇺🇸 English (Canonical)](README.md) · **Español (Espejo 1:1)**
 
@@ -22,12 +22,12 @@ Plantilla corporativa de automatización móvil **Nativa (iOS / Android)** e **H
 ```bash
 # Verificar OpenJDK 21, Android ADB, Appium 3 y drivers preinstalados sin modificar el árbol
 docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp \
-  sinfallas/base-mobile-appium:26 \
+  sinfallas/base-mobile-appium:26@sha256:1bb9e70613a786008fe06c418a557aeaa5fe7c62b3db29a26b4e0ce86d3c6728 \
   sh -ec 'java -version && adb version && appium --version && appium driver list --installed'
 
 # Compilación estricta TypeScript (0 any, --erasableSyntaxOnly) + contrato Screenplay W3C
 docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e NODE_PATH=/opt/qa11x/node_modules \
-  -v "$(pwd):/app:ro" -w /app sinfallas/base-mobile-appium:26 \
+  -v "$(pwd):/app:ro" -w /app sinfallas/base-mobile-appium:26@sha256:1bb9e70613a786008fe06c418a557aeaa5fe7c62b3db29a26b4e0ce86d3c6728 \
   sh -ec 'tsc --strict --noImplicitAny --noUnusedLocals --noUnusedParameters \
   --noImplicitReturns --erasableSyntaxOnly --allowImportingTsExtensions \
   --target ES2023 --module NodeNext --moduleResolution NodeNext \
@@ -37,7 +37,7 @@ docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e NODE_PATH=/opt/qa11x/node
 
 # Auditoría determinista de antipatrones UI (0 violaciones)
 docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 \
-  -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 \
+  -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 \
   python3 .agents/scripts/lint_test_antipatterns.py mobile-appium
 ```
 
@@ -69,7 +69,7 @@ docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1
 
 ## 4. Perfiles W3C en `wdio.conf.ts` y Diagnóstico `Pass-Quiet` / `Fail-Verbose`
 
-[`buildMobileWdioConfig(process.env)`](wdio.conf.ts) resuelve specs (`./tests/**/*.spec.ts`) y selecciona el perfil activo mediante `MOBILE_PROFILE`:
+[`buildMobileWdioConfig(process.env)`](wdio.conf.ts) resuelve specs (`./tests/**/*.spec.ts`, excluyendo `./tests/mobile_screenplay.spec.ts`, `framework: 'mocha'`, `reporters: ['spec']`) y selecciona el perfil activo mediante `MOBILE_PROFILE`:
 
 - `android-uiautomator2`: `platformName: 'Android'`, `appium:automationName: 'UiAutomator2'`, `appium:noReset: false`, `appium:autoGrantPermissions: false`.
 - `ios-xcuitest`: `platformName: 'iOS'`, `appium:automationName: 'XCUITest'`, `appium:isolateSimDevice: true`, `appium:autoAcceptAlerts: false`.
@@ -102,6 +102,6 @@ docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp \
   -e APPIUM_HOST=host.docker.internal \
   -e APPIUM_PORT=4723 \
   -e QA_MOBILE_ARTIFACT_DIR=/tmp/qa-11x-mobile-artifacts \
-  -v "$(pwd):/app:ro" -w /app sinfallas/base-mobile-appium:26 \
+  -v "$(pwd):/app:ro" -w /app sinfallas/base-mobile-appium:26@sha256:1bb9e70613a786008fe06c418a557aeaa5fe7c62b3db29a26b4e0ce86d3c6728 \
   node --experimental-strip-types -e "import('./mobile-appium/wdio.conf.ts').then(m => console.log(m.buildMobileWdioConfig().profile))"
 ```

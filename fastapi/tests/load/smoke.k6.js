@@ -50,10 +50,16 @@ export const options = Object.assign({}, PROFILES[ACTIVE_PROFILE], {
   },
 });
 
+const RUN_PREFIX = Math.floor(Math.random() * 0x100000000)
+  .toString(16)
+  .padStart(8, '0')
+  .slice(-8);
+const RUN_TIME_HEX = (Date.now() & 0xffff).toString(16).padStart(4, '0');
+
 function uuidv4(iteration, vu) {
   const vuHex = Number(vu || 1).toString(16).padStart(4, '0').slice(-4);
   const iterHex = Number(iteration || 0).toString(16).padStart(12, '0').slice(-12);
-  return `550e8400-e29b-41d4-a${vuHex.slice(1)}-${iterHex}`;
+  return `${RUN_PREFIX}-${RUN_TIME_HEX}-4${vuHex.slice(1)}-a${vuHex.slice(1)}-${iterHex}`;
 }
 
 function safeJson(res) {

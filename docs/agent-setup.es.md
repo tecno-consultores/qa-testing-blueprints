@@ -25,7 +25,8 @@ npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --lang en --agen
 ```
 
 > [!NOTE]
-> - **Política de Idioma (`--lang`):** `init-agents` usa `--lang auto` por defecto (*Dynamic Language Mirroring*, reflejando el idioma del prompt del usuario y el idioma existente en `README.md`/`CHANGELOG.md`), y también soporta explícitamente `--lang es` (respuestas/espejos en español para humanos) y `--lang en` (respuestas/documentos en inglés para humanos), manteniendo las directivas internas `.agents/` en inglés técnico compacto. Re-ejecutar `init-agents` con otro `--lang` actualiza de forma idempotente únicamente el bloque conector delimitado QA-11X sin alterar reglas personalizadas del proyecto.
+> - **Política de Idioma (`--lang auto|es|en`):** Tanto `init-agents` como `install-skill --init-agents` usan `--lang auto` por defecto (*Dynamic Language Mirroring*, reflejando el idioma del prompt del usuario y el idioma existente en `README.md`/`CHANGELOG.md`), soportando también `--lang es` y `--lang en` explícitos y manteniendo las directivas internas `.agents/` en inglés técnico compacto. Re-ejecutar `init-agents` (`[dir] [--project-path|--dir|-p <dir>] [--lang|-l auto|es|en] [--agents|-a auto|all|<csv>] [--dry-run]`) con otro `--lang` actualiza de forma idempotente únicamente el bloque conector delimitado QA-11X sin alterar reglas personalizadas del proyecto.
+> - **Flags Adicionales Thin-Repo y Trazabilidad:** `install-skill` (`install`) acepta `[--target|-t <env>] [--lang|-l auto|es|en] [--agents|-a <spec>] [--project-path|-p <dir>] [--init-agents] [--include-scripts] [--reconcile] [--dry-run]`; `reconcile-agents` acepta `[dir] [--project-path|--dir|-p <dir>] [--dry-run]`; y `tms-sync` soporta `--mode <inventory|push-results|pull-stories> --provider <jira|zephyr|xray|github-issues> [--target-dir <dir>] [--junit-xml <ruta>] [--base-url <https://...>] [--project-key <key>] [--issue-key <key>] [--test-execution-key <key>] [--repo <owner/repo>] [--required-keys <k1,k2>] [--timeout-ms <ms>] [--dry-run|--live] [--json]`.
 > - **Negociación Bilingüe de Recursos MCP (`?lang=es|en`):** Las URIs MCP `blueprint://*` soportan `?lang=en` (inglés canónico, por defecto) y `?lang=es` (espejo 1:1 en español `.es.md`, ej. `blueprint://mobile-appium/readme?lang=es` para `sinfallas/base-mobile-appium:26`).
 > - **Arquitectura Puente Thin-Repo (`--agents <csv|auto|all>`):** En lugar de duplicar manuales extensos en cada carpeta de herramienta, cada puente se mantiene estrictamente en `<= 15` líneas y apunta directo a `AGENTS.md` (incluyendo *frontmatter* `.mdc` válido para Cursor y sintaxis YAML `read:` sin duplicación para `.aider.conf.yml`), con protección contra *path-traversal* y simulación `--dry-run`.
 > - **Guardia de Push Confirmado por Humanos (`QA-GIT-GATE-01`):** Los conectores generados exigen cierre local certificado con `git commit` y prohíben `git push` o `npm publish` automáticos sin autorización humana explícita.
@@ -148,7 +149,7 @@ Claude Code soporta registro MCP tanto a nivel de usuario como de proyecto.
 #### 4. Google Antigravity (IDE y CLI) / Gemini CLI
 Google Antigravity y Gemini CLI detectan herramientas MCP y sincronizan directivas automáticamente.
 
-- **Archivo de Configuración:** `~/.gemini/antigravity/mcp_config.json`
+- **Archivo de Configuración:** `~/.gemini/antigravity/mcp_config.json` *(ruta canónica; `mcp-config --client antigravity` y `doctor` también reconocen el fallback legado `~/.gemini/config/mcp_config.json`)*
   ```json
   {
     "mcpServers": {
@@ -241,7 +242,7 @@ Los IDEs de JetBrains con AI Assistant o Junie permiten registrar servidores MCP
 ---
 
 #### 9. Claude Desktop
-- **Rutas del Archivo de Configuración (`claude_desktop_config.json`):**
+- **Rutas del Archivo de Configuración (`claude_desktop_config.json`, resueltas multi-OS por `mcp-config --client claude-desktop` y `doctor`):**
   - **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
   - **Linux:** `~/.config/Claude/claude_desktop_config.json`
   - **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
@@ -260,10 +261,9 @@ Los IDEs de JetBrains con AI Assistant o Junie permiten registrar servidores MCP
 ---
 
 #### 10. Hermes Agent (Nous Research)
-Hermes Agent utiliza **YAML** para su archivo principal de configuración.
+Hermes Agent utiliza **YAML** (`~/.hermes/config.yaml`) para su archivo principal de configuración y también soporta `~/.hermes/mcp.json` (destino JSON `mcpServers` gestionado/inspeccionado por `mcp-config --client hermes` y `doctor`).
 
-- **Archivo de Configuración:** `~/.hermes/config.yaml`
-- **Contenido:**
+- **Configuración YAML Principal (`~/.hermes/config.yaml`):**
   ```yaml
   mcp_servers:
     qa_11x:
@@ -271,6 +271,17 @@ Hermes Agent utiliza **YAML** para su archivo principal de configuración.
       args:
         - "-y"
         - "@sinfallas/mcp-qa-11x@latest"
+  ```
+- **Configuración JSON MCP Declarativa (`~/.hermes/mcp.json`):**
+  ```json
+  {
+    "mcpServers": {
+      "qa-11x": {
+        "command": "npx",
+        "args": ["-y", "@sinfallas/mcp-qa-11x@latest"]
+      }
+    }
+  }
   ```
 
 ---
@@ -311,11 +322,12 @@ Hermes Agent utiliza **YAML** para su archivo principal de configuración.
 > [!TIP]
 > A partir de `v2.20.0`, en cada arranque `stdio` el servidor MCP sincroniza silenciosamente en segundo plano las skills globales preinstaladas mediante verificación `SHA-256`, expone metadatos estructurados `update_available` en `inspect_project_config` y `certify_11x_gate` (respaldados por marcas `.qa-11x-version` y caché TTL fail-open de 24h) y soporta ejecución efímera móvil (`qa-mobile` / `sinfallas/base-mobile-appium:26`) más entrega bilingüe de recursos (`?lang=es|en`).
 
-Para ejecutar una actualización quirúrgica que elimine únicamente las entradas obsoletas de `@sinfallas/mcp-qa-11x` en `~/.npm/_npx` y `~/.cache/qa-11x-blueprints` (sin borrar cachés `npx` de otras herramientas) y resincronice las skills globales:
+Para ejecutar una actualización quirúrgica que elimine únicamente las entradas obsoletas de `@sinfallas/mcp-qa-11x` en `~/.npm/_npx` y `~/.cache/qa-11x-blueprints` (sin borrar cachés `npx` de otras herramientas), reconcilie la gobernanza `.agents/` (`--reconcile`) y resincronice las skills globales:
 
 ```bash
-# Actualización quirúrgica (limpia cachés de @sinfallas/mcp-qa-11x + resincroniza skills):
+# Actualización quirúrgica (limpia cachés de @sinfallas/mcp-qa-11x + reconcilia y resincroniza skills):
 npx -y @sinfallas/mcp-qa-11x@latest upgrade
+npx -y @sinfallas/mcp-qa-11x@latest upgrade --reconcile
 
 # Previsualizar objetivos o limpiar solo cachés (alias: cache-clean):
 npx -y @sinfallas/mcp-qa-11x@latest upgrade --dry-run
@@ -327,7 +339,7 @@ rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@la
 
 ### Cómo Verificar la Versión Instalada y Activa del MCP
 
-Ejecuta **`doctor`** (alias: `status`) para inspeccionar todo el entorno en un solo comando (origen del binario activo, todas las cachés `~/.npm/_npx`, sellos `.qa-11x-version` en skills globales, configuraciones MCP en IDEs, estado del proyecto y demonio Docker), o usa `--version` / `-v` según tu modo de instalación:
+Ejecuta **`doctor`** (alias: `status`) para inspeccionar todo el entorno en un solo comando (origen del binario activo, todas las cachés `~/.npm/_npx`, sellos `.qa-11x-version` en skills globales, configuraciones MCP en IDEs para Antigravity `~/.gemini/antigravity/mcp_config.json` + fallback `~/.gemini/config/mcp_config.json`, Claude Code `~/.claude.json`, Claude Desktop multi-OS, Cursor, Windsurf, Codex y Hermes `~/.hermes/mcp.json` / `~/.hermes/config.yaml`, estado del proyecto y demonio Docker), o usa `--version` / `-v` según tu modo de instalación:
 
 ```bash
 # 1. Diagnóstico integral del entorno (origen de binario, cachés _npx, skills, IDEs y Docker):
@@ -375,4 +387,4 @@ npx -y @sinfallas/mcp-qa-11x@latest completion zsh > ~/.zsh/completions/_mcp-qa-
 > [!NOTE]
 > **Por qué `npx --no-install @sinfallas/mcp-qa-11x --version` falla con `npm ERR! canceled`:** Cuando el servidor se registra mediante `mcpServers` (`npx -y @sinfallas/mcp-qa-11x@latest`), npm guarda el paquete en un entorno aislado bajo `~/.npm/_npx/<hash>/` y no en el `$PATH` global. En npm v7+, `--no-install` solo busca en `./node_modules/.bin` y en `$PATH`, ignorando `~/.npm/_npx/`.
 >
-> **Cómo verificar la versión activa dentro de tu IDE (Antigravity, Cursor, Claude, VS Code):** Abre el panel MCP / Customizations del IDE — `v3.1.0` registra **19 herramientas MCP** y **13 recursos MCP** (`11` URIs estáticas + `2` plantillas URI). Si aparecen menos herramientas por una versión anterior en caché, ejecuta `npx -y @sinfallas/mcp-qa-11x@latest upgrade` y **recarga/reinicia el servidor MCP (o la ventana del IDE)** para que el proceso `stdio` persistente cargue el nuevo binario. También puedes revisar `update_available` en `doctor`, `inspect_project_config` o `certify_11x_gate`.
+> **Cómo verificar la versión activa dentro de tu IDE (Antigravity, Cursor, Claude, VS Code):** Abre el panel MCP / Customizations del IDE — `v3.2.0` registra **19 herramientas MCP** y **13 recursos MCP** (`11` URIs estáticas + `2` plantillas URI). Si aparecen menos herramientas por una versión anterior en caché, ejecuta `npx -y @sinfallas/mcp-qa-11x@latest upgrade` y **recarga/reinicia el servidor MCP (o la ventana del IDE)** para que el proceso `stdio` persistente cargue el nuevo binario. También puedes revisar `update_available` en `doctor`, `inspect_project_config` o `certify_11x_gate`, y validar el empaquetado *clean-room* cubriendo los **12 subcomandos CLI** y las **19 herramientas** mediante `mcp-server/example/verify-v2.sh` (`make test-example`).

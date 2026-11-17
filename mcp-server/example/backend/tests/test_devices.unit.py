@@ -20,7 +20,7 @@ class TestTelemetryDevicesUnit(unittest.TestCase):
         # 1. Fixture Virgen: estado vacío sin falsos positivos
         self.assertEqual(list_tenant_devices(store, "tenant-a"), [])
 
-        # 2. Fixture Nominal + propagación inmediata de lectura y auditoría JSONB estricta
+        # 2. Fixture Nominal + propagación de lectura y auditoría JSONB
         claims = {"tenant_id": "tenant-a", "role": "operator", "username": "ana.sre"}
         created, audit = register_tenant_device(
             store,
@@ -55,6 +55,13 @@ class TestTelemetryDevicesUnit(unittest.TestCase):
             maintenance_starts_at=t0 + timedelta(minutes=10),
             maintenance_ends_at=t0 + timedelta(minutes=40),
         )
+        plain = TelemetryDevice(
+            id="dev-op",
+            tenant_id="tenant-a",
+            hostname="sw-02",
+            cpu_load_pct=Decimal("5.00"),
+        )
+        self.assertEqual(evaluate_maintenance_phase(plain, t0), "OPERACIONAL")
         self.assertEqual(evaluate_maintenance_phase(dev, t0), "Programada")
         self.assertEqual(
             evaluate_maintenance_phase(dev, t0 + timedelta(minutes=20)), "En Curso"

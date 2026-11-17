@@ -85,8 +85,13 @@ services:
     hostname: python_k6_smoke
     pull_policy: if_not_present
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    read_only: true
+    cap_drop:
+      - ALL
     security_opt:
       - no-new-privileges:true
+    tmpfs:
+      - /tmp
     profiles:
       - load
     environment:

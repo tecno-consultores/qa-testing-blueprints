@@ -8,7 +8,7 @@ import {
   type CliCommandOutput,
   formatCliJson,
   hasHelpFlag,
-  readNextFlagValue,
+  matchFlagValue,
   resolveCliProjectPath,
 } from './cliArgHelpers.js';
 
@@ -93,6 +93,39 @@ const BOOL_FLAG_HANDLERS: Readonly<Record<string, (state: BlastCliParseState) =>
   },
 };
 
+const VALUE_FLAG_KEYS = Object.keys(VALUE_FLAG_HANDLERS);
+
+function assignBlastPositional(token: string, state: BlastCliParseState): number {
+  if (token.startsWith('-')) {
+    throw new Error(`Opción desconocida en blast-radius: '${token}'.`);
+  }
+  if (state.symbol !== undefined) {
+    throw new Error(`Argumento posicional inesperado en blast-radius: '${token}'.`);
+  }
+  state.symbol = token;
+  return 0;
+}
+
+function applyBlastToken(
+  args: readonly string[],
+  index: number,
+  state: BlastCliParseState
+): number {
+  const token = pickAt(args, index);
+  const boolHandler = BOOL_FLAG_HANDLERS[token];
+  if (boolHandler) {
+    boolHandler(state);
+    return 0;
+  }
+  const valueMatch = matchFlagValue(args, index, VALUE_FLAG_KEYS);
+  if (valueMatch) {
+    const handler = VALUE_FLAG_HANDLERS[valueMatch.flag];
+    handler?.(valueMatch.value, state, valueMatch.flag);
+    return valueMatch.consumed;
+  }
+  return assignBlastPositional(token, state);
+}
+
 function parseBlastRadiusArgs(args: readonly string[]): BlastCliParseState {
   const state: BlastCliParseState = {
     autoBuildIfMissing: false,
@@ -100,22 +133,7 @@ function parseBlastRadiusArgs(args: readonly string[]): BlastCliParseState {
     json: false,
   };
   for (let i = 0; i < args.length; i += 1) {
-    const token = pickAt(args, i);
-    const boolHandler = BOOL_FLAG_HANDLERS[token];
-    if (boolHandler) {
-      boolHandler(state);
-      continue;
-    }
-    const valueHandler = VALUE_FLAG_HANDLERS[token];
-    if (valueHandler) {
-      valueHandler(readNextFlagValue(args, i, token), state, token);
-      i += 1;
-      continue;
-    }
-    if (token.startsWith('-')) {
-      throw new Error(`Opción desconocida en blast-radius: '${token}'.`);
-    }
-    state.symbol = token;
+    i += applyBlastToken(args, i, state);
   }
   return state;
 }
@@ -135,12 +153,7 @@ function computeBlastRoutingPath(result: BlastRadiusResult): BlastRoutingPath {
   return 'FULL_11X';
 }
 
-function formatBlastText(result: BlastRadiusResult, recommendedPath: BlastRoutingPath): string {
-  const graphStatus = result.ast_graph_detected ? 'detected' : 'missing';
-  const lines = [
-    `🔎 [blast-radius] symbol=${result.target_symbol} | risk=${result.risk_level} | path=${recommendedPath} | dependents=${result.dependent_files_count}`,
-    `📁 project=${result.project_path} | ast_graph=${graphStatus}`,
-  ];
+function appendBlastOptionalLines(lines: string[], result: BlastRadiusResult): void {
   if (result.dependent_files.length > 0) {
     lines.push(`📦 dependents: ${result.dependent_files.join(', ')}`);
   }
@@ -150,7 +163,50 @@ function formatBlastText(result: BlastRadiusResult, recommendedPath: BlastRoutin
   if (result.ast_graph_action_required) {
     lines.push(result.ast_graph_action_required);
   }
+}
+
+function formatBlastText(result: BlastRadiusResult, recommendedPath: BlastRoutingPath): string {
+  const graphStatus = result.ast_graph_detected ? 'detected' : 'missing';
+  const symbolLabel = result.target_symbol || '(changed-since)';
+  const lines = [
+    `🔎 [blast-radius] symbol=${symbolLabel} | risk=${result.risk_level} | path=${recommendedPath} | dependents=${result.dependent_files_count}`,
+    `📁 project=${result.project_path} | ast_graph=${graphStatus}`,
+  ];
+  appendBlastOptionalLines(lines, result);
   return lines.join('\n');
+}
+
+function buildBlastCommandOutput(result: BlastRadiusResult, asJson: boolean): CliCommandOutput {
+  const recommended_path = computeBlastRoutingPath(result);
+  return {
+    exitCode: 0,
+    output: asJson
+      ? formatCliJson({ ...result, recommended_path })
+      : formatBlastText(result, recommended_path),
+  };
+}
+
+async function executeBlastInspection(
+  parsed: BlastCliParseState,
+  deps: BlastRadiusCliDeps
+): Promise<CliCommandOutput> {
+  if (!parsed.symbol && !parsed.changedSinceRef) {
+    return {
+      exitCode: 1,
+      output: `${CMD_PREFIX} Proporciona un símbolo o --changed-since <ref>.`,
+      isError: true,
+    };
+  }
+  const targetSymbol = parsed.symbol ?? '';
+  const projectPath = resolveCliProjectPath(parsed.projectDir, deps.cwd ?? process.cwd());
+  const result = await inspectAstBlastRadius(projectPath, targetSymbol, parsed.maxItems, {
+    autoBuildIfMissing: parsed.autoBuildIfMissing,
+    refreshGraph: parsed.refreshGraph,
+    changedSinceRef: parsed.changedSinceRef,
+    maxTokensBudget: parsed.maxTokensBudget,
+    graphBuilder: deps.graphBuilder,
+  });
+  return buildBlastCommandOutput(result, parsed.json);
 }
 
 export async function runBlastRadiusCli(
@@ -162,29 +218,7 @@ export async function runBlastRadiusCli(
   }
   try {
     const parsed = parseBlastRadiusArgs(args);
-    if (!parsed.symbol && !parsed.changedSinceRef) {
-      return {
-        exitCode: 1,
-        output: `${CMD_PREFIX} Proporciona un símbolo o --changed-since <ref>.`,
-        isError: true,
-      };
-    }
-    const targetSymbol = parsed.symbol ?? '.';
-    const projectPath = resolveCliProjectPath(parsed.projectDir, deps.cwd ?? process.cwd());
-    const result = await inspectAstBlastRadius(projectPath, targetSymbol, parsed.maxItems, {
-      autoBuildIfMissing: parsed.autoBuildIfMissing,
-      refreshGraph: parsed.refreshGraph,
-      changedSinceRef: parsed.changedSinceRef,
-      maxTokensBudget: parsed.maxTokensBudget,
-      graphBuilder: deps.graphBuilder,
-    });
-    const recommended_path = computeBlastRoutingPath(result);
-    return {
-      exitCode: 0,
-      output: parsed.json
-        ? formatCliJson({ ...result, recommended_path })
-        : formatBlastText(result, recommended_path),
-    };
+    return await executeBlastInspection(parsed, deps);
   } catch (err: unknown) {
     const detail = err instanceof Error ? err.message : String(err);
     return {

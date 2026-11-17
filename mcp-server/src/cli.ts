@@ -10,7 +10,7 @@ import {
   type InitOrAppendAgentsMdResult,
   type SupportedLang,
 } from './tools/initOrAppendAgentsMd.js';
-import { INIT_AGENTS_HELP_TEXT } from './cli/init-agents-md.js';
+import { executeInitAgentsCli, INIT_AGENTS_HELP_TEXT } from './cli/init-agents-md.js';
 import { INSTALL_SKILL_HELP_TEXT, runInstallSkillCli } from './cli/install-skill.js';
 import { RECONCILE_AGENTS_HELP_TEXT, runReconcileAgentsCli } from './cli/reconcile-agents.js';
 import {
@@ -50,6 +50,9 @@ const FLAG_CI = '--ci';
 const FLAG_FORCE = '--force';
 const FLAG_FORCE_SHORT = '-f';
 const FLAG_JSON = '--json';
+const FLAG_VERBOSE = '--verbose';
+const FLAG_VERSION = '--version';
+const FLAG_VERSION_SHORT = '-v';
 
 const CMD_INIT_AGENTS = 'init-agents' as const;
 const CMD_INSTALL_SKILL = 'install-skill' as const;
@@ -162,20 +165,32 @@ export const CLI_USAGE_TEXT = [
   '  completion        Emit native shell completions (fish|bash|zsh)',
   '',
   'Options:',
-  '  --lang, -l <es|en>               Output language policy (default: es, quickstart: en)',
-  `  --agents, -a <csv|auto|all>      Bridge target IDs (${SUPPORTED_AGENT_IDS.length} supported), auto, or all`,
-  '  --dir, --project-path, -p <dir>  Target project directory (default: cwd)',
-  '  --tier, -T <starter|standard|enterprise>  Quickstart gate profile (default: starter)',
-  '  --ci <github|none>               Quickstart CI workflow generator (default: github)',
-  '  --target, -t <env>               Global skills target directory',
-  '  --init-agents                    Run init-agents after install-skill',
-  '  --include-scripts                Install operational 11X scripts',
-  '  --reconcile                      Reconcile .agents/ before syncing skills',
-  '  --dry-run                        Simulate without writing files to disk',
-  '  --force, -f                      Overwrite customized quickstart CI/task files',
-  '  --json                           Emit machine-readable JSON output (quickstart)',
-  '  --version, -v                    Print active package version',
-  '  --help, -h                       Print this help message',
+  '  --lang, -l <auto|es|en>                  Output language policy (default: auto)',
+  `  --agents, -a <csv|auto|all>              Bridge target IDs (${SUPPORTED_AGENT_IDS.length} supported), auto, or all`,
+  '  --dir, --project-path, -p <dir>          Target project directory (default: cwd)',
+  '  --tier, -T <starter|standard|enterprise> Quickstart gate profile (default: starter)',
+  '  --ci <github|none>                       Quickstart CI workflow generator (default: github)',
+  '  --target, -t <env>                       Global skills target directory (install-skill / upgrade)',
+  '  --init-agents                            Run init-agents after install-skill',
+  '  --include-scripts                        Install operational 11X scripts',
+  '  --reconcile                              Reconcile .agents/ before syncing skills',
+  '  --dry-run                                Simulate without writing files to disk',
+  '  --force, -f                              Overwrite customized quickstart CI/task files',
+  '  --offline                                Skip remote version/skills checks (doctor / upgrade / certify)',
+  '  --cache-only                             Clean caches without syncing skills (upgrade / cache-clean)',
+  '  --strict / --require-lint-evidence       Enforce non-skipped checks and lint evidence (certify)',
+  '  --allow-unmerged-examples / --release-gate / --junit-xml <path>  Gate options (certify)',
+  '  --mode, -m <mode>                        Audit (security|pyramid|vibe|calm|all) or TMS sync mode',
+  '  --format, -f <fmt> / --sarif / --fail-on <lvl> / --max-findings <n>  Audit output controls',
+  '  --include-examples / --architecture-path <rel>  Include .example or set CALM model (audit)',
+  '  --symbol, -s <sym> / --changed-since <ref> / --auto-build / --refresh  AST blast-radius controls',
+  '  --max-tokens <n> / --max-items <n>       Blast-radius diff budget and dependent truncation',
+  '  --client, -c <id|all> / --print / --install / --pin-version  IDE MCP config generator',
+  '  --shell <fish|bash|zsh>                  Shell target for completion script',
+  '  --provider / --target-dir / --base-url / --project-key / --live  Enterprise TMS sync options',
+  '  --json / --verbose                       Structured JSON output or verbose diagnostics',
+  '  --version, -v                            Print active package version (or offline doctor with --json/--verbose)',
+  '  --help, -h                               Print this help message (or `help <subcommand>`)',
 ].join('\n');
 
 export const QUICKSTART_HELP_TEXT = [
@@ -183,8 +198,8 @@ export const QUICKSTART_HELP_TEXT = [
   '',
   'Options:',
   '  --dir, --project-path, -p <dir>          Target project directory (default: cwd)',
-  '  --tier, -T <starter|standard|enterprise> Quickstart gate profile (default: auto)',
-  '  --lang, -l <auto|es|en>                  Language policy for AGENTS.md',
+  '  --tier, -T <starter|standard|enterprise> Quickstart gate profile (default: starter)',
+  '  --lang, -l <auto|es|en>                  Language policy for AGENTS.md (default: auto)',
   `  --agents, -a <auto|all|csv>              Thin-Repo bridge targets (${SUPPORTED_AGENT_IDS.length} supported agents)`,
   '  --ci <github|none>                       CI workflow generator (default: github)',
   '  --dry-run                                Simulate without writing files',
@@ -215,6 +230,7 @@ const SUBCOMMAND_MAP: Readonly<Record<string, CliCommandName>> = Object.freeze({
   help: CMD_HELP,
   '--version': CMD_VERSION,
   '-v': CMD_VERSION,
+  version: CMD_VERSION,
 });
 
 interface MutableParseState {
@@ -374,6 +390,34 @@ function hasHelpToken(args: readonly string[]): boolean {
   return args.includes(FLAG_HELP) || args.includes(FLAG_HELP_SHORT);
 }
 
+const HELP_TEXT_LOADERS: Readonly<Partial<Record<CliCommandName, () => Promise<string>>>> =
+  Object.freeze({
+    [CMD_QUICKSTART]: () => Promise.resolve(QUICKSTART_HELP_TEXT),
+    [CMD_INSTALL_SKILL]: () => Promise.resolve(INSTALL_SKILL_HELP_TEXT),
+    [CMD_INIT_AGENTS]: () => Promise.resolve(INIT_AGENTS_HELP_TEXT),
+    [CMD_RECONCILE_AGENTS]: () => Promise.resolve(RECONCILE_AGENTS_HELP_TEXT),
+    [CMD_TMS_SYNC]: async () => (await runTmsSyncCli(['--help'])).output,
+    [CMD_DOCTOR]: async () => (await import('./cli/doctor.js')).DOCTOR_HELP_TEXT,
+    [CMD_UPGRADE]: async () => (await import('./cli/upgrade.js')).UPGRADE_HELP_TEXT,
+    [CMD_CERTIFY]: async () => (await import('./cli/certify-cli.js')).CERTIFY_HELP_TEXT,
+    [CMD_AUDIT]: async () => (await import('./cli/audit-cli.js')).AUDIT_HELP_TEXT,
+    [CMD_BLAST_RADIUS]: async () => (await import('./cli/blast-radius-cli.js')).BLAST_RADIUS_HELP_TEXT,
+    [CMD_MCP_CONFIG]: async () => (await import('./cli/mcp-config.js')).MCP_CONFIG_HELP_TEXT,
+    [CMD_COMPLETION]: async () => (await import('./cli/completion.js')).COMPLETION_HELP_TEXT,
+    [CMD_HELP]: () => Promise.resolve(CLI_USAGE_TEXT),
+    [CMD_VERSION]: () => Promise.resolve(CLI_USAGE_TEXT),
+  });
+
+/** Resolves contextual `--help` text for any supported subcommand or alias. */
+export async function resolveSubcommandHelpText(rawToken: string): Promise<string | null> {
+  const command = Object.hasOwn(SUBCOMMAND_MAP, rawToken) ? SUBCOMMAND_MAP[rawToken] : undefined;
+  if (!command) {
+    return null;
+  }
+  const loader = HELP_TEXT_LOADERS[command];
+  return loader ? await loader() : null;
+}
+
 function getContextualHelpText(command: CliCommandName): string {
   switch (command) {
     case CMD_INSTALL_SKILL:
@@ -491,7 +535,7 @@ function mapQuickstartToParsedCliArgs(
   return {
     command: CMD_QUICKSTART,
     projectPath: qs.projectPath,
-    lang: qs.lang ?? 'en',
+    lang: qs.lang ?? 'auto',
     agents: qs.agents,
     tier: qs.tier,
     ci: qs.ci,
@@ -506,76 +550,97 @@ function mapQuickstartToParsedCliArgs(
   };
 }
 
-export function parseCliArgs(
-  argv: readonly string[],
-  cwd: string = process.cwd()
+function buildSimpleParsedArgs(
+  command: CliCommandName,
+  projectPath: string,
+  rawForwardArgs: readonly string[],
+  help: boolean
 ): ParsedCliArgs {
-  const first = argv[0];
-  const state: MutableParseState = {
-    projectPath: cwd,
+  return {
+    command,
+    projectPath,
+    lang: 'auto',
     dryRun: false,
+    help,
     initAgents: false,
     includeScripts: false,
     reconcile: false,
+    rawForwardArgs,
   };
+}
 
+function isVersionToken(token: string): boolean {
+  return token === FLAG_VERSION || token === FLAG_VERSION_SHORT || token === CMD_VERSION;
+}
+
+function findPrefixedVersionTail(argv: readonly string[], first: string): string[] | null {
+  if (first !== FLAG_JSON && first !== FLAG_VERBOSE) {
+    return null;
+  }
+  const verIdx = argv.findIndex((tok) => isVersionToken(tok));
+  return verIdx === -1 ? null : argv.filter((_, idx) => idx !== verIdx);
+}
+
+function extractVersionTail(argv: readonly string[], first: string): string[] | null {
+  if (isVersionToken(first)) {
+    return argv.slice(1);
+  }
+  return findPrefixedVersionTail(argv, first);
+}
+
+function validateVersionTail(tail: readonly string[]): void {
+  for (const token of tail) {
+    if (token !== FLAG_JSON && token !== FLAG_VERBOSE) {
+      throw new Error(`Unknown CLI flag '${token}' for 'version'. Run with --help to view usage.`);
+    }
+  }
+}
+
+function parseShortcutCliArgs(argv: readonly string[], cwd: string): ParsedCliArgs | null {
+  const first = argv[0];
   if (!first) {
-    return {
-      command: CMD_STDIO,
-      projectPath: state.projectPath,
-      lang: 'es',
-      dryRun: false,
-      initAgents: false,
-      includeScripts: false,
-      reconcile: false,
-      rawForwardArgs: [],
-    };
+    return buildSimpleParsedArgs(CMD_STDIO, cwd, [], false);
   }
-
-  const command = Object.hasOwn(SUBCOMMAND_MAP, first) ? SUBCOMMAND_MAP[first] : undefined;
-  if (!command) {
-    throw new Error(`Unknown CLI subcommand '${first}'. Run with --help to view usage.`);
+  const versionTail = extractVersionTail(argv, first);
+  if (versionTail === null) {
+    return null;
   }
+  const help = hasHelpToken(versionTail);
+  if (!help) {
+    validateVersionTail(versionTail);
+  }
+  return buildSimpleParsedArgs(CMD_VERSION, cwd, versionTail, help);
+}
 
-  const tail = argv.slice(1);
+function isPassThroughCommand(command: CliCommandName): boolean {
+  return (
+    command === CMD_HELP || command === CMD_TMS_SYNC || Object.hasOwn(LAZY_CLI_HANDLERS, command)
+  );
+}
+
+function parseDirectSubcommandTail(
+  command: CliCommandName,
+  tail: readonly string[],
+  cwd: string
+): ParsedCliArgs | null {
   if (command === CMD_QUICKSTART) {
     return mapQuickstartToParsedCliArgs(parseQuickstartCliArgs(tail, cwd), tail);
   }
-  if (command === CMD_TMS_SYNC || Object.hasOwn(LAZY_CLI_HANDLERS, command)) {
-    return {
-      command,
-      projectPath: cwd,
-      lang: 'es',
-      dryRun: false,
-      help: hasHelpToken(tail),
-      initAgents: false,
-      includeScripts: false,
-      reconcile: false,
-      rawForwardArgs: tail,
-    };
+  if (isPassThroughCommand(command) || hasHelpToken(tail)) {
+    return buildSimpleParsedArgs(command, cwd, tail, hasHelpToken(tail));
   }
-  if (hasHelpToken(tail)) {
-    return {
-      command,
-      projectPath: cwd,
-      lang: 'es',
-      dryRun: false,
-      help: true,
-      initAgents: false,
-      includeScripts: false,
-      reconcile: false,
-      rawForwardArgs: tail,
-    };
-  }
+  return null;
+}
 
-  for (let i = 0; i < tail.length; i++) {
-    i += applyCliToken(tail, i, state, command);
-  }
-
+function buildFinalParsedArgs(
+  command: CliCommandName,
+  tail: readonly string[],
+  state: MutableParseState
+): ParsedCliArgs {
   return {
     command,
     projectPath: state.projectPath,
-    lang: validateSupportedLang(state.rawLang),
+    lang: validateSupportedLang(state.rawLang ?? process.env.QA_OUTPUT_LANG ?? 'auto'),
     agents: state.rawAgents !== undefined ? parseAgentsOption(state.rawAgents) : undefined,
     target: state.target,
     dryRun: state.dryRun,
@@ -584,6 +649,45 @@ export function parseCliArgs(
     reconcile: state.reconcile,
     rawForwardArgs: tail,
   };
+}
+
+function resolveCliSubcommandName(first: string): CliCommandName {
+  if (Object.hasOwn(SUBCOMMAND_MAP, first)) {
+    const command = SUBCOMMAND_MAP[first];
+    if (command) {
+      return command;
+    }
+  }
+  throw new Error(`Unknown CLI subcommand '${first}'. Run with --help to view usage.`);
+}
+
+export function parseCliArgs(
+  argv: readonly string[],
+  cwd: string = process.cwd()
+): ParsedCliArgs {
+  const shortcut = parseShortcutCliArgs(argv, cwd);
+  if (shortcut) {
+    return shortcut;
+  }
+  const command = resolveCliSubcommandName(pickAt(argv, 0));
+  const tail = argv.slice(1);
+  const direct = parseDirectSubcommandTail(command, tail, cwd);
+  if (direct) {
+    return direct;
+  }
+
+  const state: MutableParseState = {
+    projectPath: cwd,
+    dryRun: false,
+    initAgents: false,
+    includeScripts: false,
+    reconcile: false,
+  };
+  for (let i = 0; i < tail.length; i++) {
+    i += applyCliToken(tail, i, state, command);
+  }
+
+  return buildFinalParsedArgs(command, tail, state);
 }
 
 function buildInstallSkillForwardArgs(parsed: ParsedCliArgs): string[] {
@@ -600,7 +704,7 @@ function buildInstallSkillForwardArgs(parsed: ParsedCliArgs): string[] {
   if (parsed.dryRun) {
     forwarded.push(FLAG_DRY_RUN);
   }
-  forwarded.push(FLAG_LANG, parsed.lang);
+  forwarded.push(FLAG_PROJECT_PATH, parsed.projectPath, FLAG_LANG, parsed.lang);
   return forwarded;
 }
 
@@ -618,13 +722,13 @@ async function handleInitAgentsCommand(
     await deps.initAgentsRunner([...parsed.rawForwardArgs]);
     return { exitCode: 0, command: CMD_INIT_AGENTS, parsed };
   }
-  const initResult = await initOrAppendAgentsMd({
-    projectPath: parsed.projectPath,
-    lang: parsed.lang,
-    agents: parsed.agents,
-    dryRun: parsed.dryRun,
+  const initResult = await executeInitAgentsCli([...parsed.rawForwardArgs], {
+    cwd: deps.cwd,
+    quietBanner: true,
   });
-  log(formatInitAgentsSummary(initResult));
+  if (initResult) {
+    log(formatInitAgentsSummary(initResult));
+  }
   return { exitCode: 0, command: CMD_INIT_AGENTS, parsed, initResult };
 }
 
@@ -682,53 +786,133 @@ async function handleQuickstartCommand(
   }
 }
 
+async function handleHelpCommandDispatch(
+  parsed: ParsedCliArgs,
+  log: (message: string) => void,
+  errorLog: (message: string) => void
+): Promise<CliRunResult> {
+  if (parsed.rawForwardArgs.length === 0) {
+    log(CLI_USAGE_TEXT);
+    return { exitCode: 0, command: CMD_HELP, parsed };
+  }
+  if (parsed.rawForwardArgs.length === 1) {
+    const subToken = pickAt(parsed.rawForwardArgs, 0);
+    const subHelp = await resolveSubcommandHelpText(subToken);
+    if (subHelp !== null) {
+      log(subHelp);
+      return { exitCode: 0, command: CMD_HELP, parsed };
+    }
+    const errorMessage = `Unknown CLI subcommand '${subToken}'. Run with --help to view usage.`;
+    errorLog(`❌ ${errorMessage}`);
+    return { exitCode: 1, command: CMD_HELP, errorMessage };
+  }
+  const extraToken = pickAt(parsed.rawForwardArgs, 1);
+  const errorMessage = `Unexpected argument '${extraToken}' for 'help'. Run with --help to view usage.`;
+  errorLog(`❌ ${errorMessage}`);
+  return { exitCode: 1, command: CMD_HELP, errorMessage };
+}
+
+async function handleVersionCommandDispatch(
+  parsed: ParsedCliArgs,
+  deps: CliDeps,
+  log: (message: string) => void
+): Promise<CliRunResult> {
+  const hasJson = parsed.rawForwardArgs.includes(FLAG_JSON);
+  const hasVerbose = parsed.rawForwardArgs.includes(FLAG_VERBOSE);
+  if (hasJson || hasVerbose) {
+    const doctorArgs = ['--offline', ...(hasJson ? [FLAG_JSON] : [])];
+    const outcome = await handleLazySubcommand(CMD_DOCTOR, doctorArgs, deps);
+    return (
+      outcome ?? { exitCode: 1, command: CMD_VERSION, errorMessage: 'Doctor handler unavailable.' }
+    );
+  }
+  log(MCP_SERVER_VERSION);
+  return { exitCode: 0, command: CMD_VERSION, parsed };
+}
+
+async function dispatchContextualHelp(
+  parsed: ParsedCliArgs,
+  log: (message: string) => void
+): Promise<CliRunResult> {
+  if (parsed.command === CMD_TMS_SYNC) {
+    const tmsHelp = await runTmsSyncCli(['--help']);
+    log(tmsHelp.output);
+    return { exitCode: 0, command: CMD_TMS_SYNC, parsed };
+  }
+  log(getContextualHelpText(parsed.command));
+  return { exitCode: 0, command: parsed.command, parsed };
+}
+
+function dispatchStdioNotice(
+  parsed: ParsedCliArgs,
+  deps: CliDeps,
+  log: (message: string) => void
+): CliRunResult {
+  const isTty = deps.isStdinTty ?? Boolean(process.stdin.isTTY);
+  if (isTty) {
+    log(CLI_USAGE_TEXT);
+    return { exitCode: 0, command: CMD_STDIO, mode: 'tty-notice', parsed };
+  }
+  return { exitCode: 0, command: CMD_STDIO, mode: 'stdio-ready', parsed };
+}
+
+async function dispatchTmsSyncCommand(
+  parsed: ParsedCliArgs,
+  log: (message: string) => void,
+  errorLog: (message: string) => void
+): Promise<CliRunResult> {
+  const tmsRes = await runTmsSyncCli([...parsed.rawForwardArgs]);
+  const stream = tmsRes.exitCode === 0 ? log : errorLog;
+  stream(tmsRes.output);
+  return { exitCode: tmsRes.exitCode, command: CMD_TMS_SYNC, parsed };
+}
+
+const STANDARD_SUBCOMMAND_DISPATCHERS: Readonly<
+  Record<
+    string,
+    (
+      parsed: ParsedCliArgs,
+      deps: CliDeps,
+      log: (message: string) => void,
+      errorLog: (message: string) => void
+    ) => Promise<CliRunResult> | CliRunResult
+  >
+> = {
+  [CMD_VERSION]: (parsed, deps, log) => handleVersionCommandDispatch(parsed, deps, log),
+  [CMD_STDIO]: (parsed, deps, log) => dispatchStdioNotice(parsed, deps, log),
+  [CMD_TMS_SYNC]: (parsed, _deps, log, errorLog) => dispatchTmsSyncCommand(parsed, log, errorLog),
+  [CMD_INIT_AGENTS]: (parsed, deps, log) => handleInitAgentsCommand(parsed, deps, log),
+  [CMD_INSTALL_SKILL]: (parsed, deps, log) => handleInstallSkillCommand(parsed, deps, log),
+};
+
+async function dispatchStandardSubcommand(
+  parsed: ParsedCliArgs,
+  deps: CliDeps,
+  log: (message: string) => void,
+  errorLog: (message: string) => void
+): Promise<CliRunResult> {
+  const handler = STANDARD_SUBCOMMAND_DISPATCHERS[parsed.command];
+  if (handler) {
+    return await handler(parsed, deps, log, errorLog);
+  }
+  const reconcileRunner = deps.reconcileRunner ?? runReconcileAgentsCli;
+  await reconcileRunner([...parsed.rawForwardArgs]);
+  return { exitCode: 0, command: CMD_RECONCILE_AGENTS, parsed };
+}
+
 async function dispatchCliCommand(
   parsed: ParsedCliArgs,
   deps: CliDeps,
   log: (message: string) => void,
   errorLog: (message: string) => void
 ): Promise<CliRunResult> {
-  if (parsed.help) {
-    if (parsed.command === CMD_TMS_SYNC) {
-      const tmsHelp = await runTmsSyncCli(['--help']);
-      log(tmsHelp.output);
-      return { exitCode: 0, command: CMD_TMS_SYNC, parsed };
-    }
-    log(getContextualHelpText(parsed.command));
-    return { exitCode: 0, command: parsed.command, parsed };
-  }
-
   if (parsed.command === CMD_HELP) {
-    log(CLI_USAGE_TEXT);
-    return { exitCode: 0, command: CMD_HELP, parsed };
+    return await handleHelpCommandDispatch(parsed, log, errorLog);
   }
-  if (parsed.command === CMD_VERSION) {
-    log(MCP_SERVER_VERSION);
-    return { exitCode: 0, command: CMD_VERSION, parsed };
+  if (parsed.help) {
+    return await dispatchContextualHelp(parsed, log);
   }
-  if (parsed.command === CMD_STDIO) {
-    const isTty = deps.isStdinTty ?? Boolean(process.stdin.isTTY);
-    if (isTty) {
-      log(CLI_USAGE_TEXT);
-      return { exitCode: 0, command: CMD_STDIO, mode: 'tty-notice', parsed };
-    }
-    return { exitCode: 0, command: CMD_STDIO, mode: 'stdio-ready', parsed };
-  }
-  if (parsed.command === CMD_TMS_SYNC) {
-    const tmsRes = await runTmsSyncCli([...parsed.rawForwardArgs]);
-    const stream = tmsRes.exitCode === 0 ? log : errorLog;
-    stream(tmsRes.output);
-    return { exitCode: tmsRes.exitCode, command: CMD_TMS_SYNC, parsed };
-  }
-  if (parsed.command === CMD_INIT_AGENTS) {
-    return await handleInitAgentsCommand(parsed, deps, log);
-  }
-  if (parsed.command === CMD_INSTALL_SKILL) {
-    return await handleInstallSkillCommand(parsed, deps, log);
-  }
-  const reconcileRunner = deps.reconcileRunner ?? runReconcileAgentsCli;
-  await reconcileRunner([...parsed.rawForwardArgs]);
-  return { exitCode: 0, command: CMD_RECONCILE_AGENTS, parsed };
+  return await dispatchStandardSubcommand(parsed, deps, log, errorLog);
 }
 
 type LazySubcommand =

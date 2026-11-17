@@ -42,6 +42,7 @@ CLIENT_SECRET_VAR_RE = re.compile(
 )
 LITERAL_KEY_RE = re.compile(
     r"\b(?:sk-(?:proj-)?[A-Za-z0-9_-]{16,}|(?:ghp|gho|ghs|npm)_[A-Za-z0-9]{20,}"
+    r"|github_pat_[A-Za-z0-9_]{20,}|AIza[0-9A-Za-z_-]{20,}"
     r"|AKIA[0-9A-Z]{16}|glpat-[A-Za-z0-9_-]{20,})\b"
 )
 ENV_ASSIGN_RE = re.compile(
@@ -66,6 +67,7 @@ REDACT_BEARER_RE = re.compile(
 )
 REDACT_LITERAL_RE = re.compile(
     r"\b(?:sk-(?:proj-)?[A-Za-z0-9_-]{12,}|(?:ghp|gho|ghs|npm)_[A-Za-z0-9]{16,}"
+    r"|github_pat_[A-Za-z0-9_]{16,}|AIza[0-9A-Za-z_-]{16,}"
     r"|AKIA[0-9A-Z]{16}|glpat-[A-Za-z0-9_-]{16,}"
     r"|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})"
 )
@@ -161,6 +163,7 @@ class ScanContext:
     target_dir: Path
     env_ignored: bool
     max_lines: int
+    gitignore_patterns: frozenset[str] = field(default_factory=frozenset)
     findings: list[AuditFinding] = field(default_factory=list)
     env_keys: set[str] = field(default_factory=set)
     has_any_test: bool = False
@@ -212,8 +215,26 @@ def add_finding(
     )
 
 
+def is_env_file_ignored(
+    rel: str,
+    fname: str,
+    patterns: frozenset[str],
+) -> bool:
+    """Determina si un archivo .env* especifico esta cubierto por .gitignore."""
+    if not patterns or f"!{fname}" in patterns or f"!{rel}" in patterns:
+        return False
+    if ".env*" in patterns or fname in patterns or rel in patterns:
+        return True
+    if fname == ".env":
+        return "*.env" in patterns
+    return ".env.*" in patterns
+
+
 def scan_env_file(rel: str, lines: Sequence[str], ctx: ScanContext) -> None:
     """Audita variables en archivos .env y recolecta nombres para plantilla."""
+    file_ignored = ctx.env_ignored or is_env_file_ignored(
+        rel, Path(rel).name, ctx.gitignore_patterns
+    )
     for idx, line in enumerate(lines, start=1):
         match = ENV_ASSIGN_RE.match(line)
         if not match:
@@ -229,7 +250,7 @@ def scan_env_file(rel: str, lines: Sequence[str], ctx: ScanContext) -> None:
                 f"Variable cliente privilegiada: {key}={REDACTION_MARKER}",
             )
         elif (
-            not ctx.env_ignored
+            not file_ignored
             and SENSITIVE_ENV_KEY_RE.search(key)
             and not is_placeholder
         ):

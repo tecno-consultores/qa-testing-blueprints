@@ -75,8 +75,9 @@ python3 .agents/scripts/inspect_blast_radius.py "<simbolo_o_archivo>"
 
 **Paso 1: Levantar la API en segundo plano**
 ```bash
-docker compose -f docker-compose.qa.yml up -d api
+docker compose -f docker-compose.qa.yml up -d --wait api
 ```
+*(Al finalizar, apaga los contenedores en segundo plano y volúmenes efímeros con `make clean-cache` o `make clean`; `qa-e2e`, `qa-dast` y `qa-stress` ejecutan el teardown automáticamente al salir).*
 
 **Paso 2: Ejecutar las suites de validación (Pipeline Regular)**
 

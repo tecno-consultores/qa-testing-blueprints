@@ -57,7 +57,7 @@ services:
     command: bash -c "echo 'Contenedor QA Frontend (Node) listo para Lint, Type-Check, Unit y Mutación'; sleep infinity"
 
   ui-e2e:
-    image: mcr.microsoft.com/playwright:v1.52.0-noble
+    image: mcr.microsoft.com/playwright:v1.52.0-noble@sha256:a021500a801bab0611049217ffad6b9697d827205c15babb86a53bc1a61c02d5
     container_name: react_ui_e2e
     hostname: react_ui_e2e
     pull_policy: if_not_present
@@ -72,6 +72,7 @@ services:
       HOME: /tmp
       COREPACK_HOME: /tmp/.corepack
       PNPM_HOME: /pnpm
+      pnpm_config_store_dir: /pnpm/store
       PATH: /tmp/.corepack-bin:/pnpm:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
     volumes:
@@ -82,7 +83,7 @@ services:
     command: bash -c "echo 'Contenedor E2E listo. Usa docker compose run --rm -T ui-e2e [comando]'; sleep infinity"
 
   karatelabs:
-    image: sinfallas/karatelabs:1.5.1
+    image: sinfallas/karatelabs:1.5.1@sha256:a9a52ca9c5491ab39b64f0b4fdc3dea879c2213c9bc995be58d6cd4b9a80cc89
     container_name: react_ui_karate
     hostname: react_ui_karate
     pull_policy: if_not_present
@@ -94,7 +95,7 @@ services:
     environment:
       - UI_BASE_URL=http://ui-prod:8080
     volumes:
-      - ./test:/app/src/test/java/examples/test
+      - ./test:/app/src/test/java/examples/test:ro
     command: bash -c "echo 'Contenedor Karate listo. Usa docker compose run --rm -T karatelabs mvn clean test'; sleep infinity"
 
   nginx-exporter:
@@ -149,4 +150,4 @@ volumes:
   nginx-logs:
     name: react_nginx_logs
   pnpm-store:
-    name: react_pnpm_store_cache
+    name: react_pnpm_store

@@ -128,6 +128,11 @@ RE_PY_TEST_FILE = re.compile(
     r"(?:^|/)(?:test_[^/]+\.py|[^/]+_(?:test|unit|spec|e2e)\.py|"
     r"[^/]+\.(?:unit|spec|test|e2e)\.py|(?:tests?|e2e)/.*\.py)$"
 )
+RE_PY_GATE_FILE = re.compile(
+    r"(?:^|/)(?:(?:gate|verify|check|audit|certify|validate|enforce|release)_[^/]+"
+    r"|[^/]+_(?:gate|verifier|checker|auditor))\.py$",
+    re.IGNORECASE,
+)
 RE_UUID_V4 = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
     re.IGNORECASE,
@@ -516,6 +521,10 @@ def _is_py_test_scope(rel_posix: str) -> bool:
     return rel_posix.endswith(".py") and bool(RE_PY_TEST_FILE.search(rel_posix))
 
 
+def _is_py_gate_scope(rel_posix: str) -> bool:
+    return rel_posix.endswith(".py") and bool(RE_PY_GATE_FILE.search(rel_posix))
+
+
 def _call_leaf_name(node: ast.expr) -> str:
     if isinstance(node, ast.Name):
         return node.id
@@ -570,28 +579,156 @@ def _assign_targets_audit(targets: Sequence[ast.expr]) -> bool:
     return False
 
 
-def _has_audit_mock_assertion(scope: ast.AST) -> bool:
-    for node in ast.walk(scope):
-        if isinstance(node, ast.Attribute) and (
-            node.attr.startswith(("assert_called", "assert_awaited"))
-            or node.attr in {"call_args", "call_args_list"}
-        ):
-            return True
-    return False
+def _extract_audit_patch_targets(call: ast.Call) -> set[str]:
+    targets = {"write_audit_log"}
+    if len(call.args) >= 3 and isinstance(call.args[2], ast.Name):
+        targets.add(call.args[2].id)
+    for kw in call.keywords:
+        if kw.arg == "new" and isinstance(kw.value, ast.Name):
+            targets.add(kw.value.id)
+    return targets
 
 
-def _find_audit_patch_lines(scope: ast.AST) -> list[int]:
-    lines: list[int] = []
+def _extract_assertion_receiver(node: ast.AST) -> str | None:
+    if not isinstance(node, ast.Attribute):
+        return None
+    is_mock_attr = node.attr.startswith(("assert_called", "assert_awaited")) or (
+        node.attr in {"call_args", "call_args_list"}
+    )
+    if not is_mock_attr:
+        return None
+    if isinstance(node.value, ast.Name):
+        return node.value.id
+    if isinstance(node.value, ast.Attribute):
+        return node.value.attr
+    return None
+
+
+def _collect_asserted_mock_receivers(scope: ast.AST) -> set[str]:
+    receivers: set[str] = set()
     for node in ast.walk(scope):
-        if isinstance(node, ast.Call) and _is_audit_patch_call(node):
-            lines.append(node.lineno)
-        elif (
-            isinstance(node, ast.Assign)
-            and _assign_targets_audit(node.targets)
-            and _expr_uses_mock_ctor(node.value)
+        receiver = _extract_assertion_receiver(node)
+        if receiver:
+            receivers.add(receiver)
+    return receivers
+
+
+def _has_audit_mock_assertion(
+    scope: ast.AST, expected_targets: set[str] | None = None
+) -> bool:
+    asserted = _collect_asserted_mock_receivers(scope)
+    if expected_targets is None:
+        return bool(asserted)
+    return bool(asserted & expected_targets)
+
+
+def _with_item_audit_site(item: ast.withitem) -> tuple[int, set[str]] | None:
+    if not (
+        isinstance(item.context_expr, ast.Call)
+        and _is_audit_patch_call(item.context_expr)
+    ):
+        return None
+    targets = _extract_audit_patch_targets(item.context_expr)
+    if isinstance(item.optional_vars, ast.Name):
+        targets.add(item.optional_vars.id)
+    return item.context_expr.lineno, targets
+
+
+def _is_explicit_new_patch(dec: ast.Call) -> bool:
+    return len(dec.args) >= 3 or any(
+        kw.arg in {"new", "new_callable", "return_value"} for kw in dec.keywords
+    )
+
+
+def _single_decorator_site(
+    dec: ast.expr, pos_args: list[str], patch_idx: int
+) -> tuple[tuple[int, set[str]] | None, int]:
+    if not (isinstance(dec, ast.Call) and _call_leaf_name(dec.func) in PY_PATCH_FUNCS):
+        return None, patch_idx
+    explicit_new = _is_explicit_new_patch(dec)
+    next_idx = patch_idx if explicit_new else patch_idx + 1
+    if not _is_audit_patch_call(dec):
+        return None, next_idx
+    targets = _extract_audit_patch_targets(dec)
+    if not explicit_new and patch_idx < len(pos_args):
+        targets.add(pos_args[patch_idx])
+    return (dec.lineno, targets), next_idx
+
+
+def _decorator_patch_sites(scope: ast.AST) -> list[tuple[int, set[str]]]:
+    if not isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        return []
+    sites: list[tuple[int, set[str]]] = []
+    pos_args = [a.arg for a in scope.args.args if a.arg not in {"self", "cls"}]
+    patch_idx = 0
+    for dec in reversed(scope.decorator_list):
+        site, patch_idx = _single_decorator_site(dec, pos_args, patch_idx)
+        if site is not None:
+            sites.append(site)
+    return sites
+
+
+def _assign_audit_site(node: ast.Assign) -> tuple[int, set[str]] | None:
+    if _assign_targets_audit(node.targets) and _expr_uses_mock_ctor(node.value):
+        return node.lineno, {"write_audit_log"}
+    if not (isinstance(node.value, ast.Call) and _is_audit_patch_call(node.value)):
+        return None
+    targets = _extract_audit_patch_targets(node.value)
+    for tgt in node.targets:
+        if isinstance(tgt, ast.Name):
+            targets.add(tgt.id)
+    return node.lineno, targets
+
+
+def _collect_with_node_sites(
+    node: ast.With | ast.AsyncWith,
+    sites: list[tuple[int, set[str]]],
+    handled_call_ids: set[int],
+) -> None:
+    for item in node.items:
+        site = _with_item_audit_site(item)
+        if site is not None:
+            sites.append(site)
+            handled_call_ids.add(id(item.context_expr))
+
+
+def _collect_with_and_assign_sites(
+    scope: ast.AST,
+) -> tuple[list[tuple[int, set[str]]], set[int]]:
+    sites: list[tuple[int, set[str]]] = []
+    handled_call_ids: set[int] = set()
+    for node in ast.walk(scope):
+        if isinstance(node, (ast.With, ast.AsyncWith)):
+            _collect_with_node_sites(node, sites, handled_call_ids)
+        elif isinstance(node, ast.Assign):
+            site = _assign_audit_site(node)
+            if site is not None:
+                sites.append(site)
+                handled_call_ids.add(id(node.value))
+    return sites, handled_call_ids
+
+
+def _find_audit_patch_sites(scope: ast.AST) -> list[tuple[int, set[str]]]:
+    sites = _decorator_patch_sites(scope)
+    handled_call_ids = {
+        id(dec)
+        for dec in (
+            scope.decorator_list
+            if isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef))
+            else ()
+        )
+    }
+    wa_sites, wa_ids = _collect_with_and_assign_sites(scope)
+    sites.extend(wa_sites)
+    handled_call_ids.update(wa_ids)
+    for node in ast.walk(scope):
+        if (
+            isinstance(node, ast.Call)
+            and id(node) not in handled_call_ids
+            and _is_audit_patch_call(node)
         ):
-            lines.append(node.lineno)
-    return lines
+            sites.append((node.lineno, _extract_audit_patch_targets(node)))
+    return sites
 
 
 def _collect_scope_audit_violations(
@@ -608,8 +745,11 @@ def _collect_scope_audit_violations(
         "Verificar call_args verificando actor_username y "
         "resource_display_name legibles."
     )
+    asserted = _collect_asserted_mock_receivers(scope)
     hits: list[Violation] = []
-    for line_no in _find_audit_patch_lines(scope):
+    for line_no, expected_targets in _find_audit_patch_sites(scope):
+        if expected_targets & asserted:
+            continue
         if line_no in seen_lines or _has_py_anti_exempt(raw_lines, line_no):
             continue
         seen_lines.add(line_no)
@@ -629,12 +769,9 @@ def _check_py_blind_audit_mock(
     violations: list[Violation] = []
     seen_lines: set[int] = set()
     for scope in scopes:
-        if not _has_audit_mock_assertion(scope):
-            violations.extend(
-                _collect_scope_audit_violations(
-                    scope, rel_file, raw_lines, seen_lines
-                )
-            )
+        violations.extend(
+            _collect_scope_audit_violations(scope, rel_file, raw_lines, seen_lines)
+        )
     return violations
 
 
@@ -776,13 +913,17 @@ def _check_py_hardcoded_gate_pass(
 def _check_python_ast_antipatterns(
     rel_file: str, raw_text: str
 ) -> list[Violation]:
-    if not _is_py_test_scope(rel_file):
+    is_test = _is_py_test_scope(rel_file)
+    is_gate = not is_test and _is_py_gate_scope(rel_file)
+    if not is_test and not is_gate:
         return []
     try:
         tree = ast.parse(raw_text)
     except SyntaxError:
         return []
     raw_lines = raw_text.splitlines()
+    if is_gate:
+        return _check_py_hardcoded_gate_pass(tree, rel_file, raw_lines)
     return [
         *_check_py_blind_audit_mock(tree, rel_file, raw_lines),
         *_check_py_uuid_audit_fields(tree, rel_file, raw_lines),

@@ -1134,5 +1134,27 @@ docker exec -e ROSGRID_ADMIN_PASSWORD="\${LOCAL_ADMIN_PASS}" api pytest tests/co
       expect(withExamples.findings.some((f) => f.rule_id === 'SEC-03')).toBe(true);
       expect(withExamples.findings.some((f) => f.rule_id === 'QA-DOCKER-LOCK-01')).toBe(true);
     });
+
+    it('ordena hallazgos por severidad (CRITICAL > HIGH > MEDIUM > LOW) antes de aplicar maxFindings', async () => {
+      const sortDir = path.join(tempDir, 'severity-sort');
+      const srcDir = path.join(sortDir, 'src');
+      fs.mkdirSync(srcDir, { recursive: true });
+      fs.writeFileSync(path.join(sortDir, 'package.json'), JSON.stringify({ name: 'sort-app' }));
+      // Archivo primero en orden alfabético con severidad menor + archivo con CRITICAL
+      fs.writeFileSync(
+        path.join(srcDir, 'a_low.ts'),
+        'export const debugCfg = { swagger: true };\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(srcDir, 'z_critical.py'),
+        'import pickle\nobj = pickle.loads(b"bad")\n',
+        'utf8'
+      );
+
+      const limited = await auditSecurityStigOwasp(sortDir, 1);
+      expect(limited.findings).toHaveLength(1);
+      expect(limited.findings[0]?.severity).toBe('CRITICAL');
+    });
   });
 });

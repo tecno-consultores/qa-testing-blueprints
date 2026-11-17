@@ -331,14 +331,14 @@ def test_mock_db_enforces_strict_json_decimal_parity() -> None:
 
 | STIG / CVE ID | OWASP v4.2 / ASVS | `audit_security_stig_owasp` Rule | Concrete Implementation Artifact |
 | :--- | :--- | :--- | :--- |
-| `APSC-DV-000010/070/080/3360` | SM 1-21 | `SEC-12` / Session Governance | KeyDB session counter, `10m`/`15m` idle TTL, distinct-IP alert |
-| `APSC-DV-000060/100/2240` | SM-11..15 | Client Purge & Logoff | `localStorage`/`sessionStorage`/`CacheStorage` wipe + confirm banner |
-| `APSC-DV-000290..580/1680..1850` | A 1-20, P-6 | `SEC-13` / Identity Lifecycle | `3-fail/15m` lockout, dummy Argon2id, `15-char/5-gen`, `72h`/`35d`, mTLS |
-| `APSC-DV-000450/460` | API1/3/5:2023 | `SEC-01`, Service-Layer RBAC | `assert_service_rbac(claims)` + `ApprovalRequest` + `<= 100`/page |
-| `APSC-DV-000530/2270/2560` | ASVS V2.8 | `SEC-16` | `>= 128-bit` `challenge_id`, `GETDEL`/Lua, `TTL <= 300s`, `PREAUTH_PUBLIC_ROUTES` |
-| `APSC-DV-000650..1370` | SL/SLD | WORM Audit & 75% Alert | `seq_num BIGINT` + `pg_advisory_xact_lock`, CR/LF strip, 75% disk alert |
-| `APSC-DV-001430/3140`, `V-222513` | 4.3.3 SFL | `SEC-11`, Supply Chain | `uv.lock`/`pnpm-lock.yaml`, signed CycloneDX SBOM/CBOM (`ECMA-424`) |
-| `APSC-DV-002010..2230/2590/3310` | CP-5, MM 1-9 | Vault & Zeroization | FIPS AES-256-GCM envelope, `bytearray`/`sodium_memzero`, DB scrub |
-| `APSC-DV-002310/2430/2770` | OSHP, SC 8-11 | `SEC-03/12/15`, `QA-SMOKE-01` | OSHP headers, prod `/docs` off, startup self-test, ephemeral secrets |
-| `APSC-DV-002390/2485/2510..2550` | CEC, VSD, FV | `SEC-04/05/06/08/09/14` | `NFKC`, `defusedxml`, zero `pickle`/`shell=True`, magic-bytes, Anti-SSRF |
-| `APSC-DV-003230` | Threat Model | Architecture Governance | Programmatic `pytm` / OWASP Threat Dragon specs + `QA-PG17-RLS` |
+| `APSC-DV-000010/070/080/3360` | SM 1-21 | Session Governance (Runtime) | KeyDB session counter, `10m`/`15m` idle TTL, distinct-IP alert |
+| `APSC-DV-000060/100/2240` | SM-11..15 | Client Purge & Logoff | `localStorage`/`sessionStorage`/`IndexedDB`/`CacheStorage` wipe + confirm banner |
+| `APSC-DV-000290..580/1680..1850` | A 1-20, P-6 | Identity Lifecycle (Runtime) | `3-fail/15m` lockout, dummy Argon2id, `15-char/5-gen`, `72h`/`35d`, mTLS |
+| `APSC-DV-000450/460` | API1/3/5:2023 | `SEC-01`, `SEC-12` | `ConfigDict(extra='forbid')`, `assert_service_rbac(claims)` + `ApprovalRequest` + `<= 100`/page |
+| `APSC-DV-000530/2270/2560`, `V-222596` | ASVS V2.8, WS | `SEC-02`, `SEC-16` | CSWSH `Origin`+`4403`; `>= 128-bit` `challenge_id`, `GETDEL`/Lua, `TTL <= 300s`, `PREAUTH_PUBLIC_ROUTES` |
+| `APSC-DV-000650..1370`, `V-222444` | SL/SLD | `SEC-10`, `SEC-11`, `SEC-14` | Zero hardcoded secrets; human `actor_username` (no blind mock); `seq_num`+`pg_advisory_xact_lock` WORM, 75% alert |
+| `APSC-DV-001430/3140`, `V-222513` | 4.3.3 SFL | `SEC-09`, `SEC-CI-ACTION-REF`, `QA-DOCKER-LOCK-01` | `.npmrc` `ignore-scripts=true`, lockfiles, SHA-40 CI actions, signed CycloneDX SBOM/CBOM (`ECMA-424`) |
+| `APSC-DV-002010..2230/2590/3310` | CP-5, MM 1-9 | Vault & Zeroization (`SEC-10` guard) | FIPS AES-256-GCM envelope, `bytearray`/`sodium_memzero`, DB scrub (secrets quarantined from source) |
+| `APSC-DV-002310/2430/2770` | OSHP, SC 8-11 | `SEC-07`, `SEC-08`, `SEC-15`, `QA-SMOKE-01` | Prod `/docs` off (`SEC-07`), OSHP headers (`SEC-08`), ephemeral secrets (`SEC-15`), `Settings` sync (`QA-SMOKE-01`) |
+| `APSC-DV-002390/2485..2550` | CEC, VSD, FV, XSS | `SEC-03`, `SEC-04`, `SEC-05`, `SEC-06` | Zero `shell=True`/`pickle`/`eval` (`03`), `defusedxml`/`LIBXML_NONET` (`04`), `NFKC` (`05`), sanitize HTML (`06`), magic-bytes |
+| `APSC-DV-003230` | Threat Model, RLS | `SEC-13`, `QA-PG17-RLS` | Programmatic `pytm` / Threat Dragon specs + PG17 `after_begin` RLS (`SEC-13`) & `pg_class.relforcerowsecurity` |

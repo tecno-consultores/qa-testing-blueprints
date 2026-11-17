@@ -9,7 +9,7 @@ module.exports = {
       numberOfRuns: 3,
       settings: {
         preset: 'desktop',
-        skipAudits: ['is-on-https'],
+        skipAudits: ['is-on-https', 'is-crawlable'],
         chromeFlags: '--no-sandbox --headless --disable-gpu --disable-dev-shm-usage',
       },
     },

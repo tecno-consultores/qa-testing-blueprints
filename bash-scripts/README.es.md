@@ -1,6 +1,6 @@
-> 🌐 **Idioma:** [🇺🇸 English (Canonical)](README.md) · **Español (Espejo 1:1)**
-
 > **[DIRECTIVA DE SISTEMA PARA AGENTES DE IA]:** Actúa como un Ingeniero Staff de Automatización QA y Experto DevOps. Lee, analiza y aplica estrictamente las siguientes restricciones arquitectónicas redactadas en español. Debes generar código que se alinee perfectamente con estas reglas, utilizando exclusivamente los contenedores Docker efímeros, frameworks de pruebas y umbrales estrictos de calidad (p. ej. 95% de cobertura, SAST, Profiling) especificados a continuación. No sugieras instalaciones locales. Procesa la lógica técnica con tu máxima capacidad de razonamiento en inglés, pero emite tu respuesta final, explicaciones y comentarios de código en español.
+
+> 🌐 **Idioma:** [🇺🇸 English (Canonical)](README.md) · **Español (Espejo 1:1)**
 
 # Guía de Pruebas y QA para Scripts (Bash/Shell)
 
@@ -57,9 +57,10 @@ make qa-unit
 ```
 
 * **Paso 5: Certificación de Observabilidad (Nivel 11X)**
-Levanta Prometheus y evalúa la emisión de métricas del script efímero:
+Levanta Prometheus y Pushgateway y evalúa la emisión de métricas del script efímero:
 ```bash
-docker compose -f docker-compose.qa.yml --profile observability up -d prometheus
+make qa-observability
 docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-bash bash ./clean_artifacts.sh --dry-run
-# (Puedes verificar la métrica empujada accediendo a http://localhost:9090)
+# O envía métrica tras limpieza real: ./clean_artifacts.sh --pushgateway-url http://pushgateway:9091
+# Verifica la métrica en http://localhost:9090 y apaga con `make clean-cache` (o `--profile "*" down -v`).
 ```

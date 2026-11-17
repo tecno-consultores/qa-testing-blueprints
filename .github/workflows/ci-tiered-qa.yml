@@ -29,17 +29,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
-      tier: ${{ steps.plan.outputs.tier }}
-      graph: ${{ steps.plan.outputs.graph }}
       run_frontend: ${{ steps.plan.outputs.run_frontend }}
       run_mobile: ${{ steps.plan.outputs.run_mobile }}
       run_backend: ${{ steps.plan.outputs.run_backend }}
-      run_mcp: ${{ steps.plan.outputs.run_mcp }}
       run_ai_offline: ${{ steps.plan.outputs.run_ai_offline }}
-      run_meta_qa: ${{ steps.plan.outputs.run_meta_qa }}
-      validate_calm: ${{ steps.plan.outputs.validate_calm }}
       run_full_regression: ${{ steps.plan.outputs.run_full_regression }}
-      estimated_savings_pct: ${{ steps.plan.outputs.estimated_savings_pct }}
 
     steps:
       - name: Checkout repository with history for PR diff
@@ -225,7 +219,7 @@ jobs:
           make lint-docs
           make version-check
           DIFF_ARGS=(--workspace /app --reports-dir .agents/.cache/coverage)
-          if [ "${EVENT_NAME}" = "pull_request" ] && [ -n "${BASE_REF}" ] && git rev-parse --verify "origin/${BASE_REF}" >/dev/null 2>&1; then
+          if [ -n "${BASE_REF:-}" ] && git rev-parse --verify "origin/${BASE_REF}" >/dev/null 2>&1; then
             DIFF_ARGS+=(--base-ref "origin/${BASE_REF}")
           elif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
             DIFF_ARGS+=(--base-ref "HEAD~1")

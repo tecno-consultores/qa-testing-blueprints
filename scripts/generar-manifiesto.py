@@ -29,31 +29,18 @@ from sync_governance import (  # noqa: E402
     COMMON_FILE_PATHS as COMMON_FILE_PATHS,
 )
 from sync_governance import (  # noqa: E402
-    DEFAULT_BLUEPRINT_VERSION as _SYNC_DEFAULT_BLUEPRINT_VERSION,
-)
-from sync_governance import (  # noqa: E402
-    DEFAULT_BRANCH as DEFAULT_BRANCH,
-)
-from sync_governance import (  # noqa: E402
-    RAW_BASE_URL as RAW_BASE_URL,
-)
-from sync_governance import (  # noqa: E402
-    REPOSITORY as REPOSITORY,
-)
-from sync_governance import (  # noqa: E402
     SCHEMA_VERSION as SCHEMA_VERSION,
 )
 from sync_governance import (  # noqa: E402
     STACK_METADATA as STACK_METADATA,
 )
 from sync_governance import (  # noqa: E402
-    _build_single_stack_entry,
+    _apply_manifest_write,
+    _load_existing_manifest,
+    build_expected_manifest,
     compare_manifests,
     count_artifacts,
     load_manifest_strict,
-)
-from sync_governance import (  # noqa: E402
-    _collect_agent_schemas as _collect_agent_schemas,
 )
 from sync_governance import (  # noqa: E402
     classify_common_file as classify_common_file,
@@ -83,7 +70,7 @@ from sync_governance import (  # noqa: E402
     scan_stack as scan_stack,
 )
 
-DEFAULT_BLUEPRINT_VERSION = "3.1.0"
+DEFAULT_BLUEPRINT_VERSION = "3.2.0"
 
 
 def build_manifest(
@@ -91,39 +78,11 @@ def build_manifest(
     generated_at_utc: str | None = None,
     existing_manifest: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Construye el diccionario completo del manifiesto con orden determinista."""
+    """Construye el diccionario completo del manifiesto delegando en sync_governance."""
     timestamp = generated_at_utc or datetime.datetime.now(datetime.UTC).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
     )
-    fallback = DEFAULT_BLUEPRINT_VERSION or _SYNC_DEFAULT_BLUEPRINT_VERSION
-    blueprint_version = get_blueprint_version(repo_root, fallback=fallback)
-
-    prev = existing_manifest or {}
-    raw_stacks = prev.get("stacks", {})
-    existing_stacks = raw_stacks if isinstance(raw_stacks, dict) else {}
-    raw_common = prev.get("common_files", [])
-    existing_common = raw_common if isinstance(raw_common, list) else []
-    raw_gov = prev.get("agent_governance_files", [])
-    existing_gov = raw_gov if isinstance(raw_gov, list) else []
-
-    stacks_dict = {
-        stack_name: _build_single_stack_entry(repo_root, stack_name, existing_stacks)
-        for stack_name in sorted(STACK_METADATA)
-    }
-
-    return {
-        "schema_version": SCHEMA_VERSION,
-        "blueprint_version": blueprint_version,
-        "generated_at_utc": timestamp,
-        "repository": REPOSITORY,
-        "default_branch": DEFAULT_BRANCH,
-        "raw_base_url": RAW_BASE_URL,
-        "stacks": stacks_dict,
-        "common_files": scan_common_files(repo_root, existing_entries=existing_common),
-        "agent_governance_files": scan_agent_governance_files(
-            repo_root, existing_entries=existing_gov
-        ),
-    }
+    return build_expected_manifest(repo_root, existing_manifest or {}, timestamp)
 
 
 def verify_manifest(
@@ -200,11 +159,26 @@ def _handle_check(repo_root: Path, manifest_path: Path) -> int:
 
 
 def _write_manifest(repo_root: Path, manifest_path: Path) -> int:
-    manifest_data = build_manifest(repo_root)
-    manifest_json = json.dumps(manifest_data, indent=2, ensure_ascii=False) + "\n"
+    existing_manifest, existing_raw, load_errors = _load_existing_manifest(
+        manifest_path, False
+    )
+    preserved_ts = str(
+        existing_manifest.get("generated_at_utc")
+        or datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    )
+    candidate = build_manifest(
+        repo_root, generated_at_utc=preserved_ts, existing_manifest=existing_manifest
+    )
+    diffs = (
+        compare_manifests(existing_manifest, candidate)
+        if manifest_path.is_file() and not load_errors
+        else ["manifest.json ausente"]
+    )
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    manifest_path.write_text(manifest_json, encoding="utf-8")
-    total_files = count_artifacts(manifest_data)
+    final_manifest, _ = _apply_manifest_write(
+        manifest_path, existing_raw, candidate, diffs
+    )
+    total_files = count_artifacts(final_manifest)
     print(
         f"✔ [Manifest SHA-256] Generado en {manifest_path.name} "
         f"({total_files} archivos indexados)."

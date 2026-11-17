@@ -17,11 +17,12 @@ import {
 import { inspectProjectConfig } from '../tools/inspect-project.js';
 import type { ProjectAuditResult } from '../types.js';
 import { pickAt, reportDebugCatchError } from '../utils/diagnosticFormatter.js';
+import { getDoctorIdeMcpTargets, type IdeMcpTargetSpec } from '../utils/ideConfigPaths.js';
 import {
   type CliCommandOutput,
   formatCliJson,
   hasHelpFlag,
-  readNextFlagValue,
+  matchFlagValue,
   resolveCliProjectPath,
 } from './cliArgHelpers.js';
 
@@ -70,6 +71,7 @@ export interface IdeMcpConfigStatus {
 export interface DoctorCliDeps {
   readonly cwd?: string;
   readonly homeDir?: string;
+  readonly platform?: NodeJS.Platform;
   readonly execPath?: string;
   readonly entryScriptPath?: string;
   readonly fetcher?: GitHubFetcher;
@@ -97,43 +99,57 @@ export interface DoctorReport {
 }
 
 interface ParsedDoctorArgs {
-  readonly rawDir: string | undefined;
-  readonly offline: boolean;
-  readonly json: boolean;
+  rawDir: string | undefined;
+  offline: boolean;
+  json: boolean;
 }
 
-const IDE_MCP_TARGETS: readonly { readonly client: string; readonly relPath: string }[] = [
-  { client: 'gemini', relPath: path.join('.gemini', 'config', 'mcp_config.json') },
-  { client: 'claude', relPath: '.claude.json' },
-  { client: 'cursor', relPath: path.join('.cursor', 'mcp.json') },
-  { client: 'windsurf', relPath: path.join('.codeium', 'windsurf', 'mcp_config.json') },
-  { client: 'codex', relPath: path.join('.codex', 'config.toml') },
-];
+const DOCTOR_VALUE_FLAGS = new Set([FLAG_PROJECT_PATH, FLAG_PROJECT_PATH_SHORT]);
+const DOCTOR_BOOL_FLAGS: Readonly<Record<string, (state: ParsedDoctorArgs) => void>> = {
+  [FLAG_OFFLINE]: (state) => {
+    state.offline = true;
+  },
+  [FLAG_JSON]: (state) => {
+    state.json = true;
+  },
+};
+
+function applyDoctorToken(
+  args: readonly string[],
+  index: number,
+  state: ParsedDoctorArgs
+): number {
+  const arg = pickAt(args, index);
+  const boolAction = DOCTOR_BOOL_FLAGS[arg];
+  if (boolAction) {
+    boolAction(state);
+    return 0;
+  }
+  const matched = matchFlagValue(args, index, DOCTOR_VALUE_FLAGS);
+  if (matched) {
+    state.rawDir = matched.value;
+    return matched.consumed;
+  }
+  if (arg.startsWith('-')) {
+    throw new Error(`Opción desconocida en doctor: '${arg}'.`);
+  }
+  if (state.rawDir !== undefined) {
+    throw new Error(`Argumento posicional inesperado: '${arg}'.`);
+  }
+  state.rawDir = arg;
+  return 0;
+}
 
 function parseDoctorArgs(args: readonly string[]): ParsedDoctorArgs {
-  let rawDir: string | undefined;
-  let offline = false;
-  let json = false;
-
+  const state: ParsedDoctorArgs = {
+    rawDir: undefined,
+    offline: false,
+    json: false,
+  };
   for (let i = 0; i < args.length; i++) {
-    const arg = pickAt(args, i);
-    if (arg === FLAG_OFFLINE) {
-      offline = true;
-    } else if (arg === FLAG_JSON) {
-      json = true;
-    } else if (arg === FLAG_PROJECT_PATH || arg === FLAG_PROJECT_PATH_SHORT) {
-      rawDir = readNextFlagValue(args, i, arg);
-      i += 1;
-    } else if (arg.startsWith('-')) {
-      throw new Error(`Opción desconocida en doctor: '${arg}'.`);
-    } else if (rawDir !== undefined) {
-      throw new Error(`Argumento posicional inesperado: '${arg}'.`);
-    } else {
-      rawDir = arg;
-    }
+    i += applyDoctorToken(args, i, state);
   }
-
-  return { rawDir, offline, json };
+  return state;
 }
 
 function detectBinaryOrigin(entryScript: string, projectPath: string): BinaryOrigin {
@@ -187,22 +203,36 @@ function scanNpxCacheEntries(homeDir: string): NpxCacheEntry[] {
   return entries;
 }
 
-function inspectIdeMcpConfig(
-  homeDir: string,
-  target: { readonly client: string; readonly relPath: string }
-): IdeMcpConfigStatus {
-  const fullPath = resolveSafeChildPath(homeDir, target.relPath);
-  if (!fs.existsSync(fullPath)) {
-    return { client: target.client, path: fullPath, exists: false, has_qa_11x: false };
-  }
-  let hasQa11x = false;
+const IDE_MCP_TARGETS = getDoctorIdeMcpTargets();
+
+function readIdeConfigContainsQa(fullPath: string, client: string): boolean {
   try {
-    const content = fs.readFileSync(fullPath, UTF8_ENCODING);
-    hasQa11x = content.includes(QA_11X_TOKEN);
+    return fs.readFileSync(fullPath, UTF8_ENCODING).includes(QA_11X_TOKEN);
   } catch (err: unknown) {
-    reportDebugCatchError(`doctor.inspectIdeMcpConfig(${target.client})`, err);
+    reportDebugCatchError(`doctor.inspectIdeMcpConfig(${client})`, err);
+    return false;
   }
-  return { client: target.client, path: fullPath, exists: true, has_qa_11x: hasQa11x };
+}
+
+function detectQaInCandidates(
+  candidatePaths: readonly string[],
+  client: string
+): { readonly firstExistingPath: string | null; readonly matchedPath: string | null } {
+  const existingPaths = candidatePaths.filter((p) => fs.existsSync(p));
+  const matchedPath = existingPaths.find((p) => readIdeConfigContainsQa(p, client)) ?? null;
+  return { firstExistingPath: existingPaths[0] ?? null, matchedPath };
+}
+
+function inspectIdeMcpConfig(homeDir: string, target: IdeMcpTargetSpec): IdeMcpConfigStatus {
+  const candidatePaths = target.relPaths.map((relPath) => resolveSafeChildPath(homeDir, relPath));
+  const canonicalPath = pickAt(candidatePaths, 0);
+  const { firstExistingPath, matchedPath } = detectQaInCandidates(candidatePaths, target.client);
+  return {
+    client: target.client,
+    path: matchedPath ?? firstExistingPath ?? canonicalPath,
+    exists: firstExistingPath !== null,
+    has_qa_11x: matchedPath !== null,
+  };
 }
 
 function defaultDockerProbe(execFileFn: typeof execFileSync = execFileSync): string | null {
@@ -273,6 +303,9 @@ export async function runDoctorCli(
       fetcher: deps.fetcher,
     });
 
+    const ideTargets =
+      deps.platform !== undefined ? getDoctorIdeMcpTargets(deps.platform) : IDE_MCP_TARGETS;
+
     const report: DoctorReport = {
       mcp_version: MCP_SERVER_VERSION,
       node_version: process.version,
@@ -286,7 +319,7 @@ export async function runDoctorCli(
         multiple_npx_caches: npxEntries.length > 1,
       },
       global_skills: skillDirs.map((dir) => ({ dir, version: readVersionStamp(dir) })),
-      ide_mcp_configs: IDE_MCP_TARGETS.map((t) => inspectIdeMcpConfig(homeDir, t)),
+      ide_mcp_configs: ideTargets.map((t) => inspectIdeMcpConfig(homeDir, t)),
       docker_version: dockerProbeFn(),
       graphify_graph_present: fs.existsSync(path.join(projectPath, 'graphify-out', 'graph.json')),
       project_inspection: projectInspection,

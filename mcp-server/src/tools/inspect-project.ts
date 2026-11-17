@@ -11,6 +11,7 @@ import {
   type EvaluateUpdateOptions,
 } from '../services/version-manager.js';
 import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
+import { getBrowserMcpCandidatePaths } from '../utils/ideConfigPaths.js';
 
 const BASH_STACK_NAME = 'bash-scripts';
 const PHP_STACK_NAME = 'php';
@@ -409,12 +410,7 @@ function configMentionsBrowserMcp(configFile: string): boolean {
 
 function checkBrowserMcpInIde(homeDir?: string): boolean {
   const baseHome = resolveSafeHomeDir(homeDir);
-  const configFiles = [
-    path.join(baseHome, '.gemini', 'antigravity', 'mcp_config.json'),
-    path.join(baseHome, '.gemini', 'config', 'mcp_config.json'),
-    path.join(baseHome, '.claude.json'),
-    path.join(baseHome, '.cursor', 'mcp.json'),
-  ];
+  const configFiles = getBrowserMcpCandidatePaths(baseHome);
   return configFiles.some(
     (configFile) => fs.existsSync(configFile) && configMentionsBrowserMcp(configFile)
   );

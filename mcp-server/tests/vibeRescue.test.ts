@@ -29,7 +29,6 @@ import {
   VIBE_RESCUE_README_URI,
   VIBE_RESCUE_RESOURCE,
   VIBE_RESCUE_STACK_ID,
-  listV2StackBlueprintResources,
   readStackBlueprintResource,
   readVibeRescueBlueprint,
 } from '../src/resources/stackBlueprints.js';
@@ -377,7 +376,7 @@ describe('stackBlueprints MCP resource blueprint://vibe-rescue/readme (T4.5)', (
     expect(VIBE_RESCUE_RESOURCE.uri).toBe(VIBE_RESCUE_README_URI);
     expect(V2_STACK_BLUEPRINTS['vibe-rescue']?.readmeRelPath).toBe(VIBE_RESCUE_README_REL_PATH);
 
-    const uris = listV2StackBlueprintResources().map((entry) => entry.uri);
+    const uris = Object.values(V2_STACK_BLUEPRINTS).map((entry) => entry.resource.uri);
     expect(uris).toContain(MOBILE_APPIUM_README_URI);
     expect(uris).toContain(VIBE_RESCUE_README_URI);
 

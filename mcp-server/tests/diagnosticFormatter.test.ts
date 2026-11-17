@@ -4,9 +4,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { MCP_SERVER_VERSION } from '../src/services/github-fetcher.js';
 import {
-  buildFailureArtifactPath,
-  cleanDiagnosticExcerpt,
-  formatDiagnosticOutput,
   formatFailVerboseReport,
   formatPassQuietSummary,
   hasComplexityOrSignatureViolation,
@@ -14,6 +11,7 @@ import {
   reportDebugCatchError,
   sanitizeCommandSecrets,
   TACTICAL_PATTERNS_DIRECTIVE_11X,
+  throwIfSignalAborted,
   toAllureDiagnosticEnvelope,
 } from '../src/utils/diagnosticFormatter.js';
 
@@ -38,31 +36,28 @@ describe('diagnosticFormatter (T1.5 Pass-Quiet & Fail-Verbose + Allure)', () => 
       expect(summary).toContain('env=ci-docker-node26');
       expect(summary).not.toContain('verbose line');
 
-      const routed = formatDiagnosticOutput({
+      const minimalPass = formatPassQuietSummary({
         stageId: 'lint-check',
         passed: true,
         durationMs: 210,
       });
-      expect(routed.includes('\n')).toBe(false);
-      expect(routed).toContain('checks=1');
-      expect(routed).toContain('env=docker-ephemeral');
+      expect(minimalPass.includes('\n')).toBe(false);
+      expect(minimalPass).toContain('checks=1');
+      expect(minimalPass).toContain('env=docker-ephemeral');
     });
   });
 
   describe('2. Modo Fail-Verbose y Sanitización de Secretos/ANSI', () => {
     it('emite diagnóstico accionable con pasos previos, ANSI limpio, credenciales redactadas y evidencia', () => {
-      const screenshotPath = buildFailureArtifactPath('Checkout / Step #2!', 'png');
-      const htmlDumpPath = buildFailureArtifactPath('---checkout-step---', 'html');
-      const tracePath = buildFailureArtifactPath('!!!', 'zip');
-      expect(screenshotPath).toBe('artifacts/failures/Checkout-Step-2.png');
-      expect(htmlDumpPath).toBe('artifacts/failures/checkout-step.html');
-      expect(tracePath).toBe('artifacts/failures/stage.zip');
+      const screenshotPath = 'artifacts/failures/Checkout-Step-2.png';
+      const htmlDumpPath = 'artifacts/failures/checkout-step.html';
+      const tracePath = 'artifacts/failures/stage.zip';
 
       const fakeToken = 'ghp_' + 'Z'.repeat(24);
       const rawCmd =
         `curl -H "Authorization: Bearer super-jwt-secret" https://admin:s3cr3tPass@reg.local/pkg?token=abc123 --password mypass ${fakeToken}`;
 
-      const report = formatDiagnosticOutput({
+      const report = formatFailVerboseReport({
         stageId: 'gate-3-json',
         passed: false,
         durationMs: 85,
@@ -122,7 +117,17 @@ describe('diagnosticFormatter (T1.5 Pass-Quiet & Fail-Verbose + Allure)', () => 
       expect(report).not.toContain('evidence:');
 
       expect(sanitizeCommandSecrets('echo safe')).toBe('echo safe');
-      expect(cleanDiagnosticExcerpt('\n\nline-a\nline-a\nline-b\nline-c\n', 2)).toBe('line-b\nline-c');
+      const envelope = toAllureDiagnosticEnvelope({
+        stageId: 'dedupe-check',
+        passed: false,
+        durationMs: 5,
+        stderr: '\n\nline-a\nline-a\nline-b\nline-c\n',
+      });
+      expect(envelope.statusDetails.trace).toBe('line-a\nline-b\nline-c');
+
+      const abortController = new AbortController();
+      abortController.abort('aborted cleanly');
+      expect(() => throwIfSignalAborted(abortController.signal, 'fallback')).toThrow('aborted cleanly');
     });
   });
 
@@ -260,6 +265,23 @@ describe('diagnosticFormatter (T1.5 Pass-Quiet & Fail-Verbose + Allure)', () => 
           process.env.QA11X_DEBUG = prevDebug;
         }
       }
+    });
+
+    it('throwIfSignalAborted respeta señales activas y relanza Error, string no vacío o mensaje por defecto', () => {
+      expect(() => throwIfSignalAborted(undefined, 'fallback')).not.toThrow();
+      expect(() => throwIfSignalAborted(new AbortController().signal, 'fallback')).not.toThrow();
+
+      const customErr = new Error('custom-abort-err');
+      expect(() => throwIfSignalAborted(AbortSignal.abort(customErr), 'fallback')).toThrow(customErr);
+      expect(() => throwIfSignalAborted(AbortSignal.abort('string-abort-reason'), 'fallback')).toThrow(
+        'string-abort-reason'
+      );
+      expect(() => throwIfSignalAborted(AbortSignal.abort('   '), 'default-abort-msg')).toThrow(
+        'default-abort-msg'
+      );
+      expect(() => throwIfSignalAborted(AbortSignal.abort(500), 'default-abort-msg')).toThrow(
+        'default-abort-msg'
+      );
     });
   });
 });

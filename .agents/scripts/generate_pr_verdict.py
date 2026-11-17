@@ -23,6 +23,7 @@ from typing import Any
 import release_readiness_gate as rrg
 import track_findings_state as tfs
 import verify_diff_coverage as vdc
+from _budgets import STRUCTURAL_AST_RELATIONS, is_manifest_tracked_doc
 
 EXIT_OK = 0
 EXIT_BLOCKED = 30
@@ -185,7 +186,9 @@ def _normalize_rel_path(raw: str) -> str:
 
 def _is_ignored_for_fingerprint(rel_path: str) -> bool:
     norm = _normalize_rel_path(rel_path)
-    if not norm or norm in IGNORED_CODE_FP_EXACT or norm.lower().endswith(".md"):
+    if not norm or norm in IGNORED_CODE_FP_EXACT:
+        return True
+    if norm.lower().endswith(".md") and not is_manifest_tracked_doc(norm):
         return True
     return any(
         norm.startswith(prefix) or f"/{prefix}" in norm
@@ -512,6 +515,8 @@ def _collect_link_dependent(
     changed_set: set[str],
 ) -> str | None:
     if not isinstance(link, dict):
+        return None
+    if str(link.get("relation") or "calls") in STRUCTURAL_AST_RELATIONS:
         return None
     tgt = nodes_map.get(str(link.get("target", "")))
     src_raw = link.get("source_file") or nodes_map.get(str(link.get("source", "")))

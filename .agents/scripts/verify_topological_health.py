@@ -35,6 +35,7 @@ _IGNORED_DIRS = frozenset(
     }
 )
 _DOMAIN_RE = re.compile(r"(?:^|/)(?:src/)?(?:models|schemas|core|domain|services)/")
+_TEST_PATH_RE = re.compile(r"(?:^|/)(?:tests?|__tests__|e2e)/")
 _API_RE = re.compile(r"(?:^|/)(?:src/)?(?:api|controllers|routes|views)/")
 _UI_COMMON_RE = re.compile(r"(?:^|/)(?:src/)?components/common/")
 _UI_VIEWS_RE = re.compile(r"(?:^|/)(?:src/)?(?:views|pages)/")
@@ -116,6 +117,8 @@ def _check_link_violations(
     if pair is None:
         return []
     src_file, tgt_file = pair
+    if _TEST_PATH_RE.search(src_file) or _TEST_PATH_RE.search(tgt_file):
+        return []
     ctx = str(link.get("context", "call"))
     found: list[str] = []
     for src_re, tgt_re, template in _LAYER_RULES:

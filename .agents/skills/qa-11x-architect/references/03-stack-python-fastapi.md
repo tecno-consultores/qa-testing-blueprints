@@ -155,36 +155,60 @@ addopts = "--import-mode=importlib --cov=src --cov-report=term-missing --cov-rep
 
 ### `Makefile` Targets
 ```makefile
-.PHONY: qa-lint qa-unit qa-migration qa-integration qa-ci qa-bdd qa-mutation qa-dast qa-chaos qa-all
+.PHONY: qa-lint qa-unit qa-migration qa-integration qa-ci qa-bdd qa-mutation qa-dast qa-chaos qa-all clean-cache clean qa-clean
+
+PROJECT_DIR ?= $(CURDIR)
+QA_UID ?= $(shell id -u)
+QA_GID ?= $(shell id -g)
+export QA_UID QA_GID
 
 qa-lint:
-	docker compose -f docker-compose.qa.yml run --rm -T api ruff check src/ tests/
-	docker compose -f docker-compose.qa.yml run --rm -T api mypy --strict --cache-dir=/tmp/mypy src/
-	docker compose -f docker-compose.qa.yml run --rm -T api bandit -r src/ -ll
-	docker compose -f docker-compose.qa.yml run --rm -T api sh -c 'test -z "$$(uv run radon cc src/ -nb -s)"'
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-backend bash -c "\
+		uv sync --all-extras -q && \
+		uv run ruff check src/ tests/ && \
+		uv run ruff format --check src/ tests/ && \
+		uv run mypy --strict --cache-dir=/tmp/mypy src/ && \
+		test -z \"\$$(uv run radon cc --min B src/)\" && \
+		test -z \"\$$(uv run radon mi --min B src/)\" && \
+		uv run bandit -c pyproject.toml -q -r src/ && \
+		uv run pip-audit"
 
 qa-unit:
-	docker compose -f docker-compose.qa.yml run --rm -T -e COVERAGE_FILE=/tmp/.coverage -e PYTHONPATH=/app/src api pytest --import-mode=importlib tests/
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" -e COVERAGE_FILE=/tmp/.coverage -e PYTHONPATH=/app/src qa-backend bash -c "uv sync --all-extras -q && uv run pytest -q --tb=short --import-mode=importlib -m 'not integration' --cov=src --cov-fail-under=95"
 
 qa-migration:
-	docker compose -f docker-compose.qa.yml run --rm -T api alembic upgrade head
-	docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(CURDIR):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_alembic_orm_parity.py
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-backend bash -c "\
+		if [ -f .agents/scripts/verify_alembic_orm_parity.py ]; then python3 .agents/scripts/verify_alembic_orm_parity.py; else uv sync --all-extras -q && uv run alembic check; fi"
 
 qa-integration:
-	docker compose -f docker-compose.qa.yml run --rm -T -e COVERAGE_FILE=/tmp/.coverage -e PYTHONPATH=/app/src api pytest --import-mode=importlib -m integration tests/
+	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml down -v >/dev/null 2>&1 || true" EXIT; \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml up -d --wait postgres keydb && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" -e COVERAGE_FILE=/tmp/.coverage -e PYTHONPATH=/app/src qa-backend bash -c "uv sync --all-extras -q && ([ ! -f alembic.ini ] || uv run alembic upgrade head) && (uv run pytest -q --tb=short --import-mode=importlib --no-cov -m integration || [ \$$? -eq 5 ])"'
 
 qa-ci: qa-lint qa-unit qa-migration qa-integration
 
 qa-bdd:
-	docker compose -f docker-compose.qa.yml run --rm -T karatelabs mvn -B clean test -Dkarate.options="test/api_test.feature"
+	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml down -v >/dev/null 2>&1 || true" EXIT; \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml up -d --wait postgres keydb api && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T karatelabs mvn -B clean test'
 
 qa-mutation:
-	docker compose -f docker-compose.qa.yml run --rm -T api mutmut run
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-backend bash -c "uv sync --all-extras -q && uv run mutmut run && uv run mutmut results"
 
 qa-dast:
-	docker compose -f docker-compose.qa.yml run --rm -T -u "$$(id -u):$$(id -g)" -e HOME=/tmp zap zap-baseline.py -t http://api:8000 -r zap-report.html
+	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml down -v >/dev/null 2>&1 || true" EXIT; \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml up -d --wait postgres keydb api && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp zap zap-baseline.py -t http://api:8000 -r zap-report.html'
 
-qa-all: qa-lint qa-unit qa-migration qa-bdd
+qa-all: qa-lint qa-unit qa-migration qa-mutation qa-bdd
+
+clean-cache:
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml down -v >/dev/null 2>&1 || true
+
+clean: clean-cache
+	./limpieza.sh
+
+qa-clean: clean
 ```
 
 ---

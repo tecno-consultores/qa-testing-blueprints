@@ -16,7 +16,6 @@ const STATE_AVAILABLE = 'AVAILABLE' as const;
 const STATE_BUSY = 'BUSY' as const;
 const STATE_BROKEN = 'BROKEN' as const;
 const REASON_OFFLINE = 'OFFLINE' as const;
-const REASON_TASK_STUCK = 'TASK_STUCK' as const;
 const PROFILE_HEAVY_TRANSFER = 'heavy_transfer' as const;
 const CODE_GUARD_BUSY = 'GUARD_BUSY' as const;
 const CODE_GUARD_BROKEN = 'GUARD_BROKEN' as const;
@@ -40,7 +39,7 @@ export type GuardLifecycleState =
   | typeof STATE_BUSY
   | typeof STATE_BROKEN;
 
-export type GuardBrokenReason = typeof REASON_OFFLINE | typeof REASON_TASK_STUCK | null;
+export type GuardBrokenReason = typeof REASON_OFFLINE | null;
 export type TimeoutProfile = 'telemetry' | typeof PROFILE_HEAVY_TRANSFER;
 export type GuardErrorCode =
   | typeof CODE_GUARD_BUSY
@@ -378,7 +377,7 @@ export class TaskStateGuard {
   }
 
   probeHealth(options?: { autoRecoverStuck?: boolean }): HealthProbeReport {
-    if (options?.autoRecoverStuck && (this.isStuckBroken() || this.stuckTasks.size > 0)) {
+    if (options?.autoRecoverStuck && this.stuckTasks.size > 0) {
       const report = this.recoverStuckTasks();
       return {
         healthy: true,
@@ -457,10 +456,6 @@ export class TaskStateGuard {
   private markBroken(reason: GuardBrokenReason): void {
     this.state = STATE_BROKEN;
     this.brokenReason = reason;
-  }
-
-  private isStuckBroken(): boolean {
-    return this.state === STATE_BROKEN && this.brokenReason === REASON_TASK_STUCK;
   }
 
   private shouldRetryAttempt(error: unknown, options?: ExecuteTaskOptions): boolean {

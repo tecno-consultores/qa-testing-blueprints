@@ -14,8 +14,12 @@ services:
     command: ["chmod", "-R", "a+rwX", "/tmp/composer-cache"]
 
   postgres-qa:
-    image: postgres:17-alpine
+    image: postgres:17-alpine@sha256:d3244e8ce3f165ee3c93d9c4a4b1d0fe48b3a89e2287b717fdcbbde92d405065
     pull_policy: if_not_present
+    profiles:
+      - integration
+      - load
+      - chaos
     security_opt:
       - no-new-privileges:true
     environment:
@@ -33,6 +37,10 @@ services:
   keydb-qa:
     image: eqalpha/keydb:6.3.4
     pull_policy: if_not_present
+    profiles:
+      - integration
+      - load
+      - chaos
     security_opt:
       - no-new-privileges:true
     command: keydb-server --server-threads 2 --appendonly no --save ""
@@ -63,6 +71,32 @@ services:
     depends_on:
       composer-cache-init:
         condition: service_completed_successfully
+    command: sh -c "echo 'Contenedor QA PHP listo (Rule Zero, aislado sin DB/KeyDB). Usa docker compose run --rm -T qa-php [comando]'; sleep infinity"
+
+  php-api:
+    image: sinfallas/basephpcomposer:${PHP_VERSION:-8.5}
+    pull_policy: if_not_present
+    profiles:
+      - integration
+      - load
+      - chaos
+    working_dir: /var/www
+    user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - .:/var/www
+      - composer-cache:/tmp/composer-cache
+    environment:
+      HOME: /tmp
+      APP_ENV: testing
+      COMPOSER_CACHE_DIR: /tmp/composer-cache
+      DATABASE_URL: postgresql://qa_user:qa_password_ephemeral@postgres-qa:5432/qa_db?serverVersion=17&charset=utf8
+      REDIS_URL: redis://keydb-qa:6379/0
+      PCOV_ENABLED: "0"
+    depends_on:
+      composer-cache-init:
+        condition: service_completed_successfully
       postgres-qa:
         condition: service_healthy
       keydb-qa:
@@ -75,22 +109,26 @@ services:
     command: sh -c "if [ -d public ]; then php -S 0.0.0.0:8000 -t public; else php -S 0.0.0.0:8000; fi"
 
   karatelabs:
-    image: sinfallas/karatelabs:1.5.1
+    image: sinfallas/karatelabs:1.5.1@sha256:a9a52ca9c5491ab39b64f0b4fdc3dea879c2213c9bc995be58d6cd4b9a80cc89
     pull_policy: if_not_present
+    profiles:
+      - integration
     security_opt:
       - no-new-privileges:true
     volumes:
-      - ./test:/app/src/test/java/examples/test
+      - ./test:/app/src/test/java/examples/test:ro
     environment:
-      API_BASE_URL: http://qa-php:8000
+      API_BASE_URL: http://php-api:8000
     depends_on:
-      qa-php:
+      php-api:
         condition: service_healthy
-    command: bash -c "echo 'Contenedor Karate listo. Usa docker compose run --rm -T karatelabs mvn -B clean test'; sleep infinity"
+    command: bash -c "echo 'Contenedor Karate listo. Usa docker compose --profile integration run --rm -T karatelabs mvn -B clean test'; sleep infinity"
 
   zap:
     image: zaproxy/zap-stable:2.15.0
     pull_policy: if_not_present
+    profiles:
+      - integration
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
     security_opt:
       - no-new-privileges:true
@@ -100,7 +138,7 @@ services:
     volumes:
       - .:/zap/wrk
     depends_on:
-      qa-php:
+      php-api:
         condition: service_healthy
 
   prometheus:
@@ -121,46 +159,53 @@ services:
           - job_name: 'php_qa'
             metrics_path: '/metrics'
             static_configs:
-              - targets: ['qa-php:8000']
+              - targets: ['php-api:8000']
         " > /tmp/prometheus.yml
         /bin/prometheus --config.file=/tmp/prometheus.yml
     ports:
       - "127.0.0.1:9090:9090"
     depends_on:
-      qa-php:
+      php-api:
         condition: service_healthy
 
   k6-smoke:
     image: grafana/k6:2.4.0@sha256:d41bb79cd8de5a7ad619b53570e3712633e8bff0937010a5c6c57a4747e7a276
     pull_policy: if_not_present
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    read_only: true
+    cap_drop:
+      - ALL
     security_opt:
       - no-new-privileges:true
+    tmpfs:
+      - /tmp
     profiles:
       - load
     environment:
       K6_PROFILE: ${K6_PROFILE:-smoke}
-      API_BASE_URL: ${API_BASE_URL:-http://qa-php:8000}
+      API_BASE_URL: ${API_BASE_URL:-http://php-api:8000}
       QA_TENANT_ID: ${QA_TENANT_ID:-tenant-alpha}
       K6_SUMMARY_PATH: /tmp/k6-summary.json
     volumes:
       - ./tests/load:/scripts:ro
     command: ["run", "/scripts/smoke.k6.js"]
     depends_on:
-      qa-php:
+      php-api:
         condition: service_healthy
 
   pumba:
     image: gaiaadm/pumba:0.10.1
     pull_policy: if_not_present
+    security_opt:
+      - no-new-privileges:true
     profiles:
       - chaos
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
-      qa-php:
+      php-api:
         condition: service_healthy
-    command: netem --tc-image gaiadocker/iproute2 --duration 30s delay --time 250 --jitter 25 re2:.*qa-php.*
+    command: netem --tc-image gaiadocker/iproute2 --duration 30s delay --time 250 --jitter 25 re2:.*php-api.*
 
 volumes:
   composer-cache:

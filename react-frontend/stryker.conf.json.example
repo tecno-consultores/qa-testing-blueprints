@@ -23,6 +23,7 @@
     "!src/main.tsx",
     "!src/**/*.unit.ts",
     "!src/**/*.unit.tsx",
+    "!src/**/*.spec.ts",
     "!src/**/*.spec.tsx",
     "!src/**/*.test.tsx",
     "!src/**/*.test.ts"

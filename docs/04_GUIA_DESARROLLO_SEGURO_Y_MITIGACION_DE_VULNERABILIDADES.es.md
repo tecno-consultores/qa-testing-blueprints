@@ -52,8 +52,8 @@
 | `SEC-14` | Condición de carrera en cadena HMAC WORM ordenando por `created_at` sin `seq_num` + `pg_advisory_xact_lock` | Patrón 18 y `SECURITY.es.md` |
 | `SEC-15` | Reutilización de credenciales estáticas en smoke productivo sin secretos efímeros ni `docker exec -e` | Patrón 15 y `docs/02` §1.1 |
 | `SEC-16` | Asimetría de interceptores `401` y consumo no atómico de `challenge_id` en flujos Pre-Auth multi-etapa | Patrón 15 y `SECURITY.es.md` §4.20 |
-| `QA-COV-01` | Supresión de `--cov` con `-o addopts=""`, ausencia de `COVERAGE_FILE=/tmp/.coverage` para Docker no-root o falta de `--import-mode=importlib` en `.unit.py`/`.int.py` | `docs/02` §2 y `SECURITY.es.md` |
-| `QA-MYPY-01` | Ausencia de verificación estricta de tipos (`mypy --strict`) en targets `qa-lint` de Makefiles Python/FastAPI | `docs/02` §2 y `SECURITY.es.md` |
+| `QA-COV-01` | Supresión de `--cov` con `-o addopts=""`, ausencia de `COVERAGE_FILE=/tmp/.coverage` para Docker no-root o falta de `--import-mode=importlib` en `.unit.py`/`.int.py` | `docs/02` §1.1 y `TESTING.es.md` §1 |
+| `QA-MYPY-01` | Ausencia de verificación estricta de tipos (`mypy --strict`) en targets `qa-lint` de Makefiles Python/FastAPI | `docs/02` §1.1 y `TESTING.es.md` §1 |
 | `QA-KARATE-IDEMP` | Escenarios Karate BDD API mutables (`POST`/`PUT`/`PATCH`/`DELETE`) con UUID estático o sin `Idempotency-Key` dinámico | Patrón 11 y `docs/03` §6 |
 | `QA-PG17-RLS` | PostgreSQL 15–17+ `FORCE ROW LEVEL SECURITY`, rol `NOBYPASSRLS` no-root y paridad catálogo/fixtures RLS multi-transacción | Patrón 5 y `docs/02` §3.1 |
 | `QA-SMOKE-01` | Fuga OpenAPI/Swagger en producción o desincronización singleton en smoke test en proceso (`APSC-DV-002430`) | Patrón 12 y `SECURITY.es.md` |
@@ -61,8 +61,8 @@
 | `QA-CLI-TTY-01` | Bloqueo indefinido en consola interactiva (`TTY`) de binarios duales CLI + Servidor MCP `stdio` sin verificar `isTTY` / `isatty()` | `docs/02` §1.1 (Regla #10) y `SECURITY.es.md` §4.23 |
 | `SEC-CI-ACTION-REF` | Referencias `uses:` en GitHub Actions sin fijación por commit SHA de 40 caracteres (ramas mutables o tags eliminados como `trivy-action@0.28.0`) | Patrón 22 y `SECURITY.es.md` §4.24 |
 | `QA-DOCKER-TTY-01` | Asignación de pseudo-TTY (`docker compose run` sin `-T`) en pipelines `CI=true` y despliegues Wrangler v4 sobre `read_only: true` sin `tmpfs` `noexec` en `.wrangler` o sin `--force` | `docs/02` §5.1 y `SECURITY.es.md` §4.25 |
-| `UI-11X-01` | `<footer>` fijo flotante robando viewport, `outline-none` sin `:focus-visible` y bajo contraste `text-white/30..50` (`WCAG 2.1 AA`, Anti-JSDOM) | `docs/02` §7 y `SECURITY.es.md` |
-| `UI-11X-02` | Fallbacks catch-all `else return 'MAINTENANCE'` en badges y fugas `setInterval` sin limpieza `clearInterval` | `docs/02` §7 y `SECURITY.es.md` |
+| `UI-11X-01` | `<footer>` fijo flotante robando viewport, `outline-none` sin `:focus-visible` y bajo contraste `text-white/30..50` (`WCAG 2.1 AA`, Anti-JSDOM) | `docs/02` §2 y `SECURITY.es.md` |
+| `UI-11X-02` | Fallbacks catch-all `else return 'MAINTENANCE'` en badges y fugas `setInterval` sin limpieza `clearInterval` | `docs/02` §1.1 y `SECURITY.es.md` |
 | `UI-11X-03` | Uso de `.webp`/`.svg` en `apple-touch-icon`, ausencia de `favicon.ico` (`>=48px`), `"any maskable"` combinado en `.webmanifest`, sobrescritura sin `! Header` en `_headers` o comodines `/*.ico` en `_routes.json` | `docs/02` §5.2 y `SECURITY.es.md` §4.26 |
 | `QA-CI-ESCAPE-01` | Escapes de doble dólar `$$(...)` / `$${...}` heredados de `Makefile`/`Compose` dentro de `.github/workflows/*.yml` o `.github/actions/*/action.yml` (`bash` expande `$$` al PID y rompe montajes Docker con `exit code 125`) | `docs/02` §5.3 y `SECURITY.es.md` §4.27 |
 | `QA-MAKE-CURDIR-01` | Uso de `$(PWD)` / `${PWD}` en sub-Makefiles (`*/Makefile`, `*/Makefile.example`) invocados vía `$(MAKE) -C <subdir>` en lugar de `$(CURDIR)`, exponiendo el directorio padre al montaje del contenedor | `docs/02` §5.3 y `SECURITY.es.md` §4.27 |
@@ -927,6 +927,7 @@ def sanitize_database_export_rows(rows: list[dict], security_classification: str
 ### Referencias Normativas
 - **DISA ASD STIG V6R5:** `V-222585` (`APSC-DV-002310`), `V-222586` (`APSC-DV-002320`), `V-222615` (`APSC-DV-002760`), `V-222616` (`APSC-DV-002770`), `V-222668` (`APSC-DV-003330`).
 - **OWASP Developer Guide v4.2:** Secciones `4.3.2 System Configuration (SC 8-11)`, `4.3.8 AC-10/AC-11`, `4.3.9 DP 5-7 / PDT 9-10` y `5.4.4 OWASP Secure Headers Project (OSHP)`.
+- **OWASP Top 10:2025:** `A10:2025` (*Mishandling of Exceptional Conditions* — arranque *Fail-Closed*, manejadores de error acotados y cero fallbacks silenciosos).
 
 ### El Riesgo
 Si una aplicación continúa aceptando tráfico cuando falla la carga de políticas de seguridad o la conexión al motor de autorización (*Fail-Open*), un atacante puede provocar un fallo de recursos para eludir los controles de acceso. Además, la ausencia de cabeceras OSHP (`HSTS`, `CSP`, `Referrer-Policy`, `Cache-Control: no-store`) facilita ataques de degradación TLS, XSS y fuga de tokens en URLs.
@@ -1050,6 +1051,7 @@ async def fetch_external_partner_safely(url: str) -> ExternalPartnerPayload:
 ### Referencias Normativas
 - **DISA ASD STIG V6R5:** `V-222513` (`APSC-DV-001430`), `V-222613` (`APSC-DV-002600`), `V-222645` (`APSC-DV-003140`), `V-222655` (`APSC-DV-003230`), `V-222658` (`APSC-DV-003245`).
 - **OWASP Developer Guide v4.2:** Secciones `4.2 Threat Modeling (pytm / Threat Dragon)`, `4.3.3 Software Libraries (SFL 1-15)` y `5.3.4 OWASP CycloneDX (ECMA-424 SBOM / CBOM / VEX)`.
+- **OWASP Top 10:2025 y OWASP Agentic AI 2026:** `A03:2025` (*Software Supply Chain Failures* — lockfiles, `.npmrc` `ignore-scripts=true` / `pnpm-workspace.yaml#allowBuilds`, GitHub Actions fijadas por SHA-40 y CycloneDX SBOM/CBOM firmados) y **OWASP Agentic AI 2026** (confinamiento de herramientas mediante `SEC-PATH-01`, intercepción `NFKC`/inyección de prompts vía `promptGuard` y aprobación humana con `QA-GIT-GATE-01`).
 
 ### El Riesgo
 Desplegar contenedores o paquetes sin un inventario verificable de componentes (*Software & Cryptography Bill of Materials*), sin verificar firmas criptográficas o sin modelar las amenazas de la arquitectura antes de codificar permite ataques a la cadena de suministro (*Supply Chain Attacks*) y fallos estructurales de diseño.

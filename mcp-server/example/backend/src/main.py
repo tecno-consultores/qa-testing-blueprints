@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
+
 from fastapi import FastAPI, Request, Response
 
 from api.devices import router as devices_router
@@ -16,8 +18,11 @@ app.include_router(devices_router)
 
 
 @app.middleware("http")
-async def inject_oshp_security_headers(request: Request, call_next: object) -> Response:
-    response: Response = await call_next(request)  # type: ignore[operator]
+async def inject_oshp_security_headers(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+) -> Response:
+    response = await call_next(request)
     response.headers["Strict-Transport-Security"] = (
         "max-age=63072000; includeSubDomains; preload"
     )

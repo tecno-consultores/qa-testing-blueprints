@@ -51,7 +51,7 @@ Execute the repository's Pass-Quiet wrapper script, which automatically detects 
 ### C. Direct Ephemeral Docker Command (Fallback if Script is Not Installed)
 If working in a consumer repository where `./scripts/actualizar-grafos-graphify.sh` has not yet been installed via `npx -y @sinfallas/mcp-qa-11x@latest install-skill --include-scripts`, create and sanitize the graph directly in an ephemeral `sinfallas/remote-graphify:latest` container (strictly honoring **Rule Zero**—never install `graphify` on the host OS):
 ```bash
-docker run --rm -e OLLAMA_BASE_URL="" -v "$(pwd):/app" -w /app sinfallas/remote-graphify:latest \
+docker run --rm --network none -e OLLAMA_BASE_URL="" -v "$(pwd):/app" -w /app sinfallas/remote-graphify:latest \
   sh -c "graphify extract . --code-only && graphify cluster-only . && rm -rf graphify-out/cache graphify-out/20* graphify-out/.graphify_* graphify-out/.cloud-cta-shown && chown -R $(id -u):$(id -g) graphify-out"
 ```
 
@@ -68,16 +68,19 @@ docker run --rm -e OLLAMA_BASE_URL="" -v "$(pwd):/app" -w /app sinfallas/remote-
 
 - **Mandatory Order of Operations (`Graphify AST -> GRAPH_REPORT.md -> Windowed Read -> Grep Fallback`):**
   1. For high-level architectural questions, read `graphify-out/GRAPH_REPORT.md` first to identify functional communities and central nodes.
-  2. For symbol, function, class, route, or file questions (or pre-refactoring blast radius), query the bidirectional AST graph via CLI or MCP (`inspect_ast_blast_radius(project_path, target_symbol, changed_since_ref, max_items: 20, auto_build_if_missing: true)`), which returns the exact declaring `file:line`, incoming callers (`⬅️ Llamado por`), and outgoing callees (`➡️ Invoca a`):
+  2. For symbol, function, class, route, or file questions (or pre-refactoring blast radius), query the bidirectional AST graph via ephemeral Docker CLI (`sinfallas/base-python-uv:3.15` under `Rule Zero`) or MCP (`inspect_ast_blast_radius(project_path, target_symbol, changed_since_ref, max_items: 20, auto_build_if_missing: true)`), which returns the exact declaring `file:line`, incoming callers (`⬅️ Llamado por`), and outgoing callees (`➡️ Invoca a`):
      ```bash
      # 1. Bidirectional symbol navigation (declaring file:line, incoming callers & outgoing callees)
-     python3 .agents/scripts/inspect_blast_radius.py "<symbol_or_filename>"
+     docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app \
+       sinfallas/base-python-uv:3.15 python3 .agents/scripts/inspect_blast_radius.py "<symbol_or_filename>"
 
      # 2. Differential blast-radius test selector (Affected suites only; also accepts --base)
-     python3 .agents/scripts/select_tests_by_blast_radius.py --base-ref origin/main
+     docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app \
+       sinfallas/base-python-uv:3.15 python3 .agents/scripts/select_tests_by_blast_radius.py --base-ref origin/main
 
      # 3. Architectural layer boundary & circular dependency audit
-     python3 .agents/scripts/verify_topological_health.py
+     docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app \
+       sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_topological_health.py
      ```
      - Under **`QA-TEST-SYNC-01`**, trace and update all impacted consumer test suites (`tests/`, `*.feature`, `*.bats`) surfaced by the blast radius before finalizing changes.
   3. Read only the 40–80 lines around the reported `file:L<line>` (`StartLine`/`EndLine`). Use `grep -n` **only as a fallback** for string literals not indexed as AST nodes.

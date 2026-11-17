@@ -383,11 +383,22 @@ export class SurgicalMerger {
     let targetObj: Record<string, unknown> = {};
     if (targetContent.trim()) {
       try {
-        targetObj = JSON.parse(targetContent) as Record<string, unknown>;
+        const parsed: unknown = JSON.parse(targetContent);
+        if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+          return {
+            merged: targetContent,
+            content: targetContent,
+            changes: ['Error: composer.json destino contiene JSON inválido; preservado sin modificar'],
+          };
+        }
+        targetObj = parsed as Record<string, unknown>;
       } catch (err: unknown) {
-        // Malformed existing composer.json falls back to empty object for template injection
         reportDebugCatchError('surgicalMerger.mergeComposerJson(target)', err);
-        targetObj = {};
+        return {
+          merged: targetContent,
+          content: targetContent,
+          changes: ['Error: composer.json destino contiene JSON inválido; preservado sin modificar'],
+        };
       }
     }
     let exampleObj: Record<string, unknown> = {};

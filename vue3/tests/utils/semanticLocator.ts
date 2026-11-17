@@ -194,6 +194,7 @@ export function isVueTeleportPortal(candidate: DomCandidateNode<unknown>): boole
 function isDisabledCandidate<TRef>(candidate: DomCandidateNode<TRef>): boolean {
   const disabledAttr = candidate.attributes['disabled'];
   return (
+    candidate.disabled === true ||
     (disabledAttr !== undefined && disabledAttr !== 'false') ||
     candidate.attributes['aria-disabled'] === 'true'
   );

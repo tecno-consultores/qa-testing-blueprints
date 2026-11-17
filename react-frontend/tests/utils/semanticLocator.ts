@@ -3,7 +3,7 @@
 
 /**
  * Resolucion semantica Self-Healing DOM Zero-Infra para React (Estandar QA-11X).
- * Sanea IDs efimeros de React.useId() (:r0: / «r0») y bloquea nodos Suspense aria-busy.
+ * Sanea IDs efimeros de React.useId() (:r0: / «r0» / _r_0_), soporta portales y bloquea nodos Suspense aria-busy.
  */
 
 import { defineQuestion, type Question } from '../screenplay/Actor.ts';
@@ -133,7 +133,8 @@ interface ScoredCandidate<TRef> {
 
 const DEFAULT_MIN_CONFIDENCE = 0.75;
 const AMBIGUITY_MARGIN = 0.03;
-const REACT_USE_ID_RE = /(?::r[0-9a-z]+:|«r[0-9a-z]+»)/gi;
+const REACT_USE_ID_RE = /(?::r[0-9a-z]+:|«r[0-9a-z]+»|_r_[0-9a-z]+_)/gi;
+const REACT_PORTAL_LANDMARKS: ReadonlySet<string> = new Set(['dialog', 'overlay', 'portal']);
 
 export function stripReactUseId(value: string): string {
   return value.replace(REACT_USE_ID_RE, '').replace(/\s+/g, ' ').trim();
@@ -180,9 +181,27 @@ function computeJaccard(aTokens: readonly string[], bTokens: readonly string[]):
   return unionSize === 0 ? 0 : intersection / unionSize;
 }
 
+export function isReactPortal(candidate: DomCandidateNode<unknown>): boolean {
+  const attrs = candidate.attributes;
+  const hasPortalAttr =
+    attrs['data-portal'] !== undefined ||
+    attrs['data-radix-portal'] !== undefined ||
+    attrs['data-floating-ui-portal'] !== undefined;
+  if (hasPortalAttr) {
+    return true;
+  }
+  const landmark = normalizeText(candidate.landmark ?? '');
+  if (landmark === 'portal' || landmark === 'overlay') {
+    return true;
+  }
+  const role = normalizeText(candidate.role);
+  return landmark === 'dialog' && (role === 'dialog' || role === 'alertdialog');
+}
+
 function isDisabledCandidate<TRef>(candidate: DomCandidateNode<TRef>): boolean {
   const disabledAttr = candidate.attributes['disabled'];
   return (
+    candidate.disabled === true ||
     (disabledAttr !== undefined && disabledAttr !== 'false') ||
     candidate.attributes['aria-disabled'] === 'true'
   );
@@ -212,14 +231,19 @@ function readCandidateLabel<TRef>(
   return normalizeText(raw);
 }
 
-function matchesLandmark(
+function matchesReactLandmark(
   targetLandmark: string | undefined,
-  candidateLandmark: string | undefined,
+  candidate: DomCandidateNode<unknown>,
 ): boolean {
   if (targetLandmark === undefined || normalizeText(targetLandmark).length === 0) {
     return true;
   }
-  return normalizeText(targetLandmark) === normalizeText(candidateLandmark ?? '');
+  const wanted = normalizeText(targetLandmark);
+  const actual = normalizeText(candidate.landmark ?? '');
+  if (wanted === actual) {
+    return true;
+  }
+  return REACT_PORTAL_LANDMARKS.has(wanted) && isReactPortal(candidate);
 }
 
 function hasLandmarkBonus(
@@ -229,7 +253,7 @@ function hasLandmarkBonus(
   if (target.landmark === undefined || normalizeText(target.landmark).length === 0) {
     return false;
   }
-  return matchesLandmark(target.landmark, candidate.landmark);
+  return matchesReactLandmark(target.landmark, candidate);
 }
 
 function matchSynonym(
@@ -303,7 +327,7 @@ function scoreCandidate<TRef>(
   const cleanAttrs = sanitizeReactAttributes(candidate.attributes);
   const candLabel = readCandidateLabel(candidate, cleanAttrs);
   const roleMatches = normalizeText(candidate.role) === normalizeText(target.role);
-  const landmarkOk = matchesLandmark(target.landmark, candidate.landmark);
+  const landmarkOk = matchesReactLandmark(target.landmark, candidate);
 
   if (roleMatches && candLabel.length > 0 && candLabel === normalizeText(target.accessibleName) && landmarkOk) {
     return { candidate, cleanAttributes: cleanAttrs, label: candLabel, score: 1, strategy: 'exact-aria', healed: false };

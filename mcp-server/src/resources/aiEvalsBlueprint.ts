@@ -34,6 +34,11 @@ export interface AiEvalsBlueprintResult {
   contents: AiEvalsBlueprintContentItem[];
 }
 
+export interface BlueprintFetcherPathHints {
+  readonly localOverridePath?: string | null;
+  readonly cacheDir?: string;
+}
+
 const EMBEDDED_PROMPTFOO_FALLBACK = `description: "QA-11X Matriz Multi-Modelo RAG y Auditoría OWASP LLM Top 10"
 providers:
   - id: openai:gpt-4.1-mini
@@ -53,14 +58,22 @@ redteam:
     - id: prompt-injection
     - id: jailbreak`;
 
-function resolveDefaultWorkspaceRoot(): string {
+function resolveDefaultWorkspaceRoot(fetcherHints?: BlueprintFetcherPathHints): string {
   const cwd = path.resolve(process.cwd());
-  if (fs.existsSync(path.join(cwd, AI_EVALS_PROMPTFOO_REL_PATH))) {
-    return cwd;
-  }
-  const parent = path.dirname(cwd);
-  if (fs.existsSync(path.join(parent, AI_EVALS_PROMPTFOO_REL_PATH))) {
-    return parent;
+  const localEnv = process.env.QA_BLUEPRINTS_LOCAL_PATH?.trim();
+  const cacheEnv = process.env.QA_BLUEPRINTS_CACHE_DIR?.trim();
+  const cacheDir = fetcherHints?.cacheDir?.trim() || cacheEnv;
+  const candidates = [
+    ...(fetcherHints?.localOverridePath?.trim() ? [fetcherHints.localOverridePath.trim()] : []),
+    ...(localEnv ? [localEnv] : []),
+    cwd,
+    path.dirname(cwd),
+    ...(cacheDir ? [path.join(cacheDir, 'files')] : []),
+  ];
+  for (const candidate of candidates) {
+    if (fs.existsSync(path.join(candidate, AI_EVALS_PROMPTFOO_REL_PATH))) {
+      return candidate;
+    }
   }
   return cwd;
 }
@@ -167,10 +180,11 @@ function renderBlueprintMarkdown(
 
 export function readAiEvalsBlueprint(
   workspaceRoot?: string,
-  lang?: ResourceLanguage
+  lang?: ResourceLanguage,
+  fetcherHints?: BlueprintFetcherPathHints
 ): AiEvalsBlueprintResult {
   const resolvedLang = getActiveResourceLang(undefined, lang);
-  const effectiveRoot = workspaceRoot ?? resolveDefaultWorkspaceRoot();
+  const effectiveRoot = workspaceRoot ?? resolveDefaultWorkspaceRoot(fetcherHints);
   const { source, excerpt } = loadPromptfooExcerpt(effectiveRoot);
   const text = renderBlueprintMarkdown(source, excerpt, resolvedLang);
   return {

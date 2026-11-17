@@ -199,4 +199,19 @@ describe('workspacePathValidator (F2.5 SEC-PATH-01)', () => {
       WorkspacePathValidationError
     );
   });
+
+  it('detecta y bloquea enlaces simbólicos colgantes fuera del límite y ciclos ELOOP', () => {
+    const danglingLink = path.join(tmpSubDir, 'dangling-etc-link');
+    fs.symlinkSync('/etc/nonexistent-qa11x-target', danglingLink);
+    expect(() => resolveSafeProjectPath(danglingLink)).toThrow(WorkspacePathValidationError);
+    expect(() => resolveSafeProjectPath(path.join(danglingLink, 'nested'))).toThrow(
+      WorkspacePathValidationError
+    );
+
+    const loopA = path.join(tmpSubDir, 'loop-a');
+    const loopB = path.join(tmpSubDir, 'loop-b');
+    fs.symlinkSync(loopB, loopA);
+    fs.symlinkSync(loopA, loopB);
+    expect(() => resolveSafeProjectPath(loopA)).toThrow(/ELOOP/i);
+  });
 });

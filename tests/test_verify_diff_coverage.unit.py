@@ -597,3 +597,29 @@ def test_ignores_test_files_even_with_zero_hits_in_coverage_xml(
     )
     assert only_tests_rep.exit_code == vdc.EXIT_OK
     assert only_tests_rep.file_metrics == ()
+
+
+def test_exact_100_pct_line_coverage_fails_on_rounding_and_covers_js(
+    tmp_path: Path,
+) -> None:
+    """Valida que 99999/100000 líneas no pase por redondeo y cubra .mjs."""
+    repo = _init_repo(tmp_path / "round_guard")
+    _write(repo, "src/edge.mjs", "export const ok = 1;\n")
+    _git(repo, "add", "src/edge.mjs")
+    _write(repo, "cov/node.info", "SF:src/edge.mjs\nDA:1,1\nend_of_record\n")
+    assert (
+        vdc.evaluate_diff_coverage(
+            vdc.DiffCoverageConfig(workspace=repo, reports_dir="cov")
+        ).exit_code
+        == vdc.EXIT_OK
+    )
+    rep_unrounded = vdc._compute_global_totals(
+        [
+            vdc.FileDeltaMetrics(
+                "src/huge.py", 99999, 100000, 99.999, 0, 0, 100.0, (100000,)
+            )
+        ],
+        [],
+        vdc.DiffCoverageConfig(workspace=repo, min_line_cov=100.0),
+    )
+    assert rep_unrounded.exit_code == vdc.EXIT_COVERAGE_FAIL

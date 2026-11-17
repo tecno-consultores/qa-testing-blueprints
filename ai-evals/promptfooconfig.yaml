@@ -21,22 +21,19 @@ providers:
   - id: openai:gpt-4.1-mini
     config:
       temperature: 0
-      apiKey: "${OPENAI_API_KEY}"
   - id: anthropic:messages:claude-sonnet-4-5
     config:
       temperature: 0
-      apiKey: "${ANTHROPIC_API_KEY}"
   - id: google:gemini-2.5-flash
     config:
       temperature: 0
-      apiKey: "${GEMINI_API_KEY}"
   - id: ollama:chat:qwen3:8b
     config:
       temperature: 0
 
 defaultTest:
   options:
-    provider: "${PROMPTFOO_JUDGE_PROVIDER:-openai:gpt-4.1-mini}"
+    provider: "{{ env.PROMPTFOO_JUDGE_PROVIDER | default('openai:gpt-4.1-mini', true) }}"
   assert:
     - type: is-json
     - type: not-icontains

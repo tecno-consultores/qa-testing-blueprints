@@ -19,6 +19,21 @@ const GATE_STATUS_PASSED: GateCheckStatus = 'PASSED';
 const GATE_STATUS_FAILED: GateCheckStatus = 'FAILED';
 const GATE_STATUS_SKIPPED: GateCheckStatus = 'SKIPPED';
 
+const IGNORED_SCAN_DIRS = new Set([
+  'node_modules',
+  'dist',
+  '.git',
+  'coverage',
+  '.stryker-tmp',
+  '.venv',
+  'venv',
+  'vendor',
+  'target',
+  'build',
+  'graphify-out',
+  '.trivycache',
+]);
+
 interface GateCheckOutcome {
   passed: boolean;
   status: GateCheckStatus;
@@ -209,22 +224,12 @@ function inspectSingleJsonFile(projectPath: string, file: string): string[] {
 function checkJsonIntegrity(projectPath: string): GateCheckOutcome {
   const blockers: string[] = [];
   const jsonFiles: string[] = [];
-  const ignoredJsonDirs = new Set([
-    'node_modules',
-    'dist',
-    '.git',
-    'coverage',
-    '.stryker-tmp',
-    '.venv',
-    'graphify-out',
-    '.trivycache',
-  ]);
 
   function collectJson(dir: string): void {
     try {
       const entries = fs.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
-        if (ignoredJsonDirs.has(entry.name)) continue;
+        if (IGNORED_SCAN_DIRS.has(entry.name)) continue;
         const full = path.join(dir, entry.name);
         if (entry.isDirectory()) {
           collectJson(full);
@@ -432,7 +437,7 @@ function collectFilesWithExtensions(dir: string, exts: string[]): string[] {
   if (!fs.existsSync(dir)) return found;
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
-    if (entry.name === 'node_modules' || entry.name === 'dist' || entry.name === '.git') continue;
+    if (IGNORED_SCAN_DIRS.has(entry.name)) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       found.push(...collectFilesWithExtensions(full, exts));
@@ -448,14 +453,51 @@ function normalizeSubRoute(sub: string): string {
   return sub.startsWith('/') ? sub : `/${sub}`;
 }
 
+function extractPhpRoutesFromCode(
+  code: string,
+  relFile: string,
+  ignoredInParity: boolean
+): Array<{ verb: string; path: string; relFile: string; ignoredInParity: boolean }> {
+  const routes: Array<{ verb: string; path: string; relFile: string; ignoredInParity: boolean }> = [];
+  const laravelRegex = /\bRoute::(get|post|put|patch|delete)\s*\(\s*['"]([^'"]+)['"]/gi;
+  let m: RegExpExecArray | null;
+  while ((m = laravelRegex.exec(code)) !== null) {
+    routes.push({
+      verb: pickAt(m, 1).toUpperCase(),
+      path: normalizeSubRoute(pickAt(m, 2)),
+      relFile,
+      ignoredInParity,
+    });
+  }
+  const symfonyRegex = /#\[Route\(\s*['"]([^'"]+)['"]([^)]*)\)/gi;
+  while ((m = symfonyRegex.exec(code)) !== null) {
+    const routePath = normalizeSubRoute(pickAt(m, 1));
+    const attrTail = pickAt(m, 2);
+    const methodsMatch = /methods\s*:\s*\[([^\]]+)\]/i.exec(attrTail);
+    const extracted = methodsMatch?.[1]
+      ? Array.from(methodsMatch[1].matchAll(/['"]([A-Za-z]+)['"]/g), (entry) =>
+          pickAt(entry, 1).toUpperCase()
+        )
+      : [];
+    const verbs = extracted.length > 0 ? extracted : ['GET'];
+    for (const verb of verbs) {
+      routes.push({ verb, path: routePath, relFile, ignoredInParity });
+    }
+  }
+  return routes;
+}
+
 function extractBackendRoutesFromFile(
   projectPath: string,
   filePath: string
 ): Array<{ verb: string; path: string; relFile: string; ignoredInParity: boolean }> {
-  const routes: Array<{ verb: string; path: string; relFile: string; ignoredInParity: boolean }> = [];
   const code = fs.readFileSync(filePath, 'utf8');
   const ignoredInParity = code.includes('api-parity-ignore');
   const relFile = path.relative(projectPath, filePath);
+  if (filePath.endsWith('.php')) {
+    return extractPhpRoutesFromCode(code, relFile, ignoredInParity);
+  }
+  const routes: Array<{ verb: string; path: string; relFile: string; ignoredInParity: boolean }> = [];
   const prefixMatch = /APIRouter\([^)]*prefix\s*=\s*['"]([^'"]+)['"]/.exec(code);
   const routerPrefix = prefixMatch?.[1] ? trimTrailingSlashes(prefixMatch[1]) : '';
   const hasV1Dir = filePath.split(path.sep).includes('v1');
@@ -618,10 +660,11 @@ function collectBackendRouteBlockers(
 }
 
 function checkZeroOrphanApiEndpoints(projectPath: string): GateCheckOutcome {
+  const phpSrcDir = path.join(projectPath, 'php', 'src');
   const backendDirs = [
     path.join(projectPath, 'fastapi', 'src'),
     path.join(projectPath, 'node-backend', 'src'),
-    path.join(projectPath, 'php', 'src'),
+    phpSrcDir,
     path.join(projectPath, 'backend', 'src'),
     path.join(projectPath, 'src', 'api'),
   ];
@@ -631,16 +674,24 @@ function checkZeroOrphanApiEndpoints(projectPath: string): GateCheckOutcome {
     path.join(projectPath, 'frontend', 'src'),
   ];
 
-  const hasBackendDir = backendDirs.some((d) => fs.existsSync(d));
+  const existingBackendDirs = backendDirs.filter((d) => fs.existsSync(d));
+  const hasBackendDir = existingBackendDirs.length > 0;
   const hasFrontendDir = frontendDirs.some((d) => fs.existsSync(d));
-  const backendFiles = backendDirs.flatMap((d) => collectFilesWithExtensions(d, ['.py', '.ts', '.js']));
+  const backendFiles = backendDirs.flatMap((d) =>
+    collectFilesWithExtensions(d, ['.py', '.ts', '.js', '.php'])
+  );
   const frontendFiles = frontendDirs.flatMap((d) =>
     collectFilesWithExtensions(d, ['.ts', '.tsx', '.vue', '.js', '.jsx'])
   );
 
   const backendRoutes = backendFiles.flatMap((f) => extractBackendRoutesFromFile(projectPath, f));
   const frontendCalls = frontendFiles.flatMap((f) => extractFrontendCallsFromFile(projectPath, f));
+  const onlyPhpWithoutRoutes =
+    existingBackendDirs.length === 1 && existingBackendDirs[0] === phpSrcDir && backendRoutes.length === 0;
 
+  if (onlyPhpWithoutRoutes) {
+    return buildCheckOutcome(GATE_STATUS_SKIPPED);
+  }
   if (backendRoutes.length === 0 && frontendCalls.length === 0) {
     return buildCheckOutcome(GATE_STATUS_SKIPPED);
   }
@@ -716,9 +767,19 @@ function resolveWithParentFallback(projectPath: string, ...segments: string[]): 
   if (fs.existsSync(directPath)) {
     return directPath;
   }
-  const parentPath = path.resolve(projectPath, '..', ...segments);
-  if (fs.existsSync(parentPath)) {
-    return parentPath;
+  if (fs.existsSync(path.join(projectPath, '.git'))) {
+    return directPath;
+  }
+  const parentDir = path.dirname(path.resolve(projectPath));
+  try {
+    const safeParent = resolveSafeProjectPath(parentDir);
+    const parentPath = path.join(safeParent, ...segments);
+    if (fs.existsSync(parentPath)) {
+      return parentPath;
+    }
+  } catch (err: unknown) {
+    reportDebugCatchError('certifyGate.resolveWithParentFallback', err);
+    return directPath;
   }
   return directPath;
 }
@@ -876,24 +937,62 @@ function checkAstTopology(projectPath: string): GateCheckOutcome {
   return buildCheckOutcome(blockers.length === 0 ? GATE_STATUS_PASSED : GATE_STATUS_FAILED, blockers);
 }
 
+interface ManifestDigestEntry {
+  readonly path: string;
+  readonly sha256: string;
+}
+
+interface ManifestStackDigestSpec {
+  readonly files?: ManifestDigestEntry[];
+  readonly readme?: string;
+  readonly readme_sha256?: string;
+  readonly readme_es?: string;
+  readonly readme_es_sha256?: string;
+}
+
+function collectManifestDigestEntries(manifest: {
+  common_files?: ManifestDigestEntry[];
+  agent_governance_files?: ManifestDigestEntry[];
+  stacks?: Record<string, ManifestStackDigestSpec>;
+}): ManifestDigestEntry[] {
+  const rawEntries: ManifestDigestEntry[] = [
+    ...(manifest.common_files ?? []),
+    ...(manifest.agent_governance_files ?? []),
+  ];
+  for (const stack of Object.values(manifest.stacks ?? {})) {
+    rawEntries.push(...(stack.files ?? []));
+    if (stack.readme && stack.readme_sha256) {
+      rawEntries.push({ path: stack.readme, sha256: stack.readme_sha256 });
+    }
+    if (stack.readme_es && stack.readme_es_sha256) {
+      rawEntries.push({ path: stack.readme_es, sha256: stack.readme_es_sha256 });
+    }
+  }
+  const seen = new Set<string>();
+  return rawEntries.filter((entry) => {
+    const key = `${entry.path}|${entry.sha256}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function checkManifestCryptographicParity(projectPath: string): string[] {
   const manifestPath = path.join(projectPath, 'manifest.json');
   const genScript = path.join(projectPath, 'scripts', 'generar-manifiesto.py');
-  if (!fs.existsSync(manifestPath) || !fs.existsSync(genScript)) return [];
+  const syncGovScript = path.join(projectPath, '.agents', 'scripts', 'sync_governance.py');
+  if (!fs.existsSync(manifestPath) || (!fs.existsSync(genScript) && !fs.existsSync(syncGovScript))) {
+    return [];
+  }
 
   const blockers: string[] = [];
   try {
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as {
-      common_files?: Array<{ path: string; sha256: string }>;
-      agent_governance_files?: Array<{ path: string; sha256: string }>;
-      stacks?: Record<string, { files?: Array<{ path: string; sha256: string }> }>;
+      common_files?: ManifestDigestEntry[];
+      agent_governance_files?: ManifestDigestEntry[];
+      stacks?: Record<string, ManifestStackDigestSpec>;
     };
-    const entries = [
-      ...(manifest.common_files ?? []),
-      ...(manifest.agent_governance_files ?? []),
-      ...Object.values(manifest.stacks ?? {}).flatMap((s) => s.files ?? []),
-    ];
-    for (const entry of entries) {
+    for (const entry of collectManifestDigestEntries(manifest)) {
       const full = path.join(projectPath, entry.path);
       if (!fs.existsSync(full)) {
         blockers.push(`Archivo referenciado en manifest.json no existe en disco: ${entry.path}`);
@@ -901,7 +1000,9 @@ function checkManifestCryptographicParity(projectPath: string): string[] {
       }
       const actualSha = crypto.createHash('sha256').update(fs.readFileSync(full)).digest('hex');
       if (actualSha !== entry.sha256) {
-        blockers.push(`Desfase SHA-256 en manifest.json para '${entry.path}' (ejecute scripts/generar-manifiesto.py).`);
+        blockers.push(
+          `Desfase SHA-256 en manifest.json para '${entry.path}' (ejecute scripts/generar-manifiesto.py o .agents/scripts/sync_governance.py).`
+        );
       }
     }
   } catch (err: unknown) {

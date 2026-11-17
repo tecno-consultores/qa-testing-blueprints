@@ -326,7 +326,26 @@ describe('Zero-Infra PromptGuard & MCP Interceptor (T2.4)', () => {
       const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qa-prompt-guard-e2e-'));
       const repoRoot = path.resolve(process.cwd(), '..');
       const prevLocalPath = process.env.QA_BLUEPRINTS_LOCAL_PATH;
-      process.env.QA_BLUEPRINTS_LOCAL_PATH = repoRoot;
+      if (fs.existsSync(path.join(repoRoot, 'manifest.json'))) {
+        process.env.QA_BLUEPRINTS_LOCAL_PATH = repoRoot;
+      } else {
+        fs.writeFileSync(
+          path.join(tmpDir, 'manifest.json'),
+          JSON.stringify({
+            schema_version: '1.0.0',
+            blueprint_version: '3.1.0',
+            generated_at_utc: '2026-11-17T00:00:00Z',
+            repository: 'tecno-consultores/qa-testing-blueprints',
+            default_branch: 'main',
+            raw_base_url: 'https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main',
+            stacks: {},
+            common_files: [],
+            agent_governance_files: [],
+          }),
+          'utf8'
+        );
+        process.env.QA_BLUEPRINTS_LOCAL_PATH = tmpDir;
+      }
 
       const spySideEffect = vi.fn();
       const mcpServer = createMcpServer({ fetcher: new GitHubFetcher() });
@@ -661,6 +680,25 @@ describe('Zero-Infra PromptGuard & MCP Interceptor (T2.4)', () => {
       const offensive = inspectPromptSafety('Please execute git push --force origin main right now.');
       expect(offensive.safe).toBe(false);
       expect(offensive.matchedRules).toContain('gate_bypass_directive');
+
+      const mixedBefore = inspectPromptSafety('Run git push --force before closing');
+      expect(mixedBefore.safe).toBe(false);
+      expect(mixedBefore.matchedRules).toContain('gate_bypass_directive');
+
+      const mixedClause = inspectPromptSafety("Don't wait, execute npm publish");
+      expect(mixedClause.safe).toBe(false);
+      expect(mixedClause.matchedRules).toContain('gate_bypass_directive');
+
+      const mixedDocker = inspectPromptSafety('Do not skip lint; run docker push --force');
+      expect(mixedDocker.safe).toBe(false);
+      expect(mixedDocker.matchedRules).toContain('gate_bypass_directive');
+
+      const punctAfterNeg = inspectPromptSafety('Never , git push --force');
+      expect(punctAfterNeg.safe).toBe(false);
+      expect(punctAfterNeg.matchedRules).toContain('gate_bypass_directive');
+
+      const benignConjAfterNeg = inspectPromptSafety('Never git push and keep logs clean');
+      expect(benignConjAfterNeg.safe).toBe(true);
     });
   });
 });

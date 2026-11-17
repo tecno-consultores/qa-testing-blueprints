@@ -515,7 +515,17 @@ qa-unit:
       expect(res.changes.length).toBeGreaterThan(0);
 
       const resBad = merger.mergeComposerJson('{ invalid json', tpl);
-      expect(resBad.merged).toContain('pestphp/pest');
+      expect(resBad.merged).toBe('{ invalid json');
+      expect(resBad.content).toBe('{ invalid json');
+      expect(resBad.changes).toEqual([
+        'Error: composer.json destino contiene JSON inválido; preservado sin modificar',
+      ]);
+
+      const resArray = merger.mergeComposerJson('["not-an-object"]', tpl);
+      expect(resArray.merged).toBe('["not-an-object"]');
+      expect(resArray.changes).toEqual([
+        'Error: composer.json destino contiene JSON inválido; preservado sin modificar',
+      ]);
 
       const resBadTpl = merger.mergeComposerJson('{}', '{ invalid tpl json');
       expect(JSON.parse(resBadTpl.merged)).toHaveProperty('require-dev');
@@ -829,6 +839,23 @@ qa-unit:
         { createBackup: false }
       );
       expect(fs.existsSync(`${envPath}.11x-backup`)).toBe(false);
+
+      // Crea AGENTS.md desde cero invocando resolveInitialFileContent con el bloque conector 11X
+      const agentsFreshDir = path.join(tmpDir, 'fresh-agents-proj');
+      fs.mkdirSync(agentsFreshDir, { recursive: true });
+      const createdAgents = await merger.mergeFiles(agentsFreshDir, [
+        {
+          path: 'AGENTS.md',
+          target_name: 'AGENTS.md',
+          merge_strategy: 'merge_agents_md',
+          content: '# Ignored raw template',
+          sha256_verified: true,
+        },
+      ]);
+      expect(createdAgents.summary.created).toBe(1);
+      const agentsDisk = fs.readFileSync(path.join(agentsFreshDir, 'AGENTS.md'), 'utf-8');
+      expect(agentsDisk).toContain('<!-- QA_11X_MCP_CONNECTOR_START -->');
+      expect(agentsDisk).toContain('<!-- QA_11X_MCP_CONNECTOR_END -->');
     });
   });
 });

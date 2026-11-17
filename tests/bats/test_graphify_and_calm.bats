@@ -154,16 +154,19 @@ for r in rels:
         edges.add((s, d))
         connected.update((s, d))
 
+is_upstream = (root / "scripts" / "generar-manifiesto.py").is_file()
 errors: list[str] = []
-for req_n in REQUIRED_NODES:
-    if req_n not in node_ids:
-        errors.append(f"[MISSING_REQUIRED_NODE] {req_n}")
+if is_upstream:
+    for req_n in REQUIRED_NODES:
+        if req_n not in node_ids:
+            errors.append(f"[MISSING_REQUIRED_NODE] {req_n}")
 for nid in node_ids:
     if nid not in connected:
         errors.append(f"[ORPHAN_CRITICAL_NODE] {nid}")
-for src, dst in REQUIRED_EDGES:
-    if (src, dst) not in edges:
-        errors.append(f"[MISSING_REQUIRED_RELATIONSHIP] {src}->{dst}")
+if is_upstream:
+    for src, dst in REQUIRED_EDGES:
+        if (src, dst) not in edges:
+            errors.append(f"[MISSING_REQUIRED_RELATIONSHIP] {src}->{dst}")
 ctrls = doc.get("controls") if isinstance(doc.get("controls"), dict) else {}
 for req_c in REQUIRED_CONTROLS:
     if req_c not in ctrls:
@@ -175,6 +178,9 @@ sys.stdout.write(f"{rel_clean}|{len(nodes)}|{len(rels)}|{len(ctrls)}")
 PYEOF
   cat >"${bin_dir}/calm" <<'EOF'
 #!/usr/bin/env bash
+if [ -n "${CALM_CLI_LOG:-}" ]; then
+  printf '%s\n' "$*" >>"${CALM_CLI_LOG}"
+fi
 if [ "${MOCK_CALM_CLI_FAIL:-0}" = "1" ]; then
   echo "calm-cli syntax failure" >&2
   exit 1
@@ -310,6 +316,10 @@ EOF
   assert_failure 1
   assert_output --partial "Falta argumento para --arch"
 
+  run env LC_ALL=C bash "${CALM_SCRIPT}" architecture/qa-11x.calm.json architecture/extra.calm.json
+  assert_failure 1
+  assert_output --partial "Demasiados argumentos posicionales"
+
   local work="${BATS_TEST_TMPDIR}/calm_docker_ws"
   local bin_dir="${BATS_TEST_TMPDIR}/calm_docker_bin"
   local docker_log="${BATS_TEST_TMPDIR}/calm_docker.log"
@@ -337,9 +347,10 @@ EOF
 @test "validate_calm_architecture.sh (Trimodal Virgen / Nominal / Degradado): valida arquitectura CALM real y bloquea anomalias" {
   local work="${BATS_TEST_TMPDIR}/calm_tri_ws"
   local bin_dir="${BATS_TEST_TMPDIR}/calm_tri_bin"
-  mkdir -p "${work}/.agents/scripts" "${work}/architecture"
+  mkdir -p "${work}/.agents/scripts" "${work}/architecture" "${work}/scripts"
   cp "${CALM_SCRIPT}" "${work}/.agents/scripts/validate_calm_architecture.sh"
   cp "${REPO_ROOT}/architecture/qa-11x.calm.json" "${work}/architecture/qa-11x.calm.json"
+  touch "${work}/scripts/generar-manifiesto.py"
   chmod +x "${work}/.agents/scripts/validate_calm_architecture.sh"
   _populate_minimal_bin "${bin_dir}"
   _install_calm_node_and_cli_stubs "${bin_dir}"
@@ -349,8 +360,8 @@ EOF
   assert_failure 1
   assert_output --partial "[FILE_NOT_FOUND]"
 
-  # 2. Nominal (arquitectura real + @finos/calm-cli limpio)
-  run env PATH="${bin_dir}" LC_ALL=C bash "${work}/.agents/scripts/validate_calm_architecture.sh" --arch architecture/qa-11x.calm.json
+  # 2. Nominal (arquitectura real + argumento posicional + @finos/calm-cli limpio)
+  run env PATH="${bin_dir}" LC_ALL=C bash "${work}/.agents/scripts/validate_calm_architecture.sh" architecture/qa-11x.calm.json
   assert_success
   assert_output --partial "✅ [CALM] architecture/qa-11x.calm.json validado"
 
@@ -365,7 +376,7 @@ EOF
   assert_failure 1
   assert_output --partial "[DUPLICATE_JSON_KEY]"
 
-  # 5. Degradado: nodos requeridos ausentes / huérfanos
+  # 5. Degradado: nodos requeridos ausentes / huérfanos en repo fuente
   printf '{"nodes":[{"unique-id":"only-one"}],"relationships":[],"controls":{}}\n' >"${work}/architecture/orphan.calm.json"
   run env PATH="${bin_dir}" LC_ALL=C bash "${work}/.agents/scripts/validate_calm_architecture.sh" --arch architecture/orphan.calm.json
   assert_failure 1
@@ -380,4 +391,53 @@ EOF
   run env PATH="${bin_dir}" MOCK_CALM_CLI_FAIL=1 LC_ALL=C bash "${work}/.agents/scripts/validate_calm_architecture.sh" --arch architecture/qa-11x.calm.json
   assert_failure 1
   assert_output --partial "Falló @finos/calm-cli"
+
+  # 7. Proyecto consumidor sin generar-manifiesto.py valida arquitectura propia sin exigir nodos del blueprint
+  rm -f "${work}/scripts/generar-manifiesto.py"
+  cat >"${work}/architecture/consumer.calm.json" <<'JSON'
+{
+  "nodes": [
+    {
+      "unique-id": "svc-api",
+      "controls": {
+        "prompt-injection-guard": {},
+        "rule-zero-ephemeral-docker": {},
+        "postgres-rls-isolation": {},
+        "worm-hmac-audit-chain": {},
+        "vault-aes-256-gcm": {},
+        "git-closure-human-gate": {},
+        "cli-tty-anti-hang-guard": {}
+      }
+    },
+    {"unique-id": "svc-db"}
+  ],
+  "relationships": [
+    {
+      "unique-id": "rel-1",
+      "relationship-type": {"connects": {"source": {"node": "svc-api"}, "destination": {"node": "svc-db"}}}
+    }
+  ],
+  "controls": {
+    "prompt-injection-guard": {"description": "Prompt guard", "requirements": [{"requirement-url": "https://example.org/c1"}]},
+    "rule-zero-ephemeral-docker": {"description": "Rule Zero", "requirements": [{"requirement-url": "https://example.org/c2"}]},
+    "postgres-rls-isolation": {"description": "RLS", "requirements": [{"requirement-url": "https://example.org/c3"}]},
+    "worm-hmac-audit-chain": {"description": "WORM", "requirements": [{"requirement-url": "https://example.org/c4"}]},
+    "vault-aes-256-gcm": {"description": "Vault", "requirements": [{"requirement-url": "https://example.org/c5"}]},
+    "git-closure-human-gate": {"description": "Git Gate", "requirements": [{"requirement-url": "https://example.org/c6"}]},
+    "cli-tty-anti-hang-guard": {"description": "TTY Guard", "requirements": [{"requirement-url": "https://example.org/c7"}]}
+  }
+}
+JSON
+  run env PATH="${bin_dir}" LC_ALL=C bash "${work}/.agents/scripts/validate_calm_architecture.sh" architecture/consumer.calm.json
+  assert_success
+  assert_output --partial "✅ [CALM] architecture/consumer.calm.json validado"
+
+  # 8. Modo contenedor (QA_IN_CONTAINER=1 + QA_CALM_IN_DOCKER=1) pasa /workspace/<rel_path> a calm-cli
+  local calm_log="${BATS_TEST_TMPDIR}/calm_in_docker.log"
+  : >"${calm_log}"
+  run env PATH="${bin_dir}" QA_IN_CONTAINER=1 QA_CALM_IN_DOCKER=1 CALM_CLI_LOG="${calm_log}" LC_ALL=C bash "${work}/.agents/scripts/validate_calm_architecture.sh" --arch architecture/qa-11x.calm.json
+  assert_success
+  run cat "${calm_log}"
+  assert_success
+  assert_output --partial "validate -a /workspace/architecture/qa-11x.calm.json"
 }

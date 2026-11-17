@@ -24,6 +24,7 @@ class VersionRule:
     patterns: tuple[re.Pattern[str], ...]
     max_replacements: int = 0
     optional: bool = False
+    major_minor_only: bool = False
 
 
 def _bilingual_rules(
@@ -230,6 +231,32 @@ VERSION_RULES: tuple[VersionRule, ...] = (
         ("docs/ARCHITECTURE_C4.md", "docs/ARCHITECTURE_C4.es.md"),
         _ARCH_C4_VER_PATS,
     ),
+    *_bilingual_rules(
+        ("docs/agent-setup.md", "docs/agent-setup.es.md"),
+        (
+            re.compile(
+                rf"(—\s*`v)({_VER_CORE})(`\s+(?:registers|registra)\s+\*\*\d+\s+)"
+            ),
+        ),
+    ),
+    VersionRule(
+        "SECURITY.md",
+        (
+            re.compile(r"(\|\s*\*\*`)(\d+\.\d+)(\.x`\s*\(`main`\s*/\s*Active\)\*\*)"),
+            re.compile(r"(Superseded by\s+`)(\d+\.\d+)(\.x`)"),
+        ),
+        optional=True,
+        major_minor_only=True,
+    ),
+    VersionRule(
+        "SECURITY.es.md",
+        (
+            re.compile(r"(\|\s*\*\*`)(\d+\.\d+)(\.x`\s*\(`main`\s*/\s*Activa\)\*\*)"),
+            re.compile(r"(Reemplazada por\s+`)(\d+\.\d+)(\.x`)"),
+        ),
+        optional=True,
+        major_minor_only=True,
+    ),
 )
 
 EDITION_RULES: tuple[VersionRule, ...] = (
@@ -339,6 +366,10 @@ EDITION_RULES: tuple[VersionRule, ...] = (
         ("docs/ARCHITECTURE_C4.md", "docs/ARCHITECTURE_C4.es.md"),
         _ARCH_C4_ED_PATS,
     ),
+    *_bilingual_rules(
+        ("docs/specs/README.md", "docs/specs/README.es.md"),
+        (re.compile(r"(\*\*QA Testing Blueprints \(`)(QA-11X v\d+\.\d+)(`\)\*\*)"),),
+    ),
 )
 
 
@@ -367,19 +398,34 @@ def resolve_targets(
     return version, edition
 
 
+def _check_pattern_matches(
+    rel_path: str,
+    pattern: re.Pattern[str],
+    text: str,
+    expected: str,
+    max_replacements: int,
+) -> list[str]:
+    pat_matches = list(pattern.finditer(text))
+    if not pat_matches:
+        return [f"{rel_path}: anchor missing ({pattern.pattern})"]
+    if max_replacements > 0:
+        pat_matches = pat_matches[:max_replacements]
+    return [
+        f"{rel_path}: found {match.group(2)!r}, expected {expected!r}"
+        for match in pat_matches
+        if match.group(2) != expected
+    ]
+
+
 def find_mismatches(text: str, rule: VersionRule, expected: str) -> list[str]:
     """Return mismatch descriptions for all pattern matches in text."""
     errors: list[str] = []
     for pattern in rule.patterns:
-        pat_matches = list(pattern.finditer(text))
-        if not pat_matches:
-            errors.append(f"{rule.rel_path}: anchor missing ({pattern.pattern})")
-            continue
-        for match in pat_matches:
-            if match.group(2) != expected:
-                errors.append(
-                    f"{rule.rel_path}: found {match.group(2)!r}, expected {expected!r}"
-                )
+        errors.extend(
+            _check_pattern_matches(
+                rule.rel_path, pattern, text, expected, rule.max_replacements
+            )
+        )
     return errors
 
 
@@ -416,20 +462,32 @@ def _print_errors(errors: list[str]) -> int:
     return 1
 
 
+def _rule_expected(rule: VersionRule, expected: str) -> str:
+    if not rule.major_minor_only:
+        return expected
+    return ".".join(expected.split(".")[:2])
+
+
 def process_rule(
-    root: Path, rule: VersionRule, expected: str, apply_changes: bool
+    root: Path,
+    rule: VersionRule,
+    expected: str,
+    apply_changes: bool,
+    *,
+    persist: bool = True,
 ) -> tuple[list[str], int]:
-    """Check or update a single VersionRule on disk."""
+    """Check or update a single VersionRule on disk (or dry-run in memory)."""
     target = root / rule.rel_path
     if not target.is_file():
         return _missing_file_result(rule)
+    rule_expected = _rule_expected(rule, expected)
     original = target.read_text(encoding="utf-8")
     if not apply_changes:
-        return find_mismatches(original, rule, expected), 0
-    rewritten, matched_pats = apply_rule(original, rule, expected)
+        return find_mismatches(original, rule, rule_expected), 0
+    rewritten, matched_pats = apply_rule(original, rule, rule_expected)
     if matched_pats != len(rule.patterns):
         return [f"{rule.rel_path}: missing one or more version/edition anchors"], 0
-    if rewritten != original:
+    if rewritten != original and persist:
         target.write_text(rewritten, encoding="utf-8")
         return [], 1
     return [], 0
@@ -440,12 +498,16 @@ def run_rules(
     rules: tuple[VersionRule, ...],
     expected: str,
     apply_changes: bool,
+    *,
+    persist: bool = True,
 ) -> tuple[list[str], int]:
     """Execute a group of rules and aggregate errors and modified file counts."""
     all_errors: list[str] = []
     updated_count = 0
     for rule in rules:
-        errors, changed = process_rule(root, rule, expected, apply_changes)
+        errors, changed = process_rule(
+            root, rule, expected, apply_changes, persist=persist
+        )
         all_errors.extend(errors)
         updated_count += changed
     return all_errors, updated_count
@@ -461,7 +523,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--check", action="store_true", help="Verify version parity only"
     )
     parser.add_argument("--set", dest="set_version", help="Target SemVer X.Y.Z")
-    parser.add_argument("--edition", help="Target edition e.g. 'QA-11X v3.0'")
+    parser.add_argument("--edition", help="Target edition e.g. 'QA-11X v3.1'")
     parser.add_argument("--dry-run", action="store_true", help="Do not write files")
     return parser.parse_args(argv)
 
@@ -476,21 +538,22 @@ def main(argv: list[str] | None = None) -> int:
         print(f"FAIL [bump_version_11x] {exc}", file=sys.stderr)
         return 2
 
-    write_mode = (
-        bool(args.set_version or args.edition)
-        and not args.check
-        and not args.dry_run
+    apply_mode = bool(args.set_version or args.edition) and not args.check
+    persist_mode = apply_mode and not args.dry_run
+    errors, changed = run_rules(
+        root, VERSION_RULES, version, apply_mode, persist=persist_mode
     )
-    errors, changed = run_rules(root, VERSION_RULES, version, write_mode)
     if edition is not None:
-        ed_errors, ed_changed = run_rules(root, EDITION_RULES, edition, write_mode)
+        ed_errors, ed_changed = run_rules(
+            root, EDITION_RULES, edition, apply_mode, persist=persist_mode
+        )
         errors.extend(ed_errors)
         changed += ed_changed
 
     if errors:
         return _print_errors(errors)
 
-    action = _mode_label(write_mode, args.dry_run)
+    action = _mode_label(persist_mode, args.dry_run)
     ed = edition or "n/a"
     print(
         f"OK [bump_version_11x] {action} version={version} "

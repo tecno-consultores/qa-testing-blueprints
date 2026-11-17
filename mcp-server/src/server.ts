@@ -9,10 +9,15 @@ import {
   type ReadResourceRequest,
   type ReadResourceResult,
   type Tool,
+  type ToolAnnotations,
 } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { BlueprintResources } from './resources/blueprint-resources.js';
-import { AI_EVALS_REDTEAM_RESOURCE, readAiEvalsBlueprint } from './resources/aiEvalsBlueprint.js';
+import {
+  AI_EVALS_REDTEAM_RESOURCE,
+  readAiEvalsBlueprint,
+  type BlueprintFetcherPathHints,
+} from './resources/aiEvalsBlueprint.js';
 import {
   MOBILE_APPIUM_RESOURCE,
   VIBE_RESCUE_RESOURCE,
@@ -41,7 +46,7 @@ import { runEphemeralQa } from './tools/ephemeral-runner.js';
 import { certify11xGate } from './tools/certify-gate.js';
 import { auditTestPyramidGaps } from './tools/test-pyramid-auditor.js';
 import { initOrAppendAgentsMd } from './tools/initOrAppendAgentsMd.js';
-import { reportDebugCatchError } from './utils/diagnosticFormatter.js';
+import { reportDebugCatchError, throwIfSignalAborted } from './utils/diagnosticFormatter.js';
 import { proposeSkillEvolutionPr } from './tools/propose-evolution-pr.js';
 import { reconcileAgentsGovernance } from './cli/reconcile-agents.js';
 import {
@@ -95,10 +100,18 @@ export interface ServerSurfaceRegistry {
   readonly resourceUris: ReadonlySet<string>;
 }
 
+export interface V2ToolExecutionExtra {
+  readonly signal?: AbortSignal;
+}
+
 export interface V2ToolRegistration {
   readonly definition: Pick<Tool, 'name' | 'description'>;
+  readonly annotations: ToolAnnotations;
   readonly inputSchema: z.ZodType<Record<string, unknown>>;
-  readonly execute: (args: Record<string, unknown>) => Promise<CallToolResult> | CallToolResult;
+  readonly execute: (
+    args: Record<string, unknown>,
+    extra?: V2ToolExecutionExtra
+  ) => Promise<CallToolResult> | CallToolResult;
 }
 
 const SERVER_SURFACE_REGISTRY = new WeakMap<McpServer, ServerSurfaceRegistry>();
@@ -116,7 +129,7 @@ const ValidateCalmInputSchema = z
       .optional()
       .describe("Relative path of the FINOS CALM model inside workspaceRoot (default 'architecture/qa-11x.calm.json')."),
   })
-  .passthrough();
+  .strict();
 
 const EvaluateReleaseGateInputSchema = z
   .object({
@@ -199,7 +212,7 @@ const EvaluateReleaseGateInputSchema = z
           .optional()
           .describe('Maximum QA escapes (default 0).'),
       })
-      .passthrough()
+      .strict()
       .optional()
       .describe('Partial override of corporate release thresholds.'),
     minPassRatePct: z
@@ -235,7 +248,7 @@ const EvaluateReleaseGateInputSchema = z
       .optional()
       .describe('Direct override for maxQaEscapes.'),
   })
-  .passthrough();
+  .strict();
 
 const EvaluateTrajectoryInputSchema = z
   .object({
@@ -270,7 +283,7 @@ const EvaluateTrajectoryInputSchema = z
               .optional()
               .describe('Observed step execution duration in milliseconds.'),
           })
-          .passthrough()
+          .strict()
       )
       .optional()
       .describe('Tool execution steps recorded for the agent.'),
@@ -296,7 +309,7 @@ const EvaluateTrajectoryInputSchema = z
       .optional()
       .describe('Timeout in milliseconds for live mode (>= 180000).'),
   })
-  .passthrough();
+  .strict();
 
 const RunLlmRedTeamInputSchema = z
   .object({
@@ -318,7 +331,7 @@ const RunLlmRedTeamInputSchema = z
       .optional()
       .describe('Timeout in milliseconds for live mode (>= 180000).'),
   })
-  .passthrough();
+  .strict();
 
 const AuditVibeInputSchema = z
   .object({
@@ -347,7 +360,7 @@ const AuditVibeInputSchema = z
       .optional()
       .describe('If true, returns isError=true in MCP when verdict is RESCUE_REQUIRED.'),
   })
-  .passthrough();
+  .strict();
 
 const SyncEnterpriseTmsInputSchema = z
   .object({
@@ -409,7 +422,7 @@ const SyncEnterpriseTmsInputSchema = z
       .optional()
       .describe('Workspace root directory for path containment checks.'),
   })
-  .passthrough();
+  .strict();
 
 const SessionFlightRecorderInputSchema = z
   .object({
@@ -453,43 +466,62 @@ const SessionFlightRecorderInputSchema = z
       .optional()
       .describe("Optional closure/abort reason for 'clear'."),
   })
-  .passthrough();
+  .strict();
 
 export const V2_TOOL_REGISTRATIONS: readonly V2ToolRegistration[] = [
   {
     definition: VALIDATE_CALM_ARCHITECTURE_TOOL,
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     inputSchema: ValidateCalmInputSchema,
-    execute: (args) => handleValidateCalmArchitecture(args),
+    execute: (args, extra) => {
+      throwIfSignalAborted(extra?.signal, 'validate_calm_architecture abortado por timeout o cancelación.');
+      return handleValidateCalmArchitecture(args);
+    },
   },
   {
     definition: EVALUATE_RELEASE_GATE_TOOL,
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     inputSchema: EvaluateReleaseGateInputSchema,
-    execute: (args) => handleEvaluateReleaseGate(args),
+    execute: (args, extra) => {
+      throwIfSignalAborted(extra?.signal, 'evaluate_release_gate abortado por timeout o cancelación.');
+      return handleEvaluateReleaseGate(args);
+    },
   },
   {
     definition: EVALUATE_AGENT_TRAJECTORY_TOOL,
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     inputSchema: EvaluateTrajectoryInputSchema,
-    execute: async (args) => await handleEvaluateAgentTrajectory(args),
+    execute: async (args, extra) =>
+      await handleEvaluateAgentTrajectory(args, { signal: extra?.signal }),
   },
   {
     definition: RUN_LLM_RED_TEAM_TOOL,
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     inputSchema: RunLlmRedTeamInputSchema,
-    execute: async (args) => await handleRunLlmRedTeam(args),
+    execute: async (args, extra) => await handleRunLlmRedTeam(args, { signal: extra?.signal }),
   },
   {
     definition: AUDIT_VIBE_PROTOTYPE_TOOL,
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     inputSchema: AuditVibeInputSchema,
-    execute: (args) => handleAuditVibePrototype(args),
+    execute: (args, extra) => {
+      throwIfSignalAborted(extra?.signal, 'audit_vibe_prototype abortado por timeout o cancelación.');
+      return handleAuditVibePrototype(args);
+    },
   },
   {
     definition: SYNC_ENTERPRISE_TMS_TOOL,
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
     inputSchema: SyncEnterpriseTmsInputSchema,
-    execute: async (args) => await handleSyncEnterpriseTms(args),
+    execute: async (args, extra) =>
+      await handleSyncEnterpriseTms(args, { signal: extra?.signal }),
   },
   {
     definition: SESSION_FLIGHT_RECORDER_TOOL,
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     inputSchema: SessionFlightRecorderInputSchema,
-    execute: async (args) => await handleSessionFlightRecorder(args),
+    execute: async (args, extra) =>
+      await handleSessionFlightRecorder(args, { signal: extra?.signal }),
   },
 ];
 
@@ -842,7 +874,16 @@ async function readRemoteOrEmbeddedStackBlueprint(
   }
 }
 
-function registerExtensionResources(server: McpServer, resources: BlueprintResources): void {
+function registerExtensionResources(
+  server: McpServer,
+  resources: BlueprintResources,
+  fetcher: GitHubFetcher
+): void {
+  const getHints = (): BlueprintFetcherPathHints => ({
+    localOverridePath: fetcher.getLocalOverridePath(),
+    cacheDir: fetcher.getCacheDir(),
+  });
+
   server.registerResource(
     AI_EVALS_REDTEAM_RESOURCE.name,
     AI_EVALS_REDTEAM_RESOURCE.uri,
@@ -850,7 +891,11 @@ function registerExtensionResources(server: McpServer, resources: BlueprintResou
       description: AI_EVALS_REDTEAM_RESOURCE.description,
       mimeType: AI_EVALS_REDTEAM_RESOURCE.mimeType,
     },
-    (uri) => toSingleResourceResult(uri, readAiEvalsBlueprint(undefined, getActiveResourceLang(uri)))
+    (uri) =>
+      toSingleResourceResult(
+        uri,
+        readAiEvalsBlueprint(undefined, getActiveResourceLang(uri), getHints())
+      )
   );
 
   server.registerResource(
@@ -899,7 +944,7 @@ function registerExtensionResources(server: McpServer, resources: BlueprintResou
     (uri) =>
       toSingleResourceResult(
         uri,
-        readTacticalPatternsSkillResource(undefined, getActiveResourceLang(uri))
+        readTacticalPatternsSkillResource(undefined, getActiveResourceLang(uri), getHints())
       )
   );
 }
@@ -914,7 +959,8 @@ function registerCoreAnalysisTools(
     {
       description:
         'Audits user project directory, detecting stacks, strict linter flags, missing 11X files, and QA 11X version/skill update availability.',
-      inputSchema: InspectProjectInputSchema.shape,
+      inputSchema: InspectProjectInputSchema,
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
     async (args) => {
       const safePath = resolveSafeProjectPath(args.project_path);
@@ -927,7 +973,8 @@ function registerCoreAnalysisTools(
     {
       description:
         'Downloads on-demand blueprint templates and scripts for the requested stack with SHA-256 validation.',
-      inputSchema: FetchBundleInputSchema.shape,
+      inputSchema: FetchBundleInputSchema,
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
     async (args) =>
       toJsonToolResult(
@@ -945,7 +992,8 @@ function registerCoreAnalysisTools(
     {
       description:
         'Surgically injects or merges 11X quality standard templates without altering existing production dependencies or code (dry_run default true).',
-      inputSchema: BootstrapMergeInputSchema.shape,
+      inputSchema: BootstrapMergeInputSchema,
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
     async (args) => {
       const safePath = resolveSafeProjectPath(args.project_path);
@@ -964,12 +1012,17 @@ function registerCoreAnalysisTools(
     {
       description:
         'Queries the AST knowledge graph (graphify-out/graph.json) for code/architecture Q&A and pre-refactoring blast-radius analysis.',
-      inputSchema: BlastRadiusInputSchema.shape,
+      inputSchema: BlastRadiusInputSchema,
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     async (args, extra) => {
+      const targetSymbol = args.target_symbol ?? '';
+      if (!targetSymbol.trim() && args.changed_since_ref === undefined) {
+        throw new Error('Se requiere target_symbol (o changed_since_ref para análisis diferencial).');
+      }
       const safePath = resolveSafeProjectPath(args.project_path);
       return toJsonToolResult(
-        await inspectAstBlastRadius(safePath, args.target_symbol, args.max_items, {
+        await inspectAstBlastRadius(safePath, targetSymbol, args.max_items, {
           autoBuildIfMissing: args.auto_build_if_missing,
           refreshGraph: args.refresh_graph,
           changedSinceRef: args.changed_since_ref,
@@ -985,7 +1038,8 @@ function registerCoreAnalysisTools(
     {
       description:
         'Audits or executes workspace sanitation, removing transient test artifacts and Docker cache residues (dry_run default).',
-      inputSchema: CleanWorkspaceInputSchema.shape,
+      inputSchema: CleanWorkspaceInputSchema,
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
     },
     async (args) => {
       const safePath = resolveSafeProjectPath(args.project_path);
@@ -1000,7 +1054,8 @@ function registerCoreAnalysisTools(
     {
       description:
         'Statically audits project source code against 22 DISA ASD STIG V6R5 / OWASP v4.2 reference controls + 34 static scanner rules covering Anti-Silo QA/Healthcheck/TTY/CI/Contract/Docker/Playwright/SSR/UI patterns (including QA-HEALTH-01, QA-CLI-TTY-01, QA-DOCKER-TTY-01, QA-CI-ESCAPE-01, QA-MAKE-CURDIR-01, QA-CONTRACT-SDK-01, QA-DOCKER-LOCK-01, QA-PLAYWRIGHT-PIN-01, QA-SSR-HYDRATION-01, and UI-11X-01..03).',
-      inputSchema: AuditSecurityInputSchema.shape,
+      inputSchema: AuditSecurityInputSchema,
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     async (args) => {
       const safePath = resolveSafeProjectPath(args.project_path);
@@ -1020,7 +1075,8 @@ function registerQaGovernanceTools(server: McpServer, fetcher: GitHubFetcher): v
     {
       description:
         'Safely runs a Makefile QA target inside ephemeral Docker containers (Rule Zero), parsing logs for extreme token economy.',
-      inputSchema: RunEphemeralQaInputSchema.shape,
+      inputSchema: RunEphemeralQaInputSchema,
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
     async (args, extra) => {
       const safePath = resolveSafeProjectPath(args.project_path);
@@ -1038,7 +1094,8 @@ function registerQaGovernanceTools(server: McpServer, fetcher: GitHubFetcher): v
     {
       description:
         'Executes 11X certification gates (secrets, JSON, orphan UI/API, ORM parity, lint evidence, STIG audit, docs) and checks version/skill update status before git push.',
-      inputSchema: CertifyGateInputSchema.shape,
+      inputSchema: CertifyGateInputSchema,
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
     async (args, extra) => {
       const safePath = resolveSafeProjectPath(args.project_path);
@@ -1059,7 +1116,8 @@ function registerQaGovernanceTools(server: McpServer, fetcher: GitHubFetcher): v
     {
       description:
         'Audits existing project against the 13 layers of the 11X pyramid, reporting uncovered files/endpoints and a prioritized rescue plan.',
-      inputSchema: AuditTestPyramidInputSchema.shape,
+      inputSchema: AuditTestPyramidInputSchema,
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     async (args) => {
       const safePath = resolveSafeProjectPath(args.project_path);
@@ -1072,7 +1130,8 @@ function registerQaGovernanceTools(server: McpServer, fetcher: GitHubFetcher): v
     {
       description:
         'Creates AGENTS.md or additively injects the QA 11X connector block with dynamic language policy without overwriting existing content.',
-      inputSchema: InitAgentsMdInputSchema.shape,
+      inputSchema: InitAgentsMdInputSchema,
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     async (args) => {
       const safePath = resolveSafeProjectPath(args.project_path);
@@ -1092,7 +1151,8 @@ function registerQaGovernanceTools(server: McpServer, fetcher: GitHubFetcher): v
     {
       description:
         'Proposes a Dual-Consumer improvement (AI skill/rule + MCP executable gate + human manual in docs/) to qa-testing-blueprints via gh CLI or pre-filled GitHub URL.',
-      inputSchema: ProposeEvolutionPrInputSchema.shape,
+      inputSchema: ProposeEvolutionPrInputSchema,
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
     },
     async (args) => {
       const safePath = resolveSafeProjectPath(args.project_path);
@@ -1105,7 +1165,8 @@ function registerQaGovernanceTools(server: McpServer, fetcher: GitHubFetcher): v
     {
       description:
         'Reconciles .agents/ governance rules in consumer projects: creates backup, prunes promoted duplicates, and extracts domain rules (dry_run default true).',
-      inputSchema: ReconcileAgentsInputSchema.shape,
+      inputSchema: ReconcileAgentsInputSchema,
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
     },
     async (args) => {
       const safePath = resolveSafeProjectPath(args.project_path);
@@ -1126,10 +1187,11 @@ function registerV2Tools(server: McpServer): void {
       {
         description: entry.definition.description,
         inputSchema: entry.inputSchema,
+        annotations: entry.annotations,
       },
-      async (args) => {
+      async (args, extra) => {
         validateV2ToolWorkspaceArgs(args);
-        return await entry.execute(args);
+        return await entry.execute(args, { signal: extra.signal });
       }
     );
   }
@@ -1191,7 +1253,7 @@ export function createMcpServer(options?: {
   attachRegistrationTracking(server);
 
   registerCoreResources(server, resources);
-  registerExtensionResources(server, resources);
+  registerExtensionResources(server, resources, fetcher);
   registerCoreAnalysisTools(server, fetcher, merger);
   registerQaGovernanceTools(server, fetcher);
   registerV2Tools(server);

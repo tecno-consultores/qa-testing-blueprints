@@ -90,6 +90,8 @@ Temporarily grant extended capabilities to the container in your `docker-compose
 ```yaml
     cap_add:
       - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
 ```
 
 ---
@@ -129,7 +131,13 @@ When running `make qa-unit` or installing dependencies, packages such as `esbuil
 As a strict security measure, we inject an `.npmrc` file configured with `ignore-scripts=true`. This blocks supply-chain attacks, while also stopping legitimate libraries that need to compile native binaries.
 
 **The Solution:**
-Identify the failing library and explicitly allowlist it in `package.json` using package-manager controls (such as `pnpm` config or `npm rebuild <package>`), or rebuild the specific package on the fly inside your project's `Makefile` while keeping the global block intact.
+Identify the failing library and explicitly declare it in `pnpm-workspace.yaml` using a **boolean `allowBuilds` map** compliant with `SEC-09` (declaring `"pnpm"` / `pnpm.onlyBuiltDependencies` inside `package.json` is forbidden by `SEC-09` and ignored by `pnpm 12+` with `ERR_PNPM_IGNORED_BUILDS`, and never use a YAML list `- pkg` which aborts with `ERR_PNPM_INVALID_SETTING`):
+```yaml
+allowBuilds:
+  esbuild: true
+  bcrypt: true
+```
+You can also rebuild specific trusted native packages cleanly inside the ephemeral container while keeping `.npmrc` `ignore-scripts=true` intact.
 
 ---
 

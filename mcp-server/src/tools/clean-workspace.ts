@@ -123,8 +123,14 @@ const SCAN_SUBDIRS = [
   'php',
   'bash-scripts',
   'ai-evals',
+  'mobile-appium',
+  'vibe-rescue',
   MCP_SERVER_DIR_NAME,
 ];
+
+function entryExistsNoFollow(targetPath: string): fs.Stats | undefined {
+  return fs.lstatSync(targetPath, { throwIfNoEntry: false });
+}
 
 function scanDirectoryForArtifacts(baseDir: string, deepPrune = false, preserveDist = false): string[] {
   const found: string[] = [];
@@ -135,14 +141,14 @@ function scanDirectoryForArtifacts(baseDir: string, deepPrune = false, preserveD
   for (const name of candidateDirs) {
     if (preserveDist && name === 'dist') continue;
     const fullPath = path.join(baseDir, name);
-    if (fs.existsSync(fullPath)) {
+    if (entryExistsNoFollow(fullPath) !== undefined) {
       found.push(path.relative(baseDir, fullPath));
     }
   }
 
   for (const file of CANDIDATE_FILE_PATTERNS) {
     const fullPath = path.join(baseDir, file);
-    if (fs.existsSync(fullPath)) {
+    if (entryExistsNoFollow(fullPath) !== undefined) {
       found.push(path.relative(baseDir, fullPath));
     }
   }
@@ -155,7 +161,8 @@ function scanSubdirectories(baseDir: string, deepPrune = false): string[] {
 
   for (const sub of SCAN_SUBDIRS) {
     const subPath = path.join(baseDir, sub);
-    if (fs.existsSync(subPath) && fs.statSync(subPath).isDirectory()) {
+    const subStat = entryExistsNoFollow(subPath);
+    if (subStat?.isDirectory()) {
       const subFound = scanDirectoryForArtifacts(subPath, deepPrune, sub === MCP_SERVER_DIR_NAME);
       for (const item of subFound) {
         found.push(path.join(sub, item));
@@ -172,7 +179,7 @@ export function removeTarget(
 ): { removed: boolean; error?: unknown } {
   const fullPath = path.join(baseDir, relPath);
   try {
-    const stat = fs.statSync(fullPath);
+    const stat = fs.lstatSync(fullPath);
     if (stat.isDirectory()) {
       fs.rmSync(fullPath, { recursive: true, force: true });
     } else {

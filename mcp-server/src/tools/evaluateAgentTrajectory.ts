@@ -13,6 +13,7 @@ import {
   formatFailVerboseReport,
   formatPassQuietSummary,
   pickAt,
+  throwIfSignalAborted,
 } from '../utils/diagnosticFormatter.js';
 
 export const DEFAULT_TRAJECTORY_TEST_PATH = 'ai-evals/rag/test_rag_faithfulness.py';
@@ -31,7 +32,8 @@ export const LLM_CREDENTIAL_ENV_KEYS = [
 ] as const;
 
 const STAGE_TRAJECTORY_ID = 'evaluate_agent_trajectory';
-const PYTHON_QA_IMAGE = 'sinfallas/base-python-uv:3.15';
+const PYTHON_QA_IMAGE =
+  'sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4';
 const REMEDIATION_TRAVERSAL =
   'Proporciona una ruta relativa contenida dentro del workspace sin saltos .. ni enlaces simbólicos externos.';
 const REMEDIATION_CREDENTIALS =
@@ -132,6 +134,7 @@ export interface LiveCommandSpec {
   cwd: string;
   env: NodeJS.ProcessEnv;
   timeoutMs: number;
+  signal?: AbortSignal;
 }
 
 export interface LiveCommandResult {
@@ -145,6 +148,7 @@ export type LiveCommandRunner = (spec: LiveCommandSpec) => Promise<LiveCommandRe
 export interface EvaluateAgentTrajectoryOptions {
   runner?: LiveCommandRunner;
   env?: NodeJS.ProcessEnv;
+  signal?: AbortSignal;
 }
 
 export const defaultLiveCommandRunner: LiveCommandRunner = (spec) => {
@@ -155,6 +159,7 @@ export const defaultLiveCommandRunner: LiveCommandRunner = (spec) => {
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: false,
       timeout: spec.timeoutMs,
+      ...(spec.signal ? { signal: spec.signal } : {}),
     });
     const stdoutChunks: Buffer[] = [];
     const stderrChunks: Buffer[] = [];
@@ -950,6 +955,7 @@ function prepareLiveTrajectoryPlan(
       cwd: path.resolve(workspaceRoot),
       env,
       timeoutMs: resolveLiveTimeoutMs(args.timeoutMs),
+      ...(options.signal ? { signal: options.signal } : {}),
     },
   };
 }
@@ -973,6 +979,10 @@ export async function evaluateAgentTrajectory(
   args: EvaluateAgentTrajectoryArgs = {},
   options: EvaluateAgentTrajectoryOptions = {}
 ): Promise<TrajectoryEvaluationResult> {
+  throwIfSignalAborted(
+    options.signal,
+    'evaluate_agent_trajectory abortado por timeout o cancelación.'
+  );
   const startedAt = Date.now();
   const mode: TrajectoryMode = args.mode ?? 'offline';
   const workspaceRoot = args.workspaceRoot ?? resolveDefaultWorkspaceRoot();

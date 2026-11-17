@@ -31,7 +31,11 @@ for arg in "$@"; do
   esac
 done
 
-DIAGNOSTIC_JSON_PATH="${QA_DIAGNOSTIC_JSON:-/tmp/qa-11x-last-failure.json}"
+DEFAULT_DIAG_JSON="${QA_DIAGNOSTIC_JSON_PATH:-${REPO_ROOT}/.agents/.cache/qa-11x-last-failure.json}"
+DIAGNOSTIC_JSON_PATH="${QA_DIAGNOSTIC_JSON:-${DEFAULT_DIAG_JSON}}"
+if [[ "${DIAGNOSTIC_JSON_PATH}" != /* ]]; then
+  DIAGNOSTIC_JSON_PATH="${REPO_ROOT}/${DIAGNOSTIC_JSON_PATH#./}"
+fi
 GATE_TMP_DIR="$(mktemp -d /tmp/qa11x-certify.XXXXXX)"
 GATE_STEPS_LOG="${GATE_TMP_DIR}/steps.log"
 : >"${GATE_STEPS_LOG}"
@@ -169,6 +173,20 @@ write_allure_failure_json() {
 
   diag_dir="$(dirname "${DIAGNOSTIC_JSON_PATH}")"
   mkdir -p "${diag_dir}" 2>/dev/null || true
+  if [ "$(basename "${diag_dir}")" = ".cache" ]; then
+    chmod 700 "${diag_dir}" 2>/dev/null || true
+  fi
+
+  local -a diag_docker_args=(
+    --docker-arg -v --docker-arg "${GATE_TMP_DIR}:/qa-tmp:ro"
+  )
+  local container_diag_path=""
+  if [[ "${DIAGNOSTIC_JSON_PATH}" == "${REPO_ROOT}/"* ]]; then
+    container_diag_path="/app/${DIAGNOSTIC_JSON_PATH#"${REPO_ROOT}/"}"
+  else
+    diag_docker_args+=(--docker-arg -v --docker-arg "${diag_dir}:/qa-diag")
+    container_diag_path="/qa-diag/$(basename "${DIAGNOSTIC_JSON_PATH}")"
+  fi
 
   QA_DIAG_PATH="${DIAGNOSTIC_JSON_PATH}" \
     QA_GATE_NUM="${gate_num}" \
@@ -180,9 +198,8 @@ write_allure_failure_json() {
     QA_STEPS_FILE="${GATE_STEPS_LOG}" \
     run_py_rule_zero \
     --stdin \
-    --docker-arg -v --docker-arg "${GATE_TMP_DIR}:/qa-tmp:ro" \
-    --docker-arg -v --docker-arg "${diag_dir}:/qa-diag" \
-    --docker-arg -e --docker-arg "QA_DIAG_PATH=/qa-diag/$(basename "${DIAGNOSTIC_JSON_PATH}")" \
+    "${diag_docker_args[@]}" \
+    --docker-arg -e --docker-arg "QA_DIAG_PATH=${container_diag_path}" \
     --docker-arg -e --docker-arg "QA_LOG_FILE=/qa-tmp/$(basename "${gate_log}")" \
     --docker-arg -e --docker-arg "QA_STEPS_FILE=/qa-tmp/$(basename "${GATE_STEPS_LOG}")" \
     --docker-arg -e --docker-arg QA_GATE_NUM \
@@ -252,7 +269,7 @@ payload = {
     "attachments": [],
     "labels": [
         {"name": "agent", "value": os.environ.get("QA_AGENT_NAME", "qa-11x-certifier")},
-        {"name": "agent_version", "value": os.environ.get("QA_AGENT_VERSION", "3.1.0")},
+        {"name": "agent_version", "value": os.environ.get("QA_AGENT_VERSION", "3.2.0")},
         {"name": "environment", "value": os.environ.get("QA_ENVIRONMENT", "docker-ephemeral")},
     ],
 }
@@ -260,6 +277,7 @@ payload = {
 dest = Path(os.environ["QA_DIAG_PATH"])
 dest.parent.mkdir(parents=True, exist_ok=True)
 dest.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+os.chmod(dest, 0o600)
 PYEOF
 }
 
@@ -446,20 +464,19 @@ gate_02_trivy() {
 }
 
 gate_08_manifest() {
-  local missing_manifest=0
-  if [ -f "${REPO_ROOT}/scripts/generar-manifiesto.py" ]; then
-    run_py_rule_zero "${REPO_ROOT}/scripts/generar-manifiesto.py" --check || return $?
-  else
-    printf '⚠️ [SKIPPED] scripts/generar-manifiesto.py no encontrado.\n'
-    missing_manifest=1
-  fi
+  local verified_manifest=0
   if [ -f "${SCRIPT_DIR}/sync_governance.py" ] && [ -f "${REPO_ROOT}/manifest.json" ]; then
     run_py_rule_zero "${SCRIPT_DIR}/sync_governance.py" --check || return $?
+    verified_manifest=1
+  elif [ -f "${REPO_ROOT}/scripts/generar-manifiesto.py" ]; then
+    run_py_rule_zero "${REPO_ROOT}/scripts/generar-manifiesto.py" --check || return $?
+    verified_manifest=1
   fi
   if [ -f "${SCRIPT_DIR}/bump_version_11x.py" ] && [ -f "${REPO_ROOT}/mcp-server/package.json" ]; then
     run_py_rule_zero "${SCRIPT_DIR}/bump_version_11x.py" --workspace "${REPO_ROOT}" --check || return $?
   fi
-  if [ "${missing_manifest}" -eq 1 ]; then
+  if [ "${verified_manifest}" -eq 0 ]; then
+    printf '⚠️ [SKIPPED] sync_governance.py/manifest.json y generar-manifiesto.py no encontrados.\n'
     return 20
   fi
 }
@@ -489,19 +506,20 @@ gate_10_doc_and_test_sync() {
   local gate10_failed
   local has_cov_reports
 
+  local used_head_fallback=0
   all_changed=$({
     git diff --name-only HEAD 2>/dev/null || true
     git ls-files --others --exclude-standard 2>/dev/null || true
   } | sort -u)
-  if [ -z "${all_changed}" ] && [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
-    if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
-      all_changed=$(git diff --name-only HEAD~1..HEAD 2>/dev/null | sort -u || true)
-    fi
+  if [ -z "${all_changed}" ] && git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+    all_changed=$(git diff --name-only HEAD~1..HEAD 2>/dev/null | sort -u || true)
+    [ -n "${all_changed}" ] && used_head_fallback=1
   fi
 
+  local test_file_re='(\.(unit|spec|test|e2e)\.(py|ts|tsx|js|jsx)|(^|/)test_[^/]+\.py|[^/]+_test\.py|[^/]+Test\.php|\.feature(\.example)?|\.bats)'
   raw_code_candidates=$(printf '%s\n' "${all_changed}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|bash-scripts|php|mcp-server|mobile-appium|ai-evals|vibe-rescue|catalogs|architecture|backend|frontend|scripts)/|\.agents/(scripts|schemas|skills|rules)/|((.*/)?Makefile(\.example)?)$|\.github/(workflows|actions)/|(manifest\.json|llms\.txt|\.trivy\.yaml|lefthook\.yml|instalar-hooks\.sh)$)' | grep -vE '(^|/)graphify-out/' || true)
   code_changes=$(printf '%s\n' "${raw_code_candidates}" | awk '/^$/ {next} /^\.agents\/(skills|rules)\// {print; next} /\.md$/ {next} {print}' || true)
-  exec_src_changes=$(printf '%s\n' "${code_changes}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|php|mcp-server|mobile-appium|backend|frontend)/src/|src/|bash-scripts/|vibe-rescue/|ai-evals/|scripts/|\.agents/scripts/|instalar-hooks\.sh$)' | grep -vE '(\.unit\.(py|ts|tsx)|\.e2e\.ts|test_.*\.py|.*\.test\.(ts|js)|\.feature|\.bats)' || true)
+  exec_src_changes=$(printf '%s\n' "${code_changes}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|php|mcp-server|mobile-appium|backend|frontend)/src/|src/|bash-scripts/|vibe-rescue/|ai-evals/|scripts/|\.agents/scripts/|instalar-hooks\.sh$)' | grep -vE "${test_file_re}" || true)
   test_sync_changes=$(printf '%s\n' "${code_changes}" | grep -E '^(\.agents/(schemas|skills|rules)/|(manifest\.json|llms\.txt)$)' || true)
   doc_changes=$(printf '%s\n' "${all_changed}" | grep -E '(\.md$|^docs/)' | grep -vE '^\.agents/(skills|rules)/' || true)
 
@@ -511,7 +529,7 @@ gate_10_doc_and_test_sync() {
 
   if [ -n "${code_changes}" ]; then
     code_count=$(printf '%s\n' "${code_changes}" | grep -c . || true)
-    test_changes=$(printf '%s\n' "${all_changed}" | grep -E '(\.unit\.(py|ts|tsx)|\.e2e\.ts|test_.*\.py|.*\.test\.(ts|js)|\.feature|\.bats)' || true)
+    test_changes=$(printf '%s\n' "${all_changed}" | grep -E "${test_file_re}" || true)
     if [ -n "${test_changes}" ]; then
       test_count=$(printf '%s\n' "${test_changes}" | grep -c . || true)
     else
@@ -543,7 +561,11 @@ gate_10_doc_and_test_sync() {
           printf '⚠️ [SKIPPED] verify_diff_coverage omitido (sin reportes de cobertura en .agents/.cache/coverage).\n'
           return 20
         fi
-        run_py_rule_zero "${SCRIPT_DIR}/verify_diff_coverage.py" --workspace "${REPO_ROOT}" --reports-dir .agents/.cache/coverage || return $?
+        local -a diff_cov_args=(--workspace "${REPO_ROOT}" --reports-dir .agents/.cache/coverage)
+        if [ "${used_head_fallback}" -eq 1 ]; then
+          diff_cov_args+=(--base-ref HEAD~1)
+        fi
+        run_py_rule_zero "${SCRIPT_DIR}/verify_diff_coverage.py" "${diff_cov_args[@]}" || return $?
       fi
       printf '✔ [Doc & Test Sync] %s archivo(s) de código/config | %s prueba(s) (%s) | %s doc(s) sincronizados.\n' \
         "${code_count}" "${test_count}" "${karate_status}" "${doc_count}"

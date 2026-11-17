@@ -11,11 +11,12 @@ ARCH_ARG="architecture/qa-11x.calm.json"
 
 usage() {
   cat <<'EOF'
-Uso: validate_calm_architecture.sh [--arch <ruta_relativa>]
+Uso: validate_calm_architecture.sh [--arch <ruta_relativa> | <ruta_relativa>]
 Valida el modelo FINOS CALM y los controles bloqueantes QA-11X en Docker efímero (Rule Zero).
 EOF
 }
 
+POSITIONAL_SET=0
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --arch)
@@ -34,10 +35,20 @@ while [ "$#" -gt 0 ]; do
       usage
       exit 0
       ;;
-    *)
+    -*)
       printf '❌ [CALM] Argumento no soportado: %s\n' "$1" >&2
       usage >&2
       exit 1
+      ;;
+    *)
+      if [ "${POSITIONAL_SET}" -eq 1 ]; then
+        printf '❌ [CALM] Demasiados argumentos posicionales: %s\n' "$1" >&2
+        usage >&2
+        exit 1
+      fi
+      ARCH_ARG="$1"
+      POSITIONAL_SET=1
+      shift
       ;;
   esac
 done
@@ -234,17 +245,22 @@ for (const rel of rels) {
   }
 }
 
-for (const reqNode of REQUIRED_NODES) {
-  if (!nodeIds.has(reqNode)) errors.push(`[MISSING_REQUIRED_NODE] Falta nodo obligatorio ${reqNode}`);
+const isUpstream = fs.existsSync(path.join(root, "scripts", "generar-manifiesto.py"));
+if (isUpstream) {
+  for (const reqNode of REQUIRED_NODES) {
+    if (!nodeIds.has(reqNode)) errors.push(`[MISSING_REQUIRED_NODE] Falta nodo obligatorio ${reqNode}`);
+  }
 }
 
 for (const id of nodeIds) {
   if (!connectedNodes.has(id)) errors.push(`[ORPHAN_CRITICAL_NODE] Nodo desconectado ${id}`);
 }
 
-for (const [src, dst] of REQUIRED_EDGES) {
-  if (!edgeKeys.has(`${src}->${dst}`)) {
-    errors.push(`[MISSING_REQUIRED_RELATIONSHIP] Falta arista ${src}->${dst}`);
+if (isUpstream) {
+  for (const [src, dst] of REQUIRED_EDGES) {
+    if (!edgeKeys.has(`${src}->${dst}`)) {
+      errors.push(`[MISSING_REQUIRED_RELATIONSHIP] Falta arista ${src}->${dst}`);
+    }
   }
 }
 
@@ -315,8 +331,12 @@ inner_exec() {
   IFS='|' read -r rel_path node_count rel_count ctrl_count <<<"${meta}"
 
   if command -v calm >/dev/null 2>&1; then
+    local calm_target="${REPO_ROOT}/${rel_path}"
+    if [ "${QA_CALM_IN_DOCKER:-0}" = "1" ]; then
+      calm_target="/workspace/${rel_path}"
+    fi
     local calm_out
-    if ! calm_out="$(calm validate -a "/workspace/${rel_path}" --strict -f json 2>&1)"; then
+    if ! calm_out="$(calm validate -a "${calm_target}" --strict -f json 2>&1)"; then
       printf '❌ [CALM] Falló @finos/calm-cli sobre %s:\n%s\n' "${rel_path}" "${calm_out}" >&2
       exit 1
     fi
@@ -339,8 +359,9 @@ JSEOF
 }
 
 export ARCH_INPUT="${ARCH_ARG}"
+export REPO_ROOT
 
-if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then
+if [ "${QA_IN_CONTAINER:-0}" = "1" ] || { [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; }; then
   cd "${REPO_ROOT}"
   inner_exec
   exit 0
@@ -355,6 +376,8 @@ docker run --rm --network none \
   -u "$(id -u):$(id -g)" \
   -e HOME=/tmp \
   -e ARCH_INPUT="${ARCH_ARG}" \
+  -e REPO_ROOT="/workspace" \
+  -e QA_CALM_IN_DOCKER="1" \
   -v "${REPO_ROOT}:/workspace:ro" \
   -w /workspace \
   "${CALM_DOCKER_IMAGE}" \

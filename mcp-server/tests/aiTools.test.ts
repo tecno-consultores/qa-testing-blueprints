@@ -369,8 +369,24 @@ describe('evaluateAgentTrajectory (T3.2)', () => {
     expect(passResult.passed).toBe(true);
     expect(passResult.status).toBe('PASSED');
     expect(capturedSpec?.file).toBe('docker');
+
+    const activeSignal = new AbortController().signal;
+    const signaledLive = await evaluateAgentTrajectory(
+      { mode: 'live', workspaceRoot: ws, testPath: DEFAULT_TRAJECTORY_TEST_PATH },
+      {
+        env: { OLLAMA_BASE_URL: ollamaBaseUrl },
+        signal: activeSignal,
+        runner: (spec) => {
+          expect(spec.signal).toBe(activeSignal);
+          return Promise.resolve({ exitCode: 0, stdout: '1 passed', stderr: '' });
+        },
+      }
+    );
+    expect(signaledLive.passed).toBe(true);
     expect(capturedSpec?.timeoutMs).toBeGreaterThanOrEqual(DEFAULT_LIVE_TIMEOUT_MS);
-    expect(capturedSpec?.args).toContain('sinfallas/base-python-uv:3.15');
+    expect(
+      capturedSpec?.args.some((arg) => arg.startsWith('sinfallas/base-python-uv:3.15@sha256:'))
+    ).toBe(true);
     expect(capturedSpec?.args).toContain('QA_LLM_AUDIT_LIVE=1');
     expect(capturedSpec?.args).toContain('OLLAMA_BASE_URL');
     expect(capturedSpec?.args.join(' ')).not.toContain(ollamaBaseUrl);
@@ -426,6 +442,7 @@ describe('evaluateAgentTrajectory (T3.2)', () => {
       cwd: MCP_ROOT,
       env: process.env,
       timeoutMs: 5000,
+      signal: new AbortController().signal,
     });
     expect(ok.exitCode).toBe(0);
     expect(ok.stdout).toBe('traj-ok');
@@ -633,7 +650,23 @@ describe('runLlmRedTeam (T3.2)', () => {
     expect(livePass.passed).toBe(true);
     expect(livePass.status).toBe('PASSED');
     expect(capturedSpec?.file).toBe('docker');
-    expect(capturedSpec?.args).toContain('sinfallas/base-node-ionic:26');
+
+    const activeRtSignal = new AbortController().signal;
+    const signaledRt = await runLlmRedTeam(
+      { mode: 'live', workspaceRoot: ws },
+      {
+        env: { GEMINI_API_KEY: 'dummy-gemini-key' },
+        signal: activeRtSignal,
+        runner: (spec) => {
+          expect(spec.signal).toBe(activeRtSignal);
+          return Promise.resolve({ exitCode: 0, stdout: 'Promptfoo passed', stderr: '' });
+        },
+      }
+    );
+    expect(signaledRt.passed).toBe(true);
+    expect(
+      capturedSpec?.args.some((arg) => arg.startsWith('sinfallas/base-node-ionic:26@sha256:'))
+    ).toBe(true);
     expect(capturedSpec?.args).toContain('PROMPTFOO_DISABLE_TELEMETRY=1');
     expect(capturedSpec?.args).toContain('GEMINI_API_KEY');
     expect(capturedSpec?.args.join(' ')).not.toContain('dummy-gemini-key');
@@ -657,6 +690,7 @@ describe('runLlmRedTeam (T3.2)', () => {
       cwd: MCP_ROOT,
       env: process.env,
       timeoutMs: 5000,
+      signal: new AbortController().signal,
     });
     expect(ok.exitCode).toBe(0);
     expect(ok.stdout).toBe('rt-ok');
@@ -689,7 +723,7 @@ describe('aiEvalsBlueprint (T3.2)', () => {
     expect(AI_EVALS_REDTEAM_RESOURCE.mimeType).toBe('text/markdown');
   });
 
-  it('lee extracto desde workspace y aplica fallback limpio en directorio vacío o symlink externo', () => {
+  it('lee extracto desde workspace y aplica fallback limpio en directorio vacío o symlink externo', async () => {
     const ws = getEffectiveAiWorkspace();
     const fromWorkspace = readAiEvalsBlueprint(ws);
     expect(fromWorkspace.source).toBe('workspace');
@@ -734,5 +768,30 @@ describe('aiEvalsBlueprint (T3.2)', () => {
     const symlinkFallback = readAiEvalsBlueprint(emptyTmp);
     expect(symlinkFallback.source).toBe('embedded-fallback');
     expect(symlinkFallback.text).not.toContain('secret: leaked');
+
+    // Caché local de GitHubFetcher (cacheDir/files/...) + QA_BLUEPRINTS_LOCAL_PATH + AbortSignal
+    const cacheDir = makeTempDir('qa11x-bp-cache-');
+    const cachedYaml = path.join(cacheDir, 'files', 'ai-evals', 'promptfooconfig.yaml');
+    fs.mkdirSync(path.dirname(cachedYaml), { recursive: true });
+    fs.writeFileSync(cachedYaml, 'description: "from cache"\nproviders: []\n', 'utf8');
+    const cachedRes = readAiEvalsBlueprint(undefined, 'en', { cacheDir });
+    expect(cachedRes.source).toBe('workspace');
+    expect(cachedRes.text).toContain('from cache');
+
+    const prevLocalPath = process.env.QA_BLUEPRINTS_LOCAL_PATH;
+    process.env.QA_BLUEPRINTS_LOCAL_PATH = ws;
+    try {
+      expect(readAiEvalsBlueprint(undefined, 'en').source).toBe('workspace');
+    } finally {
+      if (prevLocalPath === undefined) delete process.env.QA_BLUEPRINTS_LOCAL_PATH;
+      else process.env.QA_BLUEPRINTS_LOCAL_PATH = prevLocalPath;
+    }
+
+    const abortCtrl = new AbortController();
+    abortCtrl.abort('ai abort signal');
+    await expect(evaluateAgentTrajectory({}, { signal: abortCtrl.signal })).rejects.toThrow(
+      'ai abort signal'
+    );
+    await expect(runLlmRedTeam({}, { signal: abortCtrl.signal })).rejects.toThrow('ai abort signal');
   });
 });

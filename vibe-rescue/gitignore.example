@@ -10,10 +10,14 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .coverage
+.coverage.*
 coverage.xml
+htmlcov/
+vibe-rescue-report.json
 *.log
 graphify-out/
 .agents/ACTIVE_TASK.md
+.agents/.qa-evidence.json
 .agents/.cache/
 .agents/artifacts/
 pacts/

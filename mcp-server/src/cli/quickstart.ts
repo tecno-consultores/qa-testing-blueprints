@@ -3,6 +3,7 @@
 
 import fs from 'node:fs';
 import * as path from 'node:path';
+import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import {
   initOrAppendAgentsMd,
   parseAgentsOption,
@@ -23,7 +24,7 @@ const AGENTS_MD_REL_PATH = 'AGENTS.md' as const;
 const PR_CHECK_ACTION_REF =
   'tecno-consultores/qa-testing-blueprints/.github/actions/qa-11x-pr-check@v3' as const;
 const CHECKOUT_PINNED_REF =
-  'actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v5.1.0' as const;
+  'actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0' as const;
 
 export const TIER_STARTER = 'starter' as const;
 export const TIER_STANDARD = 'standard' as const;
@@ -225,6 +226,7 @@ const SQL_CREATE_TABLE_RE = /\bCREATE\s+TABLE\b/i;
 const SQL_ENABLE_RLS_RE = /\bENABLE\s+ROW\s+LEVEL\s+SECURITY\b/i;
 const SQL_PERMISSIVE_RE = /\b(?:USING|WITH\s+CHECK)\s*\(\s*true\s*\)/i;
 const SPANISH_MARKER_RE = /(?:\bin Spanish\b|Estándar 11X|\ben español\b)/i;
+const ENGLISH_MARKER_RE = /\b(?:Respond in English|strictly in \*\*English\*\*)\b/i;
 
 const NODE_SPECIFIC_RULES: ReadonlyArray<{
   readonly deps: readonly string[];
@@ -258,16 +260,14 @@ function assertWithinBoundary(realTarget: string, baseBoundaryDir: string): void
   if (!fs.existsSync(resolvedBoundary)) {
     throw new Error(`Base boundary directory does not exist: ${resolvedBoundary}`);
   }
-  const realBoundary = fs.realpathSync(resolvedBoundary);
+  const realBoundary = resolveSafeProjectPath(resolvedBoundary, { allowNonExistentLeaf: false });
   const prefix = realBoundary.endsWith(path.sep) ? realBoundary : `${realBoundary}${path.sep}`;
   if (realTarget !== realBoundary && !realTarget.startsWith(prefix)) {
     throw new Error(`Path traversal outside allowed boundary '${realBoundary}' detected for '${realTarget}'.`);
   }
 }
 
-export function resolveQuickstartTargetDir(rawDir: string, baseBoundaryDir?: string): string {
-  const normalized = assertNoRawTraversal(rawDir);
-  const resolved = path.resolve(normalized);
+function assertExistingDirectoryPath(resolved: string): void {
   if (isForbiddenSystemPath(resolved)) {
     throw new Error(`Refusing to initialize QA-11X inside critical system path '${resolved}'.`);
   }
@@ -277,7 +277,13 @@ export function resolveQuickstartTargetDir(rawDir: string, baseBoundaryDir?: str
   if (!fs.statSync(resolved).isDirectory()) {
     throw new Error(`Target path is not a directory: ${resolved}`);
   }
-  const realTarget = fs.realpathSync(resolved);
+}
+
+export function resolveQuickstartTargetDir(rawDir: string, baseBoundaryDir?: string): string {
+  const normalized = assertNoRawTraversal(rawDir);
+  const resolved = path.resolve(normalized);
+  assertExistingDirectoryPath(resolved);
+  const realTarget = resolveSafeProjectPath(resolved, { allowNonExistentLeaf: false });
   if (isForbiddenSystemPath(realTarget)) {
     throw new Error(`Refusing to initialize QA-11X inside critical system path '${realTarget}'.`);
   }
@@ -588,6 +594,20 @@ function resolveEffectiveTier(
   return TIER_STARTER;
 }
 
+function isSupportedLangValue(value: unknown): value is SupportedLang {
+  return value === 'auto' || value === 'es' || value === 'en';
+}
+
+function detectAgentsMdLang(agentsMd: string | null): SupportedLang {
+  if (agentsMd === null) {
+    return 'auto';
+  }
+  if (SPANISH_MARKER_RE.test(agentsMd)) {
+    return 'es';
+  }
+  return ENGLISH_MARKER_RE.test(agentsMd) ? 'en' : 'auto';
+}
+
 function resolveEffectiveLang(
   projectRoot: string,
   requestedLang: SupportedLang | undefined,
@@ -596,14 +616,10 @@ function resolveEffectiveLang(
   if (requestedLang !== undefined) {
     return validateSupportedLang(requestedLang);
   }
-  if (existingConfig !== null && (existingConfig.lang === 'es' || existingConfig.lang === 'en')) {
+  if (existingConfig !== null && isSupportedLangValue(existingConfig.lang)) {
     return existingConfig.lang;
   }
-  const agentsMd = readTextSafe(path.join(projectRoot, AGENTS_MD_REL_PATH));
-  if (agentsMd !== null && SPANISH_MARKER_RE.test(agentsMd)) {
-    return 'es';
-  }
-  return 'en';
+  return detectAgentsMdLang(readTextSafe(path.join(projectRoot, AGENTS_MD_REL_PATH)));
 }
 
 // eslint-disable-next-line sonarjs/function-return-type -- AgentsTargetSpec intentionally unions 'auto' | 'all' modes with SupportedAiAgentId[]
@@ -742,7 +758,7 @@ function computeNextCommand(
   tier: QuickstartTier
 ): string {
   if (profile.vibePrototypeDetected) {
-    return 'npx -y @sinfallas/mcp-qa-11x --help # Run MCP tool audit_vibe_prototype before merge';
+    return 'npx -y @sinfallas/mcp-qa-11x@latest audit --mode vibe';
   }
   if (tier === TIER_ENTERPRISE) {
     return 'make validate-calm && make certify';

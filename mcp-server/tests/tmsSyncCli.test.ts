@@ -1038,7 +1038,11 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
           issueKey: '12',
           dryRun: false,
         },
-        { fetchPort: ghMinimal.fetchPort, env: { GITHUB_TOKEN: token } }
+        {
+          fetchPort: ghMinimal.fetchPort,
+          env: { GITHUB_TOKEN: token },
+          signal: new AbortController().signal,
+        }
       );
       expect(ghMinRes.status).toBe('PULL_OK');
       expect(ghMinRes.pulledStory?.storyKey).toBe('GH-GH-12');
@@ -1052,6 +1056,12 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
 
       const nullMcpRes = await handleSyncEnterpriseTms(null);
       expect(nullMcpRes.isError).toBe(true);
+
+      const abortCtl = new AbortController();
+      abortCtl.abort('tms cancelled');
+      await expect(
+        executeTmsSync({ mode: 'inventory', targetDir: 'scan' }, { workspaceRoot: ws, signal: abortCtl.signal })
+      ).rejects.toThrow('tms cancelled');
     });
   });
 });

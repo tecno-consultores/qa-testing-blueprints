@@ -51,28 +51,37 @@ All shell testing and linting MUST execute strictly inside `sinfallas/base-bash-
 ```bash
 #!/usr/bin/env bats
 
-load '/opt/bats-libs/bats-support/load'
-load '/opt/bats-libs/bats-assert/load'
-load '/opt/bats-libs/bats-mock/load'
-
 setup() {
   export _USER="${_USER:-$(id -un 2>/dev/null || id -u)}"
-  TEST_TEMP_DIR="$(temp_make)"
-  MOCK_CURL="$(mock_create)"
+  load '/opt/bats-libs/bats-support/load.bash'
+  load '/opt/bats-libs/bats-assert/load.bash'
+  load '/opt/bats-libs/bats-mock/load.bash'
+  BASH_STACK_DIR="$(cd "${BATS_TEST_DIRNAME}/.." && pwd)"
+  export BASH_STACK_DIR
 }
 
-teardown() {
-  temp_del "${TEST_TEMP_DIR}"
-}
-
-@test "script successfully cleans directory and pushes metric" {
-  export PATH="${MOCK_CURL%/*}:${PATH}"
-  
-  # Run the script under test (use ./limpieza.sh inside a hydrated bash-scripts stack)
-  run ./scripts/limpieza.sh "${TEST_TEMP_DIR}"
-  
+@test "clean_artifacts.sh supports --dry-run without modifying files" {
+  work_dir="${BATS_TEST_TMPDIR}/work"
+  mkdir -p "${work_dir}/coverage_report"
+  run bash "${BASH_STACK_DIR}/clean_artifacts.sh" --target "${work_dir}" --dry-run
   assert_success
-  assert_output --partial "Limpieza completada"
+  assert_output --partial "[DRY-RUN]"
+  [ -d "${work_dir}/coverage_report" ]
+}
+
+@test "clean_artifacts.sh purges artifacts with mocked docker" {
+  work_dir="${BATS_TEST_TMPDIR}/live-work"
+  mkdir -p "${work_dir}/coverage_report"
+  mock_docker="$(mock_create)"
+  mock_set_status "${mock_docker}" 0 1
+  mock_set_output "${mock_docker}" "Contenedores QA detenidos" 1
+  ln -s "${mock_docker}" "${BATS_TEST_TMPDIR}/docker"
+  PATH="${BATS_TEST_TMPDIR}:${PATH}"
+
+  run bash "${BASH_STACK_DIR}/clean_artifacts.sh" --target "${work_dir}"
+  assert_success
+  assert_output --partial "Contenedores QA detenidos"
+  [ ! -d "${work_dir}/coverage_report" ]
 }
 ```
 
@@ -81,15 +90,27 @@ teardown() {
 ## 4. Makefile Targets
 
 ```makefile
-.PHONY: qa-lint qa-unit qa-all
+.PHONY: qa-lint qa-unit qa-all clean-cache clean qa-clean
+
+PROJECT_DIR ?= $(CURDIR)
+QA_UID ?= $(shell id -u)
+QA_GID ?= $(shell id -g)
+export QA_UID QA_GID
 
 qa-lint:
-	docker compose -f docker-compose.qa.yml run --rm -T qa-bash shellcheck -s bash -x *.sh test/*.bats
-	docker compose -f docker-compose.qa.yml run --rm -T qa-bash shfmt -d -i 2 -ci *.sh
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-bash bash -c "shopt -s globstar nullglob && shellcheck -x **/*.sh && shfmt -i 2 -ci -d **/*.sh"
 
 qa-unit:
-	docker compose -f docker-compose.qa.yml run --rm -T -e _USER=qa qa-bash kcov --include-path=. /tmp/coverage bats test/
-	docker compose -f docker-compose.qa.yml run --rm -T -e _USER=qa qa-bash python3 -c "import json, pathlib, sys; d = json.loads(pathlib.Path('/tmp/coverage/bats/coverage.json').read_text()); sys.exit(0 if float(d.get('percent_covered', 0)) >= 95.0 else 1)"
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$$(id -u):$$(id -g)" -e _USER=qa qa-bash bash -c 'rm -rf coverage_report; rc=0; kcov --include-path="$$PWD" --exclude-pattern="$$PWD/test" -l 80,95 coverage_report/ bats test/ >/tmp/bats-tap.log 2>/tmp/kcov-stderr.log || rc=$$?; cat /tmp/bats-tap.log; if [ "$${rc}" -ne 0 ]; then if ! grep -q "^not ok " /tmp/bats-tap.log 2>/dev/null; then tail -n 40 /tmp/kcov-stderr.log >&2; fi; exit "$${rc}"; fi; /usr/bin/python3 -c "import json, pathlib, sys; r = pathlib.Path(\"coverage_report\"); jf = sorted(r.rglob(\"coverage.json\")); ds = [json.loads(p.read_text()) for p in jf]; tot = sum(int(d.get(\"total_lines\", 0)) for d in ds); pct = (sum(int(d.get(\"covered_lines\", 0)) for d in ds) * 100.0 / tot if tot > 0 else float(ds[0].get(\"percent_covered\", 0))) if ds else -1.0; sys.exit(0 if pct >= 95.0 else 1)"'
 
 qa-all: qa-lint qa-unit
+
+clean-cache:
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml down -v >/dev/null 2>&1 || true
+	rm -rf coverage_report/
+
+clean: clean-cache
+	./limpieza.sh
+
+qa-clean: clean
 ```

@@ -26,7 +26,7 @@ clean_scope_dir() {
 
   rm -f \
     "${dir}/.coverage" "${dir}"/.coverage.* "${dir}/coverage.xml" "${dir}/junit.xml" \
-    "${dir}"/trivy-results* "${dir}/sbom.cyclonedx.json" "${dir}"/sbom-*.cdx.json \
+    "${dir}"/trivy-results* "${dir}/sbom.cyclonedx.json" "${dir}/sbom.cyclonedx.json.sha256" "${dir}/sbom.cyclonedx.json.hmac" "${dir}"/sbom-*.cdx.json "${dir}"/sbom-*.cdx.json.sha256 "${dir}"/sbom-*.cdx.json.hmac \
     "${dir}/cbom.cyclonedx.json" "${dir}"/cbom-*.cdx.json \
     "${dir}/mutmut-stats.json" "${dir}"/mutmut-*.json \
     "${dir}/.phpunit.result.cache" "${dir}/.php-cs-fixer.cache" "${dir}/.php-cs-fixer.dist.cache" \

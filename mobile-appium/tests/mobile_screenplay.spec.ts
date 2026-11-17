@@ -20,6 +20,7 @@ import {
   ByIosPredicate,
   ByWebviewRole,
   CallMobileApi,
+  CollapsedMobileGeometryError,
   HiddenMobileElementError,
   InteractWithMobile,
   MissingMobileAbilityError,
@@ -34,9 +35,11 @@ import {
   UnsafeDeepLinkError,
   VerifyOfflineSyncParity,
   VisibleMobileBounds,
+  defineMobileQuestion,
   defineMobileTask,
   formatMobileLocator,
 } from './screenplay/MobileActor.ts';
+import type { MobileFailureDriverPort } from '../wdio.conf.ts';
 import type {
   BiometricMethod,
   MobileApiClientPort,
@@ -294,6 +297,9 @@ describe('QA 11X Mobile Appium Screenplay & WDIO Contract', () => {
       const defaultCfg = buildMobileWdioConfig({});
       assert.equal(defaultCfg.artifactDir, DEFAULT_MOBILE_ARTIFACT_DIR);
       assert.deepEqual(defaultCfg.specs, ['./tests/**/*.spec.ts']);
+      assert.deepEqual(defaultCfg.exclude, ['./tests/mobile_screenplay.spec.ts']);
+      assert.equal(defaultCfg.framework, 'mocha');
+      assert.deepEqual(defaultCfg.reporters, ['spec']);
 
       const aliasCfg = buildMobileWdioConfig({ QA_MOBILE_ARTIFACTS_DIR: tmpArtifacts });
       assert.equal(aliasCfg.artifactDir, tmpArtifacts);
@@ -339,6 +345,29 @@ describe('QA 11X Mobile Appium Screenplay & WDIO Contract', () => {
       assert.ok(partialArtifact);
       assert.match(fs.readFileSync(partialArtifact.pageSourcePath, 'utf-8'), /capture_failed/);
       assert.equal(fs.existsSync(partialArtifact.screenshotPath), true);
+
+      const globalHolder = globalThis as { browser?: MobileFailureDriverPort };
+      const previousBrowser = globalHolder.browser;
+      globalHolder.browser = {
+        getContext: async () => 'WEBVIEW_com.sinfallas.global',
+        getPageSource: async () => '<hierarchy><node text="Global"/></hierarchy>',
+        takeScreenshot: async () => 'YmFzZTY0',
+      };
+      try {
+        const globalArtifact = await failCfg.afterTest?.(
+          { title: 'resuelve driver desde globalThis.browser', parent: 'MobileAuth' },
+          { tenantId: 'tenant-fieldops' },
+          { passed: false, error: 'Global browser fallback' },
+        );
+        assert.ok(globalArtifact);
+        assert.equal(globalArtifact.context, 'WEBVIEW_com.sinfallas.global');
+      } finally {
+        if (previousBrowser === undefined) {
+          delete globalHolder.browser;
+        } else {
+          globalHolder.browser = previousBrowser;
+        }
+      }
     } finally {
       fs.rmSync(tmpArtifacts, { recursive: true, force: true });
     }
@@ -471,6 +500,30 @@ describe('QA 11X Mobile Appium Screenplay & WDIO Contract', () => {
       () => hiddenActor.attemptsTo(TapAccessibilityId('~submit-order-btn')),
       HiddenMobileElementError,
     );
+    await assert.rejects(
+      () => hiddenActor.asks(VisibleMobileBounds(ByAccessibilityId('submit-order-btn'))),
+      HiddenMobileElementError,
+    );
+
+    const collapsedDriver: MobileDriverPort = {
+      ...harness.driver,
+      locate(locator) {
+        const base = harness.driver.locate(locator);
+        return { ...base, isVisible: async () => true, readBounds: async () => ({ x: 0, y: 0, width: 0, height: 0 }) };
+      },
+    };
+    const collapsedActor = MobileActor.named('CollapsedGuard', { tenantId: 'tenant-fieldops' }).whoCan(
+      InteractWithMobile.using(collapsedDriver),
+    );
+    await assert.rejects(
+      () => collapsedActor.asks(VisibleMobileBounds(ByAccessibilityId('submit-order-btn'))),
+      CollapsedMobileGeometryError,
+    );
+
+    const stepCount = await actor.asks(
+      defineMobileQuestion('Contar pasos registrados del actor', (a) => a.getRecordedSteps().length),
+    );
+    assert.ok(stepCount > 0);
 
     class RenamedRuntimeAbility {
       static readonly abilityName = 'StableMobileAbilityKey';

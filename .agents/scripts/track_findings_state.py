@@ -12,6 +12,7 @@ import os
 import re
 import subprocess
 import sys
+import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -256,11 +257,23 @@ def _save_state_doc(state_file: Path, state_doc: dict[str, Any]) -> None:
     _ensure_no_symlink(state_file)
     _ensure_private_parent(state_file.parent)
     payload = json.dumps(state_doc, indent=2, ensure_ascii=False) + "\n"
-    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-    fd = os.open(state_file, flags, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8") as handle:
-        handle.write(payload)
-    os.chmod(state_file, 0o600)
+    tmp_path = (
+        state_file.parent
+        / f".{state_file.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp"
+    )
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(tmp_path, flags, 0o600)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.chmod(tmp_path, 0o600)
+        os.replace(tmp_path, state_file)
+        os.chmod(state_file, 0o600)
+    except OSError:
+        tmp_path.unlink(missing_ok=True)
+        raise
 
 
 def _extract_raw_findings(payload: Any) -> tuple[str, list[dict[str, Any]]]:
@@ -286,6 +299,11 @@ def _resolve_stage_id(explicit_stage: str | None, payload_stage: str) -> str:
 
 def _read_findings_payload(findings_input: str) -> Any:
     if findings_input == "-":
+        if sys.stdin.isatty():
+            raise ValueError(
+                "[QA-CLI-TTY-01] Se requiere --findings-input <ruta> o entrada "
+                "por tubería stdin; TTY interactivo rechazado."
+            )
         raw_text = sys.stdin.read()
     else:
         src = Path(findings_input)

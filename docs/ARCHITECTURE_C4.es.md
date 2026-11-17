@@ -13,7 +13,7 @@ Muestra el panorama general: cómo los desarrolladores humanos y los agentes de 
 flowchart TD
     Human["Desarrollador / QA Staff"]
     Agent["Agente de IA (Antigravity, Claude, Cursor, Hermes)"]
-    MCP["Servidor MCP Node.js/TS (@sinfallas/mcp-qa-11x v3.1.0)"]
+    MCP["Servidor MCP Node.js/TS (@sinfallas/mcp-qa-11x v3.2.0)"]
     Skill["Skills Zero-Clone (11 Skills Modulares < 20 KB)"]
     Gate["Compuerta de Certificación 11X (certify_task_completion.sh - 10 Etapas)"]
     QA["QA Testing Blueprints (10 Stacks Hidratables + architecture/ + mcp-server/ = 12 Entornos de Matriz / Docker Efímero)"]

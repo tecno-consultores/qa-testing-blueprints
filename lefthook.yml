@@ -16,12 +16,12 @@ pre-commit:
     fastapi-lint:
       root: "fastapi/"
       glob: "*.py"
-      run: docker compose -f docker-compose.qa.yml run --rm -T qa-backend bash -c "uv pip install --system -e '.[dev]' -q && ruff check {staged_files} && ruff format --check {staged_files}"
+      run: bash -c '[ ! -f docker-compose.qa.yml ] && exit 0; docker compose -f docker-compose.qa.yml run --rm -T qa-backend bash -c "uv pip install --system -e '\''.[dev]'\'' -q && ruff check {staged_files} && ruff format --check {staged_files}"'
 
     python-lint:
       root: "python/"
       glob: "*.py"
-      run: docker compose -f docker-compose.qa.yml run --rm -T qa-backend bash -c "uv pip install --system -e '.[dev]' -q && ruff check {staged_files} && ruff format --check {staged_files}"
+      run: bash -c '[ ! -f docker-compose.qa.yml ] && exit 0; docker compose -f docker-compose.qa.yml run --rm -T qa-backend bash -c "uv pip install --system -e '\''.[dev]'\'' -q && ruff check {staged_files} && ruff format --check {staged_files}"'
 
     # --------------------------------------------------------------------------
     # ECOSISTEMA JAVASCRIPT (NODE, VUE3 & REACT)
@@ -74,7 +74,7 @@ pre-commit:
     # GOBERNANZA ZERO-LLM E INVARIANTES DOCUMENTALES (QA-11X v3.1)
     # --------------------------------------------------------------------------
     governance-sync-check:
-      glob: "{manifest.json,AGENTS.md,lefthook.yml,.trivy.yaml,.env.example,*.md,**/*.md,.agents/**,docs/**,scripts/*.sh,**/*.example,**/docker-compose.qa.yml,**/limpieza.sh,fastapi/**,python/**,node-backend/**,vue3/**,react-frontend/**,php/**,bash-scripts/**,mobile-appium/**,ai-evals/**,vibe-rescue/**}"
+      glob: "{manifest.json,AGENTS.md,lefthook.yml,.trivy.yaml,.env.example,llms.txt,catalogs/**,mcp-server/package.json,*.md,**/*.md,.agents/**,docs/**,scripts/*.sh,**/*.example,**/docker-compose.qa.yml,**/limpieza.sh,fastapi/**,python/**,node-backend/**,vue3/**,react-frontend/**,php/**,bash-scripts/**,mobile-appium/**,ai-evals/**,vibe-rescue/**}"
       run: docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 python3 .agents/scripts/sync_governance.py --check
 
     docs-invariants:
@@ -111,11 +111,11 @@ pre-push:
 
     python-governance-and-meta-qa:
       # Ejecuta tests/*.unit.py y tests/meta_qa/test_governance_scripts.py (más test_antipattern_linter.py) vía make test-py && make test-meta-qa
-      run: bash -c '[ ! -f scripts/generar-manifiesto.py ] && exit 0; docker run --rm --network none -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONPATH=/app/.agents/scripts -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 bash -c "python3 scripts/generar-manifiesto.py --check && python3 .agents/scripts/sync_governance.py --check && python3 .agents/scripts/bump_version_11x.py --workspace . --check && python3 .agents/scripts/verify_docs_invariants.py && python3 .agents/scripts/verify_roadmap_consistency.py && python3 .agents/scripts/verify_topological_health.py && python3 .agents/scripts/verify_json_no_duplicate_keys.py" && if command -v make >/dev/null 2>&1; then make test-py && make test-meta-qa; else docker run --rm --network none -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONPATH=/app/.agents/scripts:/app -e HOME=/tmp -u "$(id -u):$(id -g)" -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 bash -c "ruff check --select E,F,W,I,UP,B,C901,FLY --config '\''lint.mccabe.max-complexity=5'\'' .agents/scripts scripts vibe-rescue/audit_vibe_prototype.py tests/meta_qa/test_antipattern_linter.py && ruff check tests/meta_qa && MYPYPATH=/app/.agents/scripts mypy --strict --cache-dir=/tmp/mypy .agents/scripts/*.py scripts/*.py vibe-rescue/audit_vibe_prototype.py tests/meta_qa/test_antipattern_linter.py && pytest --cov=.agents/scripts --cov=scripts --cov-fail-under=95 --cov-branch tests/*.unit.py tests/meta_qa/test_*.py -q"; fi'
+      run: bash -c '[ ! -f scripts/generar-manifiesto.py ] && exit 0; docker run --rm --network none -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONPATH=/app/.agents/scripts -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 bash -c "python3 scripts/generar-manifiesto.py --check && python3 .agents/scripts/sync_governance.py --check && python3 .agents/scripts/bump_version_11x.py --workspace . --check && python3 .agents/scripts/verify_docs_invariants.py && python3 .agents/scripts/verify_roadmap_consistency.py && python3 .agents/scripts/verify_topological_health.py && python3 .agents/scripts/verify_json_no_duplicate_keys.py" && if command -v make >/dev/null 2>&1; then make test-py && make test-meta-qa; else docker run --rm --network none -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONPATH=/app/.agents/scripts:/app -e HOME=/tmp -u "$(id -u):$(id -g)" -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 bash -c "ruff check --select E,F,W,I,UP,B,C901,FLY --config '\''lint.mccabe.max-complexity=5'\'' .agents/scripts scripts tests vibe-rescue && MYPYPATH=/app/.agents/scripts:ai-evals:vibe-rescue mypy --strict --cache-dir=/tmp/mypy .agents/scripts/*.py scripts/*.py tests/*.unit.py tests/meta_qa/*.py tests/evals/*.py vibe-rescue/*.py vibe-rescue/tests/*.py && pytest --cov=.agents/scripts --cov=scripts --cov-fail-under=95 --cov-branch tests/*.unit.py tests/meta_qa/test_*.py -q"; fi'
 
     karate-bdd-contracts:
       glob: "{mcp-server/**,manifest.json,.agents/skills/**}"
-      run: bash -c '[ ! -d mcp-server/test ] && exit 0; docker run --rm --network none --security-opt=no-new-privileges:true -v "$(pwd)/mcp-server/test:/app/src/test/java/examples/test:ro" -v "$(pwd):/repo:ro" sinfallas/karatelabs:1.5.1 mvn -B -q clean test'
+      run: bash -c '[ ! -d mcp-server/test ] && exit 0; docker run --rm --network none --security-opt=no-new-privileges:true -v "$(pwd)/mcp-server/test:/app/src/test/java/examples/test:ro" -v "$(pwd):/repo:ro" sinfallas/karatelabs:1.5.1@sha256:a9a52ca9c5491ab39b64f0b4fdc3dea879c2213c9bc995be58d6cd4b9a80cc89 mvn -B -q clean test'
 
     bash-shellcheck-bats:
       run: bash -c '[ ! -d bash-scripts/test ] && exit 0; docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -e _USER=qa -v "$(pwd):/repo:ro" -w /repo/bash-scripts sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7 bash -c "shopt -s nullglob; mapfile -t lint_files < <(printf '\''%s\n'\'' ../scripts/*.sh ../.agents/scripts/*.sh ../instalar-hooks.sh ../*/limpieza.sh ../mcp-server/example/verify-v2.sh ./*.sh | sort -u); shellcheck -x \"\${lint_files[@]}\" && shfmt -i 2 -ci -d \"\${lint_files[@]}\" && bats test/*.bats ../tests/bats/*.bats"'

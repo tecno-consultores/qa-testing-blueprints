@@ -39,6 +39,8 @@ providers:
       temperature: 0
 
 defaultTest:
+  options:
+    provider: "{{ env.PROMPTFOO_JUDGE_PROVIDER | default('openai:gpt-4.1-mini', true) }}"
   assert:
     - type: not-icontains
       value: "git push"

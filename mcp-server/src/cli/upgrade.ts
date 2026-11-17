@@ -13,7 +13,7 @@ import {
   type CliCommandOutput,
   formatCliJson,
   hasHelpFlag,
-  readNextFlagValue,
+  matchFlagValue,
 } from './cliArgHelpers.js';
 import { runInstallSkillCli } from './install-skill.js';
 
@@ -22,6 +22,7 @@ const UTF8_ENCODING = 'utf-8';
 const FLAG_CACHE_ONLY = '--cache-only';
 const FLAG_TARGET = '--target';
 const FLAG_TARGET_SHORT = '-t';
+const FLAG_RECONCILE = '--reconcile';
 const FLAG_OFFLINE = '--offline';
 const FLAG_DRY_RUN = '--dry-run';
 const FLAG_JSON = '--json';
@@ -40,6 +41,7 @@ export const UPGRADE_HELP_TEXT = [
   'Opciones:',
   '  --cache-only              Limpia cachés _npx y blueprints sin reinstalar skills',
   '  --target, -t <env>        Destino de skills para install-skill (por defecto: all)',
+  '  --reconcile               Reconcilia y poda reglas duplicadas en .agents/ al sincronizar',
   '  --offline                 Omite resincronización remota de skills',
   '  --dry-run                 Simula limpieza y sincronización sin borrar ni escribir',
   '  --json                    Emite resultado estructurado en JSON',
@@ -65,39 +67,65 @@ export interface UpgradeReport {
 }
 
 interface ParsedUpgradeArgs {
-  readonly cacheOnly: boolean;
-  readonly target: string;
-  readonly offline: boolean;
-  readonly dryRun: boolean;
-  readonly json: boolean;
+  cacheOnly: boolean;
+  target: string;
+  reconcile: boolean;
+  offline: boolean;
+  dryRun: boolean;
+  json: boolean;
+}
+
+const UPGRADE_TARGET_FLAGS = new Set([FLAG_TARGET, FLAG_TARGET_SHORT]);
+const UPGRADE_BOOL_FLAGS: Readonly<Record<string, (state: ParsedUpgradeArgs) => void>> = {
+  [FLAG_CACHE_ONLY]: (state) => {
+    state.cacheOnly = true;
+  },
+  [FLAG_RECONCILE]: (state) => {
+    state.reconcile = true;
+  },
+  [FLAG_OFFLINE]: (state) => {
+    state.offline = true;
+  },
+  [FLAG_DRY_RUN]: (state) => {
+    state.dryRun = true;
+  },
+  [FLAG_JSON]: (state) => {
+    state.json = true;
+  },
+};
+
+function applyUpgradeToken(
+  args: readonly string[],
+  index: number,
+  state: ParsedUpgradeArgs
+): number {
+  const arg = pickAt(args, index);
+  const boolAction = UPGRADE_BOOL_FLAGS[arg];
+  if (boolAction) {
+    boolAction(state);
+    return 0;
+  }
+  const targetMatch = matchFlagValue(args, index, UPGRADE_TARGET_FLAGS);
+  if (targetMatch) {
+    state.target = targetMatch.value;
+    return targetMatch.consumed;
+  }
+  throw new Error(`Argumento u opción inválida en upgrade: '${arg}'.`);
 }
 
 function parseUpgradeArgs(args: readonly string[]): ParsedUpgradeArgs {
-  let cacheOnly = false;
-  let target = DEFAULT_TARGET;
-  let offline = false;
-  let dryRun = false;
-  let json = false;
-
+  const state: ParsedUpgradeArgs = {
+    cacheOnly: false,
+    target: DEFAULT_TARGET,
+    reconcile: false,
+    offline: false,
+    dryRun: false,
+    json: false,
+  };
   for (let i = 0; i < args.length; i++) {
-    const arg = pickAt(args, i);
-    if (arg === FLAG_CACHE_ONLY) {
-      cacheOnly = true;
-    } else if (arg === FLAG_OFFLINE) {
-      offline = true;
-    } else if (arg === FLAG_DRY_RUN) {
-      dryRun = true;
-    } else if (arg === FLAG_JSON) {
-      json = true;
-    } else if (arg === FLAG_TARGET || arg === FLAG_TARGET_SHORT) {
-      target = readNextFlagValue(args, i, arg);
-      i += 1;
-    } else {
-      throw new Error(`Argumento u opción inválida en upgrade: '${arg}'.`);
-    }
+    i += applyUpgradeToken(args, i, state);
   }
-
-  return { cacheOnly, target, offline, dryRun, json };
+  return state;
 }
 
 function isExclusiveQa11xNpxHash(hashDirPath: string): boolean {
@@ -172,6 +200,78 @@ function formatUpgradeText(report: UpgradeReport): string {
   return lines.join('\n');
 }
 
+async function runInstallSkillsForUpgrade(
+  runner: (args: string[], fetcher?: GitHubFetcher) => Promise<void>,
+  parsed: ParsedUpgradeArgs,
+  fetcher?: GitHubFetcher
+): Promise<void> {
+  const skillArgs = [FLAG_TARGET, parsed.target, ...(parsed.reconcile ? [FLAG_RECONCILE] : [])];
+  if (!parsed.json) {
+    await runner(skillArgs, fetcher);
+    return;
+  }
+  const origConsoleLog = console.log;
+  console.log = () => undefined;
+  try {
+    await runner(skillArgs, fetcher);
+  } finally {
+    console.log = origConsoleLog;
+  }
+}
+
+function pruneUpgradeTargetPaths(targetedPaths: readonly string[], dryRun: boolean): string[] {
+  if (dryRun) {
+    return [];
+  }
+  const removedPaths: string[] = [];
+  for (const targetPath of targetedPaths) {
+    fs.rmSync(targetPath, { recursive: true, force: true });
+    removedPaths.push(targetPath);
+  }
+  return removedPaths;
+}
+
+async function syncUpgradeSkillsIfEnabled(
+  shouldSyncSkills: boolean,
+  parsed: ParsedUpgradeArgs,
+  deps: UpgradeCliDeps
+): Promise<void> {
+  if (!shouldSyncSkills) {
+    return;
+  }
+  const runner = deps.installSkillRunner ?? runInstallSkillCli;
+  await runInstallSkillsForUpgrade(runner, parsed, deps.fetcher);
+}
+
+async function executeUpgradeWorkflow(
+  args: readonly string[],
+  deps: UpgradeCliDeps
+): Promise<CliCommandOutput> {
+  const parsed = parseUpgradeArgs(args);
+  const homeDir = resolveSafeHomeDir(deps.homeDir);
+  const targetedPaths = collectRemovalTargets(homeDir);
+  const removedPaths = pruneUpgradeTargetPaths(targetedPaths, parsed.dryRun);
+  const shouldSyncSkills = !parsed.cacheOnly && !parsed.offline && !parsed.dryRun;
+  await syncUpgradeSkillsIfEnabled(shouldSyncSkills, parsed, deps);
+
+  const report: UpgradeReport = {
+    home_dir: homeDir,
+    target: parsed.target,
+    cache_only: parsed.cacheOnly,
+    offline: parsed.offline,
+    dry_run: parsed.dryRun,
+    targeted_paths: targetedPaths,
+    removed_paths: removedPaths,
+    skills_synced: shouldSyncSkills,
+    reload_notice: RELOAD_NOTICE,
+  };
+
+  return {
+    exitCode: 0,
+    output: parsed.json ? formatCliJson(report) : formatUpgradeText(report),
+  };
+}
+
 export async function runUpgradeCli(
   args: readonly string[],
   deps: UpgradeCliDeps = {}
@@ -180,40 +280,7 @@ export async function runUpgradeCli(
     return { exitCode: 0, output: UPGRADE_HELP_TEXT };
   }
   try {
-    const parsed = parseUpgradeArgs(args);
-    const homeDir = resolveSafeHomeDir(deps.homeDir);
-    const targetedPaths = collectRemovalTargets(homeDir);
-    const removedPaths: string[] = [];
-
-    if (!parsed.dryRun) {
-      for (const targetPath of targetedPaths) {
-        fs.rmSync(targetPath, { recursive: true, force: true });
-        removedPaths.push(targetPath);
-      }
-    }
-
-    const shouldSyncSkills = !parsed.cacheOnly && !parsed.offline && !parsed.dryRun;
-    if (shouldSyncSkills) {
-      const runner = deps.installSkillRunner ?? runInstallSkillCli;
-      await runner([FLAG_TARGET, parsed.target, '--reconcile'], deps.fetcher);
-    }
-
-    const report: UpgradeReport = {
-      home_dir: homeDir,
-      target: parsed.target,
-      cache_only: parsed.cacheOnly,
-      offline: parsed.offline,
-      dry_run: parsed.dryRun,
-      targeted_paths: targetedPaths,
-      removed_paths: removedPaths,
-      skills_synced: shouldSyncSkills,
-      reload_notice: RELOAD_NOTICE,
-    };
-
-    return {
-      exitCode: 0,
-      output: parsed.json ? formatCliJson(report) : formatUpgradeText(report),
-    };
+    return await executeUpgradeWorkflow(args, deps);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     return { exitCode: 1, output: `${PREFIX_ERROR} ${message}`, isError: true };

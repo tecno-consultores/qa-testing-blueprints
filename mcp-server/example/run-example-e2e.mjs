@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 //
-// Arnés End-to-End (E2E) sobre stdio real para @sinfallas/mcp-qa-11x v3.1.0.
+// Arnés End-to-End (E2E) sobre stdio real para @sinfallas/mcp-qa-11x v3.2.0.
 // Conecta un cliente MCP oficial (@modelcontextprotocol/sdk) contra el binario
 // compilado dist/index.js y certifica empíricamente los 13 recursos, las 19 tools
-// (en escenarios negativos y limpios) y los 5 subcomandos CLI sobre una copia
+// (en escenarios negativos y limpios) y los 12 subcomandos CLI sobre una copia
 // temporal aislada del proyecto híbrido Full-Stack mcp-server/example/.
 
 import assert from 'node:assert/strict';
@@ -602,7 +602,7 @@ async function verifyAllNineteenTools(client, ctx) {
 }
 
 async function verifyCliAndBackgroundAutoSync(ctx) {
-  const { cliProjectDir, homeDir, cacheDir, binDir, expectedVersion, tmpRoot } = ctx;
+  const { projectDir, cliProjectDir, homeDir, cacheDir, binDir, expectedVersion, tmpRoot } = ctx;
   const baseEnv = {
     ...process.env,
     HOME: homeDir,
@@ -717,6 +717,79 @@ async function verifyCliAndBackgroundAutoSync(ctx) {
   });
   assert.ok(tmsHelpOut.includes('sync_enterprise_tms') || tmsHelpOut.includes('--mode'));
 
+  // 3d. 7 subcomandos CLI adicionales (doctor, upgrade, certify, audit, blast-radius, mcp-config, completion) + --version --json
+  const versionJson = JSON.parse(
+    execFileSync(process.execPath, [DIST_INDEX_JS, '--version', '--json'], {
+      cwd: cliProjectDir,
+      env: baseEnv,
+      encoding: 'utf8',
+      timeout: 5000,
+    })
+  );
+  assert.equal(versionJson.mcp_version, expectedVersion);
+
+  const doctorJson = JSON.parse(
+    execFileSync(process.execPath, [DIST_INDEX_JS, 'doctor', projectDir, '--offline', '--json'], {
+      cwd: projectDir,
+      env: baseEnv,
+      encoding: 'utf8',
+      timeout: 5000,
+    })
+  );
+  assert.equal(doctorJson.mcp_version, expectedVersion);
+
+  const upgradeJson = JSON.parse(
+    execFileSync(process.execPath, [DIST_INDEX_JS, 'upgrade', '--dry-run', '--json'], {
+      cwd: cliProjectDir,
+      env: baseEnv,
+      encoding: 'utf8',
+      timeout: 5000,
+    })
+  );
+  assert.equal(upgradeJson.dry_run, true);
+
+  const certifyJson = JSON.parse(
+    execFileSync(
+      process.execPath,
+      [DIST_INDEX_JS, 'certify', projectDir, '--allow-unmerged-examples', '--offline', '--json'],
+      { cwd: projectDir, env: baseEnv, encoding: 'utf8', timeout: 5000 }
+    )
+  );
+  assert.equal(certifyJson.exit_code, 0);
+
+  const auditSarif = JSON.parse(
+    execFileSync(
+      process.execPath,
+      [DIST_INDEX_JS, 'audit', projectDir, '--mode', 'security', '--fail-on', 'none', '--sarif'],
+      { cwd: projectDir, env: baseEnv, encoding: 'utf8', timeout: 5000 }
+    )
+  );
+  assert.equal(auditSarif.version, '2.1.0');
+
+  const blastJson = JSON.parse(
+    execFileSync(
+      process.execPath,
+      [DIST_INDEX_JS, 'blast-radius', 'list_tenant_devices', '-p', projectDir, '--json'],
+      { cwd: projectDir, env: baseEnv, encoding: 'utf8', timeout: 5000 }
+    )
+  );
+  assert.equal(blastJson.target_symbol, 'list_tenant_devices');
+
+  const mcpCfgOut = execFileSync(
+    process.execPath,
+    [DIST_INDEX_JS, 'mcp-config', '--client', 'antigravity', '--pin-version'],
+    { cwd: cliProjectDir, env: baseEnv, encoding: 'utf8', timeout: 5000 }
+  );
+  assert.ok(mcpCfgOut.includes(`@sinfallas/mcp-qa-11x@${expectedVersion}`));
+
+  const completionOut = execFileSync(process.execPath, [DIST_INDEX_JS, 'completion', 'zsh'], {
+    cwd: cliProjectDir,
+    env: baseEnv,
+    encoding: 'utf8',
+    timeout: 5000,
+  });
+  assert.ok(completionOut.includes('shift words'));
+
   // 4. Auto-sync silencioso por SHA-256 al arrancar el servidor MCP en modo stdio
   const targetSkillMd = path.join(globalSkillsDir, 'graphify-ast-navigator', 'SKILL.md');
   const officialSha = crypto.createHash('sha256').update(fs.readFileSync(targetSkillMd)).digest('hex');
@@ -753,7 +826,7 @@ async function verifyCliAndBackgroundAutoSync(ctx) {
   }
 
   logStep(
-    `5 Subcomandos CLI (quickstart/-T, install-skill, init-agents, reconcile-agents, tms-sync) + Auto-Sync global SHA-256 certificados`
+    `12 Subcomandos CLI (quickstart/-T, install-skill, init-agents, reconcile-agents, tms-sync, doctor, upgrade, certify, audit, blast-radius, mcp-config, completion) + Auto-Sync global SHA-256 certificados`
   );
 }
 
@@ -838,6 +911,7 @@ async function main() {
     client = null;
 
     await verifyCliAndBackgroundAutoSync({
+      projectDir,
       cliProjectDir,
       homeDir,
       cacheDir,
@@ -847,7 +921,7 @@ async function main() {
     });
 
     console.log('══════════════════════════════════════════════════════════════════════');
-    console.log(`  🎉 E2E CERTIFICADO: 13 Recursos + 19 Tools + 5 CLI operativos (v${expectedVersion})`);
+    console.log(`  🎉 E2E CERTIFICADO: 13 Recursos + 19 Tools + 12 CLI operativos (v${expectedVersion})`);
     console.log('══════════════════════════════════════════════════════════════════════');
   } finally {
     if (client) {

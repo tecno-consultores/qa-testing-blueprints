@@ -1,17 +1,18 @@
-# AgenticSkills.io Submission Package — QA Testing Blueprints (`QA-11X v3.1`, `v3.1.0`)
+# AgenticSkills.io Submission Package — QA Testing Blueprints (`QA-11X v3.1`, `v3.2.0`)
 
 Structured submission bundle ready for `https://agenticskills.io/submit` and `https://agenticskills.io/submit?type=mcp`. Every skill path, MCP tool name, `blueprint://*` URI, and blueprint directory matches the verified repository state.
 
 ---
 
-## Section 1 — MCP Server Submission (`@sinfallas/mcp-qa-11x` v3.1.0)
+## Section 1 — MCP Server Submission (`@sinfallas/mcp-qa-11x` v3.2.0)
 
-* **Package Name:** `@sinfallas/mcp-qa-11x` (`v3.1.0`, `QA-11X v3.1` architecture)
+* **Package Name:** `@sinfallas/mcp-qa-11x` (`v3.2.0`, `QA-11X v3.1` architecture)
 * **License:** `MIT` (Zero-Infra enterprise adoption without copyleft or AGPL-3.0 licensing constraints)
 * **Repository:** `https://github.com/tecno-consultores/qa-testing-blueprints`
 * **NPX Launch Command:** `npx -y @sinfallas/mcp-qa-11x@latest`
 * **30-Second Quickstart CLI:** `npx -y @sinfallas/mcp-qa-11x@latest quickstart`
-* **Supported Platforms (`28`):** `Claude Code`, `Claude Desktop`, `OpenAI Codex CLI`, `Cursor`, `Gemini CLI`, `Google Antigravity`, `Windsurf`, `Cline`, `Roo Code`, `GitHub Copilot`, `VS Code`, `Hermes Agent`, `JetBrains`, `Zed`, and standard MCP `stdio` clients.
+* **12 CLI Subcommands (`npx -y @sinfallas/mcp-qa-11x <cmd>`):** `quickstart`, `init-agents`, `install-skill`, `reconcile-agents`, `tms-sync`, `doctor` (`status`), `upgrade` (`cache-clean`), `certify`, `audit`, `blast-radius`, `mcp-config`, `completion`.
+* **Supported Agent IDs (`28`):** `antigravity`, `claude-code`, `claude-desktop`, `cursor`, `windsurf`, `copilot`, `codex`, `gemini-cli`, `gemini-code-assist`, `cline`, `roo-code`, `aider`, `continue`, `zed`, `devin`, `cody`, `amazon-q`, `jetbrains-ai`, `augment`, `trae`, `hermes`, `opencode`, `goose`, `kilo-code`, `bolt`, `lovable`, `v0`, `replit` (plus standard MCP `stdio` clients).
 * **Runtime Guards:** Fail-closed `promptGuard` (`NFKC`, Trojan Source & prompt-injection blocking, `QA-GIT-GATE-01` bypass prevention, PII redaction), `TaskStateGuard` bounded concurrency, and A2A `agent-card.json` discovery.
 
 ### 1.1. 19 MCP Tools (`tools/list`)
@@ -62,7 +63,7 @@ Structured submission bundle ready for `https://agenticskills.io/submit` and `ht
 
 | # | Skill Name | Category | Upstream `SKILL.md` Path | Summary (`< 160` chars) |
 | :--- | :--- | :--- | :--- | :--- |
-| 1 | `qa-11x-architect` | `architecture` | [`SKILL.md`](../.agents/skills/qa-11x-architect/SKILL.md) | Master 11X orchestrator (<12KB): 3-path routing, 13-layer pyramid, Rule Zero, and DISA/OWASP governance. |
+| 1 | `qa-11x-architect` | `architecture` | [`SKILL.md`](../.agents/skills/qa-11x-architect/SKILL.md) | Master 11X orchestrator (<= 12 KB): 3-path routing, 13-layer pyramid, Rule Zero, and DISA/OWASP governance. |
 | 2 | `qa-11x-devsecops-hardener` | `security` | [`SKILL.md`](../.agents/skills/qa-11x-devsecops-hardener/SKILL.md) | Hardens PostgreSQL 17 RLS, AES-GCM vaults, WORM audit chains, and mutating MCP tools to STIG V6R5. |
 | 3 | `qa-11x-systematic-debugging` | `testing` | [`SKILL.md`](../.agents/skills/qa-11x-systematic-debugging/SKILL.md) | 4-phase root-cause debugging using ephemeral Docker reproduction, AST blast radius, and RED-to-GREEN locks. |
 | 4 | `qa-11x-screenplay-builder` | `e2e` | [`SKILL.md`](../.agents/skills/qa-11x-screenplay-builder/SKILL.md) | Builds multi-role Screenplay E2E suites with semantic ARIA locators, Anti-Silo checks, and 3-phase clocks. |
@@ -72,13 +73,13 @@ Structured submission bundle ready for `https://agenticskills.io/submit` and `ht
 | 8 | `docker-trivy-keydb-hardening` | `security` | [`SKILL.md`](../.agents/skills/docker-trivy-keydb-hardening/SKILL.md) | Multi-stage non-root containers achieving Trivy HIGH/CRITICAL=0 and KeyDB multi-threaded caching. |
 | 9 | `graphify-ast-navigator` | `architecture` | [`SKILL.md`](../.agents/skills/graphify-ast-navigator/SKILL.md) | AST Knowledge Graph navigation for Code Q&A, caller/callee blast-radius checks, and layer boundaries. |
 | 10 | `refactoring-ui` | `ui` | [`SKILL.md`](../.agents/skills/refactoring-ui/SKILL.md) | Tactical spacing, type scale, OKLCH contrast (WCAG 2.1 AA), depth, and Anti-JSDOM layout rules. |
-| 11 | `tactical-patterns-11x` | `architecture` | [`SKILL.md`](../.agents/skills/tactical-patterns-11x/SKILL.md) | JIT tactical patterns (<2.5KB): complexity rescue (CC <= 5, max-params: 4), Port/Adapter, Outbox. |
+| 11 | `tactical-patterns-11x` | `architecture` | [`SKILL.md`](../.agents/skills/tactical-patterns-11x/SKILL.md) | JIT tactical patterns (<= 2.5 KB): complexity rescue (CC <= 5, max-params: 4), Port/Adapter, Outbox. |
 
 ### Individual Submission Cards
 
 1. **`qa-11x-architect`** (`architecture`)
    - **Upstream Path:** [`.agents/skills/qa-11x-architect/SKILL.md`](../.agents/skills/qa-11x-architect/SKILL.md) (`https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-architect/SKILL.md`)
-   - **Summary:** Master 11X orchestrator (<12KB): 3-path routing, 13-layer pyramid, Rule Zero, and DISA/OWASP governance.
+   - **Summary:** Master 11X orchestrator (<= 12 KB): 3-path routing, 13-layer pyramid, Rule Zero, and DISA/OWASP governance.
    - **Key Capabilities:** Proportional execution (`DOCS_ONLY`, `MICRO_CHANGE`, `FULL_11X`), lazy hydration of 10 sub-skills, 11 Anti-Blindness UAT rules, and `QA-TEST-SYNC-01`.
 2. **`qa-11x-devsecops-hardener`** (`security`)
    - **Upstream Path:** [`.agents/skills/qa-11x-devsecops-hardener/SKILL.md`](../.agents/skills/qa-11x-devsecops-hardener/SKILL.md) (`https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-devsecops-hardener/SKILL.md`)
@@ -118,14 +119,14 @@ Structured submission bundle ready for `https://agenticskills.io/submit` and `ht
     - **Key Capabilities:** Modular design scales, `tabular-nums`, accessible OKLCH color systems, dark mode elevation, and in-flow `<main>` footer geometry.
 11. **`tactical-patterns-11x`** (`architecture`)
     - **Upstream Path:** [`.agents/skills/tactical-patterns-11x/SKILL.md`](../.agents/skills/tactical-patterns-11x/SKILL.md) (`https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/tactical-patterns-11x/SKILL.md`)
-    - **Summary:** JIT tactical patterns (<2.5KB): complexity rescue (CC <= 5, max-params: 4), Port/Adapter, Outbox.
+    - **Summary:** JIT tactical patterns (<= 2.5 KB): complexity rescue (CC <= 5, max-params: 4), Port/Adapter, Outbox.
     - **Key Capabilities:** Complexity gate rescue (`Radon CC <= 5`, `SonarJS <= 15`, `max-params: 4`, `max-depth: 3`), offline Port & Adapter boundaries (`--network none`), Transactional Outbox, and `[DIRECTIVE-11X]` JIT guidance.
 
 ---
 
 ## Section 3 — Workflow Bundle (`QA-11X Zero-Infra Agentic Quality Gate`)
 
-Combines **Knowledge** (the 11 modular `SKILL.md` files under `< 20 KB`) with **Access** (all 19 tools — 12 v1 + 6 v2.0 + v3.1 `session_flight_recorder` — and 13 `blueprint://*` resources — including v3.1 `blueprint://skills/tactical-patterns-11x` — in `@sinfallas/mcp-qa-11x` v3.1.0) into a deterministic, auditable engineering workflow:
+Combines **Knowledge** (the 11 modular `SKILL.md` files under `< 20 KB`) with **Access** (all 19 tools — 12 v1 + 6 v2.0 + v3.1 `session_flight_recorder` — and 13 `blueprint://*` resources — including v3.1 `blueprint://skills/tactical-patterns-11x` — in `@sinfallas/mcp-qa-11x` v3.2.0) into a deterministic, auditable engineering workflow:
 
 1. **Onboard (`30s`):** Run `npx -y @sinfallas/mcp-qa-11x@latest quickstart` to detect stack/vibe markers, generate `.qa-11x.json`, inject the `AGENTS.md` connector across 28 AI agents, and scaffold PR-aware CI.
 2. **Route & Inspect (`Knowledge + AST`):** Load `qa-11x-architect` and `graphify-ast-navigator`, then call `inspect_project_config` and `inspect_ast_blast_radius` before modifying code.

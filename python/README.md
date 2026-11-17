@@ -29,7 +29,7 @@ When generating code, configuring the environment, or proposing solutions, you m
 *   **BDD Behavior and SLO Load (`k6`):** `pytest-bdd` for local Gherkin and `python/tests/load/smoke.k6.js` (`K6_PROFILE=smoke|load|stress`) to validate `p(95) < 250ms`, `p(99) < 500ms`, and error `< 1%` without false greens.
 *   **Coverage:** `pytest-cov` (minimum 95% required with `COVERAGE_FILE=/tmp/.coverage`).
 *   **Mutation Testing:** `mutmut` (to verify whether tests fail when logic code changes).
-*   **Compatibility Matrix and RLS:** `tox` with `tox-uv` and verification against `postgres:17-alpine` (`NOBYPASSRLS`, `FORCE RLS`, `SET LOCAL app.current_tenant_id`).
+*   **Compatibility Matrix and RLS:** `tox` with `tox-uv` and verification against `postgres:17-alpine@sha256:d3244e8ce3f165ee3c93d9c4a4b1d0fe48b3a89e2287b717fdcbbde92d405065` (`NOBYPASSRLS`, `FORCE RLS`, `SET LOCAL app.current_tenant_id`).
 *   **Observability:** `prometheus_client`.
 
 ## 3. Architecture of Tests to Generate
@@ -79,7 +79,7 @@ Depending on the script's nature, you must instrument it in one of these two way
 *   **Rule:** No generated method may exceed cyclomatic complexity Grade `A` (`CC <= 5`) or drop below Grade `A` in Maintainability Index (MI). Apply `[DIRECTIVE-11X]` patterns from `.agents/skills/tactical-patterns-11x/SKILL.md` (table-driven dispatch, Parameter Object/DTO, guard clauses, or pipelines) rather than pass-through helpers.
 
 ### F. Smart Ingestion (Step 0 - AST Graphify)
-*   **Rule (Exclusive to you, AI):** You are strictly forbidden from generating code or tests blindly. Before modifying code, query the AST graph with `python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"` (or update it with `./scripts/actualizar-grafos-graphify.sh`). Additionally, you MUST read linter configurations and dependencies defined in `pyproject.toml` to adapt your code to strict repository conventions and avoid CI/CD rejections.
+*   **Rule (Exclusive to you, AI):** You are strictly forbidden from generating code or tests blindly. Before modifying code, query the AST graph with `python3 .agents/scripts/inspect_blast_radius.py "<symbol>"` (or update it with `./scripts/actualizar-grafos-graphify.sh`). Additionally, you MUST read linter configurations and dependencies defined in `pyproject.toml` to adapt your code to strict repository conventions and avoid CI/CD rejections.
 
 ### G. Mandatory Security by Design (DISA ASD STIG V6R5 & OWASP Developer Guide v4.2)
 *   Every Python script or library MUST comply with and test the applicable controls from **[`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`](../docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md)**:
@@ -117,13 +117,17 @@ make qa-mutation
 
 *   **Profiling (Generate CPU Flamegraph for the script):**
 ```bash
-docker compose -f docker-compose.qa.yml run --rm qa-backend bash -c "uv sync && py-spy record -o profile.svg -- python src/main.py"
+# Profiling an already-running PID inside hardened containers requires CAP_SYS_PTRACE (`--cap-add SYS_PTRACE`); launching the command directly runs under the mapped UID:
+docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-backend bash -c "uv sync --all-extras -q && uv run py-spy record -o /tmp/profile.svg -- python src/main.py"
 ```
 
-**Step 2: Live Observability Certification (Level 11X)**
-If the script was instrumented (either as a daemon or an ephemeral script via Pushgateway), run it with the observability profile enabled.
+**Step 2: Live Observability & Load Certification (Level 11X)**
+If the script was instrumented (either as a daemon or an ephemeral script via Pushgateway), run it with the observability profile enabled, or trigger `make qa-load` for k6 SLO checks.
 ```bash
-docker compose -f docker-compose.qa.yml --profile observability up -d
-docker compose -f docker-compose.qa.yml run --rm qa-backend bash -c "uv sync && python src/main.py"
+make qa-observability
+docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-backend bash -c "uv sync --all-extras -q && uv run python src/main.py"
+make qa-load
+# Tear down ephemeral stack & volumes when done (or run `make clean-cache`):
+docker compose -f docker-compose.qa.yml --profile "*" down -v
 ```
 *(Open `http://localhost:9090` during execution to inspect metric scraping or push behavior).*

@@ -287,7 +287,7 @@ if ! docker run --rm ${DOCKER_TTY_ARGS[@]+"${DOCKER_TTY_ARGS[@]}"} \
   -e NPM_OTP \
   -e NPM_REGISTRY \
   "${IMAGE_NAME}" \
-  sh -c 'reg_norm="${NPM_REGISTRY%/}/"; reg_key="//${reg_norm#http://}"; reg_key="//${reg_key#https://}"; reg_key="${reg_key#////}"; printf "//%s:_authToken=%s\nregistry=%s\n" "${reg_key}" "${NPM_TOKEN}" "${NPM_REGISTRY}" > /tmp/.npmrc && chmod 600 /tmp/.npmrc && trap "rm -f /tmp/.npmrc" EXIT && export NPM_CONFIG_USERCONFIG=/tmp/.npmrc && if [ -n "${NPM_OTP:-}" ]; then export NPM_CONFIG_OTP="${NPM_OTP}"; fi && npm publish --access public --no-browser --registry="${NPM_REGISTRY}"'; then
+  sh -c 'reg_norm="${NPM_REGISTRY%/}/"; reg_host="${reg_norm#http://}"; reg_host="${reg_host#https://}"; reg_host="${reg_host#//}"; printf "//%s:_authToken=%s\nregistry=%s\n" "${reg_host}" "${NPM_TOKEN}" "${NPM_REGISTRY}" > /tmp/.npmrc && chmod 600 /tmp/.npmrc && trap "rm -f /tmp/.npmrc" EXIT && export NPM_CONFIG_USERCONFIG=/tmp/.npmrc && if [ -n "${NPM_OTP:-}" ]; then export NPM_CONFIG_OTP="${NPM_OTP}"; fi && npm publish --access public --no-browser --registry="${NPM_REGISTRY}"'; then
   echo -e "\n\e[31m❌ ERROR: No se completó la publicación en npmjs.org (posible requerimiento 2FA / EOTP).\e[0m" >&2
   echo "💡 Soluciones:" >&2
   echo "   1. Ejecute desde su terminal interactiva y abra en el navegador el enlace https://www.npmjs.com/auth/cli/... cuando aparezca." >&2

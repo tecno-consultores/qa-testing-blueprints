@@ -46,7 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           fetch-depth: 0
       - uses: tecno-consultores/qa-testing-blueprints/.github/actions/qa-11x-pr-check@v3 # sec-ci-action-ref-ok (example tag; pin a 40-char commit SHA in production)
@@ -115,7 +115,7 @@ The matrix covers **10 hydratable stacks** (`python`, `fastapi`, `node-backend`,
 | **[`ai-evals/`](ai-evals/)** | Dual-Mode AI & Multimodal QA | RAG faithfulness, Promptfoo OWASP LLM Top 10, WebRTC voice latency ([`test_voice_websocket_latency.py`](ai-evals/voice-realtime/test_voice_websocket_latency.py)), PDF/OCR `Decimal` ([`test_pdf_table_fidelity.py`](ai-evals/multimodal-ocr/test_pdf_table_fidelity.py)), [`golden_from_traces.py`](ai-evals/golden_from_traces.py) |
 | **[`vibe-rescue/`](vibe-rescue/)** | Vibe-to-Enterprise Hardening | [`audit_vibe_prototype.py`](vibe-rescue/audit_vibe_prototype.py) (`VIBE-SEC-001..QA-005`), PostgreSQL 17 RLS/WORM template ([`rls_hardening.sql`](vibe-rescue/templates/rls_hardening.sql)) |
 | **[`architecture/`](architecture/README.md)** | Architecture-as-Code | Blocking FINOS CALM topology ([`qa-11x.calm.json`](architecture/qa-11x.calm.json)) & 7 mandatory 11X controls (`make validate-calm`) |
-| **[`mcp-server/`](mcp-server/)** | `@sinfallas/mcp-qa-11x` | Node.js MCP server (`stdio`), `quickstart`, `install-skill`, `init-agents`, `reconcile-agents`, `tms-sync` & A2A agent card |
+| **[`mcp-server/`](mcp-server/)** | `@sinfallas/mcp-qa-11x` | Node.js MCP server (`stdio`), 12 CLI subcommands (`quickstart`, `install-skill`, `init-agents`, `reconcile-agents`, `tms-sync`, `doctor`, `upgrade`, `certify`, `audit`, `blast-radius`, `mcp-config`, `completion`) & A2A `v1.0` agent card |
 
 ---
 
@@ -154,7 +154,7 @@ Below is the corporate validation stack summarized across all **12 matrix enviro
 ## 🤖 11 Modular Skills (`< 20 KB`), MCP Server & 28 AI Agents
 
 * **Progressive Skill Routing (`< 20 KB` budget):** Led by [`.agents/skills/qa-11x-architect/SKILL.md`](.agents/skills/qa-11x-architect/SKILL.md) (`< 12 KB`), loading 10 specialized sub-skills on demand (`qa-11x-devsecops-hardener`, `qa-11x-systematic-debugging`, `qa-11x-screenplay-builder`, `qa-11x-llm-evaluator`, `qa-11x-vibe-rescue`, `qa-11x-docker-certifier`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `refactoring-ui`, and JIT [`tactical-patterns-11x`](.agents/skills/tactical-patterns-11x/SKILL.md) `<= 2.5 KB` injected via `[DIRECTIVE-11X]`).
-* **Public MCP Surface (`@sinfallas/mcp-qa-11x` v3.1.0):** Exposes **19 Tools** and **13 Resources** (`blueprint://*`, including `blueprint://{stack}/readme` across all **10 hydratable stacks**: `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue`) over `stdio` — combining 12 core v1 tools + 6 v2.0 evaluators + **v3.1** atomic Flight Recorder `session_flight_recorder` (`session_checkpoint.json` `0600` -> `.agents/ACTIVE_TASK.md`) and **v3.1** `blueprint://skills/tactical-patterns-11x` (`11` modular skills total) protected end-to-end by `promptGuard` & `TaskStateGuard`.
+* **Public MCP Surface (`@sinfallas/mcp-qa-11x` v3.2.0):** Exposes **19 Tools** and **13 Resources** (`blueprint://*`, including `blueprint://{stack}/readme` across all **10 hydratable stacks**: `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue`) over `stdio` — combining 12 core v1 tools + 6 v2.0 evaluators + **v3.1** atomic Flight Recorder `session_flight_recorder` (`session_checkpoint.json` `0600` -> `.agents/ACTIVE_TASK.md`) and **v3.1** `blueprint://skills/tactical-patterns-11x` (`11` modular skills total) protected end-to-end by `promptGuard` & `TaskStateGuard`.
 * **Human-Confirmed Git Closure (`QA-GIT-GATE-01`):** Enforced by [`.agents/rules/git_closure_gate.md`](.agents/rules/git_closure_gate.md) — agents certify locally via `make certify` and stop at a local `git commit`; automatic `git push` or `npm publish` is strictly forbidden.
 * **Setup & Catalog Guides:** See [`docs/agent-setup.md`](docs/agent-setup.md) (English), [`docs/agent-setup.es.md`](docs/agent-setup.es.md) (Spanish), [`RESOURCES.md`](RESOURCES.md), [`llms.txt`](llms.txt) (GEO index), [`catalogs/`](catalogs/agenticskills-submission.md) ([QASkills](catalogs/qaskills-pack.json), [SkillsLLM](catalogs/skillsllm-manifest.json)), [`docs/01_ARQUITECTURA_PIRAMIDE_11X.md`](docs/01_ARQUITECTURA_PIRAMIDE_11X.md), [`TESTING.md`](TESTING.md), [`SECURITY.md`](SECURITY.md), and [`ROADMAP.md`](ROADMAP.md).
 

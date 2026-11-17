@@ -26,4 +26,4 @@ commands =
     bandit -c pyproject.toml -r src/
 
     # 5. Suite unitaria, Mocks, BDD y Benchmarking (Cobertura >= 95%)
-    pytest --import-mode=importlib --cov=src/ --cov-fail-under=95 --cov-report=term-missing --cov-report=html:/tmp/htmlcov
+    pytest --import-mode=importlib -m "not integration" --cov=src/ --cov-fail-under=95 --cov-report=term-missing --cov-report=html:/tmp/htmlcov

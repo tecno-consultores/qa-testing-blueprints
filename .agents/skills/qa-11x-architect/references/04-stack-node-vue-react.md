@@ -42,7 +42,7 @@ This reference provides technical rules, testing conventions, and ephemeral Dock
                       ├──────────────────────────────────────┤
                       │ Playwright E2E + @axe-core (WCAG AA) │
                       ├──────────────────────────────────────┤
-                      │ Stryker Mutation Testing (> 80%)     │
+                      │ Stryker Mutation Testing (MSI >= 80%)│
                       ├──────────────────────────────────────┤
                       │ Vitest Unit Tests (.unit.ts >= 95%)  │
                       ├──────────────────────────────────────┤
@@ -75,7 +75,7 @@ Every frontend component must adhere to the design rules in `.agents/skills/refa
 1. **Button Hierarchy:** Exactly ONE Primary button per viewport/panel (`bg-indigo-600 text-white font-medium`). Secondary and tertiary actions must use muted or ghost treatments (`border border-slate-700` or `text-slate-400 hover:text-white`).
 2. **Perceptual Contrast (Anti-Translucency Trap):** Never use `text-white/40` or low-opacity white text on colored backgrounds; calculate explicit OKLCH / hex colors to ensure `>= 4.5:1` contrast ratio for normal text and `>= 3.0:1` for large text.
 3. **Tabular Numerics for CLS = 0:** Apply `font-feature-settings: "tnum"` / Tailwind `tabular-nums` on all metrics, counters, timestamps, currency values, and table numbers to prevent Cumulative Layout Shifts.
-4. **Responsive Integrity:** Zero horizontal scrollbars (`overflow-x: hidden`) across mobile (`375px`), tablet (`768px`), and desktop (`1440px`).
+4. **Responsive Integrity (Zero `overflow-x: hidden` Band-Aids):** Fix root layout widths (`min-w-0`, flexible grids, text wrapping) so `document.documentElement.scrollWidth <= window.innerWidth` passes cleanly across mobile (`375x667`), tablet (`768x1024`), and desktop (`1440x900`) **without** masking clipping bugs with `overflow-x: hidden`.
 5. **Focus Indicators:** Never use `outline: none` without providing an explicit replacement focus indicator (`focus-visible:ring-2 focus-visible:ring-indigo-500`).
 
 ---
@@ -131,37 +131,60 @@ if (typeof globalThis.localStorage?.clear !== 'function') {
 ```
 
 ### `Makefile` Targets (Frontend & Node.js — Non-Root `ui-e2e`, `QA-PLAYWRIGHT-PIN-01` & Post-Deploy PSI)
-Pin exact `@playwright/test`/`playwright` versions (`"1.52.0"`, no `^`/`~` ranges) matching `mcr.microsoft.com/playwright:vX.Y.Z-noble` (`QA-PLAYWRIGHT-PIN-01`). Run `ui-e2e` as non-root (`-u "$(QA_UID):$(QA_GID)" -e HOME=/tmp -e COREPACK_HOME=/tmp/.corepack`) with rootless Corepack (`/tmp/.corepack-bin`) and prefer `./node_modules/.bin/{playwright,lhci}` over dynamic downloads:
+Pin exact `@playwright/test`/`playwright` versions (`"1.52.0"`, no `^`/`~` ranges) matching `mcr.microsoft.com/playwright:vX.Y.Z-noble` (`QA-PLAYWRIGHT-PIN-01`). Run `qa-frontend` and `ui-e2e` as non-root (`-u "$(QA_UID):$(QA_GID)" -e HOME=/tmp -e COREPACK_HOME=/tmp/.corepack`) with rootless Corepack (`/tmp/.corepack-bin`) and prefer `./node_modules/.bin/{playwright,lhci}` over dynamic downloads:
 ```makefile
-.PHONY: qa-lint qa-unit qa-orphans qa-mutation qa-bdd qa-e2e qa-perf qa-psi qa-all
+.PHONY: build-ui qa-lint qa-unit qa-orphans qa-mutation qa-bdd qa-e2e qa-perf qa-psi qa-all clean-cache clean qa-clean
+
+PROJECT_DIR ?= $(CURDIR)
+QA_UID ?= $(shell id -u)
+QA_GID ?= $(shell id -g)
+export QA_UID QA_GID
+
+build-ui:
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-frontend bash -c "pnpm install --silent && pnpm --silent run build"
+	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml down -v >/dev/null 2>&1 || true" ERR INT TERM; \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml up -d --wait ui-prod'
 
 qa-lint:
-	docker compose -f docker-compose.qa.yml run --rm -T ui pnpm run lint
-	docker compose -f docker-compose.qa.yml run --rm -T ui pnpm exec vue-tsc --noEmit
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-frontend bash -c "pnpm install --silent && pnpm run audit:deps && pnpm run type-check && pnpm run format:check && pnpm lint"
 
 qa-unit:
-	docker compose -f docker-compose.qa.yml run --rm -T ui pnpm exec vitest run --coverage
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-frontend bash -c "pnpm install --silent && pnpm run test:coverage"
 
 qa-orphans:
-	docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(CURDIR):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_zero_orphan_vue_components.py
-	docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(CURDIR):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_no_orphan_api_endpoints.py
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-frontend bash -c "\
+		if [ -f .agents/scripts/verify_zero_orphan_vue_components.py ]; then python3 .agents/scripts/verify_zero_orphan_vue_components.py; fi"
 
 qa-mutation:
-	docker compose -f docker-compose.qa.yml run --rm -T ui pnpm exec stryker run
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-frontend bash -c "pnpm install --silent && pnpm run mutate"
 
-qa-bdd:
-	docker compose -f docker-compose.qa.yml run --rm -T karatelabs mvn -B clean test -Dkarate.options="test/ui_business_flow.feature"
+qa-bdd: build-ui
+	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml down -v >/dev/null 2>&1 || true" EXIT; \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml up -d --wait ui-prod && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T karatelabs mvn -B clean test'
 
-qa-e2e:
-	docker compose -f docker-compose.qa.yml run --rm -T -u "$$(id -u):$$(id -g)" -e HOME=/tmp ui-e2e sh -c 'if [ -x ./node_modules/.bin/playwright ]; then ./node_modules/.bin/playwright test; elif command -v pnpm >/dev/null 2>&1; then pnpm exec playwright test; else corepack pnpm exec playwright test; fi'
+qa-e2e: build-ui
+	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml down -v >/dev/null 2>&1 || true" EXIT; \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml up -d --wait ui-prod && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp ui-e2e bash -c "if [ -x ./node_modules/.bin/playwright ]; then ./node_modules/.bin/playwright test; elif command -v pnpm >/dev/null 2>&1; then pnpm exec playwright test; else corepack pnpm exec playwright test; fi"'
 
-qa-perf:
-	docker compose -f docker-compose.qa.yml run --rm -T -u "$$(id -u):$$(id -g)" -e HOME=/tmp ui-e2e sh -c 'if [ -x ./node_modules/.bin/lhci ]; then ./node_modules/.bin/lhci autorun; elif command -v pnpm >/dev/null 2>&1; then pnpm exec lhci autorun; else corepack pnpm exec lhci autorun; fi'
+qa-perf: build-ui
+	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml down -v >/dev/null 2>&1 || true" EXIT; \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml up -d --wait ui-prod && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp ui-e2e bash -c "if [ -x ./node_modules/.bin/lhci ]; then ./node_modules/.bin/lhci autorun --config=lighthouserc.cjs; elif command -v pnpm >/dev/null 2>&1; then pnpm run test:perf; else corepack pnpm run test:perf; fi"'
 
 qa-psi:
 	@./scripts/auditar-pagespeed.sh $(if $(URL),--url "$(URL)",) --strategy "$(or $(STRATEGY),both)" $(if $(MIN_PERF),--min-performance "$(MIN_PERF)",) --output "psi-reports/psi-report.json"
 
-qa-all: qa-lint qa-unit qa-orphans qa-bdd
+qa-all: qa-lint qa-orphans qa-unit qa-mutation qa-perf qa-e2e qa-bdd
+
+clean-cache:
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml down -v >/dev/null 2>&1 || true
+
+clean: clean-cache
+	./limpieza.sh
+
+qa-clean: clean
 ```
 
 ---

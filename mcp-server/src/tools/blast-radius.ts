@@ -94,7 +94,34 @@ export async function defaultGraphifyBuilder(
   }
 }
 
-const IGNORED_DIRS = new Set(['node_modules', '.git', '.venv', '__pycache__', 'dist', '.cache']);
+const GRAPHIFY_DIR_NAME = 'graphify-out';
+const IGNORED_DIRS = new Set([
+  'node_modules',
+  '.git',
+  '.venv',
+  '__pycache__',
+  'dist',
+  '.cache',
+  'vendor',
+  'target',
+  'coverage',
+  'build',
+  GRAPHIFY_DIR_NAME,
+]);
+const MODERATE_BLAST_CALLERS_THRESHOLD = 5;
+const HIGH_BLAST_CALLERS_THRESHOLD = 15;
+const CRITICAL_BLAST_CALLERS_THRESHOLD = 25;
+const SECURITY_BLAST_KEYWORDS = [
+  'vault',
+  'auth',
+  'token',
+  'rls',
+  'security',
+  'csrf',
+  'secret',
+  'session',
+  'rbac',
+] as const;
 const VALID_EXTENSIONS = new Set([
   '.ts',
   '.js',
@@ -158,10 +185,25 @@ const RISK_ORDER: Record<BlastRiskLevel, number> = {
   CRITICAL: 3,
 };
 
-function calculateRiskLevel(count: number): BlastRiskLevel {
-  if (count > 10) return 'CRITICAL';
-  if (count >= 7) return 'HIGH';
-  if (count >= 5) return 'MEDIUM';
+function hasSecurityBlastKeyword(symbol: string): boolean {
+  const lower = symbol.toLowerCase();
+  return SECURITY_BLAST_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
+function calculateRiskLevel(count: number, targetSymbol = ''): BlastRiskLevel {
+  const isSecuritySensitive = targetSymbol.length > 0 && hasSecurityBlastKeyword(targetSymbol);
+  if (
+    count >= CRITICAL_BLAST_CALLERS_THRESHOLD ||
+    (isSecuritySensitive && count >= HIGH_BLAST_CALLERS_THRESHOLD)
+  ) {
+    return 'CRITICAL';
+  }
+  if (count >= HIGH_BLAST_CALLERS_THRESHOLD || isSecuritySensitive) {
+    return 'HIGH';
+  }
+  if (count >= MODERATE_BLAST_CALLERS_THRESHOLD) {
+    return 'MEDIUM';
+  }
   return 'LOW';
 }
 
@@ -242,12 +284,14 @@ function indexGraphNodes(
 ): { matchedIds: Set<string>; nodeById: Map<string, GraphNode> } {
   const matchedIds = new Set<string>();
   const nodeById = new Map<string, GraphNode>();
-  // eslint-disable-next-line security/detect-non-literal-regexp
-  const wordRegex = new RegExp(`\\b${escapeRegex(queryLower)}\\b`);
+  const wordRegex = /\w/.test(queryLower)
+    ? // eslint-disable-next-line security/detect-non-literal-regexp
+      new RegExp(`\\b${escapeRegex(queryLower)}\\b`)
+    : null;
   for (const node of nodes) {
     if (!node.id) continue;
     nodeById.set(node.id, node);
-    if (isMatchingGraphNode(node, queryLower, wordRegex)) {
+    if (wordRegex && isMatchingGraphNode(node, queryLower, wordRegex)) {
       matchedIds.add(node.id);
       if (node.source_file) {
         const norm = normalizeRelativePath(node.source_file);
@@ -312,91 +356,126 @@ function collectGraphCallers(graphFilePath: string, ctx: GraphScanContext): void
   }
 }
 
-function scanDirectory(dir: string, rootPath: string, ctx: GraphScanContext): void {
+interface CandidateFileEntry {
+  readonly fullPath: string;
+  readonly rel: string;
+  readonly ext: string;
+}
+
+interface DirectoryInventory {
+  readonly candidateFiles: CandidateFileEntry[];
+  readonly graphJsonFiles: Array<{ readonly fullPath: string; readonly rel: string }>;
+  readonly graphReports: string[];
+}
+
+function recordGraphifyDirArtifacts(
+  graphDir: string,
+  rootPath: string,
+  inventory: DirectoryInventory
+): void {
+  const graphPath = path.join(graphDir, 'graph.json');
+  if (fs.existsSync(graphPath) && fs.statSync(graphPath).isFile()) {
+    inventory.graphJsonFiles.push({
+      fullPath: graphPath,
+      rel: normalizeRelativePath(path.relative(rootPath, graphPath)),
+    });
+  }
+  const reportPath = path.join(graphDir, 'GRAPH_REPORT.md');
+  if (fs.existsSync(reportPath) && fs.statSync(reportPath).isFile()) {
+    inventory.graphReports.push(normalizeRelativePath(path.relative(rootPath, reportPath)));
+  }
+}
+
+function recordFileEntry(
+  entryName: string,
+  fullPath: string,
+  rootPath: string,
+  inventory: DirectoryInventory
+): void {
+  const rel = normalizeRelativePath(path.relative(rootPath, fullPath));
+  if (entryName === 'graph.json') {
+    inventory.graphJsonFiles.push({ fullPath, rel });
+    return;
+  }
+  if (entryName === 'GRAPH_REPORT.md') {
+    inventory.graphReports.push(rel);
+    return;
+  }
+  const ext = path.extname(entryName);
+  if (VALID_EXTENSIONS.has(ext)) {
+    inventory.candidateFiles.push({ fullPath, rel, ext });
+  }
+}
+
+function collectDirectoryInventory(
+  dir: string,
+  rootPath: string,
+  inventory: DirectoryInventory
+): void {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory() && entry.name === GRAPHIFY_DIR_NAME) {
+      recordGraphifyDirArtifacts(fullPath, rootPath, inventory);
+      continue;
+    }
     if (IGNORED_DIRS.has(entry.name)) {
       continue;
     }
-
-    const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      scanDirectory(fullPath, rootPath, ctx);
+      collectDirectoryInventory(fullPath, rootPath, inventory);
     } else if (entry.isFile()) {
-      const rel = normalizeRelativePath(path.relative(rootPath, fullPath));
-      if (entry.name === 'graph.json') {
-        ctx.graphFiles.push(rel);
-        collectGraphCallers(fullPath, ctx);
-        continue;
-      }
-      if (entry.name === 'GRAPH_REPORT.md') {
-        ctx.graphReports.push(rel);
-        continue;
-      }
-      const ext = path.extname(entry.name);
-      if (VALID_EXTENSIONS.has(ext)) {
-        processCandidateFile({ fullPath, rel, ext, ctx });
-      }
+      recordFileEntry(entry.name, fullPath, rootPath, inventory);
     }
   }
 }
 
-export async function inspectAstBlastRadius(
-  projectPathInput: string,
-  targetSymbol: string,
-  maxItems?: number,
-  options?: BlastRadiusOptions
-): Promise<BlastRadiusResult> {
-  const resolvedPath = resolveSafeProjectPath(projectPathInput);
-
-  if (!fs.existsSync(resolvedPath)) {
-    throw new Error(`El directorio no existe: ${resolvedPath}`);
-  }
-
-  const builder = options?.graphBuilder ?? defaultGraphifyBuilder;
-  let astGraphRebuilt = false;
-
-  if (options?.refreshGraph) {
-    astGraphRebuilt = await builder(resolvedPath, options?.signal);
-  }
-
-  const ctx: GraphScanContext = {
-    cleanSymbol: targetSymbol.trim(),
-    dependentFiles: new Set<string>(),
-    suggestedTests: new Set<string>(),
-    graphFiles: [],
+function runGraphAndConditionalRegexScan(resolvedPath: string, ctx: GraphScanContext): void {
+  const inventory: DirectoryInventory = {
+    candidateFiles: [],
+    graphJsonFiles: [],
     graphReports: [],
-    declaringFiles: new Set<string>(),
-    declaringLocations: new Set<string>(),
-    outgoingDependencies: new Set<string>(),
   };
+  collectDirectoryInventory(resolvedPath, resolvedPath, inventory);
+  ctx.graphFiles.length = 0;
+  ctx.graphReports.length = 0;
+  ctx.graphReports.push(...inventory.graphReports);
 
-  scanDirectory(resolvedPath, resolvedPath, ctx);
-
-  if (ctx.graphFiles.length === 0 && options?.autoBuildIfMissing && !astGraphRebuilt) {
-    astGraphRebuilt = await builder(resolvedPath, options?.signal);
-    if (astGraphRebuilt) {
-      scanDirectory(resolvedPath, resolvedPath, ctx);
-    }
-  }
-
-  let diffBundle: DiffBundleReport | undefined;
-  if (options?.changedSinceRef !== undefined) {
-    diffBundle = await buildSemanticDiffBundle(
-      resolvedPath,
-      options.changedSinceRef,
-      options.maxTokensBudget
-    );
-    mergeDiffBundleDependents(diffBundle, ctx);
+  for (const graphEntry of inventory.graphJsonFiles) {
+    ctx.graphFiles.push(graphEntry.rel);
+    collectGraphCallers(graphEntry.fullPath, ctx);
   }
 
   for (const declFile of ctx.declaringFiles) {
     ctx.dependentFiles.delete(declFile);
   }
 
+  if (!/\w/.test(ctx.cleanSymbol) || ctx.dependentFiles.size > 0) {
+    return;
+  }
+
+  for (const candidate of inventory.candidateFiles) {
+    processCandidateFile({ ...candidate, ctx });
+  }
+}
+
+interface BuildBlastResultInput {
+  readonly resolvedPath: string;
+  readonly ctx: GraphScanContext;
+  readonly diffBundle: DiffBundleReport | undefined;
+  readonly astGraphRebuilt: boolean;
+  readonly maxItems?: number;
+}
+
+function buildBlastRadiusResult(input: BuildBlastResultInput): BlastRadiusResult {
+  const { resolvedPath, ctx, diffBundle, astGraphRebuilt, maxItems } = input;
+  for (const declFile of ctx.declaringFiles) {
+    ctx.dependentFiles.delete(declFile);
+  }
+
   const sortedDependents = Array.from(ctx.dependentFiles).sort((a, b) => a.localeCompare(b));
   const count = sortedDependents.length;
-  const baseRiskLevel = calculateRiskLevel(count);
+  const baseRiskLevel = calculateRiskLevel(count, ctx.cleanSymbol);
   const riskLevel = diffBundle ? elevateRiskWithDiff(baseRiskLevel, diffBundle) : baseRiskLevel;
   const astGraphDetected = ctx.graphFiles.length > 0;
   const astGraphActionRequired = astGraphDetected
@@ -430,4 +509,63 @@ export async function inspectAstBlastRadius(
     ast_graph_action_required: astGraphActionRequired,
     ...(diffBundle ? { diff_bundle: diffBundle } : {}),
   };
+}
+
+export async function inspectAstBlastRadius(
+  projectPathInput: string,
+  targetSymbol = '',
+  maxItems?: number,
+  options?: BlastRadiusOptions
+): Promise<BlastRadiusResult> {
+  const resolvedPath = resolveSafeProjectPath(projectPathInput);
+
+  if (!fs.existsSync(resolvedPath)) {
+    throw new Error(`El directorio no existe: ${resolvedPath}`);
+  }
+
+  const cleanSymbol = targetSymbol.trim();
+  if (!cleanSymbol && options?.changedSinceRef === undefined) {
+    throw new Error('Se requiere target_symbol (o changed_since_ref para análisis diferencial).');
+  }
+
+  const builder = options?.graphBuilder ?? defaultGraphifyBuilder;
+  let astGraphRebuilt = options?.refreshGraph ? await builder(resolvedPath, options.signal) : false;
+
+  const ctx: GraphScanContext = {
+    cleanSymbol,
+    dependentFiles: new Set<string>(),
+    suggestedTests: new Set<string>(),
+    graphFiles: [],
+    graphReports: [],
+    declaringFiles: new Set<string>(),
+    declaringLocations: new Set<string>(),
+    outgoingDependencies: new Set<string>(),
+  };
+
+  runGraphAndConditionalRegexScan(resolvedPath, ctx);
+
+  if (ctx.graphFiles.length === 0 && options?.autoBuildIfMissing && !astGraphRebuilt) {
+    astGraphRebuilt = await builder(resolvedPath, options?.signal);
+    if (astGraphRebuilt) {
+      runGraphAndConditionalRegexScan(resolvedPath, ctx);
+    }
+  }
+
+  let diffBundle: DiffBundleReport | undefined;
+  if (options?.changedSinceRef !== undefined) {
+    diffBundle = await buildSemanticDiffBundle(
+      resolvedPath,
+      options.changedSinceRef,
+      options.maxTokensBudget
+    );
+    mergeDiffBundleDependents(diffBundle, ctx);
+  }
+
+  return buildBlastRadiusResult({
+    resolvedPath,
+    ctx,
+    diffBundle,
+    astGraphRebuilt,
+    maxItems,
+  });
 }

@@ -435,6 +435,18 @@ def test_risk_levels_and_helper_edge_cases(tmp_path: Path) -> None:
     assert gpv._extract_porcelain_paths("R  old.py -> new.py") == ["old.py", "new.py"]
     assert gpv._extract_porcelain_paths("M src/x.py") == ["M src/x.py"]
     assert gpv._is_ignored_for_fingerprint("./docs/a.md") is True
+    assert gpv._is_ignored_for_fingerprint("AGENTS.md") is False
+    sub_doc = "catalogs/agenticskills-submission.md"
+    assert gpv._is_ignored_for_fingerprint(sub_doc) is False
+    assert (
+        gpv._collect_link_dependent(
+            {"source": "doc_node", "target": "app", "relation": "documented_in"},
+            {"doc_node": "docs/a.md", "app": "src/app.py"},
+            "",
+            {"src/app.py"},
+        )
+        is None
+    )
     with mock.patch.object(gpv, "_run_git", return_value="a.py\n\n"):
         assert gpv._collect_changed_files(repo, "HEAD", ()) == ("a.py",)
     assert gpv._validate_evidence_consistency({"stages": "bad"}, mock.MagicMock()) == {}

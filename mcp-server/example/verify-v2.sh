@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
-# Verificador Clean-Room del tarball v3.1.0 de @sinfallas/mcp-qa-11x fuera del monorepo.
+# Verificador Clean-Room del tarball v3.2.0 de @sinfallas/mcp-qa-11x fuera del monorepo.
 
 LC_ALL=C
 set -euo pipefail
@@ -63,6 +63,13 @@ if [ "${VERSION_OUT}" != "${EXPECTED_PKG_VERSION}" ]; then
   exit 1
 fi
 
+VERSION_JSON="$(node "${BIN_JS}" --version --json)"
+node --input-type=module - "${VERSION_JSON}" "${EXPECTED_PKG_VERSION}" <<'EOF'
+import assert from 'node:assert/strict';
+const parsed = JSON.parse(process.argv[2]);
+assert.equal(parsed.mcp_version, process.argv[3]);
+EOF
+
 HELP_OUT="$(node "${BIN_JS}" --help)"
 if ! printf '%s\n' "${HELP_OUT}" | grep -q "quickstart"; then
   echo "FAIL [--help] No documenta quickstart en CLI_HELP_TEXT" >&2
@@ -113,6 +120,38 @@ if ! printf '%s\n' "${COMPLETION_OUT}" | grep -q "complete -c mcp-qa-11x"; then
   echo "FAIL [completion] No emitió autocompletado fish para mcp-qa-11x" >&2
   exit 1
 fi
+
+CERT_DIR="${WORK_DIR}/certify-proj"
+mkdir -p "${CERT_DIR}/graphify-out" "${CERT_DIR}/src" "${CERT_DIR}/tests"
+printf '# Testing\n' >"${CERT_DIR}/TESTING.md"
+printf '# Changelog\n\n## [Unreleased]\n- Seed.\n' >"${CERT_DIR}/CHANGELOG.md"
+printf '{"directed":true,"nodes":[],"links":[]}\n' >"${CERT_DIR}/graphify-out/graph.json"
+printf 'export function computeSum(a: number, b: number): number { return a + b; }\n' >"${CERT_DIR}/src/math.ts"
+printf 'import { computeSum } from "./math";\nexport const total = computeSum(1, 2);\n' >"${CERT_DIR}/src/app.ts"
+printf '// @GH-101\n// @TC-101\n' >"${CERT_DIR}/tests/math.test.ts"
+
+CERTIFY_JSON="$(node "${BIN_JS}" certify "${CERT_DIR}" --allow-unmerged-examples --offline --json)"
+node --input-type=module - "${CERTIFY_JSON}" <<'EOF'
+import assert from 'node:assert/strict';
+const parsed = JSON.parse(process.argv[2]);
+assert.equal(parsed.exit_code, 0);
+assert.equal(parsed.certify.gate_passed, true);
+EOF
+
+BLAST_JSON="$(node "${BIN_JS}" blast-radius computeSum -p "${CERT_DIR}" --json)"
+node --input-type=module - "${BLAST_JSON}" <<'EOF'
+import assert from 'node:assert/strict';
+const parsed = JSON.parse(process.argv[2]);
+assert.equal(parsed.target_symbol, 'computeSum');
+assert.equal(parsed.recommended_path, 'MICRO_CHANGE');
+EOF
+
+TMS_JSON="$(cd "${CERT_DIR}" && node "${BIN_JS}" tms-sync --mode inventory --provider github-issues --target-dir . --json)"
+node --input-type=module - "${TMS_JSON}" <<'EOF'
+import assert from 'node:assert/strict';
+const parsed = JSON.parse(process.argv[2]);
+assert.equal(parsed.status, 'TRACEABILITY_OK');
+EOF
 
 cat >"${WORK_DIR}/arch.calm.json" <<'EOF'
 {
@@ -342,6 +381,31 @@ try {
     },
   });
   assert.notEqual(tmsInv.isError, true);
+
+  const frSave = await client.callTool({
+    name: 'session_flight_recorder',
+    arguments: {
+      project_path: projDir,
+      action: 'save',
+      task_id: 'V2-CR-01',
+      active_step: 'S1',
+      planned_steps: ['S1', 'S2'],
+      intent_140chars: 'Clean-room flight recorder verification',
+    },
+  });
+  assert.notEqual(frSave.isError, true);
+  const frRecover = await client.callTool({
+    name: 'session_flight_recorder',
+    arguments: { project_path: projDir, action: 'recover' },
+  });
+  assert.equal(JSON.parse(frRecover.content[0].text).checkpoint.task_id, 'V2-CR-01');
+  const frClear = await client.callTool({
+    name: 'session_flight_recorder',
+    arguments: { project_path: projDir, action: 'clear', reason: 'Clean-room verified' },
+  });
+  const frClearJson = JSON.parse(frClear.content[0].text);
+  assert.equal(frClearJson.checkpoint.status, 'CERTIFIED_CLEAN');
+  assert.deepEqual(frClearJson.checkpoint.planned_steps, []);
 
   const blocked = await client.callTool({
     name: 'validate_calm_architecture',

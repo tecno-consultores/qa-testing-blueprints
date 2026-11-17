@@ -295,7 +295,8 @@ export class InteractWithMobile implements MobileAbility {
   }
 
   async readBounds(locator: MobileLocator): Promise<MobileElementBounds> {
-    return this.driver.locate(locator).readBounds();
+    const element = await this.requireVisibleElement(locator);
+    return element.readBounds();
   }
 
   async getCurrentContext(): Promise<string> {

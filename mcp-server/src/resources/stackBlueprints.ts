@@ -242,10 +242,6 @@ function loadDescriptorMarkdown(
   return { source: SOURCE_EMBEDDED_FALLBACK, text: fallback };
 }
 
-export function listV2StackBlueprintResources(): readonly Resource[] {
-  return Object.values(V2_STACK_BLUEPRINTS).map((entry) => entry.resource);
-}
-
 export function readStackBlueprintResource(
   stackOrUri: string,
   workspaceRoot?: string,

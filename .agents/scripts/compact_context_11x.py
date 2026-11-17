@@ -86,7 +86,7 @@ def _is_tool_result_message(message: dict[str, Any]) -> bool:
     return (
         isinstance(content, list)
         and bool(content)
-        and all(_is_tool_result_block(b) for b in content)
+        and any(_is_tool_result_block(b) for b in content)
     )
 
 
@@ -399,9 +399,16 @@ def _write_output_atomic(output_path: str, result: CompactionResult) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = dest.parent / f".compact-{uuid.uuid4().hex}.tmp"
     payload = json.dumps(asdict(result), indent=2, ensure_ascii=False) + "\n"
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
     try:
-        tmp_path.write_text(payload, encoding="utf-8")
+        fd = os.open(tmp_path, flags, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.chmod(tmp_path, 0o600)
         os.replace(tmp_path, dest)
+        os.chmod(dest, 0o600)
     except OSError:
         tmp_path.unlink(missing_ok=True)
         raise

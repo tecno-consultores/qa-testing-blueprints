@@ -9,9 +9,11 @@ import {
   CANONICAL_TASK_CAPACITY_URI,
   COMPAT_TASK_CAPACITY_URI,
   DEFAULT_AGENT_CARD_RELATIVE_PATH,
+  DEFAULT_A2A_PROTOCOL_VERSION,
   DEFAULT_STANDARD_VERSION,
   DEFAULT_TASK_CAPACITY,
   GIT_CLOSURE_HUMAN_GATE_ID,
+  QA_11X_SKILLS,
   QA_11X_V2_SKILLS,
   buildAgentCard,
   deriveStandardVersion,
@@ -56,7 +58,15 @@ describe('Agent2Agent Card Generator (buildAgentCard)', () => {
 
     expect(card.name).toBe('qa-11x-mcp-agent');
     expect(card.version).toBe(MCP_SERVER_VERSION);
-    expect(card.protocolVersion).toBe('0.2.1');
+    expect(DEFAULT_A2A_PROTOCOL_VERSION).toBe('1.0');
+    expect(card.protocolVersion).toBe('1.0');
+    expect(card.supportedInterfaces).toEqual([
+      {
+        url: card.url,
+        protocolBinding: 'JSONRPC',
+        protocolVersion: '1.0',
+      },
+    ]);
     expect(card.standardVersion).toBe(DEFAULT_STANDARD_VERSION);
     expect(card.standardVersion).toBe(expectedStandardVersion);
     expect(deriveStandardVersion()).toBe(DEFAULT_STANDARD_VERSION);
@@ -72,7 +82,8 @@ describe('Agent2Agent Card Generator (buildAgentCard)', () => {
       stateTransitionHistory: true,
     });
     expect(card.skills).toHaveLength(11);
-    expect(card.skills.map((s) => s.id)).toEqual(QA_11X_V2_SKILLS.map((s) => s.id));
+    expect(QA_11X_V2_SKILLS).toBe(QA_11X_SKILLS);
+    expect(card.skills.map((s) => s.id)).toEqual(QA_11X_SKILLS.map((s) => s.id));
     expect(card.extensions).toHaveLength(1);
     expect(card.extensions[0]?.uri).toBe(CANONICAL_TASK_CAPACITY_URI);
     expect(card.extensions[0]?.params).toEqual({

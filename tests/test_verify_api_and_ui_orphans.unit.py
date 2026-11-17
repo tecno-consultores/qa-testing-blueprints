@@ -91,9 +91,30 @@ def test_api_generic_pair_and_public_extractors(tmp_path: Path) -> None:
         },
     )
     assert mod.main(generic_fe_be) == 0
-    assert len(mod.extract_fastapi_routes(generic_fe_be)) == 1
-    assert len(mod.extract_node_routes(generic_fe_be)) == 1
-    assert len(mod.extract_frontend_calls(generic_fe_be)) == 2
+    assert (
+        len(
+            mod._extract_fastapi_routes_from_src(
+                generic_fe_be / "backend" / "src", generic_fe_be
+            )
+        )
+        == 1
+    )
+    assert (
+        len(
+            mod._extract_node_routes_from_dirs(
+                [generic_fe_be / "backend" / "src"], generic_fe_be
+            )
+        )
+        == 1
+    )
+    assert (
+        len(
+            mod._extract_frontend_calls_from_dirs(
+                [generic_fe_be / "frontend" / "src"], generic_fe_be
+            )
+        )
+        == 2
+    )
 
     generic_src = tmp_path / "generic_src"
     _write_files(
@@ -111,9 +132,41 @@ def test_api_generic_pair_and_public_extractors(tmp_path: Path) -> None:
         },
     )
     assert mod.main(generic_src) == 0
-    assert len(mod.extract_frontend_calls(generic_src)) == 1
-    assert mod.extract_fastapi_routes(tmp_path / "empty_re") == []
-    assert mod.extract_frontend_calls(tmp_path / "empty_fe") == []
+    assert (
+        len(
+            mod._extract_frontend_calls_from_dirs(
+                [generic_src / "src"], generic_src
+            )
+        )
+        == 1
+    )
+    assert mod._find_fastapi_src(tmp_path / "empty_re") is None
+    assert mod._detect_frontend_dirs(tmp_path / "empty_fe") == []
+
+    # Comentarios JS/TS y dirs tests/dist/coverage/node_modules no dan falsos positivos
+    commented_ws = tmp_path / "commented_ws"
+    _write_files(
+        commented_ws,
+        {
+            "node-backend/src/routes.ts": (
+                "// router.get('/api/v1/commented-be', h);\n"
+                "/* router.post('/api/v1/block-be', h); */\n"
+                "router.get('/api/v1/live', h);\n"
+            ),
+            "node-backend/src/tests/ignored.ts": (
+                "router.get('/api/v1/test-dir-be', h);\n"
+            ),
+            "react-frontend/src/client.ts": (
+                "// fetch('/api/v1/commented-fe');\n"
+                "/* axios.post('/api/v1/block-fe'); */\n"
+                "fetch('/api/v1/live');\n"
+            ),
+            "react-frontend/src/dist/bundle.js": (
+                "fetch('/api/v1/dist-ignored');\n"
+            ),
+        },
+    )
+    assert mod.main(commented_ws) == 0
 
 
 def test_api_per_line_parity_ignore_does_not_skip_whole_file(
@@ -357,15 +410,19 @@ def test_api_fetch_variants_and_helper_edge_cases(
     chain = {f"m{i}": {"r": (f"m{i + 1}", "r")} for i in range(6)}
     assert mod._chase_reexports(("m0", "r"), chain) == ("m4", "r")
     assert mod._match_mod_suffix("", {"a"}) is None
-    assert mod._parse_ast_safe(tmp_path / "missing.py") is None
+    assert mod._parse_code_safe("def broken(:\n", tmp_path / "broken.py") is None
 
     sample_py = tmp_path / "sample.py"
     sample_py.write_text("x = 1\n", encoding="utf-8")
-    assert mod._parse_ast_safe(sample_py) is not None
+    code = sample_py.read_text(encoding="utf-8")
+    assert mod._parse_code_safe(code, sample_py) is not None
 
     only_tests = tmp_path / "only_tests"
     _write_files(only_tests, {"fastapi/src/test_only.py": "x = 1\n"})
-    assert mod.extract_fastapi_routes(only_tests) == []
+    assert (
+        mod._extract_fastapi_routes_from_src(only_tests / "fastapi" / "src", only_tests)
+        == []
+    )
 
     unreadable_repo = tmp_path / "unreadable_src"
     bad_py = unreadable_repo / "fastapi" / "src" / "main.py"
@@ -380,7 +437,12 @@ def test_api_fetch_variants_and_helper_edge_cases(
             else orig_read(self, *a, **kw)
         ),
     )
-    assert mod.extract_fastapi_routes(unreadable_repo) == []
+    assert (
+        mod._extract_fastapi_routes_from_src(
+            unreadable_repo / "fastapi" / "src", unreadable_repo
+        )
+        == []
+    )
 
 
 def test_ui_jsx_compound_suffixes_and_exclusions(

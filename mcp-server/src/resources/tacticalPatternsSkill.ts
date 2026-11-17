@@ -5,6 +5,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { Resource } from '@modelcontextprotocol/sdk/types.js';
 import type { ResourceLanguage } from '../types.js';
+import type { BlueprintFetcherPathHints } from './aiEvalsBlueprint.js';
 import { getActiveResourceLang } from './resourceLang.js';
 
 export const TACTICAL_PATTERNS_SKILL_URI = 'blueprint://skills/tactical-patterns-11x' as const;
@@ -103,7 +104,10 @@ function tryReadContainedSkillFile(candidateRoot: string): string | null {
   return fs.readFileSync(realFile, 'utf8');
 }
 
-function loadTacticalPatternsMarkdown(workspaceRoot?: string): {
+function loadTacticalPatternsMarkdown(
+  workspaceRoot?: string,
+  fetcherHints?: BlueprintFetcherPathHints
+): {
   readonly source: 'workspace' | 'embedded-fallback';
   readonly markdown: string;
 } {
@@ -115,10 +119,13 @@ function loadTacticalPatternsMarkdown(workspaceRoot?: string): {
   }
 
   const envRoot = process.env.QA_BLUEPRINTS_LOCAL_PATH?.trim();
+  const cacheDir = fetcherHints?.cacheDir?.trim() || process.env.QA_BLUEPRINTS_CACHE_DIR?.trim();
   const candidates = [
+    ...(fetcherHints?.localOverridePath?.trim() ? [fetcherHints.localOverridePath.trim()] : []),
     ...(envRoot ? [envRoot] : []),
     process.cwd(),
     path.dirname(process.cwd()),
+    ...(cacheDir ? [path.join(cacheDir, 'files')] : []),
     path.resolve(import.meta.dirname, '..', '..', '..'),
   ];
   for (const candidate of candidates) {
@@ -132,10 +139,11 @@ function loadTacticalPatternsMarkdown(workspaceRoot?: string): {
 
 export function readTacticalPatternsSkillResource(
   workspaceRoot?: string,
-  lang?: ResourceLanguage
+  lang?: ResourceLanguage,
+  fetcherHints?: BlueprintFetcherPathHints
 ): TacticalPatternsSkillResult {
   const resolvedLang = getActiveResourceLang(undefined, lang);
-  const loaded = loadTacticalPatternsMarkdown(workspaceRoot);
+  const loaded = loadTacticalPatternsMarkdown(workspaceRoot, fetcherHints);
   let text: string;
   if (loaded.source === 'workspace') {
     text = resolvedLang === 'es' ? `${ES_WORKSPACE_BANNER}${loaded.markdown}` : loaded.markdown;

@@ -211,6 +211,11 @@ BEGIN
     IF p_id IS NULL OR p_tenant_id IS NULL THEN
         RAISE EXCEPTION 'WORM validation error: p_id and p_tenant_id are required';
     END IF;
+    IF p_actor_username IS NULL
+       OR pg_catalog.btrim(p_actor_username) = ''
+       OR pg_catalog.btrim(p_actor_username) ~* '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' THEN
+        RAISE EXCEPTION 'WORM semantic audit error: p_actor_username must be human-readable (non-empty and non-UUIDv4)';
+    END IF;
 
     PERFORM pg_advisory_xact_lock(hashtext('audit:' || p_tenant_id::text));
 
@@ -246,16 +251,10 @@ BEGIN
         IF v_supplied_hash !~ '^[0-9a-f]{64}$' THEN
             RAISE EXCEPTION 'WORM hash validation error: p_record_sha256_hash must be 64 hex chars';
         END IF;
-        IF v_supplied_hash = v_expected_hash THEN
-            v_final_hash := v_expected_hash;
-        ELSE
-            v_final_hash := pg_catalog.encode(
-                pg_catalog.sha256(
-                    pg_catalog.convert_to(v_prev_hash || '|' || v_supplied_hash, 'UTF8')
-                ),
-                'hex'
-            );
+        IF v_supplied_hash <> v_expected_hash THEN
+            RAISE EXCEPTION 'WORM hash validation error: supplied hash % does not match expected %', v_supplied_hash, v_expected_hash;
         END IF;
+        v_final_hash := v_expected_hash;
     ELSE
         v_final_hash := v_expected_hash;
     END IF;

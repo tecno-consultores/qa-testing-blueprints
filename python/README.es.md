@@ -29,7 +29,7 @@ Al generar código, configurar el entorno o plantear soluciones, debes asegurar 
 *   **Comportamiento BDD y Carga SLO (`k6`):** `pytest-bdd` para Gherkin local y `python/tests/load/smoke.k6.js` (`K6_PROFILE=smoke|load|stress`) para validar `p(95) < 250ms`, `p(99) < 500ms` y error `< 1%` sin falsos verdes.
 *   **Cobertura (Coverage):** `pytest-cov` (se exige un mínimo del 95% con `COVERAGE_FILE=/tmp/.coverage`).
 *   **Pruebas de Mutación:** `mutmut` (para validar si las pruebas fallan cuando el código lógico cambia).
-*   **Matriz de Compatibilidad y RLS:** `tox` con `tox-uv` y verificación contra `postgres:17-alpine` (`NOBYPASSRLS`, `FORCE RLS`, `SET LOCAL app.current_tenant_id`).
+*   **Matriz de Compatibilidad y RLS:** `tox` con `tox-uv` y verificación contra `postgres:17-alpine@sha256:d3244e8ce3f165ee3c93d9c4a4b1d0fe48b3a89e2287b717fdcbbde92d405065` (`NOBYPASSRLS`, `FORCE RLS`, `SET LOCAL app.current_tenant_id`).
 *   **Observabilidad:** `prometheus_client`.
 
 ## 3. Arquitectura de las Pruebas a Generar
@@ -117,13 +117,17 @@ make qa-mutation
 
 *   **Profiling (Generar Flamegraph de CPU para el script):**
 ```bash
-docker compose -f docker-compose.qa.yml run --rm qa-backend bash -c "uv sync && py-spy record -o profile.svg -- python src/main.py"
+# Adjuntar py-spy a un PID ya activo en contenedores endurecidos requiere CAP_SYS_PTRACE (`--cap-add SYS_PTRACE`); ejecutar el comando directo corre bajo el UID mapeado:
+docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-backend bash -c "uv sync --all-extras -q && uv run py-spy record -o /tmp/profile.svg -- python src/main.py"
 ```
 
-**Paso 2: Certificación de Observabilidad en Vivo (Nivel 11X)**
-Si el script fue instrumentado (sea como daemon o script efímero mediante Pushgateway), ejecútalo encendiendo el perfil de observabilidad.
+**Paso 2: Certificación de Observabilidad y Carga en Vivo (Nivel 11X)**
+Si el script fue instrumentado (sea como daemon o script efímero mediante Pushgateway), ejecútalo encendiendo el perfil de observabilidad, o dispara `make qa-load` para validar SLOs con k6.
 ```bash
-docker compose -f docker-compose.qa.yml --profile observability up -d
-docker compose -f docker-compose.qa.yml run --rm qa-backend bash -c "uv sync && python src/main.py"
+make qa-observability
+docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-backend bash -c "uv sync --all-extras -q && uv run python src/main.py"
+make qa-load
+# Apagar el stack efímero y sus volúmenes al terminar (o ejecutar `make clean-cache`):
+docker compose -f docker-compose.qa.yml --profile "*" down -v
 ```
 *(Accede a `http://localhost:9090` durante la ejecución para evaluar el comportamiento de raspeo o push de métricas).*

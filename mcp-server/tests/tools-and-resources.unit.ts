@@ -378,22 +378,25 @@ describe('Tools and Resources Integration Suite', () => {
       expect(result.risk_level).toBe('LOW');
     });
 
-    it('assigns HIGH risk when dependent count is 7-10', async () => {
-      for (let i = 1; i <= 7; i++) {
+    it('assigns HIGH risk when dependent count reaches HIGH threshold (15) or security keyword matches', async () => {
+      for (let i = 1; i <= 15; i++) {
         fs.writeFileSync(path.join(targetProjectDir, `mod_${i}.py`), 'from core import SharedSymbol\n', 'utf-8');
       }
       const result = await inspectAstBlastRadius(targetProjectDir, 'SharedSymbol');
       expect(result.risk_level).toBe('HIGH');
-      expect(result.dependent_files_count).toBe(7);
+      expect(result.dependent_files_count).toBe(15);
+
+      const secResult = await inspectAstBlastRadius(targetProjectDir, 'authToken');
+      expect(secResult.risk_level).toBe('HIGH');
     });
 
-    it('assigns CRITICAL risk when dependent count > 10', async () => {
-      for (let i = 1; i <= 12; i++) {
+    it('assigns CRITICAL risk when dependent count reaches CRITICAL threshold (25)', async () => {
+      for (let i = 1; i <= 25; i++) {
         fs.writeFileSync(path.join(targetProjectDir, `crit_${i}.py`), 'from core import CriticalSymbol\n', 'utf-8');
       }
       const result = await inspectAstBlastRadius(targetProjectDir, 'CriticalSymbol');
       expect(result.risk_level).toBe('CRITICAL');
-      expect(result.dependent_files_count).toBe(12);
+      expect(result.dependent_files_count).toBe(25);
     });
 
     it('truncates dependent files and suggested tests when maxItems is specified', async () => {
@@ -1145,6 +1148,24 @@ describe('Tools and Resources Integration Suite', () => {
         process.chdir(cwd);
       }
     });
+
+    it('routes explicit --project-path equal to $HOME through resolveSafeProjectPath', async () => {
+      const prevHome = process.env.HOME;
+      const fakeHome = fs.mkdtempSync(path.join(tmpDir, 'home-proj-guard-'));
+      process.env.HOME = fakeHome;
+      try {
+        await expect(runInstallSkillCli(['--project-path', fakeHome, '--dry-run'], fetcher)).rejects.toThrow(
+          WorkspacePathValidationError
+        );
+      } finally {
+        if (prevHome === undefined) {
+          delete process.env.HOME;
+        } else {
+          process.env.HOME = prevHome;
+        }
+        fs.rmSync(fakeHome, { recursive: true, force: true });
+      }
+    });
   });
 
   describe('cleanWorkspace11x and Cleanup Resource Suite', () => {
@@ -1294,6 +1315,26 @@ describe('Tools and Resources Integration Suite', () => {
       await expect(cleanWorkspace11x('/etc')).rejects.toThrow(WorkspacePathValidationError);
       await expect(cleanWorkspace11x(os.tmpdir())).rejects.toThrow(WorkspacePathValidationError);
       await expect(cleanWorkspace11x('../outside')).rejects.toThrow(WorkspacePathValidationError);
+    });
+
+    it('escanea subdirectorios mobile-appium y vibe-rescue y detecta/elimina symlinks colgantes vía lstatSync', async () => {
+      const mobileCov = path.join(targetProjectDir, 'mobile-appium', 'coverage');
+      const vibeCache = path.join(targetProjectDir, 'vibe-rescue', '.pytest_cache');
+      fs.mkdirSync(mobileCov, { recursive: true });
+      fs.mkdirSync(vibeCache, { recursive: true });
+      const danglingRes = path.join(targetProjectDir, 'test-results');
+      fs.symlinkSync(path.join(tmpDir, 'does-not-exist-target'), danglingRes);
+
+      const dry = await cleanWorkspace11x(targetProjectDir, true, false);
+      expect(dry.found_targets).toContain(path.join('mobile-appium', 'coverage'));
+      expect(dry.found_targets).toContain(path.join('vibe-rescue', '.pytest_cache'));
+      expect(dry.found_targets).toContain('test-results');
+
+      const real = await cleanWorkspace11x(targetProjectDir, false, false);
+      expect(real.removed_targets).toContain(path.join('mobile-appium', 'coverage'));
+      expect(real.removed_targets).toContain(path.join('vibe-rescue', '.pytest_cache'));
+      expect(real.removed_targets).toContain('test-results');
+      expect(fs.lstatSync(danglingRes, { throwIfNoEntry: false })).toBeUndefined();
     });
 
     it('retrieves cleanup script resource from BlueprintResources', async () => {
@@ -1595,6 +1636,13 @@ describe('Tools and Resources Integration Suite', () => {
         localOverridePath: localRepoDir,
       });
       vi.spyOn(shaFetcher, 'fetchManifest').mockResolvedValue(shaOnlyManifest);
+      const origFetchFile = shaFetcher.fetchFileContent.bind(shaFetcher);
+      vi.spyOn(shaFetcher, 'fetchFileContent').mockImplementation(async (relPath, expected) => {
+        if (relPath === 'custom/README.es.md') {
+          throw new Error('HTTP 404 offline fixture');
+        }
+        return await origFetchFile(relPath, expected);
+      });
       const prevDebug = process.env.QA11X_DEBUG;
       const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
       let customFallbackRes;
@@ -2317,6 +2365,66 @@ describe('Tools and Resources Integration Suite', () => {
         } else {
           process.env.QA_DISABLE_AUTO_SYNC = prevDisableSync;
         }
+      }
+    });
+
+    it('expone annotations en las 19 tools, rechaza claves extra (.strict()) y sirve evals/tactical desde caché GitHubFetcher', async () => {
+      const cacheRoot = fs.mkdtempSync(path.join(tmpDir, 'fetcher-cache-srv-'));
+      const cachedEvalPath = path.join(cacheRoot, 'files', 'ai-evals', 'promptfooconfig.yaml');
+      const cachedSkillPath = path.join(
+        cacheRoot,
+        'files',
+        '.agents',
+        'skills',
+        'tactical-patterns-11x',
+        'SKILL.md'
+      );
+      fs.mkdirSync(path.dirname(cachedEvalPath), { recursive: true });
+      fs.mkdirSync(path.dirname(cachedSkillPath), { recursive: true });
+      fs.writeFileSync(cachedEvalPath, 'description: "cached-redteam-spec"\n', 'utf8');
+      fs.writeFileSync(cachedSkillPath, '# Cached Tactical Skill\n- Guard clauses\n', 'utf8');
+
+      const cacheOnlyFetcher = new GitHubFetcher({ cacheDir: cacheRoot });
+      const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(cacheRoot);
+      const server = createMcpServer({ fetcher: cacheOnlyFetcher });
+      const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+      const client = new Client({ name: 'strict-ann-client', version: '1.0.0' }, { capabilities: {} });
+      await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+
+      try {
+        const listed = await client.listTools();
+        expect(listed.tools).toHaveLength(19);
+        for (const tool of listed.tools) {
+          expect(tool.annotations).toBeDefined();
+          expect(typeof tool.annotations?.readOnlyHint).toBe('boolean');
+        }
+        const cleanTool = listed.tools.find((t) => t.name === 'clean_workspace_11x');
+        expect(cleanTool?.annotations?.destructiveHint).toBe(true);
+        expect(cleanTool?.inputSchema.additionalProperties).toBe(false);
+
+        const strictV1 = await client.callTool({
+          name: 'inspect_project_config',
+          arguments: { project_path: targetProjectDir, unexpected_key: true },
+        });
+        expect(strictV1.isError).toBe(true);
+
+        const strictV2 = await client.callTool({
+          name: 'validate_calm_architecture',
+          arguments: { workspaceRoot: targetProjectDir, unexpected_v2_key: 1 },
+        });
+        expect(strictV2.isError).toBe(true);
+
+        const evalRes = await client.readResource({ uri: 'blueprint://ai/evals-redteam' });
+        const evalFirst = evalRes.contents[0];
+        expect(evalFirst && 'text' in evalFirst ? evalFirst.text : '').toContain('cached-redteam-spec');
+
+        const skillRes = await client.readResource({ uri: 'blueprint://skills/tactical-patterns-11x' });
+        const skillFirst = skillRes.contents[0];
+        expect(skillFirst && 'text' in skillFirst ? skillFirst.text : '').toContain('Cached Tactical Skill');
+      } finally {
+        cwdSpy.mockRestore();
+        await client.close();
+        await server.close();
       }
     });
   });

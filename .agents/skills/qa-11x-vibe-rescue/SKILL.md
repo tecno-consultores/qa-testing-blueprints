@@ -55,7 +55,7 @@ AI-generated prototypes frequently deliver strong visual layouts alongside sever
    - Wrap all API inputs in Pydantic `ConfigDict(extra="forbid")` or Zod `.strict()` with Unicode `NFKC` normalization (`APSC-DV-002520`) before validation.
    - Inject `Idempotency-Key` middleware on `POST`/`PUT`/`PATCH`/`DELETE`, HMAC-SHA256 CSRF cookies (`HttpOnly; Secure; SameSite=Strict; Path=/`), `PREAUTH_PUBLIC_ROUTES` continuity (`SEC-16`), and OWASP Secure Headers (OSHP).
 3. **Split Monolithic Files Without Breaking UX:**
-   - Refactor `> 500`-line prototype components/handlers into cohesive, single-responsibility modules capped at Cyclomatic/Cognitive Complexity **`CC <= 5` (Grade A)** while preserving Tailwind/CSS tokens, visual hierarchy (`refactoring-ui`), and in-flow layouts (`<main>` footer `margin-top: auto`, `UI-11X-01`, `CLS = 0`).
+   - Refactor `> 500`-line prototype components/handlers into cohesive, single-responsibility modules capped at Cyclomatic Complexity **`CC <= 5` (Grade A)** and Cognitive Complexity **`SonarJS <= 15`** while preserving Tailwind/CSS tokens, visual hierarchy (`refactoring-ui`), and in-flow layouts (`<main>` footer `margin-top: auto`, `UI-11X-01`, `CLS = 0`).
    - Enforce clean architectural boundaries (`UI -> API Client -> Service -> Domain/ORM`) verified by `python3 .agents/scripts/verify_topological_health.py`.
 
 ---
@@ -85,7 +85,7 @@ AI-generated prototypes frequently deliver strong visual layouts alongside sever
 
 | Prototype Symptom | Risk / Rule Violated | 11X Rescue Fix |
 | :--- | :--- | :--- |
-| `VITE_SUPABASE_SERVICE_KEY` in frontend | Client secret exposure (`SEC-02`) | Move to server BFF + Vault AES-256-GCM; rotate key. |
+| `VITE_SUPABASE_SERVICE_KEY` in frontend | Client secret exposure (`SEC-10 / VIBE-SEC-001`) | Move to server BFF + Vault AES-256-GCM; rotate key. |
 | `CREATE POLICY ... USING (true)` | Cross-tenant data leak (`QA-PG17-RLS`) | `FORCE RLS` + `tenant_id` policy + `NOBYPASSRLS` role + `after_begin`. |
 | `req.body as any` / `dict` payloads | Mass assignment / Type bypass (`SEC-01`) | Zod `.strict()` / Pydantic `extra="forbid"` + `NFKC` normalization. |
 | 900-line `App.vue` / `Dashboard.tsx` | Unmaintainable God component (`CC > 5`) | Split into domain hooks/stores + presentational widgets (`<= 150L`). |

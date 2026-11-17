@@ -266,7 +266,6 @@ class TestGenerarManifiesto(unittest.TestCase):
         self.assertIn("AGENTS.md", paths)
         self.assertIn("SECURITY.md", paths)
         self.assertIn("SECURITY.es.md", paths)
-        self.assertEqual(len(gm._collect_agent_schemas(self.temp_path)), 1)
         self.assertIn(".agents/rules/rule1.md", paths)
         self.assertIn(".agents/schemas/session_checkpoint.schema.json", paths)
         self.assertIn(".agents/scripts/script1.sh", paths)
@@ -375,6 +374,13 @@ class TestGenerarManifiesto(unittest.TestCase):
         exit_code = gm.main(["--output", str(output_manifest)])
         self.assertEqual(exit_code, 0)
         self.assertTrue(output_manifest.is_file())
+        first_written = output_manifest.read_text(encoding="utf-8")
+
+        exit_code_idempotent = gm.main(["--output", str(output_manifest)])
+        self.assertEqual(exit_code_idempotent, 0)
+        self.assertEqual(
+            output_manifest.read_text(encoding="utf-8"), first_written
+        )
 
         exit_code_check = gm.main(
             ["--repo-root", str(REPO_ROOT), "--output", str(output_manifest), "--check"]

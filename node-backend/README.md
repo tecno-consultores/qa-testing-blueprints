@@ -54,7 +54,7 @@
 *   **Rule:** Executed exclusively via the `--profile chaos` profile. Pumba injects 500ms of unpredictable network latency onto the Node.js container while `Artillery` sends waves of concurrent users and Prometheus scrapes metrics. It certifies that the architecture neither collapses nor enters permanent *timeouts* when networking degrades.
 
 ### I. Smart Ingestion (Step 0 - AST Graphify `CLI-First`)
-*   **Rule (Exclusive to you, AI):** You are strictly forbidden from generating code or tests blindly. Your first step must be updating and inspecting the AST graph via CLI (`./scripts/actualizar-grafos-graphify.sh node-backend` and `python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"`, or the `inspect_ast_blast_radius` MCP tool) without starting background daemons occupying port `8080`. Additionally, you MUST silently read dependency, formatting, and linter rules defined in `package.json`, `eslint.config.mjs`, `.prettierrc`, `tsconfig.json`, and `tsconfig.build.json` to adapt your code to strict repository conventions and avoid CI/CD rejections.
+*   **Rule (Exclusive to you, AI):** You are strictly forbidden from generating code or tests blindly. Your first step must be updating and inspecting the AST graph via CLI (`./scripts/actualizar-grafos-graphify.sh node-backend` and `python3 .agents/scripts/inspect_blast_radius.py "<symbol>"`, or the `inspect_ast_blast_radius` MCP tool) without starting background daemons occupying port `8080`. Additionally, you MUST silently read dependency, formatting, and linter rules defined in `package.json`, `eslint.config.mjs`, `.prettierrc`, `tsconfig.json`, and `tsconfig.build.json` to adapt your code to strict repository conventions and avoid CI/CD rejections.
 
 ### J. Mandatory Security by Design (DISA ASD STIG V6R5 & OWASP Developer Guide v4.2)
 *   When programming or auditing Node.js/TypeScript microservices, you MUST apply and test the controls from **[`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`](../docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md)**:
@@ -70,13 +70,14 @@ Instead of building complex Docker commands, you **MUST** instruct the user (or 
 Extract/update the AST knowledge graph and query the blast radius before coding:
 ```bash
 ./scripts/actualizar-grafos-graphify.sh node-backend
-python3 .agents/scripts/inspect_blast_radius.py "<simbolo_o_archivo>"
+python3 .agents/scripts/inspect_blast_radius.py "<symbol_or_file>"
 ```
 
 **Step 1: Start the API in the background**
 ```bash
-docker compose -f docker-compose.qa.yml up -d api
+docker compose -f docker-compose.qa.yml up -d --wait api
 ```
+*(When finished, tear down background containers and ephemeral volumes with `make clean-cache` or `make clean`; `qa-e2e`, `qa-dast`, and `qa-stress` run automatic teardown on exit).*
 
 **Step 2: Run the validation suites (Regular Pipeline)**
 

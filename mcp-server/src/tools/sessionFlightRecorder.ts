@@ -69,6 +69,7 @@ export interface FlightRecorderDeps {
   readonly execFileFn?: typeof execFile;
   readonly execFileSyncFn?: typeof execFileSync;
   readonly preferPythonCtl?: boolean;
+  readonly signal?: AbortSignal;
 }
 
 const CHECKPOINT_CTL_REL_PATH = path.join('.agents', 'scripts', 'checkpoint_ctl.py');
@@ -313,7 +314,16 @@ function readExistingCheckpoint(
   gitInfo: { readonly git_available: boolean; readonly branch: string; readonly head_sha: string }
 ): SessionCheckpointDocument | null {
   if (fs.existsSync(checkpointPath)) {
-    return JSON.parse(fs.readFileSync(checkpointPath, UTF8_ENCODING)) as SessionCheckpointDocument;
+    try {
+      const raw = JSON.parse(fs.readFileSync(checkpointPath, UTF8_ENCODING)) as unknown;
+      if (typeof raw === 'object' && raw !== null && !Array.isArray(raw)) {
+        return raw as SessionCheckpointDocument;
+      }
+      return null;
+    } catch (err: unknown) {
+      reportDebugCatchError(`sessionFlightRecorder.readExistingCheckpoint(${checkpointPath})`, err);
+      return null;
+    }
   }
   return hydrateFromExistingActiveTask(activeTaskPath, gitInfo);
 }
@@ -405,17 +415,23 @@ function buildPythonCliArgs(
   return cli;
 }
 
+interface ExecFileAsyncSpec {
+  readonly executor: typeof execFile;
+  readonly file: string;
+  readonly cliArgs: readonly string[];
+  readonly cwd: string;
+  readonly signal?: AbortSignal;
+}
+
 function execFileAsync(
-  executor: typeof execFile,
-  file: string,
-  cliArgs: readonly string[],
-  cwd: string
+  spec: ExecFileAsyncSpec
 ): Promise<{ readonly exitCode: number; readonly errorCode?: string; readonly stdout: string; readonly stderr: string }> {
+  const { executor, file, cliArgs, cwd, signal } = spec;
   return new Promise((resolve) => {
     executor(
       file,
       cliArgs,
-      { cwd, shell: false, timeout: EXEC_TIMEOUT_MS, encoding: UTF8_ENCODING },
+      { cwd, shell: false, timeout: EXEC_TIMEOUT_MS, encoding: UTF8_ENCODING, ...(signal ? { signal } : {}) },
       (error, stdout, stderr) => {
         if (!error) {
           resolve({ exitCode: 0, stdout: String(stdout), stderr: String(stderr) });
@@ -577,8 +593,10 @@ function executeNativeClear(
   const closedDoc: SessionCheckpointDocument = {
     ...existing,
     status: 'CERTIFIED_CLEAN',
-    updated_at: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
+    active_step: '',
+    planned_steps: [],
     completed_steps: allCompleted,
+    updated_at: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
     last_script_run: {
       cmd: ACTION_CLEAR,
       exit_code: 0,
@@ -630,7 +648,23 @@ function buildPythonRecoverResult(
   gitLive: FlightRecorderResult['git_live'],
   projected: string | undefined
 ): FlightRecorderResult {
-  const parsed = JSON.parse(rawStdout) as PythonRecoverPayload;
+  let parsed: PythonRecoverPayload;
+  try {
+    parsed = JSON.parse(rawStdout) as PythonRecoverPayload;
+  } catch (err: unknown) {
+    reportDebugCatchError('sessionFlightRecorder.buildPythonRecoverResult', err);
+    return {
+      status: 'FAILED',
+      action: ACTION_RECOVER,
+      backend: BACKEND_PYTHON_CTL,
+      summary_1line: '[FAIL] CHECKPOINT | Salida JSON inválida de checkpoint_ctl.py recover.',
+      checkpoint_path: ctx.checkpointPath,
+      active_task_path: ctx.activeTaskPath,
+      checkpoint: null,
+      git_live: gitLive,
+      error: 'Salida JSON corrupta emitida por checkpoint_ctl.py recover.',
+    };
+  }
   if (!parsed.checkpoint || parsed.has_checkpoint === false) {
     return {
       status: 'FAILED',
@@ -658,19 +692,44 @@ function buildPythonRecoverResult(
   };
 }
 
+function parseDiskCheckpointSafe(
+  checkpointPath: string
+): { readonly ok: true; readonly doc: SessionCheckpointDocument | null } | { readonly ok: false; readonly error: string } {
+  if (!fs.existsSync(checkpointPath)) {
+    return { ok: true, doc: null };
+  }
+  try {
+    const raw = JSON.parse(fs.readFileSync(checkpointPath, UTF8_ENCODING)) as unknown;
+    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+      return { ok: false, error: `JSON de checkpoint inválido en ${checkpointPath}.` };
+    }
+    return { ok: true, doc: raw as SessionCheckpointDocument };
+  } catch (err: unknown) {
+    reportDebugCatchError(`sessionFlightRecorder.parseDiskCheckpointSafe(${checkpointPath})`, err);
+    return { ok: false, error: `JSON corrupto o ilegible en ${checkpointPath}.` };
+  }
+}
+
 async function tryPythonCheckpointCtl(
   action: FlightRecorderAction,
   args: SessionFlightRecorderArgs,
   ctx: NativeActionContext,
-  execFileFn: typeof execFile
+  deps: FlightRecorderDeps
 ): Promise<FlightRecorderResult | null> {
+  const execFileFn = deps.execFileFn ?? execFile;
   const gitLive = collectLiveGitSnapshot(ctx.realRoot, ctx.execFileSyncFn);
   const priorClearDoc =
     action === ACTION_CLEAR
       ? readExistingCheckpoint(ctx.checkpointPath, ctx.activeTaskPath, gitLive)
       : null;
   const cliArgs = buildPythonCliArgs(ctx.realRoot, action, args);
-  const res = await execFileAsync(execFileFn, 'python3', cliArgs, ctx.realRoot);
+  const res = await execFileAsync({
+    executor: execFileFn,
+    file: 'python3',
+    cliArgs,
+    cwd: ctx.realRoot,
+    signal: deps.signal,
+  });
   if (res.errorCode === 'ENOENT') {
     return null;
   }
@@ -693,13 +752,24 @@ async function tryPythonCheckpointCtl(
   if (action === ACTION_RECOVER) {
     return buildPythonRecoverResult(res.stdout, ctx, gitLive, projected);
   }
-  const diskDoc = fs.existsSync(ctx.checkpointPath)
-    ? (JSON.parse(fs.readFileSync(ctx.checkpointPath, UTF8_ENCODING)) as SessionCheckpointDocument)
-    : null;
+  const diskParsed = parseDiskCheckpointSafe(ctx.checkpointPath);
+  if (!diskParsed.ok) {
+    return {
+      status: 'FAILED',
+      action,
+      backend: BACKEND_PYTHON_CTL,
+      summary_1line: `[FAIL] CHECKPOINT | ${diskParsed.error}`,
+      checkpoint_path: ctx.checkpointPath,
+      active_task_path: ctx.activeTaskPath,
+      checkpoint: null,
+      git_live: gitLive,
+      error: diskParsed.error,
+    };
+  }
   const closedDoc =
-    !diskDoc && action === ACTION_CLEAR && priorClearDoc
-      ? { ...priorClearDoc, status: 'CERTIFIED_CLEAN' as const, planned_steps: [] }
-      : diskDoc;
+    !diskParsed.doc && action === ACTION_CLEAR && priorClearDoc
+      ? { ...priorClearDoc, status: 'CERTIFIED_CLEAN' as const, active_step: '', planned_steps: [] }
+      : diskParsed.doc;
   return {
     status: 'PASSED',
     action,
@@ -792,19 +862,37 @@ function resolveValidatedRecorderContext(
   };
 }
 
+function extractSignalAbortMessage(signal: AbortSignal): string {
+  const reason: unknown = signal.reason;
+  if (reason instanceof Error && reason.message) {
+    return reason.message;
+  }
+  if (typeof reason === 'string' && reason.trim().length > 0) {
+    return reason;
+  }
+  return 'session_flight_recorder abortado por timeout o cancelación.';
+}
+
 export async function runSessionFlightRecorder(
   rawArgs: SessionFlightRecorderArgs = {},
   deps: FlightRecorderDeps = {}
 ): Promise<FlightRecorderResult> {
+  if (deps.signal?.aborted) {
+    return buildErrorResult(
+      parseFlightRecorderAction(rawArgs.action) ?? 'unknown',
+      '',
+      '',
+      extractSignalAbortMessage(deps.signal)
+    );
+  }
   const resolved = resolveValidatedRecorderContext(rawArgs, deps);
   if (!resolved.ok) {
     return resolved.errorResult;
   }
   const { action, ctx } = resolved;
-  const execFileFn = deps.execFileFn ?? execFile;
   const hasCtlScript = fs.existsSync(path.join(ctx.realRoot, CHECKPOINT_CTL_REL_PATH));
   if (deps.preferPythonCtl !== false && hasCtlScript) {
-    const pyResult = await tryPythonCheckpointCtl(action, rawArgs, ctx, execFileFn);
+    const pyResult = await tryPythonCheckpointCtl(action, rawArgs, ctx, deps);
     if (pyResult !== null) {
       return pyResult;
     }

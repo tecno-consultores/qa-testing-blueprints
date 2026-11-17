@@ -90,6 +90,8 @@ Debes otorgar capacidades extendidas temporalmente al contenedor en tu archivo `
 ```yaml
     cap_add:
       - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
 ```
 
 ---
@@ -129,7 +131,13 @@ Al ejecutar `make qa-unit` o instalar dependencias, paquetes como `esbuild`, `pr
 Como medida de seguridad estricta, inyectamos un archivo `.npmrc` configurado con `ignore-scripts=true`. Esto bloquea los ataques de cadena de suministro, pero también detiene a las librerías legítimas que necesitan compilar binarios locales.
 
 **La Solución:**
-Identifica la librería que falló y permítela explícitamente en el `package.json` utilizando herramientas de lista blanca (como `pnpm` config o `npm rebuild <paquete>`), o reconstruye el paquete específico al vuelo dentro del `Makefile` de tu proyecto, manteniendo el bloqueo global intacto.
+Identifica la librería que falló y declárala explícitamente en `pnpm-workspace.yaml` mediante un **mapa booleano `allowBuilds`** conforme a `SEC-09` (está prohibido declararlo en `package.json` vía `"pnpm"` / `pnpm.onlyBuiltDependencies`, que además es ignorado por `pnpm 12+` con `ERR_PNPM_IGNORED_BUILDS`, y nunca uses una lista YAML `- pkg` porque aborta con `ERR_PNPM_INVALID_SETTING`):
+```yaml
+allowBuilds:
+  esbuild: true
+  bcrypt: true
+```
+También puedes reconstruir los paquetes nativos confiables específicos dentro del contenedor efímero manteniendo intacto `ignore-scripts=true` en `.npmrc`.
 
 ---
 

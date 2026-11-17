@@ -32,6 +32,11 @@ FORBIDDEN_DEV_MODULES = {
     "locust",
     "bandit",
     "pip_audit",
+    "ruff",
+    "mypy",
+    "tox",
+    "py_spy",
+    "pact",
     "unittest.mock",
 }
 

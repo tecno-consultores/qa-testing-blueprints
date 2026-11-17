@@ -3776,6 +3776,17 @@ export interface AuditSecurityOptions {
   includeExamples?: boolean;
 }
 
+const SEVERITY_SORT_RANK: Readonly<Record<SecurityFinding['severity'], number>> = {
+  CRITICAL: 0,
+  HIGH: 1,
+  MEDIUM: 2,
+  LOW: 3,
+};
+
+function sortFindingsBySeverity(findings: SecurityFinding[]): SecurityFinding[] {
+  return [...findings].sort((a, b) => SEVERITY_SORT_RANK[a.severity] - SEVERITY_SORT_RANK[b.severity]);
+}
+
 /**
  * Tool 5: audit_security_stig_owasp
  * Audita estáticamente el código fuente frente a los 22 patrones DISA ASD STIG V6R5 y OWASP v4.2.
@@ -3799,13 +3810,14 @@ export async function auditSecurityStigOwasp(
     const auditOptions: AuditSecurityOptions = { includeExamples };
     const allAbsoluteFiles = collectFiles(resolvedPath, auditOptions);
     const allRelFiles = allAbsoluteFiles.map((abs) => path.relative(resolvedPath, abs));
-    const findings: SecurityFinding[] = [];
+    const rawFindings: SecurityFinding[] = [];
 
     for (const [i, absPath] of allAbsoluteFiles.entries()) {
-      findings.push(...scanSingleFile(absPath, pickAt(allRelFiles, i), auditOptions));
+      rawFindings.push(...scanSingleFile(absPath, pickAt(allRelFiles, i), auditOptions));
     }
 
-    findings.push(...checkProjectLevelRules(resolvedPath, allRelFiles, auditOptions));
+    rawFindings.push(...checkProjectLevelRules(resolvedPath, allRelFiles, auditOptions));
+    const findings = sortFindingsBySeverity(rawFindings);
 
     const counts = countSeverities(findings);
     const passed = counts.CRITICAL === 0 && counts.HIGH === 0;

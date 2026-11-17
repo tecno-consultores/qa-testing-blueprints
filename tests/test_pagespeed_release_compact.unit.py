@@ -639,3 +639,25 @@ def test_compact_context_tiers_anthropic_and_hardening(
     assert cc.main(["--input", str(bom_in), "--output", str(sym_out)]) == 1
     capsys.readouterr()
     assert real_target.read_text(encoding="utf-8") == "KEEP"
+
+    import stat
+
+    assert stat.S_IMODE(out_ok.stat().st_mode) == 0o600
+    mixed_anth: list[dict[str, Any]] = [
+        {"role": "system", "content": "sys"},
+        {
+            "role": "assistant",
+            "content": [{"type": "tool_use", "id": "t9", "name": "fn", "input": {}}],
+        },
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "prefix"},
+                {"type": "tool_result", "tool_use_id": "t9", "content": "z" * 400},
+            ],
+        },
+    ]
+    res_mixed = cc.compact_context(
+        mixed_anth, context_window=100, threshold_ratio=0.90, keep_recent_tools=0
+    )
+    assert res_mixed.masked_tool_results == 1

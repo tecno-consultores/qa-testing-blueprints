@@ -1,34 +1,38 @@
-# Dependencias de Node
+# Node dependencies
 node_modules/
 .pnp
 .pnp.js
 
-# Salidas de Compilación (Builds)
+# Build outputs
 dist/
 dist-ssr/
 build/
+*.tsbuildinfo
 
-# Variables de Entorno y Secretos (CRÍTICO)
+# Environment variables and secrets (CRITICAL)
 .env
 .env.*
 !.env.example
 
-# Artefactos del Estándar QA 11X
+# QA 11X artifacts
 coverage/
 .stryker-tmp/
 test-results/
 playwright-report/
 blob-report/
+playwright/.cache/
 lhci-reports/
 psi-reports/
 psi-report.json
 .lhcache/
+.lighthouseci/
+.eslintcache
 target/
 test/target/
 graphify-out/
 prometheus_data/
 
-# Logs (Nginx y Node)
+# Logs (Nginx and Node)
 nginx-logs/
 *.log
 npm-debug.log*
@@ -36,7 +40,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Cachés del Sistema y Editores
+# OS and editor caches
 .DS_Store
 Thumbs.db
 .vscode/
@@ -47,8 +51,9 @@ Thumbs.db
 *.sln
 *.sw?
 
-# Gobernanza QA-11X & Contratos
+# QA-11X governance and contracts
 .agents/ACTIVE_TASK.md
 .agents/.cache/
 .agents/artifacts/
+.agents/.qa-evidence.json
 pacts/

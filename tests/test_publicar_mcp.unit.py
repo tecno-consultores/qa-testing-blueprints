@@ -270,8 +270,19 @@ class TestPublicarMcp(unittest.TestCase):
             'if [[ "$*" == *"npm publish"* ]]; then\n'
             '  printf "%s|%s|%s\\n" "${NPM_TOKEN:-}" "${NPM_OTP:-}" '
             '"${NPM_REGISTRY:-}" > "${ENV_CAPTURE_FILE}"\n'
-            '  touch "${PUB_DONE_FLAG}"\n'
-            "  exit 0\n"
+            '  shim_dir="$(mktemp -d)"\n'
+            """  cat >"${shim_dir}/npm" <<'NPM'\n"""
+            "#!/usr/bin/env bash\n"
+            'cp "${NPM_CONFIG_USERCONFIG}" "${NPMRC_CAPTURE_FILE}"\n'
+            "exit 0\n"
+            "NPM\n"
+            '  chmod +x "${shim_dir}/npm"\n'
+            '  pub_cmd="${!#}"\n'
+            '  PATH="${shim_dir}:${PATH}" sh -c "${pub_cmd}"\n'
+            '  rc=$?\n'
+            '  rm -rf "${shim_dir}"\n'
+            '  [ "$rc" -eq 0 ] && touch "${PUB_DONE_FLAG}"\n'
+            "  exit $rc\n"
             "fi\n"
             'if [[ "$*" == *"npm view"* ]]; then\n'
             '  if [ -f "${PUB_DONE_FLAG}" ]; then\n'
@@ -298,6 +309,7 @@ class TestPublicarMcp(unittest.TestCase):
 
             log_file = fake_root / "docker_live.log"
             cap_file = fake_root / "env_capture.txt"
+            npmrc_cap_file = fake_root / "npmrc_capture.txt"
             pub_flag = fake_root / "pub_done.flag"
             env = dict(os.environ)
             env.pop("NPM_TOKEN", None)
@@ -306,6 +318,7 @@ class TestPublicarMcp(unittest.TestCase):
             env["PATH"] = f"{fake_bin}:{env.get('PATH', '')}"
             env["DOCKER_LOG_FILE"] = str(log_file)
             env["ENV_CAPTURE_FILE"] = str(cap_file)
+            env["NPMRC_CAPTURE_FILE"] = str(npmrc_cap_file)
             env["PUB_DONE_FLAG"] = str(pub_flag)
 
             res = subprocess.run(
@@ -319,6 +332,7 @@ class TestPublicarMcp(unittest.TestCase):
             self.assertEqual(env_file.stat().st_mode & 0o777, 0o600)
             docker_log = log_file.read_text(encoding="utf-8")
             self.assertNotIn(token_val, docker_log)
+            self.assertNotIn("////", docker_log)
             self.assertIn("-e NPM_TOKEN", docker_log)
             self.assertIn("-e NPM_OTP", docker_log)
             self.assertIn("-e NPM_REGISTRY", docker_log)
@@ -327,6 +341,14 @@ class TestPublicarMcp(unittest.TestCase):
             self.assertEqual(
                 cap_file.read_text(encoding="utf-8").strip(),
                 f"{token_val}|654321|https://npm.example.org",
+            )
+            script_text = (REPO_ROOT / "scripts" / "publicar-mcp.sh").read_text(
+                encoding="utf-8"
+            )
+            self.assertNotIn("reg_key#////", script_text)
+            self.assertEqual(
+                npmrc_cap_file.read_text(encoding="utf-8").splitlines()[0],
+                f"//npm.example.org/:_authToken={token_val}",
             )
 
 

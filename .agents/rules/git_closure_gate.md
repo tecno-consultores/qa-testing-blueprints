@@ -5,7 +5,7 @@
 
 > **CORE GOVERNANCE DIRECTIVE:**
 > Applies to all AI coding agents (Google Antigravity, Claude Code, Hermes Agent, Cursor, Windsurf, Codex) and automated workflows.
-> **OUTPUT LANGUAGE & DYNAMIC MIRRORING (Spec 19):** Unless `AGENTS.md` mandates a fixed language (Spanish interaction here), respond in the **user's prompt language**; human docs use EN canonical (`*.md`) + 1:1 ES mirror (`*.es.md`) here (matching `README.md`/`CHANGELOG.md` in consumer repos), while `.agents/**` remains concise English.
+> **OUTPUT LANGUAGE & DYNAMIC MIRRORING (Spec 19):** Respond in the **user's prompt language** (unless `AGENTS.md` explicitly pins `--lang es|en`); human docs use EN canonical (`*.md`) + 1:1 ES mirror (`*.es.md`) here (matching `README.md`/`CHANGELOG.md` in consumer repos), while `.agents/**` remains concise English.
 
 ---
 

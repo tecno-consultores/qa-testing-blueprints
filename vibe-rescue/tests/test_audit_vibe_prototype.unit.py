@@ -18,7 +18,7 @@ if str(_VIBE_DIR) not in sys.path:
     sys.path.insert(0, str(_VIBE_DIR))
 
 import audit_vibe_prototype as auditor  # noqa: E402
-from _vibe_rules import TEST_FILE_RE, find_line  # noqa: E402
+from _vibe_rules import TEST_FILE_RE, find_line, is_env_file_ignored  # noqa: E402
 
 
 def test_virgin_empty_project_requires_rescue(tmp_path: Path) -> None:
@@ -279,3 +279,85 @@ def test_vibe_rules_edge_cases_and_script_dir_reload(
     spec.loader.exec_module(isolated)
     assert str(_VIBE_DIR) in sys.path
     assert isolated.DEFAULT_MAX_LINES == auditor.DEFAULT_MAX_LINES
+
+
+def test_gitignore_per_env_file_and_extended_secret_patterns(
+    tmp_path: Path,
+) -> None:
+    """Valida cobertura .gitignore por nombre especifico y llaves AIza/github_pat."""
+    app = tmp_path / "env_app"
+    (app / "src").mkdir(parents=True)
+    (app / "tests").mkdir(parents=True)
+    (app / "tests" / "ok.unit.py").write_text("assert True\n", encoding="utf-8")
+    (app / ".gitignore").write_text(".env\n.env.local\n", encoding="utf-8")
+    (app / ".env").write_text(
+        "API_SECRET=super_secret_value_01\n",  # qa-secret-fixture-ok
+        encoding="utf-8",
+    )
+    (app / ".env.local").write_text(
+        "API_SECRET=super_local_secret_02\n",  # qa-secret-fixture-ok
+        encoding="utf-8",
+    )
+    (app / ".env.production").write_text(
+        "API_SECRET=super_prod_secret_03\n",  # qa-secret-fixture-ok
+        encoding="utf-8",
+    )
+
+    g_key = "AIza" + "SyDummyTokenForUnitTest12345"
+    gh_pat = "github_pat_" + "11ABCDEFG0123456789_xyz"
+    (app / "src" / "keys.ts").write_text(
+        f"export const g = '{g_key}';\nexport const p = '{gh_pat}';\n",
+        encoding="utf-8",
+    )
+
+    report = auditor.audit_prototype(app)
+    assert report["verdict"] == "RESCUE_REQUIRED"
+    env_files = {
+        item["file"] for item in report["findings"] if item["file"].startswith(".env")
+    }
+    assert env_files == {".env.production"}
+    key_findings = [
+        item for item in report["findings"] if item["file"] == "src/keys.ts"
+    ]
+    assert len(key_findings) == 2
+    assert g_key not in json.dumps(report)
+    assert gh_pat not in json.dumps(report)
+
+    (app / ".gitignore").write_text(".env*\n!.env.local\n", encoding="utf-8")
+    negated_report = auditor.audit_prototype(app)
+    neg_env_files = {
+        item["file"]
+        for item in negated_report["findings"]
+        if item["file"].startswith(".env")
+    }
+    assert neg_env_files == {".env.local"}
+
+    rls_sql = (_VIBE_DIR / "templates" / "rls_hardening.sql").read_text(
+        encoding="utf-8"
+    )
+    assert "v_supplied_hash <> v_expected_hash" in rls_sql
+    assert "RAISE EXCEPTION 'WORM hash validation error" in rls_sql
+    assert "WORM semantic audit error" in rls_sql
+
+
+def test_gitignore_star_env_and_dot_env_wildcard_for_root_env(
+    tmp_path: Path,
+) -> None:
+    """Valida linea 229 de _vibe_rules.py (*.env cubre .env, .env.* no cubre .env)."""
+    assert is_env_file_ignored(".env", ".env", frozenset({"*.env"})) is True
+    assert is_env_file_ignored(".env", ".env", frozenset({".env.*"})) is False
+
+    app = tmp_path / "star_env_app"
+    (app / "tests").mkdir(parents=True)
+    (app / "tests" / "ok.unit.py").write_text("assert True\n", encoding="utf-8")
+    (app / ".gitignore").write_text("*.env\n", encoding="utf-8")
+    (app / ".env").write_text(
+        "API_SECRET=super_secret_value_01\n",  # qa-secret-fixture-ok
+        encoding="utf-8",
+    )
+    ignored_rep = auditor.audit_prototype(app)
+    assert not any(f["file"] == ".env" for f in ignored_rep["findings"])
+
+    (app / ".gitignore").write_text(".env.*\n", encoding="utf-8")
+    exposed_rep = auditor.audit_prototype(app)
+    assert any(f["file"] == ".env" for f in exposed_rep["findings"])

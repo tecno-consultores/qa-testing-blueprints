@@ -449,6 +449,27 @@ def test_cli_reset_stdin_symlinks_and_error_paths(
     )
     capsys.readouterr()
 
+    class _TtyStream:
+        @staticmethod
+        def isatty() -> bool:
+            return True
+
+    monkeypatch.setattr(sys, "stdin", _TtyStream())
+    assert (
+        tfs.main(
+            [
+                "--state-file",
+                str(state_file),
+                "--findings-input",
+                "-",
+                "--workspace",
+                str(repo),
+            ]
+        )
+        == 2
+    )
+    assert "QA-CLI-TTY-01" in capsys.readouterr().err
+
 
 def test_cli_subprocess_entrypoint(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
@@ -487,3 +508,21 @@ def test_certify_task_completion_integrates_findings_breaker() -> None:
     assert "--max-streak 3" in content
     assert "rc=42" in content
     assert '"${tracker_rc}" -eq 42' in content
+
+
+def test_save_state_doc_cleans_temp_file_on_os_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import os
+
+    target = tmp_path / "state.json"
+
+    def _fail_replace(_src: Path | str, _dst: Path | str) -> None:
+        raise OSError("disk full")
+
+    monkeypatch.setattr(os, "replace", _fail_replace)
+    with pytest.raises(OSError, match="disk full"):
+        tfs._save_state_doc(target, {"version": 2, "sessions": {}})
+    monkeypatch.undo()
+    assert list(tmp_path.glob("*.tmp")) == []
+    assert not target.exists()

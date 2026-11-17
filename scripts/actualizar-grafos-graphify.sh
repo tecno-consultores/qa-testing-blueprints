@@ -21,14 +21,16 @@ if ! command -v docker &>/dev/null; then
   exit 1
 fi
 
-docker pull -q "${IMAGE_NAME}" >/dev/null 2>&1 || true
+if ! docker image inspect "${IMAGE_NAME}" >/dev/null 2>&1; then
+  docker pull -q "${IMAGE_NAME}" >/dev/null 2>&1 || true
+fi
 
 extract_graph_in_dir() {
   local target_dir="$1"
   local log_file=""
   log_file="$(mktemp /tmp/graphify_ast.XXXXXX.log)"
   trap 'rm -f "${log_file}"' RETURN
-  if ! docker run --rm \
+  if ! docker run --rm --network none \
     -e OLLAMA_BASE_URL="" \
     -v "${target_dir}:/app" \
     -w /app \
@@ -38,7 +40,7 @@ extract_graph_in_dir() {
     cat "${log_file}" >&2
     return 1
   fi
-  docker run --rm \
+  docker run --rm --network none \
     -v "${target_dir}:/work" \
     "${IMAGE_NAME}" \
     sh -c "rm -rf /work/graphify-out/cache /work/graphify-out/20* /work/graphify-out/.graphify_* /work/graphify-out/.cloud-cta-shown 2>/dev/null || true; chown -R $(id -u):$(id -g) /work/graphify-out 2>/dev/null || true" >/dev/null 2>&1 || true
@@ -55,9 +57,9 @@ stack_needs_update() {
 
   # 1. Revisar si existen archivos de código más recientes que graph.json
   local newer_files
-  newer_files=$(find "${target_dir}" -maxdepth 4 \
+  newer_files=$(find "${target_dir}" -maxdepth 7 \
     \( -name node_modules -o -name .git -o -name dist -o -name coverage -o -name graphify-out -o -name .venv -o -name vendor \) -prune \
-    -o -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.py' -o -name '*.vue' -o -name '*.php' -o -name '*.sh' \) \
+    -o -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.mjs' -o -name '*.cjs' -o -name '*.jsx' -o -name '*.py' -o -name '*.vue' -o -name '*.php' -o -name '*.sh' \) \
     -newer "${graph_file}" -print -quit 2>/dev/null || true)
   if [ -n "${newer_files}" ]; then
     return 0

@@ -318,14 +318,6 @@ def _extract_decorator_routes(
     ]
 
 
-def _parse_ast_safe(fpath: Path) -> ast.AST | None:
-    try:
-        code = fpath.read_text(encoding="utf-8", errors="ignore")
-    except OSError:
-        return None
-    return _parse_code_safe(code, fpath)
-
-
 def _parse_code_safe(code: str, fpath: Path) -> ast.AST | None:
     try:
         return ast.parse(code, filename=str(fpath))
@@ -680,6 +672,29 @@ def _extract_fastapi_routes_from_src(
     return _dedup_backend_routes(routes)
 
 
+_IGNORED_SOURCE_DIRS: frozenset[str] = frozenset(
+    {"node_modules", "dist", "coverage", "tests", "test", "__tests__", ".git"}
+)
+_JS_STRING_OR_COMMENT_RE = re.compile(
+    r'"(?:\\.|[^"\\])*"'
+    r"|'(?:\\.|[^'\\])*'"
+    r"|`(?:\\.|[^`\\])*`"
+    r"|//[^\n]*"
+    r"|/\*[\s\S]*?\*/"
+)
+
+
+def _blank_js_comment(match: re.Match[str]) -> str:
+    token = match.group(0)
+    if token.startswith(('"', "'", "`")):
+        return token
+    return re.sub(r"[^\n]", " ", token)
+
+
+def _strip_js_comments(text: str) -> str:
+    return _JS_STRING_OR_COMMENT_RE.sub(_blank_js_comment, text)
+
+
 def _is_source_file(fname: str, extensions: tuple[str, ...]) -> bool:
     return fname.endswith(extensions) and not fname.endswith(_TEST_SOURCE_SUFFIXES)
 
@@ -688,26 +703,17 @@ def _iter_source_files(
     directories: list[Path], extensions: tuple[str, ...]
 ) -> Iterator[Path]:
     for base_dir in (d for d in directories if d.exists()):
-        for root, _, files in os.walk(base_dir):
+        for root, dirs, files in os.walk(base_dir):
+            dirs[:] = sorted(d for d in dirs if d not in _IGNORED_SOURCE_DIRS)
             for fname in sorted(files):
                 if _is_source_file(fname, extensions):
                     yield Path(root) / fname
 
 
-def extract_fastapi_routes(repo_root: Path) -> list[tuple[str, str, str]]:
-    """Extrae las rutas y métodos registrados en FastAPI."""
-    backend_src = _find_fastapi_src(repo_root)
-    if backend_src is None:
-        return []
-    return [
-        (r.verb, r.path, r.rel_file)
-        for r in _extract_fastapi_routes_from_src(backend_src, repo_root)
-    ]
-
-
 def _extract_node_file_routes(fpath: Path, repo_root: Path) -> list[_BackendRoute]:
     rel_file = str(fpath.relative_to(repo_root))
-    text = fpath.read_text(encoding="utf-8", errors="ignore")
+    raw_text = fpath.read_text(encoding="utf-8", errors="ignore")
+    text = _strip_js_comments(raw_text)
     routes: list[_BackendRoute] = []
     for match in _NODE_ROUTE_RE.finditer(text):
         raw_path = match.group(3).strip()
@@ -729,15 +735,6 @@ def _extract_node_routes_from_dirs(
     for fpath in _iter_source_files(candidates, (".ts", ".js")):
         routes.extend(_extract_node_file_routes(fpath, repo_root))
     return routes
-
-
-def extract_node_routes(repo_root: Path) -> list[tuple[str, str, str]]:
-    """Extrae rutas Express/Fastify en node-backend/src o backend/src."""
-    candidates = [repo_root / "node-backend" / "src", repo_root / "backend" / "src"]
-    return [
-        (r.verb, r.path, r.rel_file)
-        for r in _extract_node_routes_from_dirs(candidates, repo_root)
-    ]
 
 
 def _strip_dynamic_query_suffix(raw_url: str) -> str:
@@ -818,7 +815,7 @@ def _extract_fetch_verb(tail: str) -> str:
 
 def _extract_file_frontend_calls(fpath: Path, repo_root: Path) -> list[_FrontendCall]:
     rel_file = str(fpath.relative_to(repo_root))
-    full_text = fpath.read_text(encoding="utf-8", errors="ignore")
+    full_text = _strip_js_comments(fpath.read_text(encoding="utf-8", errors="ignore"))
     calls: list[_FrontendCall] = []
     for match in _FRONT_CALL_RE.finditer(full_text):
         open_idx = full_text.find("(", match.start())
@@ -856,17 +853,6 @@ def _extract_frontend_calls_from_dirs(
     for fpath in _iter_source_files(frontend_dirs, exts):
         calls.extend(_extract_file_frontend_calls(fpath, repo_root))
     return calls
-
-
-def extract_frontend_calls(repo_root: Path) -> list[tuple[str, str, str, int]]:
-    """Extrae llamadas HTTP desde vue3/src/, react-frontend/src/, frontend/src/."""
-    frontend_dirs = _detect_frontend_dirs(repo_root)
-    if not frontend_dirs:
-        return []
-    return [
-        (c.verb, c.url, c.rel_file, c.line_no)
-        for c in _extract_frontend_calls_from_dirs(frontend_dirs, repo_root)
-    ]
 
 
 def _route_matches_call(r_verb: str, r_path: str, f_verb: str, f_url: str) -> bool:
