@@ -369,7 +369,7 @@ function readExistingCheckpoint(
 
 function renderActiveTaskProjection(doc: SessionCheckpointDocument): string {
   const datePart = doc.updated_at.slice(0, 10);
-  const stateLabel = doc.status === 'CERTIFIED_CLEAN' ? 'COMPLETED (100%)' : 'IN_PROGRESS';
+  const stateLabel = doc.status === 'CERTIFIED_CLEAN' ? 'CERTIFIED_CLEAN' : 'IN_PROGRESS';
   const lines: string[] = [
     '# SPDX-License-Identifier: MIT',
     '# Active Task — Proyección Atómica QA-11X',

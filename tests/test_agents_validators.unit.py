@@ -492,7 +492,7 @@ def test_verify_alembic_orm_parity_all_branches(
 
 
 def test_inspect_blast_radius_computes_callers_and_callees() -> None:
-    mod = _load_script_module("inspect_blast", "inspect_blast_radius.py")
+    mod = _load_script_module("inspect_blast_radius", "inspect_blast_radius.py")
     graph = {
         "nodes": [
             {
@@ -508,6 +508,18 @@ def test_inspect_blast_radius_computes_callers_and_callees() -> None:
                 "source_location": "30",
             },
             {
+                "id": "b_qualified",
+                "label": "Module.target_fn",
+                "source_file": "",
+                "source_location": "35",
+            },
+            {
+                "id": "b_extra",
+                "label": "target_fn_extra",
+                "source_file": "src/b_extra.py",
+                "source_location": "40",
+            },
+            {
                 "id": "c",
                 "label": "callee_fn",
                 "source_file": "src/c.py",
@@ -516,11 +528,18 @@ def test_inspect_blast_radius_computes_callers_and_callees() -> None:
         ],
         "links": [
             {"source": "a", "target": "b", "relation": "calls"},
+            {"source": "a", "target": "b", "relation": "imports"},
+            {"source": "c", "target": "b", "relation": "documented_in"},
             {"source": "b", "target": "c", "relation": "calls"},
         ],
     }
     matches = mod.find_matching_nodes(graph, "target_fn")
-    assert len(matches) == 1
+    assert len(matches) == 2
+    assert len(mod.find_matching_nodes(graph, "./src/b.py")) == 1
+    assert mod.find_matching_nodes({"nodes": [{"id": "x", "label": "x"}]}, "x") == [
+        {"id": "x", "label": "x"}
+    ]
+    assert mod.find_matching_nodes({"nodes": [{"id": "x", "label": "x"}]}, "y") == []
     res = mod.compute_blast_radius(graph, "b")
     assert len(res["direct_callers"]) == 1
     assert len(res["outgoing_callees"]) == 1
@@ -531,13 +550,17 @@ def test_inspect_blast_radius_branches_overflow_corrupt_and_cli(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    mod = _load_script_module("inspect_blast_ext", "inspect_blast_radius.py")
+    mod = _load_script_module("inspect_blast_radius", "inspect_blast_radius.py")
     monkeypatch.setattr(mod, "REPO_ROOT", tmp_path)
 
     assert "ALTO" in mod.assess_risk_level("verify_auth_token", 1, 1)
+    assert "ALTO" in mod.assess_risk_level("rbac_guard", 1, 1)
+    assert "ALTO" in mod.assess_risk_level("user_tokens", 1, 1)
     assert "ALTO" in mod.assess_risk_level("normal", 15, 1)
     assert "MODERADO" in mod.assess_risk_level("normal", 5, 1)
+    assert "MODERADO" in mod.assess_risk_level("normal", 1, 4)
     assert "BAJO" in mod.assess_risk_level("normal", 1, 1)
+    assert "BAJO" in mod.assess_risk_level("author", 4, 3)
 
     (tmp_path / "node_modules" / "ignored.py").parent.mkdir(parents=True)
     (tmp_path / "node_modules" / "ignored.py").write_text(
@@ -548,16 +571,22 @@ def test_inspect_blast_radius_branches_overflow_corrupt_and_cli(
     for idx in range(6):
         (src_dir / f"m{idx}.py").write_text("needle_sym()\n", encoding="utf-8")
 
-    mod.inspect_symbol("needle_sym")
+    assert mod.inspect_symbol("needle_sym") == 2
     out_no_graph = capsys.readouterr().out
     assert "No se detectó ningún grafo Graphify" in out_no_graph
     assert "+1 archivos más" in out_no_graph
+    assert mod.inspect_symbol("needle_sym", allow_missing=True) == 0
+    capsys.readouterr()
 
     gdir = tmp_path / "graphify-out"
     gdir.mkdir()
     gpath = gdir / "graph.json"
     gpath.write_text("{bad json", encoding="utf-8")
-    mod.inspect_symbol("needle_sym")
+    assert mod.inspect_symbol("needle_sym") == 0
+    assert "Error procesando grafo" in capsys.readouterr().out
+
+    gpath.write_text("[]", encoding="utf-8")
+    assert mod.inspect_symbol("needle_sym") == 0
     assert "Error procesando grafo" in capsys.readouterr().out
 
     nodes = [
@@ -596,11 +625,25 @@ def test_inspect_blast_radius_branches_overflow_corrupt_and_cli(
         )
 
     monkeypatch.setattr(sys, "argv", ["inspect_blast_radius.py", "hub_sym"])
-    mod.main()
+    assert mod.main() == 0
     out_rich = capsys.readouterr().out
     assert "+1 llamadores más" in out_rich
     assert "+1 dependencias salientes más" in out_rich
     assert "+1 contratos más" in out_rich
+
+    cli_proc = subprocess.run(
+        [
+            sys.executable,
+            str(AGENTS_SCRIPTS / "inspect_blast_radius.py"),
+            "assess_risk_level",
+            "--allow-missing",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert cli_proc.returncode == 0
+    assert "Blast Radius" in cli_proc.stdout
 
 
 def test_sync_governance_syncs_checks_and_enforces_budgets(tmp_path: Path) -> None:
@@ -683,7 +726,11 @@ def test_sync_governance_syncs_checks_and_enforces_budgets(tmp_path: Path) -> No
     (tmp_path / ".agents" / "ACTIVE_TASK.md").write_text(
         "**Estado:** `COMPLETED (100%)`\n", encoding="utf-8"
     )
-    (tactical_dir / "SKILL.md").write_text("x" * 2501, encoding="utf-8")
+    (tactical_dir / "SKILL.md").write_text("x" * 2560, encoding="utf-8")
+    code_tact_ok, _ = mod.run_sync(tmp_path)
+    assert code_tact_ok == 0
+
+    (tactical_dir / "SKILL.md").write_text("x" * 2561, encoding="utf-8")
     (
         tmp_path / ".agents" / "rules" / "active_task_and_planning_resilience.md"
     ).write_text("\n".join(["r"] * 26) + "\n", encoding="utf-8")
@@ -1003,3 +1050,93 @@ def test_sync_governance_porcelain_z_renames_spaces_and_ast_timeout(
     errs = mod.refresh_ast_if_needed(git_repo, manifest_changed=True)
     assert len(errs) == 1
     assert "Tiempo de espera agotado" in errs[0]
+
+
+def test_inspect_blast_radius_edge_branches(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import re
+    import runpy
+
+    mod = _load_script_module("inspect_blast_radius_edges", "inspect_blast_radius.py")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    assert mod._stack_prefix(outside / "graph.json") == ""
+    assert mod._to_repo_rel_path("", "unknown") == "unknown"
+    assert mod._rel_display_path(outside / "g.json") == "g.json"
+    assert (
+        mod._file_matches_pattern(tmp_path / "does_not_exist.py", re.compile("x"))
+        is False
+    )
+
+    repo_root = tmp_path / "repo"
+    g1 = repo_root / "graphify-out" / "graph.json"
+    g1.parent.mkdir(parents=True)
+    g1.write_text('{"nodes": [], "links": []}', encoding="utf-8")
+    g_dup_dir = repo_root / "z_dup"
+    g_dup_dir.mkdir()
+    (g_dup_dir / "graph.json").symlink_to(g1)
+
+    monkeypatch.setattr(mod, "REPO_ROOT", repo_root)
+    found = mod.find_graph_files()
+    assert found == [g1]
+
+    monkeypatch.setattr(sys, "argv", ["inspect_blast_radius.py", "--help"])
+    with pytest.raises(SystemExit) as exc_info:
+        runpy.run_path(
+            str(REPO_ROOT / ".agents" / "scripts" / "inspect_blast_radius.py"),
+            run_name="__main__",
+        )
+    assert exc_info.value.code == 0
+
+
+def test_sync_governance_edge_branches(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import json
+
+    mod = _load_script_module("sync_governance_edges", "sync_governance.py")
+    pkg = tmp_path / "mcp-server" / "package.json"
+    pkg.parent.mkdir(parents=True)
+    pkg.write_text("[]", encoding="utf-8")
+    assert mod._version_from_package_json(pkg) is None
+
+    pkg.write_text('{"version": "not-semver"}', encoding="utf-8")
+    assert mod._version_from_package_json(pkg) is None
+
+    pkg.write_text('{"version": "4.2.0"}', encoding="utf-8")
+    assert mod.get_blueprint_version(tmp_path) == "4.2.0"
+
+    changelog = tmp_path / "CHANGELOG.md"
+    changelog.write_text("# Changelog\n", encoding="utf-8")
+    orig_read = Path.read_text
+
+    def _boom_read(self: Path, *args: Any, **kwargs: Any) -> str:
+        if self == changelog:
+            raise OSError("unreadable")
+        return orig_read(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", _boom_read)
+    assert mod._version_from_changelog(changelog) is None
+    monkeypatch.undo()
+
+    stack_dir = tmp_path / "python" / "__pycache__"
+    stack_dir.mkdir(parents=True)
+    ignored_pyc = stack_dir / "x.py"
+    ignored_pyc.write_text("x = 1\n", encoding="utf-8")
+    assert mod.scan_stack(tmp_path, "python") == []
+
+    (tmp_path / "python" / "keep.py").write_text("x = 1\n", encoding="utf-8")
+    rebuilt_bad = mod._rebuild_missing_stack_files(tmp_path, {"files": "bad"})
+    assert rebuilt_bad == []
+    rebuilt_mixed = mod._rebuild_missing_stack_files(
+        tmp_path, {"files": ["not-dict", {"path": "python/keep.py"}]}
+    )
+    assert [e["path"] for e in rebuilt_mixed] == ["python/keep.py"]
+
+    skill_as_dir = tmp_path / ".agents" / "skills" / "weird" / "SKILL.md"
+    skill_as_dir.mkdir(parents=True)
+    assert mod._collect_skill_budget_errors(tmp_path) == []
+
+    # Mantener uso de json para linters si aplica
+    assert json.loads('{"ok": true}')["ok"] is True

@@ -89,6 +89,6 @@ docker run --rm -e OLLAMA_BASE_URL="" -v "$(pwd):/app" -w /app sinfallas/remote-
 
 | Risk Level | Graph Threshold | Execution Path & Required Verification |
 | :--- | :--- | :--- |
-| **LOW** | `< 5` callers across `< 3` files (0 schema/route changes) | Eligible for **`MICRO_CHANGE` Surgical-Path**: 3-line inline plan, sync affected existing unit/BDD tests (`QA-TEST-SYNC-01`) + stack QA in Docker, incremental AST update. |
-| **MODERATE** | `5–14` callers across `3–7` files | **`FULL_11X` Path**: Verify all caller contracts, update and re-run all affected unit, integration, BATS, and BDD `.feature` scenarios (`QA-TEST-SYNC-01`). |
-| **HIGH / CRITICAL** | `>= 15` callers, `>= 8` files, or security keywords (`vault`, `auth`, `token`, `rls`, `csrf`, `session`, `rbac`) | **`FULL_11X` Path**: Mandatory `/plan`, `.agents/ACTIVE_TASK.md`, full 13-layer pyramid + Karate Labs BDD + security audit before merging. |
+| **LOW** | `< 5` callers across `<= 3` files (0 schema/route changes) | Eligible for **`MICRO_CHANGE` Surgical-Path**: 3-line inline plan, sync affected existing unit/BDD tests (`QA-TEST-SYNC-01`) + stack QA in Docker, incremental AST update. |
+| **MODERATE** | `5–14` callers or `> 3` affected files (non-security) | **`FULL_11X` Path**: Verify all caller contracts, update and re-run all affected unit, integration, BATS, and BDD `.feature` scenarios (`QA-TEST-SYNC-01`). |
+| **HIGH / CRITICAL** | `>= 15` callers or security keywords (`vault`, `auth`, `token`, `rls`, `security`, `csrf`, `secret`, `session`, `rbac`) | **`FULL_11X` Path**: Mandatory `/plan`, `.agents/ACTIVE_TASK.md`, full 13-layer pyramid + Karate Labs BDD + security audit before merging. |

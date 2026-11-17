@@ -52,7 +52,7 @@ Structured submission bundle ready for `https://agenticskills.io/submit` and `ht
 | 8 | `blueprint://core/cleanup-script` | `text/x-shellscript` | Canonical rootless Docker `limpieza.sh` cleanup script |
 | 9 | `blueprint://core/roadmap-validator` | `text/x-python` | Bidirectional roadmap/active-task consistency verifier |
 | 10 | `blueprint://ai/evals-redteam` | `text/markdown` | Dual-mode DeepEval & Promptfoo OWASP LLM Top 10 blueprint |
-| 11 | `blueprint://mobile-appium/readme` | `text/markdown` | Appium 2 + WebdriverIO Screenplay & biometric QA blueprint |
+| 11 | `blueprint://mobile-appium/readme` | `text/markdown` | Appium 3 + WebdriverIO Screenplay & biometric QA blueprint |
 | 12 | `blueprint://vibe-rescue/readme` | `text/markdown` | 5-stage Vibe-to-Enterprise rescue & PostgreSQL 17 RLS templates |
 | 13 | `blueprint://skills/tactical-patterns-11x` | `text/markdown` | JIT tactical design patterns (`CC <= 5`, `max-params: 4`, Port/Adapter, Outbox) |
 
@@ -91,7 +91,7 @@ Structured submission bundle ready for `https://agenticskills.io/submit` and `ht
 4. **`qa-11x-screenplay-builder`** (`e2e`)
    - **Upstream Path:** [`.agents/skills/qa-11x-screenplay-builder/SKILL.md`](../.agents/skills/qa-11x-screenplay-builder/SKILL.md) (`https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-screenplay-builder/SKILL.md`)
    - **Summary:** Builds multi-role Screenplay E2E suites with semantic ARIA locators, Anti-Silo checks, and 3-phase clocks.
-   - **Key Capabilities:** Multi-tenant RBAC Actors/Tasks/Questions across Vue 3, React, and Appium 2 mobile, self-healing ARIA locators, and 3-phase temporal assertions.
+   - **Key Capabilities:** Multi-tenant RBAC Actors/Tasks/Questions across Vue 3, React, and Appium 3 mobile, self-healing ARIA locators, and 3-phase temporal assertions.
 5. **`qa-11x-llm-evaluator`** (`ai-evals`)
    - **Upstream Path:** [`.agents/skills/qa-11x-llm-evaluator/SKILL.md`](../.agents/skills/qa-11x-llm-evaluator/SKILL.md) (`https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-llm-evaluator/SKILL.md`)
    - **Summary:** Dual-mode AI evals: zero-cost offline contracts in CI plus DeepEval and Promptfoo OWASP LLM Top 10 audits.

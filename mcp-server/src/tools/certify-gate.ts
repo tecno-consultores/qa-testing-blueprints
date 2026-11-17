@@ -682,6 +682,28 @@ function resolveWithParentFallback(projectPath: string, ...segments: string[]): 
   return directPath;
 }
 
+const ACTIVE_TASK_CLOSED_STATE_RE =
+  /Estado:\*{0,2}\s*(?:COMPLETED|CERTIFIED_CLEAN)/i;
+
+function isClosedCheckpointStatus(status: unknown): boolean {
+  if (typeof status !== 'string') {
+    return false;
+  }
+  const normalized = status.trim().toUpperCase();
+  return (
+    normalized === 'CERTIFIED_CLEAN' ||
+    normalized === 'COMPLETED' ||
+    normalized === 'COMPLETED (100%)'
+  );
+}
+
+function splitContentLines(content: string): string[] {
+  if (content.length === 0) {
+    return [];
+  }
+  return content.replace(/\r?\n$/, '').split(/\r?\n/);
+}
+
 function checkSessionCheckpointGovernance(projectPath: string, activeTaskPath: string): string[] {
   const ckptPath = resolveWithParentFallback(projectPath, '.agents', '.cache', 'session_checkpoint.json');
   if (!fs.existsSync(ckptPath)) {
@@ -698,13 +720,16 @@ function checkSessionCheckpointGovernance(projectPath: string, activeTaskPath: s
   if (typeof intent !== 'string' || intent.length === 0 || intent.length > 140) {
     blockers.push('.agents/.cache/session_checkpoint.json excede 140 caracteres en intent_140chars.');
   }
-  if (parsed.status !== 'CERTIFIED_CLEAN') {
+  if (!isClosedCheckpointStatus(parsed.status)) {
     return blockers;
   }
   if (Array.isArray(parsed.planned_steps) && parsed.planned_steps.length > 0) {
     blockers.push('session_checkpoint.json en CERTIFIED_CLEAN aún tiene planned_steps.');
   }
-  if (fs.existsSync(activeTaskPath) && !/Estado:\**\s*COMPLETED/i.test(fs.readFileSync(activeTaskPath, 'utf8'))) {
+  if (
+    fs.existsSync(activeTaskPath) &&
+    !ACTIVE_TASK_CLOSED_STATE_RE.test(fs.readFileSync(activeTaskPath, 'utf8'))
+  ) {
     blockers.push('session_checkpoint.json CERTIFIED_CLEAN no coincide con Estado COMPLETED en ACTIVE_TASK.md.');
   }
   return blockers;
@@ -718,14 +743,14 @@ function checkActiveTaskGovernance(projectPath: string): string[] {
 
   try {
     const content = fs.readFileSync(activeTaskPath, 'utf8');
-    const lines = content.split(/\r?\n/);
-    const nonEmptyCount = lines.filter((l) => l.trim().length > 0).length;
-    if (nonEmptyCount > 40) {
+    const lines = splitContentLines(content);
+    const totalLines = lines.length;
+    if (totalLines > 40) {
       blockers.push(
-        `.agents/ACTIVE_TASK.md excede el presupuesto compacto de 40 líneas (${nonEmptyCount} líneas con contenido).`
+        `.agents/ACTIVE_TASK.md excede el presupuesto compacto de 40 líneas (${totalLines} líneas totales).`
       );
     }
-    const isCompleted = /Estado:\**\s*COMPLETED/i.test(content);
+    const isCompleted = ACTIVE_TASK_CLOSED_STATE_RE.test(content);
     const hasPendingCheckboxes = lines.some((l) => /^\s*-\s*\[\s\]/.test(l));
     if (isCompleted && hasPendingCheckboxes) {
       blockers.push(

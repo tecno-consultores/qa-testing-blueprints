@@ -250,7 +250,7 @@ def test_inspect_blast_radius_bidirectional_and_fallback(
 ) -> None:
     """Verifica detección bidireccional (callers/callees) y fallback sin graph.json."""
     _materialize_scenario(tmp_path, "nominal_valid")
-    mod = _load_script("inspect_blast_radius.py", "meta_qa_inspect_blast")
+    mod = _load_script("inspect_blast_radius.py", "inspect_blast_radius")
     monkeypatch.setattr(mod, "REPO_ROOT", tmp_path)
 
     (tmp_path / "tests").mkdir(exist_ok=True)
@@ -259,7 +259,7 @@ def test_inspect_blast_radius_bidirectional_and_fallback(
         encoding="utf-8",
     )
 
-    mod.inspect_symbol("fetch_devices")
+    assert mod.inspect_symbol("fetch_devices") == 0
     out_graph = capsys.readouterr().out
     assert "⬅️ [Llamado por]" in out_graph
     assert "list_devices" in out_graph
@@ -270,10 +270,109 @@ def test_inspect_blast_radius_bidirectional_and_fallback(
     assert "Llamadores: 1" in out_graph
 
     (tmp_path / "graphify-out" / "graph.json").unlink()
-    mod.inspect_symbol("DeviceCard")
+    assert mod.inspect_symbol("DeviceCard") == 2
     out_fallback = capsys.readouterr().out
     assert "[AST/Source Scan]" in out_fallback
     assert "DeviceCard.spec.ts" in out_fallback
+    assert mod.inspect_symbol("DeviceCard", allow_missing=True) == 0
+
+
+def test_inspect_blast_radius_precision_dedup_and_exit_codes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Valida poda de node_modules, dedup raíz+stack, límite de palabra y exit codes."""
+    mod = _load_script("inspect_blast_radius.py", "inspect_blast_radius")
+    monkeypatch.setattr(mod, "REPO_ROOT", tmp_path)
+
+    (tmp_path / "graphify-out").mkdir(parents=True)
+    (tmp_path / "mcp-server" / "graphify-out").mkdir(parents=True)
+    (tmp_path / "node_modules" / "ignored_pkg" / "graphify-out").mkdir(parents=True)
+
+    root_graph = {
+        "nodes": [
+            {
+                "id": "n_auth",
+                "label": "auth",
+                "source_file": "mcp-server/src/auth.py",
+                "source_location": "L10",
+            },
+            {
+                "id": "n_author",
+                "label": "author",
+                "source_file": "mcp-server/src/author.py",
+                "source_location": "L10",
+            },
+            {
+                "id": "n_route",
+                "label": "login_route",
+                "source_file": "mcp-server/src/routes.py",
+            },
+            {
+                "id": "n_doc",
+                "label": "auth_doc",
+                "source_file": "docs/auth.md",
+            },
+        ],
+        "links": [
+            {"source": "n_route", "target": "n_auth", "relation": "calls"},
+            {"source": "n_route", "target": "n_auth", "relation": "imports"},
+            {"source": "n_doc", "target": "n_auth", "relation": "documented_in"},
+            {"source": "n_route", "target": "n_auth", "relation": "rationale_for"},
+            {"source": "n_auth", "target": "n_auth", "relation": "contains"},
+        ],
+    }
+    stack_graph = {
+        "nodes": [
+            {
+                "id": "s_auth",
+                "label": "auth",
+                "source_file": "src/auth.py",
+                "source_location": "L10",
+            },
+            {
+                "id": "s_route",
+                "label": "login_route",
+                "source_file": "src/routes.py",
+            },
+        ],
+        "links": [
+            {"source": "s_route", "target": "s_auth", "relation": "calls"},
+        ],
+    }
+    (tmp_path / "graphify-out" / "graph.json").write_text(
+        json.dumps(root_graph), encoding="utf-8"
+    )
+    (tmp_path / "mcp-server" / "graphify-out" / "graph.json").write_text(
+        json.dumps(stack_graph), encoding="utf-8"
+    )
+    (
+        tmp_path / "node_modules" / "ignored_pkg" / "graphify-out" / "graph.json"
+    ).write_text("{}", encoding="utf-8")
+
+    found_graphs = mod.find_graph_files()
+    assert len(found_graphs) == 2
+    assert all("node_modules" not in p.as_posix() for p in found_graphs)
+
+    matches = mod.find_matching_nodes(root_graph, "auth")
+    assert [m["id"] for m in matches] == ["n_auth"]
+    assert [m["id"] for m in mod.find_matching_nodes(root_graph, "author.py")] == [
+        "n_author"
+    ]
+    assert mod.find_matching_nodes(root_graph, "   ") == []
+
+    assert mod.inspect_symbol("auth") == 0
+    out_auth = capsys.readouterr().out
+    assert "Llamadores: 1" in out_auth
+    assert "author" not in out_auth
+
+    empty_root = tmp_path / "empty_repo"
+    empty_root.mkdir()
+    monkeypatch.setattr(mod, "REPO_ROOT", empty_root)
+    assert mod.main(["missing_sym"]) == 2
+    assert mod.main(["missing_sym", "--allow-missing"]) == 0
+    capsys.readouterr()
 
 
 def test_verificar_secretos_detects_synthetic_token_and_passes_clean_repo(
@@ -917,6 +1016,8 @@ def test_select_tests_by_blast_radius_all_four_tiers_and_cli(
             {"id": "n_rag", "source_file": "ai-evals/rag/test_rag_faithfulness.py"},
             {"id": "n_mcp", "source_file": "mcp-server/src/tools/x.ts"},
             {"id": "n_hot", "source_file": "python/src/core.py"},
+            {"id": "n_hot15", "source_file": "python/src/edge15.py"},
+            {"id": "n_nofile", "source_file": ""},
             *[
                 {"id": f"c_{i}", "source_file": f"python/tests/test_{i}.py"}
                 for i in range(18)
@@ -935,6 +1036,18 @@ def test_select_tests_by_blast_radius_all_four_tiers_and_cli(
                 "relation": "calls",
                 "source_file": "ai-evals/rag/test_rag_faithfulness.py",
             },
+            {
+                "source": "",
+                "target": "n_actor",
+                "relation": "calls",
+                "source_file": "",
+            },
+            {
+                "source": "n_nofile",
+                "target": "n_actor",
+                "relation": "calls",
+                "source_file": "",
+            },
             *[
                 {
                     "source": f"c_{i}",
@@ -943,6 +1056,15 @@ def test_select_tests_by_blast_radius_all_four_tiers_and_cli(
                     "source_file": f"python/tests/test_{i}.py",
                 }
                 for i in range(18)
+            ],
+            *[
+                {
+                    "source": f"c_{i}",
+                    "target": "n_hot15",
+                    "relation": "calls",
+                    "source_file": f"python/tests/test_{i}.py",
+                }
+                for i in range(15)
             ],
         ],
     }
@@ -970,7 +1092,7 @@ def test_select_tests_by_blast_radius_all_four_tiers_and_cli(
     assert pr_plan["run_ai_offline"] is True
     assert pr_plan["run_backend"] is False
     assert 40 <= pr_plan["estimated_savings_pct"] <= 60
-    assert pr_plan["caller_count"] == 1
+    assert pr_plan["caller_count"] == 2
 
     # pr-targeted en mcp-server activa run_mcp y validate_calm + fallback sin grafo
     mcp_plan = mod.select_test_plan(
@@ -1010,6 +1132,57 @@ def test_select_tests_by_blast_radius_all_four_tiers_and_cli(
     )
     assert hot_plan["tier"] == "full-regression"
     assert hot_plan["caller_count"] == 18
+
+    edge15_plan = mod.select_test_plan(
+        event="pull_request",
+        changed_files=["python/src/edge15.py"],
+        graph_path=graph_path,
+    )
+    assert edge15_plan["tier"] == "full-regression"
+    assert edge15_plan["caller_count"] == 15
+
+    # F3.1: .agents/skills/** y .agents/rules/** y .github/actions/** nunca son docs-only
+    for gov_path in (
+        ".agents/skills/qa-11x-architect/SKILL.md",
+        ".agents/rules/git_closure_gate.md",
+        ".github/actions/qa-11x-pr-check/action.yml",
+    ):
+        gov_plan = mod.select_test_plan(
+            event="pull_request",
+            changed_files=[gov_path, "README.md"],
+            graph_path=graph_path,
+        )
+        assert gov_plan["tier"] == "full-regression"
+        assert gov_plan["run_meta_qa"] is True
+        assert gov_plan["run_full_regression"] is True
+
+    # Docs humanos (incluso SECURITY.md) siguen en fast-path docs-only
+    sec_doc_plan = mod.select_test_plan(
+        event="pull_request",
+        changed_files=["SECURITY.md", "docs/01_ARQUITECTURA.md", "CHANGELOG.md"],
+        graph_path=graph_path,
+    )
+    assert sec_doc_plan["tier"] == "docs-only"
+    assert sec_doc_plan["run_full_regression"] is False
+
+    # F3.5: palabras clave de seguridad escalan a full-regression sin falsos positivos
+    for sec_code in ("fastapi/src/auth_service.py", "mcp-server/src/tokens.ts"):
+        sec_plan = mod.select_test_plan(
+            event="pull_request",
+            changed_files=[sec_code],
+            graph_path=graph_path,
+        )
+        assert sec_plan["tier"] == "full-regression"
+    for benign_code in ("fastapi/src/author.py", "fastapi/src/urls.py"):
+        benign_plan = mod.select_test_plan(
+            event="pull_request",
+            changed_files=[benign_code],
+            graph_path=graph_path,
+        )
+        assert benign_plan["tier"] == "pr-targeted"
+        assert benign_plan["run_backend"] is True
+
+    assert mod.classify_suites({".agents/schemas/s.schema.json"})["run_meta_qa"] is True
 
     # 4. nightly-full + CLI --changed-files-file + --github-output + --json + TTY stdin
     nightly_plan = mod.select_test_plan(

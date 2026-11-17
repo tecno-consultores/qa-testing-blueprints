@@ -77,7 +77,7 @@ AI-generated prototypes frequently deliver strong visual layouts alongside sever
 
 1. **Bootstrap Thin-Repo Connector:** Run `init_or_append_agents_md` and `reconcile_agents_governance` so the rescued repository consumes global 11X skills/rules with zero local duplication.
 2. **Rebuild AST & Sync Docs:** Refresh `graphify-out/` via `./scripts/actualizar-grafos-graphify.sh` and update `README.md`, `TESTING.md`, `SECURITY.md`, and `CHANGELOG.md` (`## [Unreleased]`).
-3. **Certify 10/10 & Commit Locally:** Run `make sync-governance`, verify `certify_11x_gate` / `./.agents/scripts/certify_task_completion.sh` (`10/10 PASSED`), mark `.agents/ACTIVE_TASK.md` (`<= 40` lines) as `COMPLETED (100%)`, and finish with a clean local `git commit` (**never `git push`** automatically under `QA-GIT-GATE-01`).
+3. **Certify 10/10 & Commit Locally:** Run `make sync-governance`, verify `certify_11x_gate` / `./.agents/scripts/certify_task_completion.sh` (`10/10 PASSED`), mark `.agents/ACTIVE_TASK.md` (`<= 40` lines) as `CERTIFIED_CLEAN` via `checkpoint_ctl.py` / `session_flight_recorder`, and finish with a clean local `git commit` (**never `git push`** automatically under `QA-GIT-GATE-01`).
 
 ---
 

@@ -15,16 +15,27 @@ import sys
 from pathlib import Path
 from typing import Any
 
+_SCRIPTS_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+
+from _budgets import ACTIVE_TASK_MAX_LINES as ACTIVE_TASK_MAX_LINES  # noqa: E402
+from _budgets import (  # noqa: E402
+    ACTIVE_TASK_RULE_MAX_LINES as ACTIVE_TASK_RULE_MAX_LINES,
+)
+from _budgets import (  # noqa: E402
+    ARCHITECT_SKILL_MAX_BYTES as ARCHITECT_SKILL_MAX_BYTES,
+)
+from _budgets import SKILL_MAX_BYTES as SKILL_MAX_BYTES  # noqa: E402
+from _budgets import (  # noqa: E402
+    TACTICAL_SKILL_MAX_BYTES as TACTICAL_SKILL_MAX_BYTES,
+)
+
 SCHEMA_VERSION = "1.0.0"
 DEFAULT_BLUEPRINT_VERSION = "3.0.0"
 REPOSITORY = "tecno-consultores/qa-testing-blueprints"
 DEFAULT_BRANCH = "main"
 RAW_BASE_URL = f"https://raw.githubusercontent.com/{REPOSITORY}/{DEFAULT_BRANCH}"
-
-MAX_SKILL_MD_BYTES = 20_480
-MAX_TACTICAL_SKILL_BYTES = 2_500
-MAX_ACTIVE_TASK_LINES = 40
-MAX_ACTIVE_TASK_RULE_LINES = 25
 
 STACK_METADATA: dict[str, dict[str, str]] = {
     "python": {
@@ -32,11 +43,15 @@ STACK_METADATA: dict[str, dict[str, str]] = {
         "readme": "python/README.md",
     },
     "fastapi": {
-        "description": "APIs Backend Asíncronas en Python (FastAPI + PostgreSQL 17 + KeyDB)",
+        "description": (
+            "APIs Backend Asíncronas en Python (FastAPI + PostgreSQL 17 + KeyDB)"
+        ),
         "readme": "fastapi/README.md",
     },
     "node-backend": {
-        "description": "Microservicios Backend en Node.js / TypeScript (Express / Fastify)",
+        "description": (
+            "Microservicios Backend en Node.js / TypeScript (Express / Fastify)"
+        ),
         "readme": "node-backend/README.md",
     },
     "vue3": {
@@ -86,6 +101,20 @@ IGNORED_STACK_DIRS = frozenset(
     }
 )
 
+_EXACT_STACK_EXAMPLES: dict[str, tuple[str, str]] = {
+    "gitignore.example": (".gitignore", "append_missing_lines"),
+    "npmrc.example": (".npmrc", "append_missing_lines"),
+    "docker-compose.qa.yml": (
+        "docker-compose.qa.yml",
+        "copy_if_missing_or_update_qa",
+    ),
+}
+
+_SPECIAL_SKILL_LIMITS: dict[str, int] = {
+    "tactical-patterns-11x": TACTICAL_SKILL_MAX_BYTES,
+    "qa-11x-architect": ARCHITECT_SKILL_MAX_BYTES,
+}
+
 
 def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     """Rechaza objetos JSON con claves duplicadas."""
@@ -120,7 +149,7 @@ def compute_sha256(filepath: Path) -> str:
 def build_file_entry(
     filepath: Path, rel_path: str, target_name: str, merge_strategy: str
 ) -> dict[str, Any]:
-    """Construye un descriptor de archivo compatible con el esquema de manifest.json."""
+    """Construye un descriptor compatible con el esquema de manifest.json."""
     return {
         "path": rel_path,
         "target_name": target_name,
@@ -130,30 +159,64 @@ def build_file_entry(
     }
 
 
+def _version_from_package_json(pkg_path: Path) -> str | None:
+    if not pkg_path.is_file():
+        return None
+    try:
+        pkg_data = json.loads(pkg_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, ValueError):
+        return None
+    if isinstance(pkg_data, dict):
+        version = str(pkg_data.get("version", "")).strip()
+        if re.match(r"^\d+\.\d+\.\d+$", version):
+            return version
+    return None
+
+
+def _version_from_changelog(changelog_path: Path) -> str | None:
+    if not changelog_path.is_file():
+        return None
+    try:
+        content = changelog_path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    match = re.search(r"##\s*\[(\d+\.\d+\.\d+)\]", content)
+    return match.group(1) if match else None
+
+
 def get_blueprint_version(
     repo_root: Path, fallback: str = DEFAULT_BLUEPRINT_VERSION
 ) -> str:
     """Obtiene la versión semántica desde mcp-server/package.json o CHANGELOG.md."""
-    pkg_path = repo_root / "mcp-server" / "package.json"
-    if pkg_path.is_file():
-        try:
-            pkg_data = json.loads(pkg_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError, ValueError):
-            pkg_data = None
-        if isinstance(pkg_data, dict):
-            version = str(pkg_data.get("version", "")).strip()
-            if re.match(r"^\d+\.\d+\.\d+$", version):
-                return version
-    changelog_path = repo_root / "CHANGELOG.md"
-    if changelog_path.is_file():
-        try:
-            content = changelog_path.read_text(encoding="utf-8")
-        except OSError:
-            content = ""
-        match = re.search(r"##\s*\[(\d+\.\d+\.\d+)\]", content)
-        if match:
-            return match.group(1)
-    return fallback
+    pkg_version = _version_from_package_json(repo_root / "mcp-server" / "package.json")
+    if pkg_version is not None:
+        return pkg_version
+    changelog_version = _version_from_changelog(repo_root / "CHANGELOG.md")
+    return changelog_version if changelog_version is not None else fallback
+
+
+def _classify_example_file(
+    parent_posix: str, parent_prefix: str, filename: str
+) -> tuple[str, str]:
+    unwrapped = filename[: -len(".example")]
+    target_name = f"{parent_prefix}{unwrapped}"
+    copy_prefixes = ("test", "e2e", "nginx", "initdb")
+    copy_suffixes = (".unit.py", ".spec.ts", ".e2e.ts", ".conf", ".sql")
+    if parent_posix.startswith(copy_prefixes) or unwrapped.endswith(copy_suffixes):
+        return target_name, "copy_if_missing"
+    return target_name, "surgical_merge"
+
+
+def _classify_regular_stack_file(
+    path_str: str, parent_posix: str, filename: str
+) -> tuple[str, str]:
+    if parent_posix.startswith(("test", "e2e")) or filename.endswith(
+        (".feature", ".bats", ".e2e.ts", ".spec.ts")
+    ):
+        return path_str, "copy_if_missing"
+    if filename.endswith((".sh", ".py")):
+        return path_str, "overwrite_executable"
+    return path_str, "copy_if_missing"
 
 
 def classify_stack_file(rel_path_in_stack: Path) -> tuple[str, str]:
@@ -163,27 +226,12 @@ def classify_stack_file(rel_path_in_stack: Path) -> tuple[str, str]:
     parent_posix = rel_path_in_stack.parent.as_posix()
     parent_prefix = f"{parent_posix}/" if parent_posix != "." else ""
 
-    if filename == "gitignore.example":
-        return f"{parent_prefix}.gitignore", "append_missing_lines"
-    if filename == "npmrc.example":
-        return f"{parent_prefix}.npmrc", "append_missing_lines"
-    if filename == "docker-compose.qa.yml":
-        return f"{parent_prefix}docker-compose.qa.yml", "copy_if_missing_or_update_qa"
+    exact = _EXACT_STACK_EXAMPLES.get(filename)
+    if exact is not None:
+        return f"{parent_prefix}{exact[0]}", exact[1]
     if filename.endswith(".example"):
-        unwrapped = filename[: -len(".example")]
-        target_name = f"{parent_prefix}{unwrapped}"
-        if parent_posix.startswith(
-            ("test", "e2e", "nginx", "initdb")
-        ) or unwrapped.endswith((".unit.py", ".spec.ts", ".e2e.ts", ".conf", ".sql")):
-            return target_name, "copy_if_missing"
-        return target_name, "surgical_merge"
-    if parent_posix.startswith(("test", "e2e")) or filename.endswith(
-        (".feature", ".bats", ".e2e.ts", ".spec.ts")
-    ):
-        return path_str, "copy_if_missing"
-    if filename.endswith((".sh", ".py")):
-        return path_str, "overwrite_executable"
-    return path_str, "copy_if_missing"
+        return _classify_example_file(parent_posix, parent_prefix, filename)
+    return _classify_regular_stack_file(path_str, parent_posix, filename)
 
 
 def classify_common_file(rel_path: str) -> tuple[str, str]:
@@ -208,6 +256,14 @@ def classify_governance_file(rel_path: str) -> tuple[str, str]:
     return rel_path, "copy_or_overwrite"
 
 
+def _should_ignore_stack_item(item: Path, rel_in_stack: Path) -> bool:
+    if not item.is_file():
+        return True
+    if any(part in IGNORED_STACK_DIRS for part in rel_in_stack.parts):
+        return True
+    return item.name in IGNORED_STACK_NAMES
+
+
 def scan_stack(repo_root: Path, stack_name: str) -> list[dict[str, Any]]:
     """Escanea recursivamente los archivos rastreados dentro de un stack."""
     stack_dir = repo_root / stack_name
@@ -215,12 +271,8 @@ def scan_stack(repo_root: Path, stack_name: str) -> list[dict[str, Any]]:
         return []
     entries: list[dict[str, Any]] = []
     for item in sorted(stack_dir.rglob("*")):
-        if not item.is_file():
-            continue
         rel_in_stack = item.relative_to(stack_dir)
-        if any(part in IGNORED_STACK_DIRS for part in rel_in_stack.parts):
-            continue
-        if item.name in IGNORED_STACK_NAMES:
+        if _should_ignore_stack_item(item, rel_in_stack):
             continue
         target_name, merge_strategy = classify_stack_file(rel_in_stack)
         full_rel_path = f"{stack_name}/{rel_in_stack.as_posix()}"
@@ -287,8 +339,7 @@ def _discover_schema_paths(repo_root: Path) -> list[Path]:
     return [p for p in sorted(schemas_dir.glob("*.json")) if p.is_file()]
 
 
-def _discover_governance_paths(repo_root: Path) -> list[str]:
-    """Descubre archivos canónicos de gobernanza dentro de los directorios gobernados."""
+def _discover_root_governance_paths(repo_root: Path) -> list[Path]:
     candidates: list[Path] = []
     for rel in (
         "AGENTS.md",
@@ -303,14 +354,14 @@ def _discover_governance_paths(repo_root: Path) -> list[str]:
         candidate = repo_root / rel
         if candidate.is_file():
             candidates.append(candidate)
+    return candidates
 
-    candidates.extend(_discover_catalog_paths(repo_root))
-    candidates.extend(_discover_schema_paths(repo_root))
 
+def _discover_agent_subdir_paths(repo_root: Path) -> list[Path]:
+    candidates: list[Path] = []
     rules_dir = repo_root / ".agents" / "rules"
     if rules_dir.is_dir():
         candidates.extend(p for p in sorted(rules_dir.glob("*.md")) if p.is_file())
-
     scripts_dir = repo_root / ".agents" / "scripts"
     if scripts_dir.is_dir():
         candidates.extend(
@@ -318,18 +369,27 @@ def _discover_governance_paths(repo_root: Path) -> list[str]:
             for p in sorted(scripts_dir.glob("*"))
             if p.is_file() and p.suffix in (".sh", ".py")
         )
-
     skills_dir = repo_root / ".agents" / "skills"
     if skills_dir.is_dir():
         candidates.extend(p for p in sorted(skills_dir.rglob("*.md")) if p.is_file())
+    return candidates
 
+
+def _discover_governance_paths(repo_root: Path) -> list[str]:
+    """Descubre archivos canónicos de gobernanza en directorios gobernados."""
+    candidates = [
+        *_discover_root_governance_paths(repo_root),
+        *_discover_catalog_paths(repo_root),
+        *_discover_schema_paths(repo_root),
+        *_discover_agent_subdir_paths(repo_root),
+    ]
     return [p.relative_to(repo_root).as_posix() for p in candidates]
 
 
 def scan_agent_governance_files(
     repo_root: Path, existing_entries: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
-    """Escanea artefactos de gobernanza canónicos y preserva rutas adicionales existentes."""
+    """Escanea artefactos de gobernanza canónicos y preserva rutas previas."""
     preserved = _preserve_or_classify_existing(existing_entries)
     discovered = set(_discover_governance_paths(repo_root))
     all_paths = sorted(discovered | set(preserved.keys()))
@@ -349,6 +409,65 @@ def scan_agent_governance_files(
     return entries
 
 
+def _rebuild_missing_stack_files(
+    repo_root: Path, stack_data: dict[str, Any]
+) -> list[dict[str, Any]]:
+    prev_files = stack_data.get("files", [])
+    if not isinstance(prev_files, list):
+        return []
+    files: list[dict[str, Any]] = []
+    for entry in prev_files:
+        if not isinstance(entry, dict):
+            continue
+        rel = entry.get("path")
+        if isinstance(rel, str) and (repo_root / rel).is_file():
+            files.append(
+                build_file_entry(
+                    repo_root / rel,
+                    rel,
+                    str(entry.get("target_name") or rel),
+                    str(entry.get("merge_strategy") or "copy_if_missing"),
+                )
+            )
+    files.sort(key=lambda entry: str(entry["path"]))
+    return files
+
+
+def _attach_stack_readme_hashes(
+    repo_root: Path, stack_entry: dict[str, Any], readme: str
+) -> None:
+    readme_es = f"{readme[:-3]}.es.md" if readme.endswith(".md") else f"{readme}.es.md"
+    readme_path = repo_root / readme
+    if readme_path.is_file():
+        stack_entry["readme_sha256"] = compute_sha256(readme_path)
+    readme_es_path = repo_root / readme_es
+    if readme_es_path.is_file():
+        stack_entry["readme_es"] = readme_es
+        stack_entry["readme_es_sha256"] = compute_sha256(readme_es_path)
+
+
+def _build_single_stack_entry(
+    repo_root: Path, stack_name: str, existing_stacks: dict[str, Any]
+) -> dict[str, Any]:
+    stack_dir = repo_root / stack_name
+    raw_prev = existing_stacks.get(stack_name, {})
+    prev_dict = raw_prev if isinstance(raw_prev, dict) else {}
+    meta = STACK_METADATA.get(stack_name) or prev_dict
+    readme = str(meta.get("readme", f"{stack_name}/README.md"))
+    files = (
+        scan_stack(repo_root, stack_name)
+        if stack_dir.is_dir()
+        else _rebuild_missing_stack_files(repo_root, prev_dict)
+    )
+    stack_entry: dict[str, Any] = {
+        "description": str(meta.get("description", "")),
+        "readme": readme,
+    }
+    _attach_stack_readme_hashes(repo_root, stack_entry, readme)
+    stack_entry["files"] = files
+    return stack_entry
+
+
 def _build_stacks_dict(
     repo_root: Path, existing_manifest: dict[str, Any]
 ) -> dict[str, Any]:
@@ -360,47 +479,11 @@ def _build_stacks_dict(
     stack_names = sorted(set(STACK_METADATA.keys()) | set(existing_stacks.keys()))
     stacks_dict: dict[str, Any] = {}
     for stack_name in stack_names:
-        stack_dir = repo_root / stack_name
-        has_existing = stack_name in existing_stacks
-        if not stack_dir.is_dir() and not has_existing:
+        if not (repo_root / stack_name).is_dir() and stack_name not in existing_stacks:
             continue
-        meta = STACK_METADATA.get(stack_name) or existing_stacks.get(stack_name, {})
-        description = str(meta.get("description", ""))
-        readme = str(meta.get("readme", f"{stack_name}/README.md"))
-        readme_es = f"{readme[:-3]}.es.md" if readme.endswith(".md") else f"{readme}.es.md"
-        if stack_dir.is_dir():
-            files = scan_stack(repo_root, stack_name)
-        else:
-            prev_files = existing_stacks.get(stack_name, {}).get("files", [])
-            files = []
-            if isinstance(prev_files, list):
-                for entry in prev_files:
-                    if not isinstance(entry, dict):
-                        continue
-                    rel = entry.get("path")
-                    if isinstance(rel, str) and (repo_root / rel).is_file():
-                        files.append(
-                            build_file_entry(
-                                repo_root / rel,
-                                rel,
-                                str(entry.get("target_name") or rel),
-                                str(entry.get("merge_strategy") or "copy_if_missing"),
-                            )
-                        )
-                files.sort(key=lambda entry: str(entry["path"]))
-        stack_entry: dict[str, Any] = {
-            "description": description,
-            "readme": readme,
-        }
-        readme_path = repo_root / readme
-        if readme_path.is_file():
-            stack_entry["readme_sha256"] = compute_sha256(readme_path)
-        readme_es_path = repo_root / readme_es
-        if readme_es_path.is_file():
-            stack_entry["readme_es"] = readme_es
-            stack_entry["readme_es_sha256"] = compute_sha256(readme_es_path)
-        stack_entry["files"] = files
-        stacks_dict[stack_name] = stack_entry
+        stacks_dict[stack_name] = _build_single_stack_entry(
+            repo_root, stack_name, existing_stacks
+        )
     return stacks_dict
 
 
@@ -435,6 +518,36 @@ def build_expected_manifest(
     }
 
 
+def _compare_single_file_entry(
+    section_name: str,
+    rel_path: str,
+    exp: dict[str, Any],
+    act: dict[str, Any],
+) -> list[str]:
+    diffs: list[str] = []
+    if exp.get("sha256") != act.get("sha256"):
+        diffs.append(
+            f"[{section_name}] Hash SHA-256 discrepante en {rel_path}: "
+            f"manifest {exp.get('sha256')} != disco {act.get('sha256')}"
+        )
+    if exp.get("size_bytes") != act.get("size_bytes"):
+        diffs.append(
+            f"[{section_name}] size_bytes discrepante en {rel_path}: "
+            f"manifest {exp.get('size_bytes')} != disco {act.get('size_bytes')}"
+        )
+    if exp.get("target_name") != act.get("target_name"):
+        diffs.append(
+            f"[{section_name}] target_name discrepante en {rel_path}: "
+            f"'{exp.get('target_name')}' != '{act.get('target_name')}'"
+        )
+    if exp.get("merge_strategy") != act.get("merge_strategy"):
+        diffs.append(
+            f"[{section_name}] merge_strategy discrepante en {rel_path}: "
+            f"'{exp.get('merge_strategy')}' != '{act.get('merge_strategy')}'"
+        )
+    return diffs
+
+
 def compare_file_lists(
     section_name: str,
     expected_list: list[dict[str, Any]],
@@ -460,38 +573,21 @@ def compare_file_lists(
             )
         elif rel_path not in actual_map:
             diffs.append(
-                f"[{section_name}] Archivo listado en manifest.json pero ausente en disco: {rel_path}"
+                f"[{section_name}] Archivo listado en manifest.json pero "
+                f"ausente en disco: {rel_path}"
             )
         else:
-            exp = expected_map[rel_path]
-            act = actual_map[rel_path]
-            if exp.get("sha256") != act.get("sha256"):
-                diffs.append(
-                    f"[{section_name}] Hash SHA-256 discrepante en {rel_path}: "
-                    f"manifest {exp.get('sha256')} != disco {act.get('sha256')}"
+            diffs.extend(
+                _compare_single_file_entry(
+                    section_name, rel_path, expected_map[rel_path], actual_map[rel_path]
                 )
-            if exp.get("size_bytes") != act.get("size_bytes"):
-                diffs.append(
-                    f"[{section_name}] size_bytes discrepante en {rel_path}: "
-                    f"manifest {exp.get('size_bytes')} != disco {act.get('size_bytes')}"
-                )
-            if exp.get("target_name") != act.get("target_name"):
-                diffs.append(
-                    f"[{section_name}] target_name discrepante en {rel_path}: "
-                    f"'{exp.get('target_name')}' != '{act.get('target_name')}'"
-                )
-            if exp.get("merge_strategy") != act.get("merge_strategy"):
-                diffs.append(
-                    f"[{section_name}] merge_strategy discrepante en {rel_path}: "
-                    f"'{exp.get('merge_strategy')}' != '{act.get('merge_strategy')}'"
-                )
+            )
     return diffs
 
 
-def compare_manifests(
+def _compare_root_metadata(
     existing_manifest: dict[str, Any], actual_manifest: dict[str, Any]
 ) -> list[str]:
-    """Compara dos diccionarios de manifiesto ignorando diferencias temporales de timestamp."""
     diffs: list[str] = []
     for field in (
         "schema_version",
@@ -500,46 +596,67 @@ def compare_manifests(
         "default_branch",
         "raw_base_url",
     ):
-        if existing_manifest.get(field) != actual_manifest.get(field):
+        exp_val = existing_manifest.get(field)
+        act_val = actual_manifest.get(field)
+        if exp_val != act_val:
             diffs.append(
                 f"Metadato raíz '{field}' discrepante: "
-                f"manifest '{existing_manifest.get(field)}' != actual '{actual_manifest.get(field)}'"
+                f"manifest '{exp_val}' != actual '{act_val}'"
             )
+    return diffs
 
+
+def _compare_single_stack_entry(
+    stack_name: str, exp_stack: Any, act_stack: dict[str, Any]
+) -> list[str]:
+    if not isinstance(exp_stack, dict):
+        return [f"Stack '{stack_name}' inválido en manifest.json."]
+    diffs: list[str] = []
+    if exp_stack.get("description") != act_stack.get("description"):
+        diffs.append(f"Descripción discrepante en stack {stack_name}")
+    if exp_stack.get("readme") != act_stack.get("readme"):
+        diffs.append(f"Readme discrepante en stack {stack_name}")
+    exp_files = exp_stack.get("files", [])
+    diffs.extend(
+        compare_file_lists(
+            f"stack:{stack_name}",
+            exp_files if isinstance(exp_files, list) else [],
+            act_stack.get("files", []),
+        )
+    )
+    return diffs
+
+
+def _compare_stacks_section(
+    existing_manifest: dict[str, Any], actual_manifest: dict[str, Any]
+) -> list[str]:
     existing_stacks = existing_manifest.get("stacks", {})
     actual_stacks = actual_manifest.get("stacks", {})
     if not isinstance(existing_stacks, dict):
-        diffs.append("La sección 'stacks' en manifest.json no es un objeto válido.")
-    else:
-        for stack_name in sorted(
-            set(existing_stacks.keys()) | set(actual_stacks.keys())
-        ):
-            if stack_name not in existing_stacks:
-                diffs.append(f"Stack faltante en manifest.json: {stack_name}")
-                continue
-            if stack_name not in actual_stacks:
-                diffs.append(
-                    f"Stack inexistente listado en manifest.json: {stack_name}"
-                )
-                continue
-            exp_stack = existing_stacks[stack_name]
-            act_stack = actual_stacks[stack_name]
-            if not isinstance(exp_stack, dict):
-                diffs.append(f"Stack '{stack_name}' inválido en manifest.json.")
-                continue
-            if exp_stack.get("description") != act_stack.get("description"):
-                diffs.append(f"Descripción discrepante en stack {stack_name}")
-            if exp_stack.get("readme") != act_stack.get("readme"):
-                diffs.append(f"Readme discrepante en stack {stack_name}")
-            exp_files = exp_stack.get("files", [])
+        return ["La sección 'stacks' en manifest.json no es un objeto válido."]
+    diffs: list[str] = []
+    for stack_name in sorted(set(existing_stacks.keys()) | set(actual_stacks.keys())):
+        if stack_name not in existing_stacks:
+            diffs.append(f"Stack faltante en manifest.json: {stack_name}")
+        elif stack_name not in actual_stacks:
+            diffs.append(f"Stack inexistente listado en manifest.json: {stack_name}")
+        else:
             diffs.extend(
-                compare_file_lists(
-                    f"stack:{stack_name}",
-                    exp_files if isinstance(exp_files, list) else [],
-                    act_stack.get("files", []),
+                _compare_single_stack_entry(
+                    stack_name,
+                    existing_stacks[stack_name],
+                    actual_stacks[stack_name],
                 )
             )
+    return diffs
 
+
+def compare_manifests(
+    existing_manifest: dict[str, Any], actual_manifest: dict[str, Any]
+) -> list[str]:
+    """Compara dos diccionarios de manifiesto ignorando diferencias de timestamp."""
+    diffs = _compare_root_metadata(existing_manifest, actual_manifest)
+    diffs.extend(_compare_stacks_section(existing_manifest, actual_manifest))
     exp_common = existing_manifest.get("common_files", [])
     diffs.extend(
         compare_file_lists(
@@ -548,7 +665,6 @@ def compare_manifests(
             actual_manifest.get("common_files", []),
         )
     )
-
     exp_gov = existing_manifest.get("agent_governance_files", [])
     diffs.extend(
         compare_file_lists(
@@ -563,12 +679,19 @@ def compare_manifests(
 def _check_skill_budget_entry(repo_root: Path, skill_md: Path) -> str | None:
     size = skill_md.stat().st_size
     rel = skill_md.relative_to(repo_root).as_posix()
-    if skill_md.parent.name == "tactical-patterns-11x":
-        if size > MAX_TACTICAL_SKILL_BYTES:
-            return f"{rel} excede el presupuesto cognitivo ({size} > {MAX_TACTICAL_SKILL_BYTES} bytes)."
+    special_limit = _SPECIAL_SKILL_LIMITS.get(skill_md.parent.name)
+    if special_limit is not None:
+        if size > special_limit:
+            return (
+                f"{rel} excede el presupuesto cognitivo "
+                f"({size} > {special_limit} bytes)."
+            )
         return None
-    if size >= MAX_SKILL_MD_BYTES:
-        return f"{rel} excede el presupuesto cognitivo ({size} >= {MAX_SKILL_MD_BYTES} bytes)."
+    if size >= SKILL_MAX_BYTES:
+        return (
+            f"{rel} excede el presupuesto cognitivo "
+            f"({size} >= {SKILL_MAX_BYTES} bytes)."
+        )
     return None
 
 
@@ -582,23 +705,41 @@ def _check_line_limit(repo_root: Path, rel: str, max_lines: int) -> str | None:
     return None
 
 
-def validate_cognitive_budgets(repo_root: Path) -> list[str]:
-    """Valida SKILL.md (<20480B / tactical <=2500B), ACTIVE_TASK <=40L y regla <=25L."""
-    errors: list[str] = []
+def _collect_skill_budget_errors(repo_root: Path) -> list[str]:
     skills_dir = repo_root / ".agents" / "skills"
-    if skills_dir.is_dir():
-        for skill_md in sorted(skills_dir.glob("*/SKILL.md")):
-            err = _check_skill_budget_entry(repo_root, skill_md) if skill_md.is_file() else None
-            if err:
-                errors.append(err)
+    if not skills_dir.is_dir():
+        return []
+    errors: list[str] = []
+    for skill_md in sorted(skills_dir.glob("*/SKILL.md")):
+        if not skill_md.is_file():
+            continue
+        err = _check_skill_budget_entry(repo_root, skill_md)
+        if err:
+            errors.append(err)
+    return errors
+
+
+def _collect_line_limit_errors(repo_root: Path) -> list[str]:
+    errors: list[str] = []
     for rel, limit in (
-        (".agents/ACTIVE_TASK.md", MAX_ACTIVE_TASK_LINES),
-        (".agents/rules/active_task_and_planning_resilience.md", MAX_ACTIVE_TASK_RULE_LINES),
+        (".agents/ACTIVE_TASK.md", ACTIVE_TASK_MAX_LINES),
+        (
+            ".agents/rules/active_task_and_planning_resilience.md",
+            ACTIVE_TASK_RULE_MAX_LINES,
+        ),
     ):
         err = _check_line_limit(repo_root, rel, limit)
         if err:
             errors.append(err)
     return errors
+
+
+def validate_cognitive_budgets(repo_root: Path) -> list[str]:
+    """Valida SKILL.md (<20KB / architect <=12KB / tactical <=2.5KB) y líneas."""
+    return [
+        *_collect_skill_budget_errors(repo_root),
+        *_collect_line_limit_errors(repo_root),
+    ]
 
 
 def count_artifacts(manifest_data: dict[str, Any]) -> int:
@@ -734,7 +875,7 @@ def _collect_skill_catalog_updates(
 
 
 def sync_skillsllm_catalog(repo_root: Path, check_only: bool) -> list[str]:
-    """Sincroniza o verifica size_bytes y sha256 en catalogs/skillsllm-manifest.json."""
+    """Sincroniza o verifica size_bytes y sha256 en skillsllm-manifest.json."""
     catalog_path = repo_root / "catalogs" / "skillsllm-manifest.json"
     if not catalog_path.is_file():
         return []
@@ -753,29 +894,73 @@ def sync_skillsllm_catalog(repo_root: Path, check_only: bool) -> list[str]:
     return errors
 
 
+def _load_existing_manifest(
+    manifest_path: Path, check_only: bool
+) -> tuple[dict[str, Any], str, list[str]]:
+    if not manifest_path.is_file():
+        errs = (
+            [f"El archivo manifest.json no existe en {manifest_path.parent}"]
+            if check_only
+            else []
+        )
+        return {}, "", errs
+    try:
+        existing_raw = manifest_path.read_text(encoding="utf-8")
+        existing_manifest = load_manifest_strict(manifest_path)
+    except (OSError, json.JSONDecodeError, ValueError, TypeError) as exc:
+        return {}, "", [f"Error al validar manifest.json: {exc}"]
+    return existing_manifest, existing_raw, []
+
+
+def _format_sync_ok_message(total: int) -> str:
+    return (
+        f"✅ [sync-governance] manifest.json sincronizado ({total} artefactos "
+        "SHA-256), SKILL.md <20KB y ACTIVE_TASK <=40L OK"
+    )
+
+
+def _apply_manifest_write(
+    repo_root: Path,
+    manifest_path: Path,
+    existing_manifest: dict[str, Any],
+    existing_raw: str,
+    candidate: dict[str, Any],
+    diffs: list[str],
+) -> tuple[dict[str, Any], bool]:
+    serialized_candidate = json.dumps(candidate, indent=2, ensure_ascii=False) + "\n"
+    if not diffs and serialized_candidate == existing_raw:
+        return candidate, False
+    new_ts = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    updated = build_expected_manifest(repo_root, existing_manifest, new_ts)
+    updated_raw = json.dumps(updated, indent=2, ensure_ascii=False) + "\n"
+    manifest_path.write_text(updated_raw, encoding="utf-8")
+    return updated, True
+
+
+def _format_check_only_result(
+    diffs: list[str], candidate: dict[str, Any]
+) -> tuple[int, str]:
+    if diffs:
+        details = "\n".join(f"  - {diff}" for diff in diffs)
+        return 1, f"❌ [sync-governance] manifest.json desincronizado:\n{details}"
+    return 0, _format_sync_ok_message(count_artifacts(candidate))
+
+
 def run_sync(
     repo_root: Path,
     check_only: bool = False,
     with_ast: bool = False,
 ) -> tuple[int, str]:
-    """Ejecuta sincronización o verificación determinista y retorna (exit_code, mensaje)."""
+    """Ejecuta sincronización o verificación y retorna (exit_code, mensaje)."""
+    manifest_path = repo_root / "manifest.json"
+    existing_manifest, existing_raw, load_errors = _load_existing_manifest(
+        manifest_path, check_only
+    )
     errors: list[str] = [
         *validate_cognitive_budgets(repo_root),
         *sync_skillsllm_catalog(repo_root, check_only),
+        *load_errors,
     ]
-    manifest_path = repo_root / "manifest.json"
-
-    existing_manifest: dict[str, Any] = {}
-    existing_raw = ""
-    if manifest_path.is_file():
-        try:
-            existing_raw = manifest_path.read_text(encoding="utf-8")
-            existing_manifest = load_manifest_strict(manifest_path)
-        except (OSError, json.JSONDecodeError, ValueError, TypeError) as exc:
-            errors.append(f"Error al validar manifest.json: {exc}")
-    elif check_only:
-        errors.append(f"El archivo manifest.json no existe en {repo_root}")
-
     if errors:
         return 1, "\n".join(f"❌ [sync-governance] {err}" for err in errors)
 
@@ -789,63 +974,50 @@ def run_sync(
         if manifest_path.is_file()
         else ["manifest.json ausente"]
     )
-
     if check_only:
-        if diffs:
-            details = "\n".join(f"  - {diff}" for diff in diffs)
-            return 1, f"❌ [sync-governance] manifest.json desincronizado:\n{details}"
-        total = count_artifacts(candidate)
-        ok_msg = (
-            f"✅ [sync-governance] manifest.json sincronizado ({total} artefactos SHA-256), "
-            "SKILL.md <20KB y ACTIVE_TASK <=40L OK"
-        )
-        return 0, ok_msg
+        return _format_check_only_result(diffs, candidate)
 
-    manifest_changed = False
-    serialized_candidate = json.dumps(candidate, indent=2, ensure_ascii=False) + "\n"
-    if diffs or serialized_candidate != existing_raw:
-        new_ts = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-        updated = build_expected_manifest(repo_root, existing_manifest, new_ts)
-        updated_raw = json.dumps(updated, indent=2, ensure_ascii=False) + "\n"
-        manifest_path.write_text(updated_raw, encoding="utf-8")
-        manifest_changed = True
-        final_manifest = updated
-    else:
-        final_manifest = candidate
-
-    if with_ast:
-        ast_errors = refresh_ast_if_needed(repo_root, manifest_changed)
-        if ast_errors:
-            return 1, "\n".join(f"❌ [sync-governance] {err}" for err in ast_errors)
-
-    total = count_artifacts(final_manifest)
-    ok_msg = (
-        f"✅ [sync-governance] manifest.json sincronizado ({total} artefactos SHA-256), "
-        "SKILL.md <20KB y ACTIVE_TASK <=40L OK"
+    final_manifest, manifest_changed = _apply_manifest_write(
+        repo_root, manifest_path, existing_manifest, existing_raw, candidate, diffs
     )
-    return 0, ok_msg
+    ast_errors = refresh_ast_if_needed(repo_root, manifest_changed) if with_ast else []
+    if ast_errors:
+        return 1, "\n".join(f"❌ [sync-governance] {err}" for err in ast_errors)
+    return 0, _format_sync_ok_message(count_artifacts(final_manifest))
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Analiza los argumentos CLI no interactivos."""
     parser = argparse.ArgumentParser(
-        description="Sincronizador determinista Zero-LLM de manifest.json y presupuestos QA-11X."
+        description=(
+            "Sincronizador determinista Zero-LLM de manifest.json y "
+            "presupuestos QA-11X."
+        )
     )
     parser.add_argument(
         "--check",
         action="store_true",
-        help="Modo solo lectura: verifica hashes SHA-256, JSON sin claves duplicadas y presupuestos cognitivos.",
+        help=(
+            "Modo solo lectura: verifica hashes SHA-256, JSON sin claves "
+            "duplicadas y presupuestos cognitivos."
+        ),
     )
     parser.add_argument(
         "--with-ast",
         action="store_true",
-        help="Ejecuta incrementalmente ./scripts/actualizar-grafos-graphify.sh si hubo cambios estructurales.",
+        help=(
+            "Ejecuta incrementalmente ./scripts/actualizar-grafos-graphify.sh "
+            "si hubo cambios estructurales."
+        ),
     )
     parser.add_argument(
         "--repo-root",
         type=str,
         default=None,
-        help="Ruta raíz del repositorio (por defecto autodetectada desde .agents/scripts/).",
+        help=(
+            "Ruta raíz del repositorio (por defecto autodetectada desde "
+            ".agents/scripts/)."
+        ),
     )
     return parser.parse_args(argv)
 

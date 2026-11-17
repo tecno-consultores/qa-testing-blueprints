@@ -62,7 +62,7 @@ After **EVERY** task or turn that adds, edits, or removes code or configuration 
    - Update `CHANGELOG.md` under `## [Unreleased]`.
    - Update `TESTING.md` metrics and counts.
    - Update `README.md` when user-facing interfaces or architectures change.
-   - Mark `.agents/ACTIVE_TASK.md` as `COMPLETED (100%)`.
+   - Mark `.agents/ACTIVE_TASK.md` as `CERTIFIED_CLEAN` via `checkpoint_ctl.py` / `session_flight_recorder`.
 4. **Secret, Dependency Vulnerability, i18n, Parity & Git Closure Certification:**
    - Run `./scripts/verificar-secretos.sh` (0 secret leaks).
    - Run `./scripts/auditar-infra.sh` (0 High/Critical findings).

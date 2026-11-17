@@ -8,11 +8,18 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from collections import deque
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any
+
+_SCRIPT_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPT_DIR)
+
+from _budgets import HIGH_BLAST_CALLERS_THRESHOLD, SECURITY_BLAST_KEYWORDS  # noqa: E402
 
 CRITICAL_EXACT: frozenset[str] = frozenset(
     {
@@ -27,11 +34,14 @@ CRITICAL_EXACT: frozenset[str] = frozenset(
 CRITICAL_PREFIXES: tuple[str, ...] = (
     ".agents/rules/",
     ".agents/skills/",
+    ".github/actions/",
     ".github/workflows/",
     "architecture/",
     "docker/",
     "mcp-server/src/security/",
 )
+_CAMEL_BOUNDARY_RE = re.compile(r"([a-z0-9])([A-Z])")
+_NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
 SELF_STRUCTURAL_RELATIONS: frozenset[str] = frozenset(
     {"contains", "defines", "rationale_for"}
 )
@@ -98,6 +108,18 @@ def is_doc_file(rel_posix: str) -> bool:
         or rel_posix.startswith("docs/")
         or name in {"COPYING", "LICENSE", "NOTICE"}
     )
+
+
+def _is_security_token(tok: str) -> bool:
+    if tok in SECURITY_BLAST_KEYWORDS:
+        return True
+    return len(tok) > 3 and tok.endswith("s") and tok[:-1] in SECURITY_BLAST_KEYWORDS
+
+
+def _has_security_keyword(text: str) -> bool:
+    """Detecta palabras clave de seguridad por segmentos identificadores."""
+    split_camel = _CAMEL_BOUNDARY_RE.sub(r"\1_\2", text).lower()
+    return any(_is_security_token(tok) for tok in _NON_ALNUM_RE.split(split_camel))
 
 
 def is_critical_file(rel_posix: str) -> bool:
@@ -228,7 +250,10 @@ def classify_suites(union_files: set[str]) -> dict[str, bool]:
         _matches_any_prefix(
             union_files,
             (
+                ".agents/rules/",
+                ".agents/schemas/",
                 ".agents/scripts/",
+                ".agents/skills/",
                 "scripts/",
                 "vibe-rescue/",
                 "catalogs/",
@@ -291,41 +316,24 @@ def _all_suites(enabled: bool) -> dict[str, bool]:
     }
 
 
-def select_test_plan(
+def _build_full_or_targeted_plan(
     *,
-    event: str,
-    changed_files: Sequence[str],
+    norm_changed: list[str],
     graph_path: Path,
-    high_blast_threshold: int = 15,
+    has_critical: bool,
+    high_blast_threshold: int,
 ) -> dict[str, Any]:
-    """Calcula el plan escalonado QA-11X desde el evento CI y el grafo AST."""
-    norm_changed = _dedupe_normalized(changed_files)
-    if event in {"schedule", "workflow_dispatch"}:
-        return _build_plan_payload(
-            tier="nightly-full",
-            suites=_all_suites(True),
-            run_full_regression=True,
-            savings=0,
-            caller_count=0,
-            graph_loaded=graph_path.is_file(),
-            changed_files=norm_changed,
-            impacted_files=norm_changed,
-        )
-    if norm_changed and all(is_doc_file(item) for item in norm_changed):
-        return _build_plan_payload(
-            tier="docs-only",
-            suites=_all_suites(False),
-            run_full_regression=False,
-            savings=85,
-            caller_count=0,
-            graph_loaded=graph_path.is_file(),
-            changed_files=norm_changed,
-            impacted_files=norm_changed,
-        )
     graph = load_ast_graph(graph_path)
     union_files, caller_count, graph_loaded = compute_blast_impact(norm_changed, graph)
-    has_critical = any(is_critical_file(item) for item in norm_changed)
-    if not norm_changed or has_critical or caller_count > high_blast_threshold:
+    has_security = any(
+        _has_security_keyword(item) for item in union_files if not is_doc_file(item)
+    )
+    if (
+        not norm_changed
+        or has_critical
+        or has_security
+        or caller_count >= high_blast_threshold
+    ):
         return _build_plan_payload(
             tier="full-regression",
             suites=_all_suites(True),
@@ -348,6 +356,50 @@ def select_test_plan(
         graph_loaded=graph_loaded,
         changed_files=norm_changed,
         impacted_files=sorted(union_files),
+    )
+
+
+def select_test_plan(
+    *,
+    event: str,
+    changed_files: Sequence[str],
+    graph_path: Path,
+    high_blast_threshold: int = HIGH_BLAST_CALLERS_THRESHOLD,
+) -> dict[str, Any]:
+    """Calcula el plan escalonado QA-11X desde el evento CI y el grafo AST."""
+    norm_changed = _dedupe_normalized(changed_files)
+    if event in {"schedule", "workflow_dispatch"}:
+        return _build_plan_payload(
+            tier="nightly-full",
+            suites=_all_suites(True),
+            run_full_regression=True,
+            savings=0,
+            caller_count=0,
+            graph_loaded=graph_path.is_file(),
+            changed_files=norm_changed,
+            impacted_files=norm_changed,
+        )
+    has_critical = any(is_critical_file(item) for item in norm_changed)
+    if (
+        norm_changed
+        and not has_critical
+        and all(is_doc_file(item) for item in norm_changed)
+    ):
+        return _build_plan_payload(
+            tier="docs-only",
+            suites=_all_suites(False),
+            run_full_regression=False,
+            savings=85,
+            caller_count=0,
+            graph_loaded=graph_path.is_file(),
+            changed_files=norm_changed,
+            impacted_files=norm_changed,
+        )
+    return _build_full_or_targeted_plan(
+        norm_changed=norm_changed,
+        graph_path=graph_path,
+        has_critical=has_critical,
+        high_blast_threshold=high_blast_threshold,
     )
 
 
@@ -393,8 +445,11 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--high-blast-threshold",
         type=int,
-        default=15,
-        help="Umbral de llamadores para escalar a regresión completa (default: 15).",
+        default=HIGH_BLAST_CALLERS_THRESHOLD,
+        help=(
+            "Umbral de llamadores para escalar a regresión completa "
+            f"(default: {HIGH_BLAST_CALLERS_THRESHOLD})."
+        ),
     )
     parser.add_argument(
         "--json",

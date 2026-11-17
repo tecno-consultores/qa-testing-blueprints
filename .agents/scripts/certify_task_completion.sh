@@ -478,8 +478,10 @@ run_validator_gate() {
 
 gate_10_doc_and_test_sync() {
   local all_changed
+  local raw_code_candidates
   local code_changes
   local exec_src_changes
+  local test_sync_changes
   local doc_changes
   local code_count
   local test_changes
@@ -500,9 +502,11 @@ gate_10_doc_and_test_sync() {
     fi
   fi
 
-  code_changes=$(printf '%s\n' "${all_changed}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|bash-scripts|php|mcp-server|mobile-appium|ai-evals|vibe-rescue|catalogs|architecture|backend|frontend|scripts)/|\.agents/scripts/|((.*/)?Makefile(\.example)?)$|\.github/(workflows|actions)/|(lefthook\.yml|commitlint\.config\.js|instalar-hooks\.sh)$)' | grep -vE '(\.md$|(^|/)graphify-out/)' || true)
+  raw_code_candidates=$(printf '%s\n' "${all_changed}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|bash-scripts|php|mcp-server|mobile-appium|ai-evals|vibe-rescue|catalogs|architecture|backend|frontend|scripts)/|\.agents/(scripts|schemas|skills|rules)/|((.*/)?Makefile(\.example)?)$|\.github/(workflows|actions)/|(manifest\.json|llms\.txt|\.trivy\.yaml|lefthook\.yml|commitlint\.config\.js|instalar-hooks\.sh)$)' | grep -vE '(^|/)graphify-out/' || true)
+  code_changes=$(printf '%s\n' "${raw_code_candidates}" | awk '/^$/ {next} /^\.agents\/(skills|rules)\// {print; next} /\.md$/ {next} {print}' || true)
   exec_src_changes=$(printf '%s\n' "${code_changes}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|php|mcp-server|mobile-appium|backend|frontend)/src/|src/|bash-scripts/|vibe-rescue/|ai-evals/|scripts/|\.agents/scripts/|instalar-hooks\.sh$)' | grep -vE '(\.unit\.(py|ts|tsx)|\.e2e\.ts|test_.*\.py|.*\.test\.(ts|js)|\.feature|\.bats)' || true)
-  doc_changes=$(printf '%s\n' "${all_changed}" | grep -E '(\.md$|^docs/)' || true)
+  test_sync_changes=$(printf '%s\n' "${code_changes}" | grep -E '^(\.agents/(schemas|skills|rules)/|(manifest\.json|llms\.txt)$)' || true)
+  doc_changes=$(printf '%s\n' "${all_changed}" | grep -E '(\.md$|^docs/)' | grep -vE '^\.agents/(skills|rules)/' || true)
 
   if [ -f "${SCRIPT_DIR}/verify_docs_invariants.py" ]; then
     run_py_rule_zero "${SCRIPT_DIR}/verify_docs_invariants.py" || return $?
@@ -525,7 +529,7 @@ gate_10_doc_and_test_sync() {
     fi
 
     gate10_failed=0
-    if [ -n "${exec_src_changes}" ] && [ "${test_count}" -eq 0 ]; then
+    if { [ -n "${exec_src_changes}" ] || [ -n "${test_sync_changes}" ]; } && [ "${test_count}" -eq 0 ]; then
       gate10_failed=1
     fi
     if [ "${doc_count}" -eq 0 ]; then
@@ -553,8 +557,8 @@ gate_10_doc_and_test_sync() {
     while IFS= read -r line; do
       [ -n "${line}" ] && printf '  - %s\n' "${line}"
     done <<<"${code_changes}"
-    if [ -n "${exec_src_changes}" ] && [ "${test_count}" -eq 0 ]; then
-      printf '  ❌ ERROR: Se modificó código fuente ejecutable pero NO se detectan pruebas unitarias, E2E o BDD nuevas o modificadas.\n'
+    if { [ -n "${exec_src_changes}" ] || [ -n "${test_sync_changes}" ]; } && [ "${test_count}" -eq 0 ]; then
+      printf '  ❌ ERROR: Se modificó código fuente o gobernanza/esquemas/catálogos críticos pero NO se detectan pruebas unitarias, E2E, BATS o BDD nuevas o modificadas (QA-TEST-SYNC-01).\n'
     fi
     if [ "${doc_count}" -eq 0 ]; then
       printf '  ❌ ERROR: Se modificó código o configuración pero NO se han actualizado docs/, CHANGELOG.md, TESTING.md o README.md.\n'

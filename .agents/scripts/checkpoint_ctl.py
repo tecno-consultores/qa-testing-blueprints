@@ -16,12 +16,17 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+_SCRIPTS_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+
+from _budgets import ACTIVE_TASK_MAX_LINES as ACTIVE_TASK_MAX_LINES  # noqa: E402
+
 SCHEMA_VERSION = "1.0"
 STATUS_IN_PROGRESS = "IN_PROGRESS"
 STATUS_CERTIFIED_CLEAN = "CERTIFIED_CLEAN"
 MAX_INTENT_LEN = 140
 MAX_TASK_ID_LEN = 64
-MAX_ACTIVE_TASK_LINES = 35
 CHECKPOINT_REL = Path(".agents") / ".cache" / "session_checkpoint.json"
 ACTIVE_TASK_REL = Path(".agents") / "ACTIVE_TASK.md"
 ACTIVE_TASK_TEMPLATE_REL = Path(".agents") / "ACTIVE_TASK.md.example"
@@ -371,7 +376,9 @@ def _is_non_template_active_task(workspace: Path) -> bool:
 def _resolve_hydrated_status(
     content: str, done: list[str], pending: list[str]
 ) -> tuple[str, str]:
-    completed = "completed" in content.lower() and not pending
+    low = content.lower()
+    is_closed = "certified_clean" in low or "completed" in low
+    completed = is_closed and not pending
     status = STATUS_CERTIFIED_CLEAN if completed else STATUS_IN_PROGRESS
     fallback = done[-1] if done else "F1"
     active = pending[0] if pending else fallback
@@ -470,10 +477,10 @@ def _build_step_lines(ckpt: CheckpointData, budget: int) -> list[str]:
 
 
 def render_active_task_markdown(ckpt: CheckpointData) -> str:
-    """Proyecta .agents/ACTIVE_TASK.md determinista <= 35 líneas en español."""
+    """Proyecta .agents/ACTIVE_TASK.md determinista <= 40 líneas en español."""
     date_part = ckpt.updated_at[:10]
     estado = (
-        "COMPLETED (100%)"
+        STATUS_CERTIFIED_CLEAN
         if ckpt.status == STATUS_CERTIFIED_CLEAN
         else STATUS_IN_PROGRESS
     )
@@ -507,9 +514,9 @@ def render_active_task_markdown(ckpt: CheckpointData) -> str:
             f"`{run.timestamp}`) — {run.summary_1line}"
         )
     header.extend(["", "## 📋 Progreso Atómico"])
-    budget = max(1, MAX_ACTIVE_TASK_LINES - len(header))
+    budget = max(1, ACTIVE_TASK_MAX_LINES - len(header))
     lines = [*header, *_build_step_lines(ckpt, budget)]
-    return "\n".join(lines[:MAX_ACTIVE_TASK_LINES]) + "\n"
+    return "\n".join(lines[:ACTIVE_TASK_MAX_LINES]) + "\n"
 
 
 def persist_checkpoint(workspace: Path, ckpt: CheckpointData) -> None:
@@ -710,7 +717,7 @@ def _purge_tmp_checkpoints(cache_dir: Path) -> None:
 
 
 def handle_clear(workspace: Path, purge_view: bool = False) -> None:
-    """Elimina checkpoint máquina y limpia o marca COMPLETED la vista humana."""
+    """Elimina checkpoint máquina y limpia o marca CERTIFIED_CLEAN la vista humana."""
     ckpt_file = workspace / CHECKPOINT_REL
     git_snap = capture_live_git(workspace)
     prev = load_checkpoint(workspace, git_snap) if ckpt_file.is_file() else None

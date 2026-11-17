@@ -73,7 +73,7 @@ export function buildConnectorBlock(
     '   - **Step 6 (Full Suite Execution):** Run all suites in ephemeral Docker (`Rule Zero` / `run_ephemeral_qa`, 0 warnings).',
     '   - **Step 7–9 (Docs, Changelog & Roadmap):** Sync `docs/specs/`, `README.md`, `TESTING.md`, `CHANGELOG.md`, and `ROADMAP.md`.',
     '   - **Step 10 (Post-Change AST Graph):** Run `./scripts/actualizar-grafos-graphify.sh` (incremental per modified stack).',
-    '   - **Step 11 (Certify & Local Commit — `QA-GIT-GATE-01`):** Run `certify_11x_gate` and `clean_workspace_11x`, mark `.agents/ACTIVE_TASK.md` `COMPLETED (100%)` (suggest `/compact`), and create a certified local `git commit` (NEVER `git push` automatically).',
+    '   - **Step 11 (Certify & Local Commit — `QA-GIT-GATE-01`):** Run `certify_11x_gate` and `clean_workspace_11x`, mark `.agents/ACTIVE_TASK.md` `CERTIFIED_CLEAN` via `session_flight_recorder` / `checkpoint_ctl.py` (suggest `/compact`), and create a certified local `git commit` (NEVER `git push` automatically).',
     CONNECTOR_END_MARKER,
   ].join('\n');
 }

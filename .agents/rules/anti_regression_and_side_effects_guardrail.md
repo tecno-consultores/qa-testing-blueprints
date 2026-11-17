@@ -19,11 +19,11 @@ Before altering any shared code, service definition, or configuration:
      ```bash
      python3 .agents/scripts/inspect_blast_radius.py "<symbol_name>"
      ```
-   - **Mandatory AST Graph Creation If Missing:** If `graphify-out/graph.json` does not exist in the repository or target stack, you **MUST create it first** before modifying code by running:
+   - **Mandatory AST Graph Creation If Missing (Code Changes Only):** If `graphify-out/graph.json` does not exist in the repository or target stack, you **MUST create it first** before modifying code by running (`DOCS_ONLY` tasks touching ONLY human `*.md` / `docs/` files are exempt per `AGENTS.md` §5; governance `.agents/skills/**` and `.agents/rules/**` are NOT `DOCS_ONLY`):
      ```bash
      ./scripts/actualizar-grafos-graphify.sh
      ```
-   - **Mandatory Post-Change AST Graph Update (Code Changes Only):** Upon completing code, test, or script modifications, you **MUST ALWAYS update the AST graph** by running `./scripts/actualizar-grafos-graphify.sh` (which incrementally updates only modified stacks in 1 Pass-Quiet line). **Skip AST graph regeneration on `DOCS_ONLY` tasks** (where only `*.md` / `docs/**` changed).
+   - **Mandatory Post-Change AST Graph Update (Code Changes Only):** Upon completing code, test, or script modifications, you **MUST ALWAYS update the AST graph** by running `./scripts/actualizar-grafos-graphify.sh` (which incrementally updates only modified stacks in 1 Pass-Quiet line). **Skip AST graph inspection, creation, and rebuild on `DOCS_ONLY` tasks** (where only human `*.md` / `docs/` changed).
    - **CLI-First Execution Rule:** Shell-capable agents (Google Antigravity, local terminal agents) MUST execute the inspector and query tools directly via CLI. They MUST NOT spawn background Docker MCP containers or occupy port 8080, which are reserved exclusively for external non-shell clients (Claude Desktop, Hermes Agent).
    - For any symbol assessed as `MODERATE` or `HIGH/CRITICAL` risk, the agent's implementation plan must explicitly list all affected caller files and guarantee that their contracts and parameters remain intact.
 3. **Test Suite & Contract Co-Evolution Audit (`QA-TEST-SYNC-01`):**
@@ -56,6 +56,7 @@ Before altering any shared code, service definition, or configuration:
 
 1. **`Graphify AST-First, Grep-Fallback, Windowed-Read-Second` (Zero Blind Full-File Reads):**
    - For **any question about project code/architecture (`Code Q&A`)** or before modifying code, ALWAYS query `graphify-out/graph.json` (`python3 .agents/scripts/inspect_blast_radius.py "<symbol>"` or MCP `inspect_ast_blast_radius`) and `graphify-out/GRAPH_REPORT.md` **first** (creating `graphify-out/graph.json` via `./scripts/actualizar-grafos-graphify.sh` if missing). Use `grep -n` **only as a fallback** for unindexed string literals, then call `read_file` with a targeted 40–80 line window (`StartLine` / `EndLine`) around the exact `file:L<line>` returned by the AST graph. Never read files `> 150` lines in full.
+   - **`DOCS_ONLY` Exemption (`AGENTS.md` §5):** Tasks touching ONLY human `*.md` / `docs/` files omit AST graph inspection, creation, and rebuild (governance `.agents/skills/**` and `.agents/rules/**` remain `CODE_CHANGE`).
 2. **`Zero Redundant Re-Read Invariant` & `Surgical Diff Edits`:**
    - Never re-read a file in the same session if it has not been modified externally. Always use surgical `edit_file` blocks instead of rewriting entire files via `write_file`.
 3. **`Parallel Tool Call Batching` & `Subagent Context Isolation`:**

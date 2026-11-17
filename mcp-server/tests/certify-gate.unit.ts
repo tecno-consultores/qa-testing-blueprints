@@ -569,4 +569,64 @@ describe('certify-gate', () => {
     const missingDirRes = await certify11xGate(path.join(tempDir, 'does-not-exist'), { requireLintEvidence: false });
     expect(missingDirRes.check_statuses?.zero_unmerged_examples).toBe('SKIPPED');
   });
+
+  it('F3.4: aplica límite de 40 líneas totales (incluyendo en blanco) en ACTIVE_TASK.md y acepta CERTIFIED_CLEAN y COMPLETED (100%)', async () => {
+    setupNominalProject(tempDir);
+    const agentsDir = path.join(tempDir, '.agents');
+    const cacheDir = path.join(agentsDir, '.cache');
+    fs.mkdirSync(cacheDir, { recursive: true });
+
+    // Exactamente 40 líneas con salto de línea final + CERTIFIED_CLEAN + Estado CERTIFIED_CLEAN pasa
+    const exact40 = [
+      '# Active Task',
+      '- **Estado:** CERTIFIED_CLEAN',
+      ...Array.from({ length: 38 }, (_, i) => `- [x] Paso ${i + 1}`),
+    ].join('\n') + '\n';
+    fs.writeFileSync(path.join(agentsDir, 'ACTIVE_TASK.md'), exact40, 'utf8');
+    fs.writeFileSync(
+      path.join(cacheDir, 'session_checkpoint.json'),
+      JSON.stringify({ status: 'CERTIFIED_CLEAN', intent_140chars: 'Cierre limpio', planned_steps: [] })
+    );
+    const okClean = await certify11xGate(tempDir);
+    expect(okClean.gate_passed).toBe(true);
+    expect(okClean.blockers).toEqual([]);
+
+    // Checkpoint legado COMPLETED (100%) + ACTIVE_TASK COMPLETED (100%) también pasa
+    fs.writeFileSync(
+      path.join(agentsDir, 'ACTIVE_TASK.md'),
+      '# Active Task\n- **Estado:** COMPLETED (100%)\n- [x] Paso 1\n',
+      'utf8'
+    );
+    fs.writeFileSync(
+      path.join(cacheDir, 'session_checkpoint.json'),
+      JSON.stringify({ status: 'COMPLETED (100%)', intent_140chars: 'Legado completado', planned_steps: [] })
+    );
+    const okLegacy = await certify11xGate(tempDir);
+    expect(okLegacy.gate_passed).toBe(true);
+    expect(okLegacy.blockers).toEqual([]);
+
+    // 22 líneas con contenido + 20 líneas en blanco = 42 líneas totales -> bloquea (> 40)
+    const blankPadded = [
+      '# Active Task',
+      '- **Estado:** CERTIFIED_CLEAN',
+      ...Array.from({ length: 20 }, () => ''),
+      ...Array.from({ length: 20 }, (_, i) => `- [x] Item ${i + 1}`),
+    ].join('\n');
+    fs.writeFileSync(path.join(agentsDir, 'ACTIVE_TASK.md'), blankPadded, 'utf8');
+    const blankBloated = await certify11xGate(tempDir);
+    expect(blankBloated.gate_passed).toBe(false);
+    expect(
+      blankBloated.blockers.some((b) => b.includes('excede el presupuesto compacto de 40 líneas'))
+    ).toBe(true);
+
+    // Archivo ACTIVE_TASK.md vacío + checkpoint con status numérico inválido (tipo != string)
+    fs.writeFileSync(path.join(agentsDir, 'ACTIVE_TASK.md'), '', 'utf8');
+    fs.writeFileSync(
+      path.join(cacheDir, 'session_checkpoint.json'),
+      JSON.stringify({ status: 123, intent_140chars: 'Estado numérico', planned_steps: [] })
+    );
+    const badStatusRes = await certify11xGate(tempDir);
+    expect(badStatusRes.gate_passed).toBe(true);
+    expect(badStatusRes.blockers).toEqual([]);
+  });
 });

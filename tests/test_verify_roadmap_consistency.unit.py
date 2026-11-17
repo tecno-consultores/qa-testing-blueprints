@@ -189,6 +189,34 @@ class TestVerifyRoadmapConsistency(unittest.TestCase):
             errors = vrc.validate_active_task(task_file)
             self.assertEqual(errors, [])
 
+    def test_validate_active_task_valid_certified_clean(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            task_file = Path(tmpdir) / "ACTIVE_TASK.md"
+            task_file.write_text(
+                """# Tarea Activa
+**Estado:** CERTIFIED_CLEAN
+- [x] Fase 1
+- [x] Fase 2
+""",
+                encoding="utf-8",
+            )
+            errors = vrc.validate_active_task(task_file)
+            self.assertEqual(errors, [])
+
+    def test_validate_active_task_certified_clean_with_pending_checkboxes(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            task_file = Path(tmpdir) / "ACTIVE_TASK.md"
+            task_file.write_text(
+                """# Tarea Activa
+**Estado:** CERTIFIED_CLEAN
+- [x] Fase 1
+- [ ] Fase 2 pendiente
+""",
+                encoding="utf-8",
+            )
+            errors = vrc.validate_active_task(task_file)
+            self.assertTrue(any("casillas pendientes sin marcar" in e for e in errors))
+
     def test_validate_active_task_valid_completed(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             task_file = Path(tmpdir) / "ACTIVE_TASK.md"
@@ -351,7 +379,7 @@ class TestVerifyRoadmapConsistency(unittest.TestCase):
             self.assertTrue(any("planned_steps" in e for e in errs_incoh))
             self.assertTrue(any("ACTIVE_TASK.md" in e for e in errs_incoh))
 
-            active.write_text("**Estado:** COMPLETED (100%)\n- [x] F5\n", encoding="utf-8")
+            active.write_text("**Estado:** CERTIFIED_CLEAN\n- [x] F5\n", encoding="utf-8")
             ckpt.write_text(
                 json.dumps(
                     {
@@ -363,8 +391,79 @@ class TestVerifyRoadmapConsistency(unittest.TestCase):
                 encoding="utf-8",
             )
             self.assertEqual(vrc.validate_session_checkpoint(ckpt, active), [])
+            # Compatibilidad con archivos legacy marcados COMPLETED (100%)
+            active.write_text("**Estado:** COMPLETED (100%)\n- [x] F5\n", encoding="utf-8")
+            self.assertEqual(vrc.validate_session_checkpoint(ckpt, active), [])
             active.unlink()
             self.assertEqual(vrc.validate_session_checkpoint(ckpt, active), [])
+
+    def test_validate_partial_hitos_non_numeric_and_main_error_path(self) -> None:
+        import io
+        from contextlib import redirect_stdout
+        from unittest import mock
+
+        rows = vrc.parse_roadmap_table(
+            "| **Hito 1** | X | `s` | 🚧 En Progreso | `N/A` |\n"
+        )
+        self.assertEqual(rows[0]["progreso_pct"], -1)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            self.assertTrue(
+                any(
+                    "Archivo no encontrado" in e
+                    for e in vrc.validate_roadmap_consistency(base / "missing.md")
+                )
+            )
+            self.assertEqual(vrc.validate_active_task(base / "missing_task.md"), [])
+
+            no_tbl = base / "NO_TABLE.md"
+            no_tbl.write_text("# Solo texto\n", encoding="utf-8")
+            self.assertEqual(vrc.validate_roadmap_consistency(no_tbl), [])
+
+            rm = base / "ROADMAP.md"
+            rm.write_text(
+                "# Roadmap\n"
+                "| **Hito 1** | A | `s1` | ✅ Completado | `100%` |\n"
+                "| **Hito 2** | B | `s2` | ⏳ Pendiente | `0%` |\n"
+                "| **Hito 3** | C | `s3` | 🚧 En Progreso | `50%` |\n"
+                "| **Hito 4** | D | `s4` | 🚧 En Progreso | `50%` |\n"
+                "| **Hito 5** | E | `s5` | ⏳ Pendiente | `0%` |\n"
+                "| **Hito 6** | F | `s6` | ⏳ Pendiente | `0%` |\n\n"
+                "## 🚧 Hito 1: A\n- [x] ok\n- [ ] pend\n"
+                "## Notas Generales\nTexto fuera de hito\n"
+                "## 🚧 Hito 2: B\n- [x] ok\n- [ ] pend\n\n"
+                "## 🚧 Hito 3: C\nSin casillas\n\n"
+                "## 🚧 Hito 4: D\n- [x] ok\n- [ ] pend\n\n"
+                "## ✅ Hito 5: E\nSin tareas\n\n"
+                "## ✅ Hito 6: F\n- [ ] pend\n",
+                encoding="utf-8",
+            )
+            errs = vrc.validate_roadmap_consistency(rm)
+            self.assertTrue(any("Hito 1" in e and "Completado" in e for e in errs))
+            self.assertTrue(any("Hito 2" in e and "Pendiente" in e for e in errs))
+            self.assertTrue(any("Hito 6" in e and "⏳ Hito 6" in e for e in errs))
+            self.assertEqual(
+                vrc._dispatch_hito_checks(
+                    "9",
+                    {},
+                    {
+                        "is_all_completed": False,
+                        "is_all_pending": False,
+                        "is_partial": False,
+                    },
+                ),
+                [],
+            )
+
+            (base / ".agents" / "scripts").mkdir(parents=True)
+            fake_script = base / ".agents" / "scripts" / "verify_roadmap_consistency.py"
+            fake_script.write_text("# stub\n", encoding="utf-8")
+            buf = io.StringIO()
+            with mock.patch.object(vrc, "__file__", str(fake_script)), redirect_stdout(buf):
+                rc = vrc.main()
+            self.assertEqual(rc, 1)
+            self.assertIn("discrepancias de consistencia", buf.getvalue())
 
 
 if __name__ == "__main__":

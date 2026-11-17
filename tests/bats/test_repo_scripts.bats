@@ -255,3 +255,87 @@ EOF
   run grep -F "/app/.agents/scripts/track_findings_state.py" "${DOCKER_LOG}"
   assert_success
 }
+
+@test "certify_task_completion.sh (F3.2): exige tests/docs para SKILL.md, rules, schemas, manifest.json y llms.txt pero mantiene DOCS_ONLY para docs/*.md" {
+  WORK="${BATS_TEST_TMPDIR}/certify_f32_gate10"
+  mkdir -p "${WORK}/.agents/scripts" "${WORK}/.agents/schemas" "${WORK}/.agents/skills/demo" "${WORK}/.agents/rules" "${WORK}/scripts" "${WORK}/docs" "${WORK}/tests"
+  cp "${REPO_ROOT}/.agents/scripts/certify_task_completion.sh" "${WORK}/.agents/scripts/certify_task_completion.sh"
+  chmod +x "${WORK}/.agents/scripts/certify_task_completion.sh"
+
+  for sh_stub in verificar-secretos.sh auditar-infra.sh; do
+    printf '#!/usr/bin/env bash\necho "✔ [%s] stub OK"\n' "${sh_stub}" >"${WORK}/scripts/${sh_stub}"
+    chmod +x "${WORK}/scripts/${sh_stub}"
+  done
+  printf 'print("ok")\n' >"${WORK}/scripts/generar-manifiesto.py"
+  for stub_py in \
+    verify_json_no_duplicate_keys.py \
+    verify_zero_orphan_vue_components.py \
+    verify_no_orphan_api_endpoints.py \
+    verify_topological_health.py \
+    verify_alembic_orm_parity.py \
+    verify_roadmap_consistency.py; do
+    printf 'print("✔ [%s] stub OK")\n' "${stub_py}" >"${WORK}/.agents/scripts/${stub_py}"
+  done
+
+  printf '# Repo\n' >"${WORK}/README.md"
+  printf '# Changelog\n' >"${WORK}/CHANGELOG.md"
+  printf '# Guide\n' >"${WORK}/docs/guide.md"
+  printf '{"schema_version":"1.0"}\n' >"${WORK}/manifest.json"
+  printf 'llms v1\n' >"${WORK}/llms.txt"
+  printf '{"type":"object"}\n' >"${WORK}/.agents/schemas/s.schema.json"
+  printf '# Demo Skill\n' >"${WORK}/.agents/skills/demo/SKILL.md"
+  printf '# Rule 1\n' >"${WORK}/.agents/rules/r1.md"
+  printf 'def test_ok(): assert True\n' >"${WORK}/tests/test_demo.py"
+
+  git -C "${WORK}" init -q
+  git -C "${WORK}" config user.email "qa@example.com"
+  git -C "${WORK}" config user.name "QA Bot"
+  git -C "${WORK}" add .
+  git -C "${WORK}" commit -q -m "chore: init"
+
+  # 1. docs/*.md + README.md -> fast-path DOCS_ONLY
+  printf '# Guide updated\n' >"${WORK}/docs/guide.md"
+  printf '# Repo updated\n' >"${WORK}/README.md"
+  run env LC_ALL=C bash "${WORK}/.agents/scripts/certify_task_completion.sh" --strict
+  assert_success
+  assert_output --partial "[Doc Fast-Path]"
+  git -C "${WORK}" checkout -- docs/guide.md README.md
+
+  # 2. SKILL.md sin prueba ni doc humano -> bloquea Gate 10
+  printf '# Demo Skill updated\n' >"${WORK}/.agents/skills/demo/SKILL.md"
+  run env LC_ALL=C bash "${WORK}/.agents/scripts/certify_task_completion.sh"
+  assert_failure 1
+  assert_output --partial "[Doc & Test Sync] Incumplimiento"
+  assert_output --partial "QA-TEST-SYNC-01"
+  assert_output --partial "CHANGELOG.md"
+
+  # 3. SKILL.md + CHANGELOG.md sin prueba -> sigue bloqueando por falta de prueba
+  printf '# Changelog updated\n' >"${WORK}/CHANGELOG.md"
+  run env LC_ALL=C bash "${WORK}/.agents/scripts/certify_task_completion.sh"
+  assert_failure 1
+  assert_output --partial "QA-TEST-SYNC-01"
+
+  # 4. SKILL.md + CHANGELOG.md + test -> certifica 10/10 PASS sin SKIPPED falso de diff-cov
+  printf 'def test_ok(): assert 1 == 1\n' >"${WORK}/tests/test_demo.py"
+  run env LC_ALL=C bash "${WORK}/.agents/scripts/certify_task_completion.sh" --strict
+  assert_success
+  assert_output --partial "[Doc & Test Sync]"
+  assert_output --partial "10/10 PASS"
+  git -C "${WORK}" checkout -- .agents/skills/demo/SKILL.md CHANGELOG.md tests/test_demo.py
+
+  # 5. manifest.json + llms.txt + .agents/schemas + .agents/rules exigen tests + docs
+  printf '{"schema_version":"1.1"}\n' >"${WORK}/manifest.json"
+  printf 'llms v2\n' >"${WORK}/llms.txt"
+  printf '{"type":"object","title":"S"}\n' >"${WORK}/.agents/schemas/s.schema.json"
+  printf '# Rule 1 updated\n' >"${WORK}/.agents/rules/r1.md"
+  printf '# Changelog v2\n' >"${WORK}/CHANGELOG.md"
+  run env LC_ALL=C bash "${WORK}/.agents/scripts/certify_task_completion.sh"
+  assert_failure 1
+  assert_output --partial "QA-TEST-SYNC-01"
+
+  printf 'def test_ok(): assert 2 == 2\n' >"${WORK}/tests/test_demo.py"
+  run env LC_ALL=C bash "${WORK}/.agents/scripts/certify_task_completion.sh" --strict
+  assert_success
+  assert_output --partial "[Doc & Test Sync]"
+  assert_output --partial "10/10 PASS"
+}

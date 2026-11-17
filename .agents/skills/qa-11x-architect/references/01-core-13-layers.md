@@ -171,9 +171,9 @@ In long-running autonomous workflows across complex codebases, AI assistants and
 │    └── Complete atomic subtask ──> Mark "- [ ]" to "- [x]" IMMEDIATELY.│
 │    └── If crash occurs ──────────> Re-read .agents/ACTIVE_TASK.md.     │
 │                                                                        │
-│ 4. CLOSURE GATE: Mandatory verification before git push.               │
+│ 4. CLOSURE GATE: Mandatory verification before local git commit.       │
 │    └── Run ./.agents/scripts/certify_task_completion.sh                │
-│    └── Mark status: "COMPLETED (100%)"                                 │
+│    └── Mark status: "CERTIFIED_CLEAN" (via checkpoint_ctl / MCP)       │
 │    └── Sync CHANGELOG.md, ROADMAP.md, TESTING.md                       │
 └────────────────────────────────────────────────────────────────────────┘
 ```

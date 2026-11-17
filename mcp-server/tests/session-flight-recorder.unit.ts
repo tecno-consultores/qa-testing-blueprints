@@ -202,14 +202,14 @@ describe('Flight Recorder Atómico (Tool #19 session_flight_recorder & Resource 
     expect(recovered.git_live?.dirty_files_excluding_cache).toEqual(['src/app.ts', 'src/new.ts']);
     expect(recovered.git_live?.diff_stat).toContain('1 file changed');
 
-    // Clear cierra estado a CERTIFIED_CLEAN y proyecta COMPLETED (100%)
+    // Clear cierra estado a CERTIFIED_CLEAN y proyecta CERTIFIED_CLEAN
     const cleared = await runSessionFlightRecorder(
       { project_path: wsDir, action: 'clear', reason: 'Cerrado 10/10' },
       { execFileSyncFn: fakeGitExec, preferPythonCtl: false }
     );
     expect(cleared.status).toBe('PASSED');
     expect(cleared.checkpoint?.status).toBe('CERTIFIED_CLEAN');
-    expect(cleared.active_task_markdown).toContain('COMPLETED (100%)');
+    expect(cleared.active_task_markdown).toContain('**Estado:** CERTIFIED_CLEAN');
     expect(cleared.active_task_markdown).not.toContain('- [ ] ');
   });
 
