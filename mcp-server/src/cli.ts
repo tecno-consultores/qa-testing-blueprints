@@ -895,8 +895,11 @@ async function dispatchStandardSubcommand(
   if (handler) {
     return await handler(parsed, deps, log, errorLog);
   }
-  const reconcileRunner = deps.reconcileRunner ?? runReconcileAgentsCli;
-  await reconcileRunner([...parsed.rawForwardArgs]);
+  if (deps.reconcileRunner) {
+    await deps.reconcileRunner([...parsed.rawForwardArgs]);
+  } else {
+    await runReconcileAgentsCli([...parsed.rawForwardArgs], { cwd: deps.cwd, log });
+  }
   return { exitCode: 0, command: CMD_RECONCILE_AGENTS, parsed };
 }
 

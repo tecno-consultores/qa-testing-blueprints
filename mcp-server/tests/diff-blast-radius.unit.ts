@@ -13,7 +13,11 @@ import { WorkspacePathValidationError } from '../src/security/workspacePathValid
 import { createMcpServer } from '../src/server.js';
 import { GitHubFetcher } from '../src/services/github-fetcher.js';
 import { SurgicalMerger } from '../src/services/surgical-merger.js';
-import { inspectAstBlastRadius } from '../src/tools/blast-radius.js';
+import {
+  inspectAstBlastRadius,
+  processCandidateFile,
+  type GraphScanContext,
+} from '../src/tools/blast-radius.js';
 import {
   buildSemanticDiffBundle,
   classifyDiffTier,
@@ -502,5 +506,61 @@ describe('Modo Diferencial en inspect_ast_blast_radius y diff-bundle (Hito 23)',
     } finally {
       fs.rmSync(skipDir, { recursive: true, force: true });
     }
+  });
+
+  it('evita falsos positivos con target_symbol "." y changed_since_ref, y cubre guard en processCandidateFile', async () => {
+    initGitRepo(tmpDir, {
+      'src/alpha.ts': 'export const alpha = 1;\n',
+      'src/beta.ts': "export const beta = 'a.b';\n",
+    });
+    writeRepoFile(tmpDir, 'src/alpha.ts', 'export const alpha = 2;\n');
+    git(tmpDir, ['add', '.']);
+    git(tmpDir, ['commit', '-m', 'chore: update alpha']);
+
+    const diffDotRes = await inspectAstBlastRadius(tmpDir, '.', undefined, {
+      changedSinceRef: 'HEAD~1',
+    });
+    expect(diffDotRes.target_symbol).toBe('.');
+    expect(diffDotRes.dependent_files).toEqual([]);
+    expect(diffDotRes.diff_bundle?.files.map((f) => f.file)).toContain('src/alpha.ts');
+
+    const makeCtx = (cleanSymbol: string): GraphScanContext => ({
+      cleanSymbol,
+      dependentFiles: new Set<string>(),
+      suggestedTests: new Set<string>(),
+      graphFiles: [],
+      graphReports: [],
+      declaringFiles: new Set<string>(),
+      declaringLocations: new Set<string>(),
+      outgoingDependencies: new Set<string>(),
+    });
+
+    const dotCtx = makeCtx('.');
+    processCandidateFile({
+      fullPath: path.join(tmpDir, 'src/beta.ts'),
+      rel: 'src/beta.ts',
+      ext: '.ts',
+      ctx: dotCtx,
+    });
+    expect(dotCtx.dependentFiles.size).toBe(0);
+    expect(dotCtx.suggestedTests.size).toBe(0);
+
+    const betaCtx = makeCtx('beta');
+    processCandidateFile({
+      fullPath: path.join(tmpDir, 'src/beta.ts'),
+      rel: 'src/beta.ts',
+      ext: '.ts',
+      ctx: betaCtx,
+    });
+    expect(Array.from(betaCtx.dependentFiles)).toEqual(['src/beta.ts']);
+
+    const missingCtx = makeCtx('beta');
+    processCandidateFile({
+      fullPath: path.join(tmpDir, 'src/missing.ts'),
+      rel: 'src/missing.ts',
+      ext: '.ts',
+      ctx: missingCtx,
+    });
+    expect(missingCtx.dependentFiles.size).toBe(0);
   });
 });

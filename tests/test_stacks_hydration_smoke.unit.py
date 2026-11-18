@@ -749,6 +749,9 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             "mobile-appium vibe-rescue .github",
             "MCP_EXTRA_VOLS",
             "-e _USER=qa",
+            "--cov=vibe-rescue",
+            "vibe-rescue/tests/*.unit.py",
+            "PYTHONPATH=/app/.agents/scripts:/app/vibe-rescue:/app",
         )
         for token in required_parity_tokens:
             self.assertIn(token, lefthook_text, f"Falta '{token}' en lefthook.yml")
@@ -780,6 +783,32 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             self.assertIn(
                 skill_path, feature_text, f"Falta '{skill_path}' en mcp_cli_test"
             )
+
+    def test_lefthook_precommit_guards_and_single_manifest_check(self) -> None:
+        """Verifica guardas pre-commit en lefthook.yml y no duplicar manifiesto."""
+        lefthook_text = (REPO_ROOT / "lefthook.yml").read_text(encoding="utf-8")
+        hooks_sh = (REPO_ROOT / "instalar-hooks.sh").read_text(encoding="utf-8")
+        parsed = _load_yaml_mapping(lefthook_text)
+        commands = parsed["pre-commit"]["commands"]
+        expected_guards = {
+            "fastapi-lint": "pyproject.toml",
+            "python-lint": "pyproject.toml",
+            "vue3-lint": "package.json",
+            "react-lint": "package.json",
+            "node-backend-lint": "package.json",
+            "php-lint": "composer.json",
+        }
+        for cmd_name, manifest_file in expected_guards.items():
+            run_cmd = str(commands[cmd_name]["run"])
+            self.assertIn("docker-compose.qa.yml", run_cmd, msg=cmd_name)
+            self.assertIn(manifest_file, run_cmd, msg=cmd_name)
+
+        dup_cmd = "python3 scripts/generar-manifiesto.py --check"
+        sync_cmd = "python3 .agents/scripts/sync_governance.py --check"
+        self.assertNotIn(dup_cmd, lefthook_text)
+        self.assertNotIn(dup_cmd, hooks_sh)
+        self.assertIn(sync_cmd, lefthook_text)
+        self.assertIn(sync_cmd, hooks_sh)
 
     def test_mandatory_existing_test_sync_directive_across_governance(self) -> None:
         """Garantiza invariante QA-TEST-SYNC-01 en ambas capas y SKILL.md < 12KB."""

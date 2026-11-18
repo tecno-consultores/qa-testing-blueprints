@@ -103,15 +103,15 @@ if [ -f "./scripts/generar-manifiesto.py" ]; then
 	docker run --rm --network none -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache \
 		-e PYTHONDONTWRITEBYTECODE=1 -e PYTHONPATH=/app/.agents/scripts \
 		-u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 \
-		bash -c "python3 scripts/generar-manifiesto.py --check && python3 .agents/scripts/sync_governance.py --check && python3 .agents/scripts/bump_version_11x.py --workspace . --check && python3 .agents/scripts/verify_docs_invariants.py && python3 .agents/scripts/verify_roadmap_consistency.py && python3 .agents/scripts/verify_topological_health.py && python3 .agents/scripts/verify_json_no_duplicate_keys.py"
+		bash -c "python3 .agents/scripts/sync_governance.py --check && python3 .agents/scripts/bump_version_11x.py --workspace . --check && python3 .agents/scripts/verify_docs_invariants.py && python3 .agents/scripts/verify_roadmap_consistency.py && python3 .agents/scripts/verify_topological_health.py && python3 .agents/scripts/verify_json_no_duplicate_keys.py"
 	# Ejecuta tests/*.unit.py y tests/meta_qa/test_governance_scripts.py (más test_antipattern_linter.py) vía make
 	if command -v make >/dev/null 2>&1; then
 		make test-py && make test-meta-qa
 	else
 		docker run --rm --network none -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 \
-			-e PYTHONPATH=/app/.agents/scripts:/app -e HOME=/tmp -u "$(id -u):$(id -g)" -v "$(pwd):/app:ro" -w /app \
+			-e PYTHONPATH=/app/.agents/scripts:/app/vibe-rescue:/app -e HOME=/tmp -u "$(id -u):$(id -g)" -v "$(pwd):/app:ro" -w /app \
 			sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 \
-			bash -c "ruff check --select E,F,W,I,UP,B,C901,FLY --config 'lint.mccabe.max-complexity=5' .agents/scripts scripts tests vibe-rescue && MYPYPATH=/app/.agents/scripts:ai-evals:vibe-rescue mypy --strict --cache-dir=/tmp/mypy .agents/scripts/*.py scripts/*.py tests/*.unit.py tests/meta_qa/*.py tests/evals/*.py vibe-rescue/*.py vibe-rescue/tests/*.py && pytest --cov=.agents/scripts --cov=scripts --cov-fail-under=95 --cov-branch tests/*.unit.py tests/meta_qa/test_*.py -q"
+			bash -c "ruff check --select E,F,W,I,UP,B,C901,FLY --config 'lint.mccabe.max-complexity=5' .agents/scripts scripts tests vibe-rescue && MYPYPATH=/app/.agents/scripts:ai-evals:vibe-rescue mypy --strict --cache-dir=/tmp/mypy .agents/scripts/*.py scripts/*.py tests/*.unit.py tests/meta_qa/*.py tests/evals/*.py vibe-rescue/*.py vibe-rescue/tests/*.py && pytest --cov=.agents/scripts --cov=scripts --cov=vibe-rescue --cov-fail-under=95 --cov-branch tests/*.unit.py tests/meta_qa/test_*.py vibe-rescue/tests/*.unit.py -q"
 	fi
 fi
 if [ -d "./mcp-server/test" ]; then

@@ -240,7 +240,7 @@ runs:
             GRAPH_STATUS="SKIPPED"
             echo "::warning::[graph=SKIPPED] inspect_blast_radius fallback (rc=${INSPECT_RC})." >&2
           fi
-          NON_DOC_COUNT="$(awk 'NF && ($0 ~ /^\.agents\// || ($0 !~ /\.md$/ && $0 !~ /^docs\//)) { c++ } END { print c + 0 }' "${CHANGED_FILE}")"
+          NON_DOC_COUNT="$(awk 'NF && ($0 ~ /^(\.agents|catalogs)\// || $0 ~ /^(AGENTS|AI_MASTER_PROMPT(\.es)?|SECURITY(\.es)?)\.md$/ || $0 ~ /^(python|fastapi|node-backend|vue3|react-frontend|bash-scripts|php|mobile-appium|ai-evals|vibe-rescue)\/README(\.es)?\.md$/ || ($0 !~ /\.md$/ && $0 !~ /^docs\//)) { c++ } END { print c + 0 }' "${CHANGED_FILE}")"
           if [ "${NON_DOC_COUNT}" -eq 0 ]; then
             BLAST_TIER="docs-only"
             SAVINGS_PCT="85"
@@ -249,7 +249,7 @@ runs:
           BLAST_TIER="nightly-full"
           SAVINGS_PCT="0"
         elif [ -s "${CHANGED_FILE}" ]; then
-          NON_DOC_COUNT="$(awk 'NF && ($0 ~ /^\.agents\// || ($0 !~ /\.md$/ && $0 !~ /^docs\//)) { c++ } END { print c + 0 }' "${CHANGED_FILE}")"
+          NON_DOC_COUNT="$(awk 'NF && ($0 ~ /^(\.agents|catalogs)\// || $0 ~ /^(AGENTS|AI_MASTER_PROMPT(\.es)?|SECURITY(\.es)?)\.md$/ || $0 ~ /^(python|fastapi|node-backend|vue3|react-frontend|bash-scripts|php|mobile-appium|ai-evals|vibe-rescue)\/README(\.es)?\.md$/ || ($0 !~ /\.md$/ && $0 !~ /^docs\//)) { c++ } END { print c + 0 }' "${CHANGED_FILE}")"
           if [ "${NON_DOC_COUNT}" -eq 0 ]; then
             BLAST_TIER="docs-only"
             SAVINGS_PCT="85"
@@ -410,11 +410,31 @@ runs:
             fi
           else
             echo "ℹ️ [FAST-PATH] Code gates omitted for docs-only blast plan."
+            if [ -f ".agents/scripts/sync_governance.py" ] && [ -f "manifest.json" ]; then
+              docker run --rm --network none \
+                -u "$(id -u):$(id -g)" \
+                -e HOME=/tmp \
+                -e PYTHONDONTWRITEBYTECODE=1 \
+                -v "$(pwd):/app:ro" \
+                -w /app \
+                "${INPUT_PYTHON_IMAGE}" \
+                python3 .agents/scripts/sync_governance.py --check
+            fi
+            if [ -f ".agents/scripts/verify_docs_invariants.py" ]; then
+              docker run --rm --network none \
+                -u "$(id -u):$(id -g)" \
+                -e HOME=/tmp \
+                -e PYTHONDONTWRITEBYTECODE=1 \
+                -v "$(pwd):/app:ro" \
+                -w /app \
+                "${INPUT_PYTHON_IMAGE}" \
+                python3 .agents/scripts/verify_docs_invariants.py
+            fi
             FINAL_VERDICT="PASS"
           fi
         fi
 
-        if [ "${INPUT_TIER}" = "enterprise" ]; then
+        if [ "${INPUT_TIER}" = "enterprise" ] && [ "${BLAST_PLAN_TIER:-pr-targeted}" != "docs-only" ]; then
           if command -v make >/dev/null 2>&1 && [ -f "Makefile" ] && grep -q '^validate-calm:' Makefile; then
             make validate-calm
           elif [ -x ".agents/scripts/validate_calm_architecture.sh" ]; then

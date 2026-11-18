@@ -46,6 +46,9 @@ AUTO_DETECT_DIRS: tuple[str, ...] = (
     "src",
     "tests",
     "e2e",
+    "vibe-rescue",
+    ".agents/scripts",
+    "scripts",
 )
 BRACE_DELTA: dict[str, int] = {"{": 1, "}": -1}
 
@@ -745,10 +748,9 @@ def _collect_scope_audit_violations(
         "Verificar call_args verificando actor_username y "
         "resource_display_name legibles."
     )
-    asserted = _collect_asserted_mock_receivers(scope)
     hits: list[Violation] = []
     for line_no, expected_targets in _find_audit_patch_sites(scope):
-        if expected_targets & asserted:
+        if _has_audit_mock_assertion(scope, expected_targets):
             continue
         if line_no in seen_lines or _has_py_anti_exempt(raw_lines, line_no):
             continue

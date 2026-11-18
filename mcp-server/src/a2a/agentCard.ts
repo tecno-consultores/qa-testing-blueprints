@@ -4,7 +4,7 @@
 import * as crypto from 'node:crypto';
 import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
-import { MCP_SERVER_VERSION } from '../services/github-fetcher.js';
+import { MCP_SERVER_VERSION, MCP_STANDARD_EDITION } from '../services/github-fetcher.js';
 import {
   MAX_TASK_CAPACITY,
   MIN_TASK_CAPACITY,
@@ -23,14 +23,17 @@ export const DEFAULT_AGENT_NAME = 'qa-11x-mcp-agent' as const;
 export const DEFAULT_AGENT_VERSION: string = MCP_SERVER_VERSION;
 
 /** Derives the QA-11X standard edition label (e.g. 'QA-11X v3.1') from a SemVer string. */
-export function deriveStandardVersion(serverVersion: string = MCP_SERVER_VERSION): string {
+export function deriveStandardVersion(serverVersion?: string): string {
+  if (serverVersion === undefined || serverVersion === MCP_SERVER_VERSION) {
+    return MCP_STANDARD_EDITION;
+  }
   const parts = serverVersion.split('.');
   const major = parts[0] || '3';
   const minor = parts[1] || '0';
   return `QA-11X v${major}.${minor}`;
 }
 
-export const DEFAULT_STANDARD_VERSION = deriveStandardVersion(MCP_SERVER_VERSION);
+export const DEFAULT_STANDARD_VERSION: string = MCP_STANDARD_EDITION;
 export const DEFAULT_ACTIVE_MODEL = 'local-or-frontier-hybrid' as const;
 export const DEFAULT_AGENT_URL = 'stdio://sinfallas/mcp-qa-11x' as const;
 export const DEFAULT_A2A_PROTOCOL_VERSION = '1.0' as const;

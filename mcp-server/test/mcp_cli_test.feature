@@ -67,7 +67,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
         { name: 'inspect_project_config', required: ['project_path'] },
         { name: 'fetch_blueprint_bundle', required: ['stack'] },
         { name: 'bootstrap_or_merge_11x', required: ['project_path', 'stack'] },
-        { name: 'inspect_ast_blast_radius', required: ['project_path', 'target_symbol'] },
+        { name: 'inspect_ast_blast_radius', required: ['project_path'] },
         { name: 'clean_workspace_11x', required: ['project_path'] },
         { name: 'audit_security_stig_owasp', required: ['project_path'] },
         { name: 'run_ephemeral_qa', required: ['project_path', 'stage'] },

@@ -8,8 +8,10 @@ import * as path from 'node:path';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   assertSafeRelativePath,
+  extractStandardEdition,
   GitHubFetcher,
   isOwnObjectProperty,
+  MCP_STANDARD_EDITION,
   resolveSafeChildPath,
   resolveSafeHomeDir,
 } from '../src/services/github-fetcher.js';
@@ -511,5 +513,12 @@ describe('GitHubFetcher Service (DISA STIG V-222513 & Zero-Clone Hydration)', ()
       if (prevDebug === undefined) delete process.env.QA11X_DEBUG;
       else process.env.QA11X_DEBUG = prevDebug;
     }
+  });
+
+  it('extracts standard edition from package description with safe fallback', () => {
+    expect(MCP_STANDARD_EDITION).toBe('QA-11X v3.1');
+    expect(extractStandardEdition('Official MCP Server (QA-11X v3.2: 19 Tools)')).toBe('QA-11X v3.2');
+    expect(extractStandardEdition('Description without edition tag')).toBe('QA-11X v3.1');
+    expect(extractStandardEdition()).toBe('QA-11X v3.1');
   });
 });

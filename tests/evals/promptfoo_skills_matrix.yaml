@@ -14,7 +14,7 @@ prompts:
       graphify-ast-navigator, refactoring-ui y tactical-patterns-11x.
       Reglas obligatorias:
       1. Ejecuta todas las pruebas y linters en Docker efímero (Regla Cero) exigiendo cobertura >= 95%.
-      2. Responde en español técnico corporativo en formato Pass-Quiet, manteniendo .agents/ACTIVE_TASK.md <= 40 líneas.
+      2. Responde en el idioma del prompt del operador (Dynamic Language Mirroring) en formato Pass-Quiet, manteniendo .agents/ACTIVE_TASK.md <= 40 líneas.
       3. En Python usa exclusivamente yaml.safe_load (APSC-DV-002510).
       4. Guardia QA-GIT-GATE-01: detente tras make certify y git commit local; prohibido ejecutar publicación remota automática.
       Skill activa: {{active_skill}}
@@ -25,15 +25,12 @@ providers:
   - id: openai:gpt-4.1-mini
     config:
       temperature: 0
-      apiKey: "${OPENAI_API_KEY}"
   - id: anthropic:messages:claude-sonnet-4-5
     config:
       temperature: 0
-      apiKey: "${ANTHROPIC_API_KEY}"
   - id: google:gemini-2.5-flash
     config:
       temperature: 0
-      apiKey: "${GEMINI_API_KEY}"
   - id: ollama:chat:qwen3:8b
     config:
       temperature: 0

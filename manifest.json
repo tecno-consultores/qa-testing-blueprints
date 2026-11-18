@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "3.2.0",
-  "generated_at_utc": "2026-11-18T00:06:53Z",
+  "generated_at_utc": "2026-11-18T00:52:03Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -984,8 +984,8 @@
       "path": "lefthook.yml",
       "target_name": "lefthook.yml",
       "merge_strategy": "surgical_merge",
-      "sha256": "e7719d98ff56ac396ad49fa2829c91583e2ab45833471e64ac3b546b5bac0f72",
-      "size_bytes": 10995
+      "sha256": "45f8044f2a2855d5ee576a1430f9099a78cac36428aefd258769a5b3cd13bbbd",
+      "size_bytes": 11432
     },
     {
       "path": "scripts/actualizar-grafos-graphify.sh",
@@ -1126,15 +1126,15 @@
       "path": ".agents/scripts/bump_version_11x.py",
       "target_name": ".agents/scripts/bump_version_11x.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "99efce97f4796c36a7fb390a43c76811a968c7a19e98ae103a8cf86b084f3845",
-      "size_bytes": 18114
+      "sha256": "39d02ec01fbc870689b6f483252902bee35885687bd57b3ee6fe79a7cc89b075",
+      "size_bytes": 18782
     },
     {
       "path": ".agents/scripts/certify_task_completion.sh",
       "target_name": ".agents/scripts/certify_task_completion.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "4a52d59dc5bd5be23d379fbe7c28e9b3ac801de92454ed0b33151eb14a157cce",
-      "size_bytes": 25872
+      "sha256": "08eb6134e8f0861271559dc082a25711d62a3e2b5843edb230ed141847241920",
+      "size_bytes": 25877
     },
     {
       "path": ".agents/scripts/checkpoint_ctl.py",
@@ -1168,8 +1168,8 @@
       "path": ".agents/scripts/lint_test_antipatterns.py",
       "target_name": ".agents/scripts/lint_test_antipatterns.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "54c256facd032034fe3aa448dc0f98de11401c536218d18d67deb026888555f5",
-      "size_bytes": 36286
+      "sha256": "e9a335de042ddc13a80b0bf65982c1e557c7438fc0df15b299afa21d69685576",
+      "size_bytes": 36311
     },
     {
       "path": ".agents/scripts/release_readiness_gate.py",
@@ -1532,8 +1532,8 @@
       "path": "llms.txt",
       "target_name": "llms.txt",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "9d47b277eff7954e6cc5c800785bb02eb933eb57037591f7fb9281aa6dc2fbcc",
-      "size_bytes": 16563
+      "sha256": "560d134b62d8e0ad79f5a6599f1e096c4cc9d7851eb6029865701ccac7f7f8f8",
+      "size_bytes": 16568
     },
     {
       "path": "scripts/install-skill.sh",

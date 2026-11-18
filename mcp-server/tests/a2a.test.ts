@@ -23,7 +23,7 @@ import {
   validateTaskCapacityUri,
   writeAgentCardFile,
 } from '../src/a2a/agentCard.js';
-import { MCP_SERVER_VERSION } from '../src/services/github-fetcher.js';
+import { MCP_SERVER_VERSION, MCP_STANDARD_EDITION } from '../src/services/github-fetcher.js';
 import { TaskStateGuard } from '../src/utils/taskStateGuard.js';
 
 const tempDirs: string[] = [];
@@ -67,10 +67,13 @@ describe('Agent2Agent Card Generator (buildAgentCard)', () => {
         protocolVersion: '1.0',
       },
     ]);
+    expect(DEFAULT_STANDARD_VERSION).toBe(MCP_STANDARD_EDITION);
+    expect(card.standardVersion).toBe('QA-11X v3.1');
     expect(card.standardVersion).toBe(DEFAULT_STANDARD_VERSION);
     expect(card.standardVersion).toBe(expectedStandardVersion);
     expect(deriveStandardVersion()).toBe(DEFAULT_STANDARD_VERSION);
     expect(deriveStandardVersion('3.1.0')).toBe('QA-11X v3.1');
+    expect(deriveStandardVersion('3.0.0')).toBe('QA-11X v3.0');
     expect(deriveStandardVersion('')).toBe('QA-11X v3.0');
     expect(card.activeModel).toBe('local-or-frontier-hybrid');
     expect(card.description).toContain(card.activeModel);

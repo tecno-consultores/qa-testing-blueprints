@@ -552,3 +552,47 @@ def test_py_ast_patch_object_call_receiver_and_nested_patch(tmp_path: Path) -> N
     violations, _, _ = linter.audit_paths(["tests"], base_dir=tmp_path)
     py_001 = [v for v in violations if v.rule_id == "QA-PY-ANTI-001"]
     assert [v.line for v in py_001] == [5, 13]
+
+
+def test_autodetect_scans_governance_scripts_and_vibe_rescue(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Valida autodetección 0-args de .agents/scripts, scripts y vibe-rescue."""
+    _write_file(
+        tmp_path,
+        ".agents/scripts/verify_fake.py",
+        (
+            "def verify_fake_gate() -> bool:\n"
+            "    try:\n"
+            "        return False\n"
+            "    except OSError:\n"
+            "        return True\n"
+        ),
+    )
+    _write_file(
+        tmp_path,
+        "scripts/audit_helper.py",
+        "def verify_ok() -> bool:\n    return True\n",
+    )
+    _write_file(
+        tmp_path,
+        "vibe-rescue/audit_vibe.py",
+        "def audit_vibe() -> bool:\n    return False\n",
+    )
+
+    detected, auto_mode = linter._resolve_cli_paths([], tmp_path)
+    assert auto_mode is True
+    assert detected == ["vibe-rescue", ".agents/scripts", "scripts"]
+
+    assert linter.main([], base_dir=tmp_path) == 1
+    err_text = capsys.readouterr().err
+    assert "QA-PY-ANTI-003" in err_text
+    assert ".agents/scripts/verify_fake.py" in err_text
+
+    assert linter.main(["--json"], base_dir=tmp_path) == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "failed"
+    assert payload["scanned_files"] == 3
+    assert len(payload["violations"]) == 1
+    assert payload["violations"][0]["rule_id"] == "QA-PY-ANTI-003"
+    assert payload["violations"][0]["file"] == ".agents/scripts/verify_fake.py"

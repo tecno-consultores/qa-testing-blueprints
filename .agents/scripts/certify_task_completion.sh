@@ -630,7 +630,7 @@ run_gate 7 "ORM & Migration Parity" \
 
 run_gate 8 "Manifest SHA-256 Sync" \
   "Sincroniza manifest.json ejecutando make sync-governance (o python3 .agents/scripts/sync_governance.py)." \
-  "python3 scripts/generar-manifiesto.py --check" \
+  "python3 .agents/scripts/sync_governance.py --check" \
   gate_08_manifest
 
 run_gate 9 "Roadmap & ActiveTask Sync" \

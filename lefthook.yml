@@ -16,12 +16,12 @@ pre-commit:
     fastapi-lint:
       root: "fastapi/"
       glob: "*.py"
-      run: bash -c '[ ! -f docker-compose.qa.yml ] && exit 0; docker compose -f docker-compose.qa.yml run --rm -T qa-backend bash -c "uv pip install --system -e '\''.[dev]'\'' -q && ruff check {staged_files} && ruff format --check {staged_files}"'
+      run: bash -c 'if [ ! -f docker-compose.qa.yml ] || [ ! -f pyproject.toml ]; then exit 0; fi; docker compose -f docker-compose.qa.yml run --rm -T qa-backend bash -c "uv pip install --system -e '\''.[dev]'\'' -q && ruff check {staged_files} && ruff format --check {staged_files}"'
 
     python-lint:
       root: "python/"
       glob: "*.py"
-      run: bash -c '[ ! -f docker-compose.qa.yml ] && exit 0; docker compose -f docker-compose.qa.yml run --rm -T qa-backend bash -c "uv pip install --system -e '\''.[dev]'\'' -q && ruff check {staged_files} && ruff format --check {staged_files}"'
+      run: bash -c 'if [ ! -f docker-compose.qa.yml ] || [ ! -f pyproject.toml ]; then exit 0; fi; docker compose -f docker-compose.qa.yml run --rm -T qa-backend bash -c "uv pip install --system -e '\''.[dev]'\'' -q && ruff check {staged_files} && ruff format --check {staged_files}"'
 
     # --------------------------------------------------------------------------
     # ECOSISTEMA JAVASCRIPT (NODE, VUE3 & REACT)
@@ -29,17 +29,17 @@ pre-commit:
     vue3-lint:
       root: "vue3/"
       glob: "*.{js,ts,vue}"
-      run: docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-frontend bash -c "pnpm install --silent && npx prettier --check {staged_files} && npx eslint {staged_files}"
+      run: bash -c 'if [ ! -f docker-compose.qa.yml ] || [ ! -f package.json ]; then exit 0; fi; docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-frontend bash -c "pnpm install --silent && npx prettier --check {staged_files} && npx eslint {staged_files}"'
 
     react-lint:
       root: "react-frontend/"
       glob: "*.{js,ts,tsx}"
-      run: docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-frontend bash -c "pnpm install --silent && npx prettier --check {staged_files} && npx eslint {staged_files}"
+      run: bash -c 'if [ ! -f docker-compose.qa.yml ] || [ ! -f package.json ]; then exit 0; fi; docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-frontend bash -c "pnpm install --silent && npx prettier --check {staged_files} && npx eslint {staged_files}"'
 
     node-backend-lint:
       root: "node-backend/"
       glob: "*.{js,ts}"
-      run: docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-node-backend bash -c "pnpm install --silent && npx prettier --check {staged_files} && npx eslint {staged_files}"
+      run: bash -c 'if [ ! -f docker-compose.qa.yml ] || [ ! -f package.json ]; then exit 0; fi; docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-node-backend bash -c "pnpm install --silent && npx prettier --check {staged_files} && npx eslint {staged_files}"'
 
     # --------------------------------------------------------------------------
     # ECOSISTEMA PHP 8.2-8.5
@@ -47,7 +47,7 @@ pre-commit:
     php-lint:
       root: "php/"
       glob: "*.php"
-      run: docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-php composer --quiet run-script qa:lint
+      run: bash -c 'if [ ! -f docker-compose.qa.yml ] || [ ! -f composer.json ]; then exit 0; fi; docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-php composer --quiet run-script qa:lint'
 
     # --------------------------------------------------------------------------
     # ECOSISTEMA BASH (DEVOPS)
@@ -111,7 +111,7 @@ pre-push:
 
     python-governance-and-meta-qa:
       # Ejecuta tests/*.unit.py y tests/meta_qa/test_governance_scripts.py (más test_antipattern_linter.py) vía make test-py && make test-meta-qa
-      run: bash -c '[ ! -f scripts/generar-manifiesto.py ] && exit 0; docker run --rm --network none -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONPATH=/app/.agents/scripts -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 bash -c "python3 scripts/generar-manifiesto.py --check && python3 .agents/scripts/sync_governance.py --check && python3 .agents/scripts/bump_version_11x.py --workspace . --check && python3 .agents/scripts/verify_docs_invariants.py && python3 .agents/scripts/verify_roadmap_consistency.py && python3 .agents/scripts/verify_topological_health.py && python3 .agents/scripts/verify_json_no_duplicate_keys.py" && if command -v make >/dev/null 2>&1; then make test-py && make test-meta-qa; else docker run --rm --network none -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONPATH=/app/.agents/scripts:/app -e HOME=/tmp -u "$(id -u):$(id -g)" -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 bash -c "ruff check --select E,F,W,I,UP,B,C901,FLY --config '\''lint.mccabe.max-complexity=5'\'' .agents/scripts scripts tests vibe-rescue && MYPYPATH=/app/.agents/scripts:ai-evals:vibe-rescue mypy --strict --cache-dir=/tmp/mypy .agents/scripts/*.py scripts/*.py tests/*.unit.py tests/meta_qa/*.py tests/evals/*.py vibe-rescue/*.py vibe-rescue/tests/*.py && pytest --cov=.agents/scripts --cov=scripts --cov-fail-under=95 --cov-branch tests/*.unit.py tests/meta_qa/test_*.py -q"; fi'
+      run: bash -c '[ ! -f scripts/generar-manifiesto.py ] && exit 0; docker run --rm --network none -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONPATH=/app/.agents/scripts -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 bash -c "python3 .agents/scripts/sync_governance.py --check && python3 .agents/scripts/bump_version_11x.py --workspace . --check && python3 .agents/scripts/verify_docs_invariants.py && python3 .agents/scripts/verify_roadmap_consistency.py && python3 .agents/scripts/verify_topological_health.py && python3 .agents/scripts/verify_json_no_duplicate_keys.py" && if command -v make >/dev/null 2>&1; then make test-py && make test-meta-qa; else docker run --rm --network none -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONPATH=/app/.agents/scripts:/app/vibe-rescue:/app -e HOME=/tmp -u "$(id -u):$(id -g)" -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 bash -c "ruff check --select E,F,W,I,UP,B,C901,FLY --config '\''lint.mccabe.max-complexity=5'\'' .agents/scripts scripts tests vibe-rescue && MYPYPATH=/app/.agents/scripts:ai-evals:vibe-rescue mypy --strict --cache-dir=/tmp/mypy .agents/scripts/*.py scripts/*.py tests/*.unit.py tests/meta_qa/*.py tests/evals/*.py vibe-rescue/*.py vibe-rescue/tests/*.py && pytest --cov=.agents/scripts --cov=scripts --cov=vibe-rescue --cov-fail-under=95 --cov-branch tests/*.unit.py tests/meta_qa/test_*.py vibe-rescue/tests/*.unit.py -q"; fi'
 
     karate-bdd-contracts:
       glob: "{mcp-server/**,manifest.json,.agents/skills/**}"

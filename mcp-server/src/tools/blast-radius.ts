@@ -154,7 +154,7 @@ interface GraphLink {
   source_location?: string;
 }
 
-interface GraphScanContext {
+export interface GraphScanContext {
   cleanSymbol: string;
   dependentFiles: Set<string>;
   suggestedTests: Set<string>;
@@ -239,15 +239,16 @@ function registerSuggestedTest(rel: string, ext: string, suggestedTests: Set<str
   }
 }
 
-interface CandidateScanInput {
+export interface CandidateScanInput {
   readonly fullPath: string;
   readonly rel: string;
   readonly ext: string;
   readonly ctx: GraphScanContext;
 }
 
-function processCandidateFile(input: CandidateScanInput): void {
+export function processCandidateFile(input: CandidateScanInput): void {
   const { fullPath, rel, ext, ctx } = input;
+  if (!/\w/.test(ctx.cleanSymbol)) return;
   try {
     const content = fs.readFileSync(fullPath, 'utf-8');
     const safePattern = escapeRegex(ctx.cleanSymbol);

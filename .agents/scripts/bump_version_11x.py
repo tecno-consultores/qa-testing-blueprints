@@ -318,6 +318,29 @@ EDITION_RULES: tuple[VersionRule, ...] = (
         optional=True,
     ),
     VersionRule(
+        "mcp-server/tests/a2a.test.ts",
+        (re.compile(r"(\.toBe\(['\"])(QA-11X v\d+\.\d+)(['\"\)\s])"),),
+        max_replacements=1,
+        optional=True,
+    ),
+    VersionRule(
+        "mcp-server/src/services/github-fetcher.ts",
+        (re.compile(r"(: ')(QA-11X v\d+\.\d+)(';)"),),
+        max_replacements=1,
+        optional=True,
+    ),
+    VersionRule(
+        "mcp-server/tests/github-fetcher.unit.ts",
+        (
+            re.compile(
+                r"(expect\(MCP_STANDARD_EDITION\)\.toBe\(['\"])"
+                r"(QA-11X v\d+\.\d+)(['\"]\))"
+            ),
+        ),
+        max_replacements=1,
+        optional=True,
+    ),
+    VersionRule(
         "RESOURCES.md",
         (re.compile(r"(`)(QA-11X v\d+\.\d+)(`)"),),
         optional=True,

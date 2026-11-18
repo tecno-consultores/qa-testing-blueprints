@@ -20,7 +20,7 @@ import {
   getRegisteredSurfaceCounts,
 } from '../src/index.js';
 import { createMcpServer, getServerDispatcherRegistry } from '../src/server.js';
-import { GitHubFetcher, MCP_SERVER_VERSION } from '../src/services/github-fetcher.js';
+import { GitHubFetcher, MCP_SERVER_VERSION, MCP_STANDARD_EDITION } from '../src/services/github-fetcher.js';
 import { toAllureDiagnosticEnvelope } from '../src/utils/diagnosticFormatter.js';
 import { TaskStateGuard } from '../src/utils/taskStateGuard.js';
 
@@ -528,8 +528,13 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
 
     const card = buildAgentCard();
     expect(card.version).toBe(MCP_SERVER_VERSION);
+    expect(DEFAULT_STANDARD_VERSION).toBe(MCP_STANDARD_EDITION);
+    expect(card.standardVersion).toBe('QA-11X v3.1');
     expect(card.standardVersion).toBe(DEFAULT_STANDARD_VERSION);
     expect(card.standardVersion).toBe(deriveStandardVersion(MCP_SERVER_VERSION));
+    expect(deriveStandardVersion('3.1.0')).toBe('QA-11X v3.1');
+    expect(deriveStandardVersion('3.0.0')).toBe('QA-11X v3.0');
+    expect(deriveStandardVersion('')).toBe('QA-11X v3.0');
     expect(card.standardVersion).toMatch(/^QA-11X v\d+\.\d+$/);
 
     const configured = createConfiguredMcpServer();

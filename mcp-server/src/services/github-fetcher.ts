@@ -11,10 +11,18 @@ import { FetchedFileItem, GitHubFetcherOptions, Manifest } from '../types.js';
 const FORBIDDEN_PATH_SEGMENTS = new Set(['..', '__proto__', 'constructor', 'prototype']);
 const DEFAULT_FETCH_TIMEOUT_MS = 15000;
 const PACKAGE_JSON_URL = new URL('../../package.json', import.meta.url);
+const PACKAGE_META = JSON.parse(fs.readFileSync(PACKAGE_JSON_URL, 'utf-8')) as {
+  version: string;
+  description?: string;
+};
 
-export const MCP_SERVER_VERSION: string = (
-  JSON.parse(fs.readFileSync(PACKAGE_JSON_URL, 'utf-8')) as { version: string }
-).version;
+export function extractStandardEdition(description?: string): string {
+  const match = /\(QA-11X v\d+\.\d+(?=:)/.exec(description ?? '');
+  return match ? match[0].slice(1) : 'QA-11X v3.1';
+}
+
+export const MCP_SERVER_VERSION: string = PACKAGE_META.version;
+export const MCP_STANDARD_EDITION: string = extractStandardEdition(PACKAGE_META.description);
 
 export function isOwnObjectProperty<T extends object>(obj: T, key: string): boolean {
   if (FORBIDDEN_PATH_SEGMENTS.has(key)) return false;

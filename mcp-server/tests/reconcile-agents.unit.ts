@@ -18,6 +18,7 @@ import {
   CANONICAL_GLOBAL_SKILL_DIRS,
   PROMOTED_INVARIANT_FINGERPRINTS,
 } from '../src/cli/reconcile-agents.js';
+import { runCli } from '../src/cli.js';
 import { syncGlobalGeminiMd, buildConnectorBlock } from '../src/cli/init-agents-md.js';
 import { certify11xGate } from '../src/tools/certify-gate.js';
 import { runInstallSkillCli } from '../src/cli/install-skill.js';
@@ -400,6 +401,42 @@ describe('reconcile-agents (Hito 13: Governance Reconciliation & Deduplication)'
       expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('[Reconcile 11X]'));
       expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Reglas de dominio aisladas en:'));
       expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Respaldo creado en:'));
+    });
+
+    it('honors injected cwd and log in runReconcileAgentsCli and runCli without process.cwd() or console.log', async () => {
+      const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const projectDir = path.join(tmpDir, 'injected-cwd-ws');
+      const rulesDir = path.join(projectDir, '.agents', 'rules');
+      fs.mkdirSync(rulesDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(rulesDir, 'mixed.md'),
+        '## Invariante Anti-Silo\nPromoted\n## Custom Domain\nKeep this',
+        'utf-8'
+      );
+
+      const helpLogs: string[] = [];
+      await runReconcileAgentsCli(['--help'], { log: (m) => helpLogs.push(m) });
+      expect(helpLogs).toEqual([RECONCILE_AGENTS_HELP_TEXT]);
+      expect(consoleLogSpy).not.toHaveBeenCalled();
+
+      const cliLogs: string[] = [];
+      await runReconcileAgentsCli(['--dry-run'], { cwd: projectDir, log: (m) => cliLogs.push(m) });
+      expect(cliLogs.some((line) => line.includes('[Reconcile 11X]'))).toBe(true);
+      expect(cliLogs.some((line) => line.includes('domain_injected_cwd_ws_rules.md'))).toBe(true);
+      expect(fs.existsSync(path.join(projectDir, '.agents', 'backups'))).toBe(false);
+      expect(consoleLogSpy).not.toHaveBeenCalled();
+
+      const dispatchLogs: string[] = [];
+      const dispatchRes = await runCli(['reconcile-agents', '--dry-run'], {
+        cwd: projectDir,
+        log: (m) => dispatchLogs.push(m),
+      });
+      expect(dispatchRes.exitCode).toBe(0);
+      expect(dispatchRes.command).toBe('reconcile-agents');
+      expect(dispatchRes.parsed?.projectPath).toBe(projectDir);
+      expect(dispatchLogs.some((line) => line.includes('[Reconcile 11X]'))).toBe(true);
+      expect(dispatchLogs.some((line) => line.includes('domain_injected_cwd_ws_rules.md'))).toBe(true);
+      expect(consoleLogSpy).not.toHaveBeenCalled();
     });
   });
 

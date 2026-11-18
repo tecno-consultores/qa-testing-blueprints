@@ -671,12 +671,20 @@ function readReconcilePathFlagValue(
   return null;
 }
 
-export function parseReconcileAgentsArgs(args: readonly string[]): {
+export interface ReconcileAgentsCliOptions {
+  readonly cwd?: string;
+  readonly log?: (message: string) => void;
+}
+
+export function parseReconcileAgentsArgs(
+  args: readonly string[],
+  defaultCwd: string = process.cwd()
+): {
   projectPath: string;
   dryRun: boolean;
   help: boolean;
 } {
-  let projectPath = process.cwd();
+  let projectPath = defaultCwd;
   let hasPositionalDir = false;
   let dryRun = false;
   let help = false;
@@ -712,20 +720,24 @@ export function parseReconcileAgentsArgs(args: readonly string[]): {
   return { projectPath, dryRun, help };
 }
 
-export async function runReconcileAgentsCli(args: string[]): Promise<void> {
+export async function runReconcileAgentsCli(
+  args: string[],
+  options?: ReconcileAgentsCliOptions
+): Promise<void> {
+  const log = options?.log ?? console.log;
   if (args.includes('--help') || args.includes('-h')) {
-    console.log(RECONCILE_AGENTS_HELP_TEXT);
+    log(RECONCILE_AGENTS_HELP_TEXT);
     return;
   }
-  const { projectPath, dryRun } = parseReconcileAgentsArgs(args);
+  const { projectPath, dryRun } = parseReconcileAgentsArgs(args, options?.cwd ?? process.cwd());
   const result = await reconcileAgentsGovernance({ projectPath, dryRun });
-  console.log(
+  log(
     `✔ [Reconcile 11X] ${result.removed_duplicate_sections_count} sección(es) duplicada(s) podada(s), ${result.preserved_domain_sections_count} sección(es) de dominio preservada(s).`
   );
   if (result.domain_rules_file) {
-    console.log(`ℹ Reglas de dominio aisladas en: ${result.domain_rules_file}`);
+    log(`ℹ Reglas de dominio aisladas en: ${result.domain_rules_file}`);
   }
   if (result.backup_dir) {
-    console.log(`ℹ Respaldo creado en: ${result.backup_dir}`);
+    log(`ℹ Respaldo creado en: ${result.backup_dir}`);
   }
 }
