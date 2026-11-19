@@ -17,7 +17,7 @@ function resolveBundleCachedPath(
       return localFile;
     }
   }
-  return path.join(cacheDir, 'files', relPath);
+  return resolveSafeChildPath(path.join(cacheDir, 'files'), relPath);
 }
 
 export async function fetchBlueprintBundle(

@@ -229,16 +229,27 @@ export function splitMarkdownSections(content: string): string[] {
   return sections;
 }
 
+function assertNotSymlinkPath(targetPath: string, label: string): fs.Stats | undefined {
+  const stat = fs.lstatSync(targetPath, { throwIfNoEntry: false });
+  if (stat?.isSymbolicLink()) {
+    throw new Error(`Symlink rechazado por seguridad en ${label}: ${targetPath}`);
+  }
+  return stat;
+}
+
 function ensureBackupFile(
   projectPath: string,
   relFilePath: string,
   backupDir: string
 ): void {
   const srcFull = path.join(projectPath, relFilePath);
-  if (!fs.existsSync(srcFull)) return;
+  const srcStat = assertNotSymlinkPath(srcFull, 'respaldo');
+  if (!srcStat?.isFile()) return;
   const destFull = path.join(backupDir, relFilePath);
-  fs.mkdirSync(path.dirname(destFull), { recursive: true });
+  fs.mkdirSync(path.dirname(destFull), { recursive: true, mode: 0o700 });
+  assertNotSymlinkPath(destFull, 'destino de respaldo');
   fs.copyFileSync(srcFull, destFull);
+  fs.chmodSync(destFull, 0o600);
 }
 
 interface ReconcileRuleCtx {
@@ -330,8 +341,12 @@ function cleanPromotedDuplicatesInAgentsMd(
   backupDir: string
 ): { item: ReconciledRuleItem | null; removedCount: number } {
   const agentsMdPath = path.join(projectPath, AGENTS_MD_FILENAME);
-  if (!fs.existsSync(agentsMdPath)) {
+  const agentsStat = assertNotSymlinkPath(agentsMdPath, AGENTS_MD_FILENAME);
+  if (!agentsStat) {
     return { item: null, removedCount: 0 };
+  }
+  if (!agentsStat.isFile()) {
+    throw new Error(`Ruta no regular rechazada en ${AGENTS_MD_FILENAME}.`);
   }
 
   const content = fs.readFileSync(agentsMdPath, UTF8);
@@ -450,6 +465,10 @@ function reconcileRulesDir(opts: ReconcileRulesDirOpts): {
   for (const fileName of entries) {
     const relPath = path.join(AGENTS_DIR, RULES_DIR, fileName);
     const fullPath = path.join(opts.rulesDirPath, fileName);
+    const fullStat = assertNotSymlinkPath(fullPath, 'regla local');
+    if (!fullStat?.isFile()) {
+      continue;
+    }
 
     if (CANONICAL_GLOBAL_RULE_FILES.has(fileName)) {
       if (upstreamRepo) {
@@ -492,6 +511,34 @@ function reconcileRulesDir(opts: ReconcileRulesDirOpts): {
   return { items, removed, preserved };
 }
 
+function reconcileSingleCanonicalSkill(opts: {
+  readonly entry: string;
+  readonly skillsDirPath: string;
+  readonly dryRun: boolean;
+  readonly backupDir: string;
+}): ReconciledRuleItem | null {
+  if (!CANONICAL_GLOBAL_SKILL_DIRS.has(opts.entry)) {
+    return null;
+  }
+  const relSkillPath = path.join(AGENTS_DIR, SKILLS_DIR, opts.entry);
+  const fullSkillPath = path.join(opts.skillsDirPath, opts.entry);
+  const skillStat = assertNotSymlinkPath(fullSkillPath, 'skill local');
+  if (!skillStat) return null;
+  if (!opts.dryRun) {
+    const destBackup = path.join(opts.backupDir, relSkillPath);
+    fs.mkdirSync(path.dirname(destBackup), { recursive: true, mode: 0o700 });
+    assertNotSymlinkPath(destBackup, 'destino de respaldo');
+    fs.cpSync(fullSkillPath, destBackup, { recursive: true, dereference: false });
+    fs.rmSync(fullSkillPath, { recursive: true, force: true });
+  }
+  return {
+    file: relSkillPath,
+    classification: 'REDUNDANT_PROMOTED_REMOVED',
+    details:
+      'Copia local de skill canónica respaldada en .agents/backups/ y eliminada de .agents/skills/ (consumida desde directorio global del agente).',
+  };
+}
+
 function reconcileSkillsDir(
   resolvedPath: string,
   dryRun: boolean,
@@ -512,29 +559,12 @@ function reconcileSkillsDir(
     return { items, removed };
   }
 
-  const entries = fs.readdirSync(skillsDirPath);
-  for (const entry of entries) {
-    if (!CANONICAL_GLOBAL_SKILL_DIRS.has(entry)) {
-      continue;
+  for (const entry of fs.readdirSync(skillsDirPath)) {
+    const item = reconcileSingleCanonicalSkill({ entry, skillsDirPath, dryRun, backupDir });
+    if (item) {
+      items.push(item);
+      removed++;
     }
-
-    const relSkillPath = path.join(AGENTS_DIR, SKILLS_DIR, entry);
-    const fullSkillPath = path.join(skillsDirPath, entry);
-
-    if (!dryRun) {
-      const destBackup = path.join(backupDir, relSkillPath);
-      fs.mkdirSync(path.dirname(destBackup), { recursive: true });
-      fs.cpSync(fullSkillPath, destBackup, { recursive: true });
-      fs.rmSync(fullSkillPath, { recursive: true, force: true });
-    }
-
-    items.push({
-      file: relSkillPath,
-      classification: 'REDUNDANT_PROMOTED_REMOVED',
-      details:
-        'Copia local de skill canónica respaldada en .agents/backups/ y eliminada de .agents/skills/ (consumida desde directorio global del agente).',
-    });
-    removed++;
   }
 
   if (!dryRun && fs.existsSync(skillsDirPath) && fs.readdirSync(skillsDirPath).length === 0) {
@@ -553,8 +583,10 @@ interface PersistDomainRulesArgs {
 }
 
 function persistExtractedDomainRules(args: PersistDomainRulesArgs): void {
+  assertNotSymlinkPath(args.rulesDirPath, 'directorio de reglas');
   fs.mkdirSync(args.rulesDirPath, { recursive: true });
   const domainFullPath = path.join(args.resolvedPath, args.domainRulesFile);
+  assertNotSymlinkPath(domainFullPath, 'archivo de dominio');
   const header = `# Domain-Specific Governance Rules (${args.projectSlug})\n\n`;
   const existingDomain = fs.existsSync(domainFullPath)
     ? fs.readFileSync(domainFullPath, UTF8) + '\n\n'

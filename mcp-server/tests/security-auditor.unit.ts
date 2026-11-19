@@ -340,7 +340,7 @@ $xml = simplexml_load_string($rawXml);
     expect(sec04?.severity).toBe('HIGH');
   });
 
-  it('no reporta SEC-04 en PHP si se especifica LIBXML_NONET', async () => {
+  it('no reporta SEC-04 en PHP si se especifica LIBXML_NONET, pero sí flaggea LIBXML_NOENT / LIBXML_DTDLOAD aunque esté LIBXML_NONET', async () => {
     fs.writeFileSync(
       path.join(tempDir, 'safe_xml.php'),
       `<?php
@@ -348,9 +348,63 @@ $xml = simplexml_load_string($rawXml, 'SimpleXMLElement', LIBXML_NONET);
 `
     );
 
-    const result = await auditSecurityStigOwasp(tempDir);
-    const sec04 = result.findings.find((f) => f.rule_id === 'SEC-04');
-    expect(sec04).toBeUndefined();
+    const safeRes = await auditSecurityStigOwasp(tempDir);
+    expect(safeRes.findings.find((f) => f.rule_id === 'SEC-04' && f.file === 'safe_xml.php')).toBeUndefined();
+
+    fs.writeFileSync(
+      path.join(tempDir, 'unsafe_noent.php'),
+      `<?php
+$doc = new DOMDocument();
+$doc->loadXML($rawXml, LIBXML_NONET | LIBXML_NOENT);
+`
+    );
+    const unsafeRes = await auditSecurityStigOwasp(tempDir);
+    const sec04Noent = unsafeRes.findings.find(
+      (f) => f.rule_id === 'SEC-04' && f.file === 'unsafe_noent.php'
+    );
+    expect(sec04Noent).toBeDefined();
+    expect(sec04Noent?.severity).toBe('CRITICAL');
+  });
+
+  it('detecta QA-DOCKER-LOCK-01 tras flags RUN --mount y npm install sin npm ci, así como .mjs en SEC-10', async () => {
+    fs.writeFileSync(tempDir + '/package.json', JSON.stringify({ name: 'lock-test' }), 'utf8');
+    fs.writeFileSync(tempDir + '/.npmrc', 'ignore-scripts=true\n', 'utf8');
+    fs.writeFileSync(
+      tempDir + '/Dockerfile',
+      [
+        'FROM node:24-alpine',
+        'RUN --mount=type=cache,target=/root/.npm npm install',
+        'RUN --mount=type=cache,target=/root/.pnpm pnpm install',
+      ].join('\n'),
+      'utf8'
+    );
+    const fakeAiKey = 'sk-ant-api03-' + 'X'.repeat(24);
+    fs.writeFileSync(tempDir + '/leak.mjs', `export const key = "${fakeAiKey}";\n`, 'utf8');
+
+    const lockRes = await auditSecurityStigOwasp(tempDir);
+    const lockFindings = lockRes.findings.filter(
+      (f) => f.rule_id === 'QA-DOCKER-LOCK-01' && f.file === 'Dockerfile'
+    );
+    expect(lockFindings.length).toBeGreaterThanOrEqual(2);
+    expect(lockRes.findings.some((f) => f.rule_id === 'SEC-10' && f.file === 'leak.mjs')).toBe(true);
+
+    // Opciones con comillas en RUN --mount, pnpm add <pkg>, yarn install sin --immutable, y excepciones npm ci / -g
+    fs.writeFileSync(
+      tempDir + '/Dockerfile',
+      [
+        'FROM node:24-alpine',
+        'RUN --mount="type=cache,target=/root/.npm" pnpm add lodash',
+        'RUN yarn install',
+        'RUN npm ci',
+        'RUN npm install -g pnpm',
+      ].join('\n'),
+      'utf8'
+    );
+    const quotedLockRes = await auditSecurityStigOwasp(tempDir);
+    const quotedLockLines = quotedLockRes.findings
+      .filter((f) => f.rule_id === 'QA-DOCKER-LOCK-01' && f.file === 'Dockerfile')
+      .map((f) => f.line);
+    expect(quotedLockLines).toEqual([2, 3]);
   });
 
   it('detecta violación SEC-05 en PHP en controllers sin normalización NFKC', async () => {
@@ -1033,8 +1087,17 @@ docker exec -e ROSGRID_ADMIN_PASSWORD="\${LOCAL_ADMIN_PASS}" api pytest tests/co
 
       const res = await auditSecurityStigOwasp(tempDir);
       expect(res.findings.some((f) => f.rule_id === 'QA-DOCKER-LOCK-01' && f.file === 'Dockerfile')).toBe(true);
-      expect(res.findings.some((f) => f.rule_id === 'QA-PLAYWRIGHT-PIN-01')).toBe(false);
+      expect(res.findings.some((f) => f.rule_id === 'QA-PLAYWRIGHT-PIN-01' && f.file.startsWith('frontend/'))).toBe(true);
       expect(res.findings.filter((f) => f.rule_id === 'QA-SSR-HYDRATION-01' && f.file === 'playwright.config.ts')).toHaveLength(1);
+
+      // Especificación semver exacta bajo múltiples Dockerfiles divergentes no dispara falsa alarma
+      fs.writeFileSync(
+        path.join(tempDir, 'frontend', 'package.json'),
+        JSON.stringify({ devDependencies: { '@playwright/test': '1.50.0' } }),
+        'utf8'
+      );
+      const pinnedRes = await auditSecurityStigOwasp(tempDir);
+      expect(pinnedRes.findings.some((f) => f.rule_id === 'QA-PLAYWRIGHT-PIN-01' && f.file.startsWith('frontend/'))).toBe(false);
 
       // Unica version Playwright en Dockerfiles hermanos -> resolveExpectedPlaywrightTag toma uniqueVersions.size === 1
       const singleVerProj = path.join(tempDir, 'single-pw-ver');

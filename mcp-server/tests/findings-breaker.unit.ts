@@ -25,7 +25,7 @@ function createMockGitExec(branch = 'main', mergeBase = 'abc1234567890000'): typ
     if (args[0] === 'rev-parse' && args[1] === '--abbrev-ref') return `${branch}\n`;
     if (args[0] === 'merge-base') return `${mergeBase}\n`;
     if (args[0] === 'rev-parse' && args[1] === '--verify') return 'deadbeef12345678\n';
-    if (args[0] === 'status') return ' M README.md\n?? .agents/.cache/certify_state.json\n';
+    if (args.includes('status')) return ' M README.md\n?? .agents/.cache/certify_state.json\n';
     return '';
   }) as unknown as typeof execFileSync;
 }
@@ -198,11 +198,29 @@ describe('Hito 22: Memoria determinista de hallazgos y cortacircuitos BREAKER-42
         sessions: {
           'main:abc123456789': null,
           weird: { updated_at: 42, runs: 'bad', stage_runs: { unit: [], invalid: 'x' } },
+          weird2: { updated_at: '2026', runs: [], stage_runs: null },
         },
       }),
       'utf8'
     );
     expect(recordQaStageFindingsState(tmpDir, 'lint', [], { execFileSyncFn: gitMain }).triggered).toBe(false);
+
+    // Error real EACCES (archivo solo lectura) se degrada limpio; EISDIR inesperado (directorio en ruta de archivo) relanza
+    fs.rmSync(stateFile, { force: true });
+    fs.writeFileSync(stateFile, JSON.stringify({ version: 1, sessions: {} }), { encoding: 'utf8', mode: 0o400 });
+    fs.chmodSync(stateFile, 0o400);
+    try {
+      expect(recordQaStageFindingsState(tmpDir, 'lint', [], { execFileSyncFn: gitMain }).triggered).toBe(false);
+    } finally {
+      fs.chmodSync(stateFile, 0o600);
+    }
+    fs.rmSync(stateFile, { force: true });
+    fs.mkdirSync(stateFile, { recursive: true });
+    try {
+      expect(() => recordQaStageFindingsState(tmpDir, 'lint', [], { execFileSyncFn: gitMain })).toThrow();
+    } finally {
+      fs.rmSync(stateFile, { recursive: true, force: true });
+    }
 
     const extTarget = path.join(tmpDir, 'outside.json');
     fs.writeFileSync(extTarget, '{}', 'utf8');

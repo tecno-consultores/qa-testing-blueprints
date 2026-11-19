@@ -509,8 +509,13 @@ function resolveDelegatedMakeRecipe(
     return 'Profundidad máxima de delegación $(MAKE) -C excedida.';
   }
   const targetDir = path.resolve(ctx.currentDir, delegation.subdir);
+  const realRoot = fs.realpathSync(ctx.rootDir);
+  let resolvedTarget = targetDir;
+  if (fs.existsSync(targetDir)) {
+    resolvedTarget = fs.realpathSync(targetDir);
+  }
   const insideRoot =
-    targetDir === ctx.rootDir || targetDir.startsWith(`${ctx.rootDir}${path.sep}`);
+    resolvedTarget === realRoot || resolvedTarget.startsWith(`${realRoot}${path.sep}`);
   if (!insideRoot) {
     return `Delegación $(MAKE) -C fuera del directorio raíz bloqueada por seguridad: ${delegation.subdir}`;
   }
@@ -1327,7 +1332,7 @@ export function isDocsOnlyWorkspaceChange(
   execFileSyncFn: typeof execFileSync = execFileSync
 ): boolean {
   try {
-    const raw = execFileSyncFn('git', ['status', '--porcelain'], {
+    const raw = execFileSyncFn('git', ['-c', 'core.quotepath=false', 'status', '--porcelain', '-uall'], {
       cwd: path.resolve(projectPath),
       encoding: 'utf8',
     });

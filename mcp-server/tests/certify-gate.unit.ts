@@ -457,7 +457,7 @@ describe('certify-gate', () => {
     );
     fs.mkdirSync(path.join(tempDir, '.git'), { recursive: true });
     const mockGit = ((cmd: string, args?: readonly string[]) => {
-      if (cmd === 'git' && args?.[0] === 'status') return ' M src/models/user.py\n';
+      if (cmd === 'git' && args?.includes('status')) return ' M src/models/user.py\n';
       if (cmd === 'git' && args?.[0] === 'rev-parse') return 'abc123\n';
       return '';
     }) as unknown as typeof execFileSync;
@@ -769,5 +769,32 @@ describe('certify-gate', () => {
     const isolatedRes = await certify11xGate(childGitProj);
     expect(isolatedRes.gate_passed).toBe(false);
     expect(isolatedRes.blockers.some((b) => b.includes('CHANGELOG.md'))).toBe(true);
+
+    // Entradas manifest.json con symlink interno, fuga por subdirectorio symlink o traversal '..' bloquean
+    const outsideTarget = fs.mkdtempSync(path.join(os.tmpdir(), 'qa-manifest-ext-'));
+    try {
+      fs.writeFileSync(path.join(outsideTarget, 'secret.md'), '# ext\n', 'utf8');
+      fs.mkdirSync(path.join(tempDir, 'python'), { recursive: true });
+      fs.symlinkSync(path.join(tempDir, 'python', 'README.md'), path.join(tempDir, 'python', 'leaf-link.md'));
+      fs.symlinkSync(outsideTarget, path.join(tempDir, 'dir-escape'));
+      fs.writeFileSync(
+        path.join(tempDir, 'manifest.json'),
+        JSON.stringify({
+          common_files: [
+            { path: 'python/leaf-link.md', sha256: '0'.repeat(64) },
+            { path: 'dir-escape/secret.md', sha256: '0'.repeat(64) },
+            { path: '../outside-rel.md', sha256: '0'.repeat(64) },
+          ],
+        }),
+        'utf8'
+      );
+      const symlinkManifestRes = await certify11xGate(tempDir);
+      expect(symlinkManifestRes.gate_passed).toBe(false);
+      expect(symlinkManifestRes.blockers.some((b) => b.includes('Symlink no permitido'))).toBe(true);
+      expect(symlinkManifestRes.blockers.some((b) => b.includes('dir-escape/secret.md'))).toBe(true);
+      expect(symlinkManifestRes.blockers.some((b) => b.includes('Ruta insegura en manifiesto'))).toBe(true);
+    } finally {
+      fs.rmSync(outsideTarget, { recursive: true, force: true });
+    }
   });
 });

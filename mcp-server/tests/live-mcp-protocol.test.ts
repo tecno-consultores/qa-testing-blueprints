@@ -433,11 +433,14 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
         arguments: {
           mode: 'offline',
           workspaceRoot: wsDir,
-          steps: [{ tool: 'shell', action: 'push', command: 'git push --force origin main', status: 'failed' }],
+          steps: [{ tool: 'shell', args: { command: 'git push --force origin main' }, status: 'failed' }],
         },
       });
       expect(trajViolation.isError).toBe(true);
-      expect(extractFirstText(trajViolation)).toContain('QA-PROMPT-GUARD');
+      const trajText = extractFirstText(trajViolation);
+      expect(trajText).not.toContain('QA-PROMPT-GUARD');
+      expect(trajText).not.toContain('MCP error');
+      expect(trajText).toContain('QA-GIT-GATE-01');
 
       const trajSafe = await client.callTool({
         name: 'evaluate_agent_trajectory',

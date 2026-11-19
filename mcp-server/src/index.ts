@@ -339,7 +339,10 @@ export function resolveToolExecutionOptions(
   if (DYNAMIC_LIVE_TOOL_NAMES.has(toolName)) {
     const explicitTimeoutMs = resolvePositiveFiniteTimeout(args.timeoutMs);
     if (explicitTimeoutMs !== undefined) {
-      return { taskId, timeoutMs: explicitTimeoutMs };
+      return {
+        taskId,
+        timeoutMs: Math.min(Math.max(explicitTimeoutMs, EPHEMERAL_QA_MIN_TIMEOUT_MS), 600_000),
+      };
     }
     if (args.mode === 'live') {
       return { taskId, timeoutMs: V2_HEAVY_TRANSFER_TIMEOUT_MS };

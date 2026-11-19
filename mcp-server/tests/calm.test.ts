@@ -627,6 +627,17 @@ describe('validateCalmArchitecture (FINOS CALM 11X Gate)', () => {
       });
       expect(resSymlink.valid).toBe(false);
       expect(resSymlink.violations[0]?.code).toBe('PATH_TRAVERSAL');
+
+      const loopA = path.join(wsSymlink, 'loop-a.calm.json');
+      const loopB = path.join(wsSymlink, 'loop-b.calm.json');
+      fs.symlinkSync(loopB, loopA);
+      fs.symlinkSync(loopA, loopB);
+      const resLoop = validateCalmArchitecture({
+        workspaceRoot: wsSymlink,
+        architecturePath: 'loop-a.calm.json',
+      });
+      expect(resLoop.valid).toBe(false);
+      expect(resLoop.violations[0]?.code).toBe('PATH_TRAVERSAL');
     } finally {
       fs.rmSync(outsideFile, { force: true });
     }

@@ -11,6 +11,7 @@ import {
   type EvaluateUpdateOptions,
 } from '../services/version-manager.js';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
+import { resolveSafeChildPath } from '../services/github-fetcher.js';
 import { auditSecurityStigOwasp } from './security-auditor.js';
 import { CertifyGateResult, GateCheckStatus } from '../types.js';
 import { pickAt, reportDebugCatchError } from '../utils/diagnosticFormatter.js';
@@ -977,6 +978,29 @@ function collectManifestDigestEntries(manifest: {
   });
 }
 
+function verifyManifestEntrySafe(
+  projectPath: string,
+  entry: ManifestDigestEntry
+): string | null {
+  let full: string;
+  try {
+    full = resolveSafeChildPath(projectPath, entry.path);
+    if (fs.lstatSync(full, { throwIfNoEntry: false })?.isSymbolicLink()) {
+      return `Symlink no permitido en entrada del manifiesto: ${entry.path}`;
+    }
+  } catch (err: unknown) {
+    return `Ruta insegura en manifiesto (${entry.path}): ${(err as Error).message}`;
+  }
+  if (!fs.existsSync(full)) {
+    return `Archivo referenciado en manifest.json no existe en disco: ${entry.path}`;
+  }
+  const actualSha = crypto.createHash('sha256').update(fs.readFileSync(full)).digest('hex');
+  if (actualSha !== entry.sha256) {
+    return `Desfase SHA-256 en manifest.json para '${entry.path}' (ejecute scripts/generar-manifiesto.py o .agents/scripts/sync_governance.py).`;
+  }
+  return null;
+}
+
 function checkManifestCryptographicParity(projectPath: string): string[] {
   const manifestPath = path.join(projectPath, 'manifest.json');
   const genScript = path.join(projectPath, 'scripts', 'generar-manifiesto.py');
@@ -993,17 +1017,8 @@ function checkManifestCryptographicParity(projectPath: string): string[] {
       stacks?: Record<string, ManifestStackDigestSpec>;
     };
     for (const entry of collectManifestDigestEntries(manifest)) {
-      const full = path.join(projectPath, entry.path);
-      if (!fs.existsSync(full)) {
-        blockers.push(`Archivo referenciado en manifest.json no existe en disco: ${entry.path}`);
-        continue;
-      }
-      const actualSha = crypto.createHash('sha256').update(fs.readFileSync(full)).digest('hex');
-      if (actualSha !== entry.sha256) {
-        blockers.push(
-          `Desfase SHA-256 en manifest.json para '${entry.path}' (ejecute scripts/generar-manifiesto.py o .agents/scripts/sync_governance.py).`
-        );
-      }
+      const issue = verifyManifestEntrySafe(projectPath, entry);
+      if (issue) blockers.push(issue);
     }
   } catch (err: unknown) {
     reportDebugCatchError('certifyGate.checkManifestCryptographicParity', err);

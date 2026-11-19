@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Fixed
+* **MCP Security Hardening (`session_flight_recorder`, `promptGuard`, SSRF & Symlink Containment):** Made `native-ts` the default for `session_flight_recorder` (requiring explicit opt-in, symlink check, SHA-256 verification, and `--network none` Docker wrapper for `checkpoint_ctl.py`), hardened fail-closed symlink/ancestor resolution across path validators and file writers, tightened `promptGuard` negation-bridge filtering with selective `evaluate_agent_trajectory` `steps`/`rag` exemption, expanded `security-auditor` (`LIBXML_NOENT`, `.mjs`/`.cjs`, `RUN --mount`, unfrozen lockfile installs, PHP `$keydb->get()`), blocked IPv6/DNS-rebinding SSRF & CDATA bypasses in `tmsSyncCli`, and wired multi-line secret redaction across diagnostics.
+
 ---
 
 ## [3.2.0] - 2026-11-19

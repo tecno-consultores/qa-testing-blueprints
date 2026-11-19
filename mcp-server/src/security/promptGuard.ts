@@ -53,6 +53,7 @@ interface RedactionRule {
 interface GuardTraversalState {
   readonly maxDepth: number;
   readonly options?: PromptGuardOptions;
+  readonly exemptTopLevelKeys?: ReadonlySet<string>;
   blocked: boolean;
   score: number;
   readonly matchedRules: Set<string>;
@@ -85,11 +86,20 @@ const ROLE_DELIMITER_SPOOFING_RE =
 const ROLE_DELIMITER_SPOOFING_GLOBAL_RE =
   /(?:<\|im_start\|>\s{0,4}(?:system|developer|assistant)?|<\|im_end\|>|<\|endoftext\|>|\[INST\]|\[\/INST\]|<\/system>|<system_override>|<\|system\|>|<<SYS>>)/gi;
 
+const INSTRUCTION_OVERRIDE_EN_MOD_GLOBAL_RE =
+  /\b(?:ignore|disregard|forget|override)\s+(?:all|any)\s+(?:previous|prior|above|system|preceding)\s+(?:instructions|directives|rules|prompts|guardrails)\b/gi;
+
 const INSTRUCTION_OVERRIDE_EN_GLOBAL_RE =
-  /\b(?:ignore|disregard|forget|override)\s(?:all\s|any\s)?(?:previous|prior|above|system|preceding)\s(?:instructions|directives|rules|prompts|guardrails)\b/gi;
+  /\b(?:ignore|disregard|forget|override)\s+(?:previous|prior|above|system|preceding)\s+(?:instructions|directives|rules|prompts|guardrails)\b/gi;
+
+const INSTRUCTION_OVERRIDE_ES_FULL_MOD_GLOBAL_RE =
+  /\b(?:ignora|olvida|omite|descarta|anula)\s+todas\s+las\s+(?:instrucciones|directivas|reglas|restricciones)\s+(?:anteriores|previas|del\s+sistema|de\s+seguridad|actuales)\b/gi;
+
+const INSTRUCTION_OVERRIDE_ES_MOD_GLOBAL_RE =
+  /\b(?:ignora|olvida|omite|descarta|anula)\s+(?:todas|las)\s+(?:instrucciones|directivas|reglas|restricciones)\s+(?:anteriores|previas|del\s+sistema|de\s+seguridad|actuales)\b/gi;
 
 const INSTRUCTION_OVERRIDE_ES_GLOBAL_RE =
-  /\b(?:ignora|olvida|omite|descarta|anula)\s(?:todas\s)?(?:las\s)?(?:instrucciones|directivas|reglas|restricciones)\s(?:anteriores|previas|del\ssistema|de\sseguridad|actuales)\b/gi;
+  /\b(?:ignora|olvida|omite|descarta|anula)\s+(?:instrucciones|directivas|reglas|restricciones)\s+(?:anteriores|previas|del\s+sistema|de\s+seguridad|actuales)\b/gi;
 
 const EXFIL_SINK_RE =
   /\b(?:curl|wget|exfiltrat\w*|webhook|ngrok|requestbin|collaborator)\b/i;
@@ -183,7 +193,19 @@ const UNTRUSTED_OUTPUT_INJECTION_RULES: ReadonlyArray<RedactionRule> = [
     replacement: REDACTED_PROMPT_INJECTION,
   },
   {
+    pattern: INSTRUCTION_OVERRIDE_EN_MOD_GLOBAL_RE,
+    replacement: REDACTED_PROMPT_INJECTION,
+  },
+  {
     pattern: INSTRUCTION_OVERRIDE_EN_GLOBAL_RE,
+    replacement: REDACTED_PROMPT_INJECTION,
+  },
+  {
+    pattern: INSTRUCTION_OVERRIDE_ES_FULL_MOD_GLOBAL_RE,
+    replacement: REDACTED_PROMPT_INJECTION,
+  },
+  {
+    pattern: INSTRUCTION_OVERRIDE_ES_MOD_GLOBAL_RE,
     replacement: REDACTED_PROMPT_INJECTION,
   },
   {
@@ -253,7 +275,7 @@ function hasExfiltrationInSegment(segment: string): boolean {
 }
 
 function hasIndirectExfiltration(text: string): boolean {
-  const lines = text.split(/\r?\n/);
+  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
   for (const [i, current] of lines.entries()) {
     const next = lines[i + 1];
     const pair = next !== undefined ? `${current} ${next}` : current;
@@ -323,15 +345,37 @@ function extendNegatedSpanEnd(tokens: readonly string[], initialEnd: number): nu
   return end;
 }
 
+const SAFE_NEGATION_BRIDGE_WORDS = new Set([
+  'ever',
+  'auto',
+  'automatically',
+  'blindly',
+  'the',
+  'el',
+  'la',
+  'jamás',
+  'jamas',
+  'nunca',
+  'run',
+  'execute',
+  'force',
+  'do',
+  'ejecutes',
+  'ejecuta',
+  'hagas',
+  'fuerza',
+]);
+
 function findNegatedSpanEnd(tokens: readonly string[], negIdx: number, scanStart: number): number {
-  for (let offset = 0; offset <= 3; offset++) {
+  for (let offset = 0; offset <= 2; offset++) {
     const pos = scanStart + offset;
     if (pos >= tokens.length) break;
     const actionLen = matchProhibitedActionAt(tokens, pos);
     if (actionLen > 0) {
       return extendNegatedSpanEnd(tokens, pos + actionLen);
     }
-    if (stripTrailingClausePunct(tokens[pos] ?? '').hasBreak) {
+    const { word, hasBreak } = stripTrailingClausePunct(tokens[pos] ?? '');
+    if (hasBreak || !SAFE_NEGATION_BRIDGE_WORDS.has(word)) {
       break;
     }
   }
@@ -616,6 +660,8 @@ function sanitizeArrayNode(
   return items.map((item) => sanitizeValue(item, keyName, depth + 1, state));
 }
 
+const TRAJECTORY_EVAL_EXEMPT_KEYS = new Set<string>(['steps', 'rag']);
+
 function sanitizeRecordNode(
   record: Record<string, unknown>,
   depth: number,
@@ -627,7 +673,10 @@ function sanitizeRecordNode(
       markBlocked(state, RULE_PROTOTYPE_POLLUTION, 1);
       continue;
     }
-    const childValue = sanitizeValue(record[key], key, depth + 1, state);
+    const skipInspection = depth === 0 && Boolean(state.exemptTopLevelKeys?.has(key));
+    const childValue = skipInspection
+      ? record[key]
+      : sanitizeValue(record[key], key, depth + 1, state);
     Object.defineProperty(sanitized, key, {
       value: childValue,
       enumerable: true,
@@ -679,6 +728,8 @@ export function guardToolCallInput<T = Record<string, unknown> | null | undefine
   const state: GuardTraversalState = {
     maxDepth: options?.maxDepth ?? DEFAULT_MAX_RECURSION_DEPTH,
     options,
+    exemptTopLevelKeys:
+      toolName === 'evaluate_agent_trajectory' ? TRAJECTORY_EVAL_EXEMPT_KEYS : undefined,
     blocked: false,
     score: 0,
     matchedRules: new Set<string>(),

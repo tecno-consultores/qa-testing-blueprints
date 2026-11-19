@@ -398,6 +398,18 @@ describe('ephemeral-runner', () => {
     fs.writeFileSync(path.join(tempDir, 'Makefile'), 'qa-lint:\n\t@$(MAKE) -C ../escape qa-lint\n');
     const escapedRes = await runEphemeralQa(tempDir, 'lint', 60, { execFileFn: mockDockerOk });
     expect(escapedRes.status).toBe('FAILED');
+
+    // Intento de escape fuera de la raíz mediante $(MAKE) -C <symlink-al-exterior>
+    const outsideMakeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qa-make-outside-'));
+    try {
+      fs.writeFileSync(path.join(outsideMakeDir, 'Makefile'), 'qa-lint:\n\t@echo pwn\n');
+      fs.symlinkSync(outsideMakeDir, path.join(tempDir, 'ext-link'));
+      fs.writeFileSync(path.join(tempDir, 'Makefile'), 'qa-lint:\n\t@$(MAKE) -C ext-link qa-lint\n');
+      const symlinkEscaped = await runEphemeralQa(tempDir, 'lint', 60, { execFileFn: mockDockerOk });
+      expect(symlinkEscaped.status).toBe('FAILED');
+    } finally {
+      fs.rmSync(outsideMakeDir, { recursive: true, force: true });
+    }
   });
 
   it('resolveComposeDirectFallback soporta stacks Node/Frontend (incluyendo ui-e2e) y Python cuando falta Makefile', () => {
@@ -705,7 +717,7 @@ describe('ephemeral-runner', () => {
     );
     fs.mkdirSync(path.join(tempDir, '.git'), { recursive: true });
     const mockGit = ((cmd: string, args?: readonly string[]) => {
-      if (cmd === 'git' && args?.[0] === 'status') return ' M Makefile\n';
+      if (cmd === 'git' && args?.includes('status')) return ' M Makefile\n';
       if (cmd === 'git' && args?.[0] === 'rev-parse') return 'abc123\n';
       return '';
     }) as unknown as typeof execFileSync;

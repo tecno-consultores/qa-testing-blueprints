@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
 import { randomUUID } from 'node:crypto';
+import * as dns from 'node:dns';
 import * as fs from 'node:fs';
 import * as net from 'node:net';
 import * as path from 'node:path';
@@ -163,8 +164,13 @@ export interface FetchResponseLike {
 
 export type FetchPort = (url: string, init: FetchRequestInit) => Promise<FetchResponseLike>;
 
+export type HostLookupPort = (
+  hostname: string
+) => Promise<ReadonlyArray<{ readonly address: string }>>;
+
 export interface TmsSyncDependencies {
   fetchPort?: FetchPort;
+  lookupHost?: HostLookupPort;
   env?: Readonly<Record<string, string | undefined>>;
   workspaceRoot?: string;
   nowMs?: () => number;
@@ -296,7 +302,7 @@ function getNowMs(deps?: TmsSyncDependencies): number {
 }
 
 function defaultFetchPort(url: string, init: FetchRequestInit): Promise<FetchResponseLike> {
-  return globalThis.fetch(url, init);
+  return globalThis.fetch(url, { ...init, redirect: 'error' });
 }
 
 function collectSecretsFromEnv(env: Readonly<Record<string, string | undefined>>): string[] {
@@ -404,33 +410,99 @@ function isPrivateIpv4Address(ipv4: string): boolean {
   return isLowPrivateOctet(a, b) || isHighPrivateOctet(a, b);
 }
 
-function extractMappedIpv4(host: string): string | null {
-  if (!host.startsWith('::ffff:')) {
-    return null;
+const EMBEDDED_IPV4_RE = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/;
+
+function parseIpv6SegmentGroup(part: string): number[] | null {
+  if (!part) return [];
+  const tokens = part.split(':');
+  const nums: number[] = [];
+  for (const [idx, tok] of tokens.entries()) {
+    if (idx === tokens.length - 1 && tok.includes('.') && net.isIPv4(tok)) {
+      const octMatch = EMBEDDED_IPV4_RE.exec(tok);
+      if (!octMatch) return null;
+      nums.push(
+        (Number(octMatch[1]) << 8) | Number(octMatch[2]),
+        (Number(octMatch[3]) << 8) | Number(octMatch[4])
+      );
+      continue;
+    }
+    const parsed = Number.parseInt(tok, 16);
+    if (!Number.isInteger(parsed) || parsed < 0 || parsed > 0xffff) return null;
+    nums.push(parsed);
   }
-  const tail = host.slice(7);
-  if (net.isIPv4(tail)) {
-    return tail;
+  return nums;
+}
+
+function expandIpv6Hextets(rawHost: string): number[] | null {
+  const lower = rawHost.toLowerCase();
+  const firstSep = lower.indexOf('::');
+  if (firstSep === -1) {
+    const direct = parseIpv6SegmentGroup(lower);
+    return direct && direct.length === 8 ? direct : null;
   }
-  const hexParts = tail.split(':');
-  if (hexParts.length !== 2) {
-    return null;
-  }
-  const hi = Number.parseInt(pickAt(hexParts, 0, '0'), 16);
-  const lo = Number.parseInt(pickAt(hexParts, 1, '0'), 16);
+  if (lower.indexOf('::', firstSep + 2) !== -1) return null;
+  const head = parseIpv6SegmentGroup(lower.slice(0, firstSep));
+  const tail = parseIpv6SegmentGroup(lower.slice(firstSep + 2));
+  if (!head || !tail) return null;
+  const missing = 8 - (head.length + tail.length);
+  return missing >= 0 ? [...head, ...Array<number>(missing).fill(0), ...tail] : null;
+}
+
+function hextetsToIpv4(hi: number, lo: number): string {
   return `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
 }
 
+function isIpv4MappedPrefix(hextets: readonly number[]): boolean {
+  return (
+    hextets[0] === 0 &&
+    hextets[1] === 0 &&
+    hextets[2] === 0 &&
+    hextets[3] === 0 &&
+    hextets[4] === 0 &&
+    hextets[5] === 0xffff
+  );
+}
+
 function isPrivateOrReservedIpv6(rawHost: string): boolean {
-  const host = rawHost.toLowerCase();
-  if (host === '::' || host === '::1') {
-    return true;
+  if (rawHost.includes('%')) return true;
+  const hextets = expandIpv6Hextets(rawHost);
+  if (!hextets) return true;
+  const [h0 = 0, h1 = 0, h2 = 0, h3 = 0, , , h6 = 0, h7 = 0] = hextets;
+  if (hextets.every((val, idx) => (idx < 7 ? val === 0 : val === 0 || val === 1))) return true;
+  if ((h0 & 0xffc0) === 0xfe80 || (h0 & 0xfe00) === 0xfc00 || (h0 & 0xff00) === 0xff00) return true;
+  if (h0 === 0x0064 && h1 === 0xff9b) return true;
+  if (h0 === 0x0100 && h1 === 0 && h2 === 0 && h3 === 0) return true;
+  if (isIpv4MappedPrefix(hextets)) {
+    return isPrivateIpv4Address(hextetsToIpv4(h6, h7));
   }
-  if (host.startsWith('fe80:') || host.startsWith('fc') || host.startsWith('fd')) {
-    return true;
+  return false;
+}
+
+function isResolvedIpBlocked(address: string): boolean {
+  if (net.isIPv4(address)) return isPrivateIpv4Address(address);
+  if (net.isIPv6(address)) return isPrivateOrReservedIpv6(address);
+  return true;
+}
+
+async function assertResolvedHostPublic(
+  endpointUrl: string,
+  deps?: TmsSyncDependencies
+): Promise<void> {
+  if (!deps?.lookupHost && deps?.fetchPort !== undefined) {
+    return;
   }
-  const mappedIpv4 = extractMappedIpv4(host);
-  return mappedIpv4 !== null ? isPrivateIpv4Address(mappedIpv4) : false;
+  const hostname = stripHostBrackets(new URL(endpointUrl).hostname);
+  if (net.isIP(hostname) !== 0) {
+    return;
+  }
+  const lookupFn = deps?.lookupHost ?? ((host: string) => dns.promises.lookup(host, { all: true }));
+  const records = await lookupFn(hostname);
+  if (records.length === 0 || records.some((rec) => isResolvedIpBlocked(rec.address))) {
+    throw new TmsSecurityError(
+      CODE_SSRF_BLOCKED,
+      `Resolución DNS bloqueada por política Anti-SSRF para '${hostname}'.`
+    );
+  }
 }
 
 function stripHostBrackets(hostname: string): string {
@@ -717,6 +789,23 @@ function parseXmlTagToken(rawInner: string, openPos: number, endPos: number): Xm
   return { name, isClosing, isSelfClosing, attrs: parseXmlAttributes(attrSlice), openPos, endPos };
 }
 
+function findClosingTagAngleBracket(xml: string, startPos: number): number {
+  let quote: '"' | "'" | null = null;
+  let firstQuotedAngle = -1;
+  for (let i = startPos; i < xml.length; i += 1) {
+    const ch = xml[i];
+    if (quote === null) {
+      if (ch === '"' || ch === "'") quote = ch;
+      else if (ch === '>') return i;
+      continue;
+    }
+    if (ch === quote) quote = null;
+    else if (ch === '>' && firstQuotedAngle === -1) firstQuotedAngle = i;
+    else if (ch === '<') return firstQuotedAngle;
+  }
+  return quote !== null ? firstQuotedAngle : -1;
+}
+
 function tokenizeXmlTags(cleanedXml: string): XmlTagToken[] {
   const tokens: XmlTagToken[] = [];
   let cursor = 0;
@@ -725,7 +814,15 @@ function tokenizeXmlTags(cleanedXml: string): XmlTagToken[] {
     if (openIdx === -1) {
       break;
     }
-    const closeIdx = cleanedXml.indexOf('>', openIdx + 1);
+    if (cleanedXml.startsWith('<![CDATA[', openIdx)) {
+      const cdataEnd = cleanedXml.indexOf(']]>', openIdx + 9);
+      if (cdataEnd === -1) {
+        throw new TmsSecurityError(CODE_INVALID_INPUT, 'Sección CDATA XML sin cierre detectada.');
+      }
+      cursor = cdataEnd + 3;
+      continue;
+    }
+    const closeIdx = findClosingTagAngleBracket(cleanedXml, openIdx + 1);
     if (closeIdx === -1) {
       throw new TmsSecurityError(CODE_INVALID_INPUT, 'Etiqueta XML sin cierre detectada.');
     }
@@ -1099,6 +1196,14 @@ function resolvePushRequestSpec(
   };
 }
 
+function trimTrailingSlashes(raw: string): string {
+  let end = raw.length;
+  while (end > 0 && raw[end - 1] === '/') {
+    end -= 1;
+  }
+  return raw.slice(0, end);
+}
+
 function resolveEffectiveBaseOrigin(provider: TmsProvider, rawBaseUrl: string | undefined): string {
   const candidate = rawBaseUrl?.trim() || DEFAULT_BASE_URLS[provider];
   if (!candidate) {
@@ -1107,7 +1212,9 @@ function resolveEffectiveBaseOrigin(provider: TmsProvider, rawBaseUrl: string | 
       `El proveedor '${provider}' requiere --base-url (baseUrl HTTPS explícito).`
     );
   }
-  return validateTmsBaseUrl(candidate).origin;
+  const parsed = validateTmsBaseUrl(candidate);
+  const cleanPath = trimTrailingSlashes(parsed.pathname);
+  return cleanPath.length > 0 ? `${parsed.origin}${cleanPath}` : parsed.origin;
 }
 
 function resolveCredentials(
@@ -1242,6 +1349,7 @@ async function executePushResultsMode(ctx: ModeExecutionContext): Promise<TmsSyn
     };
   }
 
+  await assertResolvedHostPublic(endpoint, deps);
   const fetchPort = deps?.fetchPort ?? defaultFetchPort;
   const outcome = await executePostNoRetry({
     fetchPort,
@@ -1365,7 +1473,8 @@ function extractStoryFieldsFromJson(
     const rawCriteria = extractAdfText(fields.description);
     return { storyKey: key, rawTitle, rawCriteria };
   }
-  const num = typeof parsed.number === 'number' ? String(parsed.number) : fallbackKey;
+  const cleanFallback = fallbackKey.replace(/^@?(?:GH-)?/i, '');
+  const num = typeof parsed.number === 'number' ? String(parsed.number) : cleanFallback;
   const rawTitle = typeof parsed.title === 'string' ? parsed.title : `GH-${num}`;
   const rawCriteria = typeof parsed.body === 'string' ? parsed.body : '';
   return { storyKey: `GH-${num}`, rawTitle, rawCriteria };
@@ -1513,6 +1622,7 @@ async function executePullStoriesMode(
     };
   }
 
+  await assertResolvedHostPublic(endpoint, deps);
   const fetchPort = deps?.fetchPort ?? defaultFetchPort;
   const response = await executeGetWithSingleRetry({
     fetchPort,

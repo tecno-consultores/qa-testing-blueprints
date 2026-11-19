@@ -57,7 +57,7 @@ describe('Paridad Pre-Push 1:1 con CI (QA Evidence, Stages integration/ci, Dynam
 
     let porcelainOutput = ' M src/service.ts\n M CHANGELOG.md\n';
     const mockExecSync = ((cmd: string, args?: readonly string[]) => {
-      if (cmd === 'git' && args?.[0] === 'status') return porcelainOutput;
+      if (cmd === 'git' && args?.includes('status')) return porcelainOutput;
       if (cmd === 'git' && args?.[0] === 'rev-parse') return 'abc1234deadbeef\n';
       return '';
     }) as unknown as typeof execFileSync;
@@ -178,7 +178,7 @@ describe('Paridad Pre-Push 1:1 con CI (QA Evidence, Stages integration/ci, Dynam
 
     // Caso DOCS_ONLY + artefactos ignorados -> hasDirtyCodeChanges: false + status SKIPPED
     const mockDocsOnly = ((cmd: string, args?: readonly string[]) => {
-      if (cmd === 'git' && args?.[0] === 'status') {
+      if (cmd === 'git' && args?.includes('status')) {
         return ' M README.md\n?? docs/arch.png\n?? graphify-out/graph.json\n?? .agents/.qa-evidence.json\n';
       }
       return '\n';
@@ -201,7 +201,7 @@ describe('Paridad Pre-Push 1:1 con CI (QA Evidence, Stages integration/ci, Dynam
     fs.writeFileSync(path.join(tmpDir, 'c.py'), 'x = 3\n', 'utf8');
 
     const mockComplexStatus = ((cmd: string, args?: readonly string[]) => {
-      if (cmd === 'git' && args?.[0] === 'status') {
+      if (cmd === 'git' && args?.includes('status')) {
         return 'R  "old.py" -> "a.py"\n D deleted.py\n?? subpkg\n M b.py\n M c.py\n';
       }
       throw new Error('UNBORN_HEAD');
@@ -346,5 +346,29 @@ describe('Paridad Pre-Push 1:1 con CI (QA Evidence, Stages integration/ci, Dynam
     expect(res.merged).toContain('--cov=src --cov-fail-under=95');
     expect(res.merged).toContain('-e COVERAGE_FILE=/tmp/.coverage');
     expect(res.merged).toContain('qa-ci:');
+  });
+
+  it('detecta cambios de código con rutas UTF-8, directorios sin seguimiento (-uall) y excluye .agents/skills/ de docs-only', () => {
+    const tmpRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'qa-prepush-utf8-'));
+    try {
+      fs.mkdirSync(path.join(tmpRepo, '.git'), { recursive: true });
+      fs.mkdirSync(path.join(tmpRepo, 'nuevo_dir'), { recursive: true });
+      fs.writeFileSync(path.join(tmpRepo, 'nuevo_dir', 'módulo_ñ.ts'), 'export const ok = 1;\n', 'utf8');
+      const seenArgs: string[][] = [];
+      const mockGit = ((cmd: string, args?: readonly string[]) => {
+        if (cmd === 'git' && args) {
+          seenArgs.push([...args]);
+          if (args.includes('status')) return '?? nuevo_dir/módulo_ñ.ts\n M .agents/skills/qa-11x-architect/SKILL.md\n';
+          if (args[0] === 'rev-parse') return 'deadbeef\n';
+        }
+        return '';
+      }) as unknown as typeof execFileSync;
+
+      const res = checkLintEvidenceForDirtyCode(tmpRepo, mockGit);
+      expect(res.passed).toBe(false);
+      expect(seenArgs.some((a) => a.includes('core.quotepath=false') && a.includes('-uall'))).toBe(true);
+    } finally {
+      fs.rmSync(tmpRepo, { recursive: true, force: true });
+    }
   });
 });

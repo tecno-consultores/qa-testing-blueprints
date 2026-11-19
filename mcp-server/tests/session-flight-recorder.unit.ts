@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
 import { execFile, execFileSync } from 'node:child_process';
+import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -338,11 +339,60 @@ describe('Flight Recorder Atómico (Tool #19 session_flight_recorder & Resource 
     }
   });
 
-  it('delega a checkpoint_ctl.py cuando existe y cae a native-ts ante ENOENT; propaga errores Python', async () => {
+  it('usa native-ts por defecto aun con checkpoint_ctl.py y delega a python-ctl solo bajo opt-in + integridad SHA-256 verificada', async () => {
     const wsDir = makeTempDir();
     const ctlDir = path.join(wsDir, '.agents', 'scripts');
     fs.mkdirSync(ctlDir, { recursive: true });
-    fs.writeFileSync(path.join(ctlDir, 'checkpoint_ctl.py'), '# stub', 'utf8');
+    const ctlPath = path.join(ctlDir, 'checkpoint_ctl.py');
+    fs.writeFileSync(ctlPath, '# stub', 'utf8');
+    const expectedCtlSha = crypto.createHash('sha256').update(fs.readFileSync(ctlPath)).digest('hex');
+
+    // Por defecto (sin preferPythonCtl: true) usa native-ts aun existiendo checkpoint_ctl.py
+    const nativeDefaultSave = await runSessionFlightRecorder({
+      project_path: wsDir,
+      action: 'save',
+      task_id: 'NATIVE DEFAULT 1!',
+      active_step: 'Step-' + 'A'.repeat(80),
+      intent_140chars: 'Verifica motor native-ts seguro por defecto',
+    });
+    expect(nativeDefaultSave.status).toBe('PASSED');
+    expect(nativeDefaultSave.backend).toBe('native-ts');
+    expect(nativeDefaultSave.checkpoint?.task_id).toMatch(/^[A-Za-z0-9._-]+$/);
+    expect(nativeDefaultSave.checkpoint?.active_step.length).toBeLessThanOrEqual(64);
+    expect(nativeDefaultSave.checkpoint?.last_script_run).toBeNull();
+
+    // task_id compuesto solo de símbolos cae a 'TASK-11X' y clear sobre active_step vacío en disco cae a 'CLOSED'
+    const fallbackSave = await runSessionFlightRecorder({
+      project_path: wsDir,
+      action: 'save',
+      task_id: '---!!---',
+      active_step: 'S1',
+      intent_140chars: 'Fallback task_id y active_step al limpiar',
+    });
+    expect(fallbackSave.checkpoint?.task_id).toBe('TASK-11X');
+    const cpPath = path.join(wsDir, '.agents', '.cache', 'session_checkpoint.json');
+    const rawCp = JSON.parse(fs.readFileSync(cpPath, 'utf8')) as { active_step: string };
+    rawCp.active_step = '   ';
+    fs.writeFileSync(cpPath, JSON.stringify(rawCp), 'utf8');
+    const clearBlankStep = await runSessionFlightRecorder({ project_path: wsDir, action: 'clear' });
+    expect(clearBlankStep.checkpoint?.active_step).toBe('CLOSED');
+
+    // Con preferPythonCtl: true sin manifest ni expectedScriptSha256 falla cerrado
+    const missingShaRes = await runSessionFlightRecorder(
+      { project_path: wsDir, action: 'recover' },
+      { preferPythonCtl: true }
+    );
+    expect(missingShaRes.status).toBe('FAILED');
+    expect(missingShaRes.backend).toBe('python-ctl');
+    expect(missingShaRes.error).toContain('Integridad SHA-256 inválida');
+
+    // Con expectedScriptSha256 adulterado falla cerrado
+    const tamperedShaRes = await runSessionFlightRecorder(
+      { project_path: wsDir, action: 'recover' },
+      { preferPythonCtl: true, expectedScriptSha256: '0'.repeat(64) }
+    );
+    expect(tamperedShaRes.status).toBe('FAILED');
+    expect(tamperedShaRes.error).toContain('Integridad SHA-256 inválida');
 
     const enoentExecFile = ((_f: string, _a: readonly string[], _o: unknown, cb: (e: NodeJS.ErrnoException, out: string, err: string) => void) => {
       const err = new Error('spawn python3 ENOENT') as NodeJS.ErrnoException;
@@ -358,7 +408,7 @@ describe('Flight Recorder Atómico (Tool #19 session_flight_recorder & Resource 
         active_step: 'S1',
         intent_140chars: 'Fallback nativo si falta python3',
       },
-      { execFileFn: enoentExecFile }
+      { execFileFn: enoentExecFile, preferPythonCtl: true, expectedScriptSha256: expectedCtlSha }
     );
     expect(enoentFallback.status).toBe('PASSED');
     expect(enoentFallback.backend).toBe('native-ts');
@@ -371,7 +421,7 @@ describe('Flight Recorder Atómico (Tool #19 session_flight_recorder & Resource 
 
     const pyErrRes = await runSessionFlightRecorder(
       { project_path: wsDir, action: 'clear', reason: 'test' },
-      { execFileFn: failPyExecFile }
+      { execFileFn: failPyExecFile, preferPythonCtl: true, expectedScriptSha256: expectedCtlSha }
     );
     expect(pyErrRes.status).toBe('FAILED');
     expect(pyErrRes.backend).toBe('python-ctl');
@@ -379,13 +429,15 @@ describe('Flight Recorder Atómico (Tool #19 session_flight_recorder & Resource 
     // Error con stderr vacío usa stdout/message fallback y sin activeTask previo para cubrir ramas python-ctl
     const noActivePyDir = makeTempDir('qa11x-py-clean-');
     fs.mkdirSync(path.join(noActivePyDir, '.agents', 'scripts'), { recursive: true });
-    fs.writeFileSync(path.join(noActivePyDir, '.agents', 'scripts', 'checkpoint_ctl.py'), '# stub', 'utf8');
+    const noActiveCtl = path.join(noActivePyDir, '.agents', 'scripts', 'checkpoint_ctl.py');
+    fs.writeFileSync(noActiveCtl, '# stub', 'utf8');
+    const noActiveSha = crypto.createHash('sha256').update(fs.readFileSync(noActiveCtl)).digest('hex');
     const emptyStderrFail = ((_f: string, _a: readonly string[], _o: unknown, cb: (e: Error, out: string, err: string) => void) => {
       cb(new Error('python failed'), '[FAIL] stdout error', '');
     }) as unknown as typeof execFile;
     const emptyStderrRes = await runSessionFlightRecorder(
       { project_path: noActivePyDir, action: 'clear' },
-      { execFileFn: emptyStderrFail }
+      { execFileFn: emptyStderrFail, preferPythonCtl: true, expectedScriptSha256: noActiveSha }
     );
     expect(emptyStderrRes.status).toBe('FAILED');
     expect(emptyStderrRes.error).toContain('stdout error');
@@ -395,7 +447,7 @@ describe('Flight Recorder Atómico (Tool #19 session_flight_recorder & Resource 
     }) as unknown as typeof execFile;
     const pyNoFiles = await runSessionFlightRecorder(
       { project_path: noActivePyDir, action: 'clear' },
-      { execFileFn: okEmptyOutPy }
+      { execFileFn: okEmptyOutPy, preferPythonCtl: true, expectedScriptSha256: noActiveSha }
     );
     expect(pyNoFiles.status).toBe('PASSED');
     expect(pyNoFiles.checkpoint).toBeNull();
@@ -437,14 +489,14 @@ describe('Flight Recorder Atómico (Tool #19 session_flight_recorder & Resource 
         forbidden_globs: ['.env'],
         intent_140chars: 'Via Python CLI',
       },
-      { execFileFn: okPyExecFile }
+      { execFileFn: okPyExecFile, preferPythonCtl: true, expectedScriptSha256: expectedCtlSha }
     );
     expect(pySave.status).toBe('PASSED');
     expect(pySave.backend).toBe('python-ctl');
 
     const pyRecover = await runSessionFlightRecorder(
       { project_path: wsDir, action: 'recover' },
-      { execFileFn: okPyExecFile }
+      { execFileFn: okPyExecFile, preferPythonCtl: true, expectedScriptSha256: expectedCtlSha }
     );
     expect(pyRecover.status).toBe('PASSED');
     expect(pyRecover.backend).toBe('python-ctl');
@@ -453,7 +505,7 @@ describe('Flight Recorder Atómico (Tool #19 session_flight_recorder & Resource 
 
     const pyClear = await runSessionFlightRecorder(
       { project_path: wsDir, action: 'clear', reason: 'Cierre E2E' },
-      { execFileFn: okPyExecFile }
+      { execFileFn: okPyExecFile, preferPythonCtl: true, expectedScriptSha256: expectedCtlSha }
     );
     expect(pyClear.status).toBe('PASSED');
     expect(pyClear.backend).toBe('python-ctl');
@@ -465,10 +517,73 @@ describe('Flight Recorder Atómico (Tool #19 session_flight_recorder & Resource 
     }) as unknown as typeof execFile;
     const pyVirginRecover = await runSessionFlightRecorder(
       { project_path: wsDir, action: 'recover' },
-      { execFileFn: virginRecoverPy }
+      { execFileFn: virginRecoverPy, preferPythonCtl: true, expectedScriptSha256: expectedCtlSha }
     );
     expect(pyVirginRecover.status).toBe('FAILED');
     expect(pyVirginRecover.checkpoint).toBeNull();
+
+    // Rechaza symlink en checkpoint_ctl.py aun con preferPythonCtl: true
+    fs.unlinkSync(noActiveCtl);
+    fs.symlinkSync(ctlPath, noActiveCtl);
+    const symlinkCtlRes = await runSessionFlightRecorder(
+      { project_path: noActivePyDir, action: 'recover' },
+      { preferPythonCtl: true, expectedScriptSha256: expectedCtlSha }
+    );
+    expect(symlinkCtlRes.status).toBe('FAILED');
+    expect(symlinkCtlRes.backend).toBe('python-ctl');
+
+    // Lee SHA-256 desde manifest.json (sin expectedScriptSha256), tolera manifest corrupto y rechaza directorio en lugar de script
+    const manifestProj = makeTempDir('qa11x-fr-manifest-');
+    fs.mkdirSync(path.join(manifestProj, '.agents', 'scripts'), { recursive: true });
+    const mfCtl = path.join(manifestProj, '.agents', 'scripts', 'checkpoint_ctl.py');
+    fs.writeFileSync(mfCtl, '# manifest sha\n', 'utf8');
+    const mfSha = crypto.createHash('sha256').update(fs.readFileSync(mfCtl)).digest('hex');
+    const mfPath = path.join(manifestProj, 'manifest.json');
+
+    fs.writeFileSync(mfPath, '{corrupt', 'utf8');
+    const corruptMfRes = await runSessionFlightRecorder(
+      { project_path: manifestProj, action: 'recover' },
+      { preferPythonCtl: true }
+    );
+    expect(corruptMfRes.status).toBe('FAILED');
+
+    fs.writeFileSync(mfPath, JSON.stringify({ common_files: [{ path: '.agents/scripts/checkpoint_ctl.py', sha256: 'bad' }] }), 'utf8');
+    const badEntryMfRes = await runSessionFlightRecorder(
+      { project_path: manifestProj, action: 'recover' },
+      { preferPythonCtl: true }
+    );
+    expect(badEntryMfRes.status).toBe('FAILED');
+
+    // Manifest válido + sin execFileFn ejercita buildPythonInvocation (docker --network none) y cae limpio en ENOENT
+    fs.writeFileSync(mfPath, JSON.stringify({ agent_governance_files: [{ path: '.agents/scripts/checkpoint_ctl.py', sha256: mfSha }] }), 'utf8');
+    const dockerFallbackRes = await runSessionFlightRecorder(
+      { project_path: manifestProj, action: 'save', task_id: 'MF-1', active_step: 'S1', intent_140chars: 'Docker builder coverage' },
+      { preferPythonCtl: true }
+    );
+    expect(dockerFallbackRes.status).toBe('PASSED');
+
+    // Rechaza si checkpoint_ctl.py es un directorio (stat.isFile() === false)
+    fs.unlinkSync(mfCtl);
+    fs.mkdirSync(mfCtl, { recursive: true });
+    const dirCtlRes = await runSessionFlightRecorder(
+      { project_path: manifestProj, action: 'recover' },
+      { preferPythonCtl: true, expectedScriptSha256: mfSha }
+    );
+    expect(dirCtlRes.status).toBe('FAILED');
+    expect(dirCtlRes.error).toContain('no es archivo regular');
+
+    // Directorio sin permiso de ejecución (0o600) sobre .agents dispara EACCES real en isSymlinkEntry
+    const agentsDir = path.join(manifestProj, '.agents');
+    fs.chmodSync(agentsDir, 0o600);
+    try {
+      const eaccesAncestorRes = await runSessionFlightRecorder({
+        project_path: manifestProj,
+        action: 'recover',
+      });
+      expect(eaccesAncestorRes.status).toBe('FAILED');
+    } finally {
+      fs.chmodSync(agentsDir, 0o700);
+    }
   });
 
   it('recordStageCmdCheckpoint es no-op fuera de sesión y runEphemeralQa inyecta [DIRECTIVE-11X] solo al fallar por complejidad', async () => {
@@ -543,7 +658,7 @@ describe('Flight Recorder Atómico (Tool #19 session_flight_recorder & Resource 
       { preferPythonCtl: false }
     );
     expect(clearNoReason.checkpoint?.status).toBe('CERTIFIED_CLEAN');
-    expect(clearNoReason.checkpoint?.active_step).toBe('');
+    expect(clearNoReason.checkpoint?.active_step).toBe('S2');
     expect(clearNoReason.checkpoint?.planned_steps).toEqual([]);
   });
 
@@ -561,7 +676,9 @@ describe('Flight Recorder Atómico (Tool #19 session_flight_recorder & Resource 
 
     const scriptsDir = path.join(badWs, '.agents', 'scripts');
     fs.mkdirSync(scriptsDir, { recursive: true });
-    fs.writeFileSync(path.join(scriptsDir, 'checkpoint_ctl.py'), '# stub\n', 'utf8');
+    const badCtlPath = path.join(scriptsDir, 'checkpoint_ctl.py');
+    fs.writeFileSync(badCtlPath, '# stub\n', 'utf8');
+    const badCtlSha = crypto.createHash('sha256').update(fs.readFileSync(badCtlPath)).digest('hex');
     const badPyExec = ((
       _b: string,
       _a: readonly string[],
@@ -572,7 +689,7 @@ describe('Flight Recorder Atómico (Tool #19 session_flight_recorder & Resource 
     }) as unknown as typeof execFile;
     const pyCorruptRecover = await runSessionFlightRecorder(
       { project_path: badWs, action: 'recover' },
-      { execFileFn: badPyExec }
+      { execFileFn: badPyExec, preferPythonCtl: true, expectedScriptSha256: badCtlSha }
     );
     expect(pyCorruptRecover.status).toBe('FAILED');
     expect(pyCorruptRecover.error).toContain('corrupta');
@@ -587,7 +704,7 @@ describe('Flight Recorder Atómico (Tool #19 session_flight_recorder & Resource 
     }) as unknown as typeof execFile;
     const pyCorruptDisk = await runSessionFlightRecorder(
       { project_path: badWs, action: 'save', task_id: 'T1', active_step: 'S1', intent_140chars: 'x' },
-      { execFileFn: okPySaveExec }
+      { execFileFn: okPySaveExec, preferPythonCtl: true, expectedScriptSha256: badCtlSha }
     );
     expect(pyCorruptDisk.status).toBe('FAILED');
 
@@ -624,7 +741,7 @@ describe('Flight Recorder Atómico (Tool #19 session_flight_recorder & Resource 
 
     const pyArrayDisk = await runSessionFlightRecorder(
       { project_path: badWs, action: 'save', task_id: 'T1', active_step: 'S1', intent_140chars: 'x' },
-      { execFileFn: okPySaveExec }
+      { execFileFn: okPySaveExec, preferPythonCtl: true, expectedScriptSha256: badCtlSha }
     );
     expect(pyArrayDisk.status).toBe('FAILED');
     expect(pyArrayDisk.error).toContain('JSON de checkpoint inválido');

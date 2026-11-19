@@ -13,7 +13,7 @@ import {
   type InitOrAppendAgentsMdResult,
   type SupportedLang,
 } from '../tools/initOrAppendAgentsMd.js';
-import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
+import { reportDebugCatchError, sanitizeDiagnosticText } from '../utils/diagnosticFormatter.js';
 
 const UTF8_ENCODING = 'utf8' as const;
 const SCHEMA_VERSION_2 = '2.0.0' as const;
@@ -853,7 +853,7 @@ export function formatQuickstartOutput(
   asJson: boolean = false
 ): string {
   if (asJson) {
-    return JSON.stringify(result, null, 2);
+    return sanitizeDiagnosticText(JSON.stringify(result, null, 2));
   }
   const modeTag = result.dryRun ? 'dry-run' : 'ready';
   const changedCount = result.files.filter((f) => f.action !== 'preserved').length;

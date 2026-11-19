@@ -33,8 +33,11 @@ const SCANNABLE_EXTS = new Set([
   '.py',
   '.ts',
   '.tsx',
+  '.mts',
   '.js',
   '.jsx',
+  '.mjs',
+  '.cjs',
   '.vue',
   '.html',
   '.sh',
@@ -258,7 +261,9 @@ function normalizeExampleRelPath(relPath: string, options?: AuditSecurityOptions
 function shouldSkipDirectory(entry: fs.Dirent): boolean {
   if (!entry.isDirectory()) return false;
   if (IGNORED_DIRS.has(entry.name) || entry.name === 'backups') return true;
-  if (entry.name === '.agents' || entry.name === '.github') return false;
+  if (entry.name === '.agents' || entry.name === '.github' || entry.name === '.vitepress') {
+    return false;
+  }
   return entry.name.startsWith('.') && entry.name !== '.npmrc';
 }
 
@@ -469,16 +474,36 @@ function checkSec03CommandAndDeserialization(relPath: string, lines: string[]): 
   return findings;
 }
 
+const SEC_04_REF = 'APSC-DV-002390 / 002550 / Patrón 4';
+
 function checkPhpXxe(line: string, relPath: string, lineNum: number): SecurityFinding | null {
-  if ((line.includes('loadXML(') || line.includes('simplexml_load_string(')) && !line.includes('LIBXML_NONET')) {
+  const hasXmlCall = line.includes('loadXML(') || line.includes('simplexml_load_string(');
+  if (!hasXmlCall) return null;
+
+  if (line.includes('LIBXML_NOENT') || line.includes('LIBXML_DTDLOAD')) {
+    return {
+      rule_id: 'SEC-04',
+      severity: 'CRITICAL',
+      stig_owasp_ref: SEC_04_REF,
+      file: relPath,
+      line: lineNum,
+      message:
+        'Parser XML en PHP habilita sustitución o carga de DTD (LIBXML_NOENT / LIBXML_DTDLOAD), permitiendo ataques XXE incluso con LIBXML_NONET.',
+      remediation:
+        'Eliminar LIBXML_NOENT y LIBXML_DTDLOAD; usar exclusivamente LIBXML_NONET (sin expandir entidades externas) o validar con XSD seguro.',
+    };
+  }
+
+  if (!line.includes('LIBXML_NONET')) {
     return {
       rule_id: 'SEC-04',
       severity: 'HIGH',
-      stig_owasp_ref: 'APSC-DV-002390 / 002550 / Patrón 4',
+      stig_owasp_ref: SEC_04_REF,
       file: relPath,
       line: lineNum,
       message: 'Parser XML en PHP detectado sin bandera LIBXML_NONET (vulnerabilidad XXE).',
-      remediation: 'Especificar LIBXML_NONET | LIBXML_NOENT en la llamada a loadXML o simplexml_load_string.',
+      remediation:
+        'Especificar LIBXML_NONET (nunca LIBXML_NOENT ni LIBXML_DTDLOAD) en la llamada a loadXML o simplexml_load_string.',
     };
   }
   return null;
@@ -492,7 +517,7 @@ function checkPyXxe(fileContent: string, relPath: string, lineNum: number): Secu
     return {
       rule_id: 'SEC-04',
       severity: 'HIGH',
-      stig_owasp_ref: 'APSC-DV-002390 / 002550 / Patrón 4',
+      stig_owasp_ref: SEC_04_REF,
       file: relPath,
       line: lineNum,
       message: 'Parser XML estándar detectado sin protección contra XXE (resolve_entities=False o defusedxml).',
@@ -629,6 +654,26 @@ function checkSec07SwaggerInProd(relPath: string, lines: string[]): SecurityFind
   return findings;
 }
 
+const SEC10_PRIVATE_KEY_MARKERS = [
+  'BEGIN PRIVATE KEY',
+  'BEGIN RSA PRIVATE KEY',
+  'BEGIN OPENSSH PRIVATE KEY',
+  'BEGIN EC PRIVATE KEY',
+] as const;
+
+const SEC10_TOKEN_RES: readonly RegExp[] = [
+  /\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{20,}\b/,
+  /\bgithub_pat_\w{20,}\b/,
+  /\bglpat-[A-Za-z0-9_-]{20,}\b/,
+  /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/,
+  /\bAIza[0-9A-Za-z_-]{20,}\b/,
+  /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/,
+  /\bsk-(?:proj-|ant-|live-|test-)?[A-Za-z0-9_-]{16,}\b/,
+];
+
+const SEC10_ASSIGNED_SECRET_RE =
+  /(?:password|passwd|secret_key|api[-_]?key)\s*[:=]\s*["'][a-z0-9!@#$%^&*()_+-]{8,}["']/i;
+
 function checkSec10Secrets(relPath: string, lines: string[]): SecurityFinding[] {
   if (
     relPath.endsWith('.example') ||
@@ -641,9 +686,10 @@ function checkSec10Secrets(relPath: string, lines: string[]): SecurityFinding[] 
   const findings: SecurityFinding[] = [];
 
   for (const [i, line] of lines.entries()) {
-    if (line.trim().startsWith('#') || line.trim().startsWith('//')) continue;
+    const trimmed = line.trim();
+    if (trimmed.startsWith('#') || trimmed.startsWith('//')) continue;
 
-    if (line.includes('BEGIN PRIVATE KEY') || line.includes('BEGIN RSA PRIVATE KEY') || line.includes('BEGIN OPENSSH PRIVATE KEY')) {
+    if (SEC10_PRIVATE_KEY_MARKERS.some((marker) => line.includes(marker))) {
       findings.push({
         rule_id: 'SEC-10',
         severity: 'CRITICAL',
@@ -653,24 +699,28 @@ function checkSec10Secrets(relPath: string, lines: string[]): SecurityFinding[] 
         message: 'Clave criptográfica privada detectada en el código fuente.',
         remediation: 'Eliminar claves privadas del código y delegar en gestores de secretos o Vault.',
       });
-    } else if (/ghp_[a-zA-Z0-9]{36}/.test(line)) {
+    } else if (SEC10_TOKEN_RES.some((re) => re.test(line))) {
       findings.push({
         rule_id: 'SEC-10',
         severity: 'CRITICAL',
         stig_owasp_ref: SEC_10_REF,
         file: relPath,
         line: i + 1,
-        message: 'Token de acceso personal de GitHub hardcodeado detectado.',
-        remediation: 'Revocar el token de inmediato e inyectarlo vía variables de entorno seguras.',
+        message: 'Token o clave API hardcodeada detectada en el código fuente.',
+        remediation: 'Revocar la credencial de inmediato e inyectarla vía variables de entorno seguras.',
       });
-    } else if (/(?:password|passwd|secret_key)\s*=\s*["'][a-z0-9!@#$%^&*()_+]{8,}["']/i.test(line) && !line.includes('placeholder') && !line.includes('example')) {
+    } else if (
+      SEC10_ASSIGNED_SECRET_RE.test(line) &&
+      !line.includes('placeholder') &&
+      !line.includes('example')
+    ) {
       findings.push({
         rule_id: 'SEC-10',
         severity: 'CRITICAL',
         stig_owasp_ref: SEC_10_REF,
         file: relPath,
         line: i + 1,
-        message: 'Contraseña o clave secreta en texto plano asignada directamente en el código.',
+        message: 'Contraseña, API key o clave secreta en texto plano asignada directamente en el código.',
         remediation: 'Utilizar variables de entorno o almacén de secretos externo.',
       });
     }
@@ -1024,7 +1074,7 @@ function checkSec09Npmrc(projectPath: string): SecurityFinding[] {
   if (rootFinding) findings.push(rootFinding);
   findings.push(...checkSec09NodeToolchainHygiene(projectPath, ''));
 
-  const subDirs = ['vue3', 'react-frontend', 'node-backend', 'frontend', 'mcp-server'];
+  const subDirs = ['vue3', 'react-frontend', 'node-backend', 'frontend', 'mcp-server', 'mobile-appium'];
   for (const sub of subDirs) {
     const subDir = path.join(projectPath, sub);
     const subFinding = checkSingleDirNpmrc(subDir, sub);
@@ -1772,7 +1822,7 @@ function collectProbesFromCandidate(
 ): void {
   const content = readTextFileSafe(path.join(projectPath, rel));
   if (!content) return;
-  const isYaml = /\.ya?ml$/i.test(rel);
+  const isYaml = /\.ya?ml$/i.test(stripExampleSuffix(rel));
   const scopedText = isYaml
     ? extractComposeHealthcheckText(content)
     : extractDockerfileHealthcheckText(content);
@@ -2102,6 +2152,38 @@ function consumeRunContinuation(
   return { nextIndex: idx, command: combined, hasPragma };
 }
 
+function skipSingleRunOption(cmd: string, start: number): number {
+  let idx = start;
+  let quote: '"' | "'" | null = null;
+  while (idx < cmd.length) {
+    const ch = cmd[idx];
+    if (quote !== null) {
+      if (ch === quote) quote = null;
+      idx += 1;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+    } else if (/\s/.test(ch ?? '')) {
+      break;
+    }
+    idx += 1;
+  }
+  return idx;
+}
+
+function stripLeadingRunOptions(rawCommand: string): string {
+  let pos = 0;
+  const trimmed = rawCommand.trim();
+  while (trimmed.startsWith('--', pos)) {
+    pos = skipSingleRunOption(trimmed, pos);
+    while (pos < trimmed.length && /\s/.test(trimmed[pos] ?? '')) {
+      pos += 1;
+    }
+  }
+  return trimmed.slice(pos);
+}
+
 function extractDockerfileRunBlocks(content: string): DockerRunBlock[] {
   const rawLines = content.split(/\r?\n/);
   if (rawLines.slice(0, 5).some((l) => l.includes(QA_DOCKER_LOCK_OK_PRAGMA))) {
@@ -2123,7 +2205,7 @@ function extractDockerfileRunBlocks(content: string): DockerRunBlock[] {
       prevLine.includes(QA_DOCKER_LOCK_OK_PRAGMA) || rawLine.includes(QA_DOCKER_LOCK_OK_PRAGMA);
     const consumed = consumeRunContinuation(rawLines, i, trimmed.slice(3).trim(), initialPragma);
     if (!consumed.hasPragma) {
-      blocks.push({ line: i + 1, command: consumed.command });
+      blocks.push({ line: i + 1, command: stripLeadingRunOptions(consumed.command) });
     }
     i = consumed.nextIndex + 1;
   }
@@ -2134,7 +2216,12 @@ function extractDockerfileRunBlocks(content: string): DockerRunBlock[] {
 const PIP_INSTALL_CMD_RE = /\bpip3?\s+install\b/i;
 const PIP_LOCKED_OR_EDITABLE_RE =
   /(?:^|\s)(?:-r|--requirement|-e|--editable)(?:\s|$|=)|\.whl\b|\buv\s+export\b/i;
-const NODE_PKG_INSTALL_RE = /^\s*(?:npm\s+(?:install|i|add)|pnpm\s+add|yarn\s+add)\b/i;
+const NODE_PKG_ADD_RE = /^\s*(?:npm|pnpm|yarn)\s+add\b/i;
+const NPM_UNFROZEN_INSTALL_RE = /^\s*npm\s+(?:install|i)\b/i;
+const PNPM_INSTALL_CMD_RE = /^\s*pnpm\s+(?:install|i)\b/i;
+const YARN_INSTALL_CMD_RE = /^\s*yarn(?:\s+install\b|\s*$)/i;
+const FROZEN_LOCKFILE_FLAG_RE = /(?:\s|^)--frozen-lockfile(?:\s|$|=true)/i;
+const YARN_IMMUTABLE_FLAG_RE = /(?:\s|^)(?:--frozen-lockfile|--immutable)(?:\s|$|=true)/i;
 
 function normalizePipPackageName(rawToken: string): string {
   const cleaned = rawToken.replace(/^["']|["']$/g, '').trim();
@@ -2164,10 +2251,11 @@ function extractPipPositionalPackages(pipSegment: string, match: RegExpExecArray
 
 function hasHandwrittenPythonPipDeps(command: string): boolean {
   for (const segment of command.split(/(?:&&|\|\||;)/)) {
-    const match = PIP_INSTALL_CMD_RE.exec(segment);
+    const cleanSeg = stripLeadingRunOptions(segment);
+    const match = PIP_INSTALL_CMD_RE.exec(cleanSeg);
     if (!match) continue;
-    if (PIP_LOCKED_OR_EDITABLE_RE.test(segment)) continue;
-    const pkgs = extractPipPositionalPackages(segment, match);
+    if (PIP_LOCKED_OR_EDITABLE_RE.test(cleanSeg)) continue;
+    const pkgs = extractPipPositionalPackages(cleanSeg, match);
     if (pkgs.some((pkg) => !BOOTSTRAP_PY_PACKAGES.has(pkg))) {
       return true;
     }
@@ -2180,25 +2268,35 @@ function hasUnfrozenUvSync(command: string, hasUvLock: boolean): boolean {
   return /\buv\s+sync\b/i.test(command) && !/(?:\s|^)(?:--frozen|--locked)(?:\s|$)/.test(command);
 }
 
-function hasHandwrittenNodeDeps(command: string): boolean {
-  for (const segment of command.split(/(?:&&|\|\||;)/)) {
-    const trimmed = segment.trim();
-    if (!NODE_PKG_INSTALL_RE.test(trimmed)) continue;
-    if (/(?:\s|^)(?:-g|--global)(?:\s|$)/.test(trimmed)) continue;
-    const tokens = trimmed.split(/\s+/).slice(2);
-    const hasExplicitPkg = tokens.some((tok) => {
-      const clean = tok.replace(/^["']|["']$/g, '');
-      return (
-        Boolean(clean) &&
-        clean !== '.' &&
-        !clean.startsWith('-') &&
-        !clean.startsWith('./') &&
-        !clean.startsWith('/')
-      );
-    });
-    if (hasExplicitPkg) return true;
+function hasExplicitNodePackageArg(trimmed: string): boolean {
+  const tokens = trimmed.split(/\s+/).slice(2);
+  return tokens.some((tok) => {
+    const clean = tok.replace(/^["']|["']$/g, '');
+    return (
+      Boolean(clean) &&
+      clean !== '.' &&
+      !clean.startsWith('-') &&
+      !clean.startsWith('./') &&
+      !clean.startsWith('/')
+    );
+  });
+}
+
+function isUnfrozenNodeSegment(trimmed: string): boolean {
+  if (!trimmed || /(?:\s|^)(?:-g|--global)(?:\s|$)/.test(trimmed)) return false;
+  if (/^\s*npm\s+ci\b/i.test(trimmed)) return false;
+  if (NPM_UNFROZEN_INSTALL_RE.test(trimmed)) return true;
+  if (PNPM_INSTALL_CMD_RE.test(trimmed)) return !FROZEN_LOCKFILE_FLAG_RE.test(trimmed);
+  if (YARN_INSTALL_CMD_RE.test(trimmed)) {
+    return !YARN_IMMUTABLE_FLAG_RE.test(trimmed) && !NODE_PKG_ADD_RE.test(trimmed);
   }
-  return false;
+  return NODE_PKG_ADD_RE.test(trimmed) && hasExplicitNodePackageArg(trimmed);
+}
+
+function hasHandwrittenNodeDeps(command: string): boolean {
+  return command
+    .split(/(?:&&|\|\||;)/)
+    .some((segment) => isUnfrozenNodeSegment(stripLeadingRunOptions(segment)));
 }
 
 function hasAnyManifestInDirs(dirs: string[], fileNames: string[]): boolean {
@@ -2357,19 +2455,23 @@ function inspectPackageJsonPlaywrightPin(
 
   const pkgDir = path.posix.dirname(relPath.replace(/\\/g, '/'));
   const expectedVersion = resolveExpectedPlaywrightTag(pkgDir, dockerTags);
-  if (!expectedVersion) return [];
 
   const findings: SecurityFinding[] = [];
   for (const { pkgName, spec } of specs) {
-    if (!EXACT_SEMVER_RE.test(spec) || spec !== expectedVersion) {
+    const isExact = EXACT_SEMVER_RE.test(spec);
+    if (expectedVersion ? !isExact || spec !== expectedVersion : !isExact) {
       findings.push({
         rule_id: QA_PLAYWRIGHT_PIN_RULE,
         severity: 'HIGH',
         stig_owasp_ref: QA_PLAYWRIGHT_PIN_REF,
         file: relPath,
         line: findLineNumberContaining(content, `"${pkgName}"`),
-        message: `La dependencia "${pkgName}": "${spec}" en ${relPath} no fija la versión exacta de mcr.microsoft.com/playwright:v${expectedVersion} (riesgo de desajuste en binarios Chromium).`,
-        remediation: `Fijar "${pkgName}": "${expectedVersion}" sin prefijos de rango (^, ~) alineado con mcr.microsoft.com/playwright:v${expectedVersion} (o eximir con "${QA_PLAYWRIGHT_PIN_OK_PRAGMA}").`,
+        message: expectedVersion
+          ? `La dependencia "${pkgName}": "${spec}" en ${relPath} no fija la versión exacta de mcr.microsoft.com/playwright:v${expectedVersion} (riesgo de desajuste en binarios Chromium).`
+          : `La dependencia mutable "${pkgName}": "${spec}" en ${relPath} usa rango semver (^/~) sin fijación exacta de versión Playwright.`,
+        remediation: expectedVersion
+          ? `Fijar "${pkgName}": "${expectedVersion}" sin prefijos de rango (^, ~) alineado con mcr.microsoft.com/playwright:v${expectedVersion} (o eximir con "${QA_PLAYWRIGHT_PIN_OK_PRAGMA}").`
+          : `Fijar "${pkgName}" a una versión semver exacta (X.Y.Z) sin prefijos de rango (^, ~) (o eximir con "${QA_PLAYWRIGHT_PIN_OK_PRAGMA}").`,
       });
     }
   }
@@ -3057,7 +3159,8 @@ function checkPreAuthNonAtomicChallengeConsumption(
       fullText.includes('preauth'));
   if (!handlesChallenge) return null;
 
-  const usesNonAtomicGet = /\b(?:redis|keydb|cache_client|redis_client)\s*\.\s*get\s*\(/.test(fullText);
+  const usesNonAtomicGet =
+    /\$?\b(?:redis|keydb|cache_client|redis_client)\s*(?:\.|->)\s*get\s*\(/i.test(fullText);
   const hasAtomicConsume =
     /\bgetdel\b/i.test(fullText) ||
     /\bevalsha?\s*\(/.test(fullText) ||
@@ -3065,7 +3168,7 @@ function checkPreAuthNonAtomicChallengeConsumption(
 
   if (!usesNonAtomicGet || hasAtomicConsume) return null;
 
-  const lineIdx = lines.findIndex((l) => /\.get\s*\(/.test(l));
+  const lineIdx = lines.findIndex((l) => /(?:\.|->)\s*get\s*\(/.test(l));
   return {
     rule_id: 'SEC-16',
     severity: 'HIGH',
@@ -3136,7 +3239,7 @@ function checkQaHealth01SupervisorTaskExit(relPath: string, lines: string[]): Se
 }
 
 function isDualCliMcpStdioSource(relPath: string, fullText: string): boolean {
-  if (/\.(?:ts|js)$/i.test(relPath)) {
+  if (/\.(?:ts|js|mjs)$/i.test(relPath)) {
     const hasStdioTransport = fullText.includes('StdioServerTransport');
     const hasCliEntrypoint =
       fullText.includes('process.argv') || fullText.startsWith('#!/usr/bin/env node');

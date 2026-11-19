@@ -285,5 +285,24 @@ describe('Agent2Agent Card File Writer (writeAgentCardFile)', () => {
 
     // Bloqueo si workspaceRoot es un archivo en vez de directorio
     await expect(writeAgentCardFile(outsideFile)).rejects.toThrowError(/A2A_INVALID_ROOT/);
+
+    // Bloqueo previo a mkdirSync recursivo si un ancestro intermedio es symlink hacia outsideDir
+    const deepEscapedRel = 'linked-out/nested-new/sub-dir/agent.json';
+    await expect(writeAgentCardFile(workspace, deepEscapedRel)).rejects.toThrowError(
+      /A2A_PATH_TRAVERSAL/
+    );
+    await expect(fsPromises.access(path.join(outsideDir, 'nested-new'))).rejects.toThrow();
+
+    // Error EACCES (no-ENOENT) en ancestro relanza limpiamente antes de mkdirSync
+    const lockedParent = path.join(workspace, 'locked-a2a');
+    await fsPromises.mkdir(lockedParent, { recursive: true });
+    await fsPromises.chmod(lockedParent, 0o600);
+    try {
+      await expect(
+        writeAgentCardFile(workspace, 'locked-a2a/sub/agent.json')
+      ).rejects.toThrow();
+    } finally {
+      await fsPromises.chmod(lockedParent, 0o700);
+    }
   });
 });

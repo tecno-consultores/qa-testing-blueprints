@@ -4,6 +4,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
+import { resolveRealTargetWithSymlinks } from '../security/pathRealResolver.js';
 
 export const DEFAULT_CALM_ARCHITECTURE_PATH = 'architecture/qa-11x.calm.json';
 
@@ -165,24 +166,36 @@ function resolveSafeArchitectureFile(
     return null;
   }
 
-  if (!fs.existsSync(rootResolved) || !fs.existsSync(candidate) || !fs.statSync(candidate).isFile()) {
+  const rootOutcome = resolveRealTargetWithSymlinks(rootResolved);
+  const targetOutcome = resolveRealTargetWithSymlinks(candidate);
+  if (!rootOutcome.ok || !targetOutcome.ok) {
     violations.push({
-      code: 'FILE_NOT_FOUND',
+      code: 'PATH_TRAVERSAL',
       subject: architecturePath,
-      message: `Archivo de arquitectura CALM no encontrado: '${architecturePath}'.`,
-      remediation: REMEDIATION_CALM_MODEL,
+      message: `Ciclo o enlace simbólico inválido detectado en '${architecturePath}'.`,
+      remediation: REMEDIATION_TRAVERSAL,
     });
     return null;
   }
 
-  const rootReal = fs.realpathSync(rootResolved);
-  const realTarget = fs.realpathSync(candidate);
+  const rootReal = rootOutcome.resolved;
+  const realTarget = targetOutcome.resolved;
   if (!isContainedPath(rootReal, realTarget)) {
     violations.push({
       code: 'PATH_TRAVERSAL',
       subject: architecturePath,
       message: `Enlace simbólico fuera del workspace detectado en '${architecturePath}'.`,
       remediation: REMEDIATION_TRAVERSAL,
+    });
+    return null;
+  }
+
+  if (!fs.existsSync(rootReal) || !fs.existsSync(realTarget) || !fs.statSync(realTarget).isFile()) {
+    violations.push({
+      code: 'FILE_NOT_FOUND',
+      subject: architecturePath,
+      message: `Archivo de arquitectura CALM no encontrado: '${architecturePath}'.`,
+      remediation: REMEDIATION_CALM_MODEL,
     });
     return null;
   }

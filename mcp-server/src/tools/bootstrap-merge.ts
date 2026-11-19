@@ -31,8 +31,18 @@ function injectAgentsConnectorIfMissingFromBundle(input: AgentsConnectorInjectio
 
   if (!dryRun) {
     fs.mkdirSync(resolvedPath, { recursive: true });
+    const agentsStat = fs.lstatSync(agentsPath, { throwIfNoEntry: false });
+    if (agentsStat?.isSymbolicLink()) {
+      throw new Error(`Ruta symlink rechazada por seguridad en ${agentsPath}`);
+    }
+    const backupPath = `${agentsPath}.11x-backup`;
     if (createBackup && hadAgentsFile) {
-      fs.copyFileSync(agentsPath, `${agentsPath}.11x-backup`);
+      const backupStat = fs.lstatSync(backupPath, { throwIfNoEntry: false });
+      if (backupStat?.isSymbolicLink()) {
+        throw new Error(`Ruta backup symlink rechazada por seguridad en ${backupPath}`);
+      }
+      fs.copyFileSync(agentsPath, backupPath);
+      fs.chmodSync(backupPath, 0o600);
     }
     fs.writeFileSync(agentsPath, agentsRes.finalContent, 'utf-8');
   }

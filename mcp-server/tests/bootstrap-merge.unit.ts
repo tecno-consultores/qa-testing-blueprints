@@ -142,5 +142,22 @@ describe('bootstrapOrMerge11x Dedicated Unit Suite', () => {
     });
     expect(fs.existsSync(path.join(noBackupProj, 'Makefile.11x-backup'))).toBe(false);
     expect(fs.existsSync(path.join(noBackupProj, 'AGENTS.md.11x-backup'))).toBe(false);
+
+    // Rechaza symlink en AGENTS.md y en AGENTS.md.11x-backup
+    const symAgentsProj = path.join(tmpDir, 'sym-agents-proj');
+    const externalDecoy = path.join(tmpDir, 'external-decoy.md');
+    fs.mkdirSync(symAgentsProj, { recursive: true });
+    fs.writeFileSync(externalDecoy, '# decoy\n', 'utf-8');
+    fs.symlinkSync(externalDecoy, path.join(symAgentsProj, 'AGENTS.md'));
+    await expect(
+      bootstrapOrMerge11x(symAgentsProj, 'python', false, { fetcher, merger, createBackup: true })
+    ).rejects.toThrow(/symlink/i);
+
+    fs.unlinkSync(path.join(symAgentsProj, 'AGENTS.md'));
+    fs.writeFileSync(path.join(symAgentsProj, 'AGENTS.md'), '# Regular\n', 'utf-8');
+    fs.symlinkSync(externalDecoy, path.join(symAgentsProj, 'AGENTS.md.11x-backup'));
+    await expect(
+      bootstrapOrMerge11x(symAgentsProj, 'python', false, { fetcher, merger, createBackup: true })
+    ).rejects.toThrow(/symlink/i);
   });
 });

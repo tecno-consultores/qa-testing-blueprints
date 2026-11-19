@@ -388,6 +388,25 @@ async function resolveVerifiedRoot(workspaceRoot: string): Promise<string> {
   return rootReal;
 }
 
+async function findDeepestExistingAncestorReal(
+  rootReal: string,
+  startDir: string
+): Promise<string> {
+  let cursor = path.resolve(startDir);
+  while (cursor !== rootReal) {
+    try {
+      return await fsPromises.realpath(cursor);
+    } catch (err: unknown) {
+      const code = (err as NodeJS.ErrnoException)?.code;
+      if (code !== 'ENOENT') {
+        throw err;
+      }
+      cursor = path.dirname(cursor);
+    }
+  }
+  return rootReal;
+}
+
 async function ensureContainedParentDir(rootReal: string, candidateTarget: string): Promise<string> {
   if (!isStrictDescendant(rootReal, candidateTarget)) {
     throw new Error(
@@ -395,6 +414,12 @@ async function ensureContainedParentDir(rootReal: string, candidateTarget: strin
     );
   }
   const parentDir = path.dirname(candidateTarget);
+  const ancestorReal = await findDeepestExistingAncestorReal(rootReal, parentDir);
+  if (ancestorReal !== rootReal && !isStrictDescendant(rootReal, ancestorReal)) {
+    throw new Error(
+      `[A2A_PATH_TRAVERSAL] El directorio ancestro '${ancestorReal}' escapa de '${rootReal}'.`
+    );
+  }
   await fsPromises.mkdir(parentDir, { recursive: true });
   const parentReal = await fsPromises.realpath(parentDir);
   if (parentReal !== rootReal && !isStrictDescendant(rootReal, parentReal)) {

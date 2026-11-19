@@ -857,7 +857,22 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
         '<?php function preauth($challenge_id, $keydb) { return $keydb->get($challenge_id); }',
         'utf8'
       );
-      await auditSecurityStigOwasp(vDir);
+      const phpAudit = await auditSecurityStigOwasp(vDir);
+      expect(
+        phpAudit.findings.some((f) => f.rule_id === 'SEC-16' && f.file.endsWith('bootstrap_auth.php'))
+      ).toBe(true);
+
+      fs.writeFileSync(
+        path.join(vDir, 'src', 'api', 'bootstrap_auth_safe.php'),
+        '<?php function preauth($challenge_id, $keydb) { return $keydb->getdel($challenge_id); }',
+        'utf8'
+      );
+      const phpSafeAudit = await auditSecurityStigOwasp(vDir);
+      expect(
+        phpSafeAudit.findings.some(
+          (f) => f.rule_id === 'SEC-16' && f.file.endsWith('bootstrap_auth_safe.php')
+        )
+      ).toBe(false);
 
       const gitErrProp = await proposeSkillEvolutionPr(
         {

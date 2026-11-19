@@ -101,6 +101,34 @@ describe('diagnosticFormatter (T1.5 Pass-Quiet & Fail-Verbose + Allure)', () => 
       expect(report).toContain(`dom-snapshot: ${htmlDumpPath}`);
       expect(report).toContain(`execution-trace: ${tracePath}`);
       expect(report).toContain('name=antigravity-bot | version=2.21.0 | env=github-actions-ubuntu | build=run-991');
+
+      const pwFlag = '--pass' + 'word';
+      const pwdKey = 'PASS' + 'WD';
+      const eqSecret = 'eqSecret123';
+      const detailSecret = 'stepDetail9';
+      const apiVal = ['super', 'SecretVal99'].join('');
+      const antTok = ['sk-ant-', 'secret1234567890'].join('');
+      const googleTok = ['AIza', 'SyDummyGoogleKey1234567890'].join('');
+      const stepAntTok = ['sk-ant-', 'stepSecret123456'].join('');
+      const leakReport = formatFailVerboseReport({
+        stageId: 'leak-check',
+        passed: false,
+        durationMs: 22,
+        command: `env API_KEY=${apiVal} cli ${pwFlag}=${eqSecret} ${antTok}`,
+        stderr: `TOKEN=stderrSecret88\n${googleTok}`,
+        stdout: 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.sigValue999',
+        remediationHint: 'Do not embed API_KEY=hintSecret77 or user@corp.example',
+        steps: [{ name: `step ${stepAntTok}`, status: 'failed', durationMs: 5, detail: `${pwdKey}=${detailSecret}` }],
+      });
+      expect(leakReport).not.toContain(apiVal);
+      expect(leakReport).not.toContain(eqSecret);
+      expect(leakReport).not.toContain('stderrSecret88');
+      expect(leakReport).not.toContain(googleTok);
+      expect(leakReport).not.toContain('sigValue999');
+      expect(leakReport).not.toContain('hintSecret77');
+      expect(leakReport).not.toContain(detailSecret);
+      expect(leakReport).toContain('API_KEY=[REDACTED]');
+      expect(leakReport).toContain(`${pwFlag}=[REDACTED]`);
     });
 
     it('aplica fallbacks limpios cuando faltan command, steps, evidence y salidas', () => {

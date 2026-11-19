@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
+import { randomBytes } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
@@ -593,11 +594,18 @@ function writeIfAbsent(
   written: string[],
   skipped: string[],
 ): void {
-  if (fs.existsSync(destPath)) {
+  const existing = fs.lstatSync(destPath, { throwIfNoEntry: false });
+  if (existing !== undefined) {
+    if (existing.isSymbolicLink()) {
+      throw new Error(`Symlink rechazado por seguridad en destino de remediación: ${destPath}`);
+    }
     skipped.push(destPath);
     return;
   }
-  fs.writeFileSync(destPath, content, UTF8_ENCODING);
+  const dir = path.dirname(destPath);
+  const tmpPath = path.join(dir, `.${path.basename(destPath)}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`);
+  fs.writeFileSync(tmpPath, content, { encoding: UTF8_ENCODING, mode: 0o644, flag: 'wx' });
+  fs.renameSync(tmpPath, destPath);
   written.push(destPath);
 }
 

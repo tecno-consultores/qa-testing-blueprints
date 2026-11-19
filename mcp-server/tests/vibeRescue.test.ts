@@ -290,6 +290,18 @@ describe('auditVibePrototype MCP tool (T4.5)', () => {
     expect(secondRun.skippedExistingFiles).toHaveLength(3);
     expect(secondRun.summary).toContain('Preservados sin sobrescribir');
     expect(fs.readFileSync(planPath, 'utf8')).toBe('CUSTOM_PRESERVED_PLAN\n');
+
+    // Rechaza symlink en destino existente durante escritura no destructiva
+    const externalDecoy = path.join(makeTempDir('qa11x-vibe-decoy-'), 'target.md');
+    fs.writeFileSync(externalDecoy, 'outside\n', 'utf8');
+    fs.unlinkSync(planPath);
+    fs.symlinkSync(externalDecoy, planPath);
+    expect(() =>
+      auditVibePrototype(
+        { targetDir: '.', dryRun: false, remediationSubdir: 'qa11x-rescue' },
+        { workspaceRoot: ws },
+      ),
+    ).toThrow(/Symlink rechazado/);
   });
 
   it('emite Pass-Quiet de 1 linea en proyecto endurecido y fallback embebido en bundle limpio', () => {

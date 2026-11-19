@@ -573,5 +573,41 @@ describe('reconcile-agents (Hito 13: Governance Reconciliation & Deduplication)'
         logSpy.mockRestore();
       }
     });
+
+    it('rechaza symlinks en AGENTS.md, reglas locales, skills y backups e ignora subdirectorios .md', async () => {
+      const symProj = path.join(tmpDir, 'sym-proj');
+      fs.mkdirSync(path.join(symProj, '.agents', 'rules', 'sub.md'), { recursive: true });
+      fs.mkdirSync(path.join(symProj, '.agents', 'skills'), { recursive: true });
+      const decoy = path.join(tmpDir, 'decoy.txt');
+      fs.writeFileSync(decoy, 'decoy\n', 'utf8');
+
+      // Subdirectorio .md dentro de rules se ignora limpiamente
+      const dirRes = await reconcileAgentsGovernance({ projectPath: symProj, dryRun: true });
+      expect(dirRes.removed_duplicate_sections_count).toBe(0);
+      expect(dirRes.reconciled_items).toEqual([]);
+
+      // Symlink en regla local -> lanza error
+      fs.symlinkSync(decoy, path.join(symProj, '.agents', 'rules', 'sym.md'));
+      await expect(reconcileAgentsGovernance({ projectPath: symProj, dryRun: true })).rejects.toThrow(/Symlink/);
+      fs.unlinkSync(path.join(symProj, '.agents', 'rules', 'sym.md'));
+
+      // Symlink o directorio no regular en AGENTS.md -> lanza error
+      fs.symlinkSync(decoy, path.join(symProj, 'AGENTS.md'));
+      await expect(reconcileAgentsGovernance({ projectPath: symProj, dryRun: true })).rejects.toThrow(/Symlink/);
+      fs.unlinkSync(path.join(symProj, 'AGENTS.md'));
+      fs.mkdirSync(path.join(symProj, 'AGENTS.md'));
+      await expect(reconcileAgentsGovernance({ projectPath: symProj, dryRun: true })).rejects.toThrow(/no regular/);
+      fs.rmSync(path.join(symProj, 'AGENTS.md'), { recursive: true, force: true });
+
+      // Symlink en skill canónica local -> lanza error
+      fs.symlinkSync(tmpDir, path.join(symProj, '.agents', 'skills', 'qa-11x-architect'));
+      await expect(reconcileAgentsGovernance({ projectPath: symProj, dryRun: false })).rejects.toThrow(/Symlink/);
+      fs.unlinkSync(path.join(symProj, '.agents', 'skills', 'qa-11x-architect'));
+
+      // Symlink en ruta de domain rules cuando se extraen reglas de dominio -> lanza error
+      fs.writeFileSync(path.join(symProj, '.agents', 'rules', 'custom.md'), '## Custom Domain Rule\nKeep this.\n', 'utf8');
+      fs.symlinkSync(decoy, path.join(symProj, '.agents', 'rules', 'domain_sym_proj.md'));
+      await expect(reconcileAgentsGovernance({ projectPath: symProj, dryRun: false })).rejects.toThrow(/Symlink/);
+    });
   });
 });

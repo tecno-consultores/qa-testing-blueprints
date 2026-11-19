@@ -12,6 +12,7 @@ import {
   TrackedFindingStatus,
 } from '../types.js';
 import { reportDebugCatchError, sanitizeCommandSecrets } from '../utils/diagnosticFormatter.js';
+import { resolveSafeChildPath } from './github-fetcher.js';
 
 export const QA_EVIDENCE_REL_PATH = '.agents/.qa-evidence.json';
 export const CERTIFY_STATE_REL_PATH = '.agents/.cache/certify_state.json';
@@ -62,7 +63,14 @@ const DOC_EXTENSIONS = new Set([
 ]);
 
 export function isDocFilePath(fp: string): boolean {
-  const normalized = fp.replace(/\\/g, '/').toLowerCase();
+  const normalized = fp.replace(/\\/g, '/').replace(/^\.\//, '').toLowerCase();
+  if (
+    normalized.startsWith('.agents/skills/') ||
+    normalized.startsWith('.agents/rules/') ||
+    normalized.startsWith('.agents/schemas/')
+  ) {
+    return false;
+  }
   if (normalized.endsWith('.md')) return true;
   const inDocsDir = normalized.startsWith('docs/') || normalized.includes('/docs/');
   if (!inDocsDir) return false;
@@ -94,15 +102,17 @@ export function extractPathsFromPorcelainLine(rawLine: string): string[] {
 }
 
 export function resolveExplicitGitRoot(projectPath: string): string | null {
-  const resolved = path.resolve(projectPath);
-  if (fs.existsSync(path.join(resolved, '.git'))) {
-    return resolved;
+  let current = path.resolve(projectPath);
+  while (true) {
+    if (fs.existsSync(path.join(current, '.git'))) {
+      return current;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) {
+      return null;
+    }
+    current = parent;
   }
-  const parent = path.dirname(resolved);
-  if (parent !== resolved && fs.existsSync(path.join(parent, '.git'))) {
-    return parent;
-  }
-  return null;
 }
 
 export function isEphemeralQaArtifactPath(relPath: string): boolean {
@@ -192,11 +202,15 @@ export function computeCodeStateFingerprint(
   }
 
   try {
-    const raw = execFileSyncFn('git', ['status', '--porcelain'], {
-      cwd: gitRoot,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    });
+    const raw = execFileSyncFn(
+      'git',
+      ['-c', 'core.quotepath=false', 'status', '--porcelain', '-uall'],
+      {
+        cwd: gitRoot,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }
+    );
     const rawLines = String(raw)
       .split(/\r?\n/)
       .filter((l) => l.trim().length > 0);
@@ -251,6 +265,20 @@ interface QaEvidenceDocument {
 
 const RECORDABLE_STAGES = new Set(['lint', 'unit', 'migration', 'integration', 'ci', 'all']);
 
+function resolveSafeEvidenceTarget(root: string, relPath: string): string {
+  const safePath = resolveSafeChildPath(root, relPath);
+  const segments = relPath.split(/[/\\]+/).filter(Boolean);
+  let cursor = path.resolve(root);
+  for (const seg of segments) {
+    cursor = path.join(cursor, seg);
+    const stat = fs.lstatSync(cursor, { throwIfNoEntry: false });
+    if (stat?.isSymbolicLink()) {
+      throw new Error(`Ruta symlink rechazada por seguridad: ${cursor}`);
+    }
+  }
+  return safePath;
+}
+
 function readEvidenceDocument(evidencePath: string): QaEvidenceDocument {
   try {
     if (fs.existsSync(evidencePath)) {
@@ -287,7 +315,7 @@ export function recordQaStageEvidence(
   };
 
   try {
-    const evidencePath = path.join(state.gitRoot, QA_EVIDENCE_REL_PATH);
+    const evidencePath = resolveSafeEvidenceTarget(state.gitRoot, QA_EVIDENCE_REL_PATH);
     fs.mkdirSync(path.dirname(evidencePath), { recursive: true });
     const doc = readEvidenceDocument(evidencePath);
     doc.stages[stage] = stampValue;
@@ -318,7 +346,7 @@ export function checkLintEvidenceForDirtyCode(
     return { passed: false, status: 'SKIPPED', blockers: [] };
   }
 
-  const evidencePath = path.join(state.gitRoot, QA_EVIDENCE_REL_PATH);
+  const evidencePath = resolveSafeEvidenceTarget(state.gitRoot, QA_EVIDENCE_REL_PATH);
   const doc = readEvidenceDocument(evidencePath);
   const lintStamp = doc.stages.lint;
 
@@ -512,78 +540,79 @@ export function resolveQaSessionKey(
   return `${branch}:${head ? head.slice(0, 12) : 'unborn'}`;
 }
 
-function assertNotSymlink(targetPath: string): void {
-  const parent = path.dirname(targetPath);
-  if (fs.existsSync(parent) && fs.lstatSync(parent).isSymbolicLink()) {
-    throw new Error(`Ruta padre symlink rechazada por seguridad: ${parent}`);
-  }
-  if (fs.existsSync(targetPath) && fs.lstatSync(targetPath).isSymbolicLink()) {
-    throw new Error(`Ruta symlink rechazada por seguridad: ${targetPath}`);
-  }
-}
-
 function parseNumericStageRecord(raw: unknown): Record<string, number> | undefined {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     return undefined;
   }
-  const parsed: Record<string, number> = {};
-  for (const [key, val] of Object.entries(raw as Record<string, unknown>)) {
-    if (typeof val === 'number' && Number.isFinite(val)) {
-      parsed[key] = val;
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof v === 'number' && Number.isFinite(v)) {
+      out[k] = v;
     }
   }
-  return Object.keys(parsed).length > 0 ? parsed : undefined;
+  return out;
 }
 
-function normalizeSessionEntry(raw: unknown): CertifySessionRecord {
-  if (!raw || typeof raw !== 'object') {
-    return { updated_at: '', runs: [], stage_runs: {} };
+function normalizeStageRunsMap(raw: unknown): Record<string, CertifyRunRecord[]> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return {};
   }
-  const rec = raw as Partial<CertifySessionRecord>;
-  const runs = Array.isArray(rec.runs) ? rec.runs : [];
   const stageRuns: Record<string, CertifyRunRecord[]> = {};
-  if (rec.stage_runs && typeof rec.stage_runs === 'object' && !Array.isArray(rec.stage_runs)) {
-    for (const [key, list] of Object.entries(rec.stage_runs)) {
-      if (Array.isArray(list)) {
-        stageRuns[key] = list;
-      }
+  for (const [stageKey, arr] of Object.entries(raw as Record<string, unknown>)) {
+    if (Array.isArray(arr)) {
+      stageRuns[stageKey] = arr as CertifyRunRecord[];
     }
   }
-  const streaks = parseNumericStageRecord(rec.streaks);
-  const oscillations = parseNumericStageRecord(rec.oscillations);
+  return stageRuns;
+}
+
+function normalizeSessionEntry(entry: unknown): CertifySessionRecord {
+  const empty: CertifySessionRecord = { updated_at: '', runs: [], stage_runs: {} };
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+    return empty;
+  }
+  const rawObj = entry as {
+    updated_at?: unknown;
+    runs?: unknown;
+    stage_runs?: unknown;
+    streaks?: unknown;
+    oscillations?: unknown;
+  };
+  const streaks = parseNumericStageRecord(rawObj.streaks);
+  const oscillations = parseNumericStageRecord(rawObj.oscillations);
   return {
-    updated_at: typeof rec.updated_at === 'string' ? rec.updated_at : '',
-    runs,
-    stage_runs: stageRuns,
+    updated_at: typeof rawObj.updated_at === 'string' ? rawObj.updated_at : '',
+    runs: Array.isArray(rawObj.runs) ? (rawObj.runs as CertifyRunRecord[]) : [],
+    stage_runs: normalizeStageRunsMap(rawObj.stage_runs),
     ...(streaks ? { streaks } : {}),
     ...(oscillations ? { oscillations } : {}),
   };
 }
 
-function readCertifyStateDocument(statePath: string): CertifyStateDocument {
-  assertNotSymlink(statePath);
+function readCertifyStateDocument(root: string, relPath: string): { statePath: string; doc: CertifyStateDocument } {
+  const statePath = resolveSafeEvidenceTarget(root, relPath);
   if (!fs.existsSync(statePath)) {
-    return { version: 1, sessions: {} };
+    return { statePath, doc: { version: 1, sessions: {} } };
   }
   try {
     const parsed = JSON.parse(fs.readFileSync(statePath, 'utf8')) as { sessions?: unknown };
     if (!parsed || typeof parsed !== 'object' || !parsed.sessions || typeof parsed.sessions !== 'object' || Array.isArray(parsed.sessions)) {
-      return { version: 1, sessions: {} };
+      return { statePath, doc: { version: 1, sessions: {} } };
     }
     const sessions: Record<string, CertifySessionRecord> = {};
     for (const [key, entry] of Object.entries(parsed.sessions as Record<string, unknown>)) {
       sessions[key] = normalizeSessionEntry(entry);
     }
-    return { version: 1, sessions };
+    return { statePath, doc: { version: 1, sessions } };
   } catch (err: unknown) {
     // Corrupt circuit-breaker state resets cleanly rather than crashing gate evaluation
     reportDebugCatchError(`qaEvidence.readCertifyStateDocument(${statePath})`, err);
-    return { version: 1, sessions: {} };
+    return { statePath, doc: { version: 1, sessions: {} } };
   }
 }
 
-function writeCertifyStateDocument(statePath: string, doc: CertifyStateDocument): void {
-  assertNotSymlink(statePath);
+function writeCertifyStateDocument(root: string, relPath: string, doc: CertifyStateDocument): void {
+  const statePath = resolveSafeEvidenceTarget(root, relPath);
   const parent = path.dirname(statePath);
   fs.mkdirSync(parent, { recursive: true, mode: 0o700 });
   fs.chmodSync(parent, 0o700);
@@ -679,8 +708,7 @@ export function recordQaStageFindingsState(
 
   const root = resolveExplicitGitRoot(projectPath) ?? path.resolve(projectPath);
   const sessionKey = resolveQaSessionKey(root, execFileSyncFn);
-  const statePath = path.join(root, CERTIFY_STATE_REL_PATH);
-  const doc = readCertifyStateDocument(statePath);
+  const { doc } = readCertifyStateDocument(root, CERTIFY_STATE_REL_PATH);
   const session = doc.sessions[sessionKey] ?? { updated_at: '', runs: [], stage_runs: {} };
   const priorRuns = (session.stage_runs[stage] ?? []).slice(-MAX_BREAKER_HISTORY_RUNS);
   const historySets = priorRuns.map((run) => new Set(run.fingerprints));
@@ -718,7 +746,15 @@ export function recordQaStageFindingsState(
   session.streaks = { ...(session.streaks ?? {}), [stage]: maxStreakObserved };
   session.oscillations = { ...(session.oscillations ?? {}), [stage]: oscillationsObserved };
   doc.sessions[sessionKey] = session;
-  writeCertifyStateDocument(statePath, doc);
+  try {
+    writeCertifyStateDocument(root, CERTIFY_STATE_REL_PATH, doc);
+  } catch (err: unknown) {
+    const code = (err as NodeJS.ErrnoException)?.code;
+    if (code !== 'EROFS' && code !== 'EACCES') {
+      throw err;
+    }
+    reportDebugCatchError('qaEvidence.recordQaStageFindingsState', err);
+  }
 
   const triggered = blockingFindings.length > 0;
   return {
@@ -737,9 +773,8 @@ export function resetQaFindingsState(
 ): string {
   const root = resolveExplicitGitRoot(projectPath) ?? path.resolve(projectPath);
   const sessionKey = resolveQaSessionKey(root, execFileSyncFn);
-  const statePath = path.join(root, CERTIFY_STATE_REL_PATH);
-  const doc = readCertifyStateDocument(statePath);
+  const { doc } = readCertifyStateDocument(root, CERTIFY_STATE_REL_PATH);
   delete doc.sessions[sessionKey];
-  writeCertifyStateDocument(statePath, doc);
+  writeCertifyStateDocument(root, CERTIFY_STATE_REL_PATH, doc);
   return sessionKey;
 }

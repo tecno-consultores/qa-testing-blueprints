@@ -1045,7 +1045,7 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
         }
       );
       expect(ghMinRes.status).toBe('PULL_OK');
-      expect(ghMinRes.pulledStory?.storyKey).toBe('GH-GH-12');
+      expect(ghMinRes.pulledStory?.storyKey).toBe('GH-12');
 
       const cliPassJson = await runTmsSyncCli(
         ['--mode', 'inventory', '--target-dir', 'scan', '--json'],
@@ -1089,6 +1089,178 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
       await expect(
         executeTmsSync({ mode: 'inventory', targetDir: 'scan' }, { workspaceRoot: ws, signal: abortCtl.signal })
       ).rejects.toThrow('tms cancelled');
+    });
+
+    it('soporta CDATA XML, atributos con >, prefijos de ruta self-hosted, IPv6 reservados y DNS rebinding', async () => {
+      // CDATA y > dentro de atributo entrecomillado
+      const complexRes = await executeTmsSync({
+        mode: 'push-results',
+        provider: 'jira',
+        baseUrl: 'https://jira.corp.example/jira/',
+        issueKey: 'CORP-9',
+        junitXmlContent:
+          '<testsuite name="C > D"><testcase name="test > 1" classname="@JIRA-CORP-9"><failure message="a > b"><![CDATA[<error>stack <trace></error>]]></failure></testcase></testsuite>',
+        dryRun: true,
+      });
+      expect(complexRes.status).toBe('DRY_RUN');
+      expect(complexRes.endpoint).toBe('https://jira.corp.example/jira/rest/api/3/issue/CORP-9/comment');
+      expect(complexRes.junitSummary?.failed).toBe(1);
+      expect(complexRes.junitSummary?.cases[0]?.detail).toContain('stack');
+
+      // Bloquea IPv6 link-local rango febf::, NAT64 64:ff9b:: y ::ffff:a9fe:a9fe
+      expect(() => validateTmsBaseUrl('https://[febf::1]/api')).toThrow(TmsSecurityError);
+      expect(() => validateTmsBaseUrl('https://[64:ff9b::169.254.169.254]/api')).toThrow(TmsSecurityError);
+      expect(() => validateTmsBaseUrl('https://[::ffff:a9fe:a9fe]/api')).toThrow(TmsSecurityError);
+      expect(() => validateTmsBaseUrl('https://[ff02::1]/api')).toThrow(TmsSecurityError);
+      expect(() => validateTmsBaseUrl('https://[100::1]/api')).toThrow(TmsSecurityError);
+
+      // Bloquea DNS rebinding cuando lookupHost devuelve IP privada
+      const privateMetadataIp = ['169', '254', '169', '254'].join('.');
+      const rebindToken = makeSyntheticToken('rebinding');
+      await expect(
+        executeTmsSync(
+          {
+            mode: 'pull-stories',
+            provider: 'jira',
+            baseUrl: 'https://jira.corp.example/jira',
+            issueKey: 'CORP-9',
+            dryRun: false,
+          },
+          {
+            env: { JIRA_API_TOKEN: rebindToken },
+            lookupHost: () => Promise.resolve([{ address: privateMetadataIp }]),
+          }
+        )
+      ).rejects.toThrow(/Anti-SSRF/i);
+
+      await expect(
+        executeTmsSync(
+          {
+            mode: 'pull-stories',
+            provider: 'jira',
+            baseUrl: 'https://jira.corp.example/jira',
+            issueKey: 'CORP-9',
+            dryRun: false,
+          },
+          {
+            env: { JIRA_API_TOKEN: rebindToken },
+            lookupHost: () => Promise.resolve([{ address: '::ffff:' + ['127', '0', '0', '1'].join('.') }]),
+          }
+        )
+      ).rejects.toThrow(/Anti-SSRF/i);
+
+      // defaultFetchPort impide seguir redirecciones HTTP pasando redirect: 'error'
+      const publicIpv4Sample = ['93', '184', '216', '34'].join('.');
+      const liveFetchToken = makeSyntheticToken('default-fetch');
+      const origFetch = globalThis.fetch;
+      let capturedInit: RequestInit | undefined;
+      globalThis.fetch = (_url, init) => {
+        capturedInit = init;
+        return Promise.resolve(new Response(JSON.stringify({ key: 'CORP-9', fields: { summary: 'ok' } }), { status: 200 }));
+      };
+      try {
+        const liveDefaultRes = await executeTmsSync(
+          {
+            mode: 'pull-stories',
+            provider: 'jira',
+            baseUrl: 'https://jira.corp.example/jira',
+            issueKey: 'CORP-9',
+            dryRun: false,
+          },
+          {
+            env: { JIRA_API_TOKEN: liveFetchToken },
+            lookupHost: () => Promise.resolve([{ address: publicIpv4Sample }]),
+          }
+        );
+        expect(liveDefaultRes.status).toBe('PULL_OK');
+        expect(capturedInit?.redirect).toBe('error');
+
+        // IP pública literal con lookupHost toma retorno temprano sin fallo DNS; registros DNS inválidos/vacíos bloquean
+        const literalIpv4 = ['8', '8', '4', '4'].join('.');
+        const literalRes = await executeTmsSync(
+          {
+            mode: 'pull-stories',
+            provider: 'jira',
+            baseUrl: `https://${literalIpv4}`,
+            issueKey: 'CORP-9',
+            dryRun: false,
+          },
+          {
+            env: { JIRA_API_TOKEN: liveFetchToken },
+            lookupHost: () => Promise.resolve([]),
+          }
+        );
+        expect(literalRes.status).toBe('PULL_OK');
+
+        const scopedIpv6Sample = `${['fe80', '', '1'].join(':')}%eth0`;
+        const fullIpv6Sample = ['2001', '4860', '4860', '1', '2', '3', '4', '8888'].join(':');
+        const fullLinkLocalIpv6 = ['fe80', '1', '2', '3', '4', '5', '6', '7'].join(':');
+        const overflowIpv6Sample = '::1:2:3:4:5:6:7:8';
+        const badHexIpv6Sample = 'gggg::1';
+        const badTailIpv6Sample = '1::gggg';
+        const shortIpv6Sample = '1:2:3';
+        const v6MappedPrefix = '::' + 'ffff:';
+        const mappedPublicIpv6 = `${v6MappedPrefix}${['198', '51', '100', '1'].join('.')}`;
+        const mappedLoopbackIpv6 = `${v6MappedPrefix}${['127', '0', '0', '1'].join('.')}`;
+        expect(validateTmsBaseUrl(`https://[${fullIpv6Sample}]/api`).hostname).toContain('2001:');
+        expect(validateTmsBaseUrl(`https://[${mappedPublicIpv6}]/api`).hostname).toContain('ffff');
+        for (const badRecs of [
+          [],
+          [{ address: 'not-an-ip' }],
+          [{ address: '1::2::3' }],
+          [{ address: badHexIpv6Sample }],
+          [{ address: badTailIpv6Sample }],
+          [{ address: shortIpv6Sample }],
+          [{ address: overflowIpv6Sample }],
+          [{ address: scopedIpv6Sample }],
+          [{ address: fullLinkLocalIpv6 }],
+          [{ address: mappedLoopbackIpv6 }],
+        ]) {
+          await expect(
+            executeTmsSync(
+              {
+                mode: 'pull-stories',
+                provider: 'jira',
+                baseUrl: 'https://jira.corp.example/jira',
+                issueKey: 'CORP-9',
+                dryRun: false,
+              },
+              {
+                env: { JIRA_API_TOKEN: liveFetchToken },
+                lookupHost: () => Promise.resolve(badRecs),
+              }
+            )
+          ).rejects.toThrow(/Anti-SSRF/i);
+        }
+
+        const emptyFailureRes = await executeTmsSync({
+          mode: 'push-results',
+          provider: 'jira',
+          baseUrl: 'https://jira.corp.example/jira',
+          junitXmlContent: '<testsuite><testcase name="x > 0"><failure/></testcase></testsuite>',
+        });
+        expect(emptyFailureRes.junitSummary?.cases[0]?.detail).toBe('Failed');
+
+        // XML con sección CDATA o comilla sin cierre rechaza cleanly
+        await expect(
+          executeTmsSync({
+            mode: 'push-results',
+            provider: 'jira',
+            baseUrl: 'https://jira.corp.example/jira',
+            junitXmlContent: '<testsuite><testcase name="unclosed',
+          })
+        ).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+        await expect(
+          executeTmsSync({
+            mode: 'push-results',
+            provider: 'jira',
+            baseUrl: 'https://jira.corp.example/jira',
+            junitXmlContent: '<testsuite><testcase name="x"><failure><![CDATA[unclosed',
+          })
+        ).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+      } finally {
+        globalThis.fetch = origFetch;
+      }
     });
   });
 });

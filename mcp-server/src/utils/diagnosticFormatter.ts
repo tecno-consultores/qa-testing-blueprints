@@ -3,6 +3,7 @@
 
 import { stripVTControlCharacters } from 'node:util';
 import { MCP_SERVER_VERSION } from '../services/github-fetcher.js';
+import { redactPiiAndSecrets } from '../security/promptGuard.js';
 
 const STATUS_PASSED = 'passed' as const;
 const STATUS_FAILED = 'failed' as const;
@@ -24,8 +25,16 @@ const REDACT_MASK = '[REDACTED]';
 const BEARER_SECRET_RE = /\b(Bearer|Basic)\s+[^\s"']+/gi;
 const URL_CRED_SECRET_RE = /(:\/\/[^/\s:@]+:)[^/\s@]+(@)/g;
 const QUERY_SECRET_RE = /\b(token|access_token|api_key|apikey|secret|password|passwd)=[^\s"'&]+/gi;
-const FLAG_SECRET_RE = /(--(?:token|api-key|apikey|secret|password|passwd))\s+[^\s"']+/gi;
-const PREFIX_TOKEN_RE = /\b(?:ghp|gho|ghs|npm)_[A-Za-z0-9]{16,}\b/g;
+const FLAG_SPACE_SECRET_RE = /(--(?:token|api-key|apikey|secret|password|passwd))\s+[^\s"']+/gi;
+const FLAG_EQ_SECRET_RE = /(--(?:token|api-key|apikey|secret|password|passwd))=[^\s"'&]+/gi;
+const ENV_SECRET_RE =
+  /(^|[ \t;|&"'])([A-Z0-9_]*(?:PASSWORD|PASSWD|SECRET|TOKEN|API_KEY|APIKEY|AUTH_KEY))=([^\s"']+)/gi;
+const PREFIX_TOKEN_PATTERNS: readonly RegExp[] = [
+  /\b(?:ghp|gho|ghu|ghs|ghr|github_pat|glpat|npm|xox[baprs])_[A-Za-z0-9_-]{12,}\b/g,
+  /\b(?:AIza[0-9A-Za-z_-]{20,}|AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16})\b/g,
+  /\bsk-(?:proj-|ant-|live-|test-)?[A-Za-z0-9_-]{12,}\b/g,
+  /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{8,}\b/g,
+];
 const WHITESPACE_COLLAPSE_RE = /[\r\n\t]+/g;
 
 export function throwIfSignalAborted(
@@ -122,14 +131,22 @@ function sanitizeSingleLine(raw: string): string {
   return stripVTControlCharacters(raw).replace(WHITESPACE_COLLAPSE_RE, ' ').trim();
 }
 
-export function sanitizeCommandSecrets(rawCommand: string): string {
-  const masked = rawCommand
+export function sanitizeDiagnosticText(rawText: string): string {
+  let masked = stripVTControlCharacters(rawText)
     .replace(BEARER_SECRET_RE, `$1 ${REDACT_MASK}`)
     .replace(URL_CRED_SECRET_RE, `$1${REDACT_MASK}$2`)
     .replace(QUERY_SECRET_RE, `$1=${REDACT_MASK}`)
-    .replace(FLAG_SECRET_RE, `$1 ${REDACT_MASK}`)
-    .replace(PREFIX_TOKEN_RE, REDACT_MASK);
-  return sanitizeSingleLine(masked);
+    .replace(FLAG_SPACE_SECRET_RE, `$1 ${REDACT_MASK}`)
+    .replace(FLAG_EQ_SECRET_RE, `$1=${REDACT_MASK}`)
+    .replace(ENV_SECRET_RE, `$1$2=${REDACT_MASK}`);
+  for (const tokenRe of PREFIX_TOKEN_PATTERNS) {
+    masked = masked.replace(tokenRe, REDACT_MASK);
+  }
+  return redactPiiAndSecrets(masked);
+}
+
+export function sanitizeCommandSecrets(rawCommand: string): string {
+  return sanitizeSingleLine(sanitizeDiagnosticText(rawCommand));
 }
 
 /**
@@ -171,8 +188,8 @@ function dedupeConsecutiveLines(lines: readonly string[]): string[] {
 }
 
 function cleanDiagnosticExcerpt(rawText: string, maxLines: number = 10): string {
-  const stripped = stripVTControlCharacters(rawText);
-  const nonEmpty = stripped
+  const sanitized = sanitizeDiagnosticText(rawText);
+  const nonEmpty = sanitized
     .split(/\r?\n/)
     .map((line) => line.trimEnd())
     .filter((line) => line.trim().length > 0);
@@ -208,7 +225,7 @@ function resolveAgentInfo(partial?: Partial<DiagnosticAgentInfo>): DiagnosticAge
 }
 
 function resolveRemediationHint(input: DiagnosticExecutionInput): string {
-  const custom = input.remediationHint ? sanitizeSingleLine(input.remediationHint) : '';
+  const custom = input.remediationHint ? sanitizeCommandSecrets(input.remediationHint) : '';
   return custom || DEFAULT_REMEDIATION;
 }
 
@@ -236,8 +253,8 @@ function buildAttachments(evidence?: DiagnosticEvidencePaths): AllureAttachment[
 }
 
 function formatStepLine(step: DiagnosticStepRecord): string {
-  const detailSuffix = step.detail ? ` (${sanitizeSingleLine(step.detail)})` : '';
-  return `    - [${step.status.toUpperCase()}] ${sanitizeSingleLine(step.name)} (${step.durationMs}ms)${detailSuffix}`;
+  const detailSuffix = step.detail ? ` (${sanitizeCommandSecrets(step.detail)})` : '';
+  return `    - [${step.status.toUpperCase()}] ${sanitizeCommandSecrets(step.name)} (${step.durationMs}ms)${detailSuffix}`;
 }
 
 function formatStepsBlock(steps?: readonly DiagnosticStepRecord[]): string[] {
@@ -270,7 +287,7 @@ function buildAllureSteps(steps?: readonly DiagnosticStepRecord[]): AllureStepIt
     return [];
   }
   return steps.map((step) => ({
-    name: sanitizeSingleLine(step.name),
+    name: sanitizeCommandSecrets(step.name),
     status: step.status,
     stage: 'finished',
     durationMs: step.durationMs,

@@ -74,17 +74,23 @@ function assertBasicSyntax(rawPath: string): string {
 export function resolveRealTarget(candidate: string): string {
   const outcome = resolveRealTargetWithSymlinks(candidate);
   if (!outcome.ok) {
-    throw new WorkspacePathValidationError(
-      `${SEC_PATH_PREFIX} Ciclo de enlaces simbólicos (ELOOP) detectado en '${outcome.loopPath}'.`
-    );
+    const detail =
+      outcome.reason === 'unresolvable'
+        ? `No se pudo resolver de forma segura la ruta '${outcome.loopPath}'.`
+        : `Ciclo de enlaces simbólicos (ELOOP) detectado en '${outcome.loopPath}'.`;
+    throw new WorkspacePathValidationError(`${SEC_PATH_PREFIX} ${detail}`);
   }
   return outcome.resolved;
 }
 
 function resolvePathIfExists(targetPath: string): string {
-  return readStatNoFollow(targetPath) !== undefined
-    ? resolveRealTarget(targetPath)
-    : path.resolve(targetPath);
+  try {
+    return readStatNoFollow(targetPath) !== undefined
+      ? resolveRealTarget(targetPath)
+      : path.resolve(targetPath);
+  } catch {
+    return path.resolve(targetPath);
+  }
 }
 
 function getRealHomeDir(): string | null {
@@ -138,8 +144,16 @@ function getAllowedWorkspaceRoots(): string[] {
 
   for (const entry of extraRoots) {
     const resolved = path.resolve(entry);
-    if (fs.existsSync(resolved)) {
-      roots.push(fs.realpathSync(resolved));
+    if (resolved === path.parse(resolved).root) {
+      continue;
+    }
+    try {
+      const realRoot = fs.realpathSync(resolved);
+      if (realRoot !== path.parse(realRoot).root) {
+        roots.push(realRoot);
+      }
+    } catch {
+      // Ignore nonexistent or unreadable extra root safely
     }
   }
   return roots;
@@ -159,13 +173,6 @@ export function resolveSafeProjectPath(
 ): string {
   const normalized = assertBasicSyntax(rawPath);
   const candidate = path.resolve(normalized);
-
-  if (options?.allowNonExistentLeaf === false && !fs.existsSync(candidate)) {
-    throw new WorkspacePathValidationError(
-      `${SEC_PATH_PREFIX} La ruta del proyecto no existe: ${candidate}`
-    );
-  }
-
   const realTarget = resolveRealTarget(candidate);
   const realTmpDir = resolvePathIfExists(os.tmpdir());
 
@@ -191,6 +198,12 @@ export function resolveSafeProjectPath(
   if (!isWithinAllowedWorkspace(realTarget, realTmpDir)) {
     throw new WorkspacePathValidationError(
       `${SEC_PATH_PREFIX} Ruta fuera de los workspaces permitidos (configure QA11X_WORKSPACE_ROOTS para habilitar raíces adicionales): ${realTarget}`
+    );
+  }
+
+  if (options?.allowNonExistentLeaf === false && !fs.existsSync(realTarget)) {
+    throw new WorkspacePathValidationError(
+      `${SEC_PATH_PREFIX} La ruta del proyecto no existe: ${candidate}`
     );
   }
 

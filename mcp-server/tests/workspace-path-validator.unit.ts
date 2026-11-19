@@ -155,7 +155,7 @@ describe('workspacePathValidator (F2.5 SEC-PATH-01)', () => {
     expect(resolveSafeProjectPath(nested)).toBe(fs.realpathSync(nested));
 
     process.env.QA11X_WORKSPACE_ROOTS = '/';
-    expect(resolveSafeProjectPath('/custom-workspace-leaf')).toBe('/custom-workspace-leaf');
+    expect(() => resolveSafeProjectPath('/custom-workspace-leaf')).toThrow(WorkspacePathValidationError);
   });
 
   it('resuelve symlinks y bloquea escapes por symlink o hojas inexistentes cuando allowNonExistentLeaf=false', () => {
@@ -184,6 +184,25 @@ describe('workspacePathValidator (F2.5 SEC-PATH-01)', () => {
     expect(() => resolveSafeProjectPath('/unmounted/missing/path')).toThrow(
       WorkspacePathValidationError
     );
+
+    const lockedParent = path.join(tmpSubDir, 'locked-parent');
+    const lockedTmp = path.join(lockedParent, 'nested-tmp');
+    const tmpLeaf = path.join(lockedParent, 'unresolvable-node');
+    fs.mkdirSync(tmpLeaf, { recursive: true });
+    fs.mkdirSync(lockedTmp, { recursive: true });
+    const prevTmpDir = process.env.TMPDIR;
+    fs.chmodSync(lockedParent, 0o600);
+    process.env.TMPDIR = lockedTmp;
+    try {
+      expect(() => resolveSafeProjectPath(tmpLeaf)).toThrow(/No se pudo resolver de forma segura/);
+    } finally {
+      if (prevTmpDir === undefined) {
+        delete process.env.TMPDIR;
+      } else {
+        process.env.TMPDIR = prevTmpDir;
+      }
+      fs.chmodSync(lockedParent, 0o700);
+    }
   });
 
   it('excluye cwd "/" de raíces permitidas, tolera realpathSync fallido e indica QA11X_WORKSPACE_ROOTS en error', () => {
@@ -213,5 +232,17 @@ describe('workspacePathValidator (F2.5 SEC-PATH-01)', () => {
     fs.symlinkSync(loopB, loopA);
     fs.symlinkSync(loopA, loopB);
     expect(() => resolveSafeProjectPath(loopA)).toThrow(/ELOOP/i);
+
+    const prevTmpDir = process.env.TMPDIR;
+    process.env.TMPDIR = loopA;
+    try {
+      expect(resolveSafeProjectPath(process.cwd())).toBe(fs.realpathSync(process.cwd()));
+    } finally {
+      if (prevTmpDir === undefined) {
+        delete process.env.TMPDIR;
+      } else {
+        process.env.TMPDIR = prevTmpDir;
+      }
+    }
   });
 });
