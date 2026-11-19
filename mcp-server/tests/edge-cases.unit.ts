@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
-import type { execFileSync } from 'node:child_process';
+import type { ChildProcess, execFile, execFileSync } from 'node:child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -394,7 +394,7 @@ strict = true
       expect(uiBlocker).toBeDefined();
     });
 
-    it('aprueba componente UI cuando existe su archivo de prueba .unit.tsx', async () => {
+    it('aprueba componente UI cuando existe su archivo de prueba .unit.ts', async () => {
       const compDir = path.join(tempDir, 'vue3', 'src', 'components');
       fs.mkdirSync(compDir, { recursive: true });
       fs.writeFileSync(path.join(compDir, 'Card.vue'), '<template><div /></template>\n');
@@ -585,19 +585,30 @@ strict = true
       const resources = new BlueprintResources(fetcher);
       const stackRes = await resources.getStackReadmeResource('custom');
       expect(stackRes.uri).toBe('blueprint://custom/readme');
-      expect(stackRes.text).toBe('# Custom Test Stack\n\nConsulte custom/README.md');
+      expect(stackRes.text).toBe('# Custom Test Stack\n\nSee custom/README.md');
+      const stackEsRes = await resources.getStackReadmeResource('custom', 'es');
+      expect(stackEsRes.text).toBe('# Custom Test Stack\n\nConsulte custom/README.md');
 
       const cleanRes = await resources.getCleanupScriptResource();
       expect(cleanRes.text).toContain('limpio');
     });
   });
 
-  describe('ephemeral-runner.ts fallback a execFile nativo', () => {
-    it('ejecuta make nativo o devuelve fallo cuando make no existe sin opciones mockeadas', async () => {
-      fs.writeFileSync(path.join(tempDir, 'Makefile'), 'qa-unit:\n\t@echo "ok"\n');
-      const res = await runEphemeralQa(tempDir, 'unit', 5);
+  describe('ephemeral-runner.ts fallback sin ejecución host de make', () => {
+    it('devuelve resultado estructurado cuando make no está disponible en PATH o falta Makefile', async () => {
+      const mockExecFile = ((
+        _cmd: string,
+        _args: readonly string[],
+        _opts: Record<string, unknown>,
+        cb: (err: Error | null, stdout: string, stderr: string) => void
+      ) => {
+        cb(new Error('make ENOENT'), '', 'make: No targets');
+        return {} as ChildProcess;
+      }) as unknown as typeof execFile;
+      const res = await runEphemeralQa(tempDir, 'unit', 5, { execFileFn: mockExecFile });
       expect(res).toBeDefined();
       expect(res.stage).toBe('unit');
+      expect(res.status).toBe('FAILED');
     });
   });
 

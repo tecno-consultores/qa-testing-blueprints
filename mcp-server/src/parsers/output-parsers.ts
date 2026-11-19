@@ -90,28 +90,71 @@ function parseVitestCoverage(clean: string): { detected: boolean; percent: numbe
   return { detected: true, percent: isNaN(percent) ? 0 : percent, uncovered };
 }
 
+function isIntegerCell(token: string): boolean {
+  return /^\d+$/.test(token);
+}
+
+function isPercentCell(token: string): boolean {
+  if (!token.endsWith('%')) return false;
+  const numPart = token.slice(0, -1);
+  if (!numPart) return false;
+  const parts = numPart.split('.');
+  return parts.length <= 2 && parts.every(isIntegerCell);
+}
+
+function parsePytestTotalPercent(cols: readonly string[]): number | null {
+  if (cols[0] !== 'TOTAL' || cols.length < 4) return null;
+  const pctIdx = cols.findIndex((col, idx) => idx >= 3 && idx <= 5 && isPercentCell(col));
+  if (pctIdx === -1 || !cols.slice(1, pctIdx).every(isIntegerCell)) {
+    return null;
+  }
+  return parseFloat(pickAt(cols, pctIdx, '0%').slice(0, -1));
+}
+
+function parsePytestRow(line: string): QaCoverageFile | null {
+  const cols = line.trim().split(/\s+/);
+  const fileName = pickAt(cols, 0);
+  if (!fileName.endsWith('.py') || cols.length < 4) return null;
+  const pctIdx = cols.findIndex(
+    (col, idx) => (idx === 3 || idx === 5) && isPercentCell(col)
+  );
+  if (pctIdx === -1 || !cols.slice(1, pctIdx).every(isIntegerCell)) {
+    return null;
+  }
+  const missedStmts = parseInt(pickAt(cols, 2, '0'), 10);
+  const fileCover = parseFloat(pickAt(cols, pctIdx, '0%').slice(0, -1));
+  const missing = cols.slice(pctIdx + 1).join(' ');
+  if (missedStmts === 0 && (isNaN(fileCover) || fileCover >= 100) && missing.length === 0) {
+    return null;
+  }
+  return {
+    file: fileName,
+    coverage_percent: isNaN(fileCover) ? 0 : fileCover,
+    missing_lines: missing || 'Uncovered lines',
+  };
+}
+
 function parsePytestCoverage(clean: string): { detected: boolean; percent: number; uncovered: QaCoverageFile[] } {
-  const pytestTotalMatch = /TOTAL\s+\d+\s+\d+\s+([0-9.]+)%/.exec(clean);
-  if (!pytestTotalMatch) {
+  const lines = clean.split(/\r?\n/);
+  let detectedPercent: number | null = null;
+  const uncovered: QaCoverageFile[] = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (trimmed.startsWith('TOTAL')) {
+      const parsedTotal = parsePytestTotalPercent(trimmed.split(/\s+/));
+      if (parsedTotal !== null) detectedPercent = parsedTotal;
+      continue;
+    }
+    const row = parsePytestRow(trimmed);
+    if (row) uncovered.push(row);
+  }
+
+  if (detectedPercent === null) {
     return { detected: false, percent: 0, uncovered: [] };
   }
-
-  const percent = parseFloat(pickAt(pytestTotalMatch, 1, '0'));
-  const uncovered: QaCoverageFile[] = [];
-  const pytestRowRegex = /^([\w./\\-]+\.py)[^\S\r\n]+\d+[^\S\r\n]+([1-9]\d*)[^\S\r\n]+([0-9.]+)%([^\r\n]*)$/gm;
-  let match: RegExpExecArray | null;
-  while ((match = pytestRowRegex.exec(clean)) !== null) {
-    const fileName = pickAt(match, 1).trim();
-    const fileCover = parseFloat(pickAt(match, 3, '0'));
-    const missing = pickAt(match, 4).trim();
-    uncovered.push({
-      file: fileName,
-      coverage_percent: isNaN(fileCover) ? 0 : fileCover,
-      missing_lines: missing || 'Uncovered lines',
-    });
-  }
-
-  return { detected: true, percent, uncovered };
+  return { detected: true, percent: detectedPercent, uncovered };
 }
 
 function parsePhpCoverage(clean: string): { detected: boolean; percent: number; uncovered: QaCoverageFile[] } {
@@ -187,9 +230,9 @@ export function parseCoverage(rawLog: string): QaCoverageSummary {
 function parsePytestFailedItem(lines: string[], i: number): { item: QaFailedTest; nextIdx: number } {
   const line = pickAt(lines, i).trim();
   const rest = line.substring(7).trim();
-  const parts = rest.split('-').map((p) => p.trim());
-  const testName = parts[0] || rest;
-  let errorSummary = parts.slice(1).join(' - ');
+  const sepIdx = rest.indexOf(' - ');
+  const testName = (sepIdx !== -1 ? rest.slice(0, sepIdx) : rest).trim() || rest;
+  let errorSummary = sepIdx !== -1 ? rest.slice(sepIdx + 3).trim() : '';
 
   if (!errorSummary && i + 1 < lines.length) {
     const nextLines = lines.slice(i + 1, i + 4).map((l) => l.trim()).filter(Boolean);
@@ -306,14 +349,16 @@ function parseRuffIssue(line: string): QaLinterIssue | null {
   const parts = line.split(':');
   if (parts.length < 4) return null;
   const file = pickAt(parts, 0).trim();
-  const lineNum = parseInt(pickAt(parts, 1).trim(), 10);
+  const lineToken = pickAt(parts, 1).trim();
+  const colToken = pickAt(parts, 2).trim();
+  if (!/^\d+$/.test(lineToken) || !/^\d+$/.test(colToken)) return null;
   const codeAndMsg = parts.slice(3).join(':').trim();
-  const ruffCodeMatch = /^([A-Z]\d+)\s+(\S[^\r\n]*)$/.exec(codeAndMsg);
-  if (!ruffCodeMatch || !ruffCodeMatch[1]) return null;
+  const ruffCodeMatch = /^([A-Z]{1,6}\d+)\s+(\S[^\r\n]*)$/.exec(codeAndMsg);
+  if (!ruffCodeMatch?.[1]) return null;
 
   return {
     file,
-    line: isNaN(lineNum) ? 1 : lineNum,
+    line: parseInt(lineToken, 10),
     rule: `ruff-${ruffCodeMatch[1]}`,
     message: pickAt(ruffCodeMatch, 2).trim(),
   };
@@ -335,6 +380,8 @@ function parseEslintStylishLine(trimmed: string, currentFile: string): QaLinterI
   };
 }
 
+const JS_TS_VUE_FILE_RE = /\.(?:ts|tsx|js|jsx|mjs|cjs|mts|cts|vue)$/i;
+
 function parseEslintIssue(line: string, currentFile = ''): QaLinterIssue | null {
   if (!line.includes('error') && !line.includes('warning')) return null;
   const stylish = parseEslintStylishLine(line.trim(), currentFile);
@@ -342,15 +389,19 @@ function parseEslintIssue(line: string, currentFile = ''): QaLinterIssue | null 
   const parts = line.split(':');
   if (parts.length < 4) return null;
   const file = pickAt(parts, 0).trim();
-  const lineNum = parseInt(pickAt(parts, 1).trim(), 10);
-  if (isNaN(lineNum)) return null;
+  const lineToken = pickAt(parts, 1).trim();
+  const colToken = pickAt(parts, 2).trim();
+  if (!JS_TS_VUE_FILE_RE.test(file) || !/^\d+$/.test(lineToken) || !/^\d+$/.test(colToken)) {
+    return null;
+  }
   const msgPart = parts.slice(3).join(':').trim();
+  if (!/^(?:error|warning)\b/i.test(msgPart)) return null;
   const ruleMatch = /\[([\w/@-]+)\]$/.exec(msgPart);
 
   return {
     file,
-    line: lineNum,
-    rule: ruleMatch && ruleMatch[1] ? `eslint-${ruleMatch[1]}` : 'eslint-issue',
+    line: parseInt(lineToken, 10),
+    rule: ruleMatch?.[1] ? `eslint-${ruleMatch[1]}` : 'eslint-issue',
     message: ruleMatch ? msgPart.slice(0, ruleMatch.index).trimEnd() : msgPart,
   };
 }
@@ -372,6 +423,17 @@ function parseShellcheckGccIssue(line: string): QaLinterIssue | null {
   };
 }
 
+function parseShellcheckHeaderLine(line: string): { file: string; line: number } | null {
+  if (!line.startsWith('In ') || !line.includes(' line ')) {
+    return null;
+  }
+  const match = /^In\s+(\S+)\s+line\s+(\d+):/.exec(line);
+  if (!match?.[1] || !match[2]) {
+    return null;
+  }
+  return { file: match[1], line: parseInt(match[2], 10) };
+}
+
 function parseShellcheckBlocks(lines: string[]): QaLinterIssue[] {
   const issues: QaLinterIssue[] = [];
   let currentFile = '';
@@ -379,23 +441,24 @@ function parseShellcheckBlocks(lines: string[]): QaLinterIssue[] {
 
   for (const rawLine of lines) {
     const line = rawLine.trim();
-    if (line.startsWith('In ') && line.includes(' line ')) {
-      const match = /^In\s+(\S+)\s+line\s+(\d+):/.exec(line);
-      if (match && match[1] && match[2]) {
-        currentFile = match[1];
-        currentLine = parseInt(match[2], 10);
-      }
-    } else if (currentFile && line.includes('SC')) {
-      const scMatch = /(SC\d+)/.exec(line);
-      if (scMatch && scMatch[1]) {
-        issues.push({
-          file: currentFile,
-          line: currentLine,
-          rule: `shellcheck-${scMatch[1]}`,
-          message: line,
-        });
-        currentFile = '';
-      }
+    if (!line) {
+      currentFile = '';
+      continue;
+    }
+    const header = parseShellcheckHeaderLine(line);
+    if (header) {
+      currentFile = header.file;
+      currentLine = header.line;
+      continue;
+    }
+    const scMatch = currentFile && line.includes('SC') ? /(SC\d+)/.exec(line) : null;
+    if (scMatch?.[1]) {
+      issues.push({
+        file: currentFile,
+        line: currentLine,
+        rule: `shellcheck-${scMatch[1]}`,
+        message: line,
+      });
     }
   }
 
@@ -436,11 +499,64 @@ function parseSingleLineIssue(line: string, currentFile = ''): QaLinterIssue | n
     parseRadonIssue(line) ||
     parseMypyIssue(line) ||
     parseRuffIssue(line) ||
-    parseEslintIssue(line, currentFile) ||
     parseShellcheckGccIssue(line) ||
+    parseEslintIssue(line, currentFile) ||
     parsePsalmIssue(line) ||
     parsePhpstanIssue(line)
   );
+}
+
+const RUFF_FULL_HEADER_RE = /^([A-Z]{1,6}\d+)\s+(\S[^\r\n]*)$/;
+
+function parseRuffFullLocation(line: string): { file: string; line: number } | null {
+  if (!line.startsWith('-->')) return null;
+  const rest = line.slice(3).trimStart();
+  const lastColon = rest.lastIndexOf(':');
+  if (lastColon <= 0 || !/^\d+$/.test(rest.slice(lastColon + 1))) {
+    return null;
+  }
+  const beforeCol = rest.slice(0, lastColon);
+  const lineColon = beforeCol.lastIndexOf(':');
+  if (lineColon <= 0 || !/^\d+$/.test(beforeCol.slice(lineColon + 1))) {
+    return null;
+  }
+  const file = beforeCol.slice(0, lineColon).trim();
+  return file ? { file, line: parseInt(beforeCol.slice(lineColon + 1), 10) } : null;
+}
+
+function parseRuffFullBlocks(lines: readonly string[]): QaLinterIssue[] {
+  const issues: QaLinterIssue[] = [];
+  let pendingRule = '';
+  let pendingMsg = '';
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) {
+      pendingRule = '';
+      pendingMsg = '';
+      continue;
+    }
+    const loc = pendingRule ? parseRuffFullLocation(line) : null;
+    if (loc) {
+      issues.push({
+        file: loc.file,
+        line: loc.line,
+        rule: `ruff-${pendingRule}`,
+        message: pendingMsg,
+      });
+      pendingRule = '';
+      pendingMsg = '';
+      continue;
+    }
+    const headerMatch = RUFF_FULL_HEADER_RE.exec(line);
+    if (headerMatch?.[1] && !line.includes('eslint') && !/^\d+:\d+/.test(line)) {
+      pendingRule = headerMatch[1];
+      pendingMsg = pickAt(headerMatch, 2).trim();
+    } else if (!line.startsWith('|') && !line.startsWith('^') && !/^\d+\s*\|/.test(line)) {
+      pendingRule = '';
+      pendingMsg = '';
+    }
+  }
+  return issues;
 }
 
 /**
@@ -463,7 +579,7 @@ export function parseLinterAndComplexity(rawLog: string): QaLinterIssue[] {
     if (issue) issues.push(issue);
   }
 
-  issues.push(...parseShellcheckBlocks(lines));
+  issues.push(...parseRuffFullBlocks(lines), ...parseShellcheckBlocks(lines));
 
   return issues.slice(0, 25);
 }
@@ -472,19 +588,15 @@ export function parseLinterAndComplexity(rawLog: string): QaLinterIssue[] {
  * Parsea alertas de seguridad de Trivy y Bandit.
  */
 const SEVERITY_PATTERNS: Record<'CRITICAL' | 'HIGH', RegExp> = {
-  CRITICAL: /(?:Severity:\s*CRITICAL|\bCRITICAL\s+(?:severity|risk|vulnerability|vulnerabilities)\b|\[CRITICAL\])/gi,
-  HIGH: /(?:Severity:\s*HIGH|\bHIGH\s+(?:severity|risk|vulnerability|vulnerabilities)\b|\[HIGH\])/gi,
+  CRITICAL: /(?:Severity:\s*CRITICAL|\bCRITICAL\s+(?:severity|risk|vulnerability|vulnerabilities)\b|\[CRITICAL\])/i,
+  HIGH: /(?:Severity:\s*HIGH|\bHIGH\s+(?:severity|risk|vulnerability|vulnerabilities)\b|\[HIGH\])/i,
 };
 
 function countSeverityHits(clean: string, level: 'CRITICAL' | 'HIGH'): number {
   const severityRe = SEVERITY_PATTERNS[level];
-  severityRe.lastIndex = 0;
   let hits = 0;
-  while (severityRe.exec(clean) !== null) {
-    hits += 1;
-  }
   for (const line of clean.split(/\r?\n/)) {
-    if (line.includes(level) && /\bCVE-\d{4}-\d+\b/.test(line)) {
+    if (severityRe.test(line) || (line.includes(level) && /\bCVE-\d{4}-\d+\b/.test(line))) {
       hits += 1;
     }
   }
@@ -496,12 +608,18 @@ export function parseSecurityAlerts(rawLog: string): QaSecurityAlerts {
   let critical = 0;
   let high = 0;
 
-  const trivySummaryMatch = /CRITICAL:\s*(\d+)[\s,]+HIGH:\s*(\d+)/i.exec(clean);
-  if (trivySummaryMatch) {
-    return {
-      critical: parseInt(pickAt(trivySummaryMatch, 1, '0'), 10),
-      high: parseInt(pickAt(trivySummaryMatch, 2, '0'), 10),
-    };
+  let summaryFound = false;
+  for (const line of clean.split(/\r?\n/)) {
+    const critSummary = /\bCRITICAL:\s*(\d+)/i.exec(line);
+    const highSummary = /\bHIGH:\s*(\d+)/i.exec(line);
+    if (critSummary?.[1] && highSummary?.[1]) {
+      critical += parseInt(critSummary[1], 10);
+      high += parseInt(highSummary[1], 10);
+      summaryFound = true;
+    }
+  }
+  if (summaryFound) {
+    return { critical, high };
   }
 
   const critCountMatch = /CRITICAL\s*\|\s*(\d+)/i.exec(clean) || /CRITICAL:\s*(\d+)/i.exec(clean);
@@ -566,16 +684,18 @@ const TEST_STAGE_NAMES = new Set([
   'migration',
 ]);
 
-const EXPLICIT_TEST_COUNT_PATTERNS: readonly RegExp[] = [
-  /\bTests:?\s+\d+\s+failed\s*\|\s*(\d+)\s+passed\b/i,
-  /\bTests:?\s+(\d+)\s+passed\b/i,
-  /\bTests:\s*(\d+)\b/i,
-  /\bOK\s*\((\d+)\s+tests?\b/i,
-  /[ℹ#]\s*tests\s+(\d+)\b/i,
-  /^[ \t]*1\.\.(\d+)[ \t]*$/m,
-  /\bscenarios:\s*(\d+)\b/i,
-  /\bRan\s+(\d+)\s+tests?\s+in\b/i,
-  /\b(\d+)\s+passed\b/i,
+const EXPLICIT_TEST_COUNT_RULES: ReadonlyArray<{ readonly pattern: RegExp; readonly sumTwoGroups?: true }> = [
+  { pattern: /\bTests:?\s+(\d+)\s+failed\s*\|\s*(\d+)\s+passed\b/i, sumTwoGroups: true },
+  { pattern: /\b(\d+)\s+failed,\s+(\d+)\s+passed\b/i, sumTwoGroups: true },
+  { pattern: /\bTests:?\s+(\d+)\s+(?:passed|failed)\b/i },
+  { pattern: /\bTests:\s*(\d+)\b/i },
+  { pattern: /\bOK\s*\((\d+)\s+tests?\b/i },
+  { pattern: /[ℹ#]\s*tests\s+(\d+)\b/i },
+  { pattern: /^[ \t]*1\.\.(\d+)[ \t]*$/m },
+  { pattern: /\bscenarios:\s*(\d+)\b/i },
+  { pattern: /\bRan\s+(\d+)\s+tests?\s+in\b/i },
+  { pattern: /\b(\d+)\s+failed\s+in\s+[0-9.]+s\b/i },
+  { pattern: /\b(\d+)\s+passed\b/i },
 ];
 
 const ZERO_TEST_INDICATOR_PATTERNS: readonly RegExp[] = [
@@ -599,10 +719,12 @@ export interface QaTestsDetected {
 export function parseTestsDetected(rawLog: string): QaTestsDetected {
   const clean = stripAnsi(rawLog);
 
-  for (const pattern of EXPLICIT_TEST_COUNT_PATTERNS) {
-    const match = pattern.exec(clean);
+  for (const rule of EXPLICIT_TEST_COUNT_RULES) {
+    const match = rule.pattern.exec(clean);
     if (match) {
-      return { detected: true, count: parseInt(pickAt(match, 1, '0'), 10) };
+      const first = parseInt(pickAt(match, 1, '0'), 10);
+      const second = rule.sumTwoGroups ? parseInt(pickAt(match, 2, '0'), 10) : 0;
+      return { detected: true, count: first + second };
     }
   }
 

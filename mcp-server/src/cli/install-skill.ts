@@ -148,13 +148,14 @@ function parseProjectPathArg(args: string[]): string | undefined {
 // eslint-disable-next-line sonarjs/function-return-type -- AgentsTargetSpec intentionally unions 'auto' | 'all' modes with SupportedAiAgentId[]
 export function parseAgentsArg(args: string[]): AgentsTargetSpec | undefined {
   const allowed = new Set(['--agents', '-a']);
+  let latestValue: string | undefined;
   for (let i = 0; i < args.length; i++) {
     const matched = matchFlagValue(args, i, allowed, formatMissingInstallOption);
     if (matched) {
-      return parseAgentsOption(matched.value);
+      latestValue = matched.value;
     }
   }
-  return undefined;
+  return latestValue !== undefined ? parseAgentsOption(latestValue) : undefined;
 }
 
 const VALID_LANG_MODES = new Set<string>(['auto', 'es', 'en']);
@@ -232,12 +233,31 @@ function resolveAllGlobalAgentDirs(homeDir: string): string[] {
   ];
 }
 
+const VALID_SKILL_TARGETS = new Set<string>([
+  'workspace',
+  'local',
+  'cursor',
+  'antigravity',
+  'claude',
+  'hermes',
+  'windsurf',
+  'codex',
+  'all',
+  'auto',
+]);
+
+export function assertValidSkillTarget(targetArg: string): void {
+  if (!VALID_SKILL_TARGETS.has(targetArg)) {
+    throw new Error(
+      `Destino --target inválido: '${targetArg}'. Valores permitidos: auto, workspace, antigravity, claude, cursor, windsurf, codex, hermes, all.`
+    );
+  }
+}
+
 function resolveDestinationDirs(targetArg: string, homeDir: string, cwd: string): string[] {
+  assertValidSkillTarget(targetArg);
   const workspaceSkills = path.join(cwd, AGENTS_DIR_NAME, SKILLS_DIR_NAME);
   switch (targetArg) {
-    case 'workspace':
-    case 'local':
-      return [workspaceSkills];
     case 'cursor':
       return [path.join(homeDir, CURSOR_DIR_NAME, SKILLS_DIR_NAME)];
     case 'antigravity':
@@ -255,16 +275,15 @@ function resolveDestinationDirs(targetArg: string, homeDir: string, cwd: string)
     case 'auto':
       return resolveGlobalOrFallbackTargets(homeDir, cwd);
     default:
-      throw new Error(
-        `Destino --target inválido: '${targetArg}'. Valores permitidos: auto, workspace, antigravity, claude, cursor, windsurf, codex, hermes, all.`
-      );
+      return [workspaceSkills];
   }
 }
 
 function writeDownloadedSkills(
   destDirs: string[],
   files: Array<{ relSkillPath: string; content: string }>,
-  blueprintVersion: string
+  blueprintVersion: string,
+  log: (message: string) => void = console.log
 ): void {
   for (const dest of destDirs) {
     for (const item of files) {
@@ -276,7 +295,7 @@ function writeDownloadedSkills(
       fs.writeFileSync(fullPath, item.content, UTF8);
     }
     writeVersionStamp(dest, blueprintVersion);
-    console.log(`✅ Skills instaladas con éxito en: ${dest}`);
+    log(`✅ Skills instaladas con éxito en: ${dest}`);
   }
 }
 
@@ -444,14 +463,15 @@ function resolveInstallWorkspaceDir(
 async function runPreReconcileIfEnabled(
   opts: InstallSkillCliOptions,
   cwd: string,
-  inHomeDir: boolean
+  inHomeDir: boolean,
+  log: (message: string) => void = console.log
 ): Promise<void> {
   if (!opts.reconcile || inHomeDir) {
     return;
   }
   const recRes = await reconcileAgentsGovernance({ projectPath: cwd, dryRun: opts.dryRun });
   const recPrefix = opts.dryRun ? '🔍 [DRY-RUN Reconcile 11X]' : '✔ [Reconcile 11X]';
-  console.log(
+  log(
     `${recPrefix} ${recRes.removed_duplicate_sections_count} sección(es) duplicada(s) podada(s), ${recRes.preserved_domain_sections_count} sección(es) de dominio preservada(s).`
   );
 }
@@ -469,16 +489,21 @@ async function fetchVerifiedSkillFiles(
   return downloadedFiles;
 }
 
-async function runOptionalInitAgentsHook(opts: InstallSkillCliOptions, cwd: string): Promise<void> {
+async function runOptionalInitAgentsHook(
+  opts: InstallSkillCliOptions,
+  cwd: string,
+  log: (message: string) => void = console.log
+): Promise<void> {
   if (!opts.initAgents) {
     return;
   }
   const initResult = await initOrAppendAgentsMd({
     projectPath: cwd,
+    dryRun: false,
     lang: opts.lang,
     ...(opts.agents !== undefined ? { agents: opts.agents } : {}),
   });
-  console.log(`✔ [AGENTS.md] Conector procesado (${initResult.action}) en ${initResult.agents_md_path}`);
+  log(`✔ [AGENTS.md] Conector procesado (${initResult.action}) en ${initResult.agents_md_path}`);
 }
 
 async function runProjectInstallHooks(params: {
@@ -486,11 +511,12 @@ async function runProjectInstallHooks(params: {
   readonly cwd: string;
   readonly manifest: Manifest;
   readonly resolvedFetcher: GitHubFetcher;
+  readonly log: (message: string) => void;
 }): Promise<void> {
   if (params.opts.includeScripts) {
     await installIncludedScripts(params.cwd, params.manifest, params.resolvedFetcher);
   }
-  await runOptionalInitAgentsHook(params.opts, params.cwd);
+  await runOptionalInitAgentsHook(params.opts, params.cwd, params.log);
 }
 
 function maybeSyncGlobalGemini(homeDir: string, lang: OutputLanguageMode): void {
@@ -506,17 +532,18 @@ async function applyPostSkillInstallSteps(params: {
   readonly inHomeDir: boolean;
   readonly manifest: Manifest;
   readonly resolvedFetcher: GitHubFetcher;
+  readonly log: (message: string) => void;
 }): Promise<void> {
-  const { opts, cwd, homeDir, inHomeDir, manifest, resolvedFetcher } = params;
+  const { opts, cwd, homeDir, inHomeDir, manifest, resolvedFetcher, log } = params;
   maybeSyncGlobalGemini(homeDir, opts.lang);
   const wantsProjectFiles = opts.includeScripts || opts.initAgents || opts.reconcile;
   if (inHomeDir && wantsProjectFiles) {
-    console.log(
+    log(
       `ℹ️ [Modo Global $HOME] Omitiendo escritura de archivos de proyecto (AGENTS.md, scripts/, .agents/, lefthook.yml) en el directorio personal (${homeDir}).`
     );
     return;
   }
-  await runProjectInstallHooks({ opts, cwd, manifest, resolvedFetcher });
+  await runProjectInstallHooks({ opts, cwd, manifest, resolvedFetcher, log });
 }
 
 async function loadManifestSkillEntries(
@@ -535,6 +562,7 @@ async function loadManifestSkillEntries(
 export interface InstallSkillRuntimeOptions {
   readonly cwd?: string;
   readonly homeDir?: string;
+  readonly log?: (message: string) => void;
 }
 
 export async function runInstallSkillCli(
@@ -542,22 +570,24 @@ export async function runInstallSkillCli(
   fetcher?: GitHubFetcher,
   runtimeOptions?: InstallSkillRuntimeOptions
 ): Promise<void> {
+  const log = runtimeOptions?.log ?? console.log;
   if (hasHelpFlag(args)) {
-    console.log(INSTALL_SKILL_HELP_TEXT);
+    log(INSTALL_SKILL_HELP_TEXT);
     return;
   }
 
   const opts = validateAndParseInstallSkillArgs(args);
+  assertValidSkillTarget(opts.targetArg);
   const resolvedFetcher = fetcher || new GitHubFetcher();
   const homeDir = resolveSafeHomeDir(runtimeOptions?.homeDir);
   const baseCwd = runtimeOptions?.cwd ?? process.cwd();
   const cwd = resolveInstallWorkspaceDir(opts.projectPathArg, homeDir, baseCwd);
   const inHomeDir = isHomeDirectory(homeDir, cwd);
 
-  await runPreReconcileIfEnabled(opts, cwd, inHomeDir);
-
-  const { manifest, skillEntries } = await loadManifestSkillEntries(resolvedFetcher);
   const destDirs = resolveDestinationDirs(opts.targetArg, homeDir, cwd);
+  const { manifest, skillEntries } = await loadManifestSkillEntries(resolvedFetcher);
+  await runPreReconcileIfEnabled(opts, cwd, inHomeDir, log);
+
   if (opts.dryRun) {
     await executeDryRunPlan({
       opts,
@@ -572,7 +602,7 @@ export async function runInstallSkillCli(
   }
 
   const downloadedFiles = await fetchVerifiedSkillFiles(resolvedFetcher, skillEntries);
-  console.log(`✔ [Skills 11X] ${downloadedFiles.length} archivos verificados con SHA-256 (DISA STIG V-222513).`);
-  writeDownloadedSkills(destDirs, downloadedFiles, manifest.blueprint_version);
-  await applyPostSkillInstallSteps({ opts, cwd, homeDir, inHomeDir, manifest, resolvedFetcher });
+  log(`✔ [Skills 11X] ${downloadedFiles.length} archivos verificados con SHA-256 (DISA STIG V-222513).`);
+  writeDownloadedSkills(destDirs, downloadedFiles, manifest.blueprint_version, log);
+  await applyPostSkillInstallSteps({ opts, cwd, homeDir, inHomeDir, manifest, resolvedFetcher, log });
 }

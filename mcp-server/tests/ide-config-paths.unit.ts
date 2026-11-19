@@ -68,7 +68,8 @@ describe('ideConfigPaths & CLI help loaders', () => {
 
     const fakeHome = path.join('/tmp', 'qa-ide-home');
     const winCandidates = getBrowserMcpCandidatePaths(fakeHome, 'win32');
-    expect(winCandidates).toHaveLength(8);
+    expect(winCandidates).toHaveLength(9);
+    expect(winCandidates.some((candidate) => candidate.endsWith(CODEX_MCP_REL_PATH))).toBe(true);
     expect(winCandidates.every((candidate) => candidate.startsWith(fakeHome))).toBe(true);
     expect(winCandidates.some((candidate) => candidate.includes('AppData'))).toBe(true);
   });

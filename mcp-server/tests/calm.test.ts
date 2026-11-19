@@ -577,15 +577,22 @@ describe('validateCalmArchitecture (FINOS CALM 11X Gate)', () => {
     expect(resInvalidJson.valid).toBe(false);
     expect(resInvalidJson.violations[0]?.code).toBe('INVALID_JSON');
 
-    const wsReadFail = createWorkspaceWithModel(loadCanonicalDoc());
-    const unreadableFile = path.join(wsReadFail, DEFAULT_CALM_ARCHITECTURE_PATH);
-    fs.chmodSync(unreadableFile, 0o000);
-    try {
-      const resReadFail = validateCalmArchitecture({ workspaceRoot: wsReadFail });
-      expect(resReadFail.valid).toBe(false);
-      expect(resReadFail.violations[0]?.code).toBe('FILE_NOT_FOUND');
-    } finally {
-      fs.chmodSync(unreadableFile, 0o600);
+    if (typeof process.getuid !== 'function' || process.getuid() !== 0) {
+      const wsReadFail = createWorkspaceWithModel(loadCanonicalDoc());
+      const unreadableFile = path.join(wsReadFail, DEFAULT_CALM_ARCHITECTURE_PATH);
+      fs.chmodSync(unreadableFile, 0o000);
+      try {
+        const resReadFail = validateCalmArchitecture({ workspaceRoot: wsReadFail });
+        expect(resReadFail.valid).toBe(false);
+        expect(resReadFail.violations[0]?.code).toBe('FILE_NOT_FOUND');
+      } finally {
+        fs.chmodSync(unreadableFile, 0o600);
+      }
+    } else {
+      const wsMissing = createWorkspaceWithModel(loadCanonicalDoc(), 'architecture/other.calm.json');
+      const resMissing = validateCalmArchitecture({ workspaceRoot: wsMissing });
+      expect(resMissing.valid).toBe(false);
+      expect(resMissing.violations[0]?.code).toBe('FILE_NOT_FOUND');
     }
 
     const wsArrayRoot = createWorkspaceWithModel('[]');

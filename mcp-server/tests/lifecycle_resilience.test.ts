@@ -391,7 +391,7 @@ describe('TaskStateGuard & Lifecycle Resilience (T1.4)', () => {
   });
 
   describe('5. Semántica QA-HEALTH-01 y sonda no bloqueante QA-CLI-TTY-01', () => {
-    it('evalúa salidas de workers según contrato QA-HEALTH-01', () => {
+    it('evalúa salidas de workers según contrato QA-HEALTH-01', async () => {
       expect(evaluateWorkerExit({ optional: true, cancelled: false, error: null })).toEqual({
         healthy: true,
         state: 'AVAILABLE',
@@ -419,8 +419,55 @@ describe('TaskStateGuard & Lifecycle Resilience (T1.4)', () => {
         state: 'BROKEN',
         brokenReason: 'OFFLINE',
       });
+      expect(guard.applyWorkerExit({ optional: true, error: null })).toEqual({
+        healthy: false,
+        state: 'BROKEN',
+        brokenReason: 'OFFLINE',
+      });
       expect(guard.getState()).toBe('BROKEN');
       expect(guard.getBrokenReason()).toBe('OFFLINE');
+      expect(guard.probeHealth()).toMatchObject({
+        healthy: false,
+        recovered: false,
+        snapshot: { state: 'BROKEN', brokenReason: 'OFFLINE' },
+      });
+
+      // Duplicate active taskId rejection + GUARD_BROKEN (503) rejection when guard is BROKEN
+      const brokenExecuteRes = await guard
+        .executeTask(() => Promise.resolve('x'), { taskId: 'after-broken', timeoutMs: 1_000 })
+        .catch((err: unknown) => err);
+      expect(brokenExecuteRes).toBeInstanceOf(TaskGuardError);
+      expect((brokenExecuteRes as TaskGuardError).code).toBe('GUARD_BROKEN');
+
+      // In-flight task completes after guard enters BROKEN -> exercises syncOperationalState early return
+      const inFlightGuard = new TaskStateGuard({ capacity: 2, defaultTimeoutMs: 2_000 });
+      let resolveInFlight!: (val: string) => void;
+      const inFlightPromise = inFlightGuard.executeTask(
+        () =>
+          new Promise<string>((resolve) => {
+            resolveInFlight = resolve;
+          }),
+        { taskId: 'inflight-before-broken', timeoutMs: 2_000 }
+      );
+      inFlightGuard.applyWorkerExit({ optional: false, error: new Error('mid-flight offline') });
+      resolveInFlight('completed-while-broken');
+      expect(await inFlightPromise).toBe('completed-while-broken');
+      expect(inFlightGuard.getState()).toBe('BROKEN');
+
+      const dupGuard = new TaskStateGuard({ capacity: 4, defaultTimeoutMs: 2_000 });
+      let releaseFirst!: () => void;
+      const firstPromise = dupGuard.executeTask(
+        () =>
+          new Promise<string>((resolve) => {
+            releaseFirst = () => resolve('done');
+          }),
+        { taskId: 'dup-id' }
+      );
+      await expect(
+        dupGuard.executeTask(() => Promise.resolve('second'), { taskId: 'dup-id' })
+      ).rejects.toThrow('DUPLICATE_TASK_ID');
+      releaseFirst();
+      expect(await firstPromise).toBe('done');
     });
 
     it('certifica QA-CLI-TTY-01 con salida rápida exit(0) (<5s) sin colgar en entorno TTY', async () => {

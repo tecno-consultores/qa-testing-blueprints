@@ -20,6 +20,7 @@ import {
 } from './server.js';
 import { guardToolCallInput, type PromptGuardOptions } from './security/promptGuard.js';
 import { resolveSubcommandHelpText, runCli } from './cli.js';
+import { SUPPORTED_AGENT_IDS } from './tools/initOrAppendAgentsMd.js';
 import { GitHubFetcher, MCP_SERVER_VERSION } from './services/github-fetcher.js';
 import { syncGlobalSkillsInBackground } from './services/version-manager.js';
 import { TaskGuardError, TaskStateGuard, type ExecuteTaskOptions } from './utils/taskStateGuard.js';
@@ -184,10 +185,10 @@ Usage:
 Options for quickstart:
   --tier, -T <level>       starter (default) | standard | enterprise
   --lang, -l <mode>        auto (default) | en | es
-  --agents <target>        auto | all | antigravity | claude-code | cursor | windsurf | <csv>
-  --ci <provider>          none | github
+  --agents, -a <target>    auto | all | CSV (${SUPPORTED_AGENT_IDS.length} supported agents)
+  --ci <provider>          github (default) | none
   --dry-run                Simulates quickstart without modifying files
-  --force, -f              Overwrites customized CI/task files
+  --force                  Overwrites customized CI/task files
   --json                   Emits machine-readable JSON output
 
 Options for install-skill (alias: install):

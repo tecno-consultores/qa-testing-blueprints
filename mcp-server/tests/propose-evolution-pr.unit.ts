@@ -86,12 +86,26 @@ describe('propose_skill_evolution_pr Tool Suite (Zero-Trust Skill Evolution)', (
     });
 
     it('Option 2 (Universal Fallback): generates local proposal file and prefilled URL when prefer_offline_fallback is true', async () => {
+      const dryResult = await proposeSkillEvolutionPr({
+        project_path: tmpDir,
+        target_blueprint_file: TARGET_FILE,
+        improvement_title: IMPROVEMENT_TITLE,
+        empirical_rationale: RATIONALE,
+        proposed_content_or_snippet: SNIPPET,
+        dry_run: true,
+        prefer_offline_fallback: true,
+      });
+      expect(dryResult.status).toBe(STATUS_PROPOSAL_GENERATED);
+      expect(dryResult.message).toContain('dry_run=true');
+      expect(fs.existsSync(dryResult.local_proposal_file)).toBe(false);
+
       const result = await proposeSkillEvolutionPr({
         project_path: tmpDir,
         target_blueprint_file: TARGET_FILE,
         improvement_title: IMPROVEMENT_TITLE,
         empirical_rationale: RATIONALE,
         proposed_content_or_snippet: SNIPPET,
+        dry_run: false,
         prefer_offline_fallback: true,
       });
 

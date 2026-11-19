@@ -108,12 +108,14 @@ export function matchFlagValue(
   };
 }
 
+const TRAVERSAL_SEGMENT_RE = /(?:^|[\\/])\.\.(?:[\\/]|$)/;
+
 export function resolveCliProjectPath(rawDir: string | undefined, cwd: string): string {
   const candidate = rawDir && rawDir.trim().length > 0 ? rawDir.trim() : cwd;
   if (candidate === '.') {
     return resolveSafeProjectPath(cwd);
   }
-  if (path.isAbsolute(candidate) || candidate.includes('..')) {
+  if (path.isAbsolute(candidate) || TRAVERSAL_SEGMENT_RE.test(candidate)) {
     return resolveSafeProjectPath(candidate);
   }
   return resolveSafeProjectPath(path.resolve(cwd, candidate));

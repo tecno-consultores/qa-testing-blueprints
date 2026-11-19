@@ -1546,7 +1546,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert aiIntEs47.contains('22 controles de referencia DISA ASD STIG V6R5 y OWASP Developer Guide v4.2')
 
   Scenario: 48. Regresión BATS UID sin /etc/passwd (_USER) y filtrado Pass-Quiet de kcov en CI
-    * def repoRoot48 = Files.exists(Paths.get('/repo/manifest.json')) ? 'file:/repo' : '..'
+    * def repoRoot48 = Files.exists(Paths.get('/repo/manifest.json')) ? 'file:/repo' : 'file:..'
     * def bashCompose48 = karate.readAsString(repoRoot48 + '/bash-scripts/docker-compose.qa.yml')
     * assert bashCompose48.contains('_USER: qa')
     * def mockBats48 = karate.readAsString(repoRoot48 + '/bash-scripts/test/ejemplo_mock.bats')

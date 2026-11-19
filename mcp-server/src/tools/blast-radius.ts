@@ -63,6 +63,8 @@ export async function defaultGraphifyBuilder(
         '--rm',
         '--network',
         'none',
+        '--security-opt=no-new-privileges:true',
+        '--cap-drop=ALL',
         '-u',
         `${uid}:${gid}`,
         '-e',

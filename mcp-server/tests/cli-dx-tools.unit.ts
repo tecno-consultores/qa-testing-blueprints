@@ -213,6 +213,16 @@ describe('DX CLI Subcommands: blast-radius, mcp-config & completion (QA-11X)', (
       expect(docsRes.exitCode).toBe(0);
       expect((JSON.parse(docsRes.output) as { recommended_path: BlastRoutingPath }).recommended_path).toBe('DOCS_ONLY');
 
+      // Code under docs/ must NOT be classified as DOCS_ONLY
+      writeFile(path.join(projDir, 'docs', 'exploit.py'), 'print("not docs")\n');
+      runGit(projDir, ['add', '.']);
+      runGit(projDir, ['commit', '-m', 'python script inside docs']);
+      const docsCodeRes = await runBlastRadiusCli(['--changed-since', 'HEAD~1', '--json'], { cwd: projDir });
+      expect(docsCodeRes.exitCode).toBe(0);
+      expect(
+        (JSON.parse(docsCodeRes.output) as { recommended_path: BlastRoutingPath }).recommended_path
+      ).not.toBe('DOCS_ONLY');
+
       writeFile(path.join(projDir, 'src', 'utils', 'math.ts'), 'export const add = (a: number, b: number): number => a + b;\n');
       runGit(projDir, ['add', '.']);
       runGit(projDir, ['commit', '-m', 'small utility helper']);
@@ -227,8 +237,11 @@ describe('DX CLI Subcommands: blast-radius, mcp-config & completion (QA-11X)', (
       expect(microJson.recommended_path).toBe('MICRO_CHANGE');
 
       writeFile(path.join(projDir, 'src', 'routes.ts'), 'export const apiRoute = "/api/v1/items";\n');
+      writeFile(path.join(projDir, 'src', 'a.ts'), 'export const a = 1;\n');
+      writeFile(path.join(projDir, 'src', 'b.ts'), 'export const b = 2;\n');
+      writeFile(path.join(projDir, 'src', 'c.ts'), 'export const c = 3;\n');
       runGit(projDir, ['add', '.']);
-      runGit(projDir, ['commit', '-m', 'critical route']);
+      runGit(projDir, ['commit', '-m', 'multi file change over micro limit']);
 
       const logs: string[] = [];
       const cliRes = await runCli(
@@ -238,6 +251,13 @@ describe('DX CLI Subcommands: blast-radius, mcp-config & completion (QA-11X)', (
       expect(cliRes.exitCode).toBe(0);
       expect(cliRes.command).toBe('blast-radius');
       expect((JSON.parse(logs[0] ?? '{}') as { recommended_path: BlastRoutingPath }).recommended_path).toBe('FULL_11X');
+
+      const dirAliasRes = await runBlastRadiusCli(
+        ['--dir', projDir, '--symbol', 'computeTax', '--json'],
+        { cwd: tmpRoot }
+      );
+      expect(dirAliasRes.exitCode).toBe(0);
+      expect((JSON.parse(dirAliasRes.output) as { target_symbol: string }).target_symbol).toBe('computeTax');
     });
   });
 
@@ -515,8 +535,13 @@ describe('DX CLI Subcommands: blast-radius, mcp-config & completion (QA-11X)', (
       expect(extraAfterFlag.isError).toBe(true);
     });
 
-    it('generates valid fish, bash, and zsh completions containing all 12 commands/aliases and routes via cli.ts', async () => {
-      const newSubcommands = [
+    it('generates valid fish, bash, and zsh completions containing subcommands, no duplicate -f on --force, and scoped Zsh completion options', async () => {
+      const expectedSubcommands = [
+        'quickstart',
+        'install-skill',
+        'init-agents',
+        'reconcile-agents',
+        'tms-sync',
         'doctor',
         'upgrade',
         'certify',
@@ -535,7 +560,8 @@ describe('DX CLI Subcommands: blast-radius, mcp-config & completion (QA-11X)', (
       expect(fish.output).toContain('-l target-dir');
       expect(fish.output).toContain('-l test-execution-key');
       expect(fish.output).toContain('-s p');
-      for (const cmd of newSubcommands) {
+      expect(fish.output).not.toContain('-s f -l force');
+      for (const cmd of expectedSubcommands) {
         expect(fish.output).toContain(cmd);
       }
 
@@ -550,7 +576,7 @@ describe('DX CLI Subcommands: blast-radius, mcp-config & completion (QA-11X)', (
       expect(bash.output).toContain('--live');
       expect(bash.output).toContain('--test-execution-key');
       expect(bash.output).toContain('-f)');
-      for (const cmd of newSubcommands) {
+      for (const cmd of expectedSubcommands) {
         expect(bash.output).toContain(cmd);
       }
       const bashSyntaxOut = execFileSync(BASH_EXECUTABLE, ['-n'], {
@@ -568,7 +594,9 @@ describe('DX CLI Subcommands: blast-radius, mcp-config & completion (QA-11X)', (
       expect(zsh.output).toContain('(( CURRENT-- ))');
       expect(zsh.output).toContain('_arguments');
       expect(zsh.output).toContain('--test-execution-key');
-      for (const cmd of newSubcommands) {
+      expect(zsh.output).toContain('[[ "${subcmd}" == "completion" ]]');
+      expect(zsh.output).toContain('shells=(fish bash zsh)');
+      for (const cmd of expectedSubcommands) {
         expect(zsh.output).toContain(cmd);
       }
 

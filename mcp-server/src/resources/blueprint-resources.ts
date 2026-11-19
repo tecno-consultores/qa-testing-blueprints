@@ -149,7 +149,7 @@ export class BlueprintResources {
       content =
         effectiveLang === 'es'
           ? `# PostgreSQL 17 RLS Multi-Transacción (after_begin) y Cadena WORM Determinista (seq_num + pg_advisory_xact_lock)\n\nConsulte ${POSTGRES_ES_DOC_PATH} y .agents/skills/qa-11x-architect/references/${POSTGRES_EN_REF_SUFFIX}`
-          : `# PostgreSQL 17 RLS Multi-Transacción (after_begin) & Cadena WORM Determinista (seq_num + pg_advisory_xact_lock)\n\nConsulte .agents/skills/qa-11x-architect/references/${POSTGRES_EN_REF_SUFFIX}`;
+          : `# PostgreSQL 17 Multi-Transaction RLS (after_begin) & Deterministic WORM Hash-Chain (seq_num + pg_advisory_xact_lock)\n\nSee .agents/skills/qa-11x-architect/references/${POSTGRES_EN_REF_SUFFIX}`;
     }
     return {
       uri: 'blueprint://database/postgres-rls-worm',
@@ -171,7 +171,8 @@ export class BlueprintResources {
 
   private async fetchPrimaryOrFallbackStackReadme(
     stackDef: StackDefinition,
-    readmeFile: ManifestFileEntry | undefined
+    readmeFile: ManifestFileEntry | undefined,
+    effectiveLang: ResourceLanguage
   ): Promise<string> {
     if (readmeFile) {
       return this.fetcher.fetchFileContent(readmeFile.path, readmeFile.sha256);
@@ -179,7 +180,8 @@ export class BlueprintResources {
     if (stackDef.readme_sha256) {
       return this.fetcher.fetchFileContent(stackDef.readme, stackDef.readme_sha256);
     }
-    return `# ${stackDef.description}\n\nConsulte ${stackDef.readme}`;
+    const prefix = effectiveLang === 'es' ? 'Consulte' : 'See';
+    return `# ${stackDef.description}\n\n${prefix} ${stackDef.readme}`;
   }
 
   public async getStackReadmeResource(stack: string, lang?: ResourceLanguage): Promise<ResourceResponse> {
@@ -206,10 +208,10 @@ export class BlueprintResources {
       } catch (err) {
         // Fallback to primary English README when localized ES README fetch fails
         reportDebugCatchError('blueprintResources.getStackReadmeResource', err);
-        content = await this.fetchPrimaryOrFallbackStackReadme(stackDef, readmeFile);
+        content = await this.fetchPrimaryOrFallbackStackReadme(stackDef, readmeFile, effectiveLang);
       }
     } else {
-      content = await this.fetchPrimaryOrFallbackStackReadme(stackDef, readmeFile);
+      content = await this.fetchPrimaryOrFallbackStackReadme(stackDef, readmeFile, effectiveLang);
     }
 
     return {

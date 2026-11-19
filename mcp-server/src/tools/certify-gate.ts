@@ -788,6 +788,15 @@ function resolveWithParentFallback(projectPath: string, ...segments: string[]): 
 const ACTIVE_TASK_CLOSED_STATE_RE =
   /Estado:\*{0,2}\s*(?:COMPLETED|CERTIFIED_CLEAN)/i;
 
+const VALID_CHECKPOINT_STATUSES = new Set<string>([
+  'IN_PROGRESS',
+  'PAUSED',
+  'BLOCKED',
+  'CERTIFIED_CLEAN',
+  'COMPLETED',
+  'COMPLETED (100%)',
+]);
+
 function isClosedCheckpointStatus(status: unknown): boolean {
   if (typeof status !== 'string') {
     return false;
@@ -798,6 +807,10 @@ function isClosedCheckpointStatus(status: unknown): boolean {
     normalized === 'COMPLETED' ||
     normalized === 'COMPLETED (100%)'
   );
+}
+
+function isValidCheckpointStatus(status: unknown): status is string {
+  return typeof status === 'string' && VALID_CHECKPOINT_STATUSES.has(status.trim().toUpperCase());
 }
 
 function splitContentLines(content: string): string[] {
@@ -813,12 +826,19 @@ function checkSessionCheckpointGovernance(projectPath: string, activeTaskPath: s
     return [];
   }
   const blockers: string[] = [];
-  let parsed: Record<string, unknown>;
+  let rawParsed: unknown;
   try {
-    parsed = JSON.parse(fs.readFileSync(ckptPath, 'utf8')) as Record<string, unknown>;
+    rawParsed = JSON.parse(fs.readFileSync(ckptPath, 'utf8'));
   } catch (err: unknown) {
     reportDebugCatchError('certifyGate.checkSessionCheckpointGovernance', err);
     return ['.agents/.cache/session_checkpoint.json contiene JSON corrupto o ilegible.'];
+  }
+  if (!rawParsed || typeof rawParsed !== 'object' || Array.isArray(rawParsed)) {
+    return ['.agents/.cache/session_checkpoint.json debe contener un objeto JSON en la raíz.'];
+  }
+  const parsed = rawParsed as Record<string, unknown>;
+  if (!isValidCheckpointStatus(parsed.status)) {
+    blockers.push('.agents/.cache/session_checkpoint.json tiene un status inválido o no textual.');
   }
   const intent = parsed.intent_140chars;
   if (typeof intent !== 'string' || intent.length === 0 || intent.length > 140) {
@@ -872,18 +892,139 @@ function checkActiveTaskGovernance(projectPath: string): string[] {
 
 const GRAPHIFY_OUT_DIR = 'graphify-out';
 const GRAPH_JSON_FILE = 'graph.json';
+const GRAPH_TEST_PATH_RE = /(?:^|\/)(?:tests?|__tests__|e2e)\//i;
+const STRUCTURAL_RELATIONS = new Set<string>([
+  'contains',
+  'rationale_for',
+  'documented_in',
+  'defines',
+  'declares',
+  'method',
+]);
+
+interface RawGraphNode {
+  id?: string;
+  source_file?: string;
+  file?: string;
+}
+
+interface RawGraphLink {
+  source?: string;
+  target?: string;
+  source_file?: string;
+  relation?: string;
+}
 
 function isUiToDbLink(srcRef: string, tgtRef: string): boolean {
   const src = srcRef.replace(/\\/g, '/').toLowerCase();
   const tgt = tgtRef.replace(/\\/g, '/').toLowerCase();
+  if (GRAPH_TEST_PATH_RE.test(src) || GRAPH_TEST_PATH_RE.test(tgt)) {
+    return false;
+  }
   const isUiSource = src.includes('components/') || src.includes('views/') || src.endsWith('.vue');
   const isDbTarget = tgt.includes('models/') || tgt.includes('models.py') || tgt.includes('alembic/');
   const isDomainToApi =
-    /(?:^|\/)src\/(?:models|schemas|core|domain)\//.test(src) &&
-    /(?:^|\/)src\/(?:api|controllers)\//.test(tgt);
+    /(?:^|\/)(?:src\/)?(?:models|schemas|core|domain|services)\//.test(src) &&
+    /(?:^|\/)(?:src\/)?(?:api|controllers|routes|views)\//.test(tgt);
   const isCommonUiToView =
-    /(?:^|\/)src\/components\/common\//.test(src) && /(?:^|\/)src\/(?:views|pages)\//.test(tgt);
+    /(?:^|\/)(?:src\/)?components\/common\//.test(src) && /(?:^|\/)(?:src\/)?(?:views|pages)\//.test(tgt);
   return (isUiSource && isDbTarget) || isDomainToApi || isCommonUiToView;
+}
+
+function resolveGraphNodeFiles(nodes: readonly RawGraphNode[]): Map<string, string> {
+  const nodeFileMap = new Map<string, string>();
+  for (const node of nodes) {
+    if (node.id) {
+      nodeFileMap.set(node.id, node.source_file ?? node.file ?? node.id);
+    }
+  }
+  return nodeFileMap;
+}
+
+function collectDependencyAdjacency(
+  links: readonly RawGraphLink[],
+  nodeFileMap: ReadonlyMap<string, string>
+): Map<string, string[]> {
+  const rawAdj = new Map<string, Set<string>>();
+  for (const link of links) {
+    const src = link.source ?? '';
+    const tgt = link.target ?? '';
+    const rel = link.relation ?? '';
+    if (!src || !tgt || src === tgt || STRUCTURAL_RELATIONS.has(rel)) {
+      continue;
+    }
+    if (rel === 'calls') {
+      const srcFile = (link.source_file ?? nodeFileMap.get(src) ?? '').replace(/\\/g, '/');
+      const tgtFile = (nodeFileMap.get(tgt) ?? '').replace(/\\/g, '/');
+      if (srcFile && srcFile === tgtFile) continue;
+    }
+    let set = rawAdj.get(src);
+    if (!set) {
+      set = new Set<string>();
+      rawAdj.set(src, set);
+    }
+    set.add(tgt);
+  }
+  const adj = new Map<string, string[]>();
+  for (const [key, vals] of rawAdj.entries()) {
+    adj.set(key, Array.from(vals).sort((a, b) => a.localeCompare(b)));
+  }
+  return adj;
+}
+
+function formatCanonicalCycle(pathNodes: readonly string[], backTarget: string): string {
+  const startIdx = pathNodes.indexOf(backTarget);
+  const core = pathNodes.slice(startIdx);
+  let minIdx = 0;
+  for (let i = 1; i < core.length; i += 1) {
+    if ((core[i] ?? '') < (core[minIdx] ?? '')) minIdx = i;
+  }
+  const rotated = [...core.slice(minIdx), ...core.slice(0, minIdx)];
+  return [...rotated, rotated[0] ?? backTarget].join(' -> ');
+}
+
+interface CycleDfsState {
+  readonly adj: ReadonlyMap<string, string[]>;
+  readonly color: Map<string, number>;
+  readonly pathStack: string[];
+  readonly found: Set<string>;
+}
+
+function visitCycleNode(node: string, state: CycleDfsState): void {
+  state.color.set(node, 1);
+  state.pathStack.push(node);
+  for (const nxt of state.adj.get(node) ?? []) {
+    const nxtColor = state.color.get(nxt) ?? 0;
+    if (nxtColor === 1) {
+      state.found.add(formatCanonicalCycle(state.pathStack, nxt));
+    } else if (nxtColor === 0) {
+      visitCycleNode(nxt, state);
+    }
+  }
+  state.pathStack.pop();
+  state.color.set(node, 2);
+}
+
+function detectAstGraphCycles(
+  links: readonly RawGraphLink[],
+  nodeFileMap: ReadonlyMap<string, string>,
+  relGraph: string
+): string[] {
+  const adj = collectDependencyAdjacency(links, nodeFileMap);
+  const state: CycleDfsState = {
+    adj,
+    color: new Map<string, number>(),
+    pathStack: [],
+    found: new Set<string>(),
+  };
+  for (const start of Array.from(adj.keys()).sort((a, b) => a.localeCompare(b))) {
+    if ((state.color.get(start) ?? 0) === 0) {
+      visitCycleNode(start, state);
+    }
+  }
+  return Array.from(state.found)
+    .sort((a, b) => a.localeCompare(b))
+    .map((cycle) => `Ciclo de dependencia AST en ${relGraph}: ${cycle}`);
 }
 
 function inspectSingleGraphTopology(projectPath: string, gPath: string): string[] {
@@ -893,22 +1034,20 @@ function inspectSingleGraphTopology(projectPath: string, gPath: string): string[
 
   try {
     const parsed = JSON.parse(fs.readFileSync(gPath, 'utf8')) as {
-      nodes?: Array<{ id?: string; source_file?: string; file?: string }>;
-      links?: Array<{ source?: string; target?: string; source_file?: string }>;
+      nodes?: RawGraphNode[];
+      links?: RawGraphLink[];
     };
-    const nodeFileMap = new Map<string, string>();
-    for (const node of parsed.nodes ?? []) {
-      if (node.id) {
-        nodeFileMap.set(node.id, node.source_file ?? node.file ?? node.id);
-      }
-    }
-    for (const link of parsed.links ?? []) {
+    const nodes = parsed.nodes ?? [];
+    const links = parsed.links ?? [];
+    const nodeFileMap = resolveGraphNodeFiles(nodes);
+    for (const link of links) {
       const srcRef = link.source_file ?? nodeFileMap.get(link.source ?? '') ?? link.source ?? '';
       const tgtRef = nodeFileMap.get(link.target ?? '') ?? link.target ?? '';
       if (isUiToDbLink(srcRef, tgtRef)) {
         blockers.push(`Violación topológica AST en ${relGraph}: ${srcRef} -> ${tgtRef}`);
       }
     }
+    blockers.push(...detectAstGraphCycles(links, nodeFileMap, relGraph));
   } catch (err: unknown) {
     reportDebugCatchError(`certifyGate.inspectSingleGraphTopology(${relGraph})`, err);
     blockers.push(`Archivo de grafo AST corrupto: ${relGraph}`);
@@ -917,16 +1056,49 @@ function inspectSingleGraphTopology(projectPath: string, gPath: string): string[
   return blockers;
 }
 
+function registerGraphCandidate(graphDir: string, seenReal: Set<string>, collected: string[]): void {
+  const candidate = path.join(graphDir, GRAPH_JSON_FILE);
+  try {
+    const realCandidate = fs.realpathSync(candidate);
+    if (!seenReal.has(realCandidate)) {
+      seenReal.add(realCandidate);
+      collected.push(candidate);
+    }
+  } catch (err: unknown) {
+    reportDebugCatchError('certifyGate.collectGraphFilesRecursive.realpath', err);
+  }
+}
+
+function collectGraphFilesRecursive(
+  dirPath: string,
+  seenReal: Set<string>,
+  collected: string[]
+): void {
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dirPath, { withFileTypes: true });
+  } catch (err: unknown) {
+    reportDebugCatchError('certifyGate.collectGraphFilesRecursive', err);
+    return;
+  }
+  entries.sort((a, b) => a.name.localeCompare(b.name));
+  for (const entry of entries) {
+    const full = path.join(dirPath, entry.name);
+    if (entry.name === GRAPHIFY_OUT_DIR) {
+      registerGraphCandidate(full, seenReal, collected);
+      continue;
+    }
+    if (IGNORED_SCAN_DIRS.has(entry.name) || entry.isSymbolicLink() || !entry.isDirectory()) {
+      continue;
+    }
+    collectGraphFilesRecursive(full, seenReal, collected);
+  }
+}
+
 function checkAstTopology(projectPath: string): GateCheckOutcome {
   const blockers: string[] = [];
-  const graphPaths = [
-    path.join(projectPath, GRAPHIFY_OUT_DIR, GRAPH_JSON_FILE),
-    path.join(projectPath, 'fastapi', GRAPHIFY_OUT_DIR, GRAPH_JSON_FILE),
-    path.join(projectPath, 'vue3', GRAPHIFY_OUT_DIR, GRAPH_JSON_FILE),
-    path.join(projectPath, 'mcp-server', GRAPHIFY_OUT_DIR, GRAPH_JSON_FILE),
-  ];
-
-  const existingGraphs = graphPaths.filter((gPath) => fs.existsSync(gPath));
+  const existingGraphs: string[] = [];
+  collectGraphFilesRecursive(projectPath, new Set<string>(), existingGraphs);
   if (existingGraphs.length === 0) {
     return buildCheckOutcome(GATE_STATUS_SKIPPED);
   }
@@ -1027,13 +1199,21 @@ function checkManifestCryptographicParity(projectPath: string): string[] {
   return blockers;
 }
 
+const ROADMAP_MILESTONE_PREFIX_RE = /\b(?:hito|milestone)\s+([0-9.]+)/i;
+
+function extractRoadmapMilestoneId(line: string): string | null {
+  const match = ROADMAP_MILESTONE_PREFIX_RE.exec(line);
+  if (!match?.[1]) return null;
+  const raw = match[1].endsWith('.') ? match[1].slice(0, -1) : match[1];
+  return raw.split('.').every((seg) => /^\d+$/.test(seg)) ? raw.toLowerCase() : null;
+}
+
 function collectCompletedHitosFromSummary(lines: string[]): Set<string> {
-  const hitoTokenRe = /\b(hito\s+\d+)\b/i;
   const summaryComplete = new Set<string>();
   for (const line of lines) {
     if (!line.trimStart().startsWith('|') || !line.includes('100%')) continue;
-    const rowMatch = hitoTokenRe.exec(line);
-    if (rowMatch && rowMatch[1]) summaryComplete.add(rowMatch[1].toLowerCase());
+    const hitoId = extractRoadmapMilestoneId(line);
+    if (hitoId) summaryComplete.add(hitoId);
   }
   return summaryComplete;
 }
@@ -1042,19 +1222,18 @@ function checkRoadmapConsistency(projectPath: string): string[] {
   const roadmapPath = resolveWithParentFallback(projectPath, 'ROADMAP.md');
   if (!fs.existsSync(roadmapPath)) return [];
   const blockers: string[] = [];
-  const hitoTokenRe = /\b(hito\s+\d+)\b/i;
   try {
     const lines = fs.readFileSync(roadmapPath, 'utf8').split(/\r?\n/);
     const summaryComplete = collectCompletedHitosFromSummary(lines);
     let activeHito: string | null = null;
     for (const line of lines) {
-      const secMatch = line.startsWith('##') ? hitoTokenRe.exec(line) : null;
-      if (secMatch && secMatch[1]) {
-        activeHito = secMatch[1].toLowerCase();
+      const secHito = line.startsWith('##') ? extractRoadmapMilestoneId(line) : null;
+      if (secHito) {
+        activeHito = secHito;
         continue;
       }
       if (activeHito && summaryComplete.has(activeHito) && /^\s*-\s*\[\s\]/.test(line)) {
-        blockers.push(`ROADMAP.md declara ${activeHito} al 100% pero contiene tareas pendientes (- [ ]).`);
+        blockers.push(`ROADMAP.md declara Milestone/Hito ${activeHito} al 100% pero contiene tareas pendientes (- [ ]).`);
         summaryComplete.delete(activeHito);
       }
     }
@@ -1139,6 +1318,19 @@ function mapCheckStatusesToBooleans(
  * Ejecuta todas las validaciones del estándar 11X sobre el proyecto destino
  * para certificar si cumple con la compuerta de cierre.
  */
+const ALL_GATE_CHECK_KEYS = [
+  'zero_unmerged_examples',
+  'zero_secrets_exposed',
+  'json_integrity',
+  'zero_orphan_ui_components',
+  'zero_orphan_api_endpoints',
+  'orm_alembic_parity',
+  'ast_topology_clean',
+  'lint_evidence_verified',
+  'security_stig_owasp_clean',
+  'documentation_synced',
+] as const;
+
 export async function certify11xGate(
   projectPath: string,
   options?: CertifyGateOptions
@@ -1148,6 +1340,29 @@ export async function certify11xGate(
   const resolvedPath = resolveSafeProjectPath(projectPath);
   const requireLint = options?.requireLintEvidence ?? true;
   const strict = options?.strict ?? false;
+
+  const isExistingDir = fs.existsSync(resolvedPath) && fs.statSync(resolvedPath).isDirectory();
+  if (!isExistingDir) {
+    const skippedStatuses = Object.fromEntries(
+      ALL_GATE_CHECK_KEYS.map((key) => [key, GATE_STATUS_SKIPPED])
+    ) as Record<string, GateCheckStatus>;
+    const updateAvailable = await evaluateUpdateStatus({
+      projectPath: resolvedPath,
+      signal,
+      ...options?.updateOptions,
+    });
+    return {
+      gate_passed: false,
+      project_path: resolvedPath,
+      checks: mapCheckStatusesToBooleans(skippedStatuses),
+      check_statuses: skippedStatuses,
+      skipped_checks: [...ALL_GATE_CHECK_KEYS],
+      blockers: [`La ruta del proyecto no existe o no es un directorio: ${resolvedPath}`],
+      upstream_evolution_reminder:
+        'MANDATORY POST-MORTEM CHECK: If this fixed a UAT/prod bug that bypassed tests, present "💡 Oportunidad de Mejora Detectada para el Estándar QA 11X" in Spanish and invoke propose_skill_evolution_pr.',
+      update_available: updateAvailable,
+    };
+  }
 
   const unmerged = checkUnmergedExamples(resolvedPath, options?.allowUnmergedExamples);
   const jsonCheck = checkJsonIntegrity(resolvedPath);

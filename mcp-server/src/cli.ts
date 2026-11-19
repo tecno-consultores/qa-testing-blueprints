@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
+import * as path from 'node:path';
 import {
   initOrAppendAgentsMd,
   parseAgentsOption,
@@ -176,7 +177,7 @@ export const CLI_USAGE_TEXT = [
   '  --include-scripts                        Install operational 11X scripts',
   '  --reconcile                              Reconcile .agents/ before syncing skills',
   '  --dry-run                                Simulate without writing files to disk',
-  '  --force, -f                              Overwrite customized quickstart CI/task files',
+  '  --force                                  Overwrite customized quickstart CI/task files',
   '  --offline                                Skip remote version/skills checks (doctor / upgrade / certify)',
   '  --cache-only                             Clean caches without syncing skills (upgrade / cache-clean)',
   '  --strict / --require-lint-evidence       Enforce non-skipped checks and lint evidence (certify)',
@@ -502,6 +503,16 @@ function applyQuickstartToken(
   return 0;
 }
 
+const CLI_TRAVERSAL_SEG_RE = /(?:^|[\\/])\.\.(?:[\\/]|$)/;
+
+function resolveRelativeToCwd(candidate: string, cwd: string): string {
+  const trimmed = candidate.trim();
+  if (!trimmed || path.isAbsolute(trimmed) || CLI_TRAVERSAL_SEG_RE.test(trimmed)) {
+    return trimmed;
+  }
+  return path.resolve(cwd, trimmed);
+}
+
 export function parseQuickstartCliArgs(
   tail: readonly string[],
   cwd: string = process.cwd()
@@ -523,7 +534,7 @@ export function parseQuickstartCliArgs(
 
   return {
     command: CMD_QUICKSTART,
-    projectPath: state.projectPath,
+    projectPath: resolveRelativeToCwd(state.projectPath, cwd),
     tier: state.rawTier !== undefined ? validateQuickstartTier(state.rawTier) : undefined,
     lang: state.rawLang !== undefined ? validateSupportedLang(state.rawLang) : undefined,
     agents: state.rawAgents !== undefined ? parseAgentsOption(state.rawAgents) : undefined,
@@ -642,11 +653,12 @@ function parseDirectSubcommandTail(
 function buildFinalParsedArgs(
   command: CliCommandName,
   tail: readonly string[],
-  state: MutableParseState
+  state: MutableParseState,
+  cwd: string
 ): ParsedCliArgs {
   return {
     command,
-    projectPath: state.projectPath,
+    projectPath: resolveRelativeToCwd(state.projectPath, cwd),
     explicitProjectPath: state.explicitProjectPath,
     lang: validateSupportedLang(state.rawLang ?? process.env.QA_OUTPUT_LANG ?? 'auto'),
     agents: state.rawAgents !== undefined ? parseAgentsOption(state.rawAgents) : undefined,
@@ -696,7 +708,7 @@ export function parseCliArgs(
     i += applyCliToken(tail, i, state, command);
   }
 
-  return buildFinalParsedArgs(command, tail, state);
+  return buildFinalParsedArgs(command, tail, state, cwd);
 }
 
 function buildInstallSkillForwardArgs(parsed: ParsedCliArgs): string[] {
@@ -960,6 +972,7 @@ const LAZY_CLI_HANDLERS: Readonly<Record<LazySubcommand, LazyCliHandler>> = Obje
     const { runUpgradeCli } = await import('./cli/upgrade.js');
     return await runUpgradeCli(tail, {
       homeDir: deps.homeDir,
+      cwd: deps.cwd,
       fetcher: deps.fetcher,
     });
   },

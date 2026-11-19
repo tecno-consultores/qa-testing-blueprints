@@ -128,6 +128,7 @@ export function getBrowserMcpCandidatePaths(
     CLAUDE_CODE_MCP_REL_PATH,
     CURSOR_MCP_REL_PATH,
     WINDSURF_MCP_REL_PATH,
+    CODEX_MCP_REL_PATH,
     resolveClaudeDesktopMcpRelPath(platform),
     HERMES_CANONICAL_MCP_REL_PATH,
     HERMES_FALLBACK_MCP_REL_PATH,

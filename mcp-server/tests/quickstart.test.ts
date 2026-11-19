@@ -391,6 +391,11 @@ describe('T5.1: Quickstart CLI & PR-Aware Composite GitHub Action', () => {
       expect(validateQuickstartCi()).toBe('github');
       expect(() => validateQuickstartTier('gold')).toThrow('Unsupported tier');
       expect(() => validateQuickstartCi('jenkins')).toThrow('Unsupported CI target');
+
+      expect(parseQuickstartCliArgs(['subproject'], '/tmp/base').projectPath).toBe(
+        path.resolve('/tmp/base', 'subproject')
+      );
+      expect(parseQuickstartCliArgs(['../escape'], '/tmp/base').projectPath).toBe('../escape');
     });
 
     it('wires quickstart in cli.ts with --json, Pass-Quiet summary, defaults, and Fail-Closed errors', async () => {

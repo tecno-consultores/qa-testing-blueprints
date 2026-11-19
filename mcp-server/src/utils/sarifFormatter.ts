@@ -40,29 +40,64 @@ export function severityToSarifLevel(severity: SarifSeverity): SarifLevel {
 }
 
 function normalizeArtifactUri(rawFile: string): string {
-  const cleaned = rawFile.replace(/\\/g, '/').replace(/^\.\//, '').trim();
-  return cleaned.length > 0 ? cleaned : '.';
+  let cleaned = rawFile.replace(/\\/g, '/').trim();
+  while (cleaned.startsWith('./')) {
+    cleaned = cleaned.slice(2);
+  }
+  if (cleaned.length === 0) {
+    return '.';
+  }
+  return cleaned
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
 }
+
+interface MutableSarifRule {
+  readonly rule: Record<string, unknown>;
+  hasExplicitRemediation: boolean;
+  highestLevel: SarifLevel;
+}
+
+const SARIF_LEVEL_RANK: Readonly<Record<SarifLevel, number>> = {
+  note: 0,
+  warning: 1,
+  error: 2,
+};
 
 function buildSarifRules(
   findings: readonly SarifFindingInput[]
 ): Record<string, unknown>[] {
-  const seen = new Map<string, Record<string, unknown>>();
+  const seen = new Map<string, MutableSarifRule>();
   for (const item of findings) {
-    if (seen.has(item.ruleId)) {
+    const level = severityToSarifLevel(item.severity);
+    const existing = seen.get(item.ruleId);
+    if (existing) {
+      if (!existing.hasExplicitRemediation && item.remediation) {
+        existing.rule.help = { text: redactPiiAndSecrets(item.remediation) };
+        existing.hasExplicitRemediation = true;
+      }
+      if (SARIF_LEVEL_RANK[level] > SARIF_LEVEL_RANK[existing.highestLevel]) {
+        existing.rule.defaultConfiguration = { level };
+        existing.highestLevel = level;
+      }
       continue;
     }
     const helpText = item.remediation
       ? redactPiiAndSecrets(item.remediation)
       : redactPiiAndSecrets(item.message);
     seen.set(item.ruleId, {
-      id: item.ruleId,
-      shortDescription: { text: item.ruleId },
-      help: { text: helpText },
-      defaultConfiguration: { level: severityToSarifLevel(item.severity) },
+      hasExplicitRemediation: Boolean(item.remediation),
+      highestLevel: level,
+      rule: {
+        id: item.ruleId,
+        shortDescription: { text: item.ruleId },
+        help: { text: helpText },
+        defaultConfiguration: { level },
+      },
     });
   }
-  return Array.from(seen.values());
+  return Array.from(seen.values(), (entry) => entry.rule);
 }
 
 function buildSarifResultEntry(item: SarifFindingInput): Record<string, unknown> {

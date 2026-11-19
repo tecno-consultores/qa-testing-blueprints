@@ -5,6 +5,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { resolveRealTarget, resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { inspectProjectConfig } from './inspect-project.js';
+import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 import {
   CONNECTOR_START_MARKER,
   CONNECTOR_END_MARKER,
@@ -443,7 +444,13 @@ export function parseAgentsOption(rawAgents: string): AgentsTargetSpec {
 }
 
 function hasTraversalSegments(normalizedRel: string): boolean {
-  if (!normalizedRel || normalizedRel.includes('\0') || path.isAbsolute(normalizedRel) || /^[A-Za-z]:/.test(normalizedRel)) {
+  if (
+    !normalizedRel ||
+    normalizedRel === '.' ||
+    normalizedRel.includes('\0') ||
+    path.isAbsolute(normalizedRel) ||
+    /^[A-Za-z]:/.test(normalizedRel)
+  ) {
     return true;
   }
   const parts = normalizedRel.split(/[/\\]+/);
@@ -460,8 +467,11 @@ export function resolveSafeBridgePath(projectRoot: string, relBridgePath: string
     throw new Error(`Path traversal detected in bridge path '${relBridgePath}'.`);
   }
 
-  const rootResolved = path.resolve(projectRoot);
+  const rootResolved = resolveSafeProjectPath(projectRoot);
   const candidate = path.resolve(rootResolved, normalizedRel);
+  if (candidate === rootResolved) {
+    throw new Error(`Path traversal detected in bridge path '${relBridgePath}'.`);
+  }
   const realRoot = resolveRealTarget(rootResolved);
   const realRootPrefix = realRoot.endsWith(path.sep) ? realRoot : `${realRoot}${path.sep}`;
   const realCandidate = resolveRealTarget(candidate);
@@ -476,9 +486,15 @@ export function detectProjectAgents(projectRoot: string): SupportedAiAgentId[] {
   const detected: SupportedAiAgentId[] = [];
   for (const agentId of SUPPORTED_AGENT_IDS) {
     const descriptor = SUPPORTED_AI_AGENTS[agentId];
-    const matched = descriptor.detectPaths.some((rel) =>
-      fs.existsSync(resolveSafeBridgePath(projectRoot, rel))
-    );
+    const matched = descriptor.detectPaths.some((rel) => {
+      try {
+        return fs.existsSync(resolveSafeBridgePath(projectRoot, rel));
+      } catch (err: unknown) {
+        // External or dangling dot-directory symlinks are safely ignored during passive auto-detection
+        reportDebugCatchError(`initAgentsMd.detectProjectAgents(${rel})`, err);
+        return false;
+      }
+    });
     if (matched) {
       detected.push(agentId);
     }
@@ -704,7 +720,7 @@ export async function initOrAppendAgentsMd(
 
   const resolvedPath = resolveValidProjectDirectory(rawProjectPath);
   const lang = validateSupportedLang(options.lang);
-  const dryRun = Boolean(options.dryRun ?? options.dry_run);
+  const dryRun = options.dryRun ?? options.dry_run ?? true;
   const inspection = await inspectProjectConfig(resolvedPath);
   const detectedStacks = inspection.detected_stacks;
   const projectName = resolveProjectDisplayName(resolvedPath);

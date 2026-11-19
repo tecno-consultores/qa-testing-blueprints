@@ -409,22 +409,32 @@ describe('CLI Arg Helpers, Doctor & Upgrade Subcommands (QA-11X)', () => {
       expect(errRun.errorMessage).toContain('❌ [doctor]');
       expect(errs).toHaveLength(1);
 
-      process.env.HOME = homeDir;
+      const prevHome = process.env.HOME;
+      childProcessMockState.dockerBehavior = 'throw';
       const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
       const consoleErrSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-      const fetcher = new GitHubFetcher({ cacheDir: path.join(tmpRoot, 'bp-cache') });
-      expect(await dispatchCliArgs(['--version', '--verbose'], fetcher)).toBe(0);
-      expect(await dispatchCliArgs(['-v', '--json'], fetcher)).toBe(0);
-      expect(await dispatchCliArgs(['--json', '--version'], fetcher)).toBe(0);
-      expect(await dispatchCliArgs(['version'], fetcher)).toBe(0);
-      expect(await dispatchCliArgs(['--version', '--bogus'], fetcher)).toBe(1);
-      expect(await dispatchCliArgs(['help', 'audit'], fetcher)).toBe(0);
-      expect(consoleLogSpy).toHaveBeenCalledTimes(5);
-      expect(consoleLogSpy).toHaveBeenNthCalledWith(4, MCP_SERVER_VERSION);
-      expect(consoleLogSpy).toHaveBeenNthCalledWith(5, AUDIT_HELP_TEXT);
-      expect(consoleErrSpy).toHaveBeenCalledTimes(1);
-      const jsonLogged = String(consoleLogSpy.mock.calls[2]?.[0] ?? '{}');
-      expect((JSON.parse(jsonLogged) as DoctorReport).mcp_version).toBe(MCP_SERVER_VERSION);
+      try {
+        process.env.HOME = homeDir;
+        const fetcher = new GitHubFetcher({ cacheDir: path.join(tmpRoot, 'bp-cache') });
+        expect(await dispatchCliArgs(['--version', '--verbose'], fetcher)).toBe(0);
+        expect(await dispatchCliArgs(['-v', '--json'], fetcher)).toBe(0);
+        expect(await dispatchCliArgs(['--json', '--version'], fetcher)).toBe(0);
+        expect(await dispatchCliArgs(['version'], fetcher)).toBe(0);
+        expect(await dispatchCliArgs(['--version', '--bogus'], fetcher)).toBe(1);
+        expect(await dispatchCliArgs(['help', 'audit'], fetcher)).toBe(0);
+        expect(consoleLogSpy).toHaveBeenCalledTimes(5);
+        expect(consoleLogSpy).toHaveBeenNthCalledWith(4, MCP_SERVER_VERSION);
+        expect(consoleLogSpy).toHaveBeenNthCalledWith(5, AUDIT_HELP_TEXT);
+        expect(consoleErrSpy).toHaveBeenCalledTimes(1);
+        const jsonLogged = String(consoleLogSpy.mock.calls[2]?.[0] ?? '{}');
+        expect((JSON.parse(jsonLogged) as DoctorReport).mcp_version).toBe(MCP_SERVER_VERSION);
+      } finally {
+        childProcessMockState.dockerBehavior = 'pass-through';
+        consoleLogSpy.mockRestore();
+        consoleErrSpy.mockRestore();
+        if (prevHome === undefined) delete process.env.HOME;
+        else process.env.HOME = prevHome;
+      }
 
       const helpDocLogs: string[] = [];
       const helpDocErrs: string[] = [];
@@ -567,6 +577,22 @@ describe('CLI Arg Helpers, Doctor & Upgrade Subcommands (QA-11X)', () => {
         hashDir: 'null-deps',
         pkgJsonContent: JSON.stringify({ dependencies: null }),
       });
+      const devDepsHash = seedNpxPackage({
+        homeDir,
+        hashDir: 'dev-deps',
+        pkgJsonContent: JSON.stringify({
+          dependencies: { '@sinfallas/mcp-qa-11x': '^3.0.0' },
+          devDependencies: { eslint: '^9.0.0' },
+        }),
+      });
+      const optDepsHash = seedNpxPackage({
+        homeDir,
+        hashDir: 'opt-deps',
+        pkgJsonContent: JSON.stringify({
+          dependencies: { '@sinfallas/mcp-qa-11x': '^3.0.0' },
+          optionalDependencies: { fsevents: '^2.0.0' },
+        }),
+      });
       const bpCacheDir = path.join(homeDir, '.cache', 'qa-11x-blueprints');
       writeFile(path.join(bpCacheDir, 'manifest.json'), '{}');
 
@@ -606,6 +632,8 @@ describe('CLI Arg Helpers, Doctor & Upgrade Subcommands (QA-11X)', () => {
       expect(fs.existsSync(path.join(corruptPkgHash, 'node_modules', '@sinfallas', 'mcp-qa-11x'))).toBe(false);
       expect(fs.existsSync(noPkgHash)).toBe(true);
       expect(fs.existsSync(nullDepsHash)).toBe(true);
+      expect(fs.existsSync(devDepsHash)).toBe(true);
+      expect(fs.existsSync(optDepsHash)).toBe(true);
     });
 
     it('executes installSkillRunner without --reconcile by default, honors explicit --reconcile, silences logs in --json mode, and handles errors', async () => {
@@ -620,7 +648,11 @@ describe('CLI Arg Helpers, Doctor & Upgrade Subcommands (QA-11X)', () => {
         installSkillRunner: installSpy,
       });
       expect(fullRes.exitCode).toBe(0);
-      expect(installSpy).toHaveBeenCalledWith(['--target', 'claude'], fetcher);
+      expect(installSpy).toHaveBeenCalledWith(
+        ['--target', 'claude'],
+        fetcher,
+        expect.objectContaining({ homeDir })
+      );
       expect(fullRes.output).toContain('APLICADO');
       expect(fullRes.output).toContain('skills_synced=true');
 
@@ -630,7 +662,11 @@ describe('CLI Arg Helpers, Doctor & Upgrade Subcommands (QA-11X)', () => {
         installSkillRunner: installSpy,
       });
       expect(reconcileRes.exitCode).toBe(0);
-      expect(installSpy).toHaveBeenLastCalledWith(['--target', 'claude', '--reconcile'], fetcher);
+      expect(installSpy).toHaveBeenLastCalledWith(
+        ['--target', 'claude', '--reconcile'],
+        fetcher,
+        expect.objectContaining({ homeDir })
+      );
 
       // Real runInstallSkillCli with --json keeps stdout pure JSON (human logs suppressed)
       const localBp = path.join(tmpRoot, 'local-bp');

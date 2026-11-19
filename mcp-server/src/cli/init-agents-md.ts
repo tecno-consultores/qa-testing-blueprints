@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
+import * as path from 'node:path';
 import { pickAt } from '../utils/diagnosticFormatter.js';
 import { hasHelpFlag, matchFlagValue } from './cliArgHelpers.js';
 import {
@@ -153,6 +154,16 @@ function consumeInitAgentsToken(
   return assignInitAgentsPositional(arg, state);
 }
 
+const INIT_TRAVERSAL_SEG_RE = /(?:^|[\\/])\.\.(?:[\\/]|$)/;
+
+function resolveInitProjectPath(rawPath: string, defaultCwd: string): string {
+  const trimmed = rawPath.trim();
+  if (!trimmed || path.isAbsolute(trimmed) || INIT_TRAVERSAL_SEG_RE.test(trimmed)) {
+    return trimmed;
+  }
+  return path.resolve(defaultCwd, trimmed);
+}
+
 export function parseInitAgentsArgs(
   args: string[],
   defaultCwd: string = process.cwd()
@@ -175,7 +186,7 @@ export function parseInitAgentsArgs(
   }
 
   return {
-    projectPath: state.projectPath,
+    projectPath: resolveInitProjectPath(state.projectPath, defaultCwd),
     dryRun: state.dryRun,
     lang: resolveLangOption(state.rawLang),
     ...(state.rawAgents !== undefined ? { agents: parseAgentsOption(state.rawAgents) } : {}),

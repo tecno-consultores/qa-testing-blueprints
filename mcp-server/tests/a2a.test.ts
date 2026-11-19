@@ -52,7 +52,7 @@ afterEach(async () => {
 });
 
 describe('Agent2Agent Card Generator (buildAgentCard)', () => {
-  it('genera el manifiesto por defecto con las 11 skills v2.0, extensión task-capacity y seguridad 11X', () => {
+  it('genera el manifiesto por defecto con las 11 skills QA-11X, extensión task-capacity y seguridad 11X', () => {
     const card = buildAgentCard();
     const expectedStandardVersion = deriveStandardVersion(MCP_SERVER_VERSION);
 

@@ -83,7 +83,12 @@ const CERTIFY_BOOL_FLAGS: Readonly<Record<string, (state: ParsedCertifyArgs) => 
   },
 };
 
-const CERTIFY_VALUE_FLAGS = new Set([FLAG_PROJECT_PATH, FLAG_PROJECT_PATH_SHORT, FLAG_JUNIT_XML]);
+const CERTIFY_VALUE_FLAGS = new Set([
+  FLAG_PROJECT_PATH,
+  FLAG_PROJECT_PATH_SHORT,
+  '--dir',
+  FLAG_JUNIT_XML,
+]);
 
 function assignCertifyValue(valueMatch: FlagValueMatch, state: ParsedCertifyArgs): number {
   if (valueMatch.flag === FLAG_JUNIT_XML) {

@@ -169,11 +169,11 @@ function detectNodeFrameworks(
   const content = fs.readFileSync(packageJsonPath, UTF8_ENCODING);
   const depNames = extractPackageDepNames(content);
   let matchedUiOrMobile = isMobileDir;
-  if (content.includes('"vue"') || content.includes("'vue'")) {
+  if (hasAnyPackageDep(content, depNames, ['vue'])) {
     addDetectedStack(detectedStacks, 'vue3');
     matchedUiOrMobile = true;
   }
-  if (content.includes('"react"') || content.includes("'react'")) {
+  if (hasAnyPackageDep(content, depNames, ['react'])) {
     addDetectedStack(detectedStacks, REACT_FRONTEND_STACK);
     matchedUiOrMobile = true;
   }
@@ -183,11 +183,13 @@ function detectNodeFrameworks(
   }
   detectAuxiliaryNodeDeps(content, depNames, detectedStacks);
   const isBackendOrCli =
-    content.includes('"express"') ||
-    content.includes('"fastify"') ||
-    content.includes('"@nestjs/core"') ||
-    content.includes('"@modelcontextprotocol/sdk"') ||
-    (!matchedUiOrMobile && (content.includes('"typescript"') || content.includes('"vitest"')));
+    hasAnyPackageDep(content, depNames, [
+      'express',
+      'fastify',
+      '@nestjs/core',
+      '@modelcontextprotocol/sdk',
+    ]) ||
+    (!matchedUiOrMobile && hasAnyPackageDep(content, depNames, ['typescript', 'vitest']));
   if (isBackendOrCli) {
     addDetectedStack(detectedStacks, NODE_BACKEND_STACK);
   }
@@ -328,19 +330,23 @@ interface PhpStackContext {
 
 function inspectPhpStack(ctx: PhpStackContext): void {
   const { projectPath, files, detectedStacks, strictFlags, missing11xFiles } = ctx;
-  const composerPath = path.join(projectPath, COMPOSER_JSON_FILE);
-  const hasComposer = fs.existsSync(composerPath);
+  const phpBases = [projectPath, path.join(projectPath, PHP_STACK_NAME)];
+  const hasComposer = phpBases.some((base) => fs.existsSync(path.join(base, COMPOSER_JSON_FILE)));
   const hasPhpFiles = files.some((f) => f.endsWith('.php'));
   if (!hasComposer && !hasPhpFiles) {
     return;
   }
   detectedStacks.push(PHP_STACK_NAME);
-  const hasPhpstan =
-    fs.existsSync(path.join(projectPath, PHPSTAN_NEON_FILE)) ||
-    fs.existsSync(path.join(projectPath, 'phpstan.neon.dist'));
-  const hasInfection =
-    fs.existsSync(path.join(projectPath, 'infection.json5')) ||
-    fs.existsSync(path.join(projectPath, 'infection.json.dist'));
+  const hasPhpstan = phpBases.some(
+    (base) =>
+      fs.existsSync(path.join(base, PHPSTAN_NEON_FILE)) ||
+      fs.existsSync(path.join(base, 'phpstan.neon.dist'))
+  );
+  const hasInfection = phpBases.some(
+    (base) =>
+      fs.existsSync(path.join(base, 'infection.json5')) ||
+      fs.existsSync(path.join(base, 'infection.json.dist'))
+  );
   strictFlags.phpstan_strict = hasPhpstan;
   strictFlags.infection_mutation = hasInfection;
   if (!hasPhpstan) {
@@ -388,6 +394,7 @@ function checkPackageInstalled(projectPath: string, packageName: string): boolea
     path.join(projectPath, PACKAGE_JSON),
     path.join(projectPath, 'vue3', PACKAGE_JSON),
     path.join(projectPath, REACT_FRONTEND_STACK, PACKAGE_JSON),
+    path.join(projectPath, 'frontend', PACKAGE_JSON),
   ];
   for (const p of candidatePaths) {
     if (fs.existsSync(p) && hasDependencyInPackageFile(p, packageName)) {

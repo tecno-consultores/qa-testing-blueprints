@@ -455,29 +455,53 @@ function skipWhitespace(text: string, idx: number): number {
   return pos;
 }
 
+function consumeUnquotedAttrValue(attrSlice: string, valStart: number): number {
+  let end = valStart;
+  while (end < attrSlice.length && !isWhitespaceChar(attrSlice.charAt(end))) {
+    end += 1;
+  }
+  return end;
+}
+
+function readNextAttrPair(
+  attrSlice: string,
+  startPos: number
+): { key: string; value: string; nextPos: number } | null {
+  const pos = skipWhitespace(attrSlice, startPos);
+  const eqIdx = attrSlice.indexOf('=', pos);
+  if (eqIdx === -1) {
+    return null;
+  }
+  const key = attrSlice.slice(pos, eqIdx).trim();
+  const valStart = skipWhitespace(attrSlice, eqIdx + 1);
+  const quote = attrSlice[valStart];
+  if (quote !== '"' && quote !== "'") {
+    const unquotedEnd = consumeUnquotedAttrValue(attrSlice, valStart);
+    return {
+      key: unquotedEnd > valStart ? key : '',
+      value: attrSlice.slice(valStart, unquotedEnd),
+      nextPos: Math.max(unquotedEnd, eqIdx + 1),
+    };
+  }
+  const valEnd = attrSlice.indexOf(quote, valStart + 1);
+  if (valEnd === -1) {
+    return null;
+  }
+  return { key, value: attrSlice.slice(valStart + 1, valEnd), nextPos: valEnd + 1 };
+}
+
 function parseAttributes(attrSlice: string): Record<string, string> {
   const attrs: Record<string, string> = {};
   let pos = 0;
   while (pos < attrSlice.length) {
-    pos = skipWhitespace(attrSlice, pos);
-    const eqIdx = attrSlice.indexOf('=', pos);
-    if (eqIdx === -1) {
+    const pair = readNextAttrPair(attrSlice, pos);
+    if (!pair) {
       break;
     }
-    const key = attrSlice.slice(pos, eqIdx).trim();
-    const valStart = skipWhitespace(attrSlice, eqIdx + 1);
-    const quote = attrSlice[valStart];
-    if (quote !== '"' && quote !== "'") {
-      break;
+    if (pair.key.length > 0) {
+      attrs[pair.key] = pair.value;
     }
-    const valEnd = attrSlice.indexOf(quote, valStart + 1);
-    if (valEnd === -1) {
-      break;
-    }
-    if (key.length > 0) {
-      attrs[key] = attrSlice.slice(valStart + 1, valEnd);
-    }
-    pos = valEnd + 1;
+    pos = pair.nextPos;
   }
   return attrs;
 }
@@ -661,15 +685,10 @@ function processJunitToken(acc: JunitAccumulator, token: XmlTagToken): void {
 }
 
 function finalizeJunitAccumulator(acc: JunitAccumulator): JunitSignalSummary {
-  const baseTests = acc.suiteTests > 0 ? acc.suiteTests : acc.rootTests;
-  const baseFailures = acc.suiteFailures > 0 ? acc.suiteFailures : acc.rootFailures;
-  const baseErrors = acc.suiteErrors > 0 ? acc.suiteErrors : acc.rootErrors;
-  const baseSkipped = acc.suiteSkipped > 0 ? acc.suiteSkipped : acc.rootSkipped;
-
-  const totalTests = Math.max(baseTests, acc.observedCases);
-  const failures = Math.max(baseFailures, acc.observedFailures);
-  const errors = Math.max(baseErrors, acc.observedErrors);
-  const skipped = Math.max(baseSkipped, acc.observedSkipped);
+  const totalTests = Math.max(acc.suiteTests, acc.rootTests, acc.observedCases);
+  const failures = Math.max(acc.suiteFailures, acc.rootFailures, acc.observedFailures);
+  const errors = Math.max(acc.suiteErrors, acc.rootErrors, acc.observedErrors);
+  const skipped = Math.max(acc.suiteSkipped, acc.rootSkipped, acc.observedSkipped);
   const executedTests = Math.max(0, totalTests - skipped);
   const passed = Math.max(0, executedTests - failures - errors);
   const passRatePct = executedTests > 0 ? Number(((passed / executedTests) * 100).toFixed(2)) : 0;

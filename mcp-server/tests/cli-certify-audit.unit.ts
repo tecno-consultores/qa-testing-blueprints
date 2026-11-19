@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
+import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -144,11 +145,25 @@ describe('SARIF Formatter, Certify & Audit CLI Subcommands (QA-11X)', () => {
 
       const second = run.results[1] as {
         locations: Array<{ physicalLocation: { artifactLocation: { uri: string }; region: { startLine: number } } }>;
-        properties: { remediation?: string };
+        properties?: { remediation?: string };
       };
       expect(second.locations[0]?.physicalLocation.artifactLocation.uri).toBe('.');
       expect(second.locations[0]?.physicalLocation.region.startLine).toBe(1);
-      expect(second.properties.remediation).toBeUndefined();
+      expect(second.properties?.remediation).toBeUndefined();
+
+      // Rule remediation upgrades when first occurrence lacks remediation and second provides it + space/hash encoding in URI
+      const upgradedRule = buildSarifLog([
+        { ruleId: 'R-UP', severity: 'MEDIUM', message: 'first without rem', file: 'dir with space/a#1.ts', line: 2 },
+        { ruleId: 'R-UP', severity: 'HIGH', message: 'second with rem', file: './a.ts', line: 3, remediation: 'Fix R-UP' },
+      ]);
+      const upRun = (upgradedRule.runs as Array<{
+        tool: { driver: { rules: Array<{ defaultConfiguration?: { level?: string }; help?: { text?: string } }> } };
+        results: Array<{ locations: Array<{ physicalLocation: { artifactLocation: { uri: string } } }> }>;
+      }>)[0];
+      expect(upRun?.tool.driver.rules[0]?.defaultConfiguration?.level).toBe('error');
+      expect(upRun?.tool.driver.rules[0]?.help?.text).toBe('Fix R-UP');
+      expect(upRun?.results[0]?.locations[0]?.physicalLocation.artifactLocation.uri).toBe('dir%20with%20space/a%231.ts');
+      expect(upRun?.results[1]?.locations[0]?.physicalLocation.artifactLocation.uri).toBe('a.ts');
 
       const custom = buildSarifLog(
         [{ ruleId: 'R1', severity: 'LOW', message: 'msg', file: 'a.ts', line: -5 }],
@@ -221,6 +236,26 @@ describe('SARIF Formatter, Certify & Audit CLI Subcommands (QA-11X)', () => {
       expect(jsonPassBody.exit_code).toBe(0);
       expect(jsonPassBody.certify.gate_passed).toBe(true);
       expect(jsonPassBody.certify.check_statuses.lint_evidence_verified).toBe('SKIPPED');
+
+      // Git repo without lint evidence fails when --require-lint-evidence is enabled
+      const gitProj = path.join(tmpRoot, 'git-lint-proj');
+      fs.mkdirSync(gitProj, { recursive: true });
+      seedCleanCertifyProject(gitProj, true);
+      const gitBin =
+        ['/usr/bin/git', '/bin/git', '/usr/local/bin/git'].find((p) => fs.existsSync(p)) ??
+        '/usr/bin/git';
+      execFileSync(gitBin, ['init', '-b', 'main'], { cwd: gitProj, stdio: 'pipe' });
+      execFileSync(gitBin, ['config', 'user.email', 'qa@example.invalid'], { cwd: gitProj, stdio: 'pipe' });
+      execFileSync(gitBin, ['config', 'user.name', 'QA'], { cwd: gitProj, stdio: 'pipe' });
+      execFileSync(gitBin, ['add', '.'], { cwd: gitProj, stdio: 'pipe' });
+      execFileSync(gitBin, ['commit', '-m', 'init'], { cwd: gitProj, stdio: 'pipe' });
+      writeFile(path.join(gitProj, 'src', 'dirty.ts'), 'export const dirty = 1;\n');
+      const missingLintRes = await runCertifyCli(
+        [gitProj, '--require-lint-evidence', '--allow-unmerged-examples', '--offline'],
+        { cwd: gitProj, homeDir }
+      );
+      expect(missingLintRes.exitCode).toBe(1);
+      expect(missingLintRes.output).toContain('run_ephemeral_qa(stage="lint")');
     });
 
     it('evaluates --release-gate (NO_GO -> exitCode=30 and GO -> exitCode=0) and cli.ts routing', async () => {
@@ -450,6 +485,24 @@ describe('SARIF Formatter, Certify & Audit CLI Subcommands (QA-11X)', () => {
       );
       expect(flagProjectAllCalm.exitCode).toBe(0);
       expect((JSON.parse(flagProjectAllCalm.output) as { calm_status: string }).calm_status).toBe('FAILED');
+
+      const dirFlagSecurityRes = await runAuditCli(
+        ['--dir', emptyWs, '--mode', 'security', '--fail-on', 'medium'],
+        { cwd: tmpRoot }
+      );
+      expect(dirFlagSecurityRes.exitCode).toBe(0);
+
+      const dirFlagRes = await runAuditCli(
+        ['--dir', emptyWs, '--mode', 'vibe', '--fail-on', 'medium'],
+        { cwd: tmpRoot }
+      );
+      expect(dirFlagRes.exitCode).toBe(1);
+
+      const dirProjMediumRes = await runAuditCli(
+        ['--dir', projDir, '--mode', 'vibe', '--fail-on', 'medium', '--json'],
+        { cwd: tmpRoot }
+      );
+      expect(dirProjMediumRes.exitCode).toBe(1);
     });
   });
 });

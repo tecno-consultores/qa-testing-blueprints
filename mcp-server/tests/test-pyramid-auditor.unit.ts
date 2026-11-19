@@ -25,6 +25,8 @@ import {
   evaluateLayer13TrimodalFixtures,
   buildPrioritizedActionPlan,
 } from '../src/tools/test-pyramid-auditor.js';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createMcpServer } from '../src/server.js';
 import { MissingTestInventory } from '../src/types.js';
 
@@ -563,13 +565,24 @@ router.post('/checkout', (req, res) => {});
     expect(plan.some((p) => p.priority === 'MEDIUM')).toBe(true);
   });
 
-  it('runs through McpServer registered tool successfully', async () => {
+  it('runs through McpServer registered tool successfully via InMemoryTransport', async () => {
     const server = createMcpServer();
-    expect(server).toBeDefined();
-    // Test direct call
-    const result = await auditTestPyramidGaps(tmpDir);
-    expect(result).toBeDefined();
-    expect(result.summary_counts).toBeDefined();
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: 'pyramid-unit-client', version: '1.0.0' });
+    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+    try {
+      const mcpRes = await client.callTool({
+        name: 'audit_test_pyramid_gaps',
+        arguments: { project_path: tmpDir },
+      });
+      expect(mcpRes.isError).not.toBe(true);
+      const rawText = (mcpRes.content as Array<{ text?: string }>)[0]?.text ?? '';
+      const parsed = JSON.parse(rawText) as { summary_counts: unknown };
+      expect(parsed.summary_counts).toBeDefined();
+    } finally {
+      await client.close();
+      await server.close();
+    }
   });
 
   // ============================================================================
@@ -1147,17 +1160,6 @@ def create_item(): pass
   });
 
   it('evaluates mobile-appium, ai-evals, and vibe-rescue stacks cleanly without misclassifying orphans', async () => {
-    const orphanCandidates = [
-      'src/wdio.conf.ts',
-      'mobile-appium/src/LoginScreen.ts',
-      'src/DeviceBridge.ts',
-      'ai-evals/src/rag_eval.py',
-      'ai-evals/src/prompt_runner.ts',
-      'ai-evals/rag/test_rag_faithfulness.py',
-      'mobile-appium/tests/mobile_screenplay.spec.ts',
-      'vibe-rescue/src/sanitizer.py',
-      'vibe-rescue/src/env_guard.ts',
-    ];
     const mobileOrphans = findOrphanSourceFiles(tmpDir, ['src/wdio.conf.ts', 'mobile-appium/src/LoginScreen.ts', 'src/DeviceBridge.ts'], ['mobile-appium']);
     expect(mobileOrphans.map((o) => o.source_file)).not.toContain('src/wdio.conf.ts');
     expect(mobileOrphans.every((o) => o.stack === 'mobile-appium')).toBe(true);
@@ -1167,7 +1169,12 @@ def create_item(): pass
 
     const vibeOrphans = findOrphanSourceFiles(tmpDir, ['vibe-rescue/src/sanitizer.py', 'vibe-rescue/src/env_guard.ts', 'src/rls_check.py', 'src/guard.ts'], ['vibe-rescue']);
     expect(vibeOrphans.every((o) => o.stack === 'vibe-rescue')).toBe(true);
-    expect(orphanCandidates).toHaveLength(9);
+
+    // Hybrid .tsx resolves to react-frontend & docs/exploit.py stays excluded from L11/L12/L13 doc ignore
+    const hybridOrphans = findOrphanSourceFiles(tmpDir, ['src/AppCard.tsx', 'frontend/src/LoginView.tsx'], ['node-backend', 'react-frontend']);
+    expect(hybridOrphans.every((o) => o.stack === 'react-frontend')).toBe(true);
+    const docsIgnoredDast = evaluateLayer11DastZap(tmpDir, ['docs/readme.md'], ['fastapi']);
+    expect(docsIgnoredDast.status).toBe('MISSING');
 
     // AI Evals full 11X audit (L01, L02, L03, L13)
     const aiDir = path.join(tmpDir, 'ai-evals-proj');

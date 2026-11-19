@@ -143,18 +143,21 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
 
       // shouldExitInteractiveTty matrix
       const prevForceStdio = process.env.QA_FORCE_STDIO;
-      delete process.env.QA_FORCE_STDIO;
-      expect(shouldExitInteractiveTty('stdio', false, true)).toBe(true);
-      expect(shouldExitInteractiveTty('stdio', false, false)).toBe(false);
-      expect(shouldExitInteractiveTty('stdio-forced', false, true)).toBe(false);
-      expect(shouldExitInteractiveTty('stdio', true, true)).toBe(false);
-      expect(typeof shouldExitInteractiveTty('stdio', false)).toBe('boolean');
-      process.env.QA_FORCE_STDIO = '1';
-      expect(shouldExitInteractiveTty('stdio', false, true)).toBe(false);
-      if (prevForceStdio === undefined) {
+      try {
         delete process.env.QA_FORCE_STDIO;
-      } else {
-        process.env.QA_FORCE_STDIO = prevForceStdio;
+        expect(shouldExitInteractiveTty('stdio', false, true)).toBe(true);
+        expect(shouldExitInteractiveTty('stdio', false, false)).toBe(false);
+        expect(shouldExitInteractiveTty('stdio-forced', false, true)).toBe(false);
+        expect(shouldExitInteractiveTty('stdio', true, true)).toBe(false);
+        expect(typeof shouldExitInteractiveTty('stdio', false)).toBe('boolean');
+        process.env.QA_FORCE_STDIO = '1';
+        expect(shouldExitInteractiveTty('stdio', false, true)).toBe(false);
+      } finally {
+        if (prevForceStdio === undefined) {
+          delete process.env.QA_FORCE_STDIO;
+        } else {
+          process.env.QA_FORCE_STDIO = prevForceStdio;
+        }
       }
 
       const exitCodes: number[] = [];
@@ -163,37 +166,40 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
 
       // Interactive TTY without arguments: runs auto-sync, prints notice, and exits cleanly with 0 (never hangs)
       const prevDisableSync = process.env.QA_DISABLE_AUTO_SYNC;
-      process.env.QA_DISABLE_AUTO_SYNC = '0';
       let autoSyncedInTty = 0;
       const ttyExitCodes: number[] = [];
-      await main([], undefined, {
-        exitFn: (c) => ttyExitCodes.push(c),
-        autoSyncFn: () => {
-          autoSyncedInTty += 1;
-          return Promise.resolve();
-        },
-        isStdinTty: true,
-      });
-      expect(autoSyncedInTty).toBe(1);
-      expect(ttyExitCodes).toEqual([0]);
-      expect(logSpy).toHaveBeenCalledWith(INTERACTIVE_TTY_NOTICE);
+      try {
+        process.env.QA_DISABLE_AUTO_SYNC = '0';
+        await main([], undefined, {
+          exitFn: (c) => ttyExitCodes.push(c),
+          autoSyncFn: () => {
+            autoSyncedInTty += 1;
+            return Promise.resolve();
+          },
+          isStdinTty: true,
+        });
+        expect(autoSyncedInTty).toBe(1);
+        expect(ttyExitCodes).toEqual([0]);
+        expect(logSpy).toHaveBeenCalledWith(INTERACTIVE_TTY_NOTICE);
 
-      // Interactive TTY with QA_DISABLE_AUTO_SYNC='1' skips autoSyncFn and exits with 0
-      process.env.QA_DISABLE_AUTO_SYNC = '1';
-      await main([], undefined, {
-        exitFn: (c) => ttyExitCodes.push(c),
-        autoSyncFn: () => {
-          autoSyncedInTty += 1;
-          return Promise.resolve();
-        },
-        isStdinTty: true,
-      });
-      expect(autoSyncedInTty).toBe(1);
-      expect(ttyExitCodes).toEqual([0, 0]);
-      if (prevDisableSync === undefined) {
-        delete process.env.QA_DISABLE_AUTO_SYNC;
-      } else {
-        process.env.QA_DISABLE_AUTO_SYNC = prevDisableSync;
+        // Interactive TTY with QA_DISABLE_AUTO_SYNC='1' skips autoSyncFn and exits with 0
+        process.env.QA_DISABLE_AUTO_SYNC = '1';
+        await main([], undefined, {
+          exitFn: (c) => ttyExitCodes.push(c),
+          autoSyncFn: () => {
+            autoSyncedInTty += 1;
+            return Promise.resolve();
+          },
+          isStdinTty: true,
+        });
+        expect(autoSyncedInTty).toBe(1);
+        expect(ttyExitCodes).toEqual([0, 0]);
+      } finally {
+        if (prevDisableSync === undefined) {
+          delete process.env.QA_DISABLE_AUTO_SYNC;
+        } else {
+          process.env.QA_DISABLE_AUTO_SYNC = prevDisableSync;
+        }
       }
 
       // Non-TTY stdio mode (normal MCP client pipe)
@@ -432,7 +438,7 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
       expect(driftRes.checks.documentation_synced).toBe(false);
       expect(driftRes.blockers.some((b) => b.includes('Desfase SHA-256'))).toBe(true);
       expect(driftRes.blockers.some((b) => b.includes('missing.txt'))).toBe(true);
-      expect(driftRes.blockers.some((b) => b.includes('ROADMAP.md declara hito 1 al 100%'))).toBe(true);
+      expect(driftRes.blockers.some((b) => b.includes('ROADMAP.md declara Milestone/Hito 1 al 100%'))).toBe(true);
 
       // Fix manifest & roadmap -> documentation_synced becomes true
       fs.writeFileSync(
@@ -473,12 +479,15 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
         {
           path: 'lefthook.yml',
           target_name: 'lefthook.yml',
-          merge_strategy: 'create_if_missing',
+          merge_strategy: 'surgical_merge',
           content: tplYaml,
           sha256_verified: true,
         },
       ]);
       expect(mfRes.summary.merged).toBe(1);
+      const mfDisk = fs.readFileSync(path.join(projDir, 'lefthook.yml'), 'utf8');
+      expect(mfDisk).toContain('custom:');
+      expect(mfDisk).toContain('commit-msg:');
 
       // Thin-Repo fetchStackBundle filtering + install-skill --target all & invalid target
       const repoDir = path.join(tmpDir, 'fake-repo');
@@ -832,7 +841,7 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
             {
               path: 'AGENTS.md',
               target_name: 'AGENTS.md',
-              merge_strategy: 'merge_agents_md' as const,
+              merge_strategy: 'surgical_merge' as const,
               content: '# Template\n',
               sha256_verified: true,
             },

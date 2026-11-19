@@ -182,11 +182,16 @@ function stripGitPrefix(rawPath: string, prefix: string): string {
 function parseDiffFilePath(sectionLines: string[]): string {
   let oldPath = '';
   for (const line of sectionLines) {
-    if (line.startsWith('+++ ') && line !== '+++ /dev/null') {
-      return normalizePosixPath(stripGitPrefix(line.slice(4), 'b/'));
+    if (line.startsWith('@@ ')) {
+      break;
     }
-    if (line.startsWith('--- ') && line !== '--- /dev/null') {
-      oldPath = normalizePosixPath(stripGitPrefix(line.slice(4), 'a/'));
+    if (line.startsWith('+++ ') && !line.startsWith('+++ /dev/null')) {
+      const targetToken = line.slice(4).split('\t')[0] ?? '';
+      return normalizePosixPath(stripGitPrefix(targetToken, 'b/'));
+    }
+    if (line.startsWith('--- ') && !line.startsWith('--- /dev/null')) {
+      const origToken = line.slice(4).split('\t')[0] ?? '';
+      oldPath = normalizePosixPath(stripGitPrefix(origToken, 'a/'));
     }
   }
   if (oldPath) {
@@ -473,8 +478,10 @@ function summarizeTestEntry(entry: RenderedFileEntry): void {
   entry.summary.rendered_diff = summaryText;
 }
 
-function compactEntryIfNeeded(entry: RenderedFileEntry, redaction: RedactionCounter): void {
-  const safeHunks = entry.parsed.hunks.map((h) => applyPromptRedaction(h, redaction));
+function compactEntryIfNeeded(entry: RenderedFileEntry, _redaction: RedactionCounter): void {
+  // Initial renderDiffEntry already counted prompt redactions; avoid double-counting on budget compaction
+  const sinkCounter: RedactionCounter = { occurrences: 0 };
+  const safeHunks = entry.parsed.hunks.map((h) => applyPromptRedaction(h, sinkCounter));
   const compacted = compactCoreFileToSignatures(entry.parsed, safeHunks);
   entry.renderedText = compacted;
   entry.summary.pruned = true;
@@ -569,7 +576,10 @@ export function matchesGlobPattern(relPath: string, rawPattern: string): boolean
   if (normPat.endsWith('/')) {
     normPat = `${normPat}**`;
   }
-  return matchGlobSegments(normPat.split('/'), normPath.split('/'));
+  const collapsedPatSegs = normPat
+    .split('/')
+    .filter((seg, idx, arr) => seg !== '**' || arr[idx - 1] !== '**');
+  return matchGlobSegments(collapsedPatSegs, normPath.split('/'));
 }
 
 function parseGlobListValue(rawVal: string): string[] {
@@ -626,8 +636,18 @@ function parseCheckpointBoundaryGlobs(
   if (!fs.existsSync(checkpointPath)) {
     return undefined;
   }
-  const safeCheckpoint = resolveContainedRealPath(safeWorkspacePath, checkpointPath);
-  const parsed = JSON.parse(fs.readFileSync(safeCheckpoint, 'utf-8')) as Record<string, unknown>;
+  let parsed: Record<string, unknown>;
+  try {
+    const safeCheckpoint = resolveContainedRealPath(safeWorkspacePath, checkpointPath);
+    const raw: unknown = JSON.parse(fs.readFileSync(safeCheckpoint, 'utf-8'));
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      return undefined;
+    }
+    parsed = raw as Record<string, unknown>;
+  } catch (err: unknown) {
+    reportDebugCatchError('diffBundle.parseCheckpointBoundaryGlobs', err);
+    return undefined;
+  }
   const allowed = toStringGlobList(parsed.allowed_globs);
   const forbidden = toStringGlobList(parsed.forbidden_globs);
   if (allowed.length === 0 && forbidden.length === 0) {
@@ -686,7 +706,13 @@ function qualifyGraphRelPath(rawFile: string, stackPrefix: string): string {
 }
 
 function findGraphJsonFiles(dir: string, safeWorkspacePath: string, found: string[]): void {
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch (err: unknown) {
+    reportDebugCatchError(`diffBundle.findGraphJsonFiles(${dir})`, err);
+    return;
+  }
   for (const entry of entries) {
     if (IGNORED_AST_DIRS.has(entry.name)) {
       continue;

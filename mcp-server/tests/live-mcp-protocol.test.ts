@@ -209,8 +209,17 @@ function ensureBuiltDistEntry(): string {
     ? process.cwd()
     : path.resolve(process.cwd(), 'mcp-server');
   const distEntry = path.join(mcpRoot, 'dist', 'index.js');
+  const requiredDistFiles = [
+    distEntry,
+    path.join(mcpRoot, 'dist', 'server.js'),
+    path.join(mcpRoot, 'dist', 'cli.js'),
+  ];
   const srcLatestMtime = getLatestTsMtimeMs(path.join(mcpRoot, 'src'));
-  const needsBuild = !fs.existsSync(distEntry) || srcLatestMtime > fs.statSync(distEntry).mtimeMs;
+  const pkgMtime = fs.statSync(path.join(mcpRoot, 'package.json')).mtimeMs;
+  const minDistMtime = requiredDistFiles.every((f) => fs.existsSync(f))
+    ? Math.min(...requiredDistFiles.map((f) => fs.statSync(f).mtimeMs))
+    : 0;
+  const needsBuild = minDistMtime === 0 || Math.max(srcLatestMtime, pkgMtime) > minDistMtime;
   if (needsBuild) {
     const localTsc = path.join(mcpRoot, 'node_modules', '.bin', 'tsc');
     if (fs.existsSync(localTsc)) {
@@ -251,16 +260,14 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
     const repoPath = resolveOrSeedBlueprintRepo(tmpRoot);
 
     const prevLocalPath = process.env.QA_BLUEPRINTS_LOCAL_PATH;
-    process.env.QA_BLUEPRINTS_LOCAL_PATH = repoPath;
-
+    const taskGuard = new TaskStateGuard({ capacity: 4, defaultTimeoutMs: 10_000 });
     const fetcher = new GitHubFetcher({ cacheDir, localOverridePath: repoPath });
-    const mcpServer = attachPromptGuard(createMcpServer({ fetcher }), {
-      taskGuard: new TaskStateGuard({ capacity: 4, defaultTimeoutMs: 10_000 }),
-    });
+    const mcpServer = attachPromptGuard(createMcpServer({ fetcher }), { taskGuard });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     const client = new Client({ name: 'live-inmemory-client', version: MCP_SERVER_VERSION });
 
     try {
+      process.env.QA_BLUEPRINTS_LOCAL_PATH = repoPath;
       await mcpServer.connect(serverTransport);
       await client.connect(clientTransport);
 
@@ -398,16 +405,22 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
         expect(extractFirstText(badRes)).toContain('[SEC-PATH-01]');
       }
 
-      const cwdRelVibeRes = await client.callTool({
+      const relVibeDir = path.join(wsDir, 'src');
+      fs.mkdirSync(relVibeDir, { recursive: true });
+      fs.writeFileSync(path.join(relVibeDir, 'app.ts'), 'export const ok = true;\n', 'utf8');
+      const relVibeRes = await client.callTool({
         name: 'audit_vibe_prototype',
-        arguments: { targetDir: 'src', dryRun: true },
+        arguments: { workspaceRoot: wsDir, targetDir: 'src', dryRun: true },
       });
-      expect(cwdRelVibeRes.isError).not.toBe(true);
+      expect(relVibeRes.isError).not.toBe(true);
+      expect(extractFirstText(relVibeRes)).toContain('[VIBE-RESCUE]');
 
-      const omittedArgsRes = await client.callTool({
+      const missingArgsRes = await client.callTool({
         name: 'validate_calm_architecture',
+        arguments: { workspaceRoot: wsDir },
       });
-      expect(omittedArgsRes).toBeDefined();
+      expect(missingArgsRes.isError).toBe(true);
+      expect(extractFirstText(missingArgsRes)).toContain('FILE_NOT_FOUND');
 
       const blastRes = await client.callTool({
         name: 'inspect_ast_blast_radius',
@@ -452,6 +465,20 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
         },
       });
       expect(trajSafe.isError).not.toBe(true);
+
+      // TaskStateGuard capacity saturation rejects a 5th concurrent task cleanly
+      let releaseTasks!: () => void;
+      const barrier = new Promise<void>((resolve) => {
+        releaseTasks = resolve;
+      });
+      const heldTasks = Array.from({ length: 4 }, (_, idx) =>
+        taskGuard.executeTask(() => barrier, { taskId: `cap-${idx}`, timeoutMs: 5_000 })
+      );
+      await expect(
+        taskGuard.executeTask(() => Promise.resolve('x'), { taskId: 'cap-overflow', timeoutMs: 5_000 })
+      ).rejects.toThrow();
+      releaseTasks();
+      await Promise.all(heldTasks);
 
       const redTeamRes = await client.callTool({
         name: 'run_llm_red_team',

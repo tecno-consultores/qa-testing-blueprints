@@ -60,13 +60,22 @@ export class SurgicalMerger {
       }
     }
 
-    // Blindaje 11X: Asegurar que el script "lint" que usa eslint aplique --max-warnings 0
+    // Blindaje 11X: Asegurar que cada subcomando eslint en script "lint" aplique --max-warnings 0
     if (
       typeof mergedScripts.lint === 'string' &&
-      mergedScripts.lint.includes('eslint') &&
+      /\beslint\b/.test(mergedScripts.lint) &&
       !mergedScripts.lint.includes('--max-warnings')
     ) {
-      mergedScripts.lint = `${mergedScripts.lint} --max-warnings 0`;
+      const segments = mergedScripts.lint.split(/(&&|\|\||;)/);
+      const patchedSegments = segments.map((part) => {
+        if (!/\beslint\b/.test(part) || part.includes('--max-warnings')) {
+          return part;
+        }
+        const trimmedEnd = part.trimEnd();
+        const trailing = part.slice(trimmedEnd.length);
+        return `${trimmedEnd} --max-warnings 0${trailing}`;
+      });
+      mergedScripts.lint = patchedSegments.join('');
       changes.push('Inyectado flag estricto "--max-warnings 0" en script "lint"');
     }
 
@@ -149,13 +158,33 @@ export class SurgicalMerger {
     );
   }
 
+  private parseAllowBuildsHeaderLine(line: string): { isHeader: boolean; isEmptyMap: boolean } {
+    if (!line.startsWith('allowBuilds:')) {
+      return { isHeader: false, isEmptyMap: false };
+    }
+    const rawRest = line.slice('allowBuilds:'.length);
+    const hashIdx = rawRest.indexOf('#');
+    const codePart = (hashIdx === -1 ? rawRest : rawRest.slice(0, hashIdx)).trim();
+    if (codePart === '') {
+      return { isHeader: true, isEmptyMap: false };
+    }
+    if (codePart === '{}') {
+      return { isHeader: true, isEmptyMap: true };
+    }
+    return { isHeader: false, isEmptyMap: false };
+  }
+
   private extractAllowBuildsEntries(yamlContent: string): Array<[string, string]> {
     const entries: Array<[string, string]> = [];
     const lines = yamlContent.split(/\r?\n/);
     let inBlock = false;
     for (const line of lines) {
-      if (/^allowBuilds:\s*$/.test(line)) {
-        inBlock = true;
+      if (line.trimStart().startsWith('#')) {
+        continue;
+      }
+      const header = this.parseAllowBuildsHeaderLine(line);
+      if (header.isHeader) {
+        inBlock = !header.isEmptyMap;
         continue;
       }
       if (!inBlock) continue;
@@ -209,12 +238,18 @@ export class SurgicalMerger {
     }
 
     const targetLines = targetContent.trimEnd().split(/\r?\n/);
-    const headerIdx = targetLines.findIndex((line) => /^allowBuilds:\s*$/.test(line));
+    const headerIdx = targetLines.findIndex(
+      (line) => this.parseAllowBuildsHeaderLine(line).isHeader
+    );
     if (headerIdx === -1) {
       return {
         merged: `${targetContent.trimEnd()}\nallowBuilds:\n${missingLines.join('\n')}\n`,
         changes,
       };
+    }
+
+    if ((targetLines[headerIdx] ?? '').includes('{}')) {
+      targetLines[headerIdx] = 'allowBuilds:';
     }
 
     let insertAt = headerIdx + 1;
@@ -343,7 +378,7 @@ export class SurgicalMerger {
     }
     const polyfillOnly = exampleContent
       .split(/\r?\n/)
-      .filter((line) => !line.includes("'@testing-library/jest-dom'"))
+      .filter((line) => !/['"]@testing-library\/jest-dom(?:\/vitest)?['"]/.test(line))
       .join('\n')
       .trim();
     const merged = `${targetContent.trimEnd()}\n\n${polyfillOnly}\n`;
@@ -429,6 +464,54 @@ export class SurgicalMerger {
     };
   }
 
+  private extractTomlTableHeader(line: string): string | null {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith('[') || trimmed.startsWith('[[')) {
+      return null;
+    }
+    const closeIdx = trimmed.indexOf(']');
+    if (closeIdx <= 1) {
+      return null;
+    }
+    const trailing = trimmed.slice(closeIdx + 1).trim();
+    if (trailing.length > 0 && !trailing.startsWith('#')) {
+      return null;
+    }
+    return trimmed.slice(1, closeIdx).trim();
+  }
+
+  private collectTomlSections(content: string): {
+    sectionOrder: string[];
+    sectionMap: Map<string, string>;
+  } {
+    const sectionOrder: string[] = [];
+    const sectionMap = new Map<string, string>();
+    let currentName: string | null = null;
+    let buffer: string[] = [];
+
+    const flush = (): void => {
+      if (currentName !== null) {
+        sectionOrder.push(currentName);
+        sectionMap.set(currentName, buffer.join('\n').trim());
+      }
+    };
+
+    for (const line of content.split(/\r?\n/)) {
+      const headerName = this.extractTomlTableHeader(line);
+      if (headerName !== null) {
+        flush();
+        currentName = headerName;
+        buffer = [line];
+        continue;
+      }
+      if (currentName !== null) {
+        buffer.push(line);
+      }
+    }
+    flush();
+    return { sectionOrder, sectionMap };
+  }
+
   /**
    * Fusión quirúrgica de pyproject.toml:
    * Conserva [project] y dependencies intactos, e inyecta secciones [tool.*] faltantes.
@@ -445,42 +528,19 @@ export class SurgicalMerger {
     }
 
     const changes: string[] = [];
-    const sectionsToInject = [
-      'tool.ruff',
-      'tool.ruff.lint',
-      'tool.ruff.format',
-      'tool.mypy',
-      'tool.pytest.ini_options',
-      'tool.coverage.run',
-      'tool.coverage.report',
-    ];
-
-    // Extraer secciones de exampleContent
-    const exampleSections: Record<string, string> = {};
-    const sectionRegex = /^\[([^\]]+)\]/gm;
-    let match: RegExpExecArray | null;
-    const indices: Array<{ name: string; index: number }> = [];
-
-    while ((match = sectionRegex.exec(exampleContent)) !== null) {
-      if (match[1] !== undefined) {
-        indices.push({ name: match[1], index: match.index });
-      }
-    }
-
-    for (const [i, current] of indices.entries()) {
-      const next = indices[i + 1];
-      const sectionText = next
-        ? exampleContent.slice(current.index, next.index).trim()
-        : exampleContent.slice(current.index).trim();
-      exampleSections[current.name] = sectionText;
+    const { sectionOrder, sectionMap } = this.collectTomlSections(exampleContent);
+    const existingTables = new Set<string>();
+    for (const line of targetContent.split(/\r?\n/)) {
+      const tbl = this.extractTomlTableHeader(line);
+      if (tbl) existingTables.add(tbl);
     }
 
     let merged = targetContent.trimEnd() + '\n';
-
-    for (const sec of sectionsToInject) {
-      const header = `[${sec}]`;
-      if (!merged.includes(header) && exampleSections[sec]) {
-        merged += `\n# --- Inyectado por QA 11X Blueprints ---\n${exampleSections[sec]}\n`;
+    for (const sec of sectionOrder) {
+      if (!sec.startsWith('tool.') || existingTables.has(sec)) continue;
+      const body = sectionMap.get(sec);
+      if (body) {
+        merged += `\n# --- Inyectado por QA 11X Blueprints ---\n${body}\n`;
         changes.push(`Inyectada sección: [${sec}]`);
       }
     }
@@ -491,13 +551,53 @@ export class SurgicalMerger {
     };
   }
 
+  private isMakefileCommandBoundary(prefix: string, beforeChar: string): boolean {
+    if (beforeChar !== ' ') {
+      return beforeChar === '\t' || beforeChar === ';' || beforeChar === '&' || beforeChar === '|';
+    }
+    const trimmed = prefix.trimEnd();
+    if (!trimmed || trimmed.endsWith(';') || trimmed.endsWith('&') || trimmed.endsWith('|')) {
+      return true;
+    }
+    const lastSep = Math.max(trimmed.lastIndexOf(' '), trimmed.lastIndexOf('\t'));
+    const prevToken = trimmed.slice(lastSep + 1);
+    if (prevToken === 'run' || prevToken === '-m' || prevToken.includes('=')) {
+      return true;
+    }
+    return /\bdocker\b/.test(trimmed) && !prevToken.startsWith('-');
+  }
+
+  private findMakefileToolCmdIndex(line: string, toolName: 'pytest' | 'mypy'): number {
+    let searchFrom = 0;
+    while (searchFrom < line.length) {
+      const idx = line.indexOf(toolName, searchFrom);
+      if (idx === -1) return -1;
+      const afterChar = line[idx + toolName.length];
+      const beforeChar = idx > 0 ? line.charAt(idx - 1) : '\t';
+      const validAfter = afterChar === undefined || afterChar === ' ' || afterChar === '\t';
+      if (validAfter && this.isMakefileCommandBoundary(line.slice(0, idx), beforeChar)) {
+        return idx;
+      }
+      searchFrom = idx + toolName.length;
+    }
+    return -1;
+  }
+
   private hardenMakefileLine(line: string, changes: string[]): string {
+    if (!line.startsWith('\t')) {
+      return line;
+    }
+    const trimmedCmd = line.trimStart();
+    if (trimmedCmd.startsWith('#') || /^@?(?:echo|printf)\b/.test(trimmedCmd)) {
+      return line;
+    }
     let updated = line;
-    const hasPytest = /\bpytest\b/.test(updated);
+    const pytestIdx = this.findMakefileToolCmdIndex(updated, 'pytest');
+    const hasPytestCmd = pytestIdx !== -1;
     const hasBareAddopts =
       updated.includes('-o addopts=""') || updated.includes("-o addopts=''");
 
-    if (hasPytest && hasBareAddopts && !updated.includes('--cov')) {
+    if (hasPytestCmd && hasBareAddopts && !updated.includes('--cov')) {
       updated = updated.replace(
         /(-o\s+addopts=(?:""|''))/,
         '$1 --cov=src --cov-fail-under=95'
@@ -505,16 +605,14 @@ export class SurgicalMerger {
       changes.push('Inyectado "--cov=src --cov-fail-under=95" junto a "-o addopts=\\"\\"" en Makefile');
     }
 
-    if (hasPytest && hasBareAddopts && !updated.includes('--import-mode=importlib')) {
-      updated = updated.replace(
-        /\bpytest\b/,
-        'pytest --import-mode=importlib'
-      );
+    if (hasPytestCmd && hasBareAddopts && !updated.includes('--import-mode=importlib')) {
+      const insertAt = this.findMakefileToolCmdIndex(updated, 'pytest');
+      updated = `${updated.slice(0, insertAt)}pytest --import-mode=importlib${updated.slice(insertAt + 6)}`;
       changes.push('Inyectado "--import-mode=importlib" junto a "-o addopts=\\"\\"" en Makefile');
     }
 
     if (
-      hasPytest &&
+      hasPytestCmd &&
       updated.includes('docker') &&
       updated.includes('run --rm') &&
       !updated.includes('COVERAGE_FILE')
@@ -523,8 +621,9 @@ export class SurgicalMerger {
       changes.push('Inyectado "-e COVERAGE_FILE=/tmp/.coverage" para contenedor no-root en Makefile');
     }
 
-    if (/\bmypy\b/.test(updated) && !updated.includes('--cache-dir')) {
-      updated = updated.replace(/\bmypy\b/, 'mypy --cache-dir=/tmp/mypy');
+    const mypyIdx = this.findMakefileToolCmdIndex(updated, 'mypy');
+    if (mypyIdx !== -1 && !updated.includes('--cache-dir')) {
+      updated = `${updated.slice(0, mypyIdx)}mypy --cache-dir=/tmp/mypy${updated.slice(mypyIdx + 4)}`;
       changes.push('Inyectado "--cache-dir=/tmp/mypy" en invocación de mypy en Makefile');
     }
 
@@ -676,7 +775,7 @@ export class SurgicalMerger {
     const res = mergeOrAppendAgentsMdContent(targetContent, projectName, stacks);
     return {
       merged: res.finalContent,
-      changes: res.changes,
+      changes: res.finalContent === targetContent ? [] : res.changes,
     };
   }
 
@@ -759,12 +858,43 @@ export class SurgicalMerger {
       return { status, changes: res.changes, finalContent: res.finalContent };
     }
 
-    // Estrategias de sobreescritura
-    return {
-      status: dryRun ? 'dry_run' : 'merged',
-      changes: [`Actualizado archivo con versión canónica: ${item.target_name}`],
-      finalContent: item.content,
-    };
+    if (item.merge_strategy === 'copy_if_missing_or_update_qa') {
+      if (existingContent === item.content) {
+        return {
+          status: 'skipped',
+          changes: [`Archivo QA ya sincronizado: ${item.target_name}`],
+          finalContent: existingContent,
+        };
+      }
+      return {
+        status: dryRun ? 'dry_run' : 'merged',
+        changes: [`Actualizada plantilla QA: ${item.target_name}`],
+        finalContent: item.content,
+      };
+    }
+
+    if (
+      item.merge_strategy === 'overwrite' ||
+      item.merge_strategy === 'copy_or_overwrite' ||
+      item.merge_strategy === 'overwrite_executable'
+    ) {
+      if (existingContent === item.content) {
+        return {
+          status: 'skipped',
+          changes: [`Archivo canónico sin cambios: ${item.target_name}`],
+          finalContent: existingContent,
+        };
+      }
+      return {
+        status: dryRun ? 'dry_run' : 'merged',
+        changes: [`Actualizado archivo con versión canónica: ${item.target_name}`],
+        finalContent: item.content,
+      };
+    }
+
+    throw new Error(
+      `[MERGE-STRATEGY-01] Estrategia de fusión no reconocida '${item.merge_strategy}' para '${item.target_name}'.`
+    );
   }
 
   private writeMergedFile(
@@ -840,6 +970,22 @@ export class SurgicalMerger {
     );
   }
 
+  private backupExistingFile(
+    targetProjectDir: string,
+    targetFilePath: string,
+    targetName: string
+  ): void {
+    const backupPath = resolveSafeChildPath(targetProjectDir, `${targetName}.11x-backup`);
+    const existingBackupStat = fs.lstatSync(backupPath, { throwIfNoEntry: false });
+    if (existingBackupStat?.isSymbolicLink()) {
+      throw new Error(
+        `[SEC-SYMLINK-01] Se rechazó escribir respaldo sobre enlace simbólico: ${targetName}.11x-backup`
+      );
+    }
+    fs.copyFileSync(targetFilePath, backupPath);
+    fs.chmodSync(backupPath, 0o600);
+  }
+
   private executeMergeFiles(
     targetProjectDir: string,
     bundleFiles: FetchedFileItem[],
@@ -872,7 +1018,7 @@ export class SurgicalMerger {
 
       if (!dryRun && evaluated.status !== 'skipped') {
         if (createBackup && evaluated.existed && fs.existsSync(targetFilePath)) {
-          fs.copyFileSync(targetFilePath, `${targetFilePath}.11x-backup`);
+          this.backupExistingFile(targetProjectDir, targetFilePath, item.target_name);
         }
         this.writeMergedFile(targetFilePath, evaluated.finalContent, item.merge_strategy, item.target_name);
       }

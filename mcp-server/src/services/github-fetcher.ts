@@ -54,8 +54,9 @@ export function assertSafeRelativePath(relPath: string): string {
 export function resolveSafeChildPath(baseDir: string, relPath: string): string {
   const safeRel = assertSafeRelativePath(relPath);
   const resolvedBase = path.resolve(baseDir);
+  const basePrefix = resolvedBase.endsWith(path.sep) ? resolvedBase : `${resolvedBase}${path.sep}`;
   const resolvedTarget = path.resolve(resolvedBase, safeRel);
-  if (resolvedTarget !== resolvedBase && !resolvedTarget.startsWith(resolvedBase + path.sep)) {
+  if (resolvedTarget !== resolvedBase && !resolvedTarget.startsWith(basePrefix)) {
     throw new Error(`Violación de confinamiento de directorio (CWE-22): '${relPath}' escapa de '${baseDir}'`);
   }
   const baseOutcome = resolveRealTargetWithSymlinks(resolvedBase);
@@ -94,6 +95,14 @@ export function resolveSafeHomeDir(
   }
 }
 
+function trimTrailingSlashes(rawUrl: string): string {
+  let end = rawUrl.length;
+  while (end > 0 && rawUrl[end - 1] === '/') {
+    end -= 1;
+  }
+  return rawUrl.slice(0, end);
+}
+
 export class GitHubFetcher {
   private readonly rawBaseUrl: string;
   private readonly cacheDir: string;
@@ -102,10 +111,11 @@ export class GitHubFetcher {
   private readonly timeoutMs: number;
 
   constructor(options?: GitHubFetcherOptions) {
-    this.rawBaseUrl =
+    const rawUrl =
       options?.rawBaseUrl ||
       process.env.QA_BLUEPRINTS_RAW_URL ||
       'https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main';
+    this.rawBaseUrl = trimTrailingSlashes(rawUrl);
     this.cacheDir =
       options?.cacheDir ||
       process.env.QA_BLUEPRINTS_CACHE_DIR ||
@@ -144,24 +154,47 @@ export class GitHubFetcher {
     return null;
   }
 
-  private readCachedManifest(cachedPath: string): Manifest | null {
-    if (fs.existsSync(cachedPath)) {
-      const cachedRaw = fs.readFileSync(cachedPath, 'utf-8');
-      return JSON.parse(cachedRaw) as Manifest;
-    }
-    return null;
+  private writeCacheAtomic(targetPath: string, content: string): void {
+    const dir = path.dirname(targetPath);
+    this.ensureDir(dir);
+    const tmpPath = `${targetPath}.tmp.${process.pid}.${crypto.randomBytes(6).toString('hex')}`;
+    fs.writeFileSync(tmpPath, content, 'utf-8');
+    fs.renameSync(tmpPath, targetPath);
   }
 
-  private async executeManifestFetch(
-    manifestUrl: string,
-    headers: Record<string, string>,
-    cachedManifestPath: string,
-    cachedEtagPath: string
-  ): Promise<Manifest> {
+  private createRequestSignal(externalSignal?: AbortSignal): AbortSignal {
+    const timeoutSignal = AbortSignal.timeout(this.timeoutMs);
+    return externalSignal ? AbortSignal.any([timeoutSignal, externalSignal]) : timeoutSignal;
+  }
+
+  private readCachedManifest(cachedPath: string): Manifest | null {
+    if (!fs.existsSync(cachedPath)) {
+      return null;
+    }
+    try {
+      const cachedRaw = fs.readFileSync(cachedPath, 'utf-8');
+      return JSON.parse(cachedRaw) as Manifest;
+    } catch (err: unknown) {
+      if (process.env.QA11X_DEBUG === '1') {
+        const detail = err instanceof Error ? err.message : String(err);
+        process.stderr.write(`[QA11X_DEBUG] githubFetcher.readCachedManifest(${cachedPath}): ${detail}\n`);
+      }
+      return null;
+    }
+  }
+
+  private async executeManifestFetch(params: {
+    manifestUrl: string;
+    headers: Record<string, string>;
+    cachedManifestPath: string;
+    cachedEtagPath: string;
+    externalSignal?: AbortSignal;
+  }): Promise<Manifest> {
+    const { manifestUrl, headers, cachedManifestPath, cachedEtagPath, externalSignal } = params;
     const fetchImpl = this.fetchFn ?? globalThis.fetch;
     let response = await fetchImpl(manifestUrl, {
       headers,
-      signal: AbortSignal.timeout(this.timeoutMs),
+      signal: this.createRequestSignal(externalSignal),
     });
 
     if (response.status === 304) {
@@ -172,18 +205,18 @@ export class GitHubFetcher {
       delete retryHeaders['If-None-Match'];
       response = await fetchImpl(manifestUrl, {
         headers: retryHeaders,
-        signal: AbortSignal.timeout(this.timeoutMs),
+        signal: this.createRequestSignal(externalSignal),
       });
     }
 
     if (response.ok) {
       const text = await response.text();
       const parsed = JSON.parse(text) as Manifest;
-      fs.writeFileSync(cachedManifestPath, text, 'utf-8');
+      this.writeCacheAtomic(cachedManifestPath, text);
 
       const newEtag = response.headers.get('etag');
       if (newEtag) {
-        fs.writeFileSync(cachedEtagPath, newEtag, 'utf-8');
+        this.writeCacheAtomic(cachedEtagPath, newEtag);
       }
       return parsed;
     }
@@ -191,7 +224,7 @@ export class GitHubFetcher {
     throw new Error(`HTTP ${response.status} al descargar manifest.json: ${response.statusText}`);
   }
 
-  public async fetchManifest(forceRefresh = false): Promise<Manifest> {
+  public async fetchManifest(forceRefresh = false, externalSignal?: AbortSignal): Promise<Manifest> {
     const local = this.readLocalManifest();
     if (local) return local;
 
@@ -213,12 +246,13 @@ export class GitHubFetcher {
     }
 
     try {
-      return await this.executeManifestFetch(
+      return await this.executeManifestFetch({
         manifestUrl,
         headers,
         cachedManifestPath,
-        cachedEtagPath
-      );
+        cachedEtagPath,
+        ...(externalSignal ? { externalSignal } : {}),
+      });
     } catch (err) {
       const fallback = this.readCachedManifest(cachedManifestPath);
       if (fallback) return fallback;
@@ -269,7 +303,11 @@ export class GitHubFetcher {
     if (cached !== null) return cached;
 
     const cachedFilePath = resolveSafeChildPath(path.join(this.cacheDir, 'files'), safeRelPath);
-    const fileUrl = `${this.rawBaseUrl}/${safeRelPath}`;
+    const encodedRelPath = safeRelPath
+      .split(/[/\\]+/)
+      .map((seg) => encodeURIComponent(seg))
+      .join('/');
+    const fileUrl = `${this.rawBaseUrl}/${encodedRelPath}`;
     const fetchImpl = this.fetchFn ?? globalThis.fetch;
     try {
       const response = await fetchImpl(fileUrl, {
@@ -282,8 +320,7 @@ export class GitHubFetcher {
       const downloadedText = await response.text();
       this.verifySha256(downloadedText, expectedSha256, safeRelPath);
 
-      this.ensureDir(path.dirname(cachedFilePath));
-      fs.writeFileSync(cachedFilePath, downloadedText, 'utf-8');
+      this.writeCacheAtomic(cachedFilePath, downloadedText);
 
       return downloadedText;
     } catch (err) {

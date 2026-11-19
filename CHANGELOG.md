@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Fixed
 * **MCP Security Hardening (`session_flight_recorder`, `promptGuard`, SSRF & Symlink Containment):** Made `native-ts` the default for `session_flight_recorder` (requiring explicit opt-in, symlink check, SHA-256 verification, and `--network none` Docker wrapper for `checkpoint_ctl.py`), hardened fail-closed symlink/ancestor resolution across path validators and file writers, tightened `promptGuard` negation-bridge filtering with selective `evaluate_agent_trajectory` `steps`/`rag` exemption, expanded `security-auditor` (`LIBXML_NOENT`, `.mjs`/`.cjs`, `RUN --mount`, unfrozen lockfile installs, PHP `$keydb->get()`), blocked IPv6/DNS-rebinding SSRF & CDATA bypasses in `tmsSyncCli`, and wired multi-line secret redaction across diagnostics.
+* **MCP Tools, CLI Routing, Output Parsers, Surgical Merger & Test Suite Parity:** Enforced fail-closed `certify_11x_gate` (`SKIPPED` on missing paths, AST cycles/layer rules, English `Milestone N`), live `run_llm_red_team` preflight checks, safe `dry_run: true` defaults on `propose_skill_evolution_pr` and `init_or_append_agents_md`, upstream `AGENTS.md` preservation in `reconcile-agents`, accurate `--cov-branch`/Ruff/ShellCheck/Trivy/Vitest output parsing, safe `[tool.*]`/`Makefile`/`pnpm-workspace.yaml` surgical merges, atomic manifest caching, and full co-evolved Vitest/Karate unit & integration suites.
 
 ---
 

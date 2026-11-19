@@ -837,8 +837,9 @@ describe('Tools and Resources Integration Suite', () => {
       expect(taskEs.text).toContain('Plantilla Canónica de Bitácora Activa');
 
       const pgEn = await resources.getPostgresRlsWormResource('en');
-      expect(pgEn.text).toContain('PostgreSQL 17 RLS Multi-Transacción');
+      expect(pgEn.text).toContain('PostgreSQL 17 Multi-Transaction RLS');
       const pgEs = await resources.getPostgresRlsWormResource('es');
+      expect(pgEs.text).toContain('PostgreSQL 17 RLS Multi-Transacción');
       expect(pgEs.text).toContain('Consulte docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md');
     });
   });
@@ -1039,7 +1040,7 @@ describe('Tools and Resources Integration Suite', () => {
         ).toBe(true);
         expect(fs.existsSync(path.join(testDir, '.agents/ACTIVE_TASK.md.example'))).toBe(true);
         expect(fs.existsSync(path.join(testDir, '.agents/ACTIVE_TASK.md'))).toBe(true);
-        // --include-scripts no debe copiar las 7 reglas .agents/rules/*.md dentro del proyecto consumidor
+        // --include-scripts no debe copiar las 8 reglas canónicas .agents/rules/*.md dentro del proyecto consumidor
         expect(fs.existsSync(path.join(testDir, '.agents/rules'))).toBe(false);
 
         // Segunda ejecución con ACTIVE_TASK.md ya existente y script modificado: preserva ACTIVE_TASK.md y crea .bak del script
@@ -1510,7 +1511,7 @@ describe('Tools and Resources Integration Suite', () => {
       const resources = new BlueprintResources(fetcher);
       const fallbackRes = await resources.getPostgresRlsWormResource();
       expect(fallbackRes.uri).toBe('blueprint://database/postgres-rls-worm');
-      expect(fallbackRes.text).toContain('PostgreSQL 17 RLS Multi-Transacción');
+      expect(fallbackRes.text).toContain('PostgreSQL 17 Multi-Transaction RLS');
 
       const rlsPath = '.agents/skills/qa-11x-architect/references/08-postgres-rls-zero-downtime-migrations.md';
       const rlsContent = '# Reference 08 RLS after_begin & WORM seq_num';
@@ -1810,9 +1811,12 @@ describe('Tools and Resources Integration Suite', () => {
   });
 
   describe('createMcpServer and Handlers Execution', () => {
-    it('creates server with default options when omitted and matches 2.12.0 versioning', () => {
+    it('creates server with default options when omitted and registers canonical tool/resource surface', () => {
       const server = createMcpServer();
       expect(server).toBeDefined();
+      const surface = getRegisteredServerSurface(server);
+      expect(surface?.toolNames.size).toBeGreaterThanOrEqual(19);
+      expect(surface?.resourceUris.size).toBeGreaterThanOrEqual(13);
     });
 
     it('runs tools with default services when omitted', async () => {
@@ -1877,7 +1881,7 @@ describe('Tools and Resources Integration Suite', () => {
 
         // 3b. Ejecutar resource: postgres-rls-worm
         expect(await readResourceText(client, 'blueprint://database/postgres-rls-worm')).toContain(
-          'PostgreSQL 17 RLS'
+          'PostgreSQL 17 Multi-Transaction RLS'
         );
 
         // 4. Ejecutar resource template: stack readme
@@ -2215,18 +2219,18 @@ describe('Tools and Resources Integration Suite', () => {
       fs.writeFileSync(path.join(cliDir, 'pyproject.toml'), '[project]\nname = "demo"\n', 'utf-8');
       fs.writeFileSync(path.join(toolDir, 'pyproject.toml'), '[project]\nname = "demo"\n', 'utf-8');
 
-      const cliCreated = await runCliInitAgentsMd({ projectPath: cliDir, lang: 'en' });
+      const cliCreated = await runCliInitAgentsMd({ projectPath: cliDir, lang: 'en', dryRun: false });
       expect(cliCreated.action).toBe('created');
       expect(cliCreated.content).toContain(CONNECTOR_SERVICE_START_MARKER);
       expect(cliCreated.content).toContain(CONNECTOR_SERVICE_END_MARKER);
-      const cliUpdated = await runCliInitAgentsMd({ projectPath: cliDir, lang: 'es' });
+      const cliUpdated = await runCliInitAgentsMd({ projectPath: cliDir, lang: 'es', dryRun: false });
       expect(cliUpdated.action).toBe('updated_block');
 
-      const toolCreated = await runToolInitAgentsMd({ projectPath: toolDir, lang: 'en' });
+      const toolCreated = await runToolInitAgentsMd({ projectPath: toolDir, lang: 'en', dryRun: false });
       expect(toolCreated.action).toBe('created');
       expect(toolCreated.content).toContain(CONNECTOR_SERVICE_START_MARKER);
       expect(toolCreated.content).toContain(CONNECTOR_SERVICE_END_MARKER);
-      const toolUpdated = await runToolInitAgentsMd({ projectPath: toolDir, lang: 'es' });
+      const toolUpdated = await runToolInitAgentsMd({ projectPath: toolDir, lang: 'es', dryRun: false });
       expect(toolUpdated.action).toBe('updated_block');
     });
 
@@ -2417,7 +2421,7 @@ describe('Tools and Resources Integration Suite', () => {
         expect(resolveToolExecutionOptions('fetch_blueprint_bundle', {}).profile).toBe('heavy_transfer');
         expect(resolveToolExecutionOptions('bootstrap_or_merge_11x', {}).profile).toBe('heavy_transfer');
 
-        expect(CLI_HELP_TEXT).toContain('antigravity | claude-code | cursor | windsurf');
+        expect(CLI_HELP_TEXT).toContain('antigravity | claude-code | claude-desktop | cursor | vscode | windsurf');
         expect(CLI_HELP_TEXT).not.toContain('--agents <target>        auto | all | workspace');
 
         // Subcomandos con --help/-h no escriben ni llaman a red

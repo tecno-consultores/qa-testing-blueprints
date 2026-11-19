@@ -406,6 +406,7 @@ describe('Zero-Infra PromptGuard & MCP Interceptor (T2.4)', () => {
             improvement_title: 'Hardening de sanitización en propuestas',
             empirical_rationale: `Contacto admin@empresa.com reportó fuga ${secretToken} en logs`,
             proposed_content_or_snippet: '### Validación determinista en middleware MCP',
+            dry_run: false,
             prefer_offline_fallback: true,
           },
         });

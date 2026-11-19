@@ -259,17 +259,26 @@ async function fetchManifestVersionFailOpen(
   signal?: AbortSignal
 ): Promise<string | null> {
   if (signal?.aborted) return null;
+  const raceController = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   let onAbort: (() => void) | undefined;
   try {
-    const manifestPromise = fetcher.fetchManifest().catch((err: unknown) => {
-      reportDebugCatchError('versionManager.fetchManifestVersionFailOpen', err);
-      return null;
-    });
+    const manifestPromise = fetcher
+      .fetchManifest(false, raceController.signal)
+      .catch((err: unknown) => {
+        reportDebugCatchError('versionManager.fetchManifestVersionFailOpen', err);
+        return null;
+      });
     const timeoutPromise = new Promise<null>((resolve) => {
-      timer = setTimeout(() => resolve(null), timeoutMs);
+      timer = setTimeout(() => {
+        raceController.abort();
+        resolve(null);
+      }, timeoutMs);
       if (signal) {
-        onAbort = () => resolve(null);
+        onAbort = () => {
+          raceController.abort();
+          resolve(null);
+        };
         signal.addEventListener('abort', onAbort, { once: true });
       }
     });
@@ -577,10 +586,10 @@ export async function syncGlobalSkillsInBackground(
   options: AutoSyncGlobalSkillsOptions = {}
 ): Promise<GlobalSkillAutoSyncResult> {
   let targetDirs: string[] = [];
+  const logFn = options.onLog ?? ((msg: string) => console.error(msg));
   try {
     const homeDir = resolveSafeHomeDir(options.homeDir);
     const fetcher = options.fetcher ?? new GitHubFetcher();
-    const logFn = options.onLog ?? ((msg: string) => console.error(msg));
     targetDirs = detectExistingQa11xSkillDirs(homeDir);
 
     if (targetDirs.length === 0) {
@@ -595,7 +604,12 @@ export async function syncGlobalSkillsInBackground(
     return await executeGlobalSkillsSync({ homeDir, targetDirs, fetcher, logFn });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    process.stderr.write(`⚠️ [QA-11X Auto-Sync] Error en sincronización en segundo plano: ${msg}\n`);
+    const warnLine = `⚠️ [QA-11X Auto-Sync] Error en sincronización en segundo plano: ${msg}`;
+    if (options.onLog) {
+      options.onLog(warnLine);
+    } else {
+      process.stderr.write(`${warnLine}\n`);
+    }
     return {
       synced: false,
       manifest_version: null,

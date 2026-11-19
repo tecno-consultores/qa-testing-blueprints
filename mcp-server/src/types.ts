@@ -641,11 +641,12 @@ export interface InitAgentsMdOptions {
   agents?: AgentsTargetSpec;
 }
 
-export type InitAgentsAction = 'created' | 'appended' | 'updated_block' | 'dry_run';
+export type InitAgentsAction = 'created' | 'appended' | 'updated_block' | 'unchanged' | 'dry_run';
 
 export interface InitAgentsMdResult {
   project_path: string;
   agents_md_path: string;
+  lang?: OutputLanguageMode;
   action: InitAgentsAction;
   detected_stacks: string[];
   content: string;

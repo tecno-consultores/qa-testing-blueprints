@@ -156,6 +156,16 @@ function parseDoctorArgs(args: readonly string[]): ParsedDoctorArgs {
   return state;
 }
 
+function resolveCanonicalComparePath(targetPath: string): string {
+  const abs = path.resolve(targetPath);
+  try {
+    return fs.realpathSync(abs);
+  } catch (err: unknown) {
+    reportDebugCatchError('doctor.resolveCanonicalComparePath', err);
+    return abs;
+  }
+}
+
 function detectBinaryOrigin(entryScript: string, projectPath: string): BinaryOrigin {
   if (entryScript.includes('/.npm/_npx/') || entryScript.includes('\\.npm\\_npx\\')) {
     return 'npx-cache';
@@ -163,12 +173,12 @@ function detectBinaryOrigin(entryScript: string, projectPath: string): BinaryOri
   if (!entryScript) {
     return 'local-workspace';
   }
-  const resolvedEntry = path.resolve(entryScript);
-  const resolvedProject = path.resolve(projectPath);
+  const resolvedEntry = resolveCanonicalComparePath(entryScript);
+  const resolvedProject = resolveCanonicalComparePath(projectPath);
   const insideProject =
     resolvedEntry === resolvedProject ||
     resolvedEntry.startsWith(`${resolvedProject}${path.sep}`);
-  if (entryScript.includes(`${path.sep}${NODE_MODULES_DIR}${path.sep}`) || !insideProject) {
+  if (resolvedEntry.includes(`${path.sep}${NODE_MODULES_DIR}${path.sep}`) || !insideProject) {
     return 'global-bin';
   }
   return 'local-workspace';

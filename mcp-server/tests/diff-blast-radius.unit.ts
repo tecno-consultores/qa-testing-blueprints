@@ -362,15 +362,22 @@ describe('Modo Diferencial en inspect_ast_blast_radius y diff-bundle (Hito 23)',
     expect(emptyCheckpoint.boundary_globs).toBeUndefined();
   });
 
-  it('cubre utilidades auxiliares y el registro MCP preservando exactamente 18 Tools', async () => {
+  it('cubre utilidades auxiliares y el registro MCP preservando exactamente 19 Tools', async () => {
     expect(estimateTokens('')).toBe(0);
     expect(estimateTokens('12345')).toBe(2);
     expect(classifyDiffTier('dist/bundle.js', false)).toBe('PRUNED_NOISE');
     expect(classifyDiffTier('assets/logo.png', true)).toBe('PRUNED_NOISE');
     expect(classifyDiffTier('mcp-server/src/server.ts', false)).toBe('CRITICAL_FULL');
     expect(matchesGlobPattern('src/a/b.ts', 'src/**/?.ts')).toBe(true);
+    expect(matchesGlobPattern('src/a/b/c/d.ts', 'src/**/**/**/d.ts')).toBe(true);
     expect(matchesGlobPattern('src/a/b.ts', 'src/')).toBe(true);
     expect(matchesGlobPattern('src/a/b.ts', '')).toBe(false);
+    expect(parseBoundaryGlobs(tmpDir)).toBeUndefined();
+    writeRepoFile(tmpDir, '.agents/.cache/session_checkpoint.json', 'null');
+    expect(parseBoundaryGlobs(tmpDir)).toBeUndefined();
+    writeRepoFile(tmpDir, '.agents/.cache/session_checkpoint.json', '{corrupt json');
+    expect(parseBoundaryGlobs(tmpDir)).toBeUndefined();
+    fs.rmSync(path.join(tmpDir, '.agents'), { recursive: true, force: true });
     expect(collapseLargeHunk('@@ -1,1 +1,1 @@\n+x').collapsed).toBe(false);
     expect(extractTestCaseNames(['+  Scenario Outline: Pago con tarjeta'])).toEqual([
       'Pago con tarjeta',
@@ -401,6 +408,19 @@ describe('Modo Diferencial en inspect_ast_blast_radius y diff-bundle (Hito 23)',
     writeRepoFile(tmpDir, 'src/security/guard.ts', 'export const guard = false;\n');
     git(tmpDir, ['add', '.']);
     git(tmpDir, ['commit', '-m', 'chore: update security']);
+
+    const lockedAstDir = path.join(tmpDir, 'locked-ast-sub');
+    fs.mkdirSync(lockedAstDir, { recursive: true });
+    if (typeof process.getuid !== 'function' || process.getuid() !== 0) {
+      fs.chmodSync(lockedAstDir, 0o000);
+    }
+    try {
+      const lockedBundle = await buildSemanticDiffBundle(tmpDir, 'HEAD~1');
+      expect(lockedBundle.base_ref).toBe('HEAD~1');
+    } finally {
+      fs.chmodSync(lockedAstDir, 0o700);
+      fs.rmSync(lockedAstDir, { recursive: true, force: true });
+    }
 
     const fetcher = new GitHubFetcher({ localOverridePath: tmpDir });
     const merger = new SurgicalMerger();

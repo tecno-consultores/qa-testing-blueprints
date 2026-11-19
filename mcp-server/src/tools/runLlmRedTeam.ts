@@ -619,6 +619,23 @@ function buildRedTeamFailure(input: RedTeamFailureInput): RedTeamExecutionResult
   };
 }
 
+function evaluatePromptfooPreflight(
+  resolvedConfigPath: string,
+  guardOptions: PromptGuardOptions | undefined
+): {
+  owaspCoverage: string[];
+  probesPassed: number;
+  violations: RedTeamViolation[];
+} {
+  const yamlText = fs.readFileSync(resolvedConfigPath, 'utf8');
+  const violations: RedTeamViolation[] = [];
+  checkSecretLines(yamlText, violations);
+  const parsed = parsePromptfooStructure(yamlText);
+  const owaspCoverage = auditPromptfooStructure(parsed, violations);
+  const probesPassed = runSyntheticAdversarialProbes(guardOptions, violations);
+  return { owaspCoverage, probesPassed, violations };
+}
+
 function runOfflineRedTeamAudit(
   workspaceRoot: string,
   configPath: string,
@@ -659,12 +676,10 @@ function runOfflineRedTeamAudit(
     });
   }
 
-  const yamlText = fs.readFileSync(safeTarget.resolvedPath, 'utf8');
-  const violations: RedTeamViolation[] = [];
-  checkSecretLines(yamlText, violations);
-  const parsed = parsePromptfooStructure(yamlText);
-  const owaspCoverage = auditPromptfooStructure(parsed, violations);
-  const probesPassed = runSyntheticAdversarialProbes(options.promptGuardOptions, violations);
+  const { owaspCoverage, probesPassed, violations } = evaluatePromptfooPreflight(
+    safeTarget.resolvedPath,
+    options.promptGuardOptions
+  );
 
   const durationMs = Date.now() - startedAt;
   if (violations.length > 0) {
@@ -788,12 +803,16 @@ function validateLiveRedTeamCredsAndFile(
   return null;
 }
 
-function finalizeLiveRedTeam(
-  cmdResult: RedTeamCommandResult,
-  dockerArgs: readonly string[],
-  relativePosix: string,
-  durationMs: number
-): RedTeamExecutionResult {
+interface FinalizeLiveRedTeamInput {
+  readonly cmdResult: RedTeamCommandResult;
+  readonly dockerArgs: readonly string[];
+  readonly relativePosix: string;
+  readonly durationMs: number;
+  readonly preflight: { owaspCoverage: string[]; probesPassed: number };
+}
+
+function finalizeLiveRedTeam(input: FinalizeLiveRedTeamInput): RedTeamExecutionResult {
+  const { cmdResult, dockerArgs, relativePosix, durationMs, preflight } = input;
   const cmdDisplay = `docker ${dockerArgs.join(' ')}`;
   if (cmdResult.exitCode !== 0) {
     const trace = [cmdResult.stderr, cmdResult.stdout].filter(Boolean).join('\n');
@@ -808,22 +827,22 @@ function finalizeLiveRedTeam(
       durationMs,
       commandDisplay: cmdDisplay,
       configPath: relativePosix,
-      owaspCoverage: [],
-      syntheticProbesPassed: 0,
+      owaspCoverage: preflight.owaspCoverage,
+      syntheticProbesPassed: preflight.probesPassed,
       violations: [violation],
       remediationHint: REMEDIATION_LIVE_EXEC,
       liveTrace: trace,
     });
   }
 
-  const owaspCoverage = [...REQUIRED_OWASP_CATEGORIES];
+  const owaspCoverage = [...preflight.owaspCoverage];
   return {
     passed: true,
     status: 'PASSED',
     mode: 'live',
     configPath: relativePosix,
     owaspCoverage,
-    syntheticProbesPassed: 3,
+    syntheticProbesPassed: preflight.probesPassed,
     violations: [],
     summary: buildRedTeamSummary({
       passed: true,
@@ -831,7 +850,7 @@ function finalizeLiveRedTeam(
       commandDisplay: cmdDisplay,
       configPath: relativePosix,
       owaspCoverage,
-      probesPassed: 3,
+      probesPassed: preflight.probesPassed,
       violations: [],
       remediationHint: REMEDIATION_LIVE_EXEC,
     }),
@@ -843,6 +862,7 @@ type LiveRedTeamPlan =
       ok: true;
       relativePosix: string;
       spec: RedTeamCommandSpec;
+      preflight: { owaspCoverage: string[]; probesPassed: number };
     }
   | {
       ok: false;
@@ -884,9 +904,34 @@ function prepareLiveRedTeamPlan(ctx: LiveRedTeamContext): LiveRedTeamPlan {
     return { ok: false, failure: prereqError };
   }
 
+  const preflight = evaluatePromptfooPreflight(
+    safeTarget.resolvedPath,
+    options.promptGuardOptions
+  );
+  if (preflight.violations.length > 0) {
+    return {
+      ok: false,
+      failure: buildRedTeamFailure({
+        mode: 'live',
+        status: 'FAILED',
+        durationMs: Date.now() - startedAt,
+        commandDisplay: `docker promptfoo eval -c ${safeTarget.relativePosix}`,
+        configPath: safeTarget.relativePosix,
+        owaspCoverage: preflight.owaspCoverage,
+        syntheticProbesPassed: preflight.probesPassed,
+        violations: preflight.violations,
+        remediationHint: REMEDIATION_CONFIG,
+      }),
+    };
+  }
+
   return {
     ok: true,
     relativePosix: safeTarget.relativePosix,
+    preflight: {
+      owaspCoverage: preflight.owaspCoverage,
+      probesPassed: preflight.probesPassed,
+    },
     spec: {
       file: 'docker',
       args: buildDockerPromptfooArgs(workspaceRoot, safeTarget.relativePosix, activeKeys),
@@ -905,7 +950,13 @@ async function runLiveRedTeamAudit(ctx: LiveRedTeamContext): Promise<RedTeamExec
   }
   const runner = ctx.options.runner ?? defaultRedTeamCommandRunner;
   const cmdResult = await runner(plan.spec);
-  return finalizeLiveRedTeam(cmdResult, plan.spec.args, plan.relativePosix, Date.now() - ctx.startedAt);
+  return finalizeLiveRedTeam({
+    cmdResult,
+    dockerArgs: plan.spec.args,
+    relativePosix: plan.relativePosix,
+    durationMs: Date.now() - ctx.startedAt,
+    preflight: plan.preflight,
+  });
 }
 
 export async function runLlmRedTeam(

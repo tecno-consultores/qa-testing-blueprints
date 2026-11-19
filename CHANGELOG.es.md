@@ -10,6 +10,7 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ### Corregido
 * **Endurecimiento de Seguridad MCP (`session_flight_recorder`, `promptGuard`, SSRF y Contención de Symlinks):** Establecido `native-ts` como motor por defecto de `session_flight_recorder` (exigiendo opt-in explícito, verificación SHA-256/symlink y contenedor Docker `--network none` para `checkpoint_ctl.py`), reforzada la resolución fail-closed de symlinks y ancestros en validadores/escritores de rutas, endurecido el filtrado de negaciones en `promptGuard` con exención selectiva de `steps`/`rag` en `evaluate_agent_trajectory`, ampliado `security-auditor` (`LIBXML_NOENT`, `.mjs`/`.cjs`, `RUN --mount`, lockfiles no congelados, PHP `$keydb->get()`), bloqueados SSRF IPv6/DNS-rebinding y XML CDATA en `tmsSyncCli`, y propagada la redacción multilínea de secretos en diagnósticos.
+* **Paridad de Herramientas MCP, Ruteo CLI, Parsers de Salida, Fusión Quirúrgica y Suites de Prueba:** Aplicado fail-closed en `certify_11x_gate` (`SKIPPED` ante rutas ausentes, ciclos/capas AST y `Milestone N`), preflight en `run_llm_red_team` live, valores seguros `dry_run: true` en `propose_skill_evolution_pr` e `init_or_append_agents_md`, preservación de `AGENTS.md` upstream en `reconcile-agents`, parsers `--cov-branch`/Ruff/ShellCheck/Trivy/Vitest exactos, fusión quirúrgica segura para `[tool.*]`/`Makefile`/`pnpm-workspace.yaml`, caché atómica de manifiestos y co-evolución completa de suites Vitest y Karate BDD.
 
 ---
 

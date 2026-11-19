@@ -567,7 +567,11 @@ describe('certify-gate', () => {
     expect(partialFetchRes.check_statuses?.zero_orphan_api_endpoints).toBe('PASSED');
 
     const missingDirRes = await certify11xGate(path.join(tempDir, 'does-not-exist'), { requireLintEvidence: false });
-    expect(missingDirRes.check_statuses?.zero_unmerged_examples).toBe('SKIPPED');
+    expect(missingDirRes.gate_passed).toBe(false);
+    expect(missingDirRes.blockers.length).toBeGreaterThan(0);
+    expect(Object.values(missingDirRes.check_statuses ?? {})).toEqual(
+      Array.from({ length: 10 }, () => 'SKIPPED')
+    );
   });
 
   it('F3.4: aplica límite de 40 líneas totales (incluyendo en blanco) en ACTIVE_TASK.md y acepta CERTIFIED_CLEAN y COMPLETED (100%)', async () => {
@@ -619,15 +623,20 @@ describe('certify-gate', () => {
       blankBloated.blockers.some((b) => b.includes('excede el presupuesto compacto de 40 líneas'))
     ).toBe(true);
 
-    // Archivo ACTIVE_TASK.md vacío + checkpoint con status numérico inválido (tipo != string)
+    // Archivo ACTIVE_TASK.md vacío + checkpoint con status numérico inválido (tipo != string) -> FAIL-CLOSED
     fs.writeFileSync(path.join(agentsDir, 'ACTIVE_TASK.md'), '', 'utf8');
     fs.writeFileSync(
       path.join(cacheDir, 'session_checkpoint.json'),
       JSON.stringify({ status: 123, intent_140chars: 'Estado numérico', planned_steps: [] })
     );
     const badStatusRes = await certify11xGate(tempDir);
-    expect(badStatusRes.gate_passed).toBe(true);
-    expect(badStatusRes.blockers).toEqual([]);
+    expect(badStatusRes.gate_passed).toBe(false);
+    expect(badStatusRes.blockers.some((b) => b.includes('status inválido o no textual'))).toBe(true);
+
+    fs.writeFileSync(path.join(cacheDir, 'session_checkpoint.json'), 'null', 'utf8');
+    const nullRootRes = await certify11xGate(tempDir);
+    expect(nullRootRes.gate_passed).toBe(false);
+    expect(nullRootRes.blockers.some((b) => b.includes('objeto JSON'))).toBe(true);
   });
 
   it('blocks fail-securely on unreadable project root, unreadable candidate test files, and unreadable ACTIVE_TASK.md', async () => {
@@ -784,6 +793,7 @@ describe('certify-gate', () => {
             { path: 'python/leaf-link.md', sha256: '0'.repeat(64) },
             { path: 'dir-escape/secret.md', sha256: '0'.repeat(64) },
             { path: '../outside-rel.md', sha256: '0'.repeat(64) },
+            { path: '../outside-rel.md', sha256: '0'.repeat(64) },
           ],
         }),
         'utf8'
@@ -796,5 +806,85 @@ describe('certify-gate', () => {
     } finally {
       fs.rmSync(outsideTarget, { recursive: true, force: true });
     }
+  });
+
+  it('detecta ciclos AST (A -> B -> A), violaciones services/routes, exención de archivos de prueba y Milestone EN pendiente en ROADMAP.md', async () => {
+    setupNominalProject(tempDir);
+
+    // AST cycle across modules + services -> routes layer violation + test file exemption + empty/dangling graphify-out
+    const emptyGraphDir = path.join(tempDir, 'subpkg', 'graphify-out');
+    fs.mkdirSync(emptyGraphDir, { recursive: true });
+    const emptyJsonGraphDir = path.join(tempDir, 'emptyjsonpkg', 'graphify-out');
+    fs.mkdirSync(emptyJsonGraphDir, { recursive: true });
+    fs.writeFileSync(path.join(emptyJsonGraphDir, 'graph.json'), '{}', 'utf8');
+    const danglingGraphDir = path.join(tempDir, 'danglingpkg', 'graphify-out');
+    fs.mkdirSync(danglingGraphDir, { recursive: true });
+    fs.symlinkSync(path.join(tempDir, 'does-not-exist-target.json'), path.join(danglingGraphDir, 'graph.json'));
+
+    const graphDir = path.join(tempDir, 'graphify-out');
+    fs.mkdirSync(graphDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(graphDir, 'graph.json'),
+      JSON.stringify({
+        nodes: [
+          { id: 'nB', source_file: 'src/routes/b.ts' },
+          { id: 'nC', source_file: 'src/services/c.ts' },
+          { id: 'nA', source_file: 'src/services/a.ts' },
+          { id: 'nSame', source_file: 'src/services/a.ts' },
+          { id: 'nFile', file: 'src/services/f.ts' },
+          { id: 'nOnlyId' },
+          { source_file: 'src/services/anon.ts' },
+          { id: 'z_node', source_file: 'src/services/z.ts' },
+          { id: 'a_node', source_file: 'src/services/a2.ts' },
+          { id: 'nTest', source_file: 'tests/a.test.ts' },
+        ],
+        links: [
+          {},
+          { source: 'nB', target: 'nC', relation: 'calls' },
+          { source: 'nC', target: 'nA', relation: 'calls' },
+          { source: 'nA', target: 'nB', relation: 'calls' },
+          { source: 'nA', target: 'nFile', relation: 'calls' },
+          { source: 'nA', target: 'nB', relation: 'contains' },
+          { source: 'nA', target: 'nSame', relation: 'calls' },
+          { source: 'z_node', target: 'a_node', relation: 'calls' },
+          { source: 'a_node', target: 'z_node', relation: 'calls' },
+          { source: 'nTest', target: 'nA', relation: 'calls' },
+        ],
+      }),
+      'utf8'
+    );
+
+    // Ignored node_modules graph + corrupt graph.json + English Milestone 27. / Milestone invalid-id in ROADMAP.md
+    const nmGraphDir = path.join(tempDir, 'node_modules', 'pkg', 'graphify-out');
+    fs.mkdirSync(nmGraphDir, { recursive: true });
+    fs.writeFileSync(path.join(nmGraphDir, 'graph.json'), '{}', 'utf8');
+    const symSubDir = path.join(tempDir, 'sym-subdir');
+    fs.symlinkSync(tempDir, symSubDir);
+    const corruptGraphDir = path.join(tempDir, 'corruptpkg', 'graphify-out');
+    fs.mkdirSync(corruptGraphDir, { recursive: true });
+    fs.writeFileSync(path.join(corruptGraphDir, 'graph.json'), '{bad json', 'utf8');
+
+    // English Milestone 27 marked 100% in summary table but still has pending - [ ] item
+    fs.writeFileSync(
+      path.join(tempDir, 'ROADMAP.md'),
+      [
+        '# Roadmap',
+        '| Milestone 27.1 | Done | 100% |',
+        '| Milestone bad | Done | 100% |',
+        '## Milestone bad: Ignored',
+        '## Milestone 27.1.: Verification',
+        '- [ ] Pending milestone verification task',
+      ].join('\n'),
+      'utf8'
+    );
+
+    const astAndRoadmapRes = await certify11xGate(tempDir, { requireLintEvidence: false });
+    expect(astAndRoadmapRes.gate_passed).toBe(false);
+    expect(astAndRoadmapRes.check_statuses?.ast_topology_clean).toBe('FAILED');
+    expect(astAndRoadmapRes.blockers.some((b) => b.includes('Ciclo de dependencia AST'))).toBe(true);
+    expect(astAndRoadmapRes.blockers.some((b) => b.includes('Violación topológica AST'))).toBe(true);
+    expect(astAndRoadmapRes.blockers.some((b) => b.includes('Archivo de grafo AST corrupto'))).toBe(true);
+    expect(astAndRoadmapRes.blockers.some((b) => b.includes('tests/a.test.ts'))).toBe(false);
+    expect(astAndRoadmapRes.blockers.some((b) => b.includes('Milestone/Hito 27.1'))).toBe(true);
   });
 });

@@ -31,6 +31,7 @@ describe('GitHubFetcher Service (DISA STIG V-222513 & Zero-Clone Hydration)', ()
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     fs.rmSync(tmpDir, { recursive: true, force: true });
     vi.restoreAllMocks();
   });
@@ -520,5 +521,83 @@ describe('GitHubFetcher Service (DISA STIG V-222513 & Zero-Clone Hydration)', ()
     expect(extractStandardEdition('Official MCP Server (QA-11X v3.9: 19 Tools)')).toBe('QA-11X v3.9');
     expect(extractStandardEdition('Description without edition tag')).toBe('QA-11X v3.2');
     expect(extractStandardEdition()).toBe('QA-11X v3.2');
+  });
+
+  it('trims trailing slashes in rawBaseUrl, encodes path segments, and recovers cleanly from corrupt cached manifest.json', async () => {
+    const cleanUrlFetcher = new GitHubFetcher({
+      cacheDir,
+      rawBaseUrl: 'https://raw.example.test/org/repo',
+    });
+    const cleanFetchSpy = vi.fn<typeof fetch>().mockResolvedValueOnce(new Response('ok', { status: 200 }));
+    vi.stubGlobal('fetch', cleanFetchSpy);
+    expect(await cleanUrlFetcher.fetchFileContent('plain.txt', cleanUrlFetcher.computeSha256('ok'))).toBe('ok');
+
+    const fetcher = new GitHubFetcher({
+      cacheDir,
+      rawBaseUrl: 'https://raw.example.test/org/repo///',
+    });
+    const fetchSpy = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response('file-body', { status: 200 })
+      );
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const expectedHash = fetcher.computeSha256('file-body');
+    const fetched = await fetcher.fetchFileContent('dir name/file+1.txt', expectedHash);
+    expect(fetched).toBe('file-body');
+    const firstUrlArg = fetchSpy.mock.calls[0]?.[0];
+    expect(typeof firstUrlArg === 'string' ? firstUrlArg : '').toBe(
+      'https://raw.example.test/org/repo/dir%20name/file%2B1.txt'
+    );
+
+    const prevDebug = process.env.QA11X_DEBUG;
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    try {
+      process.env.QA11X_DEBUG = '1';
+      fs.writeFileSync(path.join(cacheDir, 'manifest.json'), '{corrupt json', 'utf-8');
+      fs.writeFileSync(path.join(cacheDir, 'manifest.etag'), '"v1"', 'utf-8');
+
+      const validManifest: Manifest = {
+        schema_version: '1.0.0',
+        blueprint_version: '3.2.0',
+        generated_at_utc: '2026-11-18T00:00:00Z',
+        repository: 'tecno-consultores/qa-testing-blueprints',
+        default_branch: 'main',
+        raw_base_url: 'https://raw.example.test/org/repo',
+        stacks: {},
+        common_files: [],
+        agent_governance_files: [],
+      };
+      const manifestSpy = vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(new Response(null, { status: 304 }))
+        .mockResolvedValueOnce(new Response(JSON.stringify(validManifest), { status: 200 }));
+      vi.stubGlobal('fetch', manifestSpy);
+
+      const loaded = await fetcher.fetchManifest(false, new AbortController().signal);
+      expect(loaded.blueprint_version).toBe('3.2.0');
+      expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('readCachedManifest'));
+
+      expect(resolveSafeChildPath(path.sep, 'tmp')).toBe(path.join(path.sep, 'tmp'));
+
+      const raceBody = 'concurrent cached body';
+      const raceHash = fetcher.computeSha256(raceBody);
+      const raceFilePath = path.join(cacheDir, 'files', 'race.txt');
+      const raceFetcher = new GitHubFetcher({
+        cacheDir,
+        rawBaseUrl: 'https://raw.example.test/org/repo',
+        fetchFn: (() => {
+          fs.mkdirSync(path.dirname(raceFilePath), { recursive: true });
+          fs.writeFileSync(raceFilePath, raceBody, 'utf-8');
+          return Promise.reject(new Error('Network race fallback'));
+        }) as unknown as typeof fetch,
+      });
+      expect(await raceFetcher.fetchFileContent('race.txt', raceHash)).toBe(raceBody);
+    } finally {
+      stderrSpy.mockRestore();
+      if (prevDebug === undefined) delete process.env.QA11X_DEBUG;
+      else process.env.QA11X_DEBUG = prevDebug;
+    }
   });
 });

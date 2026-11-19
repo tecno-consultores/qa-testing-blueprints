@@ -164,7 +164,7 @@ const BOOLEAN_FLAGS: readonly SimpleFlagSpec[] = [
   { long: '--cache-only', desc: 'Clean caches without syncing skills' },
   { long: '--live', desc: 'Execute live TMS HTTP synchronization' },
   { long: '--dry-run', desc: 'Simulate without writing to disk' },
-  { long: '--force', short: '-f', desc: 'Force overwrite managed files' },
+  { long: '--force', desc: 'Force overwrite managed files' },
   { long: '--json', desc: 'Emit machine-readable JSON output' },
   { long: '--verbose', desc: 'Include verbose diagnostics with --version' },
   { long: '--stdio', desc: 'Force JSON-RPC stdio transport' },
@@ -296,12 +296,7 @@ function buildZshCompletion(): string {
   });
   const extraSpecs = EXTRA_VALUE_FLAGS.map((spec) => formatZshSimpleSpecs(spec, ':value:'));
   const boolSpecs = BOOLEAN_FLAGS.map((spec) => formatZshSimpleSpecs(spec, ''));
-  const allArgLines = [
-    ...argSpecs,
-    ...extraSpecs,
-    ...boolSpecs,
-    `    '1:shell:(${SUPPORTED_SHELLS.join(' ')})'`,
-  ].join(' \\\n');
+  const allArgLines = [...argSpecs, ...extraSpecs, ...boolSpecs].join(' \\\n');
 
   return [
     `#compdef ${BIN_NAME}`,
@@ -314,8 +309,15 @@ function buildZshCompletion(): string {
     "    _describe 'command' subcommands",
     '    return',
     '  fi',
+    '  local subcmd="${words[2]}"',
     '  shift words',
     '  (( CURRENT-- ))',
+    '  if [[ "${subcmd}" == "completion" ]] && (( CURRENT == 2 )); then',
+    '    local -a shells',
+    `    shells=(${SUPPORTED_SHELLS.join(' ')})`,
+    "    _describe 'shell' shells",
+    '    return',
+    '  fi',
     '  _arguments \\',
     allArgLines,
     '}',

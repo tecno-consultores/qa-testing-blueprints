@@ -177,19 +177,19 @@ describe('v2.18.0 i18n & Multi-Agent Targets (codex, windsurf, --lang auto|es|en
     });
   });
 
-  describe('init_or_append_agents_md MCP tool with lang parameter', () => {
+  describe('init_agents MCP CLI helper with lang parameter', () => {
     it('generates English policy when lang=en', async () => {
-      const res = await initOrAppendAgentsMd({ projectPath: tmpDir, lang: 'en' });
+      const res = await initOrAppendAgentsMd({ projectPath: tmpDir, lang: 'en', dryRun: false });
       expect(res.content).toContain('strictly in **English**');
     });
 
     it('generates Spanish policy when lang=es', async () => {
-      const res = await initOrAppendAgentsMd({ projectPath: tmpDir, lang: 'es' });
+      const res = await initOrAppendAgentsMd({ projectPath: tmpDir, lang: 'es', dryRun: false });
       expect(res.content).toContain('strictly in **Spanish**');
     });
 
     it('generates dynamic mirroring policy when lang=auto', async () => {
-      const res = await initOrAppendAgentsMd({ projectPath: tmpDir, lang: 'auto' });
+      const res = await initOrAppendAgentsMd({ projectPath: tmpDir, lang: 'auto', dryRun: false });
       expect(res.content).toContain("user's prompt language");
     });
   });

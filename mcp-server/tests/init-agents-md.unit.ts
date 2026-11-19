@@ -170,7 +170,11 @@ Regla Final`;
         JSON.stringify({ name: 'test-app', dependencies: { vue: '^3.0.0' } })
       );
 
-      const result = await initOrAppendAgentsMd({ projectPath: tmpDir });
+      const resDryOmitted = await initOrAppendAgentsMd({ projectPath: tmpDir });
+      expect(resDryOmitted.action).toBe('dry_run');
+      expect(fs.existsSync(path.join(tmpDir, 'AGENTS.md'))).toBe(false);
+
+      const result = await initOrAppendAgentsMd({ projectPath: tmpDir, dryRun: false });
       expect(result.action).toBe('created');
       expect(result.detected_stacks).toContain('vue3');
       expect(fs.existsSync(path.join(tmpDir, 'AGENTS.md'))).toBe(true);
@@ -184,7 +188,7 @@ Regla Final`;
       const initialAgents = '# Reglas Iniciales del Proyecto\n1. Respetar contratos existentes.';
       fs.writeFileSync(path.join(tmpDir, 'AGENTS.md'), initialAgents, 'utf-8');
 
-      const result = await initOrAppendAgentsMd({ projectPath: tmpDir });
+      const result = await initOrAppendAgentsMd({ projectPath: tmpDir, dryRun: false });
       expect(result.action).toBe('appended');
 
       const saved = fs.readFileSync(path.join(tmpDir, 'AGENTS.md'), 'utf-8');
@@ -197,7 +201,7 @@ Regla Final`;
       const fullAgents = `# Reglas Propias\n\n${oldBlock}\n\n# Mas reglas`;
       fs.writeFileSync(path.join(tmpDir, 'AGENTS.md'), fullAgents, 'utf-8');
 
-      const result = await initOrAppendAgentsMd({ projectPath: tmpDir });
+      const result = await initOrAppendAgentsMd({ projectPath: tmpDir, dryRun: false });
       expect(result.action).toBe('updated_block');
 
       const saved = fs.readFileSync(path.join(tmpDir, 'AGENTS.md'), 'utf-8');
@@ -232,16 +236,40 @@ Regla Final`;
 
   describe('parseInitAgentsArgs and runInitAgentsCli', () => {
     it('parses default CLI arguments', () => {
-      const parsed = parseInitAgentsArgs([]);
-      expect(parsed.projectPath).toBe(process.cwd());
-      expect(parsed.dryRun).toBe(false);
+      const prevLang = process.env.QA_OUTPUT_LANG;
+      try {
+        delete process.env.QA_OUTPUT_LANG;
+        const parsed = parseInitAgentsArgs([]);
+        expect(parsed.projectPath).toBe(process.cwd());
+        expect(parsed.dryRun).toBe(false);
+        expect(parsed.lang).toBe('auto');
+
+        process.env.QA_OUTPUT_LANG = 'en';
+        expect(parseInitAgentsArgs([]).lang).toBe('en');
+      } finally {
+        if (prevLang === undefined) {
+          delete process.env.QA_OUTPUT_LANG;
+        } else {
+          process.env.QA_OUTPUT_LANG = prevLang;
+        }
+      }
     });
 
     it('parses --dry-run and --project-path flags', () => {
-      const parsed1 = parseInitAgentsArgs(['--dry-run', '--project-path', '/custom/path']);
-      expect(parsed1.projectPath).toBe('/custom/path');
-      expect(parsed1.dryRun).toBe(true);
-      expect(parsed1.lang).toBe('auto');
+      const prevLang = process.env.QA_OUTPUT_LANG;
+      try {
+        delete process.env.QA_OUTPUT_LANG;
+        const parsed1 = parseInitAgentsArgs(['--dry-run', '--project-path', '/custom/path']);
+        expect(parsed1.projectPath).toBe('/custom/path');
+        expect(parsed1.dryRun).toBe(true);
+        expect(parsed1.lang).toBe('auto');
+      } finally {
+        if (prevLang === undefined) {
+          delete process.env.QA_OUTPUT_LANG;
+        } else {
+          process.env.QA_OUTPUT_LANG = prevLang;
+        }
+      }
 
       const parsed2 = parseInitAgentsArgs(['-p', '/other/path', '--lang', 'es']);
       expect(parsed2.projectPath).toBe('/other/path');
@@ -262,6 +290,11 @@ Regla Final`;
 
       const parsed6 = parseInitAgentsArgs(['--dir=/dir/eq']);
       expect(parsed6.projectPath).toBe('/dir/eq');
+
+      expect(parseInitAgentsArgs(['my-app'], '/tmp/base').projectPath).toBe(
+        path.resolve('/tmp/base', 'my-app')
+      );
+      expect(parseInitAgentsArgs(['../escape'], '/tmp/base').projectPath).toBe('../escape');
 
       // Rejects unknown hyphen flags and missing flag values explicitly
       expect(() => parseInitAgentsArgs(['--unknown', '--project-path'])).toThrow(

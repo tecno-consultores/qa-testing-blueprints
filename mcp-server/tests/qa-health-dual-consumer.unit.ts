@@ -798,6 +798,7 @@ describe('QA-HEALTH-01 & Dual-Consumer Evolution Suite', () => {
         empirical_rationale: 'Contenedor cayó en unhealthy con workers opt-in apagados.',
         proposed_content_or_snippet: '9. **Unmocked Orchestrator Boot (`QA-HEALTH-01`)**',
         proposed_human_doc_summary: 'Explicación didáctica en español con ejemplo de OPTIONAL_WORKERS.',
+        dry_run: false,
         prefer_offline_fallback: true,
       });
 

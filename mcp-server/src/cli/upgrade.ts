@@ -15,7 +15,11 @@ import {
   hasHelpFlag,
   matchFlagValue,
 } from './cliArgHelpers.js';
-import { runInstallSkillCli } from './install-skill.js';
+import {
+  assertValidSkillTarget,
+  InstallSkillRuntimeOptions,
+  runInstallSkillCli,
+} from './install-skill.js';
 
 const PREFIX_ERROR = '❌ [upgrade]';
 const UTF8_ENCODING = 'utf-8';
@@ -50,8 +54,13 @@ export const UPGRADE_HELP_TEXT = [
 
 export interface UpgradeCliDeps {
   readonly homeDir?: string;
+  readonly cwd?: string;
   readonly fetcher?: GitHubFetcher;
-  readonly installSkillRunner?: (args: string[], fetcher?: GitHubFetcher) => Promise<void>;
+  readonly installSkillRunner?: (
+    args: string[],
+    fetcher?: GitHubFetcher,
+    runtimeOptions?: InstallSkillRuntimeOptions
+  ) => Promise<void>;
 }
 
 export interface UpgradeReport {
@@ -136,12 +145,23 @@ function isExclusiveQa11xNpxHash(hashDirPath: string): boolean {
   try {
     const parsed = JSON.parse(fs.readFileSync(pkgJsonPath, UTF8_ENCODING)) as {
       dependencies?: unknown;
+      devDependencies?: unknown;
+      optionalDependencies?: unknown;
     };
-    if (typeof parsed.dependencies !== 'object' || parsed.dependencies === null) {
+    const deps = parsed.dependencies;
+    if (typeof deps !== 'object' || deps === null || Array.isArray(deps)) {
       return false;
     }
-    const otherDeps = Object.keys(parsed.dependencies).filter((dep) => dep !== FULL_PKG_NAME);
-    return otherDeps.length === 0;
+    const hasPkg = Object.prototype.hasOwnProperty.call(deps, FULL_PKG_NAME);
+    const otherDeps = Object.keys(deps).filter((dep) => dep !== FULL_PKG_NAME);
+    const hasExtraSections =
+      (typeof parsed.devDependencies === 'object' &&
+        parsed.devDependencies !== null &&
+        Object.keys(parsed.devDependencies).length > 0) ||
+      (typeof parsed.optionalDependencies === 'object' &&
+        parsed.optionalDependencies !== null &&
+        Object.keys(parsed.optionalDependencies).length > 0);
+    return hasPkg && otherDeps.length === 0 && !hasExtraSections;
   } catch (err: unknown) {
     reportDebugCatchError('upgrade.isExclusiveQa11xNpxHash', err);
     return false;
@@ -201,22 +221,21 @@ function formatUpgradeText(report: UpgradeReport): string {
 }
 
 async function runInstallSkillsForUpgrade(
-  runner: (args: string[], fetcher?: GitHubFetcher) => Promise<void>,
+  runner: (
+    args: string[],
+    fetcher?: GitHubFetcher,
+    runtimeOptions?: InstallSkillRuntimeOptions
+  ) => Promise<void>,
   parsed: ParsedUpgradeArgs,
-  fetcher?: GitHubFetcher
+  deps: UpgradeCliDeps
 ): Promise<void> {
   const skillArgs = [FLAG_TARGET, parsed.target, ...(parsed.reconcile ? [FLAG_RECONCILE] : [])];
-  if (!parsed.json) {
-    await runner(skillArgs, fetcher);
-    return;
-  }
-  const origConsoleLog = console.log;
-  console.log = () => undefined;
-  try {
-    await runner(skillArgs, fetcher);
-  } finally {
-    console.log = origConsoleLog;
-  }
+  const runtimeOptions: InstallSkillRuntimeOptions = {
+    homeDir: deps.homeDir,
+    cwd: deps.cwd,
+    log: parsed.json ? () => undefined : console.log,
+  };
+  await runner(skillArgs, deps.fetcher, runtimeOptions);
 }
 
 function pruneUpgradeTargetPaths(targetedPaths: readonly string[], dryRun: boolean): string[] {
@@ -240,7 +259,7 @@ async function syncUpgradeSkillsIfEnabled(
     return;
   }
   const runner = deps.installSkillRunner ?? runInstallSkillCli;
-  await runInstallSkillsForUpgrade(runner, parsed, deps.fetcher);
+  await runInstallSkillsForUpgrade(runner, parsed, deps);
 }
 
 async function executeUpgradeWorkflow(
@@ -248,6 +267,7 @@ async function executeUpgradeWorkflow(
   deps: UpgradeCliDeps
 ): Promise<CliCommandOutput> {
   const parsed = parseUpgradeArgs(args);
+  assertValidSkillTarget(parsed.target);
   const homeDir = resolveSafeHomeDir(deps.homeDir);
   const targetedPaths = collectRemovalTargets(homeDir);
   const removedPaths = pruneUpgradeTargetPaths(targetedPaths, parsed.dryRun);

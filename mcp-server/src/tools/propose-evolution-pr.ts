@@ -236,16 +236,30 @@ export async function proposeSkillEvolutionPr(
   const branchName = `evolution/${slug}`;
   const proposalsDir = path.join(resolvedPath, '.agents', 'proposals');
   const dualTargets = inferDualConsumerTargets(input);
-  const proposalFilePath = writeProposalFile(proposalsDir, slug, input, dualTargets);
   const { issueBody, prefilledUrl } = buildPrefilledIssueUrl(input);
 
   const isDryRun = input.dry_run ?? true;
   const preferOffline = input.prefer_offline_fallback ?? true;
 
-  if (isDryRun || preferOffline) {
-    const modeReason = isDryRun
-      ? 'modo dry_run=true activo por seguridad'
-      : 'modo offline seleccionado';
+  if (isDryRun) {
+    return {
+      status: STATUS_PROPOSAL_GENERATED,
+      target_repo: UPSTREAM_REPO,
+      target_blueprint_file: input.target_blueprint_file,
+      target_human_doc_file: dualTargets.targetHumanDocFile,
+      target_mcp_component: dualTargets.targetMcpComponent,
+      branch_name: branchName,
+      gh_cli_authenticated: false,
+      pull_request_url: null,
+      prefilled_github_url: prefilledUrl,
+      local_proposal_file: path.join(proposalsDir, `${slug}.md`),
+      message: 'Propuesta Dual-Consumer generada en modo dry_run=true sin escribir en disco.',
+    };
+  }
+
+  const proposalFilePath = writeProposalFile(proposalsDir, slug, input, dualTargets);
+
+  if (preferOffline) {
     return {
       status: STATUS_PROPOSAL_GENERATED,
       target_repo: UPSTREAM_REPO,
@@ -257,7 +271,7 @@ export async function proposeSkillEvolutionPr(
       pull_request_url: null,
       prefilled_github_url: prefilledUrl,
       local_proposal_file: proposalFilePath,
-      message: `Propuesta Dual-Consumer generada localmente y URL prellenada creada (${modeReason}).`,
+      message: 'Propuesta Dual-Consumer generada localmente y URL prellenada creada (modo offline seleccionado).',
     };
   }
 

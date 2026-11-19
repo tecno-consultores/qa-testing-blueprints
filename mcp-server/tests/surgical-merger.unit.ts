@@ -812,7 +812,7 @@ qa-unit:
           {
             path: 'python/Makefile.example',
             target_name: 'Makefile',
-            merge_strategy: 'append_makefile_targets',
+            merge_strategy: 'surgical_merge',
             content: 'qa-unit:\n\t@echo unit\n',
             sha256_verified: true,
           },
@@ -821,6 +821,9 @@ qa-unit:
       );
       expect(withBackup.summary.merged).toBe(1);
       expect(fs.readFileSync(`${mkPath}.11x-backup`, 'utf-8')).toBe('build:\n\t@echo app\n');
+      const mkMerged = fs.readFileSync(mkPath, 'utf-8');
+      expect(mkMerged).toContain('build:\n\t@echo app');
+      expect(mkMerged).toContain('qa-unit:');
 
       // Sin respaldo adicional cuando createBackup=false
       const envPath = path.join(tmpDir, '.env.example');
@@ -847,7 +850,7 @@ qa-unit:
         {
           path: 'AGENTS.md',
           target_name: 'AGENTS.md',
-          merge_strategy: 'merge_agents_md',
+          merge_strategy: 'surgical_merge',
           content: '# Ignored raw template',
           sha256_verified: true,
         },
@@ -856,6 +859,159 @@ qa-unit:
       const agentsDisk = fs.readFileSync(path.join(agentsFreshDir, 'AGENTS.md'), 'utf-8');
       expect(agentsDisk).toContain('<!-- QA_11X_MCP_CONNECTOR_START -->');
       expect(agentsDisk).toContain('<!-- QA_11X_MCP_CONNECTOR_END -->');
+
+      // Respeta estrategia copy_if_missing_or_update_qa sobre scripts de gobernanza y rechaza estrategias desconocidas
+      const govScript = path.join(agentsFreshDir, '.agents', 'scripts', 'gate.py');
+      fs.mkdirSync(path.dirname(govScript), { recursive: true });
+      fs.writeFileSync(govScript, 'print("old")\n', 'utf-8');
+      const govUpdate = await merger.mergeFiles(agentsFreshDir, [
+        {
+          path: '.agents/scripts/gate.py',
+          target_name: '.agents/scripts/gate.py',
+          merge_strategy: 'copy_if_missing_or_update_qa',
+          content: 'print("new")\n',
+          sha256_verified: true,
+        },
+      ]);
+      expect(govUpdate.summary.merged).toBe(1);
+      expect(fs.readFileSync(govScript, 'utf-8')).toBe('print("new")\n');
+
+      // Idempotent second call when copy_if_missing_or_update_qa file already matches
+      const govSame = await merger.mergeFiles(agentsFreshDir, [
+        {
+          path: '.agents/scripts/gate.py',
+          target_name: '.agents/scripts/gate.py',
+          merge_strategy: 'copy_if_missing_or_update_qa',
+          content: 'print("new")\n',
+          sha256_verified: true,
+        },
+      ]);
+      expect(govSame.summary.skipped).toBe(1);
+
+      fs.writeFileSync(path.join(agentsFreshDir, 'README.md'), '# Existing README\n', 'utf-8');
+      await expect(
+        merger.mergeFiles(agentsFreshDir, [
+          {
+            path: 'README.md',
+            target_name: 'README.md',
+            merge_strategy: 'unknown_strategy',
+            content: '# Ignored',
+            sha256_verified: true,
+          },
+        ])
+      ).rejects.toThrow('[MERGE-STRATEGY-01]');
+
+      // Rechaza escribir .11x-backup sobre symlink existente dentro o fuera del proyecto (SEC-SYMLINK-01 / CWE-22)
+      const victimDir = path.join(tmpDir, 'sym-backup-proj');
+      const internalTarget = path.join(victimDir, 'inside-target.txt');
+      fs.mkdirSync(victimDir, { recursive: true });
+      fs.writeFileSync(internalTarget, 'keep-me', 'utf-8');
+      fs.writeFileSync(path.join(victimDir, '.env.example'), 'A=1\n', 'utf-8');
+      fs.symlinkSync(internalTarget, path.join(victimDir, '.env.example.11x-backup'));
+      await expect(
+        merger.mergeFiles(
+          victimDir,
+          [
+            {
+              path: 'python/.env.example',
+              target_name: '.env.example',
+              merge_strategy: 'overwrite',
+              content: 'A=2\n',
+              sha256_verified: true,
+            },
+          ],
+          { createBackup: true }
+        )
+      ).rejects.toThrow('[SEC-SYMLINK-01]');
+      expect(fs.readFileSync(internalTarget, 'utf-8')).toBe('keep-me');
+
+      // Cobertura adicional: pyproject multi-sección [[...]], hardenMakefileLine target boundary, eslint encadenado, vitest strip & pnpm-workspace allowBuilds: {}
+      const pyMerge = merger.mergePyprojectToml(
+        '[project]\nname = "demo"\n[unclosed\n[trailing] unexpected\n',
+        '[project]\nname = "tpl"\n\n[tool.ruff.lint.mccabe]\nmax-complexity = 5\n\n[tool.mypy]\nstrict = true\n[[tool.mypy.overrides]]\nmodule = "tests.*"\n\n[tool.bandit]\nskips = []\n'
+      );
+      expect(pyMerge.merged).toContain('[tool.ruff.lint.mccabe]');
+      expect(pyMerge.merged).toContain('[[tool.mypy.overrides]]');
+      expect(pyMerge.merged).toContain('[tool.bandit]');
+
+      const mkHardened = merger.mergeMakefile(
+        '.PHONY: mypy\nmypy:\n\t@echo checking mypy\n\t@grep mypy src\n\tpoetry run mypy src\n',
+        'qa-test:\n\t; pytest -o addopts=""\n\t&&pytest\n\t|pytest\n\tfoo pytest\n\t@printf "mypy"\n\t@grep pytest'
+      );
+      expect(mkHardened.merged).toContain('.PHONY: mypy');
+      expect(mkHardened.merged).toContain('mypy:\n\t@echo checking mypy');
+      expect(mkHardened.merged).toContain('poetry run mypy --cache-dir=/tmp/mypy src');
+      expect(mkHardened.merged).toContain('pytest --import-mode=importlib -o addopts="" --cov=src --cov-fail-under=95');
+
+      const pkgChained = merger.mergePackageJson(
+        JSON.stringify({ name: 'web', scripts: { lint: 'eslint src && prettier --check src' } }),
+        JSON.stringify({ scripts: { lint: 'eslint .' } })
+      );
+      const pkgChainedParsed = JSON.parse(pkgChained.merged) as { scripts: { lint: string } };
+      expect(pkgChainedParsed.scripts.lint).toBe(
+        'eslint src --max-warnings 0 && prettier --check src'
+      );
+
+      const pkgWithoutOnlyBuilt = merger.mergePackageJson(
+        JSON.stringify({ name: 'ok', pnpm: { overrides: {} } }),
+        '{}'
+      );
+      expect(JSON.parse(pkgWithoutOnlyBuilt.merged)).toMatchObject({ name: 'ok', pnpm: { overrides: {} } });
+
+      const setupStripped = merger.mergeVitestSetupTs(
+        '// existing user setup\n',
+        "import '@testing-library/jest-dom/vitest';\nimport { expect } from 'vitest';\n"
+      );
+      expect(setupStripped.merged).not.toContain('jest-dom/vitest');
+      expect(setupStripped.merged).toContain("import { expect } from 'vitest';");
+
+      const pnpmEmpty = merger.mergePnpmWorkspaceYaml(
+        '# allowBuilds: comment\nallowBuilds: {} # trailing comment\n',
+        'allowBuilds: true\nallowBuilds:\n  esbuild: true\n'
+      );
+      expect(pnpmEmpty.merged).toContain('esbuild: true');
+      expect(pnpmEmpty.merged).not.toContain('allowBuilds: {}');
+
+      const overwriteDir = path.join(tmpDir, 'overwrite-branch-proj');
+      fs.mkdirSync(overwriteDir, { recursive: true });
+      fs.writeFileSync(path.join(overwriteDir, 'canon.txt'), 'same\n', 'utf-8');
+      fs.writeFileSync(path.join(overwriteDir, 'qa-file.txt'), 'old-qa\n', 'utf-8');
+      const skipRes = await merger.mergeFiles(
+        overwriteDir,
+        [
+          {
+            path: 'canon.txt',
+            target_name: 'canon.txt',
+            merge_strategy: 'overwrite',
+            content: 'same\n',
+            sha256_verified: true,
+          },
+        ],
+        { dryRun: false }
+      );
+      expect(skipRes.applied_changes[0]?.status).toBe('skipped');
+
+      const dryRes = await merger.mergeFiles(
+        overwriteDir,
+        [
+          {
+            path: 'canon.txt',
+            target_name: 'canon.txt',
+            merge_strategy: 'overwrite',
+            content: 'updated\n',
+            sha256_verified: true,
+          },
+          {
+            path: 'qa-file.txt',
+            target_name: 'qa-file.txt',
+            merge_strategy: 'copy_if_missing_or_update_qa',
+            content: 'new-qa\n',
+            sha256_verified: true,
+          },
+        ],
+        { dryRun: true }
+      );
+      expect(dryRes.applied_changes.map((c) => c.status)).toEqual(['dry_run', 'dry_run']);
     });
   });
 });

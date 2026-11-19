@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
 import { inspectAstBlastRadius } from '../tools/blast-radius.js';
+import { isDocFilePath } from '../services/qa-evidence.js';
 import type { BlastRadiusResult } from '../types.js';
 import { pickAt } from '../utils/diagnosticFormatter.js';
 import {
@@ -65,6 +66,9 @@ const VALUE_FLAG_HANDLERS: Readonly<Record<string, BlastValueHandler>> = {
     state.symbol = val;
   },
   '--project-path': (val, state) => {
+    state.projectDir = val;
+  },
+  '--dir': (val, state) => {
     state.projectDir = val;
   },
   '-p': (val, state) => {
@@ -140,14 +144,14 @@ function parseBlastRadiusArgs(args: readonly string[]): BlastCliParseState {
 
 function computeBlastRoutingPath(result: BlastRadiusResult): BlastRoutingPath {
   const diffFiles = result.diff_bundle?.files;
-  if (
-    diffFiles &&
-    diffFiles.length > 0 &&
-    diffFiles.every((entry) => entry.file.endsWith('.md') || entry.file.startsWith('docs/'))
-  ) {
+  if (diffFiles && diffFiles.length > 0 && diffFiles.every((entry) => isDocFilePath(entry.file))) {
     return 'DOCS_ONLY';
   }
-  if (result.risk_level === 'LOW' && result.dependent_files_count < 5) {
+  if (
+    result.risk_level === 'LOW' &&
+    result.dependent_files_count < 5 &&
+    (diffFiles?.length ?? 0) <= 3
+  ) {
     return 'MICRO_CHANGE';
   }
   return 'FULL_11X';

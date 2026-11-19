@@ -225,7 +225,7 @@ const SQL_LINE_COMMENT_RE = /--[^\n]*/g;
 const SQL_CREATE_TABLE_RE = /\bCREATE\s+TABLE\b/i;
 const SQL_ENABLE_RLS_RE = /\bENABLE\s+ROW\s+LEVEL\s+SECURITY\b/i;
 const SQL_PERMISSIVE_RE = /\b(?:USING|WITH\s+CHECK)\s*\(\s*true\s*\)/i;
-const SPANISH_MARKER_RE = /(?:\bin Spanish\b|Estándar 11X|\ben español\b)/i;
+const SPANISH_MARKER_RE = /(?:\bin \*?\*?Spanish\*?\*?\b|Estándar 11X|\ben español\b)/i;
 const ENGLISH_MARKER_RE = /\b(?:Respond in English|strictly in \*\*English\*\*)\b/i;
 
 const NODE_SPECIFIC_RULES: ReadonlyArray<{

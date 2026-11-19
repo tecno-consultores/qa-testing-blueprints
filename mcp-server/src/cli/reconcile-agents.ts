@@ -5,6 +5,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { CONNECTOR_START_MARKER, CONNECTOR_END_MARKER } from './init-agents-md.js';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
+import { resolveCliProjectPath } from './cliArgHelpers.js';
 import { pickAt } from '../utils/diagnosticFormatter.js';
 import type { ReconcileAgentsResult, ReconciledRuleItem } from '../types.js';
 
@@ -340,6 +341,9 @@ function cleanPromotedDuplicatesInAgentsMd(
   dryRun: boolean,
   backupDir: string
 ): { item: ReconciledRuleItem | null; removedCount: number } {
+  if (isUpstreamBlueprintsRepo(projectPath)) {
+    return { item: null, removedCount: 0 };
+  }
   const agentsMdPath = path.join(projectPath, AGENTS_MD_FILENAME);
   const agentsStat = assertNotSymlinkPath(agentsMdPath, AGENTS_MD_FILENAME);
   if (!agentsStat) {
@@ -684,11 +688,11 @@ function readReconcilePathFlagValue(
   index: number,
   arg: string
 ): { value: string; step: number } | null {
-  for (const longFlag of ['--project-path', '--dir']) {
-    if (arg.startsWith(`${longFlag}=`)) {
-      const inlineValue = arg.slice(longFlag.length + 1);
+  for (const pathFlag of ['--project-path', '--dir', '-p']) {
+    if (arg.startsWith(`${pathFlag}=`)) {
+      const inlineValue = arg.slice(pathFlag.length + 1);
       if (!inlineValue) {
-        throw new Error(`Falta el valor requerido para la opción '${longFlag}'.`);
+        throw new Error(`Falta el valor requerido para la opción '${pathFlag}'.`);
       }
       return { value: inlineValue, step: 0 };
     }
@@ -749,7 +753,7 @@ export function parseReconcileAgentsArgs(
     hasPositionalDir = true;
   }
 
-  return { projectPath, dryRun, help };
+  return { projectPath: resolveCliProjectPath(projectPath, defaultCwd), dryRun, help };
 }
 
 export async function runReconcileAgentsCli(

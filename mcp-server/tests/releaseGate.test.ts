@@ -379,9 +379,38 @@ describe('evaluateReleaseGate MCP tool (T2.6)', () => {
     }
 
     const unquotedAttrRes = evaluateReleaseReadiness({
-      junitXmlContent: '<testsuite name=unquoted />',
+      junitXmlContent: '<testsuite name=unquoted tests="2" failures="0"><testcase name="a"/><testcase name="b"/></testsuite>',
     });
-    expect(unquotedAttrRes.decision).toBe(DECISION_NO_GO);
+    expect(unquotedAttrRes.decision).toBe(DECISION_GO);
+    expect(unquotedAttrRes.junit.totalTests).toBe(2);
+
+    const partialRootRes = evaluateReleaseReadiness({
+      junitXmlContent:
+        '<testsuites tests="2" failures="0"><testsuite name="s1" tests="1"><testcase name="t1"/></testsuite><testsuite name="s2"><testcase name="t2"/></testsuite></testsuites>',
+    });
+    expect(partialRootRes.decision).toBe(DECISION_GO);
+    expect(partialRootRes.junit.totalTests).toBe(2);
+
+    const malformedAttrRes = evaluateReleaseReadiness({
+      junitXmlContent: "<testsuite empty= orphanFlag =\"emptyKey\" name='single' tests=\"1\" failures=\"0\"><testcase name=\"t1\"/></testsuite>",
+    });
+    expect(malformedAttrRes.junit.totalTests).toBe(1);
+    const trailingFlagRes = evaluateReleaseReadiness({
+      junitXmlContent: '<testsuite tests="1" failures="0" trailingFlag><testcase name="t1"/></testsuite>',
+    });
+    expect(trailingFlagRes.junit.totalTests).toBe(1);
+    const emptyTailAttrRes = evaluateReleaseReadiness({
+      junitXmlContent: '<testsuite tests="1" failures="0" empty=><testcase name="t1"/></testsuite>',
+    });
+    expect(emptyTailAttrRes.junit.totalTests).toBe(1);
+    const splitQuoteBreakRes = evaluateReleaseReadiness({
+      junitXmlContent: '<testsuite tests="1" failures="0" a=x" b="1><testcase name="t1"/></testsuite>',
+    });
+    expect(splitQuoteBreakRes.junit.totalTests).toBe(1);
+    const unclosedQuoteRes = evaluateReleaseReadiness({
+      junitXmlContent: '<testsuite name="unterminated><testcase name="t1"/></testsuite>',
+    });
+    expect(unclosedQuoteRes.hasSecurityOrParseError).toBe(true);
 
     const defaultWsRes = evaluateReleaseReadiness({
       junitXmlPath: 'nonexistent-file-for-default-ws.xml',

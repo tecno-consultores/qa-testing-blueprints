@@ -47,7 +47,7 @@ describe('bootstrapOrMerge11x Dedicated Unit Suite', () => {
             {
               path: 'python/Makefile.example',
               target_name: 'Makefile',
-              merge_strategy: 'append_makefile_targets',
+              merge_strategy: 'surgical_merge',
               sha256: sha256(makefileContent),
               size_bytes: makefileContent.length,
             },

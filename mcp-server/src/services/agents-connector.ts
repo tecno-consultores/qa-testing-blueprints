@@ -34,7 +34,10 @@ export function replaceDelimitedSection(
     return { finalContent: emptyDocument, action: 'created' };
   }
   const startIdx = existingContent.indexOf(startMarker);
-  const endIdx = existingContent.indexOf(endMarker);
+  const endIdx =
+    startIdx !== -1
+      ? existingContent.indexOf(endMarker, startIdx + startMarker.length)
+      : existingContent.indexOf(endMarker);
   if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
     const before = existingContent.slice(0, startIdx);
     const after = existingContent.slice(endIdx + endMarker.length);
@@ -97,7 +100,7 @@ export function buildGlobalGeminiBlock(lang: OutputLanguageMode = 'auto'): strin
       CONNECTOR_START_MARKER,
       '## 🤖 Conector Global Thin-Client QA 11X (`@sinfallas/mcp-qa-11x`)',
       '',
-      '- **Idioma y Economía Cognitiva:** Interactuar, razonar y escribir commits/documentación estrictamente en **Español**. Aplicar *3-Tier Progressive Disclosure*, lecturas acotadas (`StartLine`/`EndLine` 40–80 líneas; prohibido leer archivos `>150` líneas a ciegas), *Zero Redundant Re-Read*, *Parallel Tool Batching* y aislamiento de subagentes (`<=20` líneas).',
+      '- **Idioma y Economía Cognitiva:** Interactuar, razonar y escribir commits/documentación estrictamente en **Español** (manteniendo `AGENTS.md` y `.agents/**` en inglés conciso por economía cognitiva). Aplicar *3-Tier Progressive Disclosure*, lecturas acotadas (`StartLine`/`EndLine` 40–80 líneas; prohibido leer archivos `>150` líneas a ciegas), *Zero Redundant Re-Read*, *Parallel Tool Batching* y aislamiento de subagentes (`<=20` líneas).',
       '- **Graphify AST-First (Consultas de Código Q&A y Pre-Cambio):** Ante **cualquier pregunta sobre el código o arquitectura de un proyecto** o antes de modificar código, activar `graphify-ast-navigator` y consultar **SIEMPRE primero** el grafo AST (`inspect_ast_blast_radius` / `python3 .agents/scripts/inspect_blast_radius.py` y `graphify-out/GRAPH_REPORT.md`; si `graphify-out/graph.json` no existe, generarlo con `./scripts/actualizar-grafos-graphify.sh`) antes de usar `grep` o `read_file`.',
       '- **Consumo Global sin Duplicación (Skills + MCP `qa-11x`):** Consumir los protocolos `DOCS_ONLY` / `MICRO_CHANGE` / `FULL_11X`, **Rule Zero** (ejecución efímera en Docker vía `run_ephemeral_qa`), auditoría de seguridad (`audit_security_stig_owasp`), certificación (`certify_11x_gate`), poda de duplicados (`reconcile_agents_governance`) y evolución continua (`propose_skill_evolution_pr`) directamente desde las 11 skills globales instaladas (`qa-11x-architect`, `qa-11x-devsecops-hardener`, `qa-11x-systematic-debugging`, `qa-11x-screenplay-builder`, `qa-11x-llm-evaluator`, `qa-11x-vibe-rescue`, `qa-11x-docker-certifier`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `refactoring-ui`, `tactical-patterns-11x`) sin duplicar reglas ni skills en los proyectos locales.',
       '- **Co-Evolución Obligatoria de Pruebas (`QA-TEST-SYNC-01`):** Al modificar código, esquemas, configuraciones, skills o catálogos, **auditar, actualizar y re-ejecutar SIEMPRE todas las pruebas preexistentes afectadas** (unitarias, integración, BATS y Karate BDD `.feature`) además de crear pruebas nuevas, sin debilitar aserciones válidas.',
@@ -182,9 +185,10 @@ export function syncGlobalGeminiMd(
 
   const existing = fs.existsSync(geminiMdPath) ? fs.readFileSync(geminiMdPath, UTF8) : '';
   const finalContent = mergeGlobalGeminiContent(existing, lang);
+  const changed = finalContent !== existing;
 
-  if (!dryRun) {
+  if (!dryRun && changed) {
     fs.writeFileSync(geminiMdPath, finalContent, UTF8);
   }
-  return { updated: true, geminiMdPath };
+  return { updated: changed, geminiMdPath };
 }

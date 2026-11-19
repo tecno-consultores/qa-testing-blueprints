@@ -395,11 +395,22 @@ export class TaskStateGuard {
   }
 
   applyWorkerExit(input: WorkerExitInput): WorkerExitEvaluation {
+    if (this.state === STATE_BROKEN) {
+      return {
+        healthy: false,
+        state: STATE_BROKEN,
+        brokenReason: this.brokenReason,
+      };
+    }
     const evaluation = evaluateWorkerExit(input);
     if (!evaluation.healthy) {
       this.markBroken(REASON_OFFLINE);
+      return evaluation;
     }
-    return evaluation;
+    return {
+      ...evaluation,
+      state: this.state,
+    };
   }
 
   private assertReservable(): void {
@@ -413,6 +424,9 @@ export class TaskStateGuard {
 
   private acquireRecord(taskId?: string): ActiveTaskRecord {
     this.assertReservable();
+    if (taskId !== undefined && this.activeTasks.has(taskId)) {
+      throw new Error(`DUPLICATE_TASK_ID: ya existe una tarea activa con taskId='${taskId}'.`);
+    }
     this.sequence += 1;
     const resolvedId = taskId ?? `task-${this.sequence}`;
     const record: ActiveTaskRecord = {

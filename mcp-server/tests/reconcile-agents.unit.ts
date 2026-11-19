@@ -242,7 +242,24 @@ describe('reconcile-agents (Hito 13: Governance Reconciliation & Deduplication)'
       expect(domainText).not.toContain('Supreme Directive: Mandatory 11X Test Creation');
     });
 
-    it('Case 8: backs up and deletes local copies of the 5 canonical skills in consumer .agents/skills/', async () => {
+    it('Case 8: backs up and deletes local copies of the canonical global skills in consumer .agents/skills/', async () => {
+      for (const expectedSkill of [
+        'qa-11x-architect',
+        'qa-11x-docker-certifier',
+        'docker-trivy-keydb-hardening',
+        'graphify-ast-navigator',
+        'refactoring-ui',
+        'tactical-patterns-11x',
+      ]) {
+        expect(CANONICAL_GLOBAL_SKILL_DIRS.has(expectedSkill)).toBe(true);
+      }
+      for (const expectedRule of [
+        'mandatory_qa_pyramid_and_doc_sync.md',
+        'secure_development_and_testing_guidelines.md',
+        'git_closure_gate.md',
+      ]) {
+        expect(CANONICAL_GLOBAL_RULE_FILES.has(expectedRule)).toBe(true);
+      }
       const projectDir = path.join(tmpDir, 'consumer-with-local-skills');
       const skillsDir = path.join(projectDir, '.agents', 'skills');
 
@@ -285,6 +302,12 @@ describe('reconcile-agents (Hito 13: Governance Reconciliation & Deduplication)'
       const upstreamSkillDir = path.join(upstreamDir, '.agents', 'skills', 'qa-11x-architect');
       fs.mkdirSync(upstreamRulesDir, { recursive: true });
       fs.mkdirSync(upstreamSkillDir, { recursive: true });
+      const upstreamAgentsMd = path.join(upstreamDir, 'AGENTS.md');
+      fs.writeFileSync(
+        upstreamAgentsMd,
+        '# Upstream\n\n## Invariante Anti-Silo\nTexto canonico.\n',
+        'utf-8'
+      );
       fs.writeFileSync(
         path.join(upstreamRulesDir, 'mandatory_qa_pyramid_and_doc_sync.md'),
         '# Canonical',
@@ -297,7 +320,16 @@ describe('reconcile-agents (Hito 13: Governance Reconciliation & Deduplication)'
       expect(
         fs.existsSync(path.join(upstreamRulesDir, 'mandatory_qa_pyramid_and_doc_sync.md'))
       ).toBe(true);
-      expect(fs.existsSync(path.join(upstreamSkillDir, 'SKILL.md'))).toBe(true);
+      expect(fs.existsSync(upstreamSkillDir + '/SKILL.md')).toBe(true);
+      expect(fs.readFileSync(upstreamAgentsMd, 'utf-8')).toContain('Invariante Anti-Silo');
+
+      // CLI -p=<relative-dir> resolves relative to injected cwd
+      const cliRelRes: string[] = [];
+      await runReconcileAgentsCli(['-p=consumer-custom-skill', '--dry-run'], {
+        cwd: tmpDir,
+        log: (m) => cliRelRes.push(m),
+      });
+      expect(cliRelRes.join('\n')).toContain('Reconcile 11X');
     });
 
     it('Case 4: dry_run mode simulates without altering files or creating backups', async () => {
@@ -469,9 +501,9 @@ describe('reconcile-agents (Hito 13: Governance Reconciliation & Deduplication)'
       expect(updated).toContain('propose_skill_evolution_pr');
       expect(updated).toContain('reconcile_agents_governance');
 
-      // Segunda invocación idempotente cuando ya existen los marcadores
+      // Segunda invocación idempotente cuando ya existen los marcadores sin cambios -> evita reescritura innecesaria
       const resSecond = syncGlobalGeminiMd(fakeHome, false);
-      expect(resSecond.updated).toBe(true);
+      expect(resSecond.updated).toBe(false);
       const updatedSecond = fs.readFileSync(resSecond.geminiMdPath, 'utf-8');
       expect(updatedSecond).toContain('Personal Global Directives');
       expect(updatedSecond.match(/QA_11X_MCP_CONNECTOR_START/g)?.length).toBe(1);

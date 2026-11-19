@@ -22,7 +22,7 @@ import {
   VERSION_STAMP_FILENAME,
   writeVersionStamp,
 } from '../src/services/version-manager.js';
-import { GitHubFetcher } from '../src/services/github-fetcher.js';
+import { GitHubFetcher, MCP_SERVER_VERSION } from '../src/services/github-fetcher.js';
 import { inspectProjectConfig } from '../src/tools/inspect-project.js';
 import { certify11xGate } from '../src/tools/certify-gate.js';
 import { runInstallSkillCli } from '../src/cli/install-skill.js';
@@ -456,7 +456,18 @@ describe('Version Manager, .qa-11x-version Stamp, 24h TTL Fail-Open & Global Aut
       });
       expect(emptyEntryStatus.installed_global_skills_version).toBe('pre-2.20.0');
 
-      expect(typeof (await resolveLatestPublishedVersion())).toBe('string');
+      const isolatedVerCache = path.join(tmpRoot, 'isolated-latest-cache');
+      fs.mkdirSync(isolatedVerCache, { recursive: true });
+      const isolatedVerFetcher = new GitHubFetcher({ cacheDir: isolatedVerCache });
+      expect(await resolveLatestPublishedVersion({ fetcher: isolatedVerFetcher })).toBe('3.2.0');
+      const netVer = await resolveLatestPublishedVersion({
+        fetcher: isolatedVerFetcher,
+        allowNetworkCheck: true,
+        runningMcpVersion: '3.0.0',
+        fetchFn: () =>
+          Promise.resolve(new Response(JSON.stringify({ version: '3.2.0' }), { status: 200 })),
+      });
+      expect(netVer).toBe('3.2.0');
     });
   });
 
@@ -504,6 +515,7 @@ describe('Version Manager, .qa-11x-version Stamp, 24h TTL Fail-Open & Global Aut
       } finally {
         process.chdir(prevCwd);
         if (prevHome !== undefined) process.env.HOME = prevHome;
+        else delete process.env.HOME;
       }
 
       const geminiSkillsDir = path.join(fakeHome, '.gemini', 'config', 'skills');
@@ -603,6 +615,41 @@ describe('Version Manager, .qa-11x-version Stamp, 24h TTL Fail-Open & Global Aut
       expect(fs.readFileSync(path.join(geminiDir, 'GEMINI.md'), 'utf-8')).toBe(
         '# Custom without markers\n'
       );
+
+      // Timeout + external AbortSignal fail-open inside resolveLatestPublishedVersion & onLog catch reporting
+      const hangFetcher = {
+        getCacheDir: () => path.join(tmpRoot, 'hang-cache'),
+        fetchManifest: () => new Promise<never>(() => undefined),
+      } as unknown as GitHubFetcher;
+      expect(
+        await resolveLatestPublishedVersion({
+          fetcher: hangFetcher,
+          allowNetworkCheck: true,
+          npmTimeoutMs: 15,
+          fetchFn: () => Promise.resolve(new Response('{}', { status: 500 })),
+        })
+      ).toBe(MCP_SERVER_VERSION);
+
+      const extAc = new AbortController();
+      setTimeout(() => extAc.abort(), 10);
+      expect(
+        await resolveLatestPublishedVersion({
+          fetcher: hangFetcher,
+          allowNetworkCheck: true,
+          npmTimeoutMs: 500,
+          signal: extAc.signal,
+          fetchFn: () => Promise.resolve(new Response('{}', { status: 500 })),
+        })
+      ).toBe(MCP_SERVER_VERSION);
+
+      const capturedWarns: string[] = [];
+      const warnSync = await syncGlobalSkillsInBackground({
+        homeDir: 123 as unknown as string,
+        fetcher,
+        onLog: (m) => capturedWarns.push(m),
+      });
+      expect(warnSync.synced).toBe(false);
+      expect(capturedWarns.some((w) => w.includes('[QA-11X Auto-Sync]'))).toBe(true);
 
       // Fail-open when fetcher throws during background startup sync
       vi.spyOn(fetcher, 'fetchManifest').mockRejectedValue(new Error('offline'));

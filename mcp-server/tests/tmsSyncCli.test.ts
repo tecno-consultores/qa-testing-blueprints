@@ -882,7 +882,10 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
             issueKey: '7',
             dryRun: false,
           },
-          { env: { GITHUB_TOKEN: token } }
+          {
+            env: { GITHUB_TOKEN: token },
+            lookupHost: () => Promise.resolve([{ address: ['140', '82', '121', '6'].join('.') }]),
+          }
         );
         expect(nativeRes.status).toBe('PULL_OK');
         expect(nativeRes.pulledStory?.storyKey).toBe('GH-7');

@@ -136,6 +136,9 @@ const AUDIT_VALUE_HANDLERS: Readonly<Record<string, AuditValueSetter>> = {
   [FLAG_PROJECT_PATH_SHORT]: (val, _flag, state) => {
     state.rawDir = val;
   },
+  '--dir': (val, _flag, state) => {
+    state.rawDir = val;
+  },
   [FLAG_MODE]: (val, flag, state) => {
     state.mode = assertInSet<AuditMode>(val, VALID_MODES, flag);
   },
@@ -323,25 +326,29 @@ function shouldFailAudit(
   }
   const hasCrit =
     sarifFindings.some((f) => f.severity === SEV_CRITICAL) ||
-    (audits.security?.findings_count.CRITICAL ?? 0) > 0;
+    (audits.security?.findings_count.CRITICAL ?? 0) > 0 ||
+    (audits.vibe?.counts.critical ?? 0) > 0;
   const hasHigh =
     sarifFindings.some((f) => f.severity === SEV_HIGH) ||
-    (audits.security?.findings_count.HIGH ?? 0) > 0;
+    (audits.security?.findings_count.HIGH ?? 0) > 0 ||
+    (audits.vibe?.counts.high ?? 0) > 0;
   const hasMed =
     sarifFindings.some((f) => f.severity === SEV_MEDIUM) ||
-    (audits.security?.findings_count.MEDIUM ?? 0) > 0;
+    (audits.security?.findings_count.MEDIUM ?? 0) > 0 ||
+    (audits.vibe?.counts.medium ?? 0) > 0;
   const calmInvalid = audits.calm !== undefined && !audits.calm.valid;
+  const vibeBlocked = audits.vibe?.hasSecurityOrInputError === true;
 
   if (failOn === FAIL_CRITICAL) {
-    return hasCrit;
+    return hasCrit || vibeBlocked;
   }
   if (failOn === FAIL_HIGH) {
-    return hasCrit || hasHigh || calmInvalid;
+    return hasCrit || hasHigh || calmInvalid || vibeBlocked;
   }
   if (failOn === FAIL_MEDIUM) {
-    return hasCrit || hasHigh || hasMed || calmInvalid;
+    return hasCrit || hasHigh || hasMed || calmInvalid || vibeBlocked;
   }
-  return sarifFindings.length > 0 || calmInvalid || hasCrit || hasHigh || hasMed;
+  return sarifFindings.length > 0 || calmInvalid || vibeBlocked || hasCrit || hasHigh || hasMed;
 }
 
 interface FormatAuditTextInput {

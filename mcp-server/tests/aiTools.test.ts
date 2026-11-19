@@ -649,7 +649,43 @@ describe('runLlmRedTeam (T3.2)', () => {
     );
     expect(livePass.passed).toBe(true);
     expect(livePass.status).toBe('PASSED');
+    expect(livePass.owaspCoverage.length).toBeGreaterThanOrEqual(5);
+    expect(livePass.syntheticProbesPassed).toBeGreaterThanOrEqual(3);
     expect(capturedSpec?.file).toBe('docker');
+
+    // Preflight blocks live runner when promptfooconfig embeds literal API secret or lacks OWASP plugins
+    const preflightTmp = makeTempDir('qa-rt-preflight-');
+    const leakedToken = ['sk', 'proj', 'AbcDef1234567890'].join('-');
+    fs.writeFileSync(
+      path.join(preflightTmp, 'promptfooconfig.yaml'),
+      [
+        'providers:',
+        '  - id: openai:chat:gpt-4o-mini',
+        '    config:',
+        `      apiKey: "${leakedToken}"`,
+        'prompts:',
+        '  - "Responde conciso."',
+        'tests:',
+        '  - vars: { q: "hola" }',
+        '    assert: [{ type: contains, value: "hola" }]',
+      ].join('\n'),
+      'utf8'
+    );
+    let liveRunnerCalled = false;
+    const secretLiveRes = await runLlmRedTeam(
+      { mode: 'live', workspaceRoot: preflightTmp, configPath: 'promptfooconfig.yaml' },
+      {
+        env: { OPENAI_API_KEY: 'in-mem-key' },
+        runner: () => {
+          liveRunnerCalled = true;
+          return Promise.resolve({ exitCode: 0, stdout: '', stderr: '' });
+        },
+      }
+    );
+    expect(secretLiveRes.passed).toBe(false);
+    expect(secretLiveRes.violations.some((v) => v.code === 'FILE_NOT_FOUND')).toBe(false);
+    expect(secretLiveRes.violations.length).toBeGreaterThanOrEqual(2);
+    expect(liveRunnerCalled).toBe(false);
 
     const activeRtSignal = new AbortController().signal;
     const signaledRt = await runLlmRedTeam(

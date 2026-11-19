@@ -122,6 +122,32 @@ function readFileContentSafe(projectPath: string, relativePath: string): string 
   return '';
 }
 
+const DOC_FILE_EXT_RE = /\.(?:md|mdx|rst|txt)$/i;
+
+function isDocLikeFile(file: string): boolean {
+  return DOC_FILE_EXT_RE.test(file);
+}
+
+function readMergedConfigFiles(
+  projectPath: string,
+  files: readonly string[],
+  targetNames: readonly string[]
+): string {
+  const matched = files.filter((f) => targetNames.includes(path.basename(f)));
+  const chunks: string[] = [];
+  for (const rel of matched) {
+    const content = readFileContentSafe(projectPath, rel);
+    if (content) chunks.push(content);
+  }
+  if (chunks.length === 0) {
+    for (const name of targetNames) {
+      const direct = readFileContentSafe(projectPath, name);
+      if (direct) chunks.push(direct);
+    }
+  }
+  return chunks.join('\n');
+}
+
 // ============================================================================
 // 🔍 Descubrimiento de Archivos Huérfanos sin Pruebas Unitarias
 // ============================================================================
@@ -205,6 +231,12 @@ const STACK_DIR_PREFIXES: ReadonlyArray<readonly [string, StackName]> = [
   [`${STACK_VIBE_RESCUE}/`, STACK_VIBE_RESCUE],
   [`${STACK_AI_EVALS}/`, STACK_AI_EVALS],
   ['fastapi/', STACK_FASTAPI],
+  ['python/', STACK_PYTHON],
+  [`${STACK_NODE_BACKEND}/`, STACK_NODE_BACKEND],
+  ['vue3/', STACK_VUE3],
+  [`${STACK_REACT_FRONTEND}/`, STACK_REACT_FRONTEND],
+  ['php/', STACK_PHP],
+  [`${STACK_BASH_SCRIPTS}/`, STACK_BASH_SCRIPTS],
 ];
 
 const PYTHON_STACK_PRIORITY: readonly StackName[] = [
@@ -228,13 +260,22 @@ function resolvePrefixedStack(file: string): StackName | null {
   return null;
 }
 
+function scopeFilesForCandidate(file: string, files: string[]): string[] {
+  const prefixed = resolvePrefixedStack(file);
+  if (!prefixed) return files;
+  return files.filter((candidate) => {
+    const candidateStack = resolvePrefixedStack(candidate);
+    return candidateStack === null || candidateStack === prefixed;
+  });
+}
+
 function checkPythonOrphan(
   file: string,
   baseName: string,
   files: string[],
   stacks: StackName[]
 ): OrphanSourceFile | null {
-  if (hasPythonUnitTest(files, baseName)) return null;
+  if (hasPythonUnitTest(scopeFilesForCandidate(file, files), baseName)) return null;
   const prefixed = resolvePrefixedStack(file);
   const stackChoice =
     prefixed ?? PYTHON_STACK_PRIORITY.find((s) => stacks.includes(s)) ?? STACK_PYTHON;
@@ -248,24 +289,28 @@ function checkPythonOrphan(
   };
 }
 
+function resolveUnprefixedNodeStack(file: string, stacks: StackName[]): StackName {
+  if (file.endsWith('.vue')) {
+    return STACK_VUE3;
+  }
+  if (file.endsWith('.tsx') || file.endsWith('.jsx')) {
+    return stacks.includes(STACK_REACT_FRONTEND) ? STACK_REACT_FRONTEND : STACK_VUE3;
+  }
+  const priorityHit = NODE_STACK_PRIORITY.find((s) => stacks.includes(s));
+  if (priorityHit) return priorityHit;
+  if (stacks.includes(STACK_VUE3)) return STACK_VUE3;
+  if (stacks.includes(STACK_REACT_FRONTEND)) return STACK_REACT_FRONTEND;
+  return STACK_NODE_BACKEND;
+}
+
 function checkNodeOrphan(
   file: string,
   baseName: string,
   files: string[],
   stacks: StackName[]
 ): OrphanSourceFile | null {
-  if (hasNodeUnitTest(files, baseName)) return null;
-  const prefixed = resolvePrefixedStack(file);
-  let stackChoice: StackName | undefined = prefixed ?? undefined;
-  if (!stackChoice) {
-    if (file.endsWith('.vue') || stacks.includes(STACK_VUE3)) {
-      stackChoice = STACK_VUE3;
-    } else if (file.endsWith('.tsx') || stacks.includes(STACK_REACT_FRONTEND)) {
-      stackChoice = STACK_REACT_FRONTEND;
-    } else {
-      stackChoice = NODE_STACK_PRIORITY.find((s) => stacks.includes(s)) ?? STACK_NODE_BACKEND;
-    }
-  }
+  if (hasNodeUnitTest(scopeFilesForCandidate(file, files), baseName)) return null;
+  const stackChoice = resolvePrefixedStack(file) ?? resolveUnprefixedNodeStack(file, stacks);
   return {
     source_file: file,
     expected_unit_test: `${path.dirname(file)}/__tests__/${baseName}.unit.ts`,
@@ -595,10 +640,8 @@ function detectLinterCapabilities(
   projectPath: string,
   files: string[]
 ): { hasLinter: boolean; detected: string[] } {
-  const pyproject = readFileContentSafe(projectPath, PYPROJECT_TOML);
-  const pkgJson = readFileContentSafe(projectPath, PACKAGE_JSON);
-  const mobilePkgJson = readFileContentSafe(projectPath, `${STACK_MOBILE_APPIUM}/${PACKAGE_JSON}`);
-  const combinedPkg = `${pkgJson}\n${mobilePkgJson}`;
+  const pyproject = readMergedConfigFiles(projectPath, files, [PYPROJECT_TOML]);
+  const combinedPkg = readMergedConfigFiles(projectPath, files, [PACKAGE_JSON]);
 
   const hasPythonLinter = pyproject.includes('ruff') && pyproject.includes('bandit');
   const hasNodeLinter =
@@ -609,7 +652,7 @@ function detectLinterCapabilities(
     (files.some((f) => f.includes('shellcheck')) ||
       pyproject.includes('shellcheck') ||
       combinedPkg.includes('shellcheck'));
-  const composer = readFileContentSafe(projectPath, COMPOSER_JSON);
+  const composer = readMergedConfigFiles(projectPath, files, [COMPOSER_JSON]);
   const hasPhpLinter =
     files.some((f) => f.includes('phpstan') || f.includes('psalm')) ||
     composer.includes('phpstan') ||
@@ -720,8 +763,8 @@ function checkPythonTyping(
   projectPath: string,
   files: string[]
 ): { passed: boolean; partial: boolean; evidence: string[] } {
-  const pyproject = readFileContentSafe(projectPath, PYPROJECT_TOML);
-  const makefile = readFileContentSafe(projectPath, MAKEFILE_NAME);
+  const pyproject = readMergedConfigFiles(projectPath, files, [PYPROJECT_TOML]);
+  const makefile = readMergedConfigFiles(projectPath, files, [MAKEFILE_NAME]);
   const pyStrict = pyproject.includes('strict = true') || pyproject.includes('strict=true');
   const pyRadon =
     pyproject.includes('radon') ||
@@ -736,16 +779,11 @@ function checkPythonTyping(
 }
 
 function checkNodeTyping(
-  projectPath: string
+  projectPath: string,
+  files: string[]
 ): { passed: boolean; partial: boolean; evidence: string[] } {
-  const pkgJson = `${readFileContentSafe(projectPath, PACKAGE_JSON)}\n${readFileContentSafe(
-    projectPath,
-    `${STACK_MOBILE_APPIUM}/${PACKAGE_JSON}`
-  )}`;
-  const tsconfig = `${readFileContentSafe(projectPath, 'tsconfig.json')}\n${readFileContentSafe(
-    projectPath,
-    `${STACK_MOBILE_APPIUM}/tsconfig.json`
-  )}`;
+  const pkgJson = readMergedConfigFiles(projectPath, files, [PACKAGE_JSON]);
+  const tsconfig = readMergedConfigFiles(projectPath, files, ['tsconfig.json']);
   const tsStrict =
     tsconfig.includes('"strict": true') ||
     tsconfig.includes('"strict":true') ||
@@ -765,11 +803,13 @@ function checkPhpTyping(
   projectPath: string,
   files: string[]
 ): { passed: boolean; partial: boolean; evidence: string[] } {
-  const composer = readFileContentSafe(projectPath, COMPOSER_JSON);
-  const phpstanContent = readFileContentSafe(projectPath, PHPSTAN_NEON);
+  const composer = readMergedConfigFiles(projectPath, files, [COMPOSER_JSON]);
+  const phpstanContent = readMergedConfigFiles(projectPath, files, [
+    PHPSTAN_NEON,
+    'phpstan.neon.dist',
+  ]);
   const hasPhpstan =
-    files.some((f) => f.includes(PHPSTAN_NEON)) ||
-    fs.existsSync(path.join(projectPath, PHPSTAN_NEON));
+    phpstanContent.length > 0 || files.some((f) => f.includes(PHPSTAN_NEON));
   const hasStrictOrMax =
     hasPhpstan &&
     (phpstanContent.includes('level: max') ||
@@ -875,7 +915,7 @@ export function evaluateLayer02StrictTyping(
   const { hasPython, hasNode, hasPhp } = resolveStrictTypingLanguages(files, stacks);
 
   const py = checkPythonTyping(projectPath, files);
-  const node = checkNodeTyping(projectPath);
+  const node = checkNodeTyping(projectPath, files);
   const php = checkPhpTyping(projectPath, files);
 
   const { status, missingReqs } = determineStrictTypingStatus({
@@ -963,15 +1003,18 @@ export function evaluateLayer03UnitIsolated(
     };
   }
 
-  const pyproject = readFileContentSafe(projectPath, PYPROJECT_TOML);
-  const vitestConfig = readFileContentSafe(projectPath, 'vitest.config.ts');
-  const pkgJson = `${readFileContentSafe(projectPath, PACKAGE_JSON)}\n${readFileContentSafe(
-    projectPath,
-    `${STACK_MOBILE_APPIUM}/${PACKAGE_JSON}`
-  )}`;
-  const makefile = readFileContentSafe(projectPath, MAKEFILE_NAME);
-  const composer = readFileContentSafe(projectPath, COMPOSER_JSON);
-  const phpunitXml = readFileContentSafe(projectPath, 'phpunit.xml');
+  const pyproject = readMergedConfigFiles(projectPath, files, [PYPROJECT_TOML]);
+  const vitestConfig = readMergedConfigFiles(projectPath, files, [
+    'vitest.config.ts',
+    'vitest.config.mts',
+  ]);
+  const pkgJson = readMergedConfigFiles(projectPath, files, [PACKAGE_JSON]);
+  const makefile = readMergedConfigFiles(projectPath, files, [MAKEFILE_NAME]);
+  const composer = readMergedConfigFiles(projectPath, files, [COMPOSER_JSON]);
+  const phpunitXml = readMergedConfigFiles(projectPath, files, [
+    'phpunit.xml',
+    'phpunit.xml.dist',
+  ]);
 
   const unitFiles = files.filter((f) => isUnitTestCandidateFile(f, stacks));
 
@@ -1051,7 +1094,7 @@ export function evaluateLayer04OrmParity(
 
   const hasMigrations = files.some((f) => f.includes('alembic/versions') || f.includes('migrations/versions'));
   const hasParityScript = files.some((f) => f.includes(VERIFY_ALEMBIC_ORM_PARITY));
-  const dockerCompose = readFileContentSafe(projectPath, DOCKER_COMPOSE_QA);
+  const dockerCompose = readMergedConfigFiles(projectPath, files, [DOCKER_COMPOSE_QA]);
   const hasPostgres = dockerCompose.includes('postgres:') || dockerCompose.includes('postgres-17');
 
   const detected: string[] = ['Modelos ORM detectados'];
@@ -1074,8 +1117,8 @@ export function evaluateLayer04OrmParity(
     detected_evidence: detected,
     missing_requirements: missingReqs,
     recommended_blueprint_files: [
-      'fastapi/alembic/env.py.example',
-      `common_files/.agents/scripts/${VERIFY_ALEMBIC_ORM_PARITY}.example`,
+      'fastapi/initdb/01-init-rls-role.sql.example',
+      `.agents/scripts/${VERIFY_ALEMBIC_ORM_PARITY}`,
     ],
     make_target: MAKE_QA_PARITY,
   };
@@ -1104,8 +1147,8 @@ export function evaluateLayer05ContractFuzzing(
   }
 
   const hasContractFiles = files.some((f) => f.includes('.spec.') || f.includes('contracts/'));
-  const pyproject = readFileContentSafe(projectPath, PYPROJECT_TOML);
-  const dockerCompose = readFileContentSafe(projectPath, DOCKER_COMPOSE_QA);
+  const pyproject = readMergedConfigFiles(projectPath, files, [PYPROJECT_TOML]);
+  const dockerCompose = readMergedConfigFiles(projectPath, files, [DOCKER_COMPOSE_QA]);
   const hasSchemathesis = pyproject.includes('schemathesis') || dockerCompose.includes('schemathesis');
   const hasParityScript = files.some((f) => f.includes(VERIFY_NO_ORPHAN_API));
 
@@ -1136,7 +1179,7 @@ export function evaluateLayer05ContractFuzzing(
     applicable_stacks: applicable,
     detected_evidence: detected,
     missing_requirements: missingReqs,
-    recommended_blueprint_files: [`common_files/.agents/scripts/${VERIFY_NO_ORPHAN_API}.example`],
+    recommended_blueprint_files: [`.agents/scripts/${VERIFY_NO_ORPHAN_API}`],
     make_target: MAKE_QA_CONTRACTS,
   };
 }
@@ -1186,7 +1229,7 @@ export function evaluateLayer06BddApiKarate(
   const hasFeature = files.some(
     (f) => f.endsWith('.feature') && f.includes(API_TEST_FEATURE)
   );
-  const dockerCompose = readFileContentSafe(projectPath, DOCKER_COMPOSE_QA);
+  const dockerCompose = readMergedConfigFiles(projectPath, files, [DOCKER_COMPOSE_QA]);
   const hasKarateService = dockerCompose.includes('karatelabs') || dockerCompose.includes('karate:');
 
   const detected: string[] = [];
@@ -1208,7 +1251,7 @@ export function evaluateLayer06BddApiKarate(
     detected_evidence: detected,
     missing_requirements: missingReqs,
     recommended_blueprint_files: [
-      `fastapi/test/${API_TEST_FEATURE}.example`,
+      BP_FASTAPI_TEST_PROD,
       BP_FASTAPI_DOCKER_COMPOSE,
     ],
     make_target: MAKE_QA_BDD,
@@ -1333,7 +1376,7 @@ export function evaluateLayer07BddUiKarate(
     applicable_stacks: applicable,
     detected_evidence: detected,
     missing_requirements: missingReqs,
-    recommended_blueprint_files: [`vue3/test/${UI_BUSINESS_FLOW_FEATURE}.example`],
+    recommended_blueprint_files: [`vue3/test/${UI_BUSINESS_FLOW_FEATURE}`],
     make_target: MAKE_QA_BDD,
   };
 }
@@ -1342,10 +1385,10 @@ function detectMutationCapabilities(
   projectPath: string,
   files: string[]
 ): { hasTool: boolean; hasTarget: boolean; detected: string[] } {
-  const pyproject = readFileContentSafe(projectPath, PYPROJECT_TOML);
-  const pkgJson = readFileContentSafe(projectPath, PACKAGE_JSON);
-  const makefile = readFileContentSafe(projectPath, MAKEFILE_NAME);
-  const composer = readFileContentSafe(projectPath, COMPOSER_JSON);
+  const pyproject = readMergedConfigFiles(projectPath, files, [PYPROJECT_TOML]);
+  const pkgJson = readMergedConfigFiles(projectPath, files, [PACKAGE_JSON]);
+  const makefile = readMergedConfigFiles(projectPath, files, [MAKEFILE_NAME]);
+  const composer = readMergedConfigFiles(projectPath, files, [COMPOSER_JSON]);
 
   const hasMutmut = pyproject.includes('mutmut');
   const hasStryker = pkgJson.includes('stryker') || files.some((f) => f.includes('stryker.conf.json'));
@@ -1445,7 +1488,7 @@ export function evaluateLayer09A11yLighthouse(
   const hasLighthouserc = files.some(
     (f) => f.includes(LIGHTHOUSERC_JS) || f.includes(LIGHTHOUSERC_LEGACY_JS) || f.includes('lighthouserc.json')
   );
-  const pkgJson = readFileContentSafe(projectPath, PACKAGE_JSON);
+  const pkgJson = readMergedConfigFiles(projectPath, files, [PACKAGE_JSON]);
   const hasAxe = pkgJson.includes('@axe-core/playwright');
 
   const detected: string[] = [];
@@ -1524,8 +1567,8 @@ export function evaluateLayer10PerfLoad(
 
   const hasLocust = files.some((f) => f.includes(LOCUSTFILE_PY));
   const hasArtillery = files.some((f) => f.includes('load-test.yml') || f.includes('artillery'));
-  const dockerCompose = readFileContentSafe(projectPath, DOCKER_COMPOSE_QA);
-  const makefile = readFileContentSafe(projectPath, MAKEFILE_NAME);
+  const dockerCompose = readMergedConfigFiles(projectPath, files, [DOCKER_COMPOSE_QA]);
+  const makefile = readMergedConfigFiles(projectPath, files, [MAKEFILE_NAME]);
 
   const hasDockerService = dockerCompose.includes('locust') || dockerCompose.includes('artillery');
   const hasMakeTarget = makefile.includes('qa-perf');
@@ -1551,7 +1594,7 @@ export function evaluateLayer10PerfLoad(
     applicable_stacks: applicable,
     detected_evidence: detected,
     missing_requirements: missingReqs,
-    recommended_blueprint_files: [`fastapi/test/${LOCUSTFILE_PY}.example`],
+    recommended_blueprint_files: [`fastapi/${LOCUSTFILE_PY}.example`],
     make_target: MAKE_QA_PERF,
   };
 }
@@ -1595,15 +1638,16 @@ export function evaluateLayer11DastZap(
     };
   }
 
-  const dockerCompose = readFileContentSafe(projectPath, DOCKER_COMPOSE_QA);
-  const makefile = readFileContentSafe(projectPath, MAKEFILE_NAME);
+  const dockerCompose = readMergedConfigFiles(projectPath, files, [DOCKER_COMPOSE_QA]);
+  const makefile = readMergedConfigFiles(projectPath, files, [MAKEFILE_NAME]);
 
   const hasZap = dockerCompose.includes('zap') || dockerCompose.includes('zaproxy');
   const hasMakeTarget = makefile.includes('qa-dast');
   const hasOshpEvidence = files.some(
     (f) =>
-      f.includes('security') ||
-      readFileContentSafe(projectPath, f).includes('Content-Security-Policy')
+      !isDocLikeFile(f) &&
+      (f.includes('security') ||
+        readFileContentSafe(projectPath, f).includes('Content-Security-Policy'))
   );
 
   const detected: string[] = [];
@@ -1632,6 +1676,7 @@ export function evaluateLayer11DastZap(
 
 function detectMetricsInstrumentation(projectPath: string, files: string[]): boolean {
   return files.some((f) => {
+    if (isDocLikeFile(f)) return false;
     const text = readFileContentSafe(projectPath, f);
     return text.includes('/metrics') || text.includes('Pushgateway') || text.includes('prometheus');
   });
@@ -1676,8 +1721,8 @@ export function evaluateLayer12ChaosRed(
     };
   }
 
-  const dockerCompose = readFileContentSafe(projectPath, DOCKER_COMPOSE_QA);
-  const makefile = readFileContentSafe(projectPath, MAKEFILE_NAME);
+  const dockerCompose = readMergedConfigFiles(projectPath, files, [DOCKER_COMPOSE_QA]);
+  const makefile = readMergedConfigFiles(projectPath, files, [MAKEFILE_NAME]);
 
   const hasPumba = dockerCompose.includes('pumba');
   const hasMakeTarget = makefile.includes('qa-chaos');
@@ -1713,7 +1758,10 @@ function detectTrimodalTriad(projectPath: string, files: string[]): boolean {
       f.includes('tests/') ||
       path.basename(f).startsWith('test_') ||
       f.endsWith('.bats');
-    if (isTestOrFixture && (f.endsWith('.py') || f.endsWith('.ts') || f.endsWith('.json'))) {
+    if (
+      isTestOrFixture &&
+      (f.endsWith('.py') || f.endsWith('.ts') || f.endsWith('.json') || f.endsWith('.bats'))
+    ) {
       const content = readFileContentSafe(projectPath, f).toLowerCase();
       const hasVirgin = content.includes('virgin') || content.includes('factory_default') || content.includes('virgen');
       const hasNominal = content.includes('nominal');
@@ -1851,9 +1899,10 @@ export function evaluateLayer13TrimodalFixtures(
   const hasFixtures = files.some((f) => f.includes('fixture') || f.includes('test_data'));
   const hasNoDevTest = files.some(
     (f) =>
-      f.includes('cleanliness') ||
-      f.includes('production_no_dev') ||
-      readFileContentSafe(projectPath, f).includes('test_production_no_dev_cleanliness')
+      !isDocLikeFile(f) &&
+      (f.includes('cleanliness') ||
+        f.includes('production_no_dev') ||
+        readFileContentSafe(projectPath, f).includes('test_production_no_dev_cleanliness'))
   );
 
   const hasTrimodalTriad = detectTrimodalTriad(projectPath, files);

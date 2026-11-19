@@ -124,7 +124,7 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
         JSON.stringify({ name: 'demo', dependencies: { express: '^4.0.0' } })
       );
 
-      const res = await initOrAppendAgentsMd({ projectPath: tmpDir });
+      const res = await initOrAppendAgentsMd({ projectPath: tmpDir, dryRun: false });
       expect(res.lang).toBe('auto');
       expect(res.action).toBe('created');
       expect(res.bridged_agents).toEqual([]);
@@ -165,7 +165,11 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
       const agentsMdPath = path.join(tmpDir, 'AGENTS.md');
       fs.writeFileSync(agentsMdPath, seed, 'utf-8');
 
-      const toEn = await initOrAppendAgentsMd({ projectPath: tmpDir, lang: 'en' });
+      const omittedDry = await initOrAppendAgentsMd({ projectPath: tmpDir });
+      expect(omittedDry.action).toBe('dry_run');
+      expect(fs.readFileSync(agentsMdPath, 'utf-8')).toBe(seed);
+
+      const toEn = await initOrAppendAgentsMd({ projectPath: tmpDir, lang: 'en', dryRun: false });
       expect(toEn.action).toBe('updated_block');
       expect(toEn.lang).toBe('en');
       const enContent = fs.readFileSync(agentsMdPath, 'utf-8');
@@ -174,7 +178,7 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
       expect(enContent).toContain('strictly in **English**');
       expect(enContent).not.toContain('legacy block');
 
-      const toEs = await initOrAppendAgentsMd({ projectPath: tmpDir, lang: 'es' });
+      const toEs = await initOrAppendAgentsMd({ projectPath: tmpDir, lang: 'es', dryRun: false });
       expect(toEs.action).toBe('updated_block');
       expect(toEs.lang).toBe('es');
       const esContent = fs.readFileSync(agentsMdPath, 'utf-8');
@@ -182,7 +186,7 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
       expect(esContent.endsWith(footer)).toBe(true);
       expect(esContent).toContain('strictly in **Spanish**');
 
-      const toEsRepeat = await initOrAppendAgentsMd({ projectPath: tmpDir, lang: 'es' });
+      const toEsRepeat = await initOrAppendAgentsMd({ projectPath: tmpDir, lang: 'es', dryRun: false });
       expect(toEsRepeat.action).toBe('updated_block');
       expect(fs.readFileSync(agentsMdPath, 'utf-8')).toBe(esContent);
     });
@@ -212,6 +216,7 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
         projectPath: tmpDir,
         lang: 'en',
         agents: selected,
+        dryRun: false,
       });
 
       expect(first.bridged_agents).toEqual(selected);
@@ -240,6 +245,7 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
         projectPath: tmpDir,
         lang: 'en',
         agents: selected,
+        dryRun: false,
       });
       expect(second.bridge_files.every((b) => b.action === 'updated_block')).toBe(true);
       expect(fs.readFileSync(path.join(tmpDir, '.cursor/rules/qa-11x.mdc'), 'utf-8')).toBe(cursorContent);
@@ -262,6 +268,7 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
         projectPath: tmpDir,
         lang: 'es',
         agents: ['cursor', 'aider', 'copilot'],
+        dryRun: false,
       });
       expect(res.bridge_files.every((b) => b.action === 'appended')).toBe(true);
 
@@ -286,6 +293,7 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
         projectPath: tmpDir,
         lang: 'es',
         agents: ['cursor'],
+        dryRun: false,
       });
       expect(third.bridge_files[0]?.action).toBe('appended');
       const preservedFrontmatter = fs.readFileSync(cursorPath, 'utf-8');
@@ -295,7 +303,7 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
 
     it('detects footprints with agents="auto" and handles empty project footprints', async () => {
       expect(detectProjectAgents(tmpDir)).toEqual([]);
-      const noneRes = await initOrAppendAgentsMd({ projectPath: tmpDir, agents: 'auto' });
+      const noneRes = await initOrAppendAgentsMd({ projectPath: tmpDir, agents: 'auto', dryRun: false });
       expect(noneRes.bridged_agents).toEqual([]);
       expect(noneRes.bridge_files).toEqual([]);
 
@@ -303,7 +311,12 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
       fs.mkdirSync(path.join(tmpDir, '.cursor'), { recursive: true });
       fs.writeFileSync(path.join(tmpDir, '.replit'), 'run = "npm test"\n', 'utf-8');
 
-      const autoRes = await initOrAppendAgentsMd({ projectPath: tmpDir, lang: 'en', agents: 'auto' });
+      const autoRes = await initOrAppendAgentsMd({
+        projectPath: tmpDir,
+        lang: 'en',
+        agents: 'auto',
+        dryRun: false,
+      });
       expect(autoRes.bridged_agents).toContain('copilot');
       expect(autoRes.bridged_agents).toContain('cursor');
       expect(autoRes.bridged_agents).toContain('replit');
@@ -330,6 +343,7 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
         projectPath: tmpDir,
         lang: 'en',
         agents: 'all',
+        dryRun: false,
       });
       expect(realAll.bridged_agents.length).toBe(28);
       expect(fs.existsSync(path.join(tmpDir, 'AGENTS.md'))).toBe(true);
@@ -366,8 +380,18 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
       expect(() => resolveSafeBridgePath(tmpDir, 'sub/../../outside.md')).toThrow('Path traversal');
       expect(() => resolveSafeBridgePath(tmpDir, 'file\0.md')).toThrow('Path traversal');
       expect(() => resolveSafeBridgePath(tmpDir, 'C:drive-rel.md')).toThrow('Path traversal');
-      expect(resolveSafeBridgePath(tmpDir, '.')).toBe(path.resolve(tmpDir));
-      expect(resolveSafeBridgePath('/', 'AGENTS.md')).toBe('/AGENTS.md');
+      expect(() => resolveSafeBridgePath(tmpDir, '.')).toThrow('Path traversal');
+      expect(() => resolveSafeBridgePath(tmpDir, './.')).toThrow('Path traversal');
+      expect(() => resolveSafeBridgePath('/', 'AGENTS.md')).toThrow(WorkspacePathValidationError);
+
+      // External dot-directory symlink during detectProjectAgents is safely ignored without throwing
+      const symDetectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qa-detect-sym-'));
+      try {
+        fs.symlinkSync('/etc/passwd', path.join(symDetectDir, '.cursor'));
+        expect(detectProjectAgents(symDetectDir)).toEqual([]);
+      } finally {
+        fs.rmSync(symDetectDir, { recursive: true, force: true });
+      }
 
       const symlinkPath = path.join(tmpDir, 'escape-link');
       fs.symlinkSync(outsideDir, symlinkPath);
@@ -595,6 +619,7 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
         projectPath: tmpDir,
         lang: 'en',
         agents: ['v0'],
+        dryRun: false,
       });
       expect(directLegacy.bridged_agents).toEqual(['v0']);
       expect(fs.existsSync(path.join(tmpDir, '.v0/rules.md'))).toBe(true);

@@ -365,7 +365,9 @@ src/Services/PaymentService.php:54:Call to an undefined method PaymentService::p
       expect(parseTestsDetected('collected 3 items')).toEqual({ detected: true, count: 3 });
 
       expect(parseTestsDetected('Test Files  3 passed (3)\nTests  25 passed (25)')).toEqual({ detected: true, count: 25 });
-      expect(parseTestsDetected('Tests  2 failed | 18 passed (20)')).toEqual({ detected: true, count: 18 });
+      expect(parseTestsDetected('Tests  2 failed | 18 passed (20)')).toEqual({ detected: true, count: 20 });
+      expect(parseTestsDetected('Tests  3 failed (3)')).toEqual({ detected: true, count: 3 });
+      expect(parseTestsDetected('3 failed in 0.4s')).toEqual({ detected: true, count: 3 });
       expect(parseTestsDetected('Tests  0 passed (0)')).toEqual({ detected: true, count: 0 });
       expect(parseTestsDetected('No test files found')).toEqual({ detected: true, count: 0 });
 
@@ -429,6 +431,61 @@ src/Services/PaymentService.php:54:Call to an undefined method PaymentService::p
         'CVE-2024-1234 found CRITICAL in openssl\nCVE-2025-5678 found HIGH in zlib'
       );
       expect(secAlerts).toEqual({ critical: 1, high: 1 });
+
+      // Multi-target Trivy total deduplication, --cov-branch pytest int+float+invalid, hyphenated FAILED path, Ruff PLR0913/full block, ShellCheck multi-finding/GCC, non-ESLint timestamp
+      const multiTargetTrivy = [
+        'Total: 2 (HIGH: 1, CRITICAL: 1)',
+        'Total: 3 (HIGH: 2, CRITICAL: 1)',
+      ].join('\n');
+      expect(parseSecurityAlerts(multiTargetTrivy)).toEqual({ critical: 2, high: 3 });
+
+      const branchCov = parseCoverage(
+        [
+          'Name              Stmts   Miss Branch BrPart  Cover   Missing',
+          'src/a.py             20      0      6      1  92.5%   12->14',
+          'src/bad.py           10    bad     2      0    80%',
+          'src/ok.py            10      0      2      0   100%',
+          'TOTAL   bad   10   99%',
+          'TOTAL               100     10      8      1    90%',
+        ].join('\n')
+      );
+      expect(branchCov.detected).toBe(true);
+      expect(branchCov.percent).toBe(90);
+      expect(branchCov.uncovered_files).toHaveLength(1);
+      expect(branchCov.uncovered_files[0]?.coverage_percent).toBe(92.5);
+
+      expect(parseFailedTests('FAILED tests/my-dir/test_one.py::test_a - AssertionError')).toEqual([
+        {
+          test_name: 'tests/my-dir/test_one.py::test_a',
+          error_summary: 'AssertionError',
+        },
+      ]);
+
+      const multiLinterIssues = parseLinterAndComplexity(
+        [
+          'src/mod.py:12:5: PLR0913 Too many arguments',
+          'RUF001 String contains ambiguous unicode',
+          '--> src/u.py:8:4',
+          'RUF002 Bad location missing colon',
+          '--> invalidloc',
+          'RUF003 Non-numeric line',
+          '--> src/u.py:bad:4',
+          'RUF004 Non-numeric column',
+          '--> src/u.py:8:bad',
+          'In script.sh line bad:',
+          'In script.sh line 10:',
+          '^-- SC2086: Double quote to prevent globbing',
+          '^-- SC2006: Use $(...) instead of legacy backticks',
+          '',
+          'deploy.sh:20:3: warning: Use quotes [SC2086]',
+          '12:30:45  warning  Server warmup completed  boot',
+        ].join('\n')
+      );
+      expect(multiLinterIssues.some((i) => i.rule === 'ruff-PLR0913')).toBe(true);
+      expect(multiLinterIssues.some((i) => i.rule === 'ruff-RUF001' && i.file === 'src/u.py')).toBe(true);
+      expect(multiLinterIssues.filter((i) => i.rule === 'shellcheck-SC2086')).toHaveLength(2);
+      expect(multiLinterIssues.some((i) => i.rule === 'shellcheck-SC2006')).toBe(true);
+      expect(multiLinterIssues.some((i) => Boolean(i.rule?.includes('boot')))).toBe(false);
     });
   });
 });

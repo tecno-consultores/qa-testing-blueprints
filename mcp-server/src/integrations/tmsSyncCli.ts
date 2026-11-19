@@ -1706,6 +1706,7 @@ function readNextFlagValue(argv: readonly string[], index: number, flag: string)
 
 const VALUE_CLI_FLAGS = new Set<string>([
   '--mode',
+  '-m',
   '--provider',
   '--target-dir',
   '--junit-xml',
@@ -1725,6 +1726,7 @@ function applyCliValueFlag(
 ): void {
   const handlers: Record<string, () => void> = {
     '--mode': () => { args.mode = val as TmsSyncMode; },
+    '-m': () => { args.mode = val as TmsSyncMode; },
     '--provider': () => { args.provider = val as TmsProvider; },
     '--target-dir': () => { args.targetDir = val; },
     '--junit-xml': () => { args.junitXmlPath = val; },
