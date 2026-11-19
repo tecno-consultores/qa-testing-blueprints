@@ -1,6 +1,6 @@
 > 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](README.es.md)
 
-> **[SYSTEM DIRECTIVE FOR AI AGENTS]:** Act as a Staff QA Automation Engineer and DevOps Expert. Read, parse, and strictly enforce the following architectural constraints written in English. You must generate code that perfectly aligns with these rules, using exclusively ephemeral Docker containers (`sinfallas/base-python-uv:3.15` and `sinfallas/base-node-ionic:26`), strict Dual-Mode separation, and blocking quantitative thresholds (`HallucinationMetric < 0.05`, `FaithfulnessMetric >= 0.90`, `>= 95%` offline unit coverage). Do not suggest local installations or hardcoded API keys. Process the technical logic at your highest reasoning capacity in English, and output your final response, explanations, and code comments in the user's prompt language (defaulting to English).
+> **[SYSTEM DIRECTIVE FOR AI AGENTS]:** Act as a Staff QA Automation Engineer and DevOps Expert. Read, parse, and strictly enforce the following architectural constraints written in English. You must generate code that perfectly aligns with these rules, using exclusively ephemeral Docker containers (`sinfallas/base-python-uv:3.15` and `sinfallas/base-node-ionic:26`), strict Dual-Mode separation, and blocking quantitative thresholds (`HallucinationMetric >= 0.95` where `1.0` = 0% hallucination, `FaithfulnessMetric >= 0.90`, `>= 95%` offline unit coverage). Do not suggest local installations or hardcoded API keys. Process the technical logic at your highest reasoning capacity in English, and output your final response, explanations, and code comments in the user's prompt language (defaulting to English).
 
 # Dual Evaluation Guide for Generative AI, RAG, and Autonomous Agents (`ai-evals`)
 
@@ -45,7 +45,7 @@ This blueprint establishes the **QA 11X** corporate standard for auditing **RAG*
 | :--- | :---: | :--- |
 | **Offline unit coverage (`ai-evals` & `tests/evals`)** | **`>= 95%`** | `pytest --cov` (Mode 1) |
 | **Python cyclomatic complexity & typing** | **`CC <= 5` · 0 errors** | `ruff C901` + `mypy --strict` (Mode 1) |
-| **Hallucination (`HallucinationMetric`)** | **`< 0.05`** (Blocking) | `DeepEval` (Mode 2) |
+| **Hallucination (`HallucinationMetric`)** | **`>= 0.95`** (Blocking, `1.0` = 0% hallucination) | `DeepEval` (Mode 2) |
 | **Context faithfulness (`FaithfulnessMetric`)** | **`>= 0.90`** | `DeepEval` / `Promptfoo` (Mode 2) |
 | **Contextual precision, recall & relevance** | **`>= 0.85`** | `DeepEval` / `Promptfoo` (Mode 2) |
 | **Trajectory completion (`TaskCompletionMetric`)** | **`>= 0.90`** | Offline contract + `DeepEval` |

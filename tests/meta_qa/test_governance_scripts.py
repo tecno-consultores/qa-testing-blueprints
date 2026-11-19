@@ -1790,7 +1790,7 @@ def test_verify_docs_invariants_global_catalogs_trimodal(
     # 1. Virgin: sin llms.txt ni catalogs/ no falla en proyectos sin GEO
     assert mod.check_global_catalogs_and_geo(tmp_path) == []
 
-    # 2. Nominal: 10 skills + 18 tools + 12 resources + SHA-256 consistentes
+    # 2. Nominal: 11 skills + 19 tools + 13 resources + SHA-256 consistentes
     pack_doc, skillsllm_doc = _seed_nominal_catalog_repo(tmp_path)
     assert mod.check_global_catalogs_and_geo(tmp_path) == []
 

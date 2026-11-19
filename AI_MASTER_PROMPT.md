@@ -31,7 +31,7 @@ Regardless of the programming language or technological ecosystem you are evalua
 
 ## 2. Initial Integration Protocol (Non-Destructive Merge)
 
-You have two modalities for integrating the 11X standard into a project:
+You have three modalities for integrating the 11X standard into a project:
 
 ### A. Via MCP Server (`@sinfallas/mcp-qa-11x`) — Autonomous Zero-Clone Flow
 * When connected as an MCP server, use your native tools:
@@ -77,7 +77,7 @@ To optimize the context window and ensure superior mathematical reasoning:
 * All internal directives in `.agents/rules/` and `.agents/skills/` are written in **high-density technical English**, reducing BPE token consumption by ~35% compared to verbose prose.
 * Human interaction and repository documentation follow `OUTPUT LANGUAGE & DYNAMIC MIRRORING` (maintaining 1:1 `.md` / `.es.md` parity across bilingual documentation pairs).
 * Keep the atomic Flight Recorder synchronized via `.agents/scripts/checkpoint_ctl.py` / MCP `session_flight_recorder` (`0600` `.agents/.cache/session_checkpoint.json` -> deterministic `<= 40`-line `.agents/ACTIVE_TASK.md` projection without manual Markdown edits).
-* Whenever you detect recurring friction or fix a UAT/production bug that escaped the previous test suite (even with `>= 95%` coverage), you MUST apply `continuous_agent_evolution.md`: **without waiting for the user to ask**, include the **`💡 Oportunidad de Mejora Detectada para el Estándar QA 11X`** notice section in your response and invoke `propose_skill_evolution_pr` to promote the generalized invariant to `qa-testing-blueprints`.
+* Whenever you detect recurring friction or fix a UAT/production bug that escaped the previous test suite (even with `>= 95%` coverage), you MUST apply `continuous_agent_evolution.md`: **without waiting for the user to ask**, include the **`💡 Oportunidad de Mejora Detectada para el Estándar QA 11X`** notice section (canonical Spanish audit marker; localize to the user's prompt language such as `💡 QA 11X Standard Improvement Opportunity Detected` while preserving the canonical identifier) in your response and invoke `propose_skill_evolution_pr` to promote the generalized invariant to `qa-testing-blueprints`.
 
 ---
 

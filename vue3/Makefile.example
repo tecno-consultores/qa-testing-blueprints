@@ -7,7 +7,6 @@
 COMPOSE_FILE ?= docker-compose.qa.yml
 SERVICE_NAME ?= qa-frontend
 E2E_SERVICE ?= ui-e2e
-URL ?= http://127.0.0.1:8080
 PROJECT_DIR ?= $(CURDIR)
 PYTHON_QA_IMAGE = sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4
 QA_UID ?= $(shell id -u)
@@ -61,7 +60,16 @@ qa-bdd: build-ui
 
 qa-psi:
 	@echo "🌐 [11X] Ejecutando Auditoría Post-Deploy en Google PageSpeed Insights (Modo Dual)..."
-	@docker run --rm --network host -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp -e PAGESPEED_API_KEY -e PSI_URL="$${PSI_URL:-$(URL)}" -v "$(PROJECT_DIR):/app" -w /app $(PYTHON_QA_IMAGE) python3 .agents/scripts/audit_pagespeed_insights.py
+	@target_url="$${PSI_URL:-$(URL)}"; \
+	if [ -z "$$target_url" ]; then \
+		echo "⚠️ [SKIPPED] Define URL=https://tu-dominio.com (o PSI_URL) para auditar PageSpeed Insights."; \
+		exit 0; \
+	fi; \
+	if [ ! -f .agents/scripts/audit_pagespeed_insights.py ]; then \
+		echo "⚠️ [SKIPPED] No se encontró .agents/scripts/audit_pagespeed_insights.py."; \
+		exit 0; \
+	fi; \
+	docker run --rm -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp -e PAGESPEED_API_KEY -e PSI_URL="$$target_url" -v "$(PROJECT_DIR):/app" -w /app $(PYTHON_QA_IMAGE) python3 .agents/scripts/audit_pagespeed_insights.py
 
 qa-obs: build-ui
 	@echo "📊 Levantando Stack de Observabilidad Frontend..."

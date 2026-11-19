@@ -189,7 +189,7 @@ For deep code implementations (Mass Assignment prevention with `extra="forbid"`,
 2. **Multi-Stage Builds and Pre-Compiled Images:**
    - Isolate compilers and header files in a build stage (`builder`), copying only compiled final artifacts into the minimal runtime image (Alpine or distroless). In PHP (`8.2` to `8.5`), use `sinfallas/basephpcomposer` (tags `8.2`, `8.3`, `8.4`, `8.5`, and `latest`) with pre-compiled native C extensions (`pcov`, `redis`, `pdo_pgsql`, `intl`, `sodium`, `opcache` with `save_comments=1` and JIT) and `expose_php = Off`.
 3. **In-Memory Engine: Multi-Threaded KeyDB:**
-   - Replace traditional single-threaded Redis with **KeyDB** (`eqalpha/keydb:6.3.4`) using `--server-threads 2`. This multiplies read/write and pub/sub throughput by 3x without altering client code while retaining 100% compatibility with Redis libraries.
+   - Replace traditional single-threaded Redis with **KeyDB** (`eqalpha/keydb@sha256:6537505c42355ca1f571276bddf83f5b750f760f07b2a185a676481791e388ac`, `v6.3.4` multi-arch) using `--server-threads 2`. This multiplies read/write and pub/sub throughput by 3x without altering client code while retaining 100% compatibility with Redis libraries.
 4. **Preventive Auditing with Trivy:**
    - Integrate automated vulnerability scans with `aquasec/trivy:0.76.2` across the filesystem and infrastructure manifests (`./scripts/auditar-infra.sh`), blocking production release if any CRITICAL or HIGH findings exist.
 

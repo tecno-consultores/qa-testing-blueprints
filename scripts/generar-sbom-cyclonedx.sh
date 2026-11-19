@@ -46,18 +46,41 @@ docker run --rm \
   /workspace
 
 ABS_OUTPUT="${REPO_ROOT}/${OUTPUT_FILE}"
+PY_IMAGE_NAME="${QA_PYTHON_IMAGE:-sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4}"
 if [ -f "${ABS_OUTPUT}" ]; then
-  OUT_DIR="$(dirname "${ABS_OUTPUT}")"
-  OUT_BASE="$(basename "${ABS_OUTPUT}")"
-  if command -v sha256sum >/dev/null 2>&1; then
-    (cd "${OUT_DIR}" && sha256sum "${OUT_BASE}" >"${OUT_BASE}.sha256")
-  elif command -v shasum >/dev/null 2>&1; then
-    (cd "${OUT_DIR}" && shasum -a 256 "${OUT_BASE}" >"${OUT_BASE}.sha256")
+  DOCKER_ENV_ARGS=()
+  if [ -n "${QA11X_ATTESTATION_KEY:-}" ]; then
+    export QA11X_ATTESTATION_KEY
+    DOCKER_ENV_ARGS+=(-e QA11X_ATTESTATION_KEY)
   fi
-  if [ -n "${QA11X_ATTESTATION_KEY:-}" ] && command -v openssl >/dev/null 2>&1; then
-    (cd "${OUT_DIR}" && openssl dgst -sha256 -hmac "${QA11X_ATTESTATION_KEY}" "${OUT_BASE}" >"${OUT_BASE}.hmac")
-    chmod 644 "${ABS_OUTPUT}.hmac"
-  fi
+  docker run --rm --network none \
+    -u "$(id -u):$(id -g)" \
+    -e HOME=/tmp \
+    -e PYTHONDONTWRITEBYTECODE=1 \
+    -e SBOM_OUTPUT_FILE="${OUTPUT_FILE}" \
+    ${DOCKER_ENV_ARGS[@]+"${DOCKER_ENV_ARGS[@]}"} \
+    -v "${REPO_ROOT}:/workspace" \
+    -w /workspace \
+    "${PY_IMAGE_NAME}" \
+    python3 -c '
+import hashlib, hmac, os
+from pathlib import Path
+
+target = Path("/workspace") / os.environ["SBOM_OUTPUT_FILE"]
+data = target.read_bytes()
+digest = hashlib.sha256(data).hexdigest()
+sha_path = target.with_name(f"{target.name}.sha256")
+sha_path.write_text(f"{digest}  {target.name}\n", encoding="utf-8")
+if os.environ.get("QA11X_ATTESTATION_KEY"):
+    sig = hmac.new(
+        os.environ["QA11X_ATTESTATION_KEY"].encode("utf-8"),
+        data,
+        hashlib.sha256,
+    ).hexdigest()
+    hmac_path = target.with_name(f"{target.name}.hmac")
+    hmac_path.write_text(f"HMAC-SHA256({target.name})= {sig}\n", encoding="utf-8")
+    os.chmod(hmac_path, 0o644)
+'
 fi
 
 echo "✔ [SBOM CycloneDX] Generado exitosamente en: ${OUTPUT_FILE}"

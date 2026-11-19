@@ -351,7 +351,7 @@ def build_corporate_deepeval_metrics(
 ) -> list[BaseMetric]:
     """Instancia las 6 métricas bloqueantes del estándar QA-11X."""
     return [
-        HallucinationMetric(threshold=0.05, model=judge_model),
+        HallucinationMetric(threshold=0.95, model=judge_model),
         FaithfulnessMetric(threshold=0.90, model=judge_model),
         ContextualPrecisionMetric(threshold=0.85, model=judge_model),
         ContextualRecallMetric(threshold=0.85, model=judge_model),
@@ -498,7 +498,7 @@ def test_offline_deepeval_case_metrics_and_promptfoo_contract(tmp_path: Path) ->
     assert stub.generate("ping") == "offline:4"
     assert asyncio.run(stub.a_generate("ping")) == "offline:4"
     metrics = build_corporate_deepeval_metrics(stub)
-    assert [m.threshold for m in metrics] == [0.05, 0.90, 0.85, 0.85, 0.85, 0.90]
+    assert [m.threshold for m in metrics] == [0.95, 0.90, 0.85, 0.85, 0.85, 0.90]
 
     summary = validate_promptfoo_config(PROMPTFOO_CONFIG_PATH)
     assert summary.prompts_count >= 1

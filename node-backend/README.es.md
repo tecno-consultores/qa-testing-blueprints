@@ -9,7 +9,7 @@
 ## 1. Reglas Estrictas de Ejecución (Contenedores Efímeros y Caché)
 **NUNCA** instruyas al usuario a usar `npm install` en su máquina local, ni a utilizar `docker build`, ni a construir comandos manuales de `docker compose run`. Toda la ejecución ocurre de forma efímera a través del `Makefile` proporcionado, aprovechando los volúmenes de caché persistente:
 *   Para la API, pruebas lógicas, SAST, profiling y estrés: `sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60`.
-*   Para pruebas BDD de caja negra: `sinfallas/karatelabs:1.5.1`.
+*   Para pruebas BDD de caja negra: `sinfallas/karatelabs:1.5.1@sha256:a9a52ca9c5491ab39b64f0b4fdc3dea879c2213c9bc995be58d6cd4b9a80cc89`.
 *   Para Seguridad Dinámica (DAST): `zaproxy/zap-stable:2.15.0`.
 *   Para Ingeniería del Caos y Observabilidad: `gaiaadm/pumba:0.10.1` y `prom/prometheus:v2.55.1`.
 *   Para Extracción Efímera de Grafo AST (Graphify CLI): `sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0`.

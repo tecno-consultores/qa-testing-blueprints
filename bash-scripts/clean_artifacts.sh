@@ -49,8 +49,11 @@ if [ "$DRY_RUN" -eq 1 ]; then
 fi
 
 rm -rf "${TARGET_DIR:?}/coverage_report" "${TARGET_DIR:?}/.pytest_cache"
-docker compose --profile "*" -f "${TARGET_DIR}/docker-compose.qa.yml" down -v --remove-orphans
 
 if [ -n "$PUSHGATEWAY_URL" ] && command -v curl >/dev/null 2>&1; then
   printf 'clean_artifacts_success_total 1\n' | curl -fsS --connect-timeout 2 --max-time 4 -X POST --data-binary @- "${PUSHGATEWAY_URL%/}/metrics/job/bash_scripts" >/dev/null 2>&1 || true
+fi
+
+if command -v docker >/dev/null 2>&1; then
+  docker compose --profile "*" -f "${TARGET_DIR}/docker-compose.qa.yml" down -v --remove-orphans
 fi

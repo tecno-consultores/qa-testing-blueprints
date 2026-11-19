@@ -12,6 +12,7 @@ import {
 } from '../services/github-fetcher.js';
 import {
   detectExistingQa11xSkillDirs,
+  evaluateUpdateStatus,
   readVersionStamp,
 } from '../services/version-manager.js';
 import { inspectProjectConfig } from '../tools/inspect-project.js';
@@ -22,14 +23,17 @@ import {
   type CliCommandOutput,
   formatCliJson,
   hasHelpFlag,
+  isSameResolvedDir,
   matchFlagValue,
   resolveCliProjectPath,
+  resolveComparablePath,
 } from './cliArgHelpers.js';
 
 const PREFIX_ERROR = '❌ [doctor]';
 const UTF8_ENCODING = 'utf-8';
 const FLAG_PROJECT_PATH = '--project-path';
 const FLAG_PROJECT_PATH_SHORT = '-p';
+const FLAG_DIR = '--dir';
 const FLAG_OFFLINE = '--offline';
 const FLAG_JSON = '--json';
 const NODE_MODULES_DIR = 'node_modules';
@@ -104,7 +108,7 @@ interface ParsedDoctorArgs {
   json: boolean;
 }
 
-const DOCTOR_VALUE_FLAGS = new Set([FLAG_PROJECT_PATH, FLAG_PROJECT_PATH_SHORT]);
+const DOCTOR_VALUE_FLAGS = new Set([FLAG_PROJECT_PATH, FLAG_PROJECT_PATH_SHORT, FLAG_DIR]);
 const DOCTOR_BOOL_FLAGS: Readonly<Record<string, (state: ParsedDoctorArgs) => void>> = {
   [FLAG_OFFLINE]: (state) => {
     state.offline = true;
@@ -257,9 +261,13 @@ function formatIdeMcpStatus(cfg: IdeMcpConfigStatus): string {
 }
 
 function formatDoctorText(report: DoctorReport): string {
+  const isHomeScope = isSameResolvedDir(report.project_path, report.home_dir);
+  const projectLine = isHomeScope
+    ? `  Proyecto: ${report.project_path} (modo global $HOME; stacks: ninguno)`
+    : `  Proyecto: ${report.project_path} (stacks: ${report.project_inspection.detected_stacks.join(', ') || 'ninguno'})`;
   const lines: string[] = [
     `🩺 [QA-11X Doctor] MCP v${report.mcp_version} | origin=${report.binary_origin} | node=${report.node_version}`,
-    `  Proyecto: ${report.project_path} (stacks: ${report.project_inspection.detected_stacks.join(', ') || 'ninguno'})`,
+    projectLine,
     `  Docker: ${report.docker_version ?? 'no detectado'} | Graphify AST: ${report.graphify_graph_present ? 'presente' : 'ausente'}`,
     `  Cachés _npx: ${report.npx_cache.entries.length}${report.npx_cache.multiple_npx_caches ? ' (⚠️ múltiples cachés detectados; ejecuta upgrade --cache-only)' : ''}`,
   ];
@@ -280,6 +288,38 @@ function formatDoctorText(report: DoctorReport): string {
   return lines.join('\n');
 }
 
+async function buildHomeDoctorProjectInspection(
+  homeDir: string,
+  offline: boolean,
+  deps: DoctorCliDeps
+): Promise<ProjectAuditResult> {
+  const updateAvailable = await evaluateUpdateStatus({
+    projectPath: path.join(homeDir, '.agents', '__global__'),
+    homeDir,
+    allowNetworkCheck: !offline,
+    fetchFn: deps.fetchFn,
+    fetcher: deps.fetcher,
+  });
+  return {
+    project_path: homeDir,
+    detected_stacks: [],
+    has_docker_compose_qa: false,
+    has_makefile: false,
+    has_lefthook: false,
+    has_agents_dir: false,
+    has_testing_md: false,
+    has_changelog_md: false,
+    strict_flags: {
+      mypy_strict: false,
+      tsconfig_strict: false,
+      npmrc_ignore_scripts: false,
+    },
+    missing_11x_files: [],
+    recommended_next_tool: 'fetch_blueprint_bundle',
+    update_available: updateAvailable,
+  };
+}
+
 export async function runDoctorCli(
   args: readonly string[],
   deps: DoctorCliDeps = {}
@@ -290,18 +330,24 @@ export async function runDoctorCli(
   try {
     const parsed = parseDoctorArgs(args);
     const homeDir = resolveSafeHomeDir(deps.homeDir);
-    const projectPath = resolveCliProjectPath(parsed.rawDir, deps.cwd ?? process.cwd());
+    const rawCwd = deps.cwd ?? process.cwd();
+    const inHomeMode = parsed.rawDir === undefined && isSameResolvedDir(rawCwd, homeDir);
+    const projectPath = inHomeMode
+      ? resolveComparablePath(homeDir)
+      : resolveCliProjectPath(parsed.rawDir, rawCwd);
     const entryScriptPath = deps.entryScriptPath ?? pickAt(process.argv, 1);
     const execPath = deps.execPath ?? process.execPath;
     const npxEntries = scanNpxCacheEntries(homeDir);
     const skillDirs = detectExistingQa11xSkillDirs(homeDir);
     const dockerProbeFn = deps.dockerProbeFn ?? defaultDockerProbe;
 
-    const projectInspection = await inspectProjectConfig(projectPath, homeDir, {
-      allowNetworkCheck: !parsed.offline,
-      fetchFn: deps.fetchFn,
-      fetcher: deps.fetcher,
-    });
+    const projectInspection = inHomeMode
+      ? await buildHomeDoctorProjectInspection(projectPath, parsed.offline, deps)
+      : await inspectProjectConfig(projectPath, homeDir, {
+          allowNetworkCheck: !parsed.offline,
+          fetchFn: deps.fetchFn,
+          fetcher: deps.fetcher,
+        });
 
     const ideTargets =
       deps.platform !== undefined ? getDoctorIdeMcpTargets(deps.platform) : IDE_MCP_TARGETS;
@@ -321,7 +367,8 @@ export async function runDoctorCli(
       global_skills: skillDirs.map((dir) => ({ dir, version: readVersionStamp(dir) })),
       ide_mcp_configs: ideTargets.map((t) => inspectIdeMcpConfig(homeDir, t)),
       docker_version: dockerProbeFn(),
-      graphify_graph_present: fs.existsSync(path.join(projectPath, 'graphify-out', 'graph.json')),
+      graphify_graph_present:
+        !inHomeMode && fs.existsSync(path.join(projectPath, 'graphify-out', 'graph.json')),
       project_inspection: projectInspection,
     };
 

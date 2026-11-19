@@ -29,17 +29,17 @@ pre-commit:
     vue3-lint:
       root: "vue3/"
       glob: "*.{js,ts,vue}"
-      run: bash -c 'if [ ! -f docker-compose.qa.yml ] || [ ! -f package.json ]; then exit 0; fi; docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-frontend bash -c "pnpm install --silent && npx prettier --check {staged_files} && npx eslint {staged_files}"'
+      run: bash -c 'if [ ! -f docker-compose.qa.yml ] || [ ! -f package.json ]; then exit 0; fi; docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-frontend bash -c "pnpm install --silent && npx prettier --check {staged_files} && npx eslint --max-warnings 0 {staged_files}"'
 
     react-lint:
       root: "react-frontend/"
       glob: "*.{js,ts,tsx}"
-      run: bash -c 'if [ ! -f docker-compose.qa.yml ] || [ ! -f package.json ]; then exit 0; fi; docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-frontend bash -c "pnpm install --silent && npx prettier --check {staged_files} && npx eslint {staged_files}"'
+      run: bash -c 'if [ ! -f docker-compose.qa.yml ] || [ ! -f package.json ]; then exit 0; fi; docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-frontend bash -c "pnpm install --silent && npx prettier --check {staged_files} && npx eslint --max-warnings 0 {staged_files}"'
 
     node-backend-lint:
       root: "node-backend/"
       glob: "*.{js,ts}"
-      run: bash -c 'if [ ! -f docker-compose.qa.yml ] || [ ! -f package.json ]; then exit 0; fi; docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-node-backend bash -c "pnpm install --silent && npx prettier --check {staged_files} && npx eslint {staged_files}"'
+      run: bash -c 'if [ ! -f docker-compose.qa.yml ] || [ ! -f package.json ]; then exit 0; fi; docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-node-backend bash -c "pnpm install --silent && npx prettier --check {staged_files} && npx eslint --max-warnings 0 {staged_files}"'
 
     # --------------------------------------------------------------------------
     # ECOSISTEMA PHP 8.2-8.5
@@ -62,6 +62,15 @@ pre-commit:
       glob: "{scripts/*.sh,.agents/scripts/*.sh,instalar-hooks.sh,*/limpieza.sh,mcp-server/example/verify-v2.sh}"
       run: docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/repo:ro" -w /repo sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7 bash -c 'shellcheck -x "$@" && shfmt -i 2 -ci -d "$@"' _ {staged_files}
 
+    repo-python-lint:
+      glob: "{.agents/scripts/*.py,scripts/*.py,tests/**/*.py,vibe-rescue/**/*.py,ai-evals/**/*.py}"
+      run: docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 -e MYPYPATH=/app/.agents/scripts:/app/ai-evals:/app/vibe-rescue -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 bash -c 'ruff check --select E,F,W,I,UP,B,C901,FLY --config "lint.mccabe.max-complexity=5" "$@" && mypy --strict --cache-dir=/tmp/mypy "$@"' _ {staged_files}
+
+    mcp-lint:
+      root: "mcp-server/"
+      glob: "*.ts"
+      run: bash -c 'if [ ! -f package.json ]; then exit 0; fi; docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "$(pwd):/app" -w /app sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60 bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && npx eslint --max-warnings 0 {staged_files} && pnpm --silent run typecheck"'
+
     # --------------------------------------------------------------------------
     # PROTECCIÓN DE SECRETOS (Global, deduplicado sobre staged)
     # --------------------------------------------------------------------------
@@ -71,7 +80,7 @@ pre-commit:
       run: ./scripts/verificar-secretos.sh {staged_files}
 
     # --------------------------------------------------------------------------
-    # GOBERNANZA ZERO-LLM E INVARIANTES DOCUMENTALES (QA-11X v3.1)
+    # GOBERNANZA ZERO-LLM E INVARIANTES DOCUMENTALES (QA-11X v3.2)
     # --------------------------------------------------------------------------
     governance-sync-check:
       glob: "{manifest.json,AGENTS.md,lefthook.yml,.trivy.yaml,.env.example,llms.txt,catalogs/**,mcp-server/package.json,*.md,**/*.md,.agents/**,docs/**,scripts/*.sh,**/*.example,**/docker-compose.qa.yml,**/limpieza.sh,fastapi/**,python/**,node-backend/**,vue3/**,react-frontend/**,php/**,bash-scripts/**,mobile-appium/**,ai-evals/**,vibe-rescue/**}"
@@ -106,7 +115,7 @@ pre-push:
       run: ./scripts/probar-mcp-example.sh --in-place
 
     mcp-unit-and-lint:
-      glob: "{mcp-server/**,manifest.json}"
+      glob: "{mcp-server/**,manifest.json,mobile-appium/**,vibe-rescue/**,.github/**}"
       run: bash -c '[ ! -f mcp-server/package.json ] && exit 0; MCP_EXTRA_VOLS=(); for dir in mobile-appium vibe-rescue .github; do [ -d "./${dir}" ] && MCP_EXTRA_VOLS+=(-v "$(pwd)/${dir}:/${dir}:ro"); done; docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -v "$(pwd)/mcp-server:/app" ${MCP_EXTRA_VOLS[@]+"${MCP_EXTRA_VOLS[@]}"} -w /app sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60 bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run lint && pnpm --silent run typecheck && pnpm --silent run test:unit && rm -rf coverage .eslintcache"'
 
     python-governance-and-meta-qa:

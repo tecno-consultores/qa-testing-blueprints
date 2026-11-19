@@ -17,12 +17,23 @@ import {
   SUPPORTED_MCP_CLIENTS,
   runMcpConfigCli,
 } from '../src/cli/mcp-config.js';
+import { isSameResolvedDir, resolveComparablePath } from '../src/cli/cliArgHelpers.js';
 import { runCli } from '../src/cli.js';
 import { MCP_SERVER_VERSION } from '../src/services/github-fetcher.js';
 
-const GIT_EXECUTABLE =
-  ['/usr/bin/git', '/bin/git', '/usr/local/bin/git'].find((candidate) => fs.existsSync(candidate)) ??
-  '/usr/bin/git';
+function resolveExecutable(binaryName: string, fallbackPaths: readonly string[]): string {
+  const pathDirs = (process.env.PATH ?? '').split(path.delimiter).filter(Boolean);
+  for (const dir of pathDirs) {
+    const candidate = path.join(dir, binaryName);
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return fallbackPaths.find((candidate) => fs.existsSync(candidate)) ?? fallbackPaths[0] ?? binaryName;
+}
+
+const GIT_EXECUTABLE = resolveExecutable('git', ['/usr/bin/git', '/bin/git', '/usr/local/bin/git']);
+const BASH_EXECUTABLE = resolveExecutable('bash', ['/usr/bin/bash', '/bin/bash', '/usr/local/bin/bash']);
 
 function writeFile(targetPath: string, content: string): void {
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
@@ -415,6 +426,51 @@ describe('DX CLI Subcommands: blast-radius, mcp-config & completion (QA-11X)', (
       expect(allInstallText.output).toContain('✔ [mcp-config]');
     });
 
+    it('uses Antigravity fallback path when only ~/.gemini/config/mcp_config.json exists and emits Hermes YAML notice', () => {
+      const legacyHome = path.join(tmpRoot, 'legacy-ide-home');
+      const antigravityFallback = path.join(legacyHome, '.gemini', 'config', 'mcp_config.json');
+      writeFile(antigravityFallback, '{"mcpServers":{}}');
+
+      const fallbackInstall = runMcpConfigCli(
+        ['--client', 'antigravity', '--install', '--json'],
+        { homeDir: legacyHome }
+      );
+      expect(fallbackInstall.exitCode).toBe(0);
+      expect(JSON.parse(fallbackInstall.output)).toMatchObject({
+        status: 'installed',
+        targetPath: antigravityFallback,
+      });
+
+      // Hermes YAML notice when ~/.hermes/config.yaml exists without ~/.hermes/mcp.json
+      const hermesYamlPath = path.join(legacyHome, '.hermes', 'config.yaml');
+      const hermesJsonPath = path.join(legacyHome, '.hermes', 'mcp.json');
+      writeFile(hermesYamlPath, 'model: gpt-5\n');
+
+      const hermesDryJson = runMcpConfigCli(
+        ['--client', 'hermes', '--install', '--dry-run', '--json'],
+        { homeDir: legacyHome }
+      );
+      expect(hermesDryJson.exitCode).toBe(0);
+      const parsedDryHermes = JSON.parse(hermesDryJson.output) as { note?: string };
+      expect(parsedDryHermes.note).toContain(hermesYamlPath);
+      expect(parsedDryHermes.note).toContain('mcp_servers.qa-11x');
+
+      const hermesTextInstall = runMcpConfigCli(['--client', 'hermes', '--install'], {
+        homeDir: legacyHome,
+      });
+      expect(hermesTextInstall.exitCode).toBe(0);
+      expect(hermesTextInstall.output).toContain(hermesYamlPath);
+      expect(hermesTextInstall.output).toContain('mcp_servers.qa-11x');
+      expect(fs.existsSync(hermesJsonPath)).toBe(true);
+
+      // Once ~/.hermes/mcp.json exists, YAML notice is suppressed
+      const hermesSecondInstall = runMcpConfigCli(['--client', 'hermes', '--install', '--json'], {
+        homeDir: legacyHome,
+      });
+      expect(hermesSecondInstall.exitCode).toBe(0);
+      expect((JSON.parse(hermesSecondInstall.output) as { note?: string }).note).toBeUndefined();
+    });
+
     it('routes mcp-config through cli.ts lazy loader', async () => {
       const logs: string[] = [];
       const res = await runCli(['mcp-config', '--client', 'antigravity', '--pin-version'], {
@@ -477,6 +533,7 @@ describe('DX CLI Subcommands: blast-radius, mcp-config & completion (QA-11X)', (
       expect(fish.exitCode).toBe(0);
       expect(fish.output).toContain('complete -c mcp-qa-11x');
       expect(fish.output).toContain('-l target-dir');
+      expect(fish.output).toContain('-l test-execution-key');
       expect(fish.output).toContain('-s p');
       for (const cmd of newSubcommands) {
         expect(fish.output).toContain(cmd);
@@ -491,10 +548,17 @@ describe('DX CLI Subcommands: blast-radius, mcp-config & completion (QA-11X)', (
       expect(bash.output).toContain('_mcp_qa_11x_completions');
       expect(bash.output).toContain('complete -F _mcp_qa_11x_completions mcp-qa-11x');
       expect(bash.output).toContain('--live');
+      expect(bash.output).toContain('--test-execution-key');
       expect(bash.output).toContain('-f)');
       for (const cmd of newSubcommands) {
         expect(bash.output).toContain(cmd);
       }
+      const bashSyntaxOut = execFileSync(BASH_EXECUTABLE, ['-n'], {
+        input: bash.output,
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+      expect(bashSyntaxOut).toBe('');
 
       const zsh = runCompletionCli(['zsh']);
       expect(zsh.exitCode).toBe(0);
@@ -503,6 +567,7 @@ describe('DX CLI Subcommands: blast-radius, mcp-config & completion (QA-11X)', (
       expect(zsh.output).toContain('shift words');
       expect(zsh.output).toContain('(( CURRENT-- ))');
       expect(zsh.output).toContain('_arguments');
+      expect(zsh.output).toContain('--test-execution-key');
       for (const cmd of newSubcommands) {
         expect(zsh.output).toContain(cmd);
       }
@@ -512,6 +577,11 @@ describe('DX CLI Subcommands: blast-radius, mcp-config & completion (QA-11X)', (
       expect(cliRes.exitCode).toBe(0);
       expect(cliRes.command).toBe('completion');
       expect(logs[0]).toContain('complete -c mcp-qa-11x');
+
+      const missingDirA = path.join(tmpRoot, 'nonexistent-compare-a');
+      const missingDirB = path.join(tmpRoot, 'sub', '..', 'nonexistent-compare-a');
+      expect(resolveComparablePath(missingDirA)).toBe(path.resolve(missingDirA));
+      expect(isSameResolvedDir(missingDirA, missingDirB)).toBe(true);
     });
   });
 });

@@ -9,7 +9,7 @@
 [![Node.js >=24](https://img.shields.io/badge/node-%3E%3D24.0.0-brightgreen)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/LICENSE)
 
-Official Model Context Protocol (**MCP**) server and zero-friction CLI installer for [**QA Testing Blueprints (QA-11X v3.1 — v3.2.0)**](https://github.com/tecno-consultores/qa-testing-blueprints).
+Official Model Context Protocol (**MCP**) server and zero-friction CLI installer for [**QA Testing Blueprints (QA-11X v3.2 — v3.2.0)**](https://github.com/tecno-consultores/qa-testing-blueprints).
 
 Designed for AI coding agents (**Google Antigravity**, **Claude Code / Desktop**, **Cursor**, **Windsurf**, **OpenAI Codex CLI**, **VS Code Copilot**, **Hermes Agent**, and **28 agents**) to onboard repositories in **< 30 seconds**, audit **19 MCP tools**, query **13 cryptographic `blueprint://*` resources** (11 static URIs + 2 URI templates), and enforce ephemeral **Docker Rule Zero**, **DISA ASD STIG V6R5**, **OWASP v4.2**, **FINOS CALM**, and **Dual-Mode AI Evals** without cloning the full blueprints repository.
 
@@ -34,11 +34,11 @@ npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-script
 
 Available CLI commands & flags (**12 CLI subcommands**):
 - `quickstart [dir] [-T|--tier starter|standard|enterprise] [--lang|-l auto|en|es] [--agents|-a auto|all|<csv>] [--ci github|none] [--force|-f] [--dry-run] [--json] [--help|-h]` — Auto-detects stack (FastAPI, Python, Node, Vue 3, React, PHP, Bash, Mobile, AI Evals, Vibe) and scaffolds QA-11X configs.
-- `install-skill` (alias: `install`) `[--target|-t auto|workspace|antigravity|claude|cursor|windsurf|codex|hermes|all] [--lang|-l auto|en|es] [--agents|-a auto|all|<csv>] [--project-path|-p <dir>] [--init-agents] [--include-scripts] [--reconcile] [--dry-run] [--help|-h]` — Defaults to `--target auto` and `--lang auto` when `--init-agents` is set.
+- `install-skill` (alias: `install`) `[--target|-t auto|workspace|antigravity|claude|cursor|windsurf|codex|hermes|all] [--lang|-l auto|en|es] [--agents|-a auto|all|<csv>] [--project-path|--dir|-p <dir>] [--init-agents] [--include-scripts] [--reconcile] [--dry-run] [--help|-h]` — Defaults to `--target auto` and `--lang auto` when `--init-agents` is set; runs in safe global `$HOME` mode when invoked from `$HOME` without explicit `--project-path`/`--dir`/`-p` (installing global skills only and skipping project writes, while explicit `-p ~`/`--dir ~` stays blocked by `SEC-PATH-01`).
 - `init-agents` (alias: `init-agents-md`) `[dir] [--project-path|--dir|-p <dir>] [--lang|-l auto|en|es] [--agents|-a auto|all|<csv>] [--dry-run] [--help|-h]` — Defaults to `--lang auto` (*Dynamic Language Mirroring*).
 - `reconcile-agents [dir] [--project-path|--dir|-p <dir>] [--dry-run] [--help|-h]` — Deduplicates global rules/skills out of `.agents/` and isolates domain rules with backups.
 - `tms-sync --mode <inventory|push-results|pull-stories> --provider <jira|zephyr|xray|github-issues> [--target-dir <dir>] [--junit-xml <path>] [--base-url <https://...>] [--project-key <key>] [--issue-key <key>] [--test-execution-key <key>] [--repo <owner/repo>] [--required-keys <k1,k2>] [--timeout-ms <ms>] [--dry-run|--live] [--json] [--help|-h]` — Normalizes JUnit XML results into enterprise TMS payloads or pull/inventory traceability reports.
-- `doctor` (alias: `status`) `[dir] [--project-path|-p <dir>] [--offline] [--json] [--help|-h]` — Inspects active binary origin, `~/.npm/_npx` caches, global skills stamps, IDE MCP configs (canonical `~/.gemini/antigravity/mcp_config.json` + `~/.gemini/config/mcp_config.json` fallback, multi-OS Claude Desktop `claude_desktop_config.json`, Claude Code `~/.claude.json`, Cursor, Windsurf, Codex, and Hermes `~/.hermes/mcp.json` / `~/.hermes/config.yaml`), project readiness, and Docker daemon.
+- `doctor` (alias: `status`) `[dir] [--project-path|--dir|-p <dir>] [--offline] [--json] [--help|-h]` — Inspects active binary origin, `~/.npm/_npx` caches, global skills stamps, IDE MCP configs (canonical `~/.gemini/antigravity/mcp_config.json` + `~/.gemini/config/mcp_config.json` fallback, multi-OS Claude Desktop `claude_desktop_config.json`, Claude Code `~/.claude.json`, Cursor, Windsurf, Codex, and Hermes `~/.hermes/mcp.json` / `~/.hermes/config.yaml`), project readiness (or global `$HOME` scope when `cwd == $HOME` without explicit dir, while keeping `-p ~`/`--dir ~` blocked), and Docker daemon.
 - `upgrade` (alias: `cache-clean`) `[--cache-only] [--reconcile] [--target|-t <env>] [--offline] [--dry-run] [--json] [--help|-h]` — Surgically removes only `@sinfallas/mcp-qa-11x` entries in `~/.npm/_npx` plus `~/.cache/qa-11x-blueprints`, reconciles `.agents/` governance (`--reconcile`), and re-syncs global skills (`cache-clean` runs with `--cache-only`).
 - `certify [dir] [--project-path|-p <dir>] [--strict] [--require-lint-evidence] [--allow-unmerged-examples] [--release-gate] [--junit-xml <path>] [--offline] [--json] [--help|-h]` — Runs the headless 10-check 11X gate (`exit 20` on `--strict` skipped checks) and optional Release Readiness gate (`exit 30` on `NO_GO`).
 - `audit [dir] [--project-path|-p <dir>] [--mode|-m security|pyramid|vibe|calm|all] [--format|-f text|json|sarif] [--json] [--sarif] [--fail-on critical|high|medium|any|none] [--include-examples] [--max-findings <n>] [--architecture-path <rel>] [--help|-h]` — Executes deterministic Zero-LLM static audits with text, JSON, or SARIF v2.1.0 output for CI/CD.
@@ -46,7 +46,7 @@ Available CLI commands & flags (**12 CLI subcommands**):
 - `mcp-config [--client|-c antigravity|claude-code|claude-desktop|cursor|vscode|windsurf|codex|gemini-cli|hermes|all] [--print] [--install] [--pin-version] [--dry-run] [--json] [--help|-h]` — Prints or safely merges `mcpServers` JSON/TOML configs (resolving `~/.gemini/antigravity/mcp_config.json` with `~/.gemini/config/mcp_config.json` fallback, multi-OS Claude Desktop `claude_desktop_config.json`, and Hermes `~/.hermes/mcp.json` alongside `~/.hermes/config.yaml`) with `.11x-backup` (`0600`) or native IDE CLI commands.
 - `completion <fish|bash|zsh>` (or `--shell <fish|bash|zsh>`) `[--help|-h]` — Emits native shell autocompletion scripts for `mcp-qa-11x`.
 - `[--stdio]` — Explicitly forces raw JSON-RPC listener over `stdio` (`QA_FORCE_STDIO=1` also forces headless `stdio`).
-- `--version` / `-v` `[--verbose|--json]` | `--help` / `-h` — Prints active SemVer (`npx -y @sinfallas/mcp-qa-11x --version` for cached `npx`, `mcp-qa-11x -v` for global `-g`, `@latest --version` for npm latest, or `--version --verbose|--json` for offline `doctor` diagnostics; note `npx --no-install` ignores `~/.npm/_npx/` caches — see [`docs/agent-setup.md`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/docs/agent-setup.md)). Supported globally and per subcommand without writing or fetching.
+- `--version` / `-v` `[--verbose|--json]` | `--help` / `-h` — Prints active SemVer (`npx -y @sinfallas/mcp-qa-11x --version` for cached `npx`, `mcp-qa-11x -v` for global `-g`, `@latest --version` for npm latest, or `--version --verbose|--json` for offline `doctor` diagnostics including global `$HOME` mode when invoked from `$HOME`; note `npx --no-install` ignores `~/.npm/_npx/` caches — see [`docs/agent-setup.md`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/docs/agent-setup.md)). Supported globally and per subcommand without writing or fetching.
 
 > **Interactive Terminal Guard (`QA-CLI-TTY-01`):** Invoking `npx -y @sinfallas/mcp-qa-11x@latest` directly in an interactive terminal (`process.stdin.isTTY`) prints usage options, syncs global skills safely, and exits cleanly with `exit(0)` in `< 5s` instead of hanging `stdin`. Non-TTY IDE pipes launch the MCP `stdio` server automatically.
 
@@ -90,7 +90,7 @@ See the full 28 client setup matrix in [`docs/agent-setup.md`](https://github.co
 * **Fail-Closed `promptGuard` Interceptor:** Wraps `tools/call` across all 19 tools with Unicode `NFKC` canonicalization, zero-width / Trojan Source stripping, prompt-injection & `QA-GIT-GATE-01` (`git push` / `npm publish`) bypass blocking, and PII / secret redaction before dispatching handlers.
 * **`SEC-PATH-01` Workspace Path Confinement (`QA11X_WORKSPACE_ROOTS`):** Validates `project_path`, `workspaceRoot`, and `targetDir` via `resolveSafeProjectPath`, blocking directory traversal (`..`), NUL bytes, symlinks outside allowed roots, critical system paths (`/`, `/etc`, `/usr`, ...), `$HOME`, and bare `os.tmpdir()`. Set `QA11X_WORKSPACE_ROOTS` (delimiter-separated paths) to authorize additional workspace roots outside `process.cwd()`.
 * **`TaskStateGuard` & `Fail-Verbose` Diagnostics:** Bounds concurrent MCP tool execution capacity, isolates hung/broken tasks with explicit timeouts (`60s` standard / `>= 180s` heavy transfers), purges 0-byte failed transfer artifacts, bounds interactive TTY skill auto-sync (`< 5s` fail-open to `stderr`), and formats actionable Allure-ready `Fail-Verbose` reports (`diagnosticFormatter.ts`).
-* **Offline & Local LLM A2A Card (Internal Programmatic Library Module):** Supports air-gapped Ollama / vLLM evaluators and exposes [`src/a2a/agentCard.ts`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/src/a2a/agentCard.ts) (`v3.2.0`) exclusively as an **internal programmatic library module** (not exposed as a public MCP tool or resource over `stdio`).
+* **Offline & Local LLM A2A Card (`@sinfallas/mcp-qa-11x/agent-card`):** Supports air-gapped Ollama / vLLM evaluators and exposes the public ESM subpath export `@sinfallas/mcp-qa-11x/agent-card` (`package.json#exports` -> `dist/a2a/agentCard.js`, implemented in [`src/a2a/agentCard.ts`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/src/a2a/agentCard.ts), `v3.2.0`) as a **programmatic library module** (not exposed as a public MCP tool or resource over `stdio`).
 
 ---
 
@@ -101,7 +101,7 @@ Led by `qa-11x-architect` (`< 12 KB`), loading 10 specialized sub-skills on dema
 
 ---
 
-## 🛠️ MCP Tools (19 Tools — v3.1)
+## 🛠️ MCP Tools (19 Tools — v3.2)
 
 1. **`inspect_project_config`:** Inspects stack markers (`pyproject.toml`, `package.json`, `composer.json`), `docker-compose.qa.yml`, test pyramid status, and Graphify AST graph health.
 2. **`fetch_blueprint_bundle`:** Streams requested blueprint files from GitHub/local mirror verifying SHA-256 checksums against `manifest.json`.
@@ -125,7 +125,7 @@ Led by `qa-11x-architect` (`< 12 KB`), loading 10 specialized sub-skills on dema
 
 ---
 
-## 📚 MCP Resources (13 Resources: 11 Static URIs + 2 URI Templates — v3.1)
+## 📚 MCP Resources (13 Resources: 11 Static URIs + 2 URI Templates — v3.2)
 
 > **Surface Breakdown:** **11 static URIs** returned by `resources/list` + **2 URI templates** (`blueprint://{stack}/readme`, `blueprint://ui/refactoring-ui/{topic}`) returned by `resources/templates/list`.
 

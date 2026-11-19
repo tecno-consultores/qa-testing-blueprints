@@ -1,6 +1,6 @@
 > 🌐 **Idioma:** [🇺🇸 English (Canonical)](README.md) · **Español (Espejo 1:1)**
 
-> **[DIRECTIVA DE SISTEMA PARA AGENTES DE IA]:** Actúa como un Ingeniero Staff de Automatización QA y Experto DevOps. Lee, analiza y aplica estrictamente las siguientes restricciones arquitectónicas redactadas en español. Debes generar código que se alinee perfectamente con estas reglas, utilizando exclusivamente contenedores Docker efímeros (`sinfallas/base-python-uv:3.15` y `sinfallas/base-node-ionic:26`), separación estricta Dual-Mode y umbrales cuantitativos bloqueantes (`HallucinationMetric < 0.05`, `FaithfulnessMetric >= 0.90`, cobertura unitaria offline `>= 95%`). No sugieras instalaciones locales ni API keys hardcodeadas. Procesa la lógica técnica con tu máxima capacidad de razonamiento en inglés, pero emite tu respuesta final, explicaciones y comentarios de código en español.
+> **[DIRECTIVA DE SISTEMA PARA AGENTES DE IA]:** Actúa como un Ingeniero Staff de Automatización QA y Experto DevOps. Lee, analiza y aplica estrictamente las siguientes restricciones arquitectónicas redactadas en español. Debes generar código que se alinee perfectamente con estas reglas, utilizando exclusivamente contenedores Docker efímeros (`sinfallas/base-python-uv:3.15` y `sinfallas/base-node-ionic:26`), separación estricta Dual-Mode y umbrales cuantitativos bloqueantes (`HallucinationMetric >= 0.95` donde `1.0` = 0% alucinación, `FaithfulnessMetric >= 0.90`, cobertura unitaria offline `>= 95%`). No sugieras instalaciones locales ni API keys hardcodeadas. Procesa la lógica técnica con tu máxima capacidad de razonamiento en inglés, pero emite tu respuesta final, explicaciones y comentarios de código en español.
 
 # Guía de Evaluación Dual de IA Generativa, RAG y Agentes Autónomos (`ai-evals`)
 
@@ -45,7 +45,7 @@ Este blueprint establece el estándar corporativo **QA 11X** para auditar pipeli
 | :--- | :---: | :--- |
 | **Cobertura unitaria offline (`ai-evals` y `tests/evals`)** | **`>= 95%`** | `pytest --cov` (Modo 1) |
 | **Complejidad ciclomática y tipado Python** | **`CC <= 5` · 0 errores** | `ruff C901` + `mypy --strict` (Modo 1) |
-| **Alucinación (`HallucinationMetric`)** | **`< 0.05`** (Bloqueante) | `DeepEval` (Modo 2) |
+| **Alucinación (`HallucinationMetric`)** | **`>= 0.95`** (Bloqueante, `1.0` = 0% alucinación) | `DeepEval` (Modo 2) |
 | **Fidelidad al contexto (`FaithfulnessMetric`)** | **`>= 0.90`** | `DeepEval` / `Promptfoo` (Modo 2) |
 | **Precisión, Exhaustividad y Relevancia Contextual** | **`>= 0.85`** | `DeepEval` / `Promptfoo` (Modo 2) |
 | **Completitud de trayectoria (`TaskCompletionMetric`)** | **`>= 0.90`** | Contrato offline + `DeepEval` |

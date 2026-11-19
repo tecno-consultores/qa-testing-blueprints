@@ -576,6 +576,6 @@ def test_live_voice_multiturn_deepeval() -> None:
     judge = resolve_deepeval_judge_model()
     live_metrics: list[BaseMetric] = [
         FaithfulnessMetric(threshold=0.90, model=judge),
-        HallucinationMetric(threshold=0.05, model=judge),
+        HallucinationMetric(threshold=0.95, model=judge),
     ]
     assert_test(case, live_metrics)

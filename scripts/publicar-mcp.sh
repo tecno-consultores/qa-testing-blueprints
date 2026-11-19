@@ -84,8 +84,8 @@ if [ ! -f "${PACKAGE_JSON}" ]; then
   exit 1
 fi
 
-PKG_NAME=$(grep -m 1 '"name":' "${PACKAGE_JSON}" | cut -d '"' -f 4)
-PKG_VERSION=$(grep -m 1 '"version":' "${PACKAGE_JSON}" | cut -d '"' -f 4)
+PKG_NAME="$(sed -n 's/.*"name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "${PACKAGE_JSON}" | head -n 1)"
+PKG_VERSION="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "${PACKAGE_JSON}" | head -n 1)"
 
 echo "══════════════════════════════════════════════════════════════════════"
 echo "  🚀 Publicador Autónomo de Servidor MCP a npmjs (Estándar 11X)        "
@@ -172,24 +172,52 @@ if [ -f "${REPO_ROOT}/.agents/scripts/bump_version_11x.py" ]; then
   docker run --rm --network none -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -v "${REPO_ROOT}:/repo:ro" -w /repo "${PY_IMAGE_NAME}" python3 .agents/scripts/bump_version_11x.py --check
 fi
 
+if [ -f "${REPO_ROOT}/.agents/scripts/sync_governance.py" ] && [ -f "${REPO_ROOT}/manifest.json" ]; then
+  echo "🛡️ [Pre-Check] Verificando sincronía SHA-256 y presupuestos (sync_governance.py --check)..."
+  docker run --rm --network none -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "${REPO_ROOT}:/repo:ro" -w /repo "${PY_IMAGE_NAME}" python3 .agents/scripts/sync_governance.py --check
+fi
+
+for cl in CHANGELOG.md CHANGELOG.es.md mcp-server/CHANGELOG.md mcp-server/CHANGELOG.es.md; do
+  if [ -f "${REPO_ROOT}/${cl}" ] && ! grep -qF "## [${PKG_VERSION}]" "${REPO_ROOT}/${cl}"; then
+    echo -e "\e[31m❌ ERROR [Pre-Check]: ${cl} no contiene entrada para la versión ## [${PKG_VERSION}].\e[0m" >&2
+    exit 1
+  fi
+done
+
+if [ "${DRY_RUN}" = false ] && [ -e "${REPO_ROOT}/.git" ] && command -v git >/dev/null 2>&1; then
+  if [ -n "$(git -C "${REPO_ROOT}" status --porcelain)" ]; then
+    echo -e "\e[31m❌ ERROR [Pre-Check]: El árbol Git tiene cambios sin confirmar; haga commit limpio antes de publicar en vivo.\e[0m" >&2
+    exit 1
+  fi
+fi
+
 ensure_fresh_dist_before_pack() {
-  local dist_entry="${MCP_DIR}/dist/index.js"
+  local dist_dir="${MCP_DIR}/dist"
+  local dist_entry="${dist_dir}/index.js"
   local src_dir="${MCP_DIR}/src"
   local stale_files=""
+  local map_files=""
 
   if [ -d "${src_dir}" ] && [ -f "${dist_entry}" ]; then
     stale_files="$(find "${src_dir}" -type f -newer "${dist_entry}" -print -quit 2>/dev/null || true)"
   fi
+  if [ -d "${dist_dir}" ]; then
+    map_files="$(find "${dist_dir}" -type f -name '*.map' -print -quit 2>/dev/null || true)"
+  fi
 
-  if [ ! -f "${dist_entry}" ] || [ -n "${stale_files}" ]; then
-    echo "🔄 [Pre-Pack] dist/index.js ausente o desactualizado respecto a mcp-server/src/ (ignore-scripts=true omite prepublishOnly); recompilando en Docker..."
+  if [ ! -f "${dist_entry}" ] || [ -n "${stale_files}" ] || [ -n "${map_files}" ]; then
+    echo "🔄 [Pre-Pack] dist/index.js ausente o desactualizado (o con *.map residuales) respecto a mcp-server/src/; recompilando en Docker..."
     docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run build
     stale_files=""
+    map_files=""
     if [ -d "${src_dir}" ] && [ -f "${dist_entry}" ]; then
       stale_files="$(find "${src_dir}" -type f -newer "${dist_entry}" -print -quit 2>/dev/null || true)"
     fi
-    if [ ! -f "${dist_entry}" ] || [ -n "${stale_files}" ]; then
-      echo -e "\e[31m❌ ERROR [Pre-Pack]: dist/index.js ausente o desactualizado respecto a mcp-server/src/ (${stale_files:-dist/index.js}).\e[0m" >&2
+    if [ -d "${dist_dir}" ]; then
+      map_files="$(find "${dist_dir}" -type f -name '*.map' -print -quit 2>/dev/null || true)"
+    fi
+    if [ ! -f "${dist_entry}" ] || [ -n "${stale_files}" ] || [ -n "${map_files}" ]; then
+      echo -e "\e[31m❌ ERROR [Pre-Pack]: dist/index.js ausente o desactualizado (o con *.map residuales: ${map_files:-${stale_files:-dist/index.js}}).\e[0m" >&2
       exit 1
     fi
   fi
@@ -206,7 +234,7 @@ done
 
 echo "🔍 [1/6] Verificando dependencias, Lint & Typecheck en Docker efímero..."
 docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "${MCP_DIR}:/app" ${MCP_EXTRA_VOLS[@]+"${MCP_EXTRA_VOLS[@]}"} -w /app "${IMAGE_NAME}" sh -c \
-  "[ -d node_modules/.bin ] || pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent; pnpm --silent run lint && pnpm --silent run typecheck"
+  "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run lint && pnpm --silent run typecheck"
 
 # 5. Paso 2: Pruebas Unitarias con Cobertura >= 95%
 if [ "$SKIP_TESTS" = false ]; then
@@ -277,6 +305,10 @@ fi
 export NPM_TOKEN
 export NPM_OTP="${NPM_OTP:-}"
 export NPM_REGISTRY
+PROVENANCE_ARG=""
+if [ "${GITHUB_ACTIONS:-false}" = "true" ] && [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then
+  PROVENANCE_ARG=" --provenance"
+fi
 
 if ! docker run --rm ${DOCKER_TTY_ARGS[@]+"${DOCKER_TTY_ARGS[@]}"} \
   -u "${CURRENT_UID}:${CURRENT_GID}" \
@@ -287,7 +319,7 @@ if ! docker run --rm ${DOCKER_TTY_ARGS[@]+"${DOCKER_TTY_ARGS[@]}"} \
   -e NPM_OTP \
   -e NPM_REGISTRY \
   "${IMAGE_NAME}" \
-  sh -c 'reg_norm="${NPM_REGISTRY%/}/"; reg_host="${reg_norm#http://}"; reg_host="${reg_host#https://}"; reg_host="${reg_host#//}"; printf "//%s:_authToken=%s\nregistry=%s\n" "${reg_host}" "${NPM_TOKEN}" "${NPM_REGISTRY}" > /tmp/.npmrc && chmod 600 /tmp/.npmrc && trap "rm -f /tmp/.npmrc" EXIT && export NPM_CONFIG_USERCONFIG=/tmp/.npmrc && if [ -n "${NPM_OTP:-}" ]; then export NPM_CONFIG_OTP="${NPM_OTP}"; fi && npm publish --access public --no-browser --registry="${NPM_REGISTRY}"'; then
+  sh -c 'reg_norm="${NPM_REGISTRY%/}/"; reg_host="${reg_norm#http://}"; reg_host="${reg_host#https://}"; reg_host="${reg_host#//}"; printf "//%s:_authToken=%s\nregistry=%s\n" "${reg_host}" "${NPM_TOKEN}" "${NPM_REGISTRY}" > /tmp/.npmrc && chmod 600 /tmp/.npmrc && trap "rm -f /tmp/.npmrc" EXIT && export NPM_CONFIG_USERCONFIG=/tmp/.npmrc && if [ -n "${NPM_OTP:-}" ]; then export NPM_CONFIG_OTP="${NPM_OTP}"; fi && npm publish --access public --no-browser'"${PROVENANCE_ARG}"' --registry="${NPM_REGISTRY}"'; then
   echo -e "\n\e[31m❌ ERROR: No se completó la publicación en npmjs.org (posible requerimiento 2FA / EOTP).\e[0m" >&2
   echo "💡 Soluciones:" >&2
   echo "   1. Ejecute desde su terminal interactiva y abra en el navegador el enlace https://www.npmjs.com/auth/cli/... cuando aparezca." >&2

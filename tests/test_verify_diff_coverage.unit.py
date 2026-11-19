@@ -623,3 +623,58 @@ def test_exact_100_pct_line_coverage_fails_on_rounding_and_covers_js(
         vdc.DiffCoverageConfig(workspace=repo, min_line_cov=100.0),
     )
     assert rep_unrounded.exit_code == vdc.EXIT_COVERAGE_FAIL
+
+
+def test_ai_evals_report_stem_and_cobertura_condition_branches(
+    tmp_path: Path,
+) -> None:
+    """Valida resolución de ai-evals.xml y cálculo de ramas desde condition-coverage."""
+    repo = _init_repo(tmp_path / "ai_branch_repo")
+    _write(
+        repo,
+        "ai-evals/eval_runner.py",
+        "def run_eval(flag: bool) -> int:\n"
+        "    if flag:\n"
+        "        return 1\n"
+        "    return 0\n",
+    )
+    _git(repo, "add", "ai-evals/eval_runner.py")
+    _write(
+        repo,
+        "cov/ai-evals.xml",
+        "<coverage><packages><package><classes>"
+        '<class filename="eval_runner.py"><lines>'
+        '<line number="1" hits="1"/>'
+        '<line number="2" hits="1" branch="true" condition-coverage="50% (1/2)"/>'
+        '<line number="3" hits="1"/>'
+        '<line number="4" hits="1"/>'
+        "</lines></class></classes></package></packages></coverage>",
+    )
+    partial_rep = vdc.evaluate_diff_coverage(
+        vdc.DiffCoverageConfig(
+            workspace=repo, reports_dir="cov", min_branch_cov=90.0
+        )
+    )
+    assert partial_rep.exit_code == vdc.EXIT_COVERAGE_FAIL
+    assert partial_rep.file_metrics[0].covered_branches == 1
+    assert partial_rep.file_metrics[0].total_branches == 2
+
+    _write(
+        repo,
+        "cov/ai-evals.xml",
+        "<coverage><packages><package><classes>"
+        '<class filename="eval_runner.py"><lines>'
+        '<line number="1" hits="1"/>'
+        '<line number="2" hits="2" branch="true" condition-coverage="100% (2/2)"/>'
+        '<line number="3" hits="1"/>'
+        '<line number="4" hits="1"/>'
+        "</lines></class></classes></package></packages></coverage>",
+    )
+    full_rep = vdc.evaluate_diff_coverage(
+        vdc.DiffCoverageConfig(
+            workspace=repo, reports_dir="cov", min_branch_cov=90.0
+        )
+    )
+    assert full_rep.exit_code == vdc.EXIT_OK
+    assert full_rep.file_metrics[0].covered_branches == 2
+    assert full_rep.file_metrics[0].total_branches == 2

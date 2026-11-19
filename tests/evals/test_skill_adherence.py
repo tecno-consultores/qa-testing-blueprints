@@ -593,12 +593,14 @@ def build_live_skill_adherence_case() -> LLMTestCase:
             "certify 10/10 y detención en git commit local bajo QA-GIT-GATE-01."
         ),
         tools_called=[
-            ToolCall(name="inspect_blast_radius", input_parameters={"sym": "evals"}),
+            ToolCall(
+                name="inspect_ast_blast_radius", input_parameters={"sym": "evals"}
+            ),
             ToolCall(name="run_ephemeral_qa", input_parameters={"stage": "offline"}),
             ToolCall(name="certify_11x_gate", input_parameters={"gate": "10/10"}),
         ],
         expected_tools=[
-            ToolCall(name="inspect_blast_radius", input_parameters=None),
+            ToolCall(name="inspect_ast_blast_radius", input_parameters=None),
             ToolCall(name="run_ephemeral_qa", input_parameters=None),
             ToolCall(name="certify_11x_gate", input_parameters=None),
         ],

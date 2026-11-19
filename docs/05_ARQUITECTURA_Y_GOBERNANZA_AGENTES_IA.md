@@ -166,7 +166,7 @@ To eradicate the habit of agents marking tasks done with half-finished tests or 
 
 If any step fails, the agent is forbidden from closing the turn.
 
-### 📈 Implemented and Planned Incremental Evolution (Milestones 21–23)
+### 📈 Implemented Incremental Evolution (Milestones 21–23)
 
 To strengthen the standard on top of the stabilized public surface (**19 tools** and **13 resources** in MCP alongside **8 canonical rules** in `.agents/rules/` and **11 modular skills**, including the unified Flight Recorder `checkpoint_ctl.py` + `session_flight_recorder` and JIT `tactical-patterns-11x`), incremental evolution advances along [`ROADMAP.md`](../ROADMAP.md):
 1. **Differential Coverage (`Milestone 21` — Implemented):** [`16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md`](specs/16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md) (`100%` on delta lines, `>= 90%` on delta branches, and blocking unauthorized exclusions).

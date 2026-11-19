@@ -40,6 +40,9 @@ jobs:
       - name: Execute Python unit & Meta-QA governance suites
         run: make test-py && make test-meta-qa
 
+      - name: Execute offline AI & skill adherence contracts
+        run: make test-ai-offline
+
       - name: Execute MCP Server lint, build, unit & clean-room example E2E
         run: make lint && make build && make test-mcp && make test-example
 

@@ -399,7 +399,7 @@ test-bats:
 	'    i, n_rl = 0, len(rl)' \
 	'    while i < n_rl:' \
 	'        s = rl[i].strip()' \
-	'        if re.match(r"^(?:local\s+-a\s+|declare\s+-a\s+)?[A-Za-z_][A-Za-z0-9_]*=\($", s):' \
+	'        if re.match(r"^(?:local\s+-a\s+|declare\s+-a\s+)?[A-Za-z_][A-Za-z0-9_]*=\($$", s):' \
 	'            j = i + 1' \
 	'            while j < n_rl and rl[j].strip() != ")":' \
 	'                if (i + 1) in fl and fl[i + 1][0] > 0 and (j + 1) in fl and fl[j + 1][0] == 0: fl[j + 1][0] = fl[i + 1][0]' \
@@ -417,17 +417,30 @@ test-bats:
 	'tot_v = sum(len(v) for v in merged.values())' \
 	'tot_c = sum(1 for v in merged.values() for e in v.values() if e[0] > 0)' \
 	'rate = (tot_c / tot_v) if tot_v else 1.0' \
-	'cov_el = ET.Element("coverage", {"line-rate": f"{rate:.4f}", "branch-rate": "1.0", "lines-covered": str(tot_c), "lines-valid": str(tot_v), "complexity": "1.0", "version": "1.9", "timestamp": "0"})' \
+	'def calc_br(lines_dict):' \
+	'    bc, bt = 0, 0' \
+	'    for e in lines_dict.values():' \
+	'        if e[2]:' \
+	'            m = re.search(r"\((\d+)/(\d+)\)", e[2])' \
+	'            if m: bc += int(m.group(1)); bt += int(m.group(2))' \
+	'    return bc, bt' \
+	'tot_bc, tot_bt = 0, 0' \
+	'for v in merged.values():' \
+	'    bc, bt = calc_br(v); tot_bc += bc; tot_bt += bt' \
+	'br_rate = (tot_bc / tot_bt) if tot_bt else 1.0' \
+	'cov_el = ET.Element("coverage", {"line-rate": f"{rate:.4f}", "branch-rate": f"{br_rate:.4f}", "lines-covered": str(tot_c), "lines-valid": str(tot_v), "branches-covered": str(tot_bc), "branches-valid": str(tot_bt), "complexity": "1.0", "version": "1.9", "timestamp": "0"})' \
 	'srcs_el = ET.SubElement(cov_el, "sources")' \
 	'ET.SubElement(srcs_el, "source").text = "/repo/"' \
 	'pkgs_el = ET.SubElement(cov_el, "packages")' \
-	'pkg_el = ET.SubElement(pkgs_el, "package", {"name": "bats", "line-rate": f"{rate:.4f}", "branch-rate": "1.0", "complexity": "1.0"})' \
+	'pkg_el = ET.SubElement(pkgs_el, "package", {"name": "bats", "line-rate": f"{rate:.4f}", "branch-rate": f"{br_rate:.4f}", "complexity": "1.0"})' \
 	'clss_el = ET.SubElement(pkg_el, "classes")' \
 	'for idx, rel in enumerate(sorted(merged)):' \
 	'    ld = merged[rel]' \
 	'    if not ld: continue' \
 	'    fv, fc = len(ld), sum(1 for e in ld.values() if e[0] > 0)' \
-	'    ce = ET.SubElement(clss_el, "class", {"name": re.sub(r"[^a-zA-Z0-9_]", "_", rel) + f"__{idx}", "filename": rel, "branch-rate": "1.0", "complexity": "1.0", "line-rate": f"{(fc / fv) if fv else 1.0:.4f}"})' \
+	'    fbc, fbt = calc_br(ld)' \
+	'    fbr = (fbc / fbt) if fbt else 1.0' \
+	'    ce = ET.SubElement(clss_el, "class", {"name": re.sub(r"[^a-zA-Z0-9_]", "_", rel) + f"__{idx}", "filename": rel, "branch-rate": f"{fbr:.4f}", "complexity": "1.0", "line-rate": f"{(fc / fv) if fv else 1.0:.4f}"})' \
 	'    le_root = ET.SubElement(ce, "lines")' \
 	'    for ln in sorted(ld):' \
 	'        hits, br, cond = ld[ln]' \
@@ -683,15 +696,17 @@ test-example:
 	@./scripts/probar-mcp-example.sh
 
 test-ai-offline:
-	@cmd='ruff check --select E,F,W,I,UP,B,C901 --config "lint.mccabe.max-complexity=5" ai-evals tests/evals && MYPYPATH=ai-evals mypy --strict --cache-dir=/tmp/mypy ai-evals/golden_from_traces.py ai-evals/_llm_judge.py ai-evals/rag/test_rag_faithfulness.py ai-evals/voice-realtime/test_voice_websocket_latency.py ai-evals/multimodal-ocr/test_pdf_table_fidelity.py tests/evals/test_skill_adherence.py && PYTHONPATH=ai-evals pytest --cov=ai-evals --cov=tests/evals --cov-fail-under=95 --cov-report=term-missing ai-evals/rag/test_rag_faithfulness.py ai-evals/voice-realtime/test_voice_websocket_latency.py ai-evals/multimodal-ocr/test_pdf_table_fidelity.py ai-evals/tests/test_golden_from_traces.py tests/evals/test_skill_adherence.py'; \
+	@mkdir -p .agents/.cache/coverage && chmod 0700 .agents/.cache
+	@cmd='ruff check --select E,F,W,I,UP,B,C901 --config "lint.mccabe.max-complexity=5" ai-evals tests/evals && MYPYPATH=ai-evals mypy --strict --cache-dir=/tmp/mypy ai-evals/golden_from_traces.py ai-evals/_llm_judge.py ai-evals/rag/test_rag_faithfulness.py ai-evals/voice-realtime/test_voice_websocket_latency.py ai-evals/multimodal-ocr/test_pdf_table_fidelity.py tests/evals/test_skill_adherence.py && PYTHONPATH=ai-evals pytest --cov=ai-evals --cov=tests/evals --cov-fail-under=95 --cov-report=term-missing --cov-report=xml:/app/.agents/.cache/coverage/ai-evals.xml ai-evals/rag/test_rag_faithfulness.py ai-evals/voice-realtime/test_voice_websocket_latency.py ai-evals/multimodal-ocr/test_pdf_table_fidelity.py ai-evals/tests/test_golden_from_traces.py tests/evals/test_skill_adherence.py'; \
 	if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
-		if ! out=$$(PYTHONDONTWRITEBYTECODE=1 RUFF_CACHE_DIR=/tmp/ruff-cache COVERAGE_FILE=/tmp/.coverage UV_CACHE_DIR=/tmp/uv-cache DEEPEVAL_TELEMETRY_OPT_OUT=YES sh -c "$$cmd" 2>&1); then \
+		cmd_local="$${cmd//\/app\/.agents/.agents}"; \
+		if ! out=$$(PYTHONDONTWRITEBYTECODE=1 RUFF_CACHE_DIR=/tmp/ruff-cache COVERAGE_FILE=/tmp/.coverage UV_CACHE_DIR=/tmp/uv-cache DEEPEVAL_TELEMETRY_OPT_OUT=YES sh -c "$$cmd_local" 2>&1); then \
 			printf '%s\n' "$$out" >&2; \
 			if printf '%s' "$$out" | grep -qE '$(COMPLEXITY_FAILURE_REGEX)'; then printf '\n%s\n' "$(DIRECTIVE_11X_COMPLEXITY_MSG)" >&2; fi; \
 			exit 1; \
 		fi; \
 	else \
-		if ! out=$$(docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e DEEPEVAL_TELEMETRY_OPT_OUT=YES -v "$$(pwd):/app:ro" -w /app $(PY_IMG) sh -c "$$cmd" 2>&1); then \
+		if ! out=$$(docker run --rm --network none -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e DEEPEVAL_TELEMETRY_OPT_OUT=YES -v "$$(pwd):/app:ro" -v "$$(pwd)/.agents/.cache/coverage:/app/.agents/.cache/coverage" -w /app $(PY_IMG) sh -c "$$cmd" 2>&1); then \
 			printf '%s\n' "$$out" >&2; \
 			if printf '%s' "$$out" | grep -qE '$(COMPLEXITY_FAILURE_REGEX)'; then printf '\n%s\n' "$(DIRECTIVE_11X_COMPLEXITY_MSG)" >&2; fi; \
 			exit 1; \
@@ -739,4 +754,4 @@ publish-mcp-dry:
 	@./scripts/publicar-mcp.sh --dry-run
 
 certify:
-	@QA11X_STRICT="$${QA11X_STRICT:-0}" QA11X_BLUEPRINT_SOURCE_REPO=1 ./.agents/scripts/certify_task_completion.sh
+	@QA11X_STRICT="$${QA11X_STRICT:-0}" ./.agents/scripts/certify_task_completion.sh

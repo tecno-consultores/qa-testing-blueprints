@@ -57,7 +57,7 @@ Resolve DOM targets strictly by accessibility semantics and business intent so l
 4. **`data-testid` (Last Resort Only):** Permitted exclusively for `<canvas>`, WebGL, complex SVG topology maps, or icon-only controls lacking text labels—never as default substitution for missing ARIA roles.
 
 ### 3.2. Real-Browser Geometry & WCAG 2.1 AA Ergonomics (Anti-JSDOM)
-Because JSDOM always reports `0x0` bounding boxes and skips layout engines, validate geometry inside ephemeral real Chromium (`sinfallas/base-node-ionic:26` + Playwright):
+Because JSDOM always reports `0x0` bounding boxes and skips layout engines, validate geometry inside ephemeral real Chromium (`mcr.microsoft.com/playwright:v1.52.0-noble`):
 - **3-Viewport Sweep:** Assert `document.documentElement.scrollWidth <= window.innerWidth` (zero horizontal overflow) and `CLS = 0` at `375x667` (mobile), `768x1024` (tablet), and `1440x900` (desktop).
 - **In-Flow Footer Invariant (`UI-11X-01`):** Forbid `position: fixed` or `position: sticky` bottom footers covering form inputs/tables; enforce in-flow `<footer>` inside `<main>` with `margin-top: auto`.
 - **Tabular & Contrast Polish:** Enforce `font-variant-numeric: tabular-nums` on telemetry/KPI columns and `0` violations from `@axe-core/playwright` (WCAG 2.1 AA) + Lighthouse CI (`Performance >= 90`, `Accessibility >= 95`).

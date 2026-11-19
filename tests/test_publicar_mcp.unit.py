@@ -351,6 +351,152 @@ class TestPublicarMcp(unittest.TestCase):
                 f"//npm.example.org/:_authToken={token_val}",
             )
 
+    def test_prepack_rebuilds_when_sourcemap_present_and_changelogs_checked(
+        self,
+    ) -> None:
+        """Detecta *.map residuales en dist/, valida CHANGELOGs y sync_governance."""
+        docker_map_stub = (
+            "#!/usr/bin/env bash\n"
+            'printf "%s\\n" "$*" >> "${DOCKER_LOG_FILE}"\n'
+            'if [[ "$*" == *"npm pack --dry-run"* ]]; then\n'
+            '  echo "npm notice package size: 42.0 kB"\n'
+            '  echo "npm notice total files: 12"\n'
+            "  exit 0\n"
+            "fi\n"
+            'if [[ "$*" == *"npm view"* ]]; then\n'
+            "  exit 1\n"
+            "fi\n"
+            'if [[ "$*" == *"pnpm --silent run build"* ]]; then\n'
+            '  rm -f "${MCP_DIR_PATH}/dist/"*.map\n'
+            '  echo "export const ok = 1;" > "${MCP_DIR_PATH}/dist/index.js"\n'
+            "fi\n"
+            "exit 0\n"
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            fake_root, fake_script, fake_bin = self._create_publish_sandbox(
+                tmpdir, docker_map_stub, with_dist=True
+            )
+            (fake_root / "mcp-server" / "dist" / "index.js.map").write_text(
+                "{}", encoding="utf-8"
+            )
+            (fake_root / ".agents" / "scripts").mkdir(parents=True)
+            (fake_root / ".agents" / "scripts" / "sync_governance.py").write_text(
+                "print('ok')\n", encoding="utf-8"
+            )
+            (fake_root / "manifest.json").write_text("{}", encoding="utf-8")
+            for cl in (
+                "CHANGELOG.md",
+                "CHANGELOG.es.md",
+                "mcp-server/CHANGELOG.md",
+                "mcp-server/CHANGELOG.es.md",
+            ):
+                (fake_root / cl).write_text("## [3.1.0]\n- ok\n", encoding="utf-8")
+
+            log_file = fake_root / "docker_map.log"
+            env = dict(os.environ)
+            env["PATH"] = f"{fake_bin}:{env.get('PATH', '')}"
+            env["DOCKER_LOG_FILE"] = str(log_file)
+            env["MCP_DIR_PATH"] = str(fake_root / "mcp-server")
+
+            res = subprocess.run(
+                [str(fake_script), "--dry-run", "--skip-tests"],
+                capture_output=True,
+                text=True,
+                cwd=str(fake_root),
+                env=env,
+            )
+            self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+            docker_log = log_file.read_text(encoding="utf-8")
+            self.assertIn("sync_governance.py --check", docker_log)
+            self.assertNotIn("[ -d node_modules/.bin ]", docker_log)
+
+            # CHANGELOG sin versión activa debe abortar
+            (fake_root / "mcp-server" / "CHANGELOG.es.md").write_text(
+                "## [3.0.0]\n- old\n", encoding="utf-8"
+            )
+            res_cl = subprocess.run(
+                [str(fake_script), "--dry-run", "--skip-tests"],
+                capture_output=True,
+                text=True,
+                cwd=str(fake_root),
+                env=env,
+            )
+            self.assertEqual(res_cl.returncode, 1)
+            self.assertIn("mcp-server/CHANGELOG.es.md", res_cl.stderr)
+
+    def test_live_dirty_git_rejected_and_oidc_provenance_enabled(self) -> None:
+        """Rechaza git dirty en modo live e inyecta --provenance en OIDC Actions."""
+        docker_oidc_stub = (
+            "#!/usr/bin/env bash\n"
+            'printf "%s\\n" "$*" >> "${DOCKER_LOG_FILE}"\n'
+            'if [[ "$*" == *"npm publish"* ]]; then\n'
+            '  touch "${PUB_DONE_FLAG}"\n'
+            "  exit 0\n"
+            "fi\n"
+            'if [[ "$*" == *"npm view"* ]]; then\n'
+            '  [ -f "${PUB_DONE_FLAG}" ] && echo "3.1.0" && exit 0\n'
+            "  exit 1\n"
+            "fi\n"
+            "exit 0\n"
+        )
+        token_val = "npm_" + "oidcMockTokenSecret123456"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            fake_root, fake_script, fake_bin = self._create_publish_sandbox(
+                tmpdir, docker_oidc_stub, with_dist=True
+            )
+            subprocess.run(["git", "init", "-q"], cwd=fake_root, check=True)
+            subprocess.run(
+                ["git", "config", "user.email", "qa@example.com"],
+                cwd=fake_root,
+                check=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "QA Bot"], cwd=fake_root, check=True
+            )
+            subprocess.run(["git", "add", "."], cwd=fake_root, check=True)
+            subprocess.run(
+                ["git", "commit", "-q", "-m", "chore: clean"],
+                cwd=fake_root,
+                check=True,
+            )
+
+            log_file = fake_root / "docker_oidc.log"
+            pub_flag = fake_root / "pub_oidc.flag"
+            env = dict(os.environ)
+            env["PATH"] = f"{fake_bin}:{env.get('PATH', '')}"
+            env["NPM_TOKEN"] = token_val
+            env["DOCKER_LOG_FILE"] = str(log_file)
+            env["PUB_DONE_FLAG"] = str(pub_flag)
+            env["GITHUB_ACTIONS"] = "true"
+            env["ACTIONS_ID_TOKEN_REQUEST_URL"] = "https://token.actions.example.com"
+
+            # Árbol sucio en modo live -> aborta antes de Paso 1
+            (fake_root / "dirty.txt").write_text("dirty\n", encoding="utf-8")
+            res_dirty = subprocess.run(
+                [str(fake_script), "--skip-tests"],
+                capture_output=True,
+                text=True,
+                cwd=str(fake_root),
+                env=env,
+            )
+            self.assertEqual(res_dirty.returncode, 1)
+            self.assertIn("árbol Git tiene cambios sin confirmar", res_dirty.stderr)
+
+            # Árbol limpio -> publica con --provenance
+            (fake_root / "dirty.txt").unlink()
+            res_clean = subprocess.run(
+                [str(fake_script), "--skip-tests"],
+                capture_output=True,
+                text=True,
+                cwd=str(fake_root),
+                env=env,
+            )
+            self.assertEqual(
+                res_clean.returncode, 0, res_clean.stdout + res_clean.stderr
+            )
+            docker_log = log_file.read_text(encoding="utf-8")
+            self.assertIn("--provenance", docker_log)
+
 
 if __name__ == "__main__":
     unittest.main()

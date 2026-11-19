@@ -2,7 +2,7 @@
 
 # Arquitectura del Ecosistema de Pruebas (Modelo C4)
 
-Este documento describe gráficamente cómo interactúan las herramientas, contenedores y redes dentro de **QA Testing Blueprints (`QA-11X v3.1`)**. Utilizamos una adaptación del Modelo C4 orientada a infraestructura efímera para ilustrar el aislamiento estricto de nuestras pruebas a lo largo de **10 stacks hidratables + `architecture/` + `mcp-server/` (= 12 entornos de matriz)**, incluyendo las capas de Seguridad Dinámica (DAST), Ingeniería del Caos, Mobile W3C Bridge (`sinfallas/base-mobile-appium:26`) y Observabilidad (Nivel 11X).
+Este documento describe gráficamente cómo interactúan las herramientas, contenedores y redes dentro de **QA Testing Blueprints (`QA-11X v3.2`)**. Utilizamos una adaptación del Modelo C4 orientada a infraestructura efímera para ilustrar el aislamiento estricto de nuestras pruebas a lo largo de **10 stacks hidratables + `architecture/` + `mcp-server/` (= 12 entornos de matriz)**, incluyendo las capas de Seguridad Dinámica (DAST), Ingeniería del Caos, Mobile W3C Bridge (`sinfallas/base-mobile-appium:26`) y Observabilidad (Nivel 11X).
 
 ---
 

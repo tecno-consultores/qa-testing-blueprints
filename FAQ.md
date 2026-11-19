@@ -108,7 +108,7 @@ Following RoSGrid's corporate sovereignty and isolation philosophy, delegating n
 Even if `mcp_config.json` specifies `"@sinfallas/mcp-qa-11x@latest"`, the IDE keeps the `stdio` process in memory from startup and `npx` caches copies in `~/.npm/_npx` (plus manifest cache in `~/.cache/qa-11x-blueprints`). To update surgically and verify cryptographic integrity:
 1. **Run the surgical `upgrade` command (recommended first step):**
    ```bash
-   npx -y @sinfallas/mcp-qa-11x@latest upgrade
+   npx -y @sinfallas/mcp-qa-11x@latest upgrade --reconcile
    ```
    This removes only stale `@sinfallas/mcp-qa-11x` entries inside `~/.npm/_npx` and `~/.cache/qa-11x-blueprints` (without wiping other tools), reconciles `.agents/` governance (`--reconcile`), and re-syncs all 11 modular skills. *(Only as a last resort if a corrupted cache persists, run `rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@latest install-skill --target all --init-agents --include-scripts --reconcile`.)*
 2. **Restart the MCP server in your IDE:** In Google Antigravity go to **`...` (Additional Options) > MCP Servers > `qa-11x` > Restart** or press `Ctrl+Shift+P` -> **`Developer: Reload Window`**.
@@ -119,13 +119,13 @@ Even if `mcp_config.json` specifies `"@sinfallas/mcp-qa-11x@latest"`, the IDE ke
      npx -y @sinfallas/mcp-qa-11x --version --verbose
      ```
    * Optionally inspect cached files directly: `grep -rn '"version"' ~/.npm/_npx/*/node_modules/@sinfallas/mcp-qa-11x/package.json` and `grep -E '"blueprint_version"|"generated_at_utc"' ~/.cache/qa-11x-blueprints/manifest.json`.
-   * During skill synchronization, verify console output displays `✔ [Skills 11X] ... files verified with SHA-256 (DISA STIG V-222513)`. If any downloaded file mismatches the official manifest SHA-256 hash, the installer aborts automatically due to a cryptographic integrity violation.
+   * During skill synchronization, verify console output displays `✔ [Skills 11X] <N> archivos verificados con SHA-256 (DISA STIG V-222513).`. If any downloaded file mismatches the official manifest SHA-256 hash, the installer aborts automatically due to a cryptographic integrity violation.
 
 ### What is "Anti-Mock Blindness", and why is verification against real PostgreSQL and Alembic migrations mandatory?
 In unit tests, mocking database calls creates a false sense of security. An ORM model can contain incompatible data types or missing columns that pass mocked tests with 100% coverage yet break production databases. Under Standard 11X, every model change requires a versioned migration and verification via `verify_alembic_orm_parity.py` running against a real PostgreSQL instance in ephemeral Docker.
 
 ### Why doesn't JSDOM detect visual layout collisions (Anti-JSDOM), and how is it prevented?
-JSDOM simulates DOM nodes in Node.js without computing CSS layout, Flexbox/Grid boxes, or bounding coordinates (`getBoundingClientRect()` returns `0x0`). A fixed footer (`position: fixed`) can overlap a form or table while JSDOM claims buttons exist and are clickable. Standard 11X prohibits fixed footers, mandates in-flow layouts (`margin-top: auto` on `<main>`), and validates real browser geometry with Karate Labs UI or Playwright in Chromium.
+JSDOM simulates DOM nodes in Node.js without computing CSS layout, Flexbox/Grid boxes, or bounding coordinates (`getBoundingClientRect()` returns `0x0`). A fixed footer (`position: fixed`) can overlap a form or table while JSDOM claims buttons exist and are clickable. Standard 11X prohibits fixed footers, mandates in-flow layouts (`margin-top: auto` on `<main>`), and validates real Chromium geometry with **Playwright** (`mcr.microsoft.com/playwright:v1.52.0-noble`)—note that `sinfallas/karatelabs:1.5.1` runs HTTP/API and static HTML contracts without a browser engine.
 
 ### Why are internal AI directives in `.agents/` written in technical English when human docs also support Spanish?
 For **token economy and logical precision**. BPE tokenizers split Spanish into ~35% more tokens than high-density technical English, so keeping internal rules and skills in English saves context window space for code and schemas. Meanwhile, top-level and operational documentation adopts the **English Canonical (`*.md`) + 1:1 Spanish Mirror (`*.es.md`)** architecture (Spec 19), while interactive agent responses and consumer repositories follow *Dynamic Language Mirroring* (matching the user's prompt language unless explicitly pinned via `--lang es|en`).

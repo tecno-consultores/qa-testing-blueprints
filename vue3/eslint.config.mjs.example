@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import pluginVue from 'eslint-plugin-vue';
@@ -42,6 +43,7 @@ export default tseslint.config(
       'sonarjs/cognitive-complexity': ['error', 15],
       'sonarjs/no-duplicate-string': 'warn',
       'sonarjs/no-identical-functions': 'error',
+      'complexity': ['error', 5],
       'max-params': ['error', 4],
       'max-depth': ['error', 3],
       '@typescript-eslint/no-explicit-any': 'error',

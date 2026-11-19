@@ -42,6 +42,11 @@ AUTO_DETECT_DIRS: tuple[str, ...] = (
     "vue3",
     "react-frontend",
     "mobile-appium",
+    "mcp-server",
+    "ai-evals",
+    "fastapi",
+    "python",
+    "node-backend",
     "frontend",
     "src",
     "tests",
@@ -82,13 +87,20 @@ RE_PY_TIME_SLEEP = re.compile(
     r"\btime\.sleep\(\s*(?:[1-9]\d*(?:\.\d+)?|\d*\.\d*[1-9]\d*)\s*\)"
 )
 
+RE_JS_STR_LITERAL = re.compile(
+    r'"(?:\\.|[^"\\\n])*"|\'(?:\\.|[^\'\\\n])*\'|`(?:\\.|[^`\\])*`'
+)
+RE_TEST_BLOCK_TITLE = re.compile(
+    r"\b(?:describe|it|test)(?:\.(?:only|skip|todo|concurrent))?\s*\(\s*"
+    r"(?:\"(?:\\.|[^\"\\\n])*\"|'(?:\\.|[^'\\\n])*'|`(?:\\.|[^`\\])*`)"
+)
 RE_XPATH_RAW = re.compile(
     r"(?:xpath=|['\"`]\s*(?:/html/body|//(?:div|span|button|input|select|"
     r"textarea|table|thead|tbody|tr|td|th|ul|ol|li|form|label|a|p|h[1-6]|\*)\b))"
 )
 RE_CSS_FRAGILE = re.compile(
     r"['\"`][^'\"`\n]*(?::nth-child\(|:nth-of-type\(|"
-    r"[a-zA-Z0-9_.\-#\]]+\s*>\s*[a-zA-Z0-9_.\-#\]]+\s*>\s*"
+    r"[a-zA-Z0-9_.\-#\]]+(?<!-)\s*>\s*[a-zA-Z0-9_.\-#\]]+(?<!-)\s*>\s*"
     r"[a-zA-Z0-9_.\-#\]]+)[^'\"`\n]*['\"`]"
 )
 
@@ -324,6 +336,20 @@ def _check_py_time_sleep_ast(rel_file: str, raw_text: str) -> list[Violation]:
     return hits
 
 
+def _keep_newlines_only(match: re.Match[str]) -> str:
+    return '""' + ("\n" * match.group(0).count("\n"))
+
+
+def _strip_js_string_literals(clean_text: str) -> str:
+    return RE_JS_STR_LITERAL.sub(_keep_newlines_only, clean_text)
+
+
+def _strip_test_titles(clean_text: str) -> str:
+    return RE_TEST_BLOCK_TITLE.sub(
+        lambda match: "test(" + ("\n" * match.group(0).count("\n")), clean_text
+    )
+
+
 def _check_arbitrary_waits(
     rel_file: str, clean_text: str, is_python: bool = False, raw_text: str = ""
 ) -> list[Violation]:
@@ -331,9 +357,10 @@ def _check_arbitrary_waits(
         return []
     if is_python:
         return _check_py_time_sleep_ast(rel_file, raw_text or clean_text)
+    code_only = _strip_js_string_literals(clean_text)
     return [
-        *_check_line_waits(rel_file, clean_text),
-        *_check_promise_waits(rel_file, clean_text),
+        *_check_line_waits(rel_file, code_only),
+        *_check_promise_waits(rel_file, code_only),
     ]
 
 
@@ -344,9 +371,10 @@ def _check_fragile_selectors(rel_file: str, clean_text: str) -> list[Violation]:
     remediation = (
         "Reemplazar por ByRole, ByLabel, ByText o encapsular en un adaptador."
     )
+    without_titles = _strip_test_titles(clean_text)
     return [
         Violation("QA-UI-ANTI-002", rel_file, line_no, msg, remediation)
-        for line_no, line in enumerate(clean_text.splitlines(), 1)
+        for line_no, line in enumerate(without_titles.splitlines(), 1)
         if RE_XPATH_RAW.search(line) or RE_CSS_FRAGILE.search(line)
     ]
 

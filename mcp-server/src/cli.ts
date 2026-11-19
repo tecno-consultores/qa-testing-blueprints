@@ -23,8 +23,8 @@ import {
   type QuickstartTier,
 } from './cli/quickstart.js';
 import { runTmsSyncCli } from './integrations/tmsSyncCli.js';
-import { GitHubFetcher, MCP_SERVER_VERSION } from './services/github-fetcher.js';
-import type { CliCommandOutput } from './cli/cliArgHelpers.js';
+import { GitHubFetcher, MCP_SERVER_VERSION, resolveSafeHomeDir } from './services/github-fetcher.js';
+import { isSameResolvedDir, type CliCommandOutput } from './cli/cliArgHelpers.js';
 import { pickAt } from './utils/diagnosticFormatter.js';
 
 export { parseAgentsOption };
@@ -90,6 +90,7 @@ export type CliCommandName =
 export interface ParsedCliArgs {
   readonly command: CliCommandName;
   readonly projectPath: string;
+  readonly explicitProjectPath?: boolean;
   readonly lang: SupportedLang;
   readonly agents?: AgentsTargetSpec;
   readonly target?: string;
@@ -235,6 +236,7 @@ const SUBCOMMAND_MAP: Readonly<Record<string, CliCommandName>> = Object.freeze({
 
 interface MutableParseState {
   projectPath: string;
+  explicitProjectPath: boolean;
   rawLang?: string;
   rawAgents?: string;
   target?: string;
@@ -370,6 +372,7 @@ const CLI_VALUE_FLAGS_BY_CMD: Readonly<Record<CliCommandName, ReadonlySet<string
     FLAG_AGENTS_SHORT,
     FLAG_PROJECT_PATH,
     FLAG_PROJECT_PATH_SHORT,
+    FLAG_DIR,
   ]),
   [CMD_RECONCILE_AGENTS]: new Set([FLAG_PROJECT_PATH, FLAG_PROJECT_PATH_SHORT, FLAG_DIR]),
   [CMD_QUICKSTART]: new Set<string>(),
@@ -455,6 +458,9 @@ function applyCliToken(
     const valueFlag = readMappedFlagValue(argv, index, token, extendedValueFields);
     if (valueFlag) {
       state[valueFlag.field] = valueFlag.value;
+      if (valueFlag.field === 'projectPath') {
+        state.explicitProjectPath = true;
+      }
       return valueFlag.step;
     }
   }
@@ -463,6 +469,7 @@ function applyCliToken(
     throw new Error(`Unknown CLI flag '${token}' for '${command}'. Run with --help to view usage.`);
   }
   state.projectPath = token;
+  state.explicitProjectPath = true;
   return 0;
 }
 
@@ -640,6 +647,7 @@ function buildFinalParsedArgs(
   return {
     command,
     projectPath: state.projectPath,
+    explicitProjectPath: state.explicitProjectPath,
     lang: validateSupportedLang(state.rawLang ?? process.env.QA_OUTPUT_LANG ?? 'auto'),
     agents: state.rawAgents !== undefined ? parseAgentsOption(state.rawAgents) : undefined,
     target: state.target,
@@ -678,6 +686,7 @@ export function parseCliArgs(
 
   const state: MutableParseState = {
     projectPath: cwd,
+    explicitProjectPath: false,
     dryRun: false,
     initAgents: false,
     includeScripts: false,
@@ -704,7 +713,10 @@ function buildInstallSkillForwardArgs(parsed: ParsedCliArgs): string[] {
   if (parsed.dryRun) {
     forwarded.push(FLAG_DRY_RUN);
   }
-  forwarded.push(FLAG_PROJECT_PATH, parsed.projectPath, FLAG_LANG, parsed.lang);
+  if (parsed.explicitProjectPath) {
+    forwarded.push(FLAG_PROJECT_PATH, parsed.projectPath);
+  }
+  forwarded.push(FLAG_LANG, parsed.lang);
   return forwarded;
 }
 
@@ -739,9 +751,13 @@ async function handleInstallSkillCommand(
 ): Promise<CliRunResult> {
   const runner =
     deps.installSkillRunner ??
-    ((forwardArgs: string[]) => runInstallSkillCli(forwardArgs, deps.fetcher));
+    ((forwardArgs: string[]) =>
+      runInstallSkillCli(forwardArgs, deps.fetcher, { cwd: deps.cwd, homeDir: deps.homeDir }));
   await runner(buildInstallSkillForwardArgs(parsed));
-  if (!parsed.initAgents) {
+  const resolvedHome = resolveSafeHomeDir(deps.homeDir);
+  const inHomeMode =
+    !parsed.explicitProjectPath && isSameResolvedDir(parsed.projectPath, resolvedHome);
+  if (!parsed.initAgents || inHomeMode) {
     return { exitCode: 0, command: CMD_INSTALL_SKILL, parsed };
   }
   const initResult = await initOrAppendAgentsMd({
@@ -1027,5 +1043,11 @@ export async function runCli(
     return { exitCode: 1, command: CMD_HELP, errorMessage };
   }
 
-  return await dispatchCliCommand(parsed, deps, log, errorLog);
+  try {
+    return await dispatchCliCommand(parsed, deps, log, errorLog);
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    errorLog(`❌ [${parsed.command}] ${errorMessage}`);
+    return { exitCode: 1, command: parsed.command, errorMessage };
+  }
 }

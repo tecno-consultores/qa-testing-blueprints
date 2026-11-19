@@ -149,6 +149,7 @@ class TestGenerarManifiesto(unittest.TestCase):
         """Verifica la clasificación de archivos comunes."""
         cases = [
             ("auditar-infra.sh", "auditar-infra.sh", "overwrite_executable"),
+            ("instalar-hooks.sh", "instalar-hooks.sh", "copy_if_missing"),
             (".env.example", ".env.example", "copy_if_missing"),
             (".trivy.yaml", ".trivy.yaml", "copy_if_missing"),
             ("lefthook.yml", "lefthook.yml", "surgical_merge"),
@@ -446,6 +447,8 @@ class TestGenerarManifiesto(unittest.TestCase):
         self.assertNotIn("8.1", gm.STACK_METADATA["php"]["description"])
         self.assertIn("scripts/actualizar-grafos-graphify.sh", gm.COMMON_FILE_PATHS)
         self.assertIn("scripts/auditar-pagespeed.sh", gm.COMMON_FILE_PATHS)
+        self.assertIn("instalar-hooks.sh", gm.COMMON_FILE_PATHS)
+        self.assertNotIn(".env.example", gm.COMMON_FILE_PATHS)
         self.assertNotIn("commitlint.config.js", gm.COMMON_FILE_PATHS)
         self.assertNotIn("commitlint.config.js", sg_mod.COMMON_FILE_PATHS)
 
@@ -453,16 +456,20 @@ class TestGenerarManifiesto(unittest.TestCase):
         """Verifica bloques Mermaid sin etiquetas HTML rotas ni escapes \\n."""
         mermaid_files = [
             "README.md",
+            "README.es.md",
             "SECURITY.md",
+            "SECURITY.es.md",
             "docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md",
             "docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md",
             "docs/ARCHITECTURE_C4.md",
+            "docs/ARCHITECTURE_C4.es.md",
             "docs/specs/01_SPEC_ARQUITECTURA_ZERO_CLONE_Y_MANIFIESTO_REMOTO.md",
         ]
         for rel_path in mermaid_files:
             path = REPO_ROOT / rel_path
-            if not path.is_file():
-                continue
+            self.assertTrue(
+                path.is_file(), f"Archivo Mermaid esperado ausente: {rel_path}"
+            )
             content = path.read_text(encoding="utf-8")
             for block in content.split("```mermaid")[1:]:
                 mermaid_code = block.split("```")[0]

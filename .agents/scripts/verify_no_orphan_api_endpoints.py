@@ -1094,14 +1094,16 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         description="Audita paridad bidireccional de endpoints API Front-Back."
     )
     parser.add_argument("target_root", nargs="?", type=Path, default=None)
+    parser.add_argument("--workspace", type=Path, default=None)
     parser.add_argument("--exit-skipped-code", type=int, default=0)
     return parser.parse_args(argv)
 
 
 def cli_main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
+    target = args.workspace if args.workspace is not None else args.target_root
     return main(
-        target_root=args.target_root,
+        target_root=target,
         exit_skipped_code=args.exit_skipped_code,
     )
 

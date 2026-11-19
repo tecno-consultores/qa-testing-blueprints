@@ -1,4 +1,4 @@
-> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (CODE_OF_CONDUCT.es.md)](CODE_OF_CONDUCT.es.md)
+> 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](CODE_OF_CONDUCT.es.md)
 
 # Tecno Consultores Code of Conduct
 

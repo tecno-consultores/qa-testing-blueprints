@@ -82,7 +82,7 @@ fi
 MCP_CHANGED=false
 if ! git rev-parse --verify origin/main >/dev/null 2>&1; then
 	MCP_CHANGED=true
-elif git diff --name-only origin/main...HEAD | grep -Eq '^(mcp-server/|manifest\.json$)'; then
+elif git diff --name-only origin/main...HEAD | grep -Eq '^(mcp-server/|manifest\.json$|mobile-appium/|vibe-rescue/|\.github/)'; then
 	MCP_CHANGED=true
 fi
 if [ "${MCP_CHANGED}" = true ] && [ -f "./mcp-server/package.json" ]; then

@@ -99,7 +99,7 @@ services:
     command: bash -c "echo 'Contenedor Karate listo. Usa docker compose run --rm -T karatelabs mvn clean test'; sleep infinity"
 
   nginx-exporter:
-    image: nginx/nginx-prometheus-exporter:1.3.0
+    image: nginx/nginx-prometheus-exporter:1.3.0@sha256:6477cf3bddc4e042d3496856fb2e8e382301bac47fb18cb83924389717261cb1
     container_name: vue_nginx_exporter
     hostname: vue_nginx_exporter
     pull_policy: if_not_present
@@ -116,7 +116,7 @@ services:
         condition: service_healthy
 
   prometheus:
-    image: prom/prometheus:v2.55.1
+    image: prom/prometheus:v2.55.1@sha256:2659f4c2ebb718e7695cb9b25ffa7d6be64db013daba13e05c875451cf51b0d3
     container_name: vue_prometheus
     hostname: vue_prometheus
     pull_policy: if_not_present

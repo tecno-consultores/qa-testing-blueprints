@@ -61,6 +61,7 @@ Start Prometheus and Pushgateway and verify metric emission from the ephemeral s
 ```bash
 make qa-observability
 docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-bash bash ./clean_artifacts.sh --dry-run
-# Or push a metric upon real artifact cleanup: ./clean_artifacts.sh --pushgateway-url http://pushgateway:9091
+# Or push a metric upon real artifact cleanup inside the ephemeral Compose network:
+docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-bash bash ./clean_artifacts.sh --pushgateway-url http://pushgateway:9091
 # Verify the pushed metric at http://localhost:9090, then tear down with `make clean-cache` (or `--profile "*" down -v`).
 ```

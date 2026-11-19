@@ -10,23 +10,11 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
-IGNORED_DIRS = frozenset(
-    {
-        "node_modules",
-        ".git",
-        "dist",
-        "build",
-        ".next",
-        ".venv",
-        "venv",
-        "__pycache__",
-        ".pytest_cache",
-        ".mypy_cache",
-        ".ruff_cache",
-        "coverage",
-        "qa11x-rescue",
-    }
-)
+IGNORED_DIRS = frozenset({
+    "node_modules", ".git", "dist", "build", ".next", ".venv", "venv",
+    "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", "coverage",
+    "qa11x-rescue",
+})
 CODE_EXTENSIONS = frozenset({".ts", ".tsx", ".js", ".jsx", ".vue", ".py", ".php"})
 TEST_DIR_NAMES = frozenset({"tests", "test", "__tests__"})
 UNSAFE_PATH_TOKENS = ("\x00", "%2e", "%2f", "%5c")

@@ -51,10 +51,10 @@ export const CANONICAL_GLOBAL_SKILL_DIRS = new Set([
 ]);
 
 /**
- * Huellas semánticas de las secciones canónicas de los 7 archivos .agents/rules/*.md
+ * Huellas semánticas de las secciones canónicas de los 8 archivos .agents/rules/*.md
  * de qa-testing-blueprints (en inglés y español), utilizadas para podar contenido global
  * y extraer únicamente secciones de dominio personalizadas si un proyecto consumidor
- * modificó localmente uno de los 7 archivos canónicos.
+ * modificó localmente uno de los 8 archivos canónicos.
  */
 export const CANONICAL_RULE_SECTION_FINGERPRINTS = [
   '# canonical rule',

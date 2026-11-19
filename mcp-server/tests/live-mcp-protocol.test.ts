@@ -214,10 +214,13 @@ function ensureBuiltDistEntry(): string {
   if (needsBuild) {
     const localTsc = path.join(mcpRoot, 'node_modules', '.bin', 'tsc');
     if (fs.existsSync(localTsc)) {
-      execFileSync(localTsc, [], { cwd: mcpRoot, stdio: 'pipe' });
+      execFileSync(localTsc, ['-p', 'tsconfig.build.json'], { cwd: mcpRoot, stdio: 'pipe' });
     } else {
       const tscBin = path.join(mcpRoot, 'node_modules', 'typescript', 'bin', 'tsc');
-      execFileSync(process.execPath, [tscBin], { cwd: mcpRoot, stdio: 'pipe' });
+      execFileSync(process.execPath, [tscBin, '-p', 'tsconfig.build.json'], {
+        cwd: mcpRoot,
+        stdio: 'pipe',
+      });
     }
   }
   return distEntry;
@@ -529,7 +532,7 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
     const card = buildAgentCard();
     expect(card.version).toBe(MCP_SERVER_VERSION);
     expect(DEFAULT_STANDARD_VERSION).toBe(MCP_STANDARD_EDITION);
-    expect(card.standardVersion).toBe('QA-11X v3.1');
+    expect(card.standardVersion).toBe('QA-11X v3.2');
     expect(card.standardVersion).toBe(DEFAULT_STANDARD_VERSION);
     expect(card.standardVersion).toBe(deriveStandardVersion(MCP_SERVER_VERSION));
     expect(deriveStandardVersion('3.1.0')).toBe('QA-11X v3.1');

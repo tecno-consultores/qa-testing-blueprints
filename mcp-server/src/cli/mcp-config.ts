@@ -11,8 +11,10 @@ import {
 import { pickAt, reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 import {
   CODEX_MCP_REL_PATH,
+  HERMES_CANONICAL_MCP_REL_PATH,
+  HERMES_FALLBACK_MCP_REL_PATH,
   type JsonMcpClient,
-  resolveJsonMcpClientRelPath,
+  resolveActiveJsonMcpClientRelPath,
 } from '../utils/ideConfigPaths.js';
 import {
   type CliCommandOutput,
@@ -105,6 +107,7 @@ interface ClientInstallOutcome {
   readonly backupPath?: string;
   readonly command?: string;
   readonly snippet: string;
+  readonly note?: string;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -199,7 +202,7 @@ function buildClientSnippet(
 ): ClientSnippetPayload {
   if (isJsonClient(client)) {
     const doc = { [MCP_SERVERS_KEY]: { [QA_SERVER_KEY]: buildJsonServerEntry(ctx.pkgSpec) } };
-    const relPath = resolveJsonMcpClientRelPath(client, ctx.platform);
+    const relPath = resolveActiveJsonMcpClientRelPath(client, ctx.homeDir, ctx.platform);
     return {
       client,
       kind: 'json',
@@ -353,6 +356,18 @@ function prepareTomlClientInstall(targetPath: string, pkgSpec: string): PlannedC
   };
 }
 
+function resolveHermesYamlNotice(client: SingleMcpClient, homeDir: string): string | undefined {
+  if (client !== 'hermes') {
+    return undefined;
+  }
+  const yamlPath = resolveSafeChildPath(homeDir, HERMES_FALLBACK_MCP_REL_PATH);
+  const jsonPath = resolveSafeChildPath(homeDir, HERMES_CANONICAL_MCP_REL_PATH);
+  if (fs.existsSync(yamlPath) && !fs.existsSync(jsonPath)) {
+    return `Detectado ${yamlPath}; si tu versión de Hermes usa YAML, agrega 'mcp_servers.qa-11x' allí también.`;
+  }
+  return undefined;
+}
+
 function prepareClientInstall(
   client: SingleMcpClient,
   ctx: SnippetTargetContext
@@ -360,7 +375,7 @@ function prepareClientInstall(
   if (isJsonClient(client)) {
     const targetPath = resolveSafeChildPath(
       ctx.homeDir,
-      resolveJsonMcpClientRelPath(client, ctx.platform)
+      resolveActiveJsonMcpClientRelPath(client, ctx.homeDir, ctx.platform)
     );
     return prepareJsonClientInstall(client, targetPath, ctx.pkgSpec);
   }
@@ -379,6 +394,7 @@ function prepareClientInstall(
 
 function commitPlannedInstall(
   plan: PlannedClientInstall,
+  ctx: SnippetTargetContext,
   dryRun: boolean
 ): ClientInstallOutcome {
   if (plan.kind === 'command') {
@@ -390,6 +406,7 @@ function commitPlannedInstall(
       snippet: plan.command,
     };
   }
+  const note = resolveHermesYamlNotice(plan.client, ctx.homeDir);
   if (dryRun) {
     return {
       client: plan.client,
@@ -398,6 +415,7 @@ function commitPlannedInstall(
       targetPath: plan.targetPath,
       ...(plan.existed ? { backupPath: `${plan.targetPath}${BACKUP_SUFFIX}` } : {}),
       snippet: plan.content,
+      ...(note ? { note } : {}),
     };
   }
   const backupPath = writeFileAtomicWithBackup(plan.targetPath, plan.content, plan.existed);
@@ -408,6 +426,7 @@ function commitPlannedInstall(
     targetPath: plan.targetPath,
     ...(backupPath ? { backupPath } : {}),
     snippet: plan.content,
+    ...(note ? { note } : {}),
   };
 }
 
@@ -423,7 +442,8 @@ function formatInstallOutcomeText(item: ClientInstallOutcome): string {
     return `ℹ️ [mcp-config] ${item.client}: ejecuta manualmente el comando seguro (sin modificar $HOME):\n  ${item.command ?? ''}`;
   }
   const backupNote = item.backupPath ? ` | backup=${item.backupPath}` : '';
-  return `✔ [mcp-config] client=${item.client} status=${item.status} target=${item.targetPath ?? ''}${backupNote}`;
+  const extraNote = item.note ? `\n  ℹ️ ${item.note}` : '';
+  return `✔ [mcp-config] client=${item.client} status=${item.status} target=${item.targetPath ?? ''}${backupNote}${extraNote}`;
 }
 
 function handlePrintMode(
@@ -451,7 +471,7 @@ function handleInstallMode(
 ): CliCommandOutput {
   // Pre-validate every target file in memory before performing any write or backup on disk
   const plans = clients.map((client) => prepareClientInstall(client, ctx));
-  const outcomes = plans.map((plan) => commitPlannedInstall(plan, state.dryRun));
+  const outcomes = plans.map((plan) => commitPlannedInstall(plan, ctx, state.dryRun));
   if (state.json) {
     const jsonBody =
       outcomes.length === 1

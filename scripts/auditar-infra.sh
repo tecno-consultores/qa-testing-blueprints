@@ -21,6 +21,15 @@ for arg in "$@"; do
     --static-only)
       STATIC_ONLY=true
       ;;
+    -h | --help)
+      echo "Uso: ./scripts/auditar-infra.sh [--force] [--static-only]"
+      echo "  Audita IaC (Trivy config + fs) y guardas estáticas CI/Makefile en Docker efímero."
+      exit 0
+      ;;
+    *)
+      echo "❌ Error: Opción no reconocida: ${arg}" >&2
+      exit 1
+      ;;
   esac
 done
 

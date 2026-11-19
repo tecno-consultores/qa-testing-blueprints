@@ -4,14 +4,27 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { GitHubFetcher, resolveSafeChildPath, resolveSafeHomeDir } from '../services/github-fetcher.js';
+import { SurgicalMerger } from '../services/surgical-merger.js';
 import { writeVersionStamp } from '../services/version-manager.js';
 import { initOrAppendAgentsMd, syncGlobalGeminiMd } from './init-agents-md.js';
 import { parseAgentsOption } from '../tools/initOrAppendAgentsMd.js';
 import { reconcileAgentsGovernance } from './reconcile-agents.js';
-import { pickAt } from '../utils/diagnosticFormatter.js';
+import { pickAt, reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
-import { hasHelpFlag, matchFlagValue, resolveCliProjectPath } from './cliArgHelpers.js';
+import {
+  hasHelpFlag,
+  isSameResolvedDir,
+  matchFlagValue,
+  resolveCliProjectPath,
+  resolveComparablePath,
+} from './cliArgHelpers.js';
 import type { AgentsTargetSpec, Manifest, ManifestFileEntry, OutputLanguageMode } from '../types.js';
+
+const EXCLUDED_COMMON_SCRIPT_PATHS = new Set([
+  'scripts/publicar-mcp.sh',
+  'scripts/probar-mcp-example.sh',
+  '.env.example',
+]);
 
 const AGENTS_DIR_NAME = '.agents';
 const SKILLS_DIR_NAME = 'skills';
@@ -33,7 +46,7 @@ export const INSTALL_SKILL_HELP_TEXT = [
   '',
   'Opciones:',
   '  --target, -t <env>       auto (default) | workspace | antigravity | claude | cursor | windsurf | codex | hermes | all',
-  '  --project-path, -p <dir> Directorio del proyecto destino (por defecto: cwd)',
+  '  --project-path, --dir, -p <dir>  Directorio del proyecto destino (por defecto: cwd)',
   '  --lang, -l <auto|es|en>  Política de idioma inyectada al usar --init-agents (default: auto)',
   '  --agents, -a <spec>      Puentes opcionales al usar --init-agents (auto | all | CSV de 28 agentes)',
   '  --include-scripts        Instala scripts operacionales (.agents/scripts, .agents/schemas y comunes)',
@@ -193,7 +206,7 @@ function detectInstalledGlobalAgentDirs(homeDir: string): string[] {
 }
 
 function isHomeDirectory(homeDir: string, cwd: string): boolean {
-  return path.resolve(cwd) === path.resolve(homeDir);
+  return isSameResolvedDir(cwd, homeDir);
 }
 
 function resolveGlobalOrFallbackTargets(homeDir: string, cwd: string): string[] {
@@ -267,7 +280,60 @@ function writeDownloadedSkills(
   }
 }
 
-function writeScriptEntry(cwd: string, entry: ManifestFileEntry, content: string): void {
+function ensureScriptExecutableMode(fullPath: string): void {
+  if (fullPath.endsWith('.sh') || fullPath.endsWith('.py')) {
+    // eslint-disable-next-line sonarjs/file-permissions -- Shared repo scripts require 0o755 so non-root Docker UIDs can execute them
+    fs.chmodSync(fullPath, 0o755);
+  }
+}
+
+function writeScriptWithBak(fullPath: string, content: string): void {
+  if (fs.existsSync(fullPath)) {
+    const existingContent = fs.readFileSync(fullPath, UTF8);
+    if (existingContent !== content) {
+      fs.copyFileSync(fullPath, `${fullPath}.bak`);
+    }
+  }
+  fs.writeFileSync(fullPath, content, UTF8);
+  ensureScriptExecutableMode(fullPath);
+}
+
+async function mergeExistingScriptEntry(
+  cwd: string,
+  entry: ManifestFileEntry,
+  fullPath: string,
+  content: string
+): Promise<void> {
+  const targetRel = entry.target_name || entry.path;
+  const merger = new SurgicalMerger();
+  await merger.mergeFiles(
+    cwd,
+    [
+      {
+        path: entry.path,
+        target_name: targetRel,
+        merge_strategy: entry.merge_strategy,
+        content,
+        sha256_verified: true,
+      },
+    ],
+    { dryRun: false, createBackup: true }
+  );
+  const backupFile = `${fullPath}.11x-backup`;
+  if (fs.existsSync(backupFile)) {
+    try {
+      fs.chmodSync(backupFile, 0o600);
+    } catch (err: unknown) {
+      reportDebugCatchError(`installSkill.chmodBackup(${targetRel})`, err);
+    }
+  }
+}
+
+async function writeScriptEntry(
+  cwd: string,
+  entry: ManifestFileEntry,
+  content: string
+): Promise<void> {
   const targetRel = entry.target_name || entry.path;
   const fullPath = resolveSafeChildPath(cwd, targetRel);
   const parentDir = path.dirname(fullPath);
@@ -282,22 +348,23 @@ function writeScriptEntry(cwd: string, entry: ManifestFileEntry, content: string
     }
     return;
   }
-  if (fs.existsSync(fullPath)) {
-    const existingContent = fs.readFileSync(fullPath, UTF8);
-    if (existingContent !== content) {
-      fs.copyFileSync(fullPath, `${fullPath}.bak`);
+  if (entry.merge_strategy === 'copy_if_missing') {
+    if (!fs.existsSync(fullPath)) {
+      fs.writeFileSync(fullPath, content, UTF8);
+      ensureScriptExecutableMode(fullPath);
     }
+    return;
   }
-  fs.writeFileSync(fullPath, content, UTF8);
-  if (fullPath.endsWith('.sh') || fullPath.endsWith('.py')) {
-    // eslint-disable-next-line sonarjs/file-permissions -- Shared repo scripts require 0o755 so non-root Docker UIDs can execute them
-    fs.chmodSync(fullPath, 0o755);
+  if (entry.merge_strategy === 'surgical_merge' && fs.existsSync(fullPath)) {
+    await mergeExistingScriptEntry(cwd, entry, fullPath, content);
+    return;
   }
+  writeScriptWithBak(fullPath, content);
 }
 
 function selectScriptEntries(manifest: Manifest): ManifestFileEntry[] {
   return [
-    ...(manifest.common_files || []).filter((f) => f.path !== 'scripts/publicar-mcp.sh'),
+    ...(manifest.common_files || []).filter((f) => !EXCLUDED_COMMON_SCRIPT_PATHS.has(f.path)),
     ...(manifest.agent_governance_files || []).filter(
       (f) =>
         f.path.startsWith(AGENT_SCRIPTS_PREFIX) ||
@@ -319,7 +386,7 @@ async function installIncludedScripts(
 
   for (const entry of scriptEntries) {
     const content = await fetcher.fetchFileContent(entry.path, entry.sha256);
-    writeScriptEntry(cwd, entry, content);
+    await writeScriptEntry(cwd, entry, content);
   }
   writeVersionStamp(path.join(cwd, AGENTS_DIR_NAME), manifest.blueprint_version);
   console.log(`✔ [Scripts 11X] ${scriptEntries.length} scripts y archivos comunes instalados [0o755].`);
@@ -359,15 +426,19 @@ async function executeDryRunPlan(ctx: DryRunPlanContext): Promise<void> {
   }
 }
 
-function resolveInstallWorkspaceDir(rawProjectPath: string | undefined, homeDir: string): string {
+function resolveInstallWorkspaceDir(
+  rawProjectPath: string | undefined,
+  homeDir: string,
+  baseCwd: string
+): string {
   if (rawProjectPath === undefined) {
-    return process.cwd();
+    return isHomeDirectory(homeDir, baseCwd) ? resolveComparablePath(homeDir) : baseCwd;
   }
-  const candidate = path.resolve(process.cwd(), rawProjectPath.normalize('NFKC').trim());
+  const candidate = path.resolve(baseCwd, rawProjectPath.normalize('NFKC').trim());
   if (isHomeDirectory(homeDir, candidate)) {
     return resolveSafeProjectPath(candidate);
   }
-  return resolveCliProjectPath(rawProjectPath, process.cwd());
+  return resolveCliProjectPath(rawProjectPath, baseCwd);
 }
 
 async function runPreReconcileIfEnabled(
@@ -461,7 +532,16 @@ async function loadManifestSkillEntries(
   return { manifest, skillEntries };
 }
 
-export async function runInstallSkillCli(args: string[], fetcher?: GitHubFetcher): Promise<void> {
+export interface InstallSkillRuntimeOptions {
+  readonly cwd?: string;
+  readonly homeDir?: string;
+}
+
+export async function runInstallSkillCli(
+  args: string[],
+  fetcher?: GitHubFetcher,
+  runtimeOptions?: InstallSkillRuntimeOptions
+): Promise<void> {
   if (hasHelpFlag(args)) {
     console.log(INSTALL_SKILL_HELP_TEXT);
     return;
@@ -469,8 +549,9 @@ export async function runInstallSkillCli(args: string[], fetcher?: GitHubFetcher
 
   const opts = validateAndParseInstallSkillArgs(args);
   const resolvedFetcher = fetcher || new GitHubFetcher();
-  const homeDir = resolveSafeHomeDir();
-  const cwd = resolveInstallWorkspaceDir(opts.projectPathArg, homeDir);
+  const homeDir = resolveSafeHomeDir(runtimeOptions?.homeDir);
+  const baseCwd = runtimeOptions?.cwd ?? process.cwd();
+  const cwd = resolveInstallWorkspaceDir(opts.projectPathArg, homeDir, baseCwd);
   const inHomeDir = isHomeDirectory(homeDir, cwd);
 
   await runPreReconcileIfEnabled(opts, cwd, inHomeDir);

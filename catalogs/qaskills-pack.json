@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0.0",
   "pack_id": "qa-11x-enterprise-pack",
-  "name": "QA Testing Blueprints (QA-11X v3.1)",
+  "name": "QA Testing Blueprints (QA-11X v3.2)",
   "version": "3.2.0",
-  "standard_edition": "QA-11X v3.1",
+  "standard_edition": "QA-11X v3.2",
   "license": "MIT",
   "author": "Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)",
   "repository": "https://github.com/tecno-consultores/qa-testing-blueprints",
@@ -33,7 +33,7 @@
         "devsecops",
         "token-economy"
       ],
-      "description": "Master QA 11X & DevSecOps Architect (qa-testing-blueprints v3.1+). Use whenever the user asks to initialize or integrate QA in a project, merge .example templates, write or audit unit/BDD/mutation/E2E tests, enforce >=95% coverage, apply DISA ASD STIG V6R5 and OWASP v4.2 security controls, run ephemeral Docker QA suites (Rule Zero), optimize context token consumption, or update TESTING.md and CHANGELOG.md."
+      "description": "Master QA 11X & DevSecOps Architect (qa-testing-blueprints v3.2+). Use whenever the user asks to initialize or integrate QA in a project, merge .example templates, write or audit unit/BDD/mutation/E2E tests, enforce >=95% coverage, apply DISA ASD STIG V6R5 and OWASP v4.2 security controls, run ephemeral Docker QA suites (Rule Zero), optimize context token consumption, or update TESTING.md and CHANGELOG.md."
     },
     {
       "id": "qa-11x-devsecops-hardener",

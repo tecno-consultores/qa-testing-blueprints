@@ -1,10 +1,11 @@
+// SPDX-License-Identifier: MIT
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
   
   // TOOL BOUNDARY ESTRICTO: Playwright solo ejecuta archivos explícitamente marcados como E2E.
-  testMatch: '**/*.e2e.ts',
+  testMatch: '**/*.e2e.{ts,tsx}',
   
   fullyParallel: true,
   // En CI, prohibimos test.only() para evitar que un desarrollador se salte la suite

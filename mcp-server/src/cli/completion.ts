@@ -139,6 +139,7 @@ const EXTRA_VALUE_FLAGS: readonly SimpleFlagSpec[] = [
   { long: '--base-url', desc: 'TMS HTTPS base URL' },
   { long: '--project-key', desc: 'TMS project key' },
   { long: '--issue-key', desc: 'TMS issue key' },
+  { long: '--test-execution-key', desc: 'Xray test execution key' },
   { long: '--repo', desc: 'GitHub owner/repo slug' },
   { long: '--required-keys', desc: 'Required TMS traceability keys' },
   { long: '--timeout-ms', desc: 'TMS request timeout in ms' },

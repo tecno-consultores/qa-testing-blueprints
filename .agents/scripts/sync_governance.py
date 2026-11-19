@@ -123,7 +123,10 @@ COMMON_FILE_PATHS: tuple[str, ...] = (
     "scripts/generar-sbom-cyclonedx.sh",
     ".trivy.yaml",
     "scripts/limpieza.sh",
-    ".env.example",
+    "instalar-hooks.sh",
+)
+EXCLUDED_LEGACY_COMMON_PATHS: frozenset[str] = frozenset(
+    {".env.example", "scripts/publicar-mcp.sh", "scripts/probar-mcp-example.sh"}
 )
 
 IGNORED_STACK_NAMES = frozenset({"README.md", "README.es.md", "changelog", ".DS_Store"})
@@ -281,10 +284,10 @@ def classify_stack_file(rel_path_in_stack: Path) -> tuple[str, str]:
 def classify_common_file(rel_path: str) -> tuple[str, str]:
     """Clasifica un archivo común en (target_name, merge_strategy)."""
     filename = Path(rel_path).name
+    if filename in (".trivy.yaml", ".env.example", "instalar-hooks.sh"):
+        return rel_path, "copy_if_missing"
     if filename.endswith(".sh"):
         return rel_path, "overwrite_executable"
-    if filename in (".trivy.yaml", ".env.example"):
-        return rel_path, "copy_if_missing"
     return rel_path, "surgical_merge"
 
 
@@ -350,7 +353,10 @@ def scan_common_files(
 ) -> list[dict[str, Any]]:
     """Escanea archivos comunes canónicos y rutas comunes heredadas existentes."""
     preserved = _preserve_or_classify_existing(existing_entries or [])
-    ordered_paths = sorted(set(COMMON_FILE_PATHS) | set(preserved.keys()))
+    ordered_paths = sorted(
+        (set(COMMON_FILE_PATHS) | set(preserved.keys()))
+        - EXCLUDED_LEGACY_COMMON_PATHS
+    )
     entries: list[dict[str, Any]] = []
     for rel_path in ordered_paths:
         full_path = repo_root / rel_path
@@ -777,6 +783,7 @@ def _collect_line_limit_errors(repo_root: Path) -> list[str]:
     errors: list[str] = []
     for rel, limit in (
         (".agents/ACTIVE_TASK.md", ACTIVE_TASK_MAX_LINES),
+        (".agents/ACTIVE_TASK.md.example", ACTIVE_TASK_MAX_LINES),
         (
             ".agents/rules/active_task_and_planning_resilience.md",
             ACTIVE_TASK_RULE_MAX_LINES,

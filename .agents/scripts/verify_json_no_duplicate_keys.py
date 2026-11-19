@@ -98,13 +98,13 @@ def _collect_json_errors(filtered_files: list[Path]) -> list[str]:
     return all_errors
 
 
-def main(target_root: Path | None = None) -> int:
+def main(target_root: Path | None = None, exit_skipped_code: int = 0) -> int:
     repo_root = target_root or Path(__file__).resolve().parent.parent.parent
     filtered_files = collect_json_candidates(repo_root)
 
     if not filtered_files:
-        print("✔ [JSON Integrity] 0 archivos JSON relevantes.")
-        return 0
+        print("⚠️ SKIPPED [JSON Integrity]: 0 archivos JSON relevantes.")
+        return exit_skipped_code
 
     all_errors = _collect_json_errors(filtered_files)
     if all_errors:
@@ -136,6 +136,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="Ruta del workspace a inspeccionar.",
     )
+    parser.add_argument(
+        "--exit-skipped-code",
+        type=int,
+        default=0,
+        help="Código de salida cuando no existen archivos JSON relevantes.",
+    )
     return parser.parse_args(argv)
 
 
@@ -144,7 +150,7 @@ def cli_main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     raw_root = args.workspace or args.target_root
     target_path = Path(raw_root).resolve() if raw_root else None
-    return main(target_path)
+    return main(target_path, exit_skipped_code=args.exit_skipped_code)
 
 
 if __name__ == "__main__":

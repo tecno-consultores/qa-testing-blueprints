@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0.0",
-  "name": "QA Testing Blueprints (QA-11X v3.1)",
+  "name": "QA Testing Blueprints (QA-11X v3.2)",
   "slug": "qa-testing-blueprints-11x",
   "version": "3.2.0",
-  "standard_edition": "QA-11X v3.1",
+  "standard_edition": "QA-11X v3.2",
   "license": "MIT",
   "author": "Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)",
   "homepage": "https://github.com/tecno-consultores/qa-testing-blueprints",
@@ -119,8 +119,8 @@
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-architect/SKILL.md",
       "size_bytes": 11539,
-      "sha256": "e61ba9b87b400d50a119d7d63a29d37ec55cd1e388ad04677e11452c77895321",
-      "description": "Master QA 11X & DevSecOps Architect (qa-testing-blueprints v3.1+). Use whenever the user asks to initialize or integrate QA in a project, merge .example templates, write or audit unit/BDD/mutation/E2E tests, enforce >=95% coverage, apply DISA ASD STIG V6R5 and OWASP v4.2 security controls, run ephemeral Docker QA suites (Rule Zero), optimize context token consumption, or update TESTING.md and CHANGELOG.md."
+      "sha256": "577e694478ac13782d0e33fa456c99369435f85f2c625432e59ba89d862234d5",
+      "description": "Master QA 11X & DevSecOps Architect (qa-testing-blueprints v3.2+). Use whenever the user asks to initialize or integrate QA in a project, merge .example templates, write or audit unit/BDD/mutation/E2E tests, enforce >=95% coverage, apply DISA ASD STIG V6R5 and OWASP v4.2 security controls, run ephemeral Docker QA suites (Rule Zero), optimize context token consumption, or update TESTING.md and CHANGELOG.md."
     },
     {
       "id": "qa-11x-devsecops-hardener",
@@ -145,8 +145,8 @@
       "name": "qa-11x-screenplay-builder",
       "path": ".agents/skills/qa-11x-screenplay-builder/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-screenplay-builder/SKILL.md",
-      "size_bytes": 11495,
-      "sha256": "f43e2c043a5c501a1d233e991cc7350970b8562c0f91daf9456b35451d4f160b",
+      "size_bytes": 11496,
+      "sha256": "86d99e0c3568cf768c8cf82867a4ae4db5786b85d12fc52a3b462818e0913277",
       "description": "Proportional E2E and acceptance architecture sub-skill for Standard 11X. Enforces the Screenplay Pattern (Actors, Abilities, Tasks, Interactions, Questions) on multi-role RBAC, multi-tenant, and hybrid UI+API+Mobile flows, lightweight composed POM on small single-role apps (<= 10 tests, <= 3 pages), semantic self-healing ARIA locators, Anti-JSDOM geometry, Anti-Silo cross-module Questions, and 3-phase temporal assertions."
     },
     {
@@ -172,8 +172,8 @@
       "name": "qa-11x-docker-certifier",
       "path": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-docker-certifier/SKILL.md",
-      "size_bytes": 8522,
-      "sha256": "b447ee6eced08077ef513db9b2f4115936bae326fa490096d6a94a3de7798f33",
+      "size_bytes": 8728,
+      "sha256": "7a22fc297870724efa00094c95b9e59710ae8eab7ea973af6f189d12b16247cc",
       "description": "QA 11X Corporate Standard certifier in ephemeral Docker containers. Enforces Rule Zero (zero host executions on Ubuntu/macOS/Windows), Cyclomatic/Cognitive Complexity Grade A, unit test coverage >= 95%, mutation testing, WCAG 2.1 AA accessibility, Lighthouse CI, and silent mode RAM conservation."
     },
     {
@@ -181,8 +181,8 @@
       "name": "docker-trivy-keydb-hardening",
       "path": ".agents/skills/docker-trivy-keydb-hardening/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/docker-trivy-keydb-hardening/SKILL.md",
-      "size_bytes": 5493,
-      "sha256": "3d7f9dda4e5c9614a65793e71ec8ec64492ceafe623b6d72156bb535795f7d48",
+      "size_bytes": 5647,
+      "sha256": "fc2e7d8e8c2738691ca7cf757e98b45f5d9553b51a2ac024e99fa996c3d6bad3",
       "description": "Container hardening guidelines (Trivy HIGH/CRITICAL = 0), KeyDB multi-threaded in-memory engine, non-root runtime users, multi-stage Docker builds, and backend performance optimization."
     },
     {

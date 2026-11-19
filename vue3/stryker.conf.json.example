@@ -11,6 +11,8 @@
   ],
   "testRunner": "vitest",
   "coverageAnalysis": "perTest",
+  "incremental": true,
+  "incrementalFile": "/tmp/stryker-incremental.json",
   "concurrency": 4,
   "thresholds": {
     "high": 90,

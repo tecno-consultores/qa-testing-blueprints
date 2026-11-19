@@ -14,8 +14,8 @@ Para que un agente comprenda las restricciones corporativas en tiempo real, los 
   # 1. Extraer/actualizar incrementalmente graphify-out/{graph.json,GRAPH_REPORT.md}
   ./scripts/actualizar-grafos-graphify.sh
 
-  # 2. Consultar ubicación exacta file:L<line>, llamadores entrantes y dependencias salientes
-  python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"
+  # 2. Consultar ubicación exacta file:L<line>, llamadores entrantes y dependencias salientes (Rule Zero)
+  docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "${PWD}:/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"
 ```
 * **Invariante CLI-First / MCP `stdio`:** Tanto agentes con consola local (Antigravity, Claude Code, Cursor) como agentes conectados a `@sinfallas/mcp-qa-11x` (`inspect_ast_blast_radius`) consultan `graphify-out/graph.json` y `GRAPH_REPORT.md` directamente sin ocupar puertos TCP ni dejar demonios en segundo plano.
 * **Ejemplo Práctico 2 (Recursos Dinámicos Verificados con SHA-256):** El servidor MCP `@sinfallas/mcp-qa-11x` v3.2.0 expone **13 recursos MCP (`blueprint://*`: 11 estáticos vía `resources/list` + 2 plantillas dinámicas vía `resources/templates/list`)** y **19 herramientas MCP** cubriendo **10 stacks hidratables + `architecture/` + `mcp-server/` (= 12 entornos de matriz)** (incluyendo `mobile-appium` sobre `sinfallas/base-mobile-appium:26`). Cuando el agente detecta un stack FastAPI, consulta `blueprint://fastapi/readme` y `blueprint://database/postgres-rls-worm` recibiendo las plantillas verificadas criptográficamente contra `manifest.json`.

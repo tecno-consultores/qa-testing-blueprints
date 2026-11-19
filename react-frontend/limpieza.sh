@@ -71,8 +71,8 @@ fi
 if [ "${DEEP_PRUNE}" = true ]; then
   rm -rf node_modules .venv venv .agents/backups .agents/proposals .agents/.qa-evidence.json 2>/dev/null || true
   if command -v docker >/dev/null 2>&1; then
-    docker compose --profile "*" -f docker-compose.qa.yml down -v --rmi local --remove-orphans 2>/dev/null ||
-      docker compose -f docker-compose.qa.yml down -v --rmi local --remove-orphans 2>/dev/null || true
+    docker compose --profile "*" -f docker-compose.qa.yml down -v --rmi local --remove-orphans >/dev/null 2>&1 ||
+      docker compose -f docker-compose.qa.yml down -v --rmi local --remove-orphans >/dev/null 2>&1 || true
   fi
 fi
 

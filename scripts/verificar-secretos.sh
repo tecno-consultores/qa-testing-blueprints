@@ -10,6 +10,16 @@ BASH_QA_IMAGE="${QA_BASH_IMAGE:-sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85
 QA_DOCKERENV_FILE="${QA11X_DOCKERENV_PATH:-/.dockerenv}"
 WORK_ROOT="$(pwd -P)"
 
+for arg in "$@"; do
+  case "${arg}" in
+    -h | --help)
+      echo "Uso: ./scripts/verificar-secretos.sh [archivo_o_ruta ...]"
+      echo "  Escanea archivos staged, dirty o del repositorio contra credenciales expuestas (Regla Cero)."
+      exit 0
+      ;;
+  esac
+done
+
 relativize_repo_targets() {
   local arg="" dir_part="" base_part="" abs_dir="" abs_arg="" rel_arg=""
   REL_TARGETS=()
@@ -80,18 +90,33 @@ for target in "${TARGET_FILES[@]}"; do
 done
 
 if [ "${#TARGET_FILES[@]}" -eq 0 ]; then
-  git_dirty="$({
-    git -c safe.directory='*' diff --name-only HEAD 2>/dev/null || true
-    git -c safe.directory='*' ls-files --others --exclude-standard 2>/dev/null || true
-  } | sort -u)"
-  while IFS= read -r line; do
-    [ -n "${line}" ] && TARGET_FILES+=("${line}")
-  done <<<"${git_dirty}"
-  if [ "${#TARGET_FILES[@]}" -eq 0 ]; then
-    git_tracked="$(git -c safe.directory='*' ls-files 2>/dev/null || true)"
+  if command -v git >/dev/null 2>&1 && git -c safe.directory='*' rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    git_dirty="$({
+      git -c safe.directory='*' diff --name-only HEAD 2>/dev/null || true
+      git -c safe.directory='*' ls-files --others --exclude-standard 2>/dev/null || true
+    } | sort -u)"
     while IFS= read -r line; do
       [ -n "${line}" ] && TARGET_FILES+=("${line}")
-    done <<<"${git_tracked}"
+    done <<<"${git_dirty}"
+    if [ "${#TARGET_FILES[@]}" -eq 0 ]; then
+      git_tracked="$(git -c safe.directory='*' ls-files 2>/dev/null || true)"
+      while IFS= read -r line; do
+        [ -n "${line}" ] && TARGET_FILES+=("${line}")
+      done <<<"${git_tracked}"
+    fi
+  else
+    non_git_files="$(find . \( -name .git -o -name node_modules -o -name dist -o -name .venv -o -name vendor -o -name target -o -name graphify-out -o -name .pytest_cache -o -name __pycache__ -o -name coverage -o -name .mypy_cache -o -name .ruff_cache \) -prune -o -type f -print 2>/dev/null | sort || true)"
+    while IFS= read -r line; do
+      line="${line#./}"
+      [ -n "${line}" ] && TARGET_FILES+=("${line}")
+    done <<<"${non_git_files}"
+    for target in "${TARGET_FILES[@]}"; do
+      [ -n "${target}" ] || continue
+      if [[ "${target}" =~ (^|/)\.env(\.[^/]+)?$ ]] && [[ ! "${target}" =~ \.(example|sample|template)$ ]]; then
+        echo "🚨 ERROR CRÍTICO: Archivo sensible .env bloqueado (${target})." >&2
+        exit 1
+      fi
+    done
   fi
 fi
 
@@ -103,10 +128,7 @@ fi
 FILTERED_FILES=()
 for file in "${TARGET_FILES[@]}"; do
   [ -n "$file" ] || continue
-  if [ -f "$file" ] && [[ ! "$file" =~ \.(png|jpg|jpeg|gif|ico|pdf|lock|svg|pyc)$ ]] &&
-    [[ "$file" != "scripts/verificar-secretos.sh" ]] &&
-    [[ "$file" != "mcp-server/src/tools/security-auditor.ts" ]] &&
-    [[ "$file" != "vibe-rescue/audit_vibe_prototype.py" ]]; then
+  if [ -f "$file" ] && [[ ! "$file" =~ \.(png|jpg|jpeg|gif|ico|pdf|lock|svg|pyc)$ ]]; then
     FILTERED_FILES+=("$file")
   fi
 done
@@ -132,6 +154,9 @@ PLACEHOLDER_REGEX='(TU_TOKEN|tu_clave_aqui|tu_token_aqui|CHANGE[_-]?ME|EXAMPLE_O
 MATCHED_FILES=()
 for f in "${FILTERED_FILES[@]}"; do
   CANDIDATE_LINES=$(sed -E "s#${SAFE_URL_REGEX}#__QA_SAFE_URL__#g" -- "$f" 2>/dev/null | grep -niE -e "${SECRET_REGEX}" || true)
+  if [ -n "${CANDIDATE_LINES}" ]; then
+    CANDIDATE_LINES=$(printf '%s\n' "${CANDIDATE_LINES}" | grep -vF 'secret-scan-ignore' || true)
+  fi
   if [ -n "${CANDIDATE_LINES}" ] && is_test_file "$f"; then
     CANDIDATE_LINES=$(printf '%s\n' "${CANDIDATE_LINES}" | grep -vF 'qa-secret-fixture-ok' || true)
   fi

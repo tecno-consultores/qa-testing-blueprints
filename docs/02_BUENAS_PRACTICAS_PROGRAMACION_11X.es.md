@@ -189,7 +189,7 @@ Para profundizar en las implementaciones de código (prevención de Asignación 
 2. **Compilaciones Multi-Etapa (Multi-Stage Builds) e Imágenes Pre-Compiladas:**
    - Aislar el compilador y los archivos de cabecera en una etapa de construcción (`builder`), copiando solo los artefactos finales compilados a la imagen de ejecución mínima (Alpine o distroless). En PHP (`8.2` a `8.5`), utilizar `sinfallas/basephpcomposer` (tags `8.2`, `8.3`, `8.4`, `8.5` y `latest`) con extensiones nativas C pre-compiladas (`pcov`, `redis`, `pdo_pgsql`, `intl`, `sodium`, `opcache` con `save_comments=1` y JIT) y `expose_php = Off`.
 3. **Motor en Memoria: KeyDB Multi-Threaded:**
-   - Reemplazar Redis tradicional de un solo hilo por **KeyDB** (`eqalpha/keydb:6.3.4`) con `--server-threads 2`. Permite multiplicar el rendimiento de operaciones de lectura/escritura y pub/sub por 3x sin modificar código cliente, manteniendo 100% de compatibilidad con librerías Redis.
+   - Reemplazar Redis tradicional de un solo hilo por **KeyDB** (`eqalpha/keydb@sha256:6537505c42355ca1f571276bddf83f5b750f760f07b2a185a676481791e388ac`, `v6.3.4` multi-arch) con `--server-threads 2`. Permite multiplicar el rendimiento de operaciones de lectura/escritura y pub/sub por 3x sin modificar código cliente, manteniendo 100% de compatibilidad con librerías Redis.
 4. **Auditoría Preventiva con Trivy:**
    - Integrar escaneos automáticos de vulnerabilidades con `aquasec/trivy:0.76.2` sobre el sistema de archivos y manifiestos de infraestructura (`./scripts/auditar-infra.sh`), bloqueando el pase a producción si existen hallazgos de severidad CRITICAL o HIGH.
 

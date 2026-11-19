@@ -61,87 +61,122 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
   # ==============================================================================
 
   Scenario: 3. Definición de contratos y esquemas JSON para las 19 Herramientas MCP
-    * def expectedTools =
+    * def serverSrc3 = karate.readAsString(mcpRoot + '/src/server.ts')
+    * def typesSrc3 = karate.readAsString(mcpRoot + '/src/types.ts')
+    * def calmToolSrc3 = karate.readAsString(mcpRoot + '/src/tools/validateCalmArchitecture.ts')
+    * def gateToolSrc3 = karate.readAsString(mcpRoot + '/src/tools/evaluateReleaseGate.ts')
+    * def trajToolSrc3 = karate.readAsString(mcpRoot + '/src/tools/evaluateAgentTrajectory.ts')
+    * def redToolSrc3 = karate.readAsString(mcpRoot + '/src/tools/runLlmRedTeam.ts')
+    * def vibeToolSrc3 = karate.readAsString(mcpRoot + '/src/tools/auditVibePrototype.ts')
+    * def tmsToolSrc3 = karate.readAsString(mcpRoot + '/src/integrations/tmsSyncCli.ts')
+    * def flightToolSrc3 = karate.readAsString(mcpRoot + '/src/tools/sessionFlightRecorder.ts')
+    * def allToolSources3 = serverSrc3 + '\n' + calmToolSrc3 + '\n' + gateToolSrc3 + '\n' + trajToolSrc3 + '\n' + redToolSrc3 + '\n' + vibeToolSrc3 + '\n' + tmsToolSrc3 + '\n' + flightToolSrc3
+    * def coreTools3 =
       """
       [
-        { name: 'inspect_project_config', required: ['project_path'] },
-        { name: 'fetch_blueprint_bundle', required: ['stack'] },
-        { name: 'bootstrap_or_merge_11x', required: ['project_path', 'stack'] },
-        { name: 'inspect_ast_blast_radius', required: ['project_path'] },
-        { name: 'clean_workspace_11x', required: ['project_path'] },
-        { name: 'audit_security_stig_owasp', required: ['project_path'] },
-        { name: 'run_ephemeral_qa', required: ['project_path', 'stage'] },
-        { name: 'certify_11x_gate', required: ['project_path'] },
-        { name: 'audit_test_pyramid_gaps', required: ['project_path'] },
-        { name: 'init_or_append_agents_md', required: ['project_path'] },
-        { name: 'propose_skill_evolution_pr', required: ['project_path', 'target_blueprint_file', 'improvement_title', 'empirical_rationale', 'proposed_content_or_snippet'] },
-        { name: 'reconcile_agents_governance', required: ['project_path'] },
-        { name: 'validate_calm_architecture', required: [] },
-        { name: 'evaluate_release_gate', required: [] },
-        { name: 'evaluate_agent_trajectory', required: [] },
-        { name: 'run_llm_red_team', required: [] },
-        { name: 'audit_vibe_prototype', required: [] },
-        { name: 'sync_enterprise_tms', required: ['mode'] },
-        { name: 'session_flight_recorder', required: ['action'] }
+        'inspect_project_config',
+        'fetch_blueprint_bundle',
+        'bootstrap_or_merge_11x',
+        'inspect_ast_blast_radius',
+        'clean_workspace_11x',
+        'audit_security_stig_owasp',
+        'run_ephemeral_qa',
+        'certify_11x_gate',
+        'audit_test_pyramid_gaps',
+        'init_or_append_agents_md',
+        'propose_skill_evolution_pr',
+        'reconcile_agents_governance'
       ]
       """
-    * match expectedTools == '#[19]'
+    * def v2Tools3 =
+      """
+      [
+        'validate_calm_architecture',
+        'evaluate_release_gate',
+        'evaluate_agent_trajectory',
+        'run_llm_red_team',
+        'audit_vibe_prototype',
+        'sync_enterprise_tms',
+        'session_flight_recorder'
+      ]
+      """
+    * match coreTools3 == '#[12]'
+    * match v2Tools3 == '#[7]'
+    * def missingCore3 = karate.filter(coreTools3, function(t) { return !serverSrc3.contains("'" + t + "'") })
+    * match missingCore3 == '#[0]'
+    * def missingV23 = karate.filter(v2Tools3, function(t) { return !allToolSources3.contains("name: '" + t + "'") && !allToolSources3.contains("= '" + t + "'") })
+    * match missingV23 == '#[0]'
+    * assert serverSrc3.contains('tools: CORE_REGISTERED_TOOL_NAMES.length + V2_TOOL_REGISTRATIONS.length')
+    * assert typesSrc3.contains('InspectProjectInputSchema')
+    * assert typesSrc3.contains('FetchBundleInputSchema')
+    * assert typesSrc3.contains('BootstrapMergeInputSchema')
+    * assert typesSrc3.contains('ProposeEvolutionPrInputSchema')
+    * assert serverSrc3.contains('SyncEnterpriseTmsInputSchema')
+    * assert serverSrc3.contains('SessionFlightRecorderInputSchema')
 
   # ==============================================================================
   # Grupo 4: Contratos de Esquema de Recursos MCP (11 estáticos + 2 templates = 13 Resources)
   # ==============================================================================
 
   Scenario: 4. Definición de URIs y tipos MIME para los 13 Recursos MCP (11 estáticos + 2 templates)
-    * def expectedStaticResources =
+    * def serverSrc4 = karate.readAsString(mcpRoot + '/src/server.ts')
+    * def resSrc4 = karate.readAsString(mcpRoot + '/src/resources/blueprint-resources.ts')
+    * def aiRes4 = karate.readAsString(mcpRoot + '/src/resources/aiEvalsBlueprint.ts')
+    * def stackRes4 = karate.readAsString(mcpRoot + '/src/resources/stackBlueprints.ts')
+    * def tacticalRes4 = karate.readAsString(mcpRoot + '/src/resources/tacticalPatternsSkill.ts')
+    * def allResSrc4 = serverSrc4 + '\n' + resSrc4 + '\n' + aiRes4 + '\n' + stackRes4 + '\n' + tacticalRes4
+    * def declaredStaticUris4 =
       """
       [
-        { uri: 'blueprint://manifest', mimeType: 'application/json' },
-        { uri: 'blueprint://core/philosophy', mimeType: 'text/markdown' },
-        { uri: 'blueprint://security/disa-owasp-22', mimeType: 'text/markdown' },
-        { uri: 'blueprint://database/postgres-rls-worm', mimeType: 'text/markdown' },
-        { uri: 'blueprint://core/active-task-template', mimeType: 'text/markdown' },
-        { uri: 'blueprint://core/cleanup-script', mimeType: 'text/x-shellscript' },
-        { uri: 'blueprint://core/roadmap-validator', mimeType: 'text/x-python' },
-        { uri: 'blueprint://ai/evals-redteam', mimeType: 'text/markdown' },
-        { uri: 'blueprint://mobile-appium/readme', mimeType: 'text/markdown' },
-        { uri: 'blueprint://vibe-rescue/readme', mimeType: 'text/markdown' },
-        { uri: 'blueprint://skills/tactical-patterns-11x', mimeType: 'text/markdown' }
+        'blueprint://manifest',
+        'blueprint://core/philosophy',
+        'blueprint://security/disa-owasp-22',
+        'blueprint://database/postgres-rls-worm',
+        'blueprint://core/active-task-template',
+        'blueprint://core/cleanup-script',
+        'blueprint://core/roadmap-validator',
+        'blueprint://ai/evals-redteam',
+        'blueprint://mobile-appium/readme',
+        'blueprint://vibe-rescue/readme',
+        'blueprint://skills/tactical-patterns-11x'
       ]
       """
-    * def expectedResourceTemplates =
+    * def declaredTemplateUris4 =
       """
       [
-        { uriTemplate: 'blueprint://{stack}/readme', mimeType: 'text/markdown' },
-        { uriTemplate: 'blueprint://ui/refactoring-ui/{topic}', mimeType: 'text/markdown' }
+        'blueprint://{stack}/readme',
+        'blueprint://ui/refactoring-ui/{topic}'
       ]
       """
-    * match expectedStaticResources == '#[11]'
-    * match expectedResourceTemplates == '#[2]'
-    * assert (expectedStaticResources.length + expectedResourceTemplates.length) == 13
+    * match declaredStaticUris4 == '#[11]'
+    * match declaredTemplateUris4 == '#[2]'
+    * def missingStatic4 = karate.filter(declaredStaticUris4, function(u) { return !allResSrc4.contains(u) })
+    * match missingStatic4 == '#[0]'
+    * def missingTemplates4 = karate.filter(declaredTemplateUris4, function(u) { return !serverSrc4.contains("new ResourceTemplate('" + u + "'") || !serverSrc4.contains("'" + u + "'") })
+    * match missingTemplates4 == '#[0]'
+    * assert serverSrc4.contains('resources: REGISTERED_RESOURCE_URIS.length')
+    * assert serverSrc4.contains("mimeType: 'application/json'")
+    * assert resSrc4.contains("mimeType: 'text/x-shellscript'")
+    * assert resSrc4.contains("mimeType: 'text/x-python'")
+    * assert resSrc4.contains("const MIME_MARKDOWN = 'text/markdown'")
 
   # ==============================================================================
   # Grupo 5: Contrato de Salida de Herramientas MCP
   # ==============================================================================
 
   Scenario: 5. Estructura canónica de respuesta de ejecución de herramientas MCP (JSON compacto ahorrador de tokens)
-    * def mockToolResponse =
-      """
-      {
-        content: [
-          {
-            type: 'text',
-            text: '{"status":"PASSED","gate_passed":true}'
-          }
-        ]
-      }
-      """
-    * match mockToolResponse.content == '#[1]'
-    * match mockToolResponse.content[0].type == 'text'
-    * match mockToolResponse.content[0].text == '#string'
-    * assert !mockToolResponse.content[0].text.contains('\n  ')
-    * def parsedJson = karate.fromString(mockToolResponse.content[0].text)
-    * match parsedJson.status == 'PASSED'
-    * match parsedJson.gate_passed == true
+    * def serverSrc5 = karate.readAsString(mcpRoot + '/src/server.ts')
+    * def certifySrc5 = karate.readAsString(mcpRoot + '/src/tools/certify-gate.ts')
+    * def typesSrc5 = karate.readAsString(mcpRoot + '/src/types.ts')
+    * assert serverSrc5.contains('function toJsonToolResult')
+    * assert serverSrc5.contains("type: 'text'")
+    * assert serverSrc5.contains('text: JSON.stringify(result)')
+    * assert !serverSrc5.contains('JSON.stringify(result, null')
+    * assert certifySrc5.contains('gate_passed')
+    * assert certifySrc5.contains('check_statuses')
+    * assert typesSrc5.contains("'PASSED'")
+    * assert typesSrc5.contains("'FAILED'")
+    * assert typesSrc5.contains("'SKIPPED'")
 
   # ==============================================================================
   # Grupo 6: Contrato CLI para install-skill (Autodetección y 11 Skills v3.1)
@@ -166,60 +201,62 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * match skillPaths contains '.agents/skills/qa-11x-vibe-rescue/SKILL.md'
     * match skillPaths contains '.agents/skills/tactical-patterns-11x/SKILL.md'
 
-    # Contrato de opciones CLI de install-skill
-    * def installSkillTargets = ['auto', 'workspace', 'antigravity', 'claude', 'cursor', 'hermes', 'all']
-    * match installSkillTargets contains 'auto'
-    * def installSkillFlags = ['--include-scripts', '--init-agents', '--reconcile']
-    * match installSkillFlags contains '--reconcile'
+    # Contrato real de opciones CLI de install-skill
+    * def installSkillSrc6 = karate.readAsString(mcpRoot + '/src/cli/install-skill.ts')
+    * def expectedTargets6 = ['auto', 'workspace', 'antigravity', 'claude', 'cursor', 'windsurf', 'codex', 'hermes', 'all']
+    * def missingTargets6 = karate.filter(expectedTargets6, function(t) { return !installSkillSrc6.contains("'" + t + "'") })
+    * match missingTargets6 == '#[0]'
+    * assert installSkillSrc6.contains("'--include-scripts'")
+    * assert installSkillSrc6.contains("'--init-agents'")
+    * assert installSkillSrc6.contains("'--reconcile'")
+    * assert installSkillSrc6.contains("'--dir'")
+    * assert installSkillSrc6.contains("'--dry-run'")
 
   # ==============================================================================
   # Grupo 7: Contrato CLI y MCP para init-agents (Conector AGENTS.md)
   # ==============================================================================
 
   Scenario: 7. El conector AGENTS.md soporta modos creación, adición no destructiva e idempotencia
-    * def connectorMarkerStart = '<!-- QA_11X_MCP_CONNECTOR_START -->'
-    * def connectorMarkerEnd = '<!-- QA_11X_MCP_CONNECTOR_END -->'
-    * match connectorMarkerStart == '#string'
-    * match connectorMarkerEnd == '#string'
-
-    # Contrato de opciones CLI de init-agents
-    * def initAgentsCliFlags = ['--project-path', '-p', '--dry-run']
-    * match initAgentsCliFlags contains '--dry-run'
-    * match initAgentsCliFlags contains '--project-path'
+    * def connectorSrc7 = karate.readAsString(mcpRoot + '/src/services/agents-connector.ts')
+    * def initCliSrc7 = karate.readAsString(mcpRoot + '/src/cli/init-agents-md.ts')
+    * assert connectorSrc7.contains("CONNECTOR_START_MARKER = '<!-- QA_11X_MCP_CONNECTOR_START -->'")
+    * assert connectorSrc7.contains("CONNECTOR_END_MARKER = '<!-- QA_11X_MCP_CONNECTOR_END -->'")
+    * assert connectorSrc7.contains('replaceDelimitedSection')
+    * assert connectorSrc7.contains("'created'")
+    * assert connectorSrc7.contains("'appended'")
+    * assert connectorSrc7.contains("'updated_block'")
+    * assert initCliSrc7.contains("'--project-path'")
+    * assert initCliSrc7.contains("'--dir'")
+    * assert initCliSrc7.contains("'-p'")
+    * assert initCliSrc7.contains("'--dry-run'")
+    * assert initCliSrc7.contains("'--lang'")
+    * assert initCliSrc7.contains("'--agents'")
 
   # ==============================================================================
   # Grupo 8: Contrato MCP para propose_skill_evolution_pr (Evolución Continua Zero-Trust)
   # ==============================================================================
 
   Scenario: 8. La herramienta propose_skill_evolution_pr garantiza Zero-Trust y soporte dual gh CLI / Fallback URL
-    * def evolutionStatuses = ['PR_CREATED_VIA_GH', 'PROPOSAL_FILE_AND_URL_GENERATED']
-    * match evolutionStatuses contains 'PR_CREATED_VIA_GH'
-    * match evolutionStatuses contains 'PROPOSAL_FILE_AND_URL_GENERATED'
-    * def proposalTemplate =
-      """
-      {
-        status: 'PROPOSAL_FILE_AND_URL_GENERATED',
-        target_repo: 'tecno-consultores/qa-testing-blueprints',
-        target_blueprint_file: '.agents/skills/qa-11x-architect/SKILL.md',
-        branch_name: 'evolution/skill-improvement',
-        gh_cli_authenticated: false,
-        pull_request_url: null,
-        prefilled_github_url: 'https://github.com/tecno-consultores/qa-testing-blueprints/issues/new?title=test',
-        local_proposal_file: '.agents/proposals/skill-improvement.md',
-        message: 'ok'
-      }
-      """
-    * match proposalTemplate.target_repo == 'tecno-consultores/qa-testing-blueprints'
+    * def proposeSrc8 = karate.readAsString(mcpRoot + '/src/tools/propose-evolution-pr.ts')
+    * def typesSrc8 = karate.readAsString(mcpRoot + '/src/types.ts')
+    * assert proposeSrc8.contains("UPSTREAM_REPO = 'tecno-consultores/qa-testing-blueprints'")
+    * assert proposeSrc8.contains("STATUS_PR_CREATED = 'PR_CREATED_VIA_GH'")
+    * assert proposeSrc8.contains("STATUS_PROPOSAL_GENERATED = 'PROPOSAL_FILE_AND_URL_GENERATED'")
+    * assert proposeSrc8.contains('shell: false')
+    * assert proposeSrc8.contains('prefilled_github_url:')
+    * assert proposeSrc8.contains('local_proposal_file:')
+    * assert typesSrc8.contains('ProposeEvolutionPrInputSchema')
+    * assert typesSrc8.contains('.default(true)')
 
   # ==============================================================================
   # Grupo 9: Contrato del Ecosistema PHP 8.2-8.5 en Manifiesto y Servidor MCP
   # ==============================================================================
 
-  Scenario: 9. El manifiesto indexa oficialmente el stack PHP con sus 12 plantillas y fusión quirúrgica
+  Scenario: 9. El manifiesto indexa oficialmente el stack PHP con sus 13 plantillas y fusión quirúrgica
     * match manifest.stacks.php == '#object'
     * match manifest.stacks.php.description contains 'PHP 8.2-8.5'
     * match manifest.stacks.php.readme == 'php/README.md'
-    * match manifest.stacks.php.files == '#[12]'
+    * match manifest.stacks.php.files == '#[13]'
 
     # Verificar que composer.json.example aplique estrategia surgical_merge
     * def findComposer = function(f) { return f.target_name == 'composer.json' }
@@ -237,6 +274,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * match filePaths contains 'php/phpunit.xml.example'
     * match filePaths contains 'php/psalm.xml.example'
     * match filePaths contains 'php/infection.json5.example'
+    * match filePaths contains 'php/initdb/01-init-rls-role.sql.example'
     * match filePaths contains 'php/php.ini.example'
     * match filePaths contains 'php/limpieza.sh'
     * match filePaths contains 'php/Makefile.example'
@@ -247,103 +285,35 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
   # ==============================================================================
 
   Scenario: 10. Los auditores de seguridad y pirámide 11X exponen reglas SEC-11, UI-11X-02, UI-11X-03, 3 fases temporales y refresco dual
-    * def securityRulesCatalog = ['SEC-01', 'SEC-02', 'SEC-03', 'SEC-04', 'SEC-05', 'SEC-06', 'SEC-07', 'SEC-08', 'SEC-09', 'SEC-10', 'SEC-11', 'UI-11X-01', 'UI-11X-02', 'UI-11X-03']
-    * match securityRulesCatalog contains 'SEC-11'
-    * match securityRulesCatalog contains 'UI-11X-02'
-    * match securityRulesCatalog contains 'UI-11X-03'
-
-    * def mockSec11Finding =
-      """
-      {
-        rule_id: 'SEC-11',
-        severity: 'HIGH',
-        stig_owasp_ref: 'APSC-DV-001350 / Anti-Silo Audit Rule 3',
-        file: 'src/routers/maintenance.py',
-        line: 42,
-        message: 'Asignación directa de JWT "sub" (UUID crudo) a actor_username detectada en bitácora de auditoría.',
-        remediation: 'Resolver actor_username a un nombre humano legible (ej. user.username o claims.get("username")) y nunca almacenar un UUID v4 crudo como nombre visible.'
-      }
-      """
-    * match mockSec11Finding.rule_id == 'SEC-11'
-    * match mockSec11Finding.severity == 'HIGH'
-    * assert !mockSec11Finding.stig_owasp_ref.contains('5046a660-b1ba-423d-bf0b-a6f0fd80c40b')
-
-    * def temporalLifecyclePhases = ['Programada', 'En Curso', 'Expirada/Cancelada']
-    * match temporalLifecyclePhases == '#[3]'
+    * def secSrc10 = karate.readAsString(mcpRoot + '/src/tools/security-auditor.ts')
+    * def pyrSrc10 = karate.readAsString(mcpRoot + '/src/tools/test-pyramid-auditor.ts')
+    * def expectedSecRules10 = ['SEC-01', 'SEC-02', 'SEC-03', 'SEC-04', 'SEC-05', 'SEC-06', 'SEC-07', 'SEC-08', 'SEC-09', 'SEC-10', 'SEC-11', 'UI-11X-01', 'UI-11X-02', 'UI-11X-03']
+    * def missingSecRules10 = karate.filter(expectedSecRules10, function(r) { return !secSrc10.contains("'" + r + "'") })
+    * match missingSecRules10 == '#[0]'
+    * assert secSrc10.contains('APSC-DV-001350')
+    * assert secSrc10.contains('actor_username')
+    * assert pyrSrc10.contains('Programada, En Curso, Expirada/Cancelada')
+    * assert pyrSrc10.contains('starts_at')
+    * assert pyrSrc10.contains('ends_at')
 
   # ==============================================================================
   # Grupo 11: Contrato de Reconciliación Automática, Deduplicación y Aislamiento de Dominio en .agents/ (Hito 13)
   # ==============================================================================
 
   Scenario: 11. La herramienta reconcile_agents_governance y CLI reconcile-agents aíslan dominio y garantizan respaldos
-    * def reconcileClassifications = ['CANONICAL_CLEAN', 'REDUNDANT_PROMOTED_REMOVED', 'DOMAIN_EXTRACTED_TO_DOMAIN_FILE', 'DOMAIN_PRESERVED']
-    * match reconcileClassifications contains 'CANONICAL_CLEAN'
-    * match reconcileClassifications contains 'DOMAIN_EXTRACTED_TO_DOMAIN_FILE'
-    * match reconcileClassifications contains 'DOMAIN_PRESERVED'
-    * match reconcileClassifications contains 'REDUNDANT_PROMOTED_REMOVED'
-
-    * def mockReconcileResult =
-      """
-      {
-        project_path: '/workspace/rosgrid',
-        dry_run: false,
-        backup_dir: '/workspace/rosgrid/.agents/backups/2026-11-05T00-00-00-000Z',
-        domain_rules_file: '.agents/rules/domain_rosgrid_rules.md',
-        removed_duplicate_sections_count: 3,
-        preserved_domain_sections_count: 2,
-        reconciled_items: [
-          {
-            file: '.agents/rules/mandatory_qa_pyramid_and_doc_sync.md',
-            classification: 'CANONICAL_CLEAN',
-            details: 'Archivo canónico global respaldado en .agents/backups/ y listo para sincronización.'
-          },
-          {
-            file: '.agents/rules/custom_uat.md',
-            classification: 'DOMAIN_EXTRACTED_TO_DOMAIN_FILE',
-            details: 'Eliminadas 2 sección(es) ya promovidas al estándar global y extraídas 2 sección(es) de dominio.'
-          },
-          {
-            file: '.agents/rules/domain_rosgrid_noc.md',
-            classification: 'DOMAIN_PRESERVED',
-            details: 'Archivo de dominio con prefijo domain_* preservado intacto.'
-          },
-          {
-            file: 'AGENTS.md',
-            classification: 'REDUNDANT_PROMOTED_REMOVED',
-            details: 'Podadas 1 sección(es) duplicadas en AGENTS.md que ya residen en la skill global qa-11x-architect.'
-          }
-        ]
-      }
-      """
-    * match mockReconcileResult.project_path == '/workspace/rosgrid'
-    * match mockReconcileResult.removed_duplicate_sections_count == 3
-    * match mockReconcileResult.preserved_domain_sections_count == 2
-    * match mockReconcileResult.reconciled_items == '#[4]'
-    * match mockReconcileResult.backup_dir contains '.agents/backups'
-    * match mockReconcileResult.domain_rules_file == '.agents/rules/domain_rosgrid_rules.md'
-
-    # Contrato del reminder de evolución obligatoria en certify11xGate
-    * def mockGateResultWithEvolutionReminder =
-      """
-      {
-        gate_passed: true,
-        project_path: '/workspace/rosgrid',
-        checks: {
-          zero_unmerged_examples: true,
-          zero_secrets_exposed: true,
-          json_integrity: true,
-          zero_orphan_ui_components: true,
-          zero_orphan_api_endpoints: true,
-          orm_alembic_parity: true,
-          security_stig_owasp_clean: true,
-          documentation_synced: true
-        },
-        blockers: [],
-        upstream_evolution_reminder: 'MANDATORY POST-MORTEM CHECK: Did this task resolve a UAT/integration/production bug that bypassed previous automated tests? If YES, you MUST proactively present "💡 Oportunidad de Mejora Detectada para el Estándar QA 11X" to the user in Spanish and invoke propose_skill_evolution_pr without waiting to be asked.'
-      }
-      """
-    * match mockGateResultWithEvolutionReminder.upstream_evolution_reminder contains 'propose_skill_evolution_pr'
-    * match mockGateResultWithEvolutionReminder.upstream_evolution_reminder contains 'Oportunidad de Mejora Detectada para el Estándar QA 11X'
+    * def typesSrc11 = karate.readAsString(mcpRoot + '/src/types.ts')
+    * def reconcileSrc11 = karate.readAsString(mcpRoot + '/src/cli/reconcile-agents.ts')
+    * def certifySrc11 = karate.readAsString(mcpRoot + '/src/tools/certify-gate.ts')
+    * def expectedReconcileClass11 = ['CANONICAL_CLEAN', 'REDUNDANT_PROMOTED_REMOVED', 'DOMAIN_EXTRACTED_TO_DOMAIN_FILE', 'DOMAIN_PRESERVED']
+    * def missingReconcile11 = karate.filter(expectedReconcileClass11, function(c) { return !typesSrc11.contains("'" + c + "'") || !reconcileSrc11.contains(c) })
+    * match missingReconcile11 == '#[0]'
+    * assert reconcileSrc11.contains('.agents/backups/')
+    * assert reconcileSrc11.contains("const DOMAIN_PREFIX = 'domain_'")
+    * assert reconcileSrc11.contains('backup_dir:')
+    * assert reconcileSrc11.contains('domain_rules_file:')
+    * assert certifySrc11.contains('upstream_evolution_reminder:')
+    * assert certifySrc11.contains('propose_skill_evolution_pr')
+    * assert certifySrc11.contains('Oportunidad de Mejora Detectada para el Estándar QA 11X')
 
   # ==============================================================================
   # Grupo 12: Contrato del Flujo de 11 Directrices Operativas y Ciclo de Vida del Grafo AST (Local + MCP)
@@ -360,24 +330,13 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * match govPaths contains '.agents/ACTIVE_TASK.md.example'
     * match govPaths contains '.agents/scripts/inspect_blast_radius.py'
 
-    # 3. Contrato enriquecido de inspect_ast_blast_radius con detección de grafo AST y orden de creación/actualización
-    * def mockBlastRadiusMissingGraph =
-      """
-      {
-        project_path: '/workspace/consumer-app',
-        target_symbol: 'UserService',
-        risk_level: 'LOW',
-        dependent_files_count: 1,
-        dependent_files: ['src/UserController.ts'],
-        suggested_tests_to_run: ['tests/**/UserController.unit.*'],
-        ast_graph_detected: false,
-        ast_graph_files: [],
-        ast_graph_action_required: "⚠️ No se detectó grafo AST (graphify-out/graph.json). DIRECTRIZ OBLIGATORIA: Si el grafo no existe debes crearlo ejecutando './scripts/actualizar-grafos-graphify.sh' (más información en qa-testing-blueprints) y SIEMPRE debes actualizar el grafo al terminar los cambios."
-      }
-      """
-    * match mockBlastRadiusMissingGraph.ast_graph_detected == false
-    * match mockBlastRadiusMissingGraph.ast_graph_action_required contains './scripts/actualizar-grafos-graphify.sh'
-    * match mockBlastRadiusMissingGraph.ast_graph_action_required contains 'qa-testing-blueprints'
+    # 3. Contrato real de inspect_ast_blast_radius con detección de grafo AST y guía de creación/actualización
+    * def blastSrc12 = karate.readAsString(mcpRoot + '/src/tools/blast-radius.ts')
+    * assert blastSrc12.contains('ast_graph_detected:')
+    * assert blastSrc12.contains('ast_graph_files:')
+    * assert blastSrc12.contains('ast_graph_action_required:')
+    * assert blastSrc12.contains('./scripts/actualizar-grafos-graphify.sh')
+    * assert blastSrc12.contains('qa-testing-blueprints')
 
   # ==============================================================================
   # Grupo 13: Contrato de Matriz de Herramientas, Tags Oficiales Docker y Diagramas Mermaid
@@ -412,32 +371,13 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * match agentsContent contains 'Documentation Fast-Path (`DOCS_ONLY`'
     * match agentsContent contains 'Full Code Path (`CODE_CHANGE`'
 
-    * def mockDocsFastPathQaResult =
-      """
-      {
-        status: 'SKIPPED',
-        stage: 'unit',
-        exit_code: 0,
-        duration_ms: 0,
-        coverage: {
-          detected: false,
-          percent: 0,
-          threshold: 95.0,
-          passed: false,
-          uncovered_files: []
-        },
-        failed_tests: [],
-        linter_and_complexity_issues: [],
-        security_alerts: { critical: 0, high: 0 },
-        mutation_summary: null,
-        tail_log: "✔ [Fast-Path Docs-Only] Solo se detectaron cambios en documentación (*.md / docs/); se omite 'make qa-unit' en Docker."
-      }
-      """
-    * match mockDocsFastPathQaResult.status == 'SKIPPED'
-    * match mockDocsFastPathQaResult.coverage.detected == false
-    * match mockDocsFastPathQaResult.coverage.passed == false
-    * match mockDocsFastPathQaResult.exit_code == 0
-    * match mockDocsFastPathQaResult.tail_log contains '[Fast-Path Docs-Only]'
+    * def runnerSrc14 = karate.readAsString(mcpRoot + '/src/tools/ephemeral-runner.ts')
+    * assert runnerSrc14.contains('options?.skipIfDocsOnly && isDocsOnlyWorkspaceChange')
+    * assert runnerSrc14.contains("status: 'SKIPPED'")
+    * assert runnerSrc14.contains('exit_code: 0')
+    * assert runnerSrc14.contains('detected: false')
+    * assert runnerSrc14.contains('passed: false')
+    * assert runnerSrc14.contains('[Fast-Path Docs-Only]')
 
   # ==============================================================================
   # Grupo 15: Optimización Extrema de Tokens, 3 Vías Proporcionales y Progressive Disclosure
@@ -450,57 +390,20 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * match agentsContent contains 'MICRO_CHANGE'
     * match agentsContent contains 'FULL_11X'
 
-    # Validar estructura compacta ahorradora de tokens para fetch_blueprint_bundle
-    * def mockFetchBundleResult =
-      """
-      {
-        stack: 'python',
-        total_files: 10,
-        content_omitted_for_token_economy: true,
-        files: [
-          {
-            path: 'python/Makefile.example',
-            target_name: 'Makefile',
-            merge_strategy: 'template_only',
-            content: '',
-            sha256_verified: true,
-            size_bytes: 1024,
-            cached_path: '/home/user/.cache/qa-11x-blueprints/files/python/Makefile.example'
-          }
-        ]
-      }
-      """
-    * match mockFetchBundleResult.content_omitted_for_token_economy == true
-    * match mockFetchBundleResult.files[0].content == ''
-    * match mockFetchBundleResult.files[0].size_bytes == 1024
-    * match mockFetchBundleResult.files[0].sha256_verified == true
+    # Validar implementación real de economía de tokens en fetch_blueprint_bundle
+    * def fetchSrc15 = karate.readAsString(mcpRoot + '/src/tools/fetch-bundle.ts')
+    * assert fetchSrc15.contains('content_omitted_for_token_economy: true')
+    * assert fetchSrc15.contains("content: ''")
+    * assert fetchSrc15.contains('sha256_verified: item.sha256_verified')
+    * assert fetchSrc15.contains('size_bytes:')
+    * assert fetchSrc15.contains('cached_path:')
 
-    # Validar estructura de hallazgos agrupados y truncado de seguridad
-    * def mockSecurityResult =
-      """
-      {
-        project_path: '/workspace',
-        passed: true,
-        total_files_scanned: 15,
-        findings_count: { CRITICAL: 0, HIGH: 0, MEDIUM: 1, LOW: 0 },
-        findings: [],
-        truncated_findings_count: 0,
-        grouped_findings: [
-          {
-            rule_id: 'SEC-11-01',
-            severity: 'MEDIUM',
-            stig_owasp_ref: 'APSC-DV-002520 (Unicode Canonicalization)',
-            message: 'Se detectó entrada de usuario sin normalización NFKC',
-            remediation: 'Aplicar unicodedata.normalize("NFKC", value)',
-            occurrences_count: 1,
-            locations: ['src/api.py:42']
-          }
-        ]
-      }
-      """
-    * match mockSecurityResult.passed == true
-    * match mockSecurityResult.grouped_findings[0].occurrences_count == 1
-    * match mockSecurityResult.grouped_findings[0].locations[0] == 'src/api.py:42'
+    # Validar implementación real de hallazgos agrupados y truncado de seguridad en audit_security_stig_owasp
+    * def secSrc15 = karate.readAsString(mcpRoot + '/src/tools/security-auditor.ts')
+    * assert secSrc15.contains('grouped_findings: groupedFindings')
+    * assert secSrc15.contains('truncated_findings_count:')
+    * assert secSrc15.contains('occurrences_count:')
+    * assert secSrc15.contains('APSC-DV-002520')
 
     # Verificar que install-skill protege el directorio personal $HOME frente a contaminación con archivos de proyecto
     * def installSkillSource = karate.readAsString(mcpRoot + '/src/cli/install-skill.ts')
@@ -610,12 +513,12 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def cliRouterSource = karate.readAsString(mcpRoot + '/src/cli.ts')
     * assert cliRouterSource.contains("'--version'")
 
-  Scenario: 20. Presupuesto Cognitivo SKILL.md (< 20 KB), Regla #8 Anti-Ceguera UAT (SEC-16) y Paridad de 9 Recursos Documentales
+  Scenario: 20. Presupuesto Cognitivo SKILL.md (<= 12 KB), Regla #8 Anti-Ceguera UAT (SEC-16) y Paridad de 13 Recursos Documentales
     * def findSkillMd = function(f) { return f.path == '.agents/skills/qa-11x-architect/SKILL.md' }
     * def skillMdEntry = karate.filter(manifest.agent_governance_files, findSkillMd)[0]
-    * assert skillMdEntry.size_bytes < 20000
+    * assert skillMdEntry.size_bytes <= 12288
     * def skillMdBytes = karate.readAsBytes(repoRoot + '/.agents/skills/qa-11x-architect/SKILL.md')
-    * assert skillMdBytes.length < 20000
+    * assert skillMdBytes.length <= 12288
 
     * def skillMdContent = karate.readAsString(repoRoot + '/.agents/skills/qa-11x-architect/SKILL.md')
     * assert skillMdContent.contains('11 UAT Anti-Blindness Rules')
@@ -826,7 +729,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert dockerTrouble.contains('uv_os_homedir returned ENOENT')
 
     * def installSkillSrc = karate.readAsString(mcpRoot + '/src/cli/install-skill.ts')
-    * assert installSkillSrc.contains('resolveSafeHomeDir()')
+    * assert installSkillSrc.contains('resolveSafeHomeDir(')
     * assert !installSkillSrc.contains('os.homedir()')
 
   Scenario: 26. Contrato v3.x — Arnés E2E Real sobre stdio (mcp-server/example/) + Clean-Room Tarball verify-v2.sh y 4 Barreras

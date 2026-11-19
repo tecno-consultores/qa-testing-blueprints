@@ -1,6 +1,6 @@
-# 🛡️ Cuadro de Mando de Aseguramiento de Calidad (TESTING.es.md) — Estándar Corporativo `QA-11X v3.1` (`v3.2.0`)
+# 🛡️ Cuadro de Mando de Aseguramiento de Calidad (TESTING.es.md) — Estándar Corporativo `QA-11X v3.2` (`v3.2.0`)
 
-> 🌐 **Idioma / Language:** [🇬🇧 English (TESTING.md)](TESTING.md) | **Español (Espejo 1:1)**
+> 🌐 **Idioma:** [🇬🇧 Read in English](TESTING.md) · **Español (Espejo 1:1)**
 
 Este documento constituye la bitácora viva y certificación del estándar de calidad Nivel 11X (`v3.2.0`) para los blueprints del repositorio `qa-testing-blueprints` (**10 stacks hidratables** `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue` + `architecture/` + `mcp-server/` = **12 entornos de matriz**). Todos los ecosistemas incluidos son evaluados bajo la **Regla Cero** (Rule Zero): ejecución estricta y 100% aislada en contenedores Docker efímeros con salida **Pass-Quiet / Fail-Verbose** (telemetría de 1 línea con métricas en éxito y traza completa en fallo para optimizar la ventana de contexto de los agentes IA).
 
@@ -54,7 +54,7 @@ Alcance: **10 stacks hidratables** (`python`, `fastapi`, `node-backend`, `vue3`,
 
 ### ⚡ FastAPI (Backend Python) — 13 Capas
 * **Imagen Base:** `sinfallas/base-python-uv:3.15` (Tags disponibles: `3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest`)
-* **Persistencia:** `postgres:17-alpine` + `eqalpha/keydb:6.3.4`
+* **Persistencia:** `postgres:17-alpine` + `eqalpha/keydb@sha256:6537505c42355ca1f571276bddf83f5b750f760f07b2a185a676481791e388ac` (`v6.3.4` multi-arch)
 * **Comandos de Validación:**
   ```bash
   cd fastapi
@@ -147,7 +147,7 @@ Alcance: **10 stacks hidratables** (`python`, `fastapi`, `node-backend`, `vue3`,
 
 ### 🐘 PHP 8.2–8.5 (`sinfallas/basephpcomposer`) — 13 Capas
 * **Imagen Base:** `sinfallas/basephpcomposer:8.5` (Tags disponibles: `8.2`, `8.3`, `8.4`, `8.5` y `latest` — Multi-Arch `amd64`/`arm64`)
-* **Persistencia:** `postgres:17-alpine` + `eqalpha/keydb:6.3.4` (vía `ext-redis` y `ext-pdo_pgsql`)
+* **Persistencia:** `postgres:17-alpine` + `eqalpha/keydb@sha256:6537505c42355ca1f571276bddf83f5b750f760f07b2a185a676481791e388ac` (`v6.3.4` multi-arch) (vía `ext-redis` y `ext-pdo_pgsql`)
 * **Comandos de Validación:**
   ```bash
   cd php
@@ -165,14 +165,14 @@ Alcance: **10 stacks hidratables** (`python`, `fastapi`, `node-backend`, `vue3`,
 
 ### 🧠 MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x` `v3.2.0`)
 * **Imagen Base:** `sinfallas/base-node-ionic:26` (Tags disponibles: `22`, `24`, `26` y `latest`)
-* **Métricas 11X Certificadas (`v3.2.0` / `QA-11X v3.1`):**
-  * **Sentencias (Statements):** `99.47%` (`>= 95.0%`)
-  * **Ramas (Branches):** `96.73%` global (`src/resources` `98.80%`, `src/cli` `98.24%`, `surgical-merger.ts` `98.86%`)
-  * **Funciones (Functions):** `99.73%` (`>= 95.0%`)
-  * **Líneas (Lines):** `99.47%` (`>= 95.0%`)
-  * **Pruebas Unitarias y Protocolo en Vivo:** **673 pruebas pasando al 100%** (42 suites Vitest incluyendo `tests/live-mcp-protocol.test.ts` sobre `InMemoryTransport` y `StdioClientTransport`, `tests/mobileBlueprint.test.ts`, `tests/path-real-resolver.unit.ts`, `tests/ide-config-paths.unit.ts`, `tests/cli-certify-audit.unit.ts`, `tests/cli-doctor-upgrade.unit.ts`, `tests/cli-dx-tools.unit.ts`, `src/index.ts`, `QA-CLI-TTY-01`, `SEC-09` y `QA-SSR-HYDRATION-01`)
+* **Métricas 11X Certificadas (`v3.2.0` / `QA-11X v3.2`):**
+  * **Sentencias (Statements):** `99.49%` (`>= 95.0%`)
+  * **Ramas (Branches):** `96.76%` global (`src/resources` `98.80%`, `src/cli` `98.23%`, `surgical-merger.ts` `98.87%`)
+  * **Funciones (Functions):** `99.80%` (`>= 95.0%`)
+  * **Líneas (Lines):** `99.49%` (`>= 95.0%`)
+  * **Pruebas Unitarias y Protocolo en Vivo:** **681 pruebas pasando al 100%** (42 suites Vitest incluyendo `tests/live-mcp-protocol.test.ts` sobre `InMemoryTransport` y `StdioClientTransport`, `tests/mobileBlueprint.test.ts`, `tests/path-real-resolver.unit.ts`, `tests/ide-config-paths.unit.ts`, `tests/cli-certify-audit.unit.ts`, `tests/cli-doctor-upgrade.unit.ts`, `tests/cli-dx-tools.unit.ts`, `src/index.ts`, `QA-CLI-TTY-01`, `SEC-09` y `QA-SSR-HYDRATION-01`)
   * **Cobertura Diferencial Multi-Stack (`verify_diff_coverage.py`):** **100.00% líneas delta** y **>= 90.00% ramas delta** sobre los archivos modificados
-  * **Herramientas MCP:** **19 herramientas canónicas** (12 núcleo v1 + 6 herramientas v2.0 de CALM, Release Gate, trayectoria agéntica, OWASP LLM Red Team, Vibe-Rescue y sincronización TMS + `session_flight_recorder` en **v3.1**) y **13 recursos `blueprint://*`** (añadiendo `blueprint://skills/tactical-patterns-11x` en **v3.1** con negociación bilingüe `?lang=es|en`) + **2 *resource templates*** con contrato Thin-Repo, autoconstrucción/refresco de grafos AST (`auto_build_if_missing`, `refresh_graph`), modo *Metadata-Only* (`include_content: false`), agrupador por regla (`groupFindingsByRule`), 34 reglas estáticas del escáner (`SEC-01`..`SEC-16`, `SEC-CI-ACTION-REF`, `QA-*`, `QA-GIT-GATE-01`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`, `QA-CI-ESCAPE-01`, `QA-MAKE-CURDIR-01`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `UI-11X-01..03`) que implementan los 22 puntos de control de referencia DISA ASD STIG V6R5 + OWASP v4.2, guardia `TaskStateGuard` + `promptGuard` y paridad 10/10 en `certify_11x_gate`
+  * **Herramientas MCP:** **19 herramientas canónicas** (12 núcleo v1 + 6 herramientas v2.0 de CALM, Release Gate, trayectoria agéntica, OWASP LLM Red Team, Vibe-Rescue y sincronización TMS + `session_flight_recorder` en **v3.1**) y **13 recursos `blueprint://*`** (11 URIs estáticas incluyendo `blueprint://skills/tactical-patterns-11x` en **v3.1** con negociación bilingüe `?lang=es|en` + 2 *resource templates*) con contrato Thin-Repo, autoconstrucción/refresco de grafos AST (`auto_build_if_missing`, `refresh_graph`), modo *Metadata-Only* (`include_content: false`), agrupador por regla (`groupFindingsByRule`), 34 reglas estáticas del escáner (`SEC-01`..`SEC-16`, `SEC-CI-ACTION-REF`, `QA-*`, `QA-GIT-GATE-01`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`, `QA-CI-ESCAPE-01`, `QA-MAKE-CURDIR-01`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `UI-11X-01..03`) que implementan los 22 puntos de control de referencia DISA ASD STIG V6R5 + OWASP v4.2, guardia `TaskStateGuard` + `promptGuard` y paridad 10/10 en `certify_11x_gate`
   * **Escenarios BDD Karate Labs:** `mcp-server/test/mcp_cli_test.feature` (**51 escenarios** en `sinfallas/karatelabs:1.5.1`, incluyendo los **Escenarios 50–51** que cubren los 12 subcomandos CLI, rutas IDE compartidas, verificación clean-room de tarball y contratos SARIF v2.1.0)
   * **Compuertas CLI Headless en CI y Diagnóstico:** `doctor`/`status`, `upgrade`/`cache-clean` quirúrgico, `certify` (`--strict` salida `20` / `--release-gate` salida `30`), `audit` (`--mode security|pyramid|vibe|calm|all`, `--sarif` v2.1.0), `blast-radius` (`--changed-since` enrutando `DOCS_ONLY`/`MICRO_CHANGE`/`FULL_11X`), `mcp-config` (`--client <id> --install --pin-version` con respaldo `.11x-backup`), `completion <fish|bash|zsh>` y `--version --verbose|--json` offline.
 
@@ -232,31 +232,31 @@ El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
 ## 4. Pruebas Unitarias de Herramientas y Scripts (`tests/`)
 
 * **Publicador Autónomo de Servidor MCP a npmjs (`scripts/publicar-mcp.sh`):**
-  * **Suite:** `tests/test_publicar_mcp.unit.py` (7 pruebas unitarias).
-  * **Ejecución Efímera:** `docker run --rm -v "${PWD}:/app" -w /app sinfallas/base-python-uv:3.15 python3 tests/test_publicar_mcp.unit.py`
-  * **Cobertura Alcanzada:** **100% de aserciones aprobadas** (7/7 pruebas pasando en 0.020s).
+  * **Suite:** `tests/test_publicar_mcp.unit.py` (10 pruebas unitarias).
+  * **Ejecución Efímera:** `docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "${PWD}:/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 tests/test_publicar_mcp.unit.py`
+  * **Cobertura Alcanzada:** **100% de aserciones aprobadas** (10/10 pruebas pasando).
   * **Aserciones Validadas:** Menú `--help` y opciones CLI, validación de no-root en el host, detección y rechazo de ejecución sin `NPM_TOKEN` en modo real, rechazo de token con valor de plantilla de ejemplo, manejo de `.env` ausente o configurado, detección de archivos `package.json` ausentes y bucle de reintento con tolerancia a consistencia eventual de CDN de npmjs (Hito 8).
 
 * **Validador de Consistencia ROADMAP y Tarea Activa (`.agents/scripts/verify_roadmap_consistency.py`):**
-  * **Suite:** `tests/test_verify_roadmap_consistency.unit.py` (13 pruebas unitarias).
-  * **Ejecución Efímera:** `docker run --rm -v "${PWD}:/app" -w /app sinfallas/base-python-uv:3.15 python3 tests/test_verify_roadmap_consistency.unit.py`
-  * **Cobertura Alcanzada:** **100% de aserciones aprobadas** (13/13 pruebas pasando en 0.005s).
+  * **Suite:** `tests/test_verify_roadmap_consistency.unit.py` (18 pruebas unitarias).
+  * **Ejecución Efímera:** `docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "${PWD}:/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 tests/test_verify_roadmap_consistency.unit.py`
+  * **Cobertura Alcanzada:** **100% de aserciones aprobadas** (18/18 pruebas pasando).
   * **Aserciones Validadas:** Parseo de tablas de resumen de hitos enteros y decimales, conteo de tareas en secciones, detección de hitos 100% completados marcados como Pendientes (caso Hito 4), detección de hitos sin tareas marcados como Completados, asimetría de iconos en encabezados (`## ✅` vs `## ⏳`), validación de `ACTIVE_TASK.md` con tareas pendientes en `COMPLETED (100%)` y ejecución determinista CLI.
 
 * **Generador y Validador de Manifiesto Criptográfico (`scripts/generar-manifiesto.py`):**
-  * **Suite:** `tests/test_generar_manifiesto.unit.py` (12 pruebas unitarias).
-  * **Ejecución Efímera:** `docker run --rm -v "${PWD}:/app" -w /app sinfallas/base-python-uv:3.15 bash -c "uvx coverage run tests/test_generar_manifiesto.unit.py && uvx coverage report -m --include='scripts/generar-manifiesto.py'"`
-  * **Cobertura Alcanzada:** **98%** (superando el umbral innegociable del `>= 95%`).
+  * **Suite:** `tests/test_generar_manifiesto.unit.py` (16 pruebas unitarias).
+  * **Ejecución Efímera:** `docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -e COVERAGE_FILE=/tmp/.coverage -v "${PWD}:/app:ro" -w /app sinfallas/base-python-uv:3.15 pytest -q --import-mode=importlib --cov=scripts --cov-report=term-missing tests/test_generar_manifiesto.unit.py`
+  * **Cobertura Alcanzada:** **99%** (superando el umbral innegociable del `>= 95%`).
   * **Aserciones Validadas:** Algoritmo de hashing SHA-256, categorización de `target_name` y `merge_strategy` para los 10 stacks y `architecture/`, detección estricta de derivas con `--check` y robustez de entrada CLI.
 
 * **Instalador Universal de Skills QA 11X (`scripts/install-skill.sh`):**
   * **Suites de Pruebas:**
-    * **Python Unit & Meta-QA:** `tests/*.unit.py` (**187 pruebas unitarias recolectadas**, incluyendo `test_bump_version_11x.unit.py`) + `tests/meta_qa/` (**63 pruebas Meta-QA** con `ruff CC <= 5` y `mypy --strict`).
-    * **BATS-core & ShellCheck (`sinfallas/base-bash-qa:latest`):** `bash-scripts/test/ejemplo_mock.bats`, `tests/bats/{test_ci_make_escape,test_graphify_and_calm,test_install_skill,test_limpieza,test_pagespeed,test_repo_scripts}.bats` (**62 pruebas BATS** y ShellCheck con 0 advertencias).
+    * **Python Unit & Meta-QA:** `tests/*.unit.py` (**194 pruebas unitarias recolectadas**, incluyendo `test_bump_version_11x.unit.py`) + `tests/meta_qa/` (**64 pruebas Meta-QA** con `ruff CC <= 5` y `mypy --strict`).
+    * **BATS-core & ShellCheck (`sinfallas/base-bash-qa:latest`):** `bash-scripts/test/ejemplo_mock.bats`, `tests/bats/{test_ci_make_escape,test_graphify_and_calm,test_install_skill,test_limpieza,test_pagespeed,test_repo_scripts}.bats` (**65 pruebas BATS** y ShellCheck con 0 advertencias).
   * **Ejecución Efímera:**
     * `docker run --rm -e COVERAGE_FILE=/tmp/.coverage -u "$(id -u):$(id -g)" -v "${PWD}:/app" -w /app sinfallas/base-python-uv:3.15 uv run --with pytest pytest -q --import-mode=importlib tests/*.unit.py`
     * `docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "${PWD}:/repo:ro" -w /repo/bash-scripts sinfallas/base-bash-qa:latest bash -c "shellcheck -x ../scripts/*.sh ../.agents/scripts/*.sh ../mcp-server/example/verify-v2.sh ../instalar-hooks.sh ./*.sh && bats test/*.bats ../tests/bats/*.bats"`
-  * **Cobertura y Métricas:** **100% de aserciones aprobadas** (**62** pruebas BATS, **187** unitarias Python, **63** Meta-QA) y **0 errores / 0 advertencias** en ShellCheck.
+  * **Cobertura y Métricas:** **100% de aserciones aprobadas** (**65** pruebas BATS, **194** unitarias Python, **64** Meta-QA) y **0 errores / 0 advertencias** en ShellCheck.
   * **Aserciones Validadas:** Auto-detección inteligente sin contaminar `$HOME/.agents`, resolución de destinos (`workspace`, `antigravity`, `claude`, `cursor`, `hermes`, `all`), instalación del catálogo completo de las 11 skills modulares (`qa-11x-architect`, `refactoring-ui`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `qa-11x-docker-certifier`, `qa-11x-devsecops-hardener`, `qa-11x-systematic-debugging`, `qa-11x-screenplay-builder`, `qa-11x-llm-evaluator`, `qa-11x-vibe-rescue`, `tactical-patterns-11x`) más `.agents/schemas/`, verificación criptográfica SHA-256 contra `manifest.json`, detección estricta de manipulaciones/tampering (abortando con código de salida 1 bajo DISA STIG `V-222513`), y verificación de flag `--help`.
 
 * **Servidor MCP e Instalador de Skills Node.js / TypeScript (`mcp-server/`):**
@@ -275,7 +275,7 @@ El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
     * `tests/init-agents-md.unit.ts` (16 pruebas): Inyector y actualizador aditivo no destructivo de `AGENTS.md` y conector global ligero `buildGlobalGeminiBlock` sin duplicación para `~/.gemini/GEMINI.md` (`Graphify AST-First` en Q&A y pre-cambio), validando creación desde cero con cabecera MIT, adición al final de directivas existentes sin alterar líneas previas, actualización idempotente del bloque conector (`<!-- QA_11X_MCP_CONNECTOR_START -->` ... `<!-- QA_11X_MCP_CONNECTOR_END -->`), simulación `dryRun`, robustez de banderas CLI (`--project-path`, `-p`, `--dry-run`) y ejecución CLI `runInitAgentsCli`.
     * `tests/reconcile-agents.unit.ts` (25 pruebas): Reconciliación automática Thin-Repo y deduplicación de `.agents/`, limpieza de archivos canónicos y skills duplicadas en proyectos consumidores, extracción de reglas de negocio a `domain_<project>_rules.md`, respaldos en `.agents/backups/` y sincronización idempotente de `~/.gemini/GEMINI.md`.
     * `tests/edge-cases.unit.ts` (33 pruebas): Cobertura profunda de casos de borde y ramas extremas en servicios y herramientas.
-    * `tests/prepush-ci-parity.unit.ts` (6 tests): Sello criptográfico de evidencia `lint` (`.agents/.qa-evidence.json`) en `certify_11x_gate`, stages `migration`/`integration`/`ci`, normalización de template strings dinámicos (`` `/routers${query}` ``, `` `/bridge/${subPath}` ``, `{path:path}`) e invariantes `QA-MYPY-01`, `QA-PG17-RLS` y `QA-COV-01` (`--import-mode=importlib`).
+    * `tests/prepush-ci-parity.unit.ts` (6 pruebas): Sello criptográfico de evidencia `lint` (`.agents/.qa-evidence.json`) en `certify_11x_gate`, stages `migration`/`integration`/`ci`, normalización de template strings dinámicos (`` `/routers${query}` ``, `` `/bridge/${subPath}` ``, `{path:path}`) e invariantes `QA-MYPY-01`, `QA-PG17-RLS` y `QA-COV-01` (`--import-mode=importlib`).
     * `tests/v2-18-i18n-agents.unit.ts` (10 pruebas): Modo de idioma `--lang auto|es|en` (`QA_OUTPUT_LANG`), *Dynamic Language Mirroring*, targets globales `codex` y `windsurf` con autodetección y CLI bilingüe.
     * `tests/qa-health-dual-consumer.unit.ts` (7 pruebas): Regla estática `QA-HEALTH-01` (semántica `task.exception()` / `OPTIONAL_WORKERS` en supervisores `asyncio` y contrato de sondas físicas `healthcheck` en `Dockerfile`/`docker-compose*.yml` con exención `# qa-health-ok`) e inferencia + matriz de 3 capas Dual-Consumer en `propose_skill_evolution_pr`.
     * `tests/version-manager.unit.ts` (6 bloques / 40+ aserciones): Comparación SemVer, sellos `.qa-11x-version`, resolución con caché TTL de 24 h (`latest-version-check.json`) y *fail-open* offline, campo `update_available` en `inspect_project_config` y `certify_11x_gate`, y auto-sync silencioso en segundo plano de skills globales por `SHA-256` preservando el idioma de `~/.gemini/GEMINI.md`.
@@ -289,9 +289,9 @@ El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
     * `make -C mcp-server build`
     * `make -C mcp-server qa-example && make -C mcp-server qa-e2e` (o `./scripts/probar-mcp-example.sh`)
   * **Cobertura y Métricas Alcanzadas:**
-    * **100% de aserciones aprobadas** (**676** pruebas Vitest distribuidas en **42 suites Vitest** + **51** escenarios Karate BDD incluyendo los **Escenarios 50–51** de contratos CLI y rutas IDE + **187** pruebas `tests/*.unit.py` + **63** Meta-QA + **23** AI Offline + **62** BATS + **19** Vibe-Rescue + E2E real sobre `stdio`).
-    * **99.48% de cobertura de líneas/sentencias y 96.75% de cobertura de ramas** (superando el umbral de `>= 95%`).
-    * **99.73% de cobertura de funciones**.
+    * **100% de aserciones aprobadas** (**681** pruebas Vitest distribuidas en **42 suites Vitest** + **51** escenarios Karate BDD incluyendo los **Escenarios 50–51** de contratos CLI y rutas IDE + **194** pruebas `tests/*.unit.py` + **64** Meta-QA + **23** AI Offline + **65** BATS + **19** Vibe-Rescue + E2E real sobre `stdio`).
+    * **99.49% de cobertura de líneas/sentencias y 96.76% de cobertura de ramas** (superando el umbral de `>= 95%`).
+    * **99.80% de cobertura de funciones**.
     * **0 errores de ESLint (`--max-warnings 0`), SonarJS (Cognitiva `<= 15`) y TypeScript (`strict: true`)**.
 
 * **Script Universal de Limpieza y Saneamiento (`scripts/limpieza.sh`):**

@@ -40,7 +40,7 @@ This skill guides the implementation of production-grade Docker containers and u
 ## 2. In-Memory Engine: KeyDB Multi-Threaded
 
 When deploying cache, rate-limiting, idempotency locks (`idemp:{tenant_id}:{user_id}:{key}`), session concurrency limits (`APSC-DV-000010`), role-based idle timeouts (`10m` admin / `15m` standard, `APSC-DV-000070/000080`), 3-attempt/15m account lockouts (`APSC-DV-000530`), anti-data-mining rate quotas (`APSC-DV-000450`), or WebSocket pub/sub:
-- **Default Choice:** `eqalpha/keydb:6.3.4`
+- **Default Choice:** `eqalpha/keydb@sha256:6537505c42355ca1f571276bddf83f5b750f760f07b2a185a676481791e388ac` (`v6.3.4` multi-arch)
 - **Rationale:** KeyDB is a drop-in multi-threaded Redis alternative yielding 3× to 5× higher throughput on multi-core servers with lower tail latency.
 - **Production Hardening & OOM Guardrails:**
   - Always cap `--maxmemory` to **~75–80% of the container memory limit** to leave headroom for KeyDB fragmentation/buffers and prevent Linux kernel OOM-killer terminations.
@@ -48,7 +48,7 @@ When deploying cache, rate-limiting, idempotency locks (`idemp:{tenant_id}:{user
 - **Recommended Configuration:**
   ```yaml
   redis:
-    image: eqalpha/keydb:6.3.4
+    image: eqalpha/keydb@sha256:6537505c42355ca1f571276bddf83f5b750f760f07b2a185a676481791e388ac
     read_only: true
     tmpfs:
       - /tmp:size=32M,noexec,nosuid,nodev

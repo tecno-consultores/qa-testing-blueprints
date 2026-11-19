@@ -9,7 +9,7 @@
     "pnpm": ">=12.0.0"
   },
   "scripts": {
-    "type-check": "tsc --strict --noImplicitAny --noUnusedLocals --noUnusedParameters --noImplicitReturns --erasableSyntaxOnly --allowImportingTsExtensions --target ES2023 --module NodeNext --moduleResolution NodeNext --noEmit wdio.conf.ts tests/screenplay/MobileActor.ts tests/mobile_screenplay.spec.ts",
+    "type-check": "tsc --strict --noImplicitAny --noUnusedLocals --noUnusedParameters --noImplicitReturns --erasableSyntaxOnly --allowImportingTsExtensions --target ES2023 --module NodeNext --moduleResolution NodeNext --typeRoots /opt/qa11x/node_modules/@types --types node --noEmit wdio.conf.ts tests/screenplay/MobileActor.ts tests/mobile_screenplay.spec.ts",
     "test:unit": "node --test tests/mobile_screenplay.spec.ts",
     "test:e2e": "wdio run wdio.conf.ts",
     "appium:drivers": "appium driver list --installed",

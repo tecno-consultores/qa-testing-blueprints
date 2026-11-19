@@ -108,7 +108,7 @@ Siguiendo la filosofía de soberanía y aislamiento corporativo del estándar Ro
 Aunque en `mcp_config.json` tengas configurado `"@sinfallas/mcp-qa-11x@latest"`, el IDE mantiene en memoria el proceso `stdio` iniciado al arrancar y `npx` guarda copias en `~/.npm/_npx` (además de la caché de manifiestos en `~/.cache/qa-11x-blueprints`). Para actualizar quirúrgicamente y validar la integridad criptográfica:
 1. **Ejecuta el comando quirúrgico `upgrade` (primer paso recomendado):**
    ```bash
-   npx -y @sinfallas/mcp-qa-11x@latest upgrade
+   npx -y @sinfallas/mcp-qa-11x@latest upgrade --reconcile
    ```
    Elimina únicamente las entradas obsoletas de `@sinfallas/mcp-qa-11x` dentro de `~/.npm/_npx` y `~/.cache/qa-11x-blueprints` (sin borrar otras herramientas), reconcilia la gobernanza `.agents/` (`--reconcile`) y resincroniza las 11 skills modulares. *(Solo como último recurso ante cachés corruptas, ejecuta `rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@latest install-skill --target all --init-agents --include-scripts --reconcile`.)*
 2. **Reinicia el servidor MCP en tu IDE:** En Google Antigravity ve a **`...` (Additional Options) > MCP Servers > `qa-11x` > Restart** o ejecuta `Ctrl+Shift+P` -> **`Developer: Reload Window`**.
@@ -119,13 +119,13 @@ Aunque en `mcp_config.json` tengas configurado `"@sinfallas/mcp-qa-11x@latest"`,
      npx -y @sinfallas/mcp-qa-11x --version --verbose
      ```
    * Opcionalmente inspecciona los archivos cacheados directamente: `grep -rn '"version"' ~/.npm/_npx/*/node_modules/@sinfallas/mcp-qa-11x/package.json` y `grep -E '"blueprint_version"|"generated_at_utc"' ~/.cache/qa-11x-blueprints/manifest.json`.
-   * Durante la sincronización de skills, confirma que aparezca en consola `✔ [Skills 11X] ... archivos verificados con SHA-256 (DISA STIG V-222513)`. Si algún archivo descargado no coincidiera exactamente con el hash SHA-256 del manifiesto oficial, el instalador abortará automáticamente por violación de integridad criptográfica.
+   * Durante la sincronización de skills, confirma que aparezca en consola `✔ [Skills 11X] <N> archivos verificados con SHA-256 (DISA STIG V-222513).`. Si algún archivo descargado no coincidiera exactamente con el hash SHA-256 del manifiesto oficial, el instalador abortará automáticamente por violación de integridad criptográfica.
 
 ### ¿Qué es la "Anti-Mock Blindness" (Ceguera de Mocks) y por qué se exige verificar contra PostgreSQL real y migraciones Alembic?
 En pruebas unitarias, mockear llamadas a base de datos crea una falsa sensación de seguridad. Un modelo ORM puede tener tipos de datos incompatibles o columnas inexistentes que pasan los mocks con 100% de cobertura pero rompen la base de datos en producción. En el estándar 11X, todo cambio de modelo exige migración versionada y validación con `verify_alembic_orm_parity.py` ejecutándose contra una instancia real de PostgreSQL en Docker efímero.
 
 ### ¿Por qué JSDOM no detecta colisiones de diseño visual (Anti-JSDOM) y cómo se previene?
-JSDOM es un simulador de nodos DOM en Node.js que no calcula renderizado CSS, cajas Flexbox/Grid ni coordenadas (`getBoundingClientRect()` devuelve `0x0`). Un pie de página fijo (`position: fixed`) puede superponerse a un formulario o tabla y JSDOM afirmará que los botones existen y son interactivos. La solución 11X prohíbe footers fijos, exige layouts in-flow (`margin-top: auto` en `<main>`) y valida la geometría real con Karate Labs UI o Playwright en Chromium.
+JSDOM es un simulador de nodos DOM en Node.js que no calcula renderizado CSS, cajas Flexbox/Grid ni coordenadas (`getBoundingClientRect()` devuelve `0x0`). Un pie de página fijo (`position: fixed`) puede superponerse a un formulario o tabla y JSDOM afirmará que los botones existen y son interactivos. La solución 11X prohíbe footers fijos, exige layouts in-flow (`margin-top: auto` en `<main>`) y valida la geometría real en Chromium con **Playwright** (`mcr.microsoft.com/playwright:v1.52.0-noble`); ten en cuenta que `sinfallas/karatelabs:1.5.1` ejecuta contratos HTTP/API y HTML estático sin motor de navegador.
 
 ### ¿Por qué las directivas internas de IA en `.agents/` están en inglés técnico si la documentación también soporta español?
 Por **economía de tokens y precisión lógica**. Los tokenizadores BPE fragmentan el español en ~35% más tokens que el inglés técnico de alta densidad, por lo que mantener reglas y skills internas en inglés ahorra espacio de contexto para código y esquemas. Paralelamente, la documentación general adopta la arquitectura **Inglés Canónico (`*.md`) + Espejo 1:1 en Español (`*.es.md`)** (Spec 19), mientras que la interacción humana y los repositorios consumidores aplican *Dynamic Language Mirroring* (respondiendo en el idioma del prompt salvo fijación explícita con `--lang es|en`).

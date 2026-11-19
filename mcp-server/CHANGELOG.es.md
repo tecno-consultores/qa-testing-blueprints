@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores) -->
-> 🌐 **Idioma / Language:** [🇬🇧 English (CHANGELOG.md)](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/CHANGELOG.md) | **Español (Espejo 1:1)**
+> 🌐 **Idioma:** [🇺🇸 English (Canonical)](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/CHANGELOG.md) · **Español (Espejo 1:1)**
 
 # Changelog — `@sinfallas/mcp-qa-11x`
 
@@ -8,15 +8,16 @@ Todos los cambios notables en el paquete npm y servidor MCP `@sinfallas/mcp-qa-1
 
 ## [Unreleased]
 
-## [3.2.0] - 2026-11-17
+## [3.2.0] - 2026-11-19
 
 ### Añadido
 - **Subcomandos CLI (`doctor`, `upgrade`, `certify`, `audit`, `blast-radius`, `mcp-config`, `completion`) y Diagnóstico `--version` Offline:** Añadidos `doctor` (`status`), `upgrade` quirúrgico (`cache-clean` con `--reconcile`), `certify` headless (`--strict`/`--release-gate`), `audit` determinista (`--mode security|pyramid|vibe|calm|all`, `--sarif`), `blast-radius` AST (`--changed-since`), `mcp-config` (`--client <id> --install --pin-version` con respaldo `.11x-backup`), `completion` (`fish|bash|zsh`), `--version --verbose|--json`, `cli-*.unit.ts` (42 suites Vitest) y cobertura completa de 12 CLI / 19 tools en `example/verify-v2.sh`, documentados en [`README.es.md`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/README.es.md) y [`docs/agent-setup.es.md`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/docs/agent-setup.es.md).
-- **Agent Card A2A `v1.0`, Anotaciones de Herramientas MCP y Esquemas Estrictos:** Actualizada la negociación Agent Card a A2A `v1.0` (`a2a.test.ts`), añadidas `annotations` de comportamiento MCP, validación estricta `.strict()` en esquemas Zod y valor por defecto `--lang auto` en `init-agents`, `install-skill`, `reconcile-agents` y `tms-sync`.
+- **Agent Card A2A `v1.0`, Anotaciones de Herramientas MCP y Esquemas Estrictos:** Actualizada la negociación Agent Card a A2A `v1.0` (`a2a.test.ts`, exportado vía `@sinfallas/mcp-qa-11x/agent-card`), añadidas `annotations` de comportamiento MCP, validación estricta `.strict()` en esquemas Zod y valor por defecto `--lang auto` en `init-agents`, `install-skill`, `reconcile-agents` y `tms-sync`.
 
 ### Corregido
 - **Aislamiento de Timeouts, CLI No Destructivo, Fusión Segura y Aciclicidad AST:** Aislados timeouts por tarea en `TaskStateGuard` (propagación de `AbortSignal` sin `503 BROKEN` global), blindados `--help`/`--dry-run` sin escrituras en disco en todos los subcomandos CLI, actualizado `quickstart` a `@v3` + `actions/checkout` v5.1.0, protegido `SurgicalMerger` ante JSON inválido con `.11x-backup` (mapa booleano `allowBuilds` en `pnpm-workspace.yaml` según `SEC-09`) y roto el ciclo AST `services -> cli` en `agents-connector.ts`.
 - **Empaquetado npmjs, Alineación de Rutas IDE y Guardias Fail-Closed:** Añadidos `tsconfig.build.json` (eliminando `1.1 MB` de `.map` del tarball) y `exports` ESM, metadatos `.describe()` Zod en tools V2/V3, enrutamiento de `mobile-appium`/`vibe-rescue` vía `GitHubFetcher`, endurecimiento de `promptGuard` y `SEC-PATH-01` (`resolveSafeProjectPath`), y alineación de rutas en `doctor`/`mcp-config` (`~/.gemini/antigravity/mcp_config.json` + fallback `~/.gemini/config/mcp_config.json`, Claude Desktop multi-SO y `~/.hermes/config.yaml` vs `~/.hermes/mcp.json`).
+- **Modo Global `$HOME`, Paridad Fallback IDE, Edición `QA-11X v3.2` y Endurecimiento Clean-Room:** Añadido modo global seguro `$HOME` en `doctor`, `--version --verbose` e `install-skill` (omitiendo escrituras de proyecto cuando `cwd == $HOME` y manteniendo `-p ~`/`--dir ~` bloqueado por `SEC-PATH-01`), soportado `--dir` en `install-skill`, excluidos `.env.example` y `scripts/probar-mcp-example.sh` de instalaciones remotas/scripts, aplicadas estrategias `copy_if_missing` (`0o755`) y `surgical_merge` (`.11x-backup` `0o600`) en `install-skill`, alineado fallback de Antigravity (`~/.gemini/config/mcp_config.json`) y aviso YAML de Hermes en `mcp-config`, añadidos `--flag=value` y `--test-execution-key` en `tms-sync`/`completion`, alineados metadatos a `QA-11X v3.2` y sustituidos contratos tautológicos de Karate por aserciones contra fuentes reales.
 
 ## [3.1.0] - 2026-11-17
 

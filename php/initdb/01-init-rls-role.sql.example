@@ -1,0 +1,16 @@
+-- SPDX-License-Identifier: MIT
+-- Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
+-- Rol dedicado de aplicación sin privilegios de superusuario ni BYPASSRLS (DISA ASD STIG V6R5 / SEC-01)
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'app_user') THEN
+        CREATE ROLE app_user WITH LOGIN PASSWORD 'app_password' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+    END IF;
+END
+$$;
+
+GRANT CONNECT ON DATABASE qa_db TO app_user;
+GRANT USAGE ON SCHEMA public TO app_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO app_user;

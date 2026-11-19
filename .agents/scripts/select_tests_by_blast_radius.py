@@ -46,6 +46,10 @@ CRITICAL_PREFIXES: tuple[str, ...] = (
     "docker/",
     "mcp-server/src/security/",
 )
+_EVENT_ALIASES: dict[str, str] = {
+    "pull_request_target": "pull_request",
+    "merge_group": "pull_request",
+}
 _CAMEL_BOUNDARY_RE = re.compile(r"([a-z0-9])([A-Z])")
 _NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
 _SAFE_GIT_REF_RE = re.compile(r"^[A-Za-z0-9._/~^-]+$")
@@ -386,8 +390,9 @@ def select_test_plan(
     high_blast_threshold: int = HIGH_BLAST_CALLERS_THRESHOLD,
 ) -> dict[str, Any]:
     """Calcula el plan escalonado QA-11X desde el evento CI y el grafo AST."""
+    normalized_event = _EVENT_ALIASES.get(event, event)
     norm_changed = _dedupe_normalized(changed_files)
-    if event in {"schedule", "workflow_dispatch"}:
+    if normalized_event in {"schedule", "workflow_dispatch"}:
         return _build_plan_payload(
             _PlanBuildSpec(
                 tier="nightly-full",
@@ -478,9 +483,10 @@ def _run_git_diff_names(workspace: Path, diff_expr: str) -> tuple[int, list[str]
 
 def _resolve_git_changed_files(base_ref: str, workspace: Path) -> list[str]:
     safe_ref = _validate_base_ref(base_ref)
-    rc, files = _run_git_diff_names(workspace, f"{safe_ref}...HEAD")
-    if rc == 0:
-        return files
+    for expr in (f"{safe_ref}...HEAD", f"{safe_ref}..HEAD"):
+        rc, files = _run_git_diff_names(workspace, expr)
+        if rc == 0:
+            return files
     if not safe_ref.startswith("origin/"):
         rc_orig, orig_files = _run_git_diff_names(
             workspace, f"origin/{safe_ref}...HEAD"
@@ -497,7 +503,14 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--event",
         default="pull_request",
-        choices=["pull_request", "push", "schedule", "workflow_dispatch"],
+        choices=[
+            "pull_request",
+            "pull_request_target",
+            "merge_group",
+            "push",
+            "schedule",
+            "workflow_dispatch",
+        ],
         help="Evento CI desencadenante.",
     )
     parser.add_argument(

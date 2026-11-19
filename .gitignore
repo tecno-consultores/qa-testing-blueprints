@@ -171,7 +171,11 @@ prometheus_data/
 .trivycache/
 trivy-results*
 sbom-*.cdx.json
+sbom-*.cdx.json.sha256
+sbom-*.cdx.json.hmac
 sbom.cyclonedx.json
+sbom.cyclonedx.json.sha256
+sbom.cyclonedx.json.hmac
 cbom*.json
 
 # IDEs, Editores y Bitácora de Agentes IA

@@ -193,7 +193,7 @@ docker volume rm -f qa11x_trivy_cache
 ## 12. Silent Visual Geometry Failures in JSDOM vs. Playwright
 
 **Symptom:**
-Vitest unit tests with `jsdom` pass at 100%, yet in a real Playwright or Karate UI browser session, action buttons cannot be clicked (`element is intercepted by other element`).
+Vitest unit tests with `jsdom` pass at 100%, yet in a real **Playwright** (`mcr.microsoft.com/playwright:v1.52.0-noble`) Chromium session, action buttons cannot be clicked (`element is intercepted by other element`)—note that `sinfallas/karatelabs:1.5.1` runs HTTP/API and static HTML contracts without a browser engine.
 
 **Why does this happen?**
 JSDOM is a logical DOM tree simulator, but it **DOES NOT compute CSS Layout, coordinates, or z-index**. Fixed floating elements (`position: fixed`) or misaligned footers cover buttons in real browsers without JSDOM noticing.
@@ -210,7 +210,7 @@ footer {
   margin-top: auto;
 }
 ```
-2. Always validate visual geometry and deep interactivity in real headless browsers via `make qa-e2e` or `Karate Labs UI`.
+2. Always validate visual geometry and deep interactivity in real headless Chromium browsers via `make qa-e2e` (**Playwright** `mcr.microsoft.com/playwright:v1.52.0-noble`; note `sinfallas/karatelabs:1.5.1` validates HTTP/API and static HTML contracts without a browser engine).
 
 ---
 

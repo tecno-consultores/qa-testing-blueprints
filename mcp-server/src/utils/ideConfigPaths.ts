@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 const MCP_CONFIG_JSON_FILE = 'mcp_config.json';
@@ -76,6 +77,23 @@ export function resolveJsonMcpClientRelPath(
     return resolveClaudeDesktopMcpRelPath(platform);
   }
   return STATIC_JSON_CLIENT_REL_PATHS[client];
+}
+
+/** Resolves an existing fallback MCP path (e.g. legacy Antigravity) before defaulting to canonical. */
+export function resolveActiveJsonMcpClientRelPath(
+  client: JsonMcpClient,
+  homeDir: string,
+  platform: NodeJS.Platform = process.platform
+): string {
+  const canonical = resolveJsonMcpClientRelPath(client, platform);
+  if (
+    client === 'antigravity' &&
+    !fs.existsSync(path.join(homeDir, canonical)) &&
+    fs.existsSync(path.join(homeDir, ANTIGRAVITY_FALLBACK_MCP_REL_PATH))
+  ) {
+    return ANTIGRAVITY_FALLBACK_MCP_REL_PATH;
+  }
+  return canonical;
 }
 
 /** Returns IDE MCP configuration targets (including canonical and fallback paths) for doctor audits. */

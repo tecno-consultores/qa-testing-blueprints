@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores) -->
-> 🌐 **Language / Idioma:** **English (Canonical)** | [🇪🇸 Español (CHANGELOG.es.md)](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/CHANGELOG.es.md)
+> 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/CHANGELOG.es.md)
 
 # Changelog — `@sinfallas/mcp-qa-11x`
 
@@ -8,15 +8,16 @@ All notable changes to the `@sinfallas/mcp-qa-11x` npm package and MCP server ar
 
 ## [Unreleased]
 
-## [3.2.0] - 2026-11-17
+## [3.2.0] - 2026-11-19
 
 ### Added
 - **CLI Subcommands (`doctor`, `upgrade`, `certify`, `audit`, `blast-radius`, `mcp-config`, `completion`) & Offline `--version` Diagnostics:** Added `doctor` (`status`), surgical `upgrade` (`cache-clean` with `--reconcile`), headless `certify` (`--strict`/`--release-gate`), deterministic `audit` (`--mode security|pyramid|vibe|calm|all`, `--sarif`), AST `blast-radius` (`--changed-since`), `mcp-config` (`--client <id> --install --pin-version` with `.11x-backup`), `completion` (`fish|bash|zsh`), `--version --verbose|--json`, `cli-*.unit.ts` (42 Vitest suites), and full 12-CLI / 19-tool verification in `example/verify-v2.sh`, documented in [`README.md`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/README.md) and [`docs/agent-setup.md`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/docs/agent-setup.md).
-- **A2A `v1.0` Agent Card, MCP Tool Annotations & Strict Schemas:** Upgraded Agent Card negotiation to A2A `v1.0` (`a2a.test.ts`), added MCP tool behavior `annotations`, `.strict()` Zod parameter validation, and `--lang auto` default across `init-agents`, `install-skill`, `reconcile-agents`, and `tms-sync`.
+- **A2A `v1.0` Agent Card, MCP Tool Annotations & Strict Schemas:** Upgraded Agent Card negotiation to A2A `v1.0` (`a2a.test.ts`, exported via `@sinfallas/mcp-qa-11x/agent-card`), added MCP tool behavior `annotations`, `.strict()` Zod parameter validation, and `--lang auto` default across `init-agents`, `install-skill`, `reconcile-agents`, and `tms-sync`.
 
 ### Fixed
 - **Timeout Isolation, Non-Destructive CLI, Safe Merge & AST Acyclicity:** Isolated `TaskStateGuard` per-task timeouts (`AbortSignal` propagation without global `503 BROKEN`), fixed non-destructive `--help`/`--dry-run` across all CLI subcommands, updated `quickstart` to `@v3` + `actions/checkout` v5.1.0, protected `SurgicalMerger` against invalid JSON with `.11x-backup` (`pnpm-workspace.yaml` boolean `allowBuilds` map per `SEC-09`), and broke the `services -> cli` AST cycle in `agents-connector.ts`.
 - **npmjs Packaging, IDE Path Alignment & Fail-Closed Guards:** Added `tsconfig.build.json` (eliminating `1.1 MB` of `.map` files from the tarball) and ESM `exports`, added Zod `.describe()` metadata on V2/V3 tools, wired `mobile-appium`/`vibe-rescue` resources through `GitHubFetcher`, hardened `promptGuard` & `SEC-PATH-01` (`resolveSafeProjectPath`), and aligned `doctor`/`mcp-config` IDE resolution (`~/.gemini/antigravity/mcp_config.json` + `~/.gemini/config/mcp_config.json` fallback, multi-OS Claude Desktop, `~/.hermes/config.yaml` vs `~/.hermes/mcp.json`).
+- **Global `$HOME` Scope, IDE Fallback Parity, `QA-11X v3.2` Edition & Clean-Room Hardening:** Added safe global `$HOME` mode for `doctor`, `--version --verbose`, and `install-skill` (skipping project writes when `cwd == $HOME` while keeping explicit `-p ~`/`--dir ~` fail-closed under `SEC-PATH-01`), added `--dir` on `install-skill`, excluded `.env.example` and `scripts/probar-mcp-example.sh` from remote/script installs, honored `copy_if_missing` (`0o755`) and `surgical_merge` (`.11x-backup` `0o600`) in `install-skill`, aligned Antigravity fallback (`~/.gemini/config/mcp_config.json`) and Hermes YAML notices in `mcp-config`, added `--flag=value` and `--test-execution-key` completions to `tms-sync`/`completion`, aligned `QA-11X v3.2` edition metadata, and replaced tautological Karate contracts with source-backed assertions.
 
 ## [3.1.0] - 2026-11-17
 

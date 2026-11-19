@@ -14,7 +14,7 @@ export QA_UID QA_GID
 
 qa-lint:
 	@echo "🔍 [11X] Verificando TypeScript estricto y dependencias Mobile/Appium..."
-	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "npm_config_yes=true node --version >/dev/null && tsc --strict --noImplicitAny --noUnusedLocals --noUnusedParameters --noImplicitReturns --erasableSyntaxOnly --allowImportingTsExtensions --target ES2023 --module NodeNext --moduleResolution NodeNext --noEmit wdio.conf.ts tests/screenplay/MobileActor.ts tests/mobile_screenplay.spec.ts"
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "npm_config_yes=true node --version >/dev/null && tsc --strict --noImplicitAny --noUnusedLocals --noUnusedParameters --noImplicitReturns --erasableSyntaxOnly --allowImportingTsExtensions --target ES2023 --module NodeNext --moduleResolution NodeNext --typeRoots /opt/qa11x/node_modules/@types --types node --noEmit wdio.conf.ts tests/screenplay/MobileActor.ts tests/mobile_screenplay.spec.ts"
 
 qa-unit:
 	@echo "🧪 [11X] Ejecutando contrato Screenplay Mobile + Stub W3C WebDriver..."

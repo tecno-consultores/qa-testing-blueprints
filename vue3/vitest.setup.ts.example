@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 function createMemoryStorage(): Storage {
   const store = new Map<string, string>();
   return {

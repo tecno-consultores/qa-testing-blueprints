@@ -1,4 +1,4 @@
-> 🌐 **Idioma / Language:** [🇬🇧 English (CODE_OF_CONDUCT.md)](CODE_OF_CONDUCT.md) | **Español (Espejo 1:1)**
+> 🌐 **Idioma:** [🇬🇧 Read in English](CODE_OF_CONDUCT.md) · **Español (Espejo 1:1)**
 
 # Código de Conducta de Tecno Consultores
 

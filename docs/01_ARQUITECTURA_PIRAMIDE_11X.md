@@ -1,14 +1,14 @@
 > 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](01_ARQUITECTURA_PIRAMIDE_11X.es.md)
 
-# 🏛️ QA-11X v3.1 Quality Pyramid Architecture (13 Layers + Agentic Cross-Cutting Planes)
+# 🏛️ QA-11X v3.2 Quality Pyramid Architecture (13 Layers + Agentic Cross-Cutting Planes)
 
-> **PURPOSE:** Canonical architectural specification defining the **13 quality layers**, the **agentic and security cross-cutting planes** of **QA-11X v3.1**, the **3 progressive adoption profiles** (`starter`, `standard`, `enterprise`), and the **3 proportional execution paths** (`DOCS_ONLY`, `MICRO_CHANGE`, `FULL_11X`).
+> **PURPOSE:** Canonical architectural specification defining the **13 quality layers**, the **agentic and security cross-cutting planes** of **QA-11X v3.2**, the **3 progressive adoption profiles** (`starter`, `standard`, `enterprise`), and the **3 proportional execution paths** (`DOCS_ONLY`, `MICRO_CHANGE`, `FULL_11X`).
 
 ---
 
 ## 1. Proportional Adoption Across 3 Paths and 3 Profiles
 
-To prevent over-engineering on small tasks without relaxing controls on critical systems, QA-11X v3.1 decouples the **repository adoption profile** from the **per-change execution path**:
+To prevent over-engineering on small tasks without relaxing controls on critical systems, QA-11X v3.2 decouples the **repository adoption profile** from the **per-change execution path**:
 
 | Dimension | Classification | Activation Criteria | Validation Scope |
 | :--- | :--- | :--- | :--- |
@@ -26,7 +26,7 @@ To prevent over-engineering on small tasks without relaxing controls on critical
 
 ---
 
-## 2. QA-11X v3.1 Pyramid Topology (13 Layers + Cross-Cutting Planes)
+## 2. QA-11X v3.2 Pyramid Topology (13 Layers + Cross-Cutting Planes)
 
 ```mermaid
 flowchart TD

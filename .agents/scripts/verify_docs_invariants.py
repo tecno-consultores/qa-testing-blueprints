@@ -144,6 +144,7 @@ BILINGUAL_DOC_PAIRS: tuple[tuple[str, str], ...] = (
     ("TESTING.md", "TESTING.es.md"),
     ("SECURITY.md", "SECURITY.es.md"),
     ("CONTRIBUTING.md", "CONTRIBUTING.es.md"),
+    ("CODE_OF_CONDUCT.md", "CODE_OF_CONDUCT.es.md"),
     ("FAQ.md", "FAQ.es.md"),
     ("AI_MASTER_PROMPT.md", "AI_MASTER_PROMPT.es.md"),
     ("ROADMAP.md", "ROADMAP.es.md"),
@@ -298,8 +299,16 @@ INTERNAL_LINK_AUDIT_TARGETS: tuple[str, ...] = (
     "FAQ.es.md",
     "CONTRIBUTING.md",
     "CONTRIBUTING.es.md",
+    "CODE_OF_CONDUCT.md",
+    "CODE_OF_CONDUCT.es.md",
     "AI_MASTER_PROMPT.md",
     "AI_MASTER_PROMPT.es.md",
+    "ROADMAP.md",
+    "ROADMAP.es.md",
+    "CHANGELOG.md",
+    "CHANGELOG.es.md",
+    "mcp-server/CHANGELOG.md",
+    "mcp-server/CHANGELOG.es.md",
     "docs/01_ARQUITECTURA_PIRAMIDE_11X.md",
     "docs/01_ARQUITECTURA_PIRAMIDE_11X.es.md",
     "docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md",
@@ -903,7 +912,7 @@ def _check_mcp_surface_line(
             )
     for val in _RESOURCES_COUNT_RE.findall(line):
         num = int(val)
-        if num != counts.resources and num != 8 and (strict_surface or num != 9):
+        if num != counts.resources:
             errors.append(
                 f"{rel}:{line_no}: conteo de resources MCP obsoleto "
                 f"({num} resources, esperado {counts.resources})."
@@ -917,7 +926,7 @@ def _check_blueprints_line(
     errors: list[str] = []
     for val, word in _BLUEPRINTS_COUNT_RE.findall(line):
         num = int(val)
-        if num == expected_blueprints or (num == 7 and word.lower() == "stacks"):
+        if num == expected_blueprints:
             continue
         errors.append(
             f"{rel}:{line_no}: conteo obsoleto de {num} {word} "
@@ -1170,7 +1179,7 @@ def _check_readme_cross_link(
 
 _STALE_V1_MCP_COUNT_RE = re.compile(
     r"\b(?:12\s+(?:Tools|tools|herramientas)"
-    r"|9\s+(?:Resources|resources|Recursos|recursos))\b"
+    r"|(?:[89]|1[01])\s+(?:Resources|resources|Recursos|recursos))\b"
 )
 
 

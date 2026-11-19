@@ -43,7 +43,7 @@
 | **Milestone 24** | Comprehensive `QA-11X v3.0` Audit (`v3.0.0`), `bump_version_11x.py` Synchronizer, Live MCP Protocol & `19_SPEC` / `20_SPEC` Planning | [`19_SPEC`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md) + [`20_SPEC`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md) | ✅ Completed | `100%` |
 | **Milestone 25** | 15×12 Matrix, `sinfallas/base-mobile-appium:26` & Bilingual Documentation Architecture | [`19_SPEC`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md) + [`20_SPEC`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md) | ✅ Completed | `100%` |
 | **Milestone 26** | `QA-11X v3.1` (`3.1.0`) — Atomic Flight Recorder, `tactical-patterns-11x`, 10-Stack Hydration & Fail-Closed Hardening | [`AGENTS.md`](AGENTS.md) + [`TESTING.md`](TESTING.md) | ✅ Completed | `100%` |
-| **Milestone 27** | `v3.2.0` (`QA-11X v3.1`) — 99/99 Forensic Audit Remediation, 12 CLI Subcommands, MCP 2026 Annotations, A2A v1.0 & 100% Diff Coverage | [`CHANGELOG.md`](CHANGELOG.md) + [`TESTING.md`](TESTING.md) | ✅ Completed | `100%` |
+| **Milestone 27** | `v3.2.0` (`QA-11X v3.2`) — 99/99 Forensic Audit Remediation, 12 CLI Subcommands, MCP 2026 Annotations, A2A v1.0 & 100% Diff Coverage | [`CHANGELOG.md`](CHANGELOG.md) + [`TESTING.md`](TESTING.md) | ✅ Completed | `100%` |
 
 ---
 
@@ -363,7 +363,7 @@
 
 ---
 
-## ✅ Milestone 27: `v3.2.0` (`QA-11X v3.1`) — 99/99 Forensic Audit Remediation, 12 CLI Subcommands, MCP 2026 Standards & 100% Diff Coverage
+## ✅ Milestone 27: `v3.2.0` (`QA-11X v3.2`) — 99/99 Forensic Audit Remediation, 12 CLI Subcommands, MCP 2026 Standards & 100% Diff Coverage
 **Mandatory Reference:** [`CHANGELOG.md`](CHANGELOG.md), [`TESTING.md`](TESTING.md), and [`AGENTS.md`](AGENTS.md)
 
 ### Implementation Tasks:

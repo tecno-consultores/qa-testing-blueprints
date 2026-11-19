@@ -4,7 +4,7 @@
   <img src="assets/qa-logo.jpeg" alt="QA Testing Blueprints Logo" width="320" />
 </p>
 
-# QA Testing Blueprints (`QA-11X v3.1`)
+# QA Testing Blueprints (`QA-11X v3.2`)
 
 **Zero-Infra Agentic QA, AI Evals & DevSecOps Governance Blueprint**
 
@@ -15,7 +15,7 @@
 [![AI Coding Agents](https://img.shields.io/badge/AI%20Agents-28%20Supported-ff69b4)](docs/agent-setup.md)
 [![FINOS CALM](https://img.shields.io/badge/Architecture-FINOS%20CALM-orange)](architecture/qa-11x.calm.json)
 
-**QA-11X v3.1** turns both **AI Coding Agents** (28 supported agents including Google Antigravity, Claude Code, Cursor, Windsurf, Codex, Copilot, Hermes Agent, and 21 more) and **human engineering teams** into deterministic Staff-level QA & DevSecOps operators. Every check runs inside **ephemeral, non-root Docker containers (`Rule Zero`)** with zero host contamination, enforcing `>= 95%` coverage, real database/contract parity, dual-mode AI evaluations, and **DISA ASD STIG V6R5 + OWASP v4.2** security controls from day one.
+**QA-11X v3.2** turns both **AI Coding Agents** (28 supported agents including Google Antigravity, Claude Code, Cursor, Windsurf, Codex, Copilot, Hermes Agent, and 21 more) and **human engineering teams** into deterministic Staff-level QA & DevSecOps operators. Every check runs inside **ephemeral, non-root Docker containers (`Rule Zero`)** with zero host contamination, enforcing `>= 95%` coverage, real database/contract parity, dual-mode AI evaluations, and **DISA ASD STIG V6R5 + OWASP v4.2** security controls from day one.
 
 ---
 
@@ -24,7 +24,7 @@
 Bootstrap any repository in 30 seconds without cloning this monorepo:
 
 ```bash
-# Auto-detect stacks & vibe-coded markers, configure .qa-11x.json, AGENTS.md, ACTIVE_TASK.md & PR workflow:
+# Auto-detect stacks & vibe-coded markers, configure .qa-11x.json, AGENTS.md, .agents/ACTIVE_TASK.md & PR workflow:
 npx -y @sinfallas/mcp-qa-11x@latest quickstart
 
 # Explicit tier, output language policy, agent selection, or dry-run preview:
@@ -57,7 +57,7 @@ jobs:
 
 ---
 
-## 🧭 Differential Architecture (`QA-11X v3.1`)
+## 🧭 Differential Architecture (`QA-11X v3.2`)
 
 ```mermaid
 flowchart TD
@@ -85,7 +85,7 @@ flowchart TD
 
 All runtime, lint, mutation, contract, and BDD suites execute inside non-root containers (`-u "$(id -u):$(id -g)" -e HOME=/tmp`) with **`Trivy HIGH/CRITICAL = 0`**:
 
-| Ephemeral Image | Role in QA-11X v3.1 | Certified Tags & Pre-Baked Tooling |
+| Ephemeral Image | Role in QA-11X v3.2 | Certified Tags & Pre-Baked Tooling |
 | :--- | :--- | :--- |
 | **[sinfallas/base-python-uv](https://hub.docker.com/r/sinfallas/base-python-uv)** | Python, FastAPI, AI Evals & Vibe-Rescue | `3.11`, `3.12`, `3.13`, `3.14`, `3.15`, `latest` (`uv`, `ruff`, `mypy`, `pytest`, `bandit`, `radon`, `mutmut`, `deepeval`, `pact-python`, `tesseract-ocr`) |
 | **[sinfallas/base-node-ionic](https://hub.docker.com/r/sinfallas/base-node-ionic)** | MCP Server, Node, Vue 3, React & CALM | `22`, `24`, `26`, `latest` (`pnpm`, `promptfoo`, `@finos/calm-cli`, `playwright`, `@axe-core/playwright`, `@pact-foundation/pact`) |
@@ -94,7 +94,7 @@ All runtime, lint, mutation, contract, and BDD suites execute inside non-root co
 | **[sinfallas/karatelabs](https://hub.docker.com/r/sinfallas/karatelabs)** | API & HTTP/Edge/OSHP/XML BDD Contracts | `1.5.1` (Java + Maven + Karate JUnit5; proportional to stateful multi-service `FULL_11X` flows) |
 | **[sinfallas/base-bash-qa](https://hub.docker.com/r/sinfallas/base-bash-qa)** | DevOps & POSIX Shell Scripts | `latest` (`ShellCheck`, `shfmt`, `BATS-core`, `bats-mock`, `kcov`) |
 | **[sinfallas/remote-graphify](https://hub.docker.com/r/sinfallas/remote-graphify)** | AST Context Optimization & Blast Radius | `latest` (`graphify` Tree-sitter AST graph & cluster extraction) |
-| **Infra, Security & Load Engines** | Live DB, Cache, DAST, Chaos & Load | `postgres:17-alpine`, `eqalpha/keydb:6.3.4`, `aquasec/trivy:0.76.2`, `zaproxy/zap-stable:2.15.0`, `gaiaadm/pumba:0.10.1`, `prom/prometheus:v2.55.1`, `grafana/k6:2.4.0` |
+| **Infra, Security & Load Engines** | Live DB, Cache, DAST, Chaos & Load | `postgres:17-alpine`, `eqalpha/keydb@sha256:6537505c42355ca1f571276bddf83f5b750f760f07b2a185a676481791e388ac` (`v6.3.4` multi-arch), `aquasec/trivy:0.76.2`, `zaproxy/zap-stable:2.15.0`, `gaiaadm/pumba:0.10.1`, `prom/prometheus:v2.55.1`, `grafana/k6:2.4.0` |
 
 ---
 
@@ -102,7 +102,7 @@ All runtime, lint, mutation, contract, and BDD suites execute inside non-root co
 
 The matrix covers **10 hydratable stacks** (`python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue`) plus **`architecture/`** (FINOS CALM topology) and **`mcp-server/`** (`@sinfallas/mcp-qa-11x`), forming the **12 matrix environments**:
 
-| Directory | Domain | Key Capabilities (v3.1) |
+| Directory | Domain | Key Capabilities (v3.2) |
 | :--- | :--- | :--- |
 | **[`fastapi/`](fastapi/)** | Python Async APIs | Ruff, Mypy strict, PostgreSQL 17 RLS + Alembic parity, Pact V4 consumer ([`test_pact_consumer.py`](fastapi/tests/contracts/test_pact_consumer.py)), k6 smoke load ([`smoke.k6.js`](fastapi/tests/load/smoke.k6.js)), Karate BDD |
 | **[`python/`](python/)** | Python Libraries & CLIs | UV, Ruff (`CC <= 5`), Mypy strict, Pytest `>= 95%`, Hypothesis, Mutmut (`MSI >= 80%`), Bandit |
@@ -136,7 +136,7 @@ Below is the corporate validation stack summarized across all **12 matrix enviro
 | **AI Evals** (`ai-evals/`) | `Ruff (CC <= 5)` + `Mypy (Strict)` | `Pytest asyncio` + `DeepEval` + WebRTC Voice + PDF/OCR `Decimal` | `Pytest-Cov (>= 95%)` | `pip-audit` + `CycloneDX SBOM` | `Bandit` + `Promptfoo OWASP LLM Top 10` | `N/A` | `DeepEval` + `Promptfoo` (Offline + Live) | `WebRTC TTFB <= 500ms` | `Radon (CC <= A)` + `golden_from_traces.py` | `Promptfoo LLM Red-Team` | `N/A` | `JSON Eval Trajectory Trace` | `Trivy` + `Gitleaks` | `Lefthook` |
 | **Vibe Rescue** (`vibe-rescue/`) | `Ruff (CC <= 5)` + `Mypy (Strict)` | `Pytest` + `audit_vibe_prototype.py` (`VIBE-SEC-001..QA-005`) | `Pytest-Cov (>= 95%)` | `pip-audit` + `rls_hardening.sql` | `Bandit` + `RLS / AES-256-GCM / WORM` | `N/A` | `QA-11X 10/10 Rescue Gate` | `N/A` | `Radon (CC <= 5)` | `OWASP ZAP (post-rescue)` | `N/A` | `Finding State Tracker JSON` | `Trivy` + `Hadolint` + `Gitleaks` | `Lefthook` |
 | **Architecture** (`architecture/`) | `AJV CLI / CALM` (`validate_calm_architecture.sh`) | `CALM Schema & 7-Control Verification (qa-11x.calm.json)` | `N/A` | `CALM Control Integrity` | `7 Blocking Architecture Controls (RLS/WORM/mTLS)` | `N/A` | `FINOS CALM Architecture Gate` | `N/A` | `Graphify AST Coupling / Layer Check` | `N/A` | `N/A` | `CALM Validation Report` | `Trivy` + `Gitleaks` | `Lefthook` |
-| **MCP Server** (`mcp-server/`) | `ESLint (--max-warnings 0)` + `Prettier` + `tsc` | `Vitest` + `run-example-e2e.mjs` (Clean-Room `stdio`) | `@vitest/coverage-v8 (>= 95%)` | `pnpm audit` + `.npmrc (ignore-scripts=true)` | `eslint-plugin-security` + `promptGuard` + `audit_security_stig_owasp` | `Stryker` | `Karate Labs (mcp_cli_test.feature)` | `N/A` | `SonarJS (<= 15)` | `N/A` | `N/A` | `Pass-Quiet Telemetry & PR_VERDICT SHA-256` | `Trivy` + `Gitleaks` | `Lefthook` |
+| **MCP Server** (`mcp-server/`) | `ESLint 9 (--max-warnings 0)` + `tsc` | `Vitest` + `run-example-e2e.mjs` (Clean-Room `stdio`) | `@vitest/coverage-v8 (>= 95%)` | `pnpm audit` + `.npmrc (ignore-scripts=true)` | `eslint-plugin-security` + `promptGuard` + `audit_security_stig_owasp` | `N/A` | `Karate Labs (mcp_cli_test.feature)` | `N/A` | `SonarJS (<= 15)` | `N/A` | `N/A` | `Pass-Quiet Telemetry & PR_VERDICT SHA-256` | `Trivy` + `Gitleaks` | `Lefthook` |
 
 ---
 
@@ -147,7 +147,7 @@ Below is the corporate validation stack summarized across all **12 matrix enviro
    - Protects MCP tool execution fail-closed via [`promptGuard.ts`](mcp-server/src/security/promptGuard.ts) (`NFKC` canonicalization, zero-width/Trojan Source sanitization, prompt-injection & `QA-GIT-GATE-01` bypass prevention, PII/secret redaction using `<EXAMPLE_REDACTED>` placeholders).
    - Compresses long transcripts deterministically with [`.agents/scripts/compact_context_11x.py`](.agents/scripts/compact_context_11x.py) and supports air-gapped **Ollama / vLLM** profiles plus **A2A Agent Card** discovery ([`agentCard.ts`](mcp-server/src/a2a/agentCard.ts), [`docs/specs/14_LOCAL_LLM_AND_A2A_PROFILES.md`](docs/specs/14_LOCAL_LLM_AND_A2A_PROFILES.md)).
 2. **Mode 2 — On-Demand Probabilistic & Red-Team Audits (`make audit-llm`):**
-   - Executes **DeepEval** (`GEval`, `TaskCompletionMetric`, faithfulness) and **Promptfoo** OWASP LLM Top 10 red-teaming against configured cloud providers or local Ollama/vLLM endpoints (`SKIPPED_NO_LLM_SECRETS_CONFIGURED` when credentials are absent in CI).
+   - Executes **DeepEval** (`GEval`, `TaskCompletionMetric`, faithfulness) and **Promptfoo** OWASP LLM Top 10 red-teaming against configured cloud providers or local Ollama/vLLM endpoints (`SKIPPED_MISSING_CREDENTIALS` when credentials are absent in CI).
 
 ---
 

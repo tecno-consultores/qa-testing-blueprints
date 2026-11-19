@@ -499,7 +499,7 @@ describe('TaskStateGuard & Lifecycle Resilience (T1.4)', () => {
             isStdinTty: false,
             autoSyncFn: () => Promise.reject(new Error('stdio-bg-sync-err')),
           });
-          await new Promise((resolve) => setTimeout(resolve, 20));
+          await new Promise((resolve) => setImmediate(resolve));
           expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('stdio-bg-sync-err'));
         } finally {
           connectSpy.mockRestore();

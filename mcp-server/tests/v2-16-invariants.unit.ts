@@ -236,6 +236,19 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
         logSpy.mockImplementationOnce(() => {
           throw new Error('broken stdout');
         });
+        exitSpy.mockClear();
+        vi.resetModules();
+        await import('../src/index.js');
+        await vi.waitFor(() => expect(exitSpy).toHaveBeenCalledWith(1));
+        expect(errSpy).toHaveBeenCalledWith('❌ [version] broken stdout');
+
+        logSpy.mockImplementationOnce(() => {
+          throw new Error('broken stdout');
+        });
+        errSpy.mockImplementationOnce(() => {
+          throw new Error('broken stderr');
+        });
+        exitSpy.mockClear();
         vi.resetModules();
         await import('../src/index.js');
         await vi.waitFor(() => expect(exitSpy).toHaveBeenCalledWith(1));
@@ -526,7 +539,11 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
 
         await expect(runInstallSkillCli(['--target', 'invalid-ide'], fetcher)).rejects.toThrow(/--target inválido/);
       } finally {
-        process.env.HOME = origHome;
+        if (origHome === undefined) {
+          delete process.env.HOME;
+        } else {
+          process.env.HOME = origHome;
+        }
       }
     });
 
@@ -859,6 +876,64 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
       );
       expect(gitErrProp.gh_cli_authenticated).toBe(true);
       expect(gitErrProp.pull_request_url).toBeNull();
+    });
+
+    it('ignores fs.chmodSync EPERM errors when securing .11x-backup in install-skill surgical_merge', async () => {
+      const chmodProj = path.join(tmpDir, 'chmod-backup-proj');
+      const fakeHome = path.join(tmpDir, 'chmod-backup-home');
+      fs.mkdirSync(chmodProj, { recursive: true });
+      fs.mkdirSync(fakeHome, { recursive: true });
+      fs.writeFileSync(path.join(chmodProj, 'lefthook.yml'), 'pre-commit:\n  commands: {}\n', 'utf8');
+
+      vi.resetModules();
+      vi.doMock('node:fs', async (importOriginal) => {
+        const actual = await importOriginal<typeof import('node:fs')>();
+        return {
+          ...actual,
+          chmodSync: (target: import('node:fs').PathLike, mode: import('node:fs').Mode) => {
+            if (String(target).endsWith('.11x-backup')) {
+              throw new Error('EPERM: chmod backup blocked');
+            }
+            actual.chmodSync(target, mode);
+          },
+        };
+      });
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      try {
+        const { runInstallSkillCli: runInstallWithFsMock } = await import('../src/cli/install-skill.js');
+        const skillPath = '.agents/skills/qa-11x-architect/SKILL.md';
+        const mergedContent = 'pre-push:\n  commands:\n    qa:\n      run: echo ok\n';
+        const manifestMock = {
+          blueprint_version: '3.2.0',
+          agent_governance_files: [{ path: skillPath, sha256: 'a'.repeat(64) }],
+          common_files: [
+            {
+              path: 'lefthook.yml',
+              target_name: 'lefthook.yml',
+              merge_strategy: 'surgical_merge',
+              sha256: 'b'.repeat(64),
+            },
+          ],
+          stacks: {},
+        };
+        const fakeFetcher = {
+          fetchManifest: () => Promise.resolve(manifestMock),
+          fetchAllFilesInParallel: () =>
+            Promise.resolve([{ path: skillPath, content: '# Skill\n', sha256_verified: true }]),
+          fetchFileContent: () => Promise.resolve(mergedContent),
+        } as unknown as GitHubFetcher;
+
+        await runInstallWithFsMock(['--target', 'workspace', '--include-scripts'], fakeFetcher, {
+          cwd: chmodProj,
+          homeDir: fakeHome,
+        });
+        expect(fs.existsSync(path.join(chmodProj, 'lefthook.yml.11x-backup'))).toBe(true);
+      } finally {
+        logSpy.mockRestore();
+        vi.doUnmock('node:fs');
+        vi.resetModules();
+      }
     });
   });
 });

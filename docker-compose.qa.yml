@@ -17,7 +17,7 @@ services:
       - .:/work:ro
     read_only: true
     tmpfs:
-      - /tmp
+      - /tmp:noexec,nosuid,nodev
     cap_drop:
       - ALL
     security_opt:

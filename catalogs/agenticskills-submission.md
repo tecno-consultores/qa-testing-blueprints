@@ -1,4 +1,4 @@
-# AgenticSkills.io Submission Package — QA Testing Blueprints (`QA-11X v3.1`, `v3.2.0`)
+# AgenticSkills.io Submission Package — QA Testing Blueprints (`QA-11X v3.2`, `v3.2.0`)
 
 Structured submission bundle ready for `https://agenticskills.io/submit` and `https://agenticskills.io/submit?type=mcp`. Every skill path, MCP tool name, `blueprint://*` URI, and blueprint directory matches the verified repository state.
 
@@ -6,14 +6,14 @@ Structured submission bundle ready for `https://agenticskills.io/submit` and `ht
 
 ## Section 1 — MCP Server Submission (`@sinfallas/mcp-qa-11x` v3.2.0)
 
-* **Package Name:** `@sinfallas/mcp-qa-11x` (`v3.2.0`, `QA-11X v3.1` architecture)
+* **Package Name:** `@sinfallas/mcp-qa-11x` (`v3.2.0`, `QA-11X v3.2` architecture)
 * **License:** `MIT` (Zero-Infra enterprise adoption without copyleft or AGPL-3.0 licensing constraints)
 * **Repository:** `https://github.com/tecno-consultores/qa-testing-blueprints`
 * **NPX Launch Command:** `npx -y @sinfallas/mcp-qa-11x@latest`
 * **30-Second Quickstart CLI:** `npx -y @sinfallas/mcp-qa-11x@latest quickstart`
 * **12 CLI Subcommands (`npx -y @sinfallas/mcp-qa-11x <cmd>`):** `quickstart`, `init-agents`, `install-skill`, `reconcile-agents`, `tms-sync`, `doctor` (`status`), `upgrade` (`cache-clean`), `certify`, `audit`, `blast-radius`, `mcp-config`, `completion`.
 * **Supported Agent IDs (`28`):** `antigravity`, `claude-code`, `claude-desktop`, `cursor`, `windsurf`, `copilot`, `codex`, `gemini-cli`, `gemini-code-assist`, `cline`, `roo-code`, `aider`, `continue`, `zed`, `devin`, `cody`, `amazon-q`, `jetbrains-ai`, `augment`, `trae`, `hermes`, `opencode`, `goose`, `kilo-code`, `bolt`, `lovable`, `v0`, `replit` (plus standard MCP `stdio` clients).
-* **Runtime Guards:** Fail-closed `promptGuard` (`NFKC`, Trojan Source & prompt-injection blocking, `QA-GIT-GATE-01` bypass prevention, PII redaction), `TaskStateGuard` bounded concurrency, and A2A `agent-card.json` discovery.
+* **Runtime Guards:** Fail-closed `promptGuard` (`NFKC`, Trojan Source & prompt-injection blocking, `QA-GIT-GATE-01` bypass prevention, PII redaction), `TaskStateGuard` bounded concurrency, and programmatic A2A `v1.0` Agent Card subpath export (`@sinfallas/mcp-qa-11x/agent-card`).
 
 ### 1.1. 19 MCP Tools (`tools/list`)
 
@@ -47,7 +47,7 @@ Structured submission bundle ready for `https://agenticskills.io/submit` and `ht
 | 2 | `blueprint://core/philosophy` | `text/markdown` | 13-layer pyramid philosophy, Rule Zero, 10 Laws, 11 UAT rules |
 | 3 | `blueprint://security/disa-owasp-22` | `text/markdown` | 22 canonical DISA ASD STIG V6R5 & OWASP v4.2 reference controls (backed by 34 static scanner rules) |
 | 4 | `blueprint://database/postgres-rls-worm` | `text/markdown` | PostgreSQL 17 multi-transaction RLS + WORM `seq_num` chain |
-| 5 | `blueprint://{stack}/readme` | `text/markdown` | Operational QA guides for the core stack blueprints |
+| 5 | `blueprint://{stack}/readme` | `text/markdown` | Operational QA guides across all 10 stack blueprints |
 | 6 | `blueprint://ui/refactoring-ui/{topic}` | `text/markdown` | UI hierarchy, OKLCH WCAG 2.1 AA, and Anti-JSDOM geometry guides |
 | 7 | `blueprint://core/active-task-template` | `text/markdown` | Compact `ACTIVE_TASK.md.example` diary (`<= 40` lines) |
 | 8 | `blueprint://core/cleanup-script` | `text/x-shellscript` | Canonical rootless Docker `limpieza.sh` cleanup script |

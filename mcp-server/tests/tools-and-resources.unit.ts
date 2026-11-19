@@ -76,7 +76,15 @@ import {
   validateV2ToolWorkspaceArgs,
   wrapReadResourceDispatcher,
 } from '../src/server.js';
-import { Manifest } from '../src/types.js';
+import { Manifest, ManifestFileEntry } from '../src/types.js';
+
+function restoreEnvVar(name: string, prevValue: string | undefined): void {
+  if (prevValue === undefined) {
+    delete process.env[name];
+  } else {
+    process.env[name] = prevValue;
+  }
+}
 
 describe('Tools and Resources Integration Suite', () => {
   let tmpDir: string;
@@ -899,7 +907,11 @@ describe('Tools and Resources Integration Suite', () => {
         ).toBe(false);
       } finally {
         process.chdir(cwd);
-        process.env.HOME = origHome;
+        if (origHome === undefined) {
+          delete process.env.HOME;
+        } else {
+          process.env.HOME = origHome;
+        }
       }
     });
 
@@ -1003,7 +1015,11 @@ describe('Tools and Resources Integration Suite', () => {
         expect(fs.existsSync(path.join(cleanCwdForCursor, '.agents'))).toBe(false);
       } finally {
         process.chdir(cwd);
-        process.env.HOME = origHome;
+        if (origHome === undefined) {
+          delete process.env.HOME;
+        } else {
+          process.env.HOME = origHome;
+        }
       }
     });
 
@@ -1037,7 +1053,7 @@ describe('Tools and Resources Integration Suite', () => {
         expect(fs.readFileSync(path.join(testDir, 'scripts/limpieza.sh.bak'), 'utf-8')).toContain('custom');
 
         // Probar rama cuando no hay scripts comunes ni de agentes
-        const emptyScriptsFetcher = new GitHubFetcher();
+        const emptyScriptsFetcher = new GitHubFetcher({ cacheDir: path.join(tmpDir, 'empty-scripts-cache') });
         vi.spyOn(emptyScriptsFetcher, 'fetchManifest').mockResolvedValue({
           ...mockManifest,
           common_files: undefined as unknown as Manifest['common_files'],
@@ -1055,7 +1071,7 @@ describe('Tools and Resources Integration Suite', () => {
         await runInstallSkillCli(['--target', 'workspace', '--include-scripts'], emptyScriptsFetcher);
 
         // Probar rama cuando entry.target_name es vacío y agent_governance_files es undefined
-        const noTargetNameFetcher = new GitHubFetcher();
+        const noTargetNameFetcher = new GitHubFetcher({ cacheDir: path.join(tmpDir, 'no-target-cache') });
         vi.spyOn(noTargetNameFetcher, 'fetchManifest').mockResolvedValue({
           ...mockManifest,
           common_files: [
@@ -1106,7 +1122,11 @@ describe('Tools and Resources Integration Suite', () => {
         ).toBe(true);
       } finally {
         process.chdir(cwd);
-        process.env.HOME = origHome;
+        if (origHome === undefined) {
+          delete process.env.HOME;
+        } else {
+          process.env.HOME = origHome;
+        }
         if (origEnvTarget !== undefined) {
           process.env.QA_SKILL_TARGET = origEnvTarget;
         } else {
@@ -1136,6 +1156,7 @@ describe('Tools and Resources Integration Suite', () => {
       const cwd = process.cwd();
       const testDir = path.join(tmpDir, 'default-fetcher-test');
       fs.mkdirSync(testDir, { recursive: true });
+      const origLocalPath = process.env.QA_BLUEPRINTS_LOCAL_PATH;
       process.env.QA_BLUEPRINTS_LOCAL_PATH = localRepoDir;
       vi.spyOn(console, 'log').mockImplementation(() => {});
 
@@ -1144,7 +1165,11 @@ describe('Tools and Resources Integration Suite', () => {
         await runInstallSkillCli(['--target', 'workspace']);
         expect(fs.existsSync(path.join(testDir, '.agents/skills/qa-11x-architect/SKILL.md'))).toBe(true);
       } finally {
-        delete process.env.QA_BLUEPRINTS_LOCAL_PATH;
+        if (origLocalPath === undefined) {
+          delete process.env.QA_BLUEPRINTS_LOCAL_PATH;
+        } else {
+          process.env.QA_BLUEPRINTS_LOCAL_PATH = origLocalPath;
+        }
         process.chdir(cwd);
       }
     });
@@ -1157,6 +1182,9 @@ describe('Tools and Resources Integration Suite', () => {
         await expect(runInstallSkillCli(['--project-path', fakeHome, '--dry-run'], fetcher)).rejects.toThrow(
           WorkspacePathValidationError
         );
+        await expect(runInstallSkillCli(['--dir', fakeHome, '--dry-run'], fetcher)).rejects.toThrow(
+          WorkspacePathValidationError
+        );
       } finally {
         if (prevHome === undefined) {
           delete process.env.HOME;
@@ -1165,6 +1193,111 @@ describe('Tools and Resources Integration Suite', () => {
         }
         fs.rmSync(fakeHome, { recursive: true, force: true });
       }
+    });
+
+    it('supports --dir <projDir>, excludes .env.example, preserves copy_if_missing, chmods missing scripts 0o755, and surgical-merges lefthook.yml with 0o600 backup', async () => {
+      const bpDir = path.join(tmpDir, 'bp-phase12');
+      const projDir = path.join(tmpDir, 'proj-phase12');
+      const outsideCwd = path.join(tmpDir, 'outside-phase12');
+      const homeSandbox = path.join(tmpDir, 'home-phase12');
+      fs.mkdirSync(projDir, { recursive: true });
+      fs.mkdirSync(outsideCwd, { recursive: true });
+      fs.mkdirSync(homeSandbox, { recursive: true });
+
+      const writeBp = (rel: string, content: string): ManifestFileEntry => {
+        const full = path.join(bpDir, rel);
+        fs.mkdirSync(path.dirname(full), { recursive: true });
+        fs.writeFileSync(full, content, 'utf8');
+        return {
+          path: rel,
+          target_name: rel,
+          merge_strategy: 'overwrite',
+          sha256: crypto.createHash('sha256').update(content, 'utf8').digest('hex'),
+          size_bytes: Buffer.byteLength(content, 'utf8'),
+        };
+      };
+
+      const skillEntry = writeBp('.agents/skills/qa-11x-architect/SKILL.md', '# Arch Skill\n');
+      const envExampleEntry = writeBp('.env.example', 'SECRET=example\n');
+      const probarEntry = writeBp('scripts/probar-mcp-example.sh', '#!/usr/bin/env bash\nexit 0\n');
+      const trivyEntry = { ...writeBp('.trivy.yaml', 'scan:\n  security-checks:\n    - vuln\n'), merge_strategy: 'copy_if_missing' };
+      const hooksEntry = { ...writeBp('instalar-hooks.sh', '#!/usr/bin/env bash\necho blueprint\n'), merge_strategy: 'copy_if_missing' };
+      const lefthookEntry = {
+        ...writeBp('lefthook.yml', 'pre-commit:\n  commands:\n    lint:\n      run: echo lint\n\npre-push:\n  commands:\n    gate:\n      run: echo gate\n'),
+        merge_strategy: 'surgical_merge',
+      };
+      const stackCfgEntry = writeBp('python/Makefile.example', 'qa-lint:\n\t@echo ok\n');
+
+      const phase12Manifest: Manifest = {
+        schema_version: '1.0.0',
+        blueprint_version: '3.2.0',
+        generated_at_utc: '2026-11-19T00:00:00Z',
+        repository: 'tecno-consultores/qa-testing-blueprints',
+        default_branch: 'main',
+        raw_base_url: 'https://example.invalid',
+        stacks: {
+          python: {
+            description: 'Python QA blueprint',
+            readme: 'python/README.md',
+            files: [{ ...stackCfgEntry, target_name: 'Makefile', merge_strategy: 'copy_if_missing' }],
+          },
+        },
+        common_files: [envExampleEntry, probarEntry, trivyEntry, hooksEntry, lefthookEntry],
+        agent_governance_files: [skillEntry],
+      };
+      fs.writeFileSync(path.join(bpDir, 'manifest.json'), JSON.stringify(phase12Manifest), 'utf8');
+      const phase12Fetcher = new GitHubFetcher({
+        cacheDir: path.join(tmpDir, 'phase12-cache'),
+        localOverridePath: bpDir,
+      });
+
+      // fetchStackBundle also excludes .env.example & scripts/probar-mcp-example.sh
+      const bundle = await phase12Fetcher.fetchStackBundle('python', true, true);
+      expect(bundle.some((f) => f.path === '.env.example')).toBe(false);
+      expect(bundle.some((f) => f.path === 'scripts/probar-mcp-example.sh')).toBe(false);
+      expect(bundle.some((f) => f.path === '.trivy.yaml')).toBe(true);
+
+      // Existing lefthook.yml to exercise surgical_merge + 0o600 .11x-backup
+      const originalLefthook = 'pre-commit:\n  commands:\n    custom:\n      run: echo custom\n';
+      fs.writeFileSync(path.join(projDir, 'lefthook.yml'), originalLefthook, 'utf8');
+
+      vi.spyOn(console, 'log').mockImplementation(() => {});
+      const cliRes = await runCli(
+        ['install-skill', '--target', 'workspace', '--include-scripts', '--dir', projDir],
+        { cwd: outsideCwd, homeDir: homeSandbox, fetcher: phase12Fetcher, log: vi.fn(), errorLog: vi.fn() }
+      );
+      expect(cliRes.exitCode).toBe(0);
+
+      // Excluded files not written
+      expect(fs.existsSync(path.join(projDir, '.env.example'))).toBe(false);
+      expect(fs.existsSync(path.join(projDir, 'scripts', 'probar-mcp-example.sh'))).toBe(false);
+      expect(fs.existsSync(path.join(outsideCwd, '.trivy.yaml'))).toBe(false);
+
+      // copy_if_missing creates missing files with 0o755 on .sh
+      expect(fs.existsSync(path.join(projDir, '.trivy.yaml'))).toBe(true);
+      const hooksFull = path.join(projDir, 'instalar-hooks.sh');
+      expect(fs.existsSync(hooksFull)).toBe(true);
+      expect(fs.statSync(hooksFull).mode & 0o777).toBe(0o755);
+
+      // surgical_merge merged lefthook.yml and created 0o600 .11x-backup
+      const mergedLefthook = fs.readFileSync(path.join(projDir, 'lefthook.yml'), 'utf8');
+      expect(mergedLefthook).toContain('echo custom');
+      expect(mergedLefthook).toContain('pre-push:');
+      const lefthookBackup = path.join(projDir, 'lefthook.yml.11x-backup');
+      expect(fs.existsSync(lefthookBackup)).toBe(true);
+      expect(fs.readFileSync(lefthookBackup, 'utf8')).toBe(originalLefthook);
+      expect(fs.statSync(lefthookBackup).mode & 0o777).toBe(0o600);
+
+      // Second run with custom .trivy.yaml & instalar-hooks.sh preserves them via copy_if_missing
+      fs.writeFileSync(path.join(projDir, '.trivy.yaml'), '# custom-trivy\n', 'utf8');
+      fs.writeFileSync(hooksFull, '#!/usr/bin/env bash\necho custom-hooks\n', 'utf8');
+      await runInstallSkillCli(
+        ['--target', 'workspace', '--include-scripts', '--dir', projDir],
+        phase12Fetcher,
+        { cwd: outsideCwd, homeDir: homeSandbox }
+      );
+      expect(fs.readFileSync(path.join(projDir, '.trivy.yaml'), 'utf8')).toBe('# custom-trivy\n');
+      expect(fs.readFileSync(hooksFull, 'utf8')).toContain('custom-hooks');
     });
   });
 
@@ -1683,6 +1816,7 @@ describe('Tools and Resources Integration Suite', () => {
     });
 
     it('runs tools with default services when omitted', async () => {
+      const origLocalPath = process.env.QA_BLUEPRINTS_LOCAL_PATH;
       process.env.QA_BLUEPRINTS_LOCAL_PATH = localRepoDir;
       try {
         const bundle = await fetchBlueprintBundle('python', false);
@@ -1691,7 +1825,11 @@ describe('Tools and Resources Integration Suite', () => {
         const mergeRes = await bootstrapOrMerge11x(targetProjectDir, 'python', true);
         expect(mergeRes.dry_run).toBe(true);
       } finally {
-        delete process.env.QA_BLUEPRINTS_LOCAL_PATH;
+        if (origLocalPath === undefined) {
+          delete process.env.QA_BLUEPRINTS_LOCAL_PATH;
+        } else {
+          process.env.QA_BLUEPRINTS_LOCAL_PATH = origLocalPath;
+        }
       }
     });
 
@@ -2350,7 +2488,7 @@ describe('Tools and Resources Integration Suite', () => {
             ).toBe(true);
           } finally {
             process.chdir(prevCwdCli);
-            process.env.HOME = prevHomeEnv;
+            restoreEnvVar('HOME', prevHomeEnv);
             fs.rmSync(skillSandboxHome, { recursive: true, force: true });
           }
         } finally {

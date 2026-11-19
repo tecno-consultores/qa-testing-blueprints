@@ -106,6 +106,17 @@ VERSION_RULES: tuple[VersionRule, ...] = (
         max_replacements=1,
     ),
     VersionRule(
+        "mcp-server/tests/calm.test.ts",
+        (
+            re.compile(
+                rf'^(\s*(?:"version"|version)\s*:\s*[\'"])({_VER_CORE})([\'"])',
+                re.MULTILINE,
+            ),
+        ),
+        max_replacements=1,
+        optional=True,
+    ),
+    VersionRule(
         "catalogs/qaskills-pack.json",
         (re.compile(r'^(\s*"version"\s*:\s*")([^"]+)(")', re.MULTILINE),),
         max_replacements=1,
@@ -335,6 +346,37 @@ EDITION_RULES: tuple[VersionRule, ...] = (
             re.compile(
                 r"(expect\(MCP_STANDARD_EDITION\)\.toBe\(['\"])"
                 r"(QA-11X v\d+\.\d+)(['\"]\))"
+            ),
+            re.compile(
+                r"(expect\(extractStandardEdition\(['\"]"
+                r"Description without edition tag['\"]\)\)\.toBe\(['\"])"
+                r"(QA-11X v\d+\.\d+)(['\"]\))"
+            ),
+            re.compile(
+                r"(expect\(extractStandardEdition\(\)\)\.toBe\(['\"])"
+                r"(QA-11X v\d+\.\d+)(['\"]\))"
+            ),
+        ),
+        optional=True,
+    ),
+    VersionRule(
+        "mcp-server/tests/live-mcp-protocol.test.ts",
+        (
+            re.compile(
+                r"(expect\(card\.standardVersion\)\.toBe\(['\"])"
+                r"(QA-11X v\d+\.\d+)(['\"]\))"
+            ),
+        ),
+        max_replacements=1,
+        optional=True,
+    ),
+    VersionRule(
+        "mcp-server/tests/calm.test.ts",
+        (
+            re.compile(
+                r'^(\s*(?:"standard"|standard)\s*:\s*[\'"])'
+                r"(QA-11X v\d+\.\d+)([\'\"])",
+                re.MULTILINE,
             ),
         ),
         max_replacements=1,

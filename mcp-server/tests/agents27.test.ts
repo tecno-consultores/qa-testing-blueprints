@@ -607,7 +607,7 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
       const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'qa-agents27-home-'));
       const origHome = process.env.HOME;
       const origCwd = process.cwd();
-      const fetcher = new GitHubFetcher();
+      const fetcher = new GitHubFetcher({ cacheDir: path.join(tmpDir, 'agents27-cache') });
       vi.spyOn(fetcher, 'fetchManifest').mockResolvedValue({
         schema_version: '1.0.0',
         blueprint_version: '2.21.0',
@@ -673,9 +673,73 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
         expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('[DRY-RUN Reconcile 11X]'));
         expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Scripts/archivos comunes planificados'));
         expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('AGENTS.md planificado'));
+
+        // Global $HOME mode via runCli (cwd === homeDir, --init-agents --include-scripts --reconcile & --dry-run)
+        const globalLogs: string[] = [];
+        const globalErrs: string[] = [];
+        const homeDryCli = await runCli(
+          ['install-skill', '--target', 'claude', '--init-agents', '--include-scripts', '--reconcile', '--dry-run'],
+          {
+            cwd: fakeHome,
+            homeDir: fakeHome,
+            fetcher,
+            log: (m) => globalLogs.push(m),
+            errorLog: (m) => globalErrs.push(m),
+          }
+        );
+        expect(homeDryCli.exitCode).toBe(0);
+        expect(globalErrs).toEqual([]);
+        expect(fs.existsSync(path.join(fakeHome, '.claude', 'skills'))).toBe(false);
+        expect(fs.existsSync(path.join(fakeHome, 'AGENTS.md'))).toBe(false);
+
+        const homeLiveCli = await runCli(
+          ['install-skill', '--target', 'claude', '--init-agents', '--include-scripts', '--reconcile'],
+          {
+            cwd: fakeHome,
+            homeDir: fakeHome,
+            fetcher,
+            log: (m) => globalLogs.push(m),
+            errorLog: (m) => globalErrs.push(m),
+          }
+        );
+        expect(homeLiveCli.exitCode).toBe(0);
+        expect(globalErrs).toEqual([]);
+        expect(
+          fs.existsSync(path.join(fakeHome, '.claude', 'skills', 'qa-11x-architect', 'SKILL.md'))
+        ).toBe(true);
+        expect(fs.existsSync(path.join(fakeHome, 'AGENTS.md'))).toBe(false);
+        expect(fs.existsSync(path.join(fakeHome, '.agents'))).toBe(false);
+        expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('[Modo Global $HOME]'));
+
+        // Explicit -p ~ and --dir ~ are blocked cleanly with exitCode 1 (no uncaught rejection)
+        const explicitErrLogs: string[] = [];
+        const blockedShort = await runCli(['install-skill', '-p', fakeHome, '--dry-run'], {
+          cwd: tmpDir,
+          homeDir: fakeHome,
+          fetcher,
+          log: () => undefined,
+          errorLog: (m) => explicitErrLogs.push(m),
+        });
+        expect(blockedShort.exitCode).toBe(1);
+        expect(blockedShort.errorMessage).toContain('SEC-PATH-01');
+
+        const blockedDir = await runCli(['install-skill', '--dir', fakeHome, '--dry-run'], {
+          cwd: tmpDir,
+          homeDir: fakeHome,
+          fetcher,
+          log: () => undefined,
+          errorLog: (m) => explicitErrLogs.push(m),
+        });
+        expect(blockedDir.exitCode).toBe(1);
+        expect(blockedDir.errorMessage).toContain('SEC-PATH-01');
+        expect(explicitErrLogs).toHaveLength(2);
       } finally {
         process.chdir(origCwd);
-        process.env.HOME = origHome;
+        if (origHome === undefined) {
+          delete process.env.HOME;
+        } else {
+          process.env.HOME = origHome;
+        }
         fs.rmSync(fakeHome, { recursive: true, force: true });
         logSpy.mockRestore();
       }

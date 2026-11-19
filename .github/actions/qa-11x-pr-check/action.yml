@@ -58,6 +58,9 @@ outputs:
   verdict:
     description: 'Final proportional gate verdict (PASS | FAIL | SKIPPED)'
     value: ${{ steps.run-proportional-gates.outputs.verdict }}
+  sarif-path:
+    description: 'Path to generated QA-11X SARIF security report (if created)'
+    value: ${{ steps.run-proportional-gates.outputs.sarif-path }}
 
 runs:
   using: 'composite'
@@ -125,16 +128,35 @@ runs:
         CHANGED_FILE="${QA_TMP_DIR}/qa11x-pr-changed.txt"
         : > "${CHANGED_FILE}"
 
-        if [ "${EVENT_NAME:-pull_request}" = "pull_request" ] && [ -n "${PR_BASE_SHA:-}" ] && [ -n "${PR_HEAD_SHA:-}" ]; then
+        NORM_EVENT="${EVENT_NAME:-pull_request}"
+        case "${NORM_EVENT}" in
+          pull_request_target|merge_group) NORM_EVENT="pull_request" ;;
+        esac
+
+        if [ "${NORM_EVENT}" = "pull_request" ] && [ -n "${PR_BASE_SHA:-}" ] && [ -n "${PR_HEAD_SHA:-}" ]; then
           git diff --relative --name-only "${PR_BASE_SHA}" "${PR_HEAD_SHA}" > "${CHANGED_FILE}" 2>/dev/null || true
-        elif git rev-parse --verify "origin/${INPUT_BASE_REF}" >/dev/null 2>&1; then
-          git diff --relative --name-only "origin/${INPUT_BASE_REF}...HEAD" > "${CHANGED_FILE}" 2>/dev/null || true
-        elif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
-          git diff --relative --name-only HEAD~1..HEAD > "${CHANGED_FILE}" 2>/dev/null || true
+        fi
+        if [ ! -s "${CHANGED_FILE}" ]; then
+          if ! git rev-parse --verify "origin/${INPUT_BASE_REF}" >/dev/null 2>&1; then
+            git fetch --no-tags --depth=50 origin "${INPUT_BASE_REF}" >/dev/null 2>&1 || true
+          fi
+          if git rev-parse --verify "origin/${INPUT_BASE_REF}" >/dev/null 2>&1; then
+            git diff --relative --name-only "origin/${INPUT_BASE_REF}...HEAD" > "${CHANGED_FILE}" 2>/dev/null ||
+              git diff --relative --name-only "origin/${INPUT_BASE_REF}..HEAD" > "${CHANGED_FILE}" 2>/dev/null || true
+          fi
+        fi
+        if [ ! -s "${CHANGED_FILE}" ]; then
+          if ! git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+            git fetch --no-tags --depth=50 >/dev/null 2>&1 || true
+          fi
+          if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+            git diff --relative --name-only HEAD~1..HEAD > "${CHANGED_FILE}" 2>/dev/null || true
+          fi
         fi
 
         if [ -n "${GITHUB_OUTPUT:-}" ]; then
           printf 'tier=%s\n' "${INPUT_TIER}" >> "${GITHUB_OUTPUT}"
+          printf 'event-name=%s\n' "${NORM_EVENT}" >> "${GITHUB_OUTPUT}"
           printf 'tmp-dir=%s\n' "${QA_TMP_DIR}" >> "${GITHUB_OUTPUT}"
         fi
 
@@ -153,7 +175,8 @@ runs:
       env:
         INPUT_WORKDIR: ${{ inputs.working-directory }}
         INPUT_PYTHON_IMAGE: ${{ inputs.python-image }}
-        EVENT_NAME: ${{ github.event_name }}
+        INPUT_BASE_REF: ${{ inputs.base-ref }}
+        EVENT_NAME: ${{ steps.compute-pr-diff.outputs.event-name || github.event_name }}
         SHARED_TMP_DIR: ${{ steps.compute-pr-diff.outputs.tmp-dir }}
         CACHE_HIT: ${{ steps.cache-graph.outputs.cache-hit }}
       run: |
@@ -203,9 +226,25 @@ runs:
           fi
         fi
 
+        NORM_EVENT="${EVENT_NAME:-pull_request}"
+        case "${NORM_EVENT}" in
+          pull_request_target|merge_group) NORM_EVENT="pull_request" ;;
+        esac
+
         if [ -f ".agents/scripts/select_tests_by_blast_radius.py" ]; then
           if [ "${GRAPH_STATUS}" != "PASS" ]; then
             echo "::warning::[graph=SKIPPED] graphify-out/graph.json unavailable; blast selector using prefix fallback." >&2
+          fi
+          SELECT_ARGS=(
+            --event "${NORM_EVENT}"
+            --changed-files-file /ci-tmp/qa11x-pr-changed.txt
+            --graph graphify-out/graph.json
+            --github-output /ci-tmp/qa11x-blast-outputs.txt
+          )
+          if git rev-parse --verify "origin/${INPUT_BASE_REF:-main}" >/dev/null 2>&1; then
+            SELECT_ARGS+=(--base-ref "origin/${INPUT_BASE_REF:-main}")
+          elif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+            SELECT_ARGS+=(--base-ref "HEAD~1")
           fi
           docker run --rm --network none \
             -u "$(id -u):$(id -g)" \
@@ -215,11 +254,7 @@ runs:
             -v "${QA_TMP_DIR}:/ci-tmp" \
             -w /app \
             "${INPUT_PYTHON_IMAGE}" \
-            python3 .agents/scripts/select_tests_by_blast_radius.py \
-              --event "${EVENT_NAME:-pull_request}" \
-              --changed-files-file /ci-tmp/qa11x-pr-changed.txt \
-              --graph graphify-out/graph.json \
-              --github-output /ci-tmp/qa11x-blast-outputs.txt
+            python3 .agents/scripts/select_tests_by_blast_radius.py "${SELECT_ARGS[@]}"
 
           PARSED_TIER="$(grep -E '^tier=' "${BLAST_TMP}" | tail -n 1 | cut -d= -f2 || true)"
           PARSED_SAVINGS="$(grep -E '^estimated_savings_pct=' "${BLAST_TMP}" | tail -n 1 | cut -d= -f2 || true)"
@@ -245,7 +280,7 @@ runs:
             BLAST_TIER="docs-only"
             SAVINGS_PCT="85"
           fi
-        elif [ "${EVENT_NAME:-pull_request}" = "schedule" ] || [ "${EVENT_NAME:-pull_request}" = "workflow_dispatch" ]; then
+        elif [ "${NORM_EVENT}" = "schedule" ] || [ "${NORM_EVENT}" = "workflow_dispatch" ]; then
           BLAST_TIER="nightly-full"
           SAVINGS_PCT="0"
         elif [ -s "${CHANGED_FILE}" ]; then
@@ -290,6 +325,7 @@ runs:
         SKIPPED_GATES=0
         FINAL_VERDICT=""
         CERTIFY_LOG=""
+        SARIF_PATH=""
         SUMMARY_FILE="${GITHUB_STEP_SUMMARY:-${GATE_TMP_DIR}/qa11x-step-summary.md}"
 
         write_gate_verdict() {
@@ -316,10 +352,12 @@ runs:
             echo "| Est. Savings | \`${SAVINGS_PCT:-50}%\` |"
             echo "| AST Graph | \`${GRAPH_STATUS:-SKIPPED}\` |"
             echo "| Skipped Gates | \`${SKIPPED_GATES}\` |"
+            echo "| SARIF | \`${SARIF_PATH:-none}\` |"
             echo "| Verdict | **${verdict}** |"
           } >> "${SUMMARY_FILE}"
           if [ -n "${GITHUB_OUTPUT:-}" ]; then
             printf 'verdict=%s\n' "${verdict}" >> "${GITHUB_OUTPUT}"
+            printf 'sarif-path=%s\n' "${SARIF_PATH}" >> "${GITHUB_OUTPUT}"
           fi
           if [ -n "${CERTIFY_LOG}" ]; then
             rm -f "${CERTIFY_LOG}" 2>/dev/null || true
@@ -382,14 +420,45 @@ runs:
         if [ "${INPUT_TIER}" = "standard" ] || [ "${INPUT_TIER}" = "enterprise" ]; then
           if [ "${BLAST_PLAN_TIER:-pr-targeted}" != "docs-only" ]; then
             if [ -f ".agents/scripts/lint_test_antipatterns.py" ]; then
-              docker run --rm --network none \
+              ANTI_OUT="$(docker run --rm --network none \
                 -u "$(id -u):$(id -g)" \
                 -e HOME=/tmp \
                 -e PYTHONDONTWRITEBYTECODE=1 \
                 -v "$(pwd):/app:ro" \
                 -w /app \
                 "${INPUT_PYTHON_IMAGE}" \
-                python3 .agents/scripts/lint_test_antipatterns.py
+                python3 .agents/scripts/lint_test_antipatterns.py)"
+              printf '%s\n' "${ANTI_OUT}"
+              if printf '%s\n' "${ANTI_OUT}" | grep -qF '⚠️ [SKIPPED]'; then
+                SKIPPED_GATES=$((SKIPPED_GATES + 1))
+              fi
+            fi
+            if [ -f "mcp-server/dist/index.js" ]; then
+              mkdir -p .agents/artifacts
+              AUDIT_RC=0
+              docker run --rm --network none \
+                -u "$(id -u):$(id -g)" \
+                -e HOME=/tmp \
+                -v "$(pwd):/app:ro" \
+                -w /app \
+                "${INPUT_NODE_IMAGE}" \
+                node mcp-server/dist/index.js audit --mode security --sarif > .agents/artifacts/qa-11x-audit.sarif || AUDIT_RC=$?
+              if [ -s ".agents/artifacts/qa-11x-audit.sarif" ]; then
+                SARIF_PATH=".agents/artifacts/qa-11x-audit.sarif"
+              fi
+              if [ "${AUDIT_RC}" -ne 0 ]; then
+                exit "${AUDIT_RC}"
+              fi
+            elif command -v npx >/dev/null 2>&1 && npx -y @sinfallas/mcp-qa-11x audit --help >/dev/null 2>&1; then
+              mkdir -p .agents/artifacts
+              AUDIT_RC=0
+              npx -y @sinfallas/mcp-qa-11x audit --mode security --sarif > .agents/artifacts/qa-11x-audit.sarif || AUDIT_RC=$?
+              if [ -s ".agents/artifacts/qa-11x-audit.sarif" ]; then
+                SARIF_PATH=".agents/artifacts/qa-11x-audit.sarif"
+              fi
+              if [ "${AUDIT_RC}" -ne 0 ]; then
+                exit "${AUDIT_RC}"
+              fi
             fi
             if command -v make >/dev/null 2>&1 && [ -f "Makefile" ] && grep -q '^lint:' Makefile; then
               make lint
@@ -446,6 +515,19 @@ runs:
             make certify 2>&1 | tee "${CERTIFY_LOG}"
           elif [ -x ".agents/scripts/certify_task_completion.sh" ]; then
             ./.agents/scripts/certify_task_completion.sh 2>&1 | tee "${CERTIFY_LOG}"
+          elif [ -f "mcp-server/dist/index.js" ]; then
+            docker run --rm --network none \
+              -u "$(id -u):$(id -g)" \
+              -e HOME=/tmp \
+              -v "$(pwd):/app:ro" \
+              -w /app \
+              "${INPUT_NODE_IMAGE}" \
+              node mcp-server/dist/index.js certify --offline 2>&1 | tee "${CERTIFY_LOG}"
+          elif command -v npx >/dev/null 2>&1 && npx -y @sinfallas/mcp-qa-11x certify --help >/dev/null 2>&1; then
+            npx -y @sinfallas/mcp-qa-11x certify --offline 2>&1 | tee "${CERTIFY_LOG}"
+          else
+            echo "⚠️ [SKIPPED] certify_11x_gate unavailable in workspace" | tee "${CERTIFY_LOG}"
+            SKIPPED_GATES=$((SKIPPED_GATES + 1))
           fi
           if grep -qE '[1-9][0-9]* SKIPPED' "${CERTIFY_LOG}" 2>/dev/null; then
             SKIPPED_GATES=$((SKIPPED_GATES + 1))

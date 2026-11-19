@@ -17,6 +17,7 @@ test/target/
 *.log
 graphify-out/
 .agents/ACTIVE_TASK.md
+.agents/.qa-evidence.json
 .agents/.cache/
 .agents/artifacts/
 pacts/

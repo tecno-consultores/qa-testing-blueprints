@@ -59,9 +59,7 @@ describe('v2.18.0 i18n & Multi-Agent Targets (codex, windsurf, --lang auto|es|en
   describe('install-skill with codex and windsurf targets', () => {
     it('installs skills into ~/.codex/skills for --target codex', async () => {
       const origHome = process.env.HOME;
-      process.env.HOME = fakeHome;
-
-      const mockFetcher = new GitHubFetcher();
+      const mockFetcher = new GitHubFetcher({ cacheDir: path.join(tmpDir, 'cache-codex') });
       vi.spyOn(mockFetcher, 'fetchManifest').mockResolvedValue({
         schema_version: '1.0.0',
         blueprint_version: '2.18.0',
@@ -84,20 +82,23 @@ describe('v2.18.0 i18n & Multi-Agent Targets (codex, windsurf, --lang auto|es|en
       vi.spyOn(mockFetcher, 'fetchFileContent').mockResolvedValue('# Mock Skill Content');
 
       try {
+        process.env.HOME = fakeHome;
         await runInstallSkillCli(['--target', 'codex'], mockFetcher);
         const codexSkill = path.join(fakeHome, '.codex', 'skills', 'qa-11x-architect', 'SKILL.md');
         expect(fs.existsSync(codexSkill)).toBe(true);
         expect(fs.readFileSync(codexSkill, 'utf-8')).toBe('# Mock Skill Content');
       } finally {
-        process.env.HOME = origHome;
+        if (origHome === undefined) {
+          delete process.env.HOME;
+        } else {
+          process.env.HOME = origHome;
+        }
       }
     });
 
     it('installs skills into ~/.codeium/windsurf/skills for --target windsurf', async () => {
       const origHome = process.env.HOME;
-      process.env.HOME = fakeHome;
-
-      const mockFetcher = new GitHubFetcher();
+      const mockFetcher = new GitHubFetcher({ cacheDir: path.join(tmpDir, 'cache-windsurf') });
       vi.spyOn(mockFetcher, 'fetchManifest').mockResolvedValue({
         schema_version: '1.0.0',
         blueprint_version: '2.18.0',
@@ -120,23 +121,26 @@ describe('v2.18.0 i18n & Multi-Agent Targets (codex, windsurf, --lang auto|es|en
       vi.spyOn(mockFetcher, 'fetchFileContent').mockResolvedValue('# Mock Skill Content Windsurf');
 
       try {
+        process.env.HOME = fakeHome;
         await runInstallSkillCli(['--target', 'windsurf'], mockFetcher);
         const windsurfSkill = path.join(fakeHome, '.codeium', 'windsurf', 'skills', 'qa-11x-architect', 'SKILL.md');
         expect(fs.existsSync(windsurfSkill)).toBe(true);
         expect(fs.readFileSync(windsurfSkill, 'utf-8')).toBe('# Mock Skill Content Windsurf');
       } finally {
-        process.env.HOME = origHome;
+        if (origHome === undefined) {
+          delete process.env.HOME;
+        } else {
+          process.env.HOME = origHome;
+        }
       }
     });
 
     it('auto-detects codex and windsurf directories when present in HOME', async () => {
       const origHome = process.env.HOME;
-      process.env.HOME = fakeHome;
-
       fs.mkdirSync(path.join(fakeHome, '.codex'), { recursive: true });
       fs.mkdirSync(path.join(fakeHome, '.codeium', 'windsurf'), { recursive: true });
 
-      const mockFetcher = new GitHubFetcher();
+      const mockFetcher = new GitHubFetcher({ cacheDir: path.join(tmpDir, 'cache-auto') });
       vi.spyOn(mockFetcher, 'fetchManifest').mockResolvedValue({
         schema_version: '1.0.0',
         blueprint_version: '2.18.0',
@@ -159,11 +163,16 @@ describe('v2.18.0 i18n & Multi-Agent Targets (codex, windsurf, --lang auto|es|en
       vi.spyOn(mockFetcher, 'fetchFileContent').mockResolvedValue('# Multi-Agent Mock');
 
       try {
+        process.env.HOME = fakeHome;
         await runInstallSkillCli(['--target', 'auto'], mockFetcher);
         expect(fs.existsSync(path.join(fakeHome, '.codex', 'skills', 'qa-11x-architect', 'SKILL.md'))).toBe(true);
         expect(fs.existsSync(path.join(fakeHome, '.codeium', 'windsurf', 'skills', 'qa-11x-architect', 'SKILL.md'))).toBe(true);
       } finally {
-        process.env.HOME = origHome;
+        if (origHome === undefined) {
+          delete process.env.HOME;
+        } else {
+          process.env.HOME = origHome;
+        }
       }
     });
   });

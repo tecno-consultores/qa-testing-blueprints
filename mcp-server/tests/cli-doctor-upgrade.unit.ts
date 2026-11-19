@@ -448,6 +448,78 @@ describe('CLI Arg Helpers, Doctor & Upgrade Subcommands (QA-11X)', () => {
       expect(helpExtraRes.exitCode).toBe(1);
       expect(helpExtraRes.errorMessage).toContain("Unexpected argument 'extra' for 'help'");
     });
+
+    it('supports global $HOME mode for doctor and --version --verbose while blocking explicit -p/--dir ~', async () => {
+      const homeTextRes = await runDoctorCli(['--offline'], {
+        cwd: homeDir,
+        homeDir,
+        dockerProbeFn: () => null,
+      });
+      expect(homeTextRes.exitCode).toBe(0);
+      expect(homeTextRes.output).toContain('modo global $HOME; stacks: ninguno');
+
+      const homeJsonRes = await runDoctorCli(['--offline', '--json'], {
+        cwd: homeDir,
+        homeDir,
+        dockerProbeFn: () => null,
+      });
+      expect(homeJsonRes.exitCode).toBe(0);
+      const parsedHome = JSON.parse(homeJsonRes.output) as DoctorReport;
+      expect(parsedHome.project_path).toBe(fs.realpathSync(homeDir));
+      expect(parsedHome.graphify_graph_present).toBe(false);
+      expect(parsedHome.project_inspection.detected_stacks).toEqual([]);
+      expect(parsedHome.project_inspection.missing_11x_files).toEqual([]);
+      expect(parsedHome.project_inspection.update_available).toBeDefined();
+
+      // --version --verbose invoked from $HOME delegates cleanly into global $HOME mode
+      const versionLogs: string[] = [];
+      const versionErrs: string[] = [];
+      const versionHomeRes = await runCli(['--version', '--verbose'], {
+        cwd: homeDir,
+        homeDir,
+        dockerProbeFn: () => null,
+        log: (m) => versionLogs.push(m),
+        errorLog: (m) => versionErrs.push(m),
+      });
+      expect(versionHomeRes.exitCode).toBe(0);
+      expect(versionLogs[0]).toContain('modo global $HOME; stacks: ninguno');
+      expect(versionErrs).toEqual([]);
+
+      // Explicit -p ~ or --dir ~ remains fail-closed under SEC-PATH-01
+      const origHome = process.env.HOME;
+      try {
+        process.env.HOME = homeDir;
+
+        const explicitShort = await runDoctorCli(['--offline', '-p', homeDir], {
+          cwd: projDir,
+          homeDir,
+        });
+        expect(explicitShort.exitCode).toBe(1);
+        expect(explicitShort.isError).toBe(true);
+        expect(explicitShort.output).toContain('SEC-PATH-01');
+
+        const explicitDir = await runDoctorCli(['--offline', '--dir', homeDir], {
+          cwd: projDir,
+          homeDir,
+        });
+        expect(explicitDir.exitCode).toBe(1);
+        expect(explicitDir.isError).toBe(true);
+        expect(explicitDir.output).toContain('SEC-PATH-01');
+
+        const cliExplicitErrs: string[] = [];
+        const cliExplicitRes = await runCli(['doctor', '--dir', homeDir, '--offline'], {
+          cwd: projDir,
+          homeDir,
+          log: () => undefined,
+          errorLog: (m) => cliExplicitErrs.push(m),
+        });
+        expect(cliExplicitRes.exitCode).toBe(1);
+        expect(cliExplicitErrs[0]).toContain('SEC-PATH-01');
+      } finally {
+        if (origHome === undefined) delete process.env.HOME;
+        else process.env.HOME = origHome;
+      }
+    });
   });
 
   describe('upgrade subcommand & cache-clean alias', () => {
@@ -643,6 +715,17 @@ describe('CLI Arg Helpers, Doctor & Upgrade Subcommands (QA-11X)', () => {
       expect(clean.exitCode).toBe(0);
       expect(clean.command).toBe('upgrade');
       expect((JSON.parse(logs[1] ?? '{}') as UpgradeReport).cache_only).toBe(true);
+
+      const errLogs: string[] = [];
+      const nonErrCatch = await runCli(['install-skill'], {
+        homeDir,
+        cwd: tmpRoot,
+        installSkillRunner: vi.fn().mockRejectedValue('raw-string-error'),
+        errorLog: (m) => errLogs.push(m),
+      });
+      expect(nonErrCatch.exitCode).toBe(1);
+      expect(nonErrCatch.errorMessage).toBe('raw-string-error');
+      expect(errLogs[0]).toContain('raw-string-error');
     });
   });
 });

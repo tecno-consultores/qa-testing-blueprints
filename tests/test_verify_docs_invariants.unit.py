@@ -398,14 +398,14 @@ class TestVerifyDocsInvariants(unittest.TestCase):
             (root / "docs" / "specs").mkdir(parents=True, exist_ok=True)
 
             # Casos válidos sin falsos positivos (sub-skills, 22 reference controls,
-            # 29+5=34, 12 environments, 7 stacks)
+            # 29+5=34, 12 environments, 10 stacks)
             (root / "README.md").write_text(
                 "# OK\n"
                 "Loads 10 specialized sub-skills and 9 sub-skills with "
                 "SHA-256 skills.\n"
                 "Enforces 22 reference controls, 22 controls, "
                 "29+5=34 scanner rules.\n"
-                "Covers 12 environments, 7 controls (CALM), 7 stacks, "
+                "Covers 12 environments, 7 controls (CALM), 10 stacks, "
                 "Top 10 blueprint.\n"
                 "Historical: `18` MCP tools and `12` MCP resources, "
                 "12 core v1 tools, 7 v2.0/v3.1 tools.\n",
@@ -432,7 +432,9 @@ class TestVerifyDocsInvariants(unittest.TestCase):
                 "CALM Schema & 11-Control Verification (qa-11x.calm.json)\n"
                 "11 Blocking Architecture Controls\n"
                 "audit_security_stig_owasp checks 22 scanner rules and "
-                "29 static rules.\n",
+                "29 static rules.\n"
+                "Supports 7 stacks across 8 resources, 9 resources, "
+                "10 resources and 11 resources.\n",
                 encoding="utf-8",
             )
             (root / ".agents" / "rules" / "evo.md").write_text(
@@ -447,6 +449,11 @@ class TestVerifyDocsInvariants(unittest.TestCase):
             errs = verify_docs.check_stale_surface_counts(root)
             self.assertTrue(any("18 tools" in e for e in errs))
             self.assertTrue(any("12 resources" in e for e in errs))
+            self.assertTrue(any("8 resources" in e for e in errs))
+            self.assertTrue(any("9 resources" in e for e in errs))
+            self.assertTrue(any("10 resources" in e for e in errs))
+            self.assertTrue(any("11 resources" in e for e in errs))
+            self.assertTrue(any("7 stacks" in e for e in errs))
             self.assertTrue(any("Appium 2" in e for e in errs))
             self.assertTrue(any("11 controles" in e for e in errs))
             self.assertTrue(any("22 reglas" in e for e in errs))
@@ -1156,6 +1163,70 @@ class TestVerifyDocsInvariants(unittest.TestCase):
                     "blueprint://ui/refactoring-ui/nonexistent" in e
                     for e in topic_errs
                 )
+            )
+
+    def test_code_of_conduct_pair_and_extended_internal_links(self) -> None:
+        """Verifica paridad CODE_OF_CONDUCT y links en ROADMAP/CHANGELOG/refs."""
+        import tempfile
+
+        self.assertIn(
+            ("CODE_OF_CONDUCT.md", "CODE_OF_CONDUCT.es.md"),
+            verify_docs.BILINGUAL_DOC_PAIRS,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            ref_dir = (
+                root / ".agents" / "skills" / "qa-11x-architect" / "references"
+            )
+            ref_dir.mkdir(parents=True)
+            (root / "mcp-server").mkdir()
+            (root / "CODE_OF_CONDUCT.md").write_text(
+                "# CoC\n## Rules\n[broken](missing_coc.md)\n", encoding="utf-8"
+            )
+            (root / "CODE_OF_CONDUCT.es.md").write_text(
+                "# CoC ES\n## Reglas\n[roto](missing_coc_es.md)\n",
+                encoding="utf-8",
+            )
+            (root / "AGENTS.md").write_text(
+                "# Agents\n[broken](missing_agents.md)\n", encoding="utf-8"
+            )
+            (root / "ROADMAP.md").write_text(
+                "# Roadmap\n[broken](missing_roadmap.md)\n", encoding="utf-8"
+            )
+            (root / "CHANGELOG.md").write_text(
+                "# Changelog\n[broken](missing_changelog.md)\n",
+                encoding="utf-8",
+            )
+            (root / "mcp-server" / "CHANGELOG.md").write_text(
+                "# MCP Changelog\n[broken](missing_mcp_cl.md)\n",
+                encoding="utf-8",
+            )
+            (ref_dir / "guide.md").write_text(
+                "# Ref\n[broken](missing_ref.md)\n", encoding="utf-8"
+            )
+
+            link_errs = verify_docs.check_internal_markdown_links(root)
+            for expected_broken in (
+                "missing_coc.md",
+                "missing_coc_es.md",
+                "missing_agents.md",
+                "missing_roadmap.md",
+                "missing_changelog.md",
+                "missing_mcp_cl.md",
+                "missing_ref.md",
+            ):
+                self.assertTrue(
+                    any(expected_broken in e for e in link_errs),
+                    f"Faltó error de link roto para {expected_broken}: {link_errs}",
+                )
+
+            (root / "CODE_OF_CONDUCT.es.md").write_text(
+                "# CoC ES\n## Uno\n## Dos\n", encoding="utf-8"
+            )
+            pair_errs = verify_docs.check_bilingual_pair_parity(root)
+            self.assertTrue(
+                any("CODE_OF_CONDUCT" in e for e in pair_errs),
+                f"Se esperaba error de paridad CODE_OF_CONDUCT: {pair_errs}",
             )
 
 

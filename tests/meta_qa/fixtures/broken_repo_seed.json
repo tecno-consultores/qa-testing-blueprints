@@ -14,7 +14,7 @@
     "files": [
       {
         "path": "README.md",
-        "content": "# Nominal Valid Repo\n\nEste repositorio semilla verifica invariantes QA 11X con 9 resources.\n"
+        "content": "# Nominal Valid Repo\n\nEste repositorio semilla verifica invariantes QA 11X con 13 resources.\n"
       },
       {
         "path": "AGENTS.md",
@@ -167,7 +167,7 @@
           "path": ".agents/skills/qa-11x-architect/SKILL.md",
           "repeat_char": {
             "char": "x",
-            "count": 20480
+            "count": 12289
           }
         }
       ]

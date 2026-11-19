@@ -43,7 +43,7 @@
 | **Hito 24** | Auditoría Integral `QA-11X v3.0` (`v3.0.0`), Sincronizador `bump_version_11x.py`, Protocolo MCP en Vivo y Planificación `19_SPEC` / `20_SPEC` | [`19_SPEC`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md) + [`20_SPEC`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.es.md) | ✅ Completado | `100%` |
 | **Hito 25** | Matriz 15×12, `base-mobile-appium:26` y Arquitectura Documental Bilingüe | [`19_SPEC`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md) + [`20_SPEC`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.es.md) | ✅ Completado | `100%` |
 | **Hito 26** | `QA-11X v3.1` (`3.1.0`) — Flight Recorder Atómico, `tactical-patterns-11x`, Hidratación 10 Stacks y Endurecimiento Fail-Closed | [`AGENTS.md`](AGENTS.md) + [`TESTING.es.md`](TESTING.es.md) | ✅ Completado | `100%` |
-| **Hito 27** | `v3.2.0` (`QA-11X v3.1`) — Remediación Integral 99/99 Hallazgos, 12 Subcomandos CLI, Anotaciones MCP 2026, A2A v1.0 y 100% Diff Coverage | [`CHANGELOG.es.md`](CHANGELOG.es.md) + [`TESTING.es.md`](TESTING.es.md) | ✅ Completado | `100%` |
+| **Hito 27** | `v3.2.0` (`QA-11X v3.2`) — Remediación Integral 99/99 Hallazgos, 12 Subcomandos CLI, Anotaciones MCP 2026, A2A v1.0 y 100% Diff Coverage | [`CHANGELOG.es.md`](CHANGELOG.es.md) + [`TESTING.es.md`](TESTING.es.md) | ✅ Completado | `100%` |
 
 ---
 
@@ -363,7 +363,7 @@
 
 ---
 
-## ✅ Hito 27: `v3.2.0` (`QA-11X v3.1`) — Remediación Integral 99/99 Hallazgos, 12 Subcomandos CLI, Estándares MCP 2026 y 100% Diff Coverage
+## ✅ Hito 27: `v3.2.0` (`QA-11X v3.2`) — Remediación Integral 99/99 Hallazgos, 12 Subcomandos CLI, Estándares MCP 2026 y 100% Diff Coverage
 **Referencia Obligatoria:** [`CHANGELOG.es.md`](CHANGELOG.es.md), [`TESTING.es.md`](TESTING.es.md) y [`AGENTS.md`](AGENTS.md)
 
 ### Tareas de Implementación:

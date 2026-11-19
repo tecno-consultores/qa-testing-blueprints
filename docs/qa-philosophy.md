@@ -2,7 +2,7 @@
 
 # Quality Philosophy (QA Philosophy)
 
-This document sets out the engineering principles and strategic decisions that underpin the `qa-testing-blueprints` (`QA-11X v3.1`) ecosystem.
+This document sets out the engineering principles and strategic decisions that underpin the `qa-testing-blueprints` (`QA-11X v3.2`) ecosystem.
 
 ## 1. 95% Coverage Is a Floor, Not a Target
 Requiring 95% coverage in `kcov`, `Vitest`, `PCOV`, or `pytest` is not a vanity metric; it is a containment barrier against silent regressions. We enforce writing tests for `catch` blocks and obscure logic branches.

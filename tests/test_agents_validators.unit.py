@@ -902,10 +902,41 @@ def test_sync_governance_classifiers_compare_git_and_cli_branches(
         "overwrite_executable"
     )
     assert mod.classify_common_file(".trivy.yaml")[1] == "copy_if_missing"
+    assert mod.classify_common_file(".env.example")[1] == "copy_if_missing"
+    assert mod.classify_common_file("instalar-hooks.sh")[1] == "copy_if_missing"
     assert mod.classify_governance_file(".agents/ACTIVE_TASK.md.example") == (
         ".agents/ACTIVE_TASK.md",
         "copy_if_missing",
     )
+
+    legacy_ws = tmp_path / "legacy_common_ws"
+    (legacy_ws / "scripts").mkdir(parents=True)
+    (legacy_ws / "instalar-hooks.sh").write_text("#!/bin/sh\n", encoding="utf-8")
+    (legacy_ws / ".env.example").write_text("FOO=bar\n", encoding="utf-8")
+    (legacy_ws / "scripts" / "publicar-mcp.sh").write_text(
+        "#!/bin/sh\n", encoding="utf-8"
+    )
+    (legacy_ws / "scripts" / "probar-mcp-example.sh").write_text(
+        "#!/bin/sh\n", encoding="utf-8"
+    )
+    scanned_common = mod.scan_common_files(
+        legacy_ws,
+        [
+            {"path": ".env.example"},
+            {"path": "scripts/publicar-mcp.sh"},
+            {"path": "scripts/probar-mcp-example.sh"},
+        ],
+    )
+    scanned_paths = {item["path"] for item in scanned_common}
+    assert scanned_paths == {"instalar-hooks.sh"}
+    assert scanned_common[0]["merge_strategy"] == "copy_if_missing"
+
+    (legacy_ws / ".agents").mkdir(parents=True)
+    (legacy_ws / ".agents" / "ACTIVE_TASK.md.example").write_text(
+        "\n".join(["line"] * 41) + "\n", encoding="utf-8"
+    )
+    budget_errs = mod.validate_cognitive_budgets(legacy_ws)
+    assert any("ACTIVE_TASK.md.example" in err for err in budget_errs)
 
     exp = {
         "schema_version": "0.0.1",
@@ -1581,3 +1612,65 @@ def test_verify_alembic_orm_parity_handles_model_syntax_error(tmp_path: Path) ->
         'class Valid:\n    __tablename__ = "valid_tbl"\n', encoding="utf-8"
     )
     assert mod.get_orm_tables([broken, valid]) == {"valid_tbl"}
+
+
+def test_validator_clis_support_workspace_and_exit_skipped_code(
+    tmp_path: Path,
+) -> None:
+    """Estandariza --workspace y --exit-skipped-code en los 5 validadores .agents."""
+    cli_specs: tuple[tuple[str, str, list[str]], ...] = (
+        ("dup_cli", "verify_json_no_duplicate_keys.py", []),
+        ("roadmap_cli", "verify_roadmap_consistency.py", []),
+        ("topo_cli", "verify_topological_health.py", []),
+        ("vue_orphan_cli", "verify_zero_orphan_vue_components.py", []),
+        ("api_orphan_cli", "verify_no_orphan_api_endpoints.py", []),
+    )
+    for mod_name, filename, extra_args in cli_specs:
+        mod = _load_script_module(mod_name, filename)
+        entry = getattr(mod, "cli_main", mod.main)
+        rc_ok = entry(
+            ["--workspace", str(tmp_path), "--exit-skipped-code", "0", *extra_args]
+        )
+        assert rc_ok == 0
+
+
+def test_select_tests_normalizes_pull_request_target_and_merge_group(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Mapea pull_request_target y merge_group a evento pull_request y usa ..HEAD."""
+    mod = _load_script_module("sel_pr_norm", "select_tests_by_blast_radius.py")
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "qa@example.com"], cwd=tmp_path, check=True
+    )
+    subprocess.run(["git", "config", "user.name", "QA Bot"], cwd=tmp_path, check=True)
+    (tmp_path / "README.md").write_text("# Init\n", encoding="utf-8")
+    subprocess.run(["git", "add", "README.md"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "init"], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "branch", "-M", "main"], cwd=tmp_path, check=True
+    )
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "demo.sh").write_text(
+        "#!/usr/bin/env bash\necho ok\n", encoding="utf-8"
+    )
+    subprocess.run(["git", "add", "scripts/demo.sh"], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "feat: script"], cwd=tmp_path, check=True
+    )
+
+    monkeypatch.chdir(tmp_path)
+    for event_alias in ("pull_request_target", "merge_group"):
+        assert (
+            mod.main(
+                [
+                    "--event",
+                    event_alias,
+                    "--base-ref",
+                    "HEAD~1",
+                ]
+            )
+            == 0
+        )
+    changed = mod._resolve_git_changed_files("HEAD~1", tmp_path)
+    assert "scripts/demo.sh" in changed

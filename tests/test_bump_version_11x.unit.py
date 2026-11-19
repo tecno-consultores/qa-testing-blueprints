@@ -366,3 +366,72 @@ def test_major_minor_only_security_rules(tmp_path: Path) -> None:
     assert mod.run_rules(tmp_path, sec_rules, "3.1.9", False) == ([], 0)
     assert "3.1.x" in (tmp_path / "SECURITY.md").read_text(encoding="utf-8")
     assert "3.1.x" in (tmp_path / "SECURITY.es.md").read_text(encoding="utf-8")
+
+
+def test_mcp_test_fixtures_edition_and_version_rules(tmp_path: Path) -> None:
+    """Valida reglas en github-fetcher, live-mcp-protocol y calm.test.ts."""
+    mod = _load_mod()
+    targets = {
+        "mcp-server/tests/github-fetcher.unit.ts",
+        "mcp-server/tests/live-mcp-protocol.test.ts",
+        "mcp-server/tests/calm.test.ts",
+    }
+    ver_rules = tuple(r for r in mod.VERSION_RULES if r.rel_path in targets)
+    ed_rules = tuple(r for r in mod.EDITION_RULES if r.rel_path in targets)
+    assert {r.rel_path for r in ver_rules} == {"mcp-server/tests/calm.test.ts"}
+    assert {r.rel_path for r in ed_rules} == targets
+
+    tests_dir = tmp_path / "mcp-server" / "tests"
+    tests_dir.mkdir(parents=True)
+    fetcher_unit = tests_dir / "github-fetcher.unit.ts"
+    fetcher_unit.write_text(
+        "expect(MCP_STANDARD_EDITION).toBe('QA-11X v3.1');\n"
+        "expect(extractStandardEdition('Official MCP Server (QA-11X v3.9: 19 Tools)'))"
+        ".toBe('QA-11X v3.9');\n"
+        "expect(extractStandardEdition('Official MCP Server (QA-11X v3.2: 19 Tools)'))"
+        ".toBe('QA-11X v3.2');\n"
+        "expect(extractStandardEdition('Description without edition tag'))"
+        ".toBe('QA-11X v3.1');\n"
+        "expect(extractStandardEdition()).toBe('QA-11X v3.1');\n",
+        encoding="utf-8",
+    )
+    live_proto = tests_dir / "live-mcp-protocol.test.ts"
+    live_proto.write_text(
+        "expect(card.standardVersion).toBe('QA-11X v3.1');\n"
+        "expect(deriveStandardVersion('3.0.0')).toBe('QA-11X v3.0');\n",
+        encoding="utf-8",
+    )
+    calm_test = tests_dir / "calm.test.ts"
+    calm_test.write_text(
+        "const FIXTURE = {\n"
+        "  'qa-11x': {\n"
+        "    standard: 'QA-11X v3.1',\n"
+        "    version: '3.1.0',\n"
+        "  },\n"
+        "};\n",
+        encoding="utf-8",
+    )
+
+    assert mod.run_rules(tmp_path, ver_rules, "3.1.0", False) == ([], 0)
+    assert mod.run_rules(tmp_path, ed_rules, "QA-11X v3.1", False) == ([], 0)
+
+    assert mod.run_rules(tmp_path, ver_rules, "3.2.0", True) == ([], 1)
+    assert mod.run_rules(tmp_path, ed_rules, "QA-11X v3.2", True) == ([], 3)
+    assert mod.run_rules(tmp_path, ver_rules, "3.2.0", False) == ([], 0)
+    assert mod.run_rules(tmp_path, ed_rules, "QA-11X v3.2", False) == ([], 0)
+
+    updated_fetcher = fetcher_unit.read_text(encoding="utf-8")
+    assert "expect(MCP_STANDARD_EDITION).toBe('QA-11X v3.2');" in updated_fetcher
+    assert (
+        "expect(extractStandardEdition('Description without edition tag'))"
+        ".toBe('QA-11X v3.2');"
+    ) in updated_fetcher
+    assert "expect(extractStandardEdition()).toBe('QA-11X v3.2');" in updated_fetcher
+    assert "Official MCP Server (QA-11X v3.9: 19 Tools)" in updated_fetcher
+    assert "Official MCP Server (QA-11X v3.2: 19 Tools)" in updated_fetcher
+    assert "expect(card.standardVersion).toBe('QA-11X v3.2');" in live_proto.read_text(
+        encoding="utf-8"
+    )
+    calm_updated = calm_test.read_text(encoding="utf-8")
+    assert "standard: 'QA-11X v3.2'," in calm_updated
+    assert "version: '3.2.0'," in calm_updated

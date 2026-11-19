@@ -1,9 +1,25 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { redactPiiAndSecrets } from '../security/promptGuard.js';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
+import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
+
+export function resolveComparablePath(targetPath: string): string {
+  const abs = path.resolve(targetPath);
+  try {
+    return fs.realpathSync(abs);
+  } catch (err: unknown) {
+    reportDebugCatchError('cliArgHelpers.resolveComparablePath', err);
+    return abs;
+  }
+}
+
+export function isSameResolvedDir(dirA: string, dirB: string): boolean {
+  return resolveComparablePath(dirA) === resolveComparablePath(dirB);
+}
 
 export interface CliCommandOutput {
   readonly exitCode: number;

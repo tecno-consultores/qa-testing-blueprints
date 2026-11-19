@@ -9,6 +9,11 @@ import { resolveRealTargetWithSymlinks } from '../security/pathRealResolver.js';
 import { FetchedFileItem, GitHubFetcherOptions, Manifest } from '../types.js';
 
 const FORBIDDEN_PATH_SEGMENTS = new Set(['..', '__proto__', 'constructor', 'prototype']);
+const EXCLUDED_REMOTE_COMMON_PATHS = new Set([
+  'scripts/publicar-mcp.sh',
+  'scripts/probar-mcp-example.sh',
+  '.env.example',
+]);
 const DEFAULT_FETCH_TIMEOUT_MS = 15000;
 const PACKAGE_JSON_URL = new URL('../../package.json', import.meta.url);
 const PACKAGE_META = JSON.parse(fs.readFileSync(PACKAGE_JSON_URL, 'utf-8')) as {
@@ -18,7 +23,7 @@ const PACKAGE_META = JSON.parse(fs.readFileSync(PACKAGE_JSON_URL, 'utf-8')) as {
 
 export function extractStandardEdition(description?: string): string {
   const match = /\(QA-11X v\d+\.\d+(?=:)/.exec(description ?? '');
-  return match ? match[0].slice(1) : 'QA-11X v3.1';
+  return match ? match[0].slice(1) : 'QA-11X v3.2';
 }
 
 export const MCP_SERVER_VERSION: string = PACKAGE_META.version;
@@ -309,9 +314,9 @@ export class GitHubFetcher {
     }> = [...stackDef.files];
 
     if (includeCommonAndAgents) {
-      const commonItems = thinRepoOnly
-        ? manifest.common_files.filter((f) => f.path !== 'scripts/publicar-mcp.sh')
-        : manifest.common_files;
+      const commonItems = manifest.common_files.filter(
+        (f) => !EXCLUDED_REMOTE_COMMON_PATHS.has(f.path)
+      );
       const agentItems = thinRepoOnly
         ? manifest.agent_governance_files.filter(
             (f) =>

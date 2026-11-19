@@ -63,7 +63,12 @@ EOF
 
 _install_calm_node_and_cli_stubs() {
   local bin_dir="$1"
-  cat >"${bin_dir}/node" <<'PYEOF'
+  local real_node=""
+  real_node="$(command -v node || true)"
+  if [ -n "${real_node}" ] && [ -x "${real_node}" ]; then
+    ln -sf "${real_node}" "${bin_dir}/node"
+  else
+    cat >"${bin_dir}/node" <<'PYEOF'
 #!/usr/bin/env python3
 import json
 import os
@@ -176,6 +181,8 @@ if errors:
     fail(rel_clean, errors)
 sys.stdout.write(f"{rel_clean}|{len(nodes)}|{len(rels)}|{len(ctrls)}")
 PYEOF
+    chmod +x "${bin_dir}/node"
+  fi
   cat >"${bin_dir}/calm" <<'EOF'
 #!/usr/bin/env bash
 if [ -n "${CALM_CLI_LOG:-}" ]; then
@@ -192,7 +199,7 @@ fi
 printf '{"hasErrors":false,"hasWarnings":false}\n'
 exit 0
 EOF
-  chmod +x "${bin_dir}/node" "${bin_dir}/calm"
+  chmod +x "${bin_dir}/calm"
 }
 
 @test "actualizar-grafos-graphify.sh (Virgen): repo vacio sin grafos construye grafo root en Docker pineado" {

@@ -13,7 +13,7 @@
 *   **Mandatory:** Use the predefined targets in the `Makefile` (e.g., `make qa-unit`) to isolate infrastructure and reuse the dependency cache.
 *   **For logic tests (Vitest) and Mutation:** We use the lightweight container `qa-frontend` (`sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60`).
 *   **For Lighthouse and UI E2E (Playwright):** We use the heavyweight container `ui-e2e`.
-*   **For BDD tests (HTTP/OSHP Black-Box):** We use the official image `sinfallas/karatelabs:1.5.1`.
+*   **For BDD tests (HTTP/OSHP Black-Box):** We use the official image `sinfallas/karatelabs:1.5.1@sha256:a9a52ca9c5491ab39b64f0b4fdc3dea879c2213c9bc995be58d6cd4b9a80cc89`.
 *   **For Observability (Server Metrics):** We use the containers `nginx/nginx-prometheus-exporter:1.3.0` and `prom/prometheus:v2.55.1`.
 *   **For Ephemeral AST Graph Extraction (Graphify CLI):** We use the image `sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0`.
 
@@ -39,7 +39,7 @@
 *   **Lighthouse CI:** Attacks the production build to audit strict performance (Core Web Vitals), SEO, and PWA. If the *Performance Score* drops below 90, the pipeline fails.
 
 ### E. BDD Business Flows -> `Karate Labs` + `Playwright`
-*   **Rule:** `sinfallas/karatelabs:1.5.1` does not include a Chrome/Chromium binary; use `test/ui_business_flow.feature` exclusively for HTTP/Nginx/SSG contracts, OWASP OSHP headers, and XML/SEO (`* string xmlText = response`), delegating real DOM interaction, `[ 🔄 Refrescar ]`, and WCAG 2.1 AA to Playwright (`ui-e2e`).
+*   **Rule:** `sinfallas/karatelabs:1.5.1@sha256:a9a52ca9c5491ab39b64f0b4fdc3dea879c2213c9bc995be58d6cd4b9a80cc89` does not include a Chrome/Chromium binary; use `test/ui_business_flow.feature` exclusively for HTTP/Nginx/SSG contracts, OWASP OSHP headers, and XML/SEO (`* string xmlText = response`), delegating real DOM interaction, `[ 🔄 Refrescar ]`, and WCAG 2.1 AA to Playwright (`ui-e2e`).
 
 ### F. Observability -> `Nginx Prometheus Exporter`
 *   **Rule:** Frontend monitoring is performed externally via Nginx access logs to avoid adding dependencies to application code. This runs via the `--profile observability` profile.

@@ -36,7 +36,7 @@ services:
     command: bash -c "echo 'Contenedor QA Backend (Python) listo. Utilice docker compose run --rm -T qa-backend [comando]'; sleep infinity"
 
   prometheus:
-    image: prom/prometheus:v2.55.1
+    image: prom/prometheus:v2.55.1@sha256:2659f4c2ebb718e7695cb9b25ffa7d6be64db013daba13e05c875451cf51b0d3
     container_name: python_prometheus
     hostname: python_prometheus
     pull_policy: if_not_present
@@ -68,7 +68,7 @@ services:
       - pushgateway
 
   pushgateway:
-    image: prom/pushgateway:v1.10.0
+    image: prom/pushgateway:v1.10.0@sha256:7a4d0696a24ef4e8bad62bee5656855a0aff2f26416d8cb32009dc28d6263604
     container_name: python_pushgateway
     hostname: python_pushgateway
     pull_policy: if_not_present
@@ -78,6 +78,34 @@ services:
       - observability
     ports:
       - "127.0.0.1:9091:9091"
+
+  python-api:
+    image: sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4
+    container_name: python_qa_api
+    hostname: python-api
+    pull_policy: if_not_present
+    user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    security_opt:
+      - no-new-privileges:true
+    profiles:
+      - load
+    depends_on:
+      uv-cache-init:
+        condition: service_completed_successfully
+    environment:
+      HOME: /tmp
+      TZ: 'America/Caracas'
+      UV_CACHE_DIR: /tmp/uv-cache
+    volumes:
+      - .:/app
+      - uv-cache:/tmp/uv-cache
+    working_dir: /app
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c 'import socket; s=socket.create_connection((\"127.0.0.1\", 8000), 1); s.close()' || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    command: bash -c "${PYTHON_HTTP_CMD:-python3 -m http.server 8000}"
 
   k6-smoke:
     image: grafana/k6:2.4.0@sha256:d41bb79cd8de5a7ad619b53570e3712633e8bff0937010a5c6c57a4747e7a276
@@ -91,19 +119,20 @@ services:
     security_opt:
       - no-new-privileges:true
     tmpfs:
-      - /tmp
+      - /tmp:noexec,nosuid,nodev
     profiles:
       - load
     environment:
       K6_PROFILE: ${K6_PROFILE:-smoke}
-      API_BASE_URL: ${API_BASE_URL:-http://qa-backend:8000}
+      API_BASE_URL: ${API_BASE_URL:-http://python-api:8000}
       QA_TENANT_ID: ${QA_TENANT_ID:-tenant-alpha}
       K6_SUMMARY_PATH: /tmp/k6-summary.json
     volumes:
       - ./tests/load:/scripts:ro
     command: ["run", "/scripts/smoke.k6.js"]
     depends_on:
-      - qa-backend
+      python-api:
+        condition: service_healthy
 
 networks:
   default:

@@ -211,3 +211,128 @@ EOF
   assert_failure 1
   assert_output --partial "Se requiere 'jq', 'python3' o 'docker'"
 }
+
+
+_create_mini_install_repo() {
+  local repo_dir="$1"
+  mkdir -p "${repo_dir}/.agents/skills/qa-11x-architect"
+  printf '# Mini Architect\n' >"${repo_dir}/.agents/skills/qa-11x-architect/SKILL.md"
+  printf '# Active Task\n' >"${repo_dir}/.agents/ACTIVE_TASK.md.example"
+  printf 'scan:\n  skip-dirs: []\n' >"${repo_dir}/.trivy.yaml"
+  printf '#!/usr/bin/env bash\necho hooks\n' >"${repo_dir}/instalar-hooks.sh"
+  printf 'SECRET=dummy\n' >"${repo_dir}/.env.example"
+  local s_sha a_sha t_sha h_sha e_sha
+  s_sha="$(sha256sum "${repo_dir}/.agents/skills/qa-11x-architect/SKILL.md" | awk '{print $1}')"
+  a_sha="$(sha256sum "${repo_dir}/.agents/ACTIVE_TASK.md.example" | awk '{print $1}')"
+  t_sha="$(sha256sum "${repo_dir}/.trivy.yaml" | awk '{print $1}')"
+  h_sha="$(sha256sum "${repo_dir}/instalar-hooks.sh" | awk '{print $1}')"
+  e_sha="$(sha256sum "${repo_dir}/.env.example" | awk '{print $1}')"
+  cat >"${repo_dir}/manifest.json" <<JSON
+{
+  "blueprint_version": "3.2.0",
+  "agent_governance_files": [
+    {"path": ".agents/skills/qa-11x-architect/SKILL.md", "sha256": "${s_sha}", "size_bytes": 17},
+    {"path": ".agents/ACTIVE_TASK.md.example", "target_name": ".agents/ACTIVE_TASK.md", "sha256": "${a_sha}", "size_bytes": 14}
+  ],
+  "common_files": [
+    {"path": ".trivy.yaml", "sha256": "${t_sha}", "size_bytes": 21, "merge_strategy": "copy_if_missing"},
+    {"path": "instalar-hooks.sh", "sha256": "${h_sha}", "size_bytes": 31},
+    {"path": ".env.example", "sha256": "${e_sha}", "size_bytes": 13, "merge_strategy": "copy_if_missing"}
+  ]
+}
+JSON
+}
+
+@test "install-skill.sh: --dry-run no escribe archivos y flags desconocidos fallan con exit 1" {
+  local mini_repo="${BATS_TEST_TMPDIR}/dry_mini_repo"
+  local dry_ws="${BATS_TEST_TMPDIR}/dry_ws"
+  local fake_home="${BATS_TEST_TMPDIR}/dry_home"
+  local empty_auto="${BATS_TEST_TMPDIR}/empty_auto_home"
+  local pop_home="${BATS_TEST_TMPDIR}/pop_home"
+  mkdir -p "${dry_ws}" "${fake_home}/.gemini" "${empty_auto}" \
+    "${pop_home}/.gemini" "${pop_home}/.claude" "${pop_home}/.hermes" \
+    "${pop_home}/.cursor" "${pop_home}/.codeium/windsurf" "${pop_home}/.codex"
+  _create_mini_install_repo "${mini_repo}"
+
+  cd "${dry_ws}"
+  run env QA_BLUEPRINTS_LOCAL_PATH="${mini_repo}" HOME="${fake_home}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target workspace --dry-run --include-scripts --init-agents
+  assert_success
+  assert_output --partial "DRY-RUN"
+  assert_output --partial "GEMINI.md"
+  [ ! -e "${dry_ws}/.agents" ]
+  [ ! -e "${dry_ws}/.trivy.yaml" ]
+  [ ! -e "${dry_ws}/instalar-hooks.sh" ]
+  [ ! -e "${dry_ws}/AGENTS.md" ]
+
+  cd "${fake_home}"
+  run env QA_BLUEPRINTS_LOCAL_PATH="${mini_repo}" HOME="${fake_home}" LC_ALL=C bash "${INSTALL_SCRIPT}" --dry-run --include-scripts --init-agents
+  assert_success
+  assert_output --partial "Modo Global"
+
+  cd "${empty_auto}"
+  run env QA_BLUEPRINTS_LOCAL_PATH="${mini_repo}" HOME="${empty_auto}" LC_ALL=C bash "${INSTALL_SCRIPT}" --dry-run
+  assert_success
+  assert_output --partial ".gemini/config/skills"
+
+  cd "${dry_ws}"
+  run env QA_BLUEPRINTS_LOCAL_PATH="${mini_repo}" HOME="${pop_home}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target all --dry-run
+  assert_success
+  assert_output --partial ".codex/skills"
+
+  run env QA_BLUEPRINTS_LOCAL_PATH="${mini_repo}" HOME="${fake_home}" LC_ALL=C bash "${INSTALL_SCRIPT}" --flag-inventada
+  assert_failure 1
+  assert_output --partial "Opción CLI desconocida"
+}
+
+@test "install-skill.sh: guardia de HOME, --target all (windsurf/codex/antigravity/GEMINI.md) y copy_if_missing" {
+  local mini_repo="${BATS_TEST_TMPDIR}/all_mini_repo"
+  local fake_home="${BATS_TEST_TMPDIR}/guard_home"
+  local fake_home_all="${BATS_TEST_TMPDIR}/all_home"
+  local fake_ws="${BATS_TEST_TMPDIR}/all_ws"
+  mkdir -p "${fake_home}/.gemini/antigravity" "${fake_home_all}" "${fake_ws}"
+  _create_mini_install_repo "${mini_repo}"
+
+  # En HOME, --target workspace debe abortar; --target antigravity omite --include-scripts y --init-agents
+  cd "${fake_home}"
+  run env QA_BLUEPRINTS_LOCAL_PATH="${mini_repo}" HOME="${fake_home}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target workspace
+  assert_failure 1
+
+  run env QA_BLUEPRINTS_LOCAL_PATH="${mini_repo}" HOME="${fake_home}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target antigravity --include-scripts --init-agents
+  assert_success
+  [ -f "${fake_home}/.gemini/config/skills/qa-11x-architect/SKILL.md" ]
+  [ -f "${fake_home}/.gemini/antigravity/skills/qa-11x-architect/SKILL.md" ]
+  [ -f "${fake_home}/.gemini/GEMINI.md" ]
+  [ ! -e "${fake_home}/instalar-hooks.sh" ]
+  [ ! -e "${fake_home}/AGENTS.md" ]
+
+  # --target all en HOME limpio instala en gemini, windsurf y codex globales
+  cd "${fake_home_all}"
+  run env QA_BLUEPRINTS_LOCAL_PATH="${mini_repo}" HOME="${fake_home_all}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target all
+  assert_success
+  [ -f "${fake_home_all}/.gemini/config/skills/qa-11x-architect/SKILL.md" ]
+  [ -f "${fake_home_all}/.codeium/windsurf/skills/qa-11x-architect/SKILL.md" ]
+  [ -f "${fake_home_all}/.codex/skills/qa-11x-architect/SKILL.md" ]
+  [ -f "${fake_home_all}/.gemini/GEMINI.md" ]
+
+  # Preservar .trivy.yaml preexistente (copy_if_missing), crear instalar-hooks.sh, ACTIVE_TASK.md, y fusionar AGENTS.md (append + update)
+  printf '# custom-trivy-keep\n' >"${fake_ws}/.trivy.yaml"
+  printf '# Custom Header\n' >"${fake_ws}/AGENTS.md"
+  cd "${fake_ws}"
+  run env QA_BLUEPRINTS_LOCAL_PATH="${mini_repo}" HOME="${fake_home}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target workspace --include-scripts --init-agents
+  assert_success
+  [ -f "${fake_ws}/.agents/skills/qa-11x-architect/SKILL.md" ]
+  [ -f "${fake_ws}/.agents/ACTIVE_TASK.md" ]
+  [ -f "${fake_ws}/AGENTS.md" ]
+  [ -f "${fake_ws}/instalar-hooks.sh" ]
+  [ -x "${fake_ws}/instalar-hooks.sh" ]
+  [ ! -e "${fake_ws}/.env.example" ]
+  run cat "${fake_ws}/.trivy.yaml"
+  assert_success
+  assert_output --partial "custom-trivy-keep"
+
+  # Segunda corrida con marcadores ya presentes cubre reemplazo idempotente del bloque
+  run env QA_BLUEPRINTS_LOCAL_PATH="${mini_repo}" HOME="${fake_home}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target workspace --init-agents
+  assert_success
+  run grep -F "Custom Header" "${fake_ws}/AGENTS.md"
+  assert_success
+}

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
+import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { resolveSubcommandHelpText } from '../src/cli.js';
@@ -14,6 +16,7 @@ import {
   getDoctorIdeMcpTargets,
   HERMES_CANONICAL_MCP_REL_PATH,
   HERMES_FALLBACK_MCP_REL_PATH,
+  resolveActiveJsonMcpClientRelPath,
   resolveClaudeDesktopMcpRelPath,
   resolveJsonMcpClientRelPath,
   WINDSURF_MCP_REL_PATH,
@@ -93,5 +96,42 @@ describe('ideConfigPaths & CLI help loaders', () => {
       expect((helpText ?? '').length).toBeGreaterThan(20);
     }
     expect(await resolveSubcommandHelpText('unknown-cmd')).toBeNull();
+  });
+
+  it('resolves resolveActiveJsonMcpClientRelPath with Antigravity legacy fallback only when canonical is absent', () => {
+    const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'qa-active-ide-path-'));
+    try {
+      // Neither canonical nor fallback exists -> canonical path
+      expect(resolveActiveJsonMcpClientRelPath('antigravity', tmpHome, 'linux')).toBe(
+        ANTIGRAVITY_CANONICAL_MCP_REL_PATH
+      );
+
+      // Only fallback exists -> fallback path
+      const fallbackPath = path.join(tmpHome, ANTIGRAVITY_FALLBACK_MCP_REL_PATH);
+      fs.mkdirSync(path.dirname(fallbackPath), { recursive: true });
+      fs.writeFileSync(fallbackPath, '{}', 'utf8');
+      expect(resolveActiveJsonMcpClientRelPath('antigravity', tmpHome, 'linux')).toBe(
+        ANTIGRAVITY_FALLBACK_MCP_REL_PATH
+      );
+
+      // Both canonical and fallback exist -> canonical path takes precedence
+      const canonicalPath = path.join(tmpHome, ANTIGRAVITY_CANONICAL_MCP_REL_PATH);
+      fs.mkdirSync(path.dirname(canonicalPath), { recursive: true });
+      fs.writeFileSync(canonicalPath, '{}', 'utf8');
+      expect(resolveActiveJsonMcpClientRelPath('antigravity', tmpHome, 'linux')).toBe(
+        ANTIGRAVITY_CANONICAL_MCP_REL_PATH
+      );
+
+      // Other JSON clients always return canonical path
+      expect(resolveActiveJsonMcpClientRelPath('cursor', tmpHome, 'linux')).toBe(CURSOR_MCP_REL_PATH);
+      expect(resolveActiveJsonMcpClientRelPath('hermes', tmpHome, 'linux')).toBe(
+        HERMES_CANONICAL_MCP_REL_PATH
+      );
+      expect(resolveActiveJsonMcpClientRelPath('claude-desktop', tmpHome, 'darwin')).toContain(
+        'Library'
+      );
+    } finally {
+      fs.rmSync(tmpHome, { recursive: true, force: true });
+    }
   });
 });

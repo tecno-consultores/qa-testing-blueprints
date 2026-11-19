@@ -61,6 +61,7 @@ Levanta Prometheus y Pushgateway y evalúa la emisión de métricas del script e
 ```bash
 make qa-observability
 docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-bash bash ./clean_artifacts.sh --dry-run
-# O envía métrica tras limpieza real: ./clean_artifacts.sh --pushgateway-url http://pushgateway:9091
+# O envía métrica tras limpieza real dentro de la red Compose efímera:
+docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-bash bash ./clean_artifacts.sh --pushgateway-url http://pushgateway:9091
 # Verifica la métrica en http://localhost:9090 y apaga con `make clean-cache` (o `--profile "*" down -v`).
 ```

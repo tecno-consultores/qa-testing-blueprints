@@ -325,9 +325,9 @@ Hermes Agent uses **YAML** (`~/.hermes/config.yaml`) for its primary configurati
 To perform a surgical upgrade that clears only stale `@sinfallas/mcp-qa-11x` entries inside `~/.npm/_npx` and `~/.cache/qa-11x-blueprints` (without wiping unrelated `npx` caches for other tools), reconciles `.agents/` governance (`--reconcile`), and re-syncs global skills:
 
 ```bash
-# Surgical upgrade (cleans @sinfallas/mcp-qa-11x caches + reconciles & re-syncs global skills):
-npx -y @sinfallas/mcp-qa-11x@latest upgrade
+# Surgical upgrade (cleans @sinfallas/mcp-qa-11x caches + re-syncs global skills; add `--reconcile` to also reconcile `.agents/`):
 npx -y @sinfallas/mcp-qa-11x@latest upgrade --reconcile
+npx -y @sinfallas/mcp-qa-11x@latest upgrade            # Cache clean + global skills only (omits .agents/ reconciliation)
 
 # Preview targets first or clean caches only (alias: cache-clean):
 npx -y @sinfallas/mcp-qa-11x@latest upgrade --dry-run

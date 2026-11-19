@@ -9,7 +9,7 @@
 [![Node.js >=24](https://img.shields.io/badge/node-%3E%3D24.0.0-brightgreen)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/LICENSE)
 
-Servidor oficial **Model Context Protocol (MCP)** e instalador CLI de fricción cero para [**QA Testing Blueprints (QA-11X v3.1 — v3.2.0)**](https://github.com/tecno-consultores/qa-testing-blueprints).
+Servidor oficial **Model Context Protocol (MCP)** e instalador CLI de fricción cero para [**QA Testing Blueprints (QA-11X v3.2 — v3.2.0)**](https://github.com/tecno-consultores/qa-testing-blueprints).
 
 Diseñado para que agentes de programación IA (**Google Antigravity**, **Claude Code / Desktop**, **Cursor**, **Windsurf**, **OpenAI Codex CLI**, **VS Code Copilot**, **Hermes Agent** y **28 agentes**) adopten QA-11X en **< 30 segundos**, ejecuten **19 herramientas MCP**, consulten **13 recursos criptográficos `blueprint://*`** (11 URIs estáticas + 2 plantillas URI) y apliquen **Regla Cero Docker**, **DISA ASD STIG V6R5**, **OWASP v4.2**, **FINOS CALM** y **AI Evals Dual-Mode** sin clonar el repositorio completo.
 
@@ -34,11 +34,11 @@ npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-script
 
 Subcomandos y flags disponibles (**12 subcomandos CLI**):
 - `quickstart [dir] [-T|--tier starter|standard|enterprise] [--lang|-l auto|en|es] [--agents|-a auto|all|<csv>] [--ci github|none] [--force|-f] [--dry-run] [--json] [--help|-h]` — Detecta el stack automáticamente (FastAPI, Python, Node, Vue 3, React, PHP, Bash, Mobile, AI Evals, Vibe) y genera el andamiaje QA-11X.
-- `install-skill` (alias: `install`) `[--target|-t auto|workspace|antigravity|claude|cursor|windsurf|codex|hermes|all] [--lang|-l auto|en|es] [--agents|-a auto|all|<csv>] [--project-path|-p <dir>] [--init-agents] [--include-scripts] [--reconcile] [--dry-run] [--help|-h]` — Usa `--target auto` y `--lang auto` por defecto al activar `--init-agents`.
+- `install-skill` (alias: `install`) `[--target|-t auto|workspace|antigravity|claude|cursor|windsurf|codex|hermes|all] [--lang|-l auto|en|es] [--agents|-a auto|all|<csv>] [--project-path|--dir|-p <dir>] [--init-agents] [--include-scripts] [--reconcile] [--dry-run] [--help|-h]` — Usa `--target auto` y `--lang auto` por defecto al activar `--init-agents`; se ejecuta en modo global seguro `$HOME` cuando se invoca desde `$HOME` sin `--project-path`/`--dir`/`-p` explícito (instalando solo skills globales sin escribir archivos de proyecto, mientras `-p ~`/`--dir ~` explícito sigue bloqueado por `SEC-PATH-01`).
 - `init-agents` (alias: `init-agents-md`) `[dir] [--project-path|--dir|-p <dir>] [--lang|-l auto|en|es] [--agents|-a auto|all|<csv>] [--dry-run] [--help|-h]` — Usa `--lang auto` por defecto (*Dynamic Language Mirroring*).
 - `reconcile-agents [dir] [--project-path|--dir|-p <dir>] [--dry-run] [--help|-h]` — Deduplica reglas/skills globales fuera de `.agents/` y aísla reglas de dominio con respaldos.
 - `tms-sync --mode <inventory|push-results|pull-stories> --provider <jira|zephyr|xray|github-issues> [--target-dir <dir>] [--junit-xml <path>] [--base-url <https://...>] [--project-key <key>] [--issue-key <key>] [--test-execution-key <key>] [--repo <owner/repo>] [--required-keys <k1,k2>] [--timeout-ms <ms>] [--dry-run|--live] [--json] [--help|-h]` — Normaliza resultados JUnit XML para sincronización bidireccional o reportes de trazabilidad TMS.
-- `doctor` (alias: `status`) `[dir] [--project-path|-p <dir>] [--offline] [--json] [--help|-h]` — Inspecciona el origen del binario activo, cachés `~/.npm/_npx`, sellos de skills globales, configuraciones MCP en IDEs (`~/.gemini/antigravity/mcp_config.json` canónica + fallback `~/.gemini/config/mcp_config.json`, Claude Desktop multi-OS `claude_desktop_config.json`, Claude Code `~/.claude.json`, Cursor, Windsurf, Codex y Hermes `~/.hermes/mcp.json` / `~/.hermes/config.yaml`), estado del proyecto y demonio Docker.
+- `doctor` (alias: `status`) `[dir] [--project-path|--dir|-p <dir>] [--offline] [--json] [--help|-h]` — Inspecciona el origen del binario activo, cachés `~/.npm/_npx`, sellos de skills globales, configuraciones MCP en IDEs (`~/.gemini/antigravity/mcp_config.json` canónica + fallback `~/.gemini/config/mcp_config.json`, Claude Desktop multi-OS `claude_desktop_config.json`, Claude Code `~/.claude.json`, Cursor, Windsurf, Codex y Hermes `~/.hermes/mcp.json` / `~/.hermes/config.yaml`), estado del proyecto (o ámbito global `$HOME` cuando `cwd == $HOME` sin directorio explícito, manteniendo `-p ~`/`--dir ~` bloqueado) y demonio Docker.
 - `upgrade` (alias: `cache-clean`) `[--cache-only] [--reconcile] [--target|-t <env>] [--offline] [--dry-run] [--json] [--help|-h]` — Limpia quirúrgicamente solo entradas de `@sinfallas/mcp-qa-11x` en `~/.npm/_npx` más `~/.cache/qa-11x-blueprints`, reconcilia la gobernanza `.agents/` (`--reconcile`) y resincroniza skills globales (`cache-clean` aplica `--cache-only`).
 - `certify [dir] [--project-path|-p <dir>] [--strict] [--require-lint-evidence] [--allow-unmerged-examples] [--release-gate] [--junit-xml <path>] [--offline] [--json] [--help|-h]` — Ejecuta la compuerta headless 11X de 10 verificaciones (`exit 20` si `--strict` detecta controles en `SKIPPED`) y compuerta opcional Release Readiness (`exit 30` en `NO_GO`).
 - `audit [dir] [--project-path|-p <dir>] [--mode|-m security|pyramid|vibe|calm|all] [--format|-f text|json|sarif] [--json] [--sarif] [--fail-on critical|high|medium|any|none] [--include-examples] [--max-findings <n>] [--architecture-path <rel>] [--help|-h]` — Ejecuta auditorías estáticas deterministas Zero-LLM con salida texto, JSON o SARIF v2.1.0 para CI/CD.
@@ -46,7 +46,7 @@ Subcomandos y flags disponibles (**12 subcomandos CLI**):
 - `mcp-config [--client|-c antigravity|claude-code|claude-desktop|cursor|vscode|windsurf|codex|gemini-cli|hermes|all] [--print] [--install] [--pin-version] [--dry-run] [--json] [--help|-h]` — Imprime o fusiona de forma segura configuraciones `mcpServers` JSON/TOML (resolviendo `~/.gemini/antigravity/mcp_config.json` con fallback `~/.gemini/config/mcp_config.json`, Claude Desktop multi-OS `claude_desktop_config.json` y Hermes `~/.hermes/mcp.json` junto a `~/.hermes/config.yaml`) con respaldo `.11x-backup` (`0600`) o comandos nativos de CLI para IDEs.
 - `completion <fish|bash|zsh>` (o `--shell <fish|bash|zsh>`) `[--help|-h]` — Emite scripts nativos de autocompletado de shell para `mcp-qa-11x`.
 - `[--stdio]` — Fuerza el listener JSON-RPC `stdio` en primer plano (`QA_FORCE_STDIO=1` también fuerza `stdio` headless).
-- `--version` / `-v` `[--verbose|--json]` | `--help` / `-h` — Imprime la versión SemVer activa (`npx -y @sinfallas/mcp-qa-11x --version` para caché `npx`, `mcp-qa-11x -v` en instalación global `-g`, `@latest --version` para npm latest, o `--version --verbose|--json` para diagnóstico `doctor` offline; nota: `npx --no-install` ignora `~/.npm/_npx/` — ver [`docs/agent-setup.es.md`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/docs/agent-setup.es.md)). Disponible globalmente y por subcomando sin escribir ni descargar archivos.
+- `--version` / `-v` `[--verbose|--json]` | `--help` / `-h` — Imprime la versión SemVer activa (`npx -y @sinfallas/mcp-qa-11x --version` para caché `npx`, `mcp-qa-11x -v` en instalación global `-g`, `@latest --version` para npm latest, o `--version --verbose|--json` para diagnóstico `doctor` offline incluido modo global `$HOME` al invocar desde `$HOME`; nota: `npx --no-install` ignora `~/.npm/_npx/` — ver [`docs/agent-setup.es.md`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/docs/agent-setup.es.md)). Disponible globalmente y por subcomando sin escribir ni descargar archivos.
 
 > **Guardia Anti-Bloqueo TTY (`QA-CLI-TTY-01`):** Ejecutar `npx -y @sinfallas/mcp-qa-11x@latest` sin subcomandos en una terminal interactiva (`process.stdin.isTTY`) imprime la guía rápida, sincroniza skills globales sin bloquear y termina limpiamente con `exit(0)` en `< 5s` en lugar de bloquear `stdin`. Cuando un IDE abre un *pipe* no-TTY, inicia el servidor MCP `stdio` automáticamente.
 
@@ -90,7 +90,7 @@ Consulta la matriz completa de 28 clientes en [`docs/agent-setup.es.md`](https:/
 * **Interceptor `promptGuard` *Fail-Closed*:** Protege `tools/call` en las 19 herramientas con canonicalización `NFKC`, purga zero-width / Trojan Source, bloqueo de inyección de prompts y evasiones `QA-GIT-GATE-01` (`git push` / `npm publish`), y redacción PII/secretos antes de despachar cualquier handler.
 * **Confinamiento de Rutas `SEC-PATH-01` (`QA11X_WORKSPACE_ROOTS`):** Valida `project_path`, `workspaceRoot` y `targetDir` mediante `resolveSafeProjectPath`, bloqueando traversal (`..`), bytes NUL, symlinks fuera de raíces permitidas, rutas críticas del sistema (`/`, `/etc`, `/usr`, ...), `$HOME` y `os.tmpdir()` raíz. Configure `QA11X_WORKSPACE_ROOTS` (rutas separadas por delimitador de PATH) para autorizar workspaces adicionales fuera de `process.cwd()`.
 * **`TaskStateGuard` y Reportes `Fail-Verbose`:** Limita concurrencia de tareas MCP, aísla timeouts (`60s` estándar / `>= 180s` transferencias pesadas), limpia artefactos truncados de `0 bytes`, acota el auto-sync TTY (`< 5s` fail-open hacia `stderr`) y formatea trazas `Fail-Verbose` sanitizadas compatibles con Allure (`diagnosticFormatter.ts`).
-* **LLMs Locales y A2A Agent Card (Módulo de Librería Programático Interno):** Compatible con evaluadores air-gapped **Ollama / vLLM** y expone [`src/a2a/agentCard.ts`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/src/a2a/agentCard.ts) (`v3.2.0`) exclusivamente como un **módulo de librería programático interno** (no expuesto como herramienta ni recurso MCP público sobre `stdio`).
+* **LLMs Locales y A2A Agent Card (`@sinfallas/mcp-qa-11x/agent-card`):** Compatible con evaluadores air-gapped **Ollama / vLLM** y expone el subpath export ESM público `@sinfallas/mcp-qa-11x/agent-card` (`package.json#exports` -> `dist/a2a/agentCard.js`, implementado en [`src/a2a/agentCard.ts`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/src/a2a/agentCard.ts), `v3.2.0`) como **módulo de librería programático** (no expuesto como herramienta ni recurso MCP público sobre `stdio`).
 
 ---
 
@@ -101,7 +101,7 @@ Lideradas por `qa-11x-architect` (`< 12 KB`), cargando 10 sub-skills especializa
 
 ---
 
-## 🛠️ Herramientas Expuestas en el Servidor MCP (19 herramientas — v3.1)
+## 🛠️ Herramientas Expuestas en el Servidor MCP (19 herramientas — v3.2)
 
 1. **`inspect_project_config`:** Inspecciona señales de stack (`pyproject.toml`, `package.json`, `composer.json`), `docker-compose.qa.yml`, estado de la pirámide y grafos Graphify AST.
 2. **`fetch_blueprint_bundle`:** Descarga plantillas solicitadas desde GitHub/espejo local validando su suma SHA-256 contra `manifest.json`.
@@ -125,7 +125,7 @@ Lideradas por `qa-11x-architect` (`< 12 KB`), cargando 10 sub-skills especializa
 
 ---
 
-## 📚 Recursos Expuestos en el Servidor MCP (13 recursos: 11 URIs estáticas + 2 plantillas URI — v3.1)
+## 📚 Recursos Expuestos en el Servidor MCP (13 recursos: 11 URIs estáticas + 2 plantillas URI — v3.2)
 
 > **Desglose de Superficie:** **11 URIs estáticas** devueltas por `resources/list` + **2 plantillas URI** (`blueprint://{stack}/readme`, `blueprint://ui/refactoring-ui/{topic}`) devueltas por `resources/templates/list`.
 

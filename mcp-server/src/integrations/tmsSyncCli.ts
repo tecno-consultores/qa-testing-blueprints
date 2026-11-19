@@ -1629,6 +1629,29 @@ function applyCliValueFlag(
   handlers[flag]?.();
 }
 
+function splitEqualsFlagToken(tok: string): { flag: string; inlineValue?: string } {
+  const eqIdx = tok.indexOf('=');
+  if (eqIdx === -1) {
+    return { flag: tok };
+  }
+  return { flag: tok.slice(0, eqIdx), inlineValue: tok.slice(eqIdx + 1) };
+}
+
+function readTmsFlagValue(
+  argv: readonly string[],
+  index: number,
+  flag: string,
+  inlineValue: string | undefined
+): { value: string; consumed: number } {
+  if (inlineValue !== undefined) {
+    if (inlineValue.length === 0) {
+      throw new TmsSecurityError(CODE_INVALID_INPUT, `La bandera '${flag}' requiere un valor.`);
+    }
+    return { value: inlineValue, consumed: 0 };
+  }
+  return { value: readNextFlagValue(argv, index, flag), consumed: 1 };
+}
+
 function parseTmsCliArgs(argv: readonly string[]): ParsedCliOptions {
   const args: TmsSyncArgs = { mode: MODE_INVENTORY };
   let help = false;
@@ -1643,11 +1666,14 @@ function parseTmsCliArgs(argv: readonly string[]): ParsedCliOptions {
       args.dryRun = false;
     } else if (tok === '--dry-run') {
       args.dryRun = true;
-    } else if (VALUE_CLI_FLAGS.has(tok)) {
-      applyCliValueFlag(tok, readNextFlagValue(argv, i, tok), args);
-      i += 1;
     } else {
-      throw new TmsSecurityError(CODE_INVALID_INPUT, `Argumento CLI desconocido: '${tok}'.`);
+      const { flag, inlineValue } = splitEqualsFlagToken(tok);
+      if (!VALUE_CLI_FLAGS.has(flag)) {
+        throw new TmsSecurityError(CODE_INVALID_INPUT, `Argumento CLI desconocido: '${tok}'.`);
+      }
+      const matched = readTmsFlagValue(argv, i, flag, inlineValue);
+      applyCliValueFlag(flag, matched.value, args);
+      i += matched.consumed;
     }
   }
   return { help, json, args };
@@ -1667,8 +1693,8 @@ function formatCliHelpText(): string {
   return [
     'Uso: tms-sync --mode <inventory|push-results|pull-stories> [opciones]',
     'Opciones: --provider <jira|zephyr|xray|github-issues> --target-dir <dir> --junit-xml <ruta>',
-    '          --base-url <https://...> --project-key <key> --issue-key <key> --repo <owner/repo>',
-    '          --required-keys <k1,k2> --timeout-ms <ms> --dry-run | --live --json --help',
+    '          --base-url <https://...> --project-key <key> --issue-key <key> --test-execution-key <key>',
+    '          --repo <owner/repo> --required-keys <k1,k2> --timeout-ms <ms> --dry-run | --live --json --help',
   ].join('\n');
 }
 

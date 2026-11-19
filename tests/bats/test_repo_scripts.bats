@@ -382,10 +382,12 @@ EOF
   assert_failure
 }
 
-@test "generar-sbom-cyclonedx.sh (F8.18): genera SBOM por defecto y ruta custom con docker stub, rechaza path traversal y propaga fallos" {
+@test "generar-sbom-cyclonedx.sh (F8.18): genera SBOM, .sha256 y .hmac en Docker --network none sin pasar secreto en argv" {
   WORK="${BATS_TEST_TMPDIR}/sbom_ws"
   FAKE_BIN="${BATS_TEST_TMPDIR}/sbom_bin"
   DOCKER_LOG="${BATS_TEST_TMPDIR}/sbom_docker.log"
+  local real_python
+  real_python="$(command -v python3)"
   mkdir -p "${WORK}/scripts" "${FAKE_BIN}"
   cp "${REPO_ROOT}/scripts/generar-sbom-cyclonedx.sh" "${WORK}/scripts/generar-sbom-cyclonedx.sh"
   chmod +x "${WORK}/scripts/generar-sbom-cyclonedx.sh"
@@ -396,6 +398,23 @@ printf '%s\n' "\$*" >>"${DOCKER_LOG}"
 if [ "\${MOCK_DOCKER_FAIL:-0}" = "1" ]; then
   echo "trivy simulated failure" >&2
   exit 1
+fi
+is_py=0
+prev=""
+py_code=""
+for arg in "\$@"; do
+  if [ "\${prev}" = "-e" ] && [[ "\${arg}" == *=* ]]; then
+    export "\${arg}"
+  fi
+  if [ "\${arg}" = "python3" ]; then
+    is_py=1
+  elif [ "\${prev}" = "-c" ] && [ "\${is_py}" = "1" ]; then
+    py_code="\${arg}"
+  fi
+  prev="\${arg}"
+done
+if [ "\${is_py}" = "1" ] && [ -n "\${py_code}" ]; then
+  exec "${real_python}" -c "\${py_code//\/workspace/${WORK}}"
 fi
 for arg in "\$@"; do
   case "\${arg}" in
@@ -426,6 +445,8 @@ EOF
   assert_success
   run grep -F -- "--format cyclonedx --output /workspace/sbom.cyclonedx.json /workspace" "${DOCKER_LOG}"
   assert_success
+  run grep -F -- "--network none" "${DOCKER_LOG}"
+  assert_success
 
   : >"${DOCKER_LOG}"
   run env QA11X_ATTESTATION_KEY="qa11x-sbom-key" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${WORK}/scripts/generar-sbom-cyclonedx.sh" "artifacts/custom.cyclonedx.json"
@@ -434,38 +455,34 @@ EOF
   [ -f "${WORK}/artifacts/custom.cyclonedx.json" ]
   [ -f "${WORK}/artifacts/custom.cyclonedx.json.sha256" ]
   [ -f "${WORK}/artifacts/custom.cyclonedx.json.hmac" ]
+  run grep -F "HMAC-SHA256(custom.cyclonedx.json)=" "${WORK}/artifacts/custom.cyclonedx.json.hmac"
+  assert_success
   run grep -F -- "--output /workspace/artifacts/custom.cyclonedx.json" "${DOCKER_LOG}"
   assert_success
+  run grep -F -- "-e QA11X_ATTESTATION_KEY" "${DOCKER_LOG}"
+  assert_success
+  run grep -F "qa11x-sbom-key" "${DOCKER_LOG}"
+  assert_failure
 
   run env MOCK_DOCKER_FAIL=1 PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${WORK}/scripts/generar-sbom-cyclonedx.sh" "artifacts/fail.json"
   assert_failure 1
   refute_output --partial "Generado exitosamente"
 
-  # Con .trivy.yaml y fallback shasum (sin sha256sum)
+  # Con .trivy.yaml y sin utilidades crypto en host (delegado 100% al contenedor Python --network none)
   printf 'scan:\n  skip-dirs: []\n' >"${WORK}/.trivy.yaml"
   local no_sha_bin="${BATS_TEST_TMPDIR}/sbom_nosha_bin"
-  local real_sha256
-  real_sha256="$(command -v sha256sum)"
   mkdir -p "${no_sha_bin}"
-  for tool in bash dirname basename mkdir cat rm chmod awk tr grep sed openssl; do
+  for tool in bash dirname basename mkdir cat rm chmod awk tr grep sed id env; do
     resolved="$(command -v "${tool}" || true)"
     [ -n "${resolved}" ] && ln -sf "${resolved}" "${no_sha_bin}/${tool}"
   done
   ln -sf "${FAKE_BIN}/docker" "${no_sha_bin}/docker"
-  cat >"${no_sha_bin}/shasum" <<EOF
-#!/usr/bin/env bash
-if [ "\${1:-}" = "-a" ] && [ "\${2:-}" = "256" ]; then
-  shift 2
-  exec "${real_sha256}" "\$@"
-fi
-exit 1
-EOF
-  chmod +x "${no_sha_bin}/shasum"
 
   : >"${DOCKER_LOG}"
-  run env PATH="${no_sha_bin}" LC_ALL=C bash "${WORK}/scripts/generar-sbom-cyclonedx.sh" "artifacts/trivy-cfg.cyclonedx.json"
+  run env QA11X_ATTESTATION_KEY="qa11x-isolated-key" PATH="${no_sha_bin}" LC_ALL=C bash "${WORK}/scripts/generar-sbom-cyclonedx.sh" "artifacts/trivy-cfg.cyclonedx.json"
   assert_success
   [ -f "${WORK}/artifacts/trivy-cfg.cyclonedx.json.sha256" ]
+  [ -f "${WORK}/artifacts/trivy-cfg.cyclonedx.json.hmac" ]
   run grep -F -- "--config /workspace/.trivy.yaml" "${DOCKER_LOG}"
   assert_success
 }
@@ -844,6 +861,9 @@ EOF
   printf '#!/usr/bin/env bash\nexit 0\n' >"${WORK}/scripts/limpieza.sh"
   chmod +x "${WORK}/scripts/limpieza.sh"
   printf 'print("ok")\n' >"${WORK}/.agents/scripts/bump_version_11x.py"
+  printf 'print("ok")\n' >"${WORK}/.agents/scripts/sync_governance.py"
+  printf '{}\n' >"${WORK}/manifest.json"
+  printf '# Changelog\n## [3.0.0]\n' >"${WORK}/CHANGELOG.md"
 
   cat >"${FAKE_BIN}/docker" <<EOF
 #!/usr/bin/env bash
@@ -878,6 +898,11 @@ EOF
   chmod 644 "${WORK}/.env"
 
   run env QA11X_REPO_ROOT="${WORK}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --dry-run --skip-tests
+  assert_failure 1
+  assert_output --partial "no contiene entrada para la versión"
+  printf '# Changelog\n## [3.1.0]\n' >"${WORK}/CHANGELOG.md"
+
+  run env QA11X_REPO_ROOT="${WORK}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --dry-run --skip-tests
   assert_success
   assert_output --partial "SIMULACIÓN EXITOSA"
   [ "$(stat -c "%a" "${WORK}/.env")" = "600" ]
@@ -903,14 +928,28 @@ EOF
   run grep -F "/.github:ro" "${DOCKER_LOG}"
   assert_success
 
+  printf '.env\n' >"${WORK}/.gitignore"
+  git -C "${WORK}" init -q
+  git -C "${WORK}" config user.email "qa@example.com"
+  git -C "${WORK}" config user.name "QA Bot"
+  git -C "${WORK}" add .
+  git -C "${WORK}" commit -q -m "chore: baseline"
+  printf 'dirty\n' >"${WORK}/dirty.tmp"
+  run env QA11X_REPO_ROOT="${WORK}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --skip-tests --otp 654321
+  assert_failure 1
+  assert_output --partial "cambios sin confirmar"
+  rm -f "${WORK}/dirty.tmp"
+
   : >"${DOCKER_LOG}"
   PUB_STAMP="${BATS_TEST_TMPDIR}/pub_done.flag"
-  run env QA11X_REPO_ROOT="${WORK}" QA_STUB_PUBLISHED_FILE="${PUB_STAMP}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --skip-tests --otp 654321
+  run env QA11X_REPO_ROOT="${WORK}" QA_STUB_PUBLISHED_FILE="${PUB_STAMP}" GITHUB_ACTIONS="true" ACTIONS_ID_TOKEN_REQUEST_URL="https://token.actions.githubusercontent.com" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --skip-tests --otp 654321
   assert_success
   assert_output --partial "PUBLICACIÓN EXITOSA"
   run grep -F " -e NPM_TOKEN -e NPM_OTP -e NPM_REGISTRY " "${DOCKER_LOG}"
   assert_success
   run grep -F "npm publish --access public" "${DOCKER_LOG}"
+  assert_success
+  run grep -F -- "--provenance" "${DOCKER_LOG}"
   assert_success
 
   run env QA11X_REPO_ROOT="${WORK}" QA_STUB_FAIL_PUBLISH=1 PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --skip-tests --otp 654321
@@ -1074,4 +1113,59 @@ EOF
   run env QA11X_DOCKERENV_PATH="/nonexistent" PATH="${no_docker_bin}" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh" src/clean.ts' _ "${WORK}" "${REPO_ROOT}"
   assert_failure 1
   assert_output --partial "Se requiere Docker"
+}
+
+
+@test "CLI --help y rechazo de flags desconocidos en actualizar-grafos, auditar-infra y verificar-secretos + fallback sin git" {
+  local no_docker_bin="${BATS_TEST_TMPDIR}/cli_nodocker_bin"
+  local clean_room="${BATS_TEST_TMPDIR}/clean_room_nongit"
+  mkdir -p "${no_docker_bin}" "${clean_room}/src"
+  for tool in bash dirname basename find grep env; do
+    resolved="$(command -v "${tool}" || true)"
+    [ -n "${resolved}" ] && ln -sf "${resolved}" "${no_docker_bin}/${tool}"
+  done
+
+  # 1. --help sin depender de Docker ni de la existencia previa de flags inválidos
+  for script_name in actualizar-grafos-graphify.sh auditar-infra.sh verificar-secretos.sh; do
+    run env QA11X_DOCKERENV_PATH="/nonexistent" PATH="${no_docker_bin}" LC_ALL=C bash "${REPO_ROOT}/scripts/${script_name}" --help
+    assert_success
+    assert_output --partial "Uso:"
+
+    run env QA11X_DOCKERENV_PATH="/nonexistent" PATH="${no_docker_bin}" LC_ALL=C bash "${REPO_ROOT}/scripts/${script_name}" --unknown-cli-flag
+    assert_failure 1
+  done
+
+  # 2. verificar-secretos.sh sin .git usa find fallback y detecta secreto real en archivo clean-room
+  printf 'export const clean = "safe";\n' >"${clean_room}/src/ok.ts"
+  run env QA11X_DOCKERENV_PATH="/.dockerenv" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${clean_room}" "${REPO_ROOT}"
+  assert_success
+  assert_output --partial "0 secretos expuestos"
+
+  local synth_aws="AKIA""1234567890ABCDEF"
+  printf 'const awsKey = "%s";\n' "${synth_aws}" >"${clean_room}/src/leak.ts"
+  run env QA11X_DOCKERENV_PATH="/.dockerenv" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${clean_room}" "${REPO_ROOT}"
+  assert_failure 1
+  rm -f "${clean_room}/src/leak.ts"
+
+  printf 'SECRET=1\n' >"${clean_room}/.env"
+  run env QA11X_DOCKERENV_PATH="/.dockerenv" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${clean_room}" "${REPO_ROOT}"
+  assert_failure 1
+  assert_output --partial "Archivo sensible .env bloqueado"
+  rm -f "${clean_room}/.env"
+
+  run env PATH="${no_docker_bin}" LC_ALL=C bash "${REPO_ROOT}/scripts/actualizar-grafos-graphify.sh" stack_uno stack_dos
+  assert_failure 1
+  assert_output --partial "Demasiados argumentos posicionales"
+
+  local stub_dk_bin="${BATS_TEST_TMPDIR}/cli_stub_dk_bin"
+  mkdir -p "${stub_dk_bin}"
+  for tool in bash dirname basename; do
+    resolved="$(command -v "${tool}" || true)"
+    [ -n "${resolved}" ] && ln -sf "${resolved}" "${stub_dk_bin}/${tool}"
+  done
+  printf '#!/usr/bin/env bash\nexit 0\n' >"${stub_dk_bin}/docker"
+  chmod +x "${stub_dk_bin}/docker"
+  run env PATH="${stub_dk_bin}" LC_ALL=C bash "${REPO_ROOT}/scripts/actualizar-grafos-graphify.sh" --all stack_inexistente_11x
+  assert_failure 1
+  assert_output --partial "Directorio de stack inexistente"
 }

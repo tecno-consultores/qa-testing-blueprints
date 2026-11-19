@@ -166,7 +166,7 @@ Para erradicar el hábito de los agentes de dar tareas por terminadas con prueba
 
 Si cualquiera de los pasos falla, el agente tiene prohibido cerrar el turno.
 
-### 📈 Evolución Incremental Implementada y Planificada (Hitos 21–23)
+### 📈 Evolución Incremental Implementada (Hitos 21–23)
 
 Con el objetivo de reforzar el estándar sobre la superficie pública estabilizada (**19 herramientas** y **13 recursos** MCP junto a **8 reglas canónicas** en `.agents/rules/` y **11 skills modulares**, incorporando el Flight Recorder unificado `checkpoint_ctl.py` + `session_flight_recorder` y la micro-skill JIT `tactical-patterns-11x`), la evolución incremental avanza sobre [`ROADMAP.es.md`](../ROADMAP.es.md):
 1. **Cobertura Diferencial (`Hito 21` — Implementado):** [`16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md`](specs/16_SPEC_COBERTURA_DIFERENCIAL_MULTISTACK_Y_ANTI_EVASION.md) (`100%` en líneas delta, `>= 90%` en ramas delta y bloqueo de exclusiones no autorizadas).

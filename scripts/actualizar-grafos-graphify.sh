@@ -10,11 +10,38 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 IMAGE_NAME="sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0"
 FORCE_ALL=false
+TARGET_STACK=""
 
-if [ "${1:-}" = "--all" ] || [ "${1:-}" = "--force" ]; then
-  FORCE_ALL=true
-  shift
-fi
+usage() {
+  echo "Uso: ./scripts/actualizar-grafos-graphify.sh [--all|--force] [stack]"
+  echo "  Actualiza incrementalmente los grafos AST Graphify en Docker efímero (Regla Cero)."
+}
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --all | --force)
+      FORCE_ALL=true
+      shift
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    -*)
+      echo "❌ Error: Opción no reconocida: $1" >&2
+      usage >&2
+      exit 1
+      ;;
+    *)
+      if [ -n "${TARGET_STACK}" ]; then
+        echo "❌ Error: Demasiados argumentos posicionales: $1" >&2
+        exit 1
+      fi
+      TARGET_STACK="$1"
+      shift
+      ;;
+  esac
+done
 
 if ! command -v docker &>/dev/null; then
   echo "❌ Error: Docker no está instalado o no se encuentra en el PATH." >&2
@@ -78,10 +105,13 @@ stack_needs_update() {
   return 1
 }
 
-if [ $# -ge 1 ] && [ -d "${REPO_ROOT}/$1" ]; then
-  extract_graph_in_dir "${REPO_ROOT}/$1"
-  echo "✔ [Graphify AST] Grafo semántico actualizado para '$1' -> $1/graphify-out/graph.json."
+if [ -n "${TARGET_STACK}" ] && [ -d "${REPO_ROOT}/${TARGET_STACK}" ]; then
+  extract_graph_in_dir "${REPO_ROOT}/${TARGET_STACK}"
+  echo "✔ [Graphify AST] Grafo semántico actualizado para '${TARGET_STACK}' -> ${TARGET_STACK}/graphify-out/graph.json."
   exit 0
+elif [ -n "${TARGET_STACK}" ]; then
+  echo "❌ Error: Directorio de stack inexistente: ${TARGET_STACK}" >&2
+  exit 1
 fi
 
 is_active_code_stack() {

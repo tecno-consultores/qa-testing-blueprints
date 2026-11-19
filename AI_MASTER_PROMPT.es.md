@@ -31,7 +31,7 @@ Independientemente del lenguaje de programación o ecosistema tecnológico que e
 
 ## 2. Protocolo de Integración Inicial (Fusión No Destructiva)
 
-Tienes dos modalidades para integrar el estándar 11X en un proyecto:
+Tienes tres modalidades para integrar el estándar 11X en un proyecto:
 
 ### A. Vía Servidor MCP (`@sinfallas/mcp-qa-11x`) — Flujo Autónomo Zero-Clone
 * Si estás conectado como servidor MCP, utiliza tus herramientas nativas:

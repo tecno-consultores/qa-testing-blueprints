@@ -146,9 +146,8 @@ EOF
 
   run cat "${DOCKER_LOG}"
   assert_success
-  local pinned_img="aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb"
-  assert_output --partial "${pinned_img} config . --quiet --config .trivy.yaml --severity HIGH,CRITICAL --exit-code 1"
-  assert_output --partial "${pinned_img} fs . --quiet --scanners vuln --config .trivy.yaml"
+  [[ "${output}" =~ aquasec/trivy:[0-9]+\.[0-9]+\.[0-9]+@sha256:[0-9a-f]{64}[[:space:]]+config[[:space:]]+\.[[:space:]]+--quiet[[:space:]]+--config[[:space:]]+\.trivy\.yaml[[:space:]]+--severity[[:space:]]+HIGH,CRITICAL[[:space:]]+--exit-code[[:space:]]+1 ]]
+  [[ "${output}" =~ aquasec/trivy:[0-9]+\.[0-9]+\.[0-9]+@sha256:[0-9a-f]{64}[[:space:]]+fs[[:space:]]+\.[[:space:]]+--quiet[[:space:]]+--scanners[[:space:]]+vuln[[:space:]]+--config[[:space:]]+\.trivy\.yaml ]]
   assert_output --partial "--timeout 10m --severity HIGH,CRITICAL --exit-code 1"
   refute_output --partial "--severity CRITICAL"
 }
@@ -436,10 +435,14 @@ EOF
   run grep -F 'user: "${QA_UID:-1000}:${QA_GID:-1000}"' "${REPO_ROOT}/docker-compose.qa.yml"
   assert_success
 
-  run grep -F 'KARATE_IMG := sinfallas/karatelabs:1.5.1@sha256:a9a52ca9c5491ab39b64f0b4fdc3dea879c2213c9bc995be58d6cd4b9a80cc89' "${REPO_ROOT}/Makefile"
+  run grep -E 'KARATE_IMG := sinfallas/karatelabs:[0-9]+\.[0-9]+\.[0-9]+@sha256:[0-9a-f]{64}' "${REPO_ROOT}/Makefile"
   assert_success
 
   run grep -F 'git diff --relative --name-only' "${REPO_ROOT}/.github/actions/qa-11x-pr-check/action.yml"
+  assert_success
+  run grep -F 'pull_request_target' "${REPO_ROOT}/.github/actions/qa-11x-pr-check/action.yml"
+  assert_success
+  run grep -F 'sarif-path' "${REPO_ROOT}/.github/actions/qa-11x-pr-check/action.yml"
   assert_success
 }
 

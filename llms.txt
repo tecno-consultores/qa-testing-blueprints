@@ -1,4 +1,4 @@
-# QA Testing Blueprints (QA-11X v3.1 — @sinfallas/mcp-qa-11x v3.2.0)
+# QA Testing Blueprints (QA-11X v3.2 — @sinfallas/mcp-qa-11x v3.2.0)
 
 > Zero-Infra Agentic QA, Dual-Mode AI Evals, FINOS CALM Architecture-as-Code, and DevSecOps Governance Blueprint (`MIT`). Enforces non-root ephemeral Docker execution (`Rule Zero`, `sinfallas/*`, `Trivy HIGH/CRITICAL = 0`), `>= 95%` unit coverage, `CC <= 5`, multi-role Screenplay E2E, Pact V4 contracts, `k6` load smoke, and 22 DISA ASD STIG V6R5 + OWASP Developer Guide v4.2 reference controls (enforced via 34 static scanner rules) across 28 AI coding agents with SHA-256 manifest verification.
 
@@ -15,7 +15,7 @@
 
 - [AGENTS.md](https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/AGENTS.md) (`AGENTS.md`) — Canonical governance directives (`10` scripts in `scripts/`, `22` files in `.agents/scripts/`, `26` files in `tests/`), 3-path routing (`DOCS_ONLY`, `MICRO_CHANGE`, `FULL_11X`), and High-IQ Token Economy.
 - [RESOURCES.md](https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/RESOURCES.md) (`RESOURCES.md`) — Master index of guides, 11 skills, 8 rules, 10 blueprints, Docker images, and catalogs.
-- [docs/01_ARQUITECTURA_PIRAMIDE_11X.md](https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/docs/01_ARQUITECTURA_PIRAMIDE_11X.md) (`docs/01_ARQUITECTURA_PIRAMIDE_11X.md`) — QA-11X v3.1 13-layer quality pyramid specification.
+- [docs/01_ARQUITECTURA_PIRAMIDE_11X.md](https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/docs/01_ARQUITECTURA_PIRAMIDE_11X.md) (`docs/01_ARQUITECTURA_PIRAMIDE_11X.md`) — QA-11X v3.2 13-layer quality pyramid specification.
 - [architecture/qa-11x.calm.json](https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/architecture/qa-11x.calm.json) (`architecture/qa-11x.calm.json`) — Blocking FINOS CALM Architecture-as-Code topology (6 nodes, 5 typed relationships, 7 controls).
 - [docs/specs/14_LOCAL_LLM_AND_A2A_PROFILES.md](https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/docs/specs/14_LOCAL_LLM_AND_A2A_PROFILES.md) (`docs/specs/14_LOCAL_LLM_AND_A2A_PROFILES.md`) — Air-gapped Ollama/vLLM profiles, Zero-LLM context compactor, and A2A agent card contract.
 - [docs/specs/15_ENTERPRISE_TMS_TRACEABILITY.md](https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/docs/specs/15_ENTERPRISE_TMS_TRACEABILITY.md) (`docs/specs/15_ENTERPRISE_TMS_TRACEABILITY.md`) — Bidirectional Jira/Zephyr/Xray/GitHub Issues traceability CLI specification.
@@ -28,7 +28,7 @@
 
 ## MCP Server (`@sinfallas/mcp-qa-11x` v3.2.0 — MIT, Zero-Infra)
 
-- [mcp-server/README.md](https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/mcp-server/README.md) (`mcp-server/README.md`) — Official npm package documentation (`@sinfallas/mcp-qa-11x@3.2.0`), runtime security guards, and CLI flags (`quickstart -T`, `tms-sync`).
+- [mcp-server/README.md](https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/mcp-server/README.md) (`mcp-server/README.md`) — Official npm package documentation (`@sinfallas/mcp-qa-11x@3.2.0`), runtime security guards, and all 12 CLI subcommands (`quickstart`, `init-agents`, `install-skill`, `reconcile-agents`, `tms-sync`, `doctor`, `upgrade`, `certify`, `audit`, `blast-radius`, `mcp-config`, `completion`).
 - [.agents/scripts/bump_version_11x.py](https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/scripts/bump_version_11x.py) (`.agents/scripts/bump_version_11x.py`) — Deterministic Zero-LLM version and edition synchronizer (`--check` / `--set`).
 - [mcp-server/src/a2a/agentCard.ts](https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/mcp-server/src/a2a/agentCard.ts) (`mcp-server/src/a2a/agentCard.ts`) — Agent2Agent (`A2A`) capability descriptor (`task-capacity` extension, 11 skills, `QA-GIT-GATE-01`).
 - [mcp-server/src/security/promptGuard.ts](https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/mcp-server/src/security/promptGuard.ts) (`mcp-server/src/security/promptGuard.ts`) — Fail-closed `tools/call` interceptor (`NFKC` canonicalization, Trojan Source stripping, injection & `QA-GIT-GATE-01` bypass blocking, PII redaction).

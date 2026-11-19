@@ -596,3 +596,34 @@ def test_autodetect_scans_governance_scripts_and_vibe_rescue(
     assert len(payload["violations"]) == 1
     assert payload["violations"][0]["rule_id"] == "QA-PY-ANTI-003"
     assert payload["violations"][0]["file"] == ".agents/scripts/verify_fake.py"
+
+
+def test_autodetect_includes_backend_and_mcp_dirs_and_avoids_false_positives(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Incluye mcp-server/ai-evals/stacks en auto-detección sin falsos positivos."""
+    for d in ("mcp-server/tests", "ai-evals", "fastapi", "python", "node-backend"):
+        (tmp_path / d).mkdir(parents=True)
+    detected, auto_mode = linter._resolve_cli_paths([], tmp_path)
+    assert auto_mode is True
+    assert set(detected) == {
+        "mcp-server",
+        "ai-evals",
+        "fastapi",
+        "python",
+        "node-backend",
+    }
+
+    (tmp_path / "mcp-server" / "tests" / "safe_rules.unit.ts").write_text(
+        "import { describe, it, expect } from 'vitest';\n"
+        "describe('regression guards', () => {\n"
+        "  it('orders CRITICAL > HIGH > MEDIUM > LOW and A->B->A safely', () => {\n"
+        "    const fixture = 'await page.waitForTimeout(1000);';\n"
+        "    expect(fixture).toContain('waitForTimeout');\n"
+        "  });\n"
+        "});\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    rc = linter.main(["mcp-server/tests/safe_rules.unit.ts"], base_dir=tmp_path)
+    assert rc == 0

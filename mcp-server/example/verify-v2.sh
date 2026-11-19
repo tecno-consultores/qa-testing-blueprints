@@ -94,11 +94,26 @@ const parsed = JSON.parse(process.argv[2]);
 assert.equal(parsed.mcp_version, process.argv[3]);
 EOF
 
+STATUS_JSON="$(node "${BIN_JS}" status "${PROJ_DIR}" --offline --json)"
+node --input-type=module - "${STATUS_JSON}" "${EXPECTED_PKG_VERSION}" <<'EOF'
+import assert from 'node:assert/strict';
+const parsed = JSON.parse(process.argv[2]);
+assert.equal(parsed.mcp_version, process.argv[3]);
+EOF
+
 UPGRADE_JSON="$(node "${BIN_JS}" upgrade --dry-run --json)"
 node --input-type=module - "${UPGRADE_JSON}" <<'EOF'
 import assert from 'node:assert/strict';
 const parsed = JSON.parse(process.argv[2]);
 assert.equal(parsed.dry_run, true);
+EOF
+
+CACHE_CLEAN_JSON="$(node "${BIN_JS}" cache-clean --dry-run --json)"
+node --input-type=module - "${CACHE_CLEAN_JSON}" <<'EOF'
+import assert from 'node:assert/strict';
+const parsed = JSON.parse(process.argv[2]);
+assert.equal(parsed.dry_run, true);
+assert.equal(parsed.cache_only, true);
 EOF
 
 AUDIT_SARIF="$(node "${BIN_JS}" audit "${PROJ_DIR}" --mode security --fail-on none --sarif)"
@@ -118,6 +133,59 @@ fi
 COMPLETION_OUT="$(node "${BIN_JS}" completion fish)"
 if ! printf '%s\n' "${COMPLETION_OUT}" | grep -q "complete -c mcp-qa-11x"; then
   echo "FAIL [completion] No emitió autocompletado fish para mcp-qa-11x" >&2
+  exit 1
+fi
+
+COMPLETION_BASH="$(node "${BIN_JS}" completion bash)"
+printf '%s\n' "${COMPLETION_BASH}" | bash -n
+
+COMPLETION_ZSH="$(node "${BIN_JS}" completion zsh)"
+if ! printf '%s\n' "${COMPLETION_ZSH}" | grep -q "#compdef mcp-qa-11x"; then
+  echo "FAIL [completion zsh] No emitió autocompletado zsh para mcp-qa-11x" >&2
+  exit 1
+fi
+
+HOME_DOCTOR_OUT="$(cd "${HOME_DIR}" && node "${BIN_JS}" doctor --offline)"
+if ! printf '%s\n' "${HOME_DOCTOR_OUT}" | grep -q "modo global \$HOME"; then
+  echo "FAIL [doctor \$HOME] No activó modo global \$HOME al invocar desde \$HOME" >&2
+  exit 1
+fi
+
+HOME_BP_DIR="${WORK_DIR}/home-bp"
+mkdir -p "${HOME_BP_DIR}/.agents/skills/qa-11x-architect"
+printf '# Arch\n' >"${HOME_BP_DIR}/.agents/skills/qa-11x-architect/SKILL.md"
+node --input-type=module - "${HOME_BP_DIR}" "${EXPECTED_PKG_VERSION}" <<'EOF'
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+const [bpDir, version] = process.argv.slice(2);
+const skillPath = path.join(bpDir, '.agents', 'skills', 'qa-11x-architect', 'SKILL.md');
+const content = fs.readFileSync(skillPath, 'utf8');
+const manifest = {
+  schema_version: '1.0.0',
+  blueprint_version: version,
+  generated_at_utc: '2026-11-19T00:00:00Z',
+  repository: 'tecno-consultores/qa-testing-blueprints',
+  default_branch: 'main',
+  raw_base_url: 'https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main',
+  stacks: {},
+  common_files: [],
+  agent_governance_files: [
+    {
+      path: '.agents/skills/qa-11x-architect/SKILL.md',
+      target_name: '.agents/skills/qa-11x-architect/SKILL.md',
+      merge_strategy: 'overwrite',
+      sha256: crypto.createHash('sha256').update(content, 'utf8').digest('hex'),
+      size_bytes: Buffer.byteLength(content, 'utf8'),
+    },
+  ],
+};
+fs.writeFileSync(path.join(bpDir, 'manifest.json'), JSON.stringify(manifest), 'utf8');
+EOF
+
+HOME_INSTALL_OUT="$(cd "${HOME_DIR}" && QA_BLUEPRINTS_LOCAL_PATH="${HOME_BP_DIR}" node "${BIN_JS}" install-skill --target claude --init-agents --include-scripts --reconcile --dry-run)"
+if ! printf '%s\n' "${HOME_INSTALL_OUT}" | grep -q "DRY-RUN"; then
+  echo "FAIL [install-skill \$HOME --dry-run] No emitió plan DRY-RUN desde \$HOME" >&2
   exit 1
 fi
 

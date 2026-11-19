@@ -325,9 +325,9 @@ Hermes Agent utiliza **YAML** (`~/.hermes/config.yaml`) para su archivo principa
 Para ejecutar una actualización quirúrgica que elimine únicamente las entradas obsoletas de `@sinfallas/mcp-qa-11x` en `~/.npm/_npx` y `~/.cache/qa-11x-blueprints` (sin borrar cachés `npx` de otras herramientas), reconcilie la gobernanza `.agents/` (`--reconcile`) y resincronice las skills globales:
 
 ```bash
-# Actualización quirúrgica (limpia cachés de @sinfallas/mcp-qa-11x + reconcilia y resincroniza skills):
-npx -y @sinfallas/mcp-qa-11x@latest upgrade
+# Actualización quirúrgica (limpia cachés de @sinfallas/mcp-qa-11x + resincroniza skills; añade `--reconcile` para reconciliar también `.agents/`):
 npx -y @sinfallas/mcp-qa-11x@latest upgrade --reconcile
+npx -y @sinfallas/mcp-qa-11x@latest upgrade            # Solo limpia cachés y resincroniza skills (omite reconciliar .agents/)
 
 # Previsualizar objetivos o limpiar solo cachés (alias: cache-clean):
 npx -y @sinfallas/mcp-qa-11x@latest upgrade --dry-run

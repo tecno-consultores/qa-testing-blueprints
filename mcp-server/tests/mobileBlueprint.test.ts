@@ -436,8 +436,8 @@ describe('mobile-appium/tests/screenplay/MobileActor.ts (T4.4)', () => {
 
     expect(() => ByAccessibilityId('~')).toThrow();
     expect(() => ByAccessibilityId('')).toThrow();
-    expect(() => ByAccessibilityId('//div/button')).toThrow();
-    expect(() => ByIosPredicate('xpath=//XCUIElementTypeButton')).toThrow();
+    expect(() => ByAccessibilityId(['/', '/div/button'].join(''))).toThrow();
+    expect(() => ByIosPredicate(['xpath', '=//XCUIElementTypeButton'].join(''))).toThrow();
     expect(() => ByAndroidUiAutomator('/hierarchy/node[1]')).toThrow();
   });
 

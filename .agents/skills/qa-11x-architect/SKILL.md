@@ -1,13 +1,13 @@
 ---
 name: qa-11x-architect
 description: >-
-  Master QA 11X & DevSecOps Architect (qa-testing-blueprints v3.1+). Use whenever the user asks to
+  Master QA 11X & DevSecOps Architect (qa-testing-blueprints v3.2+). Use whenever the user asks to
   initialize or integrate QA in a project, merge .example templates, write or audit unit/BDD/mutation/E2E
   tests, enforce >=95% coverage, apply DISA ASD STIG V6R5 and OWASP v4.2 security controls, run ephemeral
   Docker QA suites (Rule Zero), optimize context token consumption, or update TESTING.md and CHANGELOG.md.
 ---
 
-# Master QA-11X v3.1 Routing Orchestrator (`qa-11x-architect`)
+# Master QA-11X v3.2 Routing Orchestrator (`qa-11x-architect`)
 
 > **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Respond in **user's prompt language** (unless `AGENTS.md` fixes it); docs/commits match `README.md`/`CHANGELOG.md` (Spec 19; `.agents/**` English).
 
@@ -82,7 +82,7 @@ Classify every task first. **NEVER auto-run `git push`** (`QA-GIT-GATE-01` — s
 
 ---
 
-## 3. Progressive Hydration Matrix of Modular Sub-Skills (v3.1)
+## 3. Progressive Hydration Matrix of Modular Sub-Skills (v3.2)
 
 Hydrate specialized sub-skills **strictly on demand** by domain (zero eager loading):
 

@@ -2,7 +2,7 @@
 
 # Filosofía de Calidad (QA Philosophy)
 
-Este documento expone los principios de ingeniería y las decisiones estratégicas que fundamentan el ecosistema `qa-testing-blueprints` (`QA-11X v3.1`).
+Este documento expone los principios de ingeniería y las decisiones estratégicas que fundamentan el ecosistema `qa-testing-blueprints` (`QA-11X v3.2`).
 
 ## 1. La Cobertura del 95% es un Piso, no una Meta
 Exigir un 95% de cobertura en `kcov`, `Vitest`, `PCOV` o `pytest` no es una métrica de vanidad, es una barrera de contención contra regresiones silenciosas. Obligamos a estructurar pruebas para los bloques `catch` y ramas lógicas oscuras.

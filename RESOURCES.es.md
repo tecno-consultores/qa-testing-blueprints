@@ -1,6 +1,6 @@
 > 🌐 **Idioma:** [🇺🇸 English (Canonical)](RESOURCES.md) · **Español (Espejo 1:1)**
 
-# 📚 Catálogo Maestro de Recursos y Artefactos (`QA-11X v3.1`)
+# 📚 Catálogo Maestro de Recursos y Artefactos (`QA-11X v3.2`)
 
 Índice corporativo verificado de portadas, skills modulares, reglas activas, blueprints por stack, gobernanza ejecutable, imágenes Docker `sinfallas/*` y referencias normativas de **QA Testing Blueprints**.
 
@@ -85,7 +85,7 @@
 * [sinfallas/base-mobile-appium](https://hub.docker.com/r/sinfallas/base-mobile-appium) (`26`, `latest` — `Node.js 26`, `pnpm`, `OpenJDK 21`, `Android SDK/ADB`, `Appium 3`, `uiautomator2`, `xcuitest`, `WebdriverIO v9`).
 * [sinfallas/basephpcomposer](https://hub.docker.com/r/sinfallas/basephpcomposer) (`8.2`..`8.5`, `latest` — PHP-FPM `UID 1000`, `pcov`, `phpstan`, `psalm`, `pest`, `phpunit`, `infection`).
 * [sinfallas/karatelabs](https://hub.docker.com/r/sinfallas/karatelabs) (`1.5.1` — OpenJDK + Maven + Karate JUnit5).
-* [sinfallas/base-bash-qa](https://hub.docker.com/r/sinfallas/base-bash-qa) (`latest`), [sinfallas/remote-graphify](https://hub.docker.com/r/sinfallas/remote-graphify) (`latest`), [grafana/k6](https://hub.docker.com/r/grafana/k6) (`2.4.0`), `postgres:17-alpine`, `eqalpha/keydb:6.3.4`, `aquasec/trivy:0.76.2`, `zaproxy/zap-stable:2.15.0`, `gaiaadm/pumba:0.10.1`, `prom/prometheus:v2.55.1`.
+* [sinfallas/base-bash-qa](https://hub.docker.com/r/sinfallas/base-bash-qa) (`latest`), [sinfallas/remote-graphify](https://hub.docker.com/r/sinfallas/remote-graphify) (`latest`), [grafana/k6](https://hub.docker.com/r/grafana/k6) (`2.4.0`), `postgres:17-alpine`, `eqalpha/keydb@sha256:6537505c42355ca1f571276bddf83f5b750f760f07b2a185a676481791e388ac` (`v6.3.4` multi-arch), `aquasec/trivy:0.76.2`, `zaproxy/zap-stable:2.15.0`, `gaiaadm/pumba:0.10.1`, `prom/prometheus:v2.55.1`.
 
 ### Herramientas Open Source y Estándares
 

@@ -1,14 +1,14 @@
 > 🌐 **Idioma:** [🇺🇸 English (Canonical)](01_ARQUITECTURA_PIRAMIDE_11X.md) · **Español (Espejo 1:1)**
 
-# 🏛️ Arquitectura de la Pirámide de Calidad QA-11X v3.1 (13 Capas + Transversales Agénticos)
+# 🏛️ Arquitectura de la Pirámide de Calidad QA-11X v3.2 (13 Capas + Transversales Agénticos)
 
-> **PROPÓSITO:** Documento arquitectónico maestro en español corporativo que define las **13 capas de calidad**, los **planos transversales agénticos y de seguridad** de **QA-11X v3.1**, los **3 niveles progresivos de adopción** (`starter`, `standard`, `enterprise`) y las **3 vías proporcionales de ejecución** (`DOCS_ONLY`, `MICRO_CHANGE`, `FULL_11X`).
+> **PROPÓSITO:** Documento arquitectónico maestro en español corporativo que define las **13 capas de calidad**, los **planos transversales agénticos y de seguridad** de **QA-11X v3.2**, los **3 niveles progresivos de adopción** (`starter`, `standard`, `enterprise`) y las **3 vías proporcionales de ejecución** (`DOCS_ONLY`, `MICRO_CHANGE`, `FULL_11X`).
 
 ---
 
 ## 1. Adopción Proporcional en 3 Vías y 3 Perfiles
 
-Para evitar sobreingeniería en tareas pequeñas sin relajar los controles en sistemas críticos, QA-11X v3.1 separa el **nivel de adopción del repositorio** de la **vía de ejecución por cambio**:
+Para evitar sobreingeniería en tareas pequeñas sin relajar los controles en sistemas críticos, QA-11X v3.2 separa el **nivel de adopción del repositorio** de la **vía de ejecución por cambio**:
 
 | Dimensión | Clasificación | Criterio de Activación | Alcance de Validación |
 | :--- | :--- | :--- | :--- |
@@ -26,7 +26,7 @@ Para evitar sobreingeniería en tareas pequeñas sin relajar los controles en si
 
 ---
 
-## 2. Topología de la Pirámide QA-11X v3.1 (13 Capas + Transversales)
+## 2. Topología de la Pirámide QA-11X v3.2 (13 Capas + Transversales)
 
 ```mermaid
 flowchart TD
@@ -73,7 +73,7 @@ flowchart TD
 
 ## 4. Documentación Relacionada
 
-* [Portada en Español (`README.es.md`)](../README.es.md)
+* Portada Global en Inglés (`README.md`) · [Portada Espejo en Español (`README.es.md`)](../README.es.md)
 * [Catálogo Maestro de Recursos (`RESOURCES.es.md`)](../RESOURCES.es.md)
 * [Gobernanza de Agentes IA (`05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md`)](05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md)
 * [Guía de Desarrollo Seguro (`04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md`)](04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md)

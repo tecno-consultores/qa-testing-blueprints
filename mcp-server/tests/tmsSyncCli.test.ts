@@ -1054,6 +1054,33 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
       expect(cliPassJson.exitCode).toBe(0);
       expect((JSON.parse(cliPassJson.output) as { status?: string }).status).toBe('TRACEABILITY_OK');
 
+      // --flag=value syntax (valid, empty value rejection, unknown --foo=bar) & --test-execution-key in --help
+      const eqPassJson = await runTmsSyncCli(
+        [
+          '--mode=inventory',
+          '--provider=github-issues',
+          '--target-dir=scan',
+          '--test-execution-key=QA-EX-42',
+          '--dry-run',
+          '--json',
+        ],
+        { workspaceRoot: ws }
+      );
+      expect(eqPassJson.exitCode).toBe(0);
+      expect((JSON.parse(eqPassJson.output) as { status?: string }).status).toBe('TRACEABILITY_OK');
+
+      const eqEmptyErr = await runTmsSyncCli(['--provider='], { workspaceRoot: ws });
+      expect(eqEmptyErr.exitCode).toBe(1);
+      expect(eqEmptyErr.output).toContain("La bandera '--provider' requiere un valor.");
+
+      const eqUnknownErr = await runTmsSyncCli(['--foo=bar'], { workspaceRoot: ws });
+      expect(eqUnknownErr.exitCode).toBe(1);
+      expect(eqUnknownErr.output).toContain("Argumento CLI desconocido: '--foo=bar'.");
+
+      const tmsHelp = await runTmsSyncCli(['--help']);
+      expect(tmsHelp.exitCode).toBe(0);
+      expect(tmsHelp.output).toContain('--test-execution-key <key>');
+
       const nullMcpRes = await handleSyncEnterpriseTms(null);
       expect(nullMcpRes.isError).toBe(true);
 

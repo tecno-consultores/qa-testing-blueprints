@@ -594,7 +594,8 @@ describe('Zero-Infra PromptGuard & MCP Interceptor (T2.4)', () => {
     });
 
     it('protege errores de ejecución y saturación TaskStateGuard formateando reporte Fail-Verbose', async () => {
-      const mcpServer = createMcpServer({ fetcher: new GitHubFetcher() });
+      const tmpCache = fs.mkdtempSync(path.join(os.tmpdir(), 'qa-pg-cache-'));
+      const mcpServer = createMcpServer({ fetcher: new GitHubFetcher({ cacheDir: tmpCache }) });
       const rawHandlers = getServerDispatcherRegistry(mcpServer);
       expect(rawHandlers).toBeDefined();
       if (!rawHandlers) {
@@ -620,6 +621,7 @@ describe('Zero-Infra PromptGuard & MCP Interceptor (T2.4)', () => {
       } finally {
         await client.close();
         await mcpServer.close();
+        fs.rmSync(tmpCache, { recursive: true, force: true });
       }
     });
 

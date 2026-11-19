@@ -4,7 +4,7 @@
   <img src="assets/qa-logo.jpeg" alt="Logo de QA Testing Blueprints" width="320" />
 </p>
 
-# QA Testing Blueprints (`QA-11X v3.1` — Estándar Corporativo Nivel 11X)
+# QA Testing Blueprints (`QA-11X v3.2` — Estándar Corporativo Nivel 11X)
 
 **Blueprint Zero-Infra de QA Agéntico, Evaluaciones de IA y Gobernanza DevSecOps**
 
@@ -15,7 +15,7 @@
 [![Agentes IA](https://img.shields.io/badge/AI%20Agents-28%20Soportados-ff69b4)](docs/agent-setup.es.md)
 [![FINOS CALM](https://img.shields.io/badge/Architecture-FINOS%20CALM-orange)](architecture/qa-11x.calm.json)
 
-**QA-11X v3.1** transforma tanto a **Agentes de Inteligencia Artificial** (28 agentes soportados incluyendo Google Antigravity, Claude Code, Cursor, Windsurf, Codex, Copilot, Hermes Agent y 21 clientes adicionales) como a **equipos humanos de ingeniería** en operadores deterministas de QA y DevSecOps nivel Staff. Toda validación corre dentro de **contenedores Docker efímeros y no-root (`Rule Zero`)** sin contaminar el host, imponiendo cobertura `>= 95%`, paridad real con bases de datos/contratos, evaluaciones de IA en modo dual y controles **DISA ASD STIG V6R5 + OWASP v4.2** desde el día uno.
+**QA-11X v3.2** transforma tanto a **Agentes de Inteligencia Artificial** (28 agentes soportados incluyendo Google Antigravity, Claude Code, Cursor, Windsurf, Codex, Copilot, Hermes Agent y 21 clientes adicionales) como a **equipos humanos de ingeniería** en operadores deterministas de QA y DevSecOps nivel Staff. Toda validación corre dentro de **contenedores Docker efímeros y no-root (`Rule Zero`)** sin contaminar el host, imponiendo cobertura `>= 95%`, paridad real con bases de datos/contratos, evaluaciones de IA en modo dual y controles **DISA ASD STIG V6R5 + OWASP v4.2** desde el día uno.
 
 ---
 
@@ -24,7 +24,7 @@
 Inicializa y protege cualquier repositorio en 30 segundos sin clonar este monorepo:
 
 ```bash
-# Autodetecta stacks y marcadores vibe-coded; genera .qa-11x.json, AGENTS.md, ACTIVE_TASK.md y workflow PR:
+# Autodetecta stacks y marcadores vibe-coded; genera .qa-11x.json, AGENTS.md, .agents/ACTIVE_TASK.md y workflow PR:
 npx -y @sinfallas/mcp-qa-11x@latest quickstart
 
 # Con perfil progresivo, política de idioma, selección de agentes o vista previa --dry-run:
@@ -57,7 +57,7 @@ jobs:
 
 ---
 
-## 🧭 Arquitectura Diferencial (`QA-11X v3.1`)
+## 🧭 Arquitectura Diferencial (`QA-11X v3.2`)
 
 ```mermaid
 flowchart TD
@@ -85,7 +85,7 @@ flowchart TD
 
 Todas las suites de análisis, mutación, contratos y BDD se ejecutan en contenedores no-root (`-u "$(id -u):$(id -g)" -e HOME=/tmp`) con **`Trivy HIGH/CRITICAL = 0`**:
 
-| Imagen Efímera | Rol en QA-11X v3.1 | Tags Certificados y Herramientas Preinstaladas |
+| Imagen Efímera | Rol en QA-11X v3.2 | Tags Certificados y Herramientas Preinstaladas |
 | :--- | :--- | :--- |
 | **[sinfallas/base-python-uv](https://hub.docker.com/r/sinfallas/base-python-uv)** | Python, FastAPI, AI Evals y Vibe-Rescue | `3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest` (`uv`, `ruff`, `mypy`, `pytest`, `bandit`, `radon`, `mutmut`, `deepeval`, `pact-python`, `tesseract-ocr`) |
 | **[sinfallas/base-node-ionic](https://hub.docker.com/r/sinfallas/base-node-ionic)** | MCP Server, Node, Vue 3, React y CALM | `22`, `24`, `26` y `latest` (`pnpm`, `promptfoo`, `@finos/calm-cli`, `playwright`, `@axe-core/playwright`, `@pact-foundation/pact`) |
@@ -94,7 +94,7 @@ Todas las suites de análisis, mutación, contratos y BDD se ejecutan en contene
 | **[sinfallas/karatelabs](https://hub.docker.com/r/sinfallas/karatelabs)** | Contratos BDD API y HTTP/Edge/OSHP/XML | `1.5.1` (Java + Maven + Karate JUnit5; proporcional a flujos `FULL_11X` multi-servicio con estado) |
 | **[sinfallas/base-bash-qa](https://hub.docker.com/r/sinfallas/base-bash-qa)** | DevOps y Automatización POSIX / Bash | `latest` (`ShellCheck`, `shfmt`, `BATS-core`, `bats-mock`, `kcov`) |
 | **[sinfallas/remote-graphify](https://hub.docker.com/r/sinfallas/remote-graphify)** | Optimización de Contexto AST y Blast Radius | `latest` (`graphify` extracción AST Tree-sitter y clustering) |
-| **Motores de Infra, Seguridad y Carga** | BD Real, Caché, DAST, Caos y Carga | `postgres:17-alpine`, `eqalpha/keydb:6.3.4`, `aquasec/trivy:0.76.2`, `zaproxy/zap-stable:2.15.0`, `gaiaadm/pumba:0.10.1`, `prom/prometheus:v2.55.1`, `grafana/k6:2.4.0` |
+| **Motores de Infra, Seguridad y Carga** | BD Real, Caché, DAST, Caos y Carga | `postgres:17-alpine`, `eqalpha/keydb@sha256:6537505c42355ca1f571276bddf83f5b750f760f07b2a185a676481791e388ac` (`v6.3.4` multi-arch), `aquasec/trivy:0.76.2`, `zaproxy/zap-stable:2.15.0`, `gaiaadm/pumba:0.10.1`, `prom/prometheus:v2.55.1`, `grafana/k6:2.4.0` |
 
 ---
 
@@ -102,7 +102,7 @@ Todas las suites de análisis, mutación, contratos y BDD se ejecutan en contene
 
 La matriz abarca **10 stacks hidratables** (`python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue`) más **`architecture/`** (topología FINOS CALM) y **`mcp-server/`** (`@sinfallas/mcp-qa-11x`), conformando los **12 entornos de matriz**:
 
-| Carpeta | Ecosistema | Capacidades Clave (v3.1) |
+| Carpeta | Ecosistema | Capacidades Clave (v3.2) |
 | :--- | :--- | :--- |
 | **[`fastapi/`](fastapi/README.es.md)** | APIs Asíncronas Python | Ruff, Mypy strict, paridad PostgreSQL 17 RLS + Alembic, consumidor Pact V4 ([`test_pact_consumer.py`](fastapi/tests/contracts/test_pact_consumer.py)), carga k6 ([`smoke.k6.js`](fastapi/tests/load/smoke.k6.js)), Karate BDD |
 | **[`python/`](python/README.es.md)** | Librerías y CLIs Python | UV, Ruff (`CC <= 5`), Mypy strict, Pytest `>= 95%`, Hypothesis, Mutmut (`MSI >= 80%`), Bandit |
@@ -136,7 +136,7 @@ A continuación se resume el stack de validación corporativo a lo largo de los 
 | **AI Evals** (`ai-evals/`) | `Ruff (CC <= 5)` + `Mypy (Strict)` | `Pytest asyncio` + `DeepEval` + Voz WebRTC + PDF/OCR `Decimal` | `Pytest-Cov (>= 95%)` | `pip-audit` + `CycloneDX SBOM` | `Bandit` + `Promptfoo OWASP LLM Top 10` | `N/A` | `DeepEval` + `Promptfoo` (Offline + Live) | `WebRTC TTFB <= 500ms` | `Radon (CC <= A)` + `golden_from_traces.py` | `Promptfoo LLM Red-Team` | `N/A` | `Trazas JSON Trayectoria Eval` | `Trivy` + `Gitleaks` | `Lefthook` |
 | **Vibe Rescue** (`vibe-rescue/`) | `Ruff (CC <= 5)` + `Mypy (Strict)` | `Pytest` + `audit_vibe_prototype.py` (`VIBE-SEC-001..QA-005`) | `Pytest-Cov (>= 95%)` | `pip-audit` + `rls_hardening.sql` | `Bandit` + `RLS / AES-256-GCM / WORM` | `N/A` | `Compuerta Rescate QA-11X 10/10` | `N/A` | `Radon (CC <= 5)` | `OWASP ZAP (post-rescate)` | `N/A` | `Finding State Tracker JSON` | `Trivy` + `Hadolint` + `Gitleaks` | `Lefthook` |
 | **Architecture** (`architecture/`) | `AJV CLI / CALM` (`validate_calm_architecture.sh`) | `CALM Schema & 7-Control Verification (qa-11x.calm.json)` | `N/A` | `Integridad Controles CALM` | `7 Controles Bloqueantes (RLS/WORM/mTLS)` | `N/A` | `Compuerta Arquitectónica FINOS CALM` | `N/A` | `Graphify AST Acoplamiento / Capas` | `N/A` | `N/A` | `Reporte Validación CALM` | `Trivy` + `Gitleaks` | `Lefthook` |
-| **MCP Server** (`mcp-server/`) | `ESLint (--max-warnings 0)` + `Prettier` + `tsc` | `Vitest` + `run-example-e2e.mjs` (Clean-Room `stdio`) | `@vitest/coverage-v8 (>= 95%)` | `pnpm audit` + `.npmrc (ignore-scripts=true)` | `eslint-plugin-security` + `promptGuard` + `audit_security_stig_owasp` | `Stryker` | `Karate Labs (mcp_cli_test.feature)` | `N/A` | `SonarJS (<= 15)` | `N/A` | `N/A` | `Telemetría Pass-Quiet y PR_VERDICT SHA-256` | `Trivy` + `Gitleaks` | `Lefthook` |
+| **MCP Server** (`mcp-server/`) | `ESLint 9 (--max-warnings 0)` + `tsc` | `Vitest` + `run-example-e2e.mjs` (Clean-Room `stdio`) | `@vitest/coverage-v8 (>= 95%)` | `pnpm audit` + `.npmrc (ignore-scripts=true)` | `eslint-plugin-security` + `promptGuard` + `audit_security_stig_owasp` | `N/A` | `Karate Labs (mcp_cli_test.feature)` | `N/A` | `SonarJS (<= 15)` | `N/A` | `N/A` | `Telemetría Pass-Quiet y PR_VERDICT SHA-256` | `Trivy` + `Gitleaks` | `Lefthook` |
 
 ---
 
@@ -147,7 +147,7 @@ A continuación se resume el stack de validación corporativo a lo largo de los 
    - Blinda la ejecución de herramientas MCP en modo *Fail-Closed* mediante [`promptGuard.ts`](mcp-server/src/security/promptGuard.ts) (canonicalización `NFKC`, purga de caracteres zero-width/Trojan Source, bloqueo de inyección de prompts y evasiones de `QA-GIT-GATE-01`, y redacción PII/secretos usando marcadores `<EXAMPLE_REDACTED>`).
    - Compacta trazas largas determinísticamente con [`.agents/scripts/compact_context_11x.py`](.agents/scripts/compact_context_11x.py) e incluye perfiles aislados **Ollama / vLLM** y descubrimiento **A2A Agent Card** ([`agentCard.ts`](mcp-server/src/a2a/agentCard.ts), [`docs/specs/14_LOCAL_LLM_AND_A2A_PROFILES.md`](docs/specs/14_LOCAL_LLM_AND_A2A_PROFILES.md)).
 2. **Modo 2 — Auditorías Probabilísticas y Red-Teaming Bajo Demanda (`make audit-llm`):**
-   - Ejecuta **DeepEval** (`GEval`, `TaskCompletionMetric`, fidelidad) y **Promptfoo** (OWASP LLM Top 10) contra proveedores configurados o endpoints locales Ollama/vLLM (`SKIPPED_NO_LLM_SECRETS_CONFIGURED` si no hay credenciales en CI).
+   - Ejecuta **DeepEval** (`GEval`, `TaskCompletionMetric`, fidelidad) y **Promptfoo** (OWASP LLM Top 10) contra proveedores configurados o endpoints locales Ollama/vLLM (`SKIPPED_MISSING_CREDENTIALS` si no hay credenciales en CI).
 
 ---
 
