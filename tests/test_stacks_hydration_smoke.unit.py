@@ -7,7 +7,7 @@ test_stacks_hydration_smoke.unit.py — Smoke de Hidratación e Invariantes 11X.
 Valida determinísticamente que las 10 plantillas corporativas (vue3,
 react-frontend, python, fastapi, php, node-backend, bash-scripts,
 mobile-appium, ai-evals, vibe-rescue), los scripts de automatización y
-manifest.json cumplan todos los contratos estructurales y de seguridad v3.1.
+manifest.json cumplan todos los contratos estructurales y de seguridad v3.2.
 """
 
 from __future__ import annotations
@@ -181,10 +181,18 @@ class TestStacksHydrationSmoke(unittest.TestCase):
                 f"Falta {required_cat3} en {stack_name}",
             )
 
+        seen_targets: set[str] = set()
         for entry in files:
+            target_name = str(entry["target_name"])
+            self.assertNotIn(
+                target_name,
+                seen_targets,
+                f"Colisión de target_name '{target_name}' en stack {stack_name}",
+            )
+            seen_targets.add(target_name)
             src = REPO_ROOT / entry["path"]
             self.assertTrue(src.is_file(), f"Archivo inexistente: {entry['path']}")
-            dest = tmp_dir / entry["target_name"]
+            dest = tmp_dir / target_name
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src, dest)
             self.assertTrue(dest.is_file())
@@ -326,17 +334,32 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             finally:
                 shutil.rmtree(tmp_dir, ignore_errors=True)
 
+    def _assert_compose_images_pinned(
+        self, stack_name: str, compose_text: str
+    ) -> None:
+        if "sinfallas/karatelabs:" in compose_text:
+            self.assertIn("sinfallas/karatelabs:1.5.1", compose_text)
+        for line in compose_text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("image:"):
+                self.assertRegex(
+                    stripped,
+                    r"@sha256:[0-9a-f]{64}",
+                    f"Imagen sin digest @sha256 en {stack_name}: {stripped}",
+                )
+
     def test_docker_compose_files_have_no_graphify_daemon_or_broken_karate_tag(
         self,
     ) -> None:
-        """Certifica cero graphify:8080, karatelabs:1.5.1 y puertos 127.0.0.1."""
-        for stack_name in COMPOSE_ENABLED_STACKS:
+        """Certifica cero graphify:8080, karatelabs:1.5.1, @sha256 y loopback."""
+        for stack_name in ("mcp-server", *COMPOSE_ENABLED_STACKS):
             compose_path = REPO_ROOT / stack_name / "docker-compose.qa.yml"
             self.assertTrue(compose_path.is_file(), f"Falta compose QA en {stack_name}")
-            self.assertFalse(
-                (REPO_ROOT / stack_name / "docker-compose.qa.yml.example").exists(),
-                f"Archivo legado docker-compose.qa.yml.example en {stack_name}",
-            )
+            if stack_name != "mcp-server":
+                self.assertFalse(
+                    (REPO_ROOT / stack_name / "docker-compose.qa.yml.example").exists(),
+                    f"Archivo legado docker-compose.qa.yml.example en {stack_name}",
+                )
             compose_text = compose_path.read_text(encoding="utf-8")
             self.assertNotIn(
                 "graphify:", compose_text, f"Daemon graphify residual en {stack_name}"
@@ -346,8 +369,7 @@ class TestStacksHydrationSmoke(unittest.TestCase):
                 compose_text,
                 f"Tag roto 1.5.0 en {stack_name}",
             )
-            if "sinfallas/karatelabs:" in compose_text:
-                self.assertIn("sinfallas/karatelabs:1.5.1", compose_text)
+            self._assert_compose_images_pinned(stack_name, compose_text)
             self._assert_compose_ports_loopback(stack_name, compose_text)
 
     def test_frontend_stacks_invariants(self) -> None:
@@ -512,6 +534,7 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             ("vue3", "Makefile.example"),
             ("react-frontend", "Makefile.example"),
             ("node-backend", "Makefile.example"),
+            ("mobile-appium", "Makefile.example"),
         )
         for folder, makefile_name in node_targets:
             compose_text = (REPO_ROOT / folder / "docker-compose.qa.yml").read_text(
@@ -736,6 +759,12 @@ class TestStacksHydrationSmoke(unittest.TestCase):
         parsed_lefthook = _load_yaml_mapping(lefthook_text)
         self.assertEqual(set(parsed_lefthook), {"pre-commit", "commit-msg", "pre-push"})
         hooks_sh = (REPO_ROOT / "instalar-hooks.sh").read_text(encoding="utf-8")
+        lefthook_exec = "\n".join(
+            ln for ln in lefthook_text.splitlines() if not ln.lstrip().startswith("#")
+        )
+        hooks_exec = "\n".join(
+            ln for ln in hooks_sh.splitlines() if not ln.lstrip().startswith("#")
+        )
         required_parity_tokens = (
             "sinfallas/karatelabs:1.5.1",
             (
@@ -743,7 +772,7 @@ class TestStacksHydrationSmoke(unittest.TestCase):
                 "2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7"
             ),
             "tests/*.unit.py",
-            "tests/meta_qa/test_governance_scripts.py",
+            "tests/meta_qa/test_*.py",
             "validate_calm_architecture.sh",
             "certify_task_completion.sh",
             "mobile-appium vibe-rescue .github",
@@ -754,8 +783,8 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             "PYTHONPATH=/app/.agents/scripts:/app/vibe-rescue:/app",
         )
         for token in required_parity_tokens:
-            self.assertIn(token, lefthook_text, f"Falta '{token}' en lefthook.yml")
-            self.assertIn(token, hooks_sh, f"Falta '{token}' en instalar-hooks.sh")
+            self.assertIn(token, lefthook_exec, f"Falta '{token}' en lefthook.yml")
+            self.assertIn(token, hooks_exec, f"Falta '{token}' en instalar-hooks.sh")
 
         skill_paths = sorted(
             entry["path"]
@@ -818,7 +847,9 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             ".agents/rules/anti_regression_and_side_effects_guardrail.md",
             ".agents/skills/qa-11x-architect/SKILL.md",
             "AI_MASTER_PROMPT.md",
+            "AI_MASTER_PROMPT.es.md",
             "docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md",
+            "docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.es.md",
         )
         for rel_path in required_docs:
             content = (REPO_ROOT / rel_path).read_text(encoding="utf-8")

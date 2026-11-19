@@ -821,13 +821,15 @@ EOF
   chmod +x "${WORK}/scripts/verificar-secretos.sh"
 
   DIAG="${BATS_TEST_TMPDIR}/breaker42/diag.json"
-  run env QA11X_DOCKERENV_PATH="/.dockerenv" QA_DIAGNOSTIC_JSON="${DIAG}" LC_ALL=C bash "${WORK}/.agents/scripts/certify_task_completion.sh"
+  local mock_env="${BATS_TEST_TMPDIR}/breaker_dockerenv"
+  : >"${mock_env}"
+  run env QA11X_DOCKERENV_PATH="${mock_env}" QA_DIAGNOSTIC_JSON="${DIAG}" LC_ALL=C bash "${WORK}/.agents/scripts/certify_task_completion.sh"
   assert_failure 1
 
-  run env QA11X_DOCKERENV_PATH="/.dockerenv" QA_DIAGNOSTIC_JSON="${DIAG}" LC_ALL=C bash "${WORK}/.agents/scripts/certify_task_completion.sh"
+  run env QA11X_DOCKERENV_PATH="${mock_env}" QA_DIAGNOSTIC_JSON="${DIAG}" LC_ALL=C bash "${WORK}/.agents/scripts/certify_task_completion.sh"
   assert_failure 1
 
-  run env QA11X_DOCKERENV_PATH="/.dockerenv" QA_DIAGNOSTIC_JSON="${DIAG}" LC_ALL=C bash "${WORK}/.agents/scripts/certify_task_completion.sh"
+  run env QA11X_DOCKERENV_PATH="${mock_env}" QA_DIAGNOSTIC_JSON="${DIAG}" LC_ALL=C bash "${WORK}/.agents/scripts/certify_task_completion.sh"
   assert_failure 42
   assert_output --partial "[BREAKER-42]"
 }
@@ -946,6 +948,8 @@ EOF
   assert_success
   assert_output --partial "PUBLICACIÓN EXITOSA"
   run grep -F " -e NPM_TOKEN -e NPM_OTP -e NPM_REGISTRY " "${DOCKER_LOG}"
+  assert_success
+  run grep -F " -e GITHUB_ACTIONS -e ACTIONS_ID_TOKEN_REQUEST_URL " "${DOCKER_LOG}"
   assert_success
   run grep -F "npm publish --access public" "${DOCKER_LOG}"
   assert_success
@@ -1086,12 +1090,14 @@ EOF
   assert_success
   assert_output --partial "0 secretos expuestos"
 
-  # 2. Directorio existente sin permiso de entrada falla al resolver ruta (lines 23-24)
-  chmod 000 "${WORK}/locked_dir"
-  run env LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh" "$1/locked_dir/file.txt"' _ "${WORK}" "${REPO_ROOT}"
-  chmod 755 "${WORK}/locked_dir"
-  [ "${status}" -eq 1 ]
-  assert_output --partial "No se pudo resolver la ruta"
+  # 2. Directorio existente sin permiso de entrada falla al resolver ruta (si UID != 0)
+  if [ "$(id -u)" -ne 0 ]; then
+    chmod 000 "${WORK}/locked_dir"
+    run env LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh" "$1/locked_dir/file.txt"' _ "${WORK}" "${REPO_ROOT}"
+    chmod 755 "${WORK}/locked_dir"
+    [ "${status}" -eq 1 ]
+    assert_output --partial "No se pudo resolver la ruta"
+  fi
 
   # 3. Ruta absoluta con directorio padre inexistente (line 28) -> fuera del repositorio
   run env LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh" "/nonexistent_parent_11x/file.txt"' _ "${WORK}" "${REPO_ROOT}"
@@ -1136,18 +1142,59 @@ EOF
   done
 
   # 2. verificar-secretos.sh sin .git usa find fallback y detecta secreto real en archivo clean-room
+  local clean_dockerenv="${BATS_TEST_TMPDIR}/clean_dockerenv"
+  : >"${clean_dockerenv}"
   printf 'export const clean = "safe";\n' >"${clean_room}/src/ok.ts"
-  run env QA11X_DOCKERENV_PATH="/.dockerenv" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${clean_room}" "${REPO_ROOT}"
+  run env QA11X_DOCKERENV_PATH="${clean_dockerenv}" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${clean_room}" "${REPO_ROOT}"
   assert_success
   assert_output --partial "0 secretos expuestos"
 
   local synth_aws="AKIA""1234567890ABCDEF"
   printf 'const awsKey = "%s";\n' "${synth_aws}" >"${clean_room}/src/leak.ts"
-  run env QA11X_DOCKERENV_PATH="/.dockerenv" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${clean_room}" "${REPO_ROOT}"
+  run env QA11X_DOCKERENV_PATH="${clean_dockerenv}" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${clean_room}" "${REPO_ROOT}"
   assert_failure 1
   rm -f "${clean_room}/src/leak.ts"
 
   printf 'SECRET=1\n' >"${clean_room}/.env"
+
+  # 3. [18]/[19]/L014: expansion de directorio, ruta inexistente, flag desconocido, espacios PEP8 y comentario ignore
+  mkdir -p "${clean_room}/nested"
+  local pep8_secret="SuperReal""SecretValue_12345"
+  printf 'password = "%s"\n' "${pep8_secret}" >"${clean_room}/nested/cfg.py"
+  run env QA11X_DOCKERENV_PATH="${clean_dockerenv}" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh" nested' _ "${clean_room}" "${REPO_ROOT}"
+  assert_failure 1
+  assert_output --partial "nested/cfg.py"
+
+  # secret-scan-ignore en codigo ejecutable sin marcador de comentario ya NO suprime el escaneo
+  printf 'const tok = "%s"; const note = "secret-scan-ignore";\n' "${synth_aws}" >"${clean_room}/nested/bypass.ts"
+  run env QA11X_DOCKERENV_PATH="${clean_dockerenv}" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh" nested/bypass.ts' _ "${clean_room}" "${REPO_ROOT}"
+  assert_failure 1
+
+  # Con marcador de comentario legitimo si excluye la linea fixture
+  printf 'const tok = "%s"; // secret-scan-ignore\n' "${synth_aws}" >"${clean_room}/nested/fixture.ts"
+  run env QA11X_DOCKERENV_PATH="${clean_dockerenv}" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh" nested/fixture.ts' _ "${clean_room}" "${REPO_ROOT}"
+  assert_success
+
+  run env QA11X_DOCKERENV_PATH="${clean_dockerenv}" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh" missing_file.ts' _ "${clean_room}" "${REPO_ROOT}"
+  assert_failure 1
+
+  run env QA11X_DOCKERENV_PATH="${clean_dockerenv}" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh" --flag-desconocido' _ "${clean_room}" "${REPO_ROOT}"
+  assert_failure 1
+
+  # 4. commit-msg hook instalado por instalar-hooks.sh rechaza >100 chars y acepta <=100
+  local hook_ws="${BATS_TEST_TMPDIR}/hook_msg_ws"
+  mkdir -p "${hook_ws}/scripts"
+  git -C "${hook_ws}" init -q
+  run env QA11X_REPO_ROOT="${hook_ws}" LC_ALL=C bash "${REPO_ROOT}/instalar-hooks.sh"
+  assert_success
+  local msg_long="${BATS_TEST_TMPDIR}/msg_long.txt"
+  local msg_ok="${BATS_TEST_TMPDIR}/msg_ok.txt"
+  printf 'feat: %0110d\n' 1 >"${msg_long}"
+  printf 'feat: short conventional header\n' >"${msg_ok}"
+  run bash "${hook_ws}/.git/hooks/commit-msg" "${msg_long}"
+  assert_failure 1
+  run bash "${hook_ws}/.git/hooks/commit-msg" "${msg_ok}"
+  assert_success
   run env QA11X_DOCKERENV_PATH="/.dockerenv" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${clean_room}" "${REPO_ROOT}"
   assert_failure 1
   assert_output --partial "Archivo sensible .env bloqueado"
@@ -1168,4 +1215,135 @@ EOF
   run env PATH="${stub_dk_bin}" LC_ALL=C bash "${REPO_ROOT}/scripts/actualizar-grafos-graphify.sh" --all stack_inexistente_11x
   assert_failure 1
   assert_output --partial "Directorio de stack inexistente"
+}
+
+@test "Wave 3 M023/M024/M044/M045: certify catalogs+test-only+redaction, auditar-infra fingerprint y probar-mcp CWD" {
+  # 1. M024 + M023: catalogs/ obliga QA-TEST-SYNC-01, test-only no bloquea docs y redacción case-insensitive en stderr
+  local w3_ws="${BATS_TEST_TMPDIR}/w3_certify_ws"
+  mkdir -p "${w3_ws}/.agents/scripts" "${w3_ws}/scripts" "${w3_ws}/catalogs" "${w3_ws}/tests"
+  cp "${REPO_ROOT}/.agents/scripts/certify_task_completion.sh" "${w3_ws}/.agents/scripts/certify_task_completion.sh"
+  chmod +x "${w3_ws}/.agents/scripts/certify_task_completion.sh"
+  printf 'print("✔ [Manifest] stub OK")\n' >"${w3_ws}/scripts/generar-manifiesto.py"
+  for stub_py in \
+    verify_json_no_duplicate_keys.py \
+    verify_zero_orphan_vue_components.py \
+    verify_no_orphan_api_endpoints.py \
+    verify_topological_health.py \
+    verify_alembic_orm_parity.py \
+    verify_roadmap_consistency.py; do
+    printf 'print("✔ [%s] stub OK")\n' "${stub_py}" >"${w3_ws}/.agents/scripts/${stub_py}"
+  done
+  printf '#!/usr/bin/env bash\necho "✔ ok"\n' >"${w3_ws}/scripts/auditar-infra.sh"
+  cat >"${w3_ws}/scripts/verificar-secretos.sh" <<EOF
+#!/usr/bin/env bash
+echo "API_KEY=plainSecret""TokenValue12345" >&2
+exit 1
+EOF
+  chmod +x "${w3_ws}/scripts/auditar-infra.sh" "${w3_ws}/scripts/verificar-secretos.sh"
+
+  local diag_red="${BATS_TEST_TMPDIR}/w3_diag/red.json"
+  local mock_env="${BATS_TEST_TMPDIR}/w3_dockerenv"
+  : >"${mock_env}"
+  run env QA11X_DOCKERENV_PATH="${mock_env}" QA_DIAGNOSTIC_JSON="${diag_red}" LC_ALL=C bash "${w3_ws}/.agents/scripts/certify_task_completion.sh"
+  assert_failure 1
+  refute_output --partial "plainSecretTokenValue12345"
+
+  # Repositorio git válido para evaluar reglas M024 de Gate 10
+  printf '#!/usr/bin/env bash\necho "✔ clean"\n' >"${w3_ws}/scripts/verificar-secretos.sh"
+  chmod +x "${w3_ws}/scripts/verificar-secretos.sh"
+  printf '{"ok":true}\n' >"${w3_ws}/catalogs/pack.json"
+  printf '# Init\n' >"${w3_ws}/CHANGELOG.md"
+  printf 'def test_ok(): pass\n' >"${w3_ws}/tests/test_sample.py"
+  git -C "${w3_ws}" init -q
+  git -C "${w3_ws}" config user.email "qa@example.com"
+  git -C "${w3_ws}" config user.name "QA Bot"
+  git -C "${w3_ws}" add .
+  git -C "${w3_ws}" commit -q -m "chore: init"
+
+  # Modificar catalogs/ sin tocar tests ni docs falla Gate 10 (M024)
+  printf '{"ok":false}\n' >"${w3_ws}/catalogs/pack.json"
+  run env QA11X_DOCKERENV_PATH="${mock_env}" LC_ALL=C bash "${w3_ws}/.agents/scripts/certify_task_completion.sh"
+  assert_failure 1
+  git -C "${w3_ws}" checkout -- catalogs/pack.json
+
+  # Solo editar test file sin editar docs NO falla por docs faltantes (M024)
+  printf 'def test_ok(): assert 1 == 1\n' >"${w3_ws}/tests/test_sample.py"
+  run env QA11X_DOCKERENV_PATH="${mock_env}" LC_ALL=C bash "${w3_ws}/.agents/scripts/certify_task_completion.sh"
+  assert_success
+
+  # 2. M044 + [21]: auditar-infra usa UID no-root + no-new-privileges e invalida cache con package.json
+  local trivy_log="${BATS_TEST_TMPDIR}/trivy_w3.log"
+  local trivy_bin="${BATS_TEST_TMPDIR}/trivy_bin"
+  mkdir -p "${trivy_bin}" "${w3_ws}/mcp-server"
+  for tool in bash awk cat chmod cp cut dirname find grep head id mkdir pwd rm sed sha256sum sort tail tr wc xargs; do
+    resolved="$(command -v "${tool}" || true)"
+    [ -n "${resolved}" ] && ln -sf "${resolved}" "${trivy_bin}/${tool}"
+  done
+  cat >"${trivy_bin}/docker" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >>"${trivy_log}"
+exit 0
+EOF
+  chmod +x "${trivy_bin}/docker"
+  cp "${REPO_ROOT}/scripts/auditar-infra.sh" "${w3_ws}/scripts/auditar-infra.sh"
+  chmod +x "${w3_ws}/scripts/auditar-infra.sh"
+  printf '{"name":"demo"}\n' >"${w3_ws}/mcp-server/package.json"
+
+  : >"${trivy_log}"
+  run env PATH="${trivy_bin}" LC_ALL=C bash "${w3_ws}/scripts/auditar-infra.sh"
+  assert_success
+  run grep -F -- "-u $(id -u):$(id -g)" "${trivy_log}"
+  assert_success
+  run grep -F -- "--security-opt=no-new-privileges:true" "${trivy_log}"
+  assert_success
+
+  # Cambiar package.json invalida caché SHA-256 sin usar --force (M044)
+  : >"${trivy_log}"
+  printf '{"name":"demo","version":"2"}\n' >"${w3_ws}/mcp-server/package.json"
+  run env PATH="${trivy_bin}" LC_ALL=C bash "${w3_ws}/scripts/auditar-infra.sh"
+  assert_success
+  [ "$(wc -l <"${trivy_log}")" -ge 2 ]
+
+  # 3. Wave 3 Bash diff coverage: verificar-secretos (--, nested clean, nested .env), publicar-mcp (pack map) y probar-mcp (--verify-tarball root & docker)
+  local cov_ws="${BATS_TEST_TMPDIR}/w3_cov_ws"
+  mkdir -p "${cov_ws}/nested_ok" "${cov_ws}/nested_env"
+  printf 'export const ok = 1;\n' >"${cov_ws}/nested_ok/app.ts"
+  printf 'SECRET=1\n' >"${cov_ws}/nested_env/.env"
+  run env QA11X_EXPLICIT_TARGETS=1 LC_ALL=C bash -c 'cd "$1" && "$2/scripts/verificar-secretos.sh" -- nested_ok' _ "${cov_ws}" "${REPO_ROOT}"
+  assert_success
+  run env LC_ALL=C bash -c 'cd "$1" && "$2/scripts/verificar-secretos.sh" nested_env' _ "${cov_ws}" "${REPO_ROOT}"
+  assert_failure 1
+  assert_output --partial ".env bloqueado"
+
+  # probar-mcp-example --verify-tarball desde WORK raíz y fuera de Docker
+  _setup_probar_mcp_example_env
+  cd "${WORK}"
+  run env QA11X_REPO_ROOT="${WORK}" HOME="${FAKE_HOME}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C "${REPO_ROOT}/scripts/probar-mcp-example.sh" --verify-tarball
+  assert_success
+  run env QA11X_DOCKERENV_PATH="/nonexistent" QA11X_REPO_ROOT="${WORK}" HOME="${FAKE_HOME}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C "${REPO_ROOT}/scripts/probar-mcp-example.sh" --verify-tarball
+  assert_success
+
+  # publicar-mcp.sh npm pack --dry-run exponiendo *.map en Docker stub (L260-261)
+  local pub_cov_ws="${BATS_TEST_TMPDIR}/pub_cov_ws"
+  local pub_cov_bin="${BATS_TEST_TMPDIR}/pub_cov_bin"
+  mkdir -p "${pub_cov_ws}/mcp-server/src" "${pub_cov_ws}/mcp-server/dist" "${pub_cov_ws}/mcp-server/node_modules/.bin" "${pub_cov_ws}/scripts" "${pub_cov_bin}"
+  printf '{"name":"@sinfallas/mcp-qa-11x","version":"3.1.0"}\n' >"${pub_cov_ws}/mcp-server/package.json"
+  printf 'export const x = 1;\n' >"${pub_cov_ws}/mcp-server/src/index.ts"
+  touch -t 202601010000 "${pub_cov_ws}/mcp-server/src/index.ts"
+  printf 'export const x = 1;\n' >"${pub_cov_ws}/mcp-server/dist/index.js"
+  touch -t 202601010001 "${pub_cov_ws}/mcp-server/dist/index.js"
+  printf '#!/usr/bin/env bash\nexit 0\n' >"${pub_cov_ws}/scripts/limpieza.sh"
+  chmod +x "${pub_cov_ws}/scripts/limpieza.sh"
+  cat >"${pub_cov_bin}/docker" <<'EOF'
+#!/usr/bin/env bash
+if printf '%s\n' "$*" | grep -q "npm pack --dry-run"; then
+  printf 'npm notice dist/index.js.map\n'
+  exit 0
+fi
+exit 0
+EOF
+  chmod +x "${pub_cov_bin}/docker"
+  run env QA11X_REPO_ROOT="${pub_cov_ws}" PATH="${pub_cov_bin}:/usr/bin:/bin" LC_ALL=C "${REPO_ROOT}/scripts/publicar-mcp.sh" --dry-run --skip-tests
+  assert_failure 1
+  assert_output --partial "expuestos en npm pack"
 }

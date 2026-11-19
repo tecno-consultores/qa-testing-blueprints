@@ -204,9 +204,22 @@ const nodes = Array.isArray(doc.nodes) ? doc.nodes : [];
 if (!Array.isArray(doc.nodes)) errors.push("[MISSING_NODE_FIELD] Falta arreglo nodes.");
 
 for (const node of nodes) {
-  if (!node || typeof node !== "object" || typeof node["unique-id"] !== "string" || !node["unique-id"].trim()) {
-    errors.push("[MISSING_NODE_FIELD] Nodo sin unique-id válido.");
-    continue;
+  if (
+    !node ||
+    typeof node !== "object" ||
+    typeof node["unique-id"] !== "string" ||
+    !node["unique-id"].trim() ||
+    typeof node["node-type"] !== "string" ||
+    !node["node-type"].trim() ||
+    typeof node.name !== "string" ||
+    !node.name.trim() ||
+    typeof node.description !== "string" ||
+    !node.description.trim()
+  ) {
+    errors.push("[MISSING_NODE_FIELD] Nodo sin unique-id, node-type, name o description válidos.");
+    if (!node || typeof node !== "object" || typeof node["unique-id"] !== "string" || !node["unique-id"].trim()) {
+      continue;
+    }
   }
   const id = node["unique-id"].trim();
   if (nodeIds.has(id)) errors.push(`[DUPLICATE_NODE_ID] ${id}`);
@@ -352,6 +365,8 @@ if (start >= 0 && end > start) {
   }
 }
 JSEOF
+  else
+    printf '⚠️ [CALM] @finos/calm-cli no detectado en PATH; ejecutando validación determinista embebida.\n' >&2
   fi
 
   printf '✅ [CALM] %s validado (%s nodos, %s relaciones, %s controles)\n' \
@@ -373,6 +388,7 @@ if ! command -v docker >/dev/null 2>&1; then
 fi
 
 docker run --rm --network none \
+  --security-opt=no-new-privileges:true \
   -u "$(id -u):$(id -g)" \
   -e HOME=/tmp \
   -e ARCH_INPUT="${ARCH_ARG}" \

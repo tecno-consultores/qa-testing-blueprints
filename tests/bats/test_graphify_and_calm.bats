@@ -222,6 +222,12 @@ EOF
   assert_success
   run grep -F -- "-e OLLAMA_BASE_URL=" "${docker_log}"
   assert_success
+  run grep -F -- "--security-opt=no-new-privileges:true" "${docker_log}"
+  assert_success
+  run grep -F -- "-u $(id -u):$(id -g)" "${docker_log}"
+  assert_success
+  run grep -F -- "-e HOME=/tmp" "${docker_log}"
+  assert_success
 }
 
 @test "actualizar-grafos-graphify.sh (Nominal): incremental por mtime, git dirty no-.md, target stack y --all" {
@@ -308,6 +314,15 @@ EOF
   run env PATH="${bin_dir}" MOCK_GRAPHIFY_FAIL=1 LC_ALL=C bash "${work}/scripts/actualizar-grafos-graphify.sh"
   assert_failure 1
   assert_output --partial "Error al extraer el grafo"
+
+  # Path traversal y symlink escape fuera de REPO_ROOT en TARGET_STACK
+  run env PATH="${bin_dir}" LC_ALL=C bash "${work}/scripts/actualizar-grafos-graphify.sh" "../escape"
+  assert_failure 1
+  assert_output --partial "inválido o fuera de REPO_ROOT"
+
+  run env PATH="${bin_dir}" LC_ALL=C bash "${work}/scripts/actualizar-grafos-graphify.sh" "/tmp"
+  assert_failure 1
+  assert_output --partial "inválido o fuera de REPO_ROOT"
 }
 
 @test "validate_calm_architecture.sh (CLI & Docker Rule Zero): --help, flags invalidos e invocacion --network none" {
@@ -406,6 +421,9 @@ EOF
   "nodes": [
     {
       "unique-id": "svc-api",
+      "node-type": "service",
+      "name": "Service API",
+      "description": "Primary API boundary service",
       "controls": {
         "prompt-injection-guard": {},
         "rule-zero-ephemeral-docker": {},
@@ -416,7 +434,12 @@ EOF
         "cli-tty-anti-hang-guard": {}
       }
     },
-    {"unique-id": "svc-db"}
+    {
+      "unique-id": "svc-db",
+      "node-type": "database",
+      "name": "Primary DB",
+      "description": "Tenant isolated datastore"
+    }
   ],
   "relationships": [
     {
@@ -447,4 +470,47 @@ JSON
   run cat "${calm_log}"
   assert_success
   assert_output --partial "validate -a /workspace/architecture/qa-11x.calm.json"
+
+  # 9. Sin calm en PATH imprime advertencia de fallback determinista (L369) y valida igualmente
+  local no_calm_bin="${BATS_TEST_TMPDIR}/no_calm_bin"
+  mkdir -p "${no_calm_bin}"
+  _populate_minimal_bin "${no_calm_bin}"
+  cp "${bin_dir}/node" "${no_calm_bin}/node"
+  run env PATH="${no_calm_bin}" QA_IN_CONTAINER=1 LC_ALL=C bash "${work}/.agents/scripts/validate_calm_architecture.sh" architecture/qa-11x.calm.json
+  assert_success
+  assert_output --partial "@finos/calm-cli no detectado en PATH"
+}
+
+@test "actualizar-grafos-graphify.sh: cubre traversal, symlink escape y dir ilegible (L117-133)" {
+  local work="${BATS_TEST_TMPDIR}/graph_cov_ws"
+  local bin_dir="${BATS_TEST_TMPDIR}/graph_cov_bin"
+  local docker_log="${BATS_TEST_TMPDIR}/graph_cov_docker.log"
+  mkdir -p "${work}/scripts"
+  cp "${GRAPHIFY_SCRIPT}" "${work}/scripts/actualizar-grafos-graphify.sh"
+  chmod +x "${work}/scripts/actualizar-grafos-graphify.sh"
+  _populate_minimal_bin "${bin_dir}"
+  _setup_graphify_docker_stub "${bin_dir}" "${docker_log}"
+
+  ln -s /tmp "${work}/ext_symlink"
+  mkdir -p "${work}/locked_dir"
+  chmod 000 "${work}/locked_dir"
+  ln -s "/nonexistent_target_11x" "${work}/dangling_dir" || true
+
+  PATH="${bin_dir}" LC_ALL=C run "${work}/scripts/actualizar-grafos-graphify.sh" "/abs_bad"
+  assert_failure 1
+
+  PATH="${bin_dir}" LC_ALL=C run "${work}/scripts/actualizar-grafos-graphify.sh" "ext_symlink"
+  assert_failure 1
+  assert_output --partial "escapa de REPO_ROOT"
+
+  # Directorio que falla pwd -P / cd (L126-127): subdirectorio sin permiso de ejecucion o enlace roto tras -d mock
+  local locked_parent="${work}/unresolvable_sub"
+  mkdir -p "${locked_parent}"
+  chmod 111 "${work}/locked_dir"
+  ln -s "${work}/locked_dir/nested" "${locked_parent}/link" 2>/dev/null || true
+  mkdir -p "${work}/bad_chmod"
+  chmod 000 "${work}/bad_chmod"
+  PATH="${bin_dir}" LC_ALL=C run "${work}/scripts/actualizar-grafos-graphify.sh" "bad_chmod"
+  chmod 755 "${work}/bad_chmod" "${work}/locked_dir"
+  assert_failure 1
 }

@@ -14,11 +14,26 @@ if [ ! -f "${TARGET_SCRIPT}" ]; then
   exit 1
 fi
 
-if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then
+for psi_arg in "$@"; do
+  case "${psi_arg}" in
+    --api-key | --api-key=*)
+      echo "❌ [PSI-11X] Pasa PAGESPEED_API_KEY por variable de entorno, nunca por CLI argv." >&2
+      exit 1
+      ;;
+  esac
+done
+
+if [ -f "${QA11X_DOCKERENV_PATH:-/.dockerenv}" ] && ! command -v docker >/dev/null 2>&1; then
   exec python3 "${TARGET_SCRIPT}" "$@"
 fi
 
+if ! command -v docker >/dev/null 2>&1; then
+  echo "❌ [PSI-11X] Se requiere Docker para ejecutar auditar-pagespeed.sh bajo Regla Cero." >&2
+  exit 1
+fi
+
 exec docker run --rm \
+  --security-opt=no-new-privileges:true \
   -u "$(id -u):$(id -g)" \
   -e HOME=/tmp \
   -e PYTHONDONTWRITEBYTECODE=1 \

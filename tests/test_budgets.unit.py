@@ -63,7 +63,15 @@ def test_budgets_constants_and_ordering_invariants(
 def test_governance_scripts_share_single_source_budgets(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    import _budgets as budgets
+    budgets = _load_script_without_scripts_in_syspath(
+        monkeypatch, "_budgets.py", "_budgets_single_source"
+    )
+    assert "contains" in budgets.STRUCTURAL_AST_RELATIONS
+    assert "AGENTS.md" in budgets.MANIFEST_TRACKED_DOC_EXACT
+    assert ".agents/skills/" in budgets.MANIFEST_TRACKED_DOC_PREFIXES
+    assert "python/README.md" in budgets.STACK_README_PATHS
+    assert budgets.is_manifest_tracked_doc("AGENTS.md") is True
+    assert budgets.is_manifest_tracked_doc("README.md") is False
 
     sync_gov = _load_script_without_scripts_in_syspath(
         monkeypatch, "sync_governance.py", "sync_gov_budgets_check"
@@ -80,6 +88,9 @@ def test_governance_scripts_share_single_source_budgets(
     blast_insp = _load_script_without_scripts_in_syspath(
         monkeypatch, "inspect_blast_radius.py", "blast_insp_budgets_check"
     )
+    pr_verdict = _load_script_without_scripts_in_syspath(
+        monkeypatch, "generate_pr_verdict.py", "pr_verdict_budgets_check"
+    )
     gen_manifest = _load_script_without_scripts_in_syspath(
         monkeypatch,
         str(_REPO_ROOT / "scripts" / "generar-manifiesto.py"),
@@ -88,6 +99,8 @@ def test_governance_scripts_share_single_source_budgets(
 
     assert verify_docs.SKILL_MAX_BYTES == budgets.SKILL_MAX_BYTES
     assert gen_manifest.STACK_METADATA == sync_gov.STACK_METADATA
+    assert pr_verdict.STRUCTURAL_AST_RELATIONS == budgets.STRUCTURAL_AST_RELATIONS
+    assert pr_verdict.is_manifest_tracked_doc("AGENTS.md") is True
     assert (
         blast_sel.HIGH_BLAST_CALLERS_THRESHOLD == budgets.HIGH_BLAST_CALLERS_THRESHOLD
     )

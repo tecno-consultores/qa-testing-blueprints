@@ -310,12 +310,12 @@ EDITION_RULES: tuple[VersionRule, ...] = (
     ),
     VersionRule(
         "README.md",
-        (re.compile(r"([`(*\s])(QA-11X v\d+\.\d+)([`)*\s])"),),
+        (re.compile(r"([`(*\s])(QA-11X v\d+\.\d+)([`)*\s—])"),),
         optional=True,
     ),
     VersionRule(
         "README.es.md",
-        (re.compile(r"([`*\s])(QA-11X v\d+\.\d+)([`*\s—])"),),
+        (re.compile(r"([`(*\s])(QA-11X v\d+\.\d+)([`)*\s—])"),),
         optional=True,
     ),
     VersionRule(
@@ -588,7 +588,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--check", action="store_true", help="Verify version parity only"
     )
     parser.add_argument("--set", dest="set_version", help="Target SemVer X.Y.Z")
-    parser.add_argument("--edition", help="Target edition e.g. 'QA-11X v3.1'")
+    parser.add_argument("--edition", help="Target edition e.g. 'QA-11X v3.2'")
     parser.add_argument("--dry-run", action="store_true", help="Do not write files")
     return parser.parse_args(argv)
 

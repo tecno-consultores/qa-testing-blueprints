@@ -257,9 +257,14 @@ def _classify_example_file(
 def _classify_regular_stack_file(
     path_str: str, parent_posix: str, filename: str
 ) -> tuple[str, str]:
-    if parent_posix.startswith(("test", "e2e")) or filename.endswith(
-        (".feature", ".bats", ".e2e.ts", ".spec.ts")
-    ):
+    is_test_template = (
+        parent_posix.startswith(("test", "e2e"))
+        or filename.startswith("test_")
+        or filename.endswith(
+            (".feature", ".bats", ".e2e.ts", ".spec.ts", "_test.py", ".unit.py")
+        )
+    )
+    if is_test_template:
         return path_str, "copy_if_missing"
     if filename.endswith((".sh", ".py")):
         return path_str, "overwrite_executable"

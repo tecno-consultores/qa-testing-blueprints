@@ -35,7 +35,11 @@ _IGNORED_DIRS = frozenset(
     }
 )
 _DOMAIN_RE = re.compile(r"(?:^|/)(?:src/)?(?:models|schemas|core|domain|services)/")
-_TEST_PATH_RE = re.compile(r"(?:^|/)(?:tests?|__tests__|e2e)/")
+_TEST_PATH_RE = re.compile(
+    r"(?:^|/)(?:tests?|__tests__|e2e)/"
+    r"|(?:^|/)(?:test_[^/]+\.py|[^/]+_(?:test|unit|spec|e2e)\.py|"
+    r"[^/]+\.(?:unit|spec|test|e2e)\.[cm]?[jt]sx?)$"
+)
 _API_RE = re.compile(r"(?:^|/)(?:src/)?(?:api|controllers|routes|views)/")
 _UI_COMMON_RE = re.compile(r"(?:^|/)(?:src/)?components/common/")
 _UI_VIEWS_RE = re.compile(r"(?:^|/)(?:src/)?(?:views|pages)/")
@@ -83,12 +87,16 @@ def load_graph(path: Path) -> dict[str, Any]:
     return data
 
 
-def _display_graph_path(graph_path: Path) -> str:
+def _display_graph_path(graph_path: Path, base_root: Path | None = None) -> str:
+    root = base_root or REPO_ROOT
     try:
-        return graph_path.relative_to(REPO_ROOT).as_posix()
+        return graph_path.relative_to(root).as_posix()
     except ValueError:
-        parent = graph_path.parent.name
-        return f"{parent}/{graph_path.name}" if parent else graph_path.name
+        try:
+            return graph_path.relative_to(REPO_ROOT).as_posix()
+        except ValueError:
+            parent = graph_path.parent.name
+            return f"{parent}/{graph_path.name}" if parent else graph_path.name
 
 
 def _resolve_link_files(
@@ -225,9 +233,11 @@ def _detect_directed_cycles(
 
 
 def audit_layers(
-    graph: dict[str, Any], graph_path: Path
+    graph: dict[str, Any],
+    graph_path: Path,
+    base_root: Path | None = None,
 ) -> tuple[list[str], dict[str, Any]]:
-    graph_label = _display_graph_path(graph_path)
+    graph_label = _display_graph_path(graph_path, base_root=base_root)
     nodes = {str(n["id"]): n for n in graph.get("nodes", [])}
     links = graph.get("links", [])
     violations: list[str] = []
@@ -245,20 +255,22 @@ def audit_layers(
     return violations, stats
 
 
-def _audit_graphs(graph_files: list[Path]) -> tuple[list[str], int, int]:
+def _audit_graphs(
+    graph_files: list[Path], base_root: Path | None = None
+) -> tuple[list[str], int, int]:
     all_violations: list[str] = []
     total_nodes = 0
     total_links = 0
     for g_path in graph_files:
         try:
             graph = load_graph(g_path)
-            violations, stats = audit_layers(graph, g_path)
+            violations, stats = audit_layers(graph, g_path, base_root=base_root)
             total_nodes += int(stats["nodes"])
             total_links += int(stats["links"])
             all_violations.extend(violations)
         except Exception as exc:
             print(f"❌ Error procesando grafo {g_path}: {exc}")
-            label = _display_graph_path(g_path)
+            label = _display_graph_path(g_path, base_root=base_root)
             all_violations.append(
                 f"[{label}] Grafo AST corrupto o ilegible (Fail-Secure): {exc}"
             )
@@ -283,7 +295,9 @@ def main(
         print("⚠️ SKIPPED [AST Topology]: 0 grafos AST (graph.json) detectados.")
         return exit_skipped_code
 
-    all_violations, total_nodes, total_links = _audit_graphs(graph_files)
+    all_violations, total_nodes, total_links = _audit_graphs(
+        graph_files, base_root=target_root or REPO_ROOT
+    )
     if all_violations:
         print("❌ Se detectaron violaciones de límites de capas:")
         for violation in all_violations:

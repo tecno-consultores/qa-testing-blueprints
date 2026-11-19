@@ -30,12 +30,14 @@ if [ -t 1 ]; then
   C_BOLD="\033[1m"
   C_CYAN="\033[36m"
   C_GREEN="\033[32m"
+  C_YELLOW="\033[33m"
   C_RED="\033[31m"
 else
   C_RESET=""
   C_BOLD=""
   C_CYAN=""
   C_GREEN=""
+  C_YELLOW=""
   C_RED=""
 fi
 
@@ -45,6 +47,10 @@ log_info() {
 
 log_ok() {
   printf "%b[OK]%b %s\n" "${C_GREEN}" "${C_RESET}" "$1"
+}
+
+log_warn() {
+  printf "%b[WARN]%b %s\n" "${C_YELLOW}" "${C_RESET}" "$1" >&2
 }
 
 log_error() {
@@ -179,14 +185,45 @@ printf "%b═══════════════════════�
 TMP_DIR="$(mktemp -d 2>/dev/null || mktemp -d -t 'qa11x_install')"
 
 # Obtener manifest.json (local si existe y se configuró, o remoto de GitHub)
+should_sync_gemini_md() {
+  case "${TARGET_SELECTION:-auto}" in
+    antigravity | all)
+      return 0
+      ;;
+    auto)
+      [ -d "${HOME_DIR}/.gemini" ] && return 0
+      if [ -d "${HOME_DIR}" ]; then
+        home_real="$(cd "${HOME_DIR}" 2>/dev/null && pwd -P)"
+        cwd_real="$(pwd -P)"
+        [ -n "${home_real}" ] && [ "${cwd_real}" = "${home_real}" ] && return 0
+      fi
+      return 1
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+is_qa11x_local_manifest() {
+  grep -q '"agent_governance_files"' "$1" 2>/dev/null &&
+    grep -q '"tecno-consultores/qa-testing-blueprints"' "$1" 2>/dev/null
+}
+
+USING_LOCAL_MANIFEST=0
 MANIFEST_FILE="${TMP_DIR}/manifest.json"
 if [ -n "${QA_BLUEPRINTS_LOCAL_PATH:-}" ] && [ -f "${QA_BLUEPRINTS_LOCAL_PATH}/manifest.json" ]; then
   log_info "Utilizando manifiesto local desde: ${QA_BLUEPRINTS_LOCAL_PATH}/manifest.json"
   cp "${QA_BLUEPRINTS_LOCAL_PATH}/manifest.json" "${MANIFEST_FILE}"
-elif [ -f "./manifest.json" ]; then
-  log_info "Utilizando manifiesto detectado en directorio actual: ./manifest.json"
+  USING_LOCAL_MANIFEST=1
+elif [ -f "./manifest.json" ] && is_qa11x_local_manifest "./manifest.json"; then
+  log_warn "Detectado ./manifest.json de qa-testing-blueprints sin QA_BLUEPRINTS_LOCAL_PATH; usando copia local."
   cp "./manifest.json" "${MANIFEST_FILE}"
+  USING_LOCAL_MANIFEST=1
 else
+  if [ -f "./manifest.json" ]; then
+    log_warn "Se detectó ./manifest.json ajeno a QA-11X (ej. manifiesto web/PWA); ignorando archivo local y descargando remoto."
+  fi
   log_info "Descargando manifiesto criptográfico remoto desde GitHub..."
   fetch_file "${RAW_BASE_URL}/manifest.json" "${MANIFEST_FILE}"
 fi
@@ -456,7 +493,7 @@ EOF
 if [ "${DRY_RUN}" -eq 1 ]; then
   printf "🔍 [DRY-RUN] Plan install-skill (v%s):\n" "${BLUEPRINT_VERSION}"
   printf "  - Archivos de skills verificables: %s\n" "${TOTAL_FILES}"
-  if [ -d "${HOME_DIR}/.gemini" ]; then
+  if should_sync_gemini_md; then
     printf "  - Sincronizaría conector global: %s/.gemini/GEMINI.md\n" "${HOME_DIR}"
   fi
   if [ "${IN_HOME_DIR}" -eq 1 ] && { [ "${INCLUDE_SCRIPTS}" -eq 1 ] || [ "${INIT_AGENTS}" -eq 1 ]; }; then
@@ -491,7 +528,7 @@ while read -r rel_path expected_sha _; do
 
   if [ -n "${QA_BLUEPRINTS_LOCAL_PATH:-}" ] && [ -f "${QA_BLUEPRINTS_LOCAL_PATH}/${rel_path}" ]; then
     cp "${QA_BLUEPRINTS_LOCAL_PATH}/${rel_path}" "${staging_dest}"
-  elif [ -f "./${rel_path}" ]; then
+  elif [ "${USING_LOCAL_MANIFEST}" -eq 1 ] && [ -f "./${rel_path}" ]; then
     cp "./${rel_path}" "${staging_dest}"
   else
     file_url="${RAW_BASE_URL}/${rel_path}"
@@ -521,7 +558,9 @@ printf '%s\n' "${DEST_DIRS}" | while IFS= read -r dest; do
   log_ok "Skills instaladas en: ${dest}"
 done
 
-sync_global_gemini_md
+if should_sync_gemini_md; then
+  sync_global_gemini_md
+fi
 
 if [ "${IN_HOME_DIR}" -eq 1 ] && { [ "${INCLUDE_SCRIPTS}" -eq 1 ] || [ "${INIT_AGENTS}" -eq 1 ]; }; then
   log_info "[Modo Global \$HOME] Omitiendo escritura de archivos de proyecto (AGENTS.md, scripts/, .agents/, lefthook.yml) en el directorio personal (${HOME_DIR})."
@@ -536,10 +575,21 @@ if [ "${INCLUDE_SCRIPTS}" -eq 1 ]; then
 
   while IFS='|' read -r s_path s_target s_strategy s_sha; do
     [ -z "${s_path}" ] && continue
+    dest_rel="${s_target:-${s_path}}"
+    if [ -z "${s_strategy}" ]; then
+      case "${s_path}" in
+        .trivy.yaml | .env.example | instalar-hooks.sh) s_strategy="copy_if_missing" ;;
+      esac
+    fi
+
+    if [ "${s_strategy}" = "copy_if_missing" ] && [ -f "./${dest_rel}" ]; then
+      continue
+    fi
+
     s_tmp="${TMP_DIR}/script_$(basename "${s_path}")"
     if [ -n "${QA_BLUEPRINTS_LOCAL_PATH:-}" ] && [ -f "${QA_BLUEPRINTS_LOCAL_PATH}/${s_path}" ]; then
       cp "${QA_BLUEPRINTS_LOCAL_PATH}/${s_path}" "${s_tmp}"
-    elif [ -f "./${s_path}" ]; then
+    elif [ "${USING_LOCAL_MANIFEST}" -eq 1 ] && [ -f "./${s_path}" ]; then
       cp "./${s_path}" "${s_tmp}"
     else
       fetch_file "${RAW_BASE_URL}/${s_path}" "${s_tmp}"
@@ -550,7 +600,6 @@ if [ "${INCLUDE_SCRIPTS}" -eq 1 ]; then
       exit 1
     fi
 
-    dest_rel="${s_target:-${s_path}}"
     if [ "${s_path}" = ".agents/ACTIVE_TASK.md.example" ]; then
       mkdir -p "./.agents"
       cp "${s_tmp}" "./.agents/ACTIVE_TASK.md.example"
@@ -563,17 +612,30 @@ if [ "${INCLUDE_SCRIPTS}" -eq 1 ]; then
       continue
     fi
 
-    if [ -z "${s_strategy}" ]; then
-      case "${s_path}" in
-        .trivy.yaml | .env.example | instalar-hooks.sh) s_strategy="copy_if_missing" ;;
+    mkdir -p "$(dirname "./${dest_rel}")"
+    if [ -f "./${dest_rel}" ]; then
+      case "${s_strategy}" in
+        surgical_merge | copy_if_missing_or_update_qa)
+          cp "./${dest_rel}" "./${dest_rel}.11x-backup"
+          chmod 0600 "./${dest_rel}.11x-backup"
+          cp "${s_tmp}" "./${dest_rel}.11x-incoming"
+          chmod 0644 "./${dest_rel}.11x-incoming"
+          log_warn "${dest_rel} ya existe (${s_strategy}): respaldo en ${dest_rel}.11x-backup y plantilla entrante en ${dest_rel}.11x-incoming."
+          continue
+          ;;
+        append_missing_lines)
+          cp "./${dest_rel}" "./${dest_rel}.11x-backup"
+          chmod 0600 "./${dest_rel}.11x-backup"
+          exec 3<"${s_tmp}"
+          while IFS= read -r m_line <&3 || [ -n "${m_line}" ]; do
+            [ -z "${m_line}" ] && continue
+            grep -Fqx -- "${m_line}" "./${dest_rel}" 2>/dev/null || printf '%s\n' "${m_line}" >>"./${dest_rel}"
+          done
+          exec 3<&-
+          continue
+          ;;
       esac
     fi
-
-    if [ "${s_strategy}" = "copy_if_missing" ] && [ -f "./${dest_rel}" ]; then
-      continue
-    fi
-
-    mkdir -p "$(dirname "./${dest_rel}")"
     cp "${s_tmp}" "./${dest_rel}"
     case "${dest_rel}" in
       *.json | */_budgets.py | *.yml | *.yaml | *.md) chmod 0644 "./${dest_rel}" ;;

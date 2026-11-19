@@ -58,6 +58,9 @@ extract_graph_in_dir() {
   log_file="$(mktemp /tmp/graphify_ast.XXXXXX.log)"
   trap 'rm -f "${log_file}"' RETURN
   if ! docker run --rm --network none \
+    --security-opt=no-new-privileges:true \
+    -u "$(id -u):$(id -g)" \
+    -e HOME=/tmp \
     -e OLLAMA_BASE_URL="" \
     -v "${target_dir}:/app" \
     -w /app \
@@ -68,9 +71,12 @@ extract_graph_in_dir() {
     return 1
   fi
   docker run --rm --network none \
+    --security-opt=no-new-privileges:true \
+    -u "$(id -u):$(id -g)" \
+    -e HOME=/tmp \
     -v "${target_dir}:/work" \
     "${IMAGE_NAME}" \
-    sh -c "rm -rf /work/graphify-out/cache /work/graphify-out/20* /work/graphify-out/.graphify_* /work/graphify-out/.cloud-cta-shown 2>/dev/null || true; chown -R $(id -u):$(id -g) /work/graphify-out 2>/dev/null || true" >/dev/null 2>&1 || true
+    sh -c "rm -rf /work/graphify-out/cache /work/graphify-out/20* /work/graphify-out/.graphify_* /work/graphify-out/.cloud-cta-shown 2>/dev/null || true" >/dev/null 2>&1 || true
 }
 
 stack_needs_update() {
@@ -105,13 +111,33 @@ stack_needs_update() {
   return 1
 }
 
-if [ -n "${TARGET_STACK}" ] && [ -d "${REPO_ROOT}/${TARGET_STACK}" ]; then
-  extract_graph_in_dir "${REPO_ROOT}/${TARGET_STACK}"
+if [ -n "${TARGET_STACK}" ]; then
+  case "${TARGET_STACK}" in
+    /* | .. | ../* | */../* | */..)
+      echo "❌ Error: TARGET_STACK inválido o fuera de REPO_ROOT: ${TARGET_STACK}" >&2
+      exit 1
+      ;;
+  esac
+  if [ ! -d "${REPO_ROOT}/${TARGET_STACK}" ]; then
+    echo "❌ Error: Directorio de stack inexistente: ${TARGET_STACK}" >&2
+    exit 1
+  fi
+  RESOLVED_STACK="$(cd "${REPO_ROOT}/${TARGET_STACK}" 2>/dev/null && pwd -P)" || {
+    echo "❌ Error: No se pudo resolver TARGET_STACK: ${TARGET_STACK}" >&2
+    exit 1
+  }
+  case "${RESOLVED_STACK}" in
+    "${REPO_ROOT}" | "${REPO_ROOT}/"*)
+      :
+      ;;
+    *)
+      echo "❌ Error: Ruta TARGET_STACK escapa de REPO_ROOT: ${TARGET_STACK}" >&2
+      exit 1
+      ;;
+  esac
+  extract_graph_in_dir "${RESOLVED_STACK}"
   echo "✔ [Graphify AST] Grafo semántico actualizado para '${TARGET_STACK}' -> ${TARGET_STACK}/graphify-out/graph.json."
   exit 0
-elif [ -n "${TARGET_STACK}" ]; then
-  echo "❌ Error: Directorio de stack inexistente: ${TARGET_STACK}" >&2
-  exit 1
 fi
 
 is_active_code_stack() {

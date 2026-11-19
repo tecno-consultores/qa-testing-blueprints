@@ -170,16 +170,13 @@ def _find_root_prefix(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     first_user_idx = _find_first_user_index(messages)
     if first_user_idx is None:
-        return [], list(messages)
-    prefix: list[dict[str, Any]] = []
-    rest: list[dict[str, Any]] = []
-    for idx, msg in enumerate(messages):
-        is_root_system = idx < first_user_idx and msg.get("role") == "system"
-        if idx == first_user_idx or is_root_system:
-            prefix.append(msg)
-        else:
-            rest.append(msg)
-    return prefix, rest
+        prefix: list[dict[str, Any]] = []
+        idx = 0
+        while idx < len(messages) and messages[idx].get("role") == "system":
+            prefix.append(messages[idx])
+            idx += 1
+        return prefix, list(messages[idx:])
+    return list(messages[: first_user_idx + 1]), list(messages[first_user_idx + 1 :])
 
 
 def _group_atomic_units(messages: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
@@ -313,6 +310,9 @@ def compact_context(
     tier_applied = 1 if masked_count > 0 else 0
 
     if after_t1 <= threshold_tokens:
+        oversized_t1 = any(
+            estimate_message_tokens(msg) > context_window for msg in tier1_msgs
+        )
         return CompactionResult(
             messages=tier1_msgs,
             tier_applied=tier_applied,
@@ -322,7 +322,7 @@ def compact_context(
             context_window=context_window,
             masked_tool_results=masked_count,
             dropped_messages=0,
-            uncompactable_single_message=oversized,
+            uncompactable_single_message=oversized_t1,
         )
 
     tier2_msgs, dropped_count = apply_tier2_atomic_prune(
@@ -333,6 +333,9 @@ def compact_context(
     )
     raw_after_t2 = estimate_messages_tokens(tier2_msgs)
     after_t2 = max(raw_after_t2, before_tokens - max(0, raw_before - raw_after_t2))
+    oversized_t2 = any(
+        estimate_message_tokens(msg) > context_window for msg in tier2_msgs
+    )
     if dropped_count > 0:
         tier_applied = 2
 
@@ -345,7 +348,7 @@ def compact_context(
         context_window=context_window,
         masked_tool_results=masked_count,
         dropped_messages=dropped_count,
-        uncompactable_single_message=oversized,
+        uncompactable_single_message=oversized_t2,
     )
 
 

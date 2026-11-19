@@ -32,6 +32,7 @@ if [ -f "${REPO_ROOT}/.trivy.yaml" ]; then
 fi
 
 docker run --rm \
+  --security-opt=no-new-privileges:true \
   -u "$(id -u):$(id -g)" \
   -e HOME=/tmp \
   -e TRIVY_CACHE_DIR=/tmp/trivy-cache \

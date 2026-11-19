@@ -197,8 +197,8 @@ def _build_callee_entry(
 ) -> dict[str, str]:
     tgt_id = str(link.get("target") or "")
     tgt_node = nodes_by_id.get(tgt_id, {})
-    tgt_file = str(tgt_node.get("source_file") or link.get("source_file") or "unknown")
-    tgt_loc = str(tgt_node.get("source_location") or link.get("source_location") or "")
+    tgt_file = str(tgt_node.get("source_file") or "unknown")
+    tgt_loc = str(tgt_node.get("source_location") or "")
     return {
         "target_id": tgt_id,
         "label": str(tgt_node.get("label") or tgt_id),
@@ -217,8 +217,13 @@ def _collect_callers(
     caller_files: set[str] = set()
     communities: set[str] = set()
     for link in links:
+        if (
+            link.get("target") != target_node_id
+            or link.get("source") == target_node_id
+        ):
+            continue
         pair, entry, comm = _build_caller_entry(link, nodes_by_id)
-        if link.get("target") != target_node_id or pair in seen_callers:
+        if pair in seen_callers:
             continue
         seen_callers.add(pair)
         caller_files.add(pair[0])
@@ -238,11 +243,20 @@ def compute_blast_radius(graph: dict[str, Any], target_node_id: str) -> dict[str
     direct_callers, direct_caller_files, impacted_communities = _collect_callers(
         links, target_node_id, nodes_by_id
     )
-    outgoing_callees = [
-        _build_callee_entry(link, nodes_by_id)
-        for link in links
-        if link.get("source") == target_node_id
-    ]
+    outgoing_callees: list[dict[str, str]] = []
+    seen_callees: set[tuple[str, str]] = set()
+    for link in links:
+        if (
+            link.get("source") != target_node_id
+            or link.get("target") == target_node_id
+        ):
+            continue
+        entry = _build_callee_entry(link, nodes_by_id)
+        key = (entry["target_id"], entry["relation"])
+        if key in seen_callees:
+            continue
+        seen_callees.add(key)
+        outgoing_callees.append(entry)
     return {
         "direct_callers_count": len(direct_callers),
         "unique_files_count": len(direct_caller_files),
@@ -260,11 +274,20 @@ def _file_matches_pattern(path: Path, pattern: re.Pattern[str]) -> bool:
     return pattern.search(text) is not None
 
 
+def _compile_boundary_pattern(query: str) -> re.Pattern[str]:
+    esc = re.escape(query)
+    has_left = bool(query and (query[0].isalnum() or query[0] == "_"))
+    has_right = bool(query and (query[-1].isalnum() or query[-1] == "_"))
+    left = r"(?<![A-Za-z0-9_])" if has_left else ""
+    right = r"(?![A-Za-z0-9_])" if has_right else ""
+    return re.compile(f"{left}{esc}{right}")
+
+
 def _scan_repo_pattern(
     query: str, extensions: frozenset[str], workspace: Path | None = None
 ) -> list[str]:
     root = workspace.resolve() if workspace is not None else REPO_ROOT
-    pattern = re.compile(rf"\b{re.escape(query)}\b")
+    pattern = _compile_boundary_pattern(query)
     matched_files: list[str] = []
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = sorted(d for d in dirnames if d not in FALLBACK_IGNORED_DIRS)

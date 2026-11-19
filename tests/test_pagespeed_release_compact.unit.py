@@ -365,7 +365,10 @@ def test_release_gate_output_symlink_and_malformed_inputs(
     assert "No se pudo escribir" in capsys.readouterr().err
 
     with pytest.raises(SystemExit):
-        rrg.parse_args(["--max-criticaIs", "1"])
+        rrg.parse_args(["--max-criticaIs", "1"])  # homoglyph capital I
+    valid_args = rrg.parse_args(["--max-criticals", "3", "--min-pass-rate", "85.0"])
+    assert valid_args.max_criticals == 3
+    assert valid_args.min_pass_rate == 85.0
 
 
 def test_release_gate_full_signals_smoke_and_security_paths(
@@ -547,7 +550,18 @@ def test_compact_context_tiers_anthropic_and_hardening(
         {"role": "assistant", "content": "a" * 400},
     ]
     res_sys = cc.compact_context(sys_only, context_window=100, threshold_ratio=0.90)
-    assert res_sys.tier_applied == 2
+    assert res_sys.tier_applied == 0
+    assert res_sys.messages[0]["role"] == "system"
+
+    sys_many = [{"role": "system", "content": "keep-sys"}] + [
+        {"role": "assistant", "content": f"a-{i} " + ("x" * 160)} for i in range(8)
+    ]
+    res_sys_t2 = cc.compact_context(
+        sys_many, context_window=180, threshold_ratio=0.90, keep_last_messages=2
+    )
+    assert res_sys_t2.tier_applied == 2
+    assert res_sys_t2.dropped_messages > 0
+    assert res_sys_t2.messages[0] == {"role": "system", "content": "keep-sys"}
     assert res_sys.uncompactable_single_message is False
 
     giant = [
@@ -661,3 +675,145 @@ def test_compact_context_tiers_anthropic_and_hardening(
         mixed_anth, context_window=100, threshold_ratio=0.90, keep_recent_tools=0
     )
     assert res_mixed.masked_tool_results == 1
+
+
+def test_wave3_ssrf_symlink_psi_smoke_slas_and_uncompactable_reset(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Cubre M025, M026, M028, M029, M034, M035, M065, L009 y L029."""
+    # 1. M025: IPv4 shorthand 127.1 / octal 0177.0.0.1 y DNS vacío [] fail-closed
+    for bad_ip_url in ("https://127.1/health", "https://0177.0.0.1/health"):
+        ok_lit, reason_lit = psi.validate_public_https_url(bad_ip_url)
+        assert ok_lit is False
+        assert reason_lit
+
+    ok_empty, reason_empty = psi.validate_public_https_url(
+        "https://no-dns.example", resolver=lambda _host: []
+    )
+    assert ok_empty is False
+    assert "resolver" in reason_empty or "SSRF" in reason_empty
+
+    # 2. M026 + L009 + M065: URL con espacios se recorta, _safe_float, symlink --output
+    seen_urls: list[str] = []
+
+    def _ok_fetcher(url: str, _timeout: int) -> tuple[int, str]:
+        seen_urls.append(url)
+        return 200, json.dumps(
+            {
+                "lighthouseResult": {
+                    "categories": {
+                        "performance": {"score": 0.95},
+                        "accessibility": {"score": 0.96},
+                        "best-practices": {"score": 0.97},
+                        "seo": {"score": 0.98},
+                    },
+                    "audits": {
+                        "unused-js": {
+                            "title": "Trim JS",
+                            "numericValue": "invalid-nan",
+                            "details": {"overallSavingsMs": "bad"},
+                        }
+                    },
+                }
+            }
+        )
+
+    assert psi._safe_float("invalid") == 0.0
+    rc_ok, report = psi.run_pagespeed_audit(
+        psi.AuditOptions(url="  https://ejemplo.example/app  ", strategy="mobile"),
+        fetcher=_ok_fetcher,
+        resolver=lambda _host: ["93.184.216.34"],
+    )
+    assert rc_ok == 0
+    assert report["status"] == "PASSED"
+    assert seen_urls and "https%3A%2F%2Fejemplo.example%2Fapp" in seen_urls[0]
+
+    target_real = tmp_path / "real_out.json"
+    target_real.write_text("KEEP", encoding="utf-8")
+    sym_out = tmp_path / "sym_out.json"
+    sym_out.symlink_to(target_real)
+    rc_sym = psi.main(["--url", "https://ejemplo.example", "--output", str(sym_out)])
+    assert rc_sym == 1
+    assert target_real.read_text(encoding="utf-8") == "KEEP"
+    assert psi._safe_float(True) == 0.0
+    assert psi._safe_float(None) == 0.0
+    capsys.readouterr()
+
+    # 3. M034 + M035: --min-pass-rate < 100 permite failures;
+    #    smoke evalúa telemetry/defects y _sum_suite_tree combina attrs parciales
+    ws = tmp_path / "rrg_w3"
+    ws.mkdir()
+    (ws / "partial.xml").write_text(
+        '<testsuites><testsuite tests="2" failures="1" errors="0" skipped="0">'
+        '<testcase name="a"/><testcase name="b"><failure/></testcase>'
+        '</testsuite><testsuite tests="2" failures="0" errors="0" skipped="0">'
+        '<testcase name="c"/><testcase name="d"/></testsuite></testsuites>',
+        encoding="utf-8",
+    )
+    rc_rel, rep_rel = rrg.evaluate_release_gate(
+        workspace_root=ws,
+        junit_xml="partial.xml",
+        thresholds={"min_pass_rate_pct": 50.0},
+    )
+    assert rc_rel == 0
+    assert rep_rel["decision"] == "GO"
+
+    (ws / "tel_bad.json").write_text(
+        json.dumps({"metrics": {"error_rate_pct": 25.0, "p95_ms": 100}}),
+        encoding="utf-8",
+    )
+    rc_smoke_blk, rep_smoke_blk = rrg.evaluate_release_gate(
+        workspace_root=ws,
+        scope="smoke",
+        dry_run=False,
+        telemetry_json="tel_bad.json",
+    )
+    assert rc_smoke_blk == 1
+    assert rep_smoke_blk["decision"] == "NO_GO"
+
+    # 4. M028 + M029 + L029: Tier 1 resetea uncompactable_single_message;
+    #    _find_root_prefix preserva orden cronológico pre-user
+    pre_user_msgs: list[dict[str, Any]] = [
+        {"role": "system", "content": "sys-init"},
+        {"role": "assistant", "content": "pre-greeting"},
+        {"role": "user", "content": "actual task"},
+    ]
+    assert cc._find_root_prefix(pre_user_msgs) == (
+        pre_user_msgs,
+        [],
+    )
+
+    giant_tool_msgs: list[dict[str, Any]] = [
+        {"role": "system", "content": "s"},
+        {"role": "user", "content": "run"},
+        {
+            "role": "assistant",
+            "content": [{"type": "tool_use", "id": "t1", "name": "scan", "input": {}}],
+        },
+        {
+            "role": "user",
+            "content": [
+                {"type": "tool_result", "tool_use_id": "t1", "content": "X" * 2000}
+            ],
+        },
+        {"role": "assistant", "content": "ok"},
+        {"role": "user", "content": "next"},
+    ]
+    res_uncomp = cc.compact_context(
+        giant_tool_msgs, context_window=200, threshold_ratio=0.90, keep_recent_tools=0
+    )
+    assert res_uncomp.masked_tool_results >= 1
+    assert res_uncomp.uncompactable_single_message is False
+
+    # L029: error en escritura atómica limpia *.tmp
+    import os
+
+    def _fail_replace(_s: Path | str, _d: Path | str) -> None:
+        raise OSError("disk full")
+
+    bad_dir = tmp_path / "atomic_dir"
+    bad_dir.mkdir()
+    monkeypatch.setattr(os, "replace", _fail_replace)
+    with pytest.raises(OSError):
+        cc._write_output_atomic(str(bad_dir / "out.json"), res_uncomp)
+    assert list(bad_dir.glob("*.tmp")) == []

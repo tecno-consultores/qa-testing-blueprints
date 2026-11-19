@@ -879,3 +879,113 @@ def test_compact_budget_one_keeps_pending_and_cli_json_globs(
     assert ctl._build_step_lines(ckpt_in_prog_all_done, budget=1) == [
         "- [x] (+3 pasos compactados)"
     ]
+
+
+def test_wave3_warn_skipped_non_certify_clear_no_resurrect_and_pending_compact(
+    tmp_path: Path,
+) -> None:
+    """Cubre [11], [12], L003 y L011 en checkpoint_ctl.py y schema."""
+    repo = _init_repo(tmp_path)
+    snap = ctl.capture_live_git(repo)
+
+    # Set inicial IN_PROGRESS con pasos F1, F2, F3
+    ctl.handle_set(
+        ctl.SetRequest(
+            workspace=repo,
+            task_id="W3-CHK",
+            step="F2",
+            planned=("F1", "F2", "F3"),
+            done=("F1",),
+            intent="Validar invariantes Wave 3 checkpoint",
+            allowed_globs=(".agents/**",),
+            forbidden_globs=("secrets/**",),
+        )
+    )
+
+    # [11]: record-cmd certify_task_completion con rc=0 y [WARN]/SKIPPED NO certifica
+    ctl.handle_record_cmd(
+        repo,
+        cmd="certify_task_completion",
+        exit_code=0,
+        summary="[WARN] CERTIFY-STATE | 7/10 PASS, 3 SKIPPED, 0 FAIL",
+    )
+    after_warn = ctl.load_checkpoint(repo, snap)
+    assert after_warn is not None
+    assert after_warn.status == ctl.STATUS_IN_PROGRESS
+
+    # L011: paso pendiente dentro de ventana compactada mantiene prefijo `- [ ]`
+    lines_with_pending = ctl._build_step_lines(after_warn, budget=1)
+    assert len(lines_with_pending) == 1
+    assert lines_with_pending[0].startswith("- [ ] ")
+
+    # [11]: [PASS] con 0 SKIPPED sí promueve a CERTIFIED_CLEAN
+    ctl.handle_record_cmd(
+        repo,
+        cmd="certify_task_completion",
+        exit_code=0,
+        summary="[PASS] CERTIFY-STATE | 10/10 PASS, 0 SKIPPED, 0 FAIL",
+    )
+    after_pass = ctl.load_checkpoint(repo, snap)
+    assert after_pass is not None
+    assert after_pass.status == ctl.STATUS_CERTIFIED_CLEAN
+
+    # [12]: clear (sin --purge-view) deja ACTIVE_TASK auto-generado sin resucitar sesión
+    ctl.handle_clear(repo, purge_view=False)
+    assert (repo / ".agents" / "ACTIVE_TASK.md").is_file()
+    assert ctl.load_checkpoint(repo, ctl.capture_live_git(repo)) is None
+
+    # L003: schema rechaza multiline en intent o updated_at inválido
+    ckpt_file = repo / ".agents" / ".cache" / "session_checkpoint.json"
+    ckpt_file.parent.mkdir(parents=True, exist_ok=True)
+    ckpt_file.write_text(
+        json.dumps(
+            {
+                "schema_version": ctl.SCHEMA_VERSION,
+                "status": "IN_PROGRESS",
+                "updated_at": "bad-timestamp",
+                "git_available": True,
+                "branch": "main",
+                "base_sha": snap.head_sha,
+                "task_id": "W3-CHK",
+                "completed_steps": [],
+                "active_step": "F1",
+                "planned_steps": ["F1"],
+                "allowed_globs": [],
+                "forbidden_globs": [],
+                "intent_140chars": "demo",
+                "last_script_run": None,
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="ISO-8601"):
+        ctl.load_checkpoint(repo, snap)
+
+    valid_payload = {
+        "schema_version": ctl.SCHEMA_VERSION,
+        "status": "IN_PROGRESS",
+        "updated_at": "2026-11-19T12:00:00+00:00",
+        "git_available": True,
+        "branch": "main",
+        "base_sha": snap.head_sha,
+        "task_id": "W3-CHK",
+        "completed_steps": [],
+        "active_step": "F1",
+        "planned_steps": ["F1"],
+        "allowed_globs": [],
+        "forbidden_globs": [],
+        "intent_140chars": "demo",
+        "last_script_run": None,
+    }
+    bad_cases: tuple[tuple[str, object, str], ...] = (
+        ("completed_steps", ["  "], "Elemento inválido"),
+        ("task_id", "bad/id", "task_id"),
+        ("active_step", "s" * 65, "active_step"),
+        ("branch", "b" * 257, "branch"),
+    )
+    for field_name, bad_val, err_pat in bad_cases:
+        mutated = dict(valid_payload)
+        mutated[field_name] = bad_val
+        ckpt_file.write_text(json.dumps(mutated), encoding="utf-8")
+        with pytest.raises(ValueError, match=err_pat):
+            ctl.load_checkpoint(repo, snap)

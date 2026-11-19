@@ -366,13 +366,27 @@ EOF
   run env PATH="${FAKE_BIN}:${PATH}" \
     INPUT_TIER=enterprise INPUT_LANG=en INPUT_WORKDIR="${work}" \
     INPUT_PYTHON_IMAGE="py:test" INPUT_NODE_IMAGE="node:test" \
-    BLAST_PLAN_TIER="docs-only" SAVINGS_PCT="85" \
+    BLAST_PLAN_TIER="pr-targeted" SAVINGS_PCT="50" \
     GITHUB_OUTPUT="${out_docs_ent}" GITHUB_STEP_SUMMARY="${sum_docs_ent}" \
     bash "${gate_script}"
   assert_success
   run cat "${out_docs_ent}"
-  assert_output --partial "verdict=PASS"
+  assert_output --partial "verdict=SKIPPED"
   run cat "${sum_docs_ent}"
+  assert_output --partial "**SKIPPED**"
+
+  local out_docs_ent2="${BATS_TEST_TMPDIR}/out_docs_ent2.txt"
+  local sum_docs_ent2="${BATS_TEST_TMPDIR}/sum_docs_ent2.md"
+  run env PATH="${FAKE_BIN}:${PATH}" \
+    INPUT_TIER=enterprise INPUT_LANG=en INPUT_WORKDIR="${work}" \
+    INPUT_PYTHON_IMAGE="py:test" INPUT_NODE_IMAGE="node:test" \
+    BLAST_PLAN_TIER="docs-only" SAVINGS_PCT="85" \
+    GITHUB_OUTPUT="${out_docs_ent2}" GITHUB_STEP_SUMMARY="${sum_docs_ent2}" \
+    bash "${gate_script}"
+  assert_success
+  run cat "${out_docs_ent2}"
+  assert_output --partial "verdict=PASS"
+  run cat "${sum_docs_ent2}"
   assert_output --partial "**PASS**"
 }
 
@@ -443,6 +457,10 @@ EOF
   run grep -F 'pull_request_target' "${REPO_ROOT}/.github/actions/qa-11x-pr-check/action.yml"
   assert_success
   run grep -F 'sarif-path' "${REPO_ROOT}/.github/actions/qa-11x-pr-check/action.yml"
+  assert_success
+  run grep -F -- '--network none' "${REPO_ROOT}/Makefile"
+  assert_success
+  run grep -F -- '--network none' "${REPO_ROOT}/.agents/scripts/certify_task_completion.sh"
   assert_success
 }
 

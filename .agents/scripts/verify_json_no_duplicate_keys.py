@@ -108,7 +108,7 @@ def main(target_root: Path | None = None, exit_skipped_code: int = 0) -> int:
 
     all_errors = _collect_json_errors(filtered_files)
     if all_errors:
-        print("❌ ERROR: Colisiones de claves duplicadas en archivos JSON:")
+        print("❌ ERROR: Errores de integridad o claves duplicadas en archivos JSON:")
         for err in all_errors:
             print(f"   - {err}")
         return 1

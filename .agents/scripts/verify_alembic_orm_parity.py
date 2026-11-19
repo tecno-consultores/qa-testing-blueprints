@@ -33,6 +33,10 @@ _SQL_DDL_RE = re.compile(
     rf"\b(CREATE|DROP)\s+TABLE\s+(?:IF\s+(?:NOT\s+)?EXISTS\s+)?{_QUALIFIED_TABLE}",
     re.IGNORECASE,
 )
+_SQL_RENAME_RE = re.compile(
+    rf"\bALTER\s+TABLE\s+{_QUALIFIED_TABLE}\s+RENAME\s+TO\s+{_QUALIFIED_TABLE}",
+    re.IGNORECASE,
+)
 _SQL_LINE_COMMENT_RE = re.compile(r"--[^\n]*")
 
 
@@ -121,11 +125,12 @@ def _extract_class_tables(cls_node: ast.ClassDef) -> set[str]:
     return tables
 
 
-def _extract_tables_from_ast(content: str) -> set[str]:
+def _extract_tables_from_ast(content: str, file_path: Path | None = None) -> set[str]:
     try:
         tree = ast.parse(content)
-    except SyntaxError:
-        return set()
+    except SyntaxError as exc:
+        label = str(file_path) if file_path is not None else "<orm>"
+        raise ValueError(f"Error de sintaxis en modelo ORM '{label}': {exc}") from exc
     tables: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef):
@@ -139,7 +144,7 @@ def get_orm_tables(model_files: list[Path]) -> set[str]:
     for py_file in model_files:
         content = _read_text_safe(py_file)
         if content is not None:
-            tables.update(_extract_tables_from_ast(content))
+            tables.update(_extract_tables_from_ast(content, py_file))
     return tables
 
 
@@ -228,6 +233,11 @@ def _extract_sql_ops(sql: str) -> list[tuple[str, ...]]:
         table_name = _unquote_ident(match.group(2))
         if table_name:
             ops.append((action, table_name))
+    for match in _SQL_RENAME_RE.finditer(cleaned):
+        old_name = _unquote_ident(match.group(1))
+        new_name = _unquote_ident(match.group(2))
+        if old_name and new_name:
+            ops.append(("rename", old_name, new_name))
     return ops
 
 
@@ -312,14 +322,23 @@ def _parse_migration_file(mig_file: Path) -> _MigrationInfo | None:
     )
 
 
+def _index_migration_revisions(records: list[_MigrationInfo]) -> dict[str, int]:
+    by_rev: dict[str, int] = {}
+    for idx, rec in enumerate(records):
+        if rec.revision is None:
+            continue
+        if rec.revision in by_rev:
+            raise ValueError(
+                f"Revision Alembic duplicada '{rec.revision}' en '{rec.path.name}'."
+            )
+        by_rev[rec.revision] = idx
+    return by_rev
+
+
 def _build_migration_graph(
     records: list[_MigrationInfo],
 ) -> tuple[dict[int, list[int]], list[int]]:
-    by_rev = {
-        rec.revision: idx
-        for idx, rec in enumerate(records)
-        if rec.revision is not None
-    }
+    by_rev = _index_migration_revisions(records)
     children: dict[int, list[int]] = {}
     indegree = [0] * len(records)
     for idx, rec in enumerate(records):
@@ -381,6 +400,14 @@ def _extract_revision_id(mig_file: Path) -> str | None:
     content = _read_text_safe(mig_file)
     if content is None:
         return None
+    try:
+        module = ast.parse(content, filename=str(mig_file))
+    except SyntaxError:
+        match = _REV_RE.search(content)
+        return match.group(1) if match else None
+    revision, _ = _extract_revision_meta(module)
+    if revision is not None:
+        return revision
     match = _REV_RE.search(content)
     return match.group(1) if match else None
 
@@ -437,6 +464,26 @@ def _validate_orm_migrations(
     return 0
 
 
+def _run_orm_vs_migrations(
+    model_files: list[Path],
+    migrations_dir: Path | None,
+    exit_skipped_code: int,
+) -> int:
+    try:
+        orm_tables = get_orm_tables(model_files)
+    except ValueError as exc:
+        print(f"❌ ERROR: {exc}")
+        return 1
+    if not orm_tables:
+        print("⚠️ SKIPPED [ORM Parity]: 0 modelos con __tablename__ detectados.")
+        return exit_skipped_code
+    try:
+        return _validate_orm_migrations(orm_tables, migrations_dir)
+    except ValueError as exc:
+        print(f"❌ ERROR: {exc}")
+        return 1
+
+
 def main(target_root: Path | None = None, exit_skipped_code: int = 0) -> int:
     root = REPO_ROOT if target_root is None else target_root
     backend_dir = _resolve_backend_dir(root)
@@ -451,12 +498,7 @@ def main(target_root: Path | None = None, exit_skipped_code: int = 0) -> int:
         print("⚠️ SKIPPED [ORM Parity]: 0 archivos de modelos ORM detectados.")
         return exit_skipped_code
 
-    orm_tables = get_orm_tables(model_files)
-    if not orm_tables:
-        print("⚠️ SKIPPED [ORM Parity]: 0 modelos con __tablename__ detectados.")
-        return exit_skipped_code
-
-    return _validate_orm_migrations(orm_tables, migrations_dir)
+    return _run_orm_vs_migrations(model_files, migrations_dir, exit_skipped_code)
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:

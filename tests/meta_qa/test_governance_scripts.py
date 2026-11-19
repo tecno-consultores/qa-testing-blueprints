@@ -955,8 +955,23 @@ def test_compact_context_11x_tier2_atomic_prune_and_anthropic_blocks() -> None:
     res_sys_only = mod.compact_context(
         sys_only, context_window=100, threshold_ratio=0.90
     )
-    assert res_sys_only.tier_applied == 2
-    assert len(res_sys_only.messages) == 1
+    assert res_sys_only.tier_applied == 0
+    assert len(res_sys_only.messages) == 2
+    assert res_sys_only.messages[0]["role"] == "system"
+
+    sys_only_many = [{"role": "system", "content": "root-sys"}] + [
+        {"role": "assistant", "content": f"msg-{i} " + ("x" * 160)}
+        for i in range(10)
+    ]
+    res_sys_t2 = mod.compact_context(
+        sys_only_many,
+        context_window=200,
+        threshold_ratio=0.90,
+        keep_last_messages=2,
+    )
+    assert res_sys_t2.tier_applied == 2
+    assert res_sys_t2.dropped_messages > 0
+    assert res_sys_t2.messages[0] == {"role": "system", "content": "root-sys"}
 
 
 def test_compact_context_11x_oversized_single_message_and_cli_tty_guard(
@@ -1170,7 +1185,7 @@ def test_select_tests_by_blast_radius_all_four_tiers_and_cli(
     assert docs_plan["run_full_regression"] is False
     assert docs_plan["run_frontend"] is False
 
-    # 2. pr-targeted con propagación AST cruzada vue3 -> ai-evals (40..60% ahorro)
+    # 2. pr-targeted con propagación AST cruzada vue3 -> ai-evals (2/6 -> 67%)
     pr_plan = mod.select_test_plan(
         event="pull_request",
         changed_files=["./vue3/tests/screenplay/Actor.ts"],
@@ -1180,7 +1195,7 @@ def test_select_tests_by_blast_radius_all_four_tiers_and_cli(
     assert pr_plan["run_frontend"] is True
     assert pr_plan["run_ai_offline"] is True
     assert pr_plan["run_backend"] is False
-    assert 40 <= pr_plan["estimated_savings_pct"] <= 60
+    assert pr_plan["estimated_savings_pct"] == 67
     assert pr_plan["caller_count"] == 2
 
     # pr-targeted en mcp-server activa run_mcp y validate_calm + fallback sin grafo
@@ -1544,8 +1559,9 @@ def test_vibe_rescue_auditor_clean_pass_quiet_and_path_traversal(
         "app.post('/items', (req) => req.headers['Idempotency-Key']);\n",
         encoding="utf-8",
     )
+    valid_digest = "a1b2c3d4" * 8
     (clean / "Dockerfile").write_text(
-        "FROM node:22-alpine@sha256:abcdef012345\nUSER 1001\n",
+        f"FROM node:26-alpine@sha256:{valid_digest}\nUSER 1001\n",
         encoding="utf-8",
     )
     (clean / "tests" / "app.test.ts").write_text(
@@ -2360,4 +2376,75 @@ def test_select_tests_by_blast_radius_base_ref_and_unsafe_ref(
         lambda *_a, **_kw: (_ for _ in ()).throw(OSError("no git")),
     )
     assert mod._run_git_diff_names(repo, "main...HEAD") == (1, [])
+
+
+def test_wave3_inspect_blast_and_selector_coevolution(tmp_path: Path) -> None:
+    """Cubre M031, M037 y L013 en inspect_blast_radius y select_tests."""
+    insp = _load_script("inspect_blast_radius.py", "inspect_blast_wave3")
+    sel = _load_script(
+        "select_tests_by_blast_radius.py", "select_tests_wave3"
+    )
+
+    # M031: rutas con / o :: sin falsos bordes \b en _compile_boundary_pattern
+    pat = insp._compile_boundary_pattern("routes/users")
+    assert pat.search("import usersRouter from './routes/users';") is not None
+    assert pat.search("routes/users_extra") is None
+
+    # L013: _build_callee_entry no atribuye archivo del caller al callee sin file;
+    #       _collect_callers ignora self-links y deduplica callees
+    gfile = tmp_path / "graphify-out" / "graph.json"
+    gfile.parent.mkdir(parents=True)
+    gfile.write_text(
+        json.dumps(
+            {
+                "nodes": [
+                    {"id": "n_tgt", "label": "targetFn", "source_file": "src/a.py"},
+                    {"id": "n_clr", "label": "callerFn", "source_file": "src/b.py"},
+                    {"id": "n_cal", "label": "missingFileFn", "source_file": ""},
+                ],
+                "links": [
+                    {
+                        "source": "n_clr",
+                        "target": "n_tgt",
+                        "relation": "calls",
+                        "source_file": "src/b.py",
+                    },
+                    {
+                        "source": "n_tgt",
+                        "target": "n_tgt",
+                        "relation": "calls",
+                        "source_file": "src/a.py",
+                    },
+                    {
+                        "source": "n_tgt",
+                        "target": "n_cal",
+                        "relation": "calls",
+                        "source_file": "src/a.py",
+                    },
+                    {
+                        "source": "n_tgt",
+                        "target": "n_cal",
+                        "relation": "calls",
+                        "source_file": "src/a.py",
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    insp_res = insp.compute_blast_radius(
+        json.loads(gfile.read_text(encoding="utf-8")), "n_tgt"
+    )
+    assert insp_res["direct_callers_count"] == 1
+    assert len(insp_res["outgoing_callees"]) == 1
+    assert insp_res["outgoing_callees"][0]["file"] != "src/a.py"
+
+    # M037: tocar lint_test_antipatterns.py activa run_backend y run_mcp
+    lint_plan = sel.select_test_plan(
+        event="pull_request",
+        changed_files=[".agents/scripts/lint_test_antipatterns.py"],
+        graph_path=tmp_path / "missing.json",
+    )
+    assert lint_plan["run_backend"] is True
+    assert lint_plan["run_mcp"] is True
 

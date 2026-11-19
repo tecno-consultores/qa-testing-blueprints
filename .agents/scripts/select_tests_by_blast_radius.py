@@ -242,20 +242,25 @@ def classify_suites(union_files: set[str]) -> dict[str, bool]:
         or linter_touched
     )
     run_mobile = _matches_any_prefix(union_files, ("mobile-appium/",)) or linter_touched
-    run_backend = _matches_any_prefix(
-        union_files,
-        (
-            "fastapi/",
-            "python/",
-            "node-backend/",
-            "php/",
-            "bash-scripts/",
-            "backend/",
-            "vibe-rescue/",
-        ),
+    run_backend = (
+        _matches_any_prefix(
+            union_files,
+            (
+                "fastapi/",
+                "python/",
+                "node-backend/",
+                "php/",
+                "bash-scripts/",
+                "backend/",
+                "vibe-rescue/",
+            ),
+        )
+        or linter_touched
     )
-    run_mcp = _matches_any_prefix(union_files, ("mcp-server/",)) or (
-        "manifest.json" in union_files
+    run_mcp = (
+        _matches_any_prefix(union_files, ("mcp-server/",))
+        or ("manifest.json" in union_files)
+        or linter_touched
     )
     run_ai_offline = _matches_any_prefix(union_files, ("ai-evals/", "tests/evals/"))
     run_meta_qa = (
@@ -367,7 +372,7 @@ def _build_full_or_targeted_plan(
         )
     suites = classify_suites(union_files)
     active_count = sum(1 for key in PRIMARY_SUITES if suites[key])
-    savings = min(60, max(40, 40 + (5 - active_count) * 5))
+    savings = round((len(PRIMARY_SUITES) - active_count) * 100 / len(PRIMARY_SUITES))
     return _build_plan_payload(
         _PlanBuildSpec(
             tier="pr-targeted",

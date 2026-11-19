@@ -48,7 +48,7 @@ ARCHITECTURAL_WHITELIST: set[tuple[str, str]] = {
 
 _HTTP_VERBS = frozenset({"GET", "POST", "PUT", "PATCH", "DELETE"})
 _NODE_ROUTE_RE = re.compile(
-    r"\b(?:app|router)\.(get|post|put|patch|delete)\s*\(\s*([`'\"])(.*?)\2",
+    r"\b(?:app|router|[A-Za-z_$][\w$]*(?:Router|_router))\.(get|post|put|patch|delete)\s*\(\s*([`'\"])(.*?)\2",
     re.IGNORECASE,
 )
 _FRONT_CALL_RE = re.compile(
@@ -118,13 +118,21 @@ class _RouterGraph(NamedTuple):
     parent_edges: dict[RouterRef, list[tuple[RouterRef, str]]]
 
 
+_ROUTE_TOKEN_RE = re.compile(r"(\{[a-zA-Z0-9_]+(?::path)?\}|:[a-zA-Z0-9_]+)")
+
+
+def _replace_route_token(token: str) -> str:
+    return r".+" if token.endswith(":path}") else r"[^/]+"
+
+
 def normalize_route_pattern(path: str) -> str:
     """Normaliza parámetros de ruta ({param} o :param) a comodines regex."""
-    path = path.rstrip("/") if len(path) > 1 else path
-    path = re.sub(r"\{[a-zA-Z0-9_]+:path\}", r".+", path)
-    path = re.sub(r"\{[a-zA-Z0-9_]+\}", r"[^/]+", path)
-    path = re.sub(r":[a-zA-Z0-9_]+", r"[^/]+", path)
-    return path
+    norm = path.rstrip("/") if len(path) > 1 else path
+    parts = _ROUTE_TOKEN_RE.split(norm)
+    return "".join(
+        _replace_route_token(part) if idx % 2 else re.escape(part)
+        for idx, part in enumerate(parts)
+    )
 
 
 def _has_fastapi_markers(candidate: Path) -> bool:
@@ -368,7 +376,7 @@ def _load_fastapi_modules(
         modules[mod_key] = _ParsedPyModule(
             mod_key=mod_key,
             pkg_parts=pkg_parts,
-            dir_parts=fpath.parent.parts,
+            dir_parts=pkg_parts,
             rel_file=str(fpath.relative_to(repo_root)),
             text=text,
             tree=_parse_code_safe(text, fpath),
@@ -710,30 +718,252 @@ def _iter_source_files(
                     yield Path(root) / fname
 
 
-def _extract_node_file_routes(fpath: Path, repo_root: Path) -> list[_BackendRoute]:
+_NODE_RECV_RE = re.compile(r"^([A-Za-z_$][A-Za-z0-9_$]*)\s*\.")
+_NODE_ES_DEFAULT_IMPORT_RE = re.compile(
+    r"^\s*import\s+(?:\*\s+as\s+)?([A-Za-z_$][A-Za-z0-9_$]*)\s+from\s+['\"]([^'\"]+)['\"]",
+    re.MULTILINE,
+)
+_NODE_ES_NAMED_IMPORT_RE = re.compile(
+    r"^\s*import\s*\{([^}]+)\}\s*from\s+['\"]([^'\"]+)['\"]",
+    re.MULTILINE,
+)
+_NODE_CJS_IMPORT_RE = re.compile(
+    r"(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*require\(\s*['\"]([^'\"]+)['\"]\s*\)"
+)
+_NODE_USE_START_RE = re.compile(
+    r"\b([A-Za-z_$][A-Za-z0-9_$]*)\.use\(\s*(['\"`])(/[^'\"`]*)\2\s*,"
+)
+_NODE_INLINE_REQ_RE = re.compile(r"require\(\s*['\"]([^'\"]+)['\"]\s*\)")
+_NODE_IDENT_RE = re.compile(r"^([A-Za-z_$][A-Za-z0-9_$]*)$")
+_FRONTEND_TMPL_RE = re.compile(
+    r"(/\$\{\s*(?:sub_?path|path|endpoint|route|rest|resource_?path)\b[^}]*\}$|\$\{[^}]+\})",
+    re.IGNORECASE,
+)
+_API_VERSION_PREFIX_RE = re.compile(r"^/api/v\d+(?:/|$)")
+
+_NodeRouteRec = tuple[str, str, str, str, int, int]
+_NodeMountRec = tuple[str, str, str | None, str | None]
+_NodeParsedRec = tuple[list[_NodeRouteRec], list[_NodeMountRec]]
+
+
+def _extract_node_receiver(match_text: str) -> str:
+    recv_m = _NODE_RECV_RE.match(match_text.lstrip())
+    return recv_m.group(1) if recv_m else ""
+
+
+def _resolve_node_rel_import(
+    base_file: Path, spec: str, known_files: dict[Path, str]
+) -> str | None:
+    if not spec.startswith((".", "/")):
+        return None
+    for suffix in ("", ".ts", ".js", "/index.ts", "/index.js"):
+        candidate = (base_file.parent / f"{spec}{suffix}").resolve()
+        if candidate in known_files:
+            return known_files[candidate]
+    return None
+
+
+def _bind_node_aliases(
+    clause: str, resolved: str, imports: dict[str, str]
+) -> None:
+    for item in clause.split(","):
+        alias = item.strip().split(" as ")[-1].strip()
+        if _NODE_IDENT_RE.match(alias):
+            imports[alias] = resolved
+
+
+def _collect_node_es_imports(
+    text: str, fpath: Path, known_files: dict[Path, str], imports: dict[str, str]
+) -> None:
+    for m in _NODE_ES_DEFAULT_IMPORT_RE.finditer(text):
+        resolved = _resolve_node_rel_import(fpath, m.group(2), known_files)
+        if resolved:
+            imports[m.group(1)] = resolved
+    for m in _NODE_ES_NAMED_IMPORT_RE.finditer(text):
+        resolved = _resolve_node_rel_import(fpath, m.group(2), known_files)
+        if resolved:
+            _bind_node_aliases(m.group(1), resolved, imports)
+
+
+def _extract_node_imports(
+    text: str, fpath: Path, known_files: dict[Path, str]
+) -> dict[str, str]:
+    imports: dict[str, str] = {}
+    _collect_node_es_imports(text, fpath, known_files, imports)
+    for m in _NODE_CJS_IMPORT_RE.finditer(text):
+        resolved = _resolve_node_rel_import(fpath, m.group(2), known_files)
+        if resolved:
+            imports[m.group(1)] = resolved
+    return imports
+
+
+def _lookup_use_ident(
+    ident: str, imports: dict[str, str], local_receivers: set[str]
+) -> tuple[str | None, str | None] | None:
+    if ident in imports:
+        return imports[ident], None
+    if ident in local_receivers:
+        return None, ident
+    return None
+
+
+def _resolve_use_target(
+    args_body: str,
+    fpath: Path,
+    imports: dict[str, str],
+    local_receivers: set[str],
+    known_files: dict[Path, str],
+) -> tuple[str | None, str | None] | None:
+    inline_req = _NODE_INLINE_REQ_RE.search(args_body)
+    if inline_req:
+        resolved = _resolve_node_rel_import(fpath, inline_req.group(1), known_files)
+        if resolved:
+            return resolved, None
+    for part in reversed(args_body.split(",")):
+        ident = part.strip()
+        found = (
+            _lookup_use_ident(ident, imports, local_receivers)
+            if _NODE_IDENT_RE.match(ident)
+            else None
+        )
+        if found is not None:
+            return found
+    return None
+
+
+def _extract_node_mounts(
+    text: str,
+    fpath: Path,
+    imports: dict[str, str],
+    local_receivers: set[str],
+    known_files: dict[Path, str],
+) -> list[_NodeMountRec]:
+    mounts: list[_NodeMountRec] = []
+    for m in _NODE_USE_START_RE.finditer(text):
+        open_idx = text.find("(", m.start())
+        close_idx = _find_matching_paren(text, open_idx)
+        args_body = text[m.end() : max(m.end(), close_idx - 1)]
+        target = _resolve_use_target(
+            args_body, fpath, imports, local_receivers, known_files
+        )
+        if target is not None:
+            mounts.append((m.group(1), m.group(3).strip(), target[0], target[1]))
+    return mounts
+
+
+def _join_node_prefix(prefix: str, child_path: str) -> str:
+    clean_p = prefix.rstrip("/")
+    clean_c = child_path if child_path.startswith("/") else f"/{child_path}"
+    if clean_c == "/":
+        return clean_p or "/"
+    return f"{clean_p}{clean_c}" if clean_p else clean_c
+
+
+def _extract_node_file_records(
+    fpath: Path, repo_root: Path
+) -> tuple[str, list[_NodeRouteRec]]:
     rel_file = str(fpath.relative_to(repo_root))
     raw_text = fpath.read_text(encoding="utf-8", errors="ignore")
     text = _strip_js_comments(raw_text)
-    routes: list[_BackendRoute] = []
+    recs: list[_NodeRouteRec] = []
     for match in _NODE_ROUTE_RE.finditer(text):
         raw_path = match.group(3).strip()
         if raw_path.startswith("/"):
             line_no = text[: match.start()].count("\n") + 1
             end_line = text[: match.end()].count("\n") + 1
-            routes.append(
-                _BackendRoute(
-                    match.group(1).upper(), raw_path, rel_file, line_no, end_line
-                )
+            recv = _extract_node_receiver(match.group(0))
+            recs.append(
+                (recv, match.group(1).upper(), raw_path, rel_file, line_no, end_line)
             )
-    return routes
+    return text, recs
+
+
+def _extract_node_file_routes(fpath: Path, repo_root: Path) -> list[_BackendRoute]:
+    _, recs = _extract_node_file_records(fpath, repo_root)
+    return [
+        _BackendRoute(method, raw_path, rel_file, line_no, end_line)
+        for _, method, raw_path, rel_file, line_no, end_line in recs
+    ]
+
+
+def _collect_node_mounted_targets(
+    parsed: dict[str, _NodeParsedRec],
+) -> tuple[set[str], dict[str, set[str]]]:
+    mounted_files: set[str] = set()
+    intra_syms: dict[str, set[str]] = {}
+    for rel_file, (_, mounts) in parsed.items():
+        for _, _, target_file, target_sym in mounts:
+            if target_file is not None:
+                mounted_files.add(target_file)
+            elif target_sym is not None:
+                intra_syms.setdefault(rel_file, set()).add(target_sym)
+    return mounted_files, intra_syms
+
+
+def _collect_direct_node_routes(
+    recs: list[_NodeRouteRec],
+    prefix: str,
+    target_sym: str | None,
+    hidden_local: set[str],
+) -> list[_BackendRoute]:
+    out: list[_BackendRoute] = []
+    for r_recv, method, raw_path, r_file, line_no, end_line in recs:
+        direct_match = target_sym is None and r_recv not in hidden_local
+        if direct_match or r_recv == target_sym:
+            joined = _join_node_prefix(prefix, raw_path)
+            out.append(_BackendRoute(method, joined, r_file, line_no, end_line))
+    return out
+
+
+def _expand_node_mount(
+    rel_file: str,
+    prefix: str,
+    target_sym: str | None,
+    parsed: dict[str, _NodeParsedRec],
+    intra_syms: dict[str, set[str]],
+    seen: set[tuple[str, str, str | None]],
+) -> list[_BackendRoute]:
+    state_key = (rel_file, prefix, target_sym)
+    if len(seen) > 128 or state_key in seen or rel_file not in parsed:
+        return []
+    seen.add(state_key)
+    recs, mounts = parsed[rel_file]
+    hidden_local = intra_syms.get(rel_file, set())
+    out = _collect_direct_node_routes(recs, prefix, target_sym, hidden_local)
+    for owner, m_prefix, m_file, m_sym in mounts:
+        if target_sym is None or owner == target_sym:
+            dest_file = m_file or rel_file
+            joined_prefix = _join_node_prefix(prefix, m_prefix)
+            sub_routes = _expand_node_mount(
+                dest_file, joined_prefix, m_sym, parsed, intra_syms, seen
+            )
+            out.extend(sub_routes)
+    return out
 
 
 def _extract_node_routes_from_dirs(
     candidates: list[Path], repo_root: Path
 ) -> list[_BackendRoute]:
+    src_files = list(_iter_source_files(candidates, (".ts", ".js")))
+    known_files = {f.resolve(): str(f.relative_to(repo_root)) for f in src_files}
+    texts: dict[str, tuple[Path, str, list[_NodeRouteRec]]] = {}
+    parsed: dict[str, _NodeParsedRec] = {}
+    for fpath in src_files:
+        text, recs = _extract_node_file_records(fpath, repo_root)
+        rel_file = known_files[fpath.resolve()]
+        texts[rel_file] = (fpath, text, recs)
+    for rel_file, (fpath, text, recs) in texts.items():
+        imports = _extract_node_imports(text, fpath, known_files)
+        local_recvs = {r[0] for r in recs if r[0]}
+        mounts = _extract_node_mounts(text, fpath, imports, local_recvs, known_files)
+        parsed[rel_file] = (recs, mounts)
+    mounted_files, intra_syms = _collect_node_mounted_targets(parsed)
     routes: list[_BackendRoute] = []
-    for fpath in _iter_source_files(candidates, (".ts", ".js")):
-        routes.extend(_extract_node_file_routes(fpath, repo_root))
+    for rel_file in parsed:
+        if rel_file not in mounted_files:
+            routes.extend(
+                _expand_node_mount(rel_file, "", None, parsed, intra_syms, set())
+            )
     return routes
 
 
@@ -745,16 +975,19 @@ def _strip_dynamic_query_suffix(raw_url: str) -> str:
     return cleaned.rstrip("/") if len(cleaned) > 1 else cleaned
 
 
+def _replace_frontend_token(token: str) -> str:
+    return r"/.+" if token.startswith("/") else r"[^/]+"
+
+
 def _frontend_url_to_regex(f_url: str) -> str:
     """Convierte URL frontend con template strings a regex de matching."""
     norm_f = f_url.rstrip("/") if len(f_url) > 1 else f_url
-    with_subpath = re.sub(
-        r"/\$\{\s*(?:sub_?path|path|endpoint|route|rest|resource_?path)\b[^}]*\}$",
-        r"/.+",
-        norm_f,
-        flags=re.IGNORECASE,
+    parts = _FRONTEND_TMPL_RE.split(norm_f)
+    body = "".join(
+        _replace_frontend_token(part) if idx % 2 else re.escape(part)
+        for idx, part in enumerate(parts)
     )
-    return "^" + re.sub(r"\$\{[^}]+\}", r"[^/]+", with_subpath) + "$"
+    return f"^{body}$"
 
 
 def _detect_frontend_dirs(repo_root: Path) -> list[Path]:
@@ -797,7 +1030,10 @@ def _normalize_frontend_call(
     end_line_no: int,
 ) -> _FrontendCall | None:
     compact = re.sub(r"\s+", "", raw_url.strip())
-    if not compact.startswith(_ALLOWED_API_PREFIXES):
+    if not (
+        compact.startswith(_ALLOWED_API_PREFIXES)
+        or _API_VERSION_PREFIX_RE.match(compact)
+    ):
         return None
     if not compact.startswith("/"):
         compact = "/" + compact

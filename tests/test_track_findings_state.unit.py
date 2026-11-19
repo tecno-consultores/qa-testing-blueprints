@@ -284,6 +284,7 @@ def test_history_cap_corrupt_state_and_cwd_parent(
     repo = _init_repo(tmp_path)
     state_file = repo / "certify_state.json"
     monkeypatch.chdir(repo)
+    orig_dir_mode = stat.S_IMODE(repo.stat().st_mode)
 
     state_file.write_text("{corrupt-json", encoding="utf-8")
     for idx in range(12):
@@ -296,6 +297,7 @@ def test_history_cap_corrupt_state_and_cwd_parent(
         }
         tfs.evaluate_and_record(state_file=state_file, workspace=repo, payload=[item])
 
+    assert stat.S_IMODE(repo.stat().st_mode) == orig_dir_mode
     raw_doc = json.loads(state_file.read_text(encoding="utf-8"))
     session_key = tfs.resolve_session_key(repo)
     assert raw_doc["version"] == 2
@@ -303,6 +305,22 @@ def test_history_cap_corrupt_state_and_cwd_parent(
     assert len(raw_doc["sessions"][session_key]["stage_runs"]["qa"]) == 10
     assert raw_doc["sessions"][session_key]["streaks"]["qa"] == 1
     assert raw_doc["sessions"][session_key]["oscillations"]["qa"] == 0
+
+    # Migración v1 -> v2 preservando historial previo en stage_runs["qa"]
+    v1_runs = [
+        {"findings": ["fp_a", "fp_b"]},
+        {"findings": ["fp_a"]},
+    ]
+    state_file.write_text(
+        json.dumps({"version": 1, "sessions": {session_key: {"runs": v1_runs}}}),
+        encoding="utf-8",
+    )
+    loaded_v1 = tfs._load_state_doc(state_file)
+    assert loaded_v1["version"] == 2
+    assert loaded_v1["sessions"][session_key]["runs"] == v1_runs
+    assert tfs._extract_history_sets({"runs": [{"fingerprints": ["fp_a"]}]}) == [
+        {"fp_a"}
+    ]
 
     state_file.write_text(json.dumps({"version": 2, "sessions": []}), encoding="utf-8")
     loaded = tfs._load_state_doc(state_file)
@@ -441,6 +459,23 @@ def test_cli_reset_stdin_symlinks_and_error_paths(
                 str(sym_state),
                 "--findings-input",
                 str(findings_file),
+                "--workspace",
+                str(repo),
+            ]
+        )
+        == 2
+    )
+    capsys.readouterr()
+
+    sym_findings = tmp_path / "sym_findings.json"
+    sym_findings.symlink_to(findings_file)
+    assert (
+        tfs.main(
+            [
+                "--state-file",
+                str(state_file),
+                "--findings-input",
+                str(sym_findings),
                 "--workspace",
                 str(repo),
             ]

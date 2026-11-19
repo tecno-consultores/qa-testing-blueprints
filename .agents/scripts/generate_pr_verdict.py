@@ -20,10 +20,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import release_readiness_gate as rrg
-import track_findings_state as tfs
-import verify_diff_coverage as vdc
-from _budgets import STRUCTURAL_AST_RELATIONS, is_manifest_tracked_doc
+_SCRIPT_DIR = Path(__file__).resolve().parent
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
+
+import release_readiness_gate as rrg  # noqa: E402
+import track_findings_state as tfs  # noqa: E402
+import verify_diff_coverage as vdc  # noqa: E402
+from _budgets import STRUCTURAL_AST_RELATIONS, is_manifest_tracked_doc  # noqa: E402
 
 EXIT_OK = 0
 EXIT_BLOCKED = 30
@@ -487,13 +491,20 @@ def _qualify_graph_path(raw_file: str, prefix: str) -> str:
 
 def _collect_graph_files(workspace_real: Path) -> list[Path]:
     found: list[Path] = []
-    for candidate in sorted(workspace_real.rglob("graph.json")):
-        rel_parts = candidate.relative_to(workspace_real).parts
-        if any(part in IGNORED_AST_DIRS for part in rel_parts):
-            continue
-        resolve_contained_path(workspace_real, candidate.as_posix(), must_exist=True)
-        found.append(candidate)
-    return found
+    for dirpath, dirnames, filenames in os.walk(workspace_real):
+        cur_dir = Path(dirpath)
+        dirnames[:] = sorted(
+            d
+            for d in dirnames
+            if d not in IGNORED_AST_DIRS and not (cur_dir / d).is_symlink()
+        )
+        if cur_dir.name == "graphify-out" and "graph.json" in filenames:
+            candidate = cur_dir / "graph.json"
+            resolve_contained_path(
+                workspace_real, candidate.as_posix(), must_exist=True
+            )
+            found.append(candidate)
+    return sorted(found)
 
 
 def _build_graph_nodes_map(

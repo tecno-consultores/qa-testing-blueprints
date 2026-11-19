@@ -284,17 +284,21 @@ def _suite_attr_tuple(suite: Any) -> tuple[int, int, int, int]:
 
 
 def _sum_suite_tree(suite: Any) -> tuple[int, int, int, int]:
-    if any(k in suite.attrib for k in ("tests", "failures", "errors", "skipped")):
-        return _suite_attr_tuple(suite)
+    parent_vals = _suite_attr_tuple(suite)
     children = suite.findall("testsuite")
     if not children:
-        return (0, 0, 0, 0)
+        return parent_vals
     totals = [0, 0, 0, 0]
     for child in children:
         vals = _sum_suite_tree(child)
         for idx in range(4):
             totals[idx] += vals[idx]
-    return totals[0], totals[1], totals[2], totals[3]
+    return (
+        max(parent_vals[0], totals[0]),
+        max(parent_vals[1], totals[1]),
+        max(parent_vals[2], totals[2]),
+        max(parent_vals[3], totals[3]),
+    )
 
 
 def _collect_suite_elements(root: Any) -> tuple[int, int, int, int]:
@@ -586,6 +590,37 @@ def _normalize_defects(
     )
 
 
+def _append_junit_strict_counts(
+    junit: JunitSummary, reasons: list[BlockingReason]
+) -> None:
+    if junit.failures > 0:
+        reasons.append(
+            BlockingReason(
+                code="JUNIT_FAILURES",
+                signal="junit",
+                metric="junit.failures",
+                actual=junit.failures,
+                threshold=0,
+                message=(
+                    f"Se detectaron {junit.failures} prueba(s) JUnit fallida(s)."
+                ),
+            )
+        )
+    if junit.errors > 0:
+        reasons.append(
+            BlockingReason(
+                code="JUNIT_ERRORS",
+                signal="junit",
+                metric="junit.errors",
+                actual=junit.errors,
+                threshold=0,
+                message=(
+                    f"Se detectaron {junit.errors} error(es) de ejecución JUnit."
+                ),
+            )
+        )
+
+
 def _evaluate_junit_reasons(
     junit: JunitSummary,
     thresholds: dict[str, float | int],
@@ -606,29 +641,9 @@ def _evaluate_junit_reasons(
             )
         )
         return
-    if junit.failures > 0:
-        reasons.append(
-            BlockingReason(
-                code="JUNIT_FAILURES",
-                signal="junit",
-                metric="junit.failures",
-                actual=junit.failures,
-                threshold=0,
-                message=f"Se detectaron {junit.failures} prueba(s) JUnit fallida(s).",
-            )
-        )
-    if junit.errors > 0:
-        reasons.append(
-            BlockingReason(
-                code="JUNIT_ERRORS",
-                signal="junit",
-                metric="junit.errors",
-                actual=junit.errors,
-                threshold=0,
-                message=f"Se detectaron {junit.errors} error(es) de ejecución JUnit.",
-            )
-        )
     min_rate = float(thresholds["min_pass_rate_pct"])
+    if min_rate >= 100.0:
+        _append_junit_strict_counts(junit, reasons)
     if junit.pass_rate_pct < min_rate:
         reasons.append(
             BlockingReason(
@@ -841,6 +856,18 @@ def _validate_thresholds(
             )
 
 
+def _validate_scope(scope: str, sec_reasons: list[BlockingReason]) -> None:
+    if scope not in (SCOPE_FULL, SCOPE_SMOKE):
+        sec_reasons.append(
+            _security_reason(
+                "INVALID_INPUT",
+                "scope",
+                scope,
+                f"Alcance inválido '{scope}'; permitidos: full, smoke.",
+            )
+        )
+
+
 def evaluate_release_gate(
     *,
     workspace_root: Path,
@@ -856,16 +883,7 @@ def evaluate_release_gate(
     merged_thresholds = {**DEFAULT_THRESHOLDS, **(thresholds or {})}
     sec_reasons: list[BlockingReason] = []
     _validate_thresholds(merged_thresholds, sec_reasons)
-
-    if scope not in (SCOPE_FULL, SCOPE_SMOKE):
-        sec_reasons.append(
-            _security_reason(
-                "INVALID_INPUT",
-                "scope",
-                scope,
-                f"Alcance inválido '{scope}'; permitidos: full, smoke.",
-            )
-        )
+    _validate_scope(scope, sec_reasons)
 
     utc_ts = _normalize_utc_timestamp(timestamp, sec_reasons)
     junit = _load_junit_from_path(workspace_root, junit_xml, sec_reasons)
@@ -891,7 +909,7 @@ def evaluate_release_gate(
             summary,
         )
 
-    if scope == SCOPE_SMOKE:
+    if scope == SCOPE_SMOKE and telemetry_json is None and defects_json is None:
         summary = (
             f"⏭️ [RELEASE-GATE] SKIPPED (scope=smoke, dry_run={dry_run}, utc={utc_ts}) "
             "— compuerta omitida por alcance smoke."
@@ -912,7 +930,8 @@ def evaluate_release_gate(
         )
 
     gate_reasons: list[BlockingReason] = []
-    _evaluate_junit_reasons(junit, merged_thresholds, gate_reasons)
+    if scope == SCOPE_FULL or junit.provided:
+        _evaluate_junit_reasons(junit, merged_thresholds, gate_reasons)
     _evaluate_telemetry_and_defects(telemetry, defects, merged_thresholds, gate_reasons)
 
     if not gate_reasons:

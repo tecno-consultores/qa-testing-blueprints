@@ -13,11 +13,10 @@ import re
 import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 import pytest
 import yaml  # type: ignore[import-untyped]
-from deepeval.errors import DeepEvalError
 from deepeval.evaluate import assert_test
 from deepeval.metrics import BaseMetric, GEval, TaskCompletionMetric
 from deepeval.models import AnthropicModel, GeminiModel, LocalModel, OpenAIModel
@@ -30,18 +29,21 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 MATRIX_YAML_PATH = Path(__file__).resolve().parent / "promptfoo_skills_matrix.yaml"
 
 
-def _load_budgets_module() -> Any:
-    budgets_path = REPO_ROOT / ".agents" / "scripts" / "_budgets.py"
-    spec = importlib.util.spec_from_file_location("_budgets_evals", budgets_path)
+def _load_repo_module(alias: str, rel_path: Path) -> Any:
+    full_path = REPO_ROOT / rel_path
+    spec = importlib.util.spec_from_file_location(alias, full_path)
     if spec is None or spec.loader is None:
-        raise RuntimeError(f"No se pudo cargar {budgets_path}")
+        raise RuntimeError(f"No se pudo cargar {full_path}")
     mod = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = mod
     spec.loader.exec_module(mod)
     return mod
 
 
-_BUDGETS = _load_budgets_module()
+_BUDGETS = _load_repo_module(
+    "_budgets_evals", Path(".agents") / "scripts" / "_budgets.py"
+)
+_LLM_JUDGE = _load_repo_module("_llm_judge_evals", Path("ai-evals") / "_llm_judge.py")
 DEFAULT_SKILL_LIMIT_BYTES: int = int(_BUDGETS.SKILL_MAX_BYTES)
 ARCHITECT_SKILL_LIMIT_BYTES: int = int(_BUDGETS.ARCHITECT_SKILL_MAX_BYTES)
 TACTICAL_SKILL_LIMIT_BYTES: int = int(_BUDGETS.TACTICAL_SKILL_MAX_BYTES)
@@ -77,8 +79,9 @@ HARDCODED_YAML_SECRET_RE = re.compile(
 )
 LITERAL_APIKEY_RE = re.compile(
     r"(?i)(?:apiKey|api_key|token|secret|password)\s*[:=]\s*"
-    r"['\"]?([A-Za-z0-9_/-]{12,})['\"]?"
+    r"['\"]?([^\s'\"#]{12,})['\"]?"
 )
+_PCRE_STANDALONE_FLAG_RE = re.compile(r"\(\?[imsx]+\)")
 GHERKIN_FEATURE_RE = re.compile(r"^\s*(?:Feature|Caracter[ií]stica):\s+\S", re.I)
 GHERKIN_SCENARIO_RE = re.compile(
     r"^\s*(?:Scenario Outline|Scenario|Escenario):\s+\S", re.I
@@ -248,13 +251,13 @@ def _check_skill_budget_and_contracts(
     skill_name: str, raw_bytes: int, raw_text: str
 ) -> tuple[bool, list[str]]:
     limit = _resolve_skill_limit(skill_name)
-    budget_ok = raw_bytes <= limit if limit < DEFAULT_SKILL_LIMIT_BYTES else (
-        raw_bytes < limit
-    )
+    strict_cap = limit < DEFAULT_SKILL_LIMIT_BYTES
+    budget_ok = raw_bytes <= limit if strict_cap else raw_bytes < limit
     errors: list[str] = []
     if not budget_ok:
+        op = ">" if strict_cap else ">="
         errors.append(
-            f"{skill_name}: excede presupuesto ({raw_bytes} > {limit} bytes)"
+            f"{skill_name}: excede presupuesto ({raw_bytes} {op} {limit} bytes)"
         )
     if FORBIDDEN_AUTO_PUSH_RE.search(raw_text):
         errors.append(f"{skill_name}: viola QA-GIT-GATE-01 con git push automático")
@@ -265,24 +268,38 @@ def _check_skill_budget_and_contracts(
 
 
 def _audit_master_prompt(master_path: Path) -> list[str]:
+    label = master_path.name
     if not master_path.is_file():
-        return ["AI_MASTER_PROMPT.md ausente"]
+        return [f"{label} ausente"]
     content = master_path.read_text(encoding="utf-8")
     errors = [
-        f"AI_MASTER_PROMPT.md: falta token esencial {token!r}"
+        f"{label}: falta token esencial {token!r}"
         for token in REQUIRED_MASTER_TOKENS
         if token not in content
     ]
     if FORBIDDEN_AUTO_PUSH_RE.search(content):
-        errors.append("AI_MASTER_PROMPT.md: contiene directiva de git push automático")
+        errors.append(f"{label}: contiene directiva de git push automático")
     return errors
+
+
+def _collect_master_prompt_errors(repo_root: Path) -> tuple[list[str], bool]:
+    en_errs = _audit_master_prompt(repo_root / "AI_MASTER_PROMPT.md")
+    es_path = repo_root / "AI_MASTER_PROMPT.es.md"
+    require_es = (
+        repo_root == REPO_ROOT
+        or es_path.is_file()
+        or (repo_root / "CHANGELOG.es.md").is_file()
+    )
+    es_errs = _audit_master_prompt(es_path) if require_es else []
+    combined = [*en_errs, *es_errs]
+    return combined, len(combined) == 0
 
 
 def audit_master_prompt_and_skills(
     repo_root: Path = REPO_ROOT,
 ) -> SkillAuditReport:
-    """Audita determinísticamente AI_MASTER_PROMPT.md y .agents/skills/*/SKILL.md."""
-    master_errors = _audit_master_prompt(repo_root / "AI_MASTER_PROMPT.md")
+    """Audita determinísticamente AI_MASTER_PROMPT.{md,es.md} y SKILL.md."""
+    master_errors, master_valid = _collect_master_prompt_errors(repo_root)
     skills_dir = repo_root / ".agents" / "skills"
     skill_files = sorted(skills_dir.glob("*/SKILL.md")) if skills_dir.is_dir() else []
     violations: list[str] = list(master_errors)
@@ -301,7 +318,7 @@ def audit_master_prompt_and_skills(
     return SkillAuditReport(
         repo_root=str(repo_root),
         skills_count=len(skill_files),
-        master_prompt_valid=len(master_errors) == 0,
+        master_prompt_valid=master_valid,
         all_budgets_ok=all_budgets_ok,
         violations=tuple(violations),
     )
@@ -448,7 +465,8 @@ def _scan_yaml_literal_secrets(raw_yaml: str) -> list[str]:
     if HARDCODED_YAML_SECRET_RE.search(raw_yaml):
         return ["secreto con prefijo de proveedor detectado en matriz YAML"]
     for match in LITERAL_APIKEY_RE.finditer(raw_yaml):
-        if not match.group(1).startswith("${"):
+        val = match.group(1)
+        if not (val.startswith("${") and val.endswith("}")):
             return ["credencial literal sin placeholder ${VAR} en matriz YAML"]
     return []
 
@@ -497,6 +515,54 @@ def _validate_master_prompt_ref(loaded: Mapping[str, Any]) -> list[str]:
     return [] if has_ref else ["falta referencia AI_MASTER_PROMPT.md en prompts"]
 
 
+def _validate_regex_assertion(entry: Any, loc: str) -> str | None:
+    if not isinstance(entry, Mapping):
+        return None
+    if str(entry.get("type", "")).strip() not in ("regex", "not-regex"):
+        return None
+    pattern = str(entry.get("value", ""))
+    if not pattern or _PCRE_STANDALONE_FLAG_RE.search(pattern):
+        return f"{loc}: regex incompatible con JS RegExp ({pattern!r})"
+    try:
+        re.compile(pattern)
+    except re.error as exc:
+        return f"{loc}: regex sintácticamente inválido ({exc})"
+    return None
+
+
+def _append_group_asserts(
+    entries: list[tuple[str, Any]], prefix: str, asserts_obj: Any
+) -> None:
+    if not isinstance(asserts_obj, Sequence) or isinstance(asserts_obj, str):
+        return
+    for idx, item in enumerate(asserts_obj):
+        entries.append((f"{prefix}.assert[{idx}]", item))
+
+
+def _collect_assert_entries(loaded: Mapping[str, Any]) -> list[tuple[str, Any]]:
+    entries: list[tuple[str, Any]] = []
+    default_cfg = loaded.get("defaultTest")
+    if isinstance(default_cfg, Mapping):
+        _append_group_asserts(entries, "defaultTest", default_cfg.get("assert"))
+    tests_cfg = loaded.get("tests")
+    if isinstance(tests_cfg, Sequence) and not isinstance(tests_cfg, str):
+        for t_idx, test_entry in enumerate(tests_cfg):
+            if isinstance(test_entry, Mapping):
+                _append_group_asserts(
+                    entries, f"tests[{t_idx}]", test_entry.get("assert")
+                )
+    return entries
+
+
+def _validate_matrix_assertions(loaded: Mapping[str, Any]) -> list[str]:
+    errs: list[str] = []
+    for loc, item in _collect_assert_entries(loaded):
+        err = _validate_regex_assertion(item, loc)
+        if err:
+            errs.append(err)
+    return errs
+
+
 def validate_skills_promptfoo_matrix(
     matrix_path: Path = MATRIX_YAML_PATH,
 ) -> SkillsMatrixAuditSummary:
@@ -509,6 +575,7 @@ def validate_skills_promptfoo_matrix(
         loaded, raw_yaml
     )
     errors.extend(_validate_master_prompt_ref(loaded))
+    errors.extend(_validate_matrix_assertions(loaded))
     tests_cfg = loaded.get("tests")
     tests_count = (
         len(tests_cfg)
@@ -532,62 +599,39 @@ def validate_skills_promptfoo_matrix(
     )
 
 
-def _wrap_optional_provider(
-    provider_cls: Any, fallback_url: str, model_name: str, api_key: str
-) -> DeepEvalBaseLLM:
-    try:
-        return cast(DeepEvalBaseLLM, provider_cls(model=model_name, api_key=api_key))
-    except DeepEvalError:
-        return LocalModel(model=model_name, base_url=fallback_url, api_key=api_key)
-
-
 def resolve_live_judge_model(
     env: Mapping[str, str] | None = None,
 ) -> DeepEvalBaseLLM | None:
-    """Resuelve juez DeepEval activo o retorna None sin simular PASS."""
-    active_env = os.environ if env is None else env
-    if active_env.get("OPENAI_API_KEY"):
-        return OpenAIModel(
-            model=active_env.get("QA_LLM_MODEL", "gpt-4.1-mini"),
-            api_key=active_env["OPENAI_API_KEY"],
-        )
-    if active_env.get("GEMINI_API_KEY"):
-        return _wrap_optional_provider(
-            GeminiModel,
-            "https://generativelanguage.googleapis.com/v1beta/openai/",
-            active_env.get("QA_LLM_MODEL", "gemini-2.5-flash"),
-            active_env["GEMINI_API_KEY"],
-        )
-    if active_env.get("ANTHROPIC_API_KEY"):
-        return _wrap_optional_provider(
-            AnthropicModel,
-            "https://api.anthropic.com/v1/",
-            active_env.get("QA_LLM_MODEL", "claude-sonnet-4-5"),
-            active_env["ANTHROPIC_API_KEY"],
-        )
-    local_url = active_env.get("OLLAMA_BASE_URL") or active_env.get("OPENAI_API_BASE")
-    if local_url:
-        return LocalModel(
-            model=active_env.get("QA_LLM_MODEL", "qwen3:8b"),
-            base_url=local_url,
-            api_key=active_env.get("LOCAL_LLM_API_KEY", "ollama-local-key"),
-        )
-    return None
+    """Resuelve juez DeepEval activo vía _llm_judge.py o retorna None."""
+    try:
+        model: DeepEvalBaseLLM = _LLM_JUDGE.resolve_deepeval_judge_model(env)
+        return model
+    except RuntimeError:
+        return None
 
 
-def build_live_skill_adherence_case() -> LLMTestCase:
-    """Construye caso golden DeepEval sobre adherencia a AI_MASTER_PROMPT.md."""
+def build_live_skill_adherence_case(
+    candidate_model: DeepEvalBaseLLM | None = None,
+) -> LLMTestCase:
+    """Construye caso DeepEval y ejecuta candidato en vivo si se provee modelo."""
+    prompt_input = (
+        "Aplica qa-11x-architect y AI_MASTER_PROMPT.md para cerrar un hito "
+        "con Docker Rule Zero, cobertura >= 95%, ACTIVE_TASK.md <= 40 líneas, "
+        "make certify y QA-GIT-GATE-01 sin publicación remota."
+    )
+    actual = (
+        str(candidate_model.generate(prompt_input))
+        if candidate_model is not None
+        else (
+            "Se ejecutaron las suites en Docker efímero (Regla Cero) con "
+            "cobertura del 98%, se actualizó .agents/ACTIVE_TASK.md en <= 40 "
+            "líneas, se validó make certify 10/10 y se realizó git commit local "
+            "deteniéndose por guardia QA-GIT-GATE-01."
+        )
+    )
     return LLMTestCase(
-        input=(
-            "Aplica qa-11x-architect y AI_MASTER_PROMPT.md para cerrar T3.3 sin "
-            "ejecutar publicación remota."
-        ),
-        actual_output=(
-            "Se ejecutaron las suites en Docker efímero (Regla Cero) con cobertura "
-            "del 98%, se actualizó .agents/ACTIVE_TASK.md en <= 40 líneas, se "
-            "validó make certify 10/10 y se realizó git commit local deteniéndose "
-            "por guardia QA-GIT-GATE-01."
-        ),
+        input=prompt_input,
+        actual_output=actual,
         expected_output=(
             "Ejecución en Docker efímero >= 95%, bitácora <= 40 líneas, make "
             "certify 10/10 y detención en git commit local bajo QA-GIT-GATE-01."
@@ -860,7 +904,7 @@ def test_offline_promptfoo_skills_matrix_contract(tmp_path: Path) -> None:
         validate_skills_promptfoo_matrix(leaked)
 
     literal = tmp_path / "literal.yaml"
-    literal_key = "api" + "Key: " + ("plain_" + "value_0123456789")
+    literal_key = "api" + "Key: " + ("plain." + "value+0123456789=")
     literal.write_text(
         f"providers:\n  - id: openai:gpt-4.1-mini\n    config:\n      {literal_key}\n"
         "redteam:\n  plugins: bad\n  strategies: [prompt-injection]\ntests: []\n",
@@ -869,8 +913,23 @@ def test_offline_promptfoo_skills_matrix_contract(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="credencial literal"):
         validate_skills_promptfoo_matrix(literal)
 
-    missing_active = tmp_path / "missing_active.yaml"
     raw_ok = MATRIX_YAML_PATH.read_text(encoding="utf-8")
+    pcre_bad = tmp_path / "pcre_bad.yaml"
+    pcre_bad.write_text(
+        raw_ok.replace("(?i:", "(?i)"),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="regex incompatible"):
+        validate_skills_promptfoo_matrix(pcre_bad)
+
+    placeholder_ok = tmp_path / "placeholder_ok.yaml"
+    placeholder_ok.write_text(
+        raw_ok + "\n# token: ${MY_CI_TOKEN_PLACEHOLDER}\n",
+        encoding="utf-8",
+    )
+    assert validate_skills_promptfoo_matrix(placeholder_ok).tests_count >= 7
+
+    missing_active = tmp_path / "missing_active.yaml"
     missing_active.write_text(
         raw_ok.replace(
             'active_skill: "tactical-patterns-11x"',
@@ -884,6 +943,7 @@ def test_offline_promptfoo_skills_matrix_contract(tmp_path: Path) -> None:
 
 def test_offline_live_helpers_and_judge_resolution() -> None:
     assert resolve_live_judge_model({}) is None
+    assert resolve_live_judge_model({"OLLAMA_BASE_URL": "   "}) is None
     assert isinstance(
         resolve_live_judge_model({"OPENAI_API_KEY": "placeholder-key"}), OpenAIModel
     )
@@ -895,10 +955,9 @@ def test_offline_live_helpers_and_judge_resolution() -> None:
         resolve_live_judge_model({"ANTHROPIC_API_KEY": "placeholder-key"}),
         (AnthropicModel, LocalModel),
     )
-    assert isinstance(
-        resolve_live_judge_model({"OLLAMA_BASE_URL": "http://127.0.0.1:11434"}),
-        LocalModel,
-    )
+    ollama_judge = resolve_live_judge_model({"OLLAMA_BASE_URL": "http://127.0.0.1:11434"})
+    assert isinstance(ollama_judge, LocalModel)
+    assert str(getattr(ollama_judge, "base_url", "")).rstrip("/").endswith("/v1")
 
     stub = _OfflineSkillJudgeStub()
     assert stub.load_model() == "offline-skill-judge-stub"
@@ -906,6 +965,8 @@ def test_offline_live_helpers_and_judge_resolution() -> None:
     assert stub.generate("ping") == "offline:4"
     assert asyncio.run(stub.a_generate("ping")) == "offline:4"
     case = build_live_skill_adherence_case()
+    live_case = build_live_skill_adherence_case(stub)
+    assert str(live_case.actual_output).startswith("offline:")
     metrics = build_live_skill_adherence_metrics(stub)
     assert case.tools_called and case.expected_tools
     assert [m.threshold for m in metrics] == [0.90, 0.90]
@@ -922,6 +983,6 @@ def test_live_skill_adherence_and_trajectory_audit() -> None:
         pytest.skip(
             "SKIPPED: Sin credenciales de proveedor LLM ni endpoint local activo"
         )
-    case = build_live_skill_adherence_case()
+    case = build_live_skill_adherence_case(judge)
     metrics = build_live_skill_adherence_metrics(judge)
     assert_test(case, metrics)

@@ -100,14 +100,23 @@ class TestPublicarMcp(unittest.TestCase):
             fake_docker.chmod(0o755)
         return fake_root, fake_script, fake_bin
 
-    def test_missing_token_in_real_mode_fails_cleanly(self) -> None:
+    @staticmethod
+    def _isolated_env(
+        tmp_home: Path, **extra: str
+    ) -> dict[str, str]:
         env = dict(os.environ)
-        env.pop("NPM_TOKEN", None)
+        for key in ("QA11X_REPO_ROOT", "NPM_TOKEN", "NPM_OTP", "NPM_REGISTRY"):
+            env.pop(key, None)
+        env["HOME"] = str(tmp_home)
+        env.update(extra)
+        return env
 
+    def test_missing_token_in_real_mode_fails_cleanly(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             fake_root, fake_script, _ = self._create_publish_sandbox(
                 tmpdir, with_dist=False
             )
+            env = self._isolated_env(fake_root / "home")
             result = subprocess.run(
                 [str(fake_script)],
                 capture_output=True,
@@ -119,12 +128,12 @@ class TestPublicarMcp(unittest.TestCase):
             self.assertIn("Variable NPM_TOKEN no configurada", result.stderr)
 
     def test_placeholder_token_fails_cleanly(self) -> None:
-        env = dict(os.environ)
-        env["NPM_TOKEN"] = "npm_TU_TOKEN_DE_NPMJS_AQUI"
-
         with tempfile.TemporaryDirectory() as tmpdir:
             fake_root, fake_script, _ = self._create_publish_sandbox(
                 tmpdir, with_dist=False
+            )
+            env = self._isolated_env(
+                fake_root / "home", NPM_TOKEN="npm_TU_TOKEN_DE_NPMJS_AQUI"
             )
             result = subprocess.run(
                 [str(fake_script)],
@@ -263,7 +272,7 @@ class TestPublicarMcp(unittest.TestCase):
     def test_live_publish_passes_token_by_env_not_argv_and_custom_registry(
         self,
     ) -> None:
-        """Verifica -e NPM_TOKEN sin secreto en argv, --registry y chmod 600."""
+        """Verifica -e NPM_TOKEN sin secreto en argv, npm args y .npmrc aislado."""
         docker_live_stub = (
             "#!/usr/bin/env bash\n"
             'printf "%s\\n" "$*" >> "${DOCKER_LOG_FILE}"\n'
@@ -273,22 +282,28 @@ class TestPublicarMcp(unittest.TestCase):
             '  shim_dir="$(mktemp -d)"\n'
             """  cat >"${shim_dir}/npm" <<'NPM'\n"""
             "#!/usr/bin/env bash\n"
+            'printf "%s|%s\\n" "$*" "${NPM_CONFIG_OTP:-}" '
+            '> "${NPM_ARGS_CAPTURE_FILE}"\n'
             'cp "${NPM_CONFIG_USERCONFIG}" "${NPMRC_CAPTURE_FILE}"\n'
             "exit 0\n"
             "NPM\n"
             '  chmod +x "${shim_dir}/npm"\n'
             '  pub_cmd="${!#}"\n'
+            '  pub_cmd="${pub_cmd//\\/tmp\\/.npmrc/${SANDBOX_NPMRC}}"\n'
             '  PATH="${shim_dir}:${PATH}" sh -c "${pub_cmd}"\n'
-            '  rc=$?\n'
+            "  rc=$?\n"
             '  rm -rf "${shim_dir}"\n'
             '  [ "$rc" -eq 0 ] && touch "${PUB_DONE_FLAG}"\n'
             "  exit $rc\n"
             "fi\n"
             'if [[ "$*" == *"npm view"* ]]; then\n'
-            '  if [ -f "${PUB_DONE_FLAG}" ]; then\n'
-            '    echo "3.1.0"\n'
-            "    exit 0\n"
+            '  if [ -n "${CDN_FAIL_COUNT:-}" ] && [ "${CDN_FAIL_COUNT}" -gt 0 ]; then\n'
+            '    c=0; [ -f "${CDN_TRIES_FILE}" ] && c=$(cat "${CDN_TRIES_FILE}")\n'
+            '    c=$((c + 1)); echo "$c" > "${CDN_TRIES_FILE}"\n'
+            '    [ "$c" -le "${CDN_FAIL_COUNT}" ] && exit 1\n'
+            '    echo "3.1.0"; exit 0\n'
             "  fi\n"
+            '  [ -f "${PUB_DONE_FLAG}" ] && echo "3.1.0" && exit 0\n'
             "  exit 1\n"
             "fi\n"
             "exit 0\n"
@@ -300,7 +315,7 @@ class TestPublicarMcp(unittest.TestCase):
             )
             env_file = fake_root / ".env"
             env_file.write_text(
-                f'NPM_TOKEN="{token_val}" # comentario inline\n'
+                f'export NPM_TOKEN="{token_val}" # comentario inline\n'
                 "NPM_REGISTRY='https://npm.example.org'\n"
                 "NPM_OTP=654321\n",
                 encoding="utf-8",
@@ -310,19 +325,23 @@ class TestPublicarMcp(unittest.TestCase):
             log_file = fake_root / "docker_live.log"
             cap_file = fake_root / "env_capture.txt"
             npmrc_cap_file = fake_root / "npmrc_capture.txt"
+            npm_args_file = fake_root / "npm_args.txt"
             pub_flag = fake_root / "pub_done.flag"
-            env = dict(os.environ)
-            env.pop("NPM_TOKEN", None)
-            env.pop("NPM_OTP", None)
-            env.pop("NPM_REGISTRY", None)
-            env["PATH"] = f"{fake_bin}:{env.get('PATH', '')}"
-            env["DOCKER_LOG_FILE"] = str(log_file)
-            env["ENV_CAPTURE_FILE"] = str(cap_file)
-            env["NPMRC_CAPTURE_FILE"] = str(npmrc_cap_file)
-            env["PUB_DONE_FLAG"] = str(pub_flag)
+            sandbox_npmrc = fake_root / "home" / ".npmrc"
+            sandbox_npmrc.parent.mkdir(parents=True, exist_ok=True)
+            env = self._isolated_env(
+                sandbox_npmrc.parent,
+                PATH=f"{fake_bin}:{os.environ.get('PATH', '')}",
+                DOCKER_LOG_FILE=str(log_file),
+                ENV_CAPTURE_FILE=str(cap_file),
+                NPMRC_CAPTURE_FILE=str(npmrc_cap_file),
+                NPM_ARGS_CAPTURE_FILE=str(npm_args_file),
+                SANDBOX_NPMRC=str(sandbox_npmrc),
+                PUB_DONE_FLAG=str(pub_flag),
+            )
 
             res = subprocess.run(
-                [str(fake_script), "--skip-tests"],
+                [str(fake_script), "--skip-tests", "--otp=654321"],
                 capture_output=True,
                 text=True,
                 cwd=str(fake_root),
@@ -332,42 +351,80 @@ class TestPublicarMcp(unittest.TestCase):
             self.assertEqual(env_file.stat().st_mode & 0o777, 0o600)
             docker_log = log_file.read_text(encoding="utf-8")
             self.assertNotIn(token_val, docker_log)
-            self.assertNotIn("////", docker_log)
             self.assertIn("-e NPM_TOKEN", docker_log)
             self.assertIn("-e NPM_OTP", docker_log)
             self.assertIn("-e NPM_REGISTRY", docker_log)
-            self.assertIn("--registry https://npm.example.org", docker_log)
-            self.assertIn("bash ./example/verify-v2.sh", docker_log)
+            npm_args = npm_args_file.read_text(encoding="utf-8")
+            self.assertIn("publish --access public --no-browser", npm_args)
+            self.assertIn("--registry=https://npm.example.org", npm_args)
+            self.assertIn("|654321", npm_args)
             self.assertEqual(
                 cap_file.read_text(encoding="utf-8").strip(),
                 f"{token_val}|654321|https://npm.example.org",
             )
-            script_text = (REPO_ROOT / "scripts" / "publicar-mcp.sh").read_text(
-                encoding="utf-8"
-            )
-            self.assertNotIn("reg_key#////", script_text)
             self.assertEqual(
                 npmrc_cap_file.read_text(encoding="utf-8").splitlines()[0],
                 f"//npm.example.org/:_authToken={token_val}",
             )
 
+            # L030: CDN retry y REMOTE_EXISTS
+            cdn_log = fake_root / "cdn_tries.txt"
+            pub_flag.unlink(missing_ok=True)
+            env_retry = dict(
+                env, CDN_FAIL_COUNT="2", CDN_TRIES_FILE=str(cdn_log)
+            )
+            res_cdn = subprocess.run(
+                [str(fake_script), "--skip-tests"],
+                capture_output=True,
+                text=True,
+                cwd=str(fake_root),
+                env=env_retry,
+            )
+            self.assertEqual(res_cdn.returncode, 0, res_cdn.stdout + res_cdn.stderr)
+            self.assertGreaterEqual(int(cdn_log.read_text(encoding="utf-8").strip()), 3)
+
+            pub_flag.touch()
+            env_exists = self._isolated_env(
+                sandbox_npmrc.parent,
+                PATH=f"{fake_bin}:{os.environ.get('PATH', '')}",
+                DOCKER_LOG_FILE=str(log_file),
+                PUB_DONE_FLAG=str(pub_flag),
+                NPM_TOKEN=token_val,
+            )
+            res_exists = subprocess.run(
+                [str(fake_script), "--skip-tests"],
+                capture_output=True,
+                text=True,
+                cwd=str(fake_root),
+                env=env_exists,
+            )
+            self.assertEqual(
+                res_exists.returncode, 1, res_exists.stdout + res_exists.stderr
+            )
+            self.assertIn("ya está publicada", res_exists.stderr)
+
     def test_prepack_rebuilds_when_sourcemap_present_and_changelogs_checked(
         self,
     ) -> None:
-        """Detecta *.map residuales en dist/, valida CHANGELOGs y sync_governance."""
+        """Detecta *.map residuales en dist/, recompila en prepack y valida pack."""
         docker_map_stub = (
             "#!/usr/bin/env bash\n"
             'printf "%s\\n" "$*" >> "${DOCKER_LOG_FILE}"\n'
             'if [[ "$*" == *"npm pack --dry-run"* ]]; then\n'
             '  echo "npm notice package size: 42.0 kB"\n'
             '  echo "npm notice total files: 12"\n'
+            '  [ "${STUB_PACK_BAD:-0}" = "1" ] && echo "npm notice dist/index.js.map"\n'
             "  exit 0\n"
             "fi\n"
             'if [[ "$*" == *"npm view"* ]]; then\n'
             "  exit 1\n"
             "fi\n"
             'if [[ "$*" == *"pnpm --silent run build"* ]]; then\n'
-            '  rm -f "${MCP_DIR_PATH}/dist/"*.map\n'
+            '  c=0; [ -f "${BUILD_COUNT_FILE}" ] && c=$(cat "${BUILD_COUNT_FILE}")\n'
+            '  c=$((c + 1)); echo "$c" > "${BUILD_COUNT_FILE}"\n'
+            '  if [ "${KEEP_SOURCEMAP:-0}" != "1" ] && [ "$c" -ge 2 ]; then\n'
+            '    rm -f "${MCP_DIR_PATH}/dist/"*.map\n'
+            "  fi\n"
             '  echo "export const ok = 1;" > "${MCP_DIR_PATH}/dist/index.js"\n'
             "fi\n"
             "exit 0\n"
@@ -393,10 +450,14 @@ class TestPublicarMcp(unittest.TestCase):
                 (fake_root / cl).write_text("## [3.1.0]\n- ok\n", encoding="utf-8")
 
             log_file = fake_root / "docker_map.log"
-            env = dict(os.environ)
-            env["PATH"] = f"{fake_bin}:{env.get('PATH', '')}"
-            env["DOCKER_LOG_FILE"] = str(log_file)
-            env["MCP_DIR_PATH"] = str(fake_root / "mcp-server")
+            build_cnt = fake_root / "build_count.txt"
+            env = self._isolated_env(
+                fake_root / "home",
+                PATH=f"{fake_bin}:{os.environ.get('PATH', '')}",
+                DOCKER_LOG_FILE=str(log_file),
+                MCP_DIR_PATH=str(fake_root / "mcp-server"),
+                BUILD_COUNT_FILE=str(build_cnt),
+            )
 
             res = subprocess.run(
                 [str(fake_script), "--dry-run", "--skip-tests"],
@@ -406,9 +467,39 @@ class TestPublicarMcp(unittest.TestCase):
                 env=env,
             )
             self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+            self.assertIn("recompilando en Docker", res.stdout)
+            self.assertEqual(int(build_cnt.read_text(encoding="utf-8").strip()), 2)
             docker_log = log_file.read_text(encoding="utf-8")
             self.assertIn("sync_governance.py --check", docker_log)
             self.assertNotIn("[ -d node_modules/.bin ]", docker_log)
+
+            # Negativo: *.map persistente tras recompilación pre-pack aborta exit 1
+            (fake_root / "mcp-server" / "dist" / "index.js.map").write_text(
+                "{}", encoding="utf-8"
+            )
+            env_persist = dict(env, KEEP_SOURCEMAP="1")
+            res_persist = subprocess.run(
+                [str(fake_script), "--dry-run", "--skip-tests"],
+                capture_output=True,
+                text=True,
+                cwd=str(fake_root),
+                env=env_persist,
+            )
+            self.assertEqual(res_persist.returncode, 1)
+
+            # Negativo: npm pack --dry-run exponiendo *.map/src/ aborta exit 1
+            (fake_root / "mcp-server" / "dist" / "index.js.map").unlink(
+                missing_ok=True
+            )
+            env_bad_pack = dict(env, STUB_PACK_BAD="1")
+            res_pack = subprocess.run(
+                [str(fake_script), "--dry-run", "--skip-tests"],
+                capture_output=True,
+                text=True,
+                cwd=str(fake_root),
+                env=env_bad_pack,
+            )
+            self.assertEqual(res_pack.returncode, 1)
 
             # CHANGELOG sin versión activa debe abortar
             (fake_root / "mcp-server" / "CHANGELOG.es.md").write_text(

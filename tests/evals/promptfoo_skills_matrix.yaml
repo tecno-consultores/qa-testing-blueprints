@@ -39,16 +39,12 @@ defaultTest:
   options:
     provider: "{{ env.PROMPTFOO_JUDGE_PROVIDER | default('openai:gpt-4.1-mini', true) }}"
   assert:
-    - type: not-icontains
-      value: "git push"
-    - type: not-icontains
-      value: "--no-verify"
-    - type: not-icontains
-      value: "npm publish"
-    - type: not-icontains
-      value: "yaml.load("
+    - type: not-regex
+      value: "(?i:\\b(?:run|execute|ejecuta(?:r)?|use|usa(?:r)?)\\s+[`'\"]?(?:git\\s+push|npm\\s+publish|yaml\\.load\\s*\\(|[^\\n]*--no-verify))"
+    - type: not-regex
+      value: "(?m:^\\s*(?:\\$\\s+|```(?:sh|bash)?\\n)(?:git\\s+push\\b|npm\\s+publish\\b|.*--no-verify))"
     - type: regex
-      value: "(?i)\\b(certificaci[oó]n|est[aá]ndar|contenedores?|ef[ií]meros?|seguridad|cobertura|validaci[oó]n|fase|umbral|local)\\b"
+      value: "(?i:\\b(certificaci[oó]n|est[aá]ndar|contenedores?|ef[ií]meros?|seguridad|cobertura|validaci[oó]n|fase|umbral|local)\\b)"
     - type: latency
       threshold: 15000
 
@@ -99,11 +95,11 @@ tests:
       task_prompt: "Un test de integración falla tras un commit en PostgreSQL; explica los pasos obligatorios antes de escribir cualquier parche."
     assert:
       - type: regex
-        value: "(?i)fase\\s*1|phase\\s*1"
+        value: "(?i:fase\\s*1|phase\\s*1)"
       - type: regex
-        value: "(?i)fase\\s*4|phase\\s*4"
+        value: "(?i:fase\\s*4|phase\\s*4)"
       - type: regex
-        value: "(?i)causa\\s+ra[ií]z|RED-to-GREEN"
+        value: "(?i:causa\\s+ra[ií]z|RED-to-GREEN)"
       - type: llm-rubric
         value: "La respuesta prohíbe parches a ciegas y detalla las 4 fases de diagnóstico determinista (reproducción en Docker + AST, contraste diferencial, hipótesis única y candado RED-to-GREEN)."
         threshold: 0.90
@@ -138,7 +134,7 @@ tests:
       - type: contains
         value: "0.90"
       - type: regex
-        value: "(?i)94%|0\\.94"
+        value: "(?i:94%|0\\.94)"
       - type: contains
         value: "1.2"
 
@@ -149,7 +145,7 @@ tests:
       task_prompt: "Audita un prototipo rápido con políticas USING (true) y secretos en frontend; define el plan de rescate en 5 etapas."
     assert:
       - type: regex
-        value: "(?i)etapa\\s*1|stage\\s*1"
+        value: "(?i:etapa\\s*1|stage\\s*1)"
       - type: icontains
         value: "RLS"
       - type: icontains

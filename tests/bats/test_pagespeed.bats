@@ -52,7 +52,8 @@ exit 0
 EOF
   chmod +x "${fake_bin}/docker"
 
-  run env PATH="${fake_bin}:/usr/bin:/bin" LC_ALL=C bash "${work}/scripts/auditar-pagespeed.sh" --url "https://ejemplo-nominal.example" --strategy desktop
+  local mock_env_key="psi-mock""-env-token"
+  run env PATH="${fake_bin}:/usr/bin:/bin" PAGESPEED_API_KEY="${mock_env_key}" LC_ALL=C bash "${work}/scripts/auditar-pagespeed.sh" --url "https://ejemplo-nominal.example" --strategy desktop
   assert_success
   assert_output --partial "PASSED"
 
@@ -61,6 +62,8 @@ EOF
   assert_output --partial "sinfallas/base-python-uv:3.15@sha256:"
   assert_output --partial "--url https://ejemplo-nominal.example"
   assert_output --partial "--strategy desktop"
+  assert_output --partial "-e PAGESPEED_API_KEY"
+  refute_output --partial "${mock_env_key}"
 }
 
 @test "auditar-pagespeed.sh (Degradado): rechaza script ausente y estrategia invalida" {
@@ -75,4 +78,20 @@ EOF
 
   run env LC_ALL=C bash "${PSI_SCRIPT}" --url "https://ejemplo.example" --strategy tablet
   assert_failure 2
+}
+
+@test "auditar-pagespeed.sh (Degradado CLI/Docker): rechaza --api-key en argv y docker ausente" {
+  run env LC_ALL=C bash "${PSI_SCRIPT}" --url "https://ejemplo.example" --api-key "leaked-arg"
+  assert_failure 1
+  assert_output --partial "PAGESPEED_API_KEY"
+
+  local no_docker_bin="${BATS_TEST_TMPDIR}/psi_nodocker_bin"
+  mkdir -p "${no_docker_bin}"
+  for tool in bash dirname id env; do
+    resolved="$(command -v "${tool}" || true)"
+    [ -n "${resolved}" ] && ln -sf "${resolved}" "${no_docker_bin}/${tool}"
+  done
+  run env QA11X_DOCKERENV_PATH="/nonexistent" PATH="${no_docker_bin}" LC_ALL=C "${no_docker_bin}/bash" "${PSI_SCRIPT}" --url "https://ejemplo.example"
+  assert_failure 1
+  assert_output --partial "Se requiere Docker"
 }

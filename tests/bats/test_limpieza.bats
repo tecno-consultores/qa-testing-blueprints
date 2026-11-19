@@ -38,11 +38,12 @@ setup() {
     "${FAKE_ROOT}/.deepeval" "${FAKE_ROOT}/.promptfoo" "${FAKE_ROOT}/src" \
     "${FAKE_ROOT}/mcp-server/dist" "${FAKE_ROOT}/.agents/proposals" "${FAKE_ROOT}/.agents/backups" \
     "${FAKE_ROOT}/.agents/.cache/coverage" "${FAKE_ROOT}/.agents/artifacts" \
-    "${FAKE_ROOT}/graphify-out/cache" "${FAKE_TMP}/qa11x-certify.xyz"
+    "${FAKE_ROOT}/graphify-out/cache" "${FAKE_TMP}/qa11x-certify.xyz" "${FAKE_ROOT}/mobile-appium/.pnpm-store"
   touch "${FAKE_ROOT}/sbom.cyclonedx.json" "${FAKE_ROOT}/.DS_Store" "${FAKE_ROOT}/src/Thumbs.db" \
     "${FAKE_ROOT}/src/edit.swp" "${FAKE_ROOT}/src/old.bak" "${FAKE_ROOT}/ACTIVE_TASK.md" \
     "${FAKE_ROOT}/.agents/.cache/coverage/py.xml" "${FAKE_ROOT}/.agents/artifacts/PR_VERDICT.md" \
-    "${FAKE_ROOT}/graphify-out/junk.tmp" "${FAKE_TMP}/qa-11x-last-failure.json"
+    "${FAKE_ROOT}/graphify-out/junk.tmp" "${FAKE_TMP}/qa-11x-last-failure.json" \
+    "${FAKE_TMP}/graphify_ast.test123.log" "${FAKE_ROOT}/mobile-appium/.pnpm-store/v3"
 
   echo "// dist" >"${FAKE_ROOT}/mcp-server/dist/index.js"
   echo '{"version":"2.20.3"}' >"${FAKE_ROOT}/.qa-11x-version"
@@ -75,6 +76,7 @@ setup() {
   [ ! -f "${FAKE_ROOT}/graphify-out/junk.tmp" ]
   [ ! -d "${FAKE_ROOT}/graphify-out/cache" ]
   [ ! -f "${FAKE_TMP}/qa-11x-last-failure.json" ]
+  [ ! -f "${FAKE_TMP}/graphify_ast.test123.log" ]
   [ ! -d "${FAKE_TMP}/qa11x-certify.xyz" ]
 
   [ -f "${FAKE_ROOT}/.agents/ACTIVE_TASK.md" ]
@@ -155,6 +157,21 @@ EOF
     run env HOME="${FAKE_HOME}" TMPDIR="${FAKE_TMP}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C "${stack_dir}/limpieza.sh" --quiet
     assert_success
     [ ! -d "${stack_dir}/.trivycache" ]
+    case "${stack}" in
+      ai-evals | fastapi | python | vibe-rescue)
+        [ ! -d "${stack_dir}/.pytest_cache" ]
+        [ ! -f "${stack_dir}/.coverage" ]
+        ;;
+      mobile-appium | node-backend | react-frontend | vue3)
+        [ ! -d "${stack_dir}/coverage" ]
+        ;;
+      php)
+        [ ! -d "${stack_dir}/.phpunit.cache" ]
+        ;;
+    esac
+    if [ "${stack}" = "mobile-appium" ]; then
+      [ ! -d "${stack_dir}/wdio-logs" ]
+    fi
     [ ! -f "${stack_dir}/graphify-out/junk.tmp" ]
     [ -f "${stack_dir}/graphify-out/graph.json" ]
     [ -d "${stack_dir}/.agents/proposals" ]
@@ -167,4 +184,41 @@ EOF
     [ ! -d "${stack_dir}/node_modules" ]
     [ ! -d "${stack_dir}/.venv" ]
   done
+}
+
+@test "limpieza.sh: --deep desacoplado de docker system prune y --docker-prune exige --yes + --network none en alpine" {
+  local docker_log="${BATS_TEST_TMPDIR}/limpieza_docker.log"
+  : >"${docker_log}"
+  cat >"${FAKE_BIN}/docker" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >>"${docker_log}"
+exit 0
+EOF
+  chmod +x "${FAKE_BIN}/docker"
+
+  mkdir -p "${FAKE_ROOT}/.agents/proposals" "${FAKE_ROOT}/mobile-appium/.pnpm-store"
+  printf 'p\n' >"${FAKE_ROOT}/.agents/proposals/p.md"
+
+  run env HOME="${FAKE_HOME}" TMPDIR="${FAKE_TMP}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C "${FAKE_ROOT}/scripts/limpieza.sh" --deep --quiet
+  assert_success
+  [ ! -d "${FAKE_ROOT}/.agents/proposals" ]
+  [ ! -d "${FAKE_ROOT}/mobile-appium/.pnpm-store" ]
+  run grep -F "system prune" "${docker_log}"
+  assert_failure
+
+  : >"${docker_log}"
+  run env HOME="${FAKE_HOME}" TMPDIR="${FAKE_TMP}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C "${FAKE_ROOT}/scripts/limpieza.sh" --docker-prune --quiet
+  assert_failure 1
+  assert_output --partial "--yes"
+  run grep -F "system prune" "${docker_log}"
+  assert_failure
+
+  : >"${docker_log}"
+  run env HOME="${FAKE_HOME}" TMPDIR="${FAKE_TMP}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C "${FAKE_ROOT}/scripts/limpieza.sh" --docker-prune --yes --quiet
+  assert_success
+  run grep -F "system prune -af --volumes" "${docker_log}"
+  assert_success
+
+  run grep -F -- "--network none" "${FAKE_ROOT}/scripts/limpieza.sh"
+  assert_success
 }

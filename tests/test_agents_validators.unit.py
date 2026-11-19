@@ -9,6 +9,7 @@ from __future__ import annotations
 import ast
 import importlib.util
 import json
+import re
 import runpy
 import subprocess
 import sys
@@ -1147,9 +1148,6 @@ def test_sync_governance_porcelain_z_renames_spaces_and_ast_timeout(
 def test_inspect_blast_radius_edge_branches(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import re
-    import runpy
-
     mod = _load_script_module("inspect_blast_radius", "inspect_blast_radius.py")
     outside = tmp_path / "outside"
     outside.mkdir()
@@ -1185,8 +1183,6 @@ def test_inspect_blast_radius_edge_branches(
 def test_sync_governance_edge_branches(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import json
-
     mod = _load_script_module("sync_governance_edges", "sync_governance.py")
     pkg = tmp_path / "mcp-server" / "package.json"
     pkg.parent.mkdir(parents=True)
@@ -1611,19 +1607,73 @@ def test_verify_alembic_orm_parity_handles_model_syntax_error(tmp_path: Path) ->
     valid.write_text(
         'class Valid:\n    __tablename__ = "valid_tbl"\n', encoding="utf-8"
     )
-    assert mod.get_orm_tables([broken, valid]) == {"valid_tbl"}
+    with pytest.raises(ValueError, match="Error de sintaxis en modelo ORM"):
+        mod.get_orm_tables([broken, valid])
+
+    # M043: RENAME TO en SQL y revision duplicada falla cerrado
+    ws_dup = tmp_path / "dup_rev_ws"
+    (ws_dup / "backend" / "src" / "models").mkdir(parents=True)
+    (ws_dup / "backend" / "alembic" / "versions").mkdir(parents=True)
+    (ws_dup / "backend" / "src" / "models" / "item.py").write_text(
+        'class Item:\n    __tablename__ = "items_v2"\n', encoding="utf-8"
+    )
+    (ws_dup / "backend" / "alembic" / "versions" / "001_init.py").write_text(
+        'revision = "001"\ndown_revision = None\n'
+        'def upgrade():\n    op.create_table("items_v1")\n'
+        '    op.execute("ALTER TABLE items_v1 RENAME TO items_v2")\n',
+        encoding="utf-8",
+    )
+    assert mod.main(ws_dup) == 0
+
+    (ws_dup / "backend" / "alembic" / "versions" / "002_dup.py").write_text(
+        'revision = "001"\ndown_revision = "001"\n'
+        'def upgrade():\n    pass\n',
+        encoding="utf-8",
+    )
+    assert mod.main(ws_dup) == 1
+
+    # Cubre _extract_revision_id SyntaxError (405-407) y get_orm_tables (474-476)
+    ws_syn = tmp_path / "syn_mig_ws"
+    (ws_syn / "backend" / "src" / "models").mkdir(parents=True)
+    (ws_syn / "backend" / "alembic" / "versions").mkdir(parents=True)
+    (ws_syn / "backend" / "src" / "models" / "bad.py").write_text(
+        "class Bad(:\n    __tablename__ = 'x'\n", encoding="utf-8"
+    )
+    (ws_syn / "backend" / "alembic" / "versions" / "003_bad.py").write_text(
+        'revision = "0123456789abcdef0123456789abcdef_long"\ndef upgrade(:\n',
+        encoding="utf-8",
+    )
+    mig_dir = ws_syn / "backend" / "alembic" / "versions"
+    bad_revs = mod.verify_revision_id_lengths(mig_dir)
+    assert len(bad_revs) == 1
+    assert mod.main(ws_syn) == 1
+
+    ws_orm_syn = tmp_path / "syn_orm_only_ws"
+    (ws_orm_syn / "backend" / "src" / "models").mkdir(parents=True)
+    (ws_orm_syn / "backend" / "alembic" / "versions").mkdir(parents=True)
+    (ws_orm_syn / "backend" / "src" / "models" / "bad.py").write_text(
+        "class Bad(:\n    __tablename__ = 'x'\n", encoding="utf-8"
+    )
+    (ws_orm_syn / "backend" / "alembic" / "versions" / "001_ok.py").write_text(
+        'revision = "001"\ndef upgrade():\n    pass\n', encoding="utf-8"
+    )
+    assert mod.main(ws_orm_syn) == 1
+    no_rev = ws_orm_syn / "no_rev.py"
+    no_rev.write_text("x = 1\n", encoding="utf-8")
+    assert mod._extract_revision_id(no_rev) is None
 
 
 def test_validator_clis_support_workspace_and_exit_skipped_code(
     tmp_path: Path,
 ) -> None:
-    """Estandariza --workspace y --exit-skipped-code en los 5 validadores .agents."""
+    """Estandariza --workspace y --exit-skipped-code en los 6 validadores .agents."""
     cli_specs: tuple[tuple[str, str, list[str]], ...] = (
         ("dup_cli", "verify_json_no_duplicate_keys.py", []),
         ("roadmap_cli", "verify_roadmap_consistency.py", []),
         ("topo_cli", "verify_topological_health.py", []),
         ("vue_orphan_cli", "verify_zero_orphan_vue_components.py", []),
         ("api_orphan_cli", "verify_no_orphan_api_endpoints.py", []),
+        ("alembic_cli", "verify_alembic_orm_parity.py", []),
     )
     for mod_name, filename, extra_args in cli_specs:
         mod = _load_script_module(mod_name, filename)
@@ -1632,6 +1682,10 @@ def test_validator_clis_support_workspace_and_exit_skipped_code(
             ["--workspace", str(tmp_path), "--exit-skipped-code", "0", *extra_args]
         )
         assert rc_ok == 0
+        rc_skip = entry(
+            ["--workspace", str(tmp_path), "--exit-skipped-code", "2", *extra_args]
+        )
+        assert rc_skip == 2
 
 
 def test_select_tests_normalizes_pull_request_target_and_merge_group(

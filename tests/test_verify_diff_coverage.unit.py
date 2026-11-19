@@ -423,6 +423,7 @@ def test_f10_8_hardening_dangling_symlink_bom_lcov_diff_and_thresholds(
         vdc.DiffCoverageConfig(workspace=repo, reports_dir="cov")
     )
     assert ok_rep.exit_code == vdc.EXIT_OK
+    assert any(m.file_path == "pkg/módulo.py" for m in ok_rep.file_metrics)
 
     # --min-branch-cov 95 debe fallar y mostrar la fila de src/inc.ts (no 90 hardcoded)
     strict_b = vdc.evaluate_diff_coverage(
@@ -523,6 +524,7 @@ def test_ci_autodiff_and_modified_existing_file_missing_report(
         vdc.DiffCoverageConfig(workspace=repo, reports_dir="cov")
     )
     assert ci_head1.exit_code == vdc.EXIT_OK
+    assert [m.file_path for m in ci_head1.file_metrics] == ["pkg/existing.py"]
 
     # Sin HEAD~1 ni env CI retorna None
     monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
@@ -678,3 +680,42 @@ def test_ai_evals_report_stem_and_cobertura_condition_branches(
     assert full_rep.exit_code == vdc.EXIT_OK
     assert full_rep.file_metrics[0].covered_branches == 2
     assert full_rep.file_metrics[0].total_branches == 2
+
+
+def test_wave3_antievade_branch_context_lines_and_zero_totals_skipped(
+    tmp_path: Path,
+) -> None:
+    """Cubre M040 y M064: pragma no branch, istanbul ignore, ' ' y 0/0 SKIPPED."""
+    # 1. M040: pragma: no branch e istanbul ignore bloqueados como evasión
+    repo = _init_repo(tmp_path / "evade_w3")
+    _write(repo, "src/evade_b.py", "if cond:  # pragma: no branch\n    pass\n")
+    _write(repo, "src/evade_js.ts", "/* istanbul ignore next */\nexport const x = 1;\n")
+    _git(repo, "add", "src/evade_b.py", "src/evade_js.ts")
+    _write(repo, "cov/python.xml", "<coverage/>")
+    rep_ev = vdc.evaluate_diff_coverage(
+        vdc.DiffCoverageConfig(workspace=repo, reports_dir="cov")
+    )
+    assert rep_ev.exit_code == vdc.EXIT_EVASION_DETECTED
+    assert len(rep_ev.evasion_findings) >= 2
+
+    # 2. M040: líneas contexto " " en hunks incrementan state.next_line
+    diff_sample = (
+        "diff --git a/src/a.py b/src/a.py\n"
+        "--- a/src/a.py\n"
+        "+++ b/src/a.py\n"
+        "@@ -10,4 +10,5 @@ def f():\n"
+        " line10\n"
+        " line11\n"
+        "+added12\n"
+        " line13\n"
+    )
+    parsed = vdc.parse_unified_diff(diff_sample)
+    assert list(parsed["src/a.py"].added_lines.keys()) == [12]
+
+    # 3. M040: 0 líneas y 0 ramas con reportes cargados reporta SKIPPED
+    res_zero = vdc._compute_global_totals(
+        [vdc.FileDeltaMetrics("src/doc.py", 0, 0, 100.0, 0, 0, 100.0, ())],
+        [],
+        vdc.DiffCoverageConfig(workspace=repo),
+    )
+    assert "SKIPPED" in vdc.format_report_output(res_zero)

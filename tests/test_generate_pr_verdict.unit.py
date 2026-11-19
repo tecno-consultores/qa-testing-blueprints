@@ -750,3 +750,54 @@ def test_f10_8_hardening_null_bytes_bom_tz_bool_and_io_errors(
         gpv._write_private_json(out_dir / "att.json", {"ok": True})
     monkeypatch.undo()
     assert list(out_dir.glob("*.tmp")) == []
+
+
+def test_wave3_verdict_telemetry_smoke_pruned_graph_and_cli_bootstrap(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Cubre [10], M030 y L012 en generate_pr_verdict.py."""
+    repo = _init_repo(tmp_path)
+    _write(
+        repo,
+        "tel.json",
+        json.dumps({"metrics": {"error_rate_pct": 12.5, "p95_ms": 200}}),
+    )
+    _write(
+        repo,
+        "def.json",
+        json.dumps({"open_blockers": 1, "open_criticals": 0, "qa_escapes": 0}),
+    )
+
+    # [10]: sin --junit-xml, --telemetry-json y --defects-json aún bloquean
+    rc = gpv.main(
+        [
+            "--workspace",
+            str(repo),
+            "--telemetry-json",
+            "tel.json",
+            "--defects-json",
+            "def.json",
+        ]
+    )
+    assert rc == 30
+    capsys.readouterr()
+
+    # M030: _collect_graph_files() ignora node_modules y archivos graph.json ajenos
+    _write(repo, "node_modules/pkg/graph.json", '{"nodes":[],"links":[]}')
+    _write(repo, "custom/not-graphify/graph.json", '{"nodes":[],"links":[]}')
+    _write(repo, "fastapi/graphify-out/graph.json", '{"nodes":[],"links":[]}')
+    found = gpv._collect_graph_files(repo.resolve())
+    assert found == [(repo / "fastapi" / "graphify-out" / "graph.json").resolve()]
+
+    # L012: ejecución standalone sin PYTHONPATH resuelve imports hermanos
+    import os
+
+    clean_env = {"PATH": os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin")}
+    proc = subprocess.run(
+        [sys.executable, str(_SCRIPT_PATH), "--help"],
+        env=clean_env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stderr

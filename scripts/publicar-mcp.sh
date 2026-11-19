@@ -100,7 +100,7 @@ read_dotenv_value() {
   local env_path="$2"
   local raw_line raw_val first_char
 
-  raw_line="$(grep -E "^[[:space:]]*${key}=" "${env_path}" | head -n 1 || true)"
+  raw_line="$(grep -E "^[[:space:]]*(export[[:space:]]+)?${key}=" "${env_path}" | head -n 1 || true)"
   if [ -z "${raw_line}" ]; then
     return 0
   fi
@@ -169,12 +169,12 @@ CURRENT_GID="$(id -g)"
 
 if [ -f "${REPO_ROOT}/.agents/scripts/bump_version_11x.py" ]; then
   echo "🔢 [Pre-Check] Verificando paridad de versión SemVer (bump_version_11x.py --check)..."
-  docker run --rm --network none -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -v "${REPO_ROOT}:/repo:ro" -w /repo "${PY_IMAGE_NAME}" python3 .agents/scripts/bump_version_11x.py --check
+  docker run --rm --network none --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -v "${REPO_ROOT}:/repo:ro" -w /repo "${PY_IMAGE_NAME}" python3 .agents/scripts/bump_version_11x.py --check
 fi
 
 if [ -f "${REPO_ROOT}/.agents/scripts/sync_governance.py" ] && [ -f "${REPO_ROOT}/manifest.json" ]; then
   echo "🛡️ [Pre-Check] Verificando sincronía SHA-256 y presupuestos (sync_governance.py --check)..."
-  docker run --rm --network none -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "${REPO_ROOT}:/repo:ro" -w /repo "${PY_IMAGE_NAME}" python3 .agents/scripts/sync_governance.py --check
+  docker run --rm --network none --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "${REPO_ROOT}:/repo:ro" -w /repo "${PY_IMAGE_NAME}" python3 .agents/scripts/sync_governance.py --check
 fi
 
 for cl in CHANGELOG.md CHANGELOG.es.md mcp-server/CHANGELOG.md mcp-server/CHANGELOG.es.md; do
@@ -207,7 +207,7 @@ ensure_fresh_dist_before_pack() {
 
   if [ ! -f "${dist_entry}" ] || [ -n "${stale_files}" ] || [ -n "${map_files}" ]; then
     echo "🔄 [Pre-Pack] dist/index.js ausente o desactualizado (o con *.map residuales) respecto a mcp-server/src/; recompilando en Docker..."
-    docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run build
+    docker run --rm --network none --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run build
     stale_files=""
     map_files=""
     if [ -d "${src_dir}" ] && [ -f "${dist_entry}" ]; then
@@ -233,29 +233,33 @@ for dir in mobile-appium vibe-rescue .github; do
 done
 
 echo "🔍 [1/6] Verificando dependencias, Lint & Typecheck en Docker efímero..."
-docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "${MCP_DIR}:/app" ${MCP_EXTRA_VOLS[@]+"${MCP_EXTRA_VOLS[@]}"} -w /app "${IMAGE_NAME}" sh -c \
+docker run --rm --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "${MCP_DIR}:/app" ${MCP_EXTRA_VOLS[@]+"${MCP_EXTRA_VOLS[@]}"} -w /app "${IMAGE_NAME}" sh -c \
   "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run lint && pnpm --silent run typecheck"
 
 # 5. Paso 2: Pruebas Unitarias con Cobertura >= 95%
 if [ "$SKIP_TESTS" = false ]; then
   echo "🧪 [2/6] Ejecutando pruebas unitarias con cobertura en Docker efímero..."
-  docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "${MCP_DIR}:/app" ${MCP_EXTRA_VOLS[@]+"${MCP_EXTRA_VOLS[@]}"} -w /app "${IMAGE_NAME}" pnpm --silent run test:unit
+  docker run --rm --network none --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "${MCP_DIR}:/app" ${MCP_EXTRA_VOLS[@]+"${MCP_EXTRA_VOLS[@]}"} -w /app "${IMAGE_NAME}" pnpm --silent run test:unit
 else
   echo "🧪 [2/6] Omitiendo pruebas unitarias (--skip-tests activado)."
 fi
 
 # 6. Paso 3: Compilación TypeScript a dist/
 echo "⚙️ [3/6] Compilando TypeScript a dist/..."
-docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run build
+docker run --rm --network none --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run build
 
 # 7. Paso 4: Certificación E2E Real sobre stdio con mcp-server/example/ + verify-v2.sh
 echo "🎯 [4/6] Certificando 19 tools + 13 resources + quickstart + Clean-Room tarball..."
-docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e QA_BLUEPRINTS_LOCAL_PATH=/repo -e pnpm_config_manage_package_manager_versions=false -v "${REPO_ROOT}:/repo:ro" -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" sh -c 'pnpm --silent run test:example && bash ./example/verify-v2.sh'
+docker run --rm --network none --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e QA_BLUEPRINTS_LOCAL_PATH=/repo -e pnpm_config_manage_package_manager_versions=false -v "${REPO_ROOT}:/repo:ro" -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" sh -c 'pnpm --silent run test:example && bash ./example/verify-v2.sh'
 
 # 8. Paso 5: Verificación explícita de compilación pre-pack y Auditoría de empaquetado (Dry-Run de npm pack)
 ensure_fresh_dist_before_pack
 echo "📦 [5/6] Validando empaquetado (npm pack --dry-run)..."
-PACK_OUTPUT=$(docker run --rm -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" npm pack --dry-run 2>&1)
+PACK_OUTPUT=$(docker run --rm --network none --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" npm pack --dry-run 2>&1)
+if printf '%s\n' "${PACK_OUTPUT}" | grep -qE '(^|[[:space:]])(src/|.*\.map$)'; then
+  echo -e "\e[31m❌ ERROR [Pre-Pack]: Archivos src/ o *.map expuestos en npm pack --dry-run.\e[0m" >&2
+  exit 1
+fi
 PACK_SUMMARY=$(printf '%s\n' "${PACK_OUTPUT}" | grep -E "package size:|unpacked size:|total files:|\.tgz" || true)
 # shellcheck disable=SC2001
 echo "${PACK_SUMMARY}" | sed 's/^/  /'
@@ -263,8 +267,9 @@ echo "${PACK_SUMMARY}" | sed 's/^/  /'
 # 9. Paso 6: Verificación de versión y publicación
 echo -e "\n🌐 [Paso 6/6] Verificando estado del paquete en ${NPM_REGISTRY}..."
 
+ESCAPED_PKG_VERSION="${PKG_VERSION//./\\.}"
 REMOTE_EXISTS=false
-if docker run --rm "${IMAGE_NAME}" npm view "${PKG_NAME}@${PKG_VERSION}" version --registry="${NPM_REGISTRY}" 2>/dev/null | grep -q "^${PKG_VERSION}$"; then
+if docker run --rm --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp "${IMAGE_NAME}" npm view "${PKG_NAME}@${PKG_VERSION}" version --registry="${NPM_REGISTRY}" 2>/dev/null | grep -q "^${ESCAPED_PKG_VERSION}$"; then
   REMOTE_EXISTS=true
 fi
 
@@ -306,11 +311,30 @@ export NPM_TOKEN
 export NPM_OTP="${NPM_OTP:-}"
 export NPM_REGISTRY
 PROVENANCE_ARG=""
+DOCKER_PROVENANCE_ENV_ARGS=()
 if [ "${GITHUB_ACTIONS:-false}" = "true" ] && [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then
   PROVENANCE_ARG=" --provenance"
+  for oidc_var in \
+    GITHUB_ACTIONS \
+    ACTIONS_ID_TOKEN_REQUEST_URL \
+    ACTIONS_ID_TOKEN_REQUEST_TOKEN \
+    GITHUB_REPOSITORY \
+    GITHUB_REPOSITORY_ID \
+    GITHUB_REPOSITORY_OWNER_ID \
+    GITHUB_RUN_ID \
+    GITHUB_RUN_ATTEMPT \
+    GITHUB_SHA \
+    GITHUB_REF \
+    GITHUB_WORKFLOW_REF \
+    GITHUB_SERVER_URL \
+    GITHUB_EVENT_NAME; do
+    if [ -n "${!oidc_var:-}" ]; then
+      DOCKER_PROVENANCE_ENV_ARGS+=(-e "${oidc_var}")
+    fi
+  done
 fi
 
-if ! docker run --rm ${DOCKER_TTY_ARGS[@]+"${DOCKER_TTY_ARGS[@]}"} \
+if ! docker run --rm --security-opt=no-new-privileges:true ${DOCKER_TTY_ARGS[@]+"${DOCKER_TTY_ARGS[@]}"} \
   -u "${CURRENT_UID}:${CURRENT_GID}" \
   -e HOME=/tmp \
   -v "${MCP_DIR}:/app" \
@@ -318,6 +342,7 @@ if ! docker run --rm ${DOCKER_TTY_ARGS[@]+"${DOCKER_TTY_ARGS[@]}"} \
   -e NPM_TOKEN \
   -e NPM_OTP \
   -e NPM_REGISTRY \
+  ${DOCKER_PROVENANCE_ENV_ARGS[@]+"${DOCKER_PROVENANCE_ENV_ARGS[@]}"} \
   "${IMAGE_NAME}" \
   sh -c 'reg_norm="${NPM_REGISTRY%/}/"; reg_host="${reg_norm#http://}"; reg_host="${reg_host#https://}"; reg_host="${reg_host#//}"; printf "//%s:_authToken=%s\nregistry=%s\n" "${reg_host}" "${NPM_TOKEN}" "${NPM_REGISTRY}" > /tmp/.npmrc && chmod 600 /tmp/.npmrc && trap "rm -f /tmp/.npmrc" EXIT && export NPM_CONFIG_USERCONFIG=/tmp/.npmrc && if [ -n "${NPM_OTP:-}" ]; then export NPM_CONFIG_OTP="${NPM_OTP}"; fi && npm publish --access public --no-browser'"${PROVENANCE_ARG}"' --registry="${NPM_REGISTRY}"'; then
   echo -e "\n\e[31m❌ ERROR: No se completó la publicación en npmjs.org (posible requerimiento 2FA / EOTP).\e[0m" >&2
@@ -335,7 +360,7 @@ VERIFIED_REMOTE_VERSION=""
 
 for attempt in $(seq 1 "${VERIFY_ATTEMPTS}"); do
   VERIFIED_REMOTE_VERSION="$(
-    docker run --rm "${IMAGE_NAME}" \
+    docker run --rm --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp "${IMAGE_NAME}" \
       npm view "${PKG_NAME}@${PKG_VERSION}" version --registry "${NPM_REGISTRY}" --silent 2>/dev/null |
       grep -E '^[0-9]+\.[0-9]+\.[0-9]+' |
       head -n 1 |

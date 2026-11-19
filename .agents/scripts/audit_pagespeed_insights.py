@@ -80,7 +80,11 @@ def _parse_ip(raw_host: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address | 
     try:
         return ipaddress.ip_address(raw_host)
     except ValueError:
-        return None
+        try:
+            packed = socket.inet_aton(raw_host)
+            return ipaddress.IPv4Address(packed)
+        except OSError:
+            return None
 
 
 def _is_unsafe_ip(ip_obj: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
@@ -120,7 +124,10 @@ def _default_dns_resolver(host: str) -> list[str]:
 
 
 def _check_resolved_ips(host: str, resolver: DNSResolver) -> str | None:
-    for ip_str in resolver(host):
+    ips = resolver(host)
+    if not ips:
+        return f"BLOCKED_SSRF: no se pudo resolver el host público '{host}'."
+    for ip_str in ips:
         parsed_ip = _parse_ip(ip_str)
         if parsed_ip is not None and _is_unsafe_ip(parsed_ip):
             return (
@@ -171,6 +178,9 @@ def resolve_safe_output_path(raw_path: str, base_dir: Path) -> Path:
     resolved_base = base_dir.resolve()
     resolved_tmp = Path(tempfile.gettempdir()).resolve()
     candidate = Path(raw_path)
+    probe = candidate if candidate.is_absolute() else (resolved_base / candidate)
+    if probe.is_symlink():
+        raise ValueError(f"Symlink no permitido en --output: {raw_path}")
     target = (
         candidate.resolve()
         if candidate.is_absolute()
@@ -243,6 +253,16 @@ def _extract_crux_metrics(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _safe_float(raw_val: Any) -> float:
+    if isinstance(raw_val, bool) or raw_val is None:
+        return 0.0
+    try:
+        parsed = float(raw_val)
+    except (TypeError, ValueError):
+        return 0.0
+    return parsed
+
+
 def _to_opportunity_item(audit_id: str, audit: dict[str, Any]) -> dict[str, Any] | None:
     score = audit.get("score")
     details = audit.get("details")
@@ -254,8 +274,8 @@ def _to_opportunity_item(audit_id: str, audit: dict[str, Any]) -> dict[str, Any]
         "id": audit_id,
         "title": str(audit.get("title") or audit_id),
         "score": round(float(score), 4),
-        "savings_ms": float(details.get("overallSavingsMs") or 0.0),
-        "savings_bytes": float(details.get("overallSavingsBytes") or 0.0),
+        "savings_ms": _safe_float(details.get("overallSavingsMs")),
+        "savings_bytes": _safe_float(details.get("overallSavingsBytes")),
     }
 
 
@@ -342,8 +362,11 @@ def _audit_single_strategy(
     opts: AuditOptions,
     strategy: str,
     fetcher: HttpFetcher,
+    target_url: str | None = None,
 ) -> dict[str, Any]:
-    req_url = build_psi_request_url(opts.url, strategy, opts.api_key)
+    req_url = build_psi_request_url(
+        target_url or opts.url.strip(), strategy, opts.api_key
+    )
     try:
         http_status, raw_body = fetcher(req_url, opts.timeout_seconds)
     except (
@@ -452,7 +475,10 @@ def run_pagespeed_audit(
 
     http_fn = fetcher or _default_http_fetcher
     strategies = _resolve_strategies(opts.strategy)
-    results = [_audit_single_strategy(opts, strat, http_fn) for strat in strategies]
+    results = [
+        _audit_single_strategy(opts, strat, http_fn, url_or_reason)
+        for strat in strategies
+    ]
     overall_status, reason = _aggregate_overall_status(results)
     strategy_statuses, passed_strategies = _summarize_strategies(results)
     final_report = {
@@ -557,7 +583,11 @@ def main(argv: list[str] | None = None) -> int:
         output_path=str(args.output or ""),
         base_dir=Path.cwd(),
     )
-    code, report = run_pagespeed_audit(opts)
+    try:
+        code, report = run_pagespeed_audit(opts)
+    except (ValueError, OSError) as exc:
+        print(f"❌ [PSI] {redact_secrets(str(exc), opts.api_key)}", file=sys.stderr)
+        return 1
     if args.json:
         print(json.dumps(report, indent=2, ensure_ascii=False))
     else:

@@ -12,11 +12,15 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${REPO_ROOT}"
 
 QUIET=false
-DEEP_PRUNE=false
+DEEP_CLEAN=false
+DOCKER_PRUNE=false
+PRUNE_YES=false
 for arg in "$@"; do
   case "${arg}" in
     -q | --quiet) QUIET=true ;;
-    --deep | --docker-prune) DEEP_PRUNE=true ;;
+    --deep) DEEP_CLEAN=true ;;
+    --docker-prune) DOCKER_PRUNE=true ;;
+    --yes | -y) PRUNE_YES=true ;;
   esac
 done
 
@@ -143,6 +147,7 @@ rm -rf \
   "${tmp_base}/smoke_python_"* /tmp/smoke_python_* \
   "${tmp_base}/smoke_php_"* /tmp/smoke_php_* \
   "${tmp_base}/smoke_bash-scripts_"* /tmp/smoke_bash-scripts_* \
+  "${tmp_base}/graphify_ast."*".log" /tmp/graphify_ast.*.log \
   "${tmp_base}/graphify_ast_"*.log /tmp/graphify_ast_*.log 2>/dev/null || true
 
 # 3. Purga en raíz y subcarpetas (monorepos, stacks y arnés example/)
@@ -192,9 +197,10 @@ find . \
 CURRENT_UID="$(id -u)"
 CURRENT_GID="$(id -g)"
 if command -v docker >/dev/null 2>&1; then
-  docker run --rm -v "${REPO_ROOT}:/workspace" alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab sh -c "\
+  docker run --rm --network none --security-opt=no-new-privileges:true -v "${REPO_ROOT}:/workspace" alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab sh -c "\
     rm -rf /workspace/.coverage /workspace/.coverage.* /workspace/.pnpm-store /workspace/.turbo \
            /workspace/*/.pnpm-store /workspace/*/.turbo /workspace/mcp-server/example/.pnpm-store \
+           /workspace/mobile-appium/.pnpm-store \
            /workspace/mcp-server/example/node_modules /workspace/mcp-server/example/frontend/node_modules \
            /workspace/mcp-server/example/backend/.venv /workspace/mcp-server/example/backend/venv \
            /workspace/.pytest_cache /workspace/.mypy_cache /workspace/.ruff_cache \
@@ -223,13 +229,19 @@ if command -v docker >/dev/null 2>&1; then
     find /workspace \( -name '.git' -o -name 'node_modules' \) -prune -o \( -user 0 -o -user 10001 \) -exec chown ${CURRENT_UID}:${CURRENT_GID} {} + 2>/dev/null || true" >/dev/null 2>&1 || true
 fi
 
-if [ "${DEEP_PRUNE}" = true ]; then
+if [ "${DEEP_CLEAN}" = true ]; then
   rm -rf .agents/backups .agents/proposals .agents/.qa-evidence.json \
     .agents/.cache .agents/artifacts \
     ./*/.agents/backups ./*/.agents/proposals ./*/.agents/.qa-evidence.json ./*/.agents/.cache \
     "${HOME}/.cache/qa-11x-blueprints" "${tmp_base}/.qa11x_trivy_cache_"* /tmp/.qa11x_trivy_cache_* 2>/dev/null || true
-  if command -v docker >/dev/null 2>&1; then
+fi
+
+if [ "${DOCKER_PRUNE}" = true ]; then
+  if [ "${PRUNE_YES}" = true ] && command -v docker >/dev/null 2>&1; then
     docker system prune -af --volumes >/dev/null 2>&1 || true
+  elif [ "${PRUNE_YES}" != true ]; then
+    echo "❌ [Clean 11X] --docker-prune rechazado: añade --yes para confirmar la poda global de Docker en el host." >&2
+    exit 1
   fi
 fi
 

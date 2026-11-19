@@ -13,11 +13,16 @@ import sys
 from pathlib import Path
 from unittest import mock
 
-import lint_test_antipatterns as linter
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-LINTER_SCRIPT = REPO_ROOT / ".agents" / "scripts" / "lint_test_antipatterns.py"
+_SCRIPTS_DIR = REPO_ROOT / ".agents" / "scripts"
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
+
+import lint_test_antipatterns as linter  # noqa: E402
+
+LINTER_SCRIPT = _SCRIPTS_DIR / "lint_test_antipatterns.py"
 
 
 def _write_file(root: Path, rel_path: str, content: str) -> Path:
@@ -601,17 +606,27 @@ def test_autodetect_scans_governance_scripts_and_vibe_rescue(
 def test_autodetect_includes_backend_and_mcp_dirs_and_avoids_false_positives(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Incluye mcp-server/ai-evals/stacks en auto-detección sin falsos positivos."""
-    for d in ("mcp-server/tests", "ai-evals", "fastapi", "python", "node-backend"):
+    """Incluye mcp-server/ai-evals/backend/mobile-appium/stacks sin FP."""
+    for d in (
+        "mcp-server/tests",
+        "ai-evals",
+        "backend",
+        "fastapi",
+        "python",
+        "node-backend",
+        "mobile-appium",
+    ):
         (tmp_path / d).mkdir(parents=True)
     detected, auto_mode = linter._resolve_cli_paths([], tmp_path)
     assert auto_mode is True
     assert set(detected) == {
         "mcp-server",
         "ai-evals",
+        "backend",
         "fastapi",
         "python",
         "node-backend",
+        "mobile-appium",
     }
 
     (tmp_path / "mcp-server" / "tests" / "safe_rules.unit.ts").write_text(
@@ -627,3 +642,81 @@ def test_autodetect_includes_backend_and_mcp_dirs_and_avoids_false_positives(
     monkeypatch.chdir(tmp_path)
     rc = linter.main(["mcp-server/tests/safe_rules.unit.ts"], base_dir=tmp_path)
     assert rc == 0
+
+
+def test_wave3_py_and_ui_antipattern_precision(tmp_path: Path) -> None:
+    """Cubre [13], [14], M032 y M033 en lint_test_antipatterns.py."""
+    # [13] write_audit_log mock a nivel módulo y clase con funciones definidas
+    _write_file(
+        tmp_path,
+        "tests/test_scope_audit.py",
+        (
+            "from unittest.mock import AsyncMock, MagicMock\n"
+            "write_audit_log = AsyncMock()\n"
+            "class SuiteAudit:\n"
+            "    write_audit_log = MagicMock()\n"
+            "def helper() -> int:\n"
+            "    return 1\n"
+        ),
+    )
+    # [14] Dict/Tuple hardcoded pass + guard `if not skip:` sin falso positivo
+    _write_file(
+        tmp_path,
+        "tests/test_gate_returns.py",
+        (
+            "def certify_dict(skipped: bool) -> dict[str, object]:\n"
+            "    if skipped:\n"
+            "        return {'note': None, 'flag': True, 'ok': True}\n"
+            "    return {'status': 'OK'}\n"
+            "def verify_tuple(skipped: bool) -> tuple[bool, str]:\n"
+            "    if not skipped:\n"
+            "        return True, 'real'\n"
+            "    else:\n"
+            "        return (True, 'forced')\n"
+            "def certify_safe_not_skip(skipped: bool) -> bool:\n"
+            "    if not skipped:\n"
+            "        return True\n"
+            "    return False\n"
+            "def certify_dict_str(skipped: bool) -> dict[str, object]:\n"
+            "    if skipped:\n"
+            "        return {'detail': 'PASSED'}\n"
+            "    return {'detail': 'OK'}\n"
+        ),
+    )
+    # M032: A > B > C en .py fuera de llamadas CSS vs locator()
+    _write_file(
+        tmp_path,
+        "tests/test_py_css.py",
+        (
+            "def test_ordering(page) -> None:\n"
+            "    assert '10 > 5 > 1'\n"
+            "    page.locator('div > ul > li > span')\n"
+        ),
+    )
+    # M033: config JSDOM en directorio ancestro activa QA-UI-ANTI-005
+    _write_file(
+        tmp_path,
+        "ui_pkg/vitest.config.ts",
+        "export default { test: { environment: 'jsdom' } };\n",
+    )
+    _write_file(
+        tmp_path,
+        "ui_pkg/tests/Card.unit.ts",
+        "expect(el.getBoundingClientRect().width).toBe(0);\n",
+    )
+
+    viols, _, _ = linter.audit_paths(["tests", "ui_pkg/tests"], base_dir=tmp_path)
+    by_rule: dict[str, list[linter.Violation]] = {}
+    for v in viols:
+        by_rule.setdefault(v.rule_id, []).append(v)
+
+    assert len(by_rule.get("QA-PY-ANTI-001", [])) == 2
+    py003_lines = {v.line for v in by_rule.get("QA-PY-ANTI-003", [])}
+    assert 3 in py003_lines
+    assert 9 in py003_lines
+    assert 12 not in py003_lines
+    ui002_lines = {v.line for v in by_rule.get("QA-UI-ANTI-002", [])}
+    assert ui002_lines == {3}
+    assert any(
+        v.rule_id == "QA-UI-ANTI-005" for v in viols
+    )

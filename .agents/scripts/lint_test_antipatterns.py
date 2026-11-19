@@ -12,7 +12,7 @@ import json
 import os
 import re
 import sys
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -47,6 +47,7 @@ AUTO_DETECT_DIRS: tuple[str, ...] = (
     "fastapi",
     "python",
     "node-backend",
+    "backend",
     "frontend",
     "src",
     "tests",
@@ -102,6 +103,9 @@ RE_CSS_FRAGILE = re.compile(
     r"['\"`][^'\"`\n]*(?::nth-child\(|:nth-of-type\(|"
     r"[a-zA-Z0-9_.\-#\]]+(?<!-)\s*>\s*[a-zA-Z0-9_.\-#\]]+(?<!-)\s*>\s*"
     r"[a-zA-Z0-9_.\-#\]]+)[^'\"`\n]*['\"`]"
+)
+RE_PY_CSS_CALL = re.compile(
+    r"\b(?:CSS_SELECTOR|locator\s*\(|query_selector(?:_all)?\s*\()|['\"]css="
 )
 
 RE_TS_PAGE_CLASS = re.compile(
@@ -364,7 +368,17 @@ def _check_arbitrary_waits(
     ]
 
 
-def _check_fragile_selectors(rel_file: str, clean_text: str) -> list[Violation]:
+def _has_fragile_css_selector(line: str, is_python: bool) -> bool:
+    if RE_XPATH_RAW.search(line):
+        return True
+    if not RE_CSS_FRAGILE.search(line):
+        return False
+    return bool(RE_PY_CSS_CALL.search(line)) if is_python else True
+
+
+def _check_fragile_selectors(
+    rel_file: str, clean_text: str, is_python: bool = False
+) -> list[Violation]:
     if not _is_test_spec(rel_file):
         return []
     msg = "Selector XPath o CSS frágil (:nth-child / anidamiento >) directo en spec."
@@ -375,7 +389,7 @@ def _check_fragile_selectors(rel_file: str, clean_text: str) -> list[Violation]:
     return [
         Violation("QA-UI-ANTI-002", rel_file, line_no, msg, remediation)
         for line_no, line in enumerate(without_titles.splitlines(), 1)
-        if RE_XPATH_RAW.search(line) or RE_CSS_FRAGILE.search(line)
+        if _has_fragile_css_selector(line, is_python)
     ]
 
 
@@ -517,10 +531,39 @@ def _check_hidden_assertions(rel_file: str, clean_text: str) -> list[Violation]:
     ]
 
 
+_JSDOM_CONFIG_NAMES: tuple[str, ...] = (
+    "vitest.config.ts",
+    "vitest.config.mts",
+    "vitest.config.js",
+    "vitest.config.mjs",
+    "jest.config.ts",
+    "jest.config.js",
+    "jest.config.mjs",
+)
+
+
+def _has_ancestor_jsdom_config(file_path: Path, root: Path) -> bool:
+    cur = file_path.parent
+    for _ in range(6):
+        for cfg_name in _JSDOM_CONFIG_NAMES:
+            cfg = cur / cfg_name
+            if cfg.is_file() and RE_JSDOM_ENV.search(
+                cfg.read_text(encoding="utf-8", errors="ignore")
+            ):
+                return True
+        if cur == root or cur.parent == cur:
+            break
+        cur = cur.parent
+    return False
+
+
 def _check_jsdom_geometry(
-    rel_file: str, raw_text: str, clean_text: str | None = None
+    rel_file: str,
+    raw_text: str,
+    clean_text: str | None = None,
+    force_jsdom: bool = False,
 ) -> list[Violation]:
-    if not RE_JSDOM_ENV.search(raw_text):
+    if not force_jsdom and not RE_JSDOM_ENV.search(raw_text):
         return []
     msg = (
         "Medición geométrica (getBoundingClientRect/offsetWidth/offsetHeight) "
@@ -635,9 +678,20 @@ def _extract_assertion_receiver(node: ast.AST) -> str | None:
     return None
 
 
+def _iter_scope_nodes(scope: ast.AST) -> Iterator[ast.AST]:
+    stack: list[ast.AST] = [scope]
+    while stack:
+        current = stack.pop()
+        yield current
+        for child in ast.iter_child_nodes(current):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            stack.append(child)
+
+
 def _collect_asserted_mock_receivers(scope: ast.AST) -> set[str]:
     receivers: set[str] = set()
-    for node in ast.walk(scope):
+    for node in _iter_scope_nodes(scope):
         receiver = _extract_assertion_receiver(node)
         if receiver:
             receivers.add(receiver)
@@ -728,7 +782,7 @@ def _collect_with_and_assign_sites(
 ) -> tuple[list[tuple[int, set[str]]], set[int]]:
     sites: list[tuple[int, set[str]]] = []
     handled_call_ids: set[int] = set()
-    for node in ast.walk(scope):
+    for node in _iter_scope_nodes(scope):
         if isinstance(node, (ast.With, ast.AsyncWith)):
             _collect_with_node_sites(node, sites, handled_call_ids)
         elif isinstance(node, ast.Assign):
@@ -752,7 +806,7 @@ def _find_audit_patch_sites(scope: ast.AST) -> list[tuple[int, set[str]]]:
     wa_sites, wa_ids = _collect_with_and_assign_sites(scope)
     sites.extend(wa_sites)
     handled_call_ids.update(wa_ids)
-    for node in ast.walk(scope):
+    for node in _iter_scope_nodes(scope):
         if (
             isinstance(node, ast.Call)
             and id(node) not in handled_call_ids
@@ -795,7 +849,7 @@ def _check_py_blind_audit_mock(
         for n in ast.walk(tree)
         if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
     ]
-    scopes: list[ast.AST] = fn_scopes or [tree]
+    scopes: list[ast.AST] = [tree, *fn_scopes]
     violations: list[Violation] = []
     seen_lines: set[int] = set()
     for scope in scopes:
@@ -880,13 +934,53 @@ def _check_py_uuid_audit_fields(
     return violations
 
 
-def _is_hardcoded_pass_return(node: ast.AST) -> bool:
-    if not isinstance(node, ast.Return) or not isinstance(node.value, ast.Constant):
+_PASS_DICT_KEYS: frozenset[str] = frozenset(
+    {"status", "state", "result", "passed", "ok", "valid", "success"}
+)
+
+
+def _is_pass_constant(expr: ast.expr) -> bool:
+    if not isinstance(expr, ast.Constant):
         return False
-    val = node.value.value
+    val = expr.value
     if val is True:
         return True
     return isinstance(val, str) and val.strip().upper() in {"PASS", "PASSED"}
+
+
+def _is_pass_dict_entry(key: ast.expr | None, val: ast.expr | None) -> bool:
+    if val is None or not _is_pass_constant(val):
+        return False
+    if (
+        isinstance(val, ast.Constant)
+        and isinstance(val.value, str)
+        and val.value.strip().upper() in {"PASS", "PASSED"}
+    ):
+        return True
+    return (
+        isinstance(key, ast.Constant)
+        and isinstance(key.value, str)
+        and key.value.lower() in _PASS_DICT_KEYS
+    )
+
+
+def _is_pass_expr(expr: ast.expr) -> bool:
+    if _is_pass_constant(expr):
+        return True
+    if isinstance(expr, (ast.Tuple, ast.List)):
+        return any(_is_pass_constant(elt) for elt in expr.elts)
+    if isinstance(expr, ast.Dict):
+        return any(
+            _is_pass_dict_entry(k, v)
+            for k, v in zip(expr.keys, expr.values, strict=False)
+        )
+    return False
+
+
+def _is_hardcoded_pass_return(node: ast.AST) -> bool:
+    if not isinstance(node, ast.Return) or node.value is None:
+        return False
+    return _is_pass_expr(node.value)
 
 
 def _collect_hardcoded_pass_lines(stmts: Sequence[ast.stmt]) -> list[int]:
@@ -908,7 +1002,11 @@ def _scan_gate_function(
         if isinstance(sub, ast.ExceptHandler):
             lines.extend(_collect_hardcoded_pass_lines(sub.body))
         elif isinstance(sub, ast.If) and "skip" in ast.unparse(sub.test).lower():
-            lines.extend(_collect_hardcoded_pass_lines(sub.body))
+            is_negated = isinstance(sub.test, ast.UnaryOp) and isinstance(
+                sub.test.op, ast.Not
+            )
+            branch = sub.orelse if is_negated else sub.body
+            lines.extend(_collect_hardcoded_pass_lines(branch))
     return sorted(set(lines))
 
 
@@ -980,10 +1078,19 @@ def _audit_single_file(
         violations.extend(
             _check_arbitrary_waits(rel_file, clean_text, is_python, raw_text)
         )
-        violations.extend(_check_fragile_selectors(rel_file, clean_text))
+        violations.extend(
+            _check_fragile_selectors(rel_file, clean_text, is_python=is_python)
+        )
         violations.extend(_check_hidden_assertions(rel_file, clean_text))
         if not is_python:
-            violations.extend(_check_jsdom_geometry(rel_file, raw_text, clean_text))
+            violations.extend(
+                _check_jsdom_geometry(
+                    rel_file,
+                    raw_text,
+                    clean_text,
+                    force_jsdom=_has_ancestor_jsdom_config(file_path, root),
+                )
+            )
         extractor = _extract_py_page_classes if is_python else _extract_ts_page_classes
         page_records.extend(extractor(rel_file, clean_text))
     if is_python:

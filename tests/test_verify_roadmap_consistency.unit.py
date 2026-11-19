@@ -537,6 +537,62 @@ class TestVerifyRoadmapConsistency(unittest.TestCase):
                 runpy.run_path(str(SCRIPT_PATH), run_name="__main__")
             self.assertEqual(exc.exception.code, 20)
 
+    def test_wave3_orphan_section_and_checkpoint_reverse_drift(self) -> None:
+        """Cubre M042/L027: sección huérfana en cuerpo, intent >140 y deriva inversa."""
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            rm = base / "ROADMAP.md"
+            rm.write_text(
+                "# Roadmap\n"
+                "| Hito | Nombre | Spec | Estado | Progreso |\n"
+                "| :--- | :--- | :--- | :---: | :---: |\n"
+                "| **Hito 1** | Base | `s1` | ✅ Completado | `100%` |\n\n"
+                "## ✅ Hito 1: Base\n- [x] ok\n\n"
+                "## 🚧 Hito 2: Huérfano\n- [ ] pend\n",
+                encoding="utf-8",
+            )
+            rm_errs = vrc.validate_roadmap_consistency(rm)
+            self.assertTrue(any("Hito 2" in e for e in rm_errs))
+
+            ckpt = base / "session_checkpoint.json"
+            active = base / "ACTIVE_TASK.md"
+            ckpt.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "1.0.0",
+                        "status": "IN_PROGRESS",
+                        "intent_140chars": "x" * 141,
+                        "active_step": "step-1",
+                        "planned_steps": ["step-1"],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            active.write_text(
+                "**Estado:** CERTIFIED_CLEAN (100%)\n", encoding="utf-8"
+            )
+            ckpt_errs = vrc.validate_session_checkpoint(ckpt, active)
+            self.assertTrue(any("intent_140chars" in e for e in ckpt_errs))
+            self.assertTrue(any("IN_PROGRESS difiere" in e for e in ckpt_errs))
+
+            # Cubre L390 (ACTIVE_TASK.md ausente) y L402 (IN_PROGRESS coherente)
+            ckpt.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "1.0.0",
+                        "status": "IN_PROGRESS",
+                        "intent_140chars": "Coherente",
+                        "active_step": "step-1",
+                        "planned_steps": ["step-1"],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            active.write_text("**Estado:** IN_PROGRESS\n", encoding="utf-8")
+            self.assertEqual(vrc.validate_session_checkpoint(ckpt, active), [])
+            active.unlink()
+            self.assertEqual(vrc.validate_session_checkpoint(ckpt, active), [])
+
 
 if __name__ == "__main__":
     unittest.main()

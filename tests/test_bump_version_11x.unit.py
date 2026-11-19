@@ -435,3 +435,10 @@ def test_mcp_test_fixtures_edition_and_version_rules(tmp_path: Path) -> None:
     calm_updated = calm_test.read_text(encoding="utf-8")
     assert "standard: 'QA-11X v3.2'," in calm_updated
     assert "version: '3.2.0'," in calm_updated
+
+
+def test_live_repository_bump_check_and_readme_symmetry() -> None:
+    mod = _load_mod()
+    assert mod.main(["--check"]) == 0
+    ed_map = {r.rel_path: r for r in mod.EDITION_RULES}
+    assert ed_map["README.md"].patterns == ed_map["README.es.md"].patterns

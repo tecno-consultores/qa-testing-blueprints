@@ -31,18 +31,24 @@
     },
     "updated_at": {
       "type": "string",
-      "minLength": 20
+      "minLength": 20,
+      "maxLength": 40,
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?(?:Z|[+-]\\d{2}:\\d{2})$"
     },
     "git_available": {
       "type": "boolean"
     },
     "branch": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[^\\r\\n]+$"
     },
     "base_sha": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[^\\r\\n]+$"
     },
     "task_id": {
       "type": "string",
@@ -54,39 +60,49 @@
       "type": "array",
       "items": {
         "type": "string",
-        "minLength": 1
+        "minLength": 1,
+        "maxLength": 512,
+        "pattern": "^[^\\r\\n]+$"
       }
     },
     "active_step": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 64
+      "maxLength": 64,
+      "pattern": "^[^\\r\\n]+$"
     },
     "planned_steps": {
       "type": "array",
       "items": {
         "type": "string",
-        "minLength": 1
+        "minLength": 1,
+        "maxLength": 512,
+        "pattern": "^[^\\r\\n]+$"
       }
     },
     "allowed_globs": {
       "type": "array",
       "items": {
         "type": "string",
-        "minLength": 1
+        "minLength": 1,
+        "maxLength": 512,
+        "pattern": "^[^\\r\\n]+$"
       }
     },
     "forbidden_globs": {
       "type": "array",
       "items": {
         "type": "string",
-        "minLength": 1
+        "minLength": 1,
+        "maxLength": 512,
+        "pattern": "^[^\\r\\n]+$"
       }
     },
     "intent_140chars": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 140
+      "maxLength": 140,
+      "pattern": "^[^\\r\\n]+$"
     },
     "last_script_run": {
       "oneOf": [
@@ -100,17 +116,23 @@
           "properties": {
             "cmd": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "maxLength": 160,
+              "pattern": "^[^\\r\\n]+$"
             },
             "exit_code": {
               "type": "integer"
             },
             "timestamp": {
               "type": "string",
-              "minLength": 20
+              "minLength": 20,
+              "maxLength": 40,
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?(?:Z|[+-]\\d{2}:\\d{2})$"
             },
             "summary_1line": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 512,
+              "pattern": "^[^\\r\\n]*$"
             }
           }
         }

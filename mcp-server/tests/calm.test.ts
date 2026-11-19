@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
+import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -18,6 +19,12 @@ const MCP_ROOT = path.resolve(import.meta.dirname, '..');
 const REPO_CANDIDATE = path.dirname(MCP_ROOT);
 const REAL_CALM_PATH = path.join(REPO_CANDIDATE, DEFAULT_CALM_ARCHITECTURE_PATH);
 const HAS_REAL_CALM_MODEL = fs.existsSync(REAL_CALM_PATH);
+const VALIDATE_CALM_SH_PATH = path.join(
+  REPO_CANDIDATE,
+  '.agents',
+  'scripts',
+  'validate_calm_architecture.sh',
+);
 
 interface CalmControlRequirement {
   'requirement-url'?: string;
@@ -647,6 +654,88 @@ describe('validateCalmArchitecture (FINOS CALM 11X Gate)', () => {
       expect(resLoop.violations[0]?.code).toBe('PATH_TRAVERSAL');
     } finally {
       fs.rmSync(outsideFile, { force: true });
+    }
+  });
+
+  it('executes embedded JS payload from validate_calm_architecture.sh under real Node against nominal & negative fixtures ([30], M038)', () => {
+    if (!HAS_REAL_CALM_MODEL || !fs.existsSync(VALIDATE_CALM_SH_PATH)) {
+      return;
+    }
+    const shText = fs.readFileSync(VALIDATE_CALM_SH_PATH, 'utf8');
+    const startMark = "node - <<'JSEOF'\n";
+    const startIdx = shText.indexOf(startMark);
+    const endIdx = shText.indexOf('\nJSEOF', startIdx);
+    expect(startIdx).toBeGreaterThan(-1);
+    expect(endIdx).toBeGreaterThan(startIdx);
+    const jsPayload = shText.slice(startIdx + startMark.length, endIdx);
+
+    const runPayload = (cwd: string, archRel: string): { ok: boolean; out: string } => {
+      try {
+        const stdout = execFileSync(process.execPath, ['-e', jsPayload], {
+          cwd,
+          env: { ...process.env, ARCH_INPUT: archRel },
+          encoding: 'utf8',
+        });
+        return { ok: true, out: stdout };
+      } catch (err: unknown) {
+        const procErr = err as { stderr?: string; stdout?: string; message?: string };
+        return { ok: false, out: `${procErr.stderr ?? ''}${procErr.stdout ?? ''}` };
+      }
+    };
+
+    const ws = createWorkspaceWithModel(loadCanonicalDoc());
+    const nominal = runPayload(ws, DEFAULT_CALM_ARCHITECTURE_PATH);
+    expect(nominal.ok).toBe(true);
+    expect(nominal.out).toContain('architecture/qa-11x.calm.json|');
+
+    const badJsonFile = path.join(ws, 'architecture', 'bad.calm.json');
+    fs.writeFileSync(badJsonFile, '{invalid', 'utf8');
+    const badJsonRes = runPayload(ws, 'architecture/bad.calm.json');
+    expect(badJsonRes.ok).toBe(false);
+    expect(badJsonRes.out).toContain('[INVALID_JSON]');
+
+    const noMetaDoc = loadCanonicalDoc();
+    delete noMetaDoc.nodes[0]?.['node-type'];
+    delete noMetaDoc.nodes[0]?.name;
+    fs.writeFileSync(badJsonFile, JSON.stringify(noMetaDoc), 'utf8');
+    const noMetaRes = runPayload(ws, 'architecture/bad.calm.json');
+    expect(noMetaRes.ok).toBe(false);
+    expect(noMetaRes.out).toContain('node-type');
+
+    const dupAndDangling = loadCanonicalDoc();
+    dupAndDangling.nodes.push({ ...dupAndDangling.nodes[0] });
+    dupAndDangling.relationships.push({
+      'unique-id': 'dangling-rel',
+      'relationship-type': {
+        connects: { source: { node: 'missing-node' }, destination: { node: 'mcp-qa-11x-server' } },
+      },
+    });
+    const guardCtrl = getControl(dupAndDangling, 'prompt-injection-guard');
+    guardCtrl.enabled = false;
+    dupAndDangling.controls = {
+      ...dupAndDangling.controls,
+      'orphan-unused-ctrl': {
+        description: 'Unused control',
+        requirements: [{ 'requirement-url': 'https://example.org/unused' }],
+      },
+    };
+    fs.writeFileSync(badJsonFile, JSON.stringify(dupAndDangling), 'utf8');
+    const multiBad = runPayload(ws, 'architecture/bad.calm.json');
+    expect(multiBad.ok).toBe(false);
+    expect(multiBad.out).toContain('[DUPLICATE_NODE_ID]');
+    expect(multiBad.out).toContain('[DANGLING_RELATIONSHIP_NODE]');
+    expect(multiBad.out).toContain('[INACTIVE_CONTROL]');
+    expect(multiBad.out).toContain('[UNREFERENCED_CONTROL]');
+
+    const extTarget = path.join(os.tmpdir(), `calm-ext-${Date.now()}.json`);
+    fs.writeFileSync(extTarget, '{}', 'utf8');
+    try {
+      fs.symlinkSync(extTarget, path.join(ws, 'architecture', 'sym.calm.json'));
+      const symRes = runPayload(ws, 'architecture/sym.calm.json');
+      expect(symRes.ok).toBe(false);
+      expect(symRes.out).toContain('[PATH_TRAVERSAL]');
+    } finally {
+      fs.rmSync(extTarget, { force: true });
     }
   });
 });

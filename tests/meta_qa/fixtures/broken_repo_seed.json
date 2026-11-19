@@ -159,7 +159,7 @@
         }
       ]
     },
-    "sync_gov_skill_over_20kb": {
+    "sync_gov_architect_over_12kb": {
       "validator": "sync_governance.py",
       "expected_outputs": ["presupuesto cognitivo"],
       "files": [

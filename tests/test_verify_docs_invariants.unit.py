@@ -406,7 +406,7 @@ class TestVerifyDocsInvariants(unittest.TestCase):
                 "Enforces 22 reference controls, 22 controls, "
                 "29+5=34 scanner rules.\n"
                 "Covers 12 environments, 7 controls (CALM), 10 stacks, "
-                "Top 10 blueprint.\n"
+                "Top 5 blueprints.\n"
                 "Historical: `18` MCP tools and `12` MCP resources, "
                 "12 core v1 tools, 7 v2.0/v3.1 tools.\n",
                 encoding="utf-8",
@@ -421,6 +421,20 @@ class TestVerifyDocsInvariants(unittest.TestCase):
                 encoding="utf-8",
             )
             self.assertEqual(verify_docs.check_stale_surface_counts(root), [])
+            self.assertEqual(verify_docs.check_v2_mcp_surface_counts(root), [])
+
+            # CHANGELOG ## [Unreleased] sí debe auditarse (conteos y MCP v1)
+            (root / "CHANGELOG.md").write_text(
+                "## [Unreleased]\n- Legacy 12 tools and 8 resources and Appium 2\n\n"
+                "## [2.21.0]\n- Legacy 18 tools / 12 resources and Appium 2\n",
+                encoding="utf-8",
+            )
+            unrel_errs = verify_docs.check_stale_surface_counts(root)
+            self.assertTrue(any("CHANGELOG.md" in e for e in unrel_errs))
+            (root / "CHANGELOG.md").write_text(
+                "## [Unreleased]\n- Ok\n\n## [2.21.0]\n- Legacy\n",
+                encoding="utf-8",
+            )
 
             # Fallos reales obligatorios
             (root / "llms.txt").write_text(
@@ -1080,7 +1094,7 @@ class TestVerifyDocsInvariants(unittest.TestCase):
                 f"Texto legado 'strictly in Spanish' hallado en {ref_file}",
             )
             if ref_file.name.startswith(
-                ("01-", "02-", "03-", "04-", "05-", "06-")
+                ("01-", "02-", "03-", "04-", "05-", "06-", "07-", "08-", "09-")
             ):
                 self.assertIn(
                     "OUTPUT LANGUAGE & DYNAMIC MIRRORING",

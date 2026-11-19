@@ -16,14 +16,21 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 AGENTS_SCRIPTS = REPO_ROOT / ".agents" / "scripts"
 
 
-def _load_mod(_alias: str, filename: str) -> ModuleType:
-    mod_name = filename.removesuffix(".py")
+_MOD_CACHE: dict[tuple[str, str], ModuleType] = {}
+
+
+def _load_mod(alias: str, filename: str) -> ModuleType:
+    key = (alias, filename)
+    if key in _MOD_CACHE:
+        return _MOD_CACHE[key]
+    mod_name = f"{alias}_{filename.removesuffix('.py')}"
     path = AGENTS_SCRIPTS / filename
     spec = importlib.util.spec_from_file_location(mod_name, path)
     assert spec is not None and spec.loader is not None
     mod = importlib.util.module_from_spec(spec)
     sys.modules[mod_name] = mod
     spec.loader.exec_module(mod)
+    _MOD_CACHE[key] = mod
     return mod
 
 
@@ -556,3 +563,169 @@ def test_ui_comment_stripping_rejects_comment_only_and_accepts_real_usage(
         "PanelG",
     ):
         assert covered not in out
+
+
+def test_wave3_ui_and_api_isolation_subrouters_and_regex_escape(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Cubre [26], [27], M041, M066 y L017 para UI/API orphans."""
+    ui_mod = _load_mod("ui_wave3", "verify_zero_orphan_vue_components.py")
+    api_mod = _load_mod("api_wave3", "verify_no_orphan_api_endpoints.py")
+
+    # 1. [27] + M066 + L017: import type NO cubre, literal entre statements NO cubre,
+    #    vue3 NO cubre a react-frontend y test/ singular SÍ se escanea
+    ui_ws = tmp_path / "ui_ws"
+    _write_files(
+        ui_ws,
+        {
+            "vue3/src/components/Card.vue": "<template><div/></template>\n",
+            "vue3/test/Card.unit.ts": (
+                "import Card from '../src/components/Card.vue';\n"
+            ),
+            "react-frontend/src/components/Card.tsx": "export const Card = 1;\n",
+            "react-frontend/src/components/TypeOnly.tsx": (
+                "export type P = {};\nexport const TypeOnly = 1;\n"
+            ),
+            "react-frontend/src/components/CrossStmt.tsx": (
+                "export const CrossStmt = 1;\n"
+            ),
+            "react-frontend/tests/other.unit.ts": (
+                "import type { P } from '../src/components/TypeOnly.tsx';\n"
+                "import { describe } from 'vitest';\n"
+                "const fake = \"from '../src/components/CrossStmt.tsx'\";\n"
+            ),
+        },
+    )
+    assert ui_mod.main(ui_ws) == 1
+    ui_out = capsys.readouterr().out
+    assert "Card.vue" not in ui_out
+    assert "react-frontend/src/components/Card.tsx" in ui_out
+    assert "TypeOnly.tsx" in ui_out
+    assert "CrossStmt.tsx" in ui_out
+
+    # 2. [26]: directorio ancestro 'v1' fuera de backend_src no prefija /api/v1
+    v1_host = tmp_path / "v1" / "proj"
+    _write_files(
+        v1_host,
+        {
+            "fastapi/src/main.py": (
+                "from fastapi import APIRouter\n"
+                "router = APIRouter()\n"
+                '@router.get("/api/v2/health.json")\n'
+                "def health_json(): return {}\n"
+            ),
+            "vue3/src/api.ts": "globalThis.fetch('/api/v2/health.json');\n",
+        },
+    )
+    assert api_mod.main(v1_host) == 0
+
+    # Verificar que '.' en .json quedó escapado (healthXjson falla)
+    _write_files(
+        v1_host,
+        {"vue3/src/api.ts": "globalThis.fetch('/api/v2/healthXjson');\n"},
+    )
+    assert api_mod.main(v1_host) == 1
+    capsys.readouterr()
+
+    # 3. M041 + M066: sub-routers Node intra/cross-file y globalThis.fetch('/api/v2')
+    node_ws = tmp_path / "node_sub_ws"
+    _write_files(
+        node_ws,
+        {
+            "node-backend/src/routes/users.ts": (
+                "import { Router } from 'express';\n"
+                "const router = Router();\n"
+                "router.get('/', listUsers);\n"
+                "router.get('/:id', getUser);\n"
+                "export default router;\n"
+            ),
+            "node-backend/src/app.ts": (
+                "import express, { Router } from 'express';\n"
+                "import usersRouter from './routes/users';\n"
+                "const app = express();\n"
+                "const subRouter = Router();\n"
+                "subRouter.post('/ping', pingFn);\n"
+                "app.use('/api/v2/users', usersRouter);\n"
+                "app.use('/api/v3', subRouter);\n"
+            ),
+            "react-frontend/src/client.ts": (
+                "globalThis.fetch('/api/v2/users');\n"
+                "globalThis.fetch(`/api/v2/users/${uid}`);\n"
+                "await fetch('/api/v3/ping', { method: 'POST' });\n"
+            ),
+        },
+    )
+    assert api_mod.main(node_ws) == 0
+
+    # 4. Root UI fallback + stack/root tests y Node import/use variantes
+    root_ui = tmp_path / "root_ui_ws"
+    _write_files(
+        root_ui,
+        {
+            "src/components/RootCard.vue": "<template><div /></template>\n",
+            "tests/RootCard.unit.ts": (
+                "import RootCard from '../src/components/RootCard.vue';\n"
+                "void RootCard;\n"
+            ),
+        },
+    )
+    assert ui_mod.main(root_ui) == 0
+
+    hybrid_ui = tmp_path / "hybrid_ui_ws"
+    _write_files(
+        hybrid_ui,
+        {
+            "vue3/src/components/SharedWidget.vue": "<template><div /></template>\n",
+            "tests/SharedWidget.unit.ts": (
+                "import SharedWidget from 'SharedWidget';\nvoid SharedWidget;\n"
+            ),
+        },
+    )
+    assert ui_mod.main(hybrid_ui) == 0
+
+    edge_node = tmp_path / "edge_node_ws"
+    _write_files(
+        edge_node,
+        {
+            "node-backend/src/routes/named.ts": (
+                "import { Router } from 'express';\n"
+                "export const namedRouter = Router();\n"
+                "namedRouter.get('/n', listNamed);\n"
+            ),
+            "node-backend/src/routes/cjs.js": (
+                "const { Router } = require('express');\n"
+                "const cjsRouter = Router();\n"
+                "cjsRouter.get('/c', listCjs);\n"
+                "module.exports = cjsRouter;\n"
+            ),
+            "node-backend/src/routes/inline.ts": (
+                "import { Router } from 'express';\n"
+                "const inlineRouter = Router();\n"
+                "inlineRouter.get('/in', listInline);\n"
+                "export default inlineRouter;\n"
+            ),
+            "node-backend/src/app.ts": (
+                "import express from 'express';\n"
+                "import { namedRouter as nr } from './routes/named';\n"
+                "import missingR from './routes/missing';\n"
+                "const cjsRouter = require('./routes/cjs');\n"
+                "const app = express();\n"
+                "app.use('/api/v1/named', nr);\n"
+                "app.use('/api/v1/cjs', cjsRouter);\n"
+                "app.use('/api/v1/inline', require('./routes/inline'));\n"
+                "app.use('/api/v1/unknown', completelyUnknownIdent);\n"
+                "app.use('/api/v1/raw', fnMiddleware);\n"
+            ),
+            "react-frontend/src/api.ts": (
+                "fetch('/api/v1/named/n');\n"
+                "fetch('/api/v1/cjs/c');\n"
+                "fetch('/api/v1/inline/in');\n"
+            ),
+        },
+    )
+    assert api_mod.main(edge_node) == 0
+    direct_routes = api_mod._extract_node_file_routes(
+        edge_node / "node-backend/src/routes/named.ts", edge_node
+    )
+    assert len(direct_routes) == 1
+    assert api_mod._expand_node_mount("missing.ts", "/api", None, {}, {}, set()) == []

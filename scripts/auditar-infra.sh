@@ -127,12 +127,12 @@ compute_iac_fingerprint() {
   if [ "${hasher}" = "sha256sum" ]; then
     find "${REPO_ROOT}" -maxdepth 4 \
       \( -name node_modules -o -name .git -o -name dist -o -name .venv -o -name vendor \) -prune \
-      -o -type f \( -name 'docker-compose*.yml' -o -name 'Dockerfile*' -o -name '.trivy.yaml' -o -name 'pnpm-lock.yaml' -o -name 'package-lock.json' -o -name 'uv.lock' -o -name 'composer.lock' -o -name 'pom.xml' -o -name 'requirements*.txt' -o -name 'poetry.lock' -o -name 'Pipfile.lock' -o -name 'Cargo.lock' -o -name 'go.sum' -o -name 'Makefile' -o -name 'Makefile.example' -o -path '*/.github/workflows/*.yml' -o -path '*/.github/workflows/*.yaml' -o -path '*/.github/actions/*/action.yml' -o -path '*/.github/actions/*/action.yaml' \) \
+      -o -type f \( -name 'docker-compose*.yml' -o -name 'Dockerfile*' -o -name '.trivy.yaml' -o -name '.trivyignore*' -o -name 'package.json' -o -name 'pnpm-lock.yaml' -o -name 'package-lock.json' -o -name 'pyproject.toml' -o -name 'uv.lock' -o -name 'composer.json' -o -name 'composer.lock' -o -name 'pom.xml' -o -name 'requirements*.txt' -o -name 'poetry.lock' -o -name 'Pipfile.lock' -o -name 'Cargo.lock' -o -name 'go.sum' -o -name 'Makefile' -o -name 'Makefile.example' -o -name '*.tf' -o -name '*.tfvars' -o -name '*.example' -o -path '*/.github/workflows/*.yml' -o -path '*/.github/workflows/*.yaml' -o -path '*/.github/actions/*/action.yml' -o -path '*/.github/actions/*/action.yaml' \) \
       -print0 2>/dev/null | sort -z | xargs -0 sha256sum 2>/dev/null | sha256sum | awk '{print $1}'
   else
     find "${REPO_ROOT}" -maxdepth 4 \
       \( -name node_modules -o -name .git -o -name dist -o -name .venv -o -name vendor \) -prune \
-      -o -type f \( -name 'docker-compose*.yml' -o -name 'Dockerfile*' -o -name '.trivy.yaml' -o -name 'pnpm-lock.yaml' -o -name 'package-lock.json' -o -name 'uv.lock' -o -name 'composer.lock' -o -name 'pom.xml' -o -name 'requirements*.txt' -o -name 'poetry.lock' -o -name 'Pipfile.lock' -o -name 'Cargo.lock' -o -name 'go.sum' -o -name 'Makefile' -o -name 'Makefile.example' -o -path '*/.github/workflows/*.yml' -o -path '*/.github/workflows/*.yaml' -o -path '*/.github/actions/*/action.yml' -o -path '*/.github/actions/*/action.yaml' \) \
+      -o -type f \( -name 'docker-compose*.yml' -o -name 'Dockerfile*' -o -name '.trivy.yaml' -o -name '.trivyignore*' -o -name 'package.json' -o -name 'pnpm-lock.yaml' -o -name 'package-lock.json' -o -name 'pyproject.toml' -o -name 'uv.lock' -o -name 'composer.json' -o -name 'composer.lock' -o -name 'pom.xml' -o -name 'requirements*.txt' -o -name 'poetry.lock' -o -name 'Pipfile.lock' -o -name 'Cargo.lock' -o -name 'go.sum' -o -name 'Makefile' -o -name 'Makefile.example' -o -name '*.tf' -o -name '*.tfvars' -o -name '*.example' -o -path '*/.github/workflows/*.yml' -o -path '*/.github/workflows/*.yaml' -o -path '*/.github/actions/*/action.yml' -o -path '*/.github/actions/*/action.yaml' \) \
       -print0 2>/dev/null | sort -z | xargs -0 shasum -a 256 2>/dev/null | shasum -a 256 | awk '{print $1}'
   fi
 }
@@ -163,8 +163,12 @@ fi
 
 # 1. Escaneo de misconfiguraciones IaC (Pass-Quiet / Fail-Verbose)
 if ! IAC_OUT=$(docker run --rm \
+  --security-opt=no-new-privileges:true \
+  -u "$(id -u):$(id -g)" \
+  -e HOME=/tmp \
+  -e TRIVY_CACHE_DIR=/tmp/trivy-cache \
   -v "${REPO_ROOT}:/app:ro" \
-  -v "${TRIVY_CACHE_VOLUME}:/root/.cache/trivy" \
+  -v "${TRIVY_CACHE_VOLUME}:/tmp/trivy-cache" \
   -w /app \
   "${TRIVY_IMAGE}" config . \
   --quiet \
@@ -178,8 +182,12 @@ fi
 
 # 2. Escaneo de vulnerabilidades HIGH/CRITICAL (CVEs) en lockfiles y dependencias locales
 if ! FS_OUT=$(docker run --rm \
+  --security-opt=no-new-privileges:true \
+  -u "$(id -u):$(id -g)" \
+  -e HOME=/tmp \
+  -e TRIVY_CACHE_DIR=/tmp/trivy-cache \
   -v "${REPO_ROOT}:/app:ro" \
-  -v "${TRIVY_CACHE_VOLUME}:/root/.cache/trivy" \
+  -v "${TRIVY_CACHE_VOLUME}:/tmp/trivy-cache" \
   -w /app \
   "${TRIVY_IMAGE}" fs . \
   --quiet \

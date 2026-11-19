@@ -203,13 +203,18 @@ BILINGUAL_DOC_PAIRS: tuple[tuple[str, str], ...] = (
 )
 
 DOC_TARGETS: tuple[str, ...] = (
+    "AGENTS.md",
     "README.md",
     "README.es.md",
+    "CHANGELOG.md",
+    "CHANGELOG.es.md",
     "RESOURCES.md",
     "RESOURCES.es.md",
     ".agents/README.md",
     "mcp-server/README.md",
     "mcp-server/README.es.md",
+    "mcp-server/CHANGELOG.md",
+    "mcp-server/CHANGELOG.es.md",
     "mcp-server/example/README.md",
     "mcp-server/example/README.es.md",
     "mcp-server/example/AGENTS.md",
@@ -809,7 +814,12 @@ def _scan_file_patterns(rel_path: str, content: str) -> list[str]:
 
 
 def _collect_glob_docs(root: Path) -> list[str]:
-    patterns = ("catalogs/*.md", ".agents/rules/*.md", ".agents/skills/*/SKILL.md")
+    patterns = (
+        "catalogs/*.md",
+        ".agents/rules/*.md",
+        ".agents/skills/*/SKILL.md",
+        ".agents/skills/*/references/*.md",
+    )
     return [
         found.relative_to(root).as_posix()
         for pattern in patterns
@@ -1018,7 +1028,7 @@ def check_active_docs(root: Path) -> list[str]:
     """Valida invariantes y ausencia de derivas en documentos activos."""
     errors = _check_forbidden_agent_setup_en(root)
     for rel_path, full_path in _iter_active_doc_paths(root):
-        content = full_path.read_text(encoding="utf-8")
+        content = _read_active_doc_text(rel_path, full_path)
         errors.extend(_scan_file_patterns(rel_path, content))
     return errors
 
@@ -1193,7 +1203,7 @@ def check_v2_mcp_surface_counts(root: Path) -> list[str]:
         doc_path = root / rel_path
         if not doc_path.is_file():
             continue
-        content = doc_path.read_text(encoding="utf-8")
+        content = _read_active_doc_text(rel_path, doc_path)
         if _STALE_V1_MCP_COUNT_RE.search(content):
             errors.append(
                 f"{rel_path}: detectado conteo MCP v1 obsoleto "

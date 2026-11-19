@@ -184,7 +184,7 @@ def _check_all_completed_hito(
     errors: list[str] = []
     done = sec["completed_tasks"]
     total = sec["total_tasks"]
-    if t_hito["is_pending"] or t_hito["progreso_pct"] < 100:
+    if not t_hito["is_completed"] or t_hito["progreso_pct"] != 100:
         errors.append(
             f"Inconsistencia en Hito {num}: La tabla de resumen indica "
             f"'{t_hito['estado_raw']} | {t_hito['progreso_pct']}%', pero todas "
@@ -205,7 +205,7 @@ def _check_all_pending_hito(
 ) -> list[str]:
     errors: list[str] = []
     total = sec["total_tasks"]
-    if t_hito["is_completed"] or t_hito["progreso_pct"] > 0:
+    if not t_hito["is_pending"] or t_hito["progreso_pct"] != 0:
         errors.append(
             f"Inconsistencia en Hito {num}: La tabla de resumen indica "
             f"'{t_hito['estado_raw']} | {t_hito['progreso_pct']}%', pero tiene "
@@ -227,19 +227,26 @@ def _check_partial_hito(
     done = sec["completed_tasks"]
     total = sec["total_tasks"]
     pct = sec["calculated_pct"]
-    if t_hito["is_completed"]:
-        return [
+    errors: list[str] = []
+    if t_hito["is_completed"] or t_hito["progreso_pct"] == 100:
+        errors.append(
             f"Inconsistencia en Hito {num}: La tabla de resumen marca "
-            f"'Completado', pero solo tiene {done}/{total} tareas completadas "
+            f"'Completado' o 100%, pero solo tiene {done}/{total} tareas completadas "
             f"({pct}%). Debe figurar '🚧 En Progreso'."
-        ]
-    if t_hito["is_pending"]:
-        return [
+        )
+    if t_hito["is_pending"] or t_hito["progreso_pct"] == 0:
+        errors.append(
             f"Inconsistencia en Hito {num}: La tabla de resumen marca "
-            f"'Pendiente', pero ya cuenta con {done}/{total} tareas completadas "
+            f"'Pendiente' o 0%, pero ya cuenta con {done}/{total} tareas completadas "
             f"({pct}%). Debe figurar '🚧 En Progreso'."
-        ]
-    return []
+        )
+    if sec["header_icon"] in ("✅", "⏳"):
+        errors.append(
+            f"Inconsistencia en Hito {num}: El encabezado de sección tiene "
+            f"icono '{sec['header_icon']}', pero el avance es parcial "
+            f"({done}/{total}). Debe llevar '## 🚧 Hito {num}:'."
+        )
+    return errors
 
 
 def _dispatch_hito_checks(
@@ -283,8 +290,14 @@ def validate_roadmap_consistency(roadmap_path: Path) -> list[str]:
         return []
 
     errors: list[str] = []
+    table_nums = {row["hito_num"] for row in table_hitos}
     for t_hito in table_hitos:
         errors.extend(_validate_single_hito(t_hito, sections))
+    for orphan_num in sorted(set(sections) - table_nums):
+        errors.append(
+            f"Hito huérfano {orphan_num}: existe sección '## Hito {orphan_num}:' "
+            "sin fila correspondiente en la tabla de resumen."
+        )
     return errors
 
 
@@ -363,6 +376,42 @@ def _load_checkpoint_dict(
     return data, []
 
 
+def _is_valid_checkpoint_intent(intent: Any) -> bool:
+    return (
+        isinstance(intent, str)
+        and 1 <= len(intent) <= 140
+        and "\n" not in intent
+        and "\r" not in intent
+    )
+
+
+def _check_in_progress_checkpoint_drift(active_task_path: Path) -> list[str]:
+    if not active_task_path.is_file():
+        return []
+    md_state = (
+        _extract_active_task_state(
+            active_task_path.read_text(encoding="utf-8").splitlines()
+        )
+        or ""
+    ).lower()
+    if "certified_clean" in md_state or "completed" in md_state:
+        return [
+            "session_checkpoint.json IN_PROGRESS difiere de ACTIVE_TASK.md "
+            f"({md_state})."
+        ]
+    return []
+
+
+def _check_checkpoint_status_parity(
+    status: object, data: dict[str, Any], active_task_path: Path
+) -> list[str]:
+    if status == "CERTIFIED_CLEAN":
+        return _check_certified_checkpoint_parity(data, active_task_path)
+    if status == "IN_PROGRESS":
+        return _check_in_progress_checkpoint_drift(active_task_path)
+    return []
+
+
 def validate_session_checkpoint(
     checkpoint_path: Path, active_task_path: Path
 ) -> list[str]:
@@ -374,13 +423,11 @@ def validate_session_checkpoint(
     status = data.get("status")
     if status not in ("IN_PROGRESS", "CERTIFIED_CLEAN"):
         errors.append("session_checkpoint.json tiene status inválido.")
-    intent = data.get("intent_140chars")
-    if not isinstance(intent, str) or not (1 <= len(intent) <= 140):
+    if not _is_valid_checkpoint_intent(data.get("intent_140chars")):
         errors.append(
             "session_checkpoint.json viola longitud de intent_140chars (1..140)."
         )
-    if status == "CERTIFIED_CLEAN":
-        errors.extend(_check_certified_checkpoint_parity(data, active_task_path))
+    errors.extend(_check_checkpoint_status_parity(status, data, active_task_path))
     return errors
 
 

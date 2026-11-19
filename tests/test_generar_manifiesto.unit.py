@@ -134,7 +134,7 @@ class TestGenerarManifiesto(unittest.TestCase):
             (
                 "rag/test_rag_faithfulness.py",
                 "rag/test_rag_faithfulness.py",
-                "overwrite_executable",
+                "copy_if_missing",
             ),
             ("other.txt", "other.txt", "copy_if_missing"),
         ]
@@ -454,22 +454,22 @@ class TestGenerarManifiesto(unittest.TestCase):
 
     def test_mermaid_blocks_have_no_broken_html_tags(self) -> None:
         """Verifica bloques Mermaid sin etiquetas HTML rotas ni escapes \\n."""
+        candidates = sorted(
+            {
+                *REPO_ROOT.glob("*.md"),
+                *REPO_ROOT.glob("docs/*.md"),
+                *REPO_ROOT.glob("docs/specs/*.md"),
+            }
+        )
         mermaid_files = [
-            "README.md",
-            "README.es.md",
-            "SECURITY.md",
-            "SECURITY.es.md",
-            "docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md",
-            "docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md",
-            "docs/ARCHITECTURE_C4.md",
-            "docs/ARCHITECTURE_C4.es.md",
-            "docs/specs/01_SPEC_ARQUITECTURA_ZERO_CLONE_Y_MANIFIESTO_REMOTO.md",
+            p.relative_to(REPO_ROOT).as_posix()
+            for p in candidates
+            if "```mermaid" in p.read_text(encoding="utf-8")
         ]
+        self.assertIn("docs/01_ARQUITECTURA_PIRAMIDE_11X.md", mermaid_files)
+        self.assertIn("docs/01_ARQUITECTURA_PIRAMIDE_11X.es.md", mermaid_files)
         for rel_path in mermaid_files:
             path = REPO_ROOT / rel_path
-            self.assertTrue(
-                path.is_file(), f"Archivo Mermaid esperado ausente: {rel_path}"
-            )
             content = path.read_text(encoding="utf-8")
             for block in content.split("```mermaid")[1:]:
                 mermaid_code = block.split("```")[0]

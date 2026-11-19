@@ -53,6 +53,18 @@ if [ -f "./.agents/scripts/sync_governance.py" ] && [ -f "./manifest.json" ]; th
 	docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 \
 		bash -c "python3 .agents/scripts/sync_governance.py --check && python3 .agents/scripts/verify_docs_invariants.py"
 fi
+PY_STAGED=()
+for sfile in "${STAGED_FILES[@]+"${STAGED_FILES[@]}"}"; do
+	case "${sfile}" in
+		.agents/scripts/*.py | scripts/*.py | tests/*.py | tests/*/*.py | vibe-rescue/*.py | vibe-rescue/*/*.py | ai-evals/*.py | ai-evals/*/*.py)
+			[ -f "${sfile}" ] && PY_STAGED+=("${sfile}")
+			;;
+	esac
+done
+if [ "${#PY_STAGED[@]}" -gt 0 ] && [ -f "./pytest.ini" ]; then
+	docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 -e MYPYPATH=/app/.agents/scripts:/app/ai-evals:/app/vibe-rescue -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 \
+		bash -c 'ruff check --select E,F,W,I,UP,B,C901,FLY --config "lint.mccabe.max-complexity=5" "$@" && mypy --strict --cache-dir=/tmp/mypy "$@"' _ "${PY_STAGED[@]}"
+fi
 EOF
 
 backup_hook_if_unmanaged "${HOOKS_DIR}/commit-msg"
@@ -63,8 +75,10 @@ set -euo pipefail
 MSG_FILE="${1:-}"
 if [ -n "${MSG_FILE}" ] && [ -f "${MSG_FILE}" ]; then
 	FIRST_LINE=$(head -n 1 "${MSG_FILE}")
-	if ! printf '%s\n' "${FIRST_LINE}" | grep -Eq '^(Merge |Revert ")' &&
-		! printf '%s\n' "${FIRST_LINE}" | grep -Eq '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|security)(\([a-z0-9._/-]+\))?!?: .{1,100}$'; then
+	if [ "${#FIRST_LINE}" -gt 100 ] || {
+		! printf '%s\n' "${FIRST_LINE}" | grep -Eq '^(Merge |Revert ")' &&
+		! printf '%s\n' "${FIRST_LINE}" | grep -Eq '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|security)(\([a-z0-9._/-]+\))?!?: .{1,100}$'
+	}; then
 		echo "❌ [Conventional Commits] Formato requerido (<= 100 chars): ^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|security)(\([a-z0-9._/-]+\))?!?: .{1,100}$" >&2
 		exit 1
 	fi
@@ -92,12 +106,15 @@ if [ "${MCP_CHANGED}" = true ] && [ -f "./mcp-server/package.json" ]; then
 			MCP_EXTRA_VOLS+=(-v "$(pwd)/${dir}:/${dir}:ro")
 		fi
 	done
-	docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store \
+	docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false \
 		-v "$(pwd)/mcp-server:/app" ${MCP_EXTRA_VOLS[@]+"${MCP_EXTRA_VOLS[@]}"} -w /app sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60 \
 		bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run lint && pnpm --silent run typecheck && pnpm --silent run test:unit && rm -rf coverage .eslintcache"
 	if [ -x "./scripts/probar-mcp-example.sh" ]; then
 		./scripts/probar-mcp-example.sh --in-place
 	fi
+fi
+if [ -f "./ai-evals/tests/test_ai_contracts.py" ] && [ -f "./Makefile" ] && command -v make >/dev/null 2>&1; then
+	make test-ai-offline
 fi
 if [ -f "./scripts/generar-manifiesto.py" ]; then
 	docker run --rm --network none -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache \

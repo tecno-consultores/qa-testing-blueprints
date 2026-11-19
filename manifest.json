@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "3.2.0",
-  "generated_at_utc": "2026-11-19T15:28:56Z",
+  "generated_at_utc": "2026-11-19T23:56:23Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -58,7 +58,7 @@
         {
           "path": "ai-evals/multimodal-ocr/test_pdf_table_fidelity.py",
           "target_name": "multimodal-ocr/test_pdf_table_fidelity.py",
-          "merge_strategy": "overwrite_executable",
+          "merge_strategy": "copy_if_missing",
           "sha256": "85aefb846f95a55ec8575ffd30015020be1a38256e23218fa201cd9a93f590a0",
           "size_bytes": 13692
         },
@@ -72,7 +72,7 @@
         {
           "path": "ai-evals/rag/test_rag_faithfulness.py",
           "target_name": "rag/test_rag_faithfulness.py",
-          "merge_strategy": "overwrite_executable",
+          "merge_strategy": "copy_if_missing",
           "sha256": "a2d213246c8fc318a94aba0ccdfec966b91ad8e56c4a7f25ad3ac7827bbd9004",
           "size_bytes": 20990
         },
@@ -86,7 +86,7 @@
         {
           "path": "ai-evals/voice-realtime/test_voice_websocket_latency.py",
           "target_name": "voice-realtime/test_voice_websocket_latency.py",
-          "merge_strategy": "overwrite_executable",
+          "merge_strategy": "copy_if_missing",
           "sha256": "ba3c238ccb3668f157916fa6c863e3deccbe3ca645571d99e4a24854a5fc792a",
           "size_bytes": 21045
         }
@@ -984,57 +984,57 @@
       "path": "instalar-hooks.sh",
       "target_name": "instalar-hooks.sh",
       "merge_strategy": "copy_if_missing",
-      "sha256": "985a44e8a5619aa25b190b89f4a7b9661fe033f64aa937003a3a46e4c35748db",
-      "size_bytes": 7465
+      "sha256": "6fcde9d77fcdb15d64d90e4858c969554ec3bac5121c6adf8a6d64a8f522dca8",
+      "size_bytes": 8550
     },
     {
       "path": "lefthook.yml",
       "target_name": "lefthook.yml",
       "merge_strategy": "surgical_merge",
-      "sha256": "588b4c5c81d171fd7901c4d1c0bec05238147396919e2039109345dc787e0e3b",
-      "size_bytes": 12671
+      "sha256": "898b783c5514c94fc83d6c43635933647f152152e7c74a31d41b33891d424d56",
+      "size_bytes": 13502
     },
     {
       "path": "scripts/actualizar-grafos-graphify.sh",
       "target_name": "scripts/actualizar-grafos-graphify.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "356c9978c736f6f3f6b1c0124bbb9a846fc49f5647a13aff28a42448b8fc2756",
-      "size_bytes": 5442
+      "sha256": "a6af82722b3c90e644daf49d62af6f87931e76113807528a55e57e1cfccc5e69",
+      "size_bytes": 6092
     },
     {
       "path": "scripts/auditar-infra.sh",
       "target_name": "scripts/auditar-infra.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "4427cc94366defe723975f44747d12f0c1fd1ffe5b063f2e7fae9b2eab5eb464",
-      "size_bytes": 8211
+      "sha256": "1a9563c5b7668e0223aefe84d8702c95e6c55a3f9cdd3d8271de0e57ecb2ea07",
+      "size_bytes": 8773
     },
     {
       "path": "scripts/auditar-pagespeed.sh",
       "target_name": "scripts/auditar-pagespeed.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "a952be929de2fee5fa2cec9ff3324287a4f9b5fe0873b605ed8f4c83e78e62e8",
-      "size_bytes": 897
+      "sha256": "38906f9a4f16137d64b9d974805e970f662ef679edbbeab458c0bc81f3ae0079",
+      "size_bytes": 1332
     },
     {
       "path": "scripts/generar-sbom-cyclonedx.sh",
       "target_name": "scripts/generar-sbom-cyclonedx.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "0751fe34a4655f958922b99a4e7385649a8f5351e5de1dcfa8867d816d548e34",
-      "size_bytes": 3097
+      "sha256": "0e6fa2e17064fc7c9fdb002fa5e726c2a20397f931c1a0cf8362fc2c4e52b880",
+      "size_bytes": 3139
     },
     {
       "path": "scripts/limpieza.sh",
       "target_name": "scripts/limpieza.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "ce47ee454cb989423d5d12bccd39a83813bd83859ce51c5e3d4dfd0e0d54a56a",
-      "size_bytes": 14601
+      "sha256": "6d351f647c53d55a3909b450aff040ca18b3d8b3dd827bb58caeab3cb9d91724",
+      "size_bytes": 15104
     },
     {
       "path": "scripts/verificar-secretos.sh",
       "target_name": "scripts/verificar-secretos.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "399ad19152f3501af5d6ed11efce5957e743e759bb6ac69777eb3f6cca22c16a",
-      "size_bytes": 7499
+      "sha256": "854c914e17ab520ae760102eff699ef1abf30fa43d6128f40d7e9f4930581644",
+      "size_bytes": 9015
     }
   ],
   "agent_governance_files": [
@@ -1112,8 +1112,8 @@
       "path": ".agents/schemas/session_checkpoint.schema.json",
       "target_name": ".agents/schemas/session_checkpoint.schema.json",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "6af0aab39b94580f2937e28cfb02df8e38e09b7571aed394d1d45dcbf9b0189d",
-      "size_bytes": 2506
+      "sha256": "2021dd9e82a12c0f43f1488aed6963025df59ab7d8cc7d3eb5078917be8e5426",
+      "size_bytes": 3344
     },
     {
       "path": ".agents/scripts/_budgets.py",
@@ -1126,78 +1126,78 @@
       "path": ".agents/scripts/audit_pagespeed_insights.py",
       "target_name": ".agents/scripts/audit_pagespeed_insights.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "2accb1371d0117cc45807733b4d225dbd9989c8117839c70e013cf4a54fa5567",
-      "size_bytes": 20017
+      "sha256": "909de84bff361561504cc8240c4b7264838817c3aad902eaeec2487caaedff27",
+      "size_bytes": 20938
     },
     {
       "path": ".agents/scripts/bump_version_11x.py",
       "target_name": ".agents/scripts/bump_version_11x.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "cc55b52de2a9548e2a148cac2bd1d30255955ebbb4412bc23c5ddbf4cea25a5c",
-      "size_bytes": 20032
+      "sha256": "8f73f207b90d1d8237ce4ffb1c5d3be79bf22a4da40ba30c45277884591fe3fb",
+      "size_bytes": 20037
     },
     {
       "path": ".agents/scripts/certify_task_completion.sh",
       "target_name": ".agents/scripts/certify_task_completion.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "08eb6134e8f0861271559dc082a25711d62a3e2b5843edb230ed141847241920",
-      "size_bytes": 25877
+      "sha256": "f419b8a31c2ab2ffb05784c3f35e9d3537c87b80ed5bd92f4740655537a4b829",
+      "size_bytes": 26782
     },
     {
       "path": ".agents/scripts/checkpoint_ctl.py",
       "target_name": ".agents/scripts/checkpoint_ctl.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "037777ad3935d38d2697379796f2472cb1b2438582bc9a9dbe82c78d4f41d367",
-      "size_bytes": 34610
+      "sha256": "ffac5b33a0249c9bf4aec560dc8f9c0df65d47c0ba9069cdee4256098d6f126d",
+      "size_bytes": 37204
     },
     {
       "path": ".agents/scripts/compact_context_11x.py",
       "target_name": ".agents/scripts/compact_context_11x.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "c6ca202c16e1a92c40ff4752a2c7b97eb8be425ff921deac3e98f996e050484e",
-      "size_bytes": 16588
+      "sha256": "42d04aaee82b794e96018f6c1a66ffef44b0978ef4b8e4f7428175bc53e74b48",
+      "size_bytes": 16768
     },
     {
       "path": ".agents/scripts/generate_pr_verdict.py",
       "target_name": ".agents/scripts/generate_pr_verdict.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "90878046cac2d1eea81c45e67adcac80ce737f980e1aa1c798f53e26893ddfdd",
-      "size_bytes": 33933
+      "sha256": "61648399bc5d82bd571a6fb099b5381324333ba2b0053a67ef0633c3e8ac7f44",
+      "size_bytes": 34323
     },
     {
       "path": ".agents/scripts/inspect_blast_radius.py",
       "target_name": ".agents/scripts/inspect_blast_radius.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "4ffdac1eea484dde01eea4a25df23fa4a0ee00bee43989b79ca2fa6ac79f89fb",
-      "size_bytes": 17377
+      "sha256": "130d2e1e3e91a75f70d1095c2ed498e6731c117e2263c19e7e52d4699ddac9d1",
+      "size_bytes": 18148
     },
     {
       "path": ".agents/scripts/lint_test_antipatterns.py",
       "target_name": ".agents/scripts/lint_test_antipatterns.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "6c6fdb84011b6eadb4bb04017b0ecca37d9e61d588d5bb23007feaedd6d536fe",
-      "size_bytes": 37203
+      "sha256": "7e55c78b088aa594e2e7dfc5238dd9d95477e6cfbc62eef962768b2d8757cbcd",
+      "size_bytes": 40235
     },
     {
       "path": ".agents/scripts/release_readiness_gate.py",
       "target_name": ".agents/scripts/release_readiness_gate.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "963b3e4785615da78038e8cafbb8577661b31130abcd722a963bbe4691c6e66f",
-      "size_bytes": 33708
+      "sha256": "1a08d5525bb38983b44ef9525119dff45cc6d789eede79a865b920efc811d568",
+      "size_bytes": 34230
     },
     {
       "path": ".agents/scripts/select_tests_by_blast_radius.py",
       "target_name": ".agents/scripts/select_tests_by_blast_radius.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "8b8cdb560ca9a5bfbc14daa71171338cc10020fc6f9cedff25a932e13d0072ee",
-      "size_bytes": 18635
+      "sha256": "a5362437460b53f6420a1628f496f049d6a96a16f44e561c14514dc17472e329",
+      "size_bytes": 18783
     },
     {
       "path": ".agents/scripts/sync_governance.py",
       "target_name": ".agents/scripts/sync_governance.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "67daea4f6ab906ef9cabcb4af28e8cc031661fa2975e7fd591e33432cd8fd219",
-      "size_bytes": 41656
+      "sha256": "4f406a287d8c890a17c33f93b7924aef3b0fd53818fb1a34e2ad77e1224bbe2e",
+      "size_bytes": 41792
     },
     {
       "path": ".agents/scripts/track_findings_state.py",
@@ -1210,64 +1210,64 @@
       "path": ".agents/scripts/validate_calm_architecture.sh",
       "target_name": ".agents/scripts/validate_calm_architecture.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "7ae6c73c7efca99af777a52f686e3f4e859c6ab909fddc3902cab0cb701e92e7",
-      "size_bytes": 12512
+      "sha256": "177f85d79b8919c9acd42f88d62721d621682336b7a4c5ffdba36bebaf07e310",
+      "size_bytes": 13069
     },
     {
       "path": ".agents/scripts/verify_alembic_orm_parity.py",
       "target_name": ".agents/scripts/verify_alembic_orm_parity.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "594ee0a3385c3ac322444402f02e61af10d50f54ff69ad495d6c620a75e0204b",
-      "size_bytes": 15917
+      "sha256": "13c2c3559cd8a8f21849657c24a76d8092dc91a2eaea49b8d98524e674524380",
+      "size_bytes": 17504
     },
     {
       "path": ".agents/scripts/verify_diff_coverage.py",
       "target_name": ".agents/scripts/verify_diff_coverage.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "80364a959fd2bd29b4fe5bb5b489fe9f50ffdc6b81106f9b626394a9dcbba49a",
-      "size_bytes": 31962
+      "sha256": "6d2f39b95f4819bf216a4bd45b6bc463f40401f54d0d7a2fc20919bea259580d",
+      "size_bytes": 32293
     },
     {
       "path": ".agents/scripts/verify_docs_invariants.py",
       "target_name": ".agents/scripts/verify_docs_invariants.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "ce002799e98703211e38d38ff9ef64776b0210d3188d899abdecd5907cd62ce1",
-      "size_bytes": 64087
+      "sha256": "23ae426137b0b57655e28a0c951c8054ab87c3f6c3dc186384b76178c59785a2",
+      "size_bytes": 64297
     },
     {
       "path": ".agents/scripts/verify_json_no_duplicate_keys.py",
       "target_name": ".agents/scripts/verify_json_no_duplicate_keys.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "5fda0320ff7c62bf6acfb4afc92d6ef77e2868a52ff2f7739ed6996e67fa2ed9",
-      "size_bytes": 4765
+      "sha256": "1e3af3f0a1388ed68e67ac3230009e272af22bf0092c1863795c2eaf93ed5e7c",
+      "size_bytes": 4775
     },
     {
       "path": ".agents/scripts/verify_no_orphan_api_endpoints.py",
       "target_name": ".agents/scripts/verify_no_orphan_api_endpoints.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "8ca92838d55b2a3141622b33296ce9757feb6de02b268ce3565204efbc719792",
-      "size_bytes": 37127
+      "sha256": "76160b16c615f1711ef70296f2ccce228e91c4a05555bc5ef80bbdd5cbbf5294",
+      "size_bytes": 45507
     },
     {
       "path": ".agents/scripts/verify_roadmap_consistency.py",
       "target_name": ".agents/scripts/verify_roadmap_consistency.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "cb395cbaff3440253ff1f5c25743b7f4825de5d838fa5b0b8a516e9649cfcad6",
-      "size_bytes": 18513
+      "sha256": "259e1f6762278443a6f0a0b790862f9f1be54efbfa8f3cfa12faa5e1db55ff87",
+      "size_bytes": 20219
     },
     {
       "path": ".agents/scripts/verify_topological_health.py",
       "target_name": ".agents/scripts/verify_topological_health.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "5b8a98e3fbb3093a3aa498c8ae524420a0aee3ad25c04e155de817a8dc994bcc",
-      "size_bytes": 10371
+      "sha256": "5325373a13f9466c369984bd7a2b6a9b8306b22915a3fa7fbe591c23c6e01162",
+      "size_bytes": 10859
     },
     {
       "path": ".agents/scripts/verify_zero_orphan_vue_components.py",
       "target_name": ".agents/scripts/verify_zero_orphan_vue_components.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "671bb46efacb8a0fc1ab03a58ae5e361c9d04ba8c5b404add57b55177bfdf463",
-      "size_bytes": 8683
+      "sha256": "a8c0ea3c57cc159f1e5dd96d795ee1df20d0f13d3701d695ea12dc15b7f0484d",
+      "size_bytes": 10124
     },
     {
       "path": ".agents/skills/docker-trivy-keydb-hardening/SKILL.md",
@@ -1546,8 +1546,8 @@
       "path": "scripts/install-skill.sh",
       "target_name": "scripts/install-skill.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "c8a2738086cb371aee7604a20f4d6d62c796e1a0b8787670e8c9c0cb4296ceba",
-      "size_bytes": 22990
+      "sha256": "e10156937245d8974adacbcc7393419fb2ba61a3fd423aa4db9d41dd0788c53f",
+      "size_bytes": 25115
     }
   ]
 }

@@ -95,22 +95,46 @@ def _scan_test_dir_files(test_dirs: list[Path]) -> set[str]:
     return unit_files_set
 
 
-def _collect_ui_and_unit_files(
-    repo_root: Path, frontend_dirs: list[Path]
-) -> tuple[list[str], list[str]]:
-    ui_files, unit_files_set = _scan_frontend_files(frontend_dirs)
-    test_dirs = [
-        d
-        for d in (
-            repo_root / "vue3" / "tests",
-            repo_root / "react-frontend" / "tests",
-            repo_root / "frontend" / "tests",
-            repo_root / "tests",
-        )
-        if d.exists()
-    ]
-    unit_files_set.update(_scan_test_dir_files(test_dirs))
-    return sorted(ui_files), sorted(unit_files_set)
+def _collect_frontend_roots(repo_root: Path) -> list[tuple[Path, Path | None]]:
+    roots: list[tuple[Path, Path | None]] = []
+    for stack_name in ("vue3", "react-frontend", "frontend"):
+        stack_src = repo_root / stack_name / "src"
+        if stack_src.exists():
+            roots.append((stack_src, repo_root / stack_name))
+    root_src = repo_root / "src"
+    if (
+        not roots
+        and root_src.exists()
+        and ((root_src / "components").exists() or (root_src / "views").exists())
+    ):
+        roots.append((root_src, None))
+    return roots
+
+
+def _collect_shared_test_dirs(repo_root: Path, root_scope: Path | None) -> list[Path]:
+    base = root_scope if root_scope is not None else repo_root
+    return [base / tname for tname in ("tests", "test") if (base / tname).exists()]
+
+
+def _collect_ui_and_unit_groups(
+    repo_root: Path,
+) -> tuple[list[tuple[list[str], list[str]]], list[str], list[str]]:
+    groups: list[tuple[list[str], list[str]]] = []
+    all_ui: set[str] = set()
+    all_units: set[str] = set()
+    for src_dir, stack_scope in _collect_frontend_roots(repo_root):
+        ui_files, unit_set = _scan_frontend_files([src_dir])
+        test_dirs = _collect_shared_test_dirs(repo_root, stack_scope)
+        if stack_scope is not None:
+            for tname in ("tests", "test"):
+                root_t = repo_root / tname
+                if root_t.exists():
+                    test_dirs.append(root_t)
+        unit_set.update(_scan_test_dir_files(test_dirs))
+        groups.append((sorted(ui_files), sorted(unit_set)))
+        all_ui.update(ui_files)
+        all_units.update(unit_set)
+    return groups, sorted(all_ui), sorted(all_units)
 
 
 def _candidate_unit_names(name: str) -> set[str]:
@@ -142,8 +166,8 @@ def _build_usage_patterns(base: str, name: str) -> tuple[re.Pattern[str], ...]:
     esc_base = re.escape(base)
     esc_name = re.escape(name)
     import_path_re = re.compile(
-        rf"\bimport(?:\s+(?:type\s+)?[\s\S]*?\bfrom\s+|\s*\(\s*|\s+)"
-        rf"['\"][^'\"]*(?:^|/)(?:{esc_base}|{esc_name}(?:\.[a-zA-Z0-9]+)?)['\"]"
+        rf"\bimport(?:\s+(?!type\b)[^;\n]*?\bfrom\s+|\s*\(\s*|\s+)"
+        rf"['\"][^'\"]*(?<=[\"'/])(?:{esc_base}|{esc_name}(?:\.[a-zA-Z0-9]+)?)['\"]"
     )
     import_spec_re = re.compile(
         rf"\bimport\s+(?!type\b)"
@@ -168,27 +192,40 @@ def _matches_any_pattern(cleaned: str, patterns: tuple[re.Pattern[str], ...]) ->
     return any(pat.search(cleaned) for pat in patterns)
 
 
-def _is_referenced_in_units(base: str, name: str, unit_files: list[str]) -> bool:
+def _is_referenced_in_units(
+    base: str,
+    name: str,
+    unit_files: list[str],
+    cleaned_cache: dict[str, str],
+) -> bool:
     patterns = _build_usage_patterns(base, name)
     for unit_f in unit_files:
-        content = _read_unit_safe(unit_f)
-        if content is None:
-            continue
-        if _matches_any_pattern(_strip_js_comments(content), patterns):
+        cleaned = cleaned_cache.get(unit_f)
+        if cleaned is None:
+            raw = _read_unit_safe(unit_f)
+            if raw is None:
+                continue
+            cleaned = _strip_js_comments(raw)
+            cleaned_cache[unit_f] = cleaned
+        if _matches_any_pattern(cleaned, patterns):
             return True
     return False
 
 
 def _find_orphan_components(
-    repo_root: Path, ui_files: list[str], unit_files: list[str]
+    repo_root: Path,
+    ui_files: list[str],
+    unit_files: list[str],
+    cleaned_cache: dict[str, str] | None = None,
 ) -> list[str]:
+    cache = cleaned_cache if cleaned_cache is not None else {}
     unit_basenames = {os.path.basename(u) for u in unit_files}
     orphans: list[str] = []
     for uf in ui_files:
         base = os.path.basename(uf)
         name = _strip_compound_suffix(base)
         if _has_direct_unit(uf, name, unit_basenames) or _is_referenced_in_units(
-            base, name, unit_files
+            base, name, unit_files, cache
         ):
             continue
         orphans.append(os.path.relpath(uf, repo_root))
@@ -211,25 +248,25 @@ def _report_orphans(orphans: list[str], ui_count: int, unit_count: int) -> int:
 
 def main(target_root: Path | None = None, exit_skipped_code: int = 0) -> int:
     repo_root = target_root or Path(__file__).resolve().parent.parent.parent
-    candidates = [
-        repo_root / "vue3" / "src",
-        repo_root / "react-frontend" / "src",
-        repo_root / "frontend" / "src",
-        repo_root / "src",
-    ]
-    frontend_dirs = [c for c in candidates if c.exists()]
-    if not frontend_dirs:
+    if not _collect_frontend_roots(repo_root):
         print("⚠️ SKIPPED [UI Orphans]: Sin directorio frontend activo.")
         return exit_skipped_code
 
-    ui_files, unit_files = _collect_ui_and_unit_files(repo_root, frontend_dirs)
+    groups, ui_files, unit_files = _collect_ui_and_unit_groups(repo_root)
     if not ui_files:
         print(
             "⚠️ SKIPPED [UI Orphans]: 0 componentes UI (.vue / .tsx / .jsx) detectados."
         )
         return exit_skipped_code
 
-    orphans = _find_orphan_components(repo_root, ui_files, unit_files)
+    cleaned_cache: dict[str, str] = {}
+    orphans: list[str] = []
+    for group_ui, group_units in groups:
+        orphans.extend(
+            _find_orphan_components(
+                repo_root, group_ui, group_units, cleaned_cache=cleaned_cache
+            )
+        )
     if orphans:
         return _report_orphans(orphans, len(ui_files), len(unit_files))
 

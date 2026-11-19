@@ -135,7 +135,7 @@ trap cleanup_certify_tmp EXIT
 sanitize_shell_text() {
   local raw="$1"
   printf '%s' "${raw}" |
-    sed -E "s/\\x1b\\[[0-9;]*[a-zA-Z]//g; s/(Bearer|Basic)[[:space:]]+[^[:space:]\"']+/\\1 [REDACTED]/g; s/(:\\/\\/[^\\/:@]+:)[^\\/@]+(@)/\\1[REDACTED]\\2/g; s/(token|access_token|api_key|apikey|secret|password|passwd)=[^[:space:]\"'&]+/\\1=[REDACTED]/g"
+    sed -E "s/\\x1b\\[[0-9;]*[a-zA-Z]//g; s/([Bb][Ee][Aa][Rr][Ee][Rr]|[Bb][Aa][Ss][Ii][Cc])[[:space:]]+[^[:space:]\"']+/\\1 [REDACTED]/g; s/(:\\/\\/[^\\/:@]+:)[^\\/@]+(@)/\\1[REDACTED]\\2/g; s/([Tt][Oo][Kk][Ee][Nn]|[Aa][Cc][Cc][Ee][Ss][Ss]_[Tt][Oo][Kk][Ee][Nn]|[Aa][Pp][Ii]_[Kk][Ee][Yy]|[Aa][Pp][Ii][Kk][Ee][Yy]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Pp][Aa][Ss][Ss][Ww][Dd])=[^[:space:]\"'&]+/\\1=[REDACTED]/g; s/(--([Tt][Oo][Kk][Ee][Nn]|[Aa][Pp][Ii]-[Kk][Ee][Yy]|[Aa][Pp][Ii][Kk][Ee][Yy]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Pp][Aa][Ss][Ss][Ww][Dd]))([[:space:]]+|=)[^[:space:]\"']+/\\1\\2[REDACTED]/g; s/(ghp|gho|ghs|github_pat|npm)_[A-Za-z0-9_]{12,}/[REDACTED]/g; s/sk-[A-Za-z0-9_-]{16,}/[REDACTED]/g; s/AIza[A-Za-z0-9_-]{16,}/[REDACTED]/g; s/AKIA[0-9A-Z]{16}/[REDACTED]/g; s/xox[baprs]-[A-Za-z0-9-]{10,}/[REDACTED]/g"
 }
 
 json_escape_line() {
@@ -221,8 +221,12 @@ SECRET_RES = (
     (re.compile(r"\b(Bearer|Basic)\s+[^\s\"']+", re.I), r"\1 [REDACTED]"),
     (re.compile(r"(://[^/\s:@]+:)[^/\s@]+(@)"), r"\1[REDACTED]\2"),
     (re.compile(r"\b(token|access_token|api_key|apikey|secret|password|passwd)=[^\s\"'&]+", re.I), r"\1=[REDACTED]"),
-    (re.compile(r"(--(?:token|api-key|apikey|secret|password|passwd))\s+[^\s\"']+", re.I), r"\1 [REDACTED]"),
-    (re.compile(r"\b(?:ghp|gho|ghs|npm)_[A-Za-z0-9]{16,}\b"), "[REDACTED]"),
+    (re.compile(r"(--(?:token|api-key|apikey|secret|password|passwd))(?:\s+|=)[^\s\"']+", re.I), r"\1=[REDACTED]"),
+    (re.compile(r"\b(?:ghp|gho|ghs|github_pat|npm)_[A-Za-z0-9_]{12,}\b"), "[REDACTED]"),
+    (re.compile(r"\bsk-[A-Za-z0-9_-]{16,}\b"), "[REDACTED]"),
+    (re.compile(r"\bAIza[A-Za-z0-9_-]{16,}\b"), "[REDACTED]"),
+    (re.compile(r"\bAKIA[0-9A-Z]{16}\b"), "[REDACTED]"),
+    (re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{10,}\b"), "[REDACTED]"),
 )
 
 def scrub(text: str) -> str:
@@ -516,11 +520,11 @@ gate_10_doc_and_test_sync() {
     [ -n "${all_changed}" ] && used_head_fallback=1
   fi
 
-  local test_file_re='(\.(unit|spec|test|e2e)\.(py|ts|tsx|js|jsx)|(^|/)test_[^/]+\.py|[^/]+_test\.py|[^/]+Test\.php|\.feature(\.example)?|\.bats)'
+  local test_file_re='(\.(unit|spec|test|e2e)\.(py|ts|tsx|js|jsx)|(^|/)test_[^/]+\.py|[^/]+_test\.py|[^/]+Test\.php|\.feature(\.example)?|\.bats)$'
   raw_code_candidates=$(printf '%s\n' "${all_changed}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|bash-scripts|php|mcp-server|mobile-appium|ai-evals|vibe-rescue|catalogs|architecture|backend|frontend|scripts)/|\.agents/(scripts|schemas|skills|rules)/|((.*/)?Makefile(\.example)?)$|\.github/(workflows|actions)/|(manifest\.json|llms\.txt|\.trivy\.yaml|lefthook\.yml|instalar-hooks\.sh)$)' | grep -vE '(^|/)graphify-out/' || true)
-  code_changes=$(printf '%s\n' "${raw_code_candidates}" | awk '/^$/ {next} /^\.agents\/(skills|rules)\// {print; next} /\.md$/ {next} {print}' || true)
-  exec_src_changes=$(printf '%s\n' "${code_changes}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|php|mcp-server|mobile-appium|backend|frontend)/src/|src/|bash-scripts/|vibe-rescue/|ai-evals/|scripts/|\.agents/scripts/|instalar-hooks\.sh$)' | grep -vE "${test_file_re}" || true)
-  test_sync_changes=$(printf '%s\n' "${code_changes}" | grep -E '^(\.agents/(schemas|skills|rules)/|(manifest\.json|llms\.txt)$)' || true)
+  code_changes=$(printf '%s\n' "${raw_code_candidates}" | grep -vE "${test_file_re}" | awk '/^$/ {next} /^\.agents\/(skills|rules)\// {print; next} /\.md$/ {next} {print}' || true)
+  exec_src_changes=$(printf '%s\n' "${code_changes}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|php|mcp-server|mobile-appium|backend|frontend)/src/|src/|bash-scripts/|vibe-rescue/|ai-evals/|scripts/|\.agents/scripts/|instalar-hooks\.sh$)' || true)
+  test_sync_changes=$(printf '%s\n' "${code_changes}" | grep -E '^(\.agents/(schemas|skills|rules)/|(catalogs|architecture)/|(manifest\.json|llms\.txt)$)' || true)
   doc_changes=$(printf '%s\n' "${all_changed}" | grep -E '(\.md$|^docs/)' | grep -vE '^\.agents/(skills|rules)/' || true)
 
   if [ -f "${SCRIPT_DIR}/verify_docs_invariants.py" ]; then

@@ -57,9 +57,13 @@ if [ "${OFFLINE}" = true ]; then
 fi
 
 verify_tarball_cli() {
-  local pack_tmp tarball_file tar_list bin_entry req_entry
+  local pack_tmp tarball_file tar_list bin_entry req_entry mcp_dir
+  mcp_dir="$(pwd -P)"
+  if [ ! -f "${mcp_dir}/package.json" ] && [ -f "${mcp_dir}/mcp-server/package.json" ]; then
+    mcp_dir="${mcp_dir}/mcp-server"
+  fi
   pack_tmp="$(mktemp -d /tmp/qa11x-tarball-cli-XXXXXX)"
-  tarball_file="$(npm pack --silent --pack-destination "${pack_tmp}" | tail -n 1)"
+  tarball_file="$(cd "${mcp_dir}" && npm pack --silent --pack-destination "${pack_tmp}" | tail -n 1)"
   tar_list="$(tar -tzf "${pack_tmp}/${tarball_file}")"
   for req_entry in "package/package.json" "package/LICENSE" "package/README.md" "package/README.es.md" "package/CHANGELOG.md" "package/CHANGELOG.es.md" "package/dist/index.js"; do
     if ! printf "%s\n" "${tar_list}" | grep -qx "${req_entry}"; then
@@ -80,7 +84,7 @@ verify_tarball_cli() {
   fi
   mkdir -p "${pack_tmp}/installed" "${pack_tmp}/proj" "${pack_tmp}/home"
   tar -xzf "${pack_tmp}/${tarball_file}" -C "${pack_tmp}/installed" --strip-components=1
-  ln -s "$(pwd)/node_modules" "${pack_tmp}/installed/node_modules"
+  ln -s "${mcp_dir}/node_modules" "${pack_tmp}/installed/node_modules"
   bin_entry="${pack_tmp}/installed/dist/index.js"
   if ! HOME="${pack_tmp}/home" QA11X_WORKSPACE_ROOTS="${pack_tmp}" QA_DISABLE_AUTO_SYNC=1 node "${bin_entry}" init-agents --project-path "${pack_tmp}/proj" --lang es >/dev/null ||
     [ ! -f "${pack_tmp}/proj/AGENTS.md" ] ||
@@ -94,8 +98,19 @@ verify_tarball_cli() {
 }
 
 if [ "${VERIFY_TARBALL_ONLY}" = true ]; then
-  verify_tarball_cli
-  exit $?
+  if [ -f "${QA11X_DOCKERENV_PATH:-/.dockerenv}" ] || [ "${QA11X_INSIDE_DOCKER:-0}" = "1" ]; then
+    verify_tarball_cli
+    exit $?
+  fi
+  NODE_QA_IMAGE="${QA_NODE_IMAGE:-sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60}"
+  exec docker run --rm --network none --security-opt=no-new-privileges:true \
+    -u "${CURRENT_UID}:${CURRENT_GID}" \
+    -e HOME=/tmp \
+    -e QA11X_INSIDE_DOCKER=1 \
+    -v "${REPO_ROOT}/mcp-server:/app" \
+    -w /app \
+    "${NODE_QA_IMAGE}" \
+    bash -c "$(declare -f verify_tarball_cli) && verify_tarball_cli"
 fi
 
 if [ "${IN_PLACE}" = true ]; then

@@ -31,11 +31,11 @@ CONTAINER_PREFIX_RE = re.compile(r"^(?:/app/|/workspace/|/repo/)")
 EVASION_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
         "pragma no cov" + "er",
-        re.compile(r"#\s*pragma:\s*no\s+cov" + r"er\b", re.IGNORECASE),
+        re.compile(r"#\s*pragma:\s*no\s+(?:cov" + r"er|branch)\b", re.IGNORECASE),
     ),
     (
         "v8/c8 ig" + "nore",
-        re.compile(r"(?:/\*|//)\s*(?:v8|c8)\s+ig" + r"nore\b", re.IGNORECASE),
+        re.compile(r"(?:/\*|//)\s*(?:v8|c8|istanbul)\s+ig" + r"nore\b", re.IGNORECASE),
     ),
     (
         "codeCoverageIg" + "nore",
@@ -498,6 +498,14 @@ def _handle_diff_metadata(line: str, state: _DiffParseState) -> bool:
     return False
 
 
+def _apply_hunk_line(line: str, state: _DiffParseState) -> None:
+    if line.startswith("+"):
+        state.lines[state.next_line] = line[1:]
+        state.next_line += 1
+    elif line.startswith(" "):
+        state.next_line += 1
+
+
 def _process_diff_line(line: str, state: _DiffParseState) -> None:
     if _handle_diff_metadata(line, state):
         return
@@ -506,9 +514,8 @@ def _process_diff_line(line: str, state: _DiffParseState) -> None:
         state.next_line = int(match.group(1)) if match else 0
         state.in_hunk = state.next_line > 0
         return
-    if state.current_path and state.in_hunk and line.startswith("+"):
-        state.lines[state.next_line] = line[1:]
-        state.next_line += 1
+    if state.current_path and state.in_hunk:
+        _apply_hunk_line(line, state)
 
 
 def parse_unified_diff(diff_text: str) -> dict[str, DiffFileChange]:
@@ -808,12 +815,18 @@ def _compute_global_totals(
     failed_cov = line_failed or (
         tot_branches > 0 and branch_pct < config.min_branch_cov
     )
-    exit_code = (
-        EXIT_SECURITY_OR_MISSING_REPORT
-        if missing_reports
-        else (EXIT_COVERAGE_FAIL if failed_cov else EXIT_OK)
-    )
-    status = "FAILED" if exit_code != EXIT_OK else "PASSED"
+    if missing_reports:
+        exit_code = EXIT_SECURITY_OR_MISSING_REPORT
+        status = "FAILED"
+    elif failed_cov:
+        exit_code = EXIT_COVERAGE_FAIL
+        status = "FAILED"
+    elif tot_lines == 0 and tot_branches == 0:
+        exit_code = EXIT_OK
+        status = "SKIPPED"
+    else:
+        exit_code = EXIT_OK
+        status = "PASSED"
     summary = (
         f"{'✔' if exit_code == EXIT_OK else '❌'} [Diff Coverage] {status} | "
         f"líneas={line_pct:.2f}% ({cov_lines}/{tot_lines}) | "
