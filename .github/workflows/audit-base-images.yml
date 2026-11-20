@@ -9,18 +9,22 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - '.github/workflows/audit-base-images.yml'
+      - '.github/workflows/**'
       - '.github/actions/**'
       - 'Makefile'
       - '.trivy.yaml'
       - 'docker-compose.qa.yml'
       - '*/docker-compose.qa.yml*'
+      - 'mcp-server/**'
       - 'mcp-server/example/docker-compose.qa.yml'
+      - '.agents/scripts/**'
       - 'scripts/auditar-infra.sh'
       - 'scripts/generar-sbom-cyclonedx.sh'
+      - 'tests/**'
       - '*/package.json*'
       - '*/pyproject.toml*'
       - '*/composer.json*'
+      - 'ai-evals/**'
       - 'vibe-rescue/**'
       - 'RESOURCES.md'
       - 'RESOURCES.es.md'
@@ -63,8 +67,13 @@ jobs:
           TRIVY_DB_REPOS: 'public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2,mirror.gcr.io/aquasec/trivy-db:2'
           TRIVY_JAVA_DB_REPOS: 'public.ecr.aws/aquasecurity/trivy-java-db:1,ghcr.io/aquasecurity/trivy-java-db:1,mirror.gcr.io/aquasec/trivy-java-db:1'
         run: |
+          mkdir -p "${{ runner.temp }}/trivy-cache"
           docker run --rm \
-            -v qa11x_trivy_cache:/root/.cache/trivy \
+            --security-opt=no-new-privileges:true \
+            -u "$(id -u):$(id -g)" \
+            -e HOME=/tmp \
+            -e TRIVY_CACHE_DIR=/tmp/trivy-cache \
+            -v "${{ runner.temp }}/trivy-cache:/tmp/trivy-cache" \
             aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb image \
             --db-repository "${TRIVY_DB_REPOS}" \
             --java-db-repository "${TRIVY_JAVA_DB_REPOS}" \
@@ -74,7 +83,7 @@ jobs:
             "${TARGET_IMAGE}"
 
   pip-audit-python-uv:
-    name: Python v2 Preinstalled Dependencies Audit (pip-audit)
+    name: Python 3.15 Preinstalled Dependencies Audit (pip-audit)
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -82,6 +91,7 @@ jobs:
       - name: Audit preinstalled Python packages in non-root container (UID 10001)
         run: |
           docker run --rm \
+            --security-opt=no-new-privileges:true \
             --user 10001:10001 \
             -e HOME=/tmp \
             sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 \
@@ -96,6 +106,7 @@ jobs:
       - name: Verify non-root runtime, Java 21, Android ADB & Appium drivers (UID 10001)
         run: |
           docker run --rm \
+            --security-opt=no-new-privileges:true \
             --user 10001:10001 \
             -e HOME=/tmp \
             sinfallas/base-mobile-appium:26@sha256:1bb9e70613a786008fe06c418a557aeaa5fe7c62b3db29a26b4e0ce86d3c6728 \

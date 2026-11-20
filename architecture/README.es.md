@@ -59,4 +59,4 @@ make validate-calm
 ./.agents/scripts/validate_calm_architecture.sh architecture/qa-11x.calm.json
 ```
 
-En proyectos consumidores, el parámetro `version` dentro de `architecture/qa-11x.calm.json` se sincroniza automáticamente con [`.agents/scripts/bump_version_11x.py`](../.agents/scripts/bump_version_11x.py).
+En el repositorio de plantillas, el parámetro `version` dentro de `architecture/qa-11x.calm.json` se sincroniza automáticamente con [`.agents/scripts/bump_version_11x.py`](../.agents/scripts/bump_version_11x.py) (junto a manifiestos, catálogos y documentación); los proyectos consumidores pueden invocar el mismo script localmente para alinear sus propios metadatos de versión.

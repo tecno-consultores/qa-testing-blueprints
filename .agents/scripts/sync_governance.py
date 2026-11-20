@@ -266,6 +266,8 @@ def _classify_regular_stack_file(
     )
     if is_test_template:
         return path_str, "copy_if_missing"
+    if filename.startswith("_") and filename.endswith(".py"):
+        return path_str, "copy_or_overwrite"
     if filename.endswith((".sh", ".py")):
         return path_str, "overwrite_executable"
     return path_str, "copy_if_missing"

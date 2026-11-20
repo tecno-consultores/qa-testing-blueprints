@@ -7,6 +7,7 @@ services:
     container_name: vue_ui_prod
     hostname: vue_ui_prod
     pull_policy: if_not_present
+    mem_limit: 512m
     security_opt:
       - no-new-privileges:true
     environment:
@@ -26,6 +27,7 @@ services:
   pnpm-store-init:
     image: sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60
     pull_policy: if_not_present
+    mem_limit: 256m
     user: "0:0"
     security_opt:
       - no-new-privileges:true
@@ -38,6 +40,7 @@ services:
     container_name: vue_qa_frontend
     hostname: vue_qa_frontend
     pull_policy: if_not_present
+    mem_limit: 4g
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
     security_opt:
       - no-new-privileges:true
@@ -61,6 +64,7 @@ services:
     container_name: vue_ui_e2e
     hostname: vue_ui_e2e
     pull_policy: if_not_present
+    mem_limit: 4g
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
     security_opt:
       - no-new-privileges:true
@@ -87,6 +91,7 @@ services:
     container_name: vue_ui_karate
     hostname: vue_ui_karate
     pull_policy: if_not_present
+    mem_limit: 2g
     security_opt:
       - no-new-privileges:true
     depends_on:
@@ -103,6 +108,7 @@ services:
     container_name: vue_nginx_exporter
     hostname: vue_nginx_exporter
     pull_policy: if_not_present
+    mem_limit: 256m
     security_opt:
       - no-new-privileges:true
     profiles:
@@ -120,6 +126,7 @@ services:
     container_name: vue_prometheus
     hostname: vue_prometheus
     pull_policy: if_not_present
+    mem_limit: 512m
     security_opt:
       - no-new-privileges:true
     profiles:

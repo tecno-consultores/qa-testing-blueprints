@@ -126,6 +126,8 @@ class TestGenerarManifiesto(unittest.TestCase):
             ("promptfooconfig.yaml", "promptfooconfig.yaml", "copy_if_missing"),
             ("limpieza.sh", "limpieza.sh", "overwrite_executable"),
             ("scripts/helper.py", "scripts/helper.py", "overwrite_executable"),
+            ("_llm_judge.py", "_llm_judge.py", "copy_or_overwrite"),
+            ("_vibe_rules.py", "_vibe_rules.py", "copy_or_overwrite"),
             (
                 "audit_vibe_prototype.py",
                 "audit_vibe_prototype.py",

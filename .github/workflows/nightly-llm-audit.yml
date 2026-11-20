@@ -13,7 +13,6 @@ on:
     paths:
       - 'tests/evals/**'
       - 'ai-evals/**'
-      - '.agents/skills/qa-11x-llm-evaluator/**'
       - '.agents/skills/**'
       - 'AI_MASTER_PROMPT.md'
       - 'AI_MASTER_PROMPT.es.md'
@@ -25,7 +24,7 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name != 'schedule' }}
 
 jobs:
   offline-ai-and-skills-contracts:

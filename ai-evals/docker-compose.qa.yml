@@ -8,6 +8,7 @@ services:
     container_name: ai_evals_qa
     hostname: ai_evals_qa
     pull_policy: if_not_present
+    mem_limit: 2g
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
     security_opt:
       - no-new-privileges:true
@@ -32,6 +33,7 @@ services:
     container_name: ai_evals_promptfoo
     hostname: ai_evals_promptfoo
     pull_policy: if_not_present
+    mem_limit: 2g
     profiles:
       - llm-live
     user: "${QA_UID:-1000}:${QA_GID:-1000}"

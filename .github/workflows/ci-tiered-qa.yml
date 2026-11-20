@@ -11,7 +11,6 @@ on:
   pull_request:
     branches:
       - main
-      - master
   schedule:
     - cron: '30 3 * * *'
   workflow_dispatch:
@@ -29,10 +28,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
+      graph: ${{ steps.plan.outputs.graph }}
       run_frontend: ${{ steps.plan.outputs.run_frontend }}
       run_mobile: ${{ steps.plan.outputs.run_mobile }}
       run_backend: ${{ steps.plan.outputs.run_backend }}
-      run_ai_offline: ${{ steps.plan.outputs.run_ai_offline }}
       run_full_regression: ${{ steps.plan.outputs.run_full_regression }}
 
     steps:
@@ -72,9 +71,10 @@ jobs:
 
           if [ "${EVENT_NAME}" = "pull_request" ]; then
             if [ -n "${BASE_SHA}" ] && [ -n "${HEAD_SHA}" ]; then
-              git diff --name-only "${BASE_SHA}" "${HEAD_SHA}" > "${CI_TMP_DIR}/changed_files.txt"
+              git diff --name-only "${BASE_SHA}...${HEAD_SHA}" > "${CI_TMP_DIR}/changed_files.txt" 2>/dev/null ||
+                git diff --name-only "${BASE_SHA}" "${HEAD_SHA}" > "${CI_TMP_DIR}/changed_files.txt"
             elif [ -n "${BASE_REF}" ]; then
-              if [[ ! "${BASE_REF}" =~ ^[A-Za-z0-9._/-]+$ ]] || [[ "${BASE_REF}" == *".."* ]]; then
+              if [[ ! "${BASE_REF}" =~ ^[A-Za-z0-9._/][A-Za-z0-9._/-]*$ ]] || [[ "${BASE_REF}" == *".."* ]]; then
                 echo "::error::Invalid BASE_REF '${BASE_REF}'." >&2
                 exit 1
               fi
@@ -154,13 +154,12 @@ jobs:
         run: make test-mobile-blueprints
 
   targeted-backend-and-ai-qa:
-    name: Targeted Backend Contracts & AI Offline Blueprints QA
+    name: Targeted Backend Contracts Blueprints QA
     needs:
       - blast-radius-plan
     if: >-
       github.event_name == 'pull_request' &&
       (needs.blast-radius-plan.outputs.run_backend == 'true' ||
-       needs.blast-radius-plan.outputs.run_ai_offline == 'true' ||
        needs.blast-radius-plan.outputs.run_full_regression == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -172,12 +171,7 @@ jobs:
           persist-credentials: false
 
       - name: Run targeted backend contract and load blueprints (Rule Zero)
-        if: needs.blast-radius-plan.outputs.run_backend == 'true' || needs.blast-radius-plan.outputs.run_full_regression == 'true'
         run: make test-backend-blueprints
-
-      - name: Run offline AI evaluation contracts
-        if: needs.blast-radius-plan.outputs.run_ai_offline == 'true' || needs.blast-radius-plan.outputs.run_full_regression == 'true'
-        run: make test-ai-offline
 
   nightly-full-regression:
     name: Full Regression & 10-Stage Certification (Nightly / Manual)
@@ -200,24 +194,7 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
         run: |
           set -euo pipefail
-          make test-frontend-blueprints
-          make test-backend-blueprints
-          make test-mobile-blueprints
-          make test-meta-qa
-          make test-ai-offline
-          make test-py
-          make lint
-          make build
-          make test-mcp
-          make test-example
-          make test-karate
-          make shellcheck
-          make shfmt
-          make test-bats
-          make validate-calm
-          make lint-workflows
-          make lint-docs
-          make version-check
+          make test
           DIFF_ARGS=(--workspace /app --reports-dir .agents/.cache/coverage)
           if [ -n "${BASE_REF:-}" ] && git rev-parse --verify "origin/${BASE_REF}" >/dev/null 2>&1; then
             DIFF_ARGS+=(--base-ref "origin/${BASE_REF}")

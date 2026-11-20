@@ -5,7 +5,7 @@
 ## Quickstart (30s)
 
 - Bootstrap any repository in under 30 seconds without cloning this monorepo: `npx -y @sinfallas/mcp-qa-11x@latest quickstart`
-- Progressive adoption tiers: `starter` (day-1 secrets, Rule Zero hygiene, `.qa-11x.json`, `AGENTS.md`), `standard` (PR AST blast-radius CI, `>= 95%` coverage, strict types, `QA-UI-ANTI-001..005`), and `enterprise` (13-layer pyramid, blocking FINOS CALM, PostgreSQL 17 RLS + WORM `seq_num`, Pact V4 + k6, Release Gate).
+- Progressive adoption tiers: `starter` (day-1 secrets, `.qa-11x.json`, `AGENTS.md`), `standard` (PR AST blast-radius CI, `QA-UI-ANTI-001..005` anti-pattern lint, SARIF security audit, project `qa-lint`/`lint`; `>= 95%` coverage and strict typing via stack Makefile/CI), and `enterprise` (PR FINOS CALM + certify gates; full 13-layer pyramid, PostgreSQL 17 RLS + WORM `seq_num`, Pact V4 + k6, and Release Gate via CI/Makefile).
 - Multi-agent and language support (`28` AI coding agents, `--lang auto|en|es`, `--agents auto|all`, `--tier starter|standard|enterprise`, `--dry-run`).
 - [README.md](https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/README.md) (`README.md`) — English-first project overview, Docker matrix, and 30-second quickstart.
 - [README.es.md](https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/README.es.md) (`README.es.md`) — Full Spanish mirror and testing tools matrix.

@@ -97,15 +97,24 @@ runs:
             ;;
         esac
 
-        if [[ ! "${INPUT_BASE_REF}" =~ ^[A-Za-z0-9._/-]+$ ]] || [[ "${INPUT_BASE_REF}" == *".."* ]]; then
+        if [[ ! "${INPUT_BASE_REF}" =~ ^[A-Za-z0-9._/][A-Za-z0-9._/-]*$ ]] || [[ "${INPUT_BASE_REF}" == *".."* ]]; then
           echo "::error::Invalid base-ref '${INPUT_BASE_REF}'." >&2
           exit 1
         fi
 
-        if [[ "${INPUT_WORKDIR}" == /* ]] || [[ "${INPUT_WORKDIR}" == *".."* ]] || [ ! -d "${INPUT_WORKDIR}" ]; then
+        if [[ "${INPUT_WORKDIR}" == -* ]] || [[ "${INPUT_WORKDIR}" == /* ]] || [[ "${INPUT_WORKDIR}" == *".."* ]] || [ ! -d "${INPUT_WORKDIR}" ] || [ -L "${INPUT_WORKDIR}" ]; then
           echo "::error::Invalid working-directory '${INPUT_WORKDIR}'." >&2
           exit 1
         fi
+        REAL_ROOT="$(pwd -P)"
+        REAL_WORK="$(cd "${INPUT_WORKDIR}" && pwd -P)"
+        case "${REAL_WORK}" in
+          "${REAL_ROOT}"|"${REAL_ROOT}/"*) ;;
+          *)
+            echo "::error::working-directory escapes workspace root: '${INPUT_WORKDIR}'." >&2
+            exit 1
+            ;;
+        esac
 
         IMAGE_RE='^[a-z0-9][a-z0-9._/:@-]+$'
         if [[ ! "${INPUT_PYTHON_IMAGE}" =~ ${IMAGE_RE} ]] || [[ ! "${INPUT_NODE_IMAGE}" =~ ${IMAGE_RE} ]]; then
@@ -114,8 +123,7 @@ runs:
         fi
 
         cd "${INPUT_WORKDIR}"
-        QA_TMP_DIR="${RUNNER_TEMP:-/tmp}/qa-11x-ci-$$"
-        mkdir -p "${QA_TMP_DIR}"
+        QA_TMP_DIR="$(mktemp -d "${RUNNER_TEMP:-/tmp}/qa-11x-ci.XXXXXX")"
         chmod 0700 "${QA_TMP_DIR}"
         cleanup_diff_on_error() {
           local rc=$?
@@ -134,9 +142,10 @@ runs:
         esac
 
         if [ "${NORM_EVENT}" = "pull_request" ] && [ -n "${PR_BASE_SHA:-}" ] && [ -n "${PR_HEAD_SHA:-}" ]; then
-          git diff --relative --name-only "${PR_BASE_SHA}" "${PR_HEAD_SHA}" > "${CHANGED_FILE}" 2>/dev/null || true
+          git diff --relative --name-only "${PR_BASE_SHA}...${PR_HEAD_SHA}" > "${CHANGED_FILE}" 2>/dev/null ||
+            git diff --relative --name-only "${PR_BASE_SHA}" "${PR_HEAD_SHA}" > "${CHANGED_FILE}" 2>/dev/null || true
         fi
-        if [ ! -s "${CHANGED_FILE}" ]; then
+        if [ ! -s "${CHANGED_FILE}" ] && [ "${NORM_EVENT}" = "pull_request" ]; then
           if ! git rev-parse --verify "origin/${INPUT_BASE_REF}" >/dev/null 2>&1; then
             git fetch --no-tags --depth=50 origin "${INPUT_BASE_REF}" >/dev/null 2>&1 || true
           fi
@@ -145,7 +154,7 @@ runs:
               git diff --relative --name-only "origin/${INPUT_BASE_REF}..HEAD" > "${CHANGED_FILE}" 2>/dev/null || true
           fi
         fi
-        if [ ! -s "${CHANGED_FILE}" ]; then
+        if [ ! -s "${CHANGED_FILE}" ] && [ "${NORM_EVENT}" != "schedule" ] && [ "${NORM_EVENT}" != "workflow_dispatch" ]; then
           if ! git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
             git fetch --no-tags --depth=50 >/dev/null 2>&1 || true
           fi
@@ -186,8 +195,7 @@ runs:
         OWN_TMP=0
         QA_TMP_DIR="${SHARED_TMP_DIR:-}"
         if [ -z "${QA_TMP_DIR}" ]; then
-          QA_TMP_DIR="${RUNNER_TEMP:-/tmp}/qa-11x-ci-$$"
-          mkdir -p "${QA_TMP_DIR}"
+          QA_TMP_DIR="$(mktemp -d "${RUNNER_TEMP:-/tmp}/qa-11x-ci.XXXXXX")"
           chmod 0700 "${QA_TMP_DIR}"
           OWN_TMP=1
         fi
@@ -260,6 +268,9 @@ runs:
           PARSED_SAVINGS="$(grep -E '^estimated_savings_pct=' "${BLAST_TMP}" | tail -n 1 | cut -d= -f2 || true)"
           [ -n "${PARSED_TIER}" ] && BLAST_TIER="${PARSED_TIER}"
           [ -n "${PARSED_SAVINGS}" ] && SAVINGS_PCT="${PARSED_SAVINGS}"
+        elif [ "${NORM_EVENT}" = "schedule" ] || [ "${NORM_EVENT}" = "workflow_dispatch" ]; then
+          BLAST_TIER="nightly-full"
+          SAVINGS_PCT="0"
         elif [ -f ".agents/scripts/inspect_blast_radius.py" ] && [ -s "${CHANGED_FILE}" ]; then
           FIRST_CHANGED="$(head -n 1 "${CHANGED_FILE}")"
           INSPECT_RC=0
@@ -280,9 +291,6 @@ runs:
             BLAST_TIER="docs-only"
             SAVINGS_PCT="85"
           fi
-        elif [ "${NORM_EVENT}" = "schedule" ] || [ "${NORM_EVENT}" = "workflow_dispatch" ]; then
-          BLAST_TIER="nightly-full"
-          SAVINGS_PCT="0"
         elif [ -s "${CHANGED_FILE}" ]; then
           NON_DOC_COUNT="$(awk 'NF && ($0 ~ /^(\.agents|catalogs)\// || $0 ~ /^(AGENTS|AI_MASTER_PROMPT(\.es)?|SECURITY(\.es)?)\.md$/ || $0 ~ /^(python|fastapi|node-backend|vue3|react-frontend|bash-scripts|php|mobile-appium|ai-evals|vibe-rescue)\/README(\.es)?\.md$/ || ($0 !~ /\.md$/ && $0 !~ /^docs\//)) { c++ } END { print c + 0 }' "${CHANGED_FILE}")"
           if [ "${NON_DOC_COUNT}" -eq 0 ]; then
@@ -319,8 +327,7 @@ runs:
         set -euo pipefail
         cd "${INPUT_WORKDIR}"
 
-        GATE_TMP_DIR="${RUNNER_TEMP:-/tmp}/qa-11x-ci-$$"
-        mkdir -p "${GATE_TMP_DIR}"
+        GATE_TMP_DIR="$(mktemp -d "${RUNNER_TEMP:-/tmp}/qa-11x-ci.XXXXXX")"
         chmod 0700 "${GATE_TMP_DIR}"
         SKIPPED_GATES=0
         FINAL_VERDICT=""
@@ -449,10 +456,10 @@ runs:
               if [ "${AUDIT_RC}" -ne 0 ]; then
                 exit "${AUDIT_RC}"
               fi
-            elif command -v npx >/dev/null 2>&1 && npx -y @sinfallas/mcp-qa-11x audit --help >/dev/null 2>&1; then
+            elif command -v docker >/dev/null 2>&1 && docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.2.0 audit --help >/dev/null 2>&1; then
               mkdir -p .agents/artifacts
               AUDIT_RC=0
-              npx -y @sinfallas/mcp-qa-11x audit --mode security --sarif > .agents/artifacts/qa-11x-audit.sarif || AUDIT_RC=$?
+              docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.2.0 audit --mode security --sarif > .agents/artifacts/qa-11x-audit.sarif || AUDIT_RC=$?
               if [ -s ".agents/artifacts/qa-11x-audit.sarif" ]; then
                 SARIF_PATH=".agents/artifacts/qa-11x-audit.sarif"
               fi
@@ -460,7 +467,9 @@ runs:
                 exit "${AUDIT_RC}"
               fi
             fi
-            if command -v make >/dev/null 2>&1 && [ -f "Makefile" ] && grep -q '^lint:' Makefile; then
+            if command -v make >/dev/null 2>&1 && [ -f "Makefile" ] && grep -q '^qa-lint:' Makefile; then
+              make qa-lint
+            elif command -v make >/dev/null 2>&1 && [ -f "Makefile" ] && grep -q '^lint:' Makefile; then
               make lint
             elif [ -f "package.json" ] && grep -q '"lint"' package.json; then
               LINT_RC=0
@@ -476,6 +485,9 @@ runs:
               elif [ "${LINT_RC}" -ne 0 ]; then
                 exit "${LINT_RC}"
               fi
+            else
+              echo "⚠️ [SKIPPED] No executable lint target found (qa-lint/lint/package.json)."
+              SKIPPED_GATES=$((SKIPPED_GATES + 1))
             fi
           else
             echo "ℹ️ [FAST-PATH] Code gates omitted for docs-only blast plan."
@@ -523,13 +535,13 @@ runs:
               -w /app \
               "${INPUT_NODE_IMAGE}" \
               node mcp-server/dist/index.js certify --offline 2>&1 | tee "${CERTIFY_LOG}"
-          elif command -v npx >/dev/null 2>&1 && npx -y @sinfallas/mcp-qa-11x certify --help >/dev/null 2>&1; then
-            npx -y @sinfallas/mcp-qa-11x certify --offline 2>&1 | tee "${CERTIFY_LOG}"
+          elif command -v docker >/dev/null 2>&1 && docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.2.0 certify --help >/dev/null 2>&1; then
+            docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.2.0 certify --offline 2>&1 | tee "${CERTIFY_LOG}"
           else
             echo "⚠️ [SKIPPED] certify_11x_gate unavailable in workspace" | tee "${CERTIFY_LOG}"
             SKIPPED_GATES=$((SKIPPED_GATES + 1))
           fi
-          if grep -qE '[1-9][0-9]* SKIPPED' "${CERTIFY_LOG}" 2>/dev/null; then
+          if grep -qE '([1-9][0-9]* SKIPPED|"skipped"[[:space:]]*:[[:space:]]*[1-9]|"verdict"[[:space:]]*:[[:space:]]*"SKIPPED"|\[SKIPPED\]|⚠️.*SKIPPED|SKIPPED[[:space:]]*:)' "${CERTIFY_LOG}" 2>/dev/null; then
             SKIPPED_GATES=$((SKIPPED_GATES + 1))
           fi
         fi

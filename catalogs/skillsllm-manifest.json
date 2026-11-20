@@ -51,13 +51,13 @@
   },
   "adoption_tiers": {
     "starter": {
-      "description": "Day-1 adoption in 30s: zero-plain-text secret scanning, Rule Zero hygiene, .qa-11x.json, and AGENTS.md across 28 AI agents."
+      "description": "Day-1 adoption in 30s: zero-plain-text secret scanning, .qa-11x.json validation, and AGENTS.md across 28 AI agents."
     },
     "standard": {
-      "description": "Daily PR workflows: starter guarantees + >= 95% coverage, strict typing, AST blast-radius CI partitioning, and UI anti-pattern linting."
+      "description": "Daily PR workflows: starter guarantees + AST blast-radius selection, UI/test anti-pattern linting, SARIF security audit, and project lint target (qa-lint/lint/npm lint); >= 95% coverage and strict typing run via stack Makefile/CI."
     },
     "enterprise": {
-      "description": "Regulated production: 13-layer pyramid, blocking FINOS CALM, PostgreSQL 17 RLS + WORM chains, DISA STIG V6R5, Pact V4 + k6, and Release Readiness Gate."
+      "description": "Regulated production: standard PR gates + FINOS CALM validation and certify gate (full 13-layer pyramid, PostgreSQL 17 RLS + WORM chains, Pact V4 + k6, and Release Readiness Gate enforced via CI/Makefile)."
     }
   },
   "blueprints": [

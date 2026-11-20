@@ -170,7 +170,7 @@ EOF
   assert_output --partial "fs . --quiet --scanners vuln --skip-dirs node_modules,.git,dist,target,graphify-out,vendor,.venv"
 }
 
-@test ".trivy.yaml (Repo real): excluye patrones glob **/vendor, **/.venv, **/node_modules, **/mutants y compose QA" {
+@test ".trivy.yaml (Repo real): excluye patrones glob **/vendor, **/.venv, **/node_modules, **/mutants sin skip-files ciegos" {
   local trivy_cfg="${REPO_ROOT}/.trivy.yaml"
   [ -f "${trivy_cfg}" ]
 
@@ -185,9 +185,8 @@ EOF
   assert_output --partial "**/vendor"
   assert_output --partial "**/.venv"
   assert_output --partial "**/mutants"
-  assert_output --partial "skip-files:"
-  assert_output --partial "docker-compose.qa.yml"
-  assert_output --partial "mcp-server/docker-compose.qa.yml"
+  refute_output --partial "skip-files:"
+  refute_output --partial "mcp-server/docker-compose.qa.yml"
 }
 
 @test "Makefile test-frontend-blueprints (F1.1): propaga fallo de lint_test_antipatterns con && (sin ; echo)" {
@@ -453,6 +452,18 @@ EOF
   assert_success
 
   run grep -F 'git diff --relative --name-only' "${REPO_ROOT}/.github/actions/qa-11x-pr-check/action.yml"
+  assert_success
+  run grep -F '${PR_BASE_SHA}...${PR_HEAD_SHA}' "${REPO_ROOT}/.github/actions/qa-11x-pr-check/action.yml"
+  assert_success
+  run grep -F '^qa-lint:' "${REPO_ROOT}/.github/actions/qa-11x-pr-check/action.yml"
+  assert_success
+  run grep -F '@sinfallas/mcp-qa-11x@3.2.0' "${REPO_ROOT}/.github/actions/qa-11x-pr-check/action.yml"
+  assert_success
+  run grep -F 'mktemp -d' "${REPO_ROOT}/.github/actions/qa-11x-pr-check/action.yml"
+  assert_success
+  run grep -F '"verdict"[[:space:]]*:[[:space:]]*"SKIPPED"' "${REPO_ROOT}/.github/actions/qa-11x-pr-check/action.yml"
+  assert_success
+  run grep -F 'pnpm_config_manage_package_manager_versions=false' "${REPO_ROOT}/Makefile"
   assert_success
   run grep -F 'pull_request_target' "${REPO_ROOT}/.github/actions/qa-11x-pr-check/action.yml"
   assert_success

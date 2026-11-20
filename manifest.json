@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "3.2.0",
-  "generated_at_utc": "2026-11-19T23:56:23Z",
+  "generated_at_utc": "2026-11-20T00:08:10Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -23,7 +23,7 @@
         {
           "path": "ai-evals/_llm_judge.py",
           "target_name": "_llm_judge.py",
-          "merge_strategy": "overwrite_executable",
+          "merge_strategy": "copy_or_overwrite",
           "sha256": "fa40864f563a155b9553e0aa5dc8a53aa5f78da21f7c56eb8f965406c7657acc",
           "size_bytes": 2972
         },
@@ -31,8 +31,8 @@
           "path": "ai-evals/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "6394f39f33474d771ec56182764ab6a40848f19e72ab937b8b441c95019dcc77",
-          "size_bytes": 2321
+          "sha256": "f2137a97822249e8e38e301f23286f01f986a0926560392f62e42c1ce1843f93",
+          "size_bytes": 2357
         },
         {
           "path": "ai-evals/gitignore.example",
@@ -117,8 +117,8 @@
           "path": "bash-scripts/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "0e579051156c26afaf4d7aa4f22f3ff0948059e812b9d4c702fcebb389d2ff76",
-          "size_bytes": 2024
+          "sha256": "c4e9af302e057da2b25feaa8f361de489f445c89d6f7f82fbb1019426cd3372a",
+          "size_bytes": 2082
         },
         {
           "path": "bash-scripts/gitignore.example",
@@ -161,8 +161,8 @@
           "path": "fastapi/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "859c13bed6d49e15b8a5726d491712ebe985991745566af3371f6a40ad9d8602",
-          "size_bytes": 7673
+          "sha256": "ae8b885991d8e269d664b660968b6c2b9830ba167f8d2930bd8b149151558258",
+          "size_bytes": 7861
         },
         {
           "path": "fastapi/gitignore.example",
@@ -254,8 +254,8 @@
           "path": "mobile-appium/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "b9c222af5a9a57066d76d4c37ac18faee5e1a0b14c69c681f776d429daac38d4",
-          "size_bytes": 2847
+          "sha256": "b41e50157f72eed2f139e435cca2f2e1c2ead7b78cacd0c17067f0f127737ffd",
+          "size_bytes": 2903
         },
         {
           "path": "mobile-appium/gitignore.example",
@@ -333,8 +333,8 @@
           "path": "node-backend/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "f3fe73f7cf0dd0372d26ffd4cb05c191b74b377e122b57edda184258aa3e748d",
-          "size_bytes": 5646
+          "sha256": "f84b06329235d77c8e13095defa431f6909cfadf1cbdaf56e54e8b616397d916",
+          "size_bytes": 5796
         },
         {
           "path": "node-backend/eslint.config.mjs.example",
@@ -447,8 +447,8 @@
           "path": "php/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "857762d2018feb5ab87521ba9734c61a8b35d5c1508f2c96b82c1cda7e594885",
-          "size_bytes": 7306
+          "sha256": "6b1900f58c07a3933c5e9fc8698f8d70759a286619ee08e70c85ab6db90e870e",
+          "size_bytes": 7496
         },
         {
           "path": "php/gitignore.example",
@@ -540,8 +540,8 @@
           "path": "python/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "8fe67fb9851e10cb45a20244286309f4d8b6b69e0ae9d4b28e0fa918bef6f3f2",
-          "size_bytes": 4289
+          "sha256": "64e4a69bddc6df11c03d347bc93cbb31cebecd38a11b17e1b4a744423c920f61",
+          "size_bytes": 4405
         },
         {
           "path": "python/gitignore.example",
@@ -612,8 +612,8 @@
           "path": "react-frontend/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "fe66824229cb27501a5513f244562323b19a2972ec900b751dfda243d706fe3f",
-          "size_bytes": 4955
+          "sha256": "292d454b55ac37536d3d52ad2dde7bdf5808735fa8f3b8efc35237ce7ab6e14f",
+          "size_bytes": 5089
         },
         {
           "path": "react-frontend/e2e/accessibility.e2e.ts",
@@ -760,7 +760,7 @@
         {
           "path": "vibe-rescue/_vibe_rules.py",
           "target_name": "_vibe_rules.py",
-          "merge_strategy": "overwrite_executable",
+          "merge_strategy": "copy_or_overwrite",
           "sha256": "f44efcc33adf7b3200930cfee3ce6db016dc45b433283f02d9521fd41cf7573b",
           "size_bytes": 16482
         },
@@ -775,8 +775,8 @@
           "path": "vibe-rescue/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "66e92afdb46d2837caa51d6464293db3312809b5be4d0c23045994e0aab15575",
-          "size_bytes": 1075
+          "sha256": "02345f167b152f069dc453c957bd1050d309b4c8d2cebef9afc8e8ed74d6ea9f",
+          "size_bytes": 1093
         },
         {
           "path": "vibe-rescue/gitignore.example",
@@ -840,8 +840,8 @@
           "path": "vue3/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "2663e10b19f324313e2f40092134692bf5a465b16bea161b86ff975f0185a68c",
-          "size_bytes": 4915
+          "sha256": "85099860ea098d71246bfc653aaedd9ad816d57820b7ef7634984f3b313bc239",
+          "size_bytes": 5049
         },
         {
           "path": "vue3/e2e/accessibility.e2e.ts",
@@ -977,8 +977,8 @@
       "path": ".trivy.yaml",
       "target_name": ".trivy.yaml",
       "merge_strategy": "copy_if_missing",
-      "sha256": "6d036ee36ae7ba668ad957b04fa1b04c52af4814aa07abb734cbc047c7eb5cf9",
-      "size_bytes": 1062
+      "sha256": "19bfcbd3880637fff5703e1a8216d3c6317d8ca7ff2f53810e9f95fcd7e132ee",
+      "size_bytes": 552
     },
     {
       "path": "instalar-hooks.sh",
@@ -1196,8 +1196,8 @@
       "path": ".agents/scripts/sync_governance.py",
       "target_name": ".agents/scripts/sync_governance.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "4f406a287d8c890a17c33f93b7924aef3b0fd53818fb1a34e2ad77e1224bbe2e",
-      "size_bytes": 41792
+      "sha256": "246590b1272d63fc55d93d0a1b808eb7ffc1a56137fc5de30ab538fcc4f96e17",
+      "size_bytes": 41899
     },
     {
       "path": ".agents/scripts/track_findings_state.py",
@@ -1532,15 +1532,15 @@
       "path": "catalogs/skillsllm-manifest.json",
       "target_name": "catalogs/skillsllm-manifest.json",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "5388d4de85a21d7ff803ee75aa7a85f5082289f0f26149ab1a5544d6a79ca572",
-      "size_bytes": 11810
+      "sha256": "93f0cd813e4288e43b4a4e366fec22914b77708bb076078357128442924958ad",
+      "size_bytes": 11951
     },
     {
       "path": "llms.txt",
       "target_name": "llms.txt",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "4e46de082346415d8d76652f0b33bf404f48ea8a4ada5a8d94bdbc035b61c096",
-      "size_bytes": 16715
+      "sha256": "49893f4f25f75ab23fc6af613799f3ece0fc8148a2122129b3117cab09eceb11",
+      "size_bytes": 16823
     },
     {
       "path": "scripts/install-skill.sh",

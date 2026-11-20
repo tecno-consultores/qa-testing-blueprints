@@ -348,14 +348,46 @@ class TestStacksHydrationSmoke(unittest.TestCase):
                     f"Imagen sin digest @sha256 en {stack_name}: {stripped}",
                 )
 
+    def _assert_compose_runtime_hardening(
+        self, stack_name: str, compose_text: str
+    ) -> None:
+        compose_data = _load_yaml_mapping(compose_text)
+        services = compose_data.get("services")
+        self.assertIsInstance(services, dict)
+        assert isinstance(services, dict)
+        for svc_name, svc_cfg in services.items():
+            if not isinstance(svc_cfg, dict):
+                continue
+            self.assertTrue(
+                bool(svc_cfg.get("mem_limit")),
+                f"Falta mem_limit en {stack_name}/{svc_name}",
+            )
+            sec_opt = svc_cfg.get("security_opt") or []
+            self.assertIn(
+                "no-new-privileges:true",
+                sec_opt,
+                f"Falta no-new-privileges:true en {stack_name}/{svc_name}",
+            )
+
     def test_docker_compose_files_have_no_graphify_daemon_or_broken_karate_tag(
         self,
     ) -> None:
-        """Certifica cero graphify:8080, karatelabs:1.5.1, @sha256 y loopback."""
-        for stack_name in ("mcp-server", *COMPOSE_ENABLED_STACKS):
-            compose_path = REPO_ROOT / stack_name / "docker-compose.qa.yml"
+        """Certifica cero graphify:8080, karatelabs:1.5.1, @sha256 y mem_limit."""
+        compose_targets: list[tuple[str, Path]] = [
+            ("root", REPO_ROOT / "docker-compose.qa.yml"),
+            ("mcp-server", REPO_ROOT / "mcp-server" / "docker-compose.qa.yml"),
+            (
+                "mcp-server/example",
+                REPO_ROOT / "mcp-server" / "example" / "docker-compose.qa.yml",
+            ),
+            *(
+                (stack_name, REPO_ROOT / stack_name / "docker-compose.qa.yml")
+                for stack_name in COMPOSE_ENABLED_STACKS
+            ),
+        ]
+        for stack_name, compose_path in compose_targets:
             self.assertTrue(compose_path.is_file(), f"Falta compose QA en {stack_name}")
-            if stack_name != "mcp-server":
+            if stack_name in COMPOSE_ENABLED_STACKS:
                 self.assertFalse(
                     (REPO_ROOT / stack_name / "docker-compose.qa.yml.example").exists(),
                     f"Archivo legado docker-compose.qa.yml.example en {stack_name}",
@@ -371,6 +403,7 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             )
             self._assert_compose_images_pinned(stack_name, compose_text)
             self._assert_compose_ports_loopback(stack_name, compose_text)
+            self._assert_compose_runtime_hardening(stack_name, compose_text)
 
     def test_frontend_stacks_invariants(self) -> None:
         """Verifica Vite/TS, nginx-unprivileged, qa-frontend, :8080 y Playwright."""

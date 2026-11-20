@@ -59,4 +59,4 @@ make validate-calm
 ./.agents/scripts/validate_calm_architecture.sh architecture/qa-11x.calm.json
 ```
 
-In consumer projects, the `version` field inside `architecture/qa-11x.calm.json` is synchronized automatically via [`.agents/scripts/bump_version_11x.py`](../.agents/scripts/bump_version_11x.py).
+In the blueprint repository, the `version` field inside `architecture/qa-11x.calm.json` is synchronized automatically via [`.agents/scripts/bump_version_11x.py`](../.agents/scripts/bump_version_11x.py) (alongside manifests, catalogs, and docs); consumer projects can invoke the same helper locally when synchronizing their own version metadata.

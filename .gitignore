@@ -208,6 +208,8 @@ ACTIVE_TASK.md
 *.orig
 *.rej
 *.bak
+*.11x-backup
+*.11x-incoming
 
 # Sistema Operativo
 .DS_Store

@@ -5,6 +5,7 @@ services:
   uv-cache-init:
     image: sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4
     pull_policy: if_not_present
+    mem_limit: 256m
     user: "0:0"
     security_opt:
       - no-new-privileges:true
@@ -17,6 +18,7 @@ services:
     container_name: fastapi_api
     hostname: fastapi_api
     pull_policy: if_not_present
+    mem_limit: 2g
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
     security_opt:
       - no-new-privileges:true
@@ -54,6 +56,7 @@ services:
     container_name: fastapi_qa_db
     hostname: postgres
     pull_policy: if_not_present
+    mem_limit: 1g
     security_opt:
       - no-new-privileges:true
     environment:
@@ -75,6 +78,7 @@ services:
     container_name: fastapi_qa_keydb
     hostname: keydb
     pull_policy: if_not_present
+    mem_limit: 512m
     read_only: true
     cap_drop:
       - ALL
@@ -100,6 +104,7 @@ services:
     container_name: fastapi_qa_backend
     hostname: fastapi_qa_backend
     pull_policy: if_not_present
+    mem_limit: 2g
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
     security_opt:
       - no-new-privileges:true
@@ -127,6 +132,7 @@ services:
     container_name: fastapi_karate
     hostname: fastapi_karate
     pull_policy: if_not_present
+    mem_limit: 2g
     security_opt:
       - no-new-privileges:true
     environment:
@@ -143,6 +149,7 @@ services:
     container_name: fastapi_zap
     hostname: fastapi_zap
     pull_policy: if_not_present
+    mem_limit: 2g
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
     security_opt:
       - no-new-privileges:true
@@ -160,6 +167,7 @@ services:
     container_name: fastapi_pumba
     hostname: fastapi_pumba
     pull_policy: if_not_present
+    mem_limit: 512m
     security_opt:
       - no-new-privileges:true
     profiles:
@@ -176,6 +184,7 @@ services:
     container_name: fastapi_prometheus
     hostname: fastapi_prometheus
     pull_policy: if_not_present
+    mem_limit: 512m
     security_opt:
       - no-new-privileges:true
     profiles:
@@ -205,6 +214,7 @@ services:
     container_name: fastapi_chaos_locust
     hostname: fastapi_chaos_locust
     pull_policy: if_not_present
+    mem_limit: 2g
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
     security_opt:
       - no-new-privileges:true

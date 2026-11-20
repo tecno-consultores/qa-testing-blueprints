@@ -2,6 +2,7 @@ services:
   pnpm-store-init:
     image: sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60
     pull_policy: if_not_present
+    mem_limit: 256m
     user: "0:0"
     security_opt:
       - no-new-privileges:true
@@ -19,6 +20,7 @@ services:
     container_name: mcp_qa_server
     hostname: mcp_qa_server
     pull_policy: if_not_present
+    mem_limit: 4g
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
     security_opt:
       - no-new-privileges:true
@@ -44,6 +46,7 @@ services:
     container_name: mcp_karate
     hostname: mcp_karate
     pull_policy: if_not_present
+    mem_limit: 2g
     security_opt:
       - no-new-privileges:true
     cap_drop:

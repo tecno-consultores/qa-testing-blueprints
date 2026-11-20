@@ -49,6 +49,22 @@ jobs:
       - name: Execute Karate Labs BDD contract suite
         run: make test-karate
 
+      - name: Cache Graphify AST graph
+        id: cache-graph
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: graphify-out
+          key: ${{ runner.os }}-graphify-${{ hashFiles('**/*.py', '**/*.ts', '**/*.tsx', '**/*.js', '**/*.vue', '**/*.php', '**/*.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-graphify-
+
+      - name: Refresh Graphify AST graph for Gate 6 (Rule Zero)
+        if: steps.cache-graph.outputs.cache-hit != 'true'
+        run: |
+          if [ ! -s "graphify-out/graph.json" ]; then
+            ./scripts/actualizar-grafos-graphify.sh
+          fi
+
       - name: Verify differential coverage & 10-stage certification gate
         env:
           EVENT_NAME: ${{ github.event_name }}

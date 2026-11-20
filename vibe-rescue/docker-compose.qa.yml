@@ -8,6 +8,7 @@ services:
     container_name: vibe_rescue_qa
     hostname: vibe_rescue_qa
     pull_policy: if_not_present
+    mem_limit: 1g
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
     environment:
       TZ: 'America/Caracas'
