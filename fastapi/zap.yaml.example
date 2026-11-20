@@ -1,0 +1,62 @@
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
+# OWASP ZAP Automation Framework (Rule Zero / contenedor no-root, /zap/wrk:ro -> salida en /tmp)
+
+env:
+  contexts:
+    - name: "fastapi-qa-target"
+      urls:
+        - "http://api:8000"
+      includePaths:
+        - "http://api:8000/.*"
+      excludePaths:
+        - "http://api:8000/docs.*"
+        - "http://api:8000/openapi\\.json"
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    progressToStdout: true
+
+jobs:
+  - type: passiveScan-config
+    parameters:
+      maxAlertsPerRule: 10
+      scanOnlyInScope: true
+  - type: spider
+    parameters:
+      context: "fastapi-qa-target"
+      url: "http://api:8000"
+      maxDuration: 2
+      maxDepth: 5
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 5
+  - type: activeScan
+    parameters:
+      context: "fastapi-qa-target"
+      policy: "API-minimal"
+      maxRuleDurationInMins: 2
+      maxScanDurationInMins: 5
+  - type: report
+    parameters:
+      template: "traditional-html"
+      reportDir: "/tmp"
+      reportFile: "zap-report.html"
+      reportTitle: "QA-11X FastAPI OWASP ZAP DAST Report"
+    risks:
+      - high
+      - medium
+      - low
+      - info
+  - type: report
+    parameters:
+      template: "traditional-json"
+      reportDir: "/tmp"
+      reportFile: "zap-report.json"
+  - type: exitStatus
+    parameters:
+      errorLevel: "High"
+      warnLevel: "Medium"
+      okExitValue: 0
+      warnExitValue: 1
+      errorExitValue: 2

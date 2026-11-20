@@ -757,7 +757,7 @@ function registerCoreResources(server: McpServer, resources: BlueprintResources)
     'blueprint://security/disa-owasp-22',
     {
       description:
-        'Catalog of 22 DISA ASD STIG V6R5 and OWASP Developer Guide v4.2 reference controls + 34 static scanner rules.',
+        'Catalog of 22 DISA ASD STIG V6R5 and OWASP Developer Guide v4.2 reference controls + 36 static scanner rules.',
       mimeType: MARKDOWN_MIME_TYPE,
     },
     async (uri) =>
@@ -1053,7 +1053,7 @@ function registerCoreAnalysisTools(
     'audit_security_stig_owasp',
     {
       description:
-        'Statically audits project source code against 22 DISA ASD STIG V6R5 / OWASP v4.2 reference controls + 34 static scanner rules covering Anti-Silo QA/Healthcheck/TTY/CI/Contract/Docker/Playwright/SSR/UI patterns (including QA-HEALTH-01, QA-CLI-TTY-01, QA-DOCKER-TTY-01, QA-CI-ESCAPE-01, QA-MAKE-CURDIR-01, QA-CONTRACT-SDK-01, QA-DOCKER-LOCK-01, QA-PLAYWRIGHT-PIN-01, QA-SSR-HYDRATION-01, and UI-11X-01..03).',
+        'Statically audits project source code against 22 DISA ASD STIG V6R5 / OWASP v4.2 reference controls + 36 static scanner rules covering Anti-Silo QA/Healthcheck/TTY/CI/Contract/Docker/Playwright/SSR/Stryker/WS-PubSub/UI patterns (including QA-HEALTH-01, QA-CLI-TTY-01, QA-DOCKER-TTY-01, QA-CI-ESCAPE-01, QA-MAKE-CURDIR-01, QA-CONTRACT-SDK-01, QA-DOCKER-LOCK-01, QA-PLAYWRIGHT-PIN-01, QA-SSR-HYDRATION-01, QA-STRYKER-CFG-01, SEC-WS-PUBSUB-01, and UI-11X-01..03).',
       inputSchema: AuditSecurityInputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
@@ -1074,7 +1074,7 @@ function registerQaGovernanceTools(server: McpServer, fetcher: GitHubFetcher): v
     'run_ephemeral_qa',
     {
       description:
-        'Safely runs a Makefile QA target inside ephemeral Docker containers (Rule Zero), parsing logs for extreme token economy.',
+        'Safely runs a Makefile QA target (lint, unit, bdd, e2e, perf, chaos, profile, all) inside ephemeral Docker containers (Rule Zero), parsing logs for extreme token economy.',
       inputSchema: RunEphemeralQaInputSchema,
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },

@@ -510,7 +510,8 @@ describe('ephemeral-runner', () => {
     expect(hasUnquotedShellSyntax('docker run --rm app sh; id')).toBe(true);
     expect(hasUnquotedShellSyntax('docker run --rm app cat | grep ok')).toBe(true);
     expect(hasUnquotedShellSyntax('docker run --rm app echo hi > /tmp/out')).toBe(true);
-    expect(hasUnquotedShellSyntax('docker run --rm -u "$(id -u):$(id -g)" app pytest')).toBe(true);
+    expect(hasUnquotedShellSyntax('docker run --rm -u "$(id -u):$(id -g)" app pytest')).toBe(false);
+    expect(hasUnquotedShellSyntax('docker run --rm app $(id)')).toBe(true);
     expect(hasUnquotedShellSyntax('docker run --rm app echo `id`')).toBe(true);
 
     expect(hasUnquotedShellSyntax("docker run --rm app sh -c 'a && b $(id)'")).toBe(false);
@@ -523,9 +524,14 @@ describe('ephemeral-runner', () => {
       hasUnquotedShellSyntax('docker compose -f docker-compose.qa.yml run --rm -T qa-php vendor/bin/phpunit')
     ).toBe(false);
 
-    // Rejects unescaped $$(id -u) in Makefile recipe under make ENOENT and falls back to Compose direct
-    const hostSubshellMake = 'qa-unit:\n\tdocker run --rm -u "$$(id -u):$$(id -g)" app pytest\n';
-    expect(resolveMakefileDockerRecipes(hostSubshellMake, 'qa-unit', tempDir).ok).toBe(false);
+    // Expande $$(id -u)/$$(id -g)/$$(pwd) entre comillas dobles en fallback sin make
+    const hostSubshellMake = 'qa-unit:\n\tdocker run --rm -u "$$(id -u):$$(id -g)" -v "$$(pwd):/app" app pytest\n';
+    const subshellRes = resolveMakefileDockerRecipes(hostSubshellMake, 'qa-unit', tempDir);
+    expect(subshellRes.ok).toBe(true);
+    if (subshellRes.ok) {
+      expect(subshellRes.commands[0]?.join(' ')).not.toContain('$(');
+      expect(subshellRes.commands[0]).toContain(`${tempDir}:/app`);
+    }
 
     const chainedMake = 'qa-unit:\n\tdocker compose up -d && docker compose run --rm qa-backend pytest\n';
     expect(resolveMakefileDockerRecipes(chainedMake, 'qa-unit', tempDir).ok).toBe(false);
@@ -535,10 +541,10 @@ describe('ephemeral-runner', () => {
     const validRes = resolveMakefileDockerRecipes(validEscapedMake, 'qa-perf', tempDir);
     expect(validRes.ok).toBe(true);
 
-    // E2E ENOENT fallback: Makefile with host subshell falls back cleanly to resolveComposeDirectFallback for Python
+    // E2E ENOENT fallback: Makefile no-Docker hace fallback limpio a resolveComposeDirectFallback para Python
     const pyFallbackDir = path.join(tempDir, 'py-enoent-fallback');
     fs.mkdirSync(pyFallbackDir, { recursive: true });
-    fs.writeFileSync(path.join(pyFallbackDir, 'Makefile'), hostSubshellMake);
+    fs.writeFileSync(path.join(pyFallbackDir, 'Makefile'), 'qa-unit:\n\tpytest -q\n');
     fs.writeFileSync(path.join(pyFallbackDir, 'pyproject.toml'), '[project]\nname="api"\n');
     fs.writeFileSync(
       path.join(pyFallbackDir, 'docker-compose.qa.yml'),
@@ -824,5 +830,140 @@ describe('ephemeral-runner', () => {
     expect(isDocFilePath('.agents/schemas/session_checkpoint.schema.json')).toBe(false);
     expect(isDocFilePath('docs/guide.md')).toBe(true);
     expect(isDocFilePath('CHANGELOG.es.md')).toBe(true);
+  });
+
+  it('supports mkdir -p, secret-scan guards, safe sh -c trap wrappers, and profile teardown under make ENOENT', async () => {
+    const profDir = path.join(tempDir, 'profile-proj');
+    fs.mkdirSync(path.join(profDir, 'scripts'), { recursive: true });
+    fs.writeFileSync(
+      path.join(profDir, 'Makefile'),
+      [
+        'qa-profile:',
+        '\tmkdir -p reports/flamegraphs',
+        '\tsh -c \'set -eu; trap "docker compose -f docker-compose.qa.yml --profile profile down -v --remove-orphans" EXIT; docker compose -f docker-compose.qa.yml --profile profile up -d api; docker compose -f docker-compose.qa.yml --profile profile run --rm -T profiler\'',
+        'qa-lint:',
+        '\t@[ ! -x ./scripts/verificar-secretos.sh ] || ./scripts/verificar-secretos.sh',
+        '\tdocker compose -f docker-compose.qa.yml run --rm -T qa-backend ruff check src',
+      ].join('\n')
+    );
+
+    const profRes = resolveMakefileDockerRecipes(fs.readFileSync(path.join(profDir, 'Makefile'), 'utf8'), 'qa-profile', profDir);
+    expect(profRes.ok).toBe(true);
+    if (profRes.ok) {
+      expect(profRes.prepDirs).toEqual(['reports/flamegraphs']);
+      expect(profRes.commands[0]).toEqual(['compose', '-f', 'docker-compose.qa.yml', '--profile', 'profile', 'up', '-d', 'api']);
+      expect(profRes.commands[1]).toEqual(['compose', '-f', 'docker-compose.qa.yml', '--profile', 'profile', 'run', '--rm', '-T', 'profiler']);
+    }
+
+    // Traversal in mkdir or disallowed cmd inside sh -c / trap MUST remain blocked fail-closed
+    expect(resolveMakefileDockerRecipes('qa-profile:\n\tmkdir -p ../escape\n\tdocker run alpine true\n', 'qa-profile', profDir).ok).toBe(false);
+    expect(resolveMakefileDockerRecipes('qa-profile:\n\tsh -c "set -eu; curl http://evil.invalid"\n', 'qa-profile', profDir).ok).toBe(false);
+    expect(resolveMakefileDockerRecipes('qa-profile:\n\tsh -c \'trap "rm -rf /tmp/x" EXIT; docker run alpine true\'\n', 'qa-profile', profDir).ok).toBe(false);
+
+    // Optional secret-scan guard skipped when missing, executed in Rule Zero Docker when present
+    const absentLint = resolveMakefileDockerRecipes(fs.readFileSync(path.join(profDir, 'Makefile'), 'utf8'), 'qa-lint', profDir);
+    expect(absentLint.ok).toBe(true);
+    if (absentLint.ok) {
+      expect(absentLint.commands).toHaveLength(1);
+    }
+    fs.writeFileSync(path.join(profDir, 'scripts', 'verificar-secretos.sh'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+    const presentLint = resolveMakefileDockerRecipes(fs.readFileSync(path.join(profDir, 'Makefile'), 'utf8'), 'qa-lint', profDir);
+    expect(presentLint.ok).toBe(true);
+    if (presentLint.ok) {
+      expect(presentLint.commands).toHaveLength(2);
+      expect(presentLint.commands[0]).toContain('./scripts/verificar-secretos.sh');
+    }
+
+    // stage: profile Compose fallback + --profile down cleanup
+    fs.writeFileSync(
+      path.join(profDir, 'docker-compose.qa.yml'),
+      'services:\n  api:\n    image: app\n  profiler:\n    image: prof\n',
+      'utf8'
+    );
+    const directProf = resolveComposeDirectFallback(profDir, 'profile');
+    expect(directProf).toEqual([
+      ['compose', '-f', 'docker-compose.qa.yml', '--profile', 'profile', 'up', '-d', 'api'],
+      ['compose', '-f', 'docker-compose.qa.yml', '--profile', 'profile', 'run', '--rm', '-T', 'profiler'],
+    ]);
+
+    const ranDocker: string[][] = [];
+    const mockProfileRunner = ((
+      file: string,
+      args: readonly string[],
+      _options: unknown,
+      cb: (error: Error | null, stdout: string, stderr: string) => void
+    ) => {
+      if (file === 'make') {
+        cb(Object.assign(new Error('spawn make ENOENT'), { code: 'ENOENT' }), '', '');
+        return;
+      }
+      ranDocker.push([...args]);
+      cb(null, 'profile captured', '');
+    }) as unknown as typeof execFile;
+
+    const runProf = await runEphemeralQa(profDir, 'profile', 60, { execFileFn: mockProfileRunner });
+    expect(runProf.status).toBe('PASSED');
+    expect(fs.existsSync(path.join(profDir, 'reports', 'flamegraphs'))).toBe(true);
+    expect(ranDocker.some((cmd) => cmd.includes('down') && cmd.includes('--profile') && cmd.includes('--remove-orphans'))).toBe(true);
+  });
+
+  it('covers delegated prepDirs, invalid mkdir targets, bash &&/trap wrappers, and foreground vs detached compose teardown', async () => {
+    const rootDir = fs.mkdtempSync(path.join(tempDir, 'deleg-root-'));
+    const subDir = path.join(rootDir, 'sub');
+    fs.mkdirSync(subDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(subDir, 'Makefile'),
+      'qa-profile:\n\tmkdir -p reports/sub\n\tdocker compose -f docker-compose.qa.yml run --rm -T profiler\n',
+      'utf8'
+    );
+    const delegOk = resolveMakefileDockerRecipes('qa-profile:\n\t$(MAKE) -C sub qa-profile\n', 'qa-profile', rootDir);
+    expect(delegOk.ok).toBe(true);
+    if (delegOk.ok) {
+      expect(delegOk.prepDirs).toEqual(['sub/reports/sub']);
+    }
+
+    expect(resolveMakefileDockerRecipes('qa-profile:\n\tmkdir -p /etc/escape\n\tdocker run alpine true\n', 'qa-profile', rootDir).ok).toBe(false);
+    expect(resolveMakefileDockerRecipes('qa-profile:\n\tmkdir -p\n\tdocker run alpine true\n', 'qa-profile', rootDir).ok).toBe(false);
+    expect(resolveMakefileDockerRecipes('qa-profile:\n\tsh -c ""\n', 'qa-profile', rootDir).ok).toBe(false);
+    expect(resolveMakefileDockerRecipes('qa-profile:\n\tsh -c " ; "\n', 'qa-profile', rootDir).ok).toBe(false);
+    expect(resolveMakefileDockerRecipes('qa-profile:\n\tsh -c "trap \'\' EXIT; docker run alpine true"\n', 'qa-profile', rootDir).ok).toBe(false);
+
+    const chainMake = [
+      'qa-profile:',
+      '\tbash -c "trap \'docker compose -f docker-compose.qa.yml down -v\' EXIT && echo \'starting\' && docker compose -f docker-compose.qa.yml up --abort-on-container-exit api"',
+    ].join('\n');
+    expect(resolveMakefileDockerRecipes(chainMake, 'qa-profile', rootDir).ok).toBe(true);
+
+    fs.writeFileSync(
+      path.join(rootDir, 'Makefile'),
+      [
+        'qa-profile:',
+        '\tdocker compose -f docker-compose.qa.yml up --detach api',
+        'qa-unit:',
+        '\tdocker compose -f docker-compose.qa.yml up api',
+      ].join('\n'),
+      'utf8'
+    );
+    const calls: string[][] = [];
+    const mockExec = ((
+      file: string,
+      args: readonly string[],
+      _options: unknown,
+      cb: (e: Error | null, out: string, err: string) => void
+    ) => {
+      if (file === 'make') {
+        cb(Object.assign(new Error('spawn make ENOENT'), { code: 'ENOENT' }), '', '');
+        return;
+      }
+      calls.push([...args]);
+      cb(null, '1 passed\n', '');
+    }) as unknown as typeof execFile;
+
+    await runEphemeralQa(rootDir, 'profile', 30, { execFileFn: mockExec });
+    expect(calls.some((c) => c.includes('down'))).toBe(true);
+
+    calls.length = 0;
+    await runEphemeralQa(rootDir, 'unit', 30, { execFileFn: mockExec });
+    expect(calls.some((c) => c.includes('down'))).toBe(false);
   });
 });

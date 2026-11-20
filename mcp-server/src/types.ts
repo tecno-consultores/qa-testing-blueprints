@@ -180,8 +180,9 @@ export const RunEphemeralQaInputSchema = z.object({
     "e2e",
     "perf",
     "chaos",
+    "profile",
     "all",
-  ]).describe('QA phase or target to execute (e.g. lint, unit, integration, ci, bdd, all).'),
+  ]).describe('QA phase or target to execute (e.g. lint, unit, integration, ci, bdd, profile, all).'),
   timeout_seconds: z.number().int().min(10).max(900).default(300).describe('Maximum timeout in seconds.'),
   skip_if_docs_only: z
     .boolean()

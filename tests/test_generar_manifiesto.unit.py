@@ -124,6 +124,8 @@ class TestGenerarManifiesto(unittest.TestCase):
                 "copy_if_missing",
             ),
             ("promptfooconfig.yaml", "promptfooconfig.yaml", "copy_if_missing"),
+            ("mutmut_gates.py.example", "mutmut_gates.py", "copy_if_missing"),
+            ("zap.yaml.example", "zap.yaml", "copy_if_missing"),
             ("limpieza.sh", "limpieza.sh", "overwrite_executable"),
             ("scripts/helper.py", "scripts/helper.py", "overwrite_executable"),
             ("_llm_judge.py", "_llm_judge.py", "copy_or_overwrite"),
@@ -154,7 +156,7 @@ class TestGenerarManifiesto(unittest.TestCase):
             ("instalar-hooks.sh", "instalar-hooks.sh", "copy_if_missing"),
             (".env.example", ".env.example", "copy_if_missing"),
             (".trivy.yaml", ".trivy.yaml", "copy_if_missing"),
-            ("lefthook.yml", "lefthook.yml", "surgical_merge"),
+            ("lefthook.yml", "lefthook.yml", "copy_if_missing"),
         ]
         for rel_path, exp_target, exp_strategy in cases:
             target, strategy = gm.classify_common_file(rel_path)

@@ -1314,6 +1314,121 @@ describe('QA-HEALTH-01 & Dual-Consumer Evolution Suite', () => {
       expect(res.findings.filter((f) => f.file.startsWith('vendor/'))).toHaveLength(0);
     });
 
+    it('detects JSX pre-hydration branching (QA-SSR-HYDRATION-01), Stryker misconfigs (QA-STRYKER-CFG-01), and cross-tenant WS PubSub (SEC-WS-PUBSUB-01)', async () => {
+      const appDir = path.join(tmpDir, 'ola4-auditor');
+      fs.mkdirSync(path.join(appDir, 'src'), { recursive: true });
+      fs.mkdirSync(path.join(appDir, 'e2e'), { recursive: true });
+      fs.writeFileSync(
+        path.join(appDir, 'package.json'),
+        JSON.stringify({ dependencies: { next: '15.2.0', react: '19.0.0' }, devDependencies: { '@playwright/test': '1.52.0' } }),
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(appDir, 'src', 'ThemeToggle.tsx'),
+        [
+          'export function ThemeToggle() {',
+          '  const t = window.matchMedia("(prefers-color-scheme: dark)").matches;',
+          '  return <div>{localStorage.theme === "dark" ? <span data-t={t}>Dark</span> : <span>Light</span>}</div>;',
+          '}',
+        ].join('\n'),
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(appDir, 'playwright.config.ts'),
+        'export default { projects: [{ use: { colorScheme: "light" } }, { use: { colorScheme: "dark" } }] };\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(appDir, 'e2e', 'app.spec.ts'),
+        'page.on("console", (m) => { if (/hydration/i.test(m.text())) throw new Error(m.text()); });\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(appDir, 'stryker.conf.json'),
+        JSON.stringify({ concurrency: 8, testRunner: 'vitest' }),
+        'utf8'
+      );
+      fs.mkdirSync(path.join(appDir, 'sub-bad'), { recursive: true });
+      fs.writeFileSync(
+        path.join(appDir, 'sub-bad', 'stryker.config.mjs'),
+        'export default { ignoreStatic: false, concurrency: 8 };\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(appDir, 'src', 'Banner.jsx'),
+        [
+          'export function Banner() {',
+          '  useEffect(() => {',
+          '    const ok = localStorage.theme && <span />;',
+          '    return ok;',
+          '  }, []);',
+          '  return (',
+          '    <section>',
+          '      {localStorage.theme && <span />}',
+          "      {localStorage.theme ? 'dark' : 'light'}",
+          '    </section>',
+          '  );',
+          '}',
+        ].join('\n'),
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(appDir, 'src', 'ws_hub.py'),
+        [
+          'async def listen(pubsub, ws_manager):',
+          '    await pubsub.subscribe("global:events")',
+          '    await ws_manager.broadcast({"event": "msg"})',
+        ].join('\n'),
+        'utf8'
+      );
+
+      const res = await auditSecurityStigOwasp(appDir);
+      const hydrationHits = res.findings.filter((f) => f.rule_id === 'QA-SSR-HYDRATION-01');
+      expect(hydrationHits.some((f) => f.file === 'src/ThemeToggle.tsx')).toBe(true);
+      expect(hydrationHits.filter((f) => f.file === 'src/Banner.jsx')).toHaveLength(2);
+      expect(res.findings.filter((f) => f.rule_id === 'QA-STRYKER-CFG-01' && f.severity === 'MEDIUM')).toHaveLength(2);
+      expect(res.findings.filter((f) => f.rule_id === 'SEC-WS-PUBSUB-01' && f.severity === 'HIGH').length).toBeGreaterThanOrEqual(1);
+
+      // Compliant variants produce zero findings
+      const safeDir = path.join(tmpDir, 'ola4-safe');
+      fs.mkdirSync(path.join(safeDir, 'src'), { recursive: true });
+      fs.mkdirSync(path.join(safeDir, 'sub-env'), { recursive: true });
+      fs.mkdirSync(path.join(safeDir, 'sub-num'), { recursive: true });
+      fs.mkdirSync(path.join(safeDir, 'sub-exempt'), { recursive: true });
+      fs.writeFileSync(
+        path.join(safeDir, 'stryker.conf.json'),
+        JSON.stringify({ ignoreStatic: true, concurrency: 4, testRunner: 'vitest' }),
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(safeDir, 'sub-env', 'stryker.config.mjs'),
+        'export default { ignoreStatic: true, concurrency: process.env.STRYKER_CONCURRENCY || 2 };\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(safeDir, 'sub-num', 'stryker.conf.js'),
+        'module.exports = { ignoreStatic: true, concurrency: 2 };\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(safeDir, 'sub-exempt', 'stryker.conf.json'),
+        '// qa-stryker-cfg-ok\n{"ignoreStatic": false, "concurrency": 16}\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(safeDir, 'src', 'ws_tenant.py'),
+        [
+          'async def listen(pubsub, ws_manager, tenant_id: str):',
+          '    await pubsub.subscribe(f"ws:{tenant_id}:events")',
+          '    await ws_manager.broadcast(tenant_id, {"event": "ok"})',
+        ].join('\n'),
+        'utf8'
+      );
+      const safeRes = await auditSecurityStigOwasp(safeDir);
+      expect(safeRes.findings.filter((f) => f.rule_id === 'QA-STRYKER-CFG-01')).toHaveLength(0);
+      expect(safeRes.findings.filter((f) => f.rule_id === 'SEC-WS-PUBSUB-01')).toHaveLength(0);
+    });
+
     it('F2.5 & F2.7: enforces SEC-PATH-01 across core tools and bounded TTY exit on slow autoSyncFn', async () => {
       await expect(inspectProjectConfig('/etc')).rejects.toThrow(WorkspacePathValidationError);
       await expect(auditSecurityStigOwasp('../outside')).rejects.toThrow(WorkspacePathValidationError);

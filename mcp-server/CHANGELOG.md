@@ -8,6 +8,9 @@ All notable changes to the `@sinfallas/mcp-qa-11x` npm package and MCP server ar
 
 ## [Unreleased]
 
+### Fixed
+- **SPDX Auto-Detection, Stack-Aware `mergeLefthookYaml`, `run_ephemeral_qa` `profile` Stage & 36 Security Rules:** Added `detectProjectSpdxLicense` and stack-scoped `root:` hook filtering in `SurgicalMerger` + `agents-connector.ts`, enabled safe double-quoted token expansion and `stage: 'profile'` Compose fallback in `run_ephemeral_qa` (`16` QA stages), and expanded `audit_security_stig_owasp` to `36` static scanner rules with JSX/TSX `QA-SSR-HYDRATION-01` branching checks, `QA-STRYKER-CFG-01`, and `SEC-WS-PUBSUB-01`.
+
 ## [3.2.0] - 2026-11-19
 
 ### Added

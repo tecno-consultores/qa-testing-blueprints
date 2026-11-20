@@ -29,7 +29,7 @@ This directory implements the portable, open agent-governance layout across Goog
 ├── skills/                                           # Domain playbooks & progressive-disclosure skills (11 modular skills)
 │   ├── qa-11x-architect/                             # Master orchestrator: 13 layers, 10 laws, 11 UAT Anti-Blindness rules & 9 references/
 │   ├── qa-11x-docker-certifier/                      # Ephemeral Docker Rule Zero certification (>=95% coverage)
-│   ├── qa-11x-devsecops-hardener/                    # DISA ASD STIG V6R5 & OWASP v4.2 hardening (22 ref controls / 34 scanner rules)
+│   ├── qa-11x-devsecops-hardener/                    # DISA ASD STIG V6R5 & OWASP v4.2 hardening (22 ref controls / 36 scanner rules)
 │   ├── qa-11x-systematic-debugging/                  # 4-phase deterministic root-cause debugging (Rule Zero + AST Blast Radius)
 │   ├── qa-11x-screenplay-builder/                    # Proportional Screenplay E2E pattern, Anti-JSDOM & 3-phase temporal assertions
 │   ├── qa-11x-llm-evaluator/                         # Dual-mode LLM, RAG, voice & OWASP LLM Top 10 red-team evaluation

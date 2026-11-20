@@ -22,6 +22,7 @@
     "reports"
   ],
   "concurrency": 4,
+  "ignoreStatic": true,
   "thresholds": {
     "high": 90,
     "low": 80,

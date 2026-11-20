@@ -249,7 +249,12 @@ def _classify_example_file(
     target_name = f"{parent_prefix}{unwrapped}"
     copy_prefixes = ("test", "e2e", "nginx", "initdb")
     copy_suffixes = (".unit.py", ".spec.ts", ".e2e.ts", ".conf", ".sql")
-    if parent_posix.startswith(copy_prefixes) or unwrapped.endswith(copy_suffixes):
+    copy_exact = ("mutmut_gates.py", "zap.yaml")
+    if (
+        parent_posix.startswith(copy_prefixes)
+        or unwrapped.endswith(copy_suffixes)
+        or unwrapped in copy_exact
+    ):
         return target_name, "copy_if_missing"
     return target_name, "surgical_merge"
 
@@ -291,7 +296,7 @@ def classify_stack_file(rel_path_in_stack: Path) -> tuple[str, str]:
 def classify_common_file(rel_path: str) -> tuple[str, str]:
     """Clasifica un archivo común en (target_name, merge_strategy)."""
     filename = Path(rel_path).name
-    if filename in (".trivy.yaml", ".env.example", "instalar-hooks.sh"):
+    if filename in (".trivy.yaml", ".env.example", "instalar-hooks.sh", "lefthook.yml"):
         return rel_path, "copy_if_missing"
     if filename.endswith(".sh"):
         return rel_path, "overwrite_executable"

@@ -175,6 +175,37 @@ const SSR_PREHYDRATE_V_IF_PATTERNS: readonly RegExp[] = [
   /\bv-(?:else-)?if\s*=\s*"[^"\n]*(?:localStorage|dataset\.theme|document\.documentElement)/,
   /\bv-(?:else-)?if\s*=\s*'[^'\n]*(?:localStorage|dataset\.theme|document\.documentElement)/,
 ];
+const JSX_PREHYDRATE_STATE_MARKERS = [
+  'localStorage',
+  'sessionStorage',
+  'document.documentElement.dataset',
+  'dataset.theme',
+  'matchMedia',
+  "typeof window !== 'undefined'",
+  'typeof window !== "undefined"',
+];
+const QA_STRYKER_CFG_RULE = 'QA-STRYKER-CFG-01';
+const QA_STRYKER_CFG_REF =
+  'Standard 11X Layer 5 Mutation Testing / Stryker Container Stability Contract';
+const QA_STRYKER_CFG_OK_PRAGMA = 'qa-stryker-cfg-ok';
+const SEC_WS_PUBSUB_RULE = 'SEC-WS-PUBSUB-01';
+const SEC_WS_PUBSUB_REF =
+  'OWASP API3:2023 / API4:2023 / DISA STIG APSC-DV-000460 (Multi-Tenant Real-Time Isolation)';
+const SEC_WS_PUBSUB_OK_PRAGMA = 'sec-ws-pubsub-ok';
+const WS_PUBSUB_TENANT_MARKERS = [
+  'tenant_id',
+  'tenantId',
+  'org_id',
+  'orgId',
+  'organization_id',
+  'workspace_id',
+  'check_tenant',
+  'same_tenant',
+  'ws:${',
+  'ws:{',
+  '.startsWith(',
+  '.startswith(',
+];
 const PLAYWRIGHT_CONFIG_RE = /(?:^|\/)playwright\.config\.(?:ts|js|mjs|mts)$/i;
 const E2E_TEST_FILE_RE = /(?:(?:^|\/)(?:e2e|tests\/e2e)\/)|(?:\.(?:e2e|spec)\.(?:ts|tsx|js|jsx|mjs)$)/i;
 const HYDRATION_LISTENER_RE = /\bon\(\s*['"](?:console|pageerror)['"]/;
@@ -2586,6 +2617,48 @@ function hasDualThemeMarkerForScope(
   return false;
 }
 
+function isInsideUseEffectBlock(lines: readonly string[], idx: number): boolean {
+  const start = Math.max(0, idx - 8);
+  for (let j = idx; j >= start; j -= 1) {
+    const trimmed = pickAt(lines, j).trim();
+    if (trimmed.includes('useEffect(')) {
+      return true;
+    }
+    if (/^return {0,4}\(/.test(trimmed)) {
+      return false;
+    }
+  }
+  return false;
+}
+
+function hasJsxConditionalMarkup(line: string): boolean {
+  if (line.includes('&& <') || line.includes('&&<')) {
+    return true;
+  }
+  if (!line.includes('{') || !line.includes('?')) {
+    return false;
+  }
+  return line.includes('<') || line.includes(':');
+}
+
+function hasJsxPrehydrateConditionalLine(
+  relPath: string,
+  lines: readonly string[],
+  idx: number
+): boolean {
+  if (!/\.(?:tsx|jsx)$/i.test(relPath)) {
+    return false;
+  }
+  const line = pickAt(lines, idx);
+  if (!JSX_PREHYDRATE_STATE_MARKERS.some((m) => line.includes(m))) {
+    return false;
+  }
+  if (!hasJsxConditionalMarkup(line)) {
+    return false;
+  }
+  return !isInsideUseEffectBlock(lines, idx);
+}
+
 function inspectPrehydrateLinesInFile(relPath: string, content: string): SecurityFinding[] {
   const findings: SecurityFinding[] = [];
   const lines = content.split(/\r?\n/);
@@ -2594,7 +2667,9 @@ function inspectPrehydrateLinesInFile(relPath: string, content: string): Securit
     if (line.includes(QA_SSR_HYDRATION_OK_PRAGMA) || prev.includes(QA_SSR_HYDRATION_OK_PRAGMA)) {
       continue;
     }
-    if (SSR_PREHYDRATE_V_IF_PATTERNS.some((re) => re.test(line))) {
+    const isVuePrehydrate = SSR_PREHYDRATE_V_IF_PATTERNS.some((re) => re.test(line));
+    const isJsxPrehydrate = hasJsxPrehydrateConditionalLine(relPath, lines, i);
+    if (isVuePrehydrate || isJsxPrehydrate) {
       findings.push({
         rule_id: QA_SSR_HYDRATION_RULE,
         severity: 'MEDIUM',
@@ -2602,8 +2677,8 @@ function inspectPrehydrateLinesInFile(relPath: string, content: string): Securit
         file: relPath,
         line: i + 1,
         message:
-          'Componente SSR/SSG ramifica el DOM inicial (v-if) según estado de cliente pre-hidratación (localStorage/dataset.theme), arriesgando Hydration Mismatch.',
-        remediation: `Renderizar ambas ramas con CSS (display: none / hidden dark:block) y sincronizar el estado reactivo en onMounted (o eximir con ${QA_SSR_HYDRATION_OK_PRAGMA}).`,
+          'Componente SSR/SSG ramifica el DOM inicial (v-if o JSX condicional) según estado de cliente pre-hidratación (localStorage/dataset.theme/matchMedia), arriesgando Hydration Mismatch.',
+        remediation: `Renderizar ambas ramas con CSS (display: none / hidden dark:block) y sincronizar el estado reactivo en onMounted/useEffect (o eximir con ${QA_SSR_HYDRATION_OK_PRAGMA}).`,
       });
     }
   }
@@ -3755,6 +3830,123 @@ function hasUnescapedMakePwdVar(line: string): boolean {
   return false;
 }
 
+function isStrykerConfigPath(relPath: string): boolean {
+  const norm = relPath.replace(/\\/g, '/');
+  return /(?:^|\/)stryker\.conf(?:ig)?\.(?:json|js|mjs|cjs)$/i.test(norm);
+}
+
+function hasStrykerIgnoreStaticTrue(
+  doc: Record<string, unknown> | null,
+  fullText: string
+): boolean {
+  if (doc) {
+    return doc.ignoreStatic === true;
+  }
+  return /["']?ignoreStatic["']?\s{0,4}:\s{0,4}true\b/.test(fullText);
+}
+
+function hasBoundedStrykerConcurrency(
+  doc: Record<string, unknown> | null,
+  fullText: string
+): boolean {
+  if (doc) {
+    return typeof doc.concurrency === 'number' && doc.concurrency >= 1 && doc.concurrency <= 4;
+  }
+  if (/CPUS|nproc|STRYKER_CONCURRENCY/i.test(fullText)) {
+    return true;
+  }
+  const match = /\bconcurrency\s{0,4}:\s{0,4}(\d+)/.exec(fullText);
+  return match ? Number(match[1]) >= 1 && Number(match[1]) <= 4 : false;
+}
+
+function checkQaStrykerCfg01(relPath: string, lines: string[]): SecurityFinding[] {
+  if (!isStrykerConfigPath(relPath) || isTestFilePath(relPath)) {
+    return [];
+  }
+  const fullText = lines.join('\n');
+  if (fullText.includes(QA_STRYKER_CFG_OK_PRAGMA)) {
+    return [];
+  }
+  const doc = relPath.endsWith('.json') ? parseJsonObjectTextSafe(fullText) : null;
+  const gaps: string[] = [];
+  if (!hasStrykerIgnoreStaticTrue(doc, fullText)) {
+    gaps.push('"ignoreStatic": true');
+  }
+  if (!hasBoundedStrykerConcurrency(doc, fullText)) {
+    gaps.push('"concurrency" acotado (<= 4)');
+  }
+  if (gaps.length === 0) {
+    return [];
+  }
+  return [
+    {
+      rule_id: QA_STRYKER_CFG_RULE,
+      severity: 'MEDIUM',
+      stig_owasp_ref: QA_STRYKER_CFG_REF,
+      file: relPath,
+      line: 1,
+      message: `Configuración Stryker omite estabilidad en contenedores: falta ${gaps.join(' y ')}.`,
+      remediation: `Establecer "ignoreStatic": true y "concurrency": 4 (o <= 4) en stryker.conf (o eximir con ${QA_STRYKER_CFG_OK_PRAGMA}).`,
+    },
+  ];
+}
+
+const PUBSUB_SINK_SUBSTRINGS = [
+  'pubsub.subscribe(',
+  'pubsub.psubscribe(',
+  '.psubscribe(',
+  'ws_manager.broadcast(',
+  'manager.broadcast(',
+  'broadcast_all(',
+  '.clients.forEach(',
+];
+
+function isPubSubBroadcastLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('//')) {
+    return false;
+  }
+  return PUBSUB_SINK_SUBSTRINGS.some((needle) => trimmed.includes(needle));
+}
+
+function hasTenantScopeInWindow(lines: readonly string[], centerIdx: number): boolean {
+  const start = Math.max(0, centerIdx - 12);
+  const end = Math.min(lines.length, centerIdx + 25);
+  const windowText = lines.slice(start, end).join('\n');
+  return WS_PUBSUB_TENANT_MARKERS.some((marker) => windowText.includes(marker));
+}
+
+function checkSecWsPubsub01(relPath: string, lines: string[]): SecurityFinding[] {
+  if (
+    isTestFilePath(relPath) ||
+    isAuditorSelfDefinition(relPath) ||
+    !/\.(?:py|ts|js|php)$/i.test(relPath)
+  ) {
+    return [];
+  }
+  const findings: SecurityFinding[] = [];
+  for (const [i, line] of lines.entries()) {
+    const prevLine = pickAt(lines, i - 1);
+    if (isLineCommentOrPragmaExempt(line, prevLine, SEC_WS_PUBSUB_OK_PRAGMA)) {
+      continue;
+    }
+    if (!isPubSubBroadcastLine(line) || hasTenantScopeInWindow(lines, i)) {
+      continue;
+    }
+    findings.push({
+      rule_id: SEC_WS_PUBSUB_RULE,
+      severity: 'HIGH',
+      stig_owasp_ref: SEC_WS_PUBSUB_REF,
+      file: relPath,
+      line: i + 1,
+      message:
+        'Difusión WebSocket o suscripción Pub/Sub Redis/KeyDB sin validación ni prefijo de aislamiento multi-tenant (tenant_id/org_id), con riesgo de fuga cross-tenant.',
+      remediation: `Prefijar canales con identificador de tenant (ej. f"ws:{tenant_id}:events") y verificar tenant_id/org_id por socket antes de reenviar mensajes (o eximir con ${SEC_WS_PUBSUB_OK_PRAGMA}).`,
+    });
+  }
+  return findings;
+}
+
 function checkQaMakeCurdir01SubMakefile(relPath: string, lines: string[]): SecurityFinding[] {
   if (!isSubdirectoryMakefile(relPath)) return [];
   if (lines.slice(0, 5).some((l) => l.includes(QA_MAKE_CURDIR_OK_PRAGMA))) return [];
@@ -3821,6 +4013,8 @@ function scanSingleFile(
     ...checkQaKarateStaticIdempotency(effectiveRel, lines),
     ...checkUi11x01VisualGeometry(effectiveRel, lines),
     ...checkUi11x02DualRefreshAndSemanticElse(effectiveRel, lines),
+    ...checkQaStrykerCfg01(effectiveRel, lines),
+    ...checkSecWsPubsub01(effectiveRel, lines),
   ];
   return effectiveRel === relPath
     ? rawFindings

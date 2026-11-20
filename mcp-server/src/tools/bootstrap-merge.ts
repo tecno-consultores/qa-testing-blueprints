@@ -23,7 +23,9 @@ function injectAgentsConnectorIfMissingFromBundle(input: AgentsConnectorInjectio
   const hadAgentsFile = fs.existsSync(agentsPath);
   const existingAgents = hadAgentsFile ? fs.readFileSync(agentsPath, 'utf-8') : '';
   const projectName = path.basename(resolvedPath) || 'Project';
-  const agentsRes = mergeOrAppendAgentsMdContent(existingAgents, projectName, [stack]);
+  const agentsRes = mergeOrAppendAgentsMdContent(existingAgents, projectName, [stack], {
+    projectDir: resolvedPath,
+  });
 
   if (agentsRes.finalContent === existingAgents) {
     return;

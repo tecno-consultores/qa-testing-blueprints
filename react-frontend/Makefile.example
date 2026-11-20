@@ -18,6 +18,7 @@ build-ui:
 
 qa-lint:
 	@echo "🔍 Ejecutando Auditoría de CVEs, Linter, Types y Formateo (React/TS)..."
+	@[ ! -x ./scripts/verificar-secretos.sh ] || ./scripts/verificar-secretos.sh
 	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run audit:deps && pnpm run type-check && pnpm run format:check && pnpm lint"
 
 qa-unit:
@@ -34,7 +35,7 @@ qa-orphans:
 
 qa-mutation:
 	@echo "👽 Ejecutando Pruebas de Mutación Frontend (Stryker)..."
-	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run mutate"
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c 'mkdir -p /tmp/qa-bin && printf "#!/bin/sh\nexit 0\n" >/tmp/qa-bin/ps && chmod +x /tmp/qa-bin/ps && pnpm install --silent && PATH="/tmp/qa-bin:$$PATH" pnpm run mutate'
 
 qa-perf: build-ui
 	@echo "⚡ Ejecutando Auditoría de Rendimiento (Lighthouse CI)..."

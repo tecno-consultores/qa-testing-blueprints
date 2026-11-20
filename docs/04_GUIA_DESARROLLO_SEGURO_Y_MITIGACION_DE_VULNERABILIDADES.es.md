@@ -32,7 +32,7 @@
 21. [Patrón 21: Mitigación de OWASP API Security Top 10 (2023), Anti-Data-Mining y Consumo Seguro de APIs](#patrón-21-mitigación-de-owasp-api-security-top-10-2023-anti-data-mining-y-consumo-seguro-de-apis)
 22. [Patrón 22: Cadena de Suministro (CycloneDX SBOM/CBOM), Firma de Artefactos y Threat Modeling como Código](#patrón-22-cadena-de-suministro-cyclonedx-sbomcbom-firma-de-artefactos-y-threat-modeling-como-código)
 
-### 🧭 Mapa de Trazabilidad con el Auditor Estático (`audit_security_stig_owasp` — 34 Reglas: `SEC-01`..`SEC-16`, `QA-*`, `UI-11X-*`)
+### 🧭 Mapa de Trazabilidad con el Auditor Estático (`audit_security_stig_owasp` — 36 Reglas: `SEC-01`..`SEC-16`, `QA-*`, `UI-11X-*`)
 
 | Regla MCP | Control / Vector Mitigado | Patrón Humano de Referencia |
 | :--- | :--- | :--- |
@@ -69,7 +69,9 @@
 | `QA-CONTRACT-SDK-01` | Servidores MCP/JSON-RPC/ACP probados únicamente invocando handlers con `MagicMock` sin conectar el transporte/cliente real del SDK en proceso (oculta rupturas de firma como `mcp 1.x -> 2.x`) | `docs/02` §1.1 (Regla #11) y `SECURITY.es.md` §4.28 |
 | `QA-DOCKER-LOCK-01` | `Dockerfile` con lista manual de paquetes (`pip install ...`, `npm install <pkg>`) o `uv sync` sin `--frozen` en lugar de instalar desde el lockfile, más ausencia de smoke test sobre la imagen construida (`import`, `id -u != 0`, `401`) | `docs/02` §1.1 (Regla #11) y `SECURITY.es.md` §4.28 |
 | `QA-PLAYWRIGHT-PIN-01` | Desalineación o rango SemVer (`^`/`~`) entre `@playwright/test`/`playwright` en `package.json` e imagen `mcr.microsoft.com/playwright:vX.Y.Z` (o `:latest`) en Compose, además de protección Anti-SSRF DNS/IP (Patrón 4) y redacción de API keys (`SEC-10`) en `audit_pagespeed_insights.py` | `docs/02` §7, §9 y `SECURITY.es.md` §4.29 |
-| `QA-SSR-HYDRATION-01` | Ramificación DOM pre-hidratación (`v-if` sobre `localStorage`/`dataset.theme`) en apps SSR/SSG o ausencia de barrido Playwright dual `'light'`/`'dark'` con guardia `console`/`pageerror` (`/hydration/i`) | `docs/02` §7 y `SECURITY.es.md` §4.30 |
+| `QA-SSR-HYDRATION-01` | Ramificación DOM pre-hidratación (`v-if` o expresiones JSX/TSX fuera de `useEffect` sobre `localStorage`/`dataset.theme`) en apps SSR/SSG o ausencia de barrido Playwright dual `'light'`/`'dark'` con guardia `console`/`pageerror` (`/hydration/i`) | `docs/02` §7 y `SECURITY.es.md` §4.30 |
+| `QA-STRYKER-CFG-01` | Ausencia de `"ignoreStatic": true` o `"concurrency" > 4` excesivo en `stryker.conf.json(.example)` provocando OOM en contenedores efímeros (con shim no-root `/tmp/qa-bin/ps` en `Makefile.example`) | `docs/02` §8 y `SECURITY.es.md` §4.31 |
+| `SEC-WS-PUBSUB-01` | Suscripciones PubSub Redis/KeyDB para WebSockets sin aislamiento por `tenant_id` (`SUBSCRIBE events` / comodín `*`) o uniones de canal sin validación en servidor | Patrón 1 y `SECURITY.es.md` §4.32 |
 
 ---
 

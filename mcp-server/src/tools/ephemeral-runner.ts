@@ -30,6 +30,8 @@ const MAX_EXEC_BUFFER_BYTES = 20 * 1024 * 1024;
 const COMPOSE_QA_FILE = 'docker-compose.qa.yml';
 const DOCKER_BINARY = 'docker';
 const MAKE_BINARY = 'make';
+const BASH_QA_IMAGE_PINNED =
+  'sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7';
 const STATUS_FAILED = 'FAILED' as const;
 const BREAKER_REMEDIATION =
   'BREAKER-42 ACTIVADO: Detén ediciones a ciegas, consulta inspect_ast_blast_radius(changed_since_ref) y aplica las 4 fases de qa-11x-systematic-debugging (--reset-state requiere intervención humana).';
@@ -184,7 +186,7 @@ interface ParsedMakefile {
 }
 
 export type RecipeResolutionResult =
-  | { ok: true; commands: string[][] }
+  | { ok: true; commands: string[][]; prepDirs?: string[] }
   | { ok: false; reason: string };
 
 interface ExecCommandOutcome {
@@ -419,6 +421,7 @@ interface MakeResolutionContext {
   rootDir: string;
   currentDir: string;
   depth: number;
+  prepDirs: string[];
 }
 
 function isBannerCommand(expanded: string): boolean {
@@ -536,6 +539,11 @@ function resolveDelegatedMakeRecipe(
     if (!subRes.ok) {
       return subRes.reason;
     }
+    if (subRes.prepDirs) {
+      for (const dir of subRes.prepDirs) {
+        pushUniqueString(ctx.prepDirs, dir);
+      }
+    }
     for (const cmd of subRes.commands) {
       commands.push(rewriteDelegatedComposeArgs(cmd, relSubdirPosix));
     }
@@ -543,24 +551,10 @@ function resolveDelegatedMakeRecipe(
   return null;
 }
 
-function scanDoubleQuotedForSubshell(
-  src: string,
-  start: number
-): { found: boolean; nextIndex: number } {
-  for (let i = start + 1; i < src.length; i += 1) {
-    const ch = src[i];
-    if (ch === '\\') {
-      i += 1;
-      continue;
-    }
-    if (ch === '"') {
-      return { found: false, nextIndex: i };
-    }
-    if (ch === '`' || (ch === '$' && src[i + 1] === '(')) {
-      return { found: true, nextIndex: i };
-    }
+function pushUniqueString(list: string[], value: string): void {
+  if (value && !list.includes(value)) {
+    list.push(value);
   }
-  return { found: false, nextIndex: src.length - 1 };
 }
 
 function isUnquotedShellToken(src: string, idx: number): boolean {
@@ -578,6 +572,7 @@ function isUnquotedShellToken(src: string, idx: number): boolean {
 
 /**
  * Detecta operadores de encadenamiento/redirección fuera de comillas o subshells no expandidos.
+ * Permite `$(id -u)`, `$(id -g)` y `$(pwd)` dentro de comillas dobles en invocaciones Docker (`shell: false`).
  */
 export function hasUnquotedShellSyntax(commandLine: string): boolean {
   let i = 0;
@@ -588,9 +583,7 @@ export function hasUnquotedShellSyntax(commandLine: string): boolean {
       continue;
     }
     if (ch === '"') {
-      const scan = scanDoubleQuotedForSubshell(commandLine, i);
-      if (scan.found) return true;
-      i = scan.nextIndex + 1;
+      i = readDoubleQuotedToken(commandLine, i).nextIndex + 1;
       continue;
     }
     if (isUnquotedShellToken(commandLine, i)) {
@@ -599,6 +592,212 @@ export function hasUnquotedShellSyntax(commandLine: string): boolean {
     i += 1;
   }
   return false;
+}
+
+function replaceSafeHostToken(tok: string, currentDir: string): string {
+  if (!tok.includes('$(')) {
+    return tok;
+  }
+  return tok
+    .replaceAll('$(id -u)', String(resolvePosixNumericId('uid')))
+    .replaceAll('$(id -g)', String(resolvePosixNumericId('gid')))
+    .replaceAll('$(pwd)', currentDir);
+}
+
+function expandSafeDockerHostTokens(tokens: readonly string[], currentDir: string): string[] {
+  const out: string[] = [];
+  let inShellPayload = false;
+  for (const tok of tokens) {
+    out.push(inShellPayload ? tok : replaceSafeHostToken(tok, currentDir));
+    if (tok === '-c') {
+      inShellPayload = true;
+    }
+  }
+  return out;
+}
+
+function isSafeRelDirArg(raw: string): boolean {
+  if (!raw || path.isAbsolute(raw)) {
+    return false;
+  }
+  return /^[A-Za-z0-9_./-]{1,128}$/.test(raw);
+}
+
+function resolveContainedPrepDir(rawDir: string, ctx: MakeResolutionContext): string | null {
+  if (!isSafeRelDirArg(rawDir)) {
+    return null;
+  }
+  const realRoot = path.resolve(ctx.rootDir);
+  const absTarget = path.resolve(ctx.currentDir, rawDir);
+  if (absTarget === realRoot || absTarget.startsWith(`${realRoot}${path.sep}`)) {
+    return path.relative(realRoot, absTarget);
+  }
+  return null;
+}
+
+function collectSafeMkdirTargets(tokens: readonly string[], ctx: MakeResolutionContext): string | null {
+  const dirArgs = tokens.slice(1).filter((t) => !t.startsWith('-'));
+  if (dirArgs.length === 0) {
+    return `Receta mkdir sin directorios destino válidos: ${tokens.join(' ')}`;
+  }
+  for (const rawDir of dirArgs) {
+    const rel = resolveContainedPrepDir(rawDir, ctx);
+    if (rel === null) {
+      return `Receta mkdir bloqueada fuera del directorio raíz: ${rawDir}`;
+    }
+    pushUniqueString(ctx.prepDirs, rel);
+  }
+  return null;
+}
+
+function isOptionalSecretGuard(expanded: string): boolean {
+  const compact = expanded.replace(/\s+/g, ' ').trim();
+  return (
+    compact === '[ ! -x ./scripts/verificar-secretos.sh ] || ./scripts/verificar-secretos.sh' ||
+    compact === '[ ! -x scripts/verificar-secretos.sh ] || scripts/verificar-secretos.sh'
+  );
+}
+
+function buildSecretGuardDockerArgs(currentDir: string): string[] | null {
+  const scriptPath = path.join(currentDir, 'scripts', 'verificar-secretos.sh');
+  if (!fs.existsSync(scriptPath)) {
+    return null;
+  }
+  return [
+    'run',
+    '--rm',
+    '--network',
+    'none',
+    '-u',
+    resolveHostUidGid(),
+    '-e',
+    'HOME=/tmp',
+    '-v',
+    `${currentDir}:/repo:ro`,
+    '-w',
+    '/repo',
+    BASH_QA_IMAGE_PINNED,
+    'bash',
+    './scripts/verificar-secretos.sh',
+  ];
+}
+
+function readShellSeparatorLen(src: string, idx: number): number {
+  if (src[idx] === ';') {
+    return 1;
+  }
+  if (src[idx] === '&' && src[idx + 1] === '&') {
+    return 2;
+  }
+  return 0;
+}
+
+function skipQuotedSegment(src: string, idx: number): number {
+  const ch = src[idx];
+  if (ch === "'") {
+    return readSingleQuotedToken(src, idx).nextIndex + 1;
+  }
+  return readDoubleQuotedToken(src, idx).nextIndex + 1;
+}
+
+function splitUnquotedStatements(body: string): string[] {
+  const out: string[] = [];
+  let start = 0;
+  let i = 0;
+  while (i < body.length) {
+    const ch = body[i];
+    if (ch === "'" || ch === '"') {
+      i = skipQuotedSegment(body, i);
+      continue;
+    }
+    const sepLen = readShellSeparatorLen(body, i);
+    if (sepLen > 0) {
+      const segment = body.slice(start, i).trim();
+      if (segment) out.push(segment);
+      i += sepLen;
+      start = i;
+      continue;
+    }
+    i += 1;
+  }
+  const tail = body.slice(start).trim();
+  if (tail) out.push(tail);
+  return out;
+}
+
+function isBenignSetOption(stmt: string): boolean {
+  const compact = stmt.replace(/\s+/g, ' ').trim();
+  return /^set -(?:e|u|eu|euo pipefail)$/.test(compact);
+}
+
+function extractTrapDockerArgs(stmt: string, currentDir: string): string[] | null {
+  const tokens = tokenizeCommandArgs(stmt);
+  if (tokens[0] !== 'trap' || tokens.length < 3 || !tokens[1]) {
+    return null;
+  }
+  const trapped = tokens[1].trim();
+  if (!isAllowedDockerRecipe(trapped) || hasUnquotedShellSyntax(trapped)) {
+    return null;
+  }
+  return expandSafeDockerHostTokens(tokenizeCommandArgs(trapped).slice(1), currentDir);
+}
+
+function appendAtomicStatement(
+  stmt: string,
+  ctx: MakeResolutionContext,
+  commands: string[][]
+): string | null {
+  if (isBannerCommand(stmt)) {
+    return null;
+  }
+  if (stmt === 'mkdir' || stmt.startsWith('mkdir ')) {
+    return collectSafeMkdirTargets(tokenizeCommandArgs(stmt), ctx);
+  }
+  if (isAllowedDockerRecipe(stmt)) {
+    if (hasUnquotedShellSyntax(stmt)) {
+      return `Receta Docker contiene operadores o subshells de shell no ejecutables sin make: ${stmt}`;
+    }
+    commands.push(expandSafeDockerHostTokens(tokenizeCommandArgs(stmt).slice(1), ctx.currentDir));
+    return null;
+  }
+  return `Receta bloqueada por Regla Cero en fallback sin make (solo se permiten comandos 'docker compose', 'docker run' o '$(MAKE) -C'): ${stmt}`;
+}
+
+function unwrapSafeShellWrapper(
+  expanded: string,
+  ctx: MakeResolutionContext,
+  commands: string[][]
+): string | null {
+  const outer = tokenizeCommandArgs(expanded);
+  const isShellC = (outer[0] === 'sh' || outer[0] === 'bash') && outer[1] === '-c';
+  if (!isShellC || outer.length !== 3 || !outer[2]) {
+    return null;
+  }
+  const stmts = splitUnquotedStatements(outer[2]);
+  if (stmts.length === 0) {
+    return `Wrapper shell vacío rechazado por Regla Cero: ${expanded}`;
+  }
+  let deferredTrap: string[] | null = null;
+  for (const stmt of stmts) {
+    if (isBenignSetOption(stmt)) continue;
+    if (stmt.startsWith('trap ')) {
+      const trapArgs = extractTrapDockerArgs(stmt, ctx.currentDir);
+      if (!trapArgs) return `Cláusula trap no permitida por Regla Cero: ${stmt}`;
+      deferredTrap = trapArgs;
+      continue;
+    }
+    const err = appendAtomicStatement(stmt, ctx, commands);
+    if (err) return err;
+  }
+  if (deferredTrap) {
+    commands.push(deferredTrap);
+  }
+  return null;
+}
+
+function isShellCWrapperRecipe(expanded: string): boolean {
+  const outer = tokenizeCommandArgs(expanded);
+  return (outer[0] === 'sh' || outer[0] === 'bash') && outer[1] === '-c' && outer.length === 3;
 }
 
 function appendSingleRecipeLine(
@@ -615,18 +814,19 @@ function appendSingleRecipeLine(
   if (!expanded || isBannerCommand(expanded)) {
     return null;
   }
-  if (isAllowedDockerRecipe(expanded)) {
-    if (hasUnquotedShellSyntax(expanded)) {
-      return `Receta Docker contiene operadores o subshells de shell no ejecutables sin make: ${expanded}`;
-    }
-    commands.push(tokenizeCommandArgs(expanded).slice(1));
+  if (isOptionalSecretGuard(expanded)) {
+    const secretArgs = buildSecretGuardDockerArgs(ctx.currentDir);
+    if (secretArgs) commands.push(secretArgs);
     return null;
+  }
+  if (isShellCWrapperRecipe(expanded)) {
+    return unwrapSafeShellWrapper(expanded, ctx, commands);
   }
   const delegation = parseMakeDelegation(expanded);
   if (delegation) {
     return resolveDelegatedMakeRecipe(delegation, ctx, commands);
   }
-  return `Receta bloqueada por Regla Cero en fallback sin make (solo se permiten comandos 'docker compose', 'docker run' o '$(MAKE) -C'): ${expanded}`;
+  return appendAtomicStatement(expanded, ctx, commands);
 }
 
 function appendTargetRecipeCommands(
@@ -705,10 +905,12 @@ export function resolveMakefileDockerRecipes(
   const currentDir = path.resolve(resolvedPath);
   const parsed = parseMakefile(makefileContent, currentDir);
   const commands: string[][] = [];
+  const prepDirs: string[] = [];
   const ctx: MakeResolutionContext = {
     rootDir: rootDir ? path.resolve(rootDir) : currentDir,
     currentDir,
     depth,
+    prepDirs,
   };
   const errorReason = collectTargetCommands(target, {
     parsed,
@@ -723,7 +925,7 @@ export function resolveMakefileDockerRecipes(
   if (commands.length === 0) {
     return { ok: false, reason: `El target '${target}' no contiene comandos Docker ejecutables.` };
   }
-  return { ok: true, commands };
+  return prepDirs.length > 0 ? { ok: true, commands, prepDirs } : { ok: true, commands };
 }
 
 function parseTwoSpaceServiceName(line: string): string | null {
@@ -893,6 +1095,22 @@ function resolvePythonDirectCommands(
   return null;
 }
 
+function resolveProfileDirectCommands(
+  stage: string,
+  services: readonly string[]
+): string[][] | null {
+  if (stage !== 'profile' || !services.includes('profiler')) {
+    return null;
+  }
+  const cmds: string[][] = [];
+  const targetApp = ['api', 'python-api'].find((svc) => services.includes(svc));
+  if (targetApp) {
+    cmds.push(['compose', '-f', COMPOSE_QA_FILE, '--profile', 'profile', 'up', '-d', targetApp]);
+  }
+  cmds.push(['compose', '-f', COMPOSE_QA_FILE, '--profile', 'profile', 'run', '--rm', '-T', 'profiler']);
+  return cmds;
+}
+
 /**
  * Fallback directo sobre docker-compose.qa.yml para proyectos sin Makefile o sin el target buscado.
  */
@@ -905,6 +1123,10 @@ export function resolveComposeDirectFallback(
     return null;
   }
   const services = extractComposeServices(fs.readFileSync(composePath, 'utf8'));
+  const profileCmds = resolveProfileDirectCommands(stage, services);
+  if (profileCmds) {
+    return profileCmds;
+  }
   if (stage === 'bdd' && services.includes('karatelabs')) {
     return [
       ['compose', '-f', COMPOSE_QA_FILE, 'run', '--rm', '-T', 'karatelabs', 'mvn', '-B', 'clean', 'test'],
@@ -1031,7 +1253,14 @@ function execCommand(input: ExecCommandInput): Promise<ExecCommandOutcome> {
 function extractComposeDownArgs(args: readonly string[]): string[] | null {
   if (args[0] !== 'compose') return null;
   const upIdx = args.indexOf('up');
-  if (upIdx <= 0 || !args.slice(upIdx + 1).includes('-d')) {
+  if (upIdx <= 0) return null;
+  const tail = args.slice(upIdx + 1);
+  const needsTeardown =
+    tail.includes('-d') ||
+    tail.includes('--detach') ||
+    tail.includes('--abort-on-container-exit') ||
+    args.includes('--profile');
+  if (!needsTeardown) {
     return null;
   }
   return [...args.slice(0, upIdx), 'down', '-v', '--remove-orphans'];
@@ -1070,6 +1299,15 @@ interface DockerFallbackContext {
   readonly startTime: number;
   readonly execFileSyncFn?: typeof execFileSync;
   readonly signal?: AbortSignal;
+  readonly prepDirs?: readonly string[];
+}
+
+function ensureSafePrepDirs(resolvedPath: string, prepDirs?: readonly string[]): void {
+  if (!prepDirs || prepDirs.length === 0) return;
+  for (const rel of prepDirs) {
+    const targetDir = path.resolve(resolvedPath, rel);
+    fs.mkdirSync(targetDir, { recursive: true });
+  }
 }
 
 async function executeDockerFallbackSequence(
@@ -1084,6 +1322,7 @@ async function executeDockerFallbackSequence(
     startTime,
     execFileSyncFn,
     signal,
+    prepDirs,
   } = ctx;
   const timeoutMs = timeoutSeconds * 1000;
   const stdoutChunks: string[] = [];
@@ -1092,36 +1331,39 @@ async function executeDockerFallbackSequence(
   const composeDownTargets: string[][] = [];
   let lastExitCode = 0;
 
+  ensureSafePrepDirs(resolvedPath, prepDirs);
   prepareCoverageCacheForStage(resolvedPath, stage);
 
-  for (const args of commands) {
-    const rawRemainingMs = timeoutMs - (Date.now() - startTime);
-    if (rawRemainingMs <= 0 || signal?.aborted) {
-      lastExitCode = 124;
-      break;
+  try {
+    for (const args of commands) {
+      const rawRemainingMs = timeoutMs - (Date.now() - startTime);
+      if (rawRemainingMs <= 0 || signal?.aborted) {
+        lastExitCode = 124;
+        break;
+      }
+      registerComposeDownTarget(args, seenDownKeys, composeDownTargets);
+      const res = await execCommand({
+        executor,
+        binary: DOCKER_BINARY,
+        args,
+        cwd: resolvedPath,
+        timeoutMs: Math.max(1000, rawRemainingMs),
+        signal,
+      });
+      if (res.stdout) stdoutChunks.push(res.stdout);
+      const errChunk = res.stderr || (res.exitCode !== 0 ? res.errorMessage : '');
+      if (errChunk) stderrChunks.push(errChunk);
+      if (res.exitCode !== 0) {
+        lastExitCode = res.exitCode;
+        break;
+      }
     }
-    registerComposeDownTarget(args, seenDownKeys, composeDownTargets);
-    const res = await execCommand({
-      executor,
-      binary: DOCKER_BINARY,
-      args,
-      cwd: resolvedPath,
-      timeoutMs: Math.max(1000, rawRemainingMs),
-      signal,
-    });
-    if (res.stdout) stdoutChunks.push(res.stdout);
-    const errChunk = res.stderr || (res.exitCode !== 0 ? res.errorMessage : '');
-    if (errChunk) stderrChunks.push(errChunk);
-    if (res.exitCode !== 0) {
-      lastExitCode = res.exitCode;
-      break;
+
+    harvestCoverageForStage(resolvedPath, stage);
+  } finally {
+    if (composeDownTargets.length > 0) {
+      await teardownComposeServices(executor, composeDownTargets, resolvedPath);
     }
-  }
-
-  harvestCoverageForStage(resolvedPath, stage);
-
-  if (composeDownTargets.length > 0) {
-    await teardownComposeServices(executor, composeDownTargets, resolvedPath);
   }
 
   const durationMs = Date.now() - startTime;
@@ -1295,6 +1537,7 @@ async function runMakeEnoentFallback(ctx: FallbackRunnerContext): Promise<QaExec
       startTime,
       execFileSyncFn,
       signal,
+      prepDirs: recipeResolution.prepDirs,
     });
   }
   const directCommands = resolveComposeDirectFallback(resolvedPath, stage);

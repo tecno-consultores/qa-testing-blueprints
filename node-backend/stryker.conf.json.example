@@ -13,7 +13,14 @@
   "coverageAnalysis": "perTest",
   "incremental": true,
   "incrementalFile": "/tmp/stryker-incremental.json",
+  "ignorePatterns": [
+    "dist",
+    "coverage",
+    "reports",
+    "node_modules"
+  ],
   "concurrency": 4,
+  "ignoreStatic": true,
   "thresholds": {
     "high": 90,
     "low": 80,

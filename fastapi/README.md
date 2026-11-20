@@ -132,10 +132,13 @@ make qa-bdd
 make qa-dast
 ```
 
-*   **Cumulative Profiling (Flamegraph via `py-spy`):**
+*   **Cumulative Profiling (Flamegraph via `py-spy`), Observability & CycloneDX SBOM:**
 ```bash
 # Attaching py-spy to uvicorn inside a hardened container may require CAP_SYS_PTRACE (`--cap-add SYS_PTRACE`) or matching UID; saves profile.svg to /app/.
+# Includes mutmut_gates.py (qa-mutation) and zap.yaml / /tmp/zap-report.html (:ro DAST mounts).
 make qa-profile
+make qa-observability
+make qa-sbom
 ```
 
 **Step 3: Level-11X Certification (Chaos Engineering & Observability)**

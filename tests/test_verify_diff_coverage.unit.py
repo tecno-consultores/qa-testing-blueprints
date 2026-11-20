@@ -719,3 +719,71 @@ def test_wave3_antievade_branch_context_lines_and_zero_totals_skipped(
         vdc.DiffCoverageConfig(workspace=repo),
     )
     assert "SKIPPED" in vdc.format_report_output(res_zero)
+
+
+def test_normalize_rel_path_and_vendored_qa11x_exclusion(tmp_path: Path) -> None:
+    """Valida prefijo '.' y exclusión vendored solo en repos consumidores."""
+    assert vdc._normalize_rel_path("./.agents/scripts/certify_task_completion.sh") == (
+        ".agents/scripts/certify_task_completion.sh"
+    )
+    assert vdc._normalize_rel_path("././.github/workflows/ci.yml") == (
+        ".github/workflows/ci.yml"
+    )
+    assert vdc._normalize_rel_path("\\src\\app.py") == "src/app.py"
+    assert not vdc.is_doc_file("./.agents/scripts/foo.py")
+    assert vdc.is_doc_file("./.agents/rules/rule.md")
+
+    consumer = _init_repo(tmp_path / "consumer")
+    _write(
+        consumer, ".agents/scripts/certify_task_completion.sh", "#!/bin/sh\necho ok\n"
+    )
+    _write(consumer, "scripts/limpieza.sh", "#!/bin/sh\necho clean\n")
+    _write(consumer, "vue3/limpieza.sh", "#!/bin/sh\necho clean\n")
+    _write(consumer, "src/app.py", "def run() -> int:\n    return 1\n")
+    _git(
+        consumer,
+        "add",
+        ".agents/scripts/certify_task_completion.sh",
+        "scripts/limpieza.sh",
+        "vue3/limpieza.sh",
+        "src/app.py",
+    )
+    _write(
+        consumer,
+        "cov/python.xml",
+        "<coverage><packages><package><classes>"
+        '<class filename="src/app.py"><lines>'
+        '<line number="1" hits="1"/>'
+        '<line number="2" hits="1"/>'
+        "</lines></class></classes></package></packages></coverage>",
+    )
+    assert vdc.is_productive_source_file(".agents/scripts/certify_task_completion.sh")
+    assert not vdc.is_productive_source_file(
+        ".agents/scripts/certify_task_completion.sh", consumer
+    )
+    assert not vdc.is_productive_source_file("vue3/limpieza.sh", consumer)
+    assert not vdc.is_productive_source_file("instalar-hooks.sh", consumer)
+    consumer_rep = vdc.evaluate_diff_coverage(
+        vdc.DiffCoverageConfig(workspace=consumer, reports_dir="cov")
+    )
+    assert consumer_rep.exit_code == vdc.EXIT_OK
+
+    blueprint = _init_repo(tmp_path / "blueprint")
+    _write(blueprint, "scripts/generar-manifiesto.py", "print('m')\n")
+    _write(blueprint, "mcp-server/package.json", "{}\n")
+    _write(blueprint, ".agents/scripts/new_gate.py", "def ok() -> int:\n    return 1\n")
+    _git(
+        blueprint,
+        "add",
+        "scripts/generar-manifiesto.py",
+        "mcp-server/package.json",
+        ".agents/scripts/new_gate.py",
+    )
+    assert vdc._is_blueprint_repo(blueprint)
+    assert vdc.is_productive_source_file(".agents/scripts/new_gate.py", blueprint)
+    bp_rep = vdc.evaluate_diff_coverage(
+        vdc.DiffCoverageConfig(workspace=blueprint, reports_dir="cov")
+    )
+    assert bp_rep.exit_code == vdc.EXIT_SECURITY_OR_MISSING_REPORT
+    assert ".agents/scripts/new_gate.py" in bp_rep.missing_report_files
+

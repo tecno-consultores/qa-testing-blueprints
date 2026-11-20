@@ -8,6 +8,9 @@ Todos los cambios notables en el paquete npm y servidor MCP `@sinfallas/mcp-qa-1
 
 ## [Unreleased]
 
+### Corregido
+- **Autodetección SPDX, `mergeLefthookYaml` por Stack, Etapa `profile` en `run_ephemeral_qa` y 36 Reglas Estáticas:** Añadida detección `detectProjectSpdxLicense` y filtrado `root:` por stack en `SurgicalMerger` + `agents-connector.ts`, habilitada expansión segura en comillas dobles y fallback Compose `stage: 'profile'` en `run_ephemeral_qa` (`16` etapas QA), y ampliado `audit_security_stig_owasp` a `36` reglas estáticas con verificación JSX/TSX en `QA-SSR-HYDRATION-01`, `QA-STRYKER-CFG-01` y `SEC-WS-PUBSUB-01`.
+
 ## [3.2.0] - 2026-11-19
 
 ### Añadido

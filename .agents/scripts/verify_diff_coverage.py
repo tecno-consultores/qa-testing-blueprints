@@ -66,6 +66,16 @@ NON_PRODUCTIVE_BASENAME_RE = re.compile(
 GENERIC_REPORT_STEMS = frozenset(
     {"python", "cobertura", "node-cobertura", "php", "bash", "lcov", "coverage"}
 )
+VENDORED_QA11X_PATHS = frozenset(
+    {
+        "instalar-hooks.sh",
+        "scripts/actualizar-grafos-graphify.sh",
+        "scripts/auditar-infra.sh",
+        "scripts/generar-sbom-cyclonedx.sh",
+        "scripts/limpieza.sh",
+        "scripts/verificar-secretos.sh",
+    }
+)
 
 
 class SecurityValidationError(Exception):
@@ -630,26 +640,53 @@ def collect_git_changes(
     return changes
 
 
+def _normalize_rel_path(rel_path: str) -> str:
+    norm = rel_path.replace("\\", "/").strip()
+    while norm.startswith("./"):
+        norm = norm[2:]
+    return norm.lstrip("/")
+
+
+def _is_blueprint_repo(workspace_root: Path) -> bool:
+    return (
+        workspace_root / "scripts" / "generar-manifiesto.py"
+    ).is_file() and (workspace_root / "mcp-server" / "package.json").is_file()
+
+
+def _is_vendored_qa11x_tooling(
+    norm_path: str, workspace_root: Path | None
+) -> bool:
+    if workspace_root is None or _is_blueprint_repo(workspace_root):
+        return False
+    if norm_path.startswith(".agents/scripts/") or norm_path in VENDORED_QA11X_PATHS:
+        return True
+    return Path(norm_path).name == "limpieza.sh"
+
+
 def is_doc_file(rel_path: str) -> bool:
-    norm = rel_path.replace("\\", "/").lstrip("./").lower()
+    norm = _normalize_rel_path(rel_path).lower()
     if norm.endswith((".md", ".mdx")):
         return True
     return norm.startswith("docs/") or "/docs/" in norm
 
 
 def is_test_file(rel_path: str) -> bool:
-    norm = rel_path.replace("\\", "/").lstrip("./")
+    norm = _normalize_rel_path(rel_path)
     parts = norm.split("/")
     if any(seg in NON_PRODUCTIVE_DIR_SEGMENTS for seg in parts[:-1]):
         return True
     return bool(NON_PRODUCTIVE_BASENAME_RE.match(parts[-1]))
 
 
-def is_productive_source_file(rel_path: str) -> bool:
-    norm = rel_path.replace("\\", "/").lstrip("./")
+def is_productive_source_file(
+    rel_path: str, workspace_root: Path | None = None
+) -> bool:
+    norm = _normalize_rel_path(rel_path)
     if norm.endswith(".d.ts") or "alembic/versions/" in norm:
         return False
     if is_doc_file(norm) or is_test_file(norm):
+        return False
+    if _is_vendored_qa11x_tooling(norm, workspace_root):
         return False
     return Path(norm).suffix.lower() in PRODUCTIVE_EXTENSIONS
 
@@ -753,11 +790,12 @@ def _evaluate_productive_file(
 def _evaluate_file_metrics(
     changes: dict[str, DiffFileChange],
     cov_map: dict[str, FileCoverageData],
+    workspace_root: Path | None = None,
 ) -> tuple[list[FileDeltaMetrics], list[str]]:
     metrics: list[FileDeltaMetrics] = []
     missing_reports: list[str] = []
     for rel_path in sorted(changes):
-        if not is_productive_source_file(rel_path):
+        if not is_productive_source_file(rel_path, workspace_root):
             continue
         delta = _evaluate_productive_file(
             rel_path, changes[rel_path], cov_map.get(rel_path)
@@ -914,7 +952,9 @@ def evaluate_diff_coverage(config: DiffCoverageConfig) -> DiffCoverageReport:
             error_detail=str(exc),
         )
 
-    metrics, missing_reports = _evaluate_file_metrics(changes, cov_map)
+    metrics, missing_reports = _evaluate_file_metrics(
+        changes, cov_map, workspace_root
+    )
     return _compute_global_totals(metrics, missing_reports, config)
 
 

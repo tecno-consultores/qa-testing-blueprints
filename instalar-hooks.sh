@@ -113,8 +113,17 @@ if [ "${MCP_CHANGED}" = true ] && [ -f "./mcp-server/package.json" ]; then
 		./scripts/probar-mcp-example.sh --in-place
 	fi
 fi
-if [ -f "./ai-evals/tests/test_ai_contracts.py" ] && [ -f "./Makefile" ] && command -v make >/dev/null 2>&1; then
-	make test-ai-offline
+if [ -f "./ai-evals/rag/test_rag_faithfulness.py" ]; then
+	if [ -f "./Makefile" ] && command -v make >/dev/null 2>&1; then
+		make test-ai-offline
+	else
+		mkdir -p .agents/.cache/coverage && chmod 0700 .agents/.cache
+		docker run --rm --network none --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 \
+			-e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e DEEPEVAL_TELEMETRY_OPT_OUT=YES \
+			-v "$(pwd):/app:ro" -v "$(pwd)/.agents/.cache/coverage:/app/.agents/.cache/coverage" -w /app \
+			sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 \
+			bash -c "ruff check --select E,F,W,I,UP,B,C901 --config 'lint.mccabe.max-complexity=5' ai-evals tests/evals && MYPYPATH=ai-evals mypy --strict --cache-dir=/tmp/mypy ai-evals/golden_from_traces.py ai-evals/_llm_judge.py ai-evals/rag/test_rag_faithfulness.py ai-evals/voice-realtime/test_voice_websocket_latency.py ai-evals/multimodal-ocr/test_pdf_table_fidelity.py ai-evals/tests/test_golden_from_traces.py tests/evals/test_skill_adherence.py && PYTHONPATH=ai-evals pytest --cov=ai-evals --cov=tests/evals --cov-fail-under=95 --cov-report=xml:/app/.agents/.cache/coverage/ai-evals.xml ai-evals/rag/test_rag_faithfulness.py ai-evals/voice-realtime/test_voice_websocket_latency.py ai-evals/multimodal-ocr/test_pdf_table_fidelity.py ai-evals/tests/test_golden_from_traces.py tests/evals/test_skill_adherence.py -q"
+	fi
 fi
 if [ -f "./scripts/generar-manifiesto.py" ]; then
 	docker run --rm --network none -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache \
@@ -122,21 +131,26 @@ if [ -f "./scripts/generar-manifiesto.py" ]; then
 		-u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 \
 		bash -c "python3 .agents/scripts/sync_governance.py --check && python3 .agents/scripts/bump_version_11x.py --workspace . --check && python3 .agents/scripts/verify_docs_invariants.py && python3 .agents/scripts/verify_roadmap_consistency.py && python3 .agents/scripts/verify_topological_health.py && python3 .agents/scripts/verify_json_no_duplicate_keys.py"
 	# Ejecuta tests/*.unit.py y tests/meta_qa/test_governance_scripts.py (más test_antipattern_linter.py) vía make
-	if command -v make >/dev/null 2>&1; then
+	if [ -f "./Makefile" ] && command -v make >/dev/null 2>&1; then
 		make test-py && make test-meta-qa
 	else
+		mkdir -p .agents/.cache/coverage && chmod 0700 .agents/.cache
 		docker run --rm --network none -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 \
-			-e PYTHONPATH=/app/.agents/scripts:/app/vibe-rescue:/app -e HOME=/tmp -u "$(id -u):$(id -g)" -v "$(pwd):/app:ro" -w /app \
+			-e PYTHONPATH=/app/.agents/scripts:/app/vibe-rescue:/app -e HOME=/tmp -u "$(id -u):$(id -g)" -v "$(pwd):/app:ro" -v "$(pwd)/.agents/.cache/coverage:/app/.agents/.cache/coverage" -w /app \
 			sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 \
-			bash -c "ruff check --select E,F,W,I,UP,B,C901,FLY --config 'lint.mccabe.max-complexity=5' .agents/scripts scripts tests vibe-rescue && MYPYPATH=/app/.agents/scripts:ai-evals:vibe-rescue mypy --strict --cache-dir=/tmp/mypy .agents/scripts/*.py scripts/*.py tests/*.unit.py tests/meta_qa/*.py tests/evals/*.py vibe-rescue/*.py vibe-rescue/tests/*.py && pytest --cov=.agents/scripts --cov=scripts --cov=vibe-rescue --cov-fail-under=95 --cov-branch tests/*.unit.py tests/meta_qa/test_*.py vibe-rescue/tests/*.unit.py -q"
+			bash -c "ruff check --select E,F,W,I,UP,B,C901,FLY --config 'lint.mccabe.max-complexity=5' .agents/scripts scripts tests vibe-rescue && MYPYPATH=/app/.agents/scripts:ai-evals:vibe-rescue mypy --strict --cache-dir=/tmp/mypy .agents/scripts/*.py scripts/*.py tests/*.unit.py tests/meta_qa/*.py tests/evals/*.py vibe-rescue/*.py vibe-rescue/tests/*.py && pytest --cov=.agents/scripts --cov=scripts --cov=vibe-rescue --cov-fail-under=95 --cov-branch --cov-report=xml:/app/.agents/.cache/coverage/python.xml tests/*.unit.py tests/meta_qa/test_*.py vibe-rescue/tests/*.unit.py -q"
 	fi
 fi
 if [ -d "./mcp-server/test" ]; then
 	docker run --rm --network none --security-opt=no-new-privileges:true -v "$(pwd)/mcp-server/test:/app/src/test/java/examples/test:ro" -v "$(pwd):/repo:ro" sinfallas/karatelabs:1.5.1@sha256:a9a52ca9c5491ab39b64f0b4fdc3dea879c2213c9bc995be58d6cd4b9a80cc89 mvn -B -q clean test
 fi
 if [ -d "./bash-scripts/test" ]; then
-	docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -e _USER=qa -v "$(pwd):/repo:ro" -w /repo/bash-scripts sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7 \
-		bash -c 'shopt -s nullglob; mapfile -t lint_files < <(printf "%s\n" ../scripts/*.sh ../.agents/scripts/*.sh ../instalar-hooks.sh ../*/limpieza.sh ../mcp-server/example/verify-v2.sh ./*.sh | sort -u); shellcheck -x "${lint_files[@]}" && shfmt -i 2 -ci -d "${lint_files[@]}" && bats test/*.bats ../tests/bats/*.bats'
+	if [ -f "./Makefile" ] && [ -d "./tests/bats" ] && command -v make >/dev/null 2>&1; then
+		make shellcheck && make shfmt && make test-bats
+	else
+		docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -e _USER=qa -v "$(pwd):/repo:ro" -w /repo/bash-scripts sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7 \
+			bash -c 'shopt -s nullglob; mapfile -t lint_files < <(printf "%s\n" ../scripts/*.sh ../.agents/scripts/*.sh ../instalar-hooks.sh ../*/limpieza.sh ../mcp-server/example/verify-v2.sh ./*.sh | sort -u); if [ "${#lint_files[@]}" -gt 0 ]; then shellcheck -x "${lint_files[@]}" && shfmt -i 2 -ci -d "${lint_files[@]}"; fi && bats test/*.bats ../tests/bats/*.bats'
+	fi
 fi
 if [ -x "./.agents/scripts/validate_calm_architecture.sh" ]; then
 	./.agents/scripts/validate_calm_architecture.sh

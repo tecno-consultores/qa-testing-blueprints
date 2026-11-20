@@ -1,4 +1,4 @@
-.PHONY: qa-lint qa-unit qa-contracts qa-e2e qa-dast qa-mutation qa-sbom qa-stress qa-all clean-cache clean qa-clean
+.PHONY: qa-lint qa-unit qa-contracts qa-e2e qa-bdd qa-dast qa-mutation qa-sbom qa-stress qa-chaos qa-observability qa-all clean-cache clean qa-clean
 
 # Variables
 COMPOSE_FILE ?= docker-compose.qa.yml
@@ -10,6 +10,7 @@ export QA_UID QA_GID
 
 qa-lint:
 	@echo "🔍 Ejecutando Auditoría de CVEs, Linter y Type Checking (Node.js)..."
+	@[ ! -x ./scripts/verificar-secretos.sh ] || ./scripts/verificar-secretos.sh
 	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run audit:deps && pnpm run format:check && pnpm lint && pnpm type-check"
 
 qa-unit:
@@ -31,20 +32,28 @@ qa-dast:
 	@echo "🛡️ [11X] Ejecutando Auditoría Dinámica DAST (OWASP ZAP)..."
 	@bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" down -v >/dev/null 2>&1 || true" EXIT; \
 		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" up -d --wait api && \
-		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp zap zap-baseline.py -t http://api:3000 -r zap-report.html'
+		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp zap sh -c "if [ -f /zap/wrk/zap.yaml ]; then zap.sh -cmd -autorun /zap/wrk/zap.yaml; else zap-baseline.py -t http://api:3000 -r /tmp/zap-report.html; fi"'
 
 qa-mutation:
 	@echo "👽 Ejecutando Pruebas de Mutación (Stryker)..."
-	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run mutate"
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c 'mkdir -p /tmp/qa-bin && printf "#!/bin/sh\nexit 0\n" >/tmp/qa-bin/ps && chmod +x /tmp/qa-bin/ps && pnpm install --silent && PATH="/tmp/qa-bin:$$PATH" pnpm run mutate'
 
 qa-sbom:
 	@echo "📦 Generando SBOM CycloneDX (Node.js)..."
 	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run qa:sbom"
 
+qa-bdd: qa-e2e
+
 qa-stress:
 	@echo "🔥 Ejecutando Pruebas de Carga y Caos (Artillery + Pumba)..."
 	@bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" --profile chaos down -v >/dev/null 2>&1 || true" EXIT; \
 		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile chaos up --abort-on-container-exit --exit-code-from stress_test'
+
+qa-chaos: qa-stress
+
+qa-observability:
+	@echo "📈 [11X] Levantando observabilidad (Prometheus)..."
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile observability up -d --wait prometheus
 
 qa-all: qa-lint qa-unit qa-contracts qa-mutation qa-e2e
 	@echo "✅ Pipeline QA Node Backend completado."

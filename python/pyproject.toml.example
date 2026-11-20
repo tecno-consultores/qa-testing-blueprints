@@ -16,6 +16,7 @@ dev = [
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
     "pytest-mock>=3.14.0",
+    "hypothesis>=6.100.0",
     
     # BDD & Benchmarking
     "pytest-bdd>=7.1.2",

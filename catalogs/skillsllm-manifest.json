@@ -118,8 +118,8 @@
       "name": "qa-11x-architect",
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-architect/SKILL.md",
-      "size_bytes": 11674,
-      "sha256": "508db6931d2a226034c1028217fce1f887914a5791e0fd453457b07601034baf",
+      "size_bytes": 11723,
+      "sha256": "2347f24848a78efeee5ab872baa9aa125ba6c3a346e28394da486aef027760dd",
       "description": "Master QA 11X & DevSecOps Architect (qa-testing-blueprints v3.2+). Use whenever the user asks to initialize or integrate QA in a project, merge .example templates, write or audit unit/BDD/mutation/E2E tests, enforce >=95% coverage, apply DISA ASD STIG V6R5 and OWASP v4.2 security controls, run ephemeral Docker QA suites (Rule Zero), optimize context token consumption, or update TESTING.md and CHANGELOG.md."
     },
     {
@@ -127,8 +127,8 @@
       "name": "qa-11x-devsecops-hardener",
       "path": ".agents/skills/qa-11x-devsecops-hardener/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-devsecops-hardener/SKILL.md",
-      "size_bytes": 13948,
-      "sha256": "c3455cebbe0d9facf0605901bc97b91cf588cf8d8d331f500fcb449e422ec62f",
+      "size_bytes": 14296,
+      "sha256": "720138d593339f7da6c206bfcb5012828df8ef90b2dc69fbd0931b456869ab77",
       "description": "DISA ASD STIG V6R5 and OWASP Developer Guide v4.2 hardening sub-skill for Standard 11X. Use whenever designing, auditing, or modifying multi-tenant PostgreSQL 15–17+ RLS schemas, authentication and session flows, cryptographic secret vaults, WORM audit hash-chains, mutating MCP/JSON-RPC tools, or non-root Docker containers."
     },
     {
@@ -145,8 +145,8 @@
       "name": "qa-11x-screenplay-builder",
       "path": ".agents/skills/qa-11x-screenplay-builder/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-screenplay-builder/SKILL.md",
-      "size_bytes": 11839,
-      "sha256": "c570a0234e417b7a4a111d173ca6c41ed36046bb017fe2a9956b11f75b111f84",
+      "size_bytes": 12056,
+      "sha256": "ad79bf5db356c272bfaa03599a6944ffbbc18e0314aa08e392d0d045d626c12e",
       "description": "Proportional E2E and acceptance architecture sub-skill for Standard 11X. Enforces the Screenplay Pattern (Actors, Abilities, Tasks, Interactions, Questions) on multi-role RBAC, multi-tenant, and hybrid UI+API+Mobile flows, lightweight composed POM on small single-role apps (<= 10 tests, <= 3 pages), semantic self-healing ARIA locators, Anti-JSDOM geometry, Anti-Silo cross-module Questions, and 3-phase temporal assertions."
     },
     {
@@ -172,8 +172,8 @@
       "name": "qa-11x-docker-certifier",
       "path": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-docker-certifier/SKILL.md",
-      "size_bytes": 8786,
-      "sha256": "409d5b557e54c98acfbd59fe8b989a1fd8f47ed31aa1d9aa7fffc8f2b92df1bd",
+      "size_bytes": 9016,
+      "sha256": "534a41cc295fc515b079318d1dafc350e0832c448cda920d86864cffa8ccf0f2",
       "description": "QA 11X Corporate Standard certifier in ephemeral Docker containers. Enforces Rule Zero (zero host executions on Ubuntu/macOS/Windows), Cyclomatic/Cognitive Complexity Grade A, unit test coverage >= 95%, mutation testing, WCAG 2.1 AA accessibility, Lighthouse CI, and silent mode RAM conservation."
     },
     {
@@ -208,8 +208,8 @@
       "name": "tactical-patterns-11x",
       "path": ".agents/skills/tactical-patterns-11x/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/tactical-patterns-11x/SKILL.md",
-      "size_bytes": 2418,
-      "sha256": "4544f5b203d21a2f1868cd94c29acaf065f9007d66deaacf5a334bd2c8a1f8d9",
+      "size_bytes": 2521,
+      "sha256": "23c87b41ecae17b7f6e4058ac5cb42e58a4deb714dcfdef995d4f2b348e789df",
       "description": "JIT tactical patterns for QA-11X: complexity rescue (CC <= 5, SonarJS <= 15, max-params <= 4, max-depth <= 3), offline Port/Adapter (--network none), atomic outbox/idempotency/RLS, and anti-overengineering."
     }
   ]

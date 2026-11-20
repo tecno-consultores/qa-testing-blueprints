@@ -1,0 +1,59 @@
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
+# OWASP ZAP Automation Framework (Rule Zero / contenedor no-root, /zap/wrk:ro -> salida en /tmp)
+
+env:
+  contexts:
+    - name: "node-qa-target"
+      urls:
+        - "http://api:3000"
+      includePaths:
+        - "http://api:3000/.*"
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    progressToStdout: true
+
+jobs:
+  - type: passiveScan-config
+    parameters:
+      maxAlertsPerRule: 10
+      scanOnlyInScope: true
+  - type: spider
+    parameters:
+      context: "node-qa-target"
+      url: "http://api:3000"
+      maxDuration: 2
+      maxDepth: 5
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 5
+  - type: activeScan
+    parameters:
+      context: "node-qa-target"
+      policy: "API-minimal"
+      maxRuleDurationInMins: 2
+      maxScanDurationInMins: 5
+  - type: report
+    parameters:
+      template: "traditional-html"
+      reportDir: "/tmp"
+      reportFile: "zap-report.html"
+      reportTitle: "QA-11X Node Backend OWASP ZAP DAST Report"
+    risks:
+      - high
+      - medium
+      - low
+      - info
+  - type: report
+    parameters:
+      template: "traditional-json"
+      reportDir: "/tmp"
+      reportFile: "zap-report.json"
+  - type: exitStatus
+    parameters:
+      errorLevel: "High"
+      warnLevel: "Medium"
+      okExitValue: 0
+      warnExitValue: 1
+      errorExitValue: 2

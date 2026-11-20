@@ -24,7 +24,7 @@ Structured submission bundle ready for `https://agenticskills.io/submit` and `ht
 | 3 | `bootstrap_or_merge_11x` | Surgically scaffolds or merges `.example` QA configs with `.11x-backup` |
 | 4 | `inspect_ast_blast_radius` | Bidirectional Graphify AST lookup (`declaring_files`, callers, callees) |
 | 5 | `clean_workspace_11x` | Purges transient test/Docker artifacts safely without host `sudo` |
-| 6 | `audit_security_stig_owasp` | Static scan across 34 static scanner rules (`SEC-01..QA-SSR-HYDRATION-01`, `UI-11X-01..03`) backing the 22 DISA ASD STIG V6R5 + OWASP v4.2 reference controls |
+| 6 | `audit_security_stig_owasp` | Static scan across 36 static scanner rules (`SEC-01..QA-STRYKER-CFG-01`, `SEC-WS-PUBSUB-01`, `UI-11X-01..03`) backing the 22 DISA ASD STIG V6R5 + OWASP v4.2 reference controls |
 | 7 | `run_ephemeral_qa` | Runs QA stages inside non-root ephemeral Docker (`Rule Zero`) |
 | 8 | `certify_11x_gate` | Runs the 10-stage 11X gate with `Fail-Verbose` Allure diagnostics |
 | 9 | `audit_test_pyramid_gaps` | Audits project coverage across the 13 QA-11X pyramid layers |
@@ -45,7 +45,7 @@ Structured submission bundle ready for `https://agenticskills.io/submit` and `ht
 | :--- | :--- | :--- | :--- |
 | 1 | `blueprint://manifest` | `application/json` | SHA-256 index (`manifest.json`) across all stacks |
 | 2 | `blueprint://core/philosophy` | `text/markdown` | 13-layer pyramid philosophy, Rule Zero, 10 Laws, 11 UAT rules |
-| 3 | `blueprint://security/disa-owasp-22` | `text/markdown` | 22 canonical DISA ASD STIG V6R5 & OWASP v4.2 reference controls (backed by 34 static scanner rules) |
+| 3 | `blueprint://security/disa-owasp-22` | `text/markdown` | 22 canonical DISA ASD STIG V6R5 & OWASP v4.2 reference controls (backed by 36 static scanner rules) |
 | 4 | `blueprint://database/postgres-rls-worm` | `text/markdown` | PostgreSQL 17 multi-transaction RLS + WORM `seq_num` chain |
 | 5 | `blueprint://{stack}/readme` | `text/markdown` | Operational QA guides across all 10 stack blueprints |
 | 6 | `blueprint://ui/refactoring-ui/{topic}` | `text/markdown` | UI hierarchy, OKLCH WCAG 2.1 AA, and Anti-JSDOM geometry guides |

@@ -32,7 +32,7 @@
 21. [Pattern 21: OWASP API Security Top 10 (2023) Mitigation, Anti-Data-Mining, and Unsafe API Consumption Defense](#pattern-21-owasp-api-security-top-10-2023-mitigation-anti-data-mining-and-unsafe-api-consumption-defense)
 22. [Pattern 22: Supply Chain (CycloneDX SBOM/CBOM), Artifact Signing, and Threat Modeling as Code](#pattern-22-supply-chain-cyclonedx-sbomcbom-artifact-signing-and-threat-modeling-as-code)
 
-### 🧭 Traceability Map with the Static Auditor (`audit_security_stig_owasp` — 34 Rules: `SEC-01`..`SEC-16`, `QA-*`, `UI-11X-*`)
+### 🧭 Traceability Map with the Static Auditor (`audit_security_stig_owasp` — 36 Rules: `SEC-01`..`SEC-16`, `QA-*`, `UI-11X-*`)
 
 | MCP Rule | Mitigated Control / Vector | Human Reference Pattern |
 | :--- | :--- | :--- |
@@ -69,7 +69,9 @@
 | `QA-CONTRACT-SDK-01` | MCP/JSON-RPC/ACP servers tested solely by invoking handlers with `MagicMock` without wiring the real in-process SDK client/transport (masks breaking signature shifts like `mcp 1.x -> 2.x`) | `docs/02` §1.1 (Rule #11) and `SECURITY.md` §4.28 |
 | `QA-DOCKER-LOCK-01` | `Dockerfile` installing a manual package list (`pip install ...`, `npm install <pkg>`) or `uv sync` without `--frozen` instead of installing from the lockfile, plus missing post-build image smoke test (`import`, `id -u != 0`, `401`) | `docs/02` §1.1 (Rule #11) and `SECURITY.md` §4.28 |
 | `QA-PLAYWRIGHT-PIN-01` | Mismatch or SemVer range (`^`/`~`) between `@playwright/test`/`playwright` in `package.json` and `mcr.microsoft.com/playwright:vX.Y.Z` (or `:latest`) in Compose, plus DNS/IP Anti-SSRF (Pattern 4) and API key redaction (`SEC-10`) in `audit_pagespeed_insights.py` | `docs/02` §7, §9 and `SECURITY.md` §4.29 |
-| `QA-SSR-HYDRATION-01` | Pre-hydration DOM branching (`v-if` on `localStorage`/`dataset.theme`) in SSR/SSG apps or missing dual `'light'`/`'dark'` Playwright sweep with `console`/`pageerror` guard (`/hydration/i`) | `docs/02` §7 and `SECURITY.md` §4.30 |
+| `QA-SSR-HYDRATION-01` | Pre-hydration DOM branching (`v-if` or conditional JSX/TSX outside `useEffect` on `localStorage`/`dataset.theme`) in SSR/SSG apps or missing dual `'light'`/`'dark'` Playwright sweep with `console`/`pageerror` guard (`/hydration/i`) | `docs/02` §7 and `SECURITY.md` §4.30 |
+| `QA-STRYKER-CFG-01` | Missing `"ignoreStatic": true` or excessive `"concurrency" > 4` in `stryker.conf.json(.example)` causing ephemeral container OOMs (`Makefile.example` also wires `/tmp/qa-bin/ps` non-root shim) | `docs/02` §8 and `SECURITY.md` §4.31 |
+| `SEC-WS-PUBSUB-01` | Unscoped Redis/KeyDB WebSocket PubSub subscriptions (`SUBSCRIBE events` / wildcard `*` without `tenant_id`) or unvalidated client channel joins leaking cross-tenant events | Pattern 1 and `SECURITY.md` §4.32 |
 
 ---
 

@@ -296,3 +296,7 @@ async def consume_preauth_challenge_atomic(redis, request: Request, challenge_id
     it = iter(raw)
     return {k.decode() if isinstance(k, bytes) else k: v.decode() if isinstance(v, bytes) else v for k, v in zip(it, it)}
 ```
+
+### Addendum (`SEC-WS-PUBSUB-01`): Multi-Tenant WebSocket & KeyDB/Redis PubSub Isolation (`OWASP API3/API4`, `APSC-DV-000460`)
+- Never subscribe WebSocket hubs or dispatch broadcast loops (`pubsub.subscribe`, `ws_manager.broadcast`) across shared/global channels without tenant scoping.
+- Prefix PubSub channels with tenant identifiers (`f"ws:{tenant_id}:events"`) and verify subscriber `tenant_id` / `org_id` membership before forwarding frames (audited statically by `SEC-WS-PUBSUB-01`, exemptible with `# sec-ws-pubsub-ok`).

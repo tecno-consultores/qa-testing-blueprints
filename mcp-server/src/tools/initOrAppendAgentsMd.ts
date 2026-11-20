@@ -727,7 +727,10 @@ export async function initOrAppendAgentsMd(
 
   const agentsMdPath = resolveSafeBridgePath(resolvedPath, AGENTS_MD_FILENAME);
   const existingAgentsMd = fs.existsSync(agentsMdPath) ? fs.readFileSync(agentsMdPath, UTF8) : '';
-  const mergedAgentsMd = mergeAgentsMdContent(existingAgentsMd, projectName, detectedStacks, lang);
+  const mergedAgentsMd = mergeAgentsMdContent(existingAgentsMd, projectName, detectedStacks, {
+    lang,
+    projectDir: resolvedPath,
+  });
 
   const { bridgedAgents, bridgeFiles } = syncAgentBridgeFiles(
     resolvedPath,

@@ -24,6 +24,7 @@ description: >-
 - DB write + side effect (KeyDB/queues/webhooks) -> **Transactional Outbox** in same PG transaction (no uncoordinated dual-write).
 - HTTP mutations (`POST`/`PUT`/`PATCH`/`DELETE`) -> **Atomic Idempotency State Machine** locking `(tenant_id, idempotency_key)` + payload SHA-256 (`409 Conflict` on mismatch; no `SELECT` before `INSERT`).
 - PG17 RLS -> **Context-Scoped Unit of Work** setting `SET LOCAL app.current_tenant_id` (`after_begin`) inside active tx.
+- WS/PubSub (`SEC-WS-PUBSUB-01`) -> Prefix `ws:{tenant_id}:events`; verify `tenant_id` per subscriber.
 
 ## 4. Anti-Overengineering Guardrails
 - **FORBIDDEN:** Single-implementation `Protocol`/`interface` (outside §2 external network ports).

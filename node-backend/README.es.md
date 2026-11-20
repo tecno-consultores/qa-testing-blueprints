@@ -105,17 +105,18 @@ make qa-mutation
 
 *   **Comportamiento BDD (Karate):**
 ```bash
-make qa-e2e
+make qa-bdd   # alias de qa-e2e
 ```
 
-*   **Seguridad Dinámica DAST (OWASP ZAP):**
+*   **Seguridad Dinámica DAST (OWASP ZAP vía `zap.yaml` / `/tmp/zap-report.html`):**
 ```bash
 make qa-dast
 ```
 
 **Paso 3: Certificación de Nivel 11X (Ingeniería del Caos y Observabilidad — independiente de `qa-all`)**
-*ADVERTENCIA:* Este comando independiente (`qa-stress` está excluido de `qa-all`) activa el perfil de caos. Despierta a Pumba, Artillery y Prometheus simultáneamente para estresar la API simulando una red severamente degradada.
+*ADVERTENCIA:* Este comando independiente (`qa-stress` / `qa-chaos` está excluido de `qa-all`) activa el perfil de caos (`qa-observability` levanta Prometheus bajo demanda). Despierta a Pumba, Artillery y Prometheus simultáneamente para estresar la API simulando una red severamente degradada.
 ```bash
-make qa-stress
+make qa-chaos          # alias de qa-stress
+make qa-observability  # perfil autónomo de observabilidad Prometheus
 ```
 *(Durante el ataque, visualiza métricas en vivo en `http://localhost:9090`. Al finalizar, revisa `chaos-report.json` generado localmente. Para profiling CPU/RAM, ejecuta `pnpm run profile:cpu` o `pnpm run profile:memory` dentro de `qa-node-backend`).*

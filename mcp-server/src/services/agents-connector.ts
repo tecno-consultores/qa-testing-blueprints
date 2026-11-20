@@ -21,6 +21,112 @@ export interface DelimitedSectionSpec {
   readonly appendSeparator: string;
 }
 
+export interface AgentsMdMergeOptions {
+  readonly lang?: OutputLanguageMode;
+  readonly spdxLicense?: string;
+  readonly projectDir?: string;
+}
+
+const SAFE_SPDX_PATTERN = /^[A-Za-z0-9.+_-]{2,64}$/;
+
+const LICENSE_TEXT_SIGNATURES: ReadonlyArray<readonly [RegExp, string]> = [
+  [/GNU GENERAL PUBLIC LICENSE[\s\S]{0,120}Version 3/i, 'GPL-3.0-only'],
+  [/GNU GENERAL PUBLIC LICENSE[\s\S]{0,120}Version 2/i, 'GPL-2.0-only'],
+  [/GNU AFFERO GENERAL PUBLIC LICENSE[\s\S]{0,120}Version 3/i, 'AGPL-3.0-only'],
+  [/GNU LESSER GENERAL PUBLIC LICENSE[\s\S]{0,120}Version 3/i, 'LGPL-3.0-only'],
+  [/Apache License[\s\S]{0,120}Version 2\.0/i, 'Apache-2.0'],
+  [/Mozilla Public License Version 2\.0/i, 'MPL-2.0'],
+  [/Permission is hereby granted, free of charge/i, 'MIT'],
+  [/Permission to use, copy, modify, and\/or distribute/i, 'ISC'],
+  [/Redistribution and use in source and binary forms[\s\S]{0,400}neither the name/i, 'BSD-3-Clause'],
+  [/Redistribution and use in source and binary forms/i, 'BSD-2-Clause'],
+];
+
+function normalizeSpdxToken(raw: unknown): string | null {
+  if (typeof raw !== 'string') {
+    return null;
+  }
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed.toUpperCase() === 'UNLICENSED') {
+    return null;
+  }
+  return SAFE_SPDX_PATTERN.test(trimmed) ? trimmed : null;
+}
+
+function readSpdxFromJsonFile(filePath: string): string | null {
+  if (!fs.existsSync(filePath)) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(fs.readFileSync(filePath, UTF8)) as { license?: unknown };
+    return normalizeSpdxToken(parsed.license);
+  } catch {
+    return null;
+  }
+}
+
+function extractPyprojectLicenseLine(trimmed: string): string | null {
+  if (!trimmed.startsWith('license')) {
+    return null;
+  }
+  const direct = /^license {0,8}= {0,8}"([^"\r\n]{1,64})"/.exec(trimmed);
+  if (direct?.[1]) {
+    return normalizeSpdxToken(direct[1]);
+  }
+  const table = /\btext {0,4}= {0,4}"([^"\r\n]{1,64})"/.exec(trimmed);
+  return normalizeSpdxToken(table?.[1]);
+}
+
+function readSpdxFromPyproject(filePath: string): string | null {
+  if (!fs.existsSync(filePath)) {
+    return null;
+  }
+  for (const line of fs.readFileSync(filePath, UTF8).split(/\r?\n/)) {
+    const found = extractPyprojectLicenseLine(line.trim());
+    if (found) {
+      return found;
+    }
+  }
+  return null;
+}
+
+function readSpdxFromLicenseFile(projectDir: string): string | null {
+  if (!fs.existsSync(projectDir)) {
+    return null;
+  }
+  for (const name of ['LICENSE', 'LICENSE.md', 'LICENSE.txt']) {
+    const candidate = path.join(projectDir, name);
+    if (!fs.existsSync(candidate)) {
+      continue;
+    }
+    const text = fs.readFileSync(candidate, UTF8).slice(0, 2048);
+    const hit = LICENSE_TEXT_SIGNATURES.find(([re]) => re.test(text));
+    if (hit) {
+      return hit[1];
+    }
+  }
+  return null;
+}
+
+export function detectProjectSpdxLicense(projectDir?: string): string {
+  if (!projectDir) {
+    return 'MIT';
+  }
+  const probes = [
+    () => readSpdxFromJsonFile(path.join(projectDir, 'package.json')),
+    () => readSpdxFromJsonFile(path.join(projectDir, 'composer.json')),
+    () => readSpdxFromPyproject(path.join(projectDir, 'pyproject.toml')),
+    () => readSpdxFromLicenseFile(projectDir),
+  ];
+  for (const probe of probes) {
+    const found = probe();
+    if (found) {
+      return found;
+    }
+  }
+  return 'MIT';
+}
+
 export function resolveProjectDisplayName(resolvedPath: string): string {
   return path.basename(resolvedPath) || 'Project';
 }
@@ -101,9 +207,11 @@ export function buildGlobalGeminiBlock(lang: OutputLanguageMode = 'auto'): strin
       '## 🤖 Conector Global Thin-Client QA 11X (`@sinfallas/mcp-qa-11x`)',
       '',
       '- **Idioma y Economía Cognitiva:** Interactuar, razonar y escribir commits/documentación estrictamente en **Español** (manteniendo `AGENTS.md` y `.agents/**` en inglés conciso por economía cognitiva). Aplicar *3-Tier Progressive Disclosure*, lecturas acotadas (`StartLine`/`EndLine` 40–80 líneas; prohibido leer archivos `>150` líneas a ciegas), *Zero Redundant Re-Read*, *Parallel Tool Batching* y aislamiento de subagentes (`<=20` líneas).',
+      '- **Rule Zero Supremo:** NUNCA ejecutar tests, migraciones, compiladores, linters ni instalaciones directamente en el host OS (`Ubuntu`/`macOS`/`Windows`); ejecutar todo en contenedores Docker efímeros sin root (`run_ephemeral_qa` / `make`).',
       '- **Graphify AST-First (Consultas de Código Q&A y Pre-Cambio):** Ante **cualquier pregunta sobre el código o arquitectura de un proyecto** o antes de modificar código, activar `graphify-ast-navigator` y consultar **SIEMPRE primero** el grafo AST (`inspect_ast_blast_radius` / `python3 .agents/scripts/inspect_blast_radius.py` y `graphify-out/GRAPH_REPORT.md`; si `graphify-out/graph.json` no existe, generarlo con `./scripts/actualizar-grafos-graphify.sh`) antes de usar `grep` o `read_file`.',
       '- **Consumo Global sin Duplicación (Skills + MCP `qa-11x`):** Consumir los protocolos `DOCS_ONLY` / `MICRO_CHANGE` / `FULL_11X`, **Rule Zero** (ejecución efímera en Docker vía `run_ephemeral_qa`), auditoría de seguridad (`audit_security_stig_owasp`), certificación (`certify_11x_gate`), poda de duplicados (`reconcile_agents_governance`) y evolución continua (`propose_skill_evolution_pr`) directamente desde las 11 skills globales instaladas (`qa-11x-architect`, `qa-11x-devsecops-hardener`, `qa-11x-systematic-debugging`, `qa-11x-screenplay-builder`, `qa-11x-llm-evaluator`, `qa-11x-vibe-rescue`, `qa-11x-docker-certifier`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `refactoring-ui`, `tactical-patterns-11x`) sin duplicar reglas ni skills en los proyectos locales.',
       '- **Co-Evolución Obligatoria de Pruebas (`QA-TEST-SYNC-01`):** Al modificar código, esquemas, configuraciones, skills o catálogos, **auditar, actualizar y re-ejecutar SIEMPRE todas las pruebas preexistentes afectadas** (unitarias, integración, BATS y Karate BDD `.feature`) además de crear pruebas nuevas, sin debilitar aserciones válidas.',
+      '- **Evolución Continua Proactiva:** Cuando detectes mejoras reutilizables, casos límite no cubiertos o brechas en skills/reglas QA 11X, informa proactivamente (`💡 Oportunidad de Mejora Detectada para el Estándar QA 11X`) e invoca `propose_skill_evolution_pr`.',
       CONNECTOR_END_MARKER,
     ].join('\n');
   }
@@ -118,9 +226,11 @@ export function buildGlobalGeminiBlock(lang: OutputLanguageMode = 'auto'): strin
     '## 🤖 Global Thin-Client QA 11X Connector (`@sinfallas/mcp-qa-11x`)',
     '',
     `- **Language & High-IQ Token Economy:** ${langDirective} Apply *3-Tier Progressive Disclosure*, bounded windowed reads (\`StartLine\`/\`EndLine\` 40–80 lines; never read files \`>150\` lines blindly), *Zero Redundant Re-Read*, *Parallel Tool Batching*, and subagent isolation (\`<=20\` lines).`,
+    '- **Rule Zero Supreme:** NEVER execute tests, migrations, compilers, linters, or package installs directly on the host OS (`Ubuntu`/`macOS`/`Windows`); execute exclusively inside ephemeral non-root Docker containers (`run_ephemeral_qa` / `make`).',
     '- **Graphify AST-First (Code Q&A & Pre-Change):** For **ANY question regarding project code or architecture** or before modifying code, activate `graphify-ast-navigator` and **ALWAYS query the AST knowledge graph first** (`inspect_ast_blast_radius` / `python3 .agents/scripts/inspect_blast_radius.py` and `graphify-out/GRAPH_REPORT.md`; if `graphify-out/graph.json` is missing, build it with `./scripts/actualizar-grafos-graphify.sh`) before using `grep` or `read_file`.',
     '- **Zero-Duplication Global Consumption (Skills + MCP `qa-11x`):** Consume `DOCS_ONLY` / `MICRO_CHANGE` / `FULL_11X` workflows, **Rule Zero** (ephemeral Docker execution via `run_ephemeral_qa`), security audits (`audit_security_stig_owasp`), gate certification (`certify_11x_gate`), governance reconciliation (`reconcile_agents_governance`), and continuous evolution (`propose_skill_evolution_pr`) directly from the 11 installed global skills (`qa-11x-architect`, `qa-11x-devsecops-hardener`, `qa-11x-systematic-debugging`, `qa-11x-screenplay-builder`, `qa-11x-llm-evaluator`, `qa-11x-vibe-rescue`, `qa-11x-docker-certifier`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `refactoring-ui`, `tactical-patterns-11x`) without duplicating rules or skills into local projects.',
     '- **Mandatory Test Co-Evolution (`QA-TEST-SYNC-01`):** Whenever modifying code, schemas, configs, skills, or catalogs, **ALWAYS audit, update, and re-run all affected pre-existing** unit, integration, BATS, and Karate BDD (`.feature`) tests alongside creating new tests, never leaving stale contract counts or weakening valid assertions.',
+    '- **Proactive Continuous Evolution:** Whenever you uncover reusable improvements, uncovered edge cases, or QA 11X gaps, notify the user (`💡 Oportunidad de Mejora Detectada para el Estándar QA 11X`) and invoke `propose_skill_evolution_pr`.',
     CONNECTOR_END_MARKER,
   ].join('\n');
 }
@@ -131,14 +241,28 @@ const MERGE_CHANGE_MESSAGES: Readonly<Record<ConnectorMergeAction, string>> = Ob
   appended: 'Agregado bloque conector QA 11X al archivo AGENTS.md existente sin reemplazar su contenido.',
 });
 
+function resolveAgentsMdMergeParams(
+  langOrOptions: OutputLanguageMode | AgentsMdMergeOptions
+): { lang: OutputLanguageMode; spdxLicense: string } {
+  if (typeof langOrOptions === 'string') {
+    return { lang: langOrOptions, spdxLicense: 'MIT' };
+  }
+  const explicit = normalizeSpdxToken(langOrOptions.spdxLicense);
+  return {
+    lang: langOrOptions.lang ?? 'auto',
+    spdxLicense: explicit ?? detectProjectSpdxLicense(langOrOptions.projectDir),
+  };
+}
+
 export function mergeOrAppendAgentsMdContent(
   existingContent: string,
   projectName: string,
   stacks: string[],
-  lang: OutputLanguageMode = 'auto'
+  langOrOptions: OutputLanguageMode | AgentsMdMergeOptions = 'auto'
 ): { finalContent: string; action: ConnectorMergeAction; changes: string[] } {
+  const { lang, spdxLicense } = resolveAgentsMdMergeParams(langOrOptions);
   const block = buildThinConnectorBlock(projectName, stacks, lang);
-  const header = `# SPDX-License-Identifier: MIT\n<!-- QA-11X Standard Governance -->\n\n# 🤖 AI Agent Directives & Technical Governance — ${projectName}\n\n`;
+  const header = `# SPDX-License-Identifier: ${spdxLicense}\n<!-- QA-11X Standard Governance -->\n\n# 🤖 AI Agent Directives & Technical Governance — ${projectName}\n\n`;
   const result = replaceDelimitedSection(existingContent, {
     startMarker: CONNECTOR_START_MARKER,
     endMarker: CONNECTOR_END_MARKER,

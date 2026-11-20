@@ -10,6 +10,7 @@ export QA_UID QA_GID
 
 qa-lint:
 	@echo "🔍 Ejecutando Linter y Formateo (ShellCheck + shfmt)..."
+	@[ ! -x ./scripts/verificar-secretos.sh ] || ./scripts/verificar-secretos.sh
 	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "mapfile -d '' files < <(find . \( -name node_modules -o -name .venv -o -name vendor -o -name .bats-battery \) -prune -o -type f -name '*.sh' -print0); if [ \$${#files[@]} -gt 0 ]; then shellcheck -x \"\$${files[@]}\" && shfmt -i 2 -ci -d \"\$${files[@]}\"; fi"
 
 qa-unit:

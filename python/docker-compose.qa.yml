@@ -104,6 +104,7 @@ services:
     profiles:
       - load
       - observability
+      - profile
     depends_on:
       uv-cache-init:
         condition: service_completed_successfully
@@ -181,6 +182,35 @@ services:
     depends_on:
       python-api:
         condition: service_healthy
+
+  profiler:
+    image: sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4
+    container_name: python_profiler
+    hostname: python_profiler
+    pull_policy: if_not_present
+    mem_limit: 1g
+    user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    pid: "service:python-api"
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - no-new-privileges:true
+    profiles:
+      - profile
+    depends_on:
+      uv-cache-init:
+        condition: service_completed_successfully
+      python-api:
+        condition: service_healthy
+    environment:
+      HOME: /tmp
+      UV_CACHE_DIR: /tmp/uv-cache
+      UV_PROJECT_ENVIRONMENT: /tmp/qa-venv
+    volumes:
+      - .:/app
+      - uv-cache:/tmp/uv-cache
+    working_dir: /app
+    command: bash -c "uv sync --all-extras -q && mkdir -p /app/reports && pid=\$$(pgrep -f python | head -n 1); [ -n \"\$$pid\" ] || pid=1; /tmp/qa-venv/bin/py-spy record -o /app/reports/flamegraph.svg --subprocesses --duration 15 --pid \"\$$pid\""
 
 networks:
   default:

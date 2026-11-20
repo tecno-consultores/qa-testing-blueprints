@@ -51,6 +51,7 @@ services:
       HOME: /tmp
       PNPM_HOME: /pnpm
       pnpm_config_store_dir: /pnpm/store
+      pnpm_config_manage_package_manager_versions: 'false'
       PATH: /pnpm:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     volumes:
       - .:/app

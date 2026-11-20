@@ -4,7 +4,10 @@
 import fs from 'node:fs';
 import * as path from 'node:path';
 import { FetchedFileItem, MergeFilesOptions, MergeResultItem } from '../types.js';
-import { mergeOrAppendAgentsMdContent } from './agents-connector.js';
+import {
+  type AgentsMdMergeOptions,
+  mergeOrAppendAgentsMdContent,
+} from './agents-connector.js';
 import { resolveSafeChildPath } from './github-fetcher.js';
 import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 
@@ -718,12 +721,65 @@ export class SurgicalMerger {
     };
   }
 
+  private extractCommandRoot(cmdLines: string[]): string | null {
+    for (const line of cmdLines) {
+      const idx = line.indexOf('root:');
+      if (idx === -1 || line.slice(0, idx).trim() !== '') {
+        continue;
+      }
+      const value = line.slice(idx + 5).split('#')[0]?.trim() ?? '';
+      let unquoted = value.replaceAll('"', '').replaceAll("'", '');
+      while (unquoted.endsWith('/')) {
+        unquoted = unquoted.slice(0, -1);
+      }
+      if (unquoted) {
+        return unquoted;
+      }
+    }
+    return null;
+  }
+
+  private isCommandAllowedInTarget(cmdLines: string[], targetProjectDir: string): boolean {
+    const rootRel = this.extractCommandRoot(cmdLines);
+    return rootRel ? fs.existsSync(path.join(targetProjectDir, rootRel)) : true;
+  }
+
+  private splitLefthookSubBlocks(blockLines: string[]): { prefix: string[]; commands: string[][] } {
+    const prefix: string[] = [];
+    const commands: string[][] = [];
+    let current: string[] | null = null;
+    for (const line of blockLines) {
+      if (/^ {4}[a-zA-Z0-9_-]{1,64}:/.test(line)) {
+        current = [line];
+        commands.push(current);
+      } else if (current) {
+        current.push(line);
+      } else {
+        prefix.push(line);
+      }
+    }
+    return { prefix, commands };
+  }
+
+  private filterLefthookBlockLines(blockLines: string[], targetProjectDir?: string): string[] {
+    if (!targetProjectDir) {
+      return blockLines;
+    }
+    const { prefix, commands } = this.splitLefthookSubBlocks(blockLines);
+    if (commands.length === 0) {
+      return blockLines;
+    }
+    const kept = commands.filter((cmd) => this.isCommandAllowedInTarget(cmd, targetProjectDir));
+    return kept.length === 0 ? [] : [...prefix, ...kept.flat()];
+  }
+
   /**
    * Fusión quirúrgica e idempotente para lefthook.yml preservando la jerarquía YAML
    */
   public mergeLefthookYaml(
     targetContent: string,
-    exampleContent: string
+    exampleContent: string,
+    targetProjectDir?: string
   ): { merged: string; changes: string[] } {
     const changes: string[] = [];
     const topLevelBlocks: Array<{ header: string; lines: string[] }> = [];
@@ -750,8 +806,9 @@ export class SurgicalMerger {
     for (const block of topLevelBlocks) {
       const expectedHeader = `${block.header}:`;
       const alreadyDefined = merged.split(/\r?\n/).some((l) => l.trimEnd() === expectedHeader);
-      if (!alreadyDefined) {
-        merged += '\n\n' + block.lines.join('\n').trimEnd();
+      const filteredLines = this.filterLefthookBlockLines(block.lines, targetProjectDir);
+      if (!alreadyDefined && filteredLines.length > 0) {
+        merged += '\n\n' + filteredLines.join('\n').trimEnd();
         changes.push(`Añadido bloque de hook YAML: "${block.header}:"`);
       }
     }
@@ -770,9 +827,10 @@ export class SurgicalMerger {
   public mergeAgentsMd(
     targetContent: string,
     projectName = 'Project',
-    stacks: string[] = []
+    stacks: string[] = [],
+    langOrOptions: AgentsMdMergeOptions | 'auto' | 'es' | 'en' = 'auto'
   ): { merged: string; changes: string[] } {
-    const res = mergeOrAppendAgentsMdContent(targetContent, projectName, stacks);
+    const res = mergeOrAppendAgentsMdContent(targetContent, projectName, stacks, langOrOptions);
     return {
       merged: res.finalContent,
       changes: res.finalContent === targetContent ? [] : res.changes,
@@ -783,8 +841,11 @@ export class SurgicalMerger {
     targetName: string,
     existingContent: string,
     exampleContent: string,
-    projectName = 'Project'
+    projectContext: { readonly projectName: string; readonly targetProjectDir?: string } = {
+      projectName: 'Project',
+    }
   ): { finalContent: string; changes: string[] } {
+    const { projectName, targetProjectDir } = projectContext;
     const base = path.basename(targetName);
     const jsonOrTomlHandlers: Record<
       string,
@@ -798,8 +859,8 @@ export class SurgicalMerger {
       '.eslintrc.json': (e, x) => this.mergeEslintrcJson(e, x),
       'eslint.config.mjs': (e, x) => this.mergeEslintConfigMjs(e, x),
       'vitest.setup.ts': (e, x) => this.mergeVitestSetupTs(e, x),
-      'lefthook.yml': (e, x) => this.mergeLefthookYaml(e, x),
-      'lefthook.yaml': (e, x) => this.mergeLefthookYaml(e, x),
+      'lefthook.yml': (e, x) => this.mergeLefthookYaml(e, x, targetProjectDir),
+      'lefthook.yaml': (e, x) => this.mergeLefthookYaml(e, x, targetProjectDir),
     };
 
     const handler = jsonOrTomlHandlers[base];
@@ -808,7 +869,7 @@ export class SurgicalMerger {
       return { finalContent: res.merged, changes: res.changes };
     }
     if (base === 'AGENTS.md') {
-      const res = this.mergeAgentsMd(existingContent, projectName);
+      const res = this.mergeAgentsMd(existingContent, projectName, [], { projectDir: targetProjectDir });
       return { finalContent: res.merged, changes: res.changes };
     }
     const res = this.mergeGitignoreOrNpmrc(existingContent, exampleContent);
@@ -845,12 +906,11 @@ export class SurgicalMerger {
     }
 
     if (item.merge_strategy === 'surgical_merge') {
-      const res = this.resolveSurgicalMerge(
-        item.target_name,
-        existingContent,
-        item.content,
-        projectName
-      );
+      const targetProjectDir = path.dirname(targetFilePath);
+      const res = this.resolveSurgicalMerge(item.target_name, existingContent, item.content, {
+        projectName,
+        targetProjectDir,
+      });
       if (res.changes.some((c) => c.startsWith('Error:'))) {
         return { status: 'skipped', changes: res.changes, finalContent: existingContent };
       }
@@ -924,9 +984,13 @@ export class SurgicalMerger {
     }
   }
 
-  private resolveInitialFileContent(item: FetchedFileItem, projectName: string): string {
+  private resolveInitialFileContent(
+    item: FetchedFileItem,
+    projectName: string,
+    targetProjectDir?: string
+  ): string {
     return path.basename(item.target_name) === 'AGENTS.md'
-      ? this.mergeAgentsMd('', projectName).merged
+      ? this.mergeAgentsMd('', projectName, [], { projectDir: targetProjectDir }).merged
       : item.content;
   }
 
@@ -945,7 +1009,11 @@ export class SurgicalMerger {
       return {
         status: dryRun ? 'dry_run' : 'created',
         changes: [`Creado archivo: ${item.target_name}`],
-        finalContent: this.resolveInitialFileContent(item, projectName),
+        finalContent: this.resolveInitialFileContent(
+          item,
+          projectName,
+          path.dirname(targetFilePath)
+        ),
         existed: false,
       };
     }

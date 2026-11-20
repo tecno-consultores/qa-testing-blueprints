@@ -15,6 +15,7 @@ Before running `Layer 10` load or `Layer 12` chaos experiments, every backend se
 2. **Errors:** `http_errors_total{method, route, exception_type}` and `external_integration_failures_total{target, reason}` (Counter).
 3. **Duration:** `http_request_duration_seconds_bucket{method, route, le}` (Histogram configured with SLO buckets: `0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 30.0, 180.0`).
 4. **Trace & Audit Correlation (`trace_id`):** Inject `X-Trace-Id` / W3C `traceparent` into every request context, structured JSON log line, and HMAC-SHA256 `AuditLog` record (`APSC-DV-001350`) so any latency spike or 5xx alert maps deterministically to the exact execution path.
+5. **Compose Health & PID 1 Cleanliness:** Prometheus containers (`fastapi`, `python`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`) MUST `exec /bin/prometheus`, declare `observability` profiles and `wget` healthchecks, and Pumba chaos targets MUST use anchored prefix-tolerant regexes (`re2:^/?node_api$|.*[-_]api[-_][0-9]+$`).
 
 ---
 

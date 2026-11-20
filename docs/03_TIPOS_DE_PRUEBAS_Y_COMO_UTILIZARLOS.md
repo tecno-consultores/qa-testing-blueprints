@@ -211,8 +211,8 @@
 
 * **Purpose:** Prove that unit tests are not superficial. The tool injects logical mutations into source code (e.g., changing `>` to `<=`, `True` to `False`, or deleting a function call) and re-runs the test suite. If tests still pass despite the malicious change, the mutant "survives" and exposes weak assertions.
 * **Tools:**
-  - Python: `mutmut` (`mutmut run && mutmut results`).
-  - JavaScript / TypeScript: `Stryker Mutator` (`stryker run`).
+  - Python: `mutmut` enforced by [`mutmut_gates.py`](../fastapi/mutmut_gates.py.example) (`mutmut run && python mutmut_gates.py` >= 80% killed ratio).
+  - JavaScript / TypeScript: `Stryker Mutator` (`stryker run`, with `"ignoreStatic": true`, `"concurrency" <= 4`, and non-root `/tmp/qa-bin/ps` shim in [`Makefile.example`](../node-backend/Makefile.example)).
   - PHP (8.2–8.5): `Infection PHP` (`php -d pcov.enabled=1 ./vendor/bin/infection --min-msi=80 --min-covered-msi=80 --threads=4`).
 * **Execution:**
   ```bash
@@ -251,11 +251,11 @@
 
 * **Purpose:** Bombard the running application with active web attacks (SQL injection, reflected XSS, insecure HTTP headers, cookies missing security flags) and certify compliance with **OWASP Application Security Verification Standard (ASVS Level 2/3)**, **OWASP Web Security Testing Guide (WSTG)**, **OWASP API Security Top 10 (2023)**, and **DISA ASD STIG V6R5** (`APSC-DV-003160`..`003230`).
 * **Tools:**
-  - Container `zaproxy/zap-stable:2.15.0` running `zap-baseline.py` / `zap-api-scan.py` against `http://api:8000`.
+  - Container `zaproxy/zap-stable:2.15.0` running `zap-baseline.py` / `zap.yaml` Automation Framework (`zap.sh -cmd -autorun /zap/wrk/zap.yaml`) against `http://api:8000` (writing reports to `/tmp/zap-report.html` under `:ro` mounts).
   - Validation of **OWASP Secure Headers Project (OSHP)** headers: `Strict-Transport-Security`, `Content-Security-Policy`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Cache-Control: no-store`, and absence of `Server` / `X-Powered-By` banners.
   - Supply chain verification with **OWASP CycloneDX SBOM/CBOM** (`cyclonedx-py`, `@cyclonedx/cyclonedx-npm`) and SCA auditing with `Trivy` / `OWASP Dependency-Check`.
   - Fail-secure initialization, shutdown, and abort testing (*Fail-Secure State Testing*, `DISA V-222585` / `V-222647`): certify that upon configuration errors or critical dependency outages, the application denies access by default without leaking stack traces or permitting authentication bypass.
-* **Report:** Generates `zap-report.html` and `sbom.cdx.json` for continuous auditing.
+* **Report:** Generates `/tmp/zap-report.html` (`zap-report.html`) and `sbom.cdx.json` for continuous auditing.
 
 ---
 

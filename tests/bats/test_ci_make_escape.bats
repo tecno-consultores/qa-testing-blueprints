@@ -486,6 +486,14 @@ EOF
   assert_failure
   run grep -F -- '${cmd//' "${REPO_ROOT}/Makefile"
   assert_failure
+  run grep -F 'warm-trivy-db:' "${REPO_ROOT}/.github/workflows/audit-base-images.yml"
+  assert_success
+  run grep -F 'continue-on-error: ${{ github.event_name == '\''pull_request'\'' }}' "${REPO_ROOT}/.github/workflows/audit-base-images.yml"
+  assert_success
+  run grep -F 'GITHUB_STEP_SUMMARY' "${REPO_ROOT}/.github/workflows/audit-base-images.yml"
+  assert_success
+  run grep -F -- '--download-db-only' "${REPO_ROOT}/.github/workflows/audit-base-images.yml"
+  assert_success
   if command -v make >/dev/null 2>&1; then
     run sh -c 'make -C "'"${REPO_ROOT}"'" -n lint-workflows | /bin/sh -n'
     assert_success

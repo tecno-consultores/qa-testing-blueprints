@@ -443,9 +443,11 @@ sync_global_gemini_md() {
 ## 🤖 Global Thin-Client QA 11X Connector (`@sinfallas/mcp-qa-11x`)
 
 - **Language & High-IQ Token Economy:** Interact and explain reasoning in the **user's prompt language**; write commit messages and human-facing docs matching the **existing language of `README.md` and `CHANGELOG.md`** (explicitly ignoring `AGENTS.md` and `.agents/**`, which remain in concise English for token economy).
+- **Rule Zero Supreme:** NEVER run tests, migrations, linters, compilers, or package installs directly on the host OS (`Ubuntu`, `macOS`, `Windows`); execute exclusively inside ephemeral non-root Docker containers (`make`, `docker compose`, or `@sinfallas/mcp-qa-11x` / `run_ephemeral_qa`).
 - **Graphify AST-First:** For ANY code/architecture Q&A or pre-change, query `graphify-out/graph.json` (`inspect_ast_blast_radius` / `.agents/scripts/inspect_blast_radius.py`) BEFORE `grep` or `read_file`.
 - **Zero-Duplication Global Consumption:** Consume the 11 global skills (`qa-11x-architect`, `qa-11x-devsecops-hardener`, `qa-11x-systematic-debugging`, `qa-11x-screenplay-builder`, `qa-11x-llm-evaluator`, `qa-11x-vibe-rescue`, `qa-11x-docker-certifier`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `refactoring-ui`, `tactical-patterns-11x`) without duplicating them locally.
 - **Mandatory Test Co-Evolution (`QA-TEST-SYNC-01`):** Whenever modifying code, schemas, configs, or catalogs, audit, update, and re-run all affected pre-existing unit, integration, BATS, and Karate BDD tests.
+- **Proactive Continuous Evolution:** Whenever you spot a reusable improvement, edge case, or gap in QA 11X skills/rules/tools during work, inform the user (`💡 Oportunidad de Mejora Detectada para el Estándar QA 11X`) and invoke `propose_skill_evolution_pr` (or apply the modular fix in `qa-testing-blueprints`).
 <!-- QA_11X_MCP_CONNECTOR_END -->
 
 EOF
@@ -578,7 +580,7 @@ if [ "${INCLUDE_SCRIPTS}" -eq 1 ]; then
     dest_rel="${s_target:-${s_path}}"
     if [ -z "${s_strategy}" ]; then
       case "${s_path}" in
-        .trivy.yaml | .env.example | instalar-hooks.sh) s_strategy="copy_if_missing" ;;
+        .trivy.yaml | .env.example | instalar-hooks.sh | lefthook.yml) s_strategy="copy_if_missing" ;;
       esac
     fi
 

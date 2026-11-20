@@ -1,4 +1,4 @@
-.PHONY: qa-lint qa-unit qa-ci qa-mutation qa-load qa-observability qa-all clean-cache clean qa-clean
+.PHONY: qa-lint qa-unit qa-ci qa-mutation qa-load qa-observability qa-profile qa-sbom qa-all clean-cache clean qa-clean
 
 # Variables
 COMPOSE_FILE ?= docker-compose.qa.yml
@@ -10,6 +10,7 @@ export QA_UID QA_GID
 
 qa-lint:
 	@echo "🔍 [11X] Ejecutando Linter, Types, Complejidad Grado A, Bandit SAST y CVEs..."
+	@[ ! -x ./scripts/verificar-secretos.sh ] || ./scripts/verificar-secretos.sh
 	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "\
 		uv sync --all-extras -q && \
 		uv run ruff check src/ tests/ && \
@@ -28,8 +29,20 @@ qa-ci: qa-lint qa-unit
 	@echo "✅ [11X] Paridad Pre-Push 1:1 con CI (lint + unit) certificada."
 
 qa-mutation:
-	@echo "👽 Ejecutando Pruebas de Mutación (Mutmut)..."
-	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "uv sync --all-extras -q && uv run mutmut run && uv run mutmut results"
+	@echo "👽 Ejecutando Pruebas de Mutación (Mutmut + Gate MSI >= 80%)..."
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "uv sync --all-extras -q && uv run mutmut run && uv run mutmut results && ( [ ! -f mutmut_gates.py ] || uv run python3 mutmut_gates.py )"
+
+qa-profile:
+	@echo "🔥 [11X] Capturando Flamegraph py-spy sobre proceso Python (reports/flamegraph.svg)..."
+	@mkdir -p "$(PROJECT_DIR)/reports"
+	@sh -c 'set -eu; trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" --profile profile down -v --remove-orphans >/dev/null 2>&1 || true" EXIT; \
+		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile profile up -d --wait python-api; \
+		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile profile run --rm -T profiler'
+
+qa-sbom:
+	@echo "📜 [11X] Generando SBOM CycloneDX..."
+	@mkdir -p "$(PROJECT_DIR)/reports"
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "uv sync --all-extras -q && uv run cyclonedx-py environment -o reports/sbom.cdx.json"
 
 qa-load:
 	@echo "⚡ [11X] Ejecutando pruebas de carga k6 (perfil $(or $(K6_PROFILE),smoke))..."

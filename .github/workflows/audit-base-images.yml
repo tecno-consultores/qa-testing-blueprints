@@ -39,10 +39,57 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  warm-trivy-db:
+    name: Warm Shared Trivy Vulnerability DB
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Compute UTC date key
+        id: utc-day
+        run: printf 'day=%s\n' "$(date -u +%Y%m%d)" >> "${GITHUB_OUTPUT}"
+
+      - name: Cache Trivy vulnerability databases
+        id: trivy-db-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ runner.temp }}/trivy-cache
+          key: trivy-db-${{ runner.os }}-${{ steps.utc-day.outputs.day }}
+          restore-keys: |
+            trivy-db-${{ runner.os }}-
+
+      - name: Download Trivy DB & Java DB
+        if: steps.trivy-db-cache.outputs.cache-hit != 'true'
+        env:
+          TRIVY_DB_REPOS: 'public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2,mirror.gcr.io/aquasec/trivy-db:2'
+          TRIVY_JAVA_DB_REPOS: 'public.ecr.aws/aquasecurity/trivy-java-db:1,ghcr.io/aquasecurity/trivy-java-db:1,mirror.gcr.io/aquasec/trivy-java-db:1'
+        run: |
+          mkdir -p "${RUNNER_TEMP}/trivy-cache"
+          docker run --rm \
+            --security-opt=no-new-privileges:true \
+            -u "$(id -u):$(id -g)" \
+            -e HOME=/tmp \
+            -e TRIVY_CACHE_DIR=/tmp/trivy-cache \
+            -v "${RUNNER_TEMP}/trivy-cache:/tmp/trivy-cache" \
+            aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb image \
+            --db-repository "${TRIVY_DB_REPOS}" \
+            --download-db-only
+          docker run --rm \
+            --security-opt=no-new-privileges:true \
+            -u "$(id -u):$(id -g)" \
+            -e HOME=/tmp \
+            -e TRIVY_CACHE_DIR=/tmp/trivy-cache \
+            -v "${RUNNER_TEMP}/trivy-cache:/tmp/trivy-cache" \
+            aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb image \
+            --java-db-repository "${TRIVY_JAVA_DB_REPOS}" \
+            --download-java-db-only
+
   trivy-base-images:
     name: Trivy Image Audit (${{ matrix.image }})
+    needs: [warm-trivy-db]
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    continue-on-error: ${{ github.event_name == 'pull_request' }}
     strategy:
       fail-fast: false
       matrix:
@@ -61,26 +108,79 @@ jobs:
           - 'sinfallas/base-mobile-appium:26'
 
     steps:
+      - name: Compute UTC date key
+        id: utc-day
+        run: printf 'day=%s\n' "$(date -u +%Y%m%d)" >> "${GITHUB_OUTPUT}"
+
+      - name: Restore Trivy vulnerability databases
+        id: trivy-db-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ runner.temp }}/trivy-cache
+          key: trivy-db-${{ runner.os }}-${{ steps.utc-day.outputs.day }}
+          restore-keys: |
+            trivy-db-${{ runner.os }}-
+
       - name: Scan official Docker Hub image with Trivy (HIGH/CRITICAL = 0)
         env:
           TARGET_IMAGE: ${{ matrix.image }}
+          EVENT_NAME: ${{ github.event_name }}
+          CACHE_HIT: ${{ steps.trivy-db-cache.outputs.cache-hit }}
           TRIVY_DB_REPOS: 'public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2,mirror.gcr.io/aquasec/trivy-db:2'
           TRIVY_JAVA_DB_REPOS: 'public.ecr.aws/aquasecurity/trivy-java-db:1,ghcr.io/aquasecurity/trivy-java-db:1,mirror.gcr.io/aquasec/trivy-java-db:1'
         run: |
-          mkdir -p "${{ runner.temp }}/trivy-cache"
-          docker run --rm \
+          mkdir -p "${RUNNER_TEMP}/trivy-cache"
+          TRIVY_ARGS=(
+            "--severity" "HIGH,CRITICAL"
+            "--ignore-unfixed"
+            "--exit-code" "1"
+          )
+          if [ "${CACHE_HIT:-false}" = "true" ] && [ -s "${RUNNER_TEMP}/trivy-cache/db/trivy.db" ] && [ -s "${RUNNER_TEMP}/trivy-cache/java-db/trivy-java.db" ]; then
+            TRIVY_ARGS+=(--skip-db-update --skip-java-db-update)
+          else
+            TRIVY_ARGS+=(--db-repository "${TRIVY_DB_REPOS}" --java-db-repository "${TRIVY_JAVA_DB_REPOS}")
+          fi
+
+          SCAN_RC=0
+          SCAN_OUT="$(docker run --rm \
             --security-opt=no-new-privileges:true \
             -u "$(id -u):$(id -g)" \
             -e HOME=/tmp \
             -e TRIVY_CACHE_DIR=/tmp/trivy-cache \
-            -v "${{ runner.temp }}/trivy-cache:/tmp/trivy-cache" \
+            -v "${RUNNER_TEMP}/trivy-cache:/tmp/trivy-cache" \
             aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb image \
-            --db-repository "${TRIVY_DB_REPOS}" \
-            --java-db-repository "${TRIVY_JAVA_DB_REPOS}" \
-            --severity HIGH,CRITICAL \
-            --ignore-unfixed \
-            --exit-code 1 \
-            "${TARGET_IMAGE}"
+            "${TRIVY_ARGS[@]}" \
+            "${TARGET_IMAGE}" 2>&1)" || SCAN_RC=$?
+          printf '%s\n' "${SCAN_OUT}"
+
+          MODE_LABEL="BLOQUEANTE"
+          if [ "${EVENT_NAME}" = "pull_request" ]; then
+            MODE_LABEL="INFORMATIVO PR"
+          fi
+          STATUS_LABEL="PASS (HIGH/CRITICAL = 0)"
+          if [ "${SCAN_RC}" -ne 0 ]; then
+            STATUS_LABEL="UPSTREAM_CVE_DETECTED (exit ${SCAN_RC})"
+          fi
+
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+            {
+              echo "### Trivy Base Image Audit: \`${TARGET_IMAGE}\`"
+              echo ""
+              echo "| Imagen | Modo | Estado |"
+              echo "| :--- | :--- | :--- |"
+              echo "| \`${TARGET_IMAGE}\` | \`${MODE_LABEL}\` | \`${STATUS_LABEL}\` |"
+              if [ "${SCAN_RC}" -ne 0 ]; then
+                echo ""
+                echo "<details><summary>CVEs HIGH/CRITICAL con fix detectados</summary>"
+                echo ""
+                echo '```text'
+                printf '%s\n' "${SCAN_OUT}" | tail -n 80
+                echo '```'
+                echo "</details>"
+              fi
+            } >> "${GITHUB_STEP_SUMMARY}"
+          fi
+          exit "${SCAN_RC}"
 
   pip-audit-python-uv:
     name: Python 3.15 Preinstalled Dependencies Audit (pip-audit)

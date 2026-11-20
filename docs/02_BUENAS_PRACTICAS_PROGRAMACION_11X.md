@@ -348,8 +348,13 @@ When certifying frontend and Node.js projects inside the official `sinfallas/bas
 6. **Non-Root `ui-e2e` Hardening and Exact Playwright Parity (`QA-PLAYWRIGHT-PIN-01`):**
    - Run the `ui-e2e` service (`mcr.microsoft.com/playwright:v1.52.0-noble`) under the user's UID/GID (`-u "$(QA_UID):$(QA_GID)" -e HOME=/tmp`), enable Corepack without global write privileges into `/tmp/.corepack-bin` (`COREPACK_HOME=/tmp/.corepack`), prefer local `./node_modules/.bin/playwright` and `./node_modules/.bin/lhci` binaries before falling back to `pnpm`/`corepack`, and pin an exact version (`"1.52.0"`, no `^` or `~`) synchronized between `package.json` and the Docker tag (`QA-PLAYWRIGHT-PIN-01`).
 7. **SSR/SSG Hydration Parity Under Dual Color Scheme (`QA-SSR-HYDRATION-01`):**
-   - In SSR/SSG apps (`nuxt`, `vitepress`, `astro`, `next`, `@sveltejs/kit`, `vite-ssg`, `createSSRApp`/`hydrateRoot`) with a light/dark theme toggle, avoid branching the initial DOM (`v-if`) on `localStorage.theme` or `dataset.theme` mutated before hydration; render both branches via CSS (`display: none` / `hidden dark:block`) and synchronize reactive state in `onMounted`.
+   - In SSR/SSG apps (`nuxt`, `vitepress`, `astro`, `next`, `@sveltejs/kit`, `vite-ssg`, `createSSRApp`/`hydrateRoot`) with a light/dark theme toggle, avoid branching the initial DOM (`v-if` or conditional JSX/TSX expressions outside `useEffect`) on `localStorage.theme` or `dataset.theme` mutated before hydration; render both branches via CSS (`display: none` / `hidden dark:block`) and synchronize reactive state in `onMounted` / `useEffect`.
    - Add an isolated Playwright test for the opposite `colorScheme` (`'light'` and `'dark'` via `newContext`/`emulateMedia` or dedicated projects) with `console` and `pageerror` listeners failing on any `/hydration/i` warning (exemptible strictly via `# qa-ssr-hydration-ok`).
+8. **Bounded Non-Root Mutation & Flamegraph Profiling Gates (`QA-STRYKER-CFG-01`, `mutmut_gates.py`, `qa-profile`):**
+   - Configure JS/TS Stryker blueprints with `"ignoreStatic": true` and `"concurrency" <= 4`, and wire the non-root `/tmp/qa-bin/ps` shim inside `qa-mutation` containers so worker process enumeration succeeds cleanly (`QA-STRYKER-CFG-01`).
+   - Enforce deterministic Python mutation gates via `mutmut_gates.py` (`>= 80%` killed ratio), DAST Automation Framework configs (`zap.yaml` / `/tmp/zap-report.html` on `:ro` mounts), and `qa-profile` (`py-spy` flamegraph sidecar).
+9. **Multi-Tenant WebSocket & PubSub Isolation (`SEC-WS-PUBSUB-01`):**
+   - Isolate Redis/KeyDB WebSocket PubSub subscriptions by authenticated tenant (`ws:{tenant_id}:events`), rejecting wildcard global channels or unverified client room joins (`SEC-WS-PUBSUB-01`).
 
 ---
 

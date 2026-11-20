@@ -202,6 +202,8 @@ qa-load:
 		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml --profile load run --rm -T -u "$(QA_UID):$(QA_GID)" k6-smoke'
 
 qa-ci: qa-lint qa-unit qa-migration qa-integration qa-contracts
+```
+- **Additional Hardened Blueprints (`mutmut_gates.py`, `profiler`, `zap.yaml`):** Run `mutmut_gates.py` in `qa-mutation` (`importlib.import_module("tests")`, `src/` mutation target, `MSI >= 80%`), `qa-profile` via dedicated `profiler` `py-spy` sidecar (`pid: "service:api"` / `service:python-api`), and non-root `zap.yaml` (`/zap/wrk:ro`, output `/tmp/zap-report.html`). Python dev tooling includes `hypothesis`, `respx`, and Linux `memray`.
 
 qa-bdd:
 	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml down -v >/dev/null 2>&1 || true" EXIT; \

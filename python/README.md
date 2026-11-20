@@ -115,10 +115,11 @@ make qa-unit
 make qa-mutation
 ```
 
-*   **Profiling (Generate CPU Flamegraph at `/app/profile.svg`):**
+*   **Profiling (Generate CPU Flamegraph at `/app/profile.svg`) & CycloneDX SBOM:**
 ```bash
-# Attaching py-spy to an already-running PID inside hardened containers requires CAP_SYS_PTRACE (`--cap-add SYS_PTRACE`); launching the script directly runs under the mapped UID:
-make qa-lint && make qa-unit
+# Attaching py-spy to an already-running PID inside hardened containers requires CAP_SYS_PTRACE (`--cap-add SYS_PTRACE`); `qa-profile` runs the sidecar under the mapped UID (`mutmut_gates.py` enforces >= 80% in qa-mutation):
+make qa-profile
+make qa-sbom
 ```
 
 **Step 2: Live Observability & Load Certification (Level 11X)**

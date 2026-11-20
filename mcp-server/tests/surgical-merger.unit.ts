@@ -860,6 +860,23 @@ qa-unit:
       expect(agentsDisk).toContain('<!-- QA_11X_MCP_CONNECTOR_START -->');
       expect(agentsDisk).toContain('<!-- QA_11X_MCP_CONNECTOR_END -->');
 
+      // Detecta SPDX no-MIT desde package.json/LICENSE sin imponer MIT al crear AGENTS.md desde cero
+      const gplDir = path.join(tmpDir, 'gpl-agents-proj');
+      fs.mkdirSync(gplDir, { recursive: true });
+      fs.writeFileSync(path.join(gplDir, 'package.json'), JSON.stringify({ name: 'gpl-app', license: 'GPL-3.0-only' }));
+      await merger.mergeFiles(gplDir, [
+        {
+          path: 'AGENTS.md',
+          target_name: 'AGENTS.md',
+          merge_strategy: 'surgical_merge',
+          content: '# Ignored raw template',
+          sha256_verified: true,
+        },
+      ]);
+      const gplAgentsDisk = fs.readFileSync(path.join(gplDir, 'AGENTS.md'), 'utf-8');
+      expect(gplAgentsDisk).toContain('# SPDX-License-Identifier: GPL-3.0-only');
+      expect(gplAgentsDisk).not.toContain('SPDX-License-Identifier: MIT');
+
       // Respeta estrategia copy_if_missing_or_update_qa sobre scripts de gobernanza y rechaza estrategias desconocidas
       const govScript = path.join(agentsFreshDir, '.agents', 'scripts', 'gate.py');
       fs.mkdirSync(path.dirname(govScript), { recursive: true });
@@ -1012,6 +1029,30 @@ qa-unit:
         { dryRun: true }
       );
       expect(dryRes.applied_changes.map((c) => c.status)).toEqual(['dry_run', 'dry_run']);
+    });
+
+    it('handles lefthook top-level blocks without subcommands, omitted unmatched hook blocks, and empty root values', () => {
+      const lefthookDir = fs.mkdtempSync(path.join(tmpDir, 'lh-edge-'));
+      const tpl = [
+        'skip_output:',
+        '  - meta',
+        '',
+        'pre-commit:',
+        '  commands:',
+        '    missing-only:',
+        '      root: "missing-sub/"',
+        '      run: true',
+        '',
+        'pre-push:',
+        '  commands:',
+        '    empty-root:',
+        '      root: "" # empty',
+        '      run: echo ok',
+      ].join('\n');
+      const res = merger.mergeLefthookYaml('', tpl, lefthookDir);
+      expect(res.merged).toContain('skip_output:');
+      expect(res.merged).not.toContain('missing-only:');
+      expect(res.merged).toContain('empty-root:');
     });
   });
 });

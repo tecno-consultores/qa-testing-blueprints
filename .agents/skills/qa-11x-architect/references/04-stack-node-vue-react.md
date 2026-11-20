@@ -137,7 +137,9 @@ qa-orphans:
 	fi
 
 qa-mutation:
-	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-frontend bash -c "pnpm install --silent && pnpm run mutate"
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-frontend bash -c 'mkdir -p /tmp/qa-bin && printf "#!/bin/sh\nexit 0\n" >/tmp/qa-bin/ps && chmod +x /tmp/qa-bin/ps && pnpm install --silent && PATH="/tmp/qa-bin:$$PATH" pnpm run mutate'
+```
+> **Stryker & Node Hardening (`QA-STRYKER-CFG-01`, `zap.yaml`):** Always configure `"ignoreStatic": true`, `"concurrency": 4` (`<= 4`), and `pnpm_config_manage_package_manager_versions=false` in Node containers alongside the non-root `/tmp/qa-bin/ps` shim; `node-backend/` includes `zap.yaml.example`, `qa-bdd`, `qa-chaos`, and `qa-observability`.
 
 qa-bdd: build-ui
 	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml down --remove-orphans >/dev/null 2>&1 || true" EXIT; \

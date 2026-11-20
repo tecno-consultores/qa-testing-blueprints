@@ -348,8 +348,13 @@ Al certificar proyectos frontend y Node.js dentro de las imágenes oficiales `si
 6. **Endurecimiento no-root de `ui-e2e` y paridad exacta Playwright (`QA-PLAYWRIGHT-PIN-01`):**
    - Ejecuta el servicio `ui-e2e` (`mcr.microsoft.com/playwright:v1.52.0-noble`) bajo el UID/GID del usuario (`-u "$(QA_UID):$(QA_GID)" -e HOME=/tmp`), habilita Corepack sin privilegios de escritura global en `/tmp/.corepack-bin` (`COREPACK_HOME=/tmp/.corepack`), prioriza los binarios locales `./node_modules/.bin/playwright` y `./node_modules/.bin/lhci` antes de recurrir a `pnpm`/`corepack`, y fija versión exacta (`"1.52.0"`, sin `^` ni `~`) sincronizada entre `package.json` y el tag Docker (`QA-PLAYWRIGHT-PIN-01`).
 7. **Paridad de hidratación SSR/SSG bajo doble esquema de color (`QA-SSR-HYDRATION-01`):**
-   - En aplicaciones SSR/SSG (`nuxt`, `vitepress`, `astro`, `next`, `@sveltejs/kit`, `vite-ssg`, `createSSRApp`/`hydrateRoot`) con selector de tema claro/oscuro, evita ramificar el DOM inicial (`v-if`) según `localStorage.theme` o `dataset.theme` mutados antes de hidratar; renderiza ambas ramas vía CSS (`display: none` / `hidden dark:block`) y sincroniza el estado reactivo en `onMounted`.
+   - En aplicaciones SSR/SSG (`nuxt`, `vitepress`, `astro`, `next`, `@sveltejs/kit`, `vite-ssg`, `createSSRApp`/`hydrateRoot`) con selector de tema claro/oscuro, evita ramificar el DOM inicial (`v-if` o expresiones JSX/TSX condicionales fuera de `useEffect`) según `localStorage.theme` o `dataset.theme` mutados antes de hidratar; renderiza ambas ramas vía CSS (`display: none` / `hidden dark:block`) y sincroniza el estado reactivo en `onMounted` / `useEffect`.
    - Añade en Playwright una prueba aislada para el `colorScheme` opuesto (`'light'` y `'dark'` vía `newContext`/`emulateMedia` o proyectos dedicados) con listeners `console` y `pageerror` que fallen ante cualquier advertencia `/hydration/i` (eximible únicamente mediante `# qa-ssr-hydration-ok`).
+8. **Compuertas Acotadas No-Root de Mutación y Profiling Flamegraph (`QA-STRYKER-CFG-01`, `mutmut_gates.py`, `qa-profile`):**
+   - Configura Stryker en blueprints JS/TS con `"ignoreStatic": true` y `"concurrency" <= 4`, acoplando el shim no-root `/tmp/qa-bin/ps` dentro de `qa-mutation` para evitar fallos al listar procesos (`QA-STRYKER-CFG-01`).
+   - Refuerza la mutación en Python con `mutmut_gates.py` (`>= 80%` mutantes eliminados), plantillas DAST (`zap.yaml` / `/tmp/zap-report.html` bajo montajes `:ro`) y el objetivo `qa-profile` (`py-spy` sidecar).
+9. **Aislamiento Multi-Inquilino en WebSockets y PubSub (`SEC-WS-PUBSUB-01`):**
+   - Segmenta las suscripciones Redis/KeyDB de pasarelas WebSocket por inquilino autenticado (`ws:{tenant_id}:events`), rechazando canales globales o comodines sin verificación de pertenencia (`SEC-WS-PUBSUB-01`).
 
 ---
 

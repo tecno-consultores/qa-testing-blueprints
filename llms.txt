@@ -1,6 +1,6 @@
 # QA Testing Blueprints (QA-11X v3.2 — @sinfallas/mcp-qa-11x v3.2.0)
 
-> Zero-Infra Agentic QA, Dual-Mode AI Evals, FINOS CALM Architecture-as-Code, and DevSecOps Governance Blueprint (`MIT`). Enforces non-root ephemeral Docker execution (`Rule Zero`, `sinfallas/*`, `Trivy HIGH/CRITICAL = 0`), `>= 95%` unit coverage, `CC <= 5`, multi-role Screenplay E2E, Pact V4 contracts, `k6` load smoke, and 22 DISA ASD STIG V6R5 + OWASP Developer Guide v4.2 reference controls (enforced via 34 static scanner rules) across 28 AI coding agents with SHA-256 manifest verification.
+> Zero-Infra Agentic QA, Dual-Mode AI Evals, FINOS CALM Architecture-as-Code, and DevSecOps Governance Blueprint (`MIT`). Enforces non-root ephemeral Docker execution (`Rule Zero`, `sinfallas/*`, `Trivy HIGH/CRITICAL = 0`), `>= 95%` unit coverage, `CC <= 5`, multi-role Screenplay E2E, Pact V4 contracts, `k6` load smoke, and 22 DISA ASD STIG V6R5 + OWASP Developer Guide v4.2 reference controls (enforced via 36 static scanner rules) across 28 AI coding agents with SHA-256 manifest verification.
 
 ## Quickstart (30s)
 

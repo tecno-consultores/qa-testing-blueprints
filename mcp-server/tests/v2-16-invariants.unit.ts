@@ -489,6 +489,25 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
       expect(mfDisk).toContain('custom:');
       expect(mfDisk).toContain('commit-msg:');
 
+      // Stack-aware root: filtering removes missing subproject hooks and keeps present/rootless ones
+      fs.mkdirSync(path.join(projDir, 'fastapi'), { recursive: true });
+      const monoTpl = [
+        'pre-push:',
+        '  commands:',
+        '    fastapi-check:',
+        '      root: "fastapi/"',
+        '      run: echo fastapi',
+        '    vue3-check:',
+        '      root: "vue3/"',
+        '      run: echo vue3',
+        '    secret-scan:',
+        '      run: ./scripts/verificar-secretos.sh',
+      ].join('\n');
+      const filtered = merger.mergeLefthookYaml(targetYaml, monoTpl, projDir);
+      expect(filtered.merged).toContain('fastapi-check:');
+      expect(filtered.merged).toContain('secret-scan:');
+      expect(filtered.merged).not.toContain('vue3-check:');
+
       // Thin-Repo fetchStackBundle filtering + install-skill --target all & invalid target
       const repoDir = path.join(tmpDir, 'fake-repo');
       fs.mkdirSync(path.join(repoDir, 'scripts'), { recursive: true });

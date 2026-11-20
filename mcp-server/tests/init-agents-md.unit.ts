@@ -17,6 +17,7 @@ import {
   resolveProjectDisplayName,
   runInitAgentsCli,
 } from '../src/cli/init-agents-md.js';
+import { detectProjectSpdxLicense } from '../src/services/agents-connector.js';
 import { WorkspacePathValidationError } from '../src/security/workspacePathValidator.js';
 
 describe('init-agents-md (Non-destructive AGENTS.md connector injection)', () => {
@@ -73,14 +74,18 @@ describe('init-agents-md (Non-destructive AGENTS.md connector injection)', () =>
 
       const esBlock = buildGlobalGeminiBlock('es');
       expect(esBlock).toContain('Conector Global Thin-Client QA 11X');
+      expect(esBlock).toContain('Rule Zero Supremo');
       expect(esBlock).toContain('Graphify AST-First (Consultas de Código Q&A y Pre-Cambio)');
       expect(esBlock).toContain('sin duplicar reglas ni skills en los proyectos locales');
       expect(esBlock).toContain('QA-TEST-SYNC-01');
+      expect(esBlock).toContain('propose_skill_evolution_pr');
 
       const enBlock = buildGlobalGeminiBlock('en');
       expect(enBlock).toContain('Global Thin-Client QA 11X Connector');
+      expect(enBlock).toContain('Rule Zero Supreme');
       expect(enBlock).toContain('strictly in **English**');
       expect(enBlock).toContain('QA-TEST-SYNC-01');
+      expect(enBlock).toContain('propose_skill_evolution_pr');
     });
 
     it('injects dynamic mirroring language policy into connector block based on lang param', () => {
@@ -144,6 +149,40 @@ Regla Final`;
       expect(res.finalContent).toContain('repo-actualizado');
       expect(res.finalContent).toContain('node-backend');
       expect(res.changes[0]).toContain('Actualizado bloque conector QA 11X');
+
+      const gplExisting = `# SPDX-License-Identifier: GPL-3.0-only\n\n${CONNECTOR_START_MARKER}\nold\n${CONNECTOR_END_MARKER}\n`;
+      const preserved = mergeOrAppendAgentsMdContent(gplExisting, 'gpl-app', ['python'], {
+        spdxLicense: 'Apache-2.0',
+      });
+      expect(preserved.finalContent).toContain('# SPDX-License-Identifier: GPL-3.0-only');
+      expect(preserved.finalContent).not.toContain('SPDX-License-Identifier: Apache-2.0');
+
+      const apacheCreated = mergeOrAppendAgentsMdContent('', 'apache-app', ['node-backend'], {
+        spdxLicense: 'Apache-2.0',
+      });
+      expect(apacheCreated.finalContent).toContain('# SPDX-License-Identifier: Apache-2.0');
+    });
+  });
+
+  describe('detectProjectSpdxLicense', () => {
+    it('detects SPDX from composer.json, pyproject.toml, and LICENSE files with MIT fallback', () => {
+      expect(detectProjectSpdxLicense()).toBe('MIT');
+      expect(detectProjectSpdxLicense(path.join(tmpDir, 'missing-dir'))).toBe('MIT');
+
+      const pyDir = path.join(tmpDir, 'py-gpl');
+      fs.mkdirSync(pyDir, { recursive: true });
+      fs.writeFileSync(path.join(pyDir, 'pyproject.toml'), '[project]\nlicense = { text = "BSD-3-Clause" }\n');
+      expect(detectProjectSpdxLicense(pyDir)).toBe('BSD-3-Clause');
+
+      const phpDir = path.join(tmpDir, 'php-mpl');
+      fs.mkdirSync(phpDir, { recursive: true });
+      fs.writeFileSync(path.join(phpDir, 'composer.json'), '{"license":"MPL-2.0"}');
+      expect(detectProjectSpdxLicense(phpDir)).toBe('MPL-2.0');
+
+      const licDir = path.join(tmpDir, 'lic-apache');
+      fs.mkdirSync(licDir, { recursive: true });
+      fs.writeFileSync(path.join(licDir, 'LICENSE'), 'Apache License\nVersion 2.0, January 2004\n');
+      expect(detectProjectSpdxLicense(licDir)).toBe('Apache-2.0');
     });
   });
 
@@ -231,6 +270,32 @@ Regla Final`;
       const fallbackName = resolveProjectDisplayName('/');
       expect(fallbackName).toBe('Project');
       expect(buildConnectorBlock(fallbackName, [])).toContain('This project (`Project`)');
+    });
+
+    it('covers SPDX edge cases: malformed JSON, UNLICENSED, PEP 639 license string, unsafe tokens, and MPL-2.0 text', () => {
+      const dir1 = fs.mkdtempSync(path.join(tmpDir, 'spdx-d1-'));
+      fs.writeFileSync(path.join(dir1, 'package.json'), '{ invalid json', 'utf-8');
+      fs.writeFileSync(path.join(dir1, 'composer.json'), JSON.stringify({ license: 'UNLICENSED' }), 'utf-8');
+      fs.writeFileSync(
+        path.join(dir1, 'pyproject.toml'),
+        '[project]\nname = "demo"\nlicense = "BSD-3-Clause"\n',
+        'utf-8'
+      );
+      expect(detectProjectSpdxLicense(dir1)).toBe('BSD-3-Clause');
+
+      const dir2 = fs.mkdtempSync(path.join(tmpDir, 'spdx-d2-'));
+      fs.writeFileSync(path.join(dir2, 'package.json'), JSON.stringify({ license: 'MIT; rm -rf /' }), 'utf-8');
+      fs.writeFileSync(
+        path.join(dir2, 'pyproject.toml'),
+        '[project]\nname = "demo2"\nlicense = { file = "LICENSE.md" }\n',
+        'utf-8'
+      );
+      fs.writeFileSync(
+        path.join(dir2, 'LICENSE.md'),
+        'Mozilla Public License Version 2.0\n==================================\n',
+        'utf-8'
+      );
+      expect(detectProjectSpdxLicense(dir2)).toBe('MPL-2.0');
     });
   });
 

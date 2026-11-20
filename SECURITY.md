@@ -244,8 +244,19 @@ Integrating SPAs (Vue 3, React) with REST/WebSocket APIs (FastAPI, Node.js) crea
 ### 4.30. SSR/SSG Hydration Parity under Dual Color Schemes in Playwright (`QA-SSR-HYDRATION-01` — `Standard 11X Layer 9 (L09 Playwright/SSR)` & `APSC-DV-002310`)
 - **Risk:** In SSR/SSG apps with light/dark theme switching, an inline `<head>` script mutating `dataset.theme` or `.dark` before hydration causes silent DOM mismatches (*Hydration completed but contains mismatches*) when components use client-dependent `v-if` or when `playwright.config.ts` hardcodes only one `colorScheme` (e.g., `'dark'`), hiding production regressions under `prefers-color-scheme: light`.
 - **Mitigation:**
-  - Avoid branching initial HTML structure (`v-if`) on `localStorage` or `dataset.theme` before mount; render both variants via CSS (`display: none` / `hidden dark:block`) and sync reactive state in `onMounted`.
+  - Avoid branching initial HTML structure (`v-if` in Vue or conditional JSX/TSX outside `useEffect`) on `localStorage` or `dataset.theme` before mount; render both variants via CSS (`display: none` / `hidden dark:block`) and sync reactive state in `onMounted` / `useEffect`.
   - On SSR/SSG projects with dual theming, add explicit Playwright coverage for both schemes (`'light'` and `'dark'` via `browser.newContext({ colorScheme })` or `page.emulateMedia({ colorScheme })`) plus `console` and `pageerror` listeners failing on any `/hydration/i` message (audited by `QA-SSR-HYDRATION-01` in `audit_security_stig_owasp`, exemptable with `# qa-ssr-hydration-ok`).
+
+### 4.31. Non-Root Bounded Stryker Mutation Execution (`QA-STRYKER-CFG-01` — `Standard 11X Layer 6 (L06 Mutation)` & `APSC-DV-003210`)
+- **Risk:** Configuring Stryker Mutator without `"ignoreStatic": true` or with `"concurrency" > 4` exhausts ephemeral CI container RAM/PIDs and causes OOM kills, while invoking Stryker under non-root UID containers where host/procps `ps` differs triggers child-process discovery failures unless a deterministic `/tmp/qa-bin/ps` shim is wired in `qa-mutation`.
+- **Mitigation:**
+  - Pin `"ignoreStatic": true` and `"concurrency" <= 4` in `stryker.conf.json(.example)` (`node-backend`, `vue3`, `react-frontend`) alongside explicit `coverageAnalysis: "perTest"`, failing fast on static check regressions (`QA-STRYKER-CFG-01`, exemptable with `# qa-stryker-cfg-ok`).
+  - Provide a non-root `/tmp/qa-bin/ps` shim (`PATH="/tmp/qa-bin:$$PATH"`) in container `qa-mutation` targets and enforce deterministic Python `mutmut_gates.py` (`>= 80%` killed ratio) and `qa-profile` (`py-spy`) flamegraph gates.
+
+### 4.32. Multi-Tenant WebSocket & Redis/KeyDB PubSub Channel Isolation (`SEC-WS-PUBSUB-01` — `DISA STIG V-222536 / APSC-DV-001880` & `OWASP A01:2025`)
+- **Risk:** Subscribing WebSocket gateways to global or unvalidated Redis/KeyDB PubSub channels (e.g., `SUBSCRIBE events` or wildcard `PSUBSCRIBE *` without `tenant_id` scoping) or accepting client-supplied room/channel names without matching JWT/session `tenant_id` leaks cross-tenant real-time events.
+- **Mitigation:**
+  - Namespace all broker channels with the authenticated tenant (`ws:${tenant_id}:events` / `f"ws:{tenant_id}:events"`) and validate tenant membership server-side on WebSocket upgrade and message fan-out (`SEC-WS-PUBSUB-01`, exemptable with `# sec-ws-pubsub-ok`).
 
 ---
 

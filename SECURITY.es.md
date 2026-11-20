@@ -244,8 +244,19 @@ La integración entre aplicaciones SPA (Vue 3, React) y APIs REST/WebSockets (Fa
 ### 4.30. Paridad de Hidratación SSR/SSG bajo Doble Esquema de Color en Playwright (`QA-SSR-HYDRATION-01` — `Capa 9 Estándar 11X (L09 Playwright/SSR)` y `APSC-DV-002310`)
 - **Riesgo:** En aplicaciones SSR/SSG con selector de tema claro/oscuro, un script inline en `<head>` que muta `dataset.theme` o `.dark` antes de la hidratación provoca divergencias DOM silenciosas (*Hydration completed but contains mismatches*) cuando los componentes usan `v-if` dependiente del cliente o cuando `playwright.config.ts` fija únicamente un `colorScheme` (p. ej. `'dark'`), ocultando degradaciones en producción bajo `prefers-color-scheme: light`.
 - **Mitigación:**
-  - Evitar ramificar la estructura HTML inicial (`v-if`) según `localStorage` o `dataset.theme` antes del montaje; renderizar ambas variantes por CSS (`display: none` / `hidden dark:block`) y sincronizar el estado reactivo en `onMounted`.
+  - Evitar ramificar la estructura HTML inicial (`v-if` en Vue o expresiones JSX/TSX condicionales fuera de `useEffect`) según `localStorage` o `dataset.theme` antes del montaje; renderizar ambas variantes por CSS (`display: none` / `hidden dark:block`) y sincronizar el estado reactivo en `onMounted` / `useEffect`.
   - En proyectos SSR/SSG con tematización dual, añadir en Playwright cobertura explícita para ambos esquemas (`'light'` y `'dark'` vía `browser.newContext({ colorScheme })` o `page.emulateMedia({ colorScheme })`) junto con listeners `console` y `pageerror` que fallen ante cualquier mensaje `/hydration/i` (auditado por `QA-SSR-HYDRATION-01` en `audit_security_stig_owasp`, eximible con `# qa-ssr-hydration-ok`).
+
+### 4.31. Ejecución Acotada No-Root de Mutación Stryker (`QA-STRYKER-CFG-01` — `Capa 6 Estándar 11X (L06 Mutación)` y `APSC-DV-003210`)
+- **Riesgo:** Configurar Stryker Mutator sin `"ignoreStatic": true` o con `"concurrency" > 4` agota la memoria RAM/PIDs en contenedores CI efímeros provocando OOM kills, mientras que invocarlo bajo contenedores no-root sin shim `/tmp/qa-bin/ps` falla al descubrir procesos hijos en `qa-mutation`.
+- **Mitigación:**
+  - Fijar `"ignoreStatic": true` y `"concurrency" <= 4` en `stryker.conf.json(.example)` (`node-backend`, `vue3`, `react-frontend`) junto con `coverageAnalysis: "perTest"` (`QA-STRYKER-CFG-01`, eximible con `# qa-stryker-cfg-ok`).
+  - Proveer el shim no-root `/tmp/qa-bin/ps` (`PATH="/tmp/qa-bin:$$PATH"`) en targets `qa-mutation` de contenedor y reforzar compuertas deterministas de Python mediante `mutmut_gates.py` (`>= 80%`) y `qa-profile` (`py-spy`).
+
+### 4.32. Aislamiento de Canales PubSub Redis/KeyDB y WebSockets Multi-Inquilino (`SEC-WS-PUBSUB-01` — `DISA STIG V-222536 / APSC-DV-001880` y `OWASP A01:2025`)
+- **Riesgo:** Suscribir pasarelas WebSocket a canales PubSub globales o sin filtro en Redis/KeyDB (p. ej. `SUBSCRIBE events` o `PSUBSCRIBE *` sin `tenant_id`) o aceptar nombres de sala suministrados por el cliente sin validar el `tenant_id` del JWT/sesión filtra eventos en tiempo real entre inquilinos.
+- **Mitigación:**
+  - Encapsular todo canal del broker con el inquilino autenticado (`ws:${tenant_id}:events` / `f"ws:{tenant_id}:events"`) y verificar en servidor la pertenencia al inquilino al establecer el handshake WebSocket y reenviar mensajes (`SEC-WS-PUBSUB-01`, eximible con `# sec-ws-pubsub-ok`).
 
 ---
 

@@ -492,4 +492,31 @@ PY
   run env QA_BLUEPRINTS_LOCAL_PATH="${local_ws}" HOME="${auto_other_home}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target auto
   assert_success
   [ ! -e "${auto_other_home}/.gemini/GEMINI.md" ]
+
+  # 5. Fallback lefthook.yml sin merge_strategy explícita respeta copy_if_missing y GEMINI.md incluye Rule Zero y evolución proactiva
+  mkdir -p "${auto_other_home}/.gemini"
+  printf 'custom-user-lefthook: true\n' >"${auto_other_ws}/lefthook.yml"
+  cat >"${local_ws}/lefthook.yml" <<'EOF'
+pre-commit:
+  commands:
+    demo:
+      run: echo demo
+EOF
+  python3 - "${local_ws}" <<'PY'
+import hashlib, json, pathlib, sys
+root = pathlib.Path(sys.argv[1])
+lh_p = root / "lefthook.yml"
+data = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+data["common_files"].append({"path": "lefthook.yml", "sha256": hashlib.sha256(lh_p.read_bytes()).hexdigest(), "size_bytes": lh_p.stat().st_size})
+(root / "manifest.json").write_text(json.dumps(data, indent=2), encoding="utf-8")
+PY
+  run env QA_BLUEPRINTS_LOCAL_PATH="${local_ws}" HOME="${auto_other_home}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target antigravity --include-scripts
+  assert_success
+  run cat "${auto_other_ws}/lefthook.yml"
+  assert_output "custom-user-lefthook: true"
+  [ ! -e "${auto_other_ws}/lefthook.yml.11x-backup" ]
+  run grep -F "Rule Zero Supreme" "${auto_other_home}/.gemini/GEMINI.md"
+  assert_success
+  run grep -F "propose_skill_evolution_pr" "${auto_other_home}/.gemini/GEMINI.md"
+  assert_success
 }

@@ -1,0 +1,188 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
+"""Compuerta determinista de pruebas de mutación QA 11X para servicios Python."""
+
+from __future__ import annotations
+
+import argparse
+import importlib
+import os
+import re
+import subprocess
+import sys
+import tomllib
+from dataclasses import dataclass
+from pathlib import Path
+
+MIN_MSI_PCT = 80.0
+MAX_MUTANT_TIMEOUT_SECONDS = 60
+MAX_BASELINE_TIMEOUT_SECONDS = 30
+EXIT_OK = 0
+EXIT_GATE_FAIL = 1
+
+
+@dataclass(frozen=True)
+class MutationSummary:
+    """Resumen cuantitativo de mutantes generados y evaluados."""
+
+    killed: int
+    survived: int
+    timeout: int
+    suspicious: int
+    skipped: int
+    not_checked: int
+
+    @property
+    def evaluable(self) -> int:
+        return self.killed + self.survived + self.suspicious
+
+
+def verify_tests_importable(package_name: str = "tests") -> None:
+    """Garantiza que el paquete de pruebas es importable antes de certificar MSI."""
+    importlib.import_module(package_name)
+
+
+def _read_timeout_int(env_name: str, default_val: int) -> int:
+    raw = os.environ.get(env_name, "").strip()
+    if not raw:
+        return default_val
+    return int(raw)
+
+
+def _verify_pyproject_targets(pyproject_path: Path) -> None:
+    if not pyproject_path.is_file():
+        return
+    data = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+    mutmut_cfg = data.get("tool", {}).get("mutmut", {})
+    targets = (
+        mutmut_cfg.get("paths_to_mutate")
+        or mutmut_cfg.get("source_paths")
+        or ["src/"]
+    )
+    if isinstance(targets, str):
+        targets = [targets]
+    if not any(str(t).lstrip("./").startswith("src") for t in targets):
+        raise ValueError(
+            f"[QA-MUT-01] paths_to_mutate debe apuntar a 'src/': {targets!r}"
+        )
+
+
+def verify_execution_contracts(pyproject_path: Path) -> None:
+    """Valida objetivos `src/` en `pyproject.toml` y límites de timeout (30s/60s)."""
+    _verify_pyproject_targets(pyproject_path)
+    baseline_s = _read_timeout_int(
+        "MUTMUT_BASELINE_TIMEOUT_SEC", MAX_BASELINE_TIMEOUT_SECONDS
+    )
+    mutant_s = _read_timeout_int(
+        "MUTMUT_TIMEOUT_SEC", MAX_MUTANT_TIMEOUT_SECONDS
+    )
+    if baseline_s > MAX_BASELINE_TIMEOUT_SECONDS or baseline_s <= 0:
+        raise ValueError(f"[QA-MUT-02] Timeout baseline fuera de rango: {baseline_s}s")
+    if mutant_s > MAX_MUTANT_TIMEOUT_SECONDS or mutant_s <= 0:
+        raise ValueError(f"[QA-MUT-03] Timeout por mutante fuera de rango: {mutant_s}s")
+
+
+def _extract_summary_count(raw_text: str, label: str) -> int | None:
+    match = re.search(rf"\b{label}\b\s*:\s*(\d+)", raw_text, re.IGNORECASE)
+    return int(match.group(1)) if match else None
+
+
+MUTANT_STATUS_KEYS = (
+    "killed",
+    "survived",
+    "timeout",
+    "suspicious",
+    "skipped",
+    "not checked",
+)
+
+
+def _tally_line_status(counts: dict[str, int], stripped: str) -> None:
+    lower = stripped.lower()
+    for key in MUTANT_STATUS_KEYS:
+        if lower.endswith(f": {key}") or lower.endswith(f" {key}"):
+            norm_key = "not_checked" if key == "not checked" else key
+            counts[norm_key] += 1
+            return
+
+
+def parse_mutmut_results(raw_text: str) -> MutationSummary:
+    """Parsea la salida de `mutmut results` soportando formatos v2 y v3."""
+    counts = {
+        "killed": _extract_summary_count(raw_text, "killed") or 0,
+        "survived": _extract_summary_count(raw_text, "survived") or 0,
+        "timeout": _extract_summary_count(raw_text, "timeout") or 0,
+        "suspicious": _extract_summary_count(raw_text, "suspicious") or 0,
+        "skipped": _extract_summary_count(raw_text, "skipped") or 0,
+        "not_checked": _extract_summary_count(raw_text, "not_checked") or 0,
+    }
+    if sum(counts.values()) == 0:
+        for line in raw_text.splitlines():
+            _tally_line_status(counts, line.strip())
+    return MutationSummary(
+        killed=counts["killed"],
+        survived=counts["survived"],
+        timeout=counts["timeout"],
+        suspicious=counts["suspicious"],
+        skipped=counts["skipped"],
+        not_checked=counts["not_checked"],
+    )
+
+
+def evaluate_mutation_score(
+    summary: MutationSummary, min_msi: float = MIN_MSI_PCT
+) -> tuple[bool, float, str]:
+    """Calcula MSI excluyendo timeouts/SIGKILL y falla cerrado ante 0 mutantes."""
+    if summary.evaluable <= 0:
+        return (
+            False,
+            0.0,
+            "❌ [QA-MUT-GATE] 0 mutantes evaluables (killed+survived+suspicious=0).",
+        )
+    msi = (summary.killed / summary.evaluable) * 100.0
+    passed = msi >= min_msi
+    icon = "✅" if passed else "❌"
+    msg = (
+        f"{icon} [QA-MUT-GATE] MSI={msi:.2f}% (mínimo={min_msi:.1f}% | "
+        f"killed={summary.killed}, survived={summary.survived}, "
+        f"suspicious={summary.suspicious}, timeout={summary.timeout})."
+    )
+    return passed, msi, msg
+
+
+def _load_mutmut_output(report_file: Path | None) -> str:
+    if report_file is not None:
+        return report_file.read_text(encoding="utf-8")
+    proc = subprocess.run(
+        ["mutmut", "results"],
+        capture_output=True,
+        text=True,
+        timeout=MAX_BASELINE_TIMEOUT_SECONDS,
+        check=False,
+    )
+    return f"{proc.stdout}\n{proc.stderr}"
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Punto de entrada CLI de compuerta de mutación."""
+    parser = argparse.ArgumentParser(description="QA 11X Mutation Gate")
+    parser.add_argument("--pyproject", default="pyproject.toml")
+    parser.add_argument("--report-file", default=None)
+    parser.add_argument("--min-msi", type=float, default=MIN_MSI_PCT)
+    parser.add_argument("--tests-pkg", default="tests")
+    args = parser.parse_args(argv)
+
+    verify_tests_importable(args.tests_pkg)
+    verify_execution_contracts(Path(args.pyproject))
+    report_path = Path(args.report_file) if args.report_file else None
+    raw_output = _load_mutmut_output(report_path)
+    summary = parse_mutmut_results(raw_output)
+    passed, _msi, message = evaluate_mutation_score(summary, args.min_msi)
+    stream = sys.stdout if passed else sys.stderr
+    print(message, file=stream)
+    return EXIT_OK if passed else EXIT_GATE_FAIL
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

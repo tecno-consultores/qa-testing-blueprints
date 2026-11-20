@@ -32,7 +32,7 @@ Activate strictly on demand when designing, auditing, or modifying:
 | # | Control | STIG V6R5 | OWASP | Mandatory 11X Enforcement |
 | :-: | :--- | :--- | :--- | :--- |
 | **01** | Mass Assignment | `APSC-DV-002520` | API3:2023 | `ConfigDict(extra="forbid")` / Zod `.strict()`; separate DTOs from ORM. |
-| **02** | Anti-CSWSH Origin | `APSC-DV-002560` | WebSockets | Verify HTTP `Origin` before `ws.accept()`; reject unlisted with `4403`. |
+| **02** | Anti-CSWSH & WS | `APSC-DV-000460/2560` | WebSockets/API3 | Verify HTTP `Origin` (`4403`); scope PubSub channels (`ws:{tenant_id}:*`, `SEC-WS-PUBSUB-01`). |
 | **03** | Prod 422 Sanitize | `APSC-DV-002430` | ERR-1..6 | Log details to stdout; return opaque error when `APP_ENV=production`. |
 | **04** | Pre-DNS Anti-SSRF | `APSC-DV-002520` | API7:2023 | Resolve DNS first; block loopback, RFC1918, `169.254.0.0/16`, `*-db`/`*-redis`/`*-api`. |
 | **05** | Parameterized SQL | `APSC-DV-002510` | SQLi | `:bind_params` only; strict allowlists for dynamic columns/sorts. |
@@ -50,7 +50,7 @@ Activate strictly on demand when designing, auditing, or modifying:
 | **17** | Anti-XXE & Magic | `APSC-DV-002390/2485` | VSD/FV | Disable DTD/XXE (`defusedxml`, `LIBXML_NONET`); magic bytes; outside web root. |
 | **18** | WORM & 75% Disk | `APSC-DV-000650..1370` | SL/SLD | Strip CR/LF; `seq_num BIGINT` + `pg_advisory_xact_lock` HMAC chain; 75% alert. |
 | **19** | FIPS Vault/Scrub | `APSC-DV-002010..3310` | CP-5/MM | FIPS 140-3 AES-256-GCM, `bytearray`/`sodium_memzero`, no TLS compression, DB scrub. |
-| **20** | OSHP & Fail-Secure | `APSC-DV-002310..2770` | OSHP/SC | HSTS, CSP, `nosniff`, `DENY`, `no-store`; drop `Server`; deny-by-default self-test. |
+| **20** | OSHP & Fail-Secure | `APSC-DV-002310..2770` | OSHP/SC | HSTS, CSP (`form-action 'self'`, `object-src 'none'`), `nosniff`, `DENY`, `no-store`; drop `Server`; deny-by-default. |
 | **21** | API Top 10/RBAC | `APSC-DV-000450/460` | API 2023 | BOLA/BOPLA/BFLA service RBAC, MCP `ApprovalRequest`, `<= 100`/page anti-mining. |
 | **22** | SBOM & Threat Mod | `V-222513` / `003230` | SBOM | Signed CycloneDX SBOM/CBOM (`ECMA-424`), SHA-256 manifest, `pytm` models, `SEC-CI-ACTION-REF` (`uses: owner/repo@<sha40> # vX.Y.Z` in `.github/workflows/*.yml`; block mutable branches & unprefixed tags like `aquasecurity/trivy-action@0.x.y`). |
 
@@ -113,6 +113,7 @@ Unauthenticated multi-step ceremonies (`login -> mfa_enrollment_required | mfa_c
 - **Logging & Scrubbing:** Emit UTC ms + `trace_id`, zero secrets/PII (`APSC-DV-000650`), alert at **75%** audit capacity (`APSC-DV-001090`), and scrub DB exports (`APSC-DV-003310`).
 
 ### 6.3. Supply Chain, OSHP, Runtime Contracts & Rootless Containers
-- **OSHP, Fail-Secure & Supply Chain:** Enforce HSTS, CSP, `nosniff`, `DENY`, `no-store`, drop `Server` headers, run startup self-tests (`APSC-DV-002310/002770`), enforce anti-mining quotas (`APSC-DV-000450`), keep `pytm` threat models (`APSC-DV-003230`), and emit signed CycloneDX SBOM/CBOM (`ECMA-424`, `APSC-DV-001430/003140`, `STIG V-222513`).
+- **OSHP, Fail-Secure & Supply Chain:** Enforce HSTS, strict CSP (including `form-action 'self'` and `object-src 'none'`), `nosniff`, `DENY`, `no-store`, drop `Server` headers, run startup self-tests (`APSC-DV-002310/002770`), enforce anti-mining quotas (`APSC-DV-000450`), keep `pytm` threat models (`APSC-DV-003230`), and emit signed CycloneDX SBOM/CBOM (`ECMA-424`, `APSC-DV-001430/003140`, `STIG V-222513`).
+- **Multi-Tenant WS / PubSub Isolation (`SEC-WS-PUBSUB-01`):** Prefix KeyDB/Redis PubSub channels by tenant (`ws:{tenant_id}:events`) and validate `tenant_id`/`org_id` per WebSocket subscriber before fan-out broadcast.
 - **`QA-HEALTH-01` & `QA-CLI-TTY-01`:** Boot orchestrators under default prod `Settings()` without mocking `OPTIONAL_WORKERS` (surfacing `task.exception()`); detect `isTTY`/`isatty()` without `--stdio` to print help and `exit(0)` in `<= 5s`.
 - **Rootless Alignment (`QA-COV-01`, `QA-DOCKER-TTY-01`, `QA-CI-ESCAPE-01`, `QA-MAKE-CURDIR-01` & `pnpm-store-init`):** Use `cap_drop: [ALL]`, `no-new-privileges:true`, `read_only: true` (`/tmp` `tmpfs` + pre-created `Dockerfile` dirs for writable `tmpfs` caches like `/app/.wrangler` with `noexec,nosuid,nodev`), `docker compose run --rm -T` in `CI=true` scripts/workflows, single-dollar `$(pwd)`/`$(id -u)` in GitHub Actions `run:` steps (`QA-CI-ESCAPE-01`), `$(CURDIR)` instead of `$(PWD)` in sub-Makefiles (`QA-MAKE-CURDIR-01`), Trivy `HIGH/CRITICAL = 0`, `-u "$(id -u):$(id -g)"`, `HOME=/tmp`, `COVERAGE_FILE=/tmp/.coverage`, `UV_CACHE_DIR=/tmp/uv-cache`, and `pnpm_config_store_dir=/pnpm/store` + `pnpm-store-init` (`chmod -R a+rwX /pnpm`) on `UID 10001` Node images to prevent `os error 13`.
