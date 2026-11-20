@@ -7,6 +7,7 @@ from __future__ import annotations
 import importlib.util
 import io
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -1642,6 +1643,17 @@ def test_vibe_rescue_auditor_clean_pass_quiet_and_path_traversal(
     )
     assert proc.returncode == 2
 
+    rules_mod: Any = sys.modules["_vibe_rules"]
+    assert rules_mod.find_line(["a"], re.compile("zzz"), default=7) == 7
+    assert rules_mod.is_env_file_ignored(".env.local", ".env.local", [".env*"]) is True
+    assert rules_mod.is_env_file_ignored(".env.prod", ".env.prod", [".env.*"]) is True
+    assert rules_mod.is_env_file_ignored("prod.env", "prod.env", ["*.env"]) is True
+    assert rules_mod.is_env_file_ignored(".env", ".env", ["other"]) is False
+    assert rules_mod.is_env_file_ignored("sub/.env", ".env", ["/.env"]) is False
+    assert rules_mod.is_env_file_ignored(".env", ".env", ["/.env"]) is True
+    assert rules_mod.is_env_file_ignored(".env", ".env", {".env", "!.env"}) is False
+    assert rules_mod.is_env_file_ignored(".env", ".env", {".env"}) is True
+
 
 def test_verify_docs_invariants_bilingual_readme_and_internal_links(
     tmp_path: Path,
@@ -2093,6 +2105,28 @@ def test_pagespeed_insights_http_fetcher_paths_and_cli(
 
     assert psi.main(["--url", "", "--json"]) == 0
     assert psi.main(["--url", "http://127.0.0.1"]) == 1
+
+    assert psi.validate_public_https_url("https://2130706433/")[0] is False
+    assert psi.validate_public_https_url("https://[::ffff:127.0.0.1]/")[0] is False
+    assert (
+        psi.validate_public_https_url("https://empty.example", resolver=lambda _h: [])[
+            0
+        ]
+        is False
+    )
+    with pytest.raises(ValueError):
+        psi.resolve_safe_output_path("bad\0.json", tmp_path)
+    psi_link = tmp_path / "psi-link.json"
+    psi_link.symlink_to(tmp_path / "real.json")
+    with pytest.raises(ValueError):
+        psi.resolve_safe_output_path("psi-link.json", tmp_path)
+    assert (
+        psi._extract_crux_metrics({"loadingExperience": {"metrics": {}}})["available"]
+        is False
+    )
+    assert psi._safe_float(None) == 0.0
+    assert psi._safe_float("not-a-num") == 0.0
+    assert psi._extract_top_opportunities({"lighthouseResult": {"audits": "bad"}}) == []
 
 
 def test_verify_topological_health_cycle_dfs_and_structural_filter(
