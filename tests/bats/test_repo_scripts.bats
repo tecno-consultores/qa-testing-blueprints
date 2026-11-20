@@ -441,8 +441,10 @@ EOF
   assert_output --partial "sbom.cyclonedx.json"
   [ -f "${WORK}/sbom.cyclonedx.json" ]
   [ -f "${WORK}/sbom.cyclonedx.json.sha256" ]
-  run grep -F "qa11x_trivy_cache:/tmp/trivy-cache" "${DOCKER_LOG}"
+  run grep -F "/qa-11x-trivy:/tmp/trivy-cache" "${DOCKER_LOG}"
   assert_success
+  run grep -F "qa11x_trivy_cache:/tmp/trivy-cache" "${DOCKER_LOG}"
+  assert_failure
   run grep -F -- "--format cyclonedx --output /workspace/sbom.cyclonedx.json /workspace" "${DOCKER_LOG}"
   assert_success
   run grep -F -- "--network none" "${DOCKER_LOG}"
@@ -463,6 +465,13 @@ EOF
   assert_success
   run grep -F "qa11x-sbom-key" "${DOCKER_LOG}"
   assert_failure
+
+  : >"${DOCKER_LOG}"
+  touch "${BATS_TEST_TMPDIR}/sbom_ro_blocker"
+  run env QA11X_TRIVY_CACHE_DIR="${BATS_TEST_TMPDIR}/sbom_ro_blocker/sub" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${WORK}/scripts/generar-sbom-cyclonedx.sh" "artifacts/fallback.cyclonedx.json"
+  assert_success
+  run grep -F ".qa11x_trivy_cache_" "${DOCKER_LOG}"
+  assert_success
 
   run env MOCK_DOCKER_FAIL=1 PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${WORK}/scripts/generar-sbom-cyclonedx.sh" "artifacts/fail.json"
   assert_failure 1

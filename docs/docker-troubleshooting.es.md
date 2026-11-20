@@ -173,18 +173,19 @@ Verifica que el servicio `keydb` en `docker-compose.qa.yml` declare límites de 
 
 ---
 
-## 11. Bloqueo de Trivy por Permisos en el Volumen de Caché
+## 11. Bloqueo de Trivy por Permisos en Caché o Volumen Heredado
 
 **Síntoma:**
-Al ejecutar `./scripts/auditar-infra.sh` o `make audit`, Trivy arroja: `permission denied on /root/.cache/trivy/db`.
+Al ejecutar `./scripts/auditar-infra.sh` o `make audit`, Trivy arroja `permission denied` en `/root/.cache/trivy/db` o `mkdir /tmp/trivy-cache/db: permission denied`.
 
 **¿Por qué sucede?**
-El contenedor efímero de Trivy crea la base de datos de vulnerabilidades con propietario restrictivo. Si ejecutas una auditoría posterior con un usuario no privilegiado, la lectura o actualización del directorio se bloquea.
+Un contenedor Trivy sin privilegios (`-u "$(id -u):$(id -g)"`) no puede crear subdirectorios dentro de un montaje con propietario `root:root` (como un volumen nombrado recién inicializado por Docker o una carpeta residual de root).
 
 **La Solución:**
-El script `./scripts/auditar-infra.sh` utiliza el volumen nombrado aislado `qa11x_trivy_cache` para evitar contaminar el árbol de trabajo con archivos `root`. Si la base de datos en caché se corrompe, púrgala limpiamente sin `sudo`:
+Los scripts `./scripts/auditar-infra.sh` y `./scripts/generar-sbom-cyclonedx.sh` montan un directorio de caché en el host propiedad del usuario (`${XDG_CACHE_HOME:-${HOME}/.cache}/qa-11x-trivy`, configurable con `QA11X_TRIVY_CACHE_DIR` y respaldo automático en `${TMPDIR:-/tmp}/.qa11x_trivy_cache_<uid>`), evitando bloqueos de volúmenes nombrados en runners limpios de CI. Si la base en caché se corrompe o deseas limpiar un volumen heredado, purga sin `sudo`:
 ```bash
-docker volume rm -f qa11x_trivy_cache
+rm -rf "${HOME}/.cache/qa-11x-trivy"
+docker volume rm -f qa11x_trivy_cache 2>/dev/null || true
 ./scripts/limpieza.sh
 ```
 

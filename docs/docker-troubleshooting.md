@@ -173,18 +173,19 @@ Verify that the `keydb` service in `docker-compose.qa.yml` declares safe memory 
 
 ---
 
-## 11. Trivy Blocked by Cache Volume Permissions
+## 11. Trivy Blocked by Cache Directory or Legacy Volume Permissions
 
 **Symptom:**
-When running `./scripts/auditar-infra.sh` or `make audit`, Trivy throws: `permission denied on /root/.cache/trivy/db`.
+When running `./scripts/auditar-infra.sh` or `make audit`, Trivy throws `permission denied` on `/root/.cache/trivy/db` or `mkdir /tmp/trivy-cache/db: permission denied`.
 
 **Why does this happen?**
-The ephemeral Trivy container creates the vulnerability database with restrictive ownership. If a subsequent audit runs with an unprivileged UID, reading or updating that directory fails.
+An unprivileged Trivy container (`-u "$(id -u):$(id -g)"`) cannot create subdirectories inside a `root:root`-owned mount (such as a freshly initialized Docker named volume before non-root initialization or a stale root-owned cache folder).
 
 **The Solution:**
-`./scripts/auditar-infra.sh` uses the isolated named volume `qa11x_trivy_cache` to avoid polluting the working tree with `root`-owned files. If the cached database becomes corrupted, purge it cleanly without `sudo`:
+`./scripts/auditar-infra.sh` and `./scripts/generar-sbom-cyclonedx.sh` bind-mount a user-owned host cache directory (`${XDG_CACHE_HOME:-${HOME}/.cache}/qa-11x-trivy`, overridable via `QA11X_TRIVY_CACHE_DIR` with automatic fallback to `${TMPDIR:-/tmp}/.qa11x_trivy_cache_<uid>`), avoiding `root`-owned named-volume initialization on fresh CI runners. If the cached database becomes corrupted or you want to remove a legacy volume, run cleanly without `sudo`:
 ```bash
-docker volume rm -f qa11x_trivy_cache
+rm -rf "${HOME}/.cache/qa-11x-trivy"
+docker volume rm -f qa11x_trivy_cache 2>/dev/null || true
 ./scripts/limpieza.sh
 ```
 

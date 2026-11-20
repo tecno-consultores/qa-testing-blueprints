@@ -23,7 +23,7 @@ setup() {
   cp "${AUDIT_SCRIPT}" "${FAKE_ROOT}/scripts/auditar-infra.sh"
   chmod +x "${FAKE_ROOT}/scripts/auditar-infra.sh"
 
-  for tool in bash dirname cd pwd find awk sort xargs sha256sum rm touch mkdir chmod date; do
+  for tool in bash dirname cd pwd find awk sort xargs sha256sum id rm touch mkdir chmod date; do
     resolved="$(command -v "${tool}" || true)"
     if [ -n "${resolved}" ]; then
       ln -sf "${resolved}" "${FAKE_BIN}/${tool}"
@@ -148,6 +148,8 @@ EOF
   assert_success
   [[ "${output}" =~ aquasec/trivy:[0-9]+\.[0-9]+\.[0-9]+@sha256:[0-9a-f]{64}[[:space:]]+config[[:space:]]+\.[[:space:]]+--quiet[[:space:]]+--config[[:space:]]+\.trivy\.yaml[[:space:]]+--severity[[:space:]]+HIGH,CRITICAL[[:space:]]+--exit-code[[:space:]]+1 ]]
   [[ "${output}" =~ aquasec/trivy:[0-9]+\.[0-9]+\.[0-9]+@sha256:[0-9a-f]{64}[[:space:]]+fs[[:space:]]+\.[[:space:]]+--quiet[[:space:]]+--scanners[[:space:]]+vuln[[:space:]]+--config[[:space:]]+\.trivy\.yaml ]]
+  assert_output --partial "/qa-11x-trivy:/tmp/trivy-cache"
+  refute_output --partial "qa11x_trivy_cache:/tmp/trivy-cache"
   assert_output --partial "--timeout 10m --severity HIGH,CRITICAL --exit-code 1"
   refute_output --partial "--severity CRITICAL"
 }
@@ -168,6 +170,13 @@ EOF
   assert_success
   assert_output --partial "config . --quiet --skip-dirs node_modules,.git,dist,target,graphify-out,vendor,.venv --severity HIGH,CRITICAL --exit-code 1"
   assert_output --partial "fs . --quiet --scanners vuln --skip-dirs node_modules,.git,dist,target,graphify-out,vendor,.venv"
+
+  : >"${DOCKER_LOG}"
+  touch "${BATS_TEST_TMPDIR}/trivy_ro_blocker"
+  run env PATH="${FAKE_BIN}" QA11X_TRIVY_CACHE_DIR="${BATS_TEST_TMPDIR}/trivy_ro_blocker/sub" LC_ALL=C bash "${FAKE_ROOT}/scripts/auditar-infra.sh" --force
+  assert_success
+  run grep -F ".qa11x_trivy_cache_" "${DOCKER_LOG}"
+  assert_success
 }
 
 @test ".trivy.yaml (Repo real): excluye patrones glob **/vendor, **/.venv, **/node_modules, **/mutants sin skip-files ciegos" {
@@ -490,7 +499,7 @@ EOF
   local real_sha256sum
   real_sha256sum="$(command -v sha256sum)"
   mkdir -p "${no_sha256_bin}"
-  for tool in bash dirname cd pwd find awk sort xargs rm touch mkdir chmod date; do
+  for tool in bash dirname cd pwd find awk sort xargs id rm touch mkdir chmod date; do
     resolved="$(command -v "${tool}" || true)"
     [ -n "${resolved}" ] && ln -sf "${resolved}" "${no_sha256_bin}/${tool}"
   done

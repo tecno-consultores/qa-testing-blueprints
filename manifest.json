@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "3.2.0",
-  "generated_at_utc": "2026-11-20T02:23:47Z",
+  "generated_at_utc": "2026-11-20T03:00:36Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -1019,8 +1019,8 @@
       "path": "scripts/auditar-infra.sh",
       "target_name": "scripts/auditar-infra.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "1a9563c5b7668e0223aefe84d8702c95e6c55a3f9cdd3d8271de0e57ecb2ea07",
-      "size_bytes": 8773
+      "sha256": "7a225c3f40e257b1ea934e5fbd27a77485b3a6a80cff07d69e2512a6e32dfe95",
+      "size_bytes": 9067
     },
     {
       "path": "scripts/auditar-pagespeed.sh",
@@ -1033,8 +1033,8 @@
       "path": "scripts/generar-sbom-cyclonedx.sh",
       "target_name": "scripts/generar-sbom-cyclonedx.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "0e6fa2e17064fc7c9fdb002fa5e726c2a20397f931c1a0cf8362fc2c4e52b880",
-      "size_bytes": 3139
+      "sha256": "38324366bbe6e430c87b1295d50cc8cdb082fb5fa3bc021d5eb6a5407fea7214",
+      "size_bytes": 3431
     },
     {
       "path": "scripts/limpieza.sh",

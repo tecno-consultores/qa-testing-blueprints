@@ -153,7 +153,11 @@ if [ "${FORCE_SCAN}" = false ] && [ -n "${IAC_FINGERPRINT}" ] && [ -f "${CACHE_M
 fi
 
 TRIVY_IMAGE="aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb"
-TRIVY_CACHE_VOLUME="qa11x_trivy_cache"
+TRIVY_CACHE_HOST_DIR="${QA11X_TRIVY_CACHE_DIR:-${XDG_CACHE_HOME:-${HOME:-/tmp}/.cache}/qa-11x-trivy}"
+if ! mkdir -p "${TRIVY_CACHE_HOST_DIR}" 2>/dev/null || [ ! -w "${TRIVY_CACHE_HOST_DIR}" ]; then
+  TRIVY_CACHE_HOST_DIR="${TMPDIR:-/tmp}/.qa11x_trivy_cache_$(id -u 2>/dev/null || echo 0)"
+  mkdir -p "${TRIVY_CACHE_HOST_DIR}"
+fi
 TRIVY_DB_REPOS="public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2,mirror.gcr.io/aquasec/trivy-db:2"
 TRIVY_SKIP_DIRS="node_modules,.git,dist,target,graphify-out,vendor,.venv"
 TRIVY_CONFIG_ARGS=(--skip-dirs "${TRIVY_SKIP_DIRS}")
@@ -168,7 +172,7 @@ if ! IAC_OUT=$(docker run --rm \
   -e HOME=/tmp \
   -e TRIVY_CACHE_DIR=/tmp/trivy-cache \
   -v "${REPO_ROOT}:/app:ro" \
-  -v "${TRIVY_CACHE_VOLUME}:/tmp/trivy-cache" \
+  -v "${TRIVY_CACHE_HOST_DIR}:/tmp/trivy-cache" \
   -w /app \
   "${TRIVY_IMAGE}" config . \
   --quiet \
@@ -187,7 +191,7 @@ if ! FS_OUT=$(docker run --rm \
   -e HOME=/tmp \
   -e TRIVY_CACHE_DIR=/tmp/trivy-cache \
   -v "${REPO_ROOT}:/app:ro" \
-  -v "${TRIVY_CACHE_VOLUME}:/tmp/trivy-cache" \
+  -v "${TRIVY_CACHE_HOST_DIR}:/tmp/trivy-cache" \
   -w /app \
   "${TRIVY_IMAGE}" fs . \
   --quiet \
