@@ -219,3 +219,44 @@ def test_shared_llm_judge_resolution_and_fallbacks(
         ),
         LocalModel,
     )
+
+
+def test_edge_cases_null_threshold_empty_envelope_and_empty_model_env() -> None:
+    assert (
+        golden_from_traces.is_failed_or_degraded_trace(
+            {"score": 0.5, "threshold": None}, default_threshold=0.90
+        )
+        is True
+    )
+    assert (
+        golden_from_traces.is_failed_or_degraded_trace(
+            {"score": 0.95, "threshold": None}, default_threshold=0.90
+        )
+        is False
+    )
+    sanitized_item = golden_from_traces._extract_trace_fields(
+        {
+            "input": "check domain",
+            "domain": "qa/sk-secret1234567890123456 & ops@corp.local",
+        }
+    )
+    assert "secret1234" not in sanitized_item.domain
+    assert "ops" not in sanitized_item.domain
+    assert _llm_judge.resolve_deepeval_judge_model(
+        {"OPENAI_API_KEY": "placeholder-key", "QA_LLM_MODEL": "   "}
+    ).get_model_name() == "gpt-4.1-mini"
+    assert _llm_judge.resolve_deepeval_judge_model(
+        {"OPENAI_API_BASE": "http://127.0.0.1:8000/v1", "QA_LLM_MODEL": ""}
+    ).get_model_name().startswith("gpt-4.1-mini")
+    assert _llm_judge.is_live_llm_audit_enabled({}) is False
+    assert _llm_judge.is_live_llm_audit_enabled({"RUN_LLM_AUDIT": "1"}) is True
+    assert _llm_judge.is_live_llm_audit_enabled({"QA_LLM_AUDIT_LIVE": "1"}) is True
+
+
+def test_load_raw_traces_empty_envelopes(tmp_path: Path) -> None:
+    empty_traces = tmp_path / "empty_traces.json"
+    empty_traces.write_text('{"traces": []}', encoding="utf-8")
+    assert golden_from_traces.load_raw_traces(empty_traces) == []
+    empty_results = tmp_path / "empty_results.json"
+    empty_results.write_text('{"results": []}', encoding="utf-8")
+    assert golden_from_traces.load_raw_traces(empty_results) == []

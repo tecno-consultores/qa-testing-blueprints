@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -82,7 +82,11 @@ SQL_ENABLE_RLS_RE = re.compile(
     re.IGNORECASE,
 )
 SQL_FORCE_RLS_RE = re.compile(
-    r"\bFORCE\s+ROW\s+LEVEL\s+SECURITY\b",
+    r"(?<!\bNO\s)\bFORCE\s+ROW\s+LEVEL\s+SECURITY\b",
+    re.IGNORECASE,
+)
+SQL_RLS_ACTION_RE = re.compile(
+    r"\b(ENABLE|DISABLE|(?:NO\s+)?FORCE)\s+ROW\s+LEVEL\s+SECURITY\b",
     re.IGNORECASE,
 )
 SQL_BYPASSRLS_RE = re.compile(r"\bBYPASSRLS\b", re.IGNORECASE)
@@ -151,7 +155,7 @@ class ScanContext:
     target_dir: Path
     env_ignored: bool
     max_lines: int
-    gitignore_patterns: frozenset[str] = field(default_factory=frozenset)
+    gitignore_patterns: Collection[str] = field(default_factory=tuple)
     findings: list[AuditFinding] = field(default_factory=list)
     env_keys: set[str] = field(default_factory=set)
     has_any_test: bool = False
@@ -166,6 +170,13 @@ def redact_secrets(text: str) -> str:
 
 def is_test_path(rel_path: Path) -> bool:
     """Determina si una ruta corresponde a pruebas automatizadas."""
+    if rel_path.name.startswith("."):
+        return False
+    is_code_or_test = rel_path.suffix in CODE_EXTENSIONS or bool(
+        TEST_FILE_RE.search(rel_path.name)
+    )
+    if not is_code_or_test:
+        return False
     if any(part in TEST_DIR_NAMES for part in rel_path.parts[:-1]):
         return True
     return bool(TEST_FILE_RE.search(rel_path.name))
@@ -203,19 +214,54 @@ def add_finding(
     )
 
 
+def _match_wildcard_env(name: str, pat: str) -> bool:
+    if pat == ".env*":
+        return name.startswith(".env")
+    if pat == ".env.*":
+        return name.startswith(".env.")
+    if pat == "*.env":
+        return name.endswith(".env")
+    return False
+
+
+def _env_pattern_matches(rel: str, fname: str, pat: str) -> bool:
+    if pat.startswith("/"):
+        target = pat[1:]
+        if "/" in rel:
+            return rel == target
+        return rel == target or _match_wildcard_env(rel, target)
+    return fname == pat or rel == pat or _match_wildcard_env(fname, pat)
+
+
+def _eval_gitignore_sequence(rel: str, fname: str, patterns: Sequence[str]) -> bool:
+    ignored = False
+    for pat in patterns:
+        is_neg = pat.startswith("!")
+        body = pat[1:] if is_neg else pat
+        if _env_pattern_matches(rel, fname, body):
+            ignored = not is_neg
+    return ignored
+
+
 def is_env_file_ignored(
     rel: str,
     fname: str,
-    patterns: frozenset[str],
+    patterns: Collection[str],
 ) -> bool:
     """Determina si un archivo .env* especifico esta cubierto por .gitignore."""
-    if not patterns or f"!{fname}" in patterns or f"!{rel}" in patterns:
+    if not patterns:
         return False
-    if ".env*" in patterns or fname in patterns or rel in patterns:
-        return True
-    if fname == ".env":
-        return "*.env" in patterns
-    return ".env.*" in patterns
+    if isinstance(patterns, Sequence):
+        return _eval_gitignore_sequence(rel, fname, patterns)
+    if any(
+        p.startswith("!") and _env_pattern_matches(rel, fname, p[1:])
+        for p in patterns
+    ):
+        return False
+    return any(
+        not p.startswith("!") and _env_pattern_matches(rel, fname, p)
+        for p in patterns
+    )
 
 
 def scan_env_file(rel: str, lines: Sequence[str], ctx: ScanContext) -> None:
@@ -290,16 +336,53 @@ def _normalize_sql_table(raw_name: str) -> str:
     return compact
 
 
+def _rls_enable(enabled: set[str], _forced: set[str], tbl: str) -> None:
+    enabled.add(tbl)
+
+
+def _rls_disable(enabled: set[str], _forced: set[str], tbl: str) -> None:
+    enabled.discard(tbl)
+
+
+def _rls_force(_enabled: set[str], forced: set[str], tbl: str) -> None:
+    forced.add(tbl)
+
+
+def _rls_no_force(_enabled: set[str], forced: set[str], tbl: str) -> None:
+    forced.discard(tbl)
+
+
+_RLS_ACTION_HANDLERS = {
+    "ENABLE": _rls_enable,
+    "DISABLE": _rls_disable,
+    "FORCE": _rls_force,
+    "NO FORCE": _rls_no_force,
+}
+
+
+def _apply_rls_clause(
+    table_name: str,
+    clause: str,
+    enabled: set[str],
+    forced: set[str],
+) -> None:
+    for act_match in SQL_RLS_ACTION_RE.finditer(clause):
+        act = re.sub(r"\s+", " ", act_match.group(1).strip().upper())
+        handler = _RLS_ACTION_HANDLERS.get(act)
+        if handler is not None:
+            handler(enabled, forced, table_name)
+
+
 def _collect_sql_rls_tables(cleaned: str) -> tuple[set[str], set[str]]:
     enabled: set[str] = set()
     forced: set[str] = set()
     for match in SQL_ALTER_TABLE_RE.finditer(cleaned):
-        table_name = _normalize_sql_table(match.group(1))
-        clause = match.group(2)
-        if SQL_ENABLE_RLS_RE.search(clause):
-            enabled.add(table_name)
-        if SQL_FORCE_RLS_RE.search(clause):
-            forced.add(table_name)
+        _apply_rls_clause(
+            _normalize_sql_table(match.group(1)),
+            match.group(2),
+            enabled,
+            forced,
+        )
     return enabled, forced
 
 

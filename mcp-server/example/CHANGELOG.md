@@ -10,6 +10,7 @@ All notable changes to the seed project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+* Enforced FastAPI `TestClient` unit parity (`>= 95%` across `api/devices.py` and `main.py`), `Idempotency-Key` replay/409 checks, shared `CreateDeviceResponseDto`, HTTP Karate contracts, and Playwright in-flow footer geometry assertions.
 * Multi-tenant telemetry `GET/POST /api/v1/devices` with `DevicesDashboard.vue` and ORM/Alembic parity.
 
 ## [1.0.0] - 2026-11-12

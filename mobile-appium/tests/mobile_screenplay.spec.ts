@@ -537,4 +537,168 @@ describe('QA 11X Mobile Appium Screenplay & WDIO Contract', () => {
     await harness.closeSession();
     assert.equal(stubState.closed, true);
   });
+
+  it('bloquea bypass ~XPath, (//xpath), userinfo en Deep Link, cabeceras duplicadas, doble readBounds y fallos WDIO', async () => {
+    const tmpArtifacts = fs.mkdtempSync(path.join(os.tmpdir(), 'qa-11x-mobile-sec-'));
+    try {
+      const cfg = buildMobileWdioConfig({ QA_MOBILE_ARTIFACT_DIR: tmpArtifacts });
+      const rejectingDriver: MobileFailureDriverPort = {
+        getPageSource: async () => '<hierarchy />',
+        takeScreenshot: async () => {
+          throw new Error('screenshot failed');
+        },
+        getContext: async () => {
+          throw new Error('context unavailable');
+        },
+      };
+      const firstDiag = await cfg.afterTest?.(
+        { title: 'context-err' },
+        { tenantId: 't-1' },
+        { passed: false, error: 'boom' },
+        rejectingDriver,
+      );
+      const secondDiag = await cfg.afterTest?.(
+        { title: 'context-err' },
+        { tenantId: 't-1', activeContext: 'NATIVE_APP' },
+        { passed: false, error: 'boom-2' },
+        rejectingDriver,
+      );
+      assert.ok(firstDiag && secondDiag);
+      assert.equal(firstDiag.context, 'UNKNOWN_CONTEXT');
+      assert.equal(secondDiag.context, 'NATIVE_APP');
+      assert.equal(firstDiag.screenshotPath, '');
+      assert.notEqual(firstDiag.pageSourcePath, secondDiag.pageSourcePath);
+      const allureJson = JSON.parse(fs.readFileSync(firstDiag.metadataPath, 'utf-8')) as {
+        attachments: Array<{ name: string }>;
+      };
+      assert.deepEqual(
+        allureJson.attachments.map((a) => a.name),
+        ['mobile-xml-tree'],
+      );
+    } finally {
+      fs.rmSync(tmpArtifacts, { recursive: true, force: true });
+    }
+
+    assert.throws(() => ByAccessibilityId('~//android.widget.Button'), /XPath/);
+    assert.throws(() => ByAccessibilityId('(//android.widget.Button)[1]'), /XPath/);
+    assert.throws(() => ByAccessibilityId('   '), /vacio/);
+
+    const calls: MobileApiRequestSpec[] = [];
+    let readBoundsCount = 0;
+    const guardDriver: MobileDriverPort = {
+      locate: () => ({
+        tap: async () => {},
+        typeText: async () => {},
+        readText: async () => 'ok',
+        isVisible: async () => true,
+        readBounds: async () => {
+          readBoundsCount += 1;
+          return { x: 1, y: 2, width: 100, height: 40 };
+        },
+      }),
+      getContexts: async () => ['NATIVE_APP'],
+      getCurrentContext: async () => 'NATIVE_APP',
+      switchContext: async () => {},
+      openDeepLink: async () => {},
+      authenticateBiometric: async () => true,
+      setNetworkState: async () => {},
+      getNetworkState: async () => 'online',
+    };
+    const actor = MobileActor.named('SecGuard', {
+      role: 'operator',
+      tenantId: 'tenant-sec',
+      platform: 'android',
+    }).whoCan(
+      InteractWithMobile.using(guardDriver),
+      CallMobileApi.using({
+        async send<T = unknown>(spec: MobileApiRequestSpec): Promise<MobileApiResponsePayload<T>> {
+          calls.push(spec);
+          return { status: 200, data: {} as T };
+        },
+      }),
+    );
+
+    await assert.rejects(
+      () => actor.attemptsTo(OpenVerifiedDeepLink('https://evil.com@app.sinfallas.local/orders')),
+      UnsafeDeepLinkError,
+    );
+
+    const bounds = await actor.asks(VisibleMobileBounds(ByAccessibilityId('btn-bounds')));
+    assert.equal(bounds.width, 100);
+    assert.equal(readBoundsCount, 1);
+
+    await actor.abilityTo(CallMobileApi).request(actor, {
+      method: 'POST',
+      path: '/api/v1/sync',
+      headers: {
+        'x-tenant-id': 'spoofed-tenant',
+        'idempotency-key': 'caller-idem-1234',
+        'X-Custom': '1',
+      },
+    });
+    const h = calls[0]?.headers ?? {};
+    assert.equal(h['X-Tenant-ID'], 'tenant-sec');
+    assert.equal(h['x-tenant-id'], undefined);
+    assert.equal(h['idempotency-key'], 'caller-idem-1234');
+    assert.equal(h['Idempotency-Key'], undefined);
+    assert.equal(h['X-Custom'], '1');
+
+    // Cobertura completa de validaciones WDIO v9 (APPIUM_HOST/PORT/HYBRID/WEBVIEW/afterTest)
+    assert.throws(() => buildMobileWdioConfig({ APPIUM_HOST: 'bad host' }), MobileConfigValidationError);
+    assert.throws(() => buildMobileWdioConfig({ APPIUM_PORT: 'abc' }), MobileConfigValidationError);
+    assert.throws(() => buildMobileWdioConfig({ APPIUM_PORT: '99999' }), MobileConfigValidationError);
+    assert.throws(
+      () => buildMobileWdioConfig({ MOBILE_PROFILE: 'hybrid-ionic', APPIUM_HYBRID_PLATFORM: 'symbian' }),
+      MobileConfigValidationError,
+    );
+    assert.throws(
+      () => buildMobileWdioConfig({ MOBILE_PROFILE: 'hybrid-rn', APPIUM_AUTO_WEBVIEW: 'maybe' }),
+      MobileConfigValidationError,
+    );
+    const rnIosCfg = buildMobileWdioConfig({
+      MOBILE_PROFILE: 'hybrid-rn',
+      APPIUM_HYBRID_PLATFORM: 'ios',
+      APPIUM_AUTO_WEBVIEW: 'true',
+      APPIUM_DEVICE_NAME: 'iPhone 16',
+      APPIUM_PLATFORM_VERSION: '18.2',
+      APPIUM_APP_PATH: '/tmp/app.ipa',
+    });
+    assert.equal(rnIosCfg.capabilities[0]?.platformName, 'iOS');
+    assert.equal(rnIosCfg.capabilities[0]?.['appium:autoWebview'], true);
+
+    const passRes = await rnIosCfg.afterTest?.({ title: 'ok' }, {}, { passed: true });
+    assert.equal(passRes, null);
+    const noDriverDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qa-11x-mobile-nodrv-'));
+    try {
+      const noDrvCfg = buildMobileWdioConfig({ QA_MOBILE_ARTIFACT_DIR: noDriverDir });
+      const noDrvRes = await noDrvCfg.afterTest?.({ title: 'empty-err' }, {}, { passed: false });
+      assert.ok(noDrvRes);
+      assert.equal(noDrvRes.errorSummary, 'Fallo sin detalle');
+      assert.equal(noDrvRes.context, 'UNKNOWN_CONTEXT');
+    } finally {
+      fs.rmSync(noDriverDir, { recursive: true, force: true });
+    }
+
+    assert.throws(() => MobileActor.named('   ', { tenantId: 'tenant-sec' }), Error);
+    assert.throws(() => ByIosPredicate('   '), /vacio/);
+    assert.throws(() => ByAndroidUiAutomator('   '), /vacio/);
+    assert.throws(() => ByWebviewRole('   '), /vacio/);
+    assert.equal(formatMobileLocator(ByWebviewRole('button')), 'role=button');
+    await assert.rejects(
+      () => actor.attemptsTo(OpenVerifiedDeepLink('ftp://app.sinfallas.local/file')),
+      UnsafeDeepLinkError,
+    );
+    await assert.rejects(
+      () => actor.attemptsTo(OpenVerifiedDeepLink('not a valid :// url')),
+      UnsafeDeepLinkError,
+    );
+    await actor.abilityTo(CallMobileApi).request(actor, {
+      method: 'PUT',
+      path: '/api/v1/item',
+      idempotencyKey: 'explicit-idem-99',
+      headers: { 'idempotency-key': 'old-idem' },
+    });
+    assert.equal(calls[1]?.headers?.['Idempotency-Key'], 'explicit-idem-99');
+    assert.equal(calls[1]?.headers?.['idempotency-key'], undefined);
+  });
 });

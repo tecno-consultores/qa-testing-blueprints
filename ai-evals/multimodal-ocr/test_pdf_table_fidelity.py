@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import os
 import sys
 from collections.abc import Mapping, Sequence
 from decimal import Decimal, InvalidOperation
@@ -24,7 +23,10 @@ _AI_EVALS_ROOT = str(Path(__file__).resolve().parents[1])
 if _AI_EVALS_ROOT not in sys.path:
     sys.path.insert(0, _AI_EVALS_ROOT)
 
-from _llm_judge import resolve_deepeval_judge_model  # noqa: E402
+from _llm_judge import (  # noqa: E402
+    is_live_llm_audit_enabled,
+    resolve_deepeval_judge_model,
+)
 
 SAMPLE_TABLE_LINES: tuple[str, ...] = (
     "CODE | CONCEPT | SUBTOTAL",
@@ -150,31 +152,54 @@ def _parse_decimal(raw_value: str) -> Decimal:
     return Decimal(cleaned)
 
 
+def _resolve_column_indices(headers: Sequence[str]) -> tuple[int, int, int]:
+    col_map = {h.strip().upper(): idx for idx, h in enumerate(headers)}
+    return (
+        col_map.get("CODE", 0),
+        col_map.get("CONCEPT", 1),
+        col_map.get("SUBTOTAL", 2),
+    )
+
+
+def _parse_finite_decimal(raw_value: str) -> Decimal | None:
+    try:
+        amount = _parse_decimal(raw_value)
+    except InvalidOperation:
+        return None
+    return amount if amount.is_finite() else None
+
+
 def _classify_pipe_line(
     line: str,
     expected_col_count: int,
+    col_indices: tuple[int, int, int] = (0, 1, 2),
 ) -> tuple[TableRow | None, Decimal | None, bool]:
-    cols = [col.strip() for col in line.split("|")]
-    if len(cols) != expected_col_count:
+    cols = list(map(str.strip, line.split("|")))
+    if len(cols) != expected_col_count or max(col_indices) >= len(cols):
         return None, None, True
-    try:
-        amount = _parse_decimal(cols[2])
-    except InvalidOperation:
+    code = cols[col_indices[0]]
+    concept = cols[col_indices[1]]
+    raw_amt = cols[col_indices[2]]
+    amount = _parse_finite_decimal(raw_amt) if (code and concept and raw_amt) else None
+    if amount is None:
         return None, None, True
-    if cols[0].upper() == "TOTAL":
+    if code.upper() == "TOTAL":
         return None, amount, False
-    return TableRow(code=cols[0], concept=cols[1], subtotal=amount), None, False
+    return TableRow(code=code, concept=concept, subtotal=amount), None, False
 
 
 def _collect_pipe_body(
     body_lines: Sequence[str],
     expected_col_count: int,
+    col_indices: tuple[int, int, int] = (0, 1, 2),
 ) -> tuple[list[TableRow], list[str], Decimal | None]:
     rows: list[TableRow] = []
     truncated: list[str] = []
     declared_total: Decimal | None = None
     for line in body_lines:
-        row, total, is_truncated = _classify_pipe_line(line, expected_col_count)
+        row, total, is_truncated = _classify_pipe_line(
+            line, expected_col_count, col_indices
+        )
         if is_truncated:
             truncated.append(line)
         elif total is not None:
@@ -195,7 +220,11 @@ def parse_pipe_table(
             headers=(), rows=(), declared_total=None, raw_lines=()
         )
     headers = tuple(col.strip() for col in clean[0].split("|"))
-    rows, truncated, declared_total = _collect_pipe_body(clean[1:], expected_col_count)
+    col_indices = _resolve_column_indices(headers)
+    effective_cols = len(headers) if len(headers) >= 3 else expected_col_count
+    rows, truncated, declared_total = _collect_pipe_body(
+        clean[1:], effective_cols, col_indices
+    )
     return ExtractedTable(
         headers=headers,
         rows=tuple(rows),
@@ -266,7 +295,9 @@ def evaluate_table_extraction_fidelity(
     )
     violations.extend(math_violations)
     serialized = "\n".join(table.raw_lines)
-    total_text = str(table.declared_total or reconciled_sum)
+    total_text = str(
+        reconciled_sum if table.declared_total is None else table.declared_total
+    )
     case = LLMTestCase(
         input="Extrae y concilia exactamente los subtotales y el total de la tabla.",
         actual_output=f"Filas conciliadas={len(table.rows)} Total={total_text}",
@@ -361,8 +392,41 @@ def test_offline_ocr_judge_resolution() -> None:
     assert isinstance(ollama, LocalModel)
 
 
+def test_offline_table_header_order_empty_cells_nan_and_zero_total() -> None:
+    reordered = [
+        "SUBTOTAL | CODE | CONCEPT",
+        "12.50 | INV-Z1 | ALPHA",
+        "12.50 | TOTAL | RECONCILED",
+    ]
+    res_reordered, case_reordered = evaluate_table_extraction_fidelity(
+        reordered,
+        required_headers=("CODE", "CONCEPT", "SUBTOTAL"),
+        expected_rows={"INV-Z1": Decimal("12.50")},
+    )
+    assert res_reordered.passed is True
+    assert "Total=12.50" in (case_reordered.actual_output or "")
+
+    edge_lines = [
+        "CODE | CONCEPT | SUBTOTAL",
+        " | MISSING_CODE | 10.00",
+        "INV-NAN | NOT_FINITE | NaN",
+        "INV-INF | INFINITY_ROW | Infinity",
+        "INV-ZERO | ZERO_ITEM | 0.00",
+        "TOTAL | RECONCILED | 0.00",
+    ]
+    res_edge, case_edge = evaluate_table_extraction_fidelity(
+        edge_lines,
+        required_headers=("CODE", "CONCEPT", "SUBTOTAL"),
+        expected_rows={"INV-ZERO": Decimal("0.00")},
+    )
+    assert res_edge.passed is False
+    assert any("fila truncada" in v for v in res_edge.violations)
+    assert res_edge.declared_total == Decimal("0.00")
+    assert "Total=0.00" in (case_edge.actual_output or "")
+
+
 @pytest.mark.skipif(
-    os.getenv("QA_LLM_AUDIT_LIVE") != "1",
+    not is_live_llm_audit_enabled(),
     reason="Modo Offline activo por defecto; usar make audit-llm",
 )
 def test_live_multimodal_ocr_table_deepeval(tmp_path: Path) -> None:

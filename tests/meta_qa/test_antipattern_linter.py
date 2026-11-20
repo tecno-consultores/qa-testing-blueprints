@@ -276,7 +276,14 @@ def test_cli_json_missing_paths_ignored_dirs_and_pass_quiet(
 
 def test_real_repo_vue3_and_react_frontend_pass_cleanly() -> None:
     proc = subprocess.run(
-        [sys.executable, str(LINTER_SCRIPT), "vue3", "react-frontend", "--json"],
+        [
+            sys.executable,
+            str(LINTER_SCRIPT),
+            "vue3",
+            "react-frontend",
+            "mobile-appium",
+            "--json",
+        ],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
@@ -286,7 +293,7 @@ def test_real_repo_vue3_and_react_frontend_pass_cleanly() -> None:
     payload = json.loads(proc.stdout)
     assert payload["status"] == "passed"
     assert payload["violations"] == []
-    assert payload["scanned_files"] >= 4
+    assert payload["scanned_files"] >= 6
 
 
 def test_f10_8_hardening_comments_braces_in_strings_bom_and_null_bytes(

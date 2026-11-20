@@ -130,9 +130,21 @@ def is_failed_or_degraded_trace(
         return True
     score = record.get("score")
     if isinstance(score, int | float) and not isinstance(score, bool):
-        threshold = float(record.get("threshold", default_threshold))
+        raw_threshold = record.get("threshold")
+        threshold = (
+            float(raw_threshold)
+            if isinstance(raw_threshold, int | float)
+            and not isinstance(raw_threshold, bool)
+            else default_threshold
+        )
         return float(score) < threshold
     return False
+
+
+def _sanitize_domain(raw_domain: Any) -> str:
+    cleaned = sanitize_trace_text(str(raw_domain or "qa-11x")).strip()
+    slug = re.sub(r"[^A-Za-z0-9_.-]+", "-", cleaned).strip("-")
+    return slug or "qa-11x"
 
 
 def _first_non_empty(candidates: Sequence[Any], fallback: str = "") -> str:
@@ -183,12 +195,20 @@ def _extract_trace_fields(record: Mapping[str, Any]) -> NormalizedTraceFailure:
     )
     return NormalizedTraceFailure(
         input_sha256=normalize_input_hash(sanitized_input),
-        domain=str(record.get("domain") or record.get("gate") or "qa-11x"),
+        domain=_sanitize_domain(record.get("domain") or record.get("gate")),
         input=sanitized_input,
         actual_output=sanitize_trace_text(actual_raw),
         expected_output=sanitize_trace_text(expected_raw),
         retrieval_context=_extract_context_list(record),
     )
+
+
+def _extract_envelope_records(parsed: Mapping[str, Any]) -> list[dict[str, Any]]:
+    for envelope_key in ("traces", "results"):
+        nested = parsed.get(envelope_key)
+        if isinstance(nested, list):
+            return [dict(item) for item in nested if isinstance(item, Mapping)]
+    return [dict(parsed)]
 
 
 def load_raw_traces(input_path: Path) -> list[dict[str, Any]]:
@@ -204,10 +224,7 @@ def load_raw_traces(input_path: Path) -> list[dict[str, Any]]:
     if isinstance(parsed, list):
         return [dict(item) for item in parsed if isinstance(item, Mapping)]
     if isinstance(parsed, Mapping):
-        nested = parsed.get("traces") or parsed.get("results")
-        if isinstance(nested, list):
-            return [dict(item) for item in nested if isinstance(item, Mapping)]
-        return [dict(parsed)]
+        return _extract_envelope_records(parsed)
     raise ValueError(f"Formato JSON de trazas no soportado en {input_path}")
 
 

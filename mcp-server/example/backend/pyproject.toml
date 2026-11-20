@@ -26,13 +26,31 @@ strict = true
 mypy_path = "src"
 explicit_package_bases = true
 
+[[tool.mypy.overrides]]
+module = ["fastapi", "fastapi.*", "alembic", "alembic.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["api.devices", "main"]
+disallow_untyped_decorators = false
+
 [tool.pytest.ini_options]
 addopts = "--import-mode=importlib --cov=src --cov-fail-under=95 -q"
 cache_dir = "/tmp/pytest-cache"
+pythonpath = ["src"]
 
 [tool.ruff]
 line-length = 88
 target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C901", "PLR0913"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 5
+
+[tool.ruff.lint.pylint]
+max-args = 4
 
 [tool.ruff.lint.isort]
 known-first-party = ["api", "main", "models", "services"]

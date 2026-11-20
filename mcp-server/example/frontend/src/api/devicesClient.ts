@@ -6,6 +6,10 @@ export interface TelemetryDeviceDto {
   cpu_load_pct: string;
 }
 
+export interface CreateDeviceResponseDto extends TelemetryDeviceDto {
+  audit_actor: string;
+}
+
 export interface CreateTelemetryDeviceDto {
   id: string;
   hostname: string;
@@ -24,7 +28,7 @@ export async function fetchDevices(forceRefresh = false): Promise<TelemetryDevic
 export async function createDevice(
   payload: CreateTelemetryDeviceDto,
   idempotencyKey: string
-): Promise<TelemetryDeviceDto> {
+): Promise<CreateDeviceResponseDto> {
   const response = await fetch('/api/v1/devices', {
     method: 'POST',
     headers: {
@@ -36,5 +40,5 @@ export async function createDevice(
   if (!response.ok) {
     throw new Error(`HTTP ${response.status} creating device`);
   }
-  return (await response.json()) as TelemetryDeviceDto;
+  return (await response.json()) as CreateDeviceResponseDto;
 }

@@ -10,6 +10,8 @@ Feature: Contratos BDD 11X para API Multi-Tenant de Telemetría
     When method post
     Then status 201
     And match response.hostname == 'core-edge-01'
+    And match response.cpu_load_pct == '37.5'
+    And match response.audit_actor == 'operador.noc'
 
     Given path '/api/v1/devices'
     When method get

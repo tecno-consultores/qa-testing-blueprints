@@ -18,7 +18,12 @@ if str(_VIBE_DIR) not in sys.path:
     sys.path.insert(0, str(_VIBE_DIR))
 
 import audit_vibe_prototype as auditor  # noqa: E402
-from _vibe_rules import TEST_FILE_RE, find_line, is_env_file_ignored  # noqa: E402
+from _vibe_rules import (  # noqa: E402
+    TEST_FILE_RE,
+    find_line,
+    is_env_file_ignored,
+    is_test_path,
+)
 
 
 def test_virgin_empty_project_requires_rescue(tmp_path: Path) -> None:
@@ -338,14 +343,40 @@ def test_gitignore_per_env_file_and_extended_secret_patterns(
     assert "v_supplied_hash <> v_expected_hash" in rls_sql
     assert "RAISE EXCEPTION 'WORM hash validation error" in rls_sql
     assert "WORM semantic audit error" in rls_sql
+    assert "SECURITY DEFINER" in rls_sql
+    assert "REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON TABLE audit_log_worm" in rls_sql
+    assert "WORM tenant isolation error" in rls_sql
+    assert "p_resource_display_name must be human-readable" in rls_sql
+    assert "pg_catalog.jsonb_build_array" in rls_sql
+    assert "idx_tenant_records_tenant_id" in rls_sql
+    assert "idx_audit_log_worm_tenant_seq" in rls_sql
 
 
 def test_gitignore_star_env_and_dot_env_wildcard_for_root_env(
     tmp_path: Path,
 ) -> None:
-    """Valida linea 229 de _vibe_rules.py (*.env cubre .env, .env.* no cubre .env)."""
+    """Valida is_env_file_ignored en _vibe_rules.py (.env, /*.env, negaciones)."""
     assert is_env_file_ignored(".env", ".env", frozenset({"*.env"})) is True
     assert is_env_file_ignored(".env", ".env", frozenset({".env.*"})) is False
+    assert is_env_file_ignored("sub/.env", ".env", ("/.env",)) is False
+    assert is_env_file_ignored(".env", ".env", ("/.env",)) is True
+    assert is_env_file_ignored(".env", ".env", ("/.env*", "!.env.local")) is True
+    assert (
+        is_env_file_ignored(".env.local", ".env.local", (".env*", "!/.env.local"))
+        is False
+    )
+    assert (
+        is_env_file_ignored(
+            "sub/.env.local", ".env.local", (".env*", "!/.env.local")
+        )
+        is True
+    )
+    assert (
+        is_env_file_ignored(".env.local", ".env.local", {".env*", "!.env.local"})
+        is False
+    )
+    assert is_env_file_ignored(".env.prod", ".env.prod", {".env*"}) is True
+    assert is_test_path(Path("tests/.gitkeep")) is False
 
     app = tmp_path / "star_env_app"
     (app / "tests").mkdir(parents=True)
@@ -361,3 +392,43 @@ def test_gitignore_star_env_and_dot_env_wildcard_for_root_env(
     (app / ".gitignore").write_text(".env.*\n", encoding="utf-8")
     exposed_rep = auditor.audit_prototype(app)
     assert any(f["file"] == ".env" for f in exposed_rep["findings"])
+
+
+def test_rls_no_force_disable_order_gitkeep_and_emit_dot_guard(
+    tmp_path: Path,
+) -> None:
+    """Verifica [98] NO FORCE/DISABLE RLS, M190 .gitkeep y L097 --emit-remediation ."""
+    rls_neg = tmp_path / "rls_neg_app"
+    (rls_neg / "sql").mkdir(parents=True)
+    (rls_neg / "tests").mkdir(parents=True)
+    (rls_neg / "tests" / ".gitkeep").write_text("", encoding="utf-8")
+    (rls_neg / "sql" / "bad.sql").write_text(
+        "CREATE TABLE wallets (id UUID PRIMARY KEY);\n"
+        "ALTER TABLE wallets ENABLE ROW LEVEL SECURITY;\n"
+        "ALTER TABLE wallets FORCE ROW LEVEL SECURITY;\n"
+        "ALTER TABLE wallets NO FORCE ROW LEVEL SECURITY;\n"
+        "CREATE TABLE disabled_tbl (id UUID PRIMARY KEY);\n"
+        "ALTER TABLE disabled_tbl ENABLE ROW LEVEL SECURITY;\n"
+        "ALTER TABLE disabled_tbl FORCE ROW LEVEL SECURITY;\n"
+        "ALTER TABLE disabled_tbl DISABLE ROW LEVEL SECURITY;\n",
+        encoding="utf-8",
+    )
+    (rls_neg / ".gitignore").write_text("/.env\n!/.env.local\n", encoding="utf-8")
+    (rls_neg / "sub").mkdir()
+    (rls_neg / "sub" / ".env").write_text(
+        "DB_SECRET=exposed_sub_env_secret\n",  # qa-secret-fixture-ok
+        encoding="utf-8",
+    )
+    (rls_neg / ".env.local").write_text(
+        "LOCAL_SECRET=exposed_negated_local_01\n",  # qa-secret-fixture-ok
+        encoding="utf-8",
+    )
+    rep = auditor.audit_prototype(rls_neg)
+    msgs = [f["message"] for f in rep["findings"]]
+    assert any("wallets" in m for m in msgs)
+    assert any("disabled_tbl" in m for m in msgs)
+    assert any("Cero archivos de prueba" in m for m in msgs)
+    flagged_env = {f["file"] for f in rep["findings"] if ".env" in f["file"]}
+    assert flagged_env == {"sub/.env", ".env.local"}
+
+    assert auditor.main(["--target", str(rls_neg), "--emit-remediation", "."]) == 2

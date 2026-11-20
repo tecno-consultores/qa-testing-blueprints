@@ -38,7 +38,12 @@ describe('devicesClient API adapter', () => {
   });
 
   it('creates devices with Idempotency-Key header and propagates HTTP errors', async () => {
-    const created = { id: 'dev-02', hostname: 'edge-gw-02', cpu_load_pct: '18.20' };
+    const created = {
+      id: 'dev-02',
+      hostname: 'edge-gw-02',
+      cpu_load_pct: '18.20',
+      audit_actor: 'operador.noc',
+    };
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({

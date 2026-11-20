@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "3.2.0",
-  "generated_at_utc": "2026-11-20T00:45:41Z",
+  "generated_at_utc": "2026-11-20T01:18:33Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -9,23 +9,23 @@
     "ai-evals": {
       "description": "Dual-Mode AI & Multimodal Evals (DeepEval, Promptfoo OWASP LLM Top 10, WebRTC voice latency, PDF/OCR Decimal)",
       "readme": "ai-evals/README.md",
-      "readme_sha256": "60adfd7345851857ef5bbd68ce2a6768c2ffb99f01e59c6fda1aebb9f4b3db52",
+      "readme_sha256": "a714735e89ed9ed8a67ddbbb1cc950f8ed09e9b1bd2bd8e0629896772241e910",
       "readme_es": "ai-evals/README.es.md",
-      "readme_es_sha256": "2518a7634d681360a092cb89821ec5318616a02aa1b0671cc1a7d95c547dc7a8",
+      "readme_es_sha256": "163b3bc161aa8fc6feb0619fb56812ba894e9f1b8abbdb6925a63c9b9c06d501",
       "files": [
         {
           "path": "ai-evals/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "23e4926ab03b7219cb70f2939a7fd8f46de88b79d14e8c830b30fee1b7fe3b7e",
-          "size_bytes": 5074
+          "sha256": "d20a0f5c583df231cd21cd4261854dce5ae5b72950fd5bfab387145aa9215a9c",
+          "size_bytes": 5268
         },
         {
           "path": "ai-evals/_llm_judge.py",
           "target_name": "_llm_judge.py",
           "merge_strategy": "copy_or_overwrite",
-          "sha256": "fa40864f563a155b9553e0aa5dc8a53aa5f78da21f7c56eb8f965406c7657acc",
-          "size_bytes": 2972
+          "sha256": "f413450a98ec0a4fa18223ee552d03e7585d26637bc4dcda09c5c9eb1ce36f88",
+          "size_bytes": 3460
         },
         {
           "path": "ai-evals/docker-compose.qa.yml",
@@ -45,8 +45,8 @@
           "path": "ai-evals/golden_from_traces.py",
           "target_name": "golden_from_traces.py",
           "merge_strategy": "overwrite_executable",
-          "sha256": "1e48235d222cfb64bec44cca90230a53190bfe91d5015415da40ce278e5b1ba1",
-          "size_bytes": 12868
+          "sha256": "f837e287f7ceda40e67f703c517f4601abdb9ff37ad08793018051ee6ccd46d8",
+          "size_bytes": 13419
         },
         {
           "path": "ai-evals/limpieza.sh",
@@ -59,36 +59,36 @@
           "path": "ai-evals/multimodal-ocr/test_pdf_table_fidelity.py",
           "target_name": "multimodal-ocr/test_pdf_table_fidelity.py",
           "merge_strategy": "copy_if_missing",
-          "sha256": "85aefb846f95a55ec8575ffd30015020be1a38256e23218fa201cd9a93f590a0",
-          "size_bytes": 13692
+          "sha256": "edfd7a444961fd2de730f11fd5837b8c142c8e0e000a1bd2d3ba1530164ac5df",
+          "size_bytes": 15895
         },
         {
           "path": "ai-evals/promptfooconfig.yaml",
           "target_name": "promptfooconfig.yaml",
           "merge_strategy": "copy_if_missing",
-          "sha256": "8f034de442c4f73e7df77fd77e06d3f2ea43b4e5698be923f859695b8e5867ee",
-          "size_bytes": 3604
+          "sha256": "35581b0484741840dcadb5725435ba2a27186bb17912ec1de5cf792c4b0d5e8a",
+          "size_bytes": 3688
         },
         {
           "path": "ai-evals/rag/test_rag_faithfulness.py",
           "target_name": "rag/test_rag_faithfulness.py",
           "merge_strategy": "copy_if_missing",
-          "sha256": "a2d213246c8fc318a94aba0ccdfec966b91ad8e56c4a7f25ad3ac7827bbd9004",
-          "size_bytes": 20990
+          "sha256": "921434c930793736d4628d726ef72f6f76db20fa96c3654db9a2d7c26b0a0050",
+          "size_bytes": 22463
         },
         {
           "path": "ai-evals/tests/test_golden_from_traces.py",
           "target_name": "tests/test_golden_from_traces.py",
           "merge_strategy": "copy_if_missing",
-          "sha256": "a0a2f76296c9fe572c1a733a41dfc44d970a9fdcfb3d140ce3b9a3d149f78b34",
-          "size_bytes": 7895
+          "sha256": "5692a672edc92e2ff1eface892ed676f647b3b45be9a32a216b62df8d311860f",
+          "size_bytes": 9616
         },
         {
           "path": "ai-evals/voice-realtime/test_voice_websocket_latency.py",
           "target_name": "voice-realtime/test_voice_websocket_latency.py",
           "merge_strategy": "copy_if_missing",
-          "sha256": "ba3c238ccb3668f157916fa6c863e3deccbe3ca645571d99e4a24854a5fc792a",
-          "size_bytes": 21045
+          "sha256": "72a736aa0d2eb096cac1bff43f33df22122fb90008882cdf40645a64a7245176",
+          "size_bytes": 21711
         }
       ]
     },
@@ -110,8 +110,8 @@
           "path": "bash-scripts/clean_artifacts.sh",
           "target_name": "clean_artifacts.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "abddd8863cac5d2867e645da99d1de09643f4fa6fb0f2953763dad1c27f85d3c",
-          "size_bytes": 1436
+          "sha256": "7b57ba68296f2c7c0e6c8324b9c4ccc7e85020d5616d922b068bfacea20a65c0",
+          "size_bytes": 1511
         },
         {
           "path": "bash-scripts/docker-compose.qa.yml",
@@ -138,8 +138,8 @@
           "path": "bash-scripts/test/ejemplo_mock.bats",
           "target_name": "test/ejemplo_mock.bats",
           "merge_strategy": "copy_if_missing",
-          "sha256": "3376a3213e5184c69b6e32b606e370392333894fbb4075619d02128e8c02700b",
-          "size_bytes": 2915
+          "sha256": "570bf4a26c33bc192d05db8e39fa5f60a907f188d1605b739299f34b0886df86",
+          "size_bytes": 3300
         }
       ]
     },
@@ -247,15 +247,15 @@
           "path": "mobile-appium/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "133aa87859b63ee428d2c8d99539ed4b2ec2ac16bca24ef7d8458b08ab3bb2af",
-          "size_bytes": 3096
+          "sha256": "dd0d0d52cc0a140d7fc676ce3bda1bad82761fdccc9fffcabe6dfbaaa7ccce99",
+          "size_bytes": 3210
         },
         {
           "path": "mobile-appium/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "b41e50157f72eed2f139e435cca2f2e1c2ead7b78cacd0c17067f0f127737ffd",
-          "size_bytes": 2903
+          "sha256": "38fc1819b0bd5a28ea689ccd5879e61ca1ad6d4727a741fddafe0bbcc1b5e28e",
+          "size_bytes": 2813
         },
         {
           "path": "mobile-appium/gitignore.example",
@@ -268,36 +268,43 @@
           "path": "mobile-appium/limpieza.sh",
           "target_name": "limpieza.sh",
           "merge_strategy": "overwrite_executable",
-          "sha256": "011d9ea7378b0ed9466d7b0fde83cba113355ef1007e193c223c5046e961a2fd",
-          "size_bytes": 4210
+          "sha256": "49e78b543c3d01bd41d8680c44696b960a2df4f886badd99af39d79ebc5d4c83",
+          "size_bytes": 4248
+        },
+        {
+          "path": "mobile-appium/npmrc.example",
+          "target_name": ".npmrc",
+          "merge_strategy": "append_missing_lines",
+          "sha256": "f07504fb82c3d141fb80b767dc6cd1b16b62a25dd3ad57bb975b898cc96f1ce3",
+          "size_bytes": 40
         },
         {
           "path": "mobile-appium/package.json.example",
           "target_name": "package.json",
           "merge_strategy": "surgical_merge",
-          "sha256": "75512e464851906a884c7656beca36996b9df702ba5b773f22329535ca1ccb3f",
-          "size_bytes": 1299
+          "sha256": "c2f7851221efe2a752428b250737bd5eb009d14ea66cbd82f6b77cec4f5a7577",
+          "size_bytes": 1381
         },
         {
           "path": "mobile-appium/tests/mobile_screenplay.spec.ts",
           "target_name": "tests/mobile_screenplay.spec.ts",
           "merge_strategy": "copy_if_missing",
-          "sha256": "34b6e63f0ed7b5ddd5f2eb1c62cc4aa65c202c17a992cb577a778032eb3f67a7",
-          "size_bytes": 19189
+          "sha256": "cb6356026e953b5bde61374d9ff72299eec46dc9bc8afad2997802bf07f633fd",
+          "size_bytes": 25861
         },
         {
           "path": "mobile-appium/tests/screenplay/MobileActor.ts",
           "target_name": "tests/screenplay/MobileActor.ts",
           "merge_strategy": "copy_if_missing",
-          "sha256": "6051ff2aedaf2844c9033ba049aa4e031a49c3582bb18c644bca0b982783482a",
-          "size_bytes": 22249
+          "sha256": "cd46d30fb4558b0afc3f6d3646e520fcaa879940ea76d4f988ae1adc3732ca2d",
+          "size_bytes": 23626
         },
         {
           "path": "mobile-appium/wdio.conf.ts",
           "target_name": "wdio.conf.ts",
           "merge_strategy": "copy_if_missing",
-          "sha256": "2be4b61a9da9ee127fb1158b336606089d558b51eb5d7f97a7666943d0a0e57e",
-          "size_bytes": 15276
+          "sha256": "61e3386571e2622e1825338eb848001972bb10620eeb5b7855ab62eb91a2bf30",
+          "size_bytes": 15597
         }
       ]
     },
@@ -761,22 +768,22 @@
           "path": "vibe-rescue/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "1ddfbecfb045a8e9d4ccd3213ed642c36e2a4a673719d7b952569f83b50141cb",
-          "size_bytes": 3395
+          "sha256": "eae310273b271bdeb2b82c52f991031289927bc7d53db0ea1d07e4028bdcba17",
+          "size_bytes": 3658
         },
         {
           "path": "vibe-rescue/_vibe_rules.py",
           "target_name": "_vibe_rules.py",
           "merge_strategy": "copy_or_overwrite",
-          "sha256": "f44efcc33adf7b3200930cfee3ce6db016dc45b433283f02d9521fd41cf7573b",
-          "size_bytes": 16482
+          "sha256": "042d3d0a814e4d7c0a27c4b375678807f441ea9acf1a5b65673389d1bc4c7af7",
+          "size_bytes": 18675
         },
         {
           "path": "vibe-rescue/audit_vibe_prototype.py",
           "target_name": "audit_vibe_prototype.py",
           "merge_strategy": "overwrite_executable",
-          "sha256": "c6a946b64699b951718d109d9d1f85e9010666e38d7dd1c16cc0244dfe0c96ad",
-          "size_bytes": 12796
+          "sha256": "f69d5eaaeb876a9726431b6e42744916a4ac770d12874063ce4744c54c32af58",
+          "size_bytes": 12967
         },
         {
           "path": "vibe-rescue/docker-compose.qa.yml",
@@ -803,15 +810,15 @@
           "path": "vibe-rescue/templates/rls_hardening.sql",
           "target_name": "templates/rls_hardening.sql",
           "merge_strategy": "copy_if_missing",
-          "sha256": "6ca08918d9404bc987fd2c083b8bc050eba92ea3c4aae809aad7cdadc7e77b25",
-          "size_bytes": 10501
+          "sha256": "761732c285ff47e4f8eb3460dce1f7fab70ae62677096adfc92e5dfa7e739397",
+          "size_bytes": 11057
         },
         {
           "path": "vibe-rescue/tests/test_audit_vibe_prototype.unit.py",
           "target_name": "tests/test_audit_vibe_prototype.unit.py",
           "merge_strategy": "copy_if_missing",
-          "sha256": "769d0655a05c7760055b5ca61c0fefd29394af9980e667cbe07156d32a5feaf8",
-          "size_bytes": 13464
+          "sha256": "66f120d7a83603821db82c897488373c0bac7544eae7bd4f7502074a50840939",
+          "size_bytes": 16460
         }
       ]
     },

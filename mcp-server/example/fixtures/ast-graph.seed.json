@@ -7,7 +7,7 @@
       "label": "TelemetryDevice",
       "type": "class",
       "source_file": "backend/src/models/device.py",
-      "line": 12,
+      "source_location": "L10",
       "community": 0
     },
     {
@@ -15,7 +15,7 @@
       "label": "list_tenant_devices()",
       "type": "function",
       "source_file": "backend/src/services/device_service.py",
-      "line": 16,
+      "source_location": "L35",
       "community": 1
     },
     {
@@ -23,7 +23,7 @@
       "label": "register_tenant_device()",
       "type": "function",
       "source_file": "backend/src/services/device_service.py",
-      "line": 28,
+      "source_location": "L43",
       "community": 1
     },
     {
@@ -31,7 +31,7 @@
       "label": "get_devices_endpoint()",
       "type": "function",
       "source_file": "backend/src/api/devices.py",
-      "line": 18,
+      "source_location": "L51",
       "community": 2
     },
     {
@@ -39,7 +39,7 @@
       "label": "create_device_endpoint()",
       "type": "function",
       "source_file": "backend/src/api/devices.py",
-      "line": 26,
+      "source_location": "L65",
       "community": 2
     },
     {
@@ -47,7 +47,7 @@
       "label": "fetchDevices()",
       "type": "function",
       "source_file": "frontend/src/api/devicesClient.ts",
-      "line": 14,
+      "source_location": "L19",
       "community": 3
     },
     {
@@ -55,7 +55,7 @@
       "label": "DevicesDashboard",
       "type": "component",
       "source_file": "frontend/src/views/DevicesDashboard.vue",
-      "line": 1,
+      "source_location": "L1",
       "community": 3
     }
   ],

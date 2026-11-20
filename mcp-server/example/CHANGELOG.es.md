@@ -10,6 +10,7 @@ Todos los cambios notables del proyecto semilla se documentan en este archivo.
 ## [Unreleased]
 
 ### Añadido
+* Paridad unitaria FastAPI `TestClient` (`>= 95%` en `api/devices.py` y `main.py`), caché/409 `Idempotency-Key`, DTO compartido `CreateDeviceResponseDto`, contratos HTTP Karate y aserciones de geometría del footer en Playwright.
 * Telemetría multi-tenant `GET/POST /api/v1/devices` con `DevicesDashboard.vue` y paridad ORM/Alembic.
 
 ## [1.0.0] - 2026-11-12

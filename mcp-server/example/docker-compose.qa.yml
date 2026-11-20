@@ -10,8 +10,10 @@ services:
     cap_drop:
       - ALL
     environment:
+      HOME: /tmp
       COVERAGE_FILE: /tmp/.coverage
       UV_CACHE_DIR: /tmp/uv-cache
+      RUFF_CACHE_DIR: /tmp/.ruff_cache
       PYTHONPATH: /app/backend/src
     volumes:
       - .:/app

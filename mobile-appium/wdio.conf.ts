@@ -311,14 +311,20 @@ function extractErrorSummary(error: MobileFailureResult['error']): string {
   return 'Fallo sin detalle';
 }
 
+let diagnosticSequence = 0;
+
 async function safeCaptureContext(
   driver: MobileFailureDriverPort | undefined,
   context: MobileFailureContextState,
 ): Promise<string> {
   if (driver?.getContext !== undefined) {
-    return await driver.getContext();
+    try {
+      return await driver.getContext();
+    } catch {
+      return context.activeContext ?? 'UNKNOWN_CONTEXT';
+    }
   }
-  return context.activeContext ?? 'NATIVE_APP';
+  return context.activeContext ?? 'UNKNOWN_CONTEXT';
 }
 
 async function safeCaptureTreeAndShot(
@@ -351,14 +357,17 @@ function writeFailureDiagnosticFiles(
   payload: Omit<AllureMobileDiagnosticArtifact, 'pageSourcePath' | 'screenshotPath' | 'metadataPath'>,
 ): AllureMobileDiagnosticArtifact {
   fs.mkdirSync(artifactDir, { recursive: true });
-  const stamp = Date.now();
-  const baseName = `${slug}-${stamp}`;
+  diagnosticSequence = (diagnosticSequence + 1) % 1_000_000;
+  const baseName = `${slug}-${Date.now()}-${diagnosticSequence}`;
   const pageSourcePath = path.join(artifactDir, `${baseName}.xml`);
-  const screenshotPath = path.join(artifactDir, `${baseName}.png`);
   const metadataPath = path.join(artifactDir, `${baseName}.allure.json`);
+  const hasShot = screenshotBase64.trim().length > 0;
+  const screenshotPath = hasShot ? path.join(artifactDir, `${baseName}.png`) : '';
 
   fs.writeFileSync(pageSourcePath, xmlTree, 'utf8');
-  fs.writeFileSync(screenshotPath, Buffer.from(screenshotBase64, 'base64'));
+  if (hasShot) {
+    fs.writeFileSync(screenshotPath, Buffer.from(screenshotBase64, 'base64'));
+  }
 
   const artifact: AllureMobileDiagnosticArtifact = {
     ...payload,
@@ -366,6 +375,10 @@ function writeFailureDiagnosticFiles(
     screenshotPath,
     metadataPath,
   };
+  const attachments = [{ name: 'mobile-xml-tree', source: pageSourcePath, type: 'application/xml' }];
+  if (hasShot) {
+    attachments.push({ name: 'mobile-screenshot', source: screenshotPath, type: 'image/png' });
+  }
   const allureEnvelope = {
     name: payload.testTitle,
     status: 'failed',
@@ -375,10 +388,7 @@ function writeFailureDiagnosticFiles(
       { name: 'context', value: payload.context },
       { name: 'tenantId', value: payload.tenantId },
     ],
-    attachments: [
-      { name: 'mobile-xml-tree', source: pageSourcePath, type: 'application/xml' },
-      { name: 'mobile-screenshot', source: screenshotPath, type: 'image/png' },
-    ],
+    attachments,
   };
   fs.writeFileSync(metadataPath, JSON.stringify(allureEnvelope, null, 2), 'utf8');
   return artifact;

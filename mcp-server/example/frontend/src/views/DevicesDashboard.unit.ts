@@ -22,30 +22,42 @@ describe('DevicesDashboard.vue', () => {
     expect(classifyEventBadge('operation')).toBe('OPERACIÓN');
   });
 
-  it('mounts dashboard, supports manual refresh, registers devices, preserves state on error, and cleans interval', async () => {
+  it('mounts dashboard, handles auto-refresh, registration errors, manual refresh, and cleans interval', async () => {
     const initialRows = [{ id: 'dev-01', hostname: 'core-gw-01', cpu_load_pct: '12.50' }];
+    const polledRows = [...initialRows];
     const updatedRows = [
       ...initialRows,
-      { id: 'dev-ui-01', hostname: 'branch-gw-01', cpu_load_pct: '21.40' },
+      { id: 'dev-ui-02', hostname: 'branch-gw-01', cpu_load_pct: '21.40' },
     ];
     const fetchSpy = vi
       .spyOn(devicesClient, 'fetchDevices')
       .mockResolvedValueOnce(initialRows)
+      .mockResolvedValueOnce(polledRows)
       .mockResolvedValueOnce(updatedRows)
       .mockRejectedValueOnce(new Error('Backend timeout'));
-    const createSpy = vi.spyOn(devicesClient, 'createDevice').mockResolvedValue({
-      id: 'dev-ui-01',
-      hostname: 'branch-gw-01',
-      cpu_load_pct: '21.40',
-    });
+    const createSpy = vi
+      .spyOn(devicesClient, 'createDevice')
+      .mockResolvedValueOnce({
+        id: 'dev-ui-02',
+        hostname: 'branch-gw-01',
+        cpu_load_pct: '21.40',
+        audit_actor: 'operador.noc',
+      })
+      .mockRejectedValueOnce(new Error('HTTP 409 creating device'));
     const clearSpy = vi.spyOn(globalThis, 'clearInterval');
 
     const wrapper = mount(DevicesDashboard);
     await flushPromises();
 
     expect(fetchSpy).toHaveBeenCalledWith(false);
+    expect(wrapper.find('[data-testid="event-status-badge"]').text()).toBe('OPERACIÓN');
     expect(wrapper.text()).toContain('core-gw-01');
     expect(wrapper.find('footer.in-flow-footer').exists()).toBe(true);
+
+    // Verifica recarga periódica automática cada 30s
+    await vi.advanceTimersByTimeAsync(30_000);
+    await flushPromises();
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
 
     const registerBtn = wrapper.findAll('button').find((b) => b.text().includes('Registrar Nodo'));
     expect(registerBtn).toBeDefined();
@@ -55,6 +67,12 @@ describe('DevicesDashboard.vue', () => {
     expect(createSpy).toHaveBeenCalledTimes(1);
     expect(fetchSpy).toHaveBeenLastCalledWith(true);
     expect(wrapper.text()).toContain('branch-gw-01');
+
+    // Error en createDevice captura excepción sin rechazo no manejado
+    await registerBtn?.trigger('click');
+    await flushPromises();
+    expect(wrapper.find('[role="alert"]').text()).toContain('HTTP 409 creating device');
+    expect(wrapper.find('[data-testid="event-status-badge"]').text()).toBe('CAÍDA');
 
     const refreshBtn = wrapper.findAll('button').find((b) => b.text().includes('Refrescar'));
     expect(refreshBtn).toBeDefined();

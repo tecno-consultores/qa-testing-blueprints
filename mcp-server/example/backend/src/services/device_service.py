@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import unicodedata
+from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
@@ -9,6 +10,15 @@ from typing import Any
 from models.device import TelemetryDevice
 
 ALLOWED_MUTATION_ROLES = frozenset({"admin", "operator"})
+
+
+@dataclass(frozen=True, slots=True)
+class RegisterDeviceInput:
+    """DTO acotado de entrada para registro multi-tenant (aridad <= 4)."""
+
+    device_id: str
+    hostname: str
+    cpu_load_pct: Decimal
 
 
 def evaluate_maintenance_phase(device: TelemetryDevice, now_utc: datetime) -> str:
@@ -33,29 +43,33 @@ def list_tenant_devices(
 def register_tenant_device(
     store: list[TelemetryDevice],
     claims: dict[str, Any],
-    device_id: str,
-    hostname: str,
-    cpu_load_pct: Decimal,
+    device_input: RegisterDeviceInput,
 ) -> tuple[TelemetryDevice, dict[str, Any]]:
-    """Registra un dispositivo aplicando RBAC en capa servicio y auditoría legible."""
-    role = str(claims.get("role", ""))
+    """Registra un dispositivo aplicando RBAC, NFKC y unicidad por inquilino."""
+    role = unicodedata.normalize("NFKC", str(claims.get("role", ""))).strip()
     if role not in ALLOWED_MUTATION_ROLES:
         raise PermissionError("Insufficient role for device mutation")
 
     tenant_id = unicodedata.normalize("NFKC", str(claims["tenant_id"])).strip()
-    clean_host = unicodedata.normalize("NFKC", hostname).strip()
+    clean_id = unicodedata.normalize("NFKC", device_input.device_id).strip()
+    clean_host = unicodedata.normalize("NFKC", device_input.hostname).strip()
     actor_name = unicodedata.normalize("NFKC", str(claims["username"])).strip()
+    if any(dev.tenant_id == tenant_id and dev.id == clean_id for dev in store):
+        raise ValueError(f"Duplicate device id '{clean_id}' for tenant '{tenant_id}'")
 
     created = TelemetryDevice(
-        id=device_id,
+        id=clean_id,
         tenant_id=tenant_id,
         hostname=clean_host,
-        cpu_load_pct=cpu_load_pct,
+        cpu_load_pct=device_input.cpu_load_pct,
     )
     store.append(created)
     audit_entry = {
         "actor_username": actor_name,
         "resource_display_name": clean_host,
-        "after_state": {"hostname": clean_host, "cpu_load_pct": str(cpu_load_pct)},
+        "after_state": {
+            "hostname": clean_host,
+            "cpu_load_pct": str(device_input.cpu_load_pct),
+        },
     }
     return created, audit_entry

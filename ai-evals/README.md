@@ -1,6 +1,6 @@
 > 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](README.es.md)
 
-> **[SYSTEM DIRECTIVE FOR AI AGENTS]:** Act as a Staff QA Automation Engineer and DevOps Expert. Read, parse, and strictly enforce the following architectural constraints written in English. You must generate code that perfectly aligns with these rules, using exclusively ephemeral Docker containers (`sinfallas/base-python-uv:3.15` and `sinfallas/base-node-ionic:26`), strict Dual-Mode separation, and blocking quantitative thresholds (`HallucinationMetric >= 0.95` where `1.0` = 0% hallucination, `FaithfulnessMetric >= 0.90`, `>= 95%` offline unit coverage). Do not suggest local installations or hardcoded API keys. Process the technical logic at your highest reasoning capacity in English, and output your final response, explanations, and code comments in the user's prompt language (defaulting to English).
+> **[SYSTEM DIRECTIVE FOR AI AGENTS]:** Act as a Staff QA Automation Engineer and DevOps Expert. Read, parse, and strictly enforce the following architectural constraints written in English. You must generate code that perfectly aligns with these rules, using exclusively ephemeral Docker containers (`sinfallas/base-python-uv:3.15` and `sinfallas/base-node-ionic:26`), strict Dual-Mode separation, and blocking quantitative thresholds (`HallucinationMetric >= 0.95` where `1.0` = 0% hallucination and max hallucination rate `< 0.05`, `FaithfulnessMetric >= 0.90`, `>= 95%` offline unit coverage). Do not suggest local installations or hardcoded API keys. Process the technical logic at your highest reasoning capacity in English, and output your final response, explanations, and code comments in the user's prompt language (defaulting to English).
 
 # Dual Evaluation Guide for Generative AI, RAG, and Autonomous Agents (`ai-evals`)
 
@@ -45,7 +45,7 @@ This blueprint establishes the **QA 11X** corporate standard for auditing **RAG*
 | :--- | :---: | :--- |
 | **Offline unit coverage (`ai-evals` & `tests/evals`)** | **`>= 95%`** | `pytest --cov` (Mode 1) |
 | **Python cyclomatic complexity & typing** | **`CC <= 5` · 0 errors** | `ruff C901` + `mypy --strict` (Mode 1) |
-| **Hallucination (`HallucinationMetric`)** | **`>= 0.95`** (Blocking, `1.0` = 0% hallucination) | `DeepEval` (Mode 2) |
+| **Hallucination (`HallucinationMetric`)** | **`>= 0.95`** (`1.0` = 0% hallucination, rate `< 0.05`) | `DeepEval` (Mode 2) |
 | **Context faithfulness (`FaithfulnessMetric`)** | **`>= 0.90`** | `DeepEval` / `Promptfoo` (Mode 2) |
 | **Contextual precision, recall & relevance** | **`>= 0.85`** | `DeepEval` / `Promptfoo` (Mode 2) |
 | **Trajectory completion (`TaskCompletionMetric`)** | **`>= 0.90`** | Offline contract + `DeepEval` |
@@ -77,12 +77,12 @@ All execution runs inside ephemeral containers mapped to the operator's `UID:GID
   export QA_LLM_MODEL="qwen3:8b"
   make audit-llm
   ```
-  Runs `deepeval` first (`QA_LLM_AUDIT_LIVE=1` or its legacy alias `RUN_LLM_AUDIT=1`) in `sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4` and then `promptfoo eval -c ai-evals/promptfooconfig.yaml --filter-providers ...` (`PROMPTFOO_DISABLE_TELEMETRY=1`, `PROMPTFOO_DISABLE_REDTEAM_REMOTE_GENERATION=1`) in `sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60`. If neither credentials nor a local URL are detected, it aborts immediately with exit code `2` without blocking `TTY` (`QA-CLI-TTY-01`).
+  Runs `deepeval` first (`QA_LLM_AUDIT_LIVE=1` or its legacy alias `RUN_LLM_AUDIT=1`) in `sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4` and then `promptfoo eval` + `promptfoo redteam run -c promptfooconfig.yaml` (`PROMPTFOO_DISABLE_TELEMETRY=1`, `PROMPTFOO_DISABLE_REDTEAM_REMOTE_GENERATION=1`, routing `OPENAI_API_BASE` to `^openai:` and `OLLAMA_BASE_URL` to `^ollama:`) in `sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60`. If neither credentials nor a local URL are detected, it aborts immediately with exit code `2` without blocking `TTY` (`QA-CLI-TTY-01`).
 
 ---
 
 ## 5. Consumption via MCP Server and Bilingual Mirror
 
-- **MCP Tools:** [`evaluate_agent_trajectory`](../mcp-server/src/tools/evaluateAgentTrajectory.ts) and [`run_llm_red_team`](../mcp-server/src/tools/runLlmRedTeam.ts) (the latter exposes a safe dual-mode flow with `dryRun` and an explicit flag for live red-teaming).
+- **MCP Tools:** [`evaluate_agent_trajectory`](../mcp-server/src/tools/evaluateAgentTrajectory.ts) and [`run_llm_red_team`](../mcp-server/src/tools/runLlmRedTeam.ts) (exposes dual-mode execution via `mode: 'offline' | 'live'`).
 - **MCP Resource:** `blueprint://ai/evals-redteam` ([`aiEvalsBlueprint.ts`](../mcp-server/src/resources/aiEvalsBlueprint.ts)).
 - **Bilingual Architecture:** Maintained under the English-Primary + 1:1 Spanish Mirror standard defined in [`docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md`](../docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md).

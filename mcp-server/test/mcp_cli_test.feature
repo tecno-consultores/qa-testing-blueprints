@@ -252,11 +252,11 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
   # Grupo 9: Contrato del Ecosistema PHP 8.2-8.5 en Manifiesto y Servidor MCP
   # ==============================================================================
 
-  Scenario: 9. El manifiesto indexa oficialmente el stack PHP con sus 13 plantillas y fusión quirúrgica
+  Scenario: 9. El manifiesto indexa oficialmente el stack PHP con sus 14 plantillas y fusión quirúrgica
     * match manifest.stacks.php == '#object'
     * match manifest.stacks.php.description contains 'PHP 8.2-8.5'
     * match manifest.stacks.php.readme == 'php/README.md'
-    * match manifest.stacks.php.files == '#[13]'
+    * match manifest.stacks.php.files == '#[14]'
 
     # Verificar que composer.json.example aplique estrategia surgical_merge
     * def findComposer = function(f) { return f.target_name == 'composer.json' }
@@ -276,6 +276,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * match filePaths contains 'php/infection.json5.example'
     * match filePaths contains 'php/initdb/01-init-rls-role.sql.example'
     * match filePaths contains 'php/php.ini.example'
+    * match filePaths contains 'php/.php-cs-fixer.dist.php.example'
     * match filePaths contains 'php/limpieza.sh'
     * match filePaths contains 'php/Makefile.example'
     * match filePaths contains 'php/test/api_test.feature'
@@ -565,7 +566,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert fastapiMakefile.contains('--cache-dir=/tmp/mypy')
     * assert fastapiMakefile.contains('qa-integration:')
     * assert fastapiMakefile.contains('qa-ci:')
-    * assert fastapiMakefile.contains('PYTHONPATH=/app/src')
+    * assert fastapiMakefile.contains('PYTHONPATH=/app')
 
     * def rlsRef = karate.readAsString(repoRoot + '/.agents/skills/qa-11x-architect/references/08-postgres-rls-zero-downtime-migrations.md')
     * assert rlsRef.contains('relforcerowsecurity')

@@ -34,6 +34,9 @@ CREATE TABLE IF NOT EXISTS tenant_records (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE INDEX IF NOT EXISTS idx_tenant_records_tenant_id
+    ON public.tenant_records (tenant_id);
+
 REVOKE ALL ON TABLE tenant_records FROM PUBLIC;
 
 DO $$
@@ -137,10 +140,12 @@ CREATE TABLE IF NOT EXISTS audit_log_worm (
     created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
 );
 
+CREATE INDEX IF NOT EXISTS idx_audit_log_worm_tenant_seq
+    ON public.audit_log_worm (tenant_id, seq_num DESC);
+
 REVOKE ALL ON TABLE audit_log_worm FROM PUBLIC;
-REVOKE UPDATE, DELETE, TRUNCATE ON TABLE audit_log_worm FROM app_runtime_user;
-GRANT SELECT, INSERT ON TABLE audit_log_worm TO app_runtime_user;
-GRANT USAGE ON SEQUENCE public.audit_log_worm_seq_num_seq TO app_runtime_user;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON TABLE audit_log_worm FROM app_runtime_user;
+GRANT SELECT ON TABLE audit_log_worm TO app_runtime_user;
 
 ALTER TABLE audit_log_worm ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_log_worm FORCE ROW LEVEL SECURITY;
@@ -154,12 +159,6 @@ CREATE POLICY audit_log_worm_select_policy ON audit_log_worm
     );
 
 DROP POLICY IF EXISTS audit_log_worm_insert_policy ON audit_log_worm;
-CREATE POLICY audit_log_worm_insert_policy ON audit_log_worm
-    FOR INSERT
-    TO app_runtime_user
-    WITH CHECK (
-        tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
-    );
 
 CREATE OR REPLACE FUNCTION prevent_worm_audit_mutation()
 RETURNS TRIGGER
@@ -198,9 +197,11 @@ CREATE OR REPLACE FUNCTION append_worm_audit_entry(
 )
 RETURNS BIGINT
 LANGUAGE plpgsql
+SECURITY DEFINER
 SET search_path = pg_catalog, public
 AS $$
 DECLARE
+    v_session_tenant UUID;
     v_prev_hash CHAR(64);
     v_canonical_payload TEXT;
     v_expected_hash CHAR(64);
@@ -211,10 +212,19 @@ BEGIN
     IF p_id IS NULL OR p_tenant_id IS NULL THEN
         RAISE EXCEPTION 'WORM validation error: p_id and p_tenant_id are required';
     END IF;
+    v_session_tenant := NULLIF(current_setting('app.current_tenant_id', true), '')::uuid;
+    IF v_session_tenant IS NULL OR p_tenant_id <> v_session_tenant THEN
+        RAISE EXCEPTION 'WORM tenant isolation error: p_tenant_id % does not match active session tenant', p_tenant_id;
+    END IF;
     IF p_actor_username IS NULL
        OR pg_catalog.btrim(p_actor_username) = ''
        OR pg_catalog.btrim(p_actor_username) ~* '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' THEN
         RAISE EXCEPTION 'WORM semantic audit error: p_actor_username must be human-readable (non-empty and non-UUIDv4)';
+    END IF;
+    IF p_resource_display_name IS NULL
+       OR pg_catalog.btrim(p_resource_display_name) = ''
+       OR pg_catalog.btrim(p_resource_display_name) ~* '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' THEN
+        RAISE EXCEPTION 'WORM semantic audit error: p_resource_display_name must be human-readable (non-empty and non-UUIDv4)';
     END IF;
 
     PERFORM pg_advisory_xact_lock(hashtext('audit:' || p_tenant_id::text));
@@ -230,17 +240,16 @@ BEGIN
         v_prev_hash := pg_catalog.repeat('0', 64);
     END IF;
 
-    v_canonical_payload := pg_catalog.concat_ws(
-        '|',
+    v_canonical_payload := pg_catalog.jsonb_build_array(
         v_prev_hash,
         p_id::text,
         p_tenant_id::text,
-        COALESCE(p_actor_username, ''),
-        COALESCE(p_resource_display_name, ''),
+        p_actor_username,
+        p_resource_display_name,
         COALESCE(p_action, ''),
-        COALESCE(p_before_state::text, 'null'),
-        COALESCE(p_after_state::text, 'null')
-    );
+        p_before_state,
+        p_after_state
+    )::text;
     v_expected_hash := pg_catalog.encode(
         pg_catalog.sha256(pg_catalog.convert_to(v_canonical_payload, 'UTF8')),
         'hex'

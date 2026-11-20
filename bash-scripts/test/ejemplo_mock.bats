@@ -47,11 +47,17 @@ setup() {
   ln -s "${mock_docker}" "${BATS_TEST_TMPDIR}/docker"
   PATH="${BATS_TEST_TMPDIR}:$PATH"
 
+  # Sin docker-compose.qa.yml no invoca docker compose y sale con 0
+  run bash "${BASH_STACK_DIR}/clean_artifacts.sh" --target "${work_dir}"
+  assert_success
+  [ ! -d "${work_dir}/coverage_report" ]
+  [ ! -d "${work_dir}/.pytest_cache" ]
+  [ "$(mock_get_call_num "${mock_docker}")" -eq 0 ]
+
+  touch "${work_dir}/docker-compose.qa.yml"
   run bash "${BASH_STACK_DIR}/clean_artifacts.sh" --target "${work_dir}"
   assert_success
   assert_output --partial "Contenedores QA detenidos"
-  [ ! -d "${work_dir}/coverage_report" ]
-  [ ! -d "${work_dir}/.pytest_cache" ]
 
   run bash "${BASH_STACK_DIR}/clean_artifacts.sh" --target "${work_dir}"
   assert_failure 1
@@ -61,6 +67,7 @@ setup() {
 @test "clean_artifacts.sh emite metrica opcional a --pushgateway-url sin bloquear (bats-mock)" {
   work_dir="${BATS_TEST_TMPDIR}/push-work"
   mkdir -p "${work_dir}/coverage_report"
+  touch "${work_dir}/docker-compose.qa.yml"
 
   mock_docker="$(mock_create)"
   mock_set_status "${mock_docker}" 0 1
@@ -71,7 +78,8 @@ setup() {
   ln -s "${mock_curl}" "${BATS_TEST_TMPDIR}/curl"
   PATH="${BATS_TEST_TMPDIR}:$PATH"
 
-  run bash "${BASH_STACK_DIR}/clean_artifacts.sh" --target "${work_dir}" --pushgateway-url "http://pushgateway:9091"
+  run bash "${BASH_STACK_DIR}/clean_artifacts.sh" --target "${work_dir}" --pushgateway-url "https://pushgateway:9091"
   assert_success
   [ "$(mock_get_call_num "${mock_curl}")" -eq 1 ]
+  assert_equal "$(mock_get_call_args "${mock_curl}" 1 | grep -c -- '--tlsv1.2')" "1"
 }

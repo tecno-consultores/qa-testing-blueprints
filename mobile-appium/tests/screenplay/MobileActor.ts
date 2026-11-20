@@ -115,7 +115,7 @@ export type MobileLocator =
   | { readonly strategy: 'androidUiAutomator'; readonly value: string }
   | { readonly strategy: 'webviewRole'; readonly role: string; readonly name?: string };
 
-const RE_RAW_XPATH_MARKER = /^\s*(?:xpath=|\/\/|\/[a-zA-Z*])/;
+const RE_RAW_XPATH_MARKER = /^\s*\(?\s*(?:xpath=|\/\/|\/[a-zA-Z*])/;
 
 function ensureSafeMobileLocatorValue(value: string, label: string): string {
   const trimmed = value.trim();
@@ -129,11 +129,12 @@ function ensureSafeMobileLocatorValue(value: string, label: string): string {
 }
 
 export function ByAccessibilityId(id: string): MobileLocator {
-  const normalized = ensureSafeMobileLocatorValue(id, 'accessibilityId').replace(/^~/, '');
-  if (normalized.length === 0) {
+  const trimmed = id.trim();
+  const stripped = trimmed.replace(/^~+/, '');
+  if (stripped.length === 0) {
     throw new Error('El selector accessibilityId no puede estar vacio tras remover "~".');
   }
-  return { strategy: 'accessibilityId', value: normalized };
+  return { strategy: 'accessibilityId', value: ensureSafeMobileLocatorValue(stripped, 'accessibilityId') };
 }
 
 export function ByIosPredicate(predicate: string): MobileLocator {
@@ -217,6 +218,9 @@ function parseValidatedDeepLink(rawUrl: string, policy: DeepLinkPolicy): URL {
   } catch {
     throw new UnsafeDeepLinkError(rawUrl, 'Formato URI invalido.');
   }
+  if (parsed.username.length > 0 || parsed.password.length > 0) {
+    throw new UnsafeDeepLinkError(rawUrl, 'Credenciales userinfo prohibidas en Deep Link.');
+  }
   const scheme = parsed.protocol.replace(/:$/, '').toLowerCase();
   if (FORBIDDEN_DEEP_LINK_SCHEMES.has(scheme)) {
     throw new UnsafeDeepLinkError(rawUrl, `Esquema peligroso bloqueado (${scheme}:).`);
@@ -263,7 +267,9 @@ export class InteractWithMobile implements MobileAbility {
     return new InteractWithMobile(driver, deepLinkPolicy);
   }
 
-  async requireVisibleElement(locator: MobileLocator): Promise<MobileElementPort> {
+  private async requireVisibleWithBounds(
+    locator: MobileLocator,
+  ): Promise<{ readonly element: MobileElementPort; readonly bounds: MobileElementBounds }> {
     const element = this.driver.locate(locator);
     const [visible, bounds] = await Promise.all([
       element.isVisible(),
@@ -275,7 +281,11 @@ export class InteractWithMobile implements MobileAbility {
     if (bounds.width <= 0 || bounds.height <= 0) {
       throw new CollapsedMobileGeometryError(formatMobileLocator(locator), bounds);
     }
-    return element;
+    return { element, bounds };
+  }
+
+  async requireVisibleElement(locator: MobileLocator): Promise<MobileElementPort> {
+    return (await this.requireVisibleWithBounds(locator)).element;
   }
 
   async tap(locator: MobileLocator): Promise<void> {
@@ -295,8 +305,7 @@ export class InteractWithMobile implements MobileAbility {
   }
 
   async readBounds(locator: MobileLocator): Promise<MobileElementBounds> {
-    const element = await this.requireVisibleElement(locator);
-    return element.readBounds();
+    return (await this.requireVisibleWithBounds(locator)).bounds;
   }
 
   async getCurrentContext(): Promise<string> {
@@ -369,18 +378,44 @@ export interface MobileBatchSyncSummary {
 const MUTATING_METHODS: ReadonlySet<HttpMethod> = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const BATCH_OK_STATUSES: ReadonlySet<string> = new Set(['ok', 'success', 'succeeded', 'completed']);
 
+const IDENTITY_HEADER_KEYS = new Set(['x-tenant-id', 'x-actor-role', 'x-mobile-platform']);
+
+function findHeaderIgnoreCase(
+  headers: Readonly<Record<string, string>>,
+  targetLower: string,
+): { readonly key: string; readonly value: string } | undefined {
+  for (const [k, v] of Object.entries(headers)) {
+    if (k.toLowerCase() === targetLower && v.trim().length > 0) {
+      return { key: k, value: v };
+    }
+  }
+  return undefined;
+}
+
 function buildMobileApiHeaders(
   actor: MobileActor,
   spec: MobileApiRequestSpec,
 ): Readonly<Record<string, string>> {
-  const merged: Record<string, string> = {
-    ...(spec.headers ?? {}),
-    'X-Tenant-ID': actor.identity.tenantId,
-    'X-Actor-Role': actor.identity.role,
-    'X-Mobile-Platform': actor.identity.platform,
-  };
+  const callerHeaders = spec.headers ?? {};
+  const merged: Record<string, string> = {};
+  for (const [key, val] of Object.entries(callerHeaders)) {
+    if (!IDENTITY_HEADER_KEYS.has(key.toLowerCase())) {
+      merged[key] = val;
+    }
+  }
+  merged['X-Tenant-ID'] = actor.identity.tenantId;
+  merged['X-Actor-Role'] = actor.identity.role;
+  merged['X-Mobile-Platform'] = actor.identity.platform;
   if (MUTATING_METHODS.has(spec.method)) {
-    merged['Idempotency-Key'] = spec.idempotencyKey ?? globalThis.crypto.randomUUID();
+    const existingIdem = findHeaderIgnoreCase(merged, 'idempotency-key');
+    if (spec.idempotencyKey !== undefined) {
+      if (existingIdem !== undefined && existingIdem.key !== 'Idempotency-Key') {
+        delete merged[existingIdem.key];
+      }
+      merged['Idempotency-Key'] = spec.idempotencyKey;
+    } else if (existingIdem === undefined) {
+      merged['Idempotency-Key'] = globalThis.crypto.randomUUID();
+    }
   }
   return merged;
 }

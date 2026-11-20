@@ -1,30 +1,52 @@
 # SPDX-License-Identifier: MIT
 """Create telemetry_devices with PostgreSQL 17 FORCE ROW LEVEL SECURITY."""
 
+from __future__ import annotations
+
+from alembic import op
+
 revision = "0001_telemetry_devices"
 down_revision = None
 branch_labels = None
 depends_on = None
 
 
-def upgrade(op: object) -> None:
-    sql_statements = [
+def upgrade() -> None:
+    """Create telemetry_devices table with mandatory fail-closed FORCE RLS."""
+    op.execute(
         """
         CREATE TABLE telemetry_devices (
             id VARCHAR(64) PRIMARY KEY,
             tenant_id VARCHAR(64) NOT NULL,
             hostname VARCHAR(128) NOT NULL,
-            cpu_load_pct NUMERIC(5, 2) NOT NULL
+            cpu_load_pct NUMERIC(5, 2) NOT NULL,
+            maintenance_starts_at TIMESTAMPTZ NULL,
+            maintenance_ends_at TIMESTAMPTZ NULL
         );
-        """,
-        "ALTER TABLE telemetry_devices ENABLE ROW LEVEL SECURITY;",
-        "ALTER TABLE telemetry_devices FORCE ROW LEVEL SECURITY;",
+        """
+    )
+    op.execute("ALTER TABLE telemetry_devices ENABLE ROW LEVEL SECURITY;")
+    op.execute("ALTER TABLE telemetry_devices FORCE ROW LEVEL SECURITY;")
+    op.execute(
         """
         CREATE POLICY tenant_isolation_policy ON telemetry_devices
-            USING (tenant_id = current_setting('app.current_tenant_id', true));
-        """,
-    ]
-    _ = (op, sql_statements)
+            FOR ALL
+            USING (
+                tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')
+            )
+            WITH CHECK (
+                tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')
+            );
+        """
+    )
+
+
+def downgrade() -> None:
+    """Drop tenant isolation policy and telemetry_devices table."""
+    op.execute(
+        "DROP POLICY IF EXISTS tenant_isolation_policy ON telemetry_devices;"
+    )
+    op.execute("DROP TABLE IF EXISTS telemetry_devices;")
 
 
 def verify_rls_catalog_query() -> str:

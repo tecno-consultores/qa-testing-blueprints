@@ -738,12 +738,14 @@ class TestStacksHydrationSmoke(unittest.TestCase):
                 gi_pattern, gitignore_text, f"Falta '{gi_pattern}' en .gitignore"
             )
 
-        for node_stack in ("vue3", "react-frontend", "node-backend"):
+        for node_stack in ("vue3", "react-frontend", "node-backend", "mobile-appium"):
             stack_clean = (REPO_ROOT / node_stack / "limpieza.sh").read_text(
                 encoding="utf-8"
             )
-            self.assertIn(".pnpm-store", stack_clean)
-            self.assertIn("-user 10001", stack_clean)
+            self.assertIn("--security-opt=no-new-privileges:true", stack_clean)
+            if node_stack != "mobile-appium":
+                self.assertIn(".pnpm-store", stack_clean)
+                self.assertIn("-user 10001", stack_clean)
 
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)

@@ -61,19 +61,67 @@ if ! grep -q "^\${TARGET}:" Makefile; then
 fi
 case "\${TARGET}" in
   qa-lint)
-    python3 -m py_compile backend/src/models/device.py backend/src/services/device_service.py backend/src/api/devices.py backend/src/main.py backend/tests/test_devices.unit.py
-    echo "All checks passed! (ruff + mypy --strict clean)"
+    python3 -m py_compile backend/src/models/device.py backend/src/services/device_service.py backend/src/api/devices.py backend/src/main.py backend/migrations/versions/0001_create_telemetry_devices.py backend/tests/test_devices.unit.py
+    echo "[SHIM/PY_COMPILE] Python syntax smoke passed (ruff/mypy skipped outside full Python container)"
     exit 0
     ;;
   qa-unit)
-    PYTHONPATH=backend/src python3 backend/tests/test_devices.unit.py
-    echo "Name                                   Stmts   Miss  Cover"
-    echo "----------------------------------------------------------"
-    echo "backend/src/models/device.py              11      0   100%"
-    echo "backend/src/services/device_service.py    24      0   100%"
-    echo "backend/src/api/devices.py                26      1    96%"
-    echo "----------------------------------------------------------"
-    echo "TOTAL                                     61      1    98%"
+    if python3 -c "import pytest, fastapi" >/dev/null 2>&1; then
+      PYTHONPATH=backend/src pytest --import-mode=importlib --cov=backend/src --cov-fail-under=95 --cov-report=term-missing backend/tests/test_devices.unit.py
+      exit 0
+    fi
+    PYTHONPATH=backend/src python3 - <<'PYCOV'
+import dis, importlib.util, os, pathlib, sys, trace, unittest
+
+def _collect_exec_lines(code_obj):
+    lines = {line for _, _, line in code_obj.co_lines() if line is not None and line > 0}
+    for const in code_obj.co_consts:
+        if type(const) is type(code_obj):
+            lines |= _collect_exec_lines(const)
+    return lines
+
+def _run_tests():
+    suite = unittest.TestSuite()
+    for test_path in sorted(pathlib.Path("backend/tests").glob("test_*.unit.py")):
+        spec = importlib.util.spec_from_file_location(test_path.stem.replace(".", "_"), test_path)
+        if spec is None or spec.loader is None:
+            raise RuntimeError(f"No se pudo cargar {test_path}")
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = mod
+        spec.loader.exec_module(mod)
+        suite.addTests(unittest.defaultTestLoader.loadTestsFromModule(mod))
+    res = unittest.TextTestRunner(verbosity=1).run(suite)
+    if not res.wasSuccessful() or res.testsRun == 0:
+        sys.exit(1)
+
+tracer = trace.Trace(count=True, trace=False)
+tracer.runfunc(_run_tests)
+hit_by_file = {}
+for (fname, lineno), hits in tracer.counts.items():
+    if hits > 0:
+        hit_by_file.setdefault(os.path.realpath(fname), set()).add(lineno)
+
+targets = ["backend/src/models/device.py", "backend/src/services/device_service.py"]
+print("[SHIM/TRACE] Stdlib trace coverage (FastAPI endpoints require base-python-uv + pytest-cov):")
+print("Name                                   Stmts   Miss  Cover")
+print("----------------------------------------------------------")
+tot_s, tot_m = 0, 0
+for rel in targets:
+    p = pathlib.Path(rel).resolve()
+    exec_lines = _collect_exec_lines(compile(p.read_text(encoding="utf-8"), str(p), "exec"))
+    covered = hit_by_file.get(str(p), set()) & exec_lines
+    stmts = len(exec_lines)
+    miss = max(0, stmts - len(covered))
+    tot_s += stmts
+    tot_m += miss
+    pct = round(((stmts - miss) * 100.0 / stmts) if stmts else 100.0)
+    print(f"{rel:<41}{stmts:>3}    {miss:>3}   {pct:>3}%")
+tot_pct = round(((tot_s - tot_m) * 100.0 / tot_s) if tot_s else 100.0)
+print("----------------------------------------------------------")
+print(f"TOTAL                                    {tot_s:>3}    {tot_m:>3}   {tot_pct:>3}%")
+if tot_pct < 95:
+    sys.exit(1)
+PYCOV
     exit 0
     ;;
   *)
@@ -207,7 +255,7 @@ async function verifyAllNineteenTools(client, ctx) {
   assert.equal(inspected.browser_testing_readiness.applicable, true);
   assert.equal(inspected.browser_testing_readiness.browser_mcp_configured_in_ide, true);
   assert.equal(inspected.update_available.running_mcp_version, expectedVersion);
-  logStep('Tool 1/12 inspect_project_config: stacks híbridos (fastapi + vue3), flags estrictos y update_available');
+  logStep('Tool 1/19 inspect_project_config: stacks híbridos (fastapi + vue3), flags estrictos y update_available');
 
   // 2. fetch_blueprint_bundle (modo índice ligero y modo contenido completo con SHA-256)
   const bundleIndex = await callJsonTool(client, 'fetch_blueprint_bundle', {
@@ -225,7 +273,7 @@ async function verifyAllNineteenTools(client, ctx) {
   });
   assert.ok(bundleFull.files.length > 0);
   assert.ok(bundleFull.files.every((f) => f.sha256_verified === true && f.content.length > 0));
-  logStep('Tool 2/12 fetch_blueprint_bundle: descarga bajo demanda y verificación SHA-256 (índice + contenido)');
+  logStep('Tool 2/19 fetch_blueprint_bundle: descarga bajo demanda y verificación SHA-256 (índice + contenido)');
 
   // 3. bootstrap_or_merge_11x (default dry_run=true + dry_run explícito + fusión quirúrgica real sin destruir archivos del usuario)
   const mergeDefaultDry = await callJsonTool(client, 'bootstrap_or_merge_11x', {
@@ -258,7 +306,7 @@ async function verifyAllNineteenTools(client, ctx) {
       fs.rmSync(path.join(projectDir, f), { force: true });
     }
   }
-  logStep('Tool 3/12 bootstrap_or_merge_11x: simulación dry_run y fusión quirúrgica Thin-Repo verificadas');
+  logStep('Tool 3/19 bootstrap_or_merge_11x: simulación dry_run y fusión quirúrgica Thin-Repo verificadas');
 
   // 4. inspect_ast_blast_radius
   const blast = await callJsonTool(client, 'inspect_ast_blast_radius', {
@@ -279,7 +327,7 @@ async function verifyAllNineteenTools(client, ctx) {
     blast.ast_graph_action_required.includes('QA-TEST-SYNC-01'),
     'inspect_ast_blast_radius no incluyó el recordatorio QA-TEST-SYNC-01'
   );
-  logStep('Tool 4/12 inspect_ast_blast_radius: navegación bidireccional AST (declarante + llamadores entrantes)');
+  logStep('Tool 4/19 inspect_ast_blast_radius: navegación bidireccional AST (declarante + llamadores entrantes)');
 
   // 5. audit_test_pyramid_gaps (detección de componente huérfano + estado limpio)
   const orphanVuePath = path.join(projectDir, 'frontend', 'src', 'views', 'OrphanPanel.vue');
@@ -311,7 +359,7 @@ async function verifyAllNineteenTools(client, ctx) {
     ),
     false
   );
-  logStep('Tool 5/12 audit_test_pyramid_gaps: 13 capas evaluadas y detección real de vista .vue huérfana');
+  logStep('Tool 5/19 audit_test_pyramid_gaps: 13 capas evaluadas y detección real de vista .vue huérfana');
 
   // 6. audit_security_stig_owasp (inyección de defectos reales UI-11X-01 + QA-KARATE-IDEMP y limpieza posterior)
   const badVueFooter = path.join(projectDir, 'frontend', 'src', 'views', 'FloatingFooterBad.vue');
@@ -343,7 +391,7 @@ async function verifyAllNineteenTools(client, ctx) {
   });
   assert.equal(secClean.passed, true, `Hallazgos inesperados en proyecto limpio: ${JSON.stringify(secClean.findings)}`);
   assert.equal(secClean.findings.length, 0, `Hallazgo residual: ${JSON.stringify(secClean.findings)}`);
-  logStep('Tool 6/12 audit_security_stig_owasp: cacería real de UI-11X-01 + QA-KARATE-IDEMP y certificación 0 hallazgos');
+  logStep('Tool 6/19 audit_security_stig_owasp: cacería real de UI-11X-01 + QA-KARATE-IDEMP y certificación 0 hallazgos');
 
   // 7. clean_workspace_11x (creación de residuos efímeros -> dry_run -> borrado real preservando graph.json)
   const covResidue = path.join(projectDir, '.coverage');
@@ -374,7 +422,7 @@ async function verifyAllNineteenTools(client, ctx) {
     true,
     'clean_workspace_11x no debe borrar graphify-out/graph.json'
   );
-  logStep('Tool 7/12 clean_workspace_11x: purga física de artefactos efímeros preservando graphify-out/graph.json');
+  logStep('Tool 7/19 clean_workspace_11x: purga física de artefactos efímeros preservando graphify-out/graph.json');
 
   // 8. init_or_append_agents_md (preservación de reglas previas + idempotencia)
   const agentsRes1 = await callJsonTool(client, 'init_or_append_agents_md', {
@@ -395,7 +443,7 @@ async function verifyAllNineteenTools(client, ctx) {
   assert.equal(agentsRes2.action, 'updated_block');
   const agentsContent2 = fs.readFileSync(path.join(projectDir, 'AGENTS.md'), 'utf8');
   assert.equal(agentsContent2, agentsContent1, 'Segunda inyección idempotente alteró AGENTS.md');
-  logStep('Tool 8/12 init_or_append_agents_md: inyección aditiva preservando cabecera de negocio e idempotencia');
+  logStep('Tool 8/19 init_or_append_agents_md: inyección aditiva preservando cabecera de negocio e idempotencia');
 
   // 9. reconcile_agents_governance (poda de duplicados canónicos + aislamiento de reglas de dominio)
   const rulesDir = path.join(projectDir, '.agents', 'rules');
@@ -432,7 +480,7 @@ async function verifyAllNineteenTools(client, ctx) {
   );
   const extractedDomain = fs.readFileSync(domainFullFile, 'utf8');
   assert.ok(extractedDomain.includes('LoRaWAN Duty-Cycle Regional Budget'));
-  logStep('Tool 9/12 reconcile_agents_governance: backup automático, poda global y extracción de regla de dominio');
+  logStep('Tool 9/19 reconcile_agents_governance: backup automático, poda global y extracción de regla de dominio');
 
   // 10 & 11. run_ephemeral_qa + certify_11x_gate (bloqueo sin evidencia lint -> qa-lint + qa-unit -> aprobación 10/10)
   // Primero comprobamos Fast-Path DOCS_ONLY en un repo con cambio exclusivo en README.md
@@ -484,7 +532,7 @@ async function verifyAllNineteenTools(client, ctx) {
     assert.equal(checkVal, true, `Check '${checkName}' no pasó en certify_11x_gate`);
   }
   assert.equal(gatePassed.update_available.running_mcp_version, expectedVersion);
-  logStep('Tools 10 & 11/19 run_ephemeral_qa + certify_11x_gate: DOCS_ONLY SKIPPED, cobertura 98% y Gate 10/10 PASSED');
+  logStep(`Tools 10 & 11/19 run_ephemeral_qa + certify_11x_gate: DOCS_ONLY SKIPPED, cobertura ${unitRun.coverage.percent}% y Gate 10/10 PASSED`);
 
   // 12. propose_skill_evolution_pr (fallback offline determinista con matriz Dual-Consumer)
   const proposal = await callJsonTool(client, 'propose_skill_evolution_pr', {
@@ -495,6 +543,7 @@ async function verifyAllNineteenTools(client, ctx) {
       'Validar las 19 herramientas y 13 recursos sobre stdio contra un proyecto híbrido evita escapes por mocks o entornos locales prehidratados.',
     proposed_content_or_snippet:
       '- Enforce E2E smoke execution (`mcp-server/example/run-example-e2e.mjs`) prior to git push and npm publish.',
+    dry_run: false,
     prefer_offline_fallback: true,
   });
   assert.equal(proposal.status, 'PROPOSAL_FILE_AND_URL_GENERATED');
@@ -574,6 +623,12 @@ async function verifyAllNineteenTools(client, ctx) {
     intent_140chars: 'Validar flight recorder atomico end-to-end',
   });
   assert.equal(frSave.status, 'PASSED');
+  const activeTaskPath = path.join(projectDir, '.agents', 'ACTIVE_TASK.md');
+  assert.equal(fs.existsSync(activeTaskPath), true, 'Falta proyección .agents/ACTIVE_TASK.md tras save');
+  const activeTaskSave = fs.readFileSync(activeTaskPath, 'utf8');
+  assert.ok(activeTaskSave.includes('E2E-FLIGHT-19'), 'Proyección ACTIVE_TASK.md no incluye task_id');
+  assert.ok(activeTaskSave.split('\n').length <= 40, 'Proyección ACTIVE_TASK.md excede 40 líneas');
+
   const frRecover = await callJsonTool(client, 'session_flight_recorder', {
     project_path: projectDir,
     action: 'recover',
@@ -586,6 +641,8 @@ async function verifyAllNineteenTools(client, ctx) {
     reason: 'E2E limpio',
   });
   assert.equal(frClear.checkpoint.status, 'CERTIFIED_CLEAN');
+  const activeTaskClear = fs.readFileSync(activeTaskPath, 'utf8');
+  assert.ok(activeTaskClear.includes('CERTIFIED_CLEAN'), 'Proyección ACTIVE_TASK.md no reflejó CERTIFIED_CLEAN');
 
   // Guardia PromptGuard extremo a extremo sobre herramientas v2.0
   const blockedV2 = await client.callTool({
@@ -641,6 +698,12 @@ async function verifyCliAndBackgroundAutoSync(ctx) {
     'docker-trivy-keydb-hardening',
     'graphify-ast-navigator',
     'refactoring-ui',
+    'qa-11x-devsecops-hardener',
+    'qa-11x-systematic-debugging',
+    'qa-11x-screenplay-builder',
+    'qa-11x-llm-evaluator',
+    'qa-11x-vibe-rescue',
+    'tactical-patterns-11x',
   ]) {
     assert.equal(
       fs.existsSync(path.join(globalSkillsDir, skillName, 'SKILL.md')),
@@ -673,7 +736,7 @@ async function verifyCliAndBackgroundAutoSync(ctx) {
     assert.ok(skillText.includes('QA-TEST-SYNC-01'), `Falta QA-TEST-SYNC-01 en skill instalada ${syncSkill}`);
   }
 
-  // 3b. Guardia anti-bloqueo en terminal interactiva (TTY): sincroniza skills y termina con código 0 sin colgarse
+  // 3a. Guardia anti-bloqueo en terminal interactiva (TTY): sincroniza skills y termina con código 0 sin colgarse
   const ttyProbeScript = [
     "import { pathToFileURL } from 'node:url';",
     "Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });",

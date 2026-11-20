@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import asyncio
 import math
-import os
 import re
 import sys
 from collections.abc import Mapping, Sequence
@@ -24,7 +23,10 @@ _AI_EVALS_ROOT = str(Path(__file__).resolve().parents[1])
 if _AI_EVALS_ROOT not in sys.path:
     sys.path.insert(0, _AI_EVALS_ROOT)
 
-from _llm_judge import resolve_deepeval_judge_model  # noqa: E402
+from _llm_judge import (  # noqa: E402
+    is_live_llm_audit_enabled,
+    resolve_deepeval_judge_model,
+)
 
 ConnectorName = Literal["vapi", "elevenlabs", "livekit", "pipecat"]
 EventKind = Literal[
@@ -224,6 +226,9 @@ def _handle_active_interrupt(
     stale_chunks: int,
     cancel_durations: list[float],
 ) -> tuple[float | None, int]:
+    if ev.kind == "barge_in_interrupt":
+        cancel_durations.append(9999.0)
+        return ev.timestamp_ms, stale_chunks
     if ev.kind == "agent_audio_chunk":
         return interrupt_ms, stale_chunks + 1
     if ev.kind == "agent_audio_halt":
@@ -240,12 +245,12 @@ def _extract_barge_in_stats(events: Sequence[VoiceStreamEvent]) -> tuple[float, 
     stale_chunks = 0
     interrupt_ms: float | None = None
     for ev in events:
-        if ev.kind == "barge_in_interrupt":
-            interrupt_ms = ev.timestamp_ms
-        elif interrupt_ms is not None:
+        if interrupt_ms is not None:
             interrupt_ms, stale_chunks = _handle_active_interrupt(
                 ev, interrupt_ms, stale_chunks, cancel_durations
             )
+        elif ev.kind == "barge_in_interrupt":
+            interrupt_ms = ev.timestamp_ms
     if interrupt_ms is not None:
         cancel_durations.append(9999.0)
     return (max(cancel_durations) if cancel_durations else 0.0), stale_chunks
@@ -556,9 +561,19 @@ def test_offline_voice_invalid_wire_event_and_judge_resolution() -> None:
     )
     assert _percentile_95(()) == 0.0
 
+    consecutive_barge = [
+        VoiceStreamEvent(kind="vad_speech_start", timestamp_ms=10.0, seq=1),
+        VoiceStreamEvent(kind="barge_in_interrupt", timestamp_ms=20.0, seq=2),
+        VoiceStreamEvent(kind="barge_in_interrupt", timestamp_ms=40.0, seq=3),
+        VoiceStreamEvent(kind="agent_audio_halt", timestamp_ms=50.0, seq=4),
+        VoiceStreamEvent(kind="transcript_final", timestamp_ms=60.0, seq=5),
+    ]
+    max_cancel, _ = _extract_barge_in_stats(consecutive_barge)
+    assert max_cancel == 9999.0
+
 
 @pytest.mark.skipif(
-    os.getenv("QA_LLM_AUDIT_LIVE") != "1",
+    not is_live_llm_audit_enabled(),
     reason="Modo Offline activo por defecto; usar make audit-llm",
 )
 def test_live_voice_multiturn_deepeval() -> None:

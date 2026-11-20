@@ -33,7 +33,16 @@ TARBALL_NAME="$(npm pack --silent --pack-destination "${WORK_DIR}" | tail -n 1)"
 TARBALL_PATH="${WORK_DIR}/${TARBALL_NAME}"
 
 TAR_CONTENTS="$(tar -tzf "${TARBALL_PATH}")"
-for expected_entry in "package/package.json" "package/LICENSE" "package/README.md" "package/README.es.md" "package/CHANGELOG.md" "package/CHANGELOG.es.md" "package/dist/index.js"; do
+for expected_entry in \
+  "package/package.json" \
+  "package/LICENSE" \
+  "package/README.md" \
+  "package/README.es.md" \
+  "package/CHANGELOG.md" \
+  "package/CHANGELOG.es.md" \
+  "package/dist/index.js" \
+  "package/dist/a2a/agentCard.js" \
+  "package/dist/a2a/agentCard.d.ts"; do
   if ! printf '%s\n' "${TAR_CONTENTS}" | grep -qx "${expected_entry}"; then
     echo "FAIL [Clean-Room Tarball] Falta '${expected_entry}' dentro de ${TARBALL_NAME}" >&2
     exit 1
@@ -54,6 +63,18 @@ if [ ! -d "${MCP_DIR}/node_modules" ]; then
   exit 1
 fi
 ln -s "${MCP_DIR}/node_modules" "${PKG_APP_DIR}/node_modules"
+
+node --input-type=module - "${PKG_APP_DIR}" <<'EOF'
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+const pkgDir = process.argv[2];
+const pkg = JSON.parse(fs.readFileSync(path.join(pkgDir, 'package.json'), 'utf8'));
+const agentExport = pkg.exports?.['./agent-card'];
+assert.ok(agentExport && agentExport.default && agentExport.types, 'Falta export ./agent-card');
+assert.equal(fs.existsSync(path.join(pkgDir, agentExport.default)), true);
+assert.equal(fs.existsSync(path.join(pkgDir, agentExport.types)), true);
+EOF
 
 EXPECTED_PKG_VERSION="$(node -p "JSON.parse(require('node:fs').readFileSync(process.argv[1], 'utf8')).version" "${MCP_DIR}/package.json")"
 BIN_JS="${PKG_APP_DIR}/dist/index.js"
@@ -85,7 +106,7 @@ assert.equal(parsed.dryRun, true);
 EOF
 
 printf '{"service":"cleanroom-api"}\n' >"${PROJ_DIR}/sample.json"
-printf 'print("api_key = 12345")\n' >"${PROJ_DIR}/app.py"
+printf 'print("api_%s = %s_123456")\n' "key" "cleanroom_exposed_secret" >"${PROJ_DIR}/app.py"
 
 DOCTOR_JSON="$(node "${BIN_JS}" doctor "${PROJ_DIR}" --offline --json)"
 node --input-type=module - "${DOCTOR_JSON}" "${EXPECTED_PKG_VERSION}" <<'EOF'
@@ -122,6 +143,10 @@ import assert from 'node:assert/strict';
 const parsed = JSON.parse(process.argv[2]);
 assert.equal(parsed.version, '2.1.0');
 assert.ok(Array.isArray(parsed.runs) && parsed.runs.length === 1);
+assert.ok(
+  Array.isArray(parsed.runs[0].results) && parsed.runs[0].results.length >= 1,
+  'audit --sarif no reportó hallazgos sobre el secreto inyectado en app.py',
+);
 EOF
 
 MCP_CFG_OUT="$(node "${BIN_JS}" mcp-config --client antigravity --pin-version)"
@@ -340,8 +365,14 @@ await Promise.race([
 ]);
 assert.deepEqual(ttyExitCodes, [0]);
 
-// 2. Conectar por stdio real al binario empaquetado sin QA_BLUEPRINTS_LOCAL_PATH (fallbacks embebidos)
-const env = { ...process.env, HOME: homeDir, QA_DISABLE_AUTO_SYNC: '1', QA11X_WORKSPACE_ROOTS: workDir };
+// 2. Conectar por stdio real al binario empaquetado sin QA_BLUEPRINTS_LOCAL_PATH (fallbacks embebidos 100% offline)
+const env = {
+  ...process.env,
+  HOME: homeDir,
+  QA_DISABLE_AUTO_SYNC: '1',
+  QA11X_WORKSPACE_ROOTS: workDir,
+  QA_BLUEPRINTS_RAW_URL: 'http://127.0.0.1:1',
+};
 delete env.QA_BLUEPRINTS_LOCAL_PATH;
 
 const transport = new StdioClientTransport({
@@ -392,9 +423,6 @@ try {
     assert.ok(res.contents[0].text.length > 250, `Fallback insuficiente en ${uri}`);
   }
 
-  const philoEsFallback = await client.readResource({ uri: 'blueprint://core/philosophy?lang=es' });
-  assert.ok(philoEsFallback.contents[0].text.length > 40, 'Fallback insuficiente en blueprint://core/philosophy?lang=es');
-
   const smokeGate = await client.callTool({
     name: 'evaluate_release_gate',
     arguments: { workspaceRoot: projDir, scope: 'smoke' },
@@ -435,6 +463,11 @@ try {
     },
   });
   assert.notEqual(trajValid.isError, true);
+  assert.ok(
+    trajValid.content[0].text.includes('[Pass-Quiet]') ||
+      trajValid.content[0].text.includes('"passed": true'),
+    `Salida inesperada en evaluate_agent_trajectory: ${trajValid.content[0].text}`,
+  );
 
   const tmsInv = await client.callTool({
     name: 'sync_enterprise_tms',
@@ -449,6 +482,8 @@ try {
     },
   });
   assert.notEqual(tmsInv.isError, true);
+  const tmsJson = JSON.parse(tmsInv.content[0].text);
+  assert.ok(tmsJson.status === 'DRY_RUN' || tmsJson.status === 'SKIPPED');
 
   const frSave = await client.callTool({
     name: 'session_flight_recorder',

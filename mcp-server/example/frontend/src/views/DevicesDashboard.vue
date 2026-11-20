@@ -32,9 +32,17 @@ async function loadDevices(manualRefresh = false): Promise<void> {
 }
 
 async function handleQuickRegister(): Promise<void> {
-  const idempotencyKey = crypto.randomUUID();
-  await createDevice({ id: 'dev-ui-01', hostname: 'branch-gw-01', cpu_load_pct: 21.4 }, idempotencyKey);
-  await loadDevices(true);
+  try {
+    const idempotencyKey = crypto.randomUUID();
+    const deviceId = `dev-${crypto.randomUUID().slice(0, 8)}`;
+    await createDevice(
+      { id: deviceId, hostname: 'branch-gw-01', cpu_load_pct: 21.4 },
+      idempotencyKey
+    );
+    await loadDevices(true);
+  } catch (err) {
+    errorBanner.value = err instanceof Error ? err.message : 'Error registrando dispositivo';
+  }
 }
 
 onMounted(() => {
@@ -56,6 +64,9 @@ onUnmounted(() => {
   <main class="dashboard-shell">
     <header class="dashboard-header">
       <h1>Consola Operativa de Dispositivos</h1>
+      <span class="status-badge" data-testid="event-status-badge">
+        {{ classifyEventBadge(errorBanner ? 'outage' : 'operation') }}
+      </span>
       <div class="dashboard-actions">
         <button type="button" @click="loadDevices(true)">🔄 Refrescar</button>
         <button type="button" @click="handleQuickRegister">+ Registrar Nodo</button>

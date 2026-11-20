@@ -44,24 +44,38 @@ def _build_provider_or_local(
         )
 
 
+def _pick_model_name(active_env: Mapping[str, str], default: str) -> str:
+    raw = active_env.get("QA_LLM_MODEL", "").strip()
+    return raw if raw else default
+
+
+def is_live_llm_audit_enabled(env: Mapping[str, str] | None = None) -> bool:
+    """Retorna True si QA_LLM_AUDIT_LIVE=1 o RUN_LLM_AUDIT=1 está activo."""
+    active_env = os.environ if env is None else env
+    return (
+        active_env.get("QA_LLM_AUDIT_LIVE") == "1"
+        or active_env.get("RUN_LLM_AUDIT") == "1"
+    )
+
+
 def _resolve_cloud_judge(active_env: Mapping[str, str]) -> DeepEvalBaseLLM | None:
     if active_env.get("OPENAI_API_KEY"):
         return OpenAIModel(
-            model=active_env.get("QA_LLM_MODEL", "gpt-4.1-mini"),
+            model=_pick_model_name(active_env, "gpt-4.1-mini"),
             api_key=active_env["OPENAI_API_KEY"],
         )
     if active_env.get("GEMINI_API_KEY"):
         return _build_provider_or_local(
             GeminiModel,
             _GEMINI_OPENAI_COMPAT_URL,
-            active_env.get("QA_LLM_MODEL", "gemini-2.5-flash"),
+            _pick_model_name(active_env, "gemini-2.5-flash"),
             active_env["GEMINI_API_KEY"],
         )
     if active_env.get("ANTHROPIC_API_KEY"):
         return _build_provider_or_local(
             AnthropicModel,
             _ANTHROPIC_COMPAT_URL,
-            active_env.get("QA_LLM_MODEL", "claude-sonnet-4-5"),
+            _pick_model_name(active_env, "claude-sonnet-4-5"),
             active_env["ANTHROPIC_API_KEY"],
         )
     return None
@@ -75,18 +89,17 @@ def resolve_deepeval_judge_model(
     cloud = _resolve_cloud_judge(active_env)
     if cloud is not None:
         return cloud
-    local_model = active_env.get("QA_LLM_MODEL", "qwen3:8b")
     ollama_url = active_env.get("OLLAMA_BASE_URL", "").strip()
     if ollama_url:
         return LocalModel(
-            model=local_model,
+            model=_pick_model_name(active_env, "qwen3:8b"),
             base_url=_normalize_v1_base_url(ollama_url),
             api_key="ephemeral-ollama-key",
         )
     openai_base = active_env.get("OPENAI_API_BASE", "").strip()
     if openai_base:
         return LocalModel(
-            model=local_model,
+            model=_pick_model_name(active_env, "gpt-4.1-mini"),
             base_url=openai_base,
             api_key="ephemeral-local-key",
         )

@@ -39,13 +39,16 @@ const IGNORED_DIRS = new Set([
   'build',
   '.next',
   '.venv',
+  'venv',
   '__pycache__',
+  '.pytest_cache',
+  '.mypy_cache',
+  '.ruff_cache',
   'coverage',
   'qa11x-rescue',
 ]);
 const CODE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.vue', '.py', '.php']);
 const TEST_DIR_NAMES = new Set(['tests', 'test', '__tests__']);
-const GITIGNORE_ENV_ENTRIES = new Set(['.env', '/.env', '*.env', '.env*']);
 const DEFAULT_ENV_KEYS = ['DATABASE_URL', 'APP_ENCRYPTION_KEY', 'AUDIT_HMAC_KEY'] as const;
 
 const CLIENT_SECRET_VAR_RE =
@@ -53,6 +56,8 @@ const CLIENT_SECRET_VAR_RE =
 const LITERAL_KEY_PATTERNS: readonly RegExp[] = [
   /\bsk-(?:proj-)?[A-Za-z0-9_-]{16,}\b/,
   /\b(?:ghp|gho|ghs|npm)_[A-Za-z0-9]{20,}\b/,
+  /\bgithub_pat_\w{20,}\b/,
+  /\bAIza[0-9A-Za-z_-]{20,}\b/,
   /\bAKIA[0-9A-Z]{16}\b/,
   /\bglpat-[A-Za-z0-9_-]{20,}\b/,
 ];
@@ -67,6 +72,8 @@ const REDACT_BEARER_RE = /\b(Bearer|Basic)\s+[a-z0-9._+/=-]+/gi;
 const REDACT_LITERAL_PATTERNS: readonly RegExp[] = [
   /\bsk-(?:proj-)?[A-Za-z0-9_-]{12,}\b/g,
   /\b(?:ghp|gho|ghs|npm)_[A-Za-z0-9]{16,}\b/g,
+  /\bgithub_pat_\w{16,}\b/g,
+  /\bAIza[0-9A-Za-z_-]{16,}\b/g,
   /\bAKIA[0-9A-Z]{16}\b/g,
   /\bglpat-[A-Za-z0-9_-]{16,}\b/g,
   /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g,
@@ -75,9 +82,10 @@ const REDACT_LITERAL_PATTERNS: readonly RegExp[] = [
 const SQL_BLOCK_COMMENT_RE = /\/\*[\s\S]*?\*\//g;
 const SQL_LINE_COMMENT_RE = /--[^\n]*/g;
 const SQL_PERMISSIVE_RE = /\b(?:USING|WITH\s+CHECK)\s*\(\s*true\s*\)/i;
-const SQL_CREATE_TABLE_RE = /\bCREATE\s+TABLE\b/i;
-const SQL_ENABLE_RLS_RE = /\bENABLE\s+ROW\s+LEVEL\s+SECURITY\b/i;
-const SQL_FORCE_RLS_RE = /\bFORCE\s+ROW\s+LEVEL\s+SECURITY\b/i;
+const SQL_CREATE_PREFIX_RE = /\bCREATE[ \t]+TABLE\b|\bCREATE[ \t]+UNLOGGED[ \t]+TABLE\b/gi;
+const SQL_ALTER_PREFIX_RE = /\bALTER\b\s+\bTABLE\b/i;
+const SQL_RLS_ACTION_RE =
+  /\b(ENABLE|DISABLE|NO[ \t]+FORCE|FORCE)[ \t]+ROW[ \t]+LEVEL[ \t]+SECURITY\b/gi;
 const SQL_BYPASSRLS_RE = /\bBYPASSRLS\b/i;
 const CLIENT_SERVICE_ROLE_RE = /\b(?:service_role|supabaseAdmin)\b/;
 
@@ -90,11 +98,12 @@ const MUTATING_ROUTE_PATTERNS: readonly RegExp[] = [
 ];
 const IDEMPOTENCY_RE = /Idempotency-Key|idempotency_key/i;
 
-const TEST_FILE_RE = /(?:\.(?:test|spec)\.[a-z0-9]+$|^test_.*\.py$|_test\.py$|\.feature$)/i;
+const TEST_FILE_RE =
+  /(?:\.(?:test|spec|unit|int|e2e)\.[a-z0-9]+$|^test_.*\.py$|_test\.py$|Test\.php$|\.(?:feature|bats)$)/i;
 const FIXED_WAIT_RE = /\b(?:waitForTimeout|time\.sleep)\s*\(|\bcy\.wait\s*\(\s*\d+/;
-const DOCKER_USER_ROOT_RE = /^[ \t]*USER[ \t]+(?:root|0(?::0)?)[ \t]*$/im;
-const DOCKER_ANY_USER_RE = /^[ \t]*USER[ \t]+\S+/im;
-const DOCKER_FROM_LATEST_RE = /^[ \t]*FROM[ \t]+[^\s@]+:latest\b/im;
+const DOCKER_USER_LINE_RE = /^[ \t]*USER[ \t]+(\S+)/i;
+const DOCKER_ROOT_VALUE_RE = /^(?:root|0(?::0)?)$/i;
+const DOCKER_FROM_LATEST_RE = /:latest(?:@|$)/i;
 
 const EMBEDDED_RLS_TEMPLATE = [
   '-- Plantilla minima QA-PG17-RLS (respaldo embebido)',
@@ -281,6 +290,13 @@ function findMatchingLine(lines: readonly string[], pattern: RegExp): number {
 function isTestPath(relPosix: string): boolean {
   const segments = relPosix.split('/');
   const baseName = segments[segments.length - 1] ?? '';
+  if (baseName.startsWith('.')) {
+    return false;
+  }
+  const ext = path.posix.extname(baseName);
+  if (!CODE_EXTENSIONS.has(ext) && !TEST_FILE_RE.test(baseName)) {
+    return false;
+  }
   const hasTestDir = segments.slice(0, -1).some((seg) => TEST_DIR_NAMES.has(seg));
   return hasTestDir || TEST_FILE_RE.test(baseName);
 }
@@ -312,13 +328,48 @@ function collectFiles(
   return out;
 }
 
-function hasGitignoreEnvRule(targetDir: string): boolean {
+function readGitignorePatterns(targetDir: string): readonly string[] {
   const giPath = path.join(targetDir, '.gitignore');
   if (!fs.existsSync(giPath) || fs.lstatSync(giPath).isSymbolicLink()) {
-    return false;
+    return [];
   }
-  const lines = fs.readFileSync(giPath, UTF8_ENCODING).split(/\r?\n/);
-  return lines.some((line) => GITIGNORE_ENV_ENTRIES.has(line.trim()));
+  return fs
+    .readFileSync(giPath, UTF8_ENCODING)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith('#'));
+}
+
+function matchWildcardEnv(name: string, pat: string): boolean {
+  if (pat === '.env*') return name.startsWith('.env');
+  if (pat === '.env.*') return name.startsWith('.env.');
+  if (pat === '*.env') return name.endsWith('.env');
+  return false;
+}
+
+function envPatternMatches(rel: string, baseName: string, pat: string): boolean {
+  if (pat.startsWith('/')) {
+    const target = pat.slice(1);
+    if (rel.includes('/')) return rel === target;
+    return rel === target || matchWildcardEnv(rel, target);
+  }
+  return baseName === pat || rel === pat || matchWildcardEnv(baseName, pat);
+}
+
+function isEnvFileIgnored(
+  rel: string,
+  baseName: string,
+  patterns: readonly string[],
+): boolean {
+  let ignored = false;
+  for (const pat of patterns) {
+    const isNeg = pat.startsWith('!');
+    const body = isNeg ? pat.slice(1) : pat;
+    if (envPatternMatches(rel, baseName, body)) {
+      ignored = !isNeg;
+    }
+  }
+  return ignored;
 }
 
 function parseEnvAssignment(rawLine: string): { key: string; value: string } | null {
@@ -405,9 +456,62 @@ function scanSourceSecrets(
   }
 }
 
+function normalizeSqlTableName(rawName: string): string {
+  const compact = rawName.replace(/\s+/g, '').replace(/"/g, '').toLowerCase();
+  return compact.startsWith('public.') ? compact.slice('public.'.length) : compact;
+}
+
+function applyRlsActions(
+  tableName: string,
+  clause: string,
+  enabled: Set<string>,
+  forced: Set<string>,
+): void {
+  const actionMap: Readonly<Record<string, () => void>> = {
+    ENABLE: () => enabled.add(tableName),
+    DISABLE: () => enabled.delete(tableName),
+    FORCE: () => forced.add(tableName),
+    'NO FORCE': () => forced.delete(tableName),
+  };
+  for (const match of clause.matchAll(SQL_RLS_ACTION_RE)) {
+    const raw = (match[1] ?? '').replace(/\s+/g, ' ').trim().toUpperCase();
+    actionMap[raw]?.();
+  }
+}
+
+function extractSqlTableToken(tail: string, skipKeywords: readonly string[]): string {
+  const words = tail.trim().split(/\s+/);
+  let idx = 0;
+  for (const kw of skipKeywords) {
+    if (words[idx]?.toUpperCase() === kw) {
+      idx += 1;
+    } else {
+      break;
+    }
+  }
+  const rawToken = (words[idx] ?? '').split('(')[0]?.split(';')[0] ?? '';
+  return normalizeSqlTableName(rawToken);
+}
+
+function collectSqlRlsTables(cleaned: string): { enabled: Set<string>; forced: Set<string> } {
+  const enabled = new Set<string>();
+  const forced = new Set<string>();
+  for (const stmt of cleaned.split(';')) {
+    const match = SQL_ALTER_PREFIX_RE.exec(stmt);
+    if (match) {
+      const tail = stmt.slice(match.index + match[0].length);
+      const tableName = extractSqlTableToken(tail, ['IF', 'EXISTS', 'ONLY']);
+      if (tableName) {
+        applyRlsActions(tableName, tail, enabled, forced);
+      }
+    }
+  }
+  return { enabled, forced };
+}
+
 function scanSqlFile(rel: string, rawText: string, findings: VibeFinding[]): void {
   const cleaned = rawText
-    .replace(SQL_BLOCK_COMMENT_RE, '')
+    .replace(SQL_BLOCK_COMMENT_RE, (m) => '\n'.repeat((m.match(/\n/g) ?? []).length))
     .replace(SQL_LINE_COMMENT_RE, '');
   const lines = cleaned.split(/\r?\n/);
   if (SQL_PERMISSIVE_RE.test(cleaned)) {
@@ -428,15 +532,24 @@ function scanSqlFile(rel: string, rawText: string, findings: VibeFinding[]): voi
       message: 'Uso inseguro de BYPASSRLS detectado en definición SQL',
     });
   }
-  const hasForceRls = SQL_ENABLE_RLS_RE.test(cleaned) && SQL_FORCE_RLS_RE.test(cleaned);
-  if (SQL_CREATE_TABLE_RE.test(cleaned) && !hasForceRls) {
-    addFinding(findings, {
-      ruleId: VIBE_RULE_RLS,
-      severity: VIBE_SEVERITY_CRITICAL,
-      file: rel,
-      line: findMatchingLine(lines, SQL_CREATE_TABLE_RE),
-      message: 'CREATE TABLE sin ENABLE + FORCE ROW LEVEL SECURITY',
-    });
+  const { enabled, forced } = collectSqlRlsTables(cleaned);
+  for (const match of cleaned.matchAll(SQL_CREATE_PREFIX_RE)) {
+    const startIdx = (match.index ?? 0) + match[0].length;
+    const tableName = extractSqlTableToken(cleaned.slice(startIdx, startIdx + 160), [
+      'IF',
+      'NOT',
+      'EXISTS',
+    ]);
+    if (tableName && (!enabled.has(tableName) || !forced.has(tableName))) {
+      const lineNo = (cleaned.slice(0, match.index ?? 0).match(/\n/g) ?? []).length + 1;
+      addFinding(findings, {
+        ruleId: VIBE_RULE_RLS,
+        severity: VIBE_SEVERITY_CRITICAL,
+        file: rel,
+        line: lineNo,
+        message: `CREATE TABLE '${tableName}' sin ENABLE + FORCE ROW LEVEL SECURITY`,
+      });
+    }
   }
 }
 
@@ -493,28 +606,69 @@ function scanNonTestCode(input: NonTestCodeScanInput): void {
   }
 }
 
+function parseDockerFromSpec(line: string): { imageRef: string; alias?: string } | null {
+  const trimmed = line.trimStart();
+  if (trimmed.length < 6 || !/^FROM[ \t]/i.test(trimmed)) {
+    return null;
+  }
+  const tokens = trimmed
+    .slice(4)
+    .trim()
+    .split(/\s+/)
+    .filter((t) => !t.startsWith('--'));
+  const imageRef = tokens[0];
+  if (!imageRef) return null;
+  const alias = tokens.length >= 3 && tokens[1]?.toLowerCase() === 'as' ? tokens[2] : undefined;
+  return { imageRef, alias };
+}
+
+function isUnpinnedDockerImage(imageRef: string, stageAliases: ReadonlySet<string>): boolean {
+  const lower = imageRef.toLowerCase();
+  if (lower === 'scratch' || stageAliases.has(lower) || imageRef.startsWith('$')) {
+    return false;
+  }
+  if (DOCKER_FROM_LATEST_RE.test(lower)) {
+    return true;
+  }
+  const lastSegment = imageRef.split('/').pop() ?? imageRef;
+  return !imageRef.includes('@') && !lastSegment.includes(':');
+}
+
 function scanDockerfile(
   rel: string,
-  text: string,
   lines: readonly string[],
   findings: VibeFinding[],
 ): void {
-  if (DOCKER_USER_ROOT_RE.test(text) || !DOCKER_ANY_USER_RE.test(text)) {
-    addFinding(findings, {
-      ruleId: VIBE_RULE_QA,
-      severity: VIBE_SEVERITY_HIGH,
-      file: rel,
-      line: findMatchingLine(lines, DOCKER_USER_ROOT_RE),
-      message: 'Dockerfile ejecuta como root o carece de directiva USER no-root',
-    });
+  const aliases = new Set<string>();
+  let lastFromLine = 1;
+  for (const [idx, line] of lines.entries()) {
+    const spec = parseDockerFromSpec(line);
+    if (!spec) continue;
+    lastFromLine = idx + 1;
+    if (isUnpinnedDockerImage(spec.imageRef, aliases)) {
+      addFinding(findings, {
+        ruleId: VIBE_RULE_QA,
+        severity: VIBE_SEVERITY_HIGH,
+        file: rel,
+        line: lastFromLine,
+        message: 'Dockerfile usa etiqueta mutable :latest o imagen sin digest @sha256',
+      });
+    }
+    if (spec.alias) aliases.add(spec.alias.toLowerCase());
   }
-  if (DOCKER_FROM_LATEST_RE.test(text)) {
+  const stageUsers = lines
+    .slice(lastFromLine - 1)
+    .map((line, off) => ({ lineNo: lastFromLine + off, match: DOCKER_USER_LINE_RE.exec(line) }))
+    .filter((entry) => entry.match !== null);
+  const lastUser = stageUsers[stageUsers.length - 1];
+  const lastUserVal = lastUser?.match?.[1] ?? '';
+  if (!lastUser || DOCKER_ROOT_VALUE_RE.test(lastUserVal)) {
     addFinding(findings, {
       ruleId: VIBE_RULE_QA,
       severity: VIBE_SEVERITY_HIGH,
       file: rel,
-      line: findMatchingLine(lines, DOCKER_FROM_LATEST_RE),
-      message: 'Dockerfile usa etiqueta mutable :latest sin digest @sha256',
+      line: lastUser?.lineNo ?? lastFromLine,
+      message: 'Dockerfile ejecuta como root o carece de directiva USER no-root',
     });
   }
 }
@@ -526,14 +680,14 @@ function isEnvFile(baseName: string): boolean {
 interface ProcessSingleFileInput {
   readonly filePath: string;
   readonly targetReal: string;
-  readonly envIgnored: boolean;
+  readonly gitignorePatterns: readonly string[];
   readonly maxLines: number;
   readonly findings: VibeFinding[];
   readonly envKeys: Set<string>;
 }
 
 function processSingleFile(input: ProcessSingleFileInput): boolean {
-  const { filePath, targetReal, envIgnored, maxLines, findings, envKeys } = input;
+  const { filePath, targetReal, gitignorePatterns, maxLines, findings, envKeys } = input;
   const relPosix = path.relative(targetReal, filePath).split(path.sep).join('/');
   const baseName = path.basename(filePath);
   const ext = path.extname(filePath);
@@ -542,6 +696,7 @@ function processSingleFile(input: ProcessSingleFileInput): boolean {
   const lines = text.split(/\r?\n/);
 
   if (isEnvFile(baseName)) {
+    const envIgnored = isEnvFileIgnored(relPosix, baseName, gitignorePatterns);
     scanEnvLines({ rel: relPosix, lines, envIgnored, findings, envKeys });
   } else if (ext === '.sql') {
     scanSqlFile(relPosix, text, findings);
@@ -568,7 +723,7 @@ function processSingleFile(input: ProcessSingleFileInput): boolean {
       message: 'tsconfig con strict=false; habilitar strict: true',
     });
   } else if (baseName === 'Dockerfile' || baseName.startsWith('Dockerfile.')) {
-    scanDockerfile(relPosix, text, lines, findings);
+    scanDockerfile(relPosix, lines, findings);
   }
   return isTest;
 }
@@ -784,12 +939,19 @@ export function auditVibePrototype(
 
   const findings: VibeFinding[] = [];
   const envKeys = new Set<string>();
-  const envIgnored = hasGitignoreEnvRule(targetReal);
+  const gitignorePatterns = readGitignorePatterns(targetReal);
   const files = collectFiles(targetReal, emitDir);
   let hasAnyTest = false;
   for (const fpath of files) {
     if (
-      processSingleFile({ filePath: fpath, targetReal, envIgnored, maxLines, findings, envKeys })
+      processSingleFile({
+        filePath: fpath,
+        targetReal,
+        gitignorePatterns,
+        maxLines,
+        findings,
+        envKeys,
+      })
     ) {
       hasAnyTest = true;
     }

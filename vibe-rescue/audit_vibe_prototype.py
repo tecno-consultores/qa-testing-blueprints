@@ -115,13 +115,13 @@ def _collect_project_files(
     return collected
 
 
-def _read_gitignore_patterns(target_dir: Path) -> frozenset[str]:
+def _read_gitignore_patterns(target_dir: Path) -> tuple[str, ...]:
     gitignore = target_dir / ".gitignore"
     if not gitignore.is_file() or gitignore.is_symlink():
-        return frozenset()
+        return ()
     lines = gitignore.read_text(encoding="utf-8", errors="replace").splitlines()
-    return frozenset(
-        line.strip().lstrip("/")
+    return tuple(
+        line.strip()
         for line in lines
         if line.strip() and not line.lstrip().startswith("#")
     )
@@ -371,6 +371,11 @@ def _resolve_cli_paths(ns: argparse.Namespace) -> tuple[Path, Path | None]:
         allowed_roots=(target_dir,),
         base_dir=target_dir,
     )
+    if emit_dir == target_dir:
+        raise ValueError(
+            "El argumento --emit-remediation debe apuntar a un subdirectorio "
+            "hijo de --target, nunca a la raiz."
+        )
     return target_dir, emit_dir
 
 

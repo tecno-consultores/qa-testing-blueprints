@@ -51,9 +51,9 @@ fi
 rm -rf "${TARGET_DIR:?}/coverage_report" "${TARGET_DIR:?}/.pytest_cache"
 
 if [ -n "$PUSHGATEWAY_URL" ] && command -v curl >/dev/null 2>&1; then
-  printf 'clean_artifacts_success_total 1\n' | curl -fsS --connect-timeout 2 --max-time 4 -X POST --data-binary @- "${PUSHGATEWAY_URL%/}/metrics/job/bash_scripts" >/dev/null 2>&1 || true
+  printf 'clean_artifacts_success_total 1\n' | curl -fsS --proto '=https' --tlsv1.2 --connect-timeout 2 --max-time 4 -X POST --data-binary @- "${PUSHGATEWAY_URL%/}/metrics/job/bash_scripts" >/dev/null 2>&1 || true
 fi
 
-if command -v docker >/dev/null 2>&1; then
+if command -v docker >/dev/null 2>&1 && [ -f "${TARGET_DIR}/docker-compose.qa.yml" ]; then
   docker compose --profile "*" -f "${TARGET_DIR}/docker-compose.qa.yml" down -v --remove-orphans
 fi

@@ -8,7 +8,6 @@ import ast
 import asyncio
 import importlib.util
 import json
-import os
 import re
 import sys
 from collections.abc import Mapping, Sequence
@@ -973,7 +972,7 @@ def test_offline_live_helpers_and_judge_resolution() -> None:
 
 
 @pytest.mark.skipif(
-    os.getenv("QA_LLM_AUDIT_LIVE") != "1",
+    not _LLM_JUDGE.is_live_llm_audit_enabled(),
     reason="Modo Offline por defecto; usar make audit-llm",
 )
 def test_live_skill_adherence_and_trajectory_audit() -> None:

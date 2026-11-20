@@ -199,7 +199,7 @@ describe('auditVibePrototype MCP tool (T4.5)', () => {
     expect(AUDIT_VIBE_PROTOTYPE_TOOL.description?.length).toBeGreaterThan(20);
     expect(DEFAULT_MAX_LINES).toBe(500);
 
-    const token = buildSyntheticToken();
+    const token = buildSyntheticToken(); // qa-secret-fixture-ok
     const ghToken = ['ghp', '_', 'a'.repeat(24)].join('');
     const redacted = redactVibeSecrets(`Bearer ${token} ${ghToken} API_KEY=${token}`);
     expect(redacted).not.toContain(token);
@@ -211,7 +211,7 @@ describe('auditVibePrototype MCP tool (T4.5)', () => {
     const ws = makeTempDir('qa11x-vibe-toxic-');
     const outsideFile = path.join(makeTempDir('qa11x-vibe-ext-'), 'outside.txt');
     fs.writeFileSync(outsideFile, 'ignored symlink', 'utf8');
-    const rawToken = buildSyntheticToken();
+    const rawToken = buildSyntheticToken(); // qa-secret-fixture-ok
     buildToxicPrototype(ws, rawToken);
     fs.symlinkSync(outsideFile, path.join(ws, 'dangling-link.txt'));
 
@@ -253,7 +253,7 @@ describe('auditVibePrototype MCP tool (T4.5)', () => {
 
   it('respeta dryRun=true y en dryRun=false emite bundle sin sobrescribir archivos existentes', () => {
     const ws = makeTempDir('qa11x-vibe-emit-');
-    const rawToken = buildSyntheticToken();
+    const rawToken = buildSyntheticToken(); // qa-secret-fixture-ok
     buildToxicPrototype(ws, rawToken);
 
     const dryRes = auditVibePrototype(
@@ -306,7 +306,7 @@ describe('auditVibePrototype MCP tool (T4.5)', () => {
 
   it('emite Pass-Quiet de 1 linea en proyecto endurecido y fallback embebido en bundle limpio', () => {
     const ws = makeTempDir('qa11x-vibe-clean-');
-    const rawToken = buildSyntheticToken();
+    const rawToken = buildSyntheticToken(); // qa-secret-fixture-ok
     buildCleanEnterpriseProject(ws, rawToken);
 
     const cleanRes = auditVibePrototype({ targetDir: '.' }, { workspaceRoot: ws });
@@ -379,6 +379,48 @@ describe('auditVibePrototype MCP tool (T4.5)', () => {
     fs.writeFileSync(path.join(noUserDockerDir, 'Dockerfile'), 'FROM node:22-alpine\n');
     const dockerRes = auditVibePrototype({ targetDir: '.' }, { workspaceRoot: noUserDockerDir });
     expect(dockerRes.findings.some((f) => f.ruleId === VIBE_RULE_QA)).toBe(true);
+
+    const parityWs = makeTempDir('qa11x-vibe-parity-');
+    fs.mkdirSync(path.join(parityWs, 'tests'), { recursive: true });
+    fs.mkdirSync(path.join(parityWs, 'sub'), { recursive: true });
+    fs.mkdirSync(path.join(parityWs, 'sql'), { recursive: true });
+    fs.writeFileSync(path.join(parityWs, 'tests', '.gitkeep'), '', 'utf8');
+    fs.writeFileSync(path.join(parityWs, '.gitignore'), '/.env*\n!/.env.local\n', 'utf8');
+    const sampleEnvVal = ['exposed', '_if_root_01'].join('');
+    fs.writeFileSync(path.join(parityWs, '.env'), `API_KEY=${sampleEnvVal}\n`, 'utf8');
+    fs.writeFileSync(
+      path.join(parityWs, '.env.local'),
+      `API_KEY=${['exposed', '_negated_local_01'].join('')}\n`,
+      'utf8',
+    );
+    fs.writeFileSync(
+      path.join(parityWs, 'sub', '.env'),
+      `API_KEY=${['exposed', '_sub_env_01'].join('')}\n`,
+      'utf8',
+    );
+    fs.writeFileSync(
+      path.join(parityWs, 'sql', 'neg.sql'),
+      [
+        'CREATE TABLE t_neg (id UUID PRIMARY KEY);',
+        'ALTER TABLE t_neg ENABLE ROW LEVEL SECURITY;',
+        'ALTER TABLE t_neg FORCE ROW LEVEL SECURITY;',
+        'ALTER TABLE t_neg NO FORCE ROW LEVEL SECURITY;',
+      ].join('\n'),
+      'utf8',
+    );
+    fs.writeFileSync(
+      path.join(parityWs, 'Dockerfile'),
+      'FROM ubuntu AS builder\nUSER root\nFROM builder\nUSER 1001\n',
+      'utf8',
+    );
+    const parityRes = auditVibePrototype({ targetDir: '.' }, { workspaceRoot: parityWs });
+    const parityFiles = new Set(parityRes.findings.map((f) => f.file));
+    expect(parityFiles.has('.env.local')).toBe(true);
+    expect(parityFiles.has('sub/.env')).toBe(true);
+    expect(parityFiles.has('.env')).toBe(false);
+    expect(parityFiles.has('sql/neg.sql')).toBe(true);
+    expect(parityRes.findings.some((f) => f.message.includes('Cero archivos de prueba'))).toBe(true);
+    expect(parityRes.findings.some((f) => f.file === 'Dockerfile' && f.line === 1)).toBe(true);
   });
 });
 
@@ -428,5 +470,77 @@ describe('stackBlueprints MCP resource blueprint://vibe-rescue/readme (T4.5)', (
     expect(() => readStackBlueprintResource('blueprint://vibe-rescue/bad')).toThrowError(
       StackBlueprintResolutionError,
     );
+  });
+});
+
+describe('auditVibePrototype branch coverage & Docker/SQL/gitignore edge cases', () => {
+  it('cubre wildcards .env.*/ *.env, comentarios SQL multilinea, NO FORCE/DISABLE y Dockerfile multi-stage', () => {
+    const ws = makeTempDir('qa11x-vibe-branches-');
+    fs.mkdirSync(path.join(ws, 'sub'), { recursive: true });
+    fs.mkdirSync(path.join(ws, 'tests'), { recursive: true });
+    fs.mkdirSync(path.join(ws, 'sql'), { recursive: true });
+    fs.writeFileSync(path.join(ws, 'tests', '.gitkeep'), '', 'utf8');
+    fs.writeFileSync(
+      path.join(ws, 'tests', 'sample.test.ts'),
+      'export const ok = true;\n',
+      'utf8',
+    );
+    fs.writeFileSync(
+      path.join(ws, '.gitignore'),
+      '.env.*\n*.env\n!/sub/.env.local\n',
+      'utf8',
+    );
+    fs.writeFileSync(
+      path.join(ws, '.env'),
+      `ROOT_API_KEY=${['ignored_by', '_star_env_rule_123'].join('')}\n`,
+      'utf8',
+    );
+    fs.writeFileSync(
+      path.join(ws, '.env.production'),
+      `API_KEY=${['ignored_by', '_dot_env_star_rule_123'].join('')}\n`,
+      'utf8',
+    );
+    fs.writeFileSync(
+      path.join(ws, 'sub', '.env.local'),
+      `SECRET_TOKEN=${['exposed_negated', '_star_env_rule_123'].join('')}\n`,
+      'utf8',
+    );
+    fs.writeFileSync(
+      path.join(ws, 'Dockerfile.prod'),
+      [
+        'FROM --platform=linux/amd64 node:22-alpine AS builder',
+        'FROM scratch',
+        'FROM builder',
+        'FROM alpine',
+        'USER node',
+      ].join('\n'),
+      'utf8',
+    );
+    fs.writeFileSync(
+      path.join(ws, 'sql', 'edge.sql'),
+      [
+        '/* comentario',
+        'multilinea */',
+        'CREATE UNLOGGED TABLE IF NOT EXISTS public."audit_tbl" (id UUID PRIMARY KEY);',
+        'ALTER TABLE ONLY IF EXISTS public."audit_tbl"',
+        '  ENABLE ROW LEVEL SECURITY, FORCE ROW LEVEL SECURITY,',
+        '  NO FORCE ROW LEVEL SECURITY, DISABLE ROW LEVEL SECURITY;',
+      ].join('\n'),
+      'utf8',
+    );
+
+    const res = auditVibePrototype({ targetDir: '.' }, { workspaceRoot: ws });
+    expect(res.hasSecurityOrInputError).toBe(false);
+    expect(res.findings.some((f) => f.file === '.env')).toBe(false);
+    expect(res.findings.some((f) => f.file === '.env.production')).toBe(false);
+    expect(res.findings.some((f) => f.file === 'sub/.env.local')).toBe(true);
+    expect(res.findings.some((f) => f.file === 'Dockerfile.prod' && f.line === 4)).toBe(true);
+    expect(res.findings.some((f) => f.file === 'sql/edge.sql' && f.line === 3)).toBe(true);
+
+    const invalidMax = auditVibePrototype({ targetDir: '.', maxLines: 0 }, { workspaceRoot: ws });
+    expect(invalidMax.hasSecurityOrInputError).toBe(true);
+
+    const defaultCall = auditVibePrototype(undefined, { workspaceRoot: ws });
+    expect(defaultCall.hasSecurityOrInputError).toBe(false);
   });
 });

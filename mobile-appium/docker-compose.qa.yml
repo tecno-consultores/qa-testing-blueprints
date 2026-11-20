@@ -55,9 +55,6 @@ services:
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
     security_opt:
       - no-new-privileges:true
-    depends_on:
-      pnpm-store-init:
-        condition: service_completed_successfully
     environment:
       TZ: 'America/Caracas'
       HOME: /tmp
@@ -77,7 +74,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
-    command: ["appium", "--address", "0.0.0.0", "--port", "4723", "--base-path", "/", "--allow-insecure=*:adb_shell,*:get_server_logs"]
+    command: ["appium", "--address", "0.0.0.0", "--port", "4723", "--base-path", "/", "--allow-insecure=uiautomator2:get_server_logs"]
 
 volumes:
   pnpm-store:
