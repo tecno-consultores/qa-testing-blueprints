@@ -65,6 +65,7 @@ Feature: Validación BDD de Caja Negra de la API REST PHP (8.2-8.5) y Manejo de 
     Given path '/health'
     When method get
     Then status 200
+    And match response.service == '#string'
     And match response.service != '#regex (?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
 
   Scenario: 7. Propagación transversal Read-After-Write con Idempotency-Key dinámica
@@ -79,4 +80,5 @@ Feature: Validación BDD de Caja Negra de la API REST PHP (8.2-8.5) y Manejo de 
     When method get
     Then status 200
     And match response.amount == '250.00'
+    And match response.actor_username == '#string'
     And match response.actor_username != '#regex (?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'

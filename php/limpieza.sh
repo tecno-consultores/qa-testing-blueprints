@@ -33,10 +33,11 @@ find "${tmp_base}" -maxdepth 1 -user "${CURRENT_UID}" \( -name 'qa-11x-last-fail
 
 rm -f ./ACTIVE_TASK.md .phpunit.result.cache .php-cs-fixer.cache .php-cs-fixer.dist.cache \
   infection.log infection-summary.log infection-report.json \
+  k6-summary.json k6-results.json chaos-report.html chaos-report.json \
   sbom.cyclonedx.json sbom-*.cdx.json cbom.cyclonedx.json cbom-*.cdx.json \
   zap-report.html zap-report.json release-readiness.json release-readiness.md qa-11x-last-failure.json \
   dependency-reduced-pom.xml .task_scratchpad.md .agents/*.scratchpad.md ./*.log 2>/dev/null || true
-rm -rf .phpunit.cache .psalm htmlcov/ target/ test/target/ karate.jar karate-*.jar .trivycache \
+rm -rf .phpunit.cache .psalm htmlcov/ reports/ prometheus_data/ target/ test/target/ karate.jar karate-*.jar .trivycache \
   allure-results/ allure-report/ .allure/ .agents/tmp/ 2>/dev/null || true
 
 if [ -d "graphify-out" ]; then
@@ -47,14 +48,15 @@ find . \( -name ".git" -o -name "node_modules" -o -name ".venv" -o -name "venv" 
   -o -type f \( -name ".DS_Store" -o -name "._*" -o -name "Thumbs.db" -o -name "ehthumbs.db" -o -name "Desktop.ini" -o -name "*.swp" -o -name "*.swo" -o -name "*.swn" -o -name "*~" -o -name ".#*" -o -name "#*#" -o -name "*.orig" -o -name "*.rej" -o -name "*.bak" \) -exec rm -f {} + 2>/dev/null || true
 
 if command -v docker >/dev/null 2>&1; then
-  docker run --rm --network none -v "${SCRIPT_DIR}:/work" alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab sh -c '
+  docker run --rm --network none --security-opt=no-new-privileges:true -v "${SCRIPT_DIR}:/work" alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab sh -c '
     rm -rf /work/.phpunit.cache /work/.phpunit.result.cache /work/.php-cs-fixer.cache /work/.php-cs-fixer.dist.cache /work/.psalm /work/htmlcov \
       /work/infection.log /work/infection-summary.log /work/infection-report.json \
-      /work/sbom.cyclonedx.json /work/sbom-*.cdx.json /work/cbom.cyclonedx.json /work/cbom-*.cdx.json \
+      /work/k6-summary.json /work/k6-results.json /work/chaos-report.html /work/chaos-report.json \
+      /work/reports /work/prometheus_data /work/sbom.cyclonedx.json /work/sbom-*.cdx.json /work/cbom.cyclonedx.json /work/cbom-*.cdx.json \
       /work/target /work/test/target /work/karate.jar /work/karate-*.jar /work/.trivycache \
       /work/allure-results /work/allure-report /work/.allure 2>/dev/null || true
     if [ "$3" = "true" ]; then
-      rm -rf /work/node_modules /work/.venv /work/venv 2>/dev/null || true
+      rm -rf /work/vendor 2>/dev/null || true
     fi
     find /work \( -name ".git" -o -name "node_modules" -o -name ".venv" -o -name "venv" -o -name "vendor" \) -prune -o -type f \( -name ".DS_Store" -o -name "Thumbs.db" -o -name "*.swp" -o -name "*.swo" -o -name "*~" -o -name "*.orig" -o -name "*.rej" -o -name "*.bak" \) -exec rm -f {} + 2>/dev/null || true
     chown -hR "$1:$2" /work/src /work/tests /work/test /work/config 2>/dev/null || true
@@ -63,7 +65,7 @@ if command -v docker >/dev/null 2>&1; then
 fi
 
 if [ "${DEEP_PRUNE}" = true ]; then
-  rm -rf node_modules .venv venv .agents/backups .agents/proposals .agents/.qa-evidence.json 2>/dev/null || true
+  rm -rf vendor .agents/backups .agents/proposals .agents/.qa-evidence.json 2>/dev/null || true
   if command -v docker >/dev/null 2>&1; then
     docker compose --profile "*" -f docker-compose.qa.yml down -v --rmi local --remove-orphans >/dev/null 2>&1 ||
       docker compose -f docker-compose.qa.yml down -v --rmi local --remove-orphans >/dev/null 2>&1 || true

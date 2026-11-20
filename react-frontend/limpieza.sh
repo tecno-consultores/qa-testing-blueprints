@@ -38,9 +38,9 @@ rm -f ./ACTIVE_TASK.md ./*.log ./*.tsbuildinfo ./*.heapsnapshot ./*.cpuprofile \
   zap-report.html zap-report.json release-readiness.json release-readiness.md psi-report.json \
   promptfoo-output.json promptfoo-output.html deepeval-results.json qa-11x-last-failure.json \
   .task_scratchpad.md .agents/*.scratchpad.md 2>/dev/null || true
-rm -rf .pnpm-store .turbo dist dist-ssr .next .output .svelte-kit .vite .parcel-cache storybook-static 2>/dev/null || true
+rm -rf .pnpm-store .turbo dist dist-ssr .nuxt .next .output .svelte-kit .vite .vite-ssg-temp .parcel-cache storybook-static 2>/dev/null || true
 rm -rf test-results playwright-report blob-report playwright/.cache cypress/videos cypress/screenshots nginx-logs reports target test/target coverage .nyc_output .stryker-tmp 2>/dev/null || true
-rm -rf lhci-reports psi-reports psi-report.json .lhcache .lighthouseci prometheus_data .eslintcache .stylelintcache .trivycache karate.jar karate-*.jar \
+rm -rf lhci-reports psi-reports .lhcache .lighthouseci prometheus_data .eslintcache .stylelintcache .trivycache karate.jar karate-*.jar \
   allure-results/ allure-report/ .allure/ .deepeval/ .promptfoo/ .agents/tmp/ 2>/dev/null || true
 
 if [ -d "graphify-out" ]; then
@@ -51,7 +51,7 @@ find . \( -name ".git" -o -name "node_modules" -o -name ".venv" -o -name "venv" 
   -o -type f \( -name ".DS_Store" -o -name "._*" -o -name "Thumbs.db" -o -name "ehthumbs.db" -o -name "Desktop.ini" -o -name "*.swp" -o -name "*.swo" -o -name "*.swn" -o -name "*~" -o -name ".#*" -o -name "#*#" -o -name "*.orig" -o -name "*.rej" -o -name "*.bak" \) -exec rm -f {} + 2>/dev/null || true
 
 if command -v docker >/dev/null 2>&1; then
-  docker run --rm --network none -v "${SCRIPT_DIR}:/work" alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab sh -c '
+  docker run --rm --network none --security-opt=no-new-privileges:true -v "${SCRIPT_DIR}:/work" alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab sh -c '
     rm -rf /work/.pnpm-store /work/.turbo /work/dist /work/dist-ssr /work/.next /work/.output /work/.svelte-kit /work/.vite /work/.parcel-cache /work/storybook-static \
       /work/test-results /work/playwright-report /work/blob-report /work/playwright/.cache /work/cypress/videos /work/cypress/screenshots /work/nginx-logs /work/reports \
       /work/target /work/test/target /work/coverage /work/.nyc_output /work/.stryker-tmp \

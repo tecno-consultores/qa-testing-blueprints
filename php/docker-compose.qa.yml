@@ -109,6 +109,7 @@ services:
       MIGRATION_DATABASE_URL: postgresql://qa_user:qa_password_ephemeral@postgres-qa:5432/qa_db?serverVersion=17&charset=utf8
       REDIS_URL: redis://keydb-qa:6379/0
       PCOV_ENABLED: "0"
+      PHP_CLI_SERVER_WORKERS: "4"
     depends_on:
       composer-cache-init:
         condition: service_completed_successfully
@@ -179,9 +180,14 @@ services:
             static_configs:
               - targets: ['php-api:8000']
         " > /tmp/prometheus.yml
-        /bin/prometheus --config.file=/tmp/prometheus.yml
+        exec /bin/prometheus --config.file=/tmp/prometheus.yml
     ports:
       - "127.0.0.1:9090:9090"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9090/-/healthy"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     depends_on:
       php-api:
         condition: service_healthy
@@ -204,9 +210,12 @@ services:
       K6_PROFILE: ${K6_PROFILE:-smoke}
       API_BASE_URL: ${API_BASE_URL:-http://php-api:8000}
       QA_TENANT_ID: ${QA_TENANT_ID:-tenant-alpha}
-      K6_SUMMARY_PATH: /tmp/k6-summary.json
+      K6_P95_MS: ${K6_P95_MS:-250}
+      K6_P99_MS: ${K6_P99_MS:-500}
+      K6_SUMMARY_PATH: /tmp/k6-reports/k6-summary.json
     volumes:
       - ./tests/load:/scripts:ro
+      - ./reports:/tmp/k6-reports:rw
     command: ["run", "/scripts/smoke.k6.js"]
     depends_on:
       php-api:

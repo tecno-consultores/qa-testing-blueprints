@@ -23,21 +23,22 @@ function createMemoryStorage(): Storage {
   };
 }
 
-function ensureLocalStoragePolyfill(): void {
+function ensureStoragePolyfill(storageName: 'localStorage' | 'sessionStorage'): void {
   let current: Partial<Storage> | undefined;
   try {
-    current = globalThis.localStorage;
+    current = globalThis[storageName];
   } catch {
     current = undefined;
   }
   if (typeof current?.clear === 'function') {
     return;
   }
-  Object.defineProperty(globalThis, 'localStorage', {
+  Object.defineProperty(globalThis, storageName, {
     value: createMemoryStorage(),
     configurable: true,
     writable: true,
   });
 }
 
-ensureLocalStoragePolyfill();
+ensureStoragePolyfill('localStorage');
+ensureStoragePolyfill('sessionStorage');

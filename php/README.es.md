@@ -19,11 +19,11 @@ docker run --rm \
   -e COMPOSER_CACHE_DIR=/tmp/composer-cache \
   -v "$(pwd):/var/www" \
   -w /var/www \
-  sinfallas/basephpcomposer:8.5 \
+  sinfallas/basephpcomposer:8.5@sha256:56ff6d2dbf8b13833555b56ddc517bf520506b669c235026bb23224b212f0208 \
   composer run-script qa:unit
 ```
 
-* **Para PHP, Linting, PHPStan (`max`), Psalm, PHPUnit/Pest (`PCOV`) y Mutación (`Infection`):** `sinfallas/basephpcomposer:8.5` (tags oficiales disponibles: `8.2`, `8.3`, `8.4`, `8.5`, `latest` y `11x-v2-php{8.2,8.3,8.4,8.5}`).
+* **Para PHP, Linting, PHPStan (`max`), Psalm, PHPUnit/Pest (`PCOV`) y Mutación (`Infection`):** `sinfallas/basephpcomposer:8.5@sha256:56ff6d2dbf8b13833555b56ddc517bf520506b669c235026bb23224b212f0208` (fija digests SHA-256 explícitos al usar variantes `8.2`–`8.5`; ejecuta `./scripts/actualizar-grafos-graphify.sh php` y `python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"` antes de editar).
 * **Para Persistencia Real y Aislamiento Multi-Tenant (Anti-Mock Blindness):** `postgres:17-alpine@sha256:d3244e8ce3f165ee3c93d9c4a4b1d0fe48b3a89e2287b717fdcbbde92d405065` con usuario de aplicación `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`.
 * **Para Idempotencia, Sesiones Concurrentes y Caché Multi-Hilo:** `eqalpha/keydb:6.3.4`.
 * **Para Pruebas BDD de Caja Negra API:** `sinfallas/karatelabs:1.5.1@sha256:a9a52ca9c5491ab39b64f0b4fdc3dea879c2213c9bc995be58d6cd4b9a80cc89` (inyectando `Idempotency-Key` en toda mutación).
@@ -37,30 +37,34 @@ docker run --rm \
 1. **Tipado Estricto y Formato:** `declare(strict_types=1);` obligatorio en todo archivo PHP + `friendsofphp/php-cs-fixer` (`@PER-CS2.0`).
 2. **Análisis Estático y Complejidad Cognitiva:** `phpstan/phpstan` (nivel `max` / 9 + `phpstan-strict-rules`, `phpstan/extension-installer`) y `tomasvotruba/cognitive-complexity` (complejidad `<= 5` en módulos críticos / `<= 9` global).
 3. **Seguridad Estática (SAST) y CVEs:** `vimeo/psalm` (`--taint-analysis` configurado en `psalm.xml`) y `composer audit` (0 CVEs High/Critical).
-4. **Pruebas Unitarias Aisladas:** `pestphp/pest` o `phpunit/phpunit` 11.5+–13.x con `defaultTestSuite="Unit"` en `phpunit.xml` y motor ligero `pcov` (cobertura innegociable `>= 95.0%` en líneas y ramas; monta `php.ini` personalizado en `/usr/local/etc/php/conf.d/99-qa11x.ini:ro` para prevalecer sobre `docker-php-ext-pcov.ini`, o pasa `-d pcov.directory=app` en Laravel).
+4. **Pruebas Unitarias Aisladas:** `pestphp/pest` o `phpunit/phpunit` 11.5+–13.x con `defaultTestSuite="Unit"` en `phpunit.xml` y motor ligero `pcov` para cobertura de líneas (cobertura de líneas innegociable `>= 95.0%`; habilita Xdebug para auditar cobertura de ramas y pasa `-d allow_url_fopen=1` al invocar Composer con `php.ini` endurecido).
 5. **Pruebas de Mutación:** `infection/infection` (`minMsi: 80`, `minCoveredMsi: 80`, 0 mutantes vivos críticos).
-6. **Paridad de Base de Datos y PostgreSQL 17 `FORCE RLS`:** Verificación de migraciones Doctrine / Laravel contra `postgres:17-alpine@sha256:d3244e8ce3f165ee3c93d9c4a4b1d0fe48b3a89e2287b717fdcbbde92d405065` real ejecutando `ALTER TABLE ... ENABLE ROW LEVEL SECURITY; ALTER TABLE ... FORCE ROW LEVEL SECURITY;` bajo rol `NOBYPASSRLS` y re-aplicación por transacción de `SET LOCAL app.current_tenant_id` (prohibido depender de `SELECT *` sin política RLS activa; `make qa-parity` emite `[SKIPPED]` si no existe consola ORM).
-7. **Contratos Consumer-Driven Zero-Infra (`Pact` V3/V4) y OpenAPI 3.1:**
-   * `make qa-contracts` genera `openapi.json` mediante `vendor/bin/openapi` (emitiendo `[SKIPPED]` si falta), mientras toda integración inter-servicios (por ejemplo, PHP como proveedor o consumidor frente a `fastapi/` o `node-backend/`) DEBE validar contratos JSON deterministas en `PACT_OUTPUT_DIR` sin depender de un *Pact Broker* en la nube.
+6. **Paridad de Base de Datos y PostgreSQL 17 `FORCE RLS`:** Verificación de migraciones Doctrine / Laravel bajo `MIGRATION_DATABASE_URL` contra `postgres:17-alpine@sha256:d3244e8ce3f165ee3c93d9c4a4b1d0fe48b3a89e2287b717fdcbbde92d405065` real ejecutando `ALTER TABLE ... ENABLE ROW LEVEL SECURITY; ALTER TABLE ... FORCE ROW LEVEL SECURITY;` validado en `pg_class.relforcerowsecurity` bajo rol `NOBYPASSRLS` y re-aplicación por transacción de `SET LOCAL app.current_tenant_id` (`make qa-parity` emite `[SKIPPED]` solo en la consola de migración si falta Doctrine/Laravel).
+7. **OpenAPI 3.1 y Contratos Zero-Infra (`Pact` V3/V4):**
+   * `make qa-contracts` exporta únicamente `openapi.json` mediante `vendor/bin/openapi` (emitiendo `[SKIPPED]` si falta); las integraciones inter-servicios frente a `fastapi/` o `node-backend/` requieren cablear una suite Pact en PHP que exporte contratos en `PACT_OUTPUT_DIR` sin *Pact Broker*.
    * **Precisión Monetaria Exacta:** Los importes financieros deben viajar serializados como cadenas decimales exactas (`"149.95"` vía `bcmath` o `Brick\Money`), quedando terminantemente prohibido usar `float` binario en cuerpos JSON.
    * **Trimodal Fixtures y Anti-Silo:** Cubrir estados `nominal_configured` (`201 Created` con eco de `Idempotency-Key`), `virgin_empty` (`404 Not Found` en formato RFC 7807 `application/problem+json`) y `degraded_conflict` (lotes parciales `POST .../batch` devolviendo `200 OK` con inspección ítem por ítem de `results[].status`, más `409 Conflict` RFC 7807 ante colisión de `Idempotency-Key` con payload mutado).
 8. **Pruebas BDD de Caja Negra:** `Karate Labs` ejecutando `test/api_test.feature` contra la API viva en contenedor efímero.
 9. **Pruebas de Carga Declarativas y SLOs (`k6`):** Perfiles parametrizables por entorno (`K6_PROFILE=smoke|load|stress`, referencia en `php/tests/load/smoke.k6.js`) con umbrales bloqueantes alineados a `evaluateReleaseGate` (`http_req_failed < 1%`, `p(95) < 250ms`, `p(99) < 500ms`, `checks == 100%`) e inspección por ítem de respuestas batch sin asumir éxito por `status === 200`.
 10. **Seguridad Dinámica DAST y OSHP:** OWASP ZAP Baseline verificando `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Cache-Control: no-store` y supresión de `X-Powered-By`.
-11. **Canonicalización, Criptografía e Idempotencia:** Unicode `\Normalizer::FORM_KC` antes de validar (`APSC-DV-002520`), Argon2id, AES-256-GCM con `sodium_memzero()`, y cabecera obligatoria `Idempotency-Key` (formato UUIDv4) en todo `POST`/`PUT`/`PATCH`/`DELETE` respaldada en KeyDB con hash SHA-256 del payload para bloquear mutaciones con `409 Conflict`.
+11. **Seguridad por Diseño, Canonicalización e Idempotencia ([Guía de Seguridad](../docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md)):** Aplica controles DISA ASD STIG V6R5 + OWASP v4.2: Unicode `\Normalizer::FORM_KC` antes de validar (`APSC-DV-002520`), Argon2id, AES-256-GCM con `sodium_memzero()` y cabecera obligatoria `Idempotency-Key` (formato UUIDv4) en todo `POST`/`PUT`/`PATCH`/`DELETE` respaldada en KeyDB con hash SHA-256 del payload para bloquear mutaciones con `409 Conflict`.
 12. **Ingeniería del Caos y Observabilidad:** Inyección de latencia/fallos con Pumba (`netem`) y métricas Prometheus (`/metrics`).
 13. **SBOM Criptográfico:** `cyclonedx/cyclonedx-php-composer` generando `sbom-php.cdx.json` (CycloneDX 1.6).
 
 ---
 
-## 3. Comandos Canónicos (`Makefile`)
+## 3. Comandos Canónicos (`Makefile`) y Paso 0 Graphify
 
 ```bash
+# Paso 0 — Ingestión de Contexto y Grafo AST (CLI-First antes de editar):
+./scripts/actualizar-grafos-graphify.sh php
+python3 .agents/scripts/inspect_blast_radius.py "<simbolo_o_archivo>"
+
 # Desde el proyecto PHP hidratado (Regla Cero no-root):
-make qa-lint        # PHP-CS-Fixer + PHPStan (max) + Psalm Taint + Composer Audit
-make qa-unit        # Pest/PHPUnit con PCOV >= 95%
-make qa-parity      # Migraciones + verificación FORCE RLS contra PostgreSQL 17
-make qa-contracts   # Exportación OpenAPI 3.1 (emite [SKIPPED] si falta) + contratos Pact V4
+make qa-lint        # PHP-CS-Fixer (@PER-CS2.0) + PHPStan (max) + Psalm Taint + Composer Audit
+make qa-unit        # Pest/PHPUnit con cobertura de líneas PCOV >= 95%
+make qa-parity      # Migraciones + verificación PostgreSQL 17 relforcerowsecurity
+make qa-contracts   # Solo exportación OpenAPI 3.1 (emite [SKIPPED] sin vendor/bin/openapi ni suite Pact)
 make qa-bdd         # Karate Labs API contra php-api (con Idempotency-Key UUIDv4)
 make qa-dast        # Seguridad Dinámica Baseline Scan (OWASP ZAP)
 make qa-load        # Pruebas de carga declarativas k6 (smoke | load | stress)

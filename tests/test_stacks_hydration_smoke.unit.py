@@ -988,6 +988,95 @@ class TestStacksHydrationSmoke(unittest.TestCase):
         finally:
             shutil.rmtree(hydration_dir, ignore_errors=True)
 
+    def test_wave5_frontend_and_backend_stack_invariants(self) -> None:
+        """Verifica endurecimientos Wave 5 en stacks backend y frontend."""
+        cs_fixer = (REPO_ROOT / "php" / ".php-cs-fixer.dist.php.example").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("@PER-CS2.0", cs_fixer)
+        self.assertIn("setUnsupportedPhpVersionAllowed(true)", cs_fixer)
+        php_composer = json.loads(
+            (REPO_ROOT / "php" / "composer.json.example").read_text(encoding="utf-8")
+        )
+        self.assertIn(
+            "--config=.php-cs-fixer.dist.php", php_composer["scripts"]["qa:cs"]
+        )
+        php_ini = (REPO_ROOT / "php" / "php.ini.example").read_text(encoding="utf-8")
+        self.assertIn("opcache.jit = disable", php_ini)
+        self.assertIn("allow_url_fopen = On", php_ini)
+        php_compose = (REPO_ROOT / "php" / "docker-compose.qa.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('PHP_CLI_SERVER_WORKERS: "4"', php_compose)
+        self.assertIn("/tmp/k6-reports", php_compose)
+        php_make = (REPO_ROOT / "php" / "Makefile.example").read_text(encoding="utf-8")
+        self.assertNotIn("--skip-sync", php_make)
+        self.assertNotIn("ifdef PHP_VERSION", php_make)
+        self.assertIn("K6_P95_MS=900", php_make)
+        php_unit_xml = (REPO_ROOT / "php" / "phpunit.xml.example").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("tests/Unit", php_unit_xml)
+        self.assertNotIn("tests/Integration", php_unit_xml)
+
+        for py_stack in ("fastapi", "python"):
+            py_compose = (REPO_ROOT / py_stack / "docker-compose.qa.yml").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("UV_PROJECT_ENVIRONMENT: /tmp/qa-venv", py_compose)
+            self.assertNotIn("python3 -m http.server", py_compose)
+        fastapi_compose = (REPO_ROOT / "fastapi" / "docker-compose.qa.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("container_name:", fastapi_compose)
+        self.assertIn("k6-smoke:", fastapi_compose)
+
+        for fe_stack in ("vue3", "react-frontend"):
+            nginx_conf = (
+                REPO_ROOT / fe_stack / "nginx" / "default.conf.example"
+            ).read_text(encoding="utf-8")
+            self.assertNotIn("expires 1y;", nginx_conf)
+            self.assertNotIn('"cross-origin"', nginx_conf)
+            fe_make = (REPO_ROOT / fe_stack / "Makefile.example").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("down-caches:", fe_make)
+            for section in ("build-ui:", "qa-perf:", "qa-e2e:", "qa-bdd:"):
+                block = fe_make.split(section, 1)[1].split("\n\n", 1)[0]
+                self.assertNotIn("down -v", block)
+            fe_compose = (REPO_ROOT / fe_stack / "docker-compose.qa.yml").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("shm_size: '1gb'", fe_compose)
+            self.assertIn("pnpm_config_engine_strict: 'false'", fe_compose)
+            self.assertNotIn("nginx-logs:", fe_compose)
+            fe_setup = (REPO_ROOT / fe_stack / "vitest.setup.ts.example").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("sessionStorage", fe_setup)
+            fe_vitest = (
+                REPO_ROOT / fe_stack / "vitest.config.ts.example"
+            ).read_text(encoding="utf-8")
+            self.assertIn("'lcov'", fe_vitest)
+            fe_feat = (
+                REPO_ROOT / fe_stack / "test" / "ui_business_flow.feature"
+            ).read_text(encoding="utf-8")
+            self.assertIn("!= '#regex (?is).*", fe_feat)
+            self.assertNotIn("!contains '#regex", fe_feat)
+
+        for w5_stack in (
+            "fastapi",
+            "python",
+            "php",
+            "node-backend",
+            "vue3",
+            "react-frontend",
+        ):
+            clean_sh = (REPO_ROOT / w5_stack / "limpieza.sh").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("--security-opt=no-new-privileges:true", clean_sh)
+
 
 if __name__ == "__main__":
     unittest.main()

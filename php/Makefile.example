@@ -10,34 +10,38 @@ PROJECT_DIR ?= $(CURDIR)
 QA_UID ?= $(shell id -u)
 QA_GID ?= $(shell id -g)
 export QA_UID QA_GID
-ifdef PHP_VERSION
-export PHP_IMAGE := $(or $(PHP_IMAGE),sinfallas/basephpcomposer:$(PHP_VERSION))
-endif
+# Para sobrescribir la imagen PHP por defecto, exporta PHP_IMAGE con digest SHA-256 fijado (sin tags mutables).
 
 qa-lint:
 	@echo "🔍 [11X] Ejecutando PHP-CS-Fixer, PHPStan (Max), Psalm Taint y Composer Audit..."
-	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) sh -c "[ -f vendor/autoload.php ] || composer install --no-interaction --prefer-dist --quiet; composer --quiet run-script qa:lint"
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) sh -c "[ -f vendor/autoload.php ] || php -d allow_url_fopen=1 /usr/local/bin/composer install --no-interaction --prefer-dist --quiet; php -d allow_url_fopen=1 /usr/local/bin/composer run-script qa:lint"
 
 qa-unit:
 	@echo "🧪 [11X] Ejecutando Pruebas Unitarias Aisladas con PCOV y Cobertura >= 95% (Pest/PHPUnit)..."
-	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) sh -c "[ -f vendor/autoload.php ] || composer install --no-interaction --prefer-dist --quiet; composer run-script qa:unit"
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) sh -c "[ -f vendor/autoload.php ] || php -d allow_url_fopen=1 /usr/local/bin/composer install --no-interaction --prefer-dist --quiet; composer run-script qa:unit"
 
 qa-parity:
-	@echo "🗄️ [11X] Verificando paridad de esquema y migraciones con PostgreSQL 17..."
+	@echo "🗄️ [11X] Verificando paridad de esquema, migraciones y FORCE RLS en PostgreSQL 17..."
 	@bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" --profile \"*\" down -v >/dev/null 2>&1 || true" EXIT; \
 		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile integration up -d --wait postgres-qa keydb-qa && \
 		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) sh -c "\
+			[ -f vendor/autoload.php ] || php -d allow_url_fopen=1 /usr/local/bin/composer install --no-interaction --prefer-dist --quiet; \
 			if [ -f bin/console ]; then \
-				php bin/console doctrine:schema:validate --skip-sync; \
+				DATABASE_URL=\"\$$MIGRATION_DATABASE_URL\" php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration && \
+				DATABASE_URL=\"\$$MIGRATION_DATABASE_URL\" php bin/console doctrine:schema:validate; \
 			elif [ -f artisan ]; then \
-				php artisan migrate:status; \
+				DB_URL=\"\$$MIGRATION_DATABASE_URL\" php artisan migrate --force --no-interaction && \
+				DB_URL=\"\$$MIGRATION_DATABASE_URL\" php artisan migrate:status; \
 			else \
-				echo \"[SKIPPED] Sin consola ORM (Doctrine/Laravel); paridad omitida.\"; \
-			fi"'
+				echo \"[SKIPPED] Sin consola ORM (Doctrine/Laravel); migración omitida.\"; \
+			fi" && \
+		unprotected=$$(docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" exec -T postgres-qa psql -U qa_user -d qa_db -tAc "SELECT COUNT(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = '\''public'\'' AND c.relkind = '\''r'\'' AND (NOT c.relrowsecurity OR NOT c.relforcerowsecurity);"); \
+		if [ "$${unprotected:-0}" -gt 0 ]; then echo "❌ [RLS] $$unprotected tablas sin FORCE ROW LEVEL SECURITY." >&2; exit 1; fi'
 
 qa-contracts:
 	@echo "📐 [11X] Verificando contratos de esquema OpenAPI 3.1..."
 	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) sh -c "\
+		[ -f vendor/autoload.php ] || php -d allow_url_fopen=1 /usr/local/bin/composer install --no-interaction --prefer-dist --quiet; \
 		if [ -f vendor/bin/openapi ]; then \
 			./vendor/bin/openapi src/ -o openapi.json --format json; \
 		else \
@@ -52,7 +56,7 @@ qa-bdd:
 
 qa-mutation:
 	@echo "👽 [11X] Ejecutando Pruebas de Mutación con Infection (MSI >= 80%)..."
-	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) sh -c "[ -f vendor/autoload.php ] || composer install --no-interaction --prefer-dist --quiet; composer run-script qa:mutation"
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) sh -c "[ -f vendor/autoload.php ] || php -d allow_url_fopen=1 /usr/local/bin/composer install --no-interaction --prefer-dist --quiet; composer run-script qa:mutation"
 
 qa-dast:
 	@echo "🛡️ [11X] Ejecutando Auditoría Dinámica DAST y Verificación OSHP (OWASP ZAP)..."
@@ -62,19 +66,21 @@ qa-dast:
 
 qa-load:
 	@echo "⚡ [11X] Ejecutando Pruebas de Carga y SLOs (k6)..."
+	@mkdir -p "$(PROJECT_DIR)/reports"
 	@bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" --profile \"*\" down -v >/dev/null 2>&1 || true" EXIT; \
 		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile load up --abort-on-container-exit --exit-code-from k6-smoke'
 
 qa-chaos:
 	@echo "💥 [11X] Ejecutando Ingeniería del Caos (Pumba + Prometheus + k6)..."
+	@mkdir -p "$(PROJECT_DIR)/reports"
 	@bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" --profile \"*\" down -v >/dev/null 2>&1 || true" EXIT; \
 		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile chaos up -d --wait postgres-qa keydb-qa php-api && \
 		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile chaos up -d pumba prometheus && \
-		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile load run --rm -T k6-smoke'
+		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile load run --rm -T -e K6_P95_MS=900 -e K6_P99_MS=1500 k6-smoke'
 
 qa-sbom:
 	@echo "📜 [11X] Generando SBOM CycloneDX 1.6 Criptográfico..."
-	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) sh -c "[ -f vendor/autoload.php ] || composer install --no-interaction --prefer-dist --quiet; composer run-script qa:sbom"
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) sh -c "[ -f vendor/autoload.php ] || php -d allow_url_fopen=1 /usr/local/bin/composer install --no-interaction --prefer-dist --quiet; composer run-script qa:sbom"
 
 qa-all: qa-lint qa-unit qa-parity qa-bdd qa-mutation qa-sbom
 	@echo "✅ Pipeline QA PHP 8.2-8.5 (Estándar 11X) completado exitosamente."

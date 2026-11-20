@@ -31,7 +31,7 @@
 ### B. Lógica Interna, Integración e Intercepción -> `Vitest` + `Supertest` + `Nock`
 *   **Frontera Estricta (Tool Boundary):** Todos los archivos de pruebas unitarias DEBEN llamarse `.unit.ts` o `.spec.ts` para separar su contexto.
 *   **Regla:** Usa `Vitest` como motor (no Jest). Usa `Supertest` para probar las rutas de Express/Fastify pasándole la instancia directamente, SIN escuchar en un puerto real.
-*   **Regla de Aislamiento:** Toda llamada a un servicio de terceros o base de datos DEBE ser simulada usando `nock` o mocks nativos de Vitest. No se permite latencia de red en pruebas unitarias.
+*   **Regla de Aislamiento (Frontera Anti-Mock Blindness):** En pruebas unitarias (`.unit.ts` / `.spec.ts`), mockea APIs HTTP externas y temporizadores con `nock` o mocks de Vitest. NUNCA uses mocks ciegos de base de datos para certificar persistencia, transacciones o migraciones: valida esquemas SQL y modelos ORM contra PostgreSQL real en pruebas de integración/BDD.
 *   **Contratos de Proveedor Pact V4 (`node --test`):** Los archivos de verificación de contrato Zero-Infra en `tests/contracts/*.test.ts` (ej. `tests/contracts/provider.pact.test.ts`) se separan estrictamente de Vitest (`vitest.config.ts` excluye `tests/contracts/**`) y se ejecutan de forma nativa con `pnpm run test:contracts` (`node --test`) y `make qa-contracts`.
 
 ### C. Calidad de Código, Complejidad y SAST Estático -> `ESLint` + `Prettier` + `SonarJS`
@@ -73,11 +73,8 @@ Extrae/actualiza el grafo de conocimiento AST y consulta el radio de impacto ant
 python3 .agents/scripts/inspect_blast_radius.py "<simbolo_o_archivo>"
 ```
 
-**Paso 1: Levantar la API en segundo plano**
-```bash
-docker compose -f docker-compose.qa.yml up -d --wait api
-```
-*(Al finalizar, apaga los contenedores en segundo plano y volúmenes efímeros con `make clean-cache` o `make clean`; `qa-e2e`, `qa-dast` y `qa-stress` ejecutan el teardown automáticamente al salir).*
+**Paso 1: Ejecución Efímera y Ciclo de Vida de Contenedores (`Rule Zero`)**
+Las metas `qa-e2e`, `qa-dast` y `qa-stress` levantan `api` y realizan teardown automático al salir; ejecuta `make clean-cache` o `make clean` tras inspecciones manuales.
 
 **Paso 2: Ejecutar las suites de validación (Pipeline Regular)**
 
@@ -86,7 +83,7 @@ docker compose -f docker-compose.qa.yml up -d --wait api
 make qa-lint
 ```
 
-*   **Pruebas Lógicas Internas (Aisladas con Nock/Vitest) - Exigencia >95%:**
+*   **Pruebas Lógicas Internas (Aisladas con Nock/Vitest) - Exigencia >= 95%:**
 ```bash
 make qa-unit
 ```
@@ -94,6 +91,11 @@ make qa-unit
 *   **Contratos de Proveedor Pact V4 Zero-Infra (`node --test`):**
 ```bash
 make qa-contracts
+```
+
+*   **Generación de SBOM CycloneDX:**
+```bash
+make qa-sbom
 ```
 
 *   **Pruebas de Mutación (Evaluar solidez de los asertos):**
@@ -111,14 +113,9 @@ make qa-e2e
 make qa-dast
 ```
 
-*   **Profiling Acumulativo (Flamegraph de CPU):**
-```bash
-docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-node-backend bash -c "pnpm run profile:cpu"
-```
-
-**Paso 3: Certificación de Nivel 11X (Ingeniería del Caos y Observabilidad)**
-*ADVERTENCIA:* Este comando activa el perfil de caos. Despierta a Pumba, Artillery y Prometheus simultáneamente para estresar la API simulando una red severamente degradada.
+**Paso 3: Certificación de Nivel 11X (Ingeniería del Caos y Observabilidad — independiente de `qa-all`)**
+*ADVERTENCIA:* Este comando independiente (`qa-stress` está excluido de `qa-all`) activa el perfil de caos. Despierta a Pumba, Artillery y Prometheus simultáneamente para estresar la API simulando una red severamente degradada.
 ```bash
 make qa-stress
 ```
-*(Durante el ataque, puedes visualizar las métricas en vivo en `http://localhost:9090`. Al finalizar, revisa el archivo `chaos-report.json` generado localmente).*
+*(Durante el ataque, visualiza métricas en vivo en `http://localhost:9090`. Al finalizar, revisa `chaos-report.json` generado localmente. Para profiling CPU/RAM, ejecuta `pnpm run profile:cpu` o `pnpm run profile:memory` dentro de `qa-node-backend`).*

@@ -43,7 +43,7 @@
     }
   },
   "scripts": {
-    "qa:cs": "php-cs-fixer fix --dry-run --diff --using-cache=no",
+    "qa:cs": "php-cs-fixer fix --dry-run --diff --using-cache=no --config=.php-cs-fixer.dist.php",
     "qa:phpstan": "phpstan analyse --memory-limit=1G --no-progress",
     "qa:psalm": "psalm --no-progress --taint-analysis",
     "qa:audit": "composer audit --format=json",

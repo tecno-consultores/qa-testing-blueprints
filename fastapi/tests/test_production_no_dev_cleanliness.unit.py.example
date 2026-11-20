@@ -32,9 +32,11 @@ FORBIDDEN_DEV_MODULES = {
     "locust",
     "bandit",
     "pip_audit",
+    "cyclonedx",
     "ruff",
     "mypy",
     "tox",
+    "tox_uv",
     "py_spy",
     "pact",
     "unittest.mock",
@@ -53,7 +55,13 @@ def _extract_imported_names(node: ast.AST) -> list[str]:
     if isinstance(node, ast.Import):
         return [alias.name for alias in node.names]
     if isinstance(node, ast.ImportFrom) and node.module:
-        return [node.module]
+        names = [node.module]
+        names.extend(
+            f"{node.module}.{alias.name}"
+            for alias in node.names
+            if alias.name != "*"
+        )
+        return names
     return []
 
 

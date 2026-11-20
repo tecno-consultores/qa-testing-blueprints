@@ -2,22 +2,23 @@
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 // Verificador de Proveedor Zero-Infra (Pact V3/V4) — 0 any, CC <= 5, Fail-Closed.
 
-import assert from "node:assert/strict";
-import crypto from "node:crypto";
-import fs from "node:fs/promises";
-import http from "node:http";
-import path from "node:path";
-import { describe, it } from "node:test";
+import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
+import fs from 'node:fs/promises';
+import http from 'node:http';
+import os from 'node:os';
+import path from 'node:path';
+import { describe, it } from 'node:test';
 
 type JsonPrimitive = string | number | boolean | null;
 type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
 type JsonObject = { [key: string]: JsonValue };
 
 type FaultMode =
-  | "none"
-  | "float_unit_price"
-  | "missing_reservation_id"
-  | "missing_idempotency_echo";
+  | 'none'
+  | 'float_unit_price'
+  | 'missing_reservation_id'
+  | 'missing_idempotency_echo';
 
 interface PactMatcher {
   match: string;
@@ -63,14 +64,34 @@ interface ProviderStateSnapshot {
   reservations: Map<string, JsonObject>;
 }
 
+interface ProblemSpec {
+  typeUri: string;
+  title: string;
+  detail: string;
+  extraHeaders?: Record<string, string>;
+}
+
+interface JsonResponseOptions {
+  contentType?: string;
+  extraHeaders?: Record<string, string>;
+}
+
+interface RequestContext {
+  state: ProviderStateSnapshot;
+  faultMode: FaultMode;
+  req: http.IncomingMessage;
+  res: http.ServerResponse;
+}
+
 const UUID_V4_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const TENANT_RE = /^tenant-[a-z0-9-]+$/;
 const DECIMAL_RE = /^\d+\.\d{2}$/;
-const CONFLICT_KEY = "550e8400-e29b-41d4-a716-446655440099";
+const CONFLICT_KEY = '550e8400-e29b-41d4-a716-446655440099';
+const NUMERIC_MATCHERS = new Set(['integer', 'decimal', 'number']);
 
 function isJsonObject(value: unknown): value is JsonObject {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function canonicalizeJsonValue(value: unknown): unknown {
@@ -92,37 +113,34 @@ function canonicalizeJsonValue(value: unknown): unknown {
 
 function sha256Canonical(value: unknown): string {
   const serialized = JSON.stringify(canonicalizeJsonValue(value));
-  return crypto.createHash("sha256").update(serialized).digest("hex");
+  return crypto.createHash('sha256').update(serialized).digest('hex');
 }
 
 function createInitialSnapshot(): ProviderStateSnapshot {
   return {
-    stock: new Map<string, number>([["ROUTER-CCR2004", 50]]),
+    stock: new Map<string, number>([['ROUTER-CCR2004', 50]]),
     idempotencyHashes: new Map<string, string>(),
     reservations: new Map<string, JsonObject>(),
   };
 }
 
-function applyProviderState(
-  state: ProviderStateSnapshot,
-  name: string,
-): boolean {
+function applyProviderState(state: ProviderStateSnapshot, name: string): boolean {
   state.stock.clear();
   state.idempotencyHashes.clear();
   state.reservations.clear();
-  if (name === "nominal_configured") {
-    state.stock.set("ROUTER-CCR2004", 50);
+  if (name === 'nominal_configured') {
+    state.stock.set('ROUTER-CCR2004', 50);
     return true;
   }
-  if (name === "virgin_empty") {
+  if (name === 'virgin_empty') {
     return true;
   }
-  if (name === "degraded_conflict") {
-    state.stock.set("ROUTER-CCR2004", 10);
-    state.stock.set("SFP-25G-LR-OOS", 0);
+  if (name === 'degraded_conflict') {
+    state.stock.set('ROUTER-CCR2004', 10);
+    state.stock.set('SFP-25G-LR-OOS', 0);
     state.idempotencyHashes.set(
       `tenant-alpha:${CONFLICT_KEY}`,
-      sha256Canonical({ sku: "ROUTER-CCR2004", quantity: 2, unitPrice: "149.95" }),
+      sha256Canonical({ sku: 'ROUTER-CCR2004', quantity: 2, unitPrice: '149.95' }),
     );
     return true;
   }
@@ -133,27 +151,20 @@ function sendJson(
   res: http.ServerResponse,
   status: number,
   body: JsonValue,
-  contentType = "application/json",
-  extraHeaders: Record<string, string> = {},
+  options: JsonResponseOptions = {},
 ): void {
-  res.writeHead(status, { "Content-Type": contentType, ...extraHeaders });
+  const contentType = options.contentType ?? 'application/json';
+  const extraHeaders = options.extraHeaders ?? {};
+  res.writeHead(status, { 'Content-Type': contentType, ...extraHeaders });
   res.end(JSON.stringify(body));
 }
 
-function sendProblem(
-  res: http.ServerResponse,
-  status: number,
-  typeUri: string,
-  title: string,
-  detail: string,
-  extraHeaders: Record<string, string> = {},
-): void {
+function sendProblem(res: http.ServerResponse, status: number, problem: ProblemSpec): void {
   sendJson(
     res,
     status,
-    { type: typeUri, title, status, detail },
-    "application/problem+json",
-    extraHeaders,
+    { type: problem.typeUri, title: problem.title, status, detail: problem.detail },
+    { contentType: 'application/problem+json', extraHeaders: problem.extraHeaders },
   );
 }
 
@@ -162,33 +173,38 @@ async function readJsonBody(req: http.IncomingMessage): Promise<JsonValue> {
   for await (const chunk of req) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   }
-  const raw = Buffer.concat(chunks).toString("utf-8").trim();
+  const raw = Buffer.concat(chunks).toString('utf-8').trim();
   return raw ? (JSON.parse(raw) as JsonValue) : null;
 }
 
-function headerStr(
-  headers: http.IncomingHttpHeaders,
-  name: string,
-): string {
+function headerStr(headers: http.IncomingHttpHeaders, name: string): string {
   const raw = headers[name.toLowerCase()];
   if (Array.isArray(raw)) {
-    return raw[0] ?? "";
+    return raw[0] ?? '';
   }
-  return raw ?? "";
+  return raw ?? '';
 }
 
 function validateMutationHeaders(
   req: http.IncomingMessage,
   res: http.ServerResponse,
 ): { tenantId: string; idempotencyKey: string } | null {
-  const tenantId = headerStr(req.headers, "x-tenant-id");
-  const idempotencyKey = headerStr(req.headers, "idempotency-key");
+  const tenantId = headerStr(req.headers, 'x-tenant-id');
+  const idempotencyKey = headerStr(req.headers, 'idempotency-key');
   if (!TENANT_RE.test(tenantId)) {
-    sendProblem(res, 400, "https://qa-11x.internal/problems/invalid-tenant", "Invalid Tenant", "X-Tenant-ID inválido.");
+    sendProblem(res, 400, {
+      typeUri: 'https://qa-11x.internal/problems/invalid-tenant',
+      title: 'Invalid Tenant',
+      detail: 'X-Tenant-ID inválido.',
+    });
     return null;
   }
   if (!UUID_V4_RE.test(idempotencyKey)) {
-    sendProblem(res, 400, "https://qa-11x.internal/problems/missing-idempotency", "Missing Idempotency-Key", "Idempotency-Key UUIDv4 obligatorio.");
+    sendProblem(res, 400, {
+      typeUri: 'https://qa-11x.internal/problems/missing-idempotency',
+      title: 'Missing Idempotency-Key',
+      detail: 'Idempotency-Key UUIDv4 obligatorio.',
+    });
     return null;
   }
   return { tenantId, idempotencyKey };
@@ -200,95 +216,130 @@ function buildCreateResponsePayload(
   faultMode: FaultMode,
 ): JsonObject {
   const priceField: JsonValue =
-    faultMode === "float_unit_price" ? Number(unitPrice) : unitPrice;
-  if (faultMode === "missing_reservation_id") {
-    return { status: "CONFIRMED", unitPrice: priceField };
+    faultMode === 'float_unit_price' ? Number(unitPrice) : unitPrice;
+  if (faultMode === 'missing_reservation_id') {
+    return { status: 'CONFIRMED', unitPrice: priceField };
   }
-  return { reservationId, status: "CONFIRMED", unitPrice: priceField };
+  return { reservationId, status: 'CONFIRMED', unitPrice: priceField };
 }
 
-function validateCreateBody(
-  res: http.ServerResponse,
-  body: JsonValue,
-): string | null {
+function validateCreateBody(res: http.ServerResponse, body: JsonValue): string | null {
   if (!isJsonObject(body)) {
-    sendProblem(res, 400, "https://qa-11x.internal/problems/invalid-body", "Invalid Body", "Se esperaba objeto JSON.");
+    sendProblem(res, 400, {
+      typeUri: 'https://qa-11x.internal/problems/invalid-body',
+      title: 'Invalid Body',
+      detail: 'Se esperaba objeto JSON.',
+    });
     return null;
   }
   const unitPrice = body.unitPrice;
-  if (typeof unitPrice !== "string" || !DECIMAL_RE.test(unitPrice)) {
-    sendProblem(res, 422, "https://qa-11x.internal/problems/invalid-price", "Invalid Price", "unitPrice debe ser string decimal exacto.");
+  if (typeof unitPrice !== 'string' || !DECIMAL_RE.test(unitPrice)) {
+    sendProblem(res, 422, {
+      typeUri: 'https://qa-11x.internal/problems/invalid-price',
+      title: 'Invalid Price',
+      detail: 'unitPrice debe ser string decimal exacto.',
+    });
     return null;
   }
   return unitPrice;
 }
 
 function buildEchoHeaders(faultMode: FaultMode, idempotencyKey: string): Record<string, string> {
-  return faultMode === "missing_idempotency_echo" ? {} : { "Idempotency-Key": idempotencyKey };
+  return faultMode === 'missing_idempotency_echo' ? {} : { 'Idempotency-Key': idempotencyKey };
 }
 
-function handleCreateReservation(
-  state: ProviderStateSnapshot,
-  faultMode: FaultMode,
-  req: http.IncomingMessage,
-  res: http.ServerResponse,
+function checkIdempotencyConflict(
+  ctx: RequestContext,
+  auth: { tenantId: string; idempotencyKey: string },
   body: JsonValue,
-): void {
-  const auth = validateMutationHeaders(req, res);
-  const unitPrice = auth ? validateCreateBody(res, body) : null;
-  if (!auth || !unitPrice) {
-    return;
-  }
+  echoHeaders: Record<string, string>,
+): boolean {
   const compositeKey = `${auth.tenantId}:${auth.idempotencyKey}`;
   const payloadHash = sha256Canonical(body);
-  const existing = state.idempotencyHashes.get(compositeKey);
-  const echoHeaders = buildEchoHeaders(faultMode, auth.idempotencyKey);
+  const existing = ctx.state.idempotencyHashes.get(compositeKey);
   if (existing && existing !== payloadHash) {
-    sendProblem(
-      res,
-      409,
-      "https://qa-11x.internal/problems/idempotency-conflict",
-      "Idempotency Key Payload Mismatch",
-      `Idempotency-Key ${auth.idempotencyKey} was already committed with a different payload.`,
-      echoHeaders,
-    );
+    sendProblem(ctx.res, 409, {
+      typeUri: 'https://qa-11x.internal/problems/idempotency-conflict',
+      title: 'Idempotency Key Payload Mismatch',
+      detail: `Idempotency-Key ${auth.idempotencyKey} already committed with a different payload.`,
+      extraHeaders: echoHeaders,
+    });
+    return true;
+  }
+  ctx.state.idempotencyHashes.set(compositeKey, payloadHash);
+  return false;
+}
+
+function handleCreateReservation(ctx: RequestContext, body: JsonValue): void {
+  const auth = validateMutationHeaders(ctx.req, ctx.res);
+  if (!auth) {
     return;
   }
-  state.idempotencyHashes.set(compositeKey, payloadHash);
+  const unitPrice = validateCreateBody(ctx.res, body);
+  if (!unitPrice) {
+    return;
+  }
+  const echoHeaders = buildEchoHeaders(ctx.faultMode, auth.idempotencyKey);
+  if (checkIdempotencyConflict(ctx, auth, body, echoHeaders)) {
+    return;
+  }
   const reservationId = crypto.randomUUID();
-  const payload = buildCreateResponsePayload(reservationId, unitPrice, faultMode);
-  state.reservations.set(`${auth.tenantId}:${reservationId}`, payload);
-  sendJson(res, 201, payload, "application/json", echoHeaders);
+  const payload = buildCreateResponsePayload(reservationId, unitPrice, ctx.faultMode);
+  ctx.state.reservations.set(`${auth.tenantId}:${reservationId}`, payload);
+  sendJson(ctx.res, 201, payload, { extraHeaders: echoHeaders });
 }
 
-function evaluateBatchItem(
-  state: ProviderStateSnapshot,
-  item: JsonValue,
-): JsonObject {
-  if (!isJsonObject(item) || typeof item.sku !== "string" || typeof item.quantity !== "number") {
-    return { sku: "", status: "REJECTED_OUT_OF_STOCK" };
+function parseValidBatchItem(item: JsonValue): { sku: string; quantity: number } | null {
+  if (!isJsonObject(item)) {
+    return null;
   }
-  const available = state.stock.get(item.sku) ?? 0;
-  if (item.quantity <= 0 || available < item.quantity) {
-    return { sku: item.sku, status: "REJECTED_OUT_OF_STOCK" };
+  const { sku, quantity } = item;
+  if (typeof sku !== 'string' || typeof quantity !== 'number') {
+    return null;
   }
-  state.stock.set(item.sku, available - item.quantity);
-  return { sku: item.sku, status: "SUCCEEDED" };
+  return { sku, quantity };
 }
 
-function handleBatchReservation(
-  state: ProviderStateSnapshot,
-  faultMode: FaultMode,
-  req: http.IncomingMessage,
-  res: http.ServerResponse,
-  body: JsonValue,
-): void {
-  const auth = validateMutationHeaders(req, res);
-  if (!auth || !isJsonObject(body) || !Array.isArray(body.items)) {
+function evaluateBatchItem(state: ProviderStateSnapshot, item: JsonValue): JsonObject {
+  const parsed = parseValidBatchItem(item);
+  if (!parsed) {
+    return { sku: '', status: 'REJECTED_OUT_OF_STOCK' };
+  }
+  const available = state.stock.get(parsed.sku) ?? 0;
+  if (parsed.quantity <= 0 || available < parsed.quantity) {
+    return { sku: parsed.sku, status: 'REJECTED_OUT_OF_STOCK' };
+  }
+  state.stock.set(parsed.sku, available - parsed.quantity);
+  return { sku: parsed.sku, status: 'SUCCEEDED' };
+}
+
+function validateBatchBody(res: http.ServerResponse, body: JsonValue): JsonValue[] | null {
+  if (!isJsonObject(body) || !Array.isArray(body.items)) {
+    sendProblem(res, 400, {
+      typeUri: 'https://qa-11x.internal/problems/invalid-batch',
+      title: 'Invalid Batch Body',
+      detail: 'Se esperaba objeto JSON con arreglo items.',
+    });
+    return null;
+  }
+  return body.items;
+}
+
+function handleBatchReservation(ctx: RequestContext, body: JsonValue): void {
+  const auth = validateMutationHeaders(ctx.req, ctx.res);
+  if (!auth) {
     return;
   }
-  const results = body.items.map((item) => evaluateBatchItem(state, item));
-  sendJson(res, 200, { results }, "application/json", buildEchoHeaders(faultMode, auth.idempotencyKey));
+  const items = validateBatchBody(ctx.res, body);
+  if (!items) {
+    return;
+  }
+  const echoHeaders = buildEchoHeaders(ctx.faultMode, auth.idempotencyKey);
+  if (checkIdempotencyConflict(ctx, auth, body, echoHeaders)) {
+    return;
+  }
+  const results = items.map((item) => evaluateBatchItem(ctx.state, item));
+  sendJson(ctx.res, 200, { results }, { extraHeaders: echoHeaders });
 }
 
 function handleGetReservation(
@@ -297,86 +348,100 @@ function handleGetReservation(
   res: http.ServerResponse,
   pathname: string,
 ): void {
-  const tenantId = headerStr(req.headers, "x-tenant-id");
-  const reservationId = pathname.replace("/api/v1/reservations/", "");
+  const tenantId = headerStr(req.headers, 'x-tenant-id');
+  const reservationId = pathname.replace('/api/v1/reservations/', '');
   const found = state.reservations.get(`${tenantId}:${reservationId}`);
   if (!found) {
-    sendProblem(
-      res,
-      404,
-      "https://qa-11x.internal/problems/reservation-not-found",
-      "Reservation Not Found",
-      `Reservation ${reservationId} does not exist for tenant.`,
-    );
+    sendProblem(res, 404, {
+      typeUri: 'https://qa-11x.internal/problems/reservation-not-found',
+      title: 'Reservation Not Found',
+      detail: `Reservation ${reservationId} does not exist for tenant.`,
+    });
     return;
   }
   sendJson(res, 200, found);
 }
 
-async function handleProviderStateRoute(
-  state: ProviderStateSnapshot,
-  req: http.IncomingMessage,
-  res: http.ServerResponse,
-): Promise<void> {
-  const body = await readJsonBody(req);
-  const stateName = isJsonObject(body) && typeof body.state === "string" ? body.state : "";
-  if (!applyProviderState(state, stateName)) {
-    sendProblem(res, 400, "https://qa-11x.internal/problems/unknown-state", "Unknown State", stateName);
+async function handleProviderStateRoute(ctx: RequestContext): Promise<void> {
+  const body = await readJsonBody(ctx.req);
+  const stateName = isJsonObject(body) && typeof body.state === 'string' ? body.state : '';
+  if (!applyProviderState(ctx.state, stateName)) {
+    sendProblem(ctx.res, 400, {
+      typeUri: 'https://qa-11x.internal/problems/unknown-state',
+      title: 'Unknown State',
+      detail: stateName,
+    });
     return;
   }
-  sendJson(res, 200, { activeState: stateName });
+  sendJson(ctx.res, 200, { activeState: stateName });
 }
 
-async function routeProviderRequest(
-  state: ProviderStateSnapshot,
-  faultMode: FaultMode,
-  req: http.IncomingMessage,
-  res: http.ServerResponse,
-): Promise<void> {
-  const pathname = new URL(req.url ?? "/", "http://127.0.0.1").pathname;
-  const routeKey = `${req.method ?? "GET"} ${pathname}`;
-  if (routeKey === "POST /_pact/provider-states") {
-    await handleProviderStateRoute(state, req, res);
+type RouteHandler = (ctx: RequestContext) => Promise<void>;
+
+const EXACT_ROUTES = new Map<string, RouteHandler>([
+  ['POST /_pact/provider-states', handleProviderStateRoute],
+  [
+    'POST /api/v1/reservations',
+    async (ctx: RequestContext): Promise<void> => {
+      handleCreateReservation(ctx, await readJsonBody(ctx.req));
+    },
+  ],
+  [
+    'POST /api/v1/reservations/batch',
+    async (ctx: RequestContext): Promise<void> => {
+      handleBatchReservation(ctx, await readJsonBody(ctx.req));
+    },
+  ],
+]);
+
+function readRequestMethodAndPath(req: http.IncomingMessage): {
+  method: string;
+  pathname: string;
+} {
+  const pathname = new URL(req.url ?? '/', 'http://127.0.0.1').pathname;
+  const method = req.method ?? 'GET';
+  return { method, pathname };
+}
+
+async function routeProviderRequest(ctx: RequestContext): Promise<void> {
+  const { method, pathname } = readRequestMethodAndPath(ctx.req);
+  const handler = EXACT_ROUTES.get(`${method} ${pathname}`);
+  if (handler) {
+    await handler(ctx);
     return;
   }
-  if (routeKey === "POST /api/v1/reservations") {
-    handleCreateReservation(state, faultMode, req, res, await readJsonBody(req));
+  if (method === 'GET' && pathname.startsWith('/api/v1/reservations/')) {
+    handleGetReservation(ctx.state, ctx.req, ctx.res, pathname);
     return;
   }
-  if (routeKey === "POST /api/v1/reservations/batch") {
-    handleBatchReservation(state, faultMode, req, res, await readJsonBody(req));
-    return;
-  }
-  if (req.method === "GET" && pathname.startsWith("/api/v1/reservations/")) {
-    handleGetReservation(state, req, res, pathname);
-    return;
-  }
-  sendProblem(res, 404, "https://qa-11x.internal/problems/route-not-found", "Not Found", pathname);
+  sendProblem(ctx.res, 404, {
+    typeUri: 'https://qa-11x.internal/problems/route-not-found',
+    title: 'Not Found',
+    detail: pathname,
+  });
 }
 
 async function startEphemeralProvider(
-  faultMode: FaultMode = "none",
+  faultMode: FaultMode = 'none',
 ): Promise<{ baseUrl: string; close: () => Promise<void> }> {
   const state = createInitialSnapshot();
   const server = http.createServer((req, res) => {
-    routeProviderRequest(state, faultMode, req, res).catch((err: unknown) => {
+    routeProviderRequest({ state, faultMode, req, res }).catch((err: unknown) => {
       if (!res.headersSent) {
-        const detail = err instanceof Error ? err.message : "Unhandled provider error";
-        sendProblem(
-          res,
-          500,
-          "https://qa-11x.internal/problems/provider-error",
-          "Internal Server Error",
+        const detail = err instanceof Error ? err.message : 'Unhandled provider error';
+        sendProblem(res, 500, {
+          typeUri: 'https://qa-11x.internal/problems/provider-error',
+          title: 'Internal Server Error',
           detail,
-        );
+        });
       } else {
         res.end();
       }
     });
   });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const address = server.address();
-  assert.ok(address && typeof address === "object");
+  assert.ok(address && typeof address === 'object');
   return {
     baseUrl: `http://127.0.0.1:${address.port}`,
     close: () =>
@@ -386,8 +451,10 @@ async function startEphemeralProvider(
   };
 }
 
-function extractBodyContent(body: { content?: JsonValue } | JsonValue | undefined): JsonValue | undefined {
-  if (isJsonObject(body) && "content" in body) {
+function extractBodyContent(
+  body: { content?: JsonValue } | JsonValue | undefined,
+): JsonValue | undefined {
+  if (isJsonObject(body) && 'content' in body) {
     return body.content;
   }
   return body;
@@ -401,9 +468,15 @@ function normalizeHeaderRecord(
     return out;
   }
   for (const [key, val] of Object.entries(headers)) {
-    out[key] = Array.isArray(val) ? (val[0] ?? "") : val;
+    out[key] = Array.isArray(val) ? (val[0] ?? '') : val;
   }
   return out;
+}
+
+function compilePactRegex(pattern: string, location: string): RegExp {
+  assert.ok(pattern.length <= 256, `${location}: regex excede 256 caracteres.`);
+  // eslint-disable-next-line security/detect-non-literal-regexp
+  return new RegExp(pattern);
 }
 
 function checkRegexMatcher(
@@ -411,21 +484,21 @@ function checkRegexMatcher(
   actual: JsonValue,
   location: string,
 ): void {
-  if (typeof actual !== "string") {
+  if (typeof actual !== 'string') {
     assert.fail(`${location}: se esperaba string para regex.`);
   }
   assert.ok(matcher.regex, `${location}: matcher regex sin expresión.`);
-  assert.match(actual, new RegExp(matcher.regex), `${location}: valor '${actual}' no cumple regex.`);
+  const compiled = compilePactRegex(matcher.regex, location);
+  assert.match(actual, compiled, `${location}: valor '${actual}' no cumple regex.`);
 }
 
-const NUMERIC_MATCHERS = new Set(["integer", "decimal", "number"]);
-
 function checkNumericMatcher(matchType: string, actual: JsonValue, location: string): void {
-  if (matchType === "integer") {
-    assert.equal(typeof actual === "number" && Number.isInteger(actual), true, `${location}: se esperaba entero.`);
+  if (matchType === 'integer') {
+    const isInt = typeof actual === 'number' && Number.isInteger(actual);
+    assert.equal(isInt, true, `${location}: se esperaba entero.`);
     return;
   }
-  assert.equal(typeof actual, "number", `${location}: se esperaba número.`);
+  assert.equal(typeof actual, 'number', `${location}: se esperaba número.`);
 }
 
 function checkMatcherRule(
@@ -434,13 +507,17 @@ function checkMatcherRule(
   expected: JsonValue,
   location: string,
 ): void {
-  if (matcher.match === "regex") {
+  if (matcher.match === 'regex') {
     checkRegexMatcher(matcher, actual, location);
     return;
   }
-  if (matcher.match === "type") {
-    assert.equal(Array.isArray(actual), Array.isArray(expected), `${location}: discrepancia Array.`);
-    assert.equal(typeof actual, typeof expected, `${location}: tipo ${typeof actual} != ${typeof expected}.`);
+  if (matcher.match === 'type') {
+    assert.equal(
+      Array.isArray(actual),
+      Array.isArray(expected),
+      `${location}: discrepancia Array.`,
+    );
+    assert.equal(typeof actual, typeof expected, `${location}: discrepancia de tipo.`);
     return;
   }
   if (NUMERIC_MATCHERS.has(matcher.match)) {
@@ -512,7 +589,11 @@ function verifyBodyNode(
     verifyObjectNode(expected, actual, currentPath, rules);
     return;
   }
-  assert.strictEqual(actual, expected, `${currentPath}: se esperaba '${String(expected)}' y llegó '${String(actual)}'.`);
+  assert.strictEqual(
+    actual,
+    expected,
+    `${currentPath}: se esperaba '${String(expected)}' y llegó '${String(actual)}'.`,
+  );
 }
 
 function verifyResponseHeaders(
@@ -546,12 +627,32 @@ async function setupInteractionStates(
 ): Promise<void> {
   for (const stateName of getProviderStateNames(interaction)) {
     const res = await fetch(`${baseUrl}/_pact/provider-states`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ state: stateName }),
     });
     assert.equal(res.status, 200, `Estado de proveedor inválido o fallido: ${stateName}`);
   }
+}
+
+async function verifyExpectedBody(
+  expectedBody: JsonValue | undefined,
+  response: Response,
+  rules: Record<string, PactRuleEntry>,
+): Promise<void> {
+  if (expectedBody === undefined) {
+    return;
+  }
+  const actualBody = (await response.json()) as JsonValue;
+  verifyBodyNode(expectedBody, actualBody, '$', rules);
+}
+
+function readHeaderRules(interaction: PactInteraction): Record<string, PactRuleEntry> {
+  return interaction.response.matchingRules?.header ?? {};
+}
+
+function readBodyRules(interaction: PactInteraction): Record<string, PactRuleEntry> {
+  return interaction.response.matchingRules?.body ?? {};
 }
 
 async function verifySingleInteraction(
@@ -561,33 +662,47 @@ async function verifySingleInteraction(
   await setupInteractionStates(baseUrl, interaction);
   const reqHeaders = normalizeHeaderRecord(interaction.request.headers);
   const reqBody = extractBodyContent(interaction.request.body);
-  const response = await fetch(`${baseUrl}${interaction.request.path}`, {
+  const init: RequestInit = {
     method: interaction.request.method,
     headers: reqHeaders,
-    body: reqBody === undefined ? undefined : JSON.stringify(reqBody),
-  });
-  assert.equal(response.status, interaction.response.status, `${interaction.description}: HTTP status`);
+  };
+  if (reqBody !== undefined) {
+    init.body = JSON.stringify(reqBody);
+  }
+  const response = await fetch(`${baseUrl}${interaction.request.path}`, init);
+  assert.equal(
+    response.status,
+    interaction.response.status,
+    `${interaction.description}: HTTP status`,
+  );
   verifyResponseHeaders(
     interaction.response.headers,
     response.headers,
-    interaction.response.matchingRules?.header ?? {},
+    readHeaderRules(interaction),
   );
   const expectedBody = extractBodyContent(interaction.response.body);
-  if (expectedBody !== undefined) {
-    const actualBody = (await response.json()) as JsonValue;
-    verifyBodyNode(expectedBody, actualBody, "$", interaction.response.matchingRules?.body ?? {});
-  }
+  await verifyExpectedBody(expectedBody, response, readBodyRules(interaction));
+}
+
+function assertValidPactDocument(pact: PactDocument): void {
+  assert.equal(pact.consumer?.name, 'fastapi-billing-consumer', 'Consumidor inesperado en Pact.');
+  assert.equal(pact.provider?.name, 'node-inventory-provider', 'Proveedor inesperado en Pact.');
+  assert.ok(
+    Array.isArray(pact.interactions) && pact.interactions.length > 0,
+    'Contrato Pact vacío.',
+  );
 }
 
 export async function verifyProviderAgainstPactFile(
   pactFilePath: string,
   baseUrl: string,
 ): Promise<number> {
-  const raw = await fs.readFile(pactFilePath, "utf-8");
+  const resolved = path.resolve(pactFilePath);
+  assert.ok(resolved.endsWith('.json') && !resolved.includes('\0'), 'Ruta Pact inválida.');
+  // eslint-disable-next-line security/detect-non-literal-fs-filename
+  const raw = await fs.readFile(resolved, 'utf-8');
   const pact = JSON.parse(raw) as PactDocument;
-  assert.equal(pact.consumer?.name, "fastapi-billing-consumer", "Consumidor inesperado en Pact.");
-  assert.equal(pact.provider?.name, "node-inventory-provider", "Proveedor inesperado en Pact.");
-  assert.ok(Array.isArray(pact.interactions) && pact.interactions.length > 0, "Contrato Pact vacío.");
+  assertValidPactDocument(pact);
   for (const interaction of pact.interactions) {
     await verifySingleInteraction(baseUrl, interaction);
   }
@@ -595,14 +710,14 @@ export async function verifyProviderAgainstPactFile(
 }
 
 function resolvePactArtifactPath(): string {
-  const dir = process.env.PACT_OUTPUT_DIR ?? "/tmp/pacts";
-  return path.join(dir, "fastapi-billing-consumer-node-inventory-provider.json");
+  const dir = process.env.PACT_OUTPUT_DIR ?? path.join(os.tmpdir(), 'pacts');
+  return path.join(dir, 'fastapi-billing-consumer-node-inventory-provider.json');
 }
 
-describe("Node Inventory Provider — Pact V4 Contract Verification (Zero-Infra)", () => {
-  it("verifica al 100% el artefacto Pact real generado por el consumidor Python", async () => {
+describe('Node Inventory Provider — Pact V4 Contract Verification (Zero-Infra)', () => {
+  it('verifica al 100% el artefacto Pact real generado por el consumidor Python', async () => {
     const pactPath = resolvePactArtifactPath();
-    const provider = await startEphemeralProvider("none");
+    const provider = await startEphemeralProvider('none');
     try {
       const verified = await verifyProviderAgainstPactFile(pactPath, provider.baseUrl);
       assert.equal(verified, 4);
@@ -611,9 +726,9 @@ describe("Node Inventory Provider — Pact V4 Contract Verification (Zero-Infra)
     }
   });
 
-  it("rechaza ruptura deliberada cuando el proveedor serializa unitPrice como float", async () => {
+  it('rechaza ruptura deliberada cuando el proveedor serializa unitPrice como float', async () => {
     const pactPath = resolvePactArtifactPath();
-    const provider = await startEphemeralProvider("float_unit_price");
+    const provider = await startEphemeralProvider('float_unit_price');
     try {
       await assert.rejects(
         () => verifyProviderAgainstPactFile(pactPath, provider.baseUrl),
@@ -624,10 +739,10 @@ describe("Node Inventory Provider — Pact V4 Contract Verification (Zero-Infra)
     }
   });
 
-  it("rechaza ruptura deliberada por campo obligatorio ausente y pérdida de eco Idempotency-Key", async () => {
+  it('rechaza ruptura por campo obligatorio ausente y pérdida de eco Idempotency-Key', async () => {
     const pactPath = resolvePactArtifactPath();
-    const missingFieldProvider = await startEphemeralProvider("missing_reservation_id");
-    const missingHeaderProvider = await startEphemeralProvider("missing_idempotency_echo");
+    const missingFieldProvider = await startEphemeralProvider('missing_reservation_id');
+    const missingHeaderProvider = await startEphemeralProvider('missing_idempotency_echo');
     try {
       await assert.rejects(
         () => verifyProviderAgainstPactFile(pactPath, missingFieldProvider.baseUrl),
@@ -643,43 +758,73 @@ describe("Node Inventory Provider — Pact V4 Contract Verification (Zero-Infra)
     }
   });
 
-  it("falla en modo Fail-Closed ante archivo Pact inexistente o estado desconocido", async () => {
-    const provider = await startEphemeralProvider("none");
+  it('falla Fail-Closed ante Pact ausente, batch 400 y conflicto 409', async () => {
+    const provider = await startEphemeralProvider('none');
     try {
+      const missingPact = path.join(os.tmpdir(), 'nonexistent-pact-11x.json');
       await assert.rejects(
-        () => verifyProviderAgainstPactFile("/tmp/nonexistent-pact-11x.json", provider.baseUrl),
+        () => verifyProviderAgainstPactFile(missingPact, provider.baseUrl),
         /ENOENT/,
       );
       const stateRes = await fetch(`${provider.baseUrl}/_pact/provider-states`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ state: "unregistered_state" }),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: 'unregistered_state' }),
       });
       assert.equal(stateRes.status, 400);
 
-      const idemKey = "550e8400-e29b-41d4-a716-446655440011";
+      const badBatchRes = await fetch(`${provider.baseUrl}/api/v1/reservations/batch`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Tenant-ID': 'tenant-acme',
+          'Idempotency-Key': '550e8400-e29b-41d4-a716-446655440012',
+        },
+        body: JSON.stringify({ invalidField: true }),
+      });
+      assert.equal(badBatchRes.status, 400);
+
+      const batchHeaders = {
+        'Content-Type': 'application/json',
+        'X-Tenant-ID': 'tenant-acme',
+        'Idempotency-Key': '550e8400-e29b-41d4-a716-446655440013',
+      };
+      const batchOk = await fetch(`${provider.baseUrl}/api/v1/reservations/batch`, {
+        method: 'POST',
+        headers: batchHeaders,
+        body: JSON.stringify({ items: [{ sku: 'ROUTER-CCR2004', quantity: 1 }] }),
+      });
+      assert.equal(batchOk.status, 200);
+      const batchConflict = await fetch(`${provider.baseUrl}/api/v1/reservations/batch`, {
+        method: 'POST',
+        headers: batchHeaders,
+        body: JSON.stringify({ items: [{ sku: 'ROUTER-CCR2004', quantity: 2 }] }),
+      });
+      assert.equal(batchConflict.status, 409);
+
+      const idemKey = '550e8400-e29b-41d4-a716-446655440011';
       const headers = {
-        "Content-Type": "application/json",
-        "X-Tenant-ID": "tenant-acme",
-        "Idempotency-Key": idemKey,
+        'Content-Type': 'application/json',
+        'X-Tenant-ID': 'tenant-acme',
+        'Idempotency-Key': idemKey,
       };
       const resA = await fetch(`${provider.baseUrl}/api/v1/reservations`, {
-        method: "POST",
+        method: 'POST',
         headers,
         body: JSON.stringify({
-          sku: "ROUTER-CCR2004",
-          unitPrice: "149.95",
+          sku: 'ROUTER-CCR2004',
+          unitPrice: '149.95',
           metadata: { zeta: 2, alpha: 1 },
         }),
       });
       assert.equal(resA.status, 201);
       const resReordered = await fetch(`${provider.baseUrl}/api/v1/reservations`, {
-        method: "POST",
+        method: 'POST',
         headers,
         body: JSON.stringify({
           metadata: { alpha: 1, zeta: 2 },
-          unitPrice: "149.95",
-          sku: "ROUTER-CCR2004",
+          unitPrice: '149.95',
+          sku: 'ROUTER-CCR2004',
         }),
       });
       assert.equal(resReordered.status, 201);

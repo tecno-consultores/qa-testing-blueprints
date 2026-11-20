@@ -36,13 +36,13 @@
 *   **Frontera Estricta (Tool Boundary):** Todas las pruebas que requieran levantar navegadores y atacar la UI en vivo DEBEN nombrarse usando `.e2e.ts`.
 *   **Sistema de Diseño Determinista (`.agents/skills/refactoring-ui/`):** Al diseñar o estilizar componentes `.vue`, aplica las reglas de `.agents/skills/refactoring-ui/SKILL.md` y sus 9 referencias (`hierarchy.md`, `layout.md`, `type.md`, `color.md`, `depth.md`, `dark-mode.md`, etc.): 1 solo botón primario sólido por vista, tonos OKLCH sin texto translúcido (`text-white/70` prohibido), `tabular-nums` en columnas numéricas para evitar *Cumulative Layout Shift* (`CLS = 0`), `outline-hidden` en vez de `outline-none`, y cero scroll horizontal en `375x667`, `768x1024` y `1440x900`.
 *   **Playwright / Axe:** Navega la aplicación, valida el DOM profundo, accesibilidad WCAG 2.1 AA (0 violaciones) y compara capturas de pantalla de la interfaz.
-*   **Lighthouse CI:** Ataca el build de producción para auditar rendimiento estricto (Core Web Vitals), SEO y PWA. Si el *Performance Score* baja de 90, el pipeline falla.
+*   **Lighthouse CI:** Ataca el build de producción para auditar rendimiento estricto (Core Web Vitals), Accesibilidad, Mejores Prácticas y SEO. Si el *Performance Score* baja de 90, el pipeline falla.
 
 ### E. Flujos de Negocio BDD -> `Karate Labs` + `Playwright`
 *   **Regla:** `sinfallas/karatelabs:1.5.1@sha256:a9a52ca9c5491ab39b64f0b4fdc3dea879c2213c9bc995be58d6cd4b9a80cc89` no incluye binario Chrome/Chromium; utiliza `test/ui_business_flow.feature` exclusivamente para contratos HTTP/Nginx/SSG, cabeceras OWASP OSHP y XML/SEO (`* string xmlText = response`), delegando la interacción DOM real, `[ 🔄 Refrescar ]` y WCAG 2.1 AA a Playwright (`ui-e2e`).
 
 ### F. Observabilidad -> `Nginx Prometheus Exporter`
-*   **Regla:** El monitoreo del frontend se realiza externamente a través de los logs de acceso de Nginx para no agregar dependencias al código de la aplicación. Esto se ejecuta mediante el perfil `--profile observability`.
+*   **Regla:** El monitoreo del frontend se realiza externamente a través del endpoint interno `/stub_status` de Nginx para no agregar dependencias al código de la aplicación. Esto se ejecuta mediante el perfil `--profile observability`.
 
 ### G. Ingestión Inteligente (Paso 0 - Graphify AST CLI-First)
 *   **Regla (Exclusiva para ti, IA):** Tienes estrictamente prohibido generar código o pruebas a ciegas. Extrae o refresca el grafo AST mediante el extractor CLI efímero (`./scripts/actualizar-grafos-graphify.sh vue3`) y consulta invocadores/invocados vía `python3 .agents/scripts/inspect_blast_radius.py "<ComponenteORuta>"` (o la tool MCP `inspect_ast_blast_radius`), sin levantar demonios en el puerto 8080. Además, DEBES leer silenciosamente los linters, dependencias y scripts permitidos en `package.json`, `pnpm-workspace.yaml#allowBuilds`, `tsconfig.json` y `vite.config.ts`.
@@ -104,7 +104,7 @@ make qa-psi URL=https://tu-dominio.com
 make qa-e2e
 ```
 
-*   **Pruebas de Aceptación BDD (Karate UI):**
+*   **Pruebas de Aceptación BDD (Karate HTTP/Nginx/OSHP):**
 ```bash
 make qa-bdd
 ```

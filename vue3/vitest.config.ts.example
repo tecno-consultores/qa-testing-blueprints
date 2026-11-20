@@ -20,7 +20,7 @@ export default defineConfig({
 
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'html'],
+      reporter: ['text', 'lcov', 'html'],
       // Exigencia corporativa: Falla el pipeline si no se cumple el 95%
       thresholds: {
         lines: 95,
@@ -37,6 +37,10 @@ export default defineConfig({
         'e2e/**',
         'test/**',
         'tests/**',
+        'src/**/*.unit.*',
+        'src/**/*.spec.*',
+        'src/**/*.test.*',
+        '**/*.e2e.*',
         'vitest.setup.ts',
         '**/*.d.ts',
         '*.config.ts',

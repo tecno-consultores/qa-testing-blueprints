@@ -5,7 +5,7 @@ export default defineConfig({
   testDir: './e2e',
   
   // TOOL BOUNDARY ESTRICTO: Playwright solo ejecuta archivos explícitamente marcados como E2E.
-  testMatch: '**/*.e2e.ts',
+  testMatch: '**/*.e2e.{ts,tsx}',
   
   fullyParallel: true,
   // En CI, prohibimos test.only() para evitar que un desarrollador se salte la suite
@@ -28,7 +28,12 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: {
+          args: ['--disable-dev-shm-usage'],
+        },
+      },
     }
   ],
   expect: {

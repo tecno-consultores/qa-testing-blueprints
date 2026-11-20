@@ -36,16 +36,16 @@
 *   **Strict Boundary (Tool Boundary):** All tests requiring launching browsers and attacking the live UI MUST be named using `.e2e.ts`.
 *   **Deterministic Design System (`.agents/skills/refactoring-ui/`):** When designing or styling `.vue` components, apply the rules from `.agents/skills/refactoring-ui/SKILL.md` and its 9 references (`hierarchy.md`, `layout.md`, `type.md`, `color.md`, `depth.md`, `dark-mode.md`, etc.): only 1 solid primary button per view, OKLCH tones without translucent text (`text-white/70` prohibited), `tabular-nums` on numeric columns to avoid *Cumulative Layout Shift* (`CLS = 0`), `outline-hidden` instead of `outline-none`, and zero horizontal scroll at `375x667`, `768x1024`, and `1440x900`.
 *   **Playwright / Axe:** Navigates the application, validates deep DOM structure, WCAG 2.1 AA accessibility (0 violations), and compares interface screenshots.
-*   **Lighthouse CI:** Attacks the production build to audit strict performance (Core Web Vitals), SEO, and PWA. If the *Performance Score* drops below 90, the pipeline fails.
+*   **Lighthouse CI:** Attacks the production build to audit strict performance (Core Web Vitals), Accessibility, Best Practices, and SEO. If the *Performance Score* drops below 90, the pipeline fails.
 
 ### E. BDD Business Flows -> `Karate Labs` + `Playwright`
 *   **Rule:** `sinfallas/karatelabs:1.5.1@sha256:a9a52ca9c5491ab39b64f0b4fdc3dea879c2213c9bc995be58d6cd4b9a80cc89` does not include a Chrome/Chromium binary; use `test/ui_business_flow.feature` exclusively for HTTP/Nginx/SSG contracts, OWASP OSHP headers, and XML/SEO (`* string xmlText = response`), delegating real DOM interaction, `[ 🔄 Refrescar ]`, and WCAG 2.1 AA to Playwright (`ui-e2e`).
 
 ### F. Observability -> `Nginx Prometheus Exporter`
-*   **Rule:** Frontend monitoring is performed externally via Nginx access logs to avoid adding dependencies to application code. This runs via the `--profile observability` profile.
+*   **Rule:** Frontend monitoring is performed externally via Nginx's internal `/stub_status` metrics endpoint without adding dependencies to application code. This runs via the `--profile observability` profile.
 
 ### G. Smart Ingestion (Step 0 - Graphify AST CLI-First)
-*   **Rule (Exclusive to you, AI):** You are strictly forbidden from generating code or tests blindly. Extract or refresh the stack AST graph via the ephemeral CLI extractor (`./scripts/actualizar-grafos-graphify.sh vue3`) and query callers/callees via `python3 .agents/scripts/inspect_blast_radius.py "<ComponentOrRoute>"` (or the `inspect_ast_blast_radius` MCP tool), without spinning up daemons on port 8080. Additionally, you MUST silently read linter rules, dependencies, and blocked scripts defined in `package.json`, `pnpm-workspace.yaml#allowBuilds`, `tsconfig.json`, and `vite.config.ts`.
+*   **Rule (Exclusive to you, AI):** You are strictly forbidden from generating code or tests blindly. Extract or refresh the stack AST graph via the ephemeral CLI extractor (`./scripts/actualizar-grafos-graphify.sh vue3`) and query callers/callees via `python3 .agents/scripts/inspect_blast_radius.py "<ComponentOrRoute>"` (or the `inspect_ast_blast_radius` MCP tool), without spinning up daemons on port 8080. Additionally, you MUST silently read linter rules, dependencies, and allowed *scripts* defined in `package.json`, `pnpm-workspace.yaml#allowBuilds`, `tsconfig.json`, and `vite.config.ts`.
 
 ### H. Mandatory Frontend Security (DISA ASD STIG V6R5 & OWASP Developer Guide v4.2)
 *   When building or testing Vue 3 components and Pinia stores, you MUST apply and verify with unit/BDD tests the controls from **[`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`](../docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md)**:
@@ -104,7 +104,7 @@ make qa-psi URL=https://your-domain.com
 make qa-e2e
 ```
 
-*   **BDD Acceptance Tests (Karate UI):**
+*   **BDD Acceptance Tests (Karate HTTP/Nginx/OSHP):**
 ```bash
 make qa-bdd
 ```

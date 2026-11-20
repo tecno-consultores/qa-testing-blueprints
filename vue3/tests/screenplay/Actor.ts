@@ -141,20 +141,79 @@ export interface ApiClientPort {
 
 const MUTATING_METHODS: ReadonlySet<HttpMethod> = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const BATCH_OK_STATUSES: ReadonlySet<string> = new Set(['ok', 'success', 'succeeded', 'completed']);
+const MANAGED_API_HEADERS: ReadonlySet<string> = new Set([
+  'x-tenant-id',
+  'x-actor-role',
+  'idempotency-key',
+]);
+
+function copyUnmanagedHeaders(
+  headers: Readonly<Record<string, string>> | undefined,
+): Record<string, string> {
+  const copied: Record<string, string> = {};
+  if (!headers) {
+    return copied;
+  }
+  for (const [key, value] of Object.entries(headers)) {
+    if (!MANAGED_API_HEADERS.has(key.toLowerCase())) {
+      copied[key] = value;
+    }
+  }
+  return copied;
+}
+
+function findHeaderValue(
+  headers: Readonly<Record<string, string>> | undefined,
+  headerName: string,
+): string | undefined {
+  const wanted = headerName.toLowerCase();
+  for (const [key, value] of Object.entries(headers ?? {})) {
+    if (key.toLowerCase() === wanted) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+function resolveIdempotencyKey(spec: ApiRequestSpec): string {
+  if (spec.idempotencyKey) {
+    return spec.idempotencyKey;
+  }
+  const callerKey = findHeaderValue(spec.headers, 'idempotency-key');
+  if (callerKey && callerKey.trim().length > 0) {
+    return callerKey;
+  }
+  return globalThis.crypto.randomUUID();
+}
 
 function buildActorHeaders(
   actor: Actor,
   spec: ApiRequestSpec,
 ): Readonly<Record<string, string>> {
-  const merged: Record<string, string> = {
-    ...(spec.headers ?? {}),
-    'X-Tenant-ID': actor.identity.tenantId,
-    'X-Actor-Role': actor.identity.role,
-  };
+  const merged = copyUnmanagedHeaders(spec.headers);
+  merged['X-Tenant-ID'] = actor.identity.tenantId;
+  merged['X-Actor-Role'] = actor.identity.role;
   if (MUTATING_METHODS.has(spec.method)) {
-    merged['Idempotency-Key'] = spec.idempotencyKey ?? globalThis.crypto.randomUUID();
+    merged['Idempotency-Key'] = resolveIdempotencyKey(spec);
+  } else {
+    const callerKey = findHeaderValue(spec.headers, 'idempotency-key');
+    if (callerKey !== undefined) {
+      merged['Idempotency-Key'] = callerKey;
+    }
   }
   return merged;
+}
+
+function classifyBatchItem(
+  item: BatchItemResult,
+  succeededIds: string[],
+  failedIds: string[],
+): void {
+  if (BATCH_OK_STATUSES.has(item.status.toLowerCase())) {
+    succeededIds.push(item.id);
+    return;
+  }
+  failedIds.push(item.id);
 }
 
 export class CallAnApi implements Ability {
@@ -182,19 +241,16 @@ export class CallAnApi implements Ability {
     const succeededIds: string[] = [];
     const failedIds: string[] = [];
     for (const item of items) {
-      if (BATCH_OK_STATUSES.has(item.status.toLowerCase())) {
-        succeededIds.push(item.id);
-      } else {
-        failedIds.push(item.id);
-      }
+      classifyBatchItem(item, succeededIds, failedIds);
     }
     const isOkHttp = response.status >= 200 && response.status < 300;
+    const allSucceeded = [isOkHttp, items.length > 0, failedIds.length === 0].every(Boolean);
     return {
       httpStatus: response.status,
       totalItems: items.length,
       succeededIds: Object.freeze(succeededIds),
       failedIds: Object.freeze(failedIds),
-      allSucceeded: isOkHttp && items.length > 0 && failedIds.length === 0,
+      allSucceeded,
     };
   }
 }
@@ -278,6 +334,26 @@ export interface RecordedStep {
   readonly timestampMs: number;
 }
 
+function normalizeTenantId(rawTenantId: string | undefined): string {
+  const value = rawTenantId === undefined ? 'default-tenant' : rawTenantId.trim();
+  if (value.length === 0) {
+    throw new Error('ActorIdentity.tenantId es obligatorio para aislamiento multi-tenant');
+  }
+  return value;
+}
+
+function readRoleOrDefault(
+  partial?: Partial<Omit<ActorIdentity, 'name'>>,
+): RbacRole {
+  return partial?.role ?? 'viewer';
+}
+
+function readPermissionsOrEmpty(
+  partial?: Partial<Omit<ActorIdentity, 'name'>>,
+): readonly string[] {
+  return Object.freeze([...(partial?.permissions ?? [])]);
+}
+
 function normalizeIdentity(
   name: string,
   partial?: Partial<Omit<ActorIdentity, 'name'>>,
@@ -286,15 +362,11 @@ function normalizeIdentity(
   if (trimmedName.length === 0) {
     throw new Error('ActorIdentity.name es obligatorio y no puede estar vacio');
   }
-  const tenantId = partial?.tenantId === undefined ? 'default-tenant' : partial.tenantId.trim();
-  if (tenantId.length === 0) {
-    throw new Error('ActorIdentity.tenantId es obligatorio para aislamiento multi-tenant');
-  }
   return {
     name: trimmedName,
-    role: partial?.role ?? 'viewer',
-    tenantId,
-    permissions: Object.freeze([...(partial?.permissions ?? [])]),
+    role: readRoleOrDefault(partial),
+    tenantId: normalizeTenantId(partial?.tenantId),
+    permissions: readPermissionsOrEmpty(partial),
   };
 }
 
@@ -319,8 +391,8 @@ export class Actor {
 
   whoCan(...abilities: readonly Ability[]): this {
     for (const ability of abilities) {
-      const ctorAbilityName = (ability.constructor as { readonly abilityName?: string }).abilityName;
-      const key = ctorAbilityName ?? (ability.abilityName || ability.constructor.name);
+      const abilityCtor = ability.constructor as { readonly abilityName?: string };
+      const key = abilityCtor.abilityName ?? (ability.abilityName || ability.constructor.name);
       this.abilities.set(key, ability);
     }
     return this;
@@ -377,11 +449,20 @@ export class Actor {
   }
 }
 
-function appendRefreshQueryParam(rawPath: string): string {
+function splitPathAndHash(rawPath: string): readonly [string, string] {
   const hashIndex = rawPath.indexOf('#');
-  const pathAndQuery = hashIndex >= 0 ? rawPath.slice(0, hashIndex) : rawPath;
-  const hashFragment = hashIndex >= 0 ? rawPath.slice(hashIndex) : '';
-  if (/[?&]refresh=true(?:&|$)/.test(pathAndQuery)) {
+  if (hashIndex < 0) {
+    return [rawPath, ''];
+  }
+  return [rawPath.slice(0, hashIndex), rawPath.slice(hashIndex)];
+}
+
+function appendRefreshQueryParam(rawPath: string): string {
+  const [pathAndQuery, hashFragment] = splitPathAndHash(rawPath);
+  if (
+    /[?&]refresh=true(?:&|#|$)/.test(pathAndQuery) ||
+    /[?&]refresh=true(?:&|$)/.test(hashFragment)
+  ) {
     return rawPath;
   }
   const separator = pathAndQuery.includes('?') ? '&' : '?';
@@ -435,17 +516,18 @@ export interface TemporalWindow {
   readonly cancelled?: boolean;
 }
 
-export function resolveTemporalLifecycleState(window: TemporalWindow): TemporalLifecycleState {
-  if (
-    !Number.isFinite(window.startsAtMs) ||
-    !Number.isFinite(window.endsAtMs) ||
-    !Number.isFinite(window.nowMs)
-  ) {
+function assertFiniteTemporalWindow(window: TemporalWindow): void {
+  const values = [window.startsAtMs, window.endsAtMs, window.nowMs];
+  if (!values.every(Number.isFinite)) {
     throw new RangeError('Ventana temporal invalida: marcas de tiempo deben ser finitas.');
   }
   if (window.endsAtMs < window.startsAtMs) {
     throw new RangeError('Ventana temporal invalida: endsAtMs < startsAtMs.');
   }
+}
+
+export function resolveTemporalLifecycleState(window: TemporalWindow): TemporalLifecycleState {
+  assertFiniteTemporalWindow(window);
   if (window.cancelled === true || window.nowMs > window.endsAtMs) {
     return 'expired';
   }
@@ -522,13 +604,15 @@ export function VerifyDualRefreshContract(options: {
   readonly refreshButtonName?: string | RegExp;
 }): Question<DualRefreshContractReport> {
   return {
-    description: `Verificar contrato Pinia + doble refresco (?refresh=true) y limpieza de intervalos en ${options.viewPath}`,
+    description:
+      `Verificar contrato Pinia + doble refresco (?refresh=true) ` +
+      `y limpieza de intervalos en ${options.viewPath}`,
     async answeredBy(actor: Actor): Promise<DualRefreshContractReport> {
       await actor.attemptsTo(
         RefreshView({ path: options.viewPath, refreshButtonName: options.refreshButtonName }),
       );
       const refreshedUrl = actor.abilityTo(BrowseTheWeb).currentUrl();
-      const hasRefreshQueryParam = /[?&]refresh=true(?:&|$)/.test(refreshedUrl);
+      const hasRefreshQueryParam = /[?&]refresh=true(?:&|#|$)/.test(refreshedUrl);
       const pinia = actor.abilityTo(InspectPiniaStore);
       const state = pinia.readState();
       const storeHasExpectedKey = Object.prototype.hasOwnProperty.call(

@@ -12,7 +12,15 @@
   "testRunner": "vitest",
   "coverageAnalysis": "perTest",
   "incremental": true,
-  "incrementalFile": "/tmp/stryker-incremental.json",
+  "incrementalFile": "reports/mutation/stryker-incremental.json",
+  "ignorePatterns": [
+    "dist",
+    "coverage",
+    "playwright-report",
+    "lhci-reports",
+    "test-results",
+    "reports"
+  ],
   "concurrency": 4,
   "thresholds": {
     "high": 90,

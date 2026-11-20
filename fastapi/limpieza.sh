@@ -51,7 +51,7 @@ find . \( -name ".git" -o -name "node_modules" -o -name ".venv" -o -name "venv" 
   -o -type f \( -name "*.py[cod]" -o -name "*\$py.class" -o -name ".DS_Store" -o -name "._*" -o -name "Thumbs.db" -o -name "ehthumbs.db" -o -name "Desktop.ini" -o -name "*.swp" -o -name "*.swo" -o -name "*.swn" -o -name "*~" -o -name ".#*" -o -name "#*#" -o -name "*.orig" -o -name "*.rej" -o -name "*.bak" \) -exec rm -f {} + 2>/dev/null || true
 
 if command -v docker >/dev/null 2>&1; then
-  docker run --rm --network none -v "${SCRIPT_DIR}:/work" alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab sh -c '
+  docker run --rm --network none --security-opt=no-new-privileges:true -v "${SCRIPT_DIR}:/work" alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab sh -c '
     rm -rf /work/.coverage /work/.coverage.* /work/.mypy_cache /work/.pytest_cache \
       /work/.ruff_cache /work/.hypothesis /work/.schemathesis /work/.tox /work/.nox \
       /work/.uv /work/.eggs /work/.benchmarks /work/htmlcov /work/mutants /work/.mutmut-cache /work/target \

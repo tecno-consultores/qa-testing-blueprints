@@ -30,6 +30,7 @@ services:
       TZ: 'America/Caracas'
       UV_PYTHON_DOWNLOADS: 'true'
       UV_CACHE_DIR: /tmp/uv-cache
+      UV_PROJECT_ENVIRONMENT: /tmp/qa-venv
       COVERAGE_FILE: '/tmp/.coverage'
     volumes:
       - .:/app
@@ -56,19 +57,27 @@ services:
           scrape_interval: 2s
         scrape_configs:
           - job_name: 'python_scripts_daemon'
+            metrics_path: '/metrics'
             static_configs:
-              - targets: ['qa-backend:8000']
+              - targets: ['python-api:8000']
           - job_name: 'python_scripts_pushgateway'
             honor_labels: true
             static_configs:
               - targets: ['python_pushgateway:9091']
         " > /tmp/prometheus.yml
-        /bin/prometheus --config.file=/tmp/prometheus.yml
+        exec /bin/prometheus --config.file=/tmp/prometheus.yml
     ports:
       - "127.0.0.1:9090:9090"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9090/-/healthy"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     depends_on:
-      - qa-backend
-      - pushgateway
+      python-api:
+        condition: service_healthy
+      pushgateway:
+        condition: service_started
 
   pushgateway:
     image: prom/pushgateway:v1.10.0@sha256:7a4d0696a24ef4e8bad62bee5656855a0aff2f26416d8cb32009dc28d6263604
@@ -94,6 +103,7 @@ services:
       - no-new-privileges:true
     profiles:
       - load
+      - observability
     depends_on:
       uv-cache-init:
         condition: service_completed_successfully
@@ -101,16 +111,48 @@ services:
       HOME: /tmp
       TZ: 'America/Caracas'
       UV_CACHE_DIR: /tmp/uv-cache
+      UV_PROJECT_ENVIRONMENT: /tmp/qa-venv
     volumes:
       - .:/app
       - uv-cache:/tmp/uv-cache
     working_dir: /app
     healthcheck:
-      test: ["CMD-SHELL", "python3 -c 'import socket; s=socket.create_connection((\"127.0.0.1\", 8000), 1); s.close()' || exit 1"]
+      test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://127.0.0.1:8000/health\")' || exit 1"]
       interval: 3s
       timeout: 3s
       retries: 10
-    command: bash -c "${PYTHON_HTTP_CMD:-python3 -m http.server 8000}"
+    command:
+      - bash
+      - -c
+      - |
+        cat <<'EOF' > /tmp/qa_http.py
+        import http.server
+        import json
+
+        class H(http.server.BaseHTTPRequestHandler):
+          def do_GET(self):
+            if self.path == '/health':
+              b = json.dumps({'status': 'ok'}).encode()
+              self.send_response(200)
+              self.send_header('Content-Type', 'application/json')
+              self.end_headers()
+              self.wfile.write(b)
+            elif self.path == '/metrics':
+              b = b'# HELP python_qa_up QA daemon status\npython_qa_up 1\n'
+              self.send_response(200)
+              self.send_header('Content-Type', 'text/plain')
+              self.end_headers()
+              self.wfile.write(b)
+            else:
+              self.send_response(404)
+              self.end_headers()
+
+          def log_message(self, *a):
+            pass
+
+        http.server.ThreadingHTTPServer(('0.0.0.0', 8000), H).serve_forever()
+        EOF
+        exec $${PYTHON_HTTP_CMD:-python3 /tmp/qa_http.py}
 
   k6-smoke:
     image: grafana/k6:2.4.0@sha256:d41bb79cd8de5a7ad619b53570e3712633e8bff0937010a5c6c57a4747e7a276

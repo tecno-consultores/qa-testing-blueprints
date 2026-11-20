@@ -6,6 +6,7 @@ import vueParser from 'vue-eslint-parser';
 import sonarjs from 'eslint-plugin-sonarjs';
 import security from 'eslint-plugin-security';
 import eslintConfigPrettier from 'eslint-config-prettier';
+import globals from 'globals';
 
 export default tseslint.config(
   {
@@ -13,6 +14,7 @@ export default tseslint.config(
       'dist/**',
       'dist-ssr/**',
       'coverage/**',
+      '.stryker-tmp/**',
       'playwright-report/**',
       'lhci-reports/**',
       'target/**',
@@ -30,6 +32,7 @@ export default tseslint.config(
   {
     files: ['**/*.{ts,tsx,vue}'],
     languageOptions: {
+      globals: globals.browser,
       parserOptions: {
         projectService: true,
         tsconfigRootDir: import.meta.dirname,
@@ -54,6 +57,7 @@ export default tseslint.config(
   {
     files: ['**/*.vue'],
     languageOptions: {
+      globals: globals.browser,
       parser: vueParser,
       parserOptions: {
         parser: tseslint.parser,
@@ -61,6 +65,9 @@ export default tseslint.config(
         tsconfigRootDir: import.meta.dirname,
         extraFileExtensions: ['.vue'],
       },
+    },
+    rules: {
+      'no-undef': 'off',
     },
   },
   {
@@ -77,6 +84,12 @@ export default tseslint.config(
       '**/*.unit.*',
       '**/*.e2e.*',
     ],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+      },
+    },
     rules: {
       'sonarjs/no-duplicate-string': 'off',
       'security/detect-object-injection': 'off',

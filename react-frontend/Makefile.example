@@ -1,4 +1,4 @@
-.PHONY: qa-lint qa-unit qa-orphans qa-mutation qa-perf qa-e2e qa-bdd qa-psi qa-obs qa-all build-ui clean-cache clean qa-clean
+.PHONY: qa-lint qa-unit qa-orphans qa-mutation qa-perf qa-e2e qa-bdd qa-psi qa-obs qa-all build-ui clean-cache down-caches clean qa-clean
 
 # Variables
 COMPOSE_FILE ?= docker-compose.qa.yml
@@ -13,7 +13,7 @@ export QA_UID QA_GID
 build-ui:
 	@echo "🏗️ Compilando la aplicación (Vite) para entorno E2E/Producción..."
 	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm --silent run build"
-	@bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" down -v >/dev/null 2>&1 || true" ERR INT TERM; \
+	@bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" down --remove-orphans >/dev/null 2>&1 || true" ERR INT TERM; \
 		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" up -d --wait ui-prod'
 
 qa-lint:
@@ -26,12 +26,11 @@ qa-unit:
 
 qa-orphans:
 	@echo "🧩 [11X] Verificando cero componentes UI huérfanos en Docker (Rule Zero)..."
-	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "\
-		if [ -f .agents/scripts/verify_zero_orphan_vue_components.py ]; then \
-			python3 .agents/scripts/verify_zero_orphan_vue_components.py; \
-		else \
-			node -e \"const fs=require('fs'),p=require('path');const walk=d=>fs.existsSync(d)?fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(p.join(d,e.name)):[p.join(d,e.name)]):[];const tests=walk('src').concat(walk('tests')).filter(f=>/\.(unit|spec|test)\.(ts|tsx|js|jsx)$$/.test(f));const comps=walk('src/components').concat(walk('src/views')).concat(walk('src/pages')).filter(f=>/\.(tsx|jsx)$$/.test(f)&&!f.includes('.unit.')&&!f.includes('.spec.')&&!f.includes('.test.'));const m=comps.filter(c=>{const b=p.basename(c,p.extname(c));return !tests.some(t=>p.basename(t).startsWith(b+'.'));});if(m.length){console.error('Componentes huerfanos:',m);process.exit(1)}\"; \
-		fi"
+	@if [ -f .agents/scripts/verify_zero_orphan_vue_components.py ]; then \
+		docker run --rm --network none --security-opt=no-new-privileges:true -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp -v "$(PROJECT_DIR):/app:ro" -w /app $(PYTHON_QA_IMAGE) python3 .agents/scripts/verify_zero_orphan_vue_components.py; \
+	else \
+		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) node -e "const fs=require('fs'),p=require('path');const walk=d=>fs.existsSync(d)?fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(p.join(d,e.name)):[p.join(d,e.name)]):[];const tests=walk('src').concat(walk('tests')).filter(f=>/\.(unit|spec|test)\.(ts|tsx|js|jsx)$$/.test(f));const comps=walk('src/components').concat(walk('src/views')).concat(walk('src/pages')).filter(f=>/\.(tsx|jsx)$$/.test(f)&&!f.includes('.unit.')&&!f.includes('.spec.')&&!f.includes('.test.'));const m=comps.filter(c=>{const b=p.basename(c,p.extname(c));return !tests.some(t=>p.basename(t).startsWith(b+'.'));});if(m.length){console.error('Componentes huerfanos:',m);process.exit(1)}"; \
+	fi
 
 qa-mutation:
 	@echo "👽 Ejecutando Pruebas de Mutación Frontend (Stryker)..."
@@ -39,19 +38,19 @@ qa-mutation:
 
 qa-perf: build-ui
 	@echo "⚡ Ejecutando Auditoría de Rendimiento (Lighthouse CI)..."
-	@bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" down -v >/dev/null 2>&1 || true" EXIT; \
+	@bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" down --remove-orphans >/dev/null 2>&1 || true" EXIT; \
 		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" up -d --wait ui-prod && \
 		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp $(E2E_SERVICE) bash -c "export CHROME_PATH=\$$(ls -d /ms-playwright/chromium-*/chrome-linux/chrome 2>/dev/null | head -n 1) && if [ -x ./node_modules/.bin/lhci ]; then ./node_modules/.bin/lhci autorun --config=lighthouserc.cjs; elif command -v pnpm >/dev/null 2>&1; then pnpm install --silent && pnpm run test:perf; else corepack pnpm install --silent && corepack pnpm run test:perf; fi"'
 
 qa-e2e: build-ui
 	@echo "🎭 Ejecutando Regresión Visual y E2E (Playwright)..."
-	@bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" down -v >/dev/null 2>&1 || true" EXIT; \
+	@bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" down --remove-orphans >/dev/null 2>&1 || true" EXIT; \
 		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" up -d --wait ui-prod && \
 		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp $(E2E_SERVICE) bash -c "if [ -x ./node_modules/.bin/playwright ]; then ./node_modules/.bin/playwright test; elif command -v pnpm >/dev/null 2>&1; then pnpm install --silent && pnpm exec playwright test; else corepack pnpm install --silent && corepack pnpm exec playwright test; fi"'
 
 qa-bdd: build-ui
 	@echo "📚 Ejecutando Pruebas de Aceptación BDD (Karate Contratos HTTP/OSHP/SSG sobre Nginx)..."
-	@bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" down -v >/dev/null 2>&1 || true" EXIT; \
+	@bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" down --remove-orphans >/dev/null 2>&1 || true" EXIT; \
 		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" up -d --wait ui-prod && \
 		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T karatelabs mvn -B clean test'
 
@@ -76,6 +75,10 @@ qa-all: qa-lint qa-orphans qa-unit qa-mutation qa-perf qa-e2e qa-bdd
 	@echo "✅ Pipeline QA Frontend (React 11X) completado."
 
 clean-cache:
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile "*" down --remove-orphans >/dev/null 2>&1 || \
+		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" down --remove-orphans >/dev/null 2>&1 || true
+
+down-caches:
 	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile "*" down -v --remove-orphans >/dev/null 2>&1 || \
 		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" down -v --remove-orphans >/dev/null 2>&1 || true
 

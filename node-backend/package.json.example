@@ -1,11 +1,11 @@
 {
   "name": "node-qa-blueprint",
-  "version": "2.9.0",
+  "version": "3.2.0",
   "type": "module",
   "description": "Plantilla base para APIs Node.js corporativas (Linting estricto, Mocking, Profiling, BDD y Mutación)",
   "packageManager": "pnpm@12.18.0",
   "engines": {
-    "node": ">=26.0.0",
+    "node": ">=24.0.0",
     "pnpm": ">=12.0.0"
   },
   "scripts": {
@@ -14,15 +14,16 @@
     "type-check": "tsc --noEmit",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\"",
-    "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\" --max-warnings 0",
+    "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\" --no-error-on-unmatched-pattern --max-warnings 0",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:contracts": "node --test tests/contracts/*.test.ts",
     "mutate": "stryker run",
     "audit:deps": "pnpm audit --prod",
+    "qa:sbom": "cyclonedx-npm --output-file sbom-node.cdx.json",
     "test:load": "artillery run artillery.yml",
-    "profile:cpu": "clinic flame -- node dist/server.js",
-    "profile:memory": "clinic heapprofiler -- node dist/server.js"
+    "profile:cpu": "pnpm run build && clinic flame -- node dist/server.js",
+    "profile:memory": "pnpm run build && clinic heapprofiler -- node dist/server.js"
   },
   "devDependencies": {
     "@cyclonedx/cyclonedx-npm": "^7.0.1",

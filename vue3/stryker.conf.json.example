@@ -12,7 +12,15 @@
   "testRunner": "vitest",
   "coverageAnalysis": "perTest",
   "incremental": true,
-  "incrementalFile": "/tmp/stryker-incremental.json",
+  "incrementalFile": "reports/mutation/stryker-incremental.json",
+  "ignorePatterns": [
+    "dist",
+    "coverage",
+    "playwright-report",
+    "lhci-reports",
+    "test-results",
+    "reports"
+  ],
   "concurrency": 4,
   "thresholds": {
     "high": 90,
@@ -21,10 +29,15 @@
   },
   "mutate": [
     "src/**/*.ts",
+    "src/**/*.tsx",
     "src/**/*.vue",
     "!src/main.ts",
     "!src/**/*.unit.ts",
+    "!src/**/*.unit.tsx",
     "!src/**/*.spec.ts",
-    "!src/**/*.test.ts"
+    "!src/**/*.spec.tsx",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx",
+    "!src/**/*.test.vue"
   ]
 }

@@ -29,7 +29,7 @@ When generating code, configuring the environment, or proposing solutions, you m
 *   **BDD Behavior and SLO Load (`k6`):** `pytest-bdd` for local Gherkin and `python/tests/load/smoke.k6.js` (`K6_PROFILE=smoke|load|stress`) to validate `p(95) < 250ms`, `p(99) < 500ms`, and error `< 1%` without false greens.
 *   **Coverage:** `pytest-cov` (minimum 95% required with `COVERAGE_FILE=/tmp/.coverage`).
 *   **Mutation Testing:** `mutmut` (to verify whether tests fail when logic code changes).
-*   **Compatibility Matrix and RLS:** `tox` with `tox-uv` and verification against `postgres:17-alpine@sha256:d3244e8ce3f165ee3c93d9c4a4b1d0fe48b3a89e2287b717fdcbbde92d405065` (`NOBYPASSRLS`, `FORCE RLS`, `SET LOCAL app.current_tenant_id`).
+*   **Compatibility Profile:** `tox` with `tox-uv` (`py315` single-environment gate in `tox.ini.example`; for database-backed services requiring PostgreSQL 17 `FORCE RLS`, adopt the `fastapi/` stack blueprint).
 *   **Observability:** `prometheus_client`.
 
 ## 3. Architecture of Tests to Generate
@@ -105,7 +105,7 @@ make test-backend-blueprints
 make qa-lint
 ```
 
-*   **Isolated Unit Suite, BDD, and Benchmarking (Non-negotiable coverage > 95%):**
+*   **Isolated Unit Suite, BDD, and Benchmarking (Non-negotiable coverage >= 95%):**
 ```bash
 make qa-unit
 ```
@@ -115,10 +115,10 @@ make qa-unit
 make qa-mutation
 ```
 
-*   **Profiling (Generate CPU Flamegraph for the script):**
+*   **Profiling (Generate CPU Flamegraph at `/app/profile.svg`):**
 ```bash
-# Profiling an already-running PID inside hardened containers requires CAP_SYS_PTRACE (`--cap-add SYS_PTRACE`); launching the command directly runs under the mapped UID:
-docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-backend bash -c "uv sync --all-extras -q && uv run py-spy record -o /tmp/profile.svg -- python src/main.py"
+# Attaching py-spy to an already-running PID inside hardened containers requires CAP_SYS_PTRACE (`--cap-add SYS_PTRACE`); launching the script directly runs under the mapped UID:
+make qa-lint && make qa-unit
 ```
 
 **Step 2: Live Observability & Load Certification (Level 11X)**

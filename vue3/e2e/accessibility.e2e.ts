@@ -12,9 +12,10 @@ const VIEWPORTS = [
   { width: 1440, height: 900 },
 ] as const;
 
-// Tile PNG gris estático 1x1 para determinismo absoluto en mapas Leaflet/OpenStreetMap (0 red externa)
+// Tile PNG gris estático 1x1 para determinismo en mapas OSM (0 red externa)
 const STATIC_OSM_TILE_BASE64 =
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAA' +
+  'DUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
 async function setupDeterministicRoutes(page: Page): Promise<void> {
   await page.route('**/api/**', async (apiRoute) => {
@@ -45,14 +46,14 @@ async function assertResponsiveAndInFlowFooter(page: Page): Promise<void> {
       () => document.documentElement.scrollWidth - window.innerWidth,
     );
     expect(overflowPx).toBeLessThanOrEqual(0);
-  }
-  const footerPositions = await page.evaluate(() =>
-    Array.from(document.querySelectorAll('footer')).map(
-      (el) => globalThis.getComputedStyle(el).position,
-    ),
-  );
-  for (const pos of footerPositions) {
-    expect(pos).not.toBe('fixed');
+    const footerPositions = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('footer, [role="contentinfo"]')).map(
+        (el) => globalThis.getComputedStyle(el).position,
+      ),
+    );
+    for (const pos of footerPositions) {
+      expect(pos).not.toBe('fixed');
+    }
   }
 }
 
@@ -64,23 +65,22 @@ async function assertWcagForScheme(page: Page, colorScheme: 'light' | 'dark'): P
   expect(results.violations).toEqual([]);
 }
 
-test.describe('Auditoría Estricta de Accesibilidad (WCAG 2.1 AA) y Regresión Visual del DOM', () => {
+test.describe('Auditoria WCAG 2.1 AA y Regresion Visual del DOM', () => {
   for (const route of CRITICAL_ROUTES) {
-    test(`La ruta "${route}" debe cumplir con WCAG 2.1 AA (0 violaciones) y mantener el diseño pixel-perfect`, async ({
+    test(`Ruta "${route}" cumple WCAG 2.1 AA sin desbordamiento ni footer fijo`, async ({
       page,
     }) => {
       await setupDeterministicRoutes(page);
       await page.goto(route);
-      await expect(page.locator('main, [role="main"], body').first()).toBeVisible();
+      await expect(page.locator('main, [role="main"]').first()).toBeVisible();
       await page.evaluate(() => document.fonts.ready);
 
       await assertResponsiveAndInFlowFooter(page);
       await assertWcagForScheme(page, 'dark');
       await assertWcagForScheme(page, 'light');
 
-      await expect(page).toHaveScreenshot(`snapshot-${route.replace(/\//g, '') || 'home'}.png`, {
-        fullPage: true,
-      });
+      const snapName = `snapshot-${route.replace(/\//g, '') || 'home'}.png`;
+      await expect(page).toHaveScreenshot(snapName, { fullPage: true });
     });
   }
 });

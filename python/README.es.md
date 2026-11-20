@@ -29,7 +29,7 @@ Al generar código, configurar el entorno o plantear soluciones, debes asegurar 
 *   **Comportamiento BDD y Carga SLO (`k6`):** `pytest-bdd` para Gherkin local y `python/tests/load/smoke.k6.js` (`K6_PROFILE=smoke|load|stress`) para validar `p(95) < 250ms`, `p(99) < 500ms` y error `< 1%` sin falsos verdes.
 *   **Cobertura (Coverage):** `pytest-cov` (se exige un mínimo del 95% con `COVERAGE_FILE=/tmp/.coverage`).
 *   **Pruebas de Mutación:** `mutmut` (para validar si las pruebas fallan cuando el código lógico cambia).
-*   **Matriz de Compatibilidad y RLS:** `tox` con `tox-uv` y verificación contra `postgres:17-alpine@sha256:d3244e8ce3f165ee3c93d9c4a4b1d0fe48b3a89e2287b717fdcbbde92d405065` (`NOBYPASSRLS`, `FORCE RLS`, `SET LOCAL app.current_tenant_id`).
+*   **Perfil de Compatibilidad:** `tox` con `tox-uv` (compuerta de entorno único `py315` en `tox.ini.example`; para servicios con base de datos que requieran PostgreSQL 17 `FORCE RLS`, adopta el blueprint `fastapi/`).
 *   **Observabilidad:** `prometheus_client`.
 
 ## 3. Arquitectura de las Pruebas a Generar
@@ -105,7 +105,7 @@ make test-backend-blueprints
 make qa-lint
 ```
 
-*   **Suite Unitaria (Aislada), BDD y Benchmarking (Cobertura innegociable > 95%):**
+*   **Suite Unitaria (Aislada), BDD y Benchmarking (Cobertura innegociable >= 95%):**
 ```bash
 make qa-unit
 ```
@@ -115,10 +115,10 @@ make qa-unit
 make qa-mutation
 ```
 
-*   **Profiling (Generar Flamegraph de CPU para el script):**
+*   **Profiling (Generar Flamegraph de CPU en `/app/profile.svg`):**
 ```bash
-# Adjuntar py-spy a un PID ya activo en contenedores endurecidos requiere CAP_SYS_PTRACE (`--cap-add SYS_PTRACE`); ejecutar el comando directo corre bajo el UID mapeado:
-docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-backend bash -c "uv sync --all-extras -q && uv run py-spy record -o /tmp/profile.svg -- python src/main.py"
+# Adjuntar py-spy a un PID ya activo en contenedores endurecidos requiere CAP_SYS_PTRACE (`--cap-add SYS_PTRACE`); ejecuta `uv run py-spy record -o /app/profile.svg -- python src/main.py` dentro del servicio `qa-backend`:
+make qa-lint && make qa-unit
 ```
 
 **Paso 2: Certificación de Observabilidad y Carga en Vivo (Nivel 11X)**

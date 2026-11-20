@@ -10,6 +10,7 @@ Feature: Contratos BDD HTTP, Cabeceras OWASP OSHP, Rutas SPA/SSG y SEO para Reac
     * def envBaseUrl = java.lang.System.getenv('UI_BASE_URL')
     * def baseUrl = karate.properties['UI_BASE_URL'] || envBaseUrl || 'http://ui-prod:8080'
     * url baseUrl
+    * def getHeader = function(name){ var keys = Object.keys(responseHeaders || {}); for (var i = 0; i < keys.length; i++) { if (keys[i].toLowerCase() == name.toLowerCase()) { var val = responseHeaders[keys[i]]; return val && val.length ? val[0] : ''; } } return ''; }
 
   # ==============================================================================
   # Grupo 1: Entrega HTML Raíz e Integridad del Shell React / SSG
@@ -38,7 +39,7 @@ Feature: Contratos BDD HTTP, Cabeceras OWASP OSHP, Rutas SPA/SSG y SEO para Reac
     And match header Referrer-Policy == 'strict-origin-when-cross-origin'
     And match header Permissions-Policy contains 'geolocation=()'
     And match header Content-Security-Policy contains "default-src 'self'"
-    * def cspBanner = responseHeaders['Content-Security-Policy'] ? responseHeaders['Content-Security-Policy'][0] : ''
+    * def cspBanner = getHeader('Content-Security-Policy')
     * assert cspBanner.contains("connect-src 'self';") && !cspBanner.contains('ws:') && !cspBanner.contains('wss:')
 
   # ==============================================================================
@@ -50,7 +51,7 @@ Feature: Contratos BDD HTTP, Cabeceras OWASP OSHP, Rutas SPA/SSG y SEO para Reac
     When method get
     Then status 200
     And match header Content-Type contains 'text/html'
-    * def serverBanner = responseHeaders['Server'] ? responseHeaders['Server'][0] : ''
+    * def serverBanner = getHeader('Server')
     * assert !serverBanner.contains('nginx/')
 
   # ==============================================================================
@@ -65,7 +66,7 @@ Feature: Contratos BDD HTTP, Cabeceras OWASP OSHP, Rutas SPA/SSG y SEO para Reac
     * assert !pageText.contains('Traceback')
     * assert !pageText.contains('__NEXT_ERROR__')
     * assert !pageText.contains('Application error: a client-side exception')
-    * match pageText !contains '#regex [0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}'
+    * match pageText != '#regex (?is).*[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}.*'
 
   # ==============================================================================
   # Grupo 5: Contrato XML/SEO Seguro para Sitios SSG (* string xmlText = response)
@@ -76,5 +77,5 @@ Feature: Contratos BDD HTTP, Cabeceras OWASP OSHP, Rutas SPA/SSG y SEO para Reac
     When method get
     Then status 200
     * string xmlText = response
-    * def contentType = responseHeaders['Content-Type'] ? responseHeaders['Content-Type'][0] : ''
+    * def contentType = getHeader('Content-Type')
     * assert contentType.contains('xml') ? xmlText.contains('<urlset') : xmlText.toLowerCase().contains('<html')

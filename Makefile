@@ -554,10 +554,12 @@ test-frontend-blueprints:
 	'assert.equal(postHeaders["X-Tenant-ID"], "tenant-alpha");' \
 	'assert.equal(postHeaders["X-Actor-Role"], "operator");' \
 	'assert.ok(postHeaders["Idempotency-Key"] && postHeaders["Idempotency-Key"].length > 8);' \
+	'await operator.abilityTo(VueSP.CallAnApi).request(operator, { method: "POST", path: "/api/v1/nodes", headers: { "idempotency-key": "fixed-caller-key-11x" }, body: { id: "edge-02" } });' \
+	'assert.equal((apiLog[1].headers as Record<string, string>)["Idempotency-Key"], "fixed-caller-key-11x");' \
 	'const parity = await operator.asks(VueSP.AntiSiloParityQuestion(VueSP.ByRole("status", "badge"), "/api/v1/status", (d) => String((d as { badge: string }).badge)));' \
 	'assert.equal(parity.inSync, true);' \
 	'assert.equal(parity.tenantId, "tenant-alpha");' \
-	'const dual = await operator.asks(VueSP.VerifyDualRefreshContract({ viewPath: "/wallboard", expectedStateKey: "nodes" }));' \
+	'const dual = await operator.asks(VueSP.VerifyDualRefreshContract({ viewPath: "/wallboard#noc-live", expectedStateKey: "nodes" }));' \
 	'assert.equal(dual.contractSatisfied, true);' \
 	'assert.equal(dual.activeIntervalsAfterUnmount, 0);' \
 	'assert.equal(await operator.asks(VueSP.TemporalLifecycleQuestion({ startsAtMs: 100, endsAtMs: 200, nowMs: 50 })), "pending");' \
@@ -586,6 +588,10 @@ test-frontend-blueprints:
 	'assert.equal(reactDual.contractSatisfied, true);' \
 	'assert.equal(reactDual.activeIntervalsAfterUnmount, 0);' \
 	'assert.equal(reactDom["clicked:role:button:/Refrescar/i"], "yes");' \
+	'const nonVacuousReact = ReactSP.Actor.named("NoTracker", { role: "auditor", tenantId: "tenant-beta" }).whoCan(ReactSP.BrowseTheWeb.using(makeDriver("/audit", reactDom)), ReactSP.InspectReactState.using({ isTransitionPending: () => false, async flushTransitions() {}, renderedTenantId: () => "tenant-beta", readHookSnapshot: () => ({ count: 1 }) }));' \
+	'const nonVacuousDual = await nonVacuousReact.asks(ReactSP.VerifyDualRefreshContract({ viewPath: "/audit", expectedStateKey: "count" }));' \
+	'assert.equal(nonVacuousDual.contractSatisfied, false);' \
+	'assert.equal(nonVacuousDual.activeIntervalsAfterUnmount, -1);' \
 	'const crossTenantActor = ReactSP.Actor.named("AdminC", { role: "admin", tenantId: "tenant-gamma" }).whoCan(ReactSP.InspectReactState.using({ isTransitionPending: () => false, async flushTransitions() {}, renderedTenantId: () => "tenant-beta", readHookSnapshot: () => undefined }));' \
 	'assert.equal((await crossTenantActor.asks(ReactSP.VerifyReactTenantIsolation("useAuditTrail"))).tenantIsolated, false);' \
 	'const vueTel = new VueLoc.HealingTelemetryCollector();' \
@@ -598,11 +604,14 @@ test-frontend-blueprints:
 	'const tidVue = VueLoc.resolveSemanticLocator({ intent: "publish", role: "button", accessibleName: "Publicar", testId: "pub-btn" }, [{ ref: "zero", role: "button", accessibleName: "Publicar", attributes: {}, visible: true, bounds: { width: 0, height: 20 } }, { ref: "btn-tid", role: "link", accessibleName: "Desplegar ahora", testId: "pub-btn", attributes: {}, visible: true, bounds: { width: 90, height: 32 } }], { telemetry: vueTel });' \
 	'assert.equal(tidVue.ref, "btn-tid");' \
 	'assert.equal(tidVue.strategy, "testid-fallback");' \
-	'assert.equal(tidVue.score, 0.92);' \
+	'assert.equal(tidVue.score, 0.94);' \
 	'assert.equal(tidVue.healed, true);' \
+	'const tidBeatsSyn = VueLoc.resolveSemanticLocator({ intent: "publish", role: "dialog", accessibleName: "Publicar", testId: "pub-btn", synonyms: ["Aprobar Operacion"], landmark: "dialog" }, [{ ref: "btn-tid", role: "link", accessibleName: "Otro", testId: "pub-btn", attributes: {}, visible: true }, { ref: "dlg-syn", role: "dialog", accessibleName: "Aprobar Operacion", landmark: "overlay", attributes: {}, visible: true }]);' \
+	'assert.equal(tidBeatsSyn.ref, "btn-tid");' \
+	'assert.equal(tidBeatsSyn.strategy, "testid-fallback");' \
 	'const synVue = await operator.asks(VueLoc.LocateSemanticTargetQuestion({ intent: "confirm", role: "dialog", accessibleName: "Confirmar Ventana", synonyms: ["Aprobar Operacion"], landmark: "dialog" }, () => [{ ref: "dlg", role: "dialog", accessibleName: "Aprobar Operacion", landmark: "overlay", attributes: { "data-v-teleport": "true" }, visible: true }], { telemetry: vueTel }));' \
 	'assert.equal(synVue.strategy, "semantic-synonym");' \
-	'assert.equal(synVue.score, 0.9);' \
+	'assert.equal(synVue.score, 0.88);' \
 	'assert.equal(vueTel.getRecords().length, 2);' \
 	'const fuzzyReact = ReactLoc.resolveSemanticLocator({ intent: "submit", role: "button", accessibleName: "Guardar Configuracion" }, [{ ref: "busy", role: "button", accessibleName: "Guardar Configuracion", attributes: { "aria-busy": "true" }, visible: true }, { ref: "dis", role: "button", accessibleName: "Guardar Configuracion", attributes: {}, visible: true, disabled: true }, { ref: "ready", role: "button", accessibleName: ":r0: Guardar Configuracion", attributes: { id: ":r0:", "aria-labelledby": "«r1a» _r_0_ lbl" }, visible: true, bounds: { width: 100, height: 40 } }]);' \
 	'assert.equal(fuzzyReact.ref, "ready");' \
@@ -625,7 +634,7 @@ test-frontend-blueprints:
 		node /tmp/verify_screenplay.mts >/dev/null && \
 		python3 .agents/scripts/lint_test_antipatterns.py vue3 react-frontend; \
 	else \
-		printf '%s\n' "$$node_script" | docker run --rm --network none --security-opt=no-new-privileges:true -i -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app $(NODE_IMG) sh -c 'tsc --strict --noImplicitAny --noUnusedLocals --noUnusedParameters --noImplicitReturns --erasableSyntaxOnly --allowImportingTsExtensions --target ES2023 --module ESNext --moduleResolution Bundler --noEmit vue3/tests/screenplay/Actor.ts react-frontend/tests/screenplay/Actor.ts vue3/tests/utils/semanticLocator.ts react-frontend/tests/utils/semanticLocator.ts && cat > /tmp/verify_screenplay.mts && node /tmp/verify_screenplay.mts >/dev/null' && \
+		printf '%s\n' "$$node_script" | docker run --rm --network none --security-opt=no-new-privileges:true -i -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app $(NODE_IMG) sh -c 'tsc --strict --noImplicitAny --noUnusedLocals --noUnusedParameters --noImplicitReturns --erasableSyntaxOnly --allowImportingTsExtensions --target ES2023 --module ESNext --moduleResolution Bundler --noEmit vue3/tests/screenplay/Actor.ts react-frontend/tests/screenplay/Actor.ts vue3/tests/utils/semanticLocator.ts react-frontend/tests/utils/semanticLocator.ts && cat > /tmp/verify_screenplay.mts && node /tmp/verify_screenplay.mts >/dev/null && if [ -x /app/mcp-server/node_modules/.bin/eslint ]; then printf "%s\n" "import { createRequire } from \"node:module\"; const req = createRequire(\"/app/mcp-server/package.json\"); const js = req(\"@eslint/js\"); const tseslint = req(\"typescript-eslint\"); const sonarjs = req(\"eslint-plugin-sonarjs\"); const security = req(\"eslint-plugin-security\"); export default tseslint.config(js.configs.recommended, ...tseslint.configs.recommended, sonarjs.configs.recommended, security.configs.recommended, { files: [\"**/*.ts\"], rules: { complexity: [\"error\", 5], \"max-params\": [\"error\", 4], \"max-depth\": [\"error\", 3], \"sonarjs/cognitive-complexity\": [\"error\", 15], \"sonarjs/no-duplicate-string\": \"off\", \"security/detect-object-injection\": \"off\", \"security/detect-non-literal-regexp\": \"error\", \"@typescript-eslint/no-explicit-any\": \"error\" } });" > /tmp/bp_eslint.mjs && /app/mcp-server/node_modules/.bin/eslint --no-config-lookup --config /tmp/bp_eslint.mjs --max-warnings 0 vue3/tests/screenplay/Actor.ts vue3/tests/utils/semanticLocator.ts vue3/e2e/accessibility.e2e.ts react-frontend/tests/screenplay/Actor.ts react-frontend/tests/utils/semanticLocator.ts react-frontend/e2e/accessibility.e2e.ts >/dev/null; fi' && \
 		lint_out=$$(docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 .agents/scripts/lint_test_antipatterns.py vue3 react-frontend) && \
 		echo "✅ [test-frontend-blueprints] TS estricto + Screenplay RBAC + Self-Healing DOM (vue3/react) OK | $$lint_out"; \
 	fi
@@ -672,7 +681,7 @@ test-backend-blueprints:
 	{ \
 		docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 -e PACT_OUTPUT_DIR=/pacts -v "$$(pwd):/app:ro" -v "$$pact_dir:/pacts" -w /app $(PY_IMG) sh -c 'ruff check --select E,F,W,I,UP,B,C901,FLY --config "lint.mccabe.max-complexity=5" fastapi/tests/contracts/test_pact_consumer.py && mypy --strict --cache-dir=/tmp/mypy fastapi/tests/contracts/test_pact_consumer.py && pytest --cov=fastapi/tests/contracts --cov-fail-under=95 --cov-report=term-missing fastapi/tests/contracts/test_pact_consumer.py' && \
 		test -s "$$pact_dir/fastapi-billing-consumer-node-inventory-provider.json" && \
-		docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e NODE_PATH=/opt/qa11x/node_modules -e PACT_OUTPUT_DIR=/pacts -v "$$(pwd):/app:ro" -v "$$pact_dir:/pacts:ro" -w /app $(NODE_IMG) sh -c 'tsc --strict --noImplicitAny --noUnusedLocals --noUnusedParameters --noImplicitReturns --erasableSyntaxOnly --allowImportingTsExtensions --target ES2023 --module NodeNext --moduleResolution NodeNext --typeRoots /opt/qa11x/node_modules/@types --types node --noEmit node-backend/tests/contracts/provider.pact.test.ts && node --test node-backend/tests/contracts/provider.pact.test.ts' && \
+		docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e NODE_PATH=/opt/qa11x/node_modules -e PACT_OUTPUT_DIR=/pacts -v "$$(pwd):/app:ro" -v "$$pact_dir:/pacts:ro" -w /app $(NODE_IMG) sh -c 'tsc --strict --noImplicitAny --noUnusedLocals --noUnusedParameters --noImplicitReturns --erasableSyntaxOnly --allowImportingTsExtensions --target ES2023 --module NodeNext --moduleResolution NodeNext --typeRoots /opt/qa11x/node_modules/@types --types node --noEmit node-backend/tests/contracts/provider.pact.test.ts && node --test node-backend/tests/contracts/provider.pact.test.ts && if [ -x /app/mcp-server/node_modules/.bin/eslint ]; then printf "%s\n" "import { createRequire } from \"node:module\"; const req = createRequire(\"/app/mcp-server/package.json\"); const js = req(\"@eslint/js\"); const tseslint = req(\"typescript-eslint\"); const sonarjs = req(\"eslint-plugin-sonarjs\"); const security = req(\"eslint-plugin-security\"); export default tseslint.config(js.configs.recommended, ...tseslint.configs.recommended, sonarjs.configs.recommended, security.configs.recommended, { files: [\"**/*.ts\"], rules: { complexity: [\"error\", 5], \"max-params\": [\"error\", 4], \"max-depth\": [\"error\", 3], \"sonarjs/cognitive-complexity\": [\"error\", 15], \"sonarjs/no-duplicate-string\": \"off\", \"security/detect-object-injection\": \"off\", \"security/detect-non-literal-regexp\": \"error\", \"@typescript-eslint/no-explicit-any\": \"error\" } });" > /tmp/bp_eslint.mjs && /app/mcp-server/node_modules/.bin/eslint --no-config-lookup --config /tmp/bp_eslint.mjs --max-warnings 0 node-backend/tests/contracts/provider.pact.test.ts >/dev/null; fi' && \
 		stub_cid=$$(docker run -d --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 $(PY_IMG) python3 -c "$$stub_script") && \
 		docker exec "$$stub_cid" python3 -c "$$wait_script" && \
 		docker run --rm --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e K6_PROFILE=smoke -e API_BASE_URL=http://127.0.0.1:18080 -e K6_SUMMARY_PATH=/pacts/k6-summary.json --network "container:$$stub_cid" -v "$$(pwd)/fastapi/tests/load:/load:ro" -v "$$pact_dir:/pacts" $(K6_IMG) run -q /load/smoke.k6.js && \

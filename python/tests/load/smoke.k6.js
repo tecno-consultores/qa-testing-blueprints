@@ -122,6 +122,8 @@ export default function runPythonLoadBlueprint() {
   const batchBody = safeJson(batchRes);
   check(batchRes, {
     'batch status 200': (r) => r.status === 200,
+    'batch eco Idempotency-Key': (r) =>
+      String(r.headers['Idempotency-Key'] || r.headers['idempotency-key'] || '') === batchKey,
     'batch items all SUCCEEDED (anti-falso-verde)': () =>
       Boolean(
         batchBody &&

@@ -2,7 +2,7 @@
 name = "fastapi-qa-blueprint"
 version = "0.2.0"
 description = "Plantilla base para APIs en FastAPI con auditoría profunda, mocking, profiling y BDD"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.110.0",
     "uvicorn[standard]>=0.27.0",
@@ -69,14 +69,14 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 python_files = ["*.unit.py", "*.spec.py", "*.int.py", "test_*.py"]
 pythonpath = ["."]
-addopts = "--import-mode=importlib --strict-markers --cov=src/ --cov-fail-under=95 --cov-report=html:/tmp/htmlcov --cov-report=term-missing"
+addopts = "--import-mode=importlib --strict-markers --cov=src --cov-fail-under=95 --cov-report=html:/tmp/htmlcov --cov-report=term-missing"
 markers = [
     "integration: Pruebas internas que requieren conexión a internet o bases de datos (deseleccionar con '-m \"not integration\"')",
 ]
 
 [tool.ruff]
 line-length = 120
-target-version = "py315"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "C901", "PLR0911", "PLR0913"]
@@ -105,7 +105,7 @@ pytest_add_cli_args_test_selection = ["tests/"]
 
 [tool.pyrefly]
 search-path = ["."]
-python-version = "3.15"
+python-version = "3.12"
 
 [tool.pyrefly.errors]
 missing-import = false

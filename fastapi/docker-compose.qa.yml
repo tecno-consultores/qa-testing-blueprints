@@ -15,7 +15,6 @@ services:
 
   api:
     image: sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4
-    container_name: fastapi_api
     hostname: fastapi_api
     pull_policy: if_not_present
     mem_limit: 2g
@@ -49,11 +48,10 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
-    command: bash -c "uv sync --all-extras -q && ([ ! -f alembic.ini ] || DATABASE_URL=\"$$MIGRATION_DATABASE_URL\" /tmp/qa-venv/bin/alembic upgrade head) && /tmp/qa-venv/bin/uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload"
+    command: bash -c "uv sync --all-extras -q && ([ ! -f alembic.ini ] || DATABASE_URL=\"$$MIGRATION_DATABASE_URL\" /tmp/qa-venv/bin/alembic upgrade head) && exec /tmp/qa-venv/bin/uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload"
 
   postgres:
     image: postgres:17-alpine@sha256:d3244e8ce3f165ee3c93d9c4a4b1d0fe48b3a89e2287b717fdcbbde92d405065
-    container_name: fastapi_qa_db
     hostname: postgres
     pull_policy: if_not_present
     mem_limit: 1g
@@ -75,7 +73,6 @@ services:
 
   keydb:
     image: eqalpha/keydb@sha256:6537505c42355ca1f571276bddf83f5b750f760f07b2a185a676481791e388ac
-    container_name: fastapi_qa_keydb
     hostname: keydb
     pull_policy: if_not_present
     mem_limit: 512m
@@ -101,7 +98,6 @@ services:
 
   qa-backend:
     image: sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4
-    container_name: fastapi_qa_backend
     hostname: fastapi_qa_backend
     pull_policy: if_not_present
     mem_limit: 2g
@@ -116,6 +112,7 @@ services:
       TZ: 'America/Caracas'
       UV_PYTHON_DOWNLOADS: 'true'
       UV_CACHE_DIR: /tmp/uv-cache
+      UV_PROJECT_ENVIRONMENT: /tmp/qa-venv
       DATABASE_URL: 'postgresql+asyncpg://app_user:app_password@postgres:5432/qa_db'
       MIGRATION_DATABASE_URL: 'postgresql+asyncpg://qa_user:qa_password@postgres:5432/qa_db'
       REDIS_URL: 'redis://keydb:6379/0'
@@ -129,7 +126,6 @@ services:
 
   karatelabs:
     image: sinfallas/karatelabs:1.5.1@sha256:a9a52ca9c5491ab39b64f0b4fdc3dea879c2213c9bc995be58d6cd4b9a80cc89
-    container_name: fastapi_karate
     hostname: fastapi_karate
     pull_policy: if_not_present
     mem_limit: 2g
@@ -146,7 +142,6 @@ services:
 
   zap:
     image: zaproxy/zap-stable:2.15.0@sha256:8dc78e39fafc3281ac2cf54eab05c3ea02721a1ea58f1c135f981a57f4e218b1
-    container_name: fastapi_zap
     hostname: fastapi_zap
     pull_policy: if_not_present
     mem_limit: 2g
@@ -164,7 +159,6 @@ services:
 
   pumba:
     image: gaiaadm/pumba:0.10.1@sha256:07f89803f5ce89d2ae0bf0b67d0fc3e094324626afd2e2402bcd9dc62ff409f5
-    container_name: fastapi_pumba
     hostname: fastapi_pumba
     pull_policy: if_not_present
     mem_limit: 512m
@@ -177,11 +171,10 @@ services:
     depends_on:
       api:
         condition: service_healthy
-    command: netem --tc-image gaiadocker/iproute2@sha256:d0cd5819fbeaf2e7501dcb223bb5bad4fda7c1e76ff9877baba6e559c70b6d1e --duration 1m delay --time 500 --jitter 50 re2:^fastapi_api$
+    command: netem --tc-image gaiadocker/iproute2@sha256:d0cd5819fbeaf2e7501dcb223bb5bad4fda7c1e76ff9877baba6e559c70b6d1e --duration 1m delay --time 500 --jitter 50 re2:.*[-_]api[-_][0-9]+$
 
   prometheus:
     image: prom/prometheus:v2.55.1@sha256:2659f4c2ebb718e7695cb9b25ffa7d6be64db013daba13e05c875451cf51b0d3
-    container_name: fastapi_prometheus
     hostname: fastapi_prometheus
     pull_policy: if_not_present
     mem_limit: 512m
@@ -202,16 +195,42 @@ services:
             static_configs:
               - targets: ['api:8000']
         " > /tmp/prometheus.yml
-        /bin/prometheus --config.file=/tmp/prometheus.yml
+        exec /bin/prometheus --config.file=/tmp/prometheus.yml
     ports:
       - "127.0.0.1:9090:9090"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9090/-/healthy"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     depends_on:
       api:
         condition: service_healthy
 
+  k6-smoke:
+    image: grafana/k6:2.4.0@sha256:d41bb79cd8de5a7ad619b53570e3712633e8bff0937010a5c6c57a4747e7a276
+    hostname: fastapi_k6_smoke
+    pull_policy: if_not_present
+    mem_limit: 512m
+    user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    security_opt:
+      - no-new-privileges:true
+    profiles:
+      - load
+    environment:
+      TARGET_URL: 'http://api:8000'
+      K6_PROFILE: ${K6_PROFILE:-smoke}
+      K6_SUMMARY_PATH: '/tmp/k6-reports/k6-summary.json'
+    volumes:
+      - ./tests/load:/scripts:ro
+      - ./reports:/tmp/k6-reports:rw
+    depends_on:
+      api:
+        condition: service_healthy
+    command: ["run", "/scripts/smoke.k6.js"]
+
   stress_test:
     image: sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4
-    container_name: fastapi_chaos_locust
     hostname: fastapi_chaos_locust
     pull_policy: if_not_present
     mem_limit: 2g

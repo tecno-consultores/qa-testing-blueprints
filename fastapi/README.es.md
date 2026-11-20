@@ -26,7 +26,7 @@ La estrategia de validación de FastAPI abarca 13 capas transversales (Estándar
 3.  **Seguridad Dinámica (DAST):** `OWASP ZAP` (`zaproxy/zap-stable`) en escaneo *Baseline*.
 4.  **Deuda Técnica:** `radon` (Complejidad ciclomática Grado A, `CC <= 5`; mantenibilidad Grado A).
 5.  **Profiling:** `py-spy` (Análisis de CPU/RAM mediante *Flamegraphs* sin bloquear Event Loop).
-6.  **Lógica Unitaria e Intercepción:** `pytest`, `pytest-cov` (>95%), y `pytest-mock` (aislamiento puro de I/O externo).
+6.  **Lógica Unitaria e Intercepción:** `pytest`, `pytest-cov` (>= 95%), y `pytest-mock` (aislamiento puro de I/O externo).
 7.  **Paridad de Esquema Real (Anti-Mock Blindness):** `Alembic` + `PostgreSQL 17` efímero auditado con `.agents/scripts/verify_alembic_orm_parity.py`.
 8.  **Caché en Memoria Multi-Hilo:** `KeyDB` (`server-threads 2`) para operaciones atómicas, rate limiting y sesiones.
 9.  **Fuzzing y Contratos:** `schemathesis` (Ataque basado en el estándar OpenAPI).
@@ -86,12 +86,8 @@ Extrae/actualiza el grafo de conocimiento AST del código fuente y consulta el r
 python3 .agents/scripts/inspect_blast_radius.py "<simbolo_o_archivo>"
 ```
 
-**Paso 1: Levantar la API y Servicios de Persistencia**
-```bash
-docker compose -f docker-compose.qa.yml up -d postgres keydb api
-# Apagar el stack efímero y sus volúmenes al terminar (o ejecutar `make clean-cache`):
-docker compose -f docker-compose.qa.yml --profile "*" down -v
-```
+**Paso 1: Gestionar Servicios Efímeros vía Make (`Rule Zero`)**
+Todos los servicios de persistencia (`postgres`, `keydb`), contratos de carga (`k6-smoke`, `karatelabs`) y caos arrancan y se detienen automáticamente mediante las metas `make`; ejecuta `make clean-cache` para limpiar los contenedores.
 
 **Paso 2: Ejecutar las suites de validación estándar (Pipeline Regular)**
 
@@ -100,7 +96,7 @@ docker compose -f docker-compose.qa.yml --profile "*" down -v
 make qa-lint
 ```
 
-*   **Pruebas Unitarias Aisladas (Cobertura innegociable >95%):**
+*   **Pruebas Unitarias Aisladas (Cobertura innegociable >= 95%):**
 ```bash
 make qa-unit
 ```
@@ -120,9 +116,10 @@ make qa-migration
 make qa-integration
 ```
 
-*   **Fuzzing y Contratos:**
+*   **Contratos Zero-Infra (Pact V4) y Carga HTTP Base (k6):**
 ```bash
-docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-backend bash -c "uv run schemathesis run http://api:8000/openapi.json"
+make qa-contracts
+make qa-load
 ```
 
 *   **Comportamiento BDD (Karate):**
@@ -135,10 +132,10 @@ make qa-bdd
 make qa-dast
 ```
 
-*   **Profiling Acumulativo (Flamegraph):**
+*   **Profiling Acumulativo (Flamegraph con `py-spy`):**
 ```bash
-# Adjuntar py-spy a un PID existente en un contenedor endurecido requiere CAP_SYS_PTRACE (`--cap-add SYS_PTRACE`) o mismo UID; ejecuta `make clean-cache` / `down -v` al finalizar.
-docker compose -f docker-compose.qa.yml exec -T -u "$(id -u):$(id -g)" api bash -c "py-spy record -o /tmp/profile.svg --pid 1 --duration 30"
+# Adjuntar py-spy a uvicorn dentro de un contenedor endurecido puede requerir CAP_SYS_PTRACE (`--cap-add SYS_PTRACE`) o mismo UID; guarda profile.svg en /app/.
+make qa-profile
 ```
 
 **Paso 3: Certificación de Nivel 11X (Ingeniería del Caos y Observabilidad)**

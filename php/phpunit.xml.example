@@ -17,11 +17,10 @@
          requireCoverageMetadata="false">
     <testsuites>
         <testsuite name="Unit">
-            <directory suffix="Test.php">tests/Unit</directory>
+            <directory suffix="Test.php">tests</directory>
             <directory suffix=".unit.php">tests</directory>
         </testsuite>
         <testsuite name="Integration">
-            <directory suffix="Test.php">tests/Integration</directory>
             <directory suffix=".int.php">tests</directory>
         </testsuite>
     </testsuites>

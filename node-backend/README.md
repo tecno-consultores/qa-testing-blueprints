@@ -31,7 +31,7 @@
 ### B. Internal Logic, Integration & Interception -> `Vitest` + `Supertest` + `Nock`
 *   **Strict Boundary (Tool Boundary):** All unit test files MUST be named `.unit.ts` or `.spec.ts` to separate their context.
 *   **Rule:** Use `Vitest` as the test runner (not Jest). Use `Supertest` to test Express/Fastify routes by passing the app instance directly WITHOUT listening on a real port.
-*   **Isolation Rule:** Every call to a third-party service or database MUST be mocked using `nock` or native Vitest mocks. No network latency is allowed in unit tests.
+*   **Isolation Rule (Anti-Mock Blindness Boundary):** In unit tests (`.unit.ts` / `.spec.ts`), mock external HTTP third-party APIs and timers using `nock` or Vitest mocks. NEVER rely on blind database mocks to certify persistence, transactions, or migrations — validate SQL schemas and ORM models against a real PostgreSQL engine in integration/BDD tests.
 *   **Pact V4 Provider Contracts (`node --test`):** Zero-Infra contract verification files in `tests/contracts/*.test.ts` (e.g., `tests/contracts/provider.pact.test.ts`) are strictly separated from Vitest (`vitest.config.ts` excludes `tests/contracts/**`) and execute natively via `pnpm run test:contracts` (`node --test`) and `make qa-contracts`.
 
 ### C. Code Quality, Complexity & Static SAST -> `ESLint` + `Prettier` + `SonarJS`
@@ -73,11 +73,8 @@ Extract/update the AST knowledge graph and query the blast radius before coding:
 python3 .agents/scripts/inspect_blast_radius.py "<symbol_or_file>"
 ```
 
-**Step 1: Start the API in the background**
-```bash
-docker compose -f docker-compose.qa.yml up -d --wait api
-```
-*(When finished, tear down background containers and ephemeral volumes with `make clean-cache` or `make clean`; `qa-e2e`, `qa-dast`, and `qa-stress` run automatic teardown on exit).*
+**Step 1: Ephemeral Execution & Container Lifecycle (`Rule Zero`)**
+Targets such as `qa-e2e`, `qa-dast`, and `qa-stress` automatically start `api` and clean up on exit; run `make clean-cache` or `make clean` if background containers were started manually.
 
 **Step 2: Run the validation suites (Regular Pipeline)**
 
@@ -86,7 +83,7 @@ docker compose -f docker-compose.qa.yml up -d --wait api
 make qa-lint
 ```
 
-*   **Internal Logic Tests (Isolated with Nock/Vitest) - Requirement >95%:**
+*   **Internal Logic Tests (Isolated with Nock/Vitest) - Requirement >= 95%:**
 ```bash
 make qa-unit
 ```
@@ -94,6 +91,11 @@ make qa-unit
 *   **Zero-Infra Pact V4 Provider Contracts (`node --test`):**
 ```bash
 make qa-contracts
+```
+
+*   **CycloneDX SBOM Generation:**
+```bash
+make qa-sbom
 ```
 
 *   **Mutation Testing (Evaluate assertion strength):**
@@ -111,14 +113,9 @@ make qa-e2e
 make qa-dast
 ```
 
-*   **Cumulative Profiling (CPU Flamegraph):**
-```bash
-docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-node-backend bash -c "pnpm run profile:cpu"
-```
-
-**Step 3: Level-11X Certification (Chaos Engineering & Observability)**
-*WARNING:* This command activates the chaos profile. It launches Pumba, Artillery, and Prometheus simultaneously to stress the API while simulating a severely degraded network.
+**Step 3: Level-11X Certification (Chaos Engineering & Observability — standalone from `qa-all`)**
+*WARNING:* This standalone command (`qa-stress` is excluded from `qa-all`) activates the chaos profile. It launches Pumba, Artillery, and Prometheus simultaneously to stress the API while simulating a severely degraded network.
 ```bash
 make qa-stress
 ```
-*(During the attack, view live metrics at `http://localhost:9090`. Upon completion, inspect the locally generated `chaos-report.json` file).*
+*(During the attack, view live metrics at `http://localhost:9090`. Upon completion, inspect the locally generated `chaos-report.json` file. For CPU/RAM flamegraphs, execute `pnpm run profile:cpu` or `pnpm run profile:memory` inside `qa-node-backend`).*

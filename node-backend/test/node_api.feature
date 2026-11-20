@@ -39,4 +39,5 @@ Feature: Validación BDD de la API Node.js
     When method get
     Then status 200
     And match response.name == 'Nodo Core 11X'
+    And match response.actor_username == '#string'
     And match response.actor_username != '#regex (?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'

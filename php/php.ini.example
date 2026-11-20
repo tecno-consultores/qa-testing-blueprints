@@ -13,7 +13,8 @@ max_execution_time = 30
 max_input_time = 30
 post_max_size = 16M
 upload_max_filesize = 10M
-allow_url_fopen = Off
+; QA CLI (Composer/audit) requires allow_url_fopen = On; set Off in production PHP-FPM pools
+allow_url_fopen = On
 allow_url_include = Off
 ; NOTA 11X (Separación CLI QA vs Runtime FPM):
 ; En CLI de QA, Composer, Pest e Infection requieren proc_open/exec para subprocesos paralelos.
@@ -38,10 +39,11 @@ opcache.interned_strings_buffer = 16
 opcache.max_accelerated_files = 20000
 opcache.validate_timestamps = 1 ; Ephemeral QA (production should use 0)
 opcache.save_comments = 1
-opcache.jit = tracing
-opcache.jit_buffer_size = 128M
+; QA CLI disables JIT because PCOV overrides zend_execute_ex (production FPM disables PCOV and may enable opcache.jit = tracing / 128M)
+opcache.jit = disable
+opcache.jit_buffer_size = 0
 
 [pcov]
 pcov.enabled = 1
 pcov.directory = src
-pcov.exclude = ~vendor~
+pcov.exclude = "~vendor~"

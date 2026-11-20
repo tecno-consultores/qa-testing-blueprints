@@ -3,7 +3,7 @@
 
 /**
  * Resolucion semantica Self-Healing DOM Zero-Infra para React (Estandar QA-11X).
- * Sanea IDs efimeros de React.useId() (:r0: / «r0» / _r_0_), soporta portales y bloquea nodos Suspense aria-busy.
+ * Sanea useId de React (:r0:/«r0»/_r_0_), soporta portales y bloquea Suspense aria-busy.
  */
 
 import { defineQuestion, type Question } from '../screenplay/Actor.ts';
@@ -133,8 +133,13 @@ interface ScoredCandidate<TRef> {
 
 const DEFAULT_MIN_CONFIDENCE = 0.75;
 const AMBIGUITY_MARGIN = 0.03;
+const TESTID_FALLBACK_SCORE = 0.94;
+const SYNONYM_LANDMARK_SCORE = 0.88;
+const SYNONYM_BASE_SCORE = 0.84;
+const FUZZY_MAX_SCORE = 0.88;
 const REACT_USE_ID_RE = /(?::r[0-9a-z]+:|«r[0-9a-z]+»|_r_[0-9a-z]+_)/gi;
 const REACT_PORTAL_LANDMARKS: ReadonlySet<string> = new Set(['dialog', 'overlay', 'portal']);
+const REACT_PORTAL_ATTRS = ['data-portal', 'data-radix-portal', 'data-floating-ui-portal'] as const;
 
 export function stripReactUseId(value: string): string {
   return value.replace(REACT_USE_ID_RE, '').replace(/\s+/g, ' ').trim();
@@ -157,6 +162,10 @@ function normalizeText(value: string): string {
   return stripReactUseId(value).normalize('NFKC').toLowerCase().trim().replace(/\s+/g, ' ');
 }
 
+function readNormalizedText(value: string | undefined): string {
+  return value === undefined ? '' : normalizeText(value);
+}
+
 function tokenize(value: string): readonly string[] {
   const normalized = normalizeText(value);
   if (normalized.length === 0) {
@@ -165,37 +174,48 @@ function tokenize(value: string): readonly string[] {
   return normalized.split(/[^\p{L}\p{N}]+/u).filter((token) => token.length > 0);
 }
 
-function computeJaccard(aTokens: readonly string[], bTokens: readonly string[]): number {
-  if (aTokens.length === 0 || bTokens.length === 0) {
-    return 0;
-  }
-  const setA = new Set(aTokens);
-  const setB = new Set(bTokens);
+function countSetIntersection(setA: ReadonlySet<string>, setB: ReadonlySet<string>): number {
   let intersection = 0;
   for (const token of setA) {
     if (setB.has(token)) {
       intersection += 1;
     }
   }
+  return intersection;
+}
+
+function computeJaccard(aTokens: readonly string[], bTokens: readonly string[]): number {
+  if (aTokens.length === 0 || bTokens.length === 0) {
+    return 0;
+  }
+  const setA = new Set(aTokens);
+  const setB = new Set(bTokens);
+  const intersection = countSetIntersection(setA, setB);
   const unionSize = setA.size + setB.size - intersection;
   return unionSize === 0 ? 0 : intersection / unionSize;
 }
 
+function hasPortalAttr(attrs: Readonly<Record<string, string>>): boolean {
+  return REACT_PORTAL_ATTRS.some((attr) => attrs[attr] !== undefined);
+}
+
+function isPortalLandmarkName(landmark: string): boolean {
+  return landmark === 'portal' || landmark === 'overlay';
+}
+
+function isDialogRole(role: string): boolean {
+  return role === 'dialog' || role === 'alertdialog';
+}
+
 export function isReactPortal(candidate: DomCandidateNode<unknown>): boolean {
-  const attrs = candidate.attributes;
-  const hasPortalAttr =
-    attrs['data-portal'] !== undefined ||
-    attrs['data-radix-portal'] !== undefined ||
-    attrs['data-floating-ui-portal'] !== undefined;
-  if (hasPortalAttr) {
+  if (hasPortalAttr(candidate.attributes)) {
     return true;
   }
-  const landmark = normalizeText(candidate.landmark ?? '');
-  if (landmark === 'portal' || landmark === 'overlay') {
+  const landmark = readNormalizedText(candidate.landmark);
+  if (isPortalLandmarkName(landmark)) {
     return true;
   }
-  const role = normalizeText(candidate.role);
-  return landmark === 'dialog' && (role === 'dialog' || role === 'alertdialog');
+  return landmark === 'dialog' && isDialogRole(normalizeText(candidate.role));
 }
 
 function isDisabledCandidate<TRef>(candidate: DomCandidateNode<TRef>): boolean {
@@ -207,6 +227,20 @@ function isDisabledCandidate<TRef>(candidate: DomCandidateNode<TRef>): boolean {
   );
 }
 
+function isBusyBlocked(
+  candidate: DomCandidateNode<unknown>,
+  options?: SemanticResolutionOptions,
+): boolean {
+  return options?.allowBusy !== true && candidate.attributes['aria-busy'] === 'true';
+}
+
+function hasValidBounds(bounds: NodeBounds | undefined): boolean {
+  if (bounds === undefined) {
+    return true;
+  }
+  return bounds.width > 0 && bounds.height > 0;
+}
+
 function isEligibleNode<TRef>(
   candidate: DomCandidateNode<TRef>,
   options?: SemanticResolutionOptions,
@@ -214,13 +248,10 @@ function isEligibleNode<TRef>(
   if (!candidate.visible || isDisabledCandidate(candidate)) {
     return false;
   }
-  if (options?.allowBusy !== true && candidate.attributes['aria-busy'] === 'true') {
+  if (isBusyBlocked(candidate, options)) {
     return false;
   }
-  if (candidate.bounds === undefined) {
-    return true;
-  }
-  return candidate.bounds.width > 0 && candidate.bounds.height > 0;
+  return hasValidBounds(candidate.bounds);
 }
 
 function readCandidateLabel<TRef>(
@@ -235,12 +266,11 @@ function matchesReactLandmark(
   targetLandmark: string | undefined,
   candidate: DomCandidateNode<unknown>,
 ): boolean {
-  if (targetLandmark === undefined || normalizeText(targetLandmark).length === 0) {
+  const wanted = readNormalizedText(targetLandmark);
+  if (wanted.length === 0) {
     return true;
   }
-  const wanted = normalizeText(targetLandmark);
-  const actual = normalizeText(candidate.landmark ?? '');
-  if (wanted === actual) {
+  if (wanted === readNormalizedText(candidate.landmark)) {
     return true;
   }
   return REACT_PORTAL_LANDMARKS.has(wanted) && isReactPortal(candidate);
@@ -264,7 +294,9 @@ function matchSynonym(
   const synonyms = target.synonyms ?? [];
   for (const synonym of synonyms) {
     if (normalizeText(synonym) === candLabel) {
-      const score = hasLandmarkBonus(target, candidate) ? 0.90 : 0.86;
+      const score = hasLandmarkBonus(target, candidate)
+        ? SYNONYM_LANDMARK_SCORE
+        : SYNONYM_BASE_SCORE;
       return {
         candidate: candidate as never,
         cleanAttributes: {},
@@ -309,7 +341,8 @@ function scoreSemanticOrFuzzy<TRef>(
     return null;
   }
   const bonus = hasLandmarkBonus(target, candidate) ? 0.04 : 0;
-  const score = Math.min(0.90, Number((0.65 + 0.21 * jaccard + bonus).toFixed(4)));
+  const rawScore = 0.65 + 0.21 * jaccard + bonus;
+  const score = Math.min(FUZZY_MAX_SCORE, Number(rawScore.toFixed(4)));
   return {
     candidate,
     cleanAttributes: cleanAttrs,
@@ -320,23 +353,86 @@ function scoreSemanticOrFuzzy<TRef>(
   };
 }
 
+interface CandidateEvalContext<TRef> {
+  readonly candidate: DomCandidateNode<TRef>;
+  readonly cleanAttrs: Readonly<Record<string, string>>;
+  readonly candLabel: string;
+  readonly roleMatches: boolean;
+}
+
+function tryExactAriaScore<TRef>(
+  target: SemanticTarget,
+  ctx: CandidateEvalContext<TRef>,
+): ScoredCandidate<TRef> | null {
+  if (!ctx.roleMatches || ctx.candLabel.length === 0) {
+    return null;
+  }
+  if (ctx.candLabel !== normalizeText(target.accessibleName)) {
+    return null;
+  }
+  if (!matchesReactLandmark(target.landmark, ctx.candidate)) {
+    return null;
+  }
+  return {
+    candidate: ctx.candidate,
+    cleanAttributes: ctx.cleanAttrs,
+    label: ctx.candLabel,
+    score: 1,
+    strategy: 'exact-aria',
+    healed: false,
+  };
+}
+
+function readCandidateTestId(
+  candidate: DomCandidateNode<unknown>,
+  cleanAttrs: Readonly<Record<string, string>>,
+): string | undefined {
+  return candidate.testId ?? cleanAttrs['data-testid'];
+}
+
+function tryTestIdScore<TRef>(
+  target: SemanticTarget,
+  ctx: CandidateEvalContext<TRef>,
+): ScoredCandidate<TRef> | null {
+  if (target.testId === undefined || target.testId.length === 0) {
+    return null;
+  }
+  const candTestId = readCandidateTestId(ctx.candidate, ctx.cleanAttrs);
+  if (candTestId !== target.testId) {
+    return null;
+  }
+  return {
+    candidate: ctx.candidate,
+    cleanAttributes: ctx.cleanAttrs,
+    label: ctx.candLabel,
+    score: TESTID_FALLBACK_SCORE,
+    strategy: 'testid-fallback',
+    healed: true,
+  };
+}
+
 function scoreCandidate<TRef>(
   target: SemanticTarget,
   candidate: DomCandidateNode<TRef>,
 ): ScoredCandidate<TRef> | null {
   const cleanAttrs = sanitizeReactAttributes(candidate.attributes);
-  const candLabel = readCandidateLabel(candidate, cleanAttrs);
-  const roleMatches = normalizeText(candidate.role) === normalizeText(target.role);
-  const landmarkOk = matchesReactLandmark(target.landmark, candidate);
-
-  if (roleMatches && candLabel.length > 0 && candLabel === normalizeText(target.accessibleName) && landmarkOk) {
-    return { candidate, cleanAttributes: cleanAttrs, label: candLabel, score: 1, strategy: 'exact-aria', healed: false };
+  const ctx: CandidateEvalContext<TRef> = {
+    candidate,
+    cleanAttrs,
+    candLabel: readCandidateLabel(candidate, cleanAttrs),
+    roleMatches: normalizeText(candidate.role) === normalizeText(target.role),
+  };
+  const exactHit = tryExactAriaScore(target, ctx);
+  if (exactHit !== null) {
+    return exactHit;
   }
-  const candTestId = candidate.testId ?? cleanAttrs['data-testid'];
-  if (target.testId !== undefined && target.testId.length > 0 && candTestId === target.testId) {
-    return { candidate, cleanAttributes: cleanAttrs, label: candLabel, score: 0.92, strategy: 'testid-fallback', healed: true };
+  const testIdHit = tryTestIdScore(target, ctx);
+  if (testIdHit !== null) {
+    return testIdHit;
   }
-  return roleMatches ? scoreSemanticOrFuzzy(target, candidate, cleanAttrs, candLabel) : null;
+  return ctx.roleMatches
+    ? scoreSemanticOrFuzzy(target, candidate, cleanAttrs, ctx.candLabel)
+    : null;
 }
 
 function buildTopPreviews<TRef>(
@@ -349,23 +445,55 @@ function buildTopPreviews<TRef>(
   }));
 }
 
+function readRecommendedName<TRef>(best: ScoredCandidate<TRef>): string {
+  return best.candidate.accessibleName ?? best.candidate.textContent ?? best.label;
+}
+
+function buildRecommendedTargetUpdate<TRef>(
+  best: ScoredCandidate<TRef>,
+): RecommendedTargetUpdate {
+  const candTestId = readCandidateTestId(best.candidate, best.cleanAttributes);
+  const landmark = best.candidate.landmark;
+  const update: {
+    role: string;
+    accessibleName: string;
+    testId?: string;
+    landmark?: string;
+  } = {
+    role: best.candidate.role,
+    accessibleName: readRecommendedName(best),
+  };
+  if (candTestId !== undefined) {
+    update.testId = candTestId;
+  }
+  if (landmark !== undefined) {
+    update.landmark = landmark;
+  }
+  return update;
+}
+
 function buildTelemetryRecord<TRef>(
   target: SemanticTarget,
   best: ScoredCandidate<TRef>,
 ): HealingTelemetryRecord {
-  const candTestId = best.candidate.testId ?? best.cleanAttributes['data-testid'];
   return {
     intent: target.intent,
     strategy: best.strategy,
     confidence: best.score,
-    recommendedTargetUpdate: {
-      role: best.candidate.role,
-      accessibleName: best.candidate.accessibleName ?? best.candidate.textContent ?? best.label,
-      ...(candTestId !== undefined ? { testId: candTestId } : {}),
-      ...(best.candidate.landmark !== undefined ? { landmark: best.candidate.landmark } : {}),
-    },
+    recommendedTargetUpdate: buildRecommendedTargetUpdate(best),
     timestampMs: Date.now(),
   };
+}
+
+function resolveMinConfidence(target: SemanticTarget): number {
+  return target.minConfidence ?? DEFAULT_MIN_CONFIDENCE;
+}
+
+function hasAmbiguousTie<TRef>(
+  scored: readonly ScoredCandidate<TRef>[],
+  bestScore: number,
+): boolean {
+  return scored.length > 1 && bestScore - scored[1].score < AMBIGUITY_MARGIN;
 }
 
 function validateWinningScore<TRef>(
@@ -380,7 +508,7 @@ function validateWinningScore<TRef>(
       [],
     );
   }
-  const minConfidence = target.minConfidence ?? DEFAULT_MIN_CONFIDENCE;
+  const minConfidence = resolveMinConfidence(target);
   const best = scored[0];
   const previews = buildTopPreviews(scored);
   if (best.score < minConfidence) {
@@ -391,7 +519,7 @@ function validateWinningScore<TRef>(
       previews,
     );
   }
-  if (scored.length > 1 && best.score - scored[1].score < AMBIGUITY_MARGIN) {
+  if (hasAmbiguousTie(scored, best.score)) {
     throw new SemanticLocatorError(
       target.intent,
       'ambiguous_tie',
@@ -402,11 +530,11 @@ function validateWinningScore<TRef>(
   return best;
 }
 
-export function resolveSemanticLocator<TRef>(
+function collectScoredCandidates<TRef>(
   target: SemanticTarget,
   candidates: readonly DomCandidateNode<TRef>[],
   options?: SemanticResolutionOptions,
-): SemanticResolutionResult<TRef> {
+): ScoredCandidate<TRef>[] {
   const scored: ScoredCandidate<TRef>[] = [];
   for (const candidate of candidates) {
     if (!isEligibleNode(candidate, options)) {
@@ -418,11 +546,32 @@ export function resolveSemanticLocator<TRef>(
     }
   }
   scored.sort((a, b) => b.score - a.score);
-  const best = validateWinningScore(target, scored);
-  const telemetryRecord = best.healed ? buildTelemetryRecord(target, best) : undefined;
-  if (telemetryRecord !== undefined && options?.telemetry !== undefined) {
-    options.telemetry.record(telemetryRecord);
+  return scored;
+}
+
+function recordTelemetryIfHealed<TRef>(
+  target: SemanticTarget,
+  best: ScoredCandidate<TRef>,
+  options?: SemanticResolutionOptions,
+): HealingTelemetryRecord | undefined {
+  if (!best.healed) {
+    return undefined;
   }
+  const record = buildTelemetryRecord(target, best);
+  if (options?.telemetry !== undefined) {
+    options.telemetry.record(record);
+  }
+  return record;
+}
+
+export function resolveSemanticLocator<TRef>(
+  target: SemanticTarget,
+  candidates: readonly DomCandidateNode<TRef>[],
+  options?: SemanticResolutionOptions,
+): SemanticResolutionResult<TRef> {
+  const scored = collectScoredCandidates(target, candidates, options);
+  const best = validateWinningScore(target, scored);
+  const telemetryRecord = recordTelemetryIfHealed(target, best, options);
   return {
     ref: best.candidate.ref,
     candidate: best.candidate,
@@ -434,9 +583,13 @@ export function resolveSemanticLocator<TRef>(
   };
 }
 
+export type CandidateProvider<TRef> = () =>
+  | Promise<readonly DomCandidateNode<TRef>[]>
+  | readonly DomCandidateNode<TRef>[];
+
 export function LocateSemanticTargetQuestion<TRef>(
   target: SemanticTarget,
-  getCandidates: () => Promise<readonly DomCandidateNode<TRef>[]> | readonly DomCandidateNode<TRef>[],
+  getCandidates: CandidateProvider<TRef>,
   options?: SemanticResolutionOptions,
 ): Question<SemanticResolutionResult<TRef>> {
   return defineQuestion(

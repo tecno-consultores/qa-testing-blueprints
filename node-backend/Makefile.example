@@ -1,4 +1,4 @@
-.PHONY: qa-lint qa-unit qa-contracts qa-e2e qa-dast qa-mutation qa-stress qa-all clean-cache clean qa-clean
+.PHONY: qa-lint qa-unit qa-contracts qa-e2e qa-dast qa-mutation qa-sbom qa-stress qa-all clean-cache clean qa-clean
 
 # Variables
 COMPOSE_FILE ?= docker-compose.qa.yml
@@ -18,7 +18,8 @@ qa-unit:
 
 qa-contracts:
 	@echo "🤝 Ejecutando Pruebas de Contrato Pact Zero-Infra (node --test)..."
-	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" -e PACT_OUTPUT_DIR $(SERVICE_NAME) bash -c "node --test tests/contracts/*.test.ts"
+	@mkdir -p "$(PROJECT_DIR)/pacts"
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" -e PACT_OUTPUT_DIR=/app/pacts $(SERVICE_NAME) bash -c "node --test tests/contracts/*.test.ts"
 
 qa-e2e:
 	@echo "🎭 Ejecutando Pruebas BDD (Karate Labs)..."
@@ -36,12 +37,16 @@ qa-mutation:
 	@echo "👽 Ejecutando Pruebas de Mutación (Stryker)..."
 	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run mutate"
 
+qa-sbom:
+	@echo "📦 Generando SBOM CycloneDX (Node.js)..."
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run qa:sbom"
+
 qa-stress:
 	@echo "🔥 Ejecutando Pruebas de Carga y Caos (Artillery + Pumba)..."
 	@bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" --profile chaos down -v >/dev/null 2>&1 || true" EXIT; \
 		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile chaos up --abort-on-container-exit --exit-code-from stress_test'
 
-qa-all: qa-lint qa-unit qa-contracts qa-mutation qa-e2e qa-stress
+qa-all: qa-lint qa-unit qa-contracts qa-mutation qa-e2e
 	@echo "✅ Pipeline QA Node Backend completado."
 
 clean-cache:

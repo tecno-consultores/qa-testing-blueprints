@@ -40,12 +40,14 @@ if (!Object.prototype.hasOwnProperty.call(PROFILES, ACTIVE_PROFILE)) {
 const BASE_URL = (__ENV.API_BASE_URL || 'http://127.0.0.1:18080').replace(/\/+$/, '');
 const TENANT_ID = __ENV.QA_TENANT_ID || 'tenant-alpha';
 const SUMMARY_PATH = __ENV.K6_SUMMARY_PATH || '/tmp/k6-summary.json';
+const P95_MS = Number(__ENV.K6_P95_MS || 250);
+const P99_MS = Number(__ENV.K6_P99_MS || 500);
 
 export const options = Object.assign({}, PROFILES[ACTIVE_PROFILE], {
   summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)'],
   thresholds: {
     http_req_failed: ['rate<0.01'],
-    http_req_duration: ['p(95)<250', 'p(99)<500'],
+    http_req_duration: [`p(95)<${P95_MS}`, `p(99)<${P99_MS}`],
     checks: ['rate==1.0'],
   },
 });
@@ -122,6 +124,8 @@ export default function runPhpLoadBlueprint() {
   const batchBody = safeJson(batchRes);
   check(batchRes, {
     'batch status 200': (r) => r.status === 200,
+    'batch eco Idempotency-Key': (r) =>
+      String(r.headers['Idempotency-Key'] || r.headers['idempotency-key'] || '') === batchKey,
     'batch items all SUCCEEDED (anti-falso-verde)': () =>
       Boolean(
         batchBody &&
@@ -154,7 +158,9 @@ export function handleSummary(data) {
     thresholdsPassed,
   };
 
+  const encoded = JSON.stringify(summary, null, 2) + '\n';
   return {
-    [SUMMARY_PATH]: JSON.stringify(summary, null, 2) + '\n',
+    [SUMMARY_PATH]: encoded,
+    stdout: encoded,
   };
 }

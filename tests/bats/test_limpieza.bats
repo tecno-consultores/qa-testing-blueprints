@@ -144,7 +144,7 @@ EOF
     mkdir -p "${stack_dir}/graphify-out/cache" "${stack_dir}/.trivycache" \
       "${stack_dir}/.pytest_cache" "${stack_dir}/wdio-logs" "${stack_dir}/coverage" \
       "${stack_dir}/.agents/proposals" "${stack_dir}/.agents/backups" \
-      "${stack_dir}/node_modules" "${stack_dir}/.venv" "${stack_dir}/.phpunit.cache"
+      "${stack_dir}/node_modules" "${stack_dir}/.venv" "${stack_dir}/vendor" "${stack_dir}/.phpunit.cache"
     cp "${REPO_ROOT}/${stack}/limpieza.sh" "${stack_dir}/limpieza.sh"
     chmod +x "${stack_dir}/limpieza.sh"
     echo "{}" >"${stack_dir}/graphify-out/graph.json"
@@ -153,6 +153,7 @@ EOF
     echo "cov" >"${stack_dir}/.coverage"
     echo "v" >"${stack_dir}/.trivycache/db"
     echo "nm" >"${stack_dir}/node_modules/pkg.txt"
+    echo "vn" >"${stack_dir}/vendor/pkg.txt"
 
     run env HOME="${FAKE_HOME}" TMPDIR="${FAKE_TMP}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C "${stack_dir}/limpieza.sh" --quiet
     assert_success
@@ -176,13 +177,20 @@ EOF
     [ -f "${stack_dir}/graphify-out/graph.json" ]
     [ -d "${stack_dir}/.agents/proposals" ]
     [ -d "${stack_dir}/node_modules" ]
+    [ -d "${stack_dir}/vendor" ]
 
     run env HOME="${FAKE_HOME}" TMPDIR="${FAKE_TMP}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C "${stack_dir}/limpieza.sh" --deep --quiet
     assert_success
     [ ! -d "${stack_dir}/.agents/proposals" ]
     [ ! -d "${stack_dir}/.agents/backups" ]
-    [ ! -d "${stack_dir}/node_modules" ]
-    [ ! -d "${stack_dir}/.venv" ]
+    if [ "${stack}" = "php" ]; then
+      [ ! -d "${stack_dir}/vendor" ]
+      [ -d "${stack_dir}/node_modules" ]
+      [ -d "${stack_dir}/.venv" ]
+    else
+      [ ! -d "${stack_dir}/node_modules" ]
+      [ ! -d "${stack_dir}/.venv" ]
+    fi
   done
 }
 

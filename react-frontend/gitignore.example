@@ -16,6 +16,7 @@ build/
 
 # QA 11X artifacts
 coverage/
+reports/
 .stryker-tmp/
 test-results/
 playwright-report/
@@ -57,3 +58,5 @@ Thumbs.db
 .agents/artifacts/
 .agents/.qa-evidence.json
 pacts/
+*.11x-backup
+*.11x-incoming
