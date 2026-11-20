@@ -410,7 +410,7 @@ strict = true
     it('detecta asignación de secret_key o passwd en texto plano (SEC-10)', async () => {
       fs.writeFileSync(
         path.join(tempDir, 'settings.py'),
-        'secret_key = "productionSecretKey123456789"\npasswd = "MySuperSecretPass123!"\n'
+        'secret_key = "productionSecretKey123456789"\npasswd = "MySuperSecretPass123!"\n' // qa-secret-fixture-ok
       );
 
       const res = await auditSecurityStigOwasp(tempDir);

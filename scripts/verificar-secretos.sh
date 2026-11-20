@@ -186,11 +186,11 @@ is_test_file() {
 
 SECRET_REGEX='-----BEGIN (RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----|((npm|ghp|gho|ghu|ghs)_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|glpat-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|sk-proj-[A-Za-z0-9_-]{16,}|sk-ant-[A-Za-z0-9_-]{16,}|AIza[0-9A-Za-z_-]{12,}|xox[baprs]-[0-9A-Za-z-]{10,})|(password|passwd|secret|api_key|token)["'\'']?[[:space:]]*[=:][[:space:]]*["'\'']?[A-Za-z0-9_/+.-]{16,}["'\'']?'
 SAFE_URL_REGEX='https?://(127\.0\.0\.1|0\.0\.0\.0|\[::1\]|([A-Za-z0-9-]+\.)?example\.(com|org|net))[^[:space:]"'\'']*'
-PLACEHOLDER_REGEX='(TU_TOKEN|tu_clave_aqui|tu_token_aqui|CHANGE[_-]?ME|EXAMPLE_ONLY|example_placeholder|YOUR_TOKEN_EXAMPLE|TU_TOKEN_EXAMPLE|sk-proj-placeholder|placeholder|dummy|00000000|test-load-token|mock|fake|ephemeral|xxxxxx|<[^>]+>|https?://(127\.0\.0\.1|0\.0\.0\.0|\[::1\]|([a-z0-9-]+\.)?example\.(com|org|net))|env\.|process\.env|os\.environ|\$\{)'
+PLACEHOLDER_REGEX='(TU_TOKEN|tu_clave_aqui|tu_token_aqui|CHANGE[_-]?ME|EXAMPLE_ONLY|example_placeholder|YOUR_TOKEN_EXAMPLE|TU_TOKEN_EXAMPLE|sk-proj-placeholder|placeholder|dummy|00000000|test-load-token|mock|fake|ephemeral|xxxxxx|__[A-Z0-9_]{3,}__|<[^>]+>|https?://(127\.0\.0\.1|0\.0\.0\.0|\[::1\]|([a-z0-9-]+\.)?example\.(com|org|net))|env\.|process\.env|os\.environ|\$\{)'
 
 MATCHED_FILES=()
 for f in "${FILTERED_FILES[@]}"; do
-  CANDIDATE_LINES=$(sed -E "s#${SAFE_URL_REGEX}#__QA_SAFE_URL__#g" -- "$f" 2>/dev/null | grep -niE -e "${SECRET_REGEX}" || true)
+  CANDIDATE_LINES=$(sed -E -e "s#${SAFE_URL_REGEX}#__QA_SAFE_URL__#g" -e 's#([=:][[:space:]]*)[A-Za-z_][A-Za-z0-9_.]*\(#\1__QA_CALL__(#g' -- "$f" 2>/dev/null | grep -niE -e "${SECRET_REGEX}" || true)
   if [ -n "${CANDIDATE_LINES}" ]; then
     CANDIDATE_LINES=$(printf '%s\n' "${CANDIDATE_LINES}" | grep -vE '(#|//|/\*|<!--)[[:space:]]*secret-scan-ignore\b' || true)
   fi

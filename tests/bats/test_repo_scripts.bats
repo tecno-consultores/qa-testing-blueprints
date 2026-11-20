@@ -797,6 +797,15 @@ EOF
   printf 'KEY = "%s"  # qa-secret-fixture-ok\n' "${SYNTH_GKEY}" >"${WORK}/tests/sample.unit.py"
   run env LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh" tests/sample.unit.py' _ "${WORK}" "${REPO_ROOT}"
   assert_success
+
+  printf 'token = generate_access_token(payload)\nconst SUBPATH_TOKEN = "__SUBPATH_PARAM__";\n' >"${WORK}/apps/api/calls.ts"
+  run env LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh" apps/api/calls.ts' _ "${WORK}" "${REPO_ROOT}"
+  assert_success
+
+  printf 'const tok = makeSyntheticToken("%s");\n' "${SYNTH_GKEY}" >"${WORK}/apps/api/leak_in_call.ts"
+  run env LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh" apps/api/leak_in_call.ts' _ "${WORK}" "${REPO_ROOT}"
+  assert_failure 1
+  assert_output --partial "apps/api/leak_in_call.ts"
 }
 
 @test "generar-sbom-cyclonedx.sh: rechaza ruta absoluta fuera del repositorio con exit 1" {

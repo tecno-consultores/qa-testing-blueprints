@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "3.2.0",
-  "generated_at_utc": "2026-11-20T01:56:01Z",
+  "generated_at_utc": "2026-11-20T02:23:47Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -1047,8 +1047,8 @@
       "path": "scripts/verificar-secretos.sh",
       "target_name": "scripts/verificar-secretos.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "854c914e17ab520ae760102eff699ef1abf30fa43d6128f40d7e9f4930581644",
-      "size_bytes": 9015
+      "sha256": "b34d23b8df83a6b72d446d44144708244960cdd2e743498e3ef91fd86b5d0d93",
+      "size_bytes": 9104
     }
   ],
   "agent_governance_files": [

@@ -265,7 +265,7 @@ app = FastAPI(title="Mi API")
         '',
         'TOKEN = "ghp_123456789012345678901234567890123456"', // qa-secret-fixture-ok
         'PRIVATE_KEY = "-----BEGIN RSA PRIVATE KEY-----\\nMIIEowIBAAKCAQEA..."', // qa-secret-fixture-ok
-        'password = "SuperSecretPassword123!"',
+        'password = "SuperSecretPassword123!"', // qa-secret-fixture-ok
         '      ',
       ].join('\n')
     );
