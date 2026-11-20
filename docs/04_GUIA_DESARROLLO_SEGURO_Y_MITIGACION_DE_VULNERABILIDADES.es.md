@@ -70,8 +70,8 @@
 | `QA-DOCKER-LOCK-01` | `Dockerfile` con lista manual de paquetes (`pip install ...`, `npm install <pkg>`) o `uv sync` sin `--frozen` en lugar de instalar desde el lockfile, más ausencia de smoke test sobre la imagen construida (`import`, `id -u != 0`, `401`) | `docs/02` §1.1 (Regla #11) y `SECURITY.es.md` §4.28 |
 | `QA-PLAYWRIGHT-PIN-01` | Desalineación o rango SemVer (`^`/`~`) entre `@playwright/test`/`playwright` en `package.json` e imagen `mcr.microsoft.com/playwright:vX.Y.Z` (o `:latest`) en Compose, además de protección Anti-SSRF DNS/IP (Patrón 4) y redacción de API keys (`SEC-10`) en `audit_pagespeed_insights.py` | `docs/02` §7, §9 y `SECURITY.es.md` §4.29 |
 | `QA-SSR-HYDRATION-01` | Ramificación DOM pre-hidratación (`v-if` o expresiones JSX/TSX fuera de `useEffect` sobre `localStorage`/`dataset.theme`) en apps SSR/SSG o ausencia de barrido Playwright dual `'light'`/`'dark'` con guardia `console`/`pageerror` (`/hydration/i`) | `docs/02` §7 y `SECURITY.es.md` §4.30 |
-| `QA-STRYKER-CFG-01` | Ausencia de `"ignoreStatic": true` o `"concurrency" > 4` excesivo en `stryker.conf.json(.example)` provocando OOM en contenedores efímeros (con shim no-root `/tmp/qa-bin/ps` en `Makefile.example`) | `docs/02` §8 y `SECURITY.es.md` §4.31 |
-| `SEC-WS-PUBSUB-01` | Suscripciones PubSub Redis/KeyDB para WebSockets sin aislamiento por `tenant_id` (`SUBSCRIBE events` / comodín `*`) o uniones de canal sin validación en servidor | Patrón 1 y `SECURITY.es.md` §4.32 |
+| `QA-STRYKER-CFG-01` | Ausencia de `"ignoreStatic": true`, exclusiones `!src/**/*.{unit,spec,test}.*` en `mutate` o `"concurrency" > 4` excesivo en `stryker.conf.json(.example)` provocando OOM en contenedores (con shim `/tmp/qa-bin/ps` en `Makefile.example`) | `docs/02` §8 y `SECURITY.es.md` §4.31 |
+| `SEC-WS-PUBSUB-01` | Canales PubSub Redis/KeyDB en WebSockets sin aislamiento por `tenant_id` u omisión de `pubsub.aclose()`/`close()` garantizado en `finally:` agotando el pool en suites E2E | Patrón 1 y `SECURITY.es.md` §4.32 |
 
 ---
 

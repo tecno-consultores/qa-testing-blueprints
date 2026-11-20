@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "3.2.0",
-  "generated_at_utc": "2026-11-20T15:14:55Z",
+  "generated_at_utc": "2026-11-20T15:56:44Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -161,8 +161,8 @@
           "path": "fastapi/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "9eb98a6d5b17e456e2e59d19be4140fbbba1261280e54ecb29602a575ab77bfd",
-          "size_bytes": 9382
+          "sha256": "baa84080adb0766b365f773be3fa88e91264e61c3d14dfcd2150421e81eff558",
+          "size_bytes": 9569
         },
         {
           "path": "fastapi/gitignore.example",
@@ -245,8 +245,8 @@
           "path": "fastapi/zap.yaml.example",
           "target_name": "zap.yaml",
           "merge_strategy": "copy_if_missing",
-          "sha256": "a7c0498018df5abad254170a33b2878f79e52fb6fb984a3504dacb548eddf340",
-          "size_bytes": 1546
+          "sha256": "d7fadf2500a852706b8a97ccd09a2a24a13c72bb5cd56ace1d7f784703994ca5",
+          "size_bytes": 1636
         }
       ]
     },
@@ -445,8 +445,8 @@
           "path": "node-backend/zap.yaml.example",
           "target_name": "zap.yaml",
           "merge_strategy": "copy_if_missing",
-          "sha256": "88080964103d002463674b8d2ac6322432bc11238df16c21d32185f3956a6a93",
-          "size_bytes": 1444
+          "sha256": "7fbb0c652213e2133b73c8be1db62be1ac691a6b9f992fed8d53a2ddcf57b915",
+          "size_bytes": 1595
         }
       ]
     },
@@ -575,8 +575,8 @@
           "path": "python/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "4133f0345ddda9381ee0aa8e2bde612c38dedb989fb8293bfd972e285b310d4d",
-          "size_bytes": 6778
+          "sha256": "38c74dd49fbb206fb54f032dfc91b1ac57438c0751afdc5da4d9e8d9975c7064",
+          "size_bytes": 6965
         },
         {
           "path": "python/gitignore.example",
@@ -1413,8 +1413,8 @@
       "path": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "target_name": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "534a41cc295fc515b079318d1dafc350e0832c448cda920d86864cffa8ccf0f2",
-      "size_bytes": 9016
+      "sha256": "cc9e0278fde8ad416dc69656618d341fddc2b5c8888ddca616c77b3886b2051e",
+      "size_bytes": 9349
     },
     {
       "path": ".agents/skills/qa-11x-llm-evaluator/SKILL.md",
@@ -1518,8 +1518,8 @@
       "path": ".agents/skills/tactical-patterns-11x/SKILL.md",
       "target_name": ".agents/skills/tactical-patterns-11x/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "23c87b41ecae17b7f6e4058ac5cb42e58a4deb714dcfdef995d4f2b348e789df",
-      "size_bytes": 2521
+      "sha256": "4473804007cd5b65a6ae734faa318adec75368b299787c1fde809eece5554e96",
+      "size_bytes": 2481
     },
     {
       "path": "AGENTS.md",
@@ -1546,15 +1546,15 @@
       "path": "SECURITY.es.md",
       "target_name": "SECURITY.es.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "44b3214eef26c030a2aeb0acace5ff7363f8415dfecbb7a717aaf29a1566f23b",
-      "size_bytes": 37549
+      "sha256": "86011958f1f4970a94393c922a7d0631499e9c60b37e132efb61a019a751ac3c",
+      "size_bytes": 37730
     },
     {
       "path": "SECURITY.md",
       "target_name": "SECURITY.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "95a7c7bf949eb0f58b6d230db13c2cd52c88434969158e47b9086056397bd48e",
-      "size_bytes": 34063
+      "sha256": "d1ddbb7ab7ad4d429fe3a68294dd06b3d621083b1ded5a10a4d1262d6cc3a589",
+      "size_bytes": 34315
     },
     {
       "path": "catalogs/agenticskills-submission.md",
@@ -1574,7 +1574,7 @@
       "path": "catalogs/skillsllm-manifest.json",
       "target_name": "catalogs/skillsllm-manifest.json",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "94ab7215ee9e05e5b086ed6f58734d7a491f1bec2845e4b269b1e6868e936e2a",
+      "sha256": "f3c4478660c545c28ff6110858f4db440c04b035e4565e7fa169573311a8abec",
       "size_bytes": 11951
     },
     {

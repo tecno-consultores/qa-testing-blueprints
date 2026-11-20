@@ -9,6 +9,9 @@ env:
         - "http://api:3000"
       includePaths:
         - "http://api:3000/.*"
+      excludePaths:
+        - "http://api:3000/docs.*"
+        - "http://api:3000/api-docs.*"
   parameters:
     failOnError: true
     failOnWarning: false
@@ -19,12 +22,14 @@ jobs:
     parameters:
       maxAlertsPerRule: 10
       scanOnlyInScope: true
-  - type: spider
-    parameters:
-      context: "node-qa-target"
-      url: "http://api:3000"
-      maxDuration: 2
-      maxDepth: 5
+  - type: alertFilter
+    alertFilters: []
+  - type: requestor
+    requests:
+      - url: "http://api:3000/health"
+        name: "healthcheck"
+        method: "GET"
+        responseCode: 200
   - type: passiveScan-wait
     parameters:
       maxDuration: 5
@@ -52,8 +57,8 @@ jobs:
       reportFile: "zap-report.json"
   - type: exitStatus
     parameters:
-      errorLevel: "High"
-      warnLevel: "Medium"
+      errorLevel: "Medium"
+      warnLevel: "Low"
       okExitValue: 0
       warnExitValue: 1
       errorExitValue: 2

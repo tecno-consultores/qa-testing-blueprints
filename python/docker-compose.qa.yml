@@ -189,12 +189,15 @@ services:
     hostname: python_profiler
     pull_policy: if_not_present
     mem_limit: 1g
-    user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    user: "0:0"
     pid: "service:python-api"
+    cap_drop:
+      - ALL
     cap_add:
       - SYS_PTRACE
     security_opt:
       - no-new-privileges:true
+      - seccomp:unconfined
     profiles:
       - profile
     depends_on:
@@ -206,11 +209,14 @@ services:
       HOME: /tmp
       UV_CACHE_DIR: /tmp/uv-cache
       UV_PROJECT_ENVIRONMENT: /tmp/qa-venv
+      QA_UID: ${QA_UID:-1000}
+      QA_GID: ${QA_GID:-1000}
     volumes:
-      - .:/app
+      - .:/app:ro
+      - ./reports:/reports:rw
       - uv-cache:/tmp/uv-cache
     working_dir: /app
-    command: bash -c "uv sync --all-extras -q && mkdir -p /app/reports && pid=\$$(pgrep -f python | head -n 1); [ -n \"\$$pid\" ] || pid=1; /tmp/qa-venv/bin/py-spy record -o /app/reports/flamegraph.svg --subprocesses --duration 15 --pid \"\$$pid\""
+    command: bash -c "(uv sync --frozen --all-extras -q || uv sync --all-extras -q) && pid=\$$(pgrep -f python | head -n 1); [ -n \"\$$pid\" ] || pid=1; /tmp/qa-venv/bin/py-spy record -o /reports/flamegraph.svg --subprocesses --duration 15 --pid \"\$$pid\" && chown \"\$${QA_UID}:$${QA_GID}\" /reports/flamegraph.svg"
 
 networks:
   default:

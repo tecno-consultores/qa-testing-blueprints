@@ -172,8 +172,8 @@
       "name": "qa-11x-docker-certifier",
       "path": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-docker-certifier/SKILL.md",
-      "size_bytes": 9016,
-      "sha256": "534a41cc295fc515b079318d1dafc350e0832c448cda920d86864cffa8ccf0f2",
+      "size_bytes": 9349,
+      "sha256": "cc9e0278fde8ad416dc69656618d341fddc2b5c8888ddca616c77b3886b2051e",
       "description": "QA 11X Corporate Standard certifier in ephemeral Docker containers. Enforces Rule Zero (zero host executions on Ubuntu/macOS/Windows), Cyclomatic/Cognitive Complexity Grade A, unit test coverage >= 95%, mutation testing, WCAG 2.1 AA accessibility, Lighthouse CI, and silent mode RAM conservation."
     },
     {
@@ -208,8 +208,8 @@
       "name": "tactical-patterns-11x",
       "path": ".agents/skills/tactical-patterns-11x/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/tactical-patterns-11x/SKILL.md",
-      "size_bytes": 2521,
-      "sha256": "23c87b41ecae17b7f6e4058ac5cb42e58a4deb714dcfdef995d4f2b348e789df",
+      "size_bytes": 2481,
+      "sha256": "4473804007cd5b65a6ae734faa318adec75368b299787c1fde809eece5554e96",
       "description": "JIT tactical patterns for QA-11X: complexity rescue (CC <= 5, SonarJS <= 15, max-params <= 4, max-depth <= 3), offline Port/Adapter (--network none), atomic outbox/idempotency/RLS, and anti-overengineering."
     }
   ]

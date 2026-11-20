@@ -11,6 +11,7 @@ env:
         - "http://api:8000/.*"
       excludePaths:
         - "http://api:8000/docs.*"
+        - "http://api:8000/redoc.*"
         - "http://api:8000/openapi\\.json"
   parameters:
     failOnError: true
@@ -22,12 +23,14 @@ jobs:
     parameters:
       maxAlertsPerRule: 10
       scanOnlyInScope: true
-  - type: spider
-    parameters:
-      context: "fastapi-qa-target"
-      url: "http://api:8000"
-      maxDuration: 2
-      maxDepth: 5
+  - type: alertFilter
+    alertFilters: []
+  - type: requestor
+    requests:
+      - url: "http://api:8000/health"
+        name: "healthcheck"
+        method: "GET"
+        responseCode: 200
   - type: passiveScan-wait
     parameters:
       maxDuration: 5
@@ -55,8 +58,8 @@ jobs:
       reportFile: "zap-report.json"
   - type: exitStatus
     parameters:
-      errorLevel: "High"
-      warnLevel: "Medium"
+      errorLevel: "Medium"
+      warnLevel: "Low"
       okExitValue: 0
       warnExitValue: 1
       errorExitValue: 2

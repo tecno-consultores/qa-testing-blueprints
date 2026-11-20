@@ -3859,6 +3859,27 @@ function hasBoundedStrykerConcurrency(
   return match ? Number(match[1]) >= 1 && Number(match[1]) <= 4 : false;
 }
 
+function hasStrykerNegatedTestGlob(patterns: readonly unknown[]): boolean {
+  return patterns.some(
+    (entry) =>
+      typeof entry === 'string' &&
+      entry.startsWith('!') &&
+      (entry.includes('unit') || entry.includes('spec') || entry.includes('test'))
+  );
+}
+
+function hasStrykerTestExclusions(doc: Record<string, unknown> | null, fullText: string): boolean {
+  if (doc) {
+    return !Array.isArray(doc.mutate) || hasStrykerNegatedTestGlob(doc.mutate);
+  }
+  const mutateIdx = fullText.indexOf('mutate');
+  if (mutateIdx === -1) {
+    return true;
+  }
+  const slice = fullText.slice(mutateIdx);
+  return slice.includes('!') && (slice.includes('unit') || slice.includes('spec') || slice.includes('test'));
+}
+
 function checkQaStrykerCfg01(relPath: string, lines: string[]): SecurityFinding[] {
   if (!isStrykerConfigPath(relPath) || isTestFilePath(relPath)) {
     return [];
@@ -3875,6 +3896,9 @@ function checkQaStrykerCfg01(relPath: string, lines: string[]): SecurityFinding[
   if (!hasBoundedStrykerConcurrency(doc, fullText)) {
     gaps.push('"concurrency" acotado (<= 4)');
   }
+  if (!hasStrykerTestExclusions(doc, fullText)) {
+    gaps.push('exclusión "!src/**/*.{unit,spec,test}.*" en "mutate"');
+  }
   if (gaps.length === 0) {
     return [];
   }
@@ -3886,7 +3910,7 @@ function checkQaStrykerCfg01(relPath: string, lines: string[]): SecurityFinding[
       file: relPath,
       line: 1,
       message: `Configuración Stryker omite estabilidad en contenedores: falta ${gaps.join(' y ')}.`,
-      remediation: `Establecer "ignoreStatic": true y "concurrency": 4 (o <= 4) en stryker.conf (o eximir con ${QA_STRYKER_CFG_OK_PRAGMA}).`,
+      remediation: `Establecer "ignoreStatic": true, "concurrency": 4 (o <= 4) y exclusión "!src/**/*.{unit,spec,test}.*" en mutate (o eximir con ${QA_STRYKER_CFG_OK_PRAGMA}).`,
     },
   ];
 }
@@ -3914,6 +3938,48 @@ function hasTenantScopeInWindow(lines: readonly string[], centerIdx: number): bo
   const end = Math.min(lines.length, centerIdx + 25);
   const windowText = lines.slice(start, end).join('\n');
   return WS_PUBSUB_TENANT_MARKERS.some((marker) => windowText.includes(marker));
+}
+
+function findFirstSubstringLine(lines: readonly string[], needle: string): number {
+  const idx = lines.findIndex((ln) => ln.includes(needle));
+  return idx + 1;
+}
+
+function hasFinallyPubsubClose(fullText: string): boolean {
+  const finallyIdx = fullText.indexOf('finally:');
+  if (finallyIdx === -1) {
+    return false;
+  }
+  const tail = fullText.slice(finallyIdx);
+  return tail.includes('.aclose(') || tail.includes('.close(');
+}
+
+function checkPythonWsPubsubFinallyLeak(
+  relPath: string,
+  lines: readonly string[]
+): SecurityFinding[] {
+  if (!relPath.toLowerCase().endsWith('.py')) {
+    return [];
+  }
+  const fullText = lines.join('\n');
+  if (fullText.includes(SEC_WS_PUBSUB_OK_PRAGMA)) {
+    return [];
+  }
+  if (!fullText.includes('WebSocket') || !fullText.includes('.pubsub(') || hasFinallyPubsubClose(fullText)) {
+    return [];
+  }
+  return [
+    {
+      rule_id: SEC_WS_PUBSUB_RULE,
+      severity: 'HIGH',
+      stig_owasp_ref: SEC_WS_PUBSUB_REF,
+      file: relPath,
+      line: findFirstSubstringLine(lines, '.pubsub('),
+      message:
+        'Endpoint WebSocket + Redis/KeyDB .pubsub() sin cierre garantizado pubsub.aclose()/close() dentro de try/finally (riesgo de fuga del pool en suites E2E secuenciales).',
+      remediation: `Ejecutar watcher ws.receive() desacoplado y garantizar await pubsub.aclose() dentro de finally: (o eximir con ${SEC_WS_PUBSUB_OK_PRAGMA}).`,
+    },
+  ];
 }
 
 function checkSecWsPubsub01(relPath: string, lines: string[]): SecurityFinding[] {
@@ -3944,6 +4010,7 @@ function checkSecWsPubsub01(relPath: string, lines: string[]): SecurityFinding[]
       remediation: `Prefijar canales con identificador de tenant (ej. f"ws:{tenant_id}:events") y verificar tenant_id/org_id por socket antes de reenviar mensajes (o eximir con ${SEC_WS_PUBSUB_OK_PRAGMA}).`,
     });
   }
+  findings.push(...checkPythonWsPubsubFinallyLeak(relPath, lines));
   return findings;
 }
 

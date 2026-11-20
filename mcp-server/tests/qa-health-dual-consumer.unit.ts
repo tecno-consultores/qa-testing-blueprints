@@ -1354,6 +1354,18 @@ describe('QA-HEALTH-01 & Dual-Consumer Evolution Suite', () => {
         'export default { ignoreStatic: false, concurrency: 8 };\n',
         'utf8'
       );
+      fs.mkdirSync(path.join(appDir, 'sub-no-excl'), { recursive: true });
+      fs.writeFileSync(
+        path.join(appDir, 'sub-no-excl', 'stryker.conf.json'),
+        JSON.stringify({ ignoreStatic: true, concurrency: 2, mutate: ['src/**/*.ts'] }),
+        'utf8'
+      );
+      fs.mkdirSync(path.join(appDir, 'sub-bad-mut'), { recursive: true });
+      fs.writeFileSync(
+        path.join(appDir, 'sub-bad-mut', 'stryker.config.mjs'),
+        "export default { ignoreStatic: true, concurrency: 2, mutate: ['src/**/*.ts', '!src/main.ts'] };\n",
+        'utf8'
+      );
       fs.writeFileSync(
         path.join(appDir, 'src', 'Banner.jsx'),
         [
@@ -1381,19 +1393,43 @@ describe('QA-HEALTH-01 & Dual-Consumer Evolution Suite', () => {
         ].join('\n'),
         'utf8'
       );
+      fs.writeFileSync(
+        path.join(appDir, 'src', 'ws_leak.py'),
+        [
+          'async def ws_ep(ws: WebSocket, redis_cli, tenant_id: str):',
+          '    ps = redis_cli.pubsub()',
+          '    await ps.subscribe(f"ws:{tenant_id}:events")',
+        ].join('\n'),
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(appDir, 'src', 'ws_leak_fin.py'),
+        [
+          'async def ws_ep_fin(ws: WebSocket, redis_cli, tenant_id: str):',
+          '    ps = redis_cli.pubsub()',
+          '    try:',
+          '        await ps.subscribe(f"ws:{tenant_id}:events")',
+          '    finally:',
+          '        pass',
+        ].join('\n'),
+        'utf8'
+      );
 
       const res = await auditSecurityStigOwasp(appDir);
       const hydrationHits = res.findings.filter((f) => f.rule_id === 'QA-SSR-HYDRATION-01');
       expect(hydrationHits.some((f) => f.file === 'src/ThemeToggle.tsx')).toBe(true);
       expect(hydrationHits.filter((f) => f.file === 'src/Banner.jsx')).toHaveLength(2);
-      expect(res.findings.filter((f) => f.rule_id === 'QA-STRYKER-CFG-01' && f.severity === 'MEDIUM')).toHaveLength(2);
-      expect(res.findings.filter((f) => f.rule_id === 'SEC-WS-PUBSUB-01' && f.severity === 'HIGH').length).toBeGreaterThanOrEqual(1);
+      expect(res.findings.filter((f) => f.rule_id === 'QA-STRYKER-CFG-01' && f.severity === 'MEDIUM')).toHaveLength(4);
+      expect(res.findings.filter((f) => f.rule_id === 'SEC-WS-PUBSUB-01' && f.severity === 'HIGH').length).toBeGreaterThanOrEqual(4);
 
       // Compliant variants produce zero findings
       const safeDir = path.join(tmpDir, 'ola4-safe');
       fs.mkdirSync(path.join(safeDir, 'src'), { recursive: true });
       fs.mkdirSync(path.join(safeDir, 'sub-env'), { recursive: true });
       fs.mkdirSync(path.join(safeDir, 'sub-num'), { recursive: true });
+      fs.mkdirSync(path.join(safeDir, 'sub-mut-ok'), { recursive: true });
+      fs.mkdirSync(path.join(safeDir, 'sub-mut-test'), { recursive: true });
+      fs.mkdirSync(path.join(safeDir, 'sub-env-test'), { recursive: true });
       fs.mkdirSync(path.join(safeDir, 'sub-exempt'), { recursive: true });
       fs.writeFileSync(
         path.join(safeDir, 'stryker.conf.json'),
@@ -1401,8 +1437,31 @@ describe('QA-HEALTH-01 & Dual-Consumer Evolution Suite', () => {
         'utf8'
       );
       fs.writeFileSync(
+        path.join(safeDir, 'sub-mut-ok', 'stryker.conf.json'),
+        JSON.stringify({
+          ignoreStatic: true,
+          concurrency: 4,
+          mutate: ['src/**/*.ts', '!src/main.ts', '!src/**/*.spec.ts'],
+        }),
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(safeDir, 'sub-mut-test', 'stryker.conf.json'),
+        JSON.stringify({
+          ignoreStatic: true,
+          concurrency: 4,
+          mutate: ['!src/other.ts', '!src/**/*.test.ts'],
+        }),
+        'utf8'
+      );
+      fs.writeFileSync(
         path.join(safeDir, 'sub-env', 'stryker.config.mjs'),
-        'export default { ignoreStatic: true, concurrency: process.env.STRYKER_CONCURRENCY || 2 };\n',
+        "export default { ignoreStatic: true, concurrency: process.env.STRYKER_CONCURRENCY || 2, mutate: ['src/**/*.ts', '!src/**/*.spec.ts'] };\n",
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(safeDir, 'sub-env-test', 'stryker.config.mjs'),
+        "export default { ignoreStatic: true, concurrency: 2, mutate: ['src/**/*.ts', '!src/**/*.test.ts'] };\n",
         'utf8'
       );
       fs.writeFileSync(
@@ -1421,6 +1480,40 @@ describe('QA-HEALTH-01 & Dual-Consumer Evolution Suite', () => {
           'async def listen(pubsub, ws_manager, tenant_id: str):',
           '    await pubsub.subscribe(f"ws:{tenant_id}:events")',
           '    await ws_manager.broadcast(tenant_id, {"event": "ok"})',
+        ].join('\n'),
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(safeDir, 'src', 'ws_close_ok.py'),
+        [
+          'async def ws_ok1(ws: WebSocket, redis_cli, tenant_id: str):',
+          '    ps = redis_cli.pubsub()',
+          '    try:',
+          '        await ps.subscribe(f"ws:{tenant_id}:events")',
+          '    finally:',
+          '        await ps.close()',
+        ].join('\n'),
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(safeDir, 'src', 'ws_aclose_ok.py'),
+        [
+          'async def ws_ok2(ws: WebSocket, redis_cli, tenant_id: str):',
+          '    ps = redis_cli.pubsub()',
+          '    try:',
+          '        await ps.subscribe(f"ws:{tenant_id}:events")',
+          '    finally:',
+          '        await ps.aclose()',
+        ].join('\n'),
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(safeDir, 'src', 'ws_exempt.py'),
+        [
+          '# sec-ws-pubsub-ok',
+          'async def ws_exempt(ws: WebSocket, redis_cli, tenant_id: str):',
+          '    ps = redis_cli.pubsub()',
+          '    await ps.subscribe(f"ws:{tenant_id}:events")',
         ].join('\n'),
         'utf8'
       );

@@ -248,15 +248,15 @@ Integrating SPAs (Vue 3, React) with REST/WebSocket APIs (FastAPI, Node.js) crea
   - On SSR/SSG projects with dual theming, add explicit Playwright coverage for both schemes (`'light'` and `'dark'` via `browser.newContext({ colorScheme })` or `page.emulateMedia({ colorScheme })`) plus `console` and `pageerror` listeners failing on any `/hydration/i` message (audited by `QA-SSR-HYDRATION-01` in `audit_security_stig_owasp`, exemptable with `# qa-ssr-hydration-ok`).
 
 ### 4.31. Non-Root Bounded Stryker Mutation Execution (`QA-STRYKER-CFG-01` — `Standard 11X Layer 6 (L06 Mutation)` & `APSC-DV-003210`)
-- **Risk:** Configuring Stryker Mutator without `"ignoreStatic": true` or with `"concurrency" > 4` exhausts ephemeral CI container RAM/PIDs and causes OOM kills, while invoking Stryker under non-root UID containers where host/procps `ps` differs triggers child-process discovery failures unless a deterministic `/tmp/qa-bin/ps` shim is wired in `qa-mutation`.
+- **Risk:** Configuring Stryker Mutator without `"ignoreStatic": true`, without `!src/**/*.{unit,spec,test}.*` test exclusions in `mutate`, or with `"concurrency" > 4` exhausts ephemeral CI container RAM/PIDs and causes OOM kills, while invoking Stryker under non-root UID containers where host/procps `ps` differs triggers child-process discovery failures unless a deterministic `/tmp/qa-bin/ps` shim is wired in `qa-mutation`.
 - **Mitigation:**
-  - Pin `"ignoreStatic": true` and `"concurrency" <= 4` in `stryker.conf.json(.example)` (`node-backend`, `vue3`, `react-frontend`) alongside explicit `coverageAnalysis: "perTest"`, failing fast on static check regressions (`QA-STRYKER-CFG-01`, exemptable with `# qa-stryker-cfg-ok`).
+  - Pin `"ignoreStatic": true`, `"concurrency" <= 4`, and explicit `!src/**/*.{unit,spec,test}.*` exclusions in `mutate` across `stryker.conf.json(.example)` (`node-backend`, `vue3`, `react-frontend`) alongside `coverageAnalysis: "perTest"`, failing fast on static check regressions (`QA-STRYKER-CFG-01`, exemptable with `# qa-stryker-cfg-ok`).
   - Provide a non-root `/tmp/qa-bin/ps` shim (`PATH="/tmp/qa-bin:$$PATH"`) in container `qa-mutation` targets and enforce deterministic Python `mutmut_gates.py` (`>= 80%` killed ratio) and `qa-profile` (`py-spy`) flamegraph gates.
 
-### 4.32. Multi-Tenant WebSocket & Redis/KeyDB PubSub Channel Isolation (`SEC-WS-PUBSUB-01` — `DISA STIG V-222536 / APSC-DV-001880` & `OWASP A01:2025`)
-- **Risk:** Subscribing WebSocket gateways to global or unvalidated Redis/KeyDB PubSub channels (e.g., `SUBSCRIBE events` or wildcard `PSUBSCRIBE *` without `tenant_id` scoping) or accepting client-supplied room/channel names without matching JWT/session `tenant_id` leaks cross-tenant real-time events.
+### 4.32. Multi-Tenant WebSocket & Redis/KeyDB PubSub Isolation and Pool Cleanup (`SEC-WS-PUBSUB-01` — `DISA STIG V-222536 / APSC-DV-001880` & `OWASP A01:2025`)
+- **Risk:** Subscribing WebSocket gateways to global/unvalidated Redis/KeyDB PubSub channels (e.g., `SUBSCRIBE events` or `*`) without `tenant_id` scoping leaks cross-tenant events, while omitting guaranteed `pubsub.aclose()`/`close()` inside `try/finally:` under abrupt client disconnects exhausts the broker connection pool across sequential E2E runs.
 - **Mitigation:**
-  - Namespace all broker channels with the authenticated tenant (`ws:${tenant_id}:events` / `f"ws:{tenant_id}:events"`) and validate tenant membership server-side on WebSocket upgrade and message fan-out (`SEC-WS-PUBSUB-01`, exemptable with `# sec-ws-pubsub-ok`).
+  - Namespace all broker channels with the authenticated tenant (`ws:${tenant_id}:events` / `f"ws:{tenant_id}:events"`), validate tenant membership server-side, run a decoupled `ws.receive()` disconnect watcher, and guarantee `await pubsub.aclose()` inside `finally:` (`SEC-WS-PUBSUB-01`, exemptable with `# sec-ws-pubsub-ok`).
 
 ---
 
