@@ -98,10 +98,7 @@ jobs:
         run: make qa-mutation
 
       - name: 7️⃣ 11X Certification Gate (ORM Parity, Orphans & Topology in Docker Rule Zero)
-        run: |
-          docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp \
-            -v "$(pwd):/app" -w /app sinfallas/base-python-uv:3.15 \
-            bash ./.agents/scripts/certify_task_completion.sh
+        run: ./.agents/scripts/certify_task_completion.sh
 
       - name: 8️⃣ Dynamic Security DAST (OWASP ZAP Baseline)
         # Starts persistence services and the API, then runs ZAP.
@@ -138,9 +135,9 @@ jobs:
 
 ### 3.1 Composite PR Gate (`qa-11x-pr-check@v3`), SARIF & Differential Gates
 
-For fast PR enforcement without duplicating workflow YAML, reference the composite action `tecno-consultores/qa-testing-blueprints/.github/actions/qa-11x-pr-check@v3` paired with CLI and `Makefile` gates:
+For fast PR enforcement without duplicating workflow YAML, pin the composite action by immutable 40-char commit SHA (`tecno-consultores/qa-testing-blueprints/.github/actions/qa-11x-pr-check@<sha40> # v3`, enforcing `SEC-CI-ACTION-REF`; never float `@v3` in security-hardened workflows) paired with CLI and `Makefile` gates:
 
-* **Strict Release Gate (`certify --strict --release-gate`):** Fails the pipeline if any blocker, pending `ACTIVE_TASK.md` item, unmerged `.example` file, or missing `lint` seal remains open (`make release-gate`).
+* **Strict Release Gate (`certify --strict --release-gate`):** Fails the pipeline if any blocker, pending `ACTIVE_TASK.md` item, unmerged `.example` file, or missing `lint` seal remains open (`python3 .agents/scripts/release_readiness_gate.py` in `Rule Zero` Docker / MCP `evaluate_release_gate`).
 * **SARIF Security Upload (`audit --sarif`):** Emits OWASP/STIG static findings (`--fail-on high`) as SARIF v2.1.0 for native GitHub Code Scanning ingestion.
 * **AST Blast-Radius & Differential Coverage:** Run `blast-radius --changed-since origin/main` and `make diff-cov` (`100%` delta lines, `>= 90%` delta branches) to verify only impacted suites and cover every modified hunk.
 * **Signed Attestations (`make pr-verdict` & `make sbom`):** Generate `PR_VERDICT.md` (`SHA-256` / optional `HMAC-SHA256`) and signed CycloneDX SBOM/CBOM (`ECMA-424`) artifacts before merging.

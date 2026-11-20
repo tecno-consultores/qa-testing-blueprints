@@ -123,7 +123,7 @@ Para evitar que los agentes deban clonar gigabytes de repositorios o saturar su 
    - `propose_skill_evolution_pr`: Propuesta de evolución continua Zero-Trust Dual-Consumer hacia `qa-testing-blueprints`.
    - `reconcile_agents_governance`: Reconciliador y deduplicador automático de reglas en `.agents/` con respaldo en `.agents/backups/`.
    - `validate_calm_architecture` *(v2.0)*: Validador bloqueante de arquitectura como código FINOS CALM (`architecture/qa-11x.calm.json`).
-   - `evaluate_release_gate` *(v2.0)*: Calculador cuantitativo `GO`/`NO_GO` de disponibilidad para liberación (`>= 95%`, Trivy = 0, MSI, CALM).
+   - `evaluate_release_gate` *(v2.0)*: Calculador cuantitativo `GO`/`NO_GO` de disponibilidad para liberación (tasa de aprobación/fallos `JUnit` + SLAs opcionales de telemetría `latency`/`5xx`/MSI/cobertura y defectos; devuelve `SKIPPED` en `smoke`).
    - `evaluate_agent_trajectory` *(v2.0)*: Evaluador offline AST-First y DeepEval para trayectorias multi-paso de agentes de IA.
    - `run_llm_red_team` *(v2.0)*: Auditor Promptfoo OWASP LLM Top 10 con sondas `promptGuard` y ejecución condicional en Docker.
    - `audit_vibe_prototype` *(v2.0)*: Detector de riesgos `VIBE-SEC-001..QA-005` en prototipos IA con planes `dryRun` hacia RLS/WORM.
@@ -151,7 +151,7 @@ Para erradicar el hábito de los agentes de dar tareas por terminadas con prueba
 
 1. **Creación Obligatoria de Pruebas 11X:** Ningún código nuevo puede carecer de pruebas unitarias (`>= 95%`) ni de escenarios BDD en Karate Labs para API y UI.
 2. **Ejecución en Docker Efímero (`Rule Zero`):** Toda la suite debe ejecutarse y pasar al 100% dentro de contenedores efímeros (`make qa-all`).
-3. **Sincronización Documental Continua y Cierre del Flight Recorder:** Actualizar `docs/`, `CHANGELOG.es.md` (bajo `## [Unreleased]`), `ROADMAP.es.md`, `TESTING.es.md`, `README.es.md` y cerrar `.agents/ACTIVE_TASK.md` como `CERTIFIED_CLEAN` mediante `.agents/scripts/checkpoint_ctl.py` (o MCP `session_flight_recorder`, sin edición manual en Markdown).
+3. **Sincronización Documental Continua y Cierre del Flight Recorder:** Actualizar `docs/*.{md,es.md}`, `CHANGELOG.{md,es.md}` (bajo `## [Unreleased]`), `ROADMAP.{md,es.md}`, `TESTING.{md,es.md}`, `README.{md,es.md}` y cerrar `.agents/ACTIVE_TASK.md` como `CERTIFIED_CLEAN` mediante `.agents/scripts/checkpoint_ctl.py` (o MCP `session_flight_recorder`, sin edición manual en Markdown).
 4. **Compuerta de Certificación en 10 Etapas (`10/10`):** Ejecutar `./.agents/scripts/certify_task_completion.sh` verificando:
    - Secret Scanning (`verificar-secretos.sh`).
    - Auditoría de infraestructura y CVEs (Trivy, `auditar-infra.sh`).
@@ -161,8 +161,8 @@ Para erradicar el hábito de los agentes de dar tareas por terminadas con prueba
    - Salud topológica y límites arquitectónicos AST.
    - Paridad ORM entre modelos SQLAlchemy y migraciones Alembic.
    - Sincronización criptográfica del manifiesto SHA-256 (`manifest.json`).
-   - Consistencia estricta de `ROADMAP.es.md` y `ACTIVE_TASK.md`.
-   - Sincronización incondicional de documentación y pruebas obligatorias.
+   - Consistencia estricta de `ROADMAP.{md,es.md}` y `ACTIVE_TASK.md`.
+   - Sincronización incondicional de documentación bilingüe y pruebas obligatorias.
 
 Si cualquiera de los pasos falla, el agente tiene prohibido cerrar el turno.
 
@@ -182,7 +182,7 @@ Los agentes no deben ser estáticos. Si durante el desarrollo descubren:
 - Un antipatrón funcional en UAT (como *Silo Mock Blindness*, omisión del ciclo temporal de 3 fases o mocks ciegos en `write_audit_log`),
 - Una oportunidad de optimizar el consumo de tokens o simplificar un procedimiento,
 
-el agente tiene la directiva explícita de **actualizar de forma autónoma las reglas y skills** en `.agents/`, documentando el cambio en el `CHANGELOG.es.md`.
+el agente tiene la directiva explícita de **actualizar de forma autónoma las reglas y skills** en `.agents/`, documentando el cambio en `CHANGELOG.{md,es.md}`.
 
 ### 🛡️ Separación entre Reglas Globales Canónicas y Reglas de Dominio Local (Caso `rosgrid`)
 Para evitar que las directivas creadas por un agente en un proyecto consumidor (ej. `rosgrid`) choquen o se dupliquen con las reglas globales de `qa-testing-blueprints`:

@@ -1,4 +1,4 @@
-> 📜 **Aviso de Archivo Histórico (Spec 19 §3.4):** Especificación histórica preservada en español como registro arquitectónico inmutable (exenta de espejo bilingüe EN/ES). Para rutas y métricas vigentes, véase [README.es.md](README.es.md).
+> 📜 **Aviso de Archivo Histórico (Spec 19 §3.4):** Especificación histórica (`Hito 21`, Entrega 1 de 3) preservada en español como registro arquitectónico inmutable (exenta de espejo bilingüe EN/ES; en `QA-11X v3.2` el servidor MCP evolucionó a **19 Tools y 13 Resources**). Para rutas y métricas vigentes, véase [README.es.md](README.es.md).
 
 # 🎯 Especificación Técnica 16: Cobertura Diferencial Multi-Stack y Bloqueo Anti-Evasión (Hito 21)
 
@@ -55,7 +55,7 @@ Actualmente, los targets efímeros de prueba destruyen los reportes al finalizar
 ## 4. Algoritmo de Cruce sin Falsos Positivos y Controles DevSecOps
 
 1. **Cero Dependencias Externas y Complejidad `CC <= 5`:** Implementado en librería estándar Python 3.12+ (`xml.etree.ElementTree`, `subprocess`, `pathlib`, `re`, `argparse`) con tipado estricto (`mypy --strict`) y funciones pequeñas de responsabilidad única.
-2. **Ejecución Segura de Git (`shell=False`):** Resuelve `merge-base` y ejecuta `subprocess.run(["git", "diff", "--unified=0", "--no-color", "--no-ext-diff", target_ref], shell=False, check=True)` validando que `base_ref` cumpla `/^[a-zA-Z0-9._\/~^-]+$/` y confinando rutas con `Path.resolve()`.
+2. **Ejecución Segura de Git (`shell=False`):** Resuelve `merge-base` y ejecuta `subprocess.run(["git", "diff", "--unified=0", "--no-color", "--no-ext-diff", target_ref], shell=False, check=True)` validando que `base_ref` cumpla `/^[a-zA-Z0-9._\/~^-]+$/` **sin guion inicial** (`not base_ref.startswith("-")`, equivalente a `/^(?!-)[a-zA-Z0-9._\/~^-]+$/`) y confinando rutas con `Path.resolve()`.
 3. **Intersección Real contra `executable_lines`:**
    - Una línea `+` del diff solo se audita si pertenece al conjunto de líneas ejecutables reportadas por el instrumentador (`<line number="N" hits="H"/>` en Cobertura XML o `DA:<line>,<hits>` / `BRDA:<line>,...` en LCOV). De este modo se ignoran comentarios, docstrings, declaraciones `interface`/`type` en TypeScript y bloques `TYPE_CHECKING` sin heurísticas frágiles.
    - Normaliza prefijos de montaje de contenedores (`/app/`, `/workspace/`) hacia la raíz relativa del `--workspace`.

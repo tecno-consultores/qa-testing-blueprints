@@ -1,4 +1,4 @@
-> 📜 **Aviso de Archivo Histórico (Spec 19 §3.4):** Especificación histórica preservada en español como registro arquitectónico inmutable (exenta de espejo bilingüe EN/ES). Para rutas y métricas vigentes, véase [README.es.md](README.es.md).
+> 📜 **Aviso de Archivo Histórico (Spec 19 §3.4):** Especificación histórica (`v1.x`) preservada en español como registro arquitectónico inmutable (exenta de espejo bilingüe EN/ES; conteos iniciales como 5 skills fueron superados en `QA-11X v3.2` por **11 skills modulares**, **8 reglas**, **19 Tools** y **13 Resources**). Para rutas y métricas vigentes, véase [README.es.md](README.es.md).
 
 # 🧠 Especificación 02: Skill Cognitiva (`qa-11x-architect`) e Instalador Universal
 
@@ -112,8 +112,11 @@ npx -y @sinfallas/mcp-qa-11x@latest install-skill --target [auto|antigravity|cla
 ```
 
 ### 5.2. Vía Script Independiente (`scripts/install-skill.sh`)
+> 🔒 **Nota de Seguridad (`QA-11X v3.2` / `L089`):** En lugar de canalizar descargas remotas directamente a `| sh`, descarga el script en local, verifica su hash contra [`manifest.json`](../../manifest.json) (o clona el repositorio firmado) y ejecútalo en segundo paso:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/scripts/install-skill.sh | sh
+curl -fsSLO https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/scripts/install-skill.sh
+sha256sum install-skill.sh   # Comparar contra sha256 declarado en manifest.json antes de ejecutar
+bash install-skill.sh
 ```
 
 ### 5.3. Rutas de Destino Soportadas por el Instalador (Arquitectura Thin-Repo Global)

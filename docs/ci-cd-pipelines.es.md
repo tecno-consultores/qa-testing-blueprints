@@ -98,10 +98,7 @@ jobs:
         run: make qa-mutation
 
       - name: 7️⃣ Compuerta de Certificación 11X (ORM Parity, Orphans y Topología en Docker Regla Cero)
-        run: |
-          docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp \
-            -v "$(pwd):/app" -w /app sinfallas/base-python-uv:3.15 \
-            bash ./.agents/scripts/certify_task_completion.sh
+        run: ./.agents/scripts/certify_task_completion.sh
 
       - name: 8️⃣ Seguridad Dinámica DAST (OWASP ZAP Baseline)
         # Levanta los servicios de persistencia y la API, luego ejecuta ZAP.
@@ -138,9 +135,9 @@ jobs:
 
 ### 3.1 Compuerta Compuesta PR (`qa-11x-pr-check@v3`), SARIF y Compuertas Diferenciales
 
-Para aplicar verificación rápida en PR sin duplicar YAML, referencia la acción compuesta `tecno-consultores/qa-testing-blueprints/.github/actions/qa-11x-pr-check@v3` junto con las compuertas CLI y `Makefile`:
+Para aplicar verificación rápida en PR sin duplicar YAML, fija la acción compuesta por SHA de commit inmutable de 40 caracteres (`tecno-consultores/qa-testing-blueprints/.github/actions/qa-11x-pr-check@<sha40> # v3`, cumplimiento `SEC-CI-ACTION-REF`; evita etiquetas flotantes `@v3`) junto con las compuertas CLI y `Makefile`:
 
-* **Compuerta Estricta de Release (`certify --strict --release-gate`):** Detiene el pipeline si persisten bloqueantes, tareas pendientes en `ACTIVE_TASK.md`, archivos `.example` sin fusionar o ausencia del sello `lint` (`make release-gate`).
+* **Compuerta Estricta de Release (`certify --strict --release-gate`):** Detiene el pipeline si persisten bloqueantes, tareas pendientes en `ACTIVE_TASK.md`, archivos `.example` sin fusionar o ausencia del sello `lint` (`python3 .agents/scripts/release_readiness_gate.py` en Docker `Rule Zero` / MCP `evaluate_release_gate`).
 * **Carga de Seguridad SARIF (`audit --sarif`):** Emite hallazgos estáticos OWASP/STIG (`--fail-on high`) en formato SARIF v2.1.0 para ingesta nativa en GitHub Code Scanning.
 * **Radio de Explosión AST y Cobertura Diferencial:** Ejecuta `blast-radius --changed-since origin/main` y `make diff-cov` (`100%` líneas delta, `>= 90%` ramas delta) para validar suites impactadas y cubrir cada fragmento modificado.
 * **Atestaciones Firmadas (`make pr-verdict` y `make sbom`):** Genera `PR_VERDICT.md` (`SHA-256` / `HMAC-SHA256` opcional) y artefactos CycloneDX SBOM/CBOM firmados (`ECMA-424`) antes de fusionar.

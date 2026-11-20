@@ -1,4 +1,4 @@
-> 📜 **Aviso de Archivo Histórico (Spec 19 §3.4):** Especificación histórica preservada en español como registro arquitectónico inmutable (exenta de espejo bilingüe EN/ES). Para rutas y métricas vigentes, véase [README.es.md](README.es.md).
+> 📜 **Aviso de Archivo Histórico (Spec 19 §3.4):** Especificación fundacional (`v1.x`) preservada en español como registro arquitectónico inmutable (exenta de espejo bilingüe EN/ES). En `QA-11X v3.2`, el servidor `@sinfallas/mcp-qa-11x` pasó de Node 22 / 5 recursos / 4 tools iniciales a **Node.js 26**, **13 Resources** (10 stacks + `calm`) y **19 Tools**. Para rutas y métricas vigentes, véase [README.es.md](README.es.md).
 
 # ⚙️ Especificación 03: Servidor MCP en Node.js / TypeScript (`@sinfallas/mcp-qa-11x`) — Núcleo, Recursos y Herramientas 1–4
 
@@ -12,7 +12,7 @@
 
 ## 1. Stack Tecnológico y Estructura del Proyecto `mcp-server/`
 
-El servidor MCP se implementará en **Node.js 22+ / TypeScript 5.x** con tipado estricto (`strict: true`), utilizando el SDK oficial **`@modelcontextprotocol/sdk`** y **`zod`** para la validación de esquemas. Toda su validación de calidad se ejecutará en el contenedor efímero oficial `sinfallas/base-node-ionic:26` cumpliendo el estándar 11X (`>= 95%` de cobertura con Vitest, `SonarJS`, `ESLint` y `Stryker`).
+El servidor MCP se implementará originalmente en **Node.js 22+** (actualizado a **Node.js 26** en `QA-11X v3.x`) / **TypeScript 5.x** con tipado estricto (`strict: true`), utilizando el SDK oficial **`@modelcontextprotocol/sdk`** y **`zod`** para la validación de esquemas. Toda su validación de calidad se ejecutará en el contenedor efímero oficial `sinfallas/base-node-ionic:26` cumpliendo el estándar 11X (`>= 95%` de cobertura con Vitest, `SonarJS`, `ESLint` y `Stryker`).
 
 ### 1.1. Árbol de Archivos Exacto de `mcp-server/`
 ```text

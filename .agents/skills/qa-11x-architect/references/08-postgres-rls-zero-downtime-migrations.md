@@ -134,8 +134,10 @@ async def write_audit_log(
     lock_key = f"audit:{tenant_id}"
     await session.execute(text("SELECT pg_advisory_xact_lock(hashtext(:lock_key))"), {"lock_key": lock_key})
 
-    # 2. Resolve previous hash from in-tx session memory first, falling back to monotonic seq_num DESC
-    prev_hash = session.__dict__.get("_rg_in_tx_audit_hash") or session.sync_session.info.get("_in_tx_audit_hash")
+    # 2. Resolve previous hash from tenant-scoped in-tx session memory first, falling back to monotonic seq_num DESC
+    # Ensure @event.listens_for(AsyncSession.sync_session_class, "after_transaction_end") pops("_in_tx_audit_hashes", None)
+    tx_hashes: dict[str, str] = session.sync_session.info.setdefault("_in_tx_audit_hashes", {})
+    prev_hash = tx_hashes.get(str(tenant_id))
     if not prev_hash:
         row = await session.execute(
             select(AuditLog.record_sha256_hash)
@@ -173,8 +175,7 @@ async def write_audit_log(
         record_sha256_hash=record_hash,
     )
     session.add(entry)
-    session.__dict__["_rg_in_tx_audit_hash"] = record_hash
-    session.sync_session.info["_in_tx_audit_hash"] = record_hash
+    tx_hashes[str(tenant_id)] = record_hash
     await session.flush()
     return entry
 ```

@@ -123,7 +123,7 @@ To prevent agents from cloning gigabytes of repositories or saturating their con
    - `propose_skill_evolution_pr`: Zero-Trust Dual-Consumer continuous evolution proposal toward `qa-testing-blueprints`.
    - `reconcile_agents_governance`: Automatic `.agents/` rule reconciler and deduplicator with backups in `.agents/backups/`.
    - `validate_calm_architecture` *(v2.0)*: Blocking validator for FINOS CALM Architecture-as-Code (`architecture/qa-11x.calm.json`).
-   - `evaluate_release_gate` *(v2.0)*: Quantitative `GO`/`NO_GO` release readiness evaluator (`>= 95%`, Trivy = 0, MSI, CALM).
+   - `evaluate_release_gate` *(v2.0)*: Quantitative `GO`/`NO_GO` release readiness evaluator (`JUnit` pass rate/failures/skip rate + optional telemetry `latency`/`5xx`/MSI/coverage and defects SLAs; returns `SKIPPED` on `smoke`).
    - `evaluate_agent_trajectory` *(v2.0)*: Offline AST-First and DeepEval evaluator for multi-step AI agent trajectories.
    - `run_llm_red_team` *(v2.0)*: Promptfoo OWASP LLM Top 10 auditor with `promptGuard` probes and conditional Docker execution.
    - `audit_vibe_prototype` *(v2.0)*: `VIBE-SEC-001..QA-005` risk detector in AI prototypes with `dryRun` migration plans toward RLS/WORM.
@@ -151,7 +151,7 @@ To eradicate the habit of agents marking tasks done with half-finished tests or 
 
 1. **Mandatory 11X Test Creation:** No new code may lack unit tests (`>= 95%`) or Karate Labs BDD scenarios for API and UI.
 2. **Ephemeral Docker Execution (`Rule Zero`):** The entire suite must execute and pass 100% inside ephemeral containers (`make qa-all`).
-3. **Continuous Documentation Sync & Flight Recorder Closure:** Update `docs/`, `CHANGELOG.md` (under `## [Unreleased]`), `ROADMAP.md`, `TESTING.md`, `README.md`, and close `.agents/ACTIVE_TASK.md` as `CERTIFIED_CLEAN` via `.agents/scripts/checkpoint_ctl.py` (or MCP `session_flight_recorder`, never manual Markdown editing).
+3. **Continuous Documentation Sync & Flight Recorder Closure:** Update `docs/*.{md,es.md}`, `CHANGELOG.{md,es.md}` (under `## [Unreleased]`), `ROADMAP.{md,es.md}`, `TESTING.{md,es.md}`, `README.{md,es.md}`, and close `.agents/ACTIVE_TASK.md` as `CERTIFIED_CLEAN` via `.agents/scripts/checkpoint_ctl.py` (or MCP `session_flight_recorder`, never manual Markdown editing).
 4. **10-Stage Certification Gate (`10/10`):** Run `./.agents/scripts/certify_task_completion.sh`, verifying:
    - Secret Scanning (`verificar-secretos.sh`).
    - Infrastructure and CVE audit (Trivy, `auditar-infra.sh`).
@@ -161,8 +161,8 @@ To eradicate the habit of agents marking tasks done with half-finished tests or 
    - Topological health and AST architectural boundaries.
    - ORM parity between SQLAlchemy models and Alembic migrations.
    - Cryptographic SHA-256 manifest synchronization (`manifest.json`).
-   - Strict consistency of `ROADMAP.md` and `ACTIVE_TASK.md`.
-   - Unconditional synchronization of documentation and mandatory tests.
+   - Strict consistency of `ROADMAP.{md,es.md}` and `ACTIVE_TASK.md`.
+   - Unconditional synchronization of bilingual documentation and mandatory tests.
 
 If any step fails, the agent is forbidden from closing the turn.
 
@@ -182,7 +182,7 @@ Agents must not remain static. Whenever during development they uncover:
 - A functional UAT anti-pattern (such as *Silo Mock Blindness*, omitting the 3-phase clock lifecycle, or blind mocks on `write_audit_log`),
 - An opportunity to optimize token consumption or streamline a procedure,
 
-the agent has an explicit directive to **autonomously update rules and skills** in `.agents/`, documenting the change in `CHANGELOG.md`.
+the agent has an explicit directive to **autonomously update rules and skills** in `.agents/`, documenting the change in `CHANGELOG.{md,es.md}`.
 
 ### 🛡️ Separation Between Canonical Global Rules and Local Domain Rules (`rosgrid` Case)
 To prevent directives authored by an agent in a consumer project (e.g., `rosgrid`) from colliding with or duplicating the global rules of `qa-testing-blueprints`:

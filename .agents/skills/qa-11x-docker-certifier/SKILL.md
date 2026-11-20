@@ -37,9 +37,9 @@ This skill governs all tests, linters, audits, and cleanups in projects implemen
 | **Frontend (`vue3/` / `react-frontend/`)** | `Lighthouse CI` (`lhci autorun`) | **Perf/SEO/BP `>= 0.90`, A11y `>= 0.95`, `CLS = 0`, `INP < 200ms`** | `make qa-perf` |
 | **Backend (`php/` 8.2–8.5)** | `PHPStan Level Max` + `Psalm --taint-analysis` + `Pest/PCOV` + `Infection` | **0 errors, PHP Cognitive `<= 9`, `>= 95.0%` cov, `MSI >= 80%`** | `make qa-lint` / `qa-unit` / `qa-mutation` |
 | **Bash / DevOps (`bash-scripts/`)** | `ShellCheck` + `shfmt -i 2 -ci` + `BATS-core` + `kcov` | **0 warnings, `>= 95.0%` coverage** | `make qa-lint` / `qa-unit` |
-| **Mobile (`mobile-appium/`)** | `tsc --noEmit` + `ESLint` + `node --test` + `Appium 3` / `WDIO` (`base-mobile-appium:26`) | **0 errors, `>= 95.0%` cov, Mobile Screenplay & biometric/a11y checks** | `make qa-lint` / `qa-unit` / `qa-e2e` |
+| **Mobile (`mobile-appium/`)** | `tsc --strict --noEmit` + `node --test` + `Appium 3` / `WDIO` (`base-mobile-appium:26`) | **0 errors, `>= 95.0%` lines / `>= 90.0%` branches, Screenplay & deep-link guards** | `make qa-lint` / `qa-unit` / `qa-e2e` |
 | **AI Evals (`ai-evals/`)** | `Pytest` offline contracts + `DeepEval` / `Promptfoo` (Mode 2) | **100% `$0` offline CI + `Hallucination < 0.05` / OWASP LLM Top 10** | `make qa-unit` / `make audit-llm` |
-| **Vibe Rescue (`vibe-rescue/`)** | `audit_vibe_prototype.py` + `Pytest` + `postgres:17-alpine` | **`VIBE-SEC-001..QA-005`, `CC <= 5`, `>= 95.0%` cov, FORCE RLS** | `make qa-lint` / `qa-unit` |
+| **Vibe Rescue (`vibe-rescue/`)** | `audit_vibe_prototype.py` + `Pytest` (`sinfallas/base-python-uv:3.15`) | **`VIBE-SEC-001..QA-005`, `CC <= 5`, `>= 95.0%` cov, SQL `FORCE RLS` templates** | `make qa-lint` / `qa-audit-enforce` / `qa-unit` |
 | **Security & STIG (All 10 Stacks)** | `DISA ASD STIG V6R5` + `OWASP v4.2` + `Trivy` | Session timeouts (10m/15m), 3-fail lockout, `NFKC`, anti-XXE, WORM, SBOM, Trivy `HIGH/CRITICAL = 0` | `make qa-unit` / `make qa-dast` |
 
 ---

@@ -70,16 +70,19 @@ FORBIDDEN_HOSTS = {"localhost", "api", "postgres", "keydb", "redis"}
 
 def validate_safe_outgoing_url(url_str: str) -> str:
     parsed = urlparse(url_str.strip())
-    if parsed.scheme not in ("http", "https"):
-        raise ValueError("Invalid URL scheme")
-    hostname = parsed.hostname or ""
-    if hostname in FORBIDDEN_HOSTS:
+    if parsed.scheme not in ("http", "https") or parsed.username or parsed.password:
+        raise ValueError("Invalid URL scheme or embedded credentials")
+    hostname = (parsed.hostname or "").rstrip(".").lower()
+    if not hostname or hostname in FORBIDDEN_HOSTS:
         raise ValueError("Target host is prohibited")
     addr_info = socket.getaddrinfo(hostname, None)
-    for family, _, _, _, sockaddr in addr_info:
-        ip = ipaddress.ip_address(sockaddr[0])
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
-            raise ValueError("Target resolves to private/restricted IP space")
+    if not addr_info:
+        raise ValueError("Target host could not be resolved")
+    for _, _, _, _, sockaddr in addr_info:
+        raw_ip = ipaddress.ip_address(sockaddr[0].split("%", 1)[0])
+        ip = raw_ip.ipv4_mapped if isinstance(raw_ip, ipaddress.IPv6Address) and raw_ip.ipv4_mapped else raw_ip
+        if not ip.is_global or ip.is_multicast or ip.is_unspecified:
+            raise ValueError("Target resolves to non-global/restricted IP space")
     return url_str
 ```
 
@@ -158,8 +161,10 @@ def canonicalize_nfkc_text(raw_value: str, max_length: int = 256) -> str:
 ```python
 # Never order hash-chained audit logs solely by created_at DESC (vulnerable to clock ties & race conditions).
 # Pair a monotonic BIGINT sequence (seq_num) with pg_advisory_xact_lock and in-session hash tracking:
+# Register @event.listens_for(AsyncSession.sync_session_class, "after_transaction_end") to pop("_in_tx_audit_hashes", None) on commit/rollback.
 await session.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": f"audit:{tenant_id}"})
-prev_hash = session.__dict__.get("_rg_in_tx_audit_hash") or session.sync_session.info.get("_in_tx_audit_hash")
+tx_hashes: dict[str, str] = session.sync_session.info.setdefault("_in_tx_audit_hashes", {})
+prev_hash = tx_hashes.get(str(tenant_id))
 if not prev_hash:
     res = await session.execute(
         select(AuditLog.record_sha256_hash)
@@ -169,8 +174,7 @@ if not prev_hash:
     )
     prev_hash = res.scalar_one_or_none() or ("0" * 64)
 # After computing record_sha256_hash and session.add(entry):
-session.__dict__["_rg_in_tx_audit_hash"] = record_sha256_hash
-session.sync_session.info["_in_tx_audit_hash"] = record_sha256_hash
+tx_hashes[str(tenant_id)] = record_sha256_hash
 await session.flush()
 ```
 
@@ -273,13 +277,16 @@ async def issue_preauth_challenge(redis, user_id: str, tenant_id: str, purpose: 
 async def consume_preauth_challenge_atomic(redis, request: Request, challenge_id: str, otp_valid: bool) -> dict[str, str]:
     origin = request.headers.get("origin")
     sec_site = request.headers.get("sec-fetch-site", "same-origin")
-    if sec_site not in ("same-origin", "same-site", "none") and not origin:
+    if sec_site not in ("same-origin", "same-site", "none") or (origin is not None and origin not in settings.ALLOWED_ORIGINS):
         raise HTTPException(status_code=403, detail="Cross-site pre-auth request blocked")
     key = f"preauth:challenge:{challenge_id}"
     if not otp_valid:
-        attempts = await redis.hincrby(key, "attempts", 1)
-        if attempts >= MAX_PREAUTH_ATTEMPTS:
-            await redis.delete(key)
+        fail_lua = (
+            "if redis.call('EXISTS', KEYS[1]) == 0 then return -1 end; "
+            "local n = redis.call('HINCRBY', KEYS[1], 'attempts', 1); "
+            "if n >= tonumber(ARGV[1]) then redis.call('DEL', KEYS[1]); end; return n"
+        )
+        await redis.eval(fail_lua, 1, key, MAX_PREAUTH_ATTEMPTS)
         raise HTTPException(status_code=401, detail="Invalid verification code")
     # Atomic single-use read + delete via Lua (prevents concurrent replay)
     lua = "local d = redis.call('HGETALL', KEYS[1]); if #d > 0 then redis.call('DEL', KEYS[1]); end; return d"

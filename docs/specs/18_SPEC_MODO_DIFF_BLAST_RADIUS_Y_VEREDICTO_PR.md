@@ -1,4 +1,4 @@
-> 📜 **Aviso de Archivo Histórico (Spec 19 §3.4):** Especificación histórica preservada en español como registro arquitectónico inmutable (exenta de espejo bilingüe EN/ES). Para rutas y métricas vigentes, véase [README.es.md](README.es.md).
+> 📜 **Aviso de Archivo Histórico (Spec 19 §3.4):** Especificación histórica (`Hito 23`, Entrega 3 de 3) preservada en español como registro arquitectónico inmutable (exenta de espejo bilingüe EN/ES; el criterio "cero nuevas tools" aplicaba al Hito 23 previo a `audit_vibe_prototype` y `blueprint://calm`, alcanzando **19 Tools y 13 Resources** en `QA-11X v3.2`). Para rutas y métricas vigentes, véase [README.es.md](README.es.md).
 
 # ⚡ Especificación Técnica 18: Modo Diferencial en Blast Radius y Exportador Ejecutivo `PR_VERDICT.md` (Hito 23)
 
@@ -23,7 +23,7 @@ Esta especificación unifica las capacidades de mayor retorno del análisis de c
 
 Si el invocador omite `changed_since_ref`, `inspect_ast_blast_radius` conserva su comportamiento actual al 100%. Al recibir `changed_since_ref`, activa el modo diferencial delegando en `mcp-server/src/utils/diff-bundle.ts` (complejidad cognitiva `SonarJS <= 15`):
 
-- `changed_since_ref?: string` — Referencia Git base validada estrictamente contra `/^[a-zA-Z0-9._\/~^-]+$/`, ejecutada vía `execFile('git', ['diff', '--unified=1', '--no-color', '--no-ext-diff', ref], { cwd: safeWorkspacePath })` con `shell: false` y confinamiento `fs.realpathSync` dentro del workspace.
+- `changed_since_ref?: string` — Referencia Git base validada estrictamente contra `/^(?!-)[a-zA-Z0-9._\/~^-]{1,128}$/` (prohíbe guion inicial para prevenir *option injection*), ejecutada vía `execFile('git', ['diff', '--unified=1', '--no-color', '--no-ext-diff', ref], { cwd: safeWorkspacePath })` con `shell: false` y confinamiento `fs.realpathSync` dentro del workspace.
 - `max_tokens_budget?: number` — Presupuesto de salida en tokens (por defecto `4000`, usando la estimación `Math.ceil(chars / 4)` alineada con `.agents/scripts/compact_context_11x.py`).
 
 ### 2.2. Poda Semántica en 4 Niveles, Redacción DRY y Alertas 11X

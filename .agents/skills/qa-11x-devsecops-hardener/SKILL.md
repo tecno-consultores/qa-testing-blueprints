@@ -19,7 +19,7 @@ Operational security-by-design sub-skill for Standard 11X (`qa-11x-architect`), 
 Activate strictly on demand when designing, auditing, or modifying:
 - Multi-tenant PostgreSQL 15–17+ schemas, Alembic migrations, `AsyncSession` transactions, or pre-auth lookups.
 - Auth flows (MFA, WebAuthn, Argon2id, lockout, session rotation/purge, Step-Up re-auth, mTLS/PKI).
-- Secret Vaults (AES-256-GCM, memory zeroization), database export scrubbing, or WORM `audit_logs` (`UI-11X-02`).
+- Secret Vaults (AES-256-GCM, memory zeroization), database export scrubbing, or WORM `audit_logs` (`SEC-11`, `SEC-14`, `APSC-DV-001350`).
 - API boundaries, WebSockets, uploads, XML/deserialization parsers, or mutating MCP/JSON-RPC tools (`ApprovalRequest`).
 - Rootless Docker/CI runtimes (`QA-HEALTH-01`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`, `QA-CI-ESCAPE-01`, `QA-MAKE-CURDIR-01`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-COV-01`, `SEC-CI-ACTION-REF`, `pnpm-store-init`, Trivy `HIGH/CRITICAL = 0` alongside `docker-trivy-keydb-hardening`).
 

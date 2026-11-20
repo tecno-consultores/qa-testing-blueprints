@@ -68,7 +68,7 @@
 | `QA-MAKE-CURDIR-01` | Uso de `$(PWD)` / `${PWD}` en sub-Makefiles (`*/Makefile`, `*/Makefile.example`) invocados vía `$(MAKE) -C <subdir>` en lugar de `$(CURDIR)`, exponiendo el directorio padre al montaje del contenedor | `docs/02` §5.3 y `SECURITY.es.md` §4.27 |
 | `QA-CONTRACT-SDK-01` | Servidores MCP/JSON-RPC/ACP probados únicamente invocando handlers con `MagicMock` sin conectar el transporte/cliente real del SDK en proceso (oculta rupturas de firma como `mcp 1.x -> 2.x`) | `docs/02` §1.1 (Regla #11) y `SECURITY.es.md` §4.28 |
 | `QA-DOCKER-LOCK-01` | `Dockerfile` con lista manual de paquetes (`pip install ...`, `npm install <pkg>`) o `uv sync` sin `--frozen` en lugar de instalar desde el lockfile, más ausencia de smoke test sobre la imagen construida (`import`, `id -u != 0`, `401`) | `docs/02` §1.1 (Regla #11) y `SECURITY.es.md` §4.28 |
-| `QA-PLAYWRIGHT-PIN-01` | Desalineación o rango SemVer (`^`/`~`) entre `@playwright/test`/`playwright` en `package.json` e imagen `mcr.microsoft.com/playwright:vX.Y.Z` (o `:latest`) en Compose, además de protección Anti-SSRF DNS/IP (`SEC-03`) y redacción de API keys (`SEC-06`) en `audit_pagespeed_insights.py` | `docs/02` §7, §9 y `SECURITY.es.md` §4.29 |
+| `QA-PLAYWRIGHT-PIN-01` | Desalineación o rango SemVer (`^`/`~`) entre `@playwright/test`/`playwright` en `package.json` e imagen `mcr.microsoft.com/playwright:vX.Y.Z` (o `:latest`) en Compose, además de protección Anti-SSRF DNS/IP (Patrón 4) y redacción de API keys (`SEC-10`) en `audit_pagespeed_insights.py` | `docs/02` §7, §9 y `SECURITY.es.md` §4.29 |
 | `QA-SSR-HYDRATION-01` | Ramificación DOM pre-hidratación (`v-if` sobre `localStorage`/`dataset.theme`) en apps SSR/SSG o ausencia de barrido Playwright dual `'light'`/`'dark'` con guardia `console`/`pageerror` (`/hydration/i`) | `docs/02` §7 y `SECURITY.es.md` §4.30 |
 
 ---
@@ -190,39 +190,41 @@ from urllib.parse import urlparse
 
 FORBIDDEN_CONTAINER_HOSTS = {"localhost", "api", "postgres", "keydb", "redis", "worker"}
 
-def validate_safe_outgoing_url(url_str: str) -> str:
+def resolve_safe_outgoing_target(url_str: str) -> tuple[str, str]:
+    """Valida una URL saliente contra SSRF y fija la primera IP segura resuelta (anti-DNS-rebinding)."""
     parsed = urlparse(url_str.strip())
-    if parsed.scheme not in ("http", "https"):
-        raise ValueError(f"Esquema no permitido: {parsed.scheme}")
+    if parsed.scheme not in ("http", "https") or parsed.username or parsed.password:
+        raise ValueError(f"Esquema no permitido o credenciales embebidas: {parsed.scheme}")
 
-    hostname = parsed.hostname
-    if not hostname:
-        raise ValueError("URL sin hostname válido")
+    hostname = (parsed.hostname or "").rstrip(".").lower()
+    if not hostname or hostname in FORBIDDEN_CONTAINER_HOSTS:
+        raise ValueError("Acceso prohibido a recursos internos de infraestructura o host vacío")
 
-    if hostname.lower() in FORBIDDEN_CONTAINER_HOSTS:
-        raise ValueError("Acceso prohibido a recursos internos de infraestructura")
-
-    # 🔒 Resuelve DNS antes de realizar la petición HTTP
+    # 🔒 Resuelve DNS antes de realizar la petición HTTP y fija la IP validada
     try:
         resolved_ips = socket.getaddrinfo(hostname, None)
     except socket.gaierror as exc:
         raise ValueError(f"No se pudo resolver el host: {hostname}") from exc
 
+    pinned_ip: str | None = None
     for item in resolved_ips:
         ip_addr_str = item[4][0]
-        ip = ipaddress.ip_address(ip_addr_str)
+        raw_ip = ipaddress.ip_address(ip_addr_str)
+        ip = raw_ip.ipv4_mapped or raw_ip
 
-        # Bloquea rangos privados RFC 1918, Loopback, Link-Local y Multicast
-        if (
-            ip.is_private
-            or ip.is_loopback
-            or ip.is_link_local
-            or ip.is_multicast
-            or ip.is_reserved
-        ):
-            raise ValueError(f"Destino prohibido en red privada/reservada ({ip_addr_str})")
+        # Bloquea RFC 1918, Loopback, Link-Local, CGNAT (100.64.0.0/10), Multicast, Reservados y Unspecified
+        if not ip.is_global or ip.is_multicast or ip.is_unspecified:
+            raise ValueError(f"Destino prohibido en red no global/restringida ({ip_addr_str})")
+        if pinned_ip is None:
+            pinned_ip = str(ip)
 
-    return url_str
+    assert pinned_ip is not None
+    return url_str.strip(), pinned_ip
+
+
+def validate_safe_outgoing_url(url_str: str) -> str:
+    safe_url, _ = resolve_safe_outgoing_target(url_str)
+    return safe_url
 ```
 
 ---
@@ -326,7 +328,9 @@ Requerir tokens CSRF en llamadas de APIs Machine-to-Machine (M2M) o agentes de I
 
 ### Implementación Obligatoria
 ```python
+import hashlib
 import hmac
+import os
 from fastapi import Request, Response, status
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -337,14 +341,14 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
         if request.method in ("GET", "HEAD", "OPTIONS"):
             return await call_next(request)
 
-        # 🔒 Regla OWASP: Si la petición usa cabecera Authorization: Bearer, no requiere CSRF
-        auth_header = request.headers.get("authorization", "")
-        if auth_header.startswith("Bearer "):
+        # 🔒 Regla OWASP: Exime ÚNICAMENTE llamadas Bearer verificadas SIN cookie de sesión
+        has_session_cookie = bool(request.cookies.get("session_id"))
+        if getattr(request.state, "auth_scheme", None) == "bearer" and not has_session_cookie:
             return await call_next(request)
 
         # Si la petición depende de cookies de navegador, exige X-CSRF-Token
-        csrf_token = request.headers.get("X-CSRF-Token")
-        if not csrf_token or not self.validate_csrf_token(csrf_token, request):
+        csrf_header = request.headers.get("X-CSRF-Token")
+        if not csrf_header or not self.validate_csrf_token(csrf_header, request):
             return JSONResponse(
                 status_code=status.HTTP_403_FORBIDDEN,
                 content={"detail": "Token CSRF inválido o faltante."},
@@ -353,8 +357,12 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
     def validate_csrf_token(self, token: str, request: Request) -> bool:
-        # Validación HMAC con digest seguro...
-        return True
+        secret = os.environ.get("CSRF_HMAC_SECRET", "").encode("utf-8")
+        session_id = request.cookies.get("session_id", "")
+        if not secret or not session_id:
+            return False
+        expected = hmac.new(secret, session_id.encode("utf-8"), hashlib.sha256).hexdigest()
+        return hmac.compare_digest(token, expected)
 ```
 
 ---
@@ -413,13 +421,10 @@ En rotación estricta de Refresh Tokens, cuando un usuario abre 3 pestañas simu
 
 ### Implementación Obligatoria (KeyDB / Redis)
 ```python
-import time
-
 GRACE_PERIOD_SECONDS = 5
 
+
 async def rotate_refresh_token(redis_client, old_token_family_id: str, new_token: str) -> None:
-    now = int(time.time())
-    
     # 🔒 En lugar de borrar el token anterior inmediatamente, almacena la llave con TTL de cortesía
     # Esto permite que las peticiones de otras pestañas que salieron casi a la par se acepten
     await redis_client.set(
@@ -506,7 +511,7 @@ Permitir sesiones concurrentes ilimitadas o con tiempos de inactividad uniformes
 from dataclasses import dataclass
 import secrets
 import time
-from fastapi import HTTPException, Response, status
+from fastapi import HTTPException, status
 
 # 🔒 DISA STIG V-222389 / V-222390: Timeouts de inactividad diferenciados por rol
 IDLE_TIMEOUT_PRIVILEGED_SEC = 10 * 60   # 10 minutos para roles administrativos
@@ -617,7 +622,6 @@ Si la API responde más rápido cuando un usuario no existe que cuando la contra
 ### Implementación Obligatoria (Python / FastAPI)
 ```python
 import re
-from datetime import datetime, timedelta, timezone
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 
@@ -681,7 +685,7 @@ async def verify_credentials_constant_time(
     # 🔒 DISA STIG V-222437 / OWASP P-12: Retornar fecha/hora del último inicio de sesión al usuario
     return {
         "user_id": user_record["id"],
-        "last_Interactive_logon_utc": user_record.get("last_logon_utc"),
+        "last_interactive_logon_utc": user_record.get("last_logon_utc"),
         "last_failed_attempt_utc": user_record.get("last_failed_utc"),
     }
 ```
@@ -699,6 +703,7 @@ Los atacantes utilizan representaciones Unicode homógrafas o descompuestas (com
 
 ### Implementación Obligatoria (Python)
 ```python
+import ipaddress
 import subprocess
 import unicodedata
 from pathlib import Path
@@ -714,11 +719,14 @@ def canonicalize_and_validate_text(raw_value: str, max_length: int = 256) -> str
     return normalized
 
 def run_allowlisted_diagnostic_tool(target_ip: str) -> str:
-    """DISA STIG V-222604 & OWASP SFL-9: Prohibido shell=True; usar lista blanca de argumentos."""
+    """DISA STIG V-222604 & OWASP SFL-9: Prohibido shell=True; validar IP estricta y delimitar con '--'."""
     clean_ip = canonicalize_and_validate_text(target_ip, max_length=45)
-    # 🔒 Ejecución directa de binario con ruta absoluta, sin intérprete de comandos (shell=False)
+    parsed_ip = ipaddress.ip_address(clean_ip)
+    if parsed_ip.is_multicast or parsed_ip.is_unspecified:
+        raise ValueError("Dirección IP de destino no permitida para diagnóstico.")
+    # 🔒 Ejecución directa sin shell y con '--' fin de opciones para evitar CWE-88 flag injection
     completed = subprocess.run(
-        ["/usr/bin/ping", "-c", "1", "-W", "2", clean_ip],
+        ["/usr/bin/ping", "-c", "1", "-W", "2", "--", str(parsed_ip)],
         shell=False,
         check=True,
         capture_output=True,
@@ -748,17 +756,16 @@ import hashlib
 import json
 from lxml import etree
 
-# 🔒 DISA STIG V-222593 / V-222608: Deshabilitar DTDs, entidades externas y acceso de red en XML
-SAFE_XML_PARSER = etree.XMLParser(
-    resolve_entities=False,
-    no_network=True,
-    dtd_validation=False,
-    load_dtd=False,
-    huge_tree=False,
-)
-
 def parse_xml_safely(xml_bytes: bytes) -> etree._Element:
-    return etree.fromstring(xml_bytes, parser=SAFE_XML_PARSER)
+    # 🔒 Instanciar XMLParser endurecido por llamada (los parsers de lxml no son thread-safe compartidos globalmente)
+    parser = etree.XMLParser(
+        resolve_entities=False,
+        no_network=True,
+        dtd_validation=False,
+        load_dtd=False,
+        huge_tree=False,
+    )
+    return etree.fromstring(xml_bytes, parser=parser)
 
 # 🔒 OWASP VSD 1-6: Deserialización segura mediante JSON estricto + verificación de firma HMAC
 def deserialize_signed_payload(payload_bytes: bytes, signature_hex: str, secret_key: bytes) -> dict:
@@ -834,10 +841,18 @@ class AuditEntrySpec:
     previous_record_hmac: str
 
 
+import re
+
+_ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
+_CTRL_AND_SEP_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\u2028\u2029]")
+
+
 def sanitize_log_field(value: str) -> str:
-    """OWASP SL-4 & SLD-2: Erradica inyección CR/LF y caracteres de control en logs."""
+    """OWASP SL-4 & SLD-2: Elimina escapes ANSI, caracteres de control C0/C1, separadores Unicode y CR/LF."""
+    cleaned = _ANSI_ESCAPE_RE.sub("", value)
+    cleaned = _CTRL_AND_SEP_RE.sub("", cleaned)
     return (
-        value.replace("\r", "\\r")
+        cleaned.replace("\r", "\\r")
         .replace("\n", "\\n")
         .replace("\t", "\\t")
         .replace("<", "&lt;")
@@ -899,14 +914,13 @@ from contextlib import contextmanager
 from typing import Iterator
 
 @contextmanager
-def ephemeral_secret_buffer(secret_bytes: bytes) -> Iterator[bytearray]:
-    """DISA STIG V-222612 & OWASP MM-3/MM-8: Sobrescribe el búfer de memoria en todos los puntos de salida."""
-    buf = bytearray(secret_bytes)
+def ephemeral_secret_buffer(secret_buf: bytearray) -> Iterator[bytearray]:
+    """DISA STIG V-222612 & OWASP MM-3/MM-8: Sobrescribe en cero el bytearray mutable del invocador en todo punto de salida (evita bytes inmutables)."""
     try:
-        yield buf
+        yield secret_buf
     finally:
-        for i in range(len(buf)):
-            buf[i] = 0
+        for i in range(len(secret_buf)):
+            secret_buf[i] = 0
 
 SENSITIVE_EXPORT_FIELDS = {"password_hash", "totp_secret", "vault_dek", "api_private_key", "db_admin_dsn"}
 
@@ -1018,9 +1032,12 @@ async def enforce_anti_data_mining_quota(
             detail=f"El límite máximo por página es {MAX_PAGE_LIMIT}.",
         )
     rate_key = f"datamining:{tenant_id}:{user_id}"
-    count = await redis_client.incr(rate_key)
-    if count == 1:
-        await redis_client.expire(rate_key, 60)
+    count = int(await redis_client.eval(
+        "local c = redis.call('INCR', KEYS[1]); "
+        "if c == 1 or redis.call('TTL', KEYS[1]) == -1 then redis.call('EXPIRE', KEYS[1], 60); end; return c",
+        1,
+        rate_key,
+    ))
     if count > DATA_MINING_QUERY_THRESHOLD_PER_MIN:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -1029,12 +1046,18 @@ async def enforce_anti_data_mining_quota(
     return requested_limit
 
 async def fetch_external_partner_safely(url: str) -> ExternalPartnerPayload:
-    """OWASP API10:2023: Pre-flight SSRF, timeouts estrictos, streaming acotado y sin redirecciones."""
-    safe_url = validate_safe_outgoing_url(url)
+    """OWASP API10:2023: Pre-flight DNS pin (cierra TOCTOU DNS rebinding), timeouts estrictos, streaming acotado y sin redirecciones."""
+    safe_url, pinned_ip = resolve_safe_outgoing_target(url)
+    parsed = urlparse(safe_url)
+    host_header = parsed.netloc
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    target_host = f"[{pinned_ip}]" if ":" in pinned_ip else pinned_ip
+    pinned_url = parsed._replace(netloc=f"{target_host}:{port}").geturl()
+    extensions = {"sni_hostname": (parsed.hostname or "").encode("ascii")} if parsed.scheme == "https" else {}
     chunks: list[bytes] = []
     total_bytes = 0
     async with httpx.AsyncClient(timeout=5.0, follow_redirects=False, verify=True) as client:
-        async with client.stream("GET", safe_url) as resp:
+        async with client.stream("GET", pinned_url, headers={"Host": host_header}, extensions=extensions) as resp:
             resp.raise_for_status()
             async for chunk in resp.aiter_bytes():
                 total_bytes += len(chunk)
@@ -1124,7 +1147,7 @@ namespace App\Security;
 
 final class DisaStigSecurityGuard
 {
-    private const DUMMY_ARGON2ID_HASH = '$argon2id$v=19$m=65536,t=4,p=1$c2luZmFsbGFzMTF4$7W5rT3x9mK2pL8vN1qR4sT6uV8wX0yZ2aB4cD6eF8gH';
+    private const DUMMY_ARGON2ID_HASH = '$argon2id$v=19$m=65536,t=4,p=1$Q0NiL3hCNTh3MzNIbFJUag$u0XzMOr3eoUz8BKmIJr9g5oEzPk7mXGvt/o7HHvO7go';
 
     /**
      * Patrón 16 (APSC-DV-002520): Canonicalización Unicode NFKC previa a cualquier validación.
@@ -1178,7 +1201,7 @@ final class DisaStigSecurityGuard
         $failKey = "auth_fail:{$username}";
         if ((int) ($keydb->get($failKey) ?: 0) >= 3) {
             password_verify($password, self::DUMMY_ARGON2ID_HASH);
-            throw new \RuntimeException('Cuenta bloqueada temporalmente por 15 minutos (APSC-DV-000530).');
+            throw new \RuntimeException('Credenciales inválidas o cuenta temporalmente bloqueada.');
         }
         $targetHash = is_array($userRecord) && isset($userRecord['password_hash'])
             ? (string) $userRecord['password_hash']
@@ -1187,7 +1210,7 @@ final class DisaStigSecurityGuard
         $isValid = password_verify($password, $targetHash) && $userRecord !== null;
         if (!$isValid) {
             $keydb->multi()->incr($failKey)->expire($failKey, 900)->exec();
-            throw new \RuntimeException('Credenciales inválidas o cuenta bloqueada.');
+            throw new \RuntimeException('Credenciales inválidas o cuenta temporalmente bloqueada.');
         }
         $keydb->del($failKey);
         return true;

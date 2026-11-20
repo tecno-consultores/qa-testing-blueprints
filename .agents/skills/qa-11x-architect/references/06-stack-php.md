@@ -15,8 +15,8 @@ All execution MUST occur inside ephemeral Docker containers (`Rule Zero`) using 
 | **PHP API / Test Runner** | `sinfallas/basephpcomposer:8.5` | Non-root `www` (`1000:1000`) | Pest/PHPUnit + PCOV, PHPStan, Psalm, PHP-CS-Fixer, Infection |
 | **Relational Database** | `postgres:17-alpine` | `5432:5432` | Real PostgreSQL schema parity, `FORCE RLS`, Doctrine/Laravel migrations |
 | **In-Memory Store & Cache** | `eqalpha/keydb:6.3.4` | `6379:6379` | Multi-threaded KeyDB (`--server-threads 2`) via C `ext-redis` |
-| **Black-Box REST / HTTP BDD** | `sinfallas/karatelabs:1.5.1` | Target: `http://qa-php:8000` | Gherkin HTTP, OpenAPI & OWASP OSHP checks (`test/api_test.feature`) |
-| **Dynamic Security (DAST)** | `zaproxy/zap-stable:2.15.0` | Target: `http://qa-php:8000` | OWASP ZAP Baseline & OSHP header verification |
+| **Black-Box REST / HTTP BDD** | `sinfallas/karatelabs:1.5.1` | Target: `http://php-api:8000` | Gherkin HTTP, OpenAPI & OWASP OSHP checks (`test/api_test.feature`) |
+| **Dynamic Security (DAST)** | `zaproxy/zap-stable:2.15.0` | Target: `http://php-api:8000` | OWASP ZAP Baseline & OSHP header verification |
 | **Chaos Injection** | `gaiaadm/pumba:0.10.1` | Docker Socket | Network latency (`netem`), jitter, and packet loss |
 
 ---
@@ -85,8 +85,9 @@ opcache.memory_consumption = 256
 opcache.interned_strings_buffer = 16
 opcache.max_accelerated_files = 20000
 opcache.save_comments = 1
-opcache.jit = tracing
-opcache.jit_buffer_size = 128M
+opcache.jit = disable
+opcache.jit_buffer_size = 0
+; For prod PHP-FPM without PCOV use tracing / 128M; disabling JIT in QA CLI avoids failOnWarning PCOV notices
 
 [pcov]
 pcov.enabled = 1
@@ -112,7 +113,7 @@ parameters:
 
 ### `Makefile` Targets
 ```makefile
-.PHONY: qa-lint qa-unit qa-parity qa-contracts qa-bdd qa-mutation qa-dast qa-chaos qa-sbom qa-all clean-cache clean qa-clean
+.PHONY: qa-lint qa-unit qa-parity qa-contracts qa-bdd qa-mutation qa-dast qa-load qa-chaos qa-sbom qa-all clean-cache clean qa-clean
 
 PROJECT_DIR ?= $(CURDIR)
 QA_UID ?= $(shell id -u)
@@ -120,34 +121,53 @@ QA_GID ?= $(shell id -g)
 export QA_UID QA_GID
 
 qa-lint:
-	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c "[ -f vendor/autoload.php ] || composer install --no-interaction --prefer-dist --quiet; composer --quiet run-script qa:lint"
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c "[ -f vendor/autoload.php ] || php -d allow_url_fopen=1 /usr/local/bin/composer install --no-interaction --prefer-dist --quiet; php -d allow_url_fopen=1 /usr/local/bin/composer run-script qa:lint"
 
 qa-unit:
-	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c "[ -f vendor/autoload.php ] || composer install --no-interaction --prefer-dist --quiet; composer run-script qa:unit"
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c "[ -f vendor/autoload.php ] || php -d allow_url_fopen=1 /usr/local/bin/composer install --no-interaction --prefer-dist --quiet; composer run-script qa:unit"
 
 qa-parity:
-	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml down -v >/dev/null 2>&1 || true" EXIT; \
-		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml up -d --wait postgres-qa keydb-qa && \
-		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c "if [ -f bin/console ]; then php bin/console doctrine:schema:validate --skip-sync; elif [ -f artisan ]; then php artisan migrate:status; else echo \"[SKIPPED] ORM console absent (Doctrine/Laravel).\"; fi"'
+	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml --profile \"*\" down -v >/dev/null 2>&1 || true" EXIT; \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml --profile integration up -d --wait postgres-qa keydb-qa && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c "[ -f vendor/autoload.php ] || php -d allow_url_fopen=1 /usr/local/bin/composer install --no-interaction --prefer-dist --quiet; if [ -f bin/console ]; then DATABASE_URL=\"\$$MIGRATION_DATABASE_URL\" php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration && DATABASE_URL=\"\$$MIGRATION_DATABASE_URL\" php bin/console doctrine:schema:validate; elif [ -f artisan ]; then DB_URL=\"\$$MIGRATION_DATABASE_URL\" php artisan migrate --force --no-interaction && DB_URL=\"\$$MIGRATION_DATABASE_URL\" php artisan migrate:status; else echo \"[SKIPPED] ORM console absent (Doctrine/Laravel).\"; fi" && \
+		unprotected=$$(docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml exec -T postgres-qa psql -U qa_user -d qa_db -tAc "SELECT COUNT(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='\''public'\'' AND c.relkind='\''r'\'' AND (NOT c.relrowsecurity OR NOT c.relforcerowsecurity);"); \
+		[ "$${unprotected:-0}" -eq 0 ]'
 
 qa-contracts:
-	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c "if [ -f vendor/bin/openapi ]; then ./vendor/bin/openapi src/ -o openapi.json --format json; else echo '[SKIPPED] OpenAPI generator not installed.'; fi"
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c "[ -f vendor/autoload.php ] || php -d allow_url_fopen=1 /usr/local/bin/composer install --no-interaction --prefer-dist --quiet; if [ -f vendor/bin/openapi ]; then ./vendor/bin/openapi src/ -o openapi.json --format json; else echo '[SKIPPED] OpenAPI generator not installed.'; fi"
 
 qa-bdd:
-	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml down -v >/dev/null 2>&1 || true" EXIT; \
-		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml up -d --wait postgres-qa keydb-qa qa-php && \
-		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T karatelabs mvn -B clean test'
+	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml --profile \"*\" down -v >/dev/null 2>&1 || true" EXIT; \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml --profile integration up -d --wait postgres-qa keydb-qa php-api && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml --profile integration run --rm -T karatelabs mvn -B clean test'
 
 qa-mutation:
-	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c "[ -f vendor/autoload.php ] || composer install --no-interaction --prefer-dist --quiet; composer run-script qa:mutation"  # MSI >= 80%
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c "[ -f vendor/autoload.php ] || php -d allow_url_fopen=1 /usr/local/bin/composer install --no-interaction --prefer-dist --quiet; composer run-script qa:mutation"  # MSI >= 80%
+
+qa-dast:
+	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml --profile \"*\" down -v >/dev/null 2>&1 || true" EXIT; \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml --profile integration up -d --wait postgres-qa keydb-qa php-api && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml --profile integration run --rm -T -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp zap zap-baseline.py -t http://php-api:8000 -r zap-report.html'
+
+qa-load:
+	mkdir -p "$(PROJECT_DIR)/reports"
+	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml --profile \"*\" down -v >/dev/null 2>&1 || true" EXIT; \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml --profile load up --abort-on-container-exit --exit-code-from k6-smoke'
+
+qa-chaos:
+	mkdir -p "$(PROJECT_DIR)/reports"
+	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml --profile \"*\" down -v >/dev/null 2>&1 || true" EXIT; \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml --profile chaos up -d --wait postgres-qa keydb-qa php-api && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml --profile chaos up -d pumba prometheus && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml --profile load run --rm -T -e K6_P95_MS=900 -e K6_P99_MS=1500 k6-smoke'
 
 qa-sbom:
-	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c "[ -f vendor/autoload.php ] || composer install --no-interaction --prefer-dist --quiet; composer run-script qa:sbom"
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c "[ -f vendor/autoload.php ] || php -d allow_url_fopen=1 /usr/local/bin/composer install --no-interaction --prefer-dist --quiet; composer run-script qa:sbom"
 
-qa-all: qa-lint qa-unit qa-parity qa-bdd qa-mutation qa-sbom
+qa-all: qa-lint qa-unit qa-parity qa-contracts qa-bdd qa-mutation qa-dast qa-load qa-chaos qa-sbom
 
 clean-cache:
-	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml down -v >/dev/null 2>&1 || true
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml --profile "*" down -v >/dev/null 2>&1 || true
 
 clean: clean-cache
 	@./scripts/limpieza.sh  # (or @./limpieza.sh inside hydrated stack)

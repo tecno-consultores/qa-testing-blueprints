@@ -23,17 +23,21 @@ Before running `Layer 10` load or `Layer 12` chaos experiments, every backend se
 Load (`Layer 10`) and chaos (`Layer 12`) experiments validate that the system degrades gracefully without unhandled `HTTP 500` errors, data corruption, or connection-pool deadlocks when infrastructure fails under load:
 
 ```bash
+# Run Pumba chaos inside hardened Compose (`--profile chaos`) or pinned digest containers (`no-new-privileges`, explicit regex anchors):
 # 1. Network Latency & Jitter Injection (300ms ± 100ms on DB/KeyDB for 30s)
-docker run -d --rm -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba:0.10.1 \
-  netem --duration 30s --tc-image gaiadocker/iproute2 delay --time 300 --jitter 100 --correlation 20 re2:.*(postgres|redis).*
+docker run -d --rm --security-opt=no-new-privileges:true --cap-drop ALL \
+  -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba@sha256:6b21e80b8f09369103f7a44a75e8c7f330f3f72e7e7a8a3d8d9170b1a9285b3a \
+  netem --duration 30s --tc-image gaiadocker/iproute2:latest delay --time 300 --jitter 100 --correlation 20 're2:^.*(postgres|keydb|redis).*$'
 
-# 2. Packet Loss Simulation (15% packet loss on external/router gateway)
-docker run -d --rm -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba:0.10.1 \
-  netem --duration 20s --tc-image gaiadocker/iproute2 loss --percent 15 re2:.*api.*
+# 2. Packet Loss Simulation (15% packet loss on API container)
+docker run -d --rm --security-opt=no-new-privileges:true --cap-drop ALL \
+  -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba@sha256:6b21e80b8f09369103f7a44a75e8c7f330f3f72e7e7a8a3d8d9170b1a9285b3a \
+  netem --duration 20s --tc-image gaiadocker/iproute2:latest loss --percent 15 're2:^.*api.*$'
 
 # 3. Process Freeze / GC Pause Simulation (SIGSTOP/SIGCONT for 5s)
-docker run --rm -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba:0.10.1 \
-  pause --duration 5s re2:.*redis.*
+docker run --rm --security-opt=no-new-privileges:true --cap-drop ALL \
+  -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba@sha256:6b21e80b8f09369103f7a44a75e8c7f330f3f72e7e7a8a3d8d9170b1a9285b3a \
+  pause --duration 5s 're2:^.*(keydb|redis).*$'
 ```
 
 ### Mandatory Resilience Invariants Under Chaos
@@ -56,7 +60,7 @@ docker run --rm -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba:0.10.
 ## 4. Autonomous Incident Triage & Post-Mortem Evolution Playbook
 
 When diagnosing a production/UAT failure or test escape:
-1. **Isolate via AST Blast Radius:** Run `python3 .agents/scripts/inspect_blast_radius.py "<failing_symbol>"` to map all upstream callers and downstream dependencies without reading unrelated files.
+1. **Isolate via AST Blast Radius (`Rule Zero`):** Run `docker run --rm --network none --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/inspect_blast_radius.py "<failing_symbol>"` (or MCP `inspect_ast_blast_radius`) to map callers/dependencies without reading unrelated files.
 2. **Reproduce Before Patching (Anti-Mock Blindness):** Write a failing unit + integration/BDD test reproducing the exact payload, clock phase (`t < starts_at`, `starts_at <= t <= ends_at`, `t > ends_at`), or serialization type (`Decimal`, `UUID`, `datetime`) that escaped previous mocks.
 3. **Verify in Ephemeral Docker (`Rule Zero`):** Execute the targeted and full stack QA suite in Docker.
 4. **Mandatory QA-Escape Evolution:** Present the block `💡 Oportunidad de Mejora Detectada para el Estándar QA 11X` in Spanish and invoke `propose_skill_evolution_pr` so the guardrail is permanently codified upstream.

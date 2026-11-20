@@ -48,7 +48,7 @@
 ---
 
 ## ✅ Hito 1: Especificaciones de Diseño (`docs/specs/`) y Planificación (`ROADMAP.md`)
-**Referencia:** [`docs/specs/`](docs/specs/)
+**Referencia:** [`docs/specs/README.es.md`](docs/specs/README.es.md)
 - [x] **1.1.** Crear [`docs/specs/01_SPEC_ARQUITECTURA_ZERO_CLONE_Y_MANIFIESTO_REMOTO.md`](docs/specs/01_SPEC_ARQUITECTURA_ZERO_CLONE_Y_MANIFIESTO_REMOTO.md) definiendo el flujo Zero-Clone, el esquema exacto de `manifest.json` y el algoritmo de caché verificada con SHA-256.
 - [x] **1.2.** Crear [`docs/specs/02_SPEC_SKILL_QA_11X_ARCHITECT_E_INSTALADOR.md`](docs/specs/02_SPEC_SKILL_QA_11X_ARCHITECT_E_INSTALADOR.md) definiendo la estructura de `.agents/skills/qa-11x-architect/`, sus 5 archivos `references/` en inglés técnico compacto y el instalador universal.
 - [x] **1.3.** Crear [`docs/specs/03_SPEC_MCP_SERVER_NODE_TS_CORE_Y_TOOLS.md`](docs/specs/03_SPEC_MCP_SERVER_NODE_TS_CORE_Y_TOOLS.md) definiendo la arquitectura Node.js/TypeScript de `mcp-server/`, `package.json`, los 4 Resources y las Tools 1 a 4.
@@ -123,7 +123,7 @@
 - [x] **6.1.** Crear la suite completa de pruebas unitarias en `mcp-server/tests/*.unit.ts` alcanzando **>= 95.0% de cobertura** en líneas, ramas, funciones y sentencias dentro del contenedor efímero `sinfallas/base-node-ionic:26`.
 - [x] **6.2.** Crear los escenarios BDD en Karate Labs (`mcp-server/test/mcp_cli_test.feature`) validando el CLI y los contratos JSON.
 - [x] **6.3.** Ejecutar en contenedor efímero `make qa-all` y `npm pack --dry-run` dentro de `mcp-server/`, certificando `0` errores de tipado (`tsc --noEmit`), `0` errores de ESLint/SonarJS y paquete limpio.
-- [x] **6.4.** Implementar el script autónomo de publicación a npmjs sin runners externos (`scripts/publicar-mcp.sh`, credenciales desde `.env` en la raíz al estilo RoSGrid, validación efímera y `make publish-mcp`), eliminando cualquier dependencia de GitHub Actions o CI/CD externos.
+- [x] **6.4.** Implementar el script autónomo de publicación a npmjs sin runners externos (`scripts/publicar-mcp.sh`, credenciales desde `.env` en la raíz bajo aislamiento local, validación efímera y `make publish-mcp`), eliminando cualquier dependencia de GitHub Actions o CI/CD externos.
 - [x] **6.5.** Actualizar `README.md`, `TESTING.md`, `docs/ai-integration.md` y `CHANGELOG.md` con las instrucciones de uso de 1 comando (`npx -y @sinfallas/mcp-qa-11x` y `npx -y @sinfallas/mcp-qa-11x install-skill`).
 
 ---

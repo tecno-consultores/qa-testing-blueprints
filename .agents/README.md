@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores) -->
+
 # 🤖 `.agents/` — AI Governance & Standard 11X Quality Directives
 
 Governance and quality configuration directory for **autonomous AI coding agents** and **human engineers** in **QA Testing Blueprints**.

@@ -50,7 +50,7 @@ Before exposing new endpoints or frontend views:
 
 Select the proportional execution path first (`DOCS_ONLY`, `MICRO_CHANGE`, or `FULL_11X`):
 - **`DOCS_ONLY` (only human `*.md` / `docs/` edited):** Skip Docker test suites and AST graph rebuilds; synchronize bilingual `*.{md,es.md}` pairs (`CHANGELOG.{md,es.md}`, `TESTING.{md,es.md}`, `README.{md,es.md}`, `docs/*.{md,es.md}`), run `make sync-governance` (when manifest-tracked) + `./.agents/scripts/certify_task_completion.sh`, mark `CERTIFIED_CLEAN` (if Flight Recorder active), and conclude with a local `git commit` (`QA-GIT-GATE-01`).
-- **`MICRO_CHANGE` (`<= 3` files, `< 5` AST callers, `0` new API routes/ORM migrations):** Formulate a 3-line inline plan, run `inspect_ast_blast_radius` (`inspect_blast_radius.py` in Docker), update affected unit/BDD tests (`QA-TEST-SYNC-01`), execute affected stack QA (`make qa-lint` + `make qa-unit` + affected tests in Docker), refresh AST (`./scripts/actualizar-grafos-graphify.sh`), sync `CHANGELOG.{md,es.md}`, mark `CERTIFIED_CLEAN`, certify 10/10, and commit locally (`QA-GIT-GATE-01`).
+- **`MICRO_CHANGE` (`<= 3` files, `< 5` AST callers, `0` new API routes/ORM migrations):** Formulate a 3-line inline plan, run `inspect_ast_blast_radius` (`inspect_blast_radius.py` in Docker), update affected unit/BDD tests (`QA-TEST-SYNC-01`), execute affected stack QA (`make qa-lint` + `make qa-unit` + affected tests in Docker), refresh AST (`./scripts/actualizar-grafos-graphify.sh`), sync `CHANGELOG.{md,es.md}`, run `./.agents/scripts/certify_task_completion.sh` (10/10 gates), mark `CERTIFIED_CLEAN`, and commit locally (`QA-GIT-GATE-01`).
 - **`FULL_11X` (`> 3` files, new endpoints/views, ORM schemas, security controls, or `MEDIUM`/`HIGH` blast radius):** Execute all stages below autonomously before concluding:
 
 0. **Active Task Initiation:** Formulate a phased plan (via `/plan` or interactive plan artifact) and track phases atomically via `checkpoint_ctl.py` / MCP `session_flight_recorder` (`0600` `.agents/.cache/session_checkpoint.json` projecting `.agents/ACTIVE_TASK.md` `<= 40` lines without manual Markdown editing).
@@ -60,10 +60,9 @@ Select the proportional execution path first (`DOCS_ONLY`, `MICRO_CHANGE`, or `F
 2. **Full Ephemeral Docker Test Execution (`Rule Zero`):**
    - Backend: Run unit tests (`>= 95%` coverage) and full `make qa-lint` (`ruff`, `mypy --strict --cache-dir=/tmp/mypy`, `radon`, `bandit` / `phpstan`, `psalm`).
    - Frontend: Run unit tests (`>= 95%` coverage, 100% pass), `eslint --max-warnings 0`, and type checks (`vue-tsc --noEmit` / `tsc --noEmit`).
-3. **Autonomous Bilingual Documentation Sync & Active Task Completion:**
+3. **Autonomous Bilingual Documentation Sync:**
    - Synchronize affected bilingual pairs (`*.md` + `*.es.md`): operational manuals in `docs/`, `CHANGELOG.{md,es.md}` under `## [Unreleased]`, `TESTING.{md,es.md}`, `README.{md,es.md}`, and `ROADMAP.{md,es.md}` when applicable.
-   - Mark `.agents/ACTIVE_TASK.md` as `CERTIFIED_CLEAN` via `checkpoint_ctl.py` / `session_flight_recorder`.
-4. **Secret, Dependency Vulnerability, Parity & Local Git Closure (`QA-GIT-GATE-01`):**
-   - Run `./scripts/verificar-secretos.sh` (0 secret leaks) and `./scripts/auditar-infra.sh` (0 High/Critical findings).
-   - Refresh AST graphs (`./scripts/actualizar-grafos-graphify.sh`) and run `./.agents/scripts/certify_task_completion.sh` (10/10 gates passed).
+4. **AST Graph Refresh, 10/10 Certification, Active Task Closure & Local Git Closure (`QA-GIT-GATE-01`):**
+   - Refresh AST graphs (`./scripts/actualizar-grafos-graphify.sh`) and run `./.agents/scripts/certify_task_completion.sh` (executing `./scripts/verificar-secretos.sh` and `./scripts/auditar-infra.sh` inside Gates 1–2 along with Gates 3–10).
+   - ONLY after passing `certify_task_completion.sh`, mark `.agents/ACTIVE_TASK.md` as `CERTIFIED_CLEAN` via `checkpoint_ctl.py` / `session_flight_recorder`.
    - Conclude with a clean certified local `git commit` (NEVER execute automatic `git push` or remote publishing without explicit human authorization per `QA-GIT-GATE-01`).

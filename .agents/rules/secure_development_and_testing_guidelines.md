@@ -43,13 +43,13 @@ Apply these non-negotiable security directives before writing any code:
    - Because `SET LOCAL app.current_tenant_id` expires at the first `await db.commit()`, store `(tenant_id, is_superadmin)` in `session.sync_session.info` and register an `@event.listens_for(AsyncSession.sync_session_class, "after_begin")` listener that automatically re-executes `SET LOCAL` whenever a subsequent transaction begins on the same session (e.g. writing an audit log after committing an entity).
    - Use scoped `SECURITY DEFINER` SQL functions (`SET search_path = public`) for pre-authentication lookups (e.g. tenant `slug` resolution at login or bootstrap status count) instead of weakening RLS `USING` policies.
 2. **Strict SSRF Prevention:**
-   - Any user-supplied URL or host IP must pass strict validation before making outbound network calls.
-   - Reject: loopback (`127.0.0.0/8`, `::1`, `localhost`), link-local (`169.254.0.0/16`), and internal container hostnames (`*-db`, `*-redis`, `*-api`).
+   - Any user-supplied URL or host IP must pass strict validation (trimming trailing dots, rejecting embedded credentials, resolving DNS first, banning redirects without re-validation, and pinning resolved IPs on outbound transports against DNS rebinding TOCTOU).
+   - Reject any non-public address (`not ip.is_global or ip.is_multicast or ip.is_unspecified`, unwrapping `ip.ipv4_mapped`), blocking loopback (`127.0.0.0/8`, `::1`, `localhost`), RFC 1918 private ranges, RFC 6598 CGNAT (`100.64.0.0/10`), link-local (`169.254.0.0/16`, `fe80::/10`), multicast, and internal container hostnames (`*-db`, `*-redis`, `*-api`).
 3. **Zero Plaintext Secrets & Cryptographic Vault:**
    - Passwords and private API keys must NEVER be stored in plaintext. Encrypt sensitive fields with AES-256-GCM.
    - User credentials must use Argon2id. Symmetric keys must be ephemeral or securely bound to master vault keys.
 4. **Idempotency for Mutating Operations:**
-   - All state-mutating requests (`POST`, `PUT`, `DELETE`) should support or require an `Idempotency-Key` header, managed via in-memory cache (KeyDB / Redis) with composite namespacing (`idemp:{tenant_id}:{user_id}:{key}`).
+   - All state-mutating requests (`POST`, `PUT`, `PATCH`, `DELETE`) should support or require an `Idempotency-Key` header, managed via in-memory cache (KeyDB / Redis) with composite namespacing (`idemp:{tenant_id}:{user_id}:{key}`).
 5. **CSRF & Hardened Session Cookies:**
    - Session cookies: `HttpOnly; Secure; SameSite=Strict; Path=/`.
    - Mutation requests from browsers require CSRF token validation (`X-CSRF-Token` HMAC-SHA256). Exclude M2M calls utilizing `Authorization: Bearer` headers per OWASP guidelines.
@@ -72,7 +72,7 @@ Apply these non-negotiable security directives before writing any code:
     - Enforce maximum concurrent session limits per user (`APSC-DV-000010`) and alert on concurrent logons from distinct workstations/IPs (`APSC-DV-003360`).
     - Terminate idle sessions after **15 minutes** for standard users (`APSC-DV-000070`) and **10 minutes** for privileged/admin users (`APSC-DV-000080`), plus absolute session lifetime limits (`OWASP SM-8, SM-21`).
     - Regenerate session IDs via FIPS 140-3 CSPRNG upon authentication, privilege elevation, or TLS transition (`APSC-DV-002250..002290`). Never recycle session IDs.
-    - Purge all client storage (`localStorage`, `sessionStorage`, IndexedDB, in-memory state) and cookies on logoff (`APSC-DV-000060`, `APSC-DV-002240`), display explicit logoff confirmation (`APSC-DV-000100`), and revoke all active sessions immediately when an account is disabled, deleted, or changes credentials (`APSC-DV-001800`).
+    - Purge all client storage (`localStorage`, `sessionStorage`, `CacheStorage`, `IndexedDB`, in-memory state) and cookies on logoff (`APSC-DV-000060`, `APSC-DV-002240`), display explicit logoff confirmation (`APSC-DV-000100`), and revoke all active sessions immediately when an account is disabled, deleted, or changes credentials (`APSC-DV-001800`).
 13. **Account Lockout, Constant-Time Auth & Account Lifecycle (DISA STIG & OWASP 4.3.7):**
     - Lock accounts after **3 consecutive invalid logon attempts within 15 minutes** (`APSC-DV-000530`) and enforce constant-time credential verification (dummy Argon2id hash verify on unknown users) to prevent user enumeration (`OWASP A-19, A-20`).
     - When local passwords are used: require >= 15 chars (`APSC-DV-001680`), multi-class complexity, 8-char diff on change (`APSC-DV-001730`), 5-generation history (`APSC-DV-001780`), and zero security questions (`OWASP P-6`).

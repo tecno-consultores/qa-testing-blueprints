@@ -31,20 +31,20 @@ Classify every task first. **NEVER auto-run `git push`** (`QA-GIT-GATE-01` — s
 5. `bootstrap_or_merge_11x` — surgical `.example` merge.
 6. `audit_security_stig_owasp` — 34 static scanner rules (`SEC-01..16`, `SEC-CI-ACTION-REF`, `QA-KARATE-IDEMP`, `QA-COV-01`, `QA-MYPY-01`, `QA-PG17-RLS`, `QA-SMOKE-01`, `QA-HEALTH-01`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`, `QA-CI-ESCAPE-01`, `QA-MAKE-CURDIR-01`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `UI-11X-01..03`).
 7. `run_ephemeral_qa` — `lint|unit|migration|integration|ci|parity|orphans|contracts|bdd|mutation|dast|e2e|perf|chaos|all` (`sinfallas/*`, `.qa-evidence.json`).
-8. `clean_workspace_11x` — rootless purge (keeps `dist`, `graphify-out/`).
+8. `clean_workspace_11x` — rootless purge (keeps `mcp-server/dist`, `graphify-out/`).
 9. `certify_11x_gate` — 10/10 gate (lint evidence, orphans, manifest, security).
 10. `init_or_append_agents_md` — Thin-Repo `AGENTS.md` connector.
 11. `reconcile_agents_governance` — prunes duplicates; isolates `domain_<project>_*.md`.
 12. `propose_skill_evolution_pr` — Dual-Consumer PR (AI + MCP + EN/ES docs).
 13. `validate_calm_architecture` — FINOS CALM JSON & 11X controls.
-14. `evaluate_release_gate` — `GO`/`NO_GO` (`>=95%`, Trivy=0, MSI, CALM).
+14. `evaluate_release_gate` — `GO`/`NO_GO` (JUnit pass rate/failures, telemetry `latency`/`5xx`/MSI/cov, defects SLA).
 15. `evaluate_agent_trajectory` — offline / DeepEval trajectory evals.
 16. `run_llm_red_team` — OWASP LLM Top 10 Promptfoo red-team.
 17. `audit_vibe_prototype` — `VIBE-SEC-001..QA-005` & RLS rescue.
 18. `sync_enterprise_tms` — Jira/Zephyr/Xray/GitHub Issues sync.
 19. `session_flight_recorder` — `0600` JSON checkpoint + `ACTIVE_TASK.md` + Git.
 
-*Fallback (No MCP):* Load **one** module in `references/01..09.md` (§4), verify `manifest.json` via `sha256sum -c`, and run `make sync-governance`.
+*Fallback (No MCP):* Load **one** module in `references/01..09.md` (§4), verify `manifest.json` digests inside `Rule Zero` Docker (`python3 .agents/scripts/sync_governance.py --check`), and run `make sync-governance`.
 
 ---
 
@@ -78,7 +78,7 @@ Classify every task first. **NEVER auto-run `git push`** (`QA-GIT-GATE-01` — s
 8. **Multi-Step Pre-Auth & Ephemeral Challenge Continuity Invariant (`SEC-16`):** Certify `login -> mfa/enroll|verify` in one continuous unmocked Redis/KeyDB test (`>= 128-bit` `challenge_id`, atomic `GETDEL`/Lua, `TTL <= 300s`, symmetric `PREAUTH_PUBLIC_ROUTES`).
 9. **Unmocked Orchestrator Boot & Container Healthcheck Contract (`QA-HEALTH-01`):** Boot real entrypoints under default prod `Settings()` without mocking `OPTIONAL_WORKERS`, asserting healthcheck artifacts and `task.exception() is not None`.
 10. **Dual CLI + MCP `stdio` Interactive `TTY` Anti-Hang Contract (`QA-CLI-TTY-01`):** Check `isTTY`/`isatty()` on bare dual CLI/MCP runs to print help and `exit(0)` (`<= 5s` E2E TTY test) when `--stdio` is absent.
-11. **Real-Runtime SDK Transport & Lockfile Image Smoke (`QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`):** Drive MCP/ACP via real SDK transports (`InMemoryTransport`+`Client` / `ClientSession`, not just `MagicMock`); install image deps from lockfiles (`uv sync --frozen --no-dev` / `uv export --frozen --no-dev | uv pip install -r -` / `pnpm install --frozen-lockfile`) + smoke-test (`import <app>`, `id -u != 0`, `401`).
+11. **Real-Runtime SDK Transport & Lockfile Image Smoke (`QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`):** Drive MCP/ACP via real SDK transports (`InMemoryTransport`+`Client` / `ClientSession`, not just `MagicMock`); install image deps from lockfiles (`uv sync --frozen --no-dev` / `uv export --frozen --no-dev | uv pip install --system -r -` / `pnpm install --frozen-lockfile`) + smoke-test (`import <app>`, `id -u != 0`, `401`).
 
 ---
 

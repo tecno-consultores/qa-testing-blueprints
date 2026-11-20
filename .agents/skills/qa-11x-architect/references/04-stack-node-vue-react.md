@@ -16,13 +16,12 @@ This reference provides technical rules, testing conventions, and ephemeral Dock
    fund=false
    audit=false
    ```
-2. **Ephemeral Docker Execution & Non-Root Host UID Alignment (`UID 10001` Guardrail):**  
-   All builds, typechecks, linters, and unit/BDD tests execute inside `sinfallas/base-node-ionic:26` (available tags: `22`, `24`, `26`, and `latest`) with a persistent `pnpm-store` named volume (`Rule Zero`). Because `sinfallas/base-node-ionic:26` runs by default as `uid=10001(appuser)` and pre-populates `/pnpm/store/v11/files/*` as `10001:10001`:
-   - Always pass `-u "$(id -u):$(id -g)"` on `docker compose run --rm -T` (and set `user: "${QA_UID:-1000}:${QA_GID:-1000}"` in `docker-compose.qa.yml`) so `node_modules/.pnpm` and `dist/` match the host/CI runner UID (`1001` on GitHub Actions, `1000` on Linux, `501` on macOS) without `ERR_PNPM_PACKAGE_MANAGER_CREATE_SLOT_DIR` (`os error 13`).
-   - Declare a one-shot `pnpm-store-init` service (`user: "0:0"`, `command: ["chmod", "-R", "a+rwX", "/pnpm"]`) with `depends_on: { pnpm-store-init: { condition: service_completed_successfully } }`, plus `HOME: /tmp` and `pnpm_config_store_dir: /pnpm/store` (`pnpm` v12+ ignores legacy `npm_config_*`), preventing CAFS permission errors and preventing cross-device fallback creation of `/app/.pnpm-store`.
-   - Never invoke bare `os.homedir()` without `try/catch` in Node.js CLIs/tools: under arbitrary non-root UIDs absent from container `/etc/passwd` (e.g. GitHub Actions `UID 1001`, OpenShift random UIDs) when `process.env.HOME` is unset, `uv_os_homedir` throws `SystemError: ENOENT`; always resolve `process.env.HOME || process.env.USERPROFILE` first and fall back to `os.tmpdir()` inside `catch`.
-3. **Node 26 + pnpm 12 Supply-Chain `allowBuilds`, ESLint 9 Flat Config & `vue-tsc`:**
-   - Under `sinfallas/base-node-ionic:26` (`Node v26.13+`, `pnpm 12.18+`) with `.npmrc` `ignore-scripts=true` (`SEC-09`), `package.json#pnpm` (`pnpm.onlyBuiltDependencies`) is ignored (`WARN` + `ERR_PNPM_IGNORED_BUILDS`). Omit `"pnpm"` from `package.json` and declare `pnpm-workspace.yaml` using a **boolean map (`Record<string, boolean>`, NEVER a YAML list `- pkg`, which aborts with `ERR_PNPM_INVALID_SETTING`)**:
+2. **Ephemeral Docker & Host UID (`UID 10001` Guardrail):** Run builds, lint, and tests inside `sinfallas/base-node-ionic:26` (`22|24|26|latest`) with a persistent `pnpm-store` volume (`Rule Zero`):
+   - Pass `-u "$(id -u):$(id -g)"` (`user: "${QA_UID:-1000}:${QA_GID:-1000}"`) so host/CI mounts (`1000`/`1001`/`501`) avoid `ERR_PNPM_PACKAGE_MANAGER_CREATE_SLOT_DIR` (`os error 13`).
+   - Declare `pnpm-store-init` (`user: "0:0"`, `command: ["chmod", "-R", "a+rwX", "/pnpm"]`) with `depends_on: { pnpm-store-init: { condition: service_completed_successfully } }`, `HOME: /tmp`, and `pnpm_config_store_dir: /pnpm/store`.
+   - Wrap `os.homedir()` in `try/catch` preferring `process.env.HOME || process.env.USERPROFILE` and falling back to `os.tmpdir()` under arbitrary UIDs (`ENOENT`).
+3. **Node 26 + pnpm 12 `allowBuilds`, ESLint 9 Flat Config & `vue-tsc`:**
+   - With `.npmrc` `ignore-scripts=true` (`SEC-09`), omit `"pnpm"` from `package.json` (`ERR_PNPM_IGNORED_BUILDS`) and declare `pnpm-workspace.yaml` as a **boolean map** (`Record<string, boolean>`, NEVER a YAML list `- pkg`):
      ```yaml
      allowBuilds:
        esbuild: true
@@ -30,53 +29,31 @@ This reference provides technical rules, testing conventions, and ephemeral Dock
        '@playwright/test': true
        vue-demi: false
      ```
-   - Standardize on **ESLint 9 Flat Config (`eslint.config.mjs`)** with `eslint-plugin-security@^3.0.0` (`security.configs.recommended`), `eslint-plugin-sonarjs@^3.0.7` (`sonarjs.configs.recommended`), and `typescript-eslint@^8.x` type-aware checks (`@typescript-eslint/no-floating-promises`, `@typescript-eslint/no-misused-promises` via `projectService` / `tsconfig.typecheck.json`), ignoring `["dist/", "dist-ssr/", "coverage/", "playwright-report/", "lhci-reports/", "target/", "graphify-out/"]`. Pin `"vue-tsc": "^2.2.12"` on Vue 3 with TypeScript `5.7+` and Vite `6`. *(Legacy consumer repos still on ESLint `8.57.x` `.eslintrc.json` remain audited by `SEC-09` and must extend `"plugin:security/recommended-legacy"`.)*
+   - Standardize on **ESLint 9 Flat Config (`eslint.config.mjs`)** with `eslint-plugin-security@^3.0.0`, `eslint-plugin-sonarjs@^3.0.7`, and `typescript-eslint@^8.x` (`@typescript-eslint/no-floating-promises`, `@typescript-eslint/no-misused-promises`), ignoring `["dist/", "dist-ssr/", "coverage/", "playwright-report/", "lhci-reports/", "target/", "graphify-out/", ".stryker-tmp/**"]`. Pin `"vue-tsc": "^2.2.12"` (`TS 5.7+`, `Vite 6`). *(ESLint `8.57.x` legacy `.eslintrc.json` remains audited by `SEC-09`.)*
 
 ---
 
 ## 2. Testing Pyramid & Tool Boundaries
 
-```
-                      ┌──────────────────────────────────────┐
-                      │ Karate Labs HTTP/Edge/OSHP BDD       │
-                      ├──────────────────────────────────────┤
-                      │ Playwright E2E + @axe-core (WCAG AA) │
-                      ├──────────────────────────────────────┤
-                      │ Stryker Mutation Testing (MSI >= 80%)│
-                      ├──────────────────────────────────────┤
-                      │ Vitest Unit Tests (.unit.ts >= 95%)  │
-                      ├──────────────────────────────────────┤
-                      │ ESLint + SonarJS + vue-tsc / tsc     │
-                      └──────────────────────────────────────┘
-```
+Flow: `ESLint + SonarJS + vue-tsc/tsc` -> `Vitest (.unit.ts >= 95%)` -> `Stryker (MSI >= 80%)` -> `Playwright + @axe-core` -> `Karate HTTP/Edge/OSHP`.
 
-### File Naming Convention & Tool Boundaries
-- **Unit Tests:** `src/**/*.unit.ts` or `src/**/*.unit.tsx`. Executed with Vitest (`@vitest/coverage-v8`). NEVER import Playwright or real network drivers in `.unit.ts`.
-- **E2E / A11y Tests:** `e2e/**/*.e2e.ts`. Executed with Playwright (`ui-e2e`, `mcr.microsoft.com/playwright:v1.52.0-noble`) and `@axe-core/playwright` for real DOM interactions, Screenplay/POM flows, Anti-JSDOM geometry, and WCAG 2.1 AA.
-- **UI BDD Scenarios:** `test/ui_business_flow.feature`. Executed with `sinfallas/karatelabs:1.5.1` (no Chrome/Chromium binary installed) to certify HTTP/Nginx delivery on `http://ui-prod:8080`, SPA/SSG routes, OWASP OSHP headers, and SEO/XML endpoints (`* string xmlText = response`).
-
-### Inflexible Linter Standard & Hermetic Test Isolation
-1. **Zero-Warning Tolerance (`--max-warnings 0`):** The `"lint"` script in `package.json` MUST enforce `--max-warnings 0`. Any ESLint, SonarJS, or TypeScript warning MUST fail the process immediately (`Exit Code 1`), preventing silent accumulation of technical debt.
-2. **Hermetic Unit Test Isolation (Zero Network Leaks):** Unit tests (`.unit.ts`) MUST NEVER perform live network requests. When testing fallbacks, offline modes, or error handling, intercept or mock `globalThis.fetch` or HTTP clients deterministically to ensure tests pass without depending on external connectivity.
-
-### Zero-Orphan & Anti-Silo UI Invariants
-1. **Zero Orphan UI Components:** Every single `.vue` or `.tsx` component MUST have an active `.unit.ts` file asserting its rendering and behavior (`Rule Zero` container execution: `docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_zero_orphan_vue_components.py`).
-2. **Zero Orphan API Routes:** All frontend API client calls (`api.get('/endpoint')`) must correspond to a registered backend route, preventing 404/405 errors (`docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_no_orphan_api_endpoints.py`).
-3. **3-Phase Temporal Lifecycle in UI Views:** Views displaying scheduled windows or countdowns (`starts_at` / `ends_at`) MUST render and test all 3 temporal states (`Programada` when `t < starts_at`, `En Curso` / `Activa` when `starts_at <= t <= ends_at`, and `Cancelada` / `Expirada` when `t > ends_at` or cancelled), prohibiting 2-state static ternaries (`is_cancelled ? 'Cancelada' : 'Programada'`).
-4. **Semantic Event Badge Mapping & Anti-Raw UUIDs:** Event ribbons and audit feeds MUST assert that `actor_username` and `resource_display_name` never display raw UUID v4 strings (`/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i`), and event mappers MUST explicitly classify categories (`CAÍDA`, `MANTENIMIENTO`, `RESPALDO`, `SEGURIDAD`, `OPERACIÓN`) without catch-all `else return 'MAINTENANCE'` clauses.
-5. **Dual Auto + Manual Refresh Invariant:** Every monitoring dashboard, NOC wallboard, or real-time map MUST implement both periodic/reactive refresh (`setInterval` with `clearInterval` inside `onUnmounted` / `useEffect` cleanup + WebSocket listener) AND an explicit **`[ 🔄 Refrescar ]`** button (`?refresh=true`) for immediate operator reload without `F5`.
-6. **Prohibition of Blind `HTTP 200 OK` Success in Batch Endpoints:** Views and stores consuming bulk/batch execution endpoints (`POST .../execute`, `POST .../batch`) MUST NEVER assume global success from `HTTP 200 OK` alone; they MUST inspect `res.data.results[].status` (or `items[].status`) per target resource and surface partial/total item failures (`status === 'FAILED'` or `'ERROR: ...'`) in the UI and unit/BDD tests.
+- **Unit Tests:** `src/**/*.unit.{ts,tsx}` (Vitest + `@vitest/coverage-v8`, `--max-warnings 0`, hermetic `globalThis.fetch` mocks, zero Playwright/network).
+- **E2E / A11y:** `e2e/**/*.e2e.ts` in Playwright (`mcr.microsoft.com/playwright:v1.52.0-noble`) + `@axe-core/playwright` (DOM, Anti-JSDOM geometry, WCAG 2.1 AA).
+- **UI BDD:** `test/ui_business_flow.feature` in `sinfallas/karatelabs:1.5.1` (no Chromium) certifying `http://ui-prod:8080`, SPA/SSG routes, OSHP headers, and XML/SEO (`* string xmlText = response`).
+- **Zero-Orphan & Anti-Silo UI Invariants (`Rule Zero`):**
+  1. Every `.vue`/`.tsx` needs a `.unit.ts`/`.unit.tsx` (`docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_zero_orphan_vue_components.py`); verify routes via `verify_no_orphan_api_endpoints.py`.
+  2. **3-Phase Temporal UI:** Test `starts_at`/`ends_at` across `Programada` ($t < t_0$), `En Curso`/`Activa` ($t_0 \le t \le t_1$), and `Cancelada`/`Expirada` ($t > t_1$).
+  3. **Semantic Badges & Anti-UUID:** Assert `actor_username`/`resource_display_name` never match raw UUID v4; map event categories explicitly (`CAÍDA`, `MANTENIMIENTO`, `RESPALDO`, `SEGURIDAD`, `OPERACIÓN`) without catch-all `else return 'MAINTENANCE'`.
+  4. **Dual Refresh & Batch Status:** Pair `setInterval` (`clearInterval` on unmount) + WebSocket with **`[ 🔄 Refrescar ]`** (`?refresh=true`). Never infer success from `HTTP 200 OK` alone on `POST .../execute`; inspect per-item `results[].status`.
 
 ---
 
-## 3. Mandatory Refactoring UI Synergy (WCAG 2.1 AA & CLS = 0)
+## 3. Refactoring UI Synergy (WCAG 2.1 AA & CLS = 0)
 
-Every frontend component must adhere to the design rules in `.agents/skills/refactoring-ui/`:
-1. **Button Hierarchy:** Exactly ONE Primary button per viewport/panel (`bg-indigo-600 text-white font-medium`). Secondary and tertiary actions must use muted or ghost treatments (`border border-slate-700` or `text-slate-400 hover:text-white`).
-2. **Perceptual Contrast (Anti-Translucency Trap):** Never use `text-white/40` or low-opacity white text on colored backgrounds; calculate explicit OKLCH / hex colors to ensure `>= 4.5:1` contrast ratio for normal text and `>= 3.0:1` for large text.
-3. **Tabular Numerics for CLS = 0:** Apply `font-feature-settings: "tnum"` / Tailwind `tabular-nums` on all metrics, counters, timestamps, currency values, and table numbers to prevent Cumulative Layout Shifts.
-4. **Responsive Integrity (Zero `overflow-x: hidden` Band-Aids):** Fix root layout widths (`min-w-0`, flexible grids, text wrapping) so `document.documentElement.scrollWidth <= window.innerWidth` passes cleanly across mobile (`375x667`), tablet (`768x1024`), and desktop (`1440x900`) **without** masking clipping bugs with `overflow-x: hidden`.
-5. **Focus Indicators:** Never use `outline: none` without providing an explicit replacement focus indicator (`focus-visible:ring-2 focus-visible:ring-indigo-500`).
+1. ONE Primary button per panel (`bg-indigo-600 text-white font-medium`); muted secondary/tertiary actions.
+2. Calculate explicit OKLCH/hex colors clearing `4.5:1` / `3:1` contrast (never `text-white/40`).
+3. Apply `tabular-nums` (`font-feature-settings: "tnum"`) on counters, metrics, and tables (`CLS = 0`).
+4. Fix overflow with `min-w-0`/wrapping across `375x667`, `768x1024`, `1440x900` (never mask bugs with `overflow-x: hidden`); pair `focus-visible` rings (no bare `outline: none`).
 
 ---
 
@@ -131,18 +108,19 @@ if (typeof globalThis.localStorage?.clear !== 'function') {
 ```
 
 ### `Makefile` Targets (Frontend & Node.js — Non-Root `ui-e2e`, `QA-PLAYWRIGHT-PIN-01` & Post-Deploy PSI)
-Pin exact `@playwright/test`/`playwright` versions (`"1.52.0"`, no `^`/`~` ranges) matching `mcr.microsoft.com/playwright:vX.Y.Z-noble` (`QA-PLAYWRIGHT-PIN-01`). Run `qa-frontend` and `ui-e2e` as non-root (`-u "$(QA_UID):$(QA_GID)" -e HOME=/tmp -e COREPACK_HOME=/tmp/.corepack`) with rootless Corepack (`/tmp/.corepack-bin`) and prefer `./node_modules/.bin/{playwright,lhci}` over dynamic downloads:
+Pin exact `@playwright/test`/`playwright` (`"1.52.0"`) matching `mcr.microsoft.com/playwright:vX.Y.Z-noble` (`QA-PLAYWRIGHT-PIN-01`). Run containers non-root (`$(QA_UID):$(QA_GID)`, `HOME=/tmp`) preferring local `./node_modules/.bin/{playwright,lhci}`:
 ```makefile
 .PHONY: build-ui qa-lint qa-unit qa-orphans qa-mutation qa-bdd qa-e2e qa-perf qa-psi qa-all clean-cache clean qa-clean
 
 PROJECT_DIR ?= $(CURDIR)
+PYTHON_QA_IMAGE = sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4
 QA_UID ?= $(shell id -u)
 QA_GID ?= $(shell id -g)
 export QA_UID QA_GID
 
 build-ui:
 	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-frontend bash -c "pnpm install --silent && pnpm --silent run build"
-	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml down -v >/dev/null 2>&1 || true" ERR INT TERM; \
+	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml down --remove-orphans >/dev/null 2>&1 || true" ERR INT TERM; \
 		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml up -d --wait ui-prod'
 
 qa-lint:
@@ -152,29 +130,34 @@ qa-unit:
 	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-frontend bash -c "pnpm install --silent && pnpm run test:coverage"
 
 qa-orphans:
-	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-frontend bash -c "\
-		if [ -f .agents/scripts/verify_zero_orphan_vue_components.py ]; then python3 .agents/scripts/verify_zero_orphan_vue_components.py; fi"
+	@if [ -f .agents/scripts/verify_zero_orphan_vue_components.py ]; then \
+		docker run --rm --network none --security-opt=no-new-privileges:true -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp -v "$(PROJECT_DIR):/app:ro" -w /app $(PYTHON_QA_IMAGE) python3 .agents/scripts/verify_zero_orphan_vue_components.py; \
+	else \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-frontend node -e "const fs=require('fs'),p=require('path');const walk=d=>fs.existsSync(d)?fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(p.join(d,e.name)):[p.join(d,e.name)]):[];const tests=walk('src').concat(walk('tests')).filter(f=>/\.(unit|spec|test)\.(ts|tsx|js|jsx)$$|\.(test)\.(vue|tsx)$$ /.test(f));const comps=walk('src/components').concat(walk('src/views')).filter(f=>/\.(vue|tsx)$$/.test(f)&&!/\.(unit|spec|test)\./.test(f));const m=comps.filter(c=>{const b=p.basename(c).replace(/\.(vue|tsx)$$/,'');return !tests.some(t=>p.basename(t).startsWith(b+'.'));});if(m.length){console.error('Orphan UI components:',m);process.exit(1)}"; \
+	fi
 
 qa-mutation:
 	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-frontend bash -c "pnpm install --silent && pnpm run mutate"
 
 qa-bdd: build-ui
-	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml down -v >/dev/null 2>&1 || true" EXIT; \
+	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml down --remove-orphans >/dev/null 2>&1 || true" EXIT; \
 		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml up -d --wait ui-prod && \
 		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T karatelabs mvn -B clean test'
 
 qa-e2e: build-ui
-	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml down -v >/dev/null 2>&1 || true" EXIT; \
+	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml down --remove-orphans >/dev/null 2>&1 || true" EXIT; \
 		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml up -d --wait ui-prod && \
-		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp ui-e2e bash -c "if [ -x ./node_modules/.bin/playwright ]; then ./node_modules/.bin/playwright test; elif command -v pnpm >/dev/null 2>&1; then pnpm exec playwright test; else corepack pnpm exec playwright test; fi"'
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp ui-e2e bash -c "if [ -x ./node_modules/.bin/playwright ]; then ./node_modules/.bin/playwright test; elif command -v pnpm >/dev/null 2>&1; then pnpm install --silent && pnpm exec playwright test; else corepack pnpm install --silent && corepack pnpm exec playwright test; fi"'
 
 qa-perf: build-ui
-	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml down -v >/dev/null 2>&1 || true" EXIT; \
+	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml down --remove-orphans >/dev/null 2>&1 || true" EXIT; \
 		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml up -d --wait ui-prod && \
-		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp ui-e2e bash -c "if [ -x ./node_modules/.bin/lhci ]; then ./node_modules/.bin/lhci autorun --config=lighthouserc.cjs; elif command -v pnpm >/dev/null 2>&1; then pnpm run test:perf; else corepack pnpm run test:perf; fi"'
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp ui-e2e bash -c "export CHROME_PATH=\$$(ls -d /ms-playwright/chromium-*/chrome-linux/chrome 2>/dev/null | head -n 1) && if [ -x ./node_modules/.bin/lhci ]; then ./node_modules/.bin/lhci autorun --config=lighthouserc.cjs; elif command -v pnpm >/dev/null 2>&1; then pnpm install --silent && pnpm run test:perf; else corepack pnpm install --silent && corepack pnpm run test:perf; fi"'
 
 qa-psi:
-	@./scripts/auditar-pagespeed.sh $(if $(URL),--url "$(URL)",) --strategy "$(or $(STRATEGY),both)" $(if $(MIN_PERF),--min-performance "$(MIN_PERF)",) --output "psi-reports/psi-report.json"
+	@target_url="$${PSI_URL:-$(URL)}"; \
+	if [ -z "$$target_url" ]; then echo "⚠️ [SKIPPED] Define URL=https://domain.example (or PSI_URL)."; exit 0; fi; \
+	./scripts/auditar-pagespeed.sh --url "$$target_url" --strategy "$(or $(STRATEGY),both)" $(if $(MIN_PERF),--min-performance "$(MIN_PERF)",) --output "psi-reports/psi-report.json"
 
 qa-all: qa-lint qa-orphans qa-unit qa-mutation qa-perf qa-e2e qa-bdd
 
@@ -262,10 +245,12 @@ Deterministic non-interactive Cloudflare Pages deployments under `read_only: tru
            PROJECT="$${CF_PAGES_PROJECT}"
            BRANCH="$${CF_PAGES_PRODUCTION_BRANCH:-main}"
            PROJECTS_JSON="$$(wrangler pages project list --json)"
-           if ! printf '%s' "$$PROJECTS_JSON" | node -e 'const fs=require("fs"),p=process.argv[1],d=JSON.parse(fs.readFileSync(0,"utf8"));if(!Array.isArray(d))process.exit(2);process.exit(d.some(x=>(x["Project Name"]??x.name)===p)?0:1)' "$$PROJECT"; then
-             status=$$?
-             [ "$$status" -eq 1 ] || exit "$$status"
+           status=0
+           printf '%s' "$$PROJECTS_JSON" | node -e 'const fs=require("fs"),p=process.argv[1],d=JSON.parse(fs.readFileSync(0,"utf8"));if(!Array.isArray(d))process.exit(2);process.exit(d.some(x=>(x["Project Name"]??x.name)===p)?0:1)' "$$PROJECT" || status=$$?
+           if [ "$$status" -eq 1 ]; then
              wrangler pages project create "$$PROJECT" --production-branch="$$BRANCH" --force
+           elif [ "$$status" -ne 0 ]; then
+             exit "$$status"
            fi
            wrangler pages deploy /app/dist \
              --project-name="$$PROJECT" \

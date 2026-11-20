@@ -157,22 +157,23 @@ class VaultCryptoEnvelope:
         keyring_raw = json.loads(os.environ["VAULT_KEYRING_JSON"])
         return cls(active_kid=active_kid, keyring_b64=keyring_raw)
 
-    def _decode_key(self, kid: str) -> bytes:
-        key_bytes = base64.b64decode(self._keyring_b64[kid], validate=True)
-        if len(key_bytes) != 32:
+    def _decode_key(self, kid: str) -> bytearray:
+        # Decode into mutable bytearray and wipe the temporary decoded bytes reference ASAP
+        raw = base64.b64decode(self._keyring_b64[kid], validate=True)
+        if len(raw) != 32:
             raise ValueError(f"Vault key '{kid}' must be exactly 256 bits (32 bytes)")
-        return key_bytes
+        return bytearray(raw)
 
-    def encrypt(self, plaintext: bytes, tenant_id: str, purpose: str) -> str:
+    def encrypt(self, plaintext: bytes | bytearray, tenant_id: str, purpose: str) -> str:
         aad = f"{tenant_id}:{purpose}".encode("utf-8")
         nonce = secrets.token_bytes(12)
         with ephemeral_secret_buffer(self._decode_key(self._active_kid)) as key_buf:
-            cipher = AESGCM(bytes(key_buf))
-            sealed = cipher.encrypt(nonce, plaintext, aad)
+            # AESGCM accepts bytearray/memoryview in cryptography >= 42 (zeroized in finally)
+            sealed = AESGCM(key_buf).encrypt(nonce, plaintext, aad)
         payload = base64.urlsafe_b64encode(nonce + sealed).decode("ascii")
         return f"v1:{self._active_kid}:{payload}"
 
-    def decrypt(self, envelope: str, tenant_id: str, purpose: str) -> bytes:
+    def decrypt(self, envelope: str, tenant_id: str, purpose: str) -> bytearray:
         version, kid, payload_b64 = envelope.split(":", 2)
         if version != "v1" or kid not in self._keyring_b64:
             raise ValueError("Unsupported Vault envelope version or unknown key id")
@@ -180,11 +181,11 @@ class VaultCryptoEnvelope:
         nonce, ciphertext = raw[:12], raw[12:]
         aad = f"{tenant_id}:{purpose}".encode("utf-8")
         with ephemeral_secret_buffer(self._decode_key(kid)) as key_buf:
-            return AESGCM(bytes(key_buf)).decrypt(nonce, ciphertext, aad)
+            return bytearray(AESGCM(key_buf).decrypt(nonce, ciphertext, aad))
 
     def rotate_ciphertext(self, envelope: str, tenant_id: str, purpose: str) -> str:
         with ephemeral_secret_buffer(self.decrypt(envelope, tenant_id, purpose)) as plain_buf:
-            return self.encrypt(bytes(plain_buf), tenant_id, purpose)
+            return self.encrypt(plain_buf, tenant_id, purpose)
 ```
 
 > **PHP 8.2–8.5 Equivalent (`ext-openssl` + `ext-sodium`):** Call `openssl_encrypt($plaintext, 'aes-256-gcm', $rawKey, OPENSSL_RAW_DATA, $iv, $tag, $aad, 16)` inside `try { ... } finally { sodium_memzero($rawKey); }`.
@@ -247,12 +248,13 @@ async def write_audit_log(
     if UUID_V4_RE.match(clean_actor) or UUID_V4_RE.match(clean_resource):
         raise ValueError("Audit identity fields must be human-readable, never raw UUID v4")
 
-    # Serialize same-tenant WORM inserts to prevent prev_record_hash forks
+    # Serialize same-tenant WORM inserts and register after_transaction_end to clear _in_tx_audit_hashes on commit/rollback
     await session.execute(
         text("SELECT pg_advisory_xact_lock(hashtext(:lock_key))"),
         {"lock_key": f"audit:{tenant_id}"},
     )
-    prev_hash = session.sync_session.info.get("_in_tx_audit_hash")
+    tx_hashes: dict[str, str] = session.sync_session.info.setdefault("_in_tx_audit_hashes", {})
+    prev_hash = tx_hashes.get(str(tenant_id))
     if not prev_hash:
         row = (
             await session.execute(
@@ -302,7 +304,7 @@ async def write_audit_log(
             "rec_h": record_hash,
         },
     )
-    session.sync_session.info["_in_tx_audit_hash"] = record_hash
+    tx_hashes[str(tenant_id)] = record_hash
     await session.flush()
     return record_hash
 ```

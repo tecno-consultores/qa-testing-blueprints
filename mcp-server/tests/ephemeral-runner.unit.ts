@@ -17,6 +17,7 @@ import {
   ensureCoverageCacheDir,
   harvestCoverageReports,
 } from '../src/tools/ephemeral-runner.js';
+import { isDocFilePath } from '../src/services/qa-evidence.js';
 
 describe('ephemeral-runner', () => {
   let tempDir: string;
@@ -815,5 +816,13 @@ describe('ephemeral-runner', () => {
     expect(abortedRes.exit_code).toBe(124);
     expect(abortedRes.tail_log).toContain('[TIMEOUT]');
     expect(noInvoke).not.toHaveBeenCalled();
+  });
+
+  it('excludes .agents/skills, .agents/rules, and .agents/schemas from isDocFilePath DOCS_ONLY fast-path', () => {
+    expect(isDocFilePath('.agents/skills/qa-11x-architect/SKILL.md')).toBe(false);
+    expect(isDocFilePath('.agents/rules/git_closure_gate.md')).toBe(false);
+    expect(isDocFilePath('.agents/schemas/session_checkpoint.schema.json')).toBe(false);
+    expect(isDocFilePath('docs/guide.md')).toBe(true);
+    expect(isDocFilePath('CHANGELOG.es.md')).toBe(true);
   });
 });

@@ -76,10 +76,10 @@ make clean-cache     # o make clean
 Esto purga reportes temporales, artefactos de prueba y cachés huérfanas mediante una estrategia híbrida (eliminación local y fallback en Docker efímero con permisos internos de contenedor), limpiando también los volúmenes nombrados de caché (`pnpm-store` o `uv-cache`).
 
 ### ¿Por qué `scripts/limpieza.sh` y la herramienta MCP `clean_workspace_11x` ya no requieren `sudo`?
-Los contenedores efímeros bajo la Regla Cero suelen crear archivos propiedad de `root` en los volúmenes montados. En lugar de forzar al usuario o al agente a ejecutar comandos de superusuario destructivos en la máquina anfitriona, el saneamiento ejecuta un contenedor efímero ultraligero de Alpine Linux (`sinfallas/base-node-ionic` o `alpine:latest`) montando el directorio con `uid 0` interno para purgar los artefactos de forma 100% segura y devolver el control limpio al usuario no privilegiado del host.
+Los contenedores efímeros bajo la Regla Cero suelen crear archivos propiedad de `root` en los volúmenes montados. En lugar de forzar al usuario o al agente a ejecutar comandos de superusuario destructivos en la máquina anfitriona, el saneamiento ejecuta un contenedor efímero ultraligero de Alpine Linux con digest fijado (`alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab`) montando el directorio con `uid 0` interno (`--network none --security-opt=no-new-privileges:true`) para purgar los artefactos de forma 100% segura y devolver el control limpio al usuario no privilegiado del host.
 
-### El contenedor E2E de Vue 3 (Playwright / Lighthouse) se queja de un conflicto de red al intentar alcanzar la interfaz.
-Asegúrate de haber levantado primero el servidor mock de producción en segundo plano ejecutando `docker compose -f docker-compose.qa.yml up -d ui-prod` antes de lanzar el comando efímero a través del Makefile:
+### El contenedor E2E de Vue 3 (Playwright / Lighthouse) reporta un conflicto de red o servidor ausente al intentar alcanzar la interfaz.
+Los targets `make qa-e2e` y `make qa-perf` declaran `build-ui` como prerequisito, compilando automáticamente el bundle estático y levantando `ui-prod` dentro de Docker efímero (limpiando la pila mediante un trap `EXIT`). Basta con ejecutar:
 ```bash
 make qa-e2e
 ```
@@ -102,7 +102,7 @@ El estándar 11X define un modelo de trabajo en parejas (*Pair Programming Híbr
 - La **compuerta universal de certificación** (`certify_task_completion.sh`) actúa como el árbitro matemático objetivo que ninguno de los dos puede evadir antes del commit.
 
 ### ¿Por qué se eliminó la dependencia de GitHub Actions para publicar el servidor MCP a npm?
-Siguiendo la filosofía de soberanía y aislamiento corporativo del estándar RoSGrid, delegar la publicación de paquetes con credenciales de npm (`NPM_TOKEN`) a *runners* remotos de CI/CD introduce riesgos de fuga de secretos y fallos de red externos fuera de nuestro control. El proceso de publicación se consolidó en el script soberano `scripts/publicar-mcp.sh`, el cual valida la compuerta 11X completa en Docker efímero local y maneja el token de npm de forma volátil en memoria con autodestrucción inmediata.
+Siguiendo estrictos principios de soberanía corporativa y aislamiento de credenciales, delegar la publicación de paquetes con credenciales de npm (`NPM_TOKEN`) a *runners* remotos de CI/CD introduce riesgos de fuga de secretos y fallos de red externos fuera de nuestro control. El proceso de publicación se consolidó en el script soberano `scripts/publicar-mcp.sh`, el cual valida la compuerta 11X completa en Docker efímero local y maneja el token de npm de forma volátil en memoria con autodestrucción inmediata.
 
 ### ¿Cómo actualizo el Servidor MCP y las Skills en mi IDE después de publicar una nueva versión en npmjs y cómo valido que se descargaron los cambios?
 Aunque en `mcp_config.json` tengas configurado `"@sinfallas/mcp-qa-11x@latest"`, el IDE mantiene en memoria el proceso `stdio` iniciado al arrancar y `npx` guarda copias en `~/.npm/_npx` (además de la caché de manifiestos en `~/.cache/qa-11x-blueprints`). Para actualizar quirúrgicamente y validar la integridad criptográfica:

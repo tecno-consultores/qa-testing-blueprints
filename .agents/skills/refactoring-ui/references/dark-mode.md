@@ -15,10 +15,15 @@ attribute on `<html>`:
 /* or: (&:where([data-theme=dark], [data-theme=dark] *)) */
 ```
 
-Set it from an inline script in `<head>`, before first paint, or the page
-flashes light:
+Set it from a tiny synchronous external `<head>` script before first paint (avoiding inline `<script>` so OWASP OSHP `script-src 'self'` CSP remains strict without `'unsafe-inline'`, or compute its SHA-256 CSP hash):
+
+```html
+<!-- public/theme-init.js loaded early in <head> -->
+<script src="/theme-init.js"></script>
+```
 
 ```js
+// public/theme-init.js
 document.documentElement.classList.toggle(
   "dark",
   localStorage.theme === "dark" ||

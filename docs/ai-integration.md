@@ -73,8 +73,8 @@ In enterprise-grade projects, the AI must follow a strict dual-language governan
    - Topological Health & Layer Isolation (`verify_topological_health.py`).
    - ORM & Relational Schema Parity (`verify_alembic_orm_parity.py`).
    - Cryptographic Remote Manifest Synchronization (`manifest.json`).
-   - Internal Consistency of `ROADMAP.md` and `ACTIVE_TASK.md` (`verify_roadmap_consistency.py`).
-   - Unconditional synchronization of documentation and mandatory tests (`CHANGELOG.md`, `TESTING.md`, `README.md`).
+   - Internal Consistency of `ROADMAP.{md,es.md}` and `ACTIVE_TASK.md` (`verify_roadmap_consistency.py`).
+   - Unconditional synchronization of bilingual documentation and mandatory tests (`CHANGELOG.{md,es.md}`, `TESTING.{md,es.md}`, `README.{md,es.md}`).
 
 ---
 
@@ -194,7 +194,7 @@ mcp_servers:
 
 | Tool | Primary Arguments | Operational Purpose |
 | :--- | :--- | :--- |
-| **`inspect_project_config`** | `project_path` | Audits present stacks (`python`, `fastapi`, `node`, `vue3`, `react`, `bash`, `php`, `ai-evals`, `mobile-appium`, `vibe-rescue`), linters, E2E readiness (`BrowserTestingReadiness`), and `update_available` status (`.qa-11x-version` + 24 h fail-open TTL cache). |
+| **`inspect_project_config`** | `project_path` | Audits present stacks (`python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `ai-evals`, `mobile-appium`, `vibe-rescue`), linters, E2E readiness (`BrowserTestingReadiness`), and `update_available` status (`.qa-11x-version` + 24 h fail-open TTL cache). |
 | **`fetch_blueprint_bundle`** | `stack`, `include_common_and_agents`, `include_content` | Fetches stack files on demand with SHA-256 cryptographic verification (supports lightweight index mode `include_content: false` saving ~50,000 tokens — see [`13_SPEC`](specs/13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md)). |
 | **`bootstrap_or_merge_11x`** | `project_path`, `stack`, `dry_run`, `create_backup` | Applies a non-destructive surgical merge injecting QA configs without altering dependencies (creates `.11x-backup` snapshots by default). |
 | **`inspect_ast_blast_radius`** | `project_path`, `target_symbol`, `changed_since_ref`, `max_tokens_budget`, `max_items`, `auto_build_if_missing`, `refresh_graph` | Queries the AST graph (`graphify-out/graph.json` and `GRAPH_REPORT.md`) bidirectionally or differentially (`git diff` + AST + 4-level semantic pruning) for both Code Q&A and pre-refactor impact analysis (`LOW` with `< 5` callers for `MICRO_CHANGE`). |
@@ -207,7 +207,7 @@ mcp_servers:
 | **`propose_skill_evolution_pr`** | `project_path`, `target_blueprint_file`, `target_human_doc_file`, `target_mcp_component`, `improvement_title`, `empirical_rationale`, `proposed_content_or_snippet`, `proposed_human_doc_summary`, `dry_run`, `prefer_offline_fallback` | Proposes federated **Dual-Consumer** improvements (AI Skill + MCP Auditor + Human Manual in `docs/01..05_*.md`) to `qa-testing-blueprints` via authenticated local `gh` CLI or generates a local proposal with 3-layer matrix and prefilled GitHub URL. |
 | **`reconcile_agents_governance`** | `project_path`, `dry_run` | Reconciles and deduplicates `.agents/` rules for adopting projects, pruning global directives already promoted to `qa-testing-blueprints`, isolating domain rules in `domain_<project>_rules.md`, and backing up in `.agents/backups/<timestamp>/`. |
 | **`validate_calm_architecture`** | `workspaceRoot`, `architecturePath` | Validates **FINOS CALM** (*Architecture-as-Code*) schemas, 6 core nodes, 5 typed relationships, and 7 mandatory 11X controls. |
-| **`evaluate_release_gate`** | `workspaceRoot`, `scope`, `dryRun`, `enforce`, `junitXmlPath`, `telemetryJsonPath`, `defectsJsonPath`, `thresholds` | Computes quantitative `GO`/`NO_GO` verdicts (`>= 95%` coverage, Trivy `HIGH/CRITICAL = 0`, MSI, CALM, STIG; returns fail-closed `SKIPPED` on `smoke`). |
+| **`evaluate_release_gate`** | `workspaceRoot`, `scope`, `dryRun`, `enforce`, `junitXmlPath`, `telemetryJsonPath`, `defectsJsonPath`, `thresholds` | Computes quantitative `GO`/`NO_GO` verdicts from JUnit pass rate/failures/skip rate plus optional telemetry (`latency`/`5xx`/MSI/coverage) and defects SLAs; returns fail-closed `SKIPPED` on `smoke`. |
 | **`evaluate_agent_trajectory`** | `mode`, `workspaceRoot`, `testPath`, `steps`, `requiredSequence`, `actualOutput`, `retrievalContext`, `enforceAstBeforeEdit`, `timeoutMs` | Evaluates multi-step AI agent trajectories in deterministic offline mode (`AST-First`, hallucination rates, `QA-GIT-GATE-01`) or DeepEval in Docker. |
 | **`run_llm_red_team`** | `mode`, `workspaceRoot`, `configPath`, `timeoutMs` | Audits Promptfoo **OWASP LLM Top 10** configs, `promptGuard` probes, and conditional Docker red-teaming (`SKIPPED_MISSING_CREDENTIALS` without keys). |
 | **`audit_vibe_prototype`** | `targetDir`, `workspaceRoot`, `dryRun`, `remediationSubdir`, `maxLines`, `enforce` | Inspects AI-generated scaffolds (`Bolt.new`, `Lovable`, `v0`, `Replit`) for `VIBE-SEC-001..QA-005` risks, secret leaks, and missing RLS/WORM. |

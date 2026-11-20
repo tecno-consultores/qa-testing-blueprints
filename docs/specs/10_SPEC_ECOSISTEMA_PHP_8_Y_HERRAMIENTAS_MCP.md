@@ -1,4 +1,4 @@
-> 📜 **Aviso de Archivo Histórico (Spec 19 §3.4):** Especificación histórica preservada en español como registro arquitectónico inmutable (exenta de espejo bilingüe EN/ES). Para rutas y métricas vigentes, véase [README.es.md](README.es.md).
+> 📜 **Aviso de Archivo Histórico (Spec 19 §3.4):** Especificación histórica (`Hito 11`) preservada en español como registro arquitectónico inmutable (exenta de espejo bilingüe EN/ES). Para plantillas PHP endurecidas y digest vigentes (`sinfallas/basephpcomposer:8.5`, `sinfallas/karatelabs:1.5.1`), véase [`php/README.es.md`](../../php/README.es.md) y [README.es.md](README.es.md).
 
 # Especificación Técnica 10: Ecosistema PHP 8.2–8.5 (`sinfallas/basephpcomposer`), Blueprints 11X e Integración en Servidor MCP
 
@@ -117,7 +117,7 @@ services:
       - composer-cache:/tmp/composer-cache
     environment:
       APP_ENV: testing
-      COMPOSER_CACHE_dir: /tmp/composer-cache
+      COMPOSER_CACHE_DIR: /tmp/composer-cache
       DATABASE_URL: postgresql://qa_user:qa_password_ephemeral@postgres-qa:5432/qa_db?serverVersion=17&charset=utf8
       REDIS_URL: redis://keydb-qa:6379/0
       PCOV_ENABLED: "1"
@@ -128,7 +128,7 @@ services:
         condition: service_healthy
 
   karatelabs:
-    image: sinfallas/karatelabs:latest
+    image: sinfallas/karatelabs:1.5.1   # Histórico usaba :latest; producción/v3.2 fijado con digest SHA-256 (`QA-DOCKER-LOCK-01`)
     working_dir: /workspace
     volumes:
       - .:/workspace

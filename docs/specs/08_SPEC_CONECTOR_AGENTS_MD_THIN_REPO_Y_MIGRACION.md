@@ -1,4 +1,4 @@
-> 📜 **Aviso de Archivo Histórico (Spec 19 §3.4):** Especificación histórica preservada en español como registro arquitectónico inmutable (exenta de espejo bilingüe EN/ES). Para rutas y métricas vigentes, véase [README.es.md](README.es.md).
+> 📜 **Aviso de Archivo Histórico (Spec 19 §3.4):** Especificación histórica (`Hito 9`) preservada en español como registro arquitectónico inmutable (exenta de espejo bilingüe EN/ES). En `QA-11X v3.2`, el bloque conector Thin-Client referencia las **10 skills de consumo global**, **19 Tools** y **13 Resources** del servidor `@sinfallas/mcp-qa-11x`. Para rutas y métricas vigentes, véase [README.es.md](README.es.md).
 
 # 🔗 Especificación 08: Inyector Aditivo No Destructivo del Conector `AGENTS.md` (`init-agents`)
 

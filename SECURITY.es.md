@@ -1,6 +1,6 @@
 # 🛡️ Política de Seguridad y Arquitectura de Defensa (QA Testing Blueprints)
 
-> 🌐 **Idioma:** [🇬🇧 Read in English](SECURITY.md) · **Español (Espejo 1:1)**
+> 🌐 **Idioma:** [🇺🇸 English (Canonical)](SECURITY.md) · **Español (Espejo 1:1)**
 
 **Proyecto:** QA Testing Blueprints — Estándar Corporativo Nivel 11X  
 **Licencia:** MIT  
@@ -271,7 +271,7 @@ flowchart LR
 
 ### 5.2. Auditoría Diaria Automatizada de Imágenes Base (`audit-base-images.yml`)
 - **Cadencia y Alcance:** El workflow [`.github/workflows/audit-base-images.yml`](.github/workflows/audit-base-images.yml) se ejecuta diariamente (`cron: '0 6 * * *'`), bajo demanda (`workflow_dispatch`) y en `pull_request` sobre manifiestos de contenedores/seguridad, aplicando mínimo privilegio (`permissions: contents: read`), `timeout-minutes` explícitos y Actions fijadas por SHA inmutable (`SEC-CI-ACTION-REF`).
-- **Escaneo de Imágenes Oficiales (`Trivy HIGH/CRITICAL = 0`):** Matriz `fail-fast: false` sobre `sinfallas/base-python-uv:{latest,3.15}`, `sinfallas/base-node-ionic:{latest,26}`, `sinfallas/base-mobile-appium:{latest,26}`, `sinfallas/basephpcomposer:latest`, `sinfallas/karatelabs:1.5.1`, `sinfallas/base-bash-qa:latest` y `sinfallas/remote-graphify:latest` con `--severity HIGH,CRITICAL --ignore-unfixed --exit-code 1`, además de verificación no-root `smoke-mobile-appium` (`java`, `adb`, `appium`).
+- **Escaneo de Imágenes Oficiales (`Trivy HIGH/CRITICAL = 0`):** Matriz `fail-fast: false` sobre `sinfallas/base-python-uv:{latest,3.15}`, `sinfallas/base-node-ionic:{latest,26}`, `sinfallas/basephpcomposer:{latest,8.5}`, `sinfallas/karatelabs:{1.5.1,latest}`, `sinfallas/base-bash-qa:latest`, `sinfallas/remote-graphify:latest` y `sinfallas/base-mobile-appium:{latest,26}` (`12` objetivos) con `--severity HIGH,CRITICAL --ignore-unfixed --exit-code 1`, además de verificación no-root `smoke-mobile-appium` (`java`, `adb`, `appium`).
 - **Auditoría de Paquetes Python v2 (`pip-audit`) y SAST (`CodeQL`):** Ejecución efímera no-root (`--user 10001:10001 -e HOME=/tmp`) de `pip-audit --strict --desc` sobre `sinfallas/base-python-uv:3.15`, análisis `CodeQL` en `javascript-typescript`, `python` y `actions`, y validación determinista local mediante `make lint-workflows`.
 
 ---

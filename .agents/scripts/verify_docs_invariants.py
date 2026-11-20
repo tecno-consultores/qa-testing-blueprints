@@ -1587,6 +1587,19 @@ def check_internal_markdown_links(root: Path) -> list[str]:
     return errors
 
 
+def check_historical_spec_links(root: Path) -> list[str]:
+    """Audita enlaces locales relativos dentro de Specs históricas 01..18."""
+    specs_dir = root / "docs" / "specs"
+    if not specs_dir.is_dir():
+        return []
+    errors: list[str] = []
+    for spec_path in sorted(specs_dir.glob("*.md")):
+        rel = spec_path.relative_to(root).as_posix()
+        if _HISTORICAL_SPEC_RE.match(rel):
+            errors.extend(_validate_doc_links(root, rel))
+    return errors
+
+
 def _derive_refactoring_ui_topics(root: Path) -> frozenset[str]:
     refs_dir = root / ".agents" / "skills" / "refactoring-ui" / "references"
     if not refs_dir.is_dir():
@@ -1869,6 +1882,7 @@ def validate_repository_docs(root: Path) -> list[str]:
         *check_bilingual_pair_parity(root),
         *check_v2_mcp_surface_counts(root),
         *check_internal_markdown_links(root),
+        *check_historical_spec_links(root),
         *_check_refactoring_ui_topics(root),
         *check_global_catalogs_and_geo(root),
     ]

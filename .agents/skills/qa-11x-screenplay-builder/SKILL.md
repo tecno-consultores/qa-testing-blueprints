@@ -107,15 +107,15 @@ export class CallAnApi {
 }
 
 export class Actor {
-  private readonly abilities = new Map<Function, unknown>();
+  private readonly abilities = new Map<abstract new (...args: never[]) => unknown, unknown>();
   constructor(public readonly name: string) {}
 
   whoCan<T extends object>(ability: T): this {
-    this.abilities.set(ability.constructor, ability);
+    this.abilities.set(ability.constructor as abstract new (...args: never[]) => unknown, ability);
     return this;
   }
 
-  abilityTo<T>(AbilityType: new (...args: never[]) => T): T {
+  abilityTo<T>(AbilityType: abstract new (...args: never[]) => T): T {
     const found = this.abilities.get(AbilityType);
     if (!found) throw new Error(`${this.name} lacks ability ${AbilityType.name}`);
     return found as T;
@@ -127,6 +127,13 @@ export class Actor {
 
   async asks<T>(question: Question<T>): Promise<T> {
     return question.answeredBy(this);
+  }
+}
+
+export class TriggerDualRefresh implements Task {
+  async performAs(actor: Actor): Promise<void> {
+    const { page } = actor.abilityTo(BrowseTheWeb);
+    await page.getByRole('button', { name: /Refrescar/i }).click();
   }
 }
 
@@ -142,7 +149,6 @@ export class SubmitMaintenanceWindow implements Task {
 export class ConsumerDashboardBanner implements Question<string> {
   async answeredBy(actor: Actor): Promise<string> {
     const { page } = actor.abilityTo(BrowseTheWeb);
-    await page.getByRole('button', { name: /Refrescar/i }).click();
     return (await page.getByRole('status').innerText()).trim();
   }
 }
@@ -150,13 +156,17 @@ export class ConsumerDashboardBanner implements Question<string> {
 test('multi-role Anti-Silo propagation from Operator to Auditor', async ({ browser }) => {
   const opCtx = await browser.newContext();
   const audCtx = await browser.newContext();
-  const operator = new Actor('Operator').whoCan(new BrowseTheWeb(await opCtx.newPage()));
-  const auditor = new Actor('Auditor').whoCan(new BrowseTheWeb(await audCtx.newPage()));
+  try {
+    const operator = new Actor('Operator').whoCan(new BrowseTheWeb(await opCtx.newPage()));
+    const auditor = new Actor('Auditor').whoCan(new BrowseTheWeb(await audCtx.newPage()));
 
-  await operator.attemptsTo(new SubmitMaintenanceWindow('core-edge-01'));
-  const banner = await auditor.asks(new ConsumerDashboardBanner());
-  expect(banner).toContain('MANTENIMIENTO');
-  await opCtx.close();
-  await audCtx.close();
+    await operator.attemptsTo(new SubmitMaintenanceWindow('core-edge-01'));
+    await auditor.attemptsTo(new TriggerDualRefresh());
+    const banner = await auditor.asks(new ConsumerDashboardBanner());
+    expect(banner).toContain('MANTENIMIENTO');
+  } finally {
+    await opCtx.close();
+    await audCtx.close();
+  }
 });
 ```

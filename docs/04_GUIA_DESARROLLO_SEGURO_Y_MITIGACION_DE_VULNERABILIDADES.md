@@ -68,7 +68,7 @@
 | `QA-MAKE-CURDIR-01` | Use of `$(PWD)` / `${PWD}` in sub-Makefiles (`*/Makefile`, `*/Makefile.example`) invoked via `$(MAKE) -C <subdir>` instead of `$(CURDIR)`, exposing the parent directory to container mounts | `docs/02` §5.3 and `SECURITY.md` §4.27 |
 | `QA-CONTRACT-SDK-01` | MCP/JSON-RPC/ACP servers tested solely by invoking handlers with `MagicMock` without wiring the real in-process SDK client/transport (masks breaking signature shifts like `mcp 1.x -> 2.x`) | `docs/02` §1.1 (Rule #11) and `SECURITY.md` §4.28 |
 | `QA-DOCKER-LOCK-01` | `Dockerfile` installing a manual package list (`pip install ...`, `npm install <pkg>`) or `uv sync` without `--frozen` instead of installing from the lockfile, plus missing post-build image smoke test (`import`, `id -u != 0`, `401`) | `docs/02` §1.1 (Rule #11) and `SECURITY.md` §4.28 |
-| `QA-PLAYWRIGHT-PIN-01` | Mismatch or SemVer range (`^`/`~`) between `@playwright/test`/`playwright` in `package.json` and `mcr.microsoft.com/playwright:vX.Y.Z` (or `:latest`) in Compose, plus DNS/IP Anti-SSRF (`SEC-03`) and API key redaction (`SEC-06`) in `audit_pagespeed_insights.py` | `docs/02` §7, §9 and `SECURITY.md` §4.29 |
+| `QA-PLAYWRIGHT-PIN-01` | Mismatch or SemVer range (`^`/`~`) between `@playwright/test`/`playwright` in `package.json` and `mcr.microsoft.com/playwright:vX.Y.Z` (or `:latest`) in Compose, plus DNS/IP Anti-SSRF (Pattern 4) and API key redaction (`SEC-10`) in `audit_pagespeed_insights.py` | `docs/02` §7, §9 and `SECURITY.md` §4.29 |
 | `QA-SSR-HYDRATION-01` | Pre-hydration DOM branching (`v-if` on `localStorage`/`dataset.theme`) in SSR/SSG apps or missing dual `'light'`/`'dark'` Playwright sweep with `console`/`pageerror` guard (`/hydration/i`) | `docs/02` §7 and `SECURITY.md` §4.30 |
 
 ---
@@ -190,39 +190,42 @@ from urllib.parse import urlparse
 
 FORBIDDEN_CONTAINER_HOSTS = {"localhost", "api", "postgres", "keydb", "redis", "worker"}
 
-def validate_safe_outgoing_url(url_str: str) -> str:
+def resolve_safe_outgoing_target(url_str: str) -> tuple[str, str]:
     parsed = urlparse(url_str.strip())
-    if parsed.scheme not in ("http", "https"):
-        raise ValueError(f"Disallowed scheme: {parsed.scheme}")
+    if parsed.scheme not in ("http", "https") or parsed.username or parsed.password:
+        raise ValueError(f"Disallowed scheme or embedded credentials: {parsed.scheme}")
 
-    hostname = parsed.hostname
-    if not hostname:
-        raise ValueError("URL lacks a valid hostname")
-
-    if hostname.lower() in FORBIDDEN_CONTAINER_HOSTS:
-        raise ValueError("Access to internal infrastructure resources is forbidden")
+    hostname = (parsed.hostname or "").rstrip(".").lower()
+    if not hostname or hostname in FORBIDDEN_CONTAINER_HOSTS:
+        raise ValueError("Access to internal infrastructure resources or empty host is forbidden")
 
     # 🔒 Resolve DNS before executing the HTTP request
     try:
         resolved_ips = socket.getaddrinfo(hostname, None)
     except socket.gaierror as exc:
         raise ValueError(f"Could not resolve host: {hostname}") from exc
+    if not resolved_ips:
+        raise ValueError(f"Empty DNS resolution for host: {hostname}")
 
+    pinned_ip: str | None = None
     for item in resolved_ips:
-        ip_addr_str = item[4][0]
-        ip = ipaddress.ip_address(ip_addr_str)
+        ip_addr_str = str(item[4][0]).split("%", 1)[0]
+        raw_ip = ipaddress.ip_address(ip_addr_str)
+        ip = raw_ip.ipv4_mapped if isinstance(raw_ip, ipaddress.IPv6Address) and raw_ip.ipv4_mapped else raw_ip
 
-        # Block RFC 1918 private, Loopback, Link-Local, and Multicast ranges
-        if (
-            ip.is_private
-            or ip.is_loopback
-            or ip.is_link_local
-            or ip.is_multicast
-            or ip.is_reserved
-        ):
-            raise ValueError(f"Forbidden target in private/reserved network ({ip_addr_str})")
+        # Deny-by-default: require global unicast IP (blocks RFC 1918, RFC 6598 CGNAT 100.64/10, loopback, link-local, multicast, unspecified)
+        if not ip.is_global or ip.is_multicast or ip.is_unspecified:
+            raise ValueError(f"Forbidden target in non-global/restricted network ({ip_addr_str})")
+        if pinned_ip is None:
+            pinned_ip = str(ip)
 
-    return url_str
+    assert pinned_ip is not None
+    return url_str.strip(), pinned_ip
+
+
+def validate_safe_outgoing_url(url_str: str) -> str:
+    safe_url, _ = resolve_safe_outgoing_target(url_str)
+    return safe_url
 ```
 
 ---
@@ -326,7 +329,9 @@ Requiring CSRF tokens on Machine-to-Machine (M2M) API calls or AI agents already
 
 ### Mandatory Implementation
 ```python
+import hashlib
 import hmac
+import os
 from fastapi import Request, Response, status
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -337,14 +342,14 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
         if request.method in ("GET", "HEAD", "OPTIONS"):
             return await call_next(request)
 
-        # 🔒 OWASP Rule: Requests carrying Authorization: Bearer do not require CSRF
-        auth_header = request.headers.get("authorization", "")
-        if auth_header.startswith("Bearer "):
+        # 🔒 OWASP Rule: Exempt ONLY genuinely bearer-authenticated API calls with NO session cookie
+        has_session_cookie = bool(request.cookies.get("session_id"))
+        if getattr(request.state, "auth_scheme", None) == "bearer" and not has_session_cookie:
             return await call_next(request)
 
         # Cookie-authenticated browser requests require X-CSRF-Token
-        csrf_token = request.headers.get("X-CSRF-Token")
-        if not csrf_token or not self.validate_csrf_token(csrf_token, request):
+        csrf_header = request.headers.get("X-CSRF-Token")
+        if not csrf_header or not self.validate_csrf_token(csrf_header, request):
             return JSONResponse(
                 status_code=status.HTTP_403_FORBIDDEN,
                 content={"detail": "Invalid or missing CSRF token."},
@@ -353,8 +358,12 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
     def validate_csrf_token(self, token: str, request: Request) -> bool:
-        # Constant-time HMAC digest validation...
-        return True
+        secret = os.environ.get("CSRF_HMAC_SECRET", "").encode("utf-8")
+        session_id = request.cookies.get("session_id", "")
+        if not secret or not session_id:
+            return False
+        expected = hmac.new(secret, session_id.encode("utf-8"), hashlib.sha256).hexdigest()
+        return hmac.compare_digest(token, expected)
 ```
 
 ---
@@ -413,18 +422,16 @@ Under strict Refresh Token rotation, when a user opens 3 concurrent browser tabs
 
 ### Mandatory Implementation (KeyDB / Redis)
 ```python
-import time
+import hashlib
 
 GRACE_PERIOD_SECONDS = 5
 
 async def rotate_refresh_token(redis_client, old_token_family_id: str, new_token: str) -> None:
-    now = int(time.time())
-    
-    # 🔒 Instead of deleting the prior token immediately, retain the key with a grace TTL
-    # This allows nearly simultaneous requests from parallel tabs to succeed
+    token_digest = hashlib.sha256(new_token.encode("utf-8")).hexdigest()
+    # 🔒 Store hashed digest (never plaintext token) with a short grace TTL for concurrent tabs
     await redis_client.set(
         f"grace_period:{old_token_family_id}",
-        new_token,
+        token_digest,
         ex=GRACE_PERIOD_SECONDS,
     )
 ```
@@ -506,7 +513,7 @@ Allowing unlimited concurrent sessions or uniform inactivity timeouts exposes ad
 from dataclasses import dataclass
 import secrets
 import time
-from fastapi import HTTPException, Response, status
+from fastapi import HTTPException, status
 
 # 🔒 DISA STIG V-222389 / V-222390: Role-tiered inactivity timeouts
 IDLE_TIMEOUT_PRIVILEGED_SEC = 10 * 60   # 10 minutes for administrative roles
@@ -617,7 +624,6 @@ If the API responds faster when a username does not exist than when a password f
 ### Mandatory Implementation (Python / FastAPI)
 ```python
 import re
-from datetime import datetime, timedelta, timezone
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 
@@ -629,6 +635,11 @@ MAX_FAILED_ATTEMPTS = 3          # DISA STIG V-222432: Maximum 3 consecutive fai
 LOCKOUT_WINDOW_SECONDS = 15 * 60 # Within a 15-minute window
 TEMP_ACCOUNT_MAX_HOURS = 72      # DISA STIG V-222409: Temporary accounts expire after 72h
 INACTIVE_ACCOUNT_MAX_DAYS = 35   # DISA STIG V-222411: Inactive accounts disable after 35 days
+_ATOMIC_INCR_EXPIRE_LUA = (
+    "local c = redis.call('INCR', KEYS[1]); "
+    "if c == 1 or redis.call('TTL', KEYS[1]) == -1 then "
+    "redis.call('EXPIRE', KEYS[1], tonumber(ARGV[1])); end; return c"
+)
 
 def validate_password_stig_policy(new_password: str, old_password: str | None = None) -> None:
     """DISA STIG V-222536..V-222541: 15-char policy, complexity, and 8-character differential."""
@@ -670,18 +681,15 @@ async def verify_credentials_constant_time(
     except VerifyMismatchError:
         password_ok = False
 
-    if not password_ok:
-        pipe = redis_client.pipeline()
-        pipe.incr(fail_key)
-        pipe.expire(fail_key, LOCKOUT_WINDOW_SECONDS)
-        await pipe.execute()
+    if not password_ok or user_record is None:
+        await redis_client.eval(_ATOMIC_INCR_EXPIRE_LUA, 1, fail_key, LOCKOUT_WINDOW_SECONDS)
         raise PermissionError("Invalid credentials or account temporarily locked.")
 
     await redis_client.delete(fail_key)
     # 🔒 DISA STIG V-222437 / OWASP P-12: Return last logon timestamp to the user
     return {
         "user_id": user_record["id"],
-        "last_Interactive_logon_utc": user_record.get("last_logon_utc"),
+        "last_interactive_logon_utc": user_record.get("last_logon_utc"),
         "last_failed_attempt_utc": user_record.get("last_failed_utc"),
     }
 ```
@@ -714,11 +722,14 @@ def canonicalize_and_validate_text(raw_value: str, max_length: int = 256) -> str
     return normalized
 
 def run_allowlisted_diagnostic_tool(target_ip: str) -> str:
-    """DISA STIG V-222604 & OWASP SFL-9: shell=True forbidden; use allowlisted argument list."""
+    """DISA STIG V-222604 & OWASP SFL-9: shell=True forbidden; parse strict IP and inject '--' delimiter."""
     clean_ip = canonicalize_and_validate_text(target_ip, max_length=45)
-    # 🔒 Direct binary execution with absolute path, no command interpreter (shell=False)
+    parsed_ip = ipaddress.ip_address(clean_ip)
+    if parsed_ip.is_multicast or parsed_ip.is_unspecified:
+        raise ValueError("Diagnostic target IP is disallowed.")
+    # 🔒 Direct binary execution with '--' end-of-options preventing CWE-88 flag injection
     completed = subprocess.run(
-        ["/usr/bin/ping", "-c", "1", "-W", "2", clean_ip],
+        ["/usr/bin/ping", "-c", "1", "-W", "2", "--", str(parsed_ip)],
         shell=False,
         check=True,
         capture_output=True,
@@ -748,17 +759,16 @@ import hashlib
 import json
 from lxml import etree
 
-# 🔒 DISA STIG V-222593 / V-222608: Disable DTDs, external entities, and network access in XML
-SAFE_XML_PARSER = etree.XMLParser(
-    resolve_entities=False,
-    no_network=True,
-    dtd_validation=False,
-    load_dtd=False,
-    huge_tree=False,
-)
-
 def parse_xml_safely(xml_bytes: bytes) -> etree._Element:
-    return etree.fromstring(xml_bytes, parser=SAFE_XML_PARSER)
+    # 🔒 Instantiate per-call hardened XMLParser (lxml parsers are not thread-safe when shared globally)
+    parser = etree.XMLParser(
+        resolve_entities=False,
+        no_network=True,
+        dtd_validation=False,
+        load_dtd=False,
+        huge_tree=False,
+    )
+    return etree.fromstring(xml_bytes, parser=parser)
 
 # 🔒 OWASP VSD 1-6: Safe deserialization via strict JSON + HMAC signature verification
 def deserialize_signed_payload(payload_bytes: bytes, signature_hex: str, secret_key: bytes) -> dict:
@@ -834,10 +844,16 @@ class AuditEntrySpec:
     previous_record_hmac: str
 
 
+_ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
+_CTRL_AND_SEP_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\u2028\u2029]")
+
+
 def sanitize_log_field(value: str) -> str:
-    """OWASP SL-4 & SLD-2: Eliminates CR/LF injection and control characters in logs."""
+    """OWASP SL-4 & SLD-2: Strip ANSI escapes, C0/C1 control chars, Unicode line separators, and CR/LF."""
+    cleaned = _ANSI_ESCAPE_RE.sub("", value)
+    cleaned = _CTRL_AND_SEP_RE.sub("", cleaned)
     return (
-        value.replace("\r", "\\r")
+        cleaned.replace("\r", "\\r")
         .replace("\n", "\\n")
         .replace("\t", "\\t")
         .replace("<", "&lt;")
@@ -899,14 +915,13 @@ from contextlib import contextmanager
 from typing import Iterator
 
 @contextmanager
-def ephemeral_secret_buffer(secret_bytes: bytes) -> Iterator[bytearray]:
-    """DISA STIG V-222612 & OWASP MM-3/MM-8: Overwrites the memory buffer on all exit paths."""
-    buf = bytearray(secret_bytes)
+def ephemeral_secret_buffer(secret_buf: bytearray) -> Iterator[bytearray]:
+    """DISA STIG V-222612 & OWASP MM-3/MM-8: Zeroizes caller mutable bytearray on all exit paths (avoid immutable bytes secrets)."""
     try:
-        yield buf
+        yield secret_buf
     finally:
-        for i in range(len(buf)):
-            buf[i] = 0
+        for i in range(len(secret_buf)):
+            secret_buf[i] = 0
 
 SENSITIVE_EXPORT_FIELDS = {"password_hash", "totp_secret", "vault_dek", "api_private_key", "db_admin_dsn"}
 
@@ -1018,9 +1033,12 @@ async def enforce_anti_data_mining_quota(
             detail=f"Maximum page limit is {MAX_PAGE_LIMIT}.",
         )
     rate_key = f"datamining:{tenant_id}:{user_id}"
-    count = await redis_client.incr(rate_key)
-    if count == 1:
-        await redis_client.expire(rate_key, 60)
+    count = int(await redis_client.eval(
+        "local c = redis.call('INCR', KEYS[1]); "
+        "if c == 1 or redis.call('TTL', KEYS[1]) == -1 then redis.call('EXPIRE', KEYS[1], 60); end; return c",
+        1,
+        rate_key,
+    ))
     if count > DATA_MINING_QUERY_THRESHOLD_PER_MIN:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -1029,12 +1047,18 @@ async def enforce_anti_data_mining_quota(
     return requested_limit
 
 async def fetch_external_partner_safely(url: str) -> ExternalPartnerPayload:
-    """OWASP API10:2023: SSRF pre-flight, strict timeouts, bounded streaming, no redirects."""
-    safe_url = validate_safe_outgoing_url(url)
+    """OWASP API10:2023: Pre-flight DNS pin (closes DNS rebinding TOCTOU), strict timeouts, bounded stream, no redirects."""
+    safe_url, pinned_ip = resolve_safe_outgoing_target(url)
+    parsed = urlparse(safe_url)
+    host_header = parsed.netloc
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    target_host = f"[{pinned_ip}]" if ":" in pinned_ip else pinned_ip
+    pinned_url = parsed._replace(netloc=f"{target_host}:{port}").geturl()
+    extensions = {"sni_hostname": (parsed.hostname or "").encode("ascii")} if parsed.scheme == "https" else {}
     chunks: list[bytes] = []
     total_bytes = 0
     async with httpx.AsyncClient(timeout=5.0, follow_redirects=False, verify=True) as client:
-        async with client.stream("GET", safe_url) as resp:
+        async with client.stream("GET", pinned_url, headers={"Host": host_header}, extensions=extensions) as resp:
             resp.raise_for_status()
             async for chunk in resp.aiter_bytes():
                 total_bytes += len(chunk)
@@ -1124,7 +1148,7 @@ namespace App\Security;
 
 final class DisaStigSecurityGuard
 {
-    private const DUMMY_ARGON2ID_HASH = '$argon2id$v=19$m=65536,t=4,p=1$c2luZmFsbGFzMTF4$7W5rT3x9mK2pL8vN1qR4sT6uV8wX0yZ2aB4cD6eF8gH';
+    private const DUMMY_ARGON2ID_HASH = '$argon2id$v=19$m=65536,t=4,p=1$Q0NiL3hCNTh3MzNIbFJUag$u0XzMOr3eoUz8BKmIJr9g5oEzPk7mXGvt/o7HHvO7go';
 
     /**
      * Pattern 16 (APSC-DV-002520): Unicode NFKC canonicalization prior to any validation.
@@ -1178,7 +1202,7 @@ final class DisaStigSecurityGuard
         $failKey = "auth_fail:{$username}";
         if ((int) ($keydb->get($failKey) ?: 0) >= 3) {
             password_verify($password, self::DUMMY_ARGON2ID_HASH);
-            throw new \RuntimeException('Account temporarily locked for 15 minutes (APSC-DV-000530).');
+            throw new \RuntimeException('Invalid credentials or account temporarily locked.');
         }
         $targetHash = is_array($userRecord) && isset($userRecord['password_hash'])
             ? (string) $userRecord['password_hash']
@@ -1187,7 +1211,7 @@ final class DisaStigSecurityGuard
         $isValid = password_verify($password, $targetHash) && $userRecord !== null;
         if (!$isValid) {
             $keydb->multi()->incr($failKey)->expire($failKey, 900)->exec();
-            throw new \RuntimeException('Invalid credentials or account locked.');
+            throw new \RuntimeException('Invalid credentials or account temporarily locked.');
         }
         $keydb->del($failKey);
         return true;

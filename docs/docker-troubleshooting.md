@@ -152,7 +152,7 @@ The `postgres` container (`postgres:17-alpine`) starts in the background (`up -d
 **The Solution:**
 Ensure your script or command waits for active readiness using `pg_isready` before running migrations or suites:
 ```bash
-docker compose -f docker-compose.qa.yml exec -T postgres sh -c "until pg_isready -U postgres; do sleep 0.5; done"
+docker compose -f docker-compose.qa.yml exec -T postgres sh -c 'until pg_isready -U "${POSTGRES_USER:-qa_user}"; do sleep 0.5; done'
 ```
 
 ---
@@ -224,7 +224,7 @@ The hardened official images `sinfallas/base-node-ionic:26` and `sinfallas/base-
 
 **The Solution:**
 1. Declare the `pnpm-store-init` micro-service (`chmod -R a+rwX /pnpm`) in `docker-compose.qa.yml` with `depends_on: condition: service_completed_successfully`, alongside `HOME: /tmp` and `pnpm_config_store_dir: /pnpm/store`.
-2. Always invoke `docker compose run --rm -u "$(id -u):$(id -g)" <service> ...` in `Makefile` and CI pipelines.
+2. Always invoke `docker compose run --rm -T -u "$(id -u):$(id -g)" <service> ...` in `Makefile` and CI pipelines (`QA-DOCKER-TTY-01`).
 3. In Node.js/CLI tools that resolve the user home directory when `process.env.HOME` is unset (e.g., tests running `delete process.env.HOME` under `UID 1001` on GitHub Actions or OpenShift, where that `UID` has no `/etc/passwd` entry inside the container), never call `os.homedir()` without catching exceptions (`uv_os_homedir returned ENOENT`): always wrap `os.homedir()` in `try/catch` with a deterministic fallback to `os.tmpdir()` (`resolveSafeHomeDir`).
 
 ---

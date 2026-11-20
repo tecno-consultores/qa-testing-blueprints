@@ -1,4 +1,4 @@
-> 📜 **Aviso de Archivo Histórico (Spec 19 §3.4):** Especificación histórica preservada en español como registro arquitectónico inmutable (exenta de espejo bilingüe EN/ES). Para rutas y métricas vigentes, véase [README.es.md](README.es.md).
+> 📜 **Aviso de Archivo Histórico (Spec 19 §3.4):** Especificación histórica (`v1.x`) preservada en español como registro arquitectónico inmutable (exenta de espejo bilingüe EN/ES). **Nota `QA-11X v3.2` (`QA-GIT-GATE-01`):** Cualquier publicación en npm/Docker/GitHub requiere autorización explícita del operador humano y compuerta `release_readiness_gate.py` (`GO`). Para rutas y métricas vigentes, véase [README.es.md](README.es.md).
 
 # 📦 Especificación 05: Guía Paso a Paso de Publicación en npm (Node.js) y Arquitectura Soberana sin CI/CD Externo
 

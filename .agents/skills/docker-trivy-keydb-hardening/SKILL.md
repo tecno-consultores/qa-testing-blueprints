@@ -49,6 +49,7 @@ When deploying cache, rate-limiting, idempotency locks (`idemp:{tenant_id}:{user
   ```yaml
   redis:
     image: eqalpha/keydb@sha256:6537505c42355ca1f571276bddf83f5b750f760f07b2a185a676481791e388ac
+    mem_limit: 384m
     read_only: true
     tmpfs:
       - /tmp:size=32M,noexec,nosuid,nodev
@@ -56,6 +57,9 @@ When deploying cache, rate-limiting, idempotency locks (`idemp:{tenant_id}:{user
       - no-new-privileges:true
     cap_drop:
       - ALL
+    environment:
+      REDISCLI_AUTH: "${KEYDB_PASSWORD}"
+    # Prefer mounting a 0400 keydb.conf secret or passing requirepass via secret/env cleanly (maxmemory 256mb <= 75% of 384m)
     command: >
       keydb-server
       --server-threads 2
@@ -71,7 +75,7 @@ When deploying cache, rate-limiting, idempotency locks (`idemp:{tenant_id}:{user
       --rename-command CONFIG ""
       --rename-command DEBUG ""
     healthcheck:
-      test: ["CMD-SHELL", "keydb-cli ping | grep PONG"]
+      test: ["CMD-SHELL", "keydb-cli ping | grep -q PONG"]
       interval: 5s
       timeout: 3s
       retries: 5

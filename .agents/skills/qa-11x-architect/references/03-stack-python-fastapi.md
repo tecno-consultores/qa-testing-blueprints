@@ -155,7 +155,7 @@ addopts = "--import-mode=importlib --cov=src --cov-report=term-missing --cov-rep
 
 ### `Makefile` Targets
 ```makefile
-.PHONY: qa-lint qa-unit qa-migration qa-integration qa-ci qa-bdd qa-mutation qa-dast qa-chaos qa-all clean-cache clean qa-clean
+.PHONY: qa-lint qa-unit qa-migration qa-integration qa-contracts qa-load qa-ci qa-mutation qa-bdd qa-dast qa-chaos qa-all clean-cache clean qa-clean
 
 PROJECT_DIR ?= $(CURDIR)
 QA_UID ?= $(shell id -u)
@@ -174,18 +174,34 @@ qa-lint:
 		uv run pip-audit"
 
 qa-unit:
-	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" -e COVERAGE_FILE=/tmp/.coverage -e PYTHONPATH=/app/src qa-backend bash -c "uv sync --all-extras -q && uv run pytest -q --tb=short --import-mode=importlib -m 'not integration' --cov=src --cov-fail-under=95"
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" -e COVERAGE_FILE=/tmp/.coverage -e PYTHONPATH=/app qa-backend bash -c "uv sync --all-extras -q && uv run pytest -q --tb=short --import-mode=importlib -m 'not integration' --cov=src --cov-fail-under=95"
 
 qa-migration:
-	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-backend bash -c "\
-		if [ -f .agents/scripts/verify_alembic_orm_parity.py ]; then python3 .agents/scripts/verify_alembic_orm_parity.py; else uv sync --all-extras -q && uv run alembic check; fi"
+	bash -c 'if [ -f .agents/scripts/verify_alembic_orm_parity.py ]; then \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-backend python3 .agents/scripts/verify_alembic_orm_parity.py; \
+	else \
+		trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" down -v >/dev/null 2>&1 || true" EXIT; \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml up -d --wait postgres && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-backend bash -c "\
+			uv sync --all-extras -q && DATABASE_URL=\"\$$MIGRATION_DATABASE_URL\" uv run alembic upgrade head && DATABASE_URL=\"\$$MIGRATION_DATABASE_URL\" uv run alembic check"; \
+	fi'
 
 qa-integration:
 	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml down -v >/dev/null 2>&1 || true" EXIT; \
 		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml up -d --wait postgres keydb && \
-		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" -e COVERAGE_FILE=/tmp/.coverage -e PYTHONPATH=/app/src qa-backend bash -c "uv sync --all-extras -q && ([ ! -f alembic.ini ] || uv run alembic upgrade head) && (uv run pytest -q --tb=short --import-mode=importlib --no-cov -m integration || [ \$$? -eq 5 ])"'
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" -e COVERAGE_FILE=/tmp/.coverage -e PYTHONPATH=/app qa-backend bash -c "uv sync --all-extras -q && ([ ! -f alembic.ini ] || DATABASE_URL=\"\$$MIGRATION_DATABASE_URL\" uv run alembic upgrade head) && { uv run pytest -q --tb=short --import-mode=importlib --no-cov -m integration; rc=\$$?; [ \$$rc -eq 5 ] && exit 0 || exit \$$rc; }"'
 
-qa-ci: qa-lint qa-unit qa-migration qa-integration
+qa-contracts:
+	mkdir -p "$(PROJECT_DIR)/pacts"
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" -e PACT_OUTPUT_DIR=/app/pacts -e PYTHONPATH=/app qa-backend bash -c "uv sync --all-extras -q && uv run pytest -q --tb=short --no-cov tests/contracts/"
+
+qa-load:
+	mkdir -p "$(PROJECT_DIR)/reports"
+	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml --profile load down -v >/dev/null 2>&1 || true" EXIT; \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml up -d --wait postgres keydb api && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml --profile load run --rm -T -u "$(QA_UID):$(QA_GID)" k6-smoke'
+
+qa-ci: qa-lint qa-unit qa-migration qa-integration qa-contracts
 
 qa-bdd:
 	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml down -v >/dev/null 2>&1 || true" EXIT; \
@@ -200,7 +216,14 @@ qa-dast:
 		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml up -d --wait postgres keydb api && \
 		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp zap zap-baseline.py -t http://api:8000 -r zap-report.html'
 
-qa-all: qa-lint qa-unit qa-migration qa-mutation qa-bdd
+qa-chaos:
+	mkdir -p "$(PROJECT_DIR)/reports"
+	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml --profile chaos --profile load down -v >/dev/null 2>&1 || true" EXIT; \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml up -d --wait postgres keydb api && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml --profile chaos up -d pumba prometheus && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml --profile load run --rm -T -u "$(QA_UID):$(QA_GID)" -e K6_P95_MS=900 k6-smoke'
+
+qa-all: qa-lint qa-unit qa-migration qa-integration qa-contracts qa-mutation qa-bdd
 
 clean-cache:
 	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml down -v >/dev/null 2>&1 || true
@@ -234,7 +257,9 @@ Feature: API Behavioral & Security Contracts
     Then status 401
 
   Scenario: Incomplete payload returns 422 with sanitized detail in production
+    * def idemKey = java.util.UUID.randomUUID() + ''
     Given path '/api/v1/auth/login'
+    And header Idempotency-Key = idemKey
     And request { username: "operator_only" }
     When method post
     Then status 422

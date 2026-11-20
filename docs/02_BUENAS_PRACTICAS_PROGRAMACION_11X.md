@@ -325,7 +325,7 @@ Preserving prior state ensures operational continuity in monitoring centers and 
 
 ## 7. Toolchain Alignment: Node 26, pnpm 12, ESLint 9, and Karate 1.5.1 (Vue 3 / React / SSG)
 
-When certifying frontend and Node.js projects inside the official `sinfallas/base-node-ionic:26` (`Node v26.13+`, `pnpm 12.18+`) and `sinfallas/karatelabs:1.5.1` images, five environment contracts must be honored to avoid false pipeline failures and maintain Zero-Trust security (`SEC-09`):
+When certifying frontend and Node.js projects inside the official `sinfallas/base-node-ionic:26` (`Node v26.13+`, `pnpm 12.18+`) and `sinfallas/karatelabs:1.5.1` images, seven environment contracts must be honored to avoid false pipeline failures and maintain Zero-Trust security (`SEC-09`):
 
 1. **`pnpm-workspace.yaml` with `allowBuilds` boolean map (`SEC-09`):**
    - In `pnpm@12+`, the legacy `package.json#pnpm.onlyBuiltDependencies` key is ignored with a warning and native binaries (`esbuild`, `playwright`, `@playwright/test`) abort with `ERR_PNPM_IGNORED_BUILDS`.
@@ -371,7 +371,7 @@ To eliminate operational friction in PHP 8.4/8.5 applications (Symfony/PSR-4 and
 
 Complements Lighthouse CI (`@lhci/cli` pre-merge against local containers) by measuring real performance (CrUX field *Core Web Vitals* + cloud Lighthouse score) against public HTTPS domains post-deployment:
 - **Standard Execution:** `make audit-psi URL=https://your-domain.com [STRATEGY=both|mobile|desktop] [MIN_PERF=0.90]` (aliased as `make qa-psi` in `vue3`/`react-frontend` projects), backed by `scripts/auditar-pagespeed.sh` and `.agents/scripts/audit_pagespeed_insights.py` inside `sinfallas/base-python-uv:3.15`.
-- **Security and Resilience Controls:** Strict Anti-SSRF blocking (`SEC-03`: public `https://` only, no embedded credentials, pre-DNS resolution rejecting loopback/RFC1918/link-local/`.internal`), clean exit (`exit 0`, `SKIPPED`) when optional `URL` is omitted or on HTTP `429` quota limit without `PAGESPEED_API_KEY`, and automatic key redaction (`[REDACTED]`, `SEC-06`).
+- **Security and Resilience Controls:** Strict Anti-SSRF blocking (Pattern 4: public `https://` only, no embedded credentials, pre-DNS resolution rejecting loopback/RFC1918/RFC6598/link-local/`.internal`), clean exit (`exit 0`, `SKIPPED`) when optional `URL` is omitted or on HTTP `429` quota limit without `PAGESPEED_API_KEY`, and automatic API-key redaction (`[REDACTED]`, `SEC-10`).
 
 ---
 
@@ -380,4 +380,4 @@ Complements Lighthouse CI (`@lhci/cli` pre-merge against local containers) by me
 To eliminate gratuitous complexity refactoring without polluting normal prompt context:
 - **Zero-Cost Pass & JIT Complexity Guidance (`.agents/skills/tactical-patterns-11x/SKILL.md`):** On lint/complexity failures (`Radon CC > 5`, `Ruff C901`, `ESLint complexity > 5`, `SonarJS > 15`, `max-params`, `PLR0913`), `ephemeral-runner.ts` and `Makefile` inject a bounded `[DIRECTIVE-11X]` hint pointing to `blueprint://skills/tactical-patterns-11x` (`<= 2.5 KB`), emitting `0` extra bytes when gates pass.
 - **Anti-Helper-Splitting Structural Locks:** Splitting one complex method into helper spaghetti with 6–8 positional arguments is blocked deterministically across stacks via ESLint `max-params: ["error", 4]` + `max-depth: ["error", 3]` (`mcp-server`, `node-backend`, `vue3`, `react-frontend`) and Ruff `C901` (`max-complexity = 5`) + `PLR0911` + `PLR0913` (`max-args = 4`) in `python/` and `fastapi/`, favoring cohesive Parameter Objects, Strategy dispatch tables, Port & Adapter external boundaries (`--network none`), and Transactional Outbox writes.
-- **Unified Atomic Flight Recorder (`checkpoint_ctl.py` / `session_flight_recorder`):** Step tracking writes atomically (`0600`) to `.agents/.cache/session_checkpoint.json` (with `SEC-06` secret redaction) and projects `.agents/ACTIVE_TASK.md` (`<= 40` lines) deterministically alongside live Git status rather than manual Markdown edits.
+- **Unified Atomic Flight Recorder (`checkpoint_ctl.py` / `session_flight_recorder`):** Step tracking writes atomically (`0600`) to `.agents/.cache/session_checkpoint.json` (with `SEC-10` secret redaction) and projects `.agents/ACTIVE_TASK.md` (`<= 40` lines) deterministically alongside live Git status rather than manual Markdown edits.

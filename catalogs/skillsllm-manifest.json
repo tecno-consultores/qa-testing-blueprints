@@ -118,8 +118,8 @@
       "name": "qa-11x-architect",
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-architect/SKILL.md",
-      "size_bytes": 11539,
-      "sha256": "577e694478ac13782d0e33fa456c99369435f85f2c625432e59ba89d862234d5",
+      "size_bytes": 11674,
+      "sha256": "508db6931d2a226034c1028217fce1f887914a5791e0fd453457b07601034baf",
       "description": "Master QA 11X & DevSecOps Architect (qa-testing-blueprints v3.2+). Use whenever the user asks to initialize or integrate QA in a project, merge .example templates, write or audit unit/BDD/mutation/E2E tests, enforce >=95% coverage, apply DISA ASD STIG V6R5 and OWASP v4.2 security controls, run ephemeral Docker QA suites (Rule Zero), optimize context token consumption, or update TESTING.md and CHANGELOG.md."
     },
     {
@@ -127,8 +127,8 @@
       "name": "qa-11x-devsecops-hardener",
       "path": ".agents/skills/qa-11x-devsecops-hardener/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-devsecops-hardener/SKILL.md",
-      "size_bytes": 13923,
-      "sha256": "d72b10ed94559af1e4b9b5c5d78eec05b59c8755dda73b6d72692b2f4769cf6b",
+      "size_bytes": 13948,
+      "sha256": "c3455cebbe0d9facf0605901bc97b91cf588cf8d8d331f500fcb449e422ec62f",
       "description": "DISA ASD STIG V6R5 and OWASP Developer Guide v4.2 hardening sub-skill for Standard 11X. Use whenever designing, auditing, or modifying multi-tenant PostgreSQL 15–17+ RLS schemas, authentication and session flows, cryptographic secret vaults, WORM audit hash-chains, mutating MCP/JSON-RPC tools, or non-root Docker containers."
     },
     {
@@ -145,8 +145,8 @@
       "name": "qa-11x-screenplay-builder",
       "path": ".agents/skills/qa-11x-screenplay-builder/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-screenplay-builder/SKILL.md",
-      "size_bytes": 11496,
-      "sha256": "86d99e0c3568cf768c8cf82867a4ae4db5786b85d12fc52a3b462818e0913277",
+      "size_bytes": 11839,
+      "sha256": "c570a0234e417b7a4a111d173ca6c41ed36046bb017fe2a9956b11f75b111f84",
       "description": "Proportional E2E and acceptance architecture sub-skill for Standard 11X. Enforces the Screenplay Pattern (Actors, Abilities, Tasks, Interactions, Questions) on multi-role RBAC, multi-tenant, and hybrid UI+API+Mobile flows, lightweight composed POM on small single-role apps (<= 10 tests, <= 3 pages), semantic self-healing ARIA locators, Anti-JSDOM geometry, Anti-Silo cross-module Questions, and 3-phase temporal assertions."
     },
     {
@@ -154,8 +154,8 @@
       "name": "qa-11x-llm-evaluator",
       "path": ".agents/skills/qa-11x-llm-evaluator/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-llm-evaluator/SKILL.md",
-      "size_bytes": 9177,
-      "sha256": "a3bcd2f0ca7f89b061026062a4732488ffa2d2055005d942629c5803f3bb09de",
+      "size_bytes": 9996,
+      "sha256": "efe810962b858926c3ce941c6958f9c7cc39eab7cde3b980cfaccb2c3f62ed17",
       "description": "Dual-mode LLM, RAG, multimodal, voice, and autonomous agent evaluation sub-skill for Standard 11X. Enforces zero-cost deterministic offline contracts in CI (make test / make certify) and on-demand probabilistic evaluation and OWASP LLM Top 10 red-teaming via DeepEval and Promptfoo in ephemeral Docker."
     },
     {
@@ -163,8 +163,8 @@
       "name": "qa-11x-vibe-rescue",
       "path": ".agents/skills/qa-11x-vibe-rescue/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-vibe-rescue/SKILL.md",
-      "size_bytes": 8609,
-      "sha256": "fe765265de81ae9c2fe13b415b54cf6a70eb5141c9ae33fe2945418fd95ab988",
+      "size_bytes": 8891,
+      "sha256": "4ef09f1b16ad07f4a350b3560429a99def1260b8742f7cfcf109f77a1c2ca1bf",
       "description": "5-stage Vibe-to-Enterprise rescue and hardening sub-skill for Standard 11X. Audits and hardens AI-generated prototypes (Bolt.new, Lovable, v0, Replit Agent, rapid vibe-coding scaffolds) without destroying their UX, enforcing secret quarantine, PostgreSQL 17 RLS, strict typing (CC <= 5), non-root Docker Rule Zero (>= 95% coverage), and 10/10 gate closure."
     },
     {
@@ -172,8 +172,8 @@
       "name": "qa-11x-docker-certifier",
       "path": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-docker-certifier/SKILL.md",
-      "size_bytes": 8728,
-      "sha256": "7a22fc297870724efa00094c95b9e59710ae8eab7ea973af6f189d12b16247cc",
+      "size_bytes": 8786,
+      "sha256": "409d5b557e54c98acfbd59fe8b989a1fd8f47ed31aa1d9aa7fffc8f2b92df1bd",
       "description": "QA 11X Corporate Standard certifier in ephemeral Docker containers. Enforces Rule Zero (zero host executions on Ubuntu/macOS/Windows), Cyclomatic/Cognitive Complexity Grade A, unit test coverage >= 95%, mutation testing, WCAG 2.1 AA accessibility, Lighthouse CI, and silent mode RAM conservation."
     },
     {
@@ -181,8 +181,8 @@
       "name": "docker-trivy-keydb-hardening",
       "path": ".agents/skills/docker-trivy-keydb-hardening/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/docker-trivy-keydb-hardening/SKILL.md",
-      "size_bytes": 5647,
-      "sha256": "fc2e7d8e8c2738691ca7cf757e98b45f5d9553b51a2ac024e99fa996c3d6bad3",
+      "size_bytes": 5854,
+      "sha256": "881c4d203090ed646e47448d9f33c1c44bf53cc2ad50003f1948998c6f9432ee",
       "description": "Container hardening guidelines (Trivy HIGH/CRITICAL = 0), KeyDB multi-threaded in-memory engine, non-root runtime users, multi-stage Docker builds, and backend performance optimization."
     },
     {
@@ -199,8 +199,8 @@
       "name": "refactoring-ui",
       "path": ".agents/skills/refactoring-ui/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/refactoring-ui/SKILL.md",
-      "size_bytes": 8729,
-      "sha256": "ab45f60f0b80a93f3e843a570d2ea5d98a6fb2011aa5b0e7f19028ed9432734f",
+      "size_bytes": 8947,
+      "sha256": "bf7e3204c5eb5033dd423f50e43798d037764ce17cab5cb3af56d439e848e1d6",
       "description": "Visual hierarchy, spacing, type, color, depth and polish rules from Refactoring UI (Wathan & Schoger), aligned with QA 11X WCAG 2.1 AA, Anti-JSDOM geometry, and Lighthouse CI. Use when building or restyling an interface, when a UI looks unpolished or cluttered and the cause is unclear, or when picking concrete values for a spacing scale, type scale, color palette or shadow set."
     },
     {

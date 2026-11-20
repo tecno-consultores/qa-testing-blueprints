@@ -1243,6 +1243,42 @@ class TestVerifyDocsInvariants(unittest.TestCase):
                 f"Se esperaba error de paridad CODE_OF_CONDUCT: {pair_errs}",
             )
 
+    def test_check_historical_spec_links(self) -> None:
+        """Valida enlaces relativos locales dentro de Specs históricas 01..18."""
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.assertEqual(verify_docs.check_historical_spec_links(root), [])
+
+            specs_dir = root / "docs" / "specs"
+            specs_dir.mkdir(parents=True)
+            (root / "README.md").write_text("# Root\n", encoding="utf-8")
+            (specs_dir / "README.es.md").write_text("# Specs ES\n", encoding="utf-8")
+            (specs_dir / "19_SPEC_BILINGUAL.md").write_text(
+                "[ignored](missing_19_target.md)\n", encoding="utf-8"
+            )
+            spec02 = specs_dir / "02_SPEC_HIST.md"
+            spec02.write_text(
+                "[Index](README.es.md)\n"
+                "[Root](../../README.md#section)\n"
+                "[Ext](https://example.com)\n"
+                "[Anchor](#local-heading)\n"
+                "```markdown\n[InFence](missing_in_fence.md)\n```\n"
+                "`[Inline](missing_inline.md)`\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(verify_docs.check_historical_spec_links(root), [])
+
+            spec02.write_text(
+                "[Broken](missing_spec_target.md)\n"
+                "[Escape](../../../../etc/passwd)\n",
+                encoding="utf-8",
+            )
+            errs = verify_docs.check_historical_spec_links(root)
+            self.assertTrue(any("missing_spec_target.md" in e for e in errs))
+            self.assertTrue(any("fuera del repositorio" in e for e in errs))
+
 
 if __name__ == "__main__":
     unittest.main()

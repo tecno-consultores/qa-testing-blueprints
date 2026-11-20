@@ -87,7 +87,7 @@ JSDOM does not calculate CSS layouts, viewports, or bounding boxes. Every elemen
   ```
 - **Mandatory Dual Refresh in Operational Views & Live Maps:** Every monitoring console, NOC dashboard, or real-time map MUST combine reactive auto-refresh (`setInterval` cleaned up in `onUnmounted` + WebSocket events) with an explicit **`[ 🔄 Refrescar ]`** button triggering immediate live reload (`?refresh=true`) without requiring `F5`.
 - **Prohibition of Catch-All Domain `else` Badges:** UI event mappers MUST explicitly classify each category (`CAÍDA`, `MANTENIMIENTO`, `RESPALDO`, `SEGURIDAD`, `OPERACIÓN`) and never use a generic `else return 'MAINTENANCE'` that mislabels backups or session renewals.
-- **Real Browser Verification:** Run Karate Labs UI or Playwright in real headless Chromium to assert bounding box coordinates and verify that no element obscures interactive components.
+- **Real Browser Verification:** Run Playwright (`ui-e2e`) in real headless Chromium to assert bounding box coordinates and verify that no element obscures interactive components (reserving `sinfallas/karatelabs:1.5.1` strictly for HTTP/Nginx/OSHP/SSG contract verification without Chromium).
 
 ---
 

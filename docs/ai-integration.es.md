@@ -73,8 +73,8 @@ En proyectos de grado corporativo, la IA debe seguir una directriz bimodal estri
    - Salud Topológica y Aislamiento de Capas (`verify_topological_health.py`).
    - Paridad ORM y Esquemas Relacionales (`verify_alembic_orm_parity.py`).
    - Sincronización Criptográfica del Manifiesto Remoto (`manifest.json`).
-   - Consistencia Interna de `ROADMAP.es.md` y `ACTIVE_TASK.md` (`verify_roadmap_consistency.py`).
-   - Sincronización incondicional de documentación y pruebas obligatorias (`CHANGELOG.es.md`, `TESTING.es.md`, `README.es.md`).
+   - Consistencia Interna de `ROADMAP.{md,es.md}` y `ACTIVE_TASK.md` (`verify_roadmap_consistency.py`).
+   - Sincronización incondicional de documentación bilingüe y pruebas obligatorias (`CHANGELOG.{md,es.md}`, `TESTING.{md,es.md}`, `README.{md,es.md}`).
 
 ---
 
@@ -194,7 +194,7 @@ mcp_servers:
 
 | Herramienta | Argumentos Principales | Propósito Operativo |
 | :--- | :--- | :--- |
-| **`inspect_project_config`** | `project_path` | Audita stacks presentes (`python`, `fastapi`, `node`, `vue3`, `react`, `bash`, `php`, `ai-evals`, `mobile-appium`, `vibe-rescue`), linters, disponibilidad E2E (`BrowserTestingReadiness`) y estado `update_available` (`.qa-11x-version` + caché TTL 24 h *fail-open*). |
+| **`inspect_project_config`** | `project_path` | Audita stacks presentes (`python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `ai-evals`, `mobile-appium`, `vibe-rescue`), linters, disponibilidad E2E (`BrowserTestingReadiness`) y estado `update_available` (`.qa-11x-version` + caché TTL 24 h *fail-open*). |
 | **`fetch_blueprint_bundle`** | `stack`, `include_common_and_agents`, `include_content` | Descarga bajo demanda los archivos del stack con verificación criptográfica SHA-256 (soporta modo índice ligero `include_content: false` para ahorro de ~50,000 tokens — ver [`13_SPEC`](specs/13_SPEC_OPTIMIZACION_EXTREMA_TOKENS_MCP_3_VIAS_Y_PROGRESSIVE_DISCLOSURE.md)). |
 | **`bootstrap_or_merge_11x`** | `project_path`, `stack`, `dry_run`, `create_backup` | Aplica una fusión quirúrgica no destructiva inyectando configuraciones QA sin alterar dependencias (crea respaldos `.11x-backup` por defecto). |
 | **`inspect_ast_blast_radius`** | `project_path`, `target_symbol`, `changed_since_ref`, `max_tokens_budget`, `max_items`, `auto_build_if_missing`, `refresh_graph` | Consulta el grafo AST (`graphify-out/graph.json` y `GRAPH_REPORT.md`) de forma bidireccional o diferencial (`git diff` + AST + poda semántica de 4 niveles) tanto para Code Q&A como para calcular el radio de impacto antes de refactorizar (`LOW` con `< 5` llamadores para `MICRO_CHANGE`). |
@@ -207,7 +207,7 @@ mcp_servers:
 | **`propose_skill_evolution_pr`** | `project_path`, `target_blueprint_file`, `target_human_doc_file`, `target_mcp_component`, `improvement_title`, `empirical_rationale`, `proposed_content_or_snippet`, `proposed_human_doc_summary`, `dry_run`, `prefer_offline_fallback` | Propone mejoras federadas **Dual-Consumer** (Skill IA + Auditor MCP + Manual Humano en `docs/01..05_*.md`) a `qa-testing-blueprints` mediante `gh` CLI local autenticado o generando propuesta local con matriz de 3 capas y URL prellenada de GitHub. |
 | **`reconcile_agents_governance`** | `project_path`, `dry_run` | Reconcilia y deduplica reglas en `.agents/` para proyectos adoptantes, podando directivas globales ya promovidas a `qa-testing-blueprints`, aislando reglas de dominio en `domain_<project>_rules.md` y respaldando en `.agents/backups/<timestamp>/`. |
 | **`validate_calm_architecture`** | `workspaceRoot`, `architecturePath` | Valida esquemas **FINOS CALM** (*Architecture-as-Code*), 6 nodos núcleo, 5 relaciones tipadas y 7 controles obligatorios 11X. |
-| **`evaluate_release_gate`** | `workspaceRoot`, `scope`, `dryRun`, `enforce`, `junitXmlPath`, `telemetryJsonPath`, `defectsJsonPath`, `thresholds` | Calcula dictámenes cuantitativos `GO`/`NO_GO` (cobertura `>= 95%`, Trivy `HIGH/CRITICAL = 0`, MSI, CALM, STIG; devuelve `SKIPPED` fail-closed en `smoke`). |
+| **`evaluate_release_gate`** | `workspaceRoot`, `scope`, `dryRun`, `enforce`, `junitXmlPath`, `telemetryJsonPath`, `defectsJsonPath`, `thresholds` | Calcula dictámenes cuantitativos `GO`/`NO_GO` a partir de JUnit XML (tasa de aprobación/fallos/omisiones) más SLAs opcionales de telemetría (`latency`/`5xx`/MSI/cobertura) y defectos; devuelve `SKIPPED` fail-closed en `smoke`. |
 | **`evaluate_agent_trajectory`** | `mode`, `workspaceRoot`, `testPath`, `steps`, `requiredSequence`, `actualOutput`, `retrievalContext`, `enforceAstBeforeEdit`, `timeoutMs` | Evalúa trayectorias multi-paso de agentes IA en modo offline determinista (`AST-First`, tasas de alucinación, `QA-GIT-GATE-01`) o DeepEval en Docker. |
 | **`run_llm_red_team`** | `mode`, `workspaceRoot`, `configPath`, `timeoutMs` | Audita configuraciones Promptfoo **OWASP LLM Top 10**, sondas `promptGuard` y red-teaming condicional en Docker (`SKIPPED_MISSING_CREDENTIALS` sin llaves). |
 | **`audit_vibe_prototype`** | `targetDir`, `workspaceRoot`, `dryRun`, `remediationSubdir`, `maxLines`, `enforce` | Inspecciona scaffolds generados por IA (`Bolt.new`, `Lovable`, `v0`, `Replit`) buscando riesgos `VIBE-SEC-001..QA-005`, fugas de secretos y ausencia de RLS/WORM. |

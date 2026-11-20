@@ -23,8 +23,8 @@ AI-generated prototypes frequently deliver strong visual layouts alongside sever
 
 ## 2. Stage 1 — Forensic Triage & Secret Quarantine
 
-1. **Map Before Touching (`Graphify AST-First`):**
-   - Generate the initial AST graph via `./scripts/actualizar-grafos-graphify.sh` and inspect high-fan-in hubs with `python3 .agents/scripts/inspect_blast_radius.py "<symbol>"` / `inspect_ast_blast_radius`.
+1. **Map Before Touching (`Graphify AST-First`, `Rule Zero`):**
+   - Generate the initial AST graph via `./scripts/actualizar-grafos-graphify.sh` and inspect high-fan-in hubs inside Docker (`docker run --rm --network none --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/inspect_blast_radius.py "<symbol>"` or MCP `inspect_ast_blast_radius`).
 2. **Quarantine Client-Exposed Secrets:**
    - Run `./scripts/verificar-secretos.sh` and scan client bundles (`VITE_*`, `NEXT_PUBLIC_*`, `REACT_APP_*`, committed `.env` files, hardcoded Supabase `service_role` keys, or raw bearer tokens).
    - Remove `.env` from Git index (`git rm --cached .env`), rotate leaked keys immediately, inject `.env.example` placeholders, and route privileged third-party calls exclusively through a server-side BFF/API protected by Vault AES-256-GCM and Pre-DNS Anti-SSRF (`qa-11x-devsecops-hardener`).
@@ -40,8 +40,8 @@ AI-generated prototypes frequently deliver strong visual layouts alongside sever
      - Dedicated app role `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`.
      - `tenant_id UUID NOT NULL` on every multi-tenant table + `ENABLE ROW LEVEL SECURITY` + `FORCE ROW LEVEL SECURITY` (verified via `pg_catalog.pg_class.relforcerowsecurity`).
      - Multi-transaction `AsyncSession` context persistence via `session.sync_session.info` + `@event.listens_for(..., "after_begin")` + scoped `SECURITY DEFINER` (`SET search_path = public`) functions for pre-auth lookups.
-2. **Versioned Migrations & Schema Parity:**
-   - Capture ad-hoc prototype SQL changes into versioned Alembic migrations (`revision <= 32` chars) and certify against real `postgres:17-alpine` via `python3 .agents/scripts/verify_alembic_orm_parity.py`.
+2. **Versioned Migrations & Schema Parity (`Rule Zero`):**
+   - Capture ad-hoc prototype SQL changes into versioned Alembic migrations (`revision <= 32` chars) and certify against real `postgres:17-alpine` inside Docker (`sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_alembic_orm_parity.py`).
 3. **Service-Layer RBAC & Immutable Audit Trail:**
    - Enforce `claims["role"]` / `claims["rol"]` inside service functions (anti-`Depends()` bypass), wrap sensitive/MCP mutations behind `ApprovalRequest` (`AWAITING_APPROVAL`), and wire WORM `audit_logs` (`seq_num BIGINT` + `pg_advisory_xact_lock`, human-readable `actor_username`, zero raw UUID v4 strings).
 
@@ -56,7 +56,7 @@ AI-generated prototypes frequently deliver strong visual layouts alongside sever
    - Inject `Idempotency-Key` middleware on `POST`/`PUT`/`PATCH`/`DELETE`, HMAC-SHA256 CSRF cookies (`HttpOnly; Secure; SameSite=Strict; Path=/`), `PREAUTH_PUBLIC_ROUTES` continuity (`SEC-16`), and OWASP Secure Headers (OSHP).
 3. **Split Monolithic Files Without Breaking UX:**
    - Refactor `> 500`-line prototype components/handlers into cohesive, single-responsibility modules capped at Cyclomatic Complexity **`CC <= 5` (Grade A)** and Cognitive Complexity **`SonarJS <= 15`** while preserving Tailwind/CSS tokens, visual hierarchy (`refactoring-ui`), and in-flow layouts (`<main>` footer `margin-top: auto`, `UI-11X-01`, `CLS = 0`).
-   - Enforce clean architectural boundaries (`UI -> API Client -> Service -> Domain/ORM`) verified by `python3 .agents/scripts/verify_topological_health.py`.
+   - Enforce clean architectural boundaries (`UI -> API Client -> Service -> Domain/ORM`) inside Docker (`sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_topological_health.py`).
 
 ---
 

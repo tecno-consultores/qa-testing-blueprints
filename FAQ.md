@@ -76,10 +76,10 @@ make clean-cache     # or make clean
 This purges temporary reports, test artifacts, and orphan caches using a hybrid strategy (local removal plus an ephemeral Docker fallback with container permissions), also cleaning named cache volumes (`pnpm-store` or `uv-cache`).
 
 ### Why do `scripts/limpieza.sh` and the `clean_workspace_11x` MCP tool no longer require `sudo`?
-Ephemeral containers under Rule Zero can create `root`-owned files inside bind-mounted volumes. Instead of forcing the user or agent to run destructive superuser commands on the host machine, cleanup launches an ultra-lightweight ephemeral Alpine Linux container (`sinfallas/base-node-ionic` or `alpine:latest`) mounting the directory with internal `uid 0` to safely purge artifacts and return clean ownership to the unprivileged host user.
+Ephemeral containers under Rule Zero can create `root`-owned files inside bind-mounted volumes. Instead of forcing the user or agent to run destructive superuser commands on the host machine, cleanup launches an ultra-lightweight digest-pinned ephemeral Alpine Linux container (`alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab`) mounting the directory with internal `uid 0` (`--network none --security-opt=no-new-privileges:true`) to safely purge artifacts and return clean ownership to the unprivileged host user.
 
-### The Vue 3 E2E container (Playwright / Lighthouse) reports a network conflict when trying to reach the UI.
-Make sure you start the production mock server in the background first using `docker compose -f docker-compose.qa.yml up -d ui-prod` before running the ephemeral target via the Makefile:
+### The Vue 3 E2E container (Playwright / Lighthouse) reports a network conflict or missing server when reaching the UI.
+`make qa-e2e` and `make qa-perf` declare `build-ui` as a prerequisite, compiling the static bundle and bringing up `ui-prod` automatically inside ephemeral Docker (and tearing it down cleanly via the `EXIT` trap). Simply run:
 ```bash
 make qa-e2e
 ```
@@ -102,7 +102,7 @@ The 11X standard defines a **Hybrid Pair Programming** model:
 - The **universal certification gate** (`certify_task_completion.sh`) acts as the objective mathematical arbiter that neither party can bypass prior to committing.
 
 ### Why was GitHub Actions publishing for the MCP server removed in favor of npm local publishing?
-Following RoSGrid's corporate sovereignty and isolation philosophy, delegating npm package publishing with `NPM_TOKEN` credentials to remote CI/CD runners introduces secret leakage risks and external network failures outside our control. Publishing is consolidated in the sovereign script `scripts/publicar-mcp.sh`, which runs the full 11X gate in ephemeral local Docker and handles the npm token transiently in memory with immediate cleanup.
+Following strict corporate sovereignty and credential isolation principles, delegating npm package publishing with `NPM_TOKEN` credentials to remote CI/CD runners introduces secret leakage risks and external network failures outside our control. Publishing is consolidated in the sovereign script `scripts/publicar-mcp.sh`, which runs the full 11X gate in ephemeral local Docker and handles the npm token transiently in memory with immediate cleanup.
 
 ### How do I update the MCP Server and Skills in my IDE after publishing a new version to npmjs, and how do I verify changes were downloaded?
 Even if `mcp_config.json` specifies `"@sinfallas/mcp-qa-11x@latest"`, the IDE keeps the `stdio` process in memory from startup and `npx` caches copies in `~/.npm/_npx` (plus manifest cache in `~/.cache/qa-11x-blueprints`). To update surgically and verify cryptographic integrity:
