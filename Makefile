@@ -173,15 +173,15 @@ lint-workflows:
 	if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
 		python3 -c "$$py" || exit 1; \
 		if command -v actionlint >/dev/null 2>&1; then \
-			shopt -s nullglob; wf_files=(.github/workflows/*.yml .github/workflows/*.yaml); \
-			[ "$${#wf_files[@]}" -eq 0 ] || actionlint -color "$${wf_files[@]}" || exit 1; \
+			set --; for wf in .github/workflows/*.yml .github/workflows/*.yaml; do [ -e "$$wf" ] && set -- "$$@" "$$wf"; done; \
+			[ "$$#" -eq 0 ] || actionlint -color "$$@" || exit 1; \
 		else \
 			echo "⚠️ [SKIPPED] actionlint no disponible en contenedor aislado"; \
 		fi; \
 	else \
 		docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 -c "$$py" || exit 1; \
-		wf_args=""; for wf in .github/workflows/*.yml .github/workflows/*.yaml; do [ -e "$$wf" ] && wf_args="$$wf_args $$wf"; done; \
-		[ -z "$$wf_args" ] || docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -v "$$(pwd):/repo:ro" -w /repo $(ACTIONLINT_IMG) -color $$wf_args || exit 1; \
+		set --; for wf in .github/workflows/*.yml .github/workflows/*.yaml; do [ -e "$$wf" ] && set -- "$$@" "$$wf"; done; \
+		[ "$$#" -eq 0 ] || docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -v "$$(pwd):/repo:ro" -w /repo $(ACTIONLINT_IMG) -color "$$@" || exit 1; \
 	fi
 
 lint-docs:
@@ -710,7 +710,7 @@ test-ai-offline:
 	@mkdir -p .agents/.cache/coverage && chmod 0700 .agents/.cache
 	@cmd='ruff check --select E,F,W,I,UP,B,C901 --config "lint.mccabe.max-complexity=5" ai-evals tests/evals && MYPYPATH=ai-evals mypy --strict --cache-dir=/tmp/mypy ai-evals/golden_from_traces.py ai-evals/_llm_judge.py ai-evals/rag/test_rag_faithfulness.py ai-evals/voice-realtime/test_voice_websocket_latency.py ai-evals/multimodal-ocr/test_pdf_table_fidelity.py ai-evals/tests/test_golden_from_traces.py tests/evals/test_skill_adherence.py && PYTHONPATH=ai-evals pytest --cov=ai-evals --cov=tests/evals --cov-fail-under=95 --cov-report=term-missing --cov-report=xml:/app/.agents/.cache/coverage/ai-evals.xml ai-evals/rag/test_rag_faithfulness.py ai-evals/voice-realtime/test_voice_websocket_latency.py ai-evals/multimodal-ocr/test_pdf_table_fidelity.py ai-evals/tests/test_golden_from_traces.py tests/evals/test_skill_adherence.py'; \
 	if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
-		cmd_local="$${cmd//\/app\/.agents/.agents}"; \
+		cmd_local="$$(printf '%s' "$$cmd" | sed 's|/app/\.agents|.agents|g')"; \
 		if ! out=$$(PYTHONDONTWRITEBYTECODE=1 RUFF_CACHE_DIR=/tmp/ruff-cache COVERAGE_FILE=/tmp/.coverage UV_CACHE_DIR=/tmp/uv-cache DEEPEVAL_TELEMETRY_OPT_OUT=YES sh -c "$$cmd_local" 2>&1); then \
 			printf '%s\n' "$$out" >&2; \
 			if printf '%s' "$$out" | grep -qE '$(COMPLEXITY_FAILURE_REGEX)'; then printf '\n%s\n' "$(DIRECTIVE_11X_COMPLEXITY_MSG)" >&2; fi; \

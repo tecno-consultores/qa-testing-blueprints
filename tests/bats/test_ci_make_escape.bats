@@ -473,6 +473,16 @@ EOF
   assert_success
   run grep -F -- '--network none' "${REPO_ROOT}/.agents/scripts/certify_task_completion.sh"
   assert_success
+  run grep -F -- 'wf_files=(' "${REPO_ROOT}/Makefile"
+  assert_failure
+  run grep -F -- '${cmd//' "${REPO_ROOT}/Makefile"
+  assert_failure
+  if command -v make >/dev/null 2>&1; then
+    run sh -c 'make -C "'"${REPO_ROOT}"'" -n lint-workflows | /bin/sh -n'
+    assert_success
+    run sh -c 'make -C "'"${REPO_ROOT}"'" -n test-ai-offline | /bin/sh -n'
+    assert_success
+  fi
 }
 
 @test "auditar-infra.sh: usa shasum -a 256 cuando sha256sum no esta disponible" {
