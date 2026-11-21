@@ -9,9 +9,18 @@ import { ProposeEvolutionPrInput, ProposeEvolutionPrResult } from '../types.js';
 import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 
 export const UPSTREAM_REPO = 'tecno-consultores/qa-testing-blueprints';
+export const MAX_PREFILLED_GITHUB_URL_LENGTH = 2000;
 const STATUS_PR_CREATED = 'PR_CREATED_VIA_GH';
+const STATUS_ISSUE_CREATED = 'ISSUE_CREATED_VIA_GH';
 const STATUS_PROPOSAL_GENERATED = 'PROPOSAL_FILE_AND_URL_GENERATED';
 const UTF8_ENCODING = 'utf-8';
+
+export function encodeRfc3986URIComponent(value: string): string {
+  return encodeURIComponent(value).replace(
+    /[!'()*]/g,
+    (ch) => `%${ch.charCodeAt(0).toString(16).toUpperCase()}`
+  );
+}
 
 export interface ExecRunnerResult {
   stdout: string;
@@ -219,12 +228,39 @@ function writeProposalFile(
   return filePath;
 }
 
+function truncateBodyForUrlBudget(issueBody: string, urlPrefix: string, slug: string): string {
+  const fullEncoded = encodeRfc3986URIComponent(issueBody);
+  if (urlPrefix.length + fullEncoded.length <= MAX_PREFILLED_GITHUB_URL_LENGTH) {
+    return fullEncoded;
+  }
+  const suffix = `\n\n...(Truncado por límite de URL; adjunte el contenido completo desde .agents/proposals/${slug}.md)`;
+  const encodedSuffix = encodeRfc3986URIComponent(suffix);
+  const maxBodyEncodedLen = Math.max(
+    0,
+    MAX_PREFILLED_GITHUB_URL_LENGTH - urlPrefix.length - encodedSuffix.length
+  );
+  const codePoints = Array.from(issueBody);
+  let low = 0;
+  let high = codePoints.length;
+  while (low < high) {
+    const mid = Math.ceil((low + high) / 2);
+    const candidate = encodeRfc3986URIComponent(codePoints.slice(0, mid).join(''));
+    if (candidate.length <= maxBodyEncodedLen) {
+      low = mid;
+    } else {
+      high = mid - 1;
+    }
+  }
+  return `${encodeRfc3986URIComponent(codePoints.slice(0, low).join(''))}${encodedSuffix}`;
+}
+
 export function buildPrefilledIssueUrl(input: ProposeEvolutionPrInput): {
   issueBody: string;
   prefilledUrl: string;
 } {
   const safeBlueprintFile = validateRelativeRepoPath(input.target_blueprint_file, 'target_blueprint_file');
   const targets = inferDualConsumerTargets(input);
+  const slug = buildEvolutionSlug(input.improvement_title);
   const issueTitle = `[Evolution] ${input.improvement_title}`;
   const fence = computeSafeCodeFence(input.proposed_content_or_snippet);
   const issueBody = [
@@ -245,58 +281,74 @@ export function buildPrefilledIssueUrl(input: ProposeEvolutionPrInput): {
     fence,
   ].join('\n');
 
-  const maxBodyChars = 3500;
-  const urlSafeBody =
-    issueBody.length > maxBodyChars
-      ? `${issueBody.slice(0, maxBodyChars)}\n\n...(Truncado por longitud de URL; adjunte el contenido completo desde .agents/proposals/)`
-      : issueBody;
-
-  const prefilledUrl = `https://github.com/${UPSTREAM_REPO}/issues/new?title=${encodeURIComponent(issueTitle)}&body=${encodeURIComponent(urlSafeBody)}`;
+  const urlPrefix = `https://github.com/${UPSTREAM_REPO}/issues/new?title=${encodeRfc3986URIComponent(issueTitle)}&body=`;
+  const prefilledUrl = `${urlPrefix}${truncateBodyForUrlBudget(issueBody, urlPrefix, slug)}`;
 
   return { issueBody, prefilledUrl };
 }
 
-async function tryCreatePullRequestViaGh(
+interface GhSubmissionOutcome {
+  mode: 'pr' | 'issue' | 'none';
+  remoteUrl: string | null;
+  ghAuthenticated: boolean;
+}
+
+async function runGhCreateSubcommand(
+  execRunner: ExecRunnerFunction,
+  subcommand: 'pr' | 'issue',
+  payload: { title: string; body: string; cwd: string }
+): Promise<string | null> {
+  try {
+    const { stdout } = await execRunner(
+      'gh',
+      [subcommand, 'create', '--repo', UPSTREAM_REPO, '--title', payload.title, '--body', payload.body],
+      { cwd: payload.cwd, shell: false, timeout: 15000 }
+    );
+    const match = /https:\/\/github\.com\/\S+/.exec(stdout);
+    const extracted = match ? match[0] : stdout.trim();
+    return extracted || null;
+  } catch (err: unknown) {
+    // gh pr/issue create failure falls back gracefully to local proposal file + prefilled GitHub URL
+    reportDebugCatchError(`proposeEvolutionPr.gh_${subcommand}_create`, err);
+    return null;
+  }
+}
+
+async function trySubmitEvolutionViaGh(
   execRunner: ExecRunnerFunction,
   input: ProposeEvolutionPrInput,
   body: string,
   cwd: string
-): Promise<{ success: boolean; prUrl: string | null; ghAuthenticated: boolean }> {
+): Promise<GhSubmissionOutcome> {
   try {
     await execRunner('gh', ['auth', 'status'], { cwd, shell: false, timeout: 10000 });
   } catch (err: unknown) {
     // Unauthenticated gh CLI falls back to local proposal file + prefilled GitHub URL
     reportDebugCatchError('proposeEvolutionPr.ghAuthStatus', err);
-    return { success: false, prUrl: null, ghAuthenticated: false };
+    return { mode: 'none', remoteUrl: null, ghAuthenticated: false };
   }
 
+  let isExternalConsumerRepo = false;
   try {
     const { stdout: remotes } = await execRunner('git', ['remote', '-v'], { cwd, shell: false, timeout: 5000 });
-    if (remotes.trim().length > 0 && !remotes.includes('qa-testing-blueprints')) {
-      return { success: false, prUrl: null, ghAuthenticated: true };
-    }
+    isExternalConsumerRepo = remotes.trim().length > 0 && !remotes.includes('qa-testing-blueprints');
   } catch (err: unknown) {
     // Missing git remotes falls back to local proposal file + prefilled GitHub URL
     reportDebugCatchError('proposeEvolutionPr.gitRemoteCheck', err);
-    return { success: false, prUrl: null, ghAuthenticated: true };
+    return { mode: 'none', remoteUrl: null, ghAuthenticated: true };
   }
 
-  try {
-    const prTitle = `[Evolution] ${input.improvement_title}`;
-    const { stdout } = await execRunner(
-      'gh',
-      ['pr', 'create', '--repo', UPSTREAM_REPO, '--title', prTitle, '--body', body],
-      { cwd, shell: false, timeout: 15000 }
-    );
-
-    const match = /https:\/\/github\.com\/\S+/.exec(stdout);
-    const prUrl = match ? match[0] : stdout.trim();
-    return { success: true, prUrl: prUrl || null, ghAuthenticated: true };
-  } catch (err: unknown) {
-    // gh pr create failure falls back gracefully to local proposal file + prefilled GitHub URL
-    reportDebugCatchError('proposeEvolutionPr.ghPrCreate', err);
-    return { success: false, prUrl: null, ghAuthenticated: true };
+  const title = `[Evolution] ${input.improvement_title}`;
+  if (isExternalConsumerRepo) {
+    if (!input.create_upstream_issue) {
+      return { mode: 'none', remoteUrl: null, ghAuthenticated: true };
+    }
+    const issueUrl = await runGhCreateSubcommand(execRunner, 'issue', { title, body, cwd });
+    return { mode: issueUrl ? 'issue' : 'none', remoteUrl: issueUrl, ghAuthenticated: true };
   }
+
+  const prUrl = await runGhCreateSubcommand(execRunner, 'pr', { title, body, cwd });
+  return { mode: prUrl ? 'pr' : 'none', remoteUrl: prUrl, ghAuthenticated: true };
 }
 
 export async function proposeSkillEvolutionPr(
@@ -316,76 +368,66 @@ export async function proposeSkillEvolutionPr(
   assertContainedNonSymlinkPath(resolvedPath, proposalTargetPath);
   const dualTargets = inferDualConsumerTargets(input);
   const { issueBody, prefilledUrl } = buildPrefilledIssueUrl(input);
-
-  const isDryRun = input.dry_run ?? true;
-  const preferOffline = input.prefer_offline_fallback ?? true;
-
-  if (isDryRun) {
-    return {
-      status: STATUS_PROPOSAL_GENERATED,
-      target_repo: UPSTREAM_REPO,
-      target_blueprint_file: safeBlueprintFile,
-      target_human_doc_file: dualTargets.targetHumanDocFile,
-      target_mcp_component: dualTargets.targetMcpComponent,
-      branch_name: branchName,
-      gh_cli_authenticated: false,
-      pull_request_url: null,
-      prefilled_github_url: prefilledUrl,
-      local_proposal_file: proposalTargetPath,
-      message: 'Propuesta Dual-Consumer generada en modo dry_run=true sin escribir en disco.',
-    };
-  }
-
-  const proposalFilePath = writeProposalFile(resolvedPath, slug, input, dualTargets);
-
-  if (preferOffline) {
-    return {
-      status: STATUS_PROPOSAL_GENERATED,
-      target_repo: UPSTREAM_REPO,
-      target_blueprint_file: safeBlueprintFile,
-      target_human_doc_file: dualTargets.targetHumanDocFile,
-      target_mcp_component: dualTargets.targetMcpComponent,
-      branch_name: branchName,
-      gh_cli_authenticated: false,
-      pull_request_url: null,
-      prefilled_github_url: prefilledUrl,
-      local_proposal_file: proposalFilePath,
-      message: 'Propuesta Dual-Consumer generada localmente y URL prellenada creada (modo offline seleccionado).',
-    };
-  }
-
-  const ghResult = await tryCreatePullRequestViaGh(execRunner, input, issueBody, resolvedPath);
-
-  if (ghResult.success && ghResult.prUrl) {
-    return {
-      status: STATUS_PR_CREATED,
-      target_repo: UPSTREAM_REPO,
-      target_blueprint_file: safeBlueprintFile,
-      target_human_doc_file: dualTargets.targetHumanDocFile,
-      target_mcp_component: dualTargets.targetMcpComponent,
-      branch_name: branchName,
-      gh_cli_authenticated: true,
-      pull_request_url: ghResult.prUrl,
-      prefilled_github_url: prefilledUrl,
-      local_proposal_file: proposalFilePath,
-      message: `Pull Request Dual-Consumer creado exitosamente en ${ghResult.prUrl}`,
-    };
-  }
-
-  const msg = ghResult.ghAuthenticated
-    ? 'gh CLI autenticado pero no se pudo crear el PR directamente; se generó propuesta local Dual-Consumer y URL prellenada.'
-    : 'gh CLI no disponible o no autenticado; se generó propuesta local Dual-Consumer y URL prellenada de GitHub.';
-
-  return {
-    status: STATUS_PROPOSAL_GENERATED,
+  const sharedFields = {
     target_repo: UPSTREAM_REPO,
     target_blueprint_file: safeBlueprintFile,
     target_human_doc_file: dualTargets.targetHumanDocFile,
     target_mcp_component: dualTargets.targetMcpComponent,
     branch_name: branchName,
+    prefilled_github_url: prefilledUrl,
+  };
+
+  if (input.dry_run ?? true) {
+    return {
+      ...sharedFields,
+      status: STATUS_PROPOSAL_GENERATED,
+      gh_cli_authenticated: false,
+      pull_request_url: null,
+      local_proposal_file: proposalTargetPath,
+      message:
+        'Propuesta Dual-Consumer generada en modo dry_run=true sin escribir en disco (comparta prefilled_github_url íntegro con &body=).',
+    };
+  }
+
+  const proposalFilePath = writeProposalFile(resolvedPath, slug, input, dualTargets);
+
+  if (input.prefer_offline_fallback ?? true) {
+    return {
+      ...sharedFields,
+      status: STATUS_PROPOSAL_GENERATED,
+      gh_cli_authenticated: false,
+      pull_request_url: null,
+      local_proposal_file: proposalFilePath,
+      message:
+        'Propuesta Dual-Consumer generada localmente y URL prellenada creada (modo offline seleccionado; comparta prefilled_github_url íntegro con &body=).',
+    };
+  }
+
+  const ghResult = await trySubmitEvolutionViaGh(execRunner, input, issueBody, resolvedPath);
+
+  if (ghResult.remoteUrl !== null && ghResult.mode !== 'none') {
+    const isIssue = ghResult.mode === 'issue';
+    return {
+      ...sharedFields,
+      status: isIssue ? STATUS_ISSUE_CREATED : STATUS_PR_CREATED,
+      gh_cli_authenticated: true,
+      pull_request_url: ghResult.remoteUrl,
+      local_proposal_file: proposalFilePath,
+      message: isIssue
+        ? `Issue upstream Dual-Consumer creado exitosamente en ${ghResult.remoteUrl}`
+        : `Pull Request Dual-Consumer creado exitosamente en ${ghResult.remoteUrl}`,
+    };
+  }
+
+  const msg = ghResult.ghAuthenticated
+    ? 'gh CLI autenticado pero no se pudo crear el PR directamente; se generó propuesta local Dual-Consumer y URL prellenada (comparta prefilled_github_url íntegro con &body=).'
+    : 'gh CLI no disponible o no autenticado; se generó propuesta local Dual-Consumer y URL prellenada de GitHub (comparta prefilled_github_url íntegro con &body=).';
+
+  return {
+    ...sharedFields,
+    status: STATUS_PROPOSAL_GENERATED,
     gh_cli_authenticated: ghResult.ghAuthenticated,
     pull_request_url: null,
-    prefilled_github_url: prefilledUrl,
     local_proposal_file: proposalFilePath,
     message: msg,
   };

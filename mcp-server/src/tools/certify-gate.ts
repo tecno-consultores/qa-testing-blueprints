@@ -15,25 +15,13 @@ import { resolveSafeChildPath } from '../services/github-fetcher.js';
 import { auditSecurityStigOwasp } from './security-auditor.js';
 import { CertifyGateResult, GateCheckStatus } from '../types.js';
 import { pickAt, reportDebugCatchError } from '../utils/diagnosticFormatter.js';
+import { CANONICAL_IGNORED_DIRS } from '../utils/ignoredDirs.js';
 
 const GATE_STATUS_PASSED: GateCheckStatus = 'PASSED';
 const GATE_STATUS_FAILED: GateCheckStatus = 'FAILED';
 const GATE_STATUS_SKIPPED: GateCheckStatus = 'SKIPPED';
 
-const IGNORED_SCAN_DIRS = new Set([
-  'node_modules',
-  'dist',
-  '.git',
-  'coverage',
-  '.stryker-tmp',
-  '.venv',
-  'venv',
-  'vendor',
-  'target',
-  'build',
-  'graphify-out',
-  '.trivycache',
-]);
+const IGNORED_SCAN_DIRS = CANONICAL_IGNORED_DIRS;
 
 interface GateCheckOutcome {
   passed: boolean;

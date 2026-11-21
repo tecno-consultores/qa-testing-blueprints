@@ -12,6 +12,7 @@ import {
 } from '../services/version-manager.js';
 import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 import { getBrowserMcpCandidatePaths } from '../utils/ideConfigPaths.js';
+import { CANONICAL_IGNORED_DIRS } from '../utils/ignoredDirs.js';
 
 const BASH_STACK_NAME = 'bash-scripts';
 const PHP_STACK_NAME = 'php';
@@ -32,30 +33,13 @@ const PROMPTFOO_YML = 'promptfooconfig.yml';
 const AUDIT_VIBE_PY = 'audit_vibe_prototype.py';
 const MOBILE_DEPS = ['appium', 'webdriverio', '@wdio/cli'];
 const AI_PYTHON_TOKENS = ['deepeval', 'promptfoo'];
+
 const INSTRUCTION_BOOTSTRAP =
   "Ejecute la tool MCP 'bootstrap_or_merge_11x' para inyectar automáticamente @playwright/test, @axe-core/playwright, @lhci/cli y e2e/accessibility.e2e.ts en el proyecto.";
 const INSTRUCTION_BROWSER_MCP =
   "Para inspección visual Anti-JSDOM en navegador real desde su agente IA, agregue el servidor MCP de Playwright en su configuración MCP: npx -y @playwright/mcp@latest";
 
-const EXCLUDED_DIRS = new Set([
-  'node_modules',
-  '.git',
-  'dist',
-  '.venv',
-  'venv',
-  'vendor',
-  'target',
-  'graphify-out',
-  'coverage',
-  '.turbo',
-  'test-results',
-  '.mypy_cache',
-  '.pytest_cache',
-  '.pnpm-store',
-  '.cache',
-  'build',
-  '__pycache__',
-]);
+const EXCLUDED_DIRS = CANONICAL_IGNORED_DIRS;
 
 export function collectProjectFiles(projectPath: string): string[] {
   const result: string[] = [];

@@ -9,6 +9,7 @@ import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { BlastRadiusResult, BlastRiskLevel, DiffBundleReport } from '../types.js';
 import { buildSemanticDiffBundle } from '../utils/diff-bundle.js';
 import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
+import { CANONICAL_IGNORED_DIRS } from '../utils/ignoredDirs.js';
 
 export const GRAPHIFY_DOCKER_IMAGE =
   'sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0';
@@ -97,19 +98,7 @@ export async function defaultGraphifyBuilder(
 }
 
 const GRAPHIFY_DIR_NAME = 'graphify-out';
-const IGNORED_DIRS = new Set([
-  'node_modules',
-  '.git',
-  '.venv',
-  '__pycache__',
-  'dist',
-  '.cache',
-  'vendor',
-  'target',
-  'coverage',
-  'build',
-  GRAPHIFY_DIR_NAME,
-]);
+const IGNORED_DIRS = CANONICAL_IGNORED_DIRS;
 const MODERATE_BLAST_CALLERS_THRESHOLD = 5;
 const HIGH_BLAST_CALLERS_THRESHOLD = 15;
 const CRITICAL_BLAST_CALLERS_THRESHOLD = 25;

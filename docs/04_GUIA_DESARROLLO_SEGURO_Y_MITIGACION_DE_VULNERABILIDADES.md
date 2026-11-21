@@ -461,18 +461,19 @@ def build_idempotency_key(tenant_id: str, user_id: str, client_key: str) -> str:
 In production, `/docs`, `/redoc`, and `/openapi.json` expose implementation details, query parameters, and hidden routes to any internet scanner.
 
 ### Mandatory Implementation
+Disable Swagger/OpenAPI unconditionally in production (`None` literal or a guarded ternary defaulting to `else None` when `APP_ENV == "production"`, allowing controlled schema exposure only inside ephemeral `L05` `schemathesis` fuzzing containers in `docker-compose.qa.yml`):
 ```python
 from fastapi import FastAPI
 from src.core.config import settings
 
-is_prod = settings.APP_ENV == "production"
+docs_enabled = settings.APP_ENV != "production" and settings.ENABLE_OPENAPI_DOCS
 
 app = FastAPI(
     title="Corporate API",
-    # 🔒 Unconditional disablement in production
-    docs_url=None if is_prod else "/docs",
-    redoc_url=None if is_prod else "/redoc",
-    openapi_url=None if is_prod else "/openapi.json",
+    # 🔒 Disabled by default (else None) in production; compatible with SEC-07 and L05 Schemathesis
+    docs_url="/docs" if docs_enabled else None,
+    redoc_url=None,
+    openapi_url="/openapi.json" if docs_enabled else None,
 )
 ```
 

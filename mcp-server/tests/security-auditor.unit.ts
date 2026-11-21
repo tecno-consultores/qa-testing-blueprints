@@ -1503,5 +1503,87 @@ docker exec -e ROSGRID_ADMIN_PASSWORD="\${LOCAL_ADMIN_PASS}" api pytest tests/co
       expect(sec12Files).toContain('src/jsonrpc-bridge/ops.py');
       expect(sec12Files).not.toContain('mcp-server/example/backend/src/api/devices.py');
     });
+
+    it('SEC-07 soporta ternarios seguros con rama else None e ignora .tox/.nox/mutants mientras bloquea tautologías y comentarios', async () => {
+      const sec07Dir = path.join(tempDir, 'sec07-ternary-and-tox');
+      fs.mkdirSync(path.join(sec07Dir, 'src'), { recursive: true });
+      fs.mkdirSync(
+        path.join(sec07Dir, '.tox', 'py312', 'lib', 'python3.12', 'site-packages', 'fastapi'),
+        { recursive: true }
+      );
+      fs.mkdirSync(path.join(sec07Dir, 'mutants', 'src'), { recursive: true });
+
+      // 1. Safe multiline ternary else None (dogfooding pattern for L05 Schemathesis)
+      fs.writeFileSync(
+        path.join(sec07Dir, 'src', 'safe_else_none.py'),
+        [
+          'from fastapi import FastAPI',
+          '_DOCS = False',
+          'app = FastAPI(',
+          '    title="Bridge API",',
+          '    docs_url="/docs" if _DOCS else None,  # enabled only in L05 container',
+          '    redoc_url=None,',
+          '    openapi_url=("/openapi.json" if _DOCS else None),',
+          ')',
+        ].join('\n'),
+        'utf8'
+      );
+
+      // 2. Ignored virtualenv/mutation directories (.tox and mutants) must produce 0 findings
+      fs.writeFileSync(
+        path.join(
+          sec07Dir,
+          '.tox',
+          'py312',
+          'lib',
+          'python3.12',
+          'site-packages',
+          'fastapi',
+          'tutorial.py'
+        ),
+        'from fastapi import FastAPI\napp = FastAPI(title="tox vendored example")\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(sec07Dir, 'mutants', 'src', 'mutant_app.py'),
+        'from fastapi import FastAPI\napp = FastAPI(title="mutant copy")\n',
+        'utf8'
+      );
+
+      // 3. Adversarial bypasses that MUST still trigger SEC-07
+      fs.writeFileSync(
+        path.join(sec07Dir, 'src', 'bad_commented_out.py'),
+        'from fastapi import FastAPI\napp = FastAPI(\n    title="x",\n    # docs_url=None\n)\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(sec07Dir, 'src', 'bad_if_true.py'),
+        'from fastapi import FastAPI\napp = FastAPI(docs_url="/docs" if True else None)\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(sec07Dir, 'src', 'bad_none_if_false.py'),
+        'from fastapi import FastAPI\napp = FastAPI(docs_url=None if False else "/docs")\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(sec07Dir, 'src', 'bad_else_swagger.py'),
+        'from fastapi import FastAPI\napp = FastAPI(docs_url="/docs" if _DOCS else "/swagger")\n',
+        'utf8'
+      );
+
+      const res = await auditSecurityStigOwasp(sec07Dir);
+      const sec07Files = res.findings
+        .filter((f) => f.rule_id === 'SEC-07')
+        .map((f) => f.file);
+
+      expect(sec07Files).not.toContain('src/safe_else_none.py');
+      expect(sec07Files.some((f) => f.startsWith('.tox/'))).toBe(false);
+      expect(sec07Files.some((f) => f.startsWith('mutants/'))).toBe(false);
+      expect(sec07Files).toContain('src/bad_commented_out.py');
+      expect(sec07Files).toContain('src/bad_if_true.py');
+      expect(sec07Files).toContain('src/bad_none_if_false.py');
+      expect(sec07Files).toContain('src/bad_else_swagger.py');
+    });
   });
 });

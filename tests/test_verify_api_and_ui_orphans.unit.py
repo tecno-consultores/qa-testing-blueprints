@@ -757,3 +757,35 @@ def test_ui_root_pages_fallback_detects_orphan_and_clears_with_unit_test(
         },
     )
     assert ui_mod.main(pages_ws) == 0
+
+
+def test_api_orphans_ignores_tox_nox_and_mutants_directories(tmp_path: Path) -> None:
+    """Garantiza que .tox, .nox y mutants no contaminen el inventario de endpoints."""
+    api_mod = _load_mod("api_tox_ignore", "verify_no_orphan_api_endpoints.py")
+    ws = tmp_path / "tox_ws"
+    _write_files(
+        ws,
+        {
+            "fastapi/src/api/ping.py": (
+                "from fastapi import APIRouter\n"
+                "router = APIRouter()\n"
+                "@router.get('/api/v1/ping')\n"
+                "def ping(): return {'ok': True}\n"
+            ),
+            "vue3/src/api/ping.ts": "export const p = () => fetch('/api/v1/ping');\n",
+            "fastapi/.tox/py312/lib/python3.12/site-packages/fastapi/example.py": (
+                "from fastapi import FastAPI\n"
+                "app = FastAPI()\n"
+                "@app.get('/items/{item_id}')\n"
+                "def read_item(item_id: int): return {'id': item_id}\n"
+            ),
+            "fastapi/mutants/src/api/orphan_mutant.py": (
+                "from fastapi import APIRouter\n"
+                "router = APIRouter()\n"
+                "@router.get('/api/v1/mutant-only')\n"
+                "def mut_ep(): return {}\n"
+            ),
+        },
+    )
+    assert api_mod.main(ws) == 0
+

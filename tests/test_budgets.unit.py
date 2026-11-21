@@ -48,6 +48,15 @@ def test_budgets_constants_and_ordering_invariants(
     assert isinstance(budgets.SECURITY_BLAST_KEYWORDS, tuple)
     assert "vault" in budgets.SECURITY_BLAST_KEYWORDS
     assert "rbac" in budgets.SECURITY_BLAST_KEYWORDS
+    for ignored in (
+        ".tox",
+        ".nox",
+        ".hypothesis",
+        ".schemathesis",
+        "mutants",
+        ".mutmut-cache",
+    ):
+        assert ignored in budgets.CANONICAL_IGNORED_DIRS
 
     assert (
         budgets.TACTICAL_SKILL_MAX_BYTES

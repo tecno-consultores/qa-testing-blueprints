@@ -42,7 +42,7 @@ Activate strictly on demand when designing, auditing, or modifying:
 | **09** | XSS & Prototype | `APSC-DV-002530` | XSS | `escapeHtml`, `Object.freeze()`, `Object.create(null)`, no raw `v-html`/`dangerouslySetInnerHTML`. |
 | **10** | Refresh Grace | `APSC-DV-002270` | SM 1-9 | `5s` leeway on concurrent refresh token family rotations across tabs. |
 | **11** | Idempotency | `APSC-DV-002560` | API4:2023 | Require `Idempotency-Key` (`idemp:{tenant_id}:{user_id}:{key}`); `QA-KARATE-IDEMP` UUIDs. |
-| **12** | Prod Surface/Smoke | `APSC-DV-002430` | SC-11 | `docs_url=redoc_url=openapi_url=None` in prod; `QA-SMOKE-01` & `SEC-15` `>= 32B` keys. |
+| **12** | Prod Surface/Smoke | `APSC-DV-002430` | SC-11 | `docs_url`/`redoc_url`/`openapi_url=None` (or safe `if _DOCS else None` ternary, default `False` in prod) + `QA-SMOKE-01` & `SEC-15` `>= 32B` keys. |
 | **13** | Lockfile CVEs | `APSC-DV-001430` | A06:2021 | Enforce `uv.lock`/`pnpm-lock.yaml`; block `HIGH`/`CRITICAL` via `pip-audit`/`pnpm audit`/Trivy. |
 | **14** | Session & Purge | `APSC-DV-000010..2290` | SM 1-21 | Concurrency caps, `10m`/`15m` idle TTL, CSPRNG rotation, full storage purge. |
 | **15** | Lockout & Auth | `APSC-DV-000290..1850` | A 1-20 | `3-fail/15m` lock, constant-time Argon2id, `15-char/5-gen` pwd, `72h`/`35d` disable, mTLS. |

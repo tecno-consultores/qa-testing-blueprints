@@ -526,7 +526,7 @@ AWK
       found_err=1
     fi
   done < <(find "${REPO_ROOT}" -mindepth 2 -maxdepth 4 \
-    \( -name node_modules -o -name .git -o -name dist -o -name .venv -o -name vendor -o -name target -o -name graphify-out -o -name tests -o -name test -o -name __tests__ \) -prune \
+    \( -name node_modules -o -name .git -o -name dist -o -name .venv -o -name venv -o -name .tox -o -name .nox -o -name mutants -o -name vendor -o -name target -o -name graphify-out -o -name tests -o -name test -o -name __tests__ \) -prune \
     -o -type f \( -name 'Makefile' -o -name 'Makefile.example' \) -print0 2>/dev/null)
 
   return "${found_err}"

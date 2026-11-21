@@ -6,26 +6,9 @@ import * as path from 'path';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { GroupedSecurityFinding, SecurityAuditResult, SecurityFinding } from '../types.js';
 import { pickAt, reportDebugCatchError } from '../utils/diagnosticFormatter.js';
+import { CANONICAL_IGNORED_DIRS } from '../utils/ignoredDirs.js';
 
-const IGNORED_DIRS = new Set([
-  'node_modules',
-  '.git',
-  'dist',
-  'coverage',
-  '.turbo',
-  '.cache',
-  '.venv',
-  'venv',
-  'vendor',
-  '__pycache__',
-  '.pytest_cache',
-  '.mypy_cache',
-  '.ruff_cache',
-  'target',
-  'graphify-out',
-  '.stryker-tmp',
-  '.trivycache',
-]);
+const IGNORED_DIRS = CANONICAL_IGNORED_DIRS;
 
 const WEBMANIFEST_EXT = '.webmanifest';
 
@@ -656,30 +639,65 @@ function checkSec06XssPrototypePollution(relPath: string, lines: string[]): Secu
   return findings;
 }
 
+const SEC07_FASTAPI_SCAN_WINDOW = 30;
+const SEC07_DOCS_KWARG_RE = /\b(?:docs_url|openapi_url)\s*=\s*([^\n#]+)/g;
+const SEC07_LITERAL_NONE_RE = /^None\b/;
+const SEC07_FALSE_GUARDED_NONE_RE = /^None\s+if\s+(?:False|0)\b/;
+const SEC07_TAUTOLOGICAL_IF_TRUE_RE = /\bif\s+(?:True|1)\s+else\b/;
+const SEC07_TRAILING_ELSE_NONE_RE = /\belse\s+None$/;
+
+function stripSec07TrailingDelims(rawExpr: string): string {
+  let end = rawExpr.length;
+  while (end > 0 && ',) \t\r'.includes(rawExpr.charAt(end - 1))) {
+    end -= 1;
+  }
+  return rawExpr.slice(0, end).trimStart();
+}
+
+function isSafeSec07DocsExpr(rawExpr: string): boolean {
+  const expr = stripSec07TrailingDelims(rawExpr);
+  if (SEC07_LITERAL_NONE_RE.test(expr)) {
+    return !SEC07_FALSE_GUARDED_NONE_RE.test(expr);
+  }
+  return (
+    expr.includes(' if ') &&
+    SEC07_TRAILING_ELSE_NONE_RE.test(expr) &&
+    !SEC07_TAUTOLOGICAL_IF_TRUE_RE.test(expr)
+  );
+}
+
+function hasSafeFastApiDocsControl(lines: readonly string[], startIndex: number): boolean {
+  const slice = lines
+    .slice(startIndex, startIndex + SEC07_FASTAPI_SCAN_WINDOW)
+    .filter((ln) => !ln.trimStart().startsWith('#'))
+    .join('\n');
+  SEC07_DOCS_KWARG_RE.lastIndex = 0;
+  let match = SEC07_DOCS_KWARG_RE.exec(slice);
+  while (match !== null) {
+    if (isSafeSec07DocsExpr(pickAt(match, 1))) {
+      return true;
+    }
+    match = SEC07_DOCS_KWARG_RE.exec(slice);
+  }
+  return false;
+}
+
 function checkSec07SwaggerInProd(relPath: string, lines: string[]): SecurityFinding[] {
   if (!relPath.endsWith('.py') || isTestFilePath(relPath) || isAuditorSelfDefinition(relPath)) return [];
   const findings: SecurityFinding[] = [];
 
   for (const [i, line] of lines.entries()) {
-    if (line.includes('FastAPI(')) {
-      const surrounding = lines.slice(i, i + 15).join('\n');
-      const hasProdDocsCheck =
-        surrounding.includes('docs_url=None') ||
-        surrounding.includes('docs_url = None') ||
-        surrounding.includes('openapi_url=None') ||
-        surrounding.includes('openapi_url = None');
-
-      if (!hasProdDocsCheck) {
-        findings.push({
-          rule_id: 'SEC-07',
-          severity: 'MEDIUM',
-          stig_owasp_ref: 'OWASP API8:2023 / Patrón 7',
-          file: relPath,
-          line: i + 1,
-          message: 'Instanciación de FastAPI sin control de desactivación de Swagger/OpenAPI (docs_url=None) en producción.',
-          remediation: 'Desactivar docs_url=None y openapi_url=None si el entorno no es desarrollo.',
-        });
-      }
+    if (!line.trimStart().startsWith('#') && line.includes('FastAPI(') && !hasSafeFastApiDocsControl(lines, i)) {
+      findings.push({
+        rule_id: 'SEC-07',
+        severity: 'MEDIUM',
+        stig_owasp_ref: 'OWASP API8:2023 / Patrón 7',
+        file: relPath,
+        line: i + 1,
+        message: 'Instanciación de FastAPI sin control de desactivación de Swagger/OpenAPI (docs_url=None) en producción.',
+        remediation:
+          'Desactivar docs_url=None y openapi_url=None (o ternario seguro con rama por defecto else None) si el entorno no es desarrollo.',
+      });
     }
   }
 

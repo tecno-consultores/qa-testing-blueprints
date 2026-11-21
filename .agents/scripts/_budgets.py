@@ -31,6 +31,40 @@ STRUCTURAL_AST_RELATIONS: frozenset[str] = frozenset(
     {"contains", "defines", "rationale_for", "documented_in"}
 )
 
+CANONICAL_IGNORED_DIRS: frozenset[str] = frozenset(
+    {
+        ".cache",
+        ".git",
+        ".hypothesis",
+        ".mutmut-cache",
+        ".mypy_cache",
+        ".next",
+        ".nox",
+        ".nyc_output",
+        ".pnpm-store",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".schemathesis",
+        ".stryker-tmp",
+        ".tox",
+        ".trivycache",
+        ".turbo",
+        ".venv",
+        "__pycache__",
+        "build",
+        "coverage",
+        "dist",
+        "graphify-out",
+        "htmlcov",
+        "mutants",
+        "node_modules",
+        "target",
+        "test-results",
+        "vendor",
+        "venv",
+    }
+)
+
 MANIFEST_TRACKED_DOC_EXACT: frozenset[str] = frozenset(
     {
         "AGENTS.md",

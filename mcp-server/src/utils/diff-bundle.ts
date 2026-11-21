@@ -3,6 +3,7 @@
 
 import { execFile } from 'node:child_process';
 import { pickAt, reportDebugCatchError } from './diagnosticFormatter.js';
+import { CANONICAL_IGNORED_DIRS } from './ignoredDirs.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { redactPiiAndSecrets } from '../security/promptGuard.js';
@@ -40,17 +41,12 @@ const GENERATED_DIR_SEGMENTS = new Set([
   'coverage',
   '.nyc_output',
   'node_modules',
+  '.tox',
+  '.nox',
+  'mutants',
+  '.mutmut-cache',
 ]);
-const IGNORED_AST_DIRS = new Set([
-  'node_modules',
-  '.git',
-  '.venv',
-  '__pycache__',
-  'dist',
-  '.cache',
-  'vendor',
-  'target',
-]);
+const IGNORED_AST_DIRS = new Set([...CANONICAL_IGNORED_DIRS].filter((d) => d !== 'graphify-out'));
 const GENERATED_EXT_RE = /\.(?:min\.js|min\.css|map|snap)$/i;
 const TEST_DIR_SEGMENTS = new Set(['tests', 'test', '__tests__', 'e2e']);
 const TEST_FILE_RE =

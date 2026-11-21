@@ -6,6 +6,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
 import { pickAt } from '../utils/diagnosticFormatter.js';
+import { CANONICAL_IGNORED_DIRS } from '../utils/ignoredDirs.js';
 
 export const VIBE_RULE_SEC = 'VIBE-SEC-001' as const;
 export const VIBE_RULE_RLS = 'VIBE-RLS-002' as const;
@@ -27,26 +28,13 @@ export const DEFAULT_MAX_LINES = 500;
 const STAGE_SEC = 'Stage 1: Secret Quarantine';
 const STAGE_RLS = 'Stage 2: PostgreSQL RLS & RBAC';
 const STAGE_TYPE = 'Stage 3: Strict Typing & Borders';
+
 const STAGE_ARCH = 'Stage 3: Modularization (CC <= 5)';
 const STAGE_QA = 'Stage 4: Rule Zero & Test Net';
 
 const UTF8_ENCODING = 'utf8' as const;
 
-const IGNORED_DIRS = new Set([
-  'node_modules',
-  '.git',
-  'dist',
-  'build',
-  '.next',
-  '.venv',
-  'venv',
-  '__pycache__',
-  '.pytest_cache',
-  '.mypy_cache',
-  '.ruff_cache',
-  'coverage',
-  'qa11x-rescue',
-]);
+const IGNORED_DIRS = new Set([...CANONICAL_IGNORED_DIRS, 'qa11x-rescue']);
 const CODE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.vue', '.py', '.php']);
 const TEST_DIR_NAMES = new Set(['tests', 'test', '__tests__']);
 const DEFAULT_ENV_KEYS = ['DATABASE_URL', 'APP_ENCRYPTION_KEY', 'AUDIT_HMAC_KEY'] as const;

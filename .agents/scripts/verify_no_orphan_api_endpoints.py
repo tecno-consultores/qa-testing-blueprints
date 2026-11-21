@@ -333,8 +333,34 @@ def _parse_code_safe(code: str, fpath: Path) -> ast.AST | None:
         return None
 
 
+_SKIPPED_PY_DIRS: frozenset[str] = frozenset(
+    {
+        "__pycache__",
+        ".venv",
+        "venv",
+        ".tox",
+        ".nox",
+        ".hypothesis",
+        ".schemathesis",
+        "mutants",
+        ".mutmut-cache",
+        ".pytest_cache",
+        ".mypy_cache",
+        ".ruff_cache",
+        "node_modules",
+        "vendor",
+        "dist",
+        "build",
+        "graphify-out",
+        "tests",
+        "test",
+        ".git",
+    }
+)
+
+
 def _is_skipped_py_dir(dirname: str) -> bool:
-    return dirname in {"__pycache__", ".venv", "venv", "tests", "test", ".git"}
+    return dirname in _SKIPPED_PY_DIRS
 
 
 def _is_skipped_py_file(fname: str) -> bool:

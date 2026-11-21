@@ -127,8 +127,8 @@
       "name": "qa-11x-devsecops-hardener",
       "path": ".agents/skills/qa-11x-devsecops-hardener/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-devsecops-hardener/SKILL.md",
-      "size_bytes": 14296,
-      "sha256": "720138d593339f7da6c206bfcb5012828df8ef90b2dc69fbd0931b456869ab77",
+      "size_bytes": 14357,
+      "sha256": "00f5fd961232a01125546f7753a72da34fcc1a494d51338a432b7cadac246b72",
       "description": "DISA ASD STIG V6R5 and OWASP Developer Guide v4.2 hardening sub-skill for Standard 11X. Use whenever designing, auditing, or modifying multi-tenant PostgreSQL 15–17+ RLS schemas, authentication and session flows, cryptographic secret vaults, WORM audit hash-chains, mutating MCP/JSON-RPC tools, or non-root Docker containers."
     },
     {

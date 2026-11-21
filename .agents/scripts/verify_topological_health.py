@@ -24,14 +24,23 @@ _IGNORED_DIRS = frozenset(
     {
         "node_modules",
         ".venv",
+        "venv",
+        ".tox",
+        ".nox",
+        ".hypothesis",
+        ".schemathesis",
+        "mutants",
+        ".mutmut-cache",
         ".git",
         ".trivycache",
         "dist",
+        "build",
         "coverage",
         "vendor",
         "target",
         ".pytest_cache",
         ".mypy_cache",
+        ".ruff_cache",
     }
 )
 _DOMAIN_RE = re.compile(r"(?:^|/)(?:src/)?(?:models|schemas|core|domain|services)/")

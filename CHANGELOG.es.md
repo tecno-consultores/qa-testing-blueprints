@@ -8,6 +8,9 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### Corregido
+* **Exclusión Canónica de Entornos/Mutación en Escáneres, Ternarios Seguros en `SEC-07` y URLs RFC 3986 en `propose_skill_evolution_pr`:** Unificado `CANONICAL_IGNORED_DIRS` en `mcp-server` y `.agents/scripts/` (excluyendo `.tox`, `.nox`, `.hypothesis`, `.schemathesis`, `mutants` y `.mutmut-cache` de pirámide, huérfanos, AST y seguridad), ampliada `SEC-07` para aceptar ternarios protegidos `... if <cond> else None` en `FastAPI(...)` bloqueando tautologías/comentarios, y endurecido `propose_skill_evolution_pr` con escape RFC 3986 de paréntesis (tope `<= 2,000` caracteres) más `create_upstream_issue` opt-in vía `gh issue create`.
+
 ---
 
 ## [3.2.0] - 2026-11-21

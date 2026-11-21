@@ -29,6 +29,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createMcpServer } from '../src/server.js';
 import { MissingTestInventory } from '../src/types.js';
+import { CANONICAL_IGNORED_DIRS, isIgnoredScanDir } from '../src/utils/ignoredDirs.js';
 
 describe('audit_test_pyramid_gaps Tool (11X Testing Pyramid Assessment)', () => {
   let tmpDir: string;
@@ -1308,5 +1309,104 @@ def create_item(): pass
     } finally {
       fs.chmodSync(lockedFile, 0o600);
     }
+  });
+
+  it('excludes .tox, .nox, mutants, .mutmut-cache, .hypothesis, and .schemathesis from pyramid and ORM scans', async () => {
+    expect(isIgnoredScanDir('.tox')).toBe(true);
+    expect(isIgnoredScanDir('.nox')).toBe(true);
+    expect(isIgnoredScanDir('mutants')).toBe(true);
+    expect(isIgnoredScanDir('src')).toBe(false);
+    expect(CANONICAL_IGNORED_DIRS.has('.mutmut-cache')).toBe(true);
+
+    const bridgeDir = path.join(tmpDir, 'db-free-bridge');
+    fs.mkdirSync(path.join(bridgeDir, 'src'), { recursive: true });
+    fs.mkdirSync(path.join(bridgeDir, 'tests'), { recursive: true });
+    fs.mkdirSync(
+      path.join(bridgeDir, '.tox', 'py312', 'lib', 'python3.12', 'site-packages', 'fastapi', 'tests'),
+      { recursive: true }
+    );
+    fs.mkdirSync(
+      path.join(bridgeDir, '.nox', 'unit', 'lib', 'python3.12', 'site-packages', 'sqlalchemy'),
+      { recursive: true }
+    );
+    fs.mkdirSync(path.join(bridgeDir, 'mutants', 'src'), { recursive: true });
+
+    fs.writeFileSync(
+      path.join(bridgeDir, 'pyproject.toml'),
+      '[project]\nname = "bridge"\ndependencies = ["fastapi"]\n',
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(bridgeDir, 'src', 'app.py'),
+      'from fastapi import FastAPI\napp = FastAPI(docs_url=None, openapi_url=None)\n',
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(bridgeDir, 'tests', 'test_app.py'),
+      'from src.app import app\ndef test_boot(): assert app is not None\n',
+      'utf-8'
+    );
+
+    // Vendored site-packages inside .tox / .nox / mutants that previously polluted counts, L04, and endpoints
+    fs.writeFileSync(
+      path.join(
+        bridgeDir,
+        '.tox',
+        'py312',
+        'lib',
+        'python3.12',
+        'site-packages',
+        'fastapi',
+        'tests',
+        'test_tutorial.py'
+      ),
+      'def test_fake_tox(): assert True\n',
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(
+        bridgeDir,
+        '.tox',
+        'py312',
+        'lib',
+        'python3.12',
+        'site-packages',
+        'fastapi',
+        'tutorial_routes.py'
+      ),
+      'from fastapi import FastAPI\napp = FastAPI()\n@app.get("/items/{item_id}")\ndef item(): pass\n',
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(
+        bridgeDir,
+        '.nox',
+        'unit',
+        'lib',
+        'python3.12',
+        'site-packages',
+        'sqlalchemy',
+        'models.py'
+      ),
+      'from sqlalchemy.orm import DeclarativeBase\nclass Base(DeclarativeBase):\n    __tablename__ = "fake_orm"\n',
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(bridgeDir, 'mutants', 'src', 'orphan_mutant.py'),
+      'def unreferenced_mutant(): return 1\n',
+      'utf-8'
+    );
+
+    const gap = await auditTestPyramidGaps(bridgeDir);
+    const l03 = gap.layers_audit.find((l) => l.layer_id === 'L03_UNIT_ISOLATED');
+    const l04 = gap.layers_audit.find((l) => l.layer_id === 'L04_ORM_MIGRATION_PARITY');
+    expect(l03?.detected_evidence).toContain('1 archivos de pruebas unitarias');
+    expect(l04?.status).toBe('NOT_APPLICABLE');
+    expect(gap.missing_test_inventory.untested_api_endpoints.some((e) => e.path.includes('/items/'))).toBe(
+      false
+    );
+    expect(
+      gap.missing_test_inventory.orphan_source_files.some((o) => o.source_file.startsWith('mutants/'))
+    ).toBe(false);
   });
 });

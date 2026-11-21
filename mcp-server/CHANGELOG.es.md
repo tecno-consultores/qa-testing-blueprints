@@ -8,6 +8,9 @@ Todos los cambios notables en el paquete npm y servidor MCP `@sinfallas/mcp-qa-1
 
 ## [Unreleased]
 
+### Corregido
+- **Exclusión Canónica de `.tox`/`.nox`/`mutants`, Ternarios `else None` en `SEC-07` y URLs RFC 3986 en `propose_skill_evolution_pr`:** Centralizado `CANONICAL_IGNORED_DIRS` en `src/utils/ignoredDirs.ts` para los 7 escáneres de proyecto/seguridad/AST, actualizado `checkSec07SwaggerInProd` (`SEC-07`) para aceptar ternarios seguros `if <cond> else None` rechazando `if True` y líneas comentadas, y corregido `buildPrefilledIssueUrl` en `propose-evolution-pr.ts` con codificación RFC 3986 (`%28`/`%29`), tope post-codificación `<= 2,000` caracteres y `create_upstream_issue` opt-in (`gh issue create`).
+
 ## [3.2.0] - 2026-11-21
 
 ### Añadido

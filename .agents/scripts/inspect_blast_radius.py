@@ -25,6 +25,7 @@ if _SCRIPT_DIR not in sys.path:
     sys.path.insert(0, _SCRIPT_DIR)
 
 from _budgets import (  # noqa: E402
+    CANONICAL_IGNORED_DIRS,
     HIGH_BLAST_CALLERS_THRESHOLD,
     MICRO_CHANGE_MAX_FILES,
     MODERATE_BLAST_CALLERS_THRESHOLD,
@@ -33,25 +34,9 @@ from _budgets import (  # noqa: E402
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-IGNORED_DIRS: frozenset[str] = frozenset(
-    {
-        "node_modules",
-        ".git",
-        ".venv",
-        ".trivycache",
-        "__pycache__",
-        "dist",
-        ".cache",
-        ".pytest_cache",
-        ".mypy_cache",
-        "build",
-        "coverage",
-        "vendor",
-        "target",
-    }
-)
+IGNORED_DIRS: frozenset[str] = CANONICAL_IGNORED_DIRS - {"graphify-out"}
 _IGNORED_DIRS: frozenset[str] = IGNORED_DIRS
-FALLBACK_IGNORED_DIRS: frozenset[str] = IGNORED_DIRS | {"graphify-out", "venv"}
+FALLBACK_IGNORED_DIRS: frozenset[str] = CANONICAL_IGNORED_DIRS
 SOURCE_EXTENSIONS: frozenset[str] = frozenset(
     {".py", ".ts", ".js", ".vue", ".tsx", ".jsx", ".php", ".sh", ".bats", ".feature"}
 )

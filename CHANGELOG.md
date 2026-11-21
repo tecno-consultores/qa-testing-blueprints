@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Fixed
+* **Canonical Virtualenv/Mutation Scanner Exclusions, Safe `SEC-07` Ternaries & RFC 3986 Evolution URLs:** Unified `CANONICAL_IGNORED_DIRS` across `mcp-server` and `.agents/scripts/` (excluding `.tox`, `.nox`, `.hypothesis`, `.schemathesis`, `mutants`, and `.mutmut-cache` from pyramid, orphan, AST, and security scans), updated `SEC-07` to accept guarded `... if <cond> else None` FastAPI OpenAPI expressions while blocking tautologies/comments, and hardened `propose_skill_evolution_pr` with RFC 3986 parenthesis escaping (`<= 2,000`-char URL budget) plus opt-in `create_upstream_issue` via `gh issue create`.
+
 ---
 
 ## [3.2.0] - 2026-11-21

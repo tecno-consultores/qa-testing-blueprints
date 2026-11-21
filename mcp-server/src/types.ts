@@ -736,11 +736,18 @@ export const ProposeEvolutionPrInputSchema = z.object({
     .optional()
     .default(true)
     .describe('If true (default), skips gh CLI and directly generates local proposal file and pre-filled URL.'),
+  create_upstream_issue: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe(
+      'If true alongside dry_run=false and prefer_offline_fallback=false, creates an upstream GitHub Issue via gh issue create when invoked from an external consumer repository.'
+    ),
 }).strict();
 export type ProposeEvolutionPrInput = z.input<typeof ProposeEvolutionPrInputSchema>;
 
 export interface ProposeEvolutionPrResult {
-  status: 'PR_CREATED_VIA_GH' | 'PROPOSAL_FILE_AND_URL_GENERATED';
+  status: 'PR_CREATED_VIA_GH' | 'ISSUE_CREATED_VIA_GH' | 'PROPOSAL_FILE_AND_URL_GENERATED';
   target_repo: string;
   target_blueprint_file: string;
   target_human_doc_file: string;

@@ -19,16 +19,23 @@ from pathlib import Path
 IGNORED_DIRS: frozenset[str] = frozenset(
     {
         ".git",
+        ".hypothesis",
+        ".mutmut-cache",
         ".mypy_cache",
+        ".nox",
         ".pytest_cache",
         ".ruff_cache",
+        ".schemathesis",
+        ".tox",
         ".venv",
         "__pycache__",
         "build",
         "coverage",
         "dist",
         "graphify-out",
+        "mutants",
         "node_modules",
+        "vendor",
         "venv",
     }
 )

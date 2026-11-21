@@ -146,18 +146,9 @@ _AGENT_SETUP_EN_STRICT_TARGETS: tuple[str, ...] = (
     "mcp-server/README.es.md",
 )
 
-_IGNORED_SCAN_DIRS: frozenset[str] = frozenset({
-    ".git",
-    ".mypy_cache",
-    ".pytest_cache",
-    ".ruff_cache",
-    ".venv",
-    "__pycache__",
-    "dist",
-    "graphify-out",
-    "htmlcov",
-    "node_modules",
-})
+_IGNORED_SCAN_DIRS: frozenset[str] = frozenset(
+    set(_BUDGETS.CANONICAL_IGNORED_DIRS) | {"htmlcov"}
+)
 
 BILINGUAL_DOC_PAIRS: tuple[tuple[str, str], ...] = (
     ("README.md", "README.es.md"),

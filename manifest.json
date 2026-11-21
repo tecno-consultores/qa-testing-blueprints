@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "3.2.0",
-  "generated_at_utc": "2026-11-21T11:37:17Z",
+  "generated_at_utc": "2026-11-21T21:24:32Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -1203,8 +1203,8 @@
       "path": ".agents/scripts/_budgets.py",
       "target_name": ".agents/scripts/_budgets.py",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "9e2adf010e9c3abee0cdc2df4f88ec8f69784308b796dd8499ce71dce1c9ad07",
-      "size_bytes": 1919
+      "sha256": "50aea46bd05e202ed97a5b38d7bc86326dad68aae4954332673d5c08d082b428",
+      "size_bytes": 2579
     },
     {
       "path": ".agents/scripts/audit_pagespeed_insights.py",
@@ -1224,8 +1224,8 @@
       "path": ".agents/scripts/certify_task_completion.sh",
       "target_name": ".agents/scripts/certify_task_completion.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "8f1e6be7e8522551df33e51c1c1f535604867b6aa4c6df960b5fd773637e3ca8",
-      "size_bytes": 29595
+      "sha256": "d36e2f4e5a710f1a2019a5af4b994f45586c24b2ea122a29cb928a63720c27c6",
+      "size_bytes": 29654
     },
     {
       "path": ".agents/scripts/checkpoint_ctl.py",
@@ -1245,22 +1245,22 @@
       "path": ".agents/scripts/generate_pr_verdict.py",
       "target_name": ".agents/scripts/generate_pr_verdict.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "61648399bc5d82bd571a6fb099b5381324333ba2b0053a67ef0633c3e8ac7f44",
-      "size_bytes": 34323
+      "sha256": "d997a9fb3ad7d4730017216140a805492af6c6ea831711caf87d7108104b20b2",
+      "size_bytes": 34480
     },
     {
       "path": ".agents/scripts/inspect_blast_radius.py",
       "target_name": ".agents/scripts/inspect_blast_radius.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "130d2e1e3e91a75f70d1095c2ed498e6731c117e2263c19e7e52d4699ddac9d1",
-      "size_bytes": 18148
+      "sha256": "ecdf74c7d573bc92bc75f6432199415778f875172f28d47f9bba23fc67d00161",
+      "size_bytes": 17918
     },
     {
       "path": ".agents/scripts/lint_test_antipatterns.py",
       "target_name": ".agents/scripts/lint_test_antipatterns.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "7e55c78b088aa594e2e7dfc5238dd9d95477e6cfbc62eef962768b2d8757cbcd",
-      "size_bytes": 40235
+      "sha256": "ec06c3f9441dab9a77fe7bfd6de3848aceb2b32837de863b58eec407a2dad401",
+      "size_bytes": 40377
     },
     {
       "path": ".agents/scripts/release_readiness_gate.py",
@@ -1280,8 +1280,8 @@
       "path": ".agents/scripts/sync_governance.py",
       "target_name": ".agents/scripts/sync_governance.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "bd38abcf6c3da59884eade4b482a7087627dd66fab15ce3ad47f21b4a3df4ade",
-      "size_bytes": 42023
+      "sha256": "028a6ee7ec2cdbb4f7e685e3687355d588e3a9ab250281dbf1f130958395b99d",
+      "size_bytes": 42115
     },
     {
       "path": ".agents/scripts/track_findings_state.py",
@@ -1315,22 +1315,22 @@
       "path": ".agents/scripts/verify_docs_invariants.py",
       "target_name": ".agents/scripts/verify_docs_invariants.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "ea37f1c94f502cefb05c9c238dcf71af5d9d603d3f90cf243d331786702d462e",
-      "size_bytes": 74342
+      "sha256": "9d908696382344b0a4c77f090aaeb690081a1867ba353e1a93dd9bf67da3cd22",
+      "size_bytes": 74225
     },
     {
       "path": ".agents/scripts/verify_json_no_duplicate_keys.py",
       "target_name": ".agents/scripts/verify_json_no_duplicate_keys.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "1e3af3f0a1388ed68e67ac3230009e272af22bf0092c1863795c2eaf93ed5e7c",
-      "size_bytes": 4775
+      "sha256": "622f2884e414bd4b51688077643da7011c58e083acee0da656b8288e7a19ae5a",
+      "size_bytes": 4938
     },
     {
       "path": ".agents/scripts/verify_no_orphan_api_endpoints.py",
       "target_name": ".agents/scripts/verify_no_orphan_api_endpoints.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "76160b16c615f1711ef70296f2ccce228e91c4a05555bc5ef80bbdd5cbbf5294",
-      "size_bytes": 45507
+      "sha256": "de39556d9deec6aa4801c73c2124c93d6ab867f464367f0182cf323eda54882f",
+      "size_bytes": 45927
     },
     {
       "path": ".agents/scripts/verify_roadmap_consistency.py",
@@ -1343,8 +1343,8 @@
       "path": ".agents/scripts/verify_topological_health.py",
       "target_name": ".agents/scripts/verify_topological_health.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "5325373a13f9466c369984bd7a2b6a9b8306b22915a3fa7fbe591c23c6e01162",
-      "size_bytes": 10859
+      "sha256": "2806c0f7ee8266885ac52a0e5646f0500acf4b5ea75c71ce1880b1b3501c0af9",
+      "size_bytes": 11039
     },
     {
       "path": ".agents/scripts/verify_zero_orphan_vue_components.py",
@@ -1385,8 +1385,8 @@
       "path": ".agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.md",
       "target_name": ".agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "a9fbd8ea71758140db42faa6086d4592dc4f11259bc2d05e25b17e57c8d6e2da",
-      "size_bytes": 16678
+      "sha256": "07d80176a4e1a472629340e53501106cbf5aae7f08976d81707fa0e5992823c8",
+      "size_bytes": 17197
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/03-stack-python-fastapi.md",
@@ -1441,8 +1441,8 @@
       "path": ".agents/skills/qa-11x-devsecops-hardener/SKILL.md",
       "target_name": ".agents/skills/qa-11x-devsecops-hardener/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "720138d593339f7da6c206bfcb5012828df8ef90b2dc69fbd0931b456869ab77",
-      "size_bytes": 14296
+      "sha256": "00f5fd961232a01125546f7753a72da34fcc1a494d51338a432b7cadac246b72",
+      "size_bytes": 14357
     },
     {
       "path": ".agents/skills/qa-11x-devsecops-hardener/references/stig_rls_vault.md",
@@ -1616,7 +1616,7 @@
       "path": "catalogs/skillsllm-manifest.json",
       "target_name": "catalogs/skillsllm-manifest.json",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "f3c4478660c545c28ff6110858f4db440c04b035e4565e7fa169573311a8abec",
+      "sha256": "5d4715069ec3f0f065f4a02cf04d6d150de467239c19cae097ece365d52d611c",
       "size_bytes": 11951
     },
     {

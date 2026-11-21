@@ -86,6 +86,22 @@ def validate_safe_outgoing_url(url_str: str) -> str:
     return url_str
 ```
 
+### Pattern 12: Hide API Docs in Production & Controlled L05 Schemathesis Fuzzing (`SEC-07`)
+```python
+import os
+from fastapi import FastAPI
+
+# Default False in production; enabled explicitly only in dev or ephemeral L05 Schemathesis QA container
+_DOCS = os.getenv("ENABLE_OPENAPI_DOCS", "false").lower() == "true" and os.getenv("APP_ENV") != "production"
+
+app = FastAPI(
+    title="Corporate API",
+    docs_url="/docs" if _DOCS else None,
+    redoc_url=None,
+    openapi_url="/openapi.json" if _DOCS else None,
+)
+```
+
 ### Pattern 14: Role Timeouts & Secure Logout Purge
 ```typescript
 // Client-side secure logout (Vue 3 / React)

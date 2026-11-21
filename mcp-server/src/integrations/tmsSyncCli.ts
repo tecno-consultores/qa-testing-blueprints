@@ -24,6 +24,7 @@ import {
   sanitizeCommandSecrets,
   throwIfSignalAborted,
 } from '../utils/diagnosticFormatter.js';
+import { CANONICAL_IGNORED_DIRS } from '../utils/ignoredDirs.js';
 
 export const TMS_PROVIDERS = ['jira', 'zephyr', 'xray', 'github-issues'] as const;
 export const TMS_SYNC_MODES = ['inventory', 'push-results', 'pull-stories'] as const;
@@ -64,16 +65,7 @@ const DEFAULT_TIMEOUT_MS = 15_000;
 const MAX_TIMEOUT_MS = 180_000;
 const MAX_DETAIL_LEN = 220;
 
-const IGNORED_SCAN_DIRS = new Set<string>([
-  'node_modules',
-  '.git',
-  'dist',
-  'build',
-  'coverage',
-  '.venv',
-  '__pycache__',
-  '.next',
-]);
+const IGNORED_SCAN_DIRS = CANONICAL_IGNORED_DIRS;
 
 const ENV_KEY_MAP: Readonly<Record<TmsProvider, readonly string[]>> = {
   jira: ['JIRA_API_TOKEN', 'TMS_API_TOKEN'],

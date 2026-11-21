@@ -9,6 +9,8 @@ import {
   proposeSkillEvolutionPr,
   buildEvolutionSlug,
   buildPrefilledIssueUrl,
+  encodeRfc3986URIComponent,
+  MAX_PREFILLED_GITHUB_URL_LENGTH,
   defaultExecRunner,
   validateRelativeRepoPath,
   ExecRunnerFunction,
@@ -16,6 +18,7 @@ import {
 } from '../src/tools/propose-evolution-pr.js';
 
 const STATUS_PR_CREATED = 'PR_CREATED_VIA_GH';
+const STATUS_ISSUE_CREATED = 'ISSUE_CREATED_VIA_GH';
 const STATUS_PROPOSAL_GENERATED = 'PROPOSAL_FILE_AND_URL_GENERATED';
 const TARGET_FILE = '.agents/skills/qa-11x-architect/SKILL.md';
 const IMPROVEMENT_TITLE = 'Soporte Mejorado para Safe Mode en RouterOS v7';
@@ -68,6 +71,37 @@ describe('propose_skill_evolution_pr Tool Suite (Zero-Trust Skill Evolution)', (
       expect(issueBody).toContain(RATIONALE);
       expect(prefilledUrl).toContain(`https://github.com/${UPSTREAM_REPO}/issues/new?title=`);
       expect(prefilledUrl).toContain(encodeURIComponent(`[Evolution] ${IMPROVEMENT_TITLE}`));
+      expect(prefilledUrl).toContain('&body=');
+      expect(prefilledUrl.length).toBeLessThanOrEqual(MAX_PREFILLED_GITHUB_URL_LENGTH);
+    });
+
+    it('escapes RFC 3986 parentheses/sub-delims so Markdown links never break and caps post-encoded URL <= 2000 chars', () => {
+      expect(encodeRfc3986URIComponent("fix(mcp-auditors): !'*()")).toBe(
+        'fix%28mcp-auditors%29%3A%20%21%27%2A%28%29'
+      );
+
+      const heavyUnicodeSnippet = 'FastAPI(\n  docs_url="/docs" if _DOCS else None,\n) 🚀🔥áéíóú\n'.repeat(
+        120
+      );
+      const { issueBody, prefilledUrl } = buildPrefilledIssueUrl({
+        project_path: tmpDir,
+        target_blueprint_file: TARGET_FILE,
+        improvement_title:
+          'fix(mcp-auditors): exclude .tox/.nox virtualenvs in pyramid scanner and support ternary None in SEC-07',
+        empirical_rationale:
+          '1) .tox contaminaba el conteo de pirámide; 2) SEC-07 fallaba con else None.',
+        proposed_content_or_snippet: heavyUnicodeSnippet,
+      });
+
+      expect(issueBody).toContain(heavyUnicodeSnippet);
+      expect(prefilledUrl.length).toBeLessThanOrEqual(MAX_PREFILLED_GITHUB_URL_LENGTH);
+      expect(prefilledUrl).not.toContain('(');
+      expect(prefilledUrl).not.toContain(')');
+      const parsed = new URL(prefilledUrl);
+      expect(parsed.searchParams.get('title')).toContain('fix(mcp-auditors):');
+      const decodedBody = parsed.searchParams.get('body') ?? '';
+      expect(decodedBody).toContain('Matriz Dual-Consumer');
+      expect(decodedBody).toContain('.agents/proposals/');
     });
   });
 
@@ -240,6 +274,68 @@ describe('propose_skill_evolution_pr Tool Suite (Zero-Trust Skill Evolution)', (
 
       expect(result.status).toBe(STATUS_PR_CREATED);
       expect(result.pull_request_url).toBe('custom-output-identifier');
+    });
+
+    it('creates upstream GitHub Issue from external consumer repo when create_upstream_issue is true and falls back cleanly on error or empty stdout', async () => {
+      const issueUrl = `https://github.com/${UPSTREAM_REPO}/issues/512`;
+      const successExec: ExecRunnerFunction = (file, args) => {
+        if (file === 'gh' && args[0] === 'auth') {
+          return Promise.resolve({ stdout: 'Logged in', stderr: '' });
+        }
+        if (file === 'git' && args[0] === 'remote') {
+          return Promise.resolve({
+            stdout: 'origin\thttps://github.com/acme/hermes-opencode-bridge.git (fetch)\n',
+            stderr: '',
+          });
+        }
+        if (file === 'gh' && args[0] === 'issue' && args[1] === 'create') {
+          return Promise.resolve({ stdout: `${issueUrl}\n`, stderr: '' });
+        }
+        return Promise.reject(new Error(`Unexpected command: ${file} ${args.join(' ')}`));
+      };
+
+      const created = await proposeSkillEvolutionPr(
+        {
+          project_path: tmpDir,
+          target_blueprint_file: TARGET_FILE,
+          improvement_title: 'fix(mcp-auditors): consumer repo issue creation',
+          empirical_rationale: RATIONALE,
+          proposed_content_or_snippet: SNIPPET,
+          dry_run: false,
+          prefer_offline_fallback: false,
+          create_upstream_issue: true,
+        },
+        successExec
+      );
+      expect(created.status).toBe(STATUS_ISSUE_CREATED);
+      expect(created.pull_request_url).toBe(issueUrl);
+      expect(created.message).toContain(issueUrl);
+
+      const emptyIssueExec: ExecRunnerFunction = (file, args) => {
+        if (file === 'gh' && args[0] === 'auth') return Promise.resolve({ stdout: 'ok', stderr: '' });
+        if (file === 'git' && args[0] === 'remote') {
+          return Promise.resolve({ stdout: 'origin\thttps://github.com/acme/app.git\n', stderr: '' });
+        }
+        if (file === 'gh' && args[0] === 'issue') {
+          return Promise.resolve({ stdout: '   \n', stderr: '' });
+        }
+        return Promise.resolve({ stdout: '', stderr: '' });
+      };
+      const emptyFallback = await proposeSkillEvolutionPr(
+        {
+          project_path: tmpDir,
+          target_blueprint_file: TARGET_FILE,
+          improvement_title: 'fix(mcp-auditors): empty issue stdout fallback',
+          empirical_rationale: RATIONALE,
+          proposed_content_or_snippet: SNIPPET,
+          dry_run: false,
+          prefer_offline_fallback: false,
+          create_upstream_issue: true,
+        },
+        emptyIssueExec
+      );
+      expect(emptyFallback.status).toBe(STATUS_PROPOSAL_GENERATED);
+      expect(emptyFallback.pull_request_url).toBeNull();
     });
 
     it('blocks remote gh CLI calls when dry_run is omitted or true even if prefer_offline_fallback is false', async () => {

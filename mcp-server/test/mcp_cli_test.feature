@@ -241,13 +241,17 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def typesSrc8 = karate.readAsString(mcpRoot + '/src/types.ts')
     * assert proposeSrc8.contains("UPSTREAM_REPO = 'tecno-consultores/qa-testing-blueprints'")
     * assert proposeSrc8.contains("STATUS_PR_CREATED = 'PR_CREATED_VIA_GH'")
+    * assert proposeSrc8.contains("STATUS_ISSUE_CREATED = 'ISSUE_CREATED_VIA_GH'")
     * assert proposeSrc8.contains("STATUS_PROPOSAL_GENERATED = 'PROPOSAL_FILE_AND_URL_GENERATED'")
+    * assert proposeSrc8.contains('MAX_PREFILLED_GITHUB_URL_LENGTH = 2000')
+    * assert proposeSrc8.contains('encodeRfc3986URIComponent')
     * assert proposeSrc8.contains('shell: false')
     * assert proposeSrc8.contains('validateRelativeRepoPath')
     * assert proposeSrc8.contains('[SEC-PATH-01]')
     * assert proposeSrc8.contains('prefilled_github_url:')
     * assert proposeSrc8.contains('local_proposal_file:')
     * assert typesSrc8.contains('ProposeEvolutionPrInputSchema')
+    * assert typesSrc8.contains('create_upstream_issue')
     * assert typesSrc8.contains('.default(true)')
 
   # ==============================================================================
