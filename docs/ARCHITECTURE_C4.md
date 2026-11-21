@@ -13,7 +13,7 @@ Shows the high-level picture: how human developers and AI agents interact with t
 flowchart TD
     Human["Developer / QA Staff"]
     Agent["AI Agent (Antigravity, Claude, Cursor, Hermes)"]
-    MCP["Node.js/TS MCP Server (@sinfallas/mcp-qa-11x v3.2.0)"]
+    MCP["Node.js/TS MCP Server (@sinfallas/mcp-qa-11x v3.2.1)"]
     Skill["Zero-Clone Skills (11 Modular Skills < 20 KB)"]
     Gate["11X Certification Gate (certify_task_completion.sh - 10 Stages)"]
     QA["QA Testing Blueprints (10 Hydratable Stacks + architecture/ + mcp-server/ = 12 Matrix Environments / Ephemeral Docker)"]

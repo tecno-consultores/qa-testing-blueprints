@@ -236,17 +236,17 @@ echo "🔍 [1/6] Verificando dependencias, Lint & Typecheck en Docker efímero..
 docker run --rm --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "${MCP_DIR}:/app" ${MCP_EXTRA_VOLS[@]+"${MCP_EXTRA_VOLS[@]}"} -w /app "${IMAGE_NAME}" sh -c \
   "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run lint && pnpm --silent run typecheck"
 
-# 5. Paso 2: Pruebas Unitarias con Cobertura >= 95%
+# 5. Paso 2: Compilación TypeScript a dist/ (requerido antes de suites live-mcp-protocol stdio)
+echo "⚙️ [2/6] Compilando TypeScript a dist/..."
+docker run --rm --network none --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run build
+
+# 6. Paso 3: Pruebas Unitarias con Cobertura >= 95%
 if [ "$SKIP_TESTS" = false ]; then
-  echo "🧪 [2/6] Ejecutando pruebas unitarias con cobertura en Docker efímero..."
+  echo "🧪 [3/6] Ejecutando pruebas unitarias con cobertura en Docker efímero..."
   docker run --rm --network none --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "${MCP_DIR}:/app" ${MCP_EXTRA_VOLS[@]+"${MCP_EXTRA_VOLS[@]}"} -w /app "${IMAGE_NAME}" pnpm --silent run test:unit
 else
-  echo "🧪 [2/6] Omitiendo pruebas unitarias (--skip-tests activado)."
+  echo "🧪 [3/6] Omitiendo pruebas unitarias (--skip-tests activado)."
 fi
-
-# 6. Paso 3: Compilación TypeScript a dist/
-echo "⚙️ [3/6] Compilando TypeScript a dist/..."
-docker run --rm --network none --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run build
 
 # 7. Paso 4: Certificación E2E Real sobre stdio con mcp-server/example/ + verify-v2.sh
 echo "🎯 [4/6] Certificando 19 tools + 13 resources + quickstart + Clean-Room tarball..."

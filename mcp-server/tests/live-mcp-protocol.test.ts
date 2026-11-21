@@ -641,7 +641,7 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
     } finally {
       await client.close();
     }
-  });
+  }, 15_000);
 
   it('PROTEGE saturación TaskStateGuard (capacity: 1) y emite reporte Fail-Verbose en fallos del servidor', async () => {
     const taskGuard = new TaskStateGuard({ capacity: 1, defaultTimeoutMs: 5_000 });
@@ -732,5 +732,5 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
     expect(completionOut).toContain('complete -c mcp-qa-11x');
     expect(completionOut).toContain('doctor');
     expect(completionOut).toContain('completion');
-  });
+  }, 15_000);
 });

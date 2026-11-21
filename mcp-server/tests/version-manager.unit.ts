@@ -543,7 +543,9 @@ describe('Version Manager, .qa-11x-version Stamp, 24h TTL Fail-Open & Global Aut
       const isolatedVerCache = path.join(tmpRoot, 'isolated-latest-cache');
       fs.mkdirSync(isolatedVerCache, { recursive: true });
       const isolatedVerFetcher = new GitHubFetcher({ cacheDir: isolatedVerCache });
-      expect(await resolveLatestPublishedVersion({ fetcher: isolatedVerFetcher })).toBe('3.2.0');
+      expect(await resolveLatestPublishedVersion({ fetcher: isolatedVerFetcher })).toBe(
+        MCP_SERVER_VERSION
+      );
       const netVer = await resolveLatestPublishedVersion({
         fetcher: isolatedVerFetcher,
         allowNetworkCheck: true,

@@ -468,7 +468,10 @@ EOF
   assert_success
   run grep -F '^qa-lint:' "${REPO_ROOT}/.github/actions/qa-11x-pr-check/action.yml"
   assert_success
-  run grep -F '@sinfallas/mcp-qa-11x@3.2.0' "${REPO_ROOT}/.github/actions/qa-11x-pr-check/action.yml"
+  local expected_mcp_ver
+  expected_mcp_ver="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "${REPO_ROOT}/mcp-server/package.json" | head -n 1)"
+  [ -n "${expected_mcp_ver}" ]
+  run grep -F "@sinfallas/mcp-qa-11x@${expected_mcp_ver}" "${REPO_ROOT}/.github/actions/qa-11x-pr-check/action.yml"
   assert_success
   run grep -F 'mktemp -d' "${REPO_ROOT}/.github/actions/qa-11x-pr-check/action.yml"
   assert_success
