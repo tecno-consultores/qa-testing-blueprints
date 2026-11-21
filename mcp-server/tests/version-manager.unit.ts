@@ -543,6 +543,9 @@ describe('Version Manager, .qa-11x-version Stamp, 24h TTL Fail-Open & Global Aut
       const isolatedVerCache = path.join(tmpRoot, 'isolated-latest-cache');
       fs.mkdirSync(isolatedVerCache, { recursive: true });
       const isolatedVerFetcher = new GitHubFetcher({ cacheDir: isolatedVerCache });
+      vi.spyOn(isolatedVerFetcher, 'fetchManifest').mockRejectedValue(
+        new Error('offline-hermetic-unit')
+      );
       expect(await resolveLatestPublishedVersion({ fetcher: isolatedVerFetcher })).toBe(
         MCP_SERVER_VERSION
       );
@@ -870,9 +873,13 @@ describe('Version Manager, .qa-11x-version Stamp, 24h TTL Fail-Open & Global Aut
         const symlinkedVerCache = path.join(tmpRoot, 'sym-ver-cache');
         fs.symlinkSync(outsideCacheTarget, symlinkedVerCache);
 
+        const symVerFetcher = new GitHubFetcher({ cacheDir: symlinkedVerCache });
+        vi.spyOn(symVerFetcher, 'fetchManifest').mockRejectedValue(
+          new Error('offline-hermetic-unit')
+        );
         await expect(
           resolveLatestPublishedVersion({
-            fetcher: new GitHubFetcher({ cacheDir: symlinkedVerCache }),
+            fetcher: symVerFetcher,
             runningMcpVersion: '2.20.0',
             allowNetworkCheck: true,
             fetchFn: vi.fn().mockResolvedValue({
@@ -888,9 +895,13 @@ describe('Version Manager, .qa-11x-version Stamp, 24h TTL Fail-Open & Global Aut
         const danglingCheckTarget = path.join(outsideCacheTarget, 'pwned-latest.json');
         fs.symlinkSync(danglingCheckTarget, path.join(realVerCache, LATEST_CHECK_CACHE_FILENAME));
 
+        const realVerFetcher = new GitHubFetcher({ cacheDir: realVerCache });
+        vi.spyOn(realVerFetcher, 'fetchManifest').mockRejectedValue(
+          new Error('offline-hermetic-unit')
+        );
         await expect(
           resolveLatestPublishedVersion({
-            fetcher: new GitHubFetcher({ cacheDir: realVerCache }),
+            fetcher: realVerFetcher,
             runningMcpVersion: '2.20.0',
             allowNetworkCheck: true,
             fetchFn: vi.fn().mockResolvedValue({
